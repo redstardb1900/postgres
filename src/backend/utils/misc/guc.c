@@ -1,17 +1,17 @@
 /*--------------------------------------------------------------------
  * guc.c
  *
- * Support for grand unified configuration scheme, including SET
- * command, configuration file, and command line options.
+ * 支持大统一配置(GUC)方案,包括 SET
+ * 命令、配置文件以及命令行选项。
  *
- * This file contains the generic option processing infrastructure.
- * guc_funcs.c contains SQL-level functionality, including SET/SHOW
- * commands and various system-administration SQL functions.
- * guc_tables.c contains the arrays that define all the built-in
- * GUC variables.  Code that implements variable-specific behavior
- * is scattered around the system in check, assign, and show hooks.
+ * 本文件包含通用的选项处理基础设施。
+ * guc_funcs.c 包含 SQL 层面的功能,包括 SET/SHOW
+ * 命令以及各种系统管理类的 SQL 函数。
+ * guc_tables.c 包含定义全部内建 GUC 变量的数组。
+ * 实现变量特有行为的代码,
+ * 散布在系统各处的检查、赋值和显示钩子中。
  *
- * See src/backend/utils/misc/README for more information.
+ * 更多信息参见 src/backend/utils/misc/README。
  *
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
@@ -61,8 +61,8 @@
 #endif
 
 /*
- * Precision with which REAL type guc values are to be printed for GUC
- * serialization.
+ * REAL 类型的 GUC 值在 GUC 序列化时打印所用的精度。
+ *
  */
 #define REALTYPE_PRECISION 17
 
@@ -70,41 +70,41 @@ static int	GUC_check_errcode_value;
 
 static List *reserved_class_prefix = NIL;
 
-/* global variables for check hook support */
+/* 用于检查钩子支持的全局变量 */
 char	   *GUC_check_errmsg_string;
 char	   *GUC_check_errdetail_string;
 char	   *GUC_check_errhint_string;
 
-/* Kluge: for speed, we examine this GUC variable's value directly */
+/* 权宜:为提速,我们直接读该 GUC 变量的值 */
 extern bool in_hot_standby_guc;
 
 
 /*
- * Unit conversion tables.
+ * 单位换算表。
  *
- * There are two tables, one for memory units, and another for time units.
- * For each supported conversion from one unit to another, we have an entry
- * in the table.
+ * 有两张表,一张用于内存单位,另一张用于时间单位。
+ * 对每种受支持的单位间换算,表中都有一个对应表项。
  *
- * To keep things simple, and to avoid possible roundoff error,
- * conversions are never chained.  There needs to be a direct conversion
- * between all units (of the same type).
  *
- * The conversions for each base unit must be kept in order from greatest to
- * smallest human-friendly unit; convert_xxx_from_base_unit() rely on that.
- * (The order of the base-unit groups does not matter.)
+ * 为了保持简单并避免可能的舍入误差,
+ * 换算从不级联。同类型的所有单位之间都必须有
+ * 直接换算。
+ *
+ * 每个基础单位的换算必须按人类友好单位从大到小
+ * 的顺序排列;convert_xxx_from_base_unit() 依赖这一点。
+ * (基础单位组的顺序则无关紧要。)
  */
-#define MAX_UNIT_LEN		3	/* length of longest recognized unit string */
+#define MAX_UNIT_LEN		3	/* 最长可识别单位串的长度 */
 
 typedef struct
 {
-	char		unit[MAX_UNIT_LEN + 1]; /* unit, as a string, like "kB" or
+	char		unit[MAX_UNIT_LEN + 1]; /* 单位,字符串,如 "kB"
 										 * "min" */
 	int			base_unit;		/* GUC_UNIT_XXX */
-	double		multiplier;		/* Factor for converting unit -> base_unit */
+	double		multiplier;		/* unit 换算到 base_unit 的系数 */
 } unit_conversion;
 
-/* Ensure that the constants in the tables don't overflow or underflow */
+/* 确保表中常量不会溢出或下溢 */
 #if BLCKSZ < 1024 || BLCKSZ > (1024*1024)
 #error BLCKSZ must be between 1KB and 1MB
 #endif
@@ -146,7 +146,7 @@ static const unit_conversion memory_unit_conversion_table[] =
 	{"kB", GUC_UNIT_XBLOCKS, 1.0 / (XLOG_BLCKSZ / 1024)},
 	{"B", GUC_UNIT_XBLOCKS, 1.0 / XLOG_BLCKSZ},
 
-	{""}						/* end of table marker */
+	{""}						/* 表尾标记 */
 };
 
 static const char *time_units_hint = gettext_noop("Valid units for this parameter are \"us\", \"ms\", \"s\", \"min\", \"h\", and \"d\".");
@@ -174,14 +174,14 @@ static const unit_conversion time_unit_conversion_table[] =
 	{"ms", GUC_UNIT_MIN, 1.0 / (1000 * 60)},
 	{"us", GUC_UNIT_MIN, 1.0 / (1000 * 1000 * 60)},
 
-	{""}						/* end of table marker */
+	{""}						/* 表尾标记 */
 };
 
 /*
- * To allow continued support of obsolete names for GUC variables, we apply
- * the following mappings to any unrecognized name.  Note that an old name
- * should be mapped to a new one only if the new variable has very similar
- * semantics to the old.
+ * 为继续支持过时的 GUC 变量名,对任何无法识别的名字
+ * 都应用以下映射。注意:仅当新旧变量语义非常接近
+ * 时才应把旧名字映射到新名字。
+ *
  */
 static const char *const map_old_guc_names[] = {
 	"sort_mem", "work_mem",
@@ -190,40 +190,40 @@ static const char *const map_old_guc_names[] = {
 };
 
 
-/* Memory context holding all GUC-related data */
+/* 保存 GUC 相关数据的内存上下文 */
 static MemoryContext GUCMemoryContext;
 
 /*
- * We use a dynahash table to look up GUCs by name, or to iterate through
- * all the GUCs.  The gucname field is redundant with gucvar->name, but
- * dynahash makes it too painful to not store the hash key separately.
+ * 我们用一个 dynahash 表按名称查找 GUC,或遍历全部
+ * GUCs。gucname 字段与 gucvar->name 冗余,
+ * 但 dynahash 若不单独存放哈希键会很痛苦。
  */
 typedef struct
 {
-	const char *gucname;		/* hash key */
-	struct config_generic *gucvar;	/* -> GUC's defining structure */
+	const char *gucname;		/* 哈希键*/
+	struct config_generic *gucvar;	/* -> GUC 的定义结构 */
 } GUCHashEntry;
 
-static HTAB *guc_hashtab;		/* entries are GUCHashEntrys */
+static HTAB *guc_hashtab;		/* 表项为 GUCHashEntrys */
 
 /*
- * In addition to the hash table, variables having certain properties are
- * linked into these lists, so that we can find them without scanning the
- * whole hash table.  In most applications, only a small fraction of the
- * GUCs appear in these lists at any given time.  The usage of the stack
- * and report lists is stylized enough that they can be slists, but the
- * nondef list has to be a dlist to avoid O(N) deletes in common cases.
+ * 除哈希表之外,具有某些特性的变量会被链接到
+ * 这些链表,从而无需扫描整个哈希表即可找到它们。
+ * 在多数应用中,任意时刻只有一小部分 GUCs 出现在
+ * 这些链表中。栈链表和报告链表的用法相当固定,
+ * 完全可以用 slist 实现;但 nondef 链表必须是 dlist,
+ * 以避免常见情形下 O(N) 的删除开销。
  */
-static dlist_head guc_nondef_list;	/* list of variables that have source
-									 * different from PGC_S_DEFAULT */
-static slist_head guc_stack_list;	/* list of variables that have non-NULL
-									 * stack */
-static slist_head guc_report_list;	/* list of variables that have the
-									 * GUC_NEEDS_REPORT bit set in status */
+static dlist_head guc_nondef_list;	/* source 不同于 PGC_S_DEFAULT
+									  * 的变量列表 */
+static slist_head guc_stack_list;	/* stack 非 NULL 的变量列表
+									  */
+static slist_head guc_report_list;	/* status 置有 GUC_NEEDS_REPORT
+									  * 位的变量列表 */
 
-static bool reporting_enabled;	/* true to enable GUC_REPORT */
+static bool reporting_enabled;	/* true 时启用 GUC_REPORT */
 
-static int	GUCNestLevel = 0;	/* 1 when in main transaction */
+static int	GUCNestLevel = 0;	/* 主事务中为 1 */
 
 
 static int	guc_var_compare(const void *a, const void *b);
@@ -265,11 +265,11 @@ static bool call_enum_check_hook(struct config_enum *conf, int *newval,
 
 
 /*
- * This function handles both actual config file (re)loads and execution of
- * show_all_file_settings() (i.e., the pg_file_settings view).  In the latter
- * case we don't apply any of the settings, but we make all the usual validity
- * checks, and we return the ConfigVariable list so that it can be printed out
- * by show_all_file_settings().
+ * 本函数既处理实际的配置文件(重)加载,也处理
+ * show_all_file_settings()(即 pg_file_settings 视图)。
+ * 对于后者,我们不应用任何设置,但会执行所有常规的
+ * 有效性检查,并返回 ConfigVariable 列表,以便
+ * 打印输出。
  */
 ConfigVariable *
 ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
@@ -283,7 +283,7 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	HASH_SEQ_STATUS status;
 	GUCHashEntry *hentry;
 
-	/* Parse the main config file into a list of option names and values */
+	/* 把主配置文件解析为选项名和值的列表 */
 	ConfFileWithError = ConfigFileName;
 	head = tail = NULL;
 
@@ -291,16 +291,16 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 						 NULL, 0, CONF_FILE_START_DEPTH, elevel,
 						 &head, &tail))
 	{
-		/* Syntax error(s) detected in the file, so bail out */
+		/* 文件中检测到语法错误,故中止 */
 		error = true;
 		goto bail_out;
 	}
 
 	/*
-	 * Parse the PG_AUTOCONF_FILENAME file, if present, after the main file to
-	 * replace any parameters set by ALTER SYSTEM command.  Because this file
-	 * is in the data directory, we can't read it until the DataDir has been
-	 * set.
+	 * 若存在,则在主文件之后解析 PG_AUTOCONF_FILENAME 文件,
+	 * 以替换 ALTER SYSTEM 命令设置的参数。由于该文件
+	 * 位于数据目录中,DataDir 设置之前无法读取它。
+	 *
 	 */
 	if (DataDir)
 	{
@@ -308,7 +308,7 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 							 NULL, 0, CONF_FILE_START_DEPTH, elevel,
 							 &head, &tail))
 		{
-			/* Syntax error(s) detected in the file, so bail out */
+			/* 文件中检测到语法错误,故中止 */
 			error = true;
 			ConfFileWithError = PG_AUTOCONF_FILENAME;
 			goto bail_out;
@@ -317,17 +317,17 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	else
 	{
 		/*
-		 * If DataDir is not set, the PG_AUTOCONF_FILENAME file cannot be
-		 * read.  In this case, we don't want to accept any settings but
-		 * data_directory from postgresql.conf, because they might be
-		 * overwritten with settings in the PG_AUTOCONF_FILENAME file which
-		 * will be read later. OTOH, since data_directory isn't allowed in the
-		 * PG_AUTOCONF_FILENAME file, it will never be overwritten later.
+		 * 若 DataDir 未设置,则无法读取 PG_AUTOCONF_FILENAME
+		 * 文件。此时我们不愿接受除 postgresql.conf 中
+		 * data_directory 之外的任何设置,因为它们可能会
+		 * 被 PG_AUTOCONF_FILENAME 文件中的设置所覆盖,而该
+		 * 文件稍后会被读取。另一方面,data_directory 本身
+		 * 不允许出现在其中,因此永远不会被覆盖。
 		 */
 		ConfigVariable *newlist = NULL;
 
 		/*
-		 * Prune all items except the last "data_directory" from the list.
+		 * 剔除除最后一个 "data_directory" 外的所有条目。
 		 */
 		for (item = head; item; item = item->next)
 		{
@@ -341,20 +341,20 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		head = tail = newlist;
 
 		/*
-		 * Quick exit if data_directory is not present in file.
+		 * 文件中无 data_directory 时快速退出。
 		 *
-		 * We need not do any further processing, in particular we don't set
-		 * PgReloadTime; that will be set soon by subsequent full loading of
-		 * the config file.
+		 * 无需再做任何进一步处理,特别是我们不设置
+		 * PgReloadTime;随后的完整加载很快就会设置它。
+		 *
 		 */
 		if (head == NULL)
 			goto bail_out;
 	}
 
 	/*
-	 * Mark all extant GUC variables as not present in the config file. We
-	 * need this so that we can tell below which ones have been removed from
-	 * the file since we last processed it.
+	 * 把所有现存 GUC 变量标记为不在配置文件中。我们
+	 * 需要它来判断哪些变量自上次处理之后已从文件中
+	 * 被移除。
 	 */
 	hash_seq_init(&status, guc_hashtab);
 	while ((hentry = (GUCHashEntry *) hash_seq_search(&status)) != NULL)
@@ -365,41 +365,41 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	}
 
 	/*
-	 * Check if all the supplied option names are valid, as an additional
-	 * quasi-syntactic check on the validity of the config file.  It is
-	 * important that the postmaster and all backends agree on the results of
-	 * this phase, else we will have strange inconsistencies about which
-	 * processes accept a config file update and which don't.  Hence, unknown
-	 * custom variable names have to be accepted without complaint.  For the
-	 * same reason, we don't attempt to validate the options' values here.
+	 * 检查所有给出的选项名是否有效,作为对配置文件
+	 * 有效性的准语法检查。postmaster 与所有后端须就
+	 * 本阶段结果达成一致,否则对于哪些进程接受配置
+	 * 文件更新哪些不接受,就会出现奇怪的不一致。
+	 * 因此,未知的自定义变量名必须毫无异议地接受。
+	 * 出于同一原因,我们在此不尝试验证选项的值。
 	 *
-	 * In addition, the GUC_IS_IN_FILE flag is set on each existing GUC
-	 * variable mentioned in the file; and we detect duplicate entries in the
-	 * file and mark the earlier occurrences as ignorable.
+	 *
+	 * 此外,文件中提到的每个现存 GUC 变量都会设置
+	 * GUC_IS_IN_FILE 标志;并且我们检测文件中的重复
+	 * 表项,并把较早的出现标记为可忽略。
 	 */
 	for (item = head; item; item = item->next)
 	{
 		struct config_generic *record;
 
-		/* Ignore anything already marked as ignorable */
+		/* 忽略任何已标记为可忽略的东西 */
 		if (item->ignore)
 			continue;
 
 		/*
-		 * Try to find the variable; but do not create a custom placeholder if
-		 * it's not there already.
+		 * 尝试查找该变量;但如果它尚不存在,则不要创建
+		 * 自定义占位符。
 		 */
 		record = find_option(item->name, false, true, elevel);
 
 		if (record)
 		{
-			/* If it's already marked, then this is a duplicate entry */
+			/* 若已标记,则这是重复的表项 */
 			if (record->status & GUC_IS_IN_FILE)
 			{
 				/*
-				 * Mark the earlier occurrence(s) as dead/ignorable.  We could
-				 * avoid the O(N^2) behavior here with some additional state,
-				 * but it seems unlikely to be worth the trouble.
+				 * 把较早的出现标记为失效/可忽略。本可以用
+				 * 一些额外状态来避免这里的 O(N^2) 行为,但看
+				 * 来不值得为此费这个麻烦。
 				 */
 				ConfigVariable *pitem;
 
@@ -410,12 +410,12 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 						pitem->ignore = true;
 				}
 			}
-			/* Now mark it as present in file */
+			/* 现标记为已在文件中 */
 			record->status |= GUC_IS_IN_FILE;
 		}
 		else if (!valid_custom_variable_name(item->name))
 		{
-			/* Invalid non-custom variable, so complain */
+			/* 非自定义的无效变量,故报错 */
 			ereport(elevel,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("unrecognized configuration parameter \"%s\" in file \"%s\" line %d",
@@ -428,20 +428,20 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	}
 
 	/*
-	 * If we've detected any errors so far, we don't want to risk applying any
-	 * changes.
+	 * 如果迄今已检测到错误,我们不想冒险应用任何更
+	 * 改。
 	 */
 	if (error)
 		goto bail_out;
 
-	/* Otherwise, set flag that we're beginning to apply changes */
+	/* 否则,设置我们即将开始应用更改的标志 */
 	applying = true;
 
 	/*
-	 * Check for variables having been removed from the config file, and
-	 * revert their reset values (and perhaps also effective values) to the
-	 * boot-time defaults.  If such a variable can't be changed after startup,
-	 * report that and continue.
+	 * 检查从配置文件中移除的变量,并把它们的重置值
+	 * (可能还有生效值)回退到启动时的默认值。如果
+	 * 这样的变量在启动后不能更改,则报告并继续。
+	 *
 	 */
 	hash_seq_init(&status, guc_hashtab);
 	while ((hentry = (GUCHashEntry *) hash_seq_search(&status)) != NULL)
@@ -454,7 +454,7 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 			continue;
 		if (gconf->context < PGC_SIGHUP)
 		{
-			/* The removal can't be effective without a restart */
+			/* 移除不重启就无法生效 */
 			gconf->status |= GUC_PENDING_RESTART;
 			ereport(elevel,
 					(errcode(ERRCODE_CANT_CHANGE_RUNTIME_PARAM),
@@ -468,13 +468,13 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 			continue;
 		}
 
-		/* No more to do if we're just doing show_all_file_settings() */
+		/* 若只是执行 show_all_file_settings() 则无事可做 */
 		if (!applySettings)
 			continue;
 
 		/*
-		 * Reset any "file" sources to "default", else set_config_option will
-		 * not override those settings.
+		 * 把 "file" 来源重置为 "default",否则 set_config_option
+		 * 无法覆盖相应设置。
 		 */
 		if (gconf->reset_source == PGC_S_FILE)
 			gconf->reset_source = PGC_S_DEFAULT;
@@ -486,12 +486,12 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 				stack->source = PGC_S_DEFAULT;
 		}
 
-		/* Now we can re-apply the wired-in default (i.e., the boot_val) */
+		/* 现在可以重新应用内建默认值(即 boot_val) */
 		if (set_config_option(gconf->name, NULL,
 							  context, PGC_S_DEFAULT,
 							  GUC_ACTION_SET, true, 0, false) > 0)
 		{
-			/* Log the change if appropriate */
+			/* 适当时记录该更改 */
 			if (context == PGC_SIGHUP)
 				ereport(elevel,
 						(errmsg("parameter \"%s\" removed from configuration file, reset to default",
@@ -500,48 +500,48 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 	}
 
 	/*
-	 * Restore any variables determined by environment variables or
-	 * dynamically-computed defaults.  This is a no-op except in the case
-	 * where one of these had been in the config file and is now removed.
+	 * 恢复任何由环境变量或动态计算默认值决定的
+	 * 变量。除非该变量曾在配置文件中且现被移除,
+	 * 本操作不会有任何效果。
 	 *
-	 * In particular, we *must not* do this during the postmaster's initial
-	 * loading of the file, since the timezone functions in particular should
-	 * be run only after initialization is complete.
+	 * 特别地,在 postmaster 初次加载该文件期间,我们
+	 * 绝不能这样做,因为时区函数尤其应当只在初始
+	 * 化完成之后才运行。
 	 *
-	 * XXX this is an unmaintainable crock, because we have to know how to set
-	 * (or at least what to call to set) every non-PGC_INTERNAL variable that
-	 * could potentially have PGC_S_DYNAMIC_DEFAULT or PGC_S_ENV_VAR source.
+	 * XXX 这是一段不可维护的拙劣代码,因为我们必须知道
+	 * 如何设置(或至少调用什么来设置)每一种可能具有
+	 * PGC_S_DYNAMIC_DEFAULT/PGC_S_ENV_VAR 来源的变量。
 	 */
 	if (context == PGC_SIGHUP && applySettings)
 	{
 		InitializeGUCOptionsFromEnvironment();
 		pg_timezone_abbrev_initialize();
-		/* this selects SQL_ASCII in processes not connected to a database */
+		/* 在未连接到数据库的进程中这会选择 SQL_ASCII */
 		SetConfigOption("client_encoding", GetDatabaseEncodingName(),
 						PGC_BACKEND, PGC_S_DYNAMIC_DEFAULT);
 	}
 
 	/*
-	 * Now apply the values from the config file.
+	 * 现在应用来自配置文件的值。
 	 */
 	for (item = head; item; item = item->next)
 	{
 		char	   *pre_value = NULL;
 		int			scres;
 
-		/* Ignore anything marked as ignorable */
+		/* 忽略标记为可忽略的项 */
 		if (item->ignore)
 			continue;
 
-		/* In SIGHUP cases in the postmaster, we want to report changes */
+		/* postmaster 的 SIGHUP 情形需要报告更改 */
 		if (context == PGC_SIGHUP && applySettings && !IsUnderPostmaster)
 		{
 			const char *preval = GetConfigOption(item->name, true, false);
 
-			/* If option doesn't exist yet or is NULL, treat as empty string */
+			/* 若选项尚不存在或为 NULL,则按空字符串处理 */
 			if (!preval)
 				preval = "";
-			/* must dup, else might have dangling pointer below */
+			/* 必须复制,否则下文会有悬空指针 */
 			pre_value = pstrdup(preval);
 		}
 
@@ -550,7 +550,7 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 								  GUC_ACTION_SET, applySettings, 0, false);
 		if (scres > 0)
 		{
-			/* variable was updated, so log the change if appropriate */
+			/* 变量已更新,故适当时记录更改 */
 			if (pre_value)
 			{
 				const char *post_value = GetConfigOption(item->name, true, false);
@@ -572,15 +572,15 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 		}
 		else
 		{
-			/* no error, but variable's active value was not changed */
+			/* 无错误,但变量的生效值未改变 */
 			item->applied = true;
 		}
 
 		/*
-		 * We should update source location unless there was an error, since
-		 * even if the active value didn't change, the reset value might have.
-		 * (In the postmaster, there won't be a difference, but it does matter
-		 * in backends.)
+		 * 除非发生了错误,否则我们应当更新来源位置,因为
+		 * 即使生效值未变,重置值也可能已经变化。
+		 * (在 postmaster 中不会有差异,但在后端中确实有
+		 * 影响。)
 		 */
 		if (scres != 0 && applySettings)
 			set_config_sourcefile(item->name, item->filename,
@@ -590,14 +590,14 @@ ProcessConfigFileInternal(GucContext context, bool applySettings, int elevel)
 			pfree(pre_value);
 	}
 
-	/* Remember when we last successfully loaded the config file. */
+	/* 记住上次成功加载配置文件的时间。 */
 	if (applySettings)
 		PgReloadTime = GetCurrentTimestamp();
 
 bail_out:
 	if (error && applySettings)
 	{
-		/* During postmaster startup, any error is fatal */
+		/* postmaster 启动期间错误即致命 */
 		if (context == PGC_POSTMASTER)
 			ereport(ERROR,
 					(errcode(ERRCODE_CONFIG_FILE_ERROR),
@@ -615,17 +615,17 @@ bail_out:
 							ConfFileWithError)));
 	}
 
-	/* Successful or otherwise, return the collected data list */
+	/* 无论成功与否,都返回收集到的数据列表 */
 	return head;
 }
 
 
 /*
- * Some infrastructure for GUC-related memory allocation
+ * 一些与 GUC 相关的内存分配基础设施
  *
- * These functions are generally modeled on libc's malloc/realloc/etc,
- * but any OOM issue is reported at the specified elevel.
- * (Thus, control returns only if that's less than ERROR.)
+ * 这些函数总体上仿照 libc 的 malloc/realloc 等,
+ * 但任何 OOM 问题都以指定的 elevel 报告。
+ * (因此,仅当其低于 ERROR 时才返回。)
  */
 void *
 guc_malloc(int elevel, size_t size)
@@ -648,14 +648,14 @@ guc_realloc(int elevel, void *old, size_t size)
 
 	if (old != NULL)
 	{
-		/* This is to help catch old code that malloc's GUC data. */
+		/* 便于捕获 malloc GUC 数据的旧代码。 */
 		Assert(GetMemoryChunkContext(old) == GUCMemoryContext);
 		data = repalloc_extended(old, size,
 								 MCXT_ALLOC_NO_OOM);
 	}
 	else
 	{
-		/* Like realloc(3), but not like repalloc(), we allow old == NULL. */
+		/* 类似 realloc(3);repalloc() 不然,允许 old==NULL。 */
 		data = MemoryContextAllocExtended(GUCMemoryContext, size,
 										  MCXT_ALLOC_NO_OOM);
 	}
@@ -682,12 +682,12 @@ void
 guc_free(void *ptr)
 {
 	/*
-	 * Historically, GUC-related code has relied heavily on the ability to do
-	 * free(NULL), so we allow that here even though pfree() doesn't.
+	 * 历史上,与 GUC 相关的代码严重依赖于执行
+	 * free(NULL),因此即使 pfree() 不允许我们也放行。
 	 */
 	if (ptr != NULL)
 	{
-		/* This is to help catch old code that malloc's GUC data. */
+		/* 便于捕获 malloc GUC 数据的旧代码。 */
 		Assert(GetMemoryChunkContext(ptr) == GUCMemoryContext);
 		pfree(ptr);
 	}
@@ -695,7 +695,7 @@ guc_free(void *ptr)
 
 
 /*
- * Detect whether strval is referenced anywhere in a GUC string item
+ * 检测 strval 是否在某个 GUC 字符串项中被引用
  */
 static bool
 string_field_used(struct config_string *conf, char *strval)
@@ -716,25 +716,25 @@ string_field_used(struct config_string *conf, char *strval)
 }
 
 /*
- * Support for assigning to a field of a string GUC item.  Free the prior
- * value if it's not referenced anywhere else in the item (including stacked
- * states).
+ * 支持对字符串 GUC 项的字段赋值。如果先前的值没有
+ * 被该项中任何其他地方引用(包括栈中状态),则释
+ * 放。
  */
 static void
 set_string_field(struct config_string *conf, char **field, char *newval)
 {
 	char	   *oldval = *field;
 
-	/* Do the assignment */
+	/* 执行赋值 */
 	*field = newval;
 
-	/* Free old value if it's not NULL and isn't referenced anymore */
+	/* 若旧值非 NULL 且不再被引用,则释放它 */
 	if (oldval && !string_field_used(conf, oldval))
 		guc_free(oldval);
 }
 
 /*
- * Detect whether an "extra" struct is referenced anywhere in a GUC item
+ * 检测 "extra" 结构是否在某个 GUC 项中被引用
  */
 static bool
 extra_field_used(struct config_generic *gconf, void *extra)
@@ -777,29 +777,29 @@ extra_field_used(struct config_generic *gconf, void *extra)
 }
 
 /*
- * Support for assigning to an "extra" field of a GUC item.  Free the prior
- * value if it's not referenced anywhere else in the item (including stacked
- * states).
+ * 支持对 GUC 项的 "extra" 字段赋值。如果先前的值没
+ * 被该项中任何其他地方引用(包括栈中状态),则释
+ * 放。
  */
 static void
 set_extra_field(struct config_generic *gconf, void **field, void *newval)
 {
 	void	   *oldval = *field;
 
-	/* Do the assignment */
+	/* 执行赋值 */
 	*field = newval;
 
-	/* Free old value if it's not NULL and isn't referenced anymore */
+	/* 若旧值非 NULL 且不再被引用,则释放它 */
 	if (oldval && !extra_field_used(gconf, oldval))
 		guc_free(oldval);
 }
 
 /*
- * Support for copying a variable's active value into a stack entry.
- * The "extra" field associated with the active value is copied, too.
+ * 支持把变量的生效值复制到一个栈表项中。
+ * 与生效值关联的 "extra" 字段也一并复制。
  *
- * NB: be sure stringval and extra fields of a new stack entry are
- * initialized to NULL before this is used, else we'll try to guc_free() them.
+ * NB:务必把新栈表项的 stringval 与 extra 字段
+ * 使用前初始化为 NULL,否则会试图对它们调用 guc_free()。
  */
 static void
 set_stack_value(struct config_generic *gconf, config_var_value *val)
@@ -832,8 +832,8 @@ set_stack_value(struct config_generic *gconf, config_var_value *val)
 }
 
 /*
- * Support for discarding a no-longer-needed value in a stack entry.
- * The "extra" field associated with the stack entry is cleared, too.
+ * 支持丢弃栈表项中不再需要的值。
+ * 与栈表项关联的 "extra" 字段也一并清除。
  */
 static void
 discard_stack_value(struct config_generic *gconf, config_var_value *val)
@@ -844,7 +844,7 @@ discard_stack_value(struct config_generic *gconf, config_var_value *val)
 		case PGC_INT:
 		case PGC_REAL:
 		case PGC_ENUM:
-			/* no need to do anything */
+			/* 无需做任何事 */
 			break;
 		case PGC_STRING:
 			set_string_field((struct config_string *) gconf,
@@ -857,9 +857,9 @@ discard_stack_value(struct config_generic *gconf, config_var_value *val)
 
 
 /*
- * Fetch a palloc'd, sorted array of GUC struct pointers
+ * 取得 palloc'd 的已排序 GUC 指针数组
  *
- * The array length is returned into *num_vars.
+ * 数组长度返回到 *num_vars 中。
  */
 struct config_generic **
 get_guc_variables(int *num_vars)
@@ -872,14 +872,14 @@ get_guc_variables(int *num_vars)
 	*num_vars = hash_get_num_entries(guc_hashtab);
 	result = palloc(sizeof(struct config_generic *) * *num_vars);
 
-	/* Extract pointers from the hash table */
+	/* 从哈希表中抽取指针 */
 	i = 0;
 	hash_seq_init(&status, guc_hashtab);
 	while ((hentry = (GUCHashEntry *) hash_seq_search(&status)) != NULL)
 		result[i++] = hentry->gucvar;
 	Assert(i == *num_vars);
 
-	/* Sort by name */
+	/* 名称排序 */
 	qsort(result, *num_vars,
 		  sizeof(struct config_generic *), guc_var_compare);
 
@@ -888,9 +888,9 @@ get_guc_variables(int *num_vars)
 
 
 /*
- * Build the GUC hash table.  This is split out so that help_config.c can
- * extract all the variables without running all of InitializeGUCOptions.
- * It's not meant for use anyplace else.
+ * 构建那份 GUC 哈希表。把它单独拆出来,是为了让
+ * help_config.c 能避开 InitializeGUCOptions 整体运行
+ * 而抽取全部变量,别无他用。
  */
 void
 build_guc_variables(void)
@@ -903,7 +903,7 @@ build_guc_variables(void)
 	int			i;
 
 	/*
-	 * Create the memory context that will hold all GUC-related data.
+	 * 创建容纳所有 GUC 相关数据的内存上下文。
 	 */
 	Assert(GUCMemoryContext == NULL);
 	GUCMemoryContext = AllocSetContextCreate(TopMemoryContext,
@@ -911,13 +911,13 @@ build_guc_variables(void)
 											 ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Count all the built-in variables, and set their vartypes correctly.
+	 * 统计所有内建变量,并正确设置它们的 vartype。
 	 */
 	for (i = 0; ConfigureNamesBool[i].gen.name; i++)
 	{
 		struct config_bool *conf = &ConfigureNamesBool[i];
 
-		/* Rather than requiring vartype to be filled in by hand, do this: */
+		/* 与其要求手工填写 vartype,不如这样做: */
 		conf->gen.vartype = PGC_BOOL;
 		num_vars++;
 	}
@@ -955,7 +955,7 @@ build_guc_variables(void)
 	}
 
 	/*
-	 * Create hash table with 20% slack
+	 * 创建留 20% 余量的哈希表
 	 */
 	size_vars = num_vars + num_vars / 4;
 
@@ -1033,8 +1033,8 @@ build_guc_variables(void)
 }
 
 /*
- * Add a new GUC variable to the hash of known variables. The
- * hash is expanded if needed.
+ * 把新 GUC 变量加入已知变量哈希表。必要时
+ * 会扩展该哈希表。
  */
 static bool
 add_guc_variable(struct config_generic *var, int elevel)
@@ -1051,7 +1051,7 @@ add_guc_variable(struct config_generic *var, int elevel)
 		ereport(elevel,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory")));
-		return false;			/* out of memory */
+		return false;			/* 内存不足 */
 	}
 	Assert(!found);
 	hentry->gucvar = var;
@@ -1059,11 +1059,11 @@ add_guc_variable(struct config_generic *var, int elevel)
 }
 
 /*
- * Decide whether a proposed custom variable name is allowed.
+ * 判定一个拟用的自定义变量名是否被允许。
  *
- * It must be two or more identifiers separated by dots, where the rules
- * for what is an identifier agree with scan.l.  (If you change this rule,
- * adjust the errdetail in find_option().)
+ * 必须是两个或更多由点号分隔的标识符,标识符的
+ * 判定规则须与 scan.l 一致。(若改动此规则,errdetail
+ * 的调整请见 find_option()。)
  */
 static bool
 valid_custom_variable_name(const char *name)
@@ -1076,7 +1076,7 @@ valid_custom_variable_name(const char *name)
 		if (*p == GUC_QUALIFIER_SEPARATOR)
 		{
 			if (name_start)
-				return false;	/* empty name component */
+				return false;	/* 名字为空 */
 			saw_sep = true;
 			name_start = true;
 		}
@@ -1084,22 +1084,22 @@ valid_custom_variable_name(const char *name)
 						"abcdefghijklmnopqrstuvwxyz_", *p) != NULL ||
 				 IS_HIGHBIT_SET(*p))
 		{
-			/* okay as first or non-first character */
+			/* 首字符或非首字符皆可 */
 			name_start = false;
 		}
 		else if (!name_start && strchr("0123456789$", *p) != NULL)
-			 /* okay as non-first character */ ;
+			 /* 作为非首字符也可以 */ ;
 		else
 			return false;
 	}
 	if (name_start)
-		return false;			/* empty name component */
-	/* OK if we found at least one separator */
+		return false;			/* 名字为空 */
+	/* 找到至少一个分隔符即可 */
 	return saw_sep;
 }
 
 /*
- * Create and add a placeholder variable for a custom variable name.
+ * 创建并加入自定义变量名的占位符变量。
  */
 static struct config_generic *
 add_placeholder_variable(const char *name, int elevel)
@@ -1128,9 +1128,9 @@ add_placeholder_variable(const char *name, int elevel)
 	gen->vartype = PGC_STRING;
 
 	/*
-	 * The char* is allocated at the end of the struct since we have no
-	 * 'static' place to point to.  Note that the current value, as well as
-	 * the boot and reset values, start out NULL.
+	 * char* 分配在结构末尾,因为没有静态处可指向。
+	 * 注意:当前值以及 boot 值与 reset 值一开始都
+	 * 为 NULL。
 	 */
 	var->variable = (char **) (var + 1);
 
@@ -1145,19 +1145,19 @@ add_placeholder_variable(const char *name, int elevel)
 }
 
 /*
- * Look up option "name".  If it exists, return a pointer to its record.
- * Otherwise, if create_placeholders is true and name is a valid-looking
- * custom variable name, we'll create and return a placeholder record.
- * Otherwise, if skip_errors is true, then we silently return NULL for
- * an unrecognized or invalid name.  Otherwise, the error is reported at
- * error level elevel (and we return NULL if that's less than ERROR).
+ * 查找名为 "name" 的选项。如果存在,返回指向其
+ * 记录的指针。否则,若 create_placeholders 为 true
+ * 且 name 看起来是有效的自定义变量名,我们会创建
+ * 并返回占位符记录。否则,若 skip_errors 为 true,
+ * 则对无法识别或无效的名字静默返回 NULL。否则,
+ * 错误以 elevel 级别报告(低于 ERROR 则返回 NULL)。
  *
- * Note: internal errors, primarily out-of-memory, draw an elevel-level
- * report and NULL return regardless of skip_errors.  Hence, callers must
- * handle a NULL return whenever elevel < ERROR, but they should not need
- * to emit any additional error message.  (In practice, internal errors
- * can only happen when create_placeholders is true, so callers passing
- * false need not think terribly hard about this.)
+ * 注意:内部错误(如内存耗尽)无论 skip_errors
+ * 取值如何,都会报告并返回 NULL。因此,当 elevel
+ * 低于 ERROR 时调用方必须处理 NULL,但无需再发
+ * 出额外的错误消息。(实践中,内部错误只会在
+ * create_placeholders 为 true 时发生,因此传入 false
+ * 的调用方无需为此多虑。)
  */
 struct config_generic *
 find_option(const char *name, bool create_placeholders, bool skip_errors,
@@ -1168,7 +1168,7 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 
 	Assert(name);
 
-	/* Look it up using the hash table. */
+	/* 用哈希表查找它。 */
 	hentry = (GUCHashEntry *) hash_search(guc_hashtab,
 										  &name,
 										  HASH_FIND,
@@ -1177,9 +1177,9 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 		return hentry->gucvar;
 
 	/*
-	 * See if the name is an obsolete name for a variable.  We assume that the
-	 * set of supported old names is short enough that a brute-force search is
-	 * the best way.
+	 * 查看该名字是否是某个变量的过时名字。我们假定受
+	 * 支持的旧名字集合足够小,暴力搜索是最好的办法。
+	 *
 	 */
 	for (i = 0; map_old_guc_names[i] != NULL; i += 2)
 	{
@@ -1191,9 +1191,9 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 	if (create_placeholders)
 	{
 		/*
-		 * Check if the name is valid, and if so, add a placeholder.  If it
-		 * doesn't contain a separator, don't assume that it was meant to be a
-		 * placeholder.
+		 * 检查名字是否有效,若有效则加占位符。如果其中
+		 * 不含分隔符,就不要假定它想要用作占位符。
+		 *
 		 */
 		const char *sep = strchr(name, GUC_QUALIFIER_SEPARATOR);
 
@@ -1202,7 +1202,7 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 			size_t		classLen = sep - name;
 			ListCell   *lc;
 
-			/* The name must be syntactically acceptable ... */
+			/* 名字必须在语法上可接受 ... */
 			if (!valid_custom_variable_name(name))
 			{
 				if (!skip_errors)
@@ -1213,7 +1213,7 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 							 errdetail("Custom parameter names must be two or more simple identifiers separated by dots.")));
 				return NULL;
 			}
-			/* ... and it must not match any previously-reserved prefix */
+			/* ... 且不得匹配任何先前保留的前缀 */
 			foreach(lc, reserved_class_prefix)
 			{
 				const char *rcprefix = lfirst(lc);
@@ -1231,12 +1231,12 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 					return NULL;
 				}
 			}
-			/* OK, create it */
+			/* 好,创建它 */
 			return add_placeholder_variable(name, elevel);
 		}
 	}
 
-	/* Unknown name */
+	/* 未知名 */
 	if (!skip_errors)
 		ereport(elevel,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -1247,7 +1247,7 @@ find_option(const char *name, bool create_placeholders, bool skip_errors,
 
 
 /*
- * comparator for qsorting an array of GUC pointers
+ * 供 qsort 使用的 GUC 指针数组比较器
  */
 static int
 guc_var_compare(const void *a, const void *b)
@@ -1259,15 +1259,15 @@ guc_var_compare(const void *a, const void *b)
 }
 
 /*
- * the bare comparison function for GUC names
+ * GUC 名字比较的基础比较函数
  */
 int
 guc_name_compare(const char *namea, const char *nameb)
 {
 	/*
-	 * The temptation to use strcasecmp() here must be resisted, because the
-	 * hash mapping has to remain stable across setlocale() calls. So, build
-	 * our own with a simple ASCII-only downcasing.
+	 * 在这里使用 strcasecmp() 的诱惑必须抵制,因为哈希
+	 * 映射必须在 setlocale() 调用之间保持稳定。因此,
+	 * 以仅 ASCII 的简单小写自建一个。
 	 */
 	while (*namea && *nameb)
 	{
@@ -1282,14 +1282,14 @@ guc_name_compare(const char *namea, const char *nameb)
 			return cha - chb;
 	}
 	if (*namea)
-		return 1;				/* a is longer */
+		return 1;				/* a 更长 */
 	if (*nameb)
-		return -1;				/* b is longer */
+		return -1;				/* b 更长 */
 	return 0;
 }
 
 /*
- * Hash function that's compatible with guc_name_compare
+ * 与 guc_name_compare 兼容的哈希函数
  */
 static uint32
 guc_name_hash(const void *key, Size keysize)
@@ -1301,11 +1301,11 @@ guc_name_hash(const void *key, Size keysize)
 	{
 		char		ch = *name++;
 
-		/* Case-fold in the same way as guc_name_compare */
+		/* 按 guc_name_compare 方式折叠大小写 */
 		if (ch >= 'A' && ch <= 'Z')
 			ch += 'a' - 'A';
 
-		/* Merge into hash ... not very bright, but it needn't be */
+		/* 并入哈希 ... 不太聪明,但没必要聪明 */
 		result = pg_rotate_left32(result, 5);
 		result ^= (uint32) ch;
 	}
@@ -1313,7 +1313,7 @@ guc_name_hash(const void *key, Size keysize)
 }
 
 /*
- * Dynahash match function to use in guc_hashtab
+ * guc_hashtab 所用的 dynahash 匹配函数
  */
 static int
 guc_name_match(const void *key1, const void *key2, Size keysize)
@@ -1326,21 +1326,21 @@ guc_name_match(const void *key1, const void *key2, Size keysize)
 
 
 /*
- * Convert a GUC name to the form that should be used in pg_parameter_acl.
+ * 把 GUC 名字转换为在 pg_parameter_acl 中应使用的形式。
  *
- * We need to canonicalize entries since, for example, case should not be
- * significant.  In addition, we apply the map_old_guc_names[] mapping so that
- * any obsolete names will be converted when stored in a new PG version.
- * Note however that this function does not verify legality of the name.
+ * 我们需要把表项规范化,例如大小写不应
+ * 有影响。此外,我们还应用 map_old_guc_names[] 映射,
+ * 以便任何过时名字在存入新 PG 版本时都会被转换。
+ * 但请注意,本函数并不验证名字的合法性。
  *
- * The result is a palloc'd string.
+ * 结果为 palloc'd 字符串。
  */
 char *
 convert_GUC_name_for_parameter_acl(const char *name)
 {
 	char	   *result;
 
-	/* Apply old-GUC-name mapping. */
+	/* 用旧 GUC 名映射。*/
 	for (int i = 0; map_old_guc_names[i] != NULL; i += 2)
 	{
 		if (guc_name_compare(name, map_old_guc_names[i]) == 0)
@@ -1350,7 +1350,7 @@ convert_GUC_name_for_parameter_acl(const char *name)
 		}
 	}
 
-	/* Apply case-folding that matches guc_name_compare(). */
+	/* 按 guc_name_compare() 折叠大小写。 */
 	result = pstrdup(name);
 	for (char *ptr = result; *ptr != '\0'; ptr++)
 	{
@@ -1367,42 +1367,42 @@ convert_GUC_name_for_parameter_acl(const char *name)
 }
 
 /*
- * Check whether we should allow creation of a pg_parameter_acl entry
- * for the given name.  (This can be applied either before or after
- * canonicalizing it.)
+ * 检查是否应允许为给定的名字创建 pg_parameter_acl
+ * 表项。(在规范化之前或之后应用皆可。)
+ *
  */
 bool
 check_GUC_name_for_parameter_acl(const char *name)
 {
-	/* OK if the GUC exists. */
+	/* GUC 存在即可。 */
 	if (find_option(name, false, true, DEBUG1) != NULL)
 		return true;
-	/* Otherwise, it'd better be a valid custom GUC name. */
+	/* 否则,须为有效的自定义 GUC 名。 */
 	if (valid_custom_variable_name(name))
 		return true;
 	return false;
 }
 
 /*
- * Routine in charge of checking various states of a GUC.
+ * 负责检查 GUC 各种状态的例程。
  *
- * This performs two sanity checks.  First, it checks that the initial
- * value of a GUC is the same when declared and when loaded to prevent
- * anybody looking at the C declarations of these GUCs from being fooled by
- * mismatched values.  Second, it checks for incorrect flag combinations.
+ * 它执行两项健全性检查。第一,检查 GUC 的初始
+ * 值在声明时与加载时相同,以免查看这些 GUCs 的
+ * C 声明的人被不一致的值所迷惑。第二,它检查
+ * 不正确的标志组合。
  *
- * The following validation rules apply for the values:
- * bool - can be false, otherwise must be same as the boot_val
- * int  - can be 0, otherwise must be same as the boot_val
- * real - can be 0.0, otherwise must be same as the boot_val
- * string - can be NULL, otherwise must be strcmp equal to the boot_val
- * enum - must be same as the boot_val
+ * 下列校验规则适用于这些值:
+ * bool - 可为 false,否则必须与 boot_val 相同
+ * int  - 可为 0,否则必须与 boot_val 相同
+ * real - 可为 0.0,否则必须与 boot_val 相同
+ * string - 可为 NULL,否则必须 strcmp 等于 boot_val
+ * enum - 必须与 boot_val 相同
  */
 #ifdef USE_ASSERT_CHECKING
 static bool
 check_GUC_init(struct config_generic *gconf)
 {
-	/* Checks on values */
+	/* 对值的检查 */
 	switch (gconf->vartype)
 	{
 		case PGC_BOOL:
@@ -1469,11 +1469,11 @@ check_GUC_init(struct config_generic *gconf)
 			}
 	}
 
-	/* Flag combinations */
+	/* 标志组合 */
 
 	/*
-	 * GUC_NO_SHOW_ALL requires GUC_NOT_IN_SAMPLE, as a parameter not part of
-	 * SHOW ALL should not be hidden in postgresql.conf.sample.
+	 * GUC_NO_SHOW_ALL 需要 GUC_NOT_IN_SAMPLE,不属于
+	 * SHOW ALL 参数不应被 sample 文件隐藏。
 	 */
 	if ((gconf->flags & GUC_NO_SHOW_ALL) &&
 		!(gconf->flags & GUC_NOT_IN_SAMPLE))
@@ -1488,10 +1488,10 @@ check_GUC_init(struct config_generic *gconf)
 #endif
 
 /*
- * Initialize GUC options during program startup.
+ * 在程序启动期间初始化 GUC 选项。
  *
- * Note that we cannot read the config file yet, since we have not yet
- * processed command-line switches.
+ * 注意此时还无法读取配置文件,因为我们尚未处理
+ * 命令行开关。
  */
 void
 InitializeGUCOptions(void)
@@ -1500,24 +1500,24 @@ InitializeGUCOptions(void)
 	GUCHashEntry *hentry;
 
 	/*
-	 * Before log_line_prefix could possibly receive a nonempty setting, make
-	 * sure that timezone processing is minimally alive (see elog.c).
+	 * 在 log_line_prefix 可能收到非空设置之前,先确保
+	 * 时区处理最低限度可用(参见 elog.c)。
 	 */
 	pg_timezone_initialize();
 
 	/*
-	 * Create GUCMemoryContext and build hash table of all GUC variables.
+	 * 创建 GUCMemoryContext 并构建所有 GUC 变量的哈希表。
 	 */
 	build_guc_variables();
 
 	/*
-	 * Load all variables with their compiled-in defaults, and initialize
-	 * status fields as needed.
+	 * 以编译进来的默认值加载所有变量,并按需初始化
+	 * 状态字段。
 	 */
 	hash_seq_init(&status, guc_hashtab);
 	while ((hentry = (GUCHashEntry *) hash_seq_search(&status)) != NULL)
 	{
-		/* Check mapping between initial and default value */
+		/* 检查初始值与默认值之间的映射 */
 		Assert(check_GUC_init(hentry->gucvar));
 
 		InitializeOneGUCOption(hentry->gucvar);
@@ -1526,8 +1526,8 @@ InitializeGUCOptions(void)
 	reporting_enabled = false;
 
 	/*
-	 * Prevent any attempt to override the transaction modes from
-	 * non-interactive sources.
+	 * 防止非交互来源覆盖事务模式的任何企图。
+	 *
 	 */
 	SetConfigOption("transaction_isolation", "read committed",
 					PGC_POSTMASTER, PGC_S_OVERRIDE);
@@ -1537,20 +1537,20 @@ InitializeGUCOptions(void)
 					PGC_POSTMASTER, PGC_S_OVERRIDE);
 
 	/*
-	 * For historical reasons, some GUC parameters can receive defaults from
-	 * environment variables.  Process those settings.
+	 * 由于历史原因,某些 GUC 参数可以从环境变量接收
+	 * 默认值。处理这些设置。
 	 */
 	InitializeGUCOptionsFromEnvironment();
 }
 
 /*
- * Assign any GUC values that can come from the server's environment.
+ * 设置任何可能来自服务器环境的 GUC 值。
  *
- * This is called from InitializeGUCOptions, and also from ProcessConfigFile
- * to deal with the possibility that a setting has been removed from
- * postgresql.conf and should now get a value from the environment.
- * (The latter is a kludge that should probably go away someday; if so,
- * fold this back into InitializeGUCOptions.)
+ * 本函数由 InitializeGUCOptions 调用,也由 ProcessConfigFile
+ * 调用,以应对设置已从 postgresql.conf 移除、应当
+ * 改从环境取得值的情形。
+ * (后者是个权宜之计,或许某天该去掉;若如此,
+ * 可把它折回 InitializeGUCOptions。)
  */
 static void
 InitializeGUCOptionsFromEnvironment(void)
@@ -1571,11 +1571,11 @@ InitializeGUCOptionsFromEnvironment(void)
 		SetConfigOption("client_encoding", env, PGC_POSTMASTER, PGC_S_ENV_VAR);
 
 	/*
-	 * rlimit isn't exactly an "environment variable", but it behaves about
-	 * the same.  If we can identify the platform stack depth rlimit, increase
-	 * default stack depth setting up to whatever is safe (but at most 2MB).
-	 * Report the value's source as PGC_S_DYNAMIC_DEFAULT if it's 2MB, or as
-	 * PGC_S_ENV_VAR if it's reflecting the rlimit limit.
+	 * rlimit 并不完全是"环境变量",但行为大致相同。如
+	 * 果我们能识别平台的栈深度 rlimit,就把默认栈深度
+	 * 设置增加到安全范围内(但至多 2MB)。如果值为
+	 * 2MB,则把值的来源报告为 PGC_S_DYNAMIC_DEFAULT;
+	 * 若它反映 rlimit 上限,则为 PGC_S_ENV_VAR。
 	 */
 	stack_rlimit = get_stack_depth_rlimit();
 	if (stack_rlimit > 0)
@@ -1602,10 +1602,10 @@ InitializeGUCOptionsFromEnvironment(void)
 }
 
 /*
- * Initialize one GUC option variable to its compiled-in default.
+ * 将一个 GUC 选项变量初始化为编译内默认值。
  *
- * Note: the reason for calling check_hooks is not that we think the boot_val
- * might fail, but that the hooks might wish to compute an "extra" struct.
+ * 注意:调用 check_hooks 并非因为认为 boot_val 可能
+ * 不通过,而是因为钩子可能希望计算一个 "extra" 结构。
  */
 static void
 InitializeOneGUCOption(struct config_generic *gconf)
@@ -1683,7 +1683,7 @@ InitializeOneGUCOption(struct config_generic *gconf)
 				char	   *newval;
 				void	   *extra = NULL;
 
-				/* non-NULL boot_val must always get strdup'd */
+				/* 非 NULL 的 boot_val 必经 strdup 复制 */
 				if (conf->boot_val != NULL)
 					newval = guc_strdup(FATAL, conf->boot_val);
 				else
@@ -1719,10 +1719,10 @@ InitializeOneGUCOption(struct config_generic *gconf)
 }
 
 /*
- * Summarily remove a GUC variable from any linked lists it's in.
+ * 将 GUC 变量从其所在的所有链表中立即移除。
  *
- * We use this in cases where the variable is about to be deleted or reset.
- * These aren't common operations, so it's okay if this is a bit slow.
+ * 在变量即将被删除或重置的情形下我们会使用它。
+ * 这些操作并不常见,所以它稍慢一点也无妨。
  */
 static void
 RemoveGUCFromLists(struct config_generic *gconf)
@@ -1737,15 +1737,15 @@ RemoveGUCFromLists(struct config_generic *gconf)
 
 
 /*
- * Select the configuration files and data directory to be used, and
- * do the initial read of postgresql.conf.
+ * 选择要使用的配置文件与数据目录,并对
+ * postgresql.conf 做初次读取。
  *
- * This is called after processing command-line switches.
- *		userDoption is the -D switch value if any (NULL if unspecified).
- *		progname is just for use in error messages.
+ * 本函数在处理完命令行开关之后调用。
+ *		userDoption 是 -D 开关的值(若无则为 NULL)。
+ *		progname 仅用于错误消息。
  *
- * Returns true on success; on failure, prints a suitable error message
- * to stderr and returns false.
+ * 成功时返回 true;失败时向 stderr 打印合适的错误
+ * 消息并返回 false。
  */
 bool
 SelectConfigFiles(const char *userDoption, const char *progname)
@@ -1756,7 +1756,7 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	struct stat stat_buf;
 	struct config_string *data_directory_rec;
 
-	/* configdir is -D option, or $PGDATA if no -D */
+	/* configdir 是 -D 选项,否则 $PGDATA */
 	if (userDoption)
 		configdir = make_absolute_path(userDoption);
 	else
@@ -1774,10 +1774,10 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	}
 
 	/*
-	 * Find the configuration file: if config_file was specified on the
-	 * command line, use it, else use configdir/postgresql.conf.  In any case
-	 * ensure the result is an absolute path, so that it will be interpreted
-	 * the same way by future backends.
+	 * 寻找配置文件:若 config_file 在命令行上指定过
+	 * 就使用它,否则使用 configdir/postgresql.conf。无
+	 * 论如何都要确保结果是绝对路径,这样未来的后端
+	 * 都以同样方式解释它。
 	 */
 	if (ConfigFileName)
 	{
@@ -1801,8 +1801,8 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	}
 
 	/*
-	 * Set the ConfigFileName GUC variable to its final value, ensuring that
-	 * it can't be overridden later.
+	 * 把 ConfigFileName GUC 变量设为最终值,确保它以后
+	 * 无法被覆盖。
 	 */
 	SetConfigOption("config_file", fname, PGC_POSTMASTER, PGC_S_OVERRIDE);
 
@@ -1812,7 +1812,7 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 		guc_free(fname);
 
 	/*
-	 * Now read the config file for the first time.
+	 * 现在第一次读取配置文件。
 	 */
 	if (stat(ConfigFileName, &stat_buf) != 0)
 	{
@@ -1823,18 +1823,18 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	}
 
 	/*
-	 * Read the configuration file for the first time.  This time only the
-	 * data_directory parameter is picked up to determine the data directory,
-	 * so that we can read the PG_AUTOCONF_FILENAME file next time.
+	 * 第一次读取配置文件。这一次只挑出 data_directory
+	 * 参数以确定数据目录,以便下次能读取
+	 * PG_AUTOCONF_FILENAME 文件。
 	 */
 	ProcessConfigFile(PGC_POSTMASTER);
 
 	/*
-	 * If the data_directory GUC variable has been set, use that as DataDir;
-	 * otherwise use configdir if set; else punt.
+	 * 如果 data_directory GUC 变量已被设置,就用它作为
+	 * DataDir;否则 configdir;不然放弃。
 	 *
-	 * Note: SetDataDir will copy and absolute-ize its argument, so we don't
-	 * have to.
+	 * 注意:SetDataDir 会复制其参数并把它绝对化,所以
+	 *不必。
 	 */
 	data_directory_rec = (struct config_string *)
 		find_option("data_directory", false, false, PANIC);
@@ -1853,34 +1853,34 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	}
 
 	/*
-	 * Reflect the final DataDir value back into the data_directory GUC var.
-	 * (If you are wondering why we don't just make them a single variable,
-	 * it's because the EXEC_BACKEND case needs DataDir to be transmitted to
-	 * child backends specially.  XXX is that still true?  Given that we now
-	 * chdir to DataDir, EXEC_BACKEND can read the config file without knowing
-	 * DataDir in advance.)
+	 * 把最终的 DataDir 值回写进 data_directory GUC 变量。
+	 * (如果你奇怪为什么不干脆把它们做成单个变量,那
+	 * 是因为 EXEC_BACKEND 情形需要把 DataDir 特殊地传递
+	 * 给子后端。XXX 现在仍如此吗?鉴于我们现在
+	 * chdir 到 DataDir,EXEC_BACKEND 不预知 DataDir 也
+	 * 能读取配置。)
 	 */
 	SetConfigOption("data_directory", DataDir, PGC_POSTMASTER, PGC_S_OVERRIDE);
 
 	/*
-	 * Now read the config file a second time, allowing any settings in the
-	 * PG_AUTOCONF_FILENAME file to take effect.  (This is pretty ugly, but
-	 * since we have to determine the DataDir before we can find the autoconf
-	 * file, the alternatives seem worse.)
+	 * 现在第二次读取配置文件,让 PG_AUTOCONF_FILENAME
+	 * 文件中的设置生效。(这很丑,但因为我们
+	 * 必须先确定 DataDir 才能找到 autoconf 文件,其他
+	 * 做法似乎更糟。)
 	 */
 	ProcessConfigFile(PGC_POSTMASTER);
 
 	/*
-	 * If timezone_abbreviations wasn't set in the configuration file, install
-	 * the default value.  We do it this way because we can't safely install a
-	 * "real" value until my_exec_path is set, which may not have happened
-	 * when InitializeGUCOptions runs, so the bootstrap default value cannot
-	 * be the real desired default.
+	 * 如果 timezone_abbreviations 未在配置文件中设置,
+	 * 就安装默认值。这样做是因为在 my_exec_path 设置好
+	 * 之前无法安全地安装"真实"值,而它可能尚未在
+	 * InitializeGUCOptions 运行时发生,所以引导默认值不
+	 * 会是所需的默认值。
 	 */
 	pg_timezone_abbrev_initialize();
 
 	/*
-	 * Figure out where pg_hba.conf is, and make sure the path is absolute.
+	 * 弄清 pg_hba.conf 在哪里,并确保是绝对路径。
 	 */
 	if (HbaFileName)
 	{
@@ -1911,7 +1911,7 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 		guc_free(fname);
 
 	/*
-	 * Likewise for pg_ident.conf.
+	 * pg_ident.conf 同理。
 	 */
 	if (IdentFileName)
 	{
@@ -1947,14 +1947,14 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 }
 
 /*
- * pg_timezone_abbrev_initialize --- set default value if not done already
+ * pg_timezone_abbrev_initialize --- 若尚未设置则设默认值
  *
- * This is called after initial loading of postgresql.conf.  If no
- * timezone_abbreviations setting was found therein, select default.
- * If a non-default value is already installed, nothing will happen.
+ * 本函数在初次加载 postgresql.conf 后调用。如果其
+ * 中没有 timezone_abbreviations 设置则选默认值。
+ * 如果已经安装了非默认值,则什么都不会发生。
  *
- * This can also be called from ProcessConfigFile to establish the default
- * value after a postgresql.conf entry for it is removed.
+ * 本函数也可以从 ProcessConfigFile 调用,以便在其
+ * postgresql.conf 条目被移除后确立默认值。
  */
 static void
 pg_timezone_abbrev_initialize(void)
@@ -1965,31 +1965,31 @@ pg_timezone_abbrev_initialize(void)
 
 
 /*
- * Reset all options to their saved default values (implements RESET ALL)
+ * 把所有选项重置为保存的默认值(实现 RESET ALL)
  */
 void
 ResetAllOptions(void)
 {
 	dlist_mutable_iter iter;
 
-	/* We need only consider GUCs not already at PGC_S_DEFAULT */
+	/* 只考虑尚未处于 PGC_S_DEFAULT 的 GUCs */
 	dlist_foreach_modify(iter, &guc_nondef_list)
 	{
 		struct config_generic *gconf = dlist_container(struct config_generic,
 													   nondef_link, iter.cur);
 
-		/* Don't reset non-SET-able values */
+		/* 不重置不可 SET 的值 */
 		if (gconf->context != PGC_SUSET &&
 			gconf->context != PGC_USERSET)
 			continue;
-		/* Don't reset if special exclusion from RESET ALL */
+		/* 因被 RESET ALL 特殊排除而不重置 */
 		if (gconf->flags & GUC_NO_RESET_ALL)
 			continue;
-		/* No need to reset if wasn't SET */
+		/* 未 SET 过则无需重置 */
 		if (gconf->source <= PGC_S_OVERRIDE)
 			continue;
 
-		/* Save old value to support transaction abort */
+		/* 保存旧值以支持事务中止 */
 		push_old_value(gconf, GUC_ACTION_SET);
 
 		switch (gconf->vartype)
@@ -2070,15 +2070,15 @@ ResetAllOptions(void)
 
 
 /*
- * Apply a change to a GUC variable's "source" field.
+ * 对 GUC 变量的 "source" 字段应用更改。
  *
- * Use this rather than just assigning, to ensure that the variable's
- * membership in guc_nondef_list is updated correctly.
+ * 使用本函数而不是直接赋值,以确保变量在
+ * guc_nondef_list 的成员关系正确更新。
  */
 static void
 set_guc_source(struct config_generic *gconf, GucSource newsource)
 {
-	/* Adjust nondef list membership if appropriate for change */
+	/* 变更适当时调整 nondef 链表成员身份 */
 	if (gconf->source == PGC_S_DEFAULT)
 	{
 		if (newsource != PGC_S_DEFAULT)
@@ -2089,37 +2089,37 @@ set_guc_source(struct config_generic *gconf, GucSource newsource)
 		if (newsource == PGC_S_DEFAULT)
 			dlist_delete(&gconf->nondef_link);
 	}
-	/* Now update the source field */
+	/* 现更新 source 字段 */
 	gconf->source = newsource;
 }
 
 
 /*
  * push_old_value
- *		Push previous state during transactional assignment to a GUC variable.
+ *		在对 GUC 变量做事务性赋值时压入先前的状态。
  */
 static void
 push_old_value(struct config_generic *gconf, GucAction action)
 {
 	GucStack   *stack;
 
-	/* If we're not inside a nest level, do nothing */
+	/* 若不在嵌套层级内,则不做任何事 */
 	if (GUCNestLevel == 0)
 		return;
 
-	/* Do we already have a stack entry of the current nest level? */
+	/* 是否已有当前嵌套层级的栈表项? */
 	stack = gconf->stack;
 	if (stack && stack->nest_level >= GUCNestLevel)
 	{
-		/* Yes, so adjust its state if necessary */
+		/* 有,必要时调整其状态 */
 		Assert(stack->nest_level == GUCNestLevel);
 		switch (action)
 		{
 			case GUC_ACTION_SET:
-				/* SET overrides any prior action at same nest level */
+				/* SET 覆盖同层级上任何先前的动作 */
 				if (stack->state == GUC_SET_LOCAL)
 				{
-					/* must discard old masked value */
+					/* 须丢弃旧的被遮蔽值 */
 					discard_stack_value(gconf, &stack->masked);
 				}
 				stack->state = GUC_SET;
@@ -2127,16 +2127,16 @@ push_old_value(struct config_generic *gconf, GucAction action)
 			case GUC_ACTION_LOCAL:
 				if (stack->state == GUC_SET)
 				{
-					/* SET followed by SET LOCAL, remember SET's value */
+					/* SET 之后跟 SET LOCAL,记住 SET 的值 */
 					stack->masked_scontext = gconf->scontext;
 					stack->masked_srole = gconf->srole;
 					set_stack_value(gconf, &stack->masked);
 					stack->state = GUC_SET_LOCAL;
 				}
-				/* in all other cases, no change to stack entry */
+				/* 在所有其他情况下,栈表项不变 */
 				break;
 			case GUC_ACTION_SAVE:
-				/* Could only have a prior SAVE of same variable */
+				/* 之前只可能有过同一变量的 SAVE */
 				Assert(stack->state == GUC_SAVE);
 				break;
 		}
@@ -2144,9 +2144,9 @@ push_old_value(struct config_generic *gconf, GucAction action)
 	}
 
 	/*
-	 * Push a new stack entry
+	 * 压入新栈表项
 	 *
-	 * We keep all the stack entries in TopTransactionContext for simplicity.
+	 * 为简单起见,栈表项都存于 TopTransactionContext 中。
 	 */
 	stack = (GucStack *) MemoryContextAllocZero(TopTransactionContext,
 												sizeof(GucStack));
@@ -2177,15 +2177,15 @@ push_old_value(struct config_generic *gconf, GucAction action)
 
 
 /*
- * Do GUC processing at main transaction start.
+ * 在主事务开始时做 GUC 处理。
  */
 void
 AtStart_GUC(void)
 {
 	/*
-	 * The nest level should be 0 between transactions; if it isn't, somebody
-	 * didn't call AtEOXact_GUC, or called it with the wrong nestLevel.  We
-	 * throw a warning but make no other effort to clean up.
+	 * 事务之间嵌套层级应当为 0;如果不是,说明有人没
+	 * 有调用 AtEOXact_GUC,或者调用时传了错误的 nestLevel。
+	 * 我们发出警告,但不做其他清理工作。
 	 */
 	if (GUCNestLevel != 0)
 		elog(WARNING, "GUC nest level = %d at transaction start",
@@ -2194,10 +2194,10 @@ AtStart_GUC(void)
 }
 
 /*
- * Enter a new nesting level for GUC values.  This is called at subtransaction
- * start, and when entering a function that has proconfig settings, and in
- * some other places where we want to set GUC variables transiently.
- * NOTE we must not risk error here, else subtransaction start will be unhappy.
+ * 为 GUC 值进入一个新的嵌套层级。本函数在子事务开始
+ * 时、在进入带有 proconfig 设置的函数时,以及在其
+ * 他一些想要临时设置 GUC 变量的地方被调用。
+ * 注意:此处绝不能冒险出错,否则子事务开始会不愉快。
  */
 int
 NewGUCNestLevel(void)
@@ -2206,12 +2206,12 @@ NewGUCNestLevel(void)
 }
 
 /*
- * Do GUC processing at transaction or subtransaction commit or abort, or
- * when exiting a function that has proconfig settings, or when undoing a
- * transient assignment to some GUC variables.  (The name is thus a bit of
- * a misnomer; perhaps it should be ExitGUCNestLevel or some such.)
- * During abort, we discard all GUC settings that were applied at nesting
- * levels >= nestLevel.  nestLevel == 1 corresponds to the main transaction.
+ * 在事务或子事务提交或中止时、在退出带有 proconfig
+ * 设置的函数时,或撤销对某些 GUC 变量的临时赋值
+ * 时执行。(因此这个名字有点名不副实;或许它应当
+ * 叫 ExitGUCNestLevel 之类的名字。)
+ * 在中止时,我们会丢弃所有在嵌套层级 >= nestLevel
+ * 时应用的 GUC 设置。nestLevel == 1 对应主事务。
  */
 void
 AtEOXact_GUC(bool isCommit, int nestLevel)
@@ -2219,15 +2219,15 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 	slist_mutable_iter iter;
 
 	/*
-	 * Note: it's possible to get here with GUCNestLevel == nestLevel-1 during
-	 * abort, if there is a failure during transaction start before
-	 * AtStart_GUC is called.
+	 * 注意:在中止期间,如果事务开始过程中 AtStart_GUC
+	 * 被调用之前发生失败,则可能以 GUCNestLevel 等于
+	 * nestLevel-1 抵达。
 	 */
 	Assert(nestLevel > 0 &&
 		   (nestLevel <= GUCNestLevel ||
 			(nestLevel == GUCNestLevel + 1 && !isCommit)));
 
-	/* We need only process GUCs having nonempty stacks */
+	/* 只处理具有非空栈的 GUCs */
 	slist_foreach_modify(iter, &guc_stack_list)
 	{
 		struct config_generic *gconf = slist_container(struct config_generic,
@@ -2235,11 +2235,11 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 		GucStack   *stack;
 
 		/*
-		 * Process and pop each stack entry within the nest level. To simplify
-		 * fmgr_security_definer() and other places that use GUC_ACTION_SAVE,
-		 * we allow failure exit from code that uses a local nest level to be
-		 * recovered at the surrounding transaction or subtransaction abort;
-		 * so there could be more than one stack entry to pop.
+		 * 处理并弹出该嵌套层级内的每个栈表项。为了简化
+		 * fmgr_security_definer() 以及其他使用 GUC_ACTION_SAVE
+		 * 的地方,允许使用局部嵌套层级的代码以失败退
+		 * 出,并在外围事务或子事务中止时恢复;因此可能
+		 * 有不止一个栈表项需要弹出。
 		 */
 		while ((stack = gconf->stack) != NULL &&
 			   stack->nest_level >= nestLevel)
@@ -2250,49 +2250,49 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 			bool		changed;
 
 			/*
-			 * In this next bit, if we don't set either restorePrior or
-			 * restoreMasked, we must "discard" any unwanted fields of the
-			 * stack entries to avoid leaking memory.  If we do set one of
-			 * those flags, unused fields will be cleaned up after restoring.
+			 * 在接下来这段中,如果既不设置 restorePrior
+			 * 也不设置 restoreMasked,则必须"丢弃"栈表项中
+			 * 任何多余字段以免内存泄漏。若设置了这两
+			 * 个标志之一,未用的字段会在恢复之后被清理。
 			 */
-			if (!isCommit)		/* if abort, always restore prior value */
+			if (!isCommit)		/* 中止时总恢复先前值 */
 				restorePrior = true;
 			else if (stack->state == GUC_SAVE)
 				restorePrior = true;
 			else if (stack->nest_level == 1)
 			{
-				/* transaction commit */
+				/* 事务提交 */
 				if (stack->state == GUC_SET_LOCAL)
 					restoreMasked = true;
 				else if (stack->state == GUC_SET)
 				{
-					/* we keep the current active value */
+					/* 我们保留当前生效值 */
 					discard_stack_value(gconf, &stack->prior);
 				}
-				else			/* must be GUC_LOCAL */
+				else			/* 必为 GUC_LOCAL */
 					restorePrior = true;
 			}
 			else if (prev == NULL ||
 					 prev->nest_level < stack->nest_level - 1)
 			{
-				/* decrement entry's level and do not pop it */
+				/* 递减表项的层级且不弹出它 */
 				stack->nest_level--;
 				continue;
 			}
 			else
 			{
 				/*
-				 * We have to merge this stack entry into prev. See README for
-				 * discussion of this bit.
+				 * 须把此栈表项合并进 prev。讨论参见
+				 * README 中的说明。
 				 */
 				switch (stack->state)
 				{
 					case GUC_SAVE:
-						Assert(false);	/* can't get here */
+						Assert(false);	/* 不会到此 */
 						break;
 
 					case GUC_SET:
-						/* next level always becomes SET */
+						/* 下一层级总是变为 SET */
 						discard_stack_value(gconf, &stack->prior);
 						if (prev->state == GUC_SET_LOCAL)
 							discard_stack_value(gconf, &prev->masked);
@@ -2302,7 +2302,7 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 					case GUC_LOCAL:
 						if (prev->state == GUC_SET)
 						{
-							/* LOCAL migrates down */
+							/* LOCAL 向下迁移 */
 							prev->masked_scontext = stack->scontext;
 							prev->masked_srole = stack->srole;
 							prev->masked = stack->prior;
@@ -2310,15 +2310,15 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 						}
 						else
 						{
-							/* else just forget this stack level */
+							/* 否则直接忘掉这一栈层级 */
 							discard_stack_value(gconf, &stack->prior);
 						}
 						break;
 
 					case GUC_SET_LOCAL:
-						/* prior state at this level no longer wanted */
+						/* 该层级上先前的状态不再需要 */
 						discard_stack_value(gconf, &stack->prior);
-						/* copy down the masked state */
+						/* 复制被遮蔽状态 */
 						prev->masked_scontext = stack->masked_scontext;
 						prev->masked_srole = stack->masked_srole;
 						if (prev->state == GUC_SET_LOCAL)
@@ -2333,7 +2333,7 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 
 			if (restorePrior || restoreMasked)
 			{
-				/* Perform appropriate restoration of the stacked value */
+				/* 对栈中的值执行适当的恢复 */
 				config_var_value newvalue;
 				GucSource	newsource;
 				GucContext	newscontext;
@@ -2428,10 +2428,10 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 							}
 
 							/*
-							 * Release stacked values if not used anymore. We
-							 * could use discard_stack_value() here, but since
-							 * we have type-specific code anyway, might as
-							 * well inline it.
+							 * 栈值若不再使用则释放。本可用
+							 * discard_stack_value(),但类型特定代
+							 * 码反正都要写,不如把它内联。
+							 *
 							 */
 							set_string_field(conf, &stack->prior.val.stringval, NULL);
 							set_string_field(conf, &stack->masked.val.stringval, NULL);
@@ -2458,44 +2458,44 @@ AtEOXact_GUC(bool isCommit, int nestLevel)
 				}
 
 				/*
-				 * Release stacked extra values if not used anymore.
+				 * 如果栈中的 extra 值不再使用则释放。
 				 */
 				set_extra_field(gconf, &(stack->prior.extra), NULL);
 				set_extra_field(gconf, &(stack->masked.extra), NULL);
 
-				/* And restore source information */
+				/* 并恢复来源信息 */
 				set_guc_source(gconf, newsource);
 				gconf->scontext = newscontext;
 				gconf->srole = newsrole;
 			}
 
 			/*
-			 * Pop the GUC's state stack; if it's now empty, remove the GUC
-			 * from guc_stack_list.
+			 * 弹出该 GUC 的状态栈;若为空,同时把它移出
+			 * guc_stack_list。
 			 */
 			gconf->stack = prev;
 			if (prev == NULL)
 				slist_delete_current(&iter);
 			pfree(stack);
 
-			/* Report new value if we changed it */
+			/* 如果更改了它则报告新值 */
 			if (changed && (gconf->flags & GUC_REPORT) &&
 				!(gconf->status & GUC_NEEDS_REPORT))
 			{
 				gconf->status |= GUC_NEEDS_REPORT;
 				slist_push_head(&guc_report_list, &gconf->report_link);
 			}
-		}						/* end of stack-popping loop */
+		}						/* 弹出栈循环结束 */
 	}
 
-	/* Update nesting level */
+	/* 更新嵌套层级 */
 	GUCNestLevel = nestLevel - 1;
 }
 
 
 /*
- * Start up automatic reporting of changes to variables marked GUC_REPORT.
- * This is executed at completion of backend startup.
+ * 启动对标记为 GUC_REPORT 的变量更改的自动报告。
+ * 本函数在后端启动完成时执行。
  */
 void
 BeginReportingGUCOptions(void)
@@ -2504,7 +2504,7 @@ BeginReportingGUCOptions(void)
 	GUCHashEntry *hentry;
 
 	/*
-	 * Don't do anything unless talking to an interactive frontend.
+	 * 除非在与交互式前端通信,否则什么也不做。
 	 */
 	if (whereToSendOutput != DestRemote)
 		return;
@@ -2512,18 +2512,18 @@ BeginReportingGUCOptions(void)
 	reporting_enabled = true;
 
 	/*
-	 * Hack for in_hot_standby: set the GUC value true if appropriate.  This
-	 * is kind of an ugly place to do it, but there's few better options.
+	 * 针对 in_hot_standby 的权宜做法:如合适则把 GUC 值设
+	 * 为 true。此处有点丑,但没有更好的选择了。
 	 *
-	 * (This could be out of date by the time we actually send it, in which
-	 * case the next ReportChangedGUCOptions call will send a duplicate
-	 * report.)
+	 * (等到我们实际发送它时,这个值可能已过时,那种情
+	 * 况下下一次 ReportChangedGUCOptions 调用会发送重复报
+	 * 告。)
 	 */
 	if (RecoveryInProgress())
 		SetConfigOption("in_hot_standby", "true",
 						PGC_INTERNAL, PGC_S_OVERRIDE);
 
-	/* Transmit initial values of interesting variables */
+	/* 发送相关变量的初始值 */
 	hash_seq_init(&status, guc_hashtab);
 	while ((hentry = (GUCHashEntry *) hash_seq_search(&status)) != NULL)
 	{
@@ -2535,38 +2535,38 @@ BeginReportingGUCOptions(void)
 }
 
 /*
- * ReportChangedGUCOptions: report recently-changed GUC_REPORT variables
+ * ReportChangedGUCOptions:报告近期更改的 GUC_REPORT 变量
  *
- * This is called just before we wait for a new client query.
+ * 本函数在我们等待新的客户查询之前调用。
  *
- * By handling things this way, we ensure that a ParameterStatus message
- * is sent at most once per variable per query, even if the variable
- * changed multiple times within the query.  That's quite possible when
- * using features such as function SET clauses.  Function SET clauses
- * also tend to cause values to change intraquery but eventually revert
- * to their prevailing values; ReportGUCOption is responsible for avoiding
- * redundant reports in such cases.
+ * 以这种方式处理,我们能确保 ParameterStatus 消息对每
+ * 个变量每次查询至多一次,即使该变量在查询内
+ * 改变多次的情形也完全可能,例如在使用函数 SET 子
+ * 句这类特性时。函数 SET 子句还容易导致值在查询
+ * 内改变但最终回归其主流值;ReportGUCOption 负责
+ * 避免此时的冗余报告。
+ *
  */
 void
 ReportChangedGUCOptions(void)
 {
 	slist_mutable_iter iter;
 
-	/* Quick exit if not (yet) enabled */
+	/* 若尚未启用则快速退出 */
 	if (!reporting_enabled)
 		return;
 
 	/*
-	 * Since in_hot_standby isn't actually changed by normal GUC actions, we
-	 * need a hack to check whether a new value needs to be reported to the
-	 * client.  For speed, we rely on the assumption that it can never
-	 * transition from false to true.
+	 * 由于 in_hot_standby 实际上不会因正常 GUC 动作而改
+	 * 变,我们需要用一个权宜手段来检查是否需要向客户
+	 * 端报告新值。为了速度,我们依赖这一假设:它
+	 * 绝不会由 false 变 true。
 	 */
 	if (in_hot_standby_guc && !RecoveryInProgress())
 		SetConfigOption("in_hot_standby", "false",
 						PGC_INTERNAL, PGC_S_OVERRIDE);
 
-	/* Transmit new values of interesting variables */
+	/* 发送相关变量的新值 */
 	slist_foreach_modify(iter, &guc_report_list)
 	{
 		struct config_generic *conf = slist_container(struct config_generic,
@@ -2580,10 +2580,10 @@ ReportChangedGUCOptions(void)
 }
 
 /*
- * ReportGUCOption: if appropriate, transmit option value to frontend
+ * ReportGUCOption:如合适,则向前端发送选项值
  *
- * We need not transmit the value if it's the same as what we last
- * transmitted.
+ * 如果该值与上次发送的值相同,则无需发送。
+ *
  */
 static void
 ReportGUCOption(struct config_generic *record)
@@ -2601,9 +2601,9 @@ ReportGUCOption(struct config_generic *record)
 		pq_endmessage(&msgbuf);
 
 		/*
-		 * We need a long-lifespan copy.  If guc_strdup() fails due to OOM,
-		 * we'll set last_reported to NULL and thereby possibly make a
-		 * duplicate report later.
+		 * 需要长寿命副本。若 guc_strdup() 因 OOM 而失败,
+		 * 我们会把 last_reported 设为 NULL,从而可能稍后
+		 * 作出重复报告。
 		 */
 		guc_free(record->last_reported);
 		record->last_reported = guc_strdup(LOG, val);
@@ -2613,14 +2613,14 @@ ReportGUCOption(struct config_generic *record)
 }
 
 /*
- * Convert a value from one of the human-friendly units ("kB", "min" etc.)
- * to the given base unit.  'value' and 'unit' are the input value and unit
- * to convert from (there can be trailing spaces in the unit string).
- * The converted value is stored in *base_value.
- * It's caller's responsibility to round off the converted value as necessary
- * and check for out-of-range.
+ * 把值从一种人类友好单位("kB"、"min" 等)换算为
+ * 给定的基础单位。value 与 unit 是输入的值与单位
+ * (单位字符串中可以有尾随空格)。结果
+ * 存入 *base_value。
+ * 调用者负责按需将转换后的值取整,并检查是
+ * 否越界。
  *
- * Returns true on success, false if the input unit is not recognized.
+ * 成功时返回 true,输入单位无法识别时返回 false。
  */
 static bool
 convert_to_base_unit(double value, const char *unit,
@@ -2631,19 +2631,19 @@ convert_to_base_unit(double value, const char *unit,
 	const unit_conversion *table;
 	int			i;
 
-	/* extract unit string to compare to table entries */
+	/* 抽出单位字符串以与表项比较 */
 	unitlen = 0;
 	while (*unit != '\0' && !isspace((unsigned char) *unit) &&
 		   unitlen < MAX_UNIT_LEN)
 		unitstr[unitlen++] = *(unit++);
 	unitstr[unitlen] = '\0';
-	/* allow whitespace after unit */
+	/* 允许单位后有空白 */
 	while (isspace((unsigned char) *unit))
 		unit++;
 	if (*unit != '\0')
-		return false;			/* unit too long, or garbage after it */
+		return false;			/* 单位过长或其后有垃圾 */
 
-	/* now search the appropriate table */
+	/* 现在搜索相应的表 */
 	if (base_unit & GUC_UNIT_MEMORY)
 		table = memory_unit_conversion_table;
 	else
@@ -2657,9 +2657,9 @@ convert_to_base_unit(double value, const char *unit,
 			double		cvalue = value * table[i].multiplier;
 
 			/*
-			 * If the user gave a fractional value such as "30.1GB", round it
-			 * off to the nearest multiple of the next smaller unit, if there
-			 * is one.
+			 * 若用户给出 "30.1GB" 这类小数值,则把它舍入为
+			 * 下一更小单位的最近倍数(如果存在的话)。
+			 *
 			 */
 			if (*table[i + 1].unit &&
 				base_unit == table[i + 1].base_unit)
@@ -2674,11 +2674,11 @@ convert_to_base_unit(double value, const char *unit,
 }
 
 /*
- * Convert an integer value in some base unit to a human-friendly unit.
+ * 把某基础单位的整数值换算为人类友好单位。
  *
- * The output unit is chosen so that it's the greatest unit that can represent
- * the value without loss.  For example, if the base unit is GUC_UNIT_KB, 1024
- * is converted to 1 MB, but 1025 is represented as 1025 kB.
+ * 输出单位的选择标准是:它是能无损表示该值的最大
+ * 单位。例如,若基础单位为 GUC_UNIT_KB,则 1024 会
+ * 被换算为 1 MB,而 1025 表示为 1025 kB。
  */
 static void
 convert_int_from_base_unit(int64 base_value, int base_unit,
@@ -2699,9 +2699,9 @@ convert_int_from_base_unit(int64 base_value, int base_unit,
 		if (base_unit == table[i].base_unit)
 		{
 			/*
-			 * Accept the first conversion that divides the value evenly.  We
-			 * assume that the conversions for each base unit are ordered from
-			 * greatest unit to the smallest!
+			 * 接受第一个整除该值的换算。假定每个基础单
+			 * 位的换算是按从最大单位到最小单位排序的!
+			 *
 			 */
 			if (table[i].multiplier <= 1.0 ||
 				base_value % (int64) table[i].multiplier == 0)
@@ -2717,10 +2717,10 @@ convert_int_from_base_unit(int64 base_value, int base_unit,
 }
 
 /*
- * Convert a floating-point value in some base unit to a human-friendly unit.
+ * 把某基础单位的浮点值换算为人类友好单位。
  *
- * Same as above, except we have to do the math a bit differently, and
- * there's a possibility that we don't find any exact divisor.
+ * 与上面相同,但计算方式稍异,且可能找不到任何
+ * 精确的除数。
  */
 static void
 convert_real_from_base_unit(double base_value, int base_unit,
@@ -2741,14 +2741,14 @@ convert_real_from_base_unit(double base_value, int base_unit,
 		if (base_unit == table[i].base_unit)
 		{
 			/*
-			 * Accept the first conversion that divides the value evenly; or
-			 * if there is none, use the smallest (last) target unit.
+			 * 接受第一个整除该值的换算;若无,则用最小
+			 * (最后)一个目标单位。
 			 *
-			 * What we actually care about here is whether snprintf with "%g"
-			 * will print the value as an integer, so the obvious test of
-			 * "*value == rint(*value)" is too strict; roundoff error might
-			 * make us choose an unreasonably small unit.  As a compromise,
-			 * accept a divisor that is within 1e-8 of producing an integer.
+			 * 真正关心的是用 "%g" 的 snprintf 是否会把值
+			 * 打印成整数,所以 "*value == rint(*value)" 这一直
+			 * 观测试过严;舍入误差可能使我们选小得
+			 * 离谱的小单位。折衷方案:接受相差在
+			 * 1e-8 以内的除数。
 			 */
 			*value = base_value / table[i].multiplier;
 			*unit = table[i].unit;
@@ -2762,8 +2762,8 @@ convert_real_from_base_unit(double base_value, int base_unit,
 }
 
 /*
- * Return the name of a GUC's base unit (e.g. "ms") given its flags.
- * Return NULL if the GUC is unitless.
+ * 根据给定标志返回 GUC 基础单位的名称(如 "ms")。
+ * 若 GUC 无单位则返回 NULL。
  */
 const char *
 get_config_unit_name(int flags)
@@ -2771,7 +2771,7 @@ get_config_unit_name(int flags)
 	switch (flags & GUC_UNIT)
 	{
 		case 0:
-			return NULL;		/* GUC has no units */
+			return NULL;		/* GUC 无单位 */
 		case GUC_UNIT_BYTE:
 			return "B";
 		case GUC_UNIT_KB:
@@ -2782,7 +2782,7 @@ get_config_unit_name(int flags)
 			{
 				static char bbuf[8];
 
-				/* initialize if first time through */
+				/* 首次经过时初始化 */
 				if (bbuf[0] == '\0')
 					snprintf(bbuf, sizeof(bbuf), "%dkB", BLCKSZ / 1024);
 				return bbuf;
@@ -2791,7 +2791,7 @@ get_config_unit_name(int flags)
 			{
 				static char xbuf[8];
 
-				/* initialize if first time through */
+				/* 首次经过时初始化 */
 				if (xbuf[0] == '\0')
 					snprintf(xbuf, sizeof(xbuf), "%dkB", XLOG_BLCKSZ / 1024);
 				return xbuf;
@@ -2811,39 +2811,39 @@ get_config_unit_name(int flags)
 
 
 /*
- * Try to parse value as an integer.  The accepted formats are the
- * usual decimal, octal, or hexadecimal formats, as well as floating-point
- * formats (which will be rounded to integer after any units conversion).
- * Optionally, the value can be followed by a unit name if "flags" indicates
- * a unit is allowed.
+ * 尝试把 value 解析为整数。可接受格式有常见
+ * 十进制、八进制或十六进制格式,以及浮点数格式(它
+ * 会在单位换算后被取整为整数)。可选地,如果
+ * 可选地,若 "flags" 表明允许单位,值后可跟单位名。
  *
- * If the string parses okay, return true, else false.
- * If okay and result is not NULL, return the value in *result.
- * If not okay and hintmsg is not NULL, *hintmsg is set to a suitable
- * HINT message, or NULL if no hint provided.
+ *
+ * 解析正常则返回 true,否则 false。
+ * 如果正常且 result 非 NULL,则把值存入 *result。
+ * 如果不正常且 hintmsg 非 NULL,则把 *hintmsg 设为
+ * 合适的 HINT 消息或 NULL。
  */
 bool
 parse_int(const char *value, int *result, int flags, const char **hintmsg)
 {
 	/*
-	 * We assume here that double is wide enough to represent any integer
-	 * value with adequate precision.
+	 * 我们在此假定 double 足够宽,能以足够的精度表示
+	 * 任何整数值。
 	 */
 	double		val;
 	char	   *endptr;
 
-	/* To suppress compiler warnings, always set output params */
+	/* 为避免编译器警告,总是设置输出参数 */
 	if (result)
 		*result = 0;
 	if (hintmsg)
 		*hintmsg = NULL;
 
 	/*
-	 * Try to parse as an integer (allowing octal or hex input).  If the
-	 * conversion stops at a decimal point or 'e', or overflows, re-parse as
-	 * float.  This should work fine as long as we have no unit names starting
-	 * with 'e'.  If we ever do, the test could be extended to check for a
-	 * sign or digit after 'e', but for now that's unnecessary.
+	 * 尝试按整数解析(允许八进制或十六进制输入)。如
+	 * 果换算在小数点或 'e' 处停止或溢出,则重新按浮点
+	 * 数解析。只要没有以 'e' 开头的单位名,这就应当
+	 * 该没有问题。如果将来有了,可以把测试扩展为检查
+	 * 'e' 之后的正负号或数字,但目前没必要。
 	 */
 	errno = 0;
 	val = strtol(value, &endptr, 0);
@@ -2855,27 +2855,27 @@ parse_int(const char *value, int *result, int flags, const char **hintmsg)
 	}
 
 	if (endptr == value || errno == ERANGE)
-		return false;			/* no HINT for these cases */
+		return false;			/* 这些情形不给 HINT */
 
-	/* reject NaN (infinities will fail range check below) */
+	/* 拒绝 NaN(无穷将过不了范围检查) */
 	if (isnan(val))
-		return false;			/* treat same as syntax error; no HINT */
+		return false;			/* 视同语法错误;无 HINT */
 
-	/* allow whitespace between number and unit */
+	/* 允许数字与单位之间有空白 */
 	while (isspace((unsigned char) *endptr))
 		endptr++;
 
-	/* Handle possible unit */
+	/* 可能处理单位 */
 	if (*endptr != '\0')
 	{
 		if ((flags & GUC_UNIT) == 0)
-			return false;		/* this setting does not accept a unit */
+			return false;		/* 该设置不接受单位 */
 
 		if (!convert_to_base_unit(val,
 								  endptr, (flags & GUC_UNIT),
 								  &val))
 		{
-			/* invalid unit, or garbage after the unit; set hint and fail. */
+			/* 无效单位或单位后有垃圾;设置提示并失败。 */
 			if (hintmsg)
 			{
 				if (flags & GUC_UNIT_MEMORY)
@@ -2887,7 +2887,7 @@ parse_int(const char *value, int *result, int flags, const char **hintmsg)
 		}
 	}
 
-	/* Round to int, then check for overflow */
+	/* 先取整为整数,再检查溢出 */
 	val = rint(val);
 
 	if (val > INT_MAX || val < INT_MIN)
@@ -2903,14 +2903,14 @@ parse_int(const char *value, int *result, int flags, const char **hintmsg)
 }
 
 /*
- * Try to parse value as a floating point number in the usual format.
- * Optionally, the value can be followed by a unit name if "flags" indicates
- * a unit is allowed.
+ * 尝试按常规格式把 value 解析为浮点数。
+ * 可选地,若 "flags" 表明允许单位,值后可跟单位名。
  *
- * If the string parses okay, return true, else false.
- * If okay and result is not NULL, return the value in *result.
- * If not okay and hintmsg is not NULL, *hintmsg is set to a suitable
- * HINT message, or NULL if no hint provided.
+ *
+ * 解析正常则返回 true,否则 false。
+ * 如果正常且 result 非 NULL,则把值存入 *result。
+ * 如果不正常且 hintmsg 非 NULL,则把 *hintmsg 设为
+ * 合适的 HINT 消息或 NULL。
  */
 bool
 parse_real(const char *value, double *result, int flags, const char **hintmsg)
@@ -2918,7 +2918,7 @@ parse_real(const char *value, double *result, int flags, const char **hintmsg)
 	double		val;
 	char	   *endptr;
 
-	/* To suppress compiler warnings, always set output params */
+	/* 为避免编译器警告,总是设置输出参数 */
 	if (result)
 		*result = 0;
 	if (hintmsg)
@@ -2928,27 +2928,27 @@ parse_real(const char *value, double *result, int flags, const char **hintmsg)
 	val = strtod(value, &endptr);
 
 	if (endptr == value || errno == ERANGE)
-		return false;			/* no HINT for these cases */
+		return false;			/* 这些情形不给 HINT */
 
-	/* reject NaN (infinities will fail range checks later) */
+	/* 拒绝 NaN(无穷稍后过不了范围检查) */
 	if (isnan(val))
-		return false;			/* treat same as syntax error; no HINT */
+		return false;			/* 视同语法错误;无 HINT */
 
-	/* allow whitespace between number and unit */
+	/* 允许数字与单位之间有空白 */
 	while (isspace((unsigned char) *endptr))
 		endptr++;
 
-	/* Handle possible unit */
+	/* 可能处理单位 */
 	if (*endptr != '\0')
 	{
 		if ((flags & GUC_UNIT) == 0)
-			return false;		/* this setting does not accept a unit */
+			return false;		/* 该设置不接受单位 */
 
 		if (!convert_to_base_unit(val,
 								  endptr, (flags & GUC_UNIT),
 								  &val))
 		{
-			/* invalid unit, or garbage after the unit; set hint and fail. */
+			/* 无效单位或单位后有垃圾;设置提示并失败。 */
 			if (hintmsg)
 			{
 				if (flags & GUC_UNIT_MEMORY)
@@ -2967,12 +2967,12 @@ parse_real(const char *value, double *result, int flags, const char **hintmsg)
 
 
 /*
- * Lookup the name for an enum option with the selected value.
- * Should only ever be called with known-valid values, so throws
- * an elog(ERROR) if the enum option is not found.
+ * 按给定值查找枚举选项的名称。
+ * 只应以已知有效值调用,找不到枚举选项即抛
+ * 出 elog(ERROR)。
  *
- * The returned string is a pointer to static data and not
- * allocated for modification.
+ * 返回的字符串指向静态数据,且并非为修改
+ * 而分配的。
  */
 const char *
 config_enum_lookup_by_value(struct config_enum *record, int val)
@@ -2987,15 +2987,15 @@ config_enum_lookup_by_value(struct config_enum *record, int val)
 
 	elog(ERROR, "could not find enum option %d for %s",
 		 val, record->gen.name);
-	return NULL;				/* silence compiler */
+	return NULL;				/* 哄编译器 */
 }
 
 
 /*
- * Lookup the value for an enum option with the selected name
- * (case-insensitive).
- * If the enum option is found, sets the retval value and returns
- * true. If it's not found, return false and retval is set to 0.
+ * 按名称查找枚举选项值(不分大小写)。
+ *
+ * 如果找到了枚举选项,则设置 retval 值并返回
+ * true;没找到则返回 false,retval 被设 0。
  */
 bool
 config_enum_lookup_by_name(struct config_enum *record, const char *value,
@@ -3018,10 +3018,10 @@ config_enum_lookup_by_name(struct config_enum *record, const char *value,
 
 
 /*
- * Return a palloc'd string listing all the available options for an enum GUC
- * (excluding hidden ones), separated by the given separator.
- * If prefix is non-NULL, it is added before the first enum value.
- * If suffix is non-NULL, it is added to the end of the string.
+ * 返回一个 palloc'd 字符串,列出某枚举 GUC 所有可用
+ * 选项(不包括隐藏的),以给定分隔符隔开。
+ * 若 prefix 非 NULL,则加在第一个枚举值之前。
+ * 如果 suffix 非 NULL,则把它加到字符串末尾。
  */
 char *
 config_enum_get_options(struct config_enum *record, const char *prefix,
@@ -3045,15 +3045,15 @@ config_enum_get_options(struct config_enum *record, const char *prefix,
 	}
 
 	/*
-	 * All the entries may have been hidden, leaving the string empty if no
-	 * prefix was given. This indicates a broken GUC setup, since there is no
-	 * use for an enum without any values, so we just check to make sure we
-	 * don't write to invalid memory instead of actually trying to do
-	 * something smart with it.
+	 * 可能所有表项都被隐藏了;若未给出 prefix,字符串
+	 * 会是空的。这表明 GUC 设置已损坏,因为没有任何值
+	 * 的枚举毫无用处,所以我们只检查确保不会写入无效
+	 * 内存,而不是真的试图对它做什么聪明处理。
+	 *
 	 */
 	if (retstr.len >= seplen)
 	{
-		/* Replace final separator */
+		/* 替换末尾分隔符 */
 		retstr.data[retstr.len - seplen] = '\0';
 		retstr.len -= seplen;
 	}
@@ -3064,22 +3064,22 @@ config_enum_get_options(struct config_enum *record, const char *prefix,
 }
 
 /*
- * Parse and validate a proposed value for the specified configuration
- * parameter.
+ * 解析并校验指定配置参数的拟定值。
  *
- * This does built-in checks (such as range limits for an integer parameter)
- * and also calls any check hook the parameter may have.
  *
- * record: GUC variable's info record
- * name: variable name (should match the record of course)
- * value: proposed value, as a string
- * source: identifies source of value (check hooks may need this)
- * elevel: level to log any error reports at
- * newval: on success, converted parameter value is returned here
- * newextra: on success, receives any "extra" data returned by check hook
- *	(caller must initialize *newextra to NULL)
+ * 它执行内建检查(例如整数参数的范围限制),并且还
+ * 会调用该参数可能有的任何检查钩子。
  *
- * Returns true if OK, false if not (or throws error, if elevel >= ERROR)
+ * record:GUC 变量的信息记录
+ * name:变量名(当然应当与记录匹配)
+ * value:拟定值(字符串形式)
+ * source:标识值的来源(检查钩子可能需要它)
+ * elevel:记录错误报告所用级别
+ * newval:成功时,转换后的参数值在此返回
+ * newextra:成功时,接收检查钩子返回的 "extra" 数据
+ *	(调用方须先把 *newextra 置 NULL)
+ *
+ * 成功返回 true,否则 false(elevel >= ERROR 时抛错)
  */
 static bool
 parse_and_validate_value(struct config_generic *record,
@@ -3184,16 +3184,16 @@ parse_and_validate_value(struct config_generic *record,
 				struct config_string *conf = (struct config_string *) record;
 
 				/*
-				 * The value passed by the caller could be transient, so we
-				 * always strdup it.
+				 * 调用者传入的值可能是暂态的,故我们总是
+				 * strdup 它。
 				 */
 				newval->stringval = guc_strdup(elevel, value);
 				if (newval->stringval == NULL)
 					return false;
 
 				/*
-				 * The only built-in "parsing" check we have is to apply
-				 * truncation if GUC_IS_NAME.
+				 * 仅有的内建"解析"检查:若设 GUC_IS_NAME,
+				 * 则应用截断。
 				 */
 				if (conf->gen.flags & GUC_IS_NAME)
 					truncate_identifier(newval->stringval,
@@ -3244,45 +3244,45 @@ parse_and_validate_value(struct config_generic *record,
 
 
 /*
- * set_config_option: sets option `name' to given value.
+ * set_config_option:设选项 `name' 为给定值。
  *
- * The value should be a string, which will be parsed and converted to
- * the appropriate data type.  The context and source parameters indicate
- * in which context this function is being called, so that it can apply the
- * access restrictions properly.
+ * 该值应为字符串,将被解析转换成相应数据类型。
+ * context 与 source 参数指明本函数被调用时所处的
+ * 上下文,以便它能正确地应用访问限制。
  *
- * If value is NULL, set the option to its default value (normally the
- * reset_val, but if source == PGC_S_DEFAULT we instead use the boot_val).
  *
- * action indicates whether to set the value globally in the session, locally
- * to the current top transaction, or just for the duration of a function call.
+ * 如果 value 为 NULL,则把选项设为其默认值(通常是
+ * reset_val,但若 source == PGC_S_DEFAULT 则改用 boot_val)。
  *
- * If changeVal is false then don't really set the option but do all
- * the checks to see if it would work.
+ * action 指示是把值设置为本会话全局,当前顶层事务局
+ * 部,还是仅在函数调用期间有效。
  *
- * elevel should normally be passed as zero, allowing this function to make
- * its standard choice of ereport level.  However some callers need to be
- * able to override that choice; they should pass the ereport level to use.
+ * 如果 changeVal 为 false,则并不真正设置选项,而是
+ * 执行检查看它能否生效。
  *
- * is_reload should be true only when called from read_nondefault_variables()
- * or RestoreGUCState(), where we are trying to load some other process's
- * GUC settings into a new process.
+ * elevel 通常应传 0,让本函数自行选择标准 ereport 级
+ * 别。不过某些调用者需要能够改写这一选择;它们应
+ * 传入要使用的 ereport 级别。
  *
- * Return value:
- *	+1: the value is valid and was successfully applied.
- *	0:	the name or value is invalid, or it's invalid to try to set
- *		this GUC now; but elevel was less than ERROR (see below).
- *	-1: no error detected, but the value was not applied, either
- *		because changeVal is false or there is some overriding setting.
+ * is_reload 仅当从 read_nondefault_variables() 或
+ * RestoreGUCState() 调用时才应为 true;此时正把其
+ * GUC 设置载入新进程。
  *
- * If there is an error (non-existing option, invalid value, etc) then an
- * ereport(ERROR) is thrown *unless* this is called for a source for which
- * we don't want an ERROR (currently, those are defaults, the config file,
- * and per-database or per-user settings, as well as callers who specify
- * a less-than-ERROR elevel).  In those cases we write a suitable error
- * message via ereport() and return 0.
+ * 返回值:
+ *	+1:该值有效且已被成功应用。
+ *	0:	名字或值无效,或此时尝试设置该 GUC 无效;
+ *		但 elevel 低于 ERROR(见下文)。
+ *	-1:未检测到错误,但值未被应用,原因是
+ *		changeVal 为 false,或者存在某个优先设置。
  *
- * See also SetConfigOption for an external interface.
+ * 如果有错误(选项不存在、值无效等),则会抛出
+ * ereport(ERROR),*除非*调用来源属于我们不想要
+ * ERROR 的来源(当前即默认值、配置文件以及按数据库
+ * 或按用户的设置,还有指定低于 ERROR 的 elevel 的调
+ * 用方)。在这些情况下,我们会通过 ereport() 写出合
+ * 适的错误消息并返回 0。
+ *
+ * 另请参见 SetConfigOption 这一外部接口。
  */
 int
 set_config_option(const char *name, const char *value,
@@ -3293,10 +3293,10 @@ set_config_option(const char *name, const char *value,
 	Oid			srole;
 
 	/*
-	 * Non-interactive sources should be treated as having all privileges,
-	 * except for PGC_S_CLIENT.  Note in particular that this is true for
-	 * pg_db_role_setting sources (PGC_S_GLOBAL etc): we assume a suitable
-	 * privilege check was done when the pg_db_role_setting entry was made.
+	 * 非交互式来源应被视为拥有一切权限,但 PGC_S_CLIENT
+	 * 除外。特别地,pg_db_role_setting 来源(PGC_S_GLOBAL
+	 * 等)亦然:假定创建 pg_db_role_setting 条目时已经
+	 * 做过合适的权限检查。
 	 */
 	if (source >= PGC_S_INTERACTIVE || source == PGC_S_CLIENT)
 		srole = GetUserId();
@@ -3310,19 +3310,19 @@ set_config_option(const char *name, const char *value,
 }
 
 /*
- * set_config_option_ext: sets option `name' to given value.
+ * set_config_option_ext:把选项 `name' 设为给定值。
  *
- * This API adds the ability to explicitly specify which role OID
- * is considered to be setting the value.  Most external callers can use
- * set_config_option() and let it determine that based on the GucSource,
- * but there are a few that are supplying a value that was determined
- * in some special way and need to override the decision.  Also, when
- * restoring a previously-assigned value, it's important to supply the
- * same role OID that set the value originally; so all guc.c callers
- * that are doing that type of thing need to call this directly.
+ * 本 API 可显式指定由哪个角色 OID 来设置该值。
+ * 大多数外部调用者可以使用 set_config_option() 并让它
+ * 根据 GucSource 自行判定;但有少数调用者提供的值
+ * 以特殊方式确定,需要改写该判定。
+ * 此外,在恢复先前赋的值时,提供最初设置该
+ * 值的同一角色 OID 很重要;因此所有 guc.c 调用方
+ * 都需要直接调用本函数。
  *
- * Generally, srole should be GetUserId() when the source is a SQL operation,
- * or BOOTSTRAP_SUPERUSERID if the source is a config file or similar.
+ *
+ * 一般而言,当来源是 SQL 操作时 srole 应为 GetUserId(),
+ * 而当来源是配置文件等时则为 BOOTSTRAP_SUPERUSERID。
  */
 int
 set_config_option_ext(const char *name, const char *value,
@@ -3341,8 +3341,8 @@ set_config_option_ext(const char *name, const char *value,
 		if (source == PGC_S_DEFAULT || source == PGC_S_FILE)
 		{
 			/*
-			 * To avoid cluttering the log, only the postmaster bleats loudly
-			 * about problems with the config file.
+			 * 为免日志被刷屏,只有 postmaster 会大声抱怨
+			 * 配置文件的问题。
 			 */
 			elevel = IsUnderPostmaster ? DEBUG3 : LOG;
 		}
@@ -3360,15 +3360,15 @@ set_config_option_ext(const char *name, const char *value,
 		return 0;
 
 	/*
-	 * GUC_ACTION_SAVE changes are acceptable during a parallel operation,
-	 * because the current worker will also pop the change.  We're probably
-	 * dealing with a function having a proconfig entry.  Only the function's
-	 * body should observe the change, and peer workers do not share in the
-	 * execution of a function call started by this worker.
+	 * 在并行操作期间,GUC_ACTION_SAVE 更改是可以接受的,
+	 * 因为当前 worker 也会弹出该更改。我们处理的很可能
+	 * 是带有 proconfig 条目的函数。只有该函数的函数体应
+	 * 观察到该更改,而且同侪 worker 不参与本 worker 启动
+	 * 的函数调用的执行。
 	 *
-	 * Also allow normal setting if the GUC is marked GUC_ALLOW_IN_PARALLEL.
+	 * 如果 GUC 标记了 GUC_ALLOW_IN_PARALLEL,也允许正常设置。
 	 *
-	 * Other changes might need to affect other workers, so forbid them.
+	 * 其他更改可能需要影响其他 worker,因此予以禁止。
 	 */
 	if (IsInParallelMode() && changeVal && action != GUC_ACTION_SAVE &&
 		(record->flags & GUC_ALLOW_IN_PARALLEL) == 0)
@@ -3381,8 +3381,8 @@ set_config_option_ext(const char *name, const char *value,
 	}
 
 	/*
-	 * Check if the option can be set at this time. See guc.h for the precise
-	 * rules.
+	 * 检查该选项此时能否设置。精确规则参见 guc.h。
+	 *
 	 */
 	switch (record->context)
 	{

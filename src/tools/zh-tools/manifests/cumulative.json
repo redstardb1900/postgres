@@ -6566,6 +6566,16 @@
    "pattern": "src/backend/utils/misc/guc_tables.c",
    "kind": "c_comment",
    "note": "guc_tables.c whole-file translation (batch-0385); 109/185 lines (106 translated + 3 emptied + 76 EN kept: header 5 + enum-marker labels 70 + XXX? 1)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0386-misc-guc-part1.json",
+   "kind": "manifest",
+   "note": "batch-0386 manifest (guc.c whole-file part 1/2)"
+  },
+  {
+   "pattern": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation part 1 (L1-3401), batch-0386; L3402+ reserved for batch-0387"
   }
  ],
  "files": [
@@ -21367,6 +21377,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "guc_tables.c whole-file translation (batch-0385); 109/185 lines (106 translated + 3 emptied + 76 EN kept: header 5 + enum-marker labels 70 + XXX? 1)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0386-misc-guc-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0386 manifest (guc.c whole-file part 1/2, L1-3401)"
+  },
+  {
+   "path": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "guc.c whole-file translation part 1/2 (batch-0386, partial-file batch); L1-3401: 253 blocks (252 translated + 1 preserved), 602/615 lines rewritten + 13 EN kept; L3402+ reserved for batch-0387"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

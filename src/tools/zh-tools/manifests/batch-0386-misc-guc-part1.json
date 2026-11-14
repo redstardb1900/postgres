@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0386",
+ "title": "misc guc.c whole-file comment translation part 1/2 (L1-3401; 253 blocks: 252 translated + 1 preserved; 602/615 content lines rewritten, 13 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "55f8cb2c268addd48a122c69f6ffeda43c8c5d31",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation part 1 (L1-3401 of 6839), batch-0386; remaining L3402+ reserved for batch-0387"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0386-misc-guc-part1.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0386 manifest path and guc.c entry (partial-file batch part 1/2)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 253,
+   "translated": 252,
+   "preserved": 1,
+   "preserved_reasons": [
+    "preserved block @103 (single line L103 '/* GUC_UNIT_XXX */'): pure identifier label matching the field's constant name - guc_tables 0385 enum-marker precedent",
+    "partial-file batch: scope = 253 comment-aware blocks wholly starting before L3400 (last owned block L3383-3401); L3402+ untouched, reserved for batch-0387",
+    "13 EN-kept content lines inside translated blocks: header rule 5 (L2 filename, L17 Copyright, L18 Written-by author line, L20 IDENTIFICATION, L21 path) + L23 banner separator (naive-dump content misclassification, border line) + L102 '\"min\" */' trailing-comment continuation (region budget 11B, meaning carried by L101) + L103 identifier label + L1092-1095 naive-dump pseudo-content (real code lines else/return false;/}/if (name_start) glued into block @1091) + L2098 push_old_value function-name heading"
+   ],
+   "note": "comment-aware universe rescan of L1-3401 = 253 blocks / 615 content lines (matches naive dump exactly; no pseudo-block inflation this file); coverage asserted LINEKEY(602) + KEPT(13) == universe(615): 602 rewritten (578 zh-translated + 24 emptied to bare ' *'; EN tails genuinely absorbed total 40 = 19 bare-frame conversions + 21 deletion-and-merge into the neighbouring line) + 13 EN kept. Line counts conserved 6839/6839; frame terminators intact (verify_c_comments splices=0, trigraphs 0/0, code bytes zero-diff). Same-EN same-zh groups byte-identical: x2 groups L294=L311 (语法错误), L149=L177 (表尾标记), L728=L789 (执行赋值), L731=L792 (释放旧值), L651=L690 (malloc GUC 数据), L1079=L1096 (名字为空), L2785=L2794 (首次经过时初始化), L2835=L2921 (编译器警告), L2820=L2910/L2821=L2911/L2822=L2912/L2823=L2913 (解析契约四行), L2858=L2931 (不给 HINT), L2862=L2935 (视同语法错误), L2864=L2937 (数字与单位间空白), L2868=L2941 (可能处理单位), L2872=L2945 (不接受单位), L2878=L2951 (无效单位); EN-differing pair L2860 (range check below) vs L2933 (range checks later) deliberately rendered differently. Tail-period ledger full rescan: 1 violation found and fixed in-batch (L3082 spurious 。 dropped - EN '...elevel >= ERROR)' has no final period); no budget-forced MISS. W7_IDENT_LOST advisories remaining (6, all budget-forced, disclosed): L294/L311 'error', L399 'occurrence(s)', L475 'set_config_option' (33B line budget forbids the 16B name; rendered 设置无法被覆盖), L502 'PGC_INTERNAL' (qualifier dropped; PGC_S_DYNAMIC_DEFAULT/PGC_S_ENV_VAR names kept slash-joined), L658 'repalloc' contrast dropped. L3402+ zero-change self-proved: last diff hunk ends L3384. Gates: verify rc=0 (0 violations; misc-scope W7_UNTRANSLATED 65 = 44 guc.c L3402+ expected part-2 remainder + 21 pre-existing guc_tables.c/ps_status.c leftovers from 0383/0385 partial-file batches); term_lint guc.c 0 hits (tree-wide rc=1 = 1 pre-existing postinit.c TL01 error + pre-existing warnings, unchanged by this batch); scan_halfen guc.c 0 findings (tree-wide 59 pre-existing in postinit.c/elog.c/dfmgr.c/ps_status.c etc., none in guc.c; Written-by header line needs no exemption - pure-EN line). In-batch fix rounds: P04 block-502 无法维护->不可维护 (must-not segment forbids 无法); L1475 要求->需要 (TL08/P23); L1493 还不能->还无法 (P02); L3296/3299 特权->权限 (P52 privilege); L508 绝对不能->绝不能 (P04 zh_required alignment); identifier restores GUCs x5 (L198/L212/1391/1975/2230), is_reload (L3267-3269). Seam self-review round fixed: L686 dangling 我们, L1132/1133 都为皆为, L1390/1391 C-GUCs duplication, L1329 sentence split across frame line, L2473/2474 missing verb, L2286 讨论-讨论, L2907 missing 可选地, L3274 duplicated 该GUC, L3318-3322 sentence split across frame line. Review round (coordinator FAIL D1/D2 + D3/N1-N3 all cleared, N4 untouched): D1 L658 repalloc contrast restored (coordinator's 73B string over budget; budget-fit variant 类似 realloc(3);repalloc() 不然,允许 old==NULL。 63/71); D2 L476-477 set_config_option subject restored (66+32 vs 71+33); D3 L3319 modal 须 dropped; N2 six tight trail comments re-spaced /* xx */ form (L882/2272/2291/2774/2990 full form; L2291 4-char 不会到此 for 21B seg budget; L203 half-form /* 哈希键*/ only - full form 15B > 14B seg budget, +1 infeasible); N3 L2817=L2907 unified byte-identical 可选地,若 \"flags\" 表明允许单位,值后可跟单位名。; N1 L1837 fully-spaced * 不必。 = 13B > 12B old line (\t * have to.), -1 infeasible, kept *不必。 (12B) - exact byte math disclosed. Post-fix gates: verify rc=0 (/tmp/v0386b.json; guc.c W7_IDENT_LOST 6->4: 658/475 restored), term_lint guc.c 0 hits, halfen guc.c 0, tail-period rescan added-missing=0 extra=0, per-line budget re-assert 13/13 OK, lines 6839 conserved, last hunk L3385, skeleton equal (code zero-diff), check_scope incremental PASS rc=0."
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0386-misc-guc-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0386 manifest path and guc.c entry (partial-file batch part 1/2)"
+  }
+ ]
+}

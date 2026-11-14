@@ -1,14 +1,14 @@
 /*--------------------------------------------------------------------
  * ps_status.c
  *
- * Routines to support changing the ps display of PostgreSQL backends
- * to contain some useful information. Mechanism differs wildly across
- * platforms.
+ * 支持修改 PostgreSQL 后端进程的 ps 显示，
+ * 使其包含一些有用信息。机制因平台
+ * 各异。
  *
  * src/backend/utils/misc/ps_status.c
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
- * various details abducted from various places
+ * 多处细节采自多个地方
  *--------------------------------------------------------------------
  */
 

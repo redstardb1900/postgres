@@ -1,0 +1,96 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0383-review-fix",
+ "title": "misc 3 files user-review fix: translate remaining header description lines (6 lines: sampling L4, ps_status L4-L6+L11, timeout L4; 0382 eight-file header precedent)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d26074f466d54bdae7a9ff9576023f55575ad94d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0383-review-fix.json",
+   "kind": "manifest",
+   "note": "this fixup manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "pattern": "src/backend/utils/misc/sampling.c",
+   "kind": "c_comment",
+   "note": "user-review round: header description lines translated (batch-0383-review-fix); L4"
+  },
+  {
+   "pattern": "src/backend/utils/misc/ps_status.c",
+   "kind": "c_comment",
+   "note": "user-review round: header description lines translated (batch-0383-review-fix); L4-L6, L11"
+  },
+  {
+   "pattern": "src/backend/utils/misc/timeout.c",
+   "kind": "c_comment",
+   "note": "user-review round: header description lines translated (batch-0383-review-fix); L4"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0383-review-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this fixup manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  },
+  {
+   "path": "src/backend/utils/misc/sampling.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 83,
+   "translated": 76,
+   "preserved": 3,
+   "preserved_reasons": [
+    "block L1-15 header: 5 non-translatable lines kept EN (L3 filename, L6/L7 Portions Copyright, L10 IDENTIFICATION label, L11 path line)"
+   ],
+   "note": "user-review round: header description L4 translated ('Relation block sampling routines.' -> 关系块采样例程。, budget 33B/24B); header EN-kept 8->7, translated 75->76"
+  },
+  {
+   "path": "src/backend/utils/misc/ps_status.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 134,
+   "translated": 108,
+   "preserved": 10,
+   "preserved_reasons": [
+    "block L1-13 header: 4 non-translatable lines kept EN (L2 filename, L8 path line, L10 Copyright line, plus blank-star context)",
+    "blocks @35/@81/@85/@257/@298/@504: PS_USE_* / not PS_USE_NONE / GUC-side identifier comments kept EN - identifier tokens; L40 '(FreeBSD)' and L43 '(other BSDs)' platform tags kept EN budget-forced; L342/368/421 function-name synopsis identifiers kept EN - 0380/0381 synopsis precedent"
+   ],
+   "note": "user-review round: header description L4-L6 and L11 translated (ps display 3-line desc split across budgets 66/67/10B; 'various details abducted...' 44B/33B); header EN-kept 30->26, translated 104->108"
+  },
+  {
+   "path": "src/backend/utils/misc/timeout.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 242,
+   "translated": 237,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-14 header: 5 non-translatable lines kept EN (L3 filename, L6/L7 Portions Copyright, L10 IDENTIFICATION label, L11 path line)"
+   ],
+   "note": "user-review round: header description L4 translated ('Routines to multiplex SIGALRM...' -> 为多种超时原因复用 SIGALRM 中断的例程。, budget 70B/54B); header EN-kept 6->5, translated 236->237"
+  }
+ ],
+ "notes": "batch-0383-review-fix (parent batch-0383=d26074f466d54bdae7a9ff9576023f55575ad94d). 用户复核发现 batch-0383 的 sampling/ps_status/timeout 三文件头部功能描述行未译（0382 八文件头部描述全译、0363 起先例亦如此；审查 D2 只裁了 tzparser，漏同款问题）。Fix: 6 lines translated with per-line budget asserts - sampling L4 关系块采样例程。(24B<=33B); ps_status L4 支持修改 PostgreSQL 后端进程的 ps 显示，(52B<=66B) / L5 使其包含一些有用信息。机制因平台 (48B<=67B) / L6 各异。(9B<=10B) / L11 多处细节采自多个地方 (33B<=44B); timeout L4 为多种超时原因复用 SIGALRM 中断的例程。(54B<=70B). tzparser.c header was already translated in the D2 review round and has no fixup changes. Line counts conserved 304/553/834; code bytes zero change; frame terminators 8/22/43 intact. preserved/translated counts updated in batch-0383 manifest narrative (batch-0383-misc-mid.json itself not rewritten - totals across both manifests: 503/547 rewritten, 43 EN kept)."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * timeout.c
- *	  Routines to multiplex SIGALRM interrupts for multiple timeout reasons.
+ *	  为多种超时原因复用 SIGALRM 中断的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

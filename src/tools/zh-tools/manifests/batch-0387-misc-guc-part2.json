@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0387",
+ "title": "misc guc.c whole-file comment translation part 2/2 (L3402-6839; 246 blocks: 242 translated + 4 preserved; 528/541 content lines rewritten, 13 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8ece464c114cfe79c73b7fb50d50c9b86c9c717d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation part 2 (L3402-6839 of 6839), batch-0387; completes guc.c whole-file campaign started by batch-0386"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "manifest",
+   "note": "append 1 entry: guc.c ParseLongOption doc pseudocode example literals (some-option=some value family) kept EN, MIXED exemption per psql command.c usage-literal precedent"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0387-misc-guc-part2.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0387 manifest path (guc.c entry already registered by batch-0386, not duplicated)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 246,
+   "translated": 242,
+   "preserved": 4,
+   "preserved_reasons": [
+    "[0] block @3460 (single line '/* FALLTHROUGH */'): gcc -Wimplicit-fallthrough marker; translating would break the warning-suppression contract (postgres.c/planner.c kept-EN precedent)",
+    "[1] block @5683 (single line '#endif /* EXEC_BACKEND */'): pure compile-flag identifier on #endif (nodeBitmapHeapscan.c '#endif /* USE_PREFETCH */' kept-EN precedent)",
+    "[2] block @5546-5548 (3-line '/* Open file */'): content line budget 9 bytes holds only 3 CJK chars; no natural zh rendering fits, kept EN like identifier labels (batch-0386 @103 'GUC_UNIT_XXX' precedent)",
+    "[3] block @5634-5636 (3-line '/* Open file */'): same as block @5546"
+   ],
+   "note": "partial-file batch 2/2: scope = all 246 comment-aware blocks wholly starting at L3402 or later (comment-aware state-machine rescan; naive dump reported 217 pseudo-blocks because trailing comments on code lines desync it - covered here properly). Universe 541 content lines: 482 zh-translated + 11 emptied to bare ' *' (EN tail absorbed into neighbour line, sentence completed there) + 35 trailing comments on code lines rewritten in place preserving code bytes and '*/' terminators + 13 EN kept. Line counts conserved 6839/6839; first changed line L3403 (part-1 region L1-3401 zero-diff verified). Frame terminators intact (verify_c_comments splices=0, trigraphs 0/0, code bytes zero-diff, rc=0). Same-EN same-zh asserted programmatically over 541-line universe: x2 'Check whether the requesting user has been granted privilege to set this GUC', x2 'No granted privilege' (未获授权), x5 'Release newextra unless reset_extra', x5 'Save old value to support transaction abort' (保存旧值以支持事务中止, aligned with part-1 L1992 same-EN rendering), x5 'Perhaps we didn't install newextra anywhere', x2 changeVal plow-ahead sentence (3472-3474 vs 3600-3602, unified to 若 changeVal 为 false shared clause byte-identical), x2 'write didn't set errno' (若 write 未设 errno,视为磁盘空间不足), x2 'otherwise throw an ereport' (否则抛出 ereport 且不返回), x3 'We need only consider GUCs with source not PGC_S_DEFAULT', x2 'test if the option is valid...' + x2 'normalize name...', x2 'else add it to the output array', x2 '/* ok */' (/*好*/), x5 'Quick success if no hook', x5 'Reset variables that might be set by hook', x5 'Flush any strings created in ErrorContext', varlenarray family x6/x6/x6/x6 tight-form (变长数组 / TEXT的typlen / TEXT的typbyval / TEXT的typalign, per-line byte budget forces tight CJK-EN form; extension.c spaced form shipped 2 bytes over budget, not repeated here). term_lint --pgnls: guc.c 0 hits; tree-wide 1 error (postinit.c TL01) + 757 warnings identical to parent-commit baseline. scan_halfen: guc.c 0 findings after registering 1 exemption (example literals); tree-wide 59 findings identical to parent-commit baseline. misc directory now fully translated; guc.c whole-file campaign complete (469 naive-dump blocks = 253 part-1 + 216 naive part-2 pseudo-blocks, comment-aware 254+246=500) Review-fix round (review FAIL D1-D6, all cleared): D1 x5 'Save old value...' 回滚->中止 aligned with part-1 L1992; D2 L6277 object restored (调用方须指定正确上下文/来源/动作, 须+等 en-dash trims within 77B budget); D3 L6634-6637 paragraph reflow (6635 now closes the sentence ERRCODE_INVALID_PARAMETER_VALUE SQLSTATE的check_hooks调用。 tight CJK-EN form at exact 68B budget; 6637 opens 注意,); D4 L4250 predicate restored (仅用户驱动的调用传入真值); D5 L4686-4687 reflow adds 更干净 clause (之前这样做会更干净。); D6 L5311 period moved after the parenthetical. changeVal 若/如果 divergence between the two sites removed (both 若). Kept-EN count reconciliation: LINEKEY口径 = 13 lines (L3460 FALLTHROUGH, L5547/L5635 Open file, L5683 #endif EXEC_BACKEND, 7 bare function-name doc headers L5686/5724/5826/5855/5902/5979/6010/6064, L5774 numeric example literal); reviewer's 12 matches the same set minus L5774 (a numeric example, not prose) - both counts describe the identical line set. Post-fix gates re-run: verify rc=0 / 0 violations, term_lint guc.c 0 hits (tree 1 error+757 warnings = parent baseline), scan_halfen guc.c 0 (tree 59 = parent baseline), check_scope PASS. guc.c whole-file campaign now complete pending review."
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": "[0] []",
+   "note": "pure append of 1 guc.c entry (indent=1 + trailing newline preserved); re-scan confirms guc.c 0 findings, tree-wide count equal to parent baseline"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0387-misc-guc-part2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": "[0] []",
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": "[0] []",
+   "note": "append batch-0387 manifest path; guc.c file entry already present from batch-0386 (not duplicated)"
+  }
+ ]
+}

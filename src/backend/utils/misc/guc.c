@@ -3400,13 +3400,13 @@ set_config_option_ext(const char *name, const char *value,
 			if (context == PGC_SIGHUP)
 			{
 				/*
-				 * We are re-reading a PGC_POSTMASTER variable from
-				 * postgresql.conf.  We can't change the setting, so we should
-				 * give a warning if the DBA tries to change it.  However,
-				 * because of variant formats, canonicalization by check
-				 * hooks, etc, we can't just compare the given string directly
-				 * to what's stored.  Set a flag to check below after we have
-				 * the final storable value.
+				 * 我们正重新读取 PGC_POSTMASTER 变量,
+				 * 它来自 postgresql.conf。该设置不可更改,所以
+				 * 若 DBA 试图更改则给出警告。不过,由于
+				 * 格式有变体、检查钩子会规范化等,
+				 * 因此不能直接将给定字符串与所存储的
+				 * 值进行比较。设置标志,待取得最终可存储
+				 * 值后再检查。
 				 */
 				prohibitValueChange = true;
 			}
@@ -3430,25 +3430,25 @@ set_config_option_ext(const char *name, const char *value,
 			}
 
 			/*
-			 * Hmm, the idea of the SIGHUP context is "ought to be global, but
-			 * can be changed after postmaster start". But there's nothing
-			 * that prevents a crafty administrator from sending SIGHUP
-			 * signals to individual backends only.
+			 * 呃,SIGHUP 上下文的理念是"应当是全局的,但
+			 * 可在 postmaster 启动后更改"。但没有什么能
+			 * 阻止狡猾的管理员只向个别后端发送 SIGHUP
+			 * 信号。
 			 */
 			break;
 		case PGC_SU_BACKEND:
 			if (context == PGC_BACKEND)
 			{
 				/*
-				 * Check whether the requesting user has been granted
-				 * privilege to set this GUC.
+				 * 检查请求用户是否已被授予设置该
+				 * GUC 的权限。
 				 */
 				AclResult	aclresult;
 
 				aclresult = pg_parameter_aclcheck(name, srole, ACL_SET);
 				if (aclresult != ACLCHECK_OK)
 				{
-					/* No granted privilege */
+					/* 未获授权 */
 					ereport(elevel,
 							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 							 errmsg("permission denied to set parameter \"%s\"",
@@ -3456,32 +3456,32 @@ set_config_option_ext(const char *name, const char *value,
 					return 0;
 				}
 			}
-			/* fall through to process the same as PGC_BACKEND */
+			/* 落到下方案例,按 PGC_BACKEND 同样处理 */
 			/* FALLTHROUGH */
 		case PGC_BACKEND:
 			if (context == PGC_SIGHUP)
 			{
 				/*
-				 * If a PGC_BACKEND or PGC_SU_BACKEND parameter is changed in
-				 * the config file, we want to accept the new value in the
-				 * postmaster (whence it will propagate to
-				 * subsequently-started backends), but ignore it in existing
-				 * backends.  This is a tad klugy, but necessary because we
-				 * don't re-read the config file during backend start.
+				 * 如果在配置文件中更改了 PGC_BACKEND 或
+				 * PGC_SU_BACKEND 参数,我们希望 postmaster
+				 * 接受新值(它将随后传播到
+				 * 随后启动的后端),但在既有后端中忽略它。
+				 * 这有点笨拙,但却是必需的,因为我们
+				 * 在启动后端时不会重新读配置文件。
 				 *
-				 * However, if changeVal is false then plow ahead anyway since
-				 * we are trying to find out if the value is potentially good,
-				 * not actually use it.
+				 * 不过,若 changeVal 为 false,则尽管继续推进,
+				 * 因为我们只想查明该值是否潜在有效,而非
+				 * 实际使用它。
 				 *
-				 * In EXEC_BACKEND builds, this works differently: we load all
-				 * non-default settings from the CONFIG_EXEC_PARAMS file
-				 * during backend start.  In that case we must accept
-				 * PGC_SIGHUP settings, so as to have the same value as if
-				 * we'd forked from the postmaster.  This can also happen when
-				 * using RestoreGUCState() within a background worker that
-				 * needs to have the same settings as the user backend that
-				 * started it. is_reload will be true when either situation
-				 * applies.
+				 * 在 EXEC_BACKEND 构建中,做法不同:我们会
+				 * 启动后端期间加载 CONFIG_EXEC_PARAMS 文件
+				 * 的全部非默认设置。此时必须接受
+				 * PGC_SIGHUP 设置,以便取值如同直接
+				 * fork 自 postmaster 那样。当在后台工作进程
+				 * 中用 RestoreGUCState() 时也会出现:工作进程
+				 * 需与启动它的用户后端有相同设置。上述
+				 * 情形下 is_reload 都将为真。
+				 *
 				 */
 				if (IsUnderPostmaster && changeVal && !is_reload)
 					return -1;
@@ -3502,15 +3502,15 @@ set_config_option_ext(const char *name, const char *value,
 			if (context == PGC_USERSET || context == PGC_BACKEND)
 			{
 				/*
-				 * Check whether the requesting user has been granted
-				 * privilege to set this GUC.
+				 * 检查请求用户是否已被授予设置该
+				 * GUC 的权限。
 				 */
 				AclResult	aclresult;
 
 				aclresult = pg_parameter_aclcheck(name, srole, ACL_SET);
 				if (aclresult != ACLCHECK_OK)
 				{
-					/* No granted privilege */
+					/* 未获授权 */
 					ereport(elevel,
 							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 							 errmsg("permission denied to set parameter \"%s\"",
@@ -3520,35 +3520,35 @@ set_config_option_ext(const char *name, const char *value,
 			}
 			break;
 		case PGC_USERSET:
-			/* always okay */
+			/*总是允许*/
 			break;
 	}
 
 	/*
-	 * Disallow changing GUC_NOT_WHILE_SEC_REST values if we are inside a
-	 * security restriction context.  We can reject this regardless of the GUC
-	 * context or source, mainly because sources that it might be reasonable
-	 * to override for won't be seen while inside a function.
+	 * 如果处于安全限制上下文之内,则禁止更改
+	 * GUC_NOT_WHILE_SEC_REST 值。无论 GUC 上下文或来源如何,
+	 * 这种更改都可以拒绝,主要原因是合理的覆盖来源
+	 * 在函数内部是不会出现的。
 	 *
-	 * Note: variables marked GUC_NOT_WHILE_SEC_REST should usually be marked
-	 * GUC_NO_RESET_ALL as well, because ResetAllOptions() doesn't check this.
-	 * An exception might be made if the reset value is assumed to be "safe".
+	 * 注意:被标记为 GUC_NOT_WHILE_SEC_REST 的变量通常也
+	 * 应标记为 GUC_NO_RESET_ALL,因为 ResetAllOptions()
+	 * 不会检查此项。若重置值被假定"安全",则可例外。
 	 *
-	 * Note: this flag is currently used for "session_authorization" and
-	 * "role".  We need to prohibit changing these inside a local userid
-	 * context because when we exit it, GUC won't be notified, leaving things
-	 * out of sync.  (This could be fixed by forcing a new GUC nesting level,
-	 * but that would change behavior in possibly-undesirable ways.)  Also, we
-	 * prohibit changing these in a security-restricted operation because
-	 * otherwise RESET could be used to regain the session user's privileges.
+	 * 注意:此标志目前用于 "session_authorization" 和
+	 * "role"。必须禁止在局部用户 ID 上下文内更改,
+	 * 因为退出它时 GUC 不会得到通知,致使状态脱节。
+	 * (可以通过强制新的 GUC 嵌套层级来修复,
+	 * 但这可能以不良方式改变行为。)此外,我们还
+	 * 禁止在安全受限操作中更改它们,因为否则
+	 * RESET 可能被用来重新取得会话用户的权限。
 	 */
 	if (record->flags & GUC_NOT_WHILE_SEC_REST)
 	{
 		if (InLocalUserIdChange())
 		{
 			/*
-			 * Phrasing of this error message is historical, but it's the most
-			 * common case.
+			 * 这条错误消息的措辞是历史遗留,但它是最
+			 * 常见的。
 			 */
 			ereport(elevel,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -3566,7 +3566,7 @@ set_config_option_ext(const char *name, const char *value,
 		}
 	}
 
-	/* Disallow resetting and saving GUC_NO_RESET values */
+	/* 禁止重置并保存 GUC_NO_RESET 值 */
 	if (record->flags & GUC_NO_RESET)
 	{
 		if (value == NULL)
@@ -3587,20 +3587,20 @@ set_config_option_ext(const char *name, const char *value,
 	}
 
 	/*
-	 * Should we set reset/stacked values?	(If so, the behavior is not
-	 * transactional.)	This is done either when we get a default value from
-	 * the database's/user's/client's default settings or when we reset a
-	 * value to its default.
+	 * 是否应设置 reset/stacked 值?(若是,其行为不是
+	 * 事务性的。)做法是:当我们从数据库/用户/客户端
+	 * 的默认设置中取得默认值,或者将一个值重置为
+	 * 其默认值。
 	 */
 	makeDefault = changeVal && (source <= PGC_S_OVERRIDE) &&
 		((value != NULL) || source == PGC_S_DEFAULT);
 
 	/*
-	 * Ignore attempted set if overridden by previously processed setting.
-	 * However, if changeVal is false then plow ahead anyway since we are
-	 * trying to find out if the value is potentially good, not actually use
-	 * it. Also keep going if makeDefault is true, since we may want to set
-	 * the reset/stacked values even if we can't set the variable itself.
+	 * 若被先前处理的设置覆盖,则忽略此次设置尝试。
+	 * 不过,若 changeVal 为 false,则尽管继续推进,因为我们
+	 * 只想查明该值是否潜在有效,而非实际使用它。同时
+	 * 如果 makeDefault 为真也继续,因为我们可能想要设置
+	 * reset/stacked 值,即使无法设置变量本身。
 	 */
 	if (record->source > source)
 	{
@@ -3614,7 +3614,7 @@ set_config_option_ext(const char *name, const char *value,
 	}
 
 	/*
-	 * Evaluate value and set variable.
+	 * 求值并设置变量。
 	 */
 	switch (record->vartype)
 	{
@@ -3649,7 +3649,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (prohibitValueChange)
 				{
-					/* Release newextra, unless it's reset_extra */
+					/* 释放 newextra,除非它是 reset_extra */
 					if (newextra && !extra_field_used(&conf->gen, newextra))
 						guc_free(newextra);
 
@@ -3668,7 +3668,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (changeVal)
 				{
-					/* Save old value to support transaction abort */
+					/* 保存旧值以支持事务中止 */
 					if (!makeDefault)
 						push_old_value(&conf->gen, action);
 
@@ -3708,7 +3708,7 @@ set_config_option_ext(const char *name, const char *value,
 					}
 				}
 
-				/* Perhaps we didn't install newextra anywhere */
+				/* 可能未在任何位置安装 newextra */
 				if (newextra && !extra_field_used(&conf->gen, newextra))
 					guc_free(newextra);
 				break;
@@ -3747,7 +3747,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (prohibitValueChange)
 				{
-					/* Release newextra, unless it's reset_extra */
+					/* 释放 newextra,除非它是 reset_extra */
 					if (newextra && !extra_field_used(&conf->gen, newextra))
 						guc_free(newextra);
 
@@ -3766,7 +3766,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (changeVal)
 				{
-					/* Save old value to support transaction abort */
+					/* 保存旧值以支持事务中止 */
 					if (!makeDefault)
 						push_old_value(&conf->gen, action);
 
@@ -3806,7 +3806,7 @@ set_config_option_ext(const char *name, const char *value,
 					}
 				}
 
-				/* Perhaps we didn't install newextra anywhere */
+				/* 可能未在任何位置安装 newextra */
 				if (newextra && !extra_field_used(&conf->gen, newextra))
 					guc_free(newextra);
 				break;
@@ -3845,7 +3845,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (prohibitValueChange)
 				{
-					/* Release newextra, unless it's reset_extra */
+					/* 释放 newextra,除非它是 reset_extra */
 					if (newextra && !extra_field_used(&conf->gen, newextra))
 						guc_free(newextra);
 
@@ -3864,7 +3864,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (changeVal)
 				{
-					/* Save old value to support transaction abort */
+					/* 保存旧值以支持事务中止 */
 					if (!makeDefault)
 						push_old_value(&conf->gen, action);
 
@@ -3904,7 +3904,7 @@ set_config_option_ext(const char *name, const char *value,
 					}
 				}
 
-				/* Perhaps we didn't install newextra anywhere */
+				/* 可能未在任何位置安装 newextra */
 				if (newextra && !extra_field_used(&conf->gen, newextra))
 					guc_free(newextra);
 				break;
@@ -3930,7 +3930,7 @@ set_config_option_ext(const char *name, const char *value,
 				}
 				else if (source == PGC_S_DEFAULT)
 				{
-					/* non-NULL boot_val must always get strdup'd */
+					/* 非 NULL boot_val 必须始终被 strdup */
 					if (conf->boot_val != NULL)
 					{
 						newval = guc_strdup(elevel, conf->boot_val);
@@ -3950,8 +3950,8 @@ set_config_option_ext(const char *name, const char *value,
 				else
 				{
 					/*
-					 * strdup not needed, since reset_val is already under
-					 * guc.c's control
+					 * 无需 strdup,因为 reset_val 已在
+					 * guc.c 管辖
 					 */
 					newval = conf->reset_val;
 					newextra = conf->reset_extra;
@@ -3964,15 +3964,15 @@ set_config_option_ext(const char *name, const char *value,
 				{
 					bool		newval_different;
 
-					/* newval shouldn't be NULL, so we're a bit sloppy here */
+					/* newval 不应为 NULL,故此处稍欠严谨 */
 					newval_different = (*conf->variable == NULL ||
 										newval == NULL ||
 										strcmp(*conf->variable, newval) != 0);
 
-					/* Release newval, unless it's reset_val */
+					/* 释放 newval,除非它是 reset_val */
 					if (newval && !string_field_used(conf, newval))
 						guc_free(newval);
-					/* Release newextra, unless it's reset_extra */
+					/* 释放 newextra,除非它是 reset_extra */
 					if (newextra && !extra_field_used(&conf->gen, newextra))
 						guc_free(newextra);
 
@@ -3991,7 +3991,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (changeVal)
 				{
-					/* Save old value to support transaction abort */
+					/* 保存旧值以支持事务中止 */
 					if (!makeDefault)
 						push_old_value(&conf->gen, action);
 
@@ -4005,28 +4005,28 @@ set_config_option_ext(const char *name, const char *value,
 					conf->gen.srole = srole;
 
 					/*
-					 * Ugly hack: during SET session_authorization, forcibly
-					 * do SET ROLE NONE with the same context/source/etc, so
-					 * that the effects will have identical lifespan.  This is
-					 * required by the SQL spec, and it's not possible to do
-					 * it within the variable's check hook or assign hook
-					 * because our APIs for those don't pass enough info.
-					 * However, don't do it if is_reload: in that case we
-					 * expect that if "role" isn't supposed to be default, it
-					 * has been or will be set by a separate reload action.
+					 * 丑陋的取巧做法:在 SET session_authorization
+					 * 期间强制执行 SET ROLE NONE,并使用相同的
+					 * 上下文/来源等,使两者的效果拥有相同的
+					 * 生命周期。这是 SQL 规范所要求的,而且
+					 * 无法在变量的检查钩子或赋值钩子内
+					 * 完成,因为相关 API 传递的信息不够。
+					 * 不过,若是 is_reload 则不要这样做:此时
+					 * 我们预期,若 "role" 不应为默认值,它已经
+					 * 或者将要由单独的重载动作来设置。
 					 *
-					 * Also, for the call from InitializeSessionUserId with
-					 * source == PGC_S_OVERRIDE, use PGC_S_DYNAMIC_DEFAULT for
-					 * "role"'s source, so that it's still possible to set
-					 * "role" from pg_db_role_setting entries.  (See notes in
-					 * InitializeSessionUserId before changing this.)
+					 * 此外,对于来自 InitializeSessionUserId 且
+					 * source == PGC_S_OVERRIDE 的调用,把 "role"
+					 * 的来源设为 PGC_S_DYNAMIC_DEFAULT,以便
+					 * 仍可从 pg_db_role_setting 条目设置 "role"。
+					 * (改动前请先读该函数的说明。)
 					 *
-					 * A fine point: for RESET session_authorization, we do
-					 * "RESET role" not "SET ROLE NONE" (by passing down NULL
-					 * rather than "none" for the value).  This would have the
-					 * same effects in typical cases, but if the reset value
-					 * of "role" is not "none" it seems better to revert to
-					 * that.
+					 * 细节:对于 RESET session_authorization,我们
+					 * 执行的是 "RESET role" 而非 "SET ROLE NONE"
+					 * (向下传 NULL 而非 "none" 作为值)。这在
+					 * 典型情形下效果相同,但若 "role" 的重置
+					 * 值不是 "none",回退到该值似乎更好。
+					 *
 					 */
 					if (!is_reload &&
 						strcmp(conf->gen.name, "session_authorization") == 0)
@@ -4071,10 +4071,10 @@ set_config_option_ext(const char *name, const char *value,
 					}
 				}
 
-				/* Perhaps we didn't install newval anywhere */
+				/* 可能未在任何位置安装 newval */
 				if (newval && !string_field_used(conf, newval))
 					guc_free(newval);
-				/* Perhaps we didn't install newextra anywhere */
+				/* 可能未在任何位置安装 newextra */
 				if (newextra && !extra_field_used(&conf->gen, newextra))
 					guc_free(newextra);
 				break;
@@ -4113,7 +4113,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (prohibitValueChange)
 				{
-					/* Release newextra, unless it's reset_extra */
+					/* 释放 newextra,除非它是 reset_extra */
 					if (newextra && !extra_field_used(&conf->gen, newextra))
 						guc_free(newextra);
 
@@ -4132,7 +4132,7 @@ set_config_option_ext(const char *name, const char *value,
 
 				if (changeVal)
 				{
-					/* Save old value to support transaction abort */
+					/* 保存旧值以支持事务中止 */
 					if (!makeDefault)
 						push_old_value(&conf->gen, action);
 
@@ -4172,7 +4172,7 @@ set_config_option_ext(const char *name, const char *value,
 					}
 				}
 
-				/* Perhaps we didn't install newextra anywhere */
+				/* 可能未在任何位置安装 newextra */
 				if (newextra && !extra_field_used(&conf->gen, newextra))
 					guc_free(newextra);
 				break;
@@ -4193,7 +4193,7 @@ set_config_option_ext(const char *name, const char *value,
 
 
 /*
- * Set the fields for source file and line number the setting came from.
+ * 设置该设置所来自的源文件与行号字段。
  */
 static void
 set_config_sourcefile(const char *name, char *sourcefile, int sourceline)
@@ -4202,13 +4202,13 @@ set_config_sourcefile(const char *name, char *sourcefile, int sourceline)
 	int			elevel;
 
 	/*
-	 * To avoid cluttering the log, only the postmaster bleats loudly about
-	 * problems with the config file.
+	 * 为了避免弄乱日志,只有 postmaster 会大声报告
+	 * 配置文件的问题。
 	 */
 	elevel = IsUnderPostmaster ? DEBUG3 : LOG;
 
 	record = find_option(name, true, false, elevel);
-	/* should not happen */
+	/* 不应发生 */
 	if (record == NULL)
 		return;
 
@@ -4219,14 +4219,14 @@ set_config_sourcefile(const char *name, char *sourcefile, int sourceline)
 }
 
 /*
- * Set a config option to the given value.
+ * 将配置选项设置为给定值。
  *
- * See also set_config_option; this is just the wrapper to be called from
- * outside GUC.  (This function should be used when possible, because its API
- * is more stable than set_config_option's.)
+ * 另见 set_config_option;这只是供 GUC 之外
+ * 调用的包装器。(应尽可能使用本函数,因为它的 API
+ * 比 set_config_option 的更稳定。)
  *
- * Note: there is no support here for setting source file/line, as it
- * is currently not needed.
+ * 注意:这里不支持设置来源文件/行号,因为目前
+ * 并不需要。
  */
 void
 SetConfigOption(const char *name, const char *value,
@@ -4239,18 +4239,18 @@ SetConfigOption(const char *name, const char *value,
 
 
 /*
- * Fetch the current value of the option `name', as a string.
+ * 以字符串形式获取选项 `name' 的当前值。
  *
- * If the option doesn't exist, return NULL if missing_ok is true (NOTE that
- * this cannot be distinguished from a string variable with a NULL value!),
- * otherwise throw an ereport and don't return.
+ * 如果选项不存在,当 missing_ok 为真则返回 NULL(注意
+ * 这无法与值为 NULL 的字符串变量区分开!),
+ * 否则抛出 ereport 且不返回。
  *
- * If restrict_privileged is true, we also enforce that only superusers and
- * members of the pg_read_all_settings role can see GUC_SUPERUSER_ONLY
- * variables.  This should only be passed as true in user-driven calls.
+ * 如果 restrict_privileged 为真,我们还强制只有超级
+ * 用户和 pg_read_all_settings 角色的成员才能看见
+ * GUC_SUPERUSER_ONLY 变量。仅用户驱动的调用传入真值。
  *
- * The string is *not* allocated for modification and is really only
- * valid until the next call to configuration related functions.
+ * 该字符串并非为修改而分配,并且实际上仅在
+ * 下一次调用配置相关函数之前有效。
  */
 const char *
 GetConfigOption(const char *name, bool missing_ok, bool restrict_privileged)
@@ -4295,11 +4295,11 @@ GetConfigOption(const char *name, bool missing_ok, bool restrict_privileged)
 }
 
 /*
- * Get the RESET value associated with the given option.
+ * 获取与给定选项关联的 RESET 值。
  *
- * Note: this is not re-entrant, due to use of static result buffer;
- * not to mention that a string variable could have its reset_val changed.
- * Beware of assuming the result value is good for very long.
+ * 注意:由于使用静态结果缓冲区,本函数不可重入;
+ * 更不用说字符串变量的 reset_val 还可能被改变。
+ * 不要以为结果值能在很长时间内保持有效。
  */
 const char *
 GetConfigOptionResetString(const char *name)
@@ -4342,10 +4342,10 @@ GetConfigOptionResetString(const char *name)
 }
 
 /*
- * Get the GUC flags associated with the given option.
+ * 获取与给定选项关联的 GUC 标志。
  *
- * If the option doesn't exist, return 0 if missing_ok is true,
- * otherwise throw an ereport and don't return.
+ * 如果选项不存在,当 missing_ok 为真则返回 0,
+ * 否则抛出 ereport 且不返回。
  */
 int
 GetConfigOptionFlags(const char *name, bool missing_ok)
@@ -4360,9 +4360,9 @@ GetConfigOptionFlags(const char *name, bool missing_ok)
 
 
 /*
- * Write updated configuration parameter values into a temporary file.
- * This function traverses the list of parameters and quotes the string
- * values before writing them.
+ * 将更新后的配置参数值写入一个临时文件。
+ * 本函数遍历参数列表,并在写入之前为字符串
+ * 值加上引号。
  */
 static void
 write_auto_conf_file(int fd, const char *filename, ConfigVariable *head)
@@ -4372,14 +4372,14 @@ write_auto_conf_file(int fd, const char *filename, ConfigVariable *head)
 
 	initStringInfo(&buf);
 
-	/* Emit file header containing warning comment */
+	/* 输出包含警告注释的文件头 */
 	appendStringInfoString(&buf, "# Do not edit this file manually!\n");
 	appendStringInfoString(&buf, "# It will be overwritten by the ALTER SYSTEM command.\n");
 
 	errno = 0;
 	if (write(fd, buf.data, buf.len) != buf.len)
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设 errno,视为磁盘空间不足 */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(ERROR,
@@ -4387,7 +4387,7 @@ write_auto_conf_file(int fd, const char *filename, ConfigVariable *head)
 				 errmsg("could not write to file \"%s\": %m", filename)));
 	}
 
-	/* Emit each parameter, properly quoting the value */
+	/* 输出各参数,并正确为值加引号 */
 	for (item = head; item != NULL; item = item->next)
 	{
 		char	   *escaped;
@@ -4410,7 +4410,7 @@ write_auto_conf_file(int fd, const char *filename, ConfigVariable *head)
 		errno = 0;
 		if (write(fd, buf.data, buf.len) != buf.len)
 		{
-			/* if write didn't set errno, assume problem is no disk space */
+			/* 若 write 未设 errno,视为磁盘空间不足 */
 			if (errno == 0)
 				errno = ENOSPC;
 			ereport(ERROR,
@@ -4419,7 +4419,7 @@ write_auto_conf_file(int fd, const char *filename, ConfigVariable *head)
 		}
 	}
 
-	/* fsync before considering the write to be successful */
+	/* 在认为写入成功之前先执行 fsync */
 	if (pg_fsync(fd) != 0)
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -4429,8 +4429,8 @@ write_auto_conf_file(int fd, const char *filename, ConfigVariable *head)
 }
 
 /*
- * Update the given list of configuration parameters, adding, replacing
- * or deleting the entry for item "name" (delete if "value" == NULL).
+ * 更新给定的配置参数列表:增加、替换或删除
+ * "name" 项的条目(若 "value" == NULL 则删除)。
  */
 static void
 replace_auto_config_value(ConfigVariable **head_p, ConfigVariable **tail_p,
@@ -4441,16 +4441,16 @@ replace_auto_config_value(ConfigVariable **head_p, ConfigVariable **tail_p,
 			   *prev = NULL;
 
 	/*
-	 * Remove any existing match(es) for "name".  Normally there'd be at most
-	 * one, but if external tools have modified the config file, there could
-	 * be more.
+	 * 移除 "name" 的所有既有匹配项。通常至多只有
+	 * 一个,但如果外部工具改过配置文件,则可能更多。
+	 *
 	 */
 	for (item = *head_p; item != NULL; item = next)
 	{
 		next = item->next;
 		if (guc_name_compare(item->name, name) == 0)
 		{
-			/* found a match, delete it */
+			/* 找到匹配项,删除 */
 			if (prev)
 				prev->next = next;
 			else
@@ -4467,16 +4467,16 @@ replace_auto_config_value(ConfigVariable **head_p, ConfigVariable **tail_p,
 			prev = item;
 	}
 
-	/* Done if we're trying to delete it */
+	/* 若尝试的是删除,则完成 */
 	if (value == NULL)
 		return;
 
-	/* OK, append a new entry */
+	/* 好,追加新条目 */
 	item = palloc(sizeof *item);
 	item->name = pstrdup(name);
 	item->value = pstrdup(value);
 	item->errmsg = NULL;
-	item->filename = pstrdup("");	/* new item has no location */
+	item->filename = pstrdup("");	/* 新项无位置信息 */
 	item->sourceline = 0;
 	item->ignore = false;
 	item->applied = false;
@@ -4491,16 +4491,16 @@ replace_auto_config_value(ConfigVariable **head_p, ConfigVariable **tail_p,
 
 
 /*
- * Execute ALTER SYSTEM statement.
+ * 执行 ALTER SYSTEM 语句。
  *
- * Read the old PG_AUTOCONF_FILENAME file, merge in the new variable value,
- * and write out an updated file.  If the command is ALTER SYSTEM RESET ALL,
- * we can skip reading the old file and just write an empty file.
+ * 读取旧 PG_AUTOCONF_FILENAME 文件,合并入新变量值,
+ * 然后写出更新文件。若命令是 ALTER SYSTEM RESET ALL,
+ * 则可以跳过读取旧文件,直接写出一个空文件。
  *
- * An LWLock is used to serialize updates of the configuration file.
+ * 使用一个 LWLock 来串行化对配置文件的更新。
  *
- * In case of an error, we leave the original automatic
- * configuration file (PG_AUTOCONF_FILENAME) intact.
+ * 如果发生错误,我们让原有的自动
+ * 配置文件(PG_AUTOCONF_FILENAME)保持原样。
  */
 void
 AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
@@ -4515,7 +4515,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 	char		AutoConfTmpFileName[MAXPGPATH];
 
 	/*
-	 * Extract statement arguments
+	 * 提取语句参数
 	 */
 	name = altersysstmt->setstmt->name;
 
@@ -4542,7 +4542,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 	}
 
 	/*
-	 * Check permission to run ALTER SYSTEM on the target variable
+	 * 检查对目标变量运行 ALTER SYSTEM 的权限
 	 */
 	if (!superuser())
 	{
@@ -4565,7 +4565,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 	}
 
 	/*
-	 * Unless it's RESET_ALL, validate the target variable and value
+	 * 除非是 RESET_ALL,否则校验目标变量与值
 	 */
 	if (!resetall)
 	{
@@ -4575,8 +4575,8 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 		Assert(record != NULL);
 
 		/*
-		 * Don't allow parameters that can't be set in configuration files to
-		 * be set in PG_AUTOCONF_FILENAME file.
+		 * 不允许将无法在配置文件中设置的参数设置到
+		 * PG_AUTOCONF_FILENAME 文件中。
 		 */
 		if ((record->context == PGC_INTERNAL) ||
 			(record->flags & GUC_DISALLOW_IN_FILE) ||
@@ -4587,14 +4587,14 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 							name)));
 
 		/*
-		 * If a value is specified, verify that it's sane.
+		 * 如果指定了值,则验证其健全。
 		 */
 		if (value)
 		{
 			union config_var_val newval;
 			void	   *newextra = NULL;
 
-			/* Check that it's acceptable for the indicated parameter */
+			/* 检查它对于指定参数是否可接受 */
 			if (!parse_and_validate_value(record, name, value,
 										  PGC_S_FILE, ERROR,
 										  &newval, &newextra))
@@ -4608,9 +4608,9 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 			guc_free(newextra);
 
 			/*
-			 * We must also reject values containing newlines, because the
-			 * grammar for config files doesn't support embedded newlines in
-			 * string literals.
+			 * 还必须拒绝含换行符的值,因为配置文件
+			 * 的文法不支持字符串字面量中内嵌换行。
+			 *
 			 */
 			if (strchr(value, '\n'))
 				ereport(ERROR,
@@ -4620,8 +4620,8 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 	}
 
 	/*
-	 * PG_AUTOCONF_FILENAME and its corresponding temporary file are always in
-	 * the data directory, so we can reference them by simple relative paths.
+	 * PG_AUTOCONF_FILENAME 与其对应的临时文件总是位于
+	 * 数据目录中,因此可用简单相对路径引用它们。
 	 */
 	snprintf(AutoConfFileName, sizeof(AutoConfFileName), "%s",
 			 PG_AUTOCONF_FILENAME);
@@ -4630,15 +4630,15 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 			 "tmp");
 
 	/*
-	 * Only one backend is allowed to operate on PG_AUTOCONF_FILENAME at a
-	 * time.  Use AutoFileLock to ensure that.  We must hold the lock while
-	 * reading the old file contents.
+	 * 同一时刻只允许一个后端操作 PG_AUTOCONF_FILENAME。
+	 * 使用 AutoFileLock 来保证这一点。读取旧文件内容期间
+	 * 必须持有该锁。
 	 */
 	LWLockAcquire(AutoFileLock, LW_EXCLUSIVE);
 
 	/*
-	 * If we're going to reset everything, then no need to open or parse the
-	 * old file.  We'll just write out an empty list.
+	 * 如果我们将要重置一切,则无需打开或解析旧文件。
+	 * 我们只管写出一个空列表。
 	 */
 	if (!resetall)
 	{
@@ -4646,7 +4646,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 
 		if (stat(AutoConfFileName, &st) == 0)
 		{
-			/* open old file PG_AUTOCONF_FILENAME */
+			/*打开旧文件 PG_AUTOCONF_FILENAME*/
 			FILE	   *infile;
 
 			infile = AllocateFile(AutoConfFileName, "r");
@@ -4656,7 +4656,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 						 errmsg("could not open file \"%s\": %m",
 								AutoConfFileName)));
 
-			/* parse it */
+			/* 解析 */
 			if (!ParseConfigFp(infile, AutoConfFileName, CONF_FILE_START_DEPTH,
 							   LOG, &head, &tail))
 				ereport(ERROR,
@@ -4668,23 +4668,23 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 		}
 
 		/*
-		 * Now, replace any existing entry with the new value, or add it if
-		 * not present.
+		 * 现在,用新值替换已有条目,若无则添加它。
+		 *
 		 */
 		replace_auto_config_value(&head, &tail, name, value);
 	}
 
 	/*
-	 * Invoke the post-alter hook for setting this GUC variable.  GUCs
-	 * typically do not have corresponding entries in pg_parameter_acl, so we
-	 * call the hook using the name rather than a potentially-non-existent
-	 * OID.  Nonetheless, we pass ParameterAclRelationId so that this call
-	 * context can be distinguished from others.  (Note that "name" will be
-	 * NULL in the RESET ALL case.)
+	 * 为设置该 GUC 变量调用 post-alter 钩子。GUC
+	 * 在 pg_parameter_acl 中通常没有对应条目,因此我们
+	 * 用名称来调用钩子,而不是用可能不存在的 OID。
+	 * 尽管如此,我们仍传递 ParameterAclRelationId,
+	 * 以便此调用上下文可与其他调用区分。("name" 在
+	 * RESET ALL 时为 NULL。)
 	 *
-	 * We do this here rather than at the end, because ALTER SYSTEM is not
-	 * transactional.  If the hook aborts our transaction, it will be cleaner
-	 * to do so before we touch any files.
+	 * 我们在这里而非最后做这件事,因为 ALTER SYSTEM 不
+	 * 是事务性的。若钩子将中止我们的事务,在触碰文件
+	 * 之前这样做会更干净。
 	 */
 	InvokeObjectPostAlterHookArgStr(ParameterAclRelationId, name,
 									ACL_ALTER_SYSTEM,
@@ -4692,11 +4692,11 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 									false);
 
 	/*
-	 * To ensure crash safety, first write the new file data to a temp file,
-	 * then atomically rename it into place.
+	 * 为了确保崩溃安全,先把新文件数据写入临时文件,
+	 * 再原子地将其重命名到位。
 	 *
-	 * If there is a temp file left over due to a previous crash, it's okay to
-	 * truncate and reuse it.
+	 * 如果存在先前崩溃遗留的临时文件,可以对它进行
+	 * 截断并复用。
 	 */
 	Tmpfd = BasicOpenFile(AutoConfTmpFileName,
 						  O_CREAT | O_RDWR | O_TRUNC);
@@ -4707,32 +4707,32 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 						AutoConfTmpFileName)));
 
 	/*
-	 * Use a TRY block to clean up the file if we fail.  Since we need a TRY
-	 * block anyway, OK to use BasicOpenFile rather than OpenTransientFile.
+	 * 使用 TRY 块在失败时清理文件。既然反正都需要 TRY
+	 * 块,那么用 BasicOpenFile 而非 OpenTransientFile 亦可。
 	 */
 	PG_TRY();
 	{
-		/* Write and sync the new contents to the temporary file */
+		/* 将新内容写入并同步到临时文件 */
 		write_auto_conf_file(Tmpfd, AutoConfTmpFileName, head);
 
-		/* Close before renaming; may be required on some platforms */
+		/* 重命名前先关闭;某些平台可能要求 */
 		close(Tmpfd);
 		Tmpfd = -1;
 
 		/*
-		 * As the rename is atomic operation, if any problem occurs after this
-		 * at worst it can lose the parameters set by last ALTER SYSTEM
-		 * command.
+		 * 由于重命名是原子操作,如果此后发生任何问题,
+		 * 最坏只会丢失上次 ALTER SYSTEM 设置的参数。
+		 *
 		 */
 		durable_rename(AutoConfTmpFileName, AutoConfFileName, ERROR);
 	}
 	PG_CATCH();
 	{
-		/* Close file first, else unlink might fail on some platforms */
+		/* 先关闭,否则部分平台 unlink 会失败 */
 		if (Tmpfd >= 0)
 			close(Tmpfd);
 
-		/* Unlink, but ignore any error */
+		/* 解除链接但忽略错误 */
 		(void) unlink(AutoConfTmpFileName);
 
 		PG_RE_THROW();
@@ -4746,8 +4746,8 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 
 
 /*
- * Common code for DefineCustomXXXVariable subroutines: allocate the
- * new variable's config struct and fill in generic fields.
+ * DefineCustomXXXVariable 子例程的公共代码:分配新
+ * 变量的配置结构体并填入通用字段。
  */
 static struct config_generic *
 init_custom_variable(const char *name,
@@ -4761,30 +4761,30 @@ init_custom_variable(const char *name,
 	struct config_generic *gen;
 
 	/*
-	 * Only allow custom PGC_POSTMASTER variables to be created during shared
-	 * library preload; any later than that, we can't ensure that the value
-	 * doesn't change after startup.  This is a fatal elog if it happens; just
-	 * erroring out isn't safe because we don't know what the calling loadable
-	 * module might already have hooked into.
+	 * 只允许在共享库预加载期间创建自定义的
+	 * PGC_POSTMASTER 变量;再晚的话,我们无法确保
+	 * 该值在启动后不再改变。若发生这种情况则是致命
+	 * 的 elog;仅仅报错并不安全,因为我们不知道调用
+	 * 的加载模块已挂接了什么。
 	 */
 	if (context == PGC_POSTMASTER &&
 		!process_shared_preload_libraries_in_progress)
 		elog(FATAL, "cannot create PGC_POSTMASTER variables after startup");
 
 	/*
-	 * We can't support custom GUC_LIST_QUOTE variables, because the wrong
-	 * things would happen if such a variable were set or pg_dump'd when the
-	 * defining extension isn't loaded.  Again, treat this as fatal because
-	 * the loadable module may be partly initialized already.
+	 * 我们无法支持自定义的 GUC_LIST_QUOTE 变量,因为
+	 * 当定义它的扩展未被加载时,这类变量若被设置或被
+	 * pg_dump 都会出问题。同样,将此视为致命错误,因为
+	 * 可加载模块可能已部分完成初始化。
 	 */
 	if (flags & GUC_LIST_QUOTE)
 		elog(FATAL, "extensions cannot define GUC_LIST_QUOTE variables");
 
 	/*
-	 * Before pljava commit 398f3b876ed402bdaec8bc804f29e2be95c75139
-	 * (2015-12-15), two of that module's PGC_USERSET variables facilitated
-	 * trivial escalation to superuser privileges.  Restrict the variables to
-	 * protect sites that have yet to upgrade pljava.
+	 * 在 pljava 提交 398f3b876ed402bdaec8bc804f29e2be95c75139
+	 * (2015-12-15)之前,该模块的两个 PGC_USERSET 变量
+	 * 可轻易提权到超级用户权限。限制这些变量是为了
+	 * 保护尚未升级 pljava 的站点。
 	 */
 	if (context == PGC_USERSET &&
 		(strcmp(name, "pljava.classpath") == 0 ||
@@ -4806,8 +4806,8 @@ init_custom_variable(const char *name,
 }
 
 /*
- * Common code for DefineCustomXXXVariable subroutines: insert the new
- * variable into the GUC variable hash, replacing any placeholder.
+ * DefineCustomXXXVariable 子例程的公共代码:将新
+ * 变量插入 GUC 变量哈希表,替换任何占位符。
  */
 static void
 define_custom_variable(struct config_generic *variable)
@@ -4816,11 +4816,11 @@ define_custom_variable(struct config_generic *variable)
 	GUCHashEntry *hentry;
 	struct config_string *pHolder;
 
-	/* Check mapping between initial and default value */
+	/* 检查初始值与默认值的映射 */
 	Assert(check_GUC_init(variable));
 
 	/*
-	 * See if there's a placeholder by the same name.
+	 * 查看是否存在同名的占位符。
 	 */
 	hentry = (GUCHashEntry *) hash_search(guc_hashtab,
 										  &name,
@@ -4829,8 +4829,8 @@ define_custom_variable(struct config_generic *variable)
 	if (hentry == NULL)
 	{
 		/*
-		 * No placeholder to replace, so we can just add it ... but first,
-		 * make sure it's initialized to its default value.
+		 * 没有要替换的占位符,可直接添加它,但
+		 * 先确保它已初始化为默认值。
 		 */
 		InitializeOneGUCOption(variable);
 		add_guc_variable(variable, ERROR);
@@ -4838,7 +4838,7 @@ define_custom_variable(struct config_generic *variable)
 	}
 
 	/*
-	 * This better be a placeholder
+	 * 最好是占位符
 	 */
 	if ((hentry->gucvar->flags & GUC_CUSTOM_PLACEHOLDER) == 0)
 		ereport(ERROR,
@@ -4849,61 +4849,61 @@ define_custom_variable(struct config_generic *variable)
 	pHolder = (struct config_string *) hentry->gucvar;
 
 	/*
-	 * First, set the variable to its default value.  We must do this even
-	 * though we intend to immediately apply a new value, since it's possible
-	 * that the new value is invalid.
+	 * 首先,把变量设为它的默认值。即使我们打算立即
+	 * 应用一个新值也必须这样做,因为新值有可能
+	 * 是无效的。
 	 */
 	InitializeOneGUCOption(variable);
 
 	/*
-	 * Replace the placeholder in the hash table.  We aren't changing the name
-	 * (at least up to case-folding), so the hash value is unchanged.
+	 * 替换哈希表中的占位符。我们没有改变名称
+	 * (至少按大小写折叠计),因此哈希值不变。
 	 */
 	hentry->gucname = name;
 	hentry->gucvar = variable;
 
 	/*
-	 * Remove the placeholder from any lists it's in, too.
+	 * 同时也把它从所在的所有列表中移除。
 	 */
 	RemoveGUCFromLists(&pHolder->gen);
 
 	/*
-	 * Assign the string value(s) stored in the placeholder to the real
-	 * variable.  Essentially, we need to duplicate all the active and stacked
-	 * values, but with appropriate validation and datatype adjustment.
+	 * 把占位符中存储的各字符串值赋给实际变量。
+	 * 本质上,我们需要复制全部生效值和栈中值,
+	 * 但要用适当的校验和数据类型调整。
 	 *
-	 * If an assignment fails, we report a WARNING and keep going.  We don't
-	 * want to throw ERROR for bad values, because it'd bollix the add-on
-	 * module that's presumably halfway through getting loaded.  In such cases
-	 * the default or previous state will become active instead.
+	 * 如果赋值失败,我们报告 WARNING 并继续。我们
+	 * 不想为坏值抛出 ERROR,因为这会搞乱正在
+	 * 加载到一半的附加模块。在这种情形下,
+	 * 默认状态或先前状态将转为生效。
 	 */
 
-	/* First, apply the reset value if any */
+	/* 先应用重置值(若有) */
 	if (pHolder->reset_val)
 		(void) set_config_option_ext(name, pHolder->reset_val,
 									 pHolder->gen.reset_scontext,
 									 pHolder->gen.reset_source,
 									 pHolder->gen.reset_srole,
 									 GUC_ACTION_SET, true, WARNING, false);
-	/* That should not have resulted in stacking anything */
+	/* 这不应导致任何东西入栈 */
 	Assert(variable->stack == NULL);
 
-	/* Now, apply current and stacked values, in the order they were stacked */
+	/* 现在,按入栈时的顺序应用当前值和栈中值 */
 	reapply_stacked_values(variable, pHolder, pHolder->gen.stack,
 						   *(pHolder->variable),
 						   pHolder->gen.scontext, pHolder->gen.source,
 						   pHolder->gen.srole);
 
-	/* Also copy over any saved source-location information */
+	/* 同时复制所有已保存的来源位置信息 */
 	if (pHolder->gen.sourcefile)
 		set_config_sourcefile(name, pHolder->gen.sourcefile,
 							  pHolder->gen.sourceline);
 
 	/*
-	 * Free up as much as we conveniently can of the placeholder structure.
-	 * (This neglects any stack items, so it's possible for some memory to be
-	 * leaked.  Since this can only happen once per session per variable, it
-	 * doesn't seem worth spending much code on.)
+	 * 尽可能方便地释放占位符结构中能释放的部分。
+	 * (这忽略了栈中条目,因此某些内存有可能泄漏。
+	 * 由于这对每个会话中每个变量只会发生一次,
+	 * 似乎不值得为此花太多代码。)
 	 */
 	set_string_field(pHolder, pHolder->variable, NULL);
 	set_string_field(pHolder, &pHolder->reset_val, NULL);
@@ -4912,11 +4912,11 @@ define_custom_variable(struct config_generic *variable)
 }
 
 /*
- * Recursive subroutine for define_custom_variable: reapply non-reset values
+ * define_custom_variable 的递归子例程:重新应用非重置值
  *
- * We recurse so that the values are applied in the same order as originally.
- * At each recursion level, apply the upper-level value (passed in) in the
- * fashion implied by the stack entry.
+ * 我们进行递归,以便各值按最初的顺序被应用。在每
+ * 个递归层级上,按栈条目所隐含的方式应用传入的
+ * 上层值。
  */
 static void
 reapply_stacked_values(struct config_generic *variable,
@@ -4931,12 +4931,12 @@ reapply_stacked_values(struct config_generic *variable,
 
 	if (stack != NULL)
 	{
-		/* First, recurse, so that stack items are processed bottom to top */
+		/* 首先递归,使栈条目自底向上被处理 */
 		reapply_stacked_values(variable, pHolder, stack->prev,
 							   stack->prior.val.stringval,
 							   stack->scontext, stack->source, stack->srole);
 
-		/* See how to apply the passed-in value */
+		/* 查看如何应用传入的值 */
 		switch (stack->state)
 		{
 			case GUC_SAVE:
@@ -4961,14 +4961,14 @@ reapply_stacked_values(struct config_generic *variable,
 				break;
 
 			case GUC_SET_LOCAL:
-				/* first, apply the masked value as SET */
+				/* 先以 SET 应用被屏蔽的值 */
 				(void) set_config_option_ext(name, stack->masked.val.stringval,
 											 stack->masked_scontext,
 											 PGC_S_SESSION,
 											 stack->masked_srole,
 											 GUC_ACTION_SET, true,
 											 WARNING, false);
-				/* then apply the current value as LOCAL */
+				/* 再以 LOCAL 应用当前值 */
 				(void) set_config_option_ext(name, curvalue,
 											 curscontext, cursource, cursrole,
 											 GUC_ACTION_LOCAL, true,
@@ -4976,19 +4976,19 @@ reapply_stacked_values(struct config_generic *variable,
 				break;
 		}
 
-		/* If we successfully made a stack entry, adjust its nest level */
+		/* 若成功创建了栈条目,则调整其嵌套层级 */
 		if (variable->stack != oldvarstack)
 			variable->stack->nest_level = stack->nest_level;
 	}
 	else
 	{
 		/*
-		 * We are at the end of the stack.  If the active/previous value is
-		 * different from the reset value, it must represent a previously
-		 * committed session value.  Apply it, and then drop the stack entry
-		 * that set_config_option will have created under the impression that
-		 * this is to be just a transactional assignment.  (We leak the stack
-		 * entry.)
+		 * 我们已到达栈的末端。如果生效值/先前值与
+		 * 重置值不同,那它必定代表先前已提交的
+		 * 会话值。应用它,然后丢弃 set_config_option
+		 * 出于"这只是事务性赋值"误解而创建的栈条目。
+		 * (我们会泄漏该栈条目。)
+		 *
 		 */
 		if (curvalue != pHolder->reset_val ||
 			curscontext != pHolder->gen.reset_scontext ||
@@ -5008,7 +5008,7 @@ reapply_stacked_values(struct config_generic *variable,
 }
 
 /*
- * Functions for extensions to call to define their custom GUC variables.
+ * 供扩展调用来定义其自定义 GUC 变量的函数。
  */
 void
 DefineCustomBoolVariable(const char *name,
@@ -5150,12 +5150,12 @@ DefineCustomEnumVariable(const char *name,
 }
 
 /*
- * Mark the given GUC prefix as "reserved".
+ * 将给定 GUC 前缀标记为"保留"。
  *
- * This deletes any existing placeholders matching the prefix,
- * and then prevents new ones from being created.
- * Extensions should call this after they've defined all of their custom
- * GUCs, to help catch misspelled config-file entries.
+ * 这会删除与该前缀匹配的所有既有占位符,
+ * 然后阻止创建新的占位符。
+ * 扩展应在定义完自己的全部自定义 GUC 之后调用
+ * 本函数,以便发现拼错的配置条目。
  */
 void
 MarkGUCPrefixReserved(const char *className)
@@ -5166,10 +5166,10 @@ MarkGUCPrefixReserved(const char *className)
 	MemoryContext oldcontext;
 
 	/*
-	 * Check for existing placeholders.  We must actually remove invalid
-	 * placeholders, else future parallel worker startups will fail.  (We
-	 * don't bother trying to free associated memory, since this shouldn't
-	 * happen often.)
+	 * 检查既有的占位符。我们必须真正移除无效的
+	 * 占位符,否则将来并行 worker 启动会失败。(我们
+	 * 不打算费心释放相关内存,因为这不常发生。)
+	 *
 	 */
 	hash_seq_init(&status, guc_hashtab);
 	while ((hentry = (GUCHashEntry *) hash_seq_search(&status)) != NULL)
@@ -5186,17 +5186,17 @@ MarkGUCPrefixReserved(const char *className)
 							var->name),
 					 errdetail("\"%s\" is now a reserved prefix.",
 							   className)));
-			/* Remove it from the hash table */
+			/* 将它从哈希表中移除 */
 			hash_search(guc_hashtab,
 						&var->name,
 						HASH_REMOVE,
 						NULL);
-			/* Remove it from any lists it's in, too */
+			/* 也从其所在列表中移除 */
 			RemoveGUCFromLists(var);
 		}
 	}
 
-	/* And remember the name so we can prevent future mistakes. */
+	/* 并记住该名称,以便防止将来出现错误。 */
 	oldcontext = MemoryContextSwitchTo(GUCMemoryContext);
 	reserved_class_prefix = lappend(reserved_class_prefix, pstrdup(className));
 	MemoryContextSwitchTo(oldcontext);
@@ -5204,10 +5204,10 @@ MarkGUCPrefixReserved(const char *className)
 
 
 /*
- * Return an array of modified GUC options to show in EXPLAIN.
+ * 返回供 EXPLAIN 显示的已修改 GUC 选项数组。
  *
- * We only report options related to query planning (marked with GUC_EXPLAIN),
- * with values different from their built-in defaults.
+ * 我们只报告与查询规划相关的选项(以 GUC_EXPLAIN 标记),
+ * 且取值不同于其内建默认值的选项。
  */
 struct config_generic **
 get_explain_guc_options(int *num)
@@ -5218,27 +5218,27 @@ get_explain_guc_options(int *num)
 	*num = 0;
 
 	/*
-	 * While only a fraction of all the GUC variables are marked GUC_EXPLAIN,
-	 * it doesn't seem worth dynamically resizing this array.
+	 * 虽然所有 GUC 变量中只有一小部分被标记为 GUC_EXPLAIN,
+	 * 但动态调整该数组大小似乎并不值得。
 	 */
 	result = palloc(sizeof(struct config_generic *) * hash_get_num_entries(guc_hashtab));
 
-	/* We need only consider GUCs with source not PGC_S_DEFAULT */
+	/* 只需考虑来源不是 PGC_S_DEFAULT 的 GUC */
 	dlist_foreach(iter, &guc_nondef_list)
 	{
 		struct config_generic *conf = dlist_container(struct config_generic,
 													  nondef_link, iter.cur);
 		bool		modified;
 
-		/* return only parameters marked for inclusion in explain */
+		/* 只返回被标记为纳入 explain 的参数 */
 		if (!(conf->flags & GUC_EXPLAIN))
 			continue;
 
-		/* return only options visible to the current user */
+		/* 只返回当前用户可见的选项 */
 		if (!ConfigOptionIsVisible(conf))
 			continue;
 
-		/* return only options that are different from their boot values */
+		/* 只返回与其引导值不同的选项 */
 		modified = false;
 
 		switch (conf->vartype)
@@ -5297,7 +5297,7 @@ get_explain_guc_options(int *num)
 		if (!modified)
 			continue;
 
-		/* OK, report it */
+		/* 好,报告它 */
 		result[*num] = conf;
 		*num = *num + 1;
 	}
@@ -5306,9 +5306,9 @@ get_explain_guc_options(int *num)
 }
 
 /*
- * Return GUC variable value by name; optionally return canonical form of
- * name.  If the GUC is unset, then throw an error unless missing_ok is true,
- * in which case return NULL.  Return value is palloc'd (but *varname isn't).
+ * 按名称返回 GUC 变量值;可选地返回名称的规范
+ * 形式。如果 GUC 未设置,则抛出错误,除非 missing_ok
+ * 为真,此时返回 NULL。返回值经 palloc 分配(*varname 除外)。
  */
 char *
 GetConfigOptionByName(const char *name, const char **varname, bool missing_ok)
@@ -5337,11 +5337,11 @@ GetConfigOptionByName(const char *name, const char **varname, bool missing_ok)
 }
 
 /*
- * ShowGUCOption: get string value of variable
+ * ShowGUCOption:获取变量的字符串值
  *
- * We express a numeric value in appropriate units if it has units and
- * use_units is true; else you just get the raw number.
- * The result string is palloc'd.
+ * 如果数值带有单位且 use_units 为真,则以合适的
+ * 单位表示该值;否则只得到原始数字。
+ * 结果串经 palloc 分配。
  */
 char *
 ShowGUCOption(struct config_generic *record, bool use_units)
@@ -5371,8 +5371,8 @@ ShowGUCOption(struct config_generic *record, bool use_units)
 				else
 				{
 					/*
-					 * Use int64 arithmetic to avoid overflows in units
-					 * conversion.
+					 * 用 int64 算术避免单位换算溢出。
+					 *
 					 */
 					int64		result = *conf->variable;
 					const char *unit;
@@ -5441,7 +5441,7 @@ ShowGUCOption(struct config_generic *record, bool use_units)
 			break;
 
 		default:
-			/* just to keep compiler quiet */
+			/* 只为让编译器安静 */
 			val = "???";
 			break;
 	}
@@ -5453,16 +5453,16 @@ ShowGUCOption(struct config_generic *record, bool use_units)
 #ifdef EXEC_BACKEND
 
 /*
- *	These routines dump out all non-default GUC options into a binary
- *	file that is read by all exec'ed backends.  The format is:
+ *	这些例程把所有非默认 GUC 选项转储到一个二进制
+ *	文件,由所有 exec 出的后端读取。格式为:
  *
- *		variable name, string, null terminated
- *		variable value, string, null terminated
- *		variable sourcefile, string, null terminated (empty if none)
- *		variable sourceline, integer
- *		variable source, integer
- *		variable scontext, integer
-*		variable srole, OID
+ *		变量名,字符串,以 NUL 结尾
+ *		变量取值,字符串,NUL 结尾
+ *		变量来源文件,字符串,NUL 结尾(无则空)
+ *		变量来源行号,整数
+ *		变量来源,整数
+ *		安全上下文,整数
+*		变量 srole,OID
  */
 static void
 write_one_nondefault_variable(FILE *fp, struct config_generic *gconf)
@@ -5556,7 +5556,7 @@ write_nondefault_variables(GucContext context)
 		return;
 	}
 
-	/* We need only consider GUCs with source not PGC_S_DEFAULT */
+	/* 只需考虑来源不是 PGC_S_DEFAULT 的 GUC */
 	dlist_foreach(iter, &guc_nondef_list)
 	{
 		struct config_generic *gconf = dlist_container(struct config_generic,
@@ -5575,17 +5575,17 @@ write_nondefault_variables(GucContext context)
 	}
 
 	/*
-	 * Put new file in place.  This could delay on Win32, but we don't hold
-	 * any exclusive locks.
+	 * 把新文件放到位。这在 Win32 上可能有延迟,但我们
+	 * 不持排他锁。
 	 */
 	rename(CONFIG_EXEC_PARAMS_NEW, CONFIG_EXEC_PARAMS);
 }
 
 
 /*
- *	Read string, including null byte from file
+ *	从文件读字符串,含 NUL 字节
  *
- *	Return NULL on EOF and nothing read
+ *	EOF 且无读取时返回 NULL
  */
 static char *
 read_string_with_null(FILE *fp)
@@ -5616,8 +5616,8 @@ read_string_with_null(FILE *fp)
 
 
 /*
- *	This routine loads a previous postmaster dump of its non-default
- *	settings.
+ *	本例程加载先前 postmaster 转储出来的非默认
+ *	设置。
  */
 void
 read_nondefault_variables(void)
@@ -5637,7 +5637,7 @@ read_nondefault_variables(void)
 	fp = AllocateFile(CONFIG_EXEC_PARAMS, "r");
 	if (!fp)
 	{
-		/* File not found is fine */
+		/* 文件未找到无妨 */
 		if (errno != ENOENT)
 			ereport(FATAL,
 					(errcode_for_file_access(),
@@ -5684,36 +5684,36 @@ read_nondefault_variables(void)
 
 /*
  * can_skip_gucvar:
- * Decide whether SerializeGUCState can skip sending this GUC variable,
- * or whether RestoreGUCState can skip resetting this GUC to default.
+ * 决定 SerializeGUCState 是否可以跳过发送该 GUC 变量,
+ * 或 RestoreGUCState 是否可跳过把该 GUC 重置为默认。
  *
- * It is somewhat magical and fragile that the same test works for both cases.
- * Realize in particular that we are very likely selecting different sets of
- * GUCs on the leader and worker sides!  Be sure you've understood the
- * comments here and in RestoreGUCState thoroughly before changing this.
+ * 同一个测试竟能适用于两种情形,这有点神奇且脆弱。
+ * 尤其要意识到:在 leader 侧和 worker 侧,我们很可能
+ * 选出的是不同的 GUC 集合!改动前请务必彻底
+ * 理解此处以及 RestoreGUCState 中的注释。
  */
 static bool
 can_skip_gucvar(struct config_generic *gconf)
 {
 	/*
-	 * We can skip GUCs that are guaranteed to have the same values in leaders
-	 * and workers.  (Note it is critical that the leader and worker have the
-	 * same idea of which GUCs fall into this category.  It's okay to consider
-	 * context and name for this purpose, since those are unchanging
-	 * properties of a GUC.)
+	 * 我们可以跳过那些保证在 leader 与 worker 中取值
+	 * 相同的 GUC。(注意,leader 与 worker 对哪些 GUC 属
+	 * 于这一类别必须看法一致。为此考虑上下文和
+	 * 名称没有问题,因为它们是 GUC 的不变
+	 * 属性。)
 	 *
-	 * PGC_POSTMASTER variables always have the same value in every child of a
-	 * particular postmaster, so the worker will certainly have the right
-	 * value already.  Likewise, PGC_INTERNAL variables are set by special
-	 * mechanisms (if indeed they aren't compile-time constants).  So we may
-	 * always skip these.
+	 * PGC_POSTMASTER 变量在特定 postmaster 的每个子进程
+	 * 中总是取相同值,因此 worker 必然已经持有正确
+	 * 的值。同样,PGC_INTERNAL 变量由特殊机制设置
+	 * (若它们确实不是编译期常量)。因此总是
+	 * 可以跳过。
 	 *
-	 * For all other GUCs, we skip if the GUC has its compiled-in default
-	 * value (i.e., source == PGC_S_DEFAULT).  On the leader side, this means
-	 * we don't send GUCs that have their default values, which typically
-	 * saves lots of work.  On the worker side, this means we don't need to
-	 * reset the GUC to default because it already has that value.  See
-	 * comments in RestoreGUCState for more info.
+	 * 对于所有其他 GUC,若其取值为编译进去的默认值
+	 * (即 source == PGC_S_DEFAULT),则跳过它。在 leader 侧,
+	 * 这意味着我们不发送具有默认值的 GUC,这通常
+	 * 能节省大量工作。在 worker 侧,这意味着我们无需
+	 * 把该 GUC 重置为默认值,因其已有该值。详见
+	 * RestoreGUCState 中的注释。
 	 */
 	return gconf->context == PGC_POSTMASTER ||
 		gconf->context == PGC_INTERNAL ||
@@ -5722,9 +5722,9 @@ can_skip_gucvar(struct config_generic *gconf)
 
 /*
  * estimate_variable_size:
- *		Compute space needed for dumping the given GUC variable.
+ *		计算转储给定 GUC 变量所需的空间。
  *
- * It's OK to overestimate, but not to underestimate.
+ * 可以高估,但不可以低估。
  */
 static Size
 estimate_variable_size(struct config_generic *gconf)
@@ -5732,19 +5732,19 @@ estimate_variable_size(struct config_generic *gconf)
 	Size		size;
 	Size		valsize = 0;
 
-	/* Skippable GUCs consume zero space. */
+	/* 可跳过 GUC 零占用。 */
 	if (can_skip_gucvar(gconf))
 		return 0;
 
-	/* Name, plus trailing zero byte. */
+	/* 名称加零字节。 */
 	size = strlen(gconf->name) + 1;
 
-	/* Get the maximum display length of the GUC value. */
+	/* 获取 GUC 值的最大显示长度。 */
 	switch (gconf->vartype)
 	{
 		case PGC_BOOL:
 			{
-				valsize = 5;	/* max(strlen('true'), strlen('false')) */
+				valsize = 5;	/*max(strlen('true'),strlen('false'))*/
 			}
 			break;
 
@@ -5753,10 +5753,10 @@ estimate_variable_size(struct config_generic *gconf)
 				struct config_int *conf = (struct config_int *) gconf;
 
 				/*
-				 * Instead of getting the exact display length, use max
-				 * length.  Also reduce the max length for typical ranges of
-				 * small values.  Maximum value is 2147483647, i.e. 10 chars.
-				 * Include one byte for sign.
+				 * 与其取精确显示长度,不如使用最大
+				 * 长度。小值典型范围的最大长度可再减。
+				 * 最大值为 2147483647,即 10 个字符。
+				 * 符号占一字节。
 				 */
 				if (abs(*conf->variable) < 1000)
 					valsize = 3 + 1;
@@ -5768,9 +5768,9 @@ estimate_variable_size(struct config_generic *gconf)
 		case PGC_REAL:
 			{
 				/*
-				 * We are going to print it with %e with REALTYPE_PRECISION
-				 * fractional digits.  Account for sign, leading digit,
-				 * decimal point, and exponent with up to 3 digits.  E.g.
+				 * 我们将使用 %e 以 REALTYPE_PRECISION
+				 * 位小数打印。需计入符号、首数字、
+				 * 小数点以及最多 3 位的指数。例如
 				 * -3.99329042340000021e+110
 				 */
 				valsize = 1 + 1 + 1 + REALTYPE_PRECISION + 5;
@@ -5782,9 +5782,9 @@ estimate_variable_size(struct config_generic *gconf)
 				struct config_string *conf = (struct config_string *) gconf;
 
 				/*
-				 * If the value is NULL, we transmit it as an empty string.
-				 * Although this is not physically the same value, GUC
-				 * generally treats a NULL the same as empty string.
+				 * 如果值为 NULL,我们以空字符串传输它。
+				 * 虽然物理上并非同一个值,但 GUC 通常
+				 * 把 NULL 与空字符串同等对待。
 				 */
 				if (*conf->variable)
 					valsize = strlen(*conf->variable);
@@ -5802,16 +5802,16 @@ estimate_variable_size(struct config_generic *gconf)
 			break;
 	}
 
-	/* Allow space for terminating zero-byte for value */
+	/* 为值的结尾零字节预留空间 */
 	size = add_size(size, valsize + 1);
 
 	if (gconf->sourcefile)
 		size = add_size(size, strlen(gconf->sourcefile));
 
-	/* Allow space for terminating zero-byte for sourcefile */
+	/* 为来源文件的结尾零字节预留空间 */
 	size = add_size(size, 1);
 
-	/* Include line whenever file is nonempty. */
+	/* 文件非空即含行号。 */
 	if (gconf->sourcefile && gconf->sourcefile[0])
 		size = add_size(size, sizeof(gconf->sourceline));
 
@@ -5824,7 +5824,7 @@ estimate_variable_size(struct config_generic *gconf)
 
 /*
  * EstimateGUCStateSpace:
- * Returns the size needed to store the GUC state for the current process
+ * 返回为当前进程存储 GUC 状态所需的大小
  */
 Size
 EstimateGUCStateSpace(void)
@@ -5832,13 +5832,13 @@ EstimateGUCStateSpace(void)
 	Size		size;
 	dlist_iter	iter;
 
-	/* Add space reqd for saving the data size of the guc state */
+	/* 加上保存 guc 状态数据大小所需空间 */
 	size = sizeof(Size);
 
 	/*
-	 * Add up the space needed for each GUC variable.
+	 * 把每个 GUC 变量所需空间加起来。
 	 *
-	 * We need only process non-default GUCs.
+	 * 只需处理非默认的 GUC。
 	 */
 	dlist_foreach(iter, &guc_nondef_list)
 	{
@@ -5853,9 +5853,9 @@ EstimateGUCStateSpace(void)
 
 /*
  * do_serialize:
- * Copies the formatted string into the destination.  Moves ahead the
- * destination pointer, and decrements the maxbytes by that many bytes. If
- * maxbytes is not sufficient to copy the string, error out.
+ * 把格式化后的字符串复制到目标。向前移动
+ * 目标指针,并按相应字节数递减 maxbytes。如果
+ * maxbytes 不够复制字符串,则报错退出。
  */
 static void
 do_serialize(char **destptr, Size *maxbytes, const char *fmt,...)
@@ -5872,21 +5872,21 @@ do_serialize(char **destptr, Size *maxbytes, const char *fmt,...)
 
 	if (n < 0)
 	{
-		/* Shouldn't happen. Better show errno description. */
+		/* 不应发生。最好显示 errno 描述。 */
 		elog(ERROR, "vsnprintf failed: %m with format string \"%s\"", fmt);
 	}
 	if (n >= *maxbytes)
 	{
-		/* This shouldn't happen either, really. */
+		/* 这个其实也不应发生。 */
 		elog(ERROR, "not enough space to serialize GUC state");
 	}
 
-	/* Shift the destptr ahead of the null terminator */
+	/* 把 destptr 移到 NUL 终止符之后 */
 	*destptr += n + 1;
 	*maxbytes -= n + 1;
 }
 
-/* Binary copy version of do_serialize() */
+/* do_serialize() 的二进制复制版 */
 static void
 do_serialize_binary(char **destptr, Size *maxbytes, void *val, Size valsize)
 {
@@ -5900,13 +5900,13 @@ do_serialize_binary(char **destptr, Size *maxbytes, void *val, Size valsize)
 
 /*
  * serialize_variable:
- * Dumps name, value and other information of a GUC variable into destptr.
+ * 把 GUC 变量的名称、取值及其他信息转储到 destptr。
  */
 static void
 serialize_variable(char **destptr, Size *maxbytes,
 				   struct config_generic *gconf)
 {
-	/* Ignore skippable GUCs. */
+	/* 忽略可跳过 GUC。 */
 	if (can_skip_gucvar(gconf))
 		return;
 
@@ -5944,7 +5944,7 @@ serialize_variable(char **destptr, Size *maxbytes,
 			{
 				struct config_string *conf = (struct config_string *) gconf;
 
-				/* NULL becomes empty string, see estimate_variable_size() */
+				/* NULL 变为空字符串,见 estimate_variable_size() */
 				do_serialize(destptr, maxbytes, "%s",
 							 *conf->variable ? *conf->variable : "");
 			}
@@ -5977,7 +5977,7 @@ serialize_variable(char **destptr, Size *maxbytes,
 
 /*
  * SerializeGUCState:
- * Dumps the complete GUC state onto the memory location at start_address.
+ * 把完整 GUC 状态转储到 start_address 处的内存位置。
  */
 void
 SerializeGUCState(Size maxsize, char *start_address)
@@ -5987,12 +5987,12 @@ SerializeGUCState(Size maxsize, char *start_address)
 	Size		bytes_left;
 	dlist_iter	iter;
 
-	/* Reserve space for saving the actual size of the guc state */
+	/* 为保存 guc 状态的实际大小预留空间 */
 	Assert(maxsize > sizeof(actual_size));
 	curptr = start_address + sizeof(actual_size);
 	bytes_left = maxsize - sizeof(actual_size);
 
-	/* We need only consider GUCs with source not PGC_S_DEFAULT */
+	/* 只需考虑来源不是 PGC_S_DEFAULT 的 GUC */
 	dlist_foreach(iter, &guc_nondef_list)
 	{
 		struct config_generic *gconf = dlist_container(struct config_generic,
@@ -6001,16 +6001,16 @@ SerializeGUCState(Size maxsize, char *start_address)
 		serialize_variable(&curptr, &bytes_left, gconf);
 	}
 
-	/* Store actual size without assuming alignment of start_address. */
+	/* 存储实际大小,不假设 start_address 的对齐。 */
 	actual_size = maxsize - bytes_left - sizeof(actual_size);
 	memcpy(start_address, &actual_size, sizeof(actual_size));
 }
 
 /*
  * read_gucstate:
- * Actually it does not read anything, just returns the srcptr. But it does
- * move the srcptr past the terminating zero byte, so that the caller is ready
- * to read the next string.
+ * 实际上它并不读取任何内容,只是返回 srcptr。但它
+ * 会把 srcptr 移过结尾零字节,使调用方准备好读取
+ * 下一个字符串。
  */
 static char *
 read_gucstate(char **srcptr, char *srcend)
@@ -6021,20 +6021,20 @@ read_gucstate(char **srcptr, char *srcend)
 	if (*srcptr >= srcend)
 		elog(ERROR, "incomplete GUC state");
 
-	/* The string variables are all null terminated */
+	/* 字符串变量都以 NUL 结尾 */
 	for (ptr = *srcptr; ptr < srcend && *ptr != '\0'; ptr++)
 		;
 
 	if (ptr >= srcend)
 		elog(ERROR, "could not find null terminator in GUC state");
 
-	/* Set the new position to the byte following the terminating NUL */
+	/* 把新位置设为紧跟 NUL 终止符之后的字节 */
 	*srcptr = ptr + 1;
 
 	return retptr;
 }
 
-/* Binary read version of read_gucstate(). Copies into dest */
+/* read_gucstate() 二进制读取版。复制进 dest */
 static void
 read_gucstate_binary(char **srcptr, char *srcend, void *dest, Size size)
 {
@@ -6046,8 +6046,8 @@ read_gucstate_binary(char **srcptr, char *srcend, void *dest, Size size)
 }
 
 /*
- * Callback used to add a context message when reporting errors that occur
- * while trying to restore GUCs in parallel workers.
+ * 本回调用于在报告并行 worker 中恢复 GUC 时
+ * 发生的错误时附加一条上下文消息。
  */
 static void
 guc_restore_error_context_callback(void *arg)
@@ -6062,14 +6062,14 @@ guc_restore_error_context_callback(void *arg)
 
 /*
  * RestoreGUCState:
- * Reads the GUC state at the specified address and sets this process's
- * GUCs to match.
+ * 读取指定地址处的 GUC 状态,并使本进程 GUC
+ * 匹配。
  *
- * Note that this provides the worker with only a very shallow view of the
- * leader's GUC state: we'll know about the currently active values, but not
- * about stacked or reset values.  That's fine since the worker is just
- * executing one part of a query, within which the active values won't change
- * and the stacked values are invisible.
+ * 注意,这只会让 worker 看到 leader GUC 状态的
+ * 非常浅的视图:我们将知道当前生效的值,但不知道
+ * 栈中值或重置值。这没有问题,因为 worker 只是
+ * 在执行查询的一部分,在此期间生效值不会改变,
+ * 而栈中值不可见。
  */
 void
 RestoreGUCState(void *gucstate)
@@ -6088,43 +6088,43 @@ RestoreGUCState(void *gucstate)
 	ErrorContextCallback error_context_callback;
 
 	/*
-	 * First, ensure that all potentially-shippable GUCs are reset to their
-	 * default values.  We must not touch those GUCs that the leader will
-	 * never ship, while there is no need to touch those that are shippable
-	 * but already have their default values.  Thus, this ends up being the
-	 * same test that SerializeGUCState uses, even though the sets of
-	 * variables involved may well be different since the leader's set of
-	 * variables-not-at-default-values can differ from the set that are
-	 * not-default in this freshly started worker.
+	 * 首先,确保所有可传输的 GUC 都重置为
+	 * 默认值。leader 永远不会传输的那些 GUC 我们
+	 * 绝不能碰,而可传输但已取默认值的那些则无需
+	 * 去碰。于是,这最终就变成了与
+	 * SerializeGUCState 所用相同的测试,尽管涉及的
+	 * 变量集合很可能不同,因为 leader 的"非默认值变量"
+	 * 集合可能不同于这个刚启动的 worker 中
+	 * 非默认值集合。
 	 *
-	 * Once we have set all the potentially-shippable GUCs to default values,
-	 * restoring the GUCs that the leader sent (because they had non-default
-	 * values over there) leads us to exactly the set of GUC values that the
-	 * leader has.  This is true even though the worker may have initially
-	 * absorbed postgresql.conf settings that the leader hasn't yet seen, or
-	 * ALTER USER/DATABASE SET settings that were established after the leader
-	 * started.
+	 * 一旦我们把所有可传输的 GUC 都设为默认值,
+	 * 恢复 leader 发来的那些 GUC(因为它们在那边
+	 * 取的是非默认值)就会恰好得到与 leader 相同的
+	 * 那组 GUC 值。即使 worker 最初可能已经吸收了
+	 * leader 尚未见到的 postgresql.conf 设置,或者
+	 * 在 leader 启动后才建立的 ALTER USER/DATABASE SET 设置。
 	 *
-	 * Note that ensuring all the potential target GUCs are at PGC_S_DEFAULT
-	 * also ensures that set_config_option won't refuse to set them because of
-	 * source-priority comparisons.
+	 *
+	 * 注意,确保所有潜在目标 GUC 都处于 PGC_S_DEFAULT
+	 * 也确保了 set_config_option 不会因来源优先级比较
+	 * 拒绝设置它们。
 	 */
 	dlist_foreach_modify(iter, &guc_nondef_list)
 	{
 		struct config_generic *gconf = dlist_container(struct config_generic,
 													   nondef_link, iter.cur);
 
-		/* Do nothing if non-shippable or if already at PGC_S_DEFAULT. */
+		/* 不可传输或已在 PGC_S_DEFAULT 则不作为。 */
 		if (can_skip_gucvar(gconf))
 			continue;
 
 		/*
-		 * We can use InitializeOneGUCOption to reset the GUC to default, but
-		 * first we must free any existing subsidiary data to avoid leaking
-		 * memory.  The stack must be empty, but we have to clean up all other
-		 * fields.  Beware that there might be duplicate value or "extra"
-		 * pointers.  We also have to be sure to take it out of any lists it's
-		 * in.
+		 * 可用 InitializeOneGUCOption 把 GUC 重置为
+		 * 默认值,但先须释放所有已存在的附属数据,
+		 * 以免泄漏内存。栈必须为空,但我们必须清理其余
+		 * 的字段。注意可能有重复的值或 "extra" 指针。
+		 * 还必须确保把它从所在的所有列表中取出。
+		 *
 		 */
 		Assert(gconf->stack == NULL);
 		guc_free(gconf->extra);
@@ -6176,25 +6176,25 @@ RestoreGUCState(void *gucstate)
 					break;
 				}
 		}
-		/* Remove it from any lists it's in. */
+		/* 从所在列表移除。 */
 		RemoveGUCFromLists(gconf);
-		/* Now we can reset the struct to PGS_S_DEFAULT state. */
+		/* 现在可把结构体重置回 PGS_S_DEFAULT。 */
 		InitializeOneGUCOption(gconf);
 	}
 
-	/* First item is the length of the subsequent data */
+	/* 第一项是后续数据的长度 */
 	memcpy(&len, gucstate, sizeof(len));
 
 	srcptr += sizeof(len);
 	srcend = srcptr + len;
 
-	/* If the GUC value check fails, we want errors to show useful context. */
+	/* 如果 GUC 值检查失败,我们希望错误能显示有用的 */
 	error_context_callback.callback = guc_restore_error_context_callback;
 	error_context_callback.previous = error_context_stack;
 	error_context_callback.arg = NULL;
 	error_context_stack = &error_context_callback;
 
-	/* Restore all the listed GUCs. */
+	/* 恢复列出的 GUC。 */
 	while (srcptr < srcend)
 	{
 		int			result;
@@ -6234,11 +6234,11 @@ RestoreGUCState(void *gucstate)
 }
 
 /*
- * A little "long argument" simulation, although not quite GNU
- * compliant. Takes a string of the form "some-option=some value" and
- * returns name = "some_option" and value = "some value" in palloc'ed
- * storage. Note that '-' is converted to '_' in the option name. If
- * there is no '=' in the input string then value will be NULL.
+ * 一种"长参数"的简单模拟,不完全符合 GNU
+ * 规范。它接受形如 "some-option=some value" 的字符串,
+ * 并在 palloc 的存储中返回 name = "some_option"、
+ * value = "some value"。注意选项名中的 '-' 会被
+ * 转换为 '_'。若输入串无 '=',则 value 为 NULL。
  */
 void
 ParseLongOption(const char *string, char **name, char **value)
@@ -6261,7 +6261,7 @@ ParseLongOption(const char *string, char **name, char **value)
 	}
 	else
 	{
-		/* no equal sign in string */
+		/* 字符串无等号 */
 		*name = pstrdup(string);
 		*value = NULL;
 	}
@@ -6273,10 +6273,10 @@ ParseLongOption(const char *string, char **name, char **value)
 
 
 /*
- * Handle options fetched from pg_db_role_setting.setconfig,
- * pg_proc.proconfig, etc.  Caller must specify proper context/source/action.
+ * 处理取自 pg_db_role_setting.setconfig、
+ * pg_proc.proconfig 等。调用方须指定正确上下文/来源/动作。
  *
- * The array parameter must be an array of TEXT (it must not be NULL).
+ * 数组参数必须是 TEXT 数组(不得为 NULL)。
  */
 void
 ProcessGUCArray(ArrayType *array,
@@ -6298,10 +6298,10 @@ ProcessGUCArray(ArrayType *array,
 		char	   *value;
 
 		d = array_ref(array, 1, &i,
-					  -1 /* varlenarray */ ,
-					  -1 /* TEXT's typlen */ ,
-					  false /* TEXT's typbyval */ ,
-					  TYPALIGN_INT /* TEXT's typalign */ ,
+					  -1 /*变长数组*/ ,
+					  -1 /*TEXT的typlen*/ ,
+					  false /*TEXT的typbyval*/ ,
+					  TYPALIGN_INT /*TEXT的typalign*/ ,
 					  &isnull);
 
 		if (isnull)
@@ -6332,8 +6332,8 @@ ProcessGUCArray(ArrayType *array,
 
 
 /*
- * Add an entry to an option array.  The array parameter may be NULL
- * to indicate the current table entry is NULL.
+ * 向选项数组添加一个条目。数组参数可以为 NULL,
+ * 以指示当前表条目为 NULL。
  */
 ArrayType *
 GUCArrayAdd(ArrayType *array, const char *name, const char *value)
@@ -6346,15 +6346,15 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 	Assert(name);
 	Assert(value);
 
-	/* test if the option is valid and we're allowed to set it */
+	/* 测试选项是否有效、我们可否设置它 */
 	(void) validate_option_array_item(name, value, false);
 
-	/* normalize name (converts obsolete GUC names to modern spellings) */
+	/* 规范化名称(把过时 GUC 名转为现代拼写) */
 	record = find_option(name, false, true, WARNING);
 	if (record)
 		name = record->name;
 
-	/* build new item for array */
+	/* 为数组建新条目 */
 	newval = psprintf("%s=%s", name, value);
 	datum = CStringGetTextDatum(newval);
 
@@ -6368,7 +6368,7 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 		Assert(ARR_NDIM(array) == 1);
 		Assert(ARR_LBOUND(array)[0] == 1);
 
-		index = ARR_DIMS(array)[0] + 1; /* add after end */
+		index = ARR_DIMS(array)[0] + 1; /*添加到末尾*/
 
 		for (i = 1; i <= ARR_DIMS(array)[0]; i++)
 		{
@@ -6376,16 +6376,16 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 			char	   *current;
 
 			d = array_ref(array, 1, &i,
-						  -1 /* varlenarray */ ,
-						  -1 /* TEXT's typlen */ ,
-						  false /* TEXT's typbyval */ ,
-						  TYPALIGN_INT /* TEXT's typalign */ ,
+						  -1 /*变长数组*/ ,
+						  -1 /*TEXT的typlen*/ ,
+						  false /*TEXT的typbyval*/ ,
+						  TYPALIGN_INT /*TEXT的typalign*/ ,
 						  &isnull);
 			if (isnull)
 				continue;
 			current = TextDatumGetCString(d);
 
-			/* check for match up through and including '=' */
+			/* 检查匹配直至并包含 '=' */
 			if (strncmp(current, newval, strlen(name) + 1) == 0)
 			{
 				index = i;
@@ -6396,10 +6396,10 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 		a = array_set(array, 1, &index,
 					  datum,
 					  false,
-					  -1 /* varlena array */ ,
-					  -1 /* TEXT's typlen */ ,
-					  false /* TEXT's typbyval */ ,
-					  TYPALIGN_INT /* TEXT's typalign */ );
+					  -1 /*变长数组*/ ,
+					  -1 /*TEXT的typlen*/ ,
+					  false /*TEXT的typbyval*/ ,
+					  TYPALIGN_INT /*TEXT的typalign*/ );
 	}
 	else
 		a = construct_array_builtin(&datum, 1, TEXTOID);
@@ -6409,9 +6409,9 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 
 
 /*
- * Delete an entry from an option array.  The array parameter may be NULL
- * to indicate the current table entry is NULL.  Also, if the return value
- * is NULL then a null should be stored.
+ * 从选项数组删除一个条目。数组参数可以为 NULL,
+ * 以指示当前表条目为 NULL。此外,如果返回值为 NULL,
+ * 则应存储一个空值。
  */
 ArrayType *
 GUCArrayDelete(ArrayType *array, const char *name)
@@ -6423,15 +6423,15 @@ GUCArrayDelete(ArrayType *array, const char *name)
 
 	Assert(name);
 
-	/* test if the option is valid and we're allowed to set it */
+	/* 测试选项是否有效、我们可否设置它 */
 	(void) validate_option_array_item(name, NULL, false);
 
-	/* normalize name (converts obsolete GUC names to modern spellings) */
+	/* 规范化名称(把过时 GUC 名转为现代拼写) */
 	record = find_option(name, false, true, WARNING);
 	if (record)
 		name = record->name;
 
-	/* if array is currently null, then surely nothing to delete */
+	/* 数组当前为 NULL 则肯定没有要删除项 */
 	if (!array)
 		return NULL;
 
@@ -6445,29 +6445,29 @@ GUCArrayDelete(ArrayType *array, const char *name)
 		bool		isnull;
 
 		d = array_ref(array, 1, &i,
-					  -1 /* varlenarray */ ,
-					  -1 /* TEXT's typlen */ ,
-					  false /* TEXT's typbyval */ ,
-					  TYPALIGN_INT /* TEXT's typalign */ ,
+					  -1 /*变长数组*/ ,
+					  -1 /*TEXT的typlen*/ ,
+					  false /*TEXT的typbyval*/ ,
+					  TYPALIGN_INT /*TEXT的typalign*/ ,
 					  &isnull);
 		if (isnull)
 			continue;
 		val = TextDatumGetCString(d);
 
-		/* ignore entry if it's what we want to delete */
+		/* 若条目正是要删的,则忽略 */
 		if (strncmp(val, name, strlen(name)) == 0
 			&& val[strlen(name)] == '=')
 			continue;
 
-		/* else add it to the output array */
+		/* 否则加进输出数组 */
 		if (newarray)
 			newarray = array_set(newarray, 1, &index,
 								 d,
 								 false,
-								 -1 /* varlenarray */ ,
-								 -1 /* TEXT's typlen */ ,
-								 false /* TEXT's typbyval */ ,
-								 TYPALIGN_INT /* TEXT's typalign */ );
+								 -1 /*变长数组*/ ,
+								 -1 /*TEXT的typlen*/ ,
+								 false /*TEXT的typbyval*/ ,
+								 TYPALIGN_INT /*TEXT的typalign*/ );
 		else
 			newarray = construct_array_builtin(&d, 1, TEXTOID);
 
@@ -6479,9 +6479,9 @@ GUCArrayDelete(ArrayType *array, const char *name)
 
 
 /*
- * Given a GUC array, delete all settings from it that our permission
- * level allows: if superuser, delete them all; if regular user, only
- * those that are PGC_USERSET or we have permission to set
+ * 给定一个 GUC 数组,删掉其中我们权限级别
+ * 允许删除的全部设置:超级用户全删;普通用户
+ * 只删 PGC_USERSET 的或有设置权限的
  */
 ArrayType *
 GUCArrayReset(ArrayType *array)
@@ -6490,11 +6490,11 @@ GUCArrayReset(ArrayType *array)
 	int			i;
 	int			index;
 
-	/* if array is currently null, nothing to do */
+	/* 数组当前为 NULL 则无事可做 */
 	if (!array)
 		return NULL;
 
-	/* if we're superuser, we can delete everything, so just do it */
+	/* 若是超级用户则能删一切,直接删即可 */
 	if (superuser())
 		return NULL;
 
@@ -6509,10 +6509,10 @@ GUCArrayReset(ArrayType *array)
 		bool		isnull;
 
 		d = array_ref(array, 1, &i,
-					  -1 /* varlenarray */ ,
-					  -1 /* TEXT's typlen */ ,
-					  false /* TEXT's typbyval */ ,
-					  TYPALIGN_INT /* TEXT's typalign */ ,
+					  -1 /*变长数组*/ ,
+					  -1 /*TEXT的typlen*/ ,
+					  false /*TEXT的typbyval*/ ,
+					  TYPALIGN_INT /*TEXT的typalign*/ ,
 					  &isnull);
 		if (isnull)
 			continue;
@@ -6521,19 +6521,19 @@ GUCArrayReset(ArrayType *array)
 		eqsgn = strchr(val, '=');
 		*eqsgn = '\0';
 
-		/* skip if we have permission to delete it */
+		/* 若有删除权限,则跳过 */
 		if (validate_option_array_item(val, NULL, true))
 			continue;
 
-		/* else add it to the output array */
+		/* 否则加进输出数组 */
 		if (newarray)
 			newarray = array_set(newarray, 1, &index,
 								 d,
 								 false,
-								 -1 /* varlenarray */ ,
-								 -1 /* TEXT's typlen */ ,
-								 false /* TEXT's typbyval */ ,
-								 TYPALIGN_INT /* TEXT's typalign */ );
+								 -1 /*变长数组*/ ,
+								 -1 /*TEXT的typlen*/ ,
+								 false /*TEXT的typbyval*/ ,
+								 TYPALIGN_INT /*TEXT的typalign*/ );
 		else
 			newarray = construct_array_builtin(&d, 1, TEXTOID);
 
@@ -6545,15 +6545,15 @@ GUCArrayReset(ArrayType *array)
 }
 
 /*
- * Validate a proposed option setting for GUCArrayAdd/Delete/Reset.
+ * 为 GUCArrayAdd/Delete/Reset 校验提议的选项设置。
  *
- * name is the option name.  value is the proposed value for the Add case,
- * or NULL for the Delete/Reset cases.  If skipIfNoPermissions is true, it's
- * not an error to have no permissions to set the option.
+ * name 是选项名。value 是 Add 情形下提议的值,
+ * Delete/Reset 情形下则为 NULL。如果 skipIfNoPermissions
+ * 为真,那么无权限设置该选项也不算错。
  *
- * Returns true if OK, false if skipIfNoPermissions is true and user does not
- * have permission to change this option (all other error cases result in an
- * error being thrown).
+ * 如果一切正常则返回真;如果 skipIfNoPermissions 为真且
+ * 用户无权更改该选项则返回假(所有其他错误情形都会
+ * 抛出错误)。
  */
 static bool
 validate_option_array_item(const char *name, const char *value,
@@ -6564,41 +6564,41 @@ validate_option_array_item(const char *name, const char *value,
 	bool		reset_custom;
 
 	/*
-	 * There are three cases to consider:
+	 * 有三种情形需要考虑:
 	 *
-	 * name is a known GUC variable.  Check the value normally, check
-	 * permissions normally (i.e., allow if variable is USERSET, or if it's
-	 * SUSET and user is superuser or holds ACL_SET permissions).
+	 * name 是已知 GUC 变量。正常检查值,正常检查
+	 * 权限(即变量为 USERSET 时允许,或它是 SUSET
+	 * 且用户为超级用户或持有 ACL_SET 权限)。
 	 *
-	 * name is not known, but exists or can be created as a placeholder (i.e.,
-	 * it has a valid custom name).  We allow this case if you're a superuser,
-	 * otherwise not.  Superusers are assumed to know what they're doing. We
-	 * can't allow it for other users, because when the placeholder is
-	 * resolved it might turn out to be a SUSET variable.  (With currently
-	 * available infrastructure, we can actually handle such cases within the
-	 * current session --- but once an entry is made in pg_db_role_setting,
-	 * it's assumed to be fully validated.)
+	 * name 未知,但已存在或可创建为占位符(即它
+	 * 有有效的自定义名称)。若你是超级用户则允许,
+	 * 否则不允许。假定超级用户知道自己
+	 * 在做什么。不允许其他用户这样做,因为占位符
+	 * 被解析时可能变成 SUSET 变量。(以目前可用的
+	 * 基础设施,我们其实能在当前会话内处理
+	 * 这类情形---但一旦在 pg_db_role_setting 中建立了
+	 * 条目,即视为已完整校验。)
 	 *
-	 * name is not known and can't be created as a placeholder.  Throw error,
-	 * unless skipIfNoPermissions or reset_custom is true.  If reset_custom is
-	 * true, this is a RESET or RESET ALL operation for an unknown custom GUC
-	 * with a reserved prefix, in which case we want to fall through to the
-	 * placeholder case described in the preceding paragraph (else there'd be
-	 * no way for users to remove them).  Otherwise, return false.
+	 * name 未知且无法创建为占位符。抛出错误,除非
+	 * skipIfNoPermissions 或 reset_custom 为真。如果
+	 * reset_custom 为真,那么这是对带保留前缀的未知自
+	 * 定义 GUC 的 RESET 或 RESET ALL 操作,此时我们想
+	 * 继续按上一段描述的占位符情形处理(否则用户将
+	 * 没有办法移除它们)。否则,返回假。
 	 */
 	reset_custom = (!value && valid_custom_variable_name(name));
 	gconf = find_option(name, true, skipIfNoPermissions || reset_custom, ERROR);
 	if (!gconf && !reset_custom)
 	{
-		/* not known, failed to make a placeholder */
+		/* 未知,创建占位符失败 */
 		return false;
 	}
 
 	if (!gconf || gconf->flags & GUC_CUSTOM_PLACEHOLDER)
 	{
 		/*
-		 * We cannot do any meaningful check on the value, so only permissions
-		 * are useful to check.
+		 * 我们无法对值做任何有意义的检查,因此只有权限
+		 * 检查才有用。
 		 */
 		if (superuser() ||
 			pg_parameter_aclcheck(name, GetUserId(), ACL_SET) == ACLCHECK_OK)
@@ -6610,18 +6610,18 @@ validate_option_array_item(const char *name, const char *value,
 				 errmsg("permission denied to set parameter \"%s\"", name)));
 	}
 
-	/* manual permissions check so we can avoid an error being thrown */
+	/* 手动做权限检查,从而避免抛出错误 */
 	if (gconf->context == PGC_USERSET)
-		 /* ok */ ;
+		 /*好*/ ;
 	else if (gconf->context == PGC_SUSET &&
 			 (superuser() ||
 			  pg_parameter_aclcheck(name, GetUserId(), ACL_SET) == ACLCHECK_OK))
-		 /* ok */ ;
+		 /*好*/ ;
 	else if (skipIfNoPermissions)
 		return false;
-	/* if a permissions error should be thrown, let set_config_option do it */
+	/* 如果应当抛出权限错误,就让 set_config_option 来做 */
 
-	/* test for permissions and valid option value */
+	/* 测试权限与有效的选项值 */
 	(void) set_config_option(name, value,
 							 superuser() ? PGC_SUSET : PGC_USERSET,
 							 PGC_S_TEST, GUC_ACTION_SET, false, 0, false);
@@ -6631,12 +6631,12 @@ validate_option_array_item(const char *name, const char *value,
 
 
 /*
- * Called by check_hooks that want to override the normal
- * ERRCODE_INVALID_PARAMETER_VALUE SQLSTATE for check hook failures.
+ * 由想要为检查钩子失败而覆盖常规
+ * ERRCODE_INVALID_PARAMETER_VALUE SQLSTATE的check_hooks调用。
  *
- * Note that GUC_check_errmsg() etc are just macros that result in a direct
- * assignment to the associated variables.  That is ugly, but forced by the
- * limitations of C's macro mechanisms.
+ * 注意,GUC_check_errmsg() 等
+ * 只是宏,其结果是对相关变量的直接赋值。这很丑陋,
+ * 但受 C 宏机制限制所迫。
  */
 void
 GUC_check_errcode(int sqlerrcode)
@@ -6646,20 +6646,20 @@ GUC_check_errcode(int sqlerrcode)
 
 
 /*
- * Convenience functions to manage calling a variable's check_hook.
- * These mostly take care of the protocol for letting check hooks supply
- * portions of the error report on failure.
+ * 用于管理调用变量 check_hook 的便利函数。
+ * 它们主要负责让检查钩子在失败时提供部分
+ * 错误报告内容的协议。
  */
 
 static bool
 call_bool_check_hook(struct config_bool *conf, bool *newval, void **extra,
 					 GucSource source, int elevel)
 {
-	/* Quick success if no hook */
+	/* 无钩子时快速成功 */
 	if (!conf->check_hook)
 		return true;
 
-	/* Reset variables that might be set by hook */
+	/* 重置可能被钩子设置的变量 */
 	GUC_check_errcode_value = ERRCODE_INVALID_PARAMETER_VALUE;
 	GUC_check_errmsg_string = NULL;
 	GUC_check_errdetail_string = NULL;
@@ -6677,7 +6677,7 @@ call_bool_check_hook(struct config_bool *conf, bool *newval, void **extra,
 				 errdetail_internal("%s", GUC_check_errdetail_string) : 0,
 				 GUC_check_errhint_string ?
 				 errhint("%s", GUC_check_errhint_string) : 0));
-		/* Flush any strings created in ErrorContext */
+		/* 清空 ErrorContext 中的字符串 */
 		FlushErrorState();
 		return false;
 	}
@@ -6689,11 +6689,11 @@ static bool
 call_int_check_hook(struct config_int *conf, int *newval, void **extra,
 					GucSource source, int elevel)
 {
-	/* Quick success if no hook */
+	/* 无钩子时快速成功 */
 	if (!conf->check_hook)
 		return true;
 
-	/* Reset variables that might be set by hook */
+	/* 重置可能被钩子设置的变量 */
 	GUC_check_errcode_value = ERRCODE_INVALID_PARAMETER_VALUE;
 	GUC_check_errmsg_string = NULL;
 	GUC_check_errdetail_string = NULL;
@@ -6711,7 +6711,7 @@ call_int_check_hook(struct config_int *conf, int *newval, void **extra,
 				 errdetail_internal("%s", GUC_check_errdetail_string) : 0,
 				 GUC_check_errhint_string ?
 				 errhint("%s", GUC_check_errhint_string) : 0));
-		/* Flush any strings created in ErrorContext */
+		/* 清空 ErrorContext 中的字符串 */
 		FlushErrorState();
 		return false;
 	}
@@ -6723,11 +6723,11 @@ static bool
 call_real_check_hook(struct config_real *conf, double *newval, void **extra,
 					 GucSource source, int elevel)
 {
-	/* Quick success if no hook */
+	/* 无钩子时快速成功 */
 	if (!conf->check_hook)
 		return true;
 
-	/* Reset variables that might be set by hook */
+	/* 重置可能被钩子设置的变量 */
 	GUC_check_errcode_value = ERRCODE_INVALID_PARAMETER_VALUE;
 	GUC_check_errmsg_string = NULL;
 	GUC_check_errdetail_string = NULL;
@@ -6745,7 +6745,7 @@ call_real_check_hook(struct config_real *conf, double *newval, void **extra,
 				 errdetail_internal("%s", GUC_check_errdetail_string) : 0,
 				 GUC_check_errhint_string ?
 				 errhint("%s", GUC_check_errhint_string) : 0));
-		/* Flush any strings created in ErrorContext */
+		/* 清空 ErrorContext 中的字符串 */
 		FlushErrorState();
 		return false;
 	}
@@ -6759,18 +6759,18 @@ call_string_check_hook(struct config_string *conf, char **newval, void **extra,
 {
 	volatile bool result = true;
 
-	/* Quick success if no hook */
+	/* 无钩子时快速成功 */
 	if (!conf->check_hook)
 		return true;
 
 	/*
-	 * If elevel is ERROR, or if the check_hook itself throws an elog
-	 * (undesirable, but not always avoidable), make sure we don't leak the
-	 * already-malloc'd newval string.
+	 * 如果 elevel 是 ERROR,或者 check_hook 自身抛出
+	 * elog(不理想,但并不总能避免),必须确保我们不泄漏
+	 * 已 malloc 的 newval。
 	 */
 	PG_TRY();
 	{
-		/* Reset variables that might be set by hook */
+		/* 重置可能被钩子设置的变量 */
 		GUC_check_errcode_value = ERRCODE_INVALID_PARAMETER_VALUE;
 		GUC_check_errmsg_string = NULL;
 		GUC_check_errdetail_string = NULL;
@@ -6788,7 +6788,7 @@ call_string_check_hook(struct config_string *conf, char **newval, void **extra,
 					 errdetail_internal("%s", GUC_check_errdetail_string) : 0,
 					 GUC_check_errhint_string ?
 					 errhint("%s", GUC_check_errhint_string) : 0));
-			/* Flush any strings created in ErrorContext */
+			/* 清空 ErrorContext 中的字符串 */
 			FlushErrorState();
 			result = false;
 		}
@@ -6807,11 +6807,11 @@ static bool
 call_enum_check_hook(struct config_enum *conf, int *newval, void **extra,
 					 GucSource source, int elevel)
 {
-	/* Quick success if no hook */
+	/* 无钩子时快速成功 */
 	if (!conf->check_hook)
 		return true;
 
-	/* Reset variables that might be set by hook */
+	/* 重置可能被钩子设置的变量 */
 	GUC_check_errcode_value = ERRCODE_INVALID_PARAMETER_VALUE;
 	GUC_check_errmsg_string = NULL;
 	GUC_check_errdetail_string = NULL;
@@ -6830,7 +6830,7 @@ call_enum_check_hook(struct config_enum *conf, int *newval, void **extra,
 				 errdetail_internal("%s", GUC_check_errdetail_string) : 0,
 				 GUC_check_errhint_string ?
 				 errhint("%s", GUC_check_errhint_string) : 0));
-		/* Flush any strings created in ErrorContext */
+		/* 清空 ErrorContext 中的字符串 */
 		FlushErrorState();
 		return false;
 	}

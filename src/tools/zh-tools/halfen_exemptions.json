@@ -1723,5 +1723,10 @@
   "path": "src/backend/utils/hash/dynahash.c",
   "pattern": "postgres.berkeley.edu",
   "reason": "EN author attribution lines (margo@/sullivan@postgres.berkeley.edu, 1990 modification credits) kept EN inside the translated original-comments block in batch-0364; they form a 4-run MIXED with surrounding zh prose"
+ },
+ {
+  "path": "src/backend/utils/misc/guc.c",
+  "pattern": "some-option=some value",
+  "reason": "ParseLongOption doc block: pseudocode example literals \"some-option=some value\"/\"some_option\"/\"some value\"/'-'/'_'/'=' kept EN as literal input examples; zh prose complete around them (psql command.c usage-literal precedent)"
  }
 ]

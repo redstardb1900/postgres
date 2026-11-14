@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0381",
+ "title": "sort dir final file whole-file comment translation (286 blocks: 276 translated + 10 blocks with kept-EN; 851/866 content lines rewritten (813 translated + 38 emptied to bare frames), 15 EN kept); tuplesort.c - sort dir campaign complete",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3ce4a72a52695ac203c725ec43bc471be93a0dbe",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0381-sort-tuplesort.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0381 manifest path and tuplesort.c entry"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplesort.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0381; 851/866 lines rewritten (813 translated + 38 emptied tails/absorbed EN words), 15 EN kept (header 5 + 8 synopsis identifiers + 2 formula lines); sort dir complete"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0381-sort-tuplesort.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0381 manifest path and tuplesort.c entry"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplesort.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 286,
+   "translated": 276,
+   "preserved": 10,
+   "preserved_reasons": [
+    "block L1-95 header: filename L3, copyright L91/L92, IDENTIFICATION L94, path L95 kept EN - campaign header precedent",
+    "blocks @627/@751/@832/@887/@898/@963/@984/@1032: single-line function-synopsis identifier lines (tuplesort_begin_xxx, tuplesort_begin_batch, tuplesort_set_bound, tuplesort_used_bound, tuplesort_free, tuplesort_end, tuplesort_updatemax, tuplesort_reset) kept EN - 0380 tuplestore synopsis precedent (identifier tokens)",
+    "block @1809-1822: formula lines L1815 (totalMem = M * (TAPE_BUFFER_OVERHEAD + MERGE_BUFFER_SIZE) +) and L1816 (N * TAPE_BUFFER_OVERHEAD) kept EN verbatim - pseudo-code formulas"
+   ],
+   "note": "whole-file comment translation, batch-0381 (sort dir final file); 286 blocks (276 fully translated + 10 with kept-EN); 866 content lines: 851 rewritten (813 translated + 38 emptied to bare `*` frames or bare `*/` closers) + 15 EN kept; git numstat 873/873 (diff alignment counts the 5 multi-line trailing-comment rewrites as moved pairs). Line counts conserved (3215/3215); code bytes zero-changed (per-line check: every changed line's code prefix byte-identical; star-prefix regex and trail /*-prefix preserved); frame terminator counts match EN (286/286 /* and */). Multi-line trailing comments (bounded L193-194, maxTapes L199-200, maxSpace L201-202, isMaxSpaceDisk L203-205, abbrevNext L329-330) translated across the code-attached open line + continuation line with code prefix byte-identical, continuation zh budget checked against the EN line. Coverage assertion universe==SPEC keys against the EN baseline held on every segment dry-run (7 segments, each dry-run asserted before apply). Segment-wise catches fixed before write: 30+ budget overs, 3 cross-line repeats (小 L438-439, 回 L491-492, 度 L421-422), lead-punct guards clean. Review round (5 MED + 3 LOW, all cleared): MED-1 L1878-1879 seam duplicate 这里是 removed (从可用内存量推算…), MED-2 L2545 dangling 要 removed (twin of L999 now byte-identical), MED-3 L2333 synopsis rewritten (dumptuples - 从 memtuples 移除元组并把归并段写入磁带), MED-4 L178 in-addition-to qualifier restored + period added (…1 块之外。), MED-5 L3034 object restored (为主导进程冻结结果磁带), LOW-1 L1257-1258 reflowed (若后来的输入元组/大于先前元组，我们可能大幅超出 workMem。 - reviewer text 3B over the 59B hard cap, 我们可能 replaces 这可能令我们, disclosed), LOW-2 L317 于->的 (的Tuplesortstate。 space omission disclosure kept), LOW-3 L2821-2822 最后一个 restored (…用它换/掉顶节点。). Self-review round (成句性回读 of the full worktree file) had found and fixed 8 prose defects: L421-422 dropped 长 (省略额外的长/度字), L999 dangling 要 (…不值得开销。/ 是否值得…), L1205 只是->只把 (只把 datum1 设为…), L1250-1253 dangling conditional rebuilt (当…超/过…两倍，或刚填满 workMem/且元组数足以满足界限时这么做。（这是/对堆何时比快排更便宜的启发式判断）。), L1440 missing period (接着把堆变为排好序的数组。), L2182-2183 broken 可在/时停下 (…就可/在此停下，…), L2247-2248 多元（若还有/多元组）。 -> （如果该磁带/还有）。, L2105 dropped negation restored (但我们不费这个事); W7_IDENT_LOST round: 5 first-draft warnings eliminated (SortTuples plural L569/L769/L2616, LogicalTapes plural L2152, temp file gloss L1961 临时文件(file)); term_lint round: P02 不能->无法 x3 (L449, L998, L2544), TL08/P23 要求->需要 (L3010), P38 记录->结构 (L430, struct record sense). Tail-period ledger (口径: EN block-tail '.' keeps 。 in zh; every deviation enumerated): all block-tail periods present, either on the final translated line or folded into the previous line's 。 when the EN tail word was absorbed (38 emptied lines listed by EN tail: L200 pass, L205 space, L327 tested., L330 applicability, L451 begins)., L720 from caller, L875 abbreviation support., L978 itself., L1020 to more compact representation., L1208 abbreviated keys)., L1240 tape-based operation., L1254 enough tuples to meet the bound., L1259 exceed workMem significantly., L1349 when still within memory limit., L1442 that sort_bounded_heap sets..., L1699 at top of the heap with it., L1822 available for the tape buffers (allowedMem)., L1826 MERGE_BUFFER_SIZE workspace., L1841 single merge pass across many hundreds of tapes., L1953 inaccurate.), L1973 runs, and during merge passes., L1998 tape., L2058 point on., L2090 bother., L2132 pass., L2154 them., L2162 new input and output tapes., L2184 on-the-fly., L2239 the heap., L2281 output tape., L2367 chances, L2422 this step wasn't taken., L2654 in the heap., L2809 if necessary., L2927 out., L3082 merging is required., L3104 might have., L3140 runs.); 4 period-drop sites found and adjudicated: L178 (review-found, undisclosed drop; fixed to 论）。这是在 TAPE_BUFFER_OVERHEAD 已含的 1 块之外。 - period restored, compliant) plus 3 budget-forced drops disclosed: L170 与tuplesort_merge_order() (28B, 。 has no room), L238 palloc (8B), L243 slabMemoryBegin-End 间 (23B); identical EN rendered identically: L510-511=L534-535=L558-559 (tiebreak), L881=L1370=L2063 (be tidy), L995-1001=L2541-2547 (stats note, byte-identical verified after review-fix MED-2), L706-707=L798-799 (ALLOCSET_SEPARATE_THRESHOLD), L1424=L1457 (mergeruns sets state->status), L1519-1521=L1760-1762 (bounded-sort complain), L2229=L2202 (merge one run per tape); cross-file same-EN alignment scan vs the 5 settled sort files (tuplesortvariants, logtape, tuplestore, sortsupport, qsort_interruptible, sharedtuplestore): 93 EN-identical lines render identically, 0 mismatches (grow_memtuples block, on-tape NOTES block, gettuple backward block reused from tuplestore.c verbatim); term discipline: 元组/排序/磁带/逻辑磁带/归并段/回卷/刷写/冻结/物化的已排序磁带/缩略键/决胜函数/主导进程/工作进程/参与者/落盘/变体/尾随长度字=结尾长度字 per 0379-0380 口径; ops/operator tokens absent in this file (no 算子 sites); ASCII quotes throughout (TL11); budget-forced CJK-EN space omissions disclosed: L170, L233 (tuplesort_gettuple返回者), L317 (于Tuplesortstate), L2578/L2601 (把TuplesortMethod转为字符串); prose identifier notes: L1812-1813 MERGE_BUFFER_SIZE named in the kept formula L1815 instead of the prose (budget), L3099-3100 返回自 tuplesort_performsort()。 (verb absorbed by 返回自, budget 26B); scan_halfen: 54 tree-wide findings = 0379/0380 baseline 53 + 1 new on this file (L408-452 class mixed run=2 run_text \"unsigned int\" - same class and justification as the accepted tuplestore.c L190 finding: quoted C type name must stay EN); no @domain attribution lines in this file, no exemption entries needed. No commit made in this batch; commit is handled by the main session."
+  }
+ ],
+ "notes": "batch-0381 (sort dir final file tuplesort.c, 3215 lines, 2026-11-14, parent batch-0380=3ce4a72a526). Whole-file comment translation; with this batch the sort directory campaign (0373-0381: tuplesortvariants, logtape, qsort_interruptible, sortsupport, sharedtuplestore, tuplestore, tuplesort) is complete. Gates: verify_c_comments --paths src/backend/utils/sort 0 violations 0 parse errors; term_lint --pgnls rc=1 tree-wide with the single pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched) and 757 tree-wide warnings, 0 hits on tuplesort.c; scan_halfen 54 tree-wide findings (53 pre-existing baseline + 1 disclosed new finding above). check_scope run after manifest registration and again after the review-fix round, PASS rc=0 both times. No commit in this batch."
+}

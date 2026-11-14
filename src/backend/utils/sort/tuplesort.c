@@ -1,91 +1,91 @@
 /*-------------------------------------------------------------------------
  *
  * tuplesort.c
- *	  Generalized tuple sorting routines.
+ *	  通用元组排序例程。
  *
- * This module provides a generalized facility for tuple sorting, which can be
- * applied to different kinds of sortable objects.  Implementation of
- * the particular sorting variants is given in tuplesortvariants.c.
- * This module works efficiently for both small and large amounts
- * of data.  Small amounts are sorted in-memory using qsort().  Large
- * amounts are sorted using temporary files and a standard external sort
- * algorithm.
+ * 本模块提供一套通用的元组排序设施，可用于
+ * 不同种类的可排序对象。各具体排序
+ * 变体的实现见 tuplesortvariants.c。
+ * 本模块对小数据量和大数据量都能高效
+ * 工作。小数据量用 qsort() 在内存中排序；大
+ * 数据量则借助临时文件和标准外部排序
+ * 算法。
  *
- * See Knuth, volume 3, for more than you want to know about external
- * sorting algorithms.  The algorithm we use is a balanced k-way merge.
- * Before PostgreSQL 15, we used the polyphase merge algorithm (Knuth's
- * Algorithm 5.4.2D), but with modern hardware, a straightforward balanced
- * merge is better.  Knuth is assuming that tape drives are expensive
- * beasts, and in particular that there will always be many more runs than
- * tape drives.  The polyphase merge algorithm was good at keeping all the
- * tape drives busy, but in our implementation a "tape drive" doesn't cost
- * much more than a few Kb of memory buffers, so we can afford to have
- * lots of them.  In particular, if we can have as many tape drives as
- * sorted runs, we can eliminate any repeated I/O at all.
+ * 关于外部排序算法的更多知识可参阅 Knuth
+ * 第三卷。我们采用的算法是平衡 k 路归并。
+ * PostgreSQL 15 之前我们使用多相归并算法
+ * （Knuth 算法 5.4.2D），但在现代硬件上，简单
+ * 的直接平衡归并更好。Knuth 假设磁带驱动器
+ * 十分昂贵，尤其是假设归并段数总是远多于
+ * 磁带驱动器数。多相归并算法擅长让所有磁带
+ * 驱动器都保持忙碌，但在我们的实现中，"磁带
+ * 驱动器"的代价只比几 Kb 内存缓冲区略高，因
+ * 此可以拥有大量磁带驱动器。特别地，如果磁带驱
+ * 动器数与归并段相同，重复 I/O 即可免。
  *
- * Historically, we divided the input into sorted runs using replacement
- * selection, in the form of a priority tree implemented as a heap
- * (essentially Knuth's Algorithm 5.2.3H), but now we always use quicksort
- * for run generation.
+ * 历史上，我们使用替换选择来划分输入的归并
+ * 段，其形式是用堆实现的优先树
+ * （本质上即 Knuth 算法 5.2.3H），但现在我们总是
+ * 生成归并段。
  *
- * The approximate amount of memory allowed for any one sort operation
- * is specified in kilobytes by the caller (most pass work_mem).  Initially,
- * we absorb tuples and simply store them in an unsorted array as long as
- * we haven't exceeded workMem.  If we reach the end of the input without
- * exceeding workMem, we sort the array using qsort() and subsequently return
- * tuples just by scanning the tuple array sequentially.  If we do exceed
- * workMem, we begin to emit tuples into sorted runs in temporary tapes.
- * When tuples are dumped in batch after quicksorting, we begin a new run
- * with a new output tape.  If we reach the max number of tapes, we write
- * subsequent runs on the existing tapes in a round-robin fashion.  We will
- * need multiple merge passes to finish the merge in that case.  After the
- * end of the input is reached, we dump out remaining tuples in memory into
- * a final run, then merge the runs.
+ * 单次排序操作允许使用的内存近似量由调用者
+ * 以 KB 为单位指定（多数传入 work_mem）。最初，
+ * 我们吸收元组并简单地把它们存入一个未排序
+ * 数组，只要还没有超出 workMem。如果输入已结
+ * 束而未超出 workMem，我们就用 qsort() 排序该数组，
+ * 然后通过顺序扫描元组数组来返回元组。如果
+ * 确实超出了 workMem，我们就开始把元组输出到
+ * 临时磁带上的归并段中。元组快速排序后批量
+ * 倾倒时，我们以新的输出磁带开始新的归并段。
+ * 如果达到磁带数量上限，我们就以轮转方式把
+ * 后续归并段写入现有磁带。这种情况下将需要
+ * 多轮归并才能完成。输入结束后，把内存中剩余
+ * 元组转储为末段后归并。
  *
- * When merging runs, we use a heap containing just the frontmost tuple from
- * each source run; we repeatedly output the smallest tuple and replace it
- * with the next tuple from its source tape (if any).  When the heap empties,
- * the merge is complete.  The basic merge algorithm thus needs very little
- * memory --- only M tuples for an M-way merge, and M is constrained to a
- * small number.  However, we can still make good use of our full workMem
- * allocation by pre-reading additional blocks from each source tape.  Without
- * prereading, our access pattern to the temporary file would be very erratic;
- * on average we'd read one block from each of M source tapes during the same
- * time that we're writing M blocks to the output tape, so there is no
- * sequentiality of access at all, defeating the read-ahead methods used by
- * most Unix kernels.  Worse, the output tape gets written into a very random
- * sequence of blocks of the temp file, ensuring that things will be even
- * worse when it comes time to read that tape.  A straightforward merge pass
- * thus ends up doing a lot of waiting for disk seeks.  We can improve matters
- * by prereading from each source tape sequentially, loading about workMem/M
- * bytes from each tape in turn, and making the sequential blocks immediately
- * available for reuse.  This approach helps to localize both read and write
- * accesses.  The pre-reading is handled by logtape.c, we just tell it how
- * much memory to use for the buffers.
+ * 归并归并段时，我们使用一个只包含每个源归并
+ * 段最前面元组的堆；我们反复输出最小元组，并
+ * 用其源磁带上的下一个元组替换它（如有）。当
+ * 堆变空时，归并即告完成。因此基础归并算法只
+ * 需要很少的内存 —— M 路归并只需 M 个元组，且
+ * M 被限制在很小的数值。不过，我们仍然可以充分
+ * 利用整个 workMem 分配额，从每条源磁带预读额外
+ * 的块。如果不预读，我们对临时文件的访问模式
+ * 会非常杂乱；平均而言，在向输出磁带写入 M 个
+ * 块的同一时间，我们会从 M 条源磁带各读一个块，
+ * 因而访问完全没有顺序性，这会让多数 Unix 内核
+ * 所采用的预读方法失效。更糟的是，输出磁带会
+ * 被写入临时文件中非常随机的一系列块，这注定
+ * 让以后读取该磁带时的情况更加糟糕。一次直接
+ * 的归并轮因此会花费大量时间等待磁盘寻道。我
+ * 们可以改进这一点：从每条源磁带顺序地预读，
+ * 依次从每条磁带载入约 workMem/M 字节，并让顺序
+ * 的块立即可供重用。这种方式有助于让读和写访
+ * 问都局部化。预读由 logtape.c 处理，我们只需告诉
+ * 它缓冲区要用多少内存。
  *
- * In the current code we determine the number of input tapes M on the basis
- * of workMem: we want workMem/M to be large enough that we read a fair
- * amount of data each time we read from a tape, so as to maintain the
- * locality of access described above.  Nonetheless, with large workMem we
- * can have many tapes.  The logical "tapes" are implemented by logtape.c,
- * which avoids space wastage by recycling disk space as soon as each block
- * is read from its "tape".
+ * 在目前的代码中，我们基于 workMem 来确定输入
+ * 磁带数 M：我们希望 workMem/M 足够大，使得每次
+ * 从磁带读取时都能读取可观的数据量，从而保持
+ * 上述访问局部性。尽管如此，workMem 较大时我们
+ * 可以有很多磁带。逻辑"磁带"由 logtape.c 实现，
+ * 它会在每个块被读走后立刻回收磁盘空间，避免
+ * 空间浪费。
  *
- * When the caller requests random access to the sort result, we form
- * the final sorted run on a logical tape which is then "frozen", so
- * that we can access it randomly.  When the caller does not need random
- * access, we return from tuplesort_performsort() as soon as we are down
- * to one run per logical tape.  The final merge is then performed
- * on-the-fly as the caller repeatedly calls tuplesort_getXXX; this
- * saves one cycle of writing all the data out to disk and reading it in.
+ * 当调用者要求对排序结果进行随机访问时，我们
+ * 会在逻辑磁带上形成最终的已排序归并段，并将
+ * 其"冻结"，以便随机访问。当调用者不需要随机
+ * 访问时，只要每条逻辑磁带上只剩一个归并段，
+ * tuplesort_performsort() 就会返回。最后的归并会在
+ * 调用者反复调用 tuplesort_getXXX 时即时进行；这
+ * 省去了把所有数据写盘再读入的整整一轮开销。
  *
- * This module supports parallel sorting.  Parallel sorts involve coordination
- * among one or more worker processes, and a leader process, each with its own
- * tuplesort state.  The leader process (or, more accurately, the
- * Tuplesortstate associated with a leader process) creates a full tapeset
- * consisting of worker tapes with one run to merge; a run for every
- * worker process.  This is then merged.  Worker processes are guaranteed to
- * produce exactly one output run from their partial input.
+ * 本模块支持并行排序。并行排序需要一个或多个
+ * 工作进程与一个主导进程协作，每一个都拥有自
+ * 己的 tuplesort 状态。主导进程（更准确地说，是
+ * 与主导进程关联的 Tuplesortstate）会创建完整的
+ * 磁带集，其中包含待归并的工作进程磁带；每个
+ * 工作进程一个归并段。随后对其进行归并。工作
+ * 进程保证从各自输入恰产出一个归并段。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -113,16 +113,16 @@
 #include "utils/tuplesort.h"
 
 /*
- * Initial size of memtuples array.  We're trying to select this size so that
- * array doesn't exceed ALLOCSET_SEPARATE_THRESHOLD and so that the overhead of
- * allocation might possibly be lowered.  However, we don't consider array sizes
- * less than 1024.
+ * memtuples 数组的初始大小。我们试图选择这样的
+ * 大小，使数组不超过 ALLOCSET_SEPARATE_THRESHOLD，并
+ * 让分配开销有可能降低。不过，我们不考虑小于
+ * 1024。
  *
  */
 #define INITIAL_MEMTUPSIZE Max(1024, \
 	ALLOCSET_SEPARATE_THRESHOLD / sizeof(SortTuple) + 1)
 
-/* GUC variables */
+/* GUC 变量 */
 #ifdef TRACE_SORT
 bool		trace_sort = false;
 #endif
@@ -133,15 +133,15 @@ bool		optimize_bounded_sort = true;
 
 
 /*
- * During merge, we use a pre-allocated set of fixed-size slots to hold
- * tuples.  To avoid palloc/pfree overhead.
+ * 归并期间，我们使用一组预分配的定长槽位来容
+ * 纳元组。免 palloc/pfree 开销。
  *
- * Merge doesn't require a lot of memory, so we can afford to waste some,
- * by using gratuitously-sized slots.  If a tuple is larger than 1 kB, the
- * palloc() overhead is not significant anymore.
+ * 归并不需要很多内存，所以我们浪费一点也承受
+ * 得起，可以使用超大尺寸的槽位。如果元组超过
+ * 1 kB，palloc() 开销就不再显著。
  *
- * 'nextfree' is valid when this chunk is in the free list.  When in use, the
- * slot holds a tuple.
+ * 'nextfree' 在该块位于空闲链表时才有效。使用时
+ * 槽位有元组。
  */
 #define SLAB_SLOT_SIZE 1024
 
@@ -152,129 +152,129 @@ typedef union SlabSlot
 } SlabSlot;
 
 /*
- * Possible states of a Tuplesort object.  These denote the states that
- * persist between calls of Tuplesort routines.
+ * Tuplesort 对象的可能状态。它们表示在 Tuplesort
+ * 各例程调用之间保持的状态。
  */
 typedef enum
 {
-	TSS_INITIAL,				/* Loading tuples; still within memory limit */
-	TSS_BOUNDED,				/* Loading tuples into bounded-size heap */
-	TSS_BUILDRUNS,				/* Loading tuples; writing to tape */
-	TSS_SORTEDINMEM,			/* Sort completed entirely in memory */
-	TSS_SORTEDONTAPE,			/* Sort completed, final run is on tape */
-	TSS_FINALMERGE				/* Performing final merge on-the-fly */
+	TSS_INITIAL,				/* 装入元组；仍在内存限额内 */
+	TSS_BOUNDED,				/* 装入元组到有界大小的堆 */
+	TSS_BUILDRUNS,				/* 装入元组；写入磁带 */
+	TSS_SORTEDINMEM,			/* 排序完全在内存中完成 */
+	TSS_SORTEDONTAPE,			/* 排序完成，末段在磁带上 */
+	TSS_FINALMERGE				/* 正在即时执行最终归并 */
 } TupSortStatus;
 
 /*
- * Parameters for calculation of number of tapes to use --- see inittapes()
- * and tuplesort_merge_order().
+ * 计算所要使用磁带数量的参数 —— 见 inittapes()
+ * 与tuplesort_merge_order()
  *
- * In this calculation we assume that each tape will cost us about 1 blocks
- * worth of buffer space.  This ignores the overhead of all the other data
- * structures needed for each tape, but it's probably close enough.
+ * 在此计算中，我们假定每条磁带大约要花费我们
+ * 1 个块的缓冲区空间。这忽略了每条磁带所需的
+ * 所有其他数据结构的开销，但大概足够接近了。
  *
- * MERGE_BUFFER_SIZE is how much buffer space we'd like to allocate for each
- * input tape, for pre-reading (see discussion at top of file).  This is *in
- * addition to* the 1 block already included in TAPE_BUFFER_OVERHEAD.
+ * MERGE_BUFFER_SIZE 是我们希望为每条输入磁带分配
+ * 的缓冲区空间量，用于预读（见文件开头处的讨
+ * 论）。这是在 TAPE_BUFFER_OVERHEAD 已含的 1 块之外。
  */
-#define MINORDER		6		/* minimum merge order */
-#define MAXORDER		500		/* maximum merge order */
+#define MINORDER		6		/* 最小归并路数 */
+#define MAXORDER		500		/* 最大归并路数 */
 #define TAPE_BUFFER_OVERHEAD		BLCKSZ
 #define MERGE_BUFFER_SIZE			(BLCKSZ * 32)
 
 
 /*
- * Private state of a Tuplesort operation.
+ * Tuplesort 操作的私有状态。
  */
 struct Tuplesortstate
 {
 	TuplesortPublic base;
-	TupSortStatus status;		/* enumerated value as shown above */
-	bool		bounded;		/* did caller specify a maximum number of
-								 * tuples to return? */
-	bool		boundUsed;		/* true if we made use of a bounded heap */
-	int			bound;			/* if bounded, the maximum number of tuples */
-	int64		availMem;		/* remaining memory available, in bytes */
-	int64		allowedMem;		/* total memory allowed, in bytes */
-	int			maxTapes;		/* max number of input tapes to merge in each
-								 * pass */
-	int64		maxSpace;		/* maximum amount of space occupied among sort
-								 * of groups, either in-memory or on-disk */
-	bool		isMaxSpaceDisk; /* true when maxSpace is value for on-disk
-								 * space, false when it's value for in-memory
-								 * space */
-	TupSortStatus maxSpaceStatus;	/* sort status when maxSpace was reached */
-	LogicalTapeSet *tapeset;	/* logtape.c object for tapes in a temp file */
+	TupSortStatus status;		/* 如上所示的枚举值 */
+	bool		bounded;		/* 调用者是否指定了返回最大
+								 * 元组数？ */
+	bool		boundUsed;		/* 若确实使用了有界堆则为真 */
+	int			bound;			/* 若有界，则为元组数上限 */
+	int64		availMem;		/* 剩余可用内存，以字节计 */
+	int64		allowedMem;		/* 总允许内存（字节） */
+	int			maxTapes;		/* 每轮归并的输入磁带数上限
+								*/
+	int64		maxSpace;		/* 各组排序占用空间最大值，无论
+								 * 在内存还是在磁盘上。 */
+	bool		isMaxSpaceDisk; /* maxSpace 为磁盘空间值时为真；
+								 * 为内存空间值时则为假。
+								 */
+	TupSortStatus maxSpaceStatus;	/* 达到 maxSpace 时的排序状态 */
+	LogicalTapeSet *tapeset;	/* 临时文件磁带的 logtape.c 对象 */
 
 	/*
-	 * This array holds the tuples now in sort memory.  If we are in state
-	 * INITIAL, the tuples are in no particular order; if we are in state
-	 * SORTEDINMEM, the tuples are in final sorted order; in states BUILDRUNS
-	 * and FINALMERGE, the tuples are organized in "heap" order per Algorithm
-	 * H.  In state SORTEDONTAPE, the array is not used.
+	 * 此数组容纳当前位于排序内存中的元组。如果我们
+	 * 处于 INITIAL 状态，元组无特定顺序；如果处于
+	 * SORTEDINMEM 状态，元组处于最终已排序顺序；在
+	 * BUILDRUNS 和 FINALMERGE 状态，元组呈算法 H
+	 * "堆"序。SORTEDONTAPE 不用该数组。
 	 */
-	SortTuple  *memtuples;		/* array of SortTuple structs */
-	int			memtupcount;	/* number of tuples currently present */
-	int			memtupsize;		/* allocated length of memtuples array */
-	bool		growmemtuples;	/* memtuples' growth still underway? */
+	SortTuple  *memtuples;		/* SortTuple 结构数组 */
+	int			memtupcount;	/* 当前存在的元组数 */
+	int			memtupsize;		/* memtuples 数组的已分配长度 */
+	bool		growmemtuples;	/* memtuples 增长仍在进行？ */
 
 	/*
-	 * Memory for tuples is sometimes allocated using a simple slab allocator,
-	 * rather than with palloc().  Currently, we switch to slab allocation
-	 * when we start merging.  Merging only needs to keep a small, fixed
-	 * number of tuples in memory at any time, so we can avoid the
-	 * palloc/pfree overhead by recycling a fixed number of fixed-size slots
-	 * to hold the tuples.
+	 * 元组的内存有时是用一个简单的 slab 分配器分配
+	 * 的，而非用 palloc()。目前，我们会在开始归并时切
+	 * 换到 slab 分配。归并只需任意时刻在内存中保留
+	 * 少量固定数目的元组，从而避免 palloc/pfree 的
+	 * 开销，办法是循环使用固定数目的定长槽位来容纳
+	 * 元组。
 	 *
-	 * For the slab, we use one large allocation, divided into SLAB_SLOT_SIZE
-	 * slots.  The allocation is sized to have one slot per tape, plus one
-	 * additional slot.  We need that many slots to hold all the tuples kept
-	 * in the heap during merge, plus the one we have last returned from the
-	 * sort, with tuplesort_gettuple.
+	 * 对于 slab，我们使用一次大分配，划分为 SLAB_SLOT_SIZE
+	 * 个槽位。该分配的大小为每条磁带一个槽位，外加
+	 * 一个附加槽位。我们需要这么多的槽位来容纳归并
+	 * 期间保留在堆中的所有元组，外加最后从排序中
+	 * tuplesort_gettuple返回者。
 	 *
-	 * Initially, all the slots are kept in a linked list of free slots.  When
-	 * a tuple is read from a tape, it is put to the next available slot, if
-	 * it fits.  If the tuple is larger than SLAB_SLOT_SIZE, it is palloc'd
-	 * instead.
+	 * 最初，所有槽位都保存在一个空闲槽位链表中。当
+	 * 从磁带读出一个元组时，若放得下，就把它放入
+	 * 下一个可用槽位。若元组大于 SLAB_SLOT_SIZE，就改用
+	 * palloc
 	 *
-	 * When we're done processing a tuple, we return the slot back to the free
-	 * list, or pfree() if it was palloc'd.  We know that a tuple was
-	 * allocated from the slab, if its pointer value is between
-	 * slabMemoryBegin and -End.
+	 * 处理完一个元组后，我们把槽位交还空闲链表；如
+	 * 果原为 palloc 则 pfree()。我们知道元组
+	 * 是否来自 slab，判据是其指针值位于
+	 * slabMemoryBegin-End 间
 	 *
-	 * When the slab allocator is used, the USEMEM/LACKMEM mechanism of
-	 * tracking memory usage is not used.
+	 * 使用 slab 分配器时，不再使用 USEMEM/LACKMEM 机制
+	 * 来跟踪内存使用。
 	 */
 	bool		slabAllocatorUsed;
 
-	char	   *slabMemoryBegin;	/* beginning of slab memory arena */
-	char	   *slabMemoryEnd;	/* end of slab memory arena */
-	SlabSlot   *slabFreeHead;	/* head of free list */
+	char	   *slabMemoryBegin;	/* slab 内存区起点 */
+	char	   *slabMemoryEnd;	/* slab 内存区终点 */
+	SlabSlot   *slabFreeHead;	/* 空闲链表头 */
 
-	/* Memory used for input and output tape buffers. */
+	/* 输入和输出磁带缓冲区所用内存。 */
 	size_t		tape_buffer_mem;
 
 	/*
-	 * When we return a tuple to the caller in tuplesort_gettuple_XXX, that
-	 * came from a tape (that is, in TSS_SORTEDONTAPE or TSS_FINALMERGE
-	 * modes), we remember the tuple in 'lastReturnedTuple', so that we can
-	 * recycle the memory on next gettuple call.
+	 * 当我们在 tuplesort_gettuple_XXX 中向调用者返回一
+	 * 个来自磁带的元组时（即处于 TSS_SORTEDONTAPE 或
+	 * TSS_FINALMERGE 模式），我们会把它记入
+	 * 'lastReturnedTuple'，下次回收。
 	 */
 	void	   *lastReturnedTuple;
 
 	/*
-	 * While building initial runs, this is the current output run number.
-	 * Afterwards, it is the number of initial runs we made.
+	 * 构建初始归并段期间，这是当前的输出归并段号。
+	 * 此后为我们已构建的初始归并段数。
 	 */
 	int			currentRun;
 
 	/*
-	 * Logical tapes, for merging.
+	 * 归并用逻辑磁带。
 	 *
-	 * The initial runs are written in the output tapes.  In each merge pass,
-	 * the output tapes of the previous pass become the input tapes, and new
-	 * output tapes are created as needed.  When nInputTapes equals
-	 * nInputRuns, there is only one merge pass left.
+	 * 初始归并段写入输出磁带。在每轮归并中，上一轮
+	 * 的输出磁带变成输入磁带，并且按需创建新的输出
+	 * 磁带。nInputTapes 等于 nInputRuns 时，只剩最后一
+	 * 轮归并。
 	 */
 	LogicalTape **inputTapes;
 	int			nInputTapes;
@@ -284,53 +284,53 @@ struct Tuplesortstate
 	int			nOutputTapes;
 	int			nOutputRuns;
 
-	LogicalTape *destTape;		/* current output tape */
+	LogicalTape *destTape;		/* 当前输出磁带 */
 
 	/*
-	 * These variables are used after completion of sorting to keep track of
-	 * the next tuple to return.  (In the tape case, the tape's current read
-	 * position is also critical state.)
+	 * 这些变量在排序完成后用于跟踪下一个要返回的
+	 * 元组。（磁带情形下，磁带当前的读位置也是关键
+	 * 状态。）
 	 */
-	LogicalTape *result_tape;	/* actual tape of finished output */
-	int			current;		/* array index (only used if SORTEDINMEM) */
-	bool		eof_reached;	/* reached EOF (needed for cursors) */
+	LogicalTape *result_tape;	/* 完成输出的实际磁带 */
+	int			current;		/* 数组下标（仅 SORTEDINMEM 用） */
+	bool		eof_reached;	/* 已达 EOF（游标需要） */
 
-	/* markpos_xxx holds marked position for mark and restore */
-	long		markpos_block;	/* tape block# (only used if SORTEDONTAPE) */
-	int			markpos_offset; /* saved "current", or offset in tape block */
-	bool		markpos_eof;	/* saved "eof_reached" */
+	/* markpos_xxx 保存 mark 与 restore 的标记位置 */
+	long		markpos_block;	/* 磁带块号（仅 SORTEDONTAPE 用） */
+	int			markpos_offset; /* 存下的 "current" 或块内偏移 */
+	bool		markpos_eof;	/* eof_reached 存值 */
 
 	/*
-	 * These variables are used during parallel sorting.
+	 * 这些变量在并行排序期间使用。
 	 *
-	 * worker is our worker identifier.  Follows the general convention that
-	 * -1 value relates to a leader tuplesort, and values >= 0 worker
-	 * tuplesorts. (-1 can also be a serial tuplesort.)
+	 * worker 是我们的工作进程标识符。遵循如下通用约
+	 * 定：-1 表示主导进程 tuplesort，>= 0 表示工作进
+	 * 程 tuplesort。（-1 亦可为串行。）
 	 *
-	 * shared is mutable shared memory state, which is used to coordinate
-	 * parallel sorts.
+	 * shared 是可变的共享内存状态，用于协调并行排
+	 * 序。
 	 *
-	 * nParticipants is the number of worker Tuplesortstates known by the
-	 * leader to have actually been launched, which implies that they must
-	 * finish a run that the leader needs to merge.  Typically includes a
-	 * worker state held by the leader process itself.  Set in the leader
-	 * Tuplesortstate only.
+	 * nParticipants 是主导进程已知确实已启动的工作进
+	 * 程 Tuplesortstates 数量，这意味着它们必须完成主导
+	 * 进程需要归并的归并段。通常包括主导进程自身持
+	 * 有的一个工作进程状态。只设置在主导进程
+	 * 的Tuplesortstate。
 	 */
 	int			worker;
 	Sharedsort *shared;
 	int			nParticipants;
 
 	/*
-	 * Additional state for managing "abbreviated key" sortsupport routines
-	 * (which currently may be used by all cases except the hash index case).
-	 * Tracks the intervals at which the optimization's effectiveness is
-	 * tested.
+	 * 用于管理"缩略键" sortsupport 例程的附加状态
+	 * （目前除哈希索引情形外，其余情形均可使用）。
+	 * 跟踪检验该优化有效性的间隔。
+	 *
 	 */
-	int64		abbrevNext;		/* Tuple # at which to next check
-								 * applicability */
+	int64		abbrevNext;		/* 下次检查适用性的元组
+								 * 序号 */
 
 	/*
-	 * Resource snapshot for time of sort start.
+	 * 排序开始时刻的资源快照。
 	 */
 #ifdef TRACE_SORT
 	PGRUsage	ru_start;
@@ -338,48 +338,48 @@ struct Tuplesortstate
 };
 
 /*
- * Private mutable state of tuplesort-parallel-operation.  This is allocated
- * in shared memory.
+ * tuplesort 并行操作的私有可变状态。分配于
+ * 共享内存。
  */
 struct Sharedsort
 {
-	/* mutex protects all fields prior to tapes */
+	/* 互斥锁保护 tapes 之前的字段 */
 	slock_t		mutex;
 
 	/*
-	 * currentWorker generates ordinal identifier numbers for parallel sort
-	 * workers.  These start from 0, and are always gapless.
+	 * currentWorker 为并行排序工作进程生成顺序标识号。
+	 * 这些编号从 0 开始，且总是无空缺。
 	 *
-	 * Workers increment workersFinished to indicate having finished.  If this
-	 * is equal to state.nParticipants within the leader, leader is ready to
-	 * merge worker runs.
+	 * 工作进程递增 workersFinished 来表明自己已完成。
+	 * 如果该值等于主导进程内的 state.nParticipants，
+	 * 即可归并了。
 	 */
 	int			currentWorker;
 	int			workersFinished;
 
-	/* Temporary file space */
+	/* 临时文件空间 */
 	SharedFileSet fileset;
 
-	/* Size of tapes flexible array */
+	/* tapes 弹性数组的大小 */
 	int			nTapes;
 
 	/*
-	 * Tapes array used by workers to report back information needed by the
-	 * leader to concatenate all worker tapes into one for merging
+	 * 磁带数组，工作进程借此回报主导进程拼接全部
+	 * 工作进程磁带以供归并所需的信息
 	 */
 	TapeShare	tapes[FLEXIBLE_ARRAY_MEMBER];
 };
 
 /*
- * Is the given tuple allocated from the slab memory arena?
+ * 给定的元组是否分配自 slab 内存区？
  */
 #define IS_SLAB_SLOT(state, tuple) \
 	((char *) (tuple) >= (state)->slabMemoryBegin && \
 	 (char *) (tuple) < (state)->slabMemoryEnd)
 
 /*
- * Return the given tuple to the slab memory free list, or free it
- * if it was palloc'd.
+ * 把给定元组交还 slab 内存空闲链表；如果它原是
+ * palloc 则释放。
  */
 #define RELEASE_SLAB_SLOT(state, tuple) \
 	do { \
@@ -406,49 +406,49 @@ struct Sharedsort
 #define LEADER(state)		((state)->shared && (state)->worker == -1)
 
 /*
- * NOTES about on-tape representation of tuples:
+ * NOTES：元组的磁带表示形式
  *
- * We require the first "unsigned int" of a stored tuple to be the total size
- * on-tape of the tuple, including itself (so it is never zero; an all-zero
- * unsigned int is used to delimit runs).  The remainder of the stored tuple
- * may or may not match the in-memory representation of the tuple ---
- * any conversion needed is the job of the writetup and readtup routines.
+ * 已存储元组的首个 "unsigned int" 必须是整
+ * 个元组的磁带上大小，含其自身（因此永不为零；全零
+ * "unsigned int" 用来界定归并段）。已存储元组的其余
+ * 可能与该元组在内存中的表示形式一致，也可能
+ * 不一致；所需转换由 writetup 与 readtup 例程完成。
  *
- * If state->sortopt contains TUPLESORT_RANDOMACCESS, then the stored
- * representation of the tuple must be followed by another "unsigned int" that
- * is a copy of the length --- so the total tape space used is actually
- * sizeof(unsigned int) more than the stored length value.  This allows
- * read-backwards.  When the random access flag was not specified, the
- * write/read routines may omit the extra length word.
+ * 如果 state->sortopt 含有 TUPLESORT_RANDOMACCESS，则已存
+ * 元组的表示形式之后必须跟另一个 "unsigned int"，它是长
+ * 度的副本，故实际占用磁带空间比已存长度值多
+ * 出 sizeof(unsigned int) 空间。这允许反向读取。当未指
+ * 定随机访问标志时，写入/读取例程可省略额外的长
+ * 度字。
  *
- * writetup is expected to write both length words as well as the tuple
- * data.  When readtup is called, the tape is positioned just after the
- * front length word; readtup must read the tuple data and advance past
- * the back length word (if present).
+ * writetup 应当写入两个长度字以及元组
+ * 数据。当调用 readtup 时，磁带恰好定位在
+ * 前长度字；readtup 必须读取元组数据并越过
+ * 后长度字（如存在）。
  *
- * The write/read routines can make use of the tuple description data
- * stored in the Tuplesortstate record, if needed.  They are also expected
- * to adjust state->availMem by the amount of memory space (not tape space!)
- * released or consumed.  There is no error return from either writetup
- * or readtup; they should ereport() on failure.
+ * 写入/读取例程可以在必要时利用
+ * Tuplesortstate 结构内保存的元组描述数据。
+ * 它们还应调整 state->availMem，幅度为所释放或
+ * 消耗的内存空间量（而非磁带空间！）。writetup
+ * 或 readtup 都应在失败时 ereport()。
  *
  *
- * NOTES about memory consumption calculations:
+ * 关于内存消耗计算的说明：
  *
- * We count space allocated for tuples against the workMem limit, plus
- * the space used by the variable-size memtuples array.  Fixed-size space
- * is not counted; it's small enough to not be interesting.
+ * 为元组分配的空间计入 workMem 限额，再加可变大
+ * 小 memtuples 数组占用空间。定长空间不计入；它太
+ * 小，不值得关注。
  *
- * Note that we count actual space used (as shown by GetMemoryChunkSpace)
- * rather than the originally-requested size.  This is important since
- * palloc can add substantial overhead.  It's not a complete answer since
- * we won't count any wasted space in palloc allocation blocks, but it's
- * a lot better than what we were doing before 7.3.  As of 9.6, a
- * separate memory context is used for caller passed tuples.  Resetting
- * it at certain key increments significantly ameliorates fragmentation.
- * readtup routines use the slab allocator (they cannot use
- * the reset context because it gets deleted at the point that merging
- * begins).
+ * 注意我们统计的是实际使用的空间（如
+ * GetMemoryChunkSpace 所示）而非最初请求的大小。
+ * 这一点很重要，因为 palloc 会增加可观的开销。
+ * 由于我们不计入 palloc 分配块中浪费的空间，这
+ * 仍比 7.3 前好得多。9.6 起调用者传入的元组
+ * 使用独立的内存上下文。在关键增量点重置它，能
+ * 显著缓解碎片化。
+ * readtup 例程用 slab 分配器（无法用重置上下
+ * 文，因为该上下文会在归并开始之时被删除）。
+ *
  */
 
 
@@ -481,20 +481,20 @@ static void tuplesort_free(Tuplesortstate *state);
 static void tuplesort_updatemax(Tuplesortstate *state);
 
 /*
- * Specialized comparators that we can inline into specialized sorts.  The goal
- * is to try to sort two tuples without having to follow the pointers to the
- * comparator or the tuple.
+ * 可以内联到专门排序中的专门比较器。目标是尝试
+ * 不沿指针找到比较器或元组就对两个元组完成排
+ * 序。
  *
- * XXX: For now, these fall back to comparator functions that will compare the
- * leading datum a second time.
+ * XXX：目前，这些会退回到比较器函数，后者会把引
+ * 导 datum 再比较一次。
  *
- * XXX: For now, there is no specialization for cases where datum1 is
- * authoritative and we don't even need to fall back to a callback at all (that
- * would be true for types like int4/int8/timestamp/date, but not true for
- * abbreviations of text or multi-key sorts.  There could be!  Is it worth it?
+ * XXX：目前，对于 datum1 权威、甚至完全无需退到
+ * 回调的情形还没有专门化（这适用于 int4/int8/
+ * timestamp/date 这类类型，但文本缩略和多键排序并
+ * 非如此。其实可以做到！值得吗？
  */
 
-/* Used if first key's comparator is ssup_datum_unsigned_cmp */
+/* 第一键比较器为 ssup_datum_unsigned_cmp 时使用 */
 static pg_attribute_always_inline int
 qsort_tuple_unsigned_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 {
@@ -507,8 +507,8 @@ qsort_tuple_unsigned_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 		return compare;
 
 	/*
-	 * No need to waste effort calling the tiebreak function when there are no
-	 * other keys to sort on.
+	 * 当没有其他键可用于排序时，无需浪费力气调用
+	 * 决胜函数。
 	 */
 	if (state->base.onlyKey != NULL)
 		return 0;
@@ -517,7 +517,7 @@ qsort_tuple_unsigned_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 }
 
 #if SIZEOF_DATUM >= 8
-/* Used if first key's comparator is ssup_datum_signed_cmp */
+/* 第一键比较器为 ssup_datum_signed_cmp 时使用 */
 static pg_attribute_always_inline int
 qsort_tuple_signed_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 {
@@ -531,8 +531,8 @@ qsort_tuple_signed_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 		return compare;
 
 	/*
-	 * No need to waste effort calling the tiebreak function when there are no
-	 * other keys to sort on.
+	 * 当没有其他键可用于排序时，无需浪费力气调用
+	 * 决胜函数。
 	 */
 	if (state->base.onlyKey != NULL)
 		return 0;
@@ -541,7 +541,7 @@ qsort_tuple_signed_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 }
 #endif
 
-/* Used if first key's comparator is ssup_datum_int32_cmp */
+/* 第一键比较器为 ssup_datum_int32_cmp 时使用 */
 static pg_attribute_always_inline int
 qsort_tuple_int32_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 {
@@ -555,8 +555,8 @@ qsort_tuple_int32_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 		return compare;
 
 	/*
-	 * No need to waste effort calling the tiebreak function when there are no
-	 * other keys to sort on.
+	 * 当没有其他键可用于排序时，无需浪费力气调用
+	 * 决胜函数。
 	 */
 	if (state->base.onlyKey != NULL)
 		return 0;
@@ -565,12 +565,12 @@ qsort_tuple_int32_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 }
 
 /*
- * Special versions of qsort just for SortTuple objects.  qsort_tuple() sorts
- * any variant of SortTuples, using the appropriate comparetup function.
- * qsort_ssup() is specialized for the case where the comparetup function
- * reduces to ApplySortComparator(), that is single-key MinimalTuple sorts
- * and Datum sorts.  qsort_tuple_{unsigned,signed,int32} are specialized for
- * common comparison functions on pass-by-value leading datums.
+ * 专用于 SortTuple 对象的特殊 qsort 版本。qsort_tuple()
+ * 用相应的 comparetup 函数排序任意 SortTuples 变体。
+ * qsort_ssup() 专门用于 comparetup 函数退化为
+ * ApplySortComparator() 的情形，即单键 MinimalTuple 排
+ * 序和 Datum 排序。qsort_tuple_{unsigned,signed,int32} 专
+ * 用于按值传递的引导 datum 的常用比较函数。
  */
 
 #define ST_SORT qsort_tuple_unsigned
@@ -626,20 +626,20 @@ qsort_tuple_int32_compare(SortTuple *a, SortTuple *b, Tuplesortstate *state)
 /*
  *		tuplesort_begin_xxx
  *
- * Initialize for a tuple sort operation.
+ * 为元组排序操作做初始化。
  *
- * After calling tuplesort_begin, the caller should call tuplesort_putXXX
- * zero or more times, then call tuplesort_performsort when all the tuples
- * have been supplied.  After performsort, retrieve the tuples in sorted
- * order by calling tuplesort_getXXX until it returns false/NULL.  (If random
- * access was requested, rescan, markpos, and restorepos can also be called.)
- * Call tuplesort_end to terminate the operation and release memory/disk space.
+ * 调用 tuplesort_begin 之后，调用者应调用 tuplesort_putXXX
+ * 零次或多次，然后在全部元组都提供完毕后调用
+ * tuplesort_performsort。performsort 之后，通过调用
+ * tuplesort_getXXX 以排序后的顺序取回元组，直至其返回
+ * false/NULL。（若请求了随机访问，rescan、markpos 与
+ * restorepos 亦可。）tuplesort_end 终止并释放内存/磁盘空间。
  *
- * Each variant of tuplesort_begin has a workMem parameter specifying the
- * maximum number of kilobytes of RAM to use before spilling data to disk.
- * (The normal value of this parameter is work_mem, but some callers use
- * other values.)  Each variant also has a sortopt which is a bitmask of
- * sort options.  See TUPLESORT_* definitions in tuplesort.h
+ * tuplesort_begin 的每个变体都有一个 workMem 参数，指定
+ * 数据落盘前可使用的 RAM 千字节数上限。
+ * （该参数的正常值是 work_mem，但有些调用者使用其他
+ * 值。）每个变体还有 sortopt，它是排序选项的位掩
+ * 码。见 tuplesort.h 中的 TUPLESORT_* 定义。
  */
 
 Tuplesortstate *
@@ -650,34 +650,34 @@ tuplesort_begin_common(int workMem, SortCoordinate coordinate, int sortopt)
 	MemoryContext sortcontext;
 	MemoryContext oldcontext;
 
-	/* See leader_takeover_tapes() remarks on random access support */
+	/* 随机访问支持见 leader_takeover_tapes() 的说明 */
 	if (coordinate && (sortopt & TUPLESORT_RANDOMACCESS))
 		elog(ERROR, "random access disallowed under parallel sort");
 
 	/*
-	 * Memory context surviving tuplesort_reset.  This memory context holds
-	 * data which is useful to keep while sorting multiple similar batches.
+	 * tuplesort_reset 之后仍存活的内存上下文。
+	 * 它保存排序多个相似批次期间值得保留的数据。
 	 */
 	maincontext = AllocSetContextCreate(CurrentMemoryContext,
 										"TupleSort main",
 										ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Create a working memory context for one sort operation.  The content of
-	 * this context is deleted by tuplesort_reset.
+	 * 为一个排序操作创建工作内存上下文。该上下文的内
+	 * 容由 tuplesort_reset 删除。
 	 */
 	sortcontext = AllocSetContextCreate(maincontext,
 										"TupleSort sort",
 										ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Additionally a working memory context for tuples is setup in
-	 * tuplesort_begin_batch.
+	 * 另外，会在 tuplesort_begin_batch 中建立元组用
+	 * 专用工作内存。
 	 */
 
 	/*
-	 * Make the Tuplesortstate within the per-sortstate context.  This way, we
-	 * don't need a separate pfree() operation for it at shutdown.
+	 * 把 Tuplesortstate 建在每个排序状态的上下文内。这样，
+	 * 关闭时就无需再为它单独 pfree()。
 	 */
 	oldcontext = MemoryContextSwitchTo(maincontext);
 
@@ -693,49 +693,49 @@ tuplesort_begin_common(int workMem, SortCoordinate coordinate, int sortopt)
 	state->abbrevNext = 10;
 
 	/*
-	 * workMem is forced to be at least 64KB, the current minimum valid value
-	 * for the work_mem GUC.  This is a defense against parallel sort callers
-	 * that divide out memory among many workers in a way that leaves each
-	 * with very little memory.
+	 * workMem 被强制至少为 64KB，这是当前 work_mem GUC 的
+	 * 最小有效值。这是对那些把内存分给众多工作进程、
+	 * 以致每个进程只剩极少内存的并行排序调用者的
+	 * 一种防御。
 	 */
 	state->allowedMem = Max(workMem, 64) * (int64) 1024;
 	state->base.sortcontext = sortcontext;
 	state->base.maincontext = maincontext;
 
 	/*
-	 * Initial size of array must be more than ALLOCSET_SEPARATE_THRESHOLD;
-	 * see comments in grow_memtuples().
+	 * 数组的初始大小必须大于 ALLOCSET_SEPARATE_THRESHOLD；
+	 * 见 grow_memtuples() 的注释。
 	 */
 	state->memtupsize = INITIAL_MEMTUPSIZE;
 	state->memtuples = NULL;
 
 	/*
-	 * After all of the other non-parallel-related state, we setup all of the
-	 * state needed for each batch.
+	 * 在所有其他非并行相关状态之后，我们建立每一批所
+	 * 需的全部状态。
 	 */
 	tuplesort_begin_batch(state);
 
 	/*
-	 * Initialize parallel-related state based on coordination information
-	 * from caller
+	 * 根据调用者提供的协作信息初始化并行相关状态。
+	 *
 	 */
 	if (!coordinate)
 	{
-		/* Serial sort */
+		/* 串行 */
 		state->shared = NULL;
 		state->worker = -1;
 		state->nParticipants = -1;
 	}
 	else if (coordinate->isWorker)
 	{
-		/* Parallel worker produces exactly one final run from all input */
+		/* 并行工作进程从全部输入恰好产出一个最终段 */
 		state->shared = coordinate->sharedsort;
 		state->worker = worker_get_identifier(state);
 		state->nParticipants = -1;
 	}
 	else
 	{
-		/* Parallel leader state only used for final merge */
+		/* 并行主导进程状态仅用于最终归并 */
 		state->shared = coordinate->sharedsort;
 		state->worker = -1;
 		state->nParticipants = coordinate->nParticipants;
@@ -750,9 +750,9 @@ tuplesort_begin_common(int workMem, SortCoordinate coordinate, int sortopt)
 /*
  *		tuplesort_begin_batch
  *
- * Setup, or reset, all state need for processing a new set of tuples with this
- * sort state. Called both from tuplesort_begin_common (the first time sorting
- * with this sort state) and tuplesort_reset (for subsequent usages).
+ * 为用此排序状态处理新的一组元组而建立或重置全
+ * 部所需状态。由 tuplesort_begin_common（第一次用此排
+ * 序状态时）和 tuplesort_reset（后续使用时）调用。
  */
 static void
 tuplesort_begin_batch(Tuplesortstate *state)
@@ -762,17 +762,17 @@ tuplesort_begin_batch(Tuplesortstate *state)
 	oldcontext = MemoryContextSwitchTo(state->base.maincontext);
 
 	/*
-	 * Caller tuple (e.g. IndexTuple) memory context.
+	 * 调用者元组（IndexTuple）上下文。
 	 *
-	 * A dedicated child context used exclusively for caller passed tuples
-	 * eases memory management.  Resetting at key points reduces
-	 * fragmentation. Note that the memtuples array of SortTuples is allocated
-	 * in the parent context, not this context, because there is no need to
-	 * free memtuples early.  For bounded sorts, tuples may be pfreed in any
-	 * order, so we use a regular aset.c context so that it can make use of
-	 * free'd memory.  When the sort is not bounded, we make use of a
-	 * generation.c context as this keeps allocations more compact with less
-	 * wastage.  Allocations are also slightly more CPU efficient.
+	 * 一个专供调用者传入元组使用的子上下文，可简化
+	 * 内存管理。在关键点位重置能减少碎片。
+	 * 注意 SortTuples 的 memtuples 数组分配在父上下文中，
+	 * 而非本上下文，因为没有必要提前释放
+	 * memtuples。对于有界排序，元组可能以任意顺序被
+	 * pfree，所以我们使用常规的 aset.c 上下文，以便它
+	 * 能利用已释放的内存。排序无界时，我们改用
+	 * generation.c 上下文，因为它让分配更紧凑、浪费少，
+	 * 分配的 CPU 效率也略高一些。
 	 */
 	if (state->base.sortopt & TUPLESORT_ALLOWBOUNDED)
 		state->base.tuplecontext = AllocSetContextCreate(state->base.sortcontext,
@@ -795,8 +795,8 @@ tuplesort_begin_batch(Tuplesortstate *state)
 	state->memtupcount = 0;
 
 	/*
-	 * Initial size of array must be more than ALLOCSET_SEPARATE_THRESHOLD;
-	 * see comments in grow_memtuples().
+	 * 数组的初始大小必须大于 ALLOCSET_SEPARATE_THRESHOLD；
+	 * 见 grow_memtuples() 的注释。
 	 */
 	state->growmemtuples = true;
 	state->slabAllocatorUsed = false;
@@ -812,18 +812,18 @@ tuplesort_begin_batch(Tuplesortstate *state)
 		USEMEM(state, GetMemoryChunkSpace(state->memtuples));
 	}
 
-	/* workMem must be large enough for the minimal memtuples array */
+	/* workMem 必须大到足以容纳最小 memtuples 数组 */
 	if (LACKMEM(state))
 		elog(ERROR, "insufficient memory allowed for sort");
 
 	state->currentRun = 0;
 
 	/*
-	 * Tape variables (inputTapes, outputTapes, etc.) will be initialized by
-	 * inittapes(), if needed.
+	 * 磁带变量（inputTapes、outputTapes 等）将由 inittapes() 在
+	 * 需要时初始化。
 	 */
 
-	state->result_tape = NULL;	/* flag that result tape has not been formed */
+	state->result_tape = NULL;	/* 标志：结果磁带尚未形成 */
 
 	MemoryContextSwitchTo(oldcontext);
 }
@@ -831,38 +831,38 @@ tuplesort_begin_batch(Tuplesortstate *state)
 /*
  * tuplesort_set_bound
  *
- *	Advise tuplesort that at most the first N result tuples are required.
+ *	告知 tuplesort 至多只需前 N 个结果元组。
  *
- * Must be called before inserting any tuples.  (Actually, we could allow it
- * as long as the sort hasn't spilled to disk, but there seems no need for
- * delayed calls at the moment.)
+ * 必须在插入任何元组之前调用。（其实只要排序尚未
+ * 落盘，就可以允许，但目前似乎不需要这种延迟调
+ * 用。）
  *
- * This is a hint only. The tuplesort may still return more tuples than
- * requested.  Parallel leader tuplesorts will always ignore the hint.
+ * 这只是一个提示。tuplesort 仍可能返回多于请求数量
+ * 的元组。主导进程并行排序总是忽略该提示。
  */
 void
 tuplesort_set_bound(Tuplesortstate *state, int64 bound)
 {
-	/* Assert we're called before loading any tuples */
+	/* 断言在任何元组装入前被调用 */
 	Assert(state->status == TSS_INITIAL && state->memtupcount == 0);
-	/* Assert we allow bounded sorts */
+	/* 断言允许有界排序 */
 	Assert(state->base.sortopt & TUPLESORT_ALLOWBOUNDED);
-	/* Can't set the bound twice, either */
+	/* 也不能设置两次界限 */
 	Assert(!state->bounded);
-	/* Also, this shouldn't be called in a parallel worker */
+	/* 另外不应在并行工作进程中调用 */
 	Assert(!WORKER(state));
 
-	/* Parallel leader allows but ignores hint */
+	/* 主导进程允许但忽略提示 */
 	if (LEADER(state))
 		return;
 
 #ifdef DEBUG_BOUNDED_SORT
-	/* Honor GUC setting that disables the feature (for easy testing) */
+	/* 遵循禁用该特性的 GUC 设置（便于测试） */
 	if (!optimize_bounded_sort)
 		return;
 #endif
 
-	/* We want to be able to compute bound * 2, so limit the setting */
+	/* 我们要能计算 bound * 2，所以要限制该设置 */
 	if (bound > (int64) (INT_MAX / 2))
 		return;
 
@@ -870,15 +870,15 @@ tuplesort_set_bound(Tuplesortstate *state, int64 bound)
 	state->bound = (int) bound;
 
 	/*
-	 * Bounded sorts are not an effective target for abbreviated key
-	 * optimization.  Disable by setting state to be consistent with no
-	 * abbreviation support.
+	 * 有界排序并不是缩略键优化的有效目标。
+	 * 通过把状态设置为与不支持缩略一致来禁用。
+	 *
 	 */
 	state->base.sortKeys->abbrev_converter = NULL;
 	if (state->base.sortKeys->abbrev_full_comparator)
 		state->base.sortKeys->comparator = state->base.sortKeys->abbrev_full_comparator;
 
-	/* Not strictly necessary, but be tidy */
+	/* 并非严格必要，但求整洁 */
 	state->base.sortKeys->abbrev_abort = NULL;
 	state->base.sortKeys->abbrev_full_comparator = NULL;
 }
@@ -886,7 +886,7 @@ tuplesort_set_bound(Tuplesortstate *state, int64 bound)
 /*
  * tuplesort_used_bound
  *
- * Allow callers to find out if the sort state was able to use a bound.
+ * 允许调用者查明排序状态是否成功使用了界限。
  */
 bool
 tuplesort_used_bound(Tuplesortstate *state)
@@ -897,12 +897,12 @@ tuplesort_used_bound(Tuplesortstate *state)
 /*
  * tuplesort_free
  *
- *	Internal routine for freeing resources of tuplesort.
+ *	释放 tuplesort 资源的内部例程。
  */
 static void
 tuplesort_free(Tuplesortstate *state)
 {
-	/* context swap probably not needed, but let's be safe */
+	/* 上下文切换多半不需要，但求稳妥 */
 	MemoryContext oldcontext = MemoryContextSwitchTo(state->base.sortcontext);
 
 #ifdef TRACE_SORT
@@ -915,14 +915,14 @@ tuplesort_free(Tuplesortstate *state)
 #endif
 
 	/*
-	 * Delete temporary "tape" files, if any.
+	 * 删除临时"磁带"文件，若有。
 	 *
-	 * Note: want to include this in reported total cost of sort, hence need
-	 * for two #ifdef TRACE_SORT sections.
+	 * 注：希望把它计入排序的报告总成本，因此需要两个
+	 * #ifdef TRACE_SORT 段。
 	 *
-	 * We don't bother to destroy the individual tapes here. They will go away
-	 * with the sortcontext.  (In TSS_FINALMERGE state, we have closed
-	 * finished tapes already.)
+	 * 我们不在这里费心销毁各个磁带。它们会随排序上下
+	 * 文一起消失。（TSS_FINALMERGE 状态下已关闭
+	 * 完毕的磁带。）
 	 */
 	if (state->tapeset)
 		LogicalTapeSetClose(state->tapeset);
@@ -944,8 +944,8 @@ tuplesort_free(Tuplesortstate *state)
 #else
 
 	/*
-	 * If you disabled TRACE_SORT, you can still probe sort__done, but you
-	 * ain't getting space-used stats.
+	 * 如果禁用了 TRACE_SORT，你仍可以探测 sort__done，但拿
+	 * 不到空间使用统计。
 	 */
 	TRACE_POSTGRESQL_SORT_DONE(state->tapeset != NULL, 0L);
 #endif
@@ -954,7 +954,7 @@ tuplesort_free(Tuplesortstate *state)
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * Free the per-sort memory context, thereby releasing all working memory.
+	 * 释放排序专属内存上下文，从而释放全部工作内存。
 	 */
 	MemoryContextReset(state->base.sortcontext);
 }
@@ -962,11 +962,11 @@ tuplesort_free(Tuplesortstate *state)
 /*
  * tuplesort_end
  *
- *	Release resources and clean up.
+ *	释放资源并清理。
  *
- * NOTE: after calling this, any pointers returned by tuplesort_getXXX are
- * pointing to garbage.  Be careful not to attempt to use or free such
- * pointers afterwards!
+ * 注意：调用此函数后，tuplesort_getXXX 返回的任何指针都
+ * 指向垃圾数据。当心此后不要试图使用或释放这类
+ * 指针！
  */
 void
 tuplesort_end(Tuplesortstate *state)
@@ -974,8 +974,8 @@ tuplesort_end(Tuplesortstate *state)
 	tuplesort_free(state);
 
 	/*
-	 * Free the main memory context, including the Tuplesortstate struct
-	 * itself.
+	 * 释放主内存上下文，包括 Tuplesortstate 结构本身。
+	 *
 	 */
 	MemoryContextDelete(state->base.maincontext);
 }
@@ -983,7 +983,7 @@ tuplesort_end(Tuplesortstate *state)
 /*
  * tuplesort_updatemax
  *
- *	Update maximum resource usage statistics.
+ *	更新最大资源使用统计信息。
  */
 static void
 tuplesort_updatemax(Tuplesortstate *state)
@@ -992,13 +992,13 @@ tuplesort_updatemax(Tuplesortstate *state)
 	bool		isSpaceDisk;
 
 	/*
-	 * Note: it might seem we should provide both memory and disk usage for a
-	 * disk-based sort.  However, the current code doesn't track memory space
-	 * accurately once we have begun to return tuples to the caller (since we
-	 * don't account for pfree's the caller is expected to do), so we cannot
-	 * rely on availMem in a disk sort.  This does not seem worth the overhead
-	 * to fix.  Is it worth creating an API for the memory context code to
-	 * tell us how much is actually used in sortcontext?
+	 * 注：基于磁盘的排序似乎应同时提供内存与磁盘的
+	 * 使用情况。然而，一旦我们开始向调用者返回元组，
+	 * 当前代码就不再准确跟踪内存空间（因为我们没有
+	 * 把调用者应做的 pfree 计入），故无法依赖
+	 * 磁盘排序中的 availMem。修复它似乎不值得开销。
+	 * 是否值得为内存上下文代码建一个 API 来告知我们
+	 * sortcontext 的实际用量？
 	 */
 	if (state->tapeset)
 	{
@@ -1012,12 +1012,12 @@ tuplesort_updatemax(Tuplesortstate *state)
 	}
 
 	/*
-	 * Sort evicts data to the disk when it wasn't able to fit that data into
-	 * main memory.  This is why we assume space used on the disk to be more
-	 * important for tracking resource usage than space used in memory. Note
-	 * that the amount of space occupied by some tupleset on the disk might be
-	 * less than amount of space occupied by the same tupleset in memory due
-	 * to more compact representation.
+	 * 当排序无法把数据容纳进主内存时，它会把数据逐出
+	 * 到磁盘。这就是我们假定磁盘占用空间比内存占用空
+	 * 间对资源使用跟踪更重要的原因。注意，某个元组集
+	 * 在磁盘上占用的空间量可能小于同一元组集在内存中
+	 * 占用的空间量，这是因为其表示形式更加紧凑。
+	 *
 	 */
 	if ((isSpaceDisk && !state->isMaxSpaceDisk) ||
 		(isSpaceDisk == state->isMaxSpaceDisk && spaceUsed > state->maxSpace))
@@ -1031,10 +1031,10 @@ tuplesort_updatemax(Tuplesortstate *state)
 /*
  * tuplesort_reset
  *
- *	Reset the tuplesort.  Reset all the data in the tuplesort, but leave the
- *	meta-information in.  After tuplesort_reset, tuplesort is ready to start
- *	a new sort.  This allows avoiding recreation of tuple sort states (and
- *	save resources) when sorting multiple small batches.
+ *	重置 tuplesort。重置 tuplesort 内的所有数据，但保留
+ *	元信息。tuplesort_reset 之后，tuplesort 即可开始新的排
+ *	序。这在排序多个小批次时避免了重建元组排序状态
+ *	（从而节省资源）。
  */
 void
 tuplesort_reset(Tuplesortstate *state)
@@ -1043,8 +1043,8 @@ tuplesort_reset(Tuplesortstate *state)
 	tuplesort_free(state);
 
 	/*
-	 * After we've freed up per-batch memory, re-setup all of the state common
-	 * to both the first batch and any subsequent batch.
+	 * 释放完每批内存后，重新建立第一批和任何后续批次
+	 * 共有的全部状态。
 	 */
 	tuplesort_begin_batch(state);
 
@@ -1055,19 +1055,19 @@ tuplesort_reset(Tuplesortstate *state)
 }
 
 /*
- * Grow the memtuples[] array, if possible within our memory constraint.  We
- * must not exceed INT_MAX tuples in memory or the caller-provided memory
- * limit.  Return true if we were able to enlarge the array, false if not.
+ * 在内存约束允许时增长 memtuples[] 数组。我们
+ * 不得超过内存中 INT_MAX 个元组或调用者给定的
+ * 内存上限。若能扩大数组则返回真，否则返回假。
  *
- * Normally, at each increment we double the size of the array.  When doing
- * that would exceed a limit, we attempt one last, smaller increase (and then
- * clear the growmemtuples flag so we don't try any more).  That allows us to
- * use memory as fully as permitted; sticking to the pure doubling rule could
- * result in almost half going unused.  Because availMem moves around with
- * tuple addition/removal, we need some rule to prevent making repeated small
- * increases in memtupsize, which would just be useless thrashing.  The
- * growmemtuples flag accomplishes that and also prevents useless
- * recalculations in this function.
+ * 通常，每次增长时我们都把数组大小翻倍。当
+ * 这样做会超出限制时，我们尝试最后一次较小
+ * 的增长（然后清除 growmemtuples 标志以不再
+ * 尝试）。这使我们能用尽允许的全部内存；固守
+ * 纯粹翻倍规则可能导致几乎一半被浪费。由于
+ * availMem 随元组的增删而变动，我们需要某条
+ * 规则来防止反复小幅增加 memtupsize，那只会
+ * 是无谓的抖动。growmemtuples 标志可实现这点，
+ * 也防止函数内重算。
  */
 static bool
 grow_memtuples(Tuplesortstate *state)
@@ -1076,16 +1076,16 @@ grow_memtuples(Tuplesortstate *state)
 	int			memtupsize = state->memtupsize;
 	int64		memNowUsed = state->allowedMem - state->availMem;
 
-	/* Forget it if we've already maxed out memtuples, per comment above */
+	/* 若 memtuples 已达上限则放弃，见上文注释 */
 	if (!state->growmemtuples)
 		return false;
 
-	/* Select new value of memtupsize */
+	/* 选择 memtupsize 的新值 */
 	if (memNowUsed <= state->availMem)
 	{
 		/*
-		 * We've used no more than half of allowedMem; double our usage,
-		 * clamping at INT_MAX tuples.
+		 * 已用量不超过 allowedMem 的一半；将用量翻倍，
+		 * 以 INT_MAX 封顶。
 		 */
 		if (memtupsize < INT_MAX / 2)
 			newmemtupsize = memtupsize * 2;
@@ -1098,30 +1098,30 @@ grow_memtuples(Tuplesortstate *state)
 	else
 	{
 		/*
-		 * This will be the last increment of memtupsize.  Abandon doubling
-		 * strategy and instead increase as much as we safely can.
+		 * 这将是 memtupsize 的最后一次增长。放弃翻倍
+		 * 策略，改为在安全范围内尽量增加。
 		 *
-		 * To stay within allowedMem, we can't increase memtupsize by more
-		 * than availMem / sizeof(SortTuple) elements.  In practice, we want
-		 * to increase it by considerably less, because we need to leave some
-		 * space for the tuples to which the new array slots will refer.  We
-		 * assume the new tuples will be about the same size as the tuples
-		 * we've already seen, and thus we can extrapolate from the space
-		 * consumption so far to estimate an appropriate new size for the
-		 * memtuples array.  The optimal value might be higher or lower than
-		 * this estimate, but it's hard to know that in advance.  We again
-		 * clamp at INT_MAX tuples.
+		 * 为了不超出 allowedMem，memtupsize 的增量不得
+		 * 超出 availMem / sizeof(SortTuple) 个元素。实际上我们
+		 * 希望增量远小于此，因为需要为
+		 * 将要引用的元组留出空间。我们
+		 * 假定新元组与已见过的元组大小大致相同，
+		 * 从而可以从迄今的
+		 * 空间消耗推算 memtuples 数组的合适新大小。
+		 * 最优值可能高于或低于该估计，
+		 * 但很难事先得知。我们再次以
+		 * INT_MAX 元组封顶。
 		 *
-		 * This calculation is safe against enlarging the array so much that
-		 * LACKMEM becomes true, because the memory currently used includes
-		 * the present array; thus, there would be enough allowedMem for the
-		 * new array elements even if no other memory were currently used.
+		 * 这一计算可以确保不会把数组扩大到令 LACKMEM
+		 * 成真的地步，因为当前使用的内存已包括现
+		 * 有数组；因此即使当前没有使用任何其他内存，
+		 * 也总有足够的 allowedMem 供新数组元素使用。
 		 *
-		 * We do the arithmetic in float8, because otherwise the product of
-		 * memtupsize and allowedMem could overflow.  Any inaccuracy in the
-		 * result should be insignificant; but even if we computed a
-		 * completely insane result, the checks below will prevent anything
-		 * really bad from happening.
+		 * 我们用 float8 做算术，否则 memtupsize 与
+		 * allowedMem 的乘积可能溢出。结果中的任何
+		 * 不准确都应当无关紧要；但即使我们算出了
+		 * 完全离谱的结果，下面的检查也会防止任何
+		 * 糟糕后果发生。
 		 */
 		double		grow_ratio;
 
@@ -1131,42 +1131,42 @@ grow_memtuples(Tuplesortstate *state)
 		else
 			newmemtupsize = INT_MAX;
 
-		/* We won't make any further enlargement attempts */
+		/* 不再做进一步扩大的尝试 */
 		state->growmemtuples = false;
 	}
 
-	/* Must enlarge array by at least one element, else report failure */
+	/* 必须至少扩大一个元素，否则报告失败 */
 	if (newmemtupsize <= memtupsize)
 		goto noalloc;
 
 	/*
-	 * On a 32-bit machine, allowedMem could exceed MaxAllocHugeSize.  Clamp
-	 * to ensure our request won't be rejected.  Note that we can easily
-	 * exhaust address space before facing this outcome.  (This is presently
-	 * impossible due to guc.c's MAX_KILOBYTES limitation on work_mem, but
-	 * don't rely on that at this distance.)
+	 * 在 32 位机器上，allowedMem 可能超过 MaxAllocHugeSize，
+	 * 需加以钳制以确保请求不被拒绝。注意我们很
+	 * 容易在遭遇这种结果之前耗尽地址空间。（这目前
+	 * 不可能发生，因为 guc.c 的 MAX_KILOBYTES 对
+	 * work_mem 限制，别依赖它。）
 	 */
 	if ((Size) newmemtupsize >= MaxAllocHugeSize / sizeof(SortTuple))
 	{
 		newmemtupsize = (int) (MaxAllocHugeSize / sizeof(SortTuple));
-		state->growmemtuples = false;	/* can't grow any more */
+		state->growmemtuples = false;	/* 无法再增长 */
 	}
 
 	/*
-	 * We need to be sure that we do not cause LACKMEM to become true, else
-	 * the space management algorithm will go nuts.  The code above should
-	 * never generate a dangerous request, but to be safe, check explicitly
-	 * that the array growth fits within availMem.  (We could still cause
-	 * LACKMEM if the memory chunk overhead associated with the memtuples
-	 * array were to increase.  That shouldn't happen because we chose the
-	 * initial array size large enough to ensure that palloc will be treating
-	 * both old and new arrays as separate chunks.  But we'll check LACKMEM
-	 * explicitly below just in case.)
+	 * 我们必须确保不会使 LACKMEM 变成真，否则空间
+	 * 管理算法将会失常。上面的代码绝不应生成危
+	 * 险的请求，但为了安全，还是要显式检查数组
+	 * 增长是否处于 availMem 之内。（如果与 memtuples
+	 * 数组关联的内存块开销增加，仍可能导致
+	 * LACKMEM。这不该发生，因为我们选择的初始数组
+	 * 大小足以确保 palloc 把新旧数组都当作独立块
+	 * 对待。但我们还是会在下方显式检查 LACKMEM，
+	 * 以防万一。）
 	 */
 	if (state->availMem < (int64) ((newmemtupsize - memtupsize) * sizeof(SortTuple)))
 		goto noalloc;
 
-	/* OK, do it */
+	/* 就做 */
 	FREEMEM(state, GetMemoryChunkSpace(state->memtuples));
 	state->memtupsize = newmemtupsize;
 	state->memtuples = (SortTuple *)
@@ -1178,13 +1178,13 @@ grow_memtuples(Tuplesortstate *state)
 	return true;
 
 noalloc:
-	/* If for any reason we didn't realloc, shut off future attempts */
+	/* 若因任何原因未 realloc，则关闭后续尝试 */
 	state->growmemtuples = false;
 	return false;
 }
 
 /*
- * Shared code for tuple and datum cases.
+ * 元组与 datum 情形共用代码。
  */
 void
 tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbrev)
@@ -1193,37 +1193,37 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 
 	Assert(!LEADER(state));
 
-	/* Count the size of the out-of-line data */
+	/* 统计行外数据的大小 */
 	if (tuple->tuple != NULL)
 		USEMEM(state, GetMemoryChunkSpace(tuple->tuple));
 
 	if (!useAbbrev)
 	{
 		/*
-		 * Leave ordinary Datum representation, or NULL value.  If there is a
-		 * converter it won't expect NULL values, and cost model is not
-		 * required to account for NULL, so in that case we avoid calling
-		 * converter and just set datum1 to zeroed representation (to be
-		 * consistent, and to support cheap inequality tests for NULL
-		 * abbreviated keys).
+		 * 保留普通 Datum 表示或 NULL 值不变。若有转换器，
+		 * 它不会预期 NULL 值，成本模型也不要求计及
+		 * NULL，故此情形下我们避免调用转换器，只把
+		 * datum1 设为全零表示（保持一致，且支持
+		 * NULL 缩略键的廉价不等测试）。
+		 *
 		 */
 	}
 	else if (!consider_abort_common(state))
 	{
-		/* Store abbreviated key representation */
+		/* 保存缩略键表示 */
 		tuple->datum1 = state->base.sortKeys->abbrev_converter(tuple->datum1,
 															   state->base.sortKeys);
 	}
 	else
 	{
 		/*
-		 * Set state to be consistent with never trying abbreviation.
+		 * 把状态设置为永不尝试缩略的一致形态。
 		 *
-		 * Alter datum1 representation in already-copied tuples, so as to
-		 * ensure a consistent representation (current tuple was just
-		 * handled).  It does not matter if some dumped tuples are already
-		 * sorted on tape, since serialized tuples lack abbreviated keys
-		 * (TSS_BUILDRUNS state prevents control reaching here in any case).
+		 * 修改已复制元组中的 datum1 表示，以确保表示
+		 * 一致（当前元组刚处理过）。即使有已转储
+		 * 元组已在磁带上排好序也没关系，序列化元组
+		 * 不含缩略键（TSS_BUILDRUNS 状态反正会阻止
+		 * 控制流到达此处）。
 		 */
 		REMOVEABBREV(state, state->memtuples, state->memtupcount);
 	}
@@ -1233,11 +1233,11 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 		case TSS_INITIAL:
 
 			/*
-			 * Save the tuple into the unsorted array.  First, grow the array
-			 * as needed.  Note that we try to grow the array when there is
-			 * still one free slot remaining --- if we fail, there'll still be
-			 * room to store the incoming tuple, and then we'll switch to
-			 * tape-based operation.
+			 * 将元组存入未排序数组。先按需增长数组。
+			 * 注意还剩一个空闲槽位时我们就尝试增长数组
+			 * —— 若失败，仍有空位存新元组，随后我们会
+			 * 切换到基于磁带的操作。
+			 *
 			 */
 			if (state->memtupcount >= state->memtupsize - 1)
 			{
@@ -1247,16 +1247,16 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 			state->memtuples[state->memtupcount++] = *tuple;
 
 			/*
-			 * Check if it's time to switch over to a bounded heapsort. We do
-			 * so if the input tuple count exceeds twice the desired tuple
-			 * count (this is a heuristic for where heapsort becomes cheaper
-			 * than a quicksort), or if we've just filled workMem and have
-			 * enough tuples to meet the bound.
+			 * 检查是否该改用有界堆排序。当输入元组数超
+			 * 过所需元组数的两倍，或刚填满 workMem
+			 * 且元组数足以满足界限时这么做。（这是
+			 * 对堆何时比快排更便宜的启发式判断）。
 			 *
-			 * Note that once we enter TSS_BOUNDED state we will always try to
-			 * complete the sort that way.  In the worst case, if later input
-			 * tuples are larger than earlier ones, this might cause us to
-			 * exceed workMem significantly.
+			 *
+			 * 注意，进入 TSS_BOUNDED 状态后我们总尝试以该方
+			 * 式完成排序。最坏时，若后来的输入元组
+			 * 大于先前元组，我们可能大幅超出 workMem。
+			 *
 			 */
 			if (state->bounded &&
 				(state->memtupcount > state->bound * 2 ||
@@ -1274,7 +1274,7 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 			}
 
 			/*
-			 * Done if we still fit in available memory and have array slots.
+			 * 若仍能放入可用内存且拥有数组槽位则完成。
 			 */
 			if (state->memtupcount < state->memtupsize && !LACKMEM(state))
 			{
@@ -1283,12 +1283,12 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 			}
 
 			/*
-			 * Nope; time to switch to tape-based operation.
+			 * 不；该切换到基于磁带的操作了。
 			 */
 			inittapes(state, true);
 
 			/*
-			 * Dump all tuples.
+			 * 全部转储。
 			 */
 			dumptuples(state, false);
 			break;
@@ -1296,22 +1296,22 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 		case TSS_BOUNDED:
 
 			/*
-			 * We don't want to grow the array here, so check whether the new
-			 * tuple can be discarded before putting it in.  This should be a
-			 * good speed optimization, too, since when there are many more
-			 * input tuples than the bound, most input tuples can be discarded
-			 * with just this one comparison.  Note that because we currently
-			 * have the sort direction reversed, we must check for <= not >=.
+			 * 我们不打算在此增长数组，故先看新元组是否
+			 * 能在放入之前就被丢弃。这应也是不错的提速
+			 * 优化：输入元组远多于界限时，多数元组仅凭
+			 * 一次比较即可丢弃。
+			 * 注意，由于当前排序方向已反转，必须检查
+			 *  <= 而不是 >=。
 			 */
 			if (COMPARETUP(state, tuple, &state->memtuples[0]) <= 0)
 			{
-				/* new tuple <= top of the heap, so we can discard it */
+				/* 新元组 <= 堆顶，故可丢弃 */
 				free_sort_tuple(state, tuple);
 				CHECK_FOR_INTERRUPTS();
 			}
 			else
 			{
-				/* discard top of heap, replacing it with the new tuple */
+				/* 丢弃堆顶，用新元组替换它 */
 				free_sort_tuple(state, &state->memtuples[0]);
 				tuplesort_heap_replace_top(state, tuple);
 			}
@@ -1320,12 +1320,12 @@ tuplesort_puttuple_common(Tuplesortstate *state, SortTuple *tuple, bool useAbbre
 		case TSS_BUILDRUNS:
 
 			/*
-			 * Save the tuple into the unsorted array (there must be space)
+			 * 把元组存入未排序数组（必定有空间）
 			 */
 			state->memtuples[state->memtupcount++] = *tuple;
 
 			/*
-			 * If we are over the memory limit, dump all tuples.
+			 * 如果超出内存限额，转储全部元组。
 			 */
 			dumptuples(state, false);
 			break;
@@ -1345,8 +1345,8 @@ consider_abort_common(Tuplesortstate *state)
 	Assert(state->base.sortKeys[0].abbrev_full_comparator != NULL);
 
 	/*
-	 * Check effectiveness of abbreviation optimization.  Consider aborting
-	 * when still within memory limit.
+	 * 检查缩略优化效果。还在内存限额内时考虑中止。
+	 *
 	 */
 	if (state->status == TSS_INITIAL &&
 		state->memtupcount >= state->abbrevNext)
@@ -1354,24 +1354,24 @@ consider_abort_common(Tuplesortstate *state)
 		state->abbrevNext *= 2;
 
 		/*
-		 * Check opclass-supplied abbreviation abort routine.  It may indicate
-		 * that abbreviation should not proceed.
+		 * 检查 opclass 给出的缩略中止例程。它可能表示不该
+		 * 继续缩略。
 		 */
 		if (!state->base.sortKeys->abbrev_abort(state->memtupcount,
 												state->base.sortKeys))
 			return false;
 
 		/*
-		 * Finally, restore authoritative comparator, and indicate that
-		 * abbreviation is not in play by setting abbrev_converter to NULL
+		 * 最后恢复权威比较器，并将 abbrev_converter 设
+		 * 为 NULL 来表明缩略不在生效。
 		 */
 		state->base.sortKeys[0].comparator = state->base.sortKeys[0].abbrev_full_comparator;
 		state->base.sortKeys[0].abbrev_converter = NULL;
-		/* Not strictly necessary, but be tidy */
+		/* 并非严格必要，但求整洁 */
 		state->base.sortKeys[0].abbrev_abort = NULL;
 		state->base.sortKeys[0].abbrev_full_comparator = NULL;
 
-		/* Give up - expect original pass-by-value representation */
+		/* 放弃 —— 预期原本的按值传递表示 */
 		return true;
 	}
 
@@ -1379,7 +1379,7 @@ consider_abort_common(Tuplesortstate *state)
 }
 
 /*
- * All tuples have been provided; finish the sort.
+ * 所有元组均已提供；完成排序。
  */
 void
 tuplesort_performsort(Tuplesortstate *state)
@@ -1397,20 +1397,20 @@ tuplesort_performsort(Tuplesortstate *state)
 		case TSS_INITIAL:
 
 			/*
-			 * We were able to accumulate all the tuples within the allowed
-			 * amount of memory, or leader to take over worker tapes
+			 * 我们能在允许内存量内积累全部元组，或主导
+			 * 进程接管工作进程磁带。
 			 */
 			if (SERIAL(state))
 			{
-				/* Just qsort 'em and we're done */
+				/* 直接 qsort 即完成 */
 				tuplesort_sort_memtuples(state);
 				state->status = TSS_SORTEDINMEM;
 			}
 			else if (WORKER(state))
 			{
 				/*
-				 * Parallel workers must still dump out tuples to tape.  No
-				 * merge is required to produce single output run, though.
+				 * 并行工作进程仍须转储元组到磁带。不过
+				 * 要产出单一输出归并段则无需归并。
 				 */
 				inittapes(state, false);
 				dumptuples(state, true);
@@ -1420,8 +1420,8 @@ tuplesort_performsort(Tuplesortstate *state)
 			else
 			{
 				/*
-				 * Leader will take over worker tapes and merge worker runs.
-				 * Note that mergeruns sets the correct state->status.
+				 * 主导进程将接管工作进程磁带并归并各段。
+				 * 注意 mergeruns 会设正确的 state->status。
 				 */
 				leader_takeover_tapes(state);
 				mergeruns(state);
@@ -1436,10 +1436,10 @@ tuplesort_performsort(Tuplesortstate *state)
 		case TSS_BOUNDED:
 
 			/*
-			 * We were able to accumulate all the tuples required for output
-			 * in memory, using a heap to eliminate excess tuples.  Now we
-			 * have to transform the heap to a properly-sorted array. Note
-			 * that sort_bounded_heap sets the correct state->status.
+			 * 我们能在内存中用堆淘汰多余元组，积累输出
+			 * 所需元组。接着把堆变为排好序的数组。
+			 * 注意 sort_bounded_heap 会设正确的 state->status。
+			 *
 			 */
 			sort_bounded_heap(state);
 			state->current = 0;
@@ -1451,10 +1451,10 @@ tuplesort_performsort(Tuplesortstate *state)
 		case TSS_BUILDRUNS:
 
 			/*
-			 * Finish tape-based sort.  First, flush all tuples remaining in
-			 * memory out to tape; then merge until we have a single remaining
-			 * run (or, if !randomAccess and !WORKER(), one run per tape).
-			 * Note that mergeruns sets the correct state->status.
+			 * 完成基于磁带的排序。先把内存中剩余元组
+			 * 刷写到磁带；然后归并至只剩一段（或者，当
+			 * !randomAccess 且 !WORKER() 时，每条磁带一段）。
+			 * 注意 mergeruns 会设正确的 state->status。
 			 */
 			dumptuples(state, true);
 			mergeruns(state);
@@ -1486,11 +1486,11 @@ tuplesort_performsort(Tuplesortstate *state)
 }
 
 /*
- * Internal routine to fetch the next tuple in either forward or back
- * direction into *stup.  Returns false if no more tuples.
- * Returned tuple belongs to tuplesort memory context, and must not be freed
- * by caller.  Note that fetched tuple is stored in memory that may be
- * recycled by any future fetch.
+ * 内部例程：以正向或反向把下一个元组取入
+ *  *stup。若已无更多元组则返回假。
+ * 返回的元组属于 tuplesort 内存上下文，调用者不得释放
+ * 它。注意取到的元组存于可能被未来任何一次取
+ * 组回收的内存中。
  */
 bool
 tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
@@ -1516,9 +1516,9 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 				state->eof_reached = true;
 
 				/*
-				 * Complain if caller tries to retrieve more tuples than
-				 * originally asked for in a bounded sort.  This is because
-				 * returning EOF here might be the wrong thing.
+				 * 若有界排序中调用者试图取的元组超过
+				 * 最初请求的量则报错。这是因为此处返回
+				 * EOF 可能是错误做法。
 				 */
 				if (state->bounded && state->current >= state->bound)
 					elog(ERROR, "retrieved too many tuples in a bounded sort");
@@ -1531,14 +1531,14 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 					return false;
 
 				/*
-				 * if all tuples are fetched already then we return last
-				 * tuple, else - tuple before last returned.
+				 * 若所有元组已取完，则返回最后
+				 * 元组，否则返回前一个元组。
 				 */
 				if (state->eof_reached)
 					state->eof_reached = false;
 				else
 				{
-					state->current--;	/* last returned tuple */
+					state->current--;	/* 上次返回元组 */
 					if (state->current <= 0)
 						return false;
 				}
@@ -1552,8 +1552,8 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 			Assert(state->slabAllocatorUsed);
 
 			/*
-			 * The slot that held the tuple that we returned in previous
-			 * gettuple call can now be reused.
+			 * 上一次 gettuple 调用里所返回元组的槽位
+			 * 现在可以重用了。
 			 */
 			if (state->lastReturnedTuple)
 			{
@@ -1571,9 +1571,9 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 					READTUP(state, stup, state->result_tape, tuplen);
 
 					/*
-					 * Remember the tuple we return, so that we can recycle
-					 * its memory on next call.  (This can be NULL, in the
-					 * !state->tuples case).
+					 * 记住所返回元组，以便下次调用回收
+					 * 其内存。（在 !state->tuples 情形下可为
+					 * NULL）。
 					 */
 					state->lastReturnedTuple = stup->tuple;
 
@@ -1587,17 +1587,17 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 			}
 
 			/*
-			 * Backward.
+			 * 反向。
 			 *
-			 * if all tuples are fetched already then we return last tuple,
-			 * else - tuple before last returned.
+			 * 若所有元组已取完，则返回最后返回的元组，
+			 * 否则返回前一个元组。
 			 */
 			if (state->eof_reached)
 			{
 				/*
-				 * Seek position is pointing just past the zero tuplen at the
-				 * end of file; back up to fetch last tuple's ending length
-				 * word.  If seek fails we must have a completely empty file.
+				 * 寻道位置正好位于文件末尾零 tuplen 之后，
+				 * 需回退取最后元组的结尾长度字。寻道失
+				 * 败则文件必然完全为空。
 				 */
 				nmoved = LogicalTapeBackspace(state->result_tape,
 											  2 * sizeof(unsigned int));
@@ -1610,8 +1610,8 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 			else
 			{
 				/*
-				 * Back up and fetch previously-returned tuple's ending length
-				 * word.  If seek fails, assume we are at start of file.
+				 * 回退并取上次返回元组的结尾长度
+				 * 字。寻道失败则假定在文件开头。
 				 */
 				nmoved = LogicalTapeBackspace(state->result_tape,
 											  sizeof(unsigned int));
@@ -1622,18 +1622,18 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 				tuplen = getlen(state->result_tape, false);
 
 				/*
-				 * Back up to get ending length word of tuple before it.
+				 * 回退取它前面元组的结尾长度字。
 				 */
 				nmoved = LogicalTapeBackspace(state->result_tape,
 											  tuplen + 2 * sizeof(unsigned int));
 				if (nmoved == tuplen + sizeof(unsigned int))
 				{
 					/*
-					 * We backed up over the previous tuple, but there was no
-					 * ending length word before it.  That means that the prev
-					 * tuple is the first tuple in the file.  It is now the
-					 * next to read in forward direction (not obviously right,
-					 * but that is what in-memory case does).
+					 * 我们回退越过了前一元组，但其前面没有
+					 * 结尾长度字。即前一元组是文件中的第一
+					 * 个元组。现在是正向读取的下一个元组
+					 * （未必显然正确，但内存中的情形
+					 * 就是这样）。
 					 */
 					return false;
 				}
@@ -1644,9 +1644,9 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 			tuplen = getlen(state->result_tape, false);
 
 			/*
-			 * Now we have the length of the prior tuple, back up and read it.
-			 * Note: READTUP expects we are positioned after the initial
-			 * length word of the tuple, so back up to that point.
+			 * 现在我们有了前一元组的长度，回退并读取它。
+			 * 注：READTUP 预期我们位于元组初始长度字
+			 * 之后，所以回退到该位置。
 			 */
 			nmoved = LogicalTapeBackspace(state->result_tape,
 										  tuplen);
@@ -1655,8 +1655,8 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 			READTUP(state, stup, state->result_tape, tuplen);
 
 			/*
-			 * Remember the tuple we return, so that we can recycle its memory
-			 * on next call. (This can be NULL, in the Datum case).
+			 * 记住我们返回的元组，以便下次调用时回收
+			 * 其内存。（Datum 情形下可为 NULL）。
 			 */
 			state->lastReturnedTuple = stup->tuple;
 
@@ -1664,12 +1664,12 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 
 		case TSS_FINALMERGE:
 			Assert(forward);
-			/* We are managing memory ourselves, with the slab allocator. */
+			/* 我们正用 slab 分配器自行管理内存 */
 			Assert(state->slabAllocatorUsed);
 
 			/*
-			 * The slab slot holding the tuple that we returned in previous
-			 * gettuple call can now be reused.
+			 * 上次 gettuple 调用所返回元组所在的 slab 槽位
+			 * 现在可以重用了。
 			 */
 			if (state->lastReturnedTuple)
 			{
@@ -1678,7 +1678,7 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 			}
 
 			/*
-			 * This code should match the inner loop of mergeonerun().
+			 * 此代码应与 mergeonerun() 的内层循环一致。
 			 */
 			if (state->memtupcount > 0)
 			{
@@ -1689,27 +1689,27 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 				*stup = state->memtuples[0];
 
 				/*
-				 * Remember the tuple we return, so that we can recycle its
-				 * memory on next call. (This can be NULL, in the Datum case).
+				 * 记住我们返回的元组，以便下次调用回收
+				 * 其内存。（Datum 情形下可为 NULL）。
 				 */
 				state->lastReturnedTuple = stup->tuple;
 
 				/*
-				 * Pull next tuple from tape, and replace the returned tuple
-				 * at top of the heap with it.
+				 * 从磁带取下个元组，用它替换堆顶元组。
+				 *
 				 */
 				if (!mergereadnext(state, srcTape, &newtup))
 				{
 					/*
-					 * If no more data, we've reached end of run on this tape.
-					 * Remove the top node from the heap.
+					 * 若无更多数据，即已到磁带归并段末端，
+					 * 从堆中移除顶节点。
 					 */
 					tuplesort_heap_delete_top(state);
 					state->nInputRuns--;
 
 					/*
-					 * Close the tape.  It'd go away at the end of the sort
-					 * anyway, but better to release the memory early.
+					 * 关闭磁带。它本会在排序结束时消失，
+					 * 但尽早释放内存更好。
 					 */
 					LogicalTapeClose(srcTape);
 					return true;
@@ -1722,15 +1722,15 @@ tuplesort_gettuple_common(Tuplesortstate *state, bool forward,
 
 		default:
 			elog(ERROR, "invalid tuplesort state");
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 
 /*
- * Advance over N tuples in either forward or back direction,
- * without returning any data.  N==0 is a no-op.
- * Returns true if successful, false if ran out of tuples.
+ * 沿正向或反向任一方向跳过 N 个元组，
+ * 不返回任何数据。N==0 是无操作。
+ * 成功则返回真，元组用尽则返回假。
  */
 bool
 tuplesort_skiptuples(Tuplesortstate *state, int64 ntuples, bool forward)
@@ -1738,8 +1738,8 @@ tuplesort_skiptuples(Tuplesortstate *state, int64 ntuples, bool forward)
 	MemoryContext oldcontext;
 
 	/*
-	 * We don't actually support backwards skip yet, because no callers need
-	 * it.  The API is designed to allow for that later, though.
+	 * 我们其实尚不支持向后跳过，因为还没有调用者需要
+	 * 它。但 API 的设计允许日后支持该功能。
 	 */
 	Assert(forward);
 	Assert(ntuples >= 0);
@@ -1757,9 +1757,9 @@ tuplesort_skiptuples(Tuplesortstate *state, int64 ntuples, bool forward)
 			state->eof_reached = true;
 
 			/*
-			 * Complain if caller tries to retrieve more tuples than
-			 * originally asked for in a bounded sort.  This is because
-			 * returning EOF here might be the wrong thing.
+			 * 若有界排序中调用者试图取的元组超过
+			 * 最初请求的量则报错。这是因为此处返回
+			 * EOF 可能是错误做法。
 			 */
 			if (state->bounded && state->current >= state->bound)
 				elog(ERROR, "retrieved too many tuples in a bounded sort");
@@ -1770,8 +1770,8 @@ tuplesort_skiptuples(Tuplesortstate *state, int64 ntuples, bool forward)
 		case TSS_FINALMERGE:
 
 			/*
-			 * We could probably optimize these cases better, but for now it's
-			 * not worth the trouble.
+			 * 这些情形或许还能再优化，但眼下不值得费
+			 * 这功夫。
 			 */
 			oldcontext = MemoryContextSwitchTo(state->base.sortcontext);
 			while (ntuples-- > 0)
@@ -1790,15 +1790,15 @@ tuplesort_skiptuples(Tuplesortstate *state, int64 ntuples, bool forward)
 
 		default:
 			elog(ERROR, "invalid tuplesort state");
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * tuplesort_merge_order - report merge order we'll use for given memory
- * (note: "merge order" just means the number of input tapes in the merge).
+ * tuplesort_merge_order - 报告对给定内存将采用的归并路数
+ * （注意："归并路数"就是归并中输入磁带的数量）。
  *
- * This is exported for use by the planner.  allowedMem is in bytes.
+ * 此函数导出供规划器使用。allowedMem 以字节计。
  */
 int
 tuplesort_merge_order(int64 allowedMem)
@@ -1806,39 +1806,39 @@ tuplesort_merge_order(int64 allowedMem)
 	int			mOrder;
 
 	/*----------
-	 * In the merge phase, we need buffer space for each input and output tape.
-	 * Each pass in the balanced merge algorithm reads from M input tapes, and
-	 * writes to N output tapes.  Each tape consumes TAPE_BUFFER_OVERHEAD bytes
-	 * of memory.  In addition to that, we want MERGE_BUFFER_SIZE workspace per
-	 * input tape.
+	 * 在归并阶段，我们需要为每条输入和输出磁带提供缓
+	 * 冲区空间。平衡归并算法的每轮都从 M 条输入磁带读
+	 * 取，向 N 条输出磁带写入。每条磁带消耗
+	 * TAPE_BUFFER_OVERHEAD 字节内存；此外每条输入磁带还需一
+	 * 份。
 	 *
 	 * totalMem = M * (TAPE_BUFFER_OVERHEAD + MERGE_BUFFER_SIZE) +
 	 *            N * TAPE_BUFFER_OVERHEAD
 	 *
-	 * Except for the last and next-to-last merge passes, where there can be
-	 * fewer tapes left to process, M = N.  We choose M so that we have the
-	 * desired amount of memory available for the input buffers
-	 * (TAPE_BUFFER_OVERHEAD + MERGE_BUFFER_SIZE), given the total memory
-	 * available for the tape buffers (allowedMem).
+	 * 除了最后和倒数第二轮归并（磁带可能较少）
+	 * 之外，M = N。我们选择 M，使得输入缓冲区（
+	 * TAPE_BUFFER_OVERHEAD+MERGE_BUFFER_SIZE）可用内存，
+	 * 磁带缓冲区的总内存量为 allowedMem。
 	 *
-	 * Note: you might be thinking we need to account for the memtuples[]
-	 * array in this calculation, but we effectively treat that as part of the
-	 * MERGE_BUFFER_SIZE workspace.
+	 *
+	 * 注：你或许想计入 memtuples[] 数组，但我们实际把
+	 * 它当作 MERGE_BUFFER_SIZE 工作区的一部分。
+	 *
 	 *----------
 	 */
 	mOrder = allowedMem /
 		(2 * TAPE_BUFFER_OVERHEAD + MERGE_BUFFER_SIZE);
 
 	/*
-	 * Even in minimum memory, use at least a MINORDER merge.  On the other
-	 * hand, even when we have lots of memory, do not use more than a MAXORDER
-	 * merge.  Tapes are pretty cheap, but they're not entirely free.  Each
-	 * additional tape reduces the amount of memory available to build runs,
-	 * which in turn can cause the same sort to need more runs, which makes
-	 * merging slower even if it can still be done in a single pass.  Also,
-	 * high order merges are quite slow due to CPU cache effects; it can be
-	 * faster to pay the I/O cost of a multi-pass merge than to perform a
-	 * single merge pass across many hundreds of tapes.
+	 * 即使在最小内存下，也要至少用 MINORDER 归并。另
+	 * 一方面，即使内存充裕，也不要使用超过 MAXORDER 的
+	 * 归并。磁带相当便宜，但非完全免费。每增加一条
+	 * 磁带都会减少可用于构建归并段的内存量，这又可能
+	 * 使同一排序需更多归并段，即使归并仍能单
+	 * 轮完成，归并也会变慢。另外，高路数归并因 CPU
+	 * 缓存效应而相当慢；执行多轮归并的 I/O 成本可能比
+	 * 单轮跨越数百条磁带的归并更划算。
+	 *
 	 */
 	mOrder = Max(mOrder, MINORDER);
 	mOrder = Min(mOrder, MAXORDER);
@@ -1847,13 +1847,13 @@ tuplesort_merge_order(int64 allowedMem)
 }
 
 /*
- * Helper function to calculate how much memory to allocate for the read buffer
- * of each input tape in a merge pass.
+ * 辅助函数：计算在归并轮中为每条输入磁带的读缓冲
+ * 区分配多少内存。
  *
- * 'avail_mem' is the amount of memory available for the buffers of all the
- *		tapes, both input and output.
- * 'nInputTapes' and 'nInputRuns' are the number of input tapes and runs.
- * 'maxOutputTapes' is the max. number of output tapes we should produce.
+ * 'avail_mem' 是可供所有磁带（输入和输出）的缓冲区使
+ *		用的内存量。
+ * 'nInputTapes' 与 'nInputRuns' 是输入磁带和归并段的数量。
+ * 'maxOutputTapes' 是我们应产出的输出磁带数量上限。
  */
 static int64
 merge_read_buffer_size(int64 avail_mem, int nInputTapes, int nInputRuns,
@@ -1863,29 +1863,29 @@ merge_read_buffer_size(int64 avail_mem, int nInputTapes, int nInputRuns,
 	int			nOutputTapes;
 
 	/*
-	 * How many output tapes will we produce in this pass?
+	 * 这一轮我们将产出多少条输出磁带？
 	 *
-	 * This is nInputRuns / nInputTapes, rounded up.
+	 * 即 nInputRuns / nInputTapes 向上取整。
 	 */
 	nOutputRuns = (nInputRuns + nInputTapes - 1) / nInputTapes;
 
 	nOutputTapes = Min(nOutputRuns, maxOutputTapes);
 
 	/*
-	 * Each output tape consumes TAPE_BUFFER_OVERHEAD bytes of memory.  All
-	 * remaining memory is divided evenly between the input tapes.
+	 * 每条输出磁带消耗 TAPE_BUFFER_OVERHEAD 字节内存。全部
+	 * 剩余内存则在输入磁带间平均划分。
 	 *
-	 * This also follows from the formula in tuplesort_merge_order, but here
-	 * we derive the input buffer size from the amount of memory available,
-	 * and M and N.
+	 * 这也可由 tuplesort_merge_order 中的公式推出，但这里是
+	 * 从可用内存量推算输入缓冲区大小，并结合
+	 * M 与 N。
 	 */
 	return Max((avail_mem - TAPE_BUFFER_OVERHEAD * nOutputTapes) / nInputTapes, 0);
 }
 
 /*
- * inittapes - initialize for tape sorting.
+ * inittapes - 初始化磁带排序。
  *
- * This is called only if we have found we won't sort in memory.
+ * 只有发现无法在内存中排序时才调用此函数。
  */
 static void
 inittapes(Tuplesortstate *state, bool mergeruns)
@@ -1894,12 +1894,12 @@ inittapes(Tuplesortstate *state, bool mergeruns)
 
 	if (mergeruns)
 	{
-		/* Compute number of input tapes to use when merging */
+		/* 计算归并时要使用的输入磁带数量 */
 		state->maxTapes = tuplesort_merge_order(state->allowedMem);
 	}
 	else
 	{
-		/* Workers can sometimes produce single run, output without merge */
+		/* 工作进程有时只产出一个归并段，直接输出 */
 		Assert(WORKER(state));
 		state->maxTapes = MINORDER;
 	}
@@ -1910,7 +1910,7 @@ inittapes(Tuplesortstate *state, bool mergeruns)
 			 state->worker, state->maxTapes, pg_rusage_show(&state->ru_start));
 #endif
 
-	/* Create the tape set */
+	/* 创建磁带集 */
 	inittapestate(state, state->maxTapes);
 	state->tapeset =
 		LogicalTapeSetCreate(false,
@@ -1920,7 +1920,7 @@ inittapes(Tuplesortstate *state, bool mergeruns)
 	state->currentRun = 0;
 
 	/*
-	 * Initialize logical tape arrays.
+	 * 初始化逻辑磁带数组。
 	 */
 	state->inputTapes = NULL;
 	state->nInputTapes = 0;
@@ -1936,7 +1936,7 @@ inittapes(Tuplesortstate *state, bool mergeruns)
 }
 
 /*
- * inittapestate - initialize generic tape management state
+ * inittapestate - 初始化通用磁带管理状态
  */
 static void
 inittapestate(Tuplesortstate *state, int maxTapes)
@@ -1944,13 +1944,13 @@ inittapestate(Tuplesortstate *state, int maxTapes)
 	int64		tapeSpace;
 
 	/*
-	 * Decrease availMem to reflect the space needed for tape buffers; but
-	 * don't decrease it to the point that we have no room for tuples. (That
-	 * case is only likely to occur if sorting pass-by-value Datums; in all
-	 * other scenarios the memtuples[] array is unlikely to occupy more than
-	 * half of allowedMem.  In the pass-by-value case it's not important to
-	 * account for tuple space, so we don't care if LACKMEM becomes
-	 * inaccurate.)
+	 * 调低 availMem 以反映磁带缓冲区所需空间；但别减到
+	 * 没有元组容身之地的程度。（那种情况只可能出现在
+	 * 按值传递 Datum 排序时；其他所有情形中 memtuples[] 数
+	 * 组几乎不可能占据超过 allowedMem 一半的空间。按值传
+	 * 递情形下计入元组空间并不重要，所以我们不在乎
+	 * LACKMEM 变得不准确。
+	 *
 	 */
 	tapeSpace = (int64) maxTapes * TAPE_BUFFER_OVERHEAD;
 
@@ -1958,32 +1958,32 @@ inittapestate(Tuplesortstate *state, int maxTapes)
 		USEMEM(state, tapeSpace);
 
 	/*
-	 * Make sure that the temp file(s) underlying the tape set are created in
-	 * suitable temp tablespaces.  For parallel sorts, this should have been
-	 * called already, but it doesn't matter if it is called a second time.
+	 * 确保磁带集底层文件(file)创建于合适的临时表空间
+	 * 中。对于并行排序，本应已经调用过，
+	 * 再调用一次也无妨。
 	 */
 	PrepareTempTablespaces();
 }
 
 /*
- * selectnewtape -- select next tape to output to.
+ * selectnewtape -- 选择下个输出磁带。
  *
- * This is called after finishing a run when we know another run
- * must be started.  This is used both when building the initial
- * runs, and during merge passes.
+ * 完成一个归并段且还须开始另一个之后调用。
+ * 构建初始归并段期间和归并轮期间都会用到。
+ *
  */
 static void
 selectnewtape(Tuplesortstate *state)
 {
 	/*
-	 * At the beginning of each merge pass, nOutputTapes and nOutputRuns are
-	 * both zero.  On each call, we create a new output tape to hold the next
-	 * run, until maxTapes is reached.  After that, we assign new runs to the
-	 * existing tapes in a round robin fashion.
+	 * 每轮归并开始时，nOutputTapes 与 nOutputRuns 均为 0。每
+	 * 次调用时，我们都创建新输出磁带来容纳下一个
+	 * 归并段，直到 maxTapes。此后以轮转方式把新归
+	 * 并段分配给现有磁带。
 	 */
 	if (state->nOutputTapes < state->maxTapes)
 	{
-		/* Create a new tape to hold the next run */
+		/* 创建新磁带容纳下一段 */
 		Assert(state->outputTapes[state->nOutputRuns] == NULL);
 		Assert(state->nOutputRuns == state->nOutputTapes);
 		state->destTape = LogicalTapeCreate(state->tapeset);
@@ -1994,8 +1994,8 @@ selectnewtape(Tuplesortstate *state)
 	else
 	{
 		/*
-		 * We have reached the max number of tapes.  Append to an existing
-		 * tape.
+		 * 已达到磁带数上限。追加到一条现有磁带上。
+		 *
 		 */
 		state->destTape = state->outputTapes[state->nOutputRuns % state->nOutputTapes];
 		state->nOutputRuns++;
@@ -2003,7 +2003,7 @@ selectnewtape(Tuplesortstate *state)
 }
 
 /*
- * Initialize the slab allocation arena, for the given number of slots.
+ * 按给定槽位数量初始化 slab 分配区。
  */
 static void
 init_slab_allocator(Tuplesortstate *state, int numSlots)
@@ -2036,10 +2036,10 @@ init_slab_allocator(Tuplesortstate *state, int numSlots)
 }
 
 /*
- * mergeruns -- merge all the completed initial runs.
+ * mergeruns -- 归并全部已完成的初始段。
  *
- * This implements the Balanced k-Way Merge Algorithm.  All input data has
- * already been written to initial runs on tape (see dumptuples).
+ * 这实现的即平衡 k 路归并算法。全部输入数据都已写
+ * 入磁带上的初始归并段（见 dumptuples）。
  */
 static void
 mergeruns(Tuplesortstate *state)
@@ -2052,45 +2052,45 @@ mergeruns(Tuplesortstate *state)
 	if (state->base.sortKeys != NULL && state->base.sortKeys->abbrev_converter != NULL)
 	{
 		/*
-		 * If there are multiple runs to be merged, when we go to read back
-		 * tuples from disk, abbreviated keys will not have been stored, and
-		 * we don't care to regenerate them.  Disable abbreviation from this
-		 * point on.
+		 * 如果待归并的归并段有多个，读回磁盘元组时
+		 * 将没有存储缩略键，也不打算重新生成，
+		 * 所以从此刻起禁用缩略。
+		 *
 		 */
 		state->base.sortKeys->abbrev_converter = NULL;
 		state->base.sortKeys->comparator = state->base.sortKeys->abbrev_full_comparator;
 
-		/* Not strictly necessary, but be tidy */
+		/* 并非严格必要，但求整洁 */
 		state->base.sortKeys->abbrev_abort = NULL;
 		state->base.sortKeys->abbrev_full_comparator = NULL;
 	}
 
 	/*
-	 * Reset tuple memory.  We've freed all the tuples that we previously
-	 * allocated.  We will use the slab allocator from now on.
+	 * 重置元组内存。先前分配的元组均已释放，此后
+	 * 将改用 slab 分配器。
 	 */
 	MemoryContextResetOnly(state->base.tuplecontext);
 
 	/*
-	 * We no longer need a large memtuples array.  (We will allocate a smaller
-	 * one for the heap later.)
+	 * 我们不再需要大型 memtuples 数组。（稍后会为堆分配一
+	 * 个较小的。）
 	 */
 	FREEMEM(state, GetMemoryChunkSpace(state->memtuples));
 	pfree(state->memtuples);
 	state->memtuples = NULL;
 
 	/*
-	 * Initialize the slab allocator.  We need one slab slot per input tape,
-	 * for the tuples in the heap, plus one to hold the tuple last returned
-	 * from tuplesort_gettuple.  (If we're sorting pass-by-val Datums,
-	 * however, we don't need to do allocate anything.)
+	 * 初始化 slab 分配器。每条输入磁带一个 slab 槽位，
+	 * 用于堆中的元组，外加一个用于容纳最后经
+	 * tuplesort_gettuple 返回者。（若排序按值传
+	 * 递 Datum，则无需任何分配。）
 	 *
-	 * In a multi-pass merge, we could shrink this allocation for the last
-	 * merge pass, if it has fewer tapes than previous passes, but we don't
-	 * bother.
+	 * 在多轮归并中，若末轮磁带少于之前各轮，本可缩
+	 * 小此分配，但我们不打算费这个事。
 	 *
-	 * From this point on, we no longer use the USEMEM()/LACKMEM() mechanism
-	 * to track memory usage of individual tuples.
+	 *
+	 * 从此时起，我们不再使用 USEMEM()/LACKMEM() 机制来跟踪
+	 * 单个元组的内存使用。
 	 */
 	if (state->base.tuples)
 		init_slab_allocator(state, state->nOutputTapes + 1);
@@ -2098,12 +2098,12 @@ mergeruns(Tuplesortstate *state)
 		init_slab_allocator(state, 0);
 
 	/*
-	 * Allocate a new 'memtuples' array, for the heap.  It will hold one tuple
-	 * from each input tape.
+	 * 为堆分配新的 memtuples 数组。它将容纳每条输入磁带
+	 * 的一个元组。
 	 *
-	 * We could shrink this, too, between passes in a multi-pass merge, but we
-	 * don't bother.  (The initial input tapes are still in outputTapes.  The
-	 * number of input tapes will not increase between passes.)
+	 * 在多轮归并的各轮间我们本可同样缩小它，但我们
+	 * 不费这个事。（初始输入磁带仍在 outputTapes 中。
+	 * 各轮之间输入磁带数不会增加。）
 	 */
 	state->memtupsize = state->nOutputTapes;
 	state->memtuples = (SortTuple *) MemoryContextAlloc(state->base.maincontext,
@@ -2111,9 +2111,9 @@ mergeruns(Tuplesortstate *state)
 	USEMEM(state, GetMemoryChunkSpace(state->memtuples));
 
 	/*
-	 * Use all the remaining memory we have available for tape buffers among
-	 * all the input tapes.  At the beginning of each merge pass, we will
-	 * divide this memory between the input and output tapes in the pass.
+	 * 把剩余的全部可用磁带缓冲区内存分配给全部输入磁
+	 * 带。每轮归并开始时，会把它分给该轮输入
+	 * 和输出磁带。
 	 */
 	state->tape_buffer_mem = state->availMem;
 	USEMEM(state, state->tape_buffer_mem);
@@ -2126,16 +2126,16 @@ mergeruns(Tuplesortstate *state)
 	for (;;)
 	{
 		/*
-		 * On the first iteration, or if we have read all the runs from the
-		 * input tapes in a multi-pass merge, it's time to start a new pass.
-		 * Rewind all the output tapes, and make them inputs for the next
-		 * pass.
+		 * 首次迭代时，或多轮归并读完各输入磁带
+		 * 归并段时，就应开始新一轮。回卷输出磁带，
+		 * 让它们作为下一轮的输入。
+		 *
 		 */
 		if (state->nInputRuns == 0)
 		{
 			int64		input_buffer_size;
 
-			/* Close the old, emptied, input tapes */
+			/* 关闭已排空的旧输入磁带 */
 			if (state->nInputTapes > 0)
 			{
 				for (tapenum = 0; tapenum < state->nInputTapes; tapenum++)
@@ -2143,23 +2143,23 @@ mergeruns(Tuplesortstate *state)
 				pfree(state->inputTapes);
 			}
 
-			/* Previous pass's outputs become next pass's inputs. */
+			/* 上一轮的输出成为下一轮的输入。 */
 			state->inputTapes = state->outputTapes;
 			state->nInputTapes = state->nOutputTapes;
 			state->nInputRuns = state->nOutputRuns;
 
 			/*
-			 * Reset output tape variables.  The actual LogicalTapes will be
-			 * created as needed, here we only allocate the array to hold
-			 * them.
+			 * 重置输出磁带变量。LogicalTapes 会按需创建，
+			 * 这里我们只为容纳它们分配数组。
+			 *
 			 */
 			state->outputTapes = palloc0(state->nInputTapes * sizeof(LogicalTape *));
 			state->nOutputTapes = 0;
 			state->nOutputRuns = 0;
 
 			/*
-			 * Redistribute the memory allocated for tape buffers, among the
-			 * new input and output tapes.
+			 * 在新输入/输出磁带间重新分配磁带缓冲内存。
+			 *
 			 */
 			input_buffer_size = merge_read_buffer_size(state->tape_buffer_mem,
 													   state->nInputTapes,
@@ -2173,45 +2173,45 @@ mergeruns(Tuplesortstate *state)
 					 pg_rusage_show(&state->ru_start));
 #endif
 
-			/* Prepare the new input tapes for merge pass. */
+			/* 为新归并轮准备新的输入磁带。 */
 			for (tapenum = 0; tapenum < state->nInputTapes; tapenum++)
 				LogicalTapeRewindForRead(state->inputTapes[tapenum], input_buffer_size);
 
 			/*
-			 * If there's just one run left on each input tape, then only one
-			 * merge pass remains.  If we don't have to produce a materialized
-			 * sorted tape, we can stop at this point and do the final merge
-			 * on-the-fly.
+			 * 若每条输入磁带只剩一段，则只剩最后一轮
+			 * 归并。若无需产出物化的已排序磁带，就可
+			 * 在此停下，即时进行最终归并。
+			 *
 			 */
 			if ((state->base.sortopt & TUPLESORT_RANDOMACCESS) == 0
 				&& state->nInputRuns <= state->nInputTapes
 				&& !WORKER(state))
 			{
-				/* Tell logtape.c we won't be writing anymore */
+				/* 告知 logtape.c 不再写入 */
 				LogicalTapeSetForgetFreeSpace(state->tapeset);
-				/* Initialize for the final merge pass */
+				/* 为最终归并轮做初始化 */
 				beginmerge(state);
 				state->status = TSS_FINALMERGE;
 				return;
 			}
 		}
 
-		/* Select an output tape */
+		/* 选择输出磁带 */
 		selectnewtape(state);
 
-		/* Merge one run from each input tape. */
+		/* 每条输入磁带归并一段。 */
 		mergeonerun(state);
 
 		/*
-		 * If the input tapes are empty, and we output only one output run,
-		 * we're done.  The current output tape contains the final result.
+		 * 若输入磁带已空，且只产出一个输出归并段，那
+		 * 就完成了。当前输出磁带上就是最终结果。
 		 */
 		if (state->nInputRuns == 0 && state->nOutputRuns <= 1)
 			break;
 	}
 
 	/*
-	 * Done.  The result is on a single run on a single tape.
+	 * 完成。结果在单条磁带的单个归并段上。
 	 */
 	state->result_tape = state->outputTapes[0];
 	if (!WORKER(state))
@@ -2220,13 +2220,13 @@ mergeruns(Tuplesortstate *state)
 		worker_freeze_result_tape(state);
 	state->status = TSS_SORTEDONTAPE;
 
-	/* Close all the now-empty input tapes, to release their read buffers. */
+	/* 关闭现已排空的全部输入磁带，释放其读缓冲区。 */
 	for (tapenum = 0; tapenum < state->nInputTapes; tapenum++)
 		LogicalTapeClose(state->inputTapes[tapenum]);
 }
 
 /*
- * Merge one run from each input tape.
+ * 每条输入磁带归并一段。
  */
 static void
 mergeonerun(Tuplesortstate *state)
@@ -2235,34 +2235,34 @@ mergeonerun(Tuplesortstate *state)
 	LogicalTape *srcTape;
 
 	/*
-	 * Start the merge by loading one tuple from each active source tape into
-	 * the heap.
+	 * 开始归并：从每条活动源磁带向堆中载入一个元组。
+	 *
 	 */
 	beginmerge(state);
 
 	Assert(state->slabAllocatorUsed);
 
 	/*
-	 * Execute merge by repeatedly extracting lowest tuple in heap, writing it
-	 * out, and replacing it with next tuple from same tape (if there is
-	 * another one).
+	 * 执行归并：反复取出堆中最小元组，写出并用同
+	 * 一磁带上的下一元组替换它（如果该磁带
+	 * 还有）。
 	 */
 	while (state->memtupcount > 0)
 	{
 		SortTuple	stup;
 
-		/* write the tuple to destTape */
+		/* 把元组写入 destTape */
 		srcTapeIndex = state->memtuples[0].srctape;
 		srcTape = state->inputTapes[srcTapeIndex];
 		WRITETUP(state, state->destTape, &state->memtuples[0]);
 
-		/* recycle the slot of the tuple we just wrote out, for the next read */
+		/* 回收刚写出的元组的槽位，供下一次读取使用 */
 		if (state->memtuples[0].tuple)
 			RELEASE_SLAB_SLOT(state, state->memtuples[0].tuple);
 
 		/*
-		 * pull next tuple from the tape, and replace the written-out tuple in
-		 * the heap with it.
+		 * 从磁带拉取下一个元组，替换堆中刚写出
+		 * 的元组。
 		 */
 		if (mergereadnext(state, srcTape, &stup))
 		{
@@ -2277,16 +2277,16 @@ mergeonerun(Tuplesortstate *state)
 	}
 
 	/*
-	 * When the heap empties, we're done.  Write an end-of-run marker on the
-	 * output tape.
+	 * 堆变空即告完成。在输出磁带上写归并段结束标记。
+	 *
 	 */
 	markrunend(state->destTape);
 }
 
 /*
- * beginmerge - initialize for a merge pass
+ * beginmerge - 为归并轮做初始化
  *
- * Fill the merge heap with the first tuple from each input tape.
+ * 用每条输入磁带的首个元组填充归并堆。
  */
 static void
 beginmerge(Tuplesortstate *state)
@@ -2294,7 +2294,7 @@ beginmerge(Tuplesortstate *state)
 	int			activeTapes;
 	int			srcTapeIndex;
 
-	/* Heap should be empty here */
+	/* 此处堆应为空 */
 	Assert(state->memtupcount == 0);
 
 	activeTapes = Min(state->nInputTapes, state->nInputRuns);
@@ -2312,16 +2312,16 @@ beginmerge(Tuplesortstate *state)
 }
 
 /*
- * mergereadnext - read next tuple from one merge input tape
+ * mergereadnext - 读归并输入磁带的下一个元组
  *
- * Returns false on EOF.
+ * EOF 时返回假。
  */
 static bool
 mergereadnext(Tuplesortstate *state, LogicalTape *srcTape, SortTuple *stup)
 {
 	unsigned int tuplen;
 
-	/* read next tuple, if any */
+	/* 读下个元组 */
 	if ((tuplen = getlen(srcTape, true)) == 0)
 		return false;
 	READTUP(state, stup, srcTape, tuplen);
@@ -2330,10 +2330,10 @@ mergereadnext(Tuplesortstate *state, LogicalTape *srcTape, SortTuple *stup)
 }
 
 /*
- * dumptuples - remove tuples from memtuples and write initial run to tape
+ * dumptuples - 从 memtuples 移除元组并把归并段写入磁带
  *
- * When alltuples = true, dump everything currently in memory.  (This case is
- * only used at end of input data.)
+ * 当 alltuples = true 时，转储内存中现有的一切。（此情形
+ * 只在输入末尾使用。）
  */
 static void
 dumptuples(Tuplesortstate *state, bool alltuples)
@@ -2342,20 +2342,20 @@ dumptuples(Tuplesortstate *state, bool alltuples)
 	int			i;
 
 	/*
-	 * Nothing to do if we still fit in available memory and have array slots,
-	 * unless this is the final call during initial run generation.
+	 * 若仍能容纳于可用内存且有数组槽位，则无事可做，
+	 * 除非是初始归并段生成期间的最后一次调用。
 	 */
 	if (state->memtupcount < state->memtupsize && !LACKMEM(state) &&
 		!alltuples)
 		return;
 
 	/*
-	 * Final call might require no sorting, in rare cases where we just so
-	 * happen to have previously LACKMEM()'d at the point where exactly all
-	 * remaining tuples are loaded into memory, just before input was
-	 * exhausted.  In general, short final runs are quite possible, but avoid
-	 * creating a completely empty run.  In a worker, though, we must produce
-	 * at least one tape, even if it's empty.
+	 * 最后一次调用可能无需排序：极少数情形下，我们
+	 * 恰好在全部剩余元组都已装入内存、输入即将耗尽
+	 * 之前就 LACKMEM() 过。
+	 * 一般而言，较短的末段完全可能出现，但要避免
+	 * 创建完全空的归并段。但在工作进程中必须至少
+	 * 产出一条磁带，哪怕为空。
 	 */
 	if (state->memtupcount == 0 && state->currentRun > 0)
 		return;
@@ -2363,8 +2363,8 @@ dumptuples(Tuplesortstate *state, bool alltuples)
 	Assert(state->status == TSS_BUILDRUNS);
 
 	/*
-	 * It seems unlikely that this limit will ever be exceeded, but take no
-	 * chances
+	 * 这一上限似乎不可能超出，但我们不冒险。
+	 *
 	 */
 	if (state->currentRun == INT_MAX)
 		ereport(ERROR,
@@ -2385,8 +2385,8 @@ dumptuples(Tuplesortstate *state, bool alltuples)
 #endif
 
 	/*
-	 * Sort all tuples accumulated within the allowed amount of memory for
-	 * this run using quicksort
+	 * 用快速排序对该归并段在允许内存量内积累的全部
+	 * 元组进行排序。
 	 */
 	tuplesort_sort_memtuples(state);
 
@@ -2405,8 +2405,8 @@ dumptuples(Tuplesortstate *state, bool alltuples)
 		WRITETUP(state, state->destTape, stup);
 
 		/*
-		 * Account for freeing the tuple, but no need to do the actual pfree
-		 * since the tuplecontext is being reset after the loop.
+		 * 把释放元组计入账，但不必真 pfree，循环后会重
+		 * 置 tuplecontext。
 		 */
 		if (stup->tuple != NULL)
 			FREEMEM(state, GetMemoryChunkSpace(stup->tuple));
@@ -2415,11 +2415,11 @@ dumptuples(Tuplesortstate *state, bool alltuples)
 	state->memtupcount = 0;
 
 	/*
-	 * Reset tuple memory.  We've freed all of the tuples that we previously
-	 * allocated.  It's important to avoid fragmentation when there is a stark
-	 * change in the sizes of incoming tuples.  Fragmentation due to
-	 * AllocSetFree's bucketing by size class might be particularly bad if
-	 * this step wasn't taken.
+	 * 重置元组内存。先前分配的元组均已全部释放。
+	 * 当传入元组的大小发生剧烈变化时，避免碎片化很
+	 * 重要。若不做这一步，AllocSetFree 按大小类
+	 * 别分桶造成的碎片化可能特别严重。
+	 *
 	 */
 	MemoryContextReset(state->base.tuplecontext);
 
@@ -2434,7 +2434,7 @@ dumptuples(Tuplesortstate *state, bool alltuples)
 }
 
 /*
- * tuplesort_rescan		- rewind and replay the scan
+ * tuplesort_rescan		- 回卷并重放扫描
  */
 void
 tuplesort_rescan(Tuplesortstate *state)
@@ -2467,7 +2467,7 @@ tuplesort_rescan(Tuplesortstate *state)
 }
 
 /*
- * tuplesort_markpos	- saves current position in the merged sort file
+ * tuplesort_markpos	- 保存归并排序文件中的当前位置
  */
 void
 tuplesort_markpos(Tuplesortstate *state)
@@ -2497,8 +2497,8 @@ tuplesort_markpos(Tuplesortstate *state)
 }
 
 /*
- * tuplesort_restorepos - restores current position in merged sort file to
- *						  last saved position
+ * tuplesort_restorepos - 把归并排序文件中当前位置恢复
+ *						  为上次保存点
  */
 void
 tuplesort_restorepos(Tuplesortstate *state)
@@ -2528,23 +2528,23 @@ tuplesort_restorepos(Tuplesortstate *state)
 }
 
 /*
- * tuplesort_get_stats - extract summary statistics
+ * tuplesort_get_stats - 提取汇总统计信息
  *
- * This can be called after tuplesort_performsort() finishes to obtain
- * printable summary information about how the sort was performed.
+ * 可在 tuplesort_performsort() 后调用，以获得排序
+ * 执行方式的可打印摘要信息。
  */
 void
 tuplesort_get_stats(Tuplesortstate *state,
 					TuplesortInstrumentation *stats)
 {
 	/*
-	 * Note: it might seem we should provide both memory and disk usage for a
-	 * disk-based sort.  However, the current code doesn't track memory space
-	 * accurately once we have begun to return tuples to the caller (since we
-	 * don't account for pfree's the caller is expected to do), so we cannot
-	 * rely on availMem in a disk sort.  This does not seem worth the overhead
-	 * to fix.  Is it worth creating an API for the memory context code to
-	 * tell us how much is actually used in sortcontext?
+	 * 注：基于磁盘的排序似乎应同时提供内存与磁盘的
+	 * 使用情况。然而，一旦我们开始向调用者返回元组，
+	 * 当前代码就不再准确跟踪内存空间（因为我们没有
+	 * 把调用者应做的 pfree 计入），故无法依赖
+	 * 磁盘排序中的 availMem。修复它似乎不值得开销。
+	 * 是否值得为内存上下文代码建一个 API 来告知我们
+	 * sortcontext 的实际用量？
 	 */
 	tuplesort_updatemax(state);
 
@@ -2575,7 +2575,7 @@ tuplesort_get_stats(Tuplesortstate *state,
 }
 
 /*
- * Convert TuplesortMethod to a string.
+ * 把TuplesortMethod转为字符串。
  */
 const char *
 tuplesort_method_name(TuplesortMethod m)
@@ -2598,7 +2598,7 @@ tuplesort_method_name(TuplesortMethod m)
 }
 
 /*
- * Convert TuplesortSpaceType to a string.
+ * 把TuplesortSpaceType转为字符串。
  */
 const char *
 tuplesort_space_type_name(TuplesortSpaceType t)
@@ -2609,17 +2609,17 @@ tuplesort_space_type_name(TuplesortSpaceType t)
 
 
 /*
- * Heap manipulation routines, per Knuth's Algorithm 5.2.3H.
+ * 堆操作例程，依照 Knuth 算法 5.2.3H。
  */
 
 /*
- * Convert the existing unordered array of SortTuples to a bounded heap,
- * discarding all but the smallest "state->bound" tuples.
+ * 把现有无序 SortTuples 数组转换为有界堆，丢弃除最
+ * 小的 "state->bound" 个元组之外的一切。
  *
- * When working with a bounded heap, we want to keep the largest entry
- * at the root (array entry zero), instead of the smallest as in the normal
- * sort case.  This allows us to discard the largest entry cheaply.
- * Therefore, we temporarily reverse the sort direction.
+ * 使用有界堆时，我们要把最大项留在根部（数组项
+ * 0）处，而非像普通排序情形那样保留最小项。这样
+ * 我们就能廉价地丢弃最大项。
+ * 因此，我们暂时反转排序方向。
  */
 static void
 make_bounded_heap(Tuplesortstate *state)
@@ -2632,16 +2632,16 @@ make_bounded_heap(Tuplesortstate *state)
 	Assert(tupcount >= state->bound);
 	Assert(SERIAL(state));
 
-	/* Reverse sort direction so largest entry will be at root */
+	/* 反转排序方向使最大项位于根部 */
 	reversedirection(state);
 
-	state->memtupcount = 0;		/* make the heap empty */
+	state->memtupcount = 0;		/* 置堆为空 */
 	for (i = 0; i < tupcount; i++)
 	{
 		if (state->memtupcount < state->bound)
 		{
-			/* Insert next tuple into heap */
-			/* Must copy source tuple to avoid possible overwrite */
+			/* 将下个元组插入堆 */
+			/* 必须复制源元组以免可能的覆写 */
 			SortTuple	stup = state->memtuples[i];
 
 			tuplesort_heap_insert(state, &stup);
@@ -2649,9 +2649,9 @@ make_bounded_heap(Tuplesortstate *state)
 		else
 		{
 			/*
-			 * The heap is full.  Replace the largest entry with the new
-			 * tuple, or just discard it, if it's larger than anything already
-			 * in the heap.
+			 * 堆已满。用新元组换最大项；新元组若比堆
+			 * 中已有项都大，则直接丢弃新元组。
+			 *
 			 */
 			if (COMPARETUP(state, &state->memtuples[i], &state->memtuples[0]) <= 0)
 			{
@@ -2668,7 +2668,7 @@ make_bounded_heap(Tuplesortstate *state)
 }
 
 /*
- * Convert the bounded heap to a properly-sorted array
+ * 把有界堆转换为正确排序的数组
  */
 static void
 sort_bounded_heap(Tuplesortstate *state)
@@ -2681,23 +2681,23 @@ sort_bounded_heap(Tuplesortstate *state)
 	Assert(SERIAL(state));
 
 	/*
-	 * We can unheapify in place because each delete-top call will remove the
-	 * largest entry, which we can promptly store in the newly freed slot at
-	 * the end.  Once we're down to a single-entry heap, we're done.
+	 * 我们可以原地解除堆化，因每次删堆顶调用都会移
+	 * 除最大项，而我们可以立刻把它存入末端新腾出的槽
+	 * 位中。一旦堆只剩单个项，就完成了。
 	 */
 	while (state->memtupcount > 1)
 	{
 		SortTuple	stup = state->memtuples[0];
 
-		/* this sifts-up the next-largest entry and decreases memtupcount */
+		/* 这会把次大项上浮并减少 memtupcount */
 		tuplesort_heap_delete_top(state);
 		state->memtuples[state->memtupcount] = stup;
 	}
 	state->memtupcount = tupcount;
 
 	/*
-	 * Reverse sort direction back to the original state.  This is not
-	 * actually necessary but seems like a good idea for tidiness.
+	 * 把排序方向反转回原来的状态。这并非真正必
+	 * 要，但似乎是个求整洁的好主意。
 	 */
 	reversedirection(state);
 
@@ -2706,9 +2706,9 @@ sort_bounded_heap(Tuplesortstate *state)
 }
 
 /*
- * Sort all memtuples using specialized qsort() routines.
+ * 用专用 qsort() 例程给全部 memtuples 排序。
  *
- * Quicksort is used for small in-memory sorts, and external sort runs.
+ * 快速排序用于小型内存排序以及外部排序归并段。
  */
 static void
 tuplesort_sort_memtuples(Tuplesortstate *state)
@@ -2718,8 +2718,8 @@ tuplesort_sort_memtuples(Tuplesortstate *state)
 	if (state->memtupcount > 1)
 	{
 		/*
-		 * Do we have the leading column's value or abbreviation in datum1,
-		 * and is there a specialization for its comparator?
+		 * datum1 中是首列的值还是缩略？其比较器有没有
+		 * 专门化版本？
 		 */
 		if (state->base.haveDatum1 && state->base.sortKeys)
 		{
@@ -2748,7 +2748,7 @@ tuplesort_sort_memtuples(Tuplesortstate *state)
 			}
 		}
 
-		/* Can we use the single-key sort function? */
+		/* 能否使用单键排序函数？ */
 		if (state->base.onlyKey != NULL)
 		{
 			qsort_ssup(state->memtuples, state->memtupcount,
@@ -2765,13 +2765,13 @@ tuplesort_sort_memtuples(Tuplesortstate *state)
 }
 
 /*
- * Insert a new tuple into an empty or existing heap, maintaining the
- * heap invariant.  Caller is responsible for ensuring there's room.
+ * 把新元组插入空堆或既有堆，同时维持堆不变量。
+ * 调用者负责确保有空间。
  *
- * Note: For some callers, tuple points to a memtuples[] entry above the
- * end of the heap.  This is safe as long as it's not immediately adjacent
- * to the end of the heap (ie, in the [memtupcount] array entry) --- if it
- * is, it might get overwritten before being moved into the heap!
+ * 注：某些调用者的 tuple 指向 memtuples[] 数组内堆末
+ * 端之上的条目。只要它不紧邻堆末端（即不在
+ * [memtupcount] 项），就是安全的 —— 否则它可能
+ * 移入堆中之前被覆写！
  */
 static void
 tuplesort_heap_insert(Tuplesortstate *state, SortTuple *tuple)
@@ -2785,8 +2785,8 @@ tuplesort_heap_insert(Tuplesortstate *state, SortTuple *tuple)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Sift-up the new entry, per Knuth 5.2.3 exercise 16. Note that Knuth is
-	 * using 1-based array indexes, not 0-based.
+	 * 按 Knuth 5.2.3 练习 16 将新项上浮。注意 Knuth 使用的是
+	 * 1 基数组下标，而非 0 基。
 	 */
 	j = state->memtupcount++;
 	while (j > 0)
@@ -2802,11 +2802,11 @@ tuplesort_heap_insert(Tuplesortstate *state, SortTuple *tuple)
 }
 
 /*
- * Remove the tuple at state->memtuples[0] from the heap.  Decrement
- * memtupcount, and sift up to maintain the heap invariant.
+ * 从堆移除 state->memtuples[0] 的元组并递减
+ * memtupcount，并上浮以维持堆不变量。
  *
- * The caller has already free'd the tuple the top node points to,
- * if necessary.
+ * 若有必要，调用者已释放顶节点所指的元组。
+ *
  */
 static void
 tuplesort_heap_delete_top(Tuplesortstate *state)
@@ -2818,19 +2818,19 @@ tuplesort_heap_delete_top(Tuplesortstate *state)
 		return;
 
 	/*
-	 * Remove the last tuple in the heap, and re-insert it, by replacing the
-	 * current top node with it.
+	 * 移除堆中最后一个元组并重新插入它，用它换
+	 * 掉顶节点。
 	 */
 	tuple = &memtuples[state->memtupcount];
 	tuplesort_heap_replace_top(state, tuple);
 }
 
 /*
- * Replace the tuple at state->memtuples[0] with a new tuple.  Sift up to
- * maintain the heap invariant.
+ * 用新元组替换 state->memtuples[0] 处的元组。上浮以维持
+ * 堆不变量。
  *
- * This corresponds to Knuth's "sift-up" algorithm (Algorithm 5.2.3H,
- * Heapsort, steps H3-H8).
+ * 这对应 Knuth 的"上浮"算法（算法 5.2.3H，堆排序，
+ * 步骤 H3-H8）。
  */
 static void
 tuplesort_heap_replace_top(Tuplesortstate *state, SortTuple *tuple)
@@ -2844,12 +2844,12 @@ tuplesort_heap_replace_top(Tuplesortstate *state, SortTuple *tuple)
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * state->memtupcount is "int", but we use "unsigned int" for i, j, n.
-	 * This prevents overflow in the "2 * i + 1" calculation, since at the top
-	 * of the loop we must have i < n <= INT_MAX <= UINT_MAX/2.
+	 * state->memtupcount 是 "int"，但 i、j、n 用 "unsigned int"。
+	 * 这可防止 "2 * i + 1" 计算溢出，因为循环顶部必有
+	 * i < n <= INT_MAX <= UINT_MAX/2。
 	 */
 	n = state->memtupcount;
-	i = 0;						/* i is where the "hole" is */
+	i = 0;						/* i 是"洞"所在 */
 	for (;;)
 	{
 		unsigned int j = 2 * i + 1;
@@ -2868,9 +2868,9 @@ tuplesort_heap_replace_top(Tuplesortstate *state, SortTuple *tuple)
 }
 
 /*
- * Function to reverse the sort direction from its current state
+ * 从当前状态反转排序方向的函数
  *
- * It is not safe to call this when performing hash tuplesorts
+ * 执行哈希元组排序时调用此函数并不安全
  */
 static void
 reversedirection(Tuplesortstate *state)
@@ -2887,7 +2887,7 @@ reversedirection(Tuplesortstate *state)
 
 
 /*
- * Tape interface routines
+ * 磁带接口例程
  */
 
 static unsigned int
@@ -2912,10 +2912,10 @@ markrunend(LogicalTape *tape)
 }
 
 /*
- * Get memory for tuple from within READTUP() routine.
+ * 在 READTUP() 例程内为元组获取内存。
  *
- * We use next free slot from the slab allocator, or palloc() if the tuple
- * is too large for that.
+ * 我们从 slab 分配器取下个空闲槽位；元组太大时
+ * 则改用 palloc()。
  */
 void *
 tuplesort_readtup_alloc(Tuplesortstate *state, Size tuplen)
@@ -2923,8 +2923,8 @@ tuplesort_readtup_alloc(Tuplesortstate *state, Size tuplen)
 	SlabSlot   *buf;
 
 	/*
-	 * We pre-allocate enough slots in the slab arena that we should never run
-	 * out.
+	 * 我们在 slab 区预分配了足够槽位，因此永不应耗尽。
+	 *
 	 */
 	Assert(state->slabFreeHead);
 
@@ -2933,7 +2933,7 @@ tuplesort_readtup_alloc(Tuplesortstate *state, Size tuplen)
 	else
 	{
 		buf = state->slabFreeHead;
-		/* Reuse this slot */
+		/* 复用槽位 */
 		state->slabFreeHead = buf->nextfree;
 
 		return buf;
@@ -2942,14 +2942,14 @@ tuplesort_readtup_alloc(Tuplesortstate *state, Size tuplen)
 
 
 /*
- * Parallel sort routines
+ * 并行排序例程
  */
 
 /*
- * tuplesort_estimate_shared - estimate required shared memory allocation
+ * tuplesort_estimate_shared - 估算所需共享内存分配量
  *
- * nWorkers is an estimate of the number of workers (it's the number that
- * will be requested).
+ * nWorkers 是工作进程数量的估计值（它就是将要请求的
+ * 数量）。
  */
 Size
 tuplesort_estimate_shared(int nWorkers)
@@ -2958,7 +2958,7 @@ tuplesort_estimate_shared(int nWorkers)
 
 	Assert(nWorkers > 0);
 
-	/* Make sure that BufFile shared state is MAXALIGN'd */
+	/* 确保 BufFile 共享状态经 MAXALIGN 对齐 */
 	tapesSize = mul_size(sizeof(TapeShare), nWorkers);
 	tapesSize = MAXALIGN(add_size(tapesSize, offsetof(Sharedsort, tapes)));
 
@@ -2966,11 +2966,11 @@ tuplesort_estimate_shared(int nWorkers)
 }
 
 /*
- * tuplesort_initialize_shared - initialize shared tuplesort state
+ * tuplesort_initialize_shared - 初始化共享 tuplesort 状态
  *
- * Must be called from leader process before workers are launched, to
- * establish state needed up-front for worker tuplesortstates.  nWorkers
- * should match the argument passed to tuplesort_estimate_shared().
+ * 须在启动工作进程前由主导进程调用，以预先建立
+ * 工作进程 tuplesortstate 所需的预先状态。nWorkers
+ * 应与传给 tuplesort_estimate_shared() 的参数一致。
  */
 void
 tuplesort_initialize_shared(Sharedsort *shared, int nWorkers, dsm_segment *seg)
@@ -2991,29 +2991,29 @@ tuplesort_initialize_shared(Sharedsort *shared, int nWorkers, dsm_segment *seg)
 }
 
 /*
- * tuplesort_attach_shared - attach to shared tuplesort state
+ * tuplesort_attach_shared - 附着共享 tuplesort 状态
  *
- * Must be called by all worker processes.
+ * 必须由所有工作进程调用。
  */
 void
 tuplesort_attach_shared(Sharedsort *shared, dsm_segment *seg)
 {
-	/* Attach to SharedFileSet */
+	/* 附着 SharedFileSet */
 	SharedFileSetAttach(&shared->fileset, seg);
 }
 
 /*
- * worker_get_identifier - Assign and return ordinal identifier for worker
+ * worker_get_identifier - 分配并返回工作进程的序号标识
  *
- * The order in which these are assigned is not well defined, and should not
- * matter; worker numbers across parallel sort participants need only be
- * distinct and gapless.  logtape.c requires this.
+ * 这些标识的分配顺序没有良好定义，也不应该有影响；
+ * 并行排序各参与者间的工作进程号只需互不相同且连
+ * 续无空缺。logtape.c 需要如此。
  *
- * Note that the identifiers assigned from here have no relation to
- * ParallelWorkerNumber number, to avoid making any assumption about
- * caller's requirements.  However, we do follow the ParallelWorkerNumber
- * convention of representing a non-worker with worker number -1.  This
- * includes the leader, as well as serial Tuplesort processes.
+ * 注意此处分配的标识符与
+ * ParallelWorkerNumber 毫无关系，以免对调用者需求做
+ * 任何假设。不过，我们确实遵循 ParallelWorkerNumber 的
+ * 惯例：用工作进程编号 -1 表示非工作进程。这包括
+ * 主导进程以及串行 Tuplesort 进程。
  */
 static int
 worker_get_identifier(Tuplesortstate *state)
@@ -3031,17 +3031,17 @@ worker_get_identifier(Tuplesortstate *state)
 }
 
 /*
- * worker_freeze_result_tape - freeze worker's result tape for leader
+ * worker_freeze_result_tape - 为主导进程冻结结果磁带
  *
- * This is called by workers just after the result tape has been determined,
- * instead of calling LogicalTapeFreeze() directly.  They do so because
- * workers require a few additional steps over similar serial
- * TSS_SORTEDONTAPE external sort cases, which also happen here.  The extra
- * steps are around freeing now unneeded resources, and representing to
- * leader that worker's input run is available for its merge.
+ * 工作进程在结果磁带确定之后立即调用此函数，而不是
+ * 直接调用 LogicalTapeFreeze()。因为比起类似的串行
+ * TSS_SORTEDONTAPE 外部排序，工作进程需几步；
+ * 这些步骤同样发生在此处。额外步骤包括释放已不
+ * 再需要的资源，并向主导进程表明工作进程输入归
+ * 并段可供其归并。
  *
- * There should only be one final output run for each worker, which consists
- * of all tuples that were originally input into worker.
+ * 每个工作进程应当只有一个最终输出归并段，它由最初
+ * 输入到该工作进程的全部元组构成。
  */
 static void
 worker_freeze_result_tape(Tuplesortstate *state)
@@ -3054,21 +3054,21 @@ worker_freeze_result_tape(Tuplesortstate *state)
 	Assert(state->memtupcount == 0);
 
 	/*
-	 * Free most remaining memory, in case caller is sensitive to our holding
-	 * on to it.  memtuples may not be a tiny merge heap at this point.
+	 * 释放大部分剩余内存，防调用者对我们持续占内存
+	 * 敏感。此时 memtuples 可能已非很小的归并堆。
 	 */
 	pfree(state->memtuples);
-	/* Be tidy */
+	/* 整洁 */
 	state->memtuples = NULL;
 	state->memtupsize = 0;
 
 	/*
-	 * Parallel worker requires result tape metadata, which is to be stored in
-	 * shared memory for leader
+	 * 并行工作进程需要结果磁带元数据，它要存进共享内
+	 * 存中供主导进程
 	 */
 	LogicalTapeFreeze(state->result_tape, &output);
 
-	/* Store properties of output tape, and update finished worker count */
+	/* 保存输出磁带属性，并更新已完成工作进程计数 */
 	SpinLockAcquire(&shared->mutex);
 	shared->tapes[state->worker] = output;
 	shared->workersFinished++;
@@ -3076,10 +3076,10 @@ worker_freeze_result_tape(Tuplesortstate *state)
 }
 
 /*
- * worker_nomergeruns - dump memtuples in worker, without merging
+ * worker_nomergeruns - 工作进程转储 memtuples，不归并
  *
- * This called as an alternative to mergeruns() with a worker when no
- * merging is required.
+ * 工作进程无需归并时，以此替代 mergeruns() 调用。
+ *
  */
 static void
 worker_nomergeruns(Tuplesortstate *state)
@@ -3093,15 +3093,15 @@ worker_nomergeruns(Tuplesortstate *state)
 }
 
 /*
- * leader_takeover_tapes - create tapeset for leader from worker tapes
+ * leader_takeover_tapes - 从工作进程磁带创建主导磁带集
  *
- * So far, leader Tuplesortstate has performed no actual sorting.  By now, all
- * sorting has occurred in workers, all of which must have already returned
- * from tuplesort_performsort().
+ * 到目前为止，主导进程的 Tuplesortstate 尚未执行任何实际
+ * 排序。所有排序均已发生于工作进程中，且必然返回自
+ * tuplesort_performsort()。
  *
- * When this returns, leader process is left in a state that is virtually
- * indistinguishable from it having generated runs as a serial external sort
- * might have.
+ * 此函数返回时，主导进程的状态几乎与它以串行外
+ * 部排序身份生成归并段后的状态无法区分。
+ *
  */
 static void
 leader_takeover_tapes(Tuplesortstate *state)
@@ -3122,26 +3122,26 @@ leader_takeover_tapes(Tuplesortstate *state)
 		elog(ERROR, "cannot take over tapes before all workers finish");
 
 	/*
-	 * Create the tapeset from worker tapes, including a leader-owned tape at
-	 * the end.  Parallel workers are far more expensive than logical tapes,
-	 * so the number of tapes allocated here should never be excessive.
+	 * 由工作进程磁带创建磁带集，末尾含一条主导进程自
+	 * 有磁带。并行工作进程比逻辑磁带贵得多，因此此处
+	 * 分配的磁带数量绝不应过多。
 	 */
 	inittapestate(state, nParticipants);
 	state->tapeset = LogicalTapeSetCreate(false, &shared->fileset, -1);
 
 	/*
-	 * Set currentRun to reflect the number of runs we will merge (it's not
-	 * used for anything, this is just pro forma)
+	 * 设 currentRun 以反映将归并的归并段数（它并无实际
+	 * 用途，这只是走个形式）
 	 */
 	state->currentRun = nParticipants;
 
 	/*
-	 * Initialize the state to look the same as after building the initial
-	 * runs.
+	 * 把状态初始化为与建完初始归并段后相同的样子。
 	 *
-	 * There will always be exactly 1 run per worker, and exactly one input
-	 * tape per run, because workers always output exactly 1 run, even when
-	 * there were no input tuples for workers to sort.
+	 *
+	 * 每个工作进程总恰有 1 个归并段，且每段恰好
+	 * 有 1 条输入磁带，因工作进程总恰好输出 1 个归
+	 * 并段，哪怕无可排序的输入元组。
 	 */
 	state->inputTapes = NULL;
 	state->nInputTapes = 0;
@@ -3160,7 +3160,7 @@ leader_takeover_tapes(Tuplesortstate *state)
 }
 
 /*
- * Convenience routine to free a tuple previously loaded into sort memory
+ * 便捷例程：释放先前装入排序内存的元组。
  */
 static void
 free_sort_tuple(Tuplesortstate *state, SortTuple *stup)

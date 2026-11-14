@@ -1,6 +1,6 @@
 /* ----------
  * backend_status.c
- *	  Backend status reporting infrastructure.
+ *	  后端状态报告基础设施。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -16,37 +16,37 @@
 #include "miscadmin.h"
 #include "pg_trace.h"
 #include "pgstat.h"
-#include "port/atomics.h"		/* for memory barriers */
+#include "port/atomics.h"		/* 用于内存屏障 */
 #include "storage/ipc.h"
-#include "storage/proc.h"		/* for MyProc */
+#include "storage/proc.h"		/* 供 MyProc */
 #include "storage/sinvaladt.h"
 #include "utils/ascii.h"
 #include "utils/backend_status.h"
-#include "utils/guc.h"			/* for application_name */
+#include "utils/guc.h"			/* 供 application_name */
 #include "utils/memutils.h"
 
 
 /* ----------
- * Total number of backends including auxiliary
+ * 后端总数（含辅助进程）
  *
- * We reserve a slot for each possible BackendId, plus one for each
- * possible auxiliary process type.  (This scheme assumes there is not
- * more than one of any auxiliary process type at a time.) MaxBackends
- * includes autovacuum workers and background workers as well.
+ * 我们为每个可能的 BackendId 保留一个槽位，另为
+ * 每种辅助进程类型各保留一个槽位。（该方案假定
+ * 同一时刻任一辅助进程类型仅一个。）MaxBackends
+ * 同时包括 autovacuum worker 和后台工作进程。
  * ----------
  */
 #define NumBackendStatSlots (MaxBackends + NUM_AUXPROCTYPES)
 
 
 /* ----------
- * GUC parameters
+ * GUC 参数
  * ----------
  */
 bool		pgstat_track_activities = false;
 int			pgstat_track_activity_query_size = 1024;
 
 
-/* exposed so that backend_progress.c can access it */
+/* 公开出来，供 backend_progress.c 访问 */
 PgBackendStatus *MyBEEntry = NULL;
 
 
@@ -63,10 +63,10 @@ static PgBackendGSSStatus *BackendGssStatusBuffer = NULL;
 #endif
 
 
-/* Status for backends including auxiliary */
+/* 各后端（含辅助进程）的状态 */
 static LocalPgBackendStatus *localBackendStatusTable = NULL;
 
-/* Total number of backends including auxiliary */
+/* 后端总数（含辅助进程） */
 static int	localNumBackends = 0;
 
 static MemoryContext backendStatusSnapContext;
@@ -78,7 +78,7 @@ static void pgstat_setup_backend_status_context(void);
 
 
 /*
- * Report shared-memory space needed by CreateSharedBackendStatus.
+ * 报告 CreateSharedBackendStatus 所需共享内存空间。
  */
 Size
 BackendStatusShmemSize(void)
@@ -110,8 +110,8 @@ BackendStatusShmemSize(void)
 }
 
 /*
- * Initialize the shared status array and several string buffers
- * during postmaster startup.
+ * 在 postmaster 启动期间初始化共享状态数组与各
+ * 字符串缓冲区。
  */
 void
 CreateSharedBackendStatus(void)
@@ -121,7 +121,7 @@ CreateSharedBackendStatus(void)
 	int			i;
 	char	   *buffer;
 
-	/* Create or attach to the shared array */
+	/* 创建或挂接到共享数组 */
 	size = mul_size(sizeof(PgBackendStatus), NumBackendStatSlots);
 	BackendStatusArray = (PgBackendStatus *)
 		ShmemInitStruct("Backend Status Array", size, &found);
@@ -129,12 +129,12 @@ CreateSharedBackendStatus(void)
 	if (!found)
 	{
 		/*
-		 * We're the first - initialize.
+		 * 最先到达并初始化。
 		 */
 		MemSet(BackendStatusArray, 0, size);
 	}
 
-	/* Create or attach to the shared appname buffer */
+	/* 创建或挂接到共享 appname 缓冲区 */
 	size = mul_size(NAMEDATALEN, NumBackendStatSlots);
 	BackendAppnameBuffer = (char *)
 		ShmemInitStruct("Backend Application Name Buffer", size, &found);
@@ -143,7 +143,7 @@ CreateSharedBackendStatus(void)
 	{
 		MemSet(BackendAppnameBuffer, 0, size);
 
-		/* Initialize st_appname pointers. */
+		/* 初始化 st_appname 指针。 */
 		buffer = BackendAppnameBuffer;
 		for (i = 0; i < NumBackendStatSlots; i++)
 		{
@@ -152,7 +152,7 @@ CreateSharedBackendStatus(void)
 		}
 	}
 
-	/* Create or attach to the shared client hostname buffer */
+	/* 创建或挂接到共享客户端主机名缓冲区 */
 	size = mul_size(NAMEDATALEN, NumBackendStatSlots);
 	BackendClientHostnameBuffer = (char *)
 		ShmemInitStruct("Backend Client Host Name Buffer", size, &found);
@@ -161,7 +161,7 @@ CreateSharedBackendStatus(void)
 	{
 		MemSet(BackendClientHostnameBuffer, 0, size);
 
-		/* Initialize st_clienthostname pointers. */
+		/* 初始化 st_clienthostname 指针。 */
 		buffer = BackendClientHostnameBuffer;
 		for (i = 0; i < NumBackendStatSlots; i++)
 		{
@@ -170,7 +170,7 @@ CreateSharedBackendStatus(void)
 		}
 	}
 
-	/* Create or attach to the shared activity buffer */
+	/* 创建或挂接到共享活动缓冲区 */
 	BackendActivityBufferSize = mul_size(pgstat_track_activity_query_size,
 										 NumBackendStatSlots);
 	BackendActivityBuffer = (char *)
@@ -182,7 +182,7 @@ CreateSharedBackendStatus(void)
 	{
 		MemSet(BackendActivityBuffer, 0, BackendActivityBufferSize);
 
-		/* Initialize st_activity pointers. */
+		/* 初始化 st_activity 指针。 */
 		buffer = BackendActivityBuffer;
 		for (i = 0; i < NumBackendStatSlots; i++)
 		{
@@ -192,7 +192,7 @@ CreateSharedBackendStatus(void)
 	}
 
 #ifdef USE_SSL
-	/* Create or attach to the shared SSL status buffer */
+	/* 创建或挂接到共享 SSL 状态缓冲区 */
 	size = mul_size(sizeof(PgBackendSSLStatus), NumBackendStatSlots);
 	BackendSslStatusBuffer = (PgBackendSSLStatus *)
 		ShmemInitStruct("Backend SSL Status Buffer", size, &found);
@@ -203,7 +203,7 @@ CreateSharedBackendStatus(void)
 
 		MemSet(BackendSslStatusBuffer, 0, size);
 
-		/* Initialize st_sslstatus pointers. */
+		/* 初始化 st_sslstatus 指针。 */
 		ptr = BackendSslStatusBuffer;
 		for (i = 0; i < NumBackendStatSlots; i++)
 		{
@@ -214,7 +214,7 @@ CreateSharedBackendStatus(void)
 #endif
 
 #ifdef ENABLE_GSS
-	/* Create or attach to the shared GSSAPI status buffer */
+	/* 创建或挂接到共享 GSSAPI 状态缓冲区 */
 	size = mul_size(sizeof(PgBackendGSSStatus), NumBackendStatSlots);
 	BackendGssStatusBuffer = (PgBackendGSSStatus *)
 		ShmemInitStruct("Backend GSS Status Buffer", size, &found);
@@ -225,7 +225,7 @@ CreateSharedBackendStatus(void)
 
 		MemSet(BackendGssStatusBuffer, 0, size);
 
-		/* Initialize st_gssstatus pointers. */
+		/* 初始化 st_gssstatus 指针。 */
 		ptr = BackendGssStatusBuffer;
 		for (i = 0; i < NumBackendStatSlots; i++)
 		{
@@ -237,18 +237,18 @@ CreateSharedBackendStatus(void)
 }
 
 /*
- * Initialize pgstats backend activity state, and set up our on-proc-exit
- * hook.  Called from InitPostgres and AuxiliaryProcessMain. For auxiliary
- * process, MyBackendId is invalid. Otherwise, MyBackendId must be set, but we
- * must not have started any transaction yet (since the exit hook must run
- * after the last transaction exit).
+ * 初始化 pgstats 后端活动状态，并建立我们的进程
+ * 退出钩子。由 InitPostgres 与 AuxiliaryProcessMain 调用。
+ * 辅助进程的 MyBackendId 无效；否则须设置 MyBackendId，此时
+ * 未开始任何事务（因为退出钩子必须在最后一个事务
+ * 退出之后运行）。
  *
- * NOTE: MyDatabaseId isn't set yet; so the shutdown hook has to be careful.
+ * 注：MyDatabaseId 尚未设置；因此关闭钩子必须小心行事。
  */
 void
 pgstat_beinit(void)
 {
-	/* Initialize MyBEEntry */
+	/* 初始化 MyBEEntry */
 	if (MyBackendId != InvalidBackendId)
 	{
 		Assert(MyBackendId >= 1 && MyBackendId <= MaxBackends);
@@ -256,21 +256,21 @@ pgstat_beinit(void)
 	}
 	else
 	{
-		/* Must be an auxiliary process */
+		/* 必须是辅助进程 */
 		Assert(MyAuxProcType != NotAnAuxProcess);
 
 		/*
-		 * Assign the MyBEEntry for an auxiliary process.  Since it doesn't
-		 * have a BackendId, the slot is statically allocated based on the
-		 * auxiliary process type (MyAuxProcType).  Backends use slots indexed
-		 * in the range from 0 to MaxBackends (exclusive), so we use
-		 * MaxBackends + AuxProcType as the index of the slot for an auxiliary
-		 * process.
+		 * 为辅助进程指派 MyBEEntry。由于它没有
+		 * BackendId，槽位按辅助进程类型（MyAuxProcType）
+		 * 静态分配。后端使用的槽位按 0 到
+		 * MaxBackends（不含）索引，因此我们将
+		 * MaxBackends + AuxProcType 作为辅助进程的槽位索引。
+		 *
 		 */
 		MyBEEntry = &BackendStatusArray[MaxBackends + MyAuxProcType];
 	}
 
-	/* Set up a process-exit hook to clean up */
+	/* 设置进程退出钩子以做清理 */
 	on_shmem_exit(pgstat_beshutdown_hook, 0);
 }
 
@@ -278,14 +278,14 @@ pgstat_beinit(void)
 /* ----------
  * pgstat_bestart() -
  *
- *	Initialize this backend's entry in the PgBackendStatus array.
- *	Called from InitPostgres.
+ *	初始化本后端在 PgBackendStatus 数组中的条目。
+ *	来自 InitPostgres。
  *
- *	Apart from auxiliary processes, MyBackendId, MyDatabaseId,
- *	session userid, and application_name must be set for a
- *	backend (hence, this cannot be combined with pgstat_beinit).
- *	Note also that we must be inside a transaction if this isn't an aux
- *	process, as we may need to do encoding conversion on some strings.
+ *	除辅助进程外，必须为后端设置 MyBackendId、
+ *	MyDatabaseId、会话 userid 与 application_name
+ *	（因此本函数无法与 pgstat_beinit 合并）。
+ *	须注意：若这不是辅助进程，则必须处于事务中，
+ *	因为可能需要对某些字符串做编码转换。
  * ----------
  */
 void
@@ -300,25 +300,25 @@ pgstat_bestart(void)
 	PgBackendGSSStatus lgssstatus;
 #endif
 
-	/* pgstats state must be initialized from pgstat_beinit() */
+	/* pgstats 状态必须从 pgstat_beinit() 初始化 */
 	Assert(vbeentry != NULL);
 
 	/*
-	 * To minimize the time spent modifying the PgBackendStatus entry, and
-	 * avoid risk of errors inside the critical section, we first copy the
-	 * shared-memory struct to a local variable, then modify the data in the
-	 * local variable, then copy the local variable back to shared memory.
-	 * Only the last step has to be inside the critical section.
+	 * 为尽量缩短修改 PgBackendStatus 条目所花的时间，并
+	 * 避免临界区内出错的风险，我们先把共享内存结构
+	 * 复制到本地变量，然后修改本地变量中的数据，最后
+	 * 再把本地变量复制回共享内存。只有最后一步必须
+	 * 处于临界区内。
 	 *
-	 * Most of the data we copy from shared memory is just going to be
-	 * overwritten, but the struct's not so large that it's worth the
-	 * maintenance hassle to copy only the needful fields.
+	 * 从共享内存复制的数据大部分反正会被覆盖，
+	 * 但该结构也没有大到值得为只复制所需字段而
+	 * 增加维护上的麻烦。
 	 */
 	memcpy(&lbeentry,
 		   unvolatize(PgBackendStatus *, vbeentry),
 		   sizeof(PgBackendStatus));
 
-	/* These structs can just start from zeroes each time, though */
+	/* 不过这些结构体每次都可以直接从零开始 */
 #ifdef USE_SSL
 	memset(&lsslstatus, 0, sizeof(lsslstatus));
 #endif
@@ -327,8 +327,8 @@ pgstat_bestart(void)
 #endif
 
 	/*
-	 * Now fill in all the fields of lbeentry, except for strings that are
-	 * out-of-line data.  Those have to be handled separately, below.
+	 * 现在填入 lbeentry 的所有字段，但不包括属于行外
+	 * 数据的字符串。那些须另行处理，见下文。
 	 */
 	lbeentry.st_procpid = MyProcPid;
 	lbeentry.st_backendType = MyBackendType;
@@ -338,7 +338,7 @@ pgstat_bestart(void)
 	lbeentry.st_xact_start_timestamp = 0;
 	lbeentry.st_databaseid = MyDatabaseId;
 
-	/* We have userid for client-backends, wal-sender and bgworker processes */
+	/* 为客户端后端、wal-sender 与 bgworker 进程提供 userid */
 	if (lbeentry.st_backendType == B_BACKEND
 		|| lbeentry.st_backendType == B_WAL_SENDER
 		|| lbeentry.st_backendType == B_BG_WORKER)
@@ -347,9 +347,9 @@ pgstat_bestart(void)
 		lbeentry.st_userid = InvalidOid;
 
 	/*
-	 * We may not have a MyProcPort (eg, if this is the autovacuum process).
-	 * If so, use all-zeroes client address, which is dealt with specially in
-	 * pg_stat_get_backend_client_addr and pg_stat_get_backend_client_port.
+	 * 可能没有 MyProcPort（例如当前是 autovacuum 进程）。
+	 * 若是如此，则使用全零的客户端地址，特殊处理位于
+	 * pg_stat_get_backend_client_addr 与 pg_stat_get_backend_client_port
 	 */
 	if (MyProcPort)
 		memcpy(&lbeentry.st_clientaddr, &MyProcPort->raddr,
@@ -402,20 +402,20 @@ pgstat_bestart(void)
 	lbeentry.st_query_id = UINT64CONST(0);
 
 	/*
-	 * we don't zero st_progress_param here to save cycles; nobody should
-	 * examine it until st_progress_command has been set to something other
-	 * than PROGRESS_COMMAND_INVALID
+	 * 为节省开销，这里不清零 st_progress_param；在
+	 * st_progress_command 被设为 PROGRESS_COMMAND_INVALID 以外的
+	 * 值前无人应检查它。
 	 */
 
 	/*
-	 * We're ready to enter the critical section that fills the shared-memory
-	 * status entry.  We follow the protocol of bumping st_changecount before
-	 * and after; and make sure it's even afterwards.  We use a volatile
-	 * pointer here to ensure the compiler doesn't try to get cute.
+	 * 我们即将进入填充共享内存状态条目的临界区。我们
+	 * 遵循在前后各递增 st_changecount 的协议，并确保
+	 * 之后该值为偶数。这里使用 volatile 指针，以确保
+	 * 编译器不会自作聪明。
 	 */
 	PGSTAT_BEGIN_WRITE_ACTIVITY(vbeentry);
 
-	/* make sure we'll memcpy the same st_changecount back */
+	/* 确保把相同的 st_changecount memcpy 回去 */
 	lbeentry.st_changecount = vbeentry->st_changecount;
 
 	memcpy(unvolatize(PgBackendStatus *, vbeentry),
@@ -423,8 +423,8 @@ pgstat_bestart(void)
 		   sizeof(PgBackendStatus));
 
 	/*
-	 * We can write the out-of-line strings and structs using the pointers
-	 * that are in lbeentry; this saves some de-volatilizing messiness.
+	 * 可用 lbeentry 中的指针写行外字符串与结构体，
+	 * 这省去了一些去 volatile 化的繁琐处理。
 	 */
 	lbeentry.st_appname[0] = '\0';
 	if (MyProcPort && MyProcPort->remote_hostname)
@@ -433,7 +433,7 @@ pgstat_bestart(void)
 	else
 		lbeentry.st_clienthostname[0] = '\0';
 	lbeentry.st_activity_raw[0] = '\0';
-	/* Also make sure the last byte in each string area is always 0 */
+	/* 并确保每个字符串区域末字节始终为 0 */
 	lbeentry.st_appname[NAMEDATALEN - 1] = '\0';
 	lbeentry.st_clienthostname[NAMEDATALEN - 1] = '\0';
 	lbeentry.st_activity_raw[pgstat_track_activity_query_size - 1] = '\0';
@@ -447,13 +447,13 @@ pgstat_bestart(void)
 
 	PGSTAT_END_WRITE_ACTIVITY(vbeentry);
 
-	/* Update app name to current GUC setting */
+	/* 将应用名更新为当前 GUC 设置 */
 	if (application_name)
 		pgstat_report_appname(application_name);
 }
 
 /*
- * Clear out our entry in the PgBackendStatus array.
+ * 清除其在 PgBackendStatus 数组的条目。
  */
 static void
 pgstat_beshutdown_hook(int code, Datum arg)
@@ -461,38 +461,38 @@ pgstat_beshutdown_hook(int code, Datum arg)
 	volatile PgBackendStatus *beentry = MyBEEntry;
 
 	/*
-	 * Clear my status entry, following the protocol of bumping st_changecount
-	 * before and after.  We use a volatile pointer here to ensure the
-	 * compiler doesn't try to get cute.
+	 * 清除自己的状态条目，遵循在前后各递增
+	 * st_changecount 的协议。这里使用 volatile 指针，
+	 * 确保编译器不自作聪明。
 	 */
 	PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
 
-	beentry->st_procpid = 0;	/* mark invalid */
+	beentry->st_procpid = 0;	/* 标记无效 */
 
 	PGSTAT_END_WRITE_ACTIVITY(beentry);
 
-	/* so that functions can check if backend_status.c is up via MyBEEntry */
+	/* 函数可经 MyBEEntry 检查 backend_status.c 是否已就绪 */
 	MyBEEntry = NULL;
 }
 
 /*
- * Discard any data collected in the current transaction.  Any subsequent
- * request will cause new snapshots to be read.
+ * 丢弃当前事务中收集的所有数据。任何后续请求都会
+ * 导致读取新的快照。
  *
- * This is also invoked during transaction commit or abort to discard the
- * no-longer-wanted snapshot.
+ * 在事务提交或中止期间也会调用本函数，以丢弃不再
+ * 需要的快照。
  */
 void
 pgstat_clear_backend_activity_snapshot(void)
 {
-	/* Release memory, if any was allocated */
+	/* 释放内存（若分配过） */
 	if (backendStatusSnapContext)
 	{
 		MemoryContextDelete(backendStatusSnapContext);
 		backendStatusSnapContext = NULL;
 	}
 
-	/* Reset variables */
+	/* 重置变量 */
 	localBackendStatusTable = NULL;
 	localNumBackends = 0;
 }
@@ -510,12 +510,12 @@ pgstat_setup_backend_status_context(void)
 /* ----------
  * pgstat_report_activity() -
  *
- *	Called from tcop/postgres.c to report what the backend is actually doing
- *	(but note cmd_str can be NULL for certain cases).
+ *	由 tcop/postgres.c 调用，用于报告后端当前实际在做什么
+ *	（注意某些情况下 cmd_str 为 NULL）
  *
- * All updates of the status entry follow the protocol of bumping
- * st_changecount before and after.  We use a volatile pointer here to
- * ensure the compiler doesn't try to get cute.
+ * 对状态条目的所有更新都遵循在前后各递增
+ * st_changecount 的协议。这里使用 volatile 指针，
+ * 以确保编译器不会自作聪明。
  * ----------
  */
 void
@@ -538,16 +538,16 @@ pgstat_report_activity(BackendState state, const char *cmd_str)
 			volatile PGPROC *proc = MyProc;
 
 			/*
-			 * track_activities is disabled, but we last reported a
-			 * non-disabled state.  As our final update, change the state and
-			 * clear fields we will not be updating anymore.
+			 * track_activities 已禁用，但上次报告的是
+			 * 非禁用状态。作为最后一次更新，改变状态并
+			 * 清空不再更新的字段。
 			 */
 			PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
 			beentry->st_state = STATE_DISABLED;
 			beentry->st_state_start_timestamp = 0;
 			beentry->st_activity_raw[0] = '\0';
 			beentry->st_activity_start_timestamp = 0;
-			/* st_xact_start_timestamp and wait_event_info are also disabled */
+			/* st_xact_start_timestamp 与 wait_event_info 也被禁用 */
 			beentry->st_xact_start_timestamp = 0;
 			beentry->st_query_id = UINT64CONST(0);
 			proc->wait_event_info = 0;
@@ -557,24 +557,24 @@ pgstat_report_activity(BackendState state, const char *cmd_str)
 	}
 
 	/*
-	 * To minimize the time spent modifying the entry, and avoid risk of
-	 * errors inside the critical section, fetch all the needed data first.
+	 * 为尽量缩短修改条目的时间，并避免临界区内
+	 * 出错的风险，先取好全部所需数据。
 	 */
 	start_timestamp = GetCurrentStatementStartTimestamp();
 	if (cmd_str != NULL)
 	{
 		/*
-		 * Compute length of to-be-stored string unaware of multi-byte
-		 * characters. For speed reasons that'll get corrected on read, rather
-		 * than computed every write.
+		 * 计算待存字符串的长度时不考虑多字节
+		 * 字符。出于速度考虑，修正留到读取时进行，
+		 * 而非写入时计算。
 		 */
 		len = Min(strlen(cmd_str), pgstat_track_activity_query_size - 1);
 	}
 	current_timestamp = GetCurrentTimestamp();
 
 	/*
-	 * If the state has changed from "active" or "idle in transaction",
-	 * calculate the duration.
+	 * 若状态已从 "active" 或 "idle in transaction" 改变，
+	 * 则计算其时长。
 	 */
 	if ((beentry->st_state == STATE_RUNNING ||
 		 beentry->st_state == STATE_FASTPATH ||
@@ -597,7 +597,7 @@ pgstat_report_activity(BackendState state, const char *cmd_str)
 	}
 
 	/*
-	 * Now update the status entry
+	 * 现在更新状态条目
 	 */
 	PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
 
@@ -605,9 +605,9 @@ pgstat_report_activity(BackendState state, const char *cmd_str)
 	beentry->st_state_start_timestamp = current_timestamp;
 
 	/*
-	 * If a new query is started, we reset the query identifier as it'll only
-	 * be known after parse analysis, to avoid reporting last query's
-	 * identifier.
+	 * 若新查询已开始，我们重置查询标识符，因为它要到
+	 * 解析分析后得知，以免报告上一个查询的标识
+	 * 符。
 	 */
 	if (state == STATE_RUNNING)
 		beentry->st_query_id = UINT64CONST(0);
@@ -625,7 +625,7 @@ pgstat_report_activity(BackendState state, const char *cmd_str)
 /* --------
  * pgstat_report_query_id() -
  *
- * Called to update top-level query identifier.
+ * 用于更新顶层查询标识符。
  * --------
  */
 void
@@ -634,27 +634,27 @@ pgstat_report_query_id(uint64 query_id, bool force)
 	volatile PgBackendStatus *beentry = MyBEEntry;
 
 	/*
-	 * if track_activities is disabled, st_query_id should already have been
-	 * reset
+	 * 若 track_activities 已禁用，st_query_id 应已重置
+	 *
 	 */
 	if (!beentry || !pgstat_track_activities)
 		return;
 
 	/*
-	 * We only report the top-level query identifiers.  The stored query_id is
-	 * reset when a backend calls pgstat_report_activity(STATE_RUNNING), or
-	 * with an explicit call to this function using the force flag.  If the
-	 * saved query identifier is not zero it means that it's not a top-level
-	 * command, so ignore the one provided unless it's an explicit call to
-	 * reset the identifier.
+	 * 我们只报告顶层查询标识符。存储的 query_id 会在
+	 * 后端调用 pgstat_report_activity(STATE_RUNNING) 时，
+	 * 或在以 force 标志显式调用本函数时重置。若保存的
+	 * 查询标识符非零，说明它不是顶层命令，除非是
+	 * 显式调用以重置标识符，否则忽略所提供的
+	 * 标识符。
 	 */
 	if (beentry->st_query_id != 0 && !force)
 		return;
 
 	/*
-	 * Update my status entry, following the protocol of bumping
-	 * st_changecount before and after.  We use a volatile pointer here to
-	 * ensure the compiler doesn't try to get cute.
+	 * 更新自己的状态条目，遵循在前后各递增
+	 * st_changecount 的协议。这里使用 volatile 指针，
+	 * 以确保编译器不会自作聪明。
 	 */
 	PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
 	beentry->st_query_id = query_id;
@@ -665,7 +665,7 @@ pgstat_report_query_id(uint64 query_id, bool force)
 /* ----------
  * pgstat_report_appname() -
  *
- *	Called to update our application name.
+ *	用于更新我们的应用名。
  * ----------
  */
 void
@@ -677,13 +677,13 @@ pgstat_report_appname(const char *appname)
 	if (!beentry)
 		return;
 
-	/* This should be unnecessary if GUC did its job, but be safe */
+	/* 若 GUC 已尽其职这本无必要，但求稳妥 */
 	len = pg_mbcliplen(appname, strlen(appname), NAMEDATALEN - 1);
 
 	/*
-	 * Update my status entry, following the protocol of bumping
-	 * st_changecount before and after.  We use a volatile pointer here to
-	 * ensure the compiler doesn't try to get cute.
+	 * 更新自己的状态条目，遵循在前后各递增
+	 * st_changecount 的协议。这里使用 volatile 指针，
+	 * 以确保编译器不会自作聪明。
 	 */
 	PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
 
@@ -694,8 +694,8 @@ pgstat_report_appname(const char *appname)
 }
 
 /*
- * Report current transaction start timestamp as the specified value.
- * Zero means there is no active transaction.
+ * 将当前事务开始时间戳报告为指定值。
+ * 零表示当前没有活动事务。
  */
 void
 pgstat_report_xact_timestamp(TimestampTz tstamp)
@@ -706,9 +706,9 @@ pgstat_report_xact_timestamp(TimestampTz tstamp)
 		return;
 
 	/*
-	 * Update my status entry, following the protocol of bumping
-	 * st_changecount before and after.  We use a volatile pointer here to
-	 * ensure the compiler doesn't try to get cute.
+	 * 更新自己的状态条目，遵循在前后各递增
+	 * st_changecount 的协议。这里使用 volatile 指针，
+	 * 以确保编译器不会自作聪明。
 	 */
 	PGSTAT_BEGIN_WRITE_ACTIVITY(beentry);
 
@@ -720,8 +720,8 @@ pgstat_report_xact_timestamp(TimestampTz tstamp)
 /* ----------
  * pgstat_read_current_status() -
  *
- *	Copy the current contents of the PgBackendStatus array to local memory,
- *	if not already done in this transaction.
+ *	将 PgBackendStatus 数组的当前内容复制到本地内存，
+ *	若本事务中尚未这样做。
  * ----------
  */
 static void
@@ -742,17 +742,17 @@ pgstat_read_current_status(void)
 	int			i;
 
 	if (localBackendStatusTable)
-		return;					/* already done */
+		return;					/* 已做过 */
 
 	pgstat_setup_backend_status_context();
 
 	/*
-	 * Allocate storage for local copy of state data.  We can presume that
-	 * none of these requests overflow size_t, because we already calculated
-	 * the same values using mul_size during shmem setup.  However, with
-	 * probably-silly values of pgstat_track_activity_query_size and
-	 * max_connections, the localactivity buffer could exceed 1GB, so use
-	 * "huge" allocation for that one.
+	 * 为状态数据本地副本分配存储。可以假定这些请求
+	 * 均不会溢出 size_t，因为共享内存设置期间已经用
+	 * mul_size 算出了相同的值。但如果
+	 * pgstat_track_activity_query_size 与 max_connections 取了
+	 * 大概离谱的值，localactivity 缓冲区可能超过 1GB，
+	 * 那个用 "huge" 分配。
 	 */
 	localtable = (LocalPgBackendStatus *)
 		MemoryContextAlloc(backendStatusSnapContext,
@@ -785,11 +785,11 @@ pgstat_read_current_status(void)
 	for (i = 1; i <= NumBackendStatSlots; i++)
 	{
 		/*
-		 * Follow the protocol of retrying if st_changecount changes while we
-		 * copy the entry, or if it's odd.  (The check for odd is needed to
-		 * cover the case where we are able to completely copy the entry while
-		 * the source backend is between increment steps.)	We use a volatile
-		 * pointer here to ensure the compiler doesn't try to get cute.
+		 * 遵循如下协议：若复制条目时 st_changecount
+		 * 发生变化或值为奇数则重试。（需要检查奇数是
+		 * 为了覆盖这样一种情形：源后端正处于两次递增之
+		 * 间时我们恰能完整复制条目。）这里使用 volatile
+		 * 指针，以确保编译器不会自作聪明。
 		 */
 		for (;;)
 		{
@@ -799,18 +799,18 @@ pgstat_read_current_status(void)
 			pgstat_begin_read_activity(beentry, before_changecount);
 
 			localentry->backendStatus.st_procpid = beentry->st_procpid;
-			/* Skip all the data-copying work if entry is not in use */
+			/* 条目未在使用则跳过全部数据复制工作 */
 			if (localentry->backendStatus.st_procpid > 0)
 			{
 				memcpy(&localentry->backendStatus, unvolatize(PgBackendStatus *, beentry), sizeof(PgBackendStatus));
 
 				/*
-				 * For each PgBackendStatus field that is a pointer, copy the
-				 * pointed-to data, then adjust the local copy of the pointer
-				 * field to point at the local copy of the data.
+				 * 对 PgBackendStatus 中每个指针型字段，复制
+				 * 指向的数据，再将指针字段的本地副本调整
+				 * 为指向数据的本地副本。
 				 *
-				 * strcpy is safe even if the string is modified concurrently,
-				 * because there's always a \0 at the end of the buffer.
+				 * 即使字符串被并发修改，strcpy 也是安全的，
+				 * 因为缓冲区末尾总是有一个 \0。
 				 */
 				strcpy(localappname, (char *) beentry->st_appname);
 				localentry->backendStatus.st_appname = localappname;
@@ -840,18 +840,18 @@ pgstat_read_current_status(void)
 											  after_changecount))
 				break;
 
-			/* Make sure we can break out of loop if stuck... */
+			/* 确保卡住时能跳出循环... */
 			CHECK_FOR_INTERRUPTS();
 		}
 
-		/* Only valid entries get included into the local array */
+		/* 只有有效条目才会被收进本地数组 */
 		if (localentry->backendStatus.st_procpid > 0)
 		{
 			/*
-			 * The BackendStatusArray index is exactly the BackendId of the
-			 * source backend.  Note that this means localBackendStatusTable
-			 * is in order by backend_id.  pgstat_get_beentry_by_backend_id()
-			 * depends on that.
+			 * BackendStatusArray 索引恰为源后端的
+			 * BackendId。注意这意味着 localBackendStatusTable
+			 * 按 backend_id 排序。pgstat_get_beentry_by_backend_id()
+			 * 依赖此点。
 			 */
 			localentry->backend_id = i;
 			BackendIdGetTransactionIds(i,
@@ -876,7 +876,7 @@ pgstat_read_current_status(void)
 		beentry++;
 	}
 
-	/* Set the pointer only after completion of a valid table */
+	/* 仅在有效表构建完成后才设置该指针 */
 	localBackendStatusTable = localtable;
 }
 
@@ -884,20 +884,20 @@ pgstat_read_current_status(void)
 /* ----------
  * pgstat_get_backend_current_activity() -
  *
- *	Return a string representing the current activity of the backend with
- *	the specified PID.  This looks directly at the BackendStatusArray,
- *	and so will provide current information regardless of the age of our
- *	transaction's snapshot of the status array.
+ *	返回表示具有指定 PID 的后端当前活动的字符串。
+ *	本函数直接查看 BackendStatusArray，因此提供的
+ *	信息始终是最新的，与本事务在状态数组上的快照
+ *	有多旧无关。
  *
- *	It is the caller's responsibility to invoke this only for backends whose
- *	state is expected to remain stable while the result is in use.  The
- *	only current use is in deadlock reporting, where we can expect that
- *	the target backend is blocked on a lock.  (There are corner cases
- *	where the target's wait could get aborted while we are looking at it,
- *	but the very worst consequence is to return a pointer to a string
- *	that's been changed, so we won't worry too much.)
+ *	调用方有责任只对状态在结果使用期间预期保持稳定
+ *	的后端调用本函数。目前唯一的用途是死锁报告，
+ *	在那里我们可以预期目标后端已被某个锁阻塞。
+ *	（存在边角情形：查看时其等待可能被中止，
+ *	但最坏后果也只是返回指向已变动字符串
+ *	的指针，因此
+ *	我们不必太过担心。）
  *
- *	Note: return strings for special cases match pg_stat_get_backend_activity.
+ *	注：特殊情形返回值与 pg_stat_get_backend_activity 相同。
  * ----------
  */
 const char *
@@ -910,14 +910,14 @@ pgstat_get_backend_current_activity(int pid, bool checkUser)
 	for (i = 1; i <= MaxBackends; i++)
 	{
 		/*
-		 * Although we expect the target backend's entry to be stable, that
-		 * doesn't imply that anyone else's is.  To avoid identifying the
-		 * wrong backend, while we check for a match to the desired PID we
-		 * must follow the protocol of retrying if st_changecount changes
-		 * while we examine the entry, or if it's odd.  (This might be
-		 * unnecessary, since fetching or storing an int is almost certainly
-		 * atomic, but let's play it safe.)  We use a volatile pointer here to
-		 * ensure the compiler doesn't try to get cute.
+		 * 虽然预期目标后端的条目是稳定的，但这并不
+		 * 代表别人的也稳定。为避免认错后端，在
+		 * 检查是否匹配所需 PID 期间，须遵循如下协议：
+		 * 若期间 st_changecount 变化或值为奇数则重试
+		 * （这可能多余，因为 int 的读取或存储几乎
+		 * 肯定是原子操作，但我们还是稳妥为好。）这里
+		 * 使用 volatile 指针，以确保编译器不会
+		 * 自作聪明。
 		 */
 		volatile PgBackendStatus *vbeentry = beentry;
 		bool		found;
@@ -937,20 +937,20 @@ pgstat_get_backend_current_activity(int pid, bool checkUser)
 											  after_changecount))
 				break;
 
-			/* Make sure we can break out of loop if stuck... */
+			/* 确保卡住时能跳出循环... */
 			CHECK_FOR_INTERRUPTS();
 		}
 
 		if (found)
 		{
-			/* Now it is safe to use the non-volatile pointer */
+			/* 现在可以安全使用非 volatile 指针了 */
 			if (checkUser && !superuser() && beentry->st_userid != GetUserId())
 				return "<insufficient privilege>";
 			else if (*(beentry->st_activity_raw) == '\0')
 				return "<command string not enabled>";
 			else
 			{
-				/* this'll leak a bit of memory, but that seems acceptable */
+				/* 这会泄漏一点内存，但看来可以接受 */
 				return pgstat_clip_activity(beentry->st_activity_raw);
 			}
 		}
@@ -958,24 +958,24 @@ pgstat_get_backend_current_activity(int pid, bool checkUser)
 		beentry++;
 	}
 
-	/* If we get here, caller is in error ... */
+	/* 走到这里说明调用方有误 ... */
 	return "<backend information not available>";
 }
 
 /* ----------
  * pgstat_get_crashed_backend_activity() -
  *
- *	Return a string representing the current activity of the backend with
- *	the specified PID.  Like the function above, but reads shared memory with
- *	the expectation that it may be corrupt.  On success, copy the string
- *	into the "buffer" argument and return that pointer.  On failure,
- *	return NULL.
+ *	返回表示具有指定 PID 的后端当前活动的字符串。与
+ *	上面的函数类似，但读取共享内存时假定它可能已损
+ *	坏。成功时把字符串复制进 "buffer" 参数并返回
+ *	该指针；失败时返回
+ *	NULL。
  *
- *	This function is only intended to be used by the postmaster to report the
- *	query that crashed a backend.  In particular, no attempt is made to
- *	follow the correct concurrency protocol when accessing the
- *	BackendStatusArray.  But that's OK, in the worst case we'll return a
- *	corrupted message.  We also must take care not to trip on ereport(ERROR).
+ *	本函数仅打算由 postmaster 用来报告导致某个后端崩溃
+ *	的查询。特别地，在访问 BackendStatusArray 时，
+ *	不做任何努力去遵循正确的并发协议。但没
+ *	关系，最坏情况我们也只会返回一条损坏的消息。
+ *	我们还必须小心不要触发 ereport(ERROR)。
  * ----------
  */
 const char *
@@ -987,8 +987,8 @@ pgstat_get_crashed_backend_activity(int pid, char *buffer, int buflen)
 	beentry = BackendStatusArray;
 
 	/*
-	 * We probably shouldn't get here before shared memory has been set up,
-	 * but be safe.
+	 * 共享内存建立之前我们大概不该走到这里，但为
+	 * 稳妥。
 	 */
 	if (beentry == NULL || BackendActivityBuffer == NULL)
 		return NULL;
@@ -997,15 +997,15 @@ pgstat_get_crashed_backend_activity(int pid, char *buffer, int buflen)
 	{
 		if (beentry->st_procpid == pid)
 		{
-			/* Read pointer just once, so it can't change after validation */
+			/* 只读取一次指针，使其在校验之后不会变化 */
 			const char *activity = beentry->st_activity_raw;
 			const char *activity_last;
 
 			/*
-			 * We mustn't access activity string before we verify that it
-			 * falls within the BackendActivityBuffer. To make sure that the
-			 * entire string including its ending is contained within the
-			 * buffer, subtract one activity length from the buffer size.
+			 * 在核实活动字符串落在 BackendActivityBuffer
+			 * 内之前不得访问它。为确保字符串连其结尾
+			 * 都包含在缓冲区内，从缓冲区大小减去一
+			 * 个活动长度。
 			 */
 			activity_last = BackendActivityBuffer + BackendActivityBufferSize
 				- pgstat_track_activity_query_size;
@@ -1014,15 +1014,15 @@ pgstat_get_crashed_backend_activity(int pid, char *buffer, int buflen)
 				activity > activity_last)
 				return NULL;
 
-			/* If no string available, no point in a report */
+			/* 没有可用字符串时报告无意义 */
 			if (activity[0] == '\0')
 				return NULL;
 
 			/*
-			 * Copy only ASCII-safe characters so we don't run into encoding
-			 * problems when reporting the message; and be sure not to run off
-			 * the end of memory.  As only ASCII characters are reported, it
-			 * doesn't seem necessary to perform multibyte aware clipping.
+			 * 只复制 ASCII 安全的字符，以免报告消息时遇到
+			 * 编码问题；并务必不要越过内存末尾。由于只
+			 * 报告的都是 ASCII 字符，似无必要执行多字节
+			 * 感知的裁剪。
 			 */
 			ascii_safe_strlcpy(buffer, activity,
 							   Min(buflen, pgstat_track_activity_query_size));
@@ -1033,14 +1033,14 @@ pgstat_get_crashed_backend_activity(int pid, char *buffer, int buflen)
 		beentry++;
 	}
 
-	/* PID not found */
+	/* 未找到 PID */
 	return NULL;
 }
 
 /* ----------
  * pgstat_get_my_query_id() -
  *
- * Return current backend's query identifier.
+ * 返回当前后端的查询标识符。
  */
 uint64
 pgstat_get_my_query_id(void)
@@ -1049,10 +1049,10 @@ pgstat_get_my_query_id(void)
 		return 0;
 
 	/*
-	 * There's no need for a lock around pgstat_begin_read_activity /
-	 * pgstat_end_read_activity here as it's only called from
-	 * pg_stat_get_activity which is already protected, or from the same
-	 * backend which means that there won't be concurrent writes.
+	 * 这里的 pgstat_begin_read_activity /
+	 * pgstat_end_read_activity 不需要锁，因为它只
+	 * 从 pg_stat_get_activity（其已受保护）调用，或从同
+	 * 一后端调用，这意味着不会有并发写入。
 	 */
 	return MyBEEntry->st_query_id;
 }
@@ -1060,8 +1060,8 @@ pgstat_get_my_query_id(void)
 /* ----------
  * cmp_lbestatus
  *
- *	Comparison function for bsearch() on an array of LocalPgBackendStatus.
- *	The backend_id field is used to compare the arguments.
+ *	用于对 LocalPgBackendStatus 数组做 bsearch() 的比较函数。
+ *	使用 backend_id 字段来比较各参数。
  * ----------
  */
 static int
@@ -1076,15 +1076,15 @@ cmp_lbestatus(const void *a, const void *b)
 /* ----------
  * pgstat_get_beentry_by_backend_id() -
  *
- *	Support function for the SQL-callable pgstat* functions. Returns
- *	our local copy of the current-activity entry for one backend,
- *	or NULL if the given beid doesn't identify any known session.
+ *	供 SQL 可调用的 pgstat* 函数的辅助函数。返回
+ *	某后端当前活动条目的本地副本，若给定 beid
+ *	不能标识任何已知会话则返回 NULL。
  *
- *	The beid argument is the BackendId of the desired session
- *	(note that this is unlike pgstat_get_local_beentry_by_index()).
+ *	beid 参数是目标会话的 BackendId
+ *	（注意这与 pgstat_get_local_beentry_by_index() 不同）
  *
- *	NB: caller is responsible for a check if the user is permitted to see
- *	this info (especially the querystring).
+ *	注意：调用方有责任检查用户是否可查看此信息
+ *	（尤其是查询字符串）。
  * ----------
  */
 PgBackendStatus *
@@ -1102,14 +1102,14 @@ pgstat_get_beentry_by_backend_id(BackendId beid)
 /* ----------
  * pgstat_get_local_beentry_by_backend_id() -
  *
- *	Like pgstat_get_beentry_by_backend_id() but with locally computed additions
- *	(like xid and xmin values of the backend)
+ *	类似 pgstat_get_beentry_by_backend_id()，但带有本地计算的
+ *	附加项（如 xid 与 xmin 值）。
  *
- *	The beid argument is the BackendId of the desired session
- *	(note that this is unlike pgstat_get_local_beentry_by_index()).
+ *	beid 参数是目标会话的 BackendId
+ *	（注意这与 pgstat_get_local_beentry_by_index() 不同）
  *
- *	NB: caller is responsible for checking if the user is permitted to see this
- *	info (especially the querystring).
+ *	注意：调用方有责任检查用户是否被允许查看此信息
+ *	（尤其是查询字符串）。
  * ----------
  */
 LocalPgBackendStatus *
@@ -1120,8 +1120,8 @@ pgstat_get_local_beentry_by_backend_id(BackendId beid)
 	pgstat_read_current_status();
 
 	/*
-	 * Since the localBackendStatusTable is in order by backend_id, we can use
-	 * bsearch() to search it efficiently.
+	 * 由于 localBackendStatusTable 按 backend_id 排序，我们
+	 * 可用 bsearch() 高效搜索它。
 	 */
 	key.backend_id = beid;
 	return bsearch(&key, localBackendStatusTable, localNumBackends,
@@ -1132,15 +1132,15 @@ pgstat_get_local_beentry_by_backend_id(BackendId beid)
 /* ----------
  * pgstat_get_local_beentry_by_index() -
  *
- *	Like pgstat_get_beentry_by_backend_id() but with locally computed additions
- *	(like xid and xmin values of the backend)
+ *	类似 pgstat_get_beentry_by_backend_id()，但带有本地计算的
+ *	附加项（如 xid 与 xmin 值）。
  *
- *	The idx argument is a 1-based index in the localBackendStatusTable
- *	(note that this is unlike pgstat_get_beentry_by_backend_id()).
- *	Returns NULL if the argument is out of range (no current caller does that).
+ *	idx 参数是 localBackendStatusTable 中基于 1 的索引
+ *	（注意这与 pgstat_get_beentry_by_backend_id() 不同）
+ *	若参数越界则返回 NULL（当前没有调用方会这样做）。
  *
- *	NB: caller is responsible for a check if the user is permitted to see
- *	this info (especially the querystring).
+ *	注意：调用方有责任检查用户是否可查看此信息
+ *	（尤其是查询字符串）。
  * ----------
  */
 LocalPgBackendStatus *
@@ -1158,9 +1158,9 @@ pgstat_get_local_beentry_by_index(int idx)
 /* ----------
  * pgstat_fetch_stat_numbackends() -
  *
- *	Support function for the SQL-callable pgstat* functions. Returns
- *	the number of sessions known in the localBackendStatusTable, i.e.
- *	the maximum 1-based index to pass to pgstat_get_local_beentry_by_index().
+ *	供 SQL 可调用的 pgstat* 函数的辅助函数。返回
+ *	localBackendStatusTable 中已知会话的数量，即
+ *	传给 pgstat_get_local_beentry_by_index() 的最大基于 1 的索引。
  * ----------
  */
 int
@@ -1172,12 +1172,12 @@ pgstat_fetch_stat_numbackends(void)
 }
 
 /*
- * Convert a potentially unsafely truncated activity string (see
- * PgBackendStatus.st_activity_raw's documentation) into a correctly truncated
- * one.
+ * 把可能被不安全截断的活动字符串（见
+ * PgBackendStatus.st_activity_raw 的文档）转换成正确截断的
  *
- * The returned string is allocated in the caller's memory context and may be
- * freed.
+ *
+ * 返回的字符串在调用方的内存上下文中分配，并可
+ * 释放
  */
 char *
 pgstat_clip_activity(const char *raw_activity)
@@ -1187,25 +1187,25 @@ pgstat_clip_activity(const char *raw_activity)
 	int			cliplen;
 
 	/*
-	 * Some callers, like pgstat_get_backend_current_activity(), do not
-	 * guarantee that the buffer isn't concurrently modified. We try to take
-	 * care that the buffer is always terminated by a NUL byte regardless, but
-	 * let's still be paranoid about the string's length. In those cases the
-	 * underlying buffer is guaranteed to be pgstat_track_activity_query_size
-	 * large.
+	 * 某些调用方，如 pgstat_get_backend_current_activity()，
+	 * 不保证缓冲区不会被并发修改。我们仍设法确保缓
+	 * 冲区始终以 NUL 字节结尾，但我们仍要对字符串长度
+	 * 保持多疑。在这类情形下，底层缓冲区
+	 * 的大小保证为 pgstat_track_activity_query_size
+	 * 大。
 	 */
 	activity = pnstrdup(raw_activity, pgstat_track_activity_query_size - 1);
 
-	/* now double-guaranteed to be NUL terminated */
+	/* 现在双重保证以 NUL 结尾 */
 	rawlen = strlen(activity);
 
 	/*
-	 * All supported server-encodings make it possible to determine the length
-	 * of a multi-byte character from its first byte (this is not the case for
-	 * client encodings, see GB18030). As st_activity is always stored using
-	 * server encoding, this allows us to perform multi-byte aware truncation,
-	 * even if the string earlier was truncated in the middle of a multi-byte
-	 * character.
+	 * 所有受支持的服务器编码都可以从多字节字符的
+	 * 首字节确定其长度（对客户端编码并非如此，
+	 * 见 GB18030）。st_activity 始终以服务器编码存储，
+	 * 这使我们可以执行多字节感知的截断，
+	 * 即使该字符串早前是在多字节字符中间被截断
+	 * 的。
 	 */
 	cliplen = pg_mbcliplen(activity, rawlen,
 						   pgstat_track_activity_query_size - 1);

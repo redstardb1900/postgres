@@ -1,6 +1,6 @@
 /* ----------
  * wait_event.c
- *	  Wait event reporting infrastructure.
+ *	  等待事件报告基础设施。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -10,20 +10,20 @@
  *
  * NOTES
  *
- * To make pgstat_report_wait_start() and pgstat_report_wait_end() as
- * lightweight as possible, they do not check if shared memory (MyProc
- * specifically, where the wait event is stored) is already available. Instead
- * we initially set my_wait_event_info to a process local variable, which then
- * is redirected to shared memory using pgstat_set_wait_event_storage(). For
- * the same reason pgstat_track_activities is not checked - the check adds
- * more work than it saves.
+ * 为使 pgstat_report_wait_start() 与 pgstat_report_wait_end()
+ * 尽量轻量，不检查共享内存（存放等待事件之处
+ * 正是 MyProc）已就绪。作为替代，最初将 my_wait_event_info
+ * 设为进程本地变量，随后再通过 pgstat_set_wait_event_storage()
+ * 将其重定向到共享内存。出于同样的原因，
+ * pgstat_track_activities 也不做检查——该检查增加的开销
+ * 比节省的还多。
  *
  * ----------
  */
 #include "postgres.h"
 
-#include "storage/lmgr.h"		/* for GetLockNameFromTagType */
-#include "storage/lwlock.h"		/* for GetLWLockIdentifier */
+#include "storage/lmgr.h"		/* GetLockNameFromTagType */
+#include "storage/lwlock.h"		/* GetLWLockIdentifier */
 #include "utils/wait_event.h"
 
 
@@ -39,12 +39,12 @@ uint32	   *my_wait_event_info = &local_my_wait_event_info;
 
 
 /*
- * Configure wait event reporting to report wait events to *wait_event_info.
- * *wait_event_info needs to be valid until pgstat_reset_wait_event_storage()
- * is called.
+ * 配置等待事件报告，使其报告到 *wait_event_info。
+ * *wait_event_info 须有效，直至 pgstat_reset_wait_event_storage()
+ * 调用。
  *
- * Expected to be called during backend startup, to point my_wait_event_info
- * into shared memory.
+ * 预期在后端启动期间调用，让 my_wait_event_info 指向
+ * 共享内存。
  */
 void
 pgstat_set_wait_event_storage(uint32 *wait_event_info)
@@ -53,10 +53,10 @@ pgstat_set_wait_event_storage(uint32 *wait_event_info)
 }
 
 /*
- * Reset wait event storage location.
+ * 重置等待事件存储位置。
  *
- * Expected to be called during backend shutdown, before the location set up
- * pgstat_set_wait_event_storage() becomes invalid.
+ * 预期在后端关闭时调用，早于 pgstat_set_wait_event_storage()
+ * 所设位置变为无效。
  */
 void
 pgstat_reset_wait_event_storage(void)
@@ -67,8 +67,8 @@ pgstat_reset_wait_event_storage(void)
 /* ----------
  * pgstat_get_wait_event_type() -
  *
- *	Return a string representing the current wait event type, backend is
- *	waiting on.
+ *	返回一个字符串，表示后端当前正等待的等待事件
+ *	类型。
  */
 const char *
 pgstat_get_wait_event_type(uint32 wait_event_info)
@@ -76,7 +76,7 @@ pgstat_get_wait_event_type(uint32 wait_event_info)
 	uint32		classId;
 	const char *event_type;
 
-	/* report process as not waiting. */
+	/* 报告进程未在等待。 */
 	if (wait_event_info == 0)
 		return NULL;
 
@@ -122,8 +122,8 @@ pgstat_get_wait_event_type(uint32 wait_event_info)
 /* ----------
  * pgstat_get_wait_event() -
  *
- *	Return a string representing the current wait event, backend is
- *	waiting on.
+ *	返回一个字符串，表示后端当前正等待的等待
+ *	事件。
  */
 const char *
 pgstat_get_wait_event(uint32 wait_event_info)
@@ -132,7 +132,7 @@ pgstat_get_wait_event(uint32 wait_event_info)
 	uint16		eventId;
 	const char *event_name;
 
-	/* report process as not waiting. */
+	/* 报告进程未在等待。 */
 	if (wait_event_info == 0)
 		return NULL;
 
@@ -199,7 +199,7 @@ pgstat_get_wait_event(uint32 wait_event_info)
 /* ----------
  * pgstat_get_wait_activity() -
  *
- * Convert WaitEventActivity to string.
+ * WaitEventActivity 转为字符串。
  * ----------
  */
 static const char *
@@ -248,7 +248,7 @@ pgstat_get_wait_activity(WaitEventActivity w)
 		case WAIT_EVENT_WAL_WRITER_MAIN:
 			event_name = "WalWriterMain";
 			break;
-			/* no default case, so that compiler will warn */
+			/* 无 default 分支，以便编译器告警 */
 	}
 
 	return event_name;
@@ -257,7 +257,7 @@ pgstat_get_wait_activity(WaitEventActivity w)
 /* ----------
  * pgstat_get_wait_client() -
  *
- * Convert WaitEventClient to string.
+ * WaitEventClient 转为字符串。
  * ----------
  */
 static const char *
@@ -291,7 +291,7 @@ pgstat_get_wait_client(WaitEventClient w)
 		case WAIT_EVENT_WAL_SENDER_WRITE_DATA:
 			event_name = "WalSenderWriteData";
 			break;
-			/* no default case, so that compiler will warn */
+			/* 无 default 分支，以便编译器告警 */
 	}
 
 	return event_name;
@@ -300,7 +300,7 @@ pgstat_get_wait_client(WaitEventClient w)
 /* ----------
  * pgstat_get_wait_ipc() -
  *
- * Convert WaitEventIPC to string.
+ * WaitEventIPC 转为字符串。
  * ----------
  */
 static const char *
@@ -469,7 +469,7 @@ pgstat_get_wait_ipc(WaitEventIPC w)
 		case WAIT_EVENT_XACT_GROUP_UPDATE:
 			event_name = "XactGroupUpdate";
 			break;
-			/* no default case, so that compiler will warn */
+			/* 无 default 分支，以便编译器告警 */
 	}
 
 	return event_name;
@@ -478,7 +478,7 @@ pgstat_get_wait_ipc(WaitEventIPC w)
 /* ----------
  * pgstat_get_wait_timeout() -
  *
- * Convert WaitEventTimeout to string.
+ * WaitEventTimeout 转为字符串。
  * ----------
  */
 static const char *
@@ -515,7 +515,7 @@ pgstat_get_wait_timeout(WaitEventTimeout w)
 		case WAIT_EVENT_VACUUM_TRUNCATE:
 			event_name = "VacuumTruncate";
 			break;
-			/* no default case, so that compiler will warn */
+			/* 无 default 分支，以便编译器告警 */
 	}
 
 	return event_name;
@@ -524,7 +524,7 @@ pgstat_get_wait_timeout(WaitEventTimeout w)
 /* ----------
  * pgstat_get_wait_io() -
  *
- * Convert WaitEventIO to string.
+ * WaitEventIO 转为字符串。
  * ----------
  */
 static const char *
@@ -760,7 +760,7 @@ pgstat_get_wait_io(WaitEventIO w)
 			event_name = "WALWrite";
 			break;
 
-			/* no default case, so that compiler will warn */
+			/* 无 default 分支，以便编译器告警 */
 	}
 
 	return event_name;

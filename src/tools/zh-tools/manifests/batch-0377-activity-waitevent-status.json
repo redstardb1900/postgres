@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0377",
+ "title": "activity dir wait_event.c + backend_status.c whole-file comment translation (125 blocks: 104 translated + 21 blocks with kept-EN; 287/325 content lines rewritten, 35 EN kept, 3 tails emptied to bare frame)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "a24801c775808e51224e00d28218c2071100f5d8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0377-activity-waitevent-status.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0377 manifest path and 2 activity file entries"
+  },
+  {
+   "pattern": "src/backend/utils/activity/wait_event.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0377; 34/46 lines translated, 12 EN kept (header 4 + NOTES label + 7 func labels)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/backend_status.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0377; 256/279 lines rewritten (253 translated + 3 emptied tails), 23 EN kept (header 4 + 6 buffer labels + 13 func labels)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0377-activity-waitevent-status.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0377 manifest path and 2 activity file entries"
+  },
+  {
+   "path": "src/backend/utils/activity/wait_event.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-23 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent; L11 NOTES label budget-kept (' * 注记' = 9 > 8 bytes); L68/L123/L200/L258/L301/L479/L525 function label lines kept EN - backend_progress.c precedent"
+   ],
+   "note": "whole-file comment translation, batch-0377; 19 blocks (18 fully translated + 1 header block with kept-EN); 34/46 content lines translated, 12 EN kept; trailing comments: include trailers L25/L26 (EN 'for X' rendered as bare identifier, budget-forced drop), tab-indent trailing L79/L135, no-default L251/L294/L472/L518/L763 (identical EN -> identical zh 无 default 分支，以便编译器告警, 51<=52; shortened vs xloginsert precedent 发出警告 by budget); identical EN translated identically (non-adjacent): L79=L135, L251=L294=L472=L518=L763; budget-forced period drops: L44 调用。 (13B), L19 比节省的还多。 trimmed from EN 'more work than it saves.'; L43/L44 splice 须有效，直至 pgstat_reset_wait_event_storage()/调用。; L70-71/L125-126 parallel renderings of the two EN Return-a-string blocks (等待事件/类型。 and 等待/事件。 tails); L15 MyProc) 已就绪 trimmed from is already available"
+  },
+  {
+   "path": "src/backend/utils/activity/backend_status.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 86,
+   "preserved": 20,
+   "preserved_reasons": [
+    "block L1-11 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent; L88/L90/L93/L96/L100/L105 buffer label lines (identifier+colon only, no prose fits budget); L279/L511/L626/L666/L721/L885/L966/L1041/L1061/L1077/L1103/L1133/L1159 function label lines kept EN - backend_progress.c precedent"
+   ],
+   "note": "whole-file comment translation, batch-0377; 106 blocks (86 fully translated + 20 blocks containing kept-EN lines); 279 content lines: 253 translated + 3 emptied to bare frame + 23 EN kept; emptied tails (budget, EN tail word absorbed into previous line): L268 'process.' -> L267 辅助进程的槽位索引。, L638 'reset' -> L637 应已重置, L1177 'one.' -> L1176 转换成正确截断的; mid-line trailing comments after code L470 标记无效 (18=18 exact) and L745 已做过 via trailing branch; include trailers L19 用于内存屏障 (= backend_progress.c L13 precedent), L21 供 MyProc (16=16), L25 供 application_name (26=26); term trio 更新自己的状态条目，遵循在前后各递增/st_changecount 的协议。这里使用 volatile 指针，/以确保编译器不会自作聪明。 rendered identically at L655-657/L684-686/L709-711 (identical EN, non-adjacent); identical EN translated identically: L1079=L1161, L1083=L1108, L1084=L1109, L1086=L1142, L1087=L1112=L1143, L1105=L1135, L1106=L1136, L30=L69 后端总数（含辅助进程）; budget-forced drops: L351-352 特殊处理位于 pg_stat_get_backend_client_addr 与 pg_stat_get_backend_client_port (72=72 exact, trailing 中/。 forced), L1163 传给...的最大基于 1 的索引。 (exact-budget, 可传给->传给), L466 确保编译器不自作聪明 (variant of 不会 phrase by budget), L282 来自 InitPostgres (由...调用 over budget), L1180 释放 bare (block tail period forced, 并可/释放 seam), L1079/L1161 支撑函数->辅助函数、的辅助函数 contraction; splices: L606-608 (标识/符。), L894-896 (因此/我们不必太过担心。）), L974-975 (但没/关系), L1139-1140 (截断/的。), L419-420, L785-786; review-fix round on working tree: L405-407 restored st_progress_command identifier (W7_IDENT_LOST; 在 moved to L405 tail), L286 不能->无法 (P02)"
+  }
+ ],
+ "notes": "batch-0377 (activity dir wait_event.c + backend_status.c, 2026-11-14, parent batch-0376=a24801c7758). Whole-file comment translation of the two remaining activity .c files with EN comments. Block accounting (block units throughout): 125 untranslated blocks (naive dump 19+106, matched the per-file comment-universe enumerator), 104 fully translated, 21 blocks containing kept-EN lines (header/buffer-label/function-label blocks); line-level detail: 325 content lines (46 wait_event + 279 backend_status), 287 rewritten (34+253, incl. 3 backend_status tails emptied to bare `*` frames: L268/L638/L1177, EN tail words absorbed into the previous line), 35 EN kept (12+23: 2x header filename/copyright/IDENTIFICATION/path, wait_event L11 NOTES label budget-kept, wait_event 7 function label lines, backend_status 6 buffer label lines L88-L105 identifier+colon budget-kept, backend_status 13 function label lines) - campaign header/label precedent (backend_progress.c). Gates: verify_c_comments --worktree REL_16_11 --paths src/backend/utils/activity rc=0, 15 files, 0 violations 0 parse errors (comments=392 changed=386); W7 advisories in scope: 6 deliberate W7_UNTRANSLATED on backend_status.c L88/L90/L93/L96/L100/L105 (identifier-label keeps) + 12 pre-existing W7_IDENT_LOST from earlier batches (pgstat_io x8, pgstat_xact, pgstat_replslot, pgstat_slru, backend_progress); this batch's own L404 W7_IDENT_LOST (st_progress_command) was caught in the fix round and eliminated by restoring the identifier. term_lint --pgnls: 0 errors 0 warnings on the two batch files; tree-wide run retains the 1 pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched) plus historical warning noise outside scope. scan_halfen: 50 tree-wide findings = 48 pre-existing + 2 on this batch, both class=mixed kept-EN runs with zh prose complete, disclosed rather than exempted (same treatment as 0375/0376): backend_status.c L29-37 'autovacuum worker', L575-578 '\"idle in transaction\"' (ASCII quotes per TL11, also L576 '\"active\"' same line). check_scope --incremental PASS rc=0 (4 changed paths: 2 .c + this manifest + cumulative.json). Fix round (single pass on the working tree before the batch commit): backend_status.c L405-407 restored st_progress_command identifier - first draft 在其被设为 dropped the identifier and tripped W7_IDENT_LOST; re-split as L405 ...st_progress_param；在 / L406 st_progress_command 被设为 PROGRESS_COMMAND_INVALID 以外的 / L407 值前无人应检查它。; L287 不能->无法 (P02 cannot rule); L114/L132/L242/L287/L350/L456/L466/L474/L606/L786/L910/L1079/L1161/L1084/L1109/L1139/L1163 first-draft overruns trimmed 1-6 bytes each against the EN whole-line budget. Audit: all 290 changed lines budget-checked against the EN baseline d61dd817be7 (zh bytes <= EN bytes, zero violations); line counts conserved (767/1216); frame terminator counts /* and */ identical before/after per file; no code line outside LINEKEY touched (asserted); zh ASCII quotes only (TL11), full-width parentheses in CJK prose, no leading punctuation, no curly quotes; cross-line tail-repeat and adjacent CJK LCS>=8 scans clean; naive dump coverage assertion universe==LINEKEY held on both files (46/279 content lines). Budget identifier/prose drops disclosed: wait_event L25/L26 'for' dropped (bare identifier comments), L19, L44; backend_status L268/L638/L1177 emptied, L352 trailing 中/。, L1163, L466, L282, L1180, L1079/L1161 支撑->辅助+的-contraction, L515 （注意某些情况下 cmd_str 为 NULL） dropped 但/可, L1088-region （尤其是查询字符串） phrasing, L901 特殊情形返回值 (strings->值). Term discipline: wait event=等待事件, wait event set n/a, tranche absent, timeout=超时/超时类 absent in prose, LWLock absent in prose; backend=后端, auxiliary process=辅助进程, background workers=后台工作进程, client hostname=客户端主机名, application_name/GUC/WAL/LSN/OID/XID/PID/SSL/GSSAPI/NUL/NULL kept, snapshot=快照, shared memory=共享内存, statistics=统计, status entry=状态条目, activity=活动, progress identifiers kept, query identifier=查询标识符, critical section=临界区, volatile kept; ops/operator tokens absent in both files. No commit made in this batch; commit is handled by the main session."
+}

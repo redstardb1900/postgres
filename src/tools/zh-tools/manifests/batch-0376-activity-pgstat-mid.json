@@ -1,0 +1,129 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0376",
+ "title": "activity dir 5 mid-size pgstat files whole-file comment translation (188 blocks: 184 translated + 4 header blocks with kept-EN; 409/429 content lines translated, 20 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1580a3425039d85558edd391f27d30eab18f573a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0376-activity-pgstat-mid.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0376 manifest path and 5 activity file entries (S6 registration)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_function.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0376; 59/63 lines translated, 4 EN kept (header) (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_database.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0376; 55/59 lines translated, 4 EN kept (header) (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_io.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0376; 70/74 lines translated, 4 EN kept (header) (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_xact.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0376; 51/55 lines translated, 4 EN kept (header) (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_relation.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0376; 174/178 lines translated, 4 EN kept (header) (header)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0376-activity-pgstat-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0376 manifest path and 5 activity file entries (S6 registration)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_function.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0376; 22 blocks (21 fully translated + 1 header block with kept-EN); 59/63 content lines translated, 4 EN kept; trailing comments L81/L126/L129/L132/L153/L157/L161/L167/L179/L201 via trailing branch (10); exact-budget lines L68/L100/L107/L175; review-fix round: D1 removed a duplicated clause at L55-56 (做了额外工作 appeared twice rendering the same EN clause; re-split as L55 ...做了额外工作才可靠。/L56 如果其他地方产出函数统计，多半也需要类似/L57 逻辑。), D5 brackets L173/L175 ( -> （ and .) -> ）, plus L36 ( -> （ for in-file consistency; D2/D6/D4 n/a here"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_database.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0376; 29 blocks (28 + 1 header block with kept-EN); 55/59 content lines translated, 4 EN kept; trailing comments L60/L221/L251/L400/L414 via trailing branch (5); exact-budget lines L122/L267 (L267 IO计时 is a budget-forced block-tail-period exception, 11-byte line); review-fix round: D2 restored block-tail period at L137 (报告一或多个校验和失败。; 一或多个 contraction to fit the 40-byte budget) and L330 (dropped 的 before 本地 to fit 。); L298/L299 re-split (由 pgstat_report_connect() 设为 / MyStartTimestamp。) so the sentence closes with 。; L64 真空→清理 fixup (TL07 error: 真空 never right for vacuum, pgdoc rule 597)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_io.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 23,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-15 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0376; 24 blocks (23 + 1 header block with kept-EN); 70/74 content lines translated, 4 EN kept; trailing comments L55/L58/L66/L281/L412 via trailing branch (5); exact-budget lines L109/L339/L362; review-fix round: D4 restored the second check condition at L337-339 (给定 IOObject 须于该 IOContext 被操作; L339 于该 IOContext 被操作 is exact-budget so its EN-final period stays dropped - disclosed forced exception); D2 period restored at L252/L275 (并保护重置时间戳。); L251-252 and L274-275 are identical EN blocks translated identically (non-adjacent); irregular no-leading-space comment block L287-301 preserved as-is; budget-forced block-tail-period exceptions: L339/L355/L367/L437"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-11 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0376; 25 blocks (24 + 1 header block with kept-EN); 51/55 content lines translated, 4 EN kept; trailing comments L47/L59/L117/L122/L228 via trailing branch (5) + 2 mid-line comments after code L369/L382 /* create */ -> /* 创建 */; exact-budget lines L133/L159/L207/L265/L369/L377/L382; naive dump DEFECT: block @369 trailing-comment first piece made the dump swallow the independent doc block L372-378 into it (continuation lines sliced to 1 char by the find(\"/*\") budget); spec was built from the true per-file comment universe instead and the coverage assertion (universe == LINEKEY) held at 55; review-fix round: D3 removed the duplicated tail 调用 at L310 (sentence now runs 调用自 xact_redo_commit() / xact_redo_abort()（恢复期间）以及 FinishPreparedTransaction()（正常 2PC PREPARED 提交/中止处理）。), D2 period restored at L133/L233-234 (存在，缺失则/添加。); L86 除 is a budget-forced period exception (4-byte content budget)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 88,
+   "translated": 87,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header: filename, copyright, IDENTIFICATION, path kept - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0376; 88 blocks (87 + 1 header block with kept-EN); 174/178 content lines translated, 4 EN kept; trailing comments 44 lines via trailing branch, incl. 9 struct-field trailing comments after code (L34/L35/L36/L41/L42/L43/L775/L777/L778) whose whole-line budget includes the code segment; exact-budget lines L151/L156/L353/L432/L503/L537/L642/L675/L680/L708/L744/L883; review-fix round: D6 统计项→统计条目 at relation L775/L778 (待写统计条目/待写数据库条目: 条目 fits only by contracting 待写入→待写, disclosed); L863/L864 re-split (条目，不存在时/创建并初始化。) restoring and-initialized and removing the 若...时 redundancy; D2 periods restored at L498-499 (AtEOXact_PgStat 的/辅助函数。), L557-558 (AtEOSubXact_PgStat 的/辅助函数。), L680 (不会→不 to fit 。, 64=64 exact), L699 (将保存计数载入本地 pgstats 状态。), L734-735 (但视为已/回滚。), L910 (需要时添加新（子）事务记录。); L145 拥有者→所有者 fixup (P53); identical EN blocks translated identically (L227=L319, L521=L627, L530=L718, L547=L631, L708=L744, all non-adjacent); budget-forced period exceptions: L245/L608/L642"
+  }
+ ],
+ "notes": "batch-0376 (activity dir 5 mid-size pgstat files, 2026-11-14, parent batch-0375=1580a342503). Whole-file comment translation of pgstat_function.c, pgstat_database.c, pgstat_io.c, pgstat_xact.c, pgstat_relation.c. Block accounting (block units throughout): 188 untranslated blocks total, 184 fully translated, 4 blocks containing kept-EN lines (one header block per file); line-level detail: 429 comment content lines, 409 translated, 20 EN kept (4 per file: filename/copyright/IDENTIFICATION/path per campaign header precedent). Per-file: function 22 blocks 59/63 lines; database 29 blocks 55/59; io 24 blocks 70/74; xact 25 blocks 51/55; relation 88 blocks 174/178. Gates (post review-fix round): verify_c_comments --paths src/backend/utils/activity 0 violations 0 parse errors (13 files, comments=267 changed=267; 9 W7_IDENT_LOST advisories on this batch, all deliberate plural-identifier prose renderings: io L287/L334/L347/L377/L398/L416/L435/L451 BackendTypes/IOContexts/IOObjects/IOOps rendered as singular Chinese, xact L307 COMMIT/ABORT rendered 提交/中止); term_lint --pgnls: 0 errors and 0 warnings on the 5 batch files; tree-wide run retains the 1 pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched) plus historical warning noise outside this batch's scope. scan_halfen: 48 tree-wide findings = the 47 pre-existing + 1 on this batch (pgstat_function.c L91-109 class=mixed run_text '\"low level\"' - kept-EN quoted term with zh prose complete, disclosed rather than exempted, same treatment as 0375). check_scope --incremental PASS rc=0 (7 changed paths: 5 .c + this manifest + cumulative.json). REVIEW-FIX ROUND (D1-D7, single pass on the working tree before the batch commit): D1 function L55-56 duplicated clause removed - 做了额外工作 had rendered the same EN clause ('does some extra work') twice; re-split to L55 NB: 仅因 pgstat_init_function_usage() 做了额外工作才可靠。/ L56 如果其他地方产出函数统计，多半也需要类似 / L57 逻辑。; D2 block-tail periods restored at database L137/L298-299/L330, io L252/L275, relation L498-499/L557-558/L680/L699/L734-735/L910, xact L133/L233-234/L310, function L57 (via D1) - each re-verified against the EN whole-line budget; the full block-tail-period rescan now reports ZERO unexplained drops; the budget-FORCED exceptions (EN sentence-final period with no room for 。, 11 lines) are: database L267 (IO计时), io L339 (于该 IOContext 被操作), io L355 (IOCONTEXT_NORMAL IOContext), io L367 (IOOBJECT_TEMP_RELATION), io L437 (在特定上下文有效), relation L90 (pgstat_assoc_relation()), relation L245 (零星表), relation L608 (一个新条目), relation L642 (记录), xact L86 (除), xact L110; D3 xact L310 tail 调用 removed (the verb already appears as 调用自 in L308); D4 io L337-339 second check condition restored (且给定 IOObject 于该 IOContext 被操作); D5 brackets unified to full-width at function L173/L175 (（我们 ... ）) and io L365 (InitLocalBuffers()）), plus function L36 ( -> （ for in-file consistency; io L412 keeps ASCII parens around the code tuple (io_context, io_object); D6 统计项→统计条目 at xact L257/L259/L260-261 (L260-261 splice now 统计/条目。) and relation L775/L778 - at L775/L778 条目 fits only by contracting 待写入→待写 (待写统计条目/待写数据库条目), disclosed; relation L863/L864 re-split restoring 并初始化 and removing the 若...时 redundancy (条目，不存在时/创建并初始化。); D7 accounting corrections: cumulative.json append is 6 entries (1 manifest + 5 .c), not 7; the dropped-period disclosure in an earlier draft of this note mislabeled io L355/L437 under relation - corrected above; all per-file notes refreshed to the post-fix state. Fix-round verification: all 33 rewritten lines budget-checked against the HEAD (EN) baseline; full audit over all 409 changed lines (budget vs EN, leading punctuation, curly quotes, seam repeats, adjacent CJK LCS>=8, code/kept-line byte identity, frame counts, line counts) passes; changed-line count unchanged at 409. Naive dump artifact and coverage: the dump script's block @369 in pgstat_xact.c had a trailing-comment first piece ('/* create */ true);') whose continuation lines were sliced to their last character by the p[find('/*'):] budget, silently swallowing the independent doc block L372-378 into it; the LINEKEY spec was instead built from a corrected per-file comment-universe enumerator (standalone blocks + same-line trailing comments) and the coverage assertion universe==LINEKEY held on all five files (63/59/74/55/178 content lines), satisfying the LINEKEY∪KEPT coverage rule; the relation file's 9 struct-field trailing comments (L34/L35/L36/L41/L42/L43/L775/L777/L778) are covered, their whole-line budget including the leading code segment. Trailing branch: 71 content lines rewritten through the trailing regex (tried before the doc-prefix regex, rule 9): 69 whole-line /*...*/ comments + 2 mid-line comments after code (xact L369/L382). Exact-budget accounting (whole-line bytes vs EN, equal after edit), post-fix: 28 lines - function L68/L100/L107/L175, database L122/L267, io L109/L339/L362, xact L133/L159/L207/L265/L369/L377/L382, relation L151/L156/L353/L432/L503/L537/L642/L675/L680/L708/L744/L883. Identical EN blocks translated identically (non-adjacent, EN self-repetition): io L251-252=L274-275; relation L227=L319, L521=L627, L530=L718, L547=L631, L708=L744; xact L59=L228. Adjacent-line tail splices (no cross-paragraph movement), post-fix: function L55-57 (才可靠。/...需要类似/逻辑。), L92-98 (已被/并发删除, 上的/锁)), L106-108, L171-175 (（我们/无需...排除/任何递归调用）); database L64-66, L96-97, L149-150, L238-241, L255-256, L298-299 (设为/MyStartTimestamp。), L317-321, L338-339, L350-351, L371-372; io L37-39, L290-291, L293-294, L297-298, L300-301, L335-339 (是/否预期..., 且给定 IOObject/于该 IOContext 被操作), L362-367, L378-380, L399-404, L436-437, L452-454; xact L64-65, L85-86, L94-95, L169-171, L233-234 (缺失则/添加。), L259-261 (统计/条目。), L263-265, L267-268, L281-282, L308-310 (commit() //abort()（恢复期间）以及/（正常 2PC PREPARED 提交/中止处理）。), L351-352, L354-355, L373-374, L376-377; relation L55-56, L82-83, L88-90, L124-127, L150-151, L194-195, L238-245, L263-266, L274-275, L291-298, L333-335, L434-437, L452-454, L498-499 (的/辅助函数。), L501-503, L557-558 (的/辅助函数。), L560-561, L603-608, L621-622, L641-642, L675-678, L734-735 (但视为已/回滚。), L764-765, L767-768, L785-786, L863-864 (不存在时/创建并初始化。), L892-893, L923-926, L928-929. Budget identifier/prose drops disclosed (post-fix): function L108 trailing ellipsis dropped, L141 'calls' consumed by L142 调用; xact L110 trailing period budget-forced; relation L90 '()' period budget-forced, L56 'CONCURRENTLY' consumed into L55, L864 previously dropped 'and initialized' now restored via the L863/L864 re-split; io L288-301 block keeps EN's missing leading space, L295 'for now' rendered 暂不在...中跟踪, L339 period budget-forced, L355/L367/L437 periods budget-forced; database L267 period budget-forced; relation L245/L608/L642 periods budget-forced, L642 renders 'stats' as 记录 (9-byte line), L775/L778 contract 待写入→待写 (D6). Term-gate fixups landed during the gate round: database L64 真空→清理 (TL07 error, pgdoc rule 597); function L97 要求→需要 (TL08/P13/P23); relation L145 拥有者→所有者 (P53); function L102 已经存在→早已存在 (P13 forbidden collocation 已经存在 co-occurring with EN 'already exists'); function L92 rewritten 若无已存在的共享条目，检查函数是否已被 (61B<=69B), satisfying P13's required rendering 已存在 and removing a 并发删除 duplication between L92/L93 introduced by an earlier budget trim. Quotes in zh are ASCII throughout (TL11) except full-width parentheses/brackets which are punctuation, not quotes; zh leading punctuation asserted absent. Term discipline: statistics=统计, stats entry=统计条目, flush=刷写/刷出, pending=待写入 (L775/L778 contract to 待写 under budget, disclosed), snapshot=快照, shared memory=共享内存, relation=关系, database=数据库, xact=事务, drop=删除, vacuum/analyze=VACUUM/ANALYZE kept or 清理 per context (TL07 enforced); pgstat_*/PgStat_*/GUC identifiers, WAL/LSN/OID/XID/2PC/PREPARE/COMMIT/ABORT/REINDEX CONCURRENTLY kept; no ops/operator tokens occur in these 5 files. No commit made in this batch; commit is handled by the main session."
+}

@@ -1,7 +1,7 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_xact.c
- *	  Transactional integration for the cumulative statistics system.
+ *	  累计统计系统的事务集成。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -35,7 +35,7 @@ static PgStat_SubXactStatus *pgStatXactStack = NULL;
 
 
 /*
- * Called from access/transam/xact.c at top-level transaction commit/abort.
+ * 由 access/transam/xact.c 在顶层事务提交/回滚时调用。
  */
 void
 AtEOXact_PgStat(bool isCommit, bool parallel)
@@ -44,7 +44,7 @@ AtEOXact_PgStat(bool isCommit, bool parallel)
 
 	AtEOXact_PgStat_Database(isCommit, parallel);
 
-	/* handle transactional stats information */
+	/* 处理事务性统计信息 */
 	xact_state = pgStatXactStack;
 	if (xact_state != NULL)
 	{
@@ -56,13 +56,13 @@ AtEOXact_PgStat(bool isCommit, bool parallel)
 	}
 	pgStatXactStack = NULL;
 
-	/* Make sure any stats snapshot is thrown away */
+	/* 确保丢弃任何统计快照 */
 	pgstat_clear_snapshot();
 }
 
 /*
- * When committing, drop stats for objects dropped in the transaction. When
- * aborting, drop stats for objects created in the transaction.
+ * 提交时，删除事务中删除对象的统计。回滚时，删
+ * 除事务中创建对象的统计。
  */
 static void
 AtEOXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state, bool isCommit)
@@ -82,8 +82,8 @@ AtEOXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state, bool isCommit)
 		if (isCommit && !pending->is_create)
 		{
 			/*
-			 * Transaction that dropped an object committed. Drop the stats
-			 * too.
+			 * 删除对象的事务已提交。统计也一并删
+			 * 除
 			 */
 			if (!pgstat_drop_entry(it->kind, it->dboid, it->objoid))
 				not_freed_count++;
@@ -91,8 +91,8 @@ AtEOXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state, bool isCommit)
 		else if (!isCommit && pending->is_create)
 		{
 			/*
-			 * Transaction that created an object aborted. Drop the stats
-			 * associated with the object.
+			 * 创建对象的事务已回滚。删除与该对象
+			 * 相关联的统计。
 			 */
 			if (!pgstat_drop_entry(it->kind, it->dboid, it->objoid))
 				not_freed_count++;
@@ -107,19 +107,19 @@ AtEOXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state, bool isCommit)
 }
 
 /*
- * Called from access/transam/xact.c at subtransaction commit/abort.
+ * 由 access/transam/xact.c 在子事务提交/回滚时调用
  */
 void
 AtEOSubXact_PgStat(bool isCommit, int nestDepth)
 {
 	PgStat_SubXactStatus *xact_state;
 
-	/* merge the sub-transaction's transactional stats into the parent */
+	/* 将子事务的事务性统计合并到父事务 */
 	xact_state = pgStatXactStack;
 	if (xact_state != NULL &&
 		xact_state->nest_level >= nestDepth)
 	{
-		/* delink xact_state from stack immediately to simplify reuse case */
+		/* 立即解除 xact_state 与栈的链接，简化复用情形 */
 		pgStatXactStack = xact_state->prev;
 
 		AtEOSubXact_PgStat_Relations(xact_state, isCommit, nestDepth);
@@ -130,7 +130,7 @@ AtEOSubXact_PgStat(bool isCommit, int nestDepth)
 }
 
 /*
- * Like AtEOXact_PgStat_DroppedStats(), but for subtransactions.
+ * 类似 AtEOXact_PgStat_DroppedStats()，但用于子事务。
  */
 static void
 AtEOSubXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state,
@@ -156,8 +156,8 @@ AtEOSubXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state,
 		if (!isCommit && pending->is_create)
 		{
 			/*
-			 * Subtransaction creating a new stats object aborted. Drop the
-			 * stats object.
+			 * 创建新统计对象的子事务已回滚。删除该统计
+			 * 对象。
 			 */
 			if (!pgstat_drop_entry(it->kind, it->dboid, it->objoid))
 				not_freed_count++;
@@ -166,9 +166,9 @@ AtEOSubXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state,
 		else if (isCommit)
 		{
 			/*
-			 * Subtransaction dropping a stats object committed. Can't yet
-			 * remove the stats object, the surrounding transaction might
-			 * still abort. Pass it on to the parent.
+			 * 删除统计对象的子事务已提交。还无法移除
+			 * 统计对象，外层事务仍可能回滚。将其传
+			 * 递给父事务。
 			 */
 			dclist_push_tail(&parent_xact_state->pending_drops, &pending->node);
 		}
@@ -184,7 +184,7 @@ AtEOSubXact_PgStat_DroppedStats(PgStat_SubXactStatus *xact_state,
 }
 
 /*
- * Save the transactional stats state at 2PC transaction prepare.
+ * 在 2PC 事务预备时保存事务性统计状态。
  */
 void
 AtPrepare_PgStat(void)
@@ -202,9 +202,9 @@ AtPrepare_PgStat(void)
 }
 
 /*
- * Clean up after successful PREPARE.
+ * 在 PREPARE 成功后清理。
  *
- * Note: AtEOXact_PgStat is not called during PREPARE.
+ * 注意：PREPARE 期间不调用 AtEOXact_PgStat。
  */
 void
 PostPrepare_PgStat(void)
@@ -212,8 +212,8 @@ PostPrepare_PgStat(void)
 	PgStat_SubXactStatus *xact_state;
 
 	/*
-	 * We don't bother to free any of the transactional state, since it's all
-	 * in TopTransactionContext and will go away anyway.
+	 * 不必费心释放任何事务性状态，因为它们全部
+	 * 在 TopTransactionContext 中会自行消失。
 	 */
 	xact_state = pgStatXactStack;
 	if (xact_state != NULL)
@@ -225,13 +225,13 @@ PostPrepare_PgStat(void)
 	}
 	pgStatXactStack = NULL;
 
-	/* Make sure any stats snapshot is thrown away */
+	/* 确保丢弃任何统计快照 */
 	pgstat_clear_snapshot();
 }
 
 /*
- * Ensure (sub)transaction stack entry for the given nest_level exists, adding
- * it if needed.
+ * 确保给定 nest_level 的（子）事务栈条目存在，缺失则
+ * 添加。
  */
 PgStat_SubXactStatus *
 pgstat_get_xact_stack_level(int nest_level)
@@ -254,18 +254,18 @@ pgstat_get_xact_stack_level(int nest_level)
 }
 
 /*
- * Get stat items that need to be dropped at commit / abort.
+ * 获取需要在提交 / 回滚时删除的统计项。
  *
- * When committing, stats for objects that have been dropped in the
- * transaction are returned. When aborting, stats for newly created objects are
- * returned.
+ * 提交时，返回在事务中删除的对象的统计项；
+ * 回滚时，返回新建对象的统计
+ * 项。
  *
- * Used by COMMIT / ABORT and 2PC PREPARE processing when building their
- * respective WAL records, to ensure stats are dropped in case of a crash / on
- * standbys.
+ * 由 COMMIT / ABORT 与 2PC PREPARE 处理在构建各自
+ * 的 WAL 记录时使用，以确保崩溃时 / 备机上也会删除
+ * 统计。
  *
- * The list of items is allocated in CurrentMemoryContext and must be freed by
- * the caller (directly or via memory context reset).
+ * 项列表在 CurrentMemoryContext 中分配，必须由调用
+ * 者释放（直接或经上下文重置）。
  */
 int
 pgstat_get_transactional_drops(bool isCommit, xl_xact_stats_item **items)
@@ -278,8 +278,8 @@ pgstat_get_transactional_drops(bool isCommit, xl_xact_stats_item **items)
 		return 0;
 
 	/*
-	 * We expect to be called for subtransaction abort (which logs a WAL
-	 * record), but not for subtransaction commit (which doesn't).
+	 * 预期只会在子事务回滚（有 WAL 记录）时被调
+	 * 用，而子事务提交（无记录）则不会。
 	 */
 	Assert(!isCommit || xact_state->nest_level == 1);
 	Assert(!isCommit || xact_state->prev == NULL);
@@ -305,9 +305,9 @@ pgstat_get_transactional_drops(bool isCommit, xl_xact_stats_item **items)
 }
 
 /*
- * Execute scheduled drops post-commit. Called from xact_redo_commit() /
- * xact_redo_abort() during recovery, and from FinishPreparedTransaction()
- * during normal 2PC COMMIT/ABORT PREPARED processing.
+ * 执行提交后计划的删除。调用自 xact_redo_commit() /
+ * xact_redo_abort()（恢复期间）以及 FinishPreparedTransaction()
+ * （正常 2PC PREPARED 提交/中止处理）。
  */
 void
 pgstat_execute_transactional_drops(int ndrops, struct xl_xact_stats_item *items, bool is_redo)
@@ -348,11 +348,11 @@ create_drop_transactional_internal(PgStat_Kind kind, Oid dboid, Oid objoid, bool
 }
 
 /*
- * Create a stats entry for a newly created database object in a transactional
- * manner.
+ * 以事务性方式为新创建的数据库对象创建统计条
+ * 目。
  *
- * I.e. if the current (sub-)transaction aborts, the stats entry will also be
- * dropped.
+ * 即若当前（子）事务回滚，该统计条目也将被删
+ * 除。
  */
 void
 pgstat_create_transactional(PgStat_Kind kind, Oid dboid, Oid objoid)
@@ -366,18 +366,18 @@ pgstat_create_transactional(PgStat_Kind kind, Oid dboid, Oid objoid)
 		pgstat_reset(kind, dboid, objoid);
 	}
 
-	create_drop_transactional_internal(kind, dboid, objoid, /* create */ true);
+	create_drop_transactional_internal(kind, dboid, objoid, /* 创建 */ true);
 }
 
 /*
- * Drop a stats entry for a just dropped database object in a transactional
- * manner.
+ * 以事务性方式删除刚删除的数据库对象的统计条
+ * 目。
  *
- * I.e. if the current (sub-)transaction aborts, the stats entry will stay
- * alive.
+ * 即若当前（子）事务回滚，该统计条目仍将存
+ * 活。
  */
 void
 pgstat_drop_transactional(PgStat_Kind kind, Oid dboid, Oid objoid)
 {
-	create_drop_transactional_internal(kind, dboid, objoid, /* create */ false);
+	create_drop_transactional_internal(kind, dboid, objoid, /* 创建 */ false);
 }

@@ -1,12 +1,12 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_function.c
- *	  Implementation of function statistics.
+ *	  函数统计的实现。
  *
- * This file contains the implementation of function statistics. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含函数统计的实现。它与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -24,22 +24,22 @@
 
 
 /* ----------
- * GUC parameters
+ * GUC 参数
  * ----------
  */
 int			pgstat_track_functions = TRACK_FUNC_OFF;
 
 
 /*
- * Total time charged to functions so far in the current backend.
- * We use this to help separate "self" and "other" time charges.
- * (We assume this initializes to zero.)
+ * 到目前为止记入当前后端各函数的时间总计。
+ * 用它来帮助区分 "self" 与 "other" 时间计费。
+ * （假定其初始化为零。）
  */
 static instr_time total_func_time;
 
 
 /*
- * Ensure that stats are dropped if transaction aborts.
+ * 确保事务回滚时删除统计。
  */
 void
 pgstat_create_function(Oid proid)
@@ -50,11 +50,11 @@ pgstat_create_function(Oid proid)
 }
 
 /*
- * Ensure that stats are dropped if transaction commits.
+ * 确保事务提交时删除统计。
  *
- * NB: This is only reliable because pgstat_init_function_usage() does some
- * extra work. If other places start emitting function stats they likely need
- * similar logic.
+ * NB: 仅因 pgstat_init_function_usage() 做了额外工作才可靠。
+ * 如果其他地方产出函数统计，多半也需要类似
+ * 逻辑。
  */
 void
 pgstat_drop_function(Oid proid)
@@ -65,8 +65,8 @@ pgstat_drop_function(Oid proid)
 }
 
 /*
- * Initialize function call usage data.
- * Called by the executor before invoking a function.
+ * 初始化函数调用用量数据。
+ * 在调用函数之前由执行器调用。
  */
 void
 pgstat_init_function_usage(FunctionCallInfo fcinfo,
@@ -78,7 +78,7 @@ pgstat_init_function_usage(FunctionCallInfo fcinfo,
 
 	if (pgstat_track_functions <= fcinfo->flinfo->fn_stats)
 	{
-		/* stats not wanted */
+		/* 不需要统计 */
 		fcu->fs = NULL;
 		return;
 	}
@@ -89,23 +89,23 @@ pgstat_init_function_usage(FunctionCallInfo fcinfo,
 										  &created_entry);
 
 	/*
-	 * If no shared entry already exists, check if the function has been
-	 * deleted concurrently. This can go unnoticed until here because
-	 * executing a statement that just calls a function, does not trigger
-	 * cache invalidation processing. The reason we care about this case is
-	 * that otherwise we could create a new stats entry for an already dropped
-	 * function (for relations etc this is not possible because emitting stats
-	 * requires a lock for the relation to already have been acquired).
+	 * 若无已存在的共享条目，检查函数是否已被
+	 * 并发删除。可能直到此处才被发现，因为执行
+	 * 仅调用函数的语句时，不会触发缓存失效处理。
+	 * 我们在意这种情况，否则可能为已删除的函数
+	 * 新建一条统计条目（对关系等不存在此问题，
+	 * 因为产出统计需要事先已持有该关系上的
+	 * 锁）。
 	 *
-	 * It's somewhat ugly to have a behavioral difference based on
-	 * track_functions being enabled/disabled. But it seems acceptable, given
-	 * that there's already behavioral differences depending on whether the
-	 * function is the caches etc.
+	 * 依据 track_functions 是否启用而产生行为差异，
+	 * 这确实有失美观，但鉴于在函数是否被缓存等
+	 * 方面早已存在行为差异，这样做似乎
+	 * 尚可接受。
 	 *
-	 * For correctness it'd be sufficient to set ->dropped to true. However,
-	 * the accepted invalidation will commonly cause "low level" failures in
-	 * PL code, with an OID in the error message. Making this harder to
-	 * test...
+	 * 就正确性而言只需将 ->dropped 设为 true 即可。然而
+	 * 已接受的失效处理通常会导致 PL 代码中的 "low level"
+	 * 失败，且错误消息中带有 OID，这使得测试变得更
+	 * 难。
 	 */
 	if (created_entry)
 	{
@@ -123,24 +123,24 @@ pgstat_init_function_usage(FunctionCallInfo fcinfo,
 
 	fcu->fs = pending;
 
-	/* save stats for this function, later used to compensate for recursion */
+	/* 保存此函数的统计，稍后用于补偿递归 */
 	fcu->save_f_total_time = pending->total_time;
 
-	/* save current backend-wide total time */
+	/* 保存当前后端级总时间 */
 	fcu->save_total = total_func_time;
 
-	/* get clock time as of function start */
+	/* 获取函数起点时钟时间 */
 	INSTR_TIME_SET_CURRENT(fcu->start);
 }
 
 /*
- * Calculate function call usage and update stat counters.
- * Called by the executor after invoking a function.
+ * 计算函数调用用量并更新统计计数器。
+ * 由执行器在函数调用完成后调用。
  *
- * In the case of a set-returning function that runs in value-per-call mode,
- * we will see multiple pgstat_init_function_usage/pgstat_end_function_usage
- * calls for what the user considers a single call of the function.  The
- * finalize flag should be TRUE on the last call.
+ * 对于以 value-per-call 模式运行的集合返回函数，
+ * 将看到多次 pgstat_init_function_usage/pgstat_end_function_usage
+ * 调用，尽管用户认为这只是该函数的一次调用。
+ * finalize 标志应在末次调用为 TRUE。
  */
 void
 pgstat_end_function_usage(PgStat_FunctionCallUsage *fcu, bool finalize)
@@ -150,33 +150,33 @@ pgstat_end_function_usage(PgStat_FunctionCallUsage *fcu, bool finalize)
 	instr_time	others;
 	instr_time	self;
 
-	/* stats not wanted? */
+	/* 不需要统计 */
 	if (fs == NULL)
 		return;
 
-	/* total elapsed time in this function call */
+	/* 本次函数调用耗费的总时间 */
 	INSTR_TIME_SET_CURRENT(total);
 	INSTR_TIME_SUBTRACT(total, fcu->start);
 
-	/* self usage: elapsed minus anything already charged to other calls */
+	/* 自身耗时：总耗时减去已计入其他调用的部分 */
 	others = total_func_time;
 	INSTR_TIME_SUBTRACT(others, fcu->save_total);
 	self = total;
 	INSTR_TIME_SUBTRACT(self, others);
 
-	/* update backend-wide total time */
+	/* 更新后端级总时间 */
 	INSTR_TIME_ADD(total_func_time, self);
 
 	/*
-	 * Compute the new total_time as the total elapsed time added to the
-	 * pre-call value of total_time.  This is necessary to avoid
-	 * double-counting any time taken by recursive calls of myself.  (We do
-	 * not need any similar kluge for self time, since that already excludes
-	 * any recursive calls.)
+	 * 将新的 total_time 计算为总流逝时间加上调用前的
+	 * total_time 值。这样做是为了避免
+	 * 把自身递归调用所耗的时间重复计入。（我们
+	 * 无需为自身时间做类似处理，因为它已经排除
+	 * 任何递归调用）
 	 */
 	INSTR_TIME_ADD(total, fcu->save_f_total_time);
 
-	/* update counters in function stats table */
+	/* 更新函数统计表中的计数器 */
 	if (finalize)
 		fs->numcalls++;
 	fs->total_time = total;
@@ -184,10 +184,10 @@ pgstat_end_function_usage(PgStat_FunctionCallUsage *fcu, bool finalize)
 }
 
 /*
- * Flush out pending stats for the entry
+ * 刷出该条目的待写入统计
  *
- * If nowait is true and the lock could not be immediately acquired, returns
- * false without flushing the entry.  Otherwise returns true.
+ * 若 nowait 为 true 且无法立即获得锁，则返回 false，
+ * 不刷写该条目。否则返回 true。
  */
 bool
 pgstat_function_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
@@ -198,7 +198,7 @@ pgstat_function_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 	localent = (PgStat_FunctionCounts *) entry_ref->pending;
 	shfuncent = (PgStatShared_Function *) entry_ref->shared_stats;
 
-	/* localent always has non-zero content */
+	/* 局部条目总有非零内容 */
 
 	if (!pgstat_lock_entry(entry_ref, nowait))
 		return false;
@@ -215,9 +215,9 @@ pgstat_function_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 }
 
 /*
- * find any existing PgStat_FunctionCounts entry for specified function
+ * 查找指定函数已有的 PgStat_FunctionCounts 条目
  *
- * If no entry, return NULL, don't create a new one
+ * 若无条目则返回 NULL，不新建条目
  */
 PgStat_FunctionCounts *
 find_funcstat_entry(Oid func_id)
@@ -232,8 +232,8 @@ find_funcstat_entry(Oid func_id)
 }
 
 /*
- * Support function for the SQL-callable pgstat* functions. Returns
- * the collected statistics for one function or NULL.
+ * SQL 可调用 pgstat* 函数的支持函数。返回
+ * 一个函数的统计信息或 NULL。
  */
 PgStat_StatFuncEntry *
 pgstat_fetch_stat_funcentry(Oid func_id)

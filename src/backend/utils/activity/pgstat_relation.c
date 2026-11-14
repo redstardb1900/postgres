@@ -1,12 +1,12 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_relation.c
- *	  Implementation of relation statistics.
+ *	  关系统计的实现。
  *
- * This file contains the implementation of function relation. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含关系统计的实现。它与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -28,19 +28,19 @@
 #include "catalog/catalog.h"
 
 
-/* Record that's written to 2PC state file when pgstat state is persisted */
+/* pgstat 状态持久化时写入 2PC 状态文件的记录 */
 typedef struct TwoPhasePgStatRecord
 {
-	PgStat_Counter tuples_inserted; /* tuples inserted in xact */
-	PgStat_Counter tuples_updated;	/* tuples updated in xact */
-	PgStat_Counter tuples_deleted;	/* tuples deleted in xact */
-	/* tuples i/u/d prior to truncate/drop */
+	PgStat_Counter tuples_inserted; /* 事务内插入元组 */
+	PgStat_Counter tuples_updated;	/* 事务内更新元组 */
+	PgStat_Counter tuples_deleted;	/* 事务内删除元组 */
+	/* 截断/删除前的元组 i/u/d */
 	PgStat_Counter inserted_pre_truncdrop;
 	PgStat_Counter updated_pre_truncdrop;
 	PgStat_Counter deleted_pre_truncdrop;
-	Oid			id;				/* table's OID */
-	bool		shared;			/* is it a shared catalog? */
-	bool		truncdropped;	/* was the relation truncated/dropped? */
+	Oid			id;				/* 表的 OID */
+	bool		shared;			/* 是否为共享目录 */
+	bool		truncdropped;	/* 关系是否曾被截断/删除 */
 } TwoPhasePgStatRecord;
 
 
@@ -52,8 +52,8 @@ static void restore_truncdrop_counters(PgStat_TableXactStatus *trans);
 
 
 /*
- * Copy stats between relations. This is used for things like REINDEX
- * CONCURRENTLY.
+ * 在关系之间复制统计。用于 REINDEX CONCURRENTLY
+ * 等场景。
  */
 void
 pgstat_copy_relation_stats(Relation dst, Relation src)
@@ -79,15 +79,15 @@ pgstat_copy_relation_stats(Relation dst, Relation src)
 }
 
 /*
- * Initialize a relcache entry to count access statistics.  Called whenever a
- * relation is opened.
+ * 初始化 relcache 条目来计数访问统计。每当关系
+ * 打开时调用。
  *
- * We assume that a relcache entry's pgstat_info field is zeroed by relcache.c
- * when the relcache entry is made; thereafter it is long-lived data.
+ * 假定 relcache 条目的 pgstat_info 字段由 relcache.c 在
+ * 创建条目时清零；此后即为长期存活的数据。
  *
- * This does not create a reference to a stats entry in shared memory, nor
- * allocate memory for the pending stats. That happens in
- * pgstat_assoc_relation().
+ * 这不会创建到共享内存中统计条目的引用，也不
+ * 会为待写入统计分配内存。那发生在
+ * pgstat_assoc_relation()
  */
 void
 pgstat_init_relation(Relation rel)
@@ -95,7 +95,7 @@ pgstat_init_relation(Relation rel)
 	char		relkind = rel->rd_rel->relkind;
 
 	/*
-	 * We only count stats for relations with storage and partitioned tables
+	 * 只统计有存储的关系和分区表
 	 */
 	if (!RELKIND_HAS_STORAGE(relkind) && relkind != RELKIND_PARTITIONED_TABLE)
 	{
@@ -109,7 +109,7 @@ pgstat_init_relation(Relation rel)
 		if (rel->pgstat_info)
 			pgstat_unlink_relation(rel);
 
-		/* We're not counting at all */
+		/* 完全不计数 */
 		rel->pgstat_enabled = false;
 		rel->pgstat_info = NULL;
 		return;
@@ -119,15 +119,15 @@ pgstat_init_relation(Relation rel)
 }
 
 /*
- * Prepare for statistics for this relation to be collected.
+ * 为收集该关系的统计做准备。
  *
- * This ensures we have a reference to the stats entry before stats can be
- * generated. That is important because a relation drop in another connection
- * could otherwise lead to the stats entry being dropped, which then later
- * would get recreated when flushing stats.
+ * 这确保在统计可被生成之前，我们已持有统计
+ * 条目的引用。这很重要，因为其他会话中删除关
+ * 系可能导致统计条目被删除，随后刷写统计时该
+ * 条目还会被重建。
  *
- * This is separate from pgstat_init_relation() as it is not uncommon for
- * relcache entries to be opened without ever getting stats reported.
+ * 这与 pgstat_init_relation() 是分开的，因为 relcache
+ * 条目被打开却从未上报统计的情况并不少见。
  */
 void
 pgstat_assoc_relation(Relation rel)
@@ -135,36 +135,36 @@ pgstat_assoc_relation(Relation rel)
 	Assert(rel->pgstat_enabled);
 	Assert(rel->pgstat_info == NULL);
 
-	/* Else find or make the PgStat_TableStatus entry, and update link */
+	/* 否则查找或建 PgStat_TableStatus 条目并更新链接 */
 	rel->pgstat_info = pgstat_prep_relation_pending(RelationGetRelid(rel),
 													rel->rd_rel->relisshared);
 
-	/* don't allow link a stats to multiple relcache entries */
+	/* 不允许将统计链接到多个 relcache 条目 */
 	Assert(rel->pgstat_info->relation == NULL);
 
-	/* mark this relation as the owner */
+	/* 将此关系标记为所有者 */
 	rel->pgstat_info->relation = rel;
 }
 
 /*
- * Break the mutual link between a relcache entry and pending stats entry.
- * This must be called whenever one end of the link is removed.
+ * 断开 relcache 条目与待写入统计条目之间的相互
+ * 链接。只要链接的任一端被移除都必须调用。
  */
 void
 pgstat_unlink_relation(Relation rel)
 {
-	/* remove the link to stats info if any */
+	/* 移除统计信息链接（如有） */
 	if (rel->pgstat_info == NULL)
 		return;
 
-	/* link sanity check */
+	/* 链接检查 */
 	Assert(rel->pgstat_info->relation == rel);
 	rel->pgstat_info->relation = NULL;
 	rel->pgstat_info = NULL;
 }
 
 /*
- * Ensure that stats are dropped if transaction aborts.
+ * 确保事务回滚时删除统计。
  */
 void
 pgstat_create_relation(Relation rel)
@@ -175,7 +175,7 @@ pgstat_create_relation(Relation rel)
 }
 
 /*
- * Ensure that stats are dropped if transaction commits.
+ * 确保事务提交时删除统计。
  */
 void
 pgstat_drop_relation(Relation rel)
@@ -191,8 +191,8 @@ pgstat_drop_relation(Relation rel)
 		return;
 
 	/*
-	 * Transactionally set counters to 0. That ensures that accesses to
-	 * pg_stat_xact_all_tables inside the transaction show 0.
+	 * 以事务方式将计数器置 0。这确保事务内对
+	 * pg_stat_xact_all_tables 的访问显示为 0。
 	 */
 	pgstat_info = rel->pgstat_info;
 	if (pgstat_info->trans &&
@@ -206,7 +206,7 @@ pgstat_drop_relation(Relation rel)
 }
 
 /*
- * Report that the table was just vacuumed and flush IO statistics.
+ * 报告表刚完成 VACUUM 并刷写 IO 统计。
  */
 void
 pgstat_report_vacuum(Oid tableoid, bool shared,
@@ -221,10 +221,10 @@ pgstat_report_vacuum(Oid tableoid, bool shared,
 	if (!pgstat_track_counts)
 		return;
 
-	/* Store the data in the table's hash table entry. */
+	/* 将数据存入表的哈希表条目。 */
 	ts = GetCurrentTimestamp();
 
-	/* block acquiring lock for the same reason as pgstat_report_autovac() */
+	/* 出于与 pgstat_report_autovac() 相同的原因阻塞获取锁 */
 	entry_ref = pgstat_get_entry_ref_locked(PGSTAT_KIND_RELATION,
 											dboid, tableoid, false);
 
@@ -235,14 +235,14 @@ pgstat_report_vacuum(Oid tableoid, bool shared,
 	tabentry->dead_tuples = deadtuples;
 
 	/*
-	 * It is quite possible that a non-aggressive VACUUM ended up skipping
-	 * various pages, however, we'll zero the insert counter here regardless.
-	 * It's currently used only to track when we need to perform an "insert"
-	 * autovacuum, which are mainly intended to freeze newly inserted tuples.
-	 * Zeroing this may just mean we'll not try to vacuum the table again
-	 * until enough tuples have been inserted to trigger another insert
-	 * autovacuum.  An anti-wraparound autovacuum will catch any persistent
-	 * stragglers.
+	 * 激进程度较低的 VACUUM 很可能跳过了许多页面，
+	 * 但这里仍会将插入计数器清零。它目前仅用于
+	 * 跟踪何时需要执行 "插入型" 自动清理，其主要
+	 * 目的在于冻结新插入的元组。将其清零可能只
+	 * 意味着不会再次尝试清理该表，直到插入足够
+	 * 多元组触发下一轮插入型自动清理。防回卷
+	 * 自动清理则会负责捕获这些持续滞留的
+	 * 零星表
 	 */
 	tabentry->ins_since_vacuum = 0;
 
@@ -260,19 +260,19 @@ pgstat_report_vacuum(Oid tableoid, bool shared,
 	pgstat_unlock_entry(entry_ref);
 
 	/*
-	 * Flush IO statistics now. pgstat_report_stat() will flush IO stats,
-	 * however this will not be called until after an entire autovacuum cycle
-	 * is done -- which will likely vacuum many relations -- or until the
-	 * VACUUM command has processed all tables and committed.
+	 * 现在就刷写 IO 统计。pgstat_report_stat() 会刷写
+	 * IO 统计，但要到整个自动清理周期结束之后（这
+	 * 可能清理大量关系）或直到 VACUUM 命令处理完所
+	 * 有表并提交。
 	 */
 	pgstat_flush_io(false);
 }
 
 /*
- * Report that the table was just analyzed and flush IO statistics.
+ * 报告表刚完成 ANALYZE 并刷写 IO 统计。
  *
- * Caller must provide new live- and dead-tuples estimates, as well as a
- * flag indicating whether to reset the mod_since_analyze counter.
+ * 调用者必须提供新的存活和死亡元组估算值，以
+ * 及是否重置 mod_since_analyze 计数器的标志。
  */
 void
 pgstat_report_analyze(Relation rel,
@@ -288,16 +288,16 @@ pgstat_report_analyze(Relation rel,
 		return;
 
 	/*
-	 * Unlike VACUUM, ANALYZE might be running inside a transaction that has
-	 * already inserted and/or deleted rows in the target table. ANALYZE will
-	 * have counted such rows as live or dead respectively. Because we will
-	 * report our counts of such rows at transaction end, we should subtract
-	 * off these counts from the update we're making now, else they'll be
-	 * double-counted after commit.  (This approach also ensures that the
-	 * shared stats entry ends up with the right numbers if we abort instead
-	 * of committing.)
+	 * 与 VACUUM 不同，ANALYZE 可能运行在已经向目标表
+	 * 插入和/或删除了行的事务中。ANALYZE 会分别把
+	 * 这些行计为存活或死亡。由于我们会在事务结束
+	 * 时上报这些行的计数，所以应当从现在所做的更
+	 * 新中减去这些计数，否则提交后它们将被重复
+	 * 计入。（这种做法还确保即使我们回滚而非提
+	 * 交，共享统计条目最终也会得到正确的数
+	 * 值）。
 	 *
-	 * Waste no time on partitioned tables, though.
+	 * 不过对分区表不必浪费时间。
 	 */
 	if (pgstat_should_count_relation(rel) &&
 		rel->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
@@ -309,18 +309,18 @@ pgstat_report_analyze(Relation rel,
 			livetuples -= trans->tuples_inserted - trans->tuples_deleted;
 			deadtuples -= trans->tuples_updated + trans->tuples_deleted;
 		}
-		/* count stuff inserted by already-aborted subxacts, too */
+		/* 也统计已被中止子事务插入的内容 */
 		deadtuples -= rel->pgstat_info->counts.delta_dead_tuples;
-		/* Since ANALYZE's counts are estimates, we could have underflowed */
+		/* ANALYZE 的计数是估算值，可能已出现下溢 */
 		livetuples = Max(livetuples, 0);
 		deadtuples = Max(deadtuples, 0);
 	}
 
-	/* block acquiring lock for the same reason as pgstat_report_autovac() */
+	/* 出于与 pgstat_report_autovac() 相同的原因阻塞获取锁 */
 	entry_ref = pgstat_get_entry_ref_locked(PGSTAT_KIND_RELATION, dboid,
 											RelationGetRelid(rel),
 											false);
-	/* can't get dropped while accessed */
+	/* 被访问期间不会被删除 */
 	Assert(entry_ref != NULL && entry_ref->shared_stats != NULL);
 
 	shtabentry = (PgStatShared_Relation *) entry_ref->shared_stats;
@@ -330,9 +330,9 @@ pgstat_report_analyze(Relation rel,
 	tabentry->dead_tuples = deadtuples;
 
 	/*
-	 * If commanded, reset mod_since_analyze to zero.  This forgets any
-	 * changes that were committed while the ANALYZE was in progress, but we
-	 * have no good way to estimate how many of those there were.
+	 * 若有要求，将 mod_since_analyze 重置为零。这会
+	 * 忘掉 ANALYZE 进行期间已提交的变更，但我们
+	 * 没有好的方法估算这些变更的数量。
 	 */
 	if (resetcounter)
 		tabentry->mod_since_analyze = 0;
@@ -350,12 +350,12 @@ pgstat_report_analyze(Relation rel,
 
 	pgstat_unlock_entry(entry_ref);
 
-	/* see pgstat_report_vacuum() */
+	/* 见 pgstat_report_vacuum() */
 	pgstat_flush_io(false);
 }
 
 /*
- * count a tuple insertion of n tuples
+ * 统计 n 个元组的插入
  */
 void
 pgstat_count_heap_insert(Relation rel, PgStat_Counter n)
@@ -370,7 +370,7 @@ pgstat_count_heap_insert(Relation rel, PgStat_Counter n)
 }
 
 /*
- * count a tuple update
+ * 统计元组更新
  */
 void
 pgstat_count_heap_update(Relation rel, bool hot, bool newpage)
@@ -385,8 +385,8 @@ pgstat_count_heap_update(Relation rel, bool hot, bool newpage)
 		pgstat_info->trans->tuples_updated++;
 
 		/*
-		 * tuples_hot_updated and tuples_newpage_updated counters are
-		 * nontransactional, so just advance them
+		 * tuples_hot_updated 与 tuples_newpage_updated 计数
+		 * 非事务性，直接推进即可
 		 */
 		if (hot)
 			pgstat_info->counts.tuples_hot_updated++;
@@ -396,7 +396,7 @@ pgstat_count_heap_update(Relation rel, bool hot, bool newpage)
 }
 
 /*
- * count a tuple deletion
+ * 统计元组删除
  */
 void
 pgstat_count_heap_delete(Relation rel)
@@ -411,7 +411,7 @@ pgstat_count_heap_delete(Relation rel)
 }
 
 /*
- * update tuple counters due to truncate
+ * 因截断而更新元组计数器
  */
 void
 pgstat_count_truncate(Relation rel)
@@ -429,12 +429,12 @@ pgstat_count_truncate(Relation rel)
 }
 
 /*
- * update dead-tuples count
+ * 更新死亡元组计数
  *
- * The semantics of this are that we are reporting the nontransactional
- * recovery of "delta" dead tuples; so delta_dead_tuples decreases
- * rather than increasing, and the change goes straight into the per-table
- * counter, not into transactional state.
+ * 其语义是我们上报的是 "delta" 死亡元组的非事务
+ * 性恢复；因此 delta_dead_tuples 是减少而非增加，
+ * 并且变更直接进入每表计数器，而不进入事务性
+ * 状态。
  */
 void
 pgstat_update_heap_dead_tuples(Relation rel, int delta)
@@ -448,10 +448,10 @@ pgstat_update_heap_dead_tuples(Relation rel, int delta)
 }
 
 /*
- * Support function for the SQL-callable pgstat* functions. Returns
- * the collected statistics for one table or NULL. NULL doesn't mean
- * that the table doesn't exist, just that there are no statistics, so the
- * caller is better off to report ZERO instead.
+ * SQL 可调用 pgstat* 函数的支持函数。返回
+ * 某个表的统计信息或 NULL。NULL 并不代表
+ * 该表不存在，只是没有统计信息，因此调用者
+ * 最好还是报告 ZERO。
  */
 PgStat_StatTabEntry *
 pgstat_fetch_stat_tabentry(Oid relid)
@@ -460,8 +460,8 @@ pgstat_fetch_stat_tabentry(Oid relid)
 }
 
 /*
- * More efficient version of pgstat_fetch_stat_tabentry(), allowing to specify
- * whether the to-be-accessed table is a shared relation or not.
+ * pgstat_fetch_stat_tabentry() 的更高效版本，允许指定
+ * 要访问的表是否为共享关系。
  */
 PgStat_StatTabEntry *
 pgstat_fetch_stat_tabentry_ext(bool shared, Oid reloid)
@@ -473,12 +473,12 @@ pgstat_fetch_stat_tabentry_ext(bool shared, Oid reloid)
 }
 
 /*
- * find any existing PgStat_TableStatus entry for rel
+ * 查找 rel 已有的 PgStat_TableStatus 条目
  *
- * Find any existing PgStat_TableStatus entry for rel_id in the current
- * database. If not found, try finding from shared tables.
+ * 在当前数据库中查找 rel_id 已有的 PgStat_TableStatus
+ * 条目。找不到则尝试从共享表查找。
  *
- * If no entry found, return NULL, don't create a new one
+ * 若找不到条目则返回 NULL，不新建条目
  */
 PgStat_TableStatus *
 find_tabstat_entry(Oid rel_id)
@@ -495,12 +495,12 @@ find_tabstat_entry(Oid rel_id)
 }
 
 /*
- * Perform relation stats specific end-of-transaction work. Helper for
- * AtEOXact_PgStat.
+ * 执行关系统计的事务收尾工作。AtEOXact_PgStat 的
+ * 辅助函数。
  *
- * Transfer transactional insert/update counts into the base tabstat entries.
- * We don't bother to free any of the transactional state, since it's all in
- * TopTransactionContext and will go away anyway.
+ * 将事务性的插入/更新计数转移到基础 tabstat 条目中。
+ * 不必费心释放任何事务性状态，因为它们全部位于
+ * TopTransactionContext 中，会自行消失。
  */
 void
 AtEOXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit)
@@ -515,10 +515,10 @@ AtEOXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit)
 		Assert(trans->upper == NULL);
 		tabstat = trans->parent;
 		Assert(tabstat->trans == trans);
-		/* restore pre-truncate/drop stats (if any) in case of aborted xact */
+		/* 事务回滚时恢复截断/删除前的统计（如有） */
 		if (!isCommit)
 			restore_truncdrop_counters(trans);
-		/* count attempted actions regardless of commit/abort */
+		/* 无论提交/回滚都统计尝试过的动作 */
 		tabstat->counts.tuples_inserted += trans->tuples_inserted;
 		tabstat->counts.tuples_updated += trans->tuples_updated;
 		tabstat->counts.tuples_deleted += trans->tuples_deleted;
@@ -527,38 +527,38 @@ AtEOXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit)
 			tabstat->counts.truncdropped = trans->truncdropped;
 			if (trans->truncdropped)
 			{
-				/* forget live/dead stats seen by backend thus far */
+				/* 忘掉后端迄今见到的存活/死亡统计 */
 				tabstat->counts.delta_live_tuples = 0;
 				tabstat->counts.delta_dead_tuples = 0;
 			}
-			/* insert adds a live tuple, delete removes one */
+			/* 插入加存活元组，删除减一个 */
 			tabstat->counts.delta_live_tuples +=
 				trans->tuples_inserted - trans->tuples_deleted;
-			/* update and delete each create a dead tuple */
+			/* 更新和删除各产生一个死亡元组 */
 			tabstat->counts.delta_dead_tuples +=
 				trans->tuples_updated + trans->tuples_deleted;
-			/* insert, update, delete each count as one change event */
+			/* 插入、更新、删除各计为一个变更事件 */
 			tabstat->counts.changed_tuples +=
 				trans->tuples_inserted + trans->tuples_updated +
 				trans->tuples_deleted;
 		}
 		else
 		{
-			/* inserted tuples are dead, deleted tuples are unaffected */
+			/* 插入的元组已死，删除的元组不受影响 */
 			tabstat->counts.delta_dead_tuples +=
 				trans->tuples_inserted + trans->tuples_updated;
-			/* an aborted xact generates no changed_tuple events */
+			/* 已回滚事务不产生 changed_tuple 事件 */
 		}
 		tabstat->trans = NULL;
 	}
 }
 
 /*
- * Perform relation stats specific end-of-sub-transaction work. Helper for
- * AtEOSubXact_PgStat.
+ * 执行关系统计的子事务收尾工作。AtEOSubXact_PgStat 的
+ * 辅助函数。
  *
- * Transfer transactional insert/update counts into the next higher
- * subtransaction state.
+ * 将事务性的插入/更新计数转移到上一层子事务
+ * 状态中。
  */
 void
 AtEOSubXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit, int nestDepth)
@@ -581,9 +581,9 @@ AtEOSubXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit, in
 			{
 				if (trans->truncdropped)
 				{
-					/* propagate the truncate/drop status one level up */
+					/* 将截断/删除状态向上传递一层 */
 					save_truncdrop_counters(trans->upper, false);
-					/* replace upper xact stats with ours */
+					/* 以本层统计替换上层 */
 					trans->upper->tuples_inserted = trans->tuples_inserted;
 					trans->upper->tuples_updated = trans->tuples_updated;
 					trans->upper->tuples_deleted = trans->tuples_deleted;
@@ -600,12 +600,12 @@ AtEOSubXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit, in
 			else
 			{
 				/*
-				 * When there isn't an immediate parent state, we can just
-				 * reuse the record instead of going through a palloc/pfree
-				 * pushup (this works since it's all in TopTransactionContext
-				 * anyway).  We have to re-link it into the parent level,
-				 * though, and that might mean pushing a new entry into the
-				 * pgStatXactStack.
+				 * 若无直接父状态，可以直接复用该记录，
+				 * 而不必经历 palloc/pfree 的折腾（这可行，
+				 * 它们都在 TopTransactionContext 中）。但必须
+				 * 将其重新链接进父层级，这可能意味着
+				 * 要向 pgStatXactStack 中推入
+				 * 一个新条目
 				 */
 				PgStat_SubXactStatus *upper_xact_state;
 
@@ -618,17 +618,17 @@ AtEOSubXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit, in
 		else
 		{
 			/*
-			 * On abort, update top-level tabstat counts, then forget the
-			 * subtransaction
+			 * 回滚时更新顶层 tabstat 计数，然后忘掉
+			 * 子事务
 			 */
 
-			/* first restore values obliterated by truncate/drop */
+			/* 先恢复被截断/删除抹去的值 */
 			restore_truncdrop_counters(trans);
-			/* count attempted actions regardless of commit/abort */
+			/* 无论提交/回滚都统计尝试过的动作 */
 			tabstat->counts.tuples_inserted += trans->tuples_inserted;
 			tabstat->counts.tuples_updated += trans->tuples_updated;
 			tabstat->counts.tuples_deleted += trans->tuples_deleted;
-			/* inserted tuples are dead, deleted tuples are unaffected */
+			/* 插入的元组已死，删除的元组不受影响 */
 			tabstat->counts.delta_dead_tuples +=
 				trans->tuples_inserted + trans->tuples_updated;
 			tabstat->trans = trans->upper;
@@ -638,8 +638,8 @@ AtEOSubXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit, in
 }
 
 /*
- * Generate 2PC records for all the pending transaction-dependent relation
- * stats.
+ * 为所有待写入的依赖事务的关系统计生成 2PC
+ * 记录
  */
 void
 AtPrepare_PgStat_Relations(PgStat_SubXactStatus *xact_state)
@@ -672,12 +672,12 @@ AtPrepare_PgStat_Relations(PgStat_SubXactStatus *xact_state)
 }
 
 /*
- * All we need do here is unlink the transaction stats state from the
- * nontransactional state.  The nontransactional action counts will be
- * reported to the stats system immediately, while the effects on live and
- * dead tuple counts are preserved in the 2PC state file.
+ * 这里只需将事务统计状态与非事务状态解除链接。
+ * 非事务的动作计数会立即上报给统计系统，而对
+ * 存活和死亡元组计数的影响则保存在 2PC 状态文
+ * 件中。
  *
- * Note: AtEOXact_PgStat_Relations is not called during PREPARE.
+ * 注意：PREPARE 期间不调用 AtEOXact_PgStat_Relations。
  */
 void
 PostPrepare_PgStat_Relations(PgStat_SubXactStatus *xact_state)
@@ -694,9 +694,9 @@ PostPrepare_PgStat_Relations(PgStat_SubXactStatus *xact_state)
 }
 
 /*
- * 2PC processing routine for COMMIT PREPARED case.
+ * COMMIT PREPARED 情形的 2PC 处理例程。
  *
- * Load the saved counts into our local pgstats state.
+ * 将保存计数载入本地 pgstats 状态。
  */
 void
 pgstat_twophase_postcommit(TransactionId xid, uint16 info,
@@ -705,17 +705,17 @@ pgstat_twophase_postcommit(TransactionId xid, uint16 info,
 	TwoPhasePgStatRecord *rec = (TwoPhasePgStatRecord *) recdata;
 	PgStat_TableStatus *pgstat_info;
 
-	/* Find or create a tabstat entry for the rel */
+	/* 查找或创建该关系的 tabstat 条目 */
 	pgstat_info = pgstat_prep_relation_pending(rec->id, rec->shared);
 
-	/* Same math as in AtEOXact_PgStat, commit case */
+	/* 同 AtEOXact_PgStat 计算，提交情形 */
 	pgstat_info->counts.tuples_inserted += rec->tuples_inserted;
 	pgstat_info->counts.tuples_updated += rec->tuples_updated;
 	pgstat_info->counts.tuples_deleted += rec->tuples_deleted;
 	pgstat_info->counts.truncdropped = rec->truncdropped;
 	if (rec->truncdropped)
 	{
-		/* forget live/dead stats seen by backend thus far */
+		/* 忘掉后端迄今见到的存活/死亡统计 */
 		pgstat_info->counts.delta_live_tuples = 0;
 		pgstat_info->counts.delta_dead_tuples = 0;
 	}
@@ -729,10 +729,10 @@ pgstat_twophase_postcommit(TransactionId xid, uint16 info,
 }
 
 /*
- * 2PC processing routine for ROLLBACK PREPARED case.
+ * ROLLBACK PREPARED 情形的 2PC 处理例程。
  *
- * Load the saved counts into our local pgstats state, but treat them
- * as aborted.
+ * 把保存的计数载入本地 pgstats 状态，但视为已
+ * 回滚。
  */
 void
 pgstat_twophase_postabort(TransactionId xid, uint16 info,
@@ -741,10 +741,10 @@ pgstat_twophase_postabort(TransactionId xid, uint16 info,
 	TwoPhasePgStatRecord *rec = (TwoPhasePgStatRecord *) recdata;
 	PgStat_TableStatus *pgstat_info;
 
-	/* Find or create a tabstat entry for the rel */
+	/* 查找或创建该关系的 tabstat 条目 */
 	pgstat_info = pgstat_prep_relation_pending(rec->id, rec->shared);
 
-	/* Same math as in AtEOXact_PgStat, abort case */
+	/* 同 AtEOXact_PgStat 计算，回滚情形 */
 	if (rec->truncdropped)
 	{
 		rec->tuples_inserted = rec->inserted_pre_truncdrop;
@@ -759,31 +759,31 @@ pgstat_twophase_postabort(TransactionId xid, uint16 info,
 }
 
 /*
- * Flush out pending stats for the entry
+ * 刷出该条目的待写入统计
  *
- * If nowait is true and the lock could not be immediately acquired, returns
- * false without flushing the entry.  Otherwise returns true.
+ * 若 nowait 为 true 且无法立即获得锁，则返回 false，
+ * 不刷写该条目。否则返回 true。
  *
- * Some of the stats are copied to the corresponding pending database stats
- * entry when successfully flushing.
+ * 刷写成功时，部分统计会复制到对应的待写入数
+ * 据库统计条目。
  */
 bool
 pgstat_relation_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 {
 	static const PgStat_TableCounts all_zeroes;
 	Oid			dboid;
-	PgStat_TableStatus *lstats; /* pending stats entry  */
+	PgStat_TableStatus *lstats; /* 待写统计条目 */
 	PgStatShared_Relation *shtabstats;
-	PgStat_StatTabEntry *tabentry;	/* table entry of shared stats */
-	PgStat_StatDBEntry *dbentry;	/* pending database entry */
+	PgStat_StatTabEntry *tabentry;	/* 共享统计的表条目 */
+	PgStat_StatDBEntry *dbentry;	/* 待写数据库条目 */
 
 	dboid = entry_ref->shared_entry->key.dboid;
 	lstats = (PgStat_TableStatus *) entry_ref->pending;
 	shtabstats = (PgStatShared_Relation *) entry_ref->shared_stats;
 
 	/*
-	 * Ignore entries that didn't accumulate any actual counts, such as
-	 * indexes that were opened by the planner but not used.
+	 * 忽略未积累任何实际计数的条目，例如规划器
+	 * 打开但未使用的索引。
 	 */
 	if (memcmp(&lstats->counts, &all_zeroes,
 			   sizeof(PgStat_TableCounts)) == 0)
@@ -794,7 +794,7 @@ pgstat_relation_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 	if (!pgstat_lock_entry(entry_ref, nowait))
 		return false;
 
-	/* add the values to the shared entry. */
+	/* 将值加到共享条目上。 */
 	tabentry = &shtabstats->stats;
 
 	tabentry->numscans += lstats->counts.numscans;
@@ -814,7 +814,7 @@ pgstat_relation_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 	tabentry->tuples_newpage_updated += lstats->counts.tuples_newpage_updated;
 
 	/*
-	 * If table was truncated/dropped, first reset the live/dead counters.
+	 * 若表被截断/删除，先重置存活/死亡计数器。
 	 */
 	if (lstats->counts.truncdropped)
 	{
@@ -830,14 +830,14 @@ pgstat_relation_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 	tabentry->blocks_fetched += lstats->counts.blocks_fetched;
 	tabentry->blocks_hit += lstats->counts.blocks_hit;
 
-	/* Clamp live_tuples in case of negative delta_live_tuples */
+	/* 若 delta_live_tuples 为负则钳制 live_tuples */
 	tabentry->live_tuples = Max(tabentry->live_tuples, 0);
-	/* Likewise for dead_tuples */
+	/* dead_tuples 同理 */
 	tabentry->dead_tuples = Max(tabentry->dead_tuples, 0);
 
 	pgstat_unlock_entry(entry_ref);
 
-	/* The entry was successfully flushed, add the same to database stats */
+	/* 条目已成功刷写，将同样的值加到数据库统计 */
 	dbentry = pgstat_prep_database_pending(dboid);
 	dbentry->tuples_returned += lstats->counts.tuples_returned;
 	dbentry->tuples_fetched += lstats->counts.tuples_fetched;
@@ -860,8 +860,8 @@ pgstat_relation_delete_pending_cb(PgStat_EntryRef *entry_ref)
 }
 
 /*
- * Find or create a PgStat_TableStatus entry for rel. New entry is created and
- * initialized if not exists.
+ * 为 rel 查找或创建 PgStat_TableStatus 条目，不存在时
+ * 创建并初始化。
  */
 static PgStat_TableStatus *
 pgstat_prep_relation_pending(Oid rel_id, bool isshared)
@@ -880,7 +880,7 @@ pgstat_prep_relation_pending(Oid rel_id, bool isshared)
 }
 
 /*
- * add a new (sub)transaction state record
+ * 添加新的（子）事务状态记录
  */
 static void
 add_tabstat_xact_level(PgStat_TableStatus *pgstat_info, int nest_level)
@@ -889,12 +889,12 @@ add_tabstat_xact_level(PgStat_TableStatus *pgstat_info, int nest_level)
 	PgStat_TableXactStatus *trans;
 
 	/*
-	 * If this is the first rel to be modified at the current nest level, we
-	 * first have to push a transaction stack entry.
+	 * 若这是当前嵌套层级第一个要修改的关系，我们
+	 * 首先必须压入事务栈条目。
 	 */
 	xact_state = pgstat_get_xact_stack_level(nest_level);
 
-	/* Now make a per-table stack entry */
+	/* 现在创建每表栈条目 */
 	trans = (PgStat_TableXactStatus *)
 		MemoryContextAllocZero(TopTransactionContext,
 							   sizeof(PgStat_TableXactStatus));
@@ -907,7 +907,7 @@ add_tabstat_xact_level(PgStat_TableStatus *pgstat_info, int nest_level)
 }
 
 /*
- * Add a new (sub)transaction record if needed.
+ * 需要时添加新（子）事务记录。
  */
 static void
 ensure_tabstat_xact_level(PgStat_TableStatus *pgstat_info)
@@ -920,13 +920,13 @@ ensure_tabstat_xact_level(PgStat_TableStatus *pgstat_info)
 }
 
 /*
- * Whenever a table is truncated/dropped, we save its i/u/d counters so that
- * they can be cleared, and if the (sub)xact that executed the truncate/drop
- * later aborts, the counters can be restored to the saved (pre-truncate/drop)
- * values.
+ * 每当表被截断/删除时，我们保存其 i/u/d 计数器，
+ * 以便清零；若执行截断/删除的（子）事务之后回
+ * 滚，这些计数器可恢复为保存的（截断/删除前）
+ * 值。
  *
- * Note that for truncate we do this on the first truncate in any particular
- * subxact level only.
+ * 注意对截断而言，我们在每个特定子事务层级只
+ * 做一次。
  */
 static void
 save_truncdrop_counters(PgStat_TableXactStatus *trans, bool is_drop)
@@ -941,7 +941,7 @@ save_truncdrop_counters(PgStat_TableXactStatus *trans, bool is_drop)
 }
 
 /*
- * restore counters when a truncate aborts
+ * 截断回滚时恢复计数器
  */
 static void
 restore_truncdrop_counters(PgStat_TableXactStatus *trans)

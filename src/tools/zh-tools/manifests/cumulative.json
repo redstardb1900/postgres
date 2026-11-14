@@ -6361,6 +6361,36 @@
    "pattern": "src/backend/utils/activity/pgstat_slru.c",
    "kind": "c_comment",
    "note": "pgstat_slru.c whole-file translation (batch-0375); 32/36 lines, 4 EN kept (header)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0376-activity-pgstat-mid.json",
+   "kind": "manifest",
+   "note": "batch-0376 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_function.c",
+   "kind": "c_comment",
+   "note": "pgstat_function.c whole-file translation (batch-0376); 59/63 lines, 4 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_database.c",
+   "kind": "c_comment",
+   "note": "pgstat_database.c whole-file translation (batch-0376); 55/59 lines, 4 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_io.c",
+   "kind": "c_comment",
+   "note": "pgstat_io.c whole-file translation (batch-0376); 70/74 lines, 4 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_xact.c",
+   "kind": "c_comment",
+   "note": "pgstat_xact.c whole-file translation (batch-0376); 51/55 lines, 4 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_relation.c",
+   "kind": "c_comment",
+   "note": "pgstat_relation.c whole-file translation (batch-0376); 174/178 lines, 4 EN kept (header)"
   }
  ],
  "files": [
@@ -20752,6 +20782,66 @@
     "header L3/L11/L13/L14 kept (filename/copyright/IDENTIFICATION/path precedent)"
    ],
    "note": "pgstat_slru.c whole-file translation (batch-0375); 32/36 lines, 4 EN kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0376-activity-pgstat-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0376 manifest"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_function.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgstat_function.c whole-file translation (batch-0376); 59/63 lines, 4 EN kept (header)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_database.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgstat_database.c whole-file translation (batch-0376); 55/59 lines, 4 EN kept (header)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_io.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgstat_io.c whole-file translation (batch-0376); 70/74 lines, 4 EN kept (header)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgstat_xact.c whole-file translation (batch-0376); 51/55 lines, 4 EN kept (header)"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgstat_relation.c whole-file translation (batch-0376); 174/178 lines, 4 EN kept (header)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

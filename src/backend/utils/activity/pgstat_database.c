@@ -1,12 +1,12 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_database.c
- *	  Implementation of database statistics.
+ *	  数据库统计的实现。
  *
- * This file contains the implementation of database statistics. It is kept
- * separate from pgstat.c to enforce the line between the statistics access /
- * storage implementation and the details about individual types of
- * statistics.
+ * 本文件包含数据库统计的实现。它与 pgstat.c 分开，
+ * 是为了在统计的访问 / 存储实现和
+ * 各类统计的细节之间划清清楚的
+ * 界限。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -38,7 +38,7 @@ static PgStat_Counter pgLastSessionReportTime = 0;
 
 
 /*
- * Remove entry for the database being dropped.
+ * 删除正被删除的数据库的条目。
  */
 void
 pgstat_drop_database(Oid databaseid)
@@ -47,9 +47,9 @@ pgstat_drop_database(Oid databaseid)
 }
 
 /*
- * Called from autovacuum.c to report startup of an autovacuum process.
- * We are called before InitPostgres is done, so can't rely on MyDatabaseId;
- * the db OID must be passed in, instead.
+ * 由 autovacuum.c 调用，报告自动清理进程的启动。
+ * 调用发生在 InitPostgres 完成之前，不能依赖 MyDatabaseId；
+ * 而是必须传入数据库 OID。
  */
 void
 pgstat_report_autovac(Oid dboid)
@@ -57,13 +57,13 @@ pgstat_report_autovac(Oid dboid)
 	PgStat_EntryRef *entry_ref;
 	PgStatShared_Database *dbentry;
 
-	/* can't get here in single user mode */
+	/* 单用户模式不会到这里 */
 	Assert(IsUnderPostmaster);
 
 	/*
-	 * End-of-vacuum is reported instantly. Report the start the same way for
-	 * consistency. Vacuum doesn't run frequently and is a long-lasting
-	 * operation so it doesn't matter if we get blocked here a little.
+	 * 清理结束是即时上报。开始也以同样方式上报，
+	 * 以保持一致。VACUUM 不常运行且耗时长，即使
+	 * 在此稍有阻塞也无妨。
 	 */
 	entry_ref = pgstat_get_entry_ref_locked(PGSTAT_KIND_DATABASE,
 											dboid, InvalidOid, false);
@@ -75,7 +75,7 @@ pgstat_report_autovac(Oid dboid)
 }
 
 /*
- * Report a Hot Standby recovery conflict.
+ * 报告热备恢复冲突。
  */
 void
 pgstat_report_recovery_conflict(int reason)
@@ -93,8 +93,8 @@ pgstat_report_recovery_conflict(int reason)
 		case PROCSIG_RECOVERY_CONFLICT_DATABASE:
 
 			/*
-			 * Since we drop the information about the database as soon as it
-			 * replicates, there is no point in counting these conflicts.
+			 * 由于数据库信息一经复制即被删除，统计这些
+			 * 冲突毫无意义。
 			 */
 			break;
 		case PROCSIG_RECOVERY_CONFLICT_TABLESPACE:
@@ -119,7 +119,7 @@ pgstat_report_recovery_conflict(int reason)
 }
 
 /*
- * Report a detected deadlock.
+ * 报告检测到的死锁。
  */
 void
 pgstat_report_deadlock(void)
@@ -134,7 +134,7 @@ pgstat_report_deadlock(void)
 }
 
 /*
- * Report one or more checksum failures.
+ * 报告一或多个校验和失败。
  */
 void
 pgstat_report_checksum_failures_in_db(Oid dboid, int failurecount)
@@ -146,8 +146,8 @@ pgstat_report_checksum_failures_in_db(Oid dboid, int failurecount)
 		return;
 
 	/*
-	 * Update the shared stats directly - checksum failures should never be
-	 * common enough for that to be a problem.
+	 * 直接更新共享统计——校验和失败绝不应该多到让
+	 * 这成为问题。
 	 */
 	entry_ref =
 		pgstat_get_entry_ref_locked(PGSTAT_KIND_DATABASE, dboid, InvalidOid, false);
@@ -160,7 +160,7 @@ pgstat_report_checksum_failures_in_db(Oid dboid, int failurecount)
 }
 
 /*
- * Report one checksum failure in the current database.
+ * 报告当前数据库中的一次校验和失败。
  */
 void
 pgstat_report_checksum_failure(void)
@@ -169,7 +169,7 @@ pgstat_report_checksum_failure(void)
 }
 
 /*
- * Report creation of temporary file.
+ * 报告临时文件的创建。
  */
 void
 pgstat_report_tempfile(size_t filesize)
@@ -185,7 +185,7 @@ pgstat_report_tempfile(size_t filesize)
 }
 
 /*
- * Notify stats system of a new connection.
+ * 向统计系统通知新连接。
  */
 void
 pgstat_report_connect(Oid dboid)
@@ -202,7 +202,7 @@ pgstat_report_connect(Oid dboid)
 }
 
 /*
- * Notify the stats system of a disconnect.
+ * 向统计系统通知断开连接。
  */
 void
 pgstat_report_disconnect(Oid dboid)
@@ -218,7 +218,7 @@ pgstat_report_disconnect(Oid dboid)
 	{
 		case DISCONNECT_NOT_YET:
 		case DISCONNECT_NORMAL:
-			/* we don't collect these */
+			/* 我们不收集这些 */
 			break;
 		case DISCONNECT_CLIENT_EOF:
 			dbentry->sessions_abandoned++;
@@ -233,10 +233,10 @@ pgstat_report_disconnect(Oid dboid)
 }
 
 /*
- * Support function for the SQL-callable pgstat* functions. Returns
- * the collected statistics for one database or NULL. NULL doesn't mean
- * that the database doesn't exist, just that there are no statistics, so the
- * caller is better off to report ZERO instead.
+ * SQL 可调用 pgstat* 函数的支持函数。返回
+ * 某个数据库的统计信息或 NULL。NULL 并不代表
+ * 数据库不存在，只是尚无统计信息，因此调用者最
+ * 好还是报告 ZERO。
  */
 PgStat_StatDBEntry *
 pgstat_fetch_stat_dbentry(Oid dboid)
@@ -248,12 +248,12 @@ pgstat_fetch_stat_dbentry(Oid dboid)
 void
 AtEOXact_PgStat_Database(bool isCommit, bool parallel)
 {
-	/* Don't count parallel worker transaction stats */
+	/* 不统计并行工作进程的事务统计 */
 	if (!parallel)
 	{
 		/*
-		 * Count transaction commit or abort.  (We use counters, not just
-		 * bools, in case the reporting message isn't sent right away.)
+		 * 统计事务提交或回滚。（使用计数器而非单纯
+		 * 布尔值，以防上报消息未立即发出。）
 		 */
 		if (isCommit)
 			pgStatXactCommit++;
@@ -263,8 +263,8 @@ AtEOXact_PgStat_Database(bool isCommit, bool parallel)
 }
 
 /*
- * Subroutine for pgstat_report_stat(): Handle xact commit/rollback and I/O
- * timings.
+ * pgstat_report_stat() 的子例程：处理事务提交/回滚
+ * IO计时
  */
 void
 pgstat_update_dbstats(TimestampTz ts)
@@ -272,8 +272,8 @@ pgstat_update_dbstats(TimestampTz ts)
 	PgStat_StatDBEntry *dbentry;
 
 	/*
-	 * If not connected to a database yet, don't attribute time to "shared
-	 * state" (InvalidOid is used to track stats for shared relations, etc.).
+	 * 若尚未连接到数据库，不要把时间记到 "shared
+	 * state"（InvalidOid 用于跟踪共享关系等的统计）。
 	 */
 	if (!OidIsValid(MyDatabaseId))
 		return;
@@ -281,8 +281,8 @@ pgstat_update_dbstats(TimestampTz ts)
 	dbentry = pgstat_prep_database_pending(MyDatabaseId);
 
 	/*
-	 * Accumulate xact commit/rollback and I/O timings to stats entry of the
-	 * current database.
+	 * 将事务提交/回滚与 IO 计时累加到当前数据库的
+	 * 统计条目。
 	 */
 	dbentry->xact_commit += pgStatXactCommit;
 	dbentry->xact_rollback += pgStatXactRollback;
@@ -295,8 +295,8 @@ pgstat_update_dbstats(TimestampTz ts)
 		int			usecs;
 
 		/*
-		 * pgLastSessionReportTime is initialized to MyStartTimestamp by
-		 * pgstat_report_connect().
+		 * pgLastSessionReportTime 由 pgstat_report_connect() 设为
+		 * MyStartTimestamp。
 		 */
 		TimestampDifference(pgLastSessionReportTime, ts, &secs, &usecs);
 		pgLastSessionReportTime = ts;
@@ -314,11 +314,11 @@ pgstat_update_dbstats(TimestampTz ts)
 }
 
 /*
- * We report session statistics only for normal backend processes.  Parallel
- * workers run in parallel, so they don't contribute to session times, even
- * though they use CPU time. Walsender processes could be considered here,
- * but they have different session characteristics from normal backends (for
- * example, they are always "active"), so they would skew session statistics.
+ * 会话统计仅对普通后台进程上报。并行工作进程
+ * 并行运行，因此虽然消耗 CPU 时间，却不计入会话
+ * 时间。Walsender 进程也可以考虑纳入，但它们的
+ * 会话特征与普通后台不同（例如它们总是
+ * 处于 "active" 状态），因此会扭曲会话统计。
  */
 static bool
 pgstat_should_report_connstat(void)
@@ -327,7 +327,7 @@ pgstat_should_report_connstat(void)
 }
 
 /*
- * Find or create a local PgStat_StatDBEntry entry for dboid.
+ * 查找或创建 dboid 本地 PgStat_StatDBEntry 条目。
  */
 PgStat_StatDBEntry *
 pgstat_prep_database_pending(Oid dboid)
@@ -335,8 +335,8 @@ pgstat_prep_database_pending(Oid dboid)
 	PgStat_EntryRef *entry_ref;
 
 	/*
-	 * This should not report stats on database objects before having
-	 * connected to a database.
+	 * 连接到数据库之前，不应上报数据库对象的
+	 * 统计。
 	 */
 	Assert(!OidIsValid(dboid) || OidIsValid(MyDatabaseId));
 
@@ -347,8 +347,8 @@ pgstat_prep_database_pending(Oid dboid)
 }
 
 /*
- * Reset the database's reset timestamp, without resetting the contents of the
- * database stats.
+ * 重置数据库的重置时间戳，但不重置数据库统计的
+ * 内容。
  */
 void
 pgstat_reset_database_timestamp(Oid dboid, TimestampTz ts)
@@ -366,10 +366,10 @@ pgstat_reset_database_timestamp(Oid dboid, TimestampTz ts)
 }
 
 /*
- * Flush out pending stats for the entry
+ * 刷出该条目的待写入统计
  *
- * If nowait is true and the lock could not be immediately acquired, returns
- * false without flushing the entry.  Otherwise returns true.
+ * 若 nowait 为 true 且无法立即获得锁，则返回 false，
+ * 不刷写该条目。否则返回 true。
  */
 bool
 pgstat_database_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
@@ -397,7 +397,7 @@ pgstat_database_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 	PGSTAT_ACCUM_DBCOUNT(tuples_updated);
 	PGSTAT_ACCUM_DBCOUNT(tuples_deleted);
 
-	/* last_autovac_time is reported immediately */
+	/* last_autovac_time 是即时上报的 */
 	Assert(pendingent->last_autovac_time == 0);
 
 	PGSTAT_ACCUM_DBCOUNT(conflict_tablespace);
@@ -411,7 +411,7 @@ pgstat_database_flush_cb(PgStat_EntryRef *entry_ref, bool nowait)
 	PGSTAT_ACCUM_DBCOUNT(temp_files);
 	PGSTAT_ACCUM_DBCOUNT(deadlocks);
 
-	/* checksum failures are reported immediately */
+	/* 校验和失败是即时上报的 */
 	Assert(pendingent->checksum_failures == 0);
 	Assert(pendingent->last_checksum_failure == 0);
 

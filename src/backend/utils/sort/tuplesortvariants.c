@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * tuplesortvariants.c
- *	  Implementation of tuple sorting variants.
+ *	  元组排序变体的实现。
  *
- * This module handles the sorting of heap tuples, index tuples, or single
- * Datums.  The implementation is based on the generalized tuple sorting
- * facility given in tuplesort.c.  Support other kinds of sortable objects
- * could be easily added here, another module, or even an extension.
+ * 本模块处理堆元组、索引元组或单个 Datum 的排序。
+ * 其实现基于 tuplesort.c 中给出的通用化元组
+ * 排序设施。对其他种类可排序对象的支持可以
+ * 轻松地添加到此处、别的模块甚至扩展中。
  *
  *
  * Copyright (c) 2022-2023, PostgreSQL Global Development Group
@@ -31,7 +31,7 @@
 #include "utils/tuplesort.h"
 
 
-/* sort-type codes for sort__start probes */
+/* sort__start 探针的排序类型码 */
 #define HEAP_SORT		0
 #define INDEX_SORT		1
 #define DATUM_SORT		2
@@ -74,59 +74,59 @@ static void readtup_datum(Tuplesortstate *state, SortTuple *stup,
 static void freestate_cluster(Tuplesortstate *state);
 
 /*
- * Data struture pointed by "TuplesortPublic.arg" for the CLUSTER case.  Set by
- * the tuplesort_begin_cluster.
+ * "TuplesortPublic.arg" 所指向的 CLUSTER 情形数据结构，设置者为
+ * tuplesort_begin_cluster。
  */
 typedef struct
 {
 	TupleDesc	tupDesc;
 
-	IndexInfo  *indexInfo;		/* info about index being used for reference */
-	EState	   *estate;			/* for evaluating index expressions */
+	IndexInfo  *indexInfo;		/* 关于用作参照的索引的信息 */
+	EState	   *estate;			/* 用于计算索引表达式 */
 } TuplesortClusterArg;
 
 /*
- * Data struture pointed by "TuplesortPublic.arg" for the IndexTuple case.
- * Set by tuplesort_begin_index_xxx and used only by the IndexTuple routines.
+ * "TuplesortPublic.arg" 所指向的 IndexTuple 情形数据结构。
+ * 由 tuplesort_begin_index_xxx 设置，仅由 IndexTuple 例程使用。
  */
 typedef struct
 {
-	Relation	heapRel;		/* table the index is being built on */
-	Relation	indexRel;		/* index being built */
+	Relation	heapRel;		/* 正在其上构建索引的表 */
+	Relation	indexRel;		/* 在建索引 */
 } TuplesortIndexArg;
 
 /*
- * Data struture pointed by "TuplesortPublic.arg" for the index_btree subcase.
+ * "TuplesortPublic.arg" 所指向的 index_btree 子情形数据结构。
  */
 typedef struct
 {
 	TuplesortIndexArg index;
 
-	bool		enforceUnique;	/* complain if we find duplicate tuples */
-	bool		uniqueNullsNotDistinct; /* unique constraint null treatment */
+	bool		enforceUnique;	/* 若发现重复元组则报错 */
+	bool		uniqueNullsNotDistinct; /* 唯一约束 NULL 处理方式 */
 } TuplesortIndexBTreeArg;
 
 /*
- * Data struture pointed by "TuplesortPublic.arg" for the index_hash subcase.
+ * "TuplesortPublic.arg" 所指向的 index_hash 子情形数据结构。
  */
 typedef struct
 {
 	TuplesortIndexArg index;
 
-	uint32		high_mask;		/* masks for sortable part of hash code */
+	uint32		high_mask;		/* 哈希码可排序部分的掩码 */
 	uint32		low_mask;
 	uint32		max_buckets;
 } TuplesortIndexHashArg;
 
 /*
- * Data struture pointed by "TuplesortPublic.arg" for the Datum case.
- * Set by tuplesort_begin_datum and used only by the DatumTuple routines.
+ * "TuplesortPublic.arg" 所指向的 Datum 情形数据结构。
+ * 由 tuplesort_begin_datum 设置，仅由 DatumTuple 例程使用。
  */
 typedef struct
 {
-	/* the datatype oid of Datum's to be sorted */
+	/* 待排序 Datum 的数据类型 OID */
 	Oid			datumType;
-	/* we need typelen in order to know how to copy the Datums. */
+	/* 需要 typelen 来了解如何复制 Datum。 */
 	int			datumTypeLen;
 } TuplesortDatumArg;
 
@@ -157,7 +157,7 @@ tuplesort_begin_heap(TupleDesc tupDesc,
 	base->nKeys = nkeys;
 
 	TRACE_POSTGRESQL_SORT_START(HEAP_SORT,
-								false,	/* no unique check */
+								false,	/* 无唯一检查 */
 								nkeys,
 								workMem,
 								sortopt & TUPLESORT_RANDOMACCESS,
@@ -168,9 +168,9 @@ tuplesort_begin_heap(TupleDesc tupDesc,
 	base->writetup = writetup_heap;
 	base->readtup = readtup_heap;
 	base->haveDatum1 = true;
-	base->arg = tupDesc;		/* assume we need not copy tupDesc */
+	base->arg = tupDesc;		/* 假定无需复制 tupDesc */
 
-	/* Prepare SortSupport data for each column */
+	/* 为每个列准备 SortSupport 数据 */
 	base->sortKeys = (SortSupport) palloc0(nkeys * sizeof(SortSupportData));
 
 	for (i = 0; i < nkeys; i++)
@@ -184,17 +184,17 @@ tuplesort_begin_heap(TupleDesc tupDesc,
 		sortKey->ssup_collation = sortCollations[i];
 		sortKey->ssup_nulls_first = nullsFirstFlags[i];
 		sortKey->ssup_attno = attNums[i];
-		/* Convey if abbreviation optimization is applicable in principle */
+		/* 传达缩略优化原则上是否适用 */
 		sortKey->abbreviate = (i == 0 && base->haveDatum1);
 
 		PrepareSortSupportFromOrderingOp(sortOperators[i], sortKey);
 	}
 
 	/*
-	 * The "onlyKey" optimization cannot be used with abbreviated keys, since
-	 * tie-breaker comparisons may be required.  Typically, the optimization
-	 * is only of value to pass-by-value types anyway, whereas abbreviated
-	 * keys are typically only of value to pass-by-reference types.
+	 * "onlyKey" 优化无法与缩略键一同使用，因为
+	 * 可能需要决胜比较。通常，这种优化本来就只对
+	 * 按值传递类型有价值，而缩略键通常只对按引用
+	 * 传递类型有价值。
 	 */
 	if (nkeys == 1 && !base->sortKeys->abbrev_converter)
 		base->onlyKey = base->sortKeys;
@@ -234,7 +234,7 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 	base->nKeys = IndexRelationGetNumberOfKeyAttributes(indexRel);
 
 	TRACE_POSTGRESQL_SORT_START(CLUSTER_SORT,
-								false,	/* no unique check */
+								false,	/* 无唯一检查 */
 								base->nKeys,
 								workMem,
 								sortopt & TUPLESORT_RANDOMACCESS,
@@ -250,15 +250,15 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 	arg->indexInfo = BuildIndexInfo(indexRel);
 
 	/*
-	 * If we don't have a simple leading attribute, we don't currently
-	 * initialize datum1, so disable optimizations that require it.
+	 * 如果没有简单的前导属性，我们目前就不会
+	 * 初始化 datum1，因此禁用需要它的优化。
 	 */
 	if (arg->indexInfo->ii_IndexAttrNumbers[0] == 0)
 		base->haveDatum1 = false;
 	else
 		base->haveDatum1 = true;
 
-	arg->tupDesc = tupDesc;		/* assume we need not copy tupDesc */
+	arg->tupDesc = tupDesc;		/* 假定无需复制 tupDesc */
 
 	indexScanKey = _bt_mkscankey(indexRel, NULL);
 
@@ -268,10 +268,10 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 		ExprContext *econtext;
 
 		/*
-		 * We will need to use FormIndexDatum to evaluate the index
-		 * expressions.  To do that, we need an EState, as well as a
-		 * TupleTableSlot to put the table tuples into.  The econtext's
-		 * scantuple has to point to that slot, too.
+		 * 我们将需要使用 FormIndexDatum 来计算索引
+		 * 表达式。为此需要 EState，以及一个用于
+		 * 容纳表元组的 TupleTableSlot。econtext 的 scantuple
+		 * 也必须指向该槽位。
 		 */
 		arg->estate = CreateExecutorState();
 		slot = MakeSingleTupleTableSlot(tupDesc, &TTSOpsHeapTuple);
@@ -279,7 +279,7 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 		econtext->ecxt_scantuple = slot;
 	}
 
-	/* Prepare SortSupport data for each column */
+	/* 为每个列准备 SortSupport 数据 */
 	base->sortKeys = (SortSupport) palloc0(base->nKeys *
 										   sizeof(SortSupportData));
 
@@ -294,7 +294,7 @@ tuplesort_begin_cluster(TupleDesc tupDesc,
 		sortKey->ssup_nulls_first =
 			(scanKey->sk_flags & SK_BT_NULLS_FIRST) != 0;
 		sortKey->ssup_attno = scanKey->sk_attno;
-		/* Convey if abbreviation optimization is applicable in principle */
+		/* 传达缩略优化原则上是否适用 */
 		sortKey->abbreviate = (i == 0 && base->haveDatum1);
 
 		Assert(sortKey->ssup_attno != 0);
@@ -363,7 +363,7 @@ tuplesort_begin_index_btree(Relation heapRel,
 
 	indexScanKey = _bt_mkscankey(indexRel, NULL);
 
-	/* Prepare SortSupport data for each column */
+	/* 为每个列准备 SortSupport 数据 */
 	base->sortKeys = (SortSupport) palloc0(base->nKeys *
 										   sizeof(SortSupportData));
 
@@ -378,7 +378,7 @@ tuplesort_begin_index_btree(Relation heapRel,
 		sortKey->ssup_nulls_first =
 			(scanKey->sk_flags & SK_BT_NULLS_FIRST) != 0;
 		sortKey->ssup_attno = scanKey->sk_attno;
-		/* Convey if abbreviation optimization is applicable in principle */
+		/* 传达缩略优化原则上是否适用 */
 		sortKey->abbreviate = (i == 0 && base->haveDatum1);
 
 		Assert(sortKey->ssup_attno != 0);
@@ -427,7 +427,7 @@ tuplesort_begin_index_hash(Relation heapRel,
 			 sortopt & TUPLESORT_RANDOMACCESS ? 't' : 'f');
 #endif
 
-	base->nKeys = 1;			/* Only one sort column, the hash code */
+	base->nKeys = 1;			/* 仅一个排序列，即哈希码 */
 
 	base->removeabbrev = removeabbrev_index;
 	base->comparetup = comparetup_index_hash;
@@ -486,7 +486,7 @@ tuplesort_begin_index_gist(Relation heapRel,
 	arg->enforceUnique = false;
 	arg->uniqueNullsNotDistinct = false;
 
-	/* Prepare SortSupport data for each column */
+	/* 为每个列准备 SortSupport 数据 */
 	base->sortKeys = (SortSupport) palloc0(base->nKeys *
 										   sizeof(SortSupportData));
 
@@ -498,12 +498,12 @@ tuplesort_begin_index_gist(Relation heapRel,
 		sortKey->ssup_collation = indexRel->rd_indcollation[i];
 		sortKey->ssup_nulls_first = false;
 		sortKey->ssup_attno = i + 1;
-		/* Convey if abbreviation optimization is applicable in principle */
+		/* 传达缩略优化原则上是否适用 */
 		sortKey->abbreviate = (i == 0 && base->haveDatum1);
 
 		Assert(sortKey->ssup_attno != 0);
 
-		/* Look for a sort support function */
+		/* 查找排序支持函数 */
 		PrepareSortSupportFromGistIndexRel(indexRel, sortKey);
 	}
 
@@ -535,10 +535,10 @@ tuplesort_begin_datum(Oid datumType, Oid sortOperator, Oid sortCollation,
 			 workMem, sortopt & TUPLESORT_RANDOMACCESS ? 't' : 'f');
 #endif
 
-	base->nKeys = 1;			/* always a one-column sort */
+	base->nKeys = 1;			/* 总是单列排序 */
 
 	TRACE_POSTGRESQL_SORT_START(DATUM_SORT,
-								false,	/* no unique check */
+								false,	/* 无唯一检查 */
 								1,
 								workMem,
 								sortopt & TUPLESORT_RANDOMACCESS,
@@ -553,12 +553,12 @@ tuplesort_begin_datum(Oid datumType, Oid sortOperator, Oid sortCollation,
 
 	arg->datumType = datumType;
 
-	/* lookup necessary attributes of the datum type */
+	/* 查找该 datum 类型的必要属性 */
 	get_typlenbyval(datumType, &typlen, &typbyval);
 	arg->datumTypeLen = typlen;
 	base->tuples = !typbyval;
 
-	/* Prepare SortSupport data */
+	/* 准备 SortSupport 数据*/
 	base->sortKeys = (SortSupport) palloc0(sizeof(SortSupportData));
 
 	base->sortKeys->ssup_cxt = CurrentMemoryContext;
@@ -566,22 +566,22 @@ tuplesort_begin_datum(Oid datumType, Oid sortOperator, Oid sortCollation,
 	base->sortKeys->ssup_nulls_first = nullsFirstFlag;
 
 	/*
-	 * Abbreviation is possible here only for by-reference types.  In theory,
-	 * a pass-by-value datatype could have an abbreviated form that is cheaper
-	 * to compare.  In a tuple sort, we could support that, because we can
-	 * always extract the original datum from the tuple as needed.  Here, we
-	 * can't, because a datum sort only stores a single copy of the datum; the
-	 * "tuple" field of each SortTuple is NULL.
+	 * 这里只有按引用传递的类型才可能缩略。理论上，
+	 * 按值传递的数据类型也可能有比较起来更廉价
+	 * 的缩略形式。在元组排序中我们可以支持这一点，
+	 * 因为总能在需要时从元组中提取原 datum。但在
+	 * 这里做不到，因为 datum 排序只存储一份 datum 副本；
+	 * SortTuple 的"tuple"字段为 NULL。
 	 */
 	base->sortKeys->abbreviate = !typbyval;
 
 	PrepareSortSupportFromOrderingOp(sortOperator, base->sortKeys);
 
 	/*
-	 * The "onlyKey" optimization cannot be used with abbreviated keys, since
-	 * tie-breaker comparisons may be required.  Typically, the optimization
-	 * is only of value to pass-by-value types anyway, whereas abbreviated
-	 * keys are typically only of value to pass-by-reference types.
+	 * "onlyKey" 优化无法与缩略键一同使用，因为
+	 * 可能需要决胜比较。通常，这种优化本来就只对
+	 * 按值传递类型有价值，而缩略键通常只对按引用
+	 * 传递类型有价值。
 	 */
 	if (!base->sortKeys->abbrev_converter)
 		base->onlyKey = base->sortKeys;
@@ -592,9 +592,9 @@ tuplesort_begin_datum(Oid datumType, Oid sortOperator, Oid sortCollation,
 }
 
 /*
- * Accept one tuple while collecting input data for sort.
+ * 在收集排序输入数据时接收一个元组。
  *
- * Note that the input data is always copied; the caller need not save it.
+ * 注意输入数据总是会被复制；调用者无须保存它。
  */
 void
 tuplesort_puttupleslot(Tuplesortstate *state, TupleTableSlot *slot)
@@ -606,10 +606,10 @@ tuplesort_puttupleslot(Tuplesortstate *state, TupleTableSlot *slot)
 	MinimalTuple tuple;
 	HeapTupleData htup;
 
-	/* copy the tuple into sort storage */
+	/* 把元组复制进排序存储 */
 	tuple = ExecCopySlotMinimalTuple(slot);
 	stup.tuple = (void *) tuple;
-	/* set up first-column key value */
+	/* 设置第一列键值 */
 	htup.t_len = tuple->t_len + MINIMAL_TUPLE_OFFSET;
 	htup.t_data = (HeapTupleHeader) ((char *) tuple - MINIMAL_TUPLE_OFFSET);
 	stup.datum1 = heap_getattr(&htup,
@@ -625,9 +625,9 @@ tuplesort_puttupleslot(Tuplesortstate *state, TupleTableSlot *slot)
 }
 
 /*
- * Accept one tuple while collecting input data for sort.
+ * 在收集排序输入数据时接收一个元组。
  *
- * Note that the input data is always copied; the caller need not save it.
+ * 注意输入数据总是会被复制；调用者无须保存它。
  */
 void
 tuplesort_putheaptuple(Tuplesortstate *state, HeapTuple tup)
@@ -637,13 +637,13 @@ tuplesort_putheaptuple(Tuplesortstate *state, HeapTuple tup)
 	MemoryContext oldcontext = MemoryContextSwitchTo(base->tuplecontext);
 	TuplesortClusterArg *arg = (TuplesortClusterArg *) base->arg;
 
-	/* copy the tuple into sort storage */
+	/* 把元组复制进排序存储 */
 	tup = heap_copytuple(tup);
 	stup.tuple = (void *) tup;
 
 	/*
-	 * set up first-column key value, and potentially abbreviate, if it's a
-	 * simple column
+	 * 设置第一列键值；若是简单列，还可能一并
+	 * 缩略。
 	 */
 	if (base->haveDatum1)
 	{
@@ -662,8 +662,8 @@ tuplesort_putheaptuple(Tuplesortstate *state, HeapTuple tup)
 }
 
 /*
- * Collect one index tuple while collecting input data for sort, building
- * it from caller-supplied values.
+ * 在收集排序输入数据时接收一个索引元组，用
+ * 调用者给的值构建。
  */
 void
 tuplesort_putindextuplevalues(Tuplesortstate *state, Relation rel,
@@ -679,7 +679,7 @@ tuplesort_putindextuplevalues(Tuplesortstate *state, Relation rel,
 										  isnull, base->tuplecontext);
 	tuple = ((IndexTuple) stup.tuple);
 	tuple->t_tid = *self;
-	/* set up first-column key value */
+	/* 设置第一列键值 */
 	stup.datum1 = index_getattr(tuple,
 								1,
 								RelationGetDescr(arg->indexRel),
@@ -692,9 +692,9 @@ tuplesort_putindextuplevalues(Tuplesortstate *state, Relation rel,
 }
 
 /*
- * Accept one Datum while collecting input data for sort.
+ * 在收集排序输入时接收一个 Datum。
  *
- * If the Datum is pass-by-ref type, the value will be copied.
+ * 若 Datum 是按引用传递类型，其值将被复制。
  */
 void
 tuplesort_putdatum(Tuplesortstate *state, Datum val, bool isNull)
@@ -705,26 +705,26 @@ tuplesort_putdatum(Tuplesortstate *state, Datum val, bool isNull)
 	SortTuple	stup;
 
 	/*
-	 * Pass-by-value types or null values are just stored directly in
-	 * stup.datum1 (and stup.tuple is not used and set to NULL).
+	 * 按值传递类型或空值直接存储在 stup.datum1 中
+	 * （stup.tuple 不使用并设为 NULL）。
 	 *
-	 * Non-null pass-by-reference values need to be copied into memory we
-	 * control, and possibly abbreviated. The copied value is pointed to by
-	 * stup.tuple and is treated as the canonical copy (e.g. to return via
-	 * tuplesort_getdatum or when writing to tape); stup.datum1 gets the
-	 * abbreviated value if abbreviation is happening, otherwise it's
-	 * identical to stup.tuple.
+	 * 非空的按引用传递值需要复制到我们控制的
+	 * 内存中，并可能被缩略。复制出的值由 stup.tuple
+	 * 指向，并被当作规范副本（例如经由
+	 * tuplesort_getdatum 返回或写往磁带时）；stup.datum1
+	 * 在发生缩略时取得缩略值，否则它与
+	 * stup.tuple 相同。
 	 */
 
 	if (isNull || !base->tuples)
 	{
 		/*
-		 * Set datum1 to zeroed representation for NULLs (to be consistent,
-		 * and to support cheap inequality tests for NULL abbreviated keys).
+		 * 把 NULLs 的 datum1 设为全零表示（为保持一致，
+		 * 并为 NULL 缩略键支持廉价的不等测试）。
 		 */
 		stup.datum1 = !isNull ? val : (Datum) 0;
 		stup.isnull1 = isNull;
-		stup.tuple = NULL;		/* no separate storage */
+		stup.tuple = NULL;		/* 无单独存储 */
 	}
 	else
 	{
@@ -741,24 +741,24 @@ tuplesort_putdatum(Tuplesortstate *state, Datum val, bool isNull)
 }
 
 /*
- * Fetch the next tuple in either forward or back direction.
- * If successful, put tuple in slot and return true; else, clear the slot
- * and return false.
+ * 以正向或反向获取下一个元组。
+ * 若成功，把元组放入槽位并返回 true；否则清槽并
+ * 返回 false。
  *
- * Caller may optionally be passed back abbreviated value (on true return
- * value) when abbreviation was used, which can be used to cheaply avoid
- * equality checks that might otherwise be required.  Caller can safely make a
- * determination of "non-equal tuple" based on simple binary inequality.  A
- * NULL value in leading attribute will set abbreviated value to zeroed
- * representation, which caller may rely on in abbreviated inequality check.
+ * 缩略被使用时，调用者可选地拿回缩略值（在返回
+ * 值为 true 时），可用它廉价避免原本需要的
+ * 相等检查。调用者可以安全地基于简单二进制不等
+ * 性作出"元组不等"的判定。
+ * 前导属性中 NULL 值会把缩略值设为全零表示，
+ * 调用者可以在缩略不等检查中依赖这一点。
  *
- * If copy is true, the slot receives a tuple that's been copied into the
- * caller's memory context, so that it will stay valid regardless of future
- * manipulations of the tuplesort's state (up to and including deleting the
- * tuplesort).  If copy is false, the slot will just receive a pointer to a
- * tuple held within the tuplesort, which is more efficient, but only safe for
- * callers that are prepared to have any subsequent manipulation of the
- * tuplesort's state invalidate slot contents.
+ * 若 copy 为 true，槽位收到的元组已被复制进调用
+ * 者的内存上下文，这样无论未来对 tuplesort 状态
+ * 作何种操纵（直至包括删除 tuplesort），它都会保持
+ * 有效。若 copy 为 false，槽位只会收到指向
+ * tuplesort 内持有的元组的指针，这更高效，但只对
+ * 准备好让之后对 tuplesort 状态的任何操纵使槽位
+ * 内容失效的调用者才是安全的。
  */
 bool
 tuplesort_gettupleslot(Tuplesortstate *state, bool forward, bool copy,
@@ -775,7 +775,7 @@ tuplesort_gettupleslot(Tuplesortstate *state, bool forward, bool copy,
 
 	if (stup.tuple)
 	{
-		/* Record abbreviated key for caller */
+		/* 为调用者记录缩略键 */
 		if (base->sortKeys->abbrev_converter && abbrev)
 			*abbrev = stup.datum1;
 
@@ -793,10 +793,10 @@ tuplesort_gettupleslot(Tuplesortstate *state, bool forward, bool copy,
 }
 
 /*
- * Fetch the next tuple in either forward or back direction.
- * Returns NULL if no more tuples.  Returned tuple belongs to tuplesort memory
- * context, and must not be freed by caller.  Caller may not rely on tuple
- * remaining valid after any further manipulation of tuplesort.
+ * 以正向或反向获取下一个元组。
+ * 若无更多元组则返回 NULL。返回的元组属于
+ * tuplesort 内存上下文，不得由调用者释放。调用者
+ * 勿依赖元组在进一步操纵 tuplesort 后仍有效。
  */
 HeapTuple
 tuplesort_getheaptuple(Tuplesortstate *state, bool forward)
@@ -814,10 +814,10 @@ tuplesort_getheaptuple(Tuplesortstate *state, bool forward)
 }
 
 /*
- * Fetch the next index tuple in either forward or back direction.
- * Returns NULL if no more tuples.  Returned tuple belongs to tuplesort memory
- * context, and must not be freed by caller.  Caller may not rely on tuple
- * remaining valid after any further manipulation of tuplesort.
+ * 以正向或反向获取下一个索引元组。
+ * 若无更多元组则返回 NULL。返回的元组属于
+ * tuplesort 内存上下文，不得由调用者释放。调用者
+ * 勿依赖元组在进一步操纵 tuplesort 后仍有效。
  */
 IndexTuple
 tuplesort_getindextuple(Tuplesortstate *state, bool forward)
@@ -835,28 +835,28 @@ tuplesort_getindextuple(Tuplesortstate *state, bool forward)
 }
 
 /*
- * Fetch the next Datum in either forward or back direction.
- * Returns false if no more datums.
+ * 以正向或反向获取下一个 Datum。
+ * datum 用尽则返回 false。
  *
- * If the Datum is pass-by-ref type, the returned value is freshly palloc'd
- * in caller's context, and is now owned by the caller (this differs from
- * similar routines for other types of tuplesorts).
+ * 若 Datum 是按引用传递类型，返回值是新 palloc 出来的、
+ * 位于调用者的上下文中且归调用者所有（这一点
+ * 与其他类型 tuplesort 的例程不同）。
  *
- * Caller may optionally be passed back abbreviated value (on true return
- * value) when abbreviation was used, which can be used to cheaply avoid
- * equality checks that might otherwise be required.  Caller can safely make a
- * determination of "non-equal tuple" based on simple binary inequality.  A
- * NULL value will have a zeroed abbreviated value representation, which caller
- * may rely on in abbreviated inequality check.
+ * 缩略被使用时，调用者可选地拿回缩略值（在返回
+ * 值为 true 时），可用它廉价避免原本需要的
+ * 相等检查。调用者可以安全地基于简单二进制不等
+ * 性作出"元组不等"的判定。
+ * NULL 值将具有全零的缩略值表示，调用者可以在缩略
+ * 不等检查中依赖这一点。
  *
- * For byref Datums, if copy is true, *val is set to a copy of the Datum
- * copied into the caller's memory context, so that it will stay valid
- * regardless of future manipulations of the tuplesort's state (up to and
- * including deleting the tuplesort).  If copy is false, *val will just be
- * set to a pointer to the Datum held within the tuplesort, which is more
- * efficient, but only safe for callers that are prepared to have any
- * subsequent manipulation of the tuplesort's state invalidate slot contents.
- * For byval Datums, the value of the 'copy' parameter has no effect.
+ * 对按引用传递的 Datum，若 copy 为 true，*val 会被设为
+ * 该 Datum 的一个副本，副本复制进了调用者的内存
+ * 上下文中，因此无论未来对 tuplesort 状态作何种
+ * 操纵（直至包括删除 tuplesort），它都保持有效。若
+ * copy 为 false，*val 只会设为指向 tuplesort 内所持
+ * 有 Datum 的指针，更高效，但只对准备好让之后对
+ * tuplesort 状态的操纵使槽位内容失效的调用者才安全。
+ * 对按值传递的 Datum，'copy' 参数的值没有影响。
 
  */
 bool
@@ -874,10 +874,10 @@ tuplesort_getdatum(Tuplesortstate *state, bool forward, bool copy,
 		return false;
 	}
 
-	/* Ensure we copy into caller's memory context */
+	/* 确保复制进调用者的内存上下文 */
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Record abbreviated key for caller */
+	/* 为调用者记录缩略键 */
 	if (base->sortKeys->abbrev_converter && abbrev)
 		*abbrev = stup.datum1;
 
@@ -888,7 +888,7 @@ tuplesort_getdatum(Tuplesortstate *state, bool forward, bool copy,
 	}
 	else
 	{
-		/* use stup.tuple because stup.datum1 may be an abbreviation */
+		/* 用 stup.tuple，因 stup.datum1 可能是缩略值 */
 		if (copy)
 			*val = datumCopy(PointerGetDatum(stup.tuple), false,
 							 arg->datumTypeLen);
@@ -902,7 +902,7 @@ tuplesort_getdatum(Tuplesortstate *state, bool forward, bool copy,
 
 
 /*
- * Routines specialized for HeapTuple (actually MinimalTuple) case
+ * 为 HeapTuple（实为 MinimalTuple）情形专门化例程
  */
 
 static void
@@ -943,14 +943,14 @@ comparetup_heap(const SortTuple *a, const SortTuple *b, Tuplesortstate *state)
 				isnull2;
 
 
-	/* Compare the leading sort key */
+	/* 比较前导排序键 */
 	compare = ApplySortComparator(a->datum1, a->isnull1,
 								  b->datum1, b->isnull1,
 								  sortKey);
 	if (compare != 0)
 		return compare;
 
-	/* Compare additional sort keys */
+	/* 比较其余排序键 */
 	ltup.t_len = ((MinimalTuple) a->tuple)->t_len + MINIMAL_TUPLE_OFFSET;
 	ltup.t_data = (HeapTupleHeader) ((char *) a->tuple - MINIMAL_TUPLE_OFFSET);
 	rtup.t_len = ((MinimalTuple) b->tuple)->t_len + MINIMAL_TUPLE_OFFSET;
@@ -995,16 +995,16 @@ writetup_heap(Tuplesortstate *state, LogicalTape *tape, SortTuple *stup)
 	TuplesortPublic *base = TuplesortstateGetPublic(state);
 	MinimalTuple tuple = (MinimalTuple) stup->tuple;
 
-	/* the part of the MinimalTuple we'll write: */
+	/* 将写出的 MinimalTuple 部分： */
 	char	   *tupbody = (char *) tuple + MINIMAL_TUPLE_DATA_OFFSET;
 	unsigned int tupbodylen = tuple->t_len - MINIMAL_TUPLE_DATA_OFFSET;
 
-	/* total on-disk footprint: */
+	/* 总磁盘占用： */
 	unsigned int tuplen = tupbodylen + sizeof(int);
 
 	LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));
 	LogicalTapeWrite(tape, tupbody, tupbodylen);
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));
 }
 
@@ -1019,13 +1019,13 @@ readtup_heap(Tuplesortstate *state, SortTuple *stup,
 	TuplesortPublic *base = TuplesortstateGetPublic(state);
 	HeapTupleData htup;
 
-	/* read in the tuple proper */
+	/* 读入元组本体 */
 	tuple->t_len = tuplen;
 	LogicalTapeReadExact(tape, tupbody, tupbodylen);
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeReadExact(tape, &tuplen, sizeof(tuplen));
 	stup->tuple = (void *) tuple;
-	/* set up first-column key value */
+	/* 设置第一列键值 */
 	htup.t_len = tuple->t_len + MINIMAL_TUPLE_OFFSET;
 	htup.t_data = (HeapTupleHeader) ((char *) tuple - MINIMAL_TUPLE_OFFSET);
 	stup->datum1 = heap_getattr(&htup,
@@ -1035,8 +1035,8 @@ readtup_heap(Tuplesortstate *state, SortTuple *stup,
 }
 
 /*
- * Routines specialized for the CLUSTER case (HeapTuple data, with
- * comparisons per a btree index definition)
+ * 为 CLUSTER 情形专门化的例程（HeapTuple 数据，
+ * 按 btree 索引定义进行比较）
  */
 
 static void
@@ -1075,12 +1075,12 @@ comparetup_cluster(const SortTuple *a, const SortTuple *b,
 	bool		isnull1,
 				isnull2;
 
-	/* Be prepared to compare additional sort keys */
+	/* 准备好比较其余排序键 */
 	ltup = (HeapTuple) a->tuple;
 	rtup = (HeapTuple) b->tuple;
 	tupDesc = arg->tupDesc;
 
-	/* Compare the leading sort key, if it's simple */
+	/* 比较前导排序键（若其简单） */
 	if (base->haveDatum1)
 	{
 		compare = ApplySortComparator(a->datum1, a->isnull1,
@@ -1102,19 +1102,19 @@ comparetup_cluster(const SortTuple *a, const SortTuple *b,
 		}
 		if (compare != 0 || base->nKeys == 1)
 			return compare;
-		/* Compare additional columns the hard way */
+		/* 用笨办法比较其余的列 */
 		sortKey++;
 		nkey = 1;
 	}
 	else
 	{
-		/* Must compare all keys the hard way */
+		/* 必须用笨办法比较所有键 */
 		nkey = 0;
 	}
 
 	if (arg->indexInfo->ii_Expressions == NULL)
 	{
-		/* If not expression index, just compare the proper heap attrs */
+		/* 若非表达式索引，仅直接比较相应堆属性 */
 
 		for (; nkey < base->nKeys; nkey++, sortKey++)
 		{
@@ -1133,10 +1133,10 @@ comparetup_cluster(const SortTuple *a, const SortTuple *b,
 	else
 	{
 		/*
-		 * In the expression index case, compute the whole index tuple and
-		 * then compare values.  It would perhaps be faster to compute only as
-		 * many columns as we need to compare, but that would require
-		 * duplicating all the logic in FormIndexDatum.
+		 * 在表达式索引情形下，算出整个索引元组然后
+		 * 比较其值。只计算需要比较的列或许更快，
+		 * 但那需要复制
+		 * FormIndexDatum 的全部逻辑。
 		 */
 		Datum		l_index_values[INDEX_MAX_KEYS];
 		bool		l_index_isnull[INDEX_MAX_KEYS];
@@ -1144,7 +1144,7 @@ comparetup_cluster(const SortTuple *a, const SortTuple *b,
 		bool		r_index_isnull[INDEX_MAX_KEYS];
 		TupleTableSlot *ecxt_scantuple;
 
-		/* Reset context each time to prevent memory leakage */
+		/* 每次重置上下文以防内存泄漏 */
 		ResetPerTupleExprContext(arg->estate);
 
 		ecxt_scantuple = GetPerTupleExprContext(arg->estate)->ecxt_scantuple;
@@ -1179,11 +1179,11 @@ writetup_cluster(Tuplesortstate *state, LogicalTape *tape, SortTuple *stup)
 	HeapTuple	tuple = (HeapTuple) stup->tuple;
 	unsigned int tuplen = tuple->t_len + sizeof(ItemPointerData) + sizeof(int);
 
-	/* We need to store t_self, but not other fields of HeapTupleData */
+	/* 需存 t_self，其余 HeapTupleData 字段不必存 */
 	LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));
 	LogicalTapeWrite(tape, &tuple->t_self, sizeof(ItemPointerData));
 	LogicalTapeWrite(tape, tuple->t_data, tuple->t_len);
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));
 }
 
@@ -1197,18 +1197,18 @@ readtup_cluster(Tuplesortstate *state, SortTuple *stup,
 	HeapTuple	tuple = (HeapTuple) tuplesort_readtup_alloc(state,
 															t_len + HEAPTUPLESIZE);
 
-	/* Reconstruct the HeapTupleData header */
+	/* 重建 HeapTupleData 头部 */
 	tuple->t_data = (HeapTupleHeader) ((char *) tuple + HEAPTUPLESIZE);
 	tuple->t_len = t_len;
 	LogicalTapeReadExact(tape, &tuple->t_self, sizeof(ItemPointerData));
-	/* We don't currently bother to reconstruct t_tableOid */
+	/* 我们目前不打算重建 t_tableOid */
 	tuple->t_tableOid = InvalidOid;
-	/* Read in the tuple body */
+	/* 读入元组体 */
 	LogicalTapeReadExact(tape, tuple->t_data, tuple->t_len);
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeReadExact(tape, &tuplen, sizeof(tuplen));
 	stup->tuple = (void *) tuple;
-	/* set up first-column key value, if it's a simple column */
+	/* 若是简单列，则设置第一列键值 */
 	if (base->haveDatum1)
 		stup->datum1 = heap_getattr(tuple,
 									arg->indexInfo->ii_IndexAttrNumbers[0],
@@ -1222,7 +1222,7 @@ freestate_cluster(Tuplesortstate *state)
 	TuplesortPublic *base = TuplesortstateGetPublic(state);
 	TuplesortClusterArg *arg = (TuplesortClusterArg *) base->arg;
 
-	/* Free any execution state created for CLUSTER case */
+	/* 释放为 CLUSTER 情形创建的执行状态 */
 	if (arg->estate != NULL)
 	{
 		ExprContext *econtext = GetPerTupleExprContext(arg->estate);
@@ -1233,11 +1233,11 @@ freestate_cluster(Tuplesortstate *state)
 }
 
 /*
- * Routines specialized for IndexTuple case
+ * 为 IndexTuple 情形专门化的例程
  *
- * The btree and hash cases require separate comparison functions, but the
- * IndexTuple representation is the same so the copy/write/read support
- * functions can be shared.
+ * btree 与 hash 情形需要各自的比较函数，但两者的
+ * IndexTuple 表示是相同的，所以复制/写出/读取支持
+ * 函数可以共享。
  */
 
 static void
@@ -1264,9 +1264,9 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 					   Tuplesortstate *state)
 {
 	/*
-	 * This is similar to comparetup_heap(), but expects index tuples.  There
-	 * is also special handling for enforcing uniqueness, and special
-	 * treatment for equal keys at the end.
+	 * 这与 comparetup_heap() 类似，但预期的是索引元组。
+	 * 另有强制唯一性的特殊处理，末尾对相等
+	 * 键的特殊处理。
 	 */
 	TuplesortPublic *base = TuplesortstateGetPublic(state);
 	TuplesortIndexBTreeArg *arg = (TuplesortIndexBTreeArg *) base->arg;
@@ -1284,14 +1284,14 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 				isnull2;
 
 
-	/* Compare the leading sort key */
+	/* 比较前导排序键 */
 	compare = ApplySortComparator(a->datum1, a->isnull1,
 								  b->datum1, b->isnull1,
 								  sortKey);
 	if (compare != 0)
 		return compare;
 
-	/* Compare additional sort keys */
+	/* 比较其余排序键 */
 	tuple1 = (IndexTuple) a->tuple;
 	tuple2 = (IndexTuple) b->tuple;
 	keysz = base->nKeys;
@@ -1309,7 +1309,7 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 			return compare;
 	}
 
-	/* they are equal, so we only need to examine one null flag */
+	/* 二者相等，因此只需检查其中一个空标志 */
 	if (a->isnull1)
 		equal_hasnull = true;
 
@@ -1323,22 +1323,22 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 									  datum2, isnull2,
 									  sortKey);
 		if (compare != 0)
-			return compare;		/* done when we find unequal attributes */
+			return compare;		/* 发现不等属性时即完成 */
 
-		/* they are equal, so we only need to examine one null flag */
+		/* 二者相等，因此只需检查其中一个空标志 */
 		if (isnull1)
 			equal_hasnull = true;
 	}
 
 	/*
-	 * If btree has asked us to enforce uniqueness, complain if two equal
-	 * tuples are detected (unless there was at least one NULL field and NULLS
-	 * NOT DISTINCT was not set).
+	 * 若 btree 要求我们强制唯一性，则在检测到两个
+	 * 相等元组时 complain（除非有 NULL 字段且未设
+	 * NULLS NOT DISTINCT）。
 	 *
-	 * It is sufficient to make the test here, because if two tuples are equal
-	 * they *must* get compared at some stage of the sort --- otherwise the
-	 * sort algorithm wouldn't have checked whether one must appear before the
-	 * other.
+	 * 在这里做这一检验就足够了，因为如果两个元组
+	 * 相等，它们*必然*会在排序的某个阶段被比较 ---
+	 * 否则我们就不会检查过二者中哪个必须居
+	 * 前。
 	 */
 	if (arg->enforceUnique && !(!arg->uniqueNullsNotDistinct && equal_hasnull))
 	{
@@ -1347,10 +1347,10 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 		char	   *key_desc;
 
 		/*
-		 * Some rather brain-dead implementations of qsort (such as the one in
-		 * QNX 4) will sometimes call the comparison routine to compare a
-		 * value to itself, but we always use our own implementation, which
-		 * does not.
+		 * 某些相当笨拙的 qsort 实现（例如
+		 * QNX 4 中的那个）有时会调用比较例程把一个值
+		 * 与自身比较，但总是使用自己的实现，它不会
+		 * 这样。
 		 */
 		Assert(tuple1 != tuple2);
 
@@ -1369,10 +1369,10 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 	}
 
 	/*
-	 * If key values are equal, we sort on ItemPointer.  This is required for
-	 * btree indexes, since heap TID is treated as an implicit last key
-	 * attribute in order to ensure that all keys in the index are physically
-	 * unique.
+	 * 若键值相等，我们按 ItemPointer 排序。这对 btree 索引
+	 * 来说是必需的，堆 TID 被当作隐式的最后一个键
+	 * 属性，以确保索引中所有键在物理上都唯一。
+	 *
 	 */
 	{
 		BlockNumber blk1 = ItemPointerGetBlockNumber(&tuple1->t_tid);
@@ -1389,7 +1389,7 @@ comparetup_index_btree(const SortTuple *a, const SortTuple *b,
 			return (pos1 < pos2) ? -1 : 1;
 	}
 
-	/* ItemPointer values should never be equal */
+	/* ItemPointer 值绝不应相等 */
 	Assert(false);
 
 	return 0;
@@ -1409,9 +1409,9 @@ comparetup_index_hash(const SortTuple *a, const SortTuple *b,
 	TuplesortIndexHashArg *arg = (TuplesortIndexHashArg *) base->arg;
 
 	/*
-	 * Fetch hash keys and mask off bits we don't want to sort by, so that the
-	 * initial sort is just on the bucket number.  We know that the first
-	 * column of the index tuple is the hash key.
+	 * 取得哈希键并掩掉我们不想据以排序的位，使得
+	 * 初始排序只针对桶号。我们知道索引元组的
+	 * 第一列就是哈希键。
 	 */
 	Assert(!a->isnull1);
 	bucket1 = _hash_hashkey2bucket(DatumGetUInt32(a->datum1),
@@ -1427,9 +1427,9 @@ comparetup_index_hash(const SortTuple *a, const SortTuple *b,
 		return -1;
 
 	/*
-	 * If bucket values are equal, sort by hash values.  This allows us to
-	 * insert directly onto bucket/overflow pages, where the index tuples are
-	 * stored in hash order to allow fast binary search within each page.
+	 * 若桶值相等，则按哈希值排序。这使我们可以
+	 * 直接插入到桶/溢出页上，那里索引元组按哈希序
+	 * 存储，以便每页内可进行快速的二分查找。
 	 */
 	hash1 = DatumGetUInt32(a->datum1);
 	hash2 = DatumGetUInt32(b->datum1);
@@ -1439,9 +1439,9 @@ comparetup_index_hash(const SortTuple *a, const SortTuple *b,
 		return -1;
 
 	/*
-	 * If hash values are equal, we sort on ItemPointer.  This does not affect
-	 * validity of the finished index, but it may be useful to have index
-	 * scans in physical order.
+	 * 若哈希值相等，我们按 ItemPointer 排序。这不影响
+	 * 已建成索引的有效性，但让索引扫描保持物理顺序
+	 * 可能有用。
 	 */
 	tuple1 = (IndexTuple) a->tuple;
 	tuple2 = (IndexTuple) b->tuple;
@@ -1461,7 +1461,7 @@ comparetup_index_hash(const SortTuple *a, const SortTuple *b,
 			return (pos1 < pos2) ? -1 : 1;
 	}
 
-	/* ItemPointer values should never be equal */
+	/* ItemPointer 值绝不应相等 */
 	Assert(false);
 
 	return 0;
@@ -1477,7 +1477,7 @@ writetup_index(Tuplesortstate *state, LogicalTape *tape, SortTuple *stup)
 	tuplen = IndexTupleSize(tuple) + sizeof(tuplen);
 	LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));
 	LogicalTapeWrite(tape, tuple, IndexTupleSize(tuple));
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));
 }
 
@@ -1491,10 +1491,10 @@ readtup_index(Tuplesortstate *state, SortTuple *stup,
 	IndexTuple	tuple = (IndexTuple) tuplesort_readtup_alloc(state, tuplen);
 
 	LogicalTapeReadExact(tape, tuple, tuplen);
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeReadExact(tape, &tuplen, sizeof(tuplen));
 	stup->tuple = (void *) tuple;
-	/* set up first-column key value */
+	/* 设置第一列键值 */
 	stup->datum1 = index_getattr(tuple,
 								 1,
 								 RelationGetDescr(arg->indexRel),
@@ -1502,7 +1502,7 @@ readtup_index(Tuplesortstate *state, SortTuple *stup,
 }
 
 /*
- * Routines specialized for DatumTuple case
+ * 为 DatumTuple 情形专门化的例程
  */
 
 static void
@@ -1526,7 +1526,7 @@ comparetup_datum(const SortTuple *a, const SortTuple *b, Tuplesortstate *state)
 	if (compare != 0)
 		return compare;
 
-	/* if we have abbreviations, then "tuple" has the original value */
+	/* 若有缩略，则"tuple"保有原值 */
 
 	if (base->sortKeys->abbrev_converter)
 		compare = ApplySortAbbrevFullComparator(PointerGetDatum(a->tuple), a->isnull1,
@@ -1566,7 +1566,7 @@ writetup_datum(Tuplesortstate *state, LogicalTape *tape, SortTuple *stup)
 
 	LogicalTapeWrite(tape, &writtenlen, sizeof(writtenlen));
 	LogicalTapeWrite(tape, waddr, tuplen);
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeWrite(tape, &writtenlen, sizeof(writtenlen));
 }
 
@@ -1579,7 +1579,7 @@ readtup_datum(Tuplesortstate *state, SortTuple *stup,
 
 	if (tuplen == 0)
 	{
-		/* it's NULL */
+		/* 为 NULL */
 		stup->datum1 = (Datum) 0;
 		stup->isnull1 = true;
 		stup->tuple = NULL;
@@ -1601,6 +1601,6 @@ readtup_datum(Tuplesortstate *state, SortTuple *stup,
 		stup->tuple = raddr;
 	}
 
-	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* need trailing length word? */
+	if (base->sortopt & TUPLESORT_RANDOMACCESS) /* 要尾随长度字？ */
 		LogicalTapeReadExact(tape, &tuplen, sizeof(tuplen));
 }

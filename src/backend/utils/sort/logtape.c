@@ -1,70 +1,70 @@
 /*-------------------------------------------------------------------------
  *
  * logtape.c
- *	  Management of "logical tapes" within temporary files.
+ *	  临时文件内逻辑磁带(logical tapes)管理。
  *
- * This module exists to support sorting via multiple merge passes (see
- * tuplesort.c).  Merging is an ideal algorithm for tape devices, but if
- * we implement it on disk by creating a separate file for each "tape",
- * there is an annoying problem: the peak space usage is at least twice
- * the volume of actual data to be sorted.  (This must be so because each
- * datum will appear in both the input and output tapes of the final
- * merge pass.)
+ * 本模块用于支持经由多趟归并的排序（参见
+ * tuplesort.c）。归并对磁带设备是理想算法，但若
+ * 我们在磁盘上为每条磁带各建单独的文件，
+ * 就有一个恼人的问题：空间用量的峰值至少为
+ * 待排序实际数据量的两倍。（这是必然的，因为每个
+ * 数据项都会同时出现在末趟归并的输入与输出
+ * 磁带。）
  *
- * We can work around this problem by recognizing that any one tape
- * dataset (with the possible exception of the final output) is written
- * and read exactly once in a perfectly sequential manner.  Therefore,
- * a datum once read will not be required again, and we can recycle its
- * space for use by the new tape dataset(s) being generated.  In this way,
- * the total space usage is essentially just the actual data volume, plus
- * insignificant bookkeeping and start/stop overhead.
+ * 我们可以这样绕过该问题：认识到任一
+ * 磁带数据集(dataset)（最终输出可能除外）只以
+ * 完全顺序的方式精确地写入和读取一次。因此，
+ * 数据项被读取一次后不再需要，我们可以回收其
+ * 空间供正在生成的新磁带数据集使用。这样，
+ * 总空间用量本质上就只是实际数据量，外加
+ * 微不足道的簿记和启停开销。
  *
- * Few OSes allow arbitrary parts of a file to be released back to the OS,
- * so we have to implement this space-recycling ourselves within a single
- * logical file.  logtape.c exists to perform this bookkeeping and provide
- * the illusion of N independent tape devices to tuplesort.c.  Note that
- * logtape.c itself depends on buffile.c to provide a "logical file" of
- * larger size than the underlying OS may support.
+ * 很少有 OSes 允许把文件的任意部分归还给系统，
+ * 所以我们必须自行在单个
+ * 逻辑文件(file)内实现空间回收。logtape.c 负责簿记，
+ * 为 tuplesort.c 提供 N 个独立磁带设备的假象。注意
+ * logtape.c 本身依赖 buffile.c 提供超出底层
+ * OS 所支持大小的"逻辑文件"。
  *
- * For simplicity, we allocate and release space in the underlying file
- * in BLCKSZ-size blocks.  Space allocation boils down to keeping track
- * of which blocks in the underlying file belong to which logical tape,
- * plus any blocks that are free (recycled and not yet reused).
- * The blocks in each logical tape form a chain, with a prev- and next-
- * pointer in each block.
+ * 为简单起见，我们在底层文件中以 BLCKSZ 大小的块
+ * 为单位分配和释放空间。空间分配归结为跟踪
+ * 底层文件中哪些块属于哪条逻辑磁带，外加
+ * 任何空闲的块（已回收但尚未重用）。
+ * 每条逻辑磁带的块构成一条链，每块有 prev 和
+ * next 指针。
  *
- * The initial write pass is guaranteed to fill the underlying file
- * perfectly sequentially, no matter how data is divided into logical tapes.
- * Once we begin merge passes, the access pattern becomes considerably
- * less predictable --- but the seeking involved should be comparable to
- * what would happen if we kept each logical tape in a separate file,
- * so there's no serious performance penalty paid to obtain the space
- * savings of recycling.  We try to localize the write accesses by always
- * writing to the lowest-numbered free block when we have a choice; it's
- * not clear this helps much, but it can't hurt.  (XXX perhaps a LIFO
- * policy for free blocks would be better?)
+ * 初始写入趟保证会完全顺序地填满底层文件，
+ * 无论数据如何划分成逻辑磁带。
+ * 开始归并趟后，访问模式会变得难以预测得多
+ * --- 但其中的寻道开销应与
+ * 我们将每条逻辑磁带保存在单独文件的情况相当，
+ * 而为换取回收的空间节约，付出的性能代价
+ * 并不严重。我们尽量让写访问局部化，总是
+ * 写往编号最小的空闲块；这是否大有帮助并不
+ * 清楚，但也不会有害。（XXX 对空闲块采用 LIFO
+ * 策略会不会更好？）
  *
- * To further make the I/Os more sequential, we can use a larger buffer
- * when reading, and read multiple blocks from the same tape in one go,
- * whenever the buffer becomes empty.
+ * 为进一步提高 I/O 顺序性，读取时可用更大的缓冲区
+ * 并一次性地从同一磁带读取多个块，
+ * 只要缓冲区变空。
  *
- * To support the above policy of writing to the lowest free block, the
- * freelist is a min heap.
+ * 为支持上述写往最小空闲块的策略，空闲链表
+ * 是一个最小堆。
  *
- * Since all the bookkeeping and buffer memory is allocated with palloc(),
- * and the underlying file(s) are made with OpenTemporaryFile, all resources
- * for a logical tape set are certain to be cleaned up even if processing
- * is aborted by ereport(ERROR).  To avoid confusion, the caller should take
- * care that all calls for a single LogicalTapeSet are made in the same
- * palloc context.
+ * 由于所有簿记与缓冲内存都用 palloc() 分配，底层
+ * 文件由 OpenTemporaryFile 创建，逻辑磁带集的
+ * 所有资源都必然会被清理，即使处理被
+ * ereport(ERROR) 中止。为避免混淆，调用者应当注意
+ * 单个 LogicalTapeSet 的全部调用都应在同一个 palloc
+ * 上下文中。
  *
- * To support parallel sort operations involving coordinated callers to
- * tuplesort.c routines across multiple workers, it is necessary to
- * concatenate each worker BufFile/tapeset into one single logical tapeset
- * managed by the leader.  Workers should have produced one final
- * materialized tape (their entire output) when this happens in leader.
- * There will always be the same number of runs as input tapes, and the same
- * number of input tapes as participants (worker Tuplesortstates).
+ * 为支持涉及多个工作进程协同调用
+ * tuplesort.c 例程的并行排序，需把每个工作进程的
+ * BufFile/tapeset 拼接成一个由主导进程管理的
+ * 单一逻辑磁带集。工作进程此时应已产出一个
+ * 物化磁带（其全部输出）。归并段数将恒等于
+ * 输入磁带数目，且输入磁带数目与参与者（工作进程
+ * Tuplesortstate）的数目相同。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -86,18 +86,18 @@
 #include "utils/memutils.h"
 
 /*
- * A TapeBlockTrailer is stored at the end of each BLCKSZ block.
+ * TapeBlockTrailer 存储在每个 BLCKSZ 块的末尾。
  *
- * The first block of a tape has prev == -1.  The last block of a tape
- * stores the number of valid bytes on the block, inverted, in 'next'
- * Therefore next < 0 indicates the last block.
+ * 磁带的第一个块 prev == -1。磁带的最后一个块
+ * 在 'next' 中以取反形式存储该块的有效字节数，
+ * 因此 next < 0 表示最后一个块。
  */
 typedef struct TapeBlockTrailer
 {
-	long		prev;			/* previous block on this tape, or -1 on first
-								 * block */
-	long		next;			/* next block on this tape, or # of valid
-								 * bytes on last block (if < 0) */
+	long		prev;			/* 本磁带上的前一块号；首块取
+								 * -1 */
+	long		next;			/* 本磁带上的下一块；或末块
+								 * 的有效字节数(若<0) */
 } TapeBlockTrailer;
 
 #define TapeBlockPayloadSize  (BLCKSZ - sizeof(TapeBlockTrailer))
@@ -112,46 +112,46 @@ typedef struct TapeBlockTrailer
 	(TapeBlockGetTrailer(buf)->next = -(nbytes))
 
 /*
- * When multiple tapes are being written to concurrently (as in HashAgg),
- * avoid excessive fragmentation by preallocating block numbers to individual
- * tapes. Each preallocation doubles in size starting at
- * TAPE_WRITE_PREALLOC_MIN blocks up to TAPE_WRITE_PREALLOC_MAX blocks.
+ * 当多条磁带被并发写入时（如 HashAgg 中），
+ * 通过向各条磁带预分配块号来避免过度碎片化。
+ * 每次预分配大小翻倍，自
+ * TAPE_WRITE_PREALLOC_MIN 块起至 TAPE_WRITE_PREALLOC_MAX 块。
  *
- * No filesystem operations are performed for preallocation; only the block
- * numbers are reserved. This may lead to sparse writes, which will cause
- * ltsWriteBlock() to fill in holes with zeros.
+ * 预分配不执行任何文件系统操作；只有块号
+ * 被保留下来。这可能导致稀疏写入，从而令
+ * ltsWriteBlock() 用零填充空洞。
  */
 #define TAPE_WRITE_PREALLOC_MIN 8
 #define TAPE_WRITE_PREALLOC_MAX 128
 
 /*
- * This data structure represents a single "logical tape" within the set
- * of logical tapes stored in the same file.
+ * 该数据结构表示同一文件所存逻辑磁带集合中的
+ * 一条"逻辑磁带"。
  *
- * While writing, we hold the current partially-written data block in the
- * buffer.  While reading, we can hold multiple blocks in the buffer.  Note
- * that we don't retain the trailers of a block when it's read into the
- * buffer.  The buffer therefore contains one large contiguous chunk of data
- * from the tape.
+ * 写入时，我们把当前部分写就的数据块保存在
+ * 缓冲区中。读取时，缓冲区中可容纳多个块。注意，
+ * 块被读入缓冲区时，我们不会保留它的块尾，
+ * 因此缓冲区中是一整段连续的磁带
+ * 数据。
  */
 struct LogicalTape
 {
-	LogicalTapeSet *tapeSet;	/* tape set this tape is part of */
+	LogicalTapeSet *tapeSet;	/* 所属磁带集 */
 
-	bool		writing;		/* T while in write phase */
-	bool		frozen;			/* T if blocks should not be freed when read */
-	bool		dirty;			/* does buffer need to be written? */
+	bool		writing;		/* 写入阶段为 T */
+	bool		frozen;			/* 读取时不应释放块则为 T */
+	bool		dirty;			/* 缓冲区是否需要写出？ */
 
 	/*
-	 * Block numbers of the first, current, and next block of the tape.
+	 * 磁带的第一块、当前块和下一块的块号。
 	 *
-	 * The "current" block number is only valid when writing, or reading from
-	 * a frozen tape.  (When reading from an unfrozen tape, we use a larger
-	 * read buffer that holds multiple blocks, so the "current" block is
-	 * ambiguous.)
+	 * "当前"块号仅在写入时或从冻结
+	 * 磁带读取时才有效。读取非冻结磁带时，需用更大
+	 * 的读缓冲区容纳多个块，故"当前"块有
+	 * 歧义。
 	 *
-	 * When concatenation of worker tape BufFiles is performed, an offset to
-	 * the first block in the unified BufFile space is applied during reads.
+	 * 当执行工作进程磁带 BufFiles 的拼接时，读取会
+	 * 对统一 BufFile 空间中第一块施加偏移量。
 	 */
 	long		firstBlockNumber;
 	long		curBlockNumber;
@@ -159,64 +159,64 @@ struct LogicalTape
 	long		offsetBlockNumber;
 
 	/*
-	 * Buffer for current data block(s).
+	 * 当前块(block)的缓冲区。
 	 */
-	char	   *buffer;			/* physical buffer (separately palloc'd) */
-	int			buffer_size;	/* allocated size of the buffer */
-	int			max_size;		/* highest useful, safe buffer_size */
-	int			pos;			/* next read/write position in buffer */
-	int			nbytes;			/* total # of valid bytes in buffer */
+	char	   *buffer;			/* 物理缓冲区（单独 palloc） */
+	int			buffer_size;	/* 缓冲区的已分配大小 */
+	int			max_size;		/* buffer_size 最高安全值 */
+	int			pos;			/* 缓冲区中下个读/写位置 */
+	int			nbytes;			/* 缓冲区内有效字节总数 */
 
 	/*
-	 * Preallocated block numbers are held in an array sorted in descending
-	 * order; blocks are consumed from the end of the array (lowest block
-	 * numbers first).
+	 * 预分配的块号保存在一个按降序排序的数组中；
+	 * 块从数组末端开始消耗（块号最小者
+	 * 最先）。
 	 */
 	long	   *prealloc;
-	int			nprealloc;		/* number of elements in list */
-	int			prealloc_size;	/* number of elements list can hold */
+	int			nprealloc;		/* 列表中的元素数 */
+	int			prealloc_size;	/* 列表可容纳的元素数 */
 };
 
 /*
- * This data structure represents a set of related "logical tapes" sharing
- * space in a single underlying file.  (But that "file" may be multiple files
- * if needed to escape OS limits on file size; buffile.c handles that for us.)
- * Tapes belonging to a tape set can be created and destroyed on-the-fly, on
- * demand.
+ * 该数据结构表示一组共享同一底层文件空间的
+ * 相关"逻辑磁带"。（但该"文件"在需要绕开
+ * OS 文件大小限制时可为多个文件；buffile.c 代为处理。）
+ * 属于磁带集的磁带可以按需即时地创建与销毁。
+ *
  */
 struct LogicalTapeSet
 {
-	BufFile    *pfile;			/* underlying file for whole tape set */
+	BufFile    *pfile;			/* 整个磁带集的底层文件 */
 	SharedFileSet *fileset;
-	int			worker;			/* worker # if shared, -1 for leader/serial */
+	int			worker;			/* 共享为 worker 号，主导/串行-1 */
 
 	/*
-	 * File size tracking.  nBlocksWritten is the size of the underlying file,
-	 * in BLCKSZ blocks.  nBlocksAllocated is the number of blocks allocated
-	 * by ltsReleaseBlock(), and it is always greater than or equal to
-	 * nBlocksWritten.  Blocks between nBlocksAllocated and nBlocksWritten are
-	 * blocks that have been allocated for a tape, but have not been written
-	 * to the underlying file yet.  nHoleBlocks tracks the total number of
-	 * blocks that are in unused holes between worker spaces following BufFile
-	 * concatenation.
+	 * 文件大小跟踪。nBlocksWritten 是底层文件的大小，
+	 * 以 BLCKSZ 块计。nBlocksAllocated 是由
+	 * ltsReleaseBlock() 分配的块数，它总是大于等于
+	 * nBlocksWritten。介于 nBlocksAllocated 与
+	 * nBlocksWritten 之间的块是已分配给某条磁带，
+	 * 但尚未写入底层文件的块。nHoleBlocks 跟踪
+	 * BufFile 拼接之后各工作进程空间之间未用空洞
+	 * 的块数。
 	 */
-	long		nBlocksAllocated;	/* # of blocks allocated */
-	long		nBlocksWritten; /* # of blocks used in underlying file */
-	long		nHoleBlocks;	/* # of "hole" blocks left */
+	long		nBlocksAllocated;	/* 已分配块数 */
+	long		nBlocksWritten; /* 底层文件中已使用的块数 */
+	long		nHoleBlocks;	/* 剩余"空洞"块数 */
 
 	/*
-	 * We store the numbers of recycled-and-available blocks in freeBlocks[].
-	 * When there are no such blocks, we extend the underlying file.
+	 * 我们把已回收且可用的块号存储在 freeBlocks[] 中。
+	 * 当没有这种块时，我们就扩展底层文件。
 	 *
-	 * If forgetFreeSpace is true then any freed blocks are simply forgotten
-	 * rather than being remembered in freeBlocks[].  See notes for
-	 * LogicalTapeSetForgetFreeSpace().
+	 * 若 forgetFreeSpace 为真，则任何被释放的块
+	 * 都被直接遗忘，不记入 freeBlocks[]。参见
+	 * LogicalTapeSetForgetFreeSpace()
 	 */
-	bool		forgetFreeSpace;	/* are we remembering free blocks? */
-	long	   *freeBlocks;		/* resizable array holding minheap */
-	long		nFreeBlocks;	/* # of currently free blocks */
-	Size		freeBlocksLen;	/* current allocated length of freeBlocks[] */
-	bool		enable_prealloc;	/* preallocate write blocks? */
+	bool		forgetFreeSpace;	/* 是否记录空闲块？ */
+	long	   *freeBlocks;		/* 持有最小堆的可调数组 */
+	long		nFreeBlocks;	/* 当前空闲块数 */
+	Size		freeBlocksLen;	/* freeBlocks[] 当前已分配长度 */
+	bool		enable_prealloc;	/* 预分配写块？ */
 };
 
 static LogicalTape *ltsCreateTape(LogicalTapeSet *lts);
@@ -230,25 +230,25 @@ static void ltsInitReadBuffer(LogicalTape *lt);
 
 
 /*
- * Write a block-sized buffer to the specified block of the underlying file.
+ * 把一个块大小的缓冲区写入底层文件的指定块。
  *
- * No need for an error return convention; we ereport() on any error.
+ * 无需错误返回约定；任何错误都以 ereport() 报告。
  */
 static void
 ltsWriteBlock(LogicalTapeSet *lts, long blocknum, const void *buffer)
 {
 	/*
-	 * BufFile does not support "holes", so if we're about to write a block
-	 * that's past the current end of file, fill the space between the current
-	 * end of file and the target block with zeros.
+	 * BufFile 不支持"空洞"，因此当我们要写的块
+	 * 越过当前文件末尾时，就在当前文件末尾与
+	 * 目标块之间填充零。
 	 *
-	 * This can happen either when tapes preallocate blocks; or for the last
-	 * block of a tape which might not have been flushed.
+	 * 这种情况可能发生在磁带预分配块时；也可能
+	 * 发生在磁带末块尚未刷写时。
 	 *
-	 * Note that BufFile concatenation can leave "holes" in BufFile between
-	 * worker-owned block ranges.  These are tracked for reporting purposes
-	 * only.  We never read from nor write to these hole blocks, and so they
-	 * are not considered here.
+	 * 注意，BufFile 拼接可能在 BufFile 中各工作进程
+	 * 拥有的块区间之间留下"空洞"。这些空洞仅为
+	 * 报告目的而被跟踪。我们从不读写这些空洞块，
+	 * 故此处不考虑。
 	 */
 	while (blocknum > lts->nBlocksWritten)
 	{
@@ -259,7 +259,7 @@ ltsWriteBlock(LogicalTapeSet *lts, long blocknum, const void *buffer)
 		ltsWriteBlock(lts, lts->nBlocksWritten, zerobuf.data);
 	}
 
-	/* Write the requested block */
+	/* 写出请求的块 */
 	if (BufFileSeekBlock(lts->pfile, blocknum) != 0)
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -267,16 +267,16 @@ ltsWriteBlock(LogicalTapeSet *lts, long blocknum, const void *buffer)
 						blocknum)));
 	BufFileWrite(lts->pfile, buffer, BLCKSZ);
 
-	/* Update nBlocksWritten, if we extended the file */
+	/* 若扩展了文件，则更新 nBlocksWritten */
 	if (blocknum == lts->nBlocksWritten)
 		lts->nBlocksWritten++;
 }
 
 /*
- * Read a block-sized buffer from the specified block of the underlying file.
+ * 从底层文件的指定块读出一个块大小的缓冲区。
  *
- * No need for an error return convention; we ereport() on any error.   This
- * module should never attempt to read a block it doesn't know is there.
+ * 无需错误返回约定；任何错误都以 ereport() 报告。本
+ * 模块绝不应尝试读取一个它并不知道存在的块。
  */
 static void
 ltsReadBlock(LogicalTapeSet *lts, long blocknum, void *buffer)
@@ -290,9 +290,9 @@ ltsReadBlock(LogicalTapeSet *lts, long blocknum, void *buffer)
 }
 
 /*
- * Read as many blocks as we can into the per-tape buffer.
+ * 尽量多地把块读入每条磁带的缓冲区。
  *
- * Returns true if anything was read, 'false' on EOF.
+ * 读到数据返回 true，EOF 时为 'false'。
  */
 static bool
 ltsReadFillBuffer(LogicalTape *lt)
@@ -305,13 +305,13 @@ ltsReadFillBuffer(LogicalTape *lt)
 		char	   *thisbuf = lt->buffer + lt->nbytes;
 		long		datablocknum = lt->nextBlockNumber;
 
-		/* Fetch next block number */
+		/* 取下一块号 */
 		if (datablocknum == -1L)
 			break;				/* EOF */
-		/* Apply worker offset, needed for leader tapesets */
+		/* 主导磁带集需应用工作进程偏移 */
 		datablocknum += lt->offsetBlockNumber;
 
-		/* Read the block */
+		/* 读该块 */
 		ltsReadBlock(lt->tapeSet, datablocknum, thisbuf);
 		if (!lt->frozen)
 			ltsReleaseBlock(lt->tapeSet, datablocknum);
@@ -327,7 +327,7 @@ ltsReadFillBuffer(LogicalTape *lt)
 		else
 			lt->nextBlockNumber = TapeBlockGetTrailer(thisbuf)->next;
 
-		/* Advance to next block, if we have buffer space left */
+		/* 若还有缓冲区空间，则前进到下一块 */
 	} while (lt->buffer_size - lt->nbytes > BLCKSZ);
 
 	return (lt->nbytes > 0);
@@ -352,7 +352,7 @@ parent_offset(unsigned long i)
 }
 
 /*
- * Get the next block for writing.
+ * 取下一个待写块。
  */
 static long
 ltsGetBlock(LogicalTapeSet *lts, LogicalTape *lt)
@@ -364,8 +364,8 @@ ltsGetBlock(LogicalTapeSet *lts, LogicalTape *lt)
 }
 
 /*
- * Select the lowest currently unused block from the tape set's global free
- * list min heap.
+ * 从磁带集的全局空闲最小堆中选出当前
+ * 未用块。
  */
 static long
 ltsGetFreeBlock(LogicalTapeSet *lts)
@@ -376,25 +376,25 @@ ltsGetFreeBlock(LogicalTapeSet *lts)
 	long		holeval;
 	unsigned long holepos;
 
-	/* freelist empty; allocate a new block */
+	/* 空闲链表为空；分配新块 */
 	if (lts->nFreeBlocks == 0)
 		return lts->nBlocksAllocated++;
 
-	/* easy if heap contains one element */
+	/* 堆仅含一个元素时很简单 */
 	if (lts->nFreeBlocks == 1)
 	{
 		lts->nFreeBlocks--;
 		return lts->freeBlocks[0];
 	}
 
-	/* remove top of minheap */
+	/* 移除最小堆顶 */
 	blocknum = heap[0];
 
-	/* we'll replace it with end of minheap array */
+	/* 用最小堆数组的末元素顶替它 */
 	holeval = heap[--lts->nFreeBlocks];
 
-	/* sift down */
-	holepos = 0;				/* holepos is where the "hole" is */
+	/* 下沉 */
+	holepos = 0;				/* holepos 即"空洞"所在 */
 	heapsize = lts->nFreeBlocks;
 	while (true)
 	{
@@ -423,14 +423,14 @@ ltsGetFreeBlock(LogicalTapeSet *lts)
 }
 
 /*
- * Return the lowest free block number from the tape's preallocation list.
- * Refill the preallocation list with blocks from the tape set's free list if
- * necessary.
+ * 从磁带的预分配列表中返回最小的空闲块号。
+ * 必要时，用磁带集空闲链表中的块重新填满
+ * 该表。
  */
 static long
 ltsGetPreallocBlock(LogicalTapeSet *lts, LogicalTape *lt)
 {
-	/* sorted in descending order, so return the last element */
+	/* 按降序排序，因此返回最后一个元素 */
 	if (lt->nprealloc > 0)
 		return lt->prealloc[--lt->nprealloc];
 
@@ -441,7 +441,7 @@ ltsGetPreallocBlock(LogicalTapeSet *lts, LogicalTape *lt)
 	}
 	else if (lt->prealloc_size < TAPE_WRITE_PREALLOC_MAX)
 	{
-		/* when the preallocation list runs out, double the size */
+		/* 预分配列表用尽时，将大小翻倍 */
 		lt->prealloc_size *= 2;
 		if (lt->prealloc_size > TAPE_WRITE_PREALLOC_MAX)
 			lt->prealloc_size = TAPE_WRITE_PREALLOC_MAX;
@@ -449,13 +449,13 @@ ltsGetPreallocBlock(LogicalTapeSet *lts, LogicalTape *lt)
 										 sizeof(long) * lt->prealloc_size);
 	}
 
-	/* refill preallocation list */
+	/* 重填预分配列表 */
 	lt->nprealloc = lt->prealloc_size;
 	for (int i = lt->nprealloc; i > 0; i--)
 	{
 		lt->prealloc[i - 1] = ltsGetFreeBlock(lts);
 
-		/* verify descending order */
+		/* 验证降序次序 */
 		Assert(i == lt->nprealloc || lt->prealloc[i - 1] > lt->prealloc[i]);
 	}
 
@@ -463,7 +463,7 @@ ltsGetPreallocBlock(LogicalTapeSet *lts, LogicalTape *lt)
 }
 
 /*
- * Return a block# to the freelist.
+ * 将块号归还空闲链表。
  */
 static void
 ltsReleaseBlock(LogicalTapeSet *lts, long blocknum)
@@ -472,19 +472,19 @@ ltsReleaseBlock(LogicalTapeSet *lts, long blocknum)
 	unsigned long holepos;
 
 	/*
-	 * Do nothing if we're no longer interested in remembering free space.
+	 * 若我们不再需要记录空闲空间，则什么都不做。
 	 */
 	if (lts->forgetFreeSpace)
 		return;
 
 	/*
-	 * Enlarge freeBlocks array if full.
+	 * freeBlocks 数组满则扩容。
 	 */
 	if (lts->nFreeBlocks >= lts->freeBlocksLen)
 	{
 		/*
-		 * If the freelist becomes very large, just return and leak this free
-		 * block.
+		 * 若空闲链表变得非常大，就直接返回并泄漏这个
+		 * 块。
 		 */
 		if (lts->freeBlocksLen * 2 * sizeof(long) > MaxAllocSize)
 			return;
@@ -494,12 +494,12 @@ ltsReleaseBlock(LogicalTapeSet *lts, long blocknum)
 											lts->freeBlocksLen * sizeof(long));
 	}
 
-	/* create a "hole" at end of minheap array */
+	/* 在最小堆数组末端制造"空洞" */
 	heap = lts->freeBlocks;
 	holepos = lts->nFreeBlocks;
 	lts->nFreeBlocks++;
 
-	/* sift up to insert blocknum */
+	/* 上滤以插入 blocknum */
 	while (holepos != 0)
 	{
 		unsigned long parent = parent_offset(holepos);
@@ -514,9 +514,9 @@ ltsReleaseBlock(LogicalTapeSet *lts, long blocknum)
 }
 
 /*
- * Lazily allocate and initialize the read buffer. This avoids waste when many
- * tapes are open at once, but not all are active between rewinding and
- * reading.
+ * 惰性地分配并初始化读缓冲区。很多磁带同时打开、
+ * 但并非都在回卷与读取之间活动时，这能避免
+ * 浪费
  */
 static void
 ltsInitReadBuffer(LogicalTape *lt)
@@ -524,7 +524,7 @@ ltsInitReadBuffer(LogicalTape *lt)
 	Assert(lt->buffer_size > 0);
 	lt->buffer = palloc(lt->buffer_size);
 
-	/* Read the first block, or reset if tape is empty */
+	/* 读取第一个块；磁带为空则重置 */
 	lt->nextBlockNumber = lt->firstBlockNumber;
 	lt->pos = 0;
 	lt->nbytes = 0;
@@ -532,25 +532,25 @@ ltsInitReadBuffer(LogicalTape *lt)
 }
 
 /*
- * Create a tape set, backed by a temporary underlying file.
+ * 创建一个磁带集，由临时底层文件支撑。
  *
- * The tape set is initially empty. Use LogicalTapeCreate() to create
- * tapes in it.
+ * 磁带集初始为空。可用 LogicalTapeCreate()
+ * 建磁带。
  *
- * In a single-process sort, pass NULL argument for fileset, and -1 for
- * worker.
+ * 单进程排序中，fileset 参数传 NULL，worker 参数传
+ * -1。
  *
- * In a parallel sort, parallel workers pass the shared fileset handle and
- * their own worker number.  After the workers have finished, create the
- * tape set in the leader, passing the shared fileset handle and -1 for
- * worker, and use LogicalTapeImport() to import the worker tapes into it.
+ * 并行排序中，各并行工作进程传入共享 fileset
+ * 句柄和自己的 worker 号。工作进程全部结束后，在
+ * 主导进程中创建磁带集，传入共享 fileset 句柄，
+ * worker 传 -1，并用 LogicalTapeImport() 导入工作进程磁带。
  *
- * Currently, the leader will only import worker tapes into the set, it does
- * not create tapes of its own, although in principle that should work.
+ * 目前，主导进程只会把工作进程磁带导入该集合，并不
+ * 创建自己的磁带，尽管理论上这应该可行。
  *
- * If preallocate is true, blocks for each individual tape are allocated in
- * batches.  This avoids fragmentation when writing multiple tapes at the
- * same time.
+ * 若 preallocate 为真，每条磁带的块都分批分配。
+ * 这避免了同时写入多条磁带时发生碎片化。
+ *
  */
 LogicalTapeSet *
 LogicalTapeSetCreate(bool preallocate, SharedFileSet *fileset, int worker)
@@ -558,14 +558,14 @@ LogicalTapeSetCreate(bool preallocate, SharedFileSet *fileset, int worker)
 	LogicalTapeSet *lts;
 
 	/*
-	 * Create top-level struct including per-tape LogicalTape structs.
+	 * 创建顶级结构，含每条磁带的 LogicalTape 结构。
 	 */
 	lts = (LogicalTapeSet *) palloc(sizeof(LogicalTapeSet));
 	lts->nBlocksAllocated = 0L;
 	lts->nBlocksWritten = 0L;
 	lts->nHoleBlocks = 0L;
 	lts->forgetFreeSpace = false;
-	lts->freeBlocksLen = 32;	/* reasonable initial guess */
+	lts->freeBlocksLen = 32;	/* 合理的初始猜测 */
 	lts->freeBlocks = (long *) palloc(lts->freeBlocksLen * sizeof(long));
 	lts->nFreeBlocks = 0;
 	lts->enable_prealloc = preallocate;
@@ -574,13 +574,13 @@ LogicalTapeSetCreate(bool preallocate, SharedFileSet *fileset, int worker)
 	lts->worker = worker;
 
 	/*
-	 * Create temp BufFile storage as required.
+	 * 按需创建临时 BufFile 存储。
 	 *
-	 * In leader, we hijack the BufFile of the first tape that's imported, and
-	 * concatenate the BufFiles of any subsequent tapes to that. Hence don't
-	 * create a BufFile here. Things are simpler for the worker case and the
-	 * serial case, though.  They are generally very similar -- workers use a
-	 * shared fileset, whereas serial sorts use a conventional serial BufFile.
+	 * 在主导进程中，我们劫持第一个被导入磁带的
+	 * BufFile，并把后续磁带的 BufFiles 都拼接到其上。
+	 * 因此不要在此创建 BufFile。工作进程情形与串行
+	 * 情形则更简单。二者大体非常相似 -- 工作进程用
+	 * 共享 fileset，而串行排序用常规的串行 BufFile。
 	 */
 	if (fileset && worker == -1)
 		lts->pfile = NULL;
@@ -598,12 +598,12 @@ LogicalTapeSetCreate(bool preallocate, SharedFileSet *fileset, int worker)
 }
 
 /*
- * Claim ownership of a logical tape from an existing shared BufFile.
+ * 从现有的共享 BufFile 中认领一条逻辑磁带。
  *
- * Caller should be leader process.  Though tapes are marked as frozen in
- * workers, they are not frozen when opened within leader, since unfrozen tapes
- * use a larger read buffer. (Frozen tapes have smaller read buffer, optimized
- * for random access.)
+ * 调用者应当是主导进程。虽然磁带在工作进程中
+ * 被标记为冻结，但在主导进程中打开时并非冻结，因为
+ * 非冻结磁带读缓冲区更大。（冻结磁带读缓冲区更小，
+ * 为随机优化）
  */
 LogicalTape *
 LogicalTapeImport(LogicalTapeSet *lts, int worker, TapeShare *shared)
@@ -617,16 +617,16 @@ LogicalTapeImport(LogicalTapeSet *lts, int worker, TapeShare *shared)
 	lt = ltsCreateTape(lts);
 
 	/*
-	 * build concatenated view of all buffiles, remembering the block number
-	 * where each source file begins.
+	 * 构建所有 buffile 的拼接视图，记住每个源文件
+	 * 起始处的块号。
 	 */
 	pg_itoa(worker, filename);
 	file = BufFileOpenFileSet(&lts->fileset->fs, filename, O_RDONLY, false);
 	filesize = BufFileSize(file);
 
 	/*
-	 * Stash first BufFile, and concatenate subsequent BufFiles to that. Store
-	 * block offset into each tape as we go.
+	 * 保存第一个 BufFile，后续 BufFiles 都拼接到其上，
+	 * 沿途记录各磁带块偏移。
 	 */
 	lt->firstBlockNumber = shared->firstblocknumber;
 	if (lts->pfile == NULL)
@@ -638,16 +638,16 @@ LogicalTapeImport(LogicalTapeSet *lts, int worker, TapeShare *shared)
 	{
 		lt->offsetBlockNumber = BufFileAppend(lts->pfile, file);
 	}
-	/* Don't allocate more for read buffer than could possibly help */
+	/* 读缓冲区的分配不要超过可能有用的程度 */
 	lt->max_size = Min(MaxAllocSize, filesize);
 	tapeblocks = filesize / BLCKSZ;
 
 	/*
-	 * Update # of allocated blocks and # blocks written to reflect the
-	 * imported BufFile.  Allocated/written blocks include space used by holes
-	 * left between concatenated BufFiles.  Also track the number of hole
-	 * blocks so that we can later work backwards to calculate the number of
-	 * physical blocks for instrumentation.
+	 * 更新已分配块数与已写块数，以反映被导入的
+	 * BufFile。已分配/已写块包含拼接的 BufFiles 之间
+	 * 留下的空洞占用的空间。且跟踪空洞块数，让
+	 * 我们之后能倒推出用于监测的
+	 * 物理块数。
 	 */
 	lts->nHoleBlocks += lt->offsetBlockNumber - lts->nBlocksAllocated;
 
@@ -658,10 +658,10 @@ LogicalTapeImport(LogicalTapeSet *lts, int worker, TapeShare *shared)
 }
 
 /*
- * Close a logical tape set and release all resources.
+ * 关闭逻辑磁带集并释放所有资源。
  *
- * NOTE: This doesn't close any of the tapes!  You must close them
- * first, or you can let them be destroyed along with the memory context.
+ * 注意：这并不关闭任何磁带！必须先关闭它们，
+ * 或者任其随内存上下文一起销毁。
  */
 void
 LogicalTapeSetClose(LogicalTapeSet *lts)
@@ -672,19 +672,19 @@ LogicalTapeSetClose(LogicalTapeSet *lts)
 }
 
 /*
- * Create a logical tape in the given tapeset.
+ * 在给定磁带集中创建逻辑磁带。
  *
- * The tape is initialized in write state.
+ * 该磁带以写入状态初始化。
  */
 LogicalTape *
 LogicalTapeCreate(LogicalTapeSet *lts)
 {
 	/*
-	 * The only thing that currently prevents creating new tapes in leader is
-	 * the fact that BufFiles opened using BufFileOpenShared() are read-only
-	 * by definition, but that could be changed if it seemed worthwhile.  For
-	 * now, writing to the leader tape will raise a "Bad file descriptor"
-	 * error, so tuplesort must avoid writing to the leader tape altogether.
+	 * 目前阻碍在主导进程中创建新磁带的唯一原因是
+	 * 用 BufFileOpenShared() 打开的 BufFiles 按定义
+	 * 是只读的，但如果值得，这一点可以改变。目前，
+	 * 写主导磁带会引发"Bad file descriptor"（坏文件
+	 * 描述符）错误，因此 tuplesort 必须彻底避免写入。
 	 */
 	if (lts->fileset && lts->worker == -1)
 		elog(ERROR, "cannot create new tapes in leader process");
@@ -698,7 +698,7 @@ ltsCreateTape(LogicalTapeSet *lts)
 	LogicalTape *lt;
 
 	/*
-	 * Create per-tape struct.  Note we allocate the I/O buffer lazily.
+	 * 创建每磁带结构。注意 I/O 缓冲区为惰性分配。
 	 */
 	lt = palloc(sizeof(LogicalTape));
 	lt->tapeSet = lts;
@@ -711,7 +711,7 @@ ltsCreateTape(LogicalTapeSet *lts)
 	lt->offsetBlockNumber = 0L;
 	lt->buffer = NULL;
 	lt->buffer_size = 0;
-	/* palloc() larger than MaxAllocSize would fail */
+	/* palloc() 超过 MaxAllocSize 会失败 */
 	lt->max_size = MaxAllocSize;
 	lt->pos = 0;
 	lt->nbytes = 0;
@@ -723,11 +723,11 @@ ltsCreateTape(LogicalTapeSet *lts)
 }
 
 /*
- * Close a logical tape.
+ * 关闭逻辑磁带。
  *
- * Note: This doesn't return any blocks to the free list!  You must read
- * the tape to the end first, to reuse the space.  In current use, though,
- * we only close tapes after fully reading them.
+ * 注意：这不会把任何块归还给空闲链表！必须先
+ * 把磁带读到末尾才能重用该空间。在当前用法中，
+ * 我们只在完整读取磁带后才关闭。
  */
 void
 LogicalTapeClose(LogicalTape *lt)
@@ -738,13 +738,13 @@ LogicalTapeClose(LogicalTape *lt)
 }
 
 /*
- * Mark a logical tape set as not needing management of free space anymore.
+ * 把逻辑磁带集标记为不再需要管理空闲空间。
  *
- * This should be called if the caller does not intend to write any more data
- * into the tape set, but is reading from un-frozen tapes.  Since no more
- * writes are planned, remembering free blocks is no longer useful.  Setting
- * this flag lets us avoid wasting time and space in ltsReleaseBlock(), which
- * is not designed to handle large numbers of free blocks.
+ * 若调用者不打算再向磁带集写入数据，但正在从
+ * 非冻结磁带中读取，则应当调用此函数。由于不再
+ * 计划写入，记住空闲块就不再有用。设置该标志可以
+ * 避免在 ltsReleaseBlock() 中浪费时间与空间，该函数
+ * 的设计初衷并非处理大量空闲块。
  */
 void
 LogicalTapeSetForgetFreeSpace(LogicalTapeSet *lts)
@@ -753,9 +753,9 @@ LogicalTapeSetForgetFreeSpace(LogicalTapeSet *lts)
 }
 
 /*
- * Write to a logical tape.
+ * 写入逻辑磁带。
  *
- * There are no error returns; we ereport() on failure.
+ * 无错误返回；失败时以 ereport() 报告。
  */
 void
 LogicalTapeWrite(LogicalTape *lt, const void *ptr, size_t size)
@@ -766,7 +766,7 @@ LogicalTapeWrite(LogicalTape *lt, const void *ptr, size_t size)
 	Assert(lt->writing);
 	Assert(lt->offsetBlockNumber == 0L);
 
-	/* Allocate data buffer and first block on first write */
+	/* 首次写入时分配数据缓冲区和第一个块 */
 	if (lt->buffer == NULL)
 	{
 		lt->buffer = (char *) palloc(BLCKSZ);
@@ -788,26 +788,26 @@ LogicalTapeWrite(LogicalTape *lt, const void *ptr, size_t size)
 	{
 		if (lt->pos >= (int) TapeBlockPayloadSize)
 		{
-			/* Buffer full, dump it out */
+			/* 缓冲区满，即写出 */
 			long		nextBlockNumber;
 
 			if (!lt->dirty)
 			{
-				/* Hmm, went directly from reading to writing? */
+				/* 嗯，直接从读取转入写入？ */
 				elog(ERROR, "invalid logtape state: should be dirty");
 			}
 
 			/*
-			 * First allocate the next block, so that we can store it in the
-			 * 'next' pointer of this block.
+			 * 先分配下一块，以便能把它存入本块的
+			 * 'next' 指针中。
 			 */
 			nextBlockNumber = ltsGetBlock(lt->tapeSet, lt);
 
-			/* set the next-pointer and dump the current block. */
+			/* 设置 next 指针并写出当前块。 */
 			TapeBlockGetTrailer(lt->buffer)->next = nextBlockNumber;
 			ltsWriteBlock(lt->tapeSet, lt->curBlockNumber, lt->buffer);
 
-			/* initialize the prev-pointer of the next block */
+			/* 初始化下一块的 prev 指针 */
 			TapeBlockGetTrailer(lt->buffer)->prev = lt->curBlockNumber;
 			lt->curBlockNumber = nextBlockNumber;
 			lt->pos = 0;
@@ -831,16 +831,16 @@ LogicalTapeWrite(LogicalTape *lt, const void *ptr, size_t size)
 }
 
 /*
- * Rewind logical tape and switch from writing to reading.
+ * 回卷逻辑磁带并从写入切换到读取。
  *
- * The tape must currently be in writing state, or "frozen" in read state.
+ * 磁带当前必须处于写入状态，或读取状态下的"冻结"。
  *
- * 'buffer_size' specifies how much memory to use for the read buffer.
- * Regardless of the argument, the actual amount of memory used is between
- * BLCKSZ and MaxAllocSize, and is a multiple of BLCKSZ.  The given value is
- * rounded down and truncated to fit those constraints, if necessary.  If the
- * tape is frozen, the 'buffer_size' argument is ignored, and a small BLCKSZ
- * byte buffer is used.
+ * 'buffer_size' 指定读缓冲区使用多少内存。
+ * 无论参数如何，实际使用的内存量都介于 BLCKSZ 与
+ * MaxAllocSize 之间，且为 BLCKSZ 的倍数。给定值会在
+ * 必要时被向下取整并截断以适配约束。如果磁带
+ * 已冻结，则会忽略 'buffer_size' 参数，而使用小的
+ * BLCKSZ 缓冲区。
  */
 void
 LogicalTapeRewindForRead(LogicalTape *lt, size_t buffer_size)
@@ -848,40 +848,40 @@ LogicalTapeRewindForRead(LogicalTape *lt, size_t buffer_size)
 	LogicalTapeSet *lts = lt->tapeSet;
 
 	/*
-	 * Round and cap buffer_size if needed.
+	 * 按需取整封顶 buffer_size。
 	 */
 	if (lt->frozen)
 		buffer_size = BLCKSZ;
 	else
 	{
-		/* need at least one block */
+		/* 至少需要一个块 */
 		if (buffer_size < BLCKSZ)
 			buffer_size = BLCKSZ;
 
-		/* palloc() larger than max_size is unlikely to be helpful */
+		/* palloc() 超过 max_size 不太可能有帮助 */
 		if (buffer_size > lt->max_size)
 			buffer_size = lt->max_size;
 
-		/* round down to BLCKSZ boundary */
+		/* 按 BLCKSZ 边界向下取整 */
 		buffer_size -= buffer_size % BLCKSZ;
 	}
 
 	if (lt->writing)
 	{
 		/*
-		 * Completion of a write phase.  Flush last partial data block, and
-		 * rewind for normal (destructive) read.
+		 * 写入阶段的收尾。刷写最后一个部分数据块，并
+		 * 回卷以普通（破坏性）读。
 		 */
 		if (lt->dirty)
 		{
 			/*
-			 * As long as we've filled the buffer at least once, its contents
-			 * are entirely defined from valgrind's point of view, even though
-			 * contents beyond the current end point may be stale.  But it's
-			 * possible - at least in the case of a parallel sort - to sort
-			 * such small amount of data that we do not fill the buffer even
-			 * once.  Tell valgrind that its contents are defined, so it
-			 * doesn't bleat.
+			 * 只要我们至少填满过缓冲区一次，其内容从
+			 * valgrind 的角度看就是完全有定义的，即使当前
+			 * 终点之外的内容可能过时。不过至少在
+			 * 并行排序的情形下，数据量可能小到一次都
+			 * 填不满缓冲区。此时应告知 valgrind 其内容是
+			 * 有定义的，免得它
+			 * 抱怨。
 			 */
 			VALGRIND_MAKE_MEM_DEFINED(lt->buffer + lt->nbytes,
 									  lt->buffer_size - lt->nbytes);
@@ -894,8 +894,8 @@ LogicalTapeRewindForRead(LogicalTape *lt, size_t buffer_size)
 	else
 	{
 		/*
-		 * This is only OK if tape is frozen; we rewind for (another) read
-		 * pass.
+		 * 磁带已冻结时才允许；回卷以进行再一轮读取。
+		 *
 		 */
 		Assert(lt->frozen);
 	}
@@ -903,11 +903,11 @@ LogicalTapeRewindForRead(LogicalTape *lt, size_t buffer_size)
 	if (lt->buffer)
 		pfree(lt->buffer);
 
-	/* the buffer is lazily allocated, but set the size here */
+	/* 缓冲区为惰性分配，但在此处设置大小 */
 	lt->buffer = NULL;
 	lt->buffer_size = buffer_size;
 
-	/* free the preallocation list, and return unused block numbers */
+	/* 释放预分配列表，并把未用的块号归还 */
 	if (lt->prealloc != NULL)
 	{
 		for (int i = lt->nprealloc; i > 0; i--)
@@ -920,9 +920,9 @@ LogicalTapeRewindForRead(LogicalTape *lt, size_t buffer_size)
 }
 
 /*
- * Read from a logical tape.
+ * 从逻辑磁带读取。
  *
- * Early EOF is indicated by return value less than #bytes requested.
+ * 返回值小于所请求的字节数即表示提前遇到 EOF。
  */
 size_t
 LogicalTapeRead(LogicalTape *lt, void *ptr, size_t size)
@@ -939,7 +939,7 @@ LogicalTapeRead(LogicalTape *lt, void *ptr, size_t size)
 	{
 		if (lt->pos >= lt->nbytes)
 		{
-			/* Try to load more data into buffer. */
+			/* 向缓冲区载入更多数据。 */
 			if (!ltsReadFillBuffer(lt))
 				break;			/* EOF */
 		}
@@ -961,21 +961,21 @@ LogicalTapeRead(LogicalTape *lt, void *ptr, size_t size)
 }
 
 /*
- * "Freeze" the contents of a tape so that it can be read multiple times
- * and/or read backwards.  Once a tape is frozen, its contents will not
- * be released until the LogicalTapeSet is destroyed.  This is expected
- * to be used only for the final output pass of a merge.
+ * "冻结"磁带的内容，使其可以被多次读取
+ * 和/或反向读取。磁带一旦冻结，其内容在
+ * LogicalTapeSet 销毁之前都不会被释放。这预计
+ * 只用于归并的最终输出趟。
  *
- * This *must* be called just at the end of a write pass, before the
- * tape is rewound (after rewind is too late!).  It performs a rewind
- * and switch to read mode "for free".  An immediately following rewind-
- * for-read call is OK but not necessary.
+ * 这*必须*恰在写入趟结束时、磁带回卷之前调用
+ * （回卷之后就来不及了！）。它会执行一次回卷
+ * 并"免费"切换到读取模式。紧随其后的回卷读取
+ * 调用可以，但并非必需。
  *
- * share output argument is set with details of storage used for tape after
- * freezing, which may be passed to LogicalTapeSetCreate within leader
- * process later.  This metadata is only of interest to worker callers
- * freezing their final output for leader (single materialized tape).
- * Serial sorts should set share to NULL.
+ * share 输出参数会被设置为磁带冻结后所用存储的
+ * 细节，之后可传给主导进程内的 LogicalTapeSetCreate。
+ * 这些元数据只有为主导进程冻结其最终输出的
+ * 工作进程调用者才会关心（单一物化磁带）。串行
+ * 排序应把 share 设为 NULL。
  */
 void
 LogicalTapeFreeze(LogicalTape *lt, TapeShare *share)
@@ -986,18 +986,18 @@ LogicalTapeFreeze(LogicalTape *lt, TapeShare *share)
 	Assert(lt->offsetBlockNumber == 0L);
 
 	/*
-	 * Completion of a write phase.  Flush last partial data block, and rewind
-	 * for nondestructive read.
+	 * 写入阶段的收尾。刷写最后一个部分数据块，并
+	 * 作非破坏性回读。
 	 */
 	if (lt->dirty)
 	{
 		/*
-		 * As long as we've filled the buffer at least once, its contents are
-		 * entirely defined from valgrind's point of view, even though
-		 * contents beyond the current end point may be stale.  But it's
-		 * possible - at least in the case of a parallel sort - to sort such
-		 * small amount of data that we do not fill the buffer even once. Tell
-		 * valgrind that its contents are defined, so it doesn't bleat.
+		 * 只要我们至少填满过缓冲区一次，其内容就从
+		 * valgrind 视角看是完全有定义的，即使当前
+		 * 终点之外的内容可能过时。不过至少在
+		 * 并行排序的情形下，待排序的数据量可能小到
+		 * 一次都填不满。告知 valgrind 其内容是有定义的，
+		 * 免得它抱怨。
 		 */
 		VALGRIND_MAKE_MEM_DEFINED(lt->buffer + lt->nbytes,
 								  lt->buffer_size - lt->nbytes);
@@ -1009,11 +1009,11 @@ LogicalTapeFreeze(LogicalTape *lt, TapeShare *share)
 	lt->frozen = true;
 
 	/*
-	 * The seek and backspace functions assume a single block read buffer.
-	 * That's OK with current usage.  A larger buffer is helpful to make the
-	 * read pattern of the backing file look more sequential to the OS, when
-	 * we're reading from multiple tapes.  But at the end of a sort, when a
-	 * tape is frozen, we only read from a single tape anyway.
+	 * 寻道与回退函数假定读缓冲区只有单个块。
+	 * 就当前用法而言这没问题。更大的缓冲区有助于
+	 * 在从多条磁带读取时，让底层文件的读取模式
+	 * 对操作系统显得更顺序。但排序结束时，当磁带
+	 * 已冻结时，反正也只会从单条磁带读取。
 	 */
 	if (!lt->buffer || lt->buffer_size != BLCKSZ)
 	{
@@ -1023,7 +1023,7 @@ LogicalTapeFreeze(LogicalTape *lt, TapeShare *share)
 		lt->buffer_size = BLCKSZ;
 	}
 
-	/* Read the first block, or reset if tape is empty */
+	/* 读取第一个块；磁带为空则重置 */
 	lt->curBlockNumber = lt->firstBlockNumber;
 	lt->pos = 0;
 	lt->nbytes = 0;
@@ -1037,7 +1037,7 @@ LogicalTapeFreeze(LogicalTape *lt, TapeShare *share)
 		lt->nextBlockNumber = TapeBlockGetTrailer(lt->buffer)->next;
 	lt->nbytes = TapeBlockGetNBytes(lt->buffer);
 
-	/* Handle extra steps when caller is to share its tapeset */
+	/* 调用者要共享其磁带集时的额外处理 */
 	if (share)
 	{
 		BufFileExportFileSet(lts->pfile);
@@ -1046,17 +1046,17 @@ LogicalTapeFreeze(LogicalTape *lt, TapeShare *share)
 }
 
 /*
- * Backspace the tape a given number of bytes.  (We also support a more
- * general seek interface, see below.)
+ * 把磁带回退给定的字节数。（我们还支持更通用
+ * 的寻道接口，见下文。）
  *
- * *Only* a frozen-for-read tape can be backed up; we don't support
- * random access during write, and an unfrozen read tape may have
- * already discarded the desired data!
+ * *只有*为读取而冻结的磁带才能回退；我们
+ * 不支持写入时的随机访问，且非冻结的读磁带
+ * 可能已丢弃所需数据！
  *
- * Returns the number of bytes backed up.  It can be less than the
- * requested amount, if there isn't that much data before the current
- * position.  The tape is positioned to the beginning of the tape in
- * that case.
+ * 返回回退的字节数。若当前位置之前
+ * 没有那么多数据，回退量就会小于所请求的量。
+ * 此时磁带会被定位到磁带的
+ * 开头。
  */
 size_t
 LogicalTapeBackspace(LogicalTape *lt, size_t size)
@@ -1070,7 +1070,7 @@ LogicalTapeBackspace(LogicalTape *lt, size_t size)
 		ltsInitReadBuffer(lt);
 
 	/*
-	 * Easy case for seek within current block.
+	 * 在当前块内寻道的简单情形。
 	 */
 	if (size <= (size_t) lt->pos)
 	{
@@ -1079,18 +1079,18 @@ LogicalTapeBackspace(LogicalTape *lt, size_t size)
 	}
 
 	/*
-	 * Not-so-easy case, have to walk back the chain of blocks.  This
-	 * implementation would be pretty inefficient for long seeks, but we
-	 * really aren't doing that (a seek over one tuple is typical).
+	 * 不太简单的情形，必须沿块链往回走。这种
+	 * 实现对长距离寻道来说效率相当低，但我们
+	 * 实际并不这样（跨一个元组的寻道是典型）。
 	 */
-	seekpos = (size_t) lt->pos; /* part within this block */
+	seekpos = (size_t) lt->pos; /* 本块内的部分 */
 	while (size > seekpos)
 	{
 		long		prev = TapeBlockGetTrailer(lt->buffer)->prev;
 
 		if (prev == -1L)
 		{
-			/* Tried to back up beyond the beginning of tape. */
+			/* 试图回退越过磁带开头。 */
 			if (lt->curBlockNumber != lt->firstBlockNumber)
 				elog(ERROR, "unexpected end of tape");
 			lt->pos = 0;
@@ -1113,21 +1113,21 @@ LogicalTapeBackspace(LogicalTape *lt, size_t size)
 	}
 
 	/*
-	 * 'seekpos' can now be greater than 'size', because it points to the
-	 * beginning the target block.  The difference is the position within the
-	 * page.
+	 * 'seekpos' 现在可以大于 'size'，因为它指向
+	 * 目标块的起始处。差值即为该页内的位置。
+	 *
 	 */
 	lt->pos = seekpos - size;
 	return size;
 }
 
 /*
- * Seek to an arbitrary position in a logical tape.
+ * 寻道到逻辑磁带中的任意位置。
  *
- * *Only* a frozen-for-read tape can be seeked.
+ * 只有为读而冻结的磁带可寻道。
  *
- * Must be called with a block/offset previously returned by
- * LogicalTapeTell().
+ * 必须传入之前由 LogicalTapeTell() 返回的
+ * 块/偏移。
  */
 void
 LogicalTapeSeek(LogicalTape *lt, long blocknum, int offset)
@@ -1153,10 +1153,10 @@ LogicalTapeSeek(LogicalTape *lt, long blocknum, int offset)
 }
 
 /*
- * Obtain current position in a form suitable for a later LogicalTapeSeek.
+ * 以适合之后 LogicalTapeSeek 的形式获取当前位置。
  *
- * NOTE: it'd be OK to do this during write phase with intention of using
- * the position for a seek after freezing.  Not clear if anyone needs that.
+ * 注意：在写入阶段这样做、以便之后冻结时用
+ * 该位置寻道是没有问题的。不清楚是否有人需要。
  */
 void
 LogicalTapeTell(LogicalTape *lt, long *blocknum, int *offset)
@@ -1166,7 +1166,7 @@ LogicalTapeTell(LogicalTape *lt, long *blocknum, int *offset)
 
 	Assert(lt->offsetBlockNumber == 0L);
 
-	/* With a larger buffer, 'pos' wouldn't be the same as offset within page */
+	/* 若缓冲区更大，'pos' 就不会等于页内偏移 */
 	Assert(lt->buffer_size == BLCKSZ);
 
 	*blocknum = lt->curBlockNumber;
@@ -1174,8 +1174,8 @@ LogicalTapeTell(LogicalTape *lt, long *blocknum, int *offset)
 }
 
 /*
- * Obtain total disk space currently used by a LogicalTapeSet, in blocks. Does
- * not account for open write buffer, if any.
+ * 获取一个 LogicalTapeSet 当前占用的总磁盘空间，以块
+ * 计。若有打开的写缓冲则不计。
  */
 long
 LogicalTapeSetBlocks(LogicalTapeSet *lts)

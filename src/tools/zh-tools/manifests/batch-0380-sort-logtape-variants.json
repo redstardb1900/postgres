@@ -1,0 +1,80 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0380",
+ "title": "sort dir two-file whole-file comment translation (225 blocks: 219 translated + 6 blocks with kept-EN; 536/549 content lines rewritten (531 translated + 5 emptied to bare frames), 12 EN kept + 1 EN-empty line preserved); logtape.c + tuplesortvariants.c",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "6c0d942613dc1050185ead1e7e5882c922fa893d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0380-sort-logtape-variants.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0380 manifest path and 2 sort file entries"
+  },
+  {
+   "pattern": "src/backend/utils/sort/logtape.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0380; 328/336 lines rewritten (323 translated + 5 emptied tails), 8 EN kept (header 5 + EOF 3), 1 identifier tail re-rendered"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplesortvariants.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0380; 208/213 lines rewritten (207 translated + 1 emptied tail), 4 EN kept (header), 1 EN-empty line preserved"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0380-sort-logtape-variants.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0380 manifest path and 2 sort file entries"
+  },
+  {
+   "path": "src/backend/utils/sort/logtape.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 118,
+   "translated": 114,
+   "preserved": 4,
+   "preserved_reasons": [
+    "block L1-76 header: filename L3, copyright L69/L70, IDENTIFICATION L72, path L73 kept EN - campaign header precedent",
+    "blocks @310/@324/@944: single-line /* EOF */ marker comments kept EN - 0379 FALLTHROUGH marker precedent (identifier tokens)"
+   ],
+   "note": "whole-file comment translation, batch-0380; 118 blocks (114 fully translated + 4 blocks with kept-EN); 336 content lines: 328 rewritten (324 translated + 4 emptied to bare `*` frames) + 8 EN kept; emptied tails (budget, EN tail word absorbed into previous line): L185 'demand.' -> L184 ends 创建与销毁。, L553 'same time.' -> L552 ends 发生碎片化。, L898 'pass.' -> L897 ends 再一轮读取。, L1118 'page.' -> L1117 ends 页内的位置。; budget-forced period drops (block-tail): L213 'LogicalTapeSetForgetFreeSpace().' -> L212 ends 参见 + L213 bare identifier (33B budget, 。 has no room after 31B identifier), L519 'reading.' -> L519 浪费 (8B budget); W7_IDENT_LOST round-1 fixes: L15 dataset gloss restored (磁带数据集(dataset)), L22 OSes plural restored, L24 file gloss restored (逻辑文件(file)), L153/L580/L628/L647/L684 BufFiles plural restored (L580 singular BufFile kept for first-imported tape per EN, plural moved to subsequent-tapes clause), L162 block gloss restored (当前块(block)的缓冲区); multi-line trailing comments L97-98 (prev field) and L99-100 (next field) translated across their code-attached open line + continuation line with code prefix byte-identical; identical EN rendered identically: L527=L1026 (Read the first block, or reset if tape is empty -> 读取第一个块；磁带为空则重置), valgrind twin blocks L878-884 / L995-1000 same sentence split with consistent phrasing, L969-978 freeze block; term discipline: logical tape=逻辑磁带, tape set=磁带集, rewind=回卷, freeze/frozen=冻结, seek=寻道, backspace=回退, hole=空洞, min heap=最小堆, freelist=空闲链表, preallocation=预分配, spill/flush=刷写, leader=主导进程, worker=工作进程, concatenation=拼接, materialized tape=物化磁带, runs=归并段, participants=参与者, trailer=块尾; ops/operator tokens absent in this file"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplesortvariants.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 107,
+   "translated": 105,
+   "preserved": 2,
+   "preserved_reasons": [
+    "block L1-18 header: filename L3, copyright L12, IDENTIFICATION L14, path L15 kept EN - campaign header precedent",
+    "block L837-861: EN-empty content line L860 preserved verbatim (empty line inside comment block, 0-byte budget)"
+   ],
+   "note": "whole-file comment translation, batch-0380; 107 blocks (105 fully translated + 2 blocks with kept-EN/EN-empty); 213 content lines: 208 rewritten (207 translated + 1 emptied to bare `*` frame) + 4 EN kept + 1 EN-empty line; emptied tail: L1375 'unique.' -> L1374 ends 在物理上都唯一。 (7B budget); W7_IDENT_LOST round-1 fix: L722 NULLs plural restored (把 NULLs 的 datum1); term_lint-driven rephrasing: L194/L581 cannot->无法 (cleared P02 on both onlyKey blocks); identical EN rendered identically: L160=L237=L541 (no unique check -> 无唯一检查), L171=L261 (assume we need not copy tupDesc -> 假定无需复制 tupDesc), L173=L282=L366=L489 (Prepare SortSupport data for each column -> 为每个列准备 SortSupport 数据), L187=L297=L381=L501 (Convey if abbreviation... -> 传达缩略优化原则上是否适用), L194-197=L581-584 (onlyKey block), L595=L597=L628=L630 (Accept one tuple block), L609=L640, L612=L682=L1028=L1497 (set up first-column key value -> 设置第一列键值), L744=L796 (Fetch the next tuple... -> 以正向或反向获取下一个元组。), L745-746 return-true/false clause reflowed per review (否则清槽并/返回 false。), L797-799=L818-820 (Returns NULL if no more tuples block), L778=L880 (Record abbreviated key -> 为调用者记录缩略键), L748-751=L845-848 (Caller may optionally be passed back abbreviated value block), L946=L1287, L953=L1294 (Compare leading/additional sort keys), L1007=L1025=L1186=L1208=L1480=L1494=L1569=L1604 (need trailing length word? -> 要尾随长度字？, 0379 tuplestore L1513=L1532 precedent), L1312=L1328 (null flag), L1392=L1464 (ItemPointer values should never be equal -> ItemPointer 值绝不应相等); term discipline: variant=变体, abbreviated key=缩略键, abbreviation=缩略, onlyKey kept as identifier, pass-by-value/pass-by-reference=按值传递/按引用传递, tie-breaker=决胜比较, slot=槽位, zeroed representation=全零表示, trailing length word=尾随长度字, bucket=桶, overflow pages=溢出页, NULLS NOT DISTINCT kept EN (SQL syntax), heap TID/ItemPointer kept, tuplesort memory context=tuplesort 内存上下文; ops/operator tokens absent in this file"
+  }
+ ],
+ "notes": "batch-0380 (sort dir: logtape.c 1184 lines + tuplesortvariants.c 1606 lines, 2026-11-14, parent batch-0379=6c0d942613dc). Whole-file comment translation. Block accounting (block units throughout, comment-universe enumerator = verify_c_comments block_comments): 225 untranslated blocks (naive dump 118+107=225, dump artifacts handled: logtape L97-98/L99-100 multi-line trailing comments rendered via code-prefix-preserving open-line replacement, variants L860 EN-empty content line kept verbatim), 219 fully translated, 6 blocks containing kept-EN/EN-empty lines (2 headers + 3 single-line /* EOF */ marker blocks + 1 variants L860 EN-empty); line-level detail: 549 content lines (336 + 213), 536 rewritten (= git diff 536 insertions/deletions: 531 translated + 5 emptied to bare `*` frames: logtape L185/L553/L898/L1118, variants L1375), 12 EN kept (logtape header 5 + EOF 3, variants header 4) + 1 EN-empty preserved (variants L860). Line counts conserved (1184/1184, 1606/1606); code bytes zero-changed (verified per-line: every changed line's pre-/* prefix byte-identical); frame terminator counts match EN per file (118/118, 107/107). Coverage assertion universe==SPEC keys against EN baseline held on every segment run (logtape 4 segments, variants 5 segments, each segment dry-run asserted then applied; final apply after git checkout reset). Segment-wise catches fixed in spec before write: 15 budget overs, 2 cross-line repeats (不 L41/L42, 可以 L8-9 variants L8/L9), 2 lead-punct guards, plus self-review round: truncated L90 tail restored (例程使用。), stray close-paren L151 removed, dangling 的 L858 recomposed into complete sentence, missing object L1182 restored (其余 HeapTupleData 字段), duplicated verb L517-518 rewritten, 外加/以及 and 可以/可 seam duplicates removed. W7_IDENT_LOST: first draft 8 warnings - all eliminated (dataset/OSes/file glosses restored in banner, BufFiles plural restored x5, block gloss L162, NULLs plural L722). term_lint --pgnls exit code 1 tree-wide: 1 pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched) + 759 tree-wide warnings; the two batch files carry 0 errors and 0 warnings after rephrasing L194/L581 cannot->无法 (2 P02 warnings cleared). scan_halfen: 53 tree-wide findings = exact 0378/0379 pre-existing baseline (postinit.c 38, dfmgr.c 4, elog.c 3, ...), 0 on the two batch files - no new findings, no exemption entries needed (no @domain attribution lines in either file). Tail-period ledger (口径: EN block-tail line ending in '.' keeps 。 in zh whenever budget allows; every deviation enumerated): 5 emptied tails absorb their EN period into the previous line (listed per-file above); 2 bare period drops = logtape L213 (identifier-only 33B budget) and L519 (8B budget). variants L746 period drop from first draft resolved in review-fix round (now 返回 false。). All other EN-period tails end in 。 in zh (verified line-by-line after self-review round). Full self-review pass: every translated block read back in the worktree for sentence completeness (句子成句性), 14 defects found and fixed before final apply. ASCII quotes throughout (TL11); ASCII parens used only where full-width would overflow budget (L4 logtape banner gloss, logtape L100 若<0), disclosed here; variants L561 uses '*/' close without leading space (budget-forced, keeps 准备 SortSupport 数据 verbatim); 避头点 guard clean (no line starts with ，。；：、）). No commit made in this batch; commit is handled by the main session. Review-fix round (审查返修 5 Medium + 8 Minor, all cleared): M1 logtape L537-549 reflow - L538 re-filled (建磁带。, killed double-empty-frame), L546 ends complete sentence (导入工作进程磁带。), L548-549 目前/只会 restored (目前，主导进程只会把工作进程磁带导入该集合，并不/创建自己的磁带，尽管理论上这应该可行。); M2 logtape L603-606 three-line reflow for 'have smaller read buffer' (因为/非冻结磁带读缓冲区更大。（冻结磁带读缓冲区更小，/为随机优化） - 访问 2 chars cannot fit L606's 19B hard cap (EN 'for random access.)'), disclosed; M3 logtape L40 predicate 相当 restored (…单独文件的情况相当，); M4 logtape L149 verb 读取 restored (磁带读取时才有效); M5 variants L856-858 conclusion recomposed per EN structure (…但只对准备好让之后对/tuplesort 状态的操纵使槽位内容失效的调用者才安全。 - 任何 2 chars dropped, budget-forced, disclosed); m6 variants L1372-1373 这对 btree 索引/来说是必需的; m7 variants L1340 subject 我们 per review (否则我们就不会检查过二者中哪个必须居/前。 - EN 'sort algorithm' absorbed, disclosed); m8 variants L905 例程 restored (…情形专门化例程, 实际为->实为 for budget); m9 spacing: variants L561 (close '*/' override), L1582 为 NULL, L745-746 返回 false。; logtape L235/L278/L758 ereport() CJK-EN spacing (L758 无错误返回, budget), L942 向缓冲区载入更多数据。, L58-59 palloc/上下文中。 split, L191 共享为 worker 号，主导/串行-1 (40B exact), L293 每条磁带的缓冲区, L37 redundant 这都是完全顺序的 removed per review (line conserved, 无论数据如何划分成逻辑磁带。); m13 variants L1443 已建成索引的有效性 (reviewer text 已建成的索引的有效性 3 bytes over 66B budget, one 的 dropped, disclosed). Post-fix re-audit: all touched lines budget-asserted, line counts conserved (1184/1606), code prefixes byte-identical, emptied frame positions L185/L553/L898/L1118/L1375 unchanged, seam/lead-punct/curly rescan clean, tail-period ledger re-scanned (variants L746 drop resolved), verify /tmp/v0380b.json 0 violations, term_lint batch files 0 hits, halfen batch files 0 findings, check_scope PASS rc=0."
+}

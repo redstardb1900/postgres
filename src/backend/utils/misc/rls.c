@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rls.c
- *		  RLS-related utility functions.
+ *		  与RLS相关的实用函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,22 +31,22 @@
 /*
  * check_enable_rls
  *
- * Determine, based on the relation, row_security setting, and current role,
- * if RLS is applicable to this query.  RLS_NONE_ENV indicates that, while
- * RLS is not to be added for this query, a change in the environment may change
- * that.  RLS_NONE means that RLS is not on the relation at all and therefore
- * we don't need to worry about it.  RLS_ENABLED means RLS should be implemented
- * for the table and the plan cache needs to be invalidated if the environment
- * changes.
+ * 根据关系、row_security 设置和当前角色，判断
+ * RLS 是否适用于本查询。RLS_NONE_ENV 表示虽然
+ * 本查询不加 RLS，但环境变化可能改变这一点。
+ * RLS_NONE 表示该关系上完全没有 RLS，因此我们
+ * 无须为它操心。RLS_ENABLED 表示应为该表实现
+ * RLS，且若环境变化则计划缓存需要失效。
  *
- * Handle checking as another role via checkAsUser (for views, etc).  Pass
- * InvalidOid to check the current user.
  *
- * If noError is set to 'true' then we just return RLS_ENABLED instead of doing
- * an ereport() if the user has attempted to bypass RLS and they are not
- * allowed to.  This allows users to check if RLS is enabled without having to
- * deal with the actual error case (eg: error cases which are trying to decide
- * if the user should get data from the relation back as part of the error).
+ * 支持通过 checkAsUser 以另一角色检查（视图等）
+ * 传 InvalidOid 则查当前用户。
+ *
+ * 若 noError 被设为 'true'，则当用户试图绕过 RLS
+ * 而又不被允许时，我们直接返回 RLS_ENABLED 而
+ * 不是发起 ereport()。这让用户得以检查 RLS 是否
+ * 已启用而不必应对真正的错误情形（例如：
+ * 需判断是否把关系数据作为错误一部分返回给用户）。
  */
 int
 check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
@@ -58,11 +58,11 @@ check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
 	bool		relforcerowsecurity;
 	bool		amowner;
 
-	/* Nothing to do for built-in relations */
+	/* 内建关系无需任何处理 */
 	if (relid < (Oid) FirstNormalObjectId)
 		return RLS_NONE;
 
-	/* Fetch relation's relrowsecurity and relforcerowsecurity flags */
+	/* 取关系的 relrowsecurity 与 relforcerowsecurity 标志 */
 	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 	if (!HeapTupleIsValid(tuple))
 		return RLS_NONE;
@@ -73,53 +73,53 @@ check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
 
 	ReleaseSysCache(tuple);
 
-	/* Nothing to do if the relation does not have RLS */
+	/* 若关系不带 RLS 则无需处理 */
 	if (!relrowsecurity)
 		return RLS_NONE;
 
 	/*
-	 * BYPASSRLS users always bypass RLS.  Note that superusers are always
-	 * considered to have BYPASSRLS.
+	 * BYPASSRLS 用户总是绕过 RLS。注意超级用户总是
+	 * 被视为拥有 BYPASSRLS。
 	 *
-	 * Return RLS_NONE_ENV to indicate that this decision depends on the
-	 * environment (in this case, the user_id).
+	 * 返回 RLS_NONE_ENV 以表明该决定取决于环境（在
+	 * 本例中即 user_id）。
 	 */
 	if (has_bypassrls_privilege(user_id))
 		return RLS_NONE_ENV;
 
 	/*
-	 * Table owners generally bypass RLS, except if the table has been set (by
-	 * an owner) to FORCE ROW SECURITY, and this is not a referential
-	 * integrity check.
+	 * 表所有者通常绕过 RLS，除非该表已被（所有者）设置
+	 * 为 FORCE ROW SECURITY，且这不是引用完整性
+	 * 检查。
 	 *
-	 * Return RLS_NONE_ENV to indicate that this decision depends on the
-	 * environment (in this case, the user_id).
+	 * 返回 RLS_NONE_ENV 以表明该决定取决于环境（在
+	 * 本例中即 user_id）。
 	 */
 	amowner = object_ownercheck(RelationRelationId, relid, user_id);
 	if (amowner)
 	{
 		/*
-		 * If FORCE ROW LEVEL SECURITY has been set on the relation then we
-		 * should return RLS_ENABLED to indicate that RLS should be applied.
-		 * If not, or if we are in an InNoForceRLSOperation context, we return
-		 * RLS_NONE_ENV.
+		 * 若已在关系上设置 FORCE ROW LEVEL SECURITY，
+		 * 则应返回 RLS_ENABLED 以表明应施加 RLS。若
+		 * 未设置，或我们在 InNoForceRLSOperation 上下文则返回
+		 * RLS_NONE_ENV
 		 *
-		 * InNoForceRLSOperation indicates that we should not apply RLS even
-		 * if the table has FORCE RLS set - IF the current user is the owner.
-		 * This is specifically to ensure that referential integrity checks
-		 * are able to still run correctly.
+		 * InNoForceRLSOperation 表示即使表已设置 FORCE
+		 * RLS，前提是当前用户是所有者。这是专门为确保
+		 * 引用完整性检查
+		 * 仍能正确运行而设的。
 		 *
-		 * This is intentionally only done after we have checked that the user
-		 * is the table owner, which should always be the case for referential
-		 * integrity checks.
+		 * 这是有意只在确认用户是表所有者后才做的，对引
+		 * 用完整性检查来说这应当总是成立的。
+		 *
 		 */
 		if (!relforcerowsecurity || InNoForceRLSOperation())
 			return RLS_NONE_ENV;
 	}
 
 	/*
-	 * We should apply RLS.  However, the user may turn off the row_security
-	 * GUC to get a forced error instead.
+	 * 我们应当施加 RLS。不过用户可关闭 row_security
+	 * GUC 来换取强制报错。
 	 */
 	if (!row_security && !noError)
 		ereport(ERROR,
@@ -128,20 +128,20 @@ check_enable_rls(Oid relid, Oid checkAsUser, bool noError)
 						get_rel_name(relid)),
 				 amowner ? errhint("To disable the policy for the table's owner, use ALTER TABLE NO FORCE ROW LEVEL SECURITY.") : 0));
 
-	/* RLS should be fully enabled for this relation. */
+	/* 对该关系应完全启用 RLS。 */
 	return RLS_ENABLED;
 }
 
 /*
  * row_security_active
  *
- * check_enable_rls wrapped as a SQL callable function except
- * RLS_NONE_ENV and RLS_NONE are the same for this purpose.
+ * check_enable_rls 包装成可由 SQL 调用的函数，
+ * 对本用途而言 RLS_NONE_ENV 与 RLS_NONE 同义。
  */
 Datum
 row_security_active(PG_FUNCTION_ARGS)
 {
-	/* By OID */
+	/* 按OID */
 	Oid			tableoid = PG_GETARG_OID(0);
 	int			rls_status;
 
@@ -152,13 +152,13 @@ row_security_active(PG_FUNCTION_ARGS)
 Datum
 row_security_active_name(PG_FUNCTION_ARGS)
 {
-	/* By qualified name */
+	/* 按限定名 */
 	text	   *tablename = PG_GETARG_TEXT_PP(0);
 	RangeVar   *tablerel;
 	Oid			tableoid;
 	int			rls_status;
 
-	/* Look up table name.  Can't lock it - we might not have privileges. */
+	/* 查找表名。不能对其加锁，因为我们可能无权限。 */
 	tablerel = makeRangeVarFromNameList(textToQualifiedNameList(tablename));
 	tableoid = RangeVarGetRelid(tablerel, NoLock, false);
 

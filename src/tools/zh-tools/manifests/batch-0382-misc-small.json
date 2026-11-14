@@ -1,0 +1,184 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0382",
+ "title": "misc dir 8 small files whole-file comment translation (59 blocks: 46 translated + 13 blocks with kept-EN; 135/179 content lines rewritten (132 translated + 3 emptied to bare frames), 44 EN kept)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "2de780c52a5cb8da82473e53412edeb23761328a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0382-misc-small.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0382 manifest path and 8 misc .c entries"
+  },
+  {
+   "pattern": "src/backend/utils/misc/pg_config.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 2 blocks (header + L32 trailing)"
+  },
+  {
+   "pattern": "src/backend/utils/misc/pg_rusage.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 3 blocks (header, L23, L33)"
+  },
+  {
+   "pattern": "src/backend/utils/misc/superuser.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 13 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/help_config.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 5 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/queryenvironment.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 7 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/conffiles.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 8 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/rls.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 14 blocks"
+  },
+  {
+   "pattern": "src/backend/utils/misc/pg_controldata.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0382; 7 blocks"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0382-misc-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0382 manifest path and 8 misc .c entries"
+  },
+  {
+   "path": "src/backend/utils/misc/pg_config.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-13 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent"
+   ],
+   "note": "7 content lines: 2 translated + 5 EN kept (header). L32 trailing comment translated. Line counts conserved 51/51; frame terminators 2/2."
+  },
+  {
+   "path": "src/backend/utils/misc/pg_rusage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-15 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent"
+   ],
+   "note": "11 content lines: 6 translated + 5 EN kept (header). Tail-period ledger: block @33 tail 'threadable...' period dropped, budget-forced (L37 text 13B; '线程化的' 12B, '...' 15B over); EN ellipsis absorbed into L36-37 seam. Line counts conserved 73/73; frame terminators 3/3."
+  },
+  {
+   "path": "src/backend/utils/misc/superuser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 11,
+   "preserved": 2,
+   "preserved_reasons": [
+    "block L1-20 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent",
+    "block @98: L99 synopsis identifier line 'RoleidCallback' kept EN - 0380/0381 synopsis precedent (identifier tokens)"
+   ],
+   "note": "26 content lines: 20 translated + 6 EN kept (header 5 + 1 synopsis identifier). L35 standalone trailing-style full-line comment translated in place. Line counts conserved 107/107; frame terminators 13/13."
+  },
+  {
+   "path": "src/backend/utils/misc/help_config.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 4,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-16 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent"
+   ],
+   "note": "15 content lines: 11 translated + 4 EN kept (header; this header has filename on L2 with no blank-star line - EN layout preserved). GUC flag names GUC_NO_SHOW_ALL/GUC_NOT_IN_SAMPLE/GUC_DISALLOW_IN_FILE verbatim. Line counts conserved 136/136; frame terminators 5/5."
+  },
+  {
+   "path": "src/backend/utils/misc/queryenvironment.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-22 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent"
+   ],
+   "note": "27 content lines: 20 translated + 1 emptied to bare ` *` (L118 'filled.' tail absorbed into L117 '...TupleDesc。' per bare-frame precedent) + 5 EN kept (header). ENR kept as token; ephemeral named relation 临时命名关系 per parse_enr.c precedent; tuplestore 元组存储 per 0379-0381 sort-dir convention. Line counts conserved 144/144; frame terminators 7/7."
+  },
+  {
+   "path": "src/backend/utils/misc/conffiles.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 5,
+   "preserved": 3,
+   "preserved_reasons": [
+    "block L1-17 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent",
+    "block @28: L29 function-name synopsis identifier 'AbsoluteConfigLocation' kept EN - 0380/0381 synopsis precedent",
+    "block @62: L63 function-name synopsis identifier 'GetConfFilesInDir' kept EN - 0380/0381 synopsis precedent"
+   ],
+   "note": "26 content lines: 19 translated + 7 EN kept (header 5 + 2 synopsis identifiers). Tail-period ledger: block @62 tail '\"err_msg\".' period dropped, budget-forced (L67 text 10B; '\"err_msg\"。' 12B); W7 fix: 'file' identifier rendered as file(s) at L82, GUCs at L7. Line counts conserved 164/164; frame terminators 8/8."
+  },
+  {
+   "path": "src/backend/utils/misc/rls.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 11,
+   "preserved": 3,
+   "preserved_reasons": [
+    "block L1-14 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent",
+    "block @31: L32 function-name synopsis identifier 'check_enable_rls' kept EN - 0380/0381 synopsis precedent",
+    "block @135: L136 function-name synopsis identifier 'row_security_active' kept EN - 0380/0381 synopsis precedent"
+   ],
+   "note": "53 content lines: 42 translated + 2 emptied to bare ` *` frames (L40 'changes.' and L114 'integrity checks.' tails absorbed into preceding lines' 。) + 7 EN kept (header 5 + 2 synopsis identifiers). Term: P53 owner 所有者 x3 (L91/L108/L112); row_security GUC name kept intact on L121 after first draft split it row_/security across lines (W7_IDENT_LOST fixed). Tail-period ledger: block @101 L105 'RLS_NONE_ENV.' period dropped, budget-forced (text 13B = token exactly). Identical EN pair L84-85=L95-96 rendered byte-identical (RLS_NONE_ENV note). Line counts conserved 167/167; frame terminators 14/14."
+  },
+  {
+   "path": "src/backend/utils/misc/pg_controldata.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-14 header kept EN: filename, Portions Copyright line(s), IDENTIFICATION label, path line - campaign header precedent"
+   ],
+   "note": "14 content lines: 9 translated + 5 EN kept (header; header has no blank-star between path line and closing banner - EN layout preserved). Identical EN trio L45=L176=L217 'read the control file' (lowercase, no EN period) rendered byte-identical 读取控制文件; L85 'Read the control file.' (capitalized, EN period) rendered 读取控制文件。 per tail-period rule (review round: period added, was dropped in first draft). Line counts conserved 261/261; frame terminators 7/7."
+  }
+ ]
+}

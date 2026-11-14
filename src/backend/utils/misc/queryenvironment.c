@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * queryenvironment.c
- *	  Query environment, to store context-specific values like ephemeral named
- *	  relations.  Initial use is for named tuplestores for delta information
- *	  from "normal" relations.
+ *	  查询环境，用于存储上下文特定的值，如临时命名
+ *	  关系。最初用于为来自"普通"关系的增量信息提供
+ *	  命名元组存储。
  *
- * The initial implementation uses a list because the number of such relations
- * in any one context is expected to be very small.  If that becomes a
- * performance problem, the implementation can be changed with no other impact
- * on callers, since this is an opaque structure.  This is the reason to
- * require a create function.
+ * 最初的实现使用列表，因为在任一上下文中这类关系
+ * 的数量预期很少。如果这成为性能问题，则实现
+ * 可以改变而对调用者没有其他影响，因为这是一
+ * 个不透明结构体。这也是之所以要提供创建函数的
+ * 原因。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,7 +27,7 @@
 #include "utils/rel.h"
 
 /*
- * Private state of a query environment.
+ * 查询环境的私有状态。
  */
 struct QueryEnvironment
 {
@@ -60,10 +60,10 @@ get_visible_ENR_metadata(QueryEnvironment *queryEnv, const char *refname)
 }
 
 /*
- * Register a named relation for use in the given environment.
+ * 注册一个供给定环境使用的命名关系。
  *
- * If this is intended exclusively for planning purposes, the tstate field can
- * be left NULL;
+ * 如果它专用于规划目的，则 tstate 字段可以留为
+ * NULL；
  */
 void
 register_ENR(QueryEnvironment *queryEnv, EphemeralNamedRelation enr)
@@ -75,8 +75,8 @@ register_ENR(QueryEnvironment *queryEnv, EphemeralNamedRelation enr)
 }
 
 /*
- * Unregister an ephemeral relation by name.  This will probably be a rarely
- * used function, but seems like it should be provided "just in case".
+ * 按名称注销一个临时关系。这可能是一个很少用到
+ * 的函数，但似乎应当提供它以"以防万一"。
  */
 void
 unregister_ENR(QueryEnvironment *queryEnv, const char *name)
@@ -89,8 +89,8 @@ unregister_ENR(QueryEnvironment *queryEnv, const char *name)
 }
 
 /*
- * This returns an ENR if there is a name match in the given collection.  It
- * must quietly return NULL if no match is found.
+ * 如果在给定集合中存在名称匹配，这会返回一个
+ * ENR；未找到匹配时静默返回 NULL。
  */
 EphemeralNamedRelation
 get_ENR(QueryEnvironment *queryEnv, const char *name)
@@ -114,19 +114,19 @@ get_ENR(QueryEnvironment *queryEnv, const char *name)
 }
 
 /*
- * Gets the TupleDesc for a Ephemeral Named Relation, based on which field was
- * filled.
+ * 根据被填充的字段，获取 ENR 的 TupleDesc。
  *
- * When the TupleDesc is based on a relation from the catalogs, we count on
- * that relation being used at the same time, so that appropriate locks will
- * already be held.  Locking here would be too late anyway.
+ *
+ * 当 TupleDesc 基于来自系统目录的关系时，我们依
+ * 赖该关系同时被使用，因此相应的锁已被持有。
+ * 在这里加锁反正也已经太迟了。
  */
 TupleDesc
 ENRMetadataGetTupDesc(EphemeralNamedRelationMetadata enrmd)
 {
 	TupleDesc	tupdesc;
 
-	/* One, and only one, of these fields must be filled. */
+	/* 这些字段必须且只能填充其中一个。 */
 	Assert((enrmd->reliddesc == InvalidOid) != (enrmd->tupdesc == NULL));
 
 	if (enrmd->tupdesc != NULL)

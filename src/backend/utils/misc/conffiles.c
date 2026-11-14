@@ -1,10 +1,10 @@
 /*--------------------------------------------------------------------
  * conffiles.c
  *
- * Utilities related to the handling of configuration files.
+ * 与配置文件处理相关的工具函数。
  *
- * This file contains some generic tools to work on configuration files
- * used by PostgreSQL, be they related to GUCs or authentication.
+ * 本文件包含一些处理 PostgreSQL 所用配置文件的
+ * 通用工具，无论它们与 GUCs 还是认证相关。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -28,9 +28,9 @@
 /*
  * AbsoluteConfigLocation
  *
- * Given a configuration file or directory location that may be a relative
- * path, return an absolute one.  We consider the location to be relative to
- * the directory holding the calling file, or to DataDir if no calling file.
+ * 给定一个可能是相对路径的配置文件或目录位置，
+ * 返回一个绝对路径。我们认为该位置相对于持有调
+ * 用文件的目录，若无调用文件则相对于 DataDir。
  */
 char *
 AbsoluteConfigLocation(const char *location, const char *calling_file)
@@ -62,9 +62,9 @@ AbsoluteConfigLocation(const char *location, const char *calling_file)
 /*
  * GetConfFilesInDir
  *
- * Returns the list of config files located in a directory, in alphabetical
- * order.  On error, returns NULL with details about the error stored in
- * "err_msg".
+ * 返回位于某目录中的配置文件列表，按字母顺序排
+ * 列。出错时返回 NULL，并把错误详情存入
+ * "err_msg"
  */
 char	  **
 GetConfFilesInDir(const char *includedir, const char *calling_file,
@@ -77,9 +77,9 @@ GetConfFilesInDir(const char *includedir, const char *calling_file,
 	int			size_filenames;
 
 	/*
-	 * Reject directory name that is all-blank (including empty), as that
-	 * leads to confusion --- we'd read the containing directory, typically
-	 * resulting in recursive inclusion of the same file(s).
+	 * 拒绝全为空白（含空串）的目录名，因为这会导
+	 * 致混淆 --- 我们会读取其所在目录，通常导致同样
+	 * 的 file(s) 被递归包含。
 	 */
 	if (strspn(includedir, " \t\r\n") == strlen(includedir))
 	{
@@ -104,8 +104,8 @@ GetConfFilesInDir(const char *includedir, const char *calling_file,
 	}
 
 	/*
-	 * Read the directory and put the filenames in an array, so we can sort
-	 * them prior to caller processing the contents.
+	 * 读取目录并把文件名放入数组，以便调用者在处理
+	 * 其内容之前先对它们排序。
 	 */
 	size_filenames = 32;
 	filenames = (char **) palloc(size_filenames * sizeof(char *));
@@ -117,9 +117,9 @@ GetConfFilesInDir(const char *includedir, const char *calling_file,
 		char		filename[MAXPGPATH];
 
 		/*
-		 * Only parse files with names ending in ".conf".  Explicitly reject
-		 * files starting with ".".  This excludes things like "." and "..",
-		 * as well as typical hidden files, backup files, and editor debris.
+		 * 只解析文件名以 ".conf" 结尾的文件。显式拒绝
+		 * 以 "." 开头的文件。这排除了 "." 和 ".." 之类，
+		 * 以及典型的隐藏文件、备份文件和编辑器残渣。
 		 */
 		if (strlen(de->d_name) < 6)
 			continue;
@@ -140,7 +140,7 @@ GetConfFilesInDir(const char *includedir, const char *calling_file,
 		}
 		else if (de_type != PGFILETYPE_DIR)
 		{
-			/* Add file to array, increasing its size in blocks of 32 */
+			/* 把文件加入数组，数组以 32 为增量扩容 */
 			if (*num_filenames >= size_filenames)
 			{
 				size_filenames += 32;
@@ -152,7 +152,7 @@ GetConfFilesInDir(const char *includedir, const char *calling_file,
 		}
 	}
 
-	/* Sort the files by name before leaving */
+	/* 返回前按名称对文件排序 */
 	if (*num_filenames > 0)
 		qsort(filenames, *num_filenames, sizeof(char *), pg_qsort_strcmp);
 

@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * superuser.c
- *	  The superuser() function.  Determines if user has superuser privilege.
+ *	  superuser() 函数。判断用户是否拥有超级用户权限。
  *
- * All code should use either of these two functions to find out
- * whether a given user is a superuser, rather than examining
- * pg_authid.rolsuper directly, so that the escape hatch built in for
- * the single-user case works.
+ * 所有代码都应使用这两个函数之一来查明用户
+ * 是否为超级用户，而不是直接检查
+ * pg_authid.rolsuper，以便内建的逃生通道在单
+ * 用户场景下可用。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -27,12 +27,12 @@
 #include "utils/syscache.h"
 
 /*
- * In common cases the same roleid (ie, the session or current ID) will
- * be queried repeatedly.  So we maintain a simple one-entry cache for
- * the status of the last requested roleid.  The cache can be flushed
- * at need by watching for cache update events on pg_authid.
+ * 常见情形下同一个 roleid（即会话或当前 ID）会
+ * 被反复查询。因此我们维护一个简单的单条目缓
+ * 存来记录最近请求的 roleid 的状态。缓存可以
+ * 通过监视 pg_authid 缓存更新事件按需刷新。
  */
-static Oid	last_roleid = InvalidOid;	/* InvalidOid == cache not valid */
+static Oid	last_roleid = InvalidOid;	/* InvalidOid == 缓存无效 */
 static bool last_roleid_is_super = false;
 static bool roleid_callback_registered = false;
 
@@ -40,7 +40,7 @@ static void RoleidCallback(Datum arg, int cacheid, uint32 hashvalue);
 
 
 /*
- * The Postgres user running this command has Postgres superuser privileges
+ * 运行此命令的 Postgres 用户拥有 Postgres 超级用户权限
  */
 bool
 superuser(void)
@@ -50,7 +50,7 @@ superuser(void)
 
 
 /*
- * The specified role has Postgres superuser privileges
+ * 指定角色拥有 Postgres 超级用户权限
  */
 bool
 superuser_arg(Oid roleid)
@@ -58,15 +58,15 @@ superuser_arg(Oid roleid)
 	bool		result;
 	HeapTuple	rtup;
 
-	/* Quick out for cache hit */
+	/* 缓存命中即返回 */
 	if (OidIsValid(last_roleid) && last_roleid == roleid)
 		return last_roleid_is_super;
 
-	/* Special escape path in case you deleted all your users. */
+	/* 在你删除了全部用户时的特殊逃生路径。 */
 	if (!IsUnderPostmaster && roleid == BOOTSTRAP_SUPERUSERID)
 		return true;
 
-	/* OK, look up the information in pg_authid */
+	/* 好，在 pg_authid 中查找该信息 */
 	rtup = SearchSysCache1(AUTHOID, ObjectIdGetDatum(roleid));
 	if (HeapTupleIsValid(rtup))
 	{
@@ -75,11 +75,11 @@ superuser_arg(Oid roleid)
 	}
 	else
 	{
-		/* Report "not superuser" for invalid roleids */
+		/* 对无效 roleid 报告 "非超级用户" */
 		result = false;
 	}
 
-	/* If first time through, set up callback for cache flushes */
+	/* 若是首次执行，则为缓存刷新注册回调 */
 	if (!roleid_callback_registered)
 	{
 		CacheRegisterSyscacheCallback(AUTHOID,
@@ -88,7 +88,7 @@ superuser_arg(Oid roleid)
 		roleid_callback_registered = true;
 	}
 
-	/* Cache the result for next time */
+	/* 缓存结果供下次使用 */
 	last_roleid = roleid;
 	last_roleid_is_super = result;
 
@@ -97,11 +97,11 @@ superuser_arg(Oid roleid)
 
 /*
  * RoleidCallback
- *		Syscache inval callback function
+ *		系统缓存失效回调函数
  */
 static void
 RoleidCallback(Datum arg, int cacheid, uint32 hashvalue)
 {
-	/* Invalidate our local cache in case role's superuserness changed */
+	/* 角色的超级用户身份若变化，则使本地缓存失效 */
 	last_roleid = InvalidOid;
 }

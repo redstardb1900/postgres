@@ -2,8 +2,8 @@
  *
  * pg_controldata.c
  *
- * Routines to expose the contents of the control data file via
- * a set of SQL functions.
+ * 以一组 SQL 函数暴露控制数据文件内容
+ * 的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,7 +42,7 @@ pg_control_system(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* read the control file */
+	/* 读取控制文件 */
 	LWLockAcquire(ControlFileLock, LW_SHARED);
 	ControlFile = get_controlfile(DataDir, &crc_ok);
 	LWLockRelease(ControlFileLock);
@@ -82,7 +82,7 @@ pg_control_checkpoint(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* Read the control file. */
+	/* 读取控制文件。 */
 	LWLockAcquire(ControlFileLock, LW_SHARED);
 	ControlFile = get_controlfile(DataDir, &crc_ok);
 	LWLockRelease(ControlFileLock);
@@ -91,14 +91,14 @@ pg_control_checkpoint(PG_FUNCTION_ARGS)
 				(errmsg("calculated CRC checksum does not match value stored in file")));
 
 	/*
-	 * Calculate name of the WAL file containing the latest checkpoint's REDO
-	 * start point.
+	 * 计算包含最新检查点 REDO 起点的 WAL 文件的名
+	 * 称。
 	 */
 	XLByteToSeg(ControlFile->checkPointCopy.redo, segno, wal_segment_size);
 	XLogFileName(xlogfilename, ControlFile->checkPointCopy.ThisTimeLineID,
 				 segno, wal_segment_size);
 
-	/* Populate the values and null arrays */
+	/* 填充 values 与 null 数组 */
 	values[0] = LSNGetDatum(ControlFile->checkPoint);
 	nulls[0] = false;
 
@@ -173,7 +173,7 @@ pg_control_recovery(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* read the control file */
+	/* 读取控制文件 */
 	LWLockAcquire(ControlFileLock, LW_SHARED);
 	ControlFile = get_controlfile(DataDir, &crc_ok);
 	LWLockRelease(ControlFileLock);
@@ -214,7 +214,7 @@ pg_control_init(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* read the control file */
+	/* 读取控制文件 */
 	LWLockAcquire(ControlFileLock, LW_SHARED);
 	ControlFile = get_controlfile(DataDir, &crc_ok);
 	LWLockRelease(ControlFileLock);

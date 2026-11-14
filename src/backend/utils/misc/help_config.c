@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  * help_config.c
  *
- * Displays available options under grand unified configuration scheme
+ * 显示大一统配置体系下的可用选项
  *
- * Options whose flag bits are set to GUC_NO_SHOW_ALL, GUC_NOT_IN_SAMPLE,
- * or GUC_DISALLOW_IN_FILE are not displayed, unless the user specifically
- * requests that variable by name
+ * 标志位被置为 GUC_NO_SHOW_ALL、GUC_NOT_IN_SAMPLE
+ * 或 GUC_DISALLOW_IN_FILE 的选项不予显示，除非用户
+ * 明确按名称请求该变量
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -24,8 +24,8 @@
 
 
 /*
- * This union allows us to mix the numerous different types of structs
- * that we are organizing.
+ * 这个联合类型让我们能够混合组织起来的多种不同
+ * 类型的结构体。
  */
 typedef union
 {
@@ -49,7 +49,7 @@ GucInfoMain(void)
 	int			numOpts,
 				i;
 
-	/* Initialize the GUC hash table */
+	/* 初始化 GUC 哈希表 */
 	build_guc_variables();
 
 	guc_vars = get_guc_variables(&numOpts);
@@ -67,8 +67,8 @@ GucInfoMain(void)
 
 
 /*
- * This function will return true if the struct passed to it
- * should be displayed to the user.
+ * 如果传给该函数的结构体应当向用户显示，
+ * 则此函数返回 true。
  */
 static bool
 displayStruct(mixedStruct *structToDisplay)
@@ -80,8 +80,8 @@ displayStruct(mixedStruct *structToDisplay)
 
 
 /*
- * This function prints out the generic struct passed to it. It will print out
- * a different format, depending on what the user wants to see.
+ * 此函数打印传给它的通用结构体。它会根据用户想
+ * 看的内容以不同的格式打印。
  */
 static void
 printMixedStruct(mixedStruct *structToPrint)

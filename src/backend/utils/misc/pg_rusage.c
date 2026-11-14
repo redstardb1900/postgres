@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_rusage.c
- *	  Resource usage measurement support routines.
+ *	  资源使用情况度量支持例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,7 +21,7 @@
 
 
 /*
- * Initialize usage snapshot.
+ * 建立用量快照。
  */
 void
 pg_rusage_init(PGRUsage *ru0)
@@ -31,10 +31,10 @@ pg_rusage_init(PGRUsage *ru0)
 }
 
 /*
- * Compute elapsed time since ru0 usage snapshot, and format into
- * a displayable string.  Result is in a static string, which is
- * tacky, but no one ever claimed that the Postgres backend is
- * threadable...
+ * 计算自 ru0 用量快照以来经过时间，并格式化成
+ * 可显示的字符串。结果存于静态字符串，这种
+ * 做法很逊，但从来没人声称 Postgres 后端是可
+ * 线程化的
  */
 const char *
 pg_rusage_show(const PGRUsage *ru0)

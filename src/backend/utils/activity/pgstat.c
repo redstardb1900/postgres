@@ -1,72 +1,72 @@
 /* ----------
  * pgstat.c
- *	  Infrastructure for the cumulative statistics system.
+ *	  累计统计系统的基础设施。
  *
- * The cumulative statistics system accumulates statistics for different kinds
- * of objects. Some kinds of statistics are collected for a fixed number of
- * objects (most commonly 1), e.g., checkpointer statistics. Other kinds of
- * statistics are collected for a varying number of objects
- * (e.g. relations). See PgStat_KindInfo for a list of currently handled
- * statistics.
+ * 累计统计系统为不同种类的对象累积统计。某
+ * 些种类的统计针对固定数量的对象（最常见为
+ * 1）收集，例如检查点进程统计。另一些种类的
+ * 统计则针对数量可变的对象收集
+ * （例如关系）。当前处理的统计种类见 PgStat_KindInfo
+ * 
  *
- * Statistics are loaded from the filesystem during startup (by the startup
- * process), unless preceded by a crash, in which case all stats are
- * discarded. They are written out by the checkpointer process just before
- * shutting down, except when shutting down in immediate mode.
+ * 统计在启动期间（由启动进程）从文件系统加
+ * 载，除非之前发生过崩溃，那时所有统计都会
+ * 被丢弃。统计由检查点进程在即将关闭之前写
+ * 出，立即模式关闭时除外。
  *
- * Fixed-numbered stats are stored in plain (non-dynamic) shared memory.
+ * 固定编号统计存储在普通（非动态）共享内存中。
  *
- * Statistics for variable-numbered objects are stored in dynamic shared
- * memory and can be found via a dshash hashtable. The statistics counters are
- * not part of the dshash entry (PgStatShared_HashEntry) directly, but are
- * separately allocated (PgStatShared_HashEntry->body). The separate
- * allocation allows different kinds of statistics to be stored in the same
- * hashtable without wasting space in PgStatShared_HashEntry.
+ * 可变编号对象的统计存储在动态共享内存中，
+ * 可以通过 dshash 哈希表找到。统计计数器并不
+ * 直接属于 dshash 条目（PgStatShared_HashEntry），而是
+ * 单独分配（PgStatShared_HashEntry->body）。这
+ * 种分开的分配让不同种类的统计能存放在同一
+ * 个哈希表，不浪费 PgStatShared_HashEntry 空间。
  *
- * Variable-numbered stats are addressed by PgStat_HashKey while running.  It
- * is not possible to have statistics for an object that cannot be addressed
- * that way at runtime. A wider identifier can be used when serializing to
- * disk (used for replication slot stats).
+ * 可变编号统计在运行期间以 PgStat_HashKey 寻址。
+ * 不可能为无法这样寻址的对象保存统计。
+ * 序列化到磁盘时可以使用更宽的标识符（用
+ * 于复制槽统计）。
  *
- * To avoid contention on the shared hashtable, each backend has a
- * backend-local hashtable (pgStatEntryRefHash) in front of the shared
- * hashtable, containing references (PgStat_EntryRef) to shared hashtable
- * entries. The shared hashtable only needs to be accessed when no prior
- * reference is found in the local hashtable. Besides pointing to the
- * shared hashtable entry (PgStatShared_HashEntry) PgStat_EntryRef also
- * contains a pointer to the shared statistics data, as a process-local
- * address, to reduce access costs.
+ * 为避免共享哈希表上的争用，每个后端在共享
+ * 哈希表前面都有一个后端本地哈希表（
+ * pgStatEntryRefHash），其中包含对共享哈希表条目
+ * 的引用（PgStat_EntryRef）。只有当本地哈希表中
+ * 找不到先前引用时才需要访问共享哈希表。除
+ * 了指向共享哈希表条目（PgStatShared_HashEntry）
+ * 外，PgStat_EntryRef 还包含指向共享统计数据的进程
+ * 本地地址的指针。
  *
- * The names for structs stored in shared memory are prefixed with
- * PgStatShared instead of PgStat. Each stats entry in shared memory is
- * protected by a dedicated lwlock.
+ * 存储在共享内存中的结构体名称都以 PgStatShared
+ * 为前缀而非 PgStat。共享内存中的每个统计条目都
+ * 由专用的 lwlock 保护。
  *
- * Most stats updates are first accumulated locally in each process as pending
- * entries, then later flushed to shared memory (just after commit, or by
- * idle-timeout). This practically eliminates contention on individual stats
- * entries. For most kinds of variable-numbered pending stats data is stored
- * in PgStat_EntryRef->pending. All entries with pending data are in the
- * pgStatPending list. Pending statistics updates are flushed out by
- * pgstat_report_stat().
+ * 大多数统计更新首先作为待写入条目在各进程
+ * 中本地累积，之后再刷写到共享内存（就在提
+ * 交之后，或由空闲超时触发）。这实际上消除
+ * 了单个统计条目上的争用。对大多数种类的可
+ * 变编号统计的待写入数据存于 PgStat_EntryRef->pending。
+ * 所有待写入数据的条目都在 pgStatPending 列表，由
+ * pgstat_report_stat()
  *
- * The behavior of different kinds of statistics is determined by the kind's
- * entry in pgstat_kind_infos, see PgStat_KindInfo for details.
+ * 不同种类统计的行为由该种类在 pgstat_kind_infos
+ * 中的条目决定，详情见 PgStat_KindInfo。
  *
- * The consistency of read accesses to statistics can be configured using the
- * stats_fetch_consistency GUC (see config.sgml and monitoring.sgml for the
- * settings). When using PGSTAT_FETCH_CONSISTENCY_CACHE or
- * PGSTAT_FETCH_CONSISTENCY_SNAPSHOT statistics are stored in
- * pgStatLocal.snapshot.
+ * 统计读取访问的一致性可以用 stats_fetch_consistency
+ * GUC 来配置（详见 config.sgml 与 monitoring.sgml
+ * 设置）。当用 PGSTAT_FETCH_CONSISTENCY_CACHE 或
+ * PGSTAT_FETCH_CONSISTENCY_SNAPSHOT 时统计存于
+ * pgStatLocal.snapshot
  *
- * To keep things manageable, stats handling is split across several
- * files. Infrastructure pieces are in:
- * - pgstat.c - this file, to tie it all together
- * - pgstat_shmem.c - nearly everything dealing with shared memory, including
- *   the maintenance of hashtable entries
- * - pgstat_xact.c - transactional integration, including the transactional
- *   creation and dropping of stats entries
+ * 为了保持可控性，统计处理被拆分到几个
+ * 文件。基础设施部分位于：
+ * - pgstat.c - 本文件，负责统筹全局
+ * - pgstat_shmem.c - 几乎所有涉及共享内存的事务，包括
+ *     哈希表条目的维护
+ * - pgstat_xact.c - 事务集成，包括统计条目的事务性
+ *     创建与删除
  *
- * Each statistics kind is handled in a dedicated file:
+ * 每种统计都在专门文件中处理：
  * - pgstat_archiver.c
  * - pgstat_bgwriter.c
  * - pgstat_checkpointer.c
@@ -79,8 +79,8 @@
  * - pgstat_subscription.c
  * - pgstat_wal.c
  *
- * Whenever possible infrastructure files should not contain code related to
- * specific kinds of stats.
+ * 基础设施文件应尽可能不包含与特定统计种类
+ * 相关的代码。
  *
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
@@ -110,42 +110,42 @@
 
 
 /* ----------
- * Timer definitions.
+ * 定时器定义。
  *
- * In milliseconds.
+ * 单位毫秒。
  * ----------
  */
 
-/* minimum interval non-forced stats flushes.*/
+/* 非强制统计刷写的最小间隔。 */
 #define PGSTAT_MIN_INTERVAL			1000
-/* how long until to block flushing pending stats updates */
+/* 过多久之后会阻塞待写入统计更新的刷写 */
 #define PGSTAT_MAX_INTERVAL			60000
-/* when to call pgstat_report_stat() again, even when idle */
+/* 何时再次调用 pgstat_report_stat()，即使空闲 */
 #define PGSTAT_IDLE_INTERVAL		10000
 
 /* ----------
- * Initial size hints for the hash tables used in statistics.
+ * 统计所用哈希表的初始大小提示。
  * ----------
  */
 
 #define PGSTAT_SNAPSHOT_HASH_SIZE	512
 
 
-/* hash table for statistics snapshots entry */
+/* 统计快照条目的哈希表 */
 typedef struct PgStat_SnapshotEntry
 {
 	PgStat_HashKey key;
-	char		status;			/* for simplehash use */
-	void	   *data;			/* the stats data itself */
+	char		status;			/* 供 simplehash 用 */
+	void	   *data;			/* 统计数据本身 */
 } PgStat_SnapshotEntry;
 
 
 /* ----------
- * Backend-local Hash Table Definitions
+ * 后端本地哈希表定义
  * ----------
  */
 
-/* for stats snapshot entries */
+/* 统计快照条目用 */
 #define SH_PREFIX pgstat_snapshot
 #define SH_ELEMENT_TYPE PgStat_SnapshotEntry
 #define SH_KEY_TYPE PgStat_HashKey
@@ -161,7 +161,7 @@ typedef struct PgStat_SnapshotEntry
 
 
 /* ----------
- * Local function forward declarations
+ * 局部函数前置声明
  * ----------
  */
 
@@ -180,7 +180,7 @@ static inline bool pgstat_is_kind_valid(int ikind);
 
 
 /* ----------
- * GUC parameters
+ * GUC 参数
  * ----------
  */
 
@@ -189,7 +189,7 @@ int			pgstat_fetch_consistency = PGSTAT_FETCH_CONSISTENCY_CACHE;
 
 
 /* ----------
- * state shared with pgstat_*.c
+ * 与 pgstat_*.c 共享状态
  * ----------
  */
 
@@ -199,44 +199,44 @@ PgStat_LocalState pgStatLocal;
 /* ----------
  * Local data
  *
- * NB: There should be only variables related to stats infrastructure here,
- * not for specific kinds of stats.
+ * 注：此处应只放置与统计基础设施相关的变量，
+ * 而非特定种类的变量。
  * ----------
  */
 
 /*
- * Memory contexts containing the pgStatEntryRefHash table, the
- * pgStatSharedRef entries, and pending data respectively. Mostly to make it
- * easier to track / attribute memory usage.
+ * 包含 pgStatEntryRefHash 表、pgStatSharedRef
+ * 条目以及待写入数据的各内存上下文。这主要是
+ * 便于追踪 / 归属内存用量。
  */
 
 static MemoryContext pgStatPendingContext = NULL;
 
 /*
- * Backend local list of PgStat_EntryRef with unflushed pending stats.
+ * 后端本地的未刷写待写入统计 PgStat_EntryRef 列表。
  *
- * Newly pending entries should only ever be added to the end of the list,
- * otherwise pgstat_flush_pending_entries() might not see them immediately.
+ * 新产生的待写入条目只应添加到列表末尾，
+ * 否则 pgstat_flush_pending_entries() 可能无法立即看到它们。
  */
 static dlist_head pgStatPending = DLIST_STATIC_INIT(pgStatPending);
 
 
 /*
- * Force the next stats flush to happen regardless of
- * PGSTAT_MIN_INTERVAL. Useful in test scripts.
+ * 使下一次统计刷写无视
+ * PGSTAT_MIN_INTERVAL。测试脚本有用。
  */
 static bool pgStatForceNextFlush = false;
 
 /*
- * Force-clear existing snapshot before next use when stats_fetch_consistency
- * is changed.
+ * stats_fetch_consistency 变更后下次使用前须清空现有快照。
+ * 
  */
 static bool force_stats_snapshot_clear = false;
 
 
 /*
- * For assertions that check pgstat is not used before initialization / after
- * shutdown.
+ * 供断言使用：检查 pgstat 未在初始化之前 / 关闭
+ * 之后。
  */
 #ifdef USE_ASSERT_CHECKING
 static bool pgstat_is_initialized = false;
@@ -245,27 +245,27 @@ static bool pgstat_is_shutdown = false;
 
 
 /*
- * The different kinds of statistics.
+ * 各种不同的统计种类。
  *
- * If reasonably possible, handling specific to one kind of stats should go
- * through this abstraction, rather than making more of pgstat.c aware.
+ * 若合理可行，针对某一种统计的特定处理应尽
+ * 量经过此抽象，而不是让 pgstat.c 的更多部分感知。
  *
- * See comments for struct PgStat_KindInfo for details about the individual
- * fields.
+ * 各字段的详情见 PgStat_KindInfo 结构体的注释。
+ * 
  *
- * XXX: It'd be nicer to define this outside of this file. But there doesn't
- * seem to be a great way of doing that, given the split across multiple
- * files.
+ * XXX：把它定义在本文件之外会更好。但目前似
+ * 乎没有好办法做到，因为代码分散在多个文件。
+ * 
  */
 static const PgStat_KindInfo pgstat_kind_infos[PGSTAT_NUM_KINDS] = {
 
-	/* stats kinds for variable-numbered objects */
+	/* 可变编号对象的统计种类 */
 
 	[PGSTAT_KIND_DATABASE] = {
 		.name = "database",
 
 		.fixed_amount = false,
-		/* so pg_stat_database entries can be seen in all databases */
+		/* 使 pg_stat_database 条目在所有数据库可见 */
 		.accessed_across_databases = true,
 
 		.shared_size = sizeof(PgStatShared_Database),
@@ -325,7 +325,7 @@ static const PgStat_KindInfo pgstat_kind_infos[PGSTAT_NUM_KINDS] = {
 		.name = "subscription",
 
 		.fixed_amount = false,
-		/* so pg_stat_subscription_stats entries can be seen in all databases */
+		/* 使 pg_stat_subscription_stats 条目在所有数据库可见 */
 		.accessed_across_databases = true,
 
 		.shared_size = sizeof(PgStatShared_Subscription),
@@ -338,7 +338,7 @@ static const PgStat_KindInfo pgstat_kind_infos[PGSTAT_NUM_KINDS] = {
 	},
 
 
-	/* stats for fixed-numbered (mostly 1) objects */
+	/* 固定编号（多为 1）对象的统计 */
 
 	[PGSTAT_KIND_ARCHIVER] = {
 		.name = "archiver",
@@ -397,14 +397,14 @@ static const PgStat_KindInfo pgstat_kind_infos[PGSTAT_NUM_KINDS] = {
 
 
 /* ------------------------------------------------------------
- * Functions managing the state of the stats system for all backends.
+ * 管理所有后端的统计系统状态的函数。
  * ------------------------------------------------------------
  */
 
 /*
- * Read on-disk stats into memory at server start.
+ * 服务器启动时读入磁盘统计。
  *
- * Should only be called by the startup process or in single user mode.
+ * 只应由启动进程或在单用户模式下调用。
  */
 void
 pgstat_restore_stats(void)
@@ -413,17 +413,17 @@ pgstat_restore_stats(void)
 }
 
 /*
- * Remove the stats file.  This is currently used only if WAL recovery is
- * needed after a crash.
+ * 删除统计文件。目前仅在崩溃后需要 WAL 恢复时
+ * 才会使用。
  *
- * Should only be called by the startup process or in single user mode.
+ * 只应由启动进程或在单用户模式下调用。
  */
 void
 pgstat_discard_stats(void)
 {
 	int			ret;
 
-	/* NB: this needs to be done even in single user mode */
+	/* 注：单用户模式下也必须这样做 */
 
 	ret = unlink(PGSTAT_STAT_PERMANENT_FILENAME);
 	if (ret != 0)
@@ -447,19 +447,19 @@ pgstat_discard_stats(void)
 	}
 
 	/*
-	 * Reset stats contents. This will set reset timestamps of fixed-numbered
-	 * stats to the current time (no variable stats exist).
+	 * 重置统计内容。这会把固定编号统计的重置时
+	 * 间戳设为当前时间（无可变统计）。
 	 */
 	pgstat_reset_after_failure();
 }
 
 /*
- * pgstat_before_server_shutdown() needs to be called by exactly one process
- * during regular server shutdowns. Otherwise all stats will be lost.
+ * pgstat_before_server_shutdown() 需要由恰好一个进
+ * 程在常规服务器关闭期间调用。
  *
- * We currently only write out stats for proc_exit(0). We might want to change
- * that at some point... But right now pgstat_discard_stats() would be called
- * during the start after a disorderly shutdown, anyway.
+ * 否则统计全部丢失。目前只在 proc_exit(0) 时写出统计。
+ * 我们以后也许想改变这一点……但现在 pgstat_discard_stats()
+ * 反正会在无序关闭后的启动中被调用。
  */
 void
 pgstat_before_server_shutdown(int code, Datum arg)
@@ -468,19 +468,19 @@ pgstat_before_server_shutdown(int code, Datum arg)
 	Assert(!pgStatLocal.shmem->is_shutdown);
 
 	/*
-	 * Stats should only be reported after pgstat_initialize() and before
-	 * pgstat_shutdown(). This is a convenient point to catch most violations
-	 * of this rule.
+	 * 统计只应在 pgstat_initialize() 之后、
+	 * pgstat_shutdown() 之前上报。此处便于捕获多数
+	 * 违规。
 	 */
 	Assert(pgstat_is_initialized && !pgstat_is_shutdown);
 
-	/* flush out our own pending changes before writing out */
+	/* 在写出之前先刷写自己的待写入变更 */
 	pgstat_report_stat(true);
 
 	/*
-	 * Only write out file during normal shutdown. Don't even signal that
-	 * we've shutdown during irregular shutdowns, because the shutdown
-	 * sequence isn't coordinated to ensure this backend shuts down last.
+	 * 仅在正常关闭时写出文件。甚至在非正常关闭
+	 * 时也不发出已关闭的信号，因为关闭序列并没
+	 * 有被协调为确保此后端最后关闭。
 	 */
 	if (code == 0)
 	{
@@ -491,16 +491,16 @@ pgstat_before_server_shutdown(int code, Datum arg)
 
 
 /* ------------------------------------------------------------
- * Backend initialization / shutdown functions
+ * 后端初始化 / 关闭函数
  * ------------------------------------------------------------
  */
 
 /*
- * Shut down a single backend's statistics reporting at process exit.
+ * 在进程退出时关闭单个后端的统计上报。
  *
- * Flush out any remaining statistics counts.  Without this, operations
- * triggered during backend exit (such as temp table deletions) won't be
- * counted.
+ * 刷写出所有残留的统计计数。否则，在后端退
+ * 出期间触发的操作（例如临时表删除）将不计
+ * 入。
  */
 static void
 pgstat_shutdown_hook(int code, Datum arg)
@@ -509,17 +509,17 @@ pgstat_shutdown_hook(int code, Datum arg)
 	Assert(IsUnderPostmaster || !IsPostmasterEnvironment);
 
 	/*
-	 * If we got as far as discovering our own database ID, we can flush out
-	 * what we did so far.  Otherwise, we'd be reporting an invalid database
-	 * ID, so forget it.  (This means that accesses to pg_database during
-	 * failed backend starts might never get counted.)
+	 * 如果我们已经确认了自己的数据库 ID，就可以
+	 * 刷写出目前为止所做的。否则，我们将上报无
+	 * 效的数据库 ID，只能作罢。（这意味着失败的
+	 * 对 pg_database 的访问可能不被计数。
 	 */
 	if (OidIsValid(MyDatabaseId))
 		pgstat_report_disconnect(MyDatabaseId);
 
 	pgstat_report_stat(true);
 
-	/* there shouldn't be any pending changes left */
+	/* 不应再残留任何待写入变更 */
 	Assert(dlist_is_empty(&pgStatPending));
 	dlist_init(&pgStatPending);
 
@@ -531,10 +531,10 @@ pgstat_shutdown_hook(int code, Datum arg)
 }
 
 /*
- * Initialize pgstats state, and set up our on-proc-exit hook. Called from
- * BaseInit().
+ * 初始化 pgstats 状态，并建立进程退出钩子。调用自
+ * BaseInit()
  *
- * NOTE: MyDatabaseId isn't set yet; so the shutdown hook has to be careful.
+ * 注：MyDatabaseId 尚未设置；因此关闭钩子必须小心。
  */
 void
 pgstat_initialize(void)
@@ -545,7 +545,7 @@ pgstat_initialize(void)
 
 	pgstat_init_wal();
 
-	/* Set up a process-exit hook to clean up */
+	/* 设置进程退出清理钩子 */
 	before_shmem_exit(pgstat_shutdown_hook, 0);
 
 #ifdef USE_ASSERT_CHECKING
@@ -555,28 +555,28 @@ pgstat_initialize(void)
 
 
 /* ------------------------------------------------------------
- * Public functions used by backends follow
+ * 以下为后端使用的公共函数
  * ------------------------------------------------------------
  */
 
 /*
- * Must be called by processes that performs DML: tcop/postgres.c, logical
- * receiver processes, SPI worker, etc. to flush pending statistics updates to
- * shared memory.
+ * 必须由执行 DML 的进程调用：tcop/postgres.c、逻辑
+ * 接收进程、SPI 工作者等，将待写入统计更新刷入
+ * 共享内存
  *
- * Unless called with 'force', pending stats updates are flushed happen once
- * per PGSTAT_MIN_INTERVAL (1000ms). When not forced, stats flushes do not
- * block on lock acquisition, except if stats updates have been pending for
- * longer than PGSTAT_MAX_INTERVAL (60000ms).
+ * 除非以'force'调用，待写入统计更新每
+ * PGSTAT_MIN_INTERVAL（1000ms）刷写一次。非强制
+ * 时统计刷写不会阻塞等待获得锁，除非统计更
+ * 新待写入超过 PGSTAT_MAX_INTERVAL
  *
- * Whenever pending stats updates remain at the end of pgstat_report_stat() a
- * suggested idle timeout is returned. Currently this is always
- * PGSTAT_IDLE_INTERVAL (10000ms). Callers can use the returned time to set up
- * a timeout after which to call pgstat_report_stat(true), but are not
- * required to do so.
+ * 每当 pgstat_report_stat() 结束时还有待写入统计
+ * 更新，则会返回建议的空闲超时。目前该值总
+ * 是 PGSTAT_IDLE_INTERVAL（10000ms）。调用方可
+ * 据此设置超时，过后调用 pgstat_report_stat(true)
+ * 但非必须。
  *
- * Note that this is called only when not within a transaction, so it is fair
- * to use transaction stop time as an approximation of current time.
+ * 注意本函数只在事务外被调用，所以用事务停
+ * 止时间近似当前时间是合理的。
  */
 long
 pgstat_report_stat(bool force)
@@ -590,14 +590,14 @@ pgstat_report_stat(bool force)
 	pgstat_assert_is_up();
 	Assert(!IsTransactionOrTransactionBlock());
 
-	/* "absorb" the forced flush even if there's nothing to flush */
+	/* "吸收"强制刷写，即使没有可刷写的内容 */
 	if (pgStatForceNextFlush)
 	{
 		force = true;
 		pgStatForceNextFlush = false;
 	}
 
-	/* Don't expend a clock check if nothing to do */
+	/* 没事可做就不耗费时钟检查 */
 	if (dlist_is_empty(&pgStatPending) &&
 		!have_iostats &&
 		!have_slrustats &&
@@ -607,21 +607,21 @@ pgstat_report_stat(bool force)
 	}
 
 	/*
-	 * There should never be stats to report once stats are shut down. Can't
-	 * assert that before the checks above, as there is an unconditional
-	 * pgstat_report_stat() call in pgstat_shutdown_hook() - which at least
-	 * the process that ran pgstat_before_server_shutdown() will still call.
+	 * 统计一旦关闭就绝不应再有统计可上报。
+	 * 在上述检查之前无法断言这一点，因为
+	 * pgstat_shutdown_hook() 中有一次无条件的 pgstat_report_stat()
+	 * 调用，运行过 pgstat_before_server_shutdown() 者仍会调用。
 	 */
 	Assert(!pgStatLocal.shmem->is_shutdown);
 
 	if (force)
 	{
 		/*
-		 * Stats reports are forced either when it's been too long since stats
-		 * have been reported or in processes that force stats reporting to
-		 * happen at specific points (including shutdown). In the former case
-		 * the transaction stop time might be quite old, in the latter it
-		 * would never get cleared.
+		 * 强制统计上报的情形：要么距离上次上报统计
+		 * 已有很长时间，要么处于强制在特定时点进行
+		 * 统计上报的进程中（包括关闭时）。前一种情
+		 * 况下事务停止时间可能相当早，后一种情况
+		 * 则永远不会清除。
 		 */
 		now = GetCurrentTimestamp();
 	}
@@ -632,13 +632,13 @@ pgstat_report_stat(bool force)
 		if (pending_since > 0 &&
 			TimestampDifferenceExceeds(pending_since, now, PGSTAT_MAX_INTERVAL))
 		{
-			/* don't keep pending updates longer than PGSTAT_MAX_INTERVAL */
+			/* 待写入更新不要保留超过 PGSTAT_MAX_INTERVAL */
 			force = true;
 		}
 		else if (last_flush > 0 &&
 				 !TimestampDifferenceExceeds(last_flush, now, PGSTAT_MIN_INTERVAL))
 		{
-			/* don't flush too frequently */
+			/* 不要过于频繁刷写 */
 			if (pending_since == 0)
 				pending_since = now;
 
@@ -648,35 +648,35 @@ pgstat_report_stat(bool force)
 
 	pgstat_update_dbstats(now);
 
-	/* don't wait for lock acquisition when !force */
+	/* 非 force 时不等待获取锁 */
 	nowait = !force;
 
 	partial_flush = false;
 
-	/* flush database / relation / function / ... stats */
+	/* 刷写数据库 / 关系 / 函数 / ... 统计 */
 	partial_flush |= pgstat_flush_pending_entries(nowait);
 
-	/* flush IO stats */
+	/* 刷写IO统计 */
 	partial_flush |= pgstat_flush_io(nowait);
 
-	/* flush wal stats */
+	/* 刷写WAL统计 */
 	partial_flush |= pgstat_flush_wal(nowait);
 
-	/* flush SLRU stats */
+	/* 刷写SLRU统计 */
 	partial_flush |= pgstat_slru_flush(nowait);
 
 	last_flush = now;
 
 	/*
-	 * If some of the pending stats could not be flushed due to lock
-	 * contention, let the caller know when to retry.
+	 * 若部分待写入统计因锁争用而无法刷写，
+	 * 请告知调用方何时重试。
 	 */
 	if (partial_flush)
 	{
-		/* force should have prevented us from getting here */
+		/* force 本应防止我们到达此处 */
 		Assert(!force);
 
-		/* remember since when stats have been pending */
+		/* 记住统计自何时起待写入 */
 		if (pending_since == 0)
 			pending_since = now;
 
@@ -689,8 +689,8 @@ pgstat_report_stat(bool force)
 }
 
 /*
- * Force locally pending stats to be flushed during the next
- * pgstat_report_stat() call. This is useful for writing tests.
+ * 强制把本地待写入的统计放在下次
+ * pgstat_report_stat() 调用时进行。便于编写测试。
  */
 void
 pgstat_force_next_flush(void)
@@ -699,7 +699,7 @@ pgstat_force_next_flush(void)
 }
 
 /*
- * Only for use by pgstat_reset_counters()
+ * 仅供 pgstat_reset_counters() 使用
  */
 static bool
 match_db_entries(PgStatShared_HashEntry *entry, Datum match_data)
@@ -708,10 +708,10 @@ match_db_entries(PgStatShared_HashEntry *entry, Datum match_data)
 }
 
 /*
- * Reset counters for our database.
+ * 重置本库的计数器。
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查由常规 GRANT 系统管
+ * 理。
  */
 void
 pgstat_reset_counters(void)
@@ -724,13 +724,13 @@ pgstat_reset_counters(void)
 }
 
 /*
- * Reset a single variable-numbered entry.
+ * 重置单个可变编号条目。
  *
- * If the stats kind is within a database, also reset the database's
- * stat_reset_timestamp.
+ * 若该统计种类位于某数据库内，还同时重置
+ * stat_reset_timestamp
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查由常规 GRANT 系统管
+ * 理。
  */
 void
 pgstat_reset(PgStat_Kind kind, Oid dboid, Oid objoid)
@@ -738,10 +738,10 @@ pgstat_reset(PgStat_Kind kind, Oid dboid, Oid objoid)
 	const PgStat_KindInfo *kind_info = pgstat_get_kind_info(kind);
 	TimestampTz ts = GetCurrentTimestamp();
 
-	/* not needed atm, and doesn't make sense with the current signature */
+	/* 目前不需要，且对当前签名而言也没有意义 */
 	Assert(!pgstat_get_kind_info(kind)->fixed_amount);
 
-	/* reset the "single counter" */
+	/* 重置"单一计数器" */
 	pgstat_reset_entry(kind, dboid, objoid, ts);
 
 	if (!kind_info->accessed_across_databases)
@@ -749,10 +749,10 @@ pgstat_reset(PgStat_Kind kind, Oid dboid, Oid objoid)
 }
 
 /*
- * Reset stats for all entries of a kind.
+ * 重置某类所有条目的统计。
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查由常规 GRANT 系统管
+ * 理。
  */
 void
 pgstat_reset_of_kind(PgStat_Kind kind)
@@ -768,17 +768,17 @@ pgstat_reset_of_kind(PgStat_Kind kind)
 
 
 /* ------------------------------------------------------------
- * Fetching of stats
+ * 统计的获取
  * ------------------------------------------------------------
  */
 
 /*
- * Discard any data collected in the current transaction.  Any subsequent
- * request will cause new snapshots to be read.
+ * 丢弃当前事务中收集的任何数据。后续的任何
+ * 请求都会导致重新读取新快照。
  *
- * This is also invoked during transaction commit or abort to discard
- * the no-longer-wanted snapshot.  Updates of stats_fetch_consistency can
- * cause this routine to be called.
+ * 本函数也会在事务提交或中止期间被调用，以
+ * 丢弃不再需要的快照。更改 stats_fetch_consistency
+ * 也会令本例程被调用。
  */
 void
 pgstat_clear_snapshot(void)
@@ -790,23 +790,23 @@ pgstat_clear_snapshot(void)
 	pgStatLocal.snapshot.stats = NULL;
 	pgStatLocal.snapshot.mode = PGSTAT_FETCH_CONSISTENCY_NONE;
 
-	/* Release memory, if any was allocated */
+	/* 若分配过内存则将其释放 */
 	if (pgStatLocal.snapshot.context)
 	{
 		MemoryContextDelete(pgStatLocal.snapshot.context);
 
-		/* Reset variables */
+		/* 重置变量 */
 		pgStatLocal.snapshot.context = NULL;
 	}
 
 	/*
-	 * Historically the backend_status.c facilities lived in this file, and
-	 * were reset with the same function. For now keep it that way, and
-	 * forward the reset request.
+	 * 历史上 backend_status.c 的设施位于本文件中，并且
+	 * 曾用同一函数重置。目前保持原状，并转发重
+	 * 置请求。
 	 */
 	pgstat_clear_backend_activity_snapshot();
 
-	/* Reset this flag, as it may be possible that a cleanup was forced. */
+	/* 重置此标志，因为可能发生过强制清理。 */
 	force_stats_snapshot_clear = false;
 }
 
@@ -818,24 +818,24 @@ pgstat_fetch_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 	void	   *stats_data;
 	const PgStat_KindInfo *kind_info = pgstat_get_kind_info(kind);
 
-	/* should be called from backends */
+	/* 应从后端调用 */
 	Assert(IsUnderPostmaster || !IsPostmasterEnvironment);
 	Assert(!kind_info->fixed_amount);
 
 	pgstat_prep_snapshot();
 
-	/* clear padding */
+	/* 清零填充 */
 	memset(&key, 0, sizeof(struct PgStat_HashKey));
 
 	key.kind = kind;
 	key.dboid = dboid;
 	key.objoid = objoid;
 
-	/* if we need to build a full snapshot, do so */
+	/* 若需要构建完整快照，就这么做 */
 	if (pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_SNAPSHOT)
 		pgstat_build_snapshot();
 
-	/* if caching is desired, look up in cache */
+	/* 若希望缓存，则在缓存中查找 */
 	if (pgstat_fetch_consistency > PGSTAT_FETCH_CONSISTENCY_NONE)
 	{
 		PgStat_SnapshotEntry *entry = NULL;
@@ -846,8 +846,8 @@ pgstat_fetch_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 			return entry->data;
 
 		/*
-		 * If we built a full snapshot and the key is not in
-		 * pgStatLocal.snapshot.stats, there are no matching stats.
+		 * 若我们构建了完整快照且该键不在
+		 * pgStatLocal.snapshot.stats 中则无匹配统计。
 		 */
 		if (pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_SNAPSHOT)
 			return NULL;
@@ -859,7 +859,7 @@ pgstat_fetch_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 
 	if (entry_ref == NULL || entry_ref->shared_entry->dropped)
 	{
-		/* create empty entry when using PGSTAT_FETCH_CONSISTENCY_CACHE */
+		/* 使用 PGSTAT_FETCH_CONSISTENCY_CACHE 时创建空条目 */
 		if (pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_CACHE)
 		{
 			PgStat_SnapshotEntry *entry = NULL;
@@ -873,9 +873,9 @@ pgstat_fetch_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 	}
 
 	/*
-	 * Allocate in caller's context for PGSTAT_FETCH_CONSISTENCY_NONE,
-	 * otherwise we could quickly end up with a fair bit of memory used due to
-	 * repeated accesses.
+	 * 对 PGSTAT_FETCH_CONSISTENCY_NONE 在调用者的上
+	 * 文分配，否则反复访问可能很快耗用大量
+	 * 内存。
 	 */
 	if (pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_NONE)
 		stats_data = palloc(kind_info->shared_data_len);
@@ -902,9 +902,9 @@ pgstat_fetch_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 }
 
 /*
- * If a stats snapshot has been taken, return the timestamp at which that was
- * done, and set *have_snapshot to true. Otherwise *have_snapshot is set to
- * false.
+ * 若已经获取统计快照，则返回获取该快照时的
+ * 时间戳，并把 *have_snapshot 设为真。否则设
+ * 假。
  */
 TimestampTz
 pgstat_get_stat_snapshot_timestamp(bool *have_snapshot)
@@ -926,7 +926,7 @@ pgstat_get_stat_snapshot_timestamp(bool *have_snapshot)
 bool
 pgstat_have_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 {
-	/* fixed-numbered stats always exist */
+	/* 固定编号统计始终存在 */
 	if (pgstat_get_kind_info(kind)->fixed_amount)
 		return true;
 
@@ -934,10 +934,10 @@ pgstat_have_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 }
 
 /*
- * Ensure snapshot for fixed-numbered 'kind' exists.
+ * 确保固定编号'kind'的快照存在。
  *
- * Typically used by the pgstat_fetch_* functions for a kind of stats, before
- * massaging the data into the desired format.
+ * 通常由某一统计种类的 pgstat_fetch_* 函数在将数据
+ * 加工成所需格式之前使用。
  */
 void
 pgstat_snapshot_fixed(PgStat_Kind kind)
@@ -983,10 +983,10 @@ pgstat_build_snapshot(void)
 	dshash_seq_status hstat;
 	PgStatShared_HashEntry *p;
 
-	/* should only be called when we need a snapshot */
+	/* 只应在需要快照时被调用 */
 	Assert(pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_SNAPSHOT);
 
-	/* snapshot already built */
+	/* 快照已构建 */
 	if (pgStatLocal.snapshot.mode == PGSTAT_FETCH_CONSISTENCY_SNAPSHOT)
 		return;
 
@@ -997,7 +997,7 @@ pgstat_build_snapshot(void)
 	pgStatLocal.snapshot.snapshot_timestamp = GetCurrentTimestamp();
 
 	/*
-	 * Snapshot all variable stats.
+	 * 快照所有可变统计。
 	 */
 	dshash_seq_init(&hstat, pgStatLocal.shared_hash, false);
 	while ((p = dshash_seq_next(&hstat)) != NULL)
@@ -1009,11 +1009,11 @@ pgstat_build_snapshot(void)
 		PgStatShared_Common *stats_data;
 
 		/*
-		 * Check if the stats object should be included in the snapshot.
-		 * Unless the stats kind can be accessed from all databases (e.g.,
-		 * database stats themselves), we only include stats for the current
-		 * database or objects not associated with a database (e.g. shared
-		 * relations).
+		 * 检查该统计对象是否应包含在快照中。除非某
+		 * 统计种类可从所有数据库访问（例如数据库统
+		 * 计本身），否则我们只包含当前数据库或未关
+		 * 联数据库的对象（例如共享关系的）统计。
+		 * 
 		 */
 		if (p->key.dboid != MyDatabaseId &&
 			p->key.dboid != InvalidOid &&
@@ -1035,8 +1035,8 @@ pgstat_build_snapshot(void)
 										 kind_info->shared_size);
 
 		/*
-		 * Acquire the LWLock directly instead of using
-		 * pg_stat_lock_entry_shared() which requires a reference.
+		 * 直接获取 LWLock，而不是使用
+		 * pg_stat_lock_entry_shared()，它需要一个引用。
 		 */
 		LWLockAcquire(&stats_data->lock, LW_SHARED);
 		memcpy(entry->data,
@@ -1047,7 +1047,7 @@ pgstat_build_snapshot(void)
 	dshash_seq_term(&hstat);
 
 	/*
-	 * Build snapshot of all fixed-numbered stats.
+	 * 构建所有固定编号统计的快照。
 	 */
 	for (int kind = PGSTAT_KIND_FIRST_VALID; kind <= PGSTAT_KIND_LAST; kind++)
 	{
@@ -1075,12 +1075,12 @@ pgstat_build_snapshot_fixed(PgStat_Kind kind)
 
 	if (pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_NONE)
 	{
-		/* rebuild every time */
+		/* 每次重建 */
 		pgStatLocal.snapshot.fixed_valid[kind] = false;
 	}
 	else if (pgStatLocal.snapshot.fixed_valid[kind])
 	{
-		/* in snapshot mode we shouldn't get called again */
+		/* 快照模式下不应再次调用我们 */
 		Assert(pgstat_fetch_consistency == PGSTAT_FETCH_CONSISTENCY_CACHE);
 		return;
 	}
@@ -1095,23 +1095,23 @@ pgstat_build_snapshot_fixed(PgStat_Kind kind)
 
 
 /* ------------------------------------------------------------
- * Backend-local pending stats infrastructure
+ * 后端本地待写入统计基础设施
  * ------------------------------------------------------------
  */
 
 /*
- * Returns the appropriate PgStat_EntryRef, preparing it to receive pending
- * stats if not already done.
+ * 返回相应的 PgStat_EntryRef，若尚未准备则使其
+ * 接收待写入统计。
  *
- * If created_entry is non-NULL, it'll be set to true if the entry is newly
- * created, false otherwise.
+ * 若 created_entry 非 NULL，则当条目为新建时它会被
+ * 设为真，否则假。
  */
 PgStat_EntryRef *
 pgstat_prep_pending_entry(PgStat_Kind kind, Oid dboid, Oid objoid, bool *created_entry)
 {
 	PgStat_EntryRef *entry_ref;
 
-	/* need to be able to flush out */
+	/* 需要能够刷写出去 */
 	Assert(pgstat_get_kind_info(kind)->flush_pending_cb != NULL);
 
 	if (unlikely(!pgStatPendingContext))
@@ -1139,10 +1139,10 @@ pgstat_prep_pending_entry(PgStat_Kind kind, Oid dboid, Oid objoid, bool *created
 }
 
 /*
- * Return an existing stats entry, or NULL.
+ * 返回既有统计条目，或 NULL。
  *
- * This should only be used for helper function for pgstatfuncs.c - outside of
- * that it shouldn't be needed.
+ * 这只应用作 pgstatfuncs.c 的辅助函数——在其之外
+ * 应不需要用到它。
  */
 PgStat_EntryRef *
 pgstat_fetch_pending_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
@@ -1165,7 +1165,7 @@ pgstat_delete_pending_entry(PgStat_EntryRef *entry_ref)
 	void	   *pending_data = entry_ref->pending;
 
 	Assert(pending_data != NULL);
-	/* !fixed_amount stats should be handled explicitly */
+	/* 非 fixed_amount 统计应被显式处理 */
 	Assert(!pgstat_get_kind_info(kind)->fixed_amount);
 
 	if (kind_info->delete_pending_cb)
@@ -1178,8 +1178,8 @@ pgstat_delete_pending_entry(PgStat_EntryRef *entry_ref)
 }
 
 /*
- * Flush out pending stats for database objects (databases, relations,
- * functions).
+ * 刷写数据库对象（数据库、关系、函数）待写入
+ * 统计。
  */
 static bool
 pgstat_flush_pending_entries(bool nowait)
@@ -1188,13 +1188,13 @@ pgstat_flush_pending_entries(bool nowait)
 	dlist_node *cur = NULL;
 
 	/*
-	 * Need to be a bit careful iterating over the list of pending entries.
-	 * Processing a pending entry may queue further pending entries to the end
-	 * of the list that we want to process, so a simple iteration won't do.
-	 * Further complicating matters is that we want to delete the current
-	 * entry in each iteration from the list if we flushed successfully.
+	 * 遍历待写入条目列表时需要稍微小心一些。
+	 * 处理某个待写入条目可能把更多待写入条目排
+	 * 入到我们想要处理的列表末尾，所以简单的迭
+	 * 代行不通。更复杂的是，我们还想在每次迭代
+	 * 中把已成功刷写的当前条目从列表中删除。
 	 *
-	 * So we just keep track of the next pointer in each loop iteration.
+	 * 所以我们只需在每轮循环中跟踪 next 指针。
 	 */
 	if (!dlist_is_empty(&pgStatPending))
 		cur = dlist_head_node(&pgStatPending);
@@ -1212,18 +1212,18 @@ pgstat_flush_pending_entries(bool nowait)
 		Assert(!kind_info->fixed_amount);
 		Assert(kind_info->flush_pending_cb != NULL);
 
-		/* flush the stats, if possible */
+		/* 尽可能刷写统计 */
 		did_flush = kind_info->flush_pending_cb(entry_ref, nowait);
 
 		Assert(did_flush || nowait);
 
-		/* determine next entry, before deleting the pending entry */
+		/* 在删除待写入条目之前先确定下一个条目 */
 		if (dlist_has_next(&pgStatPending, cur))
 			next = dlist_next_node(&pgStatPending, cur);
 		else
 			next = NULL;
 
-		/* if successfully flushed, remove entry */
+		/* 若刷写成功，则移除条目 */
 		if (did_flush)
 			pgstat_delete_pending_entry(entry_ref);
 		else
@@ -1239,7 +1239,7 @@ pgstat_flush_pending_entries(bool nowait)
 
 
 /* ------------------------------------------------------------
- * Helper / infrastructure functions
+ * 辅助 / 基础设施函数
  * ------------------------------------------------------------
  */
 
@@ -1255,7 +1255,7 @@ pgstat_get_kind_from_str(char *kind_str)
 	ereport(ERROR,
 			(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 			 errmsg("invalid statistics kind: \"%s\"", kind_str)));
-	return PGSTAT_KIND_DATABASE;	/* avoid compiler warnings */
+	return PGSTAT_KIND_DATABASE;	/* 避免编译器警告 */
 }
 
 static inline bool
@@ -1273,9 +1273,9 @@ pgstat_get_kind_info(PgStat_Kind kind)
 }
 
 /*
- * Stats should only be reported after pgstat_initialize() and before
- * pgstat_shutdown(). This check is put in a few central places to catch
- * violations of this rule more easily.
+ * 统计只应在 pgstat_initialize() 之后且在
+ * pgstat_shutdown() 之前上报。此检查被放在少数
+ * 几处中心位置以发现违规。
  */
 #ifdef USE_ASSERT_CHECKING
 void
@@ -1287,11 +1287,11 @@ pgstat_assert_is_up(void)
 
 
 /* ------------------------------------------------------------
- * reading and writing of on-disk stats file
+ * 磁盘统计文件的读取与写入
  * ------------------------------------------------------------
  */
 
-/* helpers for pgstat_write_statsfile() */
+/* 供 pgstat_write_statsfile() 用 */
 static void
 write_chunk(FILE *fpout, void *ptr, size_t len)
 {
@@ -1299,15 +1299,15 @@ write_chunk(FILE *fpout, void *ptr, size_t len)
 
 	rc = fwrite(ptr, len, 1, fpout);
 
-	/* we'll check for errors with ferror once at the end */
+	/* 最后用一次 ferror 检查错误 */
 	(void) rc;
 }
 
 #define write_chunk_s(fpout, ptr) write_chunk(fpout, ptr, sizeof(*ptr))
 
 /*
- * This function is called in the last process that is accessing the shared
- * stats so locking is not required.
+ * 本函数在访问共享统计的最后一个进程中被调
+ * 用，因此无需加锁。
  */
 static void
 pgstat_write_statsfile(void)
@@ -1321,13 +1321,13 @@ pgstat_write_statsfile(void)
 
 	pgstat_assert_is_up();
 
-	/* we're shutting down, so it's ok to just override this */
+	/* 我们正在关闭，直接覆盖它没有问题 */
 	pgstat_fetch_consistency = PGSTAT_FETCH_CONSISTENCY_NONE;
 
 	elog(DEBUG2, "writing stats file \"%s\"", statfile);
 
 	/*
-	 * Open the statistics temp file to write out the current values.
+	 * 打开统计临时文件以写出当前值。
 	 */
 	fpout = AllocateFile(tmpfile, PG_BINARY_W);
 	if (fpout == NULL)
@@ -1340,55 +1340,55 @@ pgstat_write_statsfile(void)
 	}
 
 	/*
-	 * Write the file header --- currently just a format ID.
+	 * 写文件头——目前只是一个格式 ID。
 	 */
 	format_id = PGSTAT_FILE_FORMAT_ID;
 	write_chunk_s(fpout, &format_id);
 
 	/*
-	 * XXX: The following could now be generalized to just iterate over
-	 * pgstat_kind_infos instead of knowing about the different kinds of
-	 * stats.
+	 * XXX：下面这些现在可以泛化为直接遍历
+	 * pgstat_kind_infos，而无须了解不同的统计种
+	 * 类。
 	 */
 
 	/*
-	 * Write archiver stats struct
+	 * 写archiver统计结构体
 	 */
 	pgstat_build_snapshot_fixed(PGSTAT_KIND_ARCHIVER);
 	write_chunk_s(fpout, &pgStatLocal.snapshot.archiver);
 
 	/*
-	 * Write bgwriter stats struct
+	 * 写bgwriter统计结构体
 	 */
 	pgstat_build_snapshot_fixed(PGSTAT_KIND_BGWRITER);
 	write_chunk_s(fpout, &pgStatLocal.snapshot.bgwriter);
 
 	/*
-	 * Write checkpointer stats struct
+	 * 写检查点统计结构体
 	 */
 	pgstat_build_snapshot_fixed(PGSTAT_KIND_CHECKPOINTER);
 	write_chunk_s(fpout, &pgStatLocal.snapshot.checkpointer);
 
 	/*
-	 * Write IO stats struct
+	 * 写IO统计结构体
 	 */
 	pgstat_build_snapshot_fixed(PGSTAT_KIND_IO);
 	write_chunk_s(fpout, &pgStatLocal.snapshot.io);
 
 	/*
-	 * Write SLRU stats struct
+	 * 写SLRU统计结构体
 	 */
 	pgstat_build_snapshot_fixed(PGSTAT_KIND_SLRU);
 	write_chunk_s(fpout, &pgStatLocal.snapshot.slru);
 
 	/*
-	 * Write WAL stats struct
+	 * 写WAL统计结构体
 	 */
 	pgstat_build_snapshot_fixed(PGSTAT_KIND_WAL);
 	write_chunk_s(fpout, &pgStatLocal.snapshot.wal);
 
 	/*
-	 * Walk through the stats entries
+	 * 遍历各统计条目
 	 */
 	dshash_seq_init(&hstat, pgStatLocal.shared_hash, false);
 	while ((ps = dshash_seq_next(&hstat)) != NULL)
@@ -1399,13 +1399,13 @@ pgstat_write_statsfile(void)
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * We should not see any "dropped" entries when writing the stats
-		 * file, as all backends and auxiliary processes should have cleaned
-		 * up their references before they terminated.
+		 * 写出统计文件时不应看到任何"dropped"条目，
+		 * 因为所有后端和辅助进程在终止前都应已清
+		 * 理了自己的引用。
 		 *
-		 * However, since we are already shutting down, it is not worth
-		 * crashing the server over any potential cleanup issues, so we simply
-		 * skip such entries if encountered.
+		 * 不过，由于我们已经在关闭之中，为任何潜在
+		 * 的清理问题而崩溃服务器并不值得，因此我们
+		 * 只需跳过遇到的条目。
 		 */
 		Assert(!ps->dropped);
 		if (ps->dropped)
@@ -1415,18 +1415,18 @@ pgstat_write_statsfile(void)
 
 		kind_info = pgstat_get_kind_info(ps->key.kind);
 
-		/* if not dropped the valid-entry refcount should exist */
+		/* 若未删除则有效条目引用计数应存在 */
 		Assert(pg_atomic_read_u32(&ps->refcount) > 0);
 
 		if (!kind_info->to_serialized_name)
 		{
-			/* normal stats entry, identified by PgStat_HashKey */
+			/* 普通统计条目，由 PgStat_HashKey 标识 */
 			fputc('S', fpout);
 			write_chunk_s(fpout, &ps->key);
 		}
 		else
 		{
-			/* stats entry identified by name on disk (e.g. slots) */
+			/* 由磁盘名称标识的统计条目（如槽） */
 			NameData	name;
 
 			kind_info->to_serialized_name(&ps->key, shstats, &name);
@@ -1436,7 +1436,7 @@ pgstat_write_statsfile(void)
 			write_chunk_s(fpout, &name);
 		}
 
-		/* Write except the header part of the entry */
+		/* 写出除条目头部之外的部分 */
 		write_chunk(fpout,
 					pgstat_get_entry_data(ps->key.kind, shstats),
 					pgstat_get_entry_len(ps->key.kind));
@@ -1444,9 +1444,9 @@ pgstat_write_statsfile(void)
 	dshash_seq_term(&hstat);
 
 	/*
-	 * No more output to be done. Close the temp file and replace the old
-	 * pgstat.stat with it.  The ferror() check replaces testing for error
-	 * after each individual fputc or fwrite (in write_chunk()) above.
+	 * 没有更多输出要做了。关闭临时文件并用它替
+	 * 换旧的 pgstat.stat。ferror() 检查取代了上面对
+	 * 各 fputc 或 fwrite（在 write_chunk() 中）错误检查。
 	 */
 	fputc('E', fpout);
 
@@ -1477,7 +1477,7 @@ pgstat_write_statsfile(void)
 	}
 }
 
-/* helpers for pgstat_read_statsfile() */
+/* 供 pgstat_read_statsfile() 用 */
 static bool
 read_chunk(FILE *fpin, void *ptr, size_t len)
 {
@@ -1487,10 +1487,10 @@ read_chunk(FILE *fpin, void *ptr, size_t len)
 #define read_chunk_s(fpin, ptr) read_chunk(fpin, ptr, sizeof(*ptr))
 
 /*
- * Reads in existing statistics file into the shared stats hash.
+ * 把既有的统计文件读入共享统计哈希。
  *
- * This function is called in the only process that is accessing the shared
- * stats so locking is not required.
+ * 本函数在访问共享统计的唯一进程中被调用，
+ * 因此无需加锁。
  */
 static void
 pgstat_read_statsfile(void)
@@ -1501,19 +1501,19 @@ pgstat_read_statsfile(void)
 	const char *statfile = PGSTAT_STAT_PERMANENT_FILENAME;
 	PgStat_ShmemControl *shmem = pgStatLocal.shmem;
 
-	/* shouldn't be called from postmaster */
+	/* 不应从 postmaster 调用 */
 	Assert(IsUnderPostmaster || !IsPostmasterEnvironment);
 
 	elog(DEBUG2, "reading stats file \"%s\"", statfile);
 
 	/*
-	 * Try to open the stats file. If it doesn't exist, the backends simply
-	 * returns zero for anything and statistics simply starts from scratch
-	 * with empty counters.
+	 * 尝试打开统计文件。若它不存在，后端就对任
+	 * 何请求都简单返回零，统计则干脆从空白开始
+	 * 计数器为空。
 	 *
-	 * ENOENT is a possibility if stats collection was previously disabled or
-	 * has not yet written the stats file for the first time.  Any other
-	 * failure condition is suspicious.
+	 * 如果统计收集先前被禁用、或尚未第一次写出
+	 * 统计文件，则可能出现 ENOENT。其他任何失败
+	 * 条件都值得怀疑。
 	 */
 	if ((fpin = AllocateFile(statfile, PG_BINARY_R)) == NULL)
 	{
@@ -1527,57 +1527,57 @@ pgstat_read_statsfile(void)
 	}
 
 	/*
-	 * Verify it's of the expected format.
+	 * 校验它是否为预期格式。
 	 */
 	if (!read_chunk_s(fpin, &format_id) ||
 		format_id != PGSTAT_FILE_FORMAT_ID)
 		goto error;
 
 	/*
-	 * XXX: The following could now be generalized to just iterate over
-	 * pgstat_kind_infos instead of knowing about the different kinds of
-	 * stats.
+	 * XXX：下面这些现在可以泛化为直接遍历
+	 * pgstat_kind_infos，而无须了解不同的统计种
+	 * 类。
 	 */
 
 	/*
-	 * Read archiver stats struct
+	 * 读archiver统计结构体
 	 */
 	if (!read_chunk_s(fpin, &shmem->archiver.stats))
 		goto error;
 
 	/*
-	 * Read bgwriter stats struct
+	 * 读bgwriter统计结构体
 	 */
 	if (!read_chunk_s(fpin, &shmem->bgwriter.stats))
 		goto error;
 
 	/*
-	 * Read checkpointer stats struct
+	 * 读检查点统计结构体
 	 */
 	if (!read_chunk_s(fpin, &shmem->checkpointer.stats))
 		goto error;
 
 	/*
-	 * Read IO stats struct
+	 * 读IO统计结构体
 	 */
 	if (!read_chunk_s(fpin, &shmem->io.stats))
 		goto error;
 
 	/*
-	 * Read SLRU stats struct
+	 * 读SLRU统计结构体
 	 */
 	if (!read_chunk_s(fpin, &shmem->slru.stats))
 		goto error;
 
 	/*
-	 * Read WAL stats struct
+	 * 读WAL统计结构体
 	 */
 	if (!read_chunk_s(fpin, &shmem->wal.stats))
 		goto error;
 
 	/*
-	 * We found an existing statistics file. Read it and put all the hash
-	 * table entries into place.
+	 * 我们发现了一个既有的统计文件。读取它并把
+	 * 哈希条目都就位。
 	 */
 	for (;;)
 	{
@@ -1596,7 +1596,7 @@ pgstat_read_statsfile(void)
 
 					if (t == 'S')
 					{
-						/* normal stats entry, identified by PgStat_HashKey */
+						/* 普通统计条目，由 PgStat_HashKey 标识 */
 						if (!read_chunk_s(fpin, &key))
 							goto error;
 
@@ -1605,7 +1605,7 @@ pgstat_read_statsfile(void)
 					}
 					else
 					{
-						/* stats entry identified by name on disk (e.g. slots) */
+						/* 由磁盘名称标识的统计条目（如槽） */
 						const PgStat_KindInfo *kind_info = NULL;
 						PgStat_Kind kind;
 						NameData	name;
@@ -1624,7 +1624,7 @@ pgstat_read_statsfile(void)
 
 						if (!kind_info->from_serialized_name(&name, &key))
 						{
-							/* skip over data for entry we don't care about */
+							/* 跳过我们不关心的条目的数据 */
 							if (fseek(fpin, pgstat_get_entry_len(kind), SEEK_CUR) != 0)
 								goto error;
 
@@ -1635,13 +1635,13 @@ pgstat_read_statsfile(void)
 					}
 
 					/*
-					 * This intentionally doesn't use pgstat_get_entry_ref() -
-					 * putting all stats into checkpointer's
-					 * pgStatEntryRefHash would be wasted effort and memory.
+					 * 这里有意不使用 pgstat_get_entry_ref()——把
+					 * 所有统计放进检查点进程的
+					 * pgStatEntryRefHash 只会浪费精力和内存。
 					 */
 					p = dshash_find_or_insert(pgStatLocal.shared_hash, &key, &found);
 
-					/* don't allow duplicate entries */
+					/* 不允许重复条目 */
 					if (found)
 					{
 						dshash_release_lock(pgStatLocal.shared_hash, p);
@@ -1655,9 +1655,9 @@ pgstat_read_statsfile(void)
 					if (header == NULL)
 					{
 						/*
-						 * It would be tempting to switch this ERROR to a
-						 * WARNING, but it would mean that all the statistics
-						 * are discarded when the environment fails on OOM.
+						 * 把此 ERROR 改成 WARNING 看似诱人，
+						 * 但意味着环境因 OOM 失败时所有统计
+						 * 都会被丢弃。
 						 */
 						elog(ERROR,	"could not allocate entry %d/%u/%u",
 							 key.kind, key.dboid, key.objoid);
@@ -1671,7 +1671,7 @@ pgstat_read_statsfile(void)
 					break;
 				}
 			case 'E':
-				/* check that 'E' actually signals end of file */
+				/* 检查'E'是否确实表示文件结束 */
 				if (fgetc(fpin) != EOF)
 					goto error;
 
@@ -1700,15 +1700,15 @@ error:
 }
 
 /*
- * Helper to reset / drop stats after a crash or after restoring stats from
- * disk failed, potentially after already loading parts.
+ * 崩溃后、或从磁盘恢复统计失败后（可能已经
+ * 加载部分）重置 / 删除统计辅助函数。
  */
 static void
 pgstat_reset_after_failure(void)
 {
 	TimestampTz ts = GetCurrentTimestamp();
 
-	/* reset fixed-numbered stats */
+	/* 重置固定编号统计 */
 	for (int kind = PGSTAT_KIND_FIRST_VALID; kind <= PGSTAT_KIND_LAST; kind++)
 	{
 		const PgStat_KindInfo *kind_info = pgstat_get_kind_info(kind);
@@ -1719,20 +1719,20 @@ pgstat_reset_after_failure(void)
 		kind_info->reset_all_cb(ts);
 	}
 
-	/* and drop variable-numbered ones */
+	/* 并删除可变编号的统计 */
 	pgstat_drop_all_entries();
 }
 
 /*
- * GUC assign_hook for stats_fetch_consistency.
+ * stats_fetch_consistency 的 assign_hook。
  */
 void
 assign_stats_fetch_consistency(int newval, void *extra)
 {
 	/*
-	 * Changing this value in a transaction may cause snapshot state
-	 * inconsistencies, so force a clear of the current snapshot on the next
-	 * snapshot build attempt.
+	 * 在事务中更改此值可能导致快照状态不一致，
+	 * 因此强制在下次快照构建尝试时清除当前快照。
+	 * 
 	 */
 	if (pgstat_fetch_consistency != newval)
 		force_stats_snapshot_clear = true;

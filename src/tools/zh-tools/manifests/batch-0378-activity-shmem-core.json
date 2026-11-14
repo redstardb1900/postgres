@@ -1,0 +1,79 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0378",
+ "title": "activity dir pgstat_shmem.c + pgstat.c whole-file comment translation (229 blocks: 226 translated + 3 blocks with kept-EN; 495/515 content lines rewritten, 20 EN kept, 8 tails emptied to bare frame); activity dir campaign closes",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "06811bd05ae8b546f6753af71f61afb11503d23f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0378-activity-shmem-core.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0378 manifest path and 2 activity file entries"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat_shmem.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0378; 169/173 lines rewritten (167 translated + 2 emptied tails), 4 EN kept (header)"
+  },
+  {
+   "pattern": "src/backend/utils/activity/pgstat.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0378; 326/342 lines rewritten (320 translated + 6 emptied tails), 16 EN kept (header 4 + Local data label + 11 filename list lines)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0378-activity-shmem-core.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0378 manifest path and 2 activity file entries"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 83,
+   "translated": 82,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block L1-11 header: filename L3, copyright L6, IDENTIFICATION L8, path L9 kept EN - campaign header precedent"
+   ],
+   "note": "whole-file comment translation, batch-0378; 83 blocks per comment-universe enumerator (82 fully translated + 1 header block with kept-EN); naive dump reported 82 blocks - its L814 artifact block merges the mid-line trailing comment `/* discard pending = */` on the call line with the real L820-823 border block, both handled: L814 translated in place as /* 丢弃待写入 = */ (whole-line 66=66 exact), border block translated 统计条目的删除与重置; 173 content lines: 167 translated + 2 emptied to bare `*` frames + 4 EN kept; emptied tails (budget, EN tail word absorbed into previous line): L74 'list.' -> L73 ...pgStatPending 列表, L446 'entry.' -> L445 仅当我们可能创建条目时传入 created_entry 才有意义; identical EN translated identically (non-adjacent): L350=L370 (Helper function for pgstat_get_entry_ref), L437=L958 (clear padding 清零填充); budget-forced period drops (block tails): L102 postmaster bare (content budget 11 exact), L115 min_dynamic_shared_memory bare (budget 26, 。 would exceed); budget phrasing drops disclosed: L26 哈希 (哈希键 +1B over on 8B budget), L289 即全新创建->即新建, L162 小的 dropped, L175 把...限制为...->把...限制为, L328 重初始化内容 (重新 +1B over), L379 一个 dropped, L464 较优。 ('than most' dropped), L489-491 fall-through path restructure, L500 因此 dropped, L534 找到匹配->匹配到, L542-543 复制槽统/计 splice, L547, L593 发生竞态->竞态, L601-602 删除/它。 seam, L615-617, L622 可接受此次移除, L630 请勿删除, L743-744 '.. dropped' rhetorical dots dropped, L751 有待写入数据的共享引用无法 gc, L846-848 需先加锁。 compresses 'In either case the entry needs to be already locked', L924 dropped 的/当前, L948-949 另一个 dropped (被调用 pgstat_gc_entry_refs() 的后端回收), L976 尽量删除; review-fix round 1 (before manifest): L114 DSM->DSMs restored (W7_IDENT_LOST), L751/L788 不能->无法 (P02); review-fix round 2 (post审查 PASS-with-notes): L110-115 NB-sentence restructured so the configure verb is no longer dangling - now 但最好无需立即用到 / dsm 段。256kB 的大小效果不错， / 且相对于其他固定大小的共享内存分配 / 而言并不失衡。注：进一步避免 DSMs 可配置 / min_dynamic_shared_memory; term discipline: shared memory=共享内存, stats entry=统计条目, hashtable=哈希表, hash table=哈希表, drop=删除, pending=待写入, reference=引用, refcount=引用计数, generation kept as quoted ASCII identifier, gc/DSA/dsa_pointer/dshash/dsa kept, fixed-numbered=固定编号, replication slot=复制槽, contention=争用, oid wraparound=oid 回绕 (oid lowercase as EN); ops/operator tokens absent in this file"
+  },
+  {
+   "path": "src/backend/utils/activity/pgstat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 146,
+   "translated": 144,
+   "preserved": 2,
+   "preserved_reasons": [
+    "block L1-91 header: filename L2, copyright L86, IDENTIFICATION L88, path L89 kept EN - campaign header precedent; L70-80 the 11 per-kind filename list lines ( * - pgstat_archiver.c ... pgstat_wal.c) are pure identifier lines kept EN",
+    "block L199-203: L200 'Local data' label kept EN (content budget 10B, 2-char CJK label would misrender; ~0377 label precedent); L202-203 translated"
+   ],
+   "note": "whole-file comment translation, batch-0378; 146 blocks (144 fully translated + 2 blocks with kept-EN); 342 content lines: 320 translated + 6 emptied to bare `*` frames + 16 EN kept (4 header + L200 label + 11 filename list lines); emptied tails (budget, EN tail absorbed into previous line): L10 'statistics.' -> L9, L232 'is changed.' -> L231, L254 'fields.' -> L253 各字段的详情见..., L258 'files.' -> L257 ...分散在多个文件。, L1016 'relations).' -> L1015 ...（例如共享关系的）统计。, L1735 'snapshot build attempt.' -> L1734 ...清除当前快照。; identical EN translated identically (non-adjacent): L407=L419 (startup process / single user mode), L713=L732=L754 + L714=L733=L755 (GRANT 系统管/理。 splice), L1349=L1537 + L1350=L1538 + L1351=L1539 (XXX generalize block), L1423=L1599 (normal stats entry, identified by PgStat_HashKey), L1429=L1608 (stats entry identified by name on disk); budget-forced period drops (block tails): L50 pgstat_report_stat() bare, L59 pgStatLocal.snapshot bare, L535 BaseInit() bare (调用自 on L534), L565 共享内存 bare (paragraph tail, budget 14 vs 共享内存。 15), L570 PGSTAT_MAX_INTERVAL bare ((60000ms) and 。 dropped), L730 stat_reset_timestamp bare, L9 PgStat_KindInfo tail (。 needs 71 > 69); budget phrasing drops disclosed: L7 1）收集 continuation, L22 的。->这 splice, L48 而言 dropped, L50 刷出/。 dropped (由 on L49), L62 中 dropped, L67 continuation of 事务性, L210 为了 dropped, L226 测试脚本有用。, L247-248, L251 感知, L256-257 似/乎 splice, L405, L416-417, L451 可变->无变体（无可变统计）, L461-462 pgstat_discard_stats restored in fix round, L472-473 违规。, L501-503 计/入。 splice, L513-515 只能作罢, L534-535 调用自/BaseInit(), L570 (60000ms) dropped, L575 据此设置超时 (use the returned time compressed), L610-613 which-at-least restructure (无条件的 pgstat_report_stat() 调用，运行过 pgstat_before_server_shutdown() 者仍会调用。), L624 不会->永远, L692-693 便于编写测试。, L714/733/755 理。 splice, L729-730 该数据库的 dropped (stat_reset_timestamp subjectless), L776-781, L850 ，dropped, L876-878 上/文 splice, L905-907 否则设/假。 splice, L937 'kind' ASCII quotes per TL11, L1012-1016 restructure, L1049-1050, L1106-1107 否则假。, L1144-1145, L1181-1182 待写入/统计。 splice, L1449 的 dropped, L1579-1580 哈希条目 (hash table entries compressed), L1638-1640, L1658-1660, L1703-1704 已经/加载部分 splice, L1727 GUC dropped (assign_hook retained); review-fix round 1 (before manifest): L456-block pgstat_discard_stats restored, L609-block pgstat_report_stat restored (both W7_IDENT_LOST); review-fix round 2 (post审查 PASS-with-notes): L9 当前处理的统计种类见 PgStat_KindInfo (限定 restored, 列表 dropped by budget), L231 stats_fetch_consistency 变更后下次使用前须清空现有快照。 (object 现有快照 restored, 强制->须 by budget), L257 ...分散在多个文件。 (文件 restored + 。), L458/L460 sentence boundary aligned with the paragraph break (L458 ends 调用。, L460 opens 否则统计全部丢失。), L659/L662/L665 刷写IO/刷写WAL/刷写SLRU统计 unified with pgstat_wal.c precedent (all three fit exactly), L1512 计数器为空。 (parens dropped, 。 restored); term discipline: cumulative statistics=累计统计, snapshot=快照, shared memory=共享内存, flush=刷写, pending=待写入, fixed-numbered=固定编号, variable-numbered=可变编号, hashtable=哈希表, startup process=启动进程, checkpointer=检查点进程, idle-timeout=空闲超时, backend=后端, auxiliary processes=辅助进程, lwlock/GUC/WAL/ENOENT/OOM/DML/GRANT kept, stats_fetch_consistency GUC kept, error levels ERROR/WARNING kept; ops/operator tokens absent in this file"
+  }
+ ],
+ "notes": "batch-0378 (activity dir pgstat_shmem.c + pgstat.c, 2026-11-14, parent batch-0377=06811bd05ae). Whole-file comment translation closing the activity directory campaign. Block accounting (block units throughout, comment-universe enumerator): 229 untranslated blocks (naive dump 82+146=228; the shmem L814 naive artifact splits into the inline trailing comment + the border block, hence 83+146=229), 226 fully translated, 3 blocks containing kept-EN lines (2 headers + 1 'Local data' label block); line-level detail: 515 content lines (173 shmem + 342 core), 495 rewritten (487 translated + 8 emptied to bare `*` frames: shmem L74/L446, core L10/L232/L254/L258/L1016/L1735), 20 EN kept (4+4 header filename/copyright/IDENTIFICATION/path, core L200 label, core L70-80 eleven filename list lines) - campaign header/label precedent (backend_progress.c / batch-0377). Tail-period ledger (口径: EN block-tail / paragraph-tail line ending in '.' keeps 。/…… in zh whenever budget allows; every deviation is enumerated here - 143 EN-period tails checked by script, all covered): 9 bare-identifier/word drops where 。 cannot fit = shmem L102 (postmaster, content budget 11 exact) / L115 (min_dynamic_shared_memory, budget 26), core L9 (PgStat_KindInfo, 。 needs 71 > 69), L50 (pgstat_report_stat()), L59 (pgStatLocal.snapshot), L535 (BaseInit(), 调用自 on L534), L565 (共享内存, budget 14 vs 15), L570 (PGSTAT_MAX_INTERVAL, (60000ms) dropped with the period), L730 (stat_reset_timestamp); the 8 emptied tails (shmem L74/L446, core L10/L232/L254/L258/L1016/L1735) absorb their EN tail period into the previous line. All other EN-period tails end in 。 in zh. Gates (final, after review-fix round 2): verify_c_comments --worktree REL_16_11 --paths src/backend/utils/activity rc=0, 17 files, 0 violations 0 parse errors (comments=621 changed=615; /tmp/v0378b.json); W7 advisories in scope: 6 deliberate W7_UNTRANSLATED on backend_status.c L88-L105 (0377 label keeps) + 12 pre-existing W7_IDENT_LOST from earlier batches (pgstat_io x8, pgstat_xact, pgstat_replslot, pgstat_slru, backend_progress); this batch's own first-draft W7_IDENT_LOST (shmem L109 DSMs, core L456 pgstat_discard_stats, core L609 pgstat_report_stat) were caught and eliminated in fix round 1. term_lint --pgnls: 0 errors 0 warnings on the two batch files (first draft had 2 P02 cannot->无法 at shmem L751/L785, cleared in fix round 1); tree-wide run retains the 1 pre-existing TL01 error at src/backend/utils/init/postinit.c:1428 (disclosed since batch-0369, untouched) plus historical warning noise outside scope. scan_halfen: 51 tree-wide findings = 50 pre-existing + 1 on this batch, class=mixed kept-EN run with zh prose complete, disclosed rather than exempted (same treatment as 0375-0377): pgstat.c L199 'Local data' label. check_scope --incremental PASS rc=0 (4 changed paths: 2 .c + this manifest + cumulative.json; /tmp/cs0378b.json). Review-fix round 2 (审查 PASS-with-notes, 7 findings): #1 shmem L110-115 NB-sentence restructured (configure verb restored); #2 core L231 object 现有快照 restored; #3 core L257 文件 + 。 restored; #4 core L9 限定 当前处理的 restored; #5 core L457-462 sentence boundary aligned with paragraph break, L458 段末句号 landed; #6 L659/L662/L665 刷写 unified with pgstat_wal.c precedent (all fit exactly); #7 this tail-period ledger. Post-fix re-audit: 495 changed lines all <= EN baseline bytes (0 violations), line counts conserved (1108/1108, 1739/1739), frame terminators unchanged per file (83/83, 146/146), seam/near-dup/leading-punct/curly-quote rescan clean, tail-parity script 143 EN-period tails all covered by 。 or this ledger. No commit made in this batch; commit is handled by the main session."
+}

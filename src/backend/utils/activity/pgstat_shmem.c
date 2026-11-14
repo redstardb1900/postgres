@@ -1,7 +1,7 @@
 /* -------------------------------------------------------------------------
  *
  * pgstat_shmem.c
- *	  Storage of stats entries in shared memory
+ *	  共享内存中统计条目的存储。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -20,16 +20,16 @@
 
 #define PGSTAT_ENTRY_REF_HASH_SIZE	128
 
-/* hash table entry for finding the PgStat_EntryRef for a key */
+/* 用于查找键对应 PgStat_EntryRef 的哈希表条目 */
 typedef struct PgStat_EntryRefHashEntry
 {
-	PgStat_HashKey key;			/* hash key */
-	char		status;			/* for simplehash use */
+	PgStat_HashKey key;			/* 哈希 */
+	char		status;			/* 供 simplehash 用 */
 	PgStat_EntryRef *entry_ref;
 } PgStat_EntryRefHashEntry;
 
 
-/* for references to shared statistics entries */
+/* 指向共享统计条目的引用 */
 #define SH_PREFIX pgstat_entry_ref_hash
 #define SH_ELEMENT_TYPE PgStat_EntryRefHashEntry
 #define SH_KEY_TYPE PgStat_HashKey
@@ -58,7 +58,7 @@ static void pgstat_release_matching_entry_refs(bool discard_pending, ReleaseMatc
 static void pgstat_setup_memcxt(void);
 
 
-/* parameter for the shared hash */
+/* 共享哈希的参数 */
 static const dshash_parameters dsh_params = {
 	sizeof(PgStat_HashKey),
 	sizeof(PgStatShared_HashEntry),
@@ -69,37 +69,37 @@ static const dshash_parameters dsh_params = {
 
 
 /*
- * Backend local references to shared stats entries. If there are pending
- * updates to a stats entry, the PgStat_EntryRef is added to the pgStatPending
- * list.
+ * 后端本地的共享统计条目引用。若有待写入的
+ * 更新，则 PgStat_EntryRef 会被加入 pgStatPending 列表
+ * 
  *
- * When a stats entry is dropped each backend needs to release its reference
- * to it before the memory can be released. To trigger that
- * pgStatLocal.shmem->gc_request_count is incremented - which each backend
- * compares to their copy of pgStatSharedRefAge on a regular basis.
+ * 某统计条目被删除时，各后端都需先释放自己
+ * 的引用，这块内存才能被释放。为此
+ * pgStatLocal.shmem->gc_request_count 会递增，各后端会定期
+ * 将其与自己的 pgStatSharedRefAge 副本进行比较。
  */
 static pgstat_entry_ref_hash_hash *pgStatEntryRefHash = NULL;
-static int	pgStatSharedRefAge = 0; /* cache age of pgStatShmLookupCache */
+static int	pgStatSharedRefAge = 0; /* pgStatShmLookupCache 缓存年龄 */
 
 /*
- * Memory contexts containing the pgStatEntryRefHash table and the
- * pgStatSharedRef entries respectively. Kept separate to make it easier to
- * track / attribute memory usage.
+ * 包含 pgStatEntryRefHash 哈希表与
+ * pgStatSharedRef 条目的内存上下文。分开保存，以便更易
+ * 追踪 / 归属内存用量。
  */
 static MemoryContext pgStatSharedRefContext = NULL;
 static MemoryContext pgStatEntryRefHashContext = NULL;
 
 
 /* ------------------------------------------------------------
- * Public functions called from postmaster follow
+ * 以下为 postmaster 调用的公共函数
  * ------------------------------------------------------------
  */
 
 /*
- * The size of the shared memory allocation for stats stored in the shared
- * stats hash table. This allocation will be done as part of the main shared
- * memory, rather than dynamic shared memory, allowing it to be initialized in
- * postmaster.
+ * 存放在共享统计哈希表中的统计所用的共享
+ * 内存分配的大小。该分配将作为主共享内存
+ * 的一部分完成，而非动态共享内存，初始化点为
+ * postmaster
  */
 static Size
 pgstat_dsa_init_size(void)
@@ -107,12 +107,12 @@ pgstat_dsa_init_size(void)
 	Size		sz;
 
 	/*
-	 * The dshash header / initial buckets array needs to fit into "plain"
-	 * shared memory, but it's beneficial to not need dsm segments
-	 * immediately. A size of 256kB seems works well and is not
-	 * disproportional compared to other constant sized shared memory
-	 * allocations. NB: To avoid DSMs further, the user can configure
-	 * min_dynamic_shared_memory.
+	 * dshash 头部 / 初始桶数组必须能放进"普通"共
+	 * 享内存，但最好无需立即用到
+	 * dsm 段。256kB 的大小效果不错，
+	 * 且相对于其他固定大小的共享内存分配
+	 * 而言并不失衡。注：进一步避免 DSMs 可配置
+	 * min_dynamic_shared_memory
 	 */
 	sz = 256 * 1024;
 	Assert(dsa_minimum_size() <= sz);
@@ -120,7 +120,7 @@ pgstat_dsa_init_size(void)
 }
 
 /*
- * Compute shared memory space needed for cumulative statistics
+ * 计算累计统计所需的共享内存空间
  */
 Size
 StatsShmemSize(void)
@@ -134,7 +134,7 @@ StatsShmemSize(void)
 }
 
 /*
- * Initialize cumulative statistics system during startup
+ * 启动期间初始化累计统计系统
  */
 void
 StatsShmemInit(void)
@@ -155,13 +155,13 @@ StatsShmemInit(void)
 
 		Assert(!found);
 
-		/* the allocation of pgStatLocal.shmem itself */
+		/* pgStatLocal.shmem 本身的分配 */
 		p += MAXALIGN(sizeof(PgStat_ShmemControl));
 
 		/*
-		 * Create a small dsa allocation in plain shared memory. This is
-		 * required because postmaster cannot use dsm segments. It also
-		 * provides a small efficiency win.
+		 * 在普通共享内存中创建一个 dsa 分配。这是
+		 * 必需的，因为 postmaster 无法使用 dsm 段。这也
+		 * 带来一点效率收益。
 		 */
 		ctl->raw_dsa_area = p;
 		p += MAXALIGN(pgstat_dsa_init_size());
@@ -171,24 +171,24 @@ StatsShmemInit(void)
 		dsa_pin(dsa);
 
 		/*
-		 * To ensure dshash is created in "plain" shared memory, temporarily
-		 * limit size of dsa to the initial size of the dsa.
+		 * 为确保 dshash 创建于"普通"共享内存中，先暂时
+		 * 把 dsa 限制为 dsa 的初始大小。
 		 */
 		dsa_set_size_limit(dsa, pgstat_dsa_init_size());
 
 		/*
-		 * With the limit in place, create the dshash table. XXX: It'd be nice
-		 * if there were dshash_create_in_place().
+		 * 限制就位后，创建 dshash 表。XXX：若能有
+		 * dshash_create_in_place() 就好了。
 		 */
 		dsh = dshash_create(dsa, &dsh_params, 0);
 		ctl->hash_handle = dshash_get_hash_table_handle(dsh);
 
-		/* lift limit set above */
+		/* 解除上述限制 */
 		dsa_set_size_limit(dsa, -1);
 
 		/*
-		 * Postmaster will never access these again, thus free the local
-		 * dsa/dshash references.
+		 * postmaster 不会再访问这些，因此释放本地的
+		 * dsa/dshash 引用。
 		 */
 		dshash_detach(dsh);
 		dsa_detach(dsa);
@@ -196,7 +196,7 @@ StatsShmemInit(void)
 		pg_atomic_init_u64(&ctl->gc_request_count, 1);
 
 
-		/* initialize fixed-numbered stats */
+		/* 初始化固定编号统计 */
 		LWLockInitialize(&ctl->archiver.lock, LWTRANCHE_PGSTATS_DATA);
 		LWLockInitialize(&ctl->bgwriter.lock, LWTRANCHE_PGSTATS_DATA);
 		LWLockInitialize(&ctl->checkpointer.lock, LWTRANCHE_PGSTATS_DATA);
@@ -220,7 +220,7 @@ pgstat_attach_shmem(void)
 
 	Assert(pgStatLocal.dsa == NULL);
 
-	/* stats shared memory persists for the backend lifetime */
+	/* 统计共享内存与后端生命周期共存 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 
 	pgStatLocal.dsa = dsa_attach_in_place(pgStatLocal.shmem->raw_dsa_area,
@@ -238,7 +238,7 @@ pgstat_detach_shmem(void)
 {
 	Assert(pgStatLocal.dsa);
 
-	/* we shouldn't leave references to shared stats */
+	/* 不应留下对共享统计的引用 */
 	pgstat_release_all_entry_refs(false);
 
 	dshash_detach(pgStatLocal.shared_hash);
@@ -247,9 +247,9 @@ pgstat_detach_shmem(void)
 	dsa_detach(pgStatLocal.dsa);
 
 	/*
-	 * dsa_detach() does not decrement the DSA reference count as no segment
-	 * was provided to dsa_attach_in_place(), causing no cleanup callbacks to
-	 * be registered.  Hence, release it manually now.
+	 * dsa_detach() 不会递减 DSA 引用计数，因为没有段
+	 * 被提供给 dsa_attach_in_place()，导致没有注册任何清理
+	 * 回调。因此现在手动释放它。
 	 */
 	dsa_release_in_place(pgStatLocal.shmem->raw_dsa_area);
 
@@ -258,35 +258,35 @@ pgstat_detach_shmem(void)
 
 
 /* ------------------------------------------------------------
- * Maintenance of shared memory stats entries
+ * 共享内存统计条目的维护
  * ------------------------------------------------------------
  */
 
 /*
- * Initialize entry newly-created.
+ * 初始化新建的条目。
  *
- * Returns NULL in the event of an allocation failure, so as callers can
- * take cleanup actions as the entry initialized is already inserted in the
- * shared hashtable.
+ * 分配失败时返回 NULL，以便调用方能够
+ * 采取清理动作，因为已初始化的条目已插入共享
+ * 哈希表。
  */
 PgStatShared_Common *
 pgstat_init_entry(PgStat_Kind kind,
 				  PgStatShared_HashEntry *shhashent)
 {
-	/* Create new stats entry. */
+	/* 新建统计条目。 */
 	dsa_pointer chunk;
 	PgStatShared_Common *shheader;
 
 	/*
-	 * Initialize refcount to 1, marking it as valid / not dropped. The entry
-	 * can't be freed before the initialization because it can't be found as
-	 * long as we hold the dshash partition lock. Caller needs to increase
-	 * further if a longer lived reference is needed.
+	 * 将引用计数初始化为 1，标记有效 / 未删除。该条目
+	 * 在初始化完成前不能被释放，因为只要我们还持
+	 * 有 dshash 分区锁就找不到它。若需要更长寿命的
+	 * 引用，调用方需要进一步增加它。
 	 */
 	pg_atomic_init_u32(&shhashent->refcount, 1);
 
 	/*
-	 * Initialize "generation" to 0, as freshly created.
+	 * 将"generation"初始化为 0，即新建。
 	 */
 	pg_atomic_init_u32(&shhashent->generation, 0);
 	shhashent->dropped = false;
@@ -300,7 +300,7 @@ pgstat_init_entry(PgStat_Kind kind,
 	shheader = dsa_get_address(pgStatLocal.dsa, chunk);
 	shheader->magic = 0xdeadbeef;
 
-	/* Link the new entry from the hash entry. */
+	/* 从哈希条目链接新条目。 */
 	shhashent->body = chunk;
 
 	LWLockInitialize(&shheader->lock, LWTRANCHE_PGSTATS_DATA);
@@ -315,17 +315,17 @@ pgstat_reinit_entry(PgStat_Kind kind, PgStatShared_HashEntry *shhashent)
 
 	shheader = dsa_get_address(pgStatLocal.dsa, shhashent->body);
 
-	/* mark as not dropped anymore */
+	/* 标记为不再已删除 */
 	pg_atomic_fetch_add_u32(&shhashent->refcount, 1);
 
 	/*
-	 * Increment "generation", to let any backend with local references know
-	 * that what they point to is outdated.
+	 * 递增"generation"，让任何持有本地引用的后端知道
+	 * 它们所指向的内容已过时。
 	 */
 	pg_atomic_fetch_add_u32(&shhashent->generation, 1);
 	shhashent->dropped = false;
 
-	/* reinitialize content */
+	/* 重初始化内容 */
 	Assert(shheader->magic == 0xdeadbeef);
 	memset(pgstat_get_entry_data(kind, shheader), 0,
 		   pgstat_get_entry_len(kind));
@@ -347,7 +347,7 @@ pgstat_setup_shared_refs(void)
 }
 
 /*
- * Helper function for pgstat_get_entry_ref().
+ * pgstat_get_entry_ref() 的辅助函数。
  */
 static void
 pgstat_acquire_entry_ref(PgStat_EntryRef *entry_ref,
@@ -367,7 +367,7 @@ pgstat_acquire_entry_ref(PgStat_EntryRef *entry_ref,
 }
 
 /*
- * Helper function for pgstat_get_entry_ref().
+ * pgstat_get_entry_ref() 的辅助函数。
  */
 static bool
 pgstat_get_entry_ref_cached(PgStat_HashKey key, PgStat_EntryRef **entry_ref_p)
@@ -376,9 +376,9 @@ pgstat_get_entry_ref_cached(PgStat_HashKey key, PgStat_EntryRef **entry_ref_p)
 	PgStat_EntryRefHashEntry *cache_entry;
 
 	/*
-	 * We immediately insert a cache entry, because it avoids 1) multiple
-	 * hashtable lookups in case of a cache miss 2) having to deal with
-	 * out-of-memory errors after incrementing PgStatShared_Common->refcount.
+	 * 我们立即插入缓存条目，因为这避免了 1) 多次
+	 * 缓存未命中时的哈希表查找 2) 在递增
+	 * PgStatShared_Common->refcount 之后就得处理内存不足错误。
 	 */
 
 	cache_entry = pgstat_entry_ref_hash_insert(pgStatEntryRefHash, key, &found);
@@ -410,7 +410,7 @@ pgstat_get_entry_ref_cached(PgStat_HashKey key, PgStat_EntryRef **entry_ref_p)
 		Assert(entry_ref->shared_stats != NULL);
 
 		Assert(entry_ref->shared_stats->magic == 0xdeadbeef);
-		/* should have at least our reference */
+		/* 至少应持有我们的引用 */
 		Assert(pg_atomic_read_u32(&entry_ref->shared_entry->refcount) > 0);
 	}
 
@@ -419,11 +419,11 @@ pgstat_get_entry_ref_cached(PgStat_HashKey key, PgStat_EntryRef **entry_ref_p)
 }
 
 /*
- * Get a shared stats reference. If create is true, the shared stats object is
- * created if it does not exist.
+ * 获取共享统计引用。若 create 为真，则共享统计对象
+ * 不存在时创建它。
  *
- * When create is true, and created_entry is non-NULL, it'll be set to true
- * if the entry is newly created, false otherwise.
+ * 当 create 为真且 created_entry 非 NULL 时，若条目是新
+ * 创建的，就设为真，否则为假。
  */
 PgStat_EntryRef *
 pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
@@ -434,7 +434,7 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 	PgStatShared_Common *shheader = NULL;
 	PgStat_EntryRef *entry_ref;
 
-	/* clear padding */
+	/* 清零填充 */
 	memset(&key, 0, sizeof(struct PgStat_HashKey));
 
 	key.kind = kind;
@@ -442,8 +442,8 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 	key.objoid = objoid;
 
 	/*
-	 * passing in created_entry only makes sense if we possibly could create
-	 * entry.
+	 * 仅当我们可能创建条目时传入 created_entry 才有意义
+	 * 
 	 */
 	Assert(create || created_entry == NULL);
 	pgstat_assert_is_up();
@@ -457,18 +457,18 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 		*created_entry = false;
 
 	/*
-	 * Check if other backends dropped stats that could not be deleted because
-	 * somebody held references to it. If so, check this backend's references.
-	 * This is not expected to happen often. The location of the check is a
-	 * bit random, but this is a relatively frequently called path, so better
-	 * than most.
+	 * 检查是否有其他后端删除了因有人持有其引用而
+	 * 无法删除的统计。若有，则检查本后端的引用。
+	 * 这种情况预计不会经常发生。这项检查的位置
+	 * 有点随机，但这是一条被相对频繁调用的路径，
+	 * 较优。
 	 */
 	if (pgstat_need_entry_refs_gc())
 		pgstat_gc_entry_refs();
 
 	/*
-	 * First check the lookup cache hashtable in local memory. If we find a
-	 * match here we can avoid taking locks / causing contention.
+	 * 先检查本地内存中的查找缓存哈希表。若在此
+	 * 找到匹配，就能避免加锁 / 引发争用。
 	 */
 	if (pgstat_get_entry_ref_cached(key, &entry_ref))
 		return entry_ref;
@@ -476,8 +476,8 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 	Assert(entry_ref != NULL);
 
 	/*
-	 * Do a lookup in the hash table first - it's quite likely that the entry
-	 * already exists, and that way we only need a shared lock.
+	 * 先在哈希表中做一次查找——条目很可能已经
+	 * 存在，这样我们只需要共享锁。
 	 */
 	shhashent = dshash_find(pgStatLocal.shared_hash, &key, false);
 
@@ -486,9 +486,9 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 		bool		shfound;
 
 		/*
-		 * It's possible that somebody created the entry since the above
-		 * lookup. If so, fall through to the same path as if we'd have if it
-		 * already had been created before the dshash_find() calls.
+		 * 有可能自上述查找以来，某个后端已经创建
+		 * 了该条目。若是这样，则走与在
+		 * dshash_find() 调用前已创建时相同的路径。
 		 */
 		shhashent = dshash_find_or_insert(pgStatLocal.shared_hash, &key, &shfound);
 		if (!shfound)
@@ -497,8 +497,8 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 			if (shheader == NULL)
 			{
 				/*
-				 * Failed the allocation of a new entry, so clean up the
-				 * shared hashtable before giving up.
+				 * 新条目分配失败，请在放弃前清理共享
+				 * 哈希表。
 				 */
 				dshash_delete_entry(pgStatLocal.shared_hash, shhashent);
 
@@ -520,9 +520,9 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 	if (!shhashent)
 	{
 		/*
-		 * If we're not creating, delete the reference again. In all
-		 * likelihood it's just a stats lookup - no point wasting memory for a
-		 * shared ref to nothing...
+		 * 如果不是创建，则再次删除引用。极有可能
+		 * 这只是一次统计查找——为指向虚无的共享引
+		 * 用浪费内存……
 		 */
 		pgstat_release_entry_ref(key, entry_ref, false);
 
@@ -531,20 +531,20 @@ pgstat_get_entry_ref(PgStat_Kind kind, Oid dboid, Oid objoid, bool create,
 	else
 	{
 		/*
-		 * Can get here either because dshash_find() found a match, or if
-		 * dshash_find_or_insert() found a concurrently inserted entry.
+		 * 到达此处，要么是 dshash_find() 匹配到，要么是
+		 * dshash_find_or_insert() 发现了并发插入的条目。
 		 */
 
 		if (shhashent->dropped && create)
 		{
 			/*
-			 * There are legitimate cases where the old stats entry might not
-			 * yet have been dropped by the time it's reused. The most obvious
-			 * case are replication slot stats, where a new slot can be
-			 * created with the same index just after dropping. But oid
-			 * wraparound can lead to other cases as well. We just reset the
-			 * stats to their plain state, while incrementing its "generation"
-			 * in the shared entry for any remaining local references.
+			 * 存在一些正当情形，旧的统计条目在被复用时
+			 * 可能尚未被删除。最明显的例子是复制槽统
+			 * 计，其中的新槽在删除后马上就能用同一
+			 * 索引创建。但 oid 回绕也能导致其他情形。
+			 * 我们只需将统计重置为其初始状态，同时递增
+			 * 共享条目中的"generation"，供任何残留的
+			 * 本地引用使用。
 			 */
 			shheader = pgstat_reinit_entry(kind, shhashent);
 			pgstat_acquire_entry_ref(entry_ref, shhashent, shheader);
@@ -589,20 +589,20 @@ pgstat_release_entry_ref(PgStat_HashKey key, PgStat_EntryRef *entry_ref,
 		Assert(entry_ref->pending == NULL);
 
 		/*
-		 * This can't race with another backend looking up the stats entry and
-		 * increasing the refcount because it is not "legal" to create
-		 * additional references to dropped entries.
+		 * 这不会与另一个查找该统计条目并递增引用计
+		 * 数的后端竞态，因为创建对已删除条目的
+		 * 更多引用并不"合法"。
 		 */
 		if (pg_atomic_fetch_sub_u32(&entry_ref->shared_entry->refcount, 1) == 1)
 		{
 			PgStatShared_HashEntry *shent;
 
 			/*
-			 * We're the last referrer to this entry, try to drop the shared
-			 * entry.
+			 * 我们是此条目最后一个引用者，可尝试删除
+			 * 它。
 			 */
 
-			/* only dropped entries can reach a 0 refcount */
+			/* 仅已删除条目能达到 0 引用计数 */
 			Assert(entry_ref->shared_entry->dropped);
 
 			shent = dshash_find(pgStatLocal.shared_hash,
@@ -612,14 +612,14 @@ pgstat_release_entry_ref(PgStat_HashKey key, PgStat_EntryRef *entry_ref,
 				elog(ERROR, "could not find just referenced shared stats entry");
 
 			/*
-			 * This entry may have been reinitialized while trying to release
-			 * it, so double-check that it has not been reused while holding a
-			 * lock on its shared entry.
+			 * 此条目在尝试释放期间可能已被重新初始化，
+			 * 因此请仔细确认它在持有其共享条目锁期间未
+			 * 被复用。
 			 */
 			if (pg_atomic_read_u32(&entry_ref->shared_entry->generation) ==
 				entry_ref->generation)
 			{
-				/* Same "generation", so we're OK with the removal */
+				/* "generation"相同，可接受此次移除 */
 				Assert(pg_atomic_read_u32(&entry_ref->shared_entry->refcount) == 0);
 				Assert(entry_ref->shared_entry == shent);
 				pgstat_free_entry(shent, NULL);
@@ -627,8 +627,8 @@ pgstat_release_entry_ref(PgStat_HashKey key, PgStat_EntryRef *entry_ref,
 			else
 			{
 				/*
-				 * Shared stats entry has been reinitialized, so do not drop
-				 * its shared entry, only release its lock.
+				 * 共享统计条目已被重新初始化，请勿删除
+				 * 其共享条目，只释放其锁。
 				 */
 				dshash_release_lock(pgStatLocal.shared_hash, shent);
 			}
@@ -655,8 +655,8 @@ pgstat_lock_entry(PgStat_EntryRef *entry_ref, bool nowait)
 }
 
 /*
- * Separate from pgstat_lock_entry() as most callers will need to lock
- * exclusively.
+ * 与 pgstat_lock_entry() 分开，因为大多数调用方需要
+ * 独占锁。
  */
 bool
 pgstat_lock_entry_shared(PgStat_EntryRef *entry_ref, bool nowait)
@@ -677,7 +677,7 @@ pgstat_unlock_entry(PgStat_EntryRef *entry_ref)
 }
 
 /*
- * Helper function to fetch and lock shared stats.
+ * 获取并锁定共享统计的辅助函数。
  */
 PgStat_EntryRef *
 pgstat_get_entry_ref_locked(PgStat_Kind kind, Oid dboid, Oid objoid,
@@ -685,10 +685,10 @@ pgstat_get_entry_ref_locked(PgStat_Kind kind, Oid dboid, Oid objoid,
 {
 	PgStat_EntryRef *entry_ref;
 
-	/* find shared table stats entry corresponding to the local entry */
+	/* 查找与本地条目对应的共享哈希表统计条目 */
 	entry_ref = pgstat_get_entry_ref(kind, dboid, objoid, true, NULL);
 
-	/* lock the shared entry to protect the content, skip if failed */
+	/* 锁定共享条目以保护其内容，失败则跳过 */
 	if (!pgstat_lock_entry(entry_ref, nowait))
 		return NULL;
 
@@ -709,7 +709,7 @@ pgstat_need_entry_refs_gc(void)
 	if (!pgStatEntryRefHash)
 		return false;
 
-	/* should have been initialized when creating pgStatEntryRefHash */
+	/* 在创建 pgStatEntryRefHash 时就应已初始化 */
 	Assert(pgStatSharedRefAge != 0);
 
 	curage = pg_atomic_read_u64(&pgStatLocal.shmem->gc_request_count);
@@ -728,8 +728,8 @@ pgstat_gc_entry_refs(void)
 	Assert(curage != 0);
 
 	/*
-	 * Some entries have been dropped or reinitialized.  Invalidate cache
-	 * pointer to them.
+	 * 某些条目已被删除或重新初始化。请使其缓存
+	 * 指针失效。
 	 */
 	pgstat_entry_ref_hash_start_iterate(pgStatEntryRefHash, &i);
 	while ((ent = pgstat_entry_ref_hash_iterate(pgStatEntryRefHash, &i)) != NULL)
@@ -740,15 +740,15 @@ pgstat_gc_entry_refs(void)
 			   entry_ref->shared_stats->magic == 0xdeadbeef);
 
 		/*
-		 * "generation" checks for the case of entries being reinitialized,
-		 * and "dropped" for the case where these are..  dropped.
+		 * "generation" 检查条目被重新初始化的情形，而
+		 * "dropped" 则对应这些条目被删除的情形。
 		 */
 		if (!entry_ref->shared_entry->dropped &&
 			pg_atomic_read_u32(&entry_ref->shared_entry->generation) ==
 			entry_ref->generation)
 			continue;
 
-		/* cannot gc shared ref that has pending data */
+		/* 有待写入数据的共享引用无法 gc */
 		if (entry_ref->pending != NULL)
 			continue;
 
@@ -783,10 +783,10 @@ pgstat_release_matching_entry_refs(bool discard_pending, ReleaseMatchCB match,
 }
 
 /*
- * Release all local references to shared stats entries.
+ * 释放对共享统计条目的所有本地引用。
  *
- * When a process exits it cannot do so while still holding references onto
- * stats entries, otherwise the shared stats entries could never be freed.
+ * 进程退出时无法在仍持有统计条目引用的情况
+ * 下退出，否则共享统计条目将永远无法释放。
  */
 static void
 pgstat_release_all_entry_refs(bool discard_pending)
@@ -811,14 +811,14 @@ match_db(PgStat_EntryRefHashEntry *ent, Datum match_data)
 static void
 pgstat_release_db_entry_refs(Oid dboid)
 {
-	pgstat_release_matching_entry_refs( /* discard pending = */ true,
+	pgstat_release_matching_entry_refs( /* 丢弃待写入 = */ true,
 									   match_db,
 									   ObjectIdGetDatum(dboid));
 }
 
 
 /* ------------------------------------------------------------
- * Dropping and resetting of stats entries
+ * 统计条目的删除与重置
  * ------------------------------------------------------------
  */
 
@@ -828,8 +828,8 @@ pgstat_free_entry(PgStatShared_HashEntry *shent, dshash_seq_status *hstat)
 	dsa_pointer pdsa;
 
 	/*
-	 * Fetch dsa pointer before deleting entry - that way we can free the
-	 * memory after releasing the lock.
+	 * 在删除条目前先取 dsa 指针——这样就能在
+	 * 释放锁之后释放内存。
 	 */
 	pdsa = shent->body;
 
@@ -842,10 +842,10 @@ pgstat_free_entry(PgStatShared_HashEntry *shent, dshash_seq_status *hstat)
 }
 
 /*
- * Helper for both pgstat_drop_database_and_contents() and
- * pgstat_drop_entry(). If hstat is non-null delete the shared entry using
- * dshash_delete_current(), otherwise use dshash_delete_entry(). In either
- * case the entry needs to be already locked.
+ * pgstat_drop_database_and_contents() 和
+ * pgstat_drop_entry() 二者共用的辅助函数。若 hstat
+ * 非空则用 dshash_delete_current() 删除共享条目，否则用
+ * dshash_delete_entry()。需先加锁。
  */
 static bool
 pgstat_drop_entry_internal(PgStatShared_HashEntry *shent,
@@ -853,13 +853,13 @@ pgstat_drop_entry_internal(PgStatShared_HashEntry *shent,
 {
 	Assert(shent->body != InvalidDsaPointer);
 
-	/* should already have released local reference */
+	/* 此时应已释放本地引用 */
 	if (pgStatEntryRefHash)
 		Assert(!pgstat_entry_ref_hash_lookup(pgStatEntryRefHash, shent->key));
 
 	/*
-	 * Signal that the entry is dropped - this will eventually cause other
-	 * backends to release their references.
+	 * 发出条目已被删除的信号——这最终会让其他
+	 * 后端释放各自的引用。
 	 */
 	if (shent->dropped)
 		elog(ERROR,
@@ -870,7 +870,7 @@ pgstat_drop_entry_internal(PgStatShared_HashEntry *shent,
 			 pg_atomic_read_u32(&shent->generation));
 	shent->dropped = true;
 
-	/* release refcount marking entry as not dropped */
+	/* 释放标记条目为未删除的引用计数 */
 	if (pg_atomic_sub_fetch_u32(&shent->refcount, 1) == 0)
 	{
 		pgstat_free_entry(shent, hstat);
@@ -885,7 +885,7 @@ pgstat_drop_entry_internal(PgStatShared_HashEntry *shent,
 }
 
 /*
- * Drop stats for the database and all the objects inside that database.
+ * 删除该数据库及其内部所有对象的统计。
  */
 static void
 pgstat_drop_database_and_contents(Oid dboid)
@@ -899,16 +899,16 @@ pgstat_drop_database_and_contents(Oid dboid)
 	Assert(pgStatLocal.shared_hash != NULL);
 
 	/*
-	 * This backend might very well be the only backend holding a reference to
-	 * about-to-be-dropped entries. Ensure that we're not preventing it from
-	 * being cleaned up till later.
+	 * 本后端很可能就是唯一持有对这些待删除条目
+	 * 的引用的后端。请确保我们没有把它推迟到
+	 * 以后再清理。
 	 *
-	 * Doing this separately from the dshash iteration below avoids having to
-	 * do so while holding a partition lock on the shared hashtable.
+	 * 将这一步与下面的 dshash 迭代分开来做，避免
+	 * 在持有共享哈希表分区锁的情况下执行。
 	 */
 	pgstat_release_db_entry_refs(dboid);
 
-	/* some of the dshash entries are to be removed, take exclusive lock. */
+	/* 部分 dshash 条目将被移除，取独占锁。 */
 	dshash_seq_init(&hstat, pgStatLocal.shared_hash, true);
 	while ((p = dshash_seq_next(&hstat)) != NULL)
 	{
@@ -921,8 +921,8 @@ pgstat_drop_database_and_contents(Oid dboid)
 		if (!pgstat_drop_entry_internal(p, &hstat))
 		{
 			/*
-			 * Even statistics for a dropped database might currently be
-			 * accessed (consider e.g. database stats for pg_stat_database).
+			 * 即使是已删除数据库的统计，也可能正被
+			 * 访问（例如 pg_stat_database 的数据库统计）。
 			 */
 			not_freed_count++;
 		}
@@ -930,23 +930,23 @@ pgstat_drop_database_and_contents(Oid dboid)
 	dshash_seq_term(&hstat);
 
 	/*
-	 * If some of the stats data could not be freed, signal the reference
-	 * holders to run garbage collection of their cached pgStatShmLookupCache.
+	 * 如果部分统计数据无法释放，则发信号让引用
+	 * 持有者对其缓存的 pgStatShmLookupCache 运行垃圾回收。
 	 */
 	if (not_freed_count > 0)
 		pgstat_request_entry_refs_gc();
 }
 
 /*
- * Drop a single stats entry.
+ * 删单个统计条目。
  *
- * This routine returns false if the stats entry of the dropped object could
- * not be freed, true otherwise.
+ * 若被删除对象的统计条目无法释放，本例程返
+ * 回假，否则返回真。
  *
- * The callers of this function should call pgstat_request_entry_refs_gc()
- * if the stats entry could not be freed, to ensure that this entry's memory
- * can be reclaimed later by a different backend calling
- * pgstat_gc_entry_refs().
+ * 本函数的调用方应当在统计条目无法释放时调
+ * 用 pgstat_request_entry_refs_gc()，以确保该条目的
+ * 内存稍后能被调用 pgstat_gc_entry_refs()
+ * 的后端回收。
  */
 bool
 pgstat_drop_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
@@ -955,14 +955,14 @@ pgstat_drop_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 	PgStatShared_HashEntry *shent;
 	bool		freed = true;
 
-	/* clear padding */
+	/* 清零填充 */
 	memset(&key, 0, sizeof(struct PgStat_HashKey));
 
 	key.kind = kind;
 	key.dboid = dboid;
 	key.objoid = objoid;
 
-	/* delete local reference */
+	/* 删除本地引用 */
 	if (pgStatEntryRefHash)
 	{
 		PgStat_EntryRefHashEntry *lohashent =
@@ -973,17 +973,17 @@ pgstat_drop_entry(PgStat_Kind kind, Oid dboid, Oid objoid)
 									 true);
 	}
 
-	/* mark entry in shared hashtable as deleted, drop if possible */
+	/* 把共享哈希表条目标记为已删除，尽量删除 */
 	shent = dshash_find(pgStatLocal.shared_hash, &key, true);
 	if (shent)
 	{
 		freed = pgstat_drop_entry_internal(shent, NULL);
 
 		/*
-		 * Database stats contain other stats. Drop those as well when
-		 * dropping the database. XXX: Perhaps this should be done in a
-		 * slightly more principled way? But not obvious what that'd look
-		 * like, and so far this is the only case...
+		 * 数据库统计包含其他统计。删除数据库时也
+		 * 应一并删除它们。XXX：或许这应该用更有原则
+		 * 的方式完成？但尚不清楚那会是什么样子，
+		 * 而且至今这是唯一的情形……
 		 */
 		if (key.kind == PGSTAT_KIND_DATABASE)
 			pgstat_drop_database_and_contents(key.dboid);
@@ -1028,7 +1028,7 @@ shared_stat_reset_contents(PgStat_Kind kind, PgStatShared_Common *header,
 }
 
 /*
- * Reset one variable-numbered stats entry.
+ * 重置单个可变编号统计条目。
  */
 void
 pgstat_reset_entry(PgStat_Kind kind, Oid dboid, Oid objoid, TimestampTz ts)
@@ -1047,8 +1047,8 @@ pgstat_reset_entry(PgStat_Kind kind, Oid dboid, Oid objoid, TimestampTz ts)
 }
 
 /*
- * Scan through the shared hashtable of stats, resetting statistics if
- * approved by the provided do_reset() function.
+ * 遍历统计的共享哈希表，若提供的 do_reset()
+ * 函数认可，则重置统计。
  */
 void
 pgstat_reset_matching_entries(bool (*do_reset) (PgStatShared_HashEntry *, Datum),
@@ -1057,7 +1057,7 @@ pgstat_reset_matching_entries(bool (*do_reset) (PgStatShared_HashEntry *, Datum)
 	dshash_seq_status hstat;
 	PgStatShared_HashEntry *p;
 
-	/* dshash entry is not modified, take shared lock */
+	/* dshash 条目未被修改，取共享锁 */
 	dshash_seq_init(&hstat, pgStatLocal.shared_hash, false);
 	while ((p = dshash_seq_next(&hstat)) != NULL)
 	{

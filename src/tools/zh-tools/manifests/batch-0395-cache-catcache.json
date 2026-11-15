@@ -1,0 +1,58 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0395",
+ "title": "cache 目录 catcache.c 整文件注释翻译 (191 blocks: 191 translated + 0 justified keep-EN blocks; 469 content lines: 432 rewritten zh + 37 kept EN; 逐行预算全过+行数守恒 2363/2363 1:1; 修复轮 1: L279 代码行分支误改 checkout 复位重跑+L2060 接缝断词; W7 6 条 advisory 释义披露; term_lint in-scope 0 error/2 warning(P07/P38 phrasebook); halfen cache 0; check_scope 增量+累计双 rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8016a82bf04724036d0ca413fe10d0bdcbe1caf6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/catcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0395"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0395-cache-catcache.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0395 manifest path + catcache.c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/catcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 191,
+   "translated": 191,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 191 all translated; content lines 469: 432 rewritten zh + 37 kept EN (L3 文件名/L6-L7 版权/L10 IDENTIFICATION/L11 路径; 边框线 3 行 L13/L644/L2303; 纯函数名行 19 行 L287/L329/L384/L468/L511/L555/L670/L741/L769/L807/L1003/L1176/L1241/L1558/L1592/L1621/L1997/L2020/L2244; L63 代码守卫注释 /* #define CACHEDEBUG */ 结构不容; FALLTHROUGH 6 行 L307/L311/L315/L353/L360/L367; L464 预处理器守卫名 CATCACHE_STATS; 预算不可行残句 2 行 L1680 'it.'/L1882 'A-OK' 语义并入前行). 头部功能描述行 L4 已译. REVERSE 0 处. 同 EN 必同译核对: L939=L977, L943=L981, L958=L996, L1328=L1608=L1660, L493=L541, L618=L718, L631=L729, L1337=L1437=L1671, L1352=L1712, L1353=L1713, L1361=L1721, L1364=L1724=L1869, L1493=L1891, L1574=L2004=L2347, L1957=L2159 逐字一致. 极性自查: L497 负条目释放键/L586 *所有*/L1516-1519 引导模式不构建负条目(无法清除)/ L1690 勿设置 cc_nlbuckets/L1696-1697 与 L2170-2171 填充因子>2 才扩大/ L1875-1876 已属其他列表则不能使用/L2031 负条目不可能/L2264 若未改变则只制作一个/ L2272 并不是错误 全部保留; OID/标识符逐字保留 (CatCTup/CatCList/cc_tupdesc/cc_lbuckets/ cc_relname/cc_nlbuckets/DEFAULT_COLLATION_OID/INDEXSCAN 无改动, pg_am/pg_authid/ pg_auth_members/pg_database/pg_index/OID 字面保留). 门禁: verify rc=0 (W7 6 条 in-scope advisory 释义披露: L63 UNTRANSLATED=代码守卫注释保留, L768 IDENT_LOST TIDs→TID/ cache→缓存, L1240 datatype→数据类型, L1511 UPDATEs→UPDATE, L2243 entry→条目, L2298 value→哈希值 — 均为译语替代非丢失); term_lint in-scope 0 error/2 warning (P07 L1900/P38 L2243 phrasebook advisory; 全目录唯一 error TL01 在 postinit.c 系预先存在非本批); halfen cache 0. 修复轮 1 次: L279 代码行 *hashfunc=NULL 被独立注释分支误改(代码破坏)+L2060 接缝'展开。/开。'断词 — checkout 复位后修脚本分支判定整文件重跑, 全量 readback 复核 (代码前缀/帧终止符 192 对 逐字节一致), 行数守恒 2363 1:1"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0395-cache-catcache.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0395 manifest path + catcache.c entries to files[] and allowed_paths"
+  }
+ ]
+}

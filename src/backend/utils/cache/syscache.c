@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * syscache.c
- *	  System cache management routines
+ *	  系统缓存管理例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,10 +11,10 @@
  *	  src/backend/utils/cache/syscache.c
  *
  * NOTES
- *	  These routines allow the parser/planner/executor to perform
- *	  rapid lookups on the contents of the system catalogs.
+ *	  这些例程让 parser/planner/executor 能够
+ *	  快速查找系统目录的内容。
  *
- *	  see utils/syscache.h for a list of the cache IDs
+ *	  缓存 ID 列表见 utils/syscache.h。
  *
  *-------------------------------------------------------------------------
  */
@@ -86,47 +86,47 @@
 
 /*---------------------------------------------------------------------------
 
-	Adding system caches:
+	添加系统缓存：
 
-	Add your new cache to the list in include/utils/syscache.h.
-	Keep the list sorted alphabetically.
+	把新缓存加进 include/utils/syscache.h 的列表。
+	保持列表按字母顺序排序。
 
-	Add your entry to the cacheinfo[] array below. All cache lists are
-	alphabetical, so add it in the proper place.  Specify the relation OID,
-	index OID, number of keys, key attribute numbers, and initial number of
-	hash buckets.
+	把条目加入下方 cacheinfo[] 数组。所有缓存列表都
+	按字母顺序排列，所以要加在适当位置。请指明关系
+	OID、索引 OID、键的数量、键属性号以及初始哈希桶
+	数量。
 
-	The number of hash buckets must be a power of 2.  It's reasonable to
-	set this to the number of entries that might be in the particular cache
-	in a medium-size database.
+	哈希桶数必须是 2 的幂。合理的做法是设为
+	该特定缓存在中等规模数据库中可能具有的
+	条目数。
 
-	There must be a unique index underlying each syscache (ie, an index
-	whose key is the same as that of the cache).  If there is not one
-	already, add the definition for it to include/catalog/pg_*.h using
-	DECLARE_UNIQUE_INDEX.
-	(Adding an index requires a catversion.h update, while simply
-	adding/deleting caches only requires a recompile.)
+	每个系统缓存底下必须有一个唯一索引（即其键与
+	缓存相同的索引）。若还没有这样的索引，
+	就用 DECLARE_UNIQUE_INDEX 把其定义加到
+	include/catalog/
+	pg_*.h。（加索引需要更新 catversion.h，而
+	仅仅增删缓存只需重新编译。）
 
-	Finally, any place your relation gets heap_insert() or
-	heap_update() calls, use CatalogTupleInsert() or CatalogTupleUpdate()
-	instead, which also update indexes.  The heap_* calls do not do that.
+	最后，凡你的关系会被 heap_insert() 或
+	heap_update() 调用的地方，应改用能同时更新索引的
+	CatalogTupleInsert() 或 CatalogTupleUpdate()；heap_* 则不会。
 
 *---------------------------------------------------------------------------
 */
 
 /*
- *		struct cachedesc: information defining a single syscache
+ *		struct cachedesc：定义单个系统缓存的信息
  */
 struct cachedesc
 {
-	Oid			reloid;			/* OID of the relation being cached */
-	Oid			indoid;			/* OID of index relation for this cache */
-	int			nkeys;			/* # of keys needed for cache lookup */
-	int			key[4];			/* attribute numbers of key attrs */
-	int			nbuckets;		/* number of hash buckets for this cache */
+	Oid			reloid;			/* 被缓存关系的 OID */
+	Oid			indoid;			/* 此缓存索引关系的 OID */
+	int			nkeys;			/* 缓存查找所需的键数 */
+	int			key[4];			/* 键属性的属性号 */
+	int			nbuckets;		/* 此缓存的哈希桶数量 */
 };
 
-/* Macro to provide nkeys and key array with convenient syntax. */
+/* 以便利语法提供 nkeys 与键数组的宏。 */
 #define KEY(...) VA_ARGS_NARGS(__VA_ARGS__), { __VA_ARGS__ }
 
 static const struct cachedesc cacheinfo[] = {
@@ -689,11 +689,11 @@ static CatCache *SysCache[SysCacheSize];
 
 static bool CacheInitialized = false;
 
-/* Sorted array of OIDs of tables that have caches on them */
+/* 拥有缓存的表的 OID 排序数组 */
 static Oid	SysCacheRelationOid[SysCacheSize];
 static int	SysCacheRelationOidSize;
 
-/* Sorted array of OIDs of tables and indexes used by caches */
+/* 缓存所用的表与索引的 OID 排序数组 */
 static Oid	SysCacheSupportingRelOid[SysCacheSize * 2];
 static int	SysCacheSupportingRelOidSize;
 
@@ -701,12 +701,12 @@ static int	oid_compare(const void *a, const void *b);
 
 
 /*
- * InitCatalogCache - initialize the caches
+ * InitCatalogCache - 初始化各缓存
  *
- * Note that no database access is done here; we only allocate memory
- * and initialize the cache structure.  Interrogation of the database
- * to complete initialization of a cache happens upon first use
- * of that cache.
+ * 注意这里不做任何数据库访问；只分配内存并
+ * 初始化缓存结构。对数据库进行查询以完成某个
+ * 缓存的初始化发生在首次使用该
+ * 缓存时。
  */
 void
 InitCatalogCache(void)
@@ -720,8 +720,8 @@ InitCatalogCache(void)
 	for (cacheId = 0; cacheId < SysCacheSize; cacheId++)
 	{
 		/*
-		 * Assert that every enumeration value defined in syscache.h has been
-		 * populated in the cacheinfo array.
+		 * 断言 syscache.h 中定义的每个枚举值都已在
+		 * cacheinfo 数组中被填充。
 		 */
 		Assert(cacheinfo[cacheId].reloid != 0);
 
@@ -734,21 +734,21 @@ InitCatalogCache(void)
 		if (!PointerIsValid(SysCache[cacheId]))
 			elog(ERROR, "could not initialize cache %u (%d)",
 				 cacheinfo[cacheId].reloid, cacheId);
-		/* Accumulate data for OID lists, too */
+		/* 也为 OID 列表积累数据 */
 		SysCacheRelationOid[SysCacheRelationOidSize++] =
 			cacheinfo[cacheId].reloid;
 		SysCacheSupportingRelOid[SysCacheSupportingRelOidSize++] =
 			cacheinfo[cacheId].reloid;
 		SysCacheSupportingRelOid[SysCacheSupportingRelOidSize++] =
 			cacheinfo[cacheId].indoid;
-		/* see comments for RelationInvalidatesSnapshotsOnly */
+		/* 见 RelationInvalidatesSnapshotsOnly 的注释 */
 		Assert(!RelationInvalidatesSnapshotsOnly(cacheinfo[cacheId].reloid));
 	}
 
 	Assert(SysCacheRelationOidSize <= lengthof(SysCacheRelationOid));
 	Assert(SysCacheSupportingRelOidSize <= lengthof(SysCacheSupportingRelOid));
 
-	/* Sort and de-dup OID arrays, so we can use binary search. */
+	/* 排序并去重 OID 数组，以便使用二分查找。 */
 	pg_qsort(SysCacheRelationOid, SysCacheRelationOidSize,
 			 sizeof(Oid), oid_compare);
 	SysCacheRelationOidSize =
@@ -765,16 +765,16 @@ InitCatalogCache(void)
 }
 
 /*
- * InitCatalogCachePhase2 - finish initializing the caches
+ * InitCatalogCachePhase2 - 完成各缓存的初始化
  *
- * Finish initializing all the caches, including necessary database
+ * 完成所有缓存初始化，包括必要的数据库访问。
  * access.
  *
- * This is *not* essential; normally we allow syscaches to be initialized
- * on first use.  However, it is useful as a mechanism to preload the
- * relcache with entries for the most-commonly-used system catalogs.
- * Therefore, we invoke this routine when we need to write a new relcache
- * init file.
+ * 这并非必需；通常让系统缓存首次使用时初始化。
+ * 但作为预载入最常用系统目录条目到 relcache 的
+ * 机制，它很有用。因此当需要写出新的 relcache
+ * 初始化文件时就会调用本
+ * 例程。
  */
 void
 InitCatalogCachePhase2(void)
@@ -791,18 +791,18 @@ InitCatalogCachePhase2(void)
 /*
  * SearchSysCache
  *
- *	A layer on top of SearchCatCache that does the initialization and
- *	key-setting for you.
+ *	在 SearchCatCache 之上的一层，为你完成初始化与
+ *	键值设置。
  *
- *	Returns the cache copy of the tuple if one is found, NULL if not.
- *	The tuple is the 'cache' copy and must NOT be modified!
+ *	找到元组则返回其缓存副本，否则返回 NULL。
+ *	该元组是"缓存"副本，绝不可修改！
  *
- *	When the caller is done using the tuple, call ReleaseSysCache()
- *	to release the reference count grabbed by SearchSysCache().  If this
- *	is not done, the tuple will remain locked in cache until end of
- *	transaction, which is tolerable but not desirable.
+ *	调用者用完元组时，应调用 ReleaseSysCache() 释放
+ *	SearchSysCache() 抓取的引用计数。如果不这样做，
+ *	元组将一直锁定在缓存中直至事务结束，尚可
+ *	接受但并不理想。
  *
- *	CAUTION: The tuple that is returned must NOT be freed by the caller!
+ *	注意（CAUTION）：返回的元组绝不可由调用者释放！
  */
 HeapTuple
 SearchSysCache(int cacheId,
@@ -863,7 +863,7 @@ SearchSysCache4(int cacheId,
 
 /*
  * ReleaseSysCache
- *		Release previously grabbed reference count on a tuple
+ *		释放先前在元组上抓取的引用计数
  */
 void
 ReleaseSysCache(HeapTuple tuple)
@@ -874,14 +874,14 @@ ReleaseSysCache(HeapTuple tuple)
 /*
  * SearchSysCacheLocked1
  *
- * Combine SearchSysCache1() with acquiring a LOCKTAG_TUPLE at mode
- * InplaceUpdateTupleLock.  This is a tool for complying with the
- * README.tuplock section "Locking to write inplace-updated tables".  After
- * the caller's heap_update(), it should UnlockTuple(InplaceUpdateTupleLock)
- * and ReleaseSysCache().
+ * 将 SearchSysCache1() 与以 InplaceUpdateTupleLock 模式
+ * 获取 LOCKTAG_TUPLE 相结合。这是遵守 README.tuplock
+ * 中"锁定以写入原地更新的表"一节的方法。调用者的
+ * heap_update() 之后，它应当 UnlockTuple(InplaceUpdateTupleLock)
+ * 并 ReleaseSysCache()
  *
- * The returned tuple may be the subject of an uncommitted update, so this
- * doesn't prevent the "tuple concurrently updated" error.
+ * 返回的元组可能是未提交更新的对象，所以这并不
+ * 能防止"元组正被并发更新"错误。
  */
 HeapTuple
 SearchSysCacheLocked1(int cacheId,
@@ -892,31 +892,31 @@ SearchSysCacheLocked1(int cacheId,
 	LOCKTAG		tag;
 
 	/*----------
-	 * Since inplace updates may happen just before our LockTuple(), we must
-	 * return content acquired after LockTuple() of the TID we return.  If we
-	 * just fetched twice instead of looping, the following sequence would
-	 * defeat our locking:
+	 * 由于原地更新可能就发生在我们的 LockTuple() 之前，
+	 * 我们必须返回在 LockTuple() 之后针对所返回 TID 获取的
+	 * 内容。如果只是获取两次而不循环，下面的序列将
+	 * 挫败此锁定：
 	 *
 	 * GRANT:   SearchSysCache1() = TID (1,5)
 	 * GRANT:   LockTuple(pg_class, (1,5))
-	 * [no more inplace update of (1,5) until we release the lock]
+	 * [在我们释放锁之前 (1,5) 不再有原地更新]
 	 * CLUSTER: SearchSysCache1() = TID (1,5)
 	 * CLUSTER: heap_update() = TID (1,8)
 	 * CLUSTER: COMMIT
 	 * GRANT:   SearchSysCache1() = TID (1,8)
 	 * GRANT:   return (1,8) from SearchSysCacheLocked1()
 	 * VACUUM:  SearchSysCache1() = TID (1,8)
-	 * VACUUM:  LockTuple(pg_class, (1,8))  # two TIDs now locked for one rel
-	 * VACUUM:  inplace update
-	 * GRANT:   heap_update() = (1,9)  # lose inplace update
+	 * VACUUM:  LockTuple(pg_class, (1,8))  # 一个关系锁定两个 TID
+	 * VACUUM:  原地更新
+	 * GRANT:   heap_update() = (1,9)  # 丢失原地更新
 	 *
-	 * In the happy case, this takes two fetches, one to determine the TID to
-	 * lock and another to get the content and confirm the TID didn't change.
+	 * 在顺利情形下，这需要两次获取：一次确定要锁定的
+	 * TID，另一次获取内容并确认 TID 未改变。
 	 *
-	 * This is valid even if the row gets updated to a new TID, the old TID
-	 * becomes LP_UNUSED, and the row gets updated back to its old TID.  We'd
-	 * still hold the right LOCKTAG_TUPLE and a copy of the row captured after
-	 * the LOCKTAG_TUPLE.
+	 * 即使该行被更新为新 TID、旧 TID 变为 LP_UNUSED、然后
+	 * 该行又被更新回其旧 TID，这也仍然有效。我们仍会持
+	 * 有正确的 LOCKTAG_TUPLE 以及在 LOCKTAG_TUPLE 之后捕获
+	 * 的行副本。
 	 */
 	ItemPointerSetInvalid(&tid);
 	for (;;)
@@ -943,9 +943,9 @@ SearchSysCacheLocked1(int cacheId,
 		ReleaseSysCache(tuple);
 
 		/*
-		 * Do like LockTuple(rel, &tid, lockmode).  While cc_relisshared won't
-		 * change from one iteration to another, it may have been a temporary
-		 * "false" until our first SearchSysCache1().
+		 * 像 LockTuple(rel,&tid,lockmode) 那样做。cc_relisshared
+		 * 在各轮迭代之间不会变，但在我们的第一次
+		 * SearchSysCache1() 前是临时"假"。
 		 */
 		SET_LOCKTAG_TUPLE(tag,
 						  cache->cc_relisshared ? InvalidOid : MyDatabaseId,
@@ -955,14 +955,14 @@ SearchSysCacheLocked1(int cacheId,
 		(void) LockAcquire(&tag, lockmode, false, false);
 
 		/*
-		 * If an inplace update just finished, ensure we process the syscache
-		 * inval.  XXX this is insufficient: the inplace updater may not yet
-		 * have reached AtEOXact_Inval().  See test at inplace-inval.spec.
+		 * 如果一个原地更新刚完成，确保我们处理系统缓存
+		 * 失效。XXX 这并不足够：原地更新者可能尚未到达
+		 * AtEOXact_Inval()。参见 inplace-inval.spec 中的测试。
 		 *
-		 * If a heap_update() call just released its LOCKTAG_TUPLE, we'll
-		 * probably find the old tuple and reach "tuple concurrently updated".
-		 * If that heap_update() aborts, our LOCKTAG_TUPLE blocks inplace
-		 * updates while our caller works.
+		 * 如果某个 heap_update() 刚释放了它的
+		 * LOCKTAG_TUPLE，我们很可能会找到旧元组并进入
+		 * "元组正被并发更新"。若 heap_update() 中止，
+		 * 锁会阻塞原地更新。
 		 */
 		AcceptInvalidationMessages();
 	}
@@ -971,10 +971,10 @@ SearchSysCacheLocked1(int cacheId,
 /*
  * SearchSysCacheCopy
  *
- * A convenience routine that does SearchSysCache and (if successful)
- * returns a modifiable copy of the syscache entry.  The original
- * syscache entry is released before returning.  The caller should
- * heap_freetuple() the result when done with it.
+ * 便利例程：执行 SearchSysCache 并（若成功）返回
+ * 该系统缓存条目的可修改副本。原条目于返回
+ * 前被释放。调用者用完结果后应对其调用
+ * heap_freetuple()。
  */
 HeapTuple
 SearchSysCacheCopy(int cacheId,
@@ -997,8 +997,8 @@ SearchSysCacheCopy(int cacheId,
 /*
  * SearchSysCacheLockedCopy1
  *
- * Meld SearchSysCacheLockedCopy1 with SearchSysCacheCopy().  After the
- * caller's heap_update(), it should UnlockTuple(InplaceUpdateTupleLock) and
+ * 把 SearchSysCacheLockedCopy1 与 SearchSysCacheCopy() 融合
+ * 起来。在调用者的 heap_update() 之后，应解锁元组并
  * heap_freetuple().
  */
 HeapTuple
@@ -1019,8 +1019,8 @@ SearchSysCacheLockedCopy1(int cacheId,
 /*
  * SearchSysCacheExists
  *
- * A convenience routine that just probes to see if a tuple can be found.
- * No lock is retained on the syscache entry.
+ * 一个只探测能否找到元组的便利例程。
+ * 系统缓存条目上不保留任何锁。
  */
 bool
 SearchSysCacheExists(int cacheId,
@@ -1041,9 +1041,9 @@ SearchSysCacheExists(int cacheId,
 /*
  * GetSysCacheOid
  *
- * A convenience routine that does SearchSysCache and returns the OID in the
- * oidcol column of the found tuple, or InvalidOid if no tuple could be found.
- * No lock is retained on the syscache entry.
+ * 一个便利例程：执行 SearchSysCache 并返回所找到元组
+ * oidcol 列中的 OID，若找不到元组则返回 InvalidOid。
+ * 系统缓存条目上不保留任何锁。
  */
 Oid
 GetSysCacheOid(int cacheId,
@@ -1063,7 +1063,7 @@ GetSysCacheOid(int cacheId,
 	result = heap_getattr(tuple, oidcol,
 						  SysCache[cacheId]->cc_tupdesc,
 						  &isNull);
-	Assert(!isNull);			/* columns used as oids should never be NULL */
+	Assert(!isNull);			/* 用作 oid 的列绝不应为 NULL */
 	ReleaseSysCache(tuple);
 	return result;
 }
@@ -1072,10 +1072,10 @@ GetSysCacheOid(int cacheId,
 /*
  * SearchSysCacheAttName
  *
- * This routine is equivalent to SearchSysCache on the ATTNAME cache,
- * except that it will return NULL if the found attribute is marked
- * attisdropped.  This is convenient for callers that want to act as
- * though dropped attributes don't exist.
+ * 此例程等价于对 ATTNAME 缓存执行 SearchSysCache，
+ * 区别在于若找到的属性被标记为 attisdropped，它会
+ * 返回 NULL。对希望表现得好像已删属性不存在
+ * 的调用者来说很方便。
  */
 HeapTuple
 SearchSysCacheAttName(Oid relid, const char *attname)
@@ -1098,7 +1098,7 @@ SearchSysCacheAttName(Oid relid, const char *attname)
 /*
  * SearchSysCacheCopyAttName
  *
- * As above, an attisdropped-aware version of SearchSysCacheCopy.
+ * 同上，SearchSysCacheCopy 的 attisdropped 感知版本。
  */
 HeapTuple
 SearchSysCacheCopyAttName(Oid relid, const char *attname)
@@ -1117,7 +1117,7 @@ SearchSysCacheCopyAttName(Oid relid, const char *attname)
 /*
  * SearchSysCacheExistsAttName
  *
- * As above, an attisdropped-aware version of SearchSysCacheExists.
+ * 同上，SearchSysCacheExists 的 attisdropped 感知版本。
  */
 bool
 SearchSysCacheExistsAttName(Oid relid, const char *attname)
@@ -1135,10 +1135,10 @@ SearchSysCacheExistsAttName(Oid relid, const char *attname)
 /*
  * SearchSysCacheAttNum
  *
- * This routine is equivalent to SearchSysCache on the ATTNUM cache,
- * except that it will return NULL if the found attribute is marked
- * attisdropped.  This is convenient for callers that want to act as
- * though dropped attributes don't exist.
+ * 此例程等价于对 ATTNUM 缓存执行 SearchSysCache，
+ * 区别在于若找到的属性被标记为 attisdropped，它会
+ * 返回 NULL。对希望表现得好像已删属性不存在
+ * 的调用者来说很方便。
  */
 HeapTuple
 SearchSysCacheAttNum(Oid relid, int16 attnum)
@@ -1161,7 +1161,7 @@ SearchSysCacheAttNum(Oid relid, int16 attnum)
 /*
  * SearchSysCacheCopyAttNum
  *
- * As above, an attisdropped-aware version of SearchSysCacheCopy.
+ * 同上，SearchSysCacheCopy 的 attisdropped 感知版本。
  */
 HeapTuple
 SearchSysCacheCopyAttNum(Oid relid, int16 attnum)
@@ -1181,21 +1181,21 @@ SearchSysCacheCopyAttNum(Oid relid, int16 attnum)
 /*
  * SysCacheGetAttr
  *
- *		Given a tuple previously fetched by SearchSysCache(),
- *		extract a specific attribute.
+ *		给定先前由 SearchSysCache() 抓取的元组，
+ *		抽取指定的属性。
  *
- * This is equivalent to using heap_getattr() on a tuple fetched
- * from a non-cached relation.  Usually, this is only used for attributes
- * that could be NULL or variable length; the fixed-size attributes in
- * a system table are accessed just by mapping the tuple onto the C struct
- * declarations from include/catalog/.
+ * 这等价于对从非缓存关系抓取的元组使用
+ * heap_getattr()。通常它只用于可能为 NULL 或变长
+ * 的属性；系统表中定长属性只需把元组映射到
+ * include/catalog/ 中的 C 结构体声明
+ * 即可。
  *
- * As with heap_getattr(), if the attribute is of a pass-by-reference type
- * then a pointer into the tuple data area is returned --- the caller must
- * not modify or pfree the datum!
+ * 与 heap_getattr() 一样，如果属性属于按引用传递的
+ * 类型，则返回指向元组数据区的指针 --- 调用者绝不可
+ * 修改或 pfree 该值！
  *
- * Note: it is legal to use SysCacheGetAttr() with a cacheId referencing
- * a different cache for the same catalog the tuple was fetched from.
+ * 注意：将引用同一目录另一个缓存的 cacheId 用于
+ * SysCacheGetAttr() 也合法（元组抓取自该目录）。
  */
 Datum
 SysCacheGetAttr(int cacheId, HeapTuple tup,
@@ -1203,10 +1203,10 @@ SysCacheGetAttr(int cacheId, HeapTuple tup,
 				bool *isNull)
 {
 	/*
-	 * We just need to get the TupleDesc out of the cache entry, and then we
-	 * can apply heap_getattr().  Normally the cache control data is already
-	 * valid (because the caller recently fetched the tuple via this same
-	 * cache), but there are cases where we have to initialize the cache here.
+	 * 我们只需从缓存条目中取出 TupleDesc，然后就能
+	 * 应用 heap_getattr()。通常缓存控制数据已经有效（因为
+	 * 调用者刚由同一缓存抓取了该元组），但有些情形
+	 * 下我们必须在这里初始化缓存。
 	 */
 	if (cacheId < 0 || cacheId >= SysCacheSize ||
 		!PointerIsValid(SysCache[cacheId]))
@@ -1225,8 +1225,8 @@ SysCacheGetAttr(int cacheId, HeapTuple tup,
 /*
  * SysCacheGetAttrNotNull
  *
- * As above, a version of SysCacheGetAttr which knows that the attr cannot
- * be NULL.
+ * 同上，SysCacheGetAttr 的一个版本，它知道该属性不可为
+ * NULL。
  */
 Datum
 SysCacheGetAttrNotNull(int cacheId, HeapTuple tup,
@@ -1251,12 +1251,12 @@ SysCacheGetAttrNotNull(int cacheId, HeapTuple tup,
 /*
  * GetSysCacheHashValue
  *
- * Get the hash value that would be used for a tuple in the specified cache
- * with the given search keys.
+ * 获取在指定缓存中具有给定搜索键的元组将会使用的
+ * 哈希值。
  *
- * The reason for exposing this as part of the API is that the hash value is
- * exposed in cache invalidation operations, so there are places outside the
- * catcache code that need to be able to compute the hash values.
+ * 之所以把它作为 API 的一部分公开，是因为哈希值会
+ * 在缓存失效操作中被公开，所以 catcache 代码之外也有
+ * 地方需要能够计算哈希值。
  */
 uint32
 GetSysCacheHashValue(int cacheId,
@@ -1273,7 +1273,7 @@ GetSysCacheHashValue(int cacheId,
 }
 
 /*
- * List-search interface
+ * 列表搜索接口
  */
 struct catclist *
 SearchSysCacheList(int cacheId, int nkeys,
@@ -1290,10 +1290,10 @@ SearchSysCacheList(int cacheId, int nkeys,
 /*
  * SysCacheInvalidate
  *
- *	Invalidate entries in the specified cache, given a hash value.
- *	See CatCacheInvalidate() for more info.
+ *	根据给定的哈希值使指定缓存中的条目失效。
+ *	详情见 CatCacheInvalidate()。
  *
- *	This routine is only quasi-public: it should only be used by inval.c.
+ *	此例程只是准公开的：只应由 inval.c 使用。
  */
 void
 SysCacheInvalidate(int cacheId, uint32 hashValue)
@@ -1301,7 +1301,7 @@ SysCacheInvalidate(int cacheId, uint32 hashValue)
 	if (cacheId < 0 || cacheId >= SysCacheSize)
 		elog(ERROR, "invalid cache ID: %d", cacheId);
 
-	/* if this cache isn't initialized yet, no need to do anything */
+	/* 若此缓存尚未初始化，则无需做任何事 */
 	if (!PointerIsValid(SysCache[cacheId]))
 		return;
 
@@ -1309,15 +1309,15 @@ SysCacheInvalidate(int cacheId, uint32 hashValue)
 }
 
 /*
- * Certain relations that do not have system caches send snapshot invalidation
- * messages in lieu of catcache messages.  This is for the benefit of
- * GetCatalogSnapshot(), which can then reuse its existing MVCC snapshot
- * for scanning one of those catalogs, rather than taking a new one, if no
- * invalidation has been received.
+ * 某些没有系统缓存的关系会发送快照失效消息来代替
+ * catcache 消息。这是为了 GetCatalogSnapshot() 的利益，
+ * 这样它就可以复用现有的 MVCC 快照来扫描这些目录
+ * 之一，而不是取新快照——只要尚未收到失效
+ * 消息的话。
  *
- * Relations that have syscaches need not (and must not) be listed here.  The
- * catcache invalidation messages will also flush the snapshot.  If you add a
- * syscache for one of these relations, remove it from this list.
+ * 拥有系统缓存的关系不必（也不得）列在这里。catcache
+ * 失效消息也会刷新快照。如果你为这些关系之一添加了
+ * 系统缓存，就把它从该列表中移除。
  */
 bool
 RelationInvalidatesSnapshotsOnly(Oid relid)
@@ -1340,7 +1340,7 @@ RelationInvalidatesSnapshotsOnly(Oid relid)
 }
 
 /*
- * Test whether a relation has a system cache.
+ * 测试某关系是否拥有系统缓存。
  */
 bool
 RelationHasSysCache(Oid relid)
@@ -1364,8 +1364,8 @@ RelationHasSysCache(Oid relid)
 }
 
 /*
- * Test whether a relation supports a system cache, ie it is either a
- * cached table or the index used for a cache.
+ * 测试某关系是否支持系统缓存，即它要么是被缓存
+ * 表，要么是缓存所用的索引。
  */
 bool
 RelationSupportsSysCache(Oid relid)
@@ -1390,7 +1390,7 @@ RelationSupportsSysCache(Oid relid)
 
 
 /*
- * OID comparator for pg_qsort
+ * pg_qsort 的 OID 比较器
  */
 static int
 oid_compare(const void *a, const void *b)

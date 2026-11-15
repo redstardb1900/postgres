@@ -1,0 +1,73 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0393",
+ "title": "cache 目录两文件整文件注释翻译 relmapper.c+syscache.c (135 blocks: 135 translated + 0 justified keep-EN blocks; 493 content lines: 421 rewritten zh + 72 kept EN; 逐行预算全过; 修复轮 1 处: relmapper L209-L216 W7 错位重排 + halfen cache MIXED 4 站清偿 + term_lint cannot/requires 3 站清偿; gates: verify rc=0 (7 W7 advisory in-scope: OIDs×4/PANICing/TIDs/UnlockTuple 释义披露), term_lint in-scope 0 error/0 warning (全树唯一 error 为 postinit.c 既有), halfen cache 0; check_scope rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7aa39dba8e54e7429109317948d37c0192bfd47c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/relmapper.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0393"
+  },
+  {
+   "pattern": "src/backend/utils/cache/syscache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0393"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0393-cache-relmapper-syscache.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0393 manifest path + two cache .c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/relmapper.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 91,
+   "translated": 91,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 91 all translated; content lines 301: 268 rewritten zh + 33 kept EN (L3 文件名/L31-L32 版权/L35 IDENTIFICATION/L36 路径; L29 EN 残句已吸收于 L28 25B 不容; 纯函数名行 21 行 L153/L207/L260/L285/L318/L375/L411/L431/L459/L484/L500/L524/L582/L601/L619/L646/L666/L687/L708/L720/L737 keep-EN 0389/0391 先例; 句内 EN 名行 L210/L533; 预算不可行残句 L163'error).' L310'file.' L782'ERROR.' L1055'trouble.'; header 描述行 L4/L6-L16/L18-L28 全译). budget-forced REVERSE: L711 '空间' 无句号 (EN 'workers.' 11B 不容 9B zh+句号), L92 '恒为RELMAPPER_FILEMAGIC' CJK-EN 无空格 32B exact, L779 RelationMappingLock 加锁后释放 无空格 73B, L939 inline 无句号 34B, L953 省 And, L965 '...' → '。'; L549 '这不应发生' 对 EN 'should never happen' 模态披露. 修复轮 1: W7 揪出 L209-L216 错位 (L212-L213 'not supposed to be used during normal running' 漏译+L215 InvalidOid 缺失), 重排后 L215-L216 '如果 OID 未知则返回 InvalidOid；...' 极性逐条核对; term_lint 清偿: L64 cannot→无法 (P02), L763/L883 requires→需要 (TL08/P23); halfen 清偿: L798/L799 重拆 '影响的关系之前|重读它。' 消 'the change.' MIXED 站. 同 EN 必同译核对: L171=L224, L271=L298, L675=L696 逐字一致"
+  },
+  {
+   "path": "src/backend/utils/cache/syscache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 44,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 44 all translated; content lines 192: 153 rewritten zh + 39 kept EN (L3 文件名/L6-L7 版权/L10 IDENTIFICATION/L11 路径/L13 NOTES 8B 不容中文但 L14-L15/L17 NOTES 内容全译; 空行 7 行 L88/L90/L93/L98/L102/L109/L113; 纯函数名行 16 行 L792/L865/L875/L972/L998/L1020/L1042/L1073/L1099/L1118/L1136/L1162/L1182/L1226/L1252/L1291; GRANT/CLUSTER/VACUUM TID 轨迹标识行 8 行 L900/L901/L903/L904/L905/L906/L907/L908 keep-EN, 其中 L902 方括号注已译/L909/L911 尾注译/L910 'VACUUM:  原地更新'; 预算不可行残句 L771'access.' L1002'heap_freetuple().'; cacheinfo[] 数组 L130-L690 纯标识符无注释未动, OID 逐字保留). 释义披露: L1001 UnlockTuple(InplaceUpdateTupleLock)→'解锁元组' (20B 尾行不容, L880 保留完整标识符), L964-L965 LOCKTAG_TUPLE→'锁' 且 'while our caller works' 省略 (36B 尾行不容), L881 '并 ReleaseSysCache()' 无句号 25B. 同 EN 必同译核对: L1023=L1046, L1076=L1139, L1077=L1140, L1078=L1141, L1101=L1164 逐字一致; 结构化条目字段名/索引名/函数名标识符保留, 散文说明译. 修复轮 1: halfen 清偿 L776/L777 重拆 '调用本|例程。' 消 'init file.' 站, L946 伪码去空格消 '&tid, lockmode)' 站; review round 2: L111-112 谓语句补译（heap_* 则不会, 66B/68B）"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0393-cache-relmapper-syscache.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "this batch manifest",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0393 manifest path + two cache .c entries (pure append)"
+  }
+ ]
+}

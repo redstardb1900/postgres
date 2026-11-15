@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0398",
+ "title": "cache 目录 relcache.c 整文件注释翻译 part 1 (L1-L3401; 284 blocks: 284 translated+justified; 890 content lines: 827 zh + 63 keep-EN; 行数守恒 6825/6825; 审查修复轮 1 次全量清偿+全量 readback; W7 实测 13 advisory + 37 UNTRANSLATED 属 0399 预期; term_lint in-scope 0 error/3 warning; halfen 2 条 MIXED 良性披露; check_scope 增量+累计双 rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3fc9215243b9a153fdb472d1fca6a3605e7c9a1b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation part 1 (L1-L3401), batch-0398"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0398-cache-relcache-part1.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0398 manifest path + relcache.c (part 1/2) entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 284,
+   "translated": 284,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "partial-file batch 1/2: 处理范围 L1-L3401 (归属块 284 中本批 284 块; 块 @3397 跨 L3400 整块归入, 实际边界 L3401), 剩余 L3402+ 留 0399. 全文件注释感知块数 605, 本批 284; 内容行 890 = 827 zh + 63 keep-EN (头 5: L3 文件名/L6-7 版权/L10 IDENTIFICATION/L11 路径 + dump 误吞宏代码行 33 (L218-252, 唯一真注释 L217 已译含尾反斜杠) + 纯函数名行 25). 行数守恒 6825/6825. 逐行字节预算全过 (827/827), 行尾贴预算字逐行拼读复核. 审查修复轮 (第 4 轮, 审查 FAIL 清单全量清偿): 高危 11 项 (L1276 补未/L2192-2193 味着重排/L1684-1686 缓载重排/L1699-1700 这/L2541-2544 重排/L2598-2599 失控重排/L2745-2747 持有指针重排/L2762 尾词改 旧条目的指针/L2764-2766 缺字补齐 new=66/67+L2766 空框/L2915-2916 补用做/L3039-3040 补链接) + 中 5 项 (L2500 补处/L2660 或许被访问 审查原串/L2868 调用方+句号上收 L2869 置 ` *`/L1376 补句号 new=67≤68/L2982 补第2步) + 行首标点 12 处处置 (L434 改写去括号 rd_options。/L543 L757 L1710 L1811 L1855 L2105 L2560 L2610 L2619 L2752 句号上收前行+本行置空框 ` * `/L2869 由 #14 吸收), 处置后行首标点 0 处. notes 订正: W7 实测 13 IDENT_LOST + 37 UNTRANSLATED (UNTRANSLATED 全部 L3408+ 属 0399 预期); L1376 句号本轮真补 (前轮补丁误投文件未生效, 本轮核实落地); check_scope 增量+累计双 rc=0. 同 EN 必同译: L1033=L2042, L1034=L2043, L1035=L2044, L652=L872, L421=L1250=L1879, L1241=L1993, L1246=L1998, L533=L1947, L440=L1900, L2841=L3050, L3166=L3327, L3192=L3346, L3244=L3381, L3245=L3382. 极性/双重否定自查: L1261 硬性正向, L2196 无法重建(EN cannot) 无反转, L2388 以防=防止 正向, L3167 不想尝试 无反转. 尾句号台账 (末非空行口径): REVERSE 0 真违规; FWD 8 处均为 ')'→'）。'/EN 问号→？ 正向自洽映射 (L162/L601/L757/L1263/L1404/L2535/L3031/L3264). 预算不可行披露: L694 DEFAULTs→默认 (预算 8 字节容不下 默认值 9 字节), L701 CHECKs→检查, L1243/L1995 见lmgr.c 无空格 (预算 9 字节), L2254 pg_class_oid_index 后省 自身. L3050 漏键在覆盖断言 (LINEKEY ∪ KEPT == universe) 中捕获并补齐. halfen cache 3 条 MIXED run=2: relcache L833 'security invoker'/L3252 'start/commit transaction' 为 zh 句内 ASCII 短语良性游程 (同 typcache L1872 0396 既判 class), typcache 1 条为 0396 既判"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0398-cache-relcache-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0398 manifest path + relcache.c (part 1/2) entries"
+  }
+ ],
+ "notes": "partial-file batch 1/2: 处理范围 L1-L3401 (归属块 284 中本批 284 块; 块 @3397 跨 L3400 整块归入, 实际边界 L3401), 剩余 L3402+ 留 0399. 全文件注释感知块数 605, 本批 284; 内容行 890 = 827 zh + 63 keep-EN (头 5: L3 文件名/L6-7 版权/L10 IDENTIFICATION/L11 路径 + dump 误吞宏代码行 33 (L218-252, 唯一真注释 L217 已译含尾反斜杠) + 纯函数名行 25). 行数守恒 6825/6825. 逐行字节预算全过 (827/827), 行尾贴预算字逐行拼读复核. 审查修复轮 (第 4 轮, 审查 FAIL 清单全量清偿): 高危 11 项 (L1276 补未/L2192-2193 味着重排/L1684-1686 缓载重排/L1699-1700 这/L2541-2544 重排/L2598-2599 失控重排/L2745-2747 持有指针重排/L2762 尾词改 旧条目的指针/L2764-2766 缺字补齐 new=66/67+L2766 空框/L2915-2916 补用做/L3039-3040 补链接) + 中 5 项 (L2500 补处/L2660 或许被访问 审查原串/L2868 调用方+句号上收 L2869 置 ` *`/L1376 补句号 new=67≤68/L2982 补第2步) + 行首标点 12 处处置 (L434 改写去括号 rd_options。/L543 L757 L1710 L1811 L1855 L2105 L2560 L2610 L2619 L2752 句号上收前行+本行置空框 ` * `/L2869 由 #14 吸收), 处置后行首标点 0 处. notes 订正: W7 实测 13 IDENT_LOST + 37 UNTRANSLATED (UNTRANSLATED 全部 L3408+ 属 0399 预期); L1376 句号本轮真补 (前轮补丁误投文件未生效, 本轮核实落地); check_scope 增量+累计双 rc=0. 同 EN 必同译: L1033=L2042, L1034=L2043, L1035=L2044, L652=L872, L421=L1250=L1879, L1241=L1993, L1246=L1998, L533=L1947, L440=L1900, L2841=L3050, L3166=L3327, L3192=L3346, L3244=L3381, L3245=L3382. 极性/双重否定自查: L1261 硬性正向, L2196 无法重建(EN cannot) 无反转, L2388 以防=防止 正向, L3167 不想尝试 无反转. 尾句号台账 (末非空行口径): REVERSE 0 真违规; FWD 8 处均为 ')'→'）。'/EN 问号→？ 正向自洽映射 (L162/L601/L757/L1263/L1404/L2535/L3031/L3264). 预算不可行披露: L694 DEFAULTs→默认 (预算 8 字节容不下 默认值 9 字节), L701 CHECKs→检查, L1243/L1995 见lmgr.c 无空格 (预算 9 字节), L2254 pg_class_oid_index 后省 自身. L3050 漏键在覆盖断言 (LINEKEY ∪ KEPT == universe) 中捕获并补齐. halfen cache 3 条 MIXED run=2: relcache L833 'security invoker'/L3252 'start/commit transaction' 为 zh 句内 ASCII 短语良性游程 (同 typcache L1872 0396 既判 class), typcache 1 条为 0396 既判"
+}

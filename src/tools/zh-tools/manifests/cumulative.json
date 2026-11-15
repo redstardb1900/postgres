@@ -6741,6 +6741,16 @@
    "pattern": "src/backend/utils/cache/lsyscache.c",
    "kind": "c_comment",
    "note": "whole-file comment translation, batch-0397"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0398-cache-relcache-part1.json",
+   "kind": "manifest",
+   "note": "batch-0398 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "note": "relation descriptor cache; whole-file comment translation part 1/2 (batch-0398, L3402+ pending batch-0399)"
   }
  ],
  "files": [
@@ -21909,6 +21919,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0397 whole-file comment translation: blocks 218 all translated, content lines 619 = 506 zh + 113 keep-EN (头 6+函数名行 107); W7 26 条 advisory 释义披露; term_lint in-scope 0 error/3 warning; halfen 0 (cache 1 条为 typcache 0396 既判); 预算不可行缺尾句号 2 行 L2422 SysCacheGetAttr/L3153 pg_statistic 披露, L2686 InvalidOid 缩略为 空 披露"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0398-cache-relcache-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0398 manifest"
+  },
+  {
+   "path": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 284,
+   "translated": 284,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0398 whole-file comment translation part 1/2 (L1-L3401): blocks 284 in scope all handled, content lines 890 = 827 zh + 63 keep-EN (头 5+误吞代码 33+函数名行 25); 剩余 L3402+ 留 0399; W7 实测 13 advisory+37 UNTRANSLATED 属 0399 预期; term_lint in-scope 0 error/3 warning; halfen 2 条 MIXED 良性披露 (L833/L3252); 行首标点处置后 0 处; check_scope 增量+累计双 rc=0"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

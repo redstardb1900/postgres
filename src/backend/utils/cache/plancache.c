@@ -1,47 +1,47 @@
 /*-------------------------------------------------------------------------
  *
  * plancache.c
- *	  Plan cache management.
+ *	  计划缓存管理。
  *
- * The plan cache manager has two principal responsibilities: deciding when
- * to use a generic plan versus a custom (parameter-value-specific) plan,
- * and tracking whether cached plans need to be invalidated because of schema
- * changes in the objects they depend on.
+ * 计划缓存管理器有两个主要职责：决定何时使用
+ * 通用计划还是定制（针对具体参数值的）计划，
+ * 以及跟踪缓存计划是否需要因其所依赖对象的模式
+ * 变更而失效。
  *
- * The logic for choosing generic or custom plans is in choose_custom_plan,
- * which see for comments.
+ * 选择通用还是定制计划的逻辑在 choose_custom_plan 中，
+ * 注释见该函数。
  *
- * Cache invalidation is driven off sinval events.  Any CachedPlanSource
- * that matches the event is marked invalid, as is its generic CachedPlan
- * if it has one.  When (and if) the next demand for a cached plan occurs,
- * parse analysis and rewrite is repeated to build a new valid query tree,
- * and then planning is performed as normal.  We also force re-analysis and
- * re-planning if the active search_path is different from the previous time
- * or, if RLS is involved, if the user changes or the RLS environment changes.
+ * 缓存失效由 sinval 事件驱动。任何与该事件匹配的
+ * CachedPlanSource 都会被标记为无效，其通用
+ * CachedPlan（如果有）也一样。当下一次对缓存计划
+ * 的需求出现时，会重新执行语法分析与重写以构建
+ * 新的有效查询树，然后照常进行规划。如果当前
+ * search_path 与上次不同，或者涉及 RLS 时用户或 RLS
+ * 环境改变，我们也会强制重新分析和重新规划。
  *
- * Note that if the sinval was a result of user DDL actions, parse analysis
- * could throw an error, for example if a column referenced by the query is
- * no longer present.  Another possibility is for the query's output tupdesc
- * to change (for instance "SELECT *" might expand differently than before).
- * The creator of a cached plan can specify whether it is allowable for the
- * query to change output tupdesc on replan --- if so, it's up to the
- * caller to notice changes and cope with them.
+ * 注意，如果 sinval 是用户 DDL 操作的结果，语法分析
+ * 可能抛出错误，例如查询引用的列已不复存在。另一
+ * 种可能是查询的输出 tupdesc 发生变化（例如 "SELECT *"
+ * 的展开形式可能与之前不同）。
+ * 缓存计划的创建者可以指定在重新规划时是否允许
+ * 查询改变输出 tupdesc --- 如果允许，就要靠调用者
+ * 留意变化并加以处理。
  *
- * Currently, we track exactly the dependencies of plans on relations,
- * user-defined functions, and domains.  On relcache invalidation events or
- * pg_proc or pg_type syscache invalidation events, we invalidate just those
- * plans that depend on the particular object being modified.  (Note: this
- * scheme assumes that any table modification that requires replanning will
- * generate a relcache inval event.)  We also watch for inval events on
- * certain other system catalogs, such as pg_namespace; but for them, our
- * response is just to invalidate all plans.  We expect updates on those
- * catalogs to be infrequent enough that more-detailed tracking is not worth
- * the effort.
+ * 目前，我们精确跟踪计划对关系、用户定义函数和
+ * 域的依赖。当收到 relcache 失效事件或 pg_proc 或
+ * pg_type syscache 失效事件时，我们只使那些依赖于
+ * 被改对象的计划失效。（注意：这一方案假定任何
+ * 需要重新规划的表修改都会产生 relcache 失效事件。）
+ * 我们也关注某些其他系统目录上的失效事件，例如
+ * pg_namespace；但对它们，我们的应对只是使全部计
+ * 划失效。我们期望这些目录的更新足够罕见，因此
+ * 更细粒度的跟踪不值得费
+ * 力气。
  *
- * In addition to full-fledged query plans, we provide a facility for
- * detecting invalidations of simple scalar expressions.  This is fairly
- * bare-bones; it's the caller's responsibility to build a new expression
- * if the old one gets invalidated.
+ * 除了成熟的查询计划之外，我们还提供了一种检测
+ * 简单标量表达式失效的设施。这相当简陋；
+ * 旧表达式失效时，须由调用者重建
+ * 新的表达式。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -76,27 +76,27 @@
 
 
 /*
- * We must skip "overhead" operations that involve database access when the
- * cached plan's subject statement is a transaction control command or one
- * that requires a snapshot not to be set yet (such as SET or LOCK).  More
- * generally, statements that do not require parse analysis/rewrite/plan
- * activity never need to be revalidated, so we can treat them all like that.
- * For the convenience of postgres.c, treat empty statements that way too.
+ * 当缓存计划的主题语句是事务控制命令，或是那种
+ * 需要快照尚未设置（例如 SET 或 LOCK）的语句时，
+ * 我们必须跳过涉及数据库访问的"开销"操作。更一般
+ * 地讲，不需要语法分析/重写/规划活动的语句从来
+ * 不需要重新验证，所以我们可以一并那样对待。
+ * 为了 postgres.c 的方便，空语句也照此对待。
  */
 #define StmtPlanRequiresRevalidation(plansource)  \
 	((plansource)->raw_parse_tree != NULL && \
 	 stmt_requires_parse_analysis((plansource)->raw_parse_tree))
 
 /*
- * This is the head of the backend's list of "saved" CachedPlanSources (i.e.,
- * those that are in long-lived storage and are examined for sinval events).
- * We use a dlist instead of separate List cells so that we can guarantee
- * to save a CachedPlanSource without error.
+ * 这是后端"已保存"CachedPlanSources 列表的表头（即
+ * 存放在长寿命存储中并会被检查 sinval 事件的）。
+ * 我们用 dlist 而非独立的 List
+ * 单元，从而保证能无错保存。
  */
 static dlist_head saved_plan_list = DLIST_STATIC_INIT(saved_plan_list);
 
 /*
- * This is the head of the backend's list of CachedExpressions.
+ * 这是后端 CachedExpressions 列表的表头。
  */
 static dlist_head cached_expression_list = DLIST_STATIC_INIT(cached_expression_list);
 
@@ -119,13 +119,13 @@ static void PlanCacheRelCallback(Datum arg, Oid relid);
 static void PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue);
 static void PlanCacheSysCallback(Datum arg, int cacheid, uint32 hashvalue);
 
-/* GUC parameter */
+/* GUC 参数 */
 int			plan_cache_mode = PLAN_CACHE_MODE_AUTO;
 
 /*
- * InitPlanCache: initialize module during InitPostgres.
+ * InitPlanCache：于 InitPostgres 中初始化。
  *
- * All we need to do is hook into inval.c's callback lists.
+ * 我们要做的只是挂进 inval.c 的回调列表。
  */
 void
 InitPlanCache(void)
@@ -141,28 +141,28 @@ InitPlanCache(void)
 }
 
 /*
- * CreateCachedPlan: initially create a plan cache entry.
+ * CreateCachedPlan：初始创建计划缓存项。
  *
- * Creation of a cached plan is divided into two steps, CreateCachedPlan and
- * CompleteCachedPlan.  CreateCachedPlan should be called after running the
- * query through raw_parser, but before doing parse analysis and rewrite;
- * CompleteCachedPlan is called after that.  The reason for this arrangement
- * is that it can save one round of copying of the raw parse tree, since
- * the parser will normally scribble on the raw parse tree.  Callers would
- * otherwise need to make an extra copy of the parse tree to ensure they
- * still had a clean copy to present at plan cache creation time.
+ * 缓存计划的创建分为两步：CreateCachedPlan 与
+ * CompleteCachedPlan。CreateCachedPlan 应在把查询
+ * 送入 raw_parser 之后、做语法分析与重写之前调用；
+ * CompleteCachedPlan 则在其后调用。这样安排的原因
+ * 在于可以省去对原始语法树的一轮复制，因为解析器
+ * 通常会涂改原始语法树。否则调用者将不得不额外
+ * 复制一份语法树，以确保在创建计划缓存项时手里
+ * 还有一份干净的副本可交。
  *
- * All arguments presented to CreateCachedPlan are copied into a memory
- * context created as a child of the call-time CurrentMemoryContext, which
- * should be a reasonably short-lived working context that will go away in
- * event of an error.  This ensures that the cached plan data structure will
- * likewise disappear if an error occurs before we have fully constructed it.
- * Once constructed, the cached plan can be made longer-lived, if needed,
- * by calling SaveCachedPlan.
+ * 交给 CreateCachedPlan 的所有实参都会被复制进一个
+ * 内存上下文中，该上下文是调用时 CurrentMemoryContext
+ * 的子上下文——它应当是一个相当短命的工作上下
+ * 文，出错时即会消失。这确保缓存计划数据结构
+ * 会在尚未完全构建好之前出错时也照样消失。
+ * 一旦构建完成，如有需要可调用
+ * SaveCachedPlan 延寿。
  *
- * raw_parse_tree: output of raw_parser(), or NULL if empty query
- * query_string: original query text
- * commandTag: command tag for query, or UNKNOWN if empty query
+ * raw_parse_tree：raw_parser() 的输出，空查询则为 NULL
+ * query_string：原查询文本
+ * commandTag：查询命令标签，空查询为 UNKNOWN
  */
 CachedPlanSource *
 CreateCachedPlan(RawStmt *raw_parse_tree,
@@ -173,22 +173,22 @@ CreateCachedPlan(RawStmt *raw_parse_tree,
 	MemoryContext source_context;
 	MemoryContext oldcxt;
 
-	Assert(query_string != NULL);	/* required as of 8.4 */
+	Assert(query_string != NULL);	/* 8.4 起必需 */
 
 	/*
-	 * Make a dedicated memory context for the CachedPlanSource and its
-	 * permanent subsidiary data.  It's probably not going to be large, but
-	 * just in case, allow it to grow large.  Initially it's a child of the
-	 * caller's context (which we assume to be transient), so that it will be
-	 * cleaned up on error.
+	 * 为 CachedPlanSource 及其永久附属数据建一个专用
+	 * 内存上下文。它多半不会很大，但以防万一，允许
+	 * 它长大。起初它是调用者上下文的子上下文（我们
+	 * 假定它是短暂的），这样出错时便会被清
+	 * 理掉。
 	 */
 	source_context = AllocSetContextCreate(CurrentMemoryContext,
 										   "CachedPlanSource",
 										   ALLOCSET_START_SMALL_SIZES);
 
 	/*
-	 * Create and fill the CachedPlanSource struct within the new context.
-	 * Most fields are just left empty for the moment.
+	 * 在新上下文内创建并填充 CachedPlanSource 结构体。
+	 * 此刻大多数字段先留空。
 	 */
 	oldcxt = MemoryContextSwitchTo(source_context);
 
@@ -231,22 +231,22 @@ CreateCachedPlan(RawStmt *raw_parse_tree,
 }
 
 /*
- * CreateOneShotCachedPlan: initially create a one-shot plan cache entry.
+ * CreateOneShotCachedPlan：最初创建一次性计划缓存项。
  *
- * This variant of CreateCachedPlan creates a plan cache entry that is meant
- * to be used only once.  No data copying occurs: all data structures remain
- * in the caller's memory context (which typically should get cleared after
- * completing execution).  The CachedPlanSource struct itself is also created
- * in that context.
+ * 这一 CreateCachedPlan 变体创建的计划缓存项只打算
+ * 使用一次。不发生数据复制：所有数据结构都留在
+ * 调用者的内存上下文中（通常应在执行完成后清理
+ * 该上下文）。CachedPlanSource 结构体本身也在该上
+ * 下文创建。
  *
- * A one-shot plan cannot be saved or copied, since we make no effort to
- * preserve the raw parse tree unmodified.  There is also no support for
- * invalidation, so plan use must be completed in the current transaction,
- * and DDL that might invalidate the querytree_list must be avoided as well.
+ * 一次性计划无法被保存或复制，因为我们没有努力
+ * 保持原始语法树不被涂改。也不支持失效，所以
+ * 计划的使用必须在当前事务内完成，而且必须避免
+ * 可能使 querytree_list 失效的 DDL。
  *
- * raw_parse_tree: output of raw_parser(), or NULL if empty query
- * query_string: original query text
- * commandTag: command tag for query, or NULL if empty query
+ * raw_parse_tree：raw_parser() 的输出，空查询则为 NULL
+ * query_string：原查询文本
+ * commandTag：查询命令标签，空查询则为 NULL
  */
 CachedPlanSource *
 CreateOneShotCachedPlan(RawStmt *raw_parse_tree,
@@ -255,11 +255,11 @@ CreateOneShotCachedPlan(RawStmt *raw_parse_tree,
 {
 	CachedPlanSource *plansource;
 
-	Assert(query_string != NULL);	/* required as of 8.4 */
+	Assert(query_string != NULL);	/* 8.4 起必需 */
 
 	/*
-	 * Create and fill the CachedPlanSource struct within the caller's memory
-	 * context.  Most fields are just left empty for the moment.
+	 * 在调用者的内存上下文内创建并填充
+	 * CachedPlanSource 结构体。大多数字段先留空。
 	 */
 	plansource = (CachedPlanSource *) palloc0(sizeof(CachedPlanSource));
 	plansource->magic = CACHEDPLANSOURCE_MAGIC;
@@ -297,46 +297,46 @@ CreateOneShotCachedPlan(RawStmt *raw_parse_tree,
 }
 
 /*
- * CompleteCachedPlan: second step of creating a plan cache entry.
+ * CompleteCachedPlan：创建计划缓存项的第二步。
  *
- * Pass in the analyzed-and-rewritten form of the query, as well as the
- * required subsidiary data about parameters and such.  All passed values will
- * be copied into the CachedPlanSource's memory, except as specified below.
- * After this is called, GetCachedPlan can be called to obtain a plan, and
- * optionally the CachedPlanSource can be saved using SaveCachedPlan.
+ * 传入查询的分析并重写后的形式，以及关于参数等
+ * 所需的附属数据。所有传入值都会被复制进
+ * CachedPlanSource 的内存，下述情形除外。
+ * 随后即可调用 GetCachedPlan 获取计划，也可选
+ * 择用 SaveCachedPlan 保存该 CachedPlanSource。
  *
- * If querytree_context is not NULL, the querytree_list must be stored in that
- * context (but the other parameters need not be).  The querytree_list is not
- * copied, rather the given context is kept as the initial query_context of
- * the CachedPlanSource.  (It should have been created as a child of the
- * caller's working memory context, but it will now be reparented to belong
- * to the CachedPlanSource.)  The querytree_context is normally the context in
- * which the caller did raw parsing and parse analysis.  This approach saves
- * one tree copying step compared to passing NULL, but leaves lots of extra
- * cruft in the query_context, namely whatever extraneous stuff parse analysis
- * created, as well as whatever went unused from the raw parse tree.  Using
- * this option is a space-for-time tradeoff that is appropriate if the
- * CachedPlanSource is not expected to survive long.
+ * 如果 querytree_context 非 NULL，querytree_list 必须
+ * 存放在该上下文中（其他参数则不必）。该列表
+ * querytree_list 不会被复制，而是把给定上下文保留为
+ * CachedPlanSource 初始的 query_context。（它应当是
+ * 作为调用者工作内存上下文的子上下文创建的，但
+ * 现在它将被重新挂接为 CachedPlanSource 的成员。）
+ * querytree_context 通常就是调用者做原始解析与语
+ * 法分析的上下文。相比传 NULL，这种做法省去一次
+ * 树复制步骤，但会在 query_context 里留下大量额外
+ * 垃圾：既有语法分析产生的多余物，也有原始语法
+ * 树中未用到的部分。使用这一选项是以空间换时间
+ * 的做法，适合不打算长存的情形。
  *
- * plancache.c cannot know how to copy the data referenced by parserSetupArg,
- * and it would often be inappropriate to do so anyway.  When using that
- * option, it is caller's responsibility that the referenced data remains
- * valid for as long as the CachedPlanSource exists.
+ * plancache.c 无从得知如何复制 parserSetupArg 所引用
+ * 的数据，而且这样做往往并不合适。使用该选项时，
+ * 被引用的数据在 CachedPlanSource 存续期间保持有
+ * 效是调用者的责任。
  *
- * If the CachedPlanSource is a "oneshot" plan, then no querytree copying
- * occurs at all, and querytree_context is ignored; it is caller's
- * responsibility that the passed querytree_list is sufficiently long-lived.
+ * 如果 CachedPlanSource 是"一次性"计划，则完全不发生
+ * querytree 复制，querytree_context 被忽略；传入的
+ * querytree_list 足够长寿是调用者的责任。
  *
- * plansource: structure returned by CreateCachedPlan
- * querytree_list: analyzed-and-rewritten form of query (list of Query nodes)
- * querytree_context: memory context containing querytree_list,
- *					  or NULL to copy querytree_list into a fresh context
- * param_types: array of fixed parameter type OIDs, or NULL if none
- * num_params: number of fixed parameters
- * parserSetup: alternate method for handling query parameters
- * parserSetupArg: data to pass to parserSetup
- * cursor_options: options bitmask to pass to planner
- * fixed_result: true to disallow future changes in query's result tupdesc
+ * plansource：CreateCachedPlan 返回的结构体
+ * querytree_list：查询分析并重写后的形式（Query 节点列表）
+ * querytree_context：querytree_list 所在上下文，
+ *					  或 NULL，即复制到新上下文中
+ * param_types：固定参数类型 OIDs 的数组，无则 NULL
+ * num_params：固定参数的个数
+ * parserSetup：处理查询参数的备用方法
+ * parserSetupArg：parserSetup 的入参
+ * cursor_options：传规划器的选项位掩码
+ * fixed_result：true 表示禁止查询结果 tupdesc 今后变化
  */
 void
 CompleteCachedPlan(CachedPlanSource *plansource,
@@ -352,16 +352,16 @@ CompleteCachedPlan(CachedPlanSource *plansource,
 	MemoryContext source_context = plansource->context;
 	MemoryContext oldcxt = CurrentMemoryContext;
 
-	/* Assert caller is doing things in a sane order */
+	/* 断言调用者的操作顺序是合理的 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 	Assert(!plansource->is_complete);
 
 	/*
-	 * If caller supplied a querytree_context, reparent it underneath the
-	 * CachedPlanSource's context; otherwise, create a suitable context and
-	 * copy the querytree_list into it.  But no data copying should be done
-	 * for one-shot plans; for those, assume the passed querytree_list is
-	 * sufficiently long-lived.
+	 * 若调用者提供了 querytree_context，则将其重新挂到
+	 * CachedPlanSource 的上下文之下；否则就创建合适的
+	 * 上下文并把 querytree_list 复制进去。但对一次性计
+	 * 划则不应做任何数据复制；对它们，假定传入的
+	 * 列表足够长寿。
 	 */
 	if (plansource->is_oneshot)
 	{
@@ -374,7 +374,7 @@ CompleteCachedPlan(CachedPlanSource *plansource,
 	}
 	else
 	{
-		/* Again, it's a good bet the querytree_context can be small */
+		/* 同样，querytree_context 很可能可以很小 */
 		querytree_context = AllocSetContextCreate(source_context,
 												  "CachedPlanQuery",
 												  ALLOCSET_START_SMALL_SIZES);
@@ -388,34 +388,34 @@ CompleteCachedPlan(CachedPlanSource *plansource,
 	if (!plansource->is_oneshot && StmtPlanRequiresRevalidation(plansource))
 	{
 		/*
-		 * Use the planner machinery to extract dependencies.  Data is saved
-		 * in query_context.  (We assume that not a lot of extra cruft is
-		 * created by this call.)  We can skip this for one-shot plans, and
-		 * plans not needing revalidation have no such dependencies anyway.
+		 * 用规划器的机制来提取依赖。数据保存在
+		 * query_context 中。（假定此调用产生的额外垃圾
+		 * 不多。）一次性计划可跳过此步；不需重新验证
+		 * 的计划反正也没有这类依赖。
 		 */
 		extract_query_dependencies((Node *) querytree_list,
 								   &plansource->relationOids,
 								   &plansource->invalItems,
 								   &plansource->dependsOnRLS);
 
-		/* Update RLS info as well. */
+		/* 并更新 RLS 信息。 */
 		plansource->rewriteRoleId = GetUserId();
 		plansource->rewriteRowSecurity = row_security;
 
 		/*
-		 * Also save the current search_path in the query_context.  (This
-		 * should not generate much extra cruft either, since almost certainly
-		 * the path is already valid.)	Again, we don't really need this for
-		 * one-shot plans; and we *must* skip this for transaction control
-		 * commands, because this could result in catalog accesses.
+		 * 同时把当前 search_path 存进 query_context
+		 * （这同样不应产生多少额外垃圾，因为几乎可以肯
+		 * 定本就有效。）一次性计划同样用不着它；
+		 * 而事务控制命令则必须跳过，因为可能引发
+		 * 目录访问。
 		 */
 		plansource->search_path = GetOverrideSearchPath(querytree_context);
 	}
 
 	/*
-	 * Save the final parameter types (or other parameter specification data)
-	 * into the source_context, as well as our other parameters.  Also save
-	 * the result tuple descriptor.
+	 * 把最终的参数类型（或其他参数说明数据）存入
+	 * source_context，同时保存我们的其他参数。还要保
+	 * 存结果元组描述符。
 	 */
 	MemoryContextSwitchTo(source_context);
 
@@ -440,50 +440,50 @@ CompleteCachedPlan(CachedPlanSource *plansource,
 }
 
 /*
- * SaveCachedPlan: save a cached plan permanently
+ * SaveCachedPlan：永久保存缓存计划
  *
- * This function moves the cached plan underneath CacheMemoryContext (making
- * it live for the life of the backend, unless explicitly dropped), and adds
- * it to the list of cached plans that are checked for invalidation when an
- * sinval event occurs.
+ * 本函数把缓存计划挪到 CacheMemoryContext 之下（使
+ * 其存活到后端生命周期结束，除非被显式丢弃），
+ * 并把它加进会在 sinval 事件发生时检查失效的缓存
+ * 计划列表中。
  *
- * This is guaranteed not to throw error, except for the caller-error case
- * of trying to save a one-shot plan.  Callers typically depend on that
- * since this is called just before or just after adding a pointer to the
- * CachedPlanSource to some permanent data structure of their own.  Up until
- * this is done, a CachedPlanSource is just transient data that will go away
- * automatically on transaction abort.
+ * 保证本函数不抛错，唯一的例外是调用者错误情形
+ * ——尝试保存一次性计划时。调用者通常依赖
+ * 因为本函数恰在把 CachedPlanSource 指针加进它们某
+ * 个永久数据结构之前或之后被调用。在此之前，
+ * CachedPlanSource 只是会在事务中止时自动消失的
+ * 暂时性数据。
  */
 void
 SaveCachedPlan(CachedPlanSource *plansource)
 {
-	/* Assert caller is doing things in a sane order */
+	/* 断言调用者的操作顺序是合理的 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 	Assert(plansource->is_complete);
 	Assert(!plansource->is_saved);
 
-	/* This seems worth a real test, though */
+	/* 但这似乎值得真正测试一下 */
 	if (plansource->is_oneshot)
 		elog(ERROR, "cannot save one-shot cached plan");
 
 	/*
-	 * In typical use, this function would be called before generating any
-	 * plans from the CachedPlanSource.  If there is a generic plan, moving it
-	 * into CacheMemoryContext would be pretty risky since it's unclear
-	 * whether the caller has taken suitable care with making references
-	 * long-lived.  Best thing to do seems to be to discard the plan.
+	 * 典型用法中，本函数会在从 CachedPlanSource 生成任何
+	 * 计划之前被调用。如果已有通用计划，把它挪进
+	 * CacheMemoryContext 会相当冒险，因为不清楚调用者
+	 * 是否已对引用的长寿命化采取了合适防范。最
+	 * 好做法似乎是把该计划丢弃。
 	 */
 	ReleaseGenericPlan(plansource);
 
 	/*
-	 * Reparent the source memory context under CacheMemoryContext so that it
-	 * will live indefinitely.  The query_context follows along since it's
-	 * already a child of the other one.
+	 * 把源内存上下文重新挂到 CacheMemoryContext 之下，
+	 * 使其无限期存活。query_context 也会跟着走，因为它
+	 * 已是其子上下文。
 	 */
 	MemoryContextSetParent(plansource->context, CacheMemoryContext);
 
 	/*
-	 * Add the entry to the global list of cached plans.
+	 * 把该项加入缓存计划的全局列表。
 	 */
 	dlist_push_tail(&saved_plan_list, &plansource->node);
 
@@ -491,46 +491,46 @@ SaveCachedPlan(CachedPlanSource *plansource)
 }
 
 /*
- * DropCachedPlan: destroy a cached plan.
+ * DropCachedPlan：销毁缓存计划。
  *
- * Actually this only destroys the CachedPlanSource: any referenced CachedPlan
- * is released, but not destroyed until its refcount goes to zero.  That
- * handles the situation where DropCachedPlan is called while the plan is
- * still in use.
+ * 实际上它只销毁 CachedPlanSource：被引用的任何
+ * CachedPlan 都会被释放，但要等其引用计数降为零才
+ * 真正销毁。这应对了 DropCachedPlan 在计划仍被调用
+ * 的情形。
  */
 void
 DropCachedPlan(CachedPlanSource *plansource)
 {
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 
-	/* If it's been saved, remove it from the list */
+	/* 如果已被保存，则从列表中移除 */
 	if (plansource->is_saved)
 	{
 		dlist_delete(&plansource->node);
 		plansource->is_saved = false;
 	}
 
-	/* Decrement generic CachedPlan's refcount and drop if no longer needed */
+	/* 递减通用 CachedPlan 的引用计数，不再需要则丢弃 */
 	ReleaseGenericPlan(plansource);
 
-	/* Mark it no longer valid */
+	/* 标记为不再有效 */
 	plansource->magic = 0;
 
 	/*
-	 * Remove the CachedPlanSource and all subsidiary data (including the
-	 * query_context if any).  But if it's a one-shot we can't free anything.
+	 * 移除 CachedPlanSource 与全部附属数据（如有
+	 * query_context）。但一次性计划则什么都不能释放。
 	 */
 	if (!plansource->is_oneshot)
 		MemoryContextDelete(plansource->context);
 }
 
 /*
- * ReleaseGenericPlan: release a CachedPlanSource's generic plan, if any.
+ * ReleaseGenericPlan：释放 CachedPlanSource 的通用计划。
  */
 static void
 ReleaseGenericPlan(CachedPlanSource *plansource)
 {
-	/* Be paranoid about the possibility that ReleaseCachedPlan fails */
+	/* 对 ReleaseCachedPlan 失败的可能性保持戒心 */
 	if (plansource->gplan)
 	{
 		CachedPlan *plan = plansource->gplan;
@@ -542,18 +542,18 @@ ReleaseGenericPlan(CachedPlanSource *plansource)
 }
 
 /*
- * RevalidateCachedQuery: ensure validity of analyzed-and-rewritten query tree.
+ * RevalidateCachedQuery：确保分析并重写后的查询树有效。
  *
- * What we do here is re-acquire locks and redo parse analysis if necessary.
- * On return, the query_list is valid and we have sufficient locks to begin
- * planning.
+ * 本函数做的是按需重新获取锁并重做语法分析。
+ * 返回时 query_list 有效，而且我们持有开始规划所需
+ * 的锁。
  *
- * If any parse analysis activity is required, the caller's memory context is
- * used for that work.
+ * 如果需要任何语法分析活动，将使用调用者的内存
+ * 上下文执行。
  *
- * The result value is the transient analyzed-and-rewritten query tree if we
- * had to do re-analysis, and NIL otherwise.  (This is returned just to save
- * a tree copying step in a subsequent BuildCachedPlan call.)
+ * 返回值是我们不得不重新分析时的临时分析重写查
+ * 询树，否则为 NIL。（返回它只是为了在后续
+ * BuildCachedPlan 调用中省去一次树复制。）
  */
 static List *
 RevalidateCachedQuery(CachedPlanSource *plansource,
@@ -561,18 +561,18 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 {
 	bool		snapshot_set;
 	RawStmt    *rawtree;
-	List	   *tlist;			/* transient query-tree list */
-	List	   *qlist;			/* permanent query-tree list */
+	List	   *tlist;			/* 临时查询树列表 */
+	List	   *qlist;			/* 永久查询树列表 */
 	TupleDesc	resultDesc;
 	MemoryContext querytree_context;
 	MemoryContext oldcxt;
 
 	/*
-	 * For one-shot plans, we do not support revalidation checking; it's
-	 * assumed the query is parsed, planned, and executed in one transaction,
-	 * so that no lock re-acquisition is necessary.  Also, if the statement
-	 * type can't require revalidation, we needn't do anything (and we mustn't
-	 * risk catalog accesses when handling, eg, transaction control commands).
+	 * 对一次性计划，不支持重新验证检查；假定查询
+	 * 的解析、规划与执行都在同一事务内完成，因而无
+	 * 需重新获取锁。另外，如果语句类型不可能需要重
+	 * 新验证，我们就不必做任何事（并且在处理例如事
+	 * 务控制命令时，绝不能冒险访问目录）。
 	 */
 	if (plansource->is_oneshot || !StmtPlanRequiresRevalidation(plansource))
 	{
@@ -581,16 +581,16 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 	}
 
 	/*
-	 * If the query is currently valid, we should have a saved search_path ---
-	 * check to see if that matches the current environment.  If not, we want
-	 * to force replan.
+	 * 如果查询当前有效，我们应该有一个已保存的
+	 * search_path——查它与当前环境是否相符，若不符
+	 * 就重规划。
 	 */
 	if (plansource->is_valid)
 	{
 		Assert(plansource->search_path != NULL);
 		if (!OverrideSearchPathMatchesCurrent(plansource->search_path))
 		{
-			/* Invalidate the querytree and generic plan */
+			/* 使查询树和通用计划失效 */
 			plansource->is_valid = false;
 			if (plansource->gplan)
 				plansource->gplan->is_valid = false;
@@ -598,8 +598,8 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 	}
 
 	/*
-	 * If the query rewrite phase had a possible RLS dependency, we must redo
-	 * it if either the role or the row_security setting has changed.
+	 * 如果查询重写阶段可能有 RLS 依赖，那么只要角色
+	 * 或 row_security 设置之一已变化，就必须重做它。
 	 */
 	if (plansource->is_valid && plansource->dependsOnRLS &&
 		(plansource->rewriteRoleId != GetUserId() ||
@@ -607,32 +607,32 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 		plansource->is_valid = false;
 
 	/*
-	 * If the query is currently valid, acquire locks on the referenced
-	 * objects; then check again.  We need to do it this way to cover the race
-	 * condition that an invalidation message arrives before we get the locks.
+	 * 如果查询当前有效，先对被引用对象取锁；然后
+	 * 再检查一遍。必须这样做以覆盖如下竞态：在拿到
+	 * 锁之前失效消息就先到达。
 	 */
 	if (plansource->is_valid)
 	{
 		AcquirePlannerLocks(plansource->query_list, true);
 
 		/*
-		 * By now, if any invalidation has happened, the inval callback
-		 * functions will have marked the query invalid.
+		 * 此时若发生失效，失效回调函数应已把
+		 * 查询标记为无效。
 		 */
 		if (plansource->is_valid)
 		{
-			/* Successfully revalidated and locked the query. */
+			/* 成功重新验证并锁定了查询。 */
 			return NIL;
 		}
 
-		/* Oops, the race case happened.  Release useless locks. */
+		/* 不巧，竞态情形发生了。释放无用锁。 */
 		AcquirePlannerLocks(plansource->query_list, false);
 	}
 
 	/*
-	 * Discard the no-longer-useful query tree.  (Note: we don't want to do
-	 * this any earlier, else we'd not have been able to release locks
-	 * correctly in the race condition case.)
+	 * 丢弃已无用的查询树。（注意：不能更早丢弃，
+	 * 否则就无法在竞态情形中
+	 * 正确释放锁。）
 	 */
 	plansource->is_valid = false;
 	plansource->query_list = NIL;
@@ -641,10 +641,10 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 	plansource->search_path = NULL;
 
 	/*
-	 * Free the query_context.  We don't really expect MemoryContextDelete to
-	 * fail, but just in case, make sure the CachedPlanSource is left in a
-	 * reasonably sane state.  (The generic plan won't get unlinked yet, but
-	 * that's acceptable.)
+	 * 释放 query_context。我们并不真指望 MemoryContextDelete
+	 * 会失败，但以防万一，确保 CachedPlanSource 留在一
+	 * 个还算正常的状态。（此时通用计划暂不解除链
+	 * 接，可接受）
 	 */
 	if (plansource->query_context)
 	{
@@ -654,21 +654,21 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 		MemoryContextDelete(qcxt);
 	}
 
-	/* Drop the generic plan reference if any */
+	/* 如有则丢弃通用计划引用 */
 	ReleaseGenericPlan(plansource);
 
 	/*
-	 * Now re-do parse analysis and rewrite.  This not incidentally acquires
-	 * the locks we need to do planning safely.
+	 * 现在重新执行语法分析与重写。这顺带取得了安全
+	 * 规划所需的锁。
 	 */
 	Assert(plansource->is_complete);
 
 	/*
-	 * If a snapshot is already set (the normal case), we can just use that
-	 * for parsing/planning.  But if it isn't, install one.  Note: no point in
-	 * checking whether parse analysis requires a snapshot; utility commands
-	 * don't have invalidatable plans, so we'd not get here for such a
-	 * command.
+	 * 如果快照已设置（正常情形），解析/规划就用它
+	 * 就行。但如果还没设置，就安装一个。注意：不必
+	 * 检查语法分析是否需要快照；实用命令没有可失效
+	 * 的计划，所以我们不会因这类命令走到这
+	 * 里。
 	 */
 	snapshot_set = false;
 	if (!ActiveSnapshotSet())
@@ -678,9 +678,9 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 	}
 
 	/*
-	 * Run parse analysis and rule rewriting.  The parser tends to scribble on
-	 * its input, so we must copy the raw parse tree to prevent corruption of
-	 * the cache.
+	 * 执行语法分析与规则重写。解析器往往会涂改其输
+	 * 入，因此必须复制原始语法树以免损坏
+	 * 缓存。
 	 */
 	rawtree = copyObject(plansource->raw_parse_tree);
 	if (rawtree == NULL)
@@ -698,26 +698,26 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 												   plansource->num_params,
 												   queryEnv);
 
-	/* Release snapshot if we got one */
+	/* 如果取了快照则释放之 */
 	if (snapshot_set)
 		PopActiveSnapshot();
 
 	/*
-	 * Check or update the result tupdesc.  XXX should we use a weaker
-	 * condition than equalTupleDescs() here?
+	 * 检查或更新结果 tupdesc。XXX 这里是否该用比
+	 * equalTupleDescs() 更弱的条件？
 	 *
-	 * We assume the parameter types didn't change from the first time, so no
-	 * need to update that.
+	 * 我们假定参数类型与第一次相比没有变化，因此无
+	 * 需更新它。
 	 */
 	resultDesc = PlanCacheComputeResultDesc(tlist);
 	if (resultDesc == NULL && plansource->resultDesc == NULL)
 	{
-		/* OK, doesn't return tuples */
+		/* 好，不返回元组 */
 	}
 	else if (resultDesc == NULL || plansource->resultDesc == NULL ||
 			 !equalTupleDescs(resultDesc, plansource->resultDesc))
 	{
-		/* can we give a better error message? */
+		/* 能给出更好的报错吗？ */
 		if (plansource->fixed_result)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -732,8 +732,8 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 	}
 
 	/*
-	 * Allocate new query_context and copy the completed querytree into it.
-	 * It's transient until we complete the copying and dependency extraction.
+	 * 分配新的 query_context 并把完成的查询树复制进去。
+	 * 在完成复制与依赖提取之前它都是临时的。
 	 */
 	querytree_context = AllocSetContextCreate(CurrentMemoryContext,
 											  "CachedPlanQuery",
@@ -743,98 +743,98 @@ RevalidateCachedQuery(CachedPlanSource *plansource,
 	qlist = copyObject(tlist);
 
 	/*
-	 * Use the planner machinery to extract dependencies.  Data is saved in
-	 * query_context.  (We assume that not a lot of extra cruft is created by
-	 * this call.)
+	 * 用规划器机制提取依赖。数据存于
+	 * query_context。（假定这次调用不会产生太多
+	 * 垃圾）
 	 */
 	extract_query_dependencies((Node *) qlist,
 							   &plansource->relationOids,
 							   &plansource->invalItems,
 							   &plansource->dependsOnRLS);
 
-	/* Update RLS info as well. */
+	/* 并更新 RLS 信息。 */
 	plansource->rewriteRoleId = GetUserId();
 	plansource->rewriteRowSecurity = row_security;
 
 	/*
-	 * Also save the current search_path in the query_context.  (This should
-	 * not generate much extra cruft either, since almost certainly the path
-	 * is already valid.)
+	 * 同时把当前 search_path 保存在 query_context 中。（这
+	 * 同样不该产生多少额外垃圾，因为路径几乎肯定
+	 * 是有效的）
 	 */
 	plansource->search_path = GetOverrideSearchPath(querytree_context);
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Now reparent the finished query_context and save the links */
+	/* 现在重新挂接完成的 query_context 并保存链接 */
 	MemoryContextSetParent(querytree_context, plansource->context);
 
 	plansource->query_context = querytree_context;
 	plansource->query_list = qlist;
 
 	/*
-	 * Note: we do not reset generic_cost or total_custom_cost, although we
-	 * could choose to do so.  If the DDL or statistics change that prompted
-	 * the invalidation meant a significant change in the cost estimates, it
-	 * would be better to reset those variables and start fresh; but often it
-	 * doesn't, and we're better retaining our hard-won knowledge about the
-	 * relative costs.
+	 * 注意：我们并不重置 generic_cost 或 total_custom_cost，
+	 * 尽管我们可以选择这么做。如果引发失效的 DDL 或
+	 * 统计变化意味着成本估算显著改变，那么重置这些
+	 * 变量并重新开始会更好；但通常并非如此，更好地
+	 * 做法是保留我们来之不易的相对成本
+	 * 知识。
 	 */
 
 	plansource->is_valid = true;
 
-	/* Return transient copy of querytrees for possible use in planning */
+	/* 返回查询树的临时副本，供规划时可能之用 */
 	return tlist;
 }
 
 /*
- * CheckCachedPlan: see if the CachedPlanSource's generic plan is valid.
+ * CheckCachedPlan：检查 CachedPlanSource 通用计划有效性。
  *
- * Caller must have already called RevalidateCachedQuery to verify that the
- * querytree is up to date.
+ * 调用者必须已先调用
+ * RevalidateCachedQuery。
  *
- * On a "true" return, we have acquired the locks needed to run the plan.
- * (We must do this for the "true" result to be race-condition-free.)
+ * 返回"真"时，我们已取得运行该计划所需的锁。
+ * （要让"真"结果没有竞态，就必须这么做。）
  */
 static bool
 CheckCachedPlan(CachedPlanSource *plansource)
 {
 	CachedPlan *plan = plansource->gplan;
 
-	/* Assert that caller checked the querytree */
+	/* 断言调用者已检查查询树 */
 	Assert(plansource->is_valid);
 
-	/* If there's no generic plan, just say "false" */
+	/* 若无通用计划，就直接返回"假" */
 	if (!plan)
 		return false;
 
 	Assert(plan->magic == CACHEDPLAN_MAGIC);
-	/* Generic plans are never one-shot */
+	/* 通用计划非一次性计划 */
 	Assert(!plan->is_oneshot);
 
 	/*
-	 * If plan isn't valid for current role, we can't use it.
+	 * 若计划对当前角色无效，便不能用。
 	 */
 	if (plan->is_valid && plan->dependsOnRole &&
 		plan->planRoleId != GetUserId())
 		plan->is_valid = false;
 
 	/*
-	 * If it appears valid, acquire locks and recheck; this is much the same
-	 * logic as in RevalidateCachedQuery, but for a plan.
+	 * 如果它看起来有效，就取锁并重新检查；逻辑同
+	 * RevalidateCachedQuery，只是对象是计划。
 	 */
 	if (plan->is_valid)
 	{
 		/*
-		 * Plan must have positive refcount because it is referenced by
-		 * plansource; so no need to fear it disappears under us here.
+		 * 计划引用计数必为正，因 plansource 引用它；
+		 * 所以无须担心它会在这里从我们脚下消失。
 		 */
 		Assert(plan->refcount > 0);
 
 		AcquireExecutorLocks(plan->stmt_list, true);
 
 		/*
-		 * If plan was transient, check to see if TransactionXmin has
-		 * advanced, and if so invalidate it.
+		 * 若计划暂态，检查 TransactionXmin 是否推进，
+		 * 若有则使其失效。
 		 */
 		if (plan->is_valid &&
 			TransactionIdIsValid(plan->saved_xmin) &&
@@ -842,21 +842,21 @@ CheckCachedPlan(CachedPlanSource *plansource)
 			plan->is_valid = false;
 
 		/*
-		 * By now, if any invalidation has happened, the inval callback
-		 * functions will have marked the plan invalid.
+		 * 此时若发生失效，失效回调函数应已把
+		 * 计划标记为无效。
 		 */
 		if (plan->is_valid)
 		{
-			/* Successfully revalidated and locked the query. */
+			/* 成功重新验证并锁定了查询。 */
 			return true;
 		}
 
-		/* Oops, the race case happened.  Release useless locks. */
+		/* 不巧，竞态情形发生了。释放无用锁。 */
 		AcquireExecutorLocks(plan->stmt_list, false);
 	}
 
 	/*
-	 * Plan has been invalidated, so unlink it from the parent and release it.
+	 * 计划已失效，因此把它从父对象解除链接并释放。
 	 */
 	ReleaseGenericPlan(plansource);
 
@@ -864,20 +864,20 @@ CheckCachedPlan(CachedPlanSource *plansource)
 }
 
 /*
- * BuildCachedPlan: construct a new CachedPlan from a CachedPlanSource.
+ * BuildCachedPlan：从 CachedPlanSource 构建新 CachedPlan。
  *
- * qlist should be the result value from a previous RevalidateCachedQuery,
- * or it can be set to NIL if we need to re-copy the plansource's query_list.
+ * qlist 应是先前 RevalidateCachedQuery
+ * 的返回值，或传 NIL 以重新复制 plansource 的 query_list。
  *
- * To build a generic, parameter-value-independent plan, pass NULL for
- * boundParams.  To build a custom plan, pass the actual parameter values via
- * boundParams.  For best effect, the PARAM_FLAG_CONST flag should be set on
- * each parameter value; otherwise the planner will treat the value as a
- * hint rather than a hard constant.
+ * 要构建与参数值无关的通用计划，请为
+ * boundParams 传入 NULL。要构建定制计划，请经
+ * boundParams 传入实际参数值。为最佳效果，
+ * 每个参数值都应设 PARAM_FLAG_CONST，
+ * 否则当提示而非常量。
  *
- * Planning work is done in the caller's memory context.  The finished plan
- * is in a child memory context, which typically should get reparented
- * (unless this is a one-shot plan, in which case we don't copy the plan).
+ * 规划工作在调用者的内存上下文中完成。完成的计
+ * 划位于一个子内存上下文中，通常应当把它重新挂
+ * 接（除非是一次性计划，那时我们不复制计划）。
  */
 static CachedPlan *
 BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
@@ -892,25 +892,25 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 	ListCell   *lc;
 
 	/*
-	 * Normally the querytree should be valid already, but if it's not,
-	 * rebuild it.
+	 * 通常查询树此时应当已经有效，但若不是，
+	 * 重建。
 	 *
-	 * NOTE: GetCachedPlan should have called RevalidateCachedQuery first, so
-	 * we ought to be holding sufficient locks to prevent any invalidation.
-	 * However, if we're building a custom plan after having built and
-	 * rejected a generic plan, it's possible to reach here with is_valid
-	 * false due to an invalidation while making the generic plan.  In theory
-	 * the invalidation must be a false positive, perhaps a consequence of an
-	 * sinval reset event or the debug_discard_caches code.  But for safety,
-	 * let's treat it as real and redo the RevalidateCachedQuery call.
+	 * 注意：GetCachedPlan 应已先调用过
+	 * RevalidateCachedQuery，因此应已持有足够的锁。
+	 * 不过，如果在构建并拒绝了一个通用计划之后
+	 * 又来构建定制计划，那么到这里时 is_valid 可
+	 * 能为假，原因是构建通用计划期间发生了失
+	 * 效。理论上该失效必然是误报，也许是 sinval
+	 * 重置事件或 debug_discard_caches 代码所致。但为
+	 * 安全起见，把它当真并重做该调用。
 	 */
 	if (!plansource->is_valid)
 		qlist = RevalidateCachedQuery(plansource, queryEnv);
 
 	/*
-	 * If we don't already have a copy of the querytree list that can be
-	 * scribbled on by the planner, make one.  For a one-shot plan, we assume
-	 * it's okay to scribble on the original query_list.
+	 * 如果我们还没有一份可供规划器涂改的查询树列
+	 * 表副本，就做一份。对一次性计划，我们假定直接
+	 * 涂改原始 query_list 没问题。
 	 */
 	if (qlist == NIL)
 	{
@@ -921,8 +921,8 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 	}
 
 	/*
-	 * If a snapshot is already set (the normal case), we can just use that
-	 * for planning.  But if it isn't, and we need one, install one.
+	 * 如果快照已设置（正常情形），解析/规划就用它
+	 * 就行。但如果还没设置而又需要，就装一个。
 	 */
 	snapshot_set = false;
 	if (!ActiveSnapshotSet() &&
@@ -934,20 +934,20 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 	}
 
 	/*
-	 * Generate the plan.
+	 * 生成计划。
 	 */
 	plist = pg_plan_queries(qlist, plansource->query_string,
 							plansource->cursor_options, boundParams);
 
-	/* Release snapshot if we got one */
+	/* 如果取了快照则释放之 */
 	if (snapshot_set)
 		PopActiveSnapshot();
 
 	/*
-	 * Normally we make a dedicated memory context for the CachedPlan and its
-	 * subsidiary data.  (It's probably not going to be large, but just in
-	 * case, allow it to grow large.  It's transient for the moment.)  But for
-	 * a one-shot plan, we just leave it in the caller's memory context.
+	 * 通常我们会为 CachedPlan 及其附属数据建一个专用
+	 * 内存上下文。（它多半不会很大，但以防万一，允
+	 * 许它长大。此刻它是临时的。）但对一次性计划，
+	 * 我们就直接把它留在调用者的内存上下文中。
 	 */
 	if (!plansource->is_oneshot)
 	{
@@ -957,7 +957,7 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 		MemoryContextCopyAndSetIdentifier(plan_context, plansource->query_string);
 
 		/*
-		 * Copy plan into the new context.
+		 * 复制到新上下文。
 		 */
 		MemoryContextSwitchTo(plan_context);
 
@@ -967,16 +967,16 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 		plan_context = CurrentMemoryContext;
 
 	/*
-	 * Create and fill the CachedPlan struct within the new context.
+	 * 在新上下文内创建并填充 CachedPlan 结构体。
 	 */
 	plan = (CachedPlan *) palloc(sizeof(CachedPlan));
 	plan->magic = CACHEDPLAN_MAGIC;
 	plan->stmt_list = plist;
 
 	/*
-	 * CachedPlan is dependent on role either if RLS affected the rewrite
-	 * phase or if a role dependency was injected during planning.  And it's
-	 * transient if any plan is marked so.
+	 * 如果 RLS 影响了重写阶段，或规划期间注入了角
+	 * 色依赖，CachedPlan 就依赖角色；且只要有一个计
+	 * 划是暂态它就暂态。
 	 */
 	plan->planRoleId = GetUserId();
 	plan->dependsOnRole = plansource->dependsOnRLS;
@@ -986,7 +986,7 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 		PlannedStmt *plannedstmt = lfirst_node(PlannedStmt, lc);
 
 		if (plannedstmt->commandType == CMD_UTILITY)
-			continue;			/* Ignore utility statements */
+			continue;			/* 忽略实用语句 */
 
 		if (plannedstmt->transientPlan)
 			is_transient = true;
@@ -1006,7 +1006,7 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 	plan->is_saved = false;
 	plan->is_valid = true;
 
-	/* assign generation number to new plan */
+	/* 给新计划分配代号 */
 	plan->generation = ++(plansource->generation);
 
 	MemoryContextSwitchTo(oldcxt);
@@ -1015,53 +1015,53 @@ BuildCachedPlan(CachedPlanSource *plansource, List *qlist,
 }
 
 /*
- * choose_custom_plan: choose whether to use custom or generic plan
+ * choose_custom_plan：选择使用定制计划还是通用计划
  *
- * This defines the policy followed by GetCachedPlan.
+ * 这定义了 GetCachedPlan 所遵循的策略。
  */
 static bool
 choose_custom_plan(CachedPlanSource *plansource, ParamListInfo boundParams)
 {
 	double		avg_custom_cost;
 
-	/* One-shot plans will always be considered custom */
+	/* 一次性计划总会被视为定制计划 */
 	if (plansource->is_oneshot)
 		return true;
 
-	/* Otherwise, never any point in a custom plan if there's no parameters */
+	/* 否则，若无参数则定制计划绝无意义 */
 	if (boundParams == NULL)
 		return false;
-	/* ... nor when planning would be a no-op */
+	/* 规划为空操作时也一样 */
 	if (!StmtPlanRequiresRevalidation(plansource))
 		return false;
 
-	/* Let settings force the decision */
+	/* 让设置来强制决定 */
 	if (plan_cache_mode == PLAN_CACHE_MODE_FORCE_GENERIC_PLAN)
 		return false;
 	if (plan_cache_mode == PLAN_CACHE_MODE_FORCE_CUSTOM_PLAN)
 		return true;
 
-	/* See if caller wants to force the decision */
+	/* 看调用者是否想强制决定 */
 	if (plansource->cursor_options & CURSOR_OPT_GENERIC_PLAN)
 		return false;
 	if (plansource->cursor_options & CURSOR_OPT_CUSTOM_PLAN)
 		return true;
 
-	/* Generate custom plans until we have done at least 5 (arbitrary) */
+	/* 生成定制计划，直到至少做过 5 次（任意值） */
 	if (plansource->num_custom_plans < 5)
 		return true;
 
 	avg_custom_cost = plansource->total_custom_cost / plansource->num_custom_plans;
 
 	/*
-	 * Prefer generic plan if it's less expensive than the average custom
-	 * plan.  (Because we include a charge for cost of planning in the
-	 * custom-plan costs, this means the generic plan only has to be less
-	 * expensive than the execution cost plus replan cost of the custom
+	 * 如果通用计划比平均定制计划便宜，就优先用通用
+	 * 计划。（因为定制计划的成本里计入了规划
+	 * 开销，这意味着通用计划只需便宜过各定制
+	 * 计划的执行成本加重新规划成本即可。）
 	 * plans.)
 	 *
-	 * Note that if generic_cost is -1 (indicating we've not yet determined
-	 * the generic plan cost), we'll always prefer generic at this point.
+	 * 注意如果 generic_cost 为 -1（表示我们尚未确定通
+	 * 用计划的成本），此时我们总会优先选通用计划。
 	 */
 	if (plansource->generic_cost < avg_custom_cost)
 		return false;
@@ -1070,11 +1070,11 @@ choose_custom_plan(CachedPlanSource *plansource, ParamListInfo boundParams)
 }
 
 /*
- * cached_plan_cost: calculate estimated cost of a plan
+ * cached_plan_cost：计算计划的估算成本
  *
- * If include_planner is true, also include the estimated cost of constructing
- * the plan.  (We must factor that into the cost of using a custom plan, but
- * we don't count it for a generic plan.)
+ * 如果 include_planner 为真，还要计入构建计划的估算
+ * 成本。（必须把它计入使用定制计划的成本中，但
+ * 通用计划则不计入。）
  */
 static double
 cached_plan_cost(CachedPlan *plan, bool include_planner)
@@ -1087,32 +1087,32 @@ cached_plan_cost(CachedPlan *plan, bool include_planner)
 		PlannedStmt *plannedstmt = lfirst_node(PlannedStmt, lc);
 
 		if (plannedstmt->commandType == CMD_UTILITY)
-			continue;			/* Ignore utility statements */
+			continue;			/* 忽略实用语句 */
 
 		result += plannedstmt->planTree->total_cost;
 
 		if (include_planner)
 		{
 			/*
-			 * Currently we use a very crude estimate of planning effort based
-			 * on the number of relations in the finished plan's rangetable.
-			 * Join planning effort actually scales much worse than linearly
-			 * in the number of relations --- but only until the join collapse
-			 * limits kick in.  Also, while inheritance child relations surely
-			 * add to planning effort, they don't make the join situation
-			 * worse.  So the actual shape of the planning cost curve versus
-			 * number of relations isn't all that obvious.  It will take
-			 * considerable work to arrive at a less crude estimate, and for
-			 * now it's not clear that's worth doing.
+			 * 目前规划开销的估计很粗糙，以完成计划范围
+			 * 表中关系数为基础。
+			 * 连接规划开销实际随关系数增长远差于线性，
+			 * 不过只到连接折叠限制生效为止。另外，继承子
+			 * 关系固然增加规划开销，却不会让连接情形更
+			 * 糟。所以成本曲线对关系数的实际形状
+			 * 并不那么明显，需要花大力气才能得出
+			 * 不那么粗糙的估计，而眼下还不清楚这是
+			 * 否值得去做
+			 * 的。
 			 *
-			 * The other big difficulty here is that we don't have any very
-			 * good model of how planning cost compares to execution costs.
-			 * The current multiplier of 1000 * cpu_operator_cost is probably
-			 * on the low side, but we'll try this for awhile before making a
-			 * more aggressive correction.
+			 * 另一大难处在于我们没有很好的模型来比较
+			 * 规划成本与执行成本。
+			 * 1000 * cpu_operator_cost 乘数可能偏低，但会先试
+			 * 用一阵子，然后再做更激进的修
+			 * 正。
 			 *
-			 * If we ever do write a more complicated estimator, it should
-			 * probably live in src/backend/optimizer/ not here.
+			 * 若真要写更复杂的估算器，大概该放进
+			 * src/backend/optimizer/ 而不是这里。
 			 */
 			int			nrelations = list_length(plannedstmt->rtable);
 
@@ -1124,22 +1124,22 @@ cached_plan_cost(CachedPlan *plan, bool include_planner)
 }
 
 /*
- * GetCachedPlan: get a cached plan from a CachedPlanSource.
+ * GetCachedPlan：从 CachedPlanSource 取缓存计划。
  *
- * This function hides the logic that decides whether to use a generic
- * plan or a custom plan for the given parameters: the caller does not know
- * which it will get.
+ * 本函数隐藏了决定对给定参数使用通用计划还是
+ * 定制计划的逻辑：调用者并不知道会得到
+ * 哪一种。
  *
- * On return, the plan is valid and we have sufficient locks to begin
- * execution.
+ * 返回时计划有效，而且我们持有开始执行所需的
+ * 锁。
  *
- * On return, the refcount of the plan has been incremented; a later
- * ReleaseCachedPlan() call is expected.  If "owner" is not NULL then
- * the refcount has been reported to that ResourceOwner (note that this
- * is only supported for "saved" CachedPlanSources).
+ * 返回时计划的引用计数已递增；预期随后调用
+ * ReleaseCachedPlan()。如果 "owner" 非 NULL，则引用
+ * 计数已报告给该 ResourceOwner（注意只有"已保存"
+ * 的 CachedPlanSources 才行）。
  *
- * Note: if any replanning activity is required, the caller's memory context
- * is used for that work.
+ * 注意：如果需要任何重新规划活动，将使用调用者
+ * 的内存上下文。
  */
 CachedPlan *
 GetCachedPlan(CachedPlanSource *plansource, ParamListInfo boundParams,
@@ -1149,67 +1149,67 @@ GetCachedPlan(CachedPlanSource *plansource, ParamListInfo boundParams,
 	List	   *qlist;
 	bool		customplan;
 
-	/* Assert caller is doing things in a sane order */
+	/* 断言调用者的操作顺序是合理的 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 	Assert(plansource->is_complete);
-	/* This seems worth a real test, though */
+	/* 但这似乎值得真正测试一下 */
 	if (owner && !plansource->is_saved)
 		elog(ERROR, "cannot apply ResourceOwner to non-saved cached plan");
 
-	/* Make sure the querytree list is valid and we have parse-time locks */
+	/* 确保查询树列表有效且我们持有解析期锁 */
 	qlist = RevalidateCachedQuery(plansource, queryEnv);
 
-	/* Decide whether to use a custom plan */
+	/* 决定是否使用定制计划 */
 	customplan = choose_custom_plan(plansource, boundParams);
 
 	if (!customplan)
 	{
 		if (CheckCachedPlan(plansource))
 		{
-			/* We want a generic plan, and we already have a valid one */
+			/* 我们想要通用计划，且已有有效的一个 */
 			plan = plansource->gplan;
 			Assert(plan->magic == CACHEDPLAN_MAGIC);
 		}
 		else
 		{
-			/* Build a new generic plan */
+			/* 构建新的通用计划 */
 			plan = BuildCachedPlan(plansource, qlist, NULL, queryEnv);
-			/* Just make real sure plansource->gplan is clear */
+			/* 切实确认 plansource->gplan 已清空 */
 			ReleaseGenericPlan(plansource);
-			/* Link the new generic plan into the plansource */
+			/* 把新通用计划链接进 plansource */
 			plansource->gplan = plan;
 			plan->refcount++;
-			/* Immediately reparent into appropriate context */
+			/* 立即重新挂接到合适的上下文 */
 			if (plansource->is_saved)
 			{
-				/* saved plans all live under CacheMemoryContext */
+				/* 已保存计划都位于 CacheMemoryContext */
 				MemoryContextSetParent(plan->context, CacheMemoryContext);
 				plan->is_saved = true;
 			}
 			else
 			{
-				/* otherwise, it should be a sibling of the plansource */
+				/* 否则它应是 plansource 的兄弟 */
 				MemoryContextSetParent(plan->context,
 									   MemoryContextGetParent(plansource->context));
 			}
-			/* Update generic_cost whenever we make a new generic plan */
+			/* 每当生成新通用计划就更新 generic_cost */
 			plansource->generic_cost = cached_plan_cost(plan, false);
 
 			/*
-			 * If, based on the now-known value of generic_cost, we'd not have
-			 * chosen to use a generic plan, then forget it and make a custom
-			 * plan.  This is a bit of a wart but is necessary to avoid a
-			 * glitch in behavior when the custom plans are consistently big
-			 * winners; at some point we'll experiment with a generic plan and
-			 * find it's a loser, but we don't want to actually execute that
+			 * 若基于现已知道的 generic_cost 值我们本不会选通
+			 * 用通用计划，那就忘掉它并改做定制计划。这
+			 * 是一处小瑕疵，但为了避免行为出现波动：
+			 * 定制计划一直大胜的情形。某一刻我们会试
+			 * 验一次通用计划并发现它是输家，但并不想
+			 * 真的去执行那个计划。
 			 * plan.
 			 */
 			customplan = choose_custom_plan(plansource, boundParams);
 
 			/*
-			 * If we choose to plan again, we need to re-copy the query_list,
-			 * since the planner probably scribbled on it.  We can force
-			 * BuildCachedPlan to do that by passing NIL.
+			 * 若再次规划，就得重新复制 query_list，因为规划
+			 * 器多半已在上面涂改过。传 NIL 可强制
+			 * BuildCachedPlan 这么做。
 			 */
 			qlist = NIL;
 		}
@@ -1217,9 +1217,9 @@ GetCachedPlan(CachedPlanSource *plansource, ParamListInfo boundParams,
 
 	if (customplan)
 	{
-		/* Build a custom plan */
+		/* 构建定制计划 */
 		plan = BuildCachedPlan(plansource, qlist, boundParams, queryEnv);
-		/* Accumulate total costs of custom plans */
+		/* 累计定制计划的总成本 */
 		plansource->total_custom_cost += cached_plan_cost(plan, true);
 
 		plansource->num_custom_plans++;
@@ -1231,7 +1231,7 @@ GetCachedPlan(CachedPlanSource *plansource, ParamListInfo boundParams,
 
 	Assert(plan != NULL);
 
-	/* Flag the plan as in use by caller */
+	/* 标记计划为调用者在用 */
 	if (owner)
 		ResourceOwnerEnlargePlanCacheRefs(owner);
 	plan->refcount++;
@@ -1239,10 +1239,10 @@ GetCachedPlan(CachedPlanSource *plansource, ParamListInfo boundParams,
 		ResourceOwnerRememberPlanCacheRef(owner, plan);
 
 	/*
-	 * Saved plans should be under CacheMemoryContext so they will not go away
-	 * until their reference count goes to zero.  In the generic-plan cases we
-	 * already took care of that, but for a custom plan, do it as soon as we
-	 * have created a reference-counted link.
+	 * 已保存计划应位于 CacheMemoryContext 之下，这样在
+	 * 引用计数降为零之前它们不会消失。通用计划的情
+	 * 形我们已经处理过了；而对定制计划，要在创建
+	 * 好后尽快处理。
 	 */
 	if (customplan && plansource->is_saved)
 	{
@@ -1254,15 +1254,15 @@ GetCachedPlan(CachedPlanSource *plansource, ParamListInfo boundParams,
 }
 
 /*
- * ReleaseCachedPlan: release active use of a cached plan.
+ * ReleaseCachedPlan：释放对缓存计划的使用。
  *
- * This decrements the reference count, and frees the plan if the count
- * has thereby gone to zero.  If "owner" is not NULL, it is assumed that
- * the reference count is managed by that ResourceOwner.
+ * 这会递减引用计数，当计数因此降为零时，
+ * 就释放该计划。若 "owner" 非 NULL，则假定
+ * 该引用计数由 ResourceOwner 管理。
  *
- * Note: owner == NULL is used for releasing references that are in
- * persistent data structures, such as the parent CachedPlanSource or a
- * Portal.  Transient references should be protected by a resource owner.
+ * 注意：owner == NULL 用于释放持久数据结构中的引
+ * 用，例如父 CachedPlanSource 或 Portal。暂态引用应
+ * 当由资源所有者保护。
  */
 void
 ReleaseCachedPlan(CachedPlan *plan, ResourceOwner owner)
@@ -1277,37 +1277,37 @@ ReleaseCachedPlan(CachedPlan *plan, ResourceOwner owner)
 	plan->refcount--;
 	if (plan->refcount == 0)
 	{
-		/* Mark it no longer valid */
+		/* 标记为不再有效 */
 		plan->magic = 0;
 
-		/* One-shot plans do not own their context, so we can't free them */
+		/* 一次性计划不拥有自己的上下文，无法释放 */
 		if (!plan->is_oneshot)
 			MemoryContextDelete(plan->context);
 	}
 }
 
 /*
- * CachedPlanAllowsSimpleValidityCheck: can we use CachedPlanIsSimplyValid?
+ * CachedPlanAllowsSimpleValidityCheck：能否使用
  *
- * This function, together with CachedPlanIsSimplyValid, provides a fast path
- * for revalidating "simple" generic plans.  The core requirement to be simple
- * is that the plan must not require taking any locks, which translates to
- * not touching any tables; this happens to match up well with an important
- * use-case in PL/pgSQL.  This function tests whether that's true, along
- * with checking some other corner cases that we'd rather not bother with
- * handling in the fast path.  (Note that it's still possible for such a plan
- * to be invalidated, for example due to a change in a function that was
- * inlined into the plan.)
+ * CachedPlanIsSimplyValid？本函数与 CachedPlanIsSimplyValid
+ * 一起为重新验证"简单"通用计划提供快速路径。简
+ * 单的核心条件是计划不得需要取任何锁，这转化为
+ * 不触碰任何表；这恰好与 PL/pgSQL 中一个重要用法
+ * 吻合。本函数检验是否如此，同时检查一些我们
+ * 不打算在快速路径中费心处理的其他边角情
+ * 形。（注意这类计划仍可能失效，例如当某个
+ * 被内联进计划的函数变化了
+ * 时。）
  *
- * If the plan is simply valid, and "owner" is not NULL, record a refcount on
- * the plan in that resowner before returning.  It is caller's responsibility
- * to be sure that a refcount is held on any plan that's being actively used.
+ * 如果计划简单有效且 "owner" 非 NULL，返回前在该
+ * resowner 中记录引用计数。确保正被活跃使用
+ * 的计划持有引用计数是调用者的责任。
  *
- * This must only be called on known-valid generic plans (eg, ones just
- * returned by GetCachedPlan).  If it returns true, the caller may re-use
- * the cached plan as long as CachedPlanIsSimplyValid returns true; that
- * check is much cheaper than the full revalidation done by GetCachedPlan.
- * Nonetheless, no required checks are omitted.
+ * 只能对已知有效的通用计划（例如刚由 GetCachedPlan
+ * 返回的那些）调用本函数。若它返回真，调用者在
+ * 该缓存计划，只要 CachedPlanIsSimplyValid 返回真；
+ * 该检查比 GetCachedPlan 的完整重新验证便宜。
+ * 尽管如此，必需检查一样不缺。
  */
 bool
 CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
@@ -1316,12 +1316,12 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 	ListCell   *lc;
 
 	/*
-	 * Sanity-check that the caller gave us a validated generic plan.  Notice
-	 * that we *don't* assert plansource->is_valid as you might expect; that's
-	 * because it's possible that that's already false when GetCachedPlan
-	 * returns, e.g. because ResetPlanCache happened partway through.  We
-	 * should accept the plan as long as plan->is_valid is true, and expect to
-	 * replan after the next CachedPlanIsSimplyValid call.
+	 * 完好性检查：调用者给我们的确是已验证的通用计
+	 * 划。注意我们*并不*像你想的那样断言
+	 * plansource->is_valid；因为当 GetCachedPlan 返回时它
+	 * 有可能已经是假，例如 ResetPlanCache 中途发
+	 * 生过。我们应当只要 plan->is_valid 为真就接受该计
+	 * 划后预期 CachedPlanIsSimplyValid 重规划。
 	 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 	Assert(plan->magic == CACHEDPLAN_MAGIC);
@@ -1330,15 +1330,15 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 	Assert(plansource->search_path != NULL);
 	Assert(OverrideSearchPathMatchesCurrent(plansource->search_path));
 
-	/* We don't support oneshot plans here. */
+	/* 这里不支持一次性计划。 */
 	if (plansource->is_oneshot)
 		return false;
 	Assert(!plan->is_oneshot);
 
 	/*
-	 * If the plan is dependent on RLS considerations, or it's transient,
-	 * reject.  These things probably can't ever happen for table-free
-	 * queries, but for safety's sake let's check.
+	 * 如果计划依赖 RLS 相关因素，或者它是暂态的，就
+	 * 拒绝。无表查询多半不可能发生这些，但为了安
+	 * 全起见还是检查一下。
 	 */
 	if (plansource->dependsOnRLS)
 		return false;
@@ -1348,10 +1348,10 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 		return false;
 
 	/*
-	 * Reject if AcquirePlannerLocks would have anything to do.  This is
-	 * simplistic, but there's no need to inquire any more carefully; indeed,
-	 * for current callers it shouldn't even be possible to hit any of these
-	 * checks.
+	 * 如果 AcquirePlannerLocks 会有事可做就拒绝。这样
+	 * 判断过于简单，但没必要更细致地探查；事实上，
+	 * 对现在的调用者来说连触发这些检查都不可
+	 * 能。
 	 */
 	foreach(lc, plansource->query_list)
 	{
@@ -1364,8 +1364,8 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 	}
 
 	/*
-	 * Reject if AcquireExecutorLocks would have anything to do.  This is
-	 * probably unnecessary given the previous check, but let's be safe.
+	 * 如果 AcquireExecutorLocks 会有事可做就拒绝。鉴于
+	 * 前一检查这多半并不必要，但求稳起见。
 	 */
 	foreach(lc, plan->stmt_list)
 	{
@@ -1376,8 +1376,8 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 			return false;
 
 		/*
-		 * We have to grovel through the rtable because it's likely to contain
-		 * an RTE_RESULT relation, rather than being totally empty.
+		 * 我们不得不遍历 rtable，因为它很可能含有一个
+		 * RTE_RESULT 关系而非完全为空。
 		 */
 		foreach(lc2, plannedstmt->rtable)
 		{
@@ -1389,11 +1389,11 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 	}
 
 	/*
-	 * Okay, it's simple.  Note that what we've primarily established here is
-	 * that no locks need be taken before checking the plan's is_valid flag.
+	 * 好了，它足够简单。注意这里主要确立的是：在检
+	 * 查计划的 is_valid 标志之前无须取任何锁。
 	 */
 
-	/* Bump refcount if requested. */
+	/* 如请求则递增计数。 */
 	if (owner)
 	{
 		ResourceOwnerEnlargePlanCacheRefs(owner);
@@ -1405,42 +1405,42 @@ CachedPlanAllowsSimpleValidityCheck(CachedPlanSource *plansource,
 }
 
 /*
- * CachedPlanIsSimplyValid: quick check for plan still being valid
+ * CachedPlanIsSimplyValid：快速检查计划是否仍有效
  *
- * This function must not be used unless CachedPlanAllowsSimpleValidityCheck
- * previously said it was OK.
+ * 除非 CachedPlanAllowsSimpleValidityCheck 先前说了
+ * 行，否则别用。
  *
- * If the plan is valid, and "owner" is not NULL, record a refcount on
- * the plan in that resowner before returning.  It is caller's responsibility
- * to be sure that a refcount is held on any plan that's being actively used.
+ * 如果计划有效且 "owner" 非 NULL，返回前在该
+ * resowner 中记录引用计数。确保正被活跃使用
+ * 的计划持有引用计数是调用者的责任。
  *
- * The code here is unconditionally safe as long as the only use of this
- * CachedPlanSource is in connection with the particular CachedPlan pointer
- * that's passed in.  If the plansource were being used for other purposes,
- * it's possible that its generic plan could be invalidated and regenerated
- * while the current caller wasn't looking, and then there could be a chance
- * collision of address between this caller's now-stale plan pointer and the
- * actual address of the new generic plan.  For current uses, that scenario
- * can't happen; but with a plansource shared across multiple uses, it'd be
- * advisable to also save plan->generation and verify that that still matches.
+ * 只要本 CachedPlanSource 的唯一用途就是与传入的
+ * 特定 CachedPlan 指针相关，这里的代码就是无条件
+ * 安全的。如果 plansource 被用于其他目的，其通用
+ * 计划就可能在当前调用者没注意时失效并重新生
+ * 成，那时当前调用者已过时的计划指针与新通用
+ * 计划的实际地址就有可能碰巧撞上。对现在的用
+ * 法来说这种场景不可能发生；但对跨多种用途共享
+ * 的 plansource，最好把 plan->generation 也保存下来并
+ * 核实它仍然匹配。
  */
 bool
 CachedPlanIsSimplyValid(CachedPlanSource *plansource, CachedPlan *plan,
 						ResourceOwner owner)
 {
 	/*
-	 * Careful here: since the caller doesn't necessarily hold a refcount on
-	 * the plan to start with, it's possible that "plan" is a dangling
-	 * pointer.  Don't dereference it until we've verified that it still
-	 * matches the plansource's gplan (which is either valid or NULL).
+	 * 这里要小心：调用者起初并不一定持有该计划的引
+	 * 用计数，"plan" 便可能是悬空指针。核实它与
+	 * plansource 的 gplan（有效或 NULL）相符之前不要
+	 * 解引用它。
 	 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 
 	/*
-	 * Has cache invalidation fired on this plan?  We can check this right
-	 * away since there are no locks that we'd need to acquire first.  Note
-	 * that here we *do* check plansource->is_valid, so as to force plan
-	 * rebuild if that's become false.
+	 * 该计划有缓存失效触发过吗？这一点可以立即
+	 * 检查，因为不存在需要先获取的锁。注意这里我们
+	 * *确实*检查 plansource->is_valid，以便在其为假时强
+	 * 制重建计划。
 	 */
 	if (!plansource->is_valid ||
 		plan == NULL || plan != plansource->gplan ||
@@ -1449,12 +1449,12 @@ CachedPlanIsSimplyValid(CachedPlanSource *plansource, CachedPlan *plan,
 
 	Assert(plan->magic == CACHEDPLAN_MAGIC);
 
-	/* Is the search_path still the same as when we made it? */
+	/* search_path 还与我们当初设置时相同吗？ */
 	Assert(plansource->search_path != NULL);
 	if (!OverrideSearchPathMatchesCurrent(plansource->search_path))
 		return false;
 
-	/* It's still good.  Bump refcount if requested. */
+	/* 仍然有效。如请求则递增计数。 */
 	if (owner)
 	{
 		ResourceOwnerEnlargePlanCacheRefs(owner);
@@ -1466,32 +1466,32 @@ CachedPlanIsSimplyValid(CachedPlanSource *plansource, CachedPlan *plan,
 }
 
 /*
- * CachedPlanSetParentContext: move a CachedPlanSource to a new memory context
+ * CachedPlanSetParentContext：把 CachedPlanSource 移到
  *
- * This can only be applied to unsaved plans; once saved, a plan always
- * lives underneath CacheMemoryContext.
+ * 新的内存上下文。只能用于未保存的计划；保存后
+ * 计划总在 CacheMemoryContext。
  */
 void
 CachedPlanSetParentContext(CachedPlanSource *plansource,
 						   MemoryContext newcontext)
 {
-	/* Assert caller is doing things in a sane order */
+	/* 断言调用者的操作顺序是合理的 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 	Assert(plansource->is_complete);
 
-	/* These seem worth real tests, though */
+	/* 但这几点值得真正测试 */
 	if (plansource->is_saved)
 		elog(ERROR, "cannot move a saved cached plan to another context");
 	if (plansource->is_oneshot)
 		elog(ERROR, "cannot move a one-shot cached plan to another context");
 
-	/* OK, let the caller keep the plan where he wishes */
+	/* 好，随调用者把计划放在其希望处 */
 	MemoryContextSetParent(plansource->context, newcontext);
 
 	/*
-	 * The query_context needs no special handling, since it's a child of
-	 * plansource->context.  But if there's a generic plan, it should be
-	 * maintained as a sibling of plansource->context.
+	 * query_context 无需特殊处理，因为它是
+	 * plansource->context 的子上下文。但若有通用计划，
+	 * 它是 plansource->context 的兄弟。
 	 */
 	if (plansource->gplan)
 	{
@@ -1501,13 +1501,13 @@ CachedPlanSetParentContext(CachedPlanSource *plansource,
 }
 
 /*
- * CopyCachedPlan: make a copy of a CachedPlanSource
+ * CopyCachedPlan：复制一个 CachedPlanSource
  *
- * This is a convenience routine that does the equivalent of
- * CreateCachedPlan + CompleteCachedPlan, using the data stored in the
- * input CachedPlanSource.  The result is therefore "unsaved" (regardless
- * of the state of the source), and we don't copy any generic plan either.
- * The result will be currently valid, or not, the same as the source.
+ * 这是便利例程，相当于 CreateCachedPlan +
+ * CompleteCachedPlan，使用输入 CachedPlanSource 中
+ * 存储的数据。因此结果是"未保存"的（无论源的状
+ * 态如何），而且我们也不复制任何通用计划。
+ * 结果当前有效与否与源相同。
  */
 CachedPlanSource *
 CopyCachedPlan(CachedPlanSource *plansource)
@@ -1521,8 +1521,8 @@ CopyCachedPlan(CachedPlanSource *plansource)
 	Assert(plansource->is_complete);
 
 	/*
-	 * One-shot plans can't be copied, because we haven't taken care that
-	 * parsing/planning didn't scribble on the raw parse tree or querytrees.
+	 * 一次性计划不能复制，因为我们没确保解析/规划
+	 * 未涂改原始语法树或查询树。
 	 */
 	if (plansource->is_oneshot)
 		elog(ERROR, "cannot copy a one-shot cached plan");
@@ -1581,7 +1581,7 @@ CopyCachedPlan(CachedPlanSource *plansource)
 	newsource->is_valid = plansource->is_valid;
 	newsource->generation = plansource->generation;
 
-	/* We may as well copy any acquired cost knowledge */
+	/* 不妨把已获得的成本知识一并复制 */
 	newsource->generic_cost = plansource->generic_cost;
 	newsource->total_custom_cost = plansource->total_custom_cost;
 	newsource->num_generic_plans = plansource->num_generic_plans;
@@ -1593,12 +1593,12 @@ CopyCachedPlan(CachedPlanSource *plansource)
 }
 
 /*
- * CachedPlanIsValid: test whether the rewritten querytree within a
- * CachedPlanSource is currently valid (that is, not marked as being in need
- * of revalidation).
+ * CachedPlanIsValid：检验 CachedPlanSource 内重写后
+ * 的查询树当前是否有效（即未被标记为需要重新验
+ * 证）。
  *
- * This result is only trustworthy (ie, free from race conditions) if
- * the caller has acquired locks on all the relations used in the plan.
+ * 只有在调用者已对计划用到的所有关系取锁时，这
+ * 一结果才可信（即没有竞态）。
  */
 bool
 CachedPlanIsValid(CachedPlanSource *plansource)
@@ -1608,10 +1608,10 @@ CachedPlanIsValid(CachedPlanSource *plansource)
 }
 
 /*
- * CachedPlanGetTargetList: return tlist, if any, describing plan's output
+ * CachedPlanGetTargetList：返回描述计划输出的
  *
- * The result is guaranteed up-to-date.  However, it is local storage
- * within the cached plan, and may disappear next time the plan is updated.
+ * tlist（如有）。结果保证是最新的。不过它是缓存
+ * 计划内的本地存储，下次计划更新时可能消失。
  */
 List *
 CachedPlanGetTargetList(CachedPlanSource *plansource,
@@ -1619,36 +1619,36 @@ CachedPlanGetTargetList(CachedPlanSource *plansource,
 {
 	Query	   *pstmt;
 
-	/* Assert caller is doing things in a sane order */
+	/* 断言调用者的操作顺序是合理的 */
 	Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 	Assert(plansource->is_complete);
 
 	/*
-	 * No work needed if statement doesn't return tuples (we assume this
-	 * feature cannot be changed by an invalidation)
+	 * 如果语句不返回元组则无须做什么（我们假定
+	 * 该特性不会因失效而改变）
 	 */
 	if (plansource->resultDesc == NULL)
 		return NIL;
 
-	/* Make sure the querytree list is valid and we have parse-time locks */
+	/* 确保查询树列表有效且我们持有解析期锁 */
 	RevalidateCachedQuery(plansource, queryEnv);
 
-	/* Get the primary statement and find out what it returns */
+	/* 取出主语句并查明它返回什么 */
 	pstmt = QueryListGetPrimaryStmt(plansource->query_list);
 
 	return FetchStatementTargetList((Node *) pstmt);
 }
 
 /*
- * GetCachedExpression: construct a CachedExpression for an expression.
+ * GetCachedExpression：为一个表达式构建 CachedExpression。
  *
- * This performs the same transformations on the expression as
- * expression_planner(), ie, convert an expression as emitted by parse
- * analysis to be ready to pass to the executor.
+ * 它对该表达式执行与
+ * expression_planner() 相同的变换，即把语法分析所
+ * 得表达式转成可交执行器的形式。
  *
- * The result is stashed in a private, long-lived memory context.
- * (Note that this might leak a good deal of memory in the caller's
- * context before that.)  The passed-in expr tree is not modified.
+ * 结果存放在私有且长寿命的内存上下文中。
+ * （注意此前可能已在调用者的上下文里
+ * 泄漏了不少内存。）传入的 expr 树不会被修改。
  */
 CachedExpression *
 GetCachedExpression(Node *expr)
@@ -1660,18 +1660,18 @@ GetCachedExpression(Node *expr)
 	MemoryContext oldcxt;
 
 	/*
-	 * Pass the expression through the planner, and collect dependencies.
-	 * Everything built here is leaked in the caller's context; that's
-	 * intentional to minimize the size of the permanent data structure.
+	 * 把表达式送过规划器，收集依赖。
+	 * 这里构建的一切都会泄漏在调用者的上下文中；
+	 * 这是有意的，为的是缩小永久数据结构体积。
 	 */
 	expr = (Node *) expression_planner_with_deps((Expr *) expr,
 												 &relationOids,
 												 &invalItems);
 
 	/*
-	 * Make a private memory context, and copy what we need into that.  To
-	 * avoid leaking a long-lived context if we fail while copying data, we
-	 * initially make the context under the caller's context.
+	 * 建一个私有内存上下文，把所需内容复制进去。为
+	 * 了避免在复制数据失败时泄漏长寿命上下文，我们
+	 * 起初把该上下文建在调用者上下文之下。
 	 */
 	cexpr_context = AllocSetContextCreate(CurrentMemoryContext,
 										  "CachedExpression",
@@ -1690,13 +1690,13 @@ GetCachedExpression(Node *expr)
 	MemoryContextSwitchTo(oldcxt);
 
 	/*
-	 * Reparent the expr's memory context under CacheMemoryContext so that it
-	 * will live indefinitely.
+	 * 把 expr 的内存上下文重新挂到 CacheMemoryContext
+	 * 之下使其永存。
 	 */
 	MemoryContextSetParent(cexpr_context, CacheMemoryContext);
 
 	/*
-	 * Add the entry to the global list of cached expressions.
+	 * 把该项加入缓存表达式的全局列表。
 	 */
 	dlist_push_tail(&cached_expression_list, &cexpr->node);
 
@@ -1705,26 +1705,26 @@ GetCachedExpression(Node *expr)
 
 /*
  * FreeCachedExpression
- *		Delete a CachedExpression.
+ *		删除缓存表达式。
  */
 void
 FreeCachedExpression(CachedExpression *cexpr)
 {
-	/* Sanity check */
+	/* 健全检查 */
 	Assert(cexpr->magic == CACHEDEXPR_MAGIC);
-	/* Unlink from global list */
+	/* 脱离全局列表 */
 	dlist_delete(&cexpr->node);
-	/* Free all storage associated with CachedExpression */
+	/* 释放与 CachedExpression 相关的全部存储 */
 	MemoryContextDelete(cexpr->context);
 }
 
 /*
  * QueryListGetPrimaryStmt
- *		Get the "primary" stmt within a list, ie, the one marked canSetTag.
+ *		取列表中的"主"语句，即标记 canSetTag 的那个。
  *
- * Returns NULL if no such stmt.  If multiple queries within the list are
- * marked canSetTag, returns the first one.  Neither of these cases should
- * occur in present usages of this function.
+ * 若无这样的语句则返回 NULL。若列表中多条语句都被
+ * 标记为 canSetTag，则返回第一条。这两种情形在本
+ * 函数目前用法中都不应出现。
  */
 static Query *
 QueryListGetPrimaryStmt(List *stmts)
@@ -1742,8 +1742,8 @@ QueryListGetPrimaryStmt(List *stmts)
 }
 
 /*
- * AcquireExecutorLocks: acquire locks needed for execution of a cached plan;
- * or release them if acquire is false.
+ * AcquireExecutorLocks：取得执行缓存计划所需的锁；
+ * acquire 为假则释放之。
  */
 static void
 AcquireExecutorLocks(List *stmt_list, bool acquire)
@@ -1758,11 +1758,11 @@ AcquireExecutorLocks(List *stmt_list, bool acquire)
 		if (plannedstmt->commandType == CMD_UTILITY)
 		{
 			/*
-			 * Ignore utility statements, except those (such as EXPLAIN) that
-			 * contain a parsed-but-not-planned query.  Note: it's okay to use
-			 * ScanQueryForLocks, even though the query hasn't been through
-			 * rule rewriting, because rewriting doesn't change the query
-			 * representation.
+			 * 忽略实用语句，但含已解析未规划查询的除外
+			 * （如 EXPLAIN）。注意即使查询尚未经过规则重
+			 * 写，用 ScanQueryForLocks 也没问题，因为重写不
+			 * 会改变查询的表示形
+			 * 式。
 			 */
 			Query	   *query = UtilityContainsQuery(plannedstmt->utilityStmt);
 
@@ -1780,10 +1780,10 @@ AcquireExecutorLocks(List *stmt_list, bool acquire)
 				continue;
 
 			/*
-			 * Acquire the appropriate type of lock on each relation OID. Note
-			 * that we don't actually try to open the rel, and hence will not
-			 * fail if it's been dropped entirely --- we'll just transiently
-			 * acquire a non-conflicting lock.
+			 * 对每个关系 OID 取得合适类型的锁。注意我
+			 * 们并不真去打开该关系，所以即便它已被彻底
+			 * 删除了也不会失败——只会暂时取得一个
+			 * 不冲突的锁。
 			 */
 			if (acquire)
 				LockRelationOid(rte->relid, rte->rellockmode);
@@ -1794,12 +1794,12 @@ AcquireExecutorLocks(List *stmt_list, bool acquire)
 }
 
 /*
- * AcquirePlannerLocks: acquire locks needed for planning of a querytree list;
- * or release them if acquire is false.
+ * AcquirePlannerLocks：取得规划查询树列表所需的锁；
+ * acquire 为假则释放之。
  *
- * Note that we don't actually try to open the relations, and hence will not
- * fail if one has been dropped entirely --- we'll just transiently acquire
- * a non-conflicting lock.
+ * 注意我们并不真去打开关系，因此即使某个关系已
+ * 被完全删除也不会失败——只会暂时取得一个不冲
+ * 突的锁。
  */
 static void
 AcquirePlannerLocks(List *stmt_list, bool acquire)
@@ -1812,7 +1812,7 @@ AcquirePlannerLocks(List *stmt_list, bool acquire)
 
 		if (query->commandType == CMD_UTILITY)
 		{
-			/* Ignore utility statements, unless they contain a Query */
+			/* 忽略实用语句，除非其中含 Query */
 			query = UtilityContainsQuery(query->utilityStmt);
 			if (query)
 				ScanQueryForLocks(query, acquire);
@@ -1824,18 +1824,18 @@ AcquirePlannerLocks(List *stmt_list, bool acquire)
 }
 
 /*
- * ScanQueryForLocks: recursively scan one Query for AcquirePlannerLocks.
+ * ScanQueryForLocks：递归扫描 Query 供 AcquirePlannerLocks。
  */
 static void
 ScanQueryForLocks(Query *parsetree, bool acquire)
 {
 	ListCell   *lc;
 
-	/* Shouldn't get called on utility commands */
+	/* 不应在实用命令上被调用 */
 	Assert(parsetree->commandType != CMD_UTILITY);
 
 	/*
-	 * First, process RTEs of the current query level.
+	 * 首先处理当前查询层的 RTEs。
 	 */
 	foreach(lc, parsetree->rtable)
 	{
@@ -1844,7 +1844,7 @@ ScanQueryForLocks(Query *parsetree, bool acquire)
 		switch (rte->rtekind)
 		{
 			case RTE_RELATION:
-				/* Acquire or release the appropriate type of lock */
+				/* 取得或释放合适类型的锁 */
 				if (acquire)
 					LockRelationOid(rte->relid, rte->rellockmode);
 				else
@@ -1852,7 +1852,7 @@ ScanQueryForLocks(Query *parsetree, bool acquire)
 				break;
 
 			case RTE_SUBQUERY:
-				/* If this was a view, must lock/unlock the view */
+				/* 若是视图，必须锁定/解锁之 */
 				if (OidIsValid(rte->relid))
 				{
 					if (acquire)
@@ -1860,17 +1860,17 @@ ScanQueryForLocks(Query *parsetree, bool acquire)
 					else
 						UnlockRelationOid(rte->relid, rte->rellockmode);
 				}
-				/* Recurse into subquery-in-FROM */
+				/* 递归进入 FROM 子查询 */
 				ScanQueryForLocks(rte->subquery, acquire);
 				break;
 
 			default:
-				/* ignore other types of RTEs */
+				/* 忽略其他类型的 RTEs */
 				break;
 		}
 	}
 
-	/* Recurse into subquery-in-WITH */
+	/* 递归进入 WITH 子查询 */
 	foreach(lc, parsetree->cteList)
 	{
 		CommonTableExpr *cte = lfirst_node(CommonTableExpr, lc);
@@ -1879,8 +1879,8 @@ ScanQueryForLocks(Query *parsetree, bool acquire)
 	}
 
 	/*
-	 * Recurse into sublink subqueries, too.  But we already did the ones in
-	 * the rtable and cteList.
+	 * 也要递归进入 sublink 子查询。不过 rtable 和
+	 * cteList 已处理过。
 	 */
 	if (parsetree->hasSubLinks)
 	{
@@ -1891,7 +1891,7 @@ ScanQueryForLocks(Query *parsetree, bool acquire)
 }
 
 /*
- * Walker to find sublink subqueries for ScanQueryForLocks
+ * ScanQueryForLocks 的 sublink 子查询遍历器
  */
 static bool
 ScanQueryWalker(Node *node, bool *acquire)
@@ -1902,25 +1902,25 @@ ScanQueryWalker(Node *node, bool *acquire)
 	{
 		SubLink    *sub = (SubLink *) node;
 
-		/* Do what we came for */
+		/* 做该做的事 */
 		ScanQueryForLocks(castNode(Query, sub->subselect), *acquire);
-		/* Fall through to process lefthand args of SubLink */
+		/* 继续处理 SubLink 的左参数 */
 	}
 
 	/*
-	 * Do NOT recurse into Query nodes, because ScanQueryForLocks already
-	 * processed subselects of subselects for us.
+	 * 绝不递归进入 Query 节点，因为 ScanQueryForLocks 已
+	 * 替我们处理子选择的子选择了。
 	 */
 	return expression_tree_walker(node, ScanQueryWalker,
 								  (void *) acquire);
 }
 
 /*
- * PlanCacheComputeResultDesc: given a list of analyzed-and-rewritten Queries,
- * determine the result tupledesc it will produce.  Returns NULL if the
- * execution will not return tuples.
+ * PlanCacheComputeResultDesc：给定分析重写后的
+ * Query 列表，确定它将产生的结果 tupledesc。若执行
+ * 不返回元组则返回 NULL。
  *
- * Note: the result is created or copied into current memory context.
+ * 注意：结果会被创建或复制进当前内存上下文。
  */
 static TupleDesc
 PlanCacheComputeResultDesc(List *stmt_list)
@@ -1945,7 +1945,7 @@ PlanCacheComputeResultDesc(List *stmt_list)
 			return UtilityTupleDescriptor(query->utilityStmt);
 
 		case PORTAL_MULTI_QUERY:
-			/* will not return tuples */
+			/* 不会返回元组 */
 			break;
 	}
 	return NULL;
@@ -1953,10 +1953,10 @@ PlanCacheComputeResultDesc(List *stmt_list)
 
 /*
  * PlanCacheRelCallback
- *		Relcache inval callback function
+ *		relcache 失效回调函数
  *
- * Invalidate all plans mentioning the given rel, or all plans mentioning
- * any rel at all if relid == InvalidOid.
+ * 使提及给定关系的全部计划失效；若 relid 是
+ * InvalidOid 则全部计划均失效。
  */
 static void
 PlanCacheRelCallback(Datum arg, Oid relid)
@@ -1970,29 +1970,29 @@ PlanCacheRelCallback(Datum arg, Oid relid)
 
 		Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 
-		/* No work if it's already invalidated */
+		/* 若已失效则无事可做 */
 		if (!plansource->is_valid)
 			continue;
 
-		/* Never invalidate if parse/plan would be a no-op anyway */
+		/* 若解析/规划反正是空操作则绝不变更 */
 		if (!StmtPlanRequiresRevalidation(plansource))
 			continue;
 
 		/*
-		 * Check the dependency list for the rewritten querytree.
+		 * 检查重写查询树的依赖列表。
 		 */
 		if ((relid == InvalidOid) ? plansource->relationOids != NIL :
 			list_member_oid(plansource->relationOids, relid))
 		{
-			/* Invalidate the querytree and generic plan */
+			/* 使查询树和通用计划失效 */
 			plansource->is_valid = false;
 			if (plansource->gplan)
 				plansource->gplan->is_valid = false;
 		}
 
 		/*
-		 * The generic plan, if any, could have more dependencies than the
-		 * querytree does, so we have to check it too.
+		 * 通用计划若有，其依赖可能多于查询树，也得
+		 * 检查它。
 		 */
 		if (plansource->gplan && plansource->gplan->is_valid)
 		{
@@ -2003,19 +2003,19 @@ PlanCacheRelCallback(Datum arg, Oid relid)
 				PlannedStmt *plannedstmt = lfirst_node(PlannedStmt, lc);
 
 				if (plannedstmt->commandType == CMD_UTILITY)
-					continue;	/* Ignore utility statements */
+					continue;	/* 忽略实用语句 */
 				if ((relid == InvalidOid) ? plannedstmt->relationOids != NIL :
 					list_member_oid(plannedstmt->relationOids, relid))
 				{
-					/* Invalidate the generic plan only */
+					/* 仅使通用计划失效 */
 					plansource->gplan->is_valid = false;
-					break;		/* out of stmt_list scan */
+					break;		/* 扫描完毕 */
 				}
 			}
 		}
 	}
 
-	/* Likewise check cached expressions */
+	/* 同样检查缓存的表达式 */
 	dlist_foreach(iter, &cached_expression_list)
 	{
 		CachedExpression *cexpr = dlist_container(CachedExpression,
@@ -2023,7 +2023,7 @@ PlanCacheRelCallback(Datum arg, Oid relid)
 
 		Assert(cexpr->magic == CACHEDEXPR_MAGIC);
 
-		/* No work if it's already invalidated */
+		/* 若已失效则无事可做 */
 		if (!cexpr->is_valid)
 			continue;
 
@@ -2037,10 +2037,10 @@ PlanCacheRelCallback(Datum arg, Oid relid)
 
 /*
  * PlanCacheObjectCallback
- *		Syscache inval callback function for PROCOID and TYPEOID caches
+ *		PROCOID 与 TYPEOID 缓存的 syscache 失效回调函数
  *
- * Invalidate all plans mentioning the object with the specified hash value,
- * or all plans mentioning any member of this cache if hashvalue == 0.
+ * 使提及具有指定哈希值对象的全部计划失效；若
+ * hashvalue == 0 则使本缓存任何成员的计划失效。
  */
 static void
 PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
@@ -2055,16 +2055,16 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 
 		Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 
-		/* No work if it's already invalidated */
+		/* 若已失效则无事可做 */
 		if (!plansource->is_valid)
 			continue;
 
-		/* Never invalidate if parse/plan would be a no-op anyway */
+		/* 若解析/规划反正是空操作则绝不变更 */
 		if (!StmtPlanRequiresRevalidation(plansource))
 			continue;
 
 		/*
-		 * Check the dependency list for the rewritten querytree.
+		 * 检查重写查询树的依赖列表。
 		 */
 		foreach(lc, plansource->invalItems)
 		{
@@ -2075,7 +2075,7 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 			if (hashvalue == 0 ||
 				item->hashValue == hashvalue)
 			{
-				/* Invalidate the querytree and generic plan */
+				/* 使查询树和通用计划失效 */
 				plansource->is_valid = false;
 				if (plansource->gplan)
 					plansource->gplan->is_valid = false;
@@ -2084,8 +2084,8 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 		}
 
 		/*
-		 * The generic plan, if any, could have more dependencies than the
-		 * querytree does, so we have to check it too.
+		 * 通用计划若有，其依赖可能多于查询树，也得
+		 * 检查它。
 		 */
 		if (plansource->gplan && plansource->gplan->is_valid)
 		{
@@ -2095,7 +2095,7 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 				ListCell   *lc3;
 
 				if (plannedstmt->commandType == CMD_UTILITY)
-					continue;	/* Ignore utility statements */
+					continue;	/* 忽略实用语句 */
 				foreach(lc3, plannedstmt->invalItems)
 				{
 					PlanInvalItem *item = (PlanInvalItem *) lfirst(lc3);
@@ -2105,18 +2105,18 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 					if (hashvalue == 0 ||
 						item->hashValue == hashvalue)
 					{
-						/* Invalidate the generic plan only */
+						/* 仅使通用计划失效 */
 						plansource->gplan->is_valid = false;
-						break;	/* out of invalItems scan */
+						break;	/* 扫描完毕 */
 					}
 				}
 				if (!plansource->gplan->is_valid)
-					break;		/* out of stmt_list scan */
+					break;		/* 扫描完毕 */
 			}
 		}
 	}
 
-	/* Likewise check cached expressions */
+	/* 同样检查缓存的表达式 */
 	dlist_foreach(iter, &cached_expression_list)
 	{
 		CachedExpression *cexpr = dlist_container(CachedExpression,
@@ -2125,7 +2125,7 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 
 		Assert(cexpr->magic == CACHEDEXPR_MAGIC);
 
-		/* No work if it's already invalidated */
+		/* 若已失效则无事可做 */
 		if (!cexpr->is_valid)
 			continue;
 
@@ -2147,9 +2147,9 @@ PlanCacheObjectCallback(Datum arg, int cacheid, uint32 hashvalue)
 
 /*
  * PlanCacheSysCallback
- *		Syscache inval callback function for other caches
+ *		其他缓存的 syscache 失效回调函数
  *
- * Just invalidate everything...
+ * 就让全部失效。
  */
 static void
 PlanCacheSysCallback(Datum arg, int cacheid, uint32 hashvalue)
@@ -2158,7 +2158,7 @@ PlanCacheSysCallback(Datum arg, int cacheid, uint32 hashvalue)
 }
 
 /*
- * ResetPlanCache: invalidate all cached plans.
+ * ResetPlanCache：全缓存计划失效。
  */
 void
 ResetPlanCache(void)
@@ -2172,16 +2172,16 @@ ResetPlanCache(void)
 
 		Assert(plansource->magic == CACHEDPLANSOURCE_MAGIC);
 
-		/* No work if it's already invalidated */
+		/* 若已失效则无事可做 */
 		if (!plansource->is_valid)
 			continue;
 
 		/*
-		 * We *must not* mark transaction control statements as invalid,
-		 * particularly not ROLLBACK, because they may need to be executed in
-		 * aborted transactions when we can't revalidate them (cf bug #5269).
-		 * In general there's no point in invalidating statements for which a
-		 * new parse analysis/rewrite/plan cycle would certainly give the same
+		 * 我们*绝不*把事务控制语句标为失效，尤其
+		 * ROLLBACK，因为它们可能要在无法重新验证
+		 * 的已中止事务中执行（参见 bug #5269）。
+		 * 总之，对新一轮语法分析/重写/规划必然给
+		 * 出相同结果的语句来说，使之失效毫无意义。
 		 * results.
 		 */
 		if (!StmtPlanRequiresRevalidation(plansource))
@@ -2192,7 +2192,7 @@ ResetPlanCache(void)
 			plansource->gplan->is_valid = false;
 	}
 
-	/* Likewise invalidate cached expressions */
+	/* 同样使缓存的表达式失效 */
 	dlist_foreach(iter, &cached_expression_list)
 	{
 		CachedExpression *cexpr = dlist_container(CachedExpression,

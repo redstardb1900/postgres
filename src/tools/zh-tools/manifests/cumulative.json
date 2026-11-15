@@ -6696,6 +6696,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0393-cache-relmapper-syscache.json",
    "kind": "manifest",
    "note": "batch-0393 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/cache/inval.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0394"
+  },
+  {
+   "pattern": "src/backend/utils/cache/plancache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0394"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0394-cache-inval-plancache.json",
+   "kind": "manifest",
+   "note": "batch-0394 manifest"
   }
  ],
  "files": [
@@ -21774,6 +21789,36 @@
    "translated": 0,
    "preserved": 0,
    "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/utils/cache/inval.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 128,
+   "translated": 128,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0394 whole-file comment translation: blocks 128 all translated, content lines 504 = 467 zh (464 zh-bearing + 3 ASCII-only) + 37 keep-EN; REVERSE 5 处披露 (L25/L763 审查补句号, L1021/L1110/L1360); halfen 0; term_lint 0 error"
+  },
+  {
+   "path": "src/backend/utils/cache/plancache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 205,
+   "translated": 205,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0394 whole-file comment translation: blocks 205 all translated, content lines 604 = 591 zh (590 zh-bearing + 1 ASCII-only) + 13 keep-EN; REVERSE 2 处披露 (L1204/L2184); halfen 0; term_lint 0 error"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0394-cache-inval-plancache.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0394 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

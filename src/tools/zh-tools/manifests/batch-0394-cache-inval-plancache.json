@@ -1,0 +1,73 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0394",
+ "title": "cache 目录两文件整文件注释翻译 inval.c+plancache.c (333 blocks: 333 translated + 0 justified keep-EN blocks; 1108 content lines: 1058 rewritten zh + 50 kept EN; 逐行预算全过+行数守恒 1637/2205 1:1; 修复轮 1 初译+2 审查清偿: 审查 A1-A3 丢字(影/内/其)全补、B4-B13 成分丢失/括号失衡全清(含 L56 重排后 69B 现场验算、L1125 残句不可容改 L1124 吸收+L1125 '此前已做过）')、C14-C18 重复字残迹归零(另加 bigram 复扫清 plancache 其输/访问目录/中。三站)、D19-D21 补句号(REVERSE 披露)、D23 L73-80 重排'依赖这样的 DDL：'式; term_lint phrasebook 清偿 7 站(不能→无法×3/要求→需要×2/记录→记下/随后应→预期随后/绝不把去'能'/核心要求→核心条件); 数字勘误: 审查建议 inval 改写 495 不可复现(疑为 verify new_bytes=49592 误读), 实测 504 content=467 rewritten(zh-bearing 464+纯 ASCII 行 3: L580/L914/L1222)+37 keep-EN, plancache 604=591(zh-bearing 590+L793)+13; gates: verify rc=0 (8 W7 advisory in-scope 释义披露), term_lint in-scope 0 error/6 warning(P02 块级残留/P70 primary 主要定义者/P24 预期不全式/P23 需要一个值 字面/P04 触发点未见—均为 phrasebook advisory), halfen cache 0; check_scope 增量+累计双 rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "eca40a099e4d8c75ea48f4c095fede175e4e94b5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/inval.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0394"
+  },
+  {
+   "pattern": "src/backend/utils/cache/plancache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0394"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0394-cache-inval-plancache.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0394 manifest path + inval.c/plancache.c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/inval.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 128,
+   "translated": 128,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 128 all translated; content lines 504: 467 rewritten zh + 37 kept EN (L3 文件名/L101-L102 版权/L104 IDENTIFICATION/L105 路径; Note: 行 L742/L1024/L1168 5B 不容但其下内容全译; 纯函数名行 25 行 L282/L540/L554/L566/L595/L608/L691/L738/L791/L853/L1004/L1067/L1158/L1196/L1328/L1354/L1380/L1395/L1416/L1437/L1477/L1506/L1552/L1574/L1599; L99 CommandEndInvalidationMessages。 34B 不容; 预算不可行残句 L413'bytes'/L1022'anyway.'/L1111'entry.' 语义并入前行). 头部设计段 L6-L99 全译. REVERSE 2 处披露: L1021 (L1022 keep-EN), L1110 (L1111 keep-EN). 预算变通披露: L393/L439 标题'加…失效项'(26B), L957 省略'目前', L1166 省略'命令', L1125 省略 PrepareInvalidationState 名(W7 披露), L913-915 省略'if any', L393-413 valgrind 段语序重排, L65-66 '多半/不值)' 跨行. 同 EN 必同译核对: L432=L462=L490=L1470=L1498, L458=L486, L672=L680, L899=L1034, L891=L1613, L1014=L1074, L1138=L1149, L1141=L1152, L1513=L1558, L1455=L1489, L903=L1040 系(近似行差异保留) 逐字一致. 极性自查: L15 不能/L21-22 必须/L46-47 只登记带 catcache 关系/L74 绝不能错过/L873 只适用于提交绝不适用于中止/L1014-1018 反正看不到/L2183 绝不+必须 全部保留; OID/标识符逐字保留 (CacheInvalidateHeapTuple/AppendInvalidationMessageSubGroup/sinvaladt.c/2^23-1 等)。审查清偿轮(第 2 轮): A1 L1383 补'影'/A2 L1020 补'内'/A3(plancache L2180)补'尤其'; B4 L55-57 重排恢复'登记 relcache 刷新操作'(L55 就按 CacheInvalidateHeapTuple()/L56 规定为…登记 relcache 刷新操作。/L57 对 pg_constraint 元组（关系上的外键）亦然。); B5 L959-960 补'之前和'并修括号失衡(L959 省略'发送' 56B); B9/B11: L1507=L1553 '令其处理指定缓存今后'(SAME-EN 强制同串), L1124 改'…Assert；本检查'+L1125 '此前已做过）'修括号并部分恢复位置语义(PrepareInvalidationState 名 25B 确不可容, W7 维持); C14 L14 尾'因此，'→','(对齐 EN 逗号尾); C15 L145 删'改变'; C16 L1008/1009 重写消'其他后端'重复; C17 L1419 删重复'Relation 或'; C18 L92-95 重排为单次'若…被廉价地/克服。'(92-95 各 60/60/27/9B); D19 L25/D20 L763 补句号(REVERSE 披露, D20 并删'有'); D21 L1360 '）。'句号镜像; D23 L73-80 重排'它们依赖这样的 DDL：…'式(L77-80 连带重排). term_lint 清偿: L15/L1257 不能→无法, L33 记录→记下(P38), L90 不能→无法, L74 绝不能→不容, L980 要求→需要. 数字勘误: 审查建议改写行数 495 不可复现(疑 verify new_bytes=49592 误读), 实测 504=467(464 zh-bearing+3 纯 ASCII: L580 CommandEndInvalidationMessages()。/L914 bug，/L1222 relcache。)+37 keep-EN. 复扫: 括号配平 0 失衡, bigram 重叠 0, 行数守恒 1637 1:1"
+  },
+  {
+   "path": "src/backend/utils/cache/plancache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 205,
+   "translated": 205,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 205 all translated; content lines 604: 591 rewritten zh + 13 kept EN (L3 文件名/L47-L48 版权/L50 IDENTIFICATION/L51 路径; 纯函数名行 5 行 L1707/L1722/L1955/L2039/L2149; 预算不可行残句 L1061'plans.)'/L1205'plan.'/L2185'results.' 语义并入前行). 头部设计段 L6-L44 全译 (generic/custom 选择/sinval 失效驱动/依赖跟踪/缓存表达式). REVERSE 2 处披露: L1204 (L1205 keep-EN), L2184 (L2185 keep-EN). 预算变通披露: L905 省略 RevalidateCachedQuery 名, L908-909/L1324 CachedPlanIsSimplyValid 句式压缩, L876 省略'而非硬常量', L1111 省略'更激进', L1309 省略'完整重新验证', L1472 省略'之下', L2180 *绝不*→*绝不*保留但'标记为'→'标为', L39 保留 L44 补译'新的表达式。'. 同 EN 必同译核对: L163=L247, L164=L248, L176=L258, L355=L460=L1152=L1478=L1622, L465=L1155, L593=L1987=L2078, L401=L755, L619=L845, L620≠L846(查询/计划), L624=L850, L628=L854, L989=L1090=L2006=L2098, L1973=L2058=L2128=L2175, L1977=L2062, L1982=L2067, L1994/1995=L2087/2088, L2010=L2108, L2012=L2114, L2018=L2119, L2026 同前组, L667=L924, L1303=L1414, L1304=L1415, L1746=L1798, L516=L1280 逐字一致. 极性自查: L571-575 不支持+绝不能冒险/L815 便不能用/L1294 不得/L1320 *并不*/L2180 *绝不*+必须/L1031 绝无意义 全部保留; 标识符逐字保留 (CachedPlanSource/CachedPlan/querytree_list/PARAM_FLAG_CONST/plan->generation/search_path 等)。审查清偿轮(第 2 轮): A3 L2180 补'尤其'(并去'能'清 P04); B6 L870 '或传 NIL 以重新复制 plansource 的 query_list。'; B7 L1110 首插'1000 * '并尾改'但会先试'(61B); B8 L1261 '该引用计数由 ResourceOwner 管理。'; B10(实为 L498-499, 审查行号 584-585 有误) '这应对了 DropCachedPlan 在计划仍被调用/的情形。'; B12 L876 '否则当提示而非常量。'(32B, '硬'字不容); B13 L92 '…sinval 事件的）。'修括号且 L93 删误复标识符. term_lint 清偿: L80/L980? (980 系 inval) L80 要求→需要, L242 不能→无法, L1136 随后应调用→预期随后调用(P24), L2180 去'能'(P04), L1294 核心要求→核心条件(TL08/P23). 复扫: 括号配平 0 失衡, bigram 重叠 0(其输/访问目录/中。三站初译轮已清), 行数守恒 2205 1:1"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0394-cache-inval-plancache.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0394 manifest path + inval.c/plancache.c entries to files[] and allowed_paths[]"
+  }
+ ]
+}

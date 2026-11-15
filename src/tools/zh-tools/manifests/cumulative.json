@@ -6636,6 +6636,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0390-mmgr-gen-freepage.json",
    "kind": "manifest",
    "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/dsa.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0391"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0391-mmgr-dsa.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
   }
  ],
  "files": [
@@ -21580,6 +21590,26 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0390-mmgr-gen-freepage.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/backend/utils/mmgr/dsa.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 252,
+   "translated": 252,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 252 (all translated; header design doc L1-49 全译); content lines 595: 588 rewritten zh, 7 kept EN (head 3/42/43/45/46: file name + 2 copyright + IDENTIFICATION + path; L516 kept-EN tail 'dsa_create_in_place).' 关闭 L515 预算强迫半角 '(而非' 括号; L1187 'dsa_create_in_place.' 纯标识符行 keep-EN, aset.c 0389 先例); terminology: span->跨度 (freepage.c 0390 口径全文件统一), superblock->超级块, fullness class->满度类, size class->大小类, bin->桶, page map->页映射, free page manager->空闲页管理器 (0390 口径), pinned/unpinned->钉住/解除钉住, attach/detach->附接/分离, chunk->区块, block->块, release->释放, trim->裁减; polarity hot-spots 逐条核对: L2060-2062 超限返回 NULL (0389 M1 判例), L662-667 NO_OOM 返回 InvalidDsaPointer/否则 ERROR, L710/732/813 若未要求抑制则报错, L502-504 in_place 区域不可调用, L996-998 仅在已调用 dsa_pin 之后, L1425 源列表空则不可移, L1524 除非全部满否则确保活跃块, L1657-1658 无含空块才失败, L2087-2088 超限提前退出防回绕 — 全部通过; budget-forced disclosures: L515 半角 '(而非' (24B 预算不容全角括号, 由 L516 kept-EN ')' 闭合), L1401 压缩 '* ' 帧为 '*要。' (EN 'time.' 10B), L208-218/L1597/L1954/L2055 尾注压缩 '/*x*/' 无空格, L210 '/*下一跨度*/' 句号省略 (16B), L1295 压缩且句号省略 (64B), L469-470 '同 dsa_create_in_place。' 省略 '的相同' (23B), L582 '还有 dsa_create。' 宾语省略 (16B), L516/L1187 keep-EN (见上); REVERSE 披露: L21/L27/L31 句号前置 (EN 句点在次行, 已吸收防误读); NEARDUP 豁免 L250-257 尺寸类表注释 (EN 本行平行); gates: verify rc=0 (1 W7 advisory: L107 XORed IDENT_LOST — zh 已作 'XOR 运算' 语义保留), term_lint in-scope 0 error / 2 warning (TL08+P23 requires→需要 advisory, 规则注记自证合法), halfen mmgr 0 (delta vs HEAD = 0)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0391-mmgr-dsa.json",
    "kind": "manifest",
    "action": "add",
    "segments_total": 0,

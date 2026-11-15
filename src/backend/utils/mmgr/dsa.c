@@ -1,43 +1,43 @@
 /*-------------------------------------------------------------------------
  *
  * dsa.c
- *	  Dynamic shared memory areas.
+ *	  动态共享内存区域。
  *
- * This module provides dynamic shared memory areas which are built on top of
- * DSM segments.  While dsm.c allows segments of memory of shared memory to be
- * created and shared between backends, it isn't designed to deal with small
- * objects.  A DSA area is a shared memory heap usually backed by one or more
- * DSM segments which can allocate memory using dsa_allocate() and dsa_free().
- * Alternatively, it can be created in pre-existing shared memory, including a
- * DSM segment, and then create extra DSM segments as required.  Unlike the
- * regular system heap, it deals in pseudo-pointers which must be converted to
- * backend-local pointers before they are dereferenced.  These pseudo-pointers
- * can however be shared with other backends, and can be used to construct
- * shared data structures.
+ * 本模块提供动态共享内存区域，其构建于
+ * DSM 段之上。虽然 dsm.c 允许创建共享内存中的段并在
+ * 后端之间共享，但它并非为处理小对象而设
+ * 计的。DSA 区域是一个共享内存堆，通常由一或多个
+ * DSM 段支撑，可使用 dsa_allocate() 和 dsa_free() 分配内存。
+ * 或者，它也可以在既有的共享内存中创建，包括在
+ * 一个 DSM 段中，然后按需创建额外的 DSM 段。与常规
+ * 的系统堆不同，它处理的是伪指针，这类指针必须
+ * 在解引用前转换为后端本地指针。不过，这些
+ * 指针可以与其他后端共享，并且可用于构建
+ * 共享数据结构。
  *
- * Each DSA area manages a set of DSM segments, adding new segments as
- * required and detaching them when they are no longer needed.  Each segment
- * contains a number of 4KB pages, a free page manager for tracking
- * consecutive runs of free pages, and a page map for tracking the source of
- * objects allocated on each page.  Allocation requests above 8KB are handled
- * by choosing a segment and finding consecutive free pages in its free page
- * manager.  Allocation requests for smaller sizes are handled using pools of
- * objects of a selection of sizes.  Each pool consists of a number of 16 page
- * (64KB) superblocks allocated in the same way as large objects.  Allocation
- * of large objects and new superblocks is serialized by a single LWLock, but
- * allocation of small objects from pre-existing superblocks uses one LWLock
- * per pool.  Currently there is one pool, and therefore one lock, per size
- * class.  Per-core pools to increase concurrency and strategies for reducing
- * the resulting fragmentation are areas for future research.  Each superblock
- * is managed with a 'span', which tracks the superblock's freelist.  Free
- * requests are handled by looking in the page map to find which span an
- * address was allocated from, so that small objects can be returned to the
- * appropriate free list, and large object pages can be returned directly to
- * the free page map.  When allocating, simple heuristics for selecting
- * segments and superblocks try to encourage occupied memory to be
- * concentrated, increasing the likelihood that whole superblocks can become
- * empty and be returned to the free page manager, and whole segments can
- * become empty and be returned to the operating system.
+ * 每个 DSA 区域管理一组 DSM 段，按需添加新段，
+ * 并在不再需要时将其分离。每个段包含若干 4KB 页、
+ * 一个追踪连续空闲页串的空闲页管理器，
+ * 以及一个追踪每页上所分配对象来源的页映射。
+ * 超过 8KB 的分配请求通过挑选段并在其空闲页
+ * 管理器中寻找连续空闲页来处理。较小者则用一组
+ * 选定大小的对象池来处理。每个池由若干 16 页
+ * （64KB）超级块组成，其分配方式与大对象相同，
+ * 大对象和新超级块的分配由单个 LWLock 串行化，但
+ * 从既有超级块分配小对象时每池使用一个 LWLock。
+ * 当前每个大小类只有一个池，因而也只有一个
+ * 锁。用于提升并发度的每核心池，以及减少由此产生
+ * 碎片化的策略，都是未来研究方向。每个超级块
+ * 由一个"跨度"（span）管理，它追踪超级块的空闲链表。
+ * 释放请求的处理方式是：在页映射中查找某地址
+ * 从哪个跨度分配而来，从而小对象可归还至
+ * 适当的空闲列表，而大对象页则可直接归还
+ * 给空闲页映射。分配时，用于挑选
+ * 段和超级块的简单启发式算法促使已占用内存
+ * 集中，从而提高整个超级块变空并归还给空闲页
+ * 管理器、以及整个段变空并
+ * 归还给操作系统
+ * 的可能性。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -61,82 +61,82 @@
 #include "utils/memutils.h"
 
 /*
- * The size of the initial DSM segment that backs a dsa_area created by
- * dsa_create.  After creating some number of segments of this size we'll
- * double this size, and so on.  Larger segments may be created if necessary
- * to satisfy large requests.
+ * dsa_create 所创建的 dsa_area 背后的初始 DSM 段
+ * 大小。在创建若干此大小的段之后，我们会将
+ * 其大小翻倍，依此类推。必要时可能会创建更大的段，
+ * 以满足大请求。
  */
 #define DSA_INITIAL_SEGMENT_SIZE ((size_t) (1 * 1024 * 1024))
 
 /*
- * How many segments to create before we double the segment size.  If this is
- * low, then there is likely to be a lot of wasted space in the largest
- * segment.  If it is high, then we risk running out of segment slots (see
- * dsm.c's limits on total number of segments), or limiting the total size
- * an area can manage when using small pointers.
+ * 在将段大小翻倍之前要创建多少个段。若此值过低，
+ * 则最大段中很可能有大量浪费的空间。若过高，
+ * 则可能耗尽段槽位（参见 dsm.c 对段总数的
+ * 限制），或者限制使用小指针时区域可管理的
+ * 总大小。
  */
 #define DSA_NUM_SEGMENTS_AT_EACH_SIZE 2
 
 /*
- * The number of bits used to represent the offset part of a dsa_pointer.
- * This controls the maximum size of a segment, the maximum possible
- * allocation size and also the maximum number of segments per area.
+ * 用于表示 dsa_pointer 偏移部分的位数。
+ * 它决定了段的最大大小、最大可能的分配大小，
+ * 以及每个区域的最大段数。
  */
 #if SIZEOF_DSA_POINTER == 4
-#define DSA_OFFSET_WIDTH 27		/* 32 segments of size up to 128MB */
+#define DSA_OFFSET_WIDTH 27		/* 最多 128MB 的 32 段 */
 #else
-#define DSA_OFFSET_WIDTH 40		/* 1024 segments of size up to 1TB */
+#define DSA_OFFSET_WIDTH 40		/* 最多 1TB 的 1024 段 */
 #endif
 
 /*
- * The maximum number of DSM segments that an area can own, determined by
- * the number of bits remaining (but capped at 1024).
+ * 一个区域可拥有的 DSM 段最大数量，由剩余位数决定
+ * （但上限为 1024）。
  */
 #define DSA_MAX_SEGMENTS \
 	Min(1024, (1 << ((SIZEOF_DSA_POINTER * 8) - DSA_OFFSET_WIDTH)))
 
-/* The bitmask for extracting the offset from a dsa_pointer. */
+/* 从 dsa_pointer 中提取偏移量的位掩码。 */
 #define DSA_OFFSET_BITMASK (((dsa_pointer) 1 << DSA_OFFSET_WIDTH) - 1)
 
-/* The maximum size of a DSM segment. */
+/* DSM 段的最大大小。 */
 #define DSA_MAX_SEGMENT_SIZE ((size_t) 1 << DSA_OFFSET_WIDTH)
 
-/* Number of pages (see FPM_PAGE_SIZE) per regular superblock. */
+/* 每个常规超级块的页数（见 FPM_PAGE_SIZE）。 */
 #define DSA_PAGES_PER_SUPERBLOCK		16
 
 /*
- * A magic number used as a sanity check for following DSM segments belonging
- * to a DSA area (this number will be XORed with the area handle and
- * the segment index).
+ * 一个魔术数，用作对 DSA 区域后续各 DSM 段的
+ * 健全性检查（该数值会与区域句柄及段下标作
+ * XOR 运算）。
  */
 #define DSA_SEGMENT_HEADER_MAGIC 0x0ce26608
 
-/* Build a dsa_pointer given a segment number and offset. */
+/* 给定段号和偏移量，构建一个 dsa_pointer。 */
 #define DSA_MAKE_POINTER(segment_number, offset) \
 	(((dsa_pointer) (segment_number) << DSA_OFFSET_WIDTH) | (offset))
 
-/* Extract the segment number from a dsa_pointer. */
+/* 从 dsa_pointer 中提取段号。 */
 #define DSA_EXTRACT_SEGMENT_NUMBER(dp) ((dp) >> DSA_OFFSET_WIDTH)
 
-/* Extract the offset from a dsa_pointer. */
+/* 从 dsa_pointer 中提取偏移量。 */
 #define DSA_EXTRACT_OFFSET(dp) ((dp) & DSA_OFFSET_BITMASK)
 
-/* The type used for index segment indexes (zero based). */
+/* 用于段下标的类型（从零起算）。 */
 typedef size_t dsa_segment_index;
 
-/* Sentinel value for dsa_segment_index indicating 'none' or 'end'. */
+/* dsa_segment_index 的哨兵值，表示"无"或"末尾"。 */
 #define DSA_SEGMENT_INDEX_NONE (~(dsa_segment_index)0)
 
 /*
- * How many bins of segments do we have?  The bins are used to categorize
- * segments by their largest contiguous run of free pages.
+ * 我们有多少个段桶？这些桶用于按段最大的连续
+ * 空闲页串对段进行分类。
  */
 #define DSA_NUM_SEGMENT_BINS 16
 
 /*
- * What is the lowest bin that holds segments that *might* have n contiguous
- * free pages?	There is no point in looking in segments in lower bins; they
- * definitely can't service a request for n free pages.
+ * 装有*可能*拥有 n 个连续空闲页的段的最低桶
+ * 是什么？没必要去查看更低桶中的段；它们肯定
+ * 无法满足对 n 个空闲页的请求。
  */
 static inline size_t
 contiguous_pages_to_segment_bin(size_t n)
@@ -151,122 +151,122 @@ contiguous_pages_to_segment_bin(size_t n)
 	return Min(bin, DSA_NUM_SEGMENT_BINS - 1);
 }
 
-/* Macros for access to locks. */
+/* 访问锁的宏。 */
 #define DSA_AREA_LOCK(area) (&area->control->lock)
 #define DSA_SCLASS_LOCK(area, sclass) (&area->control->pools[sclass].lock)
 
 /*
- * The header for an individual segment.  This lives at the start of each DSM
- * segment owned by a DSA area including the first segment (where it appears
- * as part of the dsa_area_control struct).
+ * 单个段的头部。它位于 DSA 区域所拥有的每个
+ * DSM 段的开头，包括第一个段（在那里它作为
+ * dsa_area_control 的一部分）。
  */
 typedef struct
 {
-	/* Sanity check magic value. */
+	/* 魔术值检查。 */
 	uint32		magic;
-	/* Total number of pages in this segment (excluding metadata area). */
+	/* 本段的页总数（不含元数据区）。 */
 	size_t		usable_pages;
-	/* Total size of this segment in bytes. */
+	/* 本段的总字节大小。 */
 	size_t		size;
 
 	/*
-	 * Index of the segment that precedes this one in the same segment bin, or
-	 * DSA_SEGMENT_INDEX_NONE if this is the first one.
+	 * 同一段桶中位于本段之前的段下标，若本段是
+	 * 第一个则为 DSA_SEGMENT_INDEX_NONE。
 	 */
 	dsa_segment_index prev;
 
 	/*
-	 * Index of the segment that follows this one in the same segment bin, or
-	 * DSA_SEGMENT_INDEX_NONE if this is the last one.
+	 * 同一段桶中位于本段之后的段下标，若本段是
+	 * 最后一个则为 DSA_SEGMENT_INDEX_NONE。
 	 */
 	dsa_segment_index next;
-	/* The index of the bin that contains this segment. */
+	/* 包含本段的桶的下标。 */
 	size_t		bin;
 
 	/*
-	 * A flag raised to indicate that this segment is being returned to the
-	 * operating system and has been unpinned.
+	 * 一个标志位，置位表示本段正在被归还给操作系统
+	 * 并且已被解除钉住。
 	 */
 	bool		freed;
 } dsa_segment_header;
 
 /*
- * Metadata for one superblock.
+ * 超级块的元数据。
  *
- * For most blocks, span objects are stored out-of-line; that is, the span
- * object is not stored within the block itself.  But, as an exception, for a
- * "span of spans", the span object is stored "inline".  The allocation is
- * always exactly one page, and the dsa_area_span object is located at
- * the beginning of that page.  The size class is DSA_SCLASS_BLOCK_OF_SPANS,
- * and the remaining fields are used just as they would be in an ordinary
- * block.  We can't allocate spans out of ordinary superblocks because
- * creating an ordinary superblock requires us to be able to allocate a span
- * *first*.  Doing it this way avoids that circularity.
+ * 对大多数块而言，跨度对象是外置存储的；亦即，
+ * 跨度对象并不存储在块自身之内。但作为例外，对于
+ * "跨度的跨度"，跨度对象是"内联"存储的。其分配
+ * 恰好是一页，dsa_area_span 对象就位于
+ * 该页的开头。大小类是 DSA_SCLASS_BLOCK_OF_SPANS，
+ * 其余字段的用法与普通块中的用法一样。我们不能
+ * 从普通超级块分配跨度，因为创建普通超级块要求
+ * 我们能够*先*分配出跨度。这样做可以避免
+ * 该循环依赖。
  */
 typedef struct
 {
-	dsa_pointer pool;			/* Containing pool. */
-	dsa_pointer prevspan;		/* Previous span. */
-	dsa_pointer nextspan;		/* Next span. */
-	dsa_pointer start;			/* Starting address. */
-	size_t		npages;			/* Length of span in pages. */
-	uint16		size_class;		/* Size class. */
-	uint16		ninitialized;	/* Maximum number of objects ever allocated. */
-	uint16		nallocatable;	/* Number of objects currently allocatable. */
-	uint16		firstfree;		/* First object on free list. */
-	uint16		nmax;			/* Maximum number of objects ever possible. */
-	uint16		fclass;			/* Current fullness class. */
+	dsa_pointer pool;			/*所在池。*/
+	dsa_pointer prevspan;		/*前一跨度。*/
+	dsa_pointer nextspan;		/*下一跨度*/
+	dsa_pointer start;			/*起始地址。*/
+	size_t		npages;			/*跨度的页数。*/
+	uint16		size_class;		/*大小类。*/
+	uint16		ninitialized;	/*曾分配过的对象数上限。*/
+	uint16		nallocatable;	/*当前可分配的对象数。*/
+	uint16		firstfree;		/*空闲列表首对象。*/
+	uint16		nmax;			/*可能对象数的上限。*/
+	uint16		fclass;			/*当前满度类。*/
 } dsa_area_span;
 
 /*
- * Given a pointer to an object in a span, access the index of the next free
- * object in the same span (ie in the span's freelist) as an L-value.
+ * 给定指向跨度内某对象的指针，以左值形式访问
+ * 同一跨度内下一空闲对象的下标（即空闲链表）。
  */
 #define NextFreeObjectIndex(object) (* (uint16 *) (object))
 
 /*
- * Small allocations are handled by dividing a single block of memory into
- * many small objects of equal size.  The possible allocation sizes are
- * defined by the following array.  Larger size classes are spaced more widely
- * than smaller size classes.  We fudge the spacing for size classes >1kB to
- * avoid space wastage: based on the knowledge that we plan to allocate 64kB
- * blocks, we bump the maximum object size up to the largest multiple of
- * 8 bytes that still lets us fit the same number of objects into one block.
+ * 小分配的处理方式是把单个内存块划分为许多大小
+ * 相同的对象。可用的分配大小由下面的数组
+ * 定义。较大大小类的间距比较小大小类更宽。对于
+ * 大于 1kB 的大小类，我们对间距做了调整以免浪费
+ * 空间：基于我们计划分配 64kB 块这一前提，我们把
+ * 最大对象大小上调到仍能让同样数量的对象
+ * 放入一个块中的最大 8 字节倍数。
  *
- * NB: Because of this fudging, if we were ever to use differently-sized blocks
- * for small allocations, these size classes would need to be reworked to be
- * optimal for the new size.
+ * 注意：由于这种调整，如果将来对小型分配使用
+ * 不同大小的块，这些大小类就需要重新设计，
+ * 以适配新尺寸。
  *
- * NB: The optimal spacing for size classes, as well as the size of the blocks
- * out of which small objects are allocated, is not a question that has one
- * right answer.  Some allocators (such as tcmalloc) use more closely-spaced
- * size classes than we do here, while others (like aset.c) use more
- * widely-spaced classes.  Spacing the classes more closely avoids wasting
- * memory within individual chunks, but also means a larger number of
- * potentially-unfilled blocks.
+ * 注意：大小类的最优间距，以及分配小型
+ * 对象的块的尺寸，并不是一个有唯一正确答案的
+ * 问题。有些分配器（如 tcmalloc）使用比我们这里更密的
+ * 大小类，而另一些（如 aset.c）则使用更疏的
+ * 大小类。把大小类排得更密可避免单个区块内的
+ * 内存浪费，但也意味着可能未填满的块的
+ * 数量更大。
  */
 static const uint16 dsa_size_classes[] = {
-	sizeof(dsa_area_span), 0,	/* special size classes */
-	8, 16, 24, 32, 40, 48, 56, 64,	/* 8 classes separated by 8 bytes */
-	80, 96, 112, 128,			/* 4 classes separated by 16 bytes */
-	160, 192, 224, 256,			/* 4 classes separated by 32 bytes */
-	320, 384, 448, 512,			/* 4 classes separated by 64 bytes */
-	640, 768, 896, 1024,		/* 4 classes separated by 128 bytes */
-	1280, 1560, 1816, 2048,		/* 4 classes separated by ~256 bytes */
-	2616, 3120, 3640, 4096,		/* 4 classes separated by ~512 bytes */
-	5456, 6552, 7280, 8192		/* 4 classes separated by ~1024 bytes */
+	sizeof(dsa_area_span), 0,	/* 特殊大小类 */
+	8, 16, 24, 32, 40, 48, 56, 64,	/* 以 8 字节分隔的 8 个类 */
+	80, 96, 112, 128,			/* 以 16 字节分隔的 4 个类 */
+	160, 192, 224, 256,			/* 以 32 字节分隔的 4 个类 */
+	320, 384, 448, 512,			/* 以 64 字节分隔的 4 个类 */
+	640, 768, 896, 1024,		/* 以 128 字节分隔的 4 个类 */
+	1280, 1560, 1816, 2048,		/* 间隔约 256 字节的 4 个类 */
+	2616, 3120, 3640, 4096,		/* 间隔约 512 字节的 4 个类 */
+	5456, 6552, 7280, 8192		/* 间隔约 1024 字节的 4 个类 */
 };
 #define DSA_NUM_SIZE_CLASSES				lengthof(dsa_size_classes)
 
-/* Special size classes. */
+/* 特殊大小类。 */
 #define DSA_SCLASS_BLOCK_OF_SPANS		0
 #define DSA_SCLASS_SPAN_LARGE			1
 
 /*
- * The following lookup table is used to map the size of small objects
- * (less than 1kB) onto the corresponding size class.  To use this table,
- * round the size of the object up to the next multiple of 8 bytes, and then
- * index into this array.
+ * 下面的查找表用于把小对象（小于 1kB）的大小
+ * 映射到对应的大小类。使用此表时，
+ * 先把对象大小向上取整到 8 字节的下一个倍数，
+ * 再索引本数组。
  */
 static const uint8 dsa_size_class_map[] = {
 	2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13,
@@ -281,115 +281,115 @@ static const uint8 dsa_size_class_map[] = {
 #define DSA_SIZE_CLASS_MAP_QUANTUM	8
 
 /*
- * Superblocks are binned by how full they are.  Generally, each fullness
- * class corresponds to one quartile, but the block being used for
- * allocations is always at the head of the list for fullness class 1,
- * regardless of how full it really is.
+ * 超级块按其充满程度分桶。一般来说，每个满度类
+ * 大致对应一个四分位，但用于分配的块总位于
+ * 满度类 1 列表的头部，
+ * 无论它实际有多满。
  */
 #define DSA_FULLNESS_CLASSES		4
 
 /*
- * A dsa_area_pool represents a set of objects of a given size class.
+ * dsa_area_pool 表示给定大小类的一组对象。
  *
- * Perhaps there should be multiple pools for the same size class for
- * contention avoidance, but for now there is just one!
+ * 或许同一个大小类应当有多个池以避免争用，
+ * 但目前只有一个！
  */
 typedef struct
 {
-	/* A lock protecting access to this pool. */
+	/* 保护对本池访问的锁。 */
 	LWLock		lock;
-	/* A set of linked lists of spans, arranged by fullness. */
+	/* 按满度排列的跨度链表集合。 */
 	dsa_pointer spans[DSA_FULLNESS_CLASSES];
-	/* Should we pad this out to a cacheline boundary? */
+	/* 是否应填充到缓存行边界？ */
 } dsa_area_pool;
 
 /*
- * The control block for an area.  This lives in shared memory, at the start of
- * the first DSM segment controlled by this area.
+ * 一个区域的控制块。它位于共享内存中，即本区域
+ * 所控制的第一个 DSM 段的开头。
  */
 typedef struct
 {
-	/* The segment header for the first segment. */
+	/* 第一个段的段头部。 */
 	dsa_segment_header segment_header;
-	/* The handle for this area. */
+	/* 本区域的句柄。 */
 	dsa_handle	handle;
-	/* The handles of the segments owned by this area. */
+	/* 本区域拥有的段的句柄。 */
 	dsm_handle	segment_handles[DSA_MAX_SEGMENTS];
-	/* Lists of segments, binned by maximum contiguous run of free pages. */
+	/* 按最大连续空闲页串分桶的段列表。 */
 	dsa_segment_index segment_bins[DSA_NUM_SEGMENT_BINS];
-	/* The object pools for each size class. */
+	/* 每个大小类的对象池。 */
 	dsa_area_pool pools[DSA_NUM_SIZE_CLASSES];
-	/* The total size of all active segments. */
+	/* 所有活跃段的总大小。 */
 	size_t		total_segment_size;
-	/* The maximum total size of backing storage we are allowed. */
+	/* 我们允许的后备存储最大总大小。 */
 	size_t		max_total_segment_size;
-	/* Highest used segment index in the history of this area. */
+	/* 本区域历史上使用过的最高段下标。 */
 	dsa_segment_index high_segment_index;
-	/* The reference count for this area. */
+	/* 本区域的引用计数。 */
 	int			refcnt;
-	/* A flag indicating that this area has been pinned. */
+	/* 指示本区域已被钉住的标志。 */
 	bool		pinned;
-	/* The number of times that segments have been freed. */
+	/* 段被释放的次数。 */
 	size_t		freed_segment_counter;
-	/* The LWLock tranche ID. */
+	/* LWLock tranche ID。 */
 	int			lwlock_tranche_id;
-	/* The general lock (protects everything except object pools). */
+	/* 通用锁（保护除对象池之外的一切）。 */
 	LWLock		lock;
 } dsa_area_control;
 
-/* Given a pointer to a pool, find a dsa_pointer. */
+/* 由池指针求 dsa_pointer。 */
 #define DsaAreaPoolToDsaPointer(area, p)	\
 	DSA_MAKE_POINTER(0, (char *) p - (char *) area->control)
 
 /*
- * A dsa_segment_map is stored within the backend-private memory of each
- * individual backend.  It holds the base address of the segment within that
- * backend, plus the addresses of key objects within the segment.  Those
- * could instead be derived from the base address but it's handy to have them
- * around.
+ * dsa_segment_map 存储在每个后端各自的私有内存
+ * 中。它持有该段在此后端中的基地址，以及段内
+ * 关键对象的地址。这些地址虽然也可以从基地址
+ * 推导出来，但把它们备妥在手边也的确有
+ * 用。
  */
 typedef struct
 {
-	dsm_segment *segment;		/* DSM segment */
-	char	   *mapped_address; /* Address at which segment is mapped */
-	dsa_segment_header *header; /* Header (same as mapped_address) */
-	FreePageManager *fpm;		/* Free page manager within segment. */
-	dsa_pointer *pagemap;		/* Page map within segment. */
+	dsm_segment *segment;		/* DSM 段 */
+	char	   *mapped_address; /* 该段的映射地址 */
+	dsa_segment_header *header; /* 头部（同 mapped_address） */
+	FreePageManager *fpm;		/* 段内的空闲页管理器。 */
+	dsa_pointer *pagemap;		/* 段内的页映射。 */
 } dsa_segment_map;
 
 /*
- * Per-backend state for a storage area.  Backends obtain one of these by
- * creating an area or attaching to an existing one using a handle.  Each
- * process that needs to use an area uses its own object to track where the
- * segments are mapped.
+ * 每个后端各自的存储区域状态。后端通过创建区域
+ * 或使用句柄附接到既有区域来获得其中之一。每个
+ * 需要使用区域的进程都用自己的对象来追踪各段
+ * 映射到何处。
  */
 struct dsa_area
 {
-	/* Pointer to the control object in shared memory. */
+	/* 指向共享内存中控制对象的指针。 */
 	dsa_area_control *control;
 
-	/* Has the mapping been pinned? */
+	/* 映射是否已被钉住？ */
 	bool		mapping_pinned;
 
 	/*
-	 * This backend's array of segment maps, ordered by segment index
-	 * corresponding to control->segment_handles.  Some of the area's segments
-	 * may not be mapped in this backend yet, and some slots may have been
-	 * freed and need to be detached; these operations happen on demand.
+	 * 本后端的段映射数组，按段下标排列，与
+	 * control->segment_handles 相对应。区域中的
+	 * 某些段可能尚未映射到本后端，还有些槽位可能
+	 * 已被释放而需要分离；这些操作都按需进行。
 	 */
 	dsa_segment_map segment_maps[DSA_MAX_SEGMENTS];
 
-	/* The highest segment index this backend has ever mapped. */
+	/* 本后端曾映射过的最高段下标。 */
 	dsa_segment_index high_segment_index;
 
-	/* The last observed freed_segment_counter. */
+	/* 上次观测的 freed_segment_counter。 */
 	size_t		freed_segment_counter;
 };
 
 #define DSA_SPAN_NOTHING_FREE	((uint16) -1)
 #define DSA_SUPERBLOCK_SIZE (DSA_PAGES_PER_SUPERBLOCK * FPM_PAGE_SIZE)
 
-/* Given a pointer to a segment_map, obtain a segment index number. */
+/* 给定指向 segment_map 的指针，求出段下标。 */
 #define get_segment_index(area, segment_map_ptr) \
 	(segment_map_ptr - &area->segment_maps[0])
 
@@ -421,13 +421,13 @@ static void check_for_freed_segments_locked(dsa_area *area);
 static void rebin_segment(dsa_area *area, dsa_segment_map *segment_map);
 
 /*
- * Create a new shared area in a new DSM segment.  Further DSM segments will
- * be allocated as required to extend the available space.
+ * 在一个新的 DSM 段中创建新的共享区域。后续会按
+ * 需分配更多 DSM 段以扩展可用空间。
  *
- * We can't allocate a LWLock tranche_id within this function, because tranche
- * IDs are a scarce resource; there are only 64k available, using low numbers
- * when possible matters, and we have no provision for recycling them.  So,
- * we require the caller to provide one.
+ * 我们无法在本函数内分配 LWLock tranche_id，因为
+ * tranche ID 是稀缺资源；只有 64k 可用，尽量使用
+ * 较小的编号很重要，而且我们没有回收它们的
+ * 机制，故需调用者提供。
  */
 dsa_area *
 dsa_create(int tranche_id)
@@ -436,26 +436,26 @@ dsa_create(int tranche_id)
 	dsa_area   *area;
 
 	/*
-	 * Create the DSM segment that will hold the shared control object and the
-	 * first segment of usable space.
+	 * 创建将容纳共享控制对象以及第一段可用空间的
+	 * DSM 段。
 	 */
 	segment = dsm_create(DSA_INITIAL_SEGMENT_SIZE, 0);
 
 	/*
-	 * All segments backing this area are pinned, so that DSA can explicitly
-	 * control their lifetime (otherwise a newly created segment belonging to
-	 * this area might be freed when the only backend that happens to have it
-	 * mapped in ends, corrupting the area).
+	 * 支撑本区域的所有段都被钉住，这样 DSA 便可以
+	 * 显式控制它们的生命周期（否则，属于本区域的
+	 * 新段可能在恰好将其映射入的唯一后端结束时被
+	 * 释放，从而破坏该区域）。
 	 */
 	dsm_pin_segment(segment);
 
-	/* Create a new DSA area with the control object in this segment. */
+	/* 在本段中创建控制对象所在的新 DSA 区域。 */
 	area = create_internal(dsm_segment_address(segment),
 						   DSA_INITIAL_SEGMENT_SIZE,
 						   tranche_id,
 						   dsm_segment_handle(segment), segment);
 
-	/* Clean up when the control segment detaches. */
+	/* 当控制段分离时进行清理。 */
 	on_dsm_detach(segment, &dsa_on_dsm_detach_release_in_place,
 				  PointerGetDatum(dsm_segment_address(segment)));
 
@@ -463,20 +463,20 @@ dsa_create(int tranche_id)
 }
 
 /*
- * Create a new shared area in an existing shared memory space, which may be
- * either DSM or Postmaster-initialized memory.  DSM segments will be
- * allocated as required to extend the available space, though that can be
- * prevented with dsa_set_size_limit(area, size) using the same size provided
- * to dsa_create_in_place.
+ * 在既有的共享内存空间中创建新的共享区域，该空间
+ * 可以是 DSM 或 postmaster 初始化的内存。DSM 段会
+ * 按需分配以扩展可用空间，但这可以通过
+ * dsa_set_size_limit(area, size) 阻止，所用大小同
+ *  dsa_create_in_place。
  *
- * Areas created in-place must eventually be released by the backend that
- * created them and all backends that attach to them.  This can be done
- * explicitly with dsa_release_in_place, or, in the special case that 'place'
- * happens to be in a pre-existing DSM segment, by passing in a pointer to the
- * segment so that a detach hook can be registered with the containing DSM
- * segment.
+ * 就地创建的区域最终必须由创建它的后端以及所有
+ * 附接它的后端释放。这项工作可以通过
+ * dsa_release_in_place 显式完成，或者，在 'place' 恰好
+ * 位于既有 DSM 段内的情况下，通过传入指向该段的
+ * 指针，以便向包含它的 DSM 段注册一个分离挂
+ * 钩。
  *
- * See dsa_create() for a note about the tranche arguments.
+ * 关于 tranche 参数的说明见 dsa_create()。
  */
 dsa_area *
 dsa_create_in_place(void *place, size_t size,
@@ -488,8 +488,8 @@ dsa_create_in_place(void *place, size_t size,
 						   DSM_HANDLE_INVALID, NULL);
 
 	/*
-	 * Clean up when the control segment detaches, if a containing DSM segment
-	 * was provided.
+	 * 若提供了包含它的 DSM 段，则在控制段分离时
+	 * 清理。
 	 */
 	if (segment != NULL)
 		on_dsm_detach(segment, &dsa_on_dsm_detach_release_in_place,
@@ -499,9 +499,9 @@ dsa_create_in_place(void *place, size_t size,
 }
 
 /*
- * Obtain a handle that can be passed to other processes so that they can
- * attach to the given area.  Cannot be called for areas created with
- * dsa_create_in_place.
+ * 获取一个可传递给其他进程的句柄，使其能够附接
+ * 到给定区域。对以 dsa_create_in_place 创建的区域
+ * 不可调用。
  */
 dsa_handle
 dsa_get_handle(dsa_area *area)
@@ -511,8 +511,8 @@ dsa_get_handle(dsa_area *area)
 }
 
 /*
- * Attach to an area given a handle generated (possibly in another process) by
- * dsa_get_handle.  The area must have been created with dsa_create (not
+ * 附接到由 dsa_get_handle 生成（可能在其他进程中）
+ * 的句柄的区域。该区域必须以 dsa_create 创建(而非
  * dsa_create_in_place).
  */
 dsa_area *
@@ -522,8 +522,8 @@ dsa_attach(dsa_handle handle)
 	dsa_area   *area;
 
 	/*
-	 * An area handle is really a DSM segment handle for the first segment, so
-	 * we go ahead and attach to that.
+	 * 区域句柄实际上就是第一个段的 DSM 段句柄，
+	 * 因此我们直接附接它。
 	 */
 	segment = dsm_attach(handle);
 	if (segment == NULL)
@@ -533,7 +533,7 @@ dsa_attach(dsa_handle handle)
 
 	area = attach_internal(dsm_segment_address(segment), segment, handle);
 
-	/* Clean up when the control segment detaches. */
+	/* 当控制段分离时进行清理。 */
 	on_dsm_detach(segment, &dsa_on_dsm_detach_release_in_place,
 				  PointerGetDatum(dsm_segment_address(segment)));
 
@@ -541,14 +541,14 @@ dsa_attach(dsa_handle handle)
 }
 
 /*
- * Attach to an area that was created with dsa_create_in_place.  The caller
- * must somehow know the location in memory that was used when the area was
- * created, though it may be mapped at a different virtual address in this
- * process.
+ * 附接到以 dsa_create_in_place 创建的区域。调用者
+ * 必须设法知道创建该区域时所用的内存位置，
+ * 尽管它在本进程中可能被映射到不同的虚拟地
+ * 址。
  *
- * See dsa_create_in_place for note about releasing in-place areas, and the
- * optional 'segment' argument which can be provided to allow automatic
- * release if the containing memory happens to be a DSM segment.
+ * 关于释放就地区域的说明见 dsa_create_in_place，
+ * 以及可选的 'segment' 参数，若包含它的内存恰好是
+ * 一个 DSM 段，则可自动释放。
  */
 dsa_area *
 dsa_attach_in_place(void *place, dsm_segment *segment)
@@ -558,8 +558,8 @@ dsa_attach_in_place(void *place, dsm_segment *segment)
 	area = attach_internal(place, NULL, DSA_HANDLE_INVALID);
 
 	/*
-	 * Clean up when the control segment detaches, if a containing DSM segment
-	 * was provided.
+	 * 若提供了包含它的 DSM 段，则在控制段分离时
+	 * 清理。
 	 */
 	if (segment != NULL)
 		on_dsm_detach(segment, &dsa_on_dsm_detach_release_in_place,
@@ -569,17 +569,17 @@ dsa_attach_in_place(void *place, dsm_segment *segment)
 }
 
 /*
- * Release a DSA area that was produced by dsa_create_in_place or
- * dsa_attach_in_place.  The 'segment' argument is ignored but provides an
- * interface suitable for on_dsm_detach, for the convenience of users who want
- * to create a DSA segment inside an existing DSM segment and have it
- * automatically released when the containing DSM segment is detached.
- * 'place' should be the address of the place where the area was created.
+ * 释放由 dsa_create_in_place 或 dsa_attach_in_place
+ * 产生的 DSA 区域。'segment' 参数会被忽略，但提供一个
+ * 适用于 on_dsm_detach 的接口，为想在既有 DSM 段
+ * 内创建 DSA 段的用户提供便利，使其能在包含它的
+ * DSM 段被分离时自动释放。
+ * 'place' 应为创建该区域时所处位置的地址。
  *
- * This callback is automatically registered for the DSM segment containing
- * the control object of in-place areas when a segment is provided to
- * dsa_create_in_place or dsa_attach_in_place, and also for all areas created
- * with dsa_create.
+ * 本回调会被自动注册到包含就地创建区域控制
+ * 对象的 DSM 段上，前提是曾向
+ * dsa_create_in_place 或 dsa_attach_in_place 提供段；还有
+ * dsa_create。
  */
 void
 dsa_on_dsm_detach_release_in_place(dsm_segment *segment, Datum place)
@@ -588,12 +588,12 @@ dsa_on_dsm_detach_release_in_place(dsm_segment *segment, Datum place)
 }
 
 /*
- * Release a DSA area that was produced by dsa_create_in_place or
- * dsa_attach_in_place.  The 'code' argument is ignored but provides an
- * interface suitable for on_shmem_exit or before_shmem_exit, for the
- * convenience of users who want to create a DSA segment inside shared memory
- * other than a DSM segment and have it automatically release at backend exit.
- * 'place' should be the address of the place where the area was created.
+ * 释放由 dsa_create_in_place 或 dsa_attach_in_place
+ * 产生的 DSA 区域。'code' 参数会被忽略，但提供一个
+ * 适用于 on_shmem_exit 或 before_shmem_exit 的接口，
+ * 为想在 DSM 段以外的共享内存中创建 DSA 段的
+ * 用户提供了便利，使其在后端退出时自动释放。
+ * 'place' 应为创建该区域时所处位置的地址。
  */
 void
 dsa_on_shmem_exit_release_in_place(int code, Datum place)
@@ -602,13 +602,13 @@ dsa_on_shmem_exit_release_in_place(int code, Datum place)
 }
 
 /*
- * Release a DSA area that was produced by dsa_create_in_place or
- * dsa_attach_in_place.  It is preferable to use one of the 'dsa_on_XXX'
- * callbacks so that this is managed automatically, because failure to release
- * an area created in-place leaks its segments permanently.
+ * 释放由 dsa_create_in_place 或 dsa_attach_in_place
+ * 产生的 DSA 区域。最好使用某个 'dsa_on_XXX' 回调，
+ * 从而自动完成这一管理，因为未能释放就地创建
+ * 的区域会永久泄漏其段。
  *
- * This is also called automatically for areas produced by dsa_create or
- * dsa_attach as an implementation detail.
+ * 对于由 dsa_create 或 dsa_attach 产生的区域，作为实现
+ * 细节，本函数会被自动调用。
  */
 void
 dsa_release_in_place(void *place)
@@ -635,10 +635,10 @@ dsa_release_in_place(void *place)
 }
 
 /*
- * Keep a DSA area attached until end of session or explicit detach.
+ * 使 DSA 区域保持附接，直至会话结束或显式分离。
  *
- * By default, areas are owned by the current resource owner, which means they
- * are detached automatically when that scope ends.
+ * 默认情况下，区域由当前资源所有者拥有，这意味着
+ * 该作用域结束时它们会被自动分离。
  */
 void
 dsa_pin_mapping(dsa_area *area)
@@ -654,25 +654,25 @@ dsa_pin_mapping(dsa_area *area)
 }
 
 /*
- * Allocate memory in this storage area.  The return value is a dsa_pointer
- * that can be passed to other processes, and converted to a local pointer
- * with dsa_get_address.  'flags' is a bitmap which should be constructed
- * from the following values:
+ * 在本存储区域中分配内存。返回值是一个 dsa_pointer，
+ * 它可以传递给其他进程，并可通过 dsa_get_address
+ * 转换为本地指针。'flags' 是一个位图，应由
+ * 以下这些值构成：
  *
- * DSA_ALLOC_HUGE allows allocations >= 1GB.  Otherwise, such allocations
- * will result in an ERROR.
+ * DSA_ALLOC_HUGE 允许 >= 1GB 的分配。否则，这类分配
+ * 将导致 ERROR。
  *
- * DSA_ALLOC_NO_OOM causes this function to return InvalidDsaPointer when
- * no memory is available or a size limit established by dsa_set_size_limit
- * would be exceeded.  Otherwise, such allocations will result in an ERROR.
+ * DSA_ALLOC_NO_OOM 使本函数在无可用内存，或即将
+ * 超过 dsa_set_size_limit 设定的大小限制时返回
+ * InvalidDsaPointer。否则，这类分配将导致 ERROR。
  *
- * DSA_ALLOC_ZERO causes the allocated memory to be zeroed.  Otherwise, the
- * contents of newly-allocated memory are indeterminate.
+ * DSA_ALLOC_ZERO 使分配的内存被清零。否则，新分配
+ * 内存的内容是不确定的。
  *
- * These flags correspond to similarly named flags used by
- * MemoryContextAllocExtended().  See also the macros dsa_allocate and
- * dsa_allocate0 which expand to a call to this function with commonly used
- * flags.
+ * 这些标志对应于 MemoryContextAllocExtended()
+ * 所用的类似命名的标志。另见宏 dsa_allocate 和
+ * dsa_allocate0 它们展开为本函数调用并带上常用标
+ * 志。
  */
 dsa_pointer
 dsa_allocate_extended(dsa_area *area, size_t size, int flags)
@@ -684,17 +684,17 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 
 	Assert(size > 0);
 
-	/* Sanity check on huge individual allocation size. */
+	/* 对单个巨型分配大小的健全性检查。 */
 	if (((flags & DSA_ALLOC_HUGE) != 0 && !AllocHugeSizeIsValid(size)) ||
 		((flags & DSA_ALLOC_HUGE) == 0 && !AllocSizeIsValid(size)))
 		elog(ERROR, "invalid DSA memory alloc request size %zu", size);
 
 	/*
-	 * If bigger than the largest size class, just grab a run of pages from
-	 * the free page manager, instead of allocating an object from a pool.
-	 * There will still be a span, but it's a special class of span that
-	 * manages this whole allocation and simply gives all pages back to the
-	 * free page manager when dsa_free is called.
+	 * 若大于最大大小类，就直接从空闲页管理器
+	 * 拿走一段连续页，而不是从池中分配对象。
+	 * 此时仍会有一个跨度，但它是特殊类别的跨度，
+	 * 用于管理这整个分配，并在 dsa_free 被调用时把所有
+	 * 页归还给空闲页管理器。
 	 */
 	if (size > dsa_size_classes[lengthof(dsa_size_classes) - 1])
 	{
@@ -703,11 +703,11 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		dsa_pointer span_pointer;
 		dsa_area_pool *pool = &area->control->pools[DSA_SCLASS_SPAN_LARGE];
 
-		/* Obtain a span object. */
+		/* 取得跨度对象。 */
 		span_pointer = alloc_object(area, DSA_SCLASS_BLOCK_OF_SPANS);
 		if (!DsaPointerIsValid(span_pointer))
 		{
-			/* Raise error unless asked not to. */
+			/* 若未要求抑制则报错。 */
 			if ((flags & DSA_ALLOC_NO_OOM) == 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -719,17 +719,17 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 
 		LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 
-		/* Find a segment from which to allocate. */
+		/* 找一个用于分配的段。 */
 		segment_map = get_best_segment(area, npages);
 		if (segment_map == NULL)
 			segment_map = make_new_segment(area, npages);
 		if (segment_map == NULL)
 		{
-			/* Can't make any more segments: game over. */
+			/* 无法再建段：游戏结束。 */
 			LWLockRelease(DSA_AREA_LOCK(area));
 			dsa_free(area, span_pointer);
 
-			/* Raise error unless asked not to. */
+			/* 若未要求抑制则报错。 */
 			if ((flags & DSA_ALLOC_NO_OOM) == 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -740,11 +740,11 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		}
 
 		/*
-		 * Ask the free page manager for a run of pages.  This should always
-		 * succeed, since both get_best_segment and make_new_segment should
-		 * only return a non-NULL pointer if it actually contains enough
-		 * contiguous freespace.  If it does fail, something in our backend
-		 * private state is out of whack, so use FATAL to kill the process.
+		 * 向空闲页管理器索要一段连续页，应总是成功，
+		 * 因为 get_best_segment 和 make_new_segment 都应当
+		 * 只在确有足够连续空闲空间时才返回非 NULL
+		 * 指针。若真的失败，说明我们后端私有状态中
+		 * 有地方出了问题，因此用 FATAL 终止进程。
 		 */
 		if (!FreePageManagerGet(segment_map->fpm, npages, &first_page))
 			elog(FATAL,
@@ -754,7 +754,7 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		start_pointer = DSA_MAKE_POINTER(get_segment_index(area, segment_map),
 										 first_page * FPM_PAGE_SIZE);
 
-		/* Initialize span and pagemap. */
+		/*初始化跨度、页映射。*/
 		LWLockAcquire(DSA_SCLASS_LOCK(area, DSA_SCLASS_SPAN_LARGE),
 					  LW_EXCLUSIVE);
 		init_span(area, span_pointer, pool, start_pointer, npages,
@@ -762,19 +762,19 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		segment_map->pagemap[first_page] = span_pointer;
 		LWLockRelease(DSA_SCLASS_LOCK(area, DSA_SCLASS_SPAN_LARGE));
 
-		/* Zero-initialize the memory if requested. */
+		/* 若有要求则将内存清零。 */
 		if ((flags & DSA_ALLOC_ZERO) != 0)
 			memset(dsa_get_address(area, start_pointer), 0, size);
 
 		return start_pointer;
 	}
 
-	/* Map allocation to a size class. */
+	/* 把分配映射到大小类。 */
 	if (size < lengthof(dsa_size_class_map) * DSA_SIZE_CLASS_MAP_QUANTUM)
 	{
 		int			mapidx;
 
-		/* For smaller sizes we have a lookup table... */
+		/* 较小尺寸用查找表…… */
 		mapidx = ((size + DSA_SIZE_CLASS_MAP_QUANTUM - 1) /
 				  DSA_SIZE_CLASS_MAP_QUANTUM) - 1;
 		size_class = dsa_size_class_map[mapidx];
@@ -784,7 +784,7 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		uint16		min;
 		uint16		max;
 
-		/* ... and for the rest we search by binary chop. */
+		/* ……其余则用二分法查找。 */
 		min = dsa_size_class_map[lengthof(dsa_size_class_map) - 1];
 		max = lengthof(dsa_size_classes) - 1;
 
@@ -804,13 +804,13 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 	Assert(size <= dsa_size_classes[size_class]);
 	Assert(size_class == 0 || size > dsa_size_classes[size_class - 1]);
 
-	/* Attempt to allocate an object from the appropriate pool. */
+	/* 尝试从相应的池中分配一个对象。 */
 	result = alloc_object(area, size_class);
 
-	/* Check for failure to allocate. */
+	/* 检查是否分配失败。 */
 	if (!DsaPointerIsValid(result))
 	{
-		/* Raise error unless asked not to. */
+		/* 若未要求抑制则报错。 */
 		if ((flags & DSA_ALLOC_NO_OOM) == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -819,7 +819,7 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		return InvalidDsaPointer;
 	}
 
-	/* Zero-initialize the memory if requested. */
+	/* 若有要求则将内存清零。 */
 	if ((flags & DSA_ALLOC_ZERO) != 0)
 		memset(dsa_get_address(area, result), 0, size);
 
@@ -827,7 +827,7 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 }
 
 /*
- * Free memory obtained with dsa_allocate.
+ * 释放 dsa_allocate 所得内存。
  */
 void
 dsa_free(dsa_area *area, dsa_pointer dp)
@@ -841,10 +841,10 @@ dsa_free(dsa_area *area, dsa_pointer dp)
 	size_t		size;
 	int			size_class;
 
-	/* Make sure we don't have a stale segment in the slot 'dp' refers to. */
+	/* 确保槽位中没有 'dp' 所指的过期段。 */
 	check_for_freed_segments(area);
 
-	/* Locate the object, span and pool. */
+	/* 定位对象、跨度和池。 */
 	segment_map = get_segment_by_index(area, DSA_EXTRACT_SEGMENT_NUMBER(dp));
 	pageno = DSA_EXTRACT_OFFSET(dp) / FPM_PAGE_SIZE;
 	span_pointer = segment_map->pagemap[pageno];
@@ -855,8 +855,8 @@ dsa_free(dsa_area *area, dsa_pointer dp)
 	size = dsa_size_classes[size_class];
 
 	/*
-	 * Special case for large objects that live in a special span: we return
-	 * those pages directly to the free page manager and free the span.
+	 * 针对位于特殊跨度中的大对象的特殊情形：我们把
+	 * 这些页直接归还给空闲页管理器并释放跨度。
 	 */
 	if (span->size_class == DSA_SCLASS_SPAN_LARGE)
 	{
@@ -865,22 +865,22 @@ dsa_free(dsa_area *area, dsa_pointer dp)
 		memset(object, 0x7f, span->npages * FPM_PAGE_SIZE);
 #endif
 
-		/* Give pages back to free page manager. */
+		/* 把页归还给空闲页管理器。 */
 		LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 		FreePageManagerPut(segment_map->fpm,
 						   DSA_EXTRACT_OFFSET(span->start) / FPM_PAGE_SIZE,
 						   span->npages);
 
-		/* Move segment to appropriate bin if necessary. */
+		/* 必要时把段移到相应的桶。 */
 		rebin_segment(area, segment_map);
 		LWLockRelease(DSA_AREA_LOCK(area));
 
-		/* Unlink span. */
+		/* 摘链。 */
 		LWLockAcquire(DSA_SCLASS_LOCK(area, DSA_SCLASS_SPAN_LARGE),
 					  LW_EXCLUSIVE);
 		unlink_span(area, span);
 		LWLockRelease(DSA_SCLASS_LOCK(area, DSA_SCLASS_SPAN_LARGE));
-		/* Free the span object so it can be reused. */
+		/* 释放跨度对象以便复用。 */
 		dsa_free(area, span_pointer);
 		return;
 	}
@@ -891,7 +891,7 @@ dsa_free(dsa_area *area, dsa_pointer dp)
 
 	LWLockAcquire(DSA_SCLASS_LOCK(area, size_class), LW_EXCLUSIVE);
 
-	/* Put the object on the span's freelist. */
+	/* 对象挂到跨度空闲链表。 */
 	Assert(object >= superblock);
 	Assert(object < superblock + DSA_SUPERBLOCK_SIZE);
 	Assert((object - superblock) % size == 0);
@@ -900,38 +900,38 @@ dsa_free(dsa_area *area, dsa_pointer dp)
 	++span->nallocatable;
 
 	/*
-	 * See if the span needs to moved to a different fullness class, or be
-	 * freed so its pages can be given back to the segment.
+	 * 看看该跨度是否需要移到别的满度类，或者需要被
+	 * 释放，以将其页归还给段。
 	 */
 	if (span->nallocatable == 1 && span->fclass == DSA_FULLNESS_CLASSES - 1)
 	{
 		/*
-		 * The block was completely full and is located in the
-		 * highest-numbered fullness class, which is never scanned for free
-		 * chunks.  We must move it to the next-lower fullness class.
+		 * 该块之前完全填满，且位于最高编号的
+		 * 满度类，该类从不会被扫描寻找空闲
+		 * 区块。我们必须把它移到低一号的满度类。
 		 */
 		unlink_span(area, span);
 		add_span_to_fullness_class(area, span, span_pointer,
 								   DSA_FULLNESS_CLASSES - 2);
 
 		/*
-		 * If this is the only span, and there is no active span, then we
-		 * should probably move this span to fullness class 1.  (Otherwise if
-		 * you allocate exactly all the objects in the only span, it moves to
-		 * class 3, then you free them all, it moves to 2, and then is given
-		 * back, leaving no active span).
+		 * 如果这是唯一的跨度又没有活跃跨度，那么
+		 * 或许应当把该跨度移到满度类 1。（否则，如果
+		 * 你恰好分配光了唯一跨度中的所有对象，它会移到
+		 * 第 3 类，然后全部释放，它移到 2，接着被归
+		 * 还后无活跃跨度）。
 		 */
 	}
 	else if (span->nallocatable == span->nmax &&
 			 (span->fclass != 1 || span->prevspan != InvalidDsaPointer))
 	{
 		/*
-		 * This entire block is free, and it's not the active block for this
-		 * size class.  Return the memory to the free page manager. We don't
-		 * do this for the active block to prevent hysteresis: if we
-		 * repeatedly allocate and free the only chunk in the active block, it
-		 * will be very inefficient if we deallocate and reallocate the block
-		 * every time.
+		 * 这整个块都已空闲，且它不是此大小类的
+		 * 活跃块。把内存归还给空闲页管理器。我们不
+		 * 对活跃块这样做，以防止迟滞：如果我们
+		 * 反复分配并释放活跃块中唯一的区块，那么
+		 * 每次都解除并重新分配该块，会非常
+		 * 低效。
 		 */
 		destroy_superblock(area, span_pointer);
 	}
@@ -940,10 +940,10 @@ dsa_free(dsa_area *area, dsa_pointer dp)
 }
 
 /*
- * Obtain a backend-local address for a dsa_pointer.  'dp' must point to
- * memory allocated by the given area (possibly in another process) that
- * hasn't yet been freed.  This may cause a segment to be mapped into the
- * current process if required, and may cause freed segments to be unmapped.
+ * 获取 dsa_pointer 的后端本地地址。'dp' 必须指向由给定
+ * 区域分配（可能在其他进程中）且尚未被释放的内
+ * 存。这可能导致有段被映射进当前进程（如果有必
+ * 要），并可能导致已释放的段被解除映射。
  */
 void *
 dsa_get_address(dsa_area *area, dsa_pointer dp)
@@ -951,22 +951,22 @@ dsa_get_address(dsa_area *area, dsa_pointer dp)
 	dsa_segment_index index;
 	size_t		offset;
 
-	/* Convert InvalidDsaPointer to NULL. */
+	/* InvalidDsaPointer 转为 NULL。 */
 	if (!DsaPointerIsValid(dp))
 		return NULL;
 
-	/* Process any requests to detach from freed segments. */
+	/* 处理所有与已释放段分离的请求。 */
 	check_for_freed_segments(area);
 
-	/* Break the dsa_pointer into its components. */
+	/* 将 dsa_pointer 拆分为各部分。 */
 	index = DSA_EXTRACT_SEGMENT_NUMBER(dp);
 	offset = DSA_EXTRACT_OFFSET(dp);
 	Assert(index < DSA_MAX_SEGMENTS);
 
-	/* Check if we need to cause this segment to be mapped in. */
+	/* 检查是否需要让本段被映射进来。 */
 	if (unlikely(area->segment_maps[index].mapped_address == NULL))
 	{
-		/* Call for effect (we don't need the result). */
+		/* 为效果而调（无需结果）。 */
 		get_segment_by_index(area, index);
 	}
 
@@ -974,9 +974,9 @@ dsa_get_address(dsa_area *area, dsa_pointer dp)
 }
 
 /*
- * Pin this area, so that it will continue to exist even if all backends
- * detach from it.  In that case, the area can still be reattached to if a
- * handle has been recorded somewhere.
+ * 钉住本区域，使得即使所有后端都与它分离，它也
+ * 能继续存在。此时，只要某处记录了句柄，就仍然
+ * 可以重新附接该区域。
  */
 void
 dsa_pin(dsa_area *area)
@@ -993,9 +993,9 @@ dsa_pin(dsa_area *area)
 }
 
 /*
- * Undo the effects of dsa_pin, so that the given area can be freed when no
- * backends are attached to it.  May be called only if dsa_pin has been
- * called.
+ * 解除 dsa_pin 的效果，使得在没有后端附接于给定区域
+ * 时可以释放它。仅在已调用过 dsa_pin 之
+ * 后。
  */
 void
 dsa_unpin(dsa_area *area)
@@ -1013,13 +1013,13 @@ dsa_unpin(dsa_area *area)
 }
 
 /*
- * Set the total size limit for this area.  This limit is checked whenever new
- * segments need to be allocated from the operating system.  If the new size
- * limit is already exceeded, this has no immediate effect.
+ * 为本区域设置总大小限制。每当需要从操作系统分配
+ * 新段时都会检查此限制。如果新的大小限制已经被
+ * 超过，则不会有立即的效果。
  *
- * Note that the total virtual memory usage may be temporarily larger than
- * this limit when segments have been freed, but not yet detached by all
- * backends that have attached to them.
+ * 注意：当段已被释放但尚未被所有附接于它们的
+ * 后端分离时，虚拟内存总用量可能会暂时大于
+ * 此限制。
  */
 void
 dsa_set_size_limit(dsa_area *area, size_t limit)
@@ -1030,8 +1030,8 @@ dsa_set_size_limit(dsa_area *area, size_t limit)
 }
 
 /*
- * Aggressively free all spare memory in the hope of returning DSM segments to
- * the operating system.
+ * 激进地释放所有空闲内存，以期把 DSM 段归还给
+ * 操作系统。
  */
 void
 dsa_trim(dsa_area *area)
@@ -1039,8 +1039,8 @@ dsa_trim(dsa_area *area)
 	int			size_class;
 
 	/*
-	 * Trim in reverse pool order so we get to the spans-of-spans last, just
-	 * in case any become entirely free while processing all the other pools.
+	 * 按池的逆序进行裁减，从而最后才处理跨度的跨度，
+	 * 以免在处理其他所有池时它们恰好完全变空。
 	 */
 	for (size_class = DSA_NUM_SIZE_CLASSES - 1; size_class >= 0; --size_class)
 	{
@@ -1049,14 +1049,14 @@ dsa_trim(dsa_area *area)
 
 		if (size_class == DSA_SCLASS_SPAN_LARGE)
 		{
-			/* Large object frees give back segments aggressively already. */
+			/* 大对象的释放本来就激进地归还段。 */
 			continue;
 		}
 
 		/*
-		 * Search fullness class 1 only.  That is where we expect to find an
-		 * entirely empty superblock (entirely empty superblocks in other
-		 * fullness classes are returned to the free page map by dsa_free).
+		 * 只搜索满度类 1。我们预期在那里找到完全变空的
+		 * 超级块（其他满度类中完全变空的超级块会由
+		 * dsa_free 归还给空闲页映射）。
 		 */
 		LWLockAcquire(DSA_SCLASS_LOCK(area, size_class), LW_EXCLUSIVE);
 		span_pointer = pool->spans[1];
@@ -1075,8 +1075,8 @@ dsa_trim(dsa_area *area)
 }
 
 /*
- * Print out debugging information about the internal state of the shared
- * memory area.
+ * 打印出共享内存区域内部状态的调试
+ * 信息。
  */
 void
 dsa_dump(dsa_area *area)
@@ -1085,8 +1085,8 @@ dsa_dump(dsa_area *area)
 				j;
 
 	/*
-	 * Note: This gives an inconsistent snapshot as it acquires and releases
-	 * individual locks as it goes...
+	 * 注意：它一路上获取并释放各个锁，
+	 * 所以快照并不一致……
 	 */
 
 	LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
@@ -1183,7 +1183,7 @@ dsa_dump(dsa_area *area)
 }
 
 /*
- * Return the smallest size that you can successfully provide to
+ * 返回可以成功提供给
  * dsa_create_in_place.
  */
 size_t
@@ -1195,7 +1195,7 @@ dsa_minimum_size(void)
 	size = MAXALIGN(sizeof(dsa_area_control)) +
 		MAXALIGN(sizeof(FreePageManager));
 
-	/* Figure out how many pages we need, including the page map... */
+	/* 算出我们需要多少页，含页映射…… */
 	while (((size + FPM_PAGE_SIZE - 1) / FPM_PAGE_SIZE) > pages)
 	{
 		++pages;
@@ -1206,7 +1206,7 @@ dsa_minimum_size(void)
 }
 
 /*
- * Workhorse function for dsa_create and dsa_create_in_place.
+ * dsa_create 和 dsa_create_in_place 的工作函数。
  */
 static dsa_area *
 create_internal(void *place, size_t size,
@@ -1222,26 +1222,26 @@ create_internal(void *place, size_t size,
 	size_t		metadata_bytes;
 	int			i;
 
-	/* Sanity check on the space we have to work in. */
+	/* 对可用工作空间的健全性检查。 */
 	if (size < dsa_minimum_size())
 		elog(ERROR, "dsa_area space must be at least %zu, but %zu provided",
 			 dsa_minimum_size(), size);
 
-	/* Now figure out how much space is usable */
+	/* 现在算出可用空间有多少 */
 	total_pages = size / FPM_PAGE_SIZE;
 	metadata_bytes =
 		MAXALIGN(sizeof(dsa_area_control)) +
 		MAXALIGN(sizeof(FreePageManager)) +
 		total_pages * sizeof(dsa_pointer);
-	/* Add padding up to next page boundary. */
+	/* 补齐填充至下一页边界。 */
 	if (metadata_bytes % FPM_PAGE_SIZE != 0)
 		metadata_bytes += FPM_PAGE_SIZE - (metadata_bytes % FPM_PAGE_SIZE);
 	Assert(metadata_bytes <= size);
 	usable_pages = (size - metadata_bytes) / FPM_PAGE_SIZE;
 
 	/*
-	 * Initialize the dsa_area_control object located at the start of the
-	 * space.
+	 * 初始化位于空间开头的 dsa_area_control 对
+	 * 象。
 	 */
 	control = (dsa_area_control *) place;
 	memset(place, 0, sizeof(*control));
@@ -1262,9 +1262,9 @@ create_internal(void *place, size_t size,
 	control->lwlock_tranche_id = tranche_id;
 
 	/*
-	 * Create the dsa_area object that this backend will use to access the
-	 * area.  Other backends will need to obtain their own dsa_area object by
-	 * attaching.
+	 * 创建本后端将用来访问该区域的
+	 * dsa_area 对象。其他后端需要通过附接来取得自己的
+	 * 对象。
 	 */
 	area = palloc(sizeof(dsa_area));
 	area->control = control;
@@ -1277,7 +1277,7 @@ create_internal(void *place, size_t size,
 		LWLockInitialize(DSA_SCLASS_LOCK(area, i),
 						 control->lwlock_tranche_id);
 
-	/* Set up the segment map for this process's mapping. */
+	/* 为本进程的映射建立段映射。 */
 	segment_map = &area->segment_maps[0];
 	segment_map->segment = control_segment;
 	segment_map->mapped_address = place;
@@ -1290,15 +1290,15 @@ create_internal(void *place, size_t size,
 		 MAXALIGN(sizeof(dsa_area_control)) +
 		 MAXALIGN(sizeof(FreePageManager)));
 
-	/* Set up the free page map. */
+	/* 建立空闲页映射。 */
 	FreePageManagerInitialize(segment_map->fpm, segment_map->mapped_address);
-	/* There can be 0 usable pages if size is dsa_minimum_size(). */
+	/*若大小为 dsa_minimum_size() 则可有 0 个可用页*/
 
 	if (usable_pages > 0)
 		FreePageManagerPut(segment_map->fpm, metadata_bytes / FPM_PAGE_SIZE,
 						   usable_pages);
 
-	/* Put this segment into the appropriate bin. */
+	/* 把本段放入相应的桶。 */
 	control->segment_bins[contiguous_pages_to_segment_bin(usable_pages)] = 0;
 	segment_map->header->bin = contiguous_pages_to_segment_bin(usable_pages);
 
@@ -1306,7 +1306,7 @@ create_internal(void *place, size_t size,
 }
 
 /*
- * Workhorse function for dsa_attach and dsa_attach_in_place.
+ * dsa_attach 和 dsa_attach_in_place 的工作函数。
  */
 static dsa_area *
 attach_internal(void *place, dsm_segment *segment, dsa_handle handle)
@@ -1321,7 +1321,7 @@ attach_internal(void *place, dsm_segment *segment, dsa_handle handle)
 	Assert(control->segment_header.magic ==
 		   (DSA_SEGMENT_HEADER_MAGIC ^ handle ^ 0));
 
-	/* Build the backend-local area object. */
+	/* 构建后端本地的区域对象。 */
 	area = palloc(sizeof(dsa_area));
 	area->control = control;
 	area->mapping_pinned = false;
@@ -1329,9 +1329,9 @@ attach_internal(void *place, dsm_segment *segment, dsa_handle handle)
 		   sizeof(dsa_segment_map) * DSA_MAX_SEGMENTS);
 	area->high_segment_index = 0;
 
-	/* Set up the segment map for this process's mapping. */
+	/* 为本进程的映射建立段映射。 */
 	segment_map = &area->segment_maps[0];
-	segment_map->segment = segment; /* NULL for in-place */
+	segment_map->segment = segment; /* NULL（就地） */
 	segment_map->mapped_address = place;
 	segment_map->header = (dsa_segment_header *) segment_map->mapped_address;
 	segment_map->fpm = (FreePageManager *)
@@ -1340,11 +1340,11 @@ attach_internal(void *place, dsm_segment *segment, dsa_handle handle)
 		(segment_map->mapped_address + MAXALIGN(sizeof(dsa_area_control)) +
 		 MAXALIGN(sizeof(FreePageManager)));
 
-	/* Bump the reference count. */
+	/* 增加引用计数。 */
 	LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 	if (control->refcnt == 0)
 	{
-		/* We can't attach to a DSA area that has already been destroyed. */
+		/* 我们不能附接到已被销毁的 DSA 区域。 */
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("could not attach to dynamic shared area")));
@@ -1357,7 +1357,7 @@ attach_internal(void *place, dsm_segment *segment, dsa_handle handle)
 }
 
 /*
- * Add a new span to fullness class 1 of the indicated pool.
+ * 向指定池的满度类 1 加入一个新跨度。
  */
 static void
 init_span(dsa_area *area,
@@ -1369,12 +1369,12 @@ init_span(dsa_area *area,
 	size_t		obsize = dsa_size_classes[size_class];
 
 	/*
-	 * The per-pool lock must be held because we manipulate the span list for
-	 * this pool.
+	 * 必须持有每池锁，因为我们要操纵此池的跨度
+	 * 列表。
 	 */
 	Assert(LWLockHeldByMe(DSA_SCLASS_LOCK(area, size_class)));
 
-	/* Push this span onto the front of the span list for fullness class 1. */
+	/* 把此跨度推到满度类 1 跨度列表的前端。 */
 	if (DsaPointerIsValid(pool->spans[1]))
 	{
 		dsa_area_span *head = (dsa_area_span *)
@@ -1394,11 +1394,11 @@ init_span(dsa_area *area,
 	if (size_class == DSA_SCLASS_BLOCK_OF_SPANS)
 	{
 		/*
-		 * A block-of-spans contains its own descriptor, so mark one object as
-		 * initialized and reduce the count of allocatable objects by one.
-		 * Doing this here has the side effect of also reducing nmax by one,
-		 * which is important to make sure we free this object at the correct
-		 * time.
+		 * 跨度的跨度块包含其自身的描述符，因此要把
+		 * 一个对象标记为已初始化，可分配对象数减一。
+		 * 在这里这样做还会顺带把 nmax 减一，
+		 * 这对于确保在正确的时机释放此对象非常重要。
+		 *
 		 */
 		span->ninitialized = 1;
 		span->nallocatable = FPM_PAGE_SIZE / obsize - 1;
@@ -1411,8 +1411,8 @@ init_span(dsa_area *area,
 }
 
 /*
- * Transfer the first span in one fullness class to the head of another
- * fullness class.
+ * 把一个满度类中的第一个跨度转移到另一个满度类
+ * 头部。
  */
 static bool
 transfer_first_span(dsa_area *area,
@@ -1422,12 +1422,12 @@ transfer_first_span(dsa_area *area,
 	dsa_area_span *span;
 	dsa_area_span *nextspan;
 
-	/* Can't do it if source list is empty. */
+	/* 源列表为空时无法这样做。 */
 	span_pointer = pool->spans[fromclass];
 	if (!DsaPointerIsValid(span_pointer))
 		return false;
 
-	/* Remove span from head of source list. */
+	/* 从源列表头部移除跨度。 */
 	span = dsa_get_address(area, span_pointer);
 	pool->spans[fromclass] = span->nextspan;
 	if (DsaPointerIsValid(span->nextspan))
@@ -1437,7 +1437,7 @@ transfer_first_span(dsa_area *area,
 		nextspan->prevspan = InvalidDsaPointer;
 	}
 
-	/* Add span to head of target list. */
+	/* 加到目标列表头部。 */
 	span->nextspan = pool->spans[toclass];
 	pool->spans[toclass] = span_pointer;
 	if (DsaPointerIsValid(span->nextspan))
@@ -1452,7 +1452,7 @@ transfer_first_span(dsa_area *area,
 }
 
 /*
- * Allocate one object of the requested size class from the given area.
+ * 从给定区域分配一个请求大小类的对象。
  */
 static inline dsa_pointer
 alloc_object(dsa_area *area, int size_class)
@@ -1465,17 +1465,17 @@ alloc_object(dsa_area *area, int size_class)
 	size_t		size;
 
 	/*
-	 * Even though ensure_active_superblock can in turn call alloc_object if
-	 * it needs to allocate a new span, that's always from a different pool,
-	 * and the order of lock acquisition is always the same, so it's OK that
-	 * we hold this lock for the duration of this function.
+	 * 尽管 ensure_active_superblock 若需要分配新跨度时
+	 * 会转而调用 alloc_object，那也总是从不同的池进行，
+	 * 而且获取锁的顺序总是相同，所以本函数
+	 * 在整个函数期间持有此锁没有问题。
 	 */
 	Assert(!LWLockHeldByMe(DSA_SCLASS_LOCK(area, size_class)));
 	LWLockAcquire(DSA_SCLASS_LOCK(area, size_class), LW_EXCLUSIVE);
 
 	/*
-	 * If there's no active superblock, we must successfully obtain one or
-	 * fail the request.
+	 * 若无活跃超级块，我们必须成功获得一个，否则
+	 * 请求失败。
 	 */
 	if (!DsaPointerIsValid(pool->spans[1]) &&
 		!ensure_active_superblock(area, pool, size_class))
@@ -1485,9 +1485,9 @@ alloc_object(dsa_area *area, int size_class)
 	else
 	{
 		/*
-		 * There should be a block in fullness class 1 at this point, and it
-		 * should never be completely full.  Thus we can either pop an object
-		 * from the free list or, failing that, initialize a new object.
+		 * 此时满度类 1 中应有一个块，并且它绝不应完全
+		 * 填满。因此我们既可以从空闲列表弹出一个对象，
+		 * 如果失败，也可以初始化一个新对象。
 		 */
 		Assert(DsaPointerIsValid(pool->spans[1]));
 		span = (dsa_area_span *)
@@ -1509,7 +1509,7 @@ alloc_object(dsa_area *area, int size_class)
 		}
 		--span->nallocatable;
 
-		/* If it's now full, move it to the highest-numbered fullness class. */
+		/* 若现已填满，则移到编号最高的满度类。 */
 		if (span->nallocatable == 0)
 			transfer_first_span(area, pool, 1, DSA_FULLNESS_CLASSES - 1);
 	}
@@ -1521,26 +1521,26 @@ alloc_object(dsa_area *area, int size_class)
 }
 
 /*
- * Ensure an active (i.e. fullness class 1) superblock, unless all existing
- * superblocks are completely full and no more can be allocated.
+ * 确保存在一个活跃（即满度类 1）超级块，除非所有
+ * 既有超级块都完全填满且无法再分配。
  *
- * Fullness classes K of 0..N are loosely intended to represent blocks whose
- * utilization percentage is at least K/N, but we only enforce this rigorously
- * for the highest-numbered fullness class, which always contains exactly
- * those blocks that are completely full.  It's otherwise acceptable for a
- * block to be in a higher-numbered fullness class than the one to which it
- * logically belongs.  In addition, the active block, which is always the
- * first block in fullness class 1, is permitted to have a higher allocation
- * percentage than would normally be allowable for that fullness class; we
- * don't move it until it's completely full, and then it goes to the
- * highest-numbered fullness class.
+ * 满度类 K（0..N 中）大致意在表示利用率至少为 K/N
+ * 的块，但我们只对编号最高的满度类严格执行这一点，
+ * 即编号最高的那个满度类——它恰好只包含
+ * 完全填满的那些块。除此之外，
+ * 一个块处于比其逻辑上所属类编号更高的满度类是
+ * 可以接受的。此外，活跃块——它始终是
+ * 满度类 1 中的第一个块——被允许拥有更高的
+ * 分配百分比；在它完全填满之前我们不会移动它，
+ * 而一旦完全填满，它就会进入
+ * 编号最高的满度类。
  *
- * It might seem odd that the active block is the head of fullness class 1
- * rather than fullness class 0, but experience with other allocators has
- * shown that it's usually better to allocate from a block that's moderately
- * full rather than one that's nearly empty.  Insofar as is reasonably
- * possible, we want to avoid performing new allocations in a block that would
- * otherwise become empty soon.
+ * 活跃块是满度类 1 而非满度类 0 的头部，这看起来
+ * 可能有些奇怪，但其他分配器的经验表明，从一个
+ * 半满的块而不是近乎空的块中分配通常更好。在合理
+ * 可行的范围内，我们希望避免在一个很快就会变空
+ * 的块中执行新的分配，以免
+ * 其很快变空。
  */
 static bool
 ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
@@ -1559,10 +1559,10 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 	Assert(LWLockHeldByMe(DSA_SCLASS_LOCK(area, size_class)));
 
 	/*
-	 * Compute the number of objects that will fit in a block of this size
-	 * class.  Span-of-spans blocks are just a single page, and the first
-	 * object isn't available for use because it describes the block-of-spans
-	 * itself.
+	 * 计算此大小类的块中所能容纳的对象数，
+	 * 跨度的跨度块只是一页，且第一个
+	 * 对象不可用，因为它描述的是跨度块自
+	 * 身。
 	 */
 	if (size_class == DSA_SCLASS_BLOCK_OF_SPANS)
 		nmax = FPM_PAGE_SIZE / obsize - 1;
@@ -1570,9 +1570,9 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 		nmax = DSA_SUPERBLOCK_SIZE / obsize;
 
 	/*
-	 * If fullness class 1 is empty, try to find a span to put in it by
-	 * scanning higher-numbered fullness classes (excluding the last one,
-	 * whose blocks are certain to all be completely full).
+	 * 若满度类 1 为空，尝试扫描编号更高的满度类
+	 * 来为它找一个跨度（不包括最后一个类，
+	 * 该类中的块必然全部完全填满）。
 	 */
 	for (fclass = 2; fclass < DSA_FULLNESS_CLASSES - 1; ++fclass)
 	{
@@ -1590,11 +1590,11 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 				dsa_get_address(area, span_pointer);
 			next_span_pointer = span->nextspan;
 
-			/* Figure out what fullness class should contain this span. */
+			/* 算出应当由哪个满度类容纳此跨度。 */
 			tfclass = (nmax - span->nallocatable)
 				* (DSA_FULLNESS_CLASSES - 1) / nmax;
 
-			/* Look up next span. */
+			/*下一跨度。*/
 			if (DsaPointerIsValid(span->nextspan))
 				nextspan = (dsa_area_span *)
 					dsa_get_address(area, span->nextspan);
@@ -1602,15 +1602,15 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 				nextspan = NULL;
 
 			/*
-			 * If utilization has dropped enough that this now belongs in some
-			 * other fullness class, move it there.
+			 * 若利用率已降到使其应属于其他满度类的程度，
+			 * 则把它移到那个类。
 			 */
 			if (tfclass < fclass)
 			{
-				/* Remove from the current fullness class list. */
+				/* 从当前满度类列表中移除。 */
 				if (pool->spans[fclass] == span_pointer)
 				{
-					/* It was the head; remove it. */
+					/* 它是头部；移除它。 */
 					Assert(!DsaPointerIsValid(span->prevspan));
 					pool->spans[fclass] = span->nextspan;
 					if (nextspan != NULL)
@@ -1618,7 +1618,7 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 				}
 				else
 				{
-					/* It was not the head. */
+					/* 它不是头部。 */
 					Assert(DsaPointerIsValid(span->prevspan));
 					prevspan = (dsa_area_span *)
 						dsa_get_address(area, span->prevspan);
@@ -1627,7 +1627,7 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 				if (nextspan != NULL)
 					nextspan->prevspan = span->prevspan;
 
-				/* Push onto the head of the new fullness class list. */
+				/* 推到新满度类列表的头部。 */
 				span->nextspan = pool->spans[tfclass];
 				pool->spans[tfclass] = span_pointer;
 				span->prevspan = InvalidDsaPointer;
@@ -1640,22 +1640,22 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 				span->fclass = tfclass;
 			}
 
-			/* Advance to next span on list. */
+			/* 前进到下一个跨度。 */
 			span_pointer = next_span_pointer;
 		}
 
-		/* Stop now if we found a suitable block. */
+		/* 若已找到合适的块则停止。 */
 		if (DsaPointerIsValid(pool->spans[1]))
 			return true;
 	}
 
 	/*
-	 * If there are no blocks that properly belong in fullness class 1, pick
-	 * one from some other fullness class and move it there anyway, so that we
-	 * have an allocation target.  Our last choice is to transfer a block
-	 * that's almost empty (and might become completely empty soon if left
-	 * alone), but even that is better than failing, which is what we must do
-	 * if there are no blocks at all with freespace.
+	 * 如果没有本应属于满度类 1 的块，就从其他某个满度
+	 * 类中挑一个并强行移过去，这样我们就有了一个分配
+	 * 目标。我们的最后选择是转移一个几乎为空的块
+	 * （放任不管它可能很快完全变空），但即便是
+	 * 这样做也比失败要好，而如果完全没有含空闲空间
+	 * 的块，那我们就只能失败。
 	 */
 	Assert(!DsaPointerIsValid(pool->spans[1]));
 	for (fclass = 2; fclass < DSA_FULLNESS_CLASSES - 1; ++fclass)
@@ -1666,13 +1666,13 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 		return true;
 
 	/*
-	 * We failed to find an existing span with free objects, so we need to
-	 * allocate a new superblock and construct a new span to manage it.
+	 * 未找到含空闲对象的既有跨度，因此需要分配
+	 * 一个新超级块并构建一个新跨度来管理它。
 	 *
-	 * First, get a dsa_area_span object to describe the new superblock block
-	 * ... unless this allocation is for a dsa_area_span object, in which case
-	 * that's surely not going to work.  We handle that case by storing the
-	 * span describing a block-of-spans inline.
+	 * 首先，获取一个 dsa_area_span 对象来描述新的超级
+	 * 块……除非本次分配正是针对一个 dsa_area_span 对象，
+	 * 那样肯定行不通。我们的处理方式是内联存储描述
+	 * 跨度块的跨度。
 	 */
 	if (size_class != DSA_SCLASS_BLOCK_OF_SPANS)
 	{
@@ -1682,7 +1682,7 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 		npages = DSA_PAGES_PER_SUPERBLOCK;
 	}
 
-	/* Find or create a segment and allocate the superblock. */
+	/* 找到或创建一个段并分配超级块。 */
 	LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 	segment_map = get_best_segment(area, npages);
 	if (segment_map == NULL)
@@ -1696,8 +1696,8 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 	}
 
 	/*
-	 * This shouldn't happen: get_best_segment() or make_new_segment()
-	 * promised that we can successfully allocate npages.
+	 * 这不应发生：get_best_segment() 或 make_new_segment()
+	 * 已承诺我们能成功分配 npages。
 	 */
 	if (!FreePageManagerGet(segment_map->fpm, npages, &first_page))
 		elog(FATAL,
@@ -1705,25 +1705,25 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 			 npages);
 	LWLockRelease(DSA_AREA_LOCK(area));
 
-	/* Compute the start of the superblock. */
+	/* 计算超级块的起始位置。 */
 	start_pointer =
 		DSA_MAKE_POINTER(get_segment_index(area, segment_map),
 						 first_page * FPM_PAGE_SIZE);
 
 	/*
-	 * If this is a block-of-spans, carve the descriptor right out of the
-	 * allocated space.
+	 * 若为跨度的跨度块，则直接从已分配空间刻
+	 * 出描述符。
 	 */
 	if (size_class == DSA_SCLASS_BLOCK_OF_SPANS)
 	{
 		/*
-		 * We have a pointer into the segment.  We need to build a dsa_pointer
-		 * from the segment index and offset into the segment.
+		 * 我们有一个指向段内的指针。需要用段下标和段内
+		 * 的偏移量来构建一个 dsa_pointer。
 		 */
 		span_pointer = start_pointer;
 	}
 
-	/* Initialize span and pagemap. */
+	/*初始化跨度、页映射。*/
 	init_span(area, span_pointer, pool, start_pointer, npages, size_class);
 	for (i = 0; i < npages; ++i)
 		segment_map->pagemap[first_page + i] = span_pointer;
@@ -1732,12 +1732,12 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 }
 
 /*
- * Return the segment map corresponding to a given segment index, mapping the
- * segment in if necessary.  For internal segment book-keeping, this is called
- * with the area lock held.  It is also called by dsa_free and dsa_get_address
- * without any locking, relying on the fact they have a known live segment
- * index and they always call check_for_freed_segments to ensures that any
- * freed segment occupying the same slot is detached first.
+ * 返回与给定段下标对应的段映射，如有必要则将段
+ * 映射进来。对于内部段簿记，调用本函数时持有区域
+ * 锁。dsa_free 和 dsa_get_address 也会调用本函数，
+ * 但不加任何锁，其依据是：它们持有一个已知活跃的
+ * 段下标，并且它们总会调用 check_for_freed_segments，
+ * 确保占据同槽位的已释放段先被分离。
  */
 static dsa_segment_map *
 get_segment_by_index(dsa_area *area, dsa_segment_index index)
@@ -1749,18 +1749,18 @@ get_segment_by_index(dsa_area *area, dsa_segment_index index)
 		dsa_segment_map *segment_map;
 
 		/*
-		 * If we are reached by dsa_free or dsa_get_address, there must be at
-		 * least one object allocated in the referenced segment.  Otherwise,
-		 * their caller has a double-free or access-after-free bug, which we
-		 * have no hope of detecting.  So we know it's safe to access this
-		 * array slot without holding a lock; it won't change underneath us.
-		 * Furthermore, we know that we can see the latest contents of the
-		 * slot, as explained in check_for_freed_segments, which those
-		 * functions call before arriving here.
+		 * 如果到达此处的是 dsa_free 或 dsa_get_address，则被
+		 * 引用段中必须至少有一个对象已被分配。否则，
+		 * 其调用者有二次释放或释放后访问缺陷，而我们
+		 * 根本无从检测。因此可知，不持锁访问此
+		 * 槽位是安全的；它不会在我们脚下被改变。
+		 * 此外，我们还知道可以看到槽位的最新内容，
+		 * 如 check_for_freed_segments 所述，那些函数到达
+		 * 此处之前都会调用它。
 		 */
 		handle = area->control->segment_handles[index];
 
-		/* It's an error to try to access an unused slot. */
+		/* 尝试访问未使用的槽位是个错误。 */
 		if (handle == DSM_HANDLE_INVALID)
 			elog(ERROR,
 				 "dsa_area could not attach to a segment that has been freed");
@@ -1783,7 +1783,7 @@ get_segment_by_index(dsa_area *area, dsa_segment_index index)
 			 MAXALIGN(sizeof(dsa_segment_header)) +
 			 MAXALIGN(sizeof(FreePageManager)));
 
-		/* Remember the highest index this backend has ever mapped. */
+		/* 记住本后端曾映射过的最高下标。 */
 		if (area->high_segment_index < index)
 			area->high_segment_index = index;
 
@@ -1792,19 +1792,19 @@ get_segment_by_index(dsa_area *area, dsa_segment_index index)
 	}
 
 	/*
-	 * Callers of dsa_get_address() and dsa_free() don't hold the area lock,
-	 * but it's a bug in the calling code and undefined behavior if the
-	 * address is not live (ie if the segment might possibly have been freed,
-	 * they're trying to use a dangling pointer).
+	 * dsa_get_address() 和 dsa_free() 的调用者不持有区域
+	 * 锁，但地址不活跃就是调用代码缺陷和
+	 * 未定义行为（即如果该段可能已被释放，它们就是在
+	 * 使用悬空指针）。
 	 *
-	 * For dsa.c code that holds the area lock to manipulate segment_bins
-	 * lists, it would be a bug if we ever reach a freed segment here.  After
-	 * it's marked as freed, the only thing any backend should do with it is
-	 * unmap it, and it should always have done that in
-	 * check_for_freed_segments_locked() before arriving here to resolve an
-	 * index to a segment_map.
+	 * 对于持区域锁操纵 segment_bins 列表的 dsa.c 代码，
+	 * 如果在这里到达一个已释放的段就是缺陷。在被标记
+	 * 为已释放之后，任何后端对它唯一应做的就是解除其
+	 * 映射，并且它应当总是已经在此
+	 * check_for_freed_segments_locked() 中先完成，再解析
+	 * 为 segment_map。
 	 *
-	 * Either way we can assert that we aren't returning a freed segment.
+	 * 无论哪种方式，都可断言返回的不是已释放段。
 	 */
 	Assert(!area->segment_maps[index].header->freed);
 
@@ -1812,10 +1812,10 @@ get_segment_by_index(dsa_area *area, dsa_segment_index index)
 }
 
 /*
- * Return a superblock to the free page manager.  If the underlying segment
- * has become entirely free, then return it to the operating system.
+ * 把一个超级块归还给空闲页管理器。如果底层段已
+ * 完全变空，则把它归还给操作系统。
  *
- * The appropriate pool lock must be held.
+ * 必须持有相应的池锁。
  */
 static void
 destroy_superblock(dsa_area *area, dsa_pointer span_pointer)
@@ -1825,13 +1825,13 @@ destroy_superblock(dsa_area *area, dsa_pointer span_pointer)
 	dsa_segment_map *segment_map;
 
 
-	/* Remove it from its fullness class list. */
+	/* 把它从满度类列表中移除。 */
 	unlink_span(area, span);
 
 	/*
-	 * Note: Here we acquire the area lock while we already hold a per-pool
-	 * lock.  We never hold the area lock and then take a pool lock, or we
-	 * could deadlock.
+	 * 注意：这里我们在已持有每池锁的情况下获取区域
+	 * 锁。我们绝不持有区域锁之后再取池锁，否则
+	 * 就会死锁。
 	 */
 	LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 	check_for_freed_segments_locked(area);
@@ -1840,17 +1840,17 @@ destroy_superblock(dsa_area *area, dsa_pointer span_pointer)
 	FreePageManagerPut(segment_map->fpm,
 					   DSA_EXTRACT_OFFSET(span->start) / FPM_PAGE_SIZE,
 					   span->npages);
-	/* Check if the segment is now entirely free. */
+	/* 检查段现在是否完全变空。 */
 	if (fpm_largest(segment_map->fpm) == segment_map->header->usable_pages)
 	{
 		dsa_segment_index index = get_segment_index(area, segment_map);
 
-		/* If it's not the segment with extra control data, free it. */
+		/* 若不是带有额外控制数据的段，则释放它。 */
 		if (index != 0)
 		{
 			/*
-			 * Give it back to the OS, and allow other backends to detect that
-			 * they need to detach.
+			 * 把它归还给操作系统，并让其他后端能够检测到
+			 * 自己需分离。
 			 */
 			unlink_segment(area, segment_map);
 			segment_map->header->freed = true;
@@ -1868,19 +1868,19 @@ destroy_superblock(dsa_area *area, dsa_pointer span_pointer)
 		}
 	}
 
-	/* Move segment to appropriate bin if necessary. */
+	/* 必要时把段移到相应的桶。 */
 	if (segment_map->header != NULL)
 		rebin_segment(area, segment_map);
 
 	LWLockRelease(DSA_AREA_LOCK(area));
 
 	/*
-	 * Span-of-spans blocks store the span which describes them within the
-	 * block itself, so freeing the storage implicitly frees the descriptor
-	 * also.  If this is a block of any other type, we need to separately free
-	 * the span object also.  This recursive call to dsa_free will acquire the
-	 * span pool's lock.  We can't deadlock because the acquisition order is
-	 * always some other pool and then the span pool.
+	 * 跨度的跨度块把描述自身的跨度存储在块内，
+	 * 因此释放该存储会隐式地释放描述符，
+	 * 如果这是任何其他类型的块，我们就需要另行释放
+	 * 跨度对象。这次对 dsa_free 的递归调用会获取跨度池
+	 * 的锁。我们不可能死锁，因为获取顺序总是先某个
+	 * 其他池然后才是跨度池。
 	 */
 	if (size_class != DSA_SCLASS_BLOCK_OF_SPANS)
 		dsa_free(area, span_pointer);
@@ -1930,33 +1930,33 @@ add_span_to_fullness_class(dsa_area *area, dsa_area_span *span,
 }
 
 /*
- * Detach from an area that was either created or attached to by this process.
+ * 从本进程曾创建或附接的区域分离。
  */
 void
 dsa_detach(dsa_area *area)
 {
 	int			i;
 
-	/* Detach from all segments. */
+	/* 与所有段分离。 */
 	for (i = 0; i <= area->high_segment_index; ++i)
 		if (area->segment_maps[i].segment != NULL)
 			dsm_detach(area->segment_maps[i].segment);
 
 	/*
-	 * Note that 'detaching' (= detaching from DSM segments) doesn't include
-	 * 'releasing' (= adjusting the reference count).  It would be nice to
-	 * combine these operations, but client code might never get around to
-	 * calling dsa_detach because of an error path, and a detach hook on any
-	 * particular segment is too late to detach other segments in the area
-	 * without risking a 'leak' warning in the non-error path.
+	 * 注意，"分离"（= 与 DSM 段分离）不包括
+	 * "释放"（= 调整引用计数）。最好能合并两者，
+	 * 但客户端代码可能永远不会走到
+	 * 调用 dsa_detach 这一步（由于错误路径），而任何
+	 * 特定段上的分离钩子此时再分离区域中其他段都
+	 * 太迟了，非错误路径有"泄漏"警告之险。
 	 */
 
-	/* Free the backend-local area object. */
+	/*释放后端本地区域对象。*/
 	pfree(area);
 }
 
 /*
- * Unlink a segment from the bin that contains it.
+ * 把段从包含它的桶中解除链接。
  */
 static void
 unlink_segment(dsa_area *area, dsa_segment_map *segment_map)
@@ -1985,10 +1985,10 @@ unlink_segment(dsa_area *area, dsa_segment_map *segment_map)
 }
 
 /*
- * Find a segment that could satisfy a request for 'npages' of contiguous
- * memory, or return NULL if none can be found.  This may involve attaching to
- * segments that weren't previously attached so that we can query their free
- * pages map.
+ * 找到一个能满足 'npages' 连续内存请求的段，或
+ * 在找不到时返回 NULL。这可能涉及附接之前未附接
+ * 的段，以便我们能查询其空闲页
+ * 映射。
  */
 static dsa_segment_map *
 get_best_segment(dsa_area *area, size_t npages)
@@ -1999,21 +1999,21 @@ get_best_segment(dsa_area *area, size_t npages)
 	check_for_freed_segments_locked(area);
 
 	/*
-	 * Start searching from the first bin that *might* have enough contiguous
-	 * pages.
+	 * 从第一个*可能*拥有足够连续页的桶开始搜
+	 * 索。
 	 */
 	for (bin = contiguous_pages_to_segment_bin(npages);
 		 bin < DSA_NUM_SEGMENT_BINS;
 		 ++bin)
 	{
 		/*
-		 * The minimum contiguous size that any segment in this bin should
-		 * have.  We'll re-bin if we see segments with fewer.
+		 * 此桶中任何段都应具有的最低连续大小，
+		 * 若看到更小的段，就会重新分桶。
 		 */
 		size_t		threshold = (size_t) 1 << (bin - 1);
 		dsa_segment_index segment_index;
 
-		/* Search this bin for a segment with enough contiguous space. */
+		/* 在此桶中搜索有足够连续空间的段。 */
 		segment_index = area->control->segment_bins[bin];
 		while (segment_index != DSA_SEGMENT_INDEX_NONE)
 		{
@@ -2025,41 +2025,41 @@ get_best_segment(dsa_area *area, size_t npages)
 			next_segment_index = segment_map->header->next;
 			contiguous_pages = fpm_largest(segment_map->fpm);
 
-			/* Not enough for the request, still enough for this bin. */
+			/* 对请求不够，但对此桶仍然足够。 */
 			if (contiguous_pages >= threshold && contiguous_pages < npages)
 			{
 				segment_index = next_segment_index;
 				continue;
 			}
 
-			/* Re-bin it if it's no longer in the appropriate bin. */
+			/* 若它不再位于适当的桶中则重新分桶。 */
 			if (contiguous_pages < threshold)
 			{
 				rebin_segment(area, segment_map);
 
 				/*
-				 * But fall through to see if it's enough to satisfy this
-				 * request anyway....
+				 * 但继续往下执行，看看它是否足以满足
+				 * 这个请求……
 				 */
 			}
 
-			/* Check if we are done. */
+			/* 检查是否完成。 */
 			if (contiguous_pages >= npages)
 				return segment_map;
 
-			/* Continue searching the same bin. */
+			/* 继续搜索同一个桶。 */
 			segment_index = next_segment_index;
 		}
 	}
 
-	/* Not found. */
+	/*未找到。*/
 	return NULL;
 }
 
 /*
- * Create a new segment that can handle at least requested_pages.  Returns
- * NULL if the requested total size limit or maximum allowed number of
- * segments would be exceeded.
+ * 创建一个至少能处理 requested_pages 的新段。如果
+ * 会超过请求的总大小限制或最大允许段数，则返回
+ * NULL。
  */
 static dsa_segment_map *
 make_new_segment(dsa_area *area, size_t requested_pages)
@@ -2074,7 +2074,7 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 
 	Assert(LWLockHeldByMe(DSA_AREA_LOCK(area)));
 
-	/* Find a segment slot that is not in use (linearly for now). */
+	/* 找一个未用的段槽位（暂为线性扫描）。 */
 	for (new_index = 1; new_index < DSA_MAX_SEGMENTS; ++new_index)
 	{
 		if (area->control->segment_handles[new_index] == DSM_HANDLE_INVALID)
@@ -2084,26 +2084,26 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 		return NULL;
 
 	/*
-	 * If the total size limit is already exceeded, then we exit early and
-	 * avoid arithmetic wraparound in the unsigned expressions below.
+	 * 如果总大小限制已被超过，那么我们提前退出，
+	 * 从而避免下面无符号表达式中的算术回绕。
 	 */
 	if (area->control->total_segment_size >=
 		area->control->max_total_segment_size)
 		return NULL;
 
 	/*
-	 * The size should be at least as big as requested, and at least big
-	 * enough to follow a geometric series that approximately doubles the
-	 * total storage each time we create a new segment.  We use geometric
-	 * growth because the underlying DSM system isn't designed for large
-	 * numbers of segments (otherwise we might even consider just using one
-	 * DSM segment for each large allocation and for each superblock, and then
-	 * we wouldn't need to use FreePageManager).
+	 * 大小至少应与请求的一样大，且至少足以遵循
+	 * 一个每次我们创建新段时都大约使总存储翻倍的
+	 * 几何级数。我们使用几何增长，因底层 DSM 系统
+	 * 并不是为大量段而设计的（否则
+	 * 我们甚至可以考虑只为每个大分配和每个超级块
+	 * 使用一个 DSM 段，那样
+	 * 就无需再使用 FreePageManager）。
 	 *
-	 * We decide on a total segment size first, so that we produce tidy
-	 * power-of-two sized segments.  This is a good property to have if we
-	 * move to huge pages in the future.  Then we work back to the number of
-	 * pages we can fit.
+	 * 我们先确定段的总大小，以便产生整齐的
+	 * 2 的幂大小的段。如果将来转向巨型页，
+	 * 这是个好特性。然后我们反推出可以容纳的
+	 * 页数。
 	 */
 	total_size = DSA_INITIAL_SEGMENT_SIZE *
 		((size_t) 1 << (new_index / DSA_NUM_SEGMENTS_AT_EACH_SIZE));
@@ -2118,7 +2118,7 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 		MAXALIGN(sizeof(FreePageManager)) +
 		sizeof(dsa_pointer) * total_pages;
 
-	/* Add padding up to next page boundary. */
+	/* 补齐填充至下一页边界。 */
 	if (metadata_bytes % FPM_PAGE_SIZE != 0)
 		metadata_bytes += FPM_PAGE_SIZE - (metadata_bytes % FPM_PAGE_SIZE);
 	if (total_size <= metadata_bytes)
@@ -2126,12 +2126,12 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 	usable_pages = (total_size - metadata_bytes) / FPM_PAGE_SIZE;
 	Assert(metadata_bytes + usable_pages * FPM_PAGE_SIZE <= total_size);
 
-	/* See if that is enough... */
+	/* 看是否足够…… */
 	if (requested_pages > usable_pages)
 	{
 		/*
-		 * We'll make an odd-sized segment, working forward from the requested
-		 * number of pages.
+		 * 我们将创建一个奇数大小的段，从请求的页数
+		 * 正向推算。
 		 */
 		usable_pages = requested_pages;
 		metadata_bytes =
@@ -2139,22 +2139,22 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 			MAXALIGN(sizeof(FreePageManager)) +
 			usable_pages * sizeof(dsa_pointer);
 
-		/* Add padding up to next page boundary. */
+		/* 补齐填充至下一页边界。 */
 		if (metadata_bytes % FPM_PAGE_SIZE != 0)
 			metadata_bytes += FPM_PAGE_SIZE - (metadata_bytes % FPM_PAGE_SIZE);
 		total_size = metadata_bytes + usable_pages * FPM_PAGE_SIZE;
 
-		/* Is that too large for dsa_pointer's addressing scheme? */
+		/* 对 dsa_pointer 寻址方案而言太大了吗？ */
 		if (total_size > DSA_MAX_SEGMENT_SIZE)
 			return NULL;
 
-		/* Would that exceed the limit? */
+		/* 这会超过限制吗？ */
 		if (total_size > area->control->max_total_segment_size -
 			area->control->total_segment_size)
 			return NULL;
 	}
 
-	/* Create the segment. */
+	/* 创建段。 */
 	segment = dsm_create(total_size, 0);
 	if (segment == NULL)
 		return NULL;
@@ -2162,21 +2162,21 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 	if (area->mapping_pinned)
 		dsm_pin_mapping(segment);
 
-	/* Store the handle in shared memory to be found by index. */
+	/* 把句柄存入共享内存以便按下标查找。 */
 	area->control->segment_handles[new_index] =
 		dsm_segment_handle(segment);
-	/* Track the highest segment index in the history of the area. */
+	/* 追踪本区域历史上的最高段下标。 */
 	if (area->control->high_segment_index < new_index)
 		area->control->high_segment_index = new_index;
-	/* Track the highest segment index this backend has ever mapped. */
+	/* 追踪本后端曾映射过的最高段下标。 */
 	if (area->high_segment_index < new_index)
 		area->high_segment_index = new_index;
-	/* Track total size of all segments. */
+	/* 追踪所有段的总大小。 */
 	area->control->total_segment_size += total_size;
 	Assert(area->control->total_segment_size <=
 		   area->control->max_total_segment_size);
 
-	/* Build a segment map for this segment in this backend. */
+	/* 在本后端为该段构建段映射。 */
 	segment_map = &area->segment_maps[new_index];
 	segment_map->segment = segment;
 	segment_map->mapped_address = dsm_segment_address(segment);
@@ -2189,12 +2189,12 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 		 MAXALIGN(sizeof(dsa_segment_header)) +
 		 MAXALIGN(sizeof(FreePageManager)));
 
-	/* Set up the free page map. */
+	/* 建立空闲页映射。 */
 	FreePageManagerInitialize(segment_map->fpm, segment_map->mapped_address);
 	FreePageManagerPut(segment_map->fpm, metadata_bytes / FPM_PAGE_SIZE,
 					   usable_pages);
 
-	/* Set up the segment header and put it in the appropriate bin. */
+	/* 建立段头部并把它放入相应的桶。 */
 	segment_map->header->magic =
 		DSA_SEGMENT_HEADER_MAGIC ^ area->control->handle ^ new_index;
 	segment_map->header->usable_pages = usable_pages;
@@ -2218,17 +2218,17 @@ make_new_segment(dsa_area *area, size_t requested_pages)
 }
 
 /*
- * Check if any segments have been freed by destroy_superblock, so we can
- * detach from them in this backend.  This function is called by
- * dsa_get_address and dsa_free to make sure that a dsa_pointer they have
- * received can be resolved to the correct segment.
+ * 检查是否有段已被 destroy_superblock 释放，以便我们
+ * 能在本后端与它们分离。本函数由 dsa_get_address
+ * 和 dsa_free 调用，以确保它们收到的 dsa_pointer 能
+ * 被解析到正确的段。
  *
- * The danger we want to defend against is that there could be an old segment
- * mapped into a given slot in this backend, and the dsa_pointer they have
- * might refer to some new segment in the same slot.  So those functions must
- * be sure to process all instructions to detach from a freed segment that had
- * been generated by the time this process received the dsa_pointer, before
- * they call get_segment_by_index.
+ * 我们想要防范的危险是：本后端中给定的槽位里可能
+ * 还映射着一个旧段，而它们手中的 dsa_pointer 可能
+ * 指向同一槽位中的某个新段。因此这些函数必须确保
+ * 处理所有在本进程收到该 dsa_pointer 之前就已生成
+ * 的与已释放段分离的指令，然后才调用
+ * get_segment_by_index。
  */
 static void
 check_for_freed_segments(dsa_area *area)
@@ -2236,23 +2236,23 @@ check_for_freed_segments(dsa_area *area)
 	size_t		freed_segment_counter;
 
 	/*
-	 * Any other process that has freed a segment has incremented
-	 * freed_segment_counter while holding an LWLock, and that must precede
-	 * any backend creating a new segment in the same slot while holding an
-	 * LWLock, and that must precede the creation of any dsa_pointer pointing
-	 * into the new segment which might reach us here, and the caller must
-	 * have sent the dsa_pointer to this process using appropriate memory
-	 * synchronization (some kind of locking or atomic primitive or system
-	 * call).  So all we need to do on the reading side is ask for the load of
-	 * freed_segment_counter to follow the caller's load of the dsa_pointer it
-	 * has, and we can be sure to detect any segments that had been freed as
-	 * of the time that the dsa_pointer reached this process.
+	 * 任何其他已释放段的进程都在持有 LWLock 的
+	 * 同时递增 freed_segment_counter，而这必须先于任何
+	 * 后端在持有 LWLock 的情况下在同一槽位中创建新段
+	 * 的操作，而这又必须先于任何指向新段、可能到达
+	 * 我们这里的 dsa_pointer 的创建，并且调用者必须已经
+	 * 使用适当的内存同步（某种锁或原子原语或系统调
+	 * 用）把该 dsa_pointer 发送到本进程。因此，在读取侧
+	 * 我们需要做的只是要求 freed_segment_counter 的加载
+	 * 发生在调用者加载其 dsa_pointer 之后，这样我们就能
+	 * 确保检测到在该 dsa_pointer 到达本进程时任何已被
+	 * 释放的段。
 	 */
 	pg_read_barrier();
 	freed_segment_counter = area->control->freed_segment_counter;
 	if (unlikely(area->freed_segment_counter != freed_segment_counter))
 	{
-		/* Check all currently mapped segments to find what's been freed. */
+		/* 检查当前映射的所有段以找出哪些已被释放。 */
 		LWLockAcquire(DSA_AREA_LOCK(area), LW_EXCLUSIVE);
 		check_for_freed_segments_locked(area);
 		LWLockRelease(DSA_AREA_LOCK(area));
@@ -2260,11 +2260,11 @@ check_for_freed_segments(dsa_area *area)
 }
 
 /*
- * Workhorse for check_for_freed_segments(), and also used directly in path
- * where the area lock is already held.  This should be called after acquiring
- * the lock but before looking up any segment by index number, to make sure we
- * unmap any stale segments that might have previously had the same index as a
- * current segment.
+ * check_for_freed_segments() 的工作函数，也在已持有区
+ * 域锁的路径中被直接使用。应当在获取锁之后、按
+ * 下标查找任何段之前调用本函数，以确保我们解除
+ * 任何可能曾拥有与当前段相同下标的过期段的
+ * 映射。
  */
 static void
 check_for_freed_segments_locked(dsa_area *area)
@@ -2292,7 +2292,7 @@ check_for_freed_segments_locked(dsa_area *area)
 }
 
 /*
- * Re-bin segment if it's no longer in the appropriate bin.
+ * 若段不再位于适当的桶中则重新分桶。
  */
 static void
 rebin_segment(dsa_area *area, dsa_segment_map *segment_map)
@@ -2304,10 +2304,10 @@ rebin_segment(dsa_area *area, dsa_segment_map *segment_map)
 	if (segment_map->header->bin == new_bin)
 		return;
 
-	/* Remove it from its current bin. */
+	/* 把它从当前桶移除。 */
 	unlink_segment(area, segment_map);
 
-	/* Push it onto the front of its new bin. */
+	/* 把它推到新桶的前端。 */
 	segment_index = get_segment_index(area, segment_map);
 	segment_map->header->prev = DSA_SEGMENT_INDEX_NONE;
 	segment_map->header->next = area->control->segment_bins[new_bin];

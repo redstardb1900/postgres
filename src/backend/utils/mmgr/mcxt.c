@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * mcxt.c
- *	  POSTGRES memory context management code.
+ *	  POSTGRES 内存上下文管理代码。
  *
- * This module handles context management operations that are independent
- * of the particular kind of context being operated on.  It calls
- * context-type-specific operations via the function pointers in a
- * context's MemoryContextMethods struct.
+ * 本模块处理与被操作上下文种类无关的管理操作。
+ * 它经由某个上下文的 MemoryContextMethods 结构中
+ * 的函数指针，调用特定上下文类型的操作。
+ *
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -39,7 +39,7 @@ static MemoryContext BogusGetChunkContext(void *pointer);
 static Size BogusGetChunkSpace(void *pointer);
 
 /*****************************************************************************
- *	  GLOBAL MEMORY															 *
+ *	  全局内存 													 *
  *****************************************************************************/
 
 static const MemoryContextMethods mcxt_methods[] = {
@@ -86,25 +86,25 @@ static const MemoryContextMethods mcxt_methods[] = {
 #endif
 
 	/* alignedalloc.c */
-	[MCTX_ALIGNED_REDIRECT_ID].alloc = NULL,	/* not required */
+	[MCTX_ALIGNED_REDIRECT_ID].alloc = NULL,	/* 不需要 */
 	[MCTX_ALIGNED_REDIRECT_ID].free_p = AlignedAllocFree,
 	[MCTX_ALIGNED_REDIRECT_ID].realloc = AlignedAllocRealloc,
-	[MCTX_ALIGNED_REDIRECT_ID].reset = NULL,	/* not required */
-	[MCTX_ALIGNED_REDIRECT_ID].delete_context = NULL,	/* not required */
+	[MCTX_ALIGNED_REDIRECT_ID].reset = NULL,	/* 不需要 */
+	[MCTX_ALIGNED_REDIRECT_ID].delete_context = NULL,	/* 不需要 */
 	[MCTX_ALIGNED_REDIRECT_ID].get_chunk_context = AlignedAllocGetChunkContext,
 	[MCTX_ALIGNED_REDIRECT_ID].get_chunk_space = AlignedAllocGetChunkSpace,
-	[MCTX_ALIGNED_REDIRECT_ID].is_empty = NULL, /* not required */
-	[MCTX_ALIGNED_REDIRECT_ID].stats = NULL,	/* not required */
+	[MCTX_ALIGNED_REDIRECT_ID].is_empty = NULL, /* 不需要 */
+	[MCTX_ALIGNED_REDIRECT_ID].stats = NULL,	/* 不需要 */
 #ifdef MEMORY_CONTEXT_CHECKING
-	[MCTX_ALIGNED_REDIRECT_ID].check = NULL,	/* not required */
+	[MCTX_ALIGNED_REDIRECT_ID].check = NULL,	/* 不需要 */
 #endif
 
 
 	/*
-	 * Unused (as yet) IDs should have dummy entries here.  This allows us to
-	 * fail cleanly if a bogus pointer is passed to pfree or the like.  It
-	 * seems sufficient to provide routines for the methods that might get
-	 * invoked from inspection of a chunk (see MCXT_METHOD calls below).
+	 * 尚未使用的 ID 应在这里有哑条目。这样，若向 pfree
+	 * 之类传入伪造指针时也能干净地失败。似乎只要
+	 * 为可能从区块检视中触发的那些方法提供例程
+	 * 就足够了（见下方的 MCXT_METHOD 调用）。
 	 */
 
 	[MCTX_UNUSED1_ID].free_p = BogusFree,
@@ -130,13 +130,13 @@ static const MemoryContextMethods mcxt_methods[] = {
 
 /*
  * CurrentMemoryContext
- *		Default memory context for allocations.
+ *		分配所用的默认内存上下文。
  */
 MemoryContext CurrentMemoryContext = NULL;
 
 /*
- * Standard top-level contexts. For a description of the purpose of each
- * of these contexts, refer to src/backend/utils/mmgr/README
+ * 标准的顶层上下文。各上下文的用途说明请参阅
+ * src/backend/utils/mmgr/README
  */
 MemoryContext TopMemoryContext = NULL;
 MemoryContext ErrorContext = NULL;
@@ -146,7 +146,7 @@ MemoryContext MessageContext = NULL;
 MemoryContext TopTransactionContext = NULL;
 MemoryContext CurTransactionContext = NULL;
 
-/* This is a transient link to the active portal's memory context: */
+/* 这是指向活动门户内存上下文的临时链接： */
 MemoryContext PortalContext = NULL;
 
 static void MemoryContextCallResetCallbacks(MemoryContext context);
@@ -159,24 +159,24 @@ static void MemoryContextStatsPrint(MemoryContext context, void *passthru,
 									bool print_to_stderr);
 
 /*
- * You should not do memory allocations within a critical section, because
- * an out-of-memory error will be escalated to a PANIC. To enforce that
- * rule, the allocation functions Assert that.
+ * 不要在临界区内做内存分配，因为内存耗尽错误将
+ * 升级为 PANIC。为了强制执行该规则，分配函数会用
+ * Assert 来断言这一点。
  */
 #define AssertNotInCriticalSection(context) \
 	Assert(CritSectionCount == 0 || (context)->allowInCritSection)
 
 /*
- * Call the given function in the MemoryContextMethods for the memory context
- * type that 'pointer' belongs to.
+ * 在 'pointer' 所属内存上下文类型的 MemoryContextMethods
+ * 中调用给定函数。
  */
 #define MCXT_METHOD(pointer, method) \
 	mcxt_methods[GetMemoryChunkMethodID(pointer)].method
 
 /*
  * GetMemoryChunkMethodID
- *		Return the MemoryContextMethodID from the uint64 chunk header which
- *		directly precedes 'pointer'.
+ *		从紧邻 'pointer' 之前的 uint64 区块头部中返回
+ *		MemoryContextMethodID。
  */
 static inline MemoryContextMethodID
 GetMemoryChunkMethodID(const void *pointer)
@@ -184,18 +184,18 @@ GetMemoryChunkMethodID(const void *pointer)
 	uint64		header;
 
 	/*
-	 * Try to detect bogus pointers handed to us, poorly though we can.
-	 * Presumably, a pointer that isn't MAXALIGNED isn't pointing at an
-	 * allocated chunk.
+	 * 尝试检测交给我们的伪造指针，虽能力有限。
+	 * 据推测，未 MAXALIGNED 的指针并没有指向一个
+	 * 已分配块。
 	 */
 	Assert(pointer == (const void *) MAXALIGN(pointer));
 
-	/* Allow access to the uint64 header */
+	/* 允许访问 uint64 头部 */
 	VALGRIND_MAKE_MEM_DEFINED((char *) pointer - sizeof(uint64), sizeof(uint64));
 
 	header = *((const uint64 *) ((const char *) pointer - sizeof(uint64)));
 
-	/* Disallow access to the uint64 header */
+	/* 禁止访问 uint64 头部 */
 	VALGRIND_MAKE_MEM_NOACCESS((char *) pointer - sizeof(uint64), sizeof(uint64));
 
 	return (MemoryContextMethodID) (header & MEMORY_CONTEXT_METHODID_MASK);
@@ -203,31 +203,31 @@ GetMemoryChunkMethodID(const void *pointer)
 
 /*
  * GetMemoryChunkHeader
- *		Return the uint64 chunk header which directly precedes 'pointer'.
+ *		返回紧邻 'pointer' 之前的 uint64 区块头部。
  *
- * This is only used after GetMemoryChunkMethodID, so no need for error checks.
+ * 它只在 GetMemoryChunkMethodID 之后使用，故无需错误检查。
  */
 static inline uint64
 GetMemoryChunkHeader(const void *pointer)
 {
 	uint64		header;
 
-	/* Allow access to the uint64 header */
+	/* 允许访问 uint64 头部 */
 	VALGRIND_MAKE_MEM_DEFINED((char *) pointer - sizeof(uint64), sizeof(uint64));
 
 	header = *((const uint64 *) ((const char *) pointer - sizeof(uint64)));
 
-	/* Disallow access to the uint64 header */
+	/* 禁止访问 uint64 头部 */
 	VALGRIND_MAKE_MEM_NOACCESS((char *) pointer - sizeof(uint64), sizeof(uint64));
 
 	return header;
 }
 
 /*
- * Support routines to trap use of invalid memory context method IDs
- * (from calling pfree or the like on a bogus pointer).  As a possible
- * aid in debugging, we report the header word along with the pointer
- * address (if we got here, there must be an accessible header word).
+ * 用于捕获无效内存上下文方法 ID 的支持例程
+ *（对伪造指针调用 pfree 等所致）。作为可能的
+ * 调试辅助，我们会连同指针地址一起报告头部字
+ *（能走到这里就必有可访问的头部字）。
  */
 static void
 BogusFree(void *pointer)
@@ -241,7 +241,7 @@ BogusRealloc(void *pointer, Size size)
 {
 	elog(ERROR, "repalloc called with invalid pointer %p (header 0x%016llx)",
 		 pointer, (unsigned long long) GetMemoryChunkHeader(pointer));
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 static MemoryContext
@@ -249,7 +249,7 @@ BogusGetChunkContext(void *pointer)
 {
 	elog(ERROR, "GetMemoryChunkContext called with invalid pointer %p (header 0x%016llx)",
 		 pointer, (unsigned long long) GetMemoryChunkHeader(pointer));
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 static Size
@@ -257,30 +257,30 @@ BogusGetChunkSpace(void *pointer)
 {
 	elog(ERROR, "GetMemoryChunkSpace called with invalid pointer %p (header 0x%016llx)",
 		 pointer, (unsigned long long) GetMemoryChunkHeader(pointer));
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 
 /*****************************************************************************
- *	  EXPORTED ROUTINES														 *
+ *	  导出的例程  													 *
  *****************************************************************************/
 
 
 /*
  * MemoryContextInit
- *		Start up the memory-context subsystem.
+ *		启动内存上下文子系统。
  *
- * This must be called before creating contexts or allocating memory in
- * contexts.  TopMemoryContext and ErrorContext are initialized here;
- * other contexts must be created afterwards.
+ * 创建上下文或在其中分配内存之前，必须调用它。
+ * TopMemoryContext 和 ErrorContext 在这里初始化；
+ * 其余上下文必须在之后创建。
  *
- * In normal multi-backend operation, this is called once during
- * postmaster startup, and not at all by individual backend startup
- * (since the backends inherit an already-initialized context subsystem
- * by virtue of being forked off the postmaster).  But in an EXEC_BACKEND
- * build, each process must do this for itself.
+ * 正常多后台运行时，本函数只在 postmaster
+ * 启动时调用一次，各后台自身启动并不调用它
+ *（因为后台 fork 自 postmaster，已继承了
+ * 初始化完毕的上下文子系统）。但在 EXEC_BACKEND
+ * 构建中每进程须自行完成此步。
  *
- * In a standalone backend this must be called during backend startup.
+ * 独立后台中，本函数必须在后台启动时调用。
  */
 void
 MemoryContextInit(void)
@@ -288,30 +288,30 @@ MemoryContextInit(void)
 	Assert(TopMemoryContext == NULL);
 
 	/*
-	 * First, initialize TopMemoryContext, which is the parent of all others.
+	 * 首先，初始化 TopMemoryContext，其他上下文之父。
 	 */
 	TopMemoryContext = AllocSetContextCreate((MemoryContext) NULL,
 											 "TopMemoryContext",
 											 ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Not having any other place to point CurrentMemoryContext, make it point
-	 * to TopMemoryContext.  Caller should change this soon!
+	 * CurrentMemoryContext 没有别的可指向之处，让它指向
+	 * TopMemoryContext。调用者应尽快更改！
 	 */
 	CurrentMemoryContext = TopMemoryContext;
 
 	/*
-	 * Initialize ErrorContext as an AllocSetContext with slow growth rate ---
-	 * we don't really expect much to be allocated in it. More to the point,
-	 * require it to contain at least 8K at all times. This is the only case
-	 * where retained memory in a context is *essential* --- we want to be
-	 * sure ErrorContext still has some memory even if we've run out
-	 * elsewhere! Also, allow allocations in ErrorContext within a critical
-	 * section. Otherwise a PANIC will cause an assertion failure in the error
-	 * reporting code, before printing out the real cause of the failure.
+	 * 将 ErrorContext 初始化为慢增长率的 AllocSetContext ---
+	 * 我们并不指望其中会分配太多东西。更重要的是，
+	 * 要求它在任何时刻都保有至少 8K。这是唯一必须
+	 * 常驻内存的上下文 --- 我们要确保即使别处耗尽，
+	 * ErrorContext 仍有内存！此外，允许在临界区内
+	 * 对 ErrorContext 进行分配。否则 PANIC 会在错误
+	 * 报告代码中导致断言失败，抢在打印真正失败
+	 * 原因之前。
 	 *
-	 * This should be the last step in this function, as elog.c assumes memory
-	 * management works once ErrorContext is non-null.
+	 * 这必须是本函数的最后一步，因为一旦 ErrorContext
+	 * 非 null，内存管理就要能工作。
 	 */
 	ErrorContext = AllocSetContextCreate(TopMemoryContext,
 										 "ErrorContext",
@@ -323,44 +323,44 @@ MemoryContextInit(void)
 
 /*
  * MemoryContextReset
- *		Release all space allocated within a context and delete all its
- *		descendant contexts (but not the named context itself).
+ *		释放上下文内分配的全部空间，并删除其全部
+ *		后代上下文（具名上下文本身除外）。
  */
 void
 MemoryContextReset(MemoryContext context)
 {
 	Assert(MemoryContextIsValid(context));
 
-	/* save a function call in common case where there are no children */
+	/* 常见情形下没有子上下文时，省去一次函数调用 */
 	if (context->firstchild != NULL)
 		MemoryContextDeleteChildren(context);
 
-	/* save a function call if no pallocs since startup or last reset */
+	/* 启动后或上次重置以来无 palloc 时省去一次调用 */
 	if (!context->isReset)
 		MemoryContextResetOnly(context);
 }
 
 /*
  * MemoryContextResetOnly
- *		Release all space allocated within a context.
- *		Nothing is done to the context's descendant contexts.
+ *		释放该上下文内分配的全部空间。
+ *		对其后代上下文不做任何处理。
  */
 void
 MemoryContextResetOnly(MemoryContext context)
 {
 	Assert(MemoryContextIsValid(context));
 
-	/* Nothing to do if no pallocs since startup or last reset */
+	/* 启动或上次重置以来无 palloc 则无事可做 */
 	if (!context->isReset)
 	{
 		MemoryContextCallResetCallbacks(context);
 
 		/*
-		 * If context->ident points into the context's memory, it will become
-		 * a dangling pointer.  We could prevent that by setting it to NULL
-		 * here, but that would break valid coding patterns that keep the
-		 * ident elsewhere, e.g. in a parent context.  So for now we assume
-		 * the programmer got it right.
+		 * 若 context->ident 指向上下文内的内存，它将变成
+		 * 悬空指针。可在此置为 NULL，但这会破坏把
+		 * ident 存于别处（如父上下文中）的有效编码
+		 * 模式。目前我们假定程序员已处理妥当。
+		 *
 		 */
 
 		context->methods->reset(context);
@@ -372,9 +372,9 @@ MemoryContextResetOnly(MemoryContext context)
 
 /*
  * MemoryContextResetChildren
- *		Release all space allocated within a context's descendants,
- *		but don't delete the contexts themselves.  The named context
- *		itself is not touched.
+ *		释放上下文全部后代内已分配的空间，
+ *		但不删除这些上下文本身。具名上下文
+ *		本身不受影响。
  */
 void
 MemoryContextResetChildren(MemoryContext context)
@@ -392,45 +392,45 @@ MemoryContextResetChildren(MemoryContext context)
 
 /*
  * MemoryContextDelete
- *		Delete a context and its descendants, and release all space
- *		allocated therein.
+ *		删除上下文及其全部后代，并释放其中
+ *		已分配空间。
  *
- * The type-specific delete routine removes all storage for the context,
- * but we have to recurse to handle the children.
- * We must also delink the context from its parent, if it has one.
+ * 特定类型的删除例程会移除上下文的全部存储，
+ * 但我们须递归处理其子上下文。
+ * 还必须把上下文从其父上下文（若有）解链。
  */
 void
 MemoryContextDelete(MemoryContext context)
 {
 	Assert(MemoryContextIsValid(context));
-	/* We had better not be deleting TopMemoryContext ... */
+	/* 最好不要删除 TopMemoryContext…… */
 	Assert(context != TopMemoryContext);
-	/* And not CurrentMemoryContext, either */
+	/* 也不要删除 CurrentMemoryContext */
 	Assert(context != CurrentMemoryContext);
 
-	/* save a function call in common case where there are no children */
+	/* 常见情形下没有子上下文时，省去一次函数调用 */
 	if (context->firstchild != NULL)
 		MemoryContextDeleteChildren(context);
 
 	/*
-	 * It's not entirely clear whether 'tis better to do this before or after
-	 * delinking the context; but an error in a callback will likely result in
-	 * leaking the whole context (if it's not a root context) if we do it
-	 * after, so let's do it before.
+	 * 究竟是在解链之前还是之后做这件事并不完全清
+	 * 楚；但回调中若发生错误，且我们在此之后才做，
+	 * 整个上下文（若它不是根上下文）就很可能泄
+	 * 漏，故在之前做。
 	 */
 	MemoryContextCallResetCallbacks(context);
 
 	/*
-	 * We delink the context from its parent before deleting it, so that if
-	 * there's an error we won't have deleted/busted contexts still attached
-	 * to the context tree.  Better a leak than a crash.
+	 * 我们在删除之前先把上下文从父上下文解链，
+	 * 样若发生错误，上下文树中就不会仍挂有已删除
+	 * 或已损坏的上下文。宁漏勿崩。
 	 */
 	MemoryContextSetParent(context, NULL);
 
 	/*
-	 * Also reset the context's ident pointer, in case it points into the
-	 * context.  This would only matter if someone tries to get stats on the
-	 * (already unlinked) context, which is unlikely, but let's be safe.
+	 * 同时重置上下文的 ident 指针，以防它指向上下文
+	 * 内部。只有当有人试图对已解链的上下文获
+	 * 取统计信息时才有影响，不常见，但求稳。
 	 */
 	context->ident = NULL;
 
@@ -441,8 +441,8 @@ MemoryContextDelete(MemoryContext context)
 
 /*
  * MemoryContextDeleteChildren
- *		Delete all the descendants of the named context and release all
- *		space allocated therein.  The named context itself is not touched.
+ *		删除具名上下文的全部后代，并释放其中
+ *		已分配的空间。具名上下文本身不受影响。
  */
 void
 MemoryContextDeleteChildren(MemoryContext context)
@@ -450,8 +450,8 @@ MemoryContextDeleteChildren(MemoryContext context)
 	Assert(MemoryContextIsValid(context));
 
 	/*
-	 * MemoryContextDelete will delink the child from me, so just iterate as
-	 * long as there is a child.
+	 * MemoryContextDelete 会把子上下文从我这里解链，
+	 * 只管迭代即可。
 	 */
 	while (context->firstchild != NULL)
 		MemoryContextDelete(context->firstchild);
@@ -459,19 +459,19 @@ MemoryContextDeleteChildren(MemoryContext context)
 
 /*
  * MemoryContextRegisterResetCallback
- *		Register a function to be called before next context reset/delete.
- *		Such callbacks will be called in reverse order of registration.
+ *		注册下次上下文重置/删除前要调用的函数。
+ *		这类回调按注册的逆序被调用。
  *
- * The caller is responsible for allocating a MemoryContextCallback struct
- * to hold the info about this callback request, and for filling in the
- * "func" and "arg" fields in the struct to show what function to call with
- * what argument.  Typically the callback struct should be allocated within
- * the specified context, since that means it will automatically be freed
- * when no longer needed.
+ * 调用者负责分配一个 MemoryContextCallback 结构来
+ * 保存此次回调请求的信息，并填写结构中的 "func"
+ * 和 "arg" 字段以表明要用什么参数调用什么函数。
+ * 回调结构通常应在指定上下文中分配，因为这样它
+ * 在不再需要时就会被自动释放。
  *
- * There is no API for deregistering a callback once registered.  If you
- * want it to not do anything anymore, adjust the state pointed to by its
- * "arg" to indicate that.
+ *
+ * 回调注册后没有注销用的 API。若不想让它再有
+ * 所作为，就把其 "arg" 所指向的状态调整为表明
+ * 这一点。
  */
 void
 MemoryContextRegisterResetCallback(MemoryContext context,
@@ -479,16 +479,16 @@ MemoryContextRegisterResetCallback(MemoryContext context,
 {
 	Assert(MemoryContextIsValid(context));
 
-	/* Push onto head so this will be called before older registrants. */
+	/* 插到头部，从而先于更早的注册者被调用。 */
 	cb->next = context->reset_cbs;
 	context->reset_cbs = cb;
-	/* Mark the context as non-reset (it probably is already). */
+	/* 标记上下文为未重置（多半已经是了）。 */
 	context->isReset = false;
 }
 
 /*
  * MemoryContextCallResetCallbacks
- *		Internal function to call all registered callbacks for context.
+ *		为上下文调用全部已注册回调的内部函数。
  */
 static void
 MemoryContextCallResetCallbacks(MemoryContext context)
@@ -496,9 +496,9 @@ MemoryContextCallResetCallbacks(MemoryContext context)
 	MemoryContextCallback *cb;
 
 	/*
-	 * We pop each callback from the list before calling.  That way, if an
-	 * error occurs inside the callback, we won't try to call it a second time
-	 * in the likely event that we reset or delete the context later.
+	 * 我们在调用之前先把每个回调从链表弹出。这样，
+	 * 若回调内部发生错误，之后我们很可能重置或删除
+	 * 该上下文时，就不会试图再调用它一次。
 	 */
 	while ((cb = context->reset_cbs) != NULL)
 	{
@@ -509,13 +509,13 @@ MemoryContextCallResetCallbacks(MemoryContext context)
 
 /*
  * MemoryContextSetIdentifier
- *		Set the identifier string for a memory context.
+ *		设置内存上下文的标识符字符串。
  *
- * An identifier can be provided to help distinguish among different contexts
- * of the same kind in memory context stats dumps.  The identifier string
- * must live at least as long as the context it is for; typically it is
- * allocated inside that context, so that it automatically goes away on
- * context deletion.  Pass id = NULL to forget any old identifier.
+ * 可以提供标识符来帮助区分内存上下文统计转储中
+ * 同类的不同上下文。标识符字符串的存活期至少要
+ * 与其所属上下文一样长；通常它就分配在该上下文
+ * 内，这样它就会在上下文删除时自动消失。传入
+ * id = NULL 即可忘掉旧标识符。
  */
 void
 MemoryContextSetIdentifier(MemoryContext context, const char *id)
@@ -526,21 +526,21 @@ MemoryContextSetIdentifier(MemoryContext context, const char *id)
 
 /*
  * MemoryContextSetParent
- *		Change a context to belong to a new parent (or no parent).
+ *		把上下文改为属于新父上下文（或无父）。
  *
- * We provide this as an API function because it is sometimes useful to
- * change a context's lifespan after creation.  For example, a context
- * might be created underneath a transient context, filled with data,
- * and then reparented underneath CacheMemoryContext to make it long-lived.
- * In this way no special effort is needed to get rid of the context in case
- * a failure occurs before its contents are completely set up.
+ * 我们把它作为 API 函数提供，因为有时在创建之后
+ * 更改上下文的生命期很有用。例如，上下文可以先
+ * 创建于某临时上下文之下，填入数据，然后改挂
+ * 到 CacheMemoryContext 之下使其长期存活。这样，
+ * 若在其内容完全建立之前发生失败，也无需专门
+ * 费力清除该上下文。
  *
- * Callers often assume that this function cannot fail, so don't put any
- * elog(ERROR) calls in it.
+ * 调用者常假定本函数不会失败，故勿在其中放任何
+ * elog(ERROR) 调用。
  *
- * A possible caller error is to reparent a context under itself, creating
- * a loop in the context graph.  We assert here that context != new_parent,
- * but checking for multi-level loops seems more trouble than it's worth.
+ * 调用者可能犯的一个错误是把上下文改挂到它自己
+ * 之下，在上下文图中形成环。我们在此断言
+ * context != new_parent，但检查多级环似乎得不偿失。
  */
 void
 MemoryContextSetParent(MemoryContext context, MemoryContext new_parent)
@@ -548,11 +548,11 @@ MemoryContextSetParent(MemoryContext context, MemoryContext new_parent)
 	Assert(MemoryContextIsValid(context));
 	Assert(context != new_parent);
 
-	/* Fast path if it's got correct parent already */
+	/* 已有正确父上下文时的快速路径 */
 	if (new_parent == context->parent)
 		return;
 
-	/* Delink from existing parent, if any */
+	/* 从现有父上下文解链 */
 	if (context->parent)
 	{
 		MemoryContext parent = context->parent;
@@ -569,7 +569,7 @@ MemoryContextSetParent(MemoryContext context, MemoryContext new_parent)
 			context->nextchild->prevchild = context->prevchild;
 	}
 
-	/* And relink */
+	/* 重挂链 */
 	if (new_parent)
 	{
 		Assert(MemoryContextIsValid(new_parent));
@@ -590,14 +590,14 @@ MemoryContextSetParent(MemoryContext context, MemoryContext new_parent)
 
 /*
  * MemoryContextAllowInCriticalSection
- *		Allow/disallow allocations in this memory context within a critical
- *		section.
+ *		允许/禁止在临界区内于此内存上下文中进行分配。
  *
- * Normally, memory allocations are not allowed within a critical section,
- * because a failure would lead to PANIC.  There are a few exceptions to
- * that, like allocations related to debugging code that is not supposed to
- * be enabled in production.  This function can be used to exempt specific
- * memory contexts from the assertion in palloc().
+ *
+ * 通常不允许在临界区内进行内存分配，因为一旦失败
+ * 就会导致 PANIC。但也有少数例外，比如与调试代码
+ * 相关、生产环境中不应启用的分配。本函数可用于把
+ * 特定内存上下文从 palloc() 的断言中豁免。
+ *
  */
 void
 MemoryContextAllowInCriticalSection(MemoryContext context, bool allow)
@@ -609,8 +609,8 @@ MemoryContextAllowInCriticalSection(MemoryContext context, bool allow)
 
 /*
  * GetMemoryChunkContext
- *		Given a currently-allocated chunk, determine the MemoryContext that
- *		the chunk belongs to.
+ *		给定一个当前已分配的区块，确定该区块所属的
+ *		MemoryContext。
  */
 MemoryContext
 GetMemoryChunkContext(void *pointer)
@@ -620,11 +620,11 @@ GetMemoryChunkContext(void *pointer)
 
 /*
  * GetMemoryChunkSpace
- *		Given a currently-allocated chunk, determine the total space
- *		it occupies (including all memory-allocation overhead).
+ *		给定一个已分配的区块，确定其占用的总空间
+ *		（包括全部内存分配开销）。
  *
- * This is useful for measuring the total space occupied by a set of
- * allocated chunks.
+ * 这对度量一组已分配区块占用的总空间很有用。
+ *
  */
 Size
 GetMemoryChunkSpace(void *pointer)
@@ -634,7 +634,7 @@ GetMemoryChunkSpace(void *pointer)
 
 /*
  * MemoryContextGetParent
- *		Get the parent context (if any) of the specified context
+ *		获取指定上下文的父上下文（若有）
  */
 MemoryContext
 MemoryContextGetParent(MemoryContext context)
@@ -646,7 +646,7 @@ MemoryContextGetParent(MemoryContext context)
 
 /*
  * MemoryContextIsEmpty
- *		Is a memory context empty of any allocated space?
+ *		内存上下文是否不含已分配空间？
  */
 bool
 MemoryContextIsEmpty(MemoryContext context)
@@ -654,18 +654,18 @@ MemoryContextIsEmpty(MemoryContext context)
 	Assert(MemoryContextIsValid(context));
 
 	/*
-	 * For now, we consider a memory context nonempty if it has any children;
-	 * perhaps this should be changed later.
+	 * 目前，只要上下文有任何子上下文，我们就认为它
+	 * 非空；此点日后或应修改。
 	 */
 	if (context->firstchild != NULL)
 		return false;
-	/* Otherwise use the type-specific inquiry */
+	/* 否则使用特定类型的查询 */
 	return context->methods->is_empty(context);
 }
 
 /*
- * Find the memory allocated to blocks for this memory context. If recurse is
- * true, also include children.
+ * 找出分配给此内存上下文各块的内存。recurse 为
+ * true 时含子上下文。
  */
 Size
 MemoryContextMemAllocated(MemoryContext context, bool recurse)
@@ -689,26 +689,26 @@ MemoryContextMemAllocated(MemoryContext context, bool recurse)
 
 /*
  * MemoryContextStats
- *		Print statistics about the named context and all its descendants.
+ *		打印具名上下文及其全部后代的统计信息。
  *
- * This is just a debugging utility, so it's not very fancy.  However, we do
- * make some effort to summarize when the output would otherwise be very long.
- * The statistics are sent to stderr.
+ * 这只是个调试工具，因此并不花哨。不过，当输出本
+ * 来会非常长时，我们确实会做些汇总。统计信息被送
+ * 往 stderr。
  */
 void
 MemoryContextStats(MemoryContext context)
 {
-	/* A hard-wired limit on the number of children is usually good enough */
+	/* 对子上下文数量硬设上限通常就足够了 */
 	MemoryContextStatsDetail(context, 100, true);
 }
 
 /*
  * MemoryContextStatsDetail
  *
- * Entry point for use if you want to vary the number of child contexts shown.
+ * 当你想改变显示的子上下文数量时的入口点。
  *
- * If print_to_stderr is true, print statistics about the memory contexts
- * with fprintf(stderr), otherwise use ereport().
+ * 若 print_to_stderr 为 true，用 fprintf(stderr) 打印
+ * 内存上下文统计，否则用 ereport()。
  */
 void
 MemoryContextStatsDetail(MemoryContext context, int max_children,
@@ -729,14 +729,14 @@ MemoryContextStatsDetail(MemoryContext context, int max_children,
 	else
 
 		/*
-		 * Use LOG_SERVER_ONLY to prevent the memory contexts from being sent
-		 * to the connected client.
+		 * 用 LOG_SERVER_ONLY 防止把内存上下文发送给已
+		 * 连接的客户端。
 		 *
-		 * We don't buffer the information about all memory contexts in a
-		 * backend into StringInfo and log it as one message.  That would
-		 * require the buffer to be enlarged, risking an OOM as there could be
-		 * a large number of memory contexts in a backend.  Instead, we log
-		 * one message per memory context.
+		 * 我们不把后台中全部内存上下文的信息缓冲
+		 * 到 StringInfo 中再作一条消息记日志。那会
+		 * 要扩大缓冲区，而后台里可能有大量内存上
+		 * 下文，存在 OOM 风险。因此我们改为每个内存
+		 * 上下文记一条消息。
 		 */
 		ereport(LOG_SERVER_ONLY,
 				(errhidestmt(true),
@@ -749,10 +749,10 @@ MemoryContextStatsDetail(MemoryContext context, int max_children,
 
 /*
  * MemoryContextStatsInternal
- *		One recursion level for MemoryContextStats
+ *		MemoryContextStats 的一层递归
  *
- * Print this context if print is true, but in any case accumulate counts into
- * *totals (if given).
+ * 若 print 为 true 则打印本上下文；无论如何都会把计数
+ * 累入 *totals。
  */
 static void
 MemoryContextStatsInternal(MemoryContext context, int level,
@@ -766,15 +766,15 @@ MemoryContextStatsInternal(MemoryContext context, int level,
 
 	Assert(MemoryContextIsValid(context));
 
-	/* Examine the context itself */
+	/* 检视上下文本身 */
 	context->methods->stats(context,
 							print ? MemoryContextStatsPrint : NULL,
 							(void *) &level,
 							totals, print_to_stderr);
 
 	/*
-	 * Examine children.  If there are more than max_children of them, we do
-	 * not print the rest explicitly, but just summarize them.
+	 * 检视子上下文。若其数量超过 max_children，则其余
+	 * 不显式打印，而只是汇总。
 	 */
 	memset(&local_totals, 0, sizeof(local_totals));
 
@@ -794,7 +794,7 @@ MemoryContextStatsInternal(MemoryContext context, int level,
 									   print_to_stderr);
 	}
 
-	/* Deal with excess children */
+	/* 处理多余子上下文 */
 	if (ichild > max_children)
 	{
 		if (print)
@@ -840,10 +840,10 @@ MemoryContextStatsInternal(MemoryContext context, int level,
 
 /*
  * MemoryContextStatsPrint
- *		Print callback used by MemoryContextStatsInternal
+ *		MemoryContextStatsInternal 打印回调
  *
- * For now, the passthru pointer just points to "int level"; later we might
- * make that more complicated.
+ * 目前 passthru 只是指向 "int level"；今后可能会
+ * 把它弄得更复杂。
  */
 static void
 MemoryContextStatsPrint(MemoryContext context, void *passthru,
@@ -857,9 +857,9 @@ MemoryContextStatsPrint(MemoryContext context, void *passthru,
 	int			i;
 
 	/*
-	 * It seems preferable to label dynahash contexts with just the hash table
-	 * name.  Those are already unique enough, so the "dynahash" part isn't
-	 * very helpful, and this way is more consistent with pre-v11 practice.
+	 * 似乎更可取的做法是只用哈希表名来标注 dynahash
+	 * 上下文。它们本身就已足够唯一，所以 "dynahash"
+	 * 一词无甚帮助，且这样与 v11 前的做法更一致。
 	 */
 	if (ident && strcmp(name, "dynahash") == 0)
 	{
@@ -872,10 +872,10 @@ MemoryContextStatsPrint(MemoryContext context, void *passthru,
 	if (ident)
 	{
 		/*
-		 * Some contexts may have very long identifiers (e.g., SQL queries).
-		 * Arbitrarily truncate at 100 bytes, but be careful not to break
-		 * multibyte characters.  Also, replace ASCII control characters, such
-		 * as newlines, with spaces.
+		 * 有些上下文的标识符可能非常长（如 SQL 查询）。
+		 * 一律在 100 字节处截断，但要小心不弄断
+		 * 多字节字符。另外把换行等 ASCII 控制字符
+		 * 换为空格。
 		 */
 		int			idlen = strlen(ident);
 		bool		truncated = false;
@@ -919,9 +919,9 @@ MemoryContextStatsPrint(MemoryContext context, void *passthru,
 
 /*
  * MemoryContextCheck
- *		Check all chunks in the named context.
+ *		检查具名上下文各区块。
  *
- * This is just a debugging utility, so it's not fancy.
+ * 这只是个调试工具，因此并不花哨。
  */
 #ifdef MEMORY_CONTEXT_CHECKING
 void
@@ -939,35 +939,35 @@ MemoryContextCheck(MemoryContext context)
 
 /*
  * MemoryContextCreate
- *		Context-type-independent part of context creation.
+ *		上下文创建中与类型无关的部分。
  *
- * This is only intended to be called by context-type-specific
- * context creation routines, not by the unwashed masses.
+ * 它只应由特定上下文类型的创建例程调用，
+ * 而非供不明就里的大众调用。
  *
- * The memory context creation procedure goes like this:
- *	1.  Context-type-specific routine makes some initial space allocation,
- *		including enough space for the context header.  If it fails,
- *		it can ereport() with no damage done.
- *	2.	Context-type-specific routine sets up all type-specific fields of
- *		the header (those beyond MemoryContextData proper), as well as any
- *		other management fields it needs to have a fully valid context.
- *		Usually, failure in this step is impossible, but if it's possible
- *		the initial space allocation should be freed before ereport'ing.
- *	3.	Context-type-specific routine calls MemoryContextCreate() to fill in
- *		the generic header fields and link the context into the context tree.
- *	4.  We return to the context-type-specific routine, which finishes
- *		up type-specific initialization.  This routine can now do things
- *		that might fail (like allocate more memory), so long as it's
- *		sure the node is left in a state that delete will handle.
+ * 内存上下文的创建流程如下：
+ *	1.  特定类型的例程做一些初始空间分配，包括为上
+ *		下文头部留足空间。若失败可 ereport()，
+ *		而毫无损伤。
+ *	2.	特定类型的例程设置头部的全部类型专属字段
+ *		（MemoryContextData 本体之外的那些），以及它
+ *		拥有一个完全有效上下文所需的其余管理字段。
+ *		通常此步不会失败，但若可能失败，则应在
+ *		ereport 之前释放初始分配的空间。
+ *	3.	特定类型的例程调用 MemoryContextCreate() 来
+ *		填写通用头部字段，并把上下文链入上下文树。
+ *	4.  我们回到特定类型的例程，由它完成类型专属
+ *		的初始化。此刻该例程可以做可能失败的事情
+ *		（如分配更多内存），只要它确信节点留下的
+ *		状态是删除能够处理的。
  *
- * node: the as-yet-uninitialized common part of the context header node.
- * tag: NodeTag code identifying the memory context type.
- * method_id: MemoryContextMethodID of the context-type being created.
- * parent: parent context, or NULL if this will be a top-level context.
- * name: name of context (must be statically allocated).
+ * node：上下文头部节点中尚未初始化的公共部分。
+ * tag：标识内存上下文类型的 NodeTag 码。
+ * method_id：所建上下文类型的 MemoryContextMethodID。
+ * parent：父上下文；若这将是顶层上下文则为 NULL。
+ * name：上下文名称（必须静态分配）。
  *
- * Context routines generally assume that MemoryContextCreate can't fail,
- * so this can contain Assert but not elog/ereport.
+ * 上下文例程通常假定 MemoryContextCreate 不会失败，
+ * 故可含 Assert 但不可含 elog/ereport。
  */
 void
 MemoryContextCreate(MemoryContext node,
@@ -976,10 +976,10 @@ MemoryContextCreate(MemoryContext node,
 					MemoryContext parent,
 					const char *name)
 {
-	/* Creating new memory contexts is not allowed in a critical section */
+	/* 临界区内不允许创建新的内存上下文 */
 	Assert(CritSectionCount == 0);
 
-	/* Initialize all standard fields of memory context header */
+	/* 初始化内存上下文头部的全部标准字段 */
 	node->type = tag;
 	node->isReset = true;
 	node->methods = &mcxt_methods[method_id];
@@ -991,14 +991,14 @@ MemoryContextCreate(MemoryContext node,
 	node->ident = NULL;
 	node->reset_cbs = NULL;
 
-	/* OK to link node into context tree */
+	/* 可以链入上下文树了 */
 	if (parent)
 	{
 		node->nextchild = parent->firstchild;
 		if (parent->firstchild != NULL)
 			parent->firstchild->prevchild = node;
 		parent->firstchild = node;
-		/* inherit allowInCritSection flag from parent */
+		/* 从父继承 allowInCritSection 标志 */
 		node->allowInCritSection = parent->allowInCritSection;
 	}
 	else
@@ -1012,10 +1012,10 @@ MemoryContextCreate(MemoryContext node,
 
 /*
  * MemoryContextAlloc
- *		Allocate space within the specified context.
+ *		在指定上下文内分配空间。
  *
- * This could be turned into a macro, but we'd have to import
- * nodes/memnodes.h into postgres.h which seems a bad idea.
+ * 它本可做成宏，但那样须把 nodes/memnodes.h
+ * 引入 postgres.h，这似乎不是个好主意。
  */
 void *
 MemoryContextAlloc(MemoryContext context, Size size)
@@ -1036,10 +1036,10 @@ MemoryContextAlloc(MemoryContext context, Size size)
 		MemoryContextStats(TopMemoryContext);
 
 		/*
-		 * Here, and elsewhere in this module, we show the target context's
-		 * "name" but not its "ident" (if any) in user-visible error messages.
-		 * The "ident" string might contain security-sensitive data, such as
-		 * values in SQL commands.
+		 * 在本模块此处及其他地方，我们在用户可见的
+		 * 错误消息中只显示目标上下文的 "name" 而非其
+		 * "ident"（若有），其中可能含 SQL 命令的值等
+		 * 安全敏感数据。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -1055,10 +1055,10 @@ MemoryContextAlloc(MemoryContext context, Size size)
 
 /*
  * MemoryContextAllocZero
- *		Like MemoryContextAlloc, but clears allocated memory
+ *		类似 MemoryContextAlloc，但清零内存
  *
- *	We could just call MemoryContextAlloc then clear the memory, but this
- *	is a very common combination, so we provide the combined operation.
+ *	本可以只调用 MemoryContextAlloc 再清除内存，但
+ *	这是非常常见的组合，所以我们提供合并的操作。
  */
 void *
 MemoryContextAllocZero(MemoryContext context, Size size)
@@ -1093,10 +1093,10 @@ MemoryContextAllocZero(MemoryContext context, Size size)
 
 /*
  * MemoryContextAllocZeroAligned
- *		MemoryContextAllocZero where length is suitable for MemSetLoop
+ *		MemoryContextAllocZero 中长度适合 MemSetLoop
  *
- *	This might seem overly specialized, but it's not because newNode()
- *	is so often called with compile-time-constant sizes.
+ *	这看似过度专用，其实不然，因为 newNode() 经常
+ *	以编译期常量大小被调用。
  */
 void *
 MemoryContextAllocZeroAligned(MemoryContext context, Size size)
@@ -1131,7 +1131,7 @@ MemoryContextAllocZeroAligned(MemoryContext context, Size size)
 
 /*
  * MemoryContextAllocExtended
- *		Allocate space within the specified context using the given flags.
+ *		使用给定标志在指定上下文内分配空间。
  */
 void *
 MemoryContextAllocExtended(MemoryContext context, Size size, int flags)
@@ -1172,28 +1172,28 @@ MemoryContextAllocExtended(MemoryContext context, Size size, int flags)
 
 /*
  * HandleLogMemoryContextInterrupt
- *		Handle receipt of an interrupt indicating logging of memory
- *		contexts.
+ *		处理指示记录内存上下文日志的中断。
  *
- * All the actual work is deferred to ProcessLogMemoryContextInterrupt(),
- * because we cannot safely emit a log message inside the signal handler.
+ *
+ * 全部实际工作都推迟到 ProcessLogMemoryContextInterrupt()，
+ * 因为在信号处理器内无法安全地发出日志消息。
  */
 void
 HandleLogMemoryContextInterrupt(void)
 {
 	InterruptPending = true;
 	LogMemoryContextPending = true;
-	/* latch will be set by procsignal_sigusr1_handler */
+	/* latch 由 procsignal_sigusr1_handler 设置 */
 }
 
 /*
  * ProcessLogMemoryContextInterrupt
- * 		Perform logging of memory contexts of this backend process.
+ * 		记录此后台进程内存上下文的日志。
  *
- * Any backend that participates in ProcSignal signaling must arrange
- * to call this function if we see LogMemoryContextPending set.
- * It is called from CHECK_FOR_INTERRUPTS(), which is enough because
- * the target process for logging of memory contexts is a backend.
+ * 任何参与 ProcSignal 信号机制的后台进程都必须
+ * 安排在看到 LogMemoryContextPending 置位时调用
+ * 本函数。它由 CHECK_FOR_INTERRUPTS() 调用，这就
+ * 足够，因为日志记录目标是某个后台进程。
  */
 void
 ProcessLogMemoryContextInterrupt(void)
@@ -1201,8 +1201,8 @@ ProcessLogMemoryContextInterrupt(void)
 	LogMemoryContextPending = false;
 
 	/*
-	 * Use LOG_SERVER_ONLY to prevent this message from being sent to the
-	 * connected client.
+	 * 用 LOG_SERVER_ONLY 防止此消息被发送给已连接的
+	 * 客户端。
 	 */
 	ereport(LOG_SERVER_ONLY,
 			(errhidestmt(true),
@@ -1210,14 +1210,14 @@ ProcessLogMemoryContextInterrupt(void)
 			 errmsg("logging memory contexts of PID %d", MyProcPid)));
 
 	/*
-	 * When a backend process is consuming huge memory, logging all its memory
-	 * contexts might overrun available disk space. To prevent this, we limit
-	 * the number of child contexts to log per parent to 100.
+	 * 当后台进程消耗巨量内存时，记录其全部内存上下文
+	 * 可能耗尽可用磁盘空间。为防止此点，我们把每
+	 * 父上下文记录的子上下文数限为 100。
 	 *
-	 * As with MemoryContextStats(), we suppose that practical cases where the
-	 * dump gets long will typically be huge numbers of siblings under the
-	 * same parent context; while the additional debugging value from seeing
-	 * details about individual siblings beyond 100 will not be large.
+	 * 与 MemoryContextStats() 一样，我们认为转储变得
+	 * 很长的实际情形，通常是同一父上下文下有巨量
+	 * 兄弟上下文；而查看 100 个以上兄弟各自的详情，
+	 * 其额外调试价值不会很大。
 	 */
 	MemoryContextStatsDetail(TopMemoryContext, 100, false);
 }
@@ -1225,7 +1225,7 @@ ProcessLogMemoryContextInterrupt(void)
 void *
 palloc(Size size)
 {
-	/* duplicates MemoryContextAlloc to avoid increased overhead */
+	/* 复制 MemoryContextAlloc 以免增加开销 */
 	void	   *ret;
 	MemoryContext context = CurrentMemoryContext;
 
@@ -1256,7 +1256,7 @@ palloc(Size size)
 void *
 palloc0(Size size)
 {
-	/* duplicates MemoryContextAllocZero to avoid increased overhead */
+	/* 复制 MemoryContextAllocZero 以免增加开销 */
 	void	   *ret;
 	MemoryContext context = CurrentMemoryContext;
 
@@ -1289,7 +1289,7 @@ palloc0(Size size)
 void *
 palloc_extended(Size size, int flags)
 {
-	/* duplicates MemoryContextAllocExtended to avoid increased overhead */
+	/* 复制 MemoryContextAllocExtended 以免增加开销 */
 	void	   *ret;
 	MemoryContext context = CurrentMemoryContext;
 
@@ -1327,18 +1327,18 @@ palloc_extended(Size size, int flags)
 
 /*
  * MemoryContextAllocAligned
- *		Allocate 'size' bytes of memory in 'context' aligned to 'alignto'
- *		bytes.
+ *		在 'context' 中分配按 'alignto' 对齐的 'size' 字节。
  *
- * Currently, we align addresses by requesting additional bytes from the
- * MemoryContext's standard allocator function and then aligning the returned
- * address by the required alignment.  This means that the given MemoryContext
- * must support providing us with a chunk of memory that's larger than 'size'.
- * For allocators such as Slab, that's not going to work, as slab only allows
- * chunks of the size that's specified when the context is created.
  *
- * 'alignto' must be a power of 2.
- * 'flags' may be 0 or set the same as MemoryContextAllocExtended().
+ * 目前，我们向 MemoryContext 的标准分配器函数申请
+ * 额外的字节，然后把返回的地址按所需对齐取整。这
+ * 意味着给定的 MemoryContext 必须能提供给我们一块
+ * 大于 'size' 的内存区块。对 Slab 这类分配器来说
+ * 这行不通，因为 slab 只允许创建上下文时指定大小
+ * 的区块。
+ *
+ * 'alignto' 必须是 2 的幂。
+ * 'flags' 可为 0，或与 MemoryContextAllocExtended() 相同。
  */
 void *
 MemoryContextAllocAligned(MemoryContext context,
@@ -1349,79 +1349,79 @@ MemoryContextAllocAligned(MemoryContext context,
 	void	   *unaligned;
 	void	   *aligned;
 
-	/* wouldn't make much sense to waste that much space */
+	/* 浪费那么多空间没什么意义 */
 	Assert(alignto < (128 * 1024 * 1024));
 
-	/* ensure alignto is a power of 2 */
+	/* 确保 alignto 是 2 的幂 */
 	Assert((alignto & (alignto - 1)) == 0);
 
 	/*
-	 * If the alignment requirements are less than what we already guarantee
-	 * then just use the standard allocation function.
+	 * 若对齐要求低于我们已保证的水平，那就只用
+	 * 标准分配函数。
 	 */
 	if (unlikely(alignto <= MAXIMUM_ALIGNOF))
 		return MemoryContextAllocExtended(context, size, flags);
 
 	/*
-	 * We implement aligned pointers by simply allocating enough memory for
-	 * the requested size plus the alignment and an additional "redirection"
-	 * MemoryChunk.  This additional MemoryChunk is required for operations
-	 * such as pfree when used on the pointer returned by this function.  We
-	 * use this redirection MemoryChunk in order to find the pointer to the
-	 * memory that was returned by the MemoryContextAllocExtended call below.
-	 * We do that by "borrowing" the block offset field and instead of using
-	 * that to find the offset into the owning block, we use it to find the
-	 * original allocated address.
+	 * 我们实现对齐指针的方式是：简单地为请求大小加
+	 * 上对齐量，再加一个额外的"重定向" MemoryChunk。
+	 * 诸如 pfree 这类操作作用于本函数返回的指针时，
+	 * 就需要这个额外的 MemoryChunk。我们用它来找到
+	 * 下方 MemoryContextAllocExtended 调用所返回内存
+	 * 的指针。方法是"借用"块偏移字段：不用它来找
+	 * 出所属块内的偏移，而是用它来找到最初分配的
+	 * 地址。
 	 *
-	 * Here we must allocate enough extra memory so that we can still align
-	 * the pointer returned by MemoryContextAllocExtended and also have enough
-	 * space for the redirection MemoryChunk.  Since allocations will already
-	 * be at least aligned by MAXIMUM_ALIGNOF, we can subtract that amount
-	 * from the allocation size to save a little memory.
+	 *
+	 * 这里我们必须分配足够的额外内存，以便仍能把
+	 * MemoryContextAllocExtended 返回的指针对齐，同时
+	 * 又有为重定向 MemoryChunk 留出足够的空间。由于
+	 * 分配至少已按 MAXIMUM_ALIGNOF 对齐，我们可以
+	 * 把该量从分配大小减去以省点内存。
 	 */
 	alloc_size = size + PallocAlignedExtraBytes(alignto);
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* ensure there's space for a sentinel byte */
+	/* 确保有哨兵字节的空间 */
 	alloc_size += 1;
 #endif
 
-	/* perform the actual allocation */
+	/* 执行实际的分配 */
 	unaligned = MemoryContextAllocExtended(context, alloc_size, flags);
 
-	/* set the aligned pointer */
+	/* 设置对齐指针 */
 	aligned = (void *) TYPEALIGN(alignto, (char *) unaligned +
 								 sizeof(MemoryChunk));
 
 	alignedchunk = PointerGetMemoryChunk(aligned);
 
 	/*
-	 * We set the redirect MemoryChunk so that the block offset calculation is
-	 * used to point back to the 'unaligned' allocated chunk.  This allows us
-	 * to use MemoryChunkGetBlock() to find the unaligned chunk when we need
-	 * to perform operations such as pfree() and repalloc().
+	 * 我们这样设置重定向 MemoryChunk：让块偏移计算
+	 * 指回 'unaligned' 已分配区块。这样当需要执行诸
+	 * 如 pfree() 和 repalloc() 这类操作时，我们能用
+	 * MemoryChunkGetBlock() 找到未对齐的区块。
 	 *
-	 * We store 'alignto' in the MemoryChunk's 'value' so that we know what
-	 * the alignment was set to should we ever be asked to realloc this
-	 * pointer.
+	 * 我们把 'alignto' 存进 MemoryChunk 的 'value'，
+	 * 这样日后要求 realloc 该指针时便知道对齐值。
+	 *
 	 */
 	MemoryChunkSetHdrMask(alignedchunk, unaligned, alignto,
 						  MCTX_ALIGNED_REDIRECT_ID);
 
-	/* double check we produced a correctly aligned pointer */
+	/* 复核我们产生的是正确对齐的指针 */
 	Assert((void *) TYPEALIGN(alignto, aligned) == aligned);
 
 #ifdef MEMORY_CONTEXT_CHECKING
 	alignedchunk->requested_size = size;
-	/* set mark to catch clobber of "unused" space */
+	/* 设置标记以捕获"未用"空间覆写 */
 	set_sentinel(aligned, size);
 #endif
 
-	/* Mark the bytes before the redirection header as noaccess */
+	/* 把重定向头部之前的字节标为不可访问 */
 	VALGRIND_MAKE_MEM_NOACCESS(unaligned,
 							   (char *) alignedchunk - (char *) unaligned);
 
-	/* Disallow access to the redirection chunk header. */
+	/* 禁止访问重定向区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(alignedchunk, sizeof(MemoryChunk));
 
 	return aligned;
@@ -1429,18 +1429,18 @@ MemoryContextAllocAligned(MemoryContext context,
 
 /*
  * palloc_aligned
- *		Allocate 'size' bytes returning a pointer that's aligned to the
- *		'alignto' boundary.
+ *		在 'context' 中分配按 'alignto' 对齐的 'size' 字节。
  *
- * Currently, we align addresses by requesting additional bytes from the
- * MemoryContext's standard allocator function and then aligning the returned
- * address by the required alignment.  This means that the given MemoryContext
- * must support providing us with a chunk of memory that's larger than 'size'.
- * For allocators such as Slab, that's not going to work, as slab only allows
- * chunks of the size that's specified when the context is created.
  *
- * 'alignto' must be a power of 2.
- * 'flags' may be 0 or set the same as MemoryContextAllocExtended().
+ * 目前，我们向 MemoryContext 的标准分配器函数申请
+ * 额外的字节，然后把返回的地址按所需对齐取整。这
+ * 意味着给定的 MemoryContext 必须能提供给我们一块
+ * 大于 'size' 的内存区块。对 Slab 这类分配器来说
+ * 这行不通，因为 slab 只允许创建上下文时指定大小
+ * 的区块。
+ *
+ * 'alignto' 必须是 2 的幂。
+ * 'flags' 可为 0，或与 MemoryContextAllocExtended() 相同。
  */
 void *
 palloc_aligned(Size size, Size alignto, int flags)
@@ -1450,7 +1450,7 @@ palloc_aligned(Size size, Size alignto, int flags)
 
 /*
  * pfree
- *		Release an allocated chunk.
+ *		释放已分配的区块。
  */
 void
 pfree(void *pointer)
@@ -1470,7 +1470,7 @@ pfree(void *pointer)
 
 /*
  * repalloc
- *		Adjust the size of a previously allocated chunk.
+ *		调整此前分配的区块的大小。
  */
 void *
 repalloc(void *pointer, Size size)
@@ -1488,7 +1488,7 @@ repalloc(void *pointer, Size size)
 
 	AssertNotInCriticalSection(context);
 
-	/* isReset must be false already */
+	/* isReset 必须已为假 */
 	Assert(!context->isReset);
 
 	ret = MCXT_METHOD(pointer, realloc) (pointer, size);
@@ -1514,8 +1514,8 @@ repalloc(void *pointer, Size size)
 
 /*
  * repalloc_extended
- *		Adjust the size of a previously allocated chunk,
- *		with HUGE and NO_OOM options.
+ *		调整此前分配的区块的大小，
+ *		带 HUGE 和 NO_OOM 选项。
  */
 void *
 repalloc_extended(void *pointer, Size size, int flags)
@@ -1531,7 +1531,7 @@ repalloc_extended(void *pointer, Size size, int flags)
 
 	AssertNotInCriticalSection(context);
 
-	/* isReset must be false already */
+	/* isReset 必须已为假 */
 	Assert(!context->isReset);
 
 	ret = MCXT_METHOD(pointer, realloc) (pointer, size);
@@ -1558,15 +1558,15 @@ repalloc_extended(void *pointer, Size size, int flags)
 
 /*
  * repalloc0
- *		Adjust the size of a previously allocated chunk and zero out the added
- *		space.
+ *		调整此前分配的区块的大小，并把新增空间清零。
+ *
  */
 void *
 repalloc0(void *pointer, Size oldsize, Size size)
 {
 	void	   *ret;
 
-	/* catch wrong argument order */
+	/* 捕捉参数顺序错误 */
 	if (unlikely(oldsize > size))
 		elog(ERROR, "invalid repalloc0 call: oldsize %zu, new size %zu",
 			 oldsize, size);
@@ -1578,9 +1578,9 @@ repalloc0(void *pointer, Size oldsize, Size size)
 
 /*
  * MemoryContextAllocHuge
- *		Allocate (possibly-expansive) space within the specified context.
+ *		在指定上下文内分配（可能很大的）空间。
  *
- * See considerations in comment at MaxAllocHugeSize.
+ * 参见 MaxAllocHugeSize 处注释中的考量。
  */
 void *
 MemoryContextAllocHuge(MemoryContext context, Size size)
@@ -1613,19 +1613,19 @@ MemoryContextAllocHuge(MemoryContext context, Size size)
 
 /*
  * repalloc_huge
- *		Adjust the size of a previously allocated chunk, permitting a large
- *		value.  The previous allocation need not have been "huge".
+ *		调整此前分配区块的大小，允许很大的值。先前
+ *		分配不必曾是 "huge"。
  */
 void *
 repalloc_huge(void *pointer, Size size)
 {
-	/* this one seems not worth its own implementation */
+	/* 这个似乎不值得单独实现 */
 	return repalloc_extended(pointer, size, MCXT_ALLOC_HUGE);
 }
 
 /*
  * MemoryContextStrdup
- *		Like strdup(), but allocate from the specified context
+ *		类似 strdup()，但从指定上下文分配
  */
 char *
 MemoryContextStrdup(MemoryContext context, const char *string)
@@ -1648,8 +1648,8 @@ pstrdup(const char *in)
 
 /*
  * pnstrdup
- *		Like pstrdup(), but append null byte to a
- *		not-necessarily-null-terminated input string.
+ *		类似 pstrdup()，但会向
+ *		未必 null 结尾的输入串补 null。
  */
 char *
 pnstrdup(const char *in, Size len)
@@ -1666,7 +1666,7 @@ pnstrdup(const char *in, Size len)
 }
 
 /*
- * Make copy of string with all trailing newline characters removed.
+ * 制作字符串副本并移除全部末尾换行字符。
  */
 char *
 pchomp(const char *in)

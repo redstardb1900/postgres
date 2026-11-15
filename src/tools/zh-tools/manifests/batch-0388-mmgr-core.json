@@ -1,0 +1,122 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0388",
+ "title": "mmgr core four-file whole-file comment translation (memdebug.c/alignedalloc.c/mcxt.c/portalmem.c; 250 blocks: 245 translated + 5 preserved; 716/818 content lines rewritten, 102 EN kept: file-head name/copyright/IDENTIFICATION/path lines, function-name lines, 16 macro-body code lines in portalmem hash macros, 4 path-label blocks, 1 #endif label); review-fix round applied (D1-D7 + A1/A2)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0c41b8cf7f55ca90a781da87f8b7bf7c7dee972c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/mmgr/memdebug.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0388"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/alignedalloc.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0388"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/mcxt.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0388"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/portalmem.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0388; portal->门户 per portalcmds.c/pquery.c precedent"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "manifest",
+   "note": "append 1 entry: portalmem.c PortalDefineQuery doc suggested literal constant string \"(query not available)\" kept EN (MIXED exemption, usage-literal precedent)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0388-mmgr-core.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0388 manifest path + 4 mmgr .c file entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/mmgr/memdebug.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block @93 single-line '/* RANDOMIZE_ALLOCATED_MEMORY */' (#endif label): pure macro identifier, nothing translatable; kept EN, W7_UNTRANSLATED advisory accepted"
+   ],
+   "note": "comment-aware blocks 3 (2 translated + 1 preserved); content lines 46: 40 rewritten zh, 6 kept EN (3 filename, 8-9 copyright, 11 path, 53 header border, 93 label)"
+  },
+  {
+   "path": "src/backend/utils/mmgr/alignedalloc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 11 all translated; content lines 41: 32 rewritten zh, 9 kept EN (3 filename, 11 copyright, 13-14 IDENTIFICATION/path, 16 border, 25/52/114/135 function-name lines)"
+  },
+  {
+   "path": "src/backend/utils/mmgr/mcxt.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 125,
+   "translated": 121,
+   "preserved": 4,
+   "preserved_reasons": [
+    "blocks @46/@60/@74/@88 single-line path labels (/* aset.c */ /* generation.c */ /* slab.c */ /* alignedalloc.c */): file-name references, kept EN"
+   ],
+   "note": "comment-aware blocks 125 (121 translated + 4 preserved); content lines 381: 331 rewritten zh, 50 kept EN (header name/copyright/IDENTIFICATION/path/border, 4 path-label blocks, 37 function-name lines); review-fix: L106 算子->方法 (A1, MemoryContextMethods 语境非 executor ops); L538-539 主句还原; L1341/1443 补「相同」; L1651-1652 假起头消除; L309 去重复「内」; L1371 「区块偏移」->「块偏移」(block offset, block->块 口径). A2 口径: 「块」保留用于 block/MemoryChunk 结构语境 (L667 各块/L1372 所属块/L1371 块偏移/L1399 块偏移计算), 其余 chunk 一律「区块」; 唯一预算强制例外 mcxt L189「已分配块。」(EN \"allocated chunk\", 行预算 20B 不容「区块」, 在案)"
+  },
+  {
+   "path": "src/backend/utils/mmgr/portalmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 111,
+   "translated": 111,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 111 all translated; content lines 350: 313 rewritten zh, 37 kept EN (header 3/11/12/14/15/17, borders 44/97, 16 macro-body code lines 79-94 inside PortalHashTableInsert/Delete macro blocks, 15 function-name lines); review-fix: L1202-1205 括号配平+补译半句 (（…）成对闭合于 L1204), L1191 补「户」, L320 「计划计划」->「计划的计划列表」"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0388-mmgr-core.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 1 exemption: portalmem.c PortalDefineQuery suggested literal \"(query not available)\" kept EN"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0388 manifest path + 4 mmgr .c file entries (allowed_paths and files arrays)"
+  }
+ ]
+}

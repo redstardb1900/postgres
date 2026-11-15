@@ -1728,5 +1728,10 @@
   "path": "src/backend/utils/misc/guc.c",
   "pattern": "some-option=some value",
   "reason": "ParseLongOption doc block: pseudocode example literals \"some-option=some value\"/\"some_option\"/\"some value\"/'-'/'_'/'=' kept EN as literal input examples; zh prose complete around them (psql command.c usage-literal precedent)"
+ },
+ {
+  "path": "src/backend/utils/mmgr/portalmem.c",
+  "pattern": "\\(query not available\\)",
+  "reason": "PortalDefineQuery doc: suggested caller-supplied literal constant string \"(query not available)\" kept verbatim as an example literal; zh prose complete around it"
  }
 ]

@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * alignedalloc.c
- *	  Allocator functions to implement palloc_aligned
+ *	  用于实现 palloc_aligned 的分配器函数
  *
- * This is not a fully-fledged MemoryContext type as there is no means to
- * create a MemoryContext of this type.  The code here only serves to allow
- * operations such as pfree() and repalloc() to work correctly on a memory
- * chunk that was allocated by palloc_aligned().
+ * 这并非一个完备的内存上下文类型，因为无法
+ * 创建此类型的 MemoryContext。这里的代码只是为了让
+ * pfree()、repalloc() 等操作正确作用于由
+ * palloc_aligned() 分配的内存区块。
  *
  * Portions Copyright (c) 2022-2023, PostgreSQL Global Development Group
  *
@@ -23,7 +23,7 @@
 
 /*
  * AlignedAllocFree
-*		Frees allocated memory; memory is removed from its owning context.
+*		释放已分配的内存；内存从其所属上下文移除。
 */
 void
 AlignedAllocFree(void *pointer)
@@ -35,11 +35,11 @@ AlignedAllocFree(void *pointer)
 
 	Assert(!MemoryChunkIsExternal(chunk));
 
-	/* obtain the original (unaligned) allocated pointer */
+	/* 取得最初的（未对齐）已分配指针 */
 	unaligned = MemoryChunkGetBlock(chunk);
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* Test for someone scribbling on unused space in chunk */
+	/* 检测是否有人涂写区块内的未用空间 */
 	if (!sentinel_ok(pointer, chunk->requested_size))
 		elog(WARNING, "detected write past chunk end in %s %p",
 			 GetMemoryChunkContext(unaligned)->name, chunk);
@@ -50,11 +50,11 @@ AlignedAllocFree(void *pointer)
 
 /*
  * AlignedAllocRealloc
- *		Change the allocated size of a chunk and return possibly a different
- *		pointer to a memory address aligned to the same boundary as the
- *		originally requested alignment.  The contents of 'pointer' will be
- *		copied into the returned pointer up until 'size'.  Any additional
- *		memory will be uninitialized.
+ *		修改区块的已分配大小，返回的指针可能不同，
+ *		其内存地址对齐边界与最初申请的相同。'pointer'
+ *		的内容将被复制进返回的指针，直至 'size'。多余
+ *		的内存将不做初始化。
+ *
  */
 void *
 AlignedAllocRealloc(void *pointer, Size size)
@@ -71,28 +71,28 @@ AlignedAllocRealloc(void *pointer, Size size)
 	alignto = MemoryChunkGetValue(redirchunk);
 	unaligned = MemoryChunkGetBlock(redirchunk);
 
-	/* sanity check this is a power of 2 value */
+	/* 健全性检查这是 2 的幂 */
 	Assert((alignto & (alignto - 1)) == 0);
 
 	/*
-	 * Determine the size of the original allocation.  We can't determine this
-	 * exactly as GetMemoryChunkSpace() returns the total space used for the
-	 * allocation, which for contexts like aset includes rounding up to the
-	 * next power of 2.  However, this value is just used to memcpy() the old
-	 * data into the new allocation, so we only need to concern ourselves with
-	 * not reading beyond the end of the original allocation's memory.  The
-	 * drawback here is that we may copy more bytes than we need to, which
-	 * only amounts to wasted effort.  We can safely subtract the extra bytes
-	 * that we requested to allow us to align the pointer.  We must also
-	 * subtract the space for the unaligned pointer's MemoryChunk since
-	 * GetMemoryChunkSpace should have included that.  This does assume that
-	 * all context types use MemoryChunk as a chunk header.
+	 * 确定最初分配的大小。我们无法把它确定得
+	 * 分精确，因为 GetMemoryChunkSpace() 返回的
+	 * 是分配所耗的总空间，对 aset 这类上下文
+	 * 还包括向上取整到 2 的幂。不过，该值只是
+	 * 用来把旧数据 memcpy() 进新分配，所以我们
+	 * 只需关注不越过最初分配内存的末尾读取。
+	 * 缺点是可能复制多于所需的字节，但那只是
+	 * 徒劳而已。我们可以安全地减去为对齐指针
+	 * 而额外申请的字节。还必须减去未对齐指针
+	 * 的 MemoryChunk 所占的空间，因为
+	 * GetMemoryChunkSpace 本应已把它计入。这假定一切
+	 * 上下文类型都以 MemoryChunk 为区块头部。
 	 */
 	old_size = GetMemoryChunkSpace(unaligned) -
 		PallocAlignedExtraBytes(alignto) - sizeof(MemoryChunk);
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* check that GetMemoryChunkSpace returned something realistic */
+	/* 检查 GetMemoryChunkSpace 返回值是否合乎实际 */
 	Assert(old_size >= redirchunk->requested_size);
 #endif
 
@@ -100,8 +100,8 @@ AlignedAllocRealloc(void *pointer, Size size)
 	newptr = MemoryContextAllocAligned(ctx, size, alignto, 0);
 
 	/*
-	 * We may memcpy beyond the end of the original allocation request size,
-	 * so we must mark the entire allocation as defined.
+	 * 我们可能 memcpy 到越过最初申请大小末尾的地方，
+	 * 因此须把整个分配标记为已定义。
 	 */
 	VALGRIND_MAKE_MEM_DEFINED(pointer, old_size);
 	memcpy(newptr, pointer, Min(size, old_size));
@@ -112,7 +112,7 @@ AlignedAllocRealloc(void *pointer, Size size)
 
 /*
  * AlignedAllocGetChunkContext
- *		Return the MemoryContext that 'pointer' belongs to.
+ *		返回 'pointer' 所属的 MemoryContext。
  */
 MemoryContext
 AlignedAllocGetChunkContext(void *pointer)
@@ -133,8 +133,8 @@ AlignedAllocGetChunkContext(void *pointer)
 
 /*
  * AlignedAllocGetChunkSpace
- *		Given a currently-allocated chunk, determine the total space
- *		it occupies (including all memory-allocation overhead).
+ *		给定一个已分配的区块，确定其占用的总空间
+ *		（包括全部内存分配开销）。
  */
 Size
 AlignedAllocGetChunkSpace(void *pointer)

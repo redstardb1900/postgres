@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lsyscache.c
- *	  Convenience routines for common queries in the system catalog cache.
+ *	  针对系统目录缓存中常见查询的便利例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,7 +10,7 @@
  *	  src/backend/utils/cache/lsyscache.c
  *
  * NOTES
- *	  Eventually, the index information should go through here, too.
+ *	  索引信息最终也应经由这里处理。
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
@@ -48,18 +48,18 @@
 #include "utils/syscache.h"
 #include "utils/typcache.h"
 
-/* Hook for plugins to get control in get_attavgwidth() */
+/* 供插件在 get_attavgwidth() 中接管的钩子 */
 get_attavgwidth_hook_type get_attavgwidth_hook = NULL;
 
 
-/*				---------- AMOP CACHES ----------						 */
+/* 				---------- AMOP 缓存 ---------- */
 
 /*
  * op_in_opfamily
  *
- *		Return t iff operator 'opno' is in operator family 'opfamily'.
+ *		当算子 'opno' 属于算子族 'opfamily' 时返回 t。
  *
- * This function only considers search operators, not ordering operators.
+ * 本函数仅考虑搜索算子，而不考虑排序算子。
  */
 bool
 op_in_opfamily(Oid opno, Oid opfamily)
@@ -73,10 +73,10 @@ op_in_opfamily(Oid opno, Oid opfamily)
 /*
  * get_op_opfamily_strategy
  *
- *		Get the operator's strategy number within the specified opfamily,
- *		or 0 if it's not a member of the opfamily.
+ *		取得该算子在指定算子族内的策略号，
+ *		若非该算子族成员则返回 0。
  *
- * This function only considers search operators, not ordering operators.
+ * 本函数仅考虑搜索算子，而不考虑排序算子。
  */
 int
 get_op_opfamily_strategy(Oid opno, Oid opfamily)
@@ -100,8 +100,8 @@ get_op_opfamily_strategy(Oid opno, Oid opfamily)
 /*
  * get_op_opfamily_sortfamily
  *
- *		If the operator is an ordering operator within the specified opfamily,
- *		return its amopsortfamily OID; else return InvalidOid.
+ *		若该算子是指定算子族内的排序算子，
+ *		则返回其 amopsortfamily OID，否则 InvalidOid。
  */
 Oid
 get_op_opfamily_sortfamily(Oid opno, Oid opfamily)
@@ -125,11 +125,11 @@ get_op_opfamily_sortfamily(Oid opno, Oid opfamily)
 /*
  * get_op_opfamily_properties
  *
- *		Get the operator's strategy number and declared input data types
- *		within the specified opfamily.
+ *		取得该算子在指定算子族内的策略号与所声明
+ *		的输入数据类型。
  *
- * Caller should already have verified that opno is a member of opfamily,
- * therefore we raise an error if the tuple is not found.
+ * 调用者应当已验证 opno 是 opfamily 的成员，
+ * 因此若未找到元组则报错。
  */
 void
 get_op_opfamily_properties(Oid opno, Oid opfamily, bool ordering_op,
@@ -156,10 +156,10 @@ get_op_opfamily_properties(Oid opno, Oid opfamily, bool ordering_op,
 
 /*
  * get_opfamily_member
- *		Get the OID of the operator that implements the specified strategy
- *		with the specified datatypes for the specified opfamily.
+ *		取得对指定算子族以指定数据类型实现指定策略
+ *		的算子的 OID。
  *
- * Returns InvalidOid if there is no pg_amop entry for the given keys.
+ * 若给定键没有对应 pg_amop 条目，则返回 InvalidOid。
  */
 Oid
 get_opfamily_member(Oid opfamily, Oid lefttype, Oid righttype,
@@ -184,23 +184,23 @@ get_opfamily_member(Oid opfamily, Oid lefttype, Oid righttype,
 
 /*
  * get_ordering_op_properties
- *		Given the OID of an ordering operator (a btree "<" or ">" operator),
- *		determine its opfamily, its declared input datatype, and its
- *		strategy number (BTLessStrategyNumber or BTGreaterStrategyNumber).
+ *		给定排序算子（btree 的 "<" 或 ">" 算子）的 OID，
+ *		确定其算子族、声明的输入数据类型以及
+ *		策略号（BTLessStrategyNumber 或 BTGreaterStrategyNumber）。
  *
- * Returns true if successful, false if no matching pg_amop entry exists.
- * (This indicates that the operator is not a valid ordering operator.)
+ * 成功则返回 true；无匹配 pg_amop 条目则返回 false。
+ * （这表明该算子不是有效的排序算子。）
  *
- * Note: the operator could be registered in multiple families, for example
- * if someone were to build a "reverse sort" opfamily.  This would result in
- * uncertainty as to whether "ORDER BY USING op" would default to NULLS FIRST
- * or NULLS LAST, as well as inefficient planning due to failure to match up
- * pathkeys that should be the same.  So we want a determinate result here.
- * Because of the way the syscache search works, we'll use the interpretation
- * associated with the opfamily with smallest OID, which is probably
- * determinate enough.  Since there is no longer any particularly good reason
- * to build reverse-sort opfamilies, it doesn't seem worth expending any
- * additional effort on ensuring consistency.
+ * 注意：该算子可能注册在多个算子族中，例如
+ * 若有人构建"反向排序"算子族。这会导致
+ * "ORDER BY USING op" 默认取 NULLS FIRST 还是
+ * NULLS LAST 拿不准，也会因无法匹配本应相同的
+ * pathkey 而低效规划。因此希望这里得到确定的结果。
+ * 由于 syscache 搜索的工作方式，我们将采用 OID 最小的
+ * 算子族的解释，这大概足够确定了。
+ * 既然已没有什么特别的理由构建反向排序算子族，
+ * 为保障一致性而额外花费精力，似乎并不
+ * 值得。
  */
 bool
 get_ordering_op_properties(Oid opno,
@@ -210,14 +210,14 @@ get_ordering_op_properties(Oid opno,
 	CatCList   *catlist;
 	int			i;
 
-	/* ensure outputs are initialized on failure */
+	/* 失败时确保输出已初始化 */
 	*opfamily = InvalidOid;
 	*opcintype = InvalidOid;
 	*strategy = 0;
 
 	/*
-	 * Search pg_amop to see if the target operator is registered as the "<"
-	 * or ">" operator of any btree opfamily.
+	 * 在 pg_amop 中搜索目标算子是否被注册为某
+	 * btree 算子族的 "<"或">" 算子。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -226,17 +226,17 @@ get_ordering_op_properties(Oid opno,
 		HeapTuple	tuple = &catlist->members[i]->tuple;
 		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
 
-		/* must be btree */
+		/* 必为 btree */
 		if (aform->amopmethod != BTREE_AM_OID)
 			continue;
 
 		if (aform->amopstrategy == BTLessStrategyNumber ||
 			aform->amopstrategy == BTGreaterStrategyNumber)
 		{
-			/* Found it ... should have consistent input types */
+			/* 找到了……且应有一致的输入类型 */
 			if (aform->amoplefttype == aform->amoprighttype)
 			{
-				/* Found a suitable opfamily, return info */
+				/* 找到合适算子族，返回信息 */
 				*opfamily = aform->amopfamily;
 				*opcintype = aform->amoplefttype;
 				*strategy = aform->amopstrategy;
@@ -253,14 +253,14 @@ get_ordering_op_properties(Oid opno,
 
 /*
  * get_equality_op_for_ordering_op
- *		Get the OID of the datatype-specific btree equality operator
- *		associated with an ordering operator (a "<" or ">" operator).
+ *		取得与排序算子（"<"或">"算子）相关联的
+ *		数据类型专属 btree 相等算子的 OID。
  *
- * If "reverse" isn't NULL, also set *reverse to false if the operator is "<",
- * true if it's ">"
+ * 若 "reverse" 非 NULL，设置 *reverse：算子为 "<" 则为 false、
+ * ">" 时为 true
  *
- * Returns InvalidOid if no matching equality operator can be found.
- * (This indicates that the operator is not a valid ordering operator.)
+ * 若找不到匹配的相等算子，则返回 InvalidOid。
+ * （这表明该算子不是有效的排序算子。）
  */
 Oid
 get_equality_op_for_ordering_op(Oid opno, bool *reverse)
@@ -270,11 +270,11 @@ get_equality_op_for_ordering_op(Oid opno, bool *reverse)
 	Oid			opcintype;
 	int16		strategy;
 
-	/* Find the operator in pg_amop */
+	/* 在 pg_amop 中查找算子 */
 	if (get_ordering_op_properties(opno,
 								   &opfamily, &opcintype, &strategy))
 	{
-		/* Found a suitable opfamily, get matching equality operator */
+		/* 找到合适的算子族，取得匹配的相等算子 */
 		result = get_opfamily_member(opfamily,
 									 opcintype,
 									 opcintype,
@@ -288,17 +288,17 @@ get_equality_op_for_ordering_op(Oid opno, bool *reverse)
 
 /*
  * get_ordering_op_for_equality_op
- *		Get the OID of a datatype-specific btree ordering operator
- *		associated with an equality operator.  (If there are multiple
- *		possibilities, assume any one will do.)
+ *		取得与某相等算子相关联的数据类型专属
+ *		btree 排序算子的 OID。（若有多种可能，
+ *		则假定任一均可。）
  *
- * This function is used when we have to sort data before unique-ifying,
- * and don't much care which sorting op is used as long as it's compatible
- * with the intended equality operator.  Since we need a sorting operator,
- * it should be single-data-type even if the given operator is cross-type.
- * The caller specifies whether to find an op for the LHS or RHS data type.
+ * 本函数用于在去重前必须先对数据排序、且不在乎
+ * 用哪个排序算子的场合，只要它与目标相等算子
+ * 兼容即可。由于需要的是排序算子，因此即便给定
+ * 的算子是跨类型的，它也应是单一数据类型的。
+ * 由调用者指定要为 LHS 还是 RHS 数据类型查找算子。
  *
- * Returns InvalidOid if no matching ordering operator can be found.
+ * 若找不到匹配的排序算子，则返回 InvalidOid。
  */
 Oid
 get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
@@ -308,8 +308,8 @@ get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
 	int			i;
 
 	/*
-	 * Search pg_amop to see if the target operator is registered as the "="
-	 * operator of any btree opfamily.
+	 * 在 pg_amop 中搜索目标算子是否被注册为某
+	 * btree 算子族的"=" 算子。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -318,13 +318,13 @@ get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
 		HeapTuple	tuple = &catlist->members[i]->tuple;
 		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
 
-		/* must be btree */
+		/* 必为 btree */
 		if (aform->amopmethod != BTREE_AM_OID)
 			continue;
 
 		if (aform->amopstrategy == BTEqualStrategyNumber)
 		{
-			/* Found a suitable opfamily, get matching ordering operator */
+			/* 找到合适的算子族，取得匹配的排序算子 */
 			Oid			typid;
 
 			typid = use_lhs_type ? aform->amoplefttype : aform->amoprighttype;
@@ -333,7 +333,7 @@ get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
 										 BTLessStrategyNumber);
 			if (OidIsValid(result))
 				break;
-			/* failure probably shouldn't happen, but keep looking if so */
+			/* 失败不太可能发生，但若如此则继续查找 */
 		}
 	}
 
@@ -344,22 +344,22 @@ get_ordering_op_for_equality_op(Oid opno, bool use_lhs_type)
 
 /*
  * get_mergejoin_opfamilies
- *		Given a putatively mergejoinable operator, return a list of the OIDs
- *		of the btree opfamilies in which it represents equality.
+ *		给定一个推定可归并连接的算子，返回其表示相等
+ *		的 btree 算子族 OID 列表。
  *
- * It is possible (though at present unusual) for an operator to be equality
- * in more than one opfamily, hence the result is a list.  This also lets us
- * return NIL if the operator is not found in any opfamilies.
+ * 一个算子在多个算子族中都表示相等是有可能的
+ * （尽管目前少见），因此结果是一个列表。这让
+ * 我们能在算子不属于任何算子族时返回 NIL。
  *
- * The planner currently uses simple equal() tests to compare the lists
- * returned by this function, which makes the list order relevant, though
- * strictly speaking it should not be.  Because of the way syscache list
- * searches are handled, in normal operation the result will be sorted by OID
- * so everything works fine.  If running with system index usage disabled,
- * the result ordering is unspecified and hence the planner might fail to
- * recognize optimization opportunities ... but that's hardly a scenario in
- * which performance is good anyway, so there's no point in expending code
- * or cycles here to guarantee the ordering in that case.
+ * 规划器目前使用简单的 equal() 测试来比较本函数
+ * 返回的列表，这使得列表顺序变得重要，尽管严格
+ * 来说本不应如此。由于 syscache 列表搜索的处理
+ * 方式，正常运行时结果会按 OID 排序，因此一切正常。
+ * 若在禁用系统索引的情况下运行，结果顺序不确定，
+ * 因而规划器可能无法识别优化机会……
+ * 但那种场景下性能本来就很差，所以没必要
+ * 为那种情况下的顺序保证而耗费代码或
+ * 周期。
  */
 List *
 get_mergejoin_opfamilies(Oid opno)
@@ -369,8 +369,8 @@ get_mergejoin_opfamilies(Oid opno)
 	int			i;
 
 	/*
-	 * Search pg_amop to see if the target operator is registered as the "="
-	 * operator of any btree opfamily.
+	 * 在 pg_amop 中搜索目标算子是否被注册为某
+	 * btree 算子族的"=" 算子。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -379,7 +379,7 @@ get_mergejoin_opfamilies(Oid opno)
 		HeapTuple	tuple = &catlist->members[i]->tuple;
 		Form_pg_amop aform = (Form_pg_amop) GETSTRUCT(tuple);
 
-		/* must be btree equality */
+		/* 必为 btree 相等 */
 		if (aform->amopmethod == BTREE_AM_OID &&
 			aform->amopstrategy == BTEqualStrategyNumber)
 			result = lappend_oid(result, aform->amopfamily);
@@ -392,18 +392,18 @@ get_mergejoin_opfamilies(Oid opno)
 
 /*
  * get_compatible_hash_operators
- *		Get the OID(s) of hash equality operator(s) compatible with the given
- *		operator, but operating on its LHS and/or RHS datatype.
+ *		取得与给定算子兼容、但作用于其 LHS 和/或 RHS
+ *		数据类型的哈希相等算子的 OID。
  *
- * An operator for the LHS type is sought and returned into *lhs_opno if
- * lhs_opno isn't NULL.  Similarly, an operator for the RHS type is sought
- * and returned into *rhs_opno if rhs_opno isn't NULL.
+ * 若 lhs_opno 非 NULL，则查找 LHS 类型的算子并
+ * 存入 *lhs_opno。类似地，若 rhs_opno 非 NULL，
+ * 则查找 RHS 类型的算子并存入 *rhs_opno。
  *
- * If the given operator is not cross-type, the results should be the same
- * operator, but in cross-type situations they will be different.
+ * 若给定算子不是跨类型的，结果应为同一算子；
+ * 但在跨类型情形下二者会不同。
  *
- * Returns true if able to find the requested operator(s), false if not.
- * (This indicates that the operator should not have been marked oprcanhash.)
+ * 若能找到所请求的算子则返回 true，否则返回 false。
+ * （这表明该算子本不应被标记为 oprcanhash。）
  */
 bool
 get_compatible_hash_operators(Oid opno,
@@ -413,16 +413,16 @@ get_compatible_hash_operators(Oid opno,
 	CatCList   *catlist;
 	int			i;
 
-	/* Ensure output args are initialized on failure */
+	/* 失败时确保输出参数已初始化 */
 	if (lhs_opno)
 		*lhs_opno = InvalidOid;
 	if (rhs_opno)
 		*rhs_opno = InvalidOid;
 
 	/*
-	 * Search pg_amop to see if the target operator is registered as the "="
-	 * operator of any hash opfamily.  If the operator is registered in
-	 * multiple opfamilies, assume we can use any one.
+	 * 在 pg_amop 中搜索目标算子是否被注册为某
+	 * 哈希算子族 "=" 算子。若它注册于多个算子族，
+	 * 则假定任选其一即可。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -434,7 +434,7 @@ get_compatible_hash_operators(Oid opno,
 		if (aform->amopmethod == HASH_AM_OID &&
 			aform->amopstrategy == HTEqualStrategyNumber)
 		{
-			/* No extra lookup needed if given operator is single-type */
+			/* 若给定算子为单一类型则无需额外查找 */
 			if (aform->amoplefttype == aform->amoprighttype)
 			{
 				if (lhs_opno)
@@ -446,9 +446,9 @@ get_compatible_hash_operators(Oid opno,
 			}
 
 			/*
-			 * Get the matching single-type operator(s).  Failure probably
-			 * shouldn't happen --- it implies a bogus opfamily --- but
-			 * continue looking if so.
+			 * 取得匹配的单一类型算子。失败本不应发生
+			 * --- 它暗示算子族有问题 --- 但若如此则
+			 * 继续查找。
 			 */
 			if (lhs_opno)
 			{
@@ -458,7 +458,7 @@ get_compatible_hash_operators(Oid opno,
 												HTEqualStrategyNumber);
 				if (!OidIsValid(*lhs_opno))
 					continue;
-				/* Matching LHS found, done if caller doesn't want RHS */
+				/* 找到匹配 LHS；调用者不需 RHS 即完成 */
 				if (!rhs_opno)
 				{
 					result = true;
@@ -473,12 +473,12 @@ get_compatible_hash_operators(Oid opno,
 												HTEqualStrategyNumber);
 				if (!OidIsValid(*rhs_opno))
 				{
-					/* Forget any LHS operator from this opfamily */
+					/* 忘掉此算子族的任何 LHS 算子 */
 					if (lhs_opno)
 						*lhs_opno = InvalidOid;
 					continue;
 				}
-				/* Matching RHS found, so done */
+				/* 找到匹配 RHS，完成 */
 				result = true;
 				break;
 			}
@@ -492,18 +492,18 @@ get_compatible_hash_operators(Oid opno,
 
 /*
  * get_op_hash_functions
- *		Get the OID(s) of the standard hash support function(s) compatible with
- *		the given operator, operating on its LHS and/or RHS datatype as required.
+ *		取得与给定算子兼容的标准哈希支持函数的 OID，
+ *		按需作用于其 LHS 和/或 RHS 数据类型。
  *
- * A function for the LHS type is sought and returned into *lhs_procno if
- * lhs_procno isn't NULL.  Similarly, a function for the RHS type is sought
- * and returned into *rhs_procno if rhs_procno isn't NULL.
+ * 若 lhs_procno 非 NULL，则查找 LHS 类型的函数并
+ * 存入 *lhs_procno。类似地，若 rhs_procno 非 NULL，
+ * 则查找 RHS 类型的函数并存入 *rhs_procno。
  *
- * If the given operator is not cross-type, the results should be the same
- * function, but in cross-type situations they will be different.
+ * 若给定算子不是跨类型的，结果应为同一算子；
+ * 但在跨类型情形下二者会不同。
  *
- * Returns true if able to find the requested function(s), false if not.
- * (This indicates that the operator should not have been marked oprcanhash.)
+ * 若能找到所请求的函数则返回 true，否则返回 false。
+ * （这表明该算子本不应被标记为 oprcanhash。）
  */
 bool
 get_op_hash_functions(Oid opno,
@@ -513,16 +513,16 @@ get_op_hash_functions(Oid opno,
 	CatCList   *catlist;
 	int			i;
 
-	/* Ensure output args are initialized on failure */
+	/* 失败时确保输出参数已初始化 */
 	if (lhs_procno)
 		*lhs_procno = InvalidOid;
 	if (rhs_procno)
 		*rhs_procno = InvalidOid;
 
 	/*
-	 * Search pg_amop to see if the target operator is registered as the "="
-	 * operator of any hash opfamily.  If the operator is registered in
-	 * multiple opfamilies, assume we can use any one.
+	 * 在 pg_amop 中搜索目标算子是否被注册为某
+	 * 哈希算子族 "=" 算子。若它注册于多个算子族，
+	 * 则假定任选其一即可。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -535,9 +535,9 @@ get_op_hash_functions(Oid opno,
 			aform->amopstrategy == HTEqualStrategyNumber)
 		{
 			/*
-			 * Get the matching support function(s).  Failure probably
-			 * shouldn't happen --- it implies a bogus opfamily --- but
-			 * continue looking if so.
+			 * 取得匹配的支持函数。失败本不应发生
+			 * --- 它暗示算子族有问题 --- 但若如此则
+			 * 继续查找。
 			 */
 			if (lhs_procno)
 			{
@@ -547,13 +547,13 @@ get_op_hash_functions(Oid opno,
 												HASHSTANDARD_PROC);
 				if (!OidIsValid(*lhs_procno))
 					continue;
-				/* Matching LHS found, done if caller doesn't want RHS */
+				/* 找到匹配 LHS；调用者不需 RHS 即完成 */
 				if (!rhs_procno)
 				{
 					result = true;
 					break;
 				}
-				/* Only one lookup needed if given operator is single-type */
+				/* 若给定算子为单一类型则只需一次查找 */
 				if (aform->amoplefttype == aform->amoprighttype)
 				{
 					*rhs_procno = *lhs_procno;
@@ -569,12 +569,12 @@ get_op_hash_functions(Oid opno,
 												HASHSTANDARD_PROC);
 				if (!OidIsValid(*rhs_procno))
 				{
-					/* Forget any LHS function from this opfamily */
+					/* 忘掉此算子族的任何 LHS 函数 */
 					if (lhs_procno)
 						*lhs_procno = InvalidOid;
 					continue;
 				}
-				/* Matching RHS found, so done */
+				/* 找到匹配 RHS，完成 */
 				result = true;
 				break;
 			}
@@ -588,13 +588,13 @@ get_op_hash_functions(Oid opno,
 
 /*
  * get_op_btree_interpretation
- *		Given an operator's OID, find out which btree opfamilies it belongs to,
- *		and what properties it has within each one.  The results are returned
- *		as a palloc'd list of OpBtreeInterpretation structs.
+ *		给定算子的 OID，查明它属于哪些 btree 算子族，
+ *		以及它在各算子族中的属性。结果以 palloc 的
+ *		OpBtreeInterpretation 结构体列表返回。
  *
- * In addition to the normal btree operators, we consider a <> operator to be
- * a "member" of an opfamily if its negator is an equality operator of the
- * opfamily.  ROWCOMPARE_NE is returned as the strategy number for this case.
+ * 除普通 btree 算子外，若 <> 算子的取反算子是某算子族
+ * 的相等算子，我们也将其视为该算子族的"成员"。
+ * 这种情形下返回的策略号为 ROWCOMPARE_NE。
  */
 List *
 get_op_btree_interpretation(Oid opno)
@@ -605,7 +605,7 @@ get_op_btree_interpretation(Oid opno)
 	int			i;
 
 	/*
-	 * Find all the pg_amop entries containing the operator.
+	 * 找出包含该算子的所有 pg_amop 条目。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno));
 
@@ -615,11 +615,11 @@ get_op_btree_interpretation(Oid opno)
 		Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
 		StrategyNumber op_strategy;
 
-		/* must be btree */
+		/* 必为 btree */
 		if (op_form->amopmethod != BTREE_AM_OID)
 			continue;
 
-		/* Get the operator's btree strategy number */
+		/* 取得算子的 btree 策略号 */
 		op_strategy = (StrategyNumber) op_form->amopstrategy;
 		Assert(op_strategy >= 1 && op_strategy <= 5);
 
@@ -635,8 +635,8 @@ get_op_btree_interpretation(Oid opno)
 	ReleaseSysCacheList(catlist);
 
 	/*
-	 * If we didn't find any btree opfamily containing the operator, perhaps
-	 * it is a <> operator.  See if it has a negator that is in an opfamily.
+	 * 若没找到任何包含该算子的 btree 算子族，那么它
+	 * 也许是 <> 算子。看其取反算子是否在某算子族中。
 	 */
 	if (result == NIL)
 	{
@@ -653,19 +653,19 @@ get_op_btree_interpretation(Oid opno)
 				Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
 				StrategyNumber op_strategy;
 
-				/* must be btree */
+				/* 必为 btree */
 				if (op_form->amopmethod != BTREE_AM_OID)
 					continue;
 
-				/* Get the operator's btree strategy number */
+				/* 取得算子的 btree 策略号 */
 				op_strategy = (StrategyNumber) op_form->amopstrategy;
 				Assert(op_strategy >= 1 && op_strategy <= 5);
 
-				/* Only consider negators that are = */
+				/* 取反算子须为"=" */
 				if (op_strategy != BTEqualStrategyNumber)
 					continue;
 
-				/* OK, report it with "strategy" ROWCOMPARE_NE */
+				/* 好，以 ROWCOMPARE_NE 报告策略号 */
 				thisresult = (OpBtreeInterpretation *)
 					palloc(sizeof(OpBtreeInterpretation));
 				thisresult->opfamily_id = op_form->amopfamily;
@@ -684,14 +684,14 @@ get_op_btree_interpretation(Oid opno)
 
 /*
  * equality_ops_are_compatible
- *		Return true if the two given equality operators have compatible
- *		semantics.
+ *		若给定的两个相等算子具有兼容的语义，则返回
+ *		true。
  *
- * This is trivially true if they are the same operator.  Otherwise,
- * we look to see if they can be found in the same btree or hash opfamily.
- * Either finding allows us to assume that they have compatible notions
- * of equality.  (The reason we need to do these pushups is that one might
- * be a cross-type operator; for instance int24eq vs int4eq.)
+ * 若二者是同一算子则显然成立。否则，
+ * 我们查看它们是否能见于同一 btree 或哈希算子族。
+ * 任一发现都让我们得以假定二者具有兼容的
+ * 相等概念。（我们需要绕这些弯子的原因是，其中
+ * 可能是跨类型算子；如 int24eq 与 int4eq。）
  */
 bool
 equality_ops_are_compatible(Oid opno1, Oid opno2)
@@ -700,12 +700,12 @@ equality_ops_are_compatible(Oid opno1, Oid opno2)
 	CatCList   *catlist;
 	int			i;
 
-	/* Easy if they're the same operator */
+	/* 同一算子则容易 */
 	if (opno1 == opno2)
 		return true;
 
 	/*
-	 * We search through all the pg_amop entries for opno1.
+	 * 我们遍历 opno1 的所有 pg_amop 条目。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno1));
 
@@ -715,7 +715,7 @@ equality_ops_are_compatible(Oid opno1, Oid opno2)
 		HeapTuple	op_tuple = &catlist->members[i]->tuple;
 		Form_pg_amop op_form = (Form_pg_amop) GETSTRUCT(op_tuple);
 
-		/* must be btree or hash */
+		/* 必为btree或哈希 */
 		if (op_form->amopmethod == BTREE_AM_OID ||
 			op_form->amopmethod == HASH_AM_OID)
 		{
@@ -734,15 +734,15 @@ equality_ops_are_compatible(Oid opno1, Oid opno2)
 
 /*
  * comparison_ops_are_compatible
- *		Return true if the two given comparison operators have compatible
- *		semantics.
+ *		若给定的两个比较算子具有兼容的语义，则返回
+ *		true。
  *
- * This is trivially true if they are the same operator.  Otherwise,
- * we look to see if they can be found in the same btree opfamily.
- * For example, '<' and '>=' ops match if they belong to the same family.
+ * 若二者是同一算子则显然成立。否则，
+ * 我们查看它们是否能见于同一 btree 算子族。
+ * 例如，若 '<' 与 '>=' 属于同一算子族，二者即匹配。
  *
- * (This is identical to equality_ops_are_compatible(), except that we
- * don't bother to examine hash opclasses.)
+ * （这与 equality_ops_are_compatible() 完全相同，只是
+ * 不再费心检查哈希算子类。）
  */
 bool
 comparison_ops_are_compatible(Oid opno1, Oid opno2)
@@ -751,12 +751,12 @@ comparison_ops_are_compatible(Oid opno1, Oid opno2)
 	CatCList   *catlist;
 	int			i;
 
-	/* Easy if they're the same operator */
+	/* 同一算子则容易 */
 	if (opno1 == opno2)
 		return true;
 
 	/*
-	 * We search through all the pg_amop entries for opno1.
+	 * 我们遍历 opno1 的所有 pg_amop 条目。
 	 */
 	catlist = SearchSysCacheList1(AMOPOPID, ObjectIdGetDatum(opno1));
 
@@ -782,14 +782,14 @@ comparison_ops_are_compatible(Oid opno1, Oid opno2)
 }
 
 
-/*				---------- AMPROC CACHES ----------						 */
+/* 				---------- AMPROC 缓存 ---------- */
 
 /*
  * get_opfamily_proc
- *		Get the OID of the specified support function
- *		for the specified opfamily and datatypes.
+ *		取得指定算子族与数据类型的
+ *		指定支持函数的 OID。
  *
- * Returns InvalidOid if there is no pg_amproc entry for the given keys.
+ * 若给定键没有对应 pg_amproc 条目则返回 InvalidOid。
  */
 Oid
 get_opfamily_proc(Oid opfamily, Oid lefttype, Oid righttype, int16 procnum)
@@ -812,15 +812,15 @@ get_opfamily_proc(Oid opfamily, Oid lefttype, Oid righttype, int16 procnum)
 }
 
 
-/*				---------- ATTRIBUTE CACHES ----------					 */
+/* 				---------- ATTRIBUTE 缓存 ---------- */
 
 /*
  * get_attname
- *		Given the relation id and the attribute number, return the "attname"
- *		field from the attribute relation as a palloc'ed string.
+ *		给定关系 OID 与属性号，以 palloc 字符串形式返回
+ *		属性关系中的 "attname" 字段。
  *
- * If no such attribute exists and missing_ok is true, NULL is returned;
- * otherwise a not-intended-for-user-consumption error is thrown.
+ * 若该属性不存在且 missing_ok 为 true，则返回 NULL；
+ * 否则抛出非面向用户使用的错误。
  */
 char *
 get_attname(Oid relid, AttrNumber attnum, bool missing_ok)
@@ -848,10 +848,10 @@ get_attname(Oid relid, AttrNumber attnum, bool missing_ok)
 /*
  * get_attnum
  *
- *		Given the relation id and the attribute name,
- *		return the "attnum" field from the attribute relation.
+ *		给定关系 OID 与属性名，
+ *		返回属性关系中的 "attnum" 字段。
  *
- *		Returns InvalidAttrNumber if the attr doesn't exist (or is dropped).
+ *		若属性不存在（或已删除）则返回 InvalidAttrNumber。
  */
 AttrNumber
 get_attnum(Oid relid, const char *attname)
@@ -875,10 +875,10 @@ get_attnum(Oid relid, const char *attname)
 /*
  * get_attstattarget
  *
- *		Given the relation id and the attribute number,
- *		return the "attstattarget" field from the attribute relation.
+ *		给定关系 OID 与属性号，
+ *		返回属性关系中的 "attstattarget" 字段。
  *
- *		Errors if not found.
+ *		若无则报错。
  */
 int
 get_attstattarget(Oid relid, AttrNumber attnum)
@@ -902,13 +902,13 @@ get_attstattarget(Oid relid, AttrNumber attnum)
 /*
  * get_attgenerated
  *
- *		Given the relation id and the attribute number,
- *		return the "attgenerated" field from the attribute relation.
+ *		给定关系 OID 与属性号，
+ *		返回属性关系中的 "attgenerated" 字段。
  *
- *		Errors if not found.
+ *		若无则报错。
  *
- *		Since not generated is represented by '\0', this can also be used as a
- *		Boolean test.
+ *		由于非生成以 '\0' 表示，它也可用作布尔
+ *		测试。
  */
 char
 get_attgenerated(Oid relid, AttrNumber attnum)
@@ -932,8 +932,8 @@ get_attgenerated(Oid relid, AttrNumber attnum)
 /*
  * get_atttype
  *
- *		Given the relation OID and the attribute number with the relation,
- *		return the attribute type OID.
+ *		给定关系 OID 与其中的属性号，
+ *		返回该属性的类型OID。
  */
 Oid
 get_atttype(Oid relid, AttrNumber attnum)
@@ -959,11 +959,11 @@ get_atttype(Oid relid, AttrNumber attnum)
 /*
  * get_atttypetypmodcoll
  *
- *		A three-fer: given the relation id and the attribute number,
- *		fetch atttypid, atttypmod, and attcollation in a single cache lookup.
+ *		三合一：给定关系 OID 与属性号，
+ *		一次缓存查找即取回 atttypid、atttypmod、attcollation。
  *
- * Unlike the otherwise-similar get_atttype, this routine
- * raises an error if it can't obtain the information.
+ * 与相似但不同的 get_atttype 不同，本例程
+ * 在无法获得信息时会抛出错误。
  */
 void
 get_atttypetypmodcoll(Oid relid, AttrNumber attnum,
@@ -989,8 +989,8 @@ get_atttypetypmodcoll(Oid relid, AttrNumber attnum,
 /*
  * get_attoptions
  *
- *		Given the relation id and the attribute number,
- *		return the attribute options text[] datum, if any.
+ *		给定关系 OID 与属性号，
+ *		若有则返回属性选项的 text[] datum。
  */
 Datum
 get_attoptions(Oid relid, int16 attnum)
@@ -1021,13 +1021,13 @@ get_attoptions(Oid relid, int16 attnum)
 	return result;
 }
 
-/*				---------- PG_CAST CACHE ----------					 */
+/* 				---------- PG_CAST 缓存 ---------- */
 
 /*
- * get_cast_oid - given two type OIDs, look up a cast OID
+ * get_cast_oid - 由两个类型 OID 查找转换 OID
  *
- * If missing_ok is false, throw an error if the cast is not found.  If
- * true, just return InvalidOid.
+ * 若 missing_ok 为 false，未找到该转换则报错；为 true
+ * 则仅返回 InvalidOid。
  */
 Oid
 get_cast_oid(Oid sourcetypeid, Oid targettypeid, bool missing_ok)
@@ -1046,16 +1046,16 @@ get_cast_oid(Oid sourcetypeid, Oid targettypeid, bool missing_ok)
 	return oid;
 }
 
-/*				---------- COLLATION CACHE ----------					 */
+/* 				---------- COLLATION 缓存 ---------- */
 
 /*
  * get_collation_name
- *		Returns the name of a given pg_collation entry.
+ *		返回给定 pg_collation 条目的名称。
  *
- * Returns a palloc'd copy of the string, or NULL if no such collation.
+ * 返回字符串的 palloc 副本；无此排序规则则得 NULL。
  *
- * NOTE: since collation name is not unique, be wary of code that uses this
- * for anything except preparing error messages.
+ * 注意：由于排序规则名称不唯一，将此函数用于
+ * 准备错误消息之外的用途须小心。
  */
 char *
 get_collation_name(Oid colloid)
@@ -1092,16 +1092,16 @@ get_collation_isdeterministic(Oid colloid)
 	return result;
 }
 
-/*				---------- CONSTRAINT CACHE ----------					 */
+/* 				---------- CONSTRAINT 缓存 ---------- */
 
 /*
  * get_constraint_name
- *		Returns the name of a given pg_constraint entry.
+ *		返回给定 pg_constraint 条目的名称。
  *
- * Returns a palloc'd copy of the string, or NULL if no such constraint.
+ * 返回字符串的 palloc 副本；无此约束则得 NULL。
  *
- * NOTE: since constraint name is not unique, be wary of code that uses this
- * for anything except preparing error messages.
+ * 注意：由于约束名称不唯一，将此函数用于
+ * 准备错误消息之外的用途须小心。
  */
 char *
 get_constraint_name(Oid conoid)
@@ -1124,16 +1124,16 @@ get_constraint_name(Oid conoid)
 
 /*
  * get_constraint_index
- *		Given the OID of a unique, primary-key, or exclusion constraint,
- *		return the OID of the underlying index.
+ *		给定唯一、主键或排他约束的 OID，
+ *		返回其底层索引的 OID。
  *
- * Returns InvalidOid if the constraint could not be found or is of
- * the wrong type.
+ * 若找不到该约束，则返回 InvalidOid；类型
+ * 不符亦然。
  *
- * The intent of this function is to return the index "owned" by the
- * specified constraint.  Therefore we must check contype, since some
- * pg_constraint entries (e.g. for foreign-key constraints) store the
- * OID of an index that is referenced but not owned by the constraint.
+ * 本函数旨在返回由指定约束"所拥有"的索引。
+ * 因此必须检查 contype，因为某些 pg_constraint 条目
+ * （例如外键约束的条目）存储的是被引用而非被
+ * 该约束拥有的索引的 OID。
  */
 Oid
 get_constraint_index(Oid conoid)
@@ -1159,7 +1159,7 @@ get_constraint_index(Oid conoid)
 		return InvalidOid;
 }
 
-/*				---------- LANGUAGE CACHE ----------					 */
+/* 				---------- LANGUAGE 缓存 ---------- */
 
 char *
 get_language_name(Oid langoid, bool missing_ok)
@@ -1183,12 +1183,12 @@ get_language_name(Oid langoid, bool missing_ok)
 	return NULL;
 }
 
-/*				---------- OPCLASS CACHE ----------						 */
+/* 				---------- OPCLASS 缓存 ---------- */
 
 /*
  * get_opclass_family
  *
- *		Returns the OID of the operator family the opclass belongs to.
+ *		返回该算子类所属算子族的 OID。
  */
 Oid
 get_opclass_family(Oid opclass)
@@ -1210,7 +1210,7 @@ get_opclass_family(Oid opclass)
 /*
  * get_opclass_input_type
  *
- *		Returns the OID of the datatype the opclass indexes.
+ *		返回该算子类所索引数据类型的 OID。
  */
 Oid
 get_opclass_input_type(Oid opclass)
@@ -1232,8 +1232,8 @@ get_opclass_input_type(Oid opclass)
 /*
  * get_opclass_opfamily_and_input_type
  *
- *		Returns the OID of the operator family the opclass belongs to,
- *				the OID of the datatype the opclass indexes
+ *		返回该算子类所属算子族的 OID，
+ *				及该算子类所索引数据类型的 OID
  */
 bool
 get_opclass_opfamily_and_input_type(Oid opclass, Oid *opfamily, Oid *opcintype)
@@ -1255,13 +1255,13 @@ get_opclass_opfamily_and_input_type(Oid opclass, Oid *opfamily, Oid *opcintype)
 	return true;
 }
 
-/*				---------- OPERATOR CACHE ----------					 */
+/* 				---------- OPERATOR 缓存 ---------- */
 
 /*
  * get_opcode
  *
- *		Returns the regproc id of the routine used to implement an
- *		operator given the operator oid.
+ *		给定算子 OID，返回实现该算子的例程的
+ *		regproc 标识。
  */
 RegProcedure
 get_opcode(Oid opno)
@@ -1284,9 +1284,9 @@ get_opcode(Oid opno)
 
 /*
  * get_opname
- *	  returns the name of the operator with the given opno
+ *	  返回具有给定 opno 的算子的名称
  *
- * Note: returns a palloc'd copy of the string, or NULL if no such operator.
+ * 注意：返回字符串的 palloc 副本；无此算子则返回 NULL。
  */
 char *
 get_opname(Oid opno)
@@ -1309,7 +1309,7 @@ get_opname(Oid opno)
 
 /*
  * get_op_rettype
- *		Given operator oid, return the operator's result type.
+ *		给定算子 OID，返回该算子的结果类型。
  */
 Oid
 get_op_rettype(Oid opno)
@@ -1333,8 +1333,8 @@ get_op_rettype(Oid opno)
 /*
  * op_input_types
  *
- *		Returns the left and right input datatypes for an operator
- *		(InvalidOid if not relevant).
+ *		返回某算子的左、右输入数据类型（
+ *		不适用则 InvalidOid）。
  */
 void
 op_input_types(Oid opno, Oid *lefttype, Oid *righttype)
@@ -1343,7 +1343,7 @@ op_input_types(Oid opno, Oid *lefttype, Oid *righttype)
 	Form_pg_operator optup;
 
 	tp = SearchSysCache1(OPEROID, ObjectIdGetDatum(opno));
-	if (!HeapTupleIsValid(tp))	/* shouldn't happen */
+	if (!HeapTupleIsValid(tp))	/* 不应发生 */
 		elog(ERROR, "cache lookup failed for operator %u", opno);
 	optup = (Form_pg_operator) GETSTRUCT(tp);
 	*lefttype = optup->oprleft;
@@ -1354,15 +1354,15 @@ op_input_types(Oid opno, Oid *lefttype, Oid *righttype)
 /*
  * op_mergejoinable
  *
- * Returns true if the operator is potentially mergejoinable.  (The planner
- * will fail to find any mergejoin plans unless there are suitable btree
- * opfamily entries for this operator and associated sortops.  The pg_operator
- * flag is just a hint to tell the planner whether to bother looking.)
+ * 若该算子潜在可归并连接则返回 true。（规划器
+ * 将找不到任何归并连接计划，除非存在适合该算子
+ * 及其关联 sortops 的 btree 算子族条目。pg_operator 标志
+ * 只是提示规划器是否值得去查找而已。）
  *
- * In some cases (currently only array_eq and record_eq), mergejoinability
- * depends on the specific input data type the operator is invoked for, so
- * that must be passed as well. We currently assume that only one input's type
- * is needed to check this --- by convention, pass the left input's data type.
+ * 某些情形下（目前仅有 array_eq 与 record_eq），可归并
+ * 性取决于调用该算子时的具体输入数据类型，因此
+ * 也必须传入该类型。我们目前假定检查时只需一个
+ * 输入的类型 --- 按约定传入左输入的数据类型。
  */
 bool
 op_mergejoinable(Oid opno, Oid inputtype)
@@ -1372,10 +1372,10 @@ op_mergejoinable(Oid opno, Oid inputtype)
 	TypeCacheEntry *typentry;
 
 	/*
-	 * For array_eq or record_eq, we can sort if the element or field types
-	 * are all sortable.  We could implement all the checks for that here, but
-	 * the typcache already does that and caches the results too, so let's
-	 * rely on the typcache.
+	 * 对 array_eq 或 record_eq，仅当元素或字段类型都可
+	 * 排序时才能排序。相关检查我们本可全部在此实现，
+	 * 但 typcache 已经做了这些检查并缓存了结果，
+	 * 故依赖 typcache。
 	 */
 	if (opno == ARRAY_EQ_OP)
 	{
@@ -1391,7 +1391,7 @@ op_mergejoinable(Oid opno, Oid inputtype)
 	}
 	else
 	{
-		/* For all other operators, rely on pg_operator.oprcanmerge */
+		/* 对其他所有算子，依据 pg_operator.oprcanmerge */
 		tp = SearchSysCache1(OPEROID, ObjectIdGetDatum(opno));
 		if (HeapTupleIsValid(tp))
 		{
@@ -1407,13 +1407,13 @@ op_mergejoinable(Oid opno, Oid inputtype)
 /*
  * op_hashjoinable
  *
- * Returns true if the operator is hashjoinable.  (There must be a suitable
- * hash opfamily entry for this operator if it is so marked.)
+ * 若该算子可哈希连接则返回 true。（若已如此标记，
+ * 则必有适合该算子的哈希算子族条目。）
  *
- * In some cases (currently only array_eq), hashjoinability depends on the
- * specific input data type the operator is invoked for, so that must be
- * passed as well.  We currently assume that only one input's type is needed
- * to check this --- by convention, pass the left input's data type.
+ * 某些情形下（目前仅有 array_eq），可哈希连接性取决
+ * 于调用该算子时的具体输入数据类型，因此也必须
+ * 传入该类型。我们目前假定检查时只需一个输入的
+ * 类型 --- 按约定传入左输入的数据类型。
  */
 bool
 op_hashjoinable(Oid opno, Oid inputtype)
@@ -1422,7 +1422,7 @@ op_hashjoinable(Oid opno, Oid inputtype)
 	HeapTuple	tp;
 	TypeCacheEntry *typentry;
 
-	/* As in op_mergejoinable, let the typcache handle the hard cases */
+	/* 同 op_mergejoinable，难情形交给 typcache 处理 */
 	if (opno == ARRAY_EQ_OP)
 	{
 		typentry = lookup_type_cache(inputtype, TYPECACHE_HASH_PROC);
@@ -1437,7 +1437,7 @@ op_hashjoinable(Oid opno, Oid inputtype)
 	}
 	else
 	{
-		/* For all other operators, rely on pg_operator.oprcanhash */
+		/* 对其他所有算子，依据 pg_operator.oprcanhash */
 		tp = SearchSysCache1(OPEROID, ObjectIdGetDatum(opno));
 		if (HeapTupleIsValid(tp))
 		{
@@ -1453,7 +1453,7 @@ op_hashjoinable(Oid opno, Oid inputtype)
 /*
  * op_strict
  *
- * Get the proisstrict flag for the operator's underlying function.
+ * 取得算子底层函数的 proisstrict 标志。
  */
 bool
 op_strict(Oid opno)
@@ -1469,7 +1469,7 @@ op_strict(Oid opno)
 /*
  * op_volatile
  *
- * Get the provolatile flag for the operator's underlying function.
+ * 取得算子底层函数的 provolatile 标志。
  */
 char
 op_volatile(Oid opno)
@@ -1485,7 +1485,7 @@ op_volatile(Oid opno)
 /*
  * get_commutator
  *
- *		Returns the corresponding commutator of an operator.
+ *		返回某算子相应的交换算子。
  */
 Oid
 get_commutator(Oid opno)
@@ -1509,7 +1509,7 @@ get_commutator(Oid opno)
 /*
  * get_negator
  *
- *		Returns the corresponding negator of an operator.
+ *		返回某算子相应的取反算子。
  */
 Oid
 get_negator(Oid opno)
@@ -1533,7 +1533,7 @@ get_negator(Oid opno)
 /*
  * get_oprrest
  *
- *		Returns procedure id for computing selectivity of an operator.
+ *		返回用于计算某算子选择率的过程标识。
  */
 RegProcedure
 get_oprrest(Oid opno)
@@ -1557,7 +1557,7 @@ get_oprrest(Oid opno)
 /*
  * get_oprjoin
  *
- *		Returns procedure id for computing selectivity of a join.
+ *		返回用于计算某连接选择率的过程标识。
  */
 RegProcedure
 get_oprjoin(Oid opno)
@@ -1578,13 +1578,13 @@ get_oprjoin(Oid opno)
 		return (RegProcedure) InvalidOid;
 }
 
-/*				---------- FUNCTION CACHE ----------					 */
+/* 				---------- FUNCTION 缓存 ---------- */
 
 /*
  * get_func_name
- *	  returns the name of the function with the given funcid
+ *	  返回具有给定 funcid 的函数的名称
  *
- * Note: returns a palloc'd copy of the string, or NULL if no such function.
+ * 注意：返回字符串的 palloc 副本；无此函数则返回 NULL。
  */
 char *
 get_func_name(Oid funcid)
@@ -1608,7 +1608,7 @@ get_func_name(Oid funcid)
 /*
  * get_func_namespace
  *
- *		Returns the pg_namespace OID associated with a given function.
+ *		返回与给定函数关联的 pg_namespace OID。
  */
 Oid
 get_func_namespace(Oid funcid)
@@ -1631,7 +1631,7 @@ get_func_namespace(Oid funcid)
 
 /*
  * get_func_rettype
- *		Given procedure id, return the function's result type.
+ *		给定过程标识，返回函数的结果类型。
  */
 Oid
 get_func_rettype(Oid funcid)
@@ -1650,7 +1650,7 @@ get_func_rettype(Oid funcid)
 
 /*
  * get_func_nargs
- *		Given procedure id, return the number of arguments.
+ *		给定过程标识，返回参数个数。
  */
 int
 get_func_nargs(Oid funcid)
@@ -1669,10 +1669,10 @@ get_func_nargs(Oid funcid)
 
 /*
  * get_func_signature
- *		Given procedure id, return the function's argument and result types.
- *		(The return value is the result type.)
+ *		给定过程标识，返回函数的参数类型与结果类型。
+ *		（返回值即结果类型。）
  *
- * The arguments are returned as a palloc'd array.
+ * 参数以 palloc 数组形式返回。
  */
 Oid
 get_func_signature(Oid funcid, Oid **argtypes, int *nargs)
@@ -1699,7 +1699,7 @@ get_func_signature(Oid funcid, Oid **argtypes, int *nargs)
 
 /*
  * get_func_variadictype
- *		Given procedure id, return the function's provariadic field.
+ *		给定过程标识，返回函数的 provariadic 字段。
  */
 Oid
 get_func_variadictype(Oid funcid)
@@ -1718,7 +1718,7 @@ get_func_variadictype(Oid funcid)
 
 /*
  * get_func_retset
- *		Given procedure id, return the function's proretset flag.
+ *		给定过程标识，返回函数的 proretset 标志。
  */
 bool
 get_func_retset(Oid funcid)
@@ -1737,7 +1737,7 @@ get_func_retset(Oid funcid)
 
 /*
  * func_strict
- *		Given procedure id, return the function's proisstrict flag.
+ *		给定过程标识，返回函数的 proisstrict 标志。
  */
 bool
 func_strict(Oid funcid)
@@ -1756,7 +1756,7 @@ func_strict(Oid funcid)
 
 /*
  * func_volatile
- *		Given procedure id, return the function's provolatile flag.
+ *		给定过程标识，返回函数的 provolatile 标志。
  */
 char
 func_volatile(Oid funcid)
@@ -1775,7 +1775,7 @@ func_volatile(Oid funcid)
 
 /*
  * func_parallel
- *		Given procedure id, return the function's proparallel flag.
+ *		给定过程标识，返回函数的 proparallel 标志。
  */
 char
 func_parallel(Oid funcid)
@@ -1794,7 +1794,7 @@ func_parallel(Oid funcid)
 
 /*
  * get_func_prokind
- *	   Given procedure id, return the routine kind.
+ *	   给定过程标识，返回例程种类。
  */
 char
 get_func_prokind(Oid funcid)
@@ -1813,7 +1813,7 @@ get_func_prokind(Oid funcid)
 
 /*
  * get_func_leakproof
- *	   Given procedure id, return the function's leakproof field.
+ *	   给定过程标识，返回函数的 leakproof 字段。
  */
 bool
 get_func_leakproof(Oid funcid)
@@ -1833,8 +1833,8 @@ get_func_leakproof(Oid funcid)
 /*
  * get_func_support
  *
- *		Returns the support function OID associated with a given function,
- *		or InvalidOid if there is none.
+ *		返回与给定函数关联的支持函数的 OID，
+ *		若无则返回 InvalidOid。
  */
 RegProcedure
 get_func_support(Oid funcid)
@@ -1855,13 +1855,13 @@ get_func_support(Oid funcid)
 		return (RegProcedure) InvalidOid;
 }
 
-/*				---------- RELATION CACHE ----------					 */
+/* 				---------- RELATION 缓存 ---------- */
 
 /*
  * get_relname_relid
- *		Given name and namespace of a relation, look up the OID.
+ *		给定关系的名称与命名空间，查找其 OID。
  *
- * Returns InvalidOid if there is no such relation.
+ * 若无此关系则返回 InvalidOid。
  */
 Oid
 get_relname_relid(const char *relname, Oid relnamespace)
@@ -1875,7 +1875,7 @@ get_relname_relid(const char *relname, Oid relnamespace)
 /*
  * get_relnatts
  *
- *		Returns the number of attributes for a given relation.
+ *		返回给定关系的属性个数。
  */
 int
 get_relnatts(Oid relid)
@@ -1899,12 +1899,12 @@ get_relnatts(Oid relid)
 
 /*
  * get_rel_name
- *		Returns the name of a given relation.
+ *		返回给定关系的名称。
  *
- * Returns a palloc'd copy of the string, or NULL if no such relation.
+ * 返回字符串的 palloc 副本；无此关系则得 NULL。
  *
- * NOTE: since relation name is not unique, be wary of code that uses this
- * for anything except preparing error messages.
+ * 注意：由于关系名称不唯一，将此函数用于
+ * 准备错误消息之外的用途须小心。
  */
 char *
 get_rel_name(Oid relid)
@@ -1928,7 +1928,7 @@ get_rel_name(Oid relid)
 /*
  * get_rel_namespace
  *
- *		Returns the pg_namespace OID associated with a given relation.
+ *		返回与给定关系关联的 pg_namespace OID。
  */
 Oid
 get_rel_namespace(Oid relid)
@@ -1952,10 +1952,10 @@ get_rel_namespace(Oid relid)
 /*
  * get_rel_type_id
  *
- *		Returns the pg_type OID associated with a given relation.
+ *		返回与给定关系关联的 pg_type OID。
  *
- * Note: not all pg_class entries have associated pg_type OIDs; so be
- * careful to check for InvalidOid result.
+ * 注意：并非所有 pg_class 条目都有关联的 pg_type
+ * OID；务必当心检查 InvalidOid。
  */
 Oid
 get_rel_type_id(Oid relid)
@@ -1979,7 +1979,7 @@ get_rel_type_id(Oid relid)
 /*
  * get_rel_relkind
  *
- *		Returns the relkind associated with a given relation.
+ *		返回与给定关系关联的 relkind。
  */
 char
 get_rel_relkind(Oid relid)
@@ -2003,7 +2003,7 @@ get_rel_relkind(Oid relid)
 /*
  * get_rel_relispartition
  *
- *		Returns the relispartition flag associated with a given relation.
+ *		返回与给定关系关联的 relispartition 标志。
  */
 bool
 get_rel_relispartition(Oid relid)
@@ -2027,10 +2027,10 @@ get_rel_relispartition(Oid relid)
 /*
  * get_rel_tablespace
  *
- *		Returns the pg_tablespace OID associated with a given relation.
+ *		返回与给定关系关联的 pg_tablespace OID。
  *
- * Note: InvalidOid might mean either that we couldn't find the relation,
- * or that it is in the database's default tablespace.
+ * 注意：InvalidOid 可能意味着我们找不到该关系，
+ * 或它位于数据库的默认表空间中。
  */
 Oid
 get_rel_tablespace(Oid relid)
@@ -2054,7 +2054,7 @@ get_rel_tablespace(Oid relid)
 /*
  * get_rel_persistence
  *
- *		Returns the relpersistence associated with a given relation.
+ *		返回与给定关系关联的 relpersistence。
  */
 char
 get_rel_persistence(Oid relid)
@@ -2074,7 +2074,7 @@ get_rel_persistence(Oid relid)
 }
 
 
-/*				---------- TRANSFORM CACHE ----------						 */
+/* 				---------- TRANSFORM 缓存 ---------- */
 
 Oid
 get_transform_fromsql(Oid typid, Oid langid, List *trftypes)
@@ -2119,13 +2119,13 @@ get_transform_tosql(Oid typid, Oid langid, List *trftypes)
 }
 
 
-/*				---------- TYPE CACHE ----------						 */
+/* 				---------- TYPE 缓存 ---------- */
 
 /*
  * get_typisdefined
  *
- *		Given the type OID, determine whether the type is defined
- *		(if not, it's only a shell).
+ *		给定类型 OID，判断该类型是否已定义
+ *		（否则只是壳）。
  */
 bool
 get_typisdefined(Oid typid)
@@ -2149,7 +2149,7 @@ get_typisdefined(Oid typid)
 /*
  * get_typlen
  *
- *		Given the type OID, return the length of the type.
+ *		给定类型 OID，返回该类型的长度。
  */
 int16
 get_typlen(Oid typid)
@@ -2173,8 +2173,8 @@ get_typlen(Oid typid)
 /*
  * get_typbyval
  *
- *		Given the type OID, determine whether the type is returned by value or
- *		not.  Returns true if by value, false if by reference.
+ *		给定类型 OID，判断该类型按值返回还是按引用
+ *		返回。按值为 true，按引用为 false。
  */
 bool
 get_typbyval(Oid typid)
@@ -2198,12 +2198,12 @@ get_typbyval(Oid typid)
 /*
  * get_typlenbyval
  *
- *		A two-fer: given the type OID, return both typlen and typbyval.
+ *		二合一：给定类型 OID，返回 typlen 与 typbyval。
  *
- *		Since both pieces of info are needed to know how to copy a Datum,
- *		many places need both.  Might as well get them with one cache lookup
- *		instead of two.  Also, this routine raises an error instead of
- *		returning a bogus value when given a bad type OID.
+ *		由于拷贝 Datum 需要这两项信息，许多地方都要
+ *		同时取得二者。不妨用一次缓存查找而非两次
+ *		获取。此外，本例程遇到坏类型 OID 时会报错，
+ *		而不是返回假值。
  */
 void
 get_typlenbyval(Oid typid, int16 *typlen, bool *typbyval)
@@ -2223,7 +2223,7 @@ get_typlenbyval(Oid typid, int16 *typlen, bool *typbyval)
 /*
  * get_typlenbyvalalign
  *
- *		A three-fer: given the type OID, return typlen, typbyval, typalign.
+ *		给定类型 OID，三合一返回 typlen、typbyval、typalign。
  */
 void
 get_typlenbyvalalign(Oid typid, int16 *typlen, bool *typbyval,
@@ -2244,18 +2244,18 @@ get_typlenbyvalalign(Oid typid, int16 *typlen, bool *typbyval,
 
 /*
  * getTypeIOParam
- *		Given a pg_type row, select the type OID to pass to I/O functions
+ *		给定 pg_type 行，选出要传给 I/O 函数的类型 OID
  *
- * Formerly, all I/O functions were passed pg_type.typelem as their second
- * parameter, but we now have a more complex rule about what to pass.
- * This knowledge is intended to be centralized here --- direct references
- * to typelem elsewhere in the code are wrong, if they are associated with
- * I/O calls and not with actual subscripting operations!  (But see
- * bootstrap.c's boot_get_type_io_data() if you need to change this.)
+ * 从前，所有 I/O 函数的第二参数都会收到pg_type.typelem，
+ * 但现在对于传什么我们有了更复杂的规则。
+ * 这类知识应当集中于此 --- 代码中其他地方对
+ * typelem 的直接引用，若其伴随的是 I/O 调用而非
+ * 真正的下标操作，那它们就是错的！（但若需要
+ * 修改此处，参见 bootstrap.c boot_get_type_io_data()。）
  *
- * As of PostgreSQL 8.1, output functions receive only the value itself
- * and not any auxiliary parameters, so the name of this routine is now
- * a bit of a misnomer ... it should be getTypeInputParam.
+ * 自 PostgreSQL 8.1 起，输出函数只接收值本身，
+ * 不再接收任何辅助参数，因此本例程的名称如今
+ * 有点名不副实……它应为 getTypeInputParam。
  */
 Oid
 getTypeIOParam(HeapTuple typeTuple)
@@ -2263,8 +2263,8 @@ getTypeIOParam(HeapTuple typeTuple)
 	Form_pg_type typeStruct = (Form_pg_type) GETSTRUCT(typeTuple);
 
 	/*
-	 * Array types get their typelem as parameter; everybody else gets their
-	 * own type OID as parameter.
+	 * 数组类型以 typelem 为参数；其他类型则以
+	 * 自身 OID 为参数。
 	 */
 	if (OidIsValid(typeStruct->typelem))
 		return typeStruct->typelem;
@@ -2275,9 +2275,9 @@ getTypeIOParam(HeapTuple typeTuple)
 /*
  * get_type_io_data
  *
- *		A six-fer:	given the type OID, return typlen, typbyval, typalign,
- *					typdelim, typioparam, and IO function OID. The IO function
- *					returned is controlled by IOFuncSelector
+ *		六合一：给定类型 OID，返回 typlen、typbyval、
+ *					typalign、typdelim、typioparam 与 I/O 函数 OID。
+ *					由 IOFuncSelector 控制返回哪个
  */
 void
 get_type_io_data(Oid typid,
@@ -2293,8 +2293,8 @@ get_type_io_data(Oid typid,
 	Form_pg_type typeStruct;
 
 	/*
-	 * In bootstrap mode, pass it off to bootstrap.c.  This hack allows us to
-	 * use array_in and array_out during bootstrap.
+	 * 引导模式下将其转交 bootstrap.c。此变通让我们
+	 * 引导期可用 array_in 与 array_out。
 	 */
 	if (IsBootstrapProcessingMode())
 	{
@@ -2394,13 +2394,13 @@ get_typstorage(Oid typid)
 
 /*
  * get_typdefault
- *	  Given a type OID, return the type's default value, if any.
+ *	  给定类型 OID，返回该类型默认值（若有）。
  *
- *	  The result is a palloc'd expression node tree, or NULL if there
- *	  is no defined default for the datatype.
+ *	  结果为 palloc 的表达式节点树；若该数据类型
+ *	  没有定义默认值则为 NULL。
  *
- * NB: caller should be prepared to coerce result to correct datatype;
- * the returned expression tree might produce something of the wrong type.
+ * 注意：调用者应准备把结果强转到正确数据类型；
+ * 返回的表达式树可能产生类型不对的东西。
  */
 Node *
 get_typdefault(Oid typid)
@@ -2417,9 +2417,9 @@ get_typdefault(Oid typid)
 	type = (Form_pg_type) GETSTRUCT(typeTuple);
 
 	/*
-	 * typdefault and typdefaultbin are potentially null, so don't try to
-	 * access 'em as struct fields. Must do it the hard way with
-	 * SysCacheGetAttr.
+	 * typdefault 与 typdefaultbin 可能为空，因此不要
+	 * 把它们当作结构体字段访问。必须用
+	 * SysCacheGetAttr
 	 */
 	datum = SysCacheGetAttr(TYPEOID,
 							typeTuple,
@@ -2428,12 +2428,12 @@ get_typdefault(Oid typid)
 
 	if (!isNull)
 	{
-		/* We have an expression default */
+		/* 默认值为表达式 */
 		expr = stringToNode(TextDatumGetCString(datum));
 	}
 	else
 	{
-		/* Perhaps we have a plain literal default */
+		/* 或许存在纯字面量默认值 */
 		datum = SysCacheGetAttr(TYPEOID,
 								typeTuple,
 								Anum_pg_type_typdefault,
@@ -2443,12 +2443,12 @@ get_typdefault(Oid typid)
 		{
 			char	   *strDefaultVal;
 
-			/* Convert text datum to C string */
+			/* 文本 datum 转 C 字符串 */
 			strDefaultVal = TextDatumGetCString(datum);
-			/* Convert C string to a value of the given type */
+			/* 把 C 字符串转为给定类型的值 */
 			datum = OidInputFunctionCall(type->typinput, strDefaultVal,
 										 getTypeIOParam(typeTuple), -1);
-			/* Build a Const node containing the value */
+			/* 构建包含该值的 Const 节点 */
 			expr = (Node *) makeConst(typid,
 									  -1,
 									  type->typcollation,
@@ -2460,7 +2460,7 @@ get_typdefault(Oid typid)
 		}
 		else
 		{
-			/* No default */
+			/* 无 */
 			expr = NULL;
 		}
 	}
@@ -2472,8 +2472,8 @@ get_typdefault(Oid typid)
 
 /*
  * getBaseType
- *		If the given type is a domain, return its base type;
- *		otherwise return the type's own OID.
+ *		若给定类型是域，则返回其基础类型；
+ *		否则返回该类型自身OID。
  */
 Oid
 getBaseType(Oid typid)
@@ -2485,18 +2485,18 @@ getBaseType(Oid typid)
 
 /*
  * getBaseTypeAndTypmod
- *		If the given type is a domain, return its base type and typmod;
- *		otherwise return the type's own OID, and leave *typmod unchanged.
+ *		若给定类型是域，返回其基础类型与 typmod；
+ *		否则返回该类型自身的 OID，且不改动 *typmod。
  *
- * Note that the "applied typmod" should be -1 for every domain level
- * above the bottommost; therefore, if the passed-in typid is indeed
- * a domain, *typmod should be -1.
+ * 注意：对最底层之上的每一层级域，"已套用的
+ * typmod"应为 -1；因此，若传入的 typid 确实
+ * 是域，*typmod 应为 -1。
  */
 Oid
 getBaseTypeAndTypmod(Oid typid, int32 *typmod)
 {
 	/*
-	 * We loop to find the bottom base type in a stack of domains.
+	 * 我们循环找出域栈中最底层的基础类型。
 	 */
 	for (;;)
 	{
@@ -2509,7 +2509,7 @@ getBaseTypeAndTypmod(Oid typid, int32 *typmod)
 		typTup = (Form_pg_type) GETSTRUCT(tup);
 		if (typTup->typtype != TYPTYPE_DOMAIN)
 		{
-			/* Not a domain, so done */
+			/* 非域，故结束 */
 			ReleaseSysCache(tup);
 			break;
 		}
@@ -2527,10 +2527,10 @@ getBaseTypeAndTypmod(Oid typid, int32 *typmod)
 /*
  * get_typavgwidth
  *
- *	  Given a type OID and a typmod value (pass -1 if typmod is unknown),
- *	  estimate the average width of values of the type.  This is used by
- *	  the planner, which doesn't require absolutely correct results;
- *	  it's OK (and expected) to guess if we don't know for sure.
+ *	  给定类型 OID 与 typmod 值（typmod 未知时传 -1），
+ *	  估算该类型值的平均宽度。规划器会用到它，
+ *	  而规划器并不要求结果绝对正确；
+ *	  若无法确知，猜测即可（且属预期）。
  */
 int32
 get_typavgwidth(Oid typid, int32 typmod)
@@ -2539,40 +2539,40 @@ get_typavgwidth(Oid typid, int32 typmod)
 	int32		maxwidth;
 
 	/*
-	 * Easy if it's a fixed-width type
+	 * 定宽类型则简单
 	 */
 	if (typlen > 0)
 		return typlen;
 
 	/*
-	 * type_maximum_size knows the encoding of typmod for some datatypes;
-	 * don't duplicate that knowledge here.
+	 * type_maximum_size 知晓某些数据类型的 typmod 编码；
+	 * 不要在此重复这些知识。
 	 */
 	maxwidth = type_maximum_size(typid, typmod);
 	if (maxwidth > 0)
 	{
 		/*
-		 * For BPCHAR, the max width is also the only width.  Otherwise we
-		 * need to guess about the typical data width given the max. A sliding
-		 * scale for percentage of max width seems reasonable.
+		 * 对 BPCHAR 而言最大宽度也是唯一宽度。否则我们
+		 * 需要根据最大值猜测典型数据宽度。按最大宽度
+		 * 百分比的滑动尺度看来是合理的。
 		 */
 		if (typid == BPCHAROID)
 			return maxwidth;
 		if (maxwidth <= 32)
-			return maxwidth;	/* assume full width */
+			return maxwidth;	/* 假定全宽 */
 		if (maxwidth < 1000)
-			return 32 + (maxwidth - 32) / 2;	/* assume 50% */
+			return 32 + (maxwidth - 32) / 2;	/* 假定50% */
 
 		/*
-		 * Beyond 1000, assume we're looking at something like
-		 * "varchar(10000)" where the limit isn't actually reached often, and
-		 * use a fixed estimate.
+		 * 超过 1000 时，假定我们看到的是
+		 * "varchar(10000)" 这类上限并不常真正达到的情形，
+		 * 使用固定估值。
 		 */
 		return 32 + (1000 - 32) / 2;
 	}
 
 	/*
-	 * Oops, we have no idea ... wild guess time.
+	 * 毫无头绪……只能瞎猜了。
 	 */
 	return 32;
 }
@@ -2580,8 +2580,8 @@ get_typavgwidth(Oid typid, int32 typmod)
 /*
  * get_typtype
  *
- *		Given the type OID, find if it is a basic type, a complex type, etc.
- *		It returns the null char if the cache lookup fails...
+ *		给定类型 OID，查明它是基本类型、复合类型等
+ *		中的哪种；查找失败则返回空字符……
  */
 char
 get_typtype(Oid typid)
@@ -2605,15 +2605,15 @@ get_typtype(Oid typid)
 /*
  * type_is_rowtype
  *
- *		Convenience function to determine whether a type OID represents
- *		a "rowtype" type --- either RECORD or a named composite type
- *		(including a domain over a named composite type).
+ *		用于判断某类型 OID 是否表示"行类型"的便利
+ *		函数 --- 即 RECORD 或具名复合类型
+ *		（含具名复合类型之上的域）。
  */
 bool
 type_is_rowtype(Oid typid)
 {
 	if (typid == RECORDOID)
-		return true;			/* easy case */
+		return true;			/* 简单 */
 	switch (get_typtype(typid))
 	{
 		case TYPTYPE_COMPOSITE:
@@ -2630,7 +2630,7 @@ type_is_rowtype(Oid typid)
 
 /*
  * type_is_enum
- *	  Returns true if the given type is an enum type.
+ *	  若给定类型是枚举类型则返回 true。
  */
 bool
 type_is_enum(Oid typid)
@@ -2640,7 +2640,7 @@ type_is_enum(Oid typid)
 
 /*
  * type_is_range
- *	  Returns true if the given type is a range type.
+ *	  若给定类型是范围类型则返回 true。
  */
 bool
 type_is_range(Oid typid)
@@ -2650,7 +2650,7 @@ type_is_range(Oid typid)
 
 /*
  * type_is_multirange
- *	  Returns true if the given type is a multirange type.
+ *	  若给定类型是多范围类型则返回 true。
  */
 bool
 type_is_multirange(Oid typid)
@@ -2661,8 +2661,8 @@ type_is_multirange(Oid typid)
 /*
  * get_type_category_preferred
  *
- *		Given the type OID, fetch its category and preferred-type status.
- *		Throws error on failure.
+ *		给定类型 OID，取回其类别与首选类型状态。
+ *		失败时抛出错误。
  */
 void
 get_type_category_preferred(Oid typid, char *typcategory, bool *typispreferred)
@@ -2682,8 +2682,8 @@ get_type_category_preferred(Oid typid, char *typcategory, bool *typispreferred)
 /*
  * get_typ_typrelid
  *
- *		Given the type OID, get the typrelid (InvalidOid if not a complex
- *		type).
+ *		给定类型 OID，取得 typrelid，非复合类型则
+ *		空。
  */
 Oid
 get_typ_typrelid(Oid typid)
@@ -2707,11 +2707,11 @@ get_typ_typrelid(Oid typid)
 /*
  * get_element_type
  *
- *		Given the type OID, get the typelem (InvalidOid if not an array type).
+ *		给定类型 OID，取 typelem（非数组类型则 InvalidOid）。
  *
- * NB: this only succeeds for "true" arrays having array_subscript_handler
- * as typsubscript.  For other types, InvalidOid is returned independently
- * of whether they have typelem or typsubscript set.
+ * 注意：仅对以 array_subscript_handler 为 typsubscript 的
+ * "真"数组才会成功。对其他类型，无论是否设置
+ * typelem 或 typsubscript 都返回 InvalidOid。
  */
 Oid
 get_element_type(Oid typid)
@@ -2738,8 +2738,8 @@ get_element_type(Oid typid)
 /*
  * get_array_type
  *
- *		Given the type OID, get the corresponding "true" array type.
- *		Returns InvalidOid if no array type can be found.
+ *		给定类型 OID，取得对应的"真"数组类型。
+ *		若找不到数组类型则返回 InvalidOid。
  */
 Oid
 get_array_type(Oid typid)
@@ -2759,11 +2759,11 @@ get_array_type(Oid typid)
 /*
  * get_promoted_array_type
  *
- *		The "promoted" type is what you'd get from an ARRAY(SELECT ...)
- *		construct, that is, either the corresponding "true" array type
- *		if the input is a scalar type that has such an array type,
- *		or the same type if the input is already a "true" array type.
- *		Returns InvalidOid if neither rule is satisfied.
+ *		"提升"类型即从 ARRAY(SELECT ...) 构造
+ *		得到的类型，即若输入是拥有此类数组类型
+ *		的标量类型，则为对应的"真"数组类型；
+ *		若输入已是"真"数组类型，则仍为该类型。
+ *		两规则均不满足则返回 InvalidOid。
  */
 Oid
 get_promoted_array_type(Oid typid)
@@ -2779,18 +2779,18 @@ get_promoted_array_type(Oid typid)
 
 /*
  * get_base_element_type
- *		Given the type OID, get the typelem, looking "through" any domain
- *		to its underlying array type.
+ *		给定类型 OID，取得 typelem，"穿透"任何域
+ *		至其底层数组类型。
  *
- * This is equivalent to get_element_type(getBaseType(typid)), but avoids
- * an extra cache lookup.  Note that it fails to provide any information
- * about the typmod of the array.
+ * 这等价于 get_element_type(getBaseType(typid))，
+ * 但省去一次额外的缓存查找。注意它无法提供
+ * 数组的 typmod 信息。
  */
 Oid
 get_base_element_type(Oid typid)
 {
 	/*
-	 * We loop to find the bottom base type in a stack of domains.
+	 * 我们循环找出域栈中最底层的基础类型。
 	 */
 	for (;;)
 	{
@@ -2803,10 +2803,10 @@ get_base_element_type(Oid typid)
 		typTup = (Form_pg_type) GETSTRUCT(tup);
 		if (typTup->typtype != TYPTYPE_DOMAIN)
 		{
-			/* Not a domain, so stop descending */
+			/* 不是域，故停止下探 */
 			Oid			result;
 
-			/* This test must match get_element_type */
+			/* 该测试须匹配 get_element_type */
 			if (IsTrueArrayType(typTup))
 				result = typTup->typelem;
 			else
@@ -2819,14 +2819,14 @@ get_base_element_type(Oid typid)
 		ReleaseSysCache(tup);
 	}
 
-	/* Like get_element_type, silently return InvalidOid for bogus input */
+	/* 同 get_element_type，坏输入静默返回 InvalidOid */
 	return InvalidOid;
 }
 
 /*
  * getTypeInputInfo
  *
- *		Get info needed for converting values of a type to internal form
+ *		取得把某类型的值转为内部形式所需的信息
  */
 void
 getTypeInputInfo(Oid type, Oid *typInput, Oid *typIOParam)
@@ -2859,7 +2859,7 @@ getTypeInputInfo(Oid type, Oid *typInput, Oid *typIOParam)
 /*
  * getTypeOutputInfo
  *
- *		Get info needed for printing values of a type
+ *		取得打印某类型的值所需的信息
  */
 void
 getTypeOutputInfo(Oid type, Oid *typOutput, bool *typIsVarlena)
@@ -2892,7 +2892,7 @@ getTypeOutputInfo(Oid type, Oid *typOutput, bool *typIsVarlena)
 /*
  * getTypeBinaryInputInfo
  *
- *		Get info needed for binary input of values of a type
+ *		取得二进制输入某类型值所需的信息
  */
 void
 getTypeBinaryInputInfo(Oid type, Oid *typReceive, Oid *typIOParam)
@@ -2925,7 +2925,7 @@ getTypeBinaryInputInfo(Oid type, Oid *typReceive, Oid *typIOParam)
 /*
  * getTypeBinaryOutputInfo
  *
- *		Get info needed for binary output of values of a type
+ *		取得二进制输出某类型值所需的信息
  */
 void
 getTypeBinaryOutputInfo(Oid type, Oid *typSend, bool *typIsVarlena)
@@ -2958,7 +2958,7 @@ getTypeBinaryOutputInfo(Oid type, Oid *typSend, bool *typIsVarlena)
 /*
  * get_typmodin
  *
- *		Given the type OID, return the type's typmodin procedure, if any.
+ *		给定类型 OID，返回该类型 typmodin 过程（若有）。
  */
 Oid
 get_typmodin(Oid typid)
@@ -2983,7 +2983,7 @@ get_typmodin(Oid typid)
 /*
  * get_typmodout
  *
- *		Given the type OID, return the type's typmodout procedure, if any.
+ *		给定类型 OID，返回该类型 typmodout 过程（若有）。
  */
 Oid
 get_typmodout(Oid typid)
@@ -3003,12 +3003,12 @@ get_typmodout(Oid typid)
 	else
 		return InvalidOid;
 }
-#endif							/* NOT_USED */
+#endif							/* 未用 */
 
 /*
  * get_typcollation
  *
- *		Given the type OID, return the type's typcollation attribute.
+ *		给定类型 OID，返回该类型的 typcollation 属性。
  */
 Oid
 get_typcollation(Oid typid)
@@ -3033,7 +3033,7 @@ get_typcollation(Oid typid)
 /*
  * type_is_collatable
  *
- *		Return whether the type cares about collations
+ *		返回该类型是否在意排序规则
  */
 bool
 type_is_collatable(Oid typid)
@@ -3045,11 +3045,11 @@ type_is_collatable(Oid typid)
 /*
  * get_typsubscript
  *
- *		Given the type OID, return the type's subscripting handler's OID,
- *		if it has one.
+ *		给定类型 OID，返回该类型下标处理器的 OID（
+ *		若有）。
  *
- * If typelemp isn't NULL, we also store the type's typelem value there.
- * This saves some callers an extra catalog lookup.
+ * 若 typelemp 非 NULL，还会在该处存入类型的
+ * typelem 值，并为调用者省一次查找。
  */
 RegProcedure
 get_typsubscript(Oid typid, Oid *typelemp)
@@ -3078,11 +3078,11 @@ get_typsubscript(Oid typid, Oid *typelemp)
 /*
  * getSubscriptingRoutines
  *
- *		Given the type OID, fetch the type's subscripting methods struct.
- *		Return NULL if type is not subscriptable.
+ *		给定类型 OID，取回该类型的下标方法结构体。
+ *		若类型不可下标则返回 NULL。
  *
- * If typelemp isn't NULL, we also store the type's typelem value there.
- * This saves some callers an extra catalog lookup.
+ * 若 typelemp 非 NULL，还会在该处存入类型的
+ * typelem 值，并为调用者省一次查找。
  */
 const struct SubscriptRoutines *
 getSubscriptingRoutines(Oid typid, Oid *typelemp)
@@ -3097,20 +3097,20 @@ getSubscriptingRoutines(Oid typid, Oid *typelemp)
 }
 
 
-/*				---------- STATISTICS CACHE ----------					 */
+/* 				---------- STATISTICS 缓存 ---------- */
 
 /*
  * get_attavgwidth
  *
- *	  Given the table and attribute number of a column, get the average
- *	  width of entries in the column.  Return zero if no data available.
+ *	  给定某列的表与属性号，取得该列条目的平均
+ *	  宽度；无可用数据时返回零。
  *
- * Currently this is only consulted for individual tables, not for inheritance
- * trees, so we don't need an "inh" parameter.
+ * 目前只对单个表（而非继承树）查阅此信息，
+ * 因此不需要 "inh" 参数。
  *
- * Calling a hook at this point looks somewhat strange, but is required
- * because the optimizer calls this function without any other way for
- * plug-ins to control the result.
+ * 在此时点调用钩子看似有些奇怪，但却是必需
+ * 的，因为优化器调用本函数时，插件没有其他
+ * 途径可以控制结果。
  */
 int32
 get_attavgwidth(Oid relid, AttrNumber attnum)
@@ -3141,52 +3141,52 @@ get_attavgwidth(Oid relid, AttrNumber attnum)
 /*
  * get_attstatsslot
  *
- *		Extract the contents of a "slot" of a pg_statistic tuple.
- *		Returns true if requested slot type was found, else false.
+ *		提取 pg_statistic 元组某个"槽"的内容。
+ *		找到所请求槽类型则返回 true，否则 false。
  *
- * Unlike other routines in this file, this takes a pointer to an
- * already-looked-up tuple in the pg_statistic cache.  We do this since
- * most callers will want to extract more than one value from the cache
- * entry, and we don't want to repeat the cache lookup unnecessarily.
- * Also, this API allows this routine to be used with statistics tuples
- * that have been provided by a stats hook and didn't really come from
- * pg_statistic.
+ * 与本文件中其他例程不同，它接收指向
+ * pg_statistic 缓存中已查出元组的指针。这样做
+ * 是因为多数调用者要从缓存条目提取多个值，
+ * 我们不想不必要地重复缓存查找。此外，此 API
+ * 还允许本例程用于统计元组：其由统计钩子
+ * 提供且并非真的出自
+ * pg_statistic
  *
- * sslot: pointer to output area (typically, a local variable in the caller).
- * statstuple: pg_statistic tuple to be examined.
- * reqkind: STAKIND code for desired statistics slot kind.
- * reqop: STAOP value wanted, or InvalidOid if don't care.
- * flags: bitmask of ATTSTATSSLOT_VALUES and/or ATTSTATSSLOT_NUMBERS.
+ * sslot：输出区指针（通常是调用者的局部变量）。
+ * statstuple：待查的 pg_statistic 元组。
+ * reqkind：所需统计槽类型的 STAKIND 代码。
+ * reqop：想要的 STAOP 值；不管则 InvalidOid。
+ * flags：ATTSTATSSLOT_VALUES/ATTSTATSSLOT_NUMBERS 的位掩码。
  *
- * If a matching slot is found, true is returned, and *sslot is filled thus:
- * staop: receives the actual STAOP value.
- * stacoll: receives the actual STACOLL value.
- * valuetype: receives actual datatype of the elements of stavalues.
- * values: receives pointer to an array of the slot's stavalues.
- * nvalues: receives number of stavalues.
- * numbers: receives pointer to an array of the slot's stanumbers (as float4).
- * nnumbers: receives number of stanumbers.
+ * 若找到匹配的槽则返回 true，*sslot 按如下填充：
+ * staop：接收实际 STAOP 值。
+ * stacoll：接收实际 STACOLL 值。
+ * valuetype：接收 stavalues 元素的实际数据类型。
+ * values：接收指向槽的 stavalues 数组的指针。
+ * nvalues：接收 stavalues 数目。
+ * numbers：接收指向槽 stanumbers 数组（float4 型）的指针。
+ * nnumbers：接收 stanumbers 数目。
  *
- * valuetype/values/nvalues are InvalidOid/NULL/0 if ATTSTATSSLOT_VALUES
- * wasn't specified.  Likewise, numbers/nnumbers are NULL/0 if
- * ATTSTATSSLOT_NUMBERS wasn't specified.
+ * valuetype/values/nvalues 为 InvalidOid/NULL/0（未指定
+ * ATTSTATSSLOT_VALUES 时）。同理，未指定
+ * ATTSTATSSLOT_NUMBERS 时为 NULL/0。
  *
- * If no matching slot is found, false is returned, and *sslot is zeroed.
+ * 若未找到匹配的槽则返回 false，且 *sslot 被清零。
  *
- * Note that the current API doesn't allow for searching for a slot with
- * a particular collation.  If we ever actually support recording more than
- * one collation, we'll have to extend the API, but for now simple is good.
+ * 注意：当前 API 不支持搜索具有特定排序规则的槽。
+ * 若我们将来真要支持记录多个排序规则，就得扩展
+ * API，但眼下简单为好。
  *
- * The data referred to by the fields of sslot is locally palloc'd and
- * is independent of the original pg_statistic tuple.  When the caller
- * is done with it, call free_attstatsslot to release the palloc'd data.
+ * sslot 各字段所引数据为本地 palloc，与原
+ * pg_statistic 元组无关。调用者用毕后，调用
+ * free_attstatsslot 释放 palloc 的数据。
  *
- * If it's desirable to call free_attstatsslot when get_attstatsslot might
- * not have been called, memset'ing sslot to zeroes will allow that.
+ * 若希望能在可能未调用 get_attstatsslot 的
+ * 情况下调用 free_attstatsslot，把 sslot 清零即可。
  *
- * Passing flags=0 can be useful to quickly check if the requested slot type
- * exists.  In this case no arrays are extracted, so free_attstatsslot need
- * not be called.
+ * 传 flags=0 可用于快速检查所请求的槽类型是否
+ * 存在。此时不提取任何数组，故无需调用
+ * 它。
  */
 bool
 get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
@@ -3201,7 +3201,7 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 	HeapTuple	typeTuple;
 	Form_pg_type typeForm;
 
-	/* initialize *sslot properly */
+	/* 正确初始化 *sslot */
 	memset(sslot, 0, sizeof(AttStatsSlot));
 
 	for (i = 0; i < STATISTIC_NUM_SLOTS; i++)
@@ -3211,7 +3211,7 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 			break;
 	}
 	if (i >= STATISTIC_NUM_SLOTS)
-		return false;			/* not there */
+		return false;			/* 不在 */
 
 	sslot->staop = (&stats->staop1)[i];
 	sslot->stacoll = (&stats->stacoll1)[i];
@@ -3222,24 +3222,24 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 									 Anum_pg_statistic_stavalues1 + i);
 
 		/*
-		 * Detoast the array if needed, and in any case make a copy that's
-		 * under control of this AttStatsSlot.
+		 * 必要时解 toast 数组，且无论如何都复制一份
+		 * 副本归本 AttStatsSlot 控制。
 		 */
 		statarray = DatumGetArrayTypePCopy(val);
 
 		/*
-		 * Extract the actual array element type, and pass it back in case the
-		 * caller needs it.
+		 * 提取实际的数组元素类型，并传回给调用者，
+		 * 以备需要。
 		 */
 		sslot->valuetype = arrayelemtype = ARR_ELEMTYPE(statarray);
 
-		/* Need info about element type */
+		/* 需要元素类型的信息 */
 		typeTuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(arrayelemtype));
 		if (!HeapTupleIsValid(typeTuple))
 			elog(ERROR, "cache lookup failed for type %u", arrayelemtype);
 		typeForm = (Form_pg_type) GETSTRUCT(typeTuple);
 
-		/* Deconstruct array into Datum elements; NULLs not expected */
+		/* 把数组解构成 Datum 元素；预期不含 NULL */
 		deconstruct_array(statarray,
 						  arrayelemtype,
 						  typeForm->typlen,
@@ -3248,10 +3248,10 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 						  &sslot->values, NULL, &sslot->nvalues);
 
 		/*
-		 * If the element type is pass-by-reference, we now have a bunch of
-		 * Datums that are pointers into the statarray, so we need to keep
-		 * that until free_attstatsslot.  Otherwise, all the useful info is in
-		 * sslot->values[], so we can free the array object immediately.
+		 * 若元素类型为按引用传递，我们手里就有一批
+		 * 指向 statarray 的 Datum，因此要把它保留到
+		 * free_attstatsslot 之时。否则，所有有用信息都在
+		 * sslot->values[] 中，可立即释放该数组对象。
 		 */
 		if (!typeForm->typbyval)
 			sslot->values_arr = statarray;
@@ -3267,15 +3267,15 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 									 Anum_pg_statistic_stanumbers1 + i);
 
 		/*
-		 * Detoast the array if needed, and in any case make a copy that's
-		 * under control of this AttStatsSlot.
+		 * 必要时解 toast 数组，且无论如何都复制一份
+		 * 副本归本 AttStatsSlot 控制。
 		 */
 		statarray = DatumGetArrayTypePCopy(val);
 
 		/*
-		 * We expect the array to be a 1-D float4 array; verify that. We don't
-		 * need to use deconstruct_array() since the array data is just going
-		 * to look like a C array of float4 values.
+		 * 我们预期该数组为一维 float4 数组；请加以验证。
+		 * 无需使用 deconstruct_array()，因为数组数据
+		 * 不过是 C 的 float4 数组而已。
 		 */
 		narrayelem = ARR_DIMS(statarray)[0];
 		if (ARR_NDIM(statarray) != 1 || narrayelem <= 0 ||
@@ -3283,11 +3283,11 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 			ARR_ELEMTYPE(statarray) != FLOAT4OID)
 			elog(ERROR, "stanumbers is not a 1-D float4 array");
 
-		/* Give caller a pointer directly into the statarray */
+		/* 把 statarray 内部指针直接交给调用者 */
 		sslot->numbers = (float4 *) ARR_DATA_PTR(statarray);
 		sslot->nnumbers = narrayelem;
 
-		/* We'll free the statarray in free_attstatsslot */
+		/* statarray 将由 free_attstatsslot 释放 */
 		sslot->numbers_arr = statarray;
 	}
 
@@ -3296,29 +3296,29 @@ get_attstatsslot(AttStatsSlot *sslot, HeapTuple statstuple,
 
 /*
  * free_attstatsslot
- *		Free data allocated by get_attstatsslot
+ *		释放 get_attstatsslot 分配的数据
  */
 void
 free_attstatsslot(AttStatsSlot *sslot)
 {
-	/* The values[] array was separately palloc'd by deconstruct_array */
+	/* values[] 数组由 deconstruct_array 单独 palloc 而来 */
 	if (sslot->values)
 		pfree(sslot->values);
-	/* The numbers[] array points into numbers_arr, do not pfree it */
-	/* Free the detoasted array objects, if any */
+	/* numbers[] 数组指向 numbers_arr 内部，勿 pfree */
+	/* 释放解 toast 对象（如有） */
 	if (sslot->values_arr)
 		pfree(sslot->values_arr);
 	if (sslot->numbers_arr)
 		pfree(sslot->numbers_arr);
 }
 
-/*				---------- PG_NAMESPACE CACHE ----------				 */
+/* 				---------- PG_NAMESPACE 缓存 ---------- */
 
 /*
  * get_namespace_name
- *		Returns the name of a given namespace
+ *		返回给定命名空间的名称
  *
- * Returns a palloc'd copy of the string, or NULL if no such namespace.
+ * 返回字符串的 palloc 副本；无此命名空间则得 NULL。
  */
 char *
 get_namespace_name(Oid nspid)
@@ -3341,8 +3341,8 @@ get_namespace_name(Oid nspid)
 
 /*
  * get_namespace_name_or_temp
- *		As above, but if it is this backend's temporary namespace, return
- *		"pg_temp" instead.
+ *		同上，但若它是本后端的临时命名空间，则返回
+ *		"pg_temp"。
  */
 char *
 get_namespace_name_or_temp(Oid nspid)
@@ -3353,13 +3353,13 @@ get_namespace_name_or_temp(Oid nspid)
 		return get_namespace_name(nspid);
 }
 
-/*				---------- PG_RANGE CACHES ----------				 */
+/* 				---------- PG_RANGE 缓存 ---------- */
 
 /*
  * get_range_subtype
- *		Returns the subtype of a given range type
+ *		返回给定范围类型的子类型
  *
- * Returns InvalidOid if the type is not a range type.
+ * 若类型不是范围类型则返回 InvalidOid。
  */
 Oid
 get_range_subtype(Oid rangeOid)
@@ -3382,10 +3382,10 @@ get_range_subtype(Oid rangeOid)
 
 /*
  * get_range_collation
- *		Returns the collation of a given range type
+ *		返回给定范围类型的排序规则
  *
- * Returns InvalidOid if the type is not a range type,
- * or if its subtype is not collatable.
+ * 若类型不是范围类型则返回 InvalidOid，
+ * 或其子类型不可排序。
  */
 Oid
 get_range_collation(Oid rangeOid)
@@ -3408,9 +3408,9 @@ get_range_collation(Oid rangeOid)
 
 /*
  * get_range_multirange
- *		Returns the multirange type of a given range type
+ *		返回给定范围类型的多范围类型
  *
- * Returns InvalidOid if the type is not a range type.
+ * 若类型不是范围类型则返回 InvalidOid。
  */
 Oid
 get_range_multirange(Oid rangeOid)
@@ -3433,9 +3433,9 @@ get_range_multirange(Oid rangeOid)
 
 /*
  * get_multirange_range
- *		Returns the range type of a given multirange
+ *		返回给定多范围的范围类型
  *
- * Returns InvalidOid if the type is not a multirange.
+ * 若该类型不是多范围则返回 InvalidOid。
  */
 Oid
 get_multirange_range(Oid multirangeOid)
@@ -3456,15 +3456,15 @@ get_multirange_range(Oid multirangeOid)
 		return InvalidOid;
 }
 
-/*				---------- PG_INDEX CACHE ----------				 */
+/* 				---------- PG_INDEX 缓存 ---------- */
 
 /*
  * get_index_column_opclass
  *
- *		Given the index OID and column number,
- *		return opclass of the index column
- *			or InvalidOid if the index was not found
- *				or column is non-key one.
+ *		给定索引 OID 与列号，
+ *		返回该索引列的算子类
+ *			若索引未找到则返回 InvalidOid
+ *				或该列不是键列。
  */
 Oid
 get_index_column_opclass(Oid index_oid, int attno)
@@ -3475,7 +3475,7 @@ get_index_column_opclass(Oid index_oid, int attno)
 	oidvector  *indclass;
 	Oid			opclass;
 
-	/* First we need to know the column's opclass. */
+	/* 首先需要知道该列的算子类。 */
 
 	tuple = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(index_oid));
 	if (!HeapTupleIsValid(tuple))
@@ -3483,10 +3483,10 @@ get_index_column_opclass(Oid index_oid, int attno)
 
 	rd_index = (Form_pg_index) GETSTRUCT(tuple);
 
-	/* caller is supposed to guarantee this */
+	/* 调用者应当保证这一点 */
 	Assert(attno > 0 && attno <= rd_index->indnatts);
 
-	/* Non-key attributes don't have an opclass */
+	/* 非键属性没有算子类 */
 	if (attno > rd_index->indnkeyatts)
 	{
 		ReleaseSysCache(tuple);
@@ -3507,7 +3507,7 @@ get_index_column_opclass(Oid index_oid, int attno)
 /*
  * get_index_isreplident
  *
- *		Given the index OID, return pg_index.indisreplident.
+ *		给定索引 OID，返回 pg_index.indisreplident。
  */
 bool
 get_index_isreplident(Oid index_oid)
@@ -3530,7 +3530,7 @@ get_index_isreplident(Oid index_oid)
 /*
  * get_index_isvalid
  *
- *		Given the index OID, return pg_index.indisvalid.
+ *		给定索引 OID，返回 pg_index.indisvalid。
  */
 bool
 get_index_isvalid(Oid index_oid)
@@ -3553,7 +3553,7 @@ get_index_isvalid(Oid index_oid)
 /*
  * get_index_isclustered
  *
- *		Given the index OID, return pg_index.indisclustered.
+ *		给定索引 OID，返回 pg_index.indisclustered。
  */
 bool
 get_index_isclustered(Oid index_oid)
@@ -3574,10 +3574,10 @@ get_index_isclustered(Oid index_oid)
 }
 
 /*
- * get_publication_oid - given a publication name, look up the OID
+ * get_publication_oid - 给定发布名称，查找其 OID
  *
- * If missing_ok is false, throw an error if name not found.  If true, just
- * return InvalidOid.
+ * missing_ok 为 false 时找不到名称即报错；true 则仅返回
+ * InvalidOid。
  */
 Oid
 get_publication_oid(const char *pubname, bool missing_ok)
@@ -3594,10 +3594,10 @@ get_publication_oid(const char *pubname, bool missing_ok)
 }
 
 /*
- * get_publication_name - given a publication Oid, look up the name
+ * get_publication_name - 给定发布 OID，查找其名称
  *
- * If missing_ok is false, throw an error if name not found.  If true, just
- * return NULL.
+ * missing_ok 为 false 时找不到名称即报错；true 则仅返回
+ * NULL。
  */
 char *
 get_publication_name(Oid pubid, bool missing_ok)
@@ -3624,10 +3624,10 @@ get_publication_name(Oid pubid, bool missing_ok)
 }
 
 /*
- * get_subscription_oid - given a subscription name, look up the OID
+ * get_subscription_oid - 给定订阅名称，查找其 OID
  *
- * If missing_ok is false, throw an error if name not found.  If true, just
- * return InvalidOid.
+ * missing_ok 为 false 时找不到名称即报错；true 则仅返回
+ * InvalidOid。
  */
 Oid
 get_subscription_oid(const char *subname, bool missing_ok)
@@ -3644,10 +3644,10 @@ get_subscription_oid(const char *subname, bool missing_ok)
 }
 
 /*
- * get_subscription_name - given a subscription OID, look up the name
+ * get_subscription_name - 给定订阅 OID，查找其名称
  *
- * If missing_ok is false, throw an error if name not found.  If true, just
- * return NULL.
+ * missing_ok 为 false 时找不到名称即报错；true 则仅返回
+ * NULL。
  */
 char *
 get_subscription_name(Oid subid, bool missing_ok)

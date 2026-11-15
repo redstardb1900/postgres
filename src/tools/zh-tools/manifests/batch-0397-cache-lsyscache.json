@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0397",
+ "title": "cache 目录 lsyscache.c 整文件注释翻译 (218 blocks: 218 translated + 0 justified keep-EN blocks; 619 content lines: 506 rewritten zh + 113 kept EN; 逐行预算全过+行数守恒 3674/3674 1:1; 修复轮 0(分段推进期逐段断言即修, 写盘后无返工); W7 27 条 advisory 释义披露; term_lint in-scope 0 error/3 warning(TL08/P23 L2527 phrasebook, P38 L3141); halfen cache 1 条为 typcache L1872-1884 0396 既判 justified, lsyscache 0 条; check_scope 增量+累计双 rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "322d0ccec30f42d856862058f8ce15c05f9adcdf",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/lsyscache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0397"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0397-cache-lsyscache.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0397 manifest path + lsyscache.c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/lsyscache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 218,
+   "translated": 218,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 218 all translated; content lines 619 = 506 zh + 113 keep-EN (头 6: L3 文件名/L6-L7 版权/L9 IDENTIFICATION/L10 路径/L12 NOTES 段标保留先例同 relcache/syscache; 纯函数名行 107 行逐字保留先例同 typcache). 头部功能描述行 L4 与 NOTES 内容行 L13 已译. 17 条横幅分隔线 CACHE(S)→缓存 结构保留 (L55/785/815/1024/1049/1095/1162/1186/1258/1581/1858/2077/2122/3100/3315/3356/3459; L1024/L3459 超预算 1 字节裁尾空白). 8 条行尾注释: L1017 text[] 类型标注逐字保留(预算仅容 5 字节)/L1346 不应发生/L2562 假定全宽/L2564 假定50%/L2616 简单/L3006 未用/L3214 不在. 同 EN 必同译核对(apply 内建 same-EN diff-zh 断言 0 违规): L62=L79, L192=L263, L406=L506, L416=L516, L423=L523(EN 同行含 L311/L372), L449 段 L450=L539/L451=L540, L461=L550, L481=L577, L622=L660, L688=L738, L690=L740, L703=L754, L708=L759, L878=L905=L992, L881=L908, L1058=L1104=L1907, L2499=L2793, L3051=L3084, L3052=L3085, L3579=L3629=L3649, L3580=L3630, L3600=L3650. 极性/双重否定自查: L881/L908 若无则报错(Errors if not found)/L2685-2686 非复合类型则空(InvalidOid 预算不可行以 空 表义, 披露)/L2176-2177 按值 true 按引用 false/L2533 若无法确知猜测即可且属预期/L2205-2206 会报错而不是返回假值(L2205 raises an error instead of returning a bogus value)/L406=L506 本不应被标记为 oprcanhash 双重否定保留/L2203-2204 许多地方都要同时取得二者. OID/标识符逐字保留: pg_amop/pg_amproc/pg_operator/pg_class/pg_type/pg_namespace/pg_tablespace/pg_collation/pg_constraint/pg_statistic/pg_index/InvalidOid/InvalidAttrNumber/BTLess(BTGreater)StrategyNumber/ROWCOMPARE_NE/OpBtreeInterpretation/array_subscript_handler/IOFuncSelector/typelem/typmod/typcollation/attstattarget/attgenerated/atttypid/atttypmod/attcollation/typdefault(bin)/provariadic/proretset/proisstrict/provolatile/proparallel/leakproof/oprcanmerge/oprcanhash/opfamily/opclass/AMOP_SEARCH/relkind/relispartition/relpersistence/indisreplident/indisvalid/indisclustered/AttStatsSlot/ATTSTATSSLOT_VALUES/ATTSTATSSLOT_NUMBERS/STAKIND/STAOP/STACOLL/free_attstatsslot/get_attstatsslot 全部字面保留. 门禁: verify rc=0 (lsyscache W7 27 条 in-scope advisory 释义披露: 17 条 CACHE(S)→缓存 横幅; L345/L1026/L1952 OIDs→OID 与 L3242 NULLs→NULL 复数归一; L393/L448 operator→算子/L493/L537 function→函数 译语替代; L2682 InvalidOid→空 预算不可行已披露; L3006 NOT_USED→未用); term_lint in-scope 0 error/3 warning (L2527 TL08/P23 phrasebook requires→需要 语义无损, L3141 P38 泛告警; 全树唯一 error TL01 在 postinit.c 系预先存在非本批); halfen cache 1 条为 typcache.c L1872-1884 (0396 已判 justified 源自 L1877 代码调用表达式行), lsyscache.c 0 条. 预算不可行残句/缺尾句号披露: L2422 SysCacheGetAttr 缺句号/L3153 pg_statistic 缺句号(EN 有句号, 逐行 ≤EN 字节硬约束, 语义完整)/L2463 无(EN No default 预算 9 字节)/L2686 空。(InvalidOid 缩略)/L1017 text[] 保留. 尾句号台账 REVERSE 全量核对 140 处差异中 137 处为 '.'→'。'/')'→'）'/EN 无句号 zh 无句号 的正向自洽映射, 仅上述 2 处 REVERSE 缺句号自洽披露. 修复轮 0 次: 分段推进期每段断言即修(段内预算裁剪 21 行), 写盘后全量 readback 无返工"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0397-cache-lsyscache.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0397 manifest path + lsyscache.c entries to files[] and allowed_paths"
+  }
+ ],
+ "notes": ""
+}

@@ -6747,6 +6747,11 @@
    "kind": "manifest",
    "note": "batch-0398 manifest"
   },
+ {
+  "pattern": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
+  "kind": "manifest",
+  "note": "batch-0399 manifest"
+ },
   {
    "pattern": "src/backend/utils/cache/relcache.c",
    "kind": "c_comment",
@@ -21930,6 +21935,16 @@
    "preserved_reasons": [],
    "note": "batch-0398 manifest"
   },
+ {
+  "path": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
+  "kind": "manifest",
+  "action": "add",
+  "segments_total": 0,
+  "translated": 0,
+  "preserved": 0,
+  "preserved_reasons": [],
+  "note": "batch-0399 manifest"
+ },
   {
    "path": "src/backend/utils/cache/relcache.c",
    "kind": "c_comment",

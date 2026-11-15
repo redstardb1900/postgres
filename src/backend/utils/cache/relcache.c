@@ -3405,7 +3405,7 @@ AtEOSubXact_cleanup(Relation relation, bool isCommit,
 			relation->rd_createSubid = parentSubid;
 		else if (RelationHasReferenceCountZero(relation))
 		{
-			/* allow the entry to be removed */
+			/* 允许移除该条目 */
 			relation->rd_createSubid = InvalidSubTransactionId;
 			relation->rd_newRelfilelocatorSubid = InvalidSubTransactionId;
 			relation->rd_firstRelfilelocatorSubid = InvalidSubTransactionId;
@@ -3416,11 +3416,11 @@ AtEOSubXact_cleanup(Relation relation, bool isCommit,
 		else
 		{
 			/*
-			 * Hmm, somewhere there's a (leaked?) reference to the relation.
-			 * We daren't remove the entry for fear of dereferencing a
-			 * dangling pointer later.  Bleat, and transfer it to the parent
-			 * subtransaction so we can try again later.  This must be just a
-			 * WARNING to avoid error-during-error-recovery loops.
+			 * 嗯，某处有该关系的（泄漏?）引用，不敢移
+			 * 除，免得日后解引用
+			 * 悬空指针。发牢骚，并把它移交给父
+			 * 子事务，以便日后再试。这必须只是一条
+			 * WARNING，以免错误恢复中的错误循环。
 			 */
 			relation->rd_createSubid = parentSubid;
 			elog(WARNING, "cannot remove relcache entry for \"%s\" because it has nonzero refcount",
@@ -3429,8 +3429,8 @@ AtEOSubXact_cleanup(Relation relation, bool isCommit,
 	}
 
 	/*
-	 * Likewise, update or drop any new-relfilenumber-in-subtransaction record
-	 * or drop record.
+	 * 同样，更新或删除任何子事务内新 relfilenumber 记录，
+	 * 或删除之。
 	 */
 	if (relation->rd_newRelfilelocatorSubid == mySubid)
 	{
@@ -3460,8 +3460,8 @@ AtEOSubXact_cleanup(Relation relation, bool isCommit,
 
 /*
  *		RelationBuildLocalRelation
- *			Build a relcache entry for an about-to-be-created relation,
- *			and enter it into the relcache.
+ *			为即将创建的关系构建 relcache 条目，
+ *			并登记进 relcache。
  */
 Relation
 RelationBuildLocalRelation(const char *relname,
@@ -3486,10 +3486,10 @@ RelationBuildLocalRelation(const char *relname,
 	Assert(natts >= 0);
 
 	/*
-	 * check for creation of a rel that must be nailed in cache.
+	 * 检查是否创建了必须钉在缓存中的关系。
 	 *
-	 * XXX this list had better match the relations specially handled in
-	 * RelationCacheInitializePhase2/3.
+	 * XXX 本清单应与 RelationCacheInitializePhase2/3 特殊处理
+	 * 的关系一致。
 	 */
 	switch (relid)
 	{
@@ -3508,20 +3508,20 @@ RelationBuildLocalRelation(const char *relname,
 	}
 
 	/*
-	 * check that hardwired list of shared rels matches what's in the
-	 * bootstrap .bki file.  If you get a failure here during initdb, you
-	 * probably need to fix IsSharedRelation() to match whatever you've done
-	 * to the set of shared relations.
+	 * 检查共享关系的硬编码清单与引导 .bki 文件中
+	 * 的内容一致。若 initdb 期间此处失败，多半需要
+	 * 修正 IsSharedRelation() 以匹配你对共享关系集合
+	 * 所做的改动。
 	 */
 	if (shared_relation != IsSharedRelation(relid))
 		elog(ERROR, "shared_relation flag for \"%s\" does not match IsSharedRelation(%u)",
 			 relname, relid);
 
-	/* Shared relations had better be mapped, too */
+	/* 共享关系也必须已被映射 */
 	Assert(mapped_relation || !shared_relation);
 
 	/*
-	 * switch to the cache context to create the relcache entry.
+	 * 切换到缓存上下文以创建 relcache 条目。
 	 */
 	if (!CacheMemoryContext)
 		CreateCacheMemoryContext();
@@ -3529,33 +3529,33 @@ RelationBuildLocalRelation(const char *relname,
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 
 	/*
-	 * allocate a new relation descriptor and fill in basic state fields.
+	 * 分配一个新关系描述符并填入基本状态字段。
 	 */
 	rel = (Relation) palloc0(sizeof(RelationData));
 
-	/* make sure relation is marked as having no open file yet */
+	/* 确保关系被标记为尚无已打开文件 */
 	rel->rd_smgr = NULL;
 
-	/* mark it nailed if appropriate */
+	/* 酌情将其标记为钉住 */
 	rel->rd_isnailed = nailit;
 
 	rel->rd_refcnt = nailit ? 1 : 0;
 
-	/* it's being created in this transaction */
+	/* 它正由本事务创建 */
 	rel->rd_createSubid = GetCurrentSubTransactionId();
 	rel->rd_newRelfilelocatorSubid = InvalidSubTransactionId;
 	rel->rd_firstRelfilelocatorSubid = InvalidSubTransactionId;
 	rel->rd_droppedSubid = InvalidSubTransactionId;
 
 	/*
-	 * create a new tuple descriptor from the one passed in.  We do this
-	 * partly to copy it into the cache context, and partly because the new
-	 * relation can't have any defaults or constraints yet; they have to be
-	 * added in later steps, because they require additions to multiple system
-	 * catalogs.  We can copy attnotnull constraints here, however.
+	 * 用传入的描述符创建新的元组描述符。这样做，
+	 * 一方面是为了把它复制进缓存上下文，另一方面
+	 * 是因为新关系不可能已有默认值或约束；这些
+	 * 内容必须留待后续步骤添加，因为需要对多个系
+	 * 统目录增补。不过 attnotnull 约束可在此复制。
 	 */
 	rel->rd_att = CreateTupleDescCopy(tupDesc);
-	rel->rd_att->tdrefcount = 1;	/* mark as refcounted */
+	rel->rd_att->tdrefcount = 1;	/* 引用计数标记 */
 	has_not_null = false;
 	for (i = 0; i < natts; i++)
 	{
@@ -3577,7 +3577,7 @@ RelationBuildLocalRelation(const char *relname,
 	}
 
 	/*
-	 * initialize relation tuple form (caller may add/override data later)
+	 * 初始化关系元组形态（调用方稍后可增补或覆盖）
 	 */
 	rel->rd_rel = (Form_pg_class) palloc0(CLASS_TUPLE_SIZE);
 
@@ -3587,10 +3587,10 @@ RelationBuildLocalRelation(const char *relname,
 	rel->rd_rel->relkind = relkind;
 	rel->rd_rel->relnatts = natts;
 	rel->rd_rel->reltype = InvalidOid;
-	/* needed when bootstrapping: */
+	/* 引导时需要： */
 	rel->rd_rel->relowner = BOOTSTRAP_SUPERUSERID;
 
-	/* set up persistence and relcache fields dependent on it */
+	/* 建立依赖它的持久性与 relcache 字段 */
 	rel->rd_rel->relpersistence = relpersistence;
 	switch (relpersistence)
 	{
@@ -3609,13 +3609,13 @@ RelationBuildLocalRelation(const char *relname,
 			break;
 	}
 
-	/* if it's a materialized view, it's not populated initially */
+	/* 若是物化视图，初始时未填充数据 */
 	if (relkind == RELKIND_MATVIEW)
 		rel->rd_rel->relispopulated = false;
 	else
 		rel->rd_rel->relispopulated = true;
 
-	/* set replica identity -- system catalogs and non-tables don't have one */
+	/* 设置副本标识 -- 系统目录与非表对象没有副本标识 */
 	if (!IsCatalogNamespace(relnamespace) &&
 		(relkind == RELKIND_RELATION ||
 		 relkind == RELKIND_MATVIEW ||
@@ -3625,9 +3625,9 @@ RelationBuildLocalRelation(const char *relname,
 		rel->rd_rel->relreplident = REPLICA_IDENTITY_NOTHING;
 
 	/*
-	 * Insert relation physical and logical identifiers (OIDs) into the right
-	 * places.  For a mapped relation, we set relfilenumber to zero and rely
-	 * on RelationInitPhysicalAddr to consult the map.
+	 * 将关系的物理与逻辑标识符（OID）插入正确的位置。
+	 * 对于映射关系，我们把 relfilenumber 置零并依靠
+	 * RelationInitPhysicalAddr 查询映射。
 	 */
 	rel->rd_rel->relisshared = shared_relation;
 
@@ -3641,22 +3641,22 @@ RelationBuildLocalRelation(const char *relname,
 	if (mapped_relation)
 	{
 		rel->rd_rel->relfilenode = InvalidRelFileNumber;
-		/* Add it to the active mapping information */
+		/* 将其加入活跃映射信息 */
 		RelationMapUpdateMap(relid, relfilenumber, shared_relation, true);
 	}
 	else
 		rel->rd_rel->relfilenode = relfilenumber;
 
-	RelationInitLockInfo(rel);	/* see lmgr.c */
+	RelationInitLockInfo(rel);	/* 见lmgr.c */
 
 	RelationInitPhysicalAddr(rel);
 
 	rel->rd_rel->relam = accessmtd;
 
 	/*
-	 * RelationInitTableAccessMethod will do syscache lookups, so we mustn't
-	 * run it in CacheMemoryContext.  Fortunately, the remaining steps don't
-	 * require a long-lived current context.
+	 * RelationInitTableAccessMethod 会做 syscache 查找，
+	 * 因此绝不能在 CacheMemoryContext 中运行它。好在
+	 * 余下步骤无需长期上下文。
 	 */
 	MemoryContextSwitchTo(oldcxt);
 
@@ -3664,27 +3664,27 @@ RelationBuildLocalRelation(const char *relname,
 		RelationInitTableAccessMethod(rel);
 
 	/*
-	 * Okay to insert into the relcache hash table.
+	 * 可以插入 relcache 哈希表了。
 	 *
-	 * Ordinarily, there should certainly not be an existing hash entry for
-	 * the same OID; but during bootstrap, when we create a "real" relcache
-	 * entry for one of the bootstrap relations, we'll be overwriting the
-	 * phony one created with formrdesc.  So allow that to happen for nailed
+	 * 通常同一 OID 绝不应已有现存哈希条目；但在引导
+	 * 期间，当我们为某个引导关系创建"真正"的
+	 * relcache 条目时，我们会覆盖 formrdesc 创建的
+	 * 假条目。所以允许这种覆盖发生在钉住
 	 * rels.
 	 */
 	RelationCacheInsert(rel, nailit);
 
 	/*
-	 * Flag relation as needing eoxact cleanup (to clear rd_createSubid). We
-	 * can't do this before storing relid in it.
+	 * 标记关系待事务结束清理（清 rd_createSubid）。
+	 * 但存入 relid 前不能这么做。
 	 */
 	EOXactListAdd(rel);
 
-	/* It's fully valid */
+	/* 已完全有效 */
 	rel->rd_isvalid = true;
 
 	/*
-	 * Caller expects us to pin the returned entry.
+	 * 调用方期望我们钉住返回条目。
 	 */
 	RelationIncrementReferenceCount(rel);
 
@@ -3695,16 +3695,16 @@ RelationBuildLocalRelation(const char *relname,
 /*
  * RelationSetNewRelfilenumber
  *
- * Assign a new relfilenumber (physical file name), and possibly a new
- * persistence setting, to the relation.
+ * 为关系指派新的 relfilenumber（物理文件名），
+ * 或还指派新的持久性设置。
  *
- * This allows a full rewrite of the relation to be done with transactional
- * safety (since the filenumber assignment can be rolled back).  Note however
- * that there is no simple way to access the relation's old data for the
- * remainder of the current transaction.  This limits the usefulness to cases
- * such as TRUNCATE or rebuilding an index from scratch.
+ * 这让关系能以事务安全的方式完全重写（因为文件号
+ * 的指派可以回滚）。但请注意，在当前事务的剩余
+ * 部分里，没有什么简单办法可以访问该关系的旧
+ * 数据。这把它限定在 TRUNCATE 或从头重建索引等
+ * 场景中才有用。
  *
- * Caller must already hold exclusive lock on the relation.
+ * 调用方必须已持有该关系上的排他锁。
  */
 void
 RelationSetNewRelfilenumber(Relation relation, char persistence)
@@ -3720,7 +3720,7 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 
 	if (!IsBinaryUpgrade)
 	{
-		/* Allocate a new relfilenumber */
+		/* 分配新的 relfilenumber */
 		newrelfilenumber = GetNewRelFileNumber(relation->rd_rel->reltablespace,
 											   NULL, persistence);
 	}
@@ -3750,7 +3750,7 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 				 errmsg("unexpected request for new relfilenumber in binary upgrade mode")));
 
 	/*
-	 * Get a writable copy of the pg_class tuple for the given relation.
+	 * 为给定关系获取一份可写的 pg_class 元组副本。
 	 */
 	pg_class = table_open(RelationRelationId, RowExclusiveLock);
 
@@ -3763,27 +3763,27 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 	classform = (Form_pg_class) GETSTRUCT(tuple);
 
 	/*
-	 * Schedule unlinking of the old storage at transaction commit, except
-	 * when performing a binary upgrade, when we must do it immediately.
+	 * 安排在事务提交时 unlink 旧存储；但执行二进制
+	 * 升级时必须立即执行。
 	 */
 	if (IsBinaryUpgrade)
 	{
 		SMgrRelation srel;
 
 		/*
-		 * During a binary upgrade, we use this code path to ensure that
-		 * pg_largeobject and its index have the same relfilenumbers as in the
-		 * old cluster. This is necessary because pg_upgrade treats
-		 * pg_largeobject like a user table, not a system table. It is however
-		 * possible that a table or index may need to end up with the same
-		 * relfilenumber in the new cluster as what it had in the old cluster.
-		 * Hence, we can't wait until commit time to remove the old storage.
+		 * 二进制升级期间，我们借这条代码路径确保
+		 * pg_largeobject 及其索引与旧集簇中具有相同的
+		 * relfilenumber。这是必需的，因为 pg_upgrade
+		 * 把 pg_largeobject 当作用户表而非系统表对待。
+		 * 不过，表或索引有可能需要在新集簇中保有其
+		 * 旧集簇中的同一 relfilenumber。
+		 * 因此，我们不能等到提交时才移除旧存储。
 		 *
-		 * In general, this function needs to have transactional semantics,
-		 * and removing the old storage before commit time surely isn't.
-		 * However, it doesn't really matter, because if a binary upgrade
-		 * fails at this stage, the new cluster will need to be recreated
-		 * anyway.
+		 * 大体上，本函数需要具备事务性语义，
+		 * 而提交前就移除旧存储显然不具备。
+		 * 不过没关系，若二进制升级在此阶段失败，
+		 * 新集簇反正都需要重
+		 * 建。
 		 */
 		srel = smgropen(relation->rd_locator, relation->rd_backend);
 		smgrdounlinkall(&srel, 1, false);
@@ -3791,17 +3791,17 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 	}
 	else
 	{
-		/* Not a binary upgrade, so just schedule it to happen later. */
+		/* 非二进制升级，故只安排延后处理。 */
 		RelationDropStorage(relation);
 	}
 
 	/*
-	 * Create storage for the main fork of the new relfilenumber.  If it's a
-	 * table-like object, call into the table AM to do so, which'll also
-	 * create the table's init fork if needed.
+	 * 为新 relfilenumber 的主 fork 创建存储。若对象
+	 * 类似表，则调用表 AM 来做，它还会按需创建该表
+	 * 的 init fork。
 	 *
-	 * NOTE: If relevant for the AM, any conflict in relfilenumber value will
-	 * be caught here, if GetNewRelFileNumber messes up for any reason.
+	 * 注意：若对相关 AM 适用，relfilenumber 值的任何冲突
+	 * 都会在此被捕获，倘若 GetNewRelFileNumber 失手。
 	 */
 	newrlocator = relation->rd_locator;
 	newrlocator.relNumber = newrelfilenumber;
@@ -3814,7 +3814,7 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 	}
 	else if (RELKIND_HAS_STORAGE(relation->rd_rel->relkind))
 	{
-		/* handle these directly, at least for now */
+		/* 至少目前直接处理这些 */
 		SMgrRelation srel;
 
 		srel = RelationCreateStorage(newrlocator, persistence, true);
@@ -3822,56 +3822,56 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 	}
 	else
 	{
-		/* we shouldn't be called for anything else */
+		/* 其余情况不该调用到我们 */
 		elog(ERROR, "relation \"%s\" does not have storage",
 			 RelationGetRelationName(relation));
 	}
 
 	/*
-	 * If we're dealing with a mapped index, pg_class.relfilenode doesn't
-	 * change; instead we have to send the update to the relation mapper.
+	 * 若处理的是映射索引，pg_class.relfilenode 不会
+	 * 改变；此时须把更新发送给关系映射器。
 	 *
-	 * For mapped indexes, we don't actually change the pg_class entry at all;
-	 * this is essential when reindexing pg_class itself.  That leaves us with
-	 * possibly-inaccurate values of relpages etc, but those will be fixed up
-	 * later.
+	 * 对映射索引而言，我们实际完全不改动 pg_class
+	 * 条目；这在重建 pg_class 自身索引时至关重要。
+	 * 这会留下可能不准的 relpages 等值，稍后自会修
+	 * 正。
 	 */
 	if (RelationIsMapped(relation))
 	{
-		/* This case is only supported for indexes */
+		/* 仅索引支持此情形 */
 		Assert(relation->rd_rel->relkind == RELKIND_INDEX);
 
-		/* Since we're not updating pg_class, these had better not change */
+		/* 由于不更新 pg_class，这些值最好别变 */
 		Assert(classform->relfrozenxid == freezeXid);
 		Assert(classform->relminmxid == minmulti);
 		Assert(classform->relpersistence == persistence);
 
 		/*
-		 * In some code paths it's possible that the tuple update we'd
-		 * otherwise do here is the only thing that would assign an XID for
-		 * the current transaction.  However, we must have an XID to delete
-		 * files, so make sure one is assigned.
+		 * 某些代码路径下，此处本应做的元组更新
+		 * 可能正是为当前事务指派 XID 的唯一契机。不过
+		 * 删除文件必须有 XID，因此要确保
+		 * 指派了一个。
 		 */
 		(void) GetCurrentTransactionId();
 
-		/* Do the deed */
+		/* 动手干 */
 		RelationMapUpdateMap(RelationGetRelid(relation),
 							 newrelfilenumber,
 							 relation->rd_rel->relisshared,
 							 false);
 
-		/* Since we're not updating pg_class, must trigger inval manually */
+		/* 由于不更新 pg_class，须手动触发失效 */
 		CacheInvalidateRelcache(relation);
 	}
 	else
 	{
-		/* Normal case, update the pg_class entry */
+		/* 常规情形，更新 pg_class 条目 */
 		classform->relfilenode = newrelfilenumber;
 
-		/* relpages etc. never change for sequences */
+		/* 序列的 relpages 等从不变化 */
 		if (relation->rd_rel->relkind != RELKIND_SEQUENCE)
 		{
-			classform->relpages = 0;	/* it's empty until further notice */
+			classform->relpages = 0;	/* 在另行通知之前它为空 */
 			classform->reltuples = -1;
 			classform->relallvisible = 0;
 		}
@@ -3888,8 +3888,8 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 	table_close(pg_class, RowExclusiveLock);
 
 	/*
-	 * Make the pg_class row change or relation map change visible.  This will
-	 * cause the relcache entry to get updated, too.
+	 * 使 pg_class 行变更或关系映射变更可见。这也会
+	 * 使 relcache 条目得到更新。
 	 */
 	CommandCounterIncrement();
 
@@ -3899,14 +3899,14 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 /*
  * RelationAssumeNewRelfilelocator
  *
- * Code that modifies pg_class.reltablespace or pg_class.relfilenode must call
- * this.  The call shall precede any code that might insert WAL records whose
- * replay would modify bytes in the new RelFileLocator, and the call shall follow
- * any WAL modifying bytes in the prior RelFileLocator.  See struct RelationData.
- * Ideally, call this as near as possible to the CommandCounterIncrement()
- * that makes the pg_class change visible (before it or after it); that
- * minimizes the chance of future development adding a forbidden WAL insertion
- * between RelationAssumeNewRelfilelocator() and CommandCounterIncrement().
+ * 凡是修改 pg_class.reltablespace 或 pg_class.relfilenode 的代码
+ * 都必须调用本函数。调用应先于任何可能插入 WAL
+ * 记录、且重放会修改新 RelFileLocator 字节的代码，
+ * 并后于修改先前 RelFileLocator 字节的任何 WAL。参见
+ * struct RelationData。理想情况下，应尽量靠近使
+ * pg_class 变更可见的 CommandCounterIncrement()
+ * 调用它（之前或之后均可）；这能最大限度减少未来
+ * 开发在两函数之间添加违禁 WAL 的几率。
  */
 void
 RelationAssumeNewRelfilelocator(Relation relation)
@@ -3915,7 +3915,7 @@ RelationAssumeNewRelfilelocator(Relation relation)
 	if (relation->rd_firstRelfilelocatorSubid == InvalidSubTransactionId)
 		relation->rd_firstRelfilelocatorSubid = relation->rd_newRelfilelocatorSubid;
 
-	/* Flag relation as needing eoxact cleanup (to clear these fields) */
+	/* 标记关系需要事务结束清理（清这些字段） */
 	EOXactListAdd(relation);
 }
 
@@ -3923,13 +3923,13 @@ RelationAssumeNewRelfilelocator(Relation relation)
 /*
  *		RelationCacheInitialize
  *
- *		This initializes the relation descriptor cache.  At the time
- *		that this is invoked, we can't do database access yet (mainly
- *		because the transaction subsystem is not up); all we are doing
- *		is making an empty cache hashtable.  This must be done before
- *		starting the initialization transaction, because otherwise
- *		AtEOXact_RelationCache would crash if that transaction aborts
- *		before we can get the relcache set up.
+ *		本函数初始化关系描述符缓存。在被调用时，
+ *		尚不能访问数据库（主要因为事务子系统尚未
+ *		就绪）；我们只是在建一张空的缓存哈希表。
+ *		这必须在初始化事务启动之前完成，否则
+ *		一旦该事务中止，AtEOXact_RelationCache
+ *		就会在 relcache 尚未建立的情况下
+ *		发生崩溃。
  */
 
 #define INITRELCACHESIZE		400
@@ -3941,13 +3941,13 @@ RelationCacheInitialize(void)
 	int			allocsize;
 
 	/*
-	 * make sure cache memory context exists
+	 * 确保缓存内存上下文已存在
 	 */
 	if (!CacheMemoryContext)
 		CreateCacheMemoryContext();
 
 	/*
-	 * create hashtable that indexes the relcache
+	 * 建立为 relcache 建索引的哈希表
 	 */
 	ctl.keysize = sizeof(Oid);
 	ctl.entrysize = sizeof(RelIdCacheEnt);
@@ -3955,7 +3955,7 @@ RelationCacheInitialize(void)
 								  &ctl, HASH_ELEM | HASH_BLOBS);
 
 	/*
-	 * reserve enough in_progress_list slots for many cases
+	 * 为多数情况预留 in_progress_list 槽位
 	 */
 	allocsize = 4;
 	in_progress_list =
@@ -3964,7 +3964,7 @@ RelationCacheInitialize(void)
 	in_progress_list_maxlen = allocsize;
 
 	/*
-	 * relation mapper needs to be initialized too
+	 * 关系映射器也需要先初始化
 	 */
 	RelationMapInitialize();
 }
@@ -3972,13 +3972,13 @@ RelationCacheInitialize(void)
 /*
  *		RelationCacheInitializePhase2
  *
- *		This is called to prepare for access to shared catalogs during startup.
- *		We must at least set up nailed reldescs for pg_database, pg_authid,
- *		pg_auth_members, and pg_shseclabel. Ideally we'd like to have reldescs
- *		for their indexes, too.  We attempt to load this information from the
- *		shared relcache init file.  If that's missing or broken, just make
- *		phony entries for the catalogs themselves.
- *		RelationCacheInitializePhase3 will clean up as needed.
+ *		本函数为启动期间访问共享目录做准备。我们至少要
+ *		为 pg_database、pg_authid、pg_auth_members 和
+ *		pg_shseclabel 建立钉住的 reldesc。理想情况下还
+ *		要为它们的索引建立 reldesc。我们尝试从共享
+ *		relcache 初始化文件加载该信息。若缺失或损坏，
+ *		就只为目录本身建假条目。
+ *		RelationCacheInitializePhase3 会按需清理。
  */
 void
 RelationCacheInitializePhase2(void)
@@ -3986,25 +3986,25 @@ RelationCacheInitializePhase2(void)
 	MemoryContext oldcxt;
 
 	/*
-	 * relation mapper needs initialized too
+	 * 关系映射器也需要初始化
 	 */
 	RelationMapInitializePhase2();
 
 	/*
-	 * In bootstrap mode, the shared catalogs aren't there yet anyway, so do
-	 * nothing.
+	 * 引导模式下共享目录反正还不存在，不用管
+	 * 它。
 	 */
 	if (IsBootstrapProcessingMode())
 		return;
 
 	/*
-	 * switch to cache memory context
+	 * 切换到缓存内存上下文
 	 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 
 	/*
-	 * Try to load the shared relcache cache file.  If unsuccessful, bootstrap
-	 * the cache with pre-made descriptors for the critical shared catalogs.
+	 * 尝试加载共享 relcache 缓存文件。若不成功，则用
+	 * 为关键共享目录预制的描述符来引导缓存。
 	 */
 	if (!load_relcache_init_file(true))
 	{
@@ -4019,7 +4019,7 @@ RelationCacheInitializePhase2(void)
 		formrdesc("pg_subscription", SubscriptionRelation_Rowtype_Id, true,
 				  Natts_pg_subscription, Desc_pg_subscription);
 
-#define NUM_CRITICAL_SHARED_RELS	5	/* fix if you change list above */
+#define NUM_CRITICAL_SHARED_RELS	5	/* 清单有变须同步修正 */
 	}
 
 	MemoryContextSwitchTo(oldcxt);
@@ -4028,16 +4028,16 @@ RelationCacheInitializePhase2(void)
 /*
  *		RelationCacheInitializePhase3
  *
- *		This is called as soon as the catcache and transaction system
- *		are functional and we have determined MyDatabaseId.  At this point
- *		we can actually read data from the database's system catalogs.
- *		We first try to read pre-computed relcache entries from the local
- *		relcache init file.  If that's missing or broken, make phony entries
- *		for the minimum set of nailed-in-cache relations.  Then (unless
- *		bootstrapping) make sure we have entries for the critical system
- *		indexes.  Once we've done all this, we have enough infrastructure to
- *		open any system catalog or use any catcache.  The last step is to
- *		rewrite the cache files if needed.
+ *		本函数在 catcache 与事务系统就绪并确定
+ *		MyDatabaseId 后尽快调用。此时我们才真正能
+ *		从数据库的系统目录读取数据。我们首先尝试
+ *		从本地 relcache 初始化文件读取预计算好的
+ *		relcache 条目。若缺失或损坏，就为最少的
+ *		钉在缓存中的关系建假条目。然后（除非正在
+ *		引导）确保我们握有关键系统索引的条目。
+ *		全部完成后，我们就有足够的基础设施来打开
+ *		任何系统目录或使用任何 catcache。最后一步是
+ *		按需重写缓存文件。
  */
 void
 RelationCacheInitializePhase3(void)
@@ -4048,19 +4048,19 @@ RelationCacheInitializePhase3(void)
 	bool		needNewCacheFile = !criticalSharedRelcachesBuilt;
 
 	/*
-	 * relation mapper needs initialized too
+	 * 关系映射器也需要初始化
 	 */
 	RelationMapInitializePhase3();
 
 	/*
-	 * switch to cache memory context
+	 * 切换到缓存内存上下文
 	 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 
 	/*
-	 * Try to load the local relcache cache file.  If unsuccessful, bootstrap
-	 * the cache with pre-made descriptors for the critical "nailed-in" system
-	 * catalogs.
+	 * 尝试加载本地 relcache 缓存文件。若不成功，则用
+	 * 为关键"钉入"系统目录预制的描述符来引导
+	 * 缓存。
 	 */
 	if (IsBootstrapProcessingMode() ||
 		!load_relcache_init_file(false))
@@ -4076,39 +4076,39 @@ RelationCacheInitializePhase3(void)
 		formrdesc("pg_type", TypeRelation_Rowtype_Id, false,
 				  Natts_pg_type, Desc_pg_type);
 
-#define NUM_CRITICAL_LOCAL_RELS 4	/* fix if you change list above */
+#define NUM_CRITICAL_LOCAL_RELS 4	/* 清单有变须同步修正 */
 	}
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* In bootstrap mode, the faked-up formrdesc info is all we'll have */
+	/* 引导模式下伪造的 formrdesc 信息即全部家当 */
 	if (IsBootstrapProcessingMode())
 		return;
 
 	/*
-	 * If we didn't get the critical system indexes loaded into relcache, do
-	 * so now.  These are critical because the catcache and/or opclass cache
-	 * depend on them for fetches done during relcache load.  Thus, we have an
-	 * infinite-recursion problem.  We can break the recursion by doing
-	 * heapscans instead of indexscans at certain key spots. To avoid hobbling
-	 * performance, we only want to do that until we have the critical indexes
-	 * loaded into relcache.  Thus, the flag criticalRelcachesBuilt is used to
-	 * decide whether to do heapscan or indexscan at the key spots, and we set
-	 * it true after we've loaded the critical indexes.
+	 * 若关键系统索引尚未装入 relcache，现在就装。
+	 * 这些索引之所以关键，是因为 relcache 加载期间
+	 * 的取用要依赖 catcache 和/或 opclass 缓存。因此
+	 * 我们面临无限递归问题。破解递归的办法是在
+	 * 若干关键位置改用堆扫描而非索引扫描。为免拖
+	 * 累性能，我们只想在关键索引装入 relcache 之前
+	 * 这么做。因此用标志 criticalRelcachesBuilt 来
+	 * 决定关键位置做堆扫描还是索引扫描，并在关键
+	 * 索引装入后把它置为真。
 	 *
-	 * The critical indexes are marked as "nailed in cache", partly to make it
-	 * easy for load_relcache_init_file to count them, but mainly because we
-	 * cannot flush and rebuild them once we've set criticalRelcachesBuilt to
-	 * true.  (NOTE: perhaps it would be possible to reload them by
-	 * temporarily setting criticalRelcachesBuilt to false again.  For now,
-	 * though, we just nail 'em in.)
+	 * 关键索引被标为"钉在缓存中"，一方面方便
+	 * load_relcache_init_file 对它们计数，但主要是
+	 * 因为一旦把 criticalRelcachesBuilt 置为真，就
+	 * 无法再刷掉并重建它们。（注意：也许能
+	 * 将 criticalRelcachesBuilt 重新置假来重载它们。
+	 * 眼下我们只钉死。）
 	 *
-	 * RewriteRelRulenameIndexId and TriggerRelidNameIndexId are not critical
-	 * in the same way as the others, because the critical catalogs don't
-	 * (currently) have any rules or triggers, and so these indexes can be
-	 * rebuilt without inducing recursion.  However they are used during
-	 * relcache load when a rel does have rules or triggers, so we choose to
-	 * nail them for performance reasons.
+	 * RewriteRelRulenameIndexId 与 TriggerRelidNameIndexId
+	 * 并不像其他索引那样关键，因为关键目录（目前）
+	 * 没有任何规则或触发器，这些索引可以重建而
+	 * 不引发递归。不过当关系真有规则或触发器时，
+	 * relcache 加载期间会用到它们，所以我们出于性
+	 * 能原因也把它们钉住。
 	 */
 	if (!criticalRelcachesBuilt)
 	{
@@ -4127,22 +4127,22 @@ RelationCacheInitializePhase3(void)
 		load_critical_index(TriggerRelidNameIndexId,
 							TriggerRelationId);
 
-#define NUM_CRITICAL_LOCAL_INDEXES	7	/* fix if you change list above */
+#define NUM_CRITICAL_LOCAL_INDEXES	7	/* 清单有变须同步修正 */
 
 		criticalRelcachesBuilt = true;
 	}
 
 	/*
-	 * Process critical shared indexes too.
+	 * 同时处理关键共享索引。
 	 *
-	 * DatabaseNameIndexId isn't critical for relcache loading, but rather for
-	 * initial lookup of MyDatabaseId, without which we'll never find any
-	 * non-shared catalogs at all.  Autovacuum calls InitPostgres with a
-	 * database OID, so it instead depends on DatabaseOidIndexId.  We also
-	 * need to nail up some indexes on pg_authid and pg_auth_members for use
-	 * during client authentication.  SharedSecLabelObjectIndexId isn't
-	 * critical for the core system, but authentication hooks might be
-	 * interested in it.
+	 * DatabaseNameIndexId 对 relcache 加载并不关键，
+	 * 关键的是用它初查 MyDatabaseId；找不到它就
+	 * 根本找不到任何非共享目录。autovacuum 带着
+	 * 数据库 OID 调用 InitPostgres，故它转而依赖
+	 * DatabaseOidIndexId。我们还需要为客户端认证
+	 * 期间的使用而钉住 pg_authid 与 pg_auth_members 上
+	 * 的一些索引。SharedSecLabelObjectIndexId 对核
+	 * 心非必需。
 	 */
 	if (!criticalSharedRelcachesBuilt)
 	{
@@ -4159,26 +4159,26 @@ RelationCacheInitializePhase3(void)
 		load_critical_index(SharedSecLabelObjectIndexId,
 							SharedSecLabelRelationId);
 
-#define NUM_CRITICAL_SHARED_INDEXES 6	/* fix if you change list above */
+#define NUM_CRITICAL_SHARED_INDEXES 6	/* 清单有变须同步修正 */
 
 		criticalSharedRelcachesBuilt = true;
 	}
 
 	/*
-	 * Now, scan all the relcache entries and update anything that might be
-	 * wrong in the results from formrdesc or the relcache cache file. If we
-	 * faked up relcache entries using formrdesc, then read the real pg_class
-	 * rows and replace the fake entries with them. Also, if any of the
-	 * relcache entries have rules, triggers, or security policies, load that
-	 * info the hard way since it isn't recorded in the cache file.
+	 * 现在扫描所有 relcache 条目，修正 formrdesc 或
+	 * relcache 缓存文件结果中可能不对的地方。若我们
+	 * 曾用 formrdesc 伪造 relcache 条目，就读取真实
+	 * pg_class 行并以其替换假条目。此外若任何
+	 * relcache 条目带有规则、触发器或安全策略，就
+	 * 用费力的办法加载该信息，因为缓存文件
 	 *
-	 * Whenever we access the catalogs to read data, there is a possibility of
-	 * a shared-inval cache flush causing relcache entries to be removed.
-	 * Since hash_seq_search only guarantees to still work after the *current*
-	 * entry is removed, it's unsafe to continue the hashtable scan afterward.
-	 * We handle this by restarting the scan from scratch after each access.
-	 * This is theoretically O(N^2), but the number of entries that actually
-	 * need to be fixed is small enough that it doesn't matter.
+	 * 不记录。每当我们访问目录读取数据时，都有可能
+	 * 发生共享失效缓存刷写，导致 relcache 条目被
+	 * 移除。hash_seq_search 只保证在*当前*条目被
+	 * 移除后仍能继续工作，因此其后继续哈希表扫描
+	 * 并不安全。我们的对策是每次访问后都从头重启
+	 * 扫描。理论上这是 O(N^2)，但实际需要修正的条
+	 * 目数量少得足以忽略不计。
 	 */
 	hash_seq_init(&status, RelationIdCache);
 
@@ -4188,12 +4188,12 @@ RelationCacheInitializePhase3(void)
 		bool		restart = false;
 
 		/*
-		 * Make sure *this* entry doesn't get flushed while we work with it.
+		 * 确保处理期间*this*条目不被刷掉。
 		 */
 		RelationIncrementReferenceCount(relation);
 
 		/*
-		 * If it's a faked-up entry, read the real pg_class tuple.
+		 * 若是伪造条目，就读取真实 pg_class 元组。
 		 */
 		if (relation->rd_rel->relowner == InvalidOid)
 		{
@@ -4208,28 +4208,28 @@ RelationCacheInitializePhase3(void)
 			relp = (Form_pg_class) GETSTRUCT(htup);
 
 			/*
-			 * Copy tuple to relation->rd_rel. (See notes in
-			 * AllocateRelationDesc())
+			 * 元组复制到 relation->rd_rel，参见
+			 * AllocateRelationDesc()
 			 */
 			memcpy((char *) relation->rd_rel, (char *) relp, CLASS_TUPLE_SIZE);
 
-			/* Update rd_options while we have the tuple */
+			/* 趁手里还有元组时更新 rd_options */
 			if (relation->rd_options)
 				pfree(relation->rd_options);
 			RelationParseRelOptions(relation, htup);
 
 			/*
-			 * Check the values in rd_att were set up correctly.  (We cannot
-			 * just copy them over now: formrdesc must have set up the rd_att
-			 * data correctly to start with, because it may already have been
-			 * copied into one or more catcache entries.)
+			 * 检查 rd_att 中的值是否设置正确。（我们现在
+			 * 无法直接照搬：formrdesc 必须一开始就把
+			 * rd_att 数据设置正确，因为它可能已经被复制
+			 * 进一或多个 catcache 条目。）
 			 */
 			Assert(relation->rd_att->tdtypeid == relp->reltype);
 			Assert(relation->rd_att->tdtypmod == -1);
 
 			ReleaseSysCache(htup);
 
-			/* relowner had better be OK now, else we'll loop forever */
+			/* 此时 relowner 最好已正常，否则会死循环 */
 			if (relation->rd_rel->relowner == InvalidOid)
 				elog(ERROR, "invalid relowner in pg_class entry for \"%s\"",
 					 RelationGetRelationName(relation));
@@ -4238,12 +4238,12 @@ RelationCacheInitializePhase3(void)
 		}
 
 		/*
-		 * Fix data that isn't saved in relcache cache file.
+		 * 修正未存入 relcache 缓存文件的数据。
 		 *
-		 * relhasrules or relhastriggers could possibly be wrong or out of
-		 * date.  If we don't actually find any rules or triggers, clear the
-		 * local copy of the flag so that we don't get into an infinite loop
-		 * here.  We don't make any attempt to fix the pg_class entry, though.
+		 * relhasrules 或 relhastriggers 可能出错或过
+		 * 期。若确实没找到任何规则或触发器，就清掉
+		 * 标志的本地副本，以免在此陷入无限循环。不
+		 * 过我们并不打算去修 pg_class 条目。
 		 */
 		if (relation->rd_rel->relhasrules && relation->rd_rules == NULL)
 		{
@@ -4261,11 +4261,11 @@ RelationCacheInitializePhase3(void)
 		}
 
 		/*
-		 * Re-load the row security policies if the relation has them, since
-		 * they are not preserved in the cache.  Note that we can never NOT
-		 * have a policy while relrowsecurity is true,
-		 * RelationBuildRowSecurity will create a single default-deny policy
-		 * if there is no policy defined in pg_policy.
+		 * 若关系带有行安全策略则重新加载，因为缓存中
+		 * 不保留它们。注意 relrowsecurity 为真时绝不
+		 * 会没有策略，
+		 * RelationBuildRowSecurity 会创建一个默认拒绝
+		 * 策略（pg_policy 未定义策略时）。
 		 */
 		if (relation->rd_rel->relrowsecurity && relation->rd_rsdesc == NULL)
 		{
@@ -4275,7 +4275,7 @@ RelationCacheInitializePhase3(void)
 			restart = true;
 		}
 
-		/* Reload tableam data if needed */
+		/* 按需重载 tableam 数据 */
 		if (relation->rd_tableam == NULL &&
 			(RELKIND_HAS_TABLE_AM(relation->rd_rel->relkind) || relation->rd_rel->relkind == RELKIND_SEQUENCE))
 		{
@@ -4285,10 +4285,10 @@ RelationCacheInitializePhase3(void)
 			restart = true;
 		}
 
-		/* Release hold on the relation */
+		/* 释放对该关系的持有 */
 		RelationDecrementReferenceCount(relation);
 
-		/* Now, restart the hashtable scan if needed */
+		/* 现在按需重启哈希表扫描 */
 		if (restart)
 		{
 			hash_seq_term(&status);
@@ -4297,30 +4297,30 @@ RelationCacheInitializePhase3(void)
 	}
 
 	/*
-	 * Lastly, write out new relcache cache files if needed.  We don't bother
-	 * to distinguish cases where only one of the two needs an update.
+	 * 最后按需写出新的 relcache 缓存文件。我们不费心
+	 * 区分两者中只有一个需要更新的情形。
 	 */
 	if (needNewCacheFile)
 	{
 		/*
-		 * Force all the catcaches to finish initializing and thereby open the
-		 * catalogs and indexes they use.  This will preload the relcache with
-		 * entries for all the most important system catalogs and indexes, so
-		 * that the init files will be most useful for future backends.
+		 * 强令所有 catcache 完成初始化，从而打开它们
+		 * 所用到的目录与索引。这会为所有最重要的系统
+		 * 目录和索引预装 relcache 条目，使初始化文件对
+		 * 未来的后端最为有用。
 		 */
 		InitCatalogCachePhase2();
 
-		/* now write the files */
+		/* 现在写出文件 */
 		write_relcache_init_file(true);
 		write_relcache_init_file(false);
 	}
 }
 
 /*
- * Load one critical system index into the relcache
+ * 向 relcache 装入一个关键系统索引
  *
- * indexoid is the OID of the target index, heapoid is the OID of the catalog
- * it belongs to.
+ * indexoid 是目标索引的 OID，heapoid 是其所属目录
+ * 的 OID。
  */
 static void
 load_critical_index(Oid indexoid, Oid heapoid)
@@ -4328,10 +4328,10 @@ load_critical_index(Oid indexoid, Oid heapoid)
 	Relation	ird;
 
 	/*
-	 * We must lock the underlying catalog before locking the index to avoid
-	 * deadlock, since RelationBuildDesc might well need to read the catalog,
-	 * and if anyone else is exclusive-locking this catalog and index they'll
-	 * be doing it in that order.
+	 * 为避免死锁，必须先锁底层目录再锁索引，因为
+	 * RelationBuildDesc 很可能需要读取该目录，而若
+	 * 别人正以排他锁锁着该目录和索引，他们必然按
+	 * 同一顺序加锁。
 	 */
 	LockRelationOid(heapoid, AccessShareLock);
 	LockRelationOid(indexoid, AccessShareLock);
@@ -4347,16 +4347,16 @@ load_critical_index(Oid indexoid, Oid heapoid)
 }
 
 /*
- * GetPgClassDescriptor -- get a predefined tuple descriptor for pg_class
- * GetPgIndexDescriptor -- get a predefined tuple descriptor for pg_index
+ * GetPgClassDescriptor -- 取 pg_class 预定义元组描述符
+ * GetPgIndexDescriptor -- 取 pg_index 预定义的元组描述符
  *
- * We need this kluge because we have to be able to access non-fixed-width
- * fields of pg_class and pg_index before we have the standard catalog caches
- * available.  We use predefined data that's set up in just the same way as
- * the bootstrapped reldescs used by formrdesc().  The resulting tupdesc is
- * not 100% kosher: it does not have the correct rowtype OID in tdtypeid, nor
- * does it have a TupleConstr field.  But it's good enough for the purpose of
- * extracting fields.
+ * 我们需要这个权宜之法，因为在标准目录缓存可用
+ * 之前，就得能访问 pg_class 与 pg_index 的非定
+ * 长字段。我们使用的预定义数据，其建立方式与
+ * formrdesc() 所用的引导 reldesc 完全一致。得到的
+ * tupdesc 并非 100% 正统：tdtypeid 中没有正确的
+ * rowtype OID，也没有 TupleConstr 字段。但用于
+ * 提取足够。
  */
 static TupleDesc
 BuildHardcodedDescriptor(int natts, const FormData_pg_attribute *attrs)
@@ -4368,20 +4368,20 @@ BuildHardcodedDescriptor(int natts, const FormData_pg_attribute *attrs)
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 
 	result = CreateTemplateTupleDesc(natts);
-	result->tdtypeid = RECORDOID;	/* not right, but we don't care */
+	result->tdtypeid = RECORDOID;	/* 不正确，但无所谓 */
 	result->tdtypmod = -1;
 
 	for (i = 0; i < natts; i++)
 	{
 		memcpy(TupleDescAttr(result, i), &attrs[i], ATTRIBUTE_FIXED_PART_SIZE);
-		/* make sure attcacheoff is valid */
+		/* 确保 attcacheoff 有效 */
 		TupleDescAttr(result, i)->attcacheoff = -1;
 	}
 
-	/* initialize first attribute's attcacheoff, cf RelationBuildTupleDesc */
+	/* 初始化首属性 attcacheoff，cf. RelationBuildTupleDesc */
 	TupleDescAttr(result, 0)->attcacheoff = 0;
 
-	/* Note: we don't bother to set up a TupleConstr entry */
+	/* 注意：我们不费心设置 TupleConstr 条目 */
 
 	MemoryContextSwitchTo(oldcxt);
 
@@ -4393,7 +4393,7 @@ GetPgClassDescriptor(void)
 {
 	static TupleDesc pgclassdesc = NULL;
 
-	/* Already done? */
+	/* 已做完？ */
 	if (pgclassdesc == NULL)
 		pgclassdesc = BuildHardcodedDescriptor(Natts_pg_class,
 											   Desc_pg_class);
@@ -4406,7 +4406,7 @@ GetPgIndexDescriptor(void)
 {
 	static TupleDesc pgindexdesc = NULL;
 
-	/* Already done? */
+	/* 已做完？ */
 	if (pgindexdesc == NULL)
 		pgindexdesc = BuildHardcodedDescriptor(Natts_pg_index,
 											   Desc_pg_index);
@@ -4415,13 +4415,13 @@ GetPgIndexDescriptor(void)
 }
 
 /*
- * Load any default attribute value definitions for the relation.
+ * 为关系加载任意默认属性值定义。
  *
- * ndef is the number of attributes that were marked atthasdef.
+ * ndef 是被标为 atthasdef 的属性个数。
  *
- * Note: we don't make it a hard error to be missing some pg_attrdef records.
- * We can limp along as long as nothing needs to use the default value.  Code
- * that fails to find an expected AttrDefault record should throw an error.
+ * 注意：缺少一些 pg_attrdef 记录并不构成硬错误。
+ * 只要没有东西需要用默认值，我们就能凑合前行。
+ * 找不到预期 AttrDefault 记录的代码应当报错。
  */
 static void
 AttrDefaultFetch(Relation relation, int ndef)
@@ -4433,12 +4433,12 @@ AttrDefaultFetch(Relation relation, int ndef)
 	HeapTuple	htup;
 	int			found = 0;
 
-	/* Allocate array with room for as many entries as expected */
+	/* 按预期条目数分配带足空间的数组 */
 	attrdef = (AttrDefault *)
 		MemoryContextAllocZero(CacheMemoryContext,
 							   ndef * sizeof(AttrDefault));
 
-	/* Search pg_attrdef for relevant entries */
+	/* 在 pg_attrdef 中找相关条目 */
 	ScanKeyInit(&skey,
 				Anum_pg_attrdef_adrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -4454,7 +4454,7 @@ AttrDefaultFetch(Relation relation, int ndef)
 		Datum		val;
 		bool		isnull;
 
-		/* protect limited size of array */
+		/* 保护容量有限的数组 */
 		if (found >= ndef)
 		{
 			elog(WARNING, "unexpected pg_attrdef record found for attribute %d of relation \"%s\"",
@@ -4470,7 +4470,7 @@ AttrDefaultFetch(Relation relation, int ndef)
 				 adform->adnum, RelationGetRelationName(relation));
 		else
 		{
-			/* detoast and convert to cstring in caller's context */
+			/* 在调用方上下文中解 toast 转成 cstring */
 			char	   *s = TextDatumGetCString(val);
 
 			attrdef[found].adnum = adform->adnum;
@@ -4488,20 +4488,20 @@ AttrDefaultFetch(Relation relation, int ndef)
 			 ndef - found, RelationGetRelationName(relation));
 
 	/*
-	 * Sort the AttrDefault entries by adnum, for the convenience of
-	 * equalTupleDescs().  (Usually, they already will be in order, but this
-	 * might not be so if systable_getnext isn't using an index.)
+	 * 为方便 equalTupleDescs()，按 adnum 排序
+	 * AttrDefault 条目。（通常它们本就有序，但若
+	 * systable_getnext 未走索引就未必如此。）
 	 */
 	if (found > 1)
 		qsort(attrdef, found, sizeof(AttrDefault), AttrDefaultCmp);
 
-	/* Install array only after it's fully valid */
+	/* 待数组完全有效后才安装 */
 	relation->rd_att->constr->defval = attrdef;
 	relation->rd_att->constr->num_defval = found;
 }
 
 /*
- * qsort comparator to sort AttrDefault entries by adnum
+ * 按 adnum 排 AttrDefault 条目的 qsort 比较器
  */
 static int
 AttrDefaultCmp(const void *a, const void *b)
@@ -4513,10 +4513,10 @@ AttrDefaultCmp(const void *a, const void *b)
 }
 
 /*
- * Load any check constraints for the relation.
+ * 为关系加载任意检查约束。
  *
- * As with defaults, if we don't find the expected number of them, just warn
- * here.  The executor should throw an error if an INSERT/UPDATE is attempted.
+ * 与默认值一样，若找不到预期数量，此处只发警告。
+ * 若此时尝试 INSERT/UPDATE，执行器应当报错。
  */
 static void
 CheckConstraintFetch(Relation relation)
@@ -4529,12 +4529,12 @@ CheckConstraintFetch(Relation relation)
 	HeapTuple	htup;
 	int			found = 0;
 
-	/* Allocate array with room for as many entries as expected */
+	/* 按预期条目数分配带足空间的数组 */
 	check = (ConstrCheck *)
 		MemoryContextAllocZero(CacheMemoryContext,
 							   ncheck * sizeof(ConstrCheck));
 
-	/* Search pg_constraint for relevant entries */
+	/* 在 pg_constraint 中找相关条目 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_constraint_conrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -4550,11 +4550,11 @@ CheckConstraintFetch(Relation relation)
 		Datum		val;
 		bool		isnull;
 
-		/* We want check constraints only */
+		/* 我们只要检查约束 */
 		if (conform->contype != CONSTRAINT_CHECK)
 			continue;
 
-		/* protect limited size of array */
+		/* 保护容量有限的数组 */
 		if (found >= ncheck)
 		{
 			elog(WARNING, "unexpected pg_constraint record found for relation \"%s\"",
@@ -4567,7 +4567,7 @@ CheckConstraintFetch(Relation relation)
 		check[found].ccname = MemoryContextStrdup(CacheMemoryContext,
 												  NameStr(conform->conname));
 
-		/* Grab and test conbin is actually set */
+		/* 取出并测试 conbin 确已设置 */
 		val = fastgetattr(htup,
 						  Anum_pg_constraint_conbin,
 						  conrel->rd_att, &isnull);
@@ -4576,7 +4576,7 @@ CheckConstraintFetch(Relation relation)
 				 RelationGetRelationName(relation));
 		else
 		{
-			/* detoast and convert to cstring in caller's context */
+			/* 在调用方上下文中解 toast 转成 cstring */
 			char	   *s = TextDatumGetCString(val);
 
 			check[found].ccbin = MemoryContextStrdup(CacheMemoryContext, s);
@@ -4593,19 +4593,19 @@ CheckConstraintFetch(Relation relation)
 			 ncheck - found, RelationGetRelationName(relation));
 
 	/*
-	 * Sort the records by name.  This ensures that CHECKs are applied in a
-	 * deterministic order, and it also makes equalTupleDescs() faster.
+	 * 按名称排序记录。这确保 CHECK 以确定性的顺序
+	 * 施加，也让 equalTupleDescs() 更快。
 	 */
 	if (found > 1)
 		qsort(check, found, sizeof(ConstrCheck), CheckConstraintCmp);
 
-	/* Install array only after it's fully valid */
+	/* 待数组完全有效后才安装 */
 	relation->rd_att->constr->check = check;
 	relation->rd_att->constr->num_check = found;
 }
 
 /*
- * qsort comparator to sort ConstrCheck entries by name
+ * 按名称排 ConstrCheck 的 qsort 比较器
  */
 static int
 CheckConstraintCmp(const void *a, const void *b)
@@ -4617,18 +4617,18 @@ CheckConstraintCmp(const void *a, const void *b)
 }
 
 /*
- * RelationGetFKeyList -- get a list of foreign key info for the relation
+ * RelationGetFKeyList -- 取该关系的外键信息清单
  *
- * Returns a list of ForeignKeyCacheInfo structs, one per FK constraining
- * the given relation.  This data is a direct copy of relevant fields from
- * pg_constraint.  The list items are in no particular order.
+ * 返回 ForeignKeyCacheInfo 结构的清单，每个约束
+ * 该给定关系的外键各对应一个。数据直接复制自
+ * pg_constraint 的相关字段。清单项次序任意。
  *
- * CAUTION: the returned list is part of the relcache's data, and could
- * vanish in a relcache entry reset.  Callers must inspect or copy it
- * before doing anything that might trigger a cache flush, such as
- * system catalog accesses.  copyObject() can be used if desired.
- * (We define it this way because current callers want to filter and
- * modify the list entries anyway, so copying would be a waste of time.)
+ * 当心：返回的清单是 relcache 数据的一部分，可能
+ * 在 relcache 条目重置时消失。调用方必须在任何
+ * 可能触发缓存刷写之举（如访问目录）之前
+ * 检视或复制它。需要时可用 copyObject()。
+ * （这样定义是因为眼下调用方反正要过滤并
+ * 修改清单项，复制反而浪费时间。）
  */
 List *
 RelationGetFKeyList(Relation relation)
@@ -4641,24 +4641,24 @@ RelationGetFKeyList(Relation relation)
 	List	   *oldlist;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the list. */
+	/* 已计算过该清单则快速退出。 */
 	if (relation->rd_fkeyvalid)
 		return relation->rd_fkeylist;
 
-	/* Fast path: non-partitioned tables without triggers can't have FKs */
+	/* 快速路径：无触发器的非分区表不可能有 FK */
 	if (!relation->rd_rel->relhastriggers &&
 		relation->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
 		return NIL;
 
 	/*
-	 * We build the list we intend to return (in the caller's context) while
-	 * doing the scan.  After successfully completing the scan, we copy that
-	 * list into the relcache entry.  This avoids cache-context memory leakage
-	 * if we get some sort of error partway through.
+	 * 我们边扫描边在调用方上下文中构建要返回的清单，
+	 * 该扫描成功完成后，将清单复制入 relcache 条目。
+	 * 这样即使中途遇到某种错误，也不会泄漏
+	 * 缓存上下文中的内存。
 	 */
 	result = NIL;
 
-	/* Prepare to scan pg_constraint for entries having conrelid = this rel. */
+	/* 准备扫描 pg_constraint 中 conrelid 等于本关系的条目。 */
 	ScanKeyInit(&skey,
 				Anum_pg_constraint_conrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -4673,7 +4673,7 @@ RelationGetFKeyList(Relation relation)
 		Form_pg_constraint constraint = (Form_pg_constraint) GETSTRUCT(htup);
 		ForeignKeyCacheInfo *info;
 
-		/* consider only foreign keys */
+		/* 只考虑外键 */
 		if (constraint->contype != CONSTRAINT_FOREIGN)
 			continue;
 
@@ -4688,56 +4688,56 @@ RelationGetFKeyList(Relation relation)
 								   info->conpfeqop,
 								   NULL, NULL, NULL, NULL);
 
-		/* Add FK's node to the result list */
+		/* 把 FK 节点加入结果清单 */
 		result = lappend(result, info);
 	}
 
 	systable_endscan(conscan);
 	table_close(conrel, AccessShareLock);
 
-	/* Now save a copy of the completed list in the relcache entry. */
+	/* 现在把已完成清单的副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 	oldlist = relation->rd_fkeylist;
 	relation->rd_fkeylist = copyObject(result);
 	relation->rd_fkeyvalid = true;
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Don't leak the old list, if there is one */
+	/* 若存在旧清单，勿泄漏之 */
 	list_free_deep(oldlist);
 
 	return result;
 }
 
 /*
- * RelationGetIndexList -- get a list of OIDs of indexes on this relation
+ * RelationGetIndexList -- 取本关系索引的 OID 清单
  *
- * The index list is created only if someone requests it.  We scan pg_index
- * to find relevant indexes, and add the list to the relcache entry so that
- * we won't have to compute it again.  Note that shared cache inval of a
- * relcache entry will delete the old list and set rd_indexvalid to false,
- * so that we must recompute the index list on next request.  This handles
- * creation or deletion of an index.
+ * 只有有人请求时才创建索引清单。我们扫描 pg_index
+ * 找出相关索引，并把清单加进 relcache 条目，从而
+ * 无需再次计算。注意共享缓存失效会使 relcache
+ * 条目删除旧清单并把 rd_indexvalid 置假，因此下
+ * 次请求时必须重算索引清单。这涵盖了索引的创建
+ * 与删除。
  *
- * Indexes that are marked not indislive are omitted from the returned list.
- * Such indexes are expected to be dropped momentarily, and should not be
- * touched at all by any caller of this function.
+ * 被标记为非 indislive 的索引会从返回清单中省略。
+ * 这类索引预计马上就会被删除，本函数的任何调用
+ * 方都完全不应碰它们。
  *
- * The returned list is guaranteed to be sorted in order by OID.  This is
- * needed by the executor, since for index types that we obtain exclusive
- * locks on when updating the index, all backends must lock the indexes in
- * the same order or we will get deadlocks (see ExecOpenIndices()).  Any
- * consistent ordering would do, but ordering by OID is easy.
+ * 返回清单保证按 OID 顺序排好。执行器需要它，
+ * 因为对我们更新索引时要取排他锁的索引类型，
+ * 所有后端必须按相同顺序锁索引，否则会死锁（
+ * 参见 ExecOpenIndices()）。任何一致顺序都行，
+ * 但按 OID 排序最简单。
  *
- * Since shared cache inval causes the relcache's copy of the list to go away,
- * we return a copy of the list palloc'd in the caller's context.  The caller
- * may list_free() the returned list after scanning it. This is necessary
- * since the caller will typically be doing syscache lookups on the relevant
- * indexes, and syscache lookup could cause SI messages to be processed!
+ * 由于共享缓存失效会使 relcache 持有的清单副本
+ * 消失，我们返回一份在调用方上下文 palloc 的清单
+ * 副本。调用方扫描完后可以 list_free() 它。这很
+ * 必要，因为调用方通常还要对相关索引做 syscache
+ * 查找，而 syscache 查找可能促使 SI 消息被处理！
  *
- * In exactly the same way, we update rd_pkindex, which is the OID of the
- * relation's primary key index if any, else InvalidOid; and rd_replidindex,
- * which is the pg_class OID of an index to be used as the relation's
- * replication identity index, or InvalidOid if there is no such index.
+ * 同样地，我们也会更新 rd_pkindex（主键索引的
+ * OID，若无则 InvalidOid）与 rd_replidindex（作
+ * 为关系副本标识索引的 pg_class OID，无此索引时
+ * 则为 InvalidOid）。
  */
 List *
 RelationGetIndexList(Relation relation)
@@ -4753,19 +4753,19 @@ RelationGetIndexList(Relation relation)
 	Oid			candidateIndex = InvalidOid;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the list. */
+	/* 已计算过该清单则快速退出。 */
 	if (relation->rd_indexvalid)
 		return list_copy(relation->rd_indexlist);
 
 	/*
-	 * We build the list we intend to return (in the caller's context) while
-	 * doing the scan.  After successfully completing the scan, we copy that
-	 * list into the relcache entry.  This avoids cache-context memory leakage
-	 * if we get some sort of error partway through.
+	 * 我们边扫描边在调用方上下文中构建要返回的清单，
+	 * 该扫描成功完成后，将清单复制入 relcache 条目。
+	 * 这样即使中途遇到某种错误，也不会泄漏
+	 * 缓存上下文中的内存。
 	 */
 	result = NIL;
 
-	/* Prepare to scan pg_index for entries having indrelid = this rel. */
+	/* 准备扫描 pg_index 中 indrelid 等于本关系的条目。 */
 	ScanKeyInit(&skey,
 				Anum_pg_index_indrelid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -4780,32 +4780,32 @@ RelationGetIndexList(Relation relation)
 		Form_pg_index index = (Form_pg_index) GETSTRUCT(htup);
 
 		/*
-		 * Ignore any indexes that are currently being dropped.  This will
-		 * prevent them from being searched, inserted into, or considered in
-		 * HOT-safety decisions.  It's unsafe to touch such an index at all
-		 * since its catalog entries could disappear at any instant.
+		 * 忽略正在被删除的索引。这能防止它们被搜索、
+		 * 被插入或被纳入 HOT 安全性考量。这类索引完全
+		 * 碰不得，因为其目录条目随时
+		 * 可能消失。
 		 */
 		if (!index->indislive)
 			continue;
 
-		/* add index's OID to result list */
+		/* 索引 OID 加入结果清单 */
 		result = lappend_oid(result, index->indexrelid);
 
 		/*
-		 * Invalid, non-unique, non-immediate or predicate indexes aren't
-		 * interesting for either oid indexes or replication identity indexes,
-		 * so don't check them.
+		 * 无效、非唯一、非立即或带谓词索引对 OID 索引
+		 * 和副本标识索引都无用，
+		 * 故不检查。
 		 */
 		if (!index->indisvalid || !index->indisunique ||
 			!index->indimmediate ||
 			!heap_attisnull(htup, Anum_pg_index_indpred, NULL))
 			continue;
 
-		/* remember primary key index if any */
+		/* 有主键索引则记住它 */
 		if (index->indisprimary)
 			pkeyIndex = index->indexrelid;
 
-		/* remember explicitly chosen replica index */
+		/* 记住显式选定的副本索引 */
 		if (index->indisreplident)
 			candidateIndex = index->indexrelid;
 	}
@@ -4814,10 +4814,10 @@ RelationGetIndexList(Relation relation)
 
 	table_close(indrel, AccessShareLock);
 
-	/* Sort the result list into OID order, per API spec. */
+	/* 按接口规范将结果清单排成 OID 序。 */
 	list_sort(result, list_oid_cmp);
 
-	/* Now save a copy of the completed list in the relcache entry. */
+	/* 现在把已完成清单的副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 	oldlist = relation->rd_indexlist;
 	relation->rd_indexlist = list_copy(result);
@@ -4831,7 +4831,7 @@ RelationGetIndexList(Relation relation)
 	relation->rd_indexvalid = true;
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Don't leak the old list, if there is one */
+	/* 若存在旧清单，勿泄漏之 */
 	list_free(oldlist);
 
 	return result;
@@ -4839,24 +4839,24 @@ RelationGetIndexList(Relation relation)
 
 /*
  * RelationGetStatExtList
- *		get a list of OIDs of statistics objects on this relation
+ *		取本关系统计对象的 OID 清单
  *
- * The statistics list is created only if someone requests it, in a way
- * similar to RelationGetIndexList().  We scan pg_statistic_ext to find
- * relevant statistics, and add the list to the relcache entry so that we
- * won't have to compute it again.  Note that shared cache inval of a
- * relcache entry will delete the old list and set rd_statvalid to 0,
- * so that we must recompute the statistics list on next request.  This
- * handles creation or deletion of a statistics object.
+ * 统计对象清单也是只有有人请求才创建，方式与
+ * RelationGetIndexList() 类似。我们扫描
+ * pg_statistic_ext 找相关统计，并把清单加进
+ * relcache 条目，从而无需再算。注意共享缓存失效
+ * 会使 relcache 条目删除旧清单并把 rd_statvalid
+ * 置 0，因此下次请求必须重算统计清单。这涵盖统
+ * 计对象的创建与删除。
  *
- * The returned list is guaranteed to be sorted in order by OID, although
- * this is not currently needed.
+ * 返回清单同样保证按 OID 排序，尽管当前并不需要
+ * 这一点。
  *
- * Since shared cache inval causes the relcache's copy of the list to go away,
- * we return a copy of the list palloc'd in the caller's context.  The caller
- * may list_free() the returned list after scanning it. This is necessary
- * since the caller will typically be doing syscache lookups on the relevant
- * statistics, and syscache lookup could cause SI messages to be processed!
+ * 由于共享缓存失效会使 relcache 持有的清单副本
+ * 消失，我们返回一份在调用方上下文 palloc 的清单
+ * 副本。调用方扫描完后可以 list_free() 它。这很
+ * 必要，因为调用方通常还要对相关统计做 syscache
+ * 查找，而 syscache 查找可能促使 SI 消息被处理！
  */
 List *
 RelationGetStatExtList(Relation relation)
@@ -4869,20 +4869,20 @@ RelationGetStatExtList(Relation relation)
 	List	   *oldlist;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the list. */
+	/* 已计算过该清单则快速退出。 */
 	if (relation->rd_statvalid != 0)
 		return list_copy(relation->rd_statlist);
 
 	/*
-	 * We build the list we intend to return (in the caller's context) while
-	 * doing the scan.  After successfully completing the scan, we copy that
-	 * list into the relcache entry.  This avoids cache-context memory leakage
-	 * if we get some sort of error partway through.
+	 * 我们边扫描边在调用方上下文中构建要返回的清单，
+	 * 该扫描成功完成后，将清单复制入 relcache 条目。
+	 * 这样即使中途遇到某种错误，也不会泄漏
+	 * 缓存上下文中的内存。
 	 */
 	result = NIL;
 
 	/*
-	 * Prepare to scan pg_statistic_ext for entries having stxrelid = this
+	 * 准备扫描 pg_statistic_ext 中 stxrelid 等于本
 	 * rel.
 	 */
 	ScanKeyInit(&skey,
@@ -4905,10 +4905,10 @@ RelationGetStatExtList(Relation relation)
 
 	table_close(indrel, AccessShareLock);
 
-	/* Sort the result list into OID order, per API spec. */
+	/* 按接口规范将结果清单排成 OID 序。 */
 	list_sort(result, list_oid_cmp);
 
-	/* Now save a copy of the completed list in the relcache entry. */
+	/* 现在把已完成清单的副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 	oldlist = relation->rd_statlist;
 	relation->rd_statlist = list_copy(result);
@@ -4916,16 +4916,16 @@ RelationGetStatExtList(Relation relation)
 	relation->rd_statvalid = true;
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Don't leak the old list, if there is one */
+	/* 若存在旧清单，勿泄漏之 */
 	list_free(oldlist);
 
 	return result;
 }
 
 /*
- * RelationGetPrimaryKeyIndex -- get OID of the relation's primary key index
+ * RelationGetPrimaryKeyIndex -- 取关系主键索引的 OID
  *
- * Returns InvalidOid if there is no such index.
+ * 无则返回 InvalidOid。
  */
 Oid
 RelationGetPrimaryKeyIndex(Relation relation)
@@ -4934,7 +4934,7 @@ RelationGetPrimaryKeyIndex(Relation relation)
 
 	if (!relation->rd_indexvalid)
 	{
-		/* RelationGetIndexList does the heavy lifting. */
+		/* 重活由 RelationGetIndexList 来干。 */
 		ilist = RelationGetIndexList(relation);
 		list_free(ilist);
 		Assert(relation->rd_indexvalid);
@@ -4944,9 +4944,9 @@ RelationGetPrimaryKeyIndex(Relation relation)
 }
 
 /*
- * RelationGetReplicaIndex -- get OID of the relation's replica identity index
+ * RelationGetReplicaIndex -- 取关系副本标识索引的 OID
  *
- * Returns InvalidOid if there is no such index.
+ * 无则返回 InvalidOid。
  */
 Oid
 RelationGetReplicaIndex(Relation relation)
@@ -4955,7 +4955,7 @@ RelationGetReplicaIndex(Relation relation)
 
 	if (!relation->rd_indexvalid)
 	{
-		/* RelationGetIndexList does the heavy lifting. */
+		/* 重活由 RelationGetIndexList 来干。 */
 		ilist = RelationGetIndexList(relation);
 		list_free(ilist);
 		Assert(relation->rd_indexvalid);
@@ -4965,13 +4965,13 @@ RelationGetReplicaIndex(Relation relation)
 }
 
 /*
- * RelationGetIndexExpressions -- get the index expressions for an index
+ * RelationGetIndexExpressions -- 取索引的索引表达式
  *
- * We cache the result of transforming pg_index.indexprs into a node tree.
- * If the rel is not an index or has no expressional columns, we return NIL.
- * Otherwise, the returned tree is copied into the caller's memory context.
- * (We don't want to return a pointer to the relcache copy, since it could
- * disappear due to relcache invalidation.)
+ * 我们把 pg_index.indexprs 变换成节点树的结果
+ * 缓存起来。若该关系不是索引或无表达式列，则返
+ * 回 NIL。否则，返回的树会复制进调用方的内存上
+ * 下文。（我们不想返回指向 relcache 副本的指针，
+ * 随 relcache 失效而消失。）
  */
 List *
 RelationGetIndexExpressions(Relation relation)
@@ -4982,19 +4982,19 @@ RelationGetIndexExpressions(Relation relation)
 	char	   *exprsString;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the result. */
+	/* 已算出结果则快速退出。 */
 	if (relation->rd_indexprs)
 		return copyObject(relation->rd_indexprs);
 
-	/* Quick exit if there is nothing to do. */
+	/* 无事可做则快速退出。 */
 	if (relation->rd_indextuple == NULL ||
 		heap_attisnull(relation->rd_indextuple, Anum_pg_index_indexprs, NULL))
 		return NIL;
 
 	/*
-	 * We build the tree we intend to return in the caller's context. After
-	 * successfully completing the work, we copy it into the relcache entry.
-	 * This avoids problems if we get some sort of error partway through.
+	 * 我们会先在调用方上下文中构建打算返回的树。
+	 * 工作成功完成后再把它复制进 relcache 条目。
+	 * 这样即使中途遇到某种错误也不会出问题。
 	 */
 	exprsDatum = heap_getattr(relation->rd_indextuple,
 							  Anum_pg_index_indexprs,
@@ -5006,18 +5006,18 @@ RelationGetIndexExpressions(Relation relation)
 	pfree(exprsString);
 
 	/*
-	 * Run the expressions through eval_const_expressions. This is not just an
-	 * optimization, but is necessary, because the planner will be comparing
-	 * them to similarly-processed qual clauses, and may fail to detect valid
-	 * matches without this.  We must not use canonicalize_qual, however,
-	 * since these aren't qual expressions.
+	 * 把表达式送过 eval_const_expressions 处理。这不
+	 * 只是优化，而是必需：规划器会把它们与同样处理
+	 * 过的 qual 子句比较，没有这一步可能检测不到有
+	 * 效匹配。但我们绝不能用 canonicalize_qual，
+	 * 因为这些不是 qual 表达式。
 	 */
 	result = (List *) eval_const_expressions(NULL, (Node *) result);
 
-	/* May as well fix opfuncids too */
+	/* 不妨也修正 opfuncids */
 	fix_opfuncids((Node *) result);
 
-	/* Now save a copy of the completed tree in the relcache entry. */
+	/* 现在把已完成树的副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(relation->rd_indexcxt);
 	relation->rd_indexprs = copyObject(result);
 	MemoryContextSwitchTo(oldcxt);
@@ -5026,11 +5026,11 @@ RelationGetIndexExpressions(Relation relation)
 }
 
 /*
- * RelationGetDummyIndexExpressions -- get dummy expressions for an index
+ * RelationGetDummyIndexExpressions -- 取索引的哑
  *
- * Return a list of dummy expressions (just Const nodes) with the same
- * types/typmods/collations as the index's real expressions.  This is
- * useful in situations where we don't want to run any user-defined code.
+ * 表达式清单（只是 Const 节点），其类型/typmod/
+ * 排序规则与索引真实表达式一致。在不想运行任何
+ * 用户自定义代码的场合很有用。
  */
 List *
 RelationGetDummyIndexExpressions(Relation relation)
@@ -5042,12 +5042,12 @@ RelationGetDummyIndexExpressions(Relation relation)
 	List	   *rawExprs;
 	ListCell   *lc;
 
-	/* Quick exit if there is nothing to do. */
+	/* 无事可做则快速退出。 */
 	if (relation->rd_indextuple == NULL ||
 		heap_attisnull(relation->rd_indextuple, Anum_pg_index_indexprs, NULL))
 		return NIL;
 
-	/* Extract raw node tree(s) from index tuple. */
+	/* 从索引元组提取原始节点树。 */
 	exprsDatum = heap_getattr(relation->rd_indextuple,
 							  Anum_pg_index_indexprs,
 							  GetPgIndexDescriptor(),
@@ -5057,7 +5057,7 @@ RelationGetDummyIndexExpressions(Relation relation)
 	rawExprs = (List *) stringToNode(exprsString);
 	pfree(exprsString);
 
-	/* Construct null Consts; the typlen and typbyval are arbitrary. */
+	/* 构造空 Const；typlen 与 typbyval 随意。 */
 	result = NIL;
 	foreach(lc, rawExprs)
 	{
@@ -5077,14 +5077,14 @@ RelationGetDummyIndexExpressions(Relation relation)
 }
 
 /*
- * RelationGetIndexPredicate -- get the index predicate for an index
+ * RelationGetIndexPredicate -- 取索引的索引谓词
  *
- * We cache the result of transforming pg_index.indpred into an implicit-AND
- * node tree (suitable for use in planning).
- * If the rel is not an index or has no predicate, we return NIL.
- * Otherwise, the returned tree is copied into the caller's memory context.
- * (We don't want to return a pointer to the relcache copy, since it could
- * disappear due to relcache invalidation.)
+ * 我们把 pg_index.indpred 变换成隐式 AND 节点树
+ * （供规划用）的结果被缓存。
+ * 若该关系非索引或无谓词，则返回 NIL。否则，
+ * 返回的树会复制进调用方的内存上下文。（我们不
+ * 想返回指向 relcache 副本的指针，它可能随
+ * relcache 失效而消失。）
  */
 List *
 RelationGetIndexPredicate(Relation relation)
@@ -5095,19 +5095,19 @@ RelationGetIndexPredicate(Relation relation)
 	char	   *predString;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the result. */
+	/* 已算出结果则快速退出。 */
 	if (relation->rd_indpred)
 		return copyObject(relation->rd_indpred);
 
-	/* Quick exit if there is nothing to do. */
+	/* 无事可做则快速退出。 */
 	if (relation->rd_indextuple == NULL ||
 		heap_attisnull(relation->rd_indextuple, Anum_pg_index_indpred, NULL))
 		return NIL;
 
 	/*
-	 * We build the tree we intend to return in the caller's context. After
-	 * successfully completing the work, we copy it into the relcache entry.
-	 * This avoids problems if we get some sort of error partway through.
+	 * 我们会先在调用方上下文中构建打算返回的树。
+	 * 工作成功完成后再把它复制进 relcache 条目。
+	 * 这样即使中途遇到某种错误也不会出问题。
 	 */
 	predDatum = heap_getattr(relation->rd_indextuple,
 							 Anum_pg_index_indpred,
@@ -5119,25 +5119,25 @@ RelationGetIndexPredicate(Relation relation)
 	pfree(predString);
 
 	/*
-	 * Run the expression through const-simplification and canonicalization.
-	 * This is not just an optimization, but is necessary, because the planner
-	 * will be comparing it to similarly-processed qual clauses, and may fail
-	 * to detect valid matches without this.  This must match the processing
-	 * done to qual clauses in preprocess_expression()!  (We can skip the
-	 * stuff involving subqueries, however, since we don't allow any in index
-	 * predicates.)
+	 * 把表达式送过常量简化与规范化处理。这不只是
+	 * 优化，而是必需：规划器会把它与同样处理过的
+	 * qual 子句比较，没有这一步可能检测不到有效
+	 * 匹配。这必须与 preprocess_expression() 对
+	 * qual 子句所做的处理一致！（不过索引谓词中
+	 * 不允许出现子查询，因此子查询相关部分可
+	 * 跳过。）
 	 */
 	result = (List *) eval_const_expressions(NULL, (Node *) result);
 
 	result = (List *) canonicalize_qual((Expr *) result, false);
 
-	/* Also convert to implicit-AND format */
+	/* 并转换成隐式 AND 格式 */
 	result = make_ands_implicit((Expr *) result);
 
-	/* May as well fix opfuncids too */
+	/* 不妨也修正 opfuncids */
 	fix_opfuncids((Node *) result);
 
-	/* Now save a copy of the completed tree in the relcache entry. */
+	/* 现在把已完成树的副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(relation->rd_indexcxt);
 	relation->rd_indpred = copyObject(result);
 	MemoryContextSwitchTo(oldcxt);
@@ -5146,43 +5146,43 @@ RelationGetIndexPredicate(Relation relation)
 }
 
 /*
- * RelationGetIndexAttrBitmap -- get a bitmap of index attribute numbers
+ * RelationGetIndexAttrBitmap -- 取索引属性号位图
  *
- * The result has a bit set for each attribute used anywhere in the index
- * definitions of all the indexes on this relation.  (This includes not only
- * simple index keys, but attributes used in expressions and partial-index
- * predicates.)
+ * 结果中，本关系全部索引定义里用到的每个属性
+ * 都有一位置位。（这不仅涵盖简单索引键，
+ * 还涵盖用在表达式与部分索引谓词中的属
+ * 性。）
  *
- * Depending on attrKind, a bitmap covering attnums for certain columns is
- * returned:
- *	INDEX_ATTR_BITMAP_KEY			Columns in non-partial unique indexes not
- *									in expressions (i.e., usable for FKs)
- *	INDEX_ATTR_BITMAP_PRIMARY_KEY	Columns in the table's primary key
- *	INDEX_ATTR_BITMAP_IDENTITY_KEY	Columns in the table's replica identity
- *									index (empty if FULL)
- *	INDEX_ATTR_BITMAP_HOT_BLOCKING	Columns that block updates from being HOT
- *	INDEX_ATTR_BITMAP_SUMMARIZED	Columns included in summarizing indexes
+ * 依据 attrKind，返回的位图会为特定列的 attnum
+ * 置位：
+ *	INDEX_ATTR_BITMAP_KEY		非部分唯一索引中不在表达式内
+ *									的列（即可用于 FK）
+ *	INDEX_ATTR_BITMAP_PRIMARY_KEY	表的主键中的列
+ *	INDEX_ATTR_BITMAP_IDENTITY_KEY	表的副本标识
+ *									索引，FULL 则空
+ *	INDEX_ATTR_BITMAP_HOT_BLOCKING	阻止更新成为 HOT 更新的列
+ *	INDEX_ATTR_BITMAP_SUMMARIZED	包含在汇总索引中的列
  *
- * Attribute numbers are offset by FirstLowInvalidHeapAttributeNumber so that
- * we can include system attributes (e.g., OID) in the bitmap representation.
+ * 属性号偏移了 FirstLowInvalidHeapAttributeNumber，
+ * 以便位图表示中能纳入系统属性（如 OID）。
  *
- * Caller had better hold at least RowExclusiveLock on the target relation
- * to ensure it is safe (deadlock-free) for us to take locks on the relation's
- * indexes.  Note that since the introduction of CREATE INDEX CONCURRENTLY,
- * that lock level doesn't guarantee a stable set of indexes, so we have to
- * be prepared to retry here in case of a change in the set of indexes.
+ * 调用方最好至少持有目标关系上的 RowExclusiveLock，
+ * 以确保我们对其索引加锁是安全的（无死锁）。注意
+ * 自 CREATE INDEX CONCURRENTLY 引入以来，该锁级
+ * 并不保证索引集合稳定，所以若索引集合有变，我们
+ * 必须准备好在此重试。
  *
- * The returned result is palloc'd in the caller's memory context and should
- * be bms_free'd when not needed anymore.
+ * 返回结果 palloc 于调用方的内存上下文，不再需要时
+ * 应当 bms_free 释放。
  */
 Bitmapset *
 RelationGetIndexAttrBitmap(Relation relation, IndexAttrBitmapKind attrKind)
 {
-	Bitmapset  *uindexattrs;	/* columns in unique indexes */
-	Bitmapset  *pkindexattrs;	/* columns in the primary index */
-	Bitmapset  *idindexattrs;	/* columns in the replica identity */
-	Bitmapset  *hotblockingattrs;	/* columns with HOT blocking indexes */
-	Bitmapset  *summarizedattrs;	/* columns with summarizing indexes */
+	Bitmapset  *uindexattrs;	/* 唯一索引中的列 */
+	Bitmapset  *pkindexattrs;	/* 主索引中的列 */
+	Bitmapset  *idindexattrs;	/* 副本标识中的列 */
+	Bitmapset  *hotblockingattrs;	/* 阻碍 HOT 的索引所在列 */
+	Bitmapset  *summarizedattrs;	/* 汇总索引中的列 */
 	List	   *indexoidlist;
 	List	   *newindexoidlist;
 	Oid			relpkindex;
@@ -5190,7 +5190,7 @@ RelationGetIndexAttrBitmap(Relation relation, IndexAttrBitmapKind attrKind)
 	ListCell   *l;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the result. */
+	/* 已算出结果则快速退出。 */
 	if (relation->rd_attrsvalid)
 	{
 		switch (attrKind)
@@ -5210,39 +5210,39 @@ RelationGetIndexAttrBitmap(Relation relation, IndexAttrBitmapKind attrKind)
 		}
 	}
 
-	/* Fast path if definitely no indexes */
+	/* 确定无索引时走快速路径 */
 	if (!RelationGetForm(relation)->relhasindex)
 		return NULL;
 
 	/*
-	 * Get cached list of index OIDs. If we have to start over, we do so here.
+	 * 取索引 OID 缓存清单。若须重来，便在此处重来。
 	 */
 restart:
 	indexoidlist = RelationGetIndexList(relation);
 
-	/* Fall out if no indexes (but relhasindex was set) */
+	/* 无索引则跳出（但 relhasindex 置位） */
 	if (indexoidlist == NIL)
 		return NULL;
 
 	/*
-	 * Copy the rd_pkindex and rd_replidindex values computed by
-	 * RelationGetIndexList before proceeding.  This is needed because a
-	 * relcache flush could occur inside index_open below, resetting the
-	 * fields managed by RelationGetIndexList.  We need to do the work with
-	 * stable values of these fields.
+	 * 先复制 RelationGetIndexList 算出的 rd_pkindex
+	 * 与 rd_replidindex 值再继续。这样做是因为下面
+	 * index_open 内部可能发生 relcache 刷写，重置
+	 * RelationGetIndexList 管理的字段。我们需要用这
+	 * 些字段的稳定值。
 	 */
 	relpkindex = relation->rd_pkindex;
 	relreplindex = relation->rd_replidindex;
 
 	/*
-	 * For each index, add referenced attributes to indexattrs.
+	 * 对每个索引，把其引用属性加入 indexattrs。
 	 *
-	 * Note: we consider all indexes returned by RelationGetIndexList, even if
-	 * they are not indisready or indisvalid.  This is important because an
-	 * index for which CREATE INDEX CONCURRENTLY has just started must be
-	 * included in HOT-safety decisions (see README.HOT).  If a DROP INDEX
-	 * CONCURRENTLY is far enough along that we should ignore the index, it
-	 * won't be returned at all by RelationGetIndexList.
+	 * 注意：我们考虑 RelationGetIndexList 返回的所有
+	 * 索引，即使它们非 indisready 或 indisvalid。这
+	 * 很重要，因为 CREATE INDEX CONCURRENTLY 刚启动
+	 * 的索引必须纳入 HOT 安全性考量（见 README.HOT）。
+	 * 若 DROP INDEX CONCURRENTLY 已进行到该忽略此索
+	 * 引时，它根本不会被返回。
 	 */
 	uindexattrs = NULL;
 	pkindexattrs = NULL;
@@ -5258,20 +5258,20 @@ restart:
 		Node	   *indexExpressions;
 		Node	   *indexPredicate;
 		int			i;
-		bool		isKey;		/* candidate key */
-		bool		isPK;		/* primary key */
-		bool		isIDKey;	/* replica identity index */
+		bool		isKey;		/* 候选键 */
+		bool		isPK;		/* 主键 */
+		bool		isIDKey;	/* 副本标识索引 */
 		Bitmapset **attrs;
 
 		indexDesc = index_open(indexOid, AccessShareLock);
 
 		/*
-		 * Extract index expressions and index predicate.  Note: Don't use
-		 * RelationGetIndexExpressions()/RelationGetIndexPredicate(), because
-		 * those might run constant expressions evaluation, which needs a
-		 * snapshot, which we might not have here.  (Also, it's probably more
-		 * sound to collect the bitmaps before any transformations that might
-		 * eliminate columns, but the practical impact of this is limited.)
+		 * 提取索引表达式与索引谓词。注意：不要使用
+		 * RelationGetIndexExpressions()/RelationGetIndexPredicate()，因为
+		 * 它们可能运行常量表达式求值，那需要快照，
+		 * 而我们此处未必有快照。（此外，先在任何可能
+		 * 消除列的变换之前收集位图，多半也更稳妥，不
+		 * 过这一点的实际影响有限。）
 		 */
 
 		datum = heap_getattr(indexDesc->rd_indextuple, Anum_pg_index_indexprs,
@@ -5288,45 +5288,45 @@ restart:
 		else
 			indexPredicate = NULL;
 
-		/* Can this index be referenced by a foreign key? */
+		/* 此索引能否被外键引用？ */
 		isKey = indexDesc->rd_index->indisunique &&
 			indexExpressions == NULL &&
 			indexPredicate == NULL;
 
-		/* Is this a primary key? */
+		/* 这是主键吗？ */
 		isPK = (indexOid == relpkindex);
 
-		/* Is this index the configured (or default) replica identity? */
+		/* 此索引是不是配置的（或默认）副本标识？ */
 		isIDKey = (indexOid == relreplindex);
 
 		/*
-		 * If the index is summarizing, it doesn't block HOT updates, but we
-		 * may still need to update it (if the attributes were modified). So
-		 * decide which bitmap we'll update in the following loop.
+		 * 若索引是汇总型的，它不阻碍 HOT 更新（但属性
+		 * 有改动时仍需更新它）。所以要在下面的循环
+		 * 中决定我们将更新哪个位图。
 		 */
 		if (indexDesc->rd_indam->amsummarizing)
 			attrs = &summarizedattrs;
 		else
 			attrs = &hotblockingattrs;
 
-		/* Collect simple attribute references */
+		/* 收集简单属性引用 */
 		for (i = 0; i < indexDesc->rd_index->indnatts; i++)
 		{
 			int			attrnum = indexDesc->rd_index->indkey.values[i];
 
 			/*
-			 * Since we have covering indexes with non-key columns, we must
-			 * handle them accurately here. non-key columns must be added into
-			 * hotblockingattrs or summarizedattrs, since they are in index,
-			 * and update shouldn't miss them.
+			 * 由于我们拥有带非键列的覆盖索引，必须在此
+			 * 准确处理它们。非键列必须加进 hotblockingattrs
+			 * 或 summarizedattrs，因为它们在索引里，而且更
+			 * 新不应漏掉它们。
 			 *
-			 * Summarizing indexes do not block HOT, but do need to be updated
-			 * when the column value changes, thus require a separate
-			 * attribute bitmapset.
+			 * 汇总索引不阻碍 HOT，但列值变化时
+			 * 确实需要更新，因而要有单独的属性
+			 * bitmapset。
 			 *
-			 * Obviously, non-key columns couldn't be referenced by foreign
-			 * key or identity key. Hence we do not include them into
-			 * uindexattrs, pkindexattrs and idindexattrs bitmaps.
+			 * 显然非键列不可能被外键或标识键引用，因此
+			 * 我们不加进 uindexattrs、pkindexattrs 和
+			 * idindexattrs 位图。
 			 */
 			if (attrnum != 0)
 			{
@@ -5347,33 +5347,33 @@ restart:
 			}
 		}
 
-		/* Collect all attributes used in expressions, too */
+		/* 也收集表达式中用到的全部属性 */
 		pull_varattnos(indexExpressions, 1, attrs);
 
-		/* Collect all attributes in the index predicate, too */
+		/* 也收集索引谓词中的全部属性 */
 		pull_varattnos(indexPredicate, 1, attrs);
 
 		index_close(indexDesc, AccessShareLock);
 	}
 
 	/*
-	 * During one of the index_opens in the above loop, we might have received
-	 * a relcache flush event on this relcache entry, which might have been
-	 * signaling a change in the rel's index list.  If so, we'd better start
-	 * over to ensure we deliver up-to-date attribute bitmaps.
+	 * 在上面循环的某次 index_open 期间，我们可能收到
+	 * 针对本 relcache 条目的刷写事件，它可能正在通知
+	 * 关系的索引清单有变。若然，我们最好重来一遍，
+	 * 以确保交付的属性位图是最新的。
 	 */
 	newindexoidlist = RelationGetIndexList(relation);
 	if (equal(indexoidlist, newindexoidlist) &&
 		relpkindex == relation->rd_pkindex &&
 		relreplindex == relation->rd_replidindex)
 	{
-		/* Still the same index set, so proceed */
+		/* 索引集合未变，继续即可 */
 		list_free(newindexoidlist);
 		list_free(indexoidlist);
 	}
 	else
 	{
-		/* Gotta do it over ... might as well not leak memory */
+		/* 得重干一场 …… 顺便别泄漏内存 */
 		list_free(newindexoidlist);
 		list_free(indexoidlist);
 		bms_free(uindexattrs);
@@ -5385,7 +5385,7 @@ restart:
 		goto restart;
 	}
 
-	/* Don't leak the old values of these bitmaps, if any */
+	/* 若有旧值，勿泄漏这些位图 */
 	relation->rd_attrsvalid = false;
 	bms_free(relation->rd_keyattr);
 	relation->rd_keyattr = NULL;
@@ -5399,11 +5399,11 @@ restart:
 	relation->rd_summarizedattr = NULL;
 
 	/*
-	 * Now save copies of the bitmaps in the relcache entry.  We intentionally
-	 * set rd_attrsvalid last, because that's the one that signals validity of
-	 * the values; if we run out of memory before making that copy, we won't
-	 * leave the relcache entry looking like the other ones are valid but
-	 * empty.
+	 * 现在把位图副本存入 relcache 条目。我们有意把
+	 * rd_attrsvalid 放到最后设置，因为发出这些值有
+	 * 效信号的是它；若在复制前内存耗尽，我们就不会
+	 * 让条目看起来其他值有效却
+	 * 空。
 	 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 	relation->rd_keyattr = bms_copy(uindexattrs);
@@ -5414,7 +5414,7 @@ restart:
 	relation->rd_attrsvalid = true;
 	MemoryContextSwitchTo(oldcxt);
 
-	/* We return our original working copy for caller to play with */
+	/* 把我们原本的工作副本交由调用方使用 */
 	switch (attrKind)
 	{
 		case INDEX_ATTR_BITMAP_KEY:
@@ -5434,61 +5434,61 @@ restart:
 }
 
 /*
- * RelationGetIdentityKeyBitmap -- get a bitmap of replica identity attribute
- * numbers
+ * RelationGetIdentityKeyBitmap -- 取副本标识属性号
+ * 位图
  *
- * A bitmap of index attribute numbers for the configured replica identity
- * index is returned.
+ * 返回的是已配置副本标识索引的索引
+ * 属性号位图。
  *
- * See also comments of RelationGetIndexAttrBitmap().
+ * 参见 RelationGetIndexAttrBitmap() 的注释。
  *
- * This is a special purpose function used during logical replication. Here,
- * unlike RelationGetIndexAttrBitmap(), we don't acquire a lock on the required
- * index as we build the cache entry using a historic snapshot and all the
- * later changes are absorbed while decoding WAL. Due to this reason, we don't
- * need to retry here in case of a change in the set of indexes.
+ * 这是逻辑复制期间使用的专用函数。此处与
+ * RelationGetIndexAttrBitmap() 不同，我们并不对所
+ * 需索引加锁，因为我们用历史快照构建缓存条目，
+ * 后续所有变更会在解码 WAL 时被吸收。正因如此，
+ * 索引集合有变时无需在此重试。
  */
 Bitmapset *
 RelationGetIdentityKeyBitmap(Relation relation)
 {
-	Bitmapset  *idindexattrs = NULL;	/* columns in the replica identity */
+	Bitmapset  *idindexattrs = NULL;	/* 副本标识中的列 */
 	Relation	indexDesc;
 	int			i;
 	Oid			replidindex;
 	MemoryContext oldcxt;
 
-	/* Quick exit if we already computed the result */
+	/* 已算出结果则快速退出 */
 	if (relation->rd_idattr != NULL)
 		return bms_copy(relation->rd_idattr);
 
-	/* Fast path if definitely no indexes */
+	/* 确定无索引时走快速路径 */
 	if (!RelationGetForm(relation)->relhasindex)
 		return NULL;
 
-	/* Historic snapshot must be set. */
+	/* 必须已设置历史快照。 */
 	Assert(HistoricSnapshotActive());
 
 	replidindex = RelationGetReplicaIndex(relation);
 
-	/* Fall out if there is no replica identity index */
+	/* 无副本标识索引则跳出 */
 	if (!OidIsValid(replidindex))
 		return NULL;
 
-	/* Look up the description for the replica identity index */
+	/* 查阅副本标识索引的描述符 */
 	indexDesc = RelationIdGetRelation(replidindex);
 
 	if (!RelationIsValid(indexDesc))
 		elog(ERROR, "could not open relation with OID %u",
 			 relation->rd_replidindex);
 
-	/* Add referenced attributes to idindexattrs */
+	/* 把引用的属性加入 idindexattrs */
 	for (i = 0; i < indexDesc->rd_index->indnatts; i++)
 	{
 		int			attrnum = indexDesc->rd_index->indkey.values[i];
 
 		/*
-		 * We don't include non-key columns into idindexattrs bitmaps. See
-		 * RelationGetIndexAttrBitmap.
+		 * 我们不给 idindexattrs 位图纳入非键列。参见
+		 * RelationGetIndexAttrBitmap
 		 */
 		if (attrnum != 0)
 		{
@@ -5500,27 +5500,27 @@ RelationGetIdentityKeyBitmap(Relation relation)
 
 	RelationClose(indexDesc);
 
-	/* Don't leak the old values of these bitmaps, if any */
+	/* 若有旧值，勿泄漏这些位图 */
 	bms_free(relation->rd_idattr);
 	relation->rd_idattr = NULL;
 
-	/* Now save copy of the bitmap in the relcache entry */
+	/* 现在把位图副本存入 relcache 条目 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 	relation->rd_idattr = bms_copy(idindexattrs);
 	MemoryContextSwitchTo(oldcxt);
 
-	/* We return our original working copy for caller to play with */
+	/* 把我们原本的工作副本交由调用方使用 */
 	return idindexattrs;
 }
 
 /*
- * RelationGetExclusionInfo -- get info about index's exclusion constraint
+ * RelationGetExclusionInfo -- 取索引排除约束的信息
  *
- * This should be called only for an index that is known to have an
- * associated exclusion constraint.  It returns arrays (palloc'd in caller's
- * context) of the exclusion operator OIDs, their underlying functions'
- * OIDs, and their strategy numbers in the index's opclasses.  We cache
- * all this information since it requires a fair amount of work to get.
+ * 只应对已知带有排除约束的索引调用本函数。它
+ * 会返回若干数组（palloc 于调用方上下文）：排除
+ * 算子 OID、底层函数 OID 及其在索引 opclass 中
+ * 的策略号。这些信息获取工作量不小，因此我们
+ * 将其全部缓存起来。
  */
 void
 RelationGetExclusionInfo(Relation indexRelation,
@@ -5542,12 +5542,12 @@ RelationGetExclusionInfo(Relation indexRelation,
 
 	indnkeyatts = IndexRelationGetNumberOfKeyAttributes(indexRelation);
 
-	/* Allocate result space in caller context */
+	/* 调用方上下文中分配结果空间 */
 	*operators = ops = (Oid *) palloc(sizeof(Oid) * indnkeyatts);
 	*procs = funcs = (Oid *) palloc(sizeof(Oid) * indnkeyatts);
 	*strategies = strats = (uint16 *) palloc(sizeof(uint16) * indnkeyatts);
 
-	/* Quick exit if we have the data cached already */
+	/* 若数据已缓存则快速退出 */
 	if (indexRelation->rd_exclstrats != NULL)
 	{
 		memcpy(ops, indexRelation->rd_exclops, sizeof(Oid) * indnkeyatts);
@@ -5557,13 +5557,13 @@ RelationGetExclusionInfo(Relation indexRelation,
 	}
 
 	/*
-	 * Search pg_constraint for the constraint associated with the index. To
-	 * make this not too painfully slow, we use the index on conrelid; that
-	 * will hold the parent relation's OID not the index's own OID.
+	 * 在 pg_constraint 中搜索与该索引相关的约束。
+	 * 为免太慢，我们用 conrelid 上的索引；其中存的是
+	 * 父关系的 OID 而非索引自身的 OID。
 	 *
-	 * Note: if we wanted to rely on the constraint name matching the index's
-	 * name, we could just do a direct lookup using pg_constraint's unique
-	 * index.  For the moment it doesn't seem worth requiring that.
+	 * 注意：如果想依赖约束名与索引名一致这一点，就
+	 * 可以直接用 pg_constraint 的唯一索引做查找。目
+	 * 前还不值得强制要求这一点。
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_constraint_conrelid,
@@ -5583,18 +5583,18 @@ RelationGetExclusionInfo(Relation indexRelation,
 		ArrayType  *arr;
 		int			nelem;
 
-		/* We want the exclusion constraint owning the index */
+		/* 我们要的是拥有该索引的排除约束 */
 		if (conform->contype != CONSTRAINT_EXCLUSION ||
 			conform->conindid != RelationGetRelid(indexRelation))
 			continue;
 
-		/* There should be only one */
+		/* 应当只有一条 */
 		if (found)
 			elog(ERROR, "unexpected exclusion constraint record found for rel %s",
 				 RelationGetRelationName(indexRelation));
 		found = true;
 
-		/* Extract the operator OIDS from conexclop */
+		/* 从 conexclop 提取算子 OID */
 		val = fastgetattr(htup,
 						  Anum_pg_constraint_conexclop,
 						  conrel->rd_att, &isnull);
@@ -5602,7 +5602,7 @@ RelationGetExclusionInfo(Relation indexRelation,
 			elog(ERROR, "null conexclop for rel %s",
 				 RelationGetRelationName(indexRelation));
 
-		arr = DatumGetArrayTypeP(val);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(val);	/* 确保未经 toast */
 		nelem = ARR_DIMS(arr)[0];
 		if (ARR_NDIM(arr) != 1 ||
 			nelem != indnkeyatts ||
@@ -5620,19 +5620,19 @@ RelationGetExclusionInfo(Relation indexRelation,
 		elog(ERROR, "exclusion constraint record missing for rel %s",
 			 RelationGetRelationName(indexRelation));
 
-	/* We need the func OIDs and strategy numbers too */
+	/* 我们还需要函数 OID 与策略号 */
 	for (i = 0; i < indnkeyatts; i++)
 	{
 		funcs[i] = get_opcode(ops[i]);
 		strats[i] = get_op_opfamily_strategy(ops[i],
 											 indexRelation->rd_opfamily[i]);
-		/* shouldn't fail, since it was checked at index creation */
+		/* 不应失败，建索引时已检查过 */
 		if (strats[i] == InvalidStrategy)
 			elog(ERROR, "could not find strategy for operator %u in family %u",
 				 ops[i], indexRelation->rd_opfamily[i]);
 	}
 
-	/* Save a copy of the results in the relcache entry. */
+	/* 把结果副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(indexRelation->rd_indexcxt);
 	indexRelation->rd_exclops = (Oid *) palloc(sizeof(Oid) * indnkeyatts);
 	indexRelation->rd_exclprocs = (Oid *) palloc(sizeof(Oid) * indnkeyatts);
@@ -5644,15 +5644,15 @@ RelationGetExclusionInfo(Relation indexRelation,
 }
 
 /*
- * Get the publication information for the given relation.
+ * 取给定关系的发布信息。
  *
- * Traverse all the publications which the relation is in to get the
- * publication actions and validate the row filter expressions for such
- * publications if any. We consider the row filter expression as invalid if it
- * references any column which is not part of REPLICA IDENTITY.
+ * 遍历该关系所在的所有发布，取其发布动作，并
+ * 在有的情况下校验这些发布的行过滤器表达式。
+ * 若表达式引用了任何不属于 REPLICA IDENTITY 的列，
+ * 我们就视该行过滤器表达式为无效。
  *
- * To avoid fetching the publication information repeatedly, we cache the
- * publication actions and row filter validation information.
+ * 为免反复取发布信息，我们把发布动作与行过滤
+ * 器校验信息缓存起来。
  */
 void
 RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
@@ -5665,8 +5665,8 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 	Oid			relid = RelationGetRelid(relation);
 
 	/*
-	 * If not publishable, it publishes no actions.  (pgoutput_change() will
-	 * ignore it.)
+	 * 若不可发布，则不发布任何动作（pgoutput_change() 会
+	 * 忽略）
 	 */
 	if (!is_publishable_relation(relation))
 	{
@@ -5690,14 +5690,14 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 	pubdesc->cols_valid_for_update = true;
 	pubdesc->cols_valid_for_delete = true;
 
-	/* Fetch the publication membership info. */
+	/* 取发布成员关系信息。 */
 	puboids = GetRelationPublications(relid);
 	schemaid = RelationGetNamespace(relation);
 	puboids = list_concat_unique_oid(puboids, GetSchemaPublications(schemaid));
 
 	if (relation->rd_rel->relispartition)
 	{
-		/* Add publications that the ancestors are in too. */
+		/* 把祖先所在的发布也加进来。 */
 		ancestors = get_partition_ancestors(relid);
 
 		foreach(lc, ancestors)
@@ -5732,11 +5732,11 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 		pubdesc->pubactions.pubtruncate |= pubform->pubtruncate;
 
 		/*
-		 * Check if all columns referenced in the filter expression are part
-		 * of the REPLICA IDENTITY index or not.
+		 * 检查过滤表达式引用的列是否都属于 REPLICA
+		 *  IDENTITY 索引。
 		 *
-		 * If the publication is FOR ALL TABLES then it means the table has no
-		 * row filters and we can skip the validation.
+		 * 若发布是 FOR ALL TABLES，则意味着表没有行过
+		 * 滤器，可跳过校验。
 		 */
 		if (!pubform->puballtables &&
 			(pubform->pubupdate || pubform->pubdelete) &&
@@ -5750,10 +5750,10 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 		}
 
 		/*
-		 * Check if all columns are part of the REPLICA IDENTITY index or not.
+		 * 检查所有列是否都属于 REPLICA IDENTITY 索引。
 		 *
-		 * If the publication is FOR ALL TABLES then it means the table has no
-		 * column list and we can skip the validation.
+		 * 若发布是 FOR ALL TABLES，则意味着表没有列清
+		 * 单，可跳过校验。
 		 */
 		if (!pubform->puballtables &&
 			(pubform->pubupdate || pubform->pubdelete) &&
@@ -5769,9 +5769,9 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 		ReleaseSysCache(tup);
 
 		/*
-		 * If we know everything is replicated and the row filter is invalid
-		 * for update and delete, there is no point to check for other
-		 * publications.
+		 * 若已知全部复制，且行过滤器对更新与删除
+		 * 无效，再检查其他发布已无
+		 * 意义。
 		 */
 		if (pubdesc->pubactions.pubinsert && pubdesc->pubactions.pubupdate &&
 			pubdesc->pubactions.pubdelete && pubdesc->pubactions.pubtruncate &&
@@ -5779,9 +5779,9 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 			break;
 
 		/*
-		 * If we know everything is replicated and the column list is invalid
-		 * for update and delete, there is no point to check for other
-		 * publications.
+		 * 若已知全部复制，且列清单对更新与删除无效，
+		 * 再检查其他发布已无
+		 * 意义。
 		 */
 		if (pubdesc->pubactions.pubinsert && pubdesc->pubactions.pubupdate &&
 			pubdesc->pubactions.pubdelete && pubdesc->pubactions.pubtruncate &&
@@ -5795,7 +5795,7 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 		relation->rd_pubdesc = NULL;
 	}
 
-	/* Now save copy of the descriptor in the relcache entry. */
+	/* 现在把描述符副本存入 relcache 条目。 */
 	oldcxt = MemoryContextSwitchTo(CacheMemoryContext);
 	relation->rd_pubdesc = palloc(sizeof(PublicationDesc));
 	memcpy(relation->rd_pubdesc, pubdesc, sizeof(PublicationDesc));
@@ -5803,7 +5803,7 @@ RelationBuildPublicationDesc(Relation relation, PublicationDesc *pubdesc)
 }
 
 /*
- * RelationGetIndexRawAttOptions -- get AM/opclass-specific options for the index
+ * RelationGetIndexRawAttOptions -- 取索引的 AM/opclass 专属选项
  */
 Datum *
 RelationGetIndexRawAttOptions(Relation indexrel)
@@ -5849,7 +5849,7 @@ CopyIndexAttOptions(bytea **srcopts, int natts)
 
 /*
  * RelationGetIndexAttOptions
- *		get AM/opclass-specific options for an index parsed into a binary form
+ *		取索引的 AM/opclass 专属选项，解析成二进制形式
  */
 bytea	  **
 RelationGetIndexAttOptions(Relation relation, bool copy)
@@ -5861,11 +5861,11 @@ RelationGetIndexAttOptions(Relation relation, bool copy)
 																	 * IndexRelationGetNumberOfKeyAttributes */
 	int			i;
 
-	/* Try to copy cached options. */
+	/* 尝试复制缓存选项。 */
 	if (opts)
 		return copy ? CopyIndexAttOptions(opts, natts) : opts;
 
-	/* Get and parse opclass options. */
+	/* 取并解析 opclass 选项。 */
 	opts = palloc0(sizeof(*opts) * natts);
 
 	for (i = 0; i < natts; i++)
@@ -5881,7 +5881,7 @@ RelationGetIndexAttOptions(Relation relation, bool copy)
 		}
 	}
 
-	/* Copy parsed options to the cache. */
+	/* 把解析结果复制进缓存。 */
 	oldcxt = MemoryContextSwitchTo(relation->rd_indexcxt);
 	relation->rd_opcoptions = CopyIndexAttOptions(opts, natts);
 	MemoryContextSwitchTo(oldcxt);
@@ -5901,16 +5901,16 @@ RelationGetIndexAttOptions(Relation relation, bool copy)
 }
 
 /*
- * Routines to support ereport() reports of relation-related errors
+ * 支撑 ereport() 关系相关报错的例程
  *
- * These could have been put into elog.c, but it seems like a module layering
- * violation to have elog.c calling relcache or syscache stuff --- and we
- * definitely don't want elog.h including rel.h.  So we put them here.
+ * 这些本可放进 elog.c，但让 elog.c 调用 relcache
+ * 或 syscache 的东西像是模块分层违规 -- 而且我们
+ * 绝不想让 elog.h 包含 rel.h，故放在这里。
  */
 
 /*
- * errtable --- stores schema_name and table_name of a table
- * within the current errordata.
+ * errtable --- 在当前 errordata 中记下某表的
+ * schema_name 与 table_name。
  */
 int
 errtable(Relation rel)
@@ -5919,15 +5919,15 @@ errtable(Relation rel)
 					   get_namespace_name(RelationGetNamespace(rel)));
 	err_generic_string(PG_DIAG_TABLE_NAME, RelationGetRelationName(rel));
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errtablecol --- stores schema_name, table_name and column_name
- * of a table column within the current errordata.
+ * errtablecol --- 在当前 errordata 中记下某表列的
+ * schema_name、table_name 与 column_name。
  *
- * The column is specified by attribute number --- for most callers, this is
- * easier and less error-prone than getting the column name for themselves.
+ * 列由属性号指定 -- 对多数调用方而言，这比自
+ * 己去取列名更省事也更不易出错。
  */
 int
 errtablecol(Relation rel, int attnum)
@@ -5935,7 +5935,7 @@ errtablecol(Relation rel, int attnum)
 	TupleDesc	reldesc = RelationGetDescr(rel);
 	const char *colname;
 
-	/* Use reldesc if it's a user attribute, else consult the catalogs */
+	/* 若是用户属性则用 reldesc，否则查系统目录 */
 	if (attnum > 0 && attnum <= reldesc->natts)
 		colname = NameStr(TupleDescAttr(reldesc, attnum - 1)->attname);
 	else
@@ -5945,13 +5945,13 @@ errtablecol(Relation rel, int attnum)
 }
 
 /*
- * errtablecolname --- stores schema_name, table_name and column_name
- * of a table column within the current errordata, where the column name is
- * given directly rather than extracted from the relation's catalog data.
+ * errtablecolname --- 在当前 errordata 中记下某表
+ * 列的 schema_name、table_name 与 column_name，
+ * 其中列名是直接给出而非取自关系的目录数据。
  *
- * Don't use this directly unless errtablecol() is inconvenient for some
- * reason.  This might possibly be needed during intermediate states in ALTER
- * TABLE, for instance.
+ * 除非 errtablecol() 有不便之处，否则不要直接
+ * 使用本函数。比如在 ALTER TABLE 的中间状态
+ * 时可能需要。
  */
 int
 errtablecolname(Relation rel, const char *colname)
@@ -5959,12 +5959,12 @@ errtablecolname(Relation rel, const char *colname)
 	errtable(rel);
 	err_generic_string(PG_DIAG_COLUMN_NAME, colname);
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errtableconstraint --- stores schema_name, table_name and constraint_name
- * of a table-related constraint within the current errordata.
+ * errtableconstraint --- 在当前 errordata 中记下表相关约束的
+ * schema_name、table_name 与 constraint_name。
  */
 int
 errtableconstraint(Relation rel, const char *conname)
@@ -5972,63 +5972,63 @@ errtableconstraint(Relation rel, const char *conname)
 	errtable(rel);
 	err_generic_string(PG_DIAG_CONSTRAINT_NAME, conname);
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 
 /*
  *	load_relcache_init_file, write_relcache_init_file
  *
- *		In late 1992, we started regularly having databases with more than
- *		a thousand classes in them.  With this number of classes, it became
- *		critical to do indexed lookups on the system catalogs.
+ *		1992 年末起，我们开始常规性地见到包含上千个类
+ *		（classes）的数据库。随着这一数量，对系统目录做
+ *		索引查找变得至关重要。
  *
- *		Bootstrapping these lookups is very hard.  We want to be able to
- *		use an index on pg_attribute, for example, but in order to do so,
- *		we must have read pg_attribute for the attributes in the index,
- *		which implies that we need to use the index.
+ *		引导这些查找非常困难。比如想在 pg_attribute
+ *		上建索引，但要做到这一点，必须先读出该索引
+ *		涉及的属性的 pg_attribute，这意味着又需要用
+ *		这个索引。
  *
- *		In order to get around the problem, we do the following:
+ *		为绕开这个问题，我们采取如下做法：
  *
- *		   +  When the database system is initialized (at initdb time), we
- *			  don't use indexes.  We do sequential scans.
+ *		   + 数据库系统初始化时（initdb 期间），我们不
+ *			  使用索引，而是做顺序扫描。
  *
- *		   +  When the backend is started up in normal mode, we load an image
- *			  of the appropriate relation descriptors, in internal format,
- *			  from an initialization file in the data/base/... directory.
+ *		   + 后端以正常模式启动时，我们从 data/base/...
+ *			  目录下的初始化文件里，以内部格式加载相应
+ *			  关系描述符的映像。
  *
- *		   +  If the initialization file isn't there, then we create the
- *			  relation descriptors using sequential scans and write 'em to
- *			  the initialization file for use by subsequent backends.
+ *		   + 若初始化文件不在，就用顺序扫描创建
+ *			  关系描述符，并把它们写入
+ *			  初始化文件供后续后端使用。
  *
- *		As of Postgres 9.0, there is one local initialization file in each
- *		database, plus one shared initialization file for shared catalogs.
+ *		自 Postgres 9.0 起，每个数据库有一个本地初始
+ *		化文件，外加供共享目录用的共享初始化文件。
  *
- *		We could dispense with the initialization files and just build the
- *		critical reldescs the hard way on every backend startup, but that
- *		slows down backend startup noticeably.
+ *		我们本可弃用初始化文件，每次后端启动都用笨
+ *		办法构建关键 reldesc，但这会明显
+ *		拖慢后端启动速度。
  *
- *		We can in fact go further, and save more relcache entries than
- *		just the ones that are absolutely critical; this allows us to speed
- *		up backend startup by not having to build such entries the hard way.
- *		Presently, all the catalog and index entries that are referred to
- *		by catcaches are stored in the initialization files.
+ *		我们其实可更进一步，保存比绝对关键条目更
+ *		多的 relcache 条目；这可免去笨办法构建，从而
+ *		加快后端启动速度。
+ *		目前，凡被 catcache 引用的目录与索引条目都
+ *		存进初始化文件。
  *
- *		The same mechanism that detects when catcache and relcache entries
- *		need to be invalidated (due to catalog updates) also arranges to
- *		unlink the initialization files when the contents may be out of date.
- *		The files will then be rebuilt during the next backend startup.
+ *		检测 catcache 与 relcache 条目何时该失效（因
+ *		目录更新）的机制，也会安排在内容可能过时时
+ *		解除初始化文件的链接。之后文件会在下次后端
+ *		启动期间重建。
  */
 
 /*
- * load_relcache_init_file -- attempt to load cache from the shared
- * or local cache init file
+ * load_relcache_init_file -- 尝试装入缓存：从共享
+ * 或本地初始化文件
  *
- * If successful, return true and set criticalRelcachesBuilt or
- * criticalSharedRelcachesBuilt to true.
- * If not successful, return false.
+ * 成功时返回真，并把 criticalRelcachesBuilt 或
+ * criticalSharedRelcachesBuilt 置真
+ * 不成功则返回假。
  *
- * NOTE: we assume we are already switched into CacheMemoryContext.
+ * 注意：我们假定已经切换到 CacheMemoryContext 中。
  */
 static bool
 load_relcache_init_file(bool shared)
@@ -6056,16 +6056,16 @@ load_relcache_init_file(bool shared)
 		return false;
 
 	/*
-	 * Read the index relcache entries from the file.  Note we will not enter
-	 * any of them into the cache if the read fails partway through; this
-	 * helps to guard against broken init files.
+	 * 从文件读取索引 relcache 条目。注意若中途读取失败，
+	 * 就不会把其中任何条目存入缓存；这有助于防范
+	 * 损坏的初始化文件。
 	 */
 	max_rels = 100;
 	rels = (Relation *) palloc(max_rels * sizeof(Relation));
 	num_rels = 0;
 	nailed_rels = nailed_indexes = 0;
 
-	/* check for correct magic number (compatible version) */
+	/* 检查魔数是否正确（版本兼容） */
 	if (fread(&magic, 1, sizeof(magic), fp) != sizeof(magic))
 		goto read_failed;
 	if (magic != RELCACHE_INIT_FILEMAGIC)
@@ -6079,20 +6079,20 @@ load_relcache_init_file(bool shared)
 		Form_pg_class relform;
 		bool		has_not_null;
 
-		/* first read the relation descriptor length */
+		/* 先读关系描述符长度 */
 		nread = fread(&len, 1, sizeof(len), fp);
 		if (nread != sizeof(len))
 		{
 			if (nread == 0)
-				break;			/* end of file */
+				break;			/* 文件尾 */
 			goto read_failed;
 		}
 
-		/* safety check for incompatible relcache layout */
+		/* 对不兼容 relcache 布局做安全检查 */
 		if (len != sizeof(RelationData))
 			goto read_failed;
 
-		/* allocate another relcache header */
+		/* 再分配一个 relcache 头部 */
 		if (num_rels >= max_rels)
 		{
 			max_rels *= 2;
@@ -6101,11 +6101,11 @@ load_relcache_init_file(bool shared)
 
 		rel = rels[num_rels++] = (Relation) palloc(len);
 
-		/* then, read the Relation structure */
+		/* 接着读取 Relation 结构 */
 		if (fread(rel, 1, len, fp) != len)
 			goto read_failed;
 
-		/* next read the relation tuple form */
+		/* 接着读关系元组形态 */
 		if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 			goto read_failed;
 
@@ -6115,14 +6115,14 @@ load_relcache_init_file(bool shared)
 
 		rel->rd_rel = relform;
 
-		/* initialize attribute tuple forms */
+		/* 初始化属性元组形态 */
 		rel->rd_att = CreateTemplateTupleDesc(relform->relnatts);
-		rel->rd_att->tdrefcount = 1;	/* mark as refcounted */
+		rel->rd_att->tdrefcount = 1;	/* 引用计数标记 */
 
 		rel->rd_att->tdtypeid = relform->reltype ? relform->reltype : RECORDOID;
-		rel->rd_att->tdtypmod = -1; /* just to be sure */
+		rel->rd_att->tdtypmod = -1; /* 谨慎起见 */
 
-		/* next read all the attribute tuple form data entries */
+		/* 接着读全部属性元组形态数据条目 */
 		has_not_null = false;
 		for (i = 0; i < relform->relnatts; i++)
 		{
@@ -6138,7 +6138,7 @@ load_relcache_init_file(bool shared)
 			has_not_null |= attr->attnotnull;
 		}
 
-		/* next read the access method specific field */
+		/* 接着读访问方法专属字段 */
 		if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 			goto read_failed;
 		if (len > 0)
@@ -6147,14 +6147,14 @@ load_relcache_init_file(bool shared)
 			if (fread(rel->rd_options, 1, len, fp) != len)
 				goto read_failed;
 			if (len != VARSIZE(rel->rd_options))
-				goto read_failed;	/* sanity check */
+				goto read_failed;	/* 健全检查 */
 		}
 		else
 		{
 			rel->rd_options = NULL;
 		}
 
-		/* mark not-null status */
+		/* 标记非空状态 */
 		if (has_not_null)
 		{
 			TupleConstr *constr = (TupleConstr *) palloc0(sizeof(TupleConstr));
@@ -6164,8 +6164,8 @@ load_relcache_init_file(bool shared)
 		}
 
 		/*
-		 * If it's an index, there's more to do.  Note we explicitly ignore
-		 * partitioned indexes here.
+		 * 若是索引则还有事要做。注意此处显式忽略
+		 * 分区索引。
 		 */
 		if (rel->rd_rel->relkind == RELKIND_INDEX)
 		{
@@ -6177,11 +6177,11 @@ load_relcache_init_file(bool shared)
 			int16	   *indoption;
 			Oid		   *indcollation;
 
-			/* Count nailed indexes to ensure we have 'em all */
+			/* 统计钉住索引以确保一个不漏 */
 			if (rel->rd_isnailed)
 				nailed_indexes++;
 
-			/* read the pg_index tuple */
+			/* 读 pg_index 元组 */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
 
@@ -6189,12 +6189,12 @@ load_relcache_init_file(bool shared)
 			if (fread(rel->rd_indextuple, 1, len, fp) != len)
 				goto read_failed;
 
-			/* Fix up internal pointers in the tuple -- see heap_copytuple */
+			/* 修正元组内部指针，参见 heap_copytuple */
 			rel->rd_indextuple->t_data = (HeapTupleHeader) ((char *) rel->rd_indextuple + HEAPTUPLESIZE);
 			rel->rd_index = (Form_pg_index) GETSTRUCT(rel->rd_indextuple);
 
 			/*
-			 * prepare index info context --- parameters should match
+			 * 准备索引信息上下文 --- 参数应一致，见
 			 * RelationInitIndexAccessInfo
 			 */
 			indexcxt = AllocSetContextCreate(CacheMemoryContext,
@@ -6205,14 +6205,14 @@ load_relcache_init_file(bool shared)
 											  RelationGetRelationName(rel));
 
 			/*
-			 * Now we can fetch the index AM's API struct.  (We can't store
-			 * that in the init file, since it contains function pointers that
-			 * might vary across server executions.  Fortunately, it should be
-			 * safe to call the amhandler even while bootstrapping indexes.)
+			 * 现在可以取索引 AM 的 API 结构了。（它不能存
+			 * 入初始化文件，因为其中函数指针可能随服务器
+			 * 运行而异。好在即使在引导索引期间调用
+			 * amhandler 也是安全的。）
 			 */
 			InitIndexAmRoutine(rel);
 
-			/* read the vector of opfamily OIDs */
+			/* 读取 opfamily OID 数组 */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
 
@@ -6222,7 +6222,7 @@ load_relcache_init_file(bool shared)
 
 			rel->rd_opfamily = opfamily;
 
-			/* read the vector of opcintype OIDs */
+			/* 读取 opcintype OID 数组 */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
 
@@ -6232,7 +6232,7 @@ load_relcache_init_file(bool shared)
 
 			rel->rd_opcintype = opcintype;
 
-			/* read the vector of support procedure OIDs */
+			/* 读取支持过程 OID 数组 */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
 			support = (RegProcedure *) MemoryContextAlloc(indexcxt, len);
@@ -6241,7 +6241,7 @@ load_relcache_init_file(bool shared)
 
 			rel->rd_support = support;
 
-			/* read the vector of collation OIDs */
+			/* 读取排序规则 OID 数组 */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
 
@@ -6251,7 +6251,7 @@ load_relcache_init_file(bool shared)
 
 			rel->rd_indcollation = indcollation;
 
-			/* read the vector of indoption values */
+			/* 读取 indoption 值数组 */
 			if (fread(&len, 1, sizeof(len), fp) != sizeof(len))
 				goto read_failed;
 
@@ -6261,7 +6261,7 @@ load_relcache_init_file(bool shared)
 
 			rel->rd_indoption = indoption;
 
-			/* read the vector of opcoptions values */
+			/* 读取 opcoptions 值数组 */
 			rel->rd_opcoptions = (bytea **)
 				MemoryContextAllocZero(indexcxt, sizeof(*rel->rd_opcoptions) * relform->relnatts);
 
@@ -6278,18 +6278,18 @@ load_relcache_init_file(bool shared)
 				}
 			}
 
-			/* set up zeroed fmgr-info vector */
+			/* 建立清零 fmgr-info 数组 */
 			nsupport = relform->relnatts * rel->rd_indam->amsupport;
 			rel->rd_supportinfo = (FmgrInfo *)
 				MemoryContextAllocZero(indexcxt, nsupport * sizeof(FmgrInfo));
 		}
 		else
 		{
-			/* Count nailed rels to ensure we have 'em all */
+			/* 统计钉住关系以确保一个不漏 */
 			if (rel->rd_isnailed)
 				nailed_rels++;
 
-			/* Load table AM data */
+			/* 载表 AM 数据 */
 			if (RELKIND_HAS_TABLE_AM(rel->rd_rel->relkind) || rel->rd_rel->relkind == RELKIND_SEQUENCE)
 				RelationInitTableAccessMethod(rel);
 
@@ -6307,12 +6307,12 @@ load_relcache_init_file(bool shared)
 		}
 
 		/*
-		 * Rules and triggers are not saved (mainly because the internal
-		 * format is complex and subject to change).  They must be rebuilt if
-		 * needed by RelationCacheInitializePhase3.  This is not expected to
-		 * be a big performance hit since few system catalogs have such. Ditto
-		 * for RLS policy data, partition info, index expressions, predicates,
-		 * exclusion info, and FDW info.
+		 * 规则与触发器不保存（主要因为内部格式复杂
+		 * 且可能变化）。如 RelationCacheInitializePhase3
+		 * 需要就必须重建。这不预期成为大的性能瓶颈，
+		 * 因为少有系统目录带这些。RLS 策略数据、分区
+		 * 信息、索引表达式、谓词、排除约束信息与 FDW
+		 * 信息亦然。
 		 */
 		rel->rd_rules = NULL;
 		rel->rd_rulescxt = NULL;
@@ -6336,7 +6336,7 @@ load_relcache_init_file(bool shared)
 		rel->rd_fdwroutine = NULL;
 
 		/*
-		 * Reset transient-state fields in the relcache entry
+		 * 重置 relcache 条目中的瞬态字段
 		 */
 		rel->rd_smgr = NULL;
 		if (rel->rd_isnailed)
@@ -6364,25 +6364,25 @@ load_relcache_init_file(bool shared)
 		rel->pgstat_info = NULL;
 
 		/*
-		 * Recompute lock and physical addressing info.  This is needed in
-		 * case the pg_internal.init file was copied from some other database
-		 * by CREATE DATABASE.
+		 * 重算锁与物理寻址信息。这是需要的，以防
+		 * pg_internal.init 文件经 CREATE DATABASE 从其他
+		 * 库复制而来。
 		 */
 		RelationInitLockInfo(rel);
 		RelationInitPhysicalAddr(rel);
 	}
 
 	/*
-	 * We reached the end of the init file without apparent problem.  Did we
-	 * get the right number of nailed items?  This is a useful crosscheck in
-	 * case the set of critical rels or indexes changes.  However, that should
-	 * not happen in a normally-running system, so let's bleat if it does.
+	 * 我们走到初始化文件末尾，未见明显问题。钉住
+	 * 条目数对了吗？这是有用的交叉检查，以防关键
+	 * 关系或索引集合发生变化。不过正常运行的系统不应
+	 * 出现这种情况，所以真发生了就发牢骚提示。
 	 *
-	 * For the shared init file, we're called before client authentication is
-	 * done, which means that elog(WARNING) will go only to the postmaster
-	 * log, where it's easily missed.  To ensure that developers notice bad
-	 * values of NUM_CRITICAL_SHARED_RELS/NUM_CRITICAL_SHARED_INDEXES, we put
-	 * an Assert(false) there.
+	 * 对共享初始化文件而言，本函数在客户端认证完成前
+	 * 被调用，这意味着 elog(WARNING) 只会进入 postmaster
+	 * 日志，很容易被错过。为确保开发者注意到不当的
+	 * NUM_CRITICAL_SHARED_RELS/NUM_CRITICAL_SHARED_INDEXES 值，我们
+	 * 放了 Assert(false)。
 	 */
 	if (shared)
 	{
@@ -6392,9 +6392,9 @@ load_relcache_init_file(bool shared)
 			elog(WARNING, "found %d nailed shared rels and %d nailed shared indexes in init file, but expected %d and %d respectively",
 				 nailed_rels, nailed_indexes,
 				 NUM_CRITICAL_SHARED_RELS, NUM_CRITICAL_SHARED_INDEXES);
-			/* Make sure we get developers' attention about this */
+			/* 确保开发者注意到此事 */
 			Assert(false);
-			/* In production builds, recover by bootstrapping the relcache */
+			/* 生产构建中靠引导 relcache 恢复 */
 			goto read_failed;
 		}
 	}
@@ -6406,15 +6406,15 @@ load_relcache_init_file(bool shared)
 			elog(WARNING, "found %d nailed rels and %d nailed indexes in init file, but expected %d and %d respectively",
 				 nailed_rels, nailed_indexes,
 				 NUM_CRITICAL_LOCAL_RELS, NUM_CRITICAL_LOCAL_INDEXES);
-			/* We don't need an Assert() in this case */
+			/* 此情形无需 Assert() */
 			goto read_failed;
 		}
 	}
 
 	/*
-	 * OK, all appears well.
+	 * 好，一切正常。
 	 *
-	 * Now insert all the new relcache entries into the cache.
+	 * 现在把所有新 relcache 条目插入缓存。
 	 */
 	for (relno = 0; relno < num_rels; relno++)
 	{
@@ -6431,9 +6431,9 @@ load_relcache_init_file(bool shared)
 	return true;
 
 	/*
-	 * init file is broken, so do it the hard way.  We don't bother trying to
-	 * free the clutter we just allocated; it's not in the relcache so it
-	 * won't hurt.
+	 * 初始化文件已坏，只好走笨办法。无需费心释放刚
+	 * 分配的杂物；它们不在 relcache 里，所以
+	 * 无碍。
 	 */
 read_failed:
 	pfree(rels);
@@ -6443,8 +6443,8 @@ read_failed:
 }
 
 /*
- * Write out a new initialization file with the current contents
- * of the relcache (either shared rels or local rels, as indicated).
+ * 以 relcache 当前内容写出新的初始化文件（按
+ * 指示为共享关系或本地关系）。
  */
 static void
 write_relcache_init_file(bool shared)
@@ -6458,16 +6458,16 @@ write_relcache_init_file(bool shared)
 	int			i;
 
 	/*
-	 * If we have already received any relcache inval events, there's no
-	 * chance of succeeding so we may as well skip the whole thing.
+	 * 如果已经收到过任何 relcache 失效事件，就没有
+	 * 成功的机会了，不妨干脆放弃整件事。
 	 */
 	if (relcacheInvalsReceived != 0L)
 		return;
 
 	/*
-	 * We must write a temporary file and rename it into place. Otherwise,
-	 * another backend starting at about the same time might crash trying to
-	 * read the partially-complete file.
+	 * 我们必须先写临时文件再改名到位。否则，几乎同
+	 * 时启动的另一后端可能因读到未写完的文件而崩
+	 * 溃。
 	 */
 	if (shared)
 	{
@@ -6484,14 +6484,14 @@ write_relcache_init_file(bool shared)
 				 DatabasePath, RELCACHE_INIT_FILENAME);
 	}
 
-	unlink(tempfilename);		/* in case it exists w/wrong permissions */
+	unlink(tempfilename);		/* 以防它已存在且权限不对 */
 
 	fp = AllocateFile(tempfilename, PG_BINARY_W);
 	if (fp == NULL)
 	{
 		/*
-		 * We used to consider this a fatal error, but we might as well
-		 * continue with backend startup ...
+		 * 我们过去把这当作致命错误，但其实不妨继续
+		 * 后端启动流程 ……
 		 */
 		ereport(WARNING,
 				(errcode_for_file_access(),
@@ -6502,15 +6502,15 @@ write_relcache_init_file(bool shared)
 	}
 
 	/*
-	 * Write a magic number to serve as a file version identifier.  We can
-	 * change the magic number whenever the relcache layout changes.
+	 * 写一个魔数作为文件版本标识。每当 relcache 布
+	 * 局改变，魔数都可以改变。
 	 */
 	magic = RELCACHE_INIT_FILEMAGIC;
 	if (fwrite(&magic, 1, sizeof(magic), fp) != sizeof(magic))
 		elog(FATAL, "could not write init file");
 
 	/*
-	 * Write all the appropriate reldescs (in no particular order).
+	 * 写出所有相应的 reldesc（无特定顺序）。
 	 */
 	hash_seq_init(&status, RelationIdCache);
 
@@ -6519,85 +6519,85 @@ write_relcache_init_file(bool shared)
 		Relation	rel = idhentry->reldesc;
 		Form_pg_class relform = rel->rd_rel;
 
-		/* ignore if not correct group */
+		/* 组不对则忽略 */
 		if (relform->relisshared != shared)
 			continue;
 
 		/*
-		 * Ignore if not supposed to be in init file.  We can allow any shared
-		 * relation that's been loaded so far to be in the shared init file,
-		 * but unshared relations must be ones that should be in the local
-		 * file per RelationIdIsInInitFile.  (Note: if you want to change the
-		 * criterion for rels to be kept in the init file, see also inval.c.
-		 * The reason for filtering here is to be sure that we don't put
-		 * anything into the local init file for which a relcache inval would
-		 * not cause invalidation of that init file.)
+		 * 忽略不该进初始化文件的关系。任何已加载至今的
+		 * 共享关系均可进共享初始化文件，但非共享关系
+		 * 必须按 RelationIdIsInInitFile 属于本地文件。
+		 * （注意：若想改关系保留在初始化文件的判据，
+		 * 另见 inval.c。此处过滤的理由是确保不
+		 * 把任何 relcache 失效不会导致其初始化
+		 * 文件失效的东西放进本地初始化
+		 * 文件。）
 		 */
 		if (!shared && !RelationIdIsInInitFile(RelationGetRelid(rel)))
 		{
-			/* Nailed rels had better get stored. */
+			/* 钉住的关系务必被存储。 */
 			Assert(!rel->rd_isnailed);
 			continue;
 		}
 
-		/* first write the relcache entry proper */
+		/* 先写 relcache 条目本体 */
 		write_item(rel, sizeof(RelationData), fp);
 
-		/* next write the relation tuple form */
+		/* 接着写关系元组形态 */
 		write_item(relform, CLASS_TUPLE_SIZE, fp);
 
-		/* next, do all the attribute tuple form data entries */
+		/* 接着处理全部属性元组形态数据条目 */
 		for (i = 0; i < relform->relnatts; i++)
 		{
 			write_item(TupleDescAttr(rel->rd_att, i),
 					   ATTRIBUTE_FIXED_PART_SIZE, fp);
 		}
 
-		/* next, do the access method specific field */
+		/* 接着处理访问方法专属字段 */
 		write_item(rel->rd_options,
 				   (rel->rd_options ? VARSIZE(rel->rd_options) : 0),
 				   fp);
 
 		/*
-		 * If it's an index, there's more to do. Note we explicitly ignore
-		 * partitioned indexes here.
+		 * 若是索引则还有事要做。注意此处显式忽略
+		 * 分区索引。
 		 */
 		if (rel->rd_rel->relkind == RELKIND_INDEX)
 		{
-			/* write the pg_index tuple */
-			/* we assume this was created by heap_copytuple! */
+			/* 写 pg_index 元组 */
+			/* 我们假定这出自 heap_copytuple！ */
 			write_item(rel->rd_indextuple,
 					   HEAPTUPLESIZE + rel->rd_indextuple->t_len,
 					   fp);
 
-			/* write the vector of opfamily OIDs */
+			/* 写出 opfamily OID 数组 */
 			write_item(rel->rd_opfamily,
 					   relform->relnatts * sizeof(Oid),
 					   fp);
 
-			/* write the vector of opcintype OIDs */
+			/* 写出 opcintype OID 数组 */
 			write_item(rel->rd_opcintype,
 					   relform->relnatts * sizeof(Oid),
 					   fp);
 
-			/* write the vector of support procedure OIDs */
+			/* 写出支持过程 OID 数组 */
 			write_item(rel->rd_support,
 					   relform->relnatts * (rel->rd_indam->amsupport * sizeof(RegProcedure)),
 					   fp);
 
-			/* write the vector of collation OIDs */
+			/* 写出排序规则 OID 数组 */
 			write_item(rel->rd_indcollation,
 					   relform->relnatts * sizeof(Oid),
 					   fp);
 
-			/* write the vector of indoption values */
+			/* 写出 indoption 值数组 */
 			write_item(rel->rd_indoption,
 					   relform->relnatts * sizeof(int16),
 					   fp);
 
 			Assert(rel->rd_opcoptions);
 
-			/* write the vector of opcoptions values */
+			/* 写出 opcoptions 值数组 */
 			for (i = 0; i < relform->relnatts; i++)
 			{
 				bytea	   *opt = rel->rd_opcoptions[i];
@@ -6611,49 +6611,49 @@ write_relcache_init_file(bool shared)
 		elog(FATAL, "could not write init file");
 
 	/*
-	 * Now we have to check whether the data we've so painstakingly
-	 * accumulated is already obsolete due to someone else's just-committed
-	 * catalog changes.  If so, we just delete the temp file and leave it to
-	 * the next backend to try again.  (Our own relcache entries will be
-	 * updated by SI message processing, but we can't be sure whether what we
-	 * wrote out was up-to-date.)
+	 * 现在必须检查辛苦积累的数据是否因他人刚
+	 * 提交的目录变更而过时。若是，就删掉临时文件，
+	 * 留给下一个后端再试。（我们自己的 relcache 条
+	 * 目会由 SI 消息处理更新，但我们无法肯定所写
+	 * 出的内容在当时是否为最
+	 * 新。）
 	 *
-	 * This mustn't run concurrently with the code that unlinks an init file
-	 * and sends SI messages, so grab a serialization lock for the duration.
+	 * 本函数绝不能与解除初始化文件链接的代码，
+	 * 也不能与发送 SI 消息的代码并发，故须全程持锁。
 	 */
 	LWLockAcquire(RelCacheInitLock, LW_EXCLUSIVE);
 
-	/* Make sure we have seen all incoming SI messages */
+	/* 确保已收全全部传入 SI 消息 */
 	AcceptInvalidationMessages();
 
 	/*
-	 * If we have received any SI relcache invals since backend start, assume
-	 * we may have written out-of-date data.
+	 * 若自后端启动以来收到过任何 SI relcache 失效，
+	 * 则假定或已写出过时数据。
 	 */
 	if (relcacheInvalsReceived == 0L)
 	{
 		/*
-		 * OK, rename the temp file to its final name, deleting any
-		 * previously-existing init file.
+		 * 好，把临时文件改名成最终名，删除既有
+		 * 的旧初始化文件。
 		 *
-		 * Note: a failure here is possible under Cygwin, if some other
-		 * backend is holding open an unlinked-but-not-yet-gone init file. So
-		 * treat this as a noncritical failure; just remove the useless temp
-		 * file on failure.
+		 * 注意：Cygwin 下此处可能失败，若别的后端
+		 * 正打开着已解除链接但尚未消失的初始化文件。
+		 * 所以按非关键失败处理；失败时删掉无用的临时
+		 * 文件即可。
 		 */
 		if (rename(tempfilename, finalfilename) < 0)
 			unlink(tempfilename);
 	}
 	else
 	{
-		/* Delete the already-obsolete temp file */
+		/* 删除已过时的临时文件 */
 		unlink(tempfilename);
 	}
 
 	LWLockRelease(RelCacheInitLock);
 }
 
-/* write a chunk of data preceded by its length */
+/* 写一块数据，前面带其长度 */
 static void
 write_item(const void *data, Size len, FILE *fp)
 {
@@ -6664,14 +6664,14 @@ write_item(const void *data, Size len, FILE *fp)
 }
 
 /*
- * Determine whether a given relation (identified by OID) is one of the ones
- * we should store in a relcache init file.
+ * 判断给定关系（以 OID 标识）是否属于应存入
+ * relcache 初始化文件的那一类。
  *
- * We must cache all nailed rels, and for efficiency we should cache every rel
- * that supports a syscache.  The former set is almost but not quite a subset
- * of the latter. The special cases are relations where
- * RelationCacheInitializePhase2/3 chooses to nail for efficiency reasons, but
- * which do not support any syscache.
+ * 所有钉住关系都必须缓存；为效率起见，每个支持
+ * syscache 的关系也都应缓存。前者集合几乎是后者
+ * 的子集，但非完全如此。特例关系是：
+ * RelationCacheInitializePhase2/3 出于效率原因选择
+ * 钉住却不支持 syscache。
  */
 bool
 RelationIdIsInInitFile(Oid relationId)
@@ -6682,8 +6682,8 @@ RelationIdIsInInitFile(Oid relationId)
 		relationId == SharedSecLabelObjectIndexId)
 	{
 		/*
-		 * If this Assert fails, we don't need the applicable special case
-		 * anymore.
+		 * 若此 Assert 失败，即不再需要相应的特例处理
+		 * 了。
 		 */
 		Assert(!RelationSupportsSysCache(relationId));
 		return true;
@@ -6692,26 +6692,26 @@ RelationIdIsInInitFile(Oid relationId)
 }
 
 /*
- * Invalidate (remove) the init file during commit of a transaction that
- * changed one or more of the relation cache entries that are kept in the
- * local init file.
+ * 在更改了一个或多个保留在本地初始化文件中的
+ * 关系缓存条目的事务提交期间，失效（移除）初始
+ * 化文件。
  *
- * To be safe against concurrent inspection or rewriting of the init file,
- * we must take RelCacheInitLock, then remove the old init file, then send
- * the SI messages that include relcache inval for such relations, and then
- * release RelCacheInitLock.  This serializes the whole affair against
- * write_relcache_init_file, so that we can be sure that any other process
- * that's concurrently trying to create a new init file won't move an
- * already-stale version into place after we unlink.  Also, because we unlink
- * before sending the SI messages, a backend that's currently starting cannot
- * read the now-obsolete init file and then miss the SI messages that will
- * force it to update its relcache entries.  (This works because the backend
- * startup sequence gets into the sinval array before trying to load the init
- * file.)
+ * 为对初始化文件的并发检视或重写保持安全，我们
+ * 必须先取 RelCacheInitLock，再移除旧初始化文件，
+ * 然后发送包含这些关系 relcache 失效的 SI 消息，
+ * 最后释放 RelCacheInitLock。这使整件事相对于
+ * write_relcache_init_file 串行化，从而能确信任何
+ * 正在并发尝试创建新初始化文件的进程，都不会在
+ * 我们解除链接之后把已然过时的版本挪到位。此外，
+ * 因为我们在发送 SI 消息之前就解除链接，正在启动
+ * 的后端无法读到已然过时的初始化文件、然后错过
+ * 那些将强使其更新 relcache 条目的 SI 消息。（这
+ * 之所以行得通，是因为后端启动序列在尝试加载初始文
+ * 件）
  *
- * We take the lock and do the unlink in RelationCacheInitFilePreInvalidate,
- * then release the lock in RelationCacheInitFilePostInvalidate.  Caller must
- * send any pending SI messages between those calls.
+ * 加锁与解除链接在 RelationCacheInitFilePreInvalidate
+ * 中完成，在 RelationCacheInitFilePostInvalidate 中
+ * 释放锁。其间须发出待发 SI 消息。
  */
 void
 RelationCacheInitFilePreInvalidate(void)
@@ -6728,10 +6728,10 @@ RelationCacheInitFilePreInvalidate(void)
 	LWLockAcquire(RelCacheInitLock, LW_EXCLUSIVE);
 
 	/*
-	 * The files might not be there if no backend has been started since the
-	 * last removal.  But complain about failures other than ENOENT with
-	 * ERROR.  Fortunately, it's not too late to abort the transaction if we
-	 * can't get rid of the would-be-obsolete init file.
+	 * 自上次移除以来若无后端启动过，文件可能不在。
+	 * 但除 ENOENT 外的失败要报 ERROR。幸运的是，若
+	 * 我们无法清除将过时的初始化文件，现在中止事务
+	 * 还来得及。
 	 */
 	if (DatabasePath)
 		unlink_initfile(localinitfname, ERROR);
@@ -6745,13 +6745,13 @@ RelationCacheInitFilePostInvalidate(void)
 }
 
 /*
- * Remove the init files during postmaster startup.
+ * postmaster 启动时移除初始化文件。
  *
- * We used to keep the init files across restarts, but that is unsafe in PITR
- * scenarios, and even in simple crash-recovery cases there are windows for
- * the init files to become out-of-sync with the database.  So now we just
- * remove them during startup and expect the first backend launch to rebuild
- * them.  Of course, this has to happen in each database of the cluster.
+ * 我们过去跨重启保留初始化文件，但那在 PITR 场
+ * 景下不安全，即便在简单崩溃恢复情形中，初始化
+ * 文件也存在与数据库失去同步的窗口期。所以现在
+ * 我们只在启动期间移除它们，并期望首个后端启动
+ * 时重建。当然，这必须对集簇每个数据库执行。
  */
 void
 RelationCacheInitFileRemove(void)
@@ -6765,17 +6765,17 @@ RelationCacheInitFileRemove(void)
 			 RELCACHE_INIT_FILENAME);
 	unlink_initfile(path, LOG);
 
-	/* Scan everything in the default tablespace */
+	/* 扫描默认表空间中的一切 */
 	RelationCacheInitFileRemoveInDir("base");
 
-	/* Scan the tablespace link directory to find non-default tablespaces */
+	/* 扫描表空间链接目录以找出非默认表空间 */
 	dir = AllocateDir(tblspcdir);
 
 	while ((de = ReadDirExtended(dir, tblspcdir, LOG)) != NULL)
 	{
 		if (strspn(de->d_name, "0123456789") == strlen(de->d_name))
 		{
-			/* Scan the tablespace dir for per-database dirs */
+			/* 扫描表空间目录找各数据库子目录 */
 			snprintf(path, sizeof(path), "%s/%s/%s",
 					 tblspcdir, de->d_name, TABLESPACE_VERSION_DIRECTORY);
 			RelationCacheInitFileRemoveInDir(path);
@@ -6785,7 +6785,7 @@ RelationCacheInitFileRemove(void)
 	FreeDir(dir);
 }
 
-/* Process one per-tablespace directory for RelationCacheInitFileRemove */
+/* 为 RelationCacheInitFileRemove 处理单个表 */
 static void
 RelationCacheInitFileRemoveInDir(const char *tblspcpath)
 {
@@ -6793,14 +6793,14 @@ RelationCacheInitFileRemoveInDir(const char *tblspcpath)
 	struct dirent *de;
 	char		initfilename[MAXPGPATH * 2];
 
-	/* Scan the tablespace directory to find per-database directories */
+	/* 扫描表空间目录以找出各数据库目录 */
 	dir = AllocateDir(tblspcpath);
 
 	while ((de = ReadDirExtended(dir, tblspcpath, LOG)) != NULL)
 	{
 		if (strspn(de->d_name, "0123456789") == strlen(de->d_name))
 		{
-			/* Try to remove the init file in each database */
+			/* 试移除每个数据库的初始化文件 */
 			snprintf(initfilename, sizeof(initfilename), "%s/%s/%s",
 					 tblspcpath, de->d_name, RELCACHE_INIT_FILENAME);
 			unlink_initfile(initfilename, LOG);
@@ -6815,7 +6815,7 @@ unlink_initfile(const char *initfilename, int elevel)
 {
 	if (unlink(initfilename) < 0)
 	{
-		/* It might not be there, but log any error other than ENOENT */
+		/* 可能不在，但 ENOENT 以外的错误要记日志 */
 		if (errno != ENOENT)
 			ereport(elevel,
 					(errcode_for_file_access(),

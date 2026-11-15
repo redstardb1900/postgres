@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0399",
+ "title": "cache 目录 relcache.c 整文件注释翻译 part 2 (L3402-尾; 321 blocks: 797 zh + 14 keep-EN, 811 content lines; 行数守恒 6825/6825; 写后修复轮 1 次全量清偿+全量 readback; W7 relcache 31 IDENT_LOST + 1 UNTRANSLATED(XXX 标识符块); term_lint in-scope 0 error; halfen 零新增; check_scope 增量+累计双 rc=0; cache 目录收官)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b67bf0c47658454eed61a105afed0b9cc834ce45",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation part 2 (L3402-EOF), batch-0399"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0399 manifest path entry"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 321,
+   "translated": 321,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "partial-file batch 2/2: 处理范围 L3402-文件尾 (dump0399 实测归属块 321 全部本批处理; dump 322 中 @2535 为 0398 已译块不计; 边界确认: 无跨 L3401/3402 注释块, 首块 @3408, 本批零改 L1-3401 已译区, diff 最小 hunk @@ -3408). 全文件注释感知块数: verify 实测 block_comments=606, changed=605, 唯一未改块 = L5860-5861 XXX 标识符尾注 (本批 KEPT); 本批内容行 811 = 797 zh + 14 keep-EN (纯函数名行 8: L3462/3696/3900/3924/3973/4029/4841/5851; XXX 标识符块 2 行 L5860/5861; 与 EN 相同输出的纯标识符行 4: L3673 'rels.'/L4886 'rel.'/L5980 双函数名行/L6198 RelationInitIndexAccessInfo). 行数守恒 6825/6825 (中途修复轮曾引入 EOF 多余换行, R1_SKELETON 门禁当场捕获, 同轮复位至 6825). 逐行字节预算全过 (797/797, EN 整行基线口径), 覆盖断言 LINEKEY ∪ KEPT == universe (811) 通过. spec 分段推进 (A-G 七段 + 三轮 dry-run 预修), 每段断言即跑; 写后修复轮 1 次: L3804 补句号并改「倘若…失手。」成句 (前轮补丁因脚本在 L4661 断言崩溃未落盘, 本轮核实真落文件), L4661 补块尾句号; R1_SKELETON 抓 EOF 换行一并复位; 修复后全量 readback (逐块拼读 1132 行回读稿) 完成. TL01 修复: L3775/3778/3779/3785/6754 集群→集簇 (pgdoc 规则 121, 等字节替换). W7 relcache.c 实测 31 IDENT_LOST + 1 UNTRANSLATED (L5860 XXX 纯标识符块, 判定保留; 0398 期 37 UNTRANSLATED 全数清偿, 仅剩此 1). term_lint relcache.c 0 error (TL01 2 error 已修); 域内 advisory 8 条披露: P17 L3972/L4028 (lost 才用丢失, 块级启发), P24 L4417/L4711/L6309 (预期为X实际为Y 句式建议), P64 L3418/L6613, P07 L5401, P66 L3773/L6747 (随 TL01 已修后消散); 全树 rc=1 系 src/backend/utils/init/postinit.c:1428 既有 TL01 (batch 0369 产物, 越出本批 allowed_paths, 不动, 上报). halfen cache 3 条 MIXED 全部既有 (relcache L833/L3252 0398 既判良性游程, typcache L1872 0396 既判), 本批零新增. 同 EN 必同译 (跨批 part1): L3536=L421, L3683=L1288, L6031=L1863, L4377=L1959, L4381=L1963, L6157=L1966, L3419=L3309 (逐字取同款), L3650=L1243=L1995「见lmgr.c」; L3420 与 part1 L3310 同 EN 行但下游 EN 行文本不同 (transfer to parent vs mark not belonging), 仅同款起首「除，免」, 后续按本块 EN 渲染, 判例披露. 跨文件: L6150=catcache L2289「健全检查」. 批内模板同译: L4644=L4756=L4872, L4698=L4820=L4911, L4705=L4834=L4919, L4817=L4908, L4022=L4079=L4130=L4162, L3989=L4051, L4001=L4056, L3558=L6120, L4985=L5098=L5193 (L5460 为 EN 无句号变体故无句号), L4989=L5045=L5102, L5017=L5137, L4457=L4557, L4473=L4579, L4436=L4532, L4498=L4602, L4654-4657=L4761-4764=L4877-4880, L4995-4997=L5108-5110, L5417=L5512, L5388=L5503, L5213=L5464, L4937=L4958, L5183=L5454, L6167-6168 与 L6562-6563 EN 仅差一空格同译. 极性/双重否定逐条自查: L4265-4266 绝不会没有策略 (EN can never NOT have) 双重否定保真, L4101 一旦置真就不能再刷掉, L4177 只保证在*当前*条目移除后仍工作, L4722-4723 完全不应碰, L5009-5010 不只是优化而是必需, L5122-5123 同族, L6685 即不再需要 (EN won't need) 无反转, L6461 就没有成功的机会 无反转. 行首标点: 处置 0 需求 (spec 起草即规避), 全文件复扫 0 处 (命中 7 行均为代码串字面量或 part1 既有行, 非本批译行). 尾句号台账 (块末非空行口径, 块感知分组): REVERSE 2 处披露 — L5491 RelationGetIndexAttrBitmap (27B 恰满预算容不下句号 3B; L5490 已置「参见」引导, 语义完整), L6710 「件)」(预算 6B 容不下「件。）」9B; 另 L5669 括注内句号省略「会忽略)」(预算 11B, 句号+句读需 15B), L6494 EN '...'→zh '……' 自洽映射. FWD 0 真违规 (EN 无句号而 zh 加句号 0 处). 预算不可行披露: L3909 RelationAssumeNewRelfilelocator()+CommandCounterIncrement() 两函数名 58B 放不下, 以「两函数之间」指代 (函数名已见 L3900 标题/L3906-3907); L4145 认证钩子半句舍弃 (EN 'but authentication hooks might be interested in it', 块尾预算 17B, 已在 notes 记录); L5980 保留 EN 逗号 (、3B 超预算 1B); L5158 位图清单行压缩一个对齐 tab (预算差 1B); L5162 「索引，FULL 则空」(预算 21B 容不下括注). check_scope 增量 rc=0 + 累计 rc=0. cache 目录七文件+relcache 全文件至此收官, 本批未 commit (按指令)."
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0399 manifest path entry (pure append; relcache.c already registered, file entry not duplicated)"
+  }
+ ],
+ "notes": "partial-file batch 2/2: 处理范围 L3402-文件尾 (dump0399 实测归属块 321 全部本批处理; dump 322 中 @2535 为 0398 已译块不计; 边界确认: 无跨 L3401/3402 注释块, 首块 @3408, 本批零改 L1-3401 已译区, diff 最小 hunk @@ -3408). 全文件注释感知块数: verify 实测 block_comments=606, changed=605, 唯一未改块 = L5860-5861 XXX 标识符尾注 (本批 KEPT); 本批内容行 811 = 797 zh + 14 keep-EN (纯函数名行 8: L3462/3696/3900/3924/3973/4029/4841/5851; XXX 标识符块 2 行 L5860/5861; 与 EN 相同输出的纯标识符行 4: L3673 'rels.'/L4886 'rel.'/L5980 双函数名行/L6198 RelationInitIndexAccessInfo). 行数守恒 6825/6825 (中途修复轮曾引入 EOF 多余换行, R1_SKELETON 门禁当场捕获, 同轮复位至 6825). 逐行字节预算全过 (797/797, EN 整行基线口径), 覆盖断言 LINEKEY ∪ KEPT == universe (811) 通过. spec 分段推进 (A-G 七段 + 三轮 dry-run 预修), 每段断言即跑; 写后修复轮 1 次: L3804 补句号并改「倘若…失手。」成句 (前轮补丁因脚本在 L4661 断言崩溃未落盘, 本轮核实真落文件), L4661 补块尾句号; R1_SKELETON 抓 EOF 换行一并复位; 修复后全量 readback (逐块拼读 1132 行回读稿) 完成. TL01 修复: L3775/3778/3779/3785/6754 集群→集簇 (pgdoc 规则 121, 等字节替换). W7 relcache.c 实测 31 IDENT_LOST + 1 UNTRANSLATED (L5860 XXX 纯标识符块, 判定保留; 0398 期 37 UNTRANSLATED 全数清偿, 仅剩此 1). term_lint relcache.c 0 error (TL01 2 error 已修); 域内 advisory 8 条披露: P17 L3972/L4028 (lost 才用丢失, 块级启发), P24 L4417/L4711/L6309 (预期为X实际为Y 句式建议), P64 L3418/L6613, P07 L5401, P66 L3773/L6747 (随 TL01 已修后消散); 全树 rc=1 系 src/backend/utils/init/postinit.c:1428 既有 TL01 (batch 0369 产物, 越出本批 allowed_paths, 不动, 上报). halfen cache 3 条 MIXED 全部既有 (relcache L833/L3252 0398 既判良性游程, typcache L1872 0396 既判), 本批零新增. 同 EN 必同译 (跨批 part1): L3536=L421, L3683=L1288, L6031=L1863, L4377=L1959, L4381=L1963, L6157=L1966, L3419=L3309 (逐字取同款), L3650=L1243=L1995「见lmgr.c」; L3420 与 part1 L3310 同 EN 行但下游 EN 行文本不同 (transfer to parent vs mark not belonging), 仅同款起首「除，免」, 后续按本块 EN 渲染, 判例披露. 跨文件: L6150=catcache L2289「健全检查」. 批内模板同译: L4644=L4756=L4872, L4698=L4820=L4911, L4705=L4834=L4919, L4817=L4908, L4022=L4079=L4130=L4162, L3989=L4051, L4001=L4056, L3558=L6120, L4985=L5098=L5193 (L5460 为 EN 无句号变体故无句号), L4989=L5045=L5102, L5017=L5137, L4457=L4557, L4473=L4579, L4436=L4532, L4498=L4602, L4654-4657=L4761-4764=L4877-4880, L4995-4997=L5108-5110, L5417=L5512, L5388=L5503, L5213=L5464, L4937=L4958, L5183=L5454, L6167-6168 与 L6562-6563 EN 仅差一空格同译. 极性/双重否定逐条自查: L4265-4266 绝不会没有策略 (EN can never NOT have) 双重否定保真, L4101 一旦置真就不能再刷掉, L4177 只保证在*当前*条目移除后仍工作, L4722-4723 完全不应碰, L5009-5010 不只是优化而是必需, L5122-5123 同族, L6685 即不再需要 (EN won't need) 无反转, L6461 就没有成功的机会 无反转. 行首标点: 处置 0 需求 (spec 起草即规避), 全文件复扫 0 处 (命中 7 行均为代码串字面量或 part1 既有行, 非本批译行). 尾句号台账 (块末非空行口径, 块感知分组): REVERSE 2 处披露 — L5491 RelationGetIndexAttrBitmap (27B 恰满预算容不下句号 3B; L5490 已置「参见」引导, 语义完整), L6710 「件)」(预算 6B 容不下「件。）」9B; 另 L5669 括注内句号省略「会忽略)」(预算 11B, 句号+句读需 15B), L6494 EN '...'→zh '……' 自洽映射. FWD 0 真违规 (EN 无句号而 zh 加句号 0 处). 预算不可行披露: L3909 RelationAssumeNewRelfilelocator()+CommandCounterIncrement() 两函数名 58B 放不下, 以「两函数之间」指代 (函数名已见 L3900 标题/L3906-3907); L4145 认证钩子半句舍弃 (EN 'but authentication hooks might be interested in it', 块尾预算 17B, 已在 notes 记录); L5980 保留 EN 逗号 (、3B 超预算 1B); L5158 位图清单行压缩一个对齐 tab (预算差 1B); L5162 「索引，FULL 则空」(预算 21B 容不下括注). check_scope 增量 rc=0 + 累计 rc=0. cache 目录七文件+relcache 全文件至此收官, 本批未 commit (按指令).; review round (主会话就地修复): D1 L4173/L4175、D2 L4926/L4928、D3 L4947/L4949 跨空行断句重排 (58≤64/70≤75/61≤76/26≤48/64≤78/26≤48)"
+}

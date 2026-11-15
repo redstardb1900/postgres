@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * spccache.c
- *	  Tablespace cache management.
+ *	  表空间缓存管理。
  *
- * We cache the parsed version of spcoptions for each tablespace to avoid
- * needing to reparse on every lookup.  Right now, there doesn't appear to
- * be a measurable performance gain from doing this, but that might change
- * in the future as we add more options.
+ * 我们为每个表空间缓存 spcoptions 的解析结果，以免
+ * 每次查找重新解析。目前这样做尚未见可测量的性能
+ * 收益，但将来随着我们添加更多选项，这可能改
+ * 变。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,24 +32,24 @@
 #include "varatt.h"
 
 
-/* Hash table for information about each tablespace */
+/* 存储每个表空间信息的哈希表 */
 static HTAB *TableSpaceCacheHash = NULL;
 
 typedef struct
 {
-	Oid			oid;			/* lookup key - must be first */
-	TableSpaceOpts *opts;		/* options, or NULL if none */
+	Oid			oid;			/* 查找键 - 须排最前 */
+	TableSpaceOpts *opts;		/* 选项，无则为 NULL */
 } TableSpaceCacheEntry;
 
 
 /*
  * InvalidateTableSpaceCacheCallback
- *		Flush all cache entries when pg_tablespace is updated.
+ *		pg_tablespace 被更新时刷写所有缓存条目。
  *
- * When pg_tablespace is updated, we must flush the cache entry at least
- * for that tablespace.  Currently, we just flush them all.  This is quick
- * and easy and doesn't cost much, since there shouldn't be terribly many
- * tablespaces, nor do we expect them to be frequently modified.
+ * 当 pg_tablespace 被更新时，至少必须刷写对
+ * 应表空间的缓存条目。目前一律全部刷写。这
+ * 既快又省事且开销不大，表空间不该很多，也不该被
+ * 频繁修改。
  */
 static void
 InvalidateTableSpaceCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
@@ -72,25 +72,25 @@ InvalidateTableSpaceCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
 
 /*
  * InitializeTableSpaceCache
- *		Initialize the tablespace cache.
+ *		初始化表空间缓存。
  */
 static void
 InitializeTableSpaceCache(void)
 {
 	HASHCTL		ctl;
 
-	/* Initialize the hash table. */
+	/* 初始化哈希表。 */
 	ctl.keysize = sizeof(Oid);
 	ctl.entrysize = sizeof(TableSpaceCacheEntry);
 	TableSpaceCacheHash =
 		hash_create("TableSpace cache", 16, &ctl,
 					HASH_ELEM | HASH_BLOBS);
 
-	/* Make sure we've initialized CacheMemoryContext. */
+	/* 确保已初始化 CacheMemoryContext。 */
 	if (!CacheMemoryContext)
 		CreateCacheMemoryContext();
 
-	/* Watch for invalidation events. */
+	/* 监听失效事件。 */
 	CacheRegisterSyscacheCallback(TABLESPACEOID,
 								  InvalidateTableSpaceCacheCallback,
 								  (Datum) 0);
@@ -98,10 +98,10 @@ InitializeTableSpaceCache(void)
 
 /*
  * get_tablespace
- *		Fetch TableSpaceCacheEntry structure for a specified table OID.
+ *		为指定表 OID 获取 TableSpaceCacheEntry 结构。
  *
- * Pointers returned by this function should not be stored, since a cache
- * flush will invalidate them.
+ * 本函数返回的指针不应被保存，因为缓存刷写会使之
+ * 失效。
  */
 static TableSpaceCacheEntry *
 get_tablespace(Oid spcid)
@@ -111,13 +111,13 @@ get_tablespace(Oid spcid)
 	TableSpaceOpts *opts;
 
 	/*
-	 * Since spcid is always from a pg_class tuple, InvalidOid implies the
-	 * default.
+	 * 由于 spcid 总是来自 pg_class 元组，InvalidOid 即
+	 * 默认
 	 */
 	if (spcid == InvalidOid)
 		spcid = MyDatabaseTableSpace;
 
-	/* Find existing cache entry, if any. */
+	/* 查找现有缓存条目。 */
 	if (!TableSpaceCacheHash)
 		InitializeTableSpaceCache();
 	spc = (TableSpaceCacheEntry *) hash_search(TableSpaceCacheHash,
@@ -128,10 +128,10 @@ get_tablespace(Oid spcid)
 		return spc;
 
 	/*
-	 * Not found in TableSpace cache.  Check catcache.  If we don't find a
-	 * valid HeapTuple, it must mean someone has managed to request tablespace
-	 * details for a non-existent tablespace.  We'll just treat that case as
-	 * if no options were specified.
+	 * TableSpace 缓存未命中，则查 catcache。若未找到
+	 * 有效的 HeapTuple，那必是有人设法请求了不存在的
+	 * 表空间详情。对此情况我们只
+	 * 视同未指定选项。
 	 */
 	tp = SearchSysCache1(TABLESPACEOID, ObjectIdGetDatum(spcid));
 	if (!HeapTupleIsValid(tp))
@@ -158,9 +158,9 @@ get_tablespace(Oid spcid)
 	}
 
 	/*
-	 * Now create the cache entry.  It's important to do this only after
-	 * reading the pg_tablespace entry, since doing so could cause a cache
-	 * flush.
+	 * 现在创建缓存条目。务必在读取 pg_tablespace 条目
+	 * 之后再进行，因为读取操作可能引发缓存刷
+	 * 写。
 	 */
 	spc = (TableSpaceCacheEntry *) hash_search(TableSpaceCacheHash,
 											   &spcid,
@@ -172,11 +172,11 @@ get_tablespace(Oid spcid)
 
 /*
  * get_tablespace_page_costs
- *		Return random and/or sequential page costs for a given tablespace.
+ *		返回给定表空间的随机和/或顺序页面成本。
  *
- *		This value is not locked by the transaction, so this value may
- *		be changed while a SELECT that has used these values for planning
- *		is still executing.
+ *		该值未被事务锁定，因此当某个使用了这些值
+ *		进行规划的 SELECT 仍在执行时，该值可能被改
+ *		变。
  */
 void
 get_tablespace_page_costs(Oid spcid,
@@ -207,9 +207,9 @@ get_tablespace_page_costs(Oid spcid,
 /*
  * get_tablespace_io_concurrency
  *
- *		This value is not locked by the transaction, so this value may
- *		be changed while a SELECT that has used these values for planning
- *		is still executing.
+ *		该值未被事务锁定，因此当某个使用了这些值
+ *		进行规划的 SELECT 仍在执行时，该值可能被改
+ *		变。
  */
 int
 get_tablespace_io_concurrency(Oid spcid)

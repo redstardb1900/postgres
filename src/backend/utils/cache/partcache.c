@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * partcache.c
- *		Support routines for manipulating partition information cached in
- *		relcache
+ *		用于操作分区信息（缓存于 relcache）的支持
+ *		例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -41,14 +41,14 @@ static void RelationBuildPartitionKey(Relation relation);
 static List *generate_partition_qual(Relation rel);
 
 /*
- * RelationGetPartitionKey -- get partition key, if relation is partitioned
+ * RelationGetPartitionKey -- 若关系已分区则获取分区键
  *
- * Note: partition keys are not allowed to change after the partitioned rel
- * is created.  RelationClearRelation knows this and preserves rd_partkey
- * across relcache rebuilds, as long as the relation is open.  Therefore,
- * even though we hand back a direct pointer into the relcache entry, it's
- * safe for callers to continue to use that pointer as long as they hold
- * the relation open.
+ * 注意：分区关系创建之后，分区键不允许再更改。
+ * RelationClearRelation 明白这一点，只要关系保持打开，
+ * 就会在 relcache 重建期间保留 rd_partkey。因此，即使
+ * 我们交回的是指向 relcache 条目内部的直接指针，只要
+ * 调用者保持关系打开，就可以安全地继续使用
+ * 该指针。
  */
 PartitionKey
 RelationGetPartitionKey(Relation rel)
@@ -64,18 +64,18 @@ RelationGetPartitionKey(Relation rel)
 
 /*
  * RelationBuildPartitionKey
- *		Build partition key data of relation, and attach to relcache
+ *		构建关系的分区键数据，并挂接到 relcache
  *
- * Partitioning key data is a complex structure; to avoid complicated logic to
- * free individual elements whenever the relcache entry is flushed, we give it
- * its own memory context, a child of CacheMemoryContext, which can easily be
- * deleted on its own.  To avoid leaking memory in that context in case of an
- * error partway through this function, the context is initially created as a
- * child of CurTransactionContext and only re-parented to CacheMemoryContext
- * at the end, when no further errors are possible.  Also, we don't make this
- * context the current context except in very brief code sections, out of fear
- * that some of our callees allocate memory on their own which would be leaked
- * permanently.
+ * 分区键数据是一个复杂结构；为免在 relcache 条目被刷
+ * 写时需要释放其中各个元素而编写复杂逻辑，我们为它
+ * 提供专属的内存上下文（CacheMemoryContext 的子上
+ * 下文），该上下文可被单独轻松删除。为避免本函数中
+ * 途出错时在该上下文中泄漏内存，此上下文最初创建为
+ *  CurTransactionContext 的子上下文，直到最后不可能再
+ * 出错时才重新挂到 CacheMemoryContext 之下。另外，我
+ * 们不把这个上下文设为当前上下文，除非在极短的代
+ * 码段中进行，因为担心被调用者自行分配的内存会永
+ * 久泄漏。
  */
 static void
 RelationBuildPartitionKey(Relation relation)
@@ -110,26 +110,26 @@ RelationBuildPartitionKey(Relation relation)
 	key = (PartitionKey) MemoryContextAllocZero(partkeycxt,
 												sizeof(PartitionKeyData));
 
-	/* Fixed-length attributes */
+	/* 定长属性 */
 	form = (Form_pg_partitioned_table) GETSTRUCT(tuple);
 	key->strategy = form->partstrat;
 	key->partnatts = form->partnatts;
 
-	/* Validate partition strategy code */
+	/* 校验分区策略代码 */
 	if (key->strategy != PARTITION_STRATEGY_LIST &&
 		key->strategy != PARTITION_STRATEGY_RANGE &&
 		key->strategy != PARTITION_STRATEGY_HASH)
 		elog(ERROR, "invalid partition strategy \"%c\"", key->strategy);
 
 	/*
-	 * We can rely on the first variable-length attribute being mapped to the
-	 * relevant field of the catalog's C struct, because all previous
-	 * attributes are non-nullable and fixed-length.
+	 * 可以相信首个变长属性会映射到目录 C 结构体
+	 * 的相应字段，因为之前所有属性均非空且定
+	 * 长。
 	 */
 	attrs = form->partattrs.values;
 
-	/* But use the hard way to retrieve further variable-length attributes */
-	/* Operator class */
+	/* 但要用麻烦的方式检索后续的变长属性 */
+	/* 算子类 */
 	datum = SysCacheGetAttrNotNull(PARTRELID, tuple,
 								   Anum_pg_partitioned_table_partclass);
 	opclass = (oidvector *) DatumGetPointer(datum);
@@ -139,7 +139,7 @@ RelationBuildPartitionKey(Relation relation)
 								   Anum_pg_partitioned_table_partcollation);
 	collation = (oidvector *) DatumGetPointer(datum);
 
-	/* Expressions */
+	/* 表达式 */
 	datum = SysCacheGetAttr(PARTRELID, tuple,
 							Anum_pg_partitioned_table_partexprs, &isnull);
 	if (!isnull)
@@ -152,13 +152,13 @@ RelationBuildPartitionKey(Relation relation)
 		pfree(exprString);
 
 		/*
-		 * Run the expressions through const-simplification since the planner
-		 * will be comparing them to similarly-processed qual clause operands,
-		 * and may fail to detect valid matches without this step; fix
-		 * opfuncids while at it.  We don't need to bother with
-		 * canonicalize_qual() though, because partition expressions should be
-		 * in canonical form already (ie, no need for OR-merging or constant
-		 * elimination).
+		 * 先对表达式做常量简化，规划器会比较它们与相似
+		 * 处理的 qual 子句操作数，没有这一步就检测不到有
+		 * 效匹配；顺便修复 opfuncids。
+		 * 不必费心 canonicalize_qual()，因为分区
+		 * 表达式应当已是规范形式（即无需 OR 合并或
+		 * 常量
+		 * 消除）。
 		 */
 		expr = eval_const_expressions(NULL, expr);
 		fix_opfuncids(expr);
@@ -168,7 +168,7 @@ RelationBuildPartitionKey(Relation relation)
 		MemoryContextSwitchTo(oldcxt);
 	}
 
-	/* Allocate assorted arrays in the partkeycxt, which we'll fill below */
+	/* 在 partkeycxt 中分配下面要填充的各个数组 */
 	oldcxt = MemoryContextSwitchTo(partkeycxt);
 	key->partattrs = (AttrNumber *) palloc0(key->partnatts * sizeof(AttrNumber));
 	key->partopfamily = (Oid *) palloc0(key->partnatts * sizeof(Oid));
@@ -184,11 +184,11 @@ RelationBuildPartitionKey(Relation relation)
 	key->parttypcoll = (Oid *) palloc0(key->partnatts * sizeof(Oid));
 	MemoryContextSwitchTo(oldcxt);
 
-	/* determine support function number to search for */
+	/* 确定要查找的支持函数号 */
 	procnum = (key->strategy == PARTITION_STRATEGY_HASH) ?
 		HASHEXTENDED_PROC : BTORDER_PROC;
 
-	/* Copy partattrs and fill other per-attribute info */
+	/* 复制 partattrs 并填写其他属性信息 */
 	memcpy(key->partattrs, attrs, key->partnatts * sizeof(int16));
 	partexprs_item = list_head(key->partexprs);
 	for (i = 0; i < key->partnatts; i++)
@@ -198,7 +198,7 @@ RelationBuildPartitionKey(Relation relation)
 		Form_pg_opclass opclassform;
 		Oid			funcid;
 
-		/* Collect opfamily information */
+		/* 收集算子族信息 */
 		opclasstup = SearchSysCache1(CLAOID,
 									 ObjectIdGetDatum(opclass->values[i]));
 		if (!HeapTupleIsValid(opclasstup))
@@ -208,7 +208,7 @@ RelationBuildPartitionKey(Relation relation)
 		key->partopfamily[i] = opclassform->opcfamily;
 		key->partopcintype[i] = opclassform->opcintype;
 
-		/* Get a support function for the specified opfamily and datatypes */
+		/* 为指定算子族与数据类型获取支持函数 */
 		funcid = get_opfamily_proc(opclassform->opcfamily,
 								   opclassform->opcintype,
 								   opclassform->opcintype,
@@ -228,7 +228,7 @@ RelationBuildPartitionKey(Relation relation)
 		/* Collation */
 		key->partcollation[i] = collation->values[i];
 
-		/* Collect type information */
+		/* 收集类型信息 */
 		if (attno != 0)
 		{
 			Form_pg_attribute att = TupleDescAttr(relation->rd_att, attno - 1);
@@ -258,13 +258,13 @@ RelationBuildPartitionKey(Relation relation)
 
 	ReleaseSysCache(tuple);
 
-	/* Assert that we're not leaking any old data during assignments below */
+	/* 断言在下面的赋值期间不会泄漏任何旧数据 */
 	Assert(relation->rd_partkeycxt == NULL);
 	Assert(relation->rd_partkey == NULL);
 
 	/*
-	 * Success --- reparent our context and make the relcache point to the
-	 * newly constructed key
+	 * 成功 --- 重新挂接我们的上下文，并让 relcache 指向
+	 * 新构建的键。
 	 */
 	MemoryContextSetParent(partkeycxt, CacheMemoryContext);
 	relation->rd_partkeycxt = partkeycxt;
@@ -274,12 +274,12 @@ RelationBuildPartitionKey(Relation relation)
 /*
  * RelationGetPartitionQual
  *
- * Returns a list of partition quals
+ * 返回分区约束条件列表
  */
 List *
 RelationGetPartitionQual(Relation rel)
 {
-	/* Quick exit */
+	/*快速退出*/
 	if (!rel->rd_rel->relispartition)
 		return NIL;
 
@@ -289,21 +289,21 @@ RelationGetPartitionQual(Relation rel)
 /*
  * get_partition_qual_relid
  *
- * Returns an expression tree describing the passed-in relation's partition
- * constraint.
+ * 返回描述传入关系之分区约束条件的表达式
+ * 树。
  *
- * If the relation is not found, or is not a partition, or there is no
- * partition constraint, return NULL.  We must guard against the first two
- * cases because this supports a SQL function that could be passed any OID.
- * The last case can happen even if relispartition is true, when a default
- * partition is the only partition.
+ * 若找不到关系、或非分区、或无分区约束，则返回
+ *  NULL。我们必须防范前两种情况，因为本函数支持的
+ *  SQL 函数可能被传入任意 OID。最后一种情况即使在
+ *  relispartition 为真时也会发生，即当默认分区是唯一
+ * 的分区时。
  */
 Expr *
 get_partition_qual_relid(Oid relid)
 {
 	Expr	   *result = NULL;
 
-	/* Do the work only if this relation exists and is a partition. */
+	/* 仅当该关系存在且是分区时才执行。 */
 	if (get_rel_relispartition(relid))
 	{
 		Relation	rel = relation_open(relid, AccessShareLock);
@@ -311,7 +311,7 @@ get_partition_qual_relid(Oid relid)
 
 		and_args = generate_partition_qual(rel);
 
-		/* Convert implicit-AND list format to boolean expression */
+		/* 把隐式 AND 列表格式转换为布尔表达式 */
 		if (and_args == NIL)
 			result = NULL;
 		else if (list_length(and_args) > 1)
@@ -319,7 +319,7 @@ get_partition_qual_relid(Oid relid)
 		else
 			result = linitial(and_args);
 
-		/* Keep the lock, to allow safe deparsing against the rel by caller. */
+		/* 保持锁，让调用者能安全地反解析该关系。 */
 		relation_close(rel, NoLock);
 	}
 
@@ -329,12 +329,12 @@ get_partition_qual_relid(Oid relid)
 /*
  * generate_partition_qual
  *
- * Generate partition predicate from rel's partition bound expression. The
- * function returns a NIL list if there is no predicate.
+ * 从关系的分区边界表达式生成分区谓词。若无谓词，
+ * 本函数返回 NIL 列表。
  *
- * We cache a copy of the result in the relcache entry, after constructing
- * it using the caller's context.  This approach avoids leaking any data
- * into long-lived cache contexts, especially if we fail partway through.
+ * 我们会在 relcache 条目中缓存一份结果副本，先用调用
+ * 者上下文构建。这样可避免把任何数据泄漏到
+ * 长寿命的缓存上下文中，尤其当我们在中途失败时。
  */
 static List *
 generate_partition_qual(Relation rel)
@@ -348,23 +348,23 @@ generate_partition_qual(Relation rel)
 	Oid			parentrelid;
 	Relation	parent;
 
-	/* Guard against stack overflow due to overly deep partition tree */
+	/* 防范因分区树过深导致的栈溢出 */
 	check_stack_depth();
 
-	/* If we already cached the result, just return a copy */
+	/* 若已缓存结果，则只返回一份副本 */
 	if (rel->rd_partcheckvalid)
 		return copyObject(rel->rd_partcheck);
 
 	/*
-	 * Grab at least an AccessShareLock on the parent table.  Must do this
-	 * even if the partition has been partially detached, because transactions
-	 * concurrent with the detach might still be trying to use a partition
-	 * descriptor that includes it.
+	 * 至少以 AccessShareLock 锁定父表。即便该分区已被
+	 * 部分分离，也必须这么做，因为与分离并发的某事务
+	 * 可能仍在试图使用包含它的分区描述
+	 * 符。
 	 */
 	parentrelid = get_partition_parent(RelationGetRelid(rel), true);
 	parent = relation_open(parentrelid, AccessShareLock);
 
-	/* Get pg_class.relpartbound */
+	/*取 pg_class.relpartbound*/
 	tuple = SearchSysCache1(RELOID, RelationGetRelid(rel));
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for relation %u",
@@ -385,31 +385,31 @@ generate_partition_qual(Relation rel)
 
 	ReleaseSysCache(tuple);
 
-	/* Add the parent's quals to the list (if any) */
+	/* 把父方约束加入列表（如有） */
 	if (parent->rd_rel->relispartition)
 		result = list_concat(generate_partition_qual(parent), my_qual);
 	else
 		result = my_qual;
 
 	/*
-	 * Change Vars to have partition's attnos instead of the parent's. We do
-	 * this after we concatenate the parent's quals, because we want every Var
-	 * in it to bear this relation's attnos. It's safe to assume varno = 1
-	 * here.
+	 * 把 Var 改为使用分区的 attnos 而非父方的。这一步要
+	 * 在拼接父方约束之后再做，因为我们希望其中的每个
+	 *  Var 都携带本关系的 attnos。此处可安全假定 varno
+	 * =1。
 	 */
 	result = map_partition_varattnos(result, 1, rel, parent);
 
-	/* Assert that we're not leaking any old data during assignments below */
+	/* 断言在下面的赋值期间不会泄漏任何旧数据 */
 	Assert(rel->rd_partcheckcxt == NULL);
 	Assert(rel->rd_partcheck == NIL);
 
 	/*
-	 * Save a copy in the relcache.  The order of these operations is fairly
-	 * critical to avoid memory leaks and ensure that we don't leave a corrupt
-	 * relcache entry if we fail partway through copyObject.
+	 * relcache 中保存一份副本。操作顺序很关键，为避免
+	 * 内存泄漏并确保即便 copyObject 中途失败也不会留下
+	 * 损坏的 relcache 条目。
 	 *
-	 * If, as is definitely possible, the partcheck list is NIL, then we do
-	 * not need to make a context to hold it.
+	 * 如果 partcheck 列表为 NIL（这完全可能），那么我们
+	 * 无需为它创建上下文。
 	 */
 	if (result != NIL)
 	{
@@ -426,9 +426,9 @@ generate_partition_qual(Relation rel)
 		rel->rd_partcheck = NIL;
 	rel->rd_partcheckvalid = true;
 
-	/* Keep the parent locked until commit */
+	/* 保持父表锁定直至提交 */
 	relation_close(parent, NoLock);
 
-	/* Return the working copy to the caller */
+	/* 把工作副本返回给调用者 */
 	return result;
 }

@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * attoptcache.c
- *	  Attribute options cache management.
+ *	  属性选项缓存管理。
  *
- * Attribute options are cached separately from the fixed-size portion of
- * pg_attribute entries, which are handled by the relcache.
+ * 属性选项的缓存独立于 pg_attribute 条目的定长部分，
+ * 而这些条目由 relcache 处理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -25,10 +25,10 @@
 #include "varatt.h"
 
 
-/* Hash table for information about each attribute's options */
+/* 存储每个属性选项信息的哈希表 */
 static HTAB *AttoptCacheHash = NULL;
 
-/* attrelid and attnum form the lookup key, and must appear first */
+/* attrelid 和 attnum 构成查找键，且必须排在最前 */
 typedef struct
 {
 	Oid			attrelid;
@@ -37,19 +37,19 @@ typedef struct
 
 typedef struct
 {
-	AttoptCacheKey key;			/* lookup key - must be first */
-	AttributeOpts *opts;		/* options, or NULL if none */
+	AttoptCacheKey key;			/* 查找键 - 须排最前 */
+	AttributeOpts *opts;		/* 选项，无则为 NULL */
 } AttoptCacheEntry;
 
 
 /*
  * InvalidateAttoptCacheCallback
- *		Flush all cache entries when pg_attribute is updated.
+ *		pg_attribute 被更新时刷写所有缓存条目。
  *
- * When pg_attribute is updated, we must flush the cache entry at least
- * for that attribute.  Currently, we just flush them all.  Since attribute
- * options are not currently used in performance-critical paths (such as
- * query execution), this seems OK.
+ * 当 pg_attribute 被更新时，至少必须刷写对应
+ * 属性的缓存条目。目前我们只将它们全部刷写。由于属
+ * 性选项未用于性能关键路径（如查询执行），因此这
+ * 样做似乎就可以了。
  */
 static void
 InvalidateAttoptCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
@@ -72,25 +72,25 @@ InvalidateAttoptCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
 
 /*
  * InitializeAttoptCache
- *		Initialize the attribute options cache.
+ *		初始化属性选项缓存。
  */
 static void
 InitializeAttoptCache(void)
 {
 	HASHCTL		ctl;
 
-	/* Initialize the hash table. */
+	/* 初始化哈希表。 */
 	ctl.keysize = sizeof(AttoptCacheKey);
 	ctl.entrysize = sizeof(AttoptCacheEntry);
 	AttoptCacheHash =
 		hash_create("Attopt cache", 256, &ctl,
 					HASH_ELEM | HASH_BLOBS);
 
-	/* Make sure we've initialized CacheMemoryContext. */
+	/* 确保已初始化 CacheMemoryContext。 */
 	if (!CacheMemoryContext)
 		CreateCacheMemoryContext();
 
-	/* Watch for invalidation events. */
+	/* 监听失效事件。 */
 	CacheRegisterSyscacheCallback(ATTNUM,
 								  InvalidateAttoptCacheCallback,
 								  (Datum) 0);
@@ -98,7 +98,7 @@ InitializeAttoptCache(void)
 
 /*
  * get_attribute_options
- *		Fetch attribute options for a specified table OID.
+ *		获取指定表 OID 的属性选项。
  */
 AttributeOpts *
 get_attribute_options(Oid attrelid, int attnum)
@@ -108,10 +108,10 @@ get_attribute_options(Oid attrelid, int attnum)
 	AttributeOpts *result;
 	HeapTuple	tp;
 
-	/* Find existing cache entry, if any. */
+	/* 查找现有缓存条目。 */
 	if (!AttoptCacheHash)
 		InitializeAttoptCache();
-	memset(&key, 0, sizeof(key));	/* make sure any padding bits are unset */
+	memset(&key, 0, sizeof(key));	/* 确保填充位均未被置位 */
 	key.attrelid = attrelid;
 	key.attnum = attnum;
 	attopt =
@@ -120,7 +120,7 @@ get_attribute_options(Oid attrelid, int attnum)
 										 HASH_FIND,
 										 NULL);
 
-	/* Not found in Attopt cache.  Construct new cache entry. */
+	/* Attopt 缓存未命中，构造新缓存条目。 */
 	if (!attopt)
 	{
 		AttributeOpts *opts;
@@ -130,9 +130,9 @@ get_attribute_options(Oid attrelid, int attnum)
 							 Int16GetDatum(attnum));
 
 		/*
-		 * If we don't find a valid HeapTuple, it must mean someone has
-		 * managed to request attribute details for a non-existent attribute.
-		 * We treat that case as if no options were specified.
+		 * 若未找到有效的 HeapTuple，必是有人设法请求
+		 * 不存在的属性的详情。
+		 * 我们将这种情况视为未指定任何选项。
 		 */
 		if (!HeapTupleIsValid(tp))
 			opts = NULL;
@@ -159,8 +159,8 @@ get_attribute_options(Oid attrelid, int attnum)
 		}
 
 		/*
-		 * It's important to create the actual cache entry only after reading
-		 * pg_attribute, since the read could cause a cache flush.
+		 * 务必在读取 pg_attribute 后才创建实际缓存条目，
+		 * 因为读取可能引发缓存刷写。
 		 */
 		attopt = (AttoptCacheEntry *) hash_search(AttoptCacheHash,
 												  &key,
@@ -169,7 +169,7 @@ get_attribute_options(Oid attrelid, int attnum)
 		attopt->opts = opts;
 	}
 
-	/* Return results in caller's memory context. */
+	/* 结果在调用者内存上下文返回。 */
 	if (attopt->opts == NULL)
 		return NULL;
 	result = palloc(VARSIZE(attopt->opts));

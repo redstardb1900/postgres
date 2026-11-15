@@ -1,20 +1,20 @@
 /*-------------------------------------------------------------------------
  *
  * ts_cache.c
- *	  Tsearch related object caches.
+ *	  Tsearch 相关对象缓存。
  *
- * Tsearch performance is very sensitive to performance of parsers,
- * dictionaries and mapping, so lookups should be cached as much
- * as possible.
+ * Tsearch 性能对解析器、词典和映射的性能非常敏
+ * 感，因此查找应当尽可能多地
+ * 被缓存。
  *
- * Once a backend has created a cache entry for a particular TS object OID,
- * the cache entry will exist for the life of the backend; hence it is
- * safe to hold onto a pointer to the cache entry while doing things that
- * might result in recognizing a cache invalidation.  Beware however that
- * subsidiary information might be deleted and reallocated somewhere else
- * if a cache inval and reval happens!	This does not look like it will be
- * a big problem as long as parser and dictionary methods do not attempt
- * any database access.
+ * 一旦某后端为特定 TS 对象 OID 创建了缓存条目，该条
+ * 目将在后端生命周期内一直存在；因此在做可能导
+ * 致识别出缓存失效之事，仍持有一个指向缓存条目的
+ * 指针是安全的。但注意，一旦发生缓存失效并重验，
+ * 辅助信息可能被删除并在别处重新分配！
+ * 这看起来不会是大问题，
+ * 只要解析器和词典方法不尝试进行任何
+ * 数据库访问。
  *
  *
  * Copyright (c) 2006-2023, PostgreSQL Global Development Group
@@ -52,10 +52,10 @@
 
 
 /*
- * MAXTOKENTYPE/MAXDICTSPERTT are arbitrary limits on the workspace size
- * used in lookup_ts_config_cache().  We could avoid hardwiring a limit
- * by making the workspace dynamically enlargeable, but it seems unlikely
- * to be worth the trouble.
+ * MAXTOKENTYPE/MAXDICTSPERTT 是任意设定的上限，用于
+ * lookup_ts_config_cache() 的工作空间。本可以通过让工
+ * 作空间可动态扩容来避免硬编码上限，但似乎不
+ * 值得这么麻烦。
  */
 #define MAXTOKENTYPE	256
 #define MAXDICTSPERTT	100
@@ -71,7 +71,7 @@ static HTAB *TSConfigCacheHash = NULL;
 static TSConfigCacheEntry *lastUsedConfig = NULL;
 
 /*
- * GUC default_text_search_config, and a cache of the current config's OID
+ * GUC default_text_search_config，以及当前配置 OID 的缓存
  */
 char	   *TSCurrentConfig = NULL;
 
@@ -79,16 +79,16 @@ static Oid	TSCurrentConfigCache = InvalidOid;
 
 
 /*
- * We use this syscache callback to detect when a visible change to a TS
- * catalog entry has been made, by either our own backend or another one.
+ * 我们用这个 syscache 回调来侦测 TS 目录条目何时发生
+ * 可见更改，无论来自我们自己后端还是其他后端。
  *
- * In principle we could just flush the specific cache entry that changed,
- * but given that TS configuration changes are probably infrequent, it
- * doesn't seem worth the trouble to determine that; we just flush all the
- * entries of the related hash table.
+ * 原则上本可以只刷写发生更改的那个缓存条目，但
+ * 考虑到 TS 配置更改多半不频繁，为此费神似乎不
+ * 得；我们只管刷写相关哈希表的全部
+ * 条目。
  *
- * We can use the same function for all TS caches by passing the hash
- * table address as the "arg".
+ * 通过传入哈希表地址作为"arg"，同一函数可用于所
+ * 有 TS 缓存。
  */
 static void
 InvalidateTSCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
@@ -101,13 +101,13 @@ InvalidateTSCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
 	while ((entry = (TSAnyCacheEntry *) hash_seq_search(&status)) != NULL)
 		entry->isvalid = false;
 
-	/* Also invalidate the current-config cache if it's pg_ts_config */
+	/* 若为 pg_ts_config 还要失效当前配置缓存 */
 	if (hash == TSConfigCacheHash)
 		TSCurrentConfigCache = InvalidOid;
 }
 
 /*
- * Fetch parser cache entry
+ * 取解析器缓存条目
  */
 TSParserCacheEntry *
 lookup_ts_parser_cache(Oid prsId)
@@ -116,36 +116,36 @@ lookup_ts_parser_cache(Oid prsId)
 
 	if (TSParserCacheHash == NULL)
 	{
-		/* First time through: initialize the hash table */
+		/* 首次运行时：初始化哈希表 */
 		HASHCTL		ctl;
 
 		ctl.keysize = sizeof(Oid);
 		ctl.entrysize = sizeof(TSParserCacheEntry);
 		TSParserCacheHash = hash_create("Tsearch parser cache", 4,
 										&ctl, HASH_ELEM | HASH_BLOBS);
-		/* Flush cache on pg_ts_parser changes */
+		/* pg_ts_parser 更改时刷写缓存 */
 		CacheRegisterSyscacheCallback(TSPARSEROID, InvalidateTSCacheCallBack,
 									  PointerGetDatum(TSParserCacheHash));
 
-		/* Also make sure CacheMemoryContext exists */
+		/* 同时确保 CacheMemoryContext 存在 */
 		if (!CacheMemoryContext)
 			CreateCacheMemoryContext();
 	}
 
-	/* Check single-entry cache */
+	/* 检查单条目缓存 */
 	if (lastUsedParser && lastUsedParser->prsId == prsId &&
 		lastUsedParser->isvalid)
 		return lastUsedParser;
 
-	/* Try to look up an existing entry */
+	/* 尝试查找现有条目 */
 	entry = (TSParserCacheEntry *) hash_search(TSParserCacheHash,
 											   &prsId,
 											   HASH_FIND, NULL);
 	if (entry == NULL || !entry->isvalid)
 	{
 		/*
-		 * If we didn't find one, we want to make one. But first look up the
-		 * object to be sure the OID is real.
+		 * 若没找到就想新建。但先要查找该对象以确保 OID
+		 * 是真实的。
 		 */
 		HeapTuple	tp;
 		Form_pg_ts_parser prs;
@@ -157,7 +157,7 @@ lookup_ts_parser_cache(Oid prsId)
 		prs = (Form_pg_ts_parser) GETSTRUCT(tp);
 
 		/*
-		 * Sanity checks
+		 * 健全检查
 		 */
 		if (!OidIsValid(prs->prsstart))
 			elog(ERROR, "text search parser %u has no prsstart method", prsId);
@@ -170,10 +170,10 @@ lookup_ts_parser_cache(Oid prsId)
 		{
 			bool		found;
 
-			/* Now make the cache entry */
+			/* 现在创建缓存条目 */
 			entry = (TSParserCacheEntry *)
 				hash_search(TSParserCacheHash, &prsId, HASH_ENTER, &found);
-			Assert(!found);		/* it wasn't there a moment ago */
+			Assert(!found);		/* 刚才它还不在那里 */
 		}
 
 		MemSet(entry, 0, sizeof(TSParserCacheEntry));
@@ -202,7 +202,7 @@ lookup_ts_parser_cache(Oid prsId)
 }
 
 /*
- * Fetch dictionary cache entry
+ * 获取词典缓存条目
  */
 TSDictionaryCacheEntry *
 lookup_ts_dictionary_cache(Oid dictId)
@@ -211,38 +211,38 @@ lookup_ts_dictionary_cache(Oid dictId)
 
 	if (TSDictionaryCacheHash == NULL)
 	{
-		/* First time through: initialize the hash table */
+		/* 首次运行时：初始化哈希表 */
 		HASHCTL		ctl;
 
 		ctl.keysize = sizeof(Oid);
 		ctl.entrysize = sizeof(TSDictionaryCacheEntry);
 		TSDictionaryCacheHash = hash_create("Tsearch dictionary cache", 8,
 											&ctl, HASH_ELEM | HASH_BLOBS);
-		/* Flush cache on pg_ts_dict and pg_ts_template changes */
+		/* pg_ts_dict 和 pg_ts_template 更改时刷写缓存 */
 		CacheRegisterSyscacheCallback(TSDICTOID, InvalidateTSCacheCallBack,
 									  PointerGetDatum(TSDictionaryCacheHash));
 		CacheRegisterSyscacheCallback(TSTEMPLATEOID, InvalidateTSCacheCallBack,
 									  PointerGetDatum(TSDictionaryCacheHash));
 
-		/* Also make sure CacheMemoryContext exists */
+		/* 同时确保 CacheMemoryContext 存在 */
 		if (!CacheMemoryContext)
 			CreateCacheMemoryContext();
 	}
 
-	/* Check single-entry cache */
+	/* 检查单条目缓存 */
 	if (lastUsedDictionary && lastUsedDictionary->dictId == dictId &&
 		lastUsedDictionary->isvalid)
 		return lastUsedDictionary;
 
-	/* Try to look up an existing entry */
+	/* 尝试查找现有条目 */
 	entry = (TSDictionaryCacheEntry *) hash_search(TSDictionaryCacheHash,
 												   &dictId,
 												   HASH_FIND, NULL);
 	if (entry == NULL || !entry->isvalid)
 	{
 		/*
-		 * If we didn't find one, we want to make one. But first look up the
-		 * object to be sure the OID is real.
+		 * 若没找到就想新建。但先要查找该对象以确保 OID
+		 * 是真实的。
 		 */
 		HeapTuple	tpdict,
 					tptmpl;
@@ -257,13 +257,13 @@ lookup_ts_dictionary_cache(Oid dictId)
 		dict = (Form_pg_ts_dict) GETSTRUCT(tpdict);
 
 		/*
-		 * Sanity checks
+		 * 健全检查
 		 */
 		if (!OidIsValid(dict->dicttemplate))
 			elog(ERROR, "text search dictionary %u has no template", dictId);
 
 		/*
-		 * Retrieve dictionary's template
+		 * 取回词典的模板
 		 */
 		tptmpl = SearchSysCache1(TSTEMPLATEOID,
 								 ObjectIdGetDatum(dict->dicttemplate));
@@ -273,7 +273,7 @@ lookup_ts_dictionary_cache(Oid dictId)
 		template = (Form_pg_ts_template) GETSTRUCT(tptmpl);
 
 		/*
-		 * Sanity checks
+		 * 健全检查
 		 */
 		if (!OidIsValid(template->tmpllexize))
 			elog(ERROR, "text search template %u has no lexize method",
@@ -283,14 +283,14 @@ lookup_ts_dictionary_cache(Oid dictId)
 		{
 			bool		found;
 
-			/* Now make the cache entry */
+			/* 现在创建缓存条目 */
 			entry = (TSDictionaryCacheEntry *)
 				hash_search(TSDictionaryCacheHash,
 							&dictId,
 							HASH_ENTER, &found);
-			Assert(!found);		/* it wasn't there a moment ago */
+			Assert(!found);		/* 刚才它还不在那里 */
 
-			/* Create private memory context the first time through */
+			/* 首次运行时创建私有内存上下文 */
 			saveCtx = AllocSetContextCreate(CacheMemoryContext,
 											"TS dictionary",
 											ALLOCSET_SMALL_SIZES);
@@ -298,9 +298,9 @@ lookup_ts_dictionary_cache(Oid dictId)
 		}
 		else
 		{
-			/* Clear the existing entry's private context */
+			/* 清空现有条目的私有上下文 */
 			saveCtx = entry->dictCtx;
-			/* Don't let context's ident pointer dangle while we reset it */
+			/* 重置期间别让上下文的 ident 指针悬空 */
 			MemoryContextSetIdentifier(saveCtx, NULL);
 			MemoryContextReset(saveCtx);
 			MemoryContextCopyAndSetIdentifier(saveCtx, NameStr(dict->dictname));
@@ -320,8 +320,8 @@ lookup_ts_dictionary_cache(Oid dictId)
 			MemoryContext oldcontext;
 
 			/*
-			 * Init method runs in dictionary's private memory context, and we
-			 * make sure the options are stored there too
+			 * Init 方法运行于词典私有内存上下文，选项
+			 * 也存放在那里。
 			 */
 			oldcontext = MemoryContextSwitchTo(entry->dictCtx);
 
@@ -354,9 +354,9 @@ lookup_ts_dictionary_cache(Oid dictId)
 }
 
 /*
- * Initialize config cache and prepare callbacks.  This is split out of
- * lookup_ts_config_cache because we need to activate the callback before
- * caching TSCurrentConfigCache, too.
+ * 初始化配置缓存并准备回调。这段逻辑从
+ *  lookup_ts_config_cache 中拆出，因为我们也需要在缓存
+ * TSCurrentConfigCache 前激活。
  */
 static void
 init_ts_config_cache(void)
@@ -367,19 +367,19 @@ init_ts_config_cache(void)
 	ctl.entrysize = sizeof(TSConfigCacheEntry);
 	TSConfigCacheHash = hash_create("Tsearch configuration cache", 16,
 									&ctl, HASH_ELEM | HASH_BLOBS);
-	/* Flush cache on pg_ts_config and pg_ts_config_map changes */
+	/* pg_ts_config 和 pg_ts_config_map 更改时刷写缓存 */
 	CacheRegisterSyscacheCallback(TSCONFIGOID, InvalidateTSCacheCallBack,
 								  PointerGetDatum(TSConfigCacheHash));
 	CacheRegisterSyscacheCallback(TSCONFIGMAP, InvalidateTSCacheCallBack,
 								  PointerGetDatum(TSConfigCacheHash));
 
-	/* Also make sure CacheMemoryContext exists */
+	/* 同时确保 CacheMemoryContext 存在 */
 	if (!CacheMemoryContext)
 		CreateCacheMemoryContext();
 }
 
 /*
- * Fetch configuration cache entry
+ * 获取配置缓存条目
  */
 TSConfigCacheEntry *
 lookup_ts_config_cache(Oid cfgId)
@@ -388,24 +388,24 @@ lookup_ts_config_cache(Oid cfgId)
 
 	if (TSConfigCacheHash == NULL)
 	{
-		/* First time through: initialize the hash table */
+		/* 首次运行时：初始化哈希表 */
 		init_ts_config_cache();
 	}
 
-	/* Check single-entry cache */
+	/* 检查单条目缓存 */
 	if (lastUsedConfig && lastUsedConfig->cfgId == cfgId &&
 		lastUsedConfig->isvalid)
 		return lastUsedConfig;
 
-	/* Try to look up an existing entry */
+	/* 尝试查找现有条目 */
 	entry = (TSConfigCacheEntry *) hash_search(TSConfigCacheHash,
 											   &cfgId,
 											   HASH_FIND, NULL);
 	if (entry == NULL || !entry->isvalid)
 	{
 		/*
-		 * If we didn't find one, we want to make one. But first look up the
-		 * object to be sure the OID is real.
+		 * 若没找到就想新建。但先要查找该对象以确保 OID
+		 * 是真实的。
 		 */
 		HeapTuple	tp;
 		Form_pg_ts_config cfg;
@@ -427,7 +427,7 @@ lookup_ts_config_cache(Oid cfgId)
 		cfg = (Form_pg_ts_config) GETSTRUCT(tp);
 
 		/*
-		 * Sanity checks
+		 * 健全检查
 		 */
 		if (!OidIsValid(cfg->cfgparser))
 			elog(ERROR, "text search configuration %u has no parser", cfgId);
@@ -436,16 +436,16 @@ lookup_ts_config_cache(Oid cfgId)
 		{
 			bool		found;
 
-			/* Now make the cache entry */
+			/* 现在创建缓存条目 */
 			entry = (TSConfigCacheEntry *)
 				hash_search(TSConfigCacheHash,
 							&cfgId,
 							HASH_ENTER, &found);
-			Assert(!found);		/* it wasn't there a moment ago */
+			Assert(!found);		/* 刚才它还不在那里 */
 		}
 		else
 		{
-			/* Cleanup old contents */
+			/* 清理旧内容 */
 			if (entry->map)
 			{
 				for (i = 0; i < entry->lenmap; i++)
@@ -462,11 +462,11 @@ lookup_ts_config_cache(Oid cfgId)
 		ReleaseSysCache(tp);
 
 		/*
-		 * Scan pg_ts_config_map to gather dictionary list for each token type
+		 * 扫描 pg_ts_config_map 收集每个令牌类型的词典列表
 		 *
-		 * Because the index is on (mapcfg, maptokentype, mapseqno), we will
-		 * see the entries in maptokentype order, and in mapseqno order for
-		 * each token type, even though we didn't explicitly ask for that.
+		 * 由于索引建在（mapcfg, maptokentype, mapseqno）上，
+		 * 条目按 maptokentype 排序，且每个令牌类型内按
+		 * mapseqno 顺序出现，即便我们并未显式要求如此。
 		 */
 		MemSet(maplists, 0, sizeof(maplists));
 		maxtokentype = 0;
@@ -493,7 +493,7 @@ lookup_ts_config_cache(Oid cfgId)
 				elog(ERROR, "maptokentype entries are out of order");
 			if (toktype > maxtokentype)
 			{
-				/* starting a new token type, but first save the prior data */
+				/* 开始新的令牌类型，但先保存先前的数据 */
 				if (ndicts > 0)
 				{
 					maplists[maxtokentype].len = ndicts;
@@ -509,7 +509,7 @@ lookup_ts_config_cache(Oid cfgId)
 			}
 			else
 			{
-				/* continuing data for current token type */
+				/* 当前令牌类型的后续数据 */
 				if (ndicts >= MAXDICTSPERTT)
 					elog(ERROR, "too many pg_ts_config_map entries for one token type");
 				mapdicts[ndicts++] = cfgmap->mapdict;
@@ -522,14 +522,14 @@ lookup_ts_config_cache(Oid cfgId)
 
 		if (ndicts > 0)
 		{
-			/* save the last token type's dictionaries */
+			/* 保存最后一个令牌类型的词典 */
 			maplists[maxtokentype].len = ndicts;
 			maplists[maxtokentype].dictIds = (Oid *)
 				MemoryContextAlloc(CacheMemoryContext,
 								   sizeof(Oid) * ndicts);
 			memcpy(maplists[maxtokentype].dictIds, mapdicts,
 				   sizeof(Oid) * ndicts);
-			/* and save the overall map */
+			/* 再保存整体映射 */
 			entry->lenmap = maxtokentype + 1;
 			entry->map = (ListDictionary *)
 				MemoryContextAlloc(CacheMemoryContext,
@@ -548,7 +548,7 @@ lookup_ts_config_cache(Oid cfgId)
 
 
 /*---------------------------------------------------
- * GUC variable "default_text_search_config"
+ * GUC 变量 "default_text_search_config"
  *---------------------------------------------------
  */
 
@@ -557,11 +557,11 @@ getTSCurrentConfig(bool emitError)
 {
 	List	   *namelist;
 
-	/* if we have a cached value, return it */
+	/* 若已有缓存值则返回它 */
 	if (OidIsValid(TSCurrentConfigCache))
 		return TSCurrentConfigCache;
 
-	/* fail if GUC hasn't been set up yet */
+	/* 若 GUC 尚未设置则失败 */
 	if (TSCurrentConfig == NULL || *TSCurrentConfig == '\0')
 	{
 		if (emitError)
@@ -572,11 +572,11 @@ getTSCurrentConfig(bool emitError)
 
 	if (TSConfigCacheHash == NULL)
 	{
-		/* First time through: initialize the tsconfig inval callback */
+		/* 首次运行时：初始化 tsconfig 失效回调 */
 		init_ts_config_cache();
 	}
 
-	/* Look up the config */
+	/* 查找该配置 */
 	if (emitError)
 	{
 		namelist = stringToQualifiedNameList(TSCurrentConfig, NULL);
@@ -591,20 +591,20 @@ getTSCurrentConfig(bool emitError)
 		if (namelist != NIL)
 			TSCurrentConfigCache = get_ts_config_oid(namelist, true);
 		else
-			TSCurrentConfigCache = InvalidOid;	/* bad name list syntax */
+			TSCurrentConfigCache = InvalidOid;	/*名字表语法有误*/
 	}
 
 	return TSCurrentConfigCache;
 }
 
-/* GUC check_hook for default_text_search_config */
+/* default_text_search_config 的 GUC check_hook */
 bool
 check_default_text_search_config(char **newval, void **extra, GucSource source)
 {
 	/*
-	 * If we aren't inside a transaction, or connected to a database, we
-	 * cannot do the catalog accesses necessary to verify the config name.
-	 * Must accept it on faith.
+	 * 若不在事务中或未连接数据库，则无法执行验证
+	 * 配置名称所必需的目录访问。
+	 * 只能凭信任接受。
 	 */
 	if (IsTransactionState() && MyDatabaseId != InvalidOid)
 	{
@@ -620,11 +620,11 @@ check_default_text_search_config(char **newval, void **extra, GucSource source)
 		if (namelist != NIL)
 			cfgId = get_ts_config_oid(namelist, true);
 		else
-			cfgId = InvalidOid; /* bad name list syntax */
+			cfgId = InvalidOid; /*名字表语法有误*/
 
 		/*
-		 * When source == PGC_S_TEST, don't throw a hard error for a
-		 * nonexistent configuration, only a NOTICE.  See comments in guc.h.
+		 *  source == PGC_S_TEST 时，不要对不存在的配
+		 * 置抛硬错误，只发 NOTICE。参见 guc.h 中注释。
 		 */
 		if (!OidIsValid(cfgId))
 		{
@@ -640,8 +640,8 @@ check_default_text_search_config(char **newval, void **extra, GucSource source)
 		}
 
 		/*
-		 * Modify the actually stored value to be fully qualified, to ensure
-		 * later changes of search_path don't affect it.
+		 * 把实际存储的值改成完全限定形式，以确保之后
+		 * search_path 的更改不影响它。
 		 */
 		tuple = SearchSysCache1(TSCONFIGOID, ObjectIdGetDatum(cfgId));
 		if (!HeapTupleIsValid(tuple))
@@ -654,7 +654,7 @@ check_default_text_search_config(char **newval, void **extra, GucSource source)
 
 		ReleaseSysCache(tuple);
 
-		/* GUC wants it guc_malloc'd not palloc'd */
+		/* GUC 要求用 guc_malloc 而非 palloc */
 		guc_free(*newval);
 		*newval = guc_strdup(LOG, buf);
 		pfree(buf);
@@ -665,10 +665,10 @@ check_default_text_search_config(char **newval, void **extra, GucSource source)
 	return true;
 }
 
-/* GUC assign_hook for default_text_search_config */
+/* default_text_search_config 的 GUC assign_hook */
 void
 assign_default_text_search_config(const char *newval, void *extra)
 {
-	/* Just reset the cache to force a lookup on first use */
+	/* 直接重置缓存以强制首次使用时查找 */
 	TSCurrentConfigCache = InvalidOid;
 }

@@ -6646,6 +6646,41 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0391-mmgr-dsa.json",
    "kind": "manifest",
    "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/backend/utils/cache/attoptcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/spccache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/relfilenumbermap.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/partcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/ts_cache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0392-cache-small.json",
+   "kind": "manifest",
+   "note": "batch-0392 manifest"
   }
  ],
  "files": [
@@ -21617,6 +21652,83 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this batch manifest"
+  },
+  {
+   "path": "src/backend/utils/cache/attoptcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0392 whole-file comment translation: blocks 17 all translated; 34 content lines: 26 zh + 8 kept EN (head 5 + 3 function-name lines); L47 当省略, L111 (如有 省略; polarity L135 视为未指定任何选项 通过"
+  },
+  {
+   "path": "src/backend/utils/cache/spccache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 16,
+   "preserved": 1,
+   "preserved_reasons": [
+    "L225 get_tablespace_maintenance_io_concurrency 纯函数名块 keep-EN (标识符行先例)"
+   ],
+   "note": "batch-0392 whole-file comment translation: blocks 17: 16 translated + L225 name block keep-EN; 48 content lines: 37 zh + 11 kept EN; L114-115 即|默认 句号省略 (8B), L162-163 刷|写。 断行; L177-179/L210-212 同 EN 同译"
+  },
+  {
+   "path": "src/backend/utils/cache/relfilenumbermap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 27,
+   "preserved": 1,
+   "preserved_reasons": [
+    "L46 'pg_class.oid' 纯标识符行 keep-EN (18B 预算不容译文, 0389/0391 先例)"
+   ],
+   "note": "batch-0392 whole-file comment translation: blocks 28: 27 translated + L46 pg_class.oid 标识符 keep-EN; 52 content lines: 44 zh + 8 kept EN; polarity L66-68 一律移除负缓存/L140 则返回 InvalidOid/L166-170 否定匹配 通过"
+  },
+  {
+   "path": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0392 whole-file comment translation: blocks 24 all translated; 48 content lines: 43 zh + 5 kept EN (head); 8 处紧尾注 /*x*/ 压缩; 修复轮 L257-258 立即重复返工; polarity L203-207/L256-259 通过"
+  },
+  {
+   "path": "src/backend/utils/cache/partcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 37,
+   "translated": 35,
+   "preserved": 2,
+   "preserved_reasons": [
+    "L137 '/* Collation */' keep-EN (17B 恰容但 L228 同 EN 行 18B 不容, 为保同 EN 同译两行一致 keep-EN)",
+    "L228 '/* Collation */' keep-EN (18B 不容 12B 术语+任何包装)"
+   ],
+   "note": "batch-0392 whole-file comment translation: blocks 37: 35 translated + L137/L228 Collation keep-EN (17/18B 预算不容); 92 content lines: 81 zh + 11 kept EN; L295-296 NULL 逐字保留; 修复轮 L159 常量重复返工"
+  },
+  {
+   "path": "src/backend/utils/cache/ts_cache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 62,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0392 whole-file comment translation: blocks 62 all translated; 100 content lines: 96 zh + 4 kept EN (head); 头部设计段 L4-L17 全译; L594/L623 紧尾注压缩; polarity L605-607/L626-627 通过"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0392-cache-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0392 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

@@ -1,0 +1,140 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0392",
+ "title": "cache 目录六小文件整文件注释翻译 (185 blocks: 181 translated + 4 justified keep-EN blocks; 374 content lines: 327 rewritten zh + 47 kept EN; 逐行预算全过; 修复轮 2 处接缝返工 evtcache L257-258 立即重复/partcache L159 常量重复; gates: verify rc=0 (2 W7 advisory), term_lint in-scope 0 error/0 warning, halfen cache 0; check_scope rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cee3385bf07479a81d79b36319fc5da8197197d3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/attoptcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/spccache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/relfilenumbermap.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/partcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/backend/utils/cache/ts_cache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0392"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0392-cache-small.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0392 manifest path + six cache .c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/attoptcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 17 all translated; content lines 34: 26 rewritten zh, 8 kept EN (L3 文件名, L9/L10 版权, L12 IDENTIFICATION, L13 路径, L46/L74/L100 纯函数名行 keep-EN 0389/0391 先例); header 描述行 L4/L6/L7 已译; budget-forced: L47 省「当」(53B exact), L111 「（如有」省略 (41B), L133-134 跨行断句 '请求|不存在的属性的详情', L172 语序调整 49B; polarity L135 '视为未指定任何选项' 与 EN 'as if no options were specified' 逐条核对通过"
+  },
+  {
+   "path": "src/backend/utils/cache/spccache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 16,
+   "preserved": 1,
+   "preserved_reasons": [
+    "L225 get_tablespace_maintenance_io_concurrency 纯函数名块 keep-EN (标识符行, 0389/0391 先例)"
+   ],
+   "note": "comment-aware blocks 17: 16 translated + 1 keep-EN name block; content lines 48: 37 rewritten zh, 11 kept EN (L3/L11/L12/L14/L15 头部 + L46/L74/L100/L174/L208/L226 纯函数名行); header 描述 L4 与 L6-L9 设计段已译; budget-forced disclosures: L47 省「当」, L51-52 'terribly' 省略 (69B), L114-115 'InvalidOid 即|默认' 句号省略 (8B 预算不容「默认。」9B — REVERSE: EN 'default.' 带句点 zh 省略), L162-163 '刷|写。' 词中断行, L103-104 压缩, L131-134 '我们只|视同未指定选项', L175 术语 page costs→页面成本; polarity: L177-179 与 L210-212 同 EN 同译, NULL/'should not be stored' 极性保留"
+  },
+  {
+   "path": "src/backend/utils/cache/relfilenumbermap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 27,
+   "preserved": 1,
+   "preserved_reasons": [
+    "L46 'pg_class.oid' 纯标识符行 keep-EN (18B 预算不容任何译文, aset.c 0389/dsa.c 0391 先例)"
+   ],
+   "note": "comment-aware blocks 28: 27 translated + 1 keep-EN; content lines 52: 44 rewritten zh, 8 kept EN (L3/L6/L7/L9/L10 头部 + L46 标识符 + L50/L84 函数名行); header 描述 L4 已译 ('relfilenumber-oid 映射缓存。'); budget-forced: L97 '构建skey' CJK-EN 空格省略 (17B), L114-116 '半初始|化。' 词中断行, L166-170 五行重排 '否定匹配并从缓存返回一|个 InvalidOid', L185 省 'Ok,' (34B), L192-193 '钉住的|非共享关系' 断句, L242-244 重排; polarity 逐条核对: L66-68 完全复位移除全部/否则仅特定关系/负缓存条目一律移除, L140 '则返回 InvalidOid', L166-170 存储否定匹配并返回 InvalidOid, L242-244 '那会删除我们若在上方放入的新条目' 条件语保留"
+  },
+  {
+   "path": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 24 all translated; content lines 48: 43 rewritten zh, 5 kept EN (L3/L6/L7/L9/L10 头部); header 描述 L4 已译; budget-forced: 紧行尾注 8 处 '/*x*/' 无空格压缩 (L150/L155/L160/L184/L192/L197/L200/L267, 0391 先例), L150 '取下元组' (下一 compressed 23B), L155 '禁用则跳过触发器' 语序反转 (33B), L178 'tags数组' 空格省略 (35B), L99-101/L135-136/L204-207 跨行重排, L247 省「当」(57B exact), L357-359 '也'(too) 省略, 修复轮 L257-258 '立即/立即' 重复返工为 '无法马上|把它清掉'; polarity: L203-207 失效仍用新缓存+标记过时下次重建+否则标有效, L256-259 无效不立即清+可行时释放, L155 '禁用则跳过' 条件保留"
+  },
+  {
+   "path": "src/backend/utils/cache/partcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 37,
+   "translated": 35,
+   "preserved": 2,
+   "preserved_reasons": [
+    "L137 '/* Collation */' keep-EN (17B 预算恰容 12B 术语+紧包装但 L228 同 EN 行 18B 不容, 为保同 EN 同译两行一致 keep-EN)",
+    "L228 '/* Collation */' keep-EN (同上, 17B 不容 12B 术语+任何包装)"
+   ],
+   "note": "comment-aware blocks 37: 35 translated + 2 keep-EN; content lines 92: 81 rewritten zh, 11 kept EN (L3/L7/L8/L10/L11 头部 + L66/L275/L290/L330 函数名行 + L137/L228 Collation); header 描述 L4-5 已译 (relcache 跨行拆分); 大段 L69-78 内存上下文设计说明全译, 跨行断句 disclosed: '子上|下文', '本函数中|途出错', '永|久泄漏', '代|码段'; budget-forced: L132 算子类 (operator class→算子类 口径), L142 表达式, L282 紧 '/*快速退出*/', L367 紧 '/*取 pg_class.relpartbound*/', L398 '=1。' (9B, 空格省略), L160-161 '常量|消除）。', L292-293 '表达式|树。', L361-362 '描述|符。', 修复轮 L159 '常量/常量' 重复返工; polarity: L295-296 '则返回 NULL' NULL 逐字保留 (0389/0390 判例核对), L359-362 即便部分分离也必须加锁, L261/L402 同 EN 同译"
+  },
+  {
+   "path": "src/backend/utils/cache/ts_cache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 62,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 62 all translated; content lines 100: 96 rewritten zh, 4 kept EN (L3 文件名, L20 版权, L22 IDENTIFICATION, L23 路径; tsd 标识符与头部设计说明段 L4-L17 全译含 L13-14 'inval and reval→失效并重验' 与 '!' 保留); budget-forced: L110 '取解析器缓存条目' (获 compressed 27B), L160/L260/L276/L430 '健全检查' (健全性 compressed 13B), L359 '也'(too) 省略, L594/L623 紧尾注 '/*名字表语法有误*/' (列表→表 compressed), L147/L244/L407 与 L176/L291/L444 等重复块同 EN 同译逐对核对, L90-91 \"arg\" ASCII 引号保留, L551 ASCII 引号; polarity: L605-607 无法执行验证/只能凭信任接受, L626-627 不抛硬错误仅 NOTICE (guc.h 注释指引保留), L104 '若为 pg_ts_config 还要失效当前配置缓存' 条件保留, OID 逐字: pg_ts_parser/pg_ts_dict/pg_ts_template/pg_ts_config/pg_ts_config_map/TSCurrentConfigCache 全部原样"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0392-cache-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0392 manifest path + six cache .c entries (allowed_paths and files arrays)"
+  }
+ ]
+}

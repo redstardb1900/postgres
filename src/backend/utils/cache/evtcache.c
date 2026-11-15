@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * evtcache.c
- *	  Special-purpose cache for event trigger data.
+ *	  事件触发器数据专用缓存。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -54,11 +54,11 @@ static void InvalidateEventCacheCallback(Datum arg,
 static Bitmapset *DecodeTextArrayToBitmapset(Datum array);
 
 /*
- * Search the event cache by trigger event.
+ * 按触发器事件搜索事件缓存。
  *
- * Note that the caller had better copy any data it wants to keep around
- * across any operation that might touch a system catalog into some other
- * memory context, since a cache reset could blow the return value away.
+ * 注意：调用者最好把想保留的任何数据复制到另
+ * 一个内存上下文中，使它能跨过任何可能触及系统目
+ * 录的操作继续存留，因为缓存复位可能毁掉返回值。
  */
 List *
 EventCacheLookup(EventTriggerEvent event)
@@ -72,7 +72,7 @@ EventCacheLookup(EventTriggerEvent event)
 }
 
 /*
- * Rebuild the event trigger cache.
+ * 重建事件触发器缓存。
  */
 static void
 BuildEventTriggerCache(void)
@@ -87,18 +87,18 @@ BuildEventTriggerCache(void)
 	if (EventTriggerCacheContext != NULL)
 	{
 		/*
-		 * Free up any memory already allocated in EventTriggerCacheContext.
-		 * This can happen either because a previous rebuild failed, or
-		 * because an invalidation happened before the rebuild was complete.
+		 * 释放 EventTriggerCacheContext 中已分配的所有内存。
+		 * 这可能因先前重建失败，或因重建完成之前
+		 * 发生了失效。
 		 */
 		MemoryContextResetAndDeleteChildren(EventTriggerCacheContext);
 	}
 	else
 	{
 		/*
-		 * This is our first time attempting to build the cache, so we need to
-		 * set up the memory context and register a syscache callback to
-		 * capture future invalidation events.
+		 * 这是首次尝试构建缓存，因此需设置内存上下文
+		 * 并注册 syscache 回调
+		 * 来捕获今后的失效事件。
 		 */
 		if (CacheMemoryContext == NULL)
 			CreateCacheMemoryContext();
@@ -111,13 +111,13 @@ BuildEventTriggerCache(void)
 									  (Datum) 0);
 	}
 
-	/* Switch to correct memory context. */
+	/* 切换到正确内存上下文。 */
 	oldcontext = MemoryContextSwitchTo(EventTriggerCacheContext);
 
-	/* Prevent the memory context from being nuked while we're rebuilding. */
+	/* 防止内存上下文在我们重建期间被清掉。 */
 	EventTriggerCacheState = ETCS_REBUILD_STARTED;
 
-	/* Create new hash table. */
+	/* 创建新哈希表。 */
 	ctl.keysize = sizeof(EventTriggerEvent);
 	ctl.entrysize = sizeof(EventTriggerCacheEntry);
 	ctl.hcxt = EventTriggerCacheContext;
@@ -125,15 +125,15 @@ BuildEventTriggerCache(void)
 						HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
 	/*
-	 * Prepare to scan pg_event_trigger in name order.
+	 * 准备按名称顺序扫描 pg_event_trigger。
 	 */
 	rel = relation_open(EventTriggerRelationId, AccessShareLock);
 	irel = index_open(EventTriggerNameIndexId, AccessShareLock);
 	scan = systable_beginscan_ordered(rel, irel, NULL, 0, NULL);
 
 	/*
-	 * Build a cache item for each pg_event_trigger tuple, and append each one
-	 * to the appropriate cache entry.
+	 * 为每个 pg_event_trigger 元组构建一个缓存项，并把每
+	 * 项追加至相应条目。
 	 */
 	for (;;)
 	{
@@ -147,17 +147,17 @@ BuildEventTriggerCache(void)
 		EventTriggerCacheEntry *entry;
 		bool		found;
 
-		/* Get next tuple. */
+		/*取下元组。*/
 		tup = systable_getnext_ordered(scan, ForwardScanDirection);
 		if (!HeapTupleIsValid(tup))
 			break;
 
-		/* Skip trigger if disabled. */
+		/*禁用则跳过触发器。*/
 		form = (Form_pg_event_trigger) GETSTRUCT(tup);
 		if (form->evtenabled == TRIGGER_DISABLED)
 			continue;
 
-		/* Decode event name. */
+		/*解码事件名。*/
 		evtevent = NameStr(form->evtevent);
 		if (strcmp(evtevent, "ddl_command_start") == 0)
 			event = EVT_DDLCommandStart;
@@ -170,18 +170,18 @@ BuildEventTriggerCache(void)
 		else
 			continue;
 
-		/* Allocate new cache item. */
+		/* 分配新缓存项。 */
 		item = palloc0(sizeof(EventTriggerCacheItem));
 		item->fnoid = form->evtfoid;
 		item->enabled = form->evtenabled;
 
-		/* Decode and sort tags array. */
+		/*解码并排序tags数组。*/
 		evttags = heap_getattr(tup, Anum_pg_event_trigger_evttags,
 							   RelationGetDescr(rel), &evttags_isnull);
 		if (!evttags_isnull)
 			item->tagset = DecodeTextArrayToBitmapset(evttags);
 
-		/* Add to cache entry. */
+		/*加入缓存条目。*/
 		entry = hash_search(cache, &event, HASH_ENTER, &found);
 		if (found)
 			entry->triggerlist = lappend(entry->triggerlist, item);
@@ -189,33 +189,33 @@ BuildEventTriggerCache(void)
 			entry->triggerlist = list_make1(item);
 	}
 
-	/* Done with pg_event_trigger scan. */
+	/*完成 pg_event_trigger 扫描。*/
 	systable_endscan_ordered(scan);
 	index_close(irel, AccessShareLock);
 	relation_close(rel, AccessShareLock);
 
-	/* Restore previous memory context. */
+	/*恢复先前的内存上下文。*/
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Install new cache. */
+	/*安装新缓存。*/
 	EventTriggerCache = cache;
 
 	/*
-	 * If the cache has been invalidated since we entered this routine, we
-	 * still use and return the cache we just finished constructing, to avoid
-	 * infinite loops, but we leave the cache marked stale so that we'll
-	 * rebuild it again on next access.  Otherwise, we mark the cache valid.
+	 * 若缓存自进入本例程起已失效，仍会使用并返回刚
+	 * 构建完的缓存以避免无限循环，但保持缓存标记为过
+	 * 时状态，以便下次访问时重建。否则便把缓存标
+	 * 记为有效。
 	 */
 	if (EventTriggerCacheState == ETCS_REBUILD_STARTED)
 		EventTriggerCacheState = ETCS_VALID;
 }
 
 /*
- * Decode text[] to a Bitmapset of CommandTags.
+ * text[] 解码为 CommandTags 位图集。
  *
- * We could avoid a bit of overhead here if we were willing to duplicate some
- * of the logic from deconstruct_array, but it doesn't seem worth the code
- * complexity.
+ * 如果我们愿意复制 deconstruct_array 中的部分逻辑，
+ * 本可在此省去一点开销，但这似乎不值得增加代码复
+ * 杂度。
  */
 static Bitmapset *
 DecodeTextArrayToBitmapset(Datum array)
@@ -244,19 +244,19 @@ DecodeTextArrayToBitmapset(Datum array)
 }
 
 /*
- * Flush all cache entries when pg_event_trigger is updated.
+ * pg_event_trigger 被更新时刷写所有缓存条目。
  *
- * This should be rare enough that we don't need to be very granular about
- * it, so we just blow away everything, which also avoids the possibility of
- * memory leaks.
+ * 这种情况应当足够罕见，不必做得很细，所以我们
+ * 只管把一切全部清除，这也顺带避免内存泄漏的可能
+ * 性。
  */
 static void
 InvalidateEventCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
 {
 	/*
-	 * If the cache isn't valid, then there might be a rebuild in progress, so
-	 * we can't immediately blow it away.  But it's advantageous to do this
-	 * when possible, so as to immediately free memory.
+	 * 若缓存无效，则可能重建正在进行，所以无法马上
+	 * 把它清掉。但可行时这样做有利，可立即释放
+	 * 内存。
 	 */
 	if (EventTriggerCacheState == ETCS_VALID)
 	{
@@ -264,6 +264,6 @@ InvalidateEventCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
 		EventTriggerCache = NULL;
 	}
 
-	/* Mark cache for rebuild. */
+	/*标记缓存待重建。*/
 	EventTriggerCacheState = ETCS_NEEDS_REBUILD;
 }

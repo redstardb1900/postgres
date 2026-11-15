@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0396",
+ "title": "cache 目录 typcache.c 整文件注释翻译 (244 blocks: 244 translated + 0 justified keep-EN blocks; 563 content lines: 544 rewritten zh + 19 kept EN; 逐行预算全过+行数守恒 2884/2884 1:1; 修复轮 2: 轮1 halfen 接缝 'proc finfo'/'fmgr finfo' 加 zh 胶词 checkout 复位重跑, 轮2 L1403 成句补全+L1417 补尾句号; W7 15 条 advisory 释义披露; term_lint in-scope 0 error/8 warning(P02/P24/P38/P17/P09 phrasebook); halfen 1 条 justified(L1872-1884 源自 L1877 代码调用表达式行逐字保留); check_scope 增量+累计双 rc=0)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "df83f4bf46b95a7ebbfdd2bcd5fd322593819d50",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/cache/typcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0396"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0396-cache-typcache.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0396 manifest path + typcache.c entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/cache/typcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 244,
+   "translated": 244,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 244 all translated; content lines 563: 544 rewritten zh + 19 kept EN (L3 文件名/L34-L35 版权/L37 IDENTIFICATION/L38 路径; 纯函数名行 13 行 L333/L1815/L1840/L1858/L1873/L1943/L2032/L2265/L2344/L2376/L2407/L2459; L1877 代码调用表达式 lookup_rowtype_tupdesc_noerror(getBaseType(type_id), typmod, noError) 结构不容逐字保留; L40 边框线 dump 误计为 content). 头部功能描述行 L4-L31 全译(含 L4 标题行 类型缓存代码). 同 EN 必同译核对: L351=L1961, L365=L1972, L1741=L2047, L1756=L2063, L607/608=L632/633=L657/658, L680/681=L729/730, L1085=L1177, L1100=L1192, L1256=L1360, L1650=L1690, L2116=L2212, L2181=L2256, L2182=L2257, L2292=L2357=L2397, L2326=L2401, L2153=L2795, L536-538 vs L495-498 同族块逐字一致. 极性/双重否定自查: L536 *不会*重置 eq_opr 保留星号强调/L2382-2383 标记为无效(预算裁去句号)/L568-571 范围子类型不支持相等则范围根本无法创建(条件语义保留)/L2221-2222 不能已有 typmod 否则冲突/L680-681 eq_opr 必须与哈希算子类匹配否则报告无哈希函数/L1842-1844 bogus type_id 仍会 ereport/L513(lookup_type_cache) 结果永不为 NULL 全部保留. OID/标识符逐字保留: TypeCacheEntry/TypeCacheHash/TypeCacheRelCallback/TypeCacheTypCallback/TypeCacheOpcCallback/TypeCacheConstrCallback/DomainConstraintCache/DomainConstraintState/DomainConstraintRef/SharedRecordTypmodRegistry(Init/Estimate)/RecordCacheEntry/RecordCacheArray/RecordIdentifierArray/EnumItem/INVALID_TUPLEDESC_IDENTIFIER/dsa_pointer/typcache/typentry->flags/ref->constraints/ref->refctx/tupDesc_identifier 全部无改动, pg_type/pg_opclass/pg_constraint/pg_enum/pg_range/pg_amop/pg_amproc/relid/InvalidOid/OID 字面保留. 门禁: verify rc=0 (typcache W7 15 条 in-scope advisory 释义披露: L1 POSTGRES 标题行按头部规则译为 类型缓存代码; L141/L1814/L2458/L2480/L2492/L2613/L2627 OIDs→OID 复数归一, L146 TupleDescs→TupleDesc, L1145 CHECKs→CHECK, L2715 EnumItems→EnumItem 均为译语复数替代非丢失; L1202 FIRST→最先应用/L1299 MemoryContext→内存上下文/L1411 datatype→数据类型 译语替代; L981 CacheMemoryContext→缓存 系 L984-988 预算压缩语指代, 语义并入: 987 完成时再改挂为缓存); term_lint in-scope 0 error/8 warning (L1 P02/P24/P38 头块 phrasebook, L1977 P17 missing→缺失 phrasebook, L2072 P09 unrecognized→未识别 phrasebook, L2088 P24, L2772/L2821 P38; 全目录唯一 error TL01 在 postinit.c 系预先存在非本批); halfen cache 1 条 justified: L1872-1884 MIXED run 'typmod, noError)' 全部源自 L1877 保留的代码调用表达式行, 非散文半 EN 债, 豁免登记会触碰 halfen_exemptions.json 违反本批 scope 故现场披露. 预算不可行残句 4 行: L696/L2091 '字节'/L2000 'NextRecordTypmod'/L2383 '无效'/L2525 '坏' 尾句号因预算裁去(逐行 ≤EN 字节为硬约束), 句义完整无丢义; L987-988 CacheMemoryContext 压缩为 缓存 已披露. 修复轮 2 次: 轮1 halfen 接缝 L764 'proc finfo'→'proc 的 finfo'/L775 'fmgr finfo'→'fmgr：finfo' checkout 复位整文件重跑+全量 readback; 轮2 tail-ledger 发现 L1403 残句(因若真有域约束我们很快就会 悬空)补成 若真有域约束很快就要用它+L1417 缓存之→字段缓存. 补尾句号; 每轮 readback 复核 (代码行 0 改动/帧终止符 119 对/行数守恒 2884 1:1), REVERSE 4 处自洽: L14 zh 句号对应 EN L14 行中 hash_array() 句末/L147-L148 zh 段内句界前移 1 行(压缩)/L2272 同类前移"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0396-cache-typcache.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0396 manifest path + typcache.c entries to files[] and allowed_paths"
+  }
+ ],
+ "notes": "; review round (主会话就地修复): L290 补「开始」、L1999 补「推进」、L2256 全局→会话 (同文 Init 函数 EN 为 session state)"
+}

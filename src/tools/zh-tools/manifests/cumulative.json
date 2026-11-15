@@ -6721,6 +6721,16 @@
    "pattern": "src/backend/utils/cache/catcache.c",
    "kind": "c_comment",
    "note": "batch-0395 whole-file comment translation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0396-cache-typcache.json",
+   "kind": "manifest",
+   "note": "batch-0396 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/cache/typcache.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0396"
   }
  ],
  "files": [
@@ -21849,6 +21859,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0395 whole-file comment translation: blocks 191 all translated, content lines 469 = 432 zh + 37 keep-EN (头 5+边框 3+函数名 19+守卫/FALLTHROUGH/CATCACHE_STATS 8+残句 2); halfen 0; term_lint in-scope 0 error/2 warning; W7 6 条 advisory 释义披露"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0396-cache-typcache.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0396 manifest"
+  },
+  {
+   "path": "src/backend/utils/cache/typcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 244,
+   "translated": 244,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0396 whole-file comment translation: blocks 244 all translated, content lines 563 = 544 zh + 19 keep-EN (头 5+函数名行 13+代码调用表达式 L1877+边框 L40); halfen 1 条 justified(L1872-1884 run 'typmod, noError)' 源自 L1877 代码调用表达式行逐字保留); term_lint in-scope 0 error/8 warning(P02/P24/P38/P17/P09 phrasebook); W7 15 条 advisory 释义披露; 预算不可行残句 4 行 L2091 字节/L2000/L2383 无效/L2525 坏 缺尾句号披露"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

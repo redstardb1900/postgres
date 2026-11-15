@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * aset.c
- *	  Allocation set definitions.
+ *	  分配集定义。
  *
- * AllocSet is our standard implementation of the abstract MemoryContext
+ * AllocSet 是抽象内存上下文类型的标准实现。
  * type.
  *
  *
@@ -14,32 +14,32 @@
  *	  src/backend/utils/mmgr/aset.c
  *
  * NOTE:
- *	This is a new (Feb. 05, 1999) implementation of the allocation set
- *	routines. AllocSet...() does not use OrderedSet...() any more.
- *	Instead it manages allocations in a block pool by itself, combining
- *	many small allocations in a few bigger blocks. AllocSetFree() normally
- *	doesn't free() memory really. It just add's the free'd area to some
- *	list for later reuse by AllocSetAlloc(). All memory blocks are free()'d
- *	at once on AllocSetReset(), which happens when the memory context gets
- *	destroyed.
+ *	这是分配集例程的新实现（1999-02-05）。
+ *	AllocSet...() 不再使用 OrderedSet...()。
+ *	取而代之的是，它自行在一个块池中管理分配，
+ *	把许多小分配合并进少数更大的块中。AllocSetFree()
+ *	并不真正 free() 内存，只是把释放的区域加入某个
+ *	列表，供 AllocSetAlloc() 稍后重用。所有内存块在
+ *	AllocSetReset() 时被一次性 free()，也就是内存上下文
+ *	销毁。
  *				Jan Wieck
  *
- *	Performance improvement from Tom Lane, 8/99: for extremely large request
- *	sizes, we do want to be able to give the memory back to free() as soon
- *	as it is pfree()'d.  Otherwise we risk tying up a lot of memory in
- *	freelist entries that might never be usable.  This is specially needed
- *	when the caller is repeatedly repalloc()'ing a block bigger and bigger;
- *	the previous instances of the block were guaranteed to be wasted until
- *	AllocSetReset() under the old way.
+ *	来自 Tom Lane 的性能改进（99/08）：对极大请求
+ *	大小，我们确实希望内存一经 pfree() 便交还给 free()，
+ *	否则大量内存可能被拴在空闲链表条目中，
+ *	这些条目可能永远不可用。当调用者反复 repalloc()
+ *	把块越改越大尤为需要；旧方式下，块的先前实例
+ *	直到 AllocSetReset() 之前都
+ *	注定被浪费。
  *
- *	Further improvement 12/00: as the code stood, request sizes in the
- *	midrange between "small" and "large" were handled very inefficiently,
- *	because any sufficiently large free chunk would be used to satisfy a
- *	request, even if it was much larger than necessary.  This led to more
- *	and more wasted space in allocated chunks over time.  To fix, get rid
- *	of the midrange behavior: we now handle only "small" power-of-2-size
- *	chunks as chunks.  Anything "large" is passed off to malloc().  Change
- *	the number of freelists to change the small/large boundary.
+ *	进一步的改进（00/12）：就当时的代码而言，介于
+ *	"small" 与 "large" 之间的中段请求处理得非常低效，
+ *	因为任何足够大的空闲区块都会被拿来满足请求，
+ *	即使它比实际需要的要大得多。随着时间的推移，
+ *	已分配区块中浪费的空间越来越多。为了修复，
+ *	我们抛弃了中段行为：现在只把"small"的 2 的幂
+ *	尺寸的区块当区块处理。"large"都转交给 malloc()。
+ *	修改空闲链表数即可改变 small/large 边界。
  *
  *-------------------------------------------------------------------------
  */
@@ -53,71 +53,71 @@
 #include "utils/memutils_internal.h"
 
 /*--------------------
- * Chunk freelist k holds chunks of size 1 << (k + ALLOC_MINBITS),
- * for k = 0 .. ALLOCSET_NUM_FREELISTS-1.
+ * 空闲链表 k 保存 1 << (k + ALLOC_MINBITS) 的区块，
+ * k = 0 .. ALLOCSET_NUM_FREELISTS-1。
  *
- * Note that all chunks in the freelists have power-of-2 sizes.  This
- * improves recyclability: we may waste some space, but the wasted space
- * should stay pretty constant as requests are made and released.
+ * 空闲链表中的所有区块都具有 2 的幂大小。
+ * 这提高了可回收性：可能浪费一些空间，但随着请求
+ * 的发出与释放，浪费的空间应保持相当稳定。
  *
- * A request too large for the last freelist is handled by allocating a
- * dedicated block from malloc().  The block still has a block header and
- * chunk header, but when the chunk is freed we'll return the whole block
- * to malloc(), not put it on our freelists.
+ * 对最后一条空闲链表过大的请求，改用从 malloc()
+ * 分配专用的块来处理。该块仍有块头部与区块头部，
+ * 但释放该区块时，我们会把整个块交还给 malloc()，
+ * 而非放入我们的空闲链表。
  *
- * CAUTION: ALLOC_MINBITS must be large enough so that
- * 1<<ALLOC_MINBITS is at least MAXALIGN,
- * or we may fail to align the smallest chunks adequately.
- * 8-byte alignment is enough on all currently known machines.  This 8-byte
- * minimum also allows us to store a pointer to the next freelist item within
- * the chunk of memory itself.
+ * 注意：ALLOC_MINBITS 必须大到足以使
+ * 1<<ALLOC_MINBITS 不小于 MAXALIGN，
+ * 否则我们可能无法充分对齐最小的区块。
+ * 在目前所有已知的机器上，8 字节对齐就足够了。这个
+ * 8 字节下限也让我们能在区块内存本身中存储指向下一
+ * 条空闲链表项。
  *
- * With the current parameters, request sizes up to 8K are treated as chunks,
- * larger requests go into dedicated blocks.  Change ALLOCSET_NUM_FREELISTS
- * to adjust the boundary point; and adjust ALLOCSET_SEPARATE_THRESHOLD in
- * memutils.h to agree.  (Note: in contexts with small maxBlockSize, we may
- * set the allocChunkLimit to less than 8K, so as to avoid space wastage.)
+ * 按当前参数，8K 以内的请求都按区块对待，更大的请求
+ * 则放入专用块。修改 ALLOCSET_NUM_FREELISTS 即可
+ * 调整边界点；并同步调整 ALLOCSET_SEPARATE_THRESHOLD
+ * （memutils.h 同名值）保持一致。（注意：maxBlockSize
+ * 小时 allocChunkLimit 可小于 8K，以免浪费空间。）
  *--------------------
  */
 
-#define ALLOC_MINBITS		3	/* smallest chunk size is 8 bytes */
+#define ALLOC_MINBITS		3	/* 最小区块为 8 字节 */
 #define ALLOCSET_NUM_FREELISTS	11
 #define ALLOC_CHUNK_LIMIT	(1 << (ALLOCSET_NUM_FREELISTS-1+ALLOC_MINBITS))
-/* Size of largest chunk that we use a fixed size for */
+/* 我们使用固定尺寸的最大区块大小 */
 #define ALLOC_CHUNK_FRACTION	4
-/* We allow chunks to be at most 1/4 of maxBlockSize (less overhead) */
+/* 允许区块至多为 maxBlockSize 的 1/4（较少开销） */
 
 /*--------------------
- * The first block allocated for an allocset has size initBlockSize.
- * Each time we have to allocate another block, we double the block size
- * (if possible, and without exceeding maxBlockSize), so as to reduce
- * the bookkeeping load on malloc().
+ * 为分配集分配的第一个块，其大小为 initBlockSize。
+ * 每当必须再分配一个块时，就把块大小加倍（如可能
+ * 且不超过 maxBlockSize），以减轻 malloc()
+ * 的簿记负担。
  *
- * Blocks allocated to hold oversize chunks do not follow this rule, however;
- * they are just however big they need to be to hold that single chunk.
+ * 为容纳超大区块而分配的块不遵循此规则；它们的大小
+ * 只取决于容纳该单个区块所需的实际大小。
  *
- * Also, if a minContextSize is specified, the first block has that size,
- * and then initBlockSize is used for the next one.
+ * 此外，若指定 minContextSize，则首个块采用该大小，
+ * 而下一个块则使用 initBlockSize。
  *--------------------
  */
 
 #define ALLOC_BLOCKHDRSZ	MAXALIGN(sizeof(AllocBlockData))
 #define ALLOC_CHUNKHDRSZ	sizeof(MemoryChunk)
 
-typedef struct AllocBlockData *AllocBlock;	/* forward reference */
+typedef struct AllocBlockData *AllocBlock;	/* 前向引用 */
 
 /*
  * AllocPointer
- *		Aligned pointer which may be a member of an allocation set.
+ *		可作为分配集成员的对齐指针。
  */
 typedef void *AllocPointer;
 
 /*
  * AllocFreeListLink
- *		When pfreeing memory, if we maintain a freelist for the given chunk's
- *		size then we use a AllocFreeListLink to point to the current item in
- *		the AllocSetContext's freelist and then set the given freelist element
- *		to point to the chunk being freed.
+ *		释放内存时，若为区块大小维护空闲链表，那么我们
+ *		会用 AllocFreeListLink 指向该 AllocSetContext 空闲链
+ *		表中的当前条目，然后把给定的空闲链表元素设置为
+ *		指向正被释放的区块。
  */
 typedef struct AllocFreeListLink
 {
@@ -125,129 +125,129 @@ typedef struct AllocFreeListLink
 } AllocFreeListLink;
 
 /*
- * Obtain a AllocFreeListLink for the given chunk.  Allocation sizes are
- * always at least sizeof(AllocFreeListLink), so we reuse the pointer's memory
- * itself to store the freelist link.
+ * 为给定区块获取 AllocFreeListLink。分配尺寸总是
+ * 至少为 sizeof(AllocFreeListLink)，所以重用指针自身
+ * 来存空闲链表链接。
  */
 #define GetFreeListLink(chkptr) \
 	(AllocFreeListLink *) ((char *) (chkptr) + ALLOC_CHUNKHDRSZ)
 
-/* Validate a freelist index retrieved from a chunk header */
+/* 校验从区块头部取出的空闲链表索引 */
 #define FreeListIdxIsValid(fidx) \
 	((fidx) >= 0 && (fidx) < ALLOCSET_NUM_FREELISTS)
 
-/* Determine the size of the chunk based on the freelist index */
+/* 根据空闲链表索引确定区块大小 */
 #define GetChunkSizeFromFreeListIdx(fidx) \
 	((((Size) 1) << ALLOC_MINBITS) << (fidx))
 
 /*
- * AllocSetContext is our standard implementation of MemoryContext.
+ * AllocSetContext 是 MemoryContext 的标准实现。
  *
- * Note: header.isReset means there is nothing for AllocSetReset to do.
- * This is different from the aset being physically empty (empty blocks list)
- * because we will still have a keeper block.  It's also different from the set
- * being logically empty, because we don't attempt to detect pfree'ing the
- * last active chunk.
+ * 注意：header.isReset 表示 AllocSetReset 无事可做。
+ * 这与 aset 物理上为空（blocks 列表为空）不同，
+ * 因为我们仍会持有一个保留块。它也不同于集合逻辑上
+ * 为空，因为我们不打算去检测 pfree 最后一个活动区块
+ * 的情况。
  */
 typedef struct AllocSetContext
 {
-	MemoryContextData header;	/* Standard memory-context fields */
-	/* Info about storage allocated in this context: */
-	AllocBlock	blocks;			/* head of list of blocks in this set */
-	MemoryChunk *freelist[ALLOCSET_NUM_FREELISTS];	/* free chunk lists */
-	/* Allocation parameters for this context: */
-	Size		initBlockSize;	/* initial block size */
-	Size		maxBlockSize;	/* maximum block size */
-	Size		nextBlockSize;	/* next block size to allocate */
-	Size		allocChunkLimit;	/* effective chunk size limit */
-	AllocBlock	keeper;			/* keep this block over resets */
-	/* freelist this context could be put in, or -1 if not a candidate: */
-	int			freeListIndex;	/* index in context_freelists[], or -1 */
+	MemoryContextData header;	/* 标准内存上下文字段 */
+	/* 本上下文中已分配存储的信息： */
+	AllocBlock	blocks;			/* 本集合的块列表头部 */
+	MemoryChunk *freelist[ALLOCSET_NUM_FREELISTS];	/* 空闲区块表 */
+	/* 本上下文的分配参数： */
+	Size		initBlockSize;	/* 初始块大小 */
+	Size		maxBlockSize;	/* 最大块大小 */
+	Size		nextBlockSize;	/* 下次分配的块大小 */
+	Size		allocChunkLimit;	/* 区块大小有效上限 */
+	AllocBlock	keeper;			/* 重置时保留此块 */
+	/* 本上下文可放入的空闲链表，若非候选则为 -1： */
+	int			freeListIndex;	/* context_freelists[] 中的索引 */
 } AllocSetContext;
 
 typedef AllocSetContext *AllocSet;
 
 /*
  * AllocBlock
- *		An AllocBlock is the unit of memory that is obtained by aset.c
- *		from malloc().  It contains one or more MemoryChunks, which are
- *		the units requested by palloc() and freed by pfree(). MemoryChunks
- *		cannot be returned to malloc() individually, instead they are put
- *		on freelists by pfree() and re-used by the next palloc() that has
- *		a matching request size.
+ *		AllocBlock 是 aset.c 从 malloc() 获取的内存单位。
+ *		其中包含一个或多个 MemoryChunk，后者是 palloc()
+ *		请求且由 pfree() 释放的单位。MemoryChunk 无法单独
+ *		交还 malloc()，而是由 pfree() 放入空闲链表，
+ *		供下一个请求大小匹配的
+ *		palloc() 重用。
  *
- *		AllocBlockData is the header data for a block --- the usable space
- *		within the block begins at the next alignment boundary.
+ *		AllocBlockData 是块的头部数据 --- 块内可用空间从
+ *		下一个对齐边界处开始。
  */
 typedef struct AllocBlockData
 {
-	AllocSet	aset;			/* aset that owns this block */
-	AllocBlock	prev;			/* prev block in aset's blocks list, if any */
-	AllocBlock	next;			/* next block in aset's blocks list, if any */
-	char	   *freeptr;		/* start of free space in this block */
-	char	   *endptr;			/* end of space in this block */
+	AllocSet	aset;			/* 拥有此块的 aset */
+	AllocBlock	prev;			/* aset 块列表中的前一块，若有 */
+	AllocBlock	next;			/* aset 块列表中的后一块，若有 */
+	char	   *freeptr;		/* 此块空闲空间的起点 */
+	char	   *endptr;			/* 此块空间的终点 */
 }			AllocBlockData;
 
 /*
  * AllocPointerIsValid
- *		True iff pointer is valid allocation pointer.
+ *		指针为有效分配指针时为真。
  */
 #define AllocPointerIsValid(pointer) PointerIsValid(pointer)
 
 /*
  * AllocSetIsValid
- *		True iff set is valid allocation set.
+ *		为有效分配集时为真。
  */
 #define AllocSetIsValid(set) \
 	(PointerIsValid(set) && IsA(set, AllocSetContext))
 
 /*
  * AllocBlockIsValid
- *		True iff block is valid block of allocation set.
+ *		块为分配集的有效块时为真。
  */
 #define AllocBlockIsValid(block) \
 	(PointerIsValid(block) && AllocSetIsValid((block)->aset))
 
 /*
- * We always store external chunks on a dedicated block.  This makes fetching
- * the block from an external chunk easy since it's always the first and only
- * chunk on the block.
+ * 我们总是把外部区块存储在专用块上。这样从外部区块
+ * 获取块就很容易，因为它始终是块上的第一个且唯一的
+ * 区块。
  */
 #define ExternalChunkGetBlock(chunk) \
 	(AllocBlock) ((char *) chunk - ALLOC_BLOCKHDRSZ)
 
 /*
- * Rather than repeatedly creating and deleting memory contexts, we keep some
- * freed contexts in freelists so that we can hand them out again with little
- * work.  Before putting a context in a freelist, we reset it so that it has
- * only its initial malloc chunk and no others.  To be a candidate for a
- * freelist, a context must have the same minContextSize/initBlockSize as
- * other contexts in the list; but its maxBlockSize is irrelevant since that
- * doesn't affect the size of the initial chunk.
+ * 与其反复创建和删除内存上下文，我们不如把已释放
+ * 的上下文保留在空闲链表中，以便稍后能以少量工作重
+ * 新分发它们。放入空闲链表前，先重置上下文，使其
+ * 只剩初始 malloc 区块而无其他区块。
+ * 要成为空闲链表候选，必须具有与列表中其他上下文
+ * 相同的 minContextSize/initBlockSize；但 maxBlockSize
+ * 无关，因其不影响初始区块大小。
  *
- * We currently provide one freelist for ALLOCSET_DEFAULT_SIZES contexts
- * and one for ALLOCSET_SMALL_SIZES contexts; the latter works for
- * ALLOCSET_START_SMALL_SIZES too, since only the maxBlockSize differs.
+ * 目前我们为 ALLOCSET_DEFAULT_SIZES 上下文提供一条
+ * 空闲链表，为 ALLOCSET_SMALL_SIZES 上下文提供另一
+ * 条；后者也适用于 ALLOCSET_START_SMALL_SIZES，
  *
- * Ordinarily, we re-use freelist contexts in last-in-first-out order, in
- * hopes of improving locality of reference.  But if there get to be too
- * many contexts in the list, we'd prefer to drop the most-recently-created
- * contexts in hopes of keeping the process memory map compact.
- * We approximate that by simply deleting all existing entries when the list
- * overflows, on the assumption that queries that allocate a lot of contexts
- * will probably free them in more or less reverse order of allocation.
+ * 因为只有 maxBlockSize 不同。通常，我们按后进先出
+ * 顺序重用空闲链表上下文，以期改善引用局部性。但
+ * 如果列表中的上下文过多，我们更倾向于丢弃最近创建
+ * 的上下文，以期保持进程内存映射紧凑。
+ * 我们近似的做法：列表溢出时直接删除全部现有条目，
+ * 因为大量分配上下文的查询多半会按与分配大致相反
+ * 的顺序释放它们。
  *
- * Contexts in a freelist are chained via their nextchild pointers.
+ * 空闲链表中的上下文通过其 nextchild 指针链接。
  */
-#define MAX_FREE_CONTEXTS 100	/* arbitrary limit on freelist length */
+#define MAX_FREE_CONTEXTS 100	/* 空闲链表长度的上限 */
 
 typedef struct AllocSetFreeList
 {
-	int			num_free;		/* current list length */
-	AllocSetContext *first_free;	/* list header */
+	int			num_free;		/* 列表长度 */
+	AllocSetContext *first_free;	/* 表头 */
 } AllocSetFreeList;
 
-/* context_freelists[0] is for default params, [1] for small params */
+/* context_freelists[0] 为默认参数，[1] 为小型参数 */
 static AllocSetFreeList context_freelists[2] =
 {
 	{
@@ -262,9 +262,9 @@ static AllocSetFreeList context_freelists[2] =
 /* ----------
  * AllocSetFreeIndex -
  *
- *		Depending on the size of an allocation compute which freechunk
- *		list of the alloc set it belongs to.  Caller must have verified
- *		that size <= ALLOC_CHUNK_LIMIT.
+ *		按分配的大小算出其属于分配集
+ *		哪条空闲区块链表。调用者必须已验证
+ *		size <= ALLOC_CHUNK_LIMIT。
  * ----------
  */
 static inline int
@@ -275,20 +275,20 @@ AllocSetFreeIndex(Size size)
 	if (size > (1 << ALLOC_MINBITS))
 	{
 		/*----------
-		 * At this point we must compute ceil(log2(size >> ALLOC_MINBITS)).
-		 * This is the same as
+		 * 此时我们必须计算 ceil(log2(size >> ALLOC_MINBITS))。
+		 * 这与下式相同
 		 *		pg_leftmost_one_pos32((size - 1) >> ALLOC_MINBITS) + 1
-		 * or equivalently
+		 * 或等价于
 		 *		pg_leftmost_one_pos32(size - 1) - ALLOC_MINBITS + 1
 		 *
-		 * However, for platforms without intrinsic support, we duplicate the
-		 * logic here, allowing an additional optimization.  It's reasonable
-		 * to assume that ALLOC_CHUNK_LIMIT fits in 16 bits, so we can unroll
-		 * the byte-at-a-time loop in pg_leftmost_one_pos32 and just handle
-		 * the last two bytes.
+		 * 但对缺乏内建支持的平台，我们在此复制该逻辑，
+		 * 从而可以进行一项额外的优化。可以合理地假定
+		 * ALLOC_CHUNK_LIMIT 能放入 16 位，因此我们可以展开
+		 * pg_leftmost_one_pos32 中按字节处理的循环，只处理
+		 * 最后两字节。
 		 *
-		 * Yes, this function is enough of a hot-spot to make it worth this
-		 * much trouble.
+		 * 是的，这个函数够热门，值得下这么
+		 * 大功夫。
 		 *----------
 		 */
 #ifdef HAVE_BITSCAN_REVERSE
@@ -297,7 +297,7 @@ AllocSetFreeIndex(Size size)
 		uint32		t,
 					tsize;
 
-		/* Statically assert that we only have a 16-bit input value. */
+		/* 静态断言我们只有 16 位的输入值。 */
 		StaticAssertDecl(ALLOC_CHUNK_LIMIT < (1 << 16),
 						 "ALLOC_CHUNK_LIMIT must be less than 64kB");
 
@@ -317,24 +317,24 @@ AllocSetFreeIndex(Size size)
 
 
 /*
- * Public routines
+ * 公共例程
  */
 
 
 /*
  * AllocSetContextCreateInternal
- *		Create a new AllocSet context.
+ *		新建 AllocSet 上下文。
  *
- * parent: parent context, or NULL if top-level context
- * name: name of context (must be statically allocated)
- * minContextSize: minimum context size
- * initBlockSize: initial allocation block size
- * maxBlockSize: maximum allocation block size
+ * parent：父上下文，顶层上下文则为 NULL
+ * name：上下文名称（必须为静态分配）
+ * minContextSize：上下文最小值
+ * initBlockSize：初始分配块大小
+ * maxBlockSize：最大分配块大小
  *
- * Most callers should abstract the context size parameters using a macro
- * such as ALLOCSET_DEFAULT_SIZES.
+ * 大多数调用者应当使用 ALLOCSET_DEFAULT_SIZES 之类的
+ * 宏来抽象大小参数。
  *
- * Note: don't call this directly; go through the wrapper macro
+ * 注意：不要直接调用此函数；应通过包装宏
  * AllocSetContextCreate.
  */
 MemoryContext
@@ -349,30 +349,30 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	AllocSet	set;
 	AllocBlock	block;
 
-	/* ensure MemoryChunk's size is properly maxaligned */
+	/* 确保 MemoryChunk 大小经 MAXALIGN 对齐 */
 	StaticAssertDecl(ALLOC_CHUNKHDRSZ == MAXALIGN(ALLOC_CHUNKHDRSZ),
 					 "sizeof(MemoryChunk) is not maxaligned");
-	/* check we have enough space to store the freelist link */
+	/* 检查是否有足够空间存储空闲链表链接 */
 	StaticAssertDecl(sizeof(AllocFreeListLink) <= (1 << ALLOC_MINBITS),
 					 "sizeof(AllocFreeListLink) larger than minimum allocation size");
 
 	/*
-	 * First, validate allocation parameters.  Once these were regular runtime
-	 * tests and elog's, but in practice Asserts seem sufficient because
-	 * nobody varies their parameters at runtime.  We somewhat arbitrarily
-	 * enforce a minimum 1K block size.  We restrict the maximum block size to
-	 * MEMORYCHUNK_MAX_BLOCKOFFSET as MemoryChunks are limited to this in
-	 * regards to addressing the offset between the chunk and the block that
-	 * the chunk is stored on.  We would be unable to store the offset between
-	 * the chunk and block for any chunks that were beyond
-	 * MEMORYCHUNK_MAX_BLOCKOFFSET bytes into the block if the block was to be
-	 * larger than this.
+	 * 首先校验分配参数。这些检查曾是常规的运行时测试
+	 * 和 elog，但实践中 Assert 似乎已足够，因为没有人
+	 * 会在运行时改变它们的参数。我们多少有些随意地
+	 * 强制块大小至少为 1K。我们把最大块大小限制为
+	 * MEMORYCHUNK_MAX_BLOCKOFFSET，因为 MemoryChunk 在
+	 * 于寻址区块与所在块间偏移方面受此限制。如果块
+	 * 比这更大，我们将无法为任何位于块内超出
+	 * MEMORYCHUNK_MAX_BLOCKOFFSET 字节处的区块
+	 * 存储它与块之间的偏移。
+	 *
 	 */
 	Assert(initBlockSize == MAXALIGN(initBlockSize) &&
 		   initBlockSize >= 1024);
 	Assert(maxBlockSize == MAXALIGN(maxBlockSize) &&
 		   maxBlockSize >= initBlockSize &&
-		   AllocHugeSizeIsValid(maxBlockSize)); /* must be safe to double */
+		   AllocHugeSizeIsValid(maxBlockSize)); /* 必须可安全加倍 */
 	Assert(minContextSize == 0 ||
 		   (minContextSize == MAXALIGN(minContextSize) &&
 			minContextSize >= 1024 &&
@@ -380,8 +380,8 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	Assert(maxBlockSize <= MEMORYCHUNK_MAX_BLOCKOFFSET);
 
 	/*
-	 * Check whether the parameters match either available freelist.  We do
-	 * not need to demand a match of maxBlockSize.
+	 * 检查参数是否与某条可用空闲链表匹配。我们不
+	 * 需要求 maxBlockSize 也匹配。
 	 */
 	if (minContextSize == ALLOCSET_DEFAULT_MINSIZE &&
 		initBlockSize == ALLOCSET_DEFAULT_INITSIZE)
@@ -393,7 +393,7 @@ AllocSetContextCreateInternal(MemoryContext parent,
 		freeListIndex = -1;
 
 	/*
-	 * If a suitable freelist entry exists, just recycle that context.
+	 * 若有合适的空闲链表条目，直接回收该上下文。
 	 */
 	if (freeListIndex >= 0)
 	{
@@ -401,15 +401,15 @@ AllocSetContextCreateInternal(MemoryContext parent,
 
 		if (freelist->first_free != NULL)
 		{
-			/* Remove entry from freelist */
+			/* 移出空闲链表条目 */
 			set = freelist->first_free;
 			freelist->first_free = (AllocSet) set->header.nextchild;
 			freelist->num_free--;
 
-			/* Update its maxBlockSize; everything else should be OK */
+			/* 更新其 maxBlockSize；其余应当没问题 */
 			set->maxBlockSize = maxBlockSize;
 
-			/* Reinitialize its header, installing correct name and parent */
+			/* 重初始化其头部，装入正确名称与父上下文 */
 			MemoryContextCreate((MemoryContext) set,
 								T_AllocSetContext,
 								MCTX_ASET_ID,
@@ -423,7 +423,7 @@ AllocSetContextCreateInternal(MemoryContext parent,
 		}
 	}
 
-	/* Determine size of initial block */
+	/* 确定初始块的大小 */
 	firstBlockSize = MAXALIGN(sizeof(AllocSetContext)) +
 		ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
 	if (minContextSize != 0)
@@ -432,8 +432,8 @@ AllocSetContextCreateInternal(MemoryContext parent,
 		firstBlockSize = Max(firstBlockSize, initBlockSize);
 
 	/*
-	 * Allocate the initial block.  Unlike other aset.c blocks, it starts with
-	 * the context header and its block header follows that.
+	 * 分配初始块。与 aset.c 的其他块不同，它以上下文头部
+	 * 开头，其块头部紧随其后。
 	 */
 	set = (AllocSet) malloc(firstBlockSize);
 	if (set == NULL)
@@ -448,11 +448,11 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	}
 
 	/*
-	 * Avoid writing code that can fail between here and MemoryContextCreate;
-	 * we'd leak the header/initial block if we ereport in this stretch.
+	 * 此处与 MemoryContextCreate 之间避免编写会失败的代码；
+	 * 若在此区间内 ereport，我们会泄漏头部/初始块。
 	 */
 
-	/* Fill in the initial block's block header */
+	/* 填写初始块的块头部 */
 	block = (AllocBlock) (((char *) set) + MAXALIGN(sizeof(AllocSetContext)));
 	block->aset = set;
 	block->freeptr = ((char *) block) + ALLOC_BLOCKHDRSZ;
@@ -460,15 +460,15 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	block->prev = NULL;
 	block->next = NULL;
 
-	/* Mark unallocated space NOACCESS; leave the block header alone. */
+	/* 把未分配空间标为 NOACCESS；块头部不动。 */
 	VALGRIND_MAKE_MEM_NOACCESS(block->freeptr, block->endptr - block->freeptr);
 
-	/* Remember block as part of block list */
+	/* 把块记入块列表 */
 	set->blocks = block;
-	/* Mark block as not to be released at reset time */
+	/* 标记此块在重置时不释放 */
 	set->keeper = block;
 
-	/* Finish filling in aset-specific parts of the context header */
+	/* 完成填写上下文头部中 aset 专属的部分 */
 	MemSetAligned(set->freelist, 0, sizeof(set->freelist));
 
 	set->initBlockSize = initBlockSize;
@@ -477,35 +477,35 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	set->freeListIndex = freeListIndex;
 
 	/*
-	 * Compute the allocation chunk size limit for this context.  It can't be
-	 * more than ALLOC_CHUNK_LIMIT because of the fixed number of freelists.
-	 * If maxBlockSize is small then requests exceeding the maxBlockSize, or
-	 * even a significant fraction of it, should be treated as large chunks
-	 * too.  For the typical case of maxBlockSize a power of 2, the chunk size
-	 * limit will be at most 1/8th maxBlockSize, so that given a stream of
-	 * requests that are all the maximum chunk size we will waste at most
-	 * 1/8th of the allocated space.
+	 * 为此上下文算出分配区块大小上限。空闲链表数量
+	 * 固定，它不能超过 ALLOC_CHUNK_LIMIT。若 maxBlockSize
+	 * 较小，那么超过 maxBlockSize 或其相当比例的请求也应
+	 * 按大区块对待。maxBlockSize 为 2 的幂的典型情形下
+	 * 区块大小上限至多为 maxBlockSize 的 1/8，因此面对
+	 * 全部都是最大区块大小的请求流，至多只会浪费
+	 * 已分配空间的
+	 * 1/8。
 	 *
-	 * Also, allocChunkLimit must not exceed ALLOCSET_SEPARATE_THRESHOLD.
+	 * 此外，allocChunkLimit不得超过ALLOCSET_SEPARATE_THRESHOLD。
 	 */
 	StaticAssertStmt(ALLOC_CHUNK_LIMIT == ALLOCSET_SEPARATE_THRESHOLD,
 					 "ALLOC_CHUNK_LIMIT != ALLOCSET_SEPARATE_THRESHOLD");
 
 	/*
-	 * Determine the maximum size that a chunk can be before we allocate an
-	 * entire AllocBlock dedicated for that chunk.  We set the absolute limit
-	 * of that size as ALLOC_CHUNK_LIMIT but we reduce it further so that we
-	 * can fit about ALLOC_CHUNK_FRACTION chunks this size on a maximally
-	 * sized block.  (We opt to keep allocChunkLimit a power-of-2 value
-	 * primarily for legacy reasons rather than calculating it so that exactly
-	 * ALLOC_CHUNK_FRACTION chunks fit on a maximally sized block.)
+	 * 确定区块在被单独分配整个 AllocBlock 之前的最大尺
+	 * 寸。我们把该尺寸的绝对上限设为 ALLOC_CHUNK_LIMIT，
+	 * 但会进一步削减它，使得最大尺寸的块上大约能容纳
+	 * ALLOC_CHUNK_FRACTION 个这种大小的区块。（出于历史
+	 * 原因，我们选择让 allocChunkLimit 保持 2 的幂而非
+	 * 是把它算得正好能让 ALLOC_CHUNK_FRACTION 个区块恰好
+	 * 放进最大的块中。）
 	 */
 	set->allocChunkLimit = ALLOC_CHUNK_LIMIT;
 	while ((Size) (set->allocChunkLimit + ALLOC_CHUNKHDRSZ) >
 		   (Size) ((maxBlockSize - ALLOC_BLOCKHDRSZ) / ALLOC_CHUNK_FRACTION))
 		set->allocChunkLimit >>= 1;
 
-	/* Finally, do the type-independent part of context creation */
+	/* 最后，完成上下文创建中与类型无关的部分 */
 	MemoryContextCreate((MemoryContext) set,
 						T_AllocSetContext,
 						MCTX_ASET_ID,
@@ -519,15 +519,15 @@ AllocSetContextCreateInternal(MemoryContext parent,
 
 /*
  * AllocSetReset
- *		Frees all memory which is allocated in the given set.
+ *		释放给定集合中已分配的全部内存。
  *
- * Actually, this routine has some discretion about what to do.
- * It should mark all allocated chunks freed, but it need not necessarily
- * give back all the resources the set owns.  Our actual implementation is
- * that we give back all but the "keeper" block (which we must keep, since
- * it shares a malloc chunk with the context header).  In this way, we don't
- * thrash malloc() when a context is repeatedly reset after small allocations,
- * which is typical behavior for per-tuple contexts.
+ * 实际上，此例程在做法上有一定余地。
+ * 它应把所有已分配区块标为已释放，但不必交出集合
+ * 拥有的全部资源。我们的实际做法是交出除
+ * "keeper" 块（必须保留，因为它与上下文头部共用一个
+ * malloc 区块）之外的全部资源。这样，当上下文在小量
+ * 分配之后被反复重置时，我们不会反复折腾 malloc()，
+ * 这是每元组上下文的典型行为。
  */
 void
 AllocSetReset(MemoryContext context)
@@ -539,19 +539,19 @@ AllocSetReset(MemoryContext context)
 	Assert(AllocSetIsValid(set));
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* Check for corruption and leaks before freeing */
+	/* 释放前检查损坏与泄漏 */
 	AllocSetCheck(context);
 #endif
 
-	/* Remember keeper block size for Assert below */
+	/* 为下方断言记住保留块大小 */
 	keepersize = set->keeper->endptr - ((char *) set);
 
-	/* Clear chunk freelists */
+	/* 清空空闲链表 */
 	MemSetAligned(set->freelist, 0, sizeof(set->freelist));
 
 	block = set->blocks;
 
-	/* New blocks list will be just the keeper block */
+	/* 新块列表将只含保留块 */
 	set->blocks = set->keeper;
 
 	while (block != NULL)
@@ -560,13 +560,13 @@ AllocSetReset(MemoryContext context)
 
 		if (block == set->keeper)
 		{
-			/* Reset the block, but don't return it to malloc */
+			/* 重置该块，但不交还 malloc */
 			char	   *datastart = ((char *) block) + ALLOC_BLOCKHDRSZ;
 
 #ifdef CLOBBER_FREED_MEMORY
 			wipe_mem(datastart, block->freeptr - datastart);
 #else
-			/* wipe_mem() would have done this */
+			/* wipe_mem() 本会完成此事 */
 			VALGRIND_MAKE_MEM_NOACCESS(datastart, block->freeptr - datastart);
 #endif
 			block->freeptr = datastart;
@@ -575,7 +575,7 @@ AllocSetReset(MemoryContext context)
 		}
 		else
 		{
-			/* Normal case, release the block */
+			/* 常规情形，释放该块 */
 			context->mem_allocated -= block->endptr - ((char *) block);
 
 #ifdef CLOBBER_FREED_MEMORY
@@ -588,16 +588,16 @@ AllocSetReset(MemoryContext context)
 
 	Assert(context->mem_allocated == keepersize);
 
-	/* Reset block size allocation sequence, too */
+	/* 同时重置块大小分配序列 */
 	set->nextBlockSize = set->initBlockSize;
 }
 
 /*
  * AllocSetDelete
- *		Frees all memory which is allocated in the given set,
- *		in preparation for deletion of the set.
+ *		释放给定集合中已分配的全部内存，
+ *		为删除该集合做准备。
  *
- * Unlike AllocSetReset, this *must* free all resources of the set.
+ * 与 AllocSetReset 不同，*必须*释放集合全部资源
  */
 void
 AllocSetDelete(MemoryContext context)
@@ -609,31 +609,31 @@ AllocSetDelete(MemoryContext context)
 	Assert(AllocSetIsValid(set));
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* Check for corruption and leaks before freeing */
+	/* 释放前检查损坏与泄漏 */
 	AllocSetCheck(context);
 #endif
 
-	/* Remember keeper block size for Assert below */
+	/* 为下方断言记住保留块大小 */
 	keepersize = set->keeper->endptr - ((char *) set);
 
 	/*
-	 * If the context is a candidate for a freelist, put it into that freelist
-	 * instead of destroying it.
+	 * 如果该上下文可成为某空闲链表的候选，则把它放入
+	 * 链表而非销毁它。
 	 */
 	if (set->freeListIndex >= 0)
 	{
 		AllocSetFreeList *freelist = &context_freelists[set->freeListIndex];
 
 		/*
-		 * Reset the context, if it needs it, so that we aren't hanging on to
-		 * more than the initial malloc chunk.
+		 * 重置该上下文（如有需要），使我们不再持有超出
+		 * 初始 malloc 区块的内容。
 		 */
 		if (!context->isReset)
 			MemoryContextResetOnly(context);
 
 		/*
-		 * If the freelist is full, just discard what's already in it.  See
-		 * comments with context_freelists[].
+		 * 若空闲链表已满，直接丢弃其中已有条目。参见
+		 * context_freelists[]的注释。
 		 */
 		if (freelist->num_free >= MAX_FREE_CONTEXTS)
 		{
@@ -644,13 +644,13 @@ AllocSetDelete(MemoryContext context)
 				freelist->first_free = (AllocSetContext *) oldset->header.nextchild;
 				freelist->num_free--;
 
-				/* All that remains is to free the header/initial block */
+				/* 剩下的就是释放头部/初始块 */
 				free(oldset);
 			}
 			Assert(freelist->num_free == 0);
 		}
 
-		/* Now add the just-deleted context to the freelist. */
+		/* 把刚删除的上下文加入空闲链表。 */
 		set->header.nextchild = (MemoryContext) freelist->first_free;
 		freelist->first_free = set;
 		freelist->num_free++;
@@ -658,7 +658,7 @@ AllocSetDelete(MemoryContext context)
 		return;
 	}
 
-	/* Free all blocks, except the keeper which is part of context header */
+	/* 释放全部块，作为上下文头部一部分的保留块除外 */
 	while (block != NULL)
 	{
 		AllocBlock	next = block->next;
@@ -678,22 +678,22 @@ AllocSetDelete(MemoryContext context)
 
 	Assert(context->mem_allocated == keepersize);
 
-	/* Finally, free the context header, including the keeper block */
+	/* 最后释放上下文头部，包括保留块 */
 	free(set);
 }
 
 /*
  * AllocSetAlloc
- *		Returns pointer to allocated memory of given size or NULL if
- *		request could not be completed; memory is added to the set.
+ *		返回给定大小的已分配内存指针；若请求无法
+ *		完成则返回 NULL；内存会被加入集合。
  *
- * No request may exceed:
+ * 请求不得超过：
  *		MAXALIGN_DOWN(SIZE_MAX) - ALLOC_BLOCKHDRSZ - ALLOC_CHUNKHDRSZ
- * All callers use a much-lower limit.
+ * 调用者用的上限低得多。
  *
- * Note: when using valgrind, it doesn't matter how the returned allocation
- * is marked, as mcxt.c will set it to UNDEFINED.  In some paths we will
- * return space that is marked NOACCESS - AllocSetRealloc has to beware!
+ * 注意：使用 valgrind 时，返回分配如何标记并不重要，
+ * 因为 mcxt.c 会将其置为 UNDEFINED。有些路径会返回
+ * 标记为 NOACCESS 的空间——AllocSetRealloc 当心！
  */
 void *
 AllocSetAlloc(MemoryContext context, Size size)
@@ -708,13 +708,13 @@ AllocSetAlloc(MemoryContext context, Size size)
 	Assert(AllocSetIsValid(set));
 
 	/*
-	 * If requested size exceeds maximum for chunks, allocate an entire block
-	 * for this request.
+	 * 如果请求的大小超过区块的最大值，则为该请求分配
+	 * 整个块。
 	 */
 	if (size > set->allocChunkLimit)
 	{
 #ifdef MEMORY_CONTEXT_CHECKING
-		/* ensure there's always space for the sentinel byte */
+		/* 确保有哨兵字节的空间 */
 		chunk_size = MAXALIGN(size + 1);
 #else
 		chunk_size = MAXALIGN(size);
@@ -732,23 +732,23 @@ AllocSetAlloc(MemoryContext context, Size size)
 
 		chunk = (MemoryChunk *) (((char *) block) + ALLOC_BLOCKHDRSZ);
 
-		/* mark the MemoryChunk as externally managed */
+		/* 将 MemoryChunk 标记为外部管理 */
 		MemoryChunkSetHdrMaskExternal(chunk, MCTX_ASET_ID);
 
 #ifdef MEMORY_CONTEXT_CHECKING
 		chunk->requested_size = size;
-		/* set mark to catch clobber of "unused" space */
+		/* 设置标记以捕获"未用"空间覆写 */
 		Assert(size < chunk_size);
 		set_sentinel(MemoryChunkGetPointer(chunk), size);
 #endif
 #ifdef RANDOMIZE_ALLOCATED_MEMORY
-		/* fill the allocated space with junk */
+		/* 用垃圾填充已分配空间 */
 		randomize_mem((char *) MemoryChunkGetPointer(chunk), size);
 #endif
 
 		/*
-		 * Stick the new block underneath the active allocation block, if any,
-		 * so that we don't lose the use of the space remaining therein.
+		 * 把新块垫在当前活动分配块（若有）的下面，
+		 * 这样就不会失去其中剩余空间的使用权。
 		 */
 		if (set->blocks != NULL)
 		{
@@ -765,27 +765,27 @@ AllocSetAlloc(MemoryContext context, Size size)
 			set->blocks = block;
 		}
 
-		/* Ensure any padding bytes are marked NOACCESS. */
+		/* 确保填充字节均标为 NOACCESS。 */
 		VALGRIND_MAKE_MEM_NOACCESS((char *) MemoryChunkGetPointer(chunk) + size,
 								   chunk_size - size);
 
-		/* Disallow access to the chunk header. */
+		/* 禁止访问区块头部。 */
 		VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 		return MemoryChunkGetPointer(chunk);
 	}
 
 	/*
-	 * Request is small enough to be treated as a chunk.  Look in the
-	 * corresponding free list to see if there is a free chunk we could reuse.
-	 * If one is found, remove it from the free list, make it again a member
-	 * of the alloc set and return its data address.
+	 * 请求足够小，可按区块对待。在空闲链表里查
+	 * 是否存在可重用的空闲区块。如果找到，就把它从空
+	 * 闲链表中移除，重新使其成为分配集的成员，并返回
+	 * 其数据地址。
 	 *
-	 * Note that we don't attempt to ensure there's space for the sentinel
-	 * byte here.  We expect a large proportion of allocations to be for sizes
-	 * which are already a power of 2.  If we were to always make space for a
-	 * sentinel byte in MEMORY_CONTEXT_CHECKING builds, then we'd end up
-	 * doubling the memory requirements for such allocations.
+	 * 注意，这里不确保哨兵字节的空间。我们预期
+	 * 相当大比例的分配请求本来就是 2 的幂大小。若
+	 * 在 MEMORY_CONTEXT_CHECKING 构建中总留出哨兵字节
+	 * 的空间，那么这类分配的内存需求
+	 * 会翻倍。
 	 */
 	fidx = AllocSetFreeIndex(size);
 	chunk = set->freelist[fidx];
@@ -793,46 +793,46 @@ AllocSetAlloc(MemoryContext context, Size size)
 	{
 		AllocFreeListLink *link = GetFreeListLink(chunk);
 
-		/* Allow access to the chunk header. */
+		/* 允许访问区块头部。 */
 		VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 		Assert(fidx == MemoryChunkGetValue(chunk));
 
-		/* pop this chunk off the freelist */
+		/* 把此区块弹出空闲链表 */
 		VALGRIND_MAKE_MEM_DEFINED(link, sizeof(AllocFreeListLink));
 		set->freelist[fidx] = link->next;
 		VALGRIND_MAKE_MEM_NOACCESS(link, sizeof(AllocFreeListLink));
 
 #ifdef MEMORY_CONTEXT_CHECKING
 		chunk->requested_size = size;
-		/* set mark to catch clobber of "unused" space */
+		/* 设置标记以捕获"未用"空间覆写 */
 		if (size < GetChunkSizeFromFreeListIdx(fidx))
 			set_sentinel(MemoryChunkGetPointer(chunk), size);
 #endif
 #ifdef RANDOMIZE_ALLOCATED_MEMORY
-		/* fill the allocated space with junk */
+		/* 用垃圾填充已分配空间 */
 		randomize_mem((char *) MemoryChunkGetPointer(chunk), size);
 #endif
 
-		/* Ensure any padding bytes are marked NOACCESS. */
+		/* 确保填充字节均标为 NOACCESS。 */
 		VALGRIND_MAKE_MEM_NOACCESS((char *) MemoryChunkGetPointer(chunk) + size,
 								   GetChunkSizeFromFreeListIdx(fidx) - size);
 
-		/* Disallow access to the chunk header. */
+		/* 禁止访问区块头部。 */
 		VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 		return MemoryChunkGetPointer(chunk);
 	}
 
 	/*
-	 * Choose the actual chunk size to allocate.
+	 * 选择要分配的实际区块大小。
 	 */
 	chunk_size = GetChunkSizeFromFreeListIdx(fidx);
 	Assert(chunk_size >= size);
 
 	/*
-	 * If there is enough room in the active allocation block, we will put the
-	 * chunk into that block.  Else must start a new one.
+	 * 如果当前活动分配块中有足够的空间，我们把区块放
+	 * 入该块。否则必须新起一块。
 	 */
 	if ((block = set->blocks) != NULL)
 	{
@@ -841,16 +841,16 @@ AllocSetAlloc(MemoryContext context, Size size)
 		if (availspace < (chunk_size + ALLOC_CHUNKHDRSZ))
 		{
 			/*
-			 * The existing active (top) block does not have enough room for
-			 * the requested allocation, but it might still have a useful
-			 * amount of space in it.  Once we push it down in the block list,
-			 * we'll never try to allocate more space from it. So, before we
-			 * do that, carve up its free space into chunks that we can put on
-			 * the set's freelists.
+			 * 活动（顶层）块放不下本次分配，但仍有
+			 * 可观空间。一旦压入块列表深处，
+			 * 就不会再从它那里分配空间了。在那之前，
+			 * 先把它的空闲空间切成区块，放入
+			 * 集合的
+			 * 空闲链表。
 			 *
-			 * Because we can only get here when there's less than
-			 * ALLOC_CHUNK_LIMIT left in the block, this loop cannot iterate
-			 * more than ALLOCSET_NUM_FREELISTS-1 times.
+			 * 由于只有当块中剩余空间少于
+			 * ALLOC_CHUNK_LIMIT 时，此循环至多迭代
+			 * ALLOCSET_NUM_FREELISTS-1 次。
 			 */
 			while (availspace >= ((1 << ALLOC_MINBITS) + ALLOC_CHUNKHDRSZ))
 			{
@@ -859,9 +859,9 @@ AllocSetAlloc(MemoryContext context, Size size)
 				int			a_fidx = AllocSetFreeIndex(availchunk);
 
 				/*
-				 * In most cases, we'll get back the index of the next larger
-				 * freelist than the one we need to put this chunk on.  The
-				 * exception is when availchunk is exactly a power of 2.
+				 * 多数情况下，我们会得到比所需更大一级的
+				 * 空闲链表索引。例外情形是
+				 * availchunk 恰好为 2 的幂时。
 				 */
 				if (availchunk != GetChunkSizeFromFreeListIdx(a_fidx))
 				{
@@ -872,17 +872,17 @@ AllocSetAlloc(MemoryContext context, Size size)
 
 				chunk = (MemoryChunk *) (block->freeptr);
 
-				/* Prepare to initialize the chunk header. */
+				/* 准备初始化区块头部。 */
 				VALGRIND_MAKE_MEM_UNDEFINED(chunk, ALLOC_CHUNKHDRSZ);
 				block->freeptr += (availchunk + ALLOC_CHUNKHDRSZ);
 				availspace -= (availchunk + ALLOC_CHUNKHDRSZ);
 
-				/* store the freelist index in the value field */
+				/* 空闲链表索引存入 value 字段 */
 				MemoryChunkSetHdrMask(chunk, block, a_fidx, MCTX_ASET_ID);
 #ifdef MEMORY_CONTEXT_CHECKING
-				chunk->requested_size = InvalidAllocSize;	/* mark it free */
+				chunk->requested_size = InvalidAllocSize;	/* 标记为空 */
 #endif
-				/* push this chunk onto the free list */
+				/* 把此区块压入空闲链表 */
 				link = GetFreeListLink(chunk);
 
 				VALGRIND_MAKE_MEM_DEFINED(link, sizeof(AllocFreeListLink));
@@ -891,21 +891,21 @@ AllocSetAlloc(MemoryContext context, Size size)
 
 				set->freelist[a_fidx] = chunk;
 			}
-			/* Mark that we need to create a new block */
+			/* 标记需要创建新块 */
 			block = NULL;
 		}
 	}
 
 	/*
-	 * Time to create a new regular (multi-chunk) block?
+	 * 该创建新的常规（多区块）块了吗？
 	 */
 	if (block == NULL)
 	{
 		Size		required_size;
 
 		/*
-		 * The first such block has size initBlockSize, and we double the
-		 * space in each succeeding block, but not more than maxBlockSize.
+		 * 第一个这种块大小为 initBlockSize，后续每块
+		 * 空间都翻倍，但不超过 maxBlockSize。
 		 */
 		blksize = set->nextBlockSize;
 		set->nextBlockSize <<= 1;
@@ -913,19 +913,19 @@ AllocSetAlloc(MemoryContext context, Size size)
 			set->nextBlockSize = set->maxBlockSize;
 
 		/*
-		 * If initBlockSize is less than ALLOC_CHUNK_LIMIT, we could need more
-		 * space... but try to keep it a power of 2.
+		 * 如果 initBlockSize 小于 ALLOC_CHUNK_LIMIT，可能需
+		 * 要更多空间，但保持 2 的幂。
 		 */
 		required_size = chunk_size + ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
 		while (blksize < required_size)
 			blksize <<= 1;
 
-		/* Try to allocate it */
+		/* 尝试分配它 */
 		block = (AllocBlock) malloc(blksize);
 
 		/*
-		 * We could be asking for pretty big blocks here, so cope if malloc
-		 * fails.  But give up if there's less than 1 MB or so available...
+		 * 请求的块可能相当大，因此要应对 malloc 失败
+		 * 的情况。但若只剩大约 1 MB 或更少，就放弃……
 		 */
 		while (block == NULL && blksize > 1024 * 1024)
 		{
@@ -944,7 +944,7 @@ AllocSetAlloc(MemoryContext context, Size size)
 		block->freeptr = ((char *) block) + ALLOC_BLOCKHDRSZ;
 		block->endptr = ((char *) block) + blksize;
 
-		/* Mark unallocated space NOACCESS. */
+		/* 未分配空间标 NOACCESS。 */
 		VALGRIND_MAKE_MEM_NOACCESS(block->freeptr,
 								   blksize - ALLOC_BLOCKHDRSZ);
 
@@ -956,35 +956,35 @@ AllocSetAlloc(MemoryContext context, Size size)
 	}
 
 	/*
-	 * OK, do the allocation
+	 * 好，执行分配
 	 */
 	chunk = (MemoryChunk *) (block->freeptr);
 
-	/* Prepare to initialize the chunk header. */
+	/* 准备初始化区块头部。 */
 	VALGRIND_MAKE_MEM_UNDEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 	block->freeptr += (chunk_size + ALLOC_CHUNKHDRSZ);
 	Assert(block->freeptr <= block->endptr);
 
-	/* store the free list index in the value field */
+	/* 把空闲链表索引存入值字段 */
 	MemoryChunkSetHdrMask(chunk, block, fidx, MCTX_ASET_ID);
 
 #ifdef MEMORY_CONTEXT_CHECKING
 	chunk->requested_size = size;
-	/* set mark to catch clobber of "unused" space */
+	/* 设置标记以捕获"未用"空间覆写 */
 	if (size < chunk_size)
 		set_sentinel(MemoryChunkGetPointer(chunk), size);
 #endif
 #ifdef RANDOMIZE_ALLOCATED_MEMORY
-	/* fill the allocated space with junk */
+	/* 用垃圾填充已分配空间 */
 	randomize_mem((char *) MemoryChunkGetPointer(chunk), size);
 #endif
 
-	/* Ensure any padding bytes are marked NOACCESS. */
+	/* 确保填充字节均标为 NOACCESS。 */
 	VALGRIND_MAKE_MEM_NOACCESS((char *) MemoryChunkGetPointer(chunk) + size,
 							   chunk_size - size);
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 	return MemoryChunkGetPointer(chunk);
@@ -992,7 +992,7 @@ AllocSetAlloc(MemoryContext context, Size size)
 
 /*
  * AllocSetFree
- *		Frees allocated memory; memory is removed from the set.
+ *		释放已分配内存；内存从集合中移除。
  */
 void
 AllocSetFree(void *pointer)
@@ -1000,17 +1000,17 @@ AllocSetFree(void *pointer)
 	AllocSet	set;
 	MemoryChunk *chunk = PointerGetMemoryChunk(pointer);
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 	if (MemoryChunkIsExternal(chunk))
 	{
-		/* Release single-chunk block. */
+		/* 释放单区块块。 */
 		AllocBlock	block = ExternalChunkGetBlock(chunk);
 
 		/*
-		 * Try to verify that we have a sane block pointer: the block header
-		 * should reference an aset and the freeptr should match the endptr.
+		 * 校验块指针是否正常：块头部应引用一个 aset，
+		 * 且 freeptr 应与 endptr 一致。
 		 */
 		if (!AllocBlockIsValid(block) || block->freeptr != block->endptr)
 			elog(ERROR, "could not find block containing chunk %p", chunk);
@@ -1019,7 +1019,7 @@ AllocSetFree(void *pointer)
 
 #ifdef MEMORY_CONTEXT_CHECKING
 		{
-			/* Test for someone scribbling on unused space in chunk */
+			/* 测试是否有人涂写了区块内未用空间 */
 			Assert(chunk->requested_size < (block->endptr - (char *) pointer));
 			if (!sentinel_ok(pointer, chunk->requested_size))
 				elog(WARNING, "detected write past chunk end in %s %p",
@@ -1027,7 +1027,7 @@ AllocSetFree(void *pointer)
 		}
 #endif
 
-		/* OK, remove block from aset's list and free it */
+		/* 好，把块从 aset 列表移除并释放 */
 		if (block->prev)
 			block->prev->next = block->next;
 		else
@@ -1049,10 +1049,10 @@ AllocSetFree(void *pointer)
 		AllocFreeListLink *link;
 
 		/*
-		 * In this path, for speed reasons we just Assert that the referenced
-		 * block is good.  We can also Assert that the value field is sane.
-		 * Future field experience may show that these Asserts had better
-		 * become regular runtime test-and-elog checks.
+		 * 此路径中出于速度考虑只断言被引用的块是好的。
+		 * 还可断言 value 字段正常。
+		 * 未来实践经验或许会表明，这些断言最好成为
+		 * 常规运行时 test-and-elog 检查。
 		 */
 		Assert(AllocBlockIsValid(block));
 		set = block->aset;
@@ -1062,7 +1062,7 @@ AllocSetFree(void *pointer)
 		link = GetFreeListLink(chunk);
 
 #ifdef MEMORY_CONTEXT_CHECKING
-		/* Test for someone scribbling on unused space in chunk */
+		/* 测试是否有人涂写了区块内未用空间 */
 		if (chunk->requested_size < GetChunkSizeFromFreeListIdx(fidx))
 			if (!sentinel_ok(pointer, chunk->requested_size))
 				elog(WARNING, "detected write past chunk end in %s %p",
@@ -1072,7 +1072,7 @@ AllocSetFree(void *pointer)
 #ifdef CLOBBER_FREED_MEMORY
 		wipe_mem(pointer, GetChunkSizeFromFreeListIdx(fidx));
 #endif
-		/* push this chunk onto the top of the free list */
+		/* 把此区块压入空闲链表顶部 */
 		VALGRIND_MAKE_MEM_DEFINED(link, sizeof(AllocFreeListLink));
 		link->next = set->freelist[fidx];
 		VALGRIND_MAKE_MEM_NOACCESS(link, sizeof(AllocFreeListLink));
@@ -1081,7 +1081,7 @@ AllocSetFree(void *pointer)
 #ifdef MEMORY_CONTEXT_CHECKING
 
 		/*
-		 * Reset requested_size to InvalidAllocSize in chunks that are on free
+		 * 把空闲链表区块 requested_size 重置为 InvalidAllocSize。
 		 * list.
 		 */
 		chunk->requested_size = InvalidAllocSize;
@@ -1091,15 +1091,15 @@ AllocSetFree(void *pointer)
 
 /*
  * AllocSetRealloc
- *		Returns new pointer to allocated memory of given size or NULL if
- *		request could not be completed; this memory is added to the set.
- *		Memory associated with given pointer is copied into the new memory,
- *		and the old memory is freed.
+ *		返回给定大小的已分配内存新指针；若请求无法
+ *		完成则返回 NULL；该内存会被加入集合。
+ *		与给定指针关联的内存会被复制到新内存中，
+ *		旧内存则被释放。
  *
- * Without MEMORY_CONTEXT_CHECKING, we don't know the old request size.  This
- * makes our Valgrind client requests less-precise, hazarding false negatives.
- * (In principle, we could use VALGRIND_GET_VBITS() to rediscover the old
- * request size.)
+ * 没有 MEMORY_CONTEXT_CHECKING 时，我们不知道
+ * 旧请求的大小，使 Valgrind 客户端请求不够精确，
+ * 可能造成假阴性。（原则上可用 VALGRIND_GET_VBITS()
+ * 找回。）
  */
 void *
 AllocSetRealloc(void *pointer, Size size)
@@ -1110,15 +1110,15 @@ AllocSetRealloc(void *pointer, Size size)
 	Size		oldchksize;
 	int			fidx;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 	if (MemoryChunkIsExternal(chunk))
 	{
 		/*
-		 * The chunk must have been allocated as a single-chunk block.  Use
-		 * realloc() to make the containing block bigger, or smaller, with
-		 * minimum space wastage.
+		 * 该区块必是作为单区块块分配的，用 realloc() 扩
+		 * 大或缩小包含它的块，
+		 * 尽量省空间。
 		 */
 		Size		chksize;
 		Size		blksize;
@@ -1127,8 +1127,8 @@ AllocSetRealloc(void *pointer, Size size)
 		block = ExternalChunkGetBlock(chunk);
 
 		/*
-		 * Try to verify that we have a sane block pointer: the block header
-		 * should reference an aset and the freeptr should match the endptr.
+		 * 校验块指针是否正常：块头部应引用一个 aset，
+		 * 且 freeptr 应与 endptr 一致。
 		 */
 		if (!AllocBlockIsValid(block) || block->freeptr != block->endptr)
 			elog(ERROR, "could not find block containing chunk %p", chunk);
@@ -1138,7 +1138,7 @@ AllocSetRealloc(void *pointer, Size size)
 		oldchksize = block->endptr - (char *) pointer;
 
 #ifdef MEMORY_CONTEXT_CHECKING
-		/* Test for someone scribbling on unused space in chunk */
+		/* 测试是否有人涂写了区块内未用空间 */
 		Assert(chunk->requested_size < oldchksize);
 		if (!sentinel_ok(pointer, chunk->requested_size))
 			elog(WARNING, "detected write past chunk end in %s %p",
@@ -1146,31 +1146,31 @@ AllocSetRealloc(void *pointer, Size size)
 #endif
 
 #ifdef MEMORY_CONTEXT_CHECKING
-		/* ensure there's always space for the sentinel byte */
+		/* 确保有哨兵字节的空间 */
 		chksize = MAXALIGN(size + 1);
 #else
 		chksize = MAXALIGN(size);
 #endif
 
-		/* Do the realloc */
+		/* 做 realloc */
 		blksize = chksize + ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
 		oldblksize = block->endptr - ((char *) block);
 
 		block = (AllocBlock) realloc(block, blksize);
 		if (block == NULL)
 		{
-			/* Disallow access to the chunk header. */
+			/* 禁止访问区块头部。 */
 			VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 			return NULL;
 		}
 
-		/* updated separately, not to underflow when (oldblksize > blksize) */
+		/* 单独更新，以免 (oldblksize > blksize) 时下溢 */
 		set->header.mem_allocated -= oldblksize;
 		set->header.mem_allocated += blksize;
 
 		block->freeptr = block->endptr = ((char *) block) + blksize;
 
-		/* Update pointers since block has likely been moved */
+		/* 块可能已被移动，更新各指针 */
 		chunk = (MemoryChunk *) (((char *) block) + ALLOC_BLOCKHDRSZ);
 		pointer = MemoryChunkGetPointer(chunk);
 		if (block->prev)
@@ -1184,8 +1184,8 @@ AllocSetRealloc(void *pointer, Size size)
 #ifdef RANDOMIZE_ALLOCATED_MEMORY
 
 		/*
-		 * We can only randomize the extra space if we know the prior request.
-		 * When using Valgrind, randomize_mem() also marks memory UNDEFINED.
+		 * 只有知道先前请求时才能随机化额外空间。使用
+		 * Valgrind 时，randomize_mem() 还会把内存标为 UNDEFINED
 		 */
 		if (size > chunk->requested_size)
 			randomize_mem((char *) pointer + chunk->requested_size,
@@ -1193,12 +1193,12 @@ AllocSetRealloc(void *pointer, Size size)
 #else
 
 		/*
-		 * If this is an increase, realloc() will have marked any
-		 * newly-allocated part (from oldchksize to chksize) UNDEFINED, but we
-		 * also need to adjust trailing bytes from the old allocation (from
-		 * chunk->requested_size to oldchksize) as they are marked NOACCESS.
-		 * Make sure not to mark too many bytes in case chunk->requested_size
-		 * < size < oldchksize.
+		 * 若为扩大，realloc() 会把新分配部分（从
+		 * oldchksize 到 chksize）标为 UNDEFINED，但我们还需
+		 * 要调整旧分配的尾部字节（从 chunk->requested_size
+		 * 到 oldchksize），因为它们被标为 NOACCESS。
+		 * 务必不要标记过多字节，以防 chunk->requested_size <
+		 * size < oldchksize。
 		 */
 #ifdef USE_VALGRIND
 		if (Min(size, oldchksize) > chunk->requested_size)
@@ -1208,26 +1208,26 @@ AllocSetRealloc(void *pointer, Size size)
 #endif
 
 		chunk->requested_size = size;
-		/* set mark to catch clobber of "unused" space */
+		/* 设置标记以捕获"未用"空间覆写 */
 		Assert(size < chksize);
 		set_sentinel(pointer, size);
 #else							/* !MEMORY_CONTEXT_CHECKING */
 
 		/*
-		 * We may need to adjust marking of bytes from the old allocation as
-		 * some of them may be marked NOACCESS.  We don't know how much of the
-		 * old chunk size was the requested size; it could have been as small
-		 * as one byte.  We have to be conservative and just mark the entire
-		 * old portion DEFINED.  Make sure not to mark memory beyond the new
-		 * allocation in case it's smaller than the old one.
+		 * 可能需要调整旧分配字节的标记，因为其中一些
+		 * 可能已被标为 NOACCESS。我们不知道旧区块大小中
+		 * 有多少是请求大小；它可能小至 1 字节。我们必须
+		 * 保守行事，把整个旧部分都标为 DEFINED。
+		 * 务必不要标记超出新分配的内存，
+		 * 以防它小于旧的分配。
 		 */
 		VALGRIND_MAKE_MEM_DEFINED(pointer, Min(size, oldchksize));
 #endif
 
-		/* Ensure any padding bytes are marked NOACCESS. */
+		/* 确保填充字节均标为 NOACCESS。 */
 		VALGRIND_MAKE_MEM_NOACCESS((char *) pointer + size, chksize - size);
 
-		/* Disallow access to the chunk header . */
+		/* 禁止访问区块头部。 */
 		VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 		return pointer;
@@ -1236,10 +1236,10 @@ AllocSetRealloc(void *pointer, Size size)
 	block = MemoryChunkGetBlock(chunk);
 
 	/*
-	 * In this path, for speed reasons we just Assert that the referenced
-	 * block is good. We can also Assert that the value field is sane. Future
-	 * field experience may show that these Asserts had better become regular
-	 * runtime test-and-elog checks.
+	 * 此路径中出于速度考虑只断言被引用的块是好的。
+	 * 还可断言 value 字段正常。
+	 * 未来实践经验或许会表明，这些断言最好变成常规的
+	 * test-and-elog 检查。
 	 */
 	Assert(AllocBlockIsValid(block));
 	set = block->aset;
@@ -1249,7 +1249,7 @@ AllocSetRealloc(void *pointer, Size size)
 	oldchksize = GetChunkSizeFromFreeListIdx(fidx);
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* Test for someone scribbling on unused space in chunk */
+	/* 测试是否有人涂写了区块内未用空间 */
 	if (chunk->requested_size < oldchksize)
 		if (!sentinel_ok(pointer, chunk->requested_size))
 			elog(WARNING, "detected write past chunk end in %s %p",
@@ -1257,9 +1257,9 @@ AllocSetRealloc(void *pointer, Size size)
 #endif
 
 	/*
-	 * Chunk sizes are aligned to power of 2 in AllocSetAlloc().  Maybe the
-	 * allocated area already is >= the new size.  (In particular, we will
-	 * fall out here if the requested size is a decrease.)
+	 * AllocSetAlloc() 中区块大小按 2 的幂对齐。已分配的
+	 * 区域可能已 >= 新大小。（尤其是当
+	 * 请求为缩小时，我们会从此处跳出。）
 	 */
 	if (oldchksize >= size)
 	{
@@ -1267,7 +1267,7 @@ AllocSetRealloc(void *pointer, Size size)
 		Size		oldrequest = chunk->requested_size;
 
 #ifdef RANDOMIZE_ALLOCATED_MEMORY
-		/* We can only fill the extra space if we know the prior request */
+		/* 只有知道先前请求时才能填充额外空间 */
 		if (size > oldrequest)
 			randomize_mem((char *) pointer + oldrequest,
 						  size - oldrequest);
@@ -1276,8 +1276,8 @@ AllocSetRealloc(void *pointer, Size size)
 		chunk->requested_size = size;
 
 		/*
-		 * If this is an increase, mark any newly-available part UNDEFINED.
-		 * Otherwise, mark the obsolete part NOACCESS.
+		 * 如果是扩大，把任何新可用的部分标为 UNDEFINED。
+		 * 否则把过时的部分标为 NOACCESS。
 		 */
 		if (size > oldrequest)
 			VALGRIND_MAKE_MEM_UNDEFINED((char *) pointer + oldrequest,
@@ -1286,21 +1286,21 @@ AllocSetRealloc(void *pointer, Size size)
 			VALGRIND_MAKE_MEM_NOACCESS((char *) pointer + size,
 									   oldchksize - size);
 
-		/* set mark to catch clobber of "unused" space */
+		/* 设置标记以捕获"未用"空间覆写 */
 		if (size < oldchksize)
 			set_sentinel(pointer, size);
 #else							/* !MEMORY_CONTEXT_CHECKING */
 
 		/*
-		 * We don't have the information to determine whether we're growing
-		 * the old request or shrinking it, so we conservatively mark the
-		 * entire new allocation DEFINED.
+		 * 我们没有信息判断是在扩大
+		 * 还是缩小旧请求，因此保守地把整个
+		 * 新分配标为 DEFINED。
 		 */
 		VALGRIND_MAKE_MEM_NOACCESS(pointer, oldchksize);
 		VALGRIND_MAKE_MEM_DEFINED(pointer, size);
 #endif
 
-		/* Disallow access to the chunk header. */
+		/* 禁止访问区块头部。 */
 		VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 		return pointer;
@@ -1308,37 +1308,37 @@ AllocSetRealloc(void *pointer, Size size)
 	else
 	{
 		/*
-		 * Enlarge-a-small-chunk case.  We just do this by brute force, ie,
-		 * allocate a new chunk and copy the data.  Since we know the existing
-		 * data isn't huge, this won't involve any great memcpy expense, so
-		 * it's not worth being smarter.  (At one time we tried to avoid
-		 * memcpy when it was possible to enlarge the chunk in-place, but that
-		 * turns out to misbehave unpleasantly for repeated cycles of
-		 * palloc/repalloc/pfree: the eventually freed chunks go into the
-		 * wrong freelist for the next initial palloc request, and so we leak
-		 * memory indefinitely.  See pgsql-hackers archives for 2007-08-11.)
+		 * 扩大小区块的情形。我们直接用蛮力，即分配
+		 * 一个新区块并复制数据。由于已知现有数据不会很
+		 * 大，这不会带来多大 memcpy 开销，不值得做得更
+		 * 聪明。（我们一度尝试在能原地扩大时避免
+		 * memcpy，但结果是在反复的 palloc/repalloc/pfree 循环
+		 * 中表现极糟：最终被释放的区块会落到
+		 * 错误的空闲链表，满足不了下一个初始 palloc
+		 * 请求，于是无限期泄漏内存。参见 pgsql-hackers
+		 * 邮件列表 2007-08-11 的归档。）
 		 */
 		AllocPointer newPointer;
 		Size		oldsize;
 
-		/* allocate new chunk */
+		/* 分配新区块 */
 		newPointer = AllocSetAlloc((MemoryContext) set, size);
 
-		/* leave immediately if request was not completed */
+		/* 若请求未完成则立即返回 */
 		if (newPointer == NULL)
 		{
-			/* Disallow access to the chunk header. */
+			/* 禁止访问区块头部。 */
 			VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 			return NULL;
 		}
 
 		/*
-		 * AllocSetAlloc() may have returned a region that is still NOACCESS.
-		 * Change it to UNDEFINED for the moment; memcpy() will then transfer
-		 * definedness from the old allocation to the new.  If we know the old
-		 * allocation, copy just that much.  Otherwise, make the entire old
-		 * chunk defined to avoid errors as we copy the currently-NOACCESS
-		 * trailing bytes.
+		 * AllocSetAlloc() 可能返回仍处于 NOACCESS 状态的区域。
+		 * 暂时改为 UNDEFINED；随后 memcpy() 会把旧分配的
+		 * 已定义状态转移到新分配上。若知道旧的分配，
+		 * 只复制那么多；否则把旧区块整体置为已定义，
+		 * 以避免复制当前 NOACCESS 尾部字节
+		 * 时出错。
 		 */
 		VALGRIND_MAKE_MEM_UNDEFINED(newPointer, size);
 #ifdef MEMORY_CONTEXT_CHECKING
@@ -1348,10 +1348,10 @@ AllocSetRealloc(void *pointer, Size size)
 		VALGRIND_MAKE_MEM_DEFINED(pointer, oldsize);
 #endif
 
-		/* transfer existing data (certain to fit) */
+		/* 转移现有数据（必放得下） */
 		memcpy(newPointer, pointer, oldsize);
 
-		/* free old chunk */
+		/* 释放旧块 */
 		AllocSetFree(pointer);
 
 		return newPointer;
@@ -1360,7 +1360,7 @@ AllocSetRealloc(void *pointer, Size size)
 
 /*
  * AllocSetGetChunkContext
- *		Return the MemoryContext that 'pointer' belongs to.
+ *		返回 'pointer' 所属的内存上下文。
  */
 MemoryContext
 AllocSetGetChunkContext(void *pointer)
@@ -1369,7 +1369,7 @@ AllocSetGetChunkContext(void *pointer)
 	AllocBlock	block;
 	AllocSet	set;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 	if (MemoryChunkIsExternal(chunk))
@@ -1377,7 +1377,7 @@ AllocSetGetChunkContext(void *pointer)
 	else
 		block = (AllocBlock) MemoryChunkGetBlock(chunk);
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 	Assert(AllocBlockIsValid(block));
@@ -1388,8 +1388,8 @@ AllocSetGetChunkContext(void *pointer)
 
 /*
  * AllocSetGetChunkSpace
- *		Given a currently-allocated chunk, determine the total space
- *		it occupies (including all memory-allocation overhead).
+ *		给定当前已分配的区块，确定其占用的总空间
+ *		（包括所有内存分配开销）。
  */
 Size
 AllocSetGetChunkSpace(void *pointer)
@@ -1397,14 +1397,14 @@ AllocSetGetChunkSpace(void *pointer)
 	MemoryChunk *chunk = PointerGetMemoryChunk(pointer);
 	int			fidx;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 	if (MemoryChunkIsExternal(chunk))
 	{
 		AllocBlock	block = ExternalChunkGetBlock(chunk);
 
-		/* Disallow access to the chunk header. */
+		/* 禁止访问区块头部。 */
 		VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 		Assert(AllocBlockIsValid(block));
@@ -1415,7 +1415,7 @@ AllocSetGetChunkSpace(void *pointer)
 	fidx = MemoryChunkGetValue(chunk);
 	Assert(FreeListIdxIsValid(fidx));
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 
 	return GetChunkSizeFromFreeListIdx(fidx) + ALLOC_CHUNKHDRSZ;
@@ -1423,7 +1423,7 @@ AllocSetGetChunkSpace(void *pointer)
 
 /*
  * AllocSetIsEmpty
- *		Is an allocset empty of any allocated space?
+ *		分配集是否没有已分配空间？
  */
 bool
 AllocSetIsEmpty(MemoryContext context)
@@ -1431,10 +1431,10 @@ AllocSetIsEmpty(MemoryContext context)
 	Assert(AllocSetIsValid(context));
 
 	/*
-	 * For now, we say "empty" only if the context is new or just reset. We
-	 * could examine the freelists to determine if all space has been freed,
-	 * but it's not really worth the trouble for present uses of this
-	 * functionality.
+	 * 目前只有当上下文是新的或刚重置过时才说它
+	 * 为"空"。我们可以检查各空闲链表来确定所有空间
+	 * 是否都已释放，但就现有用途而言不值得
+	 * 麻烦。
 	 */
 	if (context->isReset)
 		return true;
@@ -1443,12 +1443,12 @@ AllocSetIsEmpty(MemoryContext context)
 
 /*
  * AllocSetStats
- *		Compute stats about memory consumption of an allocset.
+ *		计算一个分配集的内存消耗统计。
  *
- * printfunc: if not NULL, pass a human-readable stats string to this.
- * passthru: pass this pointer through to printfunc.
- * totals: if not NULL, add stats about this context into *totals.
- * print_to_stderr: print stats to stderr if true, elog otherwise.
+ * printfunc：若非 NULL，则把可读统计字符串传给它。
+ * passthru：把此指针透传给 printfunc。
+ * totals：非 NULL 时把此上下文统计加进 *totals。
+ * print_to_stderr：为真时打印到 stderr，否则 elog。
  */
 void
 AllocSetStats(MemoryContext context,
@@ -1465,7 +1465,7 @@ AllocSetStats(MemoryContext context,
 
 	Assert(AllocSetIsValid(set));
 
-	/* Include context header in totalspace */
+	/* 上下文头部计入 totalspace */
 	totalspace = MAXALIGN(sizeof(AllocSetContext));
 
 	for (block = set->blocks; block != NULL; block = block->next)
@@ -1483,7 +1483,7 @@ AllocSetStats(MemoryContext context,
 		{
 			AllocFreeListLink *link = GetFreeListLink(chunk);
 
-			/* Allow access to the chunk header. */
+			/* 允许访问区块头部。 */
 			VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 			Assert(MemoryChunkGetValue(chunk) == fidx);
 			VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
@@ -1522,11 +1522,11 @@ AllocSetStats(MemoryContext context,
 
 /*
  * AllocSetCheck
- *		Walk through chunks and check consistency of memory.
+ *		遍历各区块并检查内存的一致性。
  *
- * NOTE: report errors as WARNING, *not* ERROR or FATAL.  Otherwise you'll
- * find yourself in an infinite loop when trouble occurs, because this
- * routine will be entered again when elog cleanup tries to release memory!
+ * 注意：以 WARNING 而非 ERROR 或 FATAL 报告错误。否则
+ * 出问题时会陷入无限循环，因为 elog 清理要释放
+ * 内存时会再次进入此例程！
  */
 void
 AllocSetCheck(MemoryContext context)
@@ -1553,7 +1553,7 @@ AllocSetCheck(MemoryContext context)
 			total_allocated += block->endptr - ((char *) block);
 
 		/*
-		 * Empty block - empty can be keeper-block only
+		 * 空块 —— 空的只能是保留块
 		 */
 		if (!blk_used)
 		{
@@ -1563,7 +1563,7 @@ AllocSetCheck(MemoryContext context)
 		}
 
 		/*
-		 * Check block header fields
+		 * 检查块头部字段
 		 */
 		if (block->aset != set ||
 			block->prev != prevblock ||
@@ -1573,7 +1573,7 @@ AllocSetCheck(MemoryContext context)
 				 name, block);
 
 		/*
-		 * Chunk walker
+		 * 区块遍历
 		 */
 		while (bpoz < block->freeptr)
 		{
@@ -1581,15 +1581,15 @@ AllocSetCheck(MemoryContext context)
 			Size		chsize,
 						dsize;
 
-			/* Allow access to the chunk header. */
+			/* 允许访问区块头部。 */
 			VALGRIND_MAKE_MEM_DEFINED(chunk, ALLOC_CHUNKHDRSZ);
 
 			if (MemoryChunkIsExternal(chunk))
 			{
-				chsize = block->endptr - (char *) MemoryChunkGetPointer(chunk); /* aligned chunk size */
+				chsize = block->endptr - (char *) MemoryChunkGetPointer(chunk); /* 对齐区块大小 */
 				has_external_chunk = true;
 
-				/* make sure this chunk consumes the entire block */
+				/* 确保此区块占用整个块 */
 				if (chsize + ALLOC_CHUNKHDRSZ != blk_used)
 					elog(WARNING, "problem in alloc set %s: bad single-chunk %p in block %p",
 						 name, chunk, block);
@@ -1602,37 +1602,37 @@ AllocSetCheck(MemoryContext context)
 					elog(WARNING, "problem in alloc set %s: bad chunk size for chunk %p in block %p",
 						 name, chunk, block);
 
-				chsize = GetChunkSizeFromFreeListIdx(fidx); /* aligned chunk size */
+				chsize = GetChunkSizeFromFreeListIdx(fidx); /* 对齐区块大小 */
 
 				/*
-				 * Check the stored block offset correctly references this
-				 * block.
+				 * 检查所存块偏移是否正确引用此
+				 * 块。
 				 */
 				if (block != MemoryChunkGetBlock(chunk))
 					elog(WARNING, "problem in alloc set %s: bad block offset for chunk %p in block %p",
 						 name, chunk, block);
 			}
-			dsize = chunk->requested_size;	/* real data */
+			dsize = chunk->requested_size;	/* 真数据 */
 
-			/* an allocated chunk's requested size must be <= the chsize */
+			/* 已分配区块的 requested_size 必须 <= chsize */
 			if (dsize != InvalidAllocSize && dsize > chsize)
 				elog(WARNING, "problem in alloc set %s: req size > alloc size for chunk %p in block %p",
 					 name, chunk, block);
 
-			/* chsize must not be smaller than the first freelist's size */
+			/* chsize 不得小于第一条空闲链表的大小 */
 			if (chsize < (1 << ALLOC_MINBITS))
 				elog(WARNING, "problem in alloc set %s: bad size %zu for chunk %p in block %p",
 					 name, chsize, chunk, block);
 
 			/*
-			 * Check for overwrite of padding space in an allocated chunk.
+			 * 检查已分配区块的填充空间是否被覆写。
 			 */
 			if (dsize != InvalidAllocSize && dsize < chsize &&
 				!sentinel_ok(chunk, ALLOC_CHUNKHDRSZ + dsize))
 				elog(WARNING, "problem in alloc set %s: detected write past chunk end in block %p, chunk %p",
 					 name, block, chunk);
 
-			/* if chunk is allocated, disallow access to the chunk header */
+			/* 若区块已分配，禁止访问区块头部 */
 			if (dsize != InvalidAllocSize)
 				VALGRIND_MAKE_MEM_NOACCESS(chunk, ALLOC_CHUNKHDRSZ);
 

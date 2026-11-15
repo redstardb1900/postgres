@@ -6606,6 +6606,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0388-mmgr-core.json",
    "kind": "manifest",
    "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/aset.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0389"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/slab.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0389"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0389-mmgr-aset-slab.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
   }
  ],
  "files": [
@@ -21484,6 +21499,40 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0388-mmgr-core.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/backend/utils/mmgr/aset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 192,
+   "translated": 189,
+   "preserved": 3,
+   "preserved_reasons": [
+    "blocks @1214/@1292 single-line '/* !MEMORY_CONTEXT_CHECKING */' and @1657 '/* MEMORY_CONTEXT_CHECKING */' (#endif labels): pure macro identifiers, nothing translatable; kept EN, W7_UNTRANSLATED advisory accepted (memdebug.c 0388 precedent)"
+   ],
+   "note": "comment-aware blocks 192 (189 translated + 3 preserved); content lines 454: 423 rewritten zh, 31 kept EN (head 3/10-11/13-14 filename/copyright/IDENTIFICATION/path, L7 EN tail 'type.' subsumed by prior zh sentence, L16 NOTE: label, L25 Jan Wieck author line, 18 function-name lines, L338 EN tail 'AllocSetContextCreate.', L1085 EN tail 'list.' subsumed, 3 #endif labels); gates: verify rc=0 (13 W7 advisories), term_lint 0 in-scope hits (P32 archive->归档 fixed), halfen delta vs HEAD = 0"
+  },
+  {
+   "path": "src/backend/utils/mmgr/slab.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 133,
+   "translated": 132,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block @1097 single-line '/* MEMORY_CONTEXT_CHECKING */' (#endif label): pure macro identifier, nothing translatable; kept EN, W7_UNTRANSLATED advisory accepted"
+   ],
+   "note": "comment-aware blocks 133 (132 translated + 1 preserved); content lines 300: 273 rewritten zh, 27 kept EN (head 3/11/13-14, L17 NOTE: label, L48 EN tail 'address.' subsumed by prior zh sentence, 20 function-name lines, L1097 #endif label); multi-line trailing comments (L111-121) translated as split zh with closing */ on continuation lines; gates: verify rc=0, term_lint 0 in-scope hits, halfen delta vs HEAD = 0 (kept-EN tail at L787 translated out in fix round)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0389-mmgr-aset-slab.json",
    "kind": "manifest",
    "action": "add",
    "segments_total": 0,

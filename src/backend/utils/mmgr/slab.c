@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * slab.c
- *	  SLAB allocator definitions.
+ *	  SLAB 分配器定义。
  *
- * SLAB is a MemoryContext implementation designed for cases where large
- * numbers of equally-sized objects can be allocated and freed efficiently
- * with minimal memory wastage and fragmentation.
+ * SLAB 是一种内存上下文实现，适用于需要高效分配
+ * 和释放大量等大小对象、浪费与碎片化极少
+ * 的场合。
  *
  *
  * Portions Copyright (c) 2017-2023, PostgreSQL Global Development Group
@@ -15,53 +15,53 @@
  *
  *
  * NOTE:
- *	The constant allocation size allows significant simplification and various
- *	optimizations over more general purpose allocators. The blocks are carved
- *	into chunks of exactly the right size, wasting only the space required to
- *	MAXALIGN the allocated chunks.
+ *	固定的分配大小使得我们能够进行大量简化，
+ *	相对于更通用的分配器还有种种优化。块被划分成
+ *	大小正好的区块，只浪费对已分配区块进行 MAXALIGN
+ *	所需的空间。
  *
- *	Slab can also help reduce memory fragmentation in cases where longer-lived
- *	chunks remain stored on blocks while most of the other chunks have already
- *	been pfree'd.  We give priority to putting new allocations into the
- *	"fullest" block.  This help avoid having too many sparsely used blocks
- *	around and allows blocks to more easily become completely unused which
- *	allows them to be eventually free'd.
+ *	SLAB 还有助于减少内存碎片，情形是：较长寿命的区块
+ *	仍存储在块上而其他大多数区块已被 pfree。我们会
+ *	优先把新的分配放入"最满"的块。这有助于避免周
+ *	围存在过多稀疏使用的块，并让块更容易变得完全
+ *	未用。
+ *	从而它们最终能被 free。
  *
- *	We identify the "fullest" block to put new allocations on by using a block
- *	from the lowest populated element of the context's "blocklist" array.
- *	This is an array of dlists containing blocks which we partition by the
- *	number of free chunks which block has.  Blocks with fewer free chunks are
- *	stored in a lower indexed dlist array slot.  Full blocks go on the 0th
- *	element of the blocklist array.  So that we don't have to have too many
- *	elements in the array, each dlist in the array is responsible for a range
- *	of free chunks.  When a chunk is palloc'd or pfree'd we may need to move
- *	the block onto another dlist if the number of free chunks crosses the
- *	range boundary that the current list is responsible for.  Having just a
- *	few blocklist elements reduces the number of times we must move the block
- *	onto another dlist element.
+ *	我们通过从上下文"blocklist"数组中索引最低的
+ *	非空元素里取块来确定"最满"的块。
+ *	这是一个 dlist 数组，按块所含的空闲区块数划分。
+ *	含空闲区块较少的块存放在
+ *	dlist 数组中索引较低的槽位。全满的块放在第 0 个
+ *	blocklist 数组元素上。为了让数组元素不致过多，
+ *	数组中的每条 dlist 负责一个空闲区块数范围。
+ *	当区块被 palloc 或 pfree 时，如果空闲区块数
+ *	越过了当前链表负责的范围边界，就可能需要把块
+ *	移到另一条 dlist 上。数组元素只有少数几个，
+ *	这减少了必须把块移到另一 dlist 元素的
+ *	次数。
  *
- *	We keep track of free chunks within each block by using a block-level free
- *	list.  We consult this list when we allocate a new chunk in the block.
- *	The free list is a linked list, the head of which is pointed to with
- *	SlabBlock's freehead field.  Each subsequent list item is stored in the
- *	free chunk's memory.  We ensure chunks are large enough to store this
+ *	我们用块级的空闲链表来跟踪每个块内的空闲区块。
+ *	在该块中分配新区块时会查询此链表。空闲链表
+ *	是一条链表，其头部由
+ *	SlabBlock 的 freehead 字段指向。每个后续列表项存于
+ *	空闲区块内存中。我们确保区块大到足以存下地址。
  *	address.
  *
- *	When we allocate a new block, technically all chunks are free, however, to
- *	avoid having to write out the entire block to set the linked list for the
- *	free chunks for every chunk in the block, we instead store a pointer to
- *	the next "unused" chunk on the block and keep track of how many of these
- *	unused chunks there are.  When a new block is malloc'd, all chunks are
- *	unused.  The unused pointer starts with the first chunk on the block and
- *	as chunks are allocated, the unused pointer is incremented.  As chunks are
- *	pfree'd, the unused pointer never goes backwards.  The unused pointer can
- *	be thought of as a high watermark for the maximum number of chunks in the
- *	block which have been in use concurrently.  When a chunk is pfree'd the
- *	chunk is put onto the head of the free list and the unused pointer is not
- *	changed.  We only consume more unused chunks if we run out of free chunks
- *	on the free list.  This method effectively gives priority to using
- *	previously used chunks over previously unused chunks, which should perform
- *	better due to CPU caching effects.
+ *	当我们分配一个新块时，严格说所有区块都是空闲的，
+ *	但为了避免把整个块写出来以设置链表，我们改为存
+ *	储指向块上下一个"未用"区块的指针，并跟踪这类未
+ *	用区块的数量。
+ *	新块被 malloc 出来时，所有区块都未
+ *	用。未用指针从块上第一个区块开始，随着区块分配，
+ *	未用指针随之递增。区块被 pfree 时，未用指针绝不
+ *	后退。未用指针可视为块上曾并发使用的最大区块数
+ *	的高水位标记。
+ *	区块被 pfree 时，区块被放到空闲链表
+ *	头部，未用指针保持不变。只有当链表上空闲区块耗
+ *	尽时我们才会消耗更多未用区块。
+ *	这种方法实际上优先使用先前用过的区块，
+ *	而非先前未用的区块，由于 CPU 缓存效应，这应当
+ *	有更好的表现。
  *
  *-------------------------------------------------------------------------
  */
@@ -78,9 +78,9 @@
 
 #ifdef MEMORY_CONTEXT_CHECKING
 /*
- * Size of the memory required to store the SlabContext.
- * MEMORY_CONTEXT_CHECKING builds need some extra memory for the isChunkFree
- * array.
+ * 存储 SlabContext 所需内存的大小。
+ * MEMORY_CONTEXT_CHECKING 构建需额外内存存 isChunkFree 数
+ * 组。
  */
 #define Slab_CONTEXT_HDRSZ(chunksPerBlock)	\
 	(sizeof(SlabContext) + ((chunksPerBlock) * sizeof(bool)))
@@ -89,68 +89,68 @@
 #endif
 
 /*
- * The number of partitions to divide the blocklist into based their number of
- * free chunks.  There must be at least 2.
+ * 按空闲区块数把 blocklist 划分成的分区数。必须至
+ * 少为 2。
  */
 #define SLAB_BLOCKLIST_COUNT 3
 
-/* The maximum number of completely empty blocks to keep around for reuse. */
+/* 为重用而保留的完全空块的最大数量。 */
 #define SLAB_MAXIMUM_EMPTY_BLOCKS 10
 
 /*
- * SlabContext is a specialized implementation of MemoryContext.
+ * SlabContext 是 MemoryContext 的一个专用实现。
  */
 typedef struct SlabContext
 {
-	MemoryContextData header;	/* Standard memory-context fields */
-	/* Allocation parameters for this context: */
-	Size		chunkSize;		/* the requested (non-aligned) chunk size */
-	Size		fullChunkSize;	/* chunk size with chunk header and alignment */
-	Size		blockSize;		/* the size to make each block of chunks */
-	int32		chunksPerBlock; /* number of chunks that fit in 1 block */
-	int32		curBlocklistIndex;	/* index into the blocklist[] element
-									 * containing the fullest, blocks */
+	MemoryContextData header;	/* 标准内存上下文字段 */
+	/* 本上下文的分配参数： */
+	Size		chunkSize;		/* 请求（未对齐）区块大小 */
+	Size		fullChunkSize;	/* 加区块头部与对齐后的大小 */
+	Size		blockSize;		/* 每个块的大小 */
+	int32		chunksPerBlock; /* 1 块能容纳的区块数 */
+	int32		curBlocklistIndex;	/* blocklist[] 元素中的索引
+									 * 所指元素含最满的块 */
 #ifdef MEMORY_CONTEXT_CHECKING
-	bool	   *isChunkFree;	/* array to mark free chunks in a block during
-								 * SlabCheck */
+	bool	   *isChunkFree;	/* SlabCheck 标记空闲区块用的数组
+								 * */
 #endif
 
-	int32		blocklist_shift;	/* number of bits to shift the nfree count
-									 * by to get the index into blocklist[] */
-	dclist_head emptyblocks;	/* empty blocks to use up first instead of
-								 * mallocing new blocks */
+	int32		blocklist_shift;	/* 把 nfree 计数移位以得到
+									 * blocklist[] 索引的位数 */
+	dclist_head emptyblocks;	/* 先用完空块而不是
+								 * malloc 新块 */
 
 	/*
-	 * Blocks with free space, grouped by the number of free chunks they
-	 * contain.  Completely full blocks are stored in the 0th element.
-	 * Completely empty blocks are stored in emptyblocks or free'd if we have
-	 * enough empty blocks already.
+	 * 含空闲空间的块，按空闲区块数分组。全满块存
+	 * 在第 0 个元素。全空块则存入 emptyblocks，或在
+	 * 已有足够多空块时，
+	 * 则直接释放。
 	 */
 	dlist_head	blocklist[SLAB_BLOCKLIST_COUNT];
 } SlabContext;
 
 /*
  * SlabBlock
- *		Structure of a single slab block.
+ *		单个 slab 块的结构。
  *
- * slab: pointer back to the owning MemoryContext
- * nfree: number of chunks on the block which are unallocated
- * nunused: number of chunks on the block unallocated and not on the block's
- * freelist.
- * freehead: linked-list header storing a pointer to the first free chunk on
- * the block.  Subsequent pointers are stored in the chunk's memory.  NULL
- * indicates the end of the list.
- * unused: pointer to the next chunk which has yet to be used.
- * node: doubly-linked list node for the context's blocklist
+ * slab：指回拥有上下文的指针
+ * nfree：块上未分配的区块数
+ * nunused：块上未分配且不在块空闲链表上的区块
+ * 数。
+ * freehead：链表头部，存指向块上第一个空闲区块
+ * 的指针。后续指针存在区块内存中。NULL
+ * 表示链表结尾。
+ * unused：指向下一个尚未使用的区块的指针
+ * node：用于上下文 blocklist 的双链表节点
  */
 typedef struct SlabBlock
 {
-	SlabContext *slab;			/* owning context */
-	int32		nfree;			/* number of chunks on free + unused chunks */
-	int32		nunused;		/* number of unused chunks */
-	MemoryChunk *freehead;		/* pointer to the first free chunk */
-	MemoryChunk *unused;		/* pointer to the next unused chunk */
-	dlist_node	node;			/* doubly-linked list for blocklist[] */
+	SlabContext *slab;			/* 属主 */
+	int32		nfree;			/* 空闲 + 未用区块的数量 */
+	int32		nunused;		/* 未用区块数 */
+	MemoryChunk *freehead;		/* 第一空闲区块指针 */
+	MemoryChunk *unused;		/* 下一未用区块指针 */
+	dlist_node	node;			/* blocklist[] 的双向链表 */
 } SlabBlock;
 
 
@@ -160,7 +160,7 @@ typedef struct SlabBlock
 
 /*
  * SlabBlockGetChunk
- *		Obtain a pointer to the nth (0-based) chunk in the block
+ *		获取块中第 n（从 0 计）个区块的指针
  */
 #define SlabBlockGetChunk(slab, block, n) \
 	((MemoryChunk *) ((char *) (block) + Slab_BLOCKHDRSZ	\
@@ -170,8 +170,8 @@ typedef struct SlabBlock
 
 /*
  * SlabChunkIndex
- *		Get the 0-based index of how many chunks into the block the given
- *		chunk is.
+ *		获取给定区块是块中第几个区块（从 0 计）的
+ *		索引。
 */
 #define SlabChunkIndex(slab, block, chunk)	\
 	(((char *) (chunk) - (char *) SlabBlockGetChunk(slab, block, 0)) / \
@@ -179,9 +179,9 @@ typedef struct SlabBlock
 
 /*
  * SlabChunkMod
- *		A MemoryChunk should always be at an address which is a multiple of
- *		fullChunkSize starting from the 0th chunk position.  This will return
- *		non-zero if it's not.
+ *		MemoryChunk 应始终位于从第 0 个区块位置起为
+ *		fullChunkSize 倍数的地址。若非如此，
+ *		则返回非零值。
  */
 #define SlabChunkMod(slab, block, chunk)	\
 	(((char *) (chunk) - (char *) SlabBlockGetChunk(slab, block, 0)) % \
@@ -191,21 +191,21 @@ typedef struct SlabBlock
 
 /*
  * SlabIsValid
- *		True iff set is a valid slab allocation set.
+ *		集合是有效 slab 分配集时为真。
  */
 #define SlabIsValid(set) (PointerIsValid(set) && IsA(set, SlabContext))
 
 /*
  * SlabBlockIsValid
- *		True iff block is a valid block of slab allocation set.
+ *		块为 slab 分配集的有效块时为真。
  */
 #define SlabBlockIsValid(block) \
 	(PointerIsValid(block) && SlabIsValid((block)->slab))
 
 /*
  * SlabBlocklistIndex
- *		Determine the blocklist index that a block should be in for the given
- *		number of free chunks.
+ *		确定给定空闲区块数的块应处的
+ *		blocklist 索引。
  */
 static inline int32
 SlabBlocklistIndex(SlabContext *slab, int nfree)
@@ -216,16 +216,16 @@ SlabBlocklistIndex(SlabContext *slab, int nfree)
 	Assert(nfree >= 0 && nfree <= slab->chunksPerBlock);
 
 	/*
-	 * Determine the blocklist index based on the number of free chunks.  We
-	 * must ensure that 0 free chunks is dedicated to index 0.  Everything
-	 * else must be >= 1 and < SLAB_BLOCKLIST_COUNT.
+	 * 根据空闲区块数确定 blocklist 索引。必须保证 0 个
+	 * 空闲区块专用索引 0。其余的必须 >= 1 且 <
+	 * SLAB_BLOCKLIST_COUNT。
 	 *
-	 * To make this as efficient as possible, we exploit some two's complement
-	 * arithmetic where we reverse the sign before bit shifting.  This results
-	 * in an nfree of 0 using index 0 and anything non-zero staying non-zero.
-	 * This is exploiting 0 and -0 being the same in two's complement.  When
-	 * we're done, we just need to flip the sign back over again for a
-	 * positive index.
+	 * 为尽可能高效，我们利用了一些补码算术，在移位前
+	 * 反转符号。这使 nfree 为 0 时使用索引 0，而非零值
+	 * 保持非零。
+	 * 这利用了补码中 0 与 -0 相同的事实。完成之
+	 * 后，只需再把符号翻转回来得到
+	 * 正索引。
 	 */
 	index = -((-nfree) >> blocklist_shift);
 
@@ -239,33 +239,33 @@ SlabBlocklistIndex(SlabContext *slab, int nfree)
 
 /*
  * SlabFindNextBlockListIndex
- *		Search blocklist for blocks which have free chunks and return the
- *		index of the blocklist found containing at least 1 block with free
- *		chunks.  If no block can be found we return 0.
+ *		在 blocklist 中搜索含有空闲区块的块，返回找到的
+ *		含至少一个含空闲区块的块的 blocklist 索引。若找
+ *		不到块则返回 0。
  *
- * Note: We give priority to fuller blocks so that these are filled before
- * emptier blocks.  This is done to increase the chances that mostly-empty
- * blocks will eventually become completely empty so they can be free'd.
+ * 注意：我们优先选择更满的块，使其先于较空的块被
+ * 填满。这是为了增加近乎空块最终完全变空、从而
+ * 能被释放的机会。
  */
 static int32
 SlabFindNextBlockListIndex(SlabContext *slab)
 {
-	/* start at 1 as blocklist[0] is for full blocks. */
+	/* 从 1 开始，因 blocklist[0] 属满块。 */
 	for (int i = 1; i < SLAB_BLOCKLIST_COUNT; i++)
 	{
-		/* return the first found non-empty index */
+		/* 返回第一个找到的非空索引 */
 		if (!dlist_is_empty(&slab->blocklist[i]))
 			return i;
 	}
 
-	/* no blocks with free space */
+	/* 无含空闲空间的块 */
 	return 0;
 }
 
 /*
  * SlabGetNextFreeChunk
- *		Return the next free chunk in block and update the block to account
- *		for the returned chunk now being used.
+ *		返回块中下一个空闲区块，并更新块，
+ *		以反映返回区块已被使用。
  */
 static inline MemoryChunk *
 SlabGetNextFreeChunk(SlabContext *slab, SlabBlock *block)
@@ -279,13 +279,13 @@ SlabGetNextFreeChunk(SlabContext *slab, SlabBlock *block)
 		chunk = block->freehead;
 
 		/*
-		 * Pop the chunk from the linked list of free chunks.  The pointer to
-		 * the next free chunk is stored in the chunk itself.
+		 * 把该区块从空闲区块链表弹出。下一空闲区块的
+		 * 指针存储在区块自身中。
 		 */
 		VALGRIND_MAKE_MEM_DEFINED(SlabChunkGetPointer(chunk), sizeof(MemoryChunk *));
 		block->freehead = *(MemoryChunk **) SlabChunkGetPointer(chunk);
 
-		/* check nothing stomped on the free chunk's memory */
+		/* 检查没有东西踩踏空闲区块的内存 */
 		Assert(block->freehead == NULL ||
 			   (block->freehead >= SlabBlockGetChunk(slab, block, 0) &&
 				block->freehead <= SlabBlockGetChunk(slab, block, slab->chunksPerBlock - 1) &&
@@ -307,14 +307,14 @@ SlabGetNextFreeChunk(SlabContext *slab, SlabBlock *block)
 
 /*
  * SlabContextCreate
- *		Create a new Slab context.
+ *		新建 Slab 上下文。
  *
- * parent: parent context, or NULL if top-level context
- * name: name of context (must be statically allocated)
- * blockSize: allocation block size
- * chunkSize: allocation chunk size
+ * parent：父上下文，顶层上下文则为 NULL
+ * name：上下文名称（必须为静态分配）
+ * blockSize：分配块大小
+ * chunkSize：分配区块大小
  *
- * The MAXALIGN(chunkSize) may not exceed MEMORYCHUNK_MAX_VALUE
+ * MAXALIGN(chunkSize) 不得超过 MEMORYCHUNK_MAX_VALUE
  */
 MemoryContext
 SlabContextCreate(MemoryContext parent,
@@ -327,30 +327,30 @@ SlabContextCreate(MemoryContext parent,
 	SlabContext *slab;
 	int			i;
 
-	/* ensure MemoryChunk's size is properly maxaligned */
+	/* 确保 MemoryChunk 大小经 MAXALIGN 对齐 */
 	StaticAssertDecl(Slab_CHUNKHDRSZ == MAXALIGN(Slab_CHUNKHDRSZ),
 					 "sizeof(MemoryChunk) is not maxaligned");
 	Assert(MAXALIGN(chunkSize) <= MEMORYCHUNK_MAX_VALUE);
 
 	/*
-	 * Ensure there's enough space to store the pointer to the next free chunk
-	 * in the memory of the (otherwise) unused allocation.
+	 * 确保有足够空间把指向下一空闲区块的指针存入（本
+	 * 来未用的）分配的内存中。
 	 */
 	if (chunkSize < sizeof(MemoryChunk *))
 		chunkSize = sizeof(MemoryChunk *);
 
-	/* length of the maxaligned chunk including the chunk header  */
+	/* 包括区块头部的最大对齐区块长度 */
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* ensure there's always space for the sentinel byte */
+	/* 确保有哨兵字节的空间 */
 	fullChunkSize = Slab_CHUNKHDRSZ + MAXALIGN(chunkSize + 1);
 #else
 	fullChunkSize = Slab_CHUNKHDRSZ + MAXALIGN(chunkSize);
 #endif
 
-	/* compute the number of chunks that will fit on each block */
+	/* 计算每个块能容纳的区块数 */
 	chunksPerBlock = (blockSize - Slab_BLOCKHDRSZ) / fullChunkSize;
 
-	/* Make sure the block can store at least one chunk. */
+	/* 确保块至少能存一个区块。 */
 	if (chunksPerBlock == 0)
 		elog(ERROR, "block size %zu for slab is too small for %zu-byte chunks",
 			 blockSize, chunkSize);
@@ -369,11 +369,11 @@ SlabContextCreate(MemoryContext parent,
 	}
 
 	/*
-	 * Avoid writing code that can fail between here and MemoryContextCreate;
-	 * we'd leak the header if we ereport in this stretch.
+	 * 此处与 MemoryContextCreate 之间避免编写会失败的代码；
+	 * 若在此区间 ereport，我们会泄漏头部。
 	 */
 
-	/* Fill in SlabContext-specific header fields */
+	/* 填写 SlabContext 专属的头部字段 */
 	slab->chunkSize = chunkSize;
 	slab->fullChunkSize = fullChunkSize;
 	slab->blockSize = blockSize;
@@ -381,32 +381,32 @@ SlabContextCreate(MemoryContext parent,
 	slab->curBlocklistIndex = 0;
 
 	/*
-	 * Compute a shift that guarantees that shifting chunksPerBlock with it is
-	 * < SLAB_BLOCKLIST_COUNT - 1.  The reason that we subtract 1 from
-	 * SLAB_BLOCKLIST_COUNT in this calculation is that we reserve the 0th
-	 * blocklist element for blocks which have no free chunks.
+	 * 计算一个移位量，保证用其对 chunksPerBlock 移位的
+	 * 结果 < SLAB_BLOCKLIST_COUNT - 1。之所以在此计算中
+	 * 从 SLAB_BLOCKLIST_COUNT 减 1，是因我们把第 0 个
+	 * blocklist 元素留给没有空闲区块的块。
 	 *
-	 * We calculate the number of bits to shift by rather than a divisor to
-	 * divide by as performing division each time we need to find the
-	 * blocklist index would be much slower.
+	 * 我们计算的是移位位数而非除数，
+	 * 因为每次查找 blocklist 索引都做除法
+	 * 会慢得多。
 	 */
 	slab->blocklist_shift = 0;
 	while ((slab->chunksPerBlock >> slab->blocklist_shift) >= (SLAB_BLOCKLIST_COUNT - 1))
 		slab->blocklist_shift++;
 
-	/* initialize the list to store empty blocks to be reused */
+	/* 初始化存可重用空块的列表 */
 	dclist_init(&slab->emptyblocks);
 
-	/* initialize each blocklist slot */
+	/* 初始化每个 blocklist 槽 */
 	for (i = 0; i < SLAB_BLOCKLIST_COUNT; i++)
 		dlist_init(&slab->blocklist[i]);
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* set the isChunkFree pointer right after the end of the context */
+	/* 把 isChunkFree 指针设在上下文结尾之后 */
 	slab->isChunkFree = (bool *) ((char *) slab + sizeof(SlabContext));
 #endif
 
-	/* Finally, do the type-independent part of context creation */
+	/* 最后，完成上下文创建中与类型无关的部分 */
 	MemoryContextCreate((MemoryContext) slab,
 						T_SlabContext,
 						MCTX_SLAB_ID,
@@ -418,10 +418,10 @@ SlabContextCreate(MemoryContext parent,
 
 /*
  * SlabReset
- *		Frees all memory which is allocated in the given set.
+ *		释放给定集合中已分配的全部内存。
  *
- * The code simply frees all the blocks in the context - we don't keep any
- * keeper blocks or anything like that.
+ * 代码只是释放上下文中的所有块 —— 我们不保留任何
+ * 保留块或类似的东西。
  */
 void
 SlabReset(MemoryContext context)
@@ -433,11 +433,11 @@ SlabReset(MemoryContext context)
 	Assert(SlabIsValid(slab));
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* Check for corruption and leaks before freeing */
+	/* 释放前检查损坏与泄漏 */
 	SlabCheck(context);
 #endif
 
-	/* release any retained empty blocks */
+	/* 释放保留的空块 */
 	dclist_foreach_modify(miter, &slab->emptyblocks)
 	{
 		SlabBlock  *block = dlist_container(SlabBlock, node, miter.cur);
@@ -451,7 +451,7 @@ SlabReset(MemoryContext context)
 		context->mem_allocated -= slab->blockSize;
 	}
 
-	/* walk over blocklist and free the blocks */
+	/* 遍历 blocklist 并释放各块 */
 	for (i = 0; i < SLAB_BLOCKLIST_COUNT; i++)
 	{
 		dlist_foreach_modify(miter, &slab->blocklist[i])
@@ -475,21 +475,21 @@ SlabReset(MemoryContext context)
 
 /*
  * SlabDelete
- *		Free all memory which is allocated in the given context.
+ *		释放给定上下文中已分配的全部内存。
  */
 void
 SlabDelete(MemoryContext context)
 {
-	/* Reset to release all the SlabBlocks */
+	/* 重置以释放所有 SlabBlocks */
 	SlabReset(context);
-	/* And free the context header */
+	/* 然后释放上下文头部 */
 	free(context);
 }
 
 /*
  * SlabAlloc
- *		Returns a pointer to allocated memory of given size or NULL if
- *		request could not be completed; memory is added to the slab.
+ *		返回给定大小已分配内存指针；请求无法完成
+ *		则返回 NULL；内存会被加入 slab。
  */
 void *
 SlabAlloc(MemoryContext context, Size size)
@@ -500,28 +500,28 @@ SlabAlloc(MemoryContext context, Size size)
 
 	Assert(SlabIsValid(slab));
 
-	/* sanity check that this is pointing to a valid blocklist */
+	/* 健全性检查此指针指向有效的 blocklist */
 	Assert(slab->curBlocklistIndex >= 0);
 	Assert(slab->curBlocklistIndex <= SlabBlocklistIndex(slab, slab->chunksPerBlock));
 
-	/* make sure we only allow correct request size */
+	/* 确保只允许正确的请求大小 */
 	if (unlikely(size != slab->chunkSize))
 		elog(ERROR, "unexpected alloc chunk size %zu (expected %zu)",
 			 size, slab->chunkSize);
 
 	/*
-	 * Handle the case when there are no partially filled blocks available.
-	 * SlabFree() will have updated the curBlocklistIndex setting it to zero
-	 * to indicate that it has freed the final block.  Also later in
-	 * SlabAlloc() we will set the curBlocklistIndex to zero if we end up
-	 * filling the final block.
+	 * 在没有半满块可用时处理。SlabFree() 会更新
+	 * curBlocklistIndex 把它设为 0，表示已释放最后一个
+	 * 块。此外 SlabAlloc() 稍后填满最后一块时也
+	 * 会把 curBlocklistIndex 设为
+	 * 0。
 	 */
 	if (unlikely(slab->curBlocklistIndex == 0))
 	{
 		dlist_head *blocklist;
 		int			blocklist_idx;
 
-		/* to save allocating a new one, first check the empty blocks list */
+		/* 为了省去分配新块，先检查空块列表 */
 		if (dclist_count(&slab->emptyblocks) > 0)
 		{
 			dlist_node *node = dclist_pop_head_node(&slab->emptyblocks);
@@ -529,12 +529,12 @@ SlabAlloc(MemoryContext context, Size size)
 			block = dlist_container(SlabBlock, node, node);
 
 			/*
-			 * SlabFree() should have left this block in a valid state with
-			 * all chunks free.  Ensure that's the case.
+			 * SlabFree() 应已让此块处于全空闲的有效状态。
+			 * 务必确认情况如此。
 			 */
 			Assert(block->nfree == slab->chunksPerBlock);
 
-			/* fetch the next chunk from this block */
+			/* 从此块取下一个区块 */
 			chunk = SlabGetNextFreeChunk(slab, block);
 		}
 		else
@@ -547,7 +547,7 @@ SlabAlloc(MemoryContext context, Size size)
 			block->slab = slab;
 			context->mem_allocated += slab->blockSize;
 
-			/* use the first chunk in the new block */
+			/* 使用新块中的第一个区块 */
 			chunk = SlabBlockGetChunk(slab, block, 0);
 
 			block->nfree = slab->chunksPerBlock - 1;
@@ -556,11 +556,11 @@ SlabAlloc(MemoryContext context, Size size)
 			block->nunused = slab->chunksPerBlock - 1;
 		}
 
-		/* find the blocklist element for storing blocks with 1 used chunk */
+		/* 找到存含 1 个已用区块的块的 blocklist 元素 */
 		blocklist_idx = SlabBlocklistIndex(slab, block->nfree);
 		blocklist = &slab->blocklist[blocklist_idx];
 
-		/* this better be empty.  We just added a block thinking it was */
+		/* 此处最好是空的。我们刚加块时以为它如此 */
 		Assert(dlist_is_empty(blocklist));
 
 		dlist_push_head(blocklist, &block->node);
@@ -574,23 +574,23 @@ SlabAlloc(MemoryContext context, Size size)
 
 		Assert(!dlist_is_empty(blocklist));
 
-		/* grab the block from the blocklist */
+		/* 从 blocklist 中抓取块 */
 		block = dlist_head_element(SlabBlock, node, blocklist);
 
-		/* make sure we actually got a valid block, with matching nfree */
+		/* 确保确实得到了有效的块，且 nfree 匹配 */
 		Assert(block != NULL);
 		Assert(slab->curBlocklistIndex == SlabBlocklistIndex(slab, block->nfree));
 		Assert(block->nfree > 0);
 
-		/* fetch the next chunk from this block */
+		/* 从此块取下一个区块 */
 		chunk = SlabGetNextFreeChunk(slab, block);
 
-		/* get the new blocklist index based on the new free chunk count */
+		/* 按新的空闲区块数得到新的 blocklist 索引 */
 		new_blocklist_idx = SlabBlocklistIndex(slab, block->nfree);
 
 		/*
-		 * Handle the case where the blocklist index changes.  This also deals
-		 * with blocks becoming full as only full blocks go at index 0.
+		 * 处理 blocklist 索引变化的情况。这也处理块变满的
+		 * 情形，因为只有全满块位于索引 0。
 		 */
 		if (unlikely(slab->curBlocklistIndex != new_blocklist_idx))
 		{
@@ -603,20 +603,20 @@ SlabAlloc(MemoryContext context, Size size)
 	}
 
 	/*
-	 * Check that the chunk pointer is actually somewhere on the block and is
-	 * aligned as expected.
+	 * 检查区块指针确实位于块上某处，并
+	 * 按预期对齐。
 	 */
 	Assert(chunk >= SlabBlockGetChunk(slab, block, 0));
 	Assert(chunk <= SlabBlockGetChunk(slab, block, slab->chunksPerBlock - 1));
 	Assert(SlabChunkMod(slab, block, chunk) == 0);
 
-	/* Prepare to initialize the chunk header. */
+	/* 准备初始化区块头部。 */
 	VALGRIND_MAKE_MEM_UNDEFINED(chunk, Slab_CHUNKHDRSZ);
 
 	MemoryChunkSetHdrMask(chunk, block, MAXALIGN(slab->chunkSize),
 						  MCTX_SLAB_ID);
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* slab mark to catch clobber of "unused" space */
+	/* slab 标记以捕获"未用"空间覆写 */
 	Assert(slab->chunkSize < (slab->fullChunkSize - Slab_CHUNKHDRSZ));
 	set_sentinel(MemoryChunkGetPointer(chunk), size);
 	VALGRIND_MAKE_MEM_NOACCESS(((char *) chunk) +
@@ -626,11 +626,11 @@ SlabAlloc(MemoryContext context, Size size)
 #endif
 
 #ifdef RANDOMIZE_ALLOCATED_MEMORY
-	/* fill the allocated space with junk */
+	/* 用垃圾填充已分配空间 */
 	randomize_mem((char *) MemoryChunkGetPointer(chunk), size);
 #endif
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, Slab_CHUNKHDRSZ);
 
 	return MemoryChunkGetPointer(chunk);
@@ -638,7 +638,7 @@ SlabAlloc(MemoryContext context, Size size)
 
 /*
  * SlabFree
- *		Frees allocated memory; memory is removed from the slab.
+ *		释放已分配内存；内存从 slab 中移除。
  */
 void
 SlabFree(void *pointer)
@@ -649,28 +649,28 @@ SlabFree(void *pointer)
 	int			curBlocklistIdx;
 	int			newBlocklistIdx;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, Slab_CHUNKHDRSZ);
 
 	block = MemoryChunkGetBlock(chunk);
 
 	/*
-	 * For speed reasons we just Assert that the referenced block is good.
-	 * Future field experience may show that this Assert had better become a
-	 * regular runtime test-and-elog check.
+	 * 出于速度考虑只断言被引用的块是好的。未来的
+	 * 实践经验或许表明，此断言最好变成常规运行时
+	 * test-and-elog 检查。
 	 */
 	Assert(SlabBlockIsValid(block));
 	slab = block->slab;
 
 #ifdef MEMORY_CONTEXT_CHECKING
-	/* Test for someone scribbling on unused space in chunk */
+	/* 测试是否有人涂写了区块内未用空间 */
 	Assert(slab->chunkSize < (slab->fullChunkSize - Slab_CHUNKHDRSZ));
 	if (!sentinel_ok(pointer, slab->chunkSize))
 		elog(WARNING, "detected write past chunk end in %s %p",
 			 slab->header.name, chunk);
 #endif
 
-	/* push this chunk onto the head of the block's free list */
+	/* 把此区块压入块空闲链表的头部 */
 	*(MemoryChunk **) pointer = block->freehead;
 	block->freehead = chunk;
 
@@ -680,7 +680,7 @@ SlabFree(void *pointer)
 	Assert(block->nfree <= slab->chunksPerBlock);
 
 #ifdef CLOBBER_FREED_MEMORY
-	/* don't wipe the free list MemoryChunk pointer stored in the chunk */
+	/* 勿抹除区块中存储的空闲链表 MemoryChunk 指针 */
 	wipe_mem((char *) pointer + sizeof(MemoryChunk *),
 			 slab->chunkSize - sizeof(MemoryChunk *));
 #endif
@@ -689,51 +689,51 @@ SlabFree(void *pointer)
 	newBlocklistIdx = SlabBlocklistIndex(slab, block->nfree);
 
 	/*
-	 * Check if the block needs to be moved to another element on the
-	 * blocklist based on it now having 1 more free chunk.
+	 * 检查块是否因多 1 个空闲区块而需移到
+	 * blocklist 的另一元素上。
 	 */
 	if (unlikely(curBlocklistIdx != newBlocklistIdx))
 	{
-		/* do the move */
+		/* 搬移 */
 		dlist_delete_from(&slab->blocklist[curBlocklistIdx], &block->node);
 		dlist_push_head(&slab->blocklist[newBlocklistIdx], &block->node);
 
 		/*
-		 * The blocklist[curBlocklistIdx] may now be empty or we may now be
-		 * able to use a lower-element blocklist.  We'll need to redetermine
-		 * what the slab->curBlocklistIndex is if the current blocklist was
-		 * changed or if a lower element one was changed.  We must ensure we
-		 * use the list with the fullest block(s).
+		 * blocklist[curBlocklistIdx] 现在可能空了，或者现在
+		 * 能用更低层的 blocklist 元素。当前 blocklist 若被
+		 * 改动，或更低层元素有变，需重新确定
+		 * slab->curBlocklistIndex 应为多少。必须确保我们使用
+		 * 的链表含有最满的块。
 		 */
 		if (slab->curBlocklistIndex >= curBlocklistIdx)
 		{
 			slab->curBlocklistIndex = SlabFindNextBlockListIndex(slab);
 
 			/*
-			 * We know there must be a block with at least 1 unused chunk as
-			 * we just pfree'd one.  Ensure curBlocklistIndex reflects this.
+			 * 必有一个块含至少 1 个未用区块，因为我们刚
+			 * pfree 了一个。确保 curBlocklistIndex 反映这一点。
 			 */
 			Assert(slab->curBlocklistIndex > 0);
 		}
 	}
 
-	/* Handle when a block becomes completely empty */
+	/* 处理块完全变空的情形 */
 	if (unlikely(block->nfree == slab->chunksPerBlock))
 	{
-		/* remove the block */
+		/* 移除该块 */
 		dlist_delete_from(&slab->blocklist[newBlocklistIdx], &block->node);
 
 		/*
-		 * To avoid thrashing malloc/free, we keep a list of empty blocks that
-		 * we can reuse again instead of having to malloc a new one.
+		 * 为避免 malloc/free 折腾，我们保留一个空块列表，
+		 * 可以再次重用而不必 malloc 新块。
 		 */
 		if (dclist_count(&slab->emptyblocks) < SLAB_MAXIMUM_EMPTY_BLOCKS)
 			dclist_push_head(&slab->emptyblocks, &block->node);
 		else
 		{
 			/*
-			 * When we have enough empty blocks stored already, we actually
-			 * free the block.
+			 * 空块存够多时，我们才真正释放
+			 * 该块。
 			 */
 #ifdef CLOBBER_FREED_MEMORY
 			wipe_mem(block, slab->blockSize);
@@ -743,8 +743,8 @@ SlabFree(void *pointer)
 		}
 
 		/*
-		 * Check if we need to reset the blocklist index.  This is required
-		 * when the blocklist this block is on has become completely empty.
+		 * 检查是否需要重置 blocklist 索引。当该块所在的
+		 * blocklist 变为完全空时需要这样做。
 		 */
 		if (slab->curBlocklistIndex == newBlocklistIdx &&
 			dlist_is_empty(&slab->blocklist[newBlocklistIdx]))
@@ -754,16 +754,16 @@ SlabFree(void *pointer)
 
 /*
  * SlabRealloc
- *		Change the allocated size of a chunk.
+ *		更改区块的已分配大小。
  *
- * As Slab is designed for allocating equally-sized chunks of memory, it can't
- * do an actual chunk size change.  We try to be gentle and allow calls with
- * exactly the same size, as in that case we can simply return the same
- * chunk.  When the size differs, we throw an error.
+ * 由于 Slab 为分配等大小区块而设计，它无法真正改
+ * 变区块大小。我们尽量温和，允许大小完全相同的调
+ * 用；此时可直接返回同一区块。当大小不同时，
+ * 我们抛出错误。
  *
- * We could also allow requests with size < chunkSize.  That however seems
- * rather pointless - Slab is meant for chunks of constant size, and moreover
- * realloc is usually used to enlarge the chunk.
+ * 我们也可以允许 size < chunkSize 的请求。然而这
+ * 似乎没什么意义 —— Slab 面向恒定大小的区块，而且
+ * realloc 通常用于扩大区块。
  */
 void *
 SlabRealloc(void *pointer, Size size)
@@ -772,35 +772,35 @@ SlabRealloc(void *pointer, Size size)
 	SlabBlock  *block;
 	SlabContext *slab;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, Slab_CHUNKHDRSZ);
 
 	block = MemoryChunkGetBlock(chunk);
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, Slab_CHUNKHDRSZ);
 
 	/*
-	 * Try to verify that we have a sane block pointer: the block header
-	 * should reference a slab context.  (We use a test-and-elog, not just
-	 * Assert, because it seems highly likely that we're here in error in the
-	 * first place.)
+	 * 校验块指针是否正常：块头部应引用 slab上下文。
+	 * （我们用 test-and-elog 而非 Assert，因为
+	 * 到这儿来多半就已经错
+	 * 了。）
 	 */
 	if (!SlabBlockIsValid(block))
 		elog(ERROR, "could not find block containing chunk %p", chunk);
 	slab = block->slab;
 
-	/* can't do actual realloc with slab, but let's try to be gentle */
+	/* slab 无法真正 realloc，但让我们尽量温和 */
 	if (size == slab->chunkSize)
 		return pointer;
 
 	elog(ERROR, "slab allocator does not support realloc()");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 /*
  * SlabGetChunkContext
- *		Return the MemoryContext that 'pointer' belongs to.
+ *		返回 'pointer' 所属的内存上下文。
  */
 MemoryContext
 SlabGetChunkContext(void *pointer)
@@ -808,12 +808,12 @@ SlabGetChunkContext(void *pointer)
 	MemoryChunk *chunk = PointerGetMemoryChunk(pointer);
 	SlabBlock  *block;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, Slab_CHUNKHDRSZ);
 
 	block = MemoryChunkGetBlock(chunk);
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, Slab_CHUNKHDRSZ);
 
 	Assert(SlabBlockIsValid(block));
@@ -823,8 +823,8 @@ SlabGetChunkContext(void *pointer)
 
 /*
  * SlabGetChunkSpace
- *		Given a currently-allocated chunk, determine the total space
- *		it occupies (including all memory-allocation overhead).
+ *		给定当前已分配的区块，确定其占用的总空间
+ *		（包括所有内存分配开销）。
  */
 Size
 SlabGetChunkSpace(void *pointer)
@@ -833,12 +833,12 @@ SlabGetChunkSpace(void *pointer)
 	SlabBlock  *block;
 	SlabContext *slab;
 
-	/* Allow access to the chunk header. */
+	/* 允许访问区块头部。 */
 	VALGRIND_MAKE_MEM_DEFINED(chunk, Slab_CHUNKHDRSZ);
 
 	block = MemoryChunkGetBlock(chunk);
 
-	/* Disallow access to the chunk header. */
+	/* 禁止访问区块头部。 */
 	VALGRIND_MAKE_MEM_NOACCESS(chunk, Slab_CHUNKHDRSZ);
 
 	Assert(SlabBlockIsValid(block));
@@ -849,7 +849,7 @@ SlabGetChunkSpace(void *pointer)
 
 /*
  * SlabIsEmpty
- *		Is the slab empty of any allocated space?
+ *		slab 是否没有已分配空间？
  */
 bool
 SlabIsEmpty(MemoryContext context)
@@ -861,12 +861,12 @@ SlabIsEmpty(MemoryContext context)
 
 /*
  * SlabStats
- *		Compute stats about memory consumption of a Slab context.
+ *		计算一个 Slab 上下文的内存消耗统计。
  *
- * printfunc: if not NULL, pass a human-readable stats string to this.
- * passthru: pass this pointer through to printfunc.
- * totals: if not NULL, add stats about this context into *totals.
- * print_to_stderr: print stats to stderr if true, elog otherwise.
+ * printfunc：若非 NULL，则把可读统计字符串传给它。
+ * passthru：把此指针透传给 printfunc。
+ * totals：非 NULL 时把此上下文统计加进 *totals。
+ * print_to_stderr：为真时打印到 stderr，否则 elog。
  */
 void
 SlabStats(MemoryContext context,
@@ -883,10 +883,10 @@ SlabStats(MemoryContext context,
 
 	Assert(SlabIsValid(slab));
 
-	/* Include context header in totalspace */
+	/* 上下文头部计入 totalspace */
 	totalspace = Slab_CONTEXT_HDRSZ(slab->chunksPerBlock);
 
-	/* Add the space consumed by blocks in the emptyblocks list */
+	/* 加上 emptyblocks 列表中块消耗的空间 */
 	totalspace += dclist_count(&slab->emptyblocks) * slab->blockSize;
 
 	for (i = 0; i < SLAB_BLOCKLIST_COUNT; i++)
@@ -908,7 +908,7 @@ SlabStats(MemoryContext context,
 	{
 		char		stats_string[200];
 
-		/* XXX should we include free chunks on empty blocks? */
+		/* XXX 是否应计入空块上的空闲区块？ */
 		snprintf(stats_string, sizeof(stats_string),
 				 "%zu total in %zu blocks; %u empty blocks; %zu free (%zu chunks); %zu used",
 				 totalspace, nblocks, dclist_count(&slab->emptyblocks),
@@ -930,11 +930,11 @@ SlabStats(MemoryContext context,
 
 /*
  * SlabCheck
- *		Walk through all blocks looking for inconsistencies.
+ *		遍历所有块以查找不一致之处。
  *
- * NOTE: report errors as WARNING, *not* ERROR or FATAL.  Otherwise you'll
- * find yourself in an infinite loop when trouble occurs, because this
- * routine will be entered again when elog cleanup tries to release memory!
+ * 注意：以 WARNING 而非 ERROR 或 FATAL 报告错误。否则
+ * 出问题时会陷入无限循环，因为 elog 清理要释放
+ * 内存时会再次进入此例程！
  */
 void
 SlabCheck(MemoryContext context)
@@ -949,8 +949,8 @@ SlabCheck(MemoryContext context)
 	Assert(slab->chunksPerBlock > 0);
 
 	/*
-	 * Have a look at the empty blocks.  These should have all their chunks
-	 * marked as free.  Ensure that's the case.
+	 * 看看空块。这些块的区块都应标为空闲。务必确认
+	 * 情况如此。
 	 */
 	dclist_foreach(iter, &slab->emptyblocks)
 	{
@@ -961,49 +961,49 @@ SlabCheck(MemoryContext context)
 				 name, block, slab->chunksPerBlock, block->nfree);
 	}
 
-	/* walk the non-empty block lists */
+	/* 遍历非空块列表 */
 	for (i = 0; i < SLAB_BLOCKLIST_COUNT; i++)
 	{
 		int			j,
 					nfree;
 
-		/* walk all blocks on this blocklist */
+		/* 遍历此 blocklist 上的块 */
 		dlist_foreach(iter, &slab->blocklist[i])
 		{
 			SlabBlock  *block = dlist_container(SlabBlock, node, iter.cur);
 			MemoryChunk *cur_chunk;
 
 			/*
-			 * Make sure the number of free chunks (in the block header)
-			 * matches the position in the blocklist.
+			 * 确保（块头部中的）空闲区块数与该块在
+			 * blocklist 中的位置一致。
 			 */
 			if (SlabBlocklistIndex(slab, block->nfree) != i)
 				elog(WARNING, "problem in slab %s: block %p is on blocklist %d but should be on blocklist %d",
 					 name, block, i, SlabBlocklistIndex(slab, block->nfree));
 
-			/* make sure the block is not empty */
+			/* 确保块不是空的 */
 			if (block->nfree >= slab->chunksPerBlock)
 				elog(WARNING, "problem in slab %s: empty block %p incorrectly stored on blocklist element %d",
 					 name, block, i);
 
-			/* make sure the slab pointer correctly points to this context */
+			/* 确保 slab 指针正确地指向此上下文 */
 			if (block->slab != slab)
 				elog(WARNING, "problem in slab %s: bogus slab link in block %p",
 					 name, block);
 
-			/* reset the array of free chunks for this block */
+			/* 重置此块的空闲区块数组 */
 			memset(slab->isChunkFree, 0, (slab->chunksPerBlock * sizeof(bool)));
 			nfree = 0;
 
-			/* walk through the block's free list chunks */
+			/* 遍历块的空闲链表区块 */
 			cur_chunk = block->freehead;
 			while (cur_chunk != NULL)
 			{
 				int			chunkidx = SlabChunkIndex(slab, block, cur_chunk);
 
 				/*
-				 * Ensure the free list link points to something on the block
-				 * at an address aligned according to the full chunk size.
+				 * 确保链表链接指向块上某处，地址
+				 * 对齐（按完整区块大小 fullChunkSize）。
 				 */
 				if (cur_chunk < SlabBlockGetChunk(slab, block, 0) ||
 					cur_chunk > SlabBlockGetChunk(slab, block, slab->chunksPerBlock - 1) ||
@@ -1011,24 +1011,24 @@ SlabCheck(MemoryContext context)
 					elog(WARNING, "problem in slab %s: bogus free list link %p in block %p",
 						 name, cur_chunk, block);
 
-				/* count the chunk and mark it free on the free chunk array */
+				/* 计数该区块并在空闲区块数组标记空闲 */
 				nfree++;
 				slab->isChunkFree[chunkidx] = true;
 
-				/* read pointer of the next free chunk */
+				/* 读取下一空闲区块的指针 */
 				VALGRIND_MAKE_MEM_DEFINED(MemoryChunkGetPointer(cur_chunk), sizeof(MemoryChunk *));
 				cur_chunk = *(MemoryChunk **) SlabChunkGetPointer(cur_chunk);
 			}
 
-			/* check that the unused pointer matches what nunused claims */
+			/* 检查未用指针与 nunused 所称一致 */
 			if (SlabBlockGetChunk(slab, block, slab->chunksPerBlock - block->nunused) !=
 				block->unused)
 				elog(WARNING, "problem in slab %s: mismatch detected between nunused chunks and unused pointer in block %p",
 					 name, block);
 
 			/*
-			 * count the remaining free chunks that have yet to make it onto
-			 * the block's free list.
+			 * 数一数尚未进入块空闲链表的
+			 * 剩余空闲区块。
 			 */
 			cur_chunk = block->unused;
 			for (j = 0; j < block->nunused; j++)
@@ -1036,12 +1036,12 @@ SlabCheck(MemoryContext context)
 				int			chunkidx = SlabChunkIndex(slab, block, cur_chunk);
 
 
-				/* count the chunk as free and mark it as so in the array */
+				/* 把区块计为空闲并在数组中如此标记 */
 				nfree++;
 				if (chunkidx < slab->chunksPerBlock)
 					slab->isChunkFree[chunkidx] = true;
 
-				/* move forward 1 chunk */
+				/* 前移一区块 */
 				cur_chunk = (MemoryChunk *) (((char *) cur_chunk) + slab->fullChunkSize);
 			}
 
@@ -1052,23 +1052,23 @@ SlabCheck(MemoryContext context)
 					MemoryChunk *chunk = SlabBlockGetChunk(slab, block, j);
 					SlabBlock  *chunkblock;
 
-					/* Allow access to the chunk header. */
+					/* 允许访问区块头部。 */
 					VALGRIND_MAKE_MEM_DEFINED(chunk, Slab_CHUNKHDRSZ);
 
 					chunkblock = (SlabBlock *) MemoryChunkGetBlock(chunk);
 
-					/* Disallow access to the chunk header. */
+					/* 禁止访问区块头部。 */
 					VALGRIND_MAKE_MEM_NOACCESS(chunk, Slab_CHUNKHDRSZ);
 
 					/*
-					 * check the chunk's blockoffset correctly points back to
-					 * the block
+					 * 检查区块的块偏移是否正确指回
+					 * 该块。
 					 */
 					if (chunkblock != block)
 						elog(WARNING, "problem in slab %s: bogus block link in block %p, chunk %p",
 							 name, block, chunk);
 
-					/* check the sentinel byte is intact */
+					/* 检查哨兵字节完好 */
 					Assert(slab->chunkSize < (slab->fullChunkSize - Slab_CHUNKHDRSZ));
 					if (!sentinel_ok(chunk, Slab_CHUNKHDRSZ + slab->chunkSize))
 						elog(WARNING, "problem in slab %s: detected write past chunk end in block %p, chunk %p",
@@ -1077,8 +1077,8 @@ SlabCheck(MemoryContext context)
 			}
 
 			/*
-			 * Make sure we got the expected number of free chunks (as tracked
-			 * in the block header).
+			 * 确保空闲区块数与预期一致（块头部所跟踪的
+			 * 那样）。
 			 */
 			if (nfree != block->nfree)
 				elog(WARNING, "problem in slab %s: nfree in block %p is %d but %d chunk were found as free",
@@ -1088,7 +1088,7 @@ SlabCheck(MemoryContext context)
 		}
 	}
 
-	/* the stored empty blocks are tracked in mem_allocated too */
+	/* 所存的空块也计入 mem_allocated */
 	nblocks += dclist_count(&slab->emptyblocks);
 
 	Assert(nblocks * slab->blockSize == context->mem_allocated);

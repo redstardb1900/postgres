@@ -1,0 +1,77 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0389",
+ "title": "mmgr aset.c + slab.c whole-file comment translation (325 blocks: 321 translated + 4 preserved; 696/754 content lines rewritten incl. 2 budget-forced empty-frame lines, 58 EN kept: file-head name/copyright/IDENTIFICATION/path lines, 18+20 function-name lines, NOTE: labels, Jan Wieck author line, 6 EN sentence tails subsumed (aset 7/338/369/1085, slab 48/83), 4 #endif label blocks; chunk->区块 with block/MemoryChunk-语境 块 per 0388 A2 口径; review-fix round M1-M6+L7-L9 applied, L10 disclosed)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b3c0fe388683fe59d1da104f81e6df5ce811f0ce",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/mmgr/aset.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0389"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/slab.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0389"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0389-mmgr-aset-slab.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0389 manifest path + 2 mmgr .c file entries"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/mmgr/aset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 192,
+   "translated": 189,
+   "preserved": 3,
+   "preserved_reasons": [
+    "blocks @1214/@1292 single-line '/* !MEMORY_CONTEXT_CHECKING */' and @1657 '/* MEMORY_CONTEXT_CHECKING */' (#endif labels): pure macro identifiers, nothing translatable; kept EN, W7_UNTRANSLATED advisory accepted (memdebug.c 0388 precedent)"
+   ],
+   "note": "comment-aware blocks 192 (189 translated + 3 preserved); content lines 454: 423 rewritten zh (incl. L369 empty-frame after M3 dangling-tail removal), 31 kept EN (head 3/10-11/13-14, L7 EN tail \"type.\" subsumed, L16 NOTE: label, L25 Jan Wieck author line, 18 function-name lines, L338 EN tail \"AllocSetContextCreate.\", L1085 EN tail \"list.\" subsumed, 3 #endif labels); review-fix M1 L1095 补「完成则返回 NULL」(polarity restored per AllocSetAlloc L687-688), M2 L1200-1201 不等式补全 chunk->requested_size < / size < oldchksize, M3 L368-369 悬挂句删除+空框, M4 L78-79 reflow 补「以免浪费空间」(allocChunkLimit/maxBlockSize 保留), L7 L1099-1100 宾语「旧请求的大小」成单元, 风格: L40-41 统一「2 的幂」; disclosure: L489 压缩 CJK-EN 空格（不得超过ALLOCSET_SEPARATE_THRESHOLD, 预算强迫）; gates: verify rc=0 (13 W7 advisories), term_lint 0 in-scope hits, halfen delta vs HEAD = 0"
+  },
+  {
+   "path": "src/backend/utils/mmgr/slab.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 133,
+   "translated": 132,
+   "preserved": 1,
+   "preserved_reasons": [
+    "block @1097 single-line '/* MEMORY_CONTEXT_CHECKING */' (#endif label): pure macro identifier, nothing translatable; kept EN, W7_UNTRANSLATED advisory accepted"
+   ],
+   "note": "comment-aware blocks 133 (132 translated + 1 preserved); content lines 300: 273 rewritten zh (incl. L83 empty-frame), 27 kept EN (head 3/11/13-14, L17 NOTE: label, L48 EN tail \"address.\" subsumed, 20 function-name lines, L1097 #endif label); multi-line trailing comments (L111-121) translated as split zh with closing */ on continuation lines; review-fix M6 L30-31 改「索引最低的非空元素」, M5 L559 改「含 1 个已用区块的块」(block/区块口径), L8 L82-83 reflow 保 isChunkFree 标识符与段末句号 (L83 恰容「组。」), L9 L1005-1006 补 fullChunkSize; disclosure: L784「slab上下文」压缩空格（预算强迫, 与 aset L489 同类）; gates: verify rc=0, term_lint 0 in-scope hits, halfen delta vs HEAD = 0"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0389-mmgr-aset-slab.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0389 manifest path + aset.c/slab.c entries (allowed_paths and files arrays)"
+  }
+ ]
+}

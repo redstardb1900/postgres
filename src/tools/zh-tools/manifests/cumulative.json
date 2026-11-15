@@ -6621,6 +6621,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0389-mmgr-aset-slab.json",
    "kind": "manifest",
    "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/generation.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0390"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/freepage.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0390"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0390-mmgr-gen-freepage.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
   }
  ],
  "files": [
@@ -21533,6 +21548,38 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0389-mmgr-aset-slab.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this batch manifest"
+  },
+  {
+   "path": "src/backend/utils/mmgr/generation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 142,
+   "translated": 140,
+   "preserved": 2,
+   "preserved_reasons": [
+    "trailing single-line labels L824 '/* !MEMORY_CONTEXT_CHECKING */' (#else) and L1139 '/* MEMORY_CONTEXT_CHECKING */' (#endif): pure macro identifiers, nothing translatable; kept EN, W7_UNTRANSLATED advisory accepted (0389 aset/slab precedent)"
+   ],
+   "note": "comment-aware blocks 142 (140 translated + 2 preserved); content lines 278: 252 rewritten zh (incl. L439/L858 budget-forced empty-frame lines, EN tails 'below'/'bytes.' subsumed), 26 kept EN (head 3/9/11/12, 19 function-name lines, L333 MAXALIGN_DOWN formula, 2 #endif labels); multi-line trailing comments L69-71/L72-73 translated as split zh with closing */ on continuation lines; terminology: chunk->区块, block->块, freeblock/keeper block(保留块)/空闲链表 per 0388/0389; P02/P03 fix pass: L82/L245 不能->无法 (pgdoc unable-to/cannot 规范); review-fix round: L56-57 补「已分配」(「不重复使用已的区块」断裂句修复), L70-71 回收页尾注保留「块 */」闭合 (empty-frame 首版曾吞 */ 致 R1_SKELETON, 已 checkout 复位重键); review-fix round 2 (M1/M2/N2b/N3): M1 L70-71 回收事故复位补「NULL」结果值 (L70=刚释放了最近的块则为 41B/51B, L71=NULL */ 18B/19B; 0389 M1 同族——条件在结果值曾丢), M2 L827-829 重排「我们无从判断是在增大/还是缩小旧请求，故保守地把整个/新分配标为 DEFINED。」(3 行守恒; 原译 L829 系 L835 独立注释串入的「禁止访问区块头部。」语义错误已删, 该处代码为 NOACCESS/DEFINED 并非禁访 chunk 头), N2b L678 补 CJK-EN 空格「置 InvalidAllocSize」(61B/63B; 初版「预算强迫」理由不成立, 更正), N3 L870 「释放旧区块*/」21B/21B 恰满、强迫压缩 */ 前空格 (不改文本, 补披露); gates: verify rc=0 (7 W7 advisories: L78/L165 MemoryChunks, L239 MemoryChunk, L286 NULLify, L321 GenerationBlocks IDENT_LOST + 2 #endif UNTRANSLATED), term_lint in-scope hits 0 (P02/P03 fixed), halfen delta vs HEAD = 0"
+  },
+  {
+   "path": "src/backend/utils/mmgr/freepage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 157,
+   "translated": 157,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "comment-aware blocks 157 (all translated; header design doc L1-43 全译); content lines 336: 331 rewritten zh (incl. 6 budget-forced empty-frame lines L27/L321/L567/L1398/L1436/L1738, EN tails 'managed.'/'successfully get.'/'done.'/'safe.'/'appropriate free list.'/'resulting pages.' subsumed), 5 kept EN (head 3/45/46/48/49: file name + 2 copyright + IDENTIFICATION + path); terminology: span->跨度 (全文件统一), free page manager->空闲页管理器, freelist->空闲链表, recycle list->回收链表, uplink->上行/downlink->下行, btree 标识符保留, leaf/internal page->叶页/内页; polarity hot-spots 核对通过: L206-207 返回值真伪语义, L657-660 释放回收页致分裂则跳过, L1415-1417 未初始化 btree 时受害跨度必在 FPM 自身, L1433-1435 恰合则全移除否则调整, L1468-1471 soft 为真仅当免分配才插入/为假总执行/跳过返回 0, L1678 分裂分配绝不该失败, L1735-1738 分裂后必有空间; review-fix round 2 (N1/N2a/N4/N5): N1 L1619 补句末「。」(70B/70B 恰满), N2a L1461 补 */ 前空格 (31B/32B; 初版「预算强迫」理由不成立, 更正), N4 L462 采纳「/*转储空闲链表*/」23B/23B 恰满 (舍句号保动词, 替换初版「/*空闲链表。*/」), N5 补披露 (不改文本): L79 以「/」代 or 连接 FREE_PAGE_LEAF_MAGIC / FREE_PAGE_INTERNAL_MAGIC (预算 26B 不容「或」), L439 「转储btree」压缩 /* 后空格并舍句号 (18B 预算); 既有压缩披露更正后口径: L233 'FreePageManagerGetInternal可能已置contiguous_pages_dirty，' 与 L1550/L1704/L860 压缩 CJK-EN 空格, 单行注释 L454/L802/L847/L1017/L1342/L1378/L1606 压缩 /* 后空格, L439/L1342/L1378/L462 句号省略 (预算不足), L1636/L1832 宾语省略 (Put span on/Put it on 预算不足); gates: verify rc=0 (1 W7 advisory: L232 contiguous_pages IDENT_LOST — L233 压缩空格使 contiguous_pages 为 contiguous_pages_dirty 前缀致标识符匹配失败), term_lint in-scope hits 0, halfen delta vs HEAD = 0"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0390-mmgr-gen-freepage.json",
    "kind": "manifest",
    "action": "add",
    "segments_total": 0,

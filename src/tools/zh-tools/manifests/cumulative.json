@@ -6747,11 +6747,11 @@
    "kind": "manifest",
    "note": "batch-0398 manifest"
   },
- {
-  "pattern": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
-  "kind": "manifest",
-  "note": "batch-0399 manifest"
- },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
+   "kind": "manifest",
+   "note": "batch-0399 manifest"
+  },
   {
    "pattern": "src/backend/utils/cache/relcache.c",
    "kind": "c_comment",
@@ -6921,6 +6921,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0402-adt-small3.json",
    "kind": "manifest",
    "note": "batch-0402 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0402-补-manifest.json",
+   "kind": "manifest",
+   "note": "batch-0402-补 fixup manifest (六 .c 补提交入库)"
   }
  ],
  "files": [
@@ -22100,16 +22105,16 @@
    "preserved_reasons": [],
    "note": "batch-0398 manifest"
   },
- {
-  "path": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
-  "kind": "manifest",
-  "action": "add",
-  "segments_total": 0,
-  "translated": 0,
-  "preserved": 0,
-  "preserved_reasons": [],
-  "note": "batch-0399 manifest"
- },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0399-cache-relcache-part2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0399 manifest"
+  },
   {
    "path": "src/backend/utils/cache/relcache.c",
    "kind": "c_comment",
@@ -22267,7 +22272,9 @@
    "segments_total": 14,
    "translated": 13,
    "preserved": 1,
-   "preserved_reasons": ["头部块仅版权行+路径行, 整块保留 EN"],
+   "preserved_reasons": [
+    "头部块仅版权行+路径行, 整块保留 EN"
+   ],
    "note": "whole-file comment translation (batch-0401, adt small files); IP 网络表示转换 (CIDR); keep=头部 16 + 原型行 6 + note: 标签 2 + 作者行 4; 头部块整块保留"
   },
   {
@@ -22307,7 +22314,9 @@
    "segments_total": 28,
    "translated": 22,
    "preserved": 6,
-   "preserved_reasons": ["L101/L105/L220/L223/L269/L272 注释掉的代码行单行块逐字保留"],
+   "preserved_reasons": [
+    "L101/L105/L220/L223/L269/L272 注释掉的代码行单行块逐字保留"
+   ],
    "note": "whole-file comment translation (batch-0401, adt small files); 文本检索 GIN 索引支持; keep=头部 4 + 注释掉的代码行 6 单行块; L122 星后空格舍弃披露"
   },
   {
@@ -22317,7 +22326,9 @@
    "segments_total": 4,
    "translated": 3,
    "preserved": 1,
-   "preserved_reasons": ["L239 宏定义内注释+行尾续行符承载语法, 逐字保留"],
+   "preserved_reasons": [
+    "L239 宏定义内注释+行尾续行符承载语法, 逐字保留"
+   ],
    "note": "whole-file comment translation (batch-0401, adt small files); 文本检索查询运算; keep=头部 5 + L239 宏内续行注释"
   },
   {
@@ -22327,7 +22338,9 @@
    "segments_total": 29,
    "translated": 27,
    "preserved": 2,
-   "preserved_reasons": ["L240/L341 函数尾标记行 (标识符) 保留"],
+   "preserved_reasons": [
+    "L240/L341 函数尾标记行 (标识符) 保留"
+   ],
    "note": "whole-file comment translation (batch-0401, adt small files); LIKE 匹配; keep=头部 4 + L14 宏名行 + 署名行 4 + 标记行 2; XXX 块末问句预算裁剪披露"
   },
   {
@@ -22347,7 +22360,9 @@
    "segments_total": 25,
    "translated": 21,
    "preserved": 4,
-   "preserved_reasons": ["L45/L60/L79/L94 宏定义内 /* keep compiler quiet */ 行尾续行符承载语法, 逐字保留"],
+   "preserved_reasons": [
+    "L45/L60/L79/L94 宏定义内 /* keep compiler quiet */ 行尾续行符承载语法, 逐字保留"
+   ],
    "note": "whole-file comment translation (batch-0401, adt small files); 伪类型; keep=头部 5 + 类型名行 12 + 表达式行 1 + 宏内续行注释 4 块; XXX 块末问句预算裁剪披露"
   },
   {
@@ -22367,7 +22382,9 @@
    "segments_total": 27,
    "translated": 26,
    "preserved": 1,
-   "preserved_reasons": ["整块 EN 保留: 见 note"],
+   "preserved_reasons": [
+    "整块 EN 保留: 见 note"
+   ],
    "note": "whole-file comment translation (batch-0402, adt small files); tsvector 文本检索向量解析 (token=词位); keep=头部保留行 + L303 注释掉的代码行"
   },
   {
@@ -22427,7 +22444,9 @@
    "segments_total": 21,
    "translated": 19,
    "preserved": 2,
-   "preserved_reasons": ["整块 EN 保留: 见 note"],
+   "preserved_reasons": [
+    "整块 EN 保留: 见 note"
+   ],
    "note": "whole-file comment translation (batch-0402, adt small files); UUID 类型 (缩写键); keep=头部保留行 + L417 URL + L419/L420 字段名行"
   },
   {
@@ -22437,7 +22456,9 @@
    "segments_total": 15,
    "translated": 13,
    "preserved": 2,
-   "preserved_reasons": ["整块 EN 保留: 见 note"],
+   "preserved_reasons": [
+    "整块 EN 保留: 见 note"
+   ],
    "note": "whole-file comment translation (batch-0402, adt small files); 元组标识符 (block/offset=块/偏移); keep=头部保留行 + L48/L115 函数名横幅"
   },
   {
@@ -22449,6 +22470,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0402 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0402-补-manifest.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402-补 fixup manifest (六 .c 补提交入库)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

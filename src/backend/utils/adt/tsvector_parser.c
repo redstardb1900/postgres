@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsvector_parser.c
- *	  Parser for tsvector
+ *	  tsvector 解析器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -19,39 +19,39 @@
 
 
 /*
- * Private state of tsvector parser.  Note that tsquery also uses this code to
- * parse its input, hence the boolean flags.  The oprisdelim and is_tsquery
- * flags are both true or both false in current usage, but we keep them
- * separate for clarity.
+ * tsvector 解析器的私有状态。注意 tsquery 也用这段
+ * 代码解析自己的输入，因此有布尔标志。oprisdelim
+ * 与 is_tsquery 在当前用法中总是同真或同假，
+ * 为清晰而分开。
  *
- * If oprisdelim is set, the following characters are treated as delimiters
- * (in addition to whitespace): ! | & ( )
+ * 若设置了 oprisdelim，下列字符将被视为分隔符
+ * （除空白符外）：! | & ( )
  *
- * is_tsquery affects *only* the content of error messages.
+ * is_tsquery 仅影响错误消息的内容。
  *
- * is_web can be true to further modify tsquery parsing.
+ * is_web 为 true 可进一步修改 tsquery 解析。
  *
- * If escontext is an ErrorSaveContext node, then soft errors can be
- * captured there rather than being thrown.
+ * 若 escontext 是 ErrorSaveContext 节点，则软错误可
+ * 在其中捕获而不被抛出。
  */
 struct TSVectorParseStateData
 {
-	char	   *prsbuf;			/* next input character */
-	char	   *bufstart;		/* whole string (used only for errors) */
-	char	   *word;			/* buffer to hold the current word */
-	int			len;			/* size in bytes allocated for 'word' */
-	int			eml;			/* max bytes per character */
-	bool		oprisdelim;		/* treat ! | * ( ) as delimiters? */
-	bool		is_tsquery;		/* say "tsquery" not "tsvector" in errors? */
-	bool		is_web;			/* we're in websearch_to_tsquery() */
-	Node	   *escontext;		/* for soft error reporting */
+	char	   *prsbuf;			/* 下一输入字符 */
+	char	   *bufstart;		/* 整个串（仅用于报错） */
+	char	   *word;			/* 保存当前词的缓冲区 */
+	int			len;			/* 'word' 已分配的字节大小 */
+	int			eml;			/* 每字符字节上限 */
+	bool		oprisdelim;		/* ! | * ( ) 视为分隔符？ */
+	bool		is_tsquery;		/* 报错说 tsquery 而非 tsvector？ */
+	bool		is_web;			/* 在 websearch_to_tsquery() 中 */
+	Node	   *escontext;		/* 用于软错误报告 */
 };
 
 
 /*
- * Initializes a parser state object for the given input string.
- * A bitmask of flags (see ts_utils.h) and an error context object
- * can be provided as well.
+ * 为给定输入串初始化一个解析器状态对象。
+ * 还可提供标志位掩码（见 ts_utils.h）和错误
+ * 上下文对象。
  */
 TSVectorParseState
 init_tsvector_parser(char *input, int flags, Node *escontext)
@@ -73,9 +73,9 @@ init_tsvector_parser(char *input, int flags, Node *escontext)
 }
 
 /*
- * Reinitializes parser to parse 'input', instead of previous input.
+ * 重新初始化解析器以解析 'input'，而非先
  *
- * Note that bufstart (the string reported in errors) is not changed.
+ * 前的输入。注意 bufstart（报错中所报串）不变。
  */
 void
 reset_tsvector_parser(TSVectorParseState state, char *input)
@@ -84,7 +84,7 @@ reset_tsvector_parser(TSVectorParseState state, char *input)
 }
 
 /*
- * Shuts down a tsvector parser.
+ * 关闭 tsvector 解析器。
  */
 void
 close_tsvector_parser(TSVectorParseState state)
@@ -93,7 +93,7 @@ close_tsvector_parser(TSVectorParseState state)
 	pfree(state);
 }
 
-/* increase the size of 'word' if needed to hold one more character */
+/* 若需再容纳一个字符则扩大 'word' 的大小 */
 #define RESIZEPRSBUF \
 do { \
 	int clen = curpos - state->word; \
@@ -105,7 +105,7 @@ do { \
 	} \
 } while (0)
 
-/* Fills gettoken_tsvector's output parameters, and returns true */
+/* 填充 gettoken_tsvector 的输出参数并返回 true */
 #define RETURN_TOKEN \
 do { \
 	if (pos_ptr != NULL) \
@@ -126,7 +126,7 @@ do { \
 } while(0)
 
 
-/* State codes used in gettoken_tsvector */
+/* gettoken_tsvector 用的状态码 */
 #define WAITWORD		1
 #define WAITENDWORD		2
 #define WAITNEXTCHAR	3
@@ -146,31 +146,31 @@ prssyntaxerror(TSVectorParseState state)
 			 state->is_tsquery ?
 			 errmsg("syntax error in tsquery: \"%s\"", state->bufstart) :
 			 errmsg("syntax error in tsvector: \"%s\"", state->bufstart)));
-	/* In soft error situation, return false as convenience for caller */
+	/* 软错误情形下为方便调用方返回 false */
 	return false;
 }
 
 
 /*
- * Get next token from string being parsed. Returns true if successful,
- * false if end of input string is reached or soft error.
+ * 从正在解析的串中取下一个词位。成功时返回 true，
+ * 输入串结束或软错误时返回 false。
  *
- * On success, these output parameters are filled in:
+ * 成功时，下列输出参数会被填充：
  *
- * *strval		pointer to token
- * *lenval		length of *strval
- * *pos_ptr		pointer to a palloc'd array of positions and weights
- *				associated with the token. If the caller is not interested
- *				in the information, NULL can be supplied. Otherwise
- *				the caller is responsible for pfreeing the array.
- * *poslen		number of elements in *pos_ptr
- * *endptr		scan resumption point
+ * *strval		词位指针
+ * *lenval		*strval 的长度
+ * *pos_ptr		指向 palloc 的位置与权重数组的指针
+ *				与该词位关联。若调用方不感兴趣，
+ *				则可传入 NULL，否则
+ *				由调用方负责 pfree 该数组。
+ * *poslen		*pos_ptr 中的元素个数
+ * *endptr		扫描恢复点
  *
- * Pass NULL for any unwanted output parameters.
+ * 不需要的输出参数传 NULL 即可。
  *
- * If state->escontext is an ErrorSaveContext, then caller must check
- * SOFT_ERROR_OCCURRED() to determine whether a "false" result means
- * error or normal end-of-string.
+ * 若 state->escontext 是 ErrorSaveContext，则调用方须检查
+ * SOFT_ERROR_OCCURRED() 来判断 "false" 结果意味着出错
+ * 还是串正常结束。
  */
 bool
 gettoken_tsvector(TSVectorParseState state,
@@ -183,12 +183,12 @@ gettoken_tsvector(TSVectorParseState state,
 	int			statecode = WAITWORD;
 
 	/*
-	 * pos is for collecting the comma delimited list of positions followed by
-	 * the actual token.
+	 * pos 用于收集逗号分隔的位置列表，其后跟着
+	 * 实际词位。
 	 */
 	WordEntryPos *pos = NULL;
-	int			npos = 0;		/* elements of pos used */
-	int			posalen = 0;	/* allocated size of pos */
+	int			npos = 0;		/* pos 的已用元素 */
+	int			posalen = 0;	/* pos 的分配大小 */
 
 	while (1)
 	{
@@ -305,7 +305,7 @@ gettoken_tsvector(TSVectorParseState state,
 				}
 				else
 					statecode = WAITPOSINFO;
-				continue;		/* recheck current character */
+				continue;		/* 复查当前字符 */
 			}
 		}
 		else if (statecode == WAITPOSINFO)
@@ -332,7 +332,7 @@ gettoken_tsvector(TSVectorParseState state,
 				}
 				npos++;
 				WEP_SETPOS(pos[npos - 1], LIMITPOS(atoi(state->prsbuf)));
-				/* we cannot get here in tsquery, so no need for 2 errmsgs */
+				/* tsquery 中不会走到这里，无需两条 errmsg */
 				if (WEP_GETPOS(pos[npos - 1]) == 0)
 					ereturn(state->escontext, false,
 							(errcode(ERRCODE_SYNTAX_ERROR),
@@ -378,11 +378,11 @@ gettoken_tsvector(TSVectorParseState state,
 			else if (!t_isdigit(state->prsbuf))
 				PRSSYNTAXERROR;
 		}
-		else					/* internal error */
+		else					/* 内部错误 */
 			elog(ERROR, "unrecognized state in gettoken_tsvector: %d",
 				 statecode);
 
-		/* get next char */
+		/* 下一字符 */
 		state->prsbuf += pg_mblen(state->prsbuf);
 	}
 }

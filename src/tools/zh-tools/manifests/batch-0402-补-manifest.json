@@ -1,0 +1,134 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0402-补",
+ "title": "batch-0402 six-file supplementary commit manifest (main-session git add path omission)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1a3541250d3383622c69539695739aa276d60918",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0402-补-manifest.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/bool.c",
+   "kind": "c_comment",
+   "note": "batch-0402 补提交（内容已过 batch-0402 审查）"
+  },
+  {
+   "pattern": "src/backend/utils/adt/domains.c",
+   "kind": "c_comment",
+   "note": "batch-0402 补提交（内容已过 batch-0402 审查）"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonbsubs.c",
+   "kind": "c_comment",
+   "note": "batch-0402 补提交（内容已过 batch-0402 审查）"
+  },
+  {
+   "pattern": "src/backend/utils/adt/oid.c",
+   "kind": "c_comment",
+   "note": "batch-0402 补提交（内容已过 batch-0402 审查）"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tid.c",
+   "kind": "c_comment",
+   "note": "batch-0402 补提交（内容已过 batch-0402 审查）"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsvector_parser.c",
+   "kind": "c_comment",
+   "note": "batch-0402 补提交（内容已过 batch-0402 审查）"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "register fixup manifest path (S6)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0402-补-manifest.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "补提交 manifest：0402 前一笔因主会话 git add 路径遗漏未含六 .c 译文，本 manifest 覆盖补提交"
+  },
+  {
+   "path": "src/backend/utils/adt/bool.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 六文件补提交（译文已于 batch-0402-adt-small3.json 审查通过；本 manifest 仅为补提交入库要求）"
+  },
+  {
+   "path": "src/backend/utils/adt/domains.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 六文件补提交（译文已于 batch-0402-adt-small3.json 审查通过；本 manifest 仅为补提交入库要求）"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonbsubs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 六文件补提交（译文已于 batch-0402-adt-small3.json 审查通过；本 manifest 仅为补提交入库要求）"
+  },
+  {
+   "path": "src/backend/utils/adt/oid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 六文件补提交（译文已于 batch-0402-adt-small3.json 审查通过；本 manifest 仅为补提交入库要求）"
+  },
+  {
+   "path": "src/backend/utils/adt/tid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 六文件补提交（译文已于 batch-0402-adt-small3.json 审查通过；本 manifest 仅为补提交入库要求）"
+  },
+  {
+   "path": "src/backend/utils/adt/tsvector_parser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 六文件补提交（译文已于 batch-0402-adt-small3.json 审查通过；本 manifest 仅为补提交入库要求）"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "register fixup manifest path (S6)"
+  }
+ ],
+ "notes": "batch-0402-补 (2026-11-16, parent batch-0402 首笔). 六 .c 译文本体已随 batch-0402-adt-small3.json 审查通过（verify 0 violations / term_lint 0 hits / check_scope PASS 覆盖 10 changed paths）；本笔仅因主会话 git add 路径遗漏补入库。门禁于前一笔提交时全过，内容零改动。"
+}

@@ -1,22 +1,22 @@
 /*-------------------------------------------------------------------------
  *
  * domains.c
- *	  I/O functions for domain types.
+ *	  域类型的 I/O 函数。
  *
- * The output functions for a domain type are just the same ones provided
- * by its underlying base type.  The input functions, however, must be
- * prepared to apply any constraints defined by the type.  So, we create
- * special input functions that invoke the base type's input function
- * and then check the constraints.
+ * 域类型的输出函数就是由其底层基础类型所提供的
+ * 同一批函数。但输入函数则必须准备好应用该
+ * 类型所定义的任何约束。因此我们创建了特殊的
+ * 输入函数，它们会调用基础类型的输入函数，
+ * 然后检查约束。
  *
- * The overhead required for constraint checking can be high, since examining
- * the catalogs to discover the constraints for a given domain is not cheap.
- * We have three mechanisms for minimizing this cost:
- *	1.  We rely on the typcache to keep up-to-date copies of the constraints.
- *	2.  In a nest of domains, we flatten the checking of all the levels
- *		into just one operation (the typcache does this for us).
- *	3.  If there are CHECK constraints, we cache a standalone ExprContext
- *		to evaluate them in.
+ * 约束检查所需的开销可能很高，因为翻查目录来找出
+ * 给定域的约束并不便宜。以下三种机制可
+ * 把这一开销降至最低：
+ *	依赖 typcache 保存约束的最新副本。
+ *	在域的嵌套中，我们把所有层级的检查
+ *		摊平成仅仅一次操作（typcache 代劳）。
+ *	若存在 CHECK 约束，则缓存独立 ExprContext
+ *		供其求值。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -42,32 +42,32 @@
 
 
 /*
- * structure to cache state across multiple calls
+ * 跨多次调用缓存状态的结构
  */
 typedef struct DomainIOData
 {
 	Oid			domain_type;
-	/* Data needed to call base type's input function */
+	/* 调用基础类型输入函数所需的数据 */
 	Oid			typiofunc;
 	Oid			typioparam;
 	int32		typtypmod;
 	FmgrInfo	proc;
-	/* Reference to cached list of constraint items to check */
+	/* 指向已缓存待检查约束项列表的引用 */
 	DomainConstraintRef constraint_ref;
-	/* Context for evaluating CHECK constraints in */
+	/* 用于求值 CHECK 约束的上下文 */
 	ExprContext *econtext;
-	/* Memory context this cache is in */
+	/* 缓存所在内存上下文 */
 	MemoryContext mcxt;
 } DomainIOData;
 
 
 /*
- * domain_state_setup - initialize the cache for a new domain type.
+ * domain_state_setup - 为新域类型初始化缓存。
  *
- * Note: we can't re-use the same cache struct for a new domain type,
- * since there's no provision for releasing the DomainConstraintRef.
- * If a call site needs to deal with a new domain type, we just leak
- * the old struct for the duration of the query.
+ * 注意：不能为新域类型复用同一个缓存结构体，
+ * 因为没有提供释放 DomainConstraintRef 的机制。
+ * 若调用点需要处理新域类型，只需在查询期间
+ * 泄漏旧结构体。
  */
 static DomainIOData *
 domain_state_setup(Oid domainType, bool binary, MemoryContext mcxt)
@@ -79,11 +79,11 @@ domain_state_setup(Oid domainType, bool binary, MemoryContext mcxt)
 	my_extra = (DomainIOData *) MemoryContextAlloc(mcxt, sizeof(DomainIOData));
 
 	/*
-	 * Verify that domainType represents a valid domain type.  We need to be
-	 * careful here because domain_in and domain_recv can be called from SQL,
-	 * possibly with incorrect arguments.  We use lookup_type_cache mainly
-	 * because it will throw a clean user-facing error for a bad OID; but also
-	 * it can cache the underlying base type info.
+	 * 验证 domainType 表示的是有效的域类型。这里必须
+	 * 小心，因为 domain_in 与 domain_recv 可能从 SQL 中被
+	 * 调用，且参数可能不正确。我们使用 lookup_type_cache
+	 * 主要是它会对错误的 OID 抛出友好的用户错误；但它
+	 * 还能缓存底层基础类型的信息。
 	 */
 	typentry = lookup_type_cache(domainType, TYPECACHE_DOMAIN_BASE_INFO);
 	if (typentry->typtype != TYPTYPE_DOMAIN)
@@ -92,11 +92,11 @@ domain_state_setup(Oid domainType, bool binary, MemoryContext mcxt)
 				 errmsg("type %s is not a domain",
 						format_type_be(domainType))));
 
-	/* Find out the base type */
+	/* 找出基础类型 */
 	baseType = typentry->domainBaseType;
 	my_extra->typtypmod = typentry->domainBaseTypmod;
 
-	/* Look up underlying I/O function */
+	/* 查找底层 I/O 函数 */
 	if (binary)
 		getTypeBinaryInputInfo(baseType,
 							   &my_extra->typiofunc,
@@ -107,29 +107,29 @@ domain_state_setup(Oid domainType, bool binary, MemoryContext mcxt)
 						 &my_extra->typioparam);
 	fmgr_info_cxt(my_extra->typiofunc, &my_extra->proc, mcxt);
 
-	/* Look up constraints for domain */
+	/* 查找域的约束 */
 	InitDomainConstraintRef(domainType, &my_extra->constraint_ref, mcxt, true);
 
-	/* We don't make an ExprContext until needed */
+	/* 直到需要时才创建 ExprContext */
 	my_extra->econtext = NULL;
 	my_extra->mcxt = mcxt;
 
-	/* Mark cache valid */
+	/* 置有效标志 */
 	my_extra->domain_type = domainType;
 
 	return my_extra;
 }
 
 /*
- * domain_check_input - apply the cached checks.
+ * domain_check_input - 应用已缓存检查。
  *
- * This is roughly similar to the handling of CoerceToDomain nodes in
- * execExpr*.c, but we execute each constraint separately, rather than
- * compiling them in-line within a larger expression.
+ * 这大致类似于 execExpr*.c 中对 CoerceToDomain 节点的
+ * 处理，但我们逐个单独执行各约束，而不是把它们
+ * 内联编译到更大的表达式中。
  *
- * If escontext points to an ErrorSaveContext, any failures are reported
- * there, otherwise they are ereport'ed.  Note that we do not attempt to do
- * soft reporting of errors raised during execution of CHECK constraints.
+ * 若 escontext 指向 ErrorSaveContext，则任何失败都报告
+ * 到那里，否则以 ereport 报告。注意我们并不尝试对
+ * 执行 CHECK 约束期间引发的错误做软报告。
  */
 static void
 domain_check_input(Datum value, bool isnull, DomainIOData *my_extra,
@@ -138,7 +138,7 @@ domain_check_input(Datum value, bool isnull, DomainIOData *my_extra,
 	ExprContext *econtext = my_extra->econtext;
 	ListCell   *l;
 
-	/* Make sure we have up-to-date constraints */
+	/* 确保我们持有最新约束 */
 	UpdateDomainConstraintRef(&my_extra->constraint_ref);
 
 	foreach(l, my_extra->constraint_ref.constraints)
@@ -160,7 +160,7 @@ domain_check_input(Datum value, bool isnull, DomainIOData *my_extra,
 				break;
 			case DOM_CONSTRAINT_CHECK:
 				{
-					/* Make the econtext if we didn't already */
+					/* 若尚未创建则创建 econtext */
 					if (econtext == NULL)
 					{
 						MemoryContext oldcontext;
@@ -172,14 +172,14 @@ domain_check_input(Datum value, bool isnull, DomainIOData *my_extra,
 					}
 
 					/*
-					 * Set up value to be returned by CoerceToDomainValue
-					 * nodes.  Unlike in the generic expression case, this
-					 * econtext couldn't be shared with anything else, so no
-					 * need to save and restore fields.  But we do need to
-					 * protect the passed-in value against being changed by
-					 * called functions.  (It couldn't be a R/W expanded
-					 * object for most uses, but that seems possible for
-					 * domain_check().)
+					 * 设置 CoerceToDomain 节点要返回的值。与
+					 * 通用表达式情形不同，此 econtext 无法
+					 * 与任何东西共享，不必保存恢复字段。
+					 * 但我们确需保护传入的值不被被调函数
+					 * 改动。对大多数用途而言它不可能是
+					 * 读写扩展对象，但对 domain_check()
+					 * 而言这似乎也是
+					 * 可能的。
 					 */
 					econtext->domainValue_datum =
 						MakeExpandedObjectReadOnly(value, isnull,
@@ -207,9 +207,9 @@ domain_check_input(Datum value, bool isnull, DomainIOData *my_extra,
 	}
 
 	/*
-	 * Before exiting, call any shutdown callbacks and reset econtext's
-	 * per-tuple memory.  This avoids leaking non-memory resources, if
-	 * anything in the expression(s) has any.
+	 * 退出前，调用所有关闭回调并重置 econtext 的
+	 * 元组内存。这避免泄漏非内存资源——若表达
+	 * 式中有任何此类资源。
 	 */
 fail:
 	if (econtext)
@@ -218,7 +218,7 @@ fail:
 
 
 /*
- * domain_in		- input routine for any domain type.
+ * domain_in		- 任意域类型的输入例程。
  */
 Datum
 domain_in(PG_FUNCTION_ARGS)
@@ -230,9 +230,9 @@ domain_in(PG_FUNCTION_ARGS)
 	Datum		value;
 
 	/*
-	 * Since domain_in is not strict, we have to check for null inputs. The
-	 * typioparam argument should never be null in normal system usage, but it
-	 * could be null in a manual invocation --- if so, just return null.
+	 * 由于 domain_in 不是严格的，我们必须检查空输入。
+	 * 正常系统使用中 typioparam 参数绝不应为 null，但在
+	 * 手工调用时可能为 null——若是，直接返回 null。
 	 */
 	if (PG_ARGISNULL(0))
 		string = NULL;
@@ -243,9 +243,9 @@ domain_in(PG_FUNCTION_ARGS)
 	domainType = PG_GETARG_OID(1);
 
 	/*
-	 * We arrange to look up the needed info just once per series of calls,
-	 * assuming the domain type doesn't change underneath us (which really
-	 * shouldn't happen, but cope if it does).
+	 * 我们安排为整段调用只查找一次所需的信息，
+	 * 并假定域类型不会在我们脚下改变（这确实不应
+	 * 发生，若发生亦能应对）。
 	 */
 	my_extra = (DomainIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL || my_extra->domain_type != domainType)
@@ -256,7 +256,7 @@ domain_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Invoke the base type's typinput procedure to convert the data.
+	 * 调用基础类型的 typinput 过程来转换数据。
 	 */
 	if (!InputFunctionCallSafe(&my_extra->proc,
 							   string,
@@ -267,7 +267,7 @@ domain_in(PG_FUNCTION_ARGS)
 		PG_RETURN_NULL();
 
 	/*
-	 * Do the necessary checks to ensure it's a valid domain value.
+	 * 执行必要的检查以确保它是有效的域值。
 	 */
 	domain_check_input(value, (string == NULL), my_extra, escontext);
 
@@ -278,7 +278,7 @@ domain_in(PG_FUNCTION_ARGS)
 }
 
 /*
- * domain_recv		- binary input routine for any domain type.
+ * domain_recv		- 域类型的二进制输入例程。
  */
 Datum
 domain_recv(PG_FUNCTION_ARGS)
@@ -289,9 +289,9 @@ domain_recv(PG_FUNCTION_ARGS)
 	Datum		value;
 
 	/*
-	 * Since domain_recv is not strict, we have to check for null inputs. The
-	 * typioparam argument should never be null in normal system usage, but it
-	 * could be null in a manual invocation --- if so, just return null.
+	 * 由于 domain_recv 不是严格的，我们必须检查空输入。
+	 * 正常系统使用中 typioparam 参数绝不应为 null，但在
+	 * 手工调用时可能为 null——若是，直接返回 null。
 	 */
 	if (PG_ARGISNULL(0))
 		buf = NULL;
@@ -302,9 +302,9 @@ domain_recv(PG_FUNCTION_ARGS)
 	domainType = PG_GETARG_OID(1);
 
 	/*
-	 * We arrange to look up the needed info just once per series of calls,
-	 * assuming the domain type doesn't change underneath us (which really
-	 * shouldn't happen, but cope if it does).
+	 * 我们安排为整段调用只查找一次所需的信息，
+	 * 并假定域类型不会在我们脚下改变（这确实不应
+	 * 发生，若发生亦能应对）。
 	 */
 	my_extra = (DomainIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL || my_extra->domain_type != domainType)
@@ -315,7 +315,7 @@ domain_recv(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Invoke the base type's typreceive procedure to convert the data.
+	 * 调用基础类型的 typreceive 过程来转换数据。
 	 */
 	value = ReceiveFunctionCall(&my_extra->proc,
 								buf,
@@ -323,7 +323,7 @@ domain_recv(PG_FUNCTION_ARGS)
 								my_extra->typtypmod);
 
 	/*
-	 * Do the necessary checks to ensure it's a valid domain value.
+	 * 执行必要的检查以确保它是有效的域值。
 	 */
 	domain_check_input(value, (buf == NULL), my_extra, NULL);
 
@@ -334,10 +334,10 @@ domain_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- * domain_check - check that a datum satisfies the constraints of a
- * domain.  extra and mcxt can be passed if they are available from,
- * say, a FmgrInfo structure, or they can be NULL, in which case the
- * setup is repeated for each call.
+ * domain_check - 检查 datum 是否满足某个域的约束。
+ * 若 extra 与 mcxt 可从诸如 FmgrInfo 结构之类的来源
+ * 获得，则可传入，否则可传 NULL，此时每次调用都
+ * 要重复一次设置。
  */
 void
 domain_check(Datum value, bool isnull, Oid domainType,
@@ -349,9 +349,9 @@ domain_check(Datum value, bool isnull, Oid domainType,
 		mcxt = CurrentMemoryContext;
 
 	/*
-	 * We arrange to look up the needed info just once per series of calls,
-	 * assuming the domain type doesn't change underneath us (which really
-	 * shouldn't happen, but cope if it does).
+	 * 我们安排为整段调用只查找一次所需的信息，
+	 * 并假定域类型不会在我们脚下改变（这确实不应
+	 * 发生，若发生亦能应对）。
 	 */
 	if (extra)
 		my_extra = (DomainIOData *) *extra;
@@ -363,14 +363,14 @@ domain_check(Datum value, bool isnull, Oid domainType,
 	}
 
 	/*
-	 * Do the necessary checks to ensure it's a valid domain value.
+	 * 执行必要的检查以确保它是有效的域值。
 	 */
 	domain_check_input(value, isnull, my_extra, NULL);
 }
 
 /*
- * errdatatype --- stores schema_name and datatype_name of a datatype
- * within the current errordata.
+ * errdatatype --- 在当前 errordata 中保存数据类型
+ * 的模式名与类型名。
  */
 int
 errdatatype(Oid datatypeOid)
@@ -389,12 +389,12 @@ errdatatype(Oid datatypeOid)
 
 	ReleaseSysCache(tup);
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }
 
 /*
- * errdomainconstraint --- stores schema_name, datatype_name and
- * constraint_name of a domain-related constraint within the current errordata.
+ * errdomainconstraint --- 在当前 errordata 中保存
+ * 域相关约束的模式名、类型名与约束名。
  */
 int
 errdomainconstraint(Oid datatypeOid, const char *conname)
@@ -402,5 +402,5 @@ errdomainconstraint(Oid datatypeOid, const char *conname)
 	errdatatype(datatypeOid);
 	err_generic_string(PG_DIAG_CONSTRAINT_NAME, conname);
 
-	return 0;					/* return value does not matter */
+	return 0;					/* 返回值无关紧要 */
 }

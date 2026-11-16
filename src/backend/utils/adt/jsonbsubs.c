@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonbsubs.c
- *	  Subscripting support functions for jsonb.
+ *	  jsonb 的下标支持函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,21 +26,21 @@
 #include "utils/lsyscache.h"
 
 
-/* SubscriptingRefState.workspace for jsonb subscripting execution */
+/* SubscriptingRefState.workspace，用于 jsonb 下标执行 */
 typedef struct JsonbSubWorkspace
 {
-	bool		expectArray;	/* jsonb root is expected to be an array */
-	Oid		   *indexOid;		/* OID of coerced subscript expression, could
-								 * be only integer or text */
-	Datum	   *index;			/* Subscript values in Datum format */
+	bool		expectArray;	/* jsonb 根应为数组 */
+	Oid		   *indexOid;		/* 转换后下标的 OID，只能
+								 * 为整数或文本 */
+	Datum	   *index;			/* Datum 格式的下标值 */
 } JsonbSubWorkspace;
 
 
 /*
- * Finish parse analysis of a SubscriptingRef expression for a jsonb.
+ * 完成对 jsonb 的 SubscriptingRef 表达式的解析分析。
  *
- * Transform the subscript expressions, coerce them to text,
- * and determine the result type of the SubscriptingRef node.
+ * 变换各下标表达式，并将它们强转为 text，
+ * 并确定 SubscriptingRef 节点的结果类型。
  */
 static void
 jsonb_subscript_transform(SubscriptingRef *sbsref,
@@ -53,8 +53,8 @@ jsonb_subscript_transform(SubscriptingRef *sbsref,
 	ListCell   *idx;
 
 	/*
-	 * Transform and convert the subscript expressions. Jsonb subscripting
-	 * does not support slices, look only and the upper index.
+	 * 变换并转换各下标表达式。jsonb 下标不支持
+	 * 切片、仅查找以及上界。
 	 */
 	foreach(idx, indirection)
 	{
@@ -84,18 +84,18 @@ jsonb_subscript_transform(SubscriptingRef *sbsref,
 				Oid			targets[2] = {INT4OID, TEXTOID};
 
 				/*
-				 * Jsonb can handle multiple subscript types, but cases when a
-				 * subscript could be coerced to multiple target types must be
-				 * avoided, similar to overloaded functions. It could be
-				 * possibly extend with jsonpath in the future.
+				 * jsonb 可处理多种下标类型，但一个下标可被
+				 * 强制转换为多种目标类型的情形必须避免，
+				 * 这与重载函数类似。将来可能可以
+				 * 用 jsonpath 加以扩展。
 				 */
 				for (int i = 0; i < 2; i++)
 				{
 					if (can_coerce_type(1, &subExprType, &targets[i], COERCION_IMPLICIT))
 					{
 						/*
-						 * One type has already succeeded, it means there are
-						 * two coercion targets possible, failure.
+						 * 已有一种类型成功，意味着存在两个
+						 * 可能的强转目标，失败。
 						 */
 						if (targetType != UNKNOWNOID)
 							ereport(ERROR,
@@ -109,7 +109,7 @@ jsonb_subscript_transform(SubscriptingRef *sbsref,
 				}
 
 				/*
-				 * No suitable types were found, failure.
+				 * 未找到合适类型，失败。
 				 */
 				if (targetType == UNKNOWNOID)
 					ereport(ERROR,
@@ -122,10 +122,10 @@ jsonb_subscript_transform(SubscriptingRef *sbsref,
 				targetType = TEXTOID;
 
 			/*
-			 * We known from can_coerce_type that coercion will succeed, so
-			 * coerce_type could be used. Note the implicit coercion context,
-			 * which is required to handle subscripts of different types,
-			 * similar to overloaded functions.
+			 * 我们从 can_coerce_type 已知强转会成功，因此
+			 * 可以使用 coerce_type。注意隐式强转上下文，
+			 * 处理不同类型的下标时需要用到它，这与
+			 * 重载函数类似。
 			 */
 			subExpr = coerce_type(pstate,
 								  subExpr, subExprType,
@@ -142,8 +142,8 @@ jsonb_subscript_transform(SubscriptingRef *sbsref,
 		else
 		{
 			/*
-			 * Slice with omitted upper bound. Should not happen as we already
-			 * errored out on slice earlier, but handle this just in case.
+			 * 省略上界的切片。不应发生，因为我们之前
+			 * 已对切片报过错，但仍以防万一处理一下。
 			 */
 			Assert(isSlice && ai->is_slice);
 			ereport(ERROR,
@@ -155,24 +155,24 @@ jsonb_subscript_transform(SubscriptingRef *sbsref,
 		upperIndexpr = lappend(upperIndexpr, subExpr);
 	}
 
-	/* store the transformed lists into the SubscriptRef node */
+	/* 把变换后的列表存入 SubscriptRef 节点 */
 	sbsref->refupperindexpr = upperIndexpr;
 	sbsref->reflowerindexpr = NIL;
 
-	/* Determine the result type of the subscripting operation; always jsonb */
+	/* 确定下标操作的结果类型；总是 jsonb */
 	sbsref->refrestype = JSONBOID;
 	sbsref->reftypmod = -1;
 }
 
 /*
- * During execution, process the subscripts in a SubscriptingRef expression.
+ * 执行期间，处理 SubscriptingRef 表达式中的各下标。
  *
- * The subscript expressions are already evaluated in Datum form in the
- * SubscriptingRefState's arrays.  Check and convert them as necessary.
+ * 各下标表达式已在 SubscriptingRefState 的数组中
+ * 以 Datum 形式完成求值。按需检查并转换。
  *
- * If any subscript is NULL, we throw error in assignment cases, or in fetch
- * cases set result to NULL and return false (instructing caller to skip the
- * rest of the SubscriptingRef sequence).
+ * 若任一下标为 NULL，则在赋值情形下抛错，或在
+ * 获取情形下把结果置为 NULL 并返回 false（指示调用方
+ * 跳过该序列的其余部分）。
  */
 static bool
 jsonb_subscript_check_subscripts(ExprState *state,
@@ -183,22 +183,22 @@ jsonb_subscript_check_subscripts(ExprState *state,
 	JsonbSubWorkspace *workspace = (JsonbSubWorkspace *) sbsrefstate->workspace;
 
 	/*
-	 * In case if the first subscript is an integer, the source jsonb is
-	 * expected to be an array. This information is not used directly, all
-	 * such cases are handled within corresponding jsonb assign functions. But
-	 * if the source jsonb is NULL the expected type will be used to construct
-	 * an empty source.
+	 * 若第一个下标是整数，则源 jsonb 应当是数组。
+	 * 该信息不会被直接使用，所有这类情形都在
+	 * 相应的 jsonb 赋值函数内处理。但若源 jsonb 为 NULL，
+	 * 按预期类型
+	 * 构建空源。
 	 */
 	if (sbsrefstate->numupper > 0 && sbsrefstate->upperprovided[0] &&
 		!sbsrefstate->upperindexnull[0] && workspace->indexOid[0] == INT4OID)
 		workspace->expectArray = true;
 
-	/* Process upper subscripts */
+	/* 处理上界下标 */
 	for (int i = 0; i < sbsrefstate->numupper; i++)
 	{
 		if (sbsrefstate->upperprovided[i])
 		{
-			/* If any index expr yields NULL, result is NULL or error */
+			/* 索引表达式为 NULL 时结果为 NULL 或报错 */
 			if (sbsrefstate->upperindexnull[i])
 			{
 				if (sbsrefstate->isassignment)
@@ -210,8 +210,8 @@ jsonb_subscript_check_subscripts(ExprState *state,
 			}
 
 			/*
-			 * For jsonb fetch and assign functions we need to provide path in
-			 * text format. Convert if it's not already text.
+			 * 对 jsonb 获取与赋值函数，我们需要以文本
+			 * 格式提供路径。若非 text 则转换。
 			 */
 			if (workspace->indexOid[i] == INT4OID)
 			{
@@ -229,10 +229,10 @@ jsonb_subscript_check_subscripts(ExprState *state,
 }
 
 /*
- * Evaluate SubscriptingRef fetch for a jsonb element.
+ * 为 jsonb 元素求值 SubscriptingRef 获取。
  *
- * Source container is in step's result variable (it's known not NULL, since
- * we set fetch_strict to true).
+ * 源容器位于 step 的结果变量中（已知非 NULL，因为
+ * fetch_strict 为 true）。
  */
 static void
 jsonb_subscript_fetch(ExprState *state,
@@ -243,7 +243,7 @@ jsonb_subscript_fetch(ExprState *state,
 	JsonbSubWorkspace *workspace = (JsonbSubWorkspace *) sbsrefstate->workspace;
 	Jsonb	   *jsonbSource;
 
-	/* Should not get here if source jsonb (or any subscript) is null */
+	/* 源 jsonb 或任一下标为 null 时不应走到这里 */
 	Assert(!(*op->resnull));
 
 	jsonbSource = DatumGetJsonbP(*op->resvalue);
@@ -255,10 +255,10 @@ jsonb_subscript_fetch(ExprState *state,
 }
 
 /*
- * Evaluate SubscriptingRef assignment for a jsonb element assignment.
+ * 对 jsonb 元素赋值求取 SubscriptingRef 赋值。
  *
- * Input container (possibly null) is in result area, replacement value is in
- * SubscriptingRefState's replacevalue/replacenull.
+ * 输入容器（可能为 null）位于结果区，替换值位于
+ * SubscriptingRefState replacevalue/replacenull。
  */
 static void
 jsonb_subscript_assign(ExprState *state,
@@ -277,17 +277,17 @@ jsonb_subscript_assign(ExprState *state,
 						  &replacevalue);
 
 	/*
-	 * In case if the input container is null, set up an empty jsonb and
-	 * proceed with the assignment.
+	 * 若输入容器为 null，则设置一个空 jsonb 并继续
+	 * 进行赋值。
 	 */
 	if (*op->resnull)
 	{
 		JsonbValue	newSource;
 
 		/*
-		 * To avoid any surprising results, set up an empty jsonb array in
-		 * case of an array is expected (i.e. the first subscript is integer),
-		 * otherwise jsonb object.
+		 * 为避免意外结果，若预期是数组（即第一个下
+		 * 标是整数），则设置空 jsonb 数组，否则设置为
+		 * jsonb 对象。
 		 */
 		if (workspace->expectArray)
 		{
@@ -311,16 +311,16 @@ jsonb_subscript_assign(ExprState *state,
 									  workspace->index,
 									  sbsrefstate->numupper,
 									  &replacevalue);
-	/* The result is never NULL, so no need to change *op->resnull */
+	/* 结果永不为 NULL，因此无需改动 *op->resnull */
 }
 
 /*
- * Compute old jsonb element value for a SubscriptingRef assignment
- * expression.  Will only be called if the new-value subexpression
- * contains SubscriptingRef or FieldStore.  This is the same as the
- * regular fetch case, except that we have to handle a null jsonb,
- * and the value should be stored into the SubscriptingRefState's
- * prevvalue/prevnull fields.
+ * 为 SubscriptingRef 赋值表达式计算旧的 jsonb
+ * 元素值。仅当新值子表达式包含 SubscriptingRef
+ * 或 FieldStore 时才会被调用。这与常规获取情形
+ * 相同，只是我们必须处理 null jsonb，且值要
+ * 存入 SubscriptingRefState 的 prevvalue/
+ * prevnull 字段。
  */
 static void
 jsonb_subscript_fetch_old(ExprState *state,
@@ -331,7 +331,7 @@ jsonb_subscript_fetch_old(ExprState *state,
 
 	if (*op->resnull)
 	{
-		/* whole jsonb is null, so any element is too */
+		/* jsonb 整体为 null，元素也为 null */
 		sbsrefstate->prevvalue = (Datum) 0;
 		sbsrefstate->prevnull = true;
 	}
@@ -348,9 +348,9 @@ jsonb_subscript_fetch_old(ExprState *state,
 }
 
 /*
- * Set up execution state for a jsonb subscript operation. Opposite to the
- * arrays subscription, there is no limit for number of subscripts as jsonb
- * type itself doesn't have nesting limits.
+ * 为 jsonb 下标操作建立执行状态。与数组下标化不同，
+ * 下标个数没有限制，因为 jsonb 类型本身没有嵌套
+ * 限制。
  */
 static void
 jsonb_exec_setup(const SubscriptingRef *sbsref,
@@ -362,15 +362,15 @@ jsonb_exec_setup(const SubscriptingRef *sbsref,
 	int			nupper = sbsref->refupperindexpr->length;
 	char	   *ptr;
 
-	/* Allocate type-specific workspace with space for per-subscript data */
+	/* 分配类型专属工作区，内含各下标数据的空间 */
 	workspace = palloc0(MAXALIGN(sizeof(JsonbSubWorkspace)) +
 						nupper * (sizeof(Datum) + sizeof(Oid)));
 	workspace->expectArray = false;
 	ptr = ((char *) workspace) + MAXALIGN(sizeof(JsonbSubWorkspace));
 
 	/*
-	 * This coding assumes sizeof(Datum) >= sizeof(Oid), else we might
-	 * misalign the indexOid pointer
+	 * 该编码假定 sizeof(Datum) >= sizeof(Oid)，否则
+	 * 会让 indexOid 指针错位
 	 */
 	workspace->index = (Datum *) ptr;
 	ptr += nupper * sizeof(Datum);
@@ -378,7 +378,7 @@ jsonb_exec_setup(const SubscriptingRef *sbsref,
 
 	sbsrefstate->workspace = workspace;
 
-	/* Collect subscript data types necessary at execution time */
+	/* 收集执行时所需的下标数据类型 */
 	foreach(lc, sbsref->refupperindexpr)
 	{
 		Node	   *expr = lfirst(lc);
@@ -388,7 +388,7 @@ jsonb_exec_setup(const SubscriptingRef *sbsref,
 	}
 
 	/*
-	 * Pass back pointers to appropriate step execution functions.
+	 * 回传指向相应步骤执行函数的指针。
 	 */
 	methods->sbs_check_subscripts = jsonb_subscript_check_subscripts;
 	methods->sbs_fetch = jsonb_subscript_fetch;
@@ -398,7 +398,7 @@ jsonb_exec_setup(const SubscriptingRef *sbsref,
 
 /*
  * jsonb_subscript_handler
- *		Subscripting handler for jsonb.
+ *		jsonb 的下标处理器。
  *
  */
 Datum
@@ -407,9 +407,9 @@ jsonb_subscript_handler(PG_FUNCTION_ARGS)
 	static const SubscriptRoutines sbsroutines = {
 		.transform = jsonb_subscript_transform,
 		.exec_setup = jsonb_exec_setup,
-		.fetch_strict = true,	/* fetch returns NULL for NULL inputs */
-		.fetch_leakproof = true,	/* fetch returns NULL for bad subscript */
-		.store_leakproof = false	/* ... but assignment throws error */
+		.fetch_strict = true,	/* 输入为 NULL 时获取 NULL */
+		.fetch_leakproof = true,	/* 下标不当时获取返回 NULL */
+		.store_leakproof = false	/* 但赋值则抛出错误 */
 	};
 
 	PG_RETURN_POINTER(&sbsroutines);

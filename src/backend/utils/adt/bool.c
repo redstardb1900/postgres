@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * bool.c
- *	  Functions for the built-in type "bool".
+ *	  内置类型 "bool" 的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -21,10 +21,10 @@
 #include "utils/builtins.h"
 
 /*
- * Try to interpret value as boolean value.  Valid values are: true,
- * false, yes, no, on, off, 1, 0; as well as unique prefixes thereof.
- * If the string parses okay, return true, else false.
- * If okay and result is not NULL, return the value in *result.
+ * 尝试将 value 解释为布尔值。有效值有：true、
+ * false、yes、no、on、off、1、0 或其唯一前缀。
+ * 串解析成功返回 true，否则 false。
+ * 若成功且 result 非 NULL，则以 *result 返回。
  */
 bool
 parse_bool(const char *value, bool *result)
@@ -75,7 +75,7 @@ parse_bool_with_len(const char *value, size_t len, bool *result)
 			break;
 		case 'o':
 		case 'O':
-			/* 'o' is not unique enough */
+			/* 'o' 区分度不足 */
 			if (pg_strncasecmp(value, "on", (len > 2 ? len : 2)) == 0)
 			{
 				if (result)
@@ -110,21 +110,21 @@ parse_bool_with_len(const char *value, size_t len, bool *result)
 	}
 
 	if (result)
-		*result = false;		/* suppress compiler warning */
+		*result = false;		/* 抑制编译器警告 */
 	return false;
 }
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程               *
  *****************************************************************************/
 
 /*
- *		boolin			- converts "t" or "f" to 1 or 0
+ *		boolin			- 将 "t" 或 "f" 转为 1/0
  *
- * Check explicitly for "true/false" and TRUE/FALSE, 1/0, YES/NO, ON/OFF.
- * Reject other values.
+ * 显式检查 "true/false" 与 TRUE/FALSE、1/0、YES/NO、ON/OFF。
+ * 拒绝其他值。
  *
- * In the switch statement, check the most-used possibilities first.
+ * 在 switch 语句中，先检查最常用的取值。
  */
 Datum
 boolin(PG_FUNCTION_ARGS)
@@ -135,7 +135,7 @@ boolin(PG_FUNCTION_ARGS)
 	bool		result;
 
 	/*
-	 * Skip leading and trailing whitespace
+	 * 跳过前导与尾随空白
 	 */
 	str = in_str;
 	while (isspace((unsigned char) *str))
@@ -155,7 +155,7 @@ boolin(PG_FUNCTION_ARGS)
 }
 
 /*
- *		boolout			- converts 1 or 0 to "t" or "f"
+ *		boolout			- 将 1/0 转为 "t"/"f"
  */
 Datum
 boolout(PG_FUNCTION_ARGS)
@@ -169,10 +169,10 @@ boolout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		boolrecv			- converts external binary format to bool
+ *		boolrecv			- 将外部二进制格式转为 bool
  *
- * The external representation is one byte.  Any nonzero value is taken
- * as "true".
+ * 外部表示为一个字节。任何非零值都被当作
+ * "true"。
  */
 Datum
 boolrecv(PG_FUNCTION_ARGS)
@@ -185,7 +185,7 @@ boolrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		boolsend			- converts bool to binary format
+ *		boolsend			- 将 bool 转为二进制格式
  */
 Datum
 boolsend(PG_FUNCTION_ARGS)
@@ -199,10 +199,10 @@ boolsend(PG_FUNCTION_ARGS)
 }
 
 /*
- *		booltext			- cast function for bool => text
+ *		booltext			- bool => text 的 cast 函数
  *
- * We need this because it's different from the behavior of boolout();
- * this function follows the SQL-spec result (except for producing lower case)
+ * 我们需要它，因为其行为与 boolout() 不同；
+ * 该函数遵循 SQL 规范的结果（但产出为小写）。
  */
 Datum
 booltext(PG_FUNCTION_ARGS)
@@ -220,7 +220,7 @@ booltext(PG_FUNCTION_ARGS)
 
 
 /*****************************************************************************
- *	 PUBLIC ROUTINES														 *
+ *	 公共例程                  *
  *****************************************************************************/
 
 Datum
@@ -278,14 +278,14 @@ boolge(PG_FUNCTION_ARGS)
 }
 
 /*
- * boolean-and and boolean-or aggregates.
+ * 布尔 AND 和 OR 聚合函数。
  */
 
 /*
- * Function for standard EVERY aggregate conforming to SQL 2003.
- * The aggregate is also named bool_and for consistency.
+ * 实现 SQL 2003 标准 EVERY 聚合的函数。
+ * 为保持一致，该聚合被命名为 bool_and。
  *
- * Note: this is only used in plain aggregate mode, not moving-aggregate mode.
+ * 注意：仅用于普通聚合模式，而非移动聚合模式。
  */
 Datum
 booland_statefunc(PG_FUNCTION_ARGS)
@@ -294,10 +294,10 @@ booland_statefunc(PG_FUNCTION_ARGS)
 }
 
 /*
- * Function for standard ANY/SOME aggregate conforming to SQL 2003.
- * The aggregate is named bool_or, because ANY/SOME have parsing conflicts.
+ * 实现 SQL 2003 标准 ANY/SOME 聚合的函数。
+ * 该聚合被命名为 bool_or，因为 ANY/SOME 有解析冲突。
  *
- * Note: this is only used in plain aggregate mode, not moving-aggregate mode.
+ * 注意：仅用于普通聚合模式，而非移动聚合模式。
  */
 Datum
 boolor_statefunc(PG_FUNCTION_ARGS)
@@ -307,8 +307,8 @@ boolor_statefunc(PG_FUNCTION_ARGS)
 
 typedef struct BoolAggState
 {
-	int64		aggcount;		/* number of non-null values aggregated */
-	int64		aggtrue;		/* number of values aggregated that are true */
+	int64		aggcount;		/* 已聚合的非空值个数 */
+	int64		aggtrue;		/* 已聚合值中为 true 的个数 */
 } BoolAggState;
 
 static BoolAggState *
@@ -335,7 +335,7 @@ bool_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (BoolAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makeBoolAggState(fcinfo);
 
@@ -356,7 +356,7 @@ bool_accum_inv(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (BoolAggState *) PG_GETARG_POINTER(0);
 
-	/* bool_accum should have created the state data */
+	/* bool_accum 应已创建状态数据 */
 	if (state == NULL)
 		elog(ERROR, "bool_accum_inv called with NULL state");
 
@@ -377,11 +377,11 @@ bool_alltrue(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (BoolAggState *) PG_GETARG_POINTER(0);
 
-	/* if there were no non-null values, return NULL */
+	/* 若没有非空值则返回 NULL */
 	if (state == NULL || state->aggcount == 0)
 		PG_RETURN_NULL();
 
-	/* true if all non-null values are true */
+	/* 全部非空值为 true 时为 true */
 	PG_RETURN_BOOL(state->aggtrue == state->aggcount);
 }
 
@@ -392,10 +392,10 @@ bool_anytrue(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (BoolAggState *) PG_GETARG_POINTER(0);
 
-	/* if there were no non-null values, return NULL */
+	/* 若没有非空值则返回 NULL */
 	if (state == NULL || state->aggcount == 0)
 		PG_RETURN_NULL();
 
-	/* true if any non-null value is true */
+	/* 任一非空值为 true 则 true */
 	PG_RETURN_BOOL(state->aggtrue > 0);
 }

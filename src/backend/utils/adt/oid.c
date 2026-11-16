@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * oid.c
- *	  Functions for the built-in type Oid ... also oidvector.
+ *	  内置类型 Oid 的函数……还包括 oidvector。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,7 +29,7 @@
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程               *
  *****************************************************************************/
 
 Datum
@@ -53,7 +53,7 @@ oidout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		oidrecv			- converts external binary format to oid
+ *		oidrecv			- 将外部二进制格式转为 oid
  */
 Datum
 oidrecv(PG_FUNCTION_ARGS)
@@ -64,7 +64,7 @@ oidrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		oidsend			- converts oid to binary format
+ *		oidsend			- 将 oid 转为二进制格式
  */
 Datum
 oidsend(PG_FUNCTION_ARGS)
@@ -78,9 +78,9 @@ oidsend(PG_FUNCTION_ARGS)
 }
 
 /*
- * construct oidvector given a raw array of Oids
+ * 给定 Oid 原始数组构造 oidvector
  *
- * If oids is NULL then caller must fill values[] afterward
+ * 若 oids 为 NULL，调用方之后须填充 values[]
  */
 oidvector *
 buildoidvector(const Oid *oids, int n)
@@ -93,12 +93,12 @@ buildoidvector(const Oid *oids, int n)
 		memcpy(result->values, oids, n * sizeof(Oid));
 
 	/*
-	 * Attach standard array header.  For historical reasons, we set the index
-	 * lower bound to 0 not 1.
+	 * 附加标准数组头部。由于历史原因，下标下界设为 0
+	 * 而不是 1。
 	 */
 	SET_VARSIZE(result, OidVectorSize(n));
 	result->ndim = 1;
-	result->dataoffset = 0;		/* never any nulls */
+	result->dataoffset = 0;		/* 绝无空值 */
 	result->elemtype = OIDOID;
 	result->dim1 = n;
 	result->lbound1 = 0;
@@ -107,7 +107,7 @@ buildoidvector(const Oid *oids, int n)
 }
 
 /*
- *		oidvectorin			- converts "num num ..." to internal form
+ *		oidvectorin			- 将 "num num ..." 转为内部形式
  */
 Datum
 oidvectorin(PG_FUNCTION_ARGS)
@@ -118,7 +118,7 @@ oidvectorin(PG_FUNCTION_ARGS)
 	int			nalloc;
 	int			n;
 
-	nalloc = 32;				/* arbitrary initial size guess */
+	nalloc = 32;				/* 任意初始大小猜测 */
 	result = (oidvector *) palloc0(OidVectorSize(nalloc));
 
 	for (n = 0;; n++)
@@ -142,7 +142,7 @@ oidvectorin(PG_FUNCTION_ARGS)
 
 	SET_VARSIZE(result, OidVectorSize(n));
 	result->ndim = 1;
-	result->dataoffset = 0;		/* never any nulls */
+	result->dataoffset = 0;		/* 绝无空值 */
 	result->elemtype = OIDOID;
 	result->dim1 = n;
 	result->lbound1 = 0;
@@ -151,7 +151,7 @@ oidvectorin(PG_FUNCTION_ARGS)
 }
 
 /*
- *		oidvectorout - converts internal form to "num num ..."
+ *		oidvectorout - 将内部形式转为 "num num ..."
  */
 Datum
 oidvectorout(PG_FUNCTION_ARGS)
@@ -162,7 +162,7 @@ oidvectorout(PG_FUNCTION_ARGS)
 	char	   *rp;
 	char	   *result;
 
-	/* assumes sign, 10 digits, ' ' */
+	/* 假定符号、10 位、' ' */
 	rp = result = (char *) palloc(nnums * 12 + 1);
 	for (num = 0; num < nnums; num++)
 	{
@@ -177,7 +177,7 @@ oidvectorout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		oidvectorrecv			- converts external binary format to oidvector
+ *		oidvectorrecv			- 将外部二进制格式转为 oidvector
  */
 Datum
 oidvectorrecv(PG_FUNCTION_ARGS)
@@ -187,10 +187,10 @@ oidvectorrecv(PG_FUNCTION_ARGS)
 	oidvector  *result;
 
 	/*
-	 * Normally one would call array_recv() using DirectFunctionCall3, but
-	 * that does not work since array_recv wants to cache some data using
-	 * fcinfo->flinfo->fn_extra.  So we need to pass it our own flinfo
-	 * parameter.
+	 * 通常会用 DirectFunctionCall3 来调用 array_recv()，但
+	 * 这行不通，因为 array_recv 要用 fcinfo->flinfo->fn_extra
+	 * 缓存一些数据。因此需传入我们自己的 flinfo
+	 * 参数。
 	 */
 	InitFunctionCallInfoData(*locfcinfo, fcinfo->flinfo, 3,
 							 InvalidOid, NULL, NULL);
@@ -206,7 +206,7 @@ oidvectorrecv(PG_FUNCTION_ARGS)
 
 	Assert(!locfcinfo->isnull);
 
-	/* sanity checks: oidvector must be 1-D, 0-based, no nulls */
+	/* 检查：oidvector 必须为 1 维、0 基、无空值 */
 	if (ARR_NDIM(result) != 1 ||
 		ARR_HASNULL(result) ||
 		ARR_ELEMTYPE(result) != OIDOID ||
@@ -219,7 +219,7 @@ oidvectorrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		oidvectorsend			- converts oidvector to binary format
+ *		oidvectorsend			- 将 oidvector 转为二进制格式
  */
 Datum
 oidvectorsend(PG_FUNCTION_ARGS)
@@ -228,7 +228,7 @@ oidvectorsend(PG_FUNCTION_ARGS)
 }
 
 /*
- *		oidparse				- get OID from ICONST/FCONST node
+ *		oidparse				- 从 ICONST/FCONST 取 OID
  */
 Oid
 oidparse(Node *node)
@@ -240,19 +240,19 @@ oidparse(Node *node)
 		case T_Float:
 
 			/*
-			 * Values too large for int4 will be represented as Float
-			 * constants by the lexer.  Accept these if they are valid OID
-			 * strings.
+			 * int4 容不下的值将被词法分析器表示为
+			 * Float 常量。若为有效 OID 串则接
+			 * 受。
 			 */
 			return uint32in_subr(castNode(Float, node)->fval, NULL,
 								 "oid", NULL);
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(node));
 	}
-	return InvalidOid;			/* keep compiler quiet */
+	return InvalidOid;			/* 让编译器安静 */
 }
 
-/* qsort comparison function for Oids */
+/* Oid 的 qsort 比较函数 */
 int
 oid_cmp(const void *p1, const void *p2)
 {
@@ -268,7 +268,7 @@ oid_cmp(const void *p1, const void *p2)
 
 
 /*****************************************************************************
- *	 PUBLIC ROUTINES														 *
+ *	 公共例程                  *
  *****************************************************************************/
 
 Datum

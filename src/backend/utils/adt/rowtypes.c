@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rowtypes.c
- *	  I/O and comparison functions for generic composite types.
+ *	  通用复合类型的 I/O 与比较函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,7 +30,7 @@
 
 
 /*
- * structure to cache metadata needed for record I/O
+ * 缓存 record I/O 所需元数据的结构
  */
 typedef struct ColumnIOData
 {
@@ -50,16 +50,16 @@ typedef struct RecordIOData
 } RecordIOData;
 
 /*
- * structure to cache metadata needed for record comparison
+ * 缓存 record 比较所需元数据的结构
  */
 typedef struct ColumnCompareData
 {
-	TypeCacheEntry *typentry;	/* has everything we need, actually */
+	TypeCacheEntry *typentry;	/* 其实已含所需的一切 */
 } ColumnCompareData;
 
 typedef struct RecordCompareData
 {
-	int			ncolumns;		/* allocated length of columns[] */
+	int			ncolumns;		/* columns[] 的分配长度 */
 	Oid			record1_type;
 	int32		record1_typmod;
 	Oid			record2_type;
@@ -69,7 +69,7 @@ typedef struct RecordCompareData
 
 
 /*
- * record_in		- input routine for any composite type.
+ * record_in		- 任意复合类型的输入例程。
  */
 Datum
 record_in(PG_FUNCTION_ARGS)
@@ -90,15 +90,15 @@ record_in(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	StringInfoData buf;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
 	/*
-	 * Give a friendly error message if we did not get enough info to identify
-	 * the target record type.  (lookup_rowtype_tupdesc would fail anyway, but
-	 * with a non-user-friendly message.)  In ordinary SQL usage, we'll get -1
-	 * for typmod, since composite types and RECORD have no type modifiers at
-	 * the SQL level, and thus must fail for RECORD.  However some callers can
-	 * supply a valid typmod, and then we can do something useful for RECORD.
+	 * 若没有得到足够的信息来标识目标 record 类型，则给出
+	 * 友好的错误消息。（lookup_rowtype_tupdesc 反正也会
+	 * 失败，但报出的消息对用户不友好。）在普通 SQL 用法
+	 * 中 typmod 会是 -1，因为复合类型和 RECORD 在 SQL 层面
+	 * 上没有类型修饰符，故对 RECORD 必然失败。不过
+	 * 有些调用者可提供有效 typmod，能为 RECORD 做有用的事
 	 */
 	if (tupType == RECORDOID && tupTypmod < 0)
 		ereturn(escontext, (Datum) 0,
@@ -106,16 +106,16 @@ record_in(PG_FUNCTION_ARGS)
 				 errmsg("input of anonymous composite types is not implemented")));
 
 	/*
-	 * This comes from the composite type's pg_type.oid and stores system oids
-	 * in user tables, specifically DatumTupleFields. This oid must be
-	 * preserved by binary upgrades.
+	 * 这来自复合类型的 pg_type.oid 并把系统 oid
+	 * 存入用户表，即 DatumTupleFields。该 oid 必须
+	 * 由二进制升级保留。
 	 */
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 	ncolumns = tupdesc->natts;
 
 	/*
-	 * We arrange to look up the needed I/O info just once per series of
-	 * calls, assuming the record type doesn't change underneath us.
+	 * 我们安排每轮调用只查一次所需的 I/O 信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	my_extra = (RecordIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -145,11 +145,11 @@ record_in(PG_FUNCTION_ARGS)
 	nulls = (bool *) palloc(ncolumns * sizeof(bool));
 
 	/*
-	 * Scan the string.  We use "buf" to accumulate the de-quoted data for
-	 * each column, which is then fed to the appropriate input converter.
+	 * 扫描字符串。用 "buf" 累积每列的去引号数据，随后
+	 * 将其送入相应的输入转换器。
 	 */
 	ptr = string;
-	/* Allow leading whitespace */
+	/* 允许前导空白 */
 	while (*ptr && isspace((unsigned char) *ptr))
 		ptr++;
 	if (*ptr++ != '(')
@@ -170,7 +170,7 @@ record_in(PG_FUNCTION_ARGS)
 		Oid			column_type = att->atttypid;
 		char	   *column_data;
 
-		/* Ignore dropped columns in datatype, but fill with nulls */
+		/* 忽略类型中被丢弃的列，但填入 null */
 		if (att->attisdropped)
 		{
 			values[i] = (Datum) 0;
@@ -180,11 +180,11 @@ record_in(PG_FUNCTION_ARGS)
 
 		if (needComma)
 		{
-			/* Skip comma that separates prior field from this one */
+			/* 跳过分隔前一个字段与当前字段的逗号 */
 			if (*ptr == ',')
 				ptr++;
 			else
-				/* *ptr must be ')' */
+				/* *ptr 须是 ')' */
 			{
 				errsave(escontext,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -194,7 +194,7 @@ record_in(PG_FUNCTION_ARGS)
 			}
 		}
 
-		/* Check for null: completely empty input means null */
+		/* 检查 null：输入完全为空即 null */
 		if (*ptr == ',' || *ptr == ')')
 		{
 			column_data = NULL;
@@ -202,7 +202,7 @@ record_in(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* Extract string for this column */
+			/* 提取该列的字符串 */
 			bool		inquote = false;
 
 			resetStringInfo(&buf);
@@ -238,7 +238,7 @@ record_in(PG_FUNCTION_ARGS)
 						inquote = true;
 					else if (*ptr == '"')
 					{
-						/* doubled quote within quote sequence */
+						/* 引号序列内的双写引号 */
 						appendStringInfoChar(&buf, *ptr++);
 					}
 					else
@@ -253,7 +253,7 @@ record_in(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Convert the column value
+		 * 转换该列的值
 		 */
 		if (column_info->column_type != column_type)
 		{
@@ -274,7 +274,7 @@ record_in(PG_FUNCTION_ARGS)
 			goto fail;
 
 		/*
-		 * Prep for next column
+		 * 准备下一列
 		 */
 		needComma = true;
 	}
@@ -287,7 +287,7 @@ record_in(PG_FUNCTION_ARGS)
 				 errdetail("Too many columns.")));
 		goto fail;
 	}
-	/* Allow trailing whitespace */
+	/* 允许结尾空白 */
 	while (*ptr && isspace((unsigned char) *ptr))
 		ptr++;
 	if (*ptr)
@@ -302,9 +302,9 @@ record_in(PG_FUNCTION_ARGS)
 	tuple = heap_form_tuple(tupdesc, values, nulls);
 
 	/*
-	 * We cannot return tuple->t_data because heap_form_tuple allocates it as
-	 * part of a larger chunk, and our caller may expect to be able to pfree
-	 * our result.  So must copy the info into a new palloc chunk.
+	 * 我们不能返回 tuple->t_data，因为 heap_form_tuple 把它作为
+	 * 更大内存块的一部分来分配，而调用者可能期望能够
+	 * pfree 它。必须把信息复制到新的 palloc 块。
 	 */
 	result = (HeapTupleHeader) palloc(tuple->t_len);
 	memcpy(result, tuple->t_data, tuple->t_len);
@@ -317,14 +317,14 @@ record_in(PG_FUNCTION_ARGS)
 
 	PG_RETURN_HEAPTUPLEHEADER(result);
 
-	/* exit here once we've done lookup_rowtype_tupdesc */
+	/* 做完 lookup_rowtype_tupdesc 后由此退出 */
 fail:
 	ReleaseTupleDesc(tupdesc);
 	PG_RETURN_NULL();
 }
 
 /*
- * record_out		- output routine for any composite type.
+ * record_out		- 任意复合类型的输出例程。
  */
 Datum
 record_out(PG_FUNCTION_ARGS)
@@ -342,23 +342,23 @@ record_out(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	StringInfoData buf;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
-	/* Extract type info from the tuple itself */
+	/* 从元组本身提取类型信息 */
 	tupType = HeapTupleHeaderGetTypeId(rec);
 	tupTypmod = HeapTupleHeaderGetTypMod(rec);
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 	ncolumns = tupdesc->natts;
 
-	/* Build a temporary HeapTuple control structure */
+	/* 构建临时的 HeapTuple 控制结构 */
 	tuple.t_len = HeapTupleHeaderGetDatumLength(rec);
 	ItemPointerSetInvalid(&(tuple.t_self));
 	tuple.t_tableOid = InvalidOid;
 	tuple.t_data = rec;
 
 	/*
-	 * We arrange to look up the needed I/O info just once per series of
-	 * calls, assuming the record type doesn't change underneath us.
+	 * 我们安排每轮调用只查一次所需的 I/O 信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	my_extra = (RecordIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -387,10 +387,10 @@ record_out(PG_FUNCTION_ARGS)
 	values = (Datum *) palloc(ncolumns * sizeof(Datum));
 	nulls = (bool *) palloc(ncolumns * sizeof(bool));
 
-	/* Break down the tuple into fields */
+	/* 把元组拆解成各个字段 */
 	heap_deform_tuple(&tuple, tupdesc, values, nulls);
 
-	/* And build the result string */
+	/* 然后构建结果字符串 */
 	initStringInfo(&buf);
 
 	appendStringInfoChar(&buf, '(');
@@ -405,7 +405,7 @@ record_out(PG_FUNCTION_ARGS)
 		char	   *tmp;
 		bool		nq;
 
-		/* Ignore dropped columns in datatype */
+		/* 忽略类型中被丢弃的列 */
 		if (att->attisdropped)
 			continue;
 
@@ -415,12 +415,12 @@ record_out(PG_FUNCTION_ARGS)
 
 		if (nulls[i])
 		{
-			/* emit nothing... */
+			/* 不输出... */
 			continue;
 		}
 
 		/*
-		 * Convert the column value to text
+		 * 把列值转换为文本
 		 */
 		if (column_info->column_type != column_type)
 		{
@@ -435,8 +435,8 @@ record_out(PG_FUNCTION_ARGS)
 		attr = values[i];
 		value = OutputFunctionCall(&column_info->proc, attr);
 
-		/* Detect whether we need double quotes for this value */
-		nq = (value[0] == '\0');	/* force quotes for empty string */
+		/* 检测该值是否需要双引号 */
+		nq = (value[0] == '\0');	/* 空串要强制加引号 */
 		for (tmp = value; *tmp; tmp++)
 		{
 			char		ch = *tmp;
@@ -450,7 +450,7 @@ record_out(PG_FUNCTION_ARGS)
 			}
 		}
 
-		/* And emit the string */
+		/* 再输出字符串 */
 		if (nq)
 			appendStringInfoCharMacro(&buf, '"');
 		for (tmp = value; *tmp; tmp++)
@@ -475,7 +475,7 @@ record_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * record_recv		- binary input routine for any composite type.
+ * record_recv		- 任意复合类型二进制输入例程。
  */
 Datum
 record_recv(PG_FUNCTION_ARGS)
@@ -494,15 +494,15 @@ record_recv(PG_FUNCTION_ARGS)
 	Datum	   *values;
 	bool	   *nulls;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
 	/*
-	 * Give a friendly error message if we did not get enough info to identify
-	 * the target record type.  (lookup_rowtype_tupdesc would fail anyway, but
-	 * with a non-user-friendly message.)  In ordinary SQL usage, we'll get -1
-	 * for typmod, since composite types and RECORD have no type modifiers at
-	 * the SQL level, and thus must fail for RECORD.  However some callers can
-	 * supply a valid typmod, and then we can do something useful for RECORD.
+	 * 若没有得到足够的信息来标识目标 record 类型，则给出
+	 * 友好的错误消息。（lookup_rowtype_tupdesc 反正也会
+	 * 失败，但报出的消息对用户不友好。）在普通 SQL 用法
+	 * 中 typmod 会是 -1，因为复合类型和 RECORD 在 SQL 层面
+	 * 上没有类型修饰符，故对 RECORD 必然失败。不过
+	 * 有些调用者可提供有效 typmod，能为 RECORD 做有用的事
 	 */
 	if (tupType == RECORDOID && tupTypmod < 0)
 		ereport(ERROR,
@@ -513,8 +513,8 @@ record_recv(PG_FUNCTION_ARGS)
 	ncolumns = tupdesc->natts;
 
 	/*
-	 * We arrange to look up the needed I/O info just once per series of
-	 * calls, assuming the record type doesn't change underneath us.
+	 * 我们安排每轮调用只查一次所需的 I/O 信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	my_extra = (RecordIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -543,10 +543,10 @@ record_recv(PG_FUNCTION_ARGS)
 	values = (Datum *) palloc(ncolumns * sizeof(Datum));
 	nulls = (bool *) palloc(ncolumns * sizeof(bool));
 
-	/* Fetch number of columns user thinks it has */
+	/* 取用户认为它具有的列数 */
 	usercols = pq_getmsgint(buf, 4);
 
-	/* Need to scan to count nondeleted columns */
+	/* 需要扫描以统计未删除的列数 */
 	validcols = 0;
 	for (i = 0; i < ncolumns; i++)
 	{
@@ -559,7 +559,7 @@ record_recv(PG_FUNCTION_ARGS)
 				 errmsg("wrong number of columns: %d, expected %d",
 						usercols, validcols)));
 
-	/* Process each column */
+	/* 处理每一列 */
 	for (i = 0; i < ncolumns; i++)
 	{
 		Form_pg_attribute att = TupleDescAttr(tupdesc, i);
@@ -571,7 +571,7 @@ record_recv(PG_FUNCTION_ARGS)
 		StringInfo	bufptr;
 		char		csave;
 
-		/* Ignore dropped columns in datatype, but fill with nulls */
+		/* 忽略类型中被丢弃的列，但填入 null */
 		if (att->attisdropped)
 		{
 			values[i] = (Datum) 0;
@@ -579,19 +579,19 @@ record_recv(PG_FUNCTION_ARGS)
 			continue;
 		}
 
-		/* Check column type recorded in the data */
+		/* 检查数据中记录的列类型 */
 		coltypoid = pq_getmsgint(buf, sizeof(Oid));
 
 		/*
-		 * From a security standpoint, it doesn't matter whether the input's
-		 * column type matches what we expect: the column type's receive
-		 * function has to be robust enough to cope with invalid data.
-		 * However, from a user-friendliness standpoint, it's nicer to
-		 * complain about type mismatches than to throw "improper binary
-		 * format" errors.  But there's a problem: only built-in types have
-		 * OIDs that are stable enough to believe that a mismatch is a real
-		 * issue.  So complain only if both OIDs are in the built-in range.
-		 * Otherwise, carry on with the column type we "should" be getting.
+		 * 从安全角度看，输入的列类型是否与期望相符并
+		 * 无关紧要：列类型的接收函数必须健壮到能
+		 * 应对无效数据。但从易用性角度看，
+		 * 对类型不匹配提出抱怨胜过抛出 "improper binary
+		 * format" 错误。但有个问题：仅内建类型
+		 * 才拥有稳定到足以相信不匹配是真问题的 OID。
+		 * 所以仅当两个 OID 都在
+		 * 内建范围内时才提出抱怨。
+		 * 否则，继续使用我们"本应"得到的列类型。
 		 */
 		if (coltypoid != column_type &&
 			coltypoid < FirstGenbkiObjectId &&
@@ -607,7 +607,7 @@ record_recv(PG_FUNCTION_ARGS)
 												 FORMAT_TYPE_ALLOW_INVALID),
 							i + 1)));
 
-		/* Get and check the item length */
+		/* 取并检查条目长度 */
 		itemlen = pq_getmsgint(buf, 4);
 		if (itemlen < -1 || itemlen > (buf->len - buf->cursor))
 			ereport(ERROR,
@@ -616,18 +616,18 @@ record_recv(PG_FUNCTION_ARGS)
 
 		if (itemlen == -1)
 		{
-			/* -1 length means NULL */
+			/* -1 长度即 NULL */
 			bufptr = NULL;
 			nulls[i] = true;
-			csave = 0;			/* keep compiler quiet */
+			csave = 0;			/* 让编译器安静 */
 		}
 		else
 		{
 			/*
-			 * Rather than copying data around, we just set up a phony
-			 * StringInfo pointing to the correct portion of the input buffer.
-			 * We assume we can scribble on the input buffer so as to maintain
-			 * the convention that StringInfos have a trailing null.
+			 * 与其复制数据，我们只设置一个虚假的
+			 * StringInfo，让它指向输入缓冲区的正确部分。
+			 * 我们假定可以在输入缓冲区上随意涂写，以维持
+			 * StringInfo 带有结尾 null 的约定。
 			 */
 			item_buf.data = &buf->data[buf->cursor];
 			item_buf.maxlen = itemlen + 1;
@@ -643,7 +643,7 @@ record_recv(PG_FUNCTION_ARGS)
 			nulls[i] = false;
 		}
 
-		/* Now call the column's receiveproc */
+		/* 现在调用该列的 receiveproc */
 		if (column_info->column_type != column_type)
 		{
 			getTypeBinaryInputInfo(column_type,
@@ -661,7 +661,7 @@ record_recv(PG_FUNCTION_ARGS)
 
 		if (bufptr)
 		{
-			/* Trouble if it didn't eat the whole buffer */
+			/* 没吃掉整个缓冲区就有麻烦 */
 			if (item_buf.cursor != itemlen)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
@@ -675,9 +675,9 @@ record_recv(PG_FUNCTION_ARGS)
 	tuple = heap_form_tuple(tupdesc, values, nulls);
 
 	/*
-	 * We cannot return tuple->t_data because heap_form_tuple allocates it as
-	 * part of a larger chunk, and our caller may expect to be able to pfree
-	 * our result.  So must copy the info into a new palloc chunk.
+	 * 我们不能返回 tuple->t_data，因为 heap_form_tuple 把它作为
+	 * 更大内存块的一部分来分配，而调用者可能期望能够
+	 * pfree 它。必须把信息复制到新的 palloc 块。
 	 */
 	result = (HeapTupleHeader) palloc(tuple->t_len);
 	memcpy(result, tuple->t_data, tuple->t_len);
@@ -691,7 +691,7 @@ record_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- * record_send		- binary output routine for any composite type.
+ * record_send		- 任意复合类型二进制输出例程。
  */
 Datum
 record_send(PG_FUNCTION_ARGS)
@@ -709,23 +709,23 @@ record_send(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	StringInfoData buf;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
-	/* Extract type info from the tuple itself */
+	/* 从元组本身提取类型信息 */
 	tupType = HeapTupleHeaderGetTypeId(rec);
 	tupTypmod = HeapTupleHeaderGetTypMod(rec);
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 	ncolumns = tupdesc->natts;
 
-	/* Build a temporary HeapTuple control structure */
+	/* 构建临时的 HeapTuple 控制结构 */
 	tuple.t_len = HeapTupleHeaderGetDatumLength(rec);
 	ItemPointerSetInvalid(&(tuple.t_self));
 	tuple.t_tableOid = InvalidOid;
 	tuple.t_data = rec;
 
 	/*
-	 * We arrange to look up the needed I/O info just once per series of
-	 * calls, assuming the record type doesn't change underneath us.
+	 * 我们安排每轮调用只查一次所需的 I/O 信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	my_extra = (RecordIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -754,13 +754,13 @@ record_send(PG_FUNCTION_ARGS)
 	values = (Datum *) palloc(ncolumns * sizeof(Datum));
 	nulls = (bool *) palloc(ncolumns * sizeof(bool));
 
-	/* Break down the tuple into fields */
+	/* 把元组拆解成各个字段 */
 	heap_deform_tuple(&tuple, tupdesc, values, nulls);
 
-	/* And build the result string */
+	/* 然后构建结果字符串 */
 	pq_begintypsend(&buf);
 
-	/* Need to scan to count nondeleted columns */
+	/* 需要扫描以统计未删除的列数 */
 	validcols = 0;
 	for (i = 0; i < ncolumns; i++)
 	{
@@ -777,7 +777,7 @@ record_send(PG_FUNCTION_ARGS)
 		Datum		attr;
 		bytea	   *outputbytes;
 
-		/* Ignore dropped columns in datatype */
+		/* 忽略类型中被丢弃的列 */
 		if (att->attisdropped)
 			continue;
 
@@ -785,13 +785,13 @@ record_send(PG_FUNCTION_ARGS)
 
 		if (nulls[i])
 		{
-			/* emit -1 data length to signify a NULL */
+			/* 输出 -1 数据长度以表示 NULL */
 			pq_sendint32(&buf, -1);
 			continue;
 		}
 
 		/*
-		 * Convert the column value to binary
+		 * 把列值转换为二进制
 		 */
 		if (column_info->column_type != column_type)
 		{
@@ -820,14 +820,14 @@ record_send(PG_FUNCTION_ARGS)
 
 /*
  * record_cmp()
- * Internal comparison function for records.
+ * record 的内部比较函数。
  *
- * Returns -1, 0 or 1
+ * 返回 -1/0/1
  *
- * Do not assume that the two inputs are exactly the same record type;
- * for instance we might be comparing an anonymous ROW() construct against a
- * named composite type.  We will compare as long as they have the same number
- * of non-dropped columns of the same types.
+ * 不要假定两个输入是完全相同的 record 类型；
+ * 例如可能是在拿匿名的 ROW() 构造与命名的复合类型
+ * 相比较。只要两者的非丢弃列数量相同、类型相同，
+ * 我们就会进行比较。
  */
 static int
 record_cmp(FunctionCallInfo fcinfo)
@@ -855,9 +855,9 @@ record_cmp(FunctionCallInfo fcinfo)
 	int			i2;
 	int			j;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
-	/* Extract type info from the tuples */
+	/* 从元组提取类型信息 */
 	tupType1 = HeapTupleHeaderGetTypeId(record1);
 	tupTypmod1 = HeapTupleHeaderGetTypMod(record1);
 	tupdesc1 = lookup_rowtype_tupdesc(tupType1, tupTypmod1);
@@ -867,7 +867,7 @@ record_cmp(FunctionCallInfo fcinfo)
 	tupdesc2 = lookup_rowtype_tupdesc(tupType2, tupTypmod2);
 	ncolumns2 = tupdesc2->natts;
 
-	/* Build temporary HeapTuple control structures */
+	/* 构建临时 HeapTuple 控制结构 */
 	tuple1.t_len = HeapTupleHeaderGetDatumLength(record1);
 	ItemPointerSetInvalid(&(tuple1.t_self));
 	tuple1.t_tableOid = InvalidOid;
@@ -878,8 +878,8 @@ record_cmp(FunctionCallInfo fcinfo)
 	tuple2.t_data = record2;
 
 	/*
-	 * We arrange to look up the needed comparison info just once per series
-	 * of calls, assuming the record types don't change underneath us.
+	 * 我们安排每系列调用只查找一次所需的比较信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	ncols = Max(ncolumns1, ncolumns2);
 	my_extra = (RecordCompareData *) fcinfo->flinfo->fn_extra;
@@ -910,7 +910,7 @@ record_cmp(FunctionCallInfo fcinfo)
 		my_extra->record2_typmod = tupTypmod2;
 	}
 
-	/* Break down the tuples into fields */
+	/* 把元组们拆解成字段 */
 	values1 = (Datum *) palloc(ncolumns1 * sizeof(Datum));
 	nulls1 = (bool *) palloc(ncolumns1 * sizeof(bool));
 	heap_deform_tuple(&tuple1, tupdesc1, values1, nulls1);
@@ -919,9 +919,9 @@ record_cmp(FunctionCallInfo fcinfo)
 	heap_deform_tuple(&tuple2, tupdesc2, values2, nulls2);
 
 	/*
-	 * Scan corresponding columns, allowing for dropped columns in different
-	 * places in the two rows.  i1 and i2 are physical column indexes, j is
-	 * the logical column index.
+	 * 扫描对应的列，允许丢弃列位于两行的不同位置。
+	 * i1 和 i2 是物理列下标，j 是逻辑
+	 * 列下标。
 	 */
 	i1 = i2 = j = 0;
 	while (i1 < ncolumns1 || i2 < ncolumns2)
@@ -932,7 +932,7 @@ record_cmp(FunctionCallInfo fcinfo)
 		Oid			collation;
 
 		/*
-		 * Skip dropped columns
+		 * 跳过丢弃列
 		 */
 		if (i1 < ncolumns1 && TupleDescAttr(tupdesc1, i1)->attisdropped)
 		{
@@ -945,13 +945,13 @@ record_cmp(FunctionCallInfo fcinfo)
 			continue;
 		}
 		if (i1 >= ncolumns1 || i2 >= ncolumns2)
-			break;				/* we'll deal with mismatch below loop */
+			break;				/* 不匹配情况循环后再处理 */
 
 		att1 = TupleDescAttr(tupdesc1, i1);
 		att2 = TupleDescAttr(tupdesc2, i2);
 
 		/*
-		 * Have two matching columns, they must be same type
+		 * 有匹配的两列，其类型必须相同
 		 */
 		if (att1->atttypid != att2->atttypid)
 			ereport(ERROR,
@@ -962,15 +962,15 @@ record_cmp(FunctionCallInfo fcinfo)
 							j + 1)));
 
 		/*
-		 * If they're not same collation, we don't complain here, but the
-		 * comparison function might.
+		 * 若排序规则不同，我们在此不抱怨，但
+		 * 比较函数可能会。
 		 */
 		collation = att1->attcollation;
 		if (collation != att2->attcollation)
 			collation = InvalidOid;
 
 		/*
-		 * Lookup the comparison function if not done already
+		 * 若尚未完成则查找比较函数
 		 */
 		typentry = my_extra->columns[j].typentry;
 		if (typentry == NULL ||
@@ -987,7 +987,7 @@ record_cmp(FunctionCallInfo fcinfo)
 		}
 
 		/*
-		 * We consider two NULLs equal; NULL > not-NULL.
+		 * 两个 NULL 相等；NULL > 非 NULL。
 		 */
 		if (!nulls1[i1] || !nulls2[i2])
 		{
@@ -996,18 +996,18 @@ record_cmp(FunctionCallInfo fcinfo)
 
 			if (nulls1[i1])
 			{
-				/* arg1 is greater than arg2 */
+				/* arg1 大于 arg2 */
 				result = 1;
 				break;
 			}
 			if (nulls2[i2])
 			{
-				/* arg1 is less than arg2 */
+				/* arg1 小于 arg2 */
 				result = -1;
 				break;
 			}
 
-			/* Compare the pair of elements */
+			/* 比较这一对元素 */
 			InitFunctionCallInfoData(*locfcinfo, &typentry->cmp_proc_finfo, 2,
 									 collation, NULL, NULL);
 			locfcinfo->args[0].value = values1[i1];
@@ -1016,31 +1016,31 @@ record_cmp(FunctionCallInfo fcinfo)
 			locfcinfo->args[1].isnull = false;
 			cmpresult = DatumGetInt32(FunctionCallInvoke(locfcinfo));
 
-			/* We don't expect comparison support functions to return null */
+			/* 我们不期望比较支持函数返回 null */
 			Assert(!locfcinfo->isnull);
 
 			if (cmpresult < 0)
 			{
-				/* arg1 is less than arg2 */
+				/* arg1 小于 arg2 */
 				result = -1;
 				break;
 			}
 			else if (cmpresult > 0)
 			{
-				/* arg1 is greater than arg2 */
+				/* arg1 大于 arg2 */
 				result = 1;
 				break;
 			}
 		}
 
-		/* equal, so continue to next column */
+		/* 相等，继续处理下一列 */
 		i1++, i2++, j++;
 	}
 
 	/*
-	 * If we didn't break out of the loop early, check for column count
-	 * mismatch.  (We do not report such mismatch if we found unequal column
-	 * values; is that a feature or a bug?)
+	 * 若未提前跳出循环，则检查列数是否不匹配。
+	 * （如果我们已经发现了不相等的列值，就不报告这种
+	 * 不匹配；特性还是缺陷？）
 	 */
 	if (result == 0)
 	{
@@ -1057,7 +1057,7 @@ record_cmp(FunctionCallInfo fcinfo)
 	ReleaseTupleDesc(tupdesc1);
 	ReleaseTupleDesc(tupdesc2);
 
-	/* Avoid leaking memory when handed toasted input. */
+	/* 收到 toast 输入时避免内存泄漏。 */
 	PG_FREE_IF_COPY(record1, 0);
 	PG_FREE_IF_COPY(record2, 1);
 
@@ -1065,13 +1065,13 @@ record_cmp(FunctionCallInfo fcinfo)
 }
 
 /*
- * record_eq :
- *		  compares two records for equality
- * result :
- *		  returns true if the records are equal, false otherwise.
+ * record_eq:
+ *		  对两个 record 比较相等性
+ * 结果:
+ *		  record 相等返回 true，否则 false。
  *
- * Note: we do not use record_cmp here, since equality may be meaningful in
- * datatypes that don't have a total ordering (and hence no btree support).
+ * 注意：我们在这里不使用 record_cmp，因为相等性在
+ * 没有全序（故无 btree 支持）的类型中可能有意义。
  */
 Datum
 record_eq(PG_FUNCTION_ARGS)
@@ -1099,9 +1099,9 @@ record_eq(PG_FUNCTION_ARGS)
 	int			i2;
 	int			j;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
-	/* Extract type info from the tuples */
+	/* 从元组提取类型信息 */
 	tupType1 = HeapTupleHeaderGetTypeId(record1);
 	tupTypmod1 = HeapTupleHeaderGetTypMod(record1);
 	tupdesc1 = lookup_rowtype_tupdesc(tupType1, tupTypmod1);
@@ -1111,7 +1111,7 @@ record_eq(PG_FUNCTION_ARGS)
 	tupdesc2 = lookup_rowtype_tupdesc(tupType2, tupTypmod2);
 	ncolumns2 = tupdesc2->natts;
 
-	/* Build temporary HeapTuple control structures */
+	/* 构建临时 HeapTuple 控制结构 */
 	tuple1.t_len = HeapTupleHeaderGetDatumLength(record1);
 	ItemPointerSetInvalid(&(tuple1.t_self));
 	tuple1.t_tableOid = InvalidOid;
@@ -1122,8 +1122,8 @@ record_eq(PG_FUNCTION_ARGS)
 	tuple2.t_data = record2;
 
 	/*
-	 * We arrange to look up the needed comparison info just once per series
-	 * of calls, assuming the record types don't change underneath us.
+	 * 我们安排每系列调用只查找一次所需的比较信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	ncols = Max(ncolumns1, ncolumns2);
 	my_extra = (RecordCompareData *) fcinfo->flinfo->fn_extra;
@@ -1154,7 +1154,7 @@ record_eq(PG_FUNCTION_ARGS)
 		my_extra->record2_typmod = tupTypmod2;
 	}
 
-	/* Break down the tuples into fields */
+	/* 把元组们拆解成字段 */
 	values1 = (Datum *) palloc(ncolumns1 * sizeof(Datum));
 	nulls1 = (bool *) palloc(ncolumns1 * sizeof(bool));
 	heap_deform_tuple(&tuple1, tupdesc1, values1, nulls1);
@@ -1163,9 +1163,9 @@ record_eq(PG_FUNCTION_ARGS)
 	heap_deform_tuple(&tuple2, tupdesc2, values2, nulls2);
 
 	/*
-	 * Scan corresponding columns, allowing for dropped columns in different
-	 * places in the two rows.  i1 and i2 are physical column indexes, j is
-	 * the logical column index.
+	 * 扫描对应的列，允许丢弃列位于两行的不同位置。
+	 * i1 和 i2 是物理列下标，j 是逻辑
+	 * 列下标。
 	 */
 	i1 = i2 = j = 0;
 	while (i1 < ncolumns1 || i2 < ncolumns2)
@@ -1178,7 +1178,7 @@ record_eq(PG_FUNCTION_ARGS)
 		bool		oprresult;
 
 		/*
-		 * Skip dropped columns
+		 * 跳过丢弃列
 		 */
 		if (i1 < ncolumns1 && TupleDescAttr(tupdesc1, i1)->attisdropped)
 		{
@@ -1191,13 +1191,13 @@ record_eq(PG_FUNCTION_ARGS)
 			continue;
 		}
 		if (i1 >= ncolumns1 || i2 >= ncolumns2)
-			break;				/* we'll deal with mismatch below loop */
+			break;				/* 不匹配情况循环后再处理 */
 
 		att1 = TupleDescAttr(tupdesc1, i1);
 		att2 = TupleDescAttr(tupdesc2, i2);
 
 		/*
-		 * Have two matching columns, they must be same type
+		 * 有匹配的两列，其类型必须相同
 		 */
 		if (att1->atttypid != att2->atttypid)
 			ereport(ERROR,
@@ -1208,15 +1208,15 @@ record_eq(PG_FUNCTION_ARGS)
 							j + 1)));
 
 		/*
-		 * If they're not same collation, we don't complain here, but the
-		 * equality function might.
+		 * 若排序规则不同，我们在此不抱怨，但
+		 * 相等函数可能会。
 		 */
 		collation = att1->attcollation;
 		if (collation != att2->attcollation)
 			collation = InvalidOid;
 
 		/*
-		 * Lookup the equality function if not done already
+		 * 若尚未完成则查找相等函数
 		 */
 		typentry = my_extra->columns[j].typentry;
 		if (typentry == NULL ||
@@ -1233,7 +1233,7 @@ record_eq(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * We consider two NULLs equal; NULL > not-NULL.
+		 * 两个 NULL 相等；NULL > 非 NULL。
 		 */
 		if (!nulls1[i1] || !nulls2[i2])
 		{
@@ -1243,7 +1243,7 @@ record_eq(PG_FUNCTION_ARGS)
 				break;
 			}
 
-			/* Compare the pair of elements */
+			/* 比较这一对元素 */
 			InitFunctionCallInfoData(*locfcinfo, &typentry->eq_opr_finfo, 2,
 									 collation, NULL, NULL);
 			locfcinfo->args[0].value = values1[i1];
@@ -1258,14 +1258,14 @@ record_eq(PG_FUNCTION_ARGS)
 			}
 		}
 
-		/* equal, so continue to next column */
+		/* 相等，继续处理下一列 */
 		i1++, i2++, j++;
 	}
 
 	/*
-	 * If we didn't break out of the loop early, check for column count
-	 * mismatch.  (We do not report such mismatch if we found unequal column
-	 * values; is that a feature or a bug?)
+	 * 若未提前跳出循环，则检查列数是否不匹配。
+	 * （如果我们已经发现了不相等的列值，就不报告这种
+	 * 不匹配；特性还是缺陷？）
 	 */
 	if (result)
 	{
@@ -1282,7 +1282,7 @@ record_eq(PG_FUNCTION_ARGS)
 	ReleaseTupleDesc(tupdesc1);
 	ReleaseTupleDesc(tupdesc2);
 
-	/* Avoid leaking memory when handed toasted input. */
+	/* 收到 toast 输入时避免内存泄漏。 */
 	PG_FREE_IF_COPY(record1, 0);
 	PG_FREE_IF_COPY(record2, 1);
 
@@ -1327,15 +1327,15 @@ btrecordcmp(PG_FUNCTION_ARGS)
 
 
 /*
- * record_image_cmp :
- * Internal byte-oriented comparison function for records.
+ * record_image_cmp:
+ * record 的按字节比较的内部函数。
  *
- * Returns -1, 0 or 1
+ * 返回 -1/0/1
  *
- * Note: The normal concepts of "equality" do not apply here; different
- * representation of values considered to be equal are not considered to be
- * identical.  As an example, for the citext type 'A' and 'a' are equal, but
- * they are not identical.
+ * 注意："相等"的正常概念在此不适用；被视为相等的
+ * 值的两种不同表示不被视为同一。举例来说，对于
+ * citext 类型 "A" 与 "a" 相等，但它们并
+ * 不同一。
  */
 static int
 record_image_cmp(FunctionCallInfo fcinfo)
@@ -1363,7 +1363,7 @@ record_image_cmp(FunctionCallInfo fcinfo)
 	int			i2;
 	int			j;
 
-	/* Extract type info from the tuples */
+	/* 从元组提取类型信息 */
 	tupType1 = HeapTupleHeaderGetTypeId(record1);
 	tupTypmod1 = HeapTupleHeaderGetTypMod(record1);
 	tupdesc1 = lookup_rowtype_tupdesc(tupType1, tupTypmod1);
@@ -1373,7 +1373,7 @@ record_image_cmp(FunctionCallInfo fcinfo)
 	tupdesc2 = lookup_rowtype_tupdesc(tupType2, tupTypmod2);
 	ncolumns2 = tupdesc2->natts;
 
-	/* Build temporary HeapTuple control structures */
+	/* 构建临时 HeapTuple 控制结构 */
 	tuple1.t_len = HeapTupleHeaderGetDatumLength(record1);
 	ItemPointerSetInvalid(&(tuple1.t_self));
 	tuple1.t_tableOid = InvalidOid;
@@ -1384,8 +1384,8 @@ record_image_cmp(FunctionCallInfo fcinfo)
 	tuple2.t_data = record2;
 
 	/*
-	 * We arrange to look up the needed comparison info just once per series
-	 * of calls, assuming the record types don't change underneath us.
+	 * 我们安排每系列调用只查找一次所需的比较信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	ncols = Max(ncolumns1, ncolumns2);
 	my_extra = (RecordCompareData *) fcinfo->flinfo->fn_extra;
@@ -1416,7 +1416,7 @@ record_image_cmp(FunctionCallInfo fcinfo)
 		my_extra->record2_typmod = tupTypmod2;
 	}
 
-	/* Break down the tuples into fields */
+	/* 把元组们拆解成字段 */
 	values1 = (Datum *) palloc(ncolumns1 * sizeof(Datum));
 	nulls1 = (bool *) palloc(ncolumns1 * sizeof(bool));
 	heap_deform_tuple(&tuple1, tupdesc1, values1, nulls1);
@@ -1425,9 +1425,9 @@ record_image_cmp(FunctionCallInfo fcinfo)
 	heap_deform_tuple(&tuple2, tupdesc2, values2, nulls2);
 
 	/*
-	 * Scan corresponding columns, allowing for dropped columns in different
-	 * places in the two rows.  i1 and i2 are physical column indexes, j is
-	 * the logical column index.
+	 * 扫描对应的列，允许丢弃列位于两行的不同位置。
+	 * i1 和 i2 是物理列下标，j 是逻辑
+	 * 列下标。
 	 */
 	i1 = i2 = j = 0;
 	while (i1 < ncolumns1 || i2 < ncolumns2)
@@ -1436,7 +1436,7 @@ record_image_cmp(FunctionCallInfo fcinfo)
 		Form_pg_attribute att2;
 
 		/*
-		 * Skip dropped columns
+		 * 跳过丢弃列
 		 */
 		if (i1 < ncolumns1 && TupleDescAttr(tupdesc1, i1)->attisdropped)
 		{
@@ -1449,13 +1449,13 @@ record_image_cmp(FunctionCallInfo fcinfo)
 			continue;
 		}
 		if (i1 >= ncolumns1 || i2 >= ncolumns2)
-			break;				/* we'll deal with mismatch below loop */
+			break;				/* 不匹配情况循环后再处理 */
 
 		att1 = TupleDescAttr(tupdesc1, i1);
 		att2 = TupleDescAttr(tupdesc2, i2);
 
 		/*
-		 * Have two matching columns, they must be same type
+		 * 有匹配的两列，其类型必须相同
 		 */
 		if (att1->atttypid != att2->atttypid)
 			ereport(ERROR,
@@ -1466,13 +1466,13 @@ record_image_cmp(FunctionCallInfo fcinfo)
 							j + 1)));
 
 		/*
-		 * The same type should have the same length (or both should be
-		 * variable).
+		 * 同类型应当有相同的长度，或两者均为
+		 * 变长。
 		 */
 		Assert(att1->attlen == att2->attlen);
 
 		/*
-		 * We consider two NULLs equal; NULL > not-NULL.
+		 * 两个 NULL 相等；NULL > 非 NULL。
 		 */
 		if (!nulls1[i1] || !nulls2[i2])
 		{
@@ -1480,18 +1480,18 @@ record_image_cmp(FunctionCallInfo fcinfo)
 
 			if (nulls1[i1])
 			{
-				/* arg1 is greater than arg2 */
+				/* arg1 大于 arg2 */
 				result = 1;
 				break;
 			}
 			if (nulls2[i2])
 			{
-				/* arg1 is less than arg2 */
+				/* arg1 小于 arg2 */
 				result = -1;
 				break;
 			}
 
-			/* Compare the pair of elements */
+			/* 比较这一对元素 */
 			if (att1->attbyval)
 			{
 				if (values1[i1] != values2[i2])
@@ -1531,26 +1531,26 @@ record_image_cmp(FunctionCallInfo fcinfo)
 
 			if (cmpresult < 0)
 			{
-				/* arg1 is less than arg2 */
+				/* arg1 小于 arg2 */
 				result = -1;
 				break;
 			}
 			else if (cmpresult > 0)
 			{
-				/* arg1 is greater than arg2 */
+				/* arg1 大于 arg2 */
 				result = 1;
 				break;
 			}
 		}
 
-		/* equal, so continue to next column */
+		/* 相等，继续处理下一列 */
 		i1++, i2++, j++;
 	}
 
 	/*
-	 * If we didn't break out of the loop early, check for column count
-	 * mismatch.  (We do not report such mismatch if we found unequal column
-	 * values; is that a feature or a bug?)
+	 * 若未提前跳出循环，则检查列数是否不匹配。
+	 * （如果我们已经发现了不相等的列值，就不报告这种
+	 * 不匹配；特性还是缺陷？）
 	 */
 	if (result == 0)
 	{
@@ -1567,7 +1567,7 @@ record_image_cmp(FunctionCallInfo fcinfo)
 	ReleaseTupleDesc(tupdesc1);
 	ReleaseTupleDesc(tupdesc2);
 
-	/* Avoid leaking memory when handed toasted input. */
+	/* 收到 toast 输入时避免内存泄漏。 */
 	PG_FREE_IF_COPY(record1, 0);
 	PG_FREE_IF_COPY(record2, 1);
 
@@ -1575,13 +1575,13 @@ record_image_cmp(FunctionCallInfo fcinfo)
 }
 
 /*
- * record_image_eq :
- *		  compares two records for identical contents, based on byte images
- * result :
- *		  returns true if the records are identical, false otherwise.
+ * record_image_eq:
+ *		  基于字节映像比较两个 record 的内容是否同一
+ * 结果:
+ *		  record 同一返回 true，否则 false。
  *
- * Note: we do not use record_image_cmp here, since we can avoid
- * de-toasting for unequal lengths this way.
+ * 注意：这里不用 record_image_cmp，因为这样
+ * 可避免对不等长度做解压缩。
  */
 Datum
 record_image_eq(PG_FUNCTION_ARGS)
@@ -1609,7 +1609,7 @@ record_image_eq(PG_FUNCTION_ARGS)
 	int			i2;
 	int			j;
 
-	/* Extract type info from the tuples */
+	/* 从元组提取类型信息 */
 	tupType1 = HeapTupleHeaderGetTypeId(record1);
 	tupTypmod1 = HeapTupleHeaderGetTypMod(record1);
 	tupdesc1 = lookup_rowtype_tupdesc(tupType1, tupTypmod1);
@@ -1619,7 +1619,7 @@ record_image_eq(PG_FUNCTION_ARGS)
 	tupdesc2 = lookup_rowtype_tupdesc(tupType2, tupTypmod2);
 	ncolumns2 = tupdesc2->natts;
 
-	/* Build temporary HeapTuple control structures */
+	/* 构建临时 HeapTuple 控制结构 */
 	tuple1.t_len = HeapTupleHeaderGetDatumLength(record1);
 	ItemPointerSetInvalid(&(tuple1.t_self));
 	tuple1.t_tableOid = InvalidOid;
@@ -1630,8 +1630,8 @@ record_image_eq(PG_FUNCTION_ARGS)
 	tuple2.t_data = record2;
 
 	/*
-	 * We arrange to look up the needed comparison info just once per series
-	 * of calls, assuming the record types don't change underneath us.
+	 * 我们安排每系列调用只查找一次所需的比较信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	ncols = Max(ncolumns1, ncolumns2);
 	my_extra = (RecordCompareData *) fcinfo->flinfo->fn_extra;
@@ -1662,7 +1662,7 @@ record_image_eq(PG_FUNCTION_ARGS)
 		my_extra->record2_typmod = tupTypmod2;
 	}
 
-	/* Break down the tuples into fields */
+	/* 把元组们拆解成字段 */
 	values1 = (Datum *) palloc(ncolumns1 * sizeof(Datum));
 	nulls1 = (bool *) palloc(ncolumns1 * sizeof(bool));
 	heap_deform_tuple(&tuple1, tupdesc1, values1, nulls1);
@@ -1671,9 +1671,9 @@ record_image_eq(PG_FUNCTION_ARGS)
 	heap_deform_tuple(&tuple2, tupdesc2, values2, nulls2);
 
 	/*
-	 * Scan corresponding columns, allowing for dropped columns in different
-	 * places in the two rows.  i1 and i2 are physical column indexes, j is
-	 * the logical column index.
+	 * 扫描对应的列，允许丢弃列位于两行的不同位置。
+	 * i1 和 i2 是物理列下标，j 是逻辑
+	 * 列下标。
 	 */
 	i1 = i2 = j = 0;
 	while (i1 < ncolumns1 || i2 < ncolumns2)
@@ -1682,7 +1682,7 @@ record_image_eq(PG_FUNCTION_ARGS)
 		Form_pg_attribute att2;
 
 		/*
-		 * Skip dropped columns
+		 * 跳过丢弃列
 		 */
 		if (i1 < ncolumns1 && TupleDescAttr(tupdesc1, i1)->attisdropped)
 		{
@@ -1695,13 +1695,13 @@ record_image_eq(PG_FUNCTION_ARGS)
 			continue;
 		}
 		if (i1 >= ncolumns1 || i2 >= ncolumns2)
-			break;				/* we'll deal with mismatch below loop */
+			break;				/* 不匹配情况循环后再处理 */
 
 		att1 = TupleDescAttr(tupdesc1, i1);
 		att2 = TupleDescAttr(tupdesc2, i2);
 
 		/*
-		 * Have two matching columns, they must be same type
+		 * 有匹配的两列，其类型必须相同
 		 */
 		if (att1->atttypid != att2->atttypid)
 			ereport(ERROR,
@@ -1712,7 +1712,7 @@ record_image_eq(PG_FUNCTION_ARGS)
 							j + 1)));
 
 		/*
-		 * We consider two NULLs equal; NULL > not-NULL.
+		 * 两个 NULL 相等；NULL > 非 NULL。
 		 */
 		if (!nulls1[i1] || !nulls2[i2])
 		{
@@ -1722,20 +1722,20 @@ record_image_eq(PG_FUNCTION_ARGS)
 				break;
 			}
 
-			/* Compare the pair of elements */
+			/* 比较这一对元素 */
 			result = datum_image_eq(values1[i1], values2[i2], att1->attbyval, att2->attlen);
 			if (!result)
 				break;
 		}
 
-		/* equal, so continue to next column */
+		/* 相等，继续处理下一列 */
 		i1++, i2++, j++;
 	}
 
 	/*
-	 * If we didn't break out of the loop early, check for column count
-	 * mismatch.  (We do not report such mismatch if we found unequal column
-	 * values; is that a feature or a bug?)
+	 * 若未提前跳出循环，则检查列数是否不匹配。
+	 * （如果我们已经发现了不相等的列值，就不报告这种
+	 * 不匹配；特性还是缺陷？）
 	 */
 	if (result)
 	{
@@ -1752,7 +1752,7 @@ record_image_eq(PG_FUNCTION_ARGS)
 	ReleaseTupleDesc(tupdesc1);
 	ReleaseTupleDesc(tupdesc2);
 
-	/* Avoid leaking memory when handed toasted input. */
+	/* 收到 toast 输入时避免内存泄漏。 */
 	PG_FREE_IF_COPY(record1, 0);
 	PG_FREE_IF_COPY(record2, 1);
 
@@ -1797,7 +1797,7 @@ btrecordimagecmp(PG_FUNCTION_ARGS)
 
 
 /*
- * Row type hash functions
+ * 行类型哈希函数
  */
 
 Datum
@@ -1814,23 +1814,23 @@ hash_record(PG_FUNCTION_ARGS)
 	Datum	   *values;
 	bool	   *nulls;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
-	/* Extract type info from tuple */
+	/* 从元组提取类型信息 */
 	tupType = HeapTupleHeaderGetTypeId(record);
 	tupTypmod = HeapTupleHeaderGetTypMod(record);
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 	ncolumns = tupdesc->natts;
 
-	/* Build temporary HeapTuple control structure */
+	/* 构建 HeapTuple 临时控制结构 */
 	tuple.t_len = HeapTupleHeaderGetDatumLength(record);
 	ItemPointerSetInvalid(&(tuple.t_self));
 	tuple.t_tableOid = InvalidOid;
 	tuple.t_data = record;
 
 	/*
-	 * We arrange to look up the needed hashing info just once per series of
-	 * calls, assuming the record type doesn't change underneath us.
+	 * 我们安排每轮调用只查一次所需的哈希信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	my_extra = (RecordCompareData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -1854,7 +1854,7 @@ hash_record(PG_FUNCTION_ARGS)
 		my_extra->record1_typmod = tupTypmod;
 	}
 
-	/* Break down the tuple into fields */
+	/* 把元组拆解成各个字段 */
 	values = (Datum *) palloc(ncolumns * sizeof(Datum));
 	nulls = (bool *) palloc(ncolumns * sizeof(bool));
 	heap_deform_tuple(&tuple, tupdesc, values, nulls);
@@ -1871,7 +1871,7 @@ hash_record(PG_FUNCTION_ARGS)
 			continue;
 
 		/*
-		 * Lookup the hash function if not done already
+		 * 若尚未完成则查找哈希函数
 		 */
 		typentry = my_extra->columns[i].typentry;
 		if (typentry == NULL ||
@@ -1887,7 +1887,7 @@ hash_record(PG_FUNCTION_ARGS)
 			my_extra->columns[i].typentry = typentry;
 		}
 
-		/* Compute hash of element */
+		/* 计算元素的哈希 */
 		if (nulls[i])
 		{
 			element_hash = 0;
@@ -1902,11 +1902,11 @@ hash_record(PG_FUNCTION_ARGS)
 			locfcinfo->args[0].isnull = false;
 			element_hash = DatumGetUInt32(FunctionCallInvoke(locfcinfo));
 
-			/* We don't expect hash support functions to return null */
+			/* 我们不期望哈希支持函数返回 null */
 			Assert(!locfcinfo->isnull);
 		}
 
-		/* see hash_array() */
+		/* 见hash_array() */
 		result = (result << 5) - result + element_hash;
 	}
 
@@ -1914,7 +1914,7 @@ hash_record(PG_FUNCTION_ARGS)
 	pfree(nulls);
 	ReleaseTupleDesc(tupdesc);
 
-	/* Avoid leaking memory when handed toasted input. */
+	/* 收到 toast 输入时避免内存泄漏。 */
 	PG_FREE_IF_COPY(record, 0);
 
 	PG_RETURN_UINT32(result);
@@ -1935,23 +1935,23 @@ hash_record_extended(PG_FUNCTION_ARGS)
 	Datum	   *values;
 	bool	   *nulls;
 
-	check_stack_depth();		/* recurses for record-type columns */
+	check_stack_depth();		/* 为 record 类型列而递归 */
 
-	/* Extract type info from tuple */
+	/* 从元组提取类型信息 */
 	tupType = HeapTupleHeaderGetTypeId(record);
 	tupTypmod = HeapTupleHeaderGetTypMod(record);
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 	ncolumns = tupdesc->natts;
 
-	/* Build temporary HeapTuple control structure */
+	/* 构建 HeapTuple 临时控制结构 */
 	tuple.t_len = HeapTupleHeaderGetDatumLength(record);
 	ItemPointerSetInvalid(&(tuple.t_self));
 	tuple.t_tableOid = InvalidOid;
 	tuple.t_data = record;
 
 	/*
-	 * We arrange to look up the needed hashing info just once per series of
-	 * calls, assuming the record type doesn't change underneath us.
+	 * 我们安排每轮调用只查一次所需的哈希信息，
+	 * 前提是 record 类型不会在我们脚下改变。
 	 */
 	my_extra = (RecordCompareData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL ||
@@ -1975,7 +1975,7 @@ hash_record_extended(PG_FUNCTION_ARGS)
 		my_extra->record1_typmod = tupTypmod;
 	}
 
-	/* Break down the tuple into fields */
+	/* 把元组拆解成各个字段 */
 	values = (Datum *) palloc(ncolumns * sizeof(Datum));
 	nulls = (bool *) palloc(ncolumns * sizeof(bool));
 	heap_deform_tuple(&tuple, tupdesc, values, nulls);
@@ -1992,7 +1992,7 @@ hash_record_extended(PG_FUNCTION_ARGS)
 			continue;
 
 		/*
-		 * Lookup the hash function if not done already
+		 * 若尚未完成则查找哈希函数
 		 */
 		typentry = my_extra->columns[i].typentry;
 		if (typentry == NULL ||
@@ -2008,7 +2008,7 @@ hash_record_extended(PG_FUNCTION_ARGS)
 			my_extra->columns[i].typentry = typentry;
 		}
 
-		/* Compute hash of element */
+		/* 计算元素的哈希 */
 		if (nulls[i])
 		{
 			element_hash = 0;
@@ -2025,11 +2025,11 @@ hash_record_extended(PG_FUNCTION_ARGS)
 			locfcinfo->args[0].isnull = false;
 			element_hash = DatumGetUInt64(FunctionCallInvoke(locfcinfo));
 
-			/* We don't expect hash support functions to return null */
+			/* 我们不期望哈希支持函数返回 null */
 			Assert(!locfcinfo->isnull);
 		}
 
-		/* see hash_array_extended() */
+		/* 见 hash_array_extended() */
 		result = (result << 5) - result + element_hash;
 	}
 
@@ -2037,7 +2037,7 @@ hash_record_extended(PG_FUNCTION_ARGS)
 	pfree(nulls);
 	ReleaseTupleDesc(tupdesc);
 
-	/* Avoid leaking memory when handed toasted input. */
+	/* 收到 toast 输入时避免内存泄漏。 */
 	PG_FREE_IF_COPY(record, 0);
 
 	PG_RETURN_UINT64(result);

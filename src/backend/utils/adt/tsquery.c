@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsquery.c
- *	  I/O functions for tsquery
+ *	  tsquery 的 I/O 函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -25,7 +25,7 @@
 #include "utils/pg_crc.h"
 #include "varatt.h"
 
-/* FTS operator priorities, see ts_type.h */
+/* FTS 算子优先级，见 ts_type.h */
 const int	tsearch_op_priority[OP_COUNT] =
 {
 	4,							/* OP_NOT */
@@ -35,7 +35,7 @@ const int	tsearch_op_priority[OP_COUNT] =
 };
 
 /*
- * parser's states
+ * 解析器状态
  */
 typedef enum
 {
@@ -45,7 +45,7 @@ typedef enum
 } ts_parserstate;
 
 /*
- * token types for parsing
+ * 解析用词位类型
  */
 typedef enum
 {
@@ -58,18 +58,18 @@ typedef enum
 } ts_tokentype;
 
 /*
- * get token from query string
+ * 从查询串获取词位
  *
- * All arguments except "state" are output arguments.
+ * 除 "state" 外所有参数均为输出参数。
  *
- * If return value is PT_OPR, then *operator is filled with an OP_* code
- * and *weight will contain a distance value in case of phrase operator.
+ * 若返回值为 PT_OPR，则 *operator 会被填入 OP_* 代码，
+ * 且在短语算子的情形下 *weight 会包含一个距离值。
  *
- * If return value is PT_VAL, then *lenval, *strval, *weight, and *prefix
- * are filled.
+ * 若返回值为 PT_VAL，则填充 *lenval、*strval、*weight 和
+ * *prefix
  *
- * If PT_ERR is returned then a soft error has occurred.  If state->escontext
- * isn't already filled then this should be reported as a generic parse error.
+ * 若返回 PT_ERR 则表明发生了软错误。若 state->escontext
+ * 尚未被填充，则这应当作为一般解析错误上报。
  */
 typedef ts_tokentype (*ts_tokenizer) (TSQueryParserState state, int8 *operator,
 									  int *lenval, char **strval,
@@ -77,38 +77,38 @@ typedef ts_tokentype (*ts_tokenizer) (TSQueryParserState state, int8 *operator,
 
 struct TSQueryParserStateData
 {
-	/* Tokenizer used for parsing tsquery */
+	/* 用于解析 tsquery 的分词器 */
 	ts_tokenizer gettoken;
 
-	/* State of tokenizer function */
-	char	   *buffer;			/* entire string we are scanning */
-	char	   *buf;			/* current scan point */
-	int			count;			/* nesting count, incremented by (,
-								 * decremented by ) */
+	/* 分词器函数的状态 */
+	char	   *buffer;			/* 正扫描的整个字符串 */
+	char	   *buf;			/* 当前扫描点 */
+	int			count;			/* 嵌套计数，由 ( 递增，
+								 * 由 ) 递减 */
 	ts_parserstate state;
 
-	/* polish (prefix) notation in list, filled in by push* functions */
+	/* 列表中的 polish 表示法，由 push* 函数填充 */
 	List	   *polstr;
 
 	/*
-	 * Strings from operands are collected in op. curop is a pointer to the
-	 * end of used space of op.
+	 * 操作数的串收集在 op 中，curop 指向 op 已用空间
+	 * 的末尾。
 	 */
 	char	   *op;
 	char	   *curop;
-	int			lenop;			/* allocated size of op */
-	int			sumlen;			/* used size of op */
+	int			lenop;			/* op 的分配大小 */
+	int			sumlen;			/* op 已用大小 */
 
-	/* state for value's parser */
+	/* 值解析器的状态 */
 	TSVectorParseState valstate;
 
-	/* context object for soft errors - must match valstate's escontext */
+	/* 软错误上下文对象 —— 须匹配 valstate 的 escontext */
 	Node	   *escontext;
 };
 
 /*
- * subroutine to parse the modifiers (weight and prefix flag currently)
- * part, like ':AB*' of a query.
+ * 解析修饰符部分（权重与前缀标志）的子例程，如
+ * 查询的 ":AB*" 部分。
  */
 static char *
 get_modifiers(char *buf, int16 *weight, bool *prefix)
@@ -153,13 +153,13 @@ get_modifiers(char *buf, int16 *weight, bool *prefix)
 }
 
 /*
- * Parse phrase operator. The operator
- * may take the following forms:
+ * 解析短语算子。该算子
+ * 可能采取下列形式：
  *
- *		a <N> b (distance is exactly N lexemes)
- *		a <-> b (default distance = 1)
+ *		a <N> b（距离恰为 N 个词位）
+ *		a <-> b（默认距离 = 1）
  *
- * The buffer should begin with '<' char
+ * 缓冲区应以 "<" 字符开始
  */
 static bool
 parse_phrase_operator(TSQueryParserState pstate, int16 *distance)
@@ -173,7 +173,7 @@ parse_phrase_operator(TSQueryParserState pstate, int16 *distance)
 	}			state = PHRASE_OPEN;
 	char	   *ptr = pstate->buf;
 	char	   *endptr;
-	long		l = 1;			/* default distance */
+	long		l = 1;			/* 默认距离 */
 
 	while (*ptr)
 	{
@@ -237,28 +237,28 @@ parse_phrase_operator(TSQueryParserState pstate, int16 *distance)
 }
 
 /*
- * Parse OR operator used in websearch_to_tsquery(), returns true if we
- * believe that "OR" literal could be an operator OR
+ * 解析 websearch_to_tsquery() 所用的 OR 算子，如果我们
+ * 认为 "OR" 字面量是算子 OR 则返回 true
  */
 static bool
 parse_or_operator(TSQueryParserState pstate)
 {
 	char	   *ptr = pstate->buf;
 
-	/* it should begin with "OR" literal */
+	/* 它应以 "OR" 字面量开始 */
 	if (pg_strncasecmp(ptr, "or", 2) != 0)
 		return false;
 
 	ptr += 2;
 
 	/*
-	 * it shouldn't be a part of any word but somewhere later it should be
-	 * some operand
+	 * 它不应是任何词的一部分，但稍后必须出现
+	 * 操作数
 	 */
 	if (*ptr == '\0')			/* no operand */
 		return false;
 
-	/* it shouldn't be a part of any word */
+	/* 它不应是任何词的一部分 */
 	if (t_iseq(ptr, '-') || t_iseq(ptr, '_') || t_isalnum(ptr))
 		return false;
 
@@ -266,13 +266,13 @@ parse_or_operator(TSQueryParserState pstate)
 	{
 		ptr += pg_mblen(ptr);
 
-		if (*ptr == '\0')		/* got end of string without operand */
+		if (*ptr == '\0')		/* 串结束且无操作数 */
 			return false;
 
 		/*
-		 * Suppose, we found an operand, but could be a not correct operand.
-		 * So we still treat OR literal as operation with possibly incorrect
-		 * operand and will not search it as lexeme
+		 * 假定我们找到了操作数，但它可能不正确。
+		 * 所以我们仍把 OR 字面量当作算子，即使其操作数
+		 * 可能有误，也不当词位检索
 		 */
 		if (!t_isspace(ptr))
 			break;
@@ -312,14 +312,14 @@ gettoken_query_standard(TSQueryParserState state, int8 *operator,
 				}
 				else if (t_iseq(state->buf, ':'))
 				{
-					/* generic syntax error message is fine */
+					/* 通用语法错误消息即可 */
 					return PT_ERR;
 				}
 				else if (!t_isspace(state->buf))
 				{
 					/*
-					 * We rely on the tsvector parser to parse the value for
-					 * us
+					 * 我们依靠 tsvector 解析器来解析该值
+					 *
 					 */
 					reset_tsvector_parser(state->valstate, state->buf);
 					if (gettoken_tsvector(state->valstate, strval, lenval,
@@ -331,7 +331,7 @@ gettoken_query_standard(TSQueryParserState state, int8 *operator,
 					}
 					else if (SOFT_ERROR_OCCURRED(state->escontext))
 					{
-						/* gettoken_tsvector reported a soft error */
+						/* gettoken_tsvector 报告了软错误 */
 						return PT_ERR;
 					}
 					else if (state->state == WAITFIRSTOPERAND)
@@ -363,14 +363,14 @@ gettoken_query_standard(TSQueryParserState state, int8 *operator,
 				}
 				else if (parse_phrase_operator(state, weight))
 				{
-					/* weight var is used as storage for distance */
+					/* weight 变量用作距离存储 */
 					state->state = WAITOPERAND;
 					*operator = OP_PHRASE;
 					return PT_OPR;
 				}
 				else if (SOFT_ERROR_OCCURRED(state->escontext))
 				{
-					/* parse_phrase_operator reported a soft error */
+					/* parse_phrase_operator 报告了软错误 */
 					return PT_ERR;
 				}
 				else if (t_iseq(state->buf, ')'))
@@ -418,18 +418,18 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 				}
 				else if (t_iseq(state->buf, '"'))
 				{
-					/* Everything in quotes is processed as a single token */
+					/* 引号内的一切都作为单个词位处理 */
 
-					/* skip opening quote */
+					/* 跳过起始引号 */
 					state->buf++;
 					*strval = state->buf;
 
-					/* iterate to the closing quote or end of the string */
+					/* 迭代到结束引号或字符串末尾 */
 					while (*state->buf != '\0' && !t_iseq(state->buf, '"'))
 						state->buf++;
 					*lenval = state->buf - *strval;
 
-					/* skip closing quote if not end of the string */
+					/* 若未到串尾则跳过结束引号 */
 					if (*state->buf != '\0')
 						state->buf++;
 
@@ -439,7 +439,7 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 				}
 				else if (ISOPERATOR(state->buf))
 				{
-					/* ignore, else gettoken_tsvector() will raise an error */
+					/* 忽略之，否则 gettoken_tsvector() 会报错 */
 					state->buf++;
 					state->state = WAITOPERAND;
 					continue;
@@ -447,8 +447,8 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 				else if (!t_isspace(state->buf))
 				{
 					/*
-					 * We rely on the tsvector parser to parse the value for
-					 * us
+					 * 我们依靠 tsvector 解析器来解析该值
+					 *
 					 */
 					reset_tsvector_parser(state->valstate, state->buf);
 					if (gettoken_tsvector(state->valstate, strval, lenval,
@@ -459,7 +459,7 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 					}
 					else if (SOFT_ERROR_OCCURRED(state->escontext))
 					{
-						/* gettoken_tsvector reported a soft error */
+						/* gettoken_tsvector 报告了软错误 */
 						return PT_ERR;
 					}
 					else if (state->state == WAITFIRSTOPERAND)
@@ -468,7 +468,7 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 					}
 					else
 					{
-						/* finally, we have to provide an operand */
+						/* 最终必须提供一个操作数 */
 						pushStop(state);
 						return PT_END;
 					}
@@ -488,13 +488,13 @@ gettoken_query_websearch(TSQueryParserState state, int8 *operator,
 				}
 				else if (ISOPERATOR(state->buf))
 				{
-					/* ignore other operators in this state too */
+					/* 在此状态下同样忽略其他算子 */
 					state->buf++;
 					continue;
 				}
 				else if (!t_isspace(state->buf))
 				{
-					/* insert implicit AND between operands */
+					/* 操作数之间插入隐式 AND */
 					state->state = WAITOPERAND;
 					*operator = OP_AND;
 					return PT_OPR;
@@ -525,7 +525,7 @@ gettoken_query_plain(TSQueryParserState state, int8 *operator,
 }
 
 /*
- * Push an operator to state->polstr
+ * 将算子压入 state->polstr
  */
 void
 pushOperator(TSQueryParserState state, int8 oper, int16 distance)
@@ -538,7 +538,7 @@ pushOperator(TSQueryParserState state, int8 oper, int16 distance)
 	tmp->type = QI_OPR;
 	tmp->oper = oper;
 	tmp->distance = (oper == OP_PHRASE) ? distance : 0;
-	/* left is filled in later with findoprnd */
+	/* left 稍后由 findoprnd 填充 */
 
 	state->polstr = lcons(tmp, state->polstr);
 }
@@ -571,10 +571,10 @@ pushValue_internal(TSQueryParserState state, pg_crc32 valcrc, int distance, int 
 }
 
 /*
- * Push an operand to state->polstr.
+ * 把操作数压入 state->polstr
  *
- * strval must point to a string equal to state->curop. lenval is the length
- * of the string.
+ * strval 必须指向等于 state->curop 的字符串。lenval 为
+ * 其长度。
  */
 void
 pushValue(TSQueryParserState state, char *strval, int lenval, int16 weight, bool prefix)
@@ -592,7 +592,7 @@ pushValue(TSQueryParserState state, char *strval, int lenval, int16 weight, bool
 	FIN_LEGACY_CRC32(valcrc);
 	pushValue_internal(state, valcrc, state->curop - state->op, lenval, weight, prefix);
 
-	/* append the value string to state.op, enlarging buffer if needed first */
+	/* 把值字符串追加到 state.op，必要时先扩大缓冲区 */
 	while (state->curop - state->op + lenval + 1 >= state->lenop)
 	{
 		int			used = state->curop - state->op;
@@ -610,7 +610,7 @@ pushValue(TSQueryParserState state, char *strval, int lenval, int16 weight, bool
 
 
 /*
- * Push a stopword placeholder to state->polstr
+ * 将停用词占位符压入 state->polstr
  */
 void
 pushStop(TSQueryParserState state)
@@ -635,7 +635,7 @@ typedef struct OperatorElement
 static void
 pushOpStack(OperatorElement *stack, int *lenstack, int8 op, int16 distance)
 {
-	if (*lenstack == STACKDEPTH)	/* internal error */
+	if (*lenstack == STACKDEPTH)	/* 内部错误 */
 		elog(ERROR, "tsquery stack too small");
 
 	stack[*lenstack].op = op;
@@ -652,7 +652,7 @@ cleanOpStack(TSQueryParserState state,
 
 	while (*lenstack)
 	{
-		/* NOT is right associative unlike to others */
+		/* NOT 右结合，不同于其他算子 */
 		if ((op != OP_NOT && opPriority > OP_PRIORITY(stack[*lenstack - 1].op)) ||
 			(op == OP_NOT && opPriority >= OP_PRIORITY(stack[*lenstack - 1].op)))
 			break;
@@ -664,9 +664,9 @@ cleanOpStack(TSQueryParserState state,
 }
 
 /*
- * Make polish (prefix) notation of query.
+ * 构造查询的 polish 表示法。
  *
- * See parse_tsquery for explanation of pushval.
+ * pushval 的说明见 parse_tsquery。
  */
 static void
 makepol(TSQueryParserState state,
@@ -682,7 +682,7 @@ makepol(TSQueryParserState state,
 	int16		weight = 0;
 	bool		prefix;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，因此可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	while ((type = state->gettoken(state, &operator,
@@ -702,11 +702,11 @@ makepol(TSQueryParserState state,
 				makepol(state, pushval, opaque);
 				break;
 			case PT_CLOSE:
-				cleanOpStack(state, opstack, &lenstack, OP_OR /* lowest */ );
+				cleanOpStack(state, opstack, &lenstack, OP_OR /* 最低 */ );
 				return;
 			case PT_ERR:
 			default:
-				/* don't overwrite a soft error saved by gettoken function */
+				/* 不覆盖 gettoken 函数已保存的软错误 */
 				if (!SOFT_ERROR_OCCURRED(state->escontext))
 					errsave(state->escontext,
 							(errcode(ERRCODE_SYNTAX_ERROR),
@@ -714,18 +714,18 @@ makepol(TSQueryParserState state,
 									state->buffer)));
 				return;
 		}
-		/* detect soft error in pushval or recursion */
+		/* 检测 pushval 或递归中的软错误 */
 		if (SOFT_ERROR_OCCURRED(state->escontext))
 			return;
 	}
 
-	cleanOpStack(state, opstack, &lenstack, OP_OR /* lowest */ );
+	cleanOpStack(state, opstack, &lenstack, OP_OR /* 最低 */ );
 }
 
 static void
 findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，因此可能被驱动到栈溢出。 */
 	check_stack_depth();
 
 	if (*pos >= nnodes)
@@ -737,7 +737,7 @@ findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 	}
 	else if (ptr[*pos].type == QI_VALSTOP)
 	{
-		*needcleanup = true;	/* we'll have to remove stop words */
+		*needcleanup = true;	/* 将不得不移除停用词 */
 		(*pos)++;
 	}
 	else
@@ -746,16 +746,16 @@ findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 
 		if (ptr[*pos].qoperator.oper == OP_NOT)
 		{
-			ptr[*pos].qoperator.left = 1;	/* fixed offset */
+			ptr[*pos].qoperator.left = 1;	/* 固定偏移 */
 			(*pos)++;
 
-			/* process the only argument */
+			/* 处理唯一的参数 */
 			findoprnd_recurse(ptr, pos, nnodes, needcleanup);
 		}
 		else
 		{
 			QueryOperator *curitem = &ptr[*pos].qoperator;
-			int			tmp = *pos; /* save current position */
+			int			tmp = *pos; /* 保存当前位置 */
 
 			Assert(curitem->oper == OP_AND ||
 				   curitem->oper == OP_OR ||
@@ -763,12 +763,12 @@ findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 
 			(*pos)++;
 
-			/* process RIGHT argument */
+			/* 处理 RIGHT 参数 */
 			findoprnd_recurse(ptr, pos, nnodes, needcleanup);
 
-			curitem->left = *pos - tmp; /* set LEFT arg's offset */
+			curitem->left = *pos - tmp; /* 设左参数偏移 */
 
-			/* process LEFT argument */
+			/* 处理 LEFT 参数 */
 			findoprnd_recurse(ptr, pos, nnodes, needcleanup);
 		}
 	}
@@ -776,9 +776,9 @@ findoprnd_recurse(QueryItem *ptr, uint32 *pos, int nnodes, bool *needcleanup)
 
 
 /*
- * Fill in the left-fields previously left unfilled.
- * The input QueryItems must be in polish (prefix) notation.
- * Also, set *needcleanup to true if there are any QI_VALSTOP nodes.
+ * 填充先前未填充的 left 字段。
+ * 输入 QueryItems 必须为 polish 表示法。
+ * 若有 QI_VALSTOP 节点，则把 *needcleanup 设为 true。
  */
 static void
 findoprnd(QueryItem *ptr, int size, bool *needcleanup)
@@ -795,23 +795,23 @@ findoprnd(QueryItem *ptr, int size, bool *needcleanup)
 
 
 /*
- * Parse the tsquery stored in "buf".
+ * 解析 "buf" 中的 tsquery。
  *
- * Each value (operand) in the query is passed to pushval. pushval can
- * transform the simple value to an arbitrarily complex expression using
- * pushValue and pushOperator. It must push a single value with pushValue,
- * a complete expression with all operands, or a stopword placeholder
- * with pushStop, otherwise the prefix notation representation will be broken,
- * having an operator with no operand.
+ * 查询中的每个值（操作数）都传给 pushval。pushval
+ * 用 pushValue 和 pushOperator 把简单值变换成任意复杂
+ * 的表达式。它必须用 pushValue 压入单个值，或压入
+ * 全部操作数的完整表达式，或用 pushStop 压入停用
+ * 词占位符，否则前缀表示法将被破坏，产生没有操作数
+ * 的算子。
  *
- * opaque is passed on to pushval as is, pushval can use it to store its
- * private state.
+ * opaque 原样传给 pushval，pushval 可以用它来存储
+ * 私有状态
  *
- * The pushval function can record soft errors via escontext.
- * Callers must check SOFT_ERROR_OCCURRED to detect that.
+ * pushval 函数可以通过 escontext 记录软错误。
+ * 调用者须检查 SOFT_ERROR_OCCURRED 来检测它。
  *
- * A bitmask of flags (see ts_utils.h) and an error context object
- * can be provided as well.  If a soft error occurs, NULL is returned.
+ * 标志掩码（见 ts_utils.h）与错误上下文对象均可
+ * 提供。若发生软错误，则返回 NULL。
  */
 TSQuery
 parse_tsquery(char *buf,
@@ -830,10 +830,10 @@ parse_tsquery(char *buf,
 	bool		needcleanup;
 	int			tsv_flags = P_TSV_OPR_IS_DELIM | P_TSV_IS_TSQUERY;
 
-	/* plain should not be used with web */
+	/* plain 不应与 web 一起使用 */
 	Assert((flags & (P_TSQ_PLAIN | P_TSQ_WEB)) != (P_TSQ_PLAIN | P_TSQ_WEB));
 
-	/* select suitable tokenizer */
+	/* 选择合适的分词器 */
 	if (flags & P_TSQ_PLAIN)
 		state.gettoken = gettoken_query_plain;
 	else if (flags & P_TSQ_WEB)
@@ -844,10 +844,10 @@ parse_tsquery(char *buf,
 	else
 		state.gettoken = gettoken_query_standard;
 
-	/* emit nuisance NOTICEs only if not doing soft errors */
+	/* 仅在不做软错误时才发出扰人的 NOTICE */
 	noisy = !(escontext && IsA(escontext, ErrorSaveContext));
 
-	/* init state */
+	/* 初始化 */
 	state.buffer = buf;
 	state.buf = buf;
 	state.count = 0;
@@ -855,16 +855,16 @@ parse_tsquery(char *buf,
 	state.polstr = NIL;
 	state.escontext = escontext;
 
-	/* init value parser's state */
+	/* 初始值解析器状态 */
 	state.valstate = init_tsvector_parser(state.buffer, tsv_flags, escontext);
 
-	/* init list of operand */
+	/* 初始操作数表 */
 	state.sumlen = 0;
 	state.lenop = 64;
 	state.curop = state.op = (char *) palloc(state.lenop);
 	*(state.curop) = '\0';
 
-	/* parse query & make polish notation (postfix, but in reverse order) */
+	/* 解析查询并构造 polish 表示法（后缀式，但反序） */
 	makepol(&state, pushval, opaque);
 
 	close_tsvector_parser(state.valstate);
@@ -890,13 +890,13 @@ parse_tsquery(char *buf,
 				 errmsg("tsquery is too large")));
 	commonlen = COMPUTESIZE(list_length(state.polstr), state.sumlen);
 
-	/* Pack the QueryItems in the final TSQuery struct to return to caller */
+	/* QueryItems 打包进最终 TSQuery 结构返回给调用者 */
 	query = (TSQuery) palloc0(commonlen);
 	SET_VARSIZE(query, commonlen);
 	query->size = list_length(state.polstr);
 	ptr = GETQUERY(query);
 
-	/* Copy QueryItems to TSQuery */
+	/* QueryItems 拷入 TSQuery */
 	i = 0;
 	foreach(cell, state.polstr)
 	{
@@ -919,18 +919,18 @@ parse_tsquery(char *buf,
 		i++;
 	}
 
-	/* Copy all the operand strings to TSQuery */
+	/* 把全部操作数串复制到 TSQuery */
 	memcpy(GETOPERAND(query), state.op, state.sumlen);
 	pfree(state.op);
 
 	/*
-	 * Set left operand pointers for every operator.  While we're at it,
-	 * detect whether there are any QI_VALSTOP nodes.
+	 * 为每个算子设置左操作数指针。顺带，
+	 * 检测是否存在 QI_VALSTOP 节点。
 	 */
 	findoprnd(ptr, query->size, &needcleanup);
 
 	/*
-	 * If there are QI_VALSTOP nodes, delete them and simplify the tree.
+	 * 若有 QI_VALSTOP 节点，则删除它们并化简树。
 	 */
 	if (needcleanup)
 		query = cleanup_tsquery_stopwords(query, noisy);
@@ -946,7 +946,7 @@ pushval_asis(Datum opaque, TSQueryParserState state, char *strval, int lenval,
 }
 
 /*
- * in without morphology
+ * 无词形变化的 in
  */
 Datum
 tsqueryin(PG_FUNCTION_ARGS)
@@ -962,7 +962,7 @@ tsqueryin(PG_FUNCTION_ARGS)
 }
 
 /*
- * out function
+ * out 函数
  */
 typedef struct
 {
@@ -973,7 +973,7 @@ typedef struct
 	int			buflen;
 } INFIX;
 
-/* Makes sure inf->buf is large enough for adding 'addsize' bytes */
+/* 确保 inf->buf 足以再容纳 "addsize" 个字节 */
 #define RESIZEBUF(inf, addsize) \
 while( ( (inf)->cur - (inf)->buf ) + (addsize) + 1 >= (inf)->buflen ) \
 { \
@@ -984,13 +984,13 @@ while( ( (inf)->cur - (inf)->buf ) + (addsize) + 1 >= (inf)->buflen ) \
 }
 
 /*
- * recursively traverse the tree and
- * print it in infix (human-readable) form
+ * 递归遍历该树并
+ * 以中缀（人类可读）形式打印
  */
 static void
 infix(INFIX *in, int parentPriority, bool rightPhraseOp)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，因此可能被驱动到栈溢出。 */
 	check_stack_depth();
 
 	if (in->curpol->type == QI_VAL)
@@ -1089,7 +1089,7 @@ infix(INFIX *in, int parentPriority, bool rightPhraseOp)
 
 		in->curpol++;
 		if (priority < parentPriority ||
-		/* phrase operator depends on order */
+		/* 短语算子依赖顺序 */
 			(op == OP_PHRASE && rightPhraseOp))
 		{
 			needParenthesis = true;
@@ -1103,15 +1103,15 @@ infix(INFIX *in, int parentPriority, bool rightPhraseOp)
 		nrm.buflen = 16;
 		nrm.cur = nrm.buf = (char *) palloc(sizeof(char) * nrm.buflen);
 
-		/* get right operand */
+		/* 取右操作数 */
 		infix(&nrm, priority, (op == OP_PHRASE));
 
-		/* get & print left operand */
+		/* 取并打印左操作数 */
 		in->curpol = nrm.curpol;
 		infix(in, priority, false);
 
-		/* print operator & right operand */
-		RESIZEBUF(in, 3 + (2 + 10 /* distance */ ) + (nrm.cur - nrm.buf));
+		/* 打印算子与右操作数 */
+		RESIZEBUF(in, 3 + (2 + 10 /* 距离 */ ) + (nrm.cur - nrm.buf));
 		switch (op)
 		{
 			case OP_OR:
@@ -1127,7 +1127,7 @@ infix(INFIX *in, int parentPriority, bool rightPhraseOp)
 					sprintf(in->cur, " <-> %s", nrm.buf);
 				break;
 			default:
-				/* OP_NOT is handled in above if-branch */
+				/* OP_NOT 已于上方 if 分支处理 */
 				elog(ERROR, "unrecognized operator type: %d", op);
 		}
 		in->cur = strchr(in->cur, '\0');
@@ -1160,30 +1160,30 @@ tsqueryout(PG_FUNCTION_ARGS)
 	nrm.cur = nrm.buf = (char *) palloc(sizeof(char) * nrm.buflen);
 	*(nrm.cur) = '\0';
 	nrm.op = GETOPERAND(query);
-	infix(&nrm, -1 /* lowest priority */ , false);
+	infix(&nrm, -1 /* 最低优先级 */ , false);
 
 	PG_FREE_IF_COPY(query, 0);
 	PG_RETURN_CSTRING(nrm.buf);
 }
 
 /*
- * Binary Input / Output functions. The binary format is as follows:
+ * 二进制输入/输出函数。二进制格式如下：
  *
- * uint32	 number of operators/operands in the query
+ * uint32	查询中算子/操作数的数量
  *
- * Followed by the operators and operands, in prefix notation. For each
+ * 随后是算子和操作数，按前缀表示法。对各
  * operand:
  *
- * uint8	type, QI_VAL
- * uint8	weight
- * uint8	prefix
- *			operand text in client encoding, null-terminated
+ * uint8	类型QI_VAL
+ * uint8	权重
+ * uint8	前缀
+ *			操作数文本，客户端编码，null 结尾
  *
- * For each operator:
+ * 对每个算子：
  *
- * uint8	type, QI_OPR
- * uint8	operator, one of OP_AND, OP_PHRASE OP_OR, OP_NOT.
- * uint16	distance (only for OP_PHRASE)
+ * uint8	类型QI_OPR
+ * uint8	算子：OP_AND, OP_PHRASE, OP_OR, OP_NOT 之一
+ * uint16	距离（仅 OP_PHRASE）
  */
 Datum
 tsquerysend(PG_FUNCTION_ARGS)
@@ -1241,10 +1241,10 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 	if (size > (MaxAllocSize / sizeof(QueryItem)))
 		elog(ERROR, "invalid size of tsquery");
 
-	/* Allocate space to temporarily hold operand strings */
+	/* 分配空间来临时保存操作数串 */
 	operands = palloc(size * sizeof(char *));
 
-	/* Allocate space for all the QueryItems. */
+	/* 为所有 QueryItems 分配空间。 */
 	len = HDRSIZETQ + sizeof(QueryItem) * size;
 	query = (TSQuery) palloc0(len);
 	query->size = size;
@@ -1257,8 +1257,8 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 
 		if (item->type == QI_VAL)
 		{
-			size_t		val_len;	/* length after recoding to server
-									 * encoding */
+			size_t		val_len;	/* 重编码为服务器编码后
+									 * 长度 */
 			uint8		weight;
 			uint8		prefix;
 			const char *val;
@@ -1269,7 +1269,7 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 			val = pq_getmsgstring(buf);
 			val_len = strlen(val);
 
-			/* Sanity checks */
+			/* 健全检查 */
 
 			if (weight > 0xF)
 				elog(ERROR, "invalid tsquery: invalid weight bitmap");
@@ -1280,7 +1280,7 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 			if (datalen > MAXSTRPOS)
 				elog(ERROR, "invalid tsquery: total operand length exceeded");
 
-			/* Looks valid. */
+			/* 看似有效 */
 
 			INIT_LEGACY_CRC32(valcrc);
 			COMP_LEGACY_CRC32(valcrc, val, val_len);
@@ -1293,12 +1293,12 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 			item->qoperand.distance = datalen;
 
 			/*
-			 * Operand strings are copied to the final struct after this loop;
-			 * here we just collect them to an array
+			 * 操作数串在本循环之后才复制到最终结构；
+			 * 这里只把它们收进数组
 			 */
 			operands[i] = val;
 
-			datalen += val_len + 1; /* + 1 for the '\0' terminator */
+			datalen += val_len + 1; /* + 1 为 '\0' 终止符 */
 		}
 		else if (item->type == QI_OPR)
 		{
@@ -1321,21 +1321,21 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 		item++;
 	}
 
-	/* Enlarge buffer to make room for the operand values. */
+	/* 扩大缓冲区以为操作数值腾出空间。 */
 	query = (TSQuery) repalloc(query, len + datalen);
 	item = GETQUERY(query);
 	ptr = GETOPERAND(query);
 
 	/*
-	 * Fill in the left-pointers. Checks that the tree is well-formed as a
-	 * side-effect.
+	 * 填充左指针。顺带检查树的
+	 * 良构性。
 	 */
 	findoprnd(item, size, &needcleanup);
 
-	/* Can't have found any QI_VALSTOP nodes */
+	/* 不可能有 QI_VALSTOP 节点 */
 	Assert(!needcleanup);
 
-	/* Copy operands to output struct */
+	/* 复制操作数到输出结构 */
 	for (i = 0; i < size; i++)
 	{
 		if (item->type == QI_VAL)
@@ -1356,8 +1356,8 @@ tsqueryrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- * debug function, used only for view query
- * which will be executed in non-leaf pages in index
+ * 调试函数，仅用于查看查询
+ * 该查询将在索引的非叶子页面上执行
  */
 Datum
 tsquerytree(PG_FUNCTION_ARGS)

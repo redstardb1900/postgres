@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * regproc.c
- *	  Functions for the built-in types regproc, regclass, regtype, etc.
+ *	  内建类型 regproc、regclass、regtype 等类型的函数。
  *
- * These types are all binary-compatible with type Oid, and rely on Oid
- * for comparison and so forth.  Their only interesting behavior is in
- * special I/O conversion routines.
+ * 这些类型都与 Oid 二进制兼容，并依靠 Oid 来做
+ * 比较之类的事情。它们唯一有趣的行为在于特殊的
+ * I/O 转换例程中。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -51,16 +51,16 @@ static bool parseNameAndArgTypes(const char *string, bool allowNone,
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程									 *
  *****************************************************************************/
 
 /*
- * regprocin		- converts "proname" to proc OID
+ * regprocin		- 将 "proname" 转为过程 OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_proc entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_proc 条目
  */
 Datum
 regprocin(PG_FUNCTION_ARGS)
@@ -71,22 +71,22 @@ regprocin(PG_FUNCTION_ARGS)
 	List	   *names;
 	FuncCandidateList clist;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(pro_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* Else it's a name, possibly schema-qualified */
+	/* 否则是名称，可能带模式限定 */
 
 	/*
-	 * We should never get here in bootstrap mode, as all references should
-	 * have been resolved by genbki.pl.
+	 * 在 bootstrap 下绝不应走到这里，因为所有引用都应
+	 * 已由 genbki.pl 解析。
 	 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regproc values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: parse the name into components and see if it matches any
-	 * pg_proc entries in the current search path.
+	 * 常规情形：解析名称的各成分，看是否匹配当前
+	 * 搜索路径中的 pg_proc 条目。
 	 */
 	names = stringToQualifiedNameList(pro_name_or_oid, escontext);
 	if (names == NIL)
@@ -110,9 +110,9 @@ regprocin(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regproc	- converts "proname" to proc OID
+ * to_regproc	- 把 "proname" 转为 proc OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regproc(PG_FUNCTION_ARGS)
@@ -130,7 +130,7 @@ to_regproc(PG_FUNCTION_ARGS)
 }
 
 /*
- * regprocout		- converts proc OID to "pro_name"
+ * regprocout		- 把过程 OID 转为 "pro_name"
  */
 Datum
 regprocout(PG_FUNCTION_ARGS)
@@ -153,9 +153,9 @@ regprocout(PG_FUNCTION_ARGS)
 		char	   *proname = NameStr(procform->proname);
 
 		/*
-		 * In bootstrap mode, skip the fancy namespace stuff and just return
-		 * the proc name.  (This path is only needed for debugging output
-		 * anyway.)
+		 * 在 bootstrap 下跳过花哨的命名空间机制，直接
+		 * 返回过程名。（此路径反正仅调试输出需要）
+		 *
 		 */
 		if (IsBootstrapProcessingMode())
 			result = pstrdup(proname);
@@ -165,8 +165,8 @@ regprocout(PG_FUNCTION_ARGS)
 			FuncCandidateList clist;
 
 			/*
-			 * Would this proc be found (uniquely!) by regprocin? If not,
-			 * qualify it.
+			 * regprocin 能否唯一找到它？若不能，
+			 * 就限定
 			 */
 			clist = FuncnameGetCandidates(list_make1(makeString(proname)),
 										  -1, NIL, false, false, false, false);
@@ -183,7 +183,7 @@ regprocout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* If OID doesn't match any pg_proc entry, return it numerically */
+		/* 若 OID 不匹配任何 pg_proc 条目则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", proid);
 	}
@@ -192,33 +192,33 @@ regprocout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regprocrecv			- converts external binary format to regproc
+ *		regprocrecv			- 把外部二进制格式转为 regproc
  */
 Datum
 regprocrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regprocsend			- converts regproc to binary format
+ *		regprocsend			- 把 regproc 转为二进制格式
  */
 Datum
 regprocsend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regprocedurein		- converts "proname(args)" to proc OID
+ * regprocedurein		- 把 "proname(args)" 转为过程 OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_proc entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_proc 条目
  */
 Datum
 regprocedurein(PG_FUNCTION_ARGS)
@@ -231,19 +231,19 @@ regprocedurein(PG_FUNCTION_ARGS)
 	Oid			argtypes[FUNC_MAX_ARGS];
 	FuncCandidateList clist;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(pro_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regprocedure values must be OIDs in bootstrap mode");
 
 	/*
-	 * Else it's a name and arguments.  Parse the name and arguments, look up
-	 * potential matches in the current namespace search list, and scan to see
-	 * which one exactly matches the given argument types.  (There will not be
-	 * more than one match.)
+	 * 否则为名称和参数。解析名称与参数，在命名空间
+	 * 搜索列表中查找潜在匹配，扫描找出与给定参数类型
+	 * 完全匹配的那一个。（匹配不会
+	 * 多于一个。）
 	 */
 	if (!parseNameAndArgTypes(pro_name_or_oid, false,
 							  &names, &nargs, argtypes,
@@ -270,9 +270,9 @@ regprocedurein(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regprocedure	- converts "proname(args)" to proc OID
+ * to_regprocedure	- 把 "proname(args)" 转为 proc OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regprocedure(PG_FUNCTION_ARGS)
@@ -290,10 +290,10 @@ to_regprocedure(PG_FUNCTION_ARGS)
 }
 
 /*
- * format_procedure		- converts proc OID to "pro_name(args)"
+ * format_procedure		- 把过程 OID 转为 "pro_name(args)"
  *
- * This exports the useful functionality of regprocedureout for use
- * in other backend modules.  The result is a palloc'd string.
+ * 这里导出 regprocedureout 的实用功能，供其他后端
+ * 模块使用。结果是 palloc 分配的字符串。
  */
 char *
 format_procedure(Oid procedure_oid)
@@ -308,19 +308,19 @@ format_procedure_qualified(Oid procedure_oid)
 }
 
 /*
- * format_procedure_extended - converts procedure OID to "pro_name(args)"
+ * format_procedure_extended - 把过程 OID 转为 "pro_name(args)"
  *
- * This exports the useful functionality of regprocedureout for use
- * in other backend modules.  The result is a palloc'd string, or NULL.
+ * 这里导出 regprocedureout 的实用功能，供其他后端
+ * 模块使用。结果是 palloc 分配的字符串，或 NULL。
  *
- * Routine to produce regprocedure names; see format_procedure above.
+ * 产生 regprocedure 名称例程；见上方 format_procedure。
  *
- * The following bits in 'flags' modify the behavior:
+ * "flags" 中的下列位会修改行为：
  * - FORMAT_PROC_INVALID_AS_NULL
- *			if the procedure OID is invalid or unknown, return NULL instead
- *			of the numeric OID.
+ *			若过程 OID 无效或未知，返回 NULL 而非数字
+ *			OID。
  * - FORMAT_PROC_FORCE_QUALIFY
- *			always schema-qualify procedure names, regardless of search_path
+ *			无论 search_path 如何，总是对过程名加模式限定
  */
 char *
 format_procedure_extended(Oid procedure_oid, bits16 flags)
@@ -339,14 +339,14 @@ format_procedure_extended(Oid procedure_oid, bits16 flags)
 		char	   *nspname;
 		StringInfoData buf;
 
-		/* XXX no support here for bootstrap mode */
+		/* XXX bootstrap 下这里没有支持 */
 		Assert(!IsBootstrapProcessingMode());
 
 		initStringInfo(&buf);
 
 		/*
-		 * Would this proc be found (given the right args) by regprocedurein?
-		 * If not, or if caller requests it, we need to qualify it.
+		 * regprocedurein（带正确参数）能找到该过程吗？
+		 * 若不能，或调用者要求，则须加限定。
 		 */
 		if ((flags & FORMAT_PROC_FORCE_QUALIFY) == 0 &&
 			FunctionIsVisible(procedure_oid))
@@ -375,12 +375,12 @@ format_procedure_extended(Oid procedure_oid, bits16 flags)
 	}
 	else if ((flags & FORMAT_PROC_INVALID_AS_NULL) != 0)
 	{
-		/* If object is undefined, return NULL as wanted by caller */
+		/* 若对象未定义，则按调用者要求返回 NULL */
 		result = NULL;
 	}
 	else
 	{
-		/* If OID doesn't match any pg_proc entry, return it numerically */
+		/* 若 OID 不匹配任何 pg_proc 条目则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", procedure_oid);
 	}
@@ -389,10 +389,10 @@ format_procedure_extended(Oid procedure_oid, bits16 flags)
 }
 
 /*
- * Output an objname/objargs representation for the procedure with the
- * given OID.  If it doesn't exist, an error is thrown.
+ * 为给定 OID 的过程输出 objname/objargs 表示形式。
+ * 若它不存在，则抛出错误。
  *
- * This can be used to feed get_object_address.
+ * 这可用于喂给 get_object_address。
  */
 void
 format_procedure_parts(Oid procedure_oid, List **objnames, List **objargs,
@@ -429,7 +429,7 @@ format_procedure_parts(Oid procedure_oid, List **objnames, List **objargs,
 }
 
 /*
- * regprocedureout		- converts proc OID to "pro_name(args)"
+ * regprocedureout		- 把过程 OID 转为 "pro_name(args)"
  */
 Datum
 regprocedureout(PG_FUNCTION_ARGS)
@@ -446,33 +446,33 @@ regprocedureout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regprocedurerecv			- converts external binary format to regprocedure
+ *		regprocedurerecv			- 把外部二进制格式转为 regprocedure
  */
 Datum
 regprocedurerecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regproceduresend			- converts regprocedure to binary format
+ *		regproceduresend			- 把 regprocedure 转为二进制格式
  */
 Datum
 regproceduresend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regoperin		- converts "oprname" to operator OID
+ * regoperin		- 把 "oprname" 转为算子 OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '0' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_operator entry.
+ * "0" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_operator 条目
  */
 Datum
 regoperin(PG_FUNCTION_ARGS)
@@ -483,19 +483,19 @@ regoperin(PG_FUNCTION_ARGS)
 	List	   *names;
 	FuncCandidateList clist;
 
-	/* Handle "0" or numeric OID */
+	/* 处理 "0" 或数字 OID */
 	if (parseNumericOid(opr_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* Else it's a name, possibly schema-qualified */
+	/* 否则是名称，可能带模式限定 */
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regoper values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: parse the name into components and see if it matches any
-	 * pg_operator entries in the current search path.
+	 * 常规情形：解析名称的各成分，看是否匹配当前
+	 * 搜索路径中的 pg_operator 条目。
 	 */
 	names = stringToQualifiedNameList(opr_name_or_oid, escontext);
 	if (names == NIL)
@@ -519,9 +519,9 @@ regoperin(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regoper		- converts "oprname" to operator OID
+ * to_regoper		- 把 "oprname" 转为算子 OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regoper(PG_FUNCTION_ARGS)
@@ -539,7 +539,7 @@ to_regoper(PG_FUNCTION_ARGS)
 }
 
 /*
- * regoperout		- converts operator OID to "opr_name"
+ * regoperout		- 把算子 OID 转为 "opr_name"
  */
 Datum
 regoperout(PG_FUNCTION_ARGS)
@@ -562,9 +562,9 @@ regoperout(PG_FUNCTION_ARGS)
 		char	   *oprname = NameStr(operform->oprname);
 
 		/*
-		 * In bootstrap mode, skip the fancy namespace stuff and just return
-		 * the oper name.  (This path is only needed for debugging output
-		 * anyway.)
+		 * 在 bootstrap 下跳过花哨的命名空间机制，直接
+		 * 返回算子名。（此路径反正仅调试输出需要）
+		 *
 		 */
 		if (IsBootstrapProcessingMode())
 			result = pstrdup(oprname);
@@ -573,8 +573,8 @@ regoperout(PG_FUNCTION_ARGS)
 			FuncCandidateList clist;
 
 			/*
-			 * Would this oper be found (uniquely!) by regoperin? If not,
-			 * qualify it.
+			 * regoperin 能否唯一找到它？若不能，
+			 * 就限定
 			 */
 			clist = OpernameGetCandidates(list_make1(makeString(oprname)),
 										  '\0', false);
@@ -597,7 +597,7 @@ regoperout(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * If OID doesn't match any pg_operator entry, return it numerically
+		 * 若 OID 不匹配任何 pg_operator 条目则按数字返回
 		 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", oprid);
@@ -607,33 +607,33 @@ regoperout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regoperrecv			- converts external binary format to regoper
+ *		regoperrecv			- 把外部二进制格式转为 regoper
  */
 Datum
 regoperrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regopersend			- converts regoper to binary format
+ *		regopersend			- 把 regoper 转为二进制格式
  */
 Datum
 regopersend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regoperatorin		- converts "oprname(args)" to operator OID
+ * regoperatorin		- 把 "oprname(args)" 转为算子 OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '0' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_operator entry.
+ * "0" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_operator 条目
  */
 Datum
 regoperatorin(PG_FUNCTION_ARGS)
@@ -645,19 +645,19 @@ regoperatorin(PG_FUNCTION_ARGS)
 	int			nargs;
 	Oid			argtypes[FUNC_MAX_ARGS];
 
-	/* Handle "0" or numeric OID */
+	/* 处理 "0" 或数字 OID */
 	if (parseNumericOid(opr_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regoperator values must be OIDs in bootstrap mode");
 
 	/*
-	 * Else it's a name and arguments.  Parse the name and arguments, look up
-	 * potential matches in the current namespace search list, and scan to see
-	 * which one exactly matches the given argument types.  (There will not be
-	 * more than one match.)
+	 * 否则为名称和参数。解析名称与参数，在命名空间
+	 * 搜索列表中查找潜在匹配，扫描找出与给定参数类型
+	 * 完全匹配的那一个。（匹配不会
+	 * 多于一个。）
 	 */
 	if (!parseNameAndArgTypes(opr_name_or_oid, true,
 							  &names, &nargs, argtypes,
@@ -686,9 +686,9 @@ regoperatorin(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regoperator	- converts "oprname(args)" to operator OID
+ * to_regoperator	- 把 "oprname(args)" 转为算子 OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regoperator(PG_FUNCTION_ARGS)
@@ -706,17 +706,17 @@ to_regoperator(PG_FUNCTION_ARGS)
 }
 
 /*
- * format_operator_extended - converts operator OID to "opr_name(args)"
+ * format_operator_extended - 把算子 OID 转为 "opr_name(args)"
  *
- * This exports the useful functionality of regoperatorout for use
- * in other backend modules.  The result is a palloc'd string, or NULL.
+ * 这里导出 regoperatorout 的实用功能，供其他后端
+ * 模块使用。结果是 palloc 分配的字符串，或 NULL。
  *
- * The following bits in 'flags' modify the behavior:
+ * "flags" 中的下列位会修改行为：
  * - FORMAT_OPERATOR_INVALID_AS_NULL
- *			if the operator OID is invalid or unknown, return NULL instead
- *			of the numeric OID.
+ *			若算子 OID 无效或未知，返回 NULL 而非数字
+ *			OID。
  * - FORMAT_OPERATOR_FORCE_QUALIFY
- *			always schema-qualify operator names, regardless of search_path
+ *			无论 search_path 如何，总是对算子名加模式限定
  */
 char *
 format_operator_extended(Oid operator_oid, bits16 flags)
@@ -733,14 +733,14 @@ format_operator_extended(Oid operator_oid, bits16 flags)
 		char	   *nspname;
 		StringInfoData buf;
 
-		/* XXX no support here for bootstrap mode */
+		/* XXX bootstrap 下这里没有支持 */
 		Assert(!IsBootstrapProcessingMode());
 
 		initStringInfo(&buf);
 
 		/*
-		 * Would this oper be found (given the right args) by regoperatorin?
-		 * If not, or if caller explicitly requests it, we need to qualify it.
+		 * regoperatorin（带正确参数）能找到该算子吗？
+		 * 若不能，或调用者明确要求，我们就需要加限定。
 		 */
 		if ((flags & FORMAT_OPERATOR_FORCE_QUALIFY) != 0 ||
 			!OperatorIsVisible(operator_oid))
@@ -774,13 +774,13 @@ format_operator_extended(Oid operator_oid, bits16 flags)
 	}
 	else if ((flags & FORMAT_OPERATOR_INVALID_AS_NULL) != 0)
 	{
-		/* If object is undefined, return NULL as wanted by caller */
+		/* 若对象未定义，则按调用者要求返回 NULL */
 		result = NULL;
 	}
 	else
 	{
 		/*
-		 * If OID doesn't match any pg_operator entry, return it numerically
+		 * 若 OID 不匹配任何 pg_operator 条目则按数字返回
 		 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", operator_oid);
@@ -833,7 +833,7 @@ format_operator_parts(Oid operator_oid, List **objnames, List **objargs,
 }
 
 /*
- * regoperatorout		- converts operator OID to "opr_name(args)"
+ * regoperatorout		- 把算子 OID 转为 "opr_name(args)"
  */
 Datum
 regoperatorout(PG_FUNCTION_ARGS)
@@ -850,33 +850,33 @@ regoperatorout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regoperatorrecv			- converts external binary format to regoperator
+ *		regoperatorrecv			- 把外部二进制格式转为 regoperator
  */
 Datum
 regoperatorrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regoperatorsend			- converts regoperator to binary format
+ *		regoperatorsend			- 把 regoperator 转为二进制格式
  */
 Datum
 regoperatorsend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regclassin		- converts "classname" to class OID
+ * regclassin		- 把 "classname" 转为类 OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_class entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_class 条目
  */
 Datum
 regclassin(PG_FUNCTION_ARGS)
@@ -886,25 +886,25 @@ regclassin(PG_FUNCTION_ARGS)
 	Oid			result;
 	List	   *names;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(class_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* Else it's a name, possibly schema-qualified */
+	/* 否则是名称，可能带模式限定 */
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regclass values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: parse the name into components and see if it matches any
-	 * pg_class entries in the current search path.
+	 * 常规情形：解析名称的各成分，看是否匹配当前
+	 * 搜索路径中的 pg_class 条目。
 	 */
 	names = stringToQualifiedNameList(class_name_or_oid, escontext);
 	if (names == NIL)
 		PG_RETURN_NULL();
 
-	/* We might not even have permissions on this relation; don't lock it. */
+	/* 我们对这个关系可能连权限都没有；不要锁定它。 */
 	result = RangeVarGetRelid(makeRangeVarFromNameList(names), NoLock, true);
 
 	if (!OidIsValid(result))
@@ -917,9 +917,9 @@ regclassin(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regclass		- converts "classname" to class OID
+ * to_regclass		- 把 "classname" 转为类 OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regclass(PG_FUNCTION_ARGS)
@@ -937,7 +937,7 @@ to_regclass(PG_FUNCTION_ARGS)
 }
 
 /*
- * regclassout		- converts class OID to "class_name"
+ * regclassout		- 把类 OID 转为 "class_name"
  */
 Datum
 regclassout(PG_FUNCTION_ARGS)
@@ -960,9 +960,9 @@ regclassout(PG_FUNCTION_ARGS)
 		char	   *classname = NameStr(classform->relname);
 
 		/*
-		 * In bootstrap mode, skip the fancy namespace stuff and just return
-		 * the class name.  (This path is only needed for debugging output
-		 * anyway.)
+		 * 在 bootstrap 下跳过花哨的命名空间机制，直接
+		 * 返回类名。（此路径反正仅调试输出需要）
+		 *
 		 */
 		if (IsBootstrapProcessingMode())
 			result = pstrdup(classname);
@@ -971,7 +971,7 @@ regclassout(PG_FUNCTION_ARGS)
 			char	   *nspname;
 
 			/*
-			 * Would this class be found by regclassin? If not, qualify it.
+			 * regclassin 能否找到它？若不能，则加限定
 			 */
 			if (RelationIsVisible(classid))
 				nspname = NULL;
@@ -985,7 +985,7 @@ regclassout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* If OID doesn't match any pg_class entry, return it numerically */
+		/* 若 OID 不匹配任何 pg_class 条目则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", classid);
 	}
@@ -994,33 +994,33 @@ regclassout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regclassrecv			- converts external binary format to regclass
+ *		regclassrecv			- 把外部二进制格式转为 regclass
  */
 Datum
 regclassrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regclasssend			- converts regclass to binary format
+ *		regclasssend			- 把 regclass 转为二进制格式
  */
 Datum
 regclasssend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regcollationin		- converts "collationname" to collation OID
+ * regcollationin		- 把 "collationname" 转为 collation OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_collation entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_collation 条目
  */
 Datum
 regcollationin(PG_FUNCTION_ARGS)
@@ -1030,19 +1030,19 @@ regcollationin(PG_FUNCTION_ARGS)
 	Oid			result;
 	List	   *names;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(collation_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* Else it's a name, possibly schema-qualified */
+	/* 否则是名称，可能带模式限定 */
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regcollation values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: parse the name into components and see if it matches any
-	 * pg_collation entries in the current search path.
+	 * 常规情形：解析名称的各成分，看是否匹配当前
+	 * 搜索路径中的 pg_collation 条目。
 	 */
 	names = stringToQualifiedNameList(collation_name_or_oid, escontext);
 	if (names == NIL)
@@ -1060,9 +1060,9 @@ regcollationin(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regcollation		- converts "collationname" to collation OID
+ * to_regcollation		- 把 "collationname" 转为 collation OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regcollation(PG_FUNCTION_ARGS)
@@ -1080,7 +1080,7 @@ to_regcollation(PG_FUNCTION_ARGS)
 }
 
 /*
- * regcollationout		- converts collation OID to "collation_name"
+ * regcollationout		- 把 collation OID 转为 "collation_name"
  */
 Datum
 regcollationout(PG_FUNCTION_ARGS)
@@ -1103,9 +1103,9 @@ regcollationout(PG_FUNCTION_ARGS)
 		char	   *collationname = NameStr(collationform->collname);
 
 		/*
-		 * In bootstrap mode, skip the fancy namespace stuff and just return
-		 * the collation name.  (This path is only needed for debugging output
-		 * anyway.)
+		 * 在 bootstrap 下跳过花哨的命名空间机制，直接
+		 * 返回 collation 名。（此路径反正仅调试输出需要）
+		 *
 		 */
 		if (IsBootstrapProcessingMode())
 			result = pstrdup(collationname);
@@ -1114,8 +1114,8 @@ regcollationout(PG_FUNCTION_ARGS)
 			char	   *nspname;
 
 			/*
-			 * Would this collation be found by regcollationin? If not,
-			 * qualify it.
+			 * regcollationin 能否找到它？若不能，
+			 * 就限定
 			 */
 			if (CollationIsVisible(collationid))
 				nspname = NULL;
@@ -1129,7 +1129,7 @@ regcollationout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* If OID doesn't match any pg_collation entry, return it numerically */
+		/* 若 OID 不匹配任何 pg_collation 条目则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", collationid);
 	}
@@ -1138,39 +1138,39 @@ regcollationout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regcollationrecv			- converts external binary format to regcollation
+ *		regcollationrecv			- 把外部二进制格式转为 regcollation
  */
 Datum
 regcollationrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regcollationsend			- converts regcollation to binary format
+ *		regcollationsend			- 把 regcollation 转为二进制格式
  */
 Datum
 regcollationsend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regtypein		- converts "typename" to type OID
+ * regtypein		- 把 "typename" 转为类型 OID
  *
- * The type name can be specified using the full type syntax recognized by
- * the parser; for example, DOUBLE PRECISION and INTEGER[] will work and be
- * translated to the correct type names.  (We ignore any typmod info
- * generated by the parser, however.)
+ * 类型名可以用解析器识别的完整类型语法来指定；
+ * 例如 DOUBLE PRECISION 和 INTEGER[] 都可行并会被
+ * 转换为正确类型名。（不过，解析器生成的
+ * 任何 typmod 信息）
  *
- * We also accept a numeric OID, for symmetry with the output routine,
- * and for possible use in bootstrap mode.
+ * 为了与输出例程对称，我们也接受数字 OID，
+ * 以及 bootstrap 下的可能用途。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_type entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_type 条目
  */
 Datum
 regtypein(PG_FUNCTION_ARGS)
@@ -1180,20 +1180,20 @@ regtypein(PG_FUNCTION_ARGS)
 	Oid			result;
 	int32		typmod;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(typ_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* Else it's a type name, possibly schema-qualified or decorated */
+	/* 否则是类型名，可能带模式限定或修饰 */
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regtype values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: invoke the full parser to deal with special cases such as
-	 * array syntax.  We don't need to check for parseTypeString failure,
-	 * since we'll just return anyway.
+	 * 常规情形：调用完整解析器处理数组语法等特例。
+	 * 无须检查 parseTypeString 是否失败，
+	 * 反正我们都会返回。
 	 */
 	(void) parseTypeString(typ_name_or_oid, &result, &typmod, escontext);
 
@@ -1201,9 +1201,9 @@ regtypein(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regtype		- converts "typename" to type OID
+ * to_regtype		- 把 "typename" 转为类型 OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regtype(PG_FUNCTION_ARGS)
@@ -1221,7 +1221,7 @@ to_regtype(PG_FUNCTION_ARGS)
 }
 
 /*
- * regtypeout		- converts type OID to "typ_name"
+ * regtypeout		- 把类型 OID 转为 "typ_name"
  */
 Datum
 regtypeout(PG_FUNCTION_ARGS)
@@ -1243,9 +1243,9 @@ regtypeout(PG_FUNCTION_ARGS)
 		Form_pg_type typeform = (Form_pg_type) GETSTRUCT(typetup);
 
 		/*
-		 * In bootstrap mode, skip the fancy namespace stuff and just return
-		 * the type name.  (This path is only needed for debugging output
-		 * anyway.)
+		 * 在 bootstrap 下跳过花哨的命名空间机制，直接
+		 * 返回类型名。（此路径反正仅调试输出需要）
+		 *
 		 */
 		if (IsBootstrapProcessingMode())
 		{
@@ -1260,7 +1260,7 @@ regtypeout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* If OID doesn't match any pg_type entry, return it numerically */
+		/* 若 OID 不匹配任何 pg_type 条目则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", typid);
 	}
@@ -1269,33 +1269,33 @@ regtypeout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regtyperecv			- converts external binary format to regtype
+ *		regtyperecv			- 把外部二进制格式转为 regtype
  */
 Datum
 regtyperecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regtypesend			- converts regtype to binary format
+ *		regtypesend			- 把 regtype 转为二进制格式
  */
 Datum
 regtypesend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regconfigin		- converts "tsconfigname" to tsconfig OID
+ * regconfigin		- 把 "tsconfigname" 转为 tsconfig OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_ts_config entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_ts_config 条目
  */
 Datum
 regconfigin(PG_FUNCTION_ARGS)
@@ -1305,17 +1305,17 @@ regconfigin(PG_FUNCTION_ARGS)
 	Oid			result;
 	List	   *names;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(cfg_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regconfig values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: parse the name into components and see if it matches any
-	 * pg_ts_config entries in the current search path.
+	 * 常规情形：解析名称的各成分，看是否匹配当前
+	 * 搜索路径中的 pg_ts_config 条目。
 	 */
 	names = stringToQualifiedNameList(cfg_name_or_oid, escontext);
 	if (names == NIL)
@@ -1333,7 +1333,7 @@ regconfigin(PG_FUNCTION_ARGS)
 }
 
 /*
- * regconfigout		- converts tsconfig OID to "tsconfigname"
+ * regconfigout		- 把 tsconfig OID 转为 "tsconfigname"
  */
 Datum
 regconfigout(PG_FUNCTION_ARGS)
@@ -1357,7 +1357,7 @@ regconfigout(PG_FUNCTION_ARGS)
 		char	   *nspname;
 
 		/*
-		 * Would this config be found by regconfigin? If not, qualify it.
+		 * regconfigin 能否找到它？若不能，则加限定
 		 */
 		if (TSConfigIsVisible(cfgid))
 			nspname = NULL;
@@ -1370,7 +1370,7 @@ regconfigout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* If OID doesn't match any pg_ts_config row, return it numerically */
+		/* 若 OID 不匹配任何 pg_ts_config 行则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", cfgid);
 	}
@@ -1379,33 +1379,33 @@ regconfigout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regconfigrecv			- converts external binary format to regconfig
+ *		regconfigrecv			- 把外部二进制格式转为 regconfig
  */
 Datum
 regconfigrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regconfigsend			- converts regconfig to binary format
+ *		regconfigsend			- 把 regconfig 转为二进制格式
  */
 Datum
 regconfigsend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 
 /*
- * regdictionaryin		- converts "tsdictionaryname" to tsdictionary OID
+ * regdictionaryin		- 把 "tsdictionaryname" 转为 tsdictionary OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_ts_dict entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_ts_dict 条目
  */
 Datum
 regdictionaryin(PG_FUNCTION_ARGS)
@@ -1415,17 +1415,17 @@ regdictionaryin(PG_FUNCTION_ARGS)
 	Oid			result;
 	List	   *names;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(dict_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regdictionary values must be OIDs in bootstrap mode");
 
 	/*
-	 * Normal case: parse the name into components and see if it matches any
-	 * pg_ts_dict entries in the current search path.
+	 * 常规情形：解析名称的各成分，看是否匹配当前
+	 * 搜索路径中的 pg_ts_dict 条目。
 	 */
 	names = stringToQualifiedNameList(dict_name_or_oid, escontext);
 	if (names == NIL)
@@ -1443,7 +1443,7 @@ regdictionaryin(PG_FUNCTION_ARGS)
 }
 
 /*
- * regdictionaryout		- converts tsdictionary OID to "tsdictionaryname"
+ * regdictionaryout		- 把 tsdictionary OID 转为 "tsdictionaryname"
  */
 Datum
 regdictionaryout(PG_FUNCTION_ARGS)
@@ -1467,8 +1467,8 @@ regdictionaryout(PG_FUNCTION_ARGS)
 		char	   *nspname;
 
 		/*
-		 * Would this dictionary be found by regdictionaryin? If not, qualify
-		 * it.
+		 * regdictionaryin 能否找到它？若不能，则加限定
+		 *
 		 */
 		if (TSDictionaryIsVisible(dictid))
 			nspname = NULL;
@@ -1481,7 +1481,7 @@ regdictionaryout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* If OID doesn't match any pg_ts_dict row, return it numerically */
+		/* 若 OID 不匹配任何 pg_ts_dict 行则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", dictid);
 	}
@@ -1490,32 +1490,32 @@ regdictionaryout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regdictionaryrecv	- converts external binary format to regdictionary
+ *		regdictionaryrecv	- 把外部二进制格式转为 regdictionary
  */
 Datum
 regdictionaryrecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regdictionarysend	- converts regdictionary to binary format
+ *		regdictionarysend	- 把 regdictionary 转为二进制格式
  */
 Datum
 regdictionarysend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 /*
- * regrolein	- converts "rolename" to role OID
+ * regrolein	- 把 "rolename" 转为角色 OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_authid entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_authid 条目
  */
 Datum
 regrolein(PG_FUNCTION_ARGS)
@@ -1525,15 +1525,15 @@ regrolein(PG_FUNCTION_ARGS)
 	Oid			result;
 	List	   *names;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(role_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regrole values must be OIDs in bootstrap mode");
 
-	/* Normal case: see if the name matches any pg_authid entry. */
+	/* 常规情形：看名称是否匹配 pg_authid 条目。 */
 	names = stringToQualifiedNameList(role_name_or_oid, escontext);
 	if (names == NIL)
 		PG_RETURN_NULL();
@@ -1555,9 +1555,9 @@ regrolein(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regrole		- converts "rolename" to role OID
+ * to_regrole		- 把 "rolename" 转为角色 OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regrole(PG_FUNCTION_ARGS)
@@ -1575,7 +1575,7 @@ to_regrole(PG_FUNCTION_ARGS)
 }
 
 /*
- * regroleout		- converts role OID to "role_name"
+ * regroleout		- 把角色 OID 转为 "role_name"
  */
 Datum
 regroleout(PG_FUNCTION_ARGS)
@@ -1593,12 +1593,12 @@ regroleout(PG_FUNCTION_ARGS)
 
 	if (result)
 	{
-		/* pstrdup is not really necessary, but it avoids a compiler warning */
+		/* pstrdup 并非真正必需，但它避免了一个编译器警告 */
 		result = pstrdup(quote_identifier(result));
 	}
 	else
 	{
-		/* If OID doesn't match any role, return it numerically */
+		/* 若 OID 不匹配任何角色则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", roleoid);
 	}
@@ -1607,32 +1607,32 @@ regroleout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regrolerecv - converts external binary format to regrole
+ *		regrolerecv - 把外部二进制格式转为 regrole
  */
 Datum
 regrolerecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regrolesend - converts regrole to binary format
+ *		regrolesend - 把 regrole 转为二进制格式
  */
 Datum
 regrolesend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 /*
- * regnamespacein		- converts "nspname" to namespace OID
+ * regnamespacein		- 把 "nspname" 转为 namespace OID
  *
- * We also accept a numeric OID, for symmetry with the output routine.
+ * 为了与输出例程对称，我们也接受数字 OID。
  *
- * '-' signifies unknown (OID 0).  In all other cases, the input must
- * match an existing pg_namespace entry.
+ * "-" 表示未知（OID 0）。其余情形下输入必须
+ * 匹配既有 pg_namespace 条目
  */
 Datum
 regnamespacein(PG_FUNCTION_ARGS)
@@ -1642,15 +1642,15 @@ regnamespacein(PG_FUNCTION_ARGS)
 	Oid			result;
 	List	   *names;
 
-	/* Handle "-" or numeric OID */
+	/* 处理 "-" 或数字 OID */
 	if (parseDashOrOid(nsp_name_or_oid, &result, escontext))
 		PG_RETURN_OID(result);
 
-	/* The rest of this wouldn't work in bootstrap mode */
+	/* 这段余下部分在 bootstrap 下行不通 */
 	if (IsBootstrapProcessingMode())
 		elog(ERROR, "regnamespace values must be OIDs in bootstrap mode");
 
-	/* Normal case: see if the name matches any pg_namespace entry. */
+	/* 常规情形：看名称是否匹配 pg_namespace 条目。 */
 	names = stringToQualifiedNameList(nsp_name_or_oid, escontext);
 	if (names == NIL)
 		PG_RETURN_NULL();
@@ -1672,9 +1672,9 @@ regnamespacein(PG_FUNCTION_ARGS)
 }
 
 /*
- * to_regnamespace		- converts "nspname" to namespace OID
+ * to_regnamespace		- 把 "nspname" 转为 namespace OID
  *
- * If the name is not found, we return NULL.
+ * 若找不到名称，则返回 NULL。
  */
 Datum
 to_regnamespace(PG_FUNCTION_ARGS)
@@ -1692,7 +1692,7 @@ to_regnamespace(PG_FUNCTION_ARGS)
 }
 
 /*
- * regnamespaceout		- converts namespace OID to "nsp_name"
+ * regnamespaceout		- 把 namespace OID 转为 "nsp_name"
  */
 Datum
 regnamespaceout(PG_FUNCTION_ARGS)
@@ -1710,12 +1710,12 @@ regnamespaceout(PG_FUNCTION_ARGS)
 
 	if (result)
 	{
-		/* pstrdup is not really necessary, but it avoids a compiler warning */
+		/* pstrdup 并非真正必需，但它避免了一个编译器警告 */
 		result = pstrdup(quote_identifier(result));
 	}
 	else
 	{
-		/* If OID doesn't match any namespace, return it numerically */
+		/* 若 OID 不匹配任何命名空间则按数字返回 */
 		result = (char *) palloc(NAMEDATALEN);
 		snprintf(result, NAMEDATALEN, "%u", nspid);
 	}
@@ -1724,31 +1724,31 @@ regnamespaceout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regnamespacerecv	- converts external binary format to regnamespace
+ *		regnamespacerecv	- 把外部二进制格式转为 regnamespace
  */
 Datum
 regnamespacerecv(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidrecv, so share code */
+	/* 与 oidrecv 完全相同，故共享代码 */
 	return oidrecv(fcinfo);
 }
 
 /*
- *		regnamespacesend		- converts regnamespace to binary format
+ *		regnamespacesend		- 把 regnamespace 转为二进制格式
  */
 Datum
 regnamespacesend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as oidsend, so share code */
+	/* 与 oidsend 完全相同，故共享代码 */
 	return oidsend(fcinfo);
 }
 
 /*
- * text_regclass: convert text to regclass
+ * text_regclass: text 转 regclass
  *
- * This could be replaced by CoerceViaIO, except that we need to treat
- * text-to-regclass as an implicit cast to support legacy forms of nextval()
- * and related functions.
+ * 本函数本可用 CoerceViaIO 替代，只是我们需要把
+ * text 到 regclass 视为隐式转换，以支持旧式的 nextval()
+ * 及相关函数。
  */
 Datum
 text_regclass(PG_FUNCTION_ARGS)
@@ -1759,7 +1759,7 @@ text_regclass(PG_FUNCTION_ARGS)
 
 	rv = makeRangeVarFromNameList(textToQualifiedNameList(relname));
 
-	/* We might not even have permissions on this relation; don't lock it. */
+	/* 我们对这个关系可能连权限都没有；不要锁定它。 */
 	result = RangeVarGetRelid(rv, NoLock, false);
 
 	PG_RETURN_OID(result);
@@ -1767,11 +1767,11 @@ text_regclass(PG_FUNCTION_ARGS)
 
 
 /*
- * Given a C string, parse it into a qualified-name list.
+ * 给定 C 字符串，解析成限定名列表。
  *
- * If escontext is an ErrorSaveContext node, invalid input will be
- * reported there instead of being thrown, and we return NIL.
- * (NIL is not possible as a success return, since empty-input is an error.)
+ * 若 escontext 是 ErrorSaveContext 节点，无效输入将
+ * 上报到那里而不是抛出，并且我们返回 NIL。
+ * （NIL 不可能作为成功返回值，空输入是一种错误。）
  */
 List *
 stringToQualifiedNameList(const char *string, Node *escontext)
@@ -1781,7 +1781,7 @@ stringToQualifiedNameList(const char *string, Node *escontext)
 	List	   *namelist;
 	ListCell   *l;
 
-	/* We need a modifiable copy of the input string. */
+	/* 需要输入串的可修改副本。 */
 	rawname = pstrdup(string);
 
 	if (!SplitIdentifierString(rawname, '.', &namelist))
@@ -1808,16 +1808,16 @@ stringToQualifiedNameList(const char *string, Node *escontext)
 }
 
 /*****************************************************************************
- *	 SUPPORT ROUTINES														 *
+ *	 支持例程													 *
  *****************************************************************************/
 
 /*
- * Given a C string, see if it is all-digits (and not empty).
- * If so, convert directly to OID and return true.
- * If it is not all-digits, return false.
+ * 给定 C 串，看它是否全为数字（且非空）。
+ * 若是，直接转换为 OID 并返回 true。
+ * 若不是全数字则返回 false。
  *
- * If escontext is an ErrorSaveContext node, any error in oidin() will be
- * reported there instead of being thrown (but we still return true).
+ * 若 escontext 是 ErrorSaveContext 节点，oidin() 的
+ * 错误会上报到那里而非抛出（但仍返回 true）。
  */
 static bool
 parseNumericOid(char *string, Oid *result, Node *escontext)
@@ -1827,7 +1827,7 @@ parseNumericOid(char *string, Oid *result, Node *escontext)
 	{
 		Datum		oid_datum;
 
-		/* We need not care here whether oidin() fails or not. */
+		/* 无须在意 oidin() 在此是否失败。 */
 		(void) DirectInputFunctionCallSafe(oidin, string,
 										   InvalidOid, -1,
 										   escontext,
@@ -1836,40 +1836,40 @@ parseNumericOid(char *string, Oid *result, Node *escontext)
 		return true;
 	}
 
-	/* Prevent uninitialized-variable warnings from stupider compilers. */
+	/* 防止较笨的编译器发出未初始化变量警告。 */
 	*result = InvalidOid;
 	return false;
 }
 
 /*
- * As above, but also accept "-" as meaning 0 (InvalidOid).
+ * 同上，但也接受 "-" 表示 0（InvalidOid）。
  */
 static bool
 parseDashOrOid(char *string, Oid *result, Node *escontext)
 {
-	/* '-' ? */
+	/* '-'? */
 	if (strcmp(string, "-") == 0)
 	{
 		*result = InvalidOid;
 		return true;
 	}
 
-	/* Numeric OID? */
+	/* 数字OID？ */
 	return parseNumericOid(string, result, escontext);
 }
 
 /*
- * Given a C string, parse it into a qualified function or operator name
- * followed by a parenthesized list of type names.  Reduce the
- * type names to an array of OIDs (returned into *nargs and *argtypes;
- * the argtypes array should be of size FUNC_MAX_ARGS).  The function or
- * operator name is returned to *names as a List of Strings.
+ * 给定 C 字符串，解析成限定的函数或算子名，
+ * 其后为括起来的类型名列表。把类型名缩减
+ * 为 OID 数组（返回到 *nargs 和 *argtypes；
+ * argtypes 数组的长度应为 FUNC_MAX_ARGS）。函数或
+ * 算子名以 String 组成的 List 返回到 *names。
  *
- * If allowNone is true, accept "NONE" and return it as InvalidOid (this is
- * for unary operators).
+ * 若 allowNone 为 true，则接受 "NONE" 并将其作为 InvalidOid
+ * （一元算子）
  *
- * Returns true on success, false on failure (the latter only possible
- * if escontext is an ErrorSaveContext node).
+ * 成功时返回 true，失败时返回 false（后者仅当
+ * escontext 为 ErrorSaveContext 时）。
  */
 static bool
 parseNameAndArgTypes(const char *string, bool allowNone, List **names,
@@ -1886,10 +1886,10 @@ parseNameAndArgTypes(const char *string, bool allowNone, List **names,
 	Oid			typeid;
 	int32		typmod;
 
-	/* We need a modifiable copy of the input string. */
+	/* 需要输入串的可修改副本。 */
 	rawname = pstrdup(string);
 
-	/* Scan to find the expected left paren; mustn't be quoted */
+	/* 扫描寻找预期的左括号；不得在引号内 */
 	in_quote = false;
 	for (ptr = rawname; *ptr; ptr++)
 	{
@@ -1903,13 +1903,13 @@ parseNameAndArgTypes(const char *string, bool allowNone, List **names,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("expected a left parenthesis")));
 
-	/* Separate the name and parse it into a list */
+	/* 分离出名称并把它解析成列表 */
 	*ptr++ = '\0';
 	*names = stringToQualifiedNameList(rawname, escontext);
 	if (*names == NIL)
 		return false;
 
-	/* Check for the trailing right parenthesis and remove it */
+	/* 检查结尾的右括号并将其移除 */
 	ptr2 = ptr + strlen(ptr);
 	while (--ptr2 > ptr)
 	{
@@ -1923,18 +1923,18 @@ parseNameAndArgTypes(const char *string, bool allowNone, List **names,
 
 	*ptr2 = '\0';
 
-	/* Separate the remaining string into comma-separated type names */
+	/* 把余下的字符串分离成逗号分隔的类型名 */
 	*nargs = 0;
 	had_comma = false;
 
 	for (;;)
 	{
-		/* allow leading whitespace */
+		/* 允许前导空白 */
 		while (scanner_isspace(*ptr))
 			ptr++;
 		if (*ptr == '\0')
 		{
-			/* End of string.  Okay unless we had a comma before. */
+			/* 串已结束。除非前面有逗号否则没事 */
 			if (had_comma)
 				ereturn(escontext, false,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -1942,8 +1942,8 @@ parseNameAndArgTypes(const char *string, bool allowNone, List **names,
 			break;
 		}
 		typename = ptr;
-		/* Find end of type name --- end of string or comma */
-		/* ... but not a quoted or parenthesized comma */
+		/* 找到类型名的末尾 —— 串尾或逗号 */
+		/* ……但不能是引号/括号内的逗号 */
 		in_quote = false;
 		paren_count = 0;
 		for (; *ptr; ptr++)
@@ -1983,7 +1983,7 @@ parseNameAndArgTypes(const char *string, bool allowNone, List **names,
 			had_comma = false;
 			Assert(*ptr == '\0');
 		}
-		/* Lop off trailing whitespace */
+		/* 去掉结尾空白 */
 		while (--ptr2 >= typename)
 		{
 			if (!scanner_isspace(*ptr2))
@@ -1993,13 +1993,13 @@ parseNameAndArgTypes(const char *string, bool allowNone, List **names,
 
 		if (allowNone && pg_strcasecmp(typename, "none") == 0)
 		{
-			/* Special case for NONE */
+			/* NONE 的特殊情形 */
 			typeid = InvalidOid;
 			typmod = -1;
 		}
 		else
 		{
-			/* Use full parser to resolve the type name */
+			/* 用完整解析器来解析类型名 */
 			if (!parseTypeString(typename, &typeid, &typmod, escontext))
 				return false;
 		}

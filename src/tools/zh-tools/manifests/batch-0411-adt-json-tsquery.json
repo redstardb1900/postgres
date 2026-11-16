@@ -1,0 +1,111 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0411",
+ "title": "adt 目录 jsonb_util/regproc/rowtypes/tsquery 四文件整文件注释翻译 578块 (块口径注释感知重扫); 审查修复: N2-① rowtypes L101/L505 量词断句 有些调用者 (69≤70 现算) / N2-② jsonb L838-840 截断句补 事物。 (审查原案 27B>10B 超预算, 现算改道 839 吸收/840 事物。 9≤10) / N2-③ rowtypes L110 补 必须 (审查 +3B=34>29 超预算, 现算改道 L110 59≤63) / N2-④ regproc L1194 修复A 72>70 超预算 → 修复B 特例。 66≤70 / N3-⑤ rowtypes L1909 见 hash_array() 17>16 超预算维持 见hash_array() 已披露 / N3-⑥ tsquery L258 no operand 保留 EN 升格整块披露 (preserved 6) / N3-⑦ 跨行断字 3 站: jsonb 泄漏/传入 移入下行, rowtypes 变长 括号拆除先行例 / N3-⑧ regproc L316 上方/L1166 不过/L1470 逗号, tsquery L157 可能, jsonb L410 裁量维持 (otherwise 已译于 L409) / N3-⑨ manifest notes 勘误 (FILL 14 站/22 站/11 站/REV 台账修正/L985·L1074 补句号/FWD 逐行清单); 门禁: verify adt 67 文件 0 violation rc=0 (W7 advisory 111 站, 本批 17 站) / term_lint rc=1 系 postinit.c L1428 既有 TL01, 本批 7 hits 全 warning / scan_halfen 67 findings 本批 7 站全 mixed advisory; 句号台账 FWD 19 + REV 26 (行级审计终态), 行号清单见 files[].note, python 逐条回读核实",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e3b30252698efbbd2a1387d3b1dc7c1ae9076cc6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/jsonb_util.c",
+   "kind": "c_comment",
+   "note": "JSONB 工具 (Jsonb/JsonbValue/JEntry 标识符保留, key→键, containment→包含, raw scalar 引号保留); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/backend/utils/adt/regproc.c",
+   "kind": "c_comment",
+   "note": "regproc 系类型 I/O (reg* 函数族标识符保留, OID 逐字保留 PT 级, lookup→查找, invalid→无效); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rowtypes.c",
+   "kind": "c_comment",
+   "note": "复合类型 record I/O 与比较 (record/rowtype 标识符保留, composite→复合 0396 口径, field→字段, tuple→元组); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery.c",
+   "kind": "c_comment",
+   "note": "文本检索查询 (tsquery 标识符保留, token→词位 0392 口径, distance→距离, operators→算子); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0411-adt-json-tsquery.json",
+   "kind": "manifest",
+   "note": "batch-0411 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0411 entries (4 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/jsonb_util.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 141,
+   "translated": 141,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 4 (头部 4: L3 文件名/L6 版权/L9 IDENTIFICATION/L10 路径, 功能描述行 L4 已译, 详见 note)"
+   ],
+   "note": "JSONB 工具 (Jsonb/JsonbValue/JsonbContainer/JEntry/jbvBinary 等标识符全保留, parser→解析器, key→键, pair→对, containment→包含, token→标记 (WJB 迭代标记), raw scalar 引号保留, unique/去重 0405 口径); whole-file comment translation, batch-0411; dump 权威块数 141 注释感知重扫一致; content 行 365 = 译 347 + FILL 消化 14 (L701/L835/L895/L949/L986/L1046/L1094/L1110/L1153/L1194/L1321/L1356/L1640/L1724, L392 已回填 并返回 非 FILL, L835 为 5B 预算回退态) + 保留 EN 4; 行数守恒 2000 不变 (git diff numstat 360/360); verify_c_comments adt 67 文件 0 violation rc=0 (W7 advisory 111 站: IDENT_LOST 85 + UNTRANSLATED 26, 本批 4 文件 17 站: jsonb_util 7 (L1/L1405/L1434 JsonbValues 复数形, L1499 StringInfos, L1652/L1729 JEntries, L1900 JsonbContainers), regproc 3 (L53/L1810 ROUTINES/SUPPORT 横幅标签, L1861 OIDs), rowtypes 6 (L585 OIDs, L626 StringInfos, L989/L1235/L1474/L1714 NULLs 复数形), tsquery 1 (L847 NOTICEs 复数形)) / term_lint 全仓 rc=1 系 postinit.c L1428 既有 TL01 error (0410 同), 本批 4 文件 7 hits 全 warning advisory (P75 token 4 站 jsonb_util L222/L274/L547/L821, P24 1 站 jsonb_util L1434, P02 cannot 2 站 rowtypes L304/L677) / scan_halfen adt 67 文件 67 findings, 本批 4 文件 7 站全 mixed advisory (jsonb_util 6: L243-248/L316-341/L547-563/L1025/L1209-1218 引号内 \"raw scalar\" 固有混排 + L1176-1195 rhs datum, rowtypes 1: L585-595 跨行 EN 引号串 \"improper binary format\" 按行拆分固有混排); 修复: 规划轮 1 + 写后修复轮 3 (R1: R5_PROTECTED L693 fall through 恢复 EN/NUL 字节事故修复/直接返回×5 重字/FILL 双空行回填; R2: 预算复核回退; R3(审查): N2-② 838-840 事物。 9≤10 (原案 27>10 改道)/N3-⑦ 泄漏·传入 断字移行/985 补句号 60≤64; 均 sed 回读+预算现算核实); 句号台账 FWD 19 逐行: [29,1166,1280,1635,1719] (全 B类 EN 括注)→zh ）对应; REV 4 逐行: [1134 EN ...→zh …… 对应, 1316, 1362, 1937] + 行级审计补充站 (预算所迫块尾/段尾): [392,548,551,847,1211,1879/1882,1916,985→已修复] 终态 REV 残留 4 站; keep 披露: 头部 4 (L3/L6/L9/L10); 误植核证: L693 fall through grep 全树 FALLTHROUGH 确认保 EN"
+  },
+  {
+   "path": "src/backend/utils/adt/regproc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 174,
+   "translated": 174,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 9 (头部 5: L3 文件名/L11-L12 版权×2/L15 IDENTIFICATION/L16 路径, 功能描述行 L4 已译 + 标志名 4: L319/L322 FORMAT_PROC_* 与 L715/L718 FORMAT_OPERATOR_*, 详见 note)"
+   ],
+   "note": "regproc 系类型 I/O (regproc/regprocedure/regoper/regoperator/regclass/regcollation/regtype/regconfig/regdictionary/regrole/regnamespace 函数名标识符全保留, OID 逐字保留 PT 级, lookup→查找, invalid→无效, schema-qualified→模式限定, bootstrap 保留); whole-file comment translation, batch-0411; dump 权威块数 174 注释感知重扫一致; content 行 299 = 译 284 + FILL 消化 6 (L158/L567/L965/L1108/L1248 anyway.) 被前行 （…需要） 吸收 + L1471 it. 被前行吸收) + 保留 EN 9; 行数守恒 2018 不变 (git diff numstat 290/290); 横幅标签 2 站译 zh (L54 用户 I/O 例程/L1811 支持例程, char.c/bool.c/oid.c 先例); 同 EN 块必同译: Handle \"-\"/\"0\" 11 站, 与 oidrecv/oidsend 完全相同故共享代码 22 站, signifies unknown 11 站 + Normal case 9 站同串 (grep EN 基线现算勘正); 门禁: verify_c_comments adt 67 文件 0 violation rc=0 (W7 advisory 111 站: IDENT_LOST 85 + UNTRANSLATED 26, 本批 4 文件 17 站: jsonb_util 7 (L1/L1405/L1434 JsonbValues 复数形, L1499 StringInfos, L1652/L1729 JEntries, L1900 JsonbContainers), regproc 3 (L53/L1810 ROUTINES/SUPPORT 横幅标签, L1861 OIDs), rowtypes 6 (L585 OIDs, L626 StringInfos, L989/L1235/L1474/L1714 NULLs 复数形), tsquery 1 (L847 NOTICEs 复数形)) / term_lint 全仓 rc=1 系 postinit.c L1428 既有 TL01 error (0410 同), 本批 4 文件 7 hits 全 warning advisory (P75 token 4 站 jsonb_util L222/L274/L547/L821, P24 1 站 jsonb_util L1434, P02 cannot 2 站 rowtypes L304/L677) / scan_halfen adt 67 文件 67 findings, 本批 4 文件 7 站全 mixed advisory (jsonb_util 6: L243-248/L316-341/L547-563/L1025/L1209-1218 引号内 \"raw scalar\" 固有混排 + L1176-1195 rhs datum, rowtypes 1: L585-595 跨行 EN 引号串 \"improper binary format\" 按行拆分固有混排); 修复: 规划轮 1 (dry-run 32 违规裁决) + 写后修复轮 1 (L156/565/963/1106/1246 直接返回/返回 跨行重字拆分, 全局全角括号 28/27 配平修复 L1868/1869 InvalidOid 括注重排, sed 回读核实); 句号台账本文件 FWD 8 逐行 [155,242,564,656,962,1105,1245,1769]; REV 22 逐行 [57,167,215,469,575,630,873,973,1017,1116,1161,1292,1359,1402,1469,1512→块尾实为 L1518,1629→实为 L1635,1937] (审查 L1536 指向勘正: 1536 行已有句号, REV 站为其块内 L1518/L1635); keep 披露: 头部 5 + 标志名 4; 预算极紧站: L1850 \"'-'?\"(4/5) L1857 数字OID？(12/12) 均预算内"
+  },
+  {
+   "path": "src/backend/utils/adt/rowtypes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 157,
+   "translated": 157,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 6 (头部 5: L3 文件名/L6-L7 版权×2/L10 IDENTIFICATION/L11 路径, 功能描述行 L4 已译 + 标识符标题 1: L822 record_cmp(), 详见 note)"
+   ],
+   "note": "复合类型 (record/rowtype 标识符保留, composite→复合 0396 口径, field→字段, tuple→元组 战役口径, collation→排序规则, dropped columns→丢弃列, toast 保留); whole-file comment translation, batch-0411; dump 权威块数 157 注释感知重扫一致; content 行 241 = 译 235 + FILL 消化 0 + 保留 EN 6; 行数守恒 2044 不变 (git diff numstat 235/235); 同 EN 块必同译: friendly-message 块×3 (L96-101/L500-505/L515+ 无第三处, 实为 L96-101 与 L500-505 两块+L516-517 arrange), recurses for record-type columns 8 站, arg1 大于/小于 arg2 10 站, NULL 相等 4 站, toast 泄漏 6 站, 特性还是缺陷 4 站; 门禁: verify_c_comments adt 67 文件 0 violation rc=0 (W7 advisory 111 站: IDENT_LOST 85 + UNTRANSLATED 26, 本批 4 文件 17 站: jsonb_util 7 (L1/L1405/L1434 JsonbValues 复数形, L1499 StringInfos, L1652/L1729 JEntries, L1900 JsonbContainers), regproc 3 (L53/L1810 ROUTINES/SUPPORT 横幅标签, L1861 OIDs), rowtypes 6 (L585 OIDs, L626 StringInfos, L989/L1235/L1474/L1714 NULLs 复数形), tsquery 1 (L847 NOTICEs 复数形)) / term_lint 全仓 rc=1 系 postinit.c L1428 既有 TL01 error (0410 同), 本批 4 文件 7 hits 全 warning advisory (P75 token 4 站 jsonb_util L222/L274/L547/L821, P24 1 站 jsonb_util L1434, P02 cannot 2 站 rowtypes L304/L677) / scan_halfen adt 67 文件 67 findings, 本批 4 文件 7 站全 mixed advisory (jsonb_util 6: L243-248/L316-341/L547-563/L1025/L1209-1218 引号内 \"raw scalar\" 固有混排 + L1176-1195 rhs datum, rowtypes 1: L585-595 跨行 EN 引号串 \"improper binary format\" 按行拆分固有混排); 修复: 规划轮 1 (dry-run 26 违规裁决: L496-501/L515-520 错位行号重建为 L500-505/L516-517) + 写后修复轮 2 (R1: L109-111 该 oid 必须/二进制升级须保留 重字重排为 该 oid/由二进制升级保留, L100/504/519 截断句补全 做有用的事 (101/505 预算复核后改 就能为 RECORD 做有用的事 71≤71), L1074 块尾悬挂逗号清除; R2: 预算复核通过); 句号台账本文件 FWD 4 逐行 [1040,1265,1550,1735]; REV 3 逐行 [95/499 同串, 418 EN ...→zh ... 对应] (L1074 块尾逗号已修复为 可能有意义。 66≤72, L1469-1470 变长 断字经括号拆除先行例修复); keep 披露: 头部 5 + L822 record_cmp() 标识符标题行"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 100,
+   "preserved": 6,
+   "preserved_reasons": [
+    "整块保留 6: L31/L32/L33/L34 OP_NOT/OP_AND/OP_OR/OP_PHRASE 宏名自注块 + L608 /* \\0 */ 字面 NUL 标记块 + L258 /* no operand */ inline 短注释 (10B 预算不足容纳 无操作数 12B, 审查 N3-⑥ 升格逐块披露), 详见 note"
+   ],
+   "note": "文本检索查询 (tsquery/tsvector/query 标识符保留, token→词位 0392 口径 (解析词位), OP_AND/OP_OR/OP_NOT/OP_PHRASE 保留, distance→距离, operators 语境算子, stopword→停用词, polish (prefix) notation→polish 表示法); whole-file comment translation, batch-0411; dump 权威块数 101 系伪块合并口径 (尾注释跨行/裸 /* 吞并代码行), 注释感知重扫 106 为准 (pushStop L613 块/L709/L717/L728/L1130 等从伪块拆出); content 行 164 = 译 151 + FILL 消化 2 (L322/L451 us 被前行 解析该值 吸收) + 保留 EN 11; 行数守恒 1399 不变 (git diff numstat 153/153); 尾注释特殊站: L86-87 跨行尾注释 (trail_open 无闭合符改写), L705/L722/L1114/L1163 行中尾注释 trail_mid 保代码两侧, L1260-1261 跨行尾注释; L1301 '\\0' 字面转义 NUL 字节写入事故当场修复 (写后修复轮 1 发现, 字节级回读确认); 门禁: verify_c_comments adt 67 文件 0 violation rc=0 (W7 advisory 111 站: IDENT_LOST 85 + UNTRANSLATED 26, 本批 4 文件 17 站: jsonb_util 7 (L1/L1405/L1434 JsonbValues 复数形, L1499 StringInfos, L1652/L1729 JEntries, L1900 JsonbContainers), regproc 3 (L53/L1810 ROUTINES/SUPPORT 横幅标签, L1861 OIDs), rowtypes 6 (L585 OIDs, L626 StringInfos, L989/L1235/L1474/L1714 NULLs 复数形), tsquery 1 (L847 NOTICEs 复数形)) / term_lint 全仓 rc=1 系 postinit.c L1428 既有 TL01 error (0410 同), 本批 4 文件 7 hits 全 warning advisory (P75 token 4 站 jsonb_util L222/L274/L547/L821, P24 1 站 jsonb_util L1434, P02 cannot 2 站 rowtypes L304/L677) / scan_halfen adt 67 文件 67 findings, 本批 4 文件 7 站全 mixed advisory (jsonb_util 6: L243-248/L316-341/L547-563/L1025/L1209-1218 引号内 \"raw scalar\" 固有混排 + L1176-1195 rhs datum, rowtypes 1: L585-595 跨行 EN 引号串 \"improper binary format\" 按行拆分固有混排); 修复: 规划轮 1 (首版扫描器 mid 行 +1 错位致 spec 行号漂移, 重构注释感知扫描器后重映射) + 写后修复轮 2 (R1: NUL 字节修复 + L86/L1114 双空格 + L156 系重字 + L740/L1177/L1184/L1272 预算裁剪; R2: 预算复核通过); 句号台账见合并披露 (本文件 FWD 2 + REV 1); keep 披露: 头部 4 (L3/L6/L9/L10) + OP_* 4 行 + L608 + L1175 operand: (2 字预算不足以容纳 操作数, 语义由 L1174 各 操作数); 即可站 L1187 为条件句收尾词非增译"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0411-adt-json-tsquery.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0411 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0411 entries (4 adt .c + manifest; pure append, 自条目不重复登记)"
+  }
+ ]
+}

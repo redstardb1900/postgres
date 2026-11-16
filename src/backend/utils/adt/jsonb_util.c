@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonb_util.c
- *	  converting between Jsonb and JsonbValues, and iterating.
+ *	  在 Jsonb 与 JsonbValue 之间转换并进行遍历。
  *
  * Copyright (c) 2014-2023, PostgreSQL Global Development Group
  *
@@ -27,13 +27,13 @@
 #include "utils/varlena.h"
 
 /*
- * Maximum number of elements in an array (or key/value pairs in an object).
- * This is limited by two things: the size of the JEntry array must fit
- * in MaxAllocSize, and the number of elements (or pairs) must fit in the bits
- * reserved for that in the JsonbContainer.header field.
+ * 数组中元素（或对象中键值对）的最大数量。
+ * 这受两件事限制：JEntry 数组的大小必须能放进
+ * MaxAllocSize，且元素（或对）的数量必须能放进
+ * JsonbContainer.header 字段中为它保留的位。
  *
- * (The total size of an array's or object's elements is also limited by
- * JENTRY_OFFLENMASK, but we're not concerned about that here.)
+ * （数组或对象的元素总大小还受
+ * JENTRY_OFFLENMASK 限制，但这里无须关心。）
  */
 #define JSONB_MAX_ELEMS (Min(MaxAllocSize / sizeof(JsonbValue), JB_CMASK))
 #define JSONB_MAX_PAIRS (Min(MaxAllocSize / sizeof(JsonbPair), JB_CMASK))
@@ -79,16 +79,16 @@ JsonbToJsonbValue(Jsonb *jsonb, JsonbValue *val)
 }
 
 /*
- * Turn an in-memory JsonbValue into a Jsonb for on-disk storage.
+ * 把内存中的 JsonbValue 转为 Jsonb 供磁盘存储。
  *
- * Generally we find it more convenient to directly iterate through the Jsonb
- * representation and only really convert nested scalar values.
- * JsonbIteratorNext() does this, so that clients of the iteration code don't
- * have to directly deal with the binary representation (JsonbDeepContains() is
- * a notable exception, although all exceptions are internal to this module).
- * In general, functions that accept a JsonbValue argument are concerned with
- * the manipulation of scalar values, or simple containers of scalar values,
- * where it would be inconvenient to deal with a great amount of other state.
+ * 通常我们发现，直接遍历 Jsonb
+ * 表示并只真正转换嵌套的标量值会更加方便。
+ * JsonbIteratorNext() 会做这件事，这样迭代代码的
+ * 使用者不必直接处理二进制表示（JsonbDeepContains() 是一个
+ * 著名的例外，不过所有例外都限于本模块内部）。
+ * 一般而言，接受 JsonbValue 参数的函数所关心的
+ * 是标量值的操作，或标量值的简单容器，
+ * 在这些场合下去处理大量其他状态会很不方便。
  */
 Jsonb *
 JsonbValueToJsonb(JsonbValue *val)
@@ -97,7 +97,7 @@ JsonbValueToJsonb(JsonbValue *val)
 
 	if (IsAJsonbScalar(val))
 	{
-		/* Scalar value */
+		/* 标量值 */
 		JsonbParseState *pstate = NULL;
 		JsonbValue *res;
 		JsonbValue	scalarArray;
@@ -128,9 +128,9 @@ JsonbValueToJsonb(JsonbValue *val)
 }
 
 /*
- * Get the offset of the variable-length portion of a Jsonb node within
- * the variable-length-data part of its container.  The node is identified
- * by index within the container's JEntry array.
+ * 获取 Jsonb 节点的变长部分在其容器的变长数据部分
+ * 内的偏移。节点由
+ * 在容器 JEntry 数组中的下标标识。
  */
 uint32
 getJsonbOffset(const JsonbContainer *jc, int index)
@@ -139,9 +139,9 @@ getJsonbOffset(const JsonbContainer *jc, int index)
 	int			i;
 
 	/*
-	 * Start offset of this entry is equal to the end offset of the previous
-	 * entry.  Walk backwards to the most recent entry stored as an end
-	 * offset, returning that offset plus any lengths in between.
+	 * 本条目的起始偏移等于前一条目的结束偏移。向前
+	 * 回溯到最近一个以结束偏移形式存储的条目，
+	 * 返回该偏移加上中间各条目的长度。
 	 */
 	for (i = index - 1; i >= 0; i--)
 	{
@@ -154,8 +154,8 @@ getJsonbOffset(const JsonbContainer *jc, int index)
 }
 
 /*
- * Get the length of the variable-length portion of a Jsonb node.
- * The node is identified by index within the container's JEntry array.
+ * 获取 Jsonb 节点的变长部分的长度。
+ * 该节点由容器 JEntry 数组中的下标标识。
  */
 uint32
 getJsonbLength(const JsonbContainer *jc, int index)
@@ -164,9 +164,9 @@ getJsonbLength(const JsonbContainer *jc, int index)
 	uint32		len;
 
 	/*
-	 * If the length is stored directly in the JEntry, just return it.
-	 * Otherwise, get the begin offset of the entry, and subtract that from
-	 * the stored end+1 offset.
+	 * 若长度直接存于 JEntry 中，则直接返回。
+	 * 否则，取该条目的起始偏移，并从存储的 end+1
+	 * 偏移中减去它。
 	 */
 	if (JBE_HAS_OFF(jc->children[index]))
 	{
@@ -180,14 +180,14 @@ getJsonbLength(const JsonbContainer *jc, int index)
 }
 
 /*
- * BT comparator worker function.  Returns an integer less than, equal to, or
- * greater than zero, indicating whether a is less than, equal to, or greater
- * than b.  Consistent with the requirements for a B-Tree operator class
+ * BT 比较器工作函数。返回小于、等于或大于零的整数，
+ * 以指示 a 是小于、等于还是大于 b。这与 B-Tree 算子类的
+ * 要求相一致。
  *
- * Strings are compared lexically, in contrast with other places where we use a
- * much simpler comparator logic for searching through Strings.  Since this is
- * called from B-Tree support function 1, we're careful about not leaking
- * memory here.
+ * 字符串按字典序比较，这与其他地方为检索 String 而使用
+ * 的简单得多的比较器逻辑形成对照。由于本函数是
+ * 从 B-Tree 支持函数 1 调用的，因此我们避免在此泄漏
+ * 内存。
  */
 int
 compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
@@ -213,17 +213,17 @@ compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
 		{
 			if (ra == WJB_DONE)
 			{
-				/* Decisively equal */
+				/* 断然相等 */
 				break;
 			}
 
 			if (ra == WJB_END_ARRAY || ra == WJB_END_OBJECT)
 			{
 				/*
-				 * There is no array or object to compare at this stage of
-				 * processing.  jbvArray/jbvObject values are compared
-				 * initially, at the WJB_BEGIN_ARRAY and WJB_BEGIN_OBJECT
-				 * tokens.
+				 * 在这一处理阶段没有数组或对象可比较，
+				 * jbvArray/jbvObject 值最初是在 WJB_BEGIN_ARRAY
+				 * 与 WJB_BEGIN_OBJECT 标记处进行比较
+				 * 的。
 				 */
 				continue;
 			}
@@ -241,10 +241,10 @@ compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
 					case jbvArray:
 
 						/*
-						 * This could be a "raw scalar" pseudo array.  That's
-						 * a special case here though, since we still want the
-						 * general type-based comparisons to apply, and as far
-						 * as we're concerned a pseudo array is just a scalar.
+						 * 这可能是 "raw scalar" 伪数组。
+						 * 它在此仍是个特例，因为我们还是希望
+						 * 让基于类型的通用比较继续适用，而且
+						 * 在我们看来伪数组就是一个标量。
 						 */
 						if (va.val.array.rawScalar != vb.val.array.rawScalar)
 							res = (va.val.array.rawScalar) ? -1 : 1;
@@ -265,23 +265,23 @@ compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
 			}
 			else
 			{
-				/* Type-defined order */
+				/* 类型定义顺序 */
 				res = (va.type > vb.type) ? 1 : -1;
 			}
 		}
 		else
 		{
 			/*
-			 * If the two values were of the same container type, then there'd
-			 * have been a chance to observe the variation in the number of
-			 * elements/pairs (when processing WJB_BEGIN_OBJECT, say). They're
-			 * either two heterogeneously-typed containers, or a container and
-			 * some scalar type.
+			 * 若两个值是同一容器类型，本来有机会观察到
+			 * 元素/对数量上的差异（比如说在处理
+			 * WJB_BEGIN_OBJECT 时）。它们要么是两个异构容器，
+			 * 要么是一个容器加某个
+			 * 标量类型。
 			 *
-			 * We don't have to consider the WJB_END_ARRAY and WJB_END_OBJECT
-			 * cases here, because we would have seen the corresponding
-			 * WJB_BEGIN_ARRAY and WJB_BEGIN_OBJECT tokens first, and
-			 * concluded that they don't match.
+			 * 我们无须在这里考虑 WJB_END_ARRAY 和 WJB_END_OBJECT
+			 * 情形，因为我们会先看到对应的
+			 * WJB_BEGIN_ARRAY 和 WJB_BEGIN_OBJECT 标记，得出
+			 * 它们不匹配的结论。
 			 */
 			Assert(ra != WJB_END_ARRAY && ra != WJB_END_OBJECT);
 			Assert(rb != WJB_END_ARRAY && rb != WJB_END_OBJECT);
@@ -289,7 +289,7 @@ compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
 			Assert(va.type != vb.type);
 			Assert(va.type != jbvBinary);
 			Assert(vb.type != jbvBinary);
-			/* Type-defined order */
+			/* 类型定义顺序 */
 			res = (va.type > vb.type) ? 1 : -1;
 		}
 	}
@@ -314,30 +314,30 @@ compareJsonbContainers(JsonbContainer *a, JsonbContainer *b)
 }
 
 /*
- * Find value in object (i.e. the "value" part of some key/value pair in an
- * object), or find a matching element if we're looking through an array.  Do
- * so on the basis of equality of the object keys only, or alternatively
- * element values only, with a caller-supplied value "key".  The "flags"
- * argument allows the caller to specify which container types are of interest.
+ * 在对象中查找值（即对象中键值对的 "value" 部分），
+ * 或者当我们在数组中查找时找到匹配的元素。比较时
+ * 仅依据对象键的相等性，或者
+ * 仅依据元素值，与调用者提供的值 "key" 比对。参数
+ * "flags" 允许调用者指定感兴趣的容器类型。
  *
- * This exported utility function exists to facilitate various cases concerned
- * with "containment".  If asked to look through an object, the caller had
- * better pass a Jsonb String, because their keys can only be strings.
- * Otherwise, for an array, any type of JsonbValue will do.
+ * 这个导出的工具函数用于辅助涉及 "containment" 的
+ * 各种场景。若被要求查找对象，调用者最好传入一个
+ * Jsonb 字符串，因为其键只能是字符串。
+ * 否则数组中任何 JsonbValue 都可以。
  *
- * In order to proceed with the search, it is necessary for callers to have
- * both specified an interest in exactly one particular container type with an
- * appropriate flag, as well as having the pointed-to Jsonb container be of
- * one of those same container types at the top level. (Actually, we just do
- * whichever makes sense to save callers the trouble of figuring it out - at
- * most one can make sense, because the container either points to an array
- * (possibly a "raw scalar" pseudo array) or an object.)
+ * 要继续执行查找，调用者必须已通过适当的标志声明
+ * 只对某一种特定容器类型感兴趣，
+ * 并且被指向的 Jsonb 容器在顶层属于上述类型之一。
+ * （实际上，我们只选择有意义的那一种，省得调用者
+ * 自己费心判断——因为容器要么指向一个数组
+ * （可能是 "raw scalar" 伪数组），要么指向一个对象，
+ * 所以最多只有一种是有意义的。）
  *
- * Note that we can return a jbvBinary JsonbValue if this is called on an
- * object, but we never do so on an array.  If the caller asks to look through
- * a container type that is not of the type pointed to by the container,
- * immediately fall through and return NULL.  If we cannot find the value,
- * return NULL.  Otherwise, return palloc()'d copy of value.
+ * 注意：在对象上调用本函数时可返回 jbvBinary 类型的
+ * JsonbValue，但在数组上绝不会这样做。若调用者要求查找
+ * 的容器类型与容器指向不符，则立即落空并返回
+ * NULL。若找不到该值，也返回 NULL。否则返回该值
+ * 经 palloc() 分配的副本。
  */
 JsonbValue *
 findJsonbValueFromContainer(JsonbContainer *container, uint32 flags,
@@ -348,7 +348,7 @@ findJsonbValueFromContainer(JsonbContainer *container, uint32 flags,
 
 	Assert((flags & ~(JB_FARRAY | JB_FOBJECT)) == 0);
 
-	/* Quick out without a palloc cycle if object/array is empty */
+	/* 若对象/数组为空则无须 palloc 直接快速返回 */
 	if (count <= 0)
 		return NULL;
 
@@ -376,22 +376,22 @@ findJsonbValueFromContainer(JsonbContainer *container, uint32 flags,
 	}
 	else if ((flags & JB_FOBJECT) && JsonContainerIsObject(container))
 	{
-		/* Object key passed by caller must be a string */
+		/* 调用者传入对象键必须是字符串 */
 		Assert(key->type == jbvString);
 
 		return getKeyJsonValueFromContainer(container, key->val.string.val,
 											key->val.string.len, NULL);
 	}
 
-	/* Not found */
+	/* 未找到 */
 	return NULL;
 }
 
 /*
- * Find value by key in Jsonb object and fetch it into 'res', which is also
- * returned.
+ * 按键在 Jsonb 对象中查找值并取到 "res" 中，
+ * 并返回
  *
- * 'res' can be passed in as NULL, in which case it's newly palloc'ed here.
+ * "res" 可以传入 NULL，这种情况下它在此处被新 palloc。
  */
 JsonbValue *
 getKeyJsonValueFromContainer(JsonbContainer *container,
@@ -405,13 +405,13 @@ getKeyJsonValueFromContainer(JsonbContainer *container,
 
 	Assert(JsonContainerIsObject(container));
 
-	/* Quick out without a palloc cycle if object is empty */
+	/* 若对象为空则无须 palloc 直接快速返回 */
 	if (count <= 0)
 		return NULL;
 
 	/*
-	 * Binary search the container. Since we know this is an object, account
-	 * for *Pairs* of Jentrys
+	 * 对容器做二分查找。已知这是对象，要把 JEntry 的
+	 * 数量按*对*计
 	 */
 	baseAddr = (char *) (children + count * 2);
 	stopLow = 0;
@@ -433,7 +433,7 @@ getKeyJsonValueFromContainer(JsonbContainer *container,
 
 		if (difference == 0)
 		{
-			/* Found our key, return corresponding value */
+			/* 找到目标键，返回对应的值 */
 			int			index = stopMiddle + count;
 
 			if (!res)
@@ -454,14 +454,14 @@ getKeyJsonValueFromContainer(JsonbContainer *container,
 		}
 	}
 
-	/* Not found */
+	/* 未找到 */
 	return NULL;
 }
 
 /*
- * Get i-th value of a Jsonb array.
+ * 取 Jsonb 数组第 i 个值。
  *
- * Returns palloc()'d copy of the value, or NULL if it does not exist.
+ * 返回该值的 palloc() 副本，若不存在则返回 NULL。
  */
 JsonbValue *
 getIthJsonbValueFromContainer(JsonbContainer *container, uint32 i)
@@ -489,16 +489,16 @@ getIthJsonbValueFromContainer(JsonbContainer *container, uint32 i)
 }
 
 /*
- * A helper function to fill in a JsonbValue to represent an element of an
- * array, or a key or value of an object.
+ * 辅助函数：填充 JsonbValue 以表示数组元素，
+ * 或对象的键或值。
  *
- * The node's JEntry is at container->children[index], and its variable-length
- * data is at base_addr + offset.  We make the caller determine the offset
- * since in many cases the caller can amortize that work across multiple
- * children.  When it can't, it can just call getJsonbOffset().
+ * 该节点的 JEntry 位于 container->children[index]，其变长数据
+ * 位于 base_addr + offset。我们让调用者来确定偏移，
+ * 因为在很多情况下调用者可以把这项工作摊到多个
+ * children 上。做不到时可调用 getJsonbOffset()。
  *
- * A nested array or object will be returned as jbvBinary, ie. it won't be
- * expanded.
+ * 嵌套的数组或对象会以 jbvBinary 形式返回，即不会被
+ * 展开。
  */
 static void
 fillJsonbValue(JsonbContainer *container, int index,
@@ -537,7 +537,7 @@ fillJsonbValue(JsonbContainer *container, int index,
 	{
 		Assert(JBE_ISCONTAINER(entry));
 		result->type = jbvBinary;
-		/* Remove alignment padding from data pointer and length */
+		/* 从数据指针和长度中去除对齐填充 */
 		result->val.binary.data = (JsonbContainer *) (base_addr + INTALIGN(offset));
 		result->val.binary.len = getJsonbLength(container, index) -
 			(INTALIGN(offset) - offset);
@@ -545,21 +545,21 @@ fillJsonbValue(JsonbContainer *container, int index,
 }
 
 /*
- * Push JsonbValue into JsonbParseState.
+ * 把 JsonbValue 压入 JsonbParseState
  *
- * Used when parsing JSON tokens to form Jsonb, or when converting an in-memory
- * JsonbValue to a Jsonb.
+ * 在解析 JSON 标记以构成 Jsonb 时使用，或把内存中的
+ * JsonbValue 转 Jsonb
  *
- * Initial state of *JsonbParseState is NULL, since it'll be allocated here
- * originally (caller will get JsonbParseState back by reference).
+ * *JsonbParseState 的初始状态为 NULL，因为它最初会在这里
+ * 被分配（调用者经引用拿回 JsonbParseState）。
  *
- * Only sequential tokens pertaining to non-container types should pass a
- * JsonbValue.  There is one exception -- WJB_BEGIN_ARRAY callers may pass a
- * "raw scalar" pseudo array to append it - the actual scalar should be passed
- * next and it will be added as the only member of the array.
+ * 只有与 non-container 类型相关的顺序性标记才应传入
+ * JsonbValue。有一个例外——WJB_BEGIN_ARRAY 的调用者可以
+ * 传入 "raw scalar" 伪数组来追加它——真正的标量应在随后
+ * 传入，它将被添加为数组中唯一的成员。
  *
- * Values of type jbvBinary, which are rolled up arrays and objects,
- * are unpacked before being added to the result.
+ * jbvBinary 值（即已合并的数组和对象）在加入
+ * 结果之前会被解包。
  */
 JsonbValue *
 pushJsonbValue(JsonbParseState **pstate, JsonbIteratorToken seq,
@@ -597,11 +597,11 @@ pushJsonbValue(JsonbParseState **pstate, JsonbIteratorToken seq,
 	if (!jbval || (seq != WJB_ELEM && seq != WJB_VALUE) ||
 		jbval->type != jbvBinary)
 	{
-		/* drop through */
+		/* 直接贯穿 */
 		return pushJsonbValueScalar(pstate, seq, jbval);
 	}
 
-	/* unpack the binary and add each piece to the pstate */
+	/* 解包二进制并把每段加入 pstate */
 	it = JsonbIteratorInit(jbval->val.binary.data);
 
 	if ((jbval->val.binary.data->header & JB_FSCALAR) && *pstate)
@@ -632,8 +632,8 @@ pushJsonbValue(JsonbParseState **pstate, JsonbIteratorToken seq,
 }
 
 /*
- * Do the actual pushing, with only scalar or pseudo-scalar-array values
- * accepted.
+ * 执行实际压入，只接受标量或伪标量数组
+ * 值。
  */
 static JsonbValue *
 pushJsonbValueScalar(JsonbParseState **pstate, JsonbIteratorToken seq,
@@ -653,7 +653,7 @@ pushJsonbValueScalar(JsonbParseState **pstate, JsonbIteratorToken seq,
 													  scalarVal->val.array.rawScalar);
 			if (scalarVal && scalarVal->val.array.nElems > 0)
 			{
-				/* Assume that this array is still really a scalar */
+				/* 假定这个数组其实仍是标量 */
 				Assert(scalarVal->type == jbvArray);
 				(*pstate)->size = scalarVal->val.array.nElems;
 			}
@@ -692,13 +692,13 @@ pushJsonbValueScalar(JsonbParseState **pstate, JsonbIteratorToken seq,
 								 (*pstate)->skip_nulls);
 			/* fall through! */
 		case WJB_END_ARRAY:
-			/* Steps here common to WJB_END_OBJECT case */
+			/* 与 WJB_END_OBJECT 共有的步骤 */
 			Assert(!scalarVal);
 			result = &(*pstate)->contVal;
 
 			/*
-			 * Pop stack and push current array/object as value in parent
-			 * array/object
+			 * 弹栈，把当前数组/对象作为值压入父容器
+			 *
 			 */
 			*pstate = (*pstate)->next;
 			if (*pstate)
@@ -724,7 +724,7 @@ pushJsonbValueScalar(JsonbParseState **pstate, JsonbIteratorToken seq,
 }
 
 /*
- * pushJsonbValue() worker:  Iteration-like forming of Jsonb
+ * pushJsonbValue() 工作函数：迭代式构造 Jsonb
  */
 static JsonbParseState *
 pushState(JsonbParseState **pstate)
@@ -739,7 +739,7 @@ pushState(JsonbParseState **pstate)
 }
 
 /*
- * pushJsonbValue() worker:  Append a pair key to state when generating a Jsonb
+ * pushJsonbValue() 工作函数：构造 Jsonb 时追加一个对的键
  */
 static void
 appendKey(JsonbParseState *pstate, JsonbValue *string)
@@ -767,8 +767,8 @@ appendKey(JsonbParseState *pstate, JsonbValue *string)
 }
 
 /*
- * pushJsonbValue() worker:  Append a pair value to state when generating a
- * Jsonb
+ * pushJsonbValue() 工作函数：构造 Jsonb 时向状态追加对的
+ * 值
  */
 static void
 appendValue(JsonbParseState *pstate, JsonbValue *scalarVal)
@@ -781,7 +781,7 @@ appendValue(JsonbParseState *pstate, JsonbValue *scalarVal)
 }
 
 /*
- * pushJsonbValue() worker:  Append an element to state when generating a Jsonb
+ * pushJsonbValue() 工作函数：构造 Jsonb 时向状态追加一个元素
  */
 static void
 appendElement(JsonbParseState *pstate, JsonbValue *scalarVal)
@@ -807,10 +807,10 @@ appendElement(JsonbParseState *pstate, JsonbValue *scalarVal)
 }
 
 /*
- * Given a JsonbContainer, expand to JsonbIterator to iterate over items
- * fully expanded to in-memory representation for manipulation.
+ * 给定 JsonbContainer，将其展开为 JsonbIterator，以便以
+ * 展开到内存表示的形式来遍历其中的条目。
  *
- * See JsonbIteratorNext() for notes on memory management.
+ * 内存管理注意事项见 JsonbIteratorNext()。
  */
 JsonbIterator *
 JsonbIteratorInit(JsonbContainer *container)
@@ -819,36 +819,36 @@ JsonbIteratorInit(JsonbContainer *container)
 }
 
 /*
- * Get next JsonbValue while iterating
+ * 迭代时获取下一个 JsonbValue
  *
- * Caller should initially pass their own, original iterator.  They may get
- * back a child iterator palloc()'d here instead.  The function can be relied
- * on to free those child iterators, lest the memory allocated for highly
- * nested objects become unreasonable, but only if callers don't end iteration
- * early (by breaking upon having found something in a search, for example).
+ * 调用者最初应传入原始的迭代器。他们拿回的可能是
+ * 在这里 palloc 出来的子迭代器。可以指望本函数释放这些
+ * 子迭代器，以免高度嵌套的对象耗用内存过多，
+ * 但前提是调用者不提前结束迭代（例如在搜索中找到
+ * 目标后即中断）。
  *
- * Callers in such a scenario, that are particularly sensitive to leaking
- * memory in a long-lived context may walk the ancestral tree from the final
- * iterator we left them with to its oldest ancestor, pfree()ing as they go.
- * They do not have to free any other memory previously allocated for iterators
- * but not accessible as direct ancestors of the iterator they're last passed
- * back.
+ * 这类场景下对长期上下文中内存泄漏敏感的调用者
+ * 可从我们留下的最终迭代器沿祖先链向上追溯到最老
+ * 的祖先，沿途逐一 pfree()。
+ * 他们无须释放之前为迭代器分配的、但无法作为最后
+ * 传入迭代器的直接祖先而访问的任何其他内存
  *
- * Returns "Jsonb sequential processing" token value.  Iterator "state"
- * reflects the current stage of the process in a less granular fashion, and is
- * mostly used here to track things internally with respect to particular
- * iterators.
  *
- * Clients of this function should not have to handle any jbvBinary values
- * (since recursive calls will deal with this), provided skipNested is false.
- * It is our job to expand the jbvBinary representation without bothering them
- * with it.  However, clients should not take it upon themselves to touch array
- * or Object element/pair buffers, since their element/pair pointers are
- * garbage.
+ * 返回 "Jsonb 顺序处理" 标记值。迭代器 "state"
+ * 以更粗的粒度反映流程当前所处阶段，主要
+ * 用于在内部跟踪与特定迭代器相关的
+ * 事物。
  *
- * *val is not meaningful when the result is WJB_DONE, WJB_END_ARRAY or
- * WJB_END_OBJECT.  However, we set val->type = jbvNull in those cases,
- * so that callers may assume that val->type is always well-defined.
+ * 本函数的使用者不应需要处理任何 jbvBinary 值
+ * （因为递归调用会处理它们），只要 skipNested 为 false。
+ * 展开 jbvBinary 表示是我们的事，不必为此打扰他们。
+ * 不过，使用者不应擅自触碰数组或对象元素/对的缓冲区，
+ * 因为其元素/对指针已
+ * 失效
+ *
+ * 当结果为 WJB_DONE、WJB_END_ARRAY 或 WJB_END_OBJECT 时
+ * *val 并无意义。但在这些情形下我们会把
+ * val->type 设为 jbvNull，调用者可假定它总有定义。
  */
 JsonbIteratorToken
 JsonbIteratorNext(JsonbIterator **it, JsonbValue *val, bool skipNested)
@@ -860,28 +860,28 @@ JsonbIteratorNext(JsonbIterator **it, JsonbValue *val, bool skipNested)
 	}
 
 	/*
-	 * When stepping into a nested container, we jump back here to start
-	 * processing the child. We will not recurse further in one call, because
-	 * processing the child will always begin in JBI_ARRAY_START or
-	 * JBI_OBJECT_START state.
+	 * 步入嵌套容器时，我们跳回这里处理子容器。
+	 * 单次调用中不会进一步递归，子容器的处理总是
+	 * 从 JBI_ARRAY_START 或 JBI_OBJECT_START
+	 * 状态开始。
 	 */
 recurse:
 	switch ((*it)->state)
 	{
 		case JBI_ARRAY_START:
-			/* Set v to array on first array call */
+			/* 首个数组调用 v 置为数组 */
 			val->type = jbvArray;
 			val->val.array.nElems = (*it)->nElems;
 
 			/*
-			 * v->val.array.elems is not actually set, because we aren't doing
-			 * a full conversion
+			 * v->val.array.elems 实际并未设置，因为我们没有做
+			 * 完整转换
 			 */
 			val->val.array.rawScalar = (*it)->isScalar;
 			(*it)->curIndex = 0;
 			(*it)->curDataOffset = 0;
-			(*it)->curValueOffset = 0;	/* not actually used */
-			/* Set state for next call */
+			(*it)->curValueOffset = 0;	/* 实际未使用 */
+			/* 设下次调用状态 */
 			(*it)->state = JBI_ARRAY_ELEM;
 			return WJB_BEGIN_ARRAY;
 
@@ -889,10 +889,10 @@ recurse:
 			if ((*it)->curIndex >= (*it)->nElems)
 			{
 				/*
-				 * All elements within array already processed.  Report this
-				 * to caller, and give it back original parent iterator (which
-				 * independently tracks iteration progress at its level of
-				 * nesting).
+				 * 数组内所有元素已处理完。向调用者报告，
+				 * 并交还原父迭代器（它会独立跟踪自身
+				 * 嵌套层级上的迭代进度）。
+				 *
 				 */
 				*it = freeAndGetParent(*it);
 				val->type = jbvNull;
@@ -909,33 +909,33 @@ recurse:
 
 			if (!IsAJsonbScalar(val) && !skipNested)
 			{
-				/* Recurse into container. */
+				/* 递归进入容器。 */
 				*it = iteratorFromContainer(val->val.binary.data, *it);
 				goto recurse;
 			}
 			else
 			{
 				/*
-				 * Scalar item in array, or a container and caller didn't want
-				 * us to recurse into it.
+				 * 数组中的标量项，或调用者不愿递归的容器
+				 * 进入其中。
 				 */
 				return WJB_ELEM;
 			}
 
 		case JBI_OBJECT_START:
-			/* Set v to object on first object call */
+			/* 首个对象调用 v 置为对象 */
 			val->type = jbvObject;
 			val->val.object.nPairs = (*it)->nElems;
 
 			/*
-			 * v->val.object.pairs is not actually set, because we aren't
-			 * doing a full conversion
+			 * v->val.object.pairs 并未设置，因为我们没有
+			 * 做完整转换
 			 */
 			(*it)->curIndex = 0;
 			(*it)->curDataOffset = 0;
 			(*it)->curValueOffset = getJsonbOffset((*it)->container,
 												   (*it)->nElems);
-			/* Set state for next call */
+			/* 设下次调用状态 */
 			(*it)->state = JBI_OBJECT_KEY;
 			return WJB_BEGIN_OBJECT;
 
@@ -943,10 +943,10 @@ recurse:
 			if ((*it)->curIndex >= (*it)->nElems)
 			{
 				/*
-				 * All pairs within object already processed.  Report this to
-				 * caller, and give it back original containing iterator
-				 * (which independently tracks iteration progress at its level
-				 * of nesting).
+				 * 对象内所有对已处理完。向调用者报告，
+				 * 并交还包含迭代器（它在自身嵌套层级
+				 * 上独立跟踪迭代进度）。
+				 *
 				 */
 				*it = freeAndGetParent(*it);
 				val->type = jbvNull;
@@ -954,20 +954,20 @@ recurse:
 			}
 			else
 			{
-				/* Return key of a key/value pair.  */
+				/* 返回键值对的键。 */
 				fillJsonbValue((*it)->container, (*it)->curIndex,
 							   (*it)->dataProper, (*it)->curDataOffset,
 							   val);
 				if (val->type != jbvString)
 					elog(ERROR, "unexpected jsonb type as object key");
 
-				/* Set state for next call */
+				/* 设下次调用状态 */
 				(*it)->state = JBI_OBJECT_VALUE;
 				return WJB_KEY;
 			}
 
 		case JBI_OBJECT_VALUE:
-			/* Set state for next call */
+			/* 设下次调用状态 */
 			(*it)->state = JBI_OBJECT_KEY;
 
 			fillJsonbValue((*it)->container, (*it)->curIndex + (*it)->nElems,
@@ -981,9 +981,9 @@ recurse:
 			(*it)->curIndex++;
 
 			/*
-			 * Value may be a container, in which case we recurse with new,
-			 * child iterator (unless the caller asked not to, by passing
-			 * skipNested).
+			 * 值可能是容器，此时我们用新的子迭代器递归
+			 * （除非调用者传 skipNested 要求略过）。
+			 *
 			 */
 			if (!IsAJsonbScalar(val) && !skipNested)
 			{
@@ -995,13 +995,13 @@ recurse:
 	}
 
 	elog(ERROR, "invalid jsonb iterator state");
-	/* satisfy compilers that don't know that elog(ERROR) doesn't return */
+	/* 让不知道 elog(ERROR) 不会返回的编译器满意 */
 	val->type = jbvNull;
 	return WJB_DONE;
 }
 
 /*
- * Initialize an iterator for iterating all elements in a container.
+ * 初始化迭代器，用于遍历容器中的所有元素。
  */
 static JsonbIterator *
 iteratorFromContainer(JsonbContainer *container, JsonbIterator *parent)
@@ -1013,7 +1013,7 @@ iteratorFromContainer(JsonbContainer *container, JsonbIterator *parent)
 	it->parent = parent;
 	it->nElems = JsonContainerSize(container);
 
-	/* Array starts just after header */
+	/* 数组紧跟头部之后 */
 	it->children = container->children;
 
 	switch (container->header & (JB_FARRAY | JB_FOBJECT))
@@ -1022,7 +1022,7 @@ iteratorFromContainer(JsonbContainer *container, JsonbIterator *parent)
 			it->dataProper =
 				(char *) it->children + it->nElems * sizeof(JEntry);
 			it->isScalar = JsonContainerIsScalar(container);
-			/* This is either a "raw scalar", or an array */
+			/* 这是 "raw scalar" 或数组 */
 			Assert(!it->isScalar || it->nElems == 1);
 
 			it->state = JBI_ARRAY_START;
@@ -1042,8 +1042,8 @@ iteratorFromContainer(JsonbContainer *container, JsonbIterator *parent)
 }
 
 /*
- * JsonbIteratorNext() worker:	Return parent, while freeing memory for current
- * iterator
+ * JsonbIteratorNext() 工作函数：释放当前迭代器并返回父
+ *
  */
 static JsonbIterator *
 freeAndGetParent(JsonbIterator *it)
@@ -1055,16 +1055,16 @@ freeAndGetParent(JsonbIterator *it)
 }
 
 /*
- * Worker for "contains" operator's function
+ * "contains" 算子的函数的工作函数
  *
- * Formally speaking, containment is top-down, unordered subtree isomorphism.
+ * 严格说来，包含关系是自顶向下的、无序的子树同构。
  *
- * Takes iterators that belong to some container type.  These iterators
- * "belong" to those values in the sense that they've just been initialized in
- * respect of them by the caller (perhaps in a nested fashion).
+ * 接受属于某种容器类型的迭代器。所谓这些迭代器
+ * "属于"那些值，是指调用者刚针对它们初始化了这些
+ * 迭代器（可能是以嵌套方式）。
  *
- * "val" is lhs Jsonb, and mContained is rhs Jsonb when called from top level.
- * We determine if mContained is contained within val.
+ * 从顶层调用时，"val" 是 lhs Jsonb，mContained 是 rhs Jsonb。
+ * 判断 mContained 是否被包含在 val 中。
  */
 bool
 JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
@@ -1075,10 +1075,10 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 				rcont;
 
 	/*
-	 * Guard against stack overflow due to overly complex Jsonb.
+	 * 防止过于复杂的 Jsonb 导致栈溢出。
 	 *
-	 * Functions called here independently take this precaution, but that
-	 * might not be sufficient since this is also a recursive function.
+	 * 在此被调用的函数各自独立采取了预防措施，
+	 * 但由于本函数也是递归的，这可能还不够。
 	 */
 	check_stack_depth();
 
@@ -1088,10 +1088,10 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 	if (rval != rcont)
 	{
 		/*
-		 * The differing return values can immediately be taken as indicating
-		 * two differing container types at this nesting level, which is
-		 * sufficient reason to give up entirely (but it should be the case
-		 * that they're both some container type).
+		 * 不同的返回值可立即视为表明在此嵌套层级上存在
+		 * 两个不同的容器类型，这足以让我们完全放弃
+		 * （但情形应当是两者都是某种容器类型）。
+		 *
 		 */
 		Assert(rval == WJB_BEGIN_OBJECT || rval == WJB_BEGIN_ARRAY);
 		Assert(rcont == WJB_BEGIN_OBJECT || rcont == WJB_BEGIN_ARRAY);
@@ -1103,27 +1103,27 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 		Assert(vcontained.type == jbvObject);
 
 		/*
-		 * If the lhs has fewer pairs than the rhs, it can't possibly contain
-		 * the rhs.  (This conclusion is safe only because we de-duplicate
-		 * keys in all Jsonb objects; thus there can be no corresponding
-		 * optimization in the array case.)  The case probably won't arise
-		 * often, but since it's such a cheap check we may as well make it.
+		 * 若 lhs 的对少于 rhs，便不可能包含 rhs。（
+		 * 安全只因我们给所有 Jsonb 对象的键去了重；
+		 * 因此数组情形没有对应的优化。）该情形多半
+		 * 不会出现，但这个检查如此廉价，不妨做上。
+		 *
 		 */
 		if (vval.val.object.nPairs < vcontained.val.object.nPairs)
 			return false;
 
-		/* Work through rhs "is it contained within?" object */
+		/* 遍历 rhs "是否被包含?" 对象 */
 		for (;;)
 		{
-			JsonbValue *lhsVal; /* lhsVal is from pair in lhs object */
+			JsonbValue *lhsVal; /* lhsVal 来自 lhs 对象中的对 */
 			JsonbValue	lhsValBuf;
 
 			rcont = JsonbIteratorNext(mContained, &vcontained, false);
 
 			/*
-			 * When we get through caller's rhs "is it contained within?"
-			 * object without failing to find one of its values, it's
-			 * contained.
+			 * 走遍调用者的 rhs "是否被包含?" 对象而没有
+			 * 找不到任何一个值时，它就是被包含
+			 * 的。
 			 */
 			if (rcont == WJB_END_OBJECT)
 				return true;
@@ -1131,7 +1131,7 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 			Assert(rcont == WJB_KEY);
 			Assert(vcontained.type == jbvString);
 
-			/* First, find value by key... */
+			/* 首先按键查找值…… */
 			lhsVal =
 				getKeyJsonValueFromContainer((*val)->container,
 											 vcontained.val.string.val,
@@ -1141,16 +1141,16 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 				return false;
 
 			/*
-			 * ...at this stage it is apparent that there is at least a key
-			 * match for this rhs pair.
+			 * 在这一阶段显然至少有一个键与该 rhs 对
+			 * 匹配。
 			 */
 			rcont = JsonbIteratorNext(mContained, &vcontained, true);
 
 			Assert(rcont == WJB_VALUE);
 
 			/*
-			 * Compare rhs pair's value with lhs pair's value just found using
-			 * key
+			 * 将 rhs 对的值与 lhs 对中刚用键找到的值比对
+			 *
 			 */
 			if (lhsVal->type != vcontained.type)
 			{
@@ -1163,7 +1163,7 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 			}
 			else
 			{
-				/* Nested container value (object or array) */
+				/* 嵌套容器值（对象或数组） */
 				JsonbIterator *nestval,
 						   *nestContained;
 
@@ -1174,24 +1174,24 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 				nestContained = JsonbIteratorInit(vcontained.val.binary.data);
 
 				/*
-				 * Match "value" side of rhs datum object's pair recursively.
-				 * It's a nested structure.
+				 * 递归匹配 rhs datum 对象的对的 "value" 一侧。
+				 * 这是嵌套结构。
 				 *
-				 * Note that nesting still has to "match up" at the right
-				 * nesting sub-levels.  However, there need only be zero or
-				 * more matching pairs (or elements) at each nesting level
-				 * (provided the *rhs* pairs/elements *all* match on each
-				 * level), which enables searching nested structures for a
-				 * single String or other primitive type sub-datum quite
-				 * effectively (provided the user constructed the rhs nested
-				 * structure such that we "know where to look").
+				 * 注意嵌套仍须在正确的子层级上"对齐"，
+				 * 不过每层只需有零个或更多匹配的
+				 * 对（或元素）（前提是 *rhs* 每层
+				 * *全部*匹配），这使得搜索嵌套结构中
+				 * 的单个 String 或其他原生类型子 datum 颇为
+				 * 有效（前提是 rhs 嵌套结构被构造成
+				 * 让我们"知道去哪找"）
+				 * 即可。
 				 *
-				 * In other words, the mapping of container nodes in the rhs
-				 * "vcontained" Jsonb to internal nodes on the lhs is
-				 * injective, and parent-child edges on the rhs must be mapped
-				 * to parent-child edges on the lhs to satisfy the condition
-				 * of containment (plus of course the mapped nodes must be
-				 * equal).
+				 * 换言之，rhs "vcontained" Jsonb 中容器节点到 lhs
+				 * 内部节点的映射是单射，rhs 的父子边
+				 * 必须映射到 lhs 的父子边才满足包含条件
+				 * （当然被映射的节点还必须
+				 * 相等）。
+				 *
 				 */
 				if (!JsonbDeepContains(&nestval, &nestContained))
 					return false;
@@ -1207,27 +1207,27 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 		Assert(vcontained.type == jbvArray);
 
 		/*
-		 * Handle distinction between "raw scalar" pseudo arrays, and real
-		 * arrays.
+		 * 区分 "raw scalar" 伪数组与真正的
+		 * 数组
 		 *
-		 * A raw scalar may contain another raw scalar, and an array may
-		 * contain a raw scalar, but a raw scalar may not contain an array. We
-		 * don't do something like this for the object case, since objects can
-		 * only contain pairs, never raw scalars (a pair is represented by an
-		 * rhs object argument with a single contained pair).
+		 * 原始标量可包含另一个原始标量，数组可
+		 * 包含原始标量，但原始标量不能包含数组。对对象
+		 * 情形不做类似处理，因为对象只能包含对，绝不
+		 * 会包含原始标量（一个对由带单个被包含对的 rhs
+		 * 对象参数表示）。
 		 */
 		if (vval.val.array.rawScalar && !vcontained.val.array.rawScalar)
 			return false;
 
-		/* Work through rhs "is it contained within?" array */
+		/* 遍历 rhs "是否被包含?" 数组 */
 		for (;;)
 		{
 			rcont = JsonbIteratorNext(mContained, &vcontained, true);
 
 			/*
-			 * When we get through caller's rhs "is it contained within?"
-			 * array without failing to find one of its values, it's
-			 * contained.
+			 * 走遍调用者的 rhs "是否被包含?" 数组而没有
+			 * 找不到任何一个值时，它就是被包含
+			 * 的。
 			 */
 			if (rcont == WJB_END_ARRAY)
 				return true;
@@ -1246,19 +1246,19 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 				uint32		i;
 
 				/*
-				 * If this is first container found in rhs array (at this
-				 * depth), initialize temp lhs array of containers
+				 * 若这是 rhs 数组中此深度的首个容器，
+				 * 则初始化容器的临时 lhs 数组
 				 */
 				if (lhsConts == NULL)
 				{
 					uint32		j = 0;
 
-					/* Make room for all possible values */
+					/* 为所有可能的值腾出空间 */
 					lhsConts = palloc(sizeof(JsonbValue) * nLhsElems);
 
 					for (i = 0; i < nLhsElems; i++)
 					{
-						/* Store all lhs elements in temp array */
+						/* 把 lhs 元素存入临时数组 */
 						rcont = JsonbIteratorNext(val, &vval, true);
 						Assert(rcont == WJB_ELEM);
 
@@ -1266,18 +1266,18 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 							lhsConts[j++] = vval;
 					}
 
-					/* No container elements in temp array, so give up now */
+					/* 临时数组中没有容器元素，立即放弃 */
 					if (j == 0)
 						return false;
 
-					/* We may have only partially filled array */
+					/* 数组可能只被部分填充 */
 					nLhsElems = j;
 				}
 
-				/* XXX: Nested array containment is O(N^2) */
+				/* XXX: 嵌套数组包含是 O(N^2) */
 				for (i = 0; i < nLhsElems; i++)
 				{
-					/* Nested container value (object or array) */
+					/* 嵌套容器值（对象或数组） */
 					JsonbIterator *nestval,
 							   *nestContained;
 					bool		contains;
@@ -1296,8 +1296,8 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 				}
 
 				/*
-				 * Report rhs container value is not contained if couldn't
-				 * match rhs container to *some* lhs cont
+				 * 若 rhs 容器无法匹配*某个* lhs 容器，
+				 * rhs 容器值未被包含
 				 */
 				if (i == nLhsElems)
 					return false;
@@ -1314,18 +1314,18 @@ JsonbDeepContains(JsonbIterator **val, JsonbIterator **mContained)
 }
 
 /*
- * Hash a JsonbValue scalar value, mixing the hash value into an existing
- * hash provided by the caller.
+ * 哈希 JsonbValue 标量值，把哈希值混入调用者提供的
+ * 现有哈希中。
  *
- * Some callers may wish to independently XOR in JB_FOBJECT and JB_FARRAY
- * flags.
+ * 某些调用者可对 JB_FOBJECT 与 JB_FARRAY 标志独立异或
+ *
  */
 void
 JsonbHashScalarValue(const JsonbValue *scalarVal, uint32 *hash)
 {
 	uint32		tmp;
 
-	/* Compute hash value for scalarVal */
+	/* 为 scalarVal 计算哈希值 */
 	switch (scalarVal->type)
 	{
 		case jbvNull:
@@ -1336,7 +1336,7 @@ JsonbHashScalarValue(const JsonbValue *scalarVal, uint32 *hash)
 										  scalarVal->val.string.len));
 			break;
 		case jbvNumeric:
-			/* Must hash equal numerics to equal hash codes */
+			/* 相等 numeric 必有相等哈希码 */
 			tmp = DatumGetUInt32(DirectFunctionCall1(hash_numeric,
 													 NumericGetDatum(scalarVal->val.numeric)));
 			break;
@@ -1346,22 +1346,22 @@ JsonbHashScalarValue(const JsonbValue *scalarVal, uint32 *hash)
 			break;
 		default:
 			elog(ERROR, "invalid jsonb scalar type");
-			tmp = 0;			/* keep compiler quiet */
+			tmp = 0;			/* 让编译器安静 */
 			break;
 	}
 
 	/*
-	 * Combine hash values of successive keys, values and elements by rotating
-	 * the previous value left 1 bit, then XOR'ing in the new
-	 * key/value/element's hash value.
+	 * 把前一个值左移 1 位、再异或进新键/值/元素的哈希
+	 * 值，来合并后继键、值和元素的哈希值。
+	 *
 	 */
 	*hash = pg_rotate_left32(*hash, 1);
 	*hash ^= tmp;
 }
 
 /*
- * Hash a value to a 64-bit value, with a seed. Otherwise, similar to
- * JsonbHashScalarValue.
+ * 把一个值哈希为 64 位值，带种子。其余同
+ * JsonbHashScalarValue
  */
 void
 JsonbHashScalarValueExtended(const JsonbValue *scalarVal, uint64 *hash,
@@ -1403,7 +1403,7 @@ JsonbHashScalarValueExtended(const JsonbValue *scalarVal, uint64 *hash,
 }
 
 /*
- * Are two scalar JsonbValues of the same type a and b equal?
+ * 同类型的两个标量 JsonbValue a 和 b 相等吗？
  */
 static bool
 equalsJsonbScalarValue(JsonbValue *a, JsonbValue *b)
@@ -1432,10 +1432,10 @@ equalsJsonbScalarValue(JsonbValue *a, JsonbValue *b)
 }
 
 /*
- * Compare two scalar JsonbValues, returning -1, 0, or 1.
+ * 比较两个标量 JsonbValue，返回 -1、0 或 1。
  *
- * Strings are compared using the default collation.  Used by B-tree
- * operators, where a lexical sort order is generally expected.
+ * 字符串用默认排序规则比较，由 B-tree 算子使用，
+ * 那里通常期望字典序的排序顺序。
  */
 static int
 compareJsonbScalarValue(JsonbValue *a, JsonbValue *b)
@@ -1473,32 +1473,32 @@ compareJsonbScalarValue(JsonbValue *a, JsonbValue *b)
 
 
 /*
- * Functions for manipulating the resizable buffer used by convertJsonb and
- * its subroutines.
+ * 操作 convertJsonb 及其子例程所用的可变大小缓冲区
+ * 的函数。
  */
 
 /*
- * Reserve 'len' bytes, at the end of the buffer, enlarging it if necessary.
- * Returns the offset to the reserved area. The caller is expected to fill
- * the reserved area later with copyToBuffer().
+ * 在缓冲区末尾保留 "len" 个字节，必要时扩大缓冲区。
+ * 返回保留区的偏移。调用者随后应使用 copyToBuffer()
+ * 填充该保留区。
  */
 static int
 reserveFromBuffer(StringInfo buffer, int len)
 {
 	int			offset;
 
-	/* Make more room if needed */
+	/* 必要时扩大空间 */
 	enlargeStringInfo(buffer, len);
 
-	/* remember current offset */
+	/* 记住当前偏移 */
 	offset = buffer->len;
 
-	/* reserve the space */
+	/* 保留该空间 */
 	buffer->len += len;
 
 	/*
-	 * Keep a trailing null in place, even though it's not useful for us; it
-	 * seems best to preserve the invariants of StringInfos.
+	 * 保留结尾 null，尽管它对我们没有用处；这样似乎
+	 * 最好能保持 StringInfo 的各项不变式。
 	 */
 	buffer->data[buffer->len] = '\0';
 
@@ -1506,7 +1506,7 @@ reserveFromBuffer(StringInfo buffer, int len)
 }
 
 /*
- * Copy 'len' bytes to a previously reserved area in buffer.
+ * 把 "len" 字节复制到缓冲区先前保留区域。
  */
 static void
 copyToBuffer(StringInfo buffer, int offset, const char *data, int len)
@@ -1515,7 +1515,7 @@ copyToBuffer(StringInfo buffer, int offset, const char *data, int len)
 }
 
 /*
- * A shorthand for reserveFromBuffer + copyToBuffer.
+ * reserveFromBuffer + copyToBuffer 的简写。
  */
 static void
 appendToBuffer(StringInfo buffer, const char *data, int len)
@@ -1528,8 +1528,8 @@ appendToBuffer(StringInfo buffer, const char *data, int len)
 
 
 /*
- * Append padding, so that the length of the StringInfo is int-aligned.
- * Returns the number of padding bytes appended.
+ * 追加填充，使 StringInfo 的长度按 int 对齐。
+ * 返回追加的填充字节数。
  */
 static short
 padBufferToInt(StringInfo buffer)
@@ -1542,7 +1542,7 @@ padBufferToInt(StringInfo buffer)
 
 	offset = reserveFromBuffer(buffer, padlen);
 
-	/* padlen must be small, so this is probably faster than a memset */
+	/* padlen 必须很小，所以这多半比 memset 更快 */
 	for (p = 0; p < padlen; p++)
 		buffer->data[offset + p] = '\0';
 
@@ -1550,7 +1550,7 @@ padBufferToInt(StringInfo buffer)
 }
 
 /*
- * Given a JsonbValue, convert to Jsonb. The result is palloc'd.
+ * 给定 JsonbValue，转为 Jsonb。结果 palloc 分配。
  */
 static Jsonb *
 convertToJsonb(JsonbValue *val)
@@ -1559,21 +1559,21 @@ convertToJsonb(JsonbValue *val)
 	JEntry		jentry;
 	Jsonb	   *res;
 
-	/* Should not already have binary representation */
+	/* 不应已经有二进制表示 */
 	Assert(val->type != jbvBinary);
 
-	/* Allocate an output buffer. It will be enlarged as needed */
+	/* 分配输出缓冲区，之后按需扩大 */
 	initStringInfo(&buffer);
 
-	/* Make room for the varlena header */
+	/* 给 varlena 头部腾出空间 */
 	reserveFromBuffer(&buffer, VARHDRSZ);
 
 	convertJsonbValue(&buffer, &jentry, val, 0);
 
 	/*
-	 * Note: the JEntry of the root is discarded. Therefore the root
-	 * JsonbContainer struct must contain enough information to tell what kind
-	 * of value it is.
+	 * 注意：根 JEntry 被丢弃。因此 JsonbContainer 结构
+	 * 必须包含足够信息来表明它是哪种
+	 * 类型的值。
 	 */
 
 	res = (Jsonb *) buffer.data;
@@ -1584,15 +1584,15 @@ convertToJsonb(JsonbValue *val)
 }
 
 /*
- * Subroutine of convertJsonb: serialize a single JsonbValue into buffer.
+ * convertJsonb 的子例程：把 JsonbValue 序列化进缓冲区。
  *
- * The JEntry header for this node is returned in *header.  It is filled in
- * with the length of this value and appropriate type bits.  If we wish to
- * store an end offset rather than a length, it is the caller's responsibility
- * to adjust for that.
+ * 该节点的 JEntry 头部通过 *header 返回。其中填有该值
+ * 的长度和适当的类型位。如果我们希望存储结束偏移
+ * 而非长度，则调整由调用者
+ * 负责。
  *
- * If the value is an array or an object, this recurses. 'level' is only used
- * for debugging purposes.
+ * 若值是数组或对象，这里会递归。"level" 仅用于调试
+ * 目的。
  */
 static void
 convertJsonbValue(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
@@ -1603,10 +1603,10 @@ convertJsonbValue(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 		return;
 
 	/*
-	 * A JsonbValue passed as val should never have a type of jbvBinary, and
-	 * neither should any of its sub-components. Those values will be produced
-	 * by convertJsonbArray and convertJsonbObject, the results of which will
-	 * not be passed back to this function as an argument.
+	 * 作为 val 传入的 JsonbValue 绝不应有 jbvBinary 类型，
+	 * 其任何子组件也绝不应有。那些值会由 convertJsonbArray
+	 * 和 convertJsonbObject 产生，其结果不会再作为参数传回
+	 * 本函数。
 	 */
 
 	if (IsAJsonbScalar(val))
@@ -1629,15 +1629,15 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 	uint32		containerhead;
 	int			nElems = val->val.array.nElems;
 
-	/* Remember where in the buffer this array starts. */
+	/* 记住数组在缓冲区中的起始位置。 */
 	base_offset = buffer->len;
 
-	/* Align to 4-byte boundary (any padding counts as part of my data) */
+	/* 对齐到 4 字节边界（填充也算作我的数据） */
 	padBufferToInt(buffer);
 
 	/*
-	 * Construct the header Jentry and store it in the beginning of the
-	 * variable-length payload.
+	 * 构造头部 Jentry，把它存进变长载荷的开头。
+	 *
 	 */
 	containerhead = nElems | JB_FARRAY;
 	if (val->val.array.rawScalar)
@@ -1649,7 +1649,7 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 
 	appendToBuffer(buffer, (char *) &containerhead, sizeof(uint32));
 
-	/* Reserve space for the JEntries of the elements. */
+	/* 为元素的 JEntry 预留空间。 */
 	jentry_offset = reserveFromBuffer(buffer, sizeof(JEntry) * nElems);
 
 	totallen = 0;
@@ -1660,8 +1660,8 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 		JEntry		meta;
 
 		/*
-		 * Convert element, producing a JEntry and appending its
-		 * variable-length data to buffer
+		 * 转换元素，产生 JEntry 并把其变长数据
+		 * 追加到缓冲区
 		 */
 		convertJsonbValue(buffer, &meta, elem, level + 1);
 
@@ -1669,9 +1669,9 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 		totallen += len;
 
 		/*
-		 * Bail out if total variable-length data exceeds what will fit in a
-		 * JEntry length field.  We check this in each iteration, not just
-		 * once at the end, to forestall possible integer overflow.
+		 * 若总变长数据超过 JEntry 长度字段容量则中止。
+		 * 每轮迭代中都检查一次而非只在最后检查，
+		 * 以预防可能的整数溢出。
 		 */
 		if (totallen > JENTRY_OFFLENMASK)
 			ereport(ERROR,
@@ -1680,7 +1680,7 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 							JENTRY_OFFLENMASK)));
 
 		/*
-		 * Convert each JB_OFFSET_STRIDE'th length to an offset.
+		 * 把每 JB_OFFSET_STRIDE 个长度转为偏移。
 		 */
 		if ((i % JB_OFFSET_STRIDE) == 0)
 			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
@@ -1689,17 +1689,17 @@ convertJsonbArray(StringInfo buffer, JEntry *header, JsonbValue *val, int level)
 		jentry_offset += sizeof(JEntry);
 	}
 
-	/* Total data size is everything we've appended to buffer */
+	/* 总数据大小即已追加到缓冲区的全部内容 */
 	totallen = buffer->len - base_offset;
 
-	/* Check length again, since we didn't include the metadata above */
+	/* 再次检查长度，因上面的元数据未计入 */
 	if (totallen > JENTRY_OFFLENMASK)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("total size of jsonb array elements exceeds the maximum of %d bytes",
 						JENTRY_OFFLENMASK)));
 
-	/* Initialize the header of this node in the container's JEntry array */
+	/* 在容器的 JEntry 数组中初始化本节点的头部 */
 	*header = JENTRY_ISCONTAINER | totallen;
 }
 
@@ -1713,25 +1713,25 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 	uint32		containerheader;
 	int			nPairs = val->val.object.nPairs;
 
-	/* Remember where in the buffer this object starts. */
+	/* 记住该对象在缓冲区中的起始位置。 */
 	base_offset = buffer->len;
 
-	/* Align to 4-byte boundary (any padding counts as part of my data) */
+	/* 对齐到 4 字节边界（填充也算作我的数据） */
 	padBufferToInt(buffer);
 
 	/*
-	 * Construct the header Jentry and store it in the beginning of the
-	 * variable-length payload.
+	 * 构造头部 Jentry，把它存进变长载荷的开头。
+	 *
 	 */
 	containerheader = nPairs | JB_FOBJECT;
 	appendToBuffer(buffer, (char *) &containerheader, sizeof(uint32));
 
-	/* Reserve space for the JEntries of the keys and values. */
+	/* 为键和值的 JEntry 预留空间。 */
 	jentry_offset = reserveFromBuffer(buffer, sizeof(JEntry) * nPairs * 2);
 
 	/*
-	 * Iterate over the keys, then over the values, since that is the ordering
-	 * we want in the on-disk representation.
+	 * 先遍历键再遍历值，因为磁盘上的表示采用的正是
+	 * 这种顺序。
 	 */
 	totallen = 0;
 	for (i = 0; i < nPairs; i++)
@@ -1741,8 +1741,8 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		JEntry		meta;
 
 		/*
-		 * Convert key, producing a JEntry and appending its variable-length
-		 * data to buffer
+		 * 转换键，产生一个 JEntry 并把其变长数据追加
+		 * 到缓冲区
 		 */
 		convertJsonbScalar(buffer, &meta, &pair->key);
 
@@ -1750,9 +1750,9 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		totallen += len;
 
 		/*
-		 * Bail out if total variable-length data exceeds what will fit in a
-		 * JEntry length field.  We check this in each iteration, not just
-		 * once at the end, to forestall possible integer overflow.
+		 * 若总变长数据超过 JEntry 长度字段容量则中止。
+		 * 每轮迭代中都检查一次而非只在最后检查，
+		 * 以预防可能的整数溢出。
 		 */
 		if (totallen > JENTRY_OFFLENMASK)
 			ereport(ERROR,
@@ -1761,7 +1761,7 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 							JENTRY_OFFLENMASK)));
 
 		/*
-		 * Convert each JB_OFFSET_STRIDE'th length to an offset.
+		 * 把每 JB_OFFSET_STRIDE 个长度转为偏移。
 		 */
 		if ((i % JB_OFFSET_STRIDE) == 0)
 			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
@@ -1776,8 +1776,8 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		JEntry		meta;
 
 		/*
-		 * Convert value, producing a JEntry and appending its variable-length
-		 * data to buffer
+		 * 转换值，产生一个 JEntry 并把其变长数据追加
+		 * 到缓冲区
 		 */
 		convertJsonbValue(buffer, &meta, &pair->value, level + 1);
 
@@ -1785,9 +1785,9 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		totallen += len;
 
 		/*
-		 * Bail out if total variable-length data exceeds what will fit in a
-		 * JEntry length field.  We check this in each iteration, not just
-		 * once at the end, to forestall possible integer overflow.
+		 * 若总变长数据超过 JEntry 长度字段容量则中止。
+		 * 每轮迭代中都检查一次而非只在最后检查，
+		 * 以预防可能的整数溢出。
 		 */
 		if (totallen > JENTRY_OFFLENMASK)
 			ereport(ERROR,
@@ -1796,7 +1796,7 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 							JENTRY_OFFLENMASK)));
 
 		/*
-		 * Convert each JB_OFFSET_STRIDE'th length to an offset.
+		 * 把每 JB_OFFSET_STRIDE 个长度转为偏移。
 		 */
 		if (((i + nPairs) % JB_OFFSET_STRIDE) == 0)
 			meta = (meta & JENTRY_TYPEMASK) | totallen | JENTRY_HAS_OFF;
@@ -1805,17 +1805,17 @@ convertJsonbObject(StringInfo buffer, JEntry *header, JsonbValue *val, int level
 		jentry_offset += sizeof(JEntry);
 	}
 
-	/* Total data size is everything we've appended to buffer */
+	/* 总数据大小即已追加到缓冲区的全部内容 */
 	totallen = buffer->len - base_offset;
 
-	/* Check length again, since we didn't include the metadata above */
+	/* 再次检查长度，因上面的元数据未计入 */
 	if (totallen > JENTRY_OFFLENMASK)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("total size of jsonb object elements exceeds the maximum of %d bytes",
 						JENTRY_OFFLENMASK)));
 
-	/* Initialize the header of this node in the container's JEntry array */
+	/* 在容器的 JEntry 数组中初始化本节点的头部 */
 	*header = JENTRY_ISCONTAINER | totallen;
 }
 
@@ -1873,16 +1873,16 @@ convertJsonbScalar(StringInfo buffer, JEntry *header, JsonbValue *scalarVal)
 }
 
 /*
- * Compare two jbvString JsonbValue values, a and b.
+ * 比较两个 jbvString JsonbValue 值 a 和 b。
  *
- * This is a special qsort() comparator used to sort strings in certain
- * internal contexts where it is sufficient to have a well-defined sort order.
- * In particular, object pair keys are sorted according to this criteria to
- * facilitate cheap binary searches where we don't care about lexical sort
- * order.
+ * 这是一个特殊的 qsort() 比较器，用于在某些只需要
+ * 明确定义排序顺序的内部上下文中对字符串排序。特
+ * 别是，对象对的键会按这一标准排序，以便在不关心字
+ * 典序排序顺序的场合下进行廉价的二分
+ * 查找
  *
- * a and b are first sorted based on their length.  If a tie-breaker is
- * required, only then do we consider string binary equality.
+ * a 和 b 先按长度排序。只有当需要决胜时，我们才
+ * 考虑字符串的二进制相等性。
  */
 static int
 lengthCompareJsonbStringValue(const void *a, const void *b)
@@ -1898,10 +1898,10 @@ lengthCompareJsonbStringValue(const void *a, const void *b)
 }
 
 /*
- * Subroutine for lengthCompareJsonbStringValue
+ * lengthCompareJsonbStringValue 的子例程
  *
- * This is also useful separately to implement binary search on
- * JsonbContainers.
+ * 单独用来对 JsonbContainer 做二分查找时它也
+ * 有用。
  */
 static int
 lengthCompareJsonbString(const char *val1, int len1, const char *val2, int len2)
@@ -1913,15 +1913,15 @@ lengthCompareJsonbString(const char *val1, int len1, const char *val2, int len2)
 }
 
 /*
- * qsort_arg() comparator to compare JsonbPair values.
+ * 比较 JsonbPair 值的 qsort_arg() 比较器
  *
- * Third argument 'binequal' may point to a bool. If it's set, *binequal is set
- * to true iff a and b have full binary equality, since some callers have an
- * interest in whether the two values are equal or merely equivalent.
+ * 第三个参数 "binequal" 可以指向 bool。若设置了它，则当 a
+ * 和 b 完全二进制相等时 *binequal 被设为 true，因为某些
+ * 调用者关心两个值是完全相等还是仅仅等价。
  *
- * N.B: String comparisons here are "length-wise"
+ * N.B: 此处的字符串比较是"按长度"的
  *
- * Pairs with equals keys are ordered such that the order field is respected.
+ * 键相等的对在排序时保持 order 字段的顺序。
  */
 static int
 lengthCompareJsonbPair(const void *a, const void *b, void *binequal)
@@ -1935,8 +1935,8 @@ lengthCompareJsonbPair(const void *a, const void *b, void *binequal)
 		*((bool *) binequal) = true;
 
 	/*
-	 * Guarantee keeping order of equal pair.  Unique algorithm will prefer
-	 * first element as value.
+	 * 保证相等的对保持原顺序。唯一化算法会优先选择
+	 * 首个元素作为值
 	 */
 	if (res == 0)
 		res = (pa->order > pb->order) ? -1 : 1;
@@ -1945,7 +1945,7 @@ lengthCompareJsonbPair(const void *a, const void *b, void *binequal)
 }
 
 /*
- * Sort and unique-ify pairs in JsonbValue object
+ * 对 JsonbValue 对象中的对排序并去重
  */
 static void
 uniqueifyJsonbObject(JsonbValue *object, bool unique_keys, bool skip_nulls)
@@ -1971,7 +1971,7 @@ uniqueifyJsonbObject(JsonbValue *object, bool unique_keys, bool skip_nulls)
 		while (skip_nulls && object->val.object.nPairs > 0 &&
 			   object->val.object.pairs->value.type == jbvNull)
 		{
-			/* If skip_nulls is true, remove leading items with null */
+			/* 若 skip_nulls 为 true，移除开头的 null 项 */
 			object->val.object.pairs++;
 			object->val.object.nPairs--;
 		}
@@ -1983,7 +1983,7 @@ uniqueifyJsonbObject(JsonbValue *object, bool unique_keys, bool skip_nulls)
 
 			while (ptr - object->val.object.pairs < object->val.object.nPairs)
 			{
-				/* Avoid copying over duplicate or null */
+				/* 避免复制重复项或 null 项 */
 				if (lengthCompareJsonbStringValue(ptr, res) != 0 &&
 					(!skip_nulls || ptr->value.type != jbvNull))
 				{

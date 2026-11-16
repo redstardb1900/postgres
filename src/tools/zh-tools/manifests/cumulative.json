@@ -7131,6 +7131,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0410-adt-str-conv.json",
    "kind": "manifest",
    "note": "batch-0410 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonb_util.c",
+   "kind": "c_comment",
+   "note": "JSONB 工具 (Jsonb/JsonbValue/JEntry 标识符保留, key→键, containment→包含, raw scalar 引号保留); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/backend/utils/adt/regproc.c",
+   "kind": "c_comment",
+   "note": "regproc 系类型 I/O (reg* 函数族标识符保留, OID 逐字保留 PT 级, lookup→查找, invalid→无效); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rowtypes.c",
+   "kind": "c_comment",
+   "note": "复合类型 record I/O 与比较 (record/rowtype 标识符保留, composite→复合 0396 口径, field→字段, tuple→元组); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery.c",
+   "kind": "c_comment",
+   "note": "文本检索查询 (tsquery 标识符保留, token→词位 0392 口径, distance→距离, operators→算子); whole-file comment translation, batch-0411"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0411-adt-json-tsquery.json",
+   "kind": "manifest",
+   "note": "batch-0411 manifest"
   }
  ],
  "files": [
@@ -23113,6 +23138,64 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0410 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonb_util.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 141,
+   "translated": 141,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 4 (头部 4)"
+   ],
+   "note": "JSONB 工具 (标识符保留, key→键, containment→包含); whole-file comment translation, batch-0411; 行数守恒 2000 (numstat 360/360); blocks=141 translated=141 preserved=0 keep-EN-lines=4 fill-lines=14"
+  },
+  {
+   "path": "src/backend/utils/adt/regproc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 174,
+   "translated": 174,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 9 (头部 5 + 标志名 4)"
+   ],
+   "note": "regproc 系类型 I/O (reg* 标识符保留, OID PT 级保留); whole-file comment translation, batch-0411; 行数守恒 2018 (numstat 290/290); blocks=174 translated=174 preserved=0 keep-EN-lines=9 fill-lines=6"
+  },
+  {
+   "path": "src/backend/utils/adt/rowtypes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 157,
+   "translated": 157,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 6 (头部 5 + L822 record_cmp() 标识符标题)"
+   ],
+   "note": "复合类型 record I/O 与比较 (composite→复合, field→字段, tuple→元组); whole-file comment translation, batch-0411; 行数守恒 2044 (numstat 235/235); blocks=157 translated=157 preserved=0 keep-EN-lines=6 fill-lines=0"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 100,
+   "preserved": 6,
+   "preserved_reasons": [
+    "整块保留 6: L31-L34 OP_* 宏名自注块 + L608 /* \\0 */ + L258 /* no operand */ (预算不足保留 EN)"
+   ],
+   "note": "文本检索查询 (token→词位 0392 口径, OP_* 保留); whole-file comment translation, batch-0411 (审查修复 N3-⑥); 行数守恒 1399 (numstat 153/153); blocks=106(注释感知重扫) translated=100 preserved=6 keep-EN-lines=11 fill-lines=2"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0411-adt-json-tsquery.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0411 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

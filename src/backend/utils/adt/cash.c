@@ -4,13 +4,13 @@
  * darcy@druid.net
  * http://www.druid.net/darcy/
  *
- * Functions to allow input and output of money normally but store
- * and handle it as 64 bit ints
+ * 提供按常规方式输入与输出金额、但以 64 位
+ * 整数来存储和处理
  *
- * A slightly modified version of this file and a discussion of the
- * workings can be found in the book "Software Solutions in C" by
- * Dale Schumacher, Academic Press, ISBN: 0-12-632360-7 except that
- * this version handles 64 bit numbers and so can hold values up to
+ * 本文件的一个略微修改版本，以及对工作原理
+ * 的探讨可见于 "Software Solutions in C" 一
+ * 书，作者 Dale Schumacher，Academic Press，区别是
+ * 本版采用 64 位数字，故可保存的最高值达
  * $92,233,720,368,547,758.07.
  *
  * src/backend/utils/adt/cash.c
@@ -32,7 +32,7 @@
 
 
 /*************************************************************************
- * Private routines
+ * 内部例程
  ************************************************************************/
 
 static const char *
@@ -48,21 +48,21 @@ num_word(Cash value)
 	const char *const *big = small + 18;
 	int			tu = value % 100;
 
-	/* deal with the simple cases first */
+	/* 先处理几种简单情形 */
 	if (value <= 20)
 		return small[value];
 
-	/* is it an even multiple of 100? */
+	/* 是否为 100 的整数倍？ */
 	if (!tu)
 	{
 		sprintf(buf, "%s hundred", small[value / 100]);
 		return buf;
 	}
 
-	/* more than 99? */
+	/* 超过 99？ */
 	if (value > 99)
 	{
-		/* is it an even multiple of 10 other than 10? */
+		/* 是否为 10 的其他整数倍？ */
 		if (value % 10 == 0 && tu > 10)
 			sprintf(buf, "%s hundred %s",
 					small[value / 100], big[tu / 10]);
@@ -75,7 +75,7 @@ num_word(Cash value)
 	}
 	else
 	{
-		/* is it an even multiple of 10 other than 10? */
+		/* 是否为 10 的其他整数倍？ */
 		if (value % 10 == 0 && tu > 10)
 			sprintf(buf, "%s", big[tu / 10]);
 		else if (tu < 20)
@@ -164,9 +164,9 @@ cash_div_int64(Cash c, int64 i)
 }
 
 /* cash_in()
- * Convert a string to a cash data type.
- * Format is [$]###[,]###[.##]
- * Examples: 123.45 $123.45 $123,456.78
+ * 把字符串转换为 cash 类型。
+ * 格式：[$]###[,]###[.##]
+ * 示例：123.45 $123.45 $123,456.78
  *
  */
 Datum
@@ -189,20 +189,20 @@ cash_in(PG_FUNCTION_ARGS)
 	struct lconv *lconvert = PGLC_localeconv();
 
 	/*
-	 * frac_digits will be CHAR_MAX in some locales, notably C.  However, just
-	 * testing for == CHAR_MAX is risky, because of compilers like gcc that
-	 * "helpfully" let you alter the platform-standard definition of whether
-	 * char is signed or not.  If we are so unfortunate as to get compiled
-	 * with a nonstandard -fsigned-char or -funsigned-char switch, then our
-	 * idea of CHAR_MAX will not agree with libc's. The safest course is not
-	 * to test for CHAR_MAX at all, but to impose a range check for plausible
-	 * frac_digits values.
+	 * 在某些区域设置（尤其 C）中 frac_digits 会是 CHAR_MAX。
+	 * 然而，仅凭 == CHAR_MAX 判断有风险，因为 gcc 这
+	 * 类编译器会"好心"允许改动 char 符号性的标准定义。
+	 * 如果不幸以非标准的 -fsigned-char 或 -funsigned-char
+	 * 开关编译，我们认定的 CHAR_MAX 就会与 libc 的
+	 * 理解不一致。最安全的做法是根本不去测试
+	 * CHAR_MAX，而是对 frac_digits 的合理取值设范围检查
+	 *
 	 */
 	fpoint = lconvert->frac_digits;
 	if (fpoint < 0 || fpoint > 10)
-		fpoint = 2;				/* best guess in this case, I think */
+		fpoint = 2;				/* 此情况下算最佳猜测 */
 
-	/* we restrict dsymbol to be a single byte, but not the other symbols */
+	/* dsymbol 被限定为单字节，其他符号则无此限制 */
 	if (*lconvert->mon_decimal_point != '\0' &&
 		lconvert->mon_decimal_point[1] == '\0')
 		dsymbol = *lconvert->mon_decimal_point;
@@ -210,7 +210,7 @@ cash_in(PG_FUNCTION_ARGS)
 		dsymbol = '.';
 	if (*lconvert->mon_thousands_sep != '\0')
 		ssymbol = lconvert->mon_thousands_sep;
-	else						/* ssymbol should not equal dsymbol */
+	else						/* ssymbol 不应等于 dsymbol */
 		ssymbol = (dsymbol != ',') ? "," : ".";
 	csymbol = (*lconvert->currency_symbol != '\0') ? lconvert->currency_symbol : "$";
 	psymbol = (*lconvert->positive_sign != '\0') ? lconvert->positive_sign : "+";
@@ -221,8 +221,8 @@ cash_in(PG_FUNCTION_ARGS)
 		   fpoint, dsymbol, ssymbol, csymbol, psymbol, nsymbol);
 #endif
 
-	/* we need to add all sorts of checking here.  For now just */
-	/* strip all leading whitespace and any leading currency symbol */
+	/* 这里本应加上各种各样的检查。目前只是 */
+	/* 去掉所有前导空白以及前导货币符号 */
 	while (isspace((unsigned char) *s))
 		s++;
 	if (strncmp(s, csymbol, strlen(csymbol)) == 0)
@@ -234,9 +234,9 @@ cash_in(PG_FUNCTION_ARGS)
 	printf("cashin- string is '%s'\n", s);
 #endif
 
-	/* a leading minus or paren signifies a negative number */
-	/* again, better heuristics needed */
-	/* XXX - doesn't properly check for balanced parens - djmc */
+	/* 前导负号或括号表示负数 */
+	/* 同样，需要更佳启发式 */
+	/* XXX - 未能正确检查括号是否配对 - djmc */
 	if (strncmp(s, nsymbol, strlen(nsymbol)) == 0)
 	{
 		sgn = -1;
@@ -254,7 +254,7 @@ cash_in(PG_FUNCTION_ARGS)
 	printf("cashin- string is '%s'\n", s);
 #endif
 
-	/* allow whitespace and currency symbol after the sign, too */
+	/* 正负号之后也允许空白和货币符号 */
 	while (isspace((unsigned char) *s))
 		s++;
 	if (strncmp(s, csymbol, strlen(csymbol)) == 0)
@@ -267,19 +267,19 @@ cash_in(PG_FUNCTION_ARGS)
 #endif
 
 	/*
-	 * We accumulate the absolute amount in "value" and then apply the sign at
-	 * the end.  (The sign can appear before or after the digits, so it would
-	 * be more complicated to do otherwise.)  Because of the larger range of
-	 * negative signed integers, we build "value" in the negative and then
-	 * flip the sign at the end, catching most-negative-number overflow if
-	 * necessary.
+	 * 绝对值累积在 "value" 中，最后施加符号。（符号可前
+	 * 可后，否则会更复杂。）由于负整数范围
+	 * 更大，我们以负数构建 "value"，再于最后翻转
+	 * 符号，必要时可借此捕获最负数的溢出。
+	 *
+	 *
 	 */
 
 	for (; *s; s++)
 	{
 		/*
-		 * We look for digits as long as we have found less than the required
-		 * number of decimal places.
+		 * 找满所需的小数位数之前，我们会持续寻找数字。
+		 *
 		 */
 		if (isdigit((unsigned char) *s) && (!seen_dot || dec < fpoint))
 		{
@@ -295,22 +295,22 @@ cash_in(PG_FUNCTION_ARGS)
 			if (seen_dot)
 				dec++;
 		}
-		/* decimal point? then start counting fractions... */
+		/* 小数点？那就开始统计小数…… */
 		else if (*s == dsymbol && !seen_dot)
 		{
 			seen_dot = true;
 		}
-		/* ignore if "thousands" separator, else we're done */
+		/* 为"千位"分隔符则忽略，否则结束 */
 		else if (strncmp(s, ssymbol, strlen(ssymbol)) == 0)
 			s += strlen(ssymbol) - 1;
 		else
 			break;
 	}
 
-	/* round off if there's another digit */
+	/* 若还有数字则进行舍入 */
 	if (isdigit((unsigned char) *s) && *s >= '5')
 	{
-		/* remember we build the value in the negative */
+		/* 记住我们是以负数形式构建该值 */
 		if (pg_sub_s64_overflow(value, 1, &value))
 			ereturn(escontext, (Datum) 0,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -318,7 +318,7 @@ cash_in(PG_FUNCTION_ARGS)
 							str, "money")));
 	}
 
-	/* adjust for less than required decimal places */
+	/* 为不足所需的小数位数作调整 */
 	for (; dec < fpoint; dec++)
 	{
 		if (pg_mul_s64_overflow(value, 10, &value))
@@ -329,8 +329,8 @@ cash_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * should only be trailing digits followed by whitespace, right paren,
-	 * trailing sign, and/or trailing currency symbol
+	 * 其后应只有数字、空白、右括号、尾随符号以及
+	 * 尾随货币符号
 	 */
 	while (isdigit((unsigned char) *s))
 		s++;
@@ -356,8 +356,8 @@ cash_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If the value is supposed to be positive, flip the sign, but check for
-	 * the most negative number.
+	 * 如果该值本应为正数，则翻转符号，但要检查是
+	 * 否为最负数。
 	 */
 	if (sgn > 0)
 	{
@@ -380,8 +380,8 @@ cash_in(PG_FUNCTION_ARGS)
 
 
 /* cash_out()
- * Function to convert cash to a dollars and cents representation, using
- * the lc_monetary locale's formatting.
+ * 把 cash 转换为"元和分"表示形式的函数，采用
+ * lc_monetary 区域设置格式。
  */
 Datum
 cash_out(PG_FUNCTION_ARGS)
@@ -402,20 +402,20 @@ cash_out(PG_FUNCTION_ARGS)
 				sep_by_space;
 	struct lconv *lconvert = PGLC_localeconv();
 
-	/* see comments about frac_digits in cash_in() */
+	/* frac_digits 见 cash_in() 中的说明 */
 	points = lconvert->frac_digits;
 	if (points < 0 || points > 10)
-		points = 2;				/* best guess in this case, I think */
+		points = 2;				/* 此情况下算最佳猜测 */
 
 	/*
-	 * As with frac_digits, must apply a range check to mon_grouping to avoid
-	 * being fooled by variant CHAR_MAX values.
+	 * 与 frac_digits 一样，必须对 mon_grouping 施加范围检
+	 * 查，以免被 CHAR_MAX 值愚弄。
 	 */
 	mon_group = *lconvert->mon_grouping;
 	if (mon_group <= 0 || mon_group > 6)
 		mon_group = 3;
 
-	/* we restrict dsymbol to be a single byte, but not the other symbols */
+	/* dsymbol 被限定为单字节，其他符号则无此限制 */
 	if (*lconvert->mon_decimal_point != '\0' &&
 		lconvert->mon_decimal_point[1] == '\0')
 		dsymbol = *lconvert->mon_decimal_point;
@@ -423,15 +423,15 @@ cash_out(PG_FUNCTION_ARGS)
 		dsymbol = '.';
 	if (*lconvert->mon_thousands_sep != '\0')
 		ssymbol = lconvert->mon_thousands_sep;
-	else						/* ssymbol should not equal dsymbol */
+	else						/* ssymbol 不应等于 dsymbol */
 		ssymbol = (dsymbol != ',') ? "," : ".";
 	csymbol = (*lconvert->currency_symbol != '\0') ? lconvert->currency_symbol : "$";
 
 	if (value < 0)
 	{
-		/* make the amount positive for digit-reconstruction loop */
+		/* 把金额变为正数，供数字重构循环使用 */
 		value = -value;
-		/* set up formatting data */
+		/* 准备格式数据 */
 		signsymbol = (*lconvert->negative_sign != '\0') ? lconvert->negative_sign : "-";
 		sign_posn = lconvert->n_sign_posn;
 		cs_precedes = lconvert->n_cs_precedes;
@@ -445,27 +445,27 @@ cash_out(PG_FUNCTION_ARGS)
 		sep_by_space = lconvert->p_sep_by_space;
 	}
 
-	/* we build the digits+decimal-point+sep string right-to-left in buf[] */
+	/* 在 buf[] 里自右向左构建数字、小数点与分隔符串 */
 	bufptr = buf + sizeof(buf) - 1;
 	*bufptr = '\0';
 
 	/*
-	 * Generate digits till there are no non-zero digits left and we emitted
-	 * at least one to the left of the decimal point.  digit_pos is the
-	 * current digit position, with zero as the digit just left of the decimal
-	 * point, increasing to the right.
+	 * 持续生成数字，直到无非零数字剩余、且已在小数
+	 * 点左侧输出至少一位。
+	 * digit_pos 为当前数字位置，0 表示紧邻小数点左侧的那
+	 * 一位，向右递增。
 	 */
 	digit_pos = points;
 	do
 	{
 		if (points && digit_pos == 0)
 		{
-			/* insert decimal point, but not if value cannot be fractional */
+			/* 插入小数点，但值不可能有小数时除外 */
 			*(--bufptr) = dsymbol;
 		}
 		else if (digit_pos < 0 && (digit_pos % mon_group) == 0)
 		{
-			/* insert thousands sep, but only to left of radix point */
+			/* 插入千位分隔符，但仅限于小数点左侧 */
 			bufptr -= strlen(ssymbol);
 			memcpy(bufptr, ssymbol, strlen(ssymbol));
 		}
@@ -476,27 +476,27 @@ cash_out(PG_FUNCTION_ARGS)
 	} while (value || digit_pos >= 0);
 
 	/*----------
-	 * Now, attach currency symbol and sign symbol in the correct order.
+	 * 现在，按正确的顺序附加货币符号与正负符号。
 	 *
-	 * The POSIX spec defines these values controlling this code:
+	 * POSIX 规范定义了控制这段代码的下列值：
 	 *
 	 * p/n_sign_posn:
-	 *	0	Parentheses enclose the quantity and the currency_symbol.
-	 *	1	The sign string precedes the quantity and the currency_symbol.
-	 *	2	The sign string succeeds the quantity and the currency_symbol.
-	 *	3	The sign string precedes the currency_symbol.
-	 *	4	The sign string succeeds the currency_symbol.
+	 *	0	用圆括号把数额与 currency_symbol 括起来。
+	 *	1	正负号串位于数额与 currency_symbol 之前。
+	 *	2	正负号串排在数额与 currency_symbol 之后。
+	 *	3	正负号串位于 currency_symbol 之前。
+	 *	4	正负号串位于 currency_symbol 之后。
 	 *
-	 * p/n_cs_precedes: 0 means currency symbol after value, else before it.
+	 * p/n_cs_precedes: 0 表示货币符号在数值后，否则在前。
 	 *
 	 * p/n_sep_by_space:
-	 *	0	No <space> separates the currency symbol and value.
-	 *	1	If the currency symbol and sign string are adjacent, a <space>
-	 *		separates them from the value; otherwise, a <space> separates
-	 *		the currency symbol from the value.
-	 *	2	If the currency symbol and sign string are adjacent, a <space>
-	 *		separates them; otherwise, a <space> separates the sign string
-	 *		from the value.
+	 *	0	货币符号与数值之间没有 <space>。
+	 *	1	货币符号若与正负号串相邻，<space> 将其与
+	 *		数值隔开；否则 <space> 分隔货币符号与数值。
+	 *
+	 *	2	货币符号若紧邻正负号串，则 <space> 隔开
+	 *		二者；否则 <space> 隔开正负号串与数值。
+	 *
 	 *----------
 	 */
 	switch (sign_posn)
@@ -584,7 +584,7 @@ cash_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		cash_recv			- converts external binary format to cash
+ *		cash_recv		- 把外部二进制格式转换为 cash
  */
 Datum
 cash_recv(PG_FUNCTION_ARGS)
@@ -595,7 +595,7 @@ cash_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		cash_send			- converts cash to binary format
+ *		cash_send		- 把 cash 转为二进制格式
  */
 Datum
 cash_send(PG_FUNCTION_ARGS)
@@ -609,7 +609,7 @@ cash_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * Comparison functions
+ * 比较函数
  */
 
 Datum
@@ -682,7 +682,7 @@ cash_cmp(PG_FUNCTION_ARGS)
 
 
 /* cash_pl()
- * Add two cash values.
+ * cash 值相加。
  */
 Datum
 cash_pl(PG_FUNCTION_ARGS)
@@ -695,7 +695,7 @@ cash_pl(PG_FUNCTION_ARGS)
 
 
 /* cash_mi()
- * Subtract two cash values.
+ * cash 值相减。
  */
 Datum
 cash_mi(PG_FUNCTION_ARGS)
@@ -708,7 +708,7 @@ cash_mi(PG_FUNCTION_ARGS)
 
 
 /* cash_div_cash()
- * Divide cash by cash, returning float8.
+ * cash 除以 cash，返回 float8。
  */
 Datum
 cash_div_cash(PG_FUNCTION_ARGS)
@@ -728,7 +728,7 @@ cash_div_cash(PG_FUNCTION_ARGS)
 
 
 /* cash_mul_flt8()
- * Multiply cash by float8.
+ * cash 乘以 float8。
  */
 Datum
 cash_mul_flt8(PG_FUNCTION_ARGS)
@@ -741,7 +741,7 @@ cash_mul_flt8(PG_FUNCTION_ARGS)
 
 
 /* flt8_mul_cash()
- * Multiply float8 by cash.
+ * float8 乘以 cash。
  */
 Datum
 flt8_mul_cash(PG_FUNCTION_ARGS)
@@ -754,7 +754,7 @@ flt8_mul_cash(PG_FUNCTION_ARGS)
 
 
 /* cash_div_flt8()
- * Divide cash by float8.
+ * cash 除以 float8。
  */
 Datum
 cash_div_flt8(PG_FUNCTION_ARGS)
@@ -767,7 +767,7 @@ cash_div_flt8(PG_FUNCTION_ARGS)
 
 
 /* cash_mul_flt4()
- * Multiply cash by float4.
+ * cash 乘以 float4。
  */
 Datum
 cash_mul_flt4(PG_FUNCTION_ARGS)
@@ -780,7 +780,7 @@ cash_mul_flt4(PG_FUNCTION_ARGS)
 
 
 /* flt4_mul_cash()
- * Multiply float4 by cash.
+ * float4 乘以 cash。
  */
 Datum
 flt4_mul_cash(PG_FUNCTION_ARGS)
@@ -793,7 +793,7 @@ flt4_mul_cash(PG_FUNCTION_ARGS)
 
 
 /* cash_div_flt4()
- * Divide cash by float4.
+ * cash 除以 float4。
  *
  */
 Datum
@@ -807,7 +807,7 @@ cash_div_flt4(PG_FUNCTION_ARGS)
 
 
 /* cash_mul_int8()
- * Multiply cash by int8.
+ * cash 乘以 int8。
  */
 Datum
 cash_mul_int8(PG_FUNCTION_ARGS)
@@ -820,7 +820,7 @@ cash_mul_int8(PG_FUNCTION_ARGS)
 
 
 /* int8_mul_cash()
- * Multiply int8 by cash.
+ * int8 乘以 cash。
  */
 Datum
 int8_mul_cash(PG_FUNCTION_ARGS)
@@ -832,7 +832,7 @@ int8_mul_cash(PG_FUNCTION_ARGS)
 }
 
 /* cash_div_int8()
- * Divide cash by 8-byte integer.
+ * cash 除以 8 字节整数。
  */
 Datum
 cash_div_int8(PG_FUNCTION_ARGS)
@@ -845,7 +845,7 @@ cash_div_int8(PG_FUNCTION_ARGS)
 
 
 /* cash_mul_int4()
- * Multiply cash by int4.
+ * cash 乘以 int4。
  */
 Datum
 cash_mul_int4(PG_FUNCTION_ARGS)
@@ -858,7 +858,7 @@ cash_mul_int4(PG_FUNCTION_ARGS)
 
 
 /* int4_mul_cash()
- * Multiply int4 by cash.
+ * int4 乘以 cash。
  */
 Datum
 int4_mul_cash(PG_FUNCTION_ARGS)
@@ -871,7 +871,7 @@ int4_mul_cash(PG_FUNCTION_ARGS)
 
 
 /* cash_div_int4()
- * Divide cash by 4-byte integer.
+ * cash 除以 4 字节整数。
  *
  */
 Datum
@@ -885,7 +885,7 @@ cash_div_int4(PG_FUNCTION_ARGS)
 
 
 /* cash_mul_int2()
- * Multiply cash by int2.
+ * cash 乘以 int2。
  */
 Datum
 cash_mul_int2(PG_FUNCTION_ARGS)
@@ -897,7 +897,7 @@ cash_mul_int2(PG_FUNCTION_ARGS)
 }
 
 /* int2_mul_cash()
- * Multiply int2 by cash.
+ * int2 乘以 cash。
  */
 Datum
 int2_mul_cash(PG_FUNCTION_ARGS)
@@ -909,7 +909,7 @@ int2_mul_cash(PG_FUNCTION_ARGS)
 }
 
 /* cash_div_int2()
- * Divide cash by int2.
+ * cash 除以 int2。
  *
  */
 Datum
@@ -922,7 +922,7 @@ cash_div_int2(PG_FUNCTION_ARGS)
 }
 
 /* cashlarger()
- * Return larger of two cash values.
+ * 返回两 cash 值中较大者。
  */
 Datum
 cashlarger(PG_FUNCTION_ARGS)
@@ -937,7 +937,7 @@ cashlarger(PG_FUNCTION_ARGS)
 }
 
 /* cashsmaller()
- * Return smaller of two cash values.
+ * 返回两 cash 值中较小者。
  */
 Datum
 cashsmaller(PG_FUNCTION_ARGS)
@@ -952,8 +952,8 @@ cashsmaller(PG_FUNCTION_ARGS)
 }
 
 /* cash_words()
- * This converts an int4 as well but to a representation using words
- * Obviously way North American centric - sorry
+ * 这也会把 int4 转换为用单词表示的形式。
+ * 显然非常偏重北美习惯——抱歉
  */
 Datum
 cash_words(PG_FUNCTION_ARGS)
@@ -970,7 +970,7 @@ cash_words(PG_FUNCTION_ARGS)
 	Cash		m5;
 	Cash		m6;
 
-	/* work with positive numbers */
+	/* 处理正数 */
 	if (value < 0)
 	{
 		value = -value;
@@ -980,16 +980,16 @@ cash_words(PG_FUNCTION_ARGS)
 	else
 		buf[0] = '\0';
 
-	/* Now treat as unsigned, to avoid trouble at INT_MIN */
+	/* 按无符号处理，避免 INT_MIN 处出问题 */
 	val = (uint64) value;
 
-	m0 = val % INT64CONST(100); /* cents */
-	m1 = (val / INT64CONST(100)) % 1000;	/* hundreds */
-	m2 = (val / INT64CONST(100000)) % 1000; /* thousands */
-	m3 = (val / INT64CONST(100000000)) % 1000;	/* millions */
-	m4 = (val / INT64CONST(100000000000)) % 1000;	/* billions */
-	m5 = (val / INT64CONST(100000000000000)) % 1000;	/* trillions */
-	m6 = (val / INT64CONST(100000000000000000)) % 1000; /* quadrillions */
+	m0 = val % INT64CONST(100); /* 分 */
+	m1 = (val / INT64CONST(100)) % 1000;	/* 百位 */
+	m2 = (val / INT64CONST(100000)) % 1000; /* 千位 */
+	m3 = (val / INT64CONST(100000000)) % 1000;	/* 百万 */
+	m4 = (val / INT64CONST(100000000000)) % 1000;	/* 十亿 */
+	m5 = (val / INT64CONST(100000000000000)) % 1000;	/* 万亿 */
+	m6 = (val / INT64CONST(100000000000000000)) % 1000; /* 千万亿 */
 
 	if (m6)
 	{
@@ -1031,16 +1031,16 @@ cash_words(PG_FUNCTION_ARGS)
 	strcat(buf, num_word(m0));
 	strcat(buf, m0 == 1 ? " cent" : " cents");
 
-	/* capitalize output */
+	/* 首字母大写 */
 	buf[0] = pg_toupper((unsigned char) buf[0]);
 
-	/* return as text datum */
+	/* 返回 text datum */
 	PG_RETURN_TEXT_P(cstring_to_text(buf));
 }
 
 
 /* cash_numeric()
- * Convert cash to numeric.
+ * cash 转为 numeric。
  */
 Datum
 cash_numeric(PG_FUNCTION_ARGS)
@@ -1050,15 +1050,15 @@ cash_numeric(PG_FUNCTION_ARGS)
 	int			fpoint;
 	struct lconv *lconvert = PGLC_localeconv();
 
-	/* see comments about frac_digits in cash_in() */
+	/* frac_digits 见 cash_in() 中的说明 */
 	fpoint = lconvert->frac_digits;
 	if (fpoint < 0 || fpoint > 10)
 		fpoint = 2;
 
-	/* convert the integral money value to numeric */
+	/* 把整数的货币值转换为 numeric */
 	result = NumericGetDatum(int64_to_numeric(money));
 
-	/* scale appropriately, if needed */
+	/* 必要时进行适当的缩放 */
 	if (fpoint > 0)
 	{
 		int64		scale;
@@ -1066,27 +1066,27 @@ cash_numeric(PG_FUNCTION_ARGS)
 		Datum		numeric_scale;
 		Datum		quotient;
 
-		/* compute required scale factor */
+		/* 计算所需的缩放因子 */
 		scale = 1;
 		for (i = 0; i < fpoint; i++)
 			scale *= 10;
 		numeric_scale = NumericGetDatum(int64_to_numeric(scale));
 
 		/*
-		 * Given integral inputs approaching INT64_MAX, select_div_scale()
-		 * might choose a result scale of zero, causing loss of fractional
-		 * digits in the quotient.  We can ensure an exact result by setting
-		 * the dscale of either input to be at least as large as the desired
-		 * result scale.  numeric_round() will do that for us.
+		 * 当整数输入接近 INT64_MAX 时，select_div_scale() 可
+		 * 能选零刻度，使商丢小数位。要结果精确，
+		 * 可将任一输入的 dscale 设为不小于期望的结果刻
+		 * 度。numeric_round() 会替我们做好这件事。
+		 *
 		 */
 		numeric_scale = DirectFunctionCall2(numeric_round,
 											numeric_scale,
 											Int32GetDatum(fpoint));
 
-		/* Now we can safely divide ... */
+		/* 现在可安全相除... */
 		quotient = DirectFunctionCall2(numeric_div, result, numeric_scale);
 
-		/* ... and forcibly round to exactly the intended number of digits */
+		/* 然后强制舍入到精确的目标位数 */
 		result = DirectFunctionCall2(numeric_round,
 									 quotient,
 									 Int32GetDatum(fpoint));
@@ -1096,7 +1096,7 @@ cash_numeric(PG_FUNCTION_ARGS)
 }
 
 /* numeric_cash()
- * Convert numeric to cash.
+ * numeric 转为 cash。
  */
 Datum
 numeric_cash(PG_FUNCTION_ARGS)
@@ -1109,28 +1109,28 @@ numeric_cash(PG_FUNCTION_ARGS)
 	Datum		numeric_scale;
 	struct lconv *lconvert = PGLC_localeconv();
 
-	/* see comments about frac_digits in cash_in() */
+	/* frac_digits 见 cash_in() 中的说明 */
 	fpoint = lconvert->frac_digits;
 	if (fpoint < 0 || fpoint > 10)
 		fpoint = 2;
 
-	/* compute required scale factor */
+	/* 计算所需的缩放因子 */
 	scale = 1;
 	for (i = 0; i < fpoint; i++)
 		scale *= 10;
 
-	/* multiply the input amount by scale factor */
+	/* 把输入金额乘以缩放因子 */
 	numeric_scale = NumericGetDatum(int64_to_numeric(scale));
 	amount = DirectFunctionCall2(numeric_mul, amount, numeric_scale);
 
-	/* note that numeric_int8 will round to nearest integer for us */
+	/* 注意 numeric_int8 会为我们舍入到最接近的整数 */
 	result = DatumGetInt64(DirectFunctionCall1(numeric_int8, amount));
 
 	PG_RETURN_CASH(result);
 }
 
 /* int4_cash()
- * Convert int4 (int) to cash
+ * int4 (int) 转为 cash
  */
 Datum
 int4_cash(PG_FUNCTION_ARGS)
@@ -1142,17 +1142,17 @@ int4_cash(PG_FUNCTION_ARGS)
 	int			i;
 	struct lconv *lconvert = PGLC_localeconv();
 
-	/* see comments about frac_digits in cash_in() */
+	/* frac_digits 见 cash_in() 中的说明 */
 	fpoint = lconvert->frac_digits;
 	if (fpoint < 0 || fpoint > 10)
 		fpoint = 2;
 
-	/* compute required scale factor */
+	/* 计算所需的缩放因子 */
 	scale = 1;
 	for (i = 0; i < fpoint; i++)
 		scale *= 10;
 
-	/* compute amount * scale, checking for overflow */
+	/* 计算 amount * scale，并检查溢出 */
 	result = DatumGetInt64(DirectFunctionCall2(int8mul, Int64GetDatum(amount),
 											   Int64GetDatum(scale)));
 
@@ -1160,7 +1160,7 @@ int4_cash(PG_FUNCTION_ARGS)
 }
 
 /* int8_cash()
- * Convert int8 (bigint) to cash
+ * int8 (bigint) 转为 cash
  */
 Datum
 int8_cash(PG_FUNCTION_ARGS)
@@ -1172,17 +1172,17 @@ int8_cash(PG_FUNCTION_ARGS)
 	int			i;
 	struct lconv *lconvert = PGLC_localeconv();
 
-	/* see comments about frac_digits in cash_in() */
+	/* frac_digits 见 cash_in() 中的说明 */
 	fpoint = lconvert->frac_digits;
 	if (fpoint < 0 || fpoint > 10)
 		fpoint = 2;
 
-	/* compute required scale factor */
+	/* 计算所需的缩放因子 */
 	scale = 1;
 	for (i = 0; i < fpoint; i++)
 		scale *= 10;
 
-	/* compute amount * scale, checking for overflow */
+	/* 计算 amount * scale，并检查溢出 */
 	result = DatumGetInt64(DirectFunctionCall2(int8mul, Int64GetDatum(amount),
 											   Int64GetDatum(scale)));
 

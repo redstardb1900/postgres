@@ -1,0 +1,94 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0409",
+ "title": "adt 目录统计推断三文件整文件注释翻译 313块 (cash/array_selfuncs/rangetypes_selfuncs); 修复: 规划轮1 + 写后修复 (cash 行映射偏移校正+OVER/near-dup, array OVER+coverage 10 站+两接缝, range OVER+coverage 12 站+'。）'行首句点 2 站重排+行数守恒回归 checkout 复位整文件重放) + 审查轮 D1-D5 (D1 array L256/range L124 掉字「变」补回, D2 array L661 补「一」, D3 range L1032 跨行重字「常量」消除, D4 range L1049/L1164-L1050/L1165 「把」宾语「结果」归位, D5 句号台账行号清单补记入 files[].note; 顺带 cash L1086 补省略号; array L673 本已含「不同元素计数」术语无需改); 极性修复 1 站 (cash L196 '不同于…不一致' 双重否定消除); 门禁: verify_c_comments 0 violation rc=0 / term_lint 本批 3 文件 0 hits (rc=1 系 0369 postinit.c L1428 既有 TL01 error 非本批) / scan_halfen 本批 9 站 MIXED 全为标识符/公式/ASCII 图合法保留; W7 advisory 3 站 (range L239/L269 NULLs 复数形, L617 less 词形); 句号台账 FWD 48 + REV 52 站, 行号清单见 files[].note",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c51c3e3a839883a30ef92f64102b1f35e3a5bb4d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/cash.c",
+   "kind": "c_comment",
+   "note": "货币类型输入输出与算术 (cash 标识符保留, currency symbol→货币符号, locale→区域设置, thousands separator→千位分隔符, decimal point→小数点, frac_digits/dsymbol/ssymbol/currency_symbol 系标识符保留); whole-file comment translation, batch-0409"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_selfuncs.c",
+   "kind": "c_comment",
+   "note": "数组算子统计推断 (MCELEM/MCE/DECHIST/mcelem_array_selec 系标识符保留, most common elements→最常用元素, distinct element count→不同元素计数, histogram→直方图, selectivity→选择率, Poisson→泊松分布); whole-file comment translation, batch-0409"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_selfuncs.c",
+   "kind": "c_comment",
+   "note": "范围算子统计推断 (empty range→空范围, lower/upper bound→下界/上界, histogram bin→直方图箱, scalarineqsel/get_position/rbound_bsearch 系标识符保留); whole-file comment translation, batch-0409"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0409-adt-selfuncs-cash.json",
+   "kind": "manifest",
+   "note": "batch-0409 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0409 entries (3 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/cash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 97,
+   "translated": 96,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块保留 1: L88 num_word() 函数名标签块; 保留行 36 = 文件头 5 (文件名 L2/Written-by 作者行 L3-L5/路径 L16) + 数值行 L14 ($92,233,720,368,547,758.07., 句末句点由该行承担) + 函数名标签行 28 (L166 cash_in/L382 cash_out/L684 cash_pl/L697 cash_mi/L710 cash_div_cash/L730 cash_mul_flt8/L743 flt8_mul_cash/L756 cash_div_flt8/L769 cash_mul_flt4/L782 flt4_mul_cash/L795 cash_div_flt4/L809 cash_mul_int8/L822 int8_mul_cash/L834 cash_div_int8/L847 cash_mul_int4/L860 int4_mul_cash/L873 cash_div_int4/L887 cash_mul_int2/L899 int2_mul_cash/L911 cash_div_int2/L924 cashlarger/L939 cashsmaller/L954 cash_words/L1042 cash_numeric/L1098 numeric_cash/L1132 int4_cash/L1162 int8_cash) + POSIX 术语标签行 2 (L483 p/n_sign_posn/L492 p/n_sep_by_space)"
+   ],
+   "note": "货币类型 (标识符全保留, 货币符号/区域设置/千位分隔符/小数点口径); whole-file comment translation, batch-0409; dump 权威块数 97 注释感知重扫一致; content 行 178 = 译 135 + EN 残行填充 7 (L199/L274/L275/L282/L496/L499/L1080) + 保留 EN 36; 行数守恒 1190 不变 (git diff numstat 142/142); 句号台账 FWD 6/REV 9 自洽; 修复轮: 规划 1 + 写后 2 (行映射偏移校正, OVER/near-dup, L196 极性); 句号台账 FWD 6 [199,275,282,496,499,1080] 全为 A类 EN 残行桩行; REV 9 [192,194,273,281,454,495,498,955,1079] B类 zh 句内完结重排 (EN 句界同行/紧邻行)"
+  },
+  {
+   "path": "src/backend/utils/adt/array_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 103,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块保留 1: L1026 M[0,0] = 1 公式行块; 保留行 16 = 文件头 5 (文件名 L3/版权 L6-L7/IDENTIFICATION L10/路径 L11) + 函数名标签行 L68 scalararraysel_containment + 公式行 8 (L680/L681/L693/L694 概率公式, L837 复杂度公式, L1006-L1008 全概率递推) + 术语引导行 L683 (where:)"
+   ],
+   "note": "数组统计推断 (MCELEM/MCE/DECHIST 保留, 最常用元素/不同元素计数/直方图/选择率/泊松分布口径); whole-file comment translation, batch-0409; dump 权威块数 104 注释感知重扫一致; content 行 261 = 译 235 + EN 残行填充 10 (L374/L538/L733/L755/L773/L831/L851/L877/L1000/L1128) + 保留 EN 16; 行数守恒 1193 不变 (git diff numstat 245/245); 句号台账 FWD 12/REV 16 自洽; 修复轮: 规划 1 + 写后 2 (OVER 14 站, coverage 10 站补键, L670/L946 接缝重排); 句号台账 FWD 12 [374,538,653,720,733,755,773,831,877,996,1000,1003] = 桩行 8 [374,538,733,755,773,831,877,1000] + 译行 4 [653,720,996,1003]; REV 16 [373,510,536,537,652,664,732,740,754,772,829,830,876,999,1126,1127] B类 zh 句内完结重排"
+  },
+  {
+   "path": "src/backend/utils/adt/rangetypes_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 112,
+   "translated": 112,
+   "preserved": 0,
+   "preserved_reasons": [
+    "保留行 21 (无整块保留) = 文件头 5 (文件名 L3/版权 L9-L10/IDENTIFICATION L13/路径 L14) + 逻辑等价公式行 L526 (A && B <=> NOT (A << B OR A >> B).) + 积分公式与梯形 ASCII 图 15 (L880-L884, L891-L898, L910-L911)"
+   ],
+   "note": "范围统计推断 (空范围/下界/上界/直方图箱口径, scalarineqsel/get_position/rbound_bsearch/length_hist_bsearch 标识符保留); whole-file comment translation, batch-0409; dump 权威块数 112 注释感知重扫一致; content 行 281 = 译 223 + EN 残行填充 37 + 保留 EN 21; 行数守恒 1223 不变 (git diff numstat 260/260); 句号台账 FWD 30/REV 27 自洽; W7 advisory 3 站 (L239/L269 NULLs 复数形未保留, L617 less 词形未保留, 语义无损); 修复轮: 规划 1 + 写后 3 (OVER+coverage 12 站, '。）'行首句点 2 站重排, 行数守恒回归 1221→checkout 复位整文件重放); 句号台账 FWD 30 [7,174,216,273,333,343,370,412,469,530,534,697,732,734,749,769,1012,1015,1042,1050,1089,1097,1118,1136,1157,1165,1183,1186,1190,1203] = 桩行 26 [7,174,216,273,333,343,370,412,469,530,534,697,734,749,769,1012,1015,1042,1089,1097,1118,1136,1157,1186,1190,1203] + 译行 4 [732,1050,1165,1202]; REV 27 [6,173,215,272,332,342,369,411,467,529,533,696,733,748,767,768,1011,1014,1041,1088,1096,1117,1135,1156,1182,1189,1202] B类 zh 句内完结重排"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0409-adt-selfuncs-cash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0409 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0409 entries (3 adt .c + this manifest; pure append, 自条目严禁重复登记已核)"
+  }
+ ]
+}

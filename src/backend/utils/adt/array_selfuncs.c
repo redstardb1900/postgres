@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * array_selfuncs.c
- *	  Functions for selectivity estimation of array operators
+ *	  数组算子选择率估算函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,13 +27,13 @@
 #include "utils/typcache.h"
 
 
-/* Default selectivity constant for "@>" and "<@" operators */
+/* "@>" 与 "<@" 算子的默认选择率常数 */
 #define DEFAULT_CONTAIN_SEL 0.005
 
-/* Default selectivity constant for "&&" operator */
+/* "&&" 算子的默认选择率常数 */
 #define DEFAULT_OVERLAP_SEL 0.01
 
-/* Default selectivity for given operator */
+/* 指定算子的默认选择率 */
 #define DEFAULT_SEL(operator) \
 	((operator) == OID_ARRAY_OVERLAP_OP ? \
 		DEFAULT_OVERLAP_SEL : DEFAULT_CONTAIN_SEL)
@@ -66,17 +66,17 @@ static int	float_compare_desc(const void *key1, const void *key2);
 
 /*
  * scalararraysel_containment
- *		Estimate selectivity of ScalarArrayOpExpr via array containment.
+ *		经数组包含来估算 ScalarArrayOpExpr 的选择率。
  *
- * If we have const =/<> ANY/ALL (array_var) then we can estimate the
- * selectivity as though this were an array containment operator,
- * array_var op ARRAY[const].
+ * 若有 const =/<> ANY/ALL (array_var)，我们可以把选择
+ * 率估算为一次数组包含算子操作，即 array_var op
+ * ARRAY[const]。
  *
- * scalararraysel() has already verified that the ScalarArrayOpExpr's operator
- * is the array element type's default equality or inequality operator, and
- * has aggressively simplified both inputs to constants.
+ * scalararraysel() 已经验证过 ScalarArrayOpExpr 的算子
+ * 就是数组元素类型的默认相等或不相等算子，并且已
+ * 将两个输入都激进地简化为常量。
  *
- * Returns selectivity (0..1), or -1 if we fail to estimate selectivity.
+ * 返回选择率（0..1），若无法估算选择率则返回 -1。
  */
 Selectivity
 scalararraysel_containment(PlannerInfo *root,
@@ -91,7 +91,7 @@ scalararraysel_containment(PlannerInfo *root,
 	FmgrInfo   *cmpfunc;
 
 	/*
-	 * rightop must be a variable, else punt.
+	 * rightop 若非变量则弃。
 	 */
 	examine_variable(root, rightop, varRelid, &vardata);
 	if (!vardata.rel)
@@ -101,7 +101,7 @@ scalararraysel_containment(PlannerInfo *root,
 	}
 
 	/*
-	 * leftop must be a constant, else punt.
+	 * leftop 若非常量则弃。
 	 */
 	if (!IsA(leftop, Const))
 	{
@@ -110,13 +110,13 @@ scalararraysel_containment(PlannerInfo *root,
 	}
 	if (((Const *) leftop)->constisnull)
 	{
-		/* qual can't succeed if null on left */
+		/* 左侧为 NULL 则必不成立 */
 		ReleaseVariableStats(vardata);
 		return (Selectivity) 0.0;
 	}
 	constval = ((Const *) leftop)->constvalue;
 
-	/* Get element type's default comparison function */
+	/* 获取元素类型的默认比较函数 */
 	typentry = lookup_type_cache(elemtype, TYPECACHE_CMP_PROC_FINFO);
 	if (!OidIsValid(typentry->cmp_proc_finfo.fn_oid))
 	{
@@ -126,12 +126,12 @@ scalararraysel_containment(PlannerInfo *root,
 	cmpfunc = &typentry->cmp_proc_finfo;
 
 	/*
-	 * If the operator is <>, swap ANY/ALL, then invert the result later.
+	 * 若算子为 <>，则交换 ANY/ALL，稍后反转结果。
 	 */
 	if (!isEquality)
 		useOr = !useOr;
 
-	/* Get array element stats for var, if available */
+	/* 获取 var 的数组元素统计（若有） */
 	if (HeapTupleIsValid(vardata.statsTuple) &&
 		statistic_proc_security_check(&vardata, cmpfunc->fn_oid))
 	{
@@ -141,12 +141,12 @@ scalararraysel_containment(PlannerInfo *root,
 
 		stats = (Form_pg_statistic) GETSTRUCT(vardata.statsTuple);
 
-		/* MCELEM will be an array of same type as element */
+		/* MCELEM 将是与元素同类型的数组 */
 		if (get_attstatsslot(&sslot, vardata.statsTuple,
 							 STATISTIC_KIND_MCELEM, InvalidOid,
 							 ATTSTATSSLOT_VALUES | ATTSTATSSLOT_NUMBERS))
 		{
-			/* For ALL case, also get histogram of distinct-element counts */
+			/* 对 ALL 情形，还需获取不同元素计数的直方图 */
 			if (useOr ||
 				!get_attstatsslot(&hslot, vardata.statsTuple,
 								  STATISTIC_KIND_DECHIST, InvalidOid,
@@ -154,9 +154,9 @@ scalararraysel_containment(PlannerInfo *root,
 				memset(&hslot, 0, sizeof(hslot));
 
 			/*
-			 * For = ANY, estimate as var @> ARRAY[const].
+			 * = ANY 按 var @> ARRAY[const] 估算。
 			 *
-			 * For = ALL, estimate as var <@ ARRAY[const].
+			 * = ALL 按 var <@ ARRAY[const] 估算。
 			 */
 			if (useOr)
 				selec = mcelem_array_contain_overlap_selec(sslot.values,
@@ -182,7 +182,7 @@ scalararraysel_containment(PlannerInfo *root,
 		}
 		else
 		{
-			/* No most-common-elements info, so do without */
+			/* 无最常用元素信息，只能放弃 */
 			if (useOr)
 				selec = mcelem_array_contain_overlap_selec(NULL, 0,
 														   NULL, 0,
@@ -199,13 +199,13 @@ scalararraysel_containment(PlannerInfo *root,
 		}
 
 		/*
-		 * MCE stats count only non-null rows, so adjust for null rows.
+		 * MCE 统计只数非空行，所以要按空行调整。
 		 */
 		selec *= (1.0 - stats->stanullfrac);
 	}
 	else
 	{
-		/* No stats at all, so do without */
+		/* 全无统计，只好放弃 */
 		if (useOr)
 			selec = mcelem_array_contain_overlap_selec(NULL, 0,
 													   NULL, 0,
@@ -219,13 +219,13 @@ scalararraysel_containment(PlannerInfo *root,
 												 NULL, 0,
 												 OID_ARRAY_CONTAINED_OP,
 												 typentry);
-		/* we assume no nulls here, so no stanullfrac correction */
+		/* 这里假定无空值，不需 stanullfrac 校正 */
 	}
 
 	ReleaseVariableStats(vardata);
 
 	/*
-	 * If the operator is <>, invert the results.
+	 * 若算子为 <>，则反转结果。
 	 */
 	if (!isEquality)
 		selec = 1.0 - selec;
@@ -236,7 +236,7 @@ scalararraysel_containment(PlannerInfo *root,
 }
 
 /*
- * arraycontsel -- restriction selectivity for array @>, &&, <@ operators
+ * arraycontsel -- 数组 @>、&&、<@ 算子的限制选择率
  */
 Datum
 arraycontsel(PG_FUNCTION_ARGS)
@@ -252,15 +252,15 @@ arraycontsel(PG_FUNCTION_ARGS)
 	Oid			element_typeid;
 
 	/*
-	 * If expression is not (variable op something) or (something op
-	 * variable), then punt and return a default estimate.
+	 * 若表达式不是（变量 op 某物）或（某物 op
+	 * 变量），则放弃并返回默认估算值。
 	 */
 	if (!get_restriction_variable(root, args, varRelid,
 								  &vardata, &other, &varonleft))
 		PG_RETURN_FLOAT8(DEFAULT_SEL(operator));
 
 	/*
-	 * Can't do anything useful if the something is not a constant, either.
+	 * 若另一侧也不是常量，那就没什么有用的可做了。
 	 */
 	if (!IsA(other, Const))
 	{
@@ -269,8 +269,8 @@ arraycontsel(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The "&&", "@>" and "<@" operators are strict, so we can cope with a
-	 * NULL constant right away.
+	 * "&&"、"@>" 与 "<@" 算子都是严格算子，因此可以直接
+	 * 处理 NULL 常量。
 	 */
 	if (((Const *) other)->constisnull)
 	{
@@ -279,8 +279,8 @@ arraycontsel(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If var is on the right, commute the operator, so that we can assume the
-	 * var is on the left in what follows.
+	 * 若 var 在右侧，则交换算子，以便此后可假定 var 位
+	 * 于左侧。
 	 */
 	if (!varonleft)
 	{
@@ -291,10 +291,10 @@ arraycontsel(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * OK, there's a Var and a Const we're dealing with here.  We need the
-	 * Const to be an array with same element type as column, else we can't do
-	 * anything useful.  (Such cases will likely fail at runtime, but here
-	 * we'd rather just return a default estimate.)
+	 * 好了，这里要处理的是一个 Var 与一个 Const。我们
+	 * 需要 Const 是与列具有相同元素类型的数组，否则我们
+	 * 无能为力。（这类情况多半运行时会失败，但此处
+	 * 更愿意直接返回默认估算值。）
 	 */
 	element_typeid = get_base_element_type(((Const *) other)->consttype);
 	if (element_typeid != InvalidOid &&
@@ -316,23 +316,23 @@ arraycontsel(PG_FUNCTION_ARGS)
 }
 
 /*
- * arraycontjoinsel -- join selectivity for array @>, &&, <@ operators
+ * arraycontjoinsel -- 数组 @>、&&、<@ 算子的连接选择率
  */
 Datum
 arraycontjoinsel(PG_FUNCTION_ARGS)
 {
-	/* For the moment this is just a stub */
+	/* 目前这只是一个桩实现 */
 	Oid			operator = PG_GETARG_OID(1);
 
 	PG_RETURN_FLOAT8(DEFAULT_SEL(operator));
 }
 
 /*
- * Calculate selectivity for "arraycolumn @> const", "arraycolumn && const"
- * or "arraycolumn <@ const" based on the statistics
+ * 基于统计信息为 "arraycolumn @> const"、"arraycolumn && const"
+ * 或 "arraycolumn <@ const" 计算选择率
  *
- * This function is mainly responsible for extracting the pg_statistic data
- * to be used; we then pass the problem on to mcelem_array_selec().
+ * 该函数主要负责提取要用的 pg_statistic 数据；随后把
+ * 问题交给 mcelem_array_selec() 处理。
  */
 static Selectivity
 calc_arraycontsel(VariableStatData *vardata, Datum constval,
@@ -343,15 +343,15 @@ calc_arraycontsel(VariableStatData *vardata, Datum constval,
 	FmgrInfo   *cmpfunc;
 	ArrayType  *array;
 
-	/* Get element type's default comparison function */
+	/* 获取元素类型的默认比较函数 */
 	typentry = lookup_type_cache(elemtype, TYPECACHE_CMP_PROC_FINFO);
 	if (!OidIsValid(typentry->cmp_proc_finfo.fn_oid))
 		return DEFAULT_SEL(operator);
 	cmpfunc = &typentry->cmp_proc_finfo;
 
 	/*
-	 * The caller made sure the const is an array with same element type, so
-	 * get it now
+	 * 调用方已确认常量为同元素类型的数组，现在就来
+	 * 获取它
 	 */
 	array = DatumGetArrayTypeP(constval);
 
@@ -364,14 +364,14 @@ calc_arraycontsel(VariableStatData *vardata, Datum constval,
 
 		stats = (Form_pg_statistic) GETSTRUCT(vardata->statsTuple);
 
-		/* MCELEM will be an array of same type as column */
+		/* MCELEM 将是与列同类型的数组 */
 		if (get_attstatsslot(&sslot, vardata->statsTuple,
 							 STATISTIC_KIND_MCELEM, InvalidOid,
 							 ATTSTATSSLOT_VALUES | ATTSTATSSLOT_NUMBERS))
 		{
 			/*
-			 * For "array <@ const" case we also need histogram of distinct
-			 * element counts.
+			 * 对 "array <@ const" 还需不同元素计数直方图。
+			 *
 			 */
 			if (operator != OID_ARRAY_CONTAINED_OP ||
 				!get_attstatsslot(&hslot, vardata->statsTuple,
@@ -379,7 +379,7 @@ calc_arraycontsel(VariableStatData *vardata, Datum constval,
 								  ATTSTATSSLOT_NUMBERS))
 				memset(&hslot, 0, sizeof(hslot));
 
-			/* Use the most-common-elements slot for the array Var. */
+			/* 为数组 Var 使用最常用元素槽位。 */
 			selec = mcelem_array_selec(array, typentry,
 									   sslot.values, sslot.nvalues,
 									   sslot.numbers, sslot.nnumbers,
@@ -391,27 +391,27 @@ calc_arraycontsel(VariableStatData *vardata, Datum constval,
 		}
 		else
 		{
-			/* No most-common-elements info, so do without */
+			/* 无最常用元素信息，只能放弃 */
 			selec = mcelem_array_selec(array, typentry,
 									   NULL, 0, NULL, 0, NULL, 0,
 									   operator);
 		}
 
 		/*
-		 * MCE stats count only non-null rows, so adjust for null rows.
+		 * MCE 统计只数非空行，所以要按空行调整。
 		 */
 		selec *= (1.0 - stats->stanullfrac);
 	}
 	else
 	{
-		/* No stats at all, so do without */
+		/* 全无统计，只好放弃 */
 		selec = mcelem_array_selec(array, typentry,
 								   NULL, 0, NULL, 0, NULL, 0,
 								   operator);
-		/* we assume no nulls here, so no stanullfrac correction */
+		/* 这里假定无空值，不需 stanullfrac 校正 */
 	}
 
-	/* If constant was toasted, release the copy we made */
+	/* 若常量被 TOAST，释放我们的副本 */
 	if (PointerGetDatum(array) != constval)
 		pfree(array);
 
@@ -419,11 +419,11 @@ calc_arraycontsel(VariableStatData *vardata, Datum constval,
 }
 
 /*
- * Array selectivity estimation based on most common elements statistics
+ * 基于最常用元素统计的数组选择率估算
  *
- * This function just deconstructs and sorts the array constant's contents,
- * and then passes the problem on to mcelem_array_contain_overlap_selec or
- * mcelem_array_contained_selec depending on the operator.
+ * 该函数只是解构并排序数组常量的内容，然后把问题
+ * 按算子转交给 mcelem_array_contain_overlap_selec 或
+ * mcelem_array_contained_selec 处理。
  */
 static Selectivity
 mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
@@ -441,8 +441,8 @@ mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
 	int			i;
 
 	/*
-	 * Prepare constant array data for sorting.  Sorting lets us find unique
-	 * elements and efficiently merge with the MCELEM array.
+	 * 为常量数组数据做排序准备。排序能让我们找出唯
+	 * 一元素并与 MCELEM 数组高效合并。
 	 */
 	deconstruct_array(array,
 					  typentry->type_id,
@@ -451,7 +451,7 @@ mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
 					  typentry->typalign,
 					  &elem_values, &elem_nulls, &num_elems);
 
-	/* Collapse out any null elements */
+	/* 剔除所有空元素 */
 	nonnull_nitems = 0;
 	null_present = false;
 	for (i = 0; i < num_elems; i++)
@@ -463,8 +463,8 @@ mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
 	}
 
 	/*
-	 * Query "column @> '{anything, null}'" matches nothing.  For the other
-	 * two operators, presence of a null in the constant can be ignored.
+	 * 查询 "column @> '{anything, null}'" 匹配不到任何
+	 * 内容。其余两个算子则可忽略常量中的空值。
 	 */
 	if (null_present && operator == OID_ARRAY_CONTAINS_OP)
 	{
@@ -473,11 +473,11 @@ mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
 		return (Selectivity) 0.0;
 	}
 
-	/* Sort extracted elements using their default comparison function. */
+	/* 使用默认比较函数对提取出的元素排序。 */
 	qsort_arg(elem_values, nonnull_nitems, sizeof(Datum),
 			  element_compare, typentry);
 
-	/* Separate cases according to operator */
+	/* 按算子区分各种情形 */
 	if (operator == OID_ARRAY_CONTAINS_OP || operator == OID_ARRAY_OVERLAP_OP)
 		selec = mcelem_array_contain_overlap_selec(mcelem, nmcelem,
 												   numbers, nnumbers,
@@ -493,7 +493,7 @@ mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
 	{
 		elog(ERROR, "arraycontsel called for unrecognized operator %u",
 			 operator);
-		selec = 0.0;			/* keep compiler quiet */
+		selec = 0.0;			/* 让编译器安静 */
 	}
 
 	pfree(elem_values);
@@ -502,21 +502,21 @@ mcelem_array_selec(ArrayType *array, TypeCacheEntry *typentry,
 }
 
 /*
- * Estimate selectivity of "column @> const" and "column && const" based on
- * most common element statistics.  This estimation assumes element
- * occurrences are independent.
+ * 基于最常用元素统计来估算 "column @> const" 与
+ * "column && const" 的选择率。该估算假定元素的出现
+ * 相互独立。
  *
- * mcelem (of length nmcelem) and numbers (of length nnumbers) are from
- * the array column's MCELEM statistics slot, or are NULL/0 if stats are
- * not available.  array_data (of length nitems) is the constant's elements.
+ * mcelem（长度 nmcelem）与 numbers（长度 nnumbers）来
+ * 自数组列的 MCELEM 统计槽位；若无统计则为 NULL/0。
+ * array_data（长度 nitems）是常量的元素。
  *
- * Both the mcelem and array_data arrays are assumed presorted according
- * to the element type's cmpfunc.  Null elements are not present.
+ * mcelem 与 array_data 两个数组都假定已按元素类型的
+ * cmpfunc 预排序。其中不含空元素。
  *
- * TODO: this estimate probably could be improved by using the distinct
- * elements count histogram.  For example, excepting the special case of
- * "column @> '{}'", we can multiply the calculated selectivity by the
- * fraction of nonempty arrays in the column.
+ * TODO：这一估算大概可以通过使用不同元素计数的直
+ * 方图来改进。例如，除 "column @> '{}'" 这一特例之外，
+ * 我们可以把算得的选择率乘以
+ * 该列非空数组的占比。
  */
 static Selectivity
 mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
@@ -532,10 +532,10 @@ mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
 	float4		minfreq;
 
 	/*
-	 * There should be three more Numbers than Values, because the last three
-	 * cells should hold minimal and maximal frequency among the non-null
-	 * elements, and then the frequency of null elements.  Ignore the Numbers
-	 * if not right.
+	 * Numbers 应比 Values 多出三个，因为最后三个单元
+	 * 格应存非空元素最小/最大频率及空元素频率。
+	 * 数目不对就忽略 Numbers。
+	 *
 	 */
 	if (nnumbers != nmcelem + 3)
 	{
@@ -545,16 +545,16 @@ mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
 
 	if (numbers)
 	{
-		/* Grab the lowest observed frequency */
+		/* 取观测到的最小频率 */
 		minfreq = numbers[nmcelem];
 	}
 	else
 	{
-		/* Without statistics make some default assumptions */
+		/* 没有统计信息时作一些默认假设 */
 		minfreq = 2 * (float4) DEFAULT_CONTAIN_SEL;
 	}
 
-	/* Decide whether it is faster to use binary search or not. */
+	/* 决定使用二分查找是否更快。 */
 	if (nitems * floor_log2((uint32) nmcelem) < nmcelem + nitems)
 		use_bsearch = true;
 	else
@@ -563,32 +563,32 @@ mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
 	if (operator == OID_ARRAY_CONTAINS_OP)
 	{
 		/*
-		 * Initial selectivity for "column @> const" query is 1.0, and it will
-		 * be decreased with each element of constant array.
+		 * "column @> const" 查询的初始选择率为 1.0，之后会随
+		 * 常量数组的每个元素而减小。
 		 */
 		selec = 1.0;
 	}
 	else
 	{
 		/*
-		 * Initial selectivity for "column && const" query is 0.0, and it will
-		 * be increased with each element of constant array.
+		 * "column && const" 查询的初始选择率为 0.0，之后会随
+		 * 常量数组的每个元素而增大。
 		 */
 		selec = 0.0;
 	}
 
-	/* Scan mcelem and array in parallel. */
+	/* 并行扫描 mcelem 与数组。 */
 	mcelem_index = 0;
 	for (i = 0; i < nitems; i++)
 	{
 		bool		match = false;
 
-		/* Ignore any duplicates in the array data. */
+		/* 忽略数组数据中的重复项。 */
 		if (i > 0 &&
 			element_compare(&array_data[i - 1], &array_data[i], typentry) == 0)
 			continue;
 
-		/* Find the smallest MCELEM >= this array item. */
+		/* 找出 >= 此数组项的最小 MCELEM。 */
 		if (use_bsearch)
 		{
 			match = find_next_mcelem(mcelem, nmcelem, array_data[i],
@@ -607,7 +607,7 @@ mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
 				else
 				{
 					if (cmp == 0)
-						match = true;	/* mcelem is found */
+						match = true;	/* 找到 mcelem */
 					break;
 				}
 			}
@@ -615,29 +615,29 @@ mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
 
 		if (match && numbers)
 		{
-			/* MCELEM matches the array item; use its frequency. */
+			/* MCELEM 匹配该数组项；用其频率。 */
 			elem_selec = numbers[mcelem_index];
 			mcelem_index++;
 		}
 		else
 		{
 			/*
-			 * The element is not in MCELEM.  Punt, but assume that the
-			 * selectivity cannot be more than minfreq / 2.
+			 * 该元素不在 MCELEM 中则弃权，选择率至
+			 * 多为 minfreq / 2。
 			 */
 			elem_selec = Min(DEFAULT_CONTAIN_SEL, minfreq / 2);
 		}
 
 		/*
-		 * Update overall selectivity using the current element's selectivity
-		 * and an assumption of element occurrence independence.
+		 * 以当前元素的选择率、并按元素出现相互独立的假
+		 * 定来更新总选择率。
 		 */
 		if (operator == OID_ARRAY_CONTAINS_OP)
 			selec *= elem_selec;
 		else
 			selec = selec + elem_selec - selec * elem_selec;
 
-		/* Clamp intermediate results to stay sane despite roundoff error */
+		/* 钳制中间结果以防舍入误差致其失控 */
 		CLAMP_PROBABILITY(selec);
 	}
 
@@ -645,50 +645,50 @@ mcelem_array_contain_overlap_selec(Datum *mcelem, int nmcelem,
 }
 
 /*
- * Estimate selectivity of "column <@ const" based on most common element
- * statistics.
+ * 基于最常用元素统计估算 "column <@ const" 的选择
+ * 率。
  *
- * mcelem (of length nmcelem) and numbers (of length nnumbers) are from
- * the array column's MCELEM statistics slot, or are NULL/0 if stats are
- * not available.  array_data (of length nitems) is the constant's elements.
- * hist (of length nhist) is from the array column's DECHIST statistics slot,
- * or is NULL/0 if those stats are not available.
+ * mcelem（长度 nmcelem）与 numbers（长度 nnumbers）来
+ * 自数组列的 MCELEM 统计槽位；若无统计则为 NULL/0。
+ * array_data（长度 nitems）是常量的元素。hist（长度
+ * nhist）则来自数组列的 DECHIST 统计槽位；若那些统
+ * 计不可用则为 NULL/0。
  *
- * Both the mcelem and array_data arrays are assumed presorted according
- * to the element type's cmpfunc.  Null elements are not present.
+ * mcelem 与 array_data 两个数组都假定已按元素类型的
+ * cmpfunc 预排序。其中不含空元素。
  *
- * Independent element occurrence would imply a particular distribution of
- * distinct element counts among matching rows.  Real data usually falsifies
- * that assumption.  For example, in a set of 11-element integer arrays having
- * elements in the range [0..10], element occurrences are typically not
- * independent.  If they were, a sufficiently-large set would include all
- * distinct element counts 0 through 11.  We correct for this using the
- * histogram of distinct element counts.
+ * 元素独立出现意味着匹配行中不同元素计数会服从
+ * 一种特定分布。真实数据通常推翻这一假设。例如，在
+ * 由 11 元素整数数组构成的集合中，若元素取值范围为
+ * [0..10]，各元素的出现通常并不独立。果真如此，一
+ * 个足够大的集合就会包含 0 到 11 全部元素计数。
+ * 我们用
+ * 不同元素计数直方图校正。
  *
- * In the "column @> const" and "column && const" cases, we usually have a
- * "const" with low number of elements (otherwise we have selectivity close
- * to 0 or 1 respectively).  That's why the effect of dependence related
- * to distinct element count distribution is negligible there.  In the
- * "column <@ const" case, number of elements is usually high (otherwise we
- * have selectivity close to 0).  That's why we should do a correction with
- * the array distinct element count distribution here.
+ * 在 "column @> const" 与 "column && const" 情形下，常
+ * 量 "const" 的元素数通常很少（否则选择率会分别接
+ * 近 0 或 1），故不同元素计数分布相关的依赖效应在
+ * 那里可忽略。"column <@ const" 元素数
+ * 通常很多（否则选择率会接近 0）。因此这里应当用
+ * 数组的不同元素计数分布来做
+ * 校正。
  *
- * Using the histogram of distinct element counts produces a different
- * distribution law than independent occurrences of elements.  This
- * distribution law can be described as follows:
+ * 用不同元素计数直方图得到的分布规律，不同于元
+ * 素独立时的分布规律。该
+ * 分布规律可描述如下：
  *
  * P(o1, o2, ..., on) = f1^o1 * (1 - f1)^(1 - o1) * f2^o2 *
  *	  (1 - f2)^(1 - o2) * ... * fn^on * (1 - fn)^(1 - on) * hist[m] / ind[m]
  *
  * where:
- * o1, o2, ..., on - occurrences of elements 1, 2, ..., n
- *		(1 - occurrence, 0 - no occurrence) in row
- * f1, f2, ..., fn - frequencies of elements 1, 2, ..., n
- *		(scalar values in [0..1]) according to collected statistics
- * m = o1 + o2 + ... + on = total number of distinct elements in row
- * hist[m] - histogram data for occurrence of m elements.
- * ind[m] - probability of m occurrences from n events assuming their
- *	  probabilities to be equal to frequencies of array elements.
+ * o1, o2, ..., on - 第 1, 2, ..., n 个元素的出现
+ *		（行中出现为 1，未出现为 0）
+ * f1, f2, ..., fn - 第 1, 2, ..., n 个元素的频率
+ *		（按收集的统计为 [0..1] 内的标量值）
+ * m = o1 + o2 + ... + on = 行中不同元素总数
+ * hist[m] - 出现 m 个元素的直方图数据。
+ * ind[m] - 假定事件概率同元素频率时，n 事
+ *	  件中出现 m 次的概率。
  *
  * ind[m] = sum(f1^o1 * (1 - f1)^(1 - o1) * f2^o2 * (1 - f2)^(1 - o2) *
  * ... * fn^on * (1 - fn)^(1 - on), o1, o2, ..., on) | o1 + o2 + .. on = m
@@ -715,62 +715,62 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 	float	   *elem_selec;
 
 	/*
-	 * There should be three more Numbers than Values in the MCELEM slot,
-	 * because the last three cells should hold minimal and maximal frequency
-	 * among the non-null elements, and then the frequency of null elements.
-	 * Punt if not right, because we can't do much without the element freqs.
+	 * MCELEM 槽位中 Numbers 应比 Values 多三个，因为最后
+	 * 三个单元格应存放非空元素中的最小与最大频率，再
+	 * 存放空元素频率。若不对则只好放弃，因为没有元素
+	 * 频率就寸步难行。
 	 */
 	if (numbers == NULL || nnumbers != nmcelem + 3)
 		return DEFAULT_CONTAIN_SEL;
 
-	/* Can't do much without a count histogram, either */
+	/* 没有计数直方图同样寸步难行 */
 	if (hist == NULL || nhist < 3)
 		return DEFAULT_CONTAIN_SEL;
 
 	/*
-	 * Grab some of the summary statistics that compute_array_stats() stores:
-	 * lowest frequency, frequency of null elements, and average distinct
-	 * element count.
+	 * 提取 compute_array_stats() 存储的部分汇总统计：最
+	 * 小频率、空元素频率以及平均不同元素计数。
+	 *
 	 */
 	minfreq = numbers[nmcelem];
 	nullelem_freq = numbers[nmcelem + 2];
 	avg_count = hist[nhist - 1];
 
 	/*
-	 * "rest" will be the sum of the frequencies of all elements not
-	 * represented in MCELEM.  The average distinct element count is the sum
-	 * of the frequencies of *all* elements.  Begin with that; we will proceed
-	 * to subtract the MCELEM frequencies.
+	 * "rest" 为未出现在 MCELEM 中的元素频率之和。
+	 * 平均不同元素计数是*全部*元素的频率之和。先从
+	 * 它开始；随后再减去
+	 * MCELEM 的频率。
 	 */
 	rest = avg_count;
 
 	/*
-	 * mult is a multiplier representing estimate of probability that each
-	 * mcelem that is not present in constant doesn't occur.
+	 * mult 为一乘数，表示常量中没有的每个 mcelem 不出
+	 * 现的概率估计。
 	 */
 	mult = 1.0f;
 
 	/*
-	 * elem_selec is array of estimated frequencies for elements in the
-	 * constant.
+	 * elem_selec 是常量中各元素估计频率组成的数组。
+	 *
 	 */
 	elem_selec = (float *) palloc(sizeof(float) * nitems);
 
-	/* Scan mcelem and array in parallel. */
+	/* 并行扫描 mcelem 与数组。 */
 	mcelem_index = 0;
 	for (i = 0; i < nitems; i++)
 	{
 		bool		match = false;
 
-		/* Ignore any duplicates in the array data. */
+		/* 忽略数组数据中的重复项。 */
 		if (i > 0 &&
 			element_compare(&array_data[i - 1], &array_data[i], typentry) == 0)
 			continue;
 
 		/*
-		 * Iterate over MCELEM until we find an entry greater than or equal to
-		 * this element of the constant.  Update "rest" and "mult" for mcelem
-		 * entries skipped over.
+		 * 遍历 MCELEM，直到发现 >= 常量此元素的条目。对跳
+		 * 过的 mcelem 条目更新 "rest" 与 "mult"。
+		 *
 		 */
 		while (mcelem_index < nmcelem)
 		{
@@ -787,24 +787,24 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 			else
 			{
 				if (cmp == 0)
-					match = true;	/* mcelem is found */
+					match = true;	/* 找到 mcelem */
 				break;
 			}
 		}
 
 		if (match)
 		{
-			/* MCELEM matches the array item. */
+			/* MCELEM 与此项匹配。 */
 			elem_selec[unique_nitems] = numbers[mcelem_index];
-			/* "rest" is decremented for all mcelems, matched or not */
+			/* "rest" 依是否匹配为各 mcelem 递减 */
 			rest -= numbers[mcelem_index];
 			mcelem_index++;
 		}
 		else
 		{
 			/*
-			 * The element is not in MCELEM.  Punt, but assume that the
-			 * selectivity cannot be more than minfreq / 2.
+			 * 该元素不在 MCELEM 中则弃权，选择率至
+			 * 多为 minfreq / 2。
 			 */
 			elem_selec[unique_nitems] = Min(DEFAULT_CONTAIN_SEL,
 											minfreq / 2);
@@ -814,8 +814,8 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 	}
 
 	/*
-	 * If we handled all constant elements without exhausting the MCELEM
-	 * array, finish walking it to complete calculation of "rest" and "mult".
+	 * 若未耗尽 MCELEM 数组就处理完全部常量元素，则
+	 * 继续走完它，以完成 "rest" 与 "mult" 的计算。
 	 */
 	while (mcelem_index < nmcelem)
 	{
@@ -825,30 +825,30 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 	}
 
 	/*
-	 * The presence of many distinct rare elements materially decreases
-	 * selectivity.  Use the Poisson distribution to estimate the probability
-	 * of a column value having zero occurrences of such elements.  See above
-	 * for the definition of "rest".
+	 * 大量稀有元素会显著拉低选择率。用泊松分布
+	 * 估算列值中此类元素零出现的概率。
+	 * "rest" 的定义见上文。
+	 *
 	 */
 	mult *= exp(-rest);
 
 	/*----------
-	 * Using the distinct element count histogram requires
+	 * 使用不同元素计数直方图需要
 	 *		O(unique_nitems * (nmcelem + unique_nitems))
-	 * operations.  Beyond a certain computational cost threshold, it's
-	 * reasonable to sacrifice accuracy for decreased planning time.  We limit
-	 * the number of operations to EFFORT * nmcelem; since nmcelem is limited
-	 * by the column's statistics target, the work done is user-controllable.
+	 * 次运算。成本超阈值后，牺牲精度换时间是
+	 * 理的。我们把运算次数限制为 EFFORT * nmcelem；由于
+	 * nmcelem 受列的统计目标限制，所做的工作量可由用户
+	 * 控制。
 	 *
-	 * If the number of operations would be too large, we can reduce it
-	 * without losing all accuracy by reducing unique_nitems and considering
-	 * only the most-common elements of the constant array.  To make the
-	 * results exactly match what we would have gotten with only those
-	 * elements to start with, we'd have to remove any discarded elements'
-	 * frequencies from "mult", but since this is only an approximation
-	 * anyway, we don't bother with that.  Therefore it's sufficient to qsort
-	 * elem_selec[] and take the largest elements.  (They will no longer match
-	 * up with the elements of array_data[], but we don't care.)
+	 * 若运算次数会过大，可以在不损失全部精度的前
+	 * 提下缩小 unique_nitems，只考虑常量数组的最常用元
+	 * 素。要与起初仅用这些元素的结果一致，就
+	 * 必须从 "mult" 中除去被丢弃元素的频率。但这
+	 * 只是近似，所以我们不费这个事。因此对
+	 * elem_selec[] 做 qsort 取最大的一些元素即可。（
+	 * 它们将不再与 array_data[] 的元素对应，但我们并不
+	 * 在乎。）
+	 *
 	 *----------
 	 */
 #define EFFORT 100
@@ -857,38 +857,38 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 		unique_nitems > EFFORT * nmcelem / (nmcelem + unique_nitems))
 	{
 		/*
-		 * Use the quadratic formula to solve for largest allowable N.  We
-		 * have A = 1, B = nmcelem, C = - EFFORT * nmcelem.
+		 * 用二次公式解最大允许 N。A=1，B=nmcelem，C=
+		 *  - EFFORT * nmcelem。
 		 */
 		double		b = (double) nmcelem;
 		int			n;
 
 		n = (int) ((sqrt(b * b + 4 * EFFORT * b) - b) / 2);
 
-		/* Sort, then take just the first n elements */
+		/* 排序，然后只取前 n 个元素 */
 		qsort(elem_selec, unique_nitems, sizeof(float),
 			  float_compare_desc);
 		unique_nitems = n;
 	}
 
 	/*
-	 * Calculate probabilities of each distinct element count for both mcelems
-	 * and constant elements.  At this point, assume independent element
-	 * occurrence.
+	 * 为 mcelem 与常量元素分别计算各不同元素计数的概
+	 * 率。此处假定元素的出现相互独立。
+	 *
 	 */
 	dist = calc_distr(elem_selec, unique_nitems, unique_nitems, 0.0f);
 	mcelem_dist = calc_distr(numbers, nmcelem, unique_nitems, rest);
 
-	/* ignore hist[nhist-1], which is the average not a histogram member */
+	/* 忽略 hist[nhist-1]，它是平均值而非直方图成员 */
 	hist_part = calc_hist(hist, nhist - 1, unique_nitems);
 
 	selec = 0.0f;
 	for (i = 0; i <= unique_nitems; i++)
 	{
 		/*
-		 * mult * dist[i] / mcelem_dist[i] gives us probability of qual
-		 * matching from assumption of independent element occurrence with the
-		 * condition that distinct element count = i.
+		 * mult * dist[i] / mcelem_dist[i] 给出的是在元素出现
+		 * 相互独立的假设下、且不同元素计数为 i 时条件匹
+		 * 配的概率。
 		 */
 		if (mcelem_dist[i] > 0)
 			selec += hist_part[i] * mult * dist[i] / mcelem_dist[i];
@@ -899,7 +899,7 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 	pfree(hist_part);
 	pfree(elem_selec);
 
-	/* Take into account occurrence of NULL element. */
+	/* 把 NULL 元素的出现也计入。 */
 	selec *= (1.0f - nullelem_freq);
 
 	CLAMP_PROBABILITY(selec);
@@ -908,15 +908,15 @@ mcelem_array_contained_selec(Datum *mcelem, int nmcelem,
 }
 
 /*
- * Calculate the first n distinct element count probabilities from a
- * histogram of distinct element counts.
+ * 用不同元素计数直方图算出前
+ * n 个不同元素计数的概率。
  *
- * Returns a palloc'd array of n+1 entries, with array[k] being the
- * probability of element count k, k in [0..n].
+ * 返回 palloc 出的 n+1 项数组，array[k] 为元素计数
+ * 为 k 的概率，k 属于 [0..n]。
  *
- * We assume that a histogram box with bounds a and b gives 1 / ((b - a + 1) *
- * (nhist - 1)) probability to each value in (a,b) and an additional half of
- * that to a and b themselves.
+ * 我们假定边界为 a 和 b 的直方图箱给 (a,b) 内每个值
+ * 赋予 1 / ((b - a + 1) * (nhist - 1)) 的概率，并给 a 和
+ * b 本身额外一半。
  */
 static float *
 calc_hist(const float4 *hist, int nhist, int n)
@@ -931,9 +931,9 @@ calc_hist(const float4 *hist, int nhist, int n)
 	hist_part = (float *) palloc((n + 1) * sizeof(float));
 
 	/*
-	 * frac is a probability contribution for each interval between histogram
-	 * values.  We have nhist - 1 intervals, so contribution of each one will
-	 * be 1 / (nhist - 1).
+	 * frac 是直方图各值之间每个区间的概率贡献。我们共
+	 * 有 nhist - 1 个区间，因此每个区间的贡献为
+	 * 1 / (nhist - 1)。
 	 */
 	frac = 1.0f / ((float) (nhist - 1));
 
@@ -942,10 +942,10 @@ calc_hist(const float4 *hist, int nhist, int n)
 		int			count = 0;
 
 		/*
-		 * Count the histogram boundaries equal to k.  (Although the histogram
-		 * should theoretically contain only exact integers, entries are
-		 * floats so there could be roundoff error in large values.  Treat any
-		 * fractional value as equal to the next larger k.)
+		 * 数一数等于 k 的直方图边界。（虽然直方图理论应
+		 * 只含精确整数，条目是浮点，大值或有舍
+		 * 入误差。任何带小数的值都视为等于下一个更大
+		 * 的 k。）
 		 */
 		while (i < nhist && hist[i] <= k)
 		{
@@ -955,19 +955,19 @@ calc_hist(const float4 *hist, int nhist, int n)
 
 		if (count > 0)
 		{
-			/* k is an exact bound for at least one histogram box. */
+			/* k 为至少一个箱的精确边界。 */
 			float		val;
 
-			/* Find length between current histogram value and the next one */
+			/* 求当前直方图值与下一个之间的长度 */
 			if (i < nhist)
 				next_interval = hist[i] - hist[i - 1];
 			else
 				next_interval = 0;
 
 			/*
-			 * count - 1 histogram boxes contain k exclusively.  They
-			 * contribute a total of (count - 1) * frac probability.  Also
-			 * factor in the partial histogram boxes on either side.
+			 * count - 1 个箱恰含 k。它们共贡献
+			 *  (count - 1) * frac 的概率。两侧的部分箱
+			 * 也要计入在内。
 			 */
 			val = (float) (count - 1);
 			if (next_interval > 0)
@@ -980,7 +980,7 @@ calc_hist(const float4 *hist, int nhist, int n)
 		}
 		else
 		{
-			/* k does not appear as an exact histogram bound. */
+			/* k 不是任何直方图的精确边界。 */
 			if (prev_interval > 0)
 				hist_part[k] = frac / prev_interval;
 			else
@@ -992,17 +992,17 @@ calc_hist(const float4 *hist, int nhist, int n)
 }
 
 /*
- * Consider n independent events with probabilities p[].  This function
- * calculates probabilities of exact k of events occurrence for k in [0..m].
- * Returns a palloc'd array of size m+1.
+ * 设有 n 个独立事件，概率为 p[]。本函数计算事件恰
+ * 好发生 k 次的概率，k 属于 [0..m]。返回一个大小为
+ * m+1 的 palloc 数组。
  *
- * "rest" is the sum of the probabilities of all low-probability events not
- * included in p.
+ * "rest" 是所有未计入 p 的低概率事件的概率之和。
  *
- * Imagine matrix M of size (n + 1) x (m + 1).  Element M[i,j] denotes the
- * probability that exactly j of first i events occur.  Obviously M[0,0] = 1.
- * For any constant j, each increment of i increases the probability iff the
- * event occurs.  So, by the law of total probability:
+ *
+ * 设想一个大小为 (n + 1) x (m + 1) 的矩阵 M。元素
+ * M[i,j] 表示前 i 个事件中恰好发生 j 个的概率。显
+ * 然 M[0,0] = 1。对任意固定的 j，i 每增 1 概率上升
+ * 当且仅当事件发生。由全概率公式：
  *	M[i,j] = M[i - 1, j] * (1 - p[i]) + M[i - 1, j - 1] * p[i]
  *		for i > 0, j > 0.
  *	M[i,0] = M[i - 1, 0] * (1 - p[i]) for i > 0.
@@ -1017,8 +1017,8 @@ calc_distr(const float *p, int n, int m, float rest)
 				j;
 
 	/*
-	 * Since we return only the last row of the matrix and need only the
-	 * current and previous row for calculations, allocate two rows.
+	 * 因只返回最后一行，计算只需当前行与上一
+	 * 行，所以分配两行即可。
 	 */
 	row = (float *) palloc((m + 1) * sizeof(float));
 	prev_row = (float *) palloc((m + 1) * sizeof(float));
@@ -1029,12 +1029,12 @@ calc_distr(const float *p, int n, int m, float rest)
 	{
 		float		t = p[i - 1];
 
-		/* Swap rows */
+		/* 对调 */
 		tmp = row;
 		row = prev_row;
 		prev_row = tmp;
 
-		/* Calculate next row */
+		/* 计算下一行 */
 		for (j = 0; j <= i && j <= m; j++)
 		{
 			float		val = 0.0f;
@@ -1048,15 +1048,15 @@ calc_distr(const float *p, int n, int m, float rest)
 	}
 
 	/*
-	 * The presence of many distinct rare (not in "p") elements materially
-	 * decreases selectivity.  Model their collective occurrence with the
-	 * Poisson distribution.
+	 * 大量不在 "p" 中的稀有元素会显著降低选择率。用
+	 * 泊松分布来建模它们的集体出
+	 * 现。
 	 */
 	if (rest > DEFAULT_CONTAIN_SEL)
 	{
 		float		t;
 
-		/* Swap rows */
+		/* 对调 */
 		tmp = row;
 		row = prev_row;
 		prev_row = tmp;
@@ -1064,19 +1064,19 @@ calc_distr(const float *p, int n, int m, float rest)
 		for (i = 0; i <= m; i++)
 			row[i] = 0.0f;
 
-		/* Value of Poisson distribution for 0 occurrences */
+		/* 0 次出现的泊松分布值 */
 		t = exp(-rest);
 
 		/*
-		 * Calculate convolution of previously computed distribution and the
-		 * Poisson distribution.
+		 * 计算先前算得的分布与泊松
+		 * 分布的卷积。
 		 */
 		for (i = 0; i <= m; i++)
 		{
 			for (j = 0; j <= m - i; j++)
 				row[j + i] += prev_row[j] * t;
 
-			/* Get Poisson distribution value for (i + 1) occurrences */
+			/* 获取 (i + 1) 次出现的泊松分布值 */
 			t *= rest / (float) (i + 1);
 		}
 	}
@@ -1085,7 +1085,7 @@ calc_distr(const float *p, int n, int m, float rest)
 	return row;
 }
 
-/* Fast function for floor value of 2 based logarithm calculation. */
+/* 用于计算以 2 为底对数下取整的快速函数。 */
 static int
 floor_log2(uint32 n)
 {
@@ -1121,11 +1121,11 @@ floor_log2(uint32 n)
 }
 
 /*
- * find_next_mcelem binary-searches a most common elements array, starting
- * from *index, for the first member >= value.  It saves the position of the
- * match into *index and returns true if it's an exact match.  (Note: we
- * assume the mcelem elements are distinct so there can't be more than one
- * exact match.)
+ * find_next_mcelem 对最常用元素数组执行二分查找，
+ * 从 *index 开始寻找第一个 >= value 的成员。它会把
+ * 匹配位置存入 *index，若是精确匹配则返回 true。
+ * 注：假定 mcelem 元素互异，故不会有多个精确匹配。
+ *
  */
 static bool
 find_next_mcelem(Datum *mcelem, int nmcelem, Datum value, int *index,
@@ -1155,12 +1155,12 @@ find_next_mcelem(Datum *mcelem, int nmcelem, Datum value, int *index,
 }
 
 /*
- * Comparison function for elements.
+ * 元素比较函数。
  *
- * We use the element type's default btree opclass, and its default collation
- * if the type is collation-sensitive.
+ * 我们使用元素类型的默认 btree 操作符类；若类型区
+ * 分排序则用其默认排序。
  *
- * XXX consider using SortSupport infrastructure
+ * XXX：考虑使用 SortSupport 基础设施
  */
 static int
 element_compare(const void *key1, const void *key2, void *arg)
@@ -1176,7 +1176,7 @@ element_compare(const void *key1, const void *key2, void *arg)
 }
 
 /*
- * Comparison function for sorting floats into descending order.
+ * 将浮点数按降序排序的比较函数。
  */
 static int
 float_compare_desc(const void *key1, const void *key2)

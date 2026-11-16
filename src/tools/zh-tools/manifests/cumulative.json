@@ -7091,6 +7091,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0408-adt-small-final.json",
    "kind": "manifest",
    "note": "batch-0408 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/cash.c",
+   "kind": "c_comment",
+   "note": "货币类型输入输出与算术 (cash 标识符保留, 货币符号/区域设置/千位分隔符/小数点口径, frac_digits 系标识符保留); whole-file comment translation, batch-0409"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_selfuncs.c",
+   "kind": "c_comment",
+   "note": "数组算子统计推断 (MCELEM/MCE/DECHIST 保留, 最常用元素/不同元素计数/直方图/选择率/泊松分布口径); whole-file comment translation, batch-0409"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_selfuncs.c",
+   "kind": "c_comment",
+   "note": "范围算子统计推断 (空范围/下界/上界/直方图箱口径, scalarineqsel 系标识符保留); whole-file comment translation, batch-0409"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0409-adt-selfuncs-cash.json",
+   "kind": "manifest",
+   "note": "batch-0409 manifest"
   }
  ],
  "files": [
@@ -22981,6 +23001,52 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0408 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/cash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 97,
+   "translated": 96,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块保留 1: L88 num_word() 函数名标签块; 保留行 36 (头部 5 + 数值行 L14 + 函数名标签 28 + POSIX 术语标签 2, 详见 batch-0409 manifest)"
+   ],
+   "note": "货币类型 (标识符全保留, 货币符号/区域设置/千位分隔符/小数点口径); whole-file comment translation, batch-0409; 行数守恒 1190 (numstat 142)"
+  },
+  {
+   "path": "src/backend/utils/adt/array_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 103,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块保留 1: L1026 M[0,0] = 1 公式行块; 保留行 16 (头部 5 + 标签 L68 + 公式 8 + 引导 L683, 详见 batch-0409 manifest)"
+   ],
+   "note": "数组统计推断 (MCELEM/MCE/DECHIST 保留, 最常用元素/不同元素计数/直方图/选择率/泊松分布口径); whole-file comment translation, batch-0409; 行数守恒 1193 (numstat 245)"
+  },
+  {
+   "path": "src/backend/utils/adt/rangetypes_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 112,
+   "translated": 112,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 21 (头部 5 + 公式 L526 + ASCII 图/公式 15, 详见 batch-0409 manifest)"
+   ],
+   "note": "范围统计推断 (空范围/下界/上界/直方图箱口径, scalarineqsel 系标识符保留); whole-file comment translation, batch-0409; 行数守恒 1223 (numstat 260)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0409-adt-selfuncs-cash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0409 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

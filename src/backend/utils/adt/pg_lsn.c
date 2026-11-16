@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_lsn.c
- *	  Operations for the pg_lsn datatype.
+ *	  pg_lsn 数据类型的操作。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,7 +23,7 @@
 #define MAXPG_LSNCOMPONENT	8
 
 /*----------------------------------------------------------
- * Formatting and conversion routines.
+ * 格式化与转换例程。
  *---------------------------------------------------------*/
 
 XLogRecPtr
@@ -38,7 +38,7 @@ pg_lsn_in_internal(const char *str, bool *have_error)
 	Assert(have_error != NULL);
 	*have_error = false;
 
-	/* Sanity check input format. */
+	/* 校验输入格式。 */
 	len1 = strspn(str, "0123456789abcdefABCDEF");
 	if (len1 < 1 || len1 > MAXPG_LSNCOMPONENT || str[len1] != '/')
 	{
@@ -52,7 +52,7 @@ pg_lsn_in_internal(const char *str, bool *have_error)
 		return InvalidXLogRecPtr;
 	}
 
-	/* Decode result. */
+	/* 解码结果 */
 	id = (uint32) strtoul(str, NULL, 16);
 	off = (uint32) strtoul(str + len1 + 1, NULL, 16);
 	result = ((uint64) id << 32) | off;
@@ -112,7 +112,7 @@ pg_lsn_send(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Operators for PostgreSQL LSNs
+ *	PostgreSQL LSN 算子
  *---------------------------------------------------------*/
 
 Datum
@@ -187,7 +187,7 @@ pg_lsn_smaller(PG_FUNCTION_ARGS)
 	PG_RETURN_LSN((lsn1 < lsn2) ? lsn1 : lsn2);
 }
 
-/* btree index opclass support */
+/* btree 索引算子类支持 */
 Datum
 pg_lsn_cmp(PG_FUNCTION_ARGS)
 {
@@ -202,11 +202,11 @@ pg_lsn_cmp(PG_FUNCTION_ARGS)
 		PG_RETURN_INT32(-1);
 }
 
-/* hash index opclass support */
+/* hash 索引算子类支持 */
 Datum
 pg_lsn_hash(PG_FUNCTION_ARGS)
 {
-	/* We can use hashint8 directly */
+	/* 可直接使用 hashint8 */
 	return hashint8(fcinfo);
 }
 
@@ -218,7 +218,7 @@ pg_lsn_hash_extended(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Arithmetic operators on PostgreSQL LSNs.
+ *	PostgreSQL LSN 上的算术算子。
  *---------------------------------------------------------*/
 
 Datum
@@ -229,13 +229,13 @@ pg_lsn_mi(PG_FUNCTION_ARGS)
 	char		buf[256];
 	Datum		result;
 
-	/* Output could be as large as plus or minus 2^63 - 1. */
+	/* 输出可能大到正负 2^63 - 1。 */
 	if (lsn1 < lsn2)
 		snprintf(buf, sizeof buf, "-" UINT64_FORMAT, lsn2 - lsn1);
 	else
 		snprintf(buf, sizeof buf, UINT64_FORMAT, lsn1 - lsn2);
 
-	/* Convert to numeric. */
+	/* 转为 numeric。 */
 	result = DirectFunctionCall3(numeric_in,
 								 CStringGetDatum(buf),
 								 ObjectIdGetDatum(0),
@@ -245,8 +245,8 @@ pg_lsn_mi(PG_FUNCTION_ARGS)
 }
 
 /*
- * Add the number of bytes to pg_lsn, giving a new pg_lsn.
- * Must handle both positive and negative numbers of bytes.
+ * 把字节数加到 pg_lsn 上，得到新的 pg_lsn。
+ * 必须同时处理正负两种字节数。
  */
 Datum
 pg_lsn_pli(PG_FUNCTION_ARGS)
@@ -262,25 +262,25 @@ pg_lsn_pli(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot add NaN to pg_lsn")));
 
-	/* Convert to numeric */
+	/* 转为 numeric */
 	snprintf(buf, sizeof(buf), UINT64_FORMAT, lsn);
 	num = DirectFunctionCall3(numeric_in,
 							  CStringGetDatum(buf),
 							  ObjectIdGetDatum(0),
 							  Int32GetDatum(-1));
 
-	/* Add two numerics */
+	/* numeric 相加 */
 	res = DirectFunctionCall2(numeric_add,
 							  num,
 							  NumericGetDatum(nbytes));
 
-	/* Convert to pg_lsn */
+	/* 转为 pg_lsn */
 	return DirectFunctionCall1(numeric_pg_lsn, res);
 }
 
 /*
- * Subtract the number of bytes from pg_lsn, giving a new pg_lsn.
- * Must handle both positive and negative numbers of bytes.
+ * 从 pg_lsn 中减去字节数，得到新的 pg_lsn。
+ * 必须同时处理正负两种字节数。
  */
 Datum
 pg_lsn_mii(PG_FUNCTION_ARGS)
@@ -296,18 +296,18 @@ pg_lsn_mii(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot subtract NaN from pg_lsn")));
 
-	/* Convert to numeric */
+	/* 转为 numeric */
 	snprintf(buf, sizeof(buf), UINT64_FORMAT, lsn);
 	num = DirectFunctionCall3(numeric_in,
 							  CStringGetDatum(buf),
 							  ObjectIdGetDatum(0),
 							  Int32GetDatum(-1));
 
-	/* Subtract two numerics */
+	/* numeric 相减 */
 	res = DirectFunctionCall2(numeric_sub,
 							  num,
 							  NumericGetDatum(nbytes));
 
-	/* Convert to pg_lsn */
+	/* 转为 pg_lsn */
 	return DirectFunctionCall1(numeric_pg_lsn, res);
 }

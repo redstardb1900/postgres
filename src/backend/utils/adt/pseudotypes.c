@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * pseudotypes.c
- *	  Functions for the system pseudo-types.
+ *	  系统伪类型的函数。
  *
- * A pseudo-type isn't really a type and never has any operations, but
- * we do need to supply input and output functions to satisfy the links
- * in the pseudo-type's entry in pg_type.  In most cases the functions
- * just throw an error if invoked.  (XXX the error messages here cover
- * the most common case, but might be confusing in some contexts.  Can
- * we do better?)
+ * 伪类型并不是真正的类型，也没有任何操作，但
+ * 我们确实需要提供输入与输出函数，以满足
+ * pg_type 中伪类型条目内的链接。多数情况下，这些
+ * 函数被调用时只是抛出错误。（XXX 这些错误消息
+ * 覆盖最常见情形，但在某些上下文可能令人
+ * 困惑。）
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -30,9 +30,9 @@
 
 
 /*
- * These macros generate input and output functions for a pseudo-type that
- * will reject all input and output attempts.  (But for some types, only
- * the input function need be dummy.)
+ * 这些宏为一个伪类型生成拒绝一切输入与输出
+ * 尝试的输入与输出函数。（但对某些类型，仅
+ * 输入函数须为哑。）
  */
 #define PSEUDOTYPE_DUMMY_INPUT_FUNC(typname) \
 Datum \
@@ -63,10 +63,10 @@ typname##_out(PG_FUNCTION_ARGS) \
 extern int no_such_variable
 
 /*
- * Likewise for binary send/receive functions.  We don't bother with these
- * at all for many pseudotypes, but some have them.  (By convention, if
- * a type has a send function it should have a receive function, even if
- * that's only dummy.)
+ * 二进制 send/receive 函数同理。许多伪类型我们
+ * 根本不为其提供这些函数，但有些有。（按惯例，
+ * 若类型有 send 函数就应有 receive 函数，即便那
+ * 只是占位。）
  */
 #define PSEUDOTYPE_DUMMY_RECEIVE_FUNC(typname) \
 Datum \
@@ -100,10 +100,10 @@ extern int no_such_variable
 /*
  * cstring
  *
- * cstring is marked as a pseudo-type because we don't want people using it
- * in tables.  But it's really a perfectly functional type, so provide
- * a full set of working I/O functions for it.  Among other things, this
- * allows manual invocation of datatype I/O functions, along the lines of
+ * cstring 被标记为伪类型，是因为我们不想让人在
+ * 表中使用它。但它其实是一个功能完备的类型，
+ * 所以为它提供一整套可用的 I/O 函数。除此之外，
+ * 这允许手工调用数据类型 I/O 函数，例如
  * "SELECT foo_in('blah')" or "SELECT foo_out(some-foo-value)".
  */
 Datum
@@ -147,12 +147,12 @@ cstring_send(PG_FUNCTION_ARGS)
 /*
  * anyarray
  *
- * We need to allow output of anyarray so that, e.g., pg_statistic columns
- * can be printed.  Input has to be disallowed, however.
+ * 我们需要允许 anyarray 的输出，例如 pg_statistic
+ * 列能够被打印。但输入必须被禁止。
  *
- * XXX anyarray_recv could actually be made to work, since the incoming
- * array data would contain the element type OID.  It seems unlikely that
- * it'd be sufficiently type-safe, though.
+ * XXX anyarray_recv 其实可以做成可用，因为传入的
+ * 数组数据会包含元素类型 OID。但它似乎不太可能
+ * 足够类型安全。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anyarray);
 PSEUDOTYPE_DUMMY_RECEIVE_FUNC(anyarray);
@@ -172,7 +172,7 @@ anyarray_send(PG_FUNCTION_ARGS)
 /*
  * anycompatiblearray
  *
- * We may as well allow output, since we do for anyarray.
+ * 对 anyarray 已允许输出，这里不妨照做。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anycompatiblearray);
 PSEUDOTYPE_DUMMY_RECEIVE_FUNC(anycompatiblearray);
@@ -192,7 +192,7 @@ anycompatiblearray_send(PG_FUNCTION_ARGS)
 /*
  * anyenum
  *
- * We may as well allow output, since enum_out will in fact work.
+ * 不妨允许输出，因为 enum_out 实际能用。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anyenum);
 
@@ -205,7 +205,7 @@ anyenum_out(PG_FUNCTION_ARGS)
 /*
  * anyrange
  *
- * We may as well allow output, since range_out will in fact work.
+ * 不妨允许输出，因为 range_out 实际能用。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anyrange);
 
@@ -218,7 +218,7 @@ anyrange_out(PG_FUNCTION_ARGS)
 /*
  * anycompatiblerange
  *
- * We may as well allow output, since range_out will in fact work.
+ * 不妨允许输出，因为 range_out 实际能用。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anycompatiblerange);
 
@@ -231,7 +231,7 @@ anycompatiblerange_out(PG_FUNCTION_ARGS)
 /*
  * anymultirange
  *
- * We may as well allow output, since multirange_out will in fact work.
+ * 不妨允许输出，因为 multirange_out 实际能用。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anymultirange);
 
@@ -244,7 +244,7 @@ anymultirange_out(PG_FUNCTION_ARGS)
 /*
  * anycompatiblemultirange
  *
- * We may as well allow output, since multirange_out will in fact work.
+ * 不妨允许输出，因为 multirange_out 实际能用。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(anycompatiblemultirange);
 
@@ -257,15 +257,15 @@ anycompatiblemultirange_out(PG_FUNCTION_ARGS)
 /*
  * void
  *
- * We support void_in so that PL functions can return VOID without any
- * special hack in the PL handler.  Whatever value the PL thinks it's
- * returning will just be ignored.  Conversely, void_out and void_send
- * are needed so that "SELECT function_returning_void(...)" works.
+ * 我们支持 void_in，让 PL 函数无需 PL 处理器中的
+ * 特殊处理就能返回 VOID。PL 认为自己返回的值
+ * 都只会被忽略。反过来，void_out 与 void_send 是
+ * 必需的，以让 "SELECT function_returning_void(...)" 工作
  */
 Datum
 void_in(PG_FUNCTION_ARGS)
 {
-	PG_RETURN_VOID();			/* you were expecting something different? */
+	PG_RETURN_VOID();			/* 没料到吧？ */
 }
 
 Datum
@@ -278,8 +278,8 @@ Datum
 void_recv(PG_FUNCTION_ARGS)
 {
 	/*
-	 * Note that since we consume no bytes, an attempt to send anything but an
-	 * empty string will result in an "invalid message format" error.
+	 * 注意：由于我们不消耗任何字节，试图发送空串
+	 * 以外的东西将导致"invalid message format"错误。
 	 */
 	PG_RETURN_VOID();
 }
@@ -289,7 +289,7 @@ void_send(PG_FUNCTION_ARGS)
 {
 	StringInfoData buf;
 
-	/* send an empty string */
+	/* 发送空串。 */
 	pq_begintypsend(&buf);
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
@@ -297,10 +297,10 @@ void_send(PG_FUNCTION_ARGS)
 /*
  * shell
  *
- * shell_in and shell_out are entered in pg_type for "shell" types
- * (those not yet filled in).  They should be unreachable, but we
- * set them up just in case some code path tries to do I/O without
- * having checked pg_type.typisdefined anywhere along the way.
+ * 对于"shell"类型（尚未填充的类型），pg_type 中
+ * 会登记 shell_in 与 shell_out。它们本应不可达，
+ * 还是设置了它们，以防某些代码路径没有检查
+ * 沿途任何位置的 pg_type.typisdefined 就做 I/O。
  */
 Datum
 shell_in(PG_FUNCTION_ARGS)
@@ -309,7 +309,7 @@ shell_in(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of a shell type")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 使编译器安静 */
 }
 
 Datum
@@ -319,20 +319,20 @@ shell_out(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot display a value of a shell type")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 使编译器安静 */
 }
 
 
 /*
  * pg_node_tree
  *
- * pg_node_tree isn't really a pseudotype --- it's real enough to be a table
- * column --- but it presently has no operations of its own, and disallows
- * input too, so its I/O functions seem to fit here as much as anywhere.
+ * pg_node_tree 并非真正的伪类型 --- 它已真实到可以
+ * 作为表列存在 --- 但它目前没有自己的操作，也不
+ * 允许输入，其 I/O 函数放哪里都行，放这里亦可。
  *
- * We must disallow input of pg_node_tree values because the SQL functions
- * that operate on the type are not secure against malformed input.
- * We do want to allow output, though.
+ * 我们必须禁止 pg_node_tree 值的输入，因为操作该
+ * 类型的 SQL 函数对畸形输入并无防护。
+ * 不过输出是要允许的。
  */
 PSEUDOTYPE_DUMMY_INPUT_FUNC(pg_node_tree);
 PSEUDOTYPE_DUMMY_RECEIVE_FUNC(pg_node_tree);
@@ -352,18 +352,18 @@ pg_node_tree_send(PG_FUNCTION_ARGS)
 /*
  * pg_ddl_command
  *
- * Like pg_node_tree, pg_ddl_command isn't really a pseudotype; it's here
- * for the same reasons as that one.
+ * 与 pg_node_tree 一样，pg_ddl_command 并非真正的伪
+ * 类型；理由与前者相同。
  *
- * We don't have any good way to output this type directly, so punt
- * for output as well as input.
+ * 我们没有任何直接输出该类型的好办法，所以
+ * 输入输出均不处理。
  */
 PSEUDOTYPE_DUMMY_IO_FUNCS(pg_ddl_command);
 PSEUDOTYPE_DUMMY_BINARY_IO_FUNCS(pg_ddl_command);
 
 
 /*
- * Dummy I/O functions for various other pseudotypes.
+ * 其他多种伪类型的占位 I/O 函数。
  */
 PSEUDOTYPE_DUMMY_IO_FUNCS(any);
 PSEUDOTYPE_DUMMY_IO_FUNCS(trigger);

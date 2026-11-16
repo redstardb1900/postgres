@@ -6826,6 +6826,56 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0400-adt-small.json",
    "kind": "manifest",
    "note": "batch-0400 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/inet_cidr_ntop.c",
+   "kind": "c_comment",
+   "note": "CIDR-format inet/cidr network presentation (ISC/BIND heritage); whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pg_lsn.c",
+   "kind": "c_comment",
+   "note": "pg_lsn datatype I/O, operators and arithmetic; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonb_op.c",
+   "kind": "c_comment",
+   "note": "jsonb GIN/B-tree opclass operator support; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/name.c",
+   "kind": "c_comment",
+   "note": "built-in name type I/O and comparison; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsginidx.c",
+   "kind": "c_comment",
+   "note": "GIN support functions for tsvector_ops; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_op.c",
+   "kind": "c_comment",
+   "note": "tsquery operators, sign and containment; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/like_match.c",
+   "kind": "c_comment",
+   "note": "LIKE pattern matching internal engine; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/xid.c",
+   "kind": "c_comment",
+   "note": "xid/cid transaction identifier datatypes; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pseudotypes.c",
+   "kind": "c_comment",
+   "note": "pseudo-type dummy I/O functions; whole-file comment translation (batch-0401, adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0401-adt-small2.json",
+   "kind": "manifest",
+   "note": "batch-0401 manifest"
   }
  ],
  "files": [
@@ -22164,6 +22214,106 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0400 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/inet_cidr_ntop.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": ["头部块仅版权行+路径行, 整块保留 EN"],
+   "note": "whole-file comment translation (batch-0401, adt small files); IP 网络表示转换 (CIDR); keep=头部 16 + 原型行 6 + note: 标签 2 + 作者行 4; 头部块整块保留"
+  },
+  {
+   "path": "src/backend/utils/adt/pg_lsn.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0401, adt small files); pg_lsn 数据类型运算; keep=头部 5 行"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonb_op.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0401, adt small files); JSONB 索引算子支持; keep=头部 4 行"
+  },
+  {
+   "path": "src/backend/utils/adt/name.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 25,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0401, adt small files); name 名称类型; keep=头部 5 + L43 Note: 标签 + L329 表达式行"
+  },
+  {
+   "path": "src/backend/utils/adt/tsginidx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 22,
+   "preserved": 6,
+   "preserved_reasons": ["L101/L105/L220/L223/L269/L272 注释掉的代码行单行块逐字保留"],
+   "note": "whole-file comment translation (batch-0401, adt small files); 文本检索 GIN 索引支持; keep=头部 4 + 注释掉的代码行 6 单行块; L122 星后空格舍弃披露"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_op.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 3,
+   "preserved": 1,
+   "preserved_reasons": ["L239 宏定义内注释+行尾续行符承载语法, 逐字保留"],
+   "note": "whole-file comment translation (batch-0401, adt small files); 文本检索查询运算; keep=头部 5 + L239 宏内续行注释"
+  },
+  {
+   "path": "src/backend/utils/adt/like_match.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 27,
+   "preserved": 2,
+   "preserved_reasons": ["L240/L341 函数尾标记行 (标识符) 保留"],
+   "note": "whole-file comment translation (batch-0401, adt small files); LIKE 匹配; keep=头部 4 + L14 宏名行 + 署名行 4 + 标记行 2; XXX 块末问句预算裁剪披露"
+  },
+  {
+   "path": "src/backend/utils/adt/xid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 15,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0401, adt small files); 事务标识符 (wraparound=回绕); keep=头部 5 + 函数名标题行 2"
+  },
+  {
+   "path": "src/backend/utils/adt/pseudotypes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 21,
+   "preserved": 4,
+   "preserved_reasons": ["L45/L60/L79/L94 宏定义内 /* keep compiler quiet */ 行尾续行符承载语法, 逐字保留"],
+   "note": "whole-file comment translation (batch-0401, adt small files); 伪类型; keep=头部 5 + 类型名行 12 + 表达式行 1 + 宏内续行注释 4 块; XXX 块末问句预算裁剪披露"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0401-adt-small2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0401 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

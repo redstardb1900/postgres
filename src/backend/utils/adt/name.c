@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * name.c
- *	  Functions for the built-in type "name".
+ *	  内置类型 "name" 的函数。
  *
- * name replaces char16 and is carefully implemented so that it
- * is a string of physical length NAMEDATALEN.
- * DO NOT use hard-coded constants anywhere
- * always use NAMEDATALEN as the symbolic constant!   - jolly 8/21/95
+ * name 取代了 char16，其实现经过精心设计，
+ * 它是物理长度 NAMEDATALEN 的串。
+ * 任何地方都别用硬编码常量
+ * 一律使用 NAMEDATALEN 作为符号常量!   - jolly 8/21/95
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -33,16 +33,16 @@
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES (none)												 *
+ *	 用户 I/O 例程 (无)						 *
  *****************************************************************************/
 
 
 /*
- *		namein	- converts cstring to internal representation
+ *		namein	- 将 cstring 转为内部表示
  *
  *		Note:
- *				[Old] Currently if strlen(s) < NAMEDATALEN, the extra chars are nulls
- *				Now, always NULL terminated
+ *				[旧] 若 strlen(s) < NAMEDATALEN，多余字符均为空字符
+ *				现在总是以 NULL 结尾
  */
 Datum
 namein(PG_FUNCTION_ARGS)
@@ -53,11 +53,11 @@ namein(PG_FUNCTION_ARGS)
 
 	len = strlen(s);
 
-	/* Truncate oversize input */
+	/* 截断超长输入 */
 	if (len >= NAMEDATALEN)
 		len = pg_mbcliplen(s, len, NAMEDATALEN - 1);
 
-	/* We use palloc0 here to ensure result is zero-padded */
+	/* 此处用 palloc0 以确保结果被零填充 */
 	result = (Name) palloc0(NAMEDATALEN);
 	memcpy(NameStr(*result), s, len);
 
@@ -65,7 +65,7 @@ namein(PG_FUNCTION_ARGS)
 }
 
 /*
- *		nameout - converts internal representation to cstring
+ *		nameout - 将内部表示转为 cstring
  */
 Datum
 nameout(PG_FUNCTION_ARGS)
@@ -76,7 +76,7 @@ nameout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		namerecv			- converts external binary format to name
+ *		namerecv			- 将外部二进制格式转为 name
  */
 Datum
 namerecv(PG_FUNCTION_ARGS)
@@ -100,7 +100,7 @@ namerecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		namesend			- converts name to binary format
+ *		namesend		- 将 name 转为二进制格式
  */
 Datum
 namesend(PG_FUNCTION_ARGS)
@@ -115,30 +115,30 @@ namesend(PG_FUNCTION_ARGS)
 
 
 /*****************************************************************************
- *	 COMPARISON/SORTING ROUTINES											 *
+ *	 比较/排序例程						 *
  *****************************************************************************/
 
 /*
- *		nameeq	- returns 1 iff arguments are equal
- *		namene	- returns 1 iff arguments are not equal
- *		namelt	- returns 1 iff a < b
- *		namele	- returns 1 iff a <= b
- *		namegt	- returns 1 iff a > b
- *		namege	- returns 1 iff a >= b
+ *		nameeq	- 相等时返回1
+ *		namene	- 不等时返回1
+ *		namelt	- a<b 返回1
+ *		namele	- a<=b 返回1
+ *		namegt	- a>b 返回1
+ *		namege	- a>=b 返回1
  *
- * Note that the use of strncmp with NAMEDATALEN limit is mostly historical;
- * strcmp would do as well, because we do not allow NAME values that don't
- * have a '\0' terminator.  Whatever might be past the terminator is not
- * considered relevant to comparisons.
+ * 注意：以 NAMEDATALEN 为上限使用 strncmp 主要是历史原因；
+ * 用 strcmp 也一样可行，因为我们不允许 NAME 值
+ * 没有 '\0' 终止符。终止符之后的任何内容都
+ * 与比较无关。
  */
 static int
 namecmp(Name arg1, Name arg2, Oid collid)
 {
-	/* Fast path for common case used in system catalogs */
+	/* 系统目录常用场景的快速路径 */
 	if (collid == C_COLLATION_OID)
 		return strncmp(NameStr(*arg1), NameStr(*arg2), NAMEDATALEN);
 
-	/* Else rely on the varstr infrastructure */
+	/* 否则依赖 varstr 基础设施 */
 	return varstr_cmp(NameStr(*arg1), strlen(NameStr(*arg1)),
 					  NameStr(*arg2), strlen(NameStr(*arg2)),
 					  collid);
@@ -216,7 +216,7 @@ btnamesortsupport(PG_FUNCTION_ARGS)
 
 	oldcontext = MemoryContextSwitchTo(ssup->ssup_cxt);
 
-	/* Use generic string SortSupport */
+	/* 用通用字符串 SortSupport */
 	varstr_sortsupport(ssup, NAMEOID, collid);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -226,22 +226,22 @@ btnamesortsupport(PG_FUNCTION_ARGS)
 
 
 /*****************************************************************************
- *	 MISCELLANEOUS PUBLIC ROUTINES											 *
+ *	 其他公共例程						 *
  *****************************************************************************/
 
 void
 namestrcpy(Name name, const char *str)
 {
-	/* NB: We need to zero-pad the destination. */
+	/* 注意：需要将目标零填充。 */
 	strncpy(NameStr(*name), str, NAMEDATALEN);
 	NameStr(*name)[NAMEDATALEN - 1] = '\0';
 }
 
 /*
- * Compare a NAME to a C string
+ * 比较 NAME 与 C 串
  *
- * Assumes C collation always; be careful when using this for
- * anything but equality checks!
+ * 总是假定 C 排序规则；若将其用于
+ * 非相等检查须小心！
  */
 int
 namestrcmp(Name name, const char *str)
@@ -249,15 +249,15 @@ namestrcmp(Name name, const char *str)
 	if (!name && !str)
 		return 0;
 	if (!name)
-		return -1;				/* NULL < anything */
+		return -1;				/* NULL<一切 */
 	if (!str)
-		return 1;				/* NULL < anything */
+		return 1;				/* NULL<一切 */
 	return strncmp(NameStr(*name), str, NAMEDATALEN);
 }
 
 
 /*
- * SQL-functions CURRENT_USER, SESSION_USER
+ * SQL 函数 CURRENT_USER、SESSION_USER
  */
 Datum
 current_user(PG_FUNCTION_ARGS)
@@ -273,7 +273,7 @@ session_user(PG_FUNCTION_ARGS)
 
 
 /*
- * SQL-functions CURRENT_SCHEMA, CURRENT_SCHEMAS
+ * SQL 函数 CURRENT_SCHEMA、CURRENT_SCHEMAS
  */
 Datum
 current_schema(PG_FUNCTION_ARGS)
@@ -286,7 +286,7 @@ current_schema(PG_FUNCTION_ARGS)
 	nspname = get_namespace_name(linitial_oid(search_path));
 	list_free(search_path);
 	if (!nspname)
-		PG_RETURN_NULL();		/* recently-deleted namespace? */
+		PG_RETURN_NULL();		/* 刚删除的命名空间？ */
 	PG_RETURN_DATUM(DirectFunctionCall1(namein, CStringGetDatum(nspname)));
 }
 
@@ -306,7 +306,7 @@ current_schemas(PG_FUNCTION_ARGS)
 		char	   *nspname;
 
 		nspname = get_namespace_name(lfirst_oid(l));
-		if (nspname)			/* watch out for deleted namespace */
+		if (nspname)			/* 警惕已删除的命名空间 */
 		{
 			names[i] = DirectFunctionCall1(namein, CStringGetDatum(nspname));
 			i++;
@@ -320,14 +320,14 @@ current_schemas(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL-function nameconcatoid(name, oid) returns name
+ * SQL 函数 nameconcatoid(name, oid) 返回 name
  *
- * This is used in the information_schema to produce specific_name columns,
- * which are supposed to be unique per schema.  We achieve that (in an ugly
- * way) by appending the object's OID.  The result is the same as
+ * 此函数用于 information_schema，生成 specific_name 列，
+ * 这些列在每个模式内应唯一。我们的实现手段（有点
+ * 丑陋）是追加对象的 OID。结果等同于
  *		($1::text || '_' || $2::text)::name
- * except that, if it would not fit in NAMEDATALEN, we make it do so by
- * truncating the name input (not the oid).
+ * 区别在于：若放不进 NAMEDATALEN，就通过截断
+ * name 输入（而非 oid）来达成。
  */
 Datum
 nameconcatoid(PG_FUNCTION_ARGS)
@@ -342,11 +342,11 @@ nameconcatoid(PG_FUNCTION_ARGS)
 	suflen = snprintf(suffix, sizeof(suffix), "_%u", oid);
 	namlen = strlen(NameStr(*nam));
 
-	/* Truncate oversize input by truncating name part, not suffix */
+	/* 截断超长输入：截 name 部分，不截后缀 */
 	if (namlen + suflen >= NAMEDATALEN)
 		namlen = pg_mbcliplen(NameStr(*nam), namlen, NAMEDATALEN - 1 - suflen);
 
-	/* We use palloc0 here to ensure result is zero-padded */
+	/* 此处用 palloc0 以确保结果被零填充 */
 	result = (Name) palloc0(NAMEDATALEN);
 	memcpy(NameStr(*result), NameStr(*nam), namlen);
 	memcpy(NameStr(*result) + namlen, suffix, suflen);

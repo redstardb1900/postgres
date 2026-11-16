@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsquery_op.c
- *	  Various operations with tsquery
+ *	  tsquery 的各类运算
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -314,11 +314,11 @@ tsq_mcontains(PG_FUNCTION_ARGS)
 	int			ex_nvalues;
 	bool		result = true;
 
-	/* Extract the query terms into arrays */
+	/* 把查询词项提取到数组中 */
 	query_values = collectTSQueryValues(query, &query_nvalues);
 	ex_values = collectTSQueryValues(ex, &ex_nvalues);
 
-	/* Sort and remove duplicates from both arrays */
+	/* 对两个数组排序并去重 */
 	qsort(query_values, query_nvalues, sizeof(char *), cmp_string);
 	query_nvalues = qunique(query_values, query_nvalues, sizeof(char *),
 							cmp_string);

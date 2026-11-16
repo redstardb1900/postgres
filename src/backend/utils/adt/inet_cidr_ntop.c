@@ -45,11 +45,11 @@ static char *inet_cidr_ntop_ipv6(const u_char *src, int bits,
 /*
  * char *
  * pg_inet_cidr_ntop(af, src, bits, dst, size)
- *	convert network number from network to presentation format.
- *	generates CIDR style result always.
- * return:
- *	pointer to dst, or NULL if an error occurred (check errno).
- * author:
+ *	将网络号由网络格式转换为呈现格式。
+ *	总生成 CIDR 风格结果。
+ * 返回:
+ *	指向 dst 的指针，出错时为 NULL (检查 errno)。
+ * 作者:
  *	Paul Vixie (ISC), July 1996
  */
 char *
@@ -71,14 +71,14 @@ pg_inet_cidr_ntop(int af, const void *src, int bits, char *dst, size_t size)
 /*
  * static char *
  * inet_cidr_ntop_ipv4(src, bits, dst, size)
- *	convert IPv4 network number from network to presentation format.
- *	generates CIDR style result always.
- * return:
- *	pointer to dst, or NULL if an error occurred (check errno).
+ *	将 IPv4 网络号由网络格式转换为呈现格式。
+ *	总生成 CIDR 风格结果。
+ * 返回:
+ *	指向 dst 的指针，出错时为 NULL (检查 errno)。
  * note:
- *	network byte order assumed.  this means 192.5.5.240/28 has
- *	0b11110000 in its fourth octet.
- * author:
+ *	假定网络字节序，即 192.5.5.240/28 的
+ *	第四字节为 0b11110000。
+ * 作者:
  *	Paul Vixie (ISC), July 1996
  */
 static char *
@@ -104,7 +104,7 @@ inet_cidr_ntop_ipv4(const u_char *src, int bits, char *dst, size_t size)
 		*dst = '\0';
 	}
 
-	/* Format whole octets. */
+	/* 输出整八位组 */
 	for (b = bits / 8; b > 0; b--)
 	{
 		if (size <= sizeof "255.")
@@ -119,7 +119,7 @@ inet_cidr_ntop_ipv4(const u_char *src, int bits, char *dst, size_t size)
 		size -= (size_t) (dst - t);
 	}
 
-	/* Format partial octet. */
+	/* 输出部分八位组 */
 	b = bits % 8;
 	if (b > 0)
 	{
@@ -133,7 +133,7 @@ inet_cidr_ntop_ipv4(const u_char *src, int bits, char *dst, size_t size)
 		size -= (size_t) (dst - t);
 	}
 
-	/* Format CIDR /width. */
+	/* 输出 CIDR 宽度 */
 	if (size <= sizeof "/32")
 		goto emsgsize;
 	dst += SPRINTF((dst, "/%u", bits));
@@ -147,16 +147,16 @@ emsgsize:
 /*
  * static char *
  * inet_cidr_ntop_ipv6(src, bits, dst, size)
- *	convert IPv6 network number from network to presentation format.
- *	generates CIDR style result always. Picks the shortest representation
- *	unless the IP is really IPv4.
- *	always prints specified number of bits (bits).
- * return:
- *	pointer to dst, or NULL if an error occurred (check errno).
+ *	将 IPv6 网络号由网络格式转换为呈现格式。
+ *	总生成 CIDR 风格结果，选取最短表示，
+ *	除非 IP 实为 IPv4。
+ *	总是输出指定位数 (bits)。
+ * 返回:
+ *	指向 dst 的指针，出错时为 NULL (检查 errno)。
  * note:
- *	network byte order assumed.  this means 192.5.5.240/28 has
- *	0x11110000 in its fourth octet.
- * author:
+ *	假定网络字节序，即 192.5.5.240/28 的
+ *	第四字节为 0x11110000。
+ * 作者:
  *	Vadim Kogan (UCB), June 2001
  *	Original version (IPv4) by Paul Vixie (ISC), July 1996
  */
@@ -195,7 +195,7 @@ inet_cidr_ntop_ipv6(const u_char *src, int bits, char *dst, size_t size)
 	}
 	else
 	{
-		/* Copy src to private buffer.  Zero host part. */
+		/* 复制入私有缓冲，主机部清零。 */
 		p = (bits + 7) / 8;
 		memcpy(inbuf, src, p);
 		memset(inbuf + p, 0, 16 - p);
@@ -208,12 +208,12 @@ inet_cidr_ntop_ipv6(const u_char *src, int bits, char *dst, size_t size)
 
 		s = inbuf;
 
-		/* how many words need to be displayed in output */
+		/* 计算输出中需显示的组数。 */
 		words = (bits + 15) / 16;
 		if (words == 1)
 			words = 2;
 
-		/* Find the longest substring of zero's */
+		/* 查找最长的零子串。 */
 		zero_s = zero_l = tmp_zero_s = tmp_zero_l = 0;
 		for (i = 0; i < (words * 2); i += 2)
 		{
@@ -245,12 +245,12 @@ inet_cidr_ntop_ipv6(const u_char *src, int bits, char *dst, size_t size)
 												((zero_l == 7 && s[14] != 0 && s[15] != 1)))))
 			is_ipv4 = 1;
 
-		/* Format whole words. */
+		/* 输出完整组。 */
 		for (p = 0; p < words; p++)
 		{
 			if (zero_l != 0 && p >= zero_s && p < zero_s + zero_l)
 			{
-				/* Time to skip some zeros */
+				/* 跳过零串。 */
 				if (p == zero_s)
 					*cp++ = ':';
 				if (p == words - 1)
@@ -264,7 +264,7 @@ inet_cidr_ntop_ipv6(const u_char *src, int bits, char *dst, size_t size)
 			{
 				*cp++ = (p == 6) ? ':' : '.';
 				cp += SPRINTF((cp, "%u", *s++));
-				/* we can potentially drop the last octet */
+				/* 或许可省略最后一个八位组 */
 				if (p != 7 || bits > 120)
 				{
 					*cp++ = '.';
@@ -280,7 +280,7 @@ inet_cidr_ntop_ipv6(const u_char *src, int bits, char *dst, size_t size)
 			}
 		}
 	}
-	/* Format CIDR /width. */
+	/* 输出 CIDR 宽度 */
 	(void) SPRINTF((cp, "/%u", bits));
 	if (strlen(outbuf) + 1 > size)
 		goto emsgsize;

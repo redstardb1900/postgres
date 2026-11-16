@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsginidx.c
- *	 GIN support functions for tsvector_ops
+ *	 tsvector_ops 的 GIN 支持函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -55,7 +55,7 @@ gin_cmp_prefix(PG_FUNCTION_ARGS)
 						  true);
 
 	if (cmp < 0)
-		cmp = 1;				/* prevent continue scan */
+		cmp = 1;				/* 阻止继续扫描 */
 
 	PG_FREE_IF_COPY(a, 0);
 	PG_FREE_IF_COPY(b, 1);
@@ -117,16 +117,16 @@ gin_extract_tsquery(PG_FUNCTION_ARGS)
 		int		   *map_item_operand;
 
 		/*
-		 * If the query doesn't have any required positive matches (for
-		 * instance, it's something like '! foo'), we have to do a full index
-		 * scan.
+		 * 若查询没有任何必需的正向匹配
+		 * （例如 '! foo'），就必须做整个索引
+		 *扫描
 		 */
 		if (tsquery_requires_match(item))
 			*searchMode = GIN_SEARCH_MODE_DEFAULT;
 		else
 			*searchMode = GIN_SEARCH_MODE_ALL;
 
-		/* count number of VAL items */
+		/* 统计 VAL 项的个数 */
 		j = 0;
 		for (i = 0; i < query->size; i++)
 		{
@@ -139,14 +139,14 @@ gin_extract_tsquery(PG_FUNCTION_ARGS)
 		partialmatch = *ptr_partialmatch = (bool *) palloc(sizeof(bool) * j);
 
 		/*
-		 * Make map to convert item's number to corresponding operand's (the
-		 * same, entry's) number. Entry's number is used in check array in
-		 * consistent method. We use the same map for each entry.
+		 * 建立映射，把项编号转换为对应操作数（即
+		 * 条目）的编号。条目编号用于 consistent
+		 * 方法中的检查数组，各条目同一映射。
 		 */
 		*extra_data = (Pointer *) palloc(sizeof(Pointer) * j);
 		map_item_operand = (int *) palloc0(sizeof(int) * query->size);
 
-		/* Now rescan the VAL items and fill in the arrays */
+		/* 现在重新扫描各 VAL 项并填数组 */
 		j = 0;
 		for (i = 0; i < query->size; i++)
 		{
@@ -179,7 +179,7 @@ typedef struct
 } GinChkVal;
 
 /*
- * TS_execute callback for matching a tsquery operand to GIN index data
+ * TS_execute 回调：将 tsquery 操作数匹配到 GIN 索引数据
  */
 static TSTernaryValue
 checkcondition_gin(void *checkval, QueryOperand *val, ExecPhraseData *data)
@@ -188,15 +188,15 @@ checkcondition_gin(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	int			j;
 	GinTernaryValue result;
 
-	/* convert item's number to corresponding entry's (operand's) number */
+	/* 把项编号转换为对应条目（操作数）的编号 */
 	j = gcv->map_item_operand[((QueryItem *) val) - gcv->first_item];
 
-	/* determine presence of current entry in indexed value */
+	/* 判断当前条目是否存在于被索引值中 */
 	result = gcv->check[j];
 
 	/*
-	 * If any val requiring a weight is used or caller needs position
-	 * information then we must recheck, so replace TRUE with MAYBE.
+	 * 若用到任何需要权重的值，或调用者需要位置
+	 * 信息，就必须重查，故将 TRUE 换成 MAYBE。
 	 */
 	if (result == GIN_TRUE)
 	{
@@ -205,9 +205,9 @@ checkcondition_gin(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	}
 
 	/*
-	 * We rely on GinTernaryValue and TSTernaryValue using equivalent value
-	 * assignments.  We could use a switch statement to map the values if that
-	 * ever stops being true, but it seems unlikely to happen.
+	 * 我们依赖 GinTernaryValue 与 TSTernaryValue 采用
+	 * 等价的取值方式。若这一点改变，可以用 switch 语句
+	 * 来映射这些值，但看起来不太可能发生。
 	 */
 	return (TSTernaryValue) result;
 }
@@ -225,7 +225,7 @@ gin_tsquery_consistent(PG_FUNCTION_ARGS)
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(5);
 	bool		res = false;
 
-	/* Initially assume query doesn't require recheck */
+	/* 初始假定查询无需重查 */
 	*recheck = false;
 
 	if (query->size > 0)
@@ -233,8 +233,8 @@ gin_tsquery_consistent(PG_FUNCTION_ARGS)
 		GinChkVal	gcv;
 
 		/*
-		 * check-parameter array has one entry for each value (operand) in the
-		 * query.
+		 * check 参数数组对查询中每个值（操作数）都有对应
+		 * 项。
 		 */
 		gcv.first_item = GETQUERY(query);
 		gcv.check = (GinTernaryValue *) check;
@@ -278,8 +278,8 @@ gin_tsquery_triconsistent(PG_FUNCTION_ARGS)
 		GinChkVal	gcv;
 
 		/*
-		 * check-parameter array has one entry for each value (operand) in the
-		 * query.
+		 * check 参数数组对查询中每个值（操作数）都有对应
+		 * 项。
 		 */
 		gcv.first_item = GETQUERY(query);
 		gcv.check = check;
@@ -295,48 +295,48 @@ gin_tsquery_triconsistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * Formerly, gin_extract_tsvector had only two arguments.  Now it has three,
- * but we still need a pg_proc entry with two args to support reloading
- * pre-9.1 contrib/tsearch2 opclass declarations.  This compatibility
- * function should go away eventually.  (Note: you might say "hey, but the
- * code above is only *using* two args, so let's just declare it that way".
- * If you try that you'll find the opr_sanity regression test complains.)
+ * 从前 gin_extract_tsvector 只有两个参数，现在有三个，
+ * 但仍需要一个双参数的 pg_proc 条目，以支持重载
+ * 9.1 之前 contrib/tsearch2 的算子类声明。这个兼容
+ * 函数终究应被移除。（注：你可能会说"嘿，但上面
+ * 的代码只是在使用两个参数，直接那样声明好了"。
+ * 如果你那样尝试，会发现 opr_sanity 回归测试报警。）
  */
 Datum
 gin_extract_tsvector_2args(PG_FUNCTION_ARGS)
 {
-	if (PG_NARGS() < 3)			/* should not happen */
+	if (PG_NARGS() < 3)			/* 不应发生 */
 		elog(ERROR, "gin_extract_tsvector requires three arguments");
 	return gin_extract_tsvector(fcinfo);
 }
 
 /*
- * Likewise, we need a stub version of gin_extract_tsquery declared with
- * only five arguments.
+ * 同样，我们需要一个 gin_extract_tsquery 存根版本，
+ * 仅五个参数。
  */
 Datum
 gin_extract_tsquery_5args(PG_FUNCTION_ARGS)
 {
-	if (PG_NARGS() < 7)			/* should not happen */
+	if (PG_NARGS() < 7)			/* 不应发生 */
 		elog(ERROR, "gin_extract_tsquery requires seven arguments");
 	return gin_extract_tsquery(fcinfo);
 }
 
 /*
- * Likewise, we need a stub version of gin_tsquery_consistent declared with
- * only six arguments.
+ * 同样，我们需要一个 gin_tsquery_consistent 存根版本，
+ * 仅六个参数。
  */
 Datum
 gin_tsquery_consistent_6args(PG_FUNCTION_ARGS)
 {
-	if (PG_NARGS() < 8)			/* should not happen */
+	if (PG_NARGS() < 8)			/* 不应发生 */
 		elog(ERROR, "gin_tsquery_consistent requires eight arguments");
 	return gin_tsquery_consistent(fcinfo);
 }
 
 /*
- * Likewise, a stub version of gin_extract_tsquery declared with argument
- * types that are no longer considered appropriate.
+ * 同样，还有一个 gin_extract_tsquery 存根版本，其参数
+ * 类型已不再被视为合适。
  */
 Datum
 gin_extract_tsquery_oldsig(PG_FUNCTION_ARGS)
@@ -345,8 +345,8 @@ gin_extract_tsquery_oldsig(PG_FUNCTION_ARGS)
 }
 
 /*
- * Likewise, a stub version of gin_tsquery_consistent declared with argument
- * types that are no longer considered appropriate.
+ * 同样，还有一个 gin_tsquery_consistent 存根版本，其参数
+ * 类型已不再被视为合适。
  */
 Datum
 gin_tsquery_consistent_oldsig(PG_FUNCTION_ARGS)

@@ -1,0 +1,189 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0401",
+ "title": "adt 目录 9 个小文件整文件注释翻译 (168 blocks 注释感知: 156 zh-blocks + 12 keep-blocks, 407 content lines = 323 zh + 85 keep-EN; 行数守恒 9 文件 323/323; 0 写后修复轮 (规划轮 2: 块行号映射纠偏 1 轮 + like_match 头部行偏移纠偏 1 轮, 均写前修复); W7 adt 全目录口径 19 advisory (10 UNTRANSLATED 有意保留 + 9 IDENT_LOST 横幅标签); term_lint in-scope 0 error 0 warning; halfen 3 MIXED 良性披露 (本批文件); adt 子战役第 2 批)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "34ab26ec5ce8819325a4a26a4f4decc03e1d74f7",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/inet_cidr_ntop.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pg_lsn.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonb_op.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/name.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsginidx.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_op.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/like_match.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/xid.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pseudotypes.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0401 (adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0401-adt-small2.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0401 entries (9 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/inet_cidr_ntop.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": [
+    "头部块仅版权行+路径行 (L2-17), 按头部保留规则整块保留 EN"
+   ],
+   "note": "whole-file comment translation: 14 blocks (注释感知实测; dump 计 14 系 sprintf/**/x 粘词伪块吞并 L45-54 pg_inet_cidr_ntop doc 后又恰好计数相同), content lines 59 = 31 zh + 28 keep-EN; IP 网络表示转换 (CIDR 保留); keep=头部 16 + 函数原型行 6 (L46/L47/L72/L73/L148/L149) + note: 标签 2 (L78/L156 8 字节预算不足) + 作者署名行 4 (L53/L82/L160/L161); REVERSE 句号 4 (L107/L122/L136/L283 预算差 1-3 字节); 同 EN 行同译 (L49=L75, L51=L77=L155, L53=L79=L157, L136=L283)"
+  },
+  {
+   "path": "src/backend/utils/adt/pg_lsn.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 19 blocks (dump 实测), content lines 26 = 21 zh + 5 keep-EN; pg_lsn 数据类型运算 (LSN 保留); keep=头部 5 行 (文件名/版权x2/IDENTIFICATION/路径); 算子/算子类术语按 geo_selfuncs 先例; REVERSE 句号 1 (L55 解码结果, 预算差 1 字节); 同 EN 行同译 (L58=L265=L299, L69=L103, L92 组/L126 组, L97=L131)"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonb_op.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 9 blocks (dump 实测), content lines 16 = 12 zh + 4 keep-EN; JSONB 索引算子支持 (ops 词形=算子, 算子类); keep=头部 4 行; 同 EN 行同译 (L66=L99); commutator=交换子"
+  },
+  {
+   "path": "src/backend/utils/adt/name.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 25,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 25 blocks (dump 实测), content lines 54 = 47 zh + 7 keep-EN; name 名称类型 (标识符 name/NAMEDATALEN 保留); keep=头部 5 行 + L43 Note: 标签 (预算不足) + L329 表达式行 ($1::text||'_'||$2::text)::name 逐字保留; 横幅 3 处译 zh (尾部 ' *' 结构保留, W7_IDENT_LOST advisory); 同 EN 行同译 (L60=L349, L252=L254)"
+  },
+  {
+   "path": "src/backend/utils/adt/tsginidx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 22,
+   "preserved": 6,
+   "preserved_reasons": [
+    "L101/L105/L220/L223/L269/L272 注释掉的代码行单行块 (StrategyNumber/int32 声明) 逐字保留"
+   ],
+   "note": "whole-file comment translation: 28 blocks (dump 实测), content lines 50 = 40 zh + 10 keep-EN; 文本检索 GIN 索引支持 (tsquery 标识符保留); keep=头部 4 行 + 注释掉的代码行 6 单行块; L122 覆写分支 '\\t\\t *扫描' (预算 10 字节: 星后空格舍弃+REVERSE 句号, 披露); 同 EN 行同译 (L236=L281, L237=L282, L308=L320=L332, L339=L349, L208=L221)"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_op.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 3,
+   "preserved": 1,
+   "preserved_reasons": [
+    "L239 宏定义内 /* keep compiler quiet - no extra ; */ 行尾续行符 \\\\ 承载语法, 逐字保留"
+   ],
+   "note": "whole-file comment translation: 4 blocks (注释感知实测; dump 计 3 系 L239 续行注释伪块吞并至 L317), content lines 9 = 3 zh + 6 keep-EN; 文本检索查询运算 (AND/OR/NOT 保留); keep=头部 5 行 (文件名/版权x2/IDENTIFICATION/路径) + L239 宏内续行注释"
+  },
+  {
+   "path": "src/backend/utils/adt/like_match.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 27,
+   "preserved": 2,
+   "preserved_reasons": [
+    "L240 /* MatchText() */ 与 L341 /* do_like_escape */ 函数尾标记行 (标识符) 保留"
+   ],
+   "note": "whole-file comment translation: 29 blocks (dump 实测), content lines 106 = 95 zh + 11 keep-EN; LIKE 匹配 (like/escape=转义/通配符); keep=头部 4 行 + L14 宏名 NextChar 行 + 署名行 4 (L28/L29/L44/L57) + 标记行 2; L182 TRUE/ABORT 为 ASCII 词形译 (or→/); REVERSE 句号 0 (review round 订正: 原披露 2 条系相邻文件措辞误植, sed 对账无对应实文); 裁剪披露: 头部 XXX 块末问句 'Can we do better?' 因 L11 行 14 字节预算无法容纳, 舍弃 (修辞性问句非语法成分); 同 EN 行同译 (L208=L221, L236 组/L237 组, L308 组)"
+  },
+  {
+   "path": "src/backend/utils/adt/xid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 15,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 15 blocks (dump 实测), content lines 27 = 20 zh + 7 keep-EN; 事务标识符 (xid/xid8 标识符保留, wraparound=回绕 0390 口径); keep=头部 5 行 + L131/L151 函数名标题行 (xidComparator/xidLogicalComparator); 横幅译 zh (W7_IDENT_LOST advisory); 同 EN 行同译 (L132=L152)"
+  },
+  {
+   "path": "src/backend/utils/adt/pseudotypes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 21,
+   "preserved": 4,
+   "preserved_reasons": [
+    "L45/L60/L79/L94 宏定义内 /* keep compiler quiet */ 行尾续行符 \\\\ 承载语法, 逐字保留"
+   ],
+   "note": "whole-file comment translation: 25 blocks (注释感知实测 = 21 独立块 + 4 宏内块; dump 计 21 系 L45/L79 宏内注释伪块吞并), content lines 76 = 54 zh + 22 keep-EN; 伪类型 (any/void/cstring/pg_node_tree/pg_ddl_command 等伪类型名保留); keep=头部 5 行 + 类型名行 12 (L101/L148/L173/L193/L206/L219/L232/L245/L258/L298/L327/L353) + 示例表达式行 L107 + 宏内 4 块; 裁剪披露: 头部 XXX 块末问句 'Can we do better?' 因 L11 行 14 字节预算无法容纳, 舍弃; REVERSE 句号 1 (L263 预算差 3 字节); 同 EN 行同译 (L208=L221, L234=L247, L312=L322)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0401-adt-small2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0401 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pure append: batch-0401 manifest path + 9 adt .c files (追加前查重 0 dup; 纯追加 150 行 0 删改)"
+  }
+ ],
+ "notes": "adt 子战役第 2 批 (0401). 九文件均为 dump 注释感知复核后的全文件注释翻译; inet_cidr_ntop 与 tsquery_op/pseudotypes 的 dump 块计数含粘词伪块 (sprintf/**/x、宏内续行注释), 以注释感知实测为准并在 file note 中披露. 术语口径: ops/operator=算子 (沿 executor 全局规则与 geo_selfuncs 先例), opclass=算子类, wraparound=回绕, escape=转义, wildcard=通配符, commutator=交换子; OID 与全部标识符逐字保留. REVERSE 句号台账共 9 行: inet L107/L122/L136/L283, pg_lsn L55, tsginidx L122, like_match L122/L263, pseudotypes L263, 均为字节预算差 1-3 字节所致且句义完整, 自洽披露. 0 写后修复轮; 写前规划轮 2 次 (块行号映射纠偏、like_match 头部行偏移纠偏)."
+}

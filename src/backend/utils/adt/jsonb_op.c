@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonb_op.c
- *	 Special operators for jsonb only, used by various index access methods
+ *	 仅适用于 jsonb 的特殊算子，供多种索引访问方法使用
  *
  * Copyright (c) 2014-2023, PostgreSQL Global Development Group
  *
@@ -27,10 +27,10 @@ jsonb_exists(PG_FUNCTION_ARGS)
 	JsonbValue *v = NULL;
 
 	/*
-	 * We only match Object keys (which are naturally always Strings), or
-	 * string elements in arrays.  In particular, we do not match non-string
-	 * scalar elements.  Existence of a key/element is only considered at the
-	 * top level.  No recursion occurs.
+	 * 我们只匹配 Object 键（自然总是字符串），或
+	 * 数组中的字符串元素。特别地，不匹配非字符串
+	 * 标量元素。键/元素的存在性只在顶层
+	 * 考虑。不发生递归。
 	 */
 	kval.type = jbvString;
 	kval.val.string.val = VARDATA_ANY(key);
@@ -63,7 +63,7 @@ jsonb_exists_any(PG_FUNCTION_ARGS)
 			continue;
 
 		strVal.type = jbvString;
-		/* We rely on the array elements not being toasted */
+		/* 此处依赖数组元素未被 TOAST 化 */
 		strVal.val.string.val = VARDATA_ANY(key_datums[i]);
 		strVal.val.string.len = VARSIZE_ANY_EXHDR(key_datums[i]);
 
@@ -96,7 +96,7 @@ jsonb_exists_all(PG_FUNCTION_ARGS)
 			continue;
 
 		strVal.type = jbvString;
-		/* We rely on the array elements not being toasted */
+		/* 此处依赖数组元素未被 TOAST 化 */
 		strVal.val.string.val = VARDATA_ANY(key_datums[i]);
 		strVal.val.string.len = VARSIZE_ANY_EXHDR(key_datums[i]);
 
@@ -130,7 +130,7 @@ jsonb_contains(PG_FUNCTION_ARGS)
 Datum
 jsonb_contained(PG_FUNCTION_ARGS)
 {
-	/* Commutator of "contains" */
+	/* "contains" 的交换子 */
 	Jsonb	   *tmpl = PG_GETARG_JSONB_P(0);
 	Jsonb	   *val = PG_GETARG_JSONB_P(1);
 
@@ -161,7 +161,7 @@ jsonb_ne(PG_FUNCTION_ARGS)
 }
 
 /*
- * B-Tree operator class operators, support function
+ * B-Tree 算子类的算子，支持函数
  */
 Datum
 jsonb_lt(PG_FUNCTION_ARGS)
@@ -248,7 +248,7 @@ jsonb_cmp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Hash operator class jsonb hashing function
+ * Hash 算子类的 jsonb 哈希函数
  */
 Datum
 jsonb_hash(PG_FUNCTION_ARGS)
@@ -268,7 +268,7 @@ jsonb_hash(PG_FUNCTION_ARGS)
 	{
 		switch (r)
 		{
-				/* Rotation is left to JsonbHashScalarValue() */
+				/* 轮转交由 JsonbHashScalarValue() */
 			case WJB_BEGIN_ARRAY:
 				hash ^= JB_FARRAY;
 				break;
@@ -311,7 +311,7 @@ jsonb_hash_extended(PG_FUNCTION_ARGS)
 	{
 		switch (r)
 		{
-				/* Rotation is left to JsonbHashScalarValueExtended() */
+				/* 轮转交由 JsonbHashScalarValueExtended() */
 			case WJB_BEGIN_ARRAY:
 				hash ^= ((uint64) JB_FARRAY) << 32 | JB_FARRAY;
 				break;

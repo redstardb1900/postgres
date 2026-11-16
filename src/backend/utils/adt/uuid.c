@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * uuid.c
- *	  Functions for the built-in type "uuid".
+ *	  内置类型 "uuid" 的函数。
  *
  * Copyright (c) 2007-2023, PostgreSQL Global Development Group
  *
@@ -22,13 +22,13 @@
 #include "utils/sortsupport.h"
 #include "utils/uuid.h"
 
-/* sortsupport for uuid */
+/* uuid 的 sortsupport */
 typedef struct
 {
-	int64		input_count;	/* number of non-null values seen */
-	bool		estimating;		/* true if estimating cardinality */
+	int64		input_count;	/* 已见到的非空值个数 */
+	bool		estimating;		/* 正在估算基数时为 true */
 
-	hyperLogLogState abbr_card; /* cardinality estimator */
+	hyperLogLogState abbr_card; /* 基数估算器 */
 } uuid_sortsupport_state;
 
 static void string_to_uuid(const char *source, pg_uuid_t *uuid, Node *escontext);
@@ -63,9 +63,9 @@ uuid_out(PG_FUNCTION_ARGS)
 		int			lo;
 
 		/*
-		 * We print uuid values as a string of 8, 4, 4, 4, and then 12
-		 * hexadecimal characters, with each group is separated by a hyphen
-		 * ("-"). Therefore, add the hyphens at the appropriate places here.
+		 * 我们把 uuid 值打印为 8、4、4、4、12
+		 * 个十六进制字符，各组之间以连字符分隔。
+		 * 因此我们要在此处的适当位置加上连字符。
 		 */
 		if (i == 4 || i == 6 || i == 8 || i == 10)
 			appendStringInfoChar(&buf, '-');
@@ -81,10 +81,10 @@ uuid_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * We allow UUIDs as a series of 32 hexadecimal digits with an optional dash
- * after each group of 4 hexadecimal digits, and optionally surrounded by {}.
- * (The canonical format 8x-4x-4x-4x-12x, where "nx" means n hexadecimal
- * digits, is the only one used for output.)
+ * 我们允许 UUID 是 32 个十六进制数字的序列，每 4 个
+ * 十六进制数字之后可选跟一个连字符，且可选用 {} 包
+ * 围。（规范格式 8x-4x-4x-4x-12x，其中 "nx" 表示 n
+ * 个十六进制数字仅作输出。）
  */
 static void
 string_to_uuid(const char *source, pg_uuid_t *uuid, Node *escontext)
@@ -158,7 +158,7 @@ uuid_send(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buffer));
 }
 
-/* internal uuid compare function */
+/* 内部 uuid 比较函数 */
 static int
 uuid_internal_cmp(const pg_uuid_t *arg1, const pg_uuid_t *arg2)
 {
@@ -219,7 +219,7 @@ uuid_ne(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(uuid_internal_cmp(arg1, arg2) != 0);
 }
 
-/* handler for btree index operator */
+/* btree 索引算子的处理器 */
 Datum
 uuid_cmp(PG_FUNCTION_ARGS)
 {
@@ -230,7 +230,7 @@ uuid_cmp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Sort support strategy routine
+ * 排序支持策略例程
  */
 Datum
 uuid_sortsupport(PG_FUNCTION_ARGS)
@@ -266,7 +266,7 @@ uuid_sortsupport(PG_FUNCTION_ARGS)
 }
 
 /*
- * SortSupport comparison func
+ * SortSupport 比较函数
  */
 static int
 uuid_fast_cmp(Datum x, Datum y, SortSupport ssup)
@@ -278,10 +278,10 @@ uuid_fast_cmp(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * Callback for estimating effectiveness of abbreviated key optimization.
+ * 用于估算缩写键优化效果的回调。
  *
- * We pay no attention to the cardinality of the non-abbreviated data, because
- * there is no equality fast-path within authoritative uuid comparator.
+ * 我们完全不关心非缩写数据的基数，因为权威的
+ * uuid 比较器内没有相等快速路径。
  */
 static bool
 uuid_abbrev_abort(int memtupcount, SortSupport ssup)
@@ -295,10 +295,10 @@ uuid_abbrev_abort(int memtupcount, SortSupport ssup)
 	abbr_card = estimateHyperLogLog(&uss->abbr_card);
 
 	/*
-	 * If we have >100k distinct values, then even if we were sorting many
-	 * billion rows we'd likely still break even, and the penalty of undoing
-	 * that many rows of abbrevs would probably not be worth it.  Stop even
-	 * counting at that point.
+	 * 若已有 >100k 个不同值，那么即使要排序数十亿
+	 * 行，我们大概率仍不吃亏，而撤销这么多行的缩
+	 * 写操作的代价很可能不值得。到那时甚至可
+	 * 停止计数。
 	 */
 	if (abbr_card > 100000.0)
 	{
@@ -314,10 +314,10 @@ uuid_abbrev_abort(int memtupcount, SortSupport ssup)
 	}
 
 	/*
-	 * Target minimum cardinality is 1 per ~2k of non-null inputs.  0.5 row
-	 * fudge factor allows us to abort earlier on genuinely pathological data
-	 * where we've had exactly one abbreviated value in the first 2k
-	 * (non-null) rows.
+	 * 目标最小基数为每 ~2k 个非空输入 1 个。0.5 行
+	 * 的容差因子使我们在真正病态的数据上更早放
+	 * 弃——即在前 2k 个（非空）行中恰好只有一个
+	 * 缩写值。
 	 */
 	if (abbr_card < uss->input_count / 2000.0 + 0.5)
 	{
@@ -343,11 +343,11 @@ uuid_abbrev_abort(int memtupcount, SortSupport ssup)
 }
 
 /*
- * Conversion routine for sortsupport.  Converts original uuid representation
- * to abbreviated key representation.  Our encoding strategy is simple -- pack
- * the first `sizeof(Datum)` bytes of uuid data into a Datum (on little-endian
- * machines, the bytes are stored in reverse order), and treat it as an
- * unsigned integer.
+ * sortsupport 的转换例程。把原始 uuid 表示转换为
+ * 缩写键表示。我们的编码策略很简单——把 uuid 数据
+ * 的前 sizeof(Datum) 个字节打包进一个 Datum（在
+ * 小端机器上字节按相反顺序存放），并将其视为
+ * 无符号数。
  */
 static Datum
 uuid_abbrev_convert(Datum original, SortSupport ssup)
@@ -365,7 +365,7 @@ uuid_abbrev_convert(Datum original, SortSupport ssup)
 
 #if SIZEOF_DATUM == 8
 		tmp = (uint32) res ^ (uint32) ((uint64) res >> 32);
-#else							/* SIZEOF_DATUM != 8 */
+#else							/* Datum 非8字节 */
 		tmp = (uint32) res;
 #endif
 
@@ -373,19 +373,19 @@ uuid_abbrev_convert(Datum original, SortSupport ssup)
 	}
 
 	/*
-	 * Byteswap on little-endian machines.
+	 * 小端机器上做字节交换。
 	 *
-	 * This is needed so that ssup_datum_unsigned_cmp() (an unsigned integer
-	 * 3-way comparator) works correctly on all platforms.  If we didn't do
-	 * this, the comparator would have to call memcmp() with a pair of
-	 * pointers to the first byte of each abbreviated key, which is slower.
+	 * 这是为了让 ssup_datum_unsigned_cmp()（一个无符
+	 * 号整数三路比较器）在所有平台上都正确工作。
+	 * 若不这样做，比较器将不得不以指向各缩
+	 * 写键首字节的指针对来调用 memcmp()，那样更慢。
 	 */
 	res = DatumBigEndianToNative(res);
 
 	return res;
 }
 
-/* hash index support */
+/* hash 索引支持 */
 Datum
 uuid_hash(PG_FUNCTION_ARGS)
 {
@@ -413,7 +413,7 @@ gen_random_uuid(PG_FUNCTION_ARGS)
 				 errmsg("could not generate random values")));
 
 	/*
-	 * Set magic numbers for a "version 4" (pseudorandom) UUID, see
+	 * 为 "version 4"（伪随机）UUID 设置魔数，见
 	 * http://tools.ietf.org/html/rfc4122#section-4.4
 	 */
 	uuid->data[6] = (uuid->data[6] & 0x0f) | 0x40;	/* time_hi_and_version */

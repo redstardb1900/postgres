@@ -1,20 +1,20 @@
 /*-------------------------------------------------------------------------
  *
  * levenshtein.c
- *	  Levenshtein distance implementation.
+ *	  Levenshtein 编辑距离实现。
  *
  * Original author:  Joe Conway <mail@joeconway.com>
  *
- * This file is included by varlena.c twice, to provide matching code for (1)
- * Levenshtein distance with custom costings, and (2) Levenshtein distance with
- * custom costings and a "max" value above which exact distances are not
- * interesting.  Before the inclusion, we rely on the presence of the inline
- * function rest_of_char_same().
+ * 本文件被 varlena.c 包含两次，以提供匹配代码：(1)
+ * 带自定义代价的 Levenshtein 距离，以及 (2) 带自定义
+ * 且有 "max" 值的 Levenshtein 距离，超过该值时精确距离
+ * 就不再有意义。包含之前，我们依赖内联函数
+ * rest_of_char_same() 存在。
  *
- * Written based on a description of the algorithm by Michael Gilleland found
- * at http://www.merriampark.com/ld.htm.  Also looked at levenshtein.c in the
- * PHP 4.0.6 distribution for inspiration.  Configurable penalty costs
- * extension is introduced by Volkan YAZICI <volkan.yazici@gmail.com.
+ * 本实现基于 Michael Gilleland 所述算法描述写成，
+ * 其描述见 http://www.merriampark.com/ld.htm。还参考了
+ * PHP 4.0.6 发行版中的 levenshtein.c 以求启发。可配置
+ * 代价扩展由 Volkan YAZICI <volkan.yazici@gmail.com. 引入。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -26,42 +26,42 @@
 #define MAX_LEVENSHTEIN_STRLEN		255
 
 /*
- * Calculates Levenshtein distance metric between supplied strings, which are
- * not necessarily null-terminated.
+ * 计算给定两个串之间的 Levenshtein 距离度量，两串不必
+ * 以空字符结尾。
  *
- * source: source string, of length slen bytes.
- * target: target string, of length tlen bytes.
- * ins_c, del_c, sub_c: costs to charge for character insertion, deletion,
- *		and substitution respectively; (1, 1, 1) costs suffice for common
- *		cases, but your mileage may vary.
- * max_d: if provided and >= 0, maximum distance we care about; see below.
- * trusted: caller is trusted and need not obey MAX_LEVENSHTEIN_STRLEN.
+ * source：源串，长 slen 字节。
+ * target：目标串，长 tlen 字节。
+ * ins_c, del_c, sub_c：插入、删除、替换各自收取的代价；
+ *		其中 (1, 1, 1) 的代价足以应对常见情形，
+ *		但具体效果因人而异。
+ * max_d：若提供且 >= 0，即所关心的最大距离；见下文。
+ * trusted：调用方可信，无需遵守 MAX_LEVENSHTEIN_STRLEN。
  *
- * One way to compute Levenshtein distance is to incrementally construct
- * an (m+1)x(n+1) matrix where cell (i, j) represents the minimum number
- * of operations required to transform the first i characters of s into
- * the first j characters of t.  The last column of the final row is the
- * answer.
+ * 计算 Levenshtein 距离的一种方法是增量式地构建
+ * (m+1)x(n+1) 矩阵，其中单元格 (i, j) 表示将 s 的前
+ * i 个字符变换成 t 的前 j 个字符的最少操作数。
+ * 最终一行的最后一列即为答
+ * 案。
  *
- * We use that algorithm here with some modification.  In lieu of holding
- * the entire array in memory at once, we'll just use two arrays of size
- * m+1 for storing accumulated values. At each step one array represents
- * the "previous" row and one is the "current" row of the notional large
- * array.
+ * 我们在此使用该算法并稍作修改。不把整个
+ * 数组一次全部放进内存，我们只用两个大小
+ * 为 m+1 的数组来存储累计值。每一步中一个
+ * 代表大数组的 "previous" 行，另一个代表 "current"
+ * 行。
  *
- * If max_d >= 0, we only need to provide an accurate answer when that answer
- * is less than or equal to max_d.  From any cell in the matrix, there is
- * theoretical "minimum residual distance" from that cell to the last column
- * of the final row.  This minimum residual distance is zero when the
- * untransformed portions of the strings are of equal length (because we might
- * get lucky and find all the remaining characters matching) and is otherwise
- * based on the minimum number of insertions or deletions needed to make them
- * equal length.  The residual distance grows as we move toward the upper
- * right or lower left corners of the matrix.  When the max_d bound is
- * usefully tight, we can use this property to avoid computing the entirety
- * of each row; instead, we maintain a start_column and stop_column that
- * identify the portion of the matrix close to the diagonal which can still
- * affect the final answer.
+ * 若给定了 max_d 且 >= 0，则只有在该答案小于等于
+ * max_d 时，我们才需要给出准确的结果。从矩阵中的
+ * 任一单元格出发，到最终一行的最后一列都存在一
+ * 个理论上的 "最小残余距离"。当两串未被变换的部
+ * 分等长时，该最小残余距离为零（因为我们可能运气
+ * 好，发现所有剩余字符全部匹配），否则它基于使两
+ * 串变为等长所需的最少插入或删除次数。当我们朝
+ * 矩阵的右上角或左下角移动时，残余距离会随之增
+ * 大。当 max_d 界限足够紧时，我们可利用这一性质
+ * 来避免计算每一行的全部内容；作为替代，我们维护
+ * start_column 与 stop_column 两个变量，用以标识矩
+ * 阵中靠近对角线、且仍能影响最终答案的
+ * 那一部分。
  */
 int
 #ifdef LEVENSHTEIN_LESS_EQUAL
@@ -85,8 +85,8 @@ varstr_levenshtein(const char *source, int slen,
 	const char *y;
 
 	/*
-	 * For varstr_levenshtein_less_equal, we have real variables called
-	 * start_column and stop_column; otherwise it's just short-hand for 0 and
+	 * 对于 varstr_levenshtein_less_equal，我们有着名为
+	 * start_column 与 stop_column 的真实变量；否则它只是 0 和
 	 * m.
 	 */
 #ifdef LEVENSHTEIN_LESS_EQUAL
@@ -104,13 +104,13 @@ varstr_levenshtein(const char *source, int slen,
 #define STOP_COLUMN m
 #endif
 
-	/* Convert string lengths (in bytes) to lengths in characters */
+	/* 将串长（字节数）转换为字符数 */
 	m = pg_mbstrlen_with_len(source, slen);
 	n = pg_mbstrlen_with_len(target, tlen);
 
 	/*
-	 * We can transform an empty s into t with n insertions, or a non-empty t
-	 * into an empty s with m deletions.
+	 * 我们可用 n 次插入将空串 s 变换为 t，或用 m 次
+	 * 删除将非空 t 变为空 s。
 	 */
 	if (!m)
 		return n * ins_c;
@@ -118,11 +118,11 @@ varstr_levenshtein(const char *source, int slen,
 		return m * del_c;
 
 	/*
-	 * For security concerns, restrict excessive CPU+RAM usage. (This
-	 * implementation uses O(m) memory and has O(mn) complexity.)  If
-	 * "trusted" is true, caller is responsible for not making excessive
-	 * requests, typically by using a small max_d along with strings that are
-	 * bounded, though not necessarily to MAX_LEVENSHTEIN_STRLEN exactly.
+	 * 为安全起见，限制过度的 CPU+RAM 消耗。（本
+	 * 实现使用 O(m) 内存、O(mn) 复杂度。）
+	 * 若 "trusted" 为 true，调用方应自行负责避免过度
+	 * 的请求，通常做法是配合有界的串使用较小的 max_d，
+	 * 其界限虽不必恰好等于 MAX_LEVENSHTEIN_STRLEN。
 	 */
 	if (!trusted &&
 		(m > MAX_LEVENSHTEIN_STRLEN ||
@@ -133,20 +133,20 @@ varstr_levenshtein(const char *source, int slen,
 						MAX_LEVENSHTEIN_STRLEN)));
 
 #ifdef LEVENSHTEIN_LESS_EQUAL
-	/* Initialize start and stop columns. */
+	/* 初始化起始列与终止列。 */
 	start_column = 0;
 	stop_column = m + 1;
 
 	/*
-	 * If max_d >= 0, determine whether the bound is impossibly tight.  If so,
-	 * return max_d + 1 immediately.  Otherwise, determine whether it's tight
-	 * enough to limit the computation we must perform.  If so, figure out
-	 * initial stop column.
+	 * 若 max_d >= 0，判断该界限是否紧得不可能。若是，
+	 * 则立即返回 max_d + 1。否则判断它是否紧到足以
+	 * 限制我们必须执行的计算。若是，则算出初始的
+	 * 终止列。
 	 */
 	if (max_d >= 0)
 	{
-		int			min_theo_d; /* Theoretical minimum distance. */
-		int			max_theo_d; /* Theoretical maximum distance. */
+		int			min_theo_d; /* 理论最小距离。 */
+		int			max_theo_d; /* 理论最大距离。 */
 		int			net_inserts = n - m;
 
 		min_theo_d = net_inserts < 0 ?
@@ -161,16 +161,16 @@ varstr_levenshtein(const char *source, int slen,
 		else if (ins_c + del_c > 0)
 		{
 			/*
-			 * Figure out how much of the first row of the notional matrix we
-			 * need to fill in.  If the string is growing, the theoretical
-			 * minimum distance already incorporates the cost of deleting the
-			 * number of characters necessary to make the two strings equal in
-			 * length.  Each additional deletion forces another insertion, so
-			 * the best-case total cost increases by ins_c + del_c. If the
-			 * string is shrinking, the minimum theoretical cost assumes no
-			 * excess deletions; that is, we're starting no further right than
-			 * column n - m.  If we do start further right, the best-case
-			 * total cost increases by ins_c + del_c for each move right.
+			 * 算出概念矩阵的第一行中需要填充多少
+			 * 内容。若串在增长，理论最小距离已经包含
+			 * 了为使两串等长所需删除的字符数的代价。
+			 * 每多删除一个字符就迫使再多一次插入，因此
+			 * 最好情况下的总代价增加 ins_c + del_c。若串
+			 * 在缩短，理论最小代价假定无多余删除；
+			 * 也就是说，起点不会比第 n - m 列更靠右。
+			 * 若确实更靠右，则每右移一列，
+			 * 最好情况下的总代价就会增加
+			 * ins_c + del_c。
 			 */
 			int			slack_d = max_d - min_theo_d;
 			int			best_column = net_inserts < 0 ? -net_inserts : 0;
@@ -183,12 +183,12 @@ varstr_levenshtein(const char *source, int slen,
 #endif
 
 	/*
-	 * In order to avoid calling pg_mblen() repeatedly on each character in s,
-	 * we cache all the lengths before starting the main loop -- but if all
-	 * the characters in both strings are single byte, then we skip this and
-	 * use a fast-path in the main loop.  If only one string contains
-	 * multi-byte characters, we still build the array, so that the fast-path
-	 * needn't deal with the case where the array hasn't been initialized.
+	 * 为避免对 s 中每个字符反复调用 pg_mblen()，我们在
+	 * 开始主循环前缓存所有长度——但如果两串中的所
+	 * 有字符都是单字节，则跳过这一步，并在主循环中
+	 * 使用快速路径。若只有一串包含多字节字符，
+	 * 我们仍会构建该数组，这样快速路径就无需处理
+	 * 数组未初始化的情形。
 	 */
 	if (m != slen || n != tlen)
 	{
@@ -204,22 +204,22 @@ varstr_levenshtein(const char *source, int slen,
 		s_char_len[i] = 0;
 	}
 
-	/* One more cell for initialization column and row. */
+	/* 为初始化列与行多留一个单元格。 */
 	++m;
 	++n;
 
-	/* Previous and current rows of notional array. */
+	/* 概念数组的前一行与当前行。 */
 	prev = (int *) palloc(2 * m * sizeof(int));
 	curr = prev + m;
 
 	/*
-	 * To transform the first i characters of s into the first 0 characters of
-	 * t, we must perform i deletions.
+	 * 要把 s 的前 i 个字符变换为 t 的前 0 个字符，
+	 * 须执行 i 次删除。
 	 */
 	for (int i = START_COLUMN; i < STOP_COLUMN; i++)
 		prev[i] = i * del_c;
 
-	/* Loop through rows of the notional array */
+	/* 遍历概念数组的各行 */
 	for (y = target, j = 1; j < n; j++)
 	{
 		int		   *temp;
@@ -230,10 +230,10 @@ varstr_levenshtein(const char *source, int slen,
 #ifdef LEVENSHTEIN_LESS_EQUAL
 
 		/*
-		 * In the best case, values percolate down the diagonal unchanged, so
-		 * we must increment stop_column unless it's already on the right end
-		 * of the array.  The inner loop will read prev[stop_column], so we
-		 * have to initialize it even though it shouldn't affect the result.
+		 * 最好情况下，各值沿对角线原样向下传递，因此
+		 * 我们必须递增 stop_column，除非它已位于数组
+		 * 的右端。内层循环会读取 prev[stop_column]，
+		 * 因此即便它不应影响结果，也必须初始化它。
 		 */
 		if (stop_column < m)
 		{
@@ -242,10 +242,10 @@ varstr_levenshtein(const char *source, int slen,
 		}
 
 		/*
-		 * The main loop fills in curr, but curr[0] needs a special case: to
-		 * transform the first 0 characters of s into the first j characters
-		 * of t, we must perform j insertions.  However, if start_column > 0,
-		 * this special case does not apply.
+		 * 主循环负责填充 curr，但 curr[0] 需要特例处理：
+		 * 要把 s 的前 0 个字符变换为 t 的前 j 个字符，
+		 * 必须执行 j 次插入。但若 start_column > 0，
+		 * 则该特例不适用。
 		 */
 		if (start_column == 0)
 		{
@@ -260,11 +260,11 @@ varstr_levenshtein(const char *source, int slen,
 #endif
 
 		/*
-		 * This inner loop is critical to performance, so we include a
-		 * fast-path to handle the (fairly common) case where no multibyte
-		 * characters are in the mix.  The fast-path is entitled to assume
-		 * that if s_char_len is not initialized then BOTH strings contain
-		 * only single-byte characters.
+		 * 该内层循环对性能至关重要，故我们加入一
+		 * 条快速路径，处理没有多字节字符的（相当常
+		 * 见）情形。快速路径可以假定：若 s_char_len 未被
+		 * 初始化，则说明两串都仅包含
+		 * 单字节字符。
 		 */
 		if (s_char_len != NULL)
 		{
@@ -276,13 +276,13 @@ varstr_levenshtein(const char *source, int slen,
 				int			x_char_len = s_char_len[i - 1];
 
 				/*
-				 * Calculate costs for insertion, deletion, and substitution.
+				 * 计算插入、删除与替换的代价。
 				 *
-				 * When calculating cost for substitution, we compare the last
-				 * character of each possibly-multibyte character first,
-				 * because that's enough to rule out most mis-matches.  If we
-				 * get past that test, then we compare the lengths and the
-				 * remaining bytes.
+				 * 计算替换代价时，先比较每个可能多字节
+				 * 字符末字节即可排除多数不匹配。
+				 * 若通过该测试，则再比较
+				 * 长度与剩余
+				 * 字节。
 				 */
 				ins = prev[i] + ins_c;
 				del = curr[i - 1] + del_c;
@@ -293,11 +293,11 @@ varstr_levenshtein(const char *source, int slen,
 				else
 					sub = prev[i - 1] + sub_c;
 
-				/* Take the one with minimum cost. */
+				/* 取代价最小者。 */
 				curr[i] = Min(ins, del);
 				curr[i] = Min(curr[i], sub);
 
-				/* Point to next character. */
+				/* 指向下一字符。 */
 				x += x_char_len;
 			}
 		}
@@ -309,50 +309,50 @@ varstr_levenshtein(const char *source, int slen,
 				int			del;
 				int			sub;
 
-				/* Calculate costs for insertion, deletion, and substitution. */
+				/* 计算插入、删除与替换的代价。 */
 				ins = prev[i] + ins_c;
 				del = curr[i - 1] + del_c;
 				sub = prev[i - 1] + ((*x == *y) ? 0 : sub_c);
 
-				/* Take the one with minimum cost. */
+				/* 取代价最小者。 */
 				curr[i] = Min(ins, del);
 				curr[i] = Min(curr[i], sub);
 
-				/* Point to next character. */
+				/* 指向下一字符。 */
 				x++;
 			}
 		}
 
-		/* Swap current row with previous row. */
+		/* 将当前行与前行交换。 */
 		temp = curr;
 		curr = prev;
 		prev = temp;
 
-		/* Point to next character. */
+		/* 指向下一字符。 */
 		y += y_char_len;
 
 #ifdef LEVENSHTEIN_LESS_EQUAL
 
 		/*
-		 * This chunk of code represents a significant performance hit if used
-		 * in the case where there is no max_d bound.  This is probably not
-		 * because the max_d >= 0 test itself is expensive, but rather because
-		 * the possibility of needing to execute this code prevents tight
-		 * optimization of the loop as a whole.
+		 * 若在没有 max_d 界限的情形下使用，这段代码会
+		 * 造成显著的性能损失。其原因可能不在于
+		 * max_d >= 0 测试本身昂贵，而在于需要执行这段
+		 * 代码的可能性，阻碍了对整个循环进行
+		 * 紧密优化。
 		 */
 		if (max_d >= 0)
 		{
 			/*
-			 * The "zero point" is the column of the current row where the
-			 * remaining portions of the strings are of equal length.  There
-			 * are (n - 1) characters in the target string, of which j have
-			 * been transformed.  There are (m - 1) characters in the source
-			 * string, so we want to find the value for zp where (n - 1) - j =
-			 * (m - 1) - zp.
+			 * "零点"是当前行中两串剩余部分等长的列。
+			 * 目标串中有 n - 1 个字符，其中 j 个已被
+			 * 变换。源串中有 m - 1 个字符，因此要为 zp
+			 * 找出使
+			 * (n-1)-j = (m-1)-zp 成立的值。
+			 *
 			 */
 			int			zp = j - (n - m);
 
-			/* Check whether the stop column can slide left. */
+			/* 检查终止列能否向左滑动。 */
 			while (stop_column > 0)
 			{
 				int			ii = stop_column - 1;
@@ -364,7 +364,7 @@ varstr_levenshtein(const char *source, int slen,
 				stop_column--;
 			}
 
-			/* Check whether the start column can slide right. */
+			/* 检查起始列能否向右滑动。 */
 			while (start_column < stop_column)
 			{
 				int			net_inserts = start_column - zp;
@@ -375,9 +375,9 @@ varstr_levenshtein(const char *source, int slen,
 					break;
 
 				/*
-				 * We'll never again update these values, so we must make sure
-				 * there's nothing here that could confuse any future
-				 * iteration of the outer loop.
+				 * 这些值再也不会被更新，因此必须确保其
+				 * 中没有任何会干扰外层循环后续
+				 * 迭代的残留内容。
 				 */
 				prev[start_column] = max_d + 1;
 				curr[start_column] = max_d + 1;
@@ -386,7 +386,7 @@ varstr_levenshtein(const char *source, int slen,
 				start_column++;
 			}
 
-			/* If they cross, we're going to exceed the bound. */
+			/* 若两列交叉，我们将超出界限。 */
 			if (start_column >= stop_column)
 				return max_d + 1;
 		}
@@ -394,8 +394,8 @@ varstr_levenshtein(const char *source, int slen,
 	}
 
 	/*
-	 * Because the final value was swapped from the previous row to the
-	 * current row, that's where we'll find it.
+	 * 由于最终值已从前一行换到了当前行，所以
+	 * 在该行中找到它。
 	 */
 	return prev[m - 1];
 }

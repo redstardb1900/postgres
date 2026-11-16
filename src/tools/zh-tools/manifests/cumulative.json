@@ -6876,6 +6876,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0401-adt-small2.json",
    "kind": "manifest",
    "note": "batch-0401 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsvector_parser.c",
+   "kind": "c_comment",
+   "note": "tsvector 文本检索向量解析; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/oid.c",
+   "kind": "c_comment",
+   "note": "OID 类型 I/O 与 oidvector; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/bool.c",
+   "kind": "c_comment",
+   "note": "布尔类型 I/O 与聚合; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/levenshtein.c",
+   "kind": "c_comment",
+   "note": "编辑距离实现; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/domains.c",
+   "kind": "c_comment",
+   "note": "域类型 I/O 与约束检查; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonbsubs.c",
+   "kind": "c_comment",
+   "note": "JSONB 下标支持; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/uuid.c",
+   "kind": "c_comment",
+   "note": "UUID 类型 I/O 与 sortsupport; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tid.c",
+   "kind": "c_comment",
+   "note": "元组标识符 I/O 与 currtid; whole-file comment translation (batch-0402, adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0402-adt-small3.json",
+   "kind": "manifest",
+   "note": "batch-0402 manifest"
   }
  ],
  "files": [
@@ -22314,6 +22359,96 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0401 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/tsvector_parser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": ["整块 EN 保留: 见 note"],
+   "note": "whole-file comment translation (batch-0402, adt small files); tsvector 文本检索向量解析 (token=词位); keep=头部保留行 + L303 注释掉的代码行"
+  },
+  {
+   "path": "src/backend/utils/adt/oid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 21,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0402, adt small files); OID 类型 I/O (OID 逐字保留); keep=头部保留行"
+  },
+  {
+   "path": "src/backend/utils/adt/bool.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0402, adt small files); 布尔类型 (true/false 保留); keep=头部保留行"
+  },
+  {
+   "path": "src/backend/utils/adt/levenshtein.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 34,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0402, adt small files); 编辑距离 (cost=代价); keep=头部保留行 + L7 作者署名行 + L90 悬垂标识符"
+  },
+  {
+   "path": "src/backend/utils/adt/domains.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0402, adt small files); 域类型 I/O (域约束/CHECK 保留); keep=头部保留行"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonbsubs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 36,
+   "translated": 36,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation (batch-0402, adt small files); JSONB 下标 (subscript=下标); keep=头部保留行 + L400 标识符行"
+  },
+  {
+   "path": "src/backend/utils/adt/uuid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 19,
+   "preserved": 2,
+   "preserved_reasons": ["整块 EN 保留: 见 note"],
+   "note": "whole-file comment translation (batch-0402, adt small files); UUID 类型 (缩写键); keep=头部保留行 + L417 URL + L419/L420 字段名行"
+  },
+  {
+   "path": "src/backend/utils/adt/tid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 13,
+   "preserved": 2,
+   "preserved_reasons": ["整块 EN 保留: 见 note"],
+   "note": "whole-file comment translation (batch-0402, adt small files); 元组标识符 (block/offset=块/偏移); keep=头部保留行 + L48/L115 函数名横幅"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0402-adt-small3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

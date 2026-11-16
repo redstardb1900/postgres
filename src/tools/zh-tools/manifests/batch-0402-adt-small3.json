@@ -1,0 +1,169 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0402",
+ "title": "adt 目录 8 个小文件整文件注释翻译 (212 blocks 注释感知: 207 zh-blocks + 5 keep-blocks, 466 zh 行 + 6 显式 keep-EN 行 (代码1/悬垂标识符1/标识符1/URL1/字段名2); 行数守恒 8 文件全通过; 写后修复轮 2 (EN 残留行清偿: lev L173/L283-285 + json L189-190; 横幅 RAW 键位纠偏 oid L271/bool L118+L223 + 边框字节还原); W7 adt 全目录口径 advisory (横幅标签 IDENT_LOST + 有意保留 UNTRANSLATED); term_lint 本批 8 文件 0 hits (全树 1 error 系 postinit.c 既有); halfen 本批文件 4 MIXED（review round 订正：oid L109/L153、tid L84、tsp L154 均良性标识符/字面量 run） 良性披露 (tsp L154 指针标识符); adt 子战役第 3 批; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3f8a72652ea370ac19b62924e39b55c523199051",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/tsvector_parser.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/oid.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/bool.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/levenshtein.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/domains.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonbsubs.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/uuid.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tid.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0402 (adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0402-adt-small3.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0402 entries (8 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/tsvector_parser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块 EN 保留: 见 note"
+   ],
+   "note": "whole-file comment translation: 27 blocks (注释感知实测, 含横幅分隔块) = 26 zh-blocks + 1 keep-blocks; content lines 53 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); 文本检索向量解析 (tsvector 标识符保留, token=词位); keep=头部 5 + L303 注释掉的代码行 1 (整块保留); L385 下一字符 12 字节贴预算; L45 报错说 tsquery 而非 tsvector 预算裁剪; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/oid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 21,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 21 blocks (注释感知实测, 含横幅分隔块) = 21 zh-blocks + 0 keep-blocks; content lines 28 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); OID 类型 I/O (OID 逐字保留); 横幅标签 2 站译 zh (L32/L271); L244/L245 跨行接字 (接/受) 8 字节预算; L96/L97 历史原因下界; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/bool.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 23 blocks (注释感知实测, 含横幅分隔块) = 23 zh-blocks + 0 keep-blocks; content lines 37 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); 布尔类型 (true/false 保留); 横幅标签 2 站译 zh (L118/L223); L384/L399 35/33 字节贴预算; L175 \"true\"。10 字节贴预算; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/levenshtein.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 34,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 34 blocks (注释感知实测, 含横幅分隔块) = 34 zh-blocks + 0 keep-blocks; content lines 124 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); 编辑距离 (levenshtein 标识符保留, cost=代价); L7 作者署名行保留 EN; L43/L44 跨行接字 (答/案) 7 字节预算; L50 行。6 字节贴预算; L173 公式独立成行; L171-173 修复轮去重; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/domains.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 35 blocks (注释感知实测, 含横幅分隔块) = 35 zh-blocks + 0 keep-blocks; content lines 86 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); 域类型 I/O (domain 约束语境=域约束, CHECK 保留); schema_name/datatype_name/constraint_name 译 模式名/类型名/约束名 (W7 IDENT_LOST 披露); L15-19 三机制列表; L175-182 与 jsonbsubs 同 EN 块同译; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonbsubs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 36,
+   "translated": 36,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 36 blocks (注释感知实测, 含横幅分隔块) = 36 zh-blocks + 0 keep-blocks; content lines 73 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); JSONB 下标 (subscript=下标, jsonb 标识符保留); L33/L34 未闭合跨行尾注释 RAW 保形; L189/L190 按预期类型/构建空源 15 字节贴预算; L400 标识符行保留; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/uuid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 19,
+   "preserved": 2,
+   "preserved_reasons": [
+    "整块 EN 保留: 见 note"
+   ],
+   "note": "whole-file comment translation: 21 blocks (注释感知实测, 含横幅分隔块) = 19 zh-blocks + 2 keep-blocks; content lines 40 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); UUID 类型 (缩写键=abbreviated key); keep=头部 5 + L417 RFC URL + L419/L420 字段名行 2 (整块保留); L87 39 字节贴预算; L320 有缩写值。15 字节贴预算; L368 Datum 非8字节 16 字节贴预算; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/backend/utils/adt/tid.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 13,
+   "preserved": 2,
+   "preserved_reasons": [
+    "整块 EN 保留: 见 note"
+   ],
+   "note": "whole-file comment translation: 15 blocks (注释感知实测, 含横幅分隔块) = 13 zh-blocks + 2 keep-blocks; content lines 25 zh + 头部保留行 (版权/IDENTIFICATION/路径/文件名); 元组标识符 (tid 标识符保留, block/offset=块/偏移); keep=头部 6 (NOTES 标签预算不足) + L47/L114 函数名横幅 2 (整块保留); L331 处理视图的CTID。22 字节贴预算 (省 CJK-EN 空格); review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pure append: batch-0402 manifest path + 8 adt .c files (追加前查重 0 dup; 两数组各 +9; 纯追加校验通过); review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0402-adt-small3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0402 manifest; review round (主会话就地修复): lev L349-351 悬垂 EN 公式行清偿 (15/40/5B)、uuid L319-320 补量词「一个」(65=65 恰满/16B)"
+  }
+ ]
+}

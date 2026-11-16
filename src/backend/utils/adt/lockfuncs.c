@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lockfuncs.c
- *		Functions for SQL access to various lock-manager capabilities.
+ *		以 SQL 访问各种锁管理器能力的函数。
  *
  * Copyright (c) 2002-2023, PostgreSQL Global Development Group
  *
@@ -23,8 +23,8 @@
 
 
 /*
- * This must match enum LockTagType!  Also, be sure to document any changes
- * in the docs for the pg_locks view and for wait event types.
+ * 此处必须与枚举 LockTagType 一致！且务必把任何变更
+ * 记入 pg_locks 视图与等待事件类型的文档中。
  */
 const char *const LockTagTypeNames[] = {
 	"relation",
@@ -44,7 +44,7 @@ const char *const LockTagTypeNames[] = {
 StaticAssertDecl(lengthof(LockTagTypeNames) == (LOCKTAG_LAST_TYPE + 1),
 				 "array length mismatch");
 
-/* This must match enum PredicateLockTargetType (predicate_internals.h) */
+/* 须匹配枚举 PredicateLockTargetType（predicate_internals.h） */
 static const char *const PredicateLockTagTypeNames[] = {
 	"relation",
 	"page",
@@ -54,29 +54,29 @@ static const char *const PredicateLockTagTypeNames[] = {
 StaticAssertDecl(lengthof(PredicateLockTagTypeNames) == (PREDLOCKTAG_TUPLE + 1),
 				 "array length mismatch");
 
-/* Working status for pg_lock_status */
+/* pg_lock_status 的工作状态 */
 typedef struct
 {
-	LockData   *lockData;		/* state data from lmgr */
-	int			currIdx;		/* current PROCLOCK index */
-	PredicateLockData *predLockData;	/* state data for pred locks */
-	int			predLockIdx;	/* current index for pred lock */
+	LockData   *lockData;		/* lmgr 的状态数据 */
+	int			currIdx;		/* 当前 PROCLOCK 索引 */
+	PredicateLockData *predLockData;	/* 谓词锁的状态数据 */
+	int			predLockIdx;	/* 谓词锁的当前索引 */
 } PG_Lock_Status;
 
-/* Number of columns in pg_locks output */
+/* pg_locks 输出的列数 */
 #define NUM_LOCK_STATUS_COLUMNS		16
 
 /*
- * VXIDGetDatum - Construct a text representation of a VXID
+ * VXIDGetDatum - 构造 VXID 的文本表示
  *
- * This is currently only used in pg_lock_status, so we put it here.
+ * 目前只有 pg_lock_status 使用它，所以放在这里。
  */
 static Datum
 VXIDGetDatum(BackendId bid, LocalTransactionId lxid)
 {
 	/*
-	 * The representation is "<bid>/<lxid>", decimal and unsigned decimal
-	 * respectively.  Note that elog.c also knows how to format a vxid.
+	 * 表示形式为 "<bid>/<lxid>"，分别为十进制和
+	 * 无符号十进制。注意 elog.c 亦会格式化 vxid。
 	 */
 	char		vxidstr[32];
 
@@ -87,7 +87,7 @@ VXIDGetDatum(BackendId bid, LocalTransactionId lxid)
 
 
 /*
- * pg_lock_status - produce a view with one row per held or awaited lock mode
+ * pg_lock_status - 生成视图，每行一个持有或等待的锁模式
  */
 Datum
 pg_lock_status(PG_FUNCTION_ARGS)
@@ -102,16 +102,16 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		TupleDesc	tupdesc;
 		MemoryContext oldcontext;
 
-		/* create a function context for cross-call persistence */
+		/* 创建用于跨调用持久化的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* build tupdesc for result tuples */
-		/* this had better match function's declaration in pg_proc.h */
+		/* 为结果元组构建 tupdesc */
+		/* 此声明最好与 pg_proc.h 中的函数声明一致 */
 		tupdesc = CreateTemplateTupleDesc(NUM_LOCK_STATUS_COLUMNS);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "locktype",
 						   TEXTOID, -1, 0);
@@ -149,8 +149,8 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
 		/*
-		 * Collect all the locking information that we will format and send
-		 * out as a result set.
+		 * 收集所有将格式化并作为结果集发出的锁信息。
+		 * 
 		 */
 		mystatus = (PG_Lock_Status *) palloc(sizeof(PG_Lock_Status));
 		funcctx->user_fctx = (void *) mystatus;
@@ -182,9 +182,9 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		instance = &(lockData->locks[mystatus->currIdx]);
 
 		/*
-		 * Look to see if there are any held lock modes in this PROCLOCK. If
-		 * so, report, and destructively modify lockData so we don't report
-		 * again.
+		 * 查看此 PROCLOCK 中是否还有持有的锁模式。若有，
+		 * 就上报，并破坏性地修改 lockData 以免重复上报。
+		 * 
 		 */
 		granted = false;
 		if (instance->holdMask)
@@ -201,27 +201,27 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * If no (more) held modes to report, see if PROC is waiting for a
-		 * lock on this lock.
+		 * 若无（更多）持有模式可上报，则看 PROC 是否正
+		 * 等待此锁。
 		 */
 		if (!granted)
 		{
 			if (instance->waitLockMode != NoLock)
 			{
-				/* Yes, so report it with proper mode */
+				/* 是的，以适当的模式上报 */
 				mode = instance->waitLockMode;
 
 				/*
-				 * We are now done with this PROCLOCK, so advance pointer to
-				 * continue with next one on next call.
+				 * 本 PROCLOCK 已处理完毕，因此前移指针，
+				 * 下次调用时处理下一个。
 				 */
 				mystatus->currIdx++;
 			}
 			else
 			{
 				/*
-				 * Okay, we've displayed all the locks associated with this
-				 * PROCLOCK, proceed to the next one.
+				 * 好，与该 PROCLOCK 关联的锁都已显示完毕，
+				 * 继续处理下一个。
 				 */
 				mystatus->currIdx++;
 				continue;
@@ -229,7 +229,7 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Form tuple with appropriate data.
+		 * 用适当数据构造元组。
 		 */
 
 		if (instance->locktag.locktag_type <= LOCKTAG_LAST_TYPE)
@@ -339,7 +339,7 @@ pg_lock_status(PG_FUNCTION_ARGS)
 			case LOCKTAG_OBJECT:
 			case LOCKTAG_USERLOCK:
 			case LOCKTAG_ADVISORY:
-			default:			/* treat unknown locktags like OBJECT */
+			default:			/* 把未知 locktag 视为 OBJECT */
 				values[1] = ObjectIdGetDatum(instance->locktag.locktag_field1);
 				values[7] = ObjectIdGetDatum(instance->locktag.locktag_field2);
 				values[8] = ObjectIdGetDatum(instance->locktag.locktag_field3);
@@ -371,8 +371,8 @@ pg_lock_status(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Have returned all regular locks. Now start on the SIREAD predicate
-	 * locks.
+	 * 已返回所有常规锁。现在开始处理 SIREAD 谓词锁。
+	 * 
 	 */
 	predLockData = mystatus->predLockData;
 	if (mystatus->predLockIdx < predLockData->nelements)
@@ -389,15 +389,15 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		mystatus->predLockIdx++;
 
 		/*
-		 * Form tuple with appropriate data.
+		 * 用适当数据构造元组。
 		 */
 
-		/* lock type */
+		/* 锁类型 */
 		lockType = GET_PREDICATELOCKTARGETTAG_TYPE(*predTag);
 
 		values[0] = CStringGetTextDatum(PredicateLockTagTypeNames[lockType]);
 
-		/* lock target */
+		/* 锁目标 */
 		values[1] = GET_PREDICATELOCKTARGETTAG_DB(*predTag);
 		values[2] = GET_PREDICATELOCKTARGETTAG_RELATION(*predTag);
 		if (lockType == PREDLOCKTAG_TUPLE)
@@ -410,14 +410,14 @@ pg_lock_status(PG_FUNCTION_ARGS)
 		else
 			nulls[3] = true;
 
-		/* these fields are targets for other types of locks */
+		/* 这些字段是其他类型锁的目标 */
 		nulls[5] = true;		/* virtualxid */
 		nulls[6] = true;		/* transactionid */
 		nulls[7] = true;		/* classid */
 		nulls[8] = true;		/* objid */
 		nulls[9] = true;		/* objsubid */
 
-		/* lock holder */
+		/* 持锁者 */
 		values[10] = VXIDGetDatum(xact->vxid.backendId,
 								  xact->vxid.localTransactionId);
 		if (xact->pid != 0)
@@ -426,8 +426,8 @@ pg_lock_status(PG_FUNCTION_ARGS)
 			nulls[11] = true;
 
 		/*
-		 * Lock mode. Currently all predicate locks are SIReadLocks, which are
-		 * always held (never waiting) and have no fast path
+		 * 锁模式。当前所有谓词锁都是 SIReadLocks，它们
+		 * 总是持有（从不等待）且无快速路径
 		 */
 		values[12] = CStringGetTextDatum("SIReadLock");
 		values[13] = BoolGetDatum(true);
@@ -444,23 +444,23 @@ pg_lock_status(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_blocking_pids - produce an array of the PIDs blocking given PID
+ * pg_blocking_pids - 生成阻塞给定 PID 的 PID 数组
  *
- * The reported PIDs are those that hold a lock conflicting with blocked_pid's
- * current request (hard block), or are requesting such a lock and are ahead
- * of blocked_pid in the lock's wait queue (soft block).
+ * 上报的 PID 是那些持有与 blocked_pid 当前请求相冲突的
+ * 锁的进程（硬阻塞），或是正在请求这样的锁且在该锁
+ * 等待队列中先于 blocked_pid（软阻塞）。
  *
- * In parallel-query cases, we report all PIDs blocking any member of the
- * given PID's lock group, and the reported PIDs are those of the blocking
- * PIDs' lock group leaders.  This allows callers to compare the result to
- * lists of clients' pg_backend_pid() results even during a parallel query.
+ * 在并行查询场景下，我们上报阻塞给定 PID 锁组任一
+ * 成员的所有 PID，且上报的 PID 是阻塞方
+ * 锁组组长的 PID。这使得调用方可以把结果与客户端
+ * 的 pg_backend_pid() 结果列表比较，即便在并行查询期间。
  *
- * Parallel query makes it possible for there to be duplicate PIDs in the
- * result (either because multiple waiters are blocked by same PID, or
- * because multiple blockers have same group leader PID).  We do not bother
- * to eliminate such duplicates from the result.
+ * 并行查询使结果中可能出现重复的 PID，或因多个
+ * 等待者被同一 PID 阻塞，或是因为多个阻塞方的
+ * 组长 PID 相同。我们不打算费心去把
+ * 这类重复项从结果中剔除。
  *
- * We need not consider predicate locks here, since those don't block anything.
+ * 此处无需考虑谓词锁，因为谓词锁不会阻塞任何东西。
  */
 Datum
 pg_blocking_pids(PG_FUNCTION_ARGS)
@@ -468,18 +468,18 @@ pg_blocking_pids(PG_FUNCTION_ARGS)
 	int			blocked_pid = PG_GETARG_INT32(0);
 	Datum	   *arrayelems;
 	int			narrayelems;
-	BlockedProcsData *lockData; /* state data from lmgr */
+	BlockedProcsData *lockData; /* lmgr 的状态数据 */
 	int			i,
 				j;
 
-	/* Collect a snapshot of lock manager state */
+	/* 收集锁管理器状态的快照 */
 	lockData = GetBlockerStatusData(blocked_pid);
 
-	/* We can't need more output entries than there are reported PROCLOCKs */
+	/* 所需的输出条目不会多于已上报的 PROCLOCK 数 */
 	arrayelems = (Datum *) palloc(lockData->nlocks * sizeof(Datum));
 	narrayelems = 0;
 
-	/* For each blocked proc in the lock group ... */
+	/* 对锁组中的每个被阻塞进程 ... */
 	for (i = 0; i < lockData->nprocs; i++)
 	{
 		BlockedProcData *bproc = &lockData->procs[i];
@@ -490,8 +490,8 @@ pg_blocking_pids(PG_FUNCTION_ARGS)
 		int			conflictMask;
 
 		/*
-		 * Locate the blocked proc's own entry in the LockInstanceData array.
-		 * There should be exactly one matching entry.
+		 * 在 LockInstanceData 数组中定位被阻塞进程自身条目。
+		 * 应恰好有一个匹配的条目。
 		 */
 		blocked_instance = NULL;
 		for (j = 0; j < bproc->num_locks; j++)
@@ -509,26 +509,26 @@ pg_blocking_pids(PG_FUNCTION_ARGS)
 		lockMethodTable = GetLockTagsMethodTable(&(blocked_instance->locktag));
 		conflictMask = lockMethodTable->conflictTab[blocked_instance->waitLockMode];
 
-		/* Now scan the PROCLOCK data for conflicting procs */
+		/* 现在扫描 PROCLOCK 数据以找冲突进程 */
 		for (j = 0; j < bproc->num_locks; j++)
 		{
 			LockInstanceData *instance = &(instances[j]);
 
-			/* A proc never blocks itself, so ignore that entry */
+			/* 进程绝不会阻塞自己，故忽略该条目 */
 			if (instance == blocked_instance)
 				continue;
-			/* Members of same lock group never block each other, either */
+			/* 同一锁组的成员彼此也绝不会阻塞 */
 			if (instance->leaderPid == blocked_instance->leaderPid)
 				continue;
 
 			if (conflictMask & instance->holdMask)
 			{
-				/* hard block: blocked by lock already held by this entry */
+				/* 硬阻塞：被该条目已持有的锁所阻塞 */
 			}
 			else if (instance->waitLockMode != NoLock &&
 					 (conflictMask & LOCKBIT_ON(instance->waitLockMode)))
 			{
-				/* conflict in lock requests; who's in front in wait queue? */
+				/* 锁请求冲突；谁在等待队列的前面？ */
 				bool		ahead = false;
 				int			k;
 
@@ -536,26 +536,26 @@ pg_blocking_pids(PG_FUNCTION_ARGS)
 				{
 					if (preceding_waiters[k] == instance->pid)
 					{
-						/* soft block: this entry is ahead of blocked proc */
+						/* 软阻塞：该条目领先于被阻塞进程 */
 						ahead = true;
 						break;
 					}
 				}
 				if (!ahead)
-					continue;	/* not blocked by this entry */
+					continue;	/* 未被该条目阻塞 */
 			}
 			else
 			{
-				/* not blocked by this entry */
+				/* 未被该条目阻塞 */
 				continue;
 			}
 
-			/* blocked by this entry, so emit a record */
+			/* 被该条目阻塞，故发出记录 */
 			arrayelems[narrayelems++] = Int32GetDatum(instance->leaderPid);
 		}
 	}
 
-	/* Assert we didn't overrun arrayelems[] */
+	/* 断言没有越界写 arrayelems[] */
 	Assert(narrayelems <= lockData->nlocks);
 
 	PG_RETURN_ARRAYTYPE_P(construct_array_builtin(arrayelems, narrayelems, INT4OID));
@@ -563,11 +563,11 @@ pg_blocking_pids(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_safe_snapshot_blocking_pids - produce an array of the PIDs blocking
- * given PID from getting a safe snapshot
+ * pg_safe_snapshot_blocking_pids - 生成阻塞给定 PID、
+ * 无法获得安全快照的 PID 数组
  *
- * XXX this does not consider parallel-query cases; not clear how big a
- * problem that is in practice
+ * XXX 此处未考虑并行查询场景；不清楚这在实际中
+ * 会是多大的问题。
  */
 Datum
 pg_safe_snapshot_blocking_pids(PG_FUNCTION_ARGS)
@@ -577,14 +577,14 @@ pg_safe_snapshot_blocking_pids(PG_FUNCTION_ARGS)
 	int			num_blockers;
 	Datum	   *blocker_datums;
 
-	/* A buffer big enough for any possible blocker list without truncation */
+	/* 足以容纳任何阻塞者列表而无须截断的缓冲区 */
 	blockers = (int *) palloc(MaxBackends * sizeof(int));
 
-	/* Collect a snapshot of processes waited for by GetSafeSnapshot */
+	/* 收集 GetSafeSnapshot 所等待进程的快照 */
 	num_blockers =
 		GetSafeSnapshotBlockingPids(blocked_pid, blockers, MaxBackends);
 
-	/* Convert int array to Datum array */
+	/* int 数组转成 Datum 数组 */
 	if (num_blockers > 0)
 	{
 		int			i;
@@ -601,15 +601,15 @@ pg_safe_snapshot_blocking_pids(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_isolation_test_session_is_blocked - support function for isolationtester
+ * pg_isolation_test_session_is_blocked - isolationtester 的支持函数
  *
- * Check if specified PID is blocked by any of the PIDs listed in the second
- * argument.  Currently, this looks for blocking caused by waiting for
- * heavyweight locks or safe snapshots.  We ignore blockage caused by PIDs
- * not directly under the isolationtester's control, eg autovacuum.
+ * 检查指定 PID 是否被第二个参数所列 PID 中的任一个
+ * 所阻塞。目前它查找因等待重量级锁或安全快照
+ * 而引起的阻塞。我们忽略不受 isolationtester 直接控制
+ * 的 PID 所造成的阻塞，例如 autovacuum。
  *
- * This is an undocumented function intended for use by the isolation tester,
- * and may change in future releases as required for testing purposes.
+ * 此为未载入文档的函数，供 isolation tester 使用，
+ * 并且在后续版本中可能随测试需要而变更。
  */
 Datum
 pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
@@ -625,7 +625,7 @@ pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
 	int			i,
 				j;
 
-	/* Validate the passed-in array */
+	/* 校验传入的数组 */
 	Assert(ARR_ELEMTYPE(interesting_pids_a) == INT4OID);
 	if (array_contains_nulls(interesting_pids_a))
 		elog(ERROR, "array must not contain nulls");
@@ -634,8 +634,8 @@ pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
 										  ARR_DIMS(interesting_pids_a));
 
 	/*
-	 * Get the PIDs of all sessions blocking the given session's attempt to
-	 * acquire heavyweight locks.
+	 * 取得所有在给定会话试图获取重量级锁时
+	 * 阻塞它的会话 PID。
 	 */
 	blocking_pids_a =
 		DatumGetArrayTypeP(DirectFunctionCall1(pg_blocking_pids, blocked_pid));
@@ -647,13 +647,13 @@ pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
 									   ARR_DIMS(blocking_pids_a));
 
 	/*
-	 * Check if any of these are in the list of interesting PIDs, that being
-	 * the sessions that the isolation tester is running.  We don't use
-	 * "arrayoverlaps" here, because it would lead to cache lookups and one of
-	 * our goals is to run quickly with debug_discard_caches > 0.  We expect
-	 * blocking_pids to be usually empty and otherwise a very small number in
-	 * isolation tester cases, so make that the outer loop of a naive search
-	 * for a match.
+	 * 检查这些 PID 中是否有任一位于相关 PID 列表中，
+	 * 即 isolation tester 正在运行的会话。我们不使用
+	 * "arrayoverlaps"，因为这会导致缓存查找，而我们的
+	 * 目标之一是在 debug_discard_caches > 0 时快速运行。我们
+	 * 预计 blocking_pids 通常是空的，否则在 isolation tester 
+	 * 场景中是很小的数字，所以让它充当朴素搜索外层
+	 * 循环。
 	 */
 	for (i = 0; i < num_blocking_pids; i++)
 		for (j = 0; j < num_interesting_pids; j++)
@@ -663,13 +663,13 @@ pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
 		}
 
 	/*
-	 * Check if blocked_pid is waiting for a safe snapshot.  We could in
-	 * theory check the resulting array of blocker PIDs against the
-	 * interesting PIDs list, but since there is no danger of autovacuum
-	 * blocking GetSafeSnapshot there seems to be no point in expending cycles
-	 * on allocating a buffer and searching for overlap; so it's presently
-	 * sufficient for the isolation tester's purposes to use a single element
-	 * buffer and check if the number of safe snapshot blockers is non-zero.
+	 * 检查 blocked_pid 是否正在等待安全快照。理论上
+	 * 可以把得到的阻塞者 PID 数组与相关 PID 列表
+	 * 对照，但由于 autovacuum 没有
+	 * 阻塞 GetSafeSnapshot 的危险，因此花周期分配缓冲区
+	 * 并搜索重叠并无多大意义；因此就 isolation tester 的
+	 * 用途而言，目前使用单元素缓冲区并检查阻塞者数量
+	 * 是否非零就足够了。
 	 */
 	if (GetSafeSnapshotBlockingPids(blocked_pid, &dummy, 1) > 0)
 		PG_RETURN_BOOL(true);
@@ -679,14 +679,14 @@ pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
 
 
 /*
- * Functions for manipulating advisory locks
+ * 操作咨询锁的函数
  *
- * We make use of the locktag fields as follows:
+ * 我们如下使用 locktag 字段：
  *
- *	field1: MyDatabaseId ... ensures locks are local to each database
- *	field2: first of 2 int4 keys, or high-order half of an int8 key
- *	field3: second of 2 int4 keys, or low-order half of an int8 key
- *	field4: 1 if using an int8 key, 2 if using 2 int4 keys
+ *	field1: MyDatabaseId ... 确保锁局部于每个数据库
+ *	field2: 两个 int4 键之一，或 int8 键高序半部
+ *	field3: 第二个 int4 键，或 int8 键低序半部
+ *	field4: 用 int8 键时为 1，2 个 int4 键时为 2
  */
 #define SET_LOCKTAG_INT64(tag, key64) \
 	SET_LOCKTAG_ADVISORY(tag, \
@@ -698,7 +698,7 @@ pg_isolation_test_session_is_blocked(PG_FUNCTION_ARGS)
 	SET_LOCKTAG_ADVISORY(tag, MyDatabaseId, key1, key2, 2)
 
 /*
- * pg_advisory_lock(int8) - acquire exclusive lock on an int8 key
+ * pg_advisory_lock(int8) - 获取 int8 键的独占锁
  */
 Datum
 pg_advisory_lock_int8(PG_FUNCTION_ARGS)
@@ -714,8 +714,8 @@ pg_advisory_lock_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_xact_lock(int8) - acquire xact scoped
- * exclusive lock on an int8 key
+ * pg_advisory_xact_lock(int8) - 获取事务级 
+ * int8 键的独占锁
  */
 Datum
 pg_advisory_xact_lock_int8(PG_FUNCTION_ARGS)
@@ -731,7 +731,7 @@ pg_advisory_xact_lock_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_lock_shared(int8) - acquire share lock on an int8 key
+ * pg_advisory_lock_shared(int8) - 获取 int8 键的共享锁
  */
 Datum
 pg_advisory_lock_shared_int8(PG_FUNCTION_ARGS)
@@ -747,8 +747,8 @@ pg_advisory_lock_shared_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_xact_lock_shared(int8) - acquire xact scoped
- * share lock on an int8 key
+ * pg_advisory_xact_lock_shared(int8) - 获取事务级 
+ * int8 键的共享锁
  */
 Datum
 pg_advisory_xact_lock_shared_int8(PG_FUNCTION_ARGS)
@@ -764,9 +764,9 @@ pg_advisory_xact_lock_shared_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_lock(int8) - acquire exclusive lock on an int8 key, no wait
+ * pg_try_advisory_lock(int8) - 获取 int8 键上的独占锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_lock_int8(PG_FUNCTION_ARGS)
@@ -783,10 +783,10 @@ pg_try_advisory_lock_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_xact_lock(int8) - acquire xact scoped
- * exclusive lock on an int8 key, no wait
+ * pg_try_advisory_xact_lock(int8) - 获取事务级 
+ * int8 键上的独占锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_xact_lock_int8(PG_FUNCTION_ARGS)
@@ -803,9 +803,9 @@ pg_try_advisory_xact_lock_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_lock_shared(int8) - acquire share lock on an int8 key, no wait
+ * pg_try_advisory_lock_shared(int8) - 获取 int8 键上的共享锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_lock_shared_int8(PG_FUNCTION_ARGS)
@@ -822,10 +822,10 @@ pg_try_advisory_lock_shared_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_xact_lock_shared(int8) - acquire xact scoped
- * share lock on an int8 key, no wait
+ * pg_try_advisory_xact_lock_shared(int8) - 获取事务级 
+ * int8 键的共享锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_xact_lock_shared_int8(PG_FUNCTION_ARGS)
@@ -842,9 +842,9 @@ pg_try_advisory_xact_lock_shared_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_unlock(int8) - release exclusive lock on an int8 key
+ * pg_advisory_unlock(int8) - 释放 int8 键的独占锁
  *
- * Returns true if successful, false if lock was not held
+ * 成功返回 true，未持有锁则返回 false。
 */
 Datum
 pg_advisory_unlock_int8(PG_FUNCTION_ARGS)
@@ -861,9 +861,9 @@ pg_advisory_unlock_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_unlock_shared(int8) - release share lock on an int8 key
+ * pg_advisory_unlock_shared(int8) - 释放 int8 键的共享锁
  *
- * Returns true if successful, false if lock was not held
+ * 成功返回 true，未持有锁则返回 false。
  */
 Datum
 pg_advisory_unlock_shared_int8(PG_FUNCTION_ARGS)
@@ -880,7 +880,7 @@ pg_advisory_unlock_shared_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_lock(int4, int4) - acquire exclusive lock on 2 int4 keys
+ * pg_advisory_lock(int4, int4) - 获取 2 个 int4 键的独占锁
  */
 Datum
 pg_advisory_lock_int4(PG_FUNCTION_ARGS)
@@ -897,8 +897,8 @@ pg_advisory_lock_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_xact_lock(int4, int4) - acquire xact scoped
- * exclusive lock on 2 int4 keys
+ * pg_advisory_xact_lock(int4, int4) - 获取事务级 
+ * 2 个 int4 键的独占锁
  */
 Datum
 pg_advisory_xact_lock_int4(PG_FUNCTION_ARGS)
@@ -915,7 +915,7 @@ pg_advisory_xact_lock_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_lock_shared(int4, int4) - acquire share lock on 2 int4 keys
+ * pg_advisory_lock_shared(int4, int4) - 获取 2 个 int4 键的共享锁
  */
 Datum
 pg_advisory_lock_shared_int4(PG_FUNCTION_ARGS)
@@ -932,8 +932,8 @@ pg_advisory_lock_shared_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_xact_lock_shared(int4, int4) - acquire xact scoped
- * share lock on 2 int4 keys
+ * pg_advisory_xact_lock_shared(int4, int4) - 获取事务级 
+ * 2 个 int4 键共享锁
  */
 Datum
 pg_advisory_xact_lock_shared_int4(PG_FUNCTION_ARGS)
@@ -950,9 +950,9 @@ pg_advisory_xact_lock_shared_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_lock(int4, int4) - acquire exclusive lock on 2 int4 keys, no wait
+ * pg_try_advisory_lock(int4, int4) - 获取 2 个 int4 键的独占锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_lock_int4(PG_FUNCTION_ARGS)
@@ -970,10 +970,10 @@ pg_try_advisory_lock_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_xact_lock(int4, int4) - acquire xact scoped
- * exclusive lock on 2 int4 keys, no wait
+ * pg_try_advisory_xact_lock(int4, int4) - 获取事务级 
+ * 2 个 int4 键的独占锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_xact_lock_int4(PG_FUNCTION_ARGS)
@@ -991,9 +991,9 @@ pg_try_advisory_xact_lock_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_lock_shared(int4, int4) - acquire share lock on 2 int4 keys, no wait
+ * pg_try_advisory_lock_shared(int4, int4) - 获取 2 个 int4 键共享锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_lock_shared_int4(PG_FUNCTION_ARGS)
@@ -1011,10 +1011,10 @@ pg_try_advisory_lock_shared_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_try_advisory_xact_lock_shared(int4, int4) - acquire xact scoped
- * share lock on 2 int4 keys, no wait
+ * pg_try_advisory_xact_lock_shared(int4, int4) - 获取事务级 
+ * 2个 int4 键共享锁，不等待
  *
- * Returns true if successful, false if lock not available
+ * 成功则返回 true，锁不可用则返回 false。
  */
 Datum
 pg_try_advisory_xact_lock_shared_int4(PG_FUNCTION_ARGS)
@@ -1032,9 +1032,9 @@ pg_try_advisory_xact_lock_shared_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_unlock(int4, int4) - release exclusive lock on 2 int4 keys
+ * pg_advisory_unlock(int4, int4) - 释放 2 个 int4 键的独占锁
  *
- * Returns true if successful, false if lock was not held
+ * 成功返回 true，未持有锁则返回 false。
 */
 Datum
 pg_advisory_unlock_int4(PG_FUNCTION_ARGS)
@@ -1052,9 +1052,9 @@ pg_advisory_unlock_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_unlock_shared(int4, int4) - release share lock on 2 int4 keys
+ * pg_advisory_unlock_shared(int4, int4) - 释放 2 个 int4 键的共享锁
  *
- * Returns true if successful, false if lock was not held
+ * 成功返回 true，未持有锁则返回 false。
  */
 Datum
 pg_advisory_unlock_shared_int4(PG_FUNCTION_ARGS)
@@ -1072,7 +1072,7 @@ pg_advisory_unlock_shared_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_advisory_unlock_all() - release all advisory locks
+ * pg_advisory_unlock_all() - 释放所有咨询锁
  */
 Datum
 pg_advisory_unlock_all(PG_FUNCTION_ARGS)

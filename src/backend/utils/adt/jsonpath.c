@@ -1,27 +1,27 @@
 /*-------------------------------------------------------------------------
  *
  * jsonpath.c
- *	 Input/output and supporting routines for jsonpath
+ *	 jsonpath 的输入/输出与配套例程
  *
- * jsonpath expression is a chain of path items.  First path item is $, $var,
- * literal or arithmetic expression.  Subsequent path items are accessors
- * (.key, .*, [subscripts], [*]), filters (? (predicate)) and methods (.type(),
- * .size() etc).
+ * jsonpath 表达式是由路径项构成的链。首项是 $、$var、
+ * 字面量或算术表达式。后续路径项是访问器
+ * (.key、.*、[下标]、[*])、过滤器 (? (predicate)) 和方法 (.type()
+ * .size() 等).
  *
- * For instance, structure of path items for simple expression:
+ * 例如，简单表达式的路径项结构：
  *
  *		$.a[*].type()
  *
- * is pretty evident:
+ * 显而易见：
  *
  *		$ => .a => [*] => .type()
  *
- * Some path items such as arithmetic operations, predicates or array
- * subscripts may comprise subtrees.  For instance, more complex expression
+ * 诸如算术运算、谓词或数组下标等路径项可能
+ * 构成子树。例如，更复杂的表达式
  *
  *		($.a + $[1 to 5, 7] ? (@ > 3).double()).type()
  *
- * have following structure of path items:
+ * 则具有如下路径项结构：
  *
  *			  +  =>  .type()
  *		  ___/ \___
@@ -33,16 +33,16 @@
  *					   / \	  /   @   3
  *					  1   5  7
  *
- * Binary encoding of jsonpath constitutes a sequence of 4-bytes aligned
- * variable-length path items connected by links.  Every item has a header
- * consisting of item type (enum JsonPathItemType) and offset of next item
- * (zero means no next item).  After the header, item may have payload
- * depending on item type.  For instance, payload of '.key' accessor item is
- * length of key name and key name itself.  Payload of '>' arithmetic operator
- * item is offsets of right and left operands.
+ * jsonpath 的二进制编码由一串 4 字节对齐的变长路径
+ * 项经链接相连而成。每一项都有一个头部，头部由
+ * 项类型（enum JsonPathItemType）与下一项偏移组成。
+ * （零表示没有下一项）。头部之后，项可带有视
+ * 项类型而定的载荷。例如，'.key' 访问器项的载荷是
+ * 键名长度与键名本身。'>' 算术算子项的载荷是
+ * 左右操作数的偏移量。
  *
- * So, binary representation of sample expression above is:
- * (bottom arrows are next links, top lines are argument links)
+ * 于是，上例表达式的二进制表示为：
+ * （底部箭头是 next 链接，顶部线是参数链接）
  *
  *								  _____
  *		 _____				  ___/____ \				__
@@ -87,10 +87,10 @@ static void printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey,
 static int	operationPriority(JsonPathItemType op);
 
 
-/**************************** INPUT/OUTPUT ********************************/
+/**************************** 输入输出 ********************************/
 
 /*
- * jsonpath type input function
+ * jsonpath 输入函数
  */
 Datum
 jsonpath_in(PG_FUNCTION_ARGS)
@@ -102,12 +102,12 @@ jsonpath_in(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonpath type recv function
+ * jsonpath recv 函数
  *
- * The type is sent as text in binary mode, so this is almost the same
- * as the input function, but it's prefixed with a version number so we
- * can change the binary format sent in future if necessary. For now,
- * only version 1 is supported.
+ * 二进制模式下类型以文本发送，所以本函数与
+ * 输入函数几乎相同，但其前面带有版本号，以便
+ * 将来必要时可以变更所发送的二进制格式。目前
+ * 只支持版本 1。
  */
 Datum
 jsonpath_recv(PG_FUNCTION_ARGS)
@@ -126,7 +126,7 @@ jsonpath_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonpath type output function
+ * jsonpath 输出函数
  */
 Datum
 jsonpath_out(PG_FUNCTION_ARGS)
@@ -137,9 +137,9 @@ jsonpath_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonpath type send function
+ * jsonpath send 函数
  *
- * Just send jsonpath as a version number, then a string of text
+ * 只是先发送一个版本号，再发送 jsonpath 文本串
  */
 Datum
 jsonpath_send(PG_FUNCTION_ARGS)
@@ -161,11 +161,11 @@ jsonpath_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * Converts C-string to a jsonpath value.
+ * 将 C 字符串转为 jsonpath 值。
  *
- * Uses jsonpath parser to turn string into an AST, then
- * flattenJsonPathParseItem() does second pass turning AST into binary
- * representation of jsonpath.
+ * 用 jsonpath 解析器把字符串转成 AST 然后 
+ * flattenJsonPathParseItem() 进行第二遍把 AST 变成 jsonpath
+ * 的二进制表示。
  */
 static Datum
 jsonPathFromCstring(char *in, int len, struct Node *escontext)
@@ -184,7 +184,7 @@ jsonPathFromCstring(char *in, int len, struct Node *escontext)
 						in)));
 
 	initStringInfo(&buf);
-	enlargeStringInfo(&buf, 4 * len /* estimation */ );
+	enlargeStringInfo(&buf, 4 * len /* 估算值 */ );
 
 	appendStringInfoSpaces(&buf, JSONPATH_HDRSZ);
 
@@ -202,10 +202,10 @@ jsonPathFromCstring(char *in, int len, struct Node *escontext)
 }
 
 /*
- * Converts jsonpath value to a C-string.
+ * 将 jsonpath 值转为 C 字符串。
  *
- * If 'out' argument is non-null, the resulting C-string is stored inside the
- * StringBuffer.  The resulting string is always returned.
+ * 若 'out' 参数非空，则结果 C 字符串会存储在 
+ * StringBuffer 中。结果字符串总会被返回。
  */
 static char *
 jsonPathToCstring(StringInfo out, JsonPath *in, int estimated_len)
@@ -230,15 +230,15 @@ jsonPathToCstring(StringInfo out, JsonPath *in, int estimated_len)
 }
 
 /*
- * Recursive function converting given jsonpath parse item and all its
- * children into a binary representation.
+ * 把给定的 jsonpath 解析项及其全部子项转换为
+ * 二进制表示的递归函数。
  */
 static bool
 flattenJsonPathParseItem(StringInfo buf, int *result, struct Node *escontext,
 						 JsonPathParseItem *item, int nestingLevel,
 						 bool insideArraySubscript)
 {
-	/* position from beginning of jsonpath data */
+	/* 距 jsonpath 数据开头的位置 */
 	int32		pos = buf->len - JSONPATH_HDRSZ;
 	int32		chld;
 	int32		next;
@@ -250,15 +250,15 @@ flattenJsonPathParseItem(StringInfo buf, int *result, struct Node *escontext,
 	appendStringInfoChar(buf, (char) (item->type));
 
 	/*
-	 * We align buffer to int32 because a series of int32 values often goes
-	 * after the header, and we want to read them directly by dereferencing
-	 * int32 pointer (see jspInitByBuffer()).
+	 * 我们把缓冲区对齐到 int32，因为头部之后常跟着
+	 * 一系列 int32 值，可通过解引用 int32 指针直接读取
+	 * （见 jspInitByBuffer()）。
 	 */
 	alignStringInfoInt(buf);
 
 	/*
-	 * Reserve space for next item pointer.  Actual value will be recorded
-	 * later, after next and children items processing.
+	 * 为下一项指针预留空间。实际值将在处理完
+	 * 下一项及子项之后再记录。
 	 */
 	next = reserveSpaceForItemPointer(buf);
 
@@ -297,9 +297,9 @@ flattenJsonPathParseItem(StringInfo buf, int *result, struct Node *escontext,
 		case jpiStartsWith:
 			{
 				/*
-				 * First, reserve place for left/right arg's positions, then
-				 * record both args and sets actual position in reserved
-				 * places.
+				 * 先为左右参数的位置预留空间，随后
+				 * 记录两个参数并在预留处设实际位置。
+				 * 
 				 */
 				int32		left = reserveSpaceForItemPointer(buf);
 				int32		right = reserveSpaceForItemPointer(buf);
@@ -465,7 +465,7 @@ flattenJsonPathParseItem(StringInfo buf, int *result, struct Node *escontext,
 }
 
 /*
- * Align StringInfo to int by adding zero padding bytes
+ * 通过补零填充字节把 StringInfo 对齐到 int
  */
 static void
 alignStringInfoInt(StringInfo buf)
@@ -487,8 +487,8 @@ alignStringInfoInt(StringInfo buf)
 }
 
 /*
- * Reserve space for int32 JsonPathItem pointer.  Now zero pointer is written,
- * actual value will be recorded at '(int32 *) &buf->data[pos]' later.
+ * 为 int32 JsonPathItem 指针预留空间。现在写入的是零指针，
+ * 实际值稍后会记录到 '(int32 *) &buf->data[pos]' 处。
  */
 static int32
 reserveSpaceForItemPointer(StringInfo buf)
@@ -502,7 +502,7 @@ reserveSpaceForItemPointer(StringInfo buf)
 }
 
 /*
- * Prints text representation of given jsonpath item and all its children.
+ * 打印给定 jsonpath 项及其全部子项的文本表示。
  */
 static void
 printJsonPathItem(StringInfo buf, JsonPathItem *v, bool inKey,
@@ -841,10 +841,10 @@ operationPriority(JsonPathItemType op)
 	}
 }
 
-/******************* Support functions for JsonPath *************************/
+/******************* JsonPath 辅助函数 *************************/
 
 /*
- * Support macros to read stored values
+ * 读取已存储值的辅助宏
  */
 
 #define read_byte(v, b, p) do {			\
@@ -863,7 +863,7 @@ operationPriority(JsonPathItemType op)
 } while(0)								\
 
 /*
- * Read root node and fill root node representation
+ * 读取根节点并填充根节点表示
  */
 void
 jspInit(JsonPathItem *v, JsonPath *js)
@@ -873,7 +873,7 @@ jspInit(JsonPathItem *v, JsonPath *js)
 }
 
 /*
- * Read node from buffer and fill its representation
+ * 从缓冲区读取节点并填充其表示
  */
 void
 jspInitByBuffer(JsonPathItem *v, char *base, int32 pos)

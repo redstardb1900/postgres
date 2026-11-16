@@ -7071,6 +7071,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0407-adt-spg-rank-dbsize.json",
    "kind": "manifest",
    "note": "batch-0407 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/misc.c",
+   "kind": "c_comment",
+   "note": "杂项函数 (pg_typeof/parse_ident/current_logfile 系标识符保留, 表空间/集群口径集簇, genfile 0405 opr_sanity 包装语境); whole-file comment translation, batch-0408 (adt 小文件收官)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/lockfuncs.c",
+   "kind": "c_comment",
+   "note": "锁函数 (pg_locks/pg_blocking_pids/advisory 系标识符保留, 咨询锁/硬阻塞/软阻塞/等待队列 lmgr 口径); whole-file comment translation, batch-0408 (adt 小文件收官)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonpath.c",
+   "kind": "c_comment",
+   "note": "JSON 路径 (jsonpath 保留, 路径项/访问器/谓词/载荷/宽松/严格, 0402 jsonbsubs 0401 jsonb_op 语境); whole-file comment translation, batch-0408 (adt 小文件收官)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0408-adt-small-final.json",
+   "kind": "manifest",
+   "note": "batch-0408 manifest"
   }
  ],
  "files": [
@@ -22915,6 +22935,52 @@
    "translated": 0,
    "preserved": 0,
    "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/utils/adt/misc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 73,
+   "translated": 72,
+   "preserved": 1,
+   "preserved_reasons": [
+    "文件头保留行 6 (文件名 L3/版权 L6-L7/IDENTIFICATION L10/路径 L11, 头部无功能描述行可译) + 函数名标签行 4 (L158 num_nulls/L174 num_nonnulls/L191 current_database/L207 current_query/L951 pg_current_logfile)"
+   ],
+   "note": "杂项函数 (misc 标识符保留, num_nulls/num_nonnulls/pg_tablespace_location/pg_sleep/parse_ident/pg_current_logfile/ANY_VALUE 语境, 集簇 pgdoc 口径, genfile 0405 opr_sanity 包装语境); whole-file comment translation, batch-0408 (adt 小文件流收官批); dump 权威块数注释感知重扫 (jsonpath @187 伪块校正: L187 尾注释 estimation 后随代码 ');', 其吞并的 L204-L209 真块已单独翻译, 96 行代码零改动); 行数守恒 3 文件全通过 (1080/1083/1112 行不变); 规划轮 1 (三 dump 通读 + 注释感知重扫 + spec 逐行 zh + dry-run 预算/近重复修剪) + 写后修复轮 1 (R1: jsonpath L187 尾注释后随代码被 else 分支吞代码致 R1_SKELETON, 改 RAW 标签替换恢复 enlargeStringInfo 代码字节; misc L318 集群→集簇 TL01 pgdoc rule 121; lockfuncs L458-L460 跨行全角括号拆除; R2 接缝拼读: 跨行接缝 CJK-EN 粘连 12 站补空格/移逗号 (misc L325/L730, lockfuncs L654 + 获取事务级 8 站 L717/750/786/825/900/935/973/1014, jsonpath L166/L207), misc L644/L646 与 L663/L666 重构消除 '数据类型的/有效 true' 歧义接缝, spec 单一真源重放全文件); 句号台账 (python 逐行现算, 终态): REVERSE 0 站; FORWARD 21 站两类自洽披露——A 类桩行消化 6 站 (misc L828/L995 + lockfuncs L152/L186/L374 + jsonpath L301, EN 残行以 ' *' 填充行消化: L829/L996/L153/L187/L375/L302), B 类 EN 桩行无句号 zh 补全句号 15 站 (misc L613 + lockfuncs L570/L769/L789/L808/L828/L847/L866/L955/L976/L996/L1017/L1037/L1057 + jsonpath L38); 行首标点复扫 0; 全角括号配平 3 文件全过 (行级+全局); 跨行重复字 0; near-dup LCS≥8 0 (lockfuncs L454/L455 组组长接缝重排 + L687/L688 field2/field3 头一个/次一个改写规避); 门禁: verify_c_comments adt 57 文件 rc=0 (0 violation/0 parse; jsonpath R1 修复后复跑); term_lint rc=1 (1 error 为 init/postinit.c L1428 TL01 既有非本批, stash 对照 754 pairs 同报), 本批 3 文件 0 error; halfen adt 57 文件 35 findings rc=1, 本批新增 5 站全 MIXED run=2 advisory (jsonpath L104 recv/L139 send + lockfuncs L603 isolationtester/L649/L665 isolation tester, 标识符+CJK 固有混排, 与树内既有 30 站同类), 其余 30 站既有; 术语: 锁→锁/waiting→等待/held→持有/granted 语境已授予, advisory lock→咨询锁 (lmgr lock.c 口径), hard block→硬阻塞/soft block→软阻塞 (deadlock.c 口径), wait queue→等待队列, lock manager→锁管理器, fast path→快速路径, predicate lock→谓词锁, safe snapshot→安全快照, heavyweight lock→重量级锁, 转移函数 (aggregatecmds 口径), jsonpath→jsonpath 保留/lax→宽松/strict→严格 (本批新立, 树内无既译), path item→路径项/accessor→访问器/filter→过滤器/predicate→谓词/existence→存在性/unwrap→解包/payload→载荷/算子 (operator 词形); keep 披露: 见各文件 preserved_reasons; 标识符全保留 (pg_lock_status/pg_blocking_pids/advisory 系/jsonpath 系), OID 逐字保留; banner 2 站 RAW 翻译保边框 (jsonpath L90 INPUT/OUTPUT→输入输出 等宽 76B, L844 Support functions→JsonPath 辅助函数 69B≤78B); blocks=73 zh-lines=129 fill-lines=3 (L380/L829/L996 消化) keep-EN-lines=10"
+  },
+  {
+   "path": "src/backend/utils/adt/lockfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 83,
+   "translated": 82,
+   "preserved": 1,
+   "preserved_reasons": [
+    "文件头保留行 4 (文件名 L3/版权 L6/IDENTIFICATION L8/路径 L9, 头部功能描述行 L4 已译) + 标识符标签行 5 (L414 virtualxid/L415 transactionid/L416 classid/L417 objid/L418 objsubid, 列名标识符全保留)"
+   ],
+   "note": "锁函数 (pg_locks 视图产出/锁管理器快照/谓词锁/咨询锁 int8-int4 两族 16 函数, 标识符保留, 咨询锁/硬阻塞/软阻塞/等待队列/快速路径 lmgr-deadlock 口径); whole-file comment translation, batch-0408 (adt 小文件流收官批); dump 权威块数注释感知重扫 (jsonpath @187 伪块校正: L187 尾注释 estimation 后随代码 ');', 其吞并的 L204-L209 真块已单独翻译, 96 行代码零改动); 行数守恒 3 文件全通过 (1080/1083/1112 行不变); 规划轮 1 (三 dump 通读 + 注释感知重扫 + spec 逐行 zh + dry-run 预算/近重复修剪) + 写后修复轮 1 (R1: jsonpath L187 尾注释后随代码被 else 分支吞代码致 R1_SKELETON, 改 RAW 标签替换恢复 enlargeStringInfo 代码字节; misc L318 集群→集簇 TL01 pgdoc rule 121; lockfuncs L458-L460 跨行全角括号拆除; R2 接缝拼读: 跨行接缝 CJK-EN 粘连 12 站补空格/移逗号 (misc L325/L730, lockfuncs L654 + 获取事务级 8 站 L717/750/786/825/900/935/973/1014, jsonpath L166/L207), misc L644/L646 与 L663/L666 重构消除 '数据类型的/有效 true' 歧义接缝, spec 单一真源重放全文件); 句号台账 (python 逐行现算, 终态): REVERSE 0 站; FORWARD 21 站两类自洽披露——A 类桩行消化 6 站 (misc L828/L995 + lockfuncs L152/L186/L374 + jsonpath L301, EN 残行以 ' *' 填充行消化: L829/L996/L153/L187/L375/L302), B 类 EN 桩行无句号 zh 补全句号 15 站 (misc L613 + lockfuncs L570/L769/L789/L808/L828/L847/L866/L955/L976/L996/L1017/L1037/L1057 + jsonpath L38); 行首标点复扫 0; 全角括号配平 3 文件全过 (行级+全局); 跨行重复字 0; near-dup LCS≥8 0 (lockfuncs L454/L455 组组长接缝重排 + L687/L688 field2/field3 头一个/次一个改写规避); 门禁: verify_c_comments adt 57 文件 rc=0 (0 violation/0 parse; jsonpath R1 修复后复跑); term_lint rc=1 (1 error 为 init/postinit.c L1428 TL01 既有非本批, stash 对照 754 pairs 同报), 本批 3 文件 0 error; halfen adt 57 文件 35 findings rc=1, 本批新增 5 站全 MIXED run=2 advisory (jsonpath L104 recv/L139 send + lockfuncs L603 isolationtester/L649/L665 isolation tester, 标识符+CJK 固有混排, 与树内既有 30 站同类), 其余 30 站既有; 术语: 锁→锁/waiting→等待/held→持有/granted 语境已授予, advisory lock→咨询锁 (lmgr lock.c 口径), hard block→硬阻塞/soft block→软阻塞 (deadlock.c 口径), wait queue→等待队列, lock manager→锁管理器, fast path→快速路径, predicate lock→谓词锁, safe snapshot→安全快照, heavyweight lock→重量级锁, 转移函数 (aggregatecmds 口径), jsonpath→jsonpath 保留/lax→宽松/strict→严格 (本批新立, 树内无既译), path item→路径项/accessor→访问器/filter→过滤器/predicate→谓词/existence→存在性/unwrap→解包/payload→载荷/算子 (operator 词形); keep 披露: 见各文件 preserved_reasons; 标识符全保留 (pg_lock_status/pg_blocking_pids/advisory 系/jsonpath 系), OID 逐字保留; banner 2 站 RAW 翻译保边框 (jsonpath L90 INPUT/OUTPUT→输入输出 等宽 76B, L844 Support functions→JsonPath 辅助函数 69B≤78B); blocks=83 zh-lines=149 fill-lines=3 (L153/L187/L375 消化) keep-EN-lines=9"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonpath.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 20,
+   "preserved": 6,
+   "preserved_reasons": [
+    "文件头保留行 24 (文件名 L3/版权 L56/IDENTIFICATION L58/路径 L59 + 头部 ASCII 路径项结构图与二进制编码图 20 行 L13-L17/L22/L26-L34/L47-L54 原样保留, 功能描述行 L4/L6-L11/L15/L19-L24/L36-L45 已译) + FALLTHROUGH gcc 依赖注释 5 站逐字节保留 (L351/L477/L480/L483/L907)"
+   ],
+   "note": "JSON 路径输入输出与二进制编解码 (jsonpath 保留, 路径项/访问器/过滤器/谓词/载荷/宽松/严格/解包, 0402 jsonbsubs 0401 jsonb_op 语境; banner 2 站 RAW: L90 输入输出/L844 JsonPath 辅助函数); whole-file comment translation, batch-0408 (adt 小文件流收官批); dump 权威块数注释感知重扫 (jsonpath @187 伪块校正: L187 尾注释 estimation 后随代码 ');', 其吞并的 L204-L209 真块已单独翻译, 96 行代码零改动); 行数守恒 3 文件全通过 (1080/1083/1112 行不变); 规划轮 1 (三 dump 通读 + 注释感知重扫 + spec 逐行 zh + dry-run 预算/近重复修剪) + 写后修复轮 1 (R1: jsonpath L187 尾注释后随代码被 else 分支吞代码致 R1_SKELETON, 改 RAW 标签替换恢复 enlargeStringInfo 代码字节; misc L318 集群→集簇 TL01 pgdoc rule 121; lockfuncs L458-L460 跨行全角括号拆除; R2 接缝拼读: 跨行接缝 CJK-EN 粘连 12 站补空格/移逗号 (misc L325/L730, lockfuncs L654 + 获取事务级 8 站 L717/750/786/825/900/935/973/1014, jsonpath L166/L207), misc L644/L646 与 L663/L666 重构消除 '数据类型的/有效 true' 歧义接缝, spec 单一真源重放全文件); 句号台账 (python 逐行现算, 终态): REVERSE 0 站; FORWARD 21 站两类自洽披露——A 类桩行消化 6 站 (misc L828/L995 + lockfuncs L152/L186/L374 + jsonpath L301, EN 残行以 ' *' 填充行消化: L829/L996/L153/L187/L375/L302), B 类 EN 桩行无句号 zh 补全句号 15 站 (misc L613 + lockfuncs L570/L769/L789/L808/L828/L847/L866/L955/L976/L996/L1017/L1037/L1057 + jsonpath L38); 行首标点复扫 0; 全角括号配平 3 文件全过 (行级+全局); 跨行重复字 0; near-dup LCS≥8 0 (lockfuncs L454/L455 组组长接缝重排 + L687/L688 field2/field3 头一个/次一个改写规避); 门禁: verify_c_comments adt 57 文件 rc=0 (0 violation/0 parse; jsonpath R1 修复后复跑); term_lint rc=1 (1 error 为 init/postinit.c L1428 TL01 既有非本批, stash 对照 754 pairs 同报), 本批 3 文件 0 error; halfen adt 57 文件 35 findings rc=1, 本批新增 5 站全 MIXED run=2 advisory (jsonpath L104 recv/L139 send + lockfuncs L603 isolationtester/L649/L665 isolation tester, 标识符+CJK 固有混排, 与树内既有 30 站同类), 其余 30 站既有; 术语: 锁→锁/waiting→等待/held→持有/granted 语境已授予, advisory lock→咨询锁 (lmgr lock.c 口径), hard block→硬阻塞/soft block→软阻塞 (deadlock.c 口径), wait queue→等待队列, lock manager→锁管理器, fast path→快速路径, predicate lock→谓词锁, safe snapshot→安全快照, heavyweight lock→重量级锁, 转移函数 (aggregatecmds 口径), jsonpath→jsonpath 保留/lax→宽松/strict→严格 (本批新立, 树内无既译), path item→路径项/accessor→访问器/filter→过滤器/predicate→谓词/existence→存在性/unwrap→解包/payload→载荷/算子 (operator 词形); keep 披露: 见各文件 preserved_reasons; 标识符全保留 (pg_lock_status/pg_blocking_pids/advisory 系/jsonpath 系), OID 逐字保留; banner 2 站 RAW 翻译保边框 (jsonpath L90 INPUT/OUTPUT→输入输出 等宽 76B, L844 Support functions→JsonPath 辅助函数 69B≤78B); blocks=26 zh-lines=53 fill-lines=1 (L302 消化) keep-EN-lines=29 (含 RAW 2 站)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0408-adt-small-final.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0408 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

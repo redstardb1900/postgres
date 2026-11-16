@@ -49,7 +49,7 @@
 
 
 /*
- * structure to cache metadata needed in pg_input_is_valid_common
+ * 用于缓存 pg_input_is_valid_common 所需元数据的结构
  */
 typedef struct ValidIOData
 {
@@ -67,10 +67,10 @@ static bool pg_input_is_valid_common(FunctionCallInfo fcinfo,
 
 
 /*
- * Common subroutine for num_nulls() and num_nonnulls().
- * Returns true if successful, false if function should return NULL.
- * If successful, total argument count and number of nulls are
- * returned into *nargs and *nulls.
+ * num_nulls() 与 num_nonnulls() 的公共子程序。
+ * 成功时返回 true，函数应返回 NULL 时返回 false。
+ * 成功时，参数总个数与 NULL 个数通过
+ * *nargs 与 *nulls 返回。
  */
 static bool
 count_nulls(FunctionCallInfo fcinfo,
@@ -79,7 +79,7 @@ count_nulls(FunctionCallInfo fcinfo,
 	int32		count = 0;
 	int			i;
 
-	/* Did we get a VARIADIC array argument, or separate arguments? */
+	/* 得到 VARIADIC 数组参数，还是分开的参数？ */
 	if (get_fn_expr_variadic(fcinfo->flinfo))
 	{
 		ArrayType  *arr;
@@ -91,31 +91,31 @@ count_nulls(FunctionCallInfo fcinfo,
 		Assert(PG_NARGS() == 1);
 
 		/*
-		 * If we get a null as VARIADIC array argument, we can't say anything
-		 * useful about the number of elements, so return NULL.  This behavior
-		 * is consistent with other variadic functions - see concat_internal.
+		 * 若 VARIADIC 数组参数为 NULL，则无法就元素个数
+		 * 给出任何有用的信息，因此返回 NULL。此行为
+		 * 与其他 variadic 函数一致 - 参见 concat_internal。
 		 */
 		if (PG_ARGISNULL(0))
 			return false;
 
 		/*
-		 * Non-null argument had better be an array.  We assume that any call
-		 * context that could let get_fn_expr_variadic return true will have
-		 * checked that a VARIADIC-labeled parameter actually is an array.  So
-		 * it should be okay to just Assert that it's an array rather than
-		 * doing a full-fledged error check.
+		 * 非 NULL 参数必须是数组。我们假定任何
+		 * 能让 get_fn_expr_variadic 返回 true 的调用上下文都
+		 * 已检查过带 VARIADIC 标记的参数确实是数组。因此
+		 * 直接用 Assert 断言它是数组即可，而无需
+		 * 做完整的错误检查。
 		 */
 		Assert(OidIsValid(get_base_element_type(get_fn_expr_argtype(fcinfo->flinfo, 0))));
 
-		/* OK, safe to fetch the array value */
+		/* OK，可安全获取数组值 */
 		arr = PG_GETARG_ARRAYTYPE_P(0);
 
-		/* Count the array elements */
+		/* 统计数组元素个数 */
 		ndims = ARR_NDIM(arr);
 		dims = ARR_DIMS(arr);
 		nitems = ArrayGetNItems(ndims, dims);
 
-		/* Count those that are NULL */
+		/* 统计为 NULL 的项 */
 		bitmap = ARR_NULLBITMAP(arr);
 		if (bitmap)
 		{
@@ -140,7 +140,7 @@ count_nulls(FunctionCallInfo fcinfo,
 	}
 	else
 	{
-		/* Separate arguments, so just count 'em */
+		/* 参数分开给出，直接计数 */
 		for (i = 0; i < PG_NARGS(); i++)
 		{
 			if (PG_ARGISNULL(i))
@@ -156,7 +156,7 @@ count_nulls(FunctionCallInfo fcinfo,
 
 /*
  * num_nulls()
- *	Count the number of NULL arguments
+ *	统计 NULL 参数的个数
  */
 Datum
 pg_num_nulls(PG_FUNCTION_ARGS)
@@ -172,7 +172,7 @@ pg_num_nulls(PG_FUNCTION_ARGS)
 
 /*
  * num_nonnulls()
- *	Count the number of non-NULL arguments
+ *	统计非 NULL 参数的个数
  */
 Datum
 pg_num_nonnulls(PG_FUNCTION_ARGS)
@@ -189,7 +189,7 @@ pg_num_nonnulls(PG_FUNCTION_ARGS)
 
 /*
  * current_database()
- *	Expose the current database to the user
+ *	将当前数据库暴露给用户
  */
 Datum
 current_database(PG_FUNCTION_ARGS)
@@ -205,20 +205,20 @@ current_database(PG_FUNCTION_ARGS)
 
 /*
  * current_query()
- *	Expose the current query to the user (useful in stored procedures)
- *	We might want to use ActivePortal->sourceText someday.
+ *	将当前查询暴露给用户（在存储过程中有用）
+ *	将来或许可以使用 ActivePortal->sourceText。
  */
 Datum
 current_query(PG_FUNCTION_ARGS)
 {
-	/* there is no easy way to access the more concise 'query_string' */
+	/* 没有简便方法可访问更简洁的 'query_string' */
 	if (debug_query_string)
 		PG_RETURN_TEXT_P(cstring_to_text(debug_query_string));
 	else
 		PG_RETURN_NULL();
 }
 
-/* Function to find out which databases make use of a tablespace */
+/* 找出哪些数据库在使用某表空间的函数 */
 
 Datum
 pg_tablespace_databases(PG_FUNCTION_ARGS)
@@ -235,7 +235,7 @@ pg_tablespace_databases(PG_FUNCTION_ARGS)
 	{
 		ereport(WARNING,
 				(errmsg("global tablespace never has databases")));
-		/* return empty tuplestore */
+		/* 返回空 tuplestore */
 		return (Datum) 0;
 	}
 
@@ -249,7 +249,7 @@ pg_tablespace_databases(PG_FUNCTION_ARGS)
 
 	if (!dirdesc)
 	{
-		/* the only expected error is ENOENT */
+		/* 预期中唯一错误是 ENOENT */
 		if (errno != ENOENT)
 			ereport(ERROR,
 					(errcode_for_file_access(),
@@ -257,7 +257,7 @@ pg_tablespace_databases(PG_FUNCTION_ARGS)
 							location)));
 		ereport(WARNING,
 				(errmsg("%u is not a tablespace OID", tablespaceOid)));
-		/* return empty tuplestore */
+		/* 返回空 tuplestore */
 		return (Datum) 0;
 	}
 
@@ -269,18 +269,18 @@ pg_tablespace_databases(PG_FUNCTION_ARGS)
 		Datum		values[1];
 		bool		nulls[1];
 
-		/* this test skips . and .., but is awfully weak */
+		/* 该测试跳过 . 和 ..，但非常不严谨 */
 		if (!datOid)
 			continue;
 
-		/* if database subdir is empty, don't report tablespace as used */
+		/* 若数据库子目录为空，则不报告表空间被使用 */
 
 		subdir = psprintf("%s/%s", location, de->d_name);
 		isempty = directory_is_empty(subdir);
 		pfree(subdir);
 
 		if (isempty)
-			continue;			/* indeed, nothing in it */
+			continue;			/* 确实为空 */
 
 		values[0] = ObjectIdGetDatum(datOid);
 		nulls[0] = false;
@@ -295,7 +295,7 @@ pg_tablespace_databases(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_tablespace_location - get location for a tablespace
+ * pg_tablespace_location - 获取表空间的位置
  */
 Datum
 pg_tablespace_location(PG_FUNCTION_ARGS)
@@ -307,31 +307,31 @@ pg_tablespace_location(PG_FUNCTION_ARGS)
 	struct stat st;
 
 	/*
-	 * It's useful to apply this function to pg_class.reltablespace, wherein
-	 * zero means "the database's default tablespace".  So, rather than
-	 * throwing an error for zero, we choose to assume that's what is meant.
+	 * 将本函数用于 pg_class.reltablespace 很有用，其中
+	 * 零表示"数据库的默认表空间"。因此，与其
+	 * 对零抛出错误，我们选择假定这就是其含义。
 	 */
 	if (tablespaceOid == InvalidOid)
 		tablespaceOid = MyDatabaseTableSpace;
 
 	/*
-	 * Return empty string for the cluster's default tablespaces
+	 * 对集簇的默认表空间返回空字符串
 	 */
 	if (tablespaceOid == DEFAULTTABLESPACE_OID ||
 		tablespaceOid == GLOBALTABLESPACE_OID)
 		PG_RETURN_TEXT_P(cstring_to_text(""));
 
 	/*
-	 * Find the location of the tablespace by reading the symbolic link that
-	 * is in pg_tblspc/<oid>.
+	 * 通过读取符号链接找到表空间的位置，该链接位于 
+	 * pg_tblspc/<oid> 中。
 	 */
 	snprintf(sourcepath, sizeof(sourcepath), "pg_tblspc/%u", tablespaceOid);
 
 	/*
-	 * Before reading the link, check if the source path is a link or a
-	 * junction point.  Note that a directory is possible for a tablespace
-	 * created with allow_in_place_tablespaces enabled.  If a directory is
-	 * found, a relative path to the data directory is returned.
+	 * 读取链接之前，先检查源路径是链接还是
+	 * 联接点。注意，启用 allow_in_place_tablespaces 的表空间
+	 * 可能是目录。若发现的是目录，
+	 * 则返回相对于数据目录的路径。
 	 */
 	if (lstat(sourcepath, &st) < 0)
 	{
@@ -345,7 +345,7 @@ pg_tablespace_location(PG_FUNCTION_ARGS)
 		PG_RETURN_TEXT_P(cstring_to_text(sourcepath));
 
 	/*
-	 * In presence of a link or a junction point, return the path pointing to.
+	 * 若存在链接或联接点，则返回其指向的路径。
 	 */
 	rllen = readlink(sourcepath, targetpath, sizeof(targetpath));
 	if (rllen < 0)
@@ -364,7 +364,7 @@ pg_tablespace_location(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_sleep - delay for N seconds
+ * pg_sleep - 延迟 N 秒
  */
 Datum
 pg_sleep(PG_FUNCTION_ARGS)
@@ -373,16 +373,16 @@ pg_sleep(PG_FUNCTION_ARGS)
 	float8		endtime;
 
 	/*
-	 * We sleep using WaitLatch, to ensure that we'll wake up promptly if an
-	 * important signal (such as SIGALRM or SIGINT) arrives.  Because
-	 * WaitLatch's upper limit of delay is INT_MAX milliseconds, and the user
-	 * might ask for more than that, we sleep for at most 10 minutes and then
-	 * loop.
+	 * 我们通过 WaitLatch 睡眠，以确保在收到重要信号
+	 * （如 SIGALRM 或 SIGINT）时能立即醒来。由于 
+	 * WaitLatch 的延迟上限是 INT_MAX 毫秒，而用户可能
+	 * 要求更长的延迟，因此每次最多睡 10 分钟后循环
+	 * 
 	 *
-	 * By computing the intended stop time initially, we avoid accumulation of
-	 * extra delay across multiple sleeps.  This also ensures we won't delay
-	 * less than the specified time when WaitLatch is terminated early by a
-	 * non-query-canceling signal such as SIGHUP.
+	 * 通过一开始就计算预期的停止时刻，我们避免了多次
+	 * 睡眠之间额外延迟的累积。这也确保了当 WaitLatch 被
+	 * 非查询取消类信号（如 SIGHUP）提前终止时，
+	 * 延迟时间也不会短于指定值。
 	 */
 #define GetNowFloat()	((float8) GetCurrentTimestamp() / 1000000.0)
 
@@ -413,7 +413,7 @@ pg_sleep(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
-/* Function to return the list of grammar keywords */
+/* 返回语法关键字列表的函数 */
 Datum
 pg_get_keywords(PG_FUNCTION_ARGS)
 {
@@ -442,7 +442,7 @@ pg_get_keywords(PG_FUNCTION_ARGS)
 		char	   *values[5];
 		HeapTuple	tuple;
 
-		/* cast-away-const is ugly but alternatives aren't much better */
+		/* cast-away-const 有点丑，但没有更好的替代 */
 		values[0] = unconstify(char *,
 							   GetScanKeyword(funcctx->call_cntr,
 											  &ScanKeywords));
@@ -465,7 +465,7 @@ pg_get_keywords(PG_FUNCTION_ARGS)
 				values[1] = "R";
 				values[3] = _("reserved");
 				break;
-			default:			/* shouldn't be possible */
+			default:			/* 不应发生 */
 				values[1] = NULL;
 				values[3] = NULL;
 				break;
@@ -491,7 +491,7 @@ pg_get_keywords(PG_FUNCTION_ARGS)
 }
 
 
-/* Function to return the list of catalog foreign key relationships */
+/* 返回系统目录外键关系列表的函数 */
 Datum
 pg_get_catalog_foreign_keys(PG_FUNCTION_ARGS)
 {
@@ -511,10 +511,10 @@ pg_get_catalog_foreign_keys(PG_FUNCTION_ARGS)
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
 		/*
-		 * We use array_in to convert the C strings in sys_fk_relationships[]
-		 * to text arrays.  But we cannot use DirectFunctionCallN to call
-		 * array_in, and it wouldn't be very efficient if we could.  Fill an
-		 * FmgrInfo to use for the call.
+		 * 我们用 array_in 把 sys_fk_relationships[] 中的 C 字符串
+		 * 转换为 text 数组，但无法用 DirectFunctionCallN 来
+		 * 调用 array_in，即便能做效率也不高。填充一个
+		 * 供调用的 FmgrInfo。
 		 */
 		arrayinp = (FmgrInfo *) palloc(sizeof(FmgrInfo));
 		fmgr_info(F_ARRAY_IN, arrayinp);
@@ -558,7 +558,7 @@ pg_get_catalog_foreign_keys(PG_FUNCTION_ARGS)
 
 
 /*
- * Return the type of the argument.
+ * 返回参数的类型。
  */
 Datum
 pg_typeof(PG_FUNCTION_ARGS)
@@ -568,8 +568,8 @@ pg_typeof(PG_FUNCTION_ARGS)
 
 
 /*
- * Implementation of the COLLATE FOR expression; returns the collation
- * of the argument.
+ * COLLATE FOR 表达式的实现；返回参数的
+ * 排序规则。
  */
 Datum
 pg_collation_for(PG_FUNCTION_ARGS)
@@ -594,11 +594,11 @@ pg_collation_for(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_relation_is_updatable - determine which update events the specified
- * relation supports.
+ * pg_relation_is_updatable - 判断指定关系支持哪些
+ * 更新事件。
  *
- * This relies on relation_is_updatable() in rewriteHandler.c, which see
- * for additional information.
+ * 这依赖 rewriteHandler.c 中的 relation_is_updatable()，
+ * 更多信息见该处。
  */
 Datum
 pg_relation_is_updatable(PG_FUNCTION_ARGS)
@@ -610,12 +610,12 @@ pg_relation_is_updatable(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_column_is_updatable - determine whether a column is updatable
+ * pg_column_is_updatable - 判断列是否可更新。
  *
- * This function encapsulates the decision about just what
- * information_schema.columns.is_updatable actually means.  It's not clear
- * whether deletability of the column's relation should be required, so
- * we want that decision in C code where we could change it without initdb.
+ * 本函数封装了 information_schema.columns.
+ * is_updatable 究竟意味着什么。尚不清楚是否也应要求
+ * 列所属关系是可删除的，所以我们希望将这一决策
+ * 放在 C 代码中，这样无需 initdb 就能修改它。
  */
 Datum
 pg_column_is_updatable(PG_FUNCTION_ARGS)
@@ -626,14 +626,14 @@ pg_column_is_updatable(PG_FUNCTION_ARGS)
 	bool		include_triggers = PG_GETARG_BOOL(2);
 	int			events;
 
-	/* System columns are never updatable */
+	/* 系统列永远不可更新 */
 	if (attnum <= 0)
 		PG_RETURN_BOOL(false);
 
 	events = relation_is_updatable(reloid, NIL, include_triggers,
 								   bms_make_singleton(col));
 
-	/* We require both updatability and deletability of the relation */
+	/* 我们要求关系同时具备可更新性与可删除性 */
 #define REQ_EVENTS ((1 << CMD_UPDATE) | (1 << CMD_DELETE))
 
 	PG_RETURN_BOOL((events & REQ_EVENTS) == REQ_EVENTS);
@@ -641,12 +641,12 @@ pg_column_is_updatable(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_input_is_valid - test whether string is valid input for datatype.
+ * pg_input_is_valid - 测试字符串是否为类型的有效输入。
  *
- * Returns true if OK, false if not.
+ * 有效则 true，否则 false。
  *
- * This will only work usefully if the datatype's input function has been
- * updated to return "soft" errors via errsave/ereturn.
+ * 只有当数据类型的输入函数已改为通过 errsave/ereturn
+ * 返回"软"错误时才能发挥作用。
  */
 Datum
 pg_input_is_valid(PG_FUNCTION_ARGS)
@@ -660,13 +660,13 @@ pg_input_is_valid(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_input_error_info - test whether string is valid input for datatype.
+ * pg_input_error_info - 测试字符串是否为类型的有效输入。
  *
- * Returns NULL if OK, else the primary message, detail message, hint message
- * and sql error code from the error.
+ * 正常时返回 NULL，否则返回主消息、详细消息、提示
+ * 消息以及 SQL 错误码。
  *
- * This will only work usefully if the datatype's input function has been
- * updated to return "soft" errors via errsave/ereturn.
+ * 只有当数据类型的输入函数已改为通过 errsave/ereturn
+ * 返回"软"错误时才能发挥作用。
  */
 Datum
 pg_input_error_info(PG_FUNCTION_ARGS)
@@ -681,7 +681,7 @@ pg_input_error_info(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* Enable details_wanted */
+	/* 启用 details_wanted */
 	escontext.details_wanted = true;
 
 	if (pg_input_is_valid_common(fcinfo, txt, typname,
@@ -716,7 +716,7 @@ pg_input_error_info(PG_FUNCTION_ARGS)
 	return HeapTupleGetDatum(heap_form_tuple(tupdesc, values, isnull));
 }
 
-/* Common subroutine for the above */
+/* 上述函数的公共子程序 */
 static bool
 pg_input_is_valid_common(FunctionCallInfo fcinfo,
 						 text *txt, text *typname,
@@ -727,8 +727,8 @@ pg_input_is_valid_common(FunctionCallInfo fcinfo,
 	Datum		converted;
 
 	/*
-	 * We arrange to look up the needed I/O info just once per series of
-	 * calls, assuming the data type doesn't change underneath us.
+	 * 我们安排在每轮调用序列中只查找一次所需的 
+	 * I/O 信息，前提是数据类型不在中途改变。
 	 */
 	my_extra = (ValidIOData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL)
@@ -738,23 +738,23 @@ pg_input_is_valid_common(FunctionCallInfo fcinfo,
 							   sizeof(ValidIOData));
 		my_extra = (ValidIOData *) fcinfo->flinfo->fn_extra;
 		my_extra->typoid = InvalidOid;
-		/* Detect whether typname argument is constant. */
+		/* 检测 typname 参数是否为常量。 */
 		my_extra->typname_constant = get_fn_expr_arg_stable(fcinfo->flinfo, 1);
 	}
 
 	/*
-	 * If the typname argument is constant, we only need to parse it the first
-	 * time through.
+	 * 若 typname 参数是常量，则只需在第一次调用时
+	 * 解析它。
 	 */
 	if (my_extra->typoid == InvalidOid || !my_extra->typname_constant)
 	{
 		char	   *typnamestr = text_to_cstring(typname);
 		Oid			typoid;
 
-		/* Parse type-name argument to obtain type OID and encoded typmod. */
+		/* 解析类型名参数得到类型 OID 和 typmod 编码值。 */
 		(void) parseTypeString(typnamestr, &typoid, &my_extra->typmod, NULL);
 
-		/* Update type-specific info if typoid changed. */
+		/* typoid 变化时更新类型专属信息。 */
 		if (my_extra->typoid != typoid)
 		{
 			getTypeInputInfo(typoid,
@@ -766,7 +766,7 @@ pg_input_is_valid_common(FunctionCallInfo fcinfo,
 		}
 	}
 
-	/* Now we can try to perform the conversion. */
+	/* 现在可以尝试执行转换了。 */
 	return InputFunctionCallSafe(&my_extra->inputproc,
 								 str,
 								 my_extra->typioparam,
@@ -777,41 +777,41 @@ pg_input_is_valid_common(FunctionCallInfo fcinfo,
 
 
 /*
- * Is character a valid identifier start?
- * Must match scan.l's {ident_start} character class.
+ * 字符为有效标识符首字符？
+ * 须与 scan.l 的 {ident_start} 字符类一致。
  */
 static bool
 is_ident_start(unsigned char c)
 {
-	/* Underscores and ASCII letters are OK */
+	/* 下划线和 ASCII 字母均可 */
 	if (c == '_')
 		return true;
 	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
 		return true;
-	/* Any high-bit-set character is OK (might be part of a multibyte char) */
+	/* 任何高位字符均可（可能是多字节字符的一部分） */
 	if (IS_HIGHBIT_SET(c))
 		return true;
 	return false;
 }
 
 /*
- * Is character a valid identifier continuation?
- * Must match scan.l's {ident_cont} character class.
+ * 字符为有效的标识符后续字符吗？
+ * 须与 scan.l 的 {ident_cont} 字符类一致。
  */
 static bool
 is_ident_cont(unsigned char c)
 {
-	/* Can be digit or dollar sign ... */
+	/* 可为数字或美元符号 ... */
 	if ((c >= '0' && c <= '9') || c == '$')
 		return true;
-	/* ... or an identifier start character */
+	/* ... 或一个标识符起始字符 */
 	return is_ident_start(c);
 }
 
 /*
- * parse_ident - parse a SQL qualified identifier into separate identifiers.
- * When strict mode is active (second parameter), then any chars after
- * the last identifier are disallowed.
+ * parse_ident - 将 SQL 限定标识符解析成多个标识符。
+ * 启用严格模式时（第二个参数），最后一个标识符
+ * 之后的字符均不允许。
  */
 Datum
 parse_ident(PG_FUNCTION_ARGS)
@@ -824,13 +824,13 @@ parse_ident(PG_FUNCTION_ARGS)
 	bool		after_dot = false;
 
 	/*
-	 * The code below scribbles on qualname_str in some cases, so we should
-	 * reconvert qualname if we need to show the original string in error
-	 * messages.
+	 * 下面代码在某些情况下会改写 qualname_str，所以
+	 * 若需在错误消息中显示原串，则重新转换 qualname。
+	 * 
 	 */
 	nextp = qualname_str;
 
-	/* skip leading whitespace */
+	/* 跳过前导空白 */
 	while (scanner_isspace(*nextp))
 		nextp++;
 
@@ -885,10 +885,10 @@ parse_ident(PG_FUNCTION_ARGS)
 			len = nextp - curname;
 
 			/*
-			 * We don't implicitly truncate identifiers. This is useful for
-			 * allowing the user to check for specific parts of the identifier
-			 * being too long. It's easy enough for the user to get the
-			 * truncated names by casting our output to name[].
+			 * 我们不隐式截断标识符。这便于用户检查
+			 * 标识符的特定部分是否过长。要让用户获得截断
+			 * 的名称也很容易：只要把我们的输出
+			 * 转型为 name[] 即可。
 			 */
 			downname = downcase_identifier(curname, len, false, false);
 			part = cstring_to_text_with_len(downname, len);
@@ -899,7 +899,7 @@ parse_ident(PG_FUNCTION_ARGS)
 
 		if (missing_ident)
 		{
-			/* Different error messages based on where we failed. */
+			/* 根据失败位置给出不同的错误消息。 */
 			if (*nextp == '.')
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -950,7 +950,7 @@ parse_ident(PG_FUNCTION_ARGS)
 /*
  * pg_current_logfile
  *
- * Report current log file used by log collector by scanning current_logfiles.
+ * 扫描 current_logfiles 以报告日志收集器当前所用日志文件。
  */
 Datum
 pg_current_logfile(PG_FUNCTION_ARGS)
@@ -959,7 +959,7 @@ pg_current_logfile(PG_FUNCTION_ARGS)
 	char		lbuffer[MAXPGPATH];
 	char	   *logfmt;
 
-	/* The log format parameter is optional */
+	/* 日志格式参数是可选的 */
 	if (PG_NARGS() == 0 || PG_ARGISNULL(0))
 		logfmt = NULL;
 	else
@@ -987,13 +987,13 @@ pg_current_logfile(PG_FUNCTION_ARGS)
 	}
 
 #ifdef WIN32
-	/* syslogger.c writes CRLF line endings on Windows */
+	/* syslogger.c 在 Windows 上写入 CRLF 行尾 */
 	_setmode(_fileno(fd), _O_TEXT);
 #endif
 
 	/*
-	 * Read the file to gather current log filename(s) registered by the
-	 * syslogger.
+	 * 读取该文件收集 syslogger 注册的当前日志文件名。
+	 * 
 	 */
 	while (fgets(lbuffer, sizeof(lbuffer), fd) != NULL)
 	{
@@ -1001,12 +1001,12 @@ pg_current_logfile(PG_FUNCTION_ARGS)
 		char	   *log_filepath;
 		char	   *nlpos;
 
-		/* Extract log format and log file path from the line. */
+		/* 从该行提取日志格式和日志文件路径。 */
 		log_format = lbuffer;
 		log_filepath = strchr(lbuffer, ' ');
 		if (log_filepath == NULL)
 		{
-			/* Uh oh.  No space found, so file content is corrupted. */
+			/* 糟糕，未找到空格，文件内容已损坏。 */
 			elog(ERROR,
 				 "missing space character in \"%s\"", LOG_METAINFO_DATAFILE);
 			break;
@@ -1017,7 +1017,7 @@ pg_current_logfile(PG_FUNCTION_ARGS)
 		nlpos = strchr(log_filepath, '\n');
 		if (nlpos == NULL)
 		{
-			/* Uh oh.  No newline found, so file content is corrupted. */
+			/* 糟糕，未找到换行符，文件内容已损坏。 */
 			elog(ERROR,
 				 "missing newline character in \"%s\"", LOG_METAINFO_DATAFILE);
 			break;
@@ -1031,18 +1031,18 @@ pg_current_logfile(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Close the current log filename file. */
+	/* 关闭当前日志文件名文件。 */
 	FreeFile(fd);
 
 	PG_RETURN_NULL();
 }
 
 /*
- * Report current log file used by log collector (1 argument version)
+ * 报告日志收集器在用的日志文件（单参数版本）
  *
- * note: this wrapper is necessary to pass the sanity check in opr_sanity,
- * which checks that all built-in functions that share the implementing C
- * function take the same number of arguments
+ * note: 此包装是通过 opr_sanity 一致性检查所必需的，
+ * 该检查会验证共享同一实现 C 函数的所有内建函数
+ * 具有相同的参数个数
  */
 Datum
 pg_current_logfile_1arg(PG_FUNCTION_ARGS)
@@ -1051,7 +1051,7 @@ pg_current_logfile_1arg(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL wrapper around RelationGetReplicaIndex().
+ * RelationGetReplicaIndex() 的 SQL 包装。
  */
 Datum
 pg_get_replica_identity_index(PG_FUNCTION_ARGS)
@@ -1071,7 +1071,7 @@ pg_get_replica_identity_index(PG_FUNCTION_ARGS)
 }
 
 /*
- * Transition function for the ANY_VALUE aggregate
+ * ANY_VALUE 聚合的转移函数
  */
 Datum
 any_value_transfn(PG_FUNCTION_ARGS)

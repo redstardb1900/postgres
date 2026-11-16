@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * trigfuncs.c
- *	  Builtin functions for useful trigger support.
+ *	  触发器实用支持的内置函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,8 +22,8 @@
 /*
  * suppress_redundant_updates_trigger
  *
- * This trigger function will inhibit an update from being done
- * if the OLD and NEW records are identical.
+ * 本触发器函数将阻止更新被执行，
+ * 如果 OLD 与 NEW 记录完全相同。
  */
 Datum
 suppress_redundant_updates_trigger(PG_FUNCTION_ARGS)
@@ -35,38 +35,38 @@ suppress_redundant_updates_trigger(PG_FUNCTION_ARGS)
 	HeapTupleHeader newheader,
 				oldheader;
 
-	/* make sure it's called as a trigger */
+	/* 确认其以触发器方式调用 */
 	if (!CALLED_AS_TRIGGER(fcinfo))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
 				 errmsg("suppress_redundant_updates_trigger: must be called as trigger")));
 
-	/* and that it's called on update */
+	/* 且针对 UPDATE 事件调用 */
 	if (!TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
 				 errmsg("suppress_redundant_updates_trigger: must be called on update")));
 
-	/* and that it's called before update */
+	/* 且在 UPDATE 之前调用 */
 	if (!TRIGGER_FIRED_BEFORE(trigdata->tg_event))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
 				 errmsg("suppress_redundant_updates_trigger: must be called before update")));
 
-	/* and that it's called for each row */
+	/* 且为每行各调用一次 */
 	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
 		ereport(ERROR,
 				(errcode(ERRCODE_E_R_I_E_TRIGGER_PROTOCOL_VIOLATED),
 				 errmsg("suppress_redundant_updates_trigger: must be called for each row")));
 
-	/* get tuple data, set default result */
+	/* 取元组数据并设默认结果 */
 	rettuple = newtuple = trigdata->tg_newtuple;
 	oldtuple = trigdata->tg_trigtuple;
 
 	newheader = newtuple->t_data;
 	oldheader = oldtuple->t_data;
 
-	/* if the tuple payload is the same ... */
+	/* 如果元组载荷相同... */
 	if (newtuple->t_len == oldtuple->t_len &&
 		newheader->t_hoff == oldheader->t_hoff &&
 		(HeapTupleHeaderGetNatts(newheader) ==
@@ -77,7 +77,7 @@ suppress_redundant_updates_trigger(PG_FUNCTION_ARGS)
 			   ((char *) oldheader) + SizeofHeapTupleHeader,
 			   newtuple->t_len - SizeofHeapTupleHeader) == 0)
 	{
-		/* ... then suppress the update */
+		/* ... 则抑制该更新 */
 		rettuple = NULL;
 	}
 

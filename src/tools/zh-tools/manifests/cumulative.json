@@ -6756,6 +6756,76 @@
    "pattern": "src/backend/utils/cache/relcache.c",
    "kind": "c_comment",
    "note": "relation descriptor cache; whole-file comment translation part 1/2 (batch-0398, L3402+ pending batch-0399)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/version.c",
+   "kind": "c_comment",
+   "note": "version string SQL function; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/trigfuncs.c",
+   "kind": "c_comment",
+   "note": "trigger support functions (suppress_redundant_updates_trigger); whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/geo_selfuncs.c",
+   "kind": "c_comment",
+   "note": "geometric-operator selectivity routines; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/quote.c",
+   "kind": "c_comment",
+   "note": "identifier/literal quoting functions; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/expandeddatum.c",
+   "kind": "c_comment",
+   "note": "expanded-object datum support; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/cryptohashfuncs.c",
+   "kind": "c_comment",
+   "note": "MD5/SHA-2 cryptohash SQL functions; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/mcxtfuncs.c",
+   "kind": "c_comment",
+   "note": "backend memory context SRF/log functions; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/ascii.c",
+   "kind": "c_comment",
+   "note": "string-to-ASCII conversion; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/partitionfuncs.c",
+   "kind": "c_comment",
+   "note": "partition tree metadata SRFs; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/char.c",
+   "kind": "c_comment",
+   "note": "built-in \"char\" type I/O and operators; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pg_upgrade_support.c",
+   "kind": "c_comment",
+   "note": "pg_upgrade server-side functions; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_gist.c",
+   "kind": "c_comment",
+   "note": "GiST support for tsquery; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/arrayutils.c",
+   "kind": "c_comment",
+   "note": "array offset/dimension helper routines; whole-file comment translation (batch-0400, adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0400-adt-small.json",
+   "kind": "manifest",
+   "note": "batch-0400 manifest"
   }
  ],
  "files": [
@@ -21954,6 +22024,146 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0398 whole-file comment translation part 1/2 (L1-L3401): blocks 284 in scope all handled, content lines 890 = 827 zh + 63 keep-EN (头 5+误吞代码 33+函数名行 25); 剩余 L3402+ 留 0399; W7 实测 13 advisory+37 UNTRANSLATED 属 0399 预期; term_lint in-scope 0 error/3 warning; halfen 2 条 MIXED 良性披露 (L833/L3252); 行首标点处置后 0 处; check_scope 增量+累计双 rc=0"
+  },
+  {
+   "path": "src/backend/utils/adt/version.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 1 blocks (dump 实测), content lines 5 = 1 zh + 4 keep-EN; 版本串函数; 头部保留 文件名/版权/IDENTIFICATION/路径 4 行"
+  },
+  {
+   "path": "src/backend/utils/adt/trigfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 9 blocks (dump 实测), content lines 15 = 10 zh + 5 keep-EN; 触发器支持函数; keep=头部 4 行 + L23 函数名行"
+  },
+  {
+   "path": "src/backend/utils/adt/geo_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 5 blocks (dump 实测), content lines 29 = 23 zh + 6 keep-EN; 几何算子选择性例程; keep=头部 5 行 + L61 positionsel 函数名行; ops/operator/operators 译 算子"
+  },
+  {
+   "path": "src/backend/utils/adt/quote.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 8 blocks (dump 实测), content lines 23 = 14 zh + 9 keep-EN; 引用函数; keep=头部 4 行 + 5 个函数名行 (L21/37/74/99/120); 同 EN 行同译 (L75=L100, L87=L110)"
+  },
+  {
+   "path": "src/backend/utils/adt/expandeddatum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 15,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 15 blocks (dump 实测), content lines 34 = 25 zh + 9 keep-EN; 展开对象支持; keep=头部 5 行 + L21/41/68/69 函数名行; L26 句号对齐修复 1 次"
+  },
+  {
+   "path": "src/backend/utils/adt/cryptohashfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 10 blocks (dump 实测), content lines 14 = 9 zh + 5 keep-EN; 加密哈希函数; keep=头部 4 行 + L24 MD5 块 (纯标识符, 即 9 个未改块之一)"
+  },
+  {
+   "path": "src/backend/utils/adt/mcxtfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 12 blocks (dump 实测), content lines 40 = 32 zh + 8 keep-EN; 后端内存上下文展示; keep=头部 5 行 + L32/116/132 函数名行; L117 因预算省 SQL 一词; L178/179 错位修复 1 次"
+  },
+  {
+   "path": "src/backend/utils/adt/ascii.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 24 blocks (dump 实测), content lines 34 = 27 zh + 7 keep-EN; ASCII 转换; keep=L2/5/7/8 头部 + L25 to_ascii 块 + L106 src/L108 dest (预算仅 2 字节保 EN); L44 等 <范围:160 -- 255> 半角冒号紧排; L97 预算 14 保 text 原词; L68 数值修复 1 次 (128)"
+  },
+  {
+   "path": "src/backend/utils/adt/partitionfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 23 blocks (dump 实测), content lines 43 = 31 zh + 12 keep-EN; 分区元数据函数; keep=头部 5 行 + 3 函数名行 + 4 个单行标识符块 (relid/parentid/isleaf/level); L178/179 跨行 「自/身。」接缝"
+  },
+  {
+   "path": "src/backend/utils/adt/char.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 12 blocks (dump 实测), content lines 33 = 28 zh + 5 keep-EN; char 类型函数; 横幅标签译 zh (W7_IDENT_LOST ROUTINES/PUBLIC advisory 在案); keep=头部 4 行"
+  },
+  {
+   "path": "src/backend/utils/adt/pg_upgrade_support.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 2 blocks (dump 实测), content lines 7 = 4 zh + 3 keep-EN; pg_upgrade 服务端函数; pg_upgrade/oid/relfilenumber 标识符保留"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_gist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 5 blocks (dump 实测), content lines 14 = 9 zh + 5 keep-EN; tsquery GiST 支持; keep=头部 4 行 + L58 注释掉的代码行逐字保留; L266 早年+标识符短 run MIXED 披露"
+  },
+  {
+   "path": "src/backend/utils/adt/arrayutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 14,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "whole-file comment translation: 14 blocks (dump 实测), content lines 47 = 42 zh + 5 keep-EN; 数组工具函数; keep=头部 5 行; 3 处同 EN 行同译 (L78=L138, L179=L195=L220)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0400-adt-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0400 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

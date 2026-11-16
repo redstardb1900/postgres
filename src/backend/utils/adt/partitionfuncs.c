@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * partitionfuncs.c
- *	  Functions for accessing partition-related metadata
+ *	  用于访问分区相关元数据的函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,10 +26,10 @@
 #include "utils/syscache.h"
 
 /*
- * Checks if a given relation can be part of a partition tree.  Returns
- * false if the relation cannot be processed, in which case it is up to
- * the caller to decide what to do, by either raising an error or doing
- * something else.
+ * 检查给定关系能否作为分区树的成员。如果
+ * 该关系无法处理则返回 false，此时如何处置
+ * 由调用方自行决定：既可以抛出错误，也可以
+ * 做其他事。
  */
 static bool
 check_rel_can_be_partition(Oid relid)
@@ -37,14 +37,14 @@ check_rel_can_be_partition(Oid relid)
 	char		relkind;
 	bool		relispartition;
 
-	/* Check if relation exists */
+	/* 检查关系存在性 */
 	if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(relid)))
 		return false;
 
 	relkind = get_rel_relkind(relid);
 	relispartition = get_rel_relispartition(relid);
 
-	/* Only allow relation types that can appear in partition trees. */
+	/* 只允许可能出现在分区树中的关系类型。 */
 	if (!relispartition && !RELKIND_HAS_PARTITIONS(relkind))
 		return false;
 
@@ -54,10 +54,10 @@ check_rel_can_be_partition(Oid relid)
 /*
  * pg_partition_tree
  *
- * Produce a view with one row per member of a partition tree, beginning
- * from the top-most parent given by the caller.  This gives information
- * about each partition, its immediate partitioned parent, if it is
- * a leaf partition and its level in the hierarchy.
+ * 产出一个视图，分区树的每个成员各占一行，从
+ * 调用方给出的最顶层父开始。这里给出每个
+ * 分区的信息：其直接分区父节点、是否为叶子
+ * 分区及其在层级中的级别。
  */
 Datum
 pg_partition_tree(PG_FUNCTION_ARGS)
@@ -67,24 +67,24 @@ pg_partition_tree(PG_FUNCTION_ARGS)
 	FuncCallContext *funcctx;
 	List	   *partitions;
 
-	/* stuff done only on the first call of the function */
+	/* 仅在函数首次调用时执行的操作 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		MemoryContext oldcxt;
 		TupleDesc	tupdesc;
 
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用持久的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		if (!check_rel_can_be_partition(rootrelid))
 			SRF_RETURN_DONE(funcctx);
 
-		/* switch to memory context appropriate for multiple function calls */
+		/* 切换到适合多次函数调用的内存上下文 */
 		oldcxt = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 		/*
-		 * Find all members of inheritance set.  We only need AccessShareLock
-		 * on the children for the partition information lookup.
+		 * 找出继承集合的所有成员。对子节点只需
+		 * AccessShareLock 来查询分区信息。
 		 */
 		partitions = find_all_inheritors(rootrelid, AccessShareLock, NULL);
 
@@ -92,13 +92,13 @@ pg_partition_tree(PG_FUNCTION_ARGS)
 			elog(ERROR, "return type must be a row type");
 		funcctx->tuple_desc = tupdesc;
 
-		/* The only state we need is the partition list */
+		/* 唯一需要的状态是分区列表 */
 		funcctx->user_fctx = (void *) partitions;
 
 		MemoryContextSwitchTo(oldcxt);
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次函数调用都执行的操作 */
 	funcctx = SRF_PERCALL_SETUP();
 	partitions = (List *) funcctx->user_fctx;
 
@@ -116,7 +116,7 @@ pg_partition_tree(PG_FUNCTION_ARGS)
 		ListCell   *lc;
 
 		/*
-		 * Form tuple with appropriate data.
+		 * 用适当数据构造元组。
 		 */
 
 		/* relid */
@@ -150,16 +150,16 @@ pg_partition_tree(PG_FUNCTION_ARGS)
 		SRF_RETURN_NEXT(funcctx, result);
 	}
 
-	/* done when there are no more elements left */
+	/* 没有剩余元素时即完成 */
 	SRF_RETURN_DONE(funcctx);
 }
 
 /*
  * pg_partition_root
  *
- * Returns the top-most parent of the partition tree to which a given
- * relation belongs, or NULL if it's not (or cannot be) part of any
- * partition tree.
+ * 返回给定关系所属分区树的
+ * 最顶层父节点；若不属于任何分区树则
+ * 返回 NULL。
  */
 Datum
 pg_partition_root(PG_FUNCTION_ARGS)
@@ -171,12 +171,12 @@ pg_partition_root(PG_FUNCTION_ARGS)
 	if (!check_rel_can_be_partition(relid))
 		PG_RETURN_NULL();
 
-	/* fetch the list of ancestors */
+	/* 获取祖先列表 */
 	ancestors = get_partition_ancestors(relid);
 
 	/*
-	 * If the input relation is already the top-most parent, just return
-	 * itself.
+	 * 如果输入关系已经是最顶层父，直接返回自
+	 * 身。
 	 */
 	if (ancestors == NIL)
 		PG_RETURN_OID(relid);
@@ -185,8 +185,8 @@ pg_partition_root(PG_FUNCTION_ARGS)
 	list_free(ancestors);
 
 	/*
-	 * "rootrelid" must contain a valid OID, given that the input relation is
-	 * a valid partition tree member as checked above.
+	 * 鉴于输入关系是上面已检查过的合法分区树
+	 * 成员，"rootrelid" 必须包含有效 OID。
 	 */
 	Assert(OidIsValid(rootrelid));
 	PG_RETURN_OID(rootrelid);
@@ -195,8 +195,8 @@ pg_partition_root(PG_FUNCTION_ARGS)
 /*
  * pg_partition_ancestors
  *
- * Produces a view with one row per ancestor of the given partition,
- * including the input relation itself.
+ * 产出一个视图，给定分区的每个祖先各占一行，
+ * 包括输入关系本身。
  */
 Datum
 pg_partition_ancestors(PG_FUNCTION_ARGS)
@@ -219,7 +219,7 @@ pg_partition_ancestors(PG_FUNCTION_ARGS)
 		ancestors = get_partition_ancestors(relid);
 		ancestors = lcons_oid(relid, ancestors);
 
-		/* The only state we need is the ancestors list */
+		/* 唯一需要的状态就是祖先列表 */
 		funcctx->user_fctx = (void *) ancestors;
 
 		MemoryContextSwitchTo(oldcxt);

@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------
  * ascii.c
- *	 The PostgreSQL routine for string to ascii conversion.
+ *	 字符串到 ASCII 转换的 PostgreSQL 例程。
  *
  *	 Portions Copyright (c) 1999-2023, PostgreSQL Global Development Group
  *
@@ -33,7 +33,7 @@ pg_to_ascii(unsigned char *src, unsigned char *src_end, unsigned char *dest, int
 	int			range;
 
 	/*
-	 * relevant start for an encoding
+	 * 与编码相关的起始点
 	 */
 #define RANGE_128	128
 #define RANGE_160	160
@@ -41,7 +41,7 @@ pg_to_ascii(unsigned char *src, unsigned char *src_end, unsigned char *dest, int
 	if (enc == PG_LATIN1)
 	{
 		/*
-		 * ISO-8859-1 <range: 160 -- 255>
+		 * ISO-8859-1 <范围:160 -- 255>
 		 */
 		ascii = (const unsigned char *) "  cL Y  \"Ca  -R     'u .,      ?AAAAAAACEEEEIIII NOOOOOxOUUUUYTBaaaaaaaceeeeiiii nooooo/ouuuuyty";
 		range = RANGE_160;
@@ -49,7 +49,7 @@ pg_to_ascii(unsigned char *src, unsigned char *src_end, unsigned char *dest, int
 	else if (enc == PG_LATIN2)
 	{
 		/*
-		 * ISO-8859-2 <range: 160 -- 255>
+		 * ISO-8859-2 <范围:160 -- 255>
 		 */
 		ascii = (const unsigned char *) " A L LS \"SSTZ-ZZ a,l'ls ,sstz\"zzRAAAALCCCEEEEIIDDNNOOOOxRUUUUYTBraaaalccceeeeiiddnnoooo/ruuuuyt.";
 		range = RANGE_160;
@@ -57,7 +57,7 @@ pg_to_ascii(unsigned char *src, unsigned char *src_end, unsigned char *dest, int
 	else if (enc == PG_LATIN9)
 	{
 		/*
-		 * ISO-8859-15 <range: 160 -- 255>
+		 * ISO-8859-15 <范围:160 -- 255>
 		 */
 		ascii = (const unsigned char *) "  cL YS sCa  -R     Zu .z   EeY?AAAAAAACEEEEIIII NOOOOOxOUUUUYTBaaaaaaaceeeeiiii nooooo/ouuuuyty";
 		range = RANGE_160;
@@ -65,7 +65,7 @@ pg_to_ascii(unsigned char *src, unsigned char *src_end, unsigned char *dest, int
 	else if (enc == PG_WIN1250)
 	{
 		/*
-		 * Window CP1250 <range: 128 -- 255>
+		 * Window CP1250 <范围:128 -- 255>
 		 */
 		ascii = (const unsigned char *) "  ' \"    %S<STZZ `'\"\".--  s>stzz   L A  \"CS  -RZ  ,l'u .,as L\"lzRAAAALCCCEEEEIIDDNNOOOOxRUUUUYTBraaaalccceeeeiiddnnoooo/ruuuuyt ";
 		range = RANGE_128;
@@ -76,43 +76,43 @@ pg_to_ascii(unsigned char *src, unsigned char *src_end, unsigned char *dest, int
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("encoding conversion from %s to ASCII not supported",
 						pg_encoding_to_char(enc))));
-		return;					/* keep compiler quiet */
+		return;					/* 安抚编译器 */
 	}
 
 	/*
-	 * Encode
+	 * 编码
 	 */
 	for (x = src; x < src_end; x++)
 	{
 		if (*x < 128)
 			*dest++ = *x;
 		else if (*x < range)
-			*dest++ = ' ';		/* bogus 128 to 'range' */
+			*dest++ = ' ';		/* 128 伪作范围 */
 		else
 			*dest++ = ascii[*x - range];
 	}
 }
 
 /* ----------
- * encode text
+ * 编码 text
  *
- * The text datum is overwritten in-place, therefore this coding method
- * cannot support conversions that change the string length!
+ * 文本 datum 会被就地覆写，因此该编码方法无法
+ * 支持会改变字符串长度的转换！
  * ----------
  */
 static text *
 encode_to_ascii(text *data, int enc)
 {
 	pg_to_ascii((unsigned char *) VARDATA(data),	/* src */
-				(unsigned char *) (data) + VARSIZE(data),	/* src end */
+				(unsigned char *) (data) + VARSIZE(data),	/* 源尾 */
 				(unsigned char *) VARDATA(data),	/* dest */
-				enc);			/* encoding */
+				enc);			/* 编码 */
 
 	return data;
 }
 
 /* ----------
- * convert to ASCII - enc is set as 'name' arg.
+ * 转换为 ASCII，enc 以 'name' 传入。
  * ----------
  */
 Datum
@@ -131,7 +131,7 @@ to_ascii_encname(PG_FUNCTION_ARGS)
 }
 
 /* ----------
- * convert to ASCII - enc is set as int4
+ * 转换为 ASCII，enc 以 int4 给定
  * ----------
  */
 Datum
@@ -149,7 +149,7 @@ to_ascii_enc(PG_FUNCTION_ARGS)
 }
 
 /* ----------
- * convert to ASCII - current enc is DatabaseEncoding
+ * 转换为 ASCII，当前编码为 DatabaseEncoding
  * ----------
  */
 Datum
@@ -162,34 +162,34 @@ to_ascii_default(PG_FUNCTION_ARGS)
 }
 
 /* ----------
- * Copy a string in an arbitrary backend-safe encoding, converting it to a
- * valid ASCII string by replacing non-ASCII bytes with '?'.  Otherwise the
- * behavior is identical to strlcpy(), except that we don't bother with a
- * return value.
+ * 复制任意后端安全编码中的字符串，将其转换为
+ * 有效 ASCII 串，非 ASCII 字节以 '?' 替换。其余行为
+ * 与 strlcpy() 完全相同，只是不费心提供
+ * 返回值。
  *
- * This must not trigger ereport(ERROR), as it is called in postmaster.
+ * 绝不能触发 ereport(ERROR)，因其在 postmaster 中调用。
  * ----------
  */
 void
 ascii_safe_strlcpy(char *dest, const char *src, size_t destsiz)
 {
-	if (destsiz == 0)			/* corner case: no room for trailing nul */
+	if (destsiz == 0)			/* 边界情况：末尾 nul 无空间 */
 		return;
 
 	while (--destsiz > 0)
 	{
-		/* use unsigned char here to avoid compiler warning */
+		/* 用 unsigned char 避免编译器警告 */
 		unsigned char ch = *src++;
 
 		if (ch == '\0')
 			break;
-		/* Keep printable ASCII characters */
+		/* 保留可打印 ASCII 字符 */
 		if (32 <= ch && ch <= 127)
 			*dest = ch;
-		/* White-space is also OK */
+		/* 空白字符也可以 */
 		else if (ch == '\n' || ch == '\r' || ch == '\t')
 			*dest = ch;
-		/* Everything else is replaced with '?' */
+		/* 其余内容均替换为 '?' */
 		else
 			*dest = '?';
 		dest++;

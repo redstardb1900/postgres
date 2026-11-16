@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * version.c
- *	 Returns the PostgreSQL version string
+ *	 返回 PostgreSQL 版本字符串
  *
  * Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *

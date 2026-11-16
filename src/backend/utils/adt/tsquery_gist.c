@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsquery_gist.c
- *	  GiST index support for tsquery
+ *	  tsquery 的 GiST 索引支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -44,8 +44,8 @@ gtsquery_compress(PG_FUNCTION_ARGS)
 }
 
 /*
- * We do not need a decompress function, because the other gtsquery
- * support functions work with the compressed representation.
+ * 我们不需要解压缩函数，因为其他 gtsquery 支持
+ * 函数处理的都是压缩后的表示形式。
  */
 
 Datum
@@ -61,7 +61,7 @@ gtsquery_consistent(PG_FUNCTION_ARGS)
 	TSQuerySign sq = makeTSQuerySign(query);
 	bool		retval;
 
-	/* All cases served by this function are inexact */
+	/* 此函数处理的情形均不精确 */
 	*recheck = true;
 
 	switch (strategy)
@@ -264,11 +264,11 @@ gtsquery_picksplit(PG_FUNCTION_ARGS)
 }
 
 /*
- * Formerly, gtsquery_consistent was declared in pg_proc.h with arguments
- * that did not match the documented conventions for GiST support functions.
- * We fixed that, but we still need a pg_proc entry with the old signature
- * to support reloading pre-9.6 contrib/tsearch2 opclass declarations.
- * This compatibility function should go away eventually.
+ * 早年 gtsquery_consistent 在 pg_proc.h 中声明时所用参数
+ * 不符合 GiST 支持函数的文档化约定。我们修正了
+ * 这一点，但仍需要一个使用旧签名的 pg_proc 条目，
+ * 以支持重载 9.6 之前的 contrib/tsearch2 opclass 声明。
+ * 这个兼容函数最终应当移除。
  */
 Datum
 gtsquery_consistent_oldsig(PG_FUNCTION_ARGS)

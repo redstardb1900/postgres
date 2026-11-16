@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * quote.c
- *	  Functions for quoting identifiers and literals
+ *	  用于引用标识符与字面量的函数
  *
  * Portions Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -19,7 +19,7 @@
 
 /*
  * quote_ident -
- *	  returns a properly quoted identifier
+ *	  返回正确引用的标识符
  */
 Datum
 quote_ident(PG_FUNCTION_ARGS)
@@ -35,13 +35,13 @@ quote_ident(PG_FUNCTION_ARGS)
 
 /*
  * quote_literal_internal -
- *	  helper function for quote_literal and quote_literal_cstr
+ *	  quote_literal 与 quote_literal_cstr 的辅助函数
  *
- * NOTE: think not to make this function's behavior change with
- * standard_conforming_strings.  We don't know where the result
- * literal will be used, and so we must generate a result that
- * will work with either setting.  Take a look at what dblink
- * uses this for before thinking you know better.
+ * 注意：不要想让本函数的行为随
+ * standard_conforming_strings 而变。我们不知道结果
+ * 字面量用于何处，故必须生成在两种设置下
+ * 都可用的结果。在自以为更高明前，先看看
+ * dblink 把它用在了什么地方。
  */
 static size_t
 quote_literal_internal(char *dst, const char *src, size_t len)
@@ -72,7 +72,7 @@ quote_literal_internal(char *dst, const char *src, size_t len)
 
 /*
  * quote_literal -
- *	  returns a properly quoted literal
+ *	  返回正确引用的字面量
  */
 Datum
 quote_literal(PG_FUNCTION_ARGS)
@@ -84,7 +84,7 @@ quote_literal(PG_FUNCTION_ARGS)
 	int			len;
 
 	len = VARSIZE_ANY_EXHDR(t);
-	/* We make a worst-case result area; wasting a little space is OK */
+	/* 按最坏情况预留结果区；浪费一点空间无妨 */
 	result = (text *) palloc(len * 2 + 3 + VARHDRSZ);
 
 	cp1 = VARDATA_ANY(t);
@@ -97,7 +97,7 @@ quote_literal(PG_FUNCTION_ARGS)
 
 /*
  * quote_literal_cstr -
- *	  returns a properly quoted literal
+ *	  返回正确引用的字面量
  */
 char *
 quote_literal_cstr(const char *rawstr)
@@ -107,7 +107,7 @@ quote_literal_cstr(const char *rawstr)
 	int			newlen;
 
 	len = strlen(rawstr);
-	/* We make a worst-case result area; wasting a little space is OK */
+	/* 按最坏情况预留结果区；浪费一点空间无妨 */
 	result = palloc(len * 2 + 3 + 1);
 
 	newlen = quote_literal_internal(result, rawstr, len);
@@ -118,8 +118,8 @@ quote_literal_cstr(const char *rawstr)
 
 /*
  * quote_nullable -
- *	  Returns a properly quoted literal, with null values returned
- *	  as the text string 'NULL'.
+ *	  返回正确引用的字面量，空值则返回
+ *	  为 'NULL' 文本串。
  */
 Datum
 quote_nullable(PG_FUNCTION_ARGS)

@@ -1,9 +1,9 @@
 /*
  *	pg_upgrade_support.c
  *
- *	server-side functions to set backend global variables
- *	to control oid and relfilenumber assignment, and do other special
- *	hacks needed for pg_upgrade.
+ *	服务器端函数：设置后端全局变量
+ *	以控制 oid 与 relfilenumber 分配，并执行 pg_upgrade
+ *	所需其他特殊手法。
  *
  *	Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *	src/backend/utils/adt/pg_upgrade_support.c
@@ -184,7 +184,7 @@ binary_upgrade_create_empty_extension(PG_FUNCTION_ARGS)
 
 	CHECK_IS_BINARY_UPGRADE;
 
-	/* We must check these things before dereferencing the arguments */
+	/* 必须在解引用参数之前检查这些内容 */
 	if (PG_ARGISNULL(0) ||
 		PG_ARGISNULL(1) ||
 		PG_ARGISNULL(2) ||

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * mcxtfuncs.c
- *	  Functions to show backend memory context.
+ *	  显示后端内存上下文的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,14 +23,14 @@
 #include "utils/builtins.h"
 
 /* ----------
- * The max bytes for showing identifiers of MemoryContext.
+ * 显示 MemoryContext 标识符的最大字节数。
  * ----------
  */
 #define MEMORY_CONTEXT_IDENT_DISPLAY_SIZE	1024
 
 /*
  * PutMemoryContextsStatsTupleStore
- *		One recursion level for pg_get_backend_memory_contexts.
+ *		pg_get_backend_memory_contexts 的一层递归。
  */
 static void
 PutMemoryContextsStatsTupleStore(Tuplestorestate *tupstore,
@@ -52,8 +52,8 @@ PutMemoryContextsStatsTupleStore(Tuplestorestate *tupstore,
 	ident = context->ident;
 
 	/*
-	 * To be consistent with logging output, we label dynahash contexts with
-	 * just the hash table name as with MemoryContextStatsPrint().
+	 * 与日志输出保持一致，我们给 dynahash 上下文仅标以
+	 * 哈希表名，与 MemoryContextStatsPrint() 一致。
 	 */
 	if (ident && strcmp(name, "dynahash") == 0)
 	{
@@ -61,7 +61,7 @@ PutMemoryContextsStatsTupleStore(Tuplestorestate *tupstore,
 		ident = NULL;
 	}
 
-	/* Examine the context itself */
+	/* 检查上下文本身 */
 	memset(&stat, 0, sizeof(stat));
 	(*context->methods->stats) (context, NULL, (void *) &level, &stat, true);
 
@@ -79,8 +79,8 @@ PutMemoryContextsStatsTupleStore(Tuplestorestate *tupstore,
 		char		clipped_ident[MEMORY_CONTEXT_IDENT_DISPLAY_SIZE];
 
 		/*
-		 * Some identifiers such as SQL query string can be very long,
-		 * truncate oversize identifiers.
+		 * 诸如 SQL 查询串之类的标识符可能非常长，
+		 * 截断超长标识符。
 		 */
 		if (idlen >= MEMORY_CONTEXT_IDENT_DISPLAY_SIZE)
 			idlen = pg_mbcliplen(ident, idlen, MEMORY_CONTEXT_IDENT_DISPLAY_SIZE - 1);
@@ -114,7 +114,7 @@ PutMemoryContextsStatsTupleStore(Tuplestorestate *tupstore,
 
 /*
  * pg_get_backend_memory_contexts
- *		SQL SRF showing backend memory context.
+ *		显示后端内存上下文的 SRF。
  */
 Datum
 pg_get_backend_memory_contexts(PG_FUNCTION_ARGS)
@@ -130,16 +130,16 @@ pg_get_backend_memory_contexts(PG_FUNCTION_ARGS)
 
 /*
  * pg_log_backend_memory_contexts
- *		Signal a backend or an auxiliary process to log its memory contexts.
+ *		通知一个后端或辅助进程记录其内存上下文。
  *
- * By default, only superusers are allowed to signal to log the memory
- * contexts because allowing any users to issue this request at an unbounded
- * rate would cause lots of log messages and which can lead to denial of
- * service. Additional roles can be permitted with GRANT.
+ * 默认情况下，仅允许超级用户发出记录内存
+ * 上下文的信号，因为允许任意用户无限制地发出
+ * 这种请求会产生大量日志消息，进而可能导致
+ * 拒绝服务。其他角色可经 GRANT 授权。
  *
- * On receipt of this signal, a backend or an auxiliary process sets the flag
- * in the signal handler, which causes the next CHECK_FOR_INTERRUPTS()
- * or process-specific interrupt handler to log the memory contexts.
+ * 收到此信号后，后端或辅助进程会在信号处理
+ * 器中设置标志位，这使得下一次 CHECK_FOR_INTERRUPTS()
+ * 或进程专属中断处理程序记录内存上下文。
  */
 Datum
 pg_log_backend_memory_contexts(PG_FUNCTION_ARGS)
@@ -151,12 +151,12 @@ pg_log_backend_memory_contexts(PG_FUNCTION_ARGS)
 	proc = BackendPidGetProc(pid);
 
 	/*
-	 * See if the process with given pid is a backend or an auxiliary process.
+	 * 检查给定 pid 对应的进程是后端还是辅助进程。
 	 *
-	 * If the given process is a backend, use its backend id in
-	 * SendProcSignal() later to speed up the operation. Otherwise, don't do
-	 * that because auxiliary processes (except the startup process) don't
-	 * have a valid backend id.
+	 * 如果给定进程是后端，则在稍后的
+	 * SendProcSignal() 中使用其后端 id 来加速操作。否则
+	 * 不要这样做，因为辅助进程（除 startup 进程外）
+	 * 没有有效后端 id。
 	 */
 	if (proc != NULL)
 		backendId = proc->backendId;
@@ -164,19 +164,19 @@ pg_log_backend_memory_contexts(PG_FUNCTION_ARGS)
 		proc = AuxiliaryPidGetProc(pid);
 
 	/*
-	 * BackendPidGetProc() and AuxiliaryPidGetProc() return NULL if the pid
-	 * isn't valid; but by the time we reach kill(), a process for which we
-	 * get a valid proc here might have terminated on its own.  There's no way
-	 * to acquire a lock on an arbitrary process to prevent that. But since
-	 * this mechanism is usually used to debug a backend or an auxiliary
-	 * process running and consuming lots of memory, that it might end on its
-	 * own first and its memory contexts are not logged is not a problem.
+	 * 若 pid 无效，BackendPidGetProc() 与
+	 * AuxiliaryPidGetProc() 会返回 NULL；但等我们执行
+	 * kill() 时，我们在此处拿到有效 proc 的进程可能
+	 * 已经自行终止。无法对任意进程加锁来防止它。
+	 * 但此机制通常用于调试仍在运行并消耗大量
+	 * 内存的某后端或辅助进程，故它可能先自行
+	 * 结束且其内存上下文未被记录，这并不是问题。
 	 */
 	if (proc == NULL)
 	{
 		/*
-		 * This is just a warning so a loop-through-resultset will not abort
-		 * if one backend terminated on its own during the run.
+		 * 这只是一条警告，因此循环遍历结果集不会
+		 * 因某后端在运行期间自行终止而中止。
 		 */
 		ereport(WARNING,
 				(errmsg("PID %d is not a PostgreSQL server process", pid)));
@@ -185,7 +185,7 @@ pg_log_backend_memory_contexts(PG_FUNCTION_ARGS)
 
 	if (SendProcSignal(pid, PROCSIG_LOG_MEMORY_CONTEXT, backendId) < 0)
 	{
-		/* Again, just a warning to allow loops */
+		/* 同样仅为警告，允许循环 */
 		ereport(WARNING,
 				(errmsg("could not send signal to process %d: %m", pid)));
 		PG_RETURN_BOOL(false);

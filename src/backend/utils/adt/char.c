@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * char.c
- *	  Functions for the built-in type "char" (not to be confused with
- *	  bpchar, which is the SQL CHAR(n) type).
+ *	  内置类型 "char" 的函数（不要与
+ *	  SQL CHAR(n) 类型 bpchar 混淆）。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,15 +27,15 @@
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程						 *
  *****************************************************************************/
 
 /*
- *		charin			- converts "x" to 'x'
+ *		charin			- 将 "x" 转为 'x'
  *
- * This accepts the formats charout produces.  If we have multibyte input
- * that is not in the form '\ooo', then we take its first byte as the value
- * and silently discard the rest; this is a backwards-compatibility provision.
+ * 它接受 charout 产生的格式。如果有多字节输入
+ * 不是 '\ooo' 形式，则以第一个字节作为值，并
+ * 静默丢弃其余部分；这是一项向后兼容措施。
  */
 Datum
 charin(PG_FUNCTION_ARGS)
@@ -47,18 +47,18 @@ charin(PG_FUNCTION_ARGS)
 		PG_RETURN_CHAR((FROMOCTAL(ch[1]) << 6) +
 					   (FROMOCTAL(ch[2]) << 3) +
 					   FROMOCTAL(ch[3]));
-	/* This will do the right thing for a zero-length input string */
+	/* 对零长输入字符串也能得到正确结果 */
 	PG_RETURN_CHAR(ch[0]);
 }
 
 /*
- *		charout			- converts 'x' to "x"
+ *		charout			- 将 'x' 转为 "x"
  *
- * The possible output formats are:
- * 1. 0x00 is represented as an empty string.
- * 2. 0x01..0x7F are represented as a single ASCII byte.
- * 3. 0x80..0xFF are represented as \ooo (backslash and 3 octal digits).
- * Case 3 is meant to match the traditional "escape" format of bytea.
+ * 可能的输出格式有：
+ * 1. 0x00 表示为空字符串。
+ * 2. 0x01..0x7F 表示为单个 ASCII 字节。
+ * 3. 0x80..0xFF 表示为 \ooo（反斜杠和3位八进制数字）。
+ * 情形 3 旨在匹配 bytea 传统的 "escape" 格式。
  */
 Datum
 charout(PG_FUNCTION_ARGS)
@@ -76,7 +76,7 @@ charout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* This produces acceptable results for 0x00 as well */
+		/* 这对 0x00 也能产生可接受的结果 */
 		result[0] = ch;
 		result[1] = '\0';
 	}
@@ -84,11 +84,11 @@ charout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		charrecv			- converts external binary format to char
+ *		charrecv			- 将外部二进制格式转为 char
  *
- * The external representation is one byte, with no character set
- * conversion.  This is somewhat dubious, perhaps, but in many
- * cases people use char for a 1-byte binary type.
+ * 外部表示为一个字节，且无字符集转换。这在
+ * 某种程度上值得商榷，但许多场合人们将
+ * char 用作 1 字节二进制类型。
  */
 Datum
 charrecv(PG_FUNCTION_ARGS)
@@ -99,7 +99,7 @@ charrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		charsend			- converts char to binary format
+ *		charsend			- 将 char 转为二进制格式
  */
 Datum
 charsend(PG_FUNCTION_ARGS)
@@ -113,14 +113,14 @@ charsend(PG_FUNCTION_ARGS)
 }
 
 /*****************************************************************************
- *	 PUBLIC ROUTINES														 *
+ *	 公共例程						 *
  *****************************************************************************/
 
 /*
- * NOTE: comparisons are done as though char is unsigned (uint8).
- * Conversions to and from integer are done as though char is signed (int8).
+ * 注意：比较时将 char 视为无符号 (uint8) 进行。
+ * 与整数之间的转换则将 char 视为有符号 (int8) 进行。
  *
- * You wanted consistency?
+ * 你想要一致性？
  */
 
 Datum
@@ -208,8 +208,8 @@ text_char(PG_FUNCTION_ARGS)
 	char		result;
 
 	/*
-	 * Conversion rules are the same as in charin(), but here we need to
-	 * handle the empty-string case honestly.
+	 * 转换规则与 charin() 相同，但这里需要如实
+	 * 处理空字符串情形。
 	 */
 	if (VARSIZE_ANY_EXHDR(arg1) == 4 && ch[0] == '\\' &&
 		ISOCTAL(ch[1]) && ISOCTAL(ch[2]) && ISOCTAL(ch[3]))
@@ -231,8 +231,8 @@ char_text(PG_FUNCTION_ARGS)
 	text	   *result = palloc(VARHDRSZ + 4);
 
 	/*
-	 * Conversion rules are the same as in charout(), but here we need to be
-	 * honest about converting 0x00 to an empty string.
+	 * 转换规则与 charout() 相同，但这里需要如
+	 * 实处理 0x00 到空字符串的转换。
 	 */
 	if (IS_HIGHBIT_SET(arg1))
 	{

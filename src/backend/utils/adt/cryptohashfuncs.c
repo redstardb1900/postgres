@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * cryptohashfuncs.c
- *	  Cryptographic hash functions
+ *	  加密哈希函数
  *
  * Portions Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *
@@ -24,11 +24,11 @@
  * MD5
  */
 
-/* MD5 produces a 16 byte (128 bit) hash; double it for hex */
+/* MD5 哈希 16 字节(128位)；转十六进制则翻倍 */
 #define MD5_HASH_LEN  32
 
 /*
- * Create an MD5 hash of a text value and return it as hex string.
+ * 对文本值创建 MD5 哈希，以十六进制串返回。
  */
 Datum
 md5_text(PG_FUNCTION_ARGS)
@@ -38,22 +38,22 @@ md5_text(PG_FUNCTION_ARGS)
 	char		hexsum[MD5_HASH_LEN + 1];
 	const char *errstr = NULL;
 
-	/* Calculate the length of the buffer using varlena metadata */
+	/* 利用 varlena 元数据计算缓冲区长度 */
 	len = VARSIZE_ANY_EXHDR(in_text);
 
-	/* get the hash result */
+	/* 取哈希结果 */
 	if (pg_md5_hash(VARDATA_ANY(in_text), len, hexsum, &errstr) == false)
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
 				 errmsg("could not compute %s hash: %s", "MD5",
 						errstr)));
 
-	/* convert to text and return it */
+	/* 转换为 text 并返回 */
 	PG_RETURN_TEXT_P(cstring_to_text(hexsum));
 }
 
 /*
- * Create an MD5 hash of a bytea value and return it as a hex string.
+ * 对 bytea 值创建 MD5 哈希，以十六进制串返回。
  */
 Datum
 md5_bytea(PG_FUNCTION_ARGS)
@@ -74,7 +74,7 @@ md5_bytea(PG_FUNCTION_ARGS)
 }
 
 /*
- * Internal routine to compute a cryptohash with the given bytea input.
+ * 以给定 bytea 输入计算加密哈希的内部例程。
  */
 static inline bytea *
 cryptohash_internal(pg_cryptohash_type type, bytea *input)
@@ -133,7 +133,7 @@ cryptohash_internal(pg_cryptohash_type type, bytea *input)
 }
 
 /*
- * SHA-2 variants
+ * SHA-2 变体
  */
 
 Datum

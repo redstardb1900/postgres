@@ -1,38 +1,38 @@
 /*-------------------------------------------------------------------------
  *
  * network_gist.c
- *	  GiST support for network types.
+ *	  网络类型的 GiST 支持。
  *
- * The key thing to understand about this code is the definition of the
- * "union" of a set of INET/CIDR values.  It works like this:
- * 1. If the values are not all of the same IP address family, the "union"
- * is a dummy value with family number zero, minbits zero, commonbits zero,
- * address all zeroes.  Otherwise:
- * 2. The union has the common IP address family number.
- * 3. The union's minbits value is the smallest netmask length ("ip_bits")
- * of all the input values.
- * 4. Let C be the number of leading address bits that are in common among
- * all the input values (C ranges from 0 to ip_maxbits for the family).
- * 5. The union's commonbits value is C.
- * 6. The union's address value is the same as the common prefix for its
- * first C bits, and is zeroes to the right of that.  The physical width
- * of the address value is ip_maxbits for the address family.
+ * 读懂本代码的关键，是"并集"的定义，针对一组
+ * INET/CIDR 值。规则如下：
+ * 1. 若各值并非都属于同一 IP 地址族，"并集"
+ * 就是哑值：族号为零、minbits 为零、commonbits 为零、
+ * 地址全为零。否则：
+ * 2. 并集取所有值共有的 IP 地址族号。
+ * 3. 并集的 minbits 值是各输入中最小的网络掩码长度
+ * （即 "ip_bits"）。
+ * 4. 设 C 为各输入值公共的前导地址位数（C 的范围从 0
+ * 到该族的 ip_maxbits）。
+ * 5. 并集的 commonbits 值即 C。
+ * 6. 并集地址值前 C 位与公共前缀相同，右侧为零。
+ * 地址值的物理宽度为所属地址族的
+ * ip_maxbits。
  *
- * In a leaf index entry (representing a single key), commonbits is equal to
- * ip_maxbits for the address family, minbits is the same as the represented
- * value's ip_bits, and the address is equal to the represented address.
- * Although it may appear that we're wasting a byte by storing the union
- * format and not just the represented INET/CIDR value in leaf keys, the
- * extra byte is actually "free" because of alignment considerations.
+ * 在叶子索引条目（代表单个键）中 commonbits 等于该地址
+ * 族的 ip_maxbits；minbits 等于所表示值的 ip_bits；地址则
+ * 等于所表示的地址。
+ * 虽然在叶子键中存储的是并集格式、而非所表示的
+ * INET/CIDR 值，看似浪费一字节，但对齐方面的考虑
+ * 使这个字节实际是"免费"的。
  *
- * Note that this design tracks minbits and commonbits independently; in any
- * given union value, either might be smaller than the other.  This does not
- * help us much when descending the tree, because of the way inet comparison
- * is defined: at non-leaf nodes we can't compare more than minbits bits
- * even if we know them.  However, it greatly improves the quality of split
- * decisions.  Preliminary testing suggests that searches are as much as
- * twice as fast as for a simpler design in which a single field doubles as
- * the common prefix length and the minimum ip_bits value.
+ * 注意：本设计对 minbits 与 commonbits 分开独立跟踪；在任
+ * 何给定的并集值中，两者都可能比对方小。但由于 inet
+ * 比较的定义，这对下潜遍历帮助不大：在非叶子节点
+ * 上最多只能比较 minbits 位，即使明知这些位。
+ * 不过，它大大改善了拆分决策的质量。初步测
+ * 试表明搜索速度可达简单设计的两倍。那种简
+ * 单设计让单个字段兼任公共前缀长度与最小
+ * ip_bits 值。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -54,7 +54,7 @@
 #include "varatt.h"
 
 /*
- * Operator strategy numbers used in the GiST inet_ops opclass
+ * GiST inet_ops 算子类所用的算子策略号
  */
 #define INETSTRAT_OVERLAPS		RTOverlapStrategyNumber
 #define INETSTRAT_EQ			RTEqualStrategyNumber
@@ -70,28 +70,28 @@
 
 
 /*
- * Representation of a GiST INET/CIDR index key.  This is not identical to
- * INET/CIDR because we need to keep track of the length of the common address
- * prefix as well as the minimum netmask length.  However, as long as it
- * follows varlena header rules, the core GiST code won't know the difference.
- * For simplicity we always use 1-byte-header varlena format.
+ * GiST INET/CIDR 索引键的表示。它与 INET/CIDR 并不完全
+ * 相同，因为我们需要额外记录公共地址前缀的长度与最小
+ * 掩码长度。不过只要遵循 varlena 头部规则，核心 GiST
+ * 代码不会察觉差别。为简单起见，我们始终使用 1 字节头
+ * varlena 格式。
  */
 typedef struct GistInetKey
 {
-	uint8		va_header;		/* varlena header --- don't touch directly */
-	unsigned char family;		/* PGSQL_AF_INET, PGSQL_AF_INET6, or zero */
-	unsigned char minbits;		/* minimum number of bits in netmask */
-	unsigned char commonbits;	/* number of common prefix bits in addresses */
-	unsigned char ipaddr[16];	/* up to 128 bits of common address */
+	uint8		va_header;		/* varlena 头部 —— 勿直接改动 */
+	unsigned char family;		/* PGSQL_AF_INET、PGSQL_AF_INET6 或零 */
+	unsigned char minbits;		/* 网络掩码的最小位数 */
+	unsigned char commonbits;	/* 地址间公共前缀的位数 */
+	unsigned char ipaddr[16];	/* 最多 128 位公共地址 */
 } GistInetKey;
 
 #define DatumGetInetKeyP(X) ((GistInetKey *) DatumGetPointer(X))
 #define InetKeyPGetDatum(X) PointerGetDatum(X)
 
 /*
- * Access macros; not really exciting, but we use these for notational
- * consistency with access to INET/CIDR values.  Note that family-zero values
- * are stored with 4 bytes of address, not 16.
+ * 访问宏；内容平平无奇，但使用它们是为了与访问
+ * INET/CIDR 值的方式保持记法上的一致。注意：族号为零的
+ * 值只存 4 字节地址而非 16。
  */
 #define gk_ip_family(gkptr)		((gkptr)->family)
 #define gk_ip_minbits(gkptr)	((gkptr)->minbits)
@@ -99,7 +99,7 @@ typedef struct GistInetKey
 #define gk_ip_addr(gkptr)		((gkptr)->ipaddr)
 #define ip_family_maxbits(fam)	((fam) == PGSQL_AF_INET6 ? 128 : 32)
 
-/* These require that the family field has been set: */
+/* 这些宏要求族字段已被设置： */
 #define gk_ip_addrsize(gkptr) \
 	(gk_ip_family(gkptr) == PGSQL_AF_INET6 ? 16 : 4)
 #define gk_ip_maxbits(gkptr) \
@@ -109,7 +109,7 @@ typedef struct GistInetKey
 
 
 /*
- * The GiST query consistency check
+ * GiST 查询一致性检查
  */
 Datum
 inet_gist_consistent(PG_FUNCTION_ARGS)
@@ -124,14 +124,14 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 	int			minbits,
 				order;
 
-	/* All operators served by this function are exact. */
+	/* 此函数处理的算子均为精确的。 */
 	*recheck = false;
 
 	/*
-	 * Check 0: different families
+	 * 检查0：地址族不同
 	 *
-	 * If key represents multiple address families, its children could match
-	 * anything.  This can only happen on an inner index page.
+	 * 若键表示多个地址族，其子节点可能匹配任何值，这
+	 * 只可能发生在内部索引页上。
 	 */
 	if (gk_ip_family(key) == 0)
 	{
@@ -140,9 +140,9 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Check 1: different families
+	 * 检查1：地址族不同
 	 *
-	 * Matching families do not help any of the strategies.
+	 * 匹配的地址族对任何策略都无帮助。
 	 */
 	if (gk_ip_family(key) != ip_family(query))
 	{
@@ -163,17 +163,17 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 			case INETSTRAT_NE:
 				PG_RETURN_BOOL(true);
 		}
-		/* For all other cases, we can be sure there is no match */
+		/* 其余所有情况均可断定不匹配 */
 		PG_RETURN_BOOL(false);
 	}
 
 	/*
-	 * Check 2: network bit count
+	 * 检查2：网络位数
 	 *
-	 * Network bit count (ip_bits) helps to check leaves for sub network and
-	 * sup network operators.  At non-leaf nodes, we know every child value
-	 * has ip_bits >= gk_ip_minbits(key), so we can avoid descending in some
-	 * cases too.
+	 * 网络位数（ip_bits）有助于检查叶子是否满足子网与
+	 * 超网算子。在非叶子节点，每个子值的 ip_bits 必然
+	 * 不小于 gk_ip_minbits(key)，所以某些情况下可免于
+	 * 下潜。
 	 */
 	switch (strategy)
 	{
@@ -200,16 +200,16 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Check 3: common network bits
+	 * 检查3：公共网络位
 	 *
-	 * Compare available common prefix bits to the query, but not beyond
-	 * either the query's netmask or the minimum netmask among the represented
-	 * values.  If these bits don't match the query, we have our answer (and
-	 * may or may not need to descend, depending on the operator).  If they do
-	 * match, and we are not at a leaf, we descend in all cases.
+	 * 把可用的公共前缀位与查询作比较，但不越过
+	 * 查询的网络掩码，也不超过所表示各值中的最小网络
+	 * 掩码。若这些位与查询不符，即得答案（是否还需
+	 * 下潜取决于算子）。若匹配，且不在叶子上，则任何
+	 * 情况下都要下潜。
 	 *
-	 * Note this is the final check for operators that only consider the
-	 * network part of the address.
+	 * 注意：只考虑地址网络部分的算子，这是最后一
+	 * 项检查。
 	 */
 	minbits = Min(gk_ip_commonbits(key), gk_ip_minbits(key));
 	minbits = Min(minbits, ip_bits(query));
@@ -255,17 +255,17 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Remaining checks are only for leaves and basic comparison strategies.
-	 * See network_cmp_internal() in network.c for the implementation we need
-	 * to match.  Note that in a leaf key, commonbits should equal the address
-	 * length, so we compared the whole network parts above.
+	 * 其余检查仅适用于叶子与基本比较策略。实现见
+	 * network.c 的 network_cmp_internal()，我们需要与之匹配。
+	 * 注意：在叶子键中 commonbits 应等于地址长度，因此
+	 * 上面已比较过完整的网络部分。
 	 */
 	Assert(GIST_LEAF(ent));
 
 	/*
-	 * Check 4: network bit count
+	 * 检查4：网络位数
 	 *
-	 * Next step is to compare netmask widths.
+	 * 下一步比较掩码宽度。
 	 */
 	switch (strategy)
 	{
@@ -297,9 +297,9 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Check 5: whole address
+	 * 检查5：完整地址
 	 *
-	 * Netmask bit counts are the same, so check all the address bits.
+	 * 网络掩码位数相同，因此检查全部地址位。
 	 */
 	order = bitncmp(gk_ip_addr(key), ip_addr(query), gk_ip_maxbits(key));
 
@@ -325,21 +325,21 @@ inet_gist_consistent(PG_FUNCTION_ARGS)
 	}
 
 	elog(ERROR, "unknown strategy for inet GiST");
-	PG_RETURN_BOOL(false);		/* keep compiler quiet */
+	PG_RETURN_BOOL(false);		/* 让编译器安静 */
 }
 
 /*
- * Calculate parameters of the union of some GistInetKeys.
+ * 计算若干 GistInetKey 并集的各参数。
  *
- * Examine the keys in elements m..n inclusive of the GISTENTRY array,
- * and compute these output parameters:
- * *minfamily_p = minimum IP address family number
- * *maxfamily_p = maximum IP address family number
- * *minbits_p = minimum netmask width
- * *commonbits_p = number of leading bits in common among the addresses
+ * 检查 GISTENTRY 数组第 m..n 个元素（含端点）的键，
+ * 并计算以下输出参数：
+ * *minfamily_p = 最小 IP 地址族号
+ * *maxfamily_p = 最大 IP 地址族号
+ * *minbits_p = 最小掩码宽度
+ * *commonbits_p = 各地址公共前导位数
  *
- * minbits and commonbits are forced to zero if there's more than one
- * address family.
+ * 若地址族多于一个，minbits 与 commonbits 将被
+ * 强制为零。
  */
 static void
 calc_inet_union_params(GISTENTRY *ent,
@@ -357,39 +357,39 @@ calc_inet_union_params(GISTENTRY *ent,
 	GistInetKey *tmp;
 	int			i;
 
-	/* Must be at least one key. */
+	/* 至少要有一个键。 */
 	Assert(m <= n);
 
-	/* Initialize variables using the first key. */
+	/* 用第一个键初始化各变量。 */
 	tmp = DatumGetInetKeyP(ent[m].key);
 	minfamily = maxfamily = gk_ip_family(tmp);
 	minbits = gk_ip_minbits(tmp);
 	commonbits = gk_ip_commonbits(tmp);
 	addr = gk_ip_addr(tmp);
 
-	/* Scan remaining keys. */
+	/* 扫描其余键。 */
 	for (i = m + 1; i <= n; i++)
 	{
 		tmp = DatumGetInetKeyP(ent[i].key);
 
-		/* Determine range of family numbers */
+		/* 确定族号的取值范围 */
 		if (minfamily > gk_ip_family(tmp))
 			minfamily = gk_ip_family(tmp);
 		if (maxfamily < gk_ip_family(tmp))
 			maxfamily = gk_ip_family(tmp);
 
-		/* Find minimum minbits */
+		/* 找出最小 minbits */
 		if (minbits > gk_ip_minbits(tmp))
 			minbits = gk_ip_minbits(tmp);
 
-		/* Find minimum number of bits in common */
+		/* 找出最小的公共位数 */
 		if (commonbits > gk_ip_commonbits(tmp))
 			commonbits = gk_ip_commonbits(tmp);
 		if (commonbits > 0)
 			commonbits = bitncommon(addr, gk_ip_addr(tmp), commonbits);
 	}
 
-	/* Force minbits/commonbits to zero if more than one family. */
+	/* 若族多于一个，强制 minbits/commonbits 为零。 */
 	if (minfamily != maxfamily)
 		minbits = commonbits = 0;
 
@@ -400,8 +400,8 @@ calc_inet_union_params(GISTENTRY *ent,
 }
 
 /*
- * Same as above, but the GISTENTRY elements to examine are those with
- * indices listed in the offsets[] array.
+ * 同上，但要检查的 GISTENTRY 元素是 offsets[] 数组里
+ * 列出索引的那些元素。
  */
 static void
 calc_inet_union_params_indexed(GISTENTRY *ent,
@@ -419,39 +419,39 @@ calc_inet_union_params_indexed(GISTENTRY *ent,
 	GistInetKey *tmp;
 	int			i;
 
-	/* Must be at least one key. */
+	/* 至少要有一个键。 */
 	Assert(noffsets > 0);
 
-	/* Initialize variables using the first key. */
+	/* 用第一个键初始化各变量。 */
 	tmp = DatumGetInetKeyP(ent[offsets[0]].key);
 	minfamily = maxfamily = gk_ip_family(tmp);
 	minbits = gk_ip_minbits(tmp);
 	commonbits = gk_ip_commonbits(tmp);
 	addr = gk_ip_addr(tmp);
 
-	/* Scan remaining keys. */
+	/* 扫描其余键。 */
 	for (i = 1; i < noffsets; i++)
 	{
 		tmp = DatumGetInetKeyP(ent[offsets[i]].key);
 
-		/* Determine range of family numbers */
+		/* 确定族号的取值范围 */
 		if (minfamily > gk_ip_family(tmp))
 			minfamily = gk_ip_family(tmp);
 		if (maxfamily < gk_ip_family(tmp))
 			maxfamily = gk_ip_family(tmp);
 
-		/* Find minimum minbits */
+		/* 找出最小 minbits */
 		if (minbits > gk_ip_minbits(tmp))
 			minbits = gk_ip_minbits(tmp);
 
-		/* Find minimum number of bits in common */
+		/* 找出最小的公共位数 */
 		if (commonbits > gk_ip_commonbits(tmp))
 			commonbits = gk_ip_commonbits(tmp);
 		if (commonbits > 0)
 			commonbits = bitncommon(addr, gk_ip_addr(tmp), commonbits);
 	}
 
-	/* Force minbits/commonbits to zero if more than one family. */
+	/* 若族多于一个，强制 minbits/commonbits 为零。 */
 	if (minfamily != maxfamily)
 		minbits = commonbits = 0;
 
@@ -462,11 +462,11 @@ calc_inet_union_params_indexed(GISTENTRY *ent,
 }
 
 /*
- * Construct a GistInetKey representing a union value.
+ * 构造一个表示并集值的 GistInetKey。
  *
- * Inputs are the family/minbits/commonbits values to use, plus a pointer to
- * the address field of one of the union inputs.  (Since we're going to copy
- * just the bits-in-common, it doesn't matter which one.)
+ * 输入为要使用的 family/minbits/commonbits 值，外加指向
+ * 某个并集输入的地址字段。（由于我们只拷贝公共位，
+ * 拷哪一个都无妨。）
  */
 static GistInetKey *
 build_inet_union_key(int family, int minbits, int commonbits,
@@ -474,22 +474,22 @@ build_inet_union_key(int family, int minbits, int commonbits,
 {
 	GistInetKey *result;
 
-	/* Make sure any unused bits are zeroed. */
+	/* 确保无用位已清零。 */
 	result = (GistInetKey *) palloc0(sizeof(GistInetKey));
 
 	gk_ip_family(result) = family;
 	gk_ip_minbits(result) = minbits;
 	gk_ip_commonbits(result) = commonbits;
 
-	/* Clone appropriate bytes of the address. */
+	/* 克隆地址中相应的字节。 */
 	if (commonbits > 0)
 		memcpy(gk_ip_addr(result), addr, (commonbits + 7) / 8);
 
-	/* Clean any unwanted bits in the last partial byte. */
+	/* 清掉末尾不完整字节里多余的位。 */
 	if (commonbits % 8 != 0)
 		gk_ip_addr(result)[commonbits / 8] &= ~(0xFF >> (commonbits % 8));
 
-	/* Set varlena header correctly. */
+	/* varlena 头部设置正确。 */
 	SET_GK_VARSIZE(result);
 
 	return result;
@@ -497,9 +497,9 @@ build_inet_union_key(int family, int minbits, int commonbits,
 
 
 /*
- * The GiST union function
+ * GiST 并集函数
  *
- * See comments at head of file for the definition of the union.
+ * 并集的定义见文件头部注释。
  */
 Datum
 inet_gist_union(PG_FUNCTION_ARGS)
@@ -514,29 +514,29 @@ inet_gist_union(PG_FUNCTION_ARGS)
 	GistInetKey *tmp,
 			   *result;
 
-	/* Determine parameters of the union. */
+	/* 确定并集的各参数。 */
 	calc_inet_union_params(ent, 0, entryvec->n - 1,
 						   &minfamily, &maxfamily,
 						   &minbits, &commonbits);
 
-	/* If more than one family, emit family number zero. */
+	/* 若多于一个族，输出族号零。 */
 	if (minfamily != maxfamily)
 		minfamily = 0;
 
-	/* Initialize address using the first key. */
+	/* 用第一个键初始化地址。 */
 	tmp = DatumGetInetKeyP(ent[0].key);
 	addr = gk_ip_addr(tmp);
 
-	/* Construct the union value. */
+	/* 构造并集值。 */
 	result = build_inet_union_key(minfamily, minbits, commonbits, addr);
 
 	PG_RETURN_POINTER(result);
 }
 
 /*
- * The GiST compress function
+ * GiST 压缩函数
  *
- * Convert an inet value to GistInetKey.
+ * 把 inet 值转换为 GistInetKey。
  */
 Datum
 inet_gist_compress(PG_FUNCTION_ARGS)
@@ -577,14 +577,14 @@ inet_gist_compress(PG_FUNCTION_ARGS)
 }
 
 /*
- * We do not need a decompress function, because the other GiST inet
- * support functions work with the GistInetKey representation.
+ * 无需解压缩函数，因为其余 GiST inet 支持函数
+ * 都以 GistInetKey 表示形式工作。
  */
 
 /*
- * The GiST fetch function
+ * GiST 获取函数
  *
- * Reconstruct the original inet datum from a GistInetKey.
+ * 从 GistInetKey 重建原始 inet datum。
  */
 Datum
 inet_gist_fetch(PG_FUNCTION_ARGS)
@@ -609,12 +609,12 @@ inet_gist_fetch(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST page split penalty function
+ * GiST 页拆分惩罚函数
  *
- * Charge a large penalty if address family doesn't match, or a somewhat
- * smaller one if the new value would degrade the union's minbits
- * (minimum netmask width).  Otherwise, penalty is inverse of the
- * new number of common address bits.
+ * 地址族不匹配时记一大笔惩罚；若新值会拉低并集的
+ * minbits（最小掩码宽度），则记稍小的惩罚；
+ * 否则惩罚为新增公共地址位数的
+ * 倒数。
  */
 Datum
 inet_gist_penalty(PG_FUNCTION_ARGS)
@@ -648,16 +648,16 @@ inet_gist_penalty(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST PickSplit method
+ * GiST 拆分方法
  *
- * There are two ways to split. First one is to split by address families,
- * if there are multiple families appearing in the input.
+ * 拆分有两种方式。第一种按地址族拆分，适用于输入
+ * 中出现多个地址族的情形。
  *
- * The second and more common way is to split by addresses. To achieve this,
- * determine the number of leading bits shared by all the keys, then split on
- * the next bit.  (We don't currently consider the netmask widths while doing
- * this; should we?)  If we fail to get a nontrivial split that way, split
- * 50-50.
+ * 第二种也更常用的方式是按地址拆分。做法是：先确
+ * 定所有键共享的前导位数，然后在下一位上拆分。（目
+ * 前我们这样做时并不考虑网络掩码宽度；要考虑吗？）
+ * 若这样得不到非平凡拆分，就拆成
+ * 对半
  */
 Datum
 inet_gist_picksplit(PG_FUNCTION_ARGS)
@@ -691,20 +691,20 @@ inet_gist_picksplit(PG_FUNCTION_ARGS)
 	splitvec->spl_nleft = 0;
 	splitvec->spl_nright = 0;
 
-	/* Determine parameters of the union of all the inputs. */
+	/* 确定全部输入的并集参数。 */
 	calc_inet_union_params(ent, FirstOffsetNumber, maxoff,
 						   &minfamily, &maxfamily,
 						   &minbits, &commonbits);
 
 	if (minfamily != maxfamily)
 	{
-		/* Multiple families, so split by family. */
+		/* 多族，按族拆分。 */
 		for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 		{
 			/*
-			 * If there's more than 2 families, all but maxfamily go into the
-			 * left union.  This could only happen if the inputs include some
-			 * IPv4, some IPv6, and some already-multiple-family unions.
+			 * 若族多于 2，则除最大族外的族全部进入左
+			 * 侧并集。这只会在输入同时含 IPv4、IPv6 以及
+			 * 已经是多族并集的值时才会发生。
 			 */
 			tmp = DatumGetInetKeyP(ent[i].key);
 			if (gk_ip_family(tmp) != maxfamily)
@@ -716,15 +716,15 @@ inet_gist_picksplit(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * Split on the next bit after the common bits.  If that yields a
-		 * trivial split, try the next bit position to the right.  Repeat till
-		 * success; or if we run out of bits, do an arbitrary 50-50 split.
+		 * 在公共位之后的下一位上拆分；若拆分平凡，
+		 * 就改试右边一位。如此重复直至成功；若位用尽，
+		 * 就任意做五五平分。
 		 */
 		int			maxbits = ip_family_maxbits(minfamily);
 
 		while (commonbits < maxbits)
 		{
-			/* Split using the commonbits'th bit position. */
+			/* 用第 commonbits 位来拆分。 */
 			int			bitbyte = commonbits / 8;
 			int			bitmask = 0x80 >> (commonbits % 8);
 
@@ -741,13 +741,13 @@ inet_gist_picksplit(PG_FUNCTION_ARGS)
 			}
 
 			if (splitvec->spl_nleft > 0 && splitvec->spl_nright > 0)
-				break;			/* success */
+				break;			/* 成功 */
 			commonbits++;
 		}
 
 		if (commonbits >= maxbits)
 		{
-			/* Failed ... do a 50-50 split. */
+			/* 失败……五五分。 */
 			splitvec->spl_nleft = splitvec->spl_nright = 0;
 
 			for (i = FirstOffsetNumber; i <= maxoff / 2; i = OffsetNumberNext(i))
@@ -762,10 +762,10 @@ inet_gist_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Compute the union value for each side from scratch.  In most cases we
-	 * could approximate the union values with what we already know, but this
-	 * ensures that each side has minbits and commonbits set as high as
-	 * possible.
+	 * 从头为每侧重新计算并集值。多数情况下本可以用
+	 * 已知信息近似并集值，但这样做能保证每侧的 minbits
+	 * 与 commonbits 都尽可能设为
+	 * 最高。
 	 */
 	calc_inet_union_params_indexed(ent, left, splitvec->spl_nleft,
 								   &minfamily, &maxfamily,
@@ -791,7 +791,7 @@ inet_gist_picksplit(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST equality function
+ * GiST 相同函数
  */
 Datum
 inet_gist_same(PG_FUNCTION_ARGS)

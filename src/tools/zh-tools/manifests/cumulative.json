@@ -7026,6 +7026,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0405-adt-small6.json",
    "kind": "manifest",
    "note": "this batch manifest (batch-0405)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsgistidx.c",
+   "kind": "c_comment",
+   "note": "tsvector GiST 索引支持 (tsvector_ops 算子类选项, GiST/签名/叶子页 口径, tsquery_gist 0400 同族: 兼容函数块对齐); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/network_gist.c",
+   "kind": "c_comment",
+   "note": "网络类型 GiST 索引支持 (并集/惩罚/拆分/一致性/相同 GiST 惯例, inet/cidr 关键字保留, minbits/commonbits 标识符保留, 公共前缀); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/geo_spgist.c",
+   "kind": "c_comment",
+   "note": "box 四维四叉树 SP-GiST 实现 (SP-GiST 保留, 象限/遍历值/外接框/质心, cube 类型名保留, box/RangeBox/RectBox 标识符保留, ASCII 示意图原样); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/network_selfuncs.c",
+   "kind": "c_comment",
+   "note": "inet/cidr 选择率估算 (选择率/直方图/半连接/反连接/最常用值 MCV/抽稀/交换算子 口径, selfuncs 域); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0406-adt-gist-family.json",
+   "kind": "manifest",
+   "note": "batch-0406 manifest"
   }
  ],
  "files": [
@@ -22773,6 +22798,56 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0405-adt-small6.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch manifest (block-granularity counts)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/utils/adt/tsgistidx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 28,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tsvector GiST 索引支持 (tsvector_ops 算子类选项, tsquery_gist 0400 同族口径); whole-file comment translation (batch-0406, adt gist family); blocks=28 zh-lines=30 keep-EN-lines=8"
+  },
+  {
+   "path": "src/backend/utils/adt/network_gist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 62,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "网络类型 GiST 索引支持 (并集/惩罚/拆分/一致性/相同, inet/cidr 保留, 公共前缀); whole-file comment translation (batch-0406, adt gist family); blocks=62 zh-lines=148 keep-EN-lines=6"
+  },
+  {
+   "path": "src/backend/utils/adt/geo_spgist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 55,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "box 四维四叉树 SP-GiST 实现 (象限/遍历值/外接框/质心, ASCII 示意图原样); whole-file comment translation (batch-0406, adt gist family); blocks=55 zh-lines=120 keep-EN-lines=16"
+  },
+  {
+   "path": "src/backend/utils/adt/network_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 63,
+   "translated": 63,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "inet/cidr 选择率估算 (MCV/直方图/半连接/反连接/抽稀/交换算子, selfuncs 域); whole-file comment translation (batch-0406, adt gist family); blocks=63 zh-lines=219 keep-EN-lines=5"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0406-adt-gist-family.json",
    "kind": "manifest",
    "action": "add",
    "note": "batch manifest (block-granularity counts)",

@@ -1,0 +1,103 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0406",
+ "title": "adt 目录 GiST/SP-GiST 家族 4 文件整文件注释翻译 (208 blocks 注释感知: 208 zh-blocks + 0 keep-blocks, 517 zh 行 + 35 显式 keep-EN 行 (4 文件头部保留行共 21: 文件名/版权×2/IDENTIFICATION/路径 + tsgistidx L175 类型名标签行 + tsgistidx L335/L336 与 network_gist L121 注释掉的代码行零改动 + geo_spgist L18-L28 ASCII 示意图 11 行); 行数守恒 4 文件全通过 (517/517 diff); 规划轮 2 (dump 块/行实测 208 块 552 content 行 + spec 逐行 zh) + 写后修复轮 2 (R1: 13 站 OVER 逐站裁剪成句 (tsgistidx L433 '也 ISSIGNKEY'/L698 排序前; network_gist L32-35 拆分质量段重排/L205/L211/L334; geo_spgist L14-16 象限段重排/L55 可有/L125/L150 BOX 转/L749 测试均精确; network_selfuncs L830-831 依赖移行/L635 续上: 去 '……' 行首标点) + geo_spgist L12 去多余 ASCII 引号 (data\"。→data。, 引号计数 29→28 与 EN 对齐) + network_gist L13 补 \"ip_bits\" 引号对齐 EN (20→22); 每轮修复后全量 readback 4 文件 diff 逐行复核; 门禁复跑 verify rc=0); 句号台账 (python 块尾现算): FWD 7 站自洽 (zh 句界与 EN 行界不同步, EN 句号落在前行, zh 句号落本行: network_gist L17/L31/L259 + geo_spgist L9 + network_selfuncs L6/L183/L866); REVERSE 18 站自洽披露 (14 站为 zh 句界前移/句子跨行延续: tsgistidx L796 + network_gist L76/L258 + geo_spgist L37/L126 + network_selfuncs L257/L260/L368/L519/L569/L739/L772/L875/L900, 均句中行非句尾; 4 站为行尾预算桩行: network_gist L660 '对半' 6B + network_selfuncs L594 '法' 5B/L784 '匹配' 8B/L833 '编码' 6B, 逐条 sed 对账通过); 行首标点复扫 0; 括号全角配平 4 文件全过 (tsgistidx 2/2 network_gist 9/9 geo_spgist 6/6 network_selfuncs 20/20); ASCII 引号计数 4 文件与 EN 对齐 (30/22/28/28); 门禁: verify_c_comments adt 51 文件 rc=0 (W7 advisory 本批 13 站: tsgistidx L335/L336 + network_gist L121 注释掉的代码行 UNTRANSLATED 属零改动设计 + tsgistidx L175 类型名标签; network_gist L331 GistInetKeys/L650 PickSplit; geo_spgist L121 BOXes/RangeBoxes/L607 RangeBoxes/L760 comparison; network_selfuncs L177/295/317/425/447 MCVs/L768 NULLs — 均为语义翻译非标识符丢失); term_lint 全树扫描 rc=1 (1 error 为 init/postinit.c L1428 TL01 既有非本批); 本批 4 文件 5 warning 全 advisory (network_gist L102 TL08 requires→需要; network_selfuncs L483/L623/L754 P15 + L552 P24); halfen adt 51 文件 26 findings, 本批 3 站全 class=mixed advisory (network_selfuncs L552/L768 ASCII 引号内 EN 片段 'OPR CONST'/'lhs_value op column' + tsgistidx L794 gtsvector_consistent/pg_proc.h 标识符邻接), 其余 23 站为既有文件); 术语: gist→GiST/spgist→SP-GiST 保留, union/penalty/picksplit/consistent/same→并集/惩罚/拆分/一致性/相同, key/nonkey column→键列/非键列, selectivity→选择率, histogram→直方图, semi/anti join→半/反连接, common prefix→公共前缀, quadrant→象限, traversal value→遍历值, bounding box→外接框, centroid→质心, decimate→抽稀, commutator→交换算子, divider→分隔值, opclass→算子类, opclass options→算子类选项 (tsgistidx 与 tsquery_gist 0400 同族口径: 全不精确/让编译器安静/兼容函数块对齐); keep 披露: 各文件头部保留行见上 + geo_spgist ASCII 示意图; review round (主会话就地修复): D1 geo L54 补「问」(66≤68)、D2 sf L260 谓语句补译 (74≤79)、D3 sf L254 删悬空「与」、D4 sf L833 补句号 (12=12, 桩行主张不成立)、D5 tsg L252 TOAST 语义 (47≤53)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "33131450528183193e31813b8a6fa8efcec29b48",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/tsgistidx.c",
+   "kind": "c_comment",
+   "note": "tsvector GiST 索引支持 (tsvector_ops 算子类选项, GiST/签名/叶子页 口径, tsquery_gist 0400 同族: 兼容函数块对齐); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/network_gist.c",
+   "kind": "c_comment",
+   "note": "网络类型 GiST 索引支持 (并集/惩罚/拆分/一致性/相同 GiST 惯例, inet/cidr 关键字保留, minbits/commonbits 标识符保留, 公共前缀); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/geo_spgist.c",
+   "kind": "c_comment",
+   "note": "box 四维四叉树 SP-GiST 实现 (SP-GiST 保留, 象限/遍历值/外接框/质心, cube 类型名保留, box/RangeBox/RectBox 标识符保留, ASCII 示意图原样); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/network_selfuncs.c",
+   "kind": "c_comment",
+   "note": "inet/cidr 选择率估算 (选择率/直方图/半连接/反连接/最常用值 MCV/抽稀/交换算子 口径, selfuncs 域); whole-file comment translation, batch-0406 (adt gist family)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0406-adt-gist-family.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0406 entries (4 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/tsgistidx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 28,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tsvector GiST 索引支持; keep=头部保留行4 (L3/L6/L9/L10) + L175 类型名标签 + L335/L336 注释掉的代码行 + L460 16B 预算桩行; blocks=28 zh-lines=30 keep-EN-lines=8; review round (主会话就地修复): D1 geo L54 补「问」(66≤68)、D2 sf L260 谓语句补译 (74≤79)、D3 sf L254 删悬空「与」、D4 sf L833 补句号 (12=12, 桩行主张不成立)、D5 tsg L252 TOAST 语义 (47≤53)"
+  },
+  {
+   "path": "src/backend/utils/adt/network_gist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 62,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "网络类型 GiST 索引支持 (并集定义/惩罚/拆分方法); keep=头部保留行5 (L3/L37/L38/L41/L42) + L121 注释掉的代码行; W7 advisory L331 GistInetKeys/L650 PickSplit 语义翻译; REVERSE L660 '对半' 6B 桩行; blocks=62 zh-lines=148 keep-EN-lines=6"
+  },
+  {
+   "path": "src/backend/utils/adt/geo_spgist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 55,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "box 四维四叉树 SP-GiST 实现 (象限/遍历值/外接框/质心); keep=头部保留行5 (L3/L65/L66/L68/L69) + ASCII 示意图 L18-L28 共 11 行; blocks=55 zh-lines=120 keep-EN-lines=16; review round (主会话就地修复): D1 geo L54 补「问」(66≤68)、D2 sf L260 谓语句补译 (74≤79)、D3 sf L254 删悬空「与」、D4 sf L833 补句号 (12=12, 桩行主张不成立)、D5 tsg L252 TOAST 语义 (47≤53)"
+  },
+  {
+   "path": "src/backend/utils/adt/network_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 63,
+   "translated": 63,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "inet/cidr 选择率估算 (MCV/直方图/半连接/反连接/抽稀/交换算子); keep=头部保留行5 (L3/L10/L11/L14/L15); W7 advisory L177-447 MCVs/L768 NULLs 语义翻译; REVERSE 桩行 L594 '法' 5B/L784 '匹配' 8B/L833 '编码' 6B + L374/L525 '释放统计' 14B; blocks=63 zh-lines=219 keep-EN-lines=5; review round (主会话就地修复): D1 geo L54 补「问」(66≤68)、D2 sf L260 谓语句补译 (74≤79)、D3 sf L254 删悬空「与」、D4 sf L833 补句号 (12=12, 桩行主张不成立)、D5 tsg L252 TOAST 语义 (47≤53)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0406-adt-gist-family.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch manifest (block-granularity counts)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "note": "append batch-0406 entries (4 adt .c + this manifest; pure append)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ]
+}

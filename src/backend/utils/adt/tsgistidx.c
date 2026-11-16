@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsgistidx.c
- *	  GiST support functions for tsvector_ops
+ *	  tsvector_ops 的 GiST 支持函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -24,11 +24,11 @@
 #include "utils/pg_crc.h"
 
 
-/* tsvector_ops opclass options */
+/* tsvector_ops 算子类选项 */
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int			siglen;			/* signature length */
+	int32		vl_len_;		/* varlena 头部（勿直接改动！） */
+	int			siglen;			/* 签名长度 */
 } GistTsVectorOptions;
 
 #define SIGLEN_DEFAULT	(31 * 4)
@@ -56,12 +56,12 @@ typedef char *BITVECP;
 #define GETENTRY(vec,pos) ((SignTSVector *) DatumGetPointer((vec)->vector[(pos)].key))
 
 /*
- * type of GiST index key
+ * GiST 索引键类型
  */
 
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/* varlena 头部（勿直接改动！） */
 	int32		flag;
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } SignTSVector;
@@ -87,12 +87,12 @@ static int32 sizebitvec(BITVECP sign, int siglen);
 Datum
 gtsvectorin(PG_FUNCTION_ARGS)
 {
-	/* There's no need to support input of gtsvectors */
+	/* 无需支持 gtsvector 的输入 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "gtsvector")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 让编译器安静 */
 }
 
 #define SINGOUTSTR	"%d true bits, %d false bits"
@@ -200,7 +200,7 @@ gtsvector_compress(PG_FUNCTION_ARGS)
 		if (len != val->size)
 		{
 			/*
-			 * there is a collision of hash-function; len is always less than
+			 * 哈希函数发生了碰撞；len 必然小于
 			 * val->size
 			 */
 			len = CALCGTSIZE(ARRKEY, len);
@@ -208,7 +208,7 @@ gtsvector_compress(PG_FUNCTION_ARGS)
 			SET_VARSIZE(res, len);
 		}
 
-		/* make signature, if array is too long */
+		/* 数组过长时构造签名 */
 		if (VARSIZE(res) > TOAST_INDEX_TARGET)
 		{
 			SignTSVector *ressign = gtsvector_alloc(SIGNKEY, siglen, NULL);
@@ -248,8 +248,8 @@ Datum
 gtsvector_decompress(PG_FUNCTION_ARGS)
 {
 	/*
-	 * We need to detoast the stored value, because the other gtsvector
-	 * support functions don't cope with toasted values.
+	 * 我们需要对存储值做 detoast，因为其他 gtsvector
+	 * 支持函数无法处理被 TOAST 的值。
 	 */
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 	SignTSVector *key = (SignTSVector *) PG_DETOAST_DATUM(entry->key);
@@ -275,7 +275,7 @@ typedef struct
 } CHKVAL;
 
 /*
- * TS_execute callback for matching a tsquery operand to GIST leaf-page data
+ * TS_execute 回调：tsquery 操作数与 GIST 叶子页数据匹配
  */
 static TSTernaryValue
 checkcondition_arr(void *checkval, QueryOperand *val, ExecPhraseData *data)
@@ -284,10 +284,10 @@ checkcondition_arr(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	int32	   *StopHigh = ((CHKVAL *) checkval)->arre;
 	int32	   *StopMiddle;
 
-	/* Loop invariant: StopLow <= val < StopHigh */
+	/* 循环不变量：StopLow<=val<StopHigh */
 
 	/*
-	 * we are not able to find a prefix by hash value
+	 * 无法靠哈希值找到前缀
 	 */
 	if (val->prefix)
 		return TS_MAYBE;
@@ -307,7 +307,7 @@ checkcondition_arr(void *checkval, QueryOperand *val, ExecPhraseData *data)
 }
 
 /*
- * TS_execute callback for matching a tsquery operand to GIST non-leaf data
+ * TS_execute 回调：tsquery 操作数与 GIST 非叶子页数据匹配
  */
 static TSTernaryValue
 checkcondition_bit(void *checkval, QueryOperand *val, ExecPhraseData *data)
@@ -315,7 +315,7 @@ checkcondition_bit(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	void	   *key = (SignTSVector *) checkval;
 
 	/*
-	 * we are not able to find a prefix in signature tree
+	 * 无法在签名树中找到前缀
 	 */
 	if (val->prefix)
 		return TS_MAYBE;
@@ -337,7 +337,7 @@ gtsvector_consistent(PG_FUNCTION_ARGS)
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	SignTSVector *key = (SignTSVector *) DatumGetPointer(entry->key);
 
-	/* All cases served by this function are inexact */
+	/* 此函数处理的情形均不精确 */
 	*recheck = true;
 
 	if (!query->size)
@@ -354,7 +354,7 @@ gtsvector_consistent(PG_FUNCTION_ARGS)
 								  checkcondition_bit));
 	}
 	else
-	{							/* only leaf pages */
+	{							/* 仅叶子页 */
 		CHKVAL		chkval;
 
 		chkval.arrb = GETARR(key);
@@ -430,7 +430,7 @@ gtsvector_same(PG_FUNCTION_ARGS)
 	int			siglen = GET_SIGLEN();
 
 	if (ISSIGNKEY(a))
-	{							/* then b also ISSIGNKEY */
+	{							/* 则 b 也 ISSIGNKEY */
 		if (ISALLTRUE(a) && ISALLTRUE(b))
 			*result = true;
 		else if (ISALLTRUE(a))
@@ -498,7 +498,7 @@ hemdistsign(BITVECP a, BITVECP b, int siglen)
 	LOOPBYTE(siglen)
 	{
 		diff = (unsigned char) (a[i] ^ b[i]);
-		/* Using the popcount functions here isn't likely to win */
+		/* 在这里用 popcount 函数不太可能占优 */
 		dist += pg_number_of_ones[diff];
 	}
 	return dist;
@@ -528,7 +528,7 @@ hemdist(SignTSVector *a, SignTSVector *b)
 Datum
 gtsvector_penalty(PG_FUNCTION_ARGS)
 {
-	GISTENTRY  *origentry = (GISTENTRY *) PG_GETARG_POINTER(0); /* always ISSIGNKEY */
+	GISTENTRY  *origentry = (GISTENTRY *) PG_GETARG_POINTER(0); /* 恒为 ISSIGNKEY */
 	GISTENTRY  *newentry = (GISTENTRY *) PG_GETARG_POINTER(1);
 	float	   *penalty = (float *) PG_GETARG_POINTER(2);
 	int			siglen = GET_SIGLEN();
@@ -686,7 +686,7 @@ gtsvector_picksplit(PG_FUNCTION_ARGS)
 		seed_2 = 2;
 	}
 
-	/* form initial .. */
+	/* 生成初始 .. */
 	datum_l = gtsvector_alloc(SIGNKEY | (cache[seed_1].allistrue ? ALLISTRUE : 0),
 							  siglen, cache[seed_1].sign);
 	datum_r = gtsvector_alloc(SIGNKEY | (cache[seed_2].allistrue ? ALLISTRUE : 0),
@@ -695,7 +695,7 @@ gtsvector_picksplit(PG_FUNCTION_ARGS)
 	union_r = GETSIGN(datum_r);
 	maxoff = OffsetNumberNext(maxoff);
 	fillcache(&cache[maxoff], GETENTRY(entryvec, maxoff), siglen);
-	/* sort before ... */
+	/* 排序前 ... */
 	costvector = (SPLITCOST *) palloc(sizeof(SPLITCOST) * maxoff);
 	for (j = FirstOffsetNumber; j <= maxoff; j = OffsetNumberNext(j))
 	{
@@ -792,11 +792,11 @@ gtsvector_picksplit(PG_FUNCTION_ARGS)
 }
 
 /*
- * Formerly, gtsvector_consistent was declared in pg_proc.h with arguments
- * that did not match the documented conventions for GiST support functions.
- * We fixed that, but we still need a pg_proc entry with the old signature
- * to support reloading pre-9.6 contrib/tsearch2 opclass declarations.
- * This compatibility function should go away eventually.
+ * 早年 gtsvector_consistent 在 pg_proc.h 中声明时所用参数
+ * 不符合 GiST 支持函数文档化约定。我们修正了这一点，
+ * 但仍需要一个使用旧签名的 pg_proc 条目，
+ * 以支持重载 9.6 之前的 contrib/tsearch2 opclass 声明。
+ * 这个兼容函数最终应当移除。
  */
 Datum
 gtsvector_consistent_oldsig(PG_FUNCTION_ARGS)

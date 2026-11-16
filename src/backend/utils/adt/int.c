@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * int.c
- *	  Functions for the built-in integer types (except int8).
+ *	  内置整数类型（int8 除外）的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,17 +13,17 @@
  *-------------------------------------------------------------------------
  */
 /*
- * OLD COMMENTS
- *		I/O routines:
+ * 旧注释
+ *		I/O 例程：
  *		 int2in, int2out, int2recv, int2send
  *		 int4in, int4out, int4recv, int4send
  *		 int2vectorin, int2vectorout, int2vectorrecv, int2vectorsend
- *		Boolean operators:
+ *		布尔算子：
  *		 inteq, intne, intlt, intle, intgt, intge
- *		Arithmetic operators:
+ *		算术算子：
  *		 intpl, intmi, int4mul, intdiv
  *
- *		Arithmetic operators:
+ *		算术算子：
  *		 intmod
  */
 #include "postgres.h"
@@ -53,11 +53,11 @@ typedef struct
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程														 *
  *****************************************************************************/
 
 /*
- *		int2in			- converts "num" to short
+ *		int2in			- 把 "num" 变为 short
  */
 Datum
 int2in(PG_FUNCTION_ARGS)
@@ -68,20 +68,20 @@ int2in(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int2out			- converts short to "num"
+ *		int2out			- 把 short 变为 "num"
  */
 Datum
 int2out(PG_FUNCTION_ARGS)
 {
 	int16		arg1 = PG_GETARG_INT16(0);
-	char	   *result = (char *) palloc(7);	/* sign, 5 digits, '\0' */
+	char	   *result = (char *) palloc(7);	/* 符号+5 位+'\0' */
 
 	pg_itoa(arg1, result);
 	PG_RETURN_CSTRING(result);
 }
 
 /*
- *		int2recv			- converts external binary format to int2
+ *		int2recv			- 把外部二进制格式转换为 int2
  */
 Datum
 int2recv(PG_FUNCTION_ARGS)
@@ -92,7 +92,7 @@ int2recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int2send			- converts int2 to binary format
+ *		int2send			- 把 int2 变为二进制格式
  */
 Datum
 int2send(PG_FUNCTION_ARGS)
@@ -106,9 +106,9 @@ int2send(PG_FUNCTION_ARGS)
 }
 
 /*
- * construct int2vector given a raw array of int2s
+ * 由 int2 的原始数组构建 int2vector
  *
- * If int2s is NULL then caller must fill values[] afterward
+ * 若 int2s 为 NULL，调用者随后须填充 values[]
  */
 int2vector *
 buildint2vector(const int16 *int2s, int n)
@@ -121,12 +121,12 @@ buildint2vector(const int16 *int2s, int n)
 		memcpy(result->values, int2s, n * sizeof(int16));
 
 	/*
-	 * Attach standard array header.  For historical reasons, we set the index
-	 * lower bound to 0 not 1.
+	 * 附加标准数组头部。出于历史原因，索引下界设为
+	 * 0 而非 1。
 	 */
 	SET_VARSIZE(result, Int2VectorSize(n));
 	result->ndim = 1;
-	result->dataoffset = 0;		/* never any nulls */
+	result->dataoffset = 0;		/* 无空值 */
 	result->elemtype = INT2OID;
 	result->dim1 = n;
 	result->lbound1 = 0;
@@ -135,7 +135,7 @@ buildint2vector(const int16 *int2s, int n)
 }
 
 /*
- *		int2vectorin			- converts "num num ..." to internal form
+ *		int2vectorin			- "num num ..." 转换为内部形式
  */
 Datum
 int2vectorin(PG_FUNCTION_ARGS)
@@ -146,7 +146,7 @@ int2vectorin(PG_FUNCTION_ARGS)
 	int			nalloc;
 	int			n;
 
-	nalloc = 32;				/* arbitrary initial size guess */
+	nalloc = 32;				/* 任意估计的初始大小 */
 	result = (int2vector *) palloc0(Int2VectorSize(nalloc));
 
 	for (n = 0;; n++)
@@ -192,7 +192,7 @@ int2vectorin(PG_FUNCTION_ARGS)
 
 	SET_VARSIZE(result, Int2VectorSize(n));
 	result->ndim = 1;
-	result->dataoffset = 0;		/* never any nulls */
+	result->dataoffset = 0;		/* 无空值 */
 	result->elemtype = INT2OID;
 	result->dim1 = n;
 	result->lbound1 = 0;
@@ -201,7 +201,7 @@ int2vectorin(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int2vectorout		- converts internal form to "num num ..."
+ *		int2vectorout		- 把内部形式转换为 "num num ..."
  */
 Datum
 int2vectorout(PG_FUNCTION_ARGS)
@@ -212,7 +212,7 @@ int2vectorout(PG_FUNCTION_ARGS)
 	char	   *rp;
 	char	   *result;
 
-	/* assumes sign, 5 digits, ' ' */
+	/* 假定符号+5 位+' ' */
 	rp = result = (char *) palloc(nnums * 7 + 1);
 	for (num = 0; num < nnums; num++)
 	{
@@ -225,7 +225,7 @@ int2vectorout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int2vectorrecv			- converts external binary format to int2vector
+ *		int2vectorrecv		- 把外部二进制格式转换为 int2vector
  */
 Datum
 int2vectorrecv(PG_FUNCTION_ARGS)
@@ -235,10 +235,10 @@ int2vectorrecv(PG_FUNCTION_ARGS)
 	int2vector *result;
 
 	/*
-	 * Normally one would call array_recv() using DirectFunctionCall3, but
-	 * that does not work since array_recv wants to cache some data using
-	 * fcinfo->flinfo->fn_extra.  So we need to pass it our own flinfo
-	 * parameter.
+	 * 通常会用 DirectFunctionCall3 调用 array_recv()，但由于
+	 * array_recv 想用 fcinfo->flinfo->fn_extra 缓存数据而无法
+	 * 奏效。所以我们需要传入自己的 flinfo
+	 * 参数。
 	 */
 	InitFunctionCallInfoData(*locfcinfo, fcinfo->flinfo, 3,
 							 InvalidOid, NULL, NULL);
@@ -254,7 +254,7 @@ int2vectorrecv(PG_FUNCTION_ARGS)
 
 	Assert(!locfcinfo->isnull);
 
-	/* sanity checks: int2vector must be 1-D, 0-based, no nulls */
+	/* 检查 int2vector 须为一维、0 基、无空值 */
 	if (ARR_NDIM(result) != 1 ||
 		ARR_HASNULL(result) ||
 		ARR_ELEMTYPE(result) != INT2OID ||
@@ -267,7 +267,7 @@ int2vectorrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int2vectorsend			- converts int2vector to binary format
+ *		int2vectorsend		- 把 int2vector 变为二进制格式
  */
 Datum
 int2vectorsend(PG_FUNCTION_ARGS)
@@ -277,11 +277,11 @@ int2vectorsend(PG_FUNCTION_ARGS)
 
 
 /*****************************************************************************
- *	 PUBLIC ROUTINES														 *
+ *	 公共例程														 *
  *****************************************************************************/
 
 /*
- *		int4in			- converts "num" to int4
+ *		int4in			- 把 "num" 变为 int4
  */
 Datum
 int4in(PG_FUNCTION_ARGS)
@@ -292,20 +292,20 @@ int4in(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int4out			- converts int4 to "num"
+ *		int4out			- 把 int4 变为 "num"
  */
 Datum
 int4out(PG_FUNCTION_ARGS)
 {
 	int32		arg1 = PG_GETARG_INT32(0);
-	char	   *result = (char *) palloc(12);	/* sign, 10 digits, '\0' */
+	char	   *result = (char *) palloc(12);	/* 符号+10 位+'\0' */
 
 	pg_ltoa(arg1, result);
 	PG_RETURN_CSTRING(result);
 }
 
 /*
- *		int4recv			- converts external binary format to int4
+ *		int4recv			- 把外部二进制格式转换为 int4
  */
 Datum
 int4recv(PG_FUNCTION_ARGS)
@@ -316,7 +316,7 @@ int4recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		int4send			- converts int4 to binary format
+ *		int4send			- 把 int4 变为二进制格式
  */
 Datum
 int4send(PG_FUNCTION_ARGS)
@@ -332,7 +332,7 @@ int4send(PG_FUNCTION_ARGS)
 
 /*
  *		===================
- *		CONVERSION ROUTINES
+ *		转换例程
  *		===================
  */
 
@@ -357,7 +357,7 @@ i4toi2(PG_FUNCTION_ARGS)
 	PG_RETURN_INT16((int16) arg1);
 }
 
-/* Cast int4 -> bool */
+/* int4 转 bool */
 Datum
 int4_bool(PG_FUNCTION_ARGS)
 {
@@ -367,7 +367,7 @@ int4_bool(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(true);
 }
 
-/* Cast bool -> int4 */
+/* bool 转 int4 */
 Datum
 bool_int4(PG_FUNCTION_ARGS)
 {
@@ -379,17 +379,17 @@ bool_int4(PG_FUNCTION_ARGS)
 
 /*
  *		============================
- *		COMPARISON OPERATOR ROUTINES
+ *		比较算子例程
  *		============================
  */
 
 /*
- *		inteq			- returns 1 iff arg1 == arg2
- *		intne			- returns 1 iff arg1 != arg2
- *		intlt			- returns 1 iff arg1 < arg2
- *		intle			- returns 1 iff arg1 <= arg2
- *		intgt			- returns 1 iff arg1 > arg2
- *		intge			- returns 1 iff arg1 >= arg2
+ *		inteq			- arg1 == arg2 则返回 1
+ *		intne			- arg1 != arg2 则返回 1
+ *		intlt			- arg1 < arg2 则返回 1
+ *		intle			- arg1 <= arg2 则返回 1
+ *		intgt			- arg1 > arg2 则返回 1
+ *		intge			- arg1 >= arg2 则返回 1
  */
 
 Datum
@@ -610,13 +610,13 @@ int42ge(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	in_range functions for int4 and int2,
- *	including cross-data-type comparisons.
+ *	int4 与 int2 的 in_range 函数，
+ *	包括跨数据类型的比较。
  *
- *	Note: we provide separate intN_int8 functions for performance
- *	reasons.  This forces also providing intN_int2, else cases with a
- *	smallint offset value would fail to resolve which function to use.
- *	But that's an unlikely situation, so don't duplicate code for it.
+ *	注意：为性能计，我们另设 intN_int8 函数。
+ *	这也迫使提供 intN_int2，否则偏移值为 smallint 的
+ *	情况将无法解析应使用哪个函数。
+ *	但这种情况少见，所以不必为其复制代码。
  *---------------------------------------------------------*/
 
 Datum
@@ -635,14 +635,14 @@ in_range_int4_int4(PG_FUNCTION_ARGS)
 				 errmsg("invalid preceding or following size in window function")));
 
 	if (sub)
-		offset = -offset;		/* cannot overflow */
+		offset = -offset;		/* 不会溢出 */
 
 	if (unlikely(pg_add_s32_overflow(base, offset, &sum)))
 	{
 		/*
-		 * If sub is false, the true sum is surely more than val, so correct
-		 * answer is the same as "less".  If sub is true, the true sum is
-		 * surely less than val, so the answer is "!less".
+		 * 若 sub 为假，真实和必然大于 val，则正确答案与
+		 * "less" 相同。若 sub 为真，真实和必然小于
+		 * val，故答案为 "!less"。
 		 */
 		PG_RETURN_BOOL(sub ? !less : less);
 	}
@@ -656,7 +656,7 @@ in_range_int4_int4(PG_FUNCTION_ARGS)
 Datum
 in_range_int4_int2(PG_FUNCTION_ARGS)
 {
-	/* Doesn't seem worth duplicating code for, so just invoke int4_int4 */
+	/* 不值得为此重复代码，直接调用 int4_int4 即可 */
 	return DirectFunctionCall5(in_range_int4_int4,
 							   PG_GETARG_DATUM(0),
 							   PG_GETARG_DATUM(1),
@@ -668,7 +668,7 @@ in_range_int4_int2(PG_FUNCTION_ARGS)
 Datum
 in_range_int4_int8(PG_FUNCTION_ARGS)
 {
-	/* We must do all the math in int64 */
+	/* 运算必须以 int64 进行 */
 	int64		val = (int64) PG_GETARG_INT32(0);
 	int64		base = (int64) PG_GETARG_INT32(1);
 	int64		offset = PG_GETARG_INT64(2);
@@ -682,14 +682,14 @@ in_range_int4_int8(PG_FUNCTION_ARGS)
 				 errmsg("invalid preceding or following size in window function")));
 
 	if (sub)
-		offset = -offset;		/* cannot overflow */
+		offset = -offset;		/* 不会溢出 */
 
 	if (unlikely(pg_add_s64_overflow(base, offset, &sum)))
 	{
 		/*
-		 * If sub is false, the true sum is surely more than val, so correct
-		 * answer is the same as "less".  If sub is true, the true sum is
-		 * surely less than val, so the answer is "!less".
+		 * 若 sub 为假，真实和必然大于 val，则正确答案与
+		 * "less" 相同。若 sub 为真，真实和必然小于
+		 * val，故答案为 "!less"。
 		 */
 		PG_RETURN_BOOL(sub ? !less : less);
 	}
@@ -703,7 +703,7 @@ in_range_int4_int8(PG_FUNCTION_ARGS)
 Datum
 in_range_int2_int4(PG_FUNCTION_ARGS)
 {
-	/* We must do all the math in int32 */
+	/* 运算必须以 int32 进行 */
 	int32		val = (int32) PG_GETARG_INT16(0);
 	int32		base = (int32) PG_GETARG_INT16(1);
 	int32		offset = PG_GETARG_INT32(2);
@@ -717,14 +717,14 @@ in_range_int2_int4(PG_FUNCTION_ARGS)
 				 errmsg("invalid preceding or following size in window function")));
 
 	if (sub)
-		offset = -offset;		/* cannot overflow */
+		offset = -offset;		/* 不会溢出 */
 
 	if (unlikely(pg_add_s32_overflow(base, offset, &sum)))
 	{
 		/*
-		 * If sub is false, the true sum is surely more than val, so correct
-		 * answer is the same as "less".  If sub is true, the true sum is
-		 * surely less than val, so the answer is "!less".
+		 * 若 sub 为假，真实和必然大于 val，则正确答案与
+		 * "less" 相同。若 sub 为真，真实和必然小于
+		 * val，故答案为 "!less"。
 		 */
 		PG_RETURN_BOOL(sub ? !less : less);
 	}
@@ -738,7 +738,7 @@ in_range_int2_int4(PG_FUNCTION_ARGS)
 Datum
 in_range_int2_int2(PG_FUNCTION_ARGS)
 {
-	/* Doesn't seem worth duplicating code for, so just invoke int2_int4 */
+	/* 不值得为此重复代码，直接调用 int2_int4 即可 */
 	return DirectFunctionCall5(in_range_int2_int4,
 							   PG_GETARG_DATUM(0),
 							   PG_GETARG_DATUM(1),
@@ -750,7 +750,7 @@ in_range_int2_int2(PG_FUNCTION_ARGS)
 Datum
 in_range_int2_int8(PG_FUNCTION_ARGS)
 {
-	/* Doesn't seem worth duplicating code for, so just invoke int4_int8 */
+	/* 不值得为此重复代码，直接调用 int4_int8 即可 */
 	return DirectFunctionCall5(in_range_int4_int8,
 							   Int32GetDatum((int32) PG_GETARG_INT16(0)),
 							   Int32GetDatum((int32) PG_GETARG_INT16(1)),
@@ -761,10 +761,10 @@ in_range_int2_int8(PG_FUNCTION_ARGS)
 
 
 /*
- *		int[24]pl		- returns arg1 + arg2
- *		int[24]mi		- returns arg1 - arg2
- *		int[24]mul		- returns arg1 * arg2
- *		int[24]div		- returns arg1 / arg2
+ *		int[24]pl		- 返回 arg1 + arg2
+ *		int[24]mi		- 返回 arg1 - arg2
+ *		int[24]mul		- 返回 arg1 * arg2
+ *		int[24]div		- 返回 arg1 / arg2
  */
 
 Datum
@@ -841,15 +841,15 @@ int4div(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_DIVISION_BY_ZERO),
 				 errmsg("division by zero")));
-		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		/* 确保编译器意识到我们绝不能到达除法（gcc bug） */
 		PG_RETURN_NULL();
 	}
 
 	/*
-	 * INT_MIN / -1 is problematic, since the result can't be represented on a
-	 * two's-complement machine.  Some machines produce INT_MIN, some produce
-	 * zero, some throw an exception.  We can dodge the problem by recognizing
-	 * that division by -1 is the same as negation.
+	 * INT_MIN / -1 很棘手，因为其结果无法在二进制补码机
+	 * 上表示。各机器或得 INT_MIN、或得 0、或抛出异常。
+	 * 我们可以注意到，除以 -1 与取负是等价的，
+	 * 从而避开这个问题。
 	 */
 	if (arg2 == -1)
 	{
@@ -861,7 +861,7 @@ int4div(PG_FUNCTION_ARGS)
 		PG_RETURN_INT32(result);
 	}
 
-	/* No overflow is possible */
+	/* 不可能发生溢出 */
 
 	result = arg1 / arg2;
 
@@ -957,15 +957,15 @@ int2div(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_DIVISION_BY_ZERO),
 				 errmsg("division by zero")));
-		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		/* 确保编译器意识到我们绝不能到达除法（gcc bug） */
 		PG_RETURN_NULL();
 	}
 
 	/*
-	 * SHRT_MIN / -1 is problematic, since the result can't be represented on
-	 * a two's-complement machine.  Some machines produce SHRT_MIN, some
-	 * produce zero, some throw an exception.  We can dodge the problem by
-	 * recognizing that division by -1 is the same as negation.
+	 * SHRT_MIN / -1 很棘手，因为结果无法在二进制补码
+	 * 机上表示。或得 SHRT_MIN、或得 0、或抛出异常。
+	 * 我们可以注意到，除以 -1 与取负是等价的，
+	 * 从而避开这个问题。
 	 */
 	if (arg2 == -1)
 	{
@@ -977,7 +977,7 @@ int2div(PG_FUNCTION_ARGS)
 		PG_RETURN_INT16(result);
 	}
 
-	/* No overflow is possible */
+	/* 不可能发生溢出 */
 
 	result = arg1 / arg2;
 
@@ -1037,11 +1037,11 @@ int24div(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_DIVISION_BY_ZERO),
 				 errmsg("division by zero")));
-		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		/* 确保编译器意识到我们绝不能到达除法（gcc bug） */
 		PG_RETURN_NULL();
 	}
 
-	/* No overflow is possible */
+	/* 不可能发生溢出 */
 	PG_RETURN_INT32((int32) arg1 / arg2);
 }
 
@@ -1099,15 +1099,15 @@ int42div(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_DIVISION_BY_ZERO),
 				 errmsg("division by zero")));
-		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		/* 确保编译器意识到我们绝不能到达除法（gcc bug） */
 		PG_RETURN_NULL();
 	}
 
 	/*
-	 * INT_MIN / -1 is problematic, since the result can't be represented on a
-	 * two's-complement machine.  Some machines produce INT_MIN, some produce
-	 * zero, some throw an exception.  We can dodge the problem by recognizing
-	 * that division by -1 is the same as negation.
+	 * INT_MIN / -1 很棘手，因为其结果无法在二进制补码机
+	 * 上表示。各机器或得 INT_MIN、或得 0、或抛出异常。
+	 * 我们可以注意到，除以 -1 与取负是等价的，
+	 * 从而避开这个问题。
 	 */
 	if (arg2 == -1)
 	{
@@ -1119,7 +1119,7 @@ int42div(PG_FUNCTION_ARGS)
 		PG_RETURN_INT32(result);
 	}
 
-	/* No overflow is possible */
+	/* 不可能发生溢出 */
 
 	result = arg1 / arg2;
 
@@ -1137,19 +1137,19 @@ int4mod(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_DIVISION_BY_ZERO),
 				 errmsg("division by zero")));
-		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		/* 确保编译器意识到我们绝不能到达除法（gcc bug） */
 		PG_RETURN_NULL();
 	}
 
 	/*
-	 * Some machines throw a floating-point exception for INT_MIN % -1, which
-	 * is a bit silly since the correct answer is perfectly well-defined,
-	 * namely zero.
+	 * 有些机器会对 INT_MIN % -1 抛出浮点异常，这有点
+	 * 可笑，因为正确答案是完全明确的，
+	 * 即 0。
 	 */
 	if (arg2 == -1)
 		PG_RETURN_INT32(0);
 
-	/* No overflow is possible */
+	/* 不可能发生溢出 */
 
 	PG_RETURN_INT32(arg1 % arg2);
 }
@@ -1165,27 +1165,27 @@ int2mod(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_DIVISION_BY_ZERO),
 				 errmsg("division by zero")));
-		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		/* 确保编译器意识到我们绝不能到达除法（gcc bug） */
 		PG_RETURN_NULL();
 	}
 
 	/*
-	 * Some machines throw a floating-point exception for INT_MIN % -1, which
-	 * is a bit silly since the correct answer is perfectly well-defined,
-	 * namely zero.  (It's not clear this ever happens when dealing with
-	 * int16, but we might as well have the test for safety.)
+	 * 有些机器会对 INT_MIN % -1 抛出浮点异常，这有点
+	 * 可笑，因为正确答案是完全明确的，
+	 * 即 0。（尚不清楚处理 int16 时是否
+	 * 会发生，但为安全不妨保留该测试。）
 	 */
 	if (arg2 == -1)
 		PG_RETURN_INT16(0);
 
-	/* No overflow is possible */
+	/* 不可能发生溢出 */
 
 	PG_RETURN_INT16(arg1 % arg2);
 }
 
 
 /* int[24]abs()
- * Absolute value
+ * 绝对值
  */
 Datum
 int4abs(PG_FUNCTION_ARGS)
@@ -1216,18 +1216,18 @@ int2abs(PG_FUNCTION_ARGS)
 }
 
 /*
- * Greatest Common Divisor
+ * 最大公约数
  *
- * Returns the largest positive integer that exactly divides both inputs.
- * Special cases:
+ * 返回能整除两个输入的最大正整数。
+ * 特例：
  *   - gcd(x, 0) = gcd(0, x) = abs(x)
- *   		because 0 is divisible by anything
+ *   		因为 0 可被任何数整除
  *   - gcd(0, 0) = 0
- *   		complies with the previous definition and is a common convention
+ *   		符合上述定义，也是通用惯例
  *
- * Special care must be taken if either input is INT_MIN --- gcd(0, INT_MIN),
- * gcd(INT_MIN, 0) and gcd(INT_MIN, INT_MIN) are all equal to abs(INT_MIN),
- * which cannot be represented as a 32-bit signed integer.
+ * 若任一输入为 INT_MIN 必须格外小心 --- gcd(0, INT_MIN)、
+ * gcd(INT_MIN, 0) 与 gcd(INT_MIN, INT_MIN) 都等于 abs(INT_MIN)，
+ * 无法用 32 位有符号整数表示。
  */
 static int32
 int4gcd_internal(int32 arg1, int32 arg2)
@@ -1237,13 +1237,13 @@ int4gcd_internal(int32 arg1, int32 arg2)
 				a2;
 
 	/*
-	 * Put the greater absolute value in arg1.
+	 * 把绝对值较大者放入 arg1。
 	 *
-	 * This would happen automatically in the loop below, but avoids an
-	 * expensive modulo operation, and simplifies the special-case handling
-	 * for INT_MIN below.
+	 * 下面的循环本可自动完成，但这可避免一次
+	 * 昂贵的取模运算，并简化下方 INT_MIN 的特例
+	 * 处理。
 	 *
-	 * We do this in negative space in order to handle INT_MIN.
+	 * 为处理 INT_MIN，我们在负数空间中进行。
 	 */
 	a1 = (arg1 < 0) ? arg1 : -arg1;
 	a2 = (arg2 < 0) ? arg2 : -arg2;
@@ -1254,7 +1254,7 @@ int4gcd_internal(int32 arg1, int32 arg2)
 		arg2 = swap;
 	}
 
-	/* Special care needs to be taken with INT_MIN.  See comments above. */
+	/* 对 INT_MIN 需要格外小心。参见上文注释。 */
 	if (arg1 == PG_INT32_MIN)
 	{
 		if (arg2 == 0 || arg2 == PG_INT32_MIN)
@@ -1263,16 +1263,16 @@ int4gcd_internal(int32 arg1, int32 arg2)
 					 errmsg("integer out of range")));
 
 		/*
-		 * Some machines throw a floating-point exception for INT_MIN % -1,
-		 * which is a bit silly since the correct answer is perfectly
-		 * well-defined, namely zero.  Guard against this and just return the
-		 * result, gcd(INT_MIN, -1) = 1.
+		 * 有些机器会对 INT_MIN % -1 抛出浮点异常，
+		 * 这有点可笑，因为正确答案是完全明确的，
+		 * 即 0。对此加以防范，直接返回结果
+		 * gcd(INT_MIN, -1) = 1。
 		 */
 		if (arg2 == -1)
 			return 1;
 	}
 
-	/* Use the Euclidean algorithm to find the GCD */
+	/* 用欧几里得算法求 GCD */
 	while (arg2 != 0)
 	{
 		swap = arg2;
@@ -1281,8 +1281,8 @@ int4gcd_internal(int32 arg1, int32 arg2)
 	}
 
 	/*
-	 * Make sure the result is positive. (We know we don't have INT_MIN
-	 * anymore).
+ * 确保结果为正。（我们已经确定不再有 INT_MIN。）
+ *
 	 */
 	if (arg1 < 0)
 		arg1 = -arg1;
@@ -1303,7 +1303,7 @@ int4gcd(PG_FUNCTION_ARGS)
 }
 
 /*
- * Least Common Multiple
+ * 最小公倍数
  */
 Datum
 int4lcm(PG_FUNCTION_ARGS)
@@ -1314,9 +1314,9 @@ int4lcm(PG_FUNCTION_ARGS)
 	int32		result;
 
 	/*
-	 * Handle lcm(x, 0) = lcm(0, x) = 0 as a special case.  This prevents a
-	 * division-by-zero error below when x is zero, and an overflow error from
-	 * the GCD computation when x = INT_MIN.
+	 * 把 lcm(x, 0) = lcm(0, x) = 0 作为特例处理。这
+	 * 样可避免 x 为零时下方发生除零错误，以及 x =
+	 * INT_MIN 时 GCD 的溢出错误。
 	 */
 	if (arg1 == 0 || arg2 == 0)
 		PG_RETURN_INT32(0);
@@ -1330,7 +1330,7 @@ int4lcm(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("integer out of range")));
 
-	/* If the result is INT_MIN, it cannot be represented. */
+	/* 若结果为 INT_MIN，则无法表示。 */
 	if (unlikely(result == PG_INT32_MIN))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1379,14 +1379,14 @@ int4smaller(PG_FUNCTION_ARGS)
 }
 
 /*
- * Bit-pushing operators
+ * 位运算算子
  *
- *		int[24]and		- returns arg1 & arg2
- *		int[24]or		- returns arg1 | arg2
- *		int[24]xor		- returns arg1 # arg2
- *		int[24]not		- returns ~arg1
- *		int[24]shl		- returns arg1 << arg2
- *		int[24]shr		- returns arg1 >> arg2
+ *		int[24]and		- 返回 arg1 & arg2
+ *		int[24]or		- 返回 arg1 | arg2
+ *		int[24]xor		- 返回 arg1 # arg2
+ *		int[24]not		- 返回 ~arg1
+ *		int[24]shl		- 返回 arg1 << arg2
+ *		int[24]shr		- 返回 arg1 >> arg2
  */
 
 Datum
@@ -1497,7 +1497,7 @@ int2shr(PG_FUNCTION_ARGS)
 }
 
 /*
- * non-persistent numeric series generator
+ * 非持久数值序列生成器
  */
 Datum
 generate_series_int4(PG_FUNCTION_ARGS)
@@ -1513,14 +1513,14 @@ generate_series_step_int4(PG_FUNCTION_ARGS)
 	int32		result;
 	MemoryContext oldcontext;
 
-	/* stuff done only on the first call of the function */
+	/* 仅在函数首次调用时完成的工作 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		int32		start = PG_GETARG_INT32(0);
 		int32		finish = PG_GETARG_INT32(1);
 		int32		step = 1;
 
-		/* see if we were given an explicit step size */
+		/* 查看是否给定了显式步长 */
 		if (PG_NARGS() == 3)
 			step = PG_GETARG_INT32(2);
 		if (step == 0)
@@ -1528,20 +1528,20 @@ generate_series_step_int4(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("step size cannot equal zero")));
 
-		/* create a function context for cross-call persistence */
+		/* 创建函数上下文以实现跨调用持久化 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* allocate memory for user context */
+		/* 为用户上下文分配内存 */
 		fctx = (generate_series_fctx *) palloc(sizeof(generate_series_fctx));
 
 		/*
-		 * Use fctx to keep state from call to call. Seed current with the
-		 * original start value
+		 * 用 fctx 跨调用保存状态。将 current 设为最初
+		 * 的起始值
 		 */
 		fctx->current = start;
 		fctx->finish = finish;
@@ -1551,11 +1551,11 @@ generate_series_step_int4(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次调用函数时都要做的工作 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	/*
-	 * get the saved state and use current as the result for this iteration
+	 * 取出保存的状态，并把 current 用作本次迭代的结果
 	 */
 	fctx = funcctx->user_fctx;
 	result = fctx->current;
@@ -1564,22 +1564,22 @@ generate_series_step_int4(PG_FUNCTION_ARGS)
 		(fctx->step < 0 && fctx->current >= fctx->finish))
 	{
 		/*
-		 * Increment current in preparation for next iteration. If next-value
-		 * computation overflows, this is the final result.
+		 * 递增 current 为下一次迭代做准备。若下一值计算
+		 * 发生溢出，这就是最终结果。
 		 */
 		if (pg_add_s32_overflow(fctx->current, fctx->step, &fctx->current))
 			fctx->step = 0;
 
-		/* do when there is more left to send */
+		/* 还有剩余要发送时执行 */
 		SRF_RETURN_NEXT(funcctx, Int32GetDatum(result));
 	}
 	else
-		/* do when there is no more left */
+		/* 没有剩余时执行 */
 		SRF_RETURN_DONE(funcctx);
 }
 
 /*
- * Planner support function for generate_series(int4, int4 [, int4])
+ * generate_series(int4, int4 [, int4]) 的规划器支持函数
  */
 Datum
 generate_series_int4_support(PG_FUNCTION_ARGS)
@@ -1589,17 +1589,17 @@ generate_series_int4_support(PG_FUNCTION_ARGS)
 
 	if (IsA(rawreq, SupportRequestRows))
 	{
-		/* Try to estimate the number of rows returned */
+		/* 尝试估算返回的行数 */
 		SupportRequestRows *req = (SupportRequestRows *) rawreq;
 
-		if (is_funcclause(req->node))	/* be paranoid */
+		if (is_funcclause(req->node))	/* 求稳 */
 		{
 			List	   *args = ((FuncExpr *) req->node)->args;
 			Node	   *arg1,
 					   *arg2,
 					   *arg3;
 
-			/* We can use estimated argument values here */
+			/* 这里可以使用估算的参数值 */
 			arg1 = estimate_expression_value(req->root, linitial(args));
 			arg2 = estimate_expression_value(req->root, lsecond(args));
 			if (list_length(args) >= 3)
@@ -1608,10 +1608,10 @@ generate_series_int4_support(PG_FUNCTION_ARGS)
 				arg3 = NULL;
 
 			/*
-			 * If any argument is constant NULL, we can safely assume that
-			 * zero rows are returned.  Otherwise, if they're all non-NULL
-			 * constants, we can calculate the number of rows that will be
-			 * returned.  Use double arithmetic to avoid overflow hazards.
+			 * 若任一参数为常量 NULL，则可放心假定
+			 * 返回零行。否则，若它们全为非 NULL
+			 * 常量，我们可以算出将返回的行数。
+			 * 请使用 double 运算以避免溢出风险。
 			 */
 			if ((IsA(arg1, Const) &&
 				 ((Const *) arg1)->constisnull) ||
@@ -1635,7 +1635,7 @@ generate_series_int4_support(PG_FUNCTION_ARGS)
 				finish = DatumGetInt32(((Const *) arg2)->constvalue);
 				step = arg3 ? DatumGetInt32(((Const *) arg3)->constvalue) : 1;
 
-				/* This equation works for either sign of step */
+				/* 该等式对步长的任一符号都适用 */
 				if (step != 0)
 				{
 					req->rows = floor((finish - start + step) / step);

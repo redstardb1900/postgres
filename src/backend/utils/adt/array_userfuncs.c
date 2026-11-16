@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * array_userfuncs.c
- *	  Misc user-visible array support functions
+ *	  用户可见的数组支持函数。
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group
  *
@@ -25,7 +25,7 @@
 
 /*
  * SerialIOData
- *		Used for caching element-type data in array_agg_serialize
+ *		用于在 array_agg_serialize 中缓存元素类型数据
  */
 typedef struct SerialIOData
 {
@@ -34,7 +34,7 @@ typedef struct SerialIOData
 
 /*
  * DeserialIOData
- *		Used for caching element-type data in array_agg_deserialize
+ *		用于在 array_agg_deserialize 中缓存元素类型数据
  */
 typedef struct DeserialIOData
 {
@@ -48,17 +48,17 @@ static Datum array_position_common(FunctionCallInfo fcinfo);
 /*
  * fetch_array_arg_replace_nulls
  *
- * Fetch an array-valued argument in expanded form; if it's null, construct an
- * empty array value of the proper data type.  Also cache basic element type
- * information in fn_extra.
+ * 以展开形式取数组值参数；如果它为空，就构建
+ * 一个相应数据类型的空数组值。同时把基本元素类型
+ * 信息缓存在其中。
  *
- * Caution: if the input is a read/write pointer, this returns the input
- * argument; so callers must be sure that their changes are "safe", that is
- * they cannot leave the array in a corrupt state.
+ * 小心：输入若是读/写指针，会返回输入参数；
+ * 因此调用者必须确保自己的修改是"安全的"，也就是
+ * 无法把数组留在损坏状态。
  *
- * If we're being called as an aggregate function, make sure any newly-made
- * expanded array is allocated in the aggregate state context, so as to save
- * copying operations.
+ * 如果我们是作为聚合函数被调用，务必确保任何新
+ * 构建的展开数组都分配在聚合状态上下文中，从而
+ * 节省拷贝。
  */
 static ExpandedArrayHeader *
 fetch_array_arg_replace_nulls(FunctionCallInfo fcinfo, int argno)
@@ -68,7 +68,7 @@ fetch_array_arg_replace_nulls(FunctionCallInfo fcinfo, int argno)
 	ArrayMetaState *my_extra;
 	MemoryContext resultcxt;
 
-	/* If first time through, create datatype cache struct */
+	/* 首次经过时创建数据类型缓存结构 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL)
 	{
@@ -79,11 +79,11 @@ fetch_array_arg_replace_nulls(FunctionCallInfo fcinfo, int argno)
 		fcinfo->flinfo->fn_extra = my_extra;
 	}
 
-	/* Figure out which context we want the result in */
+	/* 确定我们想让结果处于哪个上下文 */
 	if (!AggCheckCallContext(fcinfo, &resultcxt))
 		resultcxt = CurrentMemoryContext;
 
-	/* Now collect the array value */
+	/* 现在收集数组值 */
 	if (!PG_ARGISNULL(argno))
 	{
 		MemoryContext oldcxt = MemoryContextSwitchTo(resultcxt);
@@ -93,7 +93,7 @@ fetch_array_arg_replace_nulls(FunctionCallInfo fcinfo, int argno)
 	}
 	else
 	{
-		/* We have to look up the array type and element type */
+		/* 我们必须查找数组类型与元素类型 */
 		Oid			arr_typeid = get_fn_expr_argtype(fcinfo->flinfo, argno);
 
 		if (!OidIsValid(arr_typeid))
@@ -116,7 +116,7 @@ fetch_array_arg_replace_nulls(FunctionCallInfo fcinfo, int argno)
 
 /*-----------------------------------------------------------------------------
  * array_append :
- *		push an element onto the end of a one-dimensional array
+ *		把一个元素压入一维数组的末尾
  *----------------------------------------------------------------------------
  */
 Datum
@@ -140,11 +140,11 @@ array_append(PG_FUNCTION_ARGS)
 
 	if (eah->ndims == 1)
 	{
-		/* append newelem */
+		/* 追加 newelem */
 		lb = eah->lbound;
 		dimv = eah->dims;
 
-		/* index of added elem is at lb[0] + (dimv[0] - 1) + 1 */
+		/* 被加元素索引在 lb[0] + (dimv[0] - 1) + 1 */
 		if (pg_add_s32_overflow(lb[0], dimv[0], &indx))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -157,7 +157,7 @@ array_append(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("argument must be empty or one-dimensional array")));
 
-	/* Perform element insertion */
+	/* 执行元素插入 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 
 	result = array_set_element(EOHPGetRWDatum(&eah->hdr),
@@ -169,7 +169,7 @@ array_append(PG_FUNCTION_ARGS)
 
 /*-----------------------------------------------------------------------------
  * array_prepend :
- *		push an element onto the front of a one-dimensional array
+ *		把一个元素压入一维数组的前端
  *----------------------------------------------------------------------------
  */
 Datum
@@ -193,7 +193,7 @@ array_prepend(PG_FUNCTION_ARGS)
 
 	if (eah->ndims == 1)
 	{
-		/* prepend newelem */
+		/* 前置 newelem */
 		lb = eah->lbound;
 		lb0 = lb[0];
 
@@ -212,18 +212,18 @@ array_prepend(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("argument must be empty or one-dimensional array")));
 
-	/* Perform element insertion */
+	/* 执行元素插入 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 
 	result = array_set_element(EOHPGetRWDatum(&eah->hdr),
 							   1, &indx, newelem, isNull,
 							   -1, my_extra->typlen, my_extra->typbyval, my_extra->typalign);
 
-	/* Readjust result's LB to match the input's, as expected for prepend */
+	/* 重设结果的 LB 以匹配输入，prepend 需如此 */
 	Assert(result == EOHPGetRWDatum(&eah->hdr));
 	if (eah->ndims == 1)
 	{
-		/* This is ok whether we've deconstructed or not */
+		/* 无论是否已解构都没问题 */
 		eah->lbound[0] = lb0;
 	}
 
@@ -232,8 +232,8 @@ array_prepend(PG_FUNCTION_ARGS)
 
 /*-----------------------------------------------------------------------------
  * array_cat :
- *		concatenate two nD arrays to form an nD array, or
- *		push an (n-1)D array onto the end of an nD array
+ *		把两个 nD 数组连接成 nD 数组，或者
+ *		把 (n-1)D 数组压入 nD 数组的末尾
  *----------------------------------------------------------------------------
  */
 Datum
@@ -268,7 +268,7 @@ array_cat(PG_FUNCTION_ARGS)
 	Oid			element_type2;
 	int32		dataoffset;
 
-	/* Concatenating a null array is a no-op, just return the other input */
+	/* 连接空数组是无操作，直接返回另一个输入 */
 	if (PG_ARGISNULL(0))
 	{
 		if (PG_ARGISNULL(1))
@@ -288,7 +288,7 @@ array_cat(PG_FUNCTION_ARGS)
 	element_type1 = ARR_ELEMTYPE(v1);
 	element_type2 = ARR_ELEMTYPE(v2);
 
-	/* Check we have matching element types */
+	/* 检查两者元素类型是否匹配 */
 	if (element_type1 != element_type2)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -298,14 +298,14 @@ array_cat(PG_FUNCTION_ARGS)
 						   format_type_be(element_type1),
 						   format_type_be(element_type2))));
 
-	/* OK, use it */
+	/* 就用它 */
 	element_type = element_type1;
 
 	/*----------
-	 * We must have one of the following combinations of inputs:
-	 * 1) one empty array, and one non-empty array
-	 * 2) both arrays empty
-	 * 3) two arrays with ndims1 == ndims2
+	 * 我们必须有以下输入组合之一：
+	 * 1) 一个空数组与一个非空数组
+	 * 2) 两数组皆空
+	 * 3) 两数组满足 ndims1 == ndims2
 	 * 4) ndims1 == ndims2 - 1
 	 * 5) ndims1 == ndims2 + 1
 	 *----------
@@ -314,10 +314,10 @@ array_cat(PG_FUNCTION_ARGS)
 	ndims2 = ARR_NDIM(v2);
 
 	/*
-	 * short circuit - if one input array is empty, and the other is not, we
-	 * return the non-empty one as the result
+	 * 短路 —— 如果一个输入数组为空而另一个不为空，
+	 * 就返回非空的那个作为结果
 	 *
-	 * if both are empty, return the first one
+	 * 若两者皆空，返回第一个
 	 */
 	if (ndims1 == 0 && ndims2 > 0)
 		PG_RETURN_ARRAYTYPE_P(v2);
@@ -325,7 +325,7 @@ array_cat(PG_FUNCTION_ARGS)
 	if (ndims2 == 0)
 		PG_RETURN_ARRAYTYPE_P(v1);
 
-	/* the rest fall under rule 3, 4, or 5 */
+	/* 其余都属规则 3、4 或 5 */
 	if (ndims1 != ndims2 &&
 		ndims1 != ndims2 - 1 &&
 		ndims1 != ndims2 + 1)
@@ -336,7 +336,7 @@ array_cat(PG_FUNCTION_ARGS)
 						   "compatible for concatenation.",
 						   ndims1, ndims2)));
 
-	/* get argument array details */
+	/* 取参数数组详情 */
 	lbs1 = ARR_LBOUND(v1);
 	lbs2 = ARR_LBOUND(v2);
 	dims1 = ARR_DIMS(v1);
@@ -353,8 +353,8 @@ array_cat(PG_FUNCTION_ARGS)
 	if (ndims1 == ndims2)
 	{
 		/*
-		 * resulting array is made up of the elements (possibly arrays
-		 * themselves) of the input argument arrays
+		 * 结果数组由输入参数数组的元素（可能是
+		 * 数组本身）构成
 		 */
 		ndims = ndims1;
 		dims = (int *) palloc(ndims * sizeof(int));
@@ -379,8 +379,8 @@ array_cat(PG_FUNCTION_ARGS)
 	else if (ndims1 == ndims2 - 1)
 	{
 		/*
-		 * resulting array has the second argument as the outer array, with
-		 * the first argument inserted at the front of the outer dimension
+		 * 结果数组以第二个参数为外层数组，第一个参数
+		 * 被插入在外层维度的前端
 		 */
 		ndims = ndims2;
 		dims = (int *) palloc(ndims * sizeof(int));
@@ -388,10 +388,10 @@ array_cat(PG_FUNCTION_ARGS)
 		memcpy(dims, dims2, ndims * sizeof(int));
 		memcpy(lbs, lbs2, ndims * sizeof(int));
 
-		/* increment number of elements in outer array */
+		/* 递增外层数组的元素个数 */
 		dims[0] += 1;
 
-		/* make sure the added element matches our existing elements */
+		/* 确保被加元素与我们已有的元素匹配 */
 		for (i = 0; i < ndims1; i++)
 		{
 			if (dims1[i] != dims[i + 1] || lbs1[i] != lbs[i + 1])
@@ -407,8 +407,8 @@ array_cat(PG_FUNCTION_ARGS)
 		/*
 		 * (ndims1 == ndims2 + 1)
 		 *
-		 * resulting array has the first argument as the outer array, with the
-		 * second argument appended to the end of the outer dimension
+		 * 结果数组以第一个参数作为外层数组，第二个参数
+		 * 被追加在外层维度的末尾
 		 */
 		ndims = ndims1;
 		dims = (int *) palloc(ndims * sizeof(int));
@@ -416,10 +416,10 @@ array_cat(PG_FUNCTION_ARGS)
 		memcpy(dims, dims1, ndims * sizeof(int));
 		memcpy(lbs, lbs1, ndims * sizeof(int));
 
-		/* increment number of elements in outer array */
+		/* 递增外层数组的元素个数 */
 		dims[0] += 1;
 
-		/* make sure the added element matches our existing elements */
+		/* 确保被加元素与我们已有的元素匹配 */
 		for (i = 0; i < ndims2; i++)
 		{
 			if (dims2[i] != dims[i + 1] || lbs2[i] != lbs[i + 1])
@@ -431,11 +431,11 @@ array_cat(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Do this mainly for overflow checking */
+	/* 这样做主要为了溢出检查 */
 	nitems = ArrayGetNItems(ndims, dims);
 	ArrayCheckBounds(ndims, dims, lbs);
 
-	/* build the result array */
+	/* 构建结果数组 */
 	ndatabytes = ndatabytes1 + ndatabytes2;
 	if (ARR_HASNULL(v1) || ARR_HASNULL(v2))
 	{
@@ -444,7 +444,7 @@ array_cat(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		dataoffset = 0;			/* marker for no null bitmap */
+		dataoffset = 0;			/* 无空值位图的标记 */
 		nbytes = ndatabytes + ARR_OVERHEAD_NONULLS(ndims);
 	}
 	result = (ArrayType *) palloc0(nbytes);
@@ -454,10 +454,10 @@ array_cat(PG_FUNCTION_ARGS)
 	result->elemtype = element_type;
 	memcpy(ARR_DIMS(result), dims, ndims * sizeof(int));
 	memcpy(ARR_LBOUND(result), lbs, ndims * sizeof(int));
-	/* data area is arg1 then arg2 */
+	/* 数据区先 arg1 后 arg2 */
 	memcpy(ARR_DATA_PTR(result), dat1, ndatabytes1);
 	memcpy(ARR_DATA_PTR(result) + ndatabytes1, dat2, ndatabytes2);
-	/* handle the null bitmap if needed */
+	/* 需要时处理空值位图 */
 	if (ARR_HASNULL(result))
 	{
 		array_bitmap_copy(ARR_NULLBITMAP(result), 0,
@@ -473,7 +473,7 @@ array_cat(PG_FUNCTION_ARGS)
 
 
 /*
- * ARRAY_AGG(anynonarray) aggregate function
+ * ARRAY_AGG(anynonarray) 聚合函数
  */
 Datum
 array_agg_transfn(PG_FUNCTION_ARGS)
@@ -489,14 +489,14 @@ array_agg_transfn(PG_FUNCTION_ARGS)
 				 errmsg("could not determine input data type")));
 
 	/*
-	 * Note: we do not need a run-time check about whether arg1_typeid is a
-	 * valid array element type, because the parser would have verified that
-	 * while resolving the input/result types of this polymorphic aggregate.
+	 * 注意：我们不需要运行时检查来确认 arg1_typeid
+	 * 是否为有效的数组元素类型，因为解析器在解析
+	 * 这个多态聚合的输入/结果类型时就已经核实过了。
 	 */
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 因参数为 internal 类型而无法直接调用 */
 		elog(ERROR, "array_agg_transfn called in non-aggregate context");
 	}
 
@@ -514,9 +514,9 @@ array_agg_transfn(PG_FUNCTION_ARGS)
 							 aggcontext);
 
 	/*
-	 * The transition type for array_agg() is declared to be "internal", which
-	 * is a pass-by-value type the same size as a pointer.  So we can safely
-	 * pass the ArrayBuildState pointer through nodeAgg.c's machinations.
+	 * array_agg() 的转换类型被声明为 "internal"，这是
+	 * 一种与指针同样大小的按值传递类型。所以我们
+	 * 放心地把 ArrayBuildState 指针穿过 nodeAgg.c 的机关。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -538,8 +538,8 @@ array_agg_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 	{
 		/*
-		 * NULL state2 is easy, just return state1, which we know is already
-		 * in the agg_context
+		 * state2 为 NULL 很简单，直接返回 state1，它必然
+		 * 在 agg_context
 		 */
 		if (state1 == NULL)
 			PG_RETURN_NULL();
@@ -548,7 +548,7 @@ array_agg_combine(PG_FUNCTION_ARGS)
 
 	if (state1 == NULL)
 	{
-		/* We must copy state2's data into the agg_context */
+		/* 必须把 state2 的数据拷入 agg_context */
 		state1 = initArrayResultWithSize(state2->element_type, agg_context,
 										 false, state2->alen);
 
@@ -574,16 +574,16 @@ array_agg_combine(PG_FUNCTION_ARGS)
 	}
 	else if (state2->nelems > 0)
 	{
-		/* We only need to combine the two states if state2 has any elements */
+		/* 只有当 state2 还有元素时才需要合并两个状态 */
 		int			reqsize = state1->nelems + state2->nelems;
 		MemoryContext oldContext = MemoryContextSwitchTo(state1->mcontext);
 
 		Assert(state1->element_type == state2->element_type);
 
-		/* Enlarge state1 arrays if needed */
+		/* 按需扩大 state1 数组 */
 		if (state1->alen < reqsize)
 		{
-			/* Use a power of 2 size rather than allocating just reqsize */
+			/* 用 2 的幂大小而不是只分配 reqsize */
 			state1->alen = pg_nextpower2_32(reqsize);
 			state1->dvalues = (Datum *) repalloc(state1->dvalues,
 												 state1->alen * sizeof(Datum));
@@ -591,7 +591,7 @@ array_agg_combine(PG_FUNCTION_ARGS)
 											   state1->alen * sizeof(bool));
 		}
 
-		/* Copy in the state2 elements to the end of the state1 arrays */
+		/* 把 state2 的元素拷到 state1 数组末尾 */
 		for (int i = 0; i < state2->nelems; i++)
 		{
 			if (!state2->dnulls[i])
@@ -616,7 +616,7 @@ array_agg_combine(PG_FUNCTION_ARGS)
 
 /*
  * array_agg_serialize
- *		Serialize ArrayBuildState into bytea.
+ *		ArrayBuildState 序列化为 bytea。
  */
 Datum
 array_agg_serialize(PG_FUNCTION_ARGS)
@@ -625,7 +625,7 @@ array_agg_serialize(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 	bytea	   *result;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = (ArrayBuildState *) PG_GETARG_POINTER(0);
@@ -633,17 +633,17 @@ array_agg_serialize(PG_FUNCTION_ARGS)
 	pq_begintypsend(&buf);
 
 	/*
-	 * element_type. Putting this first is more convenient in deserialization
+	 * element_type。把它放在最前面，在反序列化时更方便。
 	 */
 	pq_sendint32(&buf, state->element_type);
 
 	/*
-	 * nelems -- send first so we know how large to make the dvalues and
-	 * dnulls array during deserialization.
+	 * nelems —— 先发送它，让我们知道 dvalues 与
+	 * dnulls 数组该建多大。
 	 */
 	pq_sendint64(&buf, state->nelems);
 
-	/* alen can be decided during deserialization */
+	/* alen 可在反序列化期间决定 */
 
 	/* typlen */
 	pq_sendint16(&buf, state->typlen);
@@ -658,11 +658,11 @@ array_agg_serialize(PG_FUNCTION_ARGS)
 	pq_sendbytes(&buf, state->dnulls, sizeof(bool) * state->nelems);
 
 	/*
-	 * dvalues.  By agreement with array_agg_deserialize, when the element
-	 * type is byval, we just transmit the Datum array as-is, including any
-	 * null elements.  For by-ref types, we must invoke the element type's
-	 * send function, and we skip null elements (which is why the nulls flags
-	 * must be sent first).
+	 * dvalues。与 array_agg_deserialize 约定：当元素
+	 * 类型按值传递时，原样传送 Datum 数组，包括
+	 * 任何空元素。对按引用类型，必须调用元素类型的
+ * send 函数，并跳过空元素（因此空值标志
+ * 须先发送）。
 	 */
 	if (state->typbyval)
 		pq_sendbytes(&buf, state->dvalues, sizeof(Datum) * state->nelems);
@@ -671,7 +671,7 @@ array_agg_serialize(PG_FUNCTION_ARGS)
 		SerialIOData *iodata;
 		int			i;
 
-		/* Avoid repeat catalog lookups for typsend function */
+		/* 避免对 typsend 函数重复查找目录 */
 		iodata = (SerialIOData *) fcinfo->flinfo->fn_extra;
 		if (iodata == NULL)
 		{
@@ -723,8 +723,8 @@ array_agg_deserialize(PG_FUNCTION_ARGS)
 	sstate = PG_GETARG_BYTEA_PP(0);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 拷贝进 StringInfo，这样我们就能用标准
+	 * recv 函数设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -736,7 +736,7 @@ array_agg_deserialize(PG_FUNCTION_ARGS)
 	/* nelems */
 	nelems = pq_getmsgint64(&buf);
 
-	/* Create output ArrayBuildState with the needed number of elements */
+	/* 以所需元素个数创建输出 ArrayBuildState */
 	result = initArrayResultWithSize(element_type, CurrentMemoryContext,
 									 false, nelems);
 	result->nelems = nelems;
@@ -754,7 +754,7 @@ array_agg_deserialize(PG_FUNCTION_ARGS)
 	temp = pq_getmsgbytes(&buf, sizeof(bool) * nelems);
 	memcpy(result->dnulls, temp, sizeof(bool) * nelems);
 
-	/* dvalues --- see comment in array_agg_serialize */
+	/* dvalues（见 array_agg_serialize 注释） */
 	if (result->typbyval)
 	{
 		temp = pq_getmsgbytes(&buf, sizeof(Datum) * nelems);
@@ -764,7 +764,7 @@ array_agg_deserialize(PG_FUNCTION_ARGS)
 	{
 		DeserialIOData *iodata;
 
-		/* Avoid repeat catalog lookups for typreceive function */
+		/* 避免对 typreceive 函数重复查找目录 */
 		iodata = (DeserialIOData *) fcinfo->flinfo->fn_extra;
 		if (iodata == NULL)
 		{
@@ -799,10 +799,10 @@ array_agg_deserialize(PG_FUNCTION_ARGS)
 						 errmsg("insufficient data left in message")));
 
 			/*
-			 * Rather than copying data around, we just set up a phony
-			 * StringInfo pointing to the correct portion of the input buffer.
-			 * We assume we can scribble on the input buffer so as to maintain
-			 * the convention that StringInfos have a trailing null.
+			 * 与其拷贝数据，不如直接建立一个伪
+			 * StringInfo，指向输入缓冲区的正确部分。
+			 * 我们假定可以在输入缓冲区上涂写，以维持
+			 * StringInfo 末尾有终止空字节这一惯例。
 			 */
 			elem_buf.data = &buf.data[buf.cursor];
 			elem_buf.maxlen = itemlen + 1;
@@ -814,7 +814,7 @@ array_agg_deserialize(PG_FUNCTION_ARGS)
 			csave = buf.data[buf.cursor];
 			buf.data[buf.cursor] = '\0';
 
-			/* Now call the element's receiveproc */
+			/* 调用该元素的 receiveproc */
 			result->dvalues[i] = ReceiveFunctionCall(&iodata->typreceive,
 													 &elem_buf,
 													 iodata->typioparam,
@@ -838,22 +838,22 @@ array_agg_finalfn(PG_FUNCTION_ARGS)
 	int			dims[1];
 	int			lbs[1];
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ? NULL : (ArrayBuildState *) PG_GETARG_POINTER(0);
 
 	if (state == NULL)
-		PG_RETURN_NULL();		/* returns null iff no input values */
+		PG_RETURN_NULL();		/* 若无输入值则返回空 */
 
 	dims[0] = state->nelems;
 	lbs[0] = 1;
 
 	/*
-	 * Make the result.  We cannot release the ArrayBuildState because
-	 * sometimes aggregate final functions are re-executed.  Rather, it is
-	 * nodeAgg.c's responsibility to reset the aggcontext when it's safe to do
-	 * so.
+	 * 生成结果。我们无法释放 ArrayBuildState，
+	 * 因为聚合的最终函数有时会被重新执行。所以，
+	 * 在安全时重置 aggcontext 是 nodeAgg.c 的职
+	 * 责
 	 */
 	result = makeMdArrayResult(state, 1, dims, lbs,
 							   CurrentMemoryContext,
@@ -863,7 +863,7 @@ array_agg_finalfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * ARRAY_AGG(anyarray) aggregate function
+ * ARRAY_AGG(anyarray) 聚合函数
  */
 Datum
 array_agg_array_transfn(PG_FUNCTION_ARGS)
@@ -878,14 +878,14 @@ array_agg_array_transfn(PG_FUNCTION_ARGS)
 				 errmsg("could not determine input data type")));
 
 	/*
-	 * Note: we do not need a run-time check about whether arg1_typeid is a
-	 * valid array type, because the parser would have verified that while
-	 * resolving the input/result types of this polymorphic aggregate.
+	 * 注意：我们不需要运行时检查来确认 arg1_typeid
+	 * 是否为有效的数组类型，因为解析器在解析
+	 * 这个多态聚合的输入/结果类型时就核实过了。
 	 */
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 因参数为 internal 类型而无法直接调用 */
 		elog(ERROR, "array_agg_array_transfn called in non-aggregate context");
 	}
 
@@ -902,9 +902,9 @@ array_agg_array_transfn(PG_FUNCTION_ARGS)
 								aggcontext);
 
 	/*
-	 * The transition type for array_agg() is declared to be "internal", which
-	 * is a pass-by-value type the same size as a pointer.  So we can safely
-	 * pass the ArrayBuildStateArr pointer through nodeAgg.c's machinations.
+	 * array_agg() 的转换类型被声明为 "internal"，这是
+	 * 一种与指针同样大小的按值传递类型。所以我们
+	 * 放心地把 ArrayBuildStateArr 指针穿过 nodeAgg.c 的机关。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -926,8 +926,8 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 	{
 		/*
-		 * NULL state2 is easy, just return state1, which we know is already
-		 * in the agg_context
+		 * state2 为 NULL 很简单，直接返回 state1，它必然
+		 * 在 agg_context
 		 */
 		if (state1 == NULL)
 			PG_RETURN_NULL();
@@ -936,7 +936,7 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 
 	if (state1 == NULL)
 	{
-		/* We must copy state2's data into the agg_context */
+		/* 必须把 state2 的数据拷入 agg_context */
 		old_context = MemoryContextSwitchTo(agg_context);
 
 		state1 = initArrayResultArr(state2->array_type, InvalidOid,
@@ -968,7 +968,7 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 		PG_RETURN_POINTER(state1);
 	}
 
-	/* We only need to combine the two states if state2 has any items */
+	/* 只有当 state2 还有条目时才需要合并两个状态 */
 	else if (state2->nitems > 0)
 	{
 		MemoryContext oldContext;
@@ -976,17 +976,17 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 		int			i;
 
 		/*
-		 * Check the states are compatible with each other.  Ensure we use the
-		 * same error messages that are listed in accumArrayResultArr so that
-		 * the same error is shown as would have been if we'd not used the
-		 * combine function for the aggregation.
+		 * 检查两个状态是否彼此兼容。确保使用与
+		 * accumArrayResultArr 中列出的相同错误消息，这样
+		 * 即使我们没用合并函数，也会显示同样的
+		 * 错误。
 		 */
 		if (state1->ndims != state2->ndims)
 			ereport(ERROR,
 					(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
 					 errmsg("cannot accumulate arrays of different dimensionality")));
 
-		/* Check dimensions match ignoring the first dimension. */
+		/* 检查维度是否匹配，忽略第一维。 */
 		for (i = 1; i < state1->ndims; i++)
 		{
 			if (state1->dims[i] != state2->dims[i] || state1->lbs[i] != state2->lbs[i])
@@ -999,12 +999,12 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 		oldContext = MemoryContextSwitchTo(state1->mcontext);
 
 		/*
-		 * If there's not enough space in state1 then we'll need to reallocate
-		 * more.
+		 * 如果 state1 的空间不足，就得重新分
+		 * 配
 		 */
 		if (state1->abytes < reqsize)
 		{
-			/* use a power of 2 size rather than allocating just reqsize */
+			/* 用 2 的幂大小而不是只分配 reqsize */
 			state1->abytes = pg_nextpower2_32(reqsize);
 			state1->data = (char *) repalloc(state1->data, state1->abytes);
 		}
@@ -1016,8 +1016,8 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 			if (state1->nullbitmap == NULL)
 			{
 				/*
-				 * First input with nulls; we must retrospectively handle any
-				 * previous inputs by marking all their items non-null.
+				 * 首个带空值的输入；须事后追补，把之前
+				 * 输入的所有条目标记为非空。
 				 */
 				state1->aitems = pg_nextpower2_32(Max(256, newnitems + 1));
 				state1->nullbitmap = (bits8 *) palloc((state1->aitems + 7) / 8);
@@ -1043,7 +1043,7 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 		state1->nitems += state2->nitems;
 
 		state1->dims[0] += state2->dims[0];
-		/* remaining dims already match, per test above */
+		/* 如上所测，其余维度已匹配 */
 
 		Assert(state1->array_type == state2->array_type);
 		Assert(state1->element_type == state2->element_type);
@@ -1056,7 +1056,7 @@ array_agg_array_combine(PG_FUNCTION_ARGS)
 
 /*
  * array_agg_array_serialize
- *		Serialize ArrayBuildStateArr into bytea.
+ *		ArrayBuildStateArr 序列化为 bytea。
  */
 Datum
 array_agg_array_serialize(PG_FUNCTION_ARGS)
@@ -1065,7 +1065,7 @@ array_agg_array_serialize(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 	bytea	   *result;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = (ArrayBuildStateArr *) PG_GETARG_POINTER(0);
@@ -1073,8 +1073,8 @@ array_agg_array_serialize(PG_FUNCTION_ARGS)
 	pq_begintypsend(&buf);
 
 	/*
-	 * element_type. Putting this first is more convenient in deserialization
-	 * so that we can init the new state sooner.
+	 * element_type。把它放在最前面，在反序列化时
+	 * 以便能更早初始化新状态。
 	 */
 	pq_sendint32(&buf, state->element_type);
 
@@ -1106,7 +1106,7 @@ array_agg_array_serialize(PG_FUNCTION_ARGS)
 	/* ndims */
 	pq_sendint32(&buf, state->ndims);
 
-	/* dims: XXX should we just send ndims elements? */
+	/* dims：XXX 要只发送 ndims 个吗？ */
 	pq_sendbytes(&buf, state->dims, sizeof(state->dims));
 
 	/* lbs */
@@ -1128,14 +1128,14 @@ array_agg_array_deserialize(PG_FUNCTION_ARGS)
 	int			nbytes;
 	const char *temp;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	sstate = PG_GETARG_BYTEA_PP(0);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 拷贝进 StringInfo，这样我们就能用标准
+	 * recv 函数设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -1167,7 +1167,7 @@ array_agg_array_deserialize(PG_FUNCTION_ARGS)
 	/* abytes */
 	result->abytes = pq_getmsgint(&buf, 4);
 
-	/* aitems: might be 0 */
+	/* aitems：可为 0 */
 	result->aitems = pq_getmsgint(&buf, 4);
 
 	/* nullbitmap */
@@ -1208,19 +1208,19 @@ array_agg_array_finalfn(PG_FUNCTION_ARGS)
 	Datum		result;
 	ArrayBuildStateArr *state;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ? NULL : (ArrayBuildStateArr *) PG_GETARG_POINTER(0);
 
 	if (state == NULL)
-		PG_RETURN_NULL();		/* returns null iff no input values */
+		PG_RETURN_NULL();		/* 若无输入值则返回空 */
 
 	/*
-	 * Make the result.  We cannot release the ArrayBuildStateArr because
-	 * sometimes aggregate final functions are re-executed.  Rather, it is
-	 * nodeAgg.c's responsibility to reset the aggcontext when it's safe to do
-	 * so.
+	 * 生成结果。我们无法释放 ArrayBuildStateArr，
+	 * 因为聚合的最终函数有时会被重新执行。所以，
+	 * 在安全时重置 aggcontext 是 nodeAgg.c 的职
+	 * 责
 	 */
 	result = makeArrayResultArr(state, CurrentMemoryContext, false);
 
@@ -1229,10 +1229,10 @@ array_agg_array_finalfn(PG_FUNCTION_ARGS)
 
 /*-----------------------------------------------------------------------------
  * array_position, array_position_start :
- *			return the offset of a value in an array.
+ *			返回值在数组中的偏移量。
  *
- * IS NOT DISTINCT FROM semantics are used for comparisons.  Return NULL when
- * the value is not found.
+ * 比较使用 IS NOT DISTINCT FROM 语义。找不到值时
+ * 返回 NULL。
  *-----------------------------------------------------------------------------
  */
 Datum
@@ -1249,10 +1249,10 @@ array_position_start(PG_FUNCTION_ARGS)
 
 /*
  * array_position_common
- *		Common code for array_position and array_position_start
+ *		array_position 与 array_position_start 的公共代码
  *
- * These are separate wrappers for the sake of opr_sanity regression test.
- * They are not strict so we have to test for null inputs explicitly.
+ * 分开成包装函数是为了 opr_sanity 回归测试；
+ * 它们不是严格的，所以必须显式测试空输入。
  */
 static Datum
 array_position_common(FunctionCallInfo fcinfo)
@@ -1277,21 +1277,21 @@ array_position_common(FunctionCallInfo fcinfo)
 	array = PG_GETARG_ARRAYTYPE_P(0);
 
 	/*
-	 * We refuse to search for elements in multi-dimensional arrays, since we
-	 * have no good way to report the element's location in the array.
+	 * 我们拒绝在多维数组中搜索元素，因为
+	 * 没有好的办法来报告元素在数组中的位置。
 	 */
 	if (ARR_NDIM(array) > 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("searching for elements in multidimensional arrays is not supported")));
 
-	/* Searching in an empty array is well-defined, though: it always fails */
+	/* 不过在空数组中搜索是有明确定义的：总是失败 */
 	if (ARR_NDIM(array) < 1)
 		PG_RETURN_NULL();
 
 	if (PG_ARGISNULL(1))
 	{
-		/* fast return when the array doesn't have nulls */
+		/* 数组没有空值时快速返回 */
 		if (!array_contains_nulls(array))
 			PG_RETURN_NULL();
 		searched_element = (Datum) 0;
@@ -1306,7 +1306,7 @@ array_position_common(FunctionCallInfo fcinfo)
 	element_type = ARR_ELEMTYPE(array);
 	position = (ARR_LBOUND(array))[0] - 1;
 
-	/* figure out where to start */
+	/* 确定从哪里开始 */
 	if (PG_NARGS() == 3)
 	{
 		if (PG_ARGISNULL(2))
@@ -1320,9 +1320,9 @@ array_position_common(FunctionCallInfo fcinfo)
 		position_min = (ARR_LBOUND(array))[0];
 
 	/*
-	 * We arrange to look up type info for array_create_iterator only once per
-	 * series of calls, assuming the element type doesn't change underneath
-	 * us.
+	 * 我们安排为 array_create_iterator 查找类型信息
+	 * 每次调用序列只做一次，假定元素类型不会
+	 * 变
 	 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL)
@@ -1353,19 +1353,19 @@ array_position_common(FunctionCallInfo fcinfo)
 					  fcinfo->flinfo->fn_mcxt);
 	}
 
-	/* Examine each array element until we find a match. */
+	/* 逐个检查数组元素直到找到匹配。 */
 	array_iterator = array_create_iterator(array, 0, my_extra);
 	while (array_iterate(array_iterator, &value, &isnull))
 	{
 		position++;
 
-		/* skip initial elements if caller requested so */
+		/* 若调用者要求则跳过起始元素 */
 		if (position < position_min)
 			continue;
 
 		/*
-		 * Can't look at the array element's value if it's null; but if we
-		 * search for null, we have a hit and are done.
+		 * 如果元素为空就不能查看其值；但如果搜索的
+		 * 是空值，那么就算命中并完成。
 		 */
 		if (isnull || null_search)
 		{
@@ -1378,7 +1378,7 @@ array_position_common(FunctionCallInfo fcinfo)
 				continue;
 		}
 
-		/* not nulls, so run the operator */
+		/* 非空值，所以运行算子 */
 		if (DatumGetBool(FunctionCall2Coll(&my_extra->proc, collation,
 										   searched_element, value)))
 		{
@@ -1389,7 +1389,7 @@ array_position_common(FunctionCallInfo fcinfo)
 
 	array_free_iterator(array_iterator);
 
-	/* Avoid leaking memory when handed toasted input */
+	/* 避免被给入 TOAST 输入时泄漏内存 */
 	PG_FREE_IF_COPY(array, 0);
 
 	if (!found)
@@ -1400,13 +1400,13 @@ array_position_common(FunctionCallInfo fcinfo)
 
 /*-----------------------------------------------------------------------------
  * array_positions :
- *			return an array of positions of a value in an array.
+ *			返回值在数组中各位置的数组。
  *
- * IS NOT DISTINCT FROM semantics are used for comparisons.  Returns NULL when
- * the input array is NULL.  When the value is not found in the array, returns
- * an empty array.
+ * 比较使用 IS NOT DISTINCT FROM 语义。当输入数组为
+ * NULL 时返回 NULL。数组中找不到值时返回空
+ * 数组。
  *
- * This is not strict so we have to test for null inputs explicitly.
+ * 它不是严格的，所以必须显式测试空输入。
  *-----------------------------------------------------------------------------
  */
 Datum
@@ -1431,8 +1431,8 @@ array_positions(PG_FUNCTION_ARGS)
 	array = PG_GETARG_ARRAYTYPE_P(0);
 
 	/*
-	 * We refuse to search for elements in multi-dimensional arrays, since we
-	 * have no good way to report the element's location in the array.
+	 * 我们拒绝在多维数组中搜索元素，因为
+	 * 没有好的办法来报告元素在数组中的位置。
 	 */
 	if (ARR_NDIM(array) > 1)
 		ereport(ERROR,
@@ -1441,13 +1441,13 @@ array_positions(PG_FUNCTION_ARGS)
 
 	astate = initArrayResult(INT4OID, CurrentMemoryContext, false);
 
-	/* Searching in an empty array is well-defined, though: it always fails */
+	/* 不过在空数组中搜索是有明确定义的：总是失败 */
 	if (ARR_NDIM(array) < 1)
 		PG_RETURN_DATUM(makeArrayResult(astate, CurrentMemoryContext));
 
 	if (PG_ARGISNULL(1))
 	{
-		/* fast return when the array doesn't have nulls */
+		/* 数组没有空值时快速返回 */
 		if (!array_contains_nulls(array))
 			PG_RETURN_DATUM(makeArrayResult(astate, CurrentMemoryContext));
 		searched_element = (Datum) 0;
@@ -1463,9 +1463,9 @@ array_positions(PG_FUNCTION_ARGS)
 	position = (ARR_LBOUND(array))[0] - 1;
 
 	/*
-	 * We arrange to look up type info for array_create_iterator only once per
-	 * series of calls, assuming the element type doesn't change underneath
-	 * us.
+	 * 我们安排为 array_create_iterator 查找类型信息
+	 * 每次调用序列只做一次，假定元素类型不会
+	 * 变
 	 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL)
@@ -1497,8 +1497,8 @@ array_positions(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Accumulate each array position iff the element matches the given
-	 * element.
+	 * 每当元素与给定元素匹配，就累积该数组位
+	 * 置。
 	 */
 	array_iterator = array_create_iterator(array, 0, my_extra);
 	while (array_iterate(array_iterator, &value, &isnull))
@@ -1506,8 +1506,8 @@ array_positions(PG_FUNCTION_ARGS)
 		position += 1;
 
 		/*
-		 * Can't look at the array element's value if it's null; but if we
-		 * search for null, we have a hit.
+		 * 如果元素为空就不能查看其值；但如果搜索的
+		 * 是空值，就算命中。
 		 */
 		if (isnull || null_search)
 		{
@@ -1519,7 +1519,7 @@ array_positions(PG_FUNCTION_ARGS)
 			continue;
 		}
 
-		/* not nulls, so run the operator */
+		/* 非空值，所以运行算子 */
 		if (DatumGetBool(FunctionCall2Coll(&my_extra->proc, collation,
 										   searched_element, value)))
 			astate =
@@ -1529,7 +1529,7 @@ array_positions(PG_FUNCTION_ARGS)
 
 	array_free_iterator(array_iterator);
 
-	/* Avoid leaking memory when handed toasted input */
+	/* 避免被给入 TOAST 输入时泄漏内存 */
 	PG_FREE_IF_COPY(array, 0);
 
 	PG_RETURN_DATUM(makeArrayResult(astate, CurrentMemoryContext));
@@ -1537,15 +1537,15 @@ array_positions(PG_FUNCTION_ARGS)
 
 /*
  * array_shuffle_n
- *		Return a copy of array with n randomly chosen items.
+ *		返回数组中随机选 n 项的拷贝。
  *
- * The number of items must not exceed the size of the first dimension of the
- * array.  We preserve the first dimension's lower bound if keep_lb,
- * else it's set to 1.  Lower-order dimensions are preserved in any case.
+ * 项数不得超过数组第一维的大小。若 keep_lb 为真，
+ * 则保留第一维的下界，否则设为 1。无论如何，
+ * 低阶维度都会保留。
  *
- * NOTE: it would be cleaner to look up the elmlen/elmbval/elmalign info
- * from the system catalogs, given only the elmtyp. However, the caller is
- * in a better position to cache this info across multiple calls.
+ * 注意：更干净的做法是从系统目录查找
+ * elmlen/elmbval/elmalign 信息（只给 elmtyp 时）。
+ * 但调用者更适合在多次调用间缓存该信息。
  */
 static ArrayType *
 array_shuffle_n(ArrayType *array, int n, bool keep_lb,
@@ -1575,23 +1575,23 @@ array_shuffle_n(ArrayType *array, int n, bool keep_lb,
 	elmbyval = typentry->typbyval;
 	elmalign = typentry->typalign;
 
-	/* If the target array is empty, exit fast */
+	/* 若目标数组为空则快速退出 */
 	if (ndim < 1 || dims[0] < 1 || n < 1)
 		return construct_empty_array(elmtyp);
 
 	deconstruct_array(array, elmtyp, elmlen, elmbyval, elmalign,
 					  &elms, &nuls, &nelm);
 
-	nitem = dims[0];			/* total number of items */
-	nelm /= nitem;				/* number of elements per item */
+	nitem = dims[0];			/* 条目总数 */
+	nelm /= nitem;				/* 每条目的元素个数 */
 
-	Assert(n <= nitem);			/* else it's caller error */
+	Assert(n <= nitem);			/* 调用者错误 */
 
 	/*
-	 * Shuffle array using Fisher-Yates algorithm.  Scan the array and swap
-	 * current item (nelm datums starting at ielms) with a randomly chosen
-	 * later item (nelm datums starting at jelms) in each iteration.  We can
-	 * stop once we've done n iterations; then first n items are the result.
+	 * 用 Fisher-Yates 算法洗牌数组。扫描数组并在
+	 * 每轮迭代中把当前项（ielms 起的 nelm 个 datum）
+	 * 与随机选中的后一项（jelms 起的 nelm 个 datum）
+	 * 交换。完成 n 轮后即可停止；前 n 项就是结果。
 	 */
 	ielms = elms;
 	inuls = nuls;
@@ -1601,7 +1601,7 @@ array_shuffle_n(ArrayType *array, int n, bool keep_lb,
 		Datum	   *jelms = elms + j;
 		bool	   *jnuls = nuls + j;
 
-		/* Swap i'th and j'th items; advance ielms/inuls to next item */
+		/* 交换第 i 与 j 项；ielms/inuls 前进到下一项 */
 		for (int k = 0; k < nelm; k++)
 		{
 			Datum		elm = *ielms;
@@ -1614,7 +1614,7 @@ array_shuffle_n(ArrayType *array, int n, bool keep_lb,
 		}
 	}
 
-	/* Set up dimensions of the result */
+	/* 设置结果的维度 */
 	memcpy(rdims, dims, ndim * sizeof(int));
 	memcpy(rlbs, lbs, ndim * sizeof(int));
 	rdims[0] = n;
@@ -1633,8 +1633,8 @@ array_shuffle_n(ArrayType *array, int n, bool keep_lb,
 /*
  * array_shuffle
  *
- * Returns an array with the same dimensions as the input array, with its
- * first-dimension elements in random order.
+ * 返回一个与输入数组维度相同的数组，其第一维
+ * 元素处于随机顺序。
  */
 Datum
 array_shuffle(PG_FUNCTION_ARGS)
@@ -1645,8 +1645,8 @@ array_shuffle(PG_FUNCTION_ARGS)
 	TypeCacheEntry *typentry;
 
 	/*
-	 * There is no point in shuffling empty arrays or arrays with less than
-	 * two items.
+	 * 空数组或条目少于两个的数组，洗牌
+	 * 没意义
 	 */
 	if (ARR_NDIM(array) < 1 || ARR_DIMS(array)[0] < 2)
 		PG_RETURN_ARRAYTYPE_P(array);
@@ -1667,8 +1667,8 @@ array_shuffle(PG_FUNCTION_ARGS)
 /*
  * array_sample
  *
- * Returns an array of n randomly chosen first-dimension elements
- * from the input array.
+ * 返回一个数组：从输入数组随机选出 n 个第一
+ * 维元素。
  */
 Datum
 array_sample(PG_FUNCTION_ARGS)

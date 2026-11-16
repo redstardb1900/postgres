@@ -7176,6 +7176,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0412-adt-json-varbit-int8.json",
    "kind": "manifest",
    "note": "batch-0412 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/int.c",
+   "kind": "c_comment",
+   "note": "int 读写与算术 (int2/int4 标识符保留, pg_strtoint 系保留, overflow→溢出, operators→算子, oid 逐字); whole-file comment translation, batch-0413"
+  },
+  {
+   "pattern": "src/backend/utils/adt/expandedrecord.c",
+   "kind": "c_comment",
+   "note": "展开记录 (expanded record→展开记录, expanded object→展开对象 0400 口径, tuple desc→元组描述符, ER_FLAG 系标识符保留); whole-file comment translation, batch-0413"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_userfuncs.c",
+   "kind": "c_comment",
+   "note": "数组用户函数 (array_append/array_prepend/array_agg 系标识符保留, element→元素 0405 口径, serialize/deserialize→序列化/反序列化); whole-file comment translation, batch-0413"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0413-adt-int-er-arrays.json",
+   "kind": "manifest",
+   "note": "batch-0413 manifest"
   }
  ],
  "files": [
@@ -23265,6 +23285,60 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0412 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/int.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 91,
+   "translated": 86,
+   "preserved": 5,
+   "preserved_reasons": [
+    "@1 文件头 5 行保留 EN, 头部功能描述行 L4 已译",
+    "@15 OLD COMMENTS 标识符清单 6 行保留 EN",
+    "@1187 int[24]abs() 名称行保留 EN",
+    "@1218 gcd 特例公式 2 行保留 EN",
+    "@1324 lcm 纯公式块整块保留 EN"
+   ],
+   "note": "int 读写与算术 (int2/int4 标识符保留, pg_strtoint 系保留, overflow→溢出, gcc bug 逐字保留, operators→算子); whole-file comment translation, batch-0413; dump 权威块数 91 注释感知重扫一致; content 行 175 = zh 160 + 保留 EN 15 (头部 5 + OLD COMMENTS 标识符清单 6 + 名称行 L1187 + 公式 3: L1223/L1225/L1324); 行数守恒 1649 不变 (git diff numstat 160/160); 代码字节零改动 (stripped 全等); NUL 扫描 0; verify rc=0 本文件 W7 advisory 6 站 (L15/L55/L279/L333/L380 横幅词大写形 advisory + L1324 W7_UNTRANSLATED 公式保留); term_lint 0 hits (P30 规划器 已修); scan_halfen 本文件 3 站 mixed advisory (L15 标识符清单, L137/L203 引号字面量); 审查修复轮 D7: L1285 「）。」上收前行 (68≤68) 并收空为裸 `*` 框线 (0381 先例); 同 EN 同译实证: L844=L960=L1040=L1102=L1140=L1168 gcc bug, L638=L685=L720, L864=L980=L1044=L1122=L1152=L1181, L643-645=L690-692=L725-727, L849-852=L1107-1110, L1145-1146=L1173-1174, L387-392 同构, L764-767 同构, L1384-1389 同构; 修复轮: 规划轮 2 + 写后修复轮 1 (L1582 P30 Planner→规划器); 句号台账 FWD 0 / REV 0"
+  },
+  {
+   "path": "src/backend/utils/adt/expandedrecord.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 201,
+   "translated": 199,
+   "preserved": 2,
+   "preserved_reasons": [
+    "@1 文件头 5 行保留 EN, 头部描述 L4 与设计说明 L6-L8 全译",
+    "@55 L64 expanded_record_set_tuple(...) 调用示例行保留 EN"
+   ],
+   "note": "展开记录 (expanded record→展开记录, expanded object→展开对象 0400 口径, tuple desc→元组描述符, detoast→解 TOAST, dummy header→虚设头部, ER_FLAG 系标识符保留); whole-file comment translation, batch-0413; dump 权威块数 201 注释感知重扫一致; content 行 403 = zh 396 + 保留 EN 7 (头部 5 + L64 调用行 + L879 datum 裸词接排); 行数守恒 1633 不变 (git diff numstat 397/397); 代码字节零改动 (stripped 全等); NUL 扫描 0; verify rc=0 本文件 W7 advisory 6 站 (lookup/field/value 译语替代 advisory); term_lint 4 hits 全为 P38 record=记录 段级盲判泛告警 (0397 先例, 不修正); scan_halfen 本文件 1 站 mixed advisory (L55-67 L64 调用行保留); 同 EN 同译实证: L247-249=L339-341=L590-592, L125-128=L256-259=L348-351, L134=L265=L357=L1425, L140=L271=L363=L1442, L146=L277=L369=L622, L162=L290=L386, L688=L1133=L1262, L692=L1137=L1266, L1141=L1528, L1198=L1270, L1200=L1272, L1356=L1584, L1552-1553=L1615-1616, L1558-1559=L1621-1622, L1568=L1594=L1631, L66=L202=L326=L574, L60-61=L199-200; 修复轮: 规划轮 2 + 写后修复轮 1 (L465/L1437/L1480 残留 EN 尾行消化 + L924 P02 不能→无法) + 审查修复轮 1 (D1 L1101-1103 条件从句重排复极性 66/51/15B, D3 L537-538 补 的 63/70B, D7 L922-924 分号上收 64/71/39B); 句号台账 FWD 1 [L1540 EN .) → zh ）。 自洽]; REV 1 [L978 预算无句号空间]; 行级 REV 1 [L879 datum 裸词]"
+  },
+  {
+   "path": "src/backend/utils/adt/array_userfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 147,
+   "translated": 101,
+   "preserved": 46,
+   "preserved_reasons": [
+    "@1 文件头 4 行保留 EN, 描述行 L4 已译",
+    "结构名/函数名行 14 行保留 EN",
+    "序列化字段名注释 29 块整块保留 EN (纯标识符无散文)",
+    "ndims 维度公式行 3 行保留 EN"
+   ],
+   "note": "数组用户函数 (array_agg 系标识符保留, element→元素 0405 口径, operator→算子词形, serialize/deserialize→序列化/反序列化); whole-file comment translation, batch-0413; dump 权威块数 147 注释感知重扫一致; 实况口径 content 行 309 = 变更 196 + 保留 113 (D6 勘正; 严格散文口径 246 = zh 196 + 保留 EN 50: 头部 4 + 名称行 14 + 字段名 29 + 公式 3); 行数守恒 1701 不变 (git diff numstat 196/196); 代码字节零改动 (stripped 全等); NUL 扫描 0; verify rc=0 本文件 W7 advisory 2 站 (fn_extra/StringInfos 译语替代); term_lint 0 hits (P02 无法 3 站已修); scan_halfen 本文件 0 findings; 审查修复轮 D2 L664-665 补 空值标志 56/21B, D4 L1019 补 ，把 61≤65, D5 L1170 改译 可为 0 24≤25, D6 记账勘正 (译 101/保留 46, content 309 = 变更 196 + 保留 113 实况口径), D7 L55-57 分号上收 64/71/39B; 同 EN 同译实证: L499=L888 与 L628=L841=L1068=L1131=L1211 internal 7 站, L541-542=L929-930, L551=L939, L160=L215, L391=L419, L394=L422, L726-727=L1137-1138, L847=L1217, L853-856=L1220-1223, L1280-1281=L1434-1435, L1288=L1444, L1294=L1450, L1323-1325=L1466-1468, L1381=L1522, L1392=L1532; 修复轮: 规划轮 2 + 写后修复轮 1 (L57/L853/L1220 P02 不能→无法); 句号台账 FWD 1 [L636 补句号]; REV 6 [L856/L1223 so.→责, L1003 more.→配, L1325/L1468 us.→变, L1649 two items.→没意义, 全部预算所迫]"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0413-adt-int-er-arrays.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0413 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

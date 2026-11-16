@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * expandedrecord.c
- *	  Functions for manipulating composite expanded objects.
+ *	  操作复合展开对象的函数。
  *
- * This module supports "expanded objects" (cf. expandeddatum.h) that can
- * store values of named composite types, domains over named composite types,
- * and record types (registered or anonymous).
+ * 本模块支持"展开对象"（参见 expandeddatum.h），它
+ * 能够存储命名复合类型、命名复合类型之上的域以及
+ * 记录类型（已注册或匿名）。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,7 +30,7 @@
 #include "utils/typcache.h"
 
 
-/* "Methods" required for an expanded object */
+/* 展开对象所需的 "Methods" */
 static Size ER_get_flat_size(ExpandedObjectHeader *eohptr);
 static void ER_flatten_into(ExpandedObjectHeader *eohptr,
 							void *result, Size allocated_size);
@@ -41,7 +41,7 @@ static const ExpandedObjectMethods ER_methods =
 	ER_flatten_into
 };
 
-/* Other local functions */
+/* 其他本地函数 */
 static void ER_mc_callback(void *arg);
 static MemoryContext get_short_term_cxt(ExpandedRecordHeader *erh);
 static void build_dummy_expanded_header(ExpandedRecordHeader *main_erh);
@@ -53,17 +53,17 @@ static pg_noinline void check_domain_for_new_tuple(ExpandedRecordHeader *erh,
 
 
 /*
- * Build an expanded record of the specified composite type
+ * 构建指定复合类型的展开记录
  *
- * type_id can be RECORDOID, but only if a positive typmod is given.
+ * type_id 可为 RECORDOID，但前提是给出了正的 typmod。
  *
- * The expanded record is initially "empty", having a state logically
- * equivalent to a NULL composite value (not ROW(NULL, NULL, ...)).
- * Note that this might not be a valid state for a domain type;
- * if the caller needs to check that, call
+ * 展开记录初始为"空"，其状态在逻辑上等价于
+ * NULL 复合值（而不是 ROW(NULL, NULL, ...)）。
+ * 注意这对域类型而言可能不是有效状态；
+ * 若调用者需要检查，请调用
  * expanded_record_set_tuple(erh, NULL, false, false).
  *
- * The expanded object will be a child of parentcontext.
+ * 展开对象将成为 parentcontext 的子对象。
  */
 ExpandedRecordHeader *
 make_expanded_record_from_typeid(Oid type_id, int32 typmod,
@@ -79,8 +79,8 @@ make_expanded_record_from_typeid(Oid type_id, int32 typmod,
 	if (type_id != RECORDOID)
 	{
 		/*
-		 * Consult the typcache to see if it's a domain over composite, and in
-		 * any case to get the tupdesc and tupdesc identifier.
+		 * 查询 typcache 看它是否为复合之上的域，同时
+		 * 都取得元组描述符及其标识符。
 		 */
 		TypeCacheEntry *typentry;
 
@@ -104,46 +104,46 @@ make_expanded_record_from_typeid(Oid type_id, int32 typmod,
 	else
 	{
 		/*
-		 * For RECORD types, get the tupdesc and identifier from typcache.
+		 * RECORD 类型则从 typcache 取得描述符与标识符。
 		 */
 		tupdesc = lookup_rowtype_tupdesc(type_id, typmod);
 		tupdesc_id = assign_record_type_identifier(type_id, typmod);
 	}
 
 	/*
-	 * Allocate private context for expanded object.  We use a regular-size
-	 * context, not a small one, to improve the odds that we can fit a tupdesc
-	 * into it without needing an extra malloc block.  (This code path doesn't
-	 * ever need to copy a tupdesc into the expanded record, but let's be
-	 * consistent with the other ways of making an expanded record.)
+	 * 为展开对象分配私有上下文。我们使用常规大小
+	 * 的上下文而非小上下文，以提高能不借助额外 malloc
+	 * 块就能容纳元组描述符的几率。（此代码路径其实
+	 * 从不需要把元组描述符拷入展开记录，但为了与
+	 * 其他构建展开记录的方式保持一致。）
 	 */
 	objcxt = AllocSetContextCreate(parentcontext,
 								   "expanded record",
 								   ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Since we already know the number of fields in the tupdesc, we can
-	 * allocate the dvalues/dnulls arrays along with the record header.  This
-	 * is useless if we never need those arrays, but it costs almost nothing,
-	 * and it will save a palloc cycle if we do need them.
+	 * 既然已知元组描述符中的字段数，就可以
+	 * 把 dvalues/dnulls 数组与记录头部一起分配。这
+	 * 样即使从不需要这些数组也没有用处，但它几乎
+	 * 没有成本，若需要还能省一次 palloc。
 	 */
 	erh = (ExpandedRecordHeader *)
 		MemoryContextAlloc(objcxt, MAXALIGN(sizeof(ExpandedRecordHeader))
 						   + tupdesc->natts * (sizeof(Datum) + sizeof(bool)));
 
-	/* Ensure all header fields are initialized to 0/null */
+	/* 确保所有头部字段都初始化为 0/null */
 	memset(erh, 0, sizeof(ExpandedRecordHeader));
 
 	EOH_init_header(&erh->hdr, &ER_methods, objcxt);
 	erh->er_magic = ER_MAGIC;
 
-	/* Set up dvalues/dnulls, with no valid contents as yet */
+	/* 设置 dvalues/dnulls，目前尚无有效内容 */
 	chunk = (char *) erh + MAXALIGN(sizeof(ExpandedRecordHeader));
 	erh->dvalues = (Datum *) chunk;
 	erh->dnulls = (bool *) (chunk + tupdesc->natts * sizeof(Datum));
 	erh->nfields = tupdesc->natts;
 
-	/* Fill in composite-type identification info */
+	/* 填入复合类型标识信息 */
 	erh->er_decltypeid = type_id;
 	erh->er_typeid = tupdesc->tdtypeid;
 	erh->er_typmod = tupdesc->tdtypmod;
@@ -152,54 +152,54 @@ make_expanded_record_from_typeid(Oid type_id, int32 typmod,
 	erh->flags = flags;
 
 	/*
-	 * If what we got from the typcache is a refcounted tupdesc, we need to
-	 * acquire our own refcount on it.  We manage the refcount with a memory
-	 * context callback rather than assuming that the CurrentResourceOwner is
-	 * longer-lived than this expanded object.
+	 * 若我们从 typcache 得到的是引用计数的元组描述符，
+	 * 就需要对它获取自己的引用计数。我们用内存上下文
+	 * 回调来管理引用计数，而不是假定 CurrentResourceOwner
+	 * 比这个展开对象活得更久。
 	 */
 	if (tupdesc->tdrefcount >= 0)
 	{
-		/* Register callback to release the refcount */
+		/* 注册回调以释放引用计数 */
 		erh->er_mcb.func = ER_mc_callback;
 		erh->er_mcb.arg = (void *) erh;
 		MemoryContextRegisterResetCallback(erh->hdr.eoh_context,
 										   &erh->er_mcb);
 
-		/* And save the pointer */
+		/* 并保存该指针 */
 		erh->er_tupdesc = tupdesc;
 		tupdesc->tdrefcount++;
 
-		/* If we called lookup_rowtype_tupdesc, release the pin it took */
+		/* 若调用过 lookup_rowtype_tupdesc，则释放其 pin */
 		if (type_id == RECORDOID)
 			ReleaseTupleDesc(tupdesc);
 	}
 	else
 	{
 		/*
-		 * If it's not refcounted, just assume it will outlive the expanded
-		 * object.  (This can happen for shared record types, for instance.)
+		 * 若它不是引用计数的，就假定它会比展开对象
+		 * 活得更久。（例如共享记录类型就可能发生。）
 		 */
 		erh->er_tupdesc = tupdesc;
 	}
 
 	/*
-	 * We don't set ER_FLAG_DVALUES_VALID or ER_FLAG_FVALUE_VALID, so the
-	 * record remains logically empty.
+	 * 我们不设置 ER_FLAG_DVALUES_VALID 或 ER_FLAG_FVALUE_VALID，
+	 * 故记录逻辑上仍为空。
 	 */
 
 	return erh;
 }
 
 /*
- * Build an expanded record of the rowtype defined by the tupdesc
+ * 按元组描述符定义的行类型构建展开记录
  *
- * The tupdesc is copied if necessary (i.e., if we can't just bump its
- * reference count instead).
+ * 必要时会拷贝元组描述符（即当无法只递增其
+ * 引用计数时）。
  *
- * The expanded record is initially "empty", having a state logically
- * equivalent to a NULL composite value (not ROW(NULL, NULL, ...)).
+ * 展开记录初始为"空"，其状态在逻辑上等价于
+ * NULL 复合值（而不是 ROW(NULL, NULL, ...)）。
  *
- * The expanded object will be a child of parentcontext.
+ * 展开对象将成为 parentcontext 的子对象。
  */
 ExpandedRecordHeader *
 make_expanded_record_from_tupdesc(TupleDesc tupdesc,
@@ -214,13 +214,13 @@ make_expanded_record_from_tupdesc(TupleDesc tupdesc,
 	if (tupdesc->tdtypeid != RECORDOID)
 	{
 		/*
-		 * If it's a named composite type (not RECORD), we prefer to reference
-		 * the typcache's copy of the tupdesc, which is guaranteed to be
-		 * refcounted (the given tupdesc might not be).  In any case, we need
-		 * to consult the typcache to get the correct tupdesc identifier.
+		 * 若为命名复合类型（非 RECORD），我们更倾向引用
+		 * typcache 中的元组描述符副本，它必有引用计数
+		 * （给定的元组描述符则未必）。无论如何，我们都
+		 * 需要经 typcache 取得正确的元组描述符标识符。
 		 *
-		 * Note that tdtypeid couldn't be a domain type, so we need not
-		 * consider that case here.
+		 * 注意 tdtypeid 不可能是域类型，这里无需
+		 * 考虑这种情况。
 		 */
 		TypeCacheEntry *typentry;
 
@@ -236,70 +236,70 @@ make_expanded_record_from_tupdesc(TupleDesc tupdesc,
 	else
 	{
 		/*
-		 * For RECORD types, get the appropriate unique identifier (possibly
-		 * freshly assigned).
+		 * 对 RECORD 类型，取得适当的唯一标识符（可能
+		 * 新分配的）。
 		 */
 		tupdesc_id = assign_record_type_identifier(tupdesc->tdtypeid,
 												   tupdesc->tdtypmod);
 	}
 
 	/*
-	 * Allocate private context for expanded object.  We use a regular-size
-	 * context, not a small one, to improve the odds that we can fit a tupdesc
-	 * into it without needing an extra malloc block.
+	 * 为展开对象分配私有上下文。我们使用常规大小
+	 * 的上下文而非小上下文，以提高能不借助额外 malloc
+	 * 块就能容纳元组描述符的几率。
 	 */
 	objcxt = AllocSetContextCreate(parentcontext,
 								   "expanded record",
 								   ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Since we already know the number of fields in the tupdesc, we can
-	 * allocate the dvalues/dnulls arrays along with the record header.  This
-	 * is useless if we never need those arrays, but it costs almost nothing,
-	 * and it will save a palloc cycle if we do need them.
+	 * 既然已知元组描述符中的字段数，就可以
+	 * 把 dvalues/dnulls 数组与记录头部一起分配。这
+	 * 样即使从不需要这些数组也没有用处，但它几乎
+	 * 没有成本，若需要还能省一次 palloc。
 	 */
 	erh = (ExpandedRecordHeader *)
 		MemoryContextAlloc(objcxt, MAXALIGN(sizeof(ExpandedRecordHeader))
 						   + tupdesc->natts * (sizeof(Datum) + sizeof(bool)));
 
-	/* Ensure all header fields are initialized to 0/null */
+	/* 确保所有头部字段都初始化为 0/null */
 	memset(erh, 0, sizeof(ExpandedRecordHeader));
 
 	EOH_init_header(&erh->hdr, &ER_methods, objcxt);
 	erh->er_magic = ER_MAGIC;
 
-	/* Set up dvalues/dnulls, with no valid contents as yet */
+	/* 设置 dvalues/dnulls，目前尚无有效内容 */
 	chunk = (char *) erh + MAXALIGN(sizeof(ExpandedRecordHeader));
 	erh->dvalues = (Datum *) chunk;
 	erh->dnulls = (bool *) (chunk + tupdesc->natts * sizeof(Datum));
 	erh->nfields = tupdesc->natts;
 
-	/* Fill in composite-type identification info */
+	/* 填入复合类型标识信息 */
 	erh->er_decltypeid = erh->er_typeid = tupdesc->tdtypeid;
 	erh->er_typmod = tupdesc->tdtypmod;
 	erh->er_tupdesc_id = tupdesc_id;
 
 	/*
-	 * Copy tupdesc if needed, but we prefer to bump its refcount if possible.
-	 * We manage the refcount with a memory context callback rather than
-	 * assuming that the CurrentResourceOwner is longer-lived than this
-	 * expanded object.
+	 * 必要时拷贝元组描述符，但若可能则优先递增其
+	 * 引用计数。我们以内存上下文回调管理它，
+	 * 而不是假定 CurrentResourceOwner
+	 * 更长寿。
 	 */
 	if (tupdesc->tdrefcount >= 0)
 	{
-		/* Register callback to release the refcount */
+		/* 注册回调以释放引用计数 */
 		erh->er_mcb.func = ER_mc_callback;
 		erh->er_mcb.arg = (void *) erh;
 		MemoryContextRegisterResetCallback(erh->hdr.eoh_context,
 										   &erh->er_mcb);
 
-		/* And save the pointer */
+		/* 并保存该指针 */
 		erh->er_tupdesc = tupdesc;
 		tupdesc->tdrefcount++;
 	}
 	else
 	{
-		/* Just copy it */
+		/* 拷贝即可 */
 		oldcxt = MemoryContextSwitchTo(objcxt);
 		erh->er_tupdesc = CreateTupleDescCopy(tupdesc);
 		erh->flags |= ER_FLAG_TUPDESC_ALLOCED;
@@ -307,23 +307,23 @@ make_expanded_record_from_tupdesc(TupleDesc tupdesc,
 	}
 
 	/*
-	 * We don't set ER_FLAG_DVALUES_VALID or ER_FLAG_FVALUE_VALID, so the
-	 * record remains logically empty.
+	 * 我们不设置 ER_FLAG_DVALUES_VALID 或 ER_FLAG_FVALUE_VALID，
+	 * 故记录逻辑上仍为空。
 	 */
 
 	return erh;
 }
 
 /*
- * Build an expanded record of the same rowtype as the given expanded record
+ * 构建与给定展开记录相同行类型的展开记录
  *
- * This is faster than either of the above routines because we can bypass
- * typcache lookup(s).
+ * 这比上面两个例程都快，因为可以绕过
+ * typcache 查找。
  *
- * The expanded record is initially "empty" --- we do not copy whatever
- * tuple might be in the source expanded record.
+ * 展开记录初始为"空"——我们不会拷贝源记录
+ * 中可能存在的元组。
  *
- * The expanded object will be a child of parentcontext.
+ * 展开对象将成为 parentcontext 的子对象。
  */
 ExpandedRecordHeader *
 make_expanded_record_from_exprecord(ExpandedRecordHeader *olderh,
@@ -336,66 +336,66 @@ make_expanded_record_from_exprecord(ExpandedRecordHeader *olderh,
 	char	   *chunk;
 
 	/*
-	 * Allocate private context for expanded object.  We use a regular-size
-	 * context, not a small one, to improve the odds that we can fit a tupdesc
-	 * into it without needing an extra malloc block.
+	 * 为展开对象分配私有上下文。我们使用常规大小
+	 * 的上下文而非小上下文，以提高能不借助额外 malloc
+	 * 块就能容纳元组描述符的几率。
 	 */
 	objcxt = AllocSetContextCreate(parentcontext,
 								   "expanded record",
 								   ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Since we already know the number of fields in the tupdesc, we can
-	 * allocate the dvalues/dnulls arrays along with the record header.  This
-	 * is useless if we never need those arrays, but it costs almost nothing,
-	 * and it will save a palloc cycle if we do need them.
+	 * 既然已知元组描述符中的字段数，就可以
+	 * 把 dvalues/dnulls 数组与记录头部一起分配。这
+	 * 样即使从不需要这些数组也没有用处，但它几乎
+	 * 没有成本，若需要还能省一次 palloc。
 	 */
 	erh = (ExpandedRecordHeader *)
 		MemoryContextAlloc(objcxt, MAXALIGN(sizeof(ExpandedRecordHeader))
 						   + tupdesc->natts * (sizeof(Datum) + sizeof(bool)));
 
-	/* Ensure all header fields are initialized to 0/null */
+	/* 确保所有头部字段都初始化为 0/null */
 	memset(erh, 0, sizeof(ExpandedRecordHeader));
 
 	EOH_init_header(&erh->hdr, &ER_methods, objcxt);
 	erh->er_magic = ER_MAGIC;
 
-	/* Set up dvalues/dnulls, with no valid contents as yet */
+	/* 设置 dvalues/dnulls，目前尚无有效内容 */
 	chunk = (char *) erh + MAXALIGN(sizeof(ExpandedRecordHeader));
 	erh->dvalues = (Datum *) chunk;
 	erh->dnulls = (bool *) (chunk + tupdesc->natts * sizeof(Datum));
 	erh->nfields = tupdesc->natts;
 
-	/* Fill in composite-type identification info */
+	/* 填入复合类型标识信息 */
 	erh->er_decltypeid = olderh->er_decltypeid;
 	erh->er_typeid = olderh->er_typeid;
 	erh->er_typmod = olderh->er_typmod;
 	erh->er_tupdesc_id = olderh->er_tupdesc_id;
 
-	/* The only flag bit that transfers over is IS_DOMAIN */
+	/* 唯一被带过来的标志位是 IS_DOMAIN */
 	erh->flags = olderh->flags & ER_FLAG_IS_DOMAIN;
 
 	/*
-	 * Copy tupdesc if needed, but we prefer to bump its refcount if possible.
-	 * We manage the refcount with a memory context callback rather than
-	 * assuming that the CurrentResourceOwner is longer-lived than this
-	 * expanded object.
+	 * 必要时拷贝元组描述符，但若可能则优先递增其
+	 * 引用计数。我们以内存上下文回调管理它，
+	 * 而不是假定 CurrentResourceOwner
+	 * 更长寿。
 	 */
 	if (tupdesc->tdrefcount >= 0)
 	{
-		/* Register callback to release the refcount */
+		/* 注册回调以释放引用计数 */
 		erh->er_mcb.func = ER_mc_callback;
 		erh->er_mcb.arg = (void *) erh;
 		MemoryContextRegisterResetCallback(erh->hdr.eoh_context,
 										   &erh->er_mcb);
 
-		/* And save the pointer */
+		/* 并保存该指针 */
 		erh->er_tupdesc = tupdesc;
 		tupdesc->tdrefcount++;
 	}
 	else if (olderh->flags & ER_FLAG_TUPDESC_ALLOCED)
 	{
-		/* We need to make our own copy of the tupdesc */
+		/* 我们需自行拷贝元组描述符 */
 		oldcxt = MemoryContextSwitchTo(objcxt);
 		erh->er_tupdesc = CreateTupleDescCopy(tupdesc);
 		erh->flags |= ER_FLAG_TUPDESC_ALLOCED;
@@ -404,37 +404,37 @@ make_expanded_record_from_exprecord(ExpandedRecordHeader *olderh,
 	else
 	{
 		/*
-		 * Assume the tupdesc will outlive this expanded object, just like
-		 * we're assuming it will outlive the source object.
+		 * 假定元组描述符会比此展开对象活得久，正如
+		 * 我们正假定它比源对象活得久一样。
 		 */
 		erh->er_tupdesc = tupdesc;
 	}
 
 	/*
-	 * We don't set ER_FLAG_DVALUES_VALID or ER_FLAG_FVALUE_VALID, so the
-	 * record remains logically empty.
+	 * 我们不设置 ER_FLAG_DVALUES_VALID 或 ER_FLAG_FVALUE_VALID，
+	 * 故记录逻辑上仍为空。
 	 */
 
 	return erh;
 }
 
 /*
- * Insert given tuple as the value of the expanded record
+ * 把给定元组插入为展开记录的值
  *
- * It is caller's responsibility that the tuple matches the record's
- * previously-assigned rowtype.  (However domain constraints, if any,
- * will be checked here.)
+ * 调用者有责任确保元组匹配该记录此前指派的
+ * 行类型。（不过若有域约束，会在这里
+ * 进行检查。）
  *
- * The tuple is physically copied into the expanded record's local storage
- * if "copy" is true, otherwise it's caller's responsibility that the tuple
- * will live as long as the expanded record does.
+ * 若 "copy" 为真，元组会被物理拷贝进展开记录的
+ * 本地存储中；否则调用者有责任确保元组的存活期
+ * 与展开记录一样长。
  *
- * Out-of-line field values in the tuple are automatically inlined if
- * "expand_external" is true, otherwise not.  (The combination copy = false,
- * expand_external = true is not sensible and not supported.)
+ * 元组中的行外字段值会自动内联，前提是
+ * "expand_external" 为真；否则不会。（copy = false、
+ * expand_external = true 不合理，也不受支持。）
  *
- * Alternatively, tuple can be NULL, in which case we just set the expanded
- * record to be empty.
+ * 或者，元组可以为 NULL，此时我们只是把展开记录
+ * 置为空。
  */
 void
 expanded_record_set_tuple(ExpandedRecordHeader *erh,
@@ -450,23 +450,23 @@ expanded_record_set_tuple(ExpandedRecordHeader *erh,
 	HeapTuple	newtuple;
 	MemoryContext oldcxt;
 
-	/* Shouldn't ever be trying to assign new data to a dummy header */
+	/* 绝不应试图向虚设头部赋予新数据 */
 	Assert(!(erh->flags & ER_FLAG_IS_DUMMY));
 
 	/*
-	 * Before performing the assignment, see if result will satisfy domain.
+	 * 在执行赋值之前，先看结果是否会满足域约束。
 	 */
 	if (erh->flags & ER_FLAG_IS_DOMAIN)
 		check_domain_for_new_tuple(erh, tuple);
 
 	/*
-	 * If we need to get rid of out-of-line field values, do so, using the
-	 * short-term context to avoid leaking whatever cruft the toast fetch
-	 * might generate.
+	 * 如需清除行外字段值，就使用短期上下文来做，
+	 * 以免 toast 取数可能产生的垃圾
+	 * 泄漏。
 	 */
 	if (expand_external && tuple)
 	{
-		/* Assert caller didn't ask for unsupported case */
+		/* 断言调用者未要求不支持的情形 */
 		Assert(copy);
 		if (HeapTupleHasExternal(tuple))
 		{
@@ -475,18 +475,18 @@ expanded_record_set_tuple(ExpandedRecordHeader *erh,
 			MemoryContextSwitchTo(oldcxt);
 		}
 		else
-			expand_external = false;	/* need not clean up below */
+			expand_external = false;	/* 下方无需清理 */
 	}
 
 	/*
-	 * Initialize new flags, keeping only non-data status bits.
+	 * 初始化新标志，仅保留非数据的状态位。
 	 */
 	oldflags = erh->flags;
 	newflags = oldflags & ER_FLAGS_NON_DATA;
 
 	/*
-	 * Copy tuple into local storage if needed.  We must be sure this succeeds
-	 * before we start to modify the expanded record's state.
+	 * 若需要就把元组拷入本地存储。我们必须确保
+	 * 这一步成功，才能开始修改记录状态。
 	 */
 	if (copy && tuple)
 	{
@@ -495,30 +495,30 @@ expanded_record_set_tuple(ExpandedRecordHeader *erh,
 		newflags |= ER_FLAG_FVALUE_ALLOCED;
 		MemoryContextSwitchTo(oldcxt);
 
-		/* We can now flush anything that detoasting might have leaked. */
+		/* 现在可以清刷解 TOAST 可能泄漏的任何内容。 */
 		if (expand_external)
 			MemoryContextReset(erh->er_short_term_cxt);
 	}
 	else
 		newtuple = tuple;
 
-	/* Make copies of fields we're about to overwrite */
+	/* 拷贝即将被覆盖的字段 */
 	oldtuple = erh->fvalue;
 	oldfstartptr = erh->fstartptr;
 	oldfendptr = erh->fendptr;
 
 	/*
-	 * It's now safe to update the expanded record's state.
+	 * 现在可以安全更新展开记录的状态了。
 	 */
 	if (newtuple)
 	{
-		/* Save flat representation */
+		/* 保存平面表示 */
 		erh->fvalue = newtuple;
 		erh->fstartptr = (char *) newtuple->t_data;
 		erh->fendptr = ((char *) newtuple->t_data) + newtuple->t_len;
 		newflags |= ER_FLAG_FVALUE_VALID;
 
-		/* Remember if we have any out-of-line field values */
+		/* 记住我们是否有行外字段值 */
 		if (HeapTupleHasExternal(newtuple))
 			newflags |= ER_FLAG_HAVE_EXTERNAL;
 	}
@@ -530,14 +530,14 @@ expanded_record_set_tuple(ExpandedRecordHeader *erh,
 
 	erh->flags = newflags;
 
-	/* Reset flat-size info; we don't bother to make it valid now */
+	/* 重置平面大小信息；现在不费心使其有效 */
 	erh->flat_size = 0;
 
 	/*
-	 * Now, release any storage belonging to old field values.  It's safe to
-	 * do this because ER_FLAG_DVALUES_VALID is no longer set in erh->flags;
-	 * even if we fail partway through, the record is valid, and at worst
-	 * we've failed to reclaim some space.
+ * 现在，释放属于旧字段值的任何存储。这样做
+ * 是安全的，因 erh->flags 不再设置 ER_FLAG_DVALUES_VALID；
+	 * 即使中途失败，记录也是有效的，最坏情况也只
+	 * 不过是没回收一些空间。
 	 */
 	if (oldflags & ER_FLAG_DVALUES_ALLOCED)
 	{
@@ -557,24 +557,24 @@ expanded_record_set_tuple(ExpandedRecordHeader *erh,
 		}
 	}
 
-	/* Likewise free the old tuple, if it was locally allocated */
+	/* 同样，若旧元组是本地分配的就将其释放 */
 	if (oldflags & ER_FLAG_FVALUE_ALLOCED)
 		heap_freetuple(oldtuple);
 
-	/* We won't make a new deconstructed representation until/unless needed */
+	/* 直到/除非需要，否则不会生成新的解构表示 */
 }
 
 /*
- * make_expanded_record_from_datum: build expanded record from composite Datum
+ * make_expanded_record_from_datum：从复合 Datum 构建展开记录
  *
- * This combines the functions of make_expanded_record_from_typeid and
- * expanded_record_set_tuple.  However, we do not force a lookup of the
- * tupdesc immediately, reasoning that it might never be needed.
+ * 它把 make_expanded_record_from_typeid 与
+ * expanded_record_set_tuple 的功能合在一起。但我们不强制
+ * 立即查找元组描述符，它可能永远用不到。
  *
- * The expanded object will be a child of parentcontext.
+ * 展开对象将成为 parentcontext 的子对象。
  *
- * Note: a composite datum cannot self-identify as being of a domain type,
- * so we need not consider domain cases here.
+ * 注意：复合 datum 无法自我标识为域类型，
+ * 因此这里无需考虑域的情形。
  */
 Datum
 make_expanded_record_from_datum(Datum recorddatum, MemoryContext parentcontext)
@@ -587,15 +587,15 @@ make_expanded_record_from_datum(Datum recorddatum, MemoryContext parentcontext)
 	MemoryContext oldcxt;
 
 	/*
-	 * Allocate private context for expanded object.  We use a regular-size
-	 * context, not a small one, to improve the odds that we can fit a tupdesc
-	 * into it without needing an extra malloc block.
+	 * 为展开对象分配私有上下文。我们使用常规大小
+	 * 的上下文而非小上下文，以提高能不借助额外 malloc
+	 * 块就能容纳元组描述符的几率。
 	 */
 	objcxt = AllocSetContextCreate(parentcontext,
 								   "expanded record",
 								   ALLOCSET_DEFAULT_SIZES);
 
-	/* Set up expanded record header, initializing fields to 0/null */
+	/* 设置展开记录头部，把字段初始化为 0/null */
 	erh = (ExpandedRecordHeader *)
 		MemoryContextAllocZero(objcxt, sizeof(ExpandedRecordHeader));
 
@@ -603,9 +603,9 @@ make_expanded_record_from_datum(Datum recorddatum, MemoryContext parentcontext)
 	erh->er_magic = ER_MAGIC;
 
 	/*
-	 * Detoast and copy source record into private context, as a HeapTuple.
-	 * (If we actually have to detoast the source, we'll leak some memory in
-	 * the caller's context, but it doesn't seem worth worrying about.)
+	 * 把源记录解 TOAST 并作为 HeapTuple 拷入私有上下文。
+	 * （若确实需要解 TOAST 源，会在调用者的上下文
+	 * 中泄漏一些内存，但这似乎不值得担心。）
 	 */
 	tuphdr = DatumGetHeapTupleHeader(recorddatum);
 
@@ -619,34 +619,34 @@ make_expanded_record_from_datum(Datum recorddatum, MemoryContext parentcontext)
 	erh->flags |= ER_FLAG_FVALUE_ALLOCED;
 	MemoryContextSwitchTo(oldcxt);
 
-	/* Fill in composite-type identification info */
+	/* 填入复合类型标识信息 */
 	erh->er_decltypeid = erh->er_typeid = HeapTupleHeaderGetTypeId(tuphdr);
 	erh->er_typmod = HeapTupleHeaderGetTypMod(tuphdr);
 
-	/* remember we have a flat representation */
+	/* 记住我们已有平面表示 */
 	erh->fvalue = newtuple;
 	erh->fstartptr = (char *) newtuple->t_data;
 	erh->fendptr = ((char *) newtuple->t_data) + newtuple->t_len;
 	erh->flags |= ER_FLAG_FVALUE_VALID;
 
-	/* Shouldn't need to set ER_FLAG_HAVE_EXTERNAL */
+	/* 不应需要设置 ER_FLAG_HAVE_EXTERNAL */
 	Assert(!HeapTupleHeaderHasExternal(tuphdr));
 
 	/*
-	 * We won't look up the tupdesc till we have to, nor make a deconstructed
-	 * representation.  We don't have enough info to fill flat_size and
-	 * friends, either.
+	 * 我们会把元组描述符的查找推迟到非查不可之时，
+	 * 也不生成解构表示。我们没有足够信息填 flat_size
+	 * 相关的值。
 	 */
 
-	/* return a R/W pointer to the expanded record */
+	/* 返回指向展开记录的读/写指针 */
 	return EOHPGetRWDatum(&erh->hdr);
 }
 
 /*
- * get_flat_size method for expanded records
+ * 展开记录的 get_flat_size 方法
  *
- * Note: call this in a reasonably short-lived memory context, in case of
- * memory leaks from activities such as detoasting.
+ * 注意：要在存活期较短的内存上下文中调用它，以防
+ * 解 TOAST 之类的活动造成内存泄漏。
  */
 static Size
 ER_get_flat_size(ExpandedObjectHeader *eohptr)
@@ -662,8 +662,8 @@ ER_get_flat_size(ExpandedObjectHeader *eohptr)
 	Assert(erh->er_magic == ER_MAGIC);
 
 	/*
-	 * The flat representation has to be a valid composite datum.  Make sure
-	 * that we have a registered, not anonymous, RECORD type.
+	 * 平面表示必须是有效的复合 datum。务必确保我们
+	 * 拥有的是已注册而非匿名的 RECORD 类型。
 	 */
 	if (erh->er_typeid == RECORDOID &&
 		erh->er_typmod < 0)
@@ -674,26 +674,26 @@ ER_get_flat_size(ExpandedObjectHeader *eohptr)
 	}
 
 	/*
-	 * If we have a valid flattened value without out-of-line fields, we can
-	 * just use it as-is.
+	 * 如果我们的展平值有效且没有行外字段，就
+	 * 直接使用它。
 	 */
 	if (erh->flags & ER_FLAG_FVALUE_VALID &&
 		!(erh->flags & ER_FLAG_HAVE_EXTERNAL))
 		return erh->fvalue->t_len;
 
-	/* If we have a cached size value, believe that */
+	/* 若有缓存的大小值就采用它 */
 	if (erh->flat_size)
 		return erh->flat_size;
 
-	/* If we haven't yet deconstructed the tuple, do that */
+	/* 若尚未解构元组，就先解构 */
 	if (!(erh->flags & ER_FLAG_DVALUES_VALID))
 		deconstruct_expanded_record(erh);
 
-	/* Tuple descriptor must be valid by now */
+	/* 此时元组描述符必须有效 */
 	tupdesc = erh->er_tupdesc;
 
 	/*
-	 * Composite datums mustn't contain any out-of-line values.
+	 * 复合 datum 绝不能包含任何行外值。
 	 */
 	if (erh->flags & ER_FLAG_HAVE_EXTERNAL)
 	{
@@ -706,8 +706,8 @@ ER_get_flat_size(ExpandedObjectHeader *eohptr)
 				VARATT_IS_EXTERNAL(DatumGetPointer(erh->dvalues[i])))
 			{
 				/*
-				 * expanded_record_set_field_internal can do the actual work
-				 * of detoasting.  It needn't recheck domain constraints.
+				 * expanded_record_set_field_internal 可以完成解
+				 * TOAST 的实际工作。无需重查域约束。
 				 */
 				expanded_record_set_field_internal(erh, i + 1,
 												   erh->dvalues[i], false,
@@ -717,15 +717,15 @@ ER_get_flat_size(ExpandedObjectHeader *eohptr)
 		}
 
 		/*
-		 * We have now removed all external field values, so we can clear the
-		 * flag about them.  This won't cause ER_flatten_into() to mistakenly
-		 * take the fast path, since expanded_record_set_field() will have
-		 * cleared ER_FLAG_FVALUE_VALID.
+		 * 现在所有外部字段值都已移除，因此可以清除相应
+		 * 的标志。这不会使 ER_flatten_into() 错走快速路径，
+		 * 因为 expanded_record_set_field() 已清除
+		 * ER_FLAG_FVALUE_VALID。
 		 */
 		erh->flags &= ~ER_FLAG_HAVE_EXTERNAL;
 	}
 
-	/* Test if we currently have any null values */
+	/* 测试当前是否有任何空值 */
 	hasnull = false;
 	for (i = 0; i < erh->nfields; i++)
 	{
@@ -736,19 +736,19 @@ ER_get_flat_size(ExpandedObjectHeader *eohptr)
 		}
 	}
 
-	/* Determine total space needed */
+	/* 确定所需的总空间 */
 	len = offsetof(HeapTupleHeaderData, t_bits);
 
 	if (hasnull)
 		len += BITMAPLEN(tupdesc->natts);
 
-	hoff = len = MAXALIGN(len); /* align user data safely */
+	hoff = len = MAXALIGN(len); /* 安全对齐数据 */
 
 	data_len = heap_compute_data_size(tupdesc, erh->dvalues, erh->dnulls);
 
 	len += data_len;
 
-	/* Cache for next time */
+	/* 留作下次使用 */
 	erh->flat_size = len;
 	erh->data_len = data_len;
 	erh->hoff = hoff;
@@ -758,7 +758,7 @@ ER_get_flat_size(ExpandedObjectHeader *eohptr)
 }
 
 /*
- * flatten_into method for expanded records
+ * 展开记录的 flatten_into 方法
  */
 static void
 ER_flatten_into(ExpandedObjectHeader *eohptr,
@@ -770,39 +770,39 @@ ER_flatten_into(ExpandedObjectHeader *eohptr,
 
 	Assert(erh->er_magic == ER_MAGIC);
 
-	/* Easy if we have a valid flattened value without out-of-line fields */
+	/* 若已有无行外字段的有效展平值则很容易 */
 	if (erh->flags & ER_FLAG_FVALUE_VALID &&
 		!(erh->flags & ER_FLAG_HAVE_EXTERNAL))
 	{
 		Assert(allocated_size == erh->fvalue->t_len);
 		memcpy(tuphdr, erh->fvalue->t_data, allocated_size);
-		/* The original flattened value might not have datum header fields */
+		/* 原展平值可能没有 datum 头部字段 */
 		HeapTupleHeaderSetDatumLength(tuphdr, allocated_size);
 		HeapTupleHeaderSetTypeId(tuphdr, erh->er_typeid);
 		HeapTupleHeaderSetTypMod(tuphdr, erh->er_typmod);
 		return;
 	}
 
-	/* Else allocation should match previous get_flat_size result */
+	/* 否则分配应与之前 get_flat_size 结果一致 */
 	Assert(allocated_size == erh->flat_size);
 
-	/* We'll need the tuple descriptor */
+	/* 我们会需要元组描述符 */
 	tupdesc = expanded_record_get_tupdesc(erh);
 
-	/* We must ensure that any pad space is zero-filled */
+	/* 必须确保所有填充空间均为零 */
 	memset(tuphdr, 0, allocated_size);
 
-	/* Set up header fields of composite Datum */
+	/* 设置复合 Datum 的头部字段 */
 	HeapTupleHeaderSetDatumLength(tuphdr, allocated_size);
 	HeapTupleHeaderSetTypeId(tuphdr, erh->er_typeid);
 	HeapTupleHeaderSetTypMod(tuphdr, erh->er_typmod);
-	/* We also make sure that t_ctid is invalid unless explicitly set */
+	/* 我们还确保 t_ctid 除非被显式设置否则无效 */
 	ItemPointerSetInvalid(&(tuphdr->t_ctid));
 
 	HeapTupleHeaderSetNatts(tuphdr, tupdesc->natts);
 	tuphdr->t_hoff = erh->hoff;
 
-	/* And fill the data area from dvalues/dnulls */
+	/* 并从 dvalues/dnulls 填充数据区 */
 	heap_fill_tuple(tupdesc,
 					erh->dvalues,
 					erh->dnulls,
@@ -813,34 +813,34 @@ ER_flatten_into(ExpandedObjectHeader *eohptr,
 }
 
 /*
- * Look up the tupdesc for the expanded record's actual type
+ * 查找展开记录实际类型的元组描述符
  *
- * Note: code internal to this module is allowed to just fetch
- * erh->er_tupdesc if ER_FLAG_DVALUES_VALID is set; otherwise it should call
- * expanded_record_get_tupdesc.  This function is the out-of-line portion
- * of expanded_record_get_tupdesc.
+ * 注意：本模块内部的代码可以直接取用
+ * erh->er_tupdesc（当 ER_FLAG_DVALUES_VALID 已设置时）；
+ * 否则应调用 expanded_record_get_tupdesc。本函数
+ * 是其行外部分。
  */
 TupleDesc
 expanded_record_fetch_tupdesc(ExpandedRecordHeader *erh)
 {
 	TupleDesc	tupdesc;
 
-	/* Easy if we already have it (but caller should have checked already) */
+	/* 若已有则很容易（但调用者本应已检查过） */
 	if (erh->er_tupdesc)
 		return erh->er_tupdesc;
 
-	/* Lookup the composite type's tupdesc using the typcache */
+	/* 用 typcache 查找该复合类型的元组描述符 */
 	tupdesc = lookup_rowtype_tupdesc(erh->er_typeid, erh->er_typmod);
 
 	/*
-	 * If it's a refcounted tupdesc rather than a statically allocated one, we
-	 * want to manage the refcount with a memory context callback rather than
-	 * assuming that the CurrentResourceOwner is longer-lived than this
-	 * expanded object.
+	 * 若其为引用计数的元组描述符而非静态分配，
+	 * 我们以内存上下文回调管理引用计数，
+	 * 而不是假定 CurrentResourceOwner
+	 * 更长寿。
 	 */
 	if (tupdesc->tdrefcount >= 0)
 	{
-		/* Register callback if we didn't already */
+		/* 若尚未注册则注册回调 */
 		if (erh->er_mcb.arg == NULL)
 		{
 			erh->er_mcb.func = ER_mc_callback;
@@ -849,20 +849,20 @@ expanded_record_fetch_tupdesc(ExpandedRecordHeader *erh)
 											   &erh->er_mcb);
 		}
 
-		/* Remember our own pointer */
+		/* 记住自己的指针 */
 		erh->er_tupdesc = tupdesc;
 		tupdesc->tdrefcount++;
 
-		/* Release the pin lookup_rowtype_tupdesc acquired */
+		/* 释放 lookup_rowtype_tupdesc 获取的 pin */
 		ReleaseTupleDesc(tupdesc);
 	}
 	else
 	{
-		/* Just remember the pointer */
+		/* 只要记住指针即可 */
 		erh->er_tupdesc = tupdesc;
 	}
 
-	/* In either case, fetch the process-global ID for this tupdesc */
+	/* 无论如何，都取这个元组描述符的进程全局 ID */
 	erh->er_tupdesc_id = assign_record_type_identifier(tupdesc->tdtypeid,
 													   tupdesc->tdtypmod);
 
@@ -870,33 +870,33 @@ expanded_record_fetch_tupdesc(ExpandedRecordHeader *erh)
 }
 
 /*
- * Get a HeapTuple representing the current value of the expanded record
+ * 取得表示展开记录当前值的 HeapTuple
  *
- * If valid, the originally stored tuple is returned, so caller must not
- * scribble on it.  Otherwise, we return a HeapTuple created in the current
- * memory context.  In either case, no attempt has been made to inline
- * out-of-line toasted values, so the tuple isn't usable as a composite
- * datum.
+ * 若有效，则返回原先存储的元组，因此调用者绝不能
+ * 乱改它。否则，我们返回在当前内存上下文中创建的
+ * HeapTuple。无论哪种情况，都没有尝试把行外的
+ * TOAST 值内联，所以该元组不能用作复合
+ * datum
  *
- * Returns NULL if expanded record is empty.
+ * 若展开记录为空则返回 NULL。
  */
 HeapTuple
 expanded_record_get_tuple(ExpandedRecordHeader *erh)
 {
-	/* Easy case if we still have original tuple */
+	/* 若仍保有原元组则很容易 */
 	if (erh->flags & ER_FLAG_FVALUE_VALID)
 		return erh->fvalue;
 
-	/* Else just build a tuple from datums */
+	/* 否则直接从 datum 构建元组 */
 	if (erh->flags & ER_FLAG_DVALUES_VALID)
 		return heap_form_tuple(erh->er_tupdesc, erh->dvalues, erh->dnulls);
 
-	/* Expanded record is empty */
+	/* 展开记录为空 */
 	return NULL;
 }
 
 /*
- * Memory context reset callback for cleaning up external resources
+ * 用于清理外部资源的内存上下文重置回调
  */
 static void
 ER_mc_callback(void *arg)
@@ -904,10 +904,10 @@ ER_mc_callback(void *arg)
 	ExpandedRecordHeader *erh = (ExpandedRecordHeader *) arg;
 	TupleDesc	tupdesc = erh->er_tupdesc;
 
-	/* Release our privately-managed tupdesc refcount, if any */
+	/* 释放自己的元组描述符引用计数（若有） */
 	if (tupdesc)
 	{
-		erh->er_tupdesc = NULL; /* just for luck */
+		erh->er_tupdesc = NULL; /* 只为保险 */
 		if (tupdesc->tdrefcount > 0)
 		{
 			if (--tupdesc->tdrefcount == 0)
@@ -917,16 +917,16 @@ ER_mc_callback(void *arg)
 }
 
 /*
- * DatumGetExpandedRecord: get a writable expanded record from an input argument
+ * DatumGetExpandedRecord：从输入参数取得可写的展开记录
  *
- * Caution: if the input is a read/write pointer, this returns the input
- * argument; so callers must be sure that their changes are "safe", that is
- * they cannot leave the record in a corrupt state.
+ * 小心：输入若是读/写指针，会返回输入参数；
+ * 因此调用者必须确保自己的修改是"安全的"，也就是
+ * 无法把记录留在损坏状态。
  */
 ExpandedRecordHeader *
 DatumGetExpandedRecord(Datum d)
 {
-	/* If it's a writable expanded record already, just return it */
+	/* 若已是可写的展开记录就直接返回它 */
 	if (VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(d)))
 	{
 		ExpandedRecordHeader *erh = (ExpandedRecordHeader *) DatumGetEOHP(d);
@@ -935,18 +935,18 @@ DatumGetExpandedRecord(Datum d)
 		return erh;
 	}
 
-	/* Else expand the hard way */
+	/* 否则走复杂路径 */
 	d = make_expanded_record_from_datum(d, CurrentMemoryContext);
 	return (ExpandedRecordHeader *) DatumGetEOHP(d);
 }
 
 /*
- * Create the Datum/isnull representation of an expanded record object
- * if we didn't do so already.  After calling this, it's OK to read the
- * dvalues/dnulls arrays directly, rather than going through get_field.
+ * 创建展开记录对象的 Datum/isnull 表示
+ * （如果尚未创建的话）。调用它之后，就可以直接
+ * 读取 dvalues/dnulls 数组，而不必经过 get_field。
  *
- * Note that if the object is currently empty ("null"), this will change
- * it to represent a row of nulls.
+ * 注意如果对象当前为空（"null"），它会改为
+ * 表示一行空值。
  */
 void
 deconstruct_expanded_record(ExpandedRecordHeader *erh)
@@ -957,16 +957,16 @@ deconstruct_expanded_record(ExpandedRecordHeader *erh)
 	int			nfields;
 
 	if (erh->flags & ER_FLAG_DVALUES_VALID)
-		return;					/* already valid, nothing to do */
+		return;					/* 已有效，无事可做 */
 
-	/* We'll need the tuple descriptor */
+	/* 我们会需要元组描述符 */
 	tupdesc = expanded_record_get_tupdesc(erh);
 
 	/*
-	 * Allocate arrays in private context, if we don't have them already.  We
-	 * don't expect to see a change in nfields here, so while we cope if it
-	 * happens, we don't bother avoiding a leak of the old arrays (which might
-	 * not be separately palloc'd, anyway).
+	 * 如果还没有这些数组，就在私有上下文中分配。我们
+	 * 并不预期这里 nfields 会发生变化，所以即便它能
+	 * 应对，也不费心避免旧数组的泄漏（它们可能并
+	 * 不是单独 palloc 的）。
 	 */
 	nfields = tupdesc->natts;
 	if (erh->dvalues == NULL || erh->nfields != nfields)
@@ -974,8 +974,8 @@ deconstruct_expanded_record(ExpandedRecordHeader *erh)
 		char	   *chunk;
 
 		/*
-		 * To save a palloc cycle, we allocate both the Datum and isnull
-		 * arrays in one palloc chunk.
+		 * 为了节省一次 palloc，我们把 Datum 与 isnull
+		 * 数组共用一次 palloc
 		 */
 		chunk = MemoryContextAlloc(erh->hdr.eoh_context,
 								   nfields * (sizeof(Datum) + sizeof(bool)));
@@ -993,25 +993,25 @@ deconstruct_expanded_record(ExpandedRecordHeader *erh)
 
 	if (erh->flags & ER_FLAG_FVALUE_VALID)
 	{
-		/* Deconstruct tuple */
+		/* 解构元组 */
 		heap_deform_tuple(erh->fvalue, tupdesc, dvalues, dnulls);
 	}
 	else
 	{
-		/* If record was empty, instantiate it as a row of nulls */
+		/* 若记录为空，则将其创建为一行空值 */
 		memset(dvalues, 0, nfields * sizeof(Datum));
 		memset(dnulls, true, nfields * sizeof(bool));
 	}
 
-	/* Mark the dvalues as valid */
+	/* 将 dvalues 标为有效 */
 	erh->flags |= ER_FLAG_DVALUES_VALID;
 }
 
 /*
- * Look up a record field by name
+ * 按名称查找记录字段
  *
- * If there is a field named "fieldname", fill in the contents of finfo
- * and return "true".  Else return "false" without changing *finfo.
+ * 如果存在名为 "fieldname" 的字段，就填入 finfo 的
+ * 内容并返回 "true"。否则不改 *finfo 返回 "false"。
  */
 bool
 expanded_record_lookup_field(ExpandedRecordHeader *erh, const char *fieldname,
@@ -1024,7 +1024,7 @@ expanded_record_lookup_field(ExpandedRecordHeader *erh, const char *fieldname,
 
 	tupdesc = expanded_record_get_tupdesc(erh);
 
-	/* First, check user-defined attributes */
+	/* 首先，检查用户定义的属性 */
 	for (fno = 0; fno < tupdesc->natts; fno++)
 	{
 		attr = TupleDescAttr(tupdesc, fno);
@@ -1039,7 +1039,7 @@ expanded_record_lookup_field(ExpandedRecordHeader *erh, const char *fieldname,
 		}
 	}
 
-	/* How about system attributes? */
+	/* 那系统属性呢？ */
 	sysattr = SystemAttributeByName(fieldname);
 	if (sysattr != NULL)
 	{
@@ -1054,10 +1054,10 @@ expanded_record_lookup_field(ExpandedRecordHeader *erh, const char *fieldname,
 }
 
 /*
- * Fetch value of record field
+ * 取记录字段的值
  *
- * expanded_record_get_field is the frontend for this; it handles the
- * easy inline-able cases.
+ * expanded_record_get_field 是它的前端；负责处理
+ * 可内联的情形。
  */
 Datum
 expanded_record_fetch_field(ExpandedRecordHeader *erh, int fnumber,
@@ -1065,15 +1065,15 @@ expanded_record_fetch_field(ExpandedRecordHeader *erh, int fnumber,
 {
 	if (fnumber > 0)
 	{
-		/* Empty record has null fields */
+		/* 空记录的字段为空值 */
 		if (ExpandedRecordIsEmpty(erh))
 		{
 			*isnull = true;
 			return (Datum) 0;
 		}
-		/* Make sure we have deconstructed form */
+		/* 确保我们已有解构形式 */
 		deconstruct_expanded_record(erh);
-		/* Out-of-range field number reads as null */
+		/* 超出范围的字段号读作空值 */
 		if (unlikely(fnumber > erh->nfields))
 		{
 			*isnull = true;
@@ -1084,29 +1084,29 @@ expanded_record_fetch_field(ExpandedRecordHeader *erh, int fnumber,
 	}
 	else
 	{
-		/* System columns read as null if we haven't got flat tuple */
+		/* 若还没有平面元组，系统列读作空值 */
 		if (erh->fvalue == NULL)
 		{
 			*isnull = true;
 			return (Datum) 0;
 		}
-		/* heap_getsysattr doesn't actually use tupdesc, so just pass null */
+		/* heap_getsysattr 并不使用描述符，直接传 null */
 		return heap_getsysattr(erh->fvalue, fnumber, NULL, isnull);
 	}
 }
 
 /*
- * Set value of record field
+ * 设置记录字段的值
  *
- * If the expanded record is of domain type, the assignment will be rejected
- * (without changing the record's state) if the domain's constraints would
- * be violated.
+ * 如果展开记录属于域类型，那么当域约束会被违反
+ * 时，赋值将被拒绝（且不改变记录的
+ * 状态）。
  *
- * If expand_external is true and newValue is an out-of-line value, we'll
- * forcibly detoast it so that the record does not depend on external storage.
+ * 如果 expand_external 为真且 newValue 是行外值，
+ * 我们将强制对其解 TOAST，使记录不依赖外部存储。
  *
- * Internal callers can pass check_constraints = false to skip application
- * of domain constraints.  External callers should never do that.
+ * 内部调用者可以传入 check_constraints = false 来跳过
+ * 域约束的应用。外部调用者绝不该这样做。
  */
 void
 expanded_record_set_field_internal(ExpandedRecordHeader *erh, int fnumber,
@@ -1121,68 +1121,68 @@ expanded_record_set_field_internal(ExpandedRecordHeader *erh, int fnumber,
 	char	   *oldValue;
 
 	/*
-	 * Shouldn't ever be trying to assign new data to a dummy header, except
-	 * in the case of an internal call for field inlining.
+	 * 绝不应试图向虚设头部赋予新数据，除非是为
+	 * 字段内联的内部调用。
 	 */
 	Assert(!(erh->flags & ER_FLAG_IS_DUMMY) || !check_constraints);
 
-	/* Before performing the assignment, see if result will satisfy domain */
+	/* 执行赋值之前，先看结果是否满足域约束 */
 	if ((erh->flags & ER_FLAG_IS_DOMAIN) && check_constraints)
 		check_domain_for_new_field(erh, fnumber, newValue, isnull);
 
-	/* If we haven't yet deconstructed the tuple, do that */
+	/* 若尚未解构元组，就先解构 */
 	if (!(erh->flags & ER_FLAG_DVALUES_VALID))
 		deconstruct_expanded_record(erh);
 
-	/* Tuple descriptor must be valid by now */
+	/* 此时元组描述符必须有效 */
 	tupdesc = erh->er_tupdesc;
 	Assert(erh->nfields == tupdesc->natts);
 
-	/* Caller error if fnumber is system column or nonexistent column */
+	/* fnumber 为系统列或不存在列时属调用者错误 */
 	if (unlikely(fnumber <= 0 || fnumber > erh->nfields))
 		elog(ERROR, "cannot assign to field %d of expanded record", fnumber);
 
 	/*
-	 * Copy new field value into record's context, and deal with detoasting,
-	 * if needed.
+	 * 把新的字段值拷入记录上下文，并按需解
+	 * TOAST。
 	 */
 	attr = TupleDescAttr(tupdesc, fnumber - 1);
 	if (!isnull && !attr->attbyval)
 	{
 		MemoryContext oldcxt;
 
-		/* If requested, detoast any external value */
+		/* 如有要求就解外部值的 TOAST */
 		if (expand_external)
 		{
 			if (attr->attlen == -1 &&
 				VARATT_IS_EXTERNAL(DatumGetPointer(newValue)))
 			{
-				/* Detoasting should be done in short-lived context. */
+				/* 解 TOAST 应在短期上下文中进行。 */
 				oldcxt = MemoryContextSwitchTo(get_short_term_cxt(erh));
 				newValue = PointerGetDatum(detoast_external_attr((struct varlena *) DatumGetPointer(newValue)));
 				MemoryContextSwitchTo(oldcxt);
 			}
 			else
-				expand_external = false;	/* need not clean up below */
+				expand_external = false;	/* 下方无需清理 */
 		}
 
-		/* Copy value into record's context */
+		/* 把值拷入记录的上下文 */
 		oldcxt = MemoryContextSwitchTo(erh->hdr.eoh_context);
 		newValue = datumCopy(newValue, false, attr->attlen);
 		MemoryContextSwitchTo(oldcxt);
 
-		/* We can now flush anything that detoasting might have leaked */
+		/* 现在可以清刷解 TOAST 可能泄漏的内容 */
 		if (expand_external)
 			MemoryContextReset(erh->er_short_term_cxt);
 
-		/* Remember that we have field(s) that may need to be pfree'd */
+		/* 记住我们有字段可能需要 pfree */
 		erh->flags |= ER_FLAG_DVALUES_ALLOCED;
 
 		/*
-		 * While we're here, note whether it's an external toasted value,
-		 * because that could mean we need to inline it later.  (Think not to
-		 * merge this into the previous expand_external logic: datumCopy could
-		 * by itself have made the value non-external.)
+		 * 趁便记下它是否为外部 TOAST 值，因为这意味着
+		 * 之后可能需要内联它。（不要想着把它并进前面
+		 * 的 expand_external 逻辑：datumCopy 本身就可能
+		 * 已把值变成非外部的。）
 		 */
 		if (attr->attlen == -1 &&
 			VARATT_IS_EXTERNAL(DatumGetPointer(newValue)))
@@ -1190,60 +1190,60 @@ expanded_record_set_field_internal(ExpandedRecordHeader *erh, int fnumber,
 	}
 
 	/*
-	 * We're ready to make irreversible changes.
+	 * 我们已准备好做不可逆修改。
 	 */
 	dvalues = erh->dvalues;
 	dnulls = erh->dnulls;
 
-	/* Flattened value will no longer represent record accurately */
+	/* 展平值将不再准确表示该记录 */
 	erh->flags &= ~ER_FLAG_FVALUE_VALID;
-	/* And we don't know the flattened size either */
+	/* 而且我们也不知道展平大小 */
 	erh->flat_size = 0;
 
-	/* Grab old field value for pfree'ing, if needed. */
+	/* 按需保存旧字段值以便 pfree。 */
 	if (!attr->attbyval && !dnulls[fnumber - 1])
 		oldValue = (char *) DatumGetPointer(dvalues[fnumber - 1]);
 	else
 		oldValue = NULL;
 
-	/* And finally we can insert the new field. */
+	/* 最后终于可以插入新字段了。 */
 	dvalues[fnumber - 1] = newValue;
 	dnulls[fnumber - 1] = isnull;
 
 	/*
-	 * Free old field if needed; this keeps repeated field replacements from
-	 * bloating the record's storage.  If the pfree somehow fails, it won't
-	 * corrupt the record.
+	 * 按需释放旧字段；这样可避免反复替换字段使
+	 * 记录的存储膨胀。若 pfree 万一失败，也不会
+	 * 损坏记录。
 	 *
-	 * If we're updating a dummy header, we can't risk pfree'ing the old
-	 * value, because most likely the expanded record's main header still has
-	 * a pointer to it.  This won't result in any sustained memory leak, since
-	 * whatever we just allocated here is in the short-lived domain check
-	 * context.
+	 * 如果更新的是虚设头部，就不能冒险 pfree 旧值，
+	 * 因为展开记录的主头部很可能仍然持有指向它的
+	 * 指针。这不会造成任何持续的内存泄漏，因为我们
+	 * 刚分配的内容都在短存活期的域检查上下文
+	 * 中。
 	 */
 	if (oldValue && !(erh->flags & ER_FLAG_IS_DUMMY))
 	{
-		/* Don't try to pfree a part of the original flat record */
+		/* 不要试图 pfree 原平面记录的一部分 */
 		if (oldValue < erh->fstartptr || oldValue >= erh->fendptr)
 			pfree(oldValue);
 	}
 }
 
 /*
- * Set all record field(s)
+ * 设置各记录字段
  *
- * Caller must ensure that the provided datums are of the right types
- * to match the record's previously assigned rowtype.
+ * 调用者必须确保所提供的 datum 类型正确，
+ * 能匹配该记录此前指派的行类型。
  *
- * If expand_external is true, we'll forcibly detoast out-of-line field values
- * so that the record does not depend on external storage.
+ * 如果 expand_external 为真，我们将强制对行外字段值
+ * 解 TOAST，使记录不依赖外部存储。
  *
- * Unlike repeated application of expanded_record_set_field(), this does not
- * guarantee to leave the expanded record in a non-corrupt state in event
- * of an error.  Typically it would only be used for initializing a new
- * expanded record.  Also, because we expect this to be applied at most once
- * in the lifespan of an expanded record, we do not worry about any cruft
- * that detoasting might leak.
+ * 与反复调用 expanded_record_set_field() 不同，
+ * 它并不保证发生错误时展开记录仍处于未损坏
+ * 状态。它通常只用于初始化新展开记录。此外，
+ * 由于我们预计它至多在展开记录的生命期中
+ * 应用一次，所以我们不担心解 TOAST 可能
+ * 泄漏的任何垃圾。
  */
 void
 expanded_record_set_fields(ExpandedRecordHeader *erh,
@@ -1256,20 +1256,20 @@ expanded_record_set_fields(ExpandedRecordHeader *erh,
 	int			fnumber;
 	MemoryContext oldcxt;
 
-	/* Shouldn't ever be trying to assign new data to a dummy header */
+	/* 绝不应试图向虚设头部赋予新数据 */
 	Assert(!(erh->flags & ER_FLAG_IS_DUMMY));
 
-	/* If we haven't yet deconstructed the tuple, do that */
+	/* 若尚未解构元组，就先解构 */
 	if (!(erh->flags & ER_FLAG_DVALUES_VALID))
 		deconstruct_expanded_record(erh);
 
-	/* Tuple descriptor must be valid by now */
+	/* 此时元组描述符必须有效 */
 	tupdesc = erh->er_tupdesc;
 	Assert(erh->nfields == tupdesc->natts);
 
-	/* Flattened value will no longer represent record accurately */
+	/* 展平值将不再准确表示该记录 */
 	erh->flags &= ~ER_FLAG_FVALUE_VALID;
-	/* And we don't know the flattened size either */
+	/* 而且我们也不知道展平大小 */
 	erh->flat_size = 0;
 
 	oldcxt = MemoryContextSwitchTo(erh->hdr.eoh_context);
@@ -1283,7 +1283,7 @@ expanded_record_set_fields(ExpandedRecordHeader *erh,
 		Datum		newValue;
 		bool		isnull;
 
-		/* Ignore dropped columns */
+		/* 忽略已删除列 */
 		if (attr->attisdropped)
 			continue;
 
@@ -1293,67 +1293,67 @@ expanded_record_set_fields(ExpandedRecordHeader *erh,
 		if (!attr->attbyval)
 		{
 			/*
-			 * Copy new field value into record's context, and deal with
-			 * detoasting, if needed.
+			 * 把新字段值拷入记录的上下文，并视需要
+			 * 处理解 TOAST。
 			 */
 			if (!isnull)
 			{
-				/* Is it an external toasted value? */
+				/* 它是外部 TOAST 值吗？ */
 				if (attr->attlen == -1 &&
 					VARATT_IS_EXTERNAL(DatumGetPointer(newValue)))
 				{
 					if (expand_external)
 					{
-						/* Detoast as requested while copying the value */
+						/* 拷贝值的同时按要求解 TOAST */
 						newValue = PointerGetDatum(detoast_external_attr((struct varlena *) DatumGetPointer(newValue)));
 					}
 					else
 					{
-						/* Just copy the value */
+						/* 直接拷贝值 */
 						newValue = datumCopy(newValue, false, -1);
-						/* If it's still external, remember that */
+						/* 若仍是外部值，记住这点 */
 						if (VARATT_IS_EXTERNAL(DatumGetPointer(newValue)))
 							erh->flags |= ER_FLAG_HAVE_EXTERNAL;
 					}
 				}
 				else
 				{
-					/* Not an external value, just copy it */
+					/* 非外部值，直接拷贝 */
 					newValue = datumCopy(newValue, false, attr->attlen);
 				}
 
-				/* Remember that we have field(s) that need to be pfree'd */
+				/* 记住我们有需要 pfree 的字段 */
 				erh->flags |= ER_FLAG_DVALUES_ALLOCED;
 			}
 
 			/*
-			 * Free old field value, if any (not likely, since really we ought
-			 * to be inserting into an empty record).
+			 * 释放旧字段值（若有）（不太可能，因为我们
+			 * 理应是在向空记录插入）。
 			 */
 			if (unlikely(!dnulls[fnumber]))
 			{
 				char	   *oldValue;
 
 				oldValue = (char *) DatumGetPointer(dvalues[fnumber]);
-				/* Don't try to pfree a part of the original flat record */
+				/* 不要试图 pfree 原平面记录的一部分 */
 				if (oldValue < erh->fstartptr || oldValue >= erh->fendptr)
 					pfree(oldValue);
 			}
 		}
 
-		/* And finally we can insert the new field. */
+		/* 最后即可插入新字段了。 */
 		dvalues[fnumber] = newValue;
 		dnulls[fnumber] = isnull;
 	}
 
 	/*
-	 * Because we don't guarantee atomicity of set_fields(), we can just leave
-	 * checking of domain constraints to occur as the final step; if it throws
-	 * an error, too bad.
+	 * 因为我们不保证 set_fields() 的原子性，可以把
+	 * 域约束检查留作最后一步；若它抛出错误，那
+	 * 也没办法。
 	 */
 	if (erh->flags & ER_FLAG_IS_DOMAIN)
 	{
-		/* We run domain_check in a short-lived context to limit cruft */
+		/* 在短期上下文中运行 domain_check 以限制垃圾 */
 		MemoryContextSwitchTo(get_short_term_cxt(erh));
 
 		domain_check(ExpandedRecordGetRODatum(erh), false,
@@ -1366,14 +1366,14 @@ expanded_record_set_fields(ExpandedRecordHeader *erh,
 }
 
 /*
- * Construct (or reset) working memory context for short-term operations.
+ * 为短期操作构建（或重置）工作内存上下文。
  *
- * This context is used for domain check evaluation and for detoasting.
+ * 该上下文用于域检查求值以及解 TOAST。
  *
- * If we don't have a short-lived memory context, make one; if we have one,
- * reset it to get rid of any leftover cruft.  (It is a tad annoying to need a
- * whole context for this, since it will often go unused --- but it's hard to
- * avoid memory leaks otherwise.  We can make the context small, at least.)
+ * 如果没有短期内存上下文就建一个；如果已有，
+ * 就重置它以清除残留的垃圾。（需要为它专门建
+ * 个完整上下文有点烦人，因为它常常用不到 —— 但
+ * 不用它很难避免内存泄漏。至少可以把上下文设小。）
  */
 static MemoryContext
 get_short_term_cxt(ExpandedRecordHeader *erh)
@@ -1389,14 +1389,14 @@ get_short_term_cxt(ExpandedRecordHeader *erh)
 }
 
 /*
- * Construct "dummy header" for checking domain constraints.
+ * 构建用于检查域约束的"虚设头部"。
  *
- * Since we don't want to modify the state of the expanded record until
- * we've validated the constraints, our approach is to set up a dummy
- * record header containing the new field value(s) and then pass that to
- * domain_check.  We retain the dummy header as part of the expanded
- * record's state to save palloc cycles, but reinitialize (most of)
- * its contents on each use.
+ * 由于在验证完约束之前我们不想修改展开记录的
+ * 状态，我们的做法是建立一个含有新字段值的虚设
+ * 记录头部，然后把它传给 domain_check。为节省
+ * palloc 周期，我们保留虚设头部作为展开记录状态
+ * 的一部分，但每次使用时都会重新初始化
+ * 其大部分内容。
  */
 static void
 build_dummy_expanded_header(ExpandedRecordHeader *main_erh)
@@ -1404,13 +1404,13 @@ build_dummy_expanded_header(ExpandedRecordHeader *main_erh)
 	ExpandedRecordHeader *erh;
 	TupleDesc	tupdesc = expanded_record_get_tupdesc(main_erh);
 
-	/* Ensure we have a short-lived context */
+	/* 确保我们已有短期上下文 */
 	(void) get_short_term_cxt(main_erh);
 
 	/*
-	 * Allocate dummy header on first time through, or in the unlikely event
-	 * that the number of fields changes (in which case we just leak the old
-	 * one).  Include space for its field values in the request.
+	 * 首次经过时分配虚设头部，或者在字段数发生变
+	 * 化的不太可能情形下分配（此时我们直接泄漏旧
+	 * 的那个）。请求中要包含其字段值的空间。
 	 */
 	erh = main_erh->er_dummy_header;
 	if (erh == NULL || erh->nfields != tupdesc->natts)
@@ -1422,73 +1422,73 @@ build_dummy_expanded_header(ExpandedRecordHeader *main_erh)
 							   MAXALIGN(sizeof(ExpandedRecordHeader))
 							   + tupdesc->natts * (sizeof(Datum) + sizeof(bool)));
 
-		/* Ensure all header fields are initialized to 0/null */
+		/* 确保所有头部字段都初始化为 0/null */
 		memset(erh, 0, sizeof(ExpandedRecordHeader));
 
 		/*
-		 * We set up the dummy header with an indication that its memory
-		 * context is the short-lived context.  This is so that, if any
-		 * detoasting of out-of-line values happens due to an attempt to
-		 * extract a composite datum from the dummy header, the detoasted
-		 * stuff will end up in the short-lived context and not cause a leak.
-		 * This is cheating a bit on the expanded-object protocol; but since
-		 * we never pass a R/W pointer to the dummy object to any other code,
-		 * nothing else is authorized to delete or transfer ownership of the
-		 * object's context, so it should be safe enough.
+		 * 我们建立虚设头部时指明其内存上下文是短期
+		 * 上下文。这样，如果有任何行外值因试图
+		 * 提取复合 datum 而发生解 TOAST，解出来的
+		 * 内容就会落在短期上下文中而不会造成泄漏。
+		 * 这在展开对象协议上有点作弊；但由于
+		 * 我们从不把虚设对象的读/写指针传给其他代码，
+		 * 所以没有其他代码被授权删除或转移该对象上下文
+		 * 的所有权，因此应该是足够
+		 * 安全的。
 		 */
 		EOH_init_header(&erh->hdr, &ER_methods, main_erh->er_short_term_cxt);
 		erh->er_magic = ER_MAGIC;
 
-		/* Set up dvalues/dnulls, with no valid contents as yet */
+		/* 设置 dvalues/dnulls，目前尚无有效内容 */
 		chunk = (char *) erh + MAXALIGN(sizeof(ExpandedRecordHeader));
 		erh->dvalues = (Datum *) chunk;
 		erh->dnulls = (bool *) (chunk + tupdesc->natts * sizeof(Datum));
 		erh->nfields = tupdesc->natts;
 
 		/*
-		 * The fields we just set are assumed to remain constant through
-		 * multiple uses of the dummy header to check domain constraints.  All
-		 * other dummy header fields should be explicitly reset below, to
-		 * ensure there's not accidental effects of one check on the next one.
+		 * 刚设置的字段被假定在虚设头部的多次使用
+		 * （用于域约束检查）期间保持不变。所有其他虚设
+		 * 头部字段都应在下方显式重置，确保一次检查
+		 * 不会对下一次检查产生意外影响。
 		 */
 
 		main_erh->er_dummy_header = erh;
 	}
 
 	/*
-	 * If anything inquires about the dummy header's declared type, it should
-	 * report the composite base type, not the domain type (since the VALUE in
-	 * a domain check constraint is of the base type not the domain).  Hence
-	 * we do not transfer over the IS_DOMAIN flag, nor indeed any of the main
-	 * header's flags, since the dummy header is empty of data at this point.
-	 * But don't forget to mark header as dummy.
+	 * 如果有任何东西查询虚设头部的声明类型，它应当
+	 * 报告复合基础类型而非域类型（因为域检查约束中
+	 * 的 VALUE 属于基础类型而非域）。因此我们
+	 * 不转移 IS_DOMAIN 标志，实际上主头部的任何标志
+	 * 也都不转移，因为此时虚设头部不包含数据。但别
+	 * 忘了把头部标为虚设。
 	 */
 	erh->flags = ER_FLAG_IS_DUMMY;
 
-	/* Copy composite-type identification info */
+	/* 拷贝复合类型标识信息 */
 	erh->er_decltypeid = erh->er_typeid = main_erh->er_typeid;
 	erh->er_typmod = main_erh->er_typmod;
 
-	/* Dummy header does not need its own tupdesc refcount */
+	/* 虚设头部无需元组描述符引用计数 */
 	erh->er_tupdesc = tupdesc;
 	erh->er_tupdesc_id = main_erh->er_tupdesc_id;
 
 	/*
-	 * It's tempting to copy over whatever we know about the flat size, but
-	 * there's no point since we're surely about to modify the dummy record's
-	 * field(s).  Instead just clear anything left over from a previous usage
-	 * cycle.
+	 * 把我们已知的平面大小信息拷过来很诱人，但这
+	 * 没有意义，因为我们肯定马上就要修改虚设记录的
+	 * 字段。因此只需清除上一轮使用周期的遗留东
+	 * 西。
 	 */
 	erh->flat_size = 0;
 
-	/* Copy over fvalue if we have it, so that system columns are available */
+	/* 若有 fvalue 则一并拷贝，使系统列可用 */
 	erh->fvalue = main_erh->fvalue;
 	erh->fstartptr = main_erh->fstartptr;
 	erh->fendptr = main_erh->fendptr;
 }
 
 /*
- * Precheck domain constraints for a set_field operation
+ * 为 set_field 操作预检域约束
  */
 static pg_noinline void
 check_domain_for_new_field(ExpandedRecordHeader *erh, int fnumber,
@@ -1497,14 +1497,14 @@ check_domain_for_new_field(ExpandedRecordHeader *erh, int fnumber,
 	ExpandedRecordHeader *dummy_erh;
 	MemoryContext oldcxt;
 
-	/* Construct dummy header to contain proposed new field set */
+	/* 构建容纳拟定新字段集的虚设头部 */
 	build_dummy_expanded_header(erh);
 	dummy_erh = erh->er_dummy_header;
 
 	/*
-	 * If record isn't empty, just deconstruct it (if needed) and copy over
-	 * the existing field values.  If it is empty, just fill fields with nulls
-	 * manually --- don't call deconstruct_expanded_record prematurely.
+	 * 如果记录非空，只需解构它（如有需要）并拷贝
+	 * 现有的字段值。如果为空，就手动用空值填充字段
+	 * —— 不要过早调用 deconstruct_expanded_record。
 	 */
 	if (!ExpandedRecordIsEmpty(erh))
 	{
@@ -1513,7 +1513,7 @@ check_domain_for_new_field(ExpandedRecordHeader *erh, int fnumber,
 			   dummy_erh->nfields * sizeof(Datum));
 		memcpy(dummy_erh->dnulls, erh->dnulls,
 			   dummy_erh->nfields * sizeof(bool));
-		/* There might be some external values in there... */
+		/* 里面可能有外部值…… */
 		dummy_erh->flags |= erh->flags & ER_FLAG_HAVE_EXTERNAL;
 	}
 	else
@@ -1522,22 +1522,22 @@ check_domain_for_new_field(ExpandedRecordHeader *erh, int fnumber,
 		memset(dummy_erh->dnulls, true, dummy_erh->nfields * sizeof(bool));
 	}
 
-	/* Either way, we now have valid dvalues */
+	/* 反正现在 dvalues 都有效 */
 	dummy_erh->flags |= ER_FLAG_DVALUES_VALID;
 
-	/* Caller error if fnumber is system column or nonexistent column */
+	/* fnumber 为系统列或不存在列时属调用者错误 */
 	if (unlikely(fnumber <= 0 || fnumber > dummy_erh->nfields))
 		elog(ERROR, "cannot assign to field %d of expanded record", fnumber);
 
-	/* Insert proposed new value into dummy field array */
+	/* 把拟定新值插入虚设字段数组 */
 	dummy_erh->dvalues[fnumber - 1] = newValue;
 	dummy_erh->dnulls[fnumber - 1] = isnull;
 
 	/*
-	 * The proposed new value might be external, in which case we'd better set
-	 * the flag for that in dummy_erh.  (This matters in case something in the
-	 * domain check expressions tries to extract a flat value from the dummy
-	 * header.)
+	 * 拟定的新值可能是外部的，此时我们最好在
+	 * dummy_erh 中为它设置相应标志。（这一点很重要，
+	 * 以防域检查表达式试图从虚设头部提取平面值。
+	 * ）。
 	 */
 	if (!isnull)
 	{
@@ -1549,14 +1549,14 @@ check_domain_for_new_field(ExpandedRecordHeader *erh, int fnumber,
 	}
 
 	/*
-	 * We call domain_check in the short-lived context, so that any cruft
-	 * leaked by expression evaluation can be reclaimed.
+	 * 我们在短期上下文中调用 domain_check，以便
+	 * 表达式求值泄漏的垃圾可被回收。
 	 */
 	oldcxt = MemoryContextSwitchTo(erh->er_short_term_cxt);
 
 	/*
-	 * And now we can apply the check.  Note we use main header's domain cache
-	 * space, so that caching carries across repeated uses.
+	 * 现在可以应用检查了。注意我们使用主头部的域
+	 * 缓存空间，使缓存在多次使用间延续。
 	 */
 	domain_check(ExpandedRecordGetRODatum(dummy_erh), false,
 				 erh->er_decltypeid,
@@ -1565,12 +1565,12 @@ check_domain_for_new_field(ExpandedRecordHeader *erh, int fnumber,
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* We might as well clean up cruft immediately. */
+	/* 不妨立即清理垃圾。 */
 	MemoryContextReset(erh->er_short_term_cxt);
 }
 
 /*
- * Precheck domain constraints for a set_tuple operation
+ * 为 set_tuple 操作预检域约束
  */
 static pg_noinline void
 check_domain_for_new_tuple(ExpandedRecordHeader *erh, HeapTuple tuple)
@@ -1578,10 +1578,10 @@ check_domain_for_new_tuple(ExpandedRecordHeader *erh, HeapTuple tuple)
 	ExpandedRecordHeader *dummy_erh;
 	MemoryContext oldcxt;
 
-	/* If we're being told to set record to empty, just see if NULL is OK */
+	/* 若要求把记录置为空，只需看 NULL 是否可行 */
 	if (tuple == NULL)
 	{
-		/* We run domain_check in a short-lived context to limit cruft */
+		/* 在短期上下文中运行 domain_check 以限制垃圾 */
 		oldcxt = MemoryContextSwitchTo(get_short_term_cxt(erh));
 
 		domain_check((Datum) 0, true,
@@ -1591,35 +1591,35 @@ check_domain_for_new_tuple(ExpandedRecordHeader *erh, HeapTuple tuple)
 
 		MemoryContextSwitchTo(oldcxt);
 
-		/* We might as well clean up cruft immediately. */
+		/* 不妨立即清理垃圾。 */
 		MemoryContextReset(erh->er_short_term_cxt);
 
 		return;
 	}
 
-	/* Construct dummy header to contain replacement tuple */
+	/* 构建容纳替换元组的虚设头部 */
 	build_dummy_expanded_header(erh);
 	dummy_erh = erh->er_dummy_header;
 
-	/* Insert tuple, but don't bother to deconstruct its fields for now */
+	/* 插入元组，但现在不费心解构其字段 */
 	dummy_erh->fvalue = tuple;
 	dummy_erh->fstartptr = (char *) tuple->t_data;
 	dummy_erh->fendptr = ((char *) tuple->t_data) + tuple->t_len;
 	dummy_erh->flags |= ER_FLAG_FVALUE_VALID;
 
-	/* Remember if we have any out-of-line field values */
+	/* 记住我们是否有行外字段值 */
 	if (HeapTupleHasExternal(tuple))
 		dummy_erh->flags |= ER_FLAG_HAVE_EXTERNAL;
 
 	/*
-	 * We call domain_check in the short-lived context, so that any cruft
-	 * leaked by expression evaluation can be reclaimed.
+	 * 我们在短期上下文中调用 domain_check，以便
+	 * 表达式求值泄漏的垃圾可被回收。
 	 */
 	oldcxt = MemoryContextSwitchTo(erh->er_short_term_cxt);
 
 	/*
-	 * And now we can apply the check.  Note we use main header's domain cache
-	 * space, so that caching carries across repeated uses.
+	 * 现在可以应用检查了。注意我们使用主头部的域
+	 * 缓存空间，使缓存在多次使用间延续。
 	 */
 	domain_check(ExpandedRecordGetRODatum(dummy_erh), false,
 				 erh->er_decltypeid,
@@ -1628,6 +1628,6 @@ check_domain_for_new_tuple(ExpandedRecordHeader *erh, HeapTuple tuple)
 
 	MemoryContextSwitchTo(oldcxt);
 
-	/* We might as well clean up cruft immediately. */
+	/* 不妨立即清理垃圾。 */
 	MemoryContextReset(erh->er_short_term_cxt);
 }

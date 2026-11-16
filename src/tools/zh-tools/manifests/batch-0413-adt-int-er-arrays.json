@@ -1,0 +1,102 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0413",
+ "title": "adt 目录 int/expandedrecord/array_userfuncs 三文件整文件注释翻译 439 块 (块口径注释感知重扫一致); 保留整块 24 (AUF 字段名注释整块保留 EN); 审查修复轮 D1-D7 全量清偿: D1 ER L1101-1103 条件从句重排复极性 (66/51/15B), D2 AUF L664-665 补 空值标志 (56/21B), D3 ER L537-538 补 的 跨行重排 (63/70B), D4 AUF L1019 补 ，把 (61≤65), D5 AUF L1170 aitems 过度保留→译 可为 0 (24≤25), D6 AUF preserved 记账勘正 (译 101/保留 46, 字段名 29 块含 L1173/L1185/L1188/L1191/L1195), D7 行首标点消除 3 站 (int L1284-1285 上收+空框 0381 先例, ER L922-924/AUF L55-57 分号上收 64/71·64/71·39B) + ER L1540 披露维持; 规划轮 2 + 写后修复轮 1 + 审查修复轮 1; 门禁: verify adt 0 violation rc=0 (W7 advisory 14 站) / term_lint 三文件仅余 P38 4 站泛告警 / scan_halfen 本批 4 站 mixed advisory; 句号台账 FWD 2 + REV 7 逐行 python 回读核实; 未 commit",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "afc1c39abe29db6faab232298ea879220324cc4d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/int.c",
+   "kind": "c_comment",
+   "note": "int 读写与算术 (int2/int4 标识符保留, pg_strtoint 系保留, overflow→溢出, operators→算子, oid 逐字); whole-file comment translation, batch-0413"
+  },
+  {
+   "pattern": "src/backend/utils/adt/expandedrecord.c",
+   "kind": "c_comment",
+   "note": "展开记录 (expanded record→展开记录, expanded object→展开对象 0400 口径, tuple desc→元组描述符, declated→声明, ER_FLAG 系标识符保留); whole-file comment translation, batch-0413"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_userfuncs.c",
+   "kind": "c_comment",
+   "note": "数组用户函数 (array_append/array_prepend/array_agg 系标识符保留, element→元素 0405 口径, operator→算子词形, serialize/deserialize→序列化/反序列化); whole-file comment translation, batch-0413"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0413-adt-int-er-arrays.json",
+   "kind": "manifest",
+   "note": "batch-0413 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0413 entries (3 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/int.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 91,
+   "translated": 86,
+   "preserved": 5,
+   "preserved_reasons": [
+    "@1 文件头 5 行保留 EN (L3 文件名/L6·L7 版权/L10 IDENTIFICATION/L11 路径), 头部功能描述行 L4 已译",
+    "@15 OLD COMMENTS 块 6 行标识符清单保留 EN (L18/19/20/22/24/27), 标签行已译",
+    "@1187 int[24]abs() 名称行保留 EN",
+    "@1218 gcd 特例公式 2 行保留 EN (L1223/L1225)",
+    "@1324 lcm(x, y) = abs(...) 纯公式块整块保留 EN"
+   ],
+   "note": "int 读写与算术 (int2/int4 标识符保留, pg_strtoint 系保留, overflow→溢出, gcc bug 逐字保留, operators→算子); whole-file comment translation, batch-0413; dump 权威块数 91 注释感知重扫一致; content 行 175 = zh 160 + 保留 EN 15 (头部 5 + 标识符清单 6 + 名称行 L1187 + 公式 3: L1223/L1225/L1324); 行数守恒 1649 不变 (git diff numstat 160/160); 代码字节零改动 (stripped 全等, 含 L77/L129/L149/L195/L301/L638/L685/L720/L1595 行尾注释代码前缀逐字节保留); NUL 扫描 0; verify rc=0 本文件 W7 advisory 6 站 (L15/L55/L279/L333/L380 横幅词 ROUTINES/COMMENTS/CONVERSION/OPERATOR 大写形 advisory, 同 char.c/bool.c/name.c 既有先例; L1324 W7_UNTRANSLATED 公式保留即 preserved 披露); term_lint 本文件 1 hit 已修 (P30 Planner→规划器 L1582, 修复后 0 hits); scan_halfen 本文件 3 站 mixed advisory (L15 旧注释块标识符清单, L137/L203 \"num num ...\" 引号字面量); 同 EN 同译实证: L844=L960=L1040=L1102=L1140=L1168 gcc bug 6 站, L638=L685=L720 cannot overflow 尾注 3 站, L864=L980=L1044=L1122=L1152=L1181 No overflow 6 站, L643-645=L690-692=L725-727 sub 块 3 组, L849-852=L1107-1110 INT_MIN/-1 2 组, L1145-1146=L1173-1174 浮点异常 2 组, L84=308 外部二进制格式/L95=319 变为二进制格式 同构, L129=L195 无空值, L1284-1285 D7 上收空框, L77/L301 符号+N 位同构, L23=L26 算术算子, L387-392 relop 6 行同构, L764-767 四则 4 行同构, L1384-1389 位运算 6 行同构; 极性自查: L643-645 若 sub 为假…/若 sub 为真… 双分支与代码 sub 语义对照一致, L1175-1176 尚不清楚…是否会发生 保留 EN 不确定极性; D7: L1284-1285 行首标点消除——L1285 「）。」上收前行 (68≤68 恰贴), L1285 收空为裸 `*` 框线 (0381 空框先例), 块尾句号 EN \")anymore).\" → zh 「INT_MIN。）」自洽; 修复轮: 规划轮 2 (dry-run 预算 4 站/L1245 行号漂移/L966 超预算等 21 站修正 + L56/L280 横幅制表符对齐与 L301 代码前缀修正) + 写后修复轮 1 (L1582 P30 计划器→规划器) + 审查修复轮 1 (D7; 均 sed/python 回读核实); 句号台账 FWD 0 / REV 0 (python 回读对账, 全部块尾句号正向自洽)"
+  },
+  {
+   "path": "src/backend/utils/adt/expandedrecord.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 201,
+   "translated": 199,
+   "preserved": 2,
+   "preserved_reasons": [
+    "@1 文件头 5 行保留 EN (L3 文件名/L10·L11 版权/L14 IDENTIFICATION/L15 路径), 头部功能描述 L4 与设计说明 L6-L8 全译",
+    "@55 L64 expanded_record_set_tuple(erh, NULL, false, false). 调用示例行保留 EN"
+   ],
+   "note": "展开记录 (expanded record→展开记录, expanded object→展开对象 0400 expandeddatum 口径, tuple desc→元组描述符, detoast→解 TOAST array_expanded 口径, dummy header→虚设头部, flattened→展平, ER_FLAG 系/erh/typcache 标识符保留, declared type→声明类型); whole-file comment translation, batch-0413; dump 权威块数 201 注释感知重扫一致; content 行 403 = zh 396 + 保留 EN 7 (头部 5 + L64 调用行 + L879 datum 裸词接排行); 行数守恒 1633 不变 (git diff numstat 397/397, 其中 L879 datum 尾句号省略计入变更行); 代码字节零改动 (stripped 全等, 含 L478/L745/L910/L960/L1166 行尾注释代码前缀逐字节保留); NUL 扫描 0; verify rc=0 本文件 W7 advisory 6 站 (L317 lookup→查找/L1178·L1232·L1325·L1476 field→字段/L1391 value→值 译语替代 advisory); term_lint 本文件 4 hits 全为 P38 泛告警 (L317/L421/L487/L872: 段内 record=记录 与 tuple=元组 并存, 规则段级盲判为 tuple 误译记录 — 本文件 record 本义即 记录/展开记录, 0397 泛告警先例, 不修正); scan_halfen 本文件 1 站 mixed advisory (L55-67 L64 调用行保留 EN 紧邻 zh); 同 EN 同译实证: L247-249=L339-341=L590-592 私有上下文 3 组, L125-128=L256-259=L348-351 dvalues 4 行 3 组, L134=L265=L357=L1425 Ensure 头部字段 4 站, L140=L271=L363=L1442 dvalues/dnulls 4 站, L146=L277=L369=L622 填入标识 4 站, L162=L290=L386 注册回调 3 站, L168=L296=L392 保存指针 3 站, L186-187=L310-311=L414-415 ER_FLAG 3 组, L283-286=L379-382 引用计数块 2 组, L688=L1133=L1262 解构元组 3 站, L692=L1137=L1266 描述符有效 3 站, L1141=L1528 fnumber 错误 2 站, L1198=L1270 展平失准 2 站, L1200=L1272 展平大小 2 站, L478=L1166 下方无需清理 2 站, L1226=L1338 pfree 一部分 2 站, L521=L1610 行外字段值 2 站, L1356=L1584 domain_check 短期上下文 2 站, L1552-1553=L1615-1616 域检查调用 2 组, L1558-1559=L1621-1622 应用检查 2 组, L1568=L1594=L1631 清理垃圾 3 站, L66=L202=L326=L574 子对象 4 站, L60-61=L199-200 初始为空 2 组, L922-924 与 array_userfuncs L55-57 跨文件同 EN 前两行同译 (D7 分号上收后仍逐字同译), D7 L922-924 分号上收 (64/71/39B) 消除行首「；」, D3 L537-538 补 的 跨行重排 (63/70B), 极性自查: L186-187 不设置 ER_FLAG_DVALUES_VALID 故记录仍空 与代码一致, L966-969 并不预期 nfields 变化 保留 EN 让步语气, D1 L1101-1103 条件从句重排 (如果展开记录属于域类型，那么当域约束会被违反/时，赋值将被拒绝/（且不改变记录的状态）。) 条件极性与代码 ereport 路径对照一致 (66/51/15B); 忠实度披露: L107 描述符 省略 元组 前缀 (预算 62B), L1093 元组 省略 (预算 68B), L1398 (most of) 移至 L1399 其大部分内容, L1425/L1442 制表符按 EN 原文 2 层; 修复轮: 规划轮 2 + 写后修复轮 1 (L464/465 might generate 残句消化, L1436/1437 object's context 残句消化, L1479/1480 cycle 残句消化, L924 P02 不能→无法; 均 sed/python 回读核实); 句号台账 FWD 1 逐行: [L1540 EN \"header.)\" → zh \"值。）\" 标点次序 自洽]; REV 1 逐行: [L978 EN \"arrays in one palloc chunk.\" → zh 数组共用一次 palloc 预算 32B 无句号空间]; 行级 REV 1: [L879 EN \"datum.\" → zh datum 裸词接排 预算 9B]"
+  },
+  {
+   "path": "src/backend/utils/adt/array_userfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 147,
+   "translated": 101,
+   "preserved": 46,
+   "preserved_reasons": [
+    "@1 文件头 4 行保留 EN (L3 文件名/L6 版权/L8 IDENTIFICATION/L9 路径), 描述行 L4 已译",
+    "结构名/函数名行 14 行保留 EN (L27/L36/L49/L118/L171/L234/L618/L1058/L1231/L1251/L1402/L1539/L1634/L1668), 紧邻描述行已译",
+    "序列化字段名注释 29 块整块保留 EN (L648/L651/L654/L657/L733/L736/L744/L747/L750/L753/L1081/L1084/L1087/L1090/L1093/L1096/L1103/L1106/L1112/L1144/L1147/L1150/L1162/L1167/L1173/L1185/L1188/L1191/L1195 — 纯标识符无散文, varlena.c 先例; D6 勘正补列 L1173/L1185/L1188/L1191/L1195)",
+    "ndims 维度公式行 3 行保留 EN (L309/L310/L408)"
+   ],
+   "note": "数组用户函数 (array_append/array_prepend/array_cat/array_agg/array_position/array_shuffle/array_sample 标识符保留, element→元素 0405 口径, operator→算子词形, serialize/deserialize→序列化/反序列化, aggregate→聚合, transition type→转换类型); whole-file comment translation, batch-0413; dump 权威块数 147 注释感知重扫一致; 实况口径 content 行 309 = 变更 196 + 保留 113 (D6 勘正, 口径含空白框线; D5 前为 195+114; 严格散文口径 246 = zh 196 + 保留 EN 50: 头部 4 + 名称行 14 + 字段名 29 + 公式 3); 行数守恒 1701 不变 (git diff numstat 196/196); 代码字节零改动 (stripped 全等, 含 L447/L847/L1217/L1585/L1586/L1588 行尾注释代码前缀逐字节保留); NUL 扫描 0; verify rc=0 本文件 W7 advisory 2 站 (L48 fn_extra→其中/L801 StringInfos→StringInfo 译语替代 advisory); term_lint 本文件 3 hits 已修 (P02 cannot→无法 L57/L853/L1220, 修复后 0 hits); scan_halfen 本文件 0 findings; 同 EN 同译实证: L499=L888 与 L628=L841=L1068=L1131=L1211 internal 类型 7 站 (两字节档同 zh), L517-519=L905-907 转换类型块, L541-542=L929-930 NULL state2 2 组, L551=L939 拷入 agg_context 2 站, L160=L215 执行元素插入 2 站, L391=L419 递增元素个数 2 站, L394=L422 匹配元素 2 站, L586=L1007 2 的幂 (EN 大小写异 同 zh), L726-727=L1137-1138 拷贝 bytea 2 组, L847=L1217 返回空 2 站, L853-856=L1220-1223 Make the result 2 组, L492-494 与 L881-883 运行时检查块 (element/array type 分译), L1235-1236 与 L1405-1407 IS NOT DISTINCT (语义/返回值分译), L1280-1281=L1434-1435 拒绝多维 2 组, L1288=L1444 空数组定义良好 2 站, L1294=L1450 快速返回 2 站, L1323-1325=L1466-1468 类型信息 2 组, L1381=L1522 运行算子 2 站, L1392=L1532 TOAST 泄漏 2 站; 极性自查: L317-320 短路三段与代码 return 分支一致, L1367-1368 不能查看其值/但如果搜索的是空值就算命中 双分支与代码对照一致, L853-856 无法释放/职责归 nodeAgg.c 极性保留; 忠实度披露: L856/L1223 so.→责 预算 7B 跨行接排, L1003 more.→配 预算 10B, L1325/L1468 us.→变 预算 7B, L1649 two items.→没意义 预算 14B; 修复轮: 规划轮 2 (dry-run 预算 5 站/L307-309 行号漂移/L172·L235-236 横幅行号修正/L1019 制表符对齐) + 写后修复轮 1 (L57/L853/L1220 P02 不能→无法) + 审查修复轮 1 (D2/D4/D5/D6/D7; 均 python 现算预算断言+回读核实); 句号台账 FWD 1 逐行: [L636 EN 无尾句号 zh 补 更方便。]; REV 6 逐行: [L856/L1223 so.→责 (预算 7B), L1003 more.→配 (预算 10B), L1325/L1468 us.→变 (预算 7B), L1649 two items.→没意义 (预算 14B)]"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0413-adt-int-er-arrays.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0413 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0413 entries (3 adt .c + batch manifest; pure append)"
+  }
+ ]
+}

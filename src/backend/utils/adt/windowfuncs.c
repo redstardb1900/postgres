@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * windowfuncs.c
- *	  Standard window functions defined in SQL spec.
+ *	  SQL 规范定义的标准窗口函数。
  *
  * Portions Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -19,22 +19,22 @@
 #include "windowapi.h"
 
 /*
- * ranking process information
+ * 排名处理信息
  */
 typedef struct rank_context
 {
-	int64		rank;			/* current rank */
+	int64		rank;			/* 当前排名 */
 } rank_context;
 
 /*
- * ntile process information
+ * ntile 处理信息
  */
 typedef struct
 {
-	int32		ntile;			/* current result */
-	int64		rows_per_bucket;	/* row number of current bucket */
-	int64		boundary;		/* how many rows should be in the bucket */
-	int64		remainder;		/* (total rows) % (bucket num) */
+	int32		ntile;			/* 当前结果 */
+	int64		rows_per_bucket;	/* 当前桶的行号 */
+	int64		boundary;		/* 每个桶应有多少行 */
+	int64		remainder;		/* (总行数) % (桶数) */
 } ntile_context;
 
 static bool rank_up(WindowObject winobj);
@@ -43,12 +43,12 @@ static Datum leadlag_common(FunctionCallInfo fcinfo,
 
 
 /*
- * utility routine for *_rank functions.
+ * *_rank 函数的工具例程。
  */
 static bool
 rank_up(WindowObject winobj)
 {
-	bool		up = false;		/* should rank increase? */
+	bool		up = false;		/* 排名要增加吗？ */
 	int64		curpos = WinGetCurrentPosition(winobj);
 	rank_context *context;
 
@@ -57,19 +57,19 @@ rank_up(WindowObject winobj)
 
 	if (context->rank == 0)
 	{
-		/* first call: rank of first row is always 1 */
+		/* 首次调用：第一行的排名总为 1 */
 		Assert(curpos == 0);
 		context->rank = 1;
 	}
 	else
 	{
 		Assert(curpos > 0);
-		/* do current and prior tuples match by ORDER BY clause? */
+		/* 当前行与前行按 ORDER BY 子句是否匹配？ */
 		if (!WinRowsArePeers(winobj, curpos - 1, curpos))
 			up = true;
 	}
 
-	/* We can advance the mark, but only *after* access to prior row */
+	/* 可推进标记，但只能在访问前行*之后*进行 */
 	WinSetMarkPosition(winobj, curpos);
 
 	return up;
@@ -78,7 +78,7 @@ rank_up(WindowObject winobj)
 
 /*
  * row_number
- * just increment up from 1 until current partition finishes.
+ * 从 1 起一直递增，直到当前分区结束。
  */
 Datum
 window_row_number(PG_FUNCTION_ARGS)
@@ -92,7 +92,7 @@ window_row_number(PG_FUNCTION_ARGS)
 
 /*
  * window_row_number_support
- *		prosupport function for window_row_number()
+ *		window_row_number() 的支持函数
  */
 Datum
 window_row_number_support(PG_FUNCTION_ARGS)
@@ -103,7 +103,7 @@ window_row_number_support(PG_FUNCTION_ARGS)
 	{
 		SupportRequestWFuncMonotonic *req = (SupportRequestWFuncMonotonic *) rawreq;
 
-		/* row_number() is monotonically increasing */
+		/* row_number() 单调递增 */
 		req->monotonic = MONOTONICFUNC_INCREASING;
 		PG_RETURN_POINTER(req);
 	}
@@ -113,10 +113,10 @@ window_row_number_support(PG_FUNCTION_ARGS)
 		SupportRequestOptimizeWindowClause *req = (SupportRequestOptimizeWindowClause *) rawreq;
 
 		/*
-		 * The frame options can always become "ROWS BETWEEN UNBOUNDED
-		 * PRECEDING AND CURRENT ROW".  row_number() always just increments by
-		 * 1 with each row in the partition.  Using ROWS instead of RANGE
-		 * saves effort checking peer rows during execution.
+		 * 帧选项总是可以变成"ROWS BETWEEN UNBOUNDED
+		 * PRECEDING AND CURRENT ROW"。row_number() 总是每
+		 * 行加 1。使用 ROWS 而不是 RANGE
+		 * 可省去执行期间检查同级行的工作。
 		 */
 		req->frameOptions = (FRAMEOPTION_NONDEFAULT |
 							 FRAMEOPTION_ROWS |
@@ -131,8 +131,8 @@ window_row_number_support(PG_FUNCTION_ARGS)
 
 /*
  * rank
- * Rank changes when key columns change.
- * The new rank number is the current row number.
+ * 键列变化时排名变化。
+ * 新排名号就是当前行号。
  */
 Datum
 window_rank(PG_FUNCTION_ARGS)
@@ -152,7 +152,7 @@ window_rank(PG_FUNCTION_ARGS)
 
 /*
  * window_rank_support
- *		prosupport function for window_rank()
+ *		window_rank() 的支持函数
  */
 Datum
 window_rank_support(PG_FUNCTION_ARGS)
@@ -163,7 +163,7 @@ window_rank_support(PG_FUNCTION_ARGS)
 	{
 		SupportRequestWFuncMonotonic *req = (SupportRequestWFuncMonotonic *) rawreq;
 
-		/* rank() is monotonically increasing */
+		/* rank() 单调递增 */
 		req->monotonic = MONOTONICFUNC_INCREASING;
 		PG_RETURN_POINTER(req);
 	}
@@ -173,13 +173,13 @@ window_rank_support(PG_FUNCTION_ARGS)
 		SupportRequestOptimizeWindowClause *req = (SupportRequestOptimizeWindowClause *) rawreq;
 
 		/*
-		 * rank() is coded in such a way that it returns "(COUNT (*) OVER
+		 * rank() 的实现方式使其返回"(COUNT (*) OVER
 		 * (<opt> RANGE UNBOUNDED PRECEDING) - COUNT (*) OVER (<opt> RANGE
-		 * CURRENT ROW) + 1)" regardless of the frame options.  We'll set the
-		 * frame options to "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
-		 * so they agree with what window_row_number_support() optimized the
-		 * frame options to be.  Using ROWS instead of RANGE saves from doing
-		 * peer row checks during execution.
+		 * CURRENT ROW) + 1)"，与帧选项无关。我们把帧选项
+		 * 设为"ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW"
+		 * 以便与 window_row_number_support() 优化出的
+		 * 帧选项一致。使用 ROWS 而不是 RANGE 可免于
+		 * 执行期间的同级行检查。
 		 */
 		req->frameOptions = (FRAMEOPTION_NONDEFAULT |
 							 FRAMEOPTION_ROWS |
@@ -194,7 +194,7 @@ window_rank_support(PG_FUNCTION_ARGS)
 
 /*
  * dense_rank
- * Rank increases by 1 when key columns change.
+ * 键列变化时排名加 1。
  */
 Datum
 window_dense_rank(PG_FUNCTION_ARGS)
@@ -214,7 +214,7 @@ window_dense_rank(PG_FUNCTION_ARGS)
 
 /*
  * window_dense_rank_support
- *		prosupport function for window_dense_rank()
+ *		window_dense_rank() 的支持函数
  */
 Datum
 window_dense_rank_support(PG_FUNCTION_ARGS)
@@ -225,7 +225,7 @@ window_dense_rank_support(PG_FUNCTION_ARGS)
 	{
 		SupportRequestWFuncMonotonic *req = (SupportRequestWFuncMonotonic *) rawreq;
 
-		/* dense_rank() is monotonically increasing */
+		/* dense_rank() 单调递增 */
 		req->monotonic = MONOTONICFUNC_INCREASING;
 		PG_RETURN_POINTER(req);
 	}
@@ -235,10 +235,10 @@ window_dense_rank_support(PG_FUNCTION_ARGS)
 		SupportRequestOptimizeWindowClause *req = (SupportRequestOptimizeWindowClause *) rawreq;
 
 		/*
-		 * dense_rank() is unaffected by the frame options.  Here we set the
-		 * frame options to match what's done in row_number's support
-		 * function.  Using ROWS instead of RANGE (the default) saves the
-		 * executor from having to check for peer rows.
+		 * dense_rank() 不受帧选项影响。这里我们将帧选项
+		 * 设成与 row_number 支持函数中相同的值。
+		 * 使用 ROWS 而不是 RANGE（默认值）可让执行器
+		 * 免于检查同级行。
 		 */
 		req->frameOptions = (FRAMEOPTION_NONDEFAULT |
 							 FRAMEOPTION_ROWS |
@@ -253,9 +253,9 @@ window_dense_rank_support(PG_FUNCTION_ARGS)
 
 /*
  * percent_rank
- * return fraction between 0 and 1 inclusive,
- * which is described as (RK - 1) / (NR - 1), where RK is the current row's
- * rank and NR is the total number of rows, per spec.
+ * 返回 0 到 1 之间（含）的分数，
+ * 按规范描述为 (RK - 1) / (NR - 1)，其中 RK 是当前行
+ * 的排名，NR 是总行数。
  */
 Datum
 window_percent_rank(PG_FUNCTION_ARGS)
@@ -273,7 +273,7 @@ window_percent_rank(PG_FUNCTION_ARGS)
 	if (up)
 		context->rank = WinGetCurrentPosition(winobj) + 1;
 
-	/* return zero if there's only one row, per spec */
+	/* 若只有一行则按规范返回零 */
 	if (totalrows <= 1)
 		PG_RETURN_FLOAT8(0.0);
 
@@ -282,7 +282,7 @@ window_percent_rank(PG_FUNCTION_ARGS)
 
 /*
  * window_percent_rank_support
- *		prosupport function for window_percent_rank()
+ *		window_percent_rank() 的支持函数
  */
 Datum
 window_percent_rank_support(PG_FUNCTION_ARGS)
@@ -293,7 +293,7 @@ window_percent_rank_support(PG_FUNCTION_ARGS)
 	{
 		SupportRequestWFuncMonotonic *req = (SupportRequestWFuncMonotonic *) rawreq;
 
-		/* percent_rank() is monotonically increasing */
+		/* percent_rank() 单调递增 */
 		req->monotonic = MONOTONICFUNC_INCREASING;
 		PG_RETURN_POINTER(req);
 	}
@@ -303,10 +303,10 @@ window_percent_rank_support(PG_FUNCTION_ARGS)
 		SupportRequestOptimizeWindowClause *req = (SupportRequestOptimizeWindowClause *) rawreq;
 
 		/*
-		 * percent_rank() is unaffected by the frame options.  Here we set the
-		 * frame options to match what's done in row_number's support
-		 * function.  Using ROWS instead of RANGE (the default) saves the
-		 * executor from having to check for peer rows.
+		 * percent_rank() 不受帧选项影响。这里我们将帧选项
+		 * 设成与 row_number 支持函数中相同的值。
+		 * 使用 ROWS 而不是 RANGE（默认值）可让执行器
+		 * 免于检查同级行。
 		 */
 		req->frameOptions = (FRAMEOPTION_NONDEFAULT |
 							 FRAMEOPTION_ROWS |
@@ -322,9 +322,9 @@ window_percent_rank_support(PG_FUNCTION_ARGS)
 
 /*
  * cume_dist
- * return fraction between 0 and 1 inclusive,
- * which is described as NP / NR, where NP is the number of rows preceding or
- * peers to the current row, and NR is the total number of rows, per spec.
+ * 返回 0 到 1 之间（含）的分数，
+ * 按规范描述为 NP / NR，其中 NP 是先行于或同级
+ * 于当前行的行数，NR 是总行数。
  */
 Datum
 window_cume_dist(PG_FUNCTION_ARGS)
@@ -342,15 +342,15 @@ window_cume_dist(PG_FUNCTION_ARGS)
 	if (up || context->rank == 1)
 	{
 		/*
-		 * The current row is not peer to prior row or is just the first, so
-		 * count up the number of rows that are peer to the current.
+		 * 当前行与前一行不同级，或者就是第一行，因此
+		 * 要累计与当前行同级的行数。
 		 */
 		int64		row;
 
 		context->rank = WinGetCurrentPosition(winobj) + 1;
 
 		/*
-		 * start from current + 1
+		 * 从当前 + 1 开始
 		 */
 		for (row = context->rank; row < totalrows; row++)
 		{
@@ -365,7 +365,7 @@ window_cume_dist(PG_FUNCTION_ARGS)
 
 /*
  * window_cume_dist_support
- *		prosupport function for window_cume_dist()
+ *		window_cume_dist() 的支持函数
  */
 Datum
 window_cume_dist_support(PG_FUNCTION_ARGS)
@@ -376,7 +376,7 @@ window_cume_dist_support(PG_FUNCTION_ARGS)
 	{
 		SupportRequestWFuncMonotonic *req = (SupportRequestWFuncMonotonic *) rawreq;
 
-		/* cume_dist() is monotonically increasing */
+		/* cume_dist() 单调递增 */
 		req->monotonic = MONOTONICFUNC_INCREASING;
 		PG_RETURN_POINTER(req);
 	}
@@ -386,10 +386,10 @@ window_cume_dist_support(PG_FUNCTION_ARGS)
 		SupportRequestOptimizeWindowClause *req = (SupportRequestOptimizeWindowClause *) rawreq;
 
 		/*
-		 * cume_dist() is unaffected by the frame options.  Here we set the
-		 * frame options to match what's done in row_number's support
-		 * function.  Using ROWS instead of RANGE (the default) saves the
-		 * executor from having to check for peer rows.
+		 * cume_dist() 不受帧选项影响。这里我们将帧选项
+		 * 设成与 row_number 支持函数中相同的值。
+		 * 使用 ROWS 而不是 RANGE（默认值）可让执行器
+		 * 免于检查同级行。
 		 */
 		req->frameOptions = (FRAMEOPTION_NONDEFAULT |
 							 FRAMEOPTION_ROWS |
@@ -404,8 +404,8 @@ window_cume_dist_support(PG_FUNCTION_ARGS)
 
 /*
  * ntile
- * compute an exact numeric value with scale 0 (zero),
- * ranging from 1 (one) to n, per spec.
+ * 计算一个标度为 0（零）的精确数值，
+ * 从 1（一）到 n，见规范。
  */
 Datum
 window_ntile(PG_FUNCTION_ARGS)
@@ -418,7 +418,7 @@ window_ntile(PG_FUNCTION_ARGS)
 
 	if (context->ntile == 0)
 	{
-		/* first call */
+		/* 首次 */
 		int64		total;
 		int32		nbuckets;
 		bool		isnull;
@@ -427,15 +427,15 @@ window_ntile(PG_FUNCTION_ARGS)
 		nbuckets = DatumGetInt32(WinGetFuncArgCurrent(winobj, 0, &isnull));
 
 		/*
-		 * per spec: If NT is the null value, then the result is the null
-		 * value.
+		 * 按规范：若 NT 是空值，则结果为空
+		 * 值。
 		 */
 		if (isnull)
 			PG_RETURN_NULL();
 
 		/*
-		 * per spec: If NT is less than or equal to 0 (zero), then an
-		 * exception condition is raised.
+		 * 按规范：若 NT 小于等于 0（零），则
+		 * 会引发异常条件。
 		 */
 		if (nbuckets <= 0)
 			ereport(ERROR,
@@ -450,8 +450,8 @@ window_ntile(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * If the total number is not divisible, add 1 row to leading
-			 * buckets.
+			 * 若不能整除，则给前面的桶各加
+			 * 1 行。
 			 */
 			context->remainder = total % nbuckets;
 			if (context->remainder != 0)
@@ -462,7 +462,7 @@ window_ntile(PG_FUNCTION_ARGS)
 	context->rows_per_bucket++;
 	if (context->boundary < context->rows_per_bucket)
 	{
-		/* ntile up */
+		/* 递增 */
 		if (context->remainder != 0 && context->ntile == context->remainder)
 		{
 			context->remainder = 0;
@@ -477,7 +477,7 @@ window_ntile(PG_FUNCTION_ARGS)
 
 /*
  * window_ntile_support
- *		prosupport function for window_ntile()
+ *		window_ntile() 的支持函数
  */
 Datum
 window_ntile_support(PG_FUNCTION_ARGS)
@@ -494,15 +494,15 @@ window_ntile_support(PG_FUNCTION_ARGS)
 			Node *expr = eval_const_expressions(NULL, linitial(wfunc->args));
 
 			/*
-			 * Due to the Node representation of WindowClause runConditions in
-			 * version prior to v17, we need to insist that ntile arg is Const
-			 * to allow safe application of the runCondition optimization.
+			 * 由于 v17 之前版本中 WindowClause runConditions 的
+			 * Node 表示形式，必须坚持 ntile 参数为 Const，
+			 * 以便安全地应用 runCondition 优化。
 			 */
 			if (IsA(expr, Const))
 			{
 				/*
-				 * ntile() is monotonically increasing as the number of
-				 * buckets cannot change after the first call
+				 * ntile() 单调递增，因为桶的数量在
+				 * 首次调用之后不会改变
 				 */
 				req->monotonic = MONOTONICFUNC_INCREASING;
 				PG_RETURN_POINTER(req);
@@ -517,10 +517,10 @@ window_ntile_support(PG_FUNCTION_ARGS)
 		SupportRequestOptimizeWindowClause *req = (SupportRequestOptimizeWindowClause *) rawreq;
 
 		/*
-		 * ntile() is unaffected by the frame options.  Here we set the frame
-		 * options to match what's done in row_number's support function.
-		 * Using ROWS instead of RANGE (the default) saves the executor from
-		 * having to check for peer rows.
+		 * ntile() 不受帧选项影响。这里我们将帧选项设
+		 * 成与 row_number 支持函数中相同的值。
+		 * 使用 ROWS 而不是 RANGE（默认值）可让执行器免于
+		 * 检查同级行。
 		 */
 		req->frameOptions = (FRAMEOPTION_NONDEFAULT |
 							 FRAMEOPTION_ROWS |
@@ -535,10 +535,10 @@ window_ntile_support(PG_FUNCTION_ARGS)
 
 /*
  * leadlag_common
- * common operation of lead() and lag()
- * For lead() forward is true, whereas for lag() it is false.
- * withoffset indicates we have an offset second argument.
- * withdefault indicates we have a default third argument.
+ * lead() 与 lag() 的公共操作
+ * 对 lead() forward 为 true，而对 lag() 则为 false。
+ * withoffset 表示有第二个偏移量参数。
+ * withdefault 表示有第三个默认值参数。
  */
 static Datum
 leadlag_common(FunctionCallInfo fcinfo,
@@ -573,8 +573,8 @@ leadlag_common(FunctionCallInfo fcinfo,
 	if (isout)
 	{
 		/*
-		 * target row is out of the partition; supply default value if
-		 * provided.  otherwise it'll stay NULL
+		 * 目标行超出分区；若给定了默认值则用它，
+		 * 否则将保持为 NULL
 		 */
 		if (withdefault)
 			result = WinGetFuncArgCurrent(winobj, 2, &isnull);
@@ -588,9 +588,9 @@ leadlag_common(FunctionCallInfo fcinfo,
 
 /*
  * lag
- * returns the value of VE evaluated on a row that is 1
- * row before the current row within a partition,
- * per spec.
+ * 返回对分区内当前行之前第 1 行求值的
+ * VE 值，
+ * 按规范
  */
 Datum
 window_lag(PG_FUNCTION_ARGS)
@@ -600,9 +600,9 @@ window_lag(PG_FUNCTION_ARGS)
 
 /*
  * lag_with_offset
- * returns the value of VE evaluated on a row that is OFFSET
- * rows before the current row within a partition,
- * per spec.
+ * 返回对分区内当前行之前第 OFFSET 行求值的
+ * VE 值，
+ * 按规范
  */
 Datum
 window_lag_with_offset(PG_FUNCTION_ARGS)
@@ -612,8 +612,8 @@ window_lag_with_offset(PG_FUNCTION_ARGS)
 
 /*
  * lag_with_offset_and_default
- * same as lag_with_offset but accepts default value
- * as its third argument.
+ * 与 lag_with_offset 相同，但接受默认值
+ * 作为第三参数。
  */
 Datum
 window_lag_with_offset_and_default(PG_FUNCTION_ARGS)
@@ -623,9 +623,9 @@ window_lag_with_offset_and_default(PG_FUNCTION_ARGS)
 
 /*
  * lead
- * returns the value of VE evaluated on a row that is 1
- * row after the current row within a partition,
- * per spec.
+ * 返回对分区内当前行之后第 1 行求值的
+ * VE 值，
+ * 按规范
  */
 Datum
 window_lead(PG_FUNCTION_ARGS)
@@ -635,9 +635,9 @@ window_lead(PG_FUNCTION_ARGS)
 
 /*
  * lead_with_offset
- * returns the value of VE evaluated on a row that is OFFSET
- * number of rows after the current row within a partition,
- * per spec.
+ * 返回对分区内当前行之后第 OFFSET 行求值的
+ * VE 值，
+ * 按规范
  */
 Datum
 window_lead_with_offset(PG_FUNCTION_ARGS)
@@ -647,8 +647,8 @@ window_lead_with_offset(PG_FUNCTION_ARGS)
 
 /*
  * lead_with_offset_and_default
- * same as lead_with_offset but accepts default value
- * as its third argument.
+ * 与 lead_with_offset 相同，但接受默认值
+ * 作为第三参数。
  */
 Datum
 window_lead_with_offset_and_default(PG_FUNCTION_ARGS)
@@ -658,8 +658,8 @@ window_lead_with_offset_and_default(PG_FUNCTION_ARGS)
 
 /*
  * first_value
- * return the value of VE evaluated on the first row of the
- * window frame, per spec.
+ * 返回对窗口帧第一行求值的
+ * VE 值，按规范。
  */
 Datum
 window_first_value(PG_FUNCTION_ARGS)
@@ -679,8 +679,8 @@ window_first_value(PG_FUNCTION_ARGS)
 
 /*
  * last_value
- * return the value of VE evaluated on the last row of the
- * window frame, per spec.
+ * 返回对窗口帧最后一行求值的
+ * VE 值，按规范。
  */
 Datum
 window_last_value(PG_FUNCTION_ARGS)
@@ -700,8 +700,8 @@ window_last_value(PG_FUNCTION_ARGS)
 
 /*
  * nth_value
- * return the value of VE evaluated on the n-th row from the first
- * row of the window frame, per spec.
+ * 返回对从窗口帧第一行起的第 n 行求值的
+ * VE 值，按规范。
  */
 Datum
 window_nth_value(PG_FUNCTION_ARGS)

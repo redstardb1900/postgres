@@ -1,18 +1,18 @@
 /*-------------------------------------------------------------------------
  * xid8funcs.c
  *
- *	Export internal transaction IDs to user level.
+ *	将内部事务 ID 导出给用户层。
  *
- * Note that only top-level transaction IDs are exposed to user sessions.
- * This is important because xid8s frequently persist beyond the global
- * xmin horizon, or may even be shipped to other machines, so we cannot
- * rely on being able to correlate subtransaction IDs with their parents
- * via functions such as SubTransGetTopmostTransaction().
+ * 注意：只有顶层事务 ID 会暴露给用户会话。
+ * 这一点很重要，因为 xid8 的存续期常常超出全局
+ * xmin 水平线，甚至可能被传到其他机器上，故无法
+ * 依靠子事务 ID 与其父事务建立关联，
+ * 如用 SubTransGetTopmostTransaction() 等函数。
  *
- * These functions are used to support the txid_XXX functions and the newer
- * pg_current_xact_id, pg_current_snapshot and related fmgr functions, since
- * the only difference between them is whether they expose xid8 or int8 values
- * to users.  The txid_XXX variants should eventually be dropped.
+ * 这些函数用于支持 txid_XXX 函数以及较新的
+ * pg_current_xact_id、pg_current_snapshot 及相关 fmgr 函数，因为
+ * 二者唯一的区别在于对外暴露的是 xid8 还是 int8 值，
+ * txid_XXX 变体最终应被移除。
  *
  *
  *	Copyright (c) 2003-2023, PostgreSQL Global Development Group
@@ -44,28 +44,28 @@
 
 
 /*
- * If defined, use bsearch() function for searching for xid8s in snapshots
- * that have more than the specified number of values.
+ * 若定义此宏，当快照中 xid8 数量超过指定值时，
+ * 改用 bsearch() 函数进行搜索。
  */
 #define USE_BSEARCH_IF_NXIP_GREATER 30
 
 
 /*
- * Snapshot containing FullTransactionIds.
+ * 包含完整事务标识符的快照。
  */
 typedef struct
 {
 	/*
-	 * 4-byte length hdr, should not be touched directly.
+	 * 4 字节长度头，不应直接改动。
 	 *
-	 * Explicit embedding is ok as we want always correct alignment anyway.
+	 * 显式内嵌没问题，反正我们总要保证正确对齐。
 	 */
 	int32		__varsz;
 
-	uint32		nxip;			/* number of fxids in xip array */
+	uint32		nxip;			/* xip 数组中 fxid 的数量 */
 	FullTransactionId xmin;
 	FullTransactionId xmax;
-	/* in-progress fxids, xmin <= xip[i] < xmax: */
+	/* 进行中 fxid，xmin <= xip[i] < xmax: */
 	FullTransactionId xip[FLEXIBLE_ARRAY_MEMBER];
 } pg_snapshot;
 
@@ -75,25 +75,25 @@ typedef struct
 	((MaxAllocSize - offsetof(pg_snapshot, xip)) / sizeof(FullTransactionId))
 
 /*
- * Compile-time limits on the procarray (MAX_BACKENDS processes plus
- * MAX_BACKENDS prepared transactions) guarantee nxip won't be too large.
+ * procarray 的编译期限定（MAX_BACKENDS 个进程加
+ * MAX_BACKENDS 个已准备事务）保证了 nxip 不会过大。
  */
 StaticAssertDecl(MAX_BACKENDS * 2 <= PG_SNAPSHOT_MAX_NXIP,
 				 "possible overflow in pg_current_snapshot()");
 
 
 /*
- * Helper to get a TransactionId from a 64-bit xid with wraparound detection.
+ * 辅助函数：从 64 位 xid 获取 TransactionId，并检测回绕。
  *
- * It is an ERROR if the xid is in the future.  Otherwise, returns true if
- * the transaction is still new enough that we can determine whether it
- * committed and false otherwise.  If *extracted_xid is not NULL, it is set
- * to the low 32 bits of the transaction ID (i.e. the actual XID, without the
- * epoch).
+ * 若 xid 位于未来则报 ERROR；否则，若事务仍足够新、
+ * 能判断其是否已提交，则返回真，否则返回假。
+ * 若 *extracted_xid 非 NULL，则将其设为
+ * 事务 ID 的低 32 位，即实际 XID（不含纪元）。
  *
- * The caller must hold XactTruncationLock since it's dealing with arbitrary
- * XIDs, and must continue to hold it until it's done with any clog lookups
- * relating to those XIDs.
+ *
+ * 调用方必须持有 XactTruncationLock，因其处理的是任意
+ * XID，且在完成与这些 XID 相关的 clog 查找之前，
+ * 须继续持有。
  */
 static bool
 TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
@@ -115,11 +115,11 @@ TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 	if (!TransactionIdIsValid(xid))
 		return false;
 
-	/* For non-normal transaction IDs, we can ignore the epoch. */
+	/* 对于非普通事务 ID，可以忽略纪元。 */
 	if (!TransactionIdIsNormal(xid))
 		return true;
 
-	/* If the transaction ID is in the future, throw an error. */
+	/* 若事务 ID 位于未来，则抛出错误。 */
 	if (!FullTransactionIdPrecedes(fxid, now_fullxid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -127,20 +127,20 @@ TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 						(unsigned long long) U64FromFullTransactionId(fxid))));
 
 	/*
-	 * ShmemVariableCache->oldestClogXid is protected by XactTruncationLock,
-	 * but we don't acquire that lock here.  Instead, we require the caller to
-	 * acquire it, because the caller is presumably going to look up the
-	 * returned XID.  If we took and released the lock within this function, a
-	 * CLOG truncation could occur before the caller finished with the XID.
+	 * ShmemVariableCache->oldestClogXid 由 XactTruncationLock 保护，
+	 * 但这里并不获取该锁，而是要求调用方来获取，
+	 * 因为调用方随后大概率要查找
+	 * 返回的 XID。若在本函数内获取并释放该锁，
+	 * CLOG 截断可能在调用方用完该 XID 之前发生。
 	 */
 	Assert(LWLockHeldByMe(XactTruncationLock));
 
 	/*
-	 * If fxid is not older than ShmemVariableCache->oldestClogXid, the
-	 * relevant CLOG entry is guaranteed to still exist.  Convert
-	 * ShmemVariableCache->oldestClogXid into a FullTransactionId to compare
-	 * it with fxid.  Determine the right epoch knowing that oldest_fxid
-	 * shouldn't be more than 2^31 older than now_fullxid.
+	 * 若 fxid 不早于 ShmemVariableCache->oldestClogXid，则
+	 * 相应 CLOG 条目必然仍然存在。将
+	 * ShmemVariableCache->oldestClogXid 转成完整事务标识符，
+	 * 以便与 fxid 比较。鉴于 oldest_fxid 至多只比
+	 * now_fullxid 老 2^31 以上，以定纪元。
 	 */
 	oldest_xid = ShmemVariableCache->oldestClogXid;
 	Assert(TransactionIdPrecedesOrEquals(oldest_xid, now_epoch_next_xid));
@@ -157,10 +157,10 @@ TransactionIdInRecentPast(FullTransactionId fxid, TransactionId *extracted_xid)
 }
 
 /*
- * Convert a TransactionId obtained from a snapshot held by the caller to a
- * FullTransactionId.  Use next_fxid as a reference FullTransactionId, so that
- * we can compute the high order bits.  It must have been obtained by the
- * caller with ReadNextFullTransactionId() after the snapshot was created.
+ * 把调用方所持快照中的 TransactionId 转换为
+ * 完整事务标识符。用 next_fxid 作为参照完整事务标识符，
+ * 以便我们能算出高位。它必须由调用方在快照创建
+ * 之后用 ReadNextFullTransactionId() 获得。
  */
 static FullTransactionId
 widen_snapshot_xid(TransactionId xid, FullTransactionId next_fxid)
@@ -168,16 +168,16 @@ widen_snapshot_xid(TransactionId xid, FullTransactionId next_fxid)
 	TransactionId next_xid = XidFromFullTransactionId(next_fxid);
 	uint32		epoch = EpochFromFullTransactionId(next_fxid);
 
-	/* Special transaction ID. */
+	/* 特殊事务 ID。 */
 	if (!TransactionIdIsNormal(xid))
 		return FullTransactionIdFromEpochAndXid(0, xid);
 
 	/*
-	 * The 64 bit result must be <= next_fxid, since next_fxid hadn't been
-	 * issued yet when the snapshot was created.  Every TransactionId in the
-	 * snapshot must therefore be from the same epoch as next_fxid, or the
-	 * epoch before.  We know this because next_fxid is never allow to get
-	 * more than one epoch ahead of the TransactionIds in any snapshot.
+	 * 64 位结果必然 <= next_fxid，因为创建快照时
+	 * next_fxid 尚未发放。快照中的每个 TransactionId
+	 * 必然与 next_fxid 同属一个纪元，或者属于其前
+	 * 一个纪元。因为 next_fxid 绝不会超前任何快照中
+	 * 的 TransactionId 超前一个以上纪元。
 	 */
 	if (xid > next_xid)
 		epoch--;
@@ -186,7 +186,7 @@ widen_snapshot_xid(TransactionId xid, FullTransactionId next_fxid)
 }
 
 /*
- * txid comparator for qsort/bsearch
+ * qsort/bsearch 的 txid 比较器
  */
 static int
 cmp_fxid(const void *aa, const void *bb)
@@ -202,11 +202,11 @@ cmp_fxid(const void *aa, const void *bb)
 }
 
 /*
- * Sort a snapshot's txids, so we can use bsearch() later.  Also remove
- * any duplicates.
+ * 对快照的 txid 排序，以便稍后能用 bsearch()。
+ * 同时去重。
  *
- * For consistency of on-disk representation, we always sort even if bsearch
- * will not be used.
+ * 为保证磁盘上表示的一致性，即使不用 bsearch，我们
+ * 照常排序。
  */
 static void
 sort_snapshot(pg_snapshot *snap)
@@ -220,7 +220,7 @@ sort_snapshot(pg_snapshot *snap)
 }
 
 /*
- * check fxid visibility.
+ * 查 fxid 可见性。
  */
 static bool
 is_visible_fxid(FullTransactionId value, const pg_snapshot *snap)
@@ -236,7 +236,7 @@ is_visible_fxid(FullTransactionId value, const pg_snapshot *snap)
 
 		res = bsearch(&value, snap->xip, snap->nxip, sizeof(FullTransactionId),
 					  cmp_fxid);
-		/* if found, transaction is still in progress */
+		/* 若找到，说明事务仍在进行中 */
 		return (res) ? false : true;
 	}
 #endif
@@ -254,7 +254,7 @@ is_visible_fxid(FullTransactionId value, const pg_snapshot *snap)
 }
 
 /*
- * helper functions to use StringInfo for pg_snapshot creation.
+ * 用 StringInfo 构建 pg_snapshot 的辅助函数。
  */
 
 static StringInfo
@@ -277,7 +277,7 @@ buf_add_txid(StringInfo buf, FullTransactionId fxid)
 {
 	pg_snapshot *snap = (pg_snapshot *) buf->data;
 
-	/* do this before possible realloc */
+	/* 在可能 realloc 前执行 */
 	snap->nxip++;
 
 	appendBinaryStringInfo(buf, &fxid, sizeof(fxid));
@@ -290,7 +290,7 @@ buf_finalize(StringInfo buf)
 
 	SET_VARSIZE(snap, buf->len);
 
-	/* buf is not needed anymore */
+	/* 不再需要 buf 了 */
 	buf->data = NULL;
 	pfree(buf);
 
@@ -298,7 +298,7 @@ buf_finalize(StringInfo buf)
 }
 
 /*
- * parse snapshot from cstring
+ * 从 cstring 解析快照
  */
 static pg_snapshot *
 parse_snapshot(const char *str, Node *escontext)
@@ -321,29 +321,29 @@ parse_snapshot(const char *str, Node *escontext)
 		goto bad_format;
 	str = endp + 1;
 
-	/* it should look sane */
+	/* 应显得合理 */
 	if (!FullTransactionIdIsValid(xmin) ||
 		!FullTransactionIdIsValid(xmax) ||
 		FullTransactionIdPrecedes(xmax, xmin))
 		goto bad_format;
 
-	/* allocate buffer */
+	/* 分配缓冲区 */
 	buf = buf_init(xmin, xmax);
 
-	/* loop over values */
+	/* 遍历各个值 */
 	while (*str != '\0')
 	{
-		/* read next value */
+		/* 读下一个值 */
 		val = FullTransactionIdFromU64(strtou64(str, &endp, 10));
 		str = endp;
 
-		/* require the input to be in order */
+		/* 要求输入必须有序 */
 		if (FullTransactionIdPrecedes(val, xmin) ||
 			FullTransactionIdFollowsOrEquals(val, xmax) ||
 			FullTransactionIdPrecedes(val, last_val))
 			goto bad_format;
 
-		/* skip duplicates */
+		/* 跳过重复项 */
 		if (!FullTransactionIdEquals(val, last_val))
 			buf_add_txid(buf, val);
 		last_val = val;
@@ -364,19 +364,19 @@ bad_format:
 }
 
 /*
- * pg_current_xact_id() returns xid8
+ * pg_current_xact_id() 返回 xid8
  *
- *	Return the current toplevel full transaction ID.
- *	If the current transaction does not have one, one is assigned.
+ *	返回当前顶层完整事务标识符。
+ *	若当前事务尚没有，则分配一个。
  */
 Datum
 pg_current_xact_id(PG_FUNCTION_ARGS)
 {
 	/*
-	 * Must prevent during recovery because if an xid is not assigned we try
-	 * to assign one, which would fail. Programs already rely on this function
-	 * to always return a valid current xid, so we should not change this to
-	 * return NULL or similar invalid xid.
+	 * 恢复期必须禁止调用，因为若尚未分配 xid，我们会
+	 * 尝试去分配，而这会失败。现有程序已依赖此函数
+	 * 总是返回有效的当前 xid，因此不应把它改成
+	 * 返回 NULL 或类似无效 xid。
 	 */
 	PreventCommandDuringRecovery("pg_current_xact_id()");
 
@@ -384,8 +384,8 @@ pg_current_xact_id(PG_FUNCTION_ARGS)
 }
 
 /*
- * Same as pg_current_xact_id() but doesn't assign a new xid if there
- * isn't one yet.
+ * 与 pg_current_xact_id() 相同，但若还没有 xid，
+ * 不分配。
  */
 Datum
 pg_current_xact_id_if_assigned(PG_FUNCTION_ARGS)
@@ -399,11 +399,11 @@ pg_current_xact_id_if_assigned(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_current_snapshot() returns pg_snapshot
+ * pg_current_snapshot() 返回 pg_snapshot
  *
- *		Return current snapshot
+ *		返回当前快照
  *
- * Note that only top-transaction XIDs are included in the snapshot.
+ * 注意快照中只包含顶层事务的 XID。
  */
 Datum
 pg_current_snapshot(PG_FUNCTION_ARGS)
@@ -418,11 +418,11 @@ pg_current_snapshot(PG_FUNCTION_ARGS)
 	if (cur == NULL)
 		elog(ERROR, "no active snapshot set");
 
-	/* allocate */
+	/* 分配 */
 	nxip = cur->xcnt;
 	snap = palloc(PG_SNAPSHOT_SIZE(nxip));
 
-	/* fill */
+	/* 填 */
 	snap->xmin = widen_snapshot_xid(cur->xmin, next_fxid);
 	snap->xmax = widen_snapshot_xid(cur->xmax, next_fxid);
 	snap->nxip = nxip;
@@ -430,24 +430,24 @@ pg_current_snapshot(PG_FUNCTION_ARGS)
 		snap->xip[i] = widen_snapshot_xid(cur->xip[i], next_fxid);
 
 	/*
-	 * We want them guaranteed to be in ascending order.  This also removes
-	 * any duplicate xids.  Normally, an XID can only be assigned to one
-	 * backend, but when preparing a transaction for two-phase commit, there
-	 * is a transient state when both the original backend and the dummy
-	 * PGPROC entry reserved for the prepared transaction hold the same XID.
+	 * 我们要保证它们按升序排列。这同时还能去除
+	 * 重复的 xid。通常一个 XID 只会分配给一个
+	 * 后端，但两阶段提交准备事务时会有过渡状态，
+	 * 此时原后端与为预备事务保留的哑 PGPROC 条目
+	 * 都持有同一个 XID。
 	 */
 	sort_snapshot(snap);
 
-	/* set size after sorting, because it may have removed duplicate xips */
+	/* 排序后再设置大小，因为可能已去除了重复的 xip */
 	SET_VARSIZE(snap, PG_SNAPSHOT_SIZE(snap->nxip));
 
 	PG_RETURN_POINTER(snap);
 }
 
 /*
- * pg_snapshot_in(cstring) returns pg_snapshot
+ * pg_snapshot_in(cstring) 返回 pg_snapshot
  *
- *		input function for type pg_snapshot
+ *		pg_snapshot 类型的输入函数
  */
 Datum
 pg_snapshot_in(PG_FUNCTION_ARGS)
@@ -461,9 +461,9 @@ pg_snapshot_in(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_snapshot_out(pg_snapshot) returns cstring
+ * pg_snapshot_out(pg_snapshot) 返回 cstring
  *
- *		output function for type pg_snapshot
+ *		pg_snapshot 类型的输出函数
  */
 Datum
 pg_snapshot_out(PG_FUNCTION_ARGS)
@@ -491,11 +491,11 @@ pg_snapshot_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_snapshot_recv(internal) returns pg_snapshot
+ * pg_snapshot_recv(internal) 返回 pg_snapshot
  *
- *		binary input function for type pg_snapshot
+ *		pg_snapshot 类型的二进制输入函数
  *
- *		format: int4 nxip, int8 xmin, int8 xmax, int8 xip
+ *		格式: int4 nxip, int8 xmin, int8 xmax, int8 xip
  */
 Datum
 pg_snapshot_recv(PG_FUNCTION_ARGS)
@@ -508,7 +508,7 @@ pg_snapshot_recv(PG_FUNCTION_ARGS)
 	FullTransactionId xmin;
 	FullTransactionId xmax;
 
-	/* load and validate nxip */
+	/* 读取并校验 nxip */
 	nxip = pq_getmsgint(buf, 4);
 	if (nxip < 0 || nxip > PG_SNAPSHOT_MAX_NXIP)
 		goto bad_format;
@@ -534,7 +534,7 @@ pg_snapshot_recv(PG_FUNCTION_ARGS)
 			FullTransactionIdPrecedes(xmax, cur))
 			goto bad_format;
 
-		/* skip duplicate xips */
+		/* 跳过重复的 xip */
 		if (FullTransactionIdEquals(cur, last))
 		{
 			i--;
@@ -553,15 +553,15 @@ bad_format:
 	ereport(ERROR,
 			(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
 			 errmsg("invalid external pg_snapshot data")));
-	PG_RETURN_POINTER(NULL);	/* keep compiler quiet */
+	PG_RETURN_POINTER(NULL);	/* 使编译器安静 */
 }
 
 /*
- * pg_snapshot_send(pg_snapshot) returns bytea
+ * pg_snapshot_send(pg_snapshot) 返回 bytea
  *
- *		binary output function for type pg_snapshot
+ *		pg_snapshot 类型的二进制输出函数
  *
- *		format: int4 nxip, u64 xmin, u64 xmax, u64 xip...
+ *		格式: int4 nxip, u64 xmin, u64 xmax, u64 xip...
  */
 Datum
 pg_snapshot_send(PG_FUNCTION_ARGS)
@@ -580,9 +580,9 @@ pg_snapshot_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_visible_in_snapshot(xid8, pg_snapshot) returns bool
+ * pg_visible_in_snapshot(xid8, pg_snapshot) 返回 bool
  *
- *		is txid visible in snapshot ?
+ *		txid 在快照中可见吗？
  */
 Datum
 pg_visible_in_snapshot(PG_FUNCTION_ARGS)
@@ -594,9 +594,9 @@ pg_visible_in_snapshot(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_snapshot_xmin(pg_snapshot) returns xid8
+ * pg_snapshot_xmin(pg_snapshot) 返回 xid8
  *
- *		return snapshot's xmin
+ *		返回快照的 xmin
  */
 Datum
 pg_snapshot_xmin(PG_FUNCTION_ARGS)
@@ -607,9 +607,9 @@ pg_snapshot_xmin(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_snapshot_xmax(pg_snapshot) returns xid8
+ * pg_snapshot_xmax(pg_snapshot) 返回 xid8
  *
- *		return snapshot's xmax
+ *		返回快照的 xmax
  */
 Datum
 pg_snapshot_xmax(PG_FUNCTION_ARGS)
@@ -620,9 +620,9 @@ pg_snapshot_xmax(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_snapshot_xip(pg_snapshot) returns setof xid8
+ * pg_snapshot_xip(pg_snapshot) 返回 setof xid8
  *
- *		return in-progress xid8s in snapshot.
+ *		返回快照中进行中的 xid8。
  */
 Datum
 pg_snapshot_xip(PG_FUNCTION_ARGS)
@@ -631,21 +631,21 @@ pg_snapshot_xip(PG_FUNCTION_ARGS)
 	pg_snapshot *snap;
 	FullTransactionId value;
 
-	/* on first call initialize fctx and get copy of snapshot */
+	/* 首次调用时初始化 fctx 并获取快照副本 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		pg_snapshot *arg = (pg_snapshot *) PG_GETARG_VARLENA_P(0);
 
 		fctx = SRF_FIRSTCALL_INIT();
 
-		/* make a copy of user snapshot */
+		/* 复制一份用户快照 */
 		snap = MemoryContextAlloc(fctx->multi_call_memory_ctx, VARSIZE(arg));
 		memcpy(snap, arg, VARSIZE(arg));
 
 		fctx->user_fctx = snap;
 	}
 
-	/* return values one-by-one */
+	/* 逐个返回值 */
 	fctx = SRF_PERCALL_SETUP();
 	snap = fctx->user_fctx;
 	if (fctx->call_cntr < snap->nxip)
@@ -660,14 +660,14 @@ pg_snapshot_xip(PG_FUNCTION_ARGS)
 }
 
 /*
- * Report the status of a recent transaction ID, or null for wrapped,
- * truncated away or otherwise too old XIDs.
+ * 报告较新事务 ID 的状态；对已回绕、
+ * 已截除或过老的 XID 则为 null。
  *
- * The passed epoch-qualified xid is treated as a normal xid, not a
- * multixact id.
+ * 传入的带纪元限定的 xid 被当作普通 xid 处理，
+ * 非 mxid。
  *
- * If it points to a committed subxact the result is the subxact status even
- * though the parent xact may still be in progress or may have aborted.
+ * 若指向已提交的子事务，结果就是该子事务的状态，
+ * 即使父事务可能仍在进行中或已中止。
  */
 Datum
 pg_xact_status(PG_FUNCTION_ARGS)
@@ -677,8 +677,8 @@ pg_xact_status(PG_FUNCTION_ARGS)
 	TransactionId xid;
 
 	/*
-	 * We must protect against concurrent truncation of clog entries to avoid
-	 * an I/O error on SLRU lookup.
+	 * 必须防范 clog 条目被并发截断，以避免
+	 * SLRU 查找的 I/O 错误。
 	 */
 	LWLockAcquire(XactTruncationLock, LW_SHARED);
 	if (TransactionIdInRecentPast(fxid, &xid))
@@ -686,12 +686,12 @@ pg_xact_status(PG_FUNCTION_ARGS)
 		Assert(TransactionIdIsValid(xid));
 
 		/*
-		 * Like when doing visibility checks on a row, check whether the
-		 * transaction is still in progress before looking into the CLOG.
-		 * Otherwise we would incorrectly return "committed" for a transaction
-		 * that is committing and has already updated the CLOG, but hasn't
-		 * removed its XID from the proc array yet. (See comment on that race
-		 * condition at the top of heapam_visibility.c)
+		 * 与对行做可见性检查时一样，先检查事务
+		 * 是否仍在进行中，然后再查 CLOG。
+		 * 否则，对一个正在提交且已更新 CLOG、但尚未从
+		 * proc 数组移除其 XID 的事务，我们会错误地返回
+		 * "committed"。（有关该竞争条件的说明见
+		 * heapam_visibility.c 顶部）。
 		 */
 		if (TransactionIdIsInProgress(xid))
 			status = "in progress";
@@ -699,7 +699,7 @@ pg_xact_status(PG_FUNCTION_ARGS)
 			status = "committed";
 		else
 		{
-			/* it must have aborted or crashed */
+			/* 它必定已中止或崩溃 */
 			status = "aborted";
 		}
 	}

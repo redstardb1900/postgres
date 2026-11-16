@@ -7001,6 +7001,31 @@
    "pattern": "src/backend/utils/adt/arraysubs.c",
    "kind": "c_comment",
    "note": "数组下标 (subscript=下标, SubscriptingRef 标识符保留, 上界/下界 jsonbsubs 0402 同源口径); whole-file comment translation (batch-0404, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/xid8funcs.c",
+   "kind": "c_comment",
+   "note": "xid8 快照函数 (xid8/FullTransactionId 标识符保留, FullTransactionId→完整事务标识符, wraparound→回绕 epoch→纪元, xid.c 0401 同源口径); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/windowfuncs.c",
+   "kind": "c_comment",
+   "note": "窗口函数 (window function→窗口函数, frame→帧, partition→分区, peer rows→同级行, prosupport→支持函数, rank/ntile/lead/lag 标识符保留); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/genfile.c",
+   "kind": "c_comment",
+   "note": "服务器文件函数 (pg_read_server_files/DataDir/Log_directory 保留, data directory→数据目录, log→日志); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_typanalyze.c",
+   "kind": "c_comment",
+   "note": "数组统计收集 (typanalyze→统计收集 0403 rangetypes_typanalyze 口径, element→元素, distinct→唯一, histogram→直方图, Lossy Counting→有损计数); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0405-adt-small6.json",
+   "kind": "manifest",
+   "note": "this batch manifest (batch-0405)"
   }
  ],
  "files": [
@@ -22705,6 +22730,56 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "数组下标 (subscript=下标, SubscriptingRef 标识符保留, 上界/下界 jsonbsubs 0402 同源口径); whole-file comment translation (batch-0404, adt small files); blocks=58 zh-lines=124 keep-EN-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/xid8funcs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 55,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "xid8 快照函数 (FullTransactionId→完整事务标识符, 回绕/纪元 xid.c 0401 口径); keep=头部保留行5 (L2 文件名/L18 版权/L19 作者/L20 贡献者/L22 路径); W7 advisory 7 站 (L53/138/159 FullTransactionId(s), L85/401/662 XIDs, L175 TransactionIds 语义翻译); blocks=55 zh-lines=126 keep-EN-lines=5"
+  },
+  {
+   "path": "src/backend/utils/adt/windowfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 57,
+   "translated": 57,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "窗口函数 (帧/分区/同级行/支持函数/单调递增); keep=头部保留行4 (L3/L6/L9/L10) + 裸标识符行22 + L177 纯公式行; blocks=57 zh-lines=107 keep-EN-lines=27"
+  },
+  {
+   "path": "src/backend/utils/adt/genfile.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 52,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "服务器文件函数 (pg_read_server_files 保留); keep=头部保留行5 (L3/L7/L9/L11/L12) + L324 函数名桩行 + L249 R5 受保护 gettext translator 注释 EN 原样 (event_trigger.c 先例); blocks=52 zh-lines=94 keep-EN-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/array_typanalyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 89,
+   "translated": 89,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "数组统计收集 (统计收集/直方图/有损计数/唯一元素 0403 口径); keep=头部保留行5 (L3/L6/L7/L10/L11) + L181 论文 URL 行; blocks=89 zh-lines=210 keep-EN-lines=6"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0405-adt-small6.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch manifest (block-granularity counts)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

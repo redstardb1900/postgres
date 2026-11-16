@@ -1,0 +1,103 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0405",
+ "title": "adt 目录 4 个小文件整文件注释翻译 (253 blocks 注释感知: 253 zh-blocks + 0 keep-blocks, 537 zh 行 + 45 显式 keep-EN 行 (头部保留行: 文件名/版权/作者行/IDENTIFICATION/路径 + windowfuncs 22 裸标识符行 (row_number/rank/dense_rank/ntile/leadlag_common/lag 系/lead 系/first_value/last_value/nth_value/window_*_support 函数名行) + windowfuncs L177 纯公式行 (<opt> RANGE UNBOUNDED...) + genfile L324 pg_read_binary_file() 函数名桩行 + genfile L249 R5 受保护 gettext translator 注释 EN 原样保留 (先例 event_trigger.c/collationcmds.c 同款) + array_typanalyze L181 论文 URL 行); 行数守恒 4 文件全通过 (537/537 diff); 规划轮 2 (dump 块/行实测 + spec 逐行 zh) + 写后修复轮 4 (R1: 35 站 OVER 逐站裁剪成句含 xid8funcs L458 '其值'/array L270 '所述' 桩行重构; R2: 跨行重复字 2 站 (windowfuncs L179 帧选项为/xid8funcs L209 照常排序) + genfile L249 R5_PROTECTED translator 回退 EN + genfile/array EOF 双换行回退; R3: windowfuncs rank() L178/179 '帧选项设为/帧选项为' 接缝去重 + array L177/178 论文题名拆行引号接缝修复; R4 审查清偿 D1-D4: xid8funcs L88-92 极性分支补全 (L89 则返回真否则返回假 / L92 改空注释续行, 与 TransactionIdInRecentPast 返回语义对照) + genfile L283 补 '否则' (否则不可为负) + windowfuncs L407 scale→标度 + array L177-180 论文引用句重排 (出自论文/作者 署名归位); 每轮修复后全量 readback 4 文件 diff 逐行复核; N1-N3 advisory 备忘: 半角引号内英文题名/URL/格式行按 EN 原样对齐不另改); 特殊处理: genfile L249 translator: 前缀 gettext 保护注释不可改 (verify R5 硬门禁); xid8funcs L92 '而已'/array L458 '其值'/L270 '所述'/genfile L758 '清单' 为跨行桩行接续 (预算 ≤7B/10B 行); 句号台账 (python 块尾现算): FWD 101 对齐; REVERSE 11 站自洽披露 (windowfuncs L593/L605/L628/L640 per spec.→按规范 9B 桩行 ×4 + genfile L758 directory.→清单 10B + array L71 'f'.→'f' 12B + L270 above.→所述 + L298 counters.→计数器 + L458 stats.→其值 + L467 bucket_width.→公式行 + L641 int64.→做该计算, 均为行尾预算约束, 逐条 sed 对账通过); 加句号 2 站自洽披露 (xid8funcs L694 顶部）。 对应 EN ') 段尾补全 + genfile L71 允许。 对应 EN 'allowable' 无句号短行); xid8funcs L564 EN 'xip...' 与 zh 同为省略号对齐不计; 行首标点复扫 0; 括号全角配平 4 文件全过 (xid8funcs 2/2 windowfuncs 9/9 genfile 3/3 array_typanalyze 23/23); 门禁: verify_c_comments adt 47 文件 rc=0 (W7 advisory 仅 xid8funcs 7 站涉本批: L53/L138/L159 FullTransactionId(s)→完整事务标识符 + L85/L401/L662 XIDs→XID/事务 ID + L175 TransactionIds→TransactionId 单数, 均语义翻译非标识符丢失; 其余 16 站为既有文件 advisory; R5 0 违规); term_lint 本批 4 文件 0 error, advisory 2 站 (xid8funcs L129/L340 require→要求 TL08/P23 合法渲染披露, 统计范围全树: 1 error 为 init/postinit.c cluster 既有非本批); halfen 本批 4 文件 5 findings 全 class=mixed advisory (array L161 论文题名 EN 词邻接 + windowfuncs L536 lead() forward 参数名 + xid8funcs L493/L559 format: 行 + L622 setof xid8), adt 目录 23 findings 其余 18 站为既有文件; 术语: xid8/xid/FullTransactionId 标识符保留, FullTransactionId→完整事务标识符 (xid.c 0401 口径), wraparound→回绕 epoch→纪元 (xid.c 同源先 grep), 窗口函数/帧/分区/同级行 (peer rows), prosupport function→支持函数, monotonically increasing→单调递增, typanalyze→统计收集 (0403 rangetypes_typanalyze 口径), histogram→直方图, Lossy Counting→有损计数 (LC 算法), hashtable→哈希表/哈希表条目, bucket→桶/桶宽, distinct elements→唯一元素 (0403 L271 唯一 口径), opclass→算子类, mxid 缩写 (xid8funcs L667 13B 预算), windowfuncs L425 '填' (4B 预算单字披露) 与 L421 '首次' (10B 预算); keep 披露: 各文件头部保留行见上 + genfile L249 translator EN 原样",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "efbade54e038adf936b13e5df483ab8852cc17c8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/xid8funcs.c",
+   "kind": "c_comment",
+   "note": "xid8 快照函数 (xid8/FullTransactionId 标识符保留, FullTransactionId→完整事务标识符, wraparound→回绕 epoch→纪元, xid.c 0401 同源口径); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/windowfuncs.c",
+   "kind": "c_comment",
+   "note": "窗口函数 (window function→窗口函数, frame→帧, partition→分区, peer rows→同级行, prosupport→支持函数, rank/ntile/lead/lag 标识符保留); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/genfile.c",
+   "kind": "c_comment",
+   "note": "服务器文件函数 (pg_read_server_files/DataDir/Log_directory 保留, data directory→数据目录, log→日志); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_typanalyze.c",
+   "kind": "c_comment",
+   "note": "数组统计收集 (typanalyze→统计收集 0403 rangetypes_typanalyze 口径, element→元素, distinct→唯一, histogram→直方图, Lossy Counting→有损计数); whole-file comment translation, batch-0405 (adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0405-adt-small6.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0405 entries (4 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/xid8funcs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 55,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "xid8 快照函数 (FullTransactionId→完整事务标识符, 回绕/纪元 xid.c 0401 口径); keep=头部保留行5 (L2 文件名/L18 版权/L19 作者/L20 贡献者/L22 路径); W7 advisory 7 站 (L53/138/159 FullTransactionId(s), L85/401/662 XIDs, L175 TransactionIds 语义翻译); blocks=55 zh-lines=126 keep-EN-lines=5"
+  },
+  {
+   "path": "src/backend/utils/adt/windowfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 57,
+   "translated": 57,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "窗口函数 (帧/分区/同级行/支持函数/单调递增); keep=头部保留行4 (L3/L6/L9/L10) + 裸标识符行22 + L177 纯公式行; blocks=57 zh-lines=107 keep-EN-lines=27"
+  },
+  {
+   "path": "src/backend/utils/adt/genfile.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 52,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "服务器文件函数 (pg_read_server_files 保留); keep=头部保留行5 (L3/L7/L9/L11/L12) + L324 函数名桩行 + L249 R5 受保护 gettext translator 注释 EN 原样 (event_trigger.c 先例); blocks=52 zh-lines=94 keep-EN-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/array_typanalyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 89,
+   "translated": 89,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "数组统计收集 (统计收集/直方图/有损计数/唯一元素 0403 口径); keep=头部保留行5 (L3/L6/L7/L10/L11) + L181 论文 URL 行; blocks=89 zh-lines=210 keep-EN-lines=6"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0405-adt-small6.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch manifest (block-granularity counts)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "note": "append batch-0405 entries (4 adt .c + this manifest; pure append)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ]
+}

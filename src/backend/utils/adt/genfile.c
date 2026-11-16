@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * genfile.c
- *		Functions for direct access to files
+ *		直接访问文件的函数
  *
  *
  * Copyright (c) 2004-2023, PostgreSQL Global Development Group
@@ -39,16 +39,16 @@
 
 
 /*
- * Convert a "text" filename argument to C string, and check it's allowable.
+ * 把 "text" 文件名参数转为 C 字符串，并检查是否允许。
  *
- * Filename may be absolute or relative to the DataDir, but we only allow
- * absolute paths that match DataDir or Log_directory.
+ * 文件名可为绝对路径，也可相对于 DataDir，但绝对
+ * 路径必须匹配 DataDir 或 Log_directory。
  *
- * This does a privilege check against the 'pg_read_server_files' role, so
- * this function is really only appropriate for callers who are only checking
- * 'read' access.  Do not use this function if you are looking for a check
- * for 'write' or 'program' access without updating it to access the type
- * of check as an argument and checking the appropriate role membership.
+ * 本函数会对照 'pg_read_server_files' 角色做权限检查，
+ * 因此它其实只适合只检查"读"权限的调用方使用。
+ * 若你要找的是"写"或"program"访问的检查，请勿
+ * 使用本函数，除非把它更新为把检查类型作为参数
+ * 接受，并检查相应的角色成员资格。
  */
 static char *
 convert_and_check_filename(text *arg)
@@ -56,25 +56,25 @@ convert_and_check_filename(text *arg)
 	char	   *filename;
 
 	filename = text_to_cstring(arg);
-	canonicalize_path(filename);	/* filename can change length here */
+	canonicalize_path(filename);	/* 这里文件名长度会变 */
 
 	/*
-	 * Roles with privileges of the 'pg_read_server_files' role are allowed to
-	 * access any files on the server as the PG user, so no need to do any
-	 * further checks here.
+	 * 拥有 'pg_read_server_files' 角色权限的角色允许
+	 * 以 PG 用户身份访问服务器上的任何文件，
+	 * 无须再检查。
 	 */
 	if (has_privs_of_role(GetUserId(), ROLE_PG_READ_SERVER_FILES))
 		return filename;
 
 	/*
-	 * User isn't a member of the pg_read_server_files role, so check if it's
-	 * allowable
+	 * 用户非 pg_read_server_files 角色成员，故检查其是否
+	 * 允许。
 	 */
 	if (is_absolute_path(filename))
 	{
 		/*
-		 * Allow absolute paths if within DataDir or Log_directory, even
-		 * though Log_directory might be outside DataDir.
+		 * 绝对路径位于 DataDir 或 Log_directory 内则允许，
+		 * 即使 Log_directory 在 DataDir 之外。
 		 */
 		if (!path_is_prefix_of_path(DataDir, filename) &&
 			(!is_absolute_path(Log_directory) ||
@@ -93,11 +93,11 @@ convert_and_check_filename(text *arg)
 
 
 /*
- * Read a section of a file, returning it as bytea
+ * 读取文件的一段，以 bytea 返回
  *
- * Caller is responsible for all permissions checking.
+ * 调用方负责全部权限检查。
  *
- * We read the whole of the file when bytes_to_read is negative.
+ * 当 bytes_to_read 为负时读取整个文件。
  */
 static bytea *
 read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
@@ -107,7 +107,7 @@ read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 	size_t		nbytes = 0;
 	FILE	   *file;
 
-	/* clamp request size to what we can actually deliver */
+	/* 把请求大小限制到实际能提供的量 */
 	if (bytes_to_read > (int64) (MaxAllocSize - VARHDRSZ))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -132,18 +132,18 @@ read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 
 	if (bytes_to_read >= 0)
 	{
-		/* If passed explicit read size just do it */
+		/* 传入明确读取大小就直接读 */
 		buf = (bytea *) palloc((Size) bytes_to_read + VARHDRSZ);
 
 		nbytes = fread(VARDATA(buf), 1, (size_t) bytes_to_read, file);
 	}
 	else
 	{
-		/* Negative read size, read rest of file */
+		/* 读取大小为负，读余下文件 */
 		StringInfoData sbuf;
 
 		initStringInfo(&sbuf);
-		/* Leave room in the buffer for the varlena length word */
+		/* 在缓冲区中为 varlena 长度字留出空间 */
 		sbuf.len += VARHDRSZ;
 		Assert(sbuf.len < sbuf.maxlen);
 
@@ -151,15 +151,15 @@ read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 		{
 			size_t		rbytes;
 
-			/* Minimum amount to read at a time */
+			/* 每次读取的最小量 */
 #define MIN_READ_SIZE 4096
 
 			/*
-			 * If not at end of file, and sbuf.len is equal to MaxAllocSize -
-			 * 1, then either the file is too large, or there is nothing left
-			 * to read. Attempt to read one more byte to see if the end of
-			 * file has been reached. If not, the file is too large; we'd
-			 * rather give the error message for that ourselves.
+			 * 若未到文件尾且 sbuf.len 等于 MaxAllocSize -
+			 * 1，那么要么文件过大，要么已无剩余内容。
+			 * 尝试再读一个字节以确认是否已到文件尾。
+			 * 若未到，则文件过大；我们宁可
+			 * 由我们自己给出该错误消息。
 			 */
 			if (sbuf.len == MaxAllocSize - 1)
 			{
@@ -173,13 +173,13 @@ read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 					break;
 			}
 
-			/* OK, ensure that we can read at least MIN_READ_SIZE */
+			/* 好，确保至少还能读取 MIN_READ_SIZE */
 			enlargeStringInfo(&sbuf, MIN_READ_SIZE);
 
 			/*
-			 * stringinfo.c likes to allocate in powers of 2, so it's likely
-			 * that much more space is available than we asked for.  Use all
-			 * of it, rather than making more fread calls than necessary.
+			 * stringinfo.c 喜欢按 2 的幂分配，因此很可能有
+			 * 比所请求更多的空间可用。那就把它
+			 * 全部用上，而不是多做不必要的 fread 调用。
 			 */
 			rbytes = fread(sbuf.data + sbuf.len, 1,
 						   (size_t) (sbuf.maxlen - sbuf.len - 1), file);
@@ -187,7 +187,7 @@ read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 			nbytes += rbytes;
 		}
 
-		/* Now we can commandeer the stringinfo's buffer as the result */
+		/* 现在可以把 stringinfo 的缓冲区征用作结果 */
 		buf = (bytea *) sbuf.data;
 	}
 
@@ -204,8 +204,8 @@ read_binary_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 }
 
 /*
- * Similar to read_binary_file, but we verify that the contents are valid
- * in the database encoding.
+ * 与 read_binary_file 类似，但会按数据库编码校验内容
+ * 是否有效。
  */
 static text *
 read_text_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
@@ -217,10 +217,10 @@ read_text_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 
 	if (buf != NULL)
 	{
-		/* Make sure the input is valid */
+		/* 确保输入有效 */
 		pg_verifymbstr(VARDATA(buf), VARSIZE(buf) - VARHDRSZ, false);
 
-		/* OK, we can cast it to text safely */
+		/* 好，可安全转为 text 了 */
 		return (text *) buf;
 	}
 	else
@@ -228,9 +228,9 @@ read_text_file(const char *filename, int64 seek_offset, int64 bytes_to_read,
 }
 
 /*
- * Read a section of a file, returning it as text
+ * 读取文件的一段，以 text 返回
  *
- * This function is kept to support adminpack 1.0.
+ * 保留此函数是为支持 adminpack 1.0。
  */
 Datum
 pg_read_file(PG_FUNCTION_ARGS)
@@ -250,7 +250,7 @@ pg_read_file(PG_FUNCTION_ARGS)
 				 errhint("Consider using %s, which is part of core, instead.",
 						 "pg_read_file()")));
 
-	/* handle optional arguments */
+	/* 处理可选参数 */
 	if (PG_NARGS() >= 3)
 	{
 		seek_offset = PG_GETARG_INT64(1);
@@ -274,13 +274,13 @@ pg_read_file(PG_FUNCTION_ARGS)
 }
 
 /*
- * Read a section of a file, returning it as text
+ * 读取文件的一段，以 text 返回
  *
- * No superuser check done here- instead privileges are handled by the
- * GRANT system.
+ * 这里不做超级用户检查——权限处理交给 GRANT
+ * 系统。
  *
- * If read_to_eof is true, bytes_to_read must be -1, otherwise negative values
- * are not allowed for bytes_to_read.
+ * 若 read_to_eof 为 true，则 bytes_to_read 必须是 -1，
+ * 否则不可为负。
  */
 static text *
 pg_read_file_common(text *filename_t, int64 seek_offset, int64 bytes_to_read,
@@ -298,9 +298,9 @@ pg_read_file_common(text *filename_t, int64 seek_offset, int64 bytes_to_read,
 }
 
 /*
- * Read a section of a file, returning it as bytea
+ * 读取文件的一段，以 bytea 返回
  *
- * Parameters are interpreted the same as pg_read_file_common().
+ * 参数的解释方式与 pg_read_file_common() 相同。
  */
 static bytea *
 pg_read_binary_file_common(text *filename_t,
@@ -320,12 +320,12 @@ pg_read_binary_file_common(text *filename_t,
 
 
 /*
- * Wrapper functions for the variants of SQL functions pg_read_file() and
+ * 下列 SQL 函数各变体的包装函数：pg_read_file() 与
  * pg_read_binary_file().
  *
- * These are necessary to pass the sanity check in opr_sanity, which checks
- * that all built-in functions that share the implementing C function take
- * the same number of arguments.
+ * 这些包装是为了通过 opr_sanity 的一致性检查所必需的，
+ * 该检查会验证共享同一实现 C 函数的所有内建函数
+ * 参数个数必须相同。
  */
 Datum
 pg_read_file_off_len(PG_FUNCTION_ARGS)
@@ -453,7 +453,7 @@ pg_read_binary_file_all_missing(PG_FUNCTION_ARGS)
 }
 
 /*
- * stat a file
+ * stat 文件
  */
 Datum
 pg_stat_file(PG_FUNCTION_ARGS)
@@ -467,7 +467,7 @@ pg_stat_file(PG_FUNCTION_ARGS)
 	TupleDesc	tupdesc;
 	bool		missing_ok = false;
 
-	/* check the optional argument */
+	/* 检查可选参数 */
 	if (PG_NARGS() == 2)
 		missing_ok = PG_GETARG_BOOL(1);
 
@@ -484,8 +484,8 @@ pg_stat_file(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * This record type had better match the output parameters declared for me
-	 * in pg_proc.h.
+	 * 此记录类型最好与 pg_proc.h 中为我声明的输出参数
+	 * 相匹配。
 	 */
 	tupdesc = CreateTemplateTupleDesc(6);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1,
@@ -507,7 +507,7 @@ pg_stat_file(PG_FUNCTION_ARGS)
 	values[0] = Int64GetDatum((int64) fst.st_size);
 	values[1] = TimestampTzGetDatum(time_t_to_timestamptz(fst.st_atime));
 	values[2] = TimestampTzGetDatum(time_t_to_timestamptz(fst.st_mtime));
-	/* Unix has file status change time, while Win32 has creation time */
+	/* Unix 是文件状态变更时间，而 Win32 是创建时间 */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 	values[3] = TimestampTzGetDatum(time_t_to_timestamptz(fst.st_ctime));
 	isnull[4] = true;
@@ -525,11 +525,11 @@ pg_stat_file(PG_FUNCTION_ARGS)
 }
 
 /*
- * stat a file (1 argument version)
+ * stat 文件（1 参数版本）
  *
- * note: this wrapper is necessary to pass the sanity check in opr_sanity,
- * which checks that all built-in functions that share the implementing C
- * function take the same number of arguments
+ * note: 此包装是通过 opr_sanity 一致性检查所必需的，
+ * 该检查验证共享同一实现 C 函数的所有内建函数
+ * 取相同个数的参数
  */
 Datum
 pg_stat_file_1arg(PG_FUNCTION_ARGS)
@@ -538,7 +538,7 @@ pg_stat_file_1arg(PG_FUNCTION_ARGS)
 }
 
 /*
- * List a directory (returns the filenames only)
+ * 列出目录（只返回文件名）
  */
 Datum
 pg_ls_dir(PG_FUNCTION_ARGS)
@@ -552,7 +552,7 @@ pg_ls_dir(PG_FUNCTION_ARGS)
 
 	location = convert_and_check_filename(PG_GETARG_TEXT_PP(0));
 
-	/* check the optional arguments */
+	/* 检查可选参数 */
 	if (PG_NARGS() == 3)
 	{
 		if (!PG_ARGISNULL(1))
@@ -566,10 +566,10 @@ pg_ls_dir(PG_FUNCTION_ARGS)
 	dirdesc = AllocateDir(location);
 	if (!dirdesc)
 	{
-		/* Return empty tuplestore if appropriate */
+		/* 合适时返回空的 tuplestore */
 		if (missing_ok && errno == ENOENT)
 			return (Datum) 0;
-		/* Otherwise, we can let ReadDir() throw the error */
+		/* 否则可以让 ReadDir() 抛出错误 */
 	}
 
 	while ((de = ReadDir(dirdesc, location)) != NULL)
@@ -594,11 +594,11 @@ pg_ls_dir(PG_FUNCTION_ARGS)
 }
 
 /*
- * List a directory (1 argument version)
+ * 列出目录（1 参数版本）
  *
- * note: this wrapper is necessary to pass the sanity check in opr_sanity,
- * which checks that all built-in functions that share the implementing C
- * function take the same number of arguments.
+ * note: 此包装是通过 opr_sanity 一致性检查所必需的，
+ * 该检查验证共享同一实现 C 函数的所有内建函数
+ * 取相同个数的参数。
  */
 Datum
 pg_ls_dir_1arg(PG_FUNCTION_ARGS)
@@ -607,10 +607,10 @@ pg_ls_dir_1arg(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic function to return a directory listing of files.
+ * 返回目录文件列表的通用函数。
  *
- * If the directory isn't there, silently return an empty set if missing_ok.
- * Other unreadable-directory cases throw an error.
+ * 若目录不存在，在 missing_ok 为真时静默返回空集。
+ * 其他不可读目录的情形会抛出错误。
  */
 static Datum
 pg_ls_dir_files(FunctionCallInfo fcinfo, const char *dir, bool missing_ok)
@@ -622,17 +622,17 @@ pg_ls_dir_files(FunctionCallInfo fcinfo, const char *dir, bool missing_ok)
 	InitMaterializedSRF(fcinfo, 0);
 
 	/*
-	 * Now walk the directory.  Note that we must do this within a single SRF
-	 * call, not leave the directory open across multiple calls, since we
-	 * can't count on the SRF being run to completion.
+	 * 现在遍历目录。注意必须在单次 SRF 调用内
+	 * 完成此事，不能让目录跨多次调用保持打开，因为
+	 * 我们无法指望 SRF 一定会运行完毕。
 	 */
 	dirdesc = AllocateDir(dir);
 	if (!dirdesc)
 	{
-		/* Return empty tuplestore if appropriate */
+		/* 合适时返回空的 tuplestore */
 		if (missing_ok && errno == ENOENT)
 			return (Datum) 0;
-		/* Otherwise, we can let ReadDir() throw the error */
+		/* 否则可以让 ReadDir() 抛出错误 */
 	}
 
 	while ((de = ReadDir(dirdesc, dir)) != NULL)
@@ -642,15 +642,15 @@ pg_ls_dir_files(FunctionCallInfo fcinfo, const char *dir, bool missing_ok)
 		char		path[MAXPGPATH * 2];
 		struct stat attrib;
 
-		/* Skip hidden files */
+		/* 略隐藏文件 */
 		if (de->d_name[0] == '.')
 			continue;
 
-		/* Get the file info */
+		/* 取文件信息 */
 		snprintf(path, sizeof(path), "%s/%s", dir, de->d_name);
 		if (stat(path, &attrib) < 0)
 		{
-			/* Ignore concurrently-deleted files, else complain */
+			/* 忽略被并发删除的文件，否则报错 */
 			if (errno == ENOENT)
 				continue;
 			ereport(ERROR,
@@ -658,7 +658,7 @@ pg_ls_dir_files(FunctionCallInfo fcinfo, const char *dir, bool missing_ok)
 					 errmsg("could not stat file \"%s\": %m", path)));
 		}
 
-		/* Ignore anything but regular files */
+		/* 忽略普通文件以外的一切 */
 		if (!S_ISREG(attrib.st_mode))
 			continue;
 
@@ -674,14 +674,14 @@ pg_ls_dir_files(FunctionCallInfo fcinfo, const char *dir, bool missing_ok)
 	return (Datum) 0;
 }
 
-/* Function to return the list of files in the log directory */
+/* 返回日志目录中文件列表的函数 */
 Datum
 pg_ls_logdir(PG_FUNCTION_ARGS)
 {
 	return pg_ls_dir_files(fcinfo, Log_directory, false);
 }
 
-/* Function to return the list of files in the WAL directory */
+/* 返回 WAL 目录中文件列表的函数 */
 Datum
 pg_ls_waldir(PG_FUNCTION_ARGS)
 {
@@ -689,7 +689,7 @@ pg_ls_waldir(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic function to return the list of files in pgsql_tmp
+ * 返回 pgsql_tmp 中文件列表的通用函数
  */
 static Datum
 pg_ls_tmpdir(FunctionCallInfo fcinfo, Oid tblspc)
@@ -707,8 +707,8 @@ pg_ls_tmpdir(FunctionCallInfo fcinfo, Oid tblspc)
 }
 
 /*
- * Function to return the list of temporary files in the pg_default tablespace's
- * pgsql_tmp directory
+ * 返回 pg_default 表空间中临时文件列表的函数
+ * pgsql_tmp 目录
  */
 Datum
 pg_ls_tmpdir_noargs(PG_FUNCTION_ARGS)
@@ -717,8 +717,8 @@ pg_ls_tmpdir_noargs(PG_FUNCTION_ARGS)
 }
 
 /*
- * Function to return the list of temporary files in the specified tablespace's
- * pgsql_tmp directory
+ * 返回指定表空间中临时文件列表的函数
+ * pgsql_tmp 目录
  */
 Datum
 pg_ls_tmpdir_1arg(PG_FUNCTION_ARGS)
@@ -727,7 +727,7 @@ pg_ls_tmpdir_1arg(PG_FUNCTION_ARGS)
 }
 
 /*
- * Function to return the list of files in the WAL archive status directory.
+ * 返回 WAL 归档状态目录中文件列表的函数。
  */
 Datum
 pg_ls_archive_statusdir(PG_FUNCTION_ARGS)
@@ -736,7 +736,7 @@ pg_ls_archive_statusdir(PG_FUNCTION_ARGS)
 }
 
 /*
- * Function to return the list of files in the pg_logical/snapshots directory.
+ * 返回 pg_logical/snapshots 目录中文件列表的函数。
  */
 Datum
 pg_ls_logicalsnapdir(PG_FUNCTION_ARGS)
@@ -745,7 +745,7 @@ pg_ls_logicalsnapdir(PG_FUNCTION_ARGS)
 }
 
 /*
- * Function to return the list of files in the pg_logical/mappings directory.
+ * 返回 pg_logical/mappings 目录中文件列表的函数。
  */
 Datum
 pg_ls_logicalmapdir(PG_FUNCTION_ARGS)
@@ -754,8 +754,8 @@ pg_ls_logicalmapdir(PG_FUNCTION_ARGS)
 }
 
 /*
- * Function to return the list of files in the pg_replslot/<replication_slot>
- * directory.
+ * 返回 pg_replslot/<replication_slot> 目录文件
+ * 清单
  */
 Datum
 pg_ls_replslotdir(PG_FUNCTION_ARGS)

@@ -149,7 +149,7 @@ json_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * Binary send.
+ * 二进制化
  */
 Datum
 json_send(PG_FUNCTION_ARGS)

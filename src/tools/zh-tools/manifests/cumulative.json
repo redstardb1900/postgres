@@ -7196,6 +7196,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0413-adt-int-er-arrays.json",
    "kind": "manifest",
    "note": "batch-0413 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_gist.c",
+   "kind": "c_comment",
+   "note": "范围类型 GiST 索引支持 (GiST 五词 0406 口径, range→范围, bounds→边界, empty range→空范围 0409, multirange→多范围, trivial split→平凡拆分, OID 逐字); whole-file comment translation, batch-0414"
+  },
+  {
+   "pattern": "src/backend/utils/adt/like_support.c",
+   "kind": "c_comment",
+   "note": "LIKE 选择率支持 (like→LIKE 保留, pattern→模式, fixed prefix→固定前缀, selectivity→选择率, collation→排序规则, histogram→直方图, MCV→最常用值（MCV）, operators→算子词形); whole-file comment translation, batch-0414"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0414-adt-rgist-like-json.json",
+   "kind": "manifest",
+   "note": "batch-0414 manifest"
   }
  ],
  "files": [
@@ -23339,6 +23354,40 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0413 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/rangetypes_gist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 155,
+   "translated": 155,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 21 (头部 5 + 论文标题/作者/URL 3 + 数轴图示 5 + 拆分对公式 6 + delta 公式 2)"
+   ],
+   "note": "范围类型 GiST 支持 (GiST 五词 0406 口径, range→范围, bounds→边界, empty range→空范围, multirange→多范围, trivial split→平凡拆分, double/single sorting split→双重/单排序拆分, OID 逐字); whole-file comment translation, batch-0414; dump 权威块数 155 注释感知重扫一致; content 行 310 = zh 289 + 保留 EN 21; 行数守恒 1799 不变 (git diff numstat 289/289); 代码字节零改动 (diff 审计 623 行对 前缀+帧终止符 全等, 含 L36 #define 尾注 /* 无闭合特形); NUL 扫描 0; verify adt 0 violation rc=0 本文件 W7 advisory 5 站; term_lint 本文件 0 hits (P02 cannot→无法 L27/L1700 已修); scan_halfen 本文件 7 站 mixed advisory (区间字面量/论文标题); 同 EN 同译实证: L951-953=L1013-1015, L961-962=L1023-1024, L496-497=L543-544, L508=L555, L845=L855, L969=L1031=L1050=L1085=L1120=L1139, L1439=L1480, L208-211=L290-293, L483-487≈L530-534, L1430-1431≈L1471-1472, L1741≈L1754; 修复轮: 规划轮 2 + 写后修复轮 1 (P02 2 站) + 审查修复轮 1 (D1); 审查修复轮 D1: L1386-1389 幽灵重复残句 4 行重排 55/54/55/8 ≤ 65/63/67/15B; 句号台账 FWD 5 [26, 36, 1293, 1297, 1643 逐行回读核实]; REV 14 [4, 53, 69, 92, 209, 291, 764, 1431, 1472, 1603, 1618, 1741, 1754, 1767]"
+  },
+  {
+   "path": "src/backend/utils/adt/like_support.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 132,
+   "translated": 132,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 9 (头部 7: 文件名/代码示例 2/版权/IDENTIFICATION/路径 + L238 函数名行 + L1218 SQL 表达式原文)"
+   ],
+   "note": "LIKE 选择率支持 (pattern→模式, fixed prefix→固定前缀, selectivity→选择率, collation→排序规则, histogram→直方图, MCV→最常用值（MCV）, operators→算子词形); whole-file comment translation, batch-0414; dump 权威块数 132 注释感知重扫一致; content 行 342 = zh 333 + 保留 EN 9; 行数守恒 1800 不变 (git diff numstat 333/333); 代码字节零改动 (diff 审计); NUL 扫描 0; verify adt 0 violation rc=0 本文件 W7 advisory 5 站; term_lint 本文件 3 站段级泛告警 (P30 L964/P24 L1671/P64 L1700); scan_halfen 本文件 1 站 mixed advisory (L1534 \"foo bar\"); 同 EN 同译实证: L343-344=L579-580, L377=L600, L1054=L1338, L1345=L1436, L1354=L1449, L385-386=L632-633; 修复轮: 规划轮 2 + 写后修复轮 0; 审查修复轮: D2 L1293-1296 补全 so we still need to clamp 70/67/74/61B; D4 REV L1560 勘正 尾字排序; D5 L937 忽略大小写→大小写不敏感 (审查 L943 实勘 L937); D6b L1571-1573 双重否定改写; D6c L720-721 满足 移行; D6a 省略号预算不可行入记录; 句号台账 FWD 3 [303, 721, 1588 逐行回读核实]; REV 24 [23, 201, 287, 309, 453, 548, 631, 743, 800, 828, 846, 928, 937, 1192, 1423, 1497, 1558, 1560, 1569, 1658, 1673, 1676, 1713, 1733]"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0414-adt-rgist-like-json.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0414 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

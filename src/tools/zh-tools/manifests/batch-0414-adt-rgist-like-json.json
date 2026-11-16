@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0414",
+ "title": "adt 目录 rangetypes_gist/like_support/json 三文件整文件注释翻译 290 块 (块口径注释感知重扫一致); json.c 系 0412 全文件译后残余 3 块 (译 1 保留 2, L152 换词译 二进制化 覆盖 0412 保留决定已披露); 规划轮 2 (dump 预算表 + dry-run 违规 87 站修正: rgist 22/like 58/json 7) + 写后修复轮 1 (P02 cannot→无法 2 站 L27/L1700) + 审查修复轮 1 (D1 rgist L1386-1389 幽灵重复残句 4 行重排复算 55/54/55/8 ≤ 65/63/67/15B, D2 like L1293-1296 漏译半句 so we still need to clamp 补全 70/67/74/61 ≤ 71/67/74/68B, D3 REV 记账订正, D4 like REV L1560 勘正 尾字排序, D5 like L937 忽略大小写→大小写不敏感 与 L800/L828/L846 口径统一 (审查行号 L943 实勘为 L937), D6 择修: D6b like L1571-1573 确保不…不要超过 双重否定改写 63/58/63B, D6c like L720-721 满足 移行 MCV OP PATTERN 整体落行, D6a 省略号统一预算不可行 (L1658 15>14/L1713 12>9) 入记录); 门禁: verify adt 0 violation rc=0 (W7 advisory 三文件 11 站) / term_lint 三文件 3 站段级泛告警不变 (全树 rc=1 唯一 error 为 postinit.c TL01 既往非本批) / scan_halfen adt 85 站 mixed advisory 中本批 8 站 (区间字面量/论文标题固有); 句号台账 FWD 8 + REV 39 (含 3 行纯标识符站) 逐行 python 回读核实; 未 commit",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1b6ed7e6126d65aaa1f83428dc86766c32cbcb62",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_gist.c",
+   "kind": "c_comment",
+   "note": "范围类型 GiST 索引支持 (GiST 五词 拆分/惩罚/一致性/并集/相同 0406 口径, range→范围 0392, bounds→边界, empty range→空范围 0409, multirange→多范围, quadrant 不涉及, entry→条目, trivial split→平凡拆分, OID 逐字); whole-file comment translation, batch-0414"
+  },
+  {
+   "pattern": "src/backend/utils/adt/like_support.c",
+   "kind": "c_comment",
+   "note": "LIKE 选择率支持 (like→LIKE 保留, pattern→模式, fixed prefix→固定前缀, selectivity→选择率 0406/0409 口径, collation→排序规则, histogram→直方图, MCV→最常用值（MCV） network_selfuncs 口径, operators→算子词形, escape character→转义字符); whole-file comment translation, batch-0414"
+  },
+  {
+   "pattern": "src/backend/utils/adt/json.c",
+   "kind": "c_comment",
+   "note": "JSON 输入输出残余批 (json 标识符保留, escape→转义, scalar→标量, token→词位 0392 口径, unicode escape→unicode 转义); 0412 全文件译后残余 3 块, batch-0414"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0414-adt-rgist-like-json.json",
+   "kind": "manifest",
+   "note": "batch-0414 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0414 entries (rgist/like 两 .c + 本 manifest; json.c 已有 0412 条目按追加前查重跳过, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/rangetypes_gist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 155,
+   "translated": 155,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 21 (头部 5: L3 文件名/L6·L7 版权/L10 IDENTIFICATION/L11 路径, 头部功能描述行 L4 已译 + L1313·L1314·L1315 论文标题/作者/URL + L1378-1382 数轴图示 5 行 + L1392-1394/L1397-1399 拆分对公式 6 行 + L1542-1543 delta 公式 2 行)"
+   ],
+   "note": "范围类型 GiST 支持 (GiST 五词 0406 口径, range→范围, bounds→边界, empty range→空范围, multirange→多范围, class→类, entry→条目, common entry→公共条目, overlap→重叠, broadening→拓宽, trivial split→平凡拆分, double/single sorting split→双重/单排序拆分); whole-file comment translation, batch-0414; dump 权威块数 155 注释感知重扫一致; content 行 310 = zh 289 + 保留 EN 21; 行数守恒 1799 不变 (git diff numstat 289/289); 代码字节零改动 (diff 审计 623 行对 前缀+帧终止符 全等, 含 L36 #define CLS_COUNT 尾注 /* 无闭合特形 new=前缀+/* zh */ 不补 */); NUL 字节扫描 0; verify adt 0 violation rc=0, 本文件 W7 advisory 5 站 (L804 横幅词 STATIC FUNCTIONS 译 静态函数, L1541 W7_UNTRANSLATED 即 preserved 公式块 L1542-1543, L1740/L1753 NonEmptyRanges/L1766 CommonEntrys 复数形标识符); term_lint 本文件 0 hits (P02 cannot→无法 2 站 L27/L1700 已修); scan_halfen 本文件 7 站 mixed advisory (L417/L441/L444/L482/L529/L694 区间字面量 (-inf;+inf) 固有, L1289-1316 论文标题 EN 保留); 同 EN 同译实证: L951-953=L1013-1015, L961-962=L1023-1024, L496-497=L543-544, L508=L555, L845=L855, L969=L1031=L1050=L1085=L1120=L1139, L1439=L1480, L208-211=L290-293 (L292-293 因 (multirange) 换行位差 同句同译), L483-487≈L530-534 ((x,+inf) 分译), L1430-1431≈L1471-1472 (左组/右组 分译), L1741≈L1754 (下/上边界 分译); 审查修复轮 D1: L1386-1389 幽灵重复残句 4 行重排 (L1388 已整句译完而 L1389 按 EN 第二行重复再译), 新译 55/54/55/8 ≤ 65/63/67/15B 现算断言, 幽灵重复消除且句完整; 句号台账 FWD 5 逐行 python 回读核实: [26 范围类别属性。 换行重组句提前收束, 36 组合。 同上, 1293 句内句号重排, 1297 右组下边界。 同上, 1643 之商。 句内]; REV 14 逐行 python 回读核实: [4 范围类型的 GiST 支持 (selfuncs L4 同款), 53 每条目数据, 69 的上下文, 92 裸函数名行(标识符), 209 ）, 291 ）, 764 infCount(标识符行), 1431 数量, 1472 数量, 1603 LIMIT_RATIO(标识符行), 1618 选定的拆分, 1741 NonEmptyRange, 1754 NonEmptyRange, 1767 CommonEntry]"
+  },
+  {
+   "path": "src/backend/utils/adt/like_support.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 132,
+   "translated": 132,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 9 (头部 7: L3 文件名/L18·L20 代码示例 textfield LIKE/L26·L27 版权/L30 IDENTIFICATION/L31 路径, 头部描述 L4 及 Note 段 L6-L24 全译 + L238 match_pattern_prefix 名称行 (int.c @1187 先例) + L1218 引号内 SQL 表达式原文)"
+   ],
+   "note": "LIKE 选择率支持 (pattern→模式, fixed prefix→固定前缀, selectivity→选择率, collation→排序规则, histogram→直方图, MCV→最常用值（MCV）, opclass/opfamily 标识符保留, operators→算子词形); whole-file comment translation, batch-0414; dump 权威块数 132 注释感知重扫一致; content 行 342 = zh 333 + 保留 EN 9; 行数守恒 1800 不变 (git diff numstat 333/333); 代码字节零改动 (diff 审计 623 行对 前缀+帧终止符 全等); NUL 字节扫描 0; verify adt 0 violation rc=0, 本文件 W7 advisory 5 站 (L1 condition/L652 MCVs/L1214 MCVs·NULLs·datatype/L1534 CAUTION/L1585 BYTEA 译语替代 advisory); term_lint 本文件 3 站段级泛告警 (P30 L964 横幅块 Planner→规划器 已译 盲判, P24 L1671 expected X got Y 段级, P64 L1700 不行 口语度); scan_halfen 本文件 1 站 mixed advisory (L1534-1574 \"foo bar\" 引号字面量固有); 同 EN 同译实证: L343-344=L579-580, L377=L600, L1054=L1338, L1345=L1436, L1354=L1449, L385-386=L632-633, L800 族 函数清单按 name —— 描述 同构; 审查修复轮 D2: L1293-1296 整段重排补全漏译半句 so we still need to clamp (故仍需钳制。), 70/67/74/61 ≤ 71/67/74/68B 现算断言, 极性抽查通过; D4: REV L1560 勘正 尾字排序 (旧注 1560 ，并 实为 L1559 内容, L1559 非 REV); D5: L937 忽略大小写→大小写不敏感 与 L800/L828/L846 口径统一, 现行 72/72 满额去句号 (审查行号 L943 实勘为 L937); D6b: L1571-1573 确保不…不要超过 双重否定改写 把尝试次数/限制在…至多…以内/然绝不是 63/58/63 ≤ 73/74/65B; D6c: L720-721 满足 移行, MCV OP PATTERN 整体落 L721; D6a: 省略号统一预算不可行 (L1658 然后搜索… 单字符 15>14, L1713 失败… 12>9) 保留单字符入记录; 句号台账 FWD 3 逐行 python 回读核实: [303 算子。 句内, 721 起来。 句内 (D6c 后仍句内), 1588 后缀。 句内]; REV 24 逐行 python 回读核实: [23 ……但这 (EN 行尾 ... 省略号非句号 自洽), 201 侧, 287 不会被设置, 309 类型, 453 更大的, 548 或, 631 这两, 743 ……, 800 选择率, 828 选择率, 846 选择率, 928 选择率, 937 连接选择率 (D5 术语统一 大小写不敏感 预算 72/72 去句号), 1192 很简单, 1423 ……, 1497 u_isalpha, 1558 再, 1560 排序, 1569 所以, 1658 …, 1673 ）, 1676 时, 1713 …, 1733 适用]"
+  },
+  {
+   "path": "src/backend/utils/adt/json.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 1,
+   "preserved": 2,
+   "preserved_reasons": [
+    "@1305 translator 注释保留 EN (gettext 提取约定, tablecmds.c 同形先例; 0412 同判)",
+    "@1783 /* ok */ 保留 EN (行尾预算 2 字节容不下中文; 0412 同判, date.c/timestamp.c 同形先例)"
+   ],
+   "note": "JSON 输入输出残余批 (json 标识符保留); batch-0414; 本文件主体已于 0412 全文件译 (cumulative 既有 0412 条目), 本批 dump 残余 3 块即 0412 保留块全套; 重要披露: L152 Binary send. 0412 判 整块保留 EN (二进制发送 6 字 15B>12B 预算), 本批换词译 二进制化 (12≤12B) 覆盖该保留决定 — 与 json_recv 二进制接收 (L166, 0412) 呼应, 换词而非放宽预算, 与 recv 术语不对称已在此披露; L1305 translator 注释与 L1783 /* ok */ 维持 0412 保留决定; 行数守恒 1839 不变 (git diff numstat 1/1); 代码字节零改动 (diff 审计); NUL 字节扫描 0; verify adt 0 violation rc=0, 本文件 W7 advisory 1 站 (L1135 NULLs 0412 既存); term_lint 本文件 0 hits; scan_halfen 本文件 0 findings; 句号台账 FWD 0; REV 1 [152 二进制化 预算换词]"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0414-adt-rgist-like-json.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0414 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0414 entries: rangetypes_gist.c + like_support.c + 本 manifest; json.c 已有 0412 条目, 追加前查重命中, 按零重复不变量跳过 (本批 manifest files[] 仍含 json.c 全条目); 两数组 (allowed_paths+files) 同步追加, 纯追加, 负载 roundtrip 字节全等校验"
+  }
+ ]
+}

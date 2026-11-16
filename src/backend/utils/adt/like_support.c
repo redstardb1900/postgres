@@ -1,27 +1,27 @@
 /*-------------------------------------------------------------------------
  *
  * like_support.c
- *	  Planner support functions for LIKE, regex, and related operators.
+ *	  LIKE、正则及相关算子的规划器支持函数。
  *
- * These routines handle special optimization of operators that can be
- * used with index scans even though they are not known to the executor's
- * indexscan machinery.  The key idea is that these operators allow us
- * to derive approximate indexscan qual clauses, such that any tuples
- * that pass the operator clause itself must also satisfy the simpler
- * indexscan condition(s).  Then we can use the indexscan machinery
- * to avoid scanning as much of the table as we'd otherwise have to,
- * while applying the original operator as a qpqual condition to ensure
- * we deliver only the tuples we want.  (In essence, we're using a regular
- * index as if it were a lossy index.)
+ * 这些例程对这样一类算子做特殊优化：它们可
+ * 以配合索引扫描使用，尽管执行器的索引扫描
+ * 机制并不认识它们。关键思路是：这些算子使
+ * 我们能推导出近似的索引扫描条件，使得任何
+ * 通过了算子条件本身的元组也必然满足更简单
+ * 的索引扫描条件。这样我们就能利用索引扫描
+ * 机制来避免扫描表中原本必须扫描的部分，同
+ * 时把原算子作为 qpqual 条件加以应用，从而确
+ * 保只交付我们想要的元组。（本质上，这是把普通
+ * 索引当作有损索引用。）
  *
- * An example of what we're doing is
+ * 我们做法的一个示例：
  *			textfield LIKE 'abc%def'
- * from which we can generate the indexscanable conditions
+ * 由此可生成能用索引扫描的条件
  *			textfield >= 'abc' AND textfield < 'abd'
- * which allow efficient scanning of an index on textfield.
- * (In reality, character set and collation issues make the transformation
- * from LIKE to indexscan limits rather harder than one might think ...
- * but that's the basic idea.)
+ * 从而能对 textfield 上的索引高效扫描。
+ * （现实中，字符集与排序规则问题使得从 LIKE 到
+ * 索引扫描限界的变换比想象的更难……但这
+ * 是基本思路。）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -110,7 +110,7 @@ static Const *string_to_bytea_const(const char *str, size_t str_len);
 
 
 /*
- * Planner support functions for LIKE, regex, and related operators
+ * LIKE、正则及相关算子的规划器支持函数
  */
 Datum
 textlike_support(PG_FUNCTION_ARGS)
@@ -152,7 +152,7 @@ text_starts_with_support(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(like_regex_support(rawreq, Pattern_Type_Prefix));
 }
 
-/* Common code for the above */
+/* 以上公共代码 */
 static Node *
 like_regex_support(Node *rawreq, Pattern_Type ptype)
 {
@@ -161,8 +161,8 @@ like_regex_support(Node *rawreq, Pattern_Type ptype)
 	if (IsA(rawreq, SupportRequestSelectivity))
 	{
 		/*
-		 * Make a selectivity estimate for a function call, just as we'd do if
-		 * the call was via the corresponding operator.
+		 * 为函数调用做一次选择率估算，就像该调用是
+		 * 通过相应算子发起的一样。
 		 */
 		SupportRequestSelectivity *req = (SupportRequestSelectivity *) rawreq;
 		Selectivity s1;
@@ -170,14 +170,14 @@ like_regex_support(Node *rawreq, Pattern_Type ptype)
 		if (req->is_join)
 		{
 			/*
-			 * For the moment we just punt.  If patternjoinsel is ever
-			 * improved to do better, this should be made to call it.
+			 * 目前我们只是放弃。若 patternjoinsel 将来
+			 * 改进得更好，此处应改为调用它。
 			 */
 			s1 = DEFAULT_MATCH_SEL;
 		}
 		else
 		{
-			/* Share code with operator restriction selectivity functions */
+			/* 与算子限制选择率函数共享代码 */
 			s1 = patternsel_common(req->root,
 								   InvalidOid,
 								   req->funcid,
@@ -192,13 +192,13 @@ like_regex_support(Node *rawreq, Pattern_Type ptype)
 	}
 	else if (IsA(rawreq, SupportRequestIndexCondition))
 	{
-		/* Try to convert operator/function call to index conditions */
+		/* 尝试把算子/函数调用转换为索引条件 */
 		SupportRequestIndexCondition *req = (SupportRequestIndexCondition *) rawreq;
 
 		/*
-		 * Currently we have no "reverse" match operators with the pattern on
-		 * the left, so we only need consider cases with the indexkey on the
-		 * left.
+		 * 目前我们没有模式在左的"反向"匹配算子，因此
+		 * 只需考虑索引键位于左
+		 * 侧
 		 */
 		if (req->indexarg != 0)
 			return NULL;
@@ -216,7 +216,7 @@ like_regex_support(Node *rawreq, Pattern_Type ptype)
 									 req->opfamily,
 									 req->indexcollation);
 		}
-		else if (is_funcclause(req->node))	/* be paranoid */
+		else if (is_funcclause(req->node))	/* 求稳妥 */
 		{
 			FuncExpr   *clause = (FuncExpr *) req->node;
 
@@ -236,7 +236,7 @@ like_regex_support(Node *rawreq, Pattern_Type ptype)
 
 /*
  * match_pattern_prefix
- *	  Try to generate an indexqual for a LIKE or regex operator.
+ *	  尝试为 LIKE 或正则算子生成索引条件。
  */
 static List *
 match_pattern_prefix(Node *leftop,
@@ -262,11 +262,11 @@ match_pattern_prefix(Node *leftop,
 	Const	   *greaterstr;
 
 	/*
-	 * Can't do anything with a non-constant or NULL pattern argument.
+	 * 对非常量或 NULL 的模式参数无能为力。
 	 *
-	 * Note that since we restrict ourselves to cases with a hard constant on
-	 * the RHS, it's a-fortiori a pseudoconstant, and we don't need to worry
-	 * about verifying that.
+	 * 注意，由于我们只限于右侧为硬常量的
+	 * 情形，它必然更是伪常量，无须再担心
+	 * 验证这一点。
 	 */
 	if (!IsA(rightop, Const) ||
 		((Const *) rightop)->constisnull)
@@ -274,39 +274,39 @@ match_pattern_prefix(Node *leftop,
 	patt = (Const *) rightop;
 
 	/*
-	 * Not supported if the expression collation is nondeterministic.  The
-	 * optimized equality or prefix tests use bytewise comparisons, which is
-	 * not consistent with nondeterministic collations.  The actual
-	 * pattern-matching implementation functions will later error out that
-	 * pattern-matching is not supported with nondeterministic collations. (We
-	 * could also error out here, but by doing it later we get more precise
-	 * error messages.)  (It should be possible to support at least
-	 * Pattern_Prefix_Exact, but no point as long as the actual
-	 * pattern-matching implementations don't support it.)
+	 * 表达式排序规则为非确定性时不支持。经优化的
+	 * 相等或前缀测试使用按字节比较，这与非确定
+	 * 性排序规则不一致。实际的模式匹配实现
+	 * 函数稍后会报错说非确定性排序规则不支持模
+	 * 式匹配。（我们本可以在这里就报错，但放到
+	 * 后面可以获得更精确的错误消息。）（至少
+	 * 支持 Pattern_Prefix_Exact 应该是可行的，但
+	 * 只要实际的模式匹配实现不支持它，就没
+	 * 有必要这么做。）
 	 *
-	 * expr_coll is not set for a non-collation-aware data type such as bytea.
+	 * expr_coll 在 bytea 等不感知排序规则的类型上不会被设置
 	 */
 	if (expr_coll && !get_collation_isdeterministic(expr_coll))
 		return NIL;
 
 	/*
-	 * Try to extract a fixed prefix from the pattern.
+	 * 尝试从模式中提取固定前缀。
 	 */
 	pstatus = pattern_fixed_prefix(patt, ptype, expr_coll,
 								   &prefix, NULL);
 
-	/* fail if no fixed prefix */
+	/* 无固定前缀失败 */
 	if (pstatus == Pattern_Prefix_None)
 		return NIL;
 
 	/*
-	 * Identify the operators we want to use, based on the type of the
-	 * left-hand argument.  Usually these are just the type's regular
-	 * comparison operators, but if we are considering one of the semi-legacy
-	 * "pattern" opclasses, use the "pattern" operators instead.  Those are
-	 * not collation-sensitive but always use C collation, as we want.  The
-	 * selected operators also determine the needed type of the prefix
-	 * constant.
+	 * 根据左侧参数的类型确定要使用哪些算子。
+	 * 通常它们就是该类型常规的比较算子，但若
+	 * 考虑的是半旧式的"pattern" opclass，则改用
+	 * "pattern" 算子。它们不感知排序规则，而总是
+	 * 如我们所愿地使用 C 排序规则。所选算子还决
+	 * 定了前缀常量所需的
+	 * 类型
 	 */
 	ldatatype = exprType(leftop);
 	switch (ldatatype)
@@ -324,7 +324,7 @@ match_pattern_prefix(Node *leftop,
 				eqopr = TextEqualOperator;
 				ltopr = TextPatternLessOperator;
 				geopr = TextPatternGreaterEqualOperator;
-				/* This opfamily has direct support for prefixing */
+				/* 该 opfamily 直接支持前缀 */
 				preopr = TextPrefixOperator;
 				collation_aware = false;
 			}
@@ -340,8 +340,8 @@ match_pattern_prefix(Node *leftop,
 		case NAMEOID:
 
 			/*
-			 * Note that here, we need the RHS type to be text, so that the
-			 * comparison value isn't improperly truncated to NAMEDATALEN.
+			 * 注意这里需要 RHS 类型为 text，这样比较值
+			 * 才不会被不当截断到 NAMEDATALEN。
 			 */
 			eqopr = NameEqualTextOperator;
 			ltopr = NameLessTextOperator;
@@ -374,16 +374,16 @@ match_pattern_prefix(Node *leftop,
 			rdatatype = BYTEAOID;
 			break;
 		default:
-			/* Can't get here unless we're attached to the wrong operator */
+			/* 除非挂接了错误的算子，否则到不了这里 */
 			return NIL;
 	}
 
 	/*
-	 * If necessary, coerce the prefix constant to the right type.  The given
-	 * prefix constant is either text or bytea type, therefore the only case
-	 * where we need to do anything is when converting text to bpchar.  Those
-	 * two types are binary-compatible, so relabeling the Const node is
-	 * sufficient.
+	 * 必要时把前缀常量强制转换为正确类型。给定
+	 * 的前缀常量是 text 或 bytea 类型，因此唯一需
+	 * 要做处理的情形是 text 转换为 bpchar。这两
+	 * 个类型二进制兼容，所以重新标记 Const 节点即
+	 * 可。
 	 */
 	if (prefix->consttype != rdatatype)
 	{
@@ -393,13 +393,13 @@ match_pattern_prefix(Node *leftop,
 	}
 
 	/*
-	 * If we found an exact-match pattern, generate an "=" indexqual.
+	 * 若找到精确匹配的模式，则生成"="索引条件。
 	 *
-	 * Here and below, check to see whether the desired operator is actually
-	 * supported by the index opclass, and fail quietly if not.  This allows
-	 * us to not be concerned with specific opclasses (except for the legacy
-	 * "pattern" cases); any index that correctly implements the operators
-	 * will work.
+	 * 此处及下文都要检查所需算子是否真的被索引
+	 * opclass 支持，不支持则安静地失败。这使我
+	 * 们无须关心具体的 opclass（旧式"pattern"情
+	 * 形除外）；任何正确实现了这些算子的索引都
+	 * 可用。
 	 */
 	if (pstatus == Pattern_Prefix_Exact)
 	{
@@ -413,9 +413,9 @@ match_pattern_prefix(Node *leftop,
 	}
 
 	/*
-	 * Otherwise, we have a nonempty required prefix of the values.  Some
-	 * opclasses support prefix checks directly, otherwise we'll try to
-	 * generate a range constraint.
+	 * 否则我们就有一个非空的必要值前缀。有些
+	 * opclass 直接支持前缀检查，否则我们将尝试
+	 * 生成范围约束。
 	 */
 	if (OidIsValid(preopr) && op_in_opfamily(preopr, opfamily))
 	{
@@ -427,18 +427,18 @@ match_pattern_prefix(Node *leftop,
 	}
 
 	/*
-	 * Since we need a range constraint, it's only going to work reliably if
-	 * the index is collation-insensitive or has "C" collation.  Note that
-	 * here we are looking at the index's collation, not the expression's
-	 * collation -- this test is *not* dependent on the LIKE/regex operator's
-	 * collation.
+	 * 由于需要范围约束，只有索引不感知排序规则
+	 * 或具有"C"排序规则时它才能可靠工作。注意，
+	 * 这里看的是索引的排序规则，而非表达式的
+	 * 排序规则——该测试*并不*依赖 LIKE/正则算子
+	 * 的。
 	 */
 	if (collation_aware &&
 		!lc_collate_is_c(indexcollation))
 		return NIL;
 
 	/*
-	 * We can always say "x >= prefix".
+	 * 我们总能说"x >= prefix"。
 	 */
 	if (!op_in_opfamily(geopr, opfamily))
 		return NIL;
@@ -448,11 +448,11 @@ match_pattern_prefix(Node *leftop,
 	result = list_make1(expr);
 
 	/*-------
-	 * If we can create a string larger than the prefix, we can say
-	 * "x < greaterstr".  NB: we rely on make_greater_string() to generate
-	 * a guaranteed-greater string, not just a probably-greater string.
-	 * In general this is only guaranteed in C locale, so we'd better be
-	 * using a C-locale index collation.
+	 * 若能构造出比前缀更大的字符串，我们就能说
+	 * "x < greaterstr"。注意：我们依赖 make_greater_string()
+	 * 生成保证更大的字符串，而不只是可能更大的
+	 * 字符串。一般只有 C locale 才有保证，故最好使用
+	 * C locale 索引排序规则。
 	 *-------
 	 */
 	if (!op_in_opfamily(ltopr, opfamily))
@@ -472,16 +472,16 @@ match_pattern_prefix(Node *leftop,
 
 
 /*
- * patternsel_common - generic code for pattern-match restriction selectivity.
+ * patternsel_common —— 模式匹配限制选择率的通用代码。
  *
- * To support using this from either the operator or function paths, caller
- * may pass either operator OID or underlying function OID; we look up the
- * latter from the former if needed.  (We could just have patternsel() call
- * get_opcode(), but the work would be wasted if we don't have a need to
- * compare a fixed prefix to the pg_statistic data.)
+ * 为支持从算子或函数两条路径调用，调用者可以
+ * 传入算子 OID 或底层函数 OID；必要时我们由前
+ * 者查出后者。（本可以让 patternsel() 直接调用
+ * get_opcode()，但若无须比较固定前缀与
+ * pg_statistic 数据，就白费了。）
  *
- * Note that oprid and/or opfuncid should be for the positive-match operator
- * even when negate is true.
+ * 注意 oprid 和/或 opfuncid 应为正向匹配算子，
+ * negate 为真时亦然。
  */
 static double
 patternsel_common(PlannerInfo *root,
@@ -511,8 +511,8 @@ patternsel_common(PlannerInfo *root,
 	double		result;
 
 	/*
-	 * Initialize result to the appropriate default estimate depending on
-	 * whether it's a match or not-match operator.
+	 * 根据是匹配还是不匹配算子，把结果初始化为
+	 * 相应的默认估算值。
 	 */
 	if (negate)
 		result = 1.0 - DEFAULT_MATCH_SEL;
@@ -520,8 +520,8 @@ patternsel_common(PlannerInfo *root,
 		result = DEFAULT_MATCH_SEL;
 
 	/*
-	 * If expression is not variable op constant, then punt and return the
-	 * default estimate.
+	 * 若表达式不是"变量 算子 常量"形式，则放弃并返
+	 * 回默认值。
 	 */
 	if (!get_restriction_variable(root, args, varRelid,
 								  &vardata, &other, &varonleft))
@@ -533,8 +533,8 @@ patternsel_common(PlannerInfo *root,
 	}
 
 	/*
-	 * If the constant is NULL, assume operator is strict and return zero, ie,
-	 * operator will never return TRUE.  (It's zero even for a negator op.)
+	 * 若常量为 NULL，则假设算子严格并返回零，即算
+	 * 子永远不会返回 TRUE。（即便是取反算子也是零。）
 	 */
 	if (((Const *) other)->constisnull)
 	{
@@ -545,10 +545,10 @@ patternsel_common(PlannerInfo *root,
 	consttype = ((Const *) other)->consttype;
 
 	/*
-	 * The right-hand const is type text or bytea for all supported operators.
-	 * We do not expect to see binary-compatible types here, since
-	 * const-folding should have relabeled the const to exactly match the
-	 * operator's declared type.
+	 * 对所有受支持的算子来说，右侧常量都是 text 或
+	 * bytea 类型。这里不应出现二进制兼容类型，
+	 * 因为常量折叠应当已把常量重新标记为与算子
+	 * 声明的类型一致。
 	 */
 	if (consttype != TEXTOID && consttype != BYTEAOID)
 	{
@@ -557,11 +557,11 @@ patternsel_common(PlannerInfo *root,
 	}
 
 	/*
-	 * Similarly, the exposed type of the left-hand side should be one of
-	 * those we know.  (Do not look at vardata.atttype, which might be
-	 * something binary-compatible but different.)	We can use it to identify
-	 * the comparison operators and the required type of the comparison
-	 * constant, much as in match_pattern_prefix().
+	 * 类似地，左侧暴露出来的类型也应该是我们所知
+	 * 的类型之一。（不要看 vardata.atttype，它可能
+	 * 是二进制兼容但不同的类型。）我们可以用它
+	 * 来识别比较算子以及比较常量所需的类型，
+	 * 如同 match_pattern_prefix() 中那样。
 	 */
 	vartype = vardata.vartype;
 
@@ -576,8 +576,8 @@ patternsel_common(PlannerInfo *root,
 		case NAMEOID:
 
 			/*
-			 * Note that here, we need the RHS type to be text, so that the
-			 * comparison value isn't improperly truncated to NAMEDATALEN.
+			 * 注意这里需要 RHS 类型为 text，这样比较值
+			 * 才不会被不当截断到 NAMEDATALEN。
 			 */
 			eqopr = NameEqualTextOperator;
 			ltopr = NameLessTextOperator;
@@ -597,13 +597,13 @@ patternsel_common(PlannerInfo *root,
 			rdatatype = BYTEAOID;
 			break;
 		default:
-			/* Can't get here unless we're attached to the wrong operator */
+			/* 除非挂接了错误的算子，否则到不了这里 */
 			ReleaseVariableStats(vardata);
 			return result;
 	}
 
 	/*
-	 * Grab the nullfrac for use below.
+	 * 取 nullfrac 供下面用。
 	 */
 	if (HeapTupleIsValid(vardata.statsTuple))
 	{
@@ -614,23 +614,23 @@ patternsel_common(PlannerInfo *root,
 	}
 
 	/*
-	 * Pull out any fixed prefix implied by the pattern, and estimate the
-	 * fractional selectivity of the remainder of the pattern.  Unlike many
-	 * other selectivity estimators, we use the pattern operator's actual
-	 * collation for this step.  This is not because we expect the collation
-	 * to make a big difference in the selectivity estimate (it seldom would),
-	 * but because we want to be sure we cache compiled regexps under the
-	 * right cache key, so that they can be re-used at runtime.
+	 * 提取模式所隐含的任何固定前缀，并估算模式
+	 * 其余部分的比例选择率。与许多其他选择率估
+	 * 算器不同，这一步我们使用模式算子实际的排
+	 * 序规则。这并非因为我们指望排序规则会对选
+	 * 择率估算产生多大影响（它很少有影响），而
+	 * 是因为我们要确保在正确的缓存键下缓存编译
+	 * 好的正则，使其在运行时可以得到复用。
 	 */
 	patt = (Const *) other;
 	pstatus = pattern_fixed_prefix(patt, ptype, collation,
 								   &prefix, &rest_selec);
 
 	/*
-	 * If necessary, coerce the prefix constant to the right type.  The only
-	 * case where we need to do anything is when converting text to bpchar.
-	 * Those two types are binary-compatible, so relabeling the Const node is
-	 * sufficient.
+	 * 必要时把前缀常量强制转换为正确类型。唯一
+	 * 需要处理的情形是 text 转换为 bpchar。这两
+	 * 个类型二进制兼容，所以重新标记 Const 节点即
+	 * 可。
 	 */
 	if (prefix && prefix->consttype != rdatatype)
 	{
@@ -642,7 +642,7 @@ patternsel_common(PlannerInfo *root,
 	if (pstatus == Pattern_Prefix_Exact)
 	{
 		/*
-		 * Pattern specifies an exact match, so estimate as for '='
+		 * 模式指定精确匹配，故按"="估算
 		 */
 		result = var_eq_const(&vardata, eqopr, collation, prefix->constvalue,
 							  false, true, false);
@@ -650,20 +650,20 @@ patternsel_common(PlannerInfo *root,
 	else
 	{
 		/*
-		 * Not exact-match pattern.  If we have a sufficiently large
-		 * histogram, estimate selectivity for the histogram part of the
-		 * population by counting matches in the histogram.  If not, estimate
-		 * selectivity of the fixed prefix and remainder of pattern
-		 * separately, then combine the two to get an estimate of the
-		 * selectivity for the part of the column population represented by
-		 * the histogram.  (For small histograms, we combine these
-		 * approaches.)
+		 * 非精确匹配模式。若有足够大的直方图，
+		 * 就通过统计直方图中的匹配数来估算总体中直
+		 * 方图部分的选择率。若无，则分别估算固定前
+		 * 缀与模式其余部分的选择率，再结合两者
+		 * 来得到直方图所代表的列总体部分的选择
+		 * 率。（对于小直方图，
+		 * 我们把这两种做法结合起来使
+		 * 用。）
 		 *
-		 * We then add up data for any most-common-values values; these are
-		 * not in the histogram population, and we can get exact answers for
-		 * them by applying the pattern operator, so there's no reason to
-		 * approximate.  (If the MCVs cover a significant part of the total
-		 * population, this gives us a big leg up in accuracy.)
+		 * 然后我们为所有最常用值（MCV）累加数据；
+		 * 这些值不在直方图总体之内，而把模式算子应
+		 * 用于它们就能得到精确答案，所以没有理由去
+		 * 近似。（若 MCV 覆盖了总体的相当大一部分，
+		 * 就会给我们带来精度上的很大优势。）
 		 */
 		Selectivity selec;
 		int			hist_size;
@@ -671,7 +671,7 @@ patternsel_common(PlannerInfo *root,
 		double		mcv_selec,
 					sumcommon;
 
-		/* Try to use the histogram entries to get selectivity */
+		/* 尝试利用直方图条目来获得选择率 */
 		if (!OidIsValid(opfuncid))
 			opfuncid = get_opcode(oprid);
 		fmgr_info(opfuncid, &opproc);
@@ -680,7 +680,7 @@ patternsel_common(PlannerInfo *root,
 									  constval, true,
 									  10, 1, &hist_size);
 
-		/* If not at least 100 entries, use the heuristic method */
+		/* 若不足 100 个条目，则使用启发式方法 */
 		if (hist_size < 100)
 		{
 			Selectivity heursel;
@@ -695,14 +695,14 @@ patternsel_common(PlannerInfo *root,
 				prefixsel = 1.0;
 			heursel = prefixsel * rest_selec;
 
-			if (selec < 0)		/* fewer than 10 histogram entries? */
+			if (selec < 0)		/* 直方图条目少于 10 个？ */
 				selec = heursel;
 			else
 			{
 				/*
-				 * For histogram sizes from 10 to 100, we combine the
-				 * histogram and heuristic selectivities, putting increasingly
-				 * more trust in the histogram for larger sizes.
+				 * 直方图大小从 10 到 100 时，我们把直
+				 * 方图选择率与启发式选择率相结合，直方图
+				 * 越大就越相信直方图。
 				 */
 				double		hist_weight = hist_size / 100.0;
 
@@ -710,37 +710,37 @@ patternsel_common(PlannerInfo *root,
 			}
 		}
 
-		/* In any case, don't believe extremely small or large estimates. */
+		/* 无论如何，不要相信过小或过大的估算值。 */
 		if (selec < 0.0001)
 			selec = 0.0001;
 		else if (selec > 0.9999)
 			selec = 0.9999;
 
 		/*
-		 * If we have most-common-values info, add up the fractions of the MCV
-		 * entries that satisfy MCV OP PATTERN.  These fractions contribute
-		 * directly to the result selectivity.  Also add up the total fraction
-		 * represented by MCV entries.
+		 * 若我们有最常用值（MCV）信息，就把
+		 * 满足 MCV OP PATTERN 的 MCV 条目占比累加起来。
+		 * 这些占比直接计入结果选择率。同时累加 MCV
+		 * 条目的总占比。
 		 */
 		mcv_selec = mcv_selectivity(&vardata, &opproc, collation,
 									constval, true,
 									&sumcommon);
 
 		/*
-		 * Now merge the results from the MCV and histogram calculations,
-		 * realizing that the histogram covers only the non-null values that
-		 * are not listed in MCV.
+		 * 现在把 MCV 部分与直方图部分的结果合并，
+		 * 注意直方图只覆盖未列入 MCV 的
+		 * 非空值。
 		 */
 		selec *= 1.0 - nullfrac - sumcommon;
 		selec += mcv_selec;
 		result = selec;
 	}
 
-	/* now adjust if we wanted not-match rather than match */
+	/* 若想要的是不匹配而非匹配，现在调整 */
 	if (negate)
 		result = 1.0 - result - nullfrac;
 
-	/* result should be in range, but make sure... */
+	/* 结果应在范围内，但要确认…… */
 	CLAMP_PROBABILITY(result);
 
 	if (prefix)
@@ -755,7 +755,7 @@ patternsel_common(PlannerInfo *root,
 }
 
 /*
- * Fix impedance mismatch between SQL-callable functions and patternsel_common
+ * 修复 SQL 可调用函数与 patternsel_common 间的阻抗失配
  */
 static double
 patternsel(PG_FUNCTION_ARGS, Pattern_Type ptype, bool negate)
@@ -767,8 +767,8 @@ patternsel(PG_FUNCTION_ARGS, Pattern_Type ptype, bool negate)
 	Oid			collation = PG_GET_COLLATION();
 
 	/*
-	 * If this is for a NOT LIKE or similar operator, get the corresponding
-	 * positive-match operator and work with that.
+	 * 若这是用于 NOT LIKE 或类似算子，则取出对应
+	 * 的正向匹配算子并据此工作。
 	 */
 	if (negate)
 	{
@@ -788,7 +788,7 @@ patternsel(PG_FUNCTION_ARGS, Pattern_Type ptype, bool negate)
 }
 
 /*
- *		regexeqsel		- Selectivity of regular-expression pattern match.
+ *		regexeqsel —— 正则表达式模式匹配的选择率。
  */
 Datum
 regexeqsel(PG_FUNCTION_ARGS)
@@ -797,7 +797,7 @@ regexeqsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		icregexeqsel	- Selectivity of case-insensitive regex match.
+ *		icregexeqsel —— 大小写不敏感正则匹配选择率
  */
 Datum
 icregexeqsel(PG_FUNCTION_ARGS)
@@ -806,7 +806,7 @@ icregexeqsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		likesel			- Selectivity of LIKE pattern match.
+ *		likesel —— LIKE 模式匹配选择率。
  */
 Datum
 likesel(PG_FUNCTION_ARGS)
@@ -815,7 +815,7 @@ likesel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		prefixsel			- selectivity of prefix operator
+ *		prefixsel —— 前缀算子的选择率
  */
 Datum
 prefixsel(PG_FUNCTION_ARGS)
@@ -825,7 +825,7 @@ prefixsel(PG_FUNCTION_ARGS)
 
 /*
  *
- *		iclikesel			- Selectivity of ILIKE pattern match.
+ *		iclikesel —— ILIKE 模式匹配选择率
  */
 Datum
 iclikesel(PG_FUNCTION_ARGS)
@@ -834,7 +834,7 @@ iclikesel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regexnesel		- Selectivity of regular-expression pattern non-match.
+ *		regexnesel —— 正则表达式模式不匹配的选择率。
  */
 Datum
 regexnesel(PG_FUNCTION_ARGS)
@@ -843,7 +843,7 @@ regexnesel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		icregexnesel	- Selectivity of case-insensitive regex non-match.
+ *		icregexnesel —— 大小写不敏感正则不匹配选择率
  */
 Datum
 icregexnesel(PG_FUNCTION_ARGS)
@@ -852,7 +852,7 @@ icregexnesel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		nlikesel		- Selectivity of LIKE pattern non-match.
+ *		nlikesel —— LIKE 模式不匹配选择率。
  */
 Datum
 nlikesel(PG_FUNCTION_ARGS)
@@ -861,7 +861,7 @@ nlikesel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		icnlikesel		- Selectivity of ILIKE pattern non-match.
+ *		icnlikesel —— ILIKE 模式不匹配选择率。
  */
 Datum
 icnlikesel(PG_FUNCTION_ARGS)
@@ -870,17 +870,17 @@ icnlikesel(PG_FUNCTION_ARGS)
 }
 
 /*
- * patternjoinsel		- Generic code for pattern-match join selectivity.
+ * patternjoinsel —— 模式匹配连接选择率通用代码。
  */
 static double
 patternjoinsel(PG_FUNCTION_ARGS, Pattern_Type ptype, bool negate)
 {
-	/* For the moment we just punt. */
+	/* 目前我们只是放弃。 */
 	return negate ? (1.0 - DEFAULT_MATCH_SEL) : DEFAULT_MATCH_SEL;
 }
 
 /*
- *		regexeqjoinsel	- Join selectivity of regular-expression pattern match.
+ *		regexeqjoinsel —— 正则表达式模式匹配的连接选择率。
  */
 Datum
 regexeqjoinsel(PG_FUNCTION_ARGS)
@@ -889,7 +889,7 @@ regexeqjoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		icregexeqjoinsel	- Join selectivity of case-insensitive regex match.
+ *		icregexeqjoinsel —— 大小写不敏感正则连接选择率。
  */
 Datum
 icregexeqjoinsel(PG_FUNCTION_ARGS)
@@ -898,7 +898,7 @@ icregexeqjoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		likejoinsel			- Join selectivity of LIKE pattern match.
+ *		likejoinsel —— LIKE 模式连接选择率。
  */
 Datum
 likejoinsel(PG_FUNCTION_ARGS)
@@ -907,7 +907,7 @@ likejoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		prefixjoinsel			- Join selectivity of prefix operator
+ *		prefixjoinsel —— 前缀算子的连接选择率
  */
 Datum
 prefixjoinsel(PG_FUNCTION_ARGS)
@@ -916,7 +916,7 @@ prefixjoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		iclikejoinsel			- Join selectivity of ILIKE pattern match.
+ *		iclikejoinsel —— ILIKE 模式连接选择率。
  */
 Datum
 iclikejoinsel(PG_FUNCTION_ARGS)
@@ -925,7 +925,7 @@ iclikejoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		regexnejoinsel	- Join selectivity of regex non-match.
+ *		regexnejoinsel —— 正则不匹配连接选择率
  */
 Datum
 regexnejoinsel(PG_FUNCTION_ARGS)
@@ -934,7 +934,7 @@ regexnejoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		icregexnejoinsel	- Join selectivity of case-insensitive regex non-match.
+ *		icregexnejoinsel —— 大小写不敏感正则不匹配连接选择率
  */
 Datum
 icregexnejoinsel(PG_FUNCTION_ARGS)
@@ -943,7 +943,7 @@ icregexnejoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		nlikejoinsel		- Join selectivity of LIKE pattern non-match.
+ *		nlikejoinsel —— LIKE 模式不匹配连接选择率。
  */
 Datum
 nlikejoinsel(PG_FUNCTION_ARGS)
@@ -952,7 +952,7 @@ nlikejoinsel(PG_FUNCTION_ARGS)
 }
 
 /*
- *		icnlikejoinsel		- Join selectivity of ILIKE pattern non-match.
+ *		icnlikejoinsel —— ILIKE 模式不匹配连接选择率。
  */
 Datum
 icnlikejoinsel(PG_FUNCTION_ARGS)
@@ -963,30 +963,30 @@ icnlikejoinsel(PG_FUNCTION_ARGS)
 
 /*-------------------------------------------------------------------------
  *
- * Pattern analysis functions
+ * 模式分析函数
  *
- * These routines support analysis of LIKE and regular-expression patterns
- * by the planner/optimizer.  It's important that they agree with the
- * regular-expression code in backend/regex/ and the LIKE code in
- * backend/utils/adt/like.c.  Also, the computation of the fixed prefix
- * must be conservative: if we report a string longer than the true fixed
- * prefix, the query may produce actually wrong answers, rather than just
- * getting a bad selectivity estimate!
+ * 这些例程为规划器/优化器对 LIKE 与正则表达式
+ * 模式分析提供支持。重要的是它们要与
+ * backend/regex/ 的正则代码及 backend/utils/adt/like.c
+ * 中的 LIKE 代码保持一致。此外，固定前缀的计
+ * 算必须保守：如果我们报告的字符串比真实固
+ * 定前缀更长，查询可能产生真正错误的结果，
+ * 而不只是糟糕的选择率！
  *
  *-------------------------------------------------------------------------
  */
 
 /*
- * Extract the fixed prefix, if any, for a pattern.
+ * 提取模式对应的固定前缀（如有）。
  *
- * *prefix is set to a palloc'd prefix string (in the form of a Const node),
- *	or to NULL if no fixed prefix exists for the pattern.
- * If rest_selec is not NULL, *rest_selec is set to an estimate of the
- *	selectivity of the remainder of the pattern (without any fixed prefix).
- * The prefix Const has the same type (TEXT or BYTEA) as the input pattern.
+ * *prefix 被设为 palloc 出来的前缀串（以 Const
+ *	节点形式），若无固定前缀则设为 NULL。
+ * 若 rest_selec 非 NULL，则 *rest_selec 被设为模式
+ *	其余部分（不含任何固定前缀）选择率的估算值。
+ * 前缀 Const 与输入模式具有相同类型（TEXT 或 BYTEA）。
  *
- * The return value distinguishes no fixed prefix, a partial prefix,
- * or an exact-match-only pattern.
+ * 返回值用于区分：无固定前缀、部分前缀、
+ * 或仅精确匹配的模式。
  */
 
 static Pattern_Prefix_Status
@@ -1003,7 +1003,7 @@ like_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 	pg_locale_t locale = 0;
 	bool		locale_is_c = false;
 
-	/* the right-hand const is type text or bytea */
+	/* 右侧常量类型为 text 或 bytea */
 	Assert(typeid == BYTEAOID || typeid == TEXTOID);
 
 	if (case_insensitive)
@@ -1016,8 +1016,8 @@ like_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 		if (!OidIsValid(collation))
 		{
 			/*
-			 * This typically means that the parser could not resolve a
-			 * conflict of implicit collations, so report it that way.
+			 * 这通常意味着解析器无法消解隐式排序
+			 * 规则冲突，所以按这种方式报告。
 			 */
 			ereport(ERROR,
 					(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -1025,7 +1025,7 @@ like_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 					 errhint("Use the COLLATE clause to set the collation explicitly.")));
 		}
 
-		/* If case-insensitive, we need locale info */
+		/* 大小写不敏感时需 locale 信息 */
 		if (lc_ctype_is_c(collation))
 			locale_is_c = true;
 		else
@@ -1051,12 +1051,12 @@ like_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 	match_pos = 0;
 	for (pos = 0; pos < pattlen; pos++)
 	{
-		/* % and _ are wildcard characters in LIKE */
+		/* % 和 _ 是 LIKE 中的通配符 */
 		if (patt[pos] == '%' ||
 			patt[pos] == '_')
 			break;
 
-		/* Backslash escapes the next character */
+		/* 反斜杠转义下一个字符 */
 		if (patt[pos] == '\\')
 		{
 			pos++;
@@ -1064,7 +1064,7 @@ like_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 				break;
 		}
 
-		/* Stop if case-varying character (it's sort of a wildcard) */
+		/* 遇到大小写变化的字符就停（算通配符） */
 		if (case_insensitive &&
 			pattern_char_isalpha(patt[pos], is_multibyte, locale, locale_is_c))
 			break;
@@ -1086,9 +1086,9 @@ like_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 	pfree(patt);
 	pfree(match);
 
-	/* in LIKE, an empty pattern is an exact match! */
+	/* LIKE 中空模式即为精确匹配！ */
 	if (pos == pattlen)
-		return Pattern_Prefix_Exact;	/* reached end of pattern, so exact */
+		return Pattern_Prefix_Exact;	/* 到模式末尾，故为精确 */
 
 	if (match_pos > 0)
 		return Pattern_Prefix_Partial;
@@ -1105,16 +1105,16 @@ regex_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 	bool		exact;
 
 	/*
-	 * Should be unnecessary, there are no bytea regex operators defined. As
-	 * such, it should be noted that the rest of this function has *not* been
-	 * made safe for binary (possibly NULL containing) strings.
+	 * 应当不必要——并没有定义 bytea 正则算子。因
+	 * 此应当指出，本函数其余部分*并未*针对二进制
+	 * （可能含 NULL）字符串做到安全。
 	 */
 	if (typeid == BYTEAOID)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("regular-expression matching not supported on type bytea")));
 
-	/* Use the regexp machinery to extract the prefix, if any */
+	/* 若有固定前缀，则用正则机制提取 */
 	prefix = regexp_fixed_prefix(DatumGetTextPP(patt_const->constvalue),
 								 case_insensitive, collation,
 								 &exact);
@@ -1142,7 +1142,7 @@ regex_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 	{
 		if (exact)
 		{
-			/* Exact match, so there's no additional selectivity */
+			/* 精确匹配，故没有额外的选择率 */
 			*rest_selec = 1.0;
 		}
 		else
@@ -1159,7 +1159,7 @@ regex_fixed_prefix(Const *patt_const, bool case_insensitive, Oid collation,
 	pfree(prefix);
 
 	if (exact)
-		return Pattern_Prefix_Exact;	/* pattern specifies exact match */
+		return Pattern_Prefix_Exact;	/* 模式指定精确匹配 */
 	else
 		return Pattern_Prefix_Partial;
 }
@@ -1189,7 +1189,7 @@ pattern_fixed_prefix(Const *patt, Pattern_Type ptype, Oid collation,
 										prefix, rest_selec);
 			break;
 		case Pattern_Type_Prefix:
-			/* Prefix type work is trivial.  */
+			/* 前缀类型工作很简单 */
 			result = Pattern_Prefix_Partial;
 			*prefix = makeConst(patt->consttype,
 								patt->consttypmod,
@@ -1201,33 +1201,33 @@ pattern_fixed_prefix(Const *patt, Pattern_Type ptype, Oid collation,
 								patt->constisnull,
 								patt->constbyval);
 			if (rest_selec != NULL)
-				*rest_selec = 1.0;	/* all */
+				*rest_selec = 1.0;	/* 全 */
 			break;
 		default:
 			elog(ERROR, "unrecognized ptype: %d", (int) ptype);
-			result = Pattern_Prefix_None;	/* keep compiler quiet */
+			result = Pattern_Prefix_None;	/* 让编译器安静 */
 			break;
 	}
 	return result;
 }
 
 /*
- * Estimate the selectivity of a fixed prefix for a pattern match.
+ * 估算固定前缀对模式匹配的选择率。
  *
- * A fixed prefix "foo" is estimated as the selectivity of the expression
+ * 固定前缀 "foo" 被估算为表达式的选择率
  * "variable >= 'foo' AND variable < 'fop'".
  *
- * The selectivity estimate is with respect to the portion of the column
- * population represented by the histogram --- the caller must fold this
- * together with info about MCVs and NULLs.
+ * 选择率估算针对的是直方图所代表的列总体部
+ * 分——调用者必须把它与 MCV 及 NULL 的信息合
+ * 并到一起。
  *
- * We use the given comparison operators and collation to do the estimation.
- * The given variable and Const must be of the associated datatype(s).
+ * 我们使用给定的比较算子与排序规则来做估算。
+ * 给定的变量与 Const 必须属于相关联的类型。
  *
- * XXX Note: we make use of the upper bound to estimate operator selectivity
- * even if the locale is such that we cannot rely on the upper-bound string.
- * The selectivity only needs to be approximately right anyway, so it seems
- * more useful to use the upper-bound code than not.
+ * XXX 注意：即使所处 locale 使得我们无法信赖上边
+ * 界字符串，我们仍利用上边界来估算算子选择率。
+ * 选择率本来就只需近似正确，所以使用上边界
+ * 的代码看起来比不用更有用。
  */
 static Selectivity
 prefix_selectivity(PlannerInfo *root, VariableStatData *vardata,
@@ -1240,7 +1240,7 @@ prefix_selectivity(PlannerInfo *root, VariableStatData *vardata,
 	Const	   *greaterstrcon;
 	Selectivity eq_sel;
 
-	/* Estimate the selectivity of "x >= prefix" */
+	/* 估算 "x >= prefix" 的选择率 */
 	fmgr_info(get_opcode(geopr), &opproc);
 
 	prefixsel = ineq_histogram_selectivity(root, vardata,
@@ -1251,12 +1251,12 @@ prefix_selectivity(PlannerInfo *root, VariableStatData *vardata,
 
 	if (prefixsel < 0.0)
 	{
-		/* No histogram is present ... return a suitable default estimate */
+		/* 没有直方图……返回一个合适的默认估算值 */
 		return DEFAULT_MATCH_SEL;
 	}
 
 	/*
-	 * If we can create a string larger than the prefix, say "x < greaterstr".
+	 * 若能构造出比前缀更大的字符串，就说 "x < greaterstr"。
 	 */
 	fmgr_info(get_opcode(ltopr), &opproc);
 	greaterstrcon = make_greater_string(prefixcon, &opproc, collation);
@@ -1270,30 +1270,30 @@ prefix_selectivity(PlannerInfo *root, VariableStatData *vardata,
 											greaterstrcon->constvalue,
 											greaterstrcon->consttype);
 
-		/* ineq_histogram_selectivity worked before, it shouldn't fail now */
+		/* ineq_histogram_selectivity 之前成功了，现在不应失败 */
 		Assert(topsel >= 0.0);
 
 		/*
-		 * Merge the two selectivities in the same way as for a range query
-		 * (see clauselist_selectivity()).  Note that we don't need to worry
-		 * about double-exclusion of nulls, since ineq_histogram_selectivity
-		 * doesn't count those anyway.
+		 * 以与范围查询相同的方式合并两个选择率
+		 * （见 clauselist_selectivity()）。注意无须担心把
+		 * NULL 排除两次，因为 ineq_histogram_selectivity
+		 * 反正也不统计它们。
 		 */
 		prefixsel = topsel + prefixsel - 1.0;
 	}
 
 	/*
-	 * If the prefix is long then the two bounding values might be too close
-	 * together for the histogram to distinguish them usefully, resulting in a
-	 * zero estimate (plus or minus roundoff error). To avoid returning a
-	 * ridiculously small estimate, compute the estimated selectivity for
-	 * "variable = 'foo'", and clamp to that. (Obviously, the resultant
-	 * estimate should be at least that.)
+	 * 若前缀很长，两个边界值可能靠得太近，直方图
+	 * 无法有效区分它们，导致估算值为零（加减舍入
+	 * 误差）。为避免返回小得离谱的估算值，先计算
+	 * "variable = 'foo'" 的估算选择率，并把结果
+	 * 钳制到该值。（显然所得估算值至少应
+	 * 达到该值。）
 	 *
-	 * We apply this even if we couldn't make a greater string.  That case
-	 * suggests that the prefix is near the maximum possible, and thus
-	 * probably off the end of the histogram, and thus we probably got a very
-	 * small estimate from the >= condition; so we still need to clamp.
+	 * 即使我们无法构造出更大的字符串，我们也应用这
+	 * 一做法。该情形说明前缀已接近可能的最大值，
+	 * 因而很可能落在直方图末端之外，因此我们从 >= 条件
+	 * 得到的估算值很可能非常小，故仍需钳制。
 	 */
 	eq_sel = var_eq_const(vardata, eqopr, collation, prefixcon->constvalue,
 						  false, true, false);
@@ -1305,18 +1305,18 @@ prefix_selectivity(PlannerInfo *root, VariableStatData *vardata,
 
 
 /*
- * Estimate the selectivity of a pattern of the specified type.
- * Note that any fixed prefix of the pattern will have been removed already,
- * so actually we may be looking at just a fragment of the pattern.
+ * 估算指定类型模式的选择率。
+ * 注意模式的任何固定前缀都已被移除，所以实
+ * 际上我们看到的可能只是模式的一个片段。
  *
- * For now, we use a very simplistic approach: fixed characters reduce the
- * selectivity a good deal, character ranges reduce it a little,
- * wildcards (such as % for LIKE or .* for regex) increase it.
+ * 目前我们使用一种非常简单的方法：固定字符
+ * 会大幅降低选择率，字符范围小幅降低它，
+ * 而通配符（如 LIKE % 或正则 .*）会提高它。
  */
 
-#define FIXED_CHAR_SEL	0.20	/* about 1/5 */
+#define FIXED_CHAR_SEL	0.20	/* 约 1/5 */
 #define CHAR_RANGE_SEL	0.25
-#define ANY_CHAR_SEL	0.9		/* not 1, since it won't match end-of-string */
+#define ANY_CHAR_SEL	0.9		/* 不是 1，因为它匹配不到串尾 */
 #define FULL_WILDCARD_SEL 5.0
 #define PARTIAL_WILDCARD_SEL 2.0
 
@@ -1326,7 +1326,7 @@ like_selectivity(const char *patt, int pattlen, bool case_insensitive)
 	Selectivity sel = 1.0;
 	int			pos;
 
-	/* Skip any leading wildcard; it's already factored into initial sel */
+	/* 跳过任何前导通配符；它已计入初始选择率 */
 	for (pos = 0; pos < pattlen; pos++)
 	{
 		if (patt[pos] != '%' && patt[pos] != '_')
@@ -1335,14 +1335,14 @@ like_selectivity(const char *patt, int pattlen, bool case_insensitive)
 
 	for (; pos < pattlen; pos++)
 	{
-		/* % and _ are wildcard characters in LIKE */
+		/* % 和 _ 是 LIKE 中的通配符 */
 		if (patt[pos] == '%')
 			sel *= FULL_WILDCARD_SEL;
 		else if (patt[pos] == '_')
 			sel *= ANY_CHAR_SEL;
 		else if (patt[pos] == '\\')
 		{
-			/* Backslash quotes the next character */
+			/* 反斜杠引用下一个字符 */
 			pos++;
 			if (pos >= pattlen)
 				break;
@@ -1351,7 +1351,7 @@ like_selectivity(const char *patt, int pattlen, bool case_insensitive)
 		else
 			sel *= FIXED_CHAR_SEL;
 	}
-	/* Could get sel > 1 if multiple wildcards */
+	/* 多个通配符时 sel 可能 > 1 */
 	if (sel > 1.0)
 		sel = 1.0;
 	return sel;
@@ -1362,10 +1362,10 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 {
 	Selectivity sel = 1.0;
 	int			paren_depth = 0;
-	int			paren_pos = 0;	/* dummy init to keep compiler quiet */
+	int			paren_pos = 0;	/* 哑初始化，让编译器安静 */
 	int			pos;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，因此可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	for (pos = 0; pos < pattlen; pos++)
@@ -1373,7 +1373,7 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 		if (patt[pos] == '(')
 		{
 			if (paren_depth == 0)
-				paren_pos = pos;	/* remember start of parenthesized item */
+				paren_pos = pos;	/* 记住括号项的起始位置 */
 			paren_depth++;
 		}
 		else if (patt[pos] == ')' && paren_depth > 0)
@@ -1387,13 +1387,13 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 		else if (patt[pos] == '|' && paren_depth == 0)
 		{
 			/*
-			 * If unquoted | is present at paren level 0 in pattern, we have
-			 * multiple alternatives; sum their probabilities.
+			 * 若模式中括号层级 0 处出现未加引号的 |，
+			 * 则有多个备选分支；概率相加。
 			 */
 			sel += regex_selectivity_sub(patt + (pos + 1),
 										 pattlen - (pos + 1),
 										 case_insensitive);
-			break;				/* rest of pattern is now processed */
+			break;				/* 其余模式已处理完毕 */
 		}
 		else if (patt[pos] == '[')
 		{
@@ -1404,7 +1404,7 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 				negclass = true;
 				pos++;
 			}
-			if (patt[pos] == ']')	/* ']' at start of class is not special */
+			if (patt[pos] == ']')	/* ']' 处于类开头时不特殊 */
 				pos++;
 			while (pos < pattlen && patt[pos] != ']')
 				pos++;
@@ -1420,7 +1420,7 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 				 patt[pos] == '?' ||
 				 patt[pos] == '+')
 		{
-			/* Ought to be smarter about quantifiers... */
+			/* 对量词本应更聪明一些…… */
 			if (paren_depth == 0)
 				sel *= PARTIAL_WILDCARD_SEL;
 		}
@@ -1433,7 +1433,7 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 		}
 		else if (patt[pos] == '\\')
 		{
-			/* backslash quotes the next character */
+			/* 反斜杠引用下一个字符 */
 			pos++;
 			if (pos >= pattlen)
 				break;
@@ -1446,7 +1446,7 @@ regex_selectivity_sub(const char *patt, int pattlen, bool case_insensitive)
 				sel *= FIXED_CHAR_SEL;
 		}
 	}
-	/* Could get sel > 1 if multiple wildcards */
+	/* 多个通配符时 sel 可能 > 1 */
 	if (sel > 1.0)
 		sel = 1.0;
 	return sel;
@@ -1458,24 +1458,24 @@ regex_selectivity(const char *patt, int pattlen, bool case_insensitive,
 {
 	Selectivity sel;
 
-	/* If patt doesn't end with $, consider it to have a trailing wildcard */
+	/* 若 patt 不以 $ 结尾，则视为带有尾部通配符 */
 	if (pattlen > 0 && patt[pattlen - 1] == '$' &&
 		(pattlen == 1 || patt[pattlen - 2] != '\\'))
 	{
-		/* has trailing $ */
+		/* 有尾部 $ */
 		sel = regex_selectivity_sub(patt, pattlen - 1, case_insensitive);
 	}
 	else
 	{
-		/* no trailing $ */
+		/* 无尾部 $ */
 		sel = regex_selectivity_sub(patt, pattlen, case_insensitive);
 		sel *= FULL_WILDCARD_SEL;
 	}
 
 	/*
-	 * If there's a fixed prefix, discount its selectivity.  We have to be
-	 * careful here since a very long prefix could result in pow's result
-	 * underflowing to zero (in which case "sel" probably has as well).
+	 * 若有固定前缀，则对其选择率打折扣。这里必须
+	 * 小心，因为非常长的前缀可能导致 pow 的结果
+	 * 下溢为零（此时 "sel" 很可能同样如此）。
 	 */
 	if (fixed_prefix_len > 0)
 	{
@@ -1485,18 +1485,18 @@ regex_selectivity(const char *patt, int pattlen, bool case_insensitive,
 			sel /= prefixsel;
 	}
 
-	/* Make sure result stays in range */
+	/* 确保结果保持在范围内 */
 	CLAMP_PROBABILITY(sel);
 	return sel;
 }
 
 /*
- * Check whether char is a letter (and, hence, subject to case-folding)
+ * 检查字符是否为字母（因而会受大小写折叠影响）
  *
- * In multibyte character sets or with ICU, we can't use isalpha, and it does
- * not seem worth trying to convert to wchar_t to use iswalpha or u_isalpha.
- * Instead, just assume any non-ASCII char is potentially case-varying, and
- * hard-wire knowledge of which ASCII chars are letters.
+ * 在多字节字符集或 ICU 下无法使用 isalpha，而
+ * 尝试转换为 wchar_t 去用 iswalpha 或 u_isalpha
+ * 又似乎不值得。因此，直接假定任何非 ASCII
+ * 字符都可能变大小写，字母集硬编码。
  */
 static int
 pattern_char_isalpha(char c, bool is_multibyte,
@@ -1519,8 +1519,8 @@ pattern_char_isalpha(char c, bool is_multibyte,
 
 
 /*
- * For bytea, the increment function need only increment the current byte
- * (there are no multibyte characters to worry about).
+ * 对 bytea 而言，递增函数只需递增当前字节
+ * （没有需要担心的多字节字符）。
  */
 static bool
 byte_increment(unsigned char *ptr, int len)
@@ -1532,45 +1532,45 @@ byte_increment(unsigned char *ptr, int len)
 }
 
 /*
- * Try to generate a string greater than the given string or any
- * string it is a prefix of.  If successful, return a palloc'd string
- * in the form of a Const node; else return NULL.
+ * 尝试生成一个比给定字符串更大、或比以它为
+ * 前缀的字符串都大的字符串。若成功，则返回
+ * palloc 的 Const 节点；否则 NULL。
  *
- * The caller must provide the appropriate "less than" comparison function
- * for testing the strings, along with the collation to use.
+ * 调用者必须提供用于测试字符串的相应"小于"
+ * 比较函数，以及要使用的排序规则。
  *
- * The key requirement here is that given a prefix string, say "foo",
- * we must be able to generate another string "fop" that is greater than
- * all strings "foobar" starting with "foo".  We can test that we have
- * generated a string greater than the prefix string, but in non-C collations
- * that is not a bulletproof guarantee that an extension of the string might
- * not sort after it; an example is that "foo " is less than "foo!", but it
- * is not clear that a "dictionary" sort ordering will consider "foo!" less
- * than "foo bar".  CAUTION: Therefore, this function should be used only for
- * estimation purposes when working in a non-C collation.
+ * 这里的关键要求是：给定前缀串 "foo"，我们
+ * 必须能生成另一个字符串 "fop"，它比所有
+ * 以 "foo" 开头的 "foobar" 串都大。我们可以测
+ * 试我们生成的串是否大于前缀串，但在非 C 排
+ * 序规则下这并不能万无一失地保证字符串的扩
+ * 展不会排在它之后；一个例子是 "foo " 小于
+ * "foo!"，但"字典"式排序是否认为 "foo!" 小于
+ * "foo bar" 并不明晰。当心：因此，在非 C 排序
+ * 规则下工作时本函数只应用于估算目的。
  *
- * To try to catch most cases where an extended string might otherwise sort
- * before the result value, we determine which of the strings "Z", "z", "y",
- * and "9" is seen as largest by the collation, and append that to the given
- * prefix before trying to find a string that compares as larger.
+ * 为尽量覆盖扩展串本可能排在结果值之前的
+ * 大多数情形，我们确定 "Z"、"z"、"y"、"9" 中
+ * 哪个被排序规则视为最大，并在尝试寻找比较
+ * 值更大的串之前把它追加到给定前缀上。
  *
- * To search for a greater string, we repeatedly "increment" the rightmost
- * character, using an encoding-specific character incrementer function.
- * When it's no longer possible to increment the last character, we truncate
- * off that character and start incrementing the next-to-rightmost.
- * For example, if "z" were the last character in the sort order, then we
- * could produce "foo" as a string greater than "fonz".
+ * 为搜索更大的串，我们反复使用特定编码的字符
+ * 递增函数来"递增"最右边的字符。当无法再
+ * 递增最后一个字符时，我们把该字符截去，并
+ * 开始递增次右边的字符。例如，若 "z" 是排序
+ * 顺序中的最后一个字符，那么我们可以生成
+ * "foo" 作为大于 "fonz" 的串。
  *
- * This could be rather slow in the worst case, but in most cases we
- * won't have to try more than one or two strings before succeeding.
+ * 最坏情形下这可能相当慢，但多数情形我们
+ * 只需尝试一两个字符串就能成功。
  *
- * Note that it's important for the character incrementer not to be too anal
- * about producing every possible character code, since in some cases the only
- * way to get a larger string is to increment a previous character position.
- * So we don't want to spend too much time trying every possible character
- * code at the last position.  A good rule of thumb is to be sure that we
- * don't try more than 256*K values for a K-byte character (and definitely
- * not 256^K, which is what an exhaustive search would approach).
+ * 注意，字符递增器不应过分执着于产出每个可
+ * 能的字符码，因为在某些情形下得到更大串的
+ * 唯一办法就是递增前面的某个字符位置。所以
+ * 我们不想在最后一个位置上耗费太多时间逐个
+ * 尝试所有字符码。好的经验法则是把尝试次数
+ * 限制在 K 字节字符至多 256*K 个值以内（当
+ * 然绝不是 256^K，穷举搜索才会逼近该量级）。
  */
 static Const *
 make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
@@ -1583,10 +1583,10 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 	mbcharacter_incrementer charinc;
 
 	/*
-	 * Get a modifiable copy of the prefix string in C-string format, and set
-	 * up the string we will compare to as a Datum.  In C locale this can just
-	 * be the given prefix string, otherwise we need to add a suffix.  Type
-	 * BYTEA sorts bytewise so it never needs a suffix either.
+	 * 以 C 串格式获得前缀串的可修改副本，并把将
+	 * 要与之比较的串设置为 Datum。在 C locale 下这
+	 * 可以直接用给定的前缀串，否则需要添加后缀。
+	 * bytea 按字节排序，因此同样无须后缀。
 	 */
 	if (datatype == BYTEAOID)
 	{
@@ -1610,7 +1610,7 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 			cmpstr = str_const->constvalue;
 		else
 		{
-			/* If first time through, determine the suffix to use */
+			/* 若是第一轮，则确定要使用的后缀 */
 			static char suffixchar = 0;
 			static Oid	suffixcollation = 0;
 
@@ -1629,7 +1629,7 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 				suffixcollation = collation;
 			}
 
-			/* And build the string to compare to */
+			/* 然后构造要与之比较的串 */
 			if (datatype == NAMEOID)
 			{
 				cmptxt = palloc(len + 2);
@@ -1649,19 +1649,19 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 		}
 	}
 
-	/* Select appropriate character-incrementer function */
+	/* 选择适当的字符递增函数 */
 	if (datatype == BYTEAOID)
 		charinc = byte_increment;
 	else
 		charinc = pg_database_encoding_character_incrementer();
 
-	/* And search ... */
+	/* 搜索… */
 	while (len > 0)
 	{
 		int			charlen;
 		unsigned char *lastchar;
 
-		/* Identify the last character --- for bytea, just the last byte */
+		/* 识别最后一个字符——bytea 就是最后一字节 */
 		if (datatype == BYTEAOID)
 			charlen = 1;
 		else
@@ -1669,12 +1669,12 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 		lastchar = (unsigned char *) (workstr + len - charlen);
 
 		/*
-		 * Try to generate a larger string by incrementing the last character
-		 * (for BYTEA, we treat each byte as a character).
+		 * 尝试通过递增最后一个字符来生成更大的串
+		 * （BYTEA 则把每字节当作一个字符）
 		 *
-		 * Note: the incrementer function is expected to return true if it's
-		 * generated a valid-per-the-encoding new character, otherwise false.
-		 * The contents of the character on false return are unspecified.
+		 * 注意：期望递增函数在生成了编码合法的新字
+		 * 符时返回 true，否则返回 false。返回 false 时
+		 * 该字符的内容是未定义的。
 		 */
 		while (charinc(lastchar, charlen))
 		{
@@ -1690,27 +1690,27 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 											   cmpstr,
 											   workstr_const->constvalue)))
 			{
-				/* Successfully made a string larger than cmpstr */
+				/* 成功构造出比 cmpstr 更大的串 */
 				if (cmptxt)
 					pfree(cmptxt);
 				pfree(workstr);
 				return workstr_const;
 			}
 
-			/* No good, release unusable value and try again */
+			/* 不行，释放不可用的值再试一次 */
 			pfree(DatumGetPointer(workstr_const->constvalue));
 			pfree(workstr_const);
 		}
 
 		/*
-		 * No luck here, so truncate off the last character and try to
-		 * increment the next one.
+		 * 此处无果，于是截去最后字符，并尝试
+		 * 递增下一个。
 		 */
 		len -= charlen;
 		workstr[len] = '\0';
 	}
 
-	/* Failed... */
+	/* 失败… */
 	if (cmptxt)
 		pfree(cmptxt);
 	pfree(workstr);
@@ -1719,9 +1719,9 @@ make_greater_string(const Const *str_const, FmgrInfo *ltproc, Oid collation)
 }
 
 /*
- * Generate a Datum of the appropriate type from a C string.
- * Note that all of the supported types are pass-by-ref, so the
- * returned value should be pfree'd if no longer needed.
+ * 从 C 字符串生成相应类型的 Datum。
+ * 注意所有受支持的类型都按引用传递，因此
+ * 返回值在不再需要时应被 pfree。
  */
 static Datum
 string_to_datum(const char *str, Oid datatype)
@@ -1729,8 +1729,8 @@ string_to_datum(const char *str, Oid datatype)
 	Assert(str != NULL);
 
 	/*
-	 * We cheat a little by assuming that CStringGetTextDatum() will do for
-	 * bpchar and varchar constants too...
+	 * 我们稍微作弊了一下：假定 CStringGetTextDatum()
+	 * 对 bpchar/varchar 常量也适用
 	 */
 	if (datatype == NAMEOID)
 		return DirectFunctionCall1(namein, CStringGetDatum(str));
@@ -1741,7 +1741,7 @@ string_to_datum(const char *str, Oid datatype)
 }
 
 /*
- * Generate a Const node of the appropriate type from a C string.
+ * 从 C 字符串生成相应类型的 Const 节点。
  */
 static Const *
 string_to_const(const char *str, Oid datatype)
@@ -1751,8 +1751,8 @@ string_to_const(const char *str, Oid datatype)
 	int			constlen;
 
 	/*
-	 * We only need to support a few datatypes here, so hard-wire properties
-	 * instead of incurring the expense of catalog lookups.
+	 * 这里只需支持少数几种数据类型，所以直接
+	 * 写死属性，免去查询系统目录的开销。
 	 */
 	switch (datatype)
 	{
@@ -1784,7 +1784,7 @@ string_to_const(const char *str, Oid datatype)
 }
 
 /*
- * Generate a Const node of bytea type from a binary C string and a length.
+ * 由二进制 C 串与长度生成 bytea 类型的 Const 节点。
  */
 static Const *
 string_to_bytea_const(const char *str, size_t str_len)

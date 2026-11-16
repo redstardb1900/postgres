@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rangetypes_gist.c
- *	  GiST support for range types.
+ *	  范围类型的 GiST 支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,34 +23,34 @@
 #include "utils/rangetypes.h"
 
 /*
- * Range class properties used to segregate different classes of ranges in
- * GiST.  Each unique combination of properties is a class.  CLS_EMPTY cannot
- * be combined with anything else.
+ * 用于在 GiST 中区分不同范围类别的范围类别属性。
+ * 每种唯一的属性组合即为一个类。CLS_EMPTY 无法与其
+ * 任何其他内容组合。
  */
-#define CLS_NORMAL			0	/* Ordinary finite range (no bits set) */
-#define CLS_LOWER_INF		1	/* Lower bound is infinity */
-#define CLS_UPPER_INF		2	/* Upper bound is infinity */
-#define CLS_CONTAIN_EMPTY	4	/* Contains underlying empty ranges */
-#define CLS_EMPTY			8	/* Special class for empty ranges */
+#define CLS_NORMAL			0	/* 普通有限范围（未置位） */
+#define CLS_LOWER_INF		1	/* 下边界为无穷 */
+#define CLS_UPPER_INF		2	/* 上边界为无穷 */
+#define CLS_CONTAIN_EMPTY	4	/* 包含底层空范围 */
+#define CLS_EMPTY			8	/* 空范围的专用类 */
 
-#define CLS_COUNT			9	/* # of classes; includes all combinations of
-								 * properties. CLS_EMPTY doesn't combine with
-								 * anything else, so it's only 2^3 + 1. */
+#define CLS_COUNT			9	/* 类的数量；包含属性的组合。
+								 * CLS_EMPTY 不与其他组合，仅有
+								 * 2^3 + 1。 */
 
 /*
- * Minimum accepted ratio of split for items of the same class.  If the items
- * are of different classes, we will separate along those lines regardless of
- * the ratio.
+ * 同类条目可接受的最小拆分比例。若条目属不同类，
+ * 则无论比例如何都会沿这些界线分离，而不考虑
+ * 比例。
  */
 #define LIMIT_RATIO  0.3
 
-/* Constants for fixed penalty values */
+/* 固定惩罚值的常量 */
 #define INFINITE_BOUND_PENALTY	2.0
 #define CONTAIN_EMPTY_PENALTY  1.0
 #define DEFAULT_SUBTYPE_DIFF_PENALTY  1.0
 
 /*
- * Per-item data for range_gist_single_sorting_split.
+ * range_gist_single_sorting_split 的每条目数据
  */
 typedef struct
 {
@@ -58,38 +58,38 @@ typedef struct
 	RangeBound	bound;
 } SingleBoundSortItem;
 
-/* place on left or right side of split? */
+/* 放在拆分的左侧还是右侧？ */
 typedef enum
 {
-	SPLIT_LEFT = 0,				/* makes initialization to SPLIT_LEFT easier */
+	SPLIT_LEFT = 0,				/* 便于初始化为 SPLIT_LEFT */
 	SPLIT_RIGHT
 } SplitLR;
 
 /*
- * Context for range_gist_consider_split.
+ * range_gist_consider_split 的上下文
  */
 typedef struct
 {
-	TypeCacheEntry *typcache;	/* typcache for range type */
-	bool		has_subtype_diff;	/* does it have subtype_diff? */
-	int			entries_count;	/* total number of entries being split */
+	TypeCacheEntry *typcache;	/* 范围的 typcache */
+	bool		has_subtype_diff;	/* 有 subtype_diff？ */
+	int			entries_count;	/* 被拆分条目总数 */
 
-	/* Information about currently selected split follows */
+	/* 以下是当前选定拆分的相关信息 */
 
-	bool		first;			/* true if no split was selected yet */
+	bool		first;			/* 若尚未选定拆分则为真 */
 
-	RangeBound *left_upper;		/* upper bound of left interval */
-	RangeBound *right_lower;	/* lower bound of right interval */
+	RangeBound *left_upper;		/* 左区间的上边界 */
+	RangeBound *right_lower;	/* 右区间的下边界 */
 
-	float4		ratio;			/* split ratio */
-	float4		overlap;		/* overlap between left and right predicate */
-	int			common_left;	/* # common entries destined for each side */
+	float4		ratio;			/* 比例 */
+	float4		overlap;		/* 左右谓词间的重叠 */
+	int			common_left;	/* 分到每侧的公共条目数 */
 	int			common_right;
 } ConsiderSplitContext;
 
 /*
- * Bounds extracted from a non-empty range, for use in
- * range_gist_double_sorting_split.
+ * 从非空范围提取的边界，供函数
+ * range_gist_double_sorting_split
  */
 typedef struct
 {
@@ -98,19 +98,19 @@ typedef struct
 } NonEmptyRange;
 
 /*
- * Represents information about an entry that can be placed in either group
- * without affecting overlap over selected axis ("common entry").
+ * 表示这样的条目的信息：它可放入任一组，
+ * 且不影响所选轴上的重叠（即"公共条目"）。
  */
 typedef struct
 {
-	/* Index of entry in the initial array */
+	/* 条目在初始数组中的下标 */
 	int			index;
-	/* Delta between closeness of range to each of the two groups */
+	/* 范围与两组各自接近度之间的差值 */
 	double		delta;
 } CommonEntry;
 
-/* Helper macros to place an entry in the left or right group during split */
-/* Note direct access to variables v, typcache, left_range, right_range */
+/* 拆分期间把条目放入左组或右组的辅助宏 */
+/* 注意会直接访问变量 v、typcache、left_range、right_range */
 #define PLACE_LEFT(range, off)					\
 	do {										\
 		if (v->spl_nleft > 0)					\
@@ -129,7 +129,7 @@ typedef struct
 		v->spl_right[v->spl_nright++] = (off);	\
 	} while(0)
 
-/* Copy a RangeType datum (hardwires typbyval and typlen for ranges...) */
+/* 复制 RangeType datum（为范围硬编码 typbyval/typlen...） */
 #define rangeCopy(r) \
 	((RangeType *) DatumGetPointer(datumCopy(PointerGetDatum(r), \
 											 false, -1)))
@@ -186,7 +186,7 @@ static float8 call_subtype_diff(TypeCacheEntry *typcache,
 								Datum val1, Datum val2);
 
 
-/* GiST query consistency check */
+/* GiST 查询一致性检查 */
 Datum
 range_gist_consistent(PG_FUNCTION_ARGS)
 {
@@ -199,16 +199,16 @@ range_gist_consistent(PG_FUNCTION_ARGS)
 	RangeType  *key = DatumGetRangeTypeP(entry->key);
 	TypeCacheEntry *typcache;
 
-	/* All operators served by this function are exact */
+	/* 本函数服务的所有算子都是精确的 */
 	*recheck = false;
 
 	typcache = range_get_typcache(fcinfo, RangeTypeGetOid(key));
 
 	/*
-	 * Perform consistent checking using function corresponding to key type
-	 * (leaf or internal) and query subtype (range, multirange, or element).
-	 * Note that invalid subtype means that query type matches key type
-	 * (range).
+	 * 使用与键类型（叶子或内部）对应的函数执行
+	 * 一致性检查，查询子类型（范围、多范围或元素）
+	 * 注：无效子类型即查询类型与键类型一致，即范
+	 * 围。
 	 */
 	if (GIST_LEAF(entry))
 	{
@@ -238,8 +238,8 @@ range_gist_consistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * GiST compress method for multiranges: multirange is approximated as union
- * range with no gaps.
+ * 多范围 GiST compress 方法：多范围被近似为无间隙的并
+ * 集范围。
  */
 Datum
 multirange_gist_compress(PG_FUNCTION_ARGS)
@@ -265,7 +265,7 @@ multirange_gist_compress(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(entry);
 }
 
-/* GiST query consistency check for multiranges */
+/* 多范围的 GiST 查询一致性检查 */
 Datum
 multirange_gist_consistent(PG_FUNCTION_ARGS)
 {
@@ -279,18 +279,18 @@ multirange_gist_consistent(PG_FUNCTION_ARGS)
 	TypeCacheEntry *typcache;
 
 	/*
-	 * All operators served by this function are inexact because multirange is
-	 * approximated by union range with no gaps.
+	 * 本函数所服务的所有算子均不精确，因为多范围
+	 * 近似为无间隙的并集范围。
 	 */
 	*recheck = true;
 
 	typcache = range_get_typcache(fcinfo, RangeTypeGetOid(key));
 
 	/*
-	 * Perform consistent checking using function corresponding to key type
-	 * (leaf or internal) and query subtype (range, multirange, or element).
-	 * Note that invalid subtype means that query type matches key type
-	 * (multirange).
+	 * 使用与键类型（叶子或内部）对应的函数执行
+	 * 一致性检查，查询子类型（范围、多范围或元素）
+	 * 注：无效子类型即查询类型与键类型一致，即多
+	 * 范围。
 	 */
 	if (GIST_LEAF(entry))
 	{
@@ -319,7 +319,7 @@ multirange_gist_consistent(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(result);
 }
 
-/* form union range */
+/* 求并集 */
 Datum
 range_gist_union(PG_FUNCTION_ARGS)
 {
@@ -343,20 +343,20 @@ range_gist_union(PG_FUNCTION_ARGS)
 }
 
 /*
- * We store ranges as ranges in GiST indexes, so we do not need
- * compress, decompress, or fetch functions.  Note this implies a limit
- * on the size of range values that can be indexed.
+ * 范围在 GiST 索引中即以范围存储，故无需
+ * compress、decompress 或 fetch 函数。注意这意味着可被
+ * 索引的范围值大小存在限制。
  */
 
 /*
- * GiST page split penalty function.
+ * GiST 页面拆分惩罚函数。
  *
- * The penalty function has the following goals (in order from most to least
- * important):
- * - Keep normal ranges separate
- * - Avoid broadening the class of the original predicate
- * - Avoid broadening (as determined by subtype_diff) the original predicate
- * - Favor adding ranges to narrower original predicates
+ * 惩罚函数有以下目标（按重要性从高到
+ * 低）：
+ * - 保持普通范围分离
+ * - 避免拓宽原谓词的类
+ * - 避免拓宽原谓词（由 subtype_diff 判定）
+ * - 倾向于把范围加入更窄的原谓词
  */
 Datum
 range_gist_penalty(PG_FUNCTION_ARGS)
@@ -386,79 +386,79 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 	range_deserialize(typcache, new, &new_lower, &new_upper, &new_empty);
 
 	/*
-	 * Distinct branches for handling distinct classes of ranges.  Note that
-	 * penalty values only need to be commensurate within the same class of
-	 * new range.
+	 * 以不同分支处理不同类别的范围。注意，惩罚值
+	 * 只需在同一新范围的类别内彼此
+	 * 相称。
 	 */
 	if (new_empty)
 	{
-		/* Handle insertion of empty range */
+		/* 处理空范围的插入 */
 		if (orig_empty)
 		{
 			/*
-			 * The best case is to insert it to empty original range.
-			 * Insertion here means no broadening of original range. Also
-			 * original range is the most narrow.
+			 * 最佳情形是将其插入空的原范围。
+			 * 在此处插入意味着原范围不拓宽。而且
+			 * 此时原范围最窄。
 			 */
 			*penalty = 0.0;
 		}
 		else if (RangeIsOrContainsEmpty(orig))
 		{
 			/*
-			 * The second case is to insert empty range into range which
-			 * contains at least one underlying empty range.  There is still
-			 * no broadening of original range, but original range is not as
-			 * narrow as possible.
+			 * 第二种情形是把空范围插入到
+			 * 至少含有一个底层空范围的范围中。此时仍不
+			 * 拓宽原范围，但原范围已不是
+			 * 最窄的了。
 			 */
 			*penalty = CONTAIN_EMPTY_PENALTY;
 		}
 		else if (orig_lower.infinite && orig_upper.infinite)
 		{
 			/*
-			 * Original range requires broadening.  (-inf; +inf) is most far
-			 * from normal range in this case.
+			 * 原范围需要拓宽。此时 (-inf; +inf) 距普通范围
+			 * 最远。
 			 */
 			*penalty = 2 * CONTAIN_EMPTY_PENALTY;
 		}
 		else if (orig_lower.infinite || orig_upper.infinite)
 		{
 			/*
-			 * (-inf, x) or (x, +inf) original ranges are closer to normal
-			 * ranges, so it's worse to mix it with empty ranges.
+			 * (-inf, x) 或 (x, +inf) 的原范围更接近普通
+			 * 范围，故与空范围相混更糟。
 			 */
 			*penalty = 3 * CONTAIN_EMPTY_PENALTY;
 		}
 		else
 		{
 			/*
-			 * The least preferred case is broadening of normal range.
+			 * 最不合意的情形是拓宽普通范围。
 			 */
 			*penalty = 4 * CONTAIN_EMPTY_PENALTY;
 		}
 	}
 	else if (new_lower.infinite && new_upper.infinite)
 	{
-		/* Handle insertion of (-inf, +inf) range */
+		/* 处理 (-inf, +inf) 范围的插入 */
 		if (orig_lower.infinite && orig_upper.infinite)
 		{
 			/*
-			 * Best case is inserting to (-inf, +inf) original range.
+			 * 最佳情形是插入到 (-inf, +inf) 原范围。
 			 */
 			*penalty = 0.0;
 		}
 		else if (orig_lower.infinite || orig_upper.infinite)
 		{
 			/*
-			 * When original range is (-inf, x) or (x, +inf) it requires
-			 * broadening of original range (extension of one bound to
-			 * infinity).
+			 * 当原范围是 (-inf, x) 或 (x, +inf) 时需要
+			 * 拓宽原范围（把一个边界延伸至无
+			 * 穷）。
 			 */
 			*penalty = INFINITE_BOUND_PENALTY;
 		}
 		else
 		{
 			/*
-			 * Insertion to normal original range is least preferred.
+			 * 插入普通原范围是最不合意的。
 			 */
 			*penalty = 2 * INFINITE_BOUND_PENALTY;
 		}
@@ -466,25 +466,25 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 		if (RangeIsOrContainsEmpty(orig))
 		{
 			/*
-			 * Original range is narrower when it doesn't contain empty
-			 * ranges. Add additional penalty otherwise.
+			 * 不含空范围时原范围更窄。否则应附加
+			 * 额外惩罚。
 			 */
 			*penalty += CONTAIN_EMPTY_PENALTY;
 		}
 	}
 	else if (new_lower.infinite)
 	{
-		/* Handle insertion of (-inf, x) range */
+		/* 处理 (-inf, x) 范围的插入 */
 		if (!orig_empty && orig_lower.infinite)
 		{
 			if (orig_upper.infinite)
 			{
 				/*
-				 * (-inf, +inf) range won't be extended by insertion of (-inf,
-				 * x) range. It's a less desirable case than insertion to
-				 * (-inf, y) original range without extension, because in that
-				 * case original range is narrower. But we can't express that
-				 * in single float value.
+				 * 插入 (-inf, x) 范围不会使 (-inf, +inf)
+				 * 范围扩展。比插入到不扩展的 (-inf, y)
+				 * 原范围的情形更不合意，因为在那
+				 * 种情形下原范围更窄。但我们无法用单个
+				 * 浮点值表达它。
 				 */
 				*penalty = 0.0;
 			}
@@ -493,8 +493,8 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 				if (range_cmp_bounds(typcache, &new_upper, &orig_upper) > 0)
 				{
 					/*
-					 * Get extension of original range using subtype_diff. Use
-					 * constant if subtype_diff unavailable.
+					 * 用 subtype_diff 求原范围的扩展量。若无
+					 * subtype_diff 可用则用常量。
 					 */
 					if (has_subtype_diff)
 						*penalty = call_subtype_diff(typcache,
@@ -505,7 +505,7 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 				}
 				else
 				{
-					/* No extension of original range */
+					/* 原范围无扩展 */
 					*penalty = 0.0;
 				}
 			}
@@ -513,25 +513,25 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * If lower bound of original range is not -inf, then extension of
-			 * it is infinity.
+			 * 若原范围的下边界不是 -inf，则其扩展量就是
+			 * 无穷大。
 			 */
 			*penalty = get_float4_infinity();
 		}
 	}
 	else if (new_upper.infinite)
 	{
-		/* Handle insertion of (x, +inf) range */
+		/* 处理 (x, +inf) 范围的插入 */
 		if (!orig_empty && orig_upper.infinite)
 		{
 			if (orig_lower.infinite)
 			{
 				/*
-				 * (-inf, +inf) range won't be extended by insertion of (x,
-				 * +inf) range. It's a less desirable case than insertion to
-				 * (y, +inf) original range without extension, because in that
-				 * case original range is narrower. But we can't express that
-				 * in single float value.
+				 * 插入 (x, +inf) 范围不会使 (-inf, +inf)
+				 * 范围扩展。比插入到不扩展的 (y, +inf)
+				 * 原范围的情形更不合意，因为在那
+				 * 种情形下原范围更窄。但我们无法用单个
+				 * 浮点值表达它。
 				 */
 				*penalty = 0.0;
 			}
@@ -540,8 +540,8 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 				if (range_cmp_bounds(typcache, &new_lower, &orig_lower) < 0)
 				{
 					/*
-					 * Get extension of original range using subtype_diff. Use
-					 * constant if subtype_diff unavailable.
+					 * 用 subtype_diff 求原范围的扩展量。若无
+					 * subtype_diff 可用则用常量。
 					 */
 					if (has_subtype_diff)
 						*penalty = call_subtype_diff(typcache,
@@ -552,7 +552,7 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 				}
 				else
 				{
-					/* No extension of original range */
+					/* 原范围无扩展 */
 					*penalty = 0.0;
 				}
 			}
@@ -560,27 +560,27 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * If upper bound of original range is not +inf, then extension of
-			 * it is infinity.
+			 * 若原范围的上边界不是 +inf，则其扩展量就是
+			 * 无穷大。
 			 */
 			*penalty = get_float4_infinity();
 		}
 	}
 	else
 	{
-		/* Handle insertion of normal (non-empty, non-infinite) range */
+		/* 处理普通（非空、非无限）范围的插入 */
 		if (orig_empty || orig_lower.infinite || orig_upper.infinite)
 		{
 			/*
-			 * Avoid mixing normal ranges with infinite and empty ranges.
+			 * 避免将普通范围与无限及空范围相混。
 			 */
 			*penalty = get_float4_infinity();
 		}
 		else
 		{
 			/*
-			 * Calculate extension of original range by calling subtype_diff.
-			 * Use constant if subtype_diff unavailable.
+			 * 通过调用 subtype_diff 计算原范围的扩展量。
+			 * 若 subtype_diff 不可用则用常量。
 			 */
 			float8		diff = 0.0;
 
@@ -610,10 +610,10 @@ range_gist_penalty(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST PickSplit method for ranges
+ * 范围的 GiST PickSplit 方法
  *
- * Primarily, we try to segregate ranges of different classes.  If splitting
- * ranges of the same class, use the appropriate split method for that class.
+ * 首要原则是尽量把不同类别的范围分开。若拆分
+ * 同类范围，则对该类使用相应的拆分方法。
  */
 Datum
 range_gist_picksplit(PG_FUNCTION_ARGS)
@@ -632,7 +632,7 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 	int			biggest_class_count = 0;
 	int			total_count;
 
-	/* use first item to look up range type's info */
+	/* 用首个条目查找范围类型的信息 */
 	pred_left = DatumGetRangeTypeP(entryvec->vector[FirstOffsetNumber].key);
 	typcache = range_get_typcache(fcinfo, RangeTypeGetOid(pred_left));
 
@@ -642,7 +642,7 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 	v->spl_right = (OffsetNumber *) palloc(nbytes);
 
 	/*
-	 * Get count distribution of range classes.
+	 * 获取范围类别的数量分布。
 	 */
 	memset(count_in_classes, 0, sizeof(count_in_classes));
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
@@ -653,7 +653,7 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Count non-empty classes and find biggest class.
+	 * 统计非空类并找出最大的类。
 	 */
 	total_count = maxoff;
 	for (j = 0; j < CLS_COUNT; j++)
@@ -673,35 +673,35 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 
 	if (non_empty_classes_count == 1)
 	{
-		/* One non-empty class, so split inside class */
+		/* 只有一个非空类，故在类内拆分 */
 		if ((biggest_class & ~CLS_CONTAIN_EMPTY) == CLS_NORMAL)
 		{
-			/* double sorting split for normal ranges */
+			/* 普通范围用双重排序拆分 */
 			range_gist_double_sorting_split(typcache, entryvec, v);
 		}
 		else if ((biggest_class & ~CLS_CONTAIN_EMPTY) == CLS_LOWER_INF)
 		{
-			/* upper bound sorting split for (-inf, x) ranges */
+			/* (-inf, x) 范围用上边界排序拆分 */
 			range_gist_single_sorting_split(typcache, entryvec, v, true);
 		}
 		else if ((biggest_class & ~CLS_CONTAIN_EMPTY) == CLS_UPPER_INF)
 		{
-			/* lower bound sorting split for (x, +inf) ranges */
+			/* (x, +inf) 范围用下边界排序拆分 */
 			range_gist_single_sorting_split(typcache, entryvec, v, false);
 		}
 		else
 		{
-			/* trivial split for all (-inf, +inf) or all empty ranges */
+			/* 全为 (-inf, +inf) 或全空范围时平凡拆分 */
 			range_gist_fallback_split(typcache, entryvec, v);
 		}
 	}
 	else
 	{
 		/*
-		 * Class based split.
+		 * 按类别拆分。
 		 *
-		 * To which side of the split should each class go?  Initialize them
-		 * all to go to the left side.
+		 * 每个类应分到拆分的哪一侧？先把它们
+		 * 全部初始化为左侧。
 		 */
 		SplitLR		classes_groups[CLS_COUNT];
 
@@ -709,19 +709,19 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 
 		if (count_in_classes[CLS_NORMAL] > 0)
 		{
-			/* separate normal ranges if any */
+			/* 若有普通范围则分开 */
 			classes_groups[CLS_NORMAL] = SPLIT_RIGHT;
 		}
 		else
 		{
 			/*----------
-			 * Try to split classes in one of two ways:
-			 *	1) containing infinities - not containing infinities
-			 *	2) containing empty - not containing empty
+			 * 尝试按两种方式之一拆分：
+			 *	1) 含无穷 - 不含无穷
+			 *	2) 含空 - 不含空
 			 *
-			 * Select the way which balances the ranges between left and right
-			 * the best. If split in these ways is not possible, there are at
-			 * most 3 classes, so just separate biggest class.
+			 * 选择在左右之间最均衡分布范围的方式。若
+			 * 无法按这些方式拆分，则类别最多只有 3 个，
+			 * 此时只需分离最大的类。
 			 *----------
 			 */
 			int			infCount,
@@ -760,8 +760,8 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 			else
 			{
 				/*
-				 * Either total_count == emptyCount or total_count ==
-				 * infCount.
+				 * 要么 total_count == emptyCount，要么等于
+				 * infCount
 				 */
 				classes_groups[biggest_class] = SPLIT_RIGHT;
 			}
@@ -773,7 +773,7 @@ range_gist_picksplit(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(v);
 }
 
-/* equality comparator for GiST */
+/* GiST 的相等比较器 */
 Datum
 range_gist_same(PG_FUNCTION_ARGS)
 {
@@ -782,10 +782,10 @@ range_gist_same(PG_FUNCTION_ARGS)
 	bool	   *result = (bool *) PG_GETARG_POINTER(2);
 
 	/*
-	 * range_eq will ignore the RANGE_CONTAIN_EMPTY flag, so we have to check
-	 * that for ourselves.  More generally, if the entries have been properly
-	 * normalized, then unequal flags bytes must mean unequal ranges ... so
-	 * let's just test all the flag bits at once.
+	 * range_eq 会忽略 RANGE_CONTAIN_EMPTY 标志，所以必须
+	 * 自行检查。更一般地，若条目已被正确规范化，
+	 * 则不相等的标志字节必意味着不相等的范围……
+	 * 故干脆一次测试所有标志位。
 	 */
 	if (range_get_flags(r1) != range_get_flags(r2))
 		*result = false;
@@ -803,19 +803,19 @@ range_gist_same(PG_FUNCTION_ARGS)
 
 /*
  *----------------------------------------------------------
- * STATIC FUNCTIONS
+ * 静态函数
  *----------------------------------------------------------
  */
 
 /*
- * Return the smallest range that contains r1 and r2
+ * 返回包含 r1 与 r2 的最小范围
  *
- * This differs from regular range_union in two critical ways:
- * 1. It won't throw an error for non-adjacent r1 and r2, but just absorb
- * the intervening values into the result range.
- * 2. We track whether any empty range has been union'd into the result,
- * so that contained_by searches can be indexed.  Note that this means
- * that *all* unions formed within the GiST index must go through here.
+ * 它与常规 range_union 有两点关键区别：
+ * 1. 对不相邻的 r1 与 r2 不抛错，而是直接把中间
+ * 值吸收进结果范围。
+ * 2. 我们会追踪是否有空范围被并入结果，
+ * 以便对 contained_by 搜索建立索引。注意这意味
+ * 着 GiST 索引内形成的*所有*并集都必须经过这里。
  */
 static RangeType *
 range_super_union(TypeCacheEntry *typcache, RangeType *r1, RangeType *r2)
@@ -839,20 +839,20 @@ range_super_union(TypeCacheEntry *typcache, RangeType *r1, RangeType *r2)
 
 	if (empty1)
 	{
-		/* We can return r2 as-is if it already is or contains empty */
+		/* 若 r2 已是或含空范围，可直接原样返回 r2 */
 		if (flags2 & (RANGE_EMPTY | RANGE_CONTAIN_EMPTY))
 			return r2;
-		/* Else we'd better copy it (modify-in-place isn't safe) */
+		/* 否则最好复制一份（就地修改不安全） */
 		r2 = rangeCopy(r2);
 		range_set_contain_empty(r2);
 		return r2;
 	}
 	if (empty2)
 	{
-		/* We can return r1 as-is if it already is or contains empty */
+		/* 若 r1 已是或含空范围，可直接原样返回 r1 */
 		if (flags1 & (RANGE_EMPTY | RANGE_CONTAIN_EMPTY))
 			return r1;
-		/* Else we'd better copy it (modify-in-place isn't safe) */
+		/* 否则最好复制一份（就地修改不安全） */
 		r1 = rangeCopy(r1);
 		range_set_contain_empty(r1);
 		return r1;
@@ -868,7 +868,7 @@ range_super_union(TypeCacheEntry *typcache, RangeType *r1, RangeType *r2)
 	else
 		result_upper = &upper2;
 
-	/* optimization to avoid constructing a new range */
+	/* 避免构造新范围的优化手段 */
 	if (result_lower == &lower1 && result_upper == &upper1 &&
 		((flags1 & RANGE_CONTAIN_EMPTY) || !(flags2 & RANGE_CONTAIN_EMPTY)))
 		return r1;
@@ -909,7 +909,7 @@ multirange_union_range_equal(TypeCacheEntry *typcache,
 }
 
 /*
- * GiST consistent test on an index internal page with range query
+ * 范围查询下内部页的 GiST 一致性测试
  */
 static bool
 range_gist_consistent_int_range(TypeCacheEntry *typcache,
@@ -948,9 +948,9 @@ range_gist_consistent_int_range(TypeCacheEntry *typcache,
 		case RANGESTRAT_CONTAINED_BY:
 
 			/*
-			 * Empty ranges are contained by anything, so if key is or
-			 * contains any empty ranges, we must descend into it.  Otherwise,
-			 * descend only if key overlaps the query.
+			 * 空范围被一切包含，因此若键是空范围或
+			 * 包含空范围，就必须下降到其中。否则，仅当
+			 * 键与查询重叠时才下降。
 			 */
 			if (RangeIsOrContainsEmpty(key))
 				return true;
@@ -958,20 +958,20 @@ range_gist_consistent_int_range(TypeCacheEntry *typcache,
 		case RANGESTRAT_EQ:
 
 			/*
-			 * If query is empty, descend only if the key is or contains any
-			 * empty ranges.  Otherwise, descend if key contains query.
+			 * 若查询为空，仅当键是或包含任何空范围时
+			 * 才下降。否则仅当键包含查询时下降。
 			 */
 			if (RangeIsEmpty(query))
 				return RangeIsOrContainsEmpty(key);
 			return range_contains_internal(typcache, key, query);
 		default:
 			elog(ERROR, "unrecognized range strategy: %d", strategy);
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * GiST consistent test on an index internal page with multirange query
+ * 多范围查询下内部页的 GiST 一致性测试
  */
 static bool
 range_gist_consistent_int_multirange(TypeCacheEntry *typcache,
@@ -1010,9 +1010,9 @@ range_gist_consistent_int_multirange(TypeCacheEntry *typcache,
 		case RANGESTRAT_CONTAINED_BY:
 
 			/*
-			 * Empty ranges are contained by anything, so if key is or
-			 * contains any empty ranges, we must descend into it.  Otherwise,
-			 * descend only if key overlaps the query.
+			 * 空范围被一切包含，因此若键是空范围或
+			 * 包含空范围，就必须下降到其中。否则，仅当
+			 * 键与查询重叠时才下降。
 			 */
 			if (RangeIsOrContainsEmpty(key))
 				return true;
@@ -1020,20 +1020,20 @@ range_gist_consistent_int_multirange(TypeCacheEntry *typcache,
 		case RANGESTRAT_EQ:
 
 			/*
-			 * If query is empty, descend only if the key is or contains any
-			 * empty ranges.  Otherwise, descend if key contains query.
+			 * 若查询为空，仅当键是或包含任何空范围时
+			 * 才下降。否则仅当键包含查询时下降。
 			 */
 			if (MultirangeIsEmpty(query))
 				return RangeIsOrContainsEmpty(key);
 			return range_contains_multirange_internal(typcache, key, query);
 		default:
 			elog(ERROR, "unrecognized range strategy: %d", strategy);
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * GiST consistent test on an index internal page with element query
+ * 元素查询下内部页的 GiST 一致性测试
  */
 static bool
 range_gist_consistent_int_element(TypeCacheEntry *typcache,
@@ -1047,12 +1047,12 @@ range_gist_consistent_int_element(TypeCacheEntry *typcache,
 			return range_contains_elem_internal(typcache, key, query);
 		default:
 			elog(ERROR, "unrecognized range strategy: %d", strategy);
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * GiST consistent test on an index leaf page with range query
+ * 范围查询下叶子页的 GiST 一致性测试
  */
 static bool
 range_gist_consistent_leaf_range(TypeCacheEntry *typcache,
@@ -1082,12 +1082,12 @@ range_gist_consistent_leaf_range(TypeCacheEntry *typcache,
 			return range_eq_internal(typcache, key, query);
 		default:
 			elog(ERROR, "unrecognized range strategy: %d", strategy);
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * GiST consistent test on an index leaf page with multirange query
+ * 多范围查询下叶子页的 GiST 一致性测试
  */
 static bool
 range_gist_consistent_leaf_multirange(TypeCacheEntry *typcache,
@@ -1117,12 +1117,12 @@ range_gist_consistent_leaf_multirange(TypeCacheEntry *typcache,
 			return multirange_union_range_equal(typcache, key, query);
 		default:
 			elog(ERROR, "unrecognized range strategy: %d", strategy);
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * GiST consistent test on an index leaf page with element query
+ * 元素查询下叶子页的 GiST 一致性测试
  */
 static bool
 range_gist_consistent_leaf_element(TypeCacheEntry *typcache,
@@ -1136,13 +1136,13 @@ range_gist_consistent_leaf_element(TypeCacheEntry *typcache,
 			return range_contains_elem_internal(typcache, key, query);
 		default:
 			elog(ERROR, "unrecognized range strategy: %d", strategy);
-			return false;		/* keep compiler quiet */
+			return false;		/* 让编译器安静 */
 	}
 }
 
 /*
- * Trivial split: half of entries will be placed on one page
- * and the other half on the other page.
+ * 平凡拆分：一半条目放到一个页面，
+ * 另一半放到另一个页面。
  */
 static void
 range_gist_fallback_split(TypeCacheEntry *typcache,
@@ -1156,7 +1156,7 @@ range_gist_fallback_split(TypeCacheEntry *typcache,
 				split_idx;
 
 	maxoff = entryvec->n - 1;
-	/* Split entries before this to left page, after to right: */
+	/* 此前的条目拆到左页，此后的拆到右页： */
 	split_idx = (maxoff - FirstOffsetNumber) / 2 + FirstOffsetNumber;
 
 	v->spl_nleft = 0;
@@ -1176,11 +1176,11 @@ range_gist_fallback_split(TypeCacheEntry *typcache,
 }
 
 /*
- * Split based on classes of ranges.
+ * 基于范围类别进行拆分。
  *
- * See get_gist_range_class for class definitions.
- * classes_groups is an array of length CLS_COUNT indicating the side of the
- * split to which each class should go.
+ * 类别定义见 get_gist_range_class。
+ * classes_groups 是长度为 CLS_COUNT 的数组，指明
+ * 各类应去拆分的哪一侧。
  */
 static void
 range_gist_class_split(TypeCacheEntry *typcache,
@@ -1202,10 +1202,10 @@ range_gist_class_split(TypeCacheEntry *typcache,
 		RangeType  *range = DatumGetRangeTypeP(entryvec->vector[i].key);
 		int			class;
 
-		/* Get class of range */
+		/* 取范围的类别 */
 		class = get_gist_range_class(range);
 
-		/* Place range to appropriate page */
+		/* 把范围放到相应的页面 */
 		if (classes_groups[class] == SPLIT_LEFT)
 			PLACE_LEFT(range, i);
 		else
@@ -1220,10 +1220,10 @@ range_gist_class_split(TypeCacheEntry *typcache,
 }
 
 /*
- * Sorting based split. First half of entries according to the sort will be
- * placed to one page, and second half of entries will be placed to other
- * page. use_upper_bound parameter indicates whether to use upper or lower
- * bound for sorting.
+ * 基于排序的拆分。排序后前一半条目将被
+ * 放到一个页面，后一半条目将被放到另一个
+ * 页面。use_upper_bound 参数指示用上边界还是
+ * 下边界排序。
  */
 static void
 range_gist_single_sorting_split(TypeCacheEntry *typcache,
@@ -1244,7 +1244,7 @@ range_gist_single_sorting_split(TypeCacheEntry *typcache,
 		palloc(maxoff * sizeof(SingleBoundSortItem));
 
 	/*
-	 * Prepare auxiliary array and sort the values.
+	 * 准备辅助数组并对值排序。
 	 */
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -1253,7 +1253,7 @@ range_gist_single_sorting_split(TypeCacheEntry *typcache,
 		bool		empty;
 
 		sortItems[i - 1].index = i;
-		/* Put appropriate bound into array */
+		/* 把相应的边界放入数组 */
 		if (use_upper_bound)
 			range_deserialize(typcache, range, &bound2,
 							  &sortItems[i - 1].bound, &empty);
@@ -1287,29 +1287,29 @@ range_gist_single_sorting_split(TypeCacheEntry *typcache,
 }
 
 /*
- * Double sorting split algorithm.
+ * 双重排序拆分算法。
  *
- * The algorithm considers dividing ranges into two groups. The first (left)
- * group contains general left bound. The second (right) group contains
- * general right bound. The challenge is to find upper bound of left group
- * and lower bound of right group so that overlap of groups is minimal and
- * ratio of distribution is acceptable. Algorithm finds for each lower bound of
- * right group minimal upper bound of left group, and for each upper bound of
- * left group maximal lower bound of right group. For each found pair
- * range_gist_consider_split considers replacement of currently selected
- * split with the new one.
+ * 算法考虑把范围划分为两组。第一组（左组）包含
+ * 公共左边界。第二组（右组）包含公共右边界。
+ * 难点在于找到左组的上边界与右组的下边界，
+ * 使得两组的重叠最小且分配比例可以接受。算
+ * 法会为右组的每个下边界找出最小的左组上边界，
+ * 并为左组的每个上边界找出最大的右组下边界。
+ * 对每一对找到的边界，
+ * range_gist_consider_split 会考虑用它替换当前
+ * 选定的拆分。
  *
- * After that, all the entries are divided into three groups:
- * 1) Entries which should be placed to the left group
- * 2) Entries which should be placed to the right group
- * 3) "Common entries" which can be placed to either group without affecting
- *	  amount of overlap.
+ * 此后，所有条目被划分成三组：
+ * 1) 应放入左组的条目
+ * 2) 应放入右组的条目
+ * 3) "公共条目"，即可放入任一组而不影响
+ *	  重叠量。
  *
- * The common ranges are distributed by difference of distance from lower
- * bound of common range to lower bound of right group and distance from upper
- * bound of common range to upper bound of left group.
+ * 公共范围按下述差值来分配：公共范围下边界到
+ * 右组下边界的距离，与公共范围上边界到左组上
+ * 边界的距离之差。
  *
- * For details see:
+ * 详见：
  * "A new double sorting-based node splitting algorithm for R-tree",
  * A. Korotkov
  * http://syrcose.ispras.ru/2011/files/SYRCoSE2011_Proceedings.pdf#page=36
@@ -1342,11 +1342,11 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	nentries = context.entries_count = maxoff - FirstOffsetNumber + 1;
 	context.first = true;
 
-	/* Allocate arrays for sorted range bounds */
+	/* 为排序后的范围边界分配数组 */
 	by_lower = (NonEmptyRange *) palloc(nentries * sizeof(NonEmptyRange));
 	by_upper = (NonEmptyRange *) palloc(nentries * sizeof(NonEmptyRange));
 
-	/* Fill arrays of bounds */
+	/* 填充边界数组 */
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
 		RangeType  *range = DatumGetRangeTypeP(entryvec->vector[i].key);
@@ -1360,8 +1360,8 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	}
 
 	/*
-	 * Make two arrays of range bounds: one sorted by lower bound and another
-	 * sorted by upper bound.
+	 * 构造两个范围边界数组：其一按下边界排序，
+	 * 其二按上边界。
 	 */
 	memcpy(by_upper, by_lower, nentries * sizeof(NonEmptyRange));
 	qsort_arg(by_lower, nentries, sizeof(NonEmptyRange),
@@ -1370,10 +1370,10 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 			  interval_cmp_upper, typcache);
 
 	/*----------
-	 * The goal is to form a left and right range, so that every entry
-	 * range is contained by either left or right interval (or both).
+	 * 目标是构造出一个左范围与一个右范围，使得
+	 * 各条目范围必被左或右区间（或两者）包含。
 	 *
-	 * For example, with the ranges (0,1), (1,3), (2,3), (2,4):
+	 * 例如，对于范围 (0,1)、(1,3)、(2,3)、(2,4)：
 	 *
 	 * 0 1 2 3 4
 	 * +-+
@@ -1381,19 +1381,19 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	 *	   +-+
 	 *	   +---+
 	 *
-	 * The left and right ranges are of the form (0,a) and (b,4).
-	 * We first consider splits where b is the lower bound of an entry.
-	 * We iterate through all entries, and for each b, calculate the
-	 * smallest possible a. Then we consider splits where a is the
-	 * upper bound of an entry, and for each a, calculate the greatest
-	 * possible b.
+	 * 左范围与右范围形如 (0,a) 与 (b,4)。
+	 * 我们先考虑 b 为某条目下边界的拆分。
+	 * 我们遍历所有条目，对每个 b 计算最小
+	 * 可能的 a。接着再考虑 a 为某条目上边
+	 * 界的拆分，并对每个 a 计算最大可能的
+	 * b。
 	 *
-	 * In the above example, the first loop would consider splits:
+	 * 在上面的例子中，第一轮循环会考虑拆分：
 	 * b=0: (0,1)-(0,4)
 	 * b=1: (0,1)-(1,4)
 	 * b=2: (0,3)-(2,4)
 	 *
-	 * And the second loop:
+	 * 第二轮为：
 	 * a=1: (0,1)-(1,4)
 	 * a=3: (0,3)-(2,4)
 	 * a=4: (0,4)-(2,4)
@@ -1401,8 +1401,8 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	 */
 
 	/*
-	 * Iterate over lower bound of right group, finding smallest possible
-	 * upper bound of left group.
+	 * 遍历右组的下边界，找出最小的可能
+	 * 左组上边界。
 	 */
 	i1 = 0;
 	i2 = 0;
@@ -1411,7 +1411,7 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	while (true)
 	{
 		/*
-		 * Find next lower bound of right group.
+		 * 找出右组的下一个下边界。
 		 */
 		while (i1 < nentries &&
 			   range_cmp_bounds(typcache, right_lower,
@@ -1427,8 +1427,8 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 		right_lower = &by_lower[i1].lower;
 
 		/*
-		 * Find count of ranges which anyway should be placed to the left
-		 * group.
+		 * 统计无论如何都应放入左组的范围
+		 * 数量
 		 */
 		while (i2 < nentries &&
 			   range_cmp_bounds(typcache, &by_upper[i2].upper,
@@ -1436,14 +1436,14 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 			i2++;
 
 		/*
-		 * Consider found split to see if it's better than what we had.
+		 * 考虑找到的拆分，看它是否优于当前方案。
 		 */
 		range_gist_consider_split(&context, right_lower, i1, left_upper, i2);
 	}
 
 	/*
-	 * Iterate over upper bound of left group finding greatest possible lower
-	 * bound of right group.
+	 * 遍历左组的上边界，找出最大的可能
+	 * 右组下边界。
 	 */
 	i1 = nentries - 1;
 	i2 = nentries - 1;
@@ -1452,7 +1452,7 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	while (true)
 	{
 		/*
-		 * Find next upper bound of left group.
+		 * 找出左组的下一个上边界。
 		 */
 		while (i2 >= 0 &&
 			   range_cmp_bounds(typcache, left_upper,
@@ -1468,8 +1468,8 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 		left_upper = &by_upper[i2].upper;
 
 		/*
-		 * Find count of intervals which anyway should be placed to the right
-		 * group.
+		 * 统计无论如何都应放入右组的区间
+		 * 数量
 		 */
 		while (i1 >= 0 &&
 			   range_cmp_bounds(typcache, &by_lower[i1].lower,
@@ -1477,14 +1477,14 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 			i1--;
 
 		/*
-		 * Consider found split to see if it's better than what we had.
+		 * 考虑找到的拆分，看它是否优于当前方案。
 		 */
 		range_gist_consider_split(&context, right_lower, i1 + 1,
 								  left_upper, i2 + 1);
 	}
 
 	/*
-	 * If we failed to find any acceptable splits, use trivial split.
+	 * 若找不到任何可接受的拆分，则用平凡拆分。
 	 */
 	if (context.first)
 	{
@@ -1493,27 +1493,27 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	}
 
 	/*
-	 * Ok, we have now selected bounds of the groups. Now we have to
-	 * distribute entries themselves. At first we distribute entries which can
-	 * be placed unambiguously and collect "common entries" to array.
+	 * 好，现在已经选定了两组的边界。接下来
+	 * 要分配条目本身。先分配那些可以无歧义放
+	 * 置的条目，并把"公共条目"收集到数组中。
 	 */
 
-	/* Allocate vectors for results */
+	/* 为结果分配向量 */
 	v->spl_left = (OffsetNumber *) palloc(nentries * sizeof(OffsetNumber));
 	v->spl_right = (OffsetNumber *) palloc(nentries * sizeof(OffsetNumber));
 	v->spl_nleft = 0;
 	v->spl_nright = 0;
 
 	/*
-	 * Allocate an array for "common entries" - entries which can be placed to
-	 * either group without affecting overlap along selected axis.
+	 * 为"公共条目"分配数组——即可以放入任一
+	 * 组而不影响所选轴上重叠的条目。
 	 */
 	common_entries_count = 0;
 	common_entries = (CommonEntry *) palloc(nentries * sizeof(CommonEntry));
 
 	/*
-	 * Distribute entries which can be distributed unambiguously, and collect
-	 * common entries.
+	 * 分配那些可以无歧义放置的条目，并收集
+	 * 公共条目。
 	 */
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -1523,7 +1523,7 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 		bool		empty;
 
 		/*
-		 * Get upper and lower bounds along selected axis.
+		 * 获取所选轴上的上边界与下边界。
 		 */
 		range = DatumGetRangeTypeP(entryvec->vector[i].key);
 
@@ -1531,10 +1531,10 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 
 		if (range_cmp_bounds(typcache, &upper, context.left_upper) <= 0)
 		{
-			/* Fits in the left group */
+			/* 可放入左组 */
 			if (range_cmp_bounds(typcache, &lower, context.right_lower) >= 0)
 			{
-				/* Fits also in the right group, so "common entry" */
+				/* 也可放入右组，故为"公共条目" */
 				common_entries[common_entries_count].index = i;
 				if (context.has_subtype_diff)
 				{
@@ -1552,23 +1552,23 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 				}
 				else
 				{
-					/* Without subtype_diff, take all deltas as zero */
+					/* 无 subtype_diff 时把所有 delta 取为零 */
 					common_entries[common_entries_count].delta = 0;
 				}
 				common_entries_count++;
 			}
 			else
 			{
-				/* Doesn't fit to the right group, so join to the left group */
+				/* 放不进右组，于是并入左组 */
 				PLACE_LEFT(range, i);
 			}
 		}
 		else
 		{
 			/*
-			 * Each entry should fit on either left or right group. Since this
-			 * entry didn't fit in the left group, it better fit in the right
-			 * group.
+			 * 每个条目都应能放入左组或右组之一。由于该
+			 * 条目未能放入左组，那么它最好能放入右
+			 * 组。
 			 */
 			Assert(range_cmp_bounds(typcache, &lower,
 									context.right_lower) >= 0);
@@ -1577,19 +1577,19 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 	}
 
 	/*
-	 * Distribute "common entries", if any.
+	 * 分配"公共条目"（如有）。
 	 */
 	if (common_entries_count > 0)
 	{
 		/*
-		 * Sort "common entries" by calculated deltas in order to distribute
-		 * the most ambiguous entries first.
+		 * 按算得的 delta 对"公共条目"排序，以便
+		 * 优先分配最含糊的条目。
 		 */
 		qsort(common_entries, common_entries_count, sizeof(CommonEntry),
 			  common_entry_cmp);
 
 		/*
-		 * Distribute "common entries" between groups according to sorting.
+		 * 按排序结果在两组之间分配"公共条目"。
 		 */
 		for (i = 0; i < common_entries_count; i++)
 		{
@@ -1599,8 +1599,8 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 			range = DatumGetRangeTypeP(entryvec->vector[idx].key);
 
 			/*
-			 * Check if we have to place this entry in either group to achieve
-			 * LIMIT_RATIO.
+			 * 检查是否必须把该条目放入某一组才能达到
+			 * LIMIT_RATIO
 			 */
 			if (i < context.common_left)
 				PLACE_LEFT(range, idx);
@@ -1614,8 +1614,8 @@ range_gist_double_sorting_split(TypeCacheEntry *typcache,
 }
 
 /*
- * Consider replacement of currently selected split with a better one
- * during range_gist_double_sorting_split.
+ * 考虑在 range_gist_double_sorting_split 期间
+ * 用更优者替换当前选定的拆分
  */
 static void
 range_gist_consider_split(ConsiderSplitContext *context,
@@ -1628,8 +1628,8 @@ range_gist_consider_split(ConsiderSplitContext *context,
 				overlap;
 
 	/*
-	 * Calculate entries distribution ratio assuming most uniform distribution
-	 * of common entries.
+	 * 在公共条目分布最均匀的假定下计算条目的
+	 * 分配比例。
 	 */
 	if (min_left_count >= (context->entries_count + 1) / 2)
 		left_count = min_left_count;
@@ -1640,9 +1640,9 @@ range_gist_consider_split(ConsiderSplitContext *context,
 	right_count = context->entries_count - left_count;
 
 	/*
-	 * Ratio of split: quotient between size of smaller group and total
-	 * entries count.  This is necessarily 0.5 or less; if it's less than
-	 * LIMIT_RATIO then we will never accept the new split.
+	 * 拆分比例：较小组大小与条目总数之商。
+	 * 该值必然 ≤ 0.5；若小于 LIMIT_RATIO，则绝不
+	 * 会接受新拆分。
 	 */
 	ratio = ((float4) Min(left_count, right_count)) /
 		((float4) context->entries_count);
@@ -1652,11 +1652,11 @@ range_gist_consider_split(ConsiderSplitContext *context,
 		bool		selectthis = false;
 
 		/*
-		 * The ratio is acceptable, so compare current split with previously
-		 * selected one. We search for minimal overlap (allowing negative
-		 * values) and minimal ratio secondarily.  If subtype_diff is
-		 * available, it's used for overlap measure.  Without subtype_diff we
-		 * use number of "common entries" as an overlap measure.
+		 * 比例可以接受，于是将当前拆分与先前选定的
+		 * 拆分进行比较。寻找最小重叠（可为负值），
+		 * 其次是最小比例。若有 subtype_diff，则用
+		 * 它度量重叠。无 subtype_diff 时用"公共条
+		 * 目"数量作为重叠度量。
 		 */
 		if (context->has_subtype_diff)
 			overlap = call_subtype_diff(context->typcache,
@@ -1665,14 +1665,14 @@ range_gist_consider_split(ConsiderSplitContext *context,
 		else
 			overlap = max_left_count - min_left_count;
 
-		/* If there is no previous selection, select this split */
+		/* 若此前没有选定者，则选定此拆分 */
 		if (context->first)
 			selectthis = true;
 		else
 		{
 			/*
-			 * Choose the new split if it has a smaller overlap, or same
-			 * overlap but better ratio.
+			 * 若新拆分重叠更小，或重叠相同比例更优，
+			 * 则选用新拆分。
 			 */
 			if (overlap < context->overlap ||
 				(overlap == context->overlap && ratio > context->ratio))
@@ -1681,7 +1681,7 @@ range_gist_consider_split(ConsiderSplitContext *context,
 
 		if (selectthis)
 		{
-			/* save information about selected split */
+			/* 保存选定拆分的相关信息 */
 			context->first = false;
 			context->ratio = ratio;
 			context->overlap = overlap;
@@ -1694,11 +1694,11 @@ range_gist_consider_split(ConsiderSplitContext *context,
 }
 
 /*
- * Find class number for range.
+ * 求范围的类别号。
  *
- * The class number is a valid combination of the properties of the
- * range.  Note: the highest possible number is 8, because CLS_EMPTY
- * can't be combined with anything else.
+ * 类别号是范围诸属性的有效组合。注意：最大
+ * 可能值是 8，因为 CLS_EMPTY 无法与任何其他
+ * 内容组合。
  */
 static int
 get_gist_range_class(RangeType *range)
@@ -1725,7 +1725,7 @@ get_gist_range_class(RangeType *range)
 }
 
 /*
- * Comparison function for range_gist_single_sorting_split.
+ * range_gist_single_sorting_split 的比较函数。
  */
 static int
 single_bound_cmp(const void *a, const void *b, void *arg)
@@ -1738,7 +1738,7 @@ single_bound_cmp(const void *a, const void *b, void *arg)
 }
 
 /*
- * Compare NonEmptyRanges by lower bound.
+ * 按下边界比较 NonEmptyRange
  */
 static int
 interval_cmp_lower(const void *a, const void *b, void *arg)
@@ -1751,7 +1751,7 @@ interval_cmp_lower(const void *a, const void *b, void *arg)
 }
 
 /*
- * Compare NonEmptyRanges by upper bound.
+ * 按上边界比较 NonEmptyRange
  */
 static int
 interval_cmp_upper(const void *a, const void *b, void *arg)
@@ -1764,7 +1764,7 @@ interval_cmp_upper(const void *a, const void *b, void *arg)
 }
 
 /*
- * Compare CommonEntrys by their deltas.
+ * 按 delta 比较 CommonEntry
  */
 static int
 common_entry_cmp(const void *i1, const void *i2)
@@ -1781,8 +1781,8 @@ common_entry_cmp(const void *i1, const void *i2)
 }
 
 /*
- * Convenience function to invoke type-specific subtype_diff function.
- * Caller must have already checked that there is one for the range type.
+ * 调用类型专属 subtype_diff 函数的便捷函数。
+ * 调用者必须已检查过该范围类型存在此函数。
  */
 static float8
 call_subtype_diff(TypeCacheEntry *typcache, Datum val1, Datum val2)
@@ -1792,7 +1792,7 @@ call_subtype_diff(TypeCacheEntry *typcache, Datum val1, Datum val2)
 	value = DatumGetFloat8(FunctionCall2Coll(&typcache->rng_subdiff_finfo,
 											 typcache->rng_collation,
 											 val1, val2));
-	/* Cope with buggy subtype_diff function by returning zero */
+	/* 返回零以应对有缺陷的 subtype_diff 函数 */
 	if (value >= 0.0)
 		return value;
 	return 0.0;

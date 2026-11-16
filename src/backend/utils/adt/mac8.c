@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * mac8.c
- *	  PostgreSQL type definitions for 8 byte (EUI-64) MAC addresses.
+ *	  8 字节（EUI-64）MAC 地址的 PostgreSQL 类型定义
  *
- * EUI-48 (6 byte) MAC addresses are accepted as input and are stored in
- * EUI-64 format, with the 4th and 5th bytes set to FF and FE, respectively.
+ * 接受 EUI-48（6 字节）MAC 地址作为输入，并以 EUI-64
+ * 格式存储，其中第 4、5 字节分别置为 FF 和 FE。
  *
- * Output is always in 8 byte (EUI-64) format.
+ * 输出总是 8 字节（EUI-64）格式。
  *
- * The following code is written with the assumption that the OUI field
- * size is 24 bits.
+ * 以下代码在编写时假定 OUI 字段大小
+ * 为 24 位。
  *
  * Portions Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -27,7 +27,7 @@
 #include "utils/inet.h"
 
 /*
- *	Utility macros used for sorting and comparing:
+ *	用于排序和比较的实用宏：
  */
 #define hibits(addr) \
   ((unsigned long)(((addr)->a<<24) | ((addr)->b<<16) | ((addr)->c<<8) | ((addr)->d)))
@@ -49,10 +49,10 @@ static const signed char hexlookup[128] = {
 };
 
 /*
- * hex2_to_uchar - convert 2 hex digits to a byte (unsigned char)
+ * hex2_to_uchar - 将 2 个十六进制数字转为一个字节
  *
- * Sets *badhex to true if the end of the string is reached ('\0' found), or if
- * either character is not a valid hex digit.
+ * 若到达串末尾（遇到 '\0'）或任一字符不是有效十六进制
+ * 数字，则将 *badhex 置为 true。
  */
 static inline unsigned char
 hex2_to_uchar(const unsigned char *ptr, bool *badhex)
@@ -60,7 +60,7 @@ hex2_to_uchar(const unsigned char *ptr, bool *badhex)
 	unsigned char ret;
 	signed char lookup;
 
-	/* Handle the first character */
+	/* 处理第一个字符 */
 	if (*ptr > 127)
 		goto invalid_input;
 
@@ -70,7 +70,7 @@ hex2_to_uchar(const unsigned char *ptr, bool *badhex)
 
 	ret = lookup << 4;
 
-	/* Move to the second character */
+	/* 移到第二个字符 */
 	ptr++;
 
 	if (*ptr > 127)
@@ -90,7 +90,7 @@ invalid_input:
 }
 
 /*
- * MAC address (EUI-48 and EUI-64) reader. Accepts several common notations.
+ * MAC 地址（EUI-48 与 EUI-64）读取器。接受几种常见记法。
  */
 Datum
 macaddr8_in(PG_FUNCTION_ARGS)
@@ -111,20 +111,20 @@ macaddr8_in(PG_FUNCTION_ARGS)
 	int			count = 0;
 	unsigned char spacer = '\0';
 
-	/* skip leading spaces */
+	/* 跳过前导空格 */
 	while (*ptr && isspace(*ptr))
 		ptr++;
 
-	/* digits must always come in pairs */
+	/* 数字必须成对出现 */
 	while (*ptr && *(ptr + 1))
 	{
 		/*
-		 * Attempt to decode each byte, which must be 2 hex digits in a row.
-		 * If either digit is not hex, hex2_to_uchar will throw ereport() for
-		 * us.  Either 6 or 8 byte MAC addresses are supported.
+		 * 尝试解码各字节，字节必须为连续两个十六进制
+		 * 数字。任一数字非十六进制时，hex2_to_uchar 会代
+		 * 为抛出 ereport()。支持6/8 字节 MAC 地址。
 		 */
 
-		/* Attempt to collect a byte */
+		/* 尝试收集一个字节 */
 		count++;
 
 		switch (count)
@@ -154,46 +154,46 @@ macaddr8_in(PG_FUNCTION_ARGS)
 				h = hex2_to_uchar(ptr, &badhex);
 				break;
 			default:
-				/* must be trailing garbage... */
+				/* 是尾部垃圾…… */
 				goto fail;
 		}
 
 		if (badhex)
 			goto fail;
 
-		/* Move forward to where the next byte should be */
+		/* 前进到下一个字节应在的位置 */
 		ptr += 2;
 
-		/* Check for a spacer, these are valid, anything else is not */
+		/* 检查分隔符，这些字符有效，其余都无效 */
 		if (*ptr == ':' || *ptr == '-' || *ptr == '.')
 		{
-			/* remember the spacer used, if it changes then it isn't valid */
+			/* 记住所用的分隔符，若发生变化则无效 */
 			if (spacer == '\0')
 				spacer = *ptr;
 
-			/* Have to use the same spacer throughout */
+			/* 全程必须使用同一分隔符 */
 			else if (spacer != *ptr)
 				goto fail;
 
-			/* move past the spacer */
+			/* 越过分隔符 */
 			ptr++;
 		}
 
-		/* allow trailing whitespace after if we have 6 or 8 bytes */
+		/* 若已有 6 或 8 字节，允许其后有尾随空白 */
 		if (count == 6 || count == 8)
 		{
 			if (isspace(*ptr))
 			{
 				while (*++ptr && isspace(*ptr));
 
-				/* If we found a space and then non-space, it's invalid */
+				/* 若先遇到空格后又遇非空格，则无效 */
 				if (*ptr)
 					goto fail;
 			}
 		}
 	}
 
-	/* Convert a 6 byte MAC address to macaddr8 */
+	/* 将6字节 MAC 地址转换为 macaddr8 */
 	if (count == 6)
 	{
 		h = f;
@@ -227,7 +227,7 @@ fail:
 }
 
 /*
- * MAC8 address (EUI-64) output function. Fixed format.
+ * MAC8 地址（EUI-64）的定长输出函数。
  */
 Datum
 macaddr8_out(PG_FUNCTION_ARGS)
@@ -245,9 +245,9 @@ macaddr8_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * macaddr8_recv - converts external binary format(EUI-48 and EUI-64) to macaddr8
+ * macaddr8_recv - 将外部二进制格式(EUI-48 与 EUI-64)转成 macaddr8
  *
- * The external representation is just the eight bytes, MSB first.
+ * 外部表示就是这八个字节，MSB 在前。
  */
 Datum
 macaddr8_recv(PG_FUNCTION_ARGS)
@@ -280,7 +280,7 @@ macaddr8_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- * macaddr8_send - converts macaddr8(EUI-64) to binary format
+ * macaddr8_send - 将 macaddr8(EUI-64) 转成二进制
  */
 Datum
 macaddr8_send(PG_FUNCTION_ARGS)
@@ -303,7 +303,7 @@ macaddr8_send(PG_FUNCTION_ARGS)
 
 
 /*
- * macaddr8_cmp_internal - comparison function for sorting:
+ * macaddr8_cmp_internal - 用于排序的比较函数：
  */
 static int32
 macaddr8_cmp_internal(macaddr8 *a1, macaddr8 *a2)
@@ -330,7 +330,7 @@ macaddr8_cmp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Boolean comparison functions.
+ * 布尔比较函数。
  */
 
 Datum
@@ -388,7 +388,7 @@ macaddr8_ne(PG_FUNCTION_ARGS)
 }
 
 /*
- * Support function for hash indexes on macaddr8.
+ * macaddr8 哈希索引的支持函数。
  */
 Datum
 hashmacaddr8(PG_FUNCTION_ARGS)
@@ -408,7 +408,7 @@ hashmacaddr8extended(PG_FUNCTION_ARGS)
 }
 
 /*
- * Arithmetic functions: bitwise NOT, AND, OR.
+ * 算术函数：按位 NOT、AND、OR。
  */
 Datum
 macaddr8_not(PG_FUNCTION_ARGS)
@@ -470,7 +470,7 @@ macaddr8_or(PG_FUNCTION_ARGS)
 }
 
 /*
- * Truncation function to allow comparing macaddr8 manufacturers.
+ * 截断函数，用于比较 macaddr8 制造商。
  */
 Datum
 macaddr8_trunc(PG_FUNCTION_ARGS)
@@ -493,7 +493,7 @@ macaddr8_trunc(PG_FUNCTION_ARGS)
 }
 
 /*
- * Set 7th bit for modified EUI-64 as used in IPv6.
+ * 为 IPv6 用的修改版 EUI-64 置第 7 位。
  */
 Datum
 macaddr8_set7bit(PG_FUNCTION_ARGS)
@@ -516,7 +516,7 @@ macaddr8_set7bit(PG_FUNCTION_ARGS)
 }
 
 /*----------------------------------------------------------
- *	Conversion operators.
+ *	转换算子。
  *---------------------------------------------------------*/
 
 Datum

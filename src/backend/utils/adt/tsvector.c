@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsvector.c
- *	  I/O functions for tsvector
+ *	  tsvector 的 I/O 函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -24,13 +24,13 @@
 
 typedef struct
 {
-	WordEntry	entry;			/* must be first, see compareentry */
+	WordEntry	entry;			/* 须居首，见 compareentry */
 	WordEntryPos *pos;
-	int			poslen;			/* number of elements in pos */
+	int			poslen;			/* pos 的元素个数 */
 } WordEntryIN;
 
 
-/* Compare two WordEntryPos values for qsort */
+/* 为 qsort 比较两个 WordEntryPos 值 */
 int
 compareWordEntryPos(const void *a, const void *b)
 {
@@ -43,11 +43,11 @@ compareWordEntryPos(const void *a, const void *b)
 }
 
 /*
- * Removes duplicate pos entries. If there's two entries with same pos but
- * different weight, the higher weight is retained, so we can't use
- * qunique here.
+ * 去除重复的 pos 条目。若两条目的 pos 相同但权重
+ * 不同，则保留权重较高者，因此不能在此用
+ * qunique。
  *
- * Returns new length.
+ * 返回新长度。
  */
 static int
 uniquePos(WordEntryPos *a, int l)
@@ -81,8 +81,8 @@ uniquePos(WordEntryPos *a, int l)
 }
 
 /*
- * Compare two WordEntry structs for qsort_arg.  This can also be used on
- * WordEntryIN structs, since those have WordEntry as their first field.
+ * 为 qsort_arg 比较两个 WordEntry 结构体。本函数
+ * 亦可用于 WordEntryIN 结构体，因其首字段即 WordEntry。
  */
 static int
 compareentry(const void *va, const void *vb, void *arg)
@@ -97,8 +97,8 @@ compareentry(const void *va, const void *vb, void *arg)
 }
 
 /*
- * Sort an array of WordEntryIN, remove duplicates.
- * *outbuflen receives the amount of space needed for strings and positions.
+ * 为 WordEntryIN 数组排序去重。
+ * *outbuflen 接收词位与位置所需的空间量。
  */
 static int
 uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
@@ -121,7 +121,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 			  strncmp(&buf[ptr->entry.pos], &buf[res->entry.pos],
 					  res->entry.len) == 0))
 		{
-			/* done accumulating data into *res, count space needed */
+			/* *res 数据已收集完毕，统计所需空间 */
 			buflen += res->entry.len;
 			if (res->entry.haspos)
 			{
@@ -137,7 +137,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 		{
 			if (res->entry.haspos)
 			{
-				/* append ptr's positions to res's positions */
+				/* 把 ptr 的位置追加到 res 的位置 */
 				int			newlen = ptr->poslen + res->poslen;
 
 				res->pos = (WordEntryPos *)
@@ -149,7 +149,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 			}
 			else
 			{
-				/* just give ptr's positions to pos */
+				/* 直接给 pos 赋 ptr 的位置 */
 				res->entry.haspos = 1;
 				res->pos = ptr->pos;
 				res->poslen = ptr->poslen;
@@ -158,7 +158,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 		ptr++;
 	}
 
-	/* count space needed for last item */
+	/* 统计最后一项所需空间 */
 	buflen += res->entry.len;
 	if (res->entry.haspos)
 	{
@@ -180,7 +180,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 	TSVectorParseState state;
 	WordEntryIN *arr;
 	int			totallen;
-	int			arrlen;			/* allocated size of arr */
+	int			arrlen;			/* arr 已分配大小 */
 	WordEntry  *inarr;
 	int			len = 0;
 	TSVector	in;
@@ -193,12 +193,12 @@ tsvectorin(PG_FUNCTION_ARGS)
 	int			stroff;
 
 	/*
-	 * Tokens are appended to tmpbuf, cur is a pointer to the end of used
-	 * space in tmpbuf.
+	 * 词位会追加到 tmpbuf，cur 是已用空间的
+	 * 末端指针。
 	 */
 	char	   *tmpbuf;
 	char	   *cur;
-	int			buflen = 256;	/* allocated size of tmpbuf */
+	int			buflen = 256;	/* tmpbuf 已分配大小 */
 
 	state = init_tsvector_parser(buf, 0, escontext);
 
@@ -222,7 +222,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 							(long) (cur - tmpbuf), (long) MAXSTRPOS)));
 
 		/*
-		 * Enlarge buffers if needed
+		 * 按需扩容缓冲区
 		 */
 		if (len >= arrlen)
 		{
@@ -260,7 +260,7 @@ tsvectorin(PG_FUNCTION_ARGS)
 
 	close_tsvector_parser(state);
 
-	/* Did gettoken_tsvector fail? */
+	/* gettoken_tsvector 失败? */
 	if (SOFT_ERROR_OCCURRED(escontext))
 		PG_RETURN_NULL();
 
@@ -288,16 +288,16 @@ tsvectorin(PG_FUNCTION_ARGS)
 		stroff += arr[i].entry.len;
 		if (arr[i].entry.haspos)
 		{
-			/* This should be unreachable because of MAXNUMPOS restrictions */
+			/* 受 MAXNUMPOS 限制，这里应该不可到达 */
 			if (arr[i].poslen > 0xFFFF)
 				elog(ERROR, "positions array too long");
 
-			/* Copy number of positions */
+			/* 复制位置个数 */
 			stroff = SHORTALIGN(stroff);
 			*(uint16 *) (strbuf + stroff) = (uint16) arr[i].poslen;
 			stroff += sizeof(uint16);
 
-			/* Copy positions */
+			/* 复制位置 */
 			memcpy(strbuf + stroff, arr[i].pos, arr[i].poslen * sizeof(WordEntryPos));
 			stroff += arr[i].poslen * sizeof(WordEntryPos);
 
@@ -327,7 +327,7 @@ tsvectorout(PG_FUNCTION_ARGS)
 	lenbuf = out->size * 2 /* '' */ + out->size - 1 /* space */ + 2 /* \0 */ ;
 	for (i = 0; i < out->size; i++)
 	{
-		lenbuf += ptr[i].len * 2 * pg_database_encoding_max_length() /* for escape */ ;
+		lenbuf += ptr[i].len * 2 * pg_database_encoding_max_length() /* 转义用 */ ;
 		if (ptr[i].haspos)
 			lenbuf += 1 /* : */ + 7 /* int2 + , + weight */ * POSDATALEN(out, &(ptr[i]));
 	}
@@ -393,14 +393,14 @@ tsvectorout(PG_FUNCTION_ARGS)
 }
 
 /*
- * Binary Input / Output functions. The binary format is as follows:
+ * 二进制输入/输出函数。二进制格式如下：
  *
- * uint32	number of lexemes
+ * uint32	词位个数
  *
- * for each lexeme:
- *		lexeme text in client encoding, null-terminated
- *		uint16	number of positions
- *		for each position:
+ * 每个词位：
+ *		词位文本（客户端编码），NUL 结尾
+ *		uint16	位置个数
+ *		对每个位置：
  *			uint16 WordEntryPos
  */
 
@@ -421,8 +421,8 @@ tsvectorsend(PG_FUNCTION_ARGS)
 		uint16		npos;
 
 		/*
-		 * the strings in the TSVector array are not null-terminated, so we
-		 * have to send the null-terminator separately
+		 * TSVector 数组中的字符串不以空字符结尾，所以
+		 * 必须单独发送空终止符
 		 */
 		pq_sendtext(&buf, STRPTR(vec) + weptr->pos, weptr->len);
 		pq_sendbyte(&buf, '\0');
@@ -450,11 +450,11 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 	TSVector	vec;
 	int			i;
 	int32		nentries;
-	int			datalen;		/* number of bytes used in the variable size
-								 * area after fixed size TSVector header and
-								 * WordEntries */
+	int			datalen;		/* 固定长度 TSVector 头和
+								 * WordEntries 之后的变长区域已用
+								 * 字节数 */
 	Size		hdrlen;
-	Size		len;			/* allocated size of vec */
+	Size		len;			/* vec 已分配大小 */
 	bool		needSort = false;
 
 	nentries = pq_getmsgint(buf, sizeof(int32));
@@ -463,7 +463,7 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 
 	hdrlen = DATAHDRSIZE + sizeof(WordEntry) * nentries;
 
-	len = hdrlen * 2;			/* times two to make room for lexemes */
+	len = hdrlen * 2;			/* 翻倍以为词位留出空间 */
 	vec = (TSVector) palloc0(len);
 	vec->size = nentries;
 
@@ -477,7 +477,7 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 		lexeme = pq_getmsgstring(buf);
 		npos = (uint16) pq_getmsgint(buf, sizeof(uint16));
 
-		/* sanity checks */
+		/* 合法检查 */
 
 		lex_len = strlen(lexeme);
 		if (lex_len > MAXSTRLEN)
@@ -490,9 +490,9 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 			elog(ERROR, "unexpected number of tsvector positions");
 
 		/*
-		 * Looks valid. Fill the WordEntry struct, and copy lexeme.
+		 * 看起来有效。填充 WordEntry 并复制词位。
 		 *
-		 * But make sure the buffer is large enough first.
+		 * 但首先要确保缓冲区足够大。
 		 */
 		while (hdrlen + SHORTALIGN(datalen + lex_len) +
 			   sizeof(uint16) + npos * sizeof(WordEntryPos) >= len)
@@ -514,16 +514,16 @@ tsvectorrecv(PG_FUNCTION_ARGS)
 								  STRPTR(vec)) <= 0)
 			needSort = true;
 
-		/* Receive positions */
+		/* 接收位置 */
 		if (npos > 0)
 		{
 			uint16		j;
 			WordEntryPos *wepptr;
 
 			/*
-			 * Pad to 2-byte alignment if necessary. Though we used palloc0
-			 * for the initial allocation, subsequent repalloc'd memory areas
-			 * are not initialized to zero.
+			 * 必要时填充到 2 字节对齐。初始分配虽用了
+			 * palloc0，但后续经 repalloc 扩大的内存区域
+			 * 并未初始化为零。
 			 */
 			if (datalen != SHORTALIGN(datalen))
 			{

@@ -1,0 +1,118 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0404",
+    "title": "adt 目录 5 个小文件整文件注释翻译 (195 blocks 注释感知: 195 zh-blocks + 0 keep-blocks, 394 zh 行 (含 RAW 精准替换 6 行) + 123 显式 keep-EN 行 (头部保留行: 文件名/版权/IDENTIFICATION/路径/横幅边框 + 函数名行/函数签名行/作者行/note: 标签行 (inet_cidr_ntop.c 同口径) + datum L22 \"sizeof(Datum)\" 纯字面量 + tsvector L404 uint16 WordEntryPos 纯类型行 + tsvector L327/L332 行内多段微注释字节预算保留 + tsvector 65 行扫描器误粘合纯代码行逐字节未动 + inet ISC 许可证块整块保留 13 行); 行数守恒 5 文件全通过 (394/394 diff 394+/394-); 规划轮 2 (dump 块/槽位实测 + apply 双 bug 修复: 单行注释包装双写 + banner border 分类规则缺失) + 写后修复轮 2 (R1: 残留超预算 8 站逐站裁剪成句; R2: flatten 术语统一回 0403 口径 展平); 特殊处理: tsvector.c L327-394 注释感知扫描器将 tsvectorout 行内微注释与后续代码行误粘合为伪块, 其中 L396-404 Binary I/O 注释正常翻译, 代码行零改动; tsvector L330 /* for escape */→/* 转义用 */ 与 L453-455 datalen 跨行尾注释三行联译、inet L32-33 /* needed on some platforms */ 两行联译均走 RAW 精准替换 (pgrminclude ignore 工具指令逐字保留); 句号台账 (python 块尾现算): FWD 13 = inet 9 (L47/L84 同EN同译 /CIDR. 句号省 + L116 跳过 x/X 余量1B + L144 吃点分数字串 + L176/L296 同EN同译 其后不得再有 + L292 若有 + L316 /32 + L333 地址补足) + tsvector L263 ASCII ? 对齐 (全角？差2B 另计风格披露) + arraysubs 4 (L177 sbsrefstate->workspace 数组 + L396/L429 同EN同译 prevvalue/prevnull 字段 + L536 pg_type.typarray 字段引用的类型); REVERSE 句号口径 0; 段内句号移位 2 站自洽披露 (datum L127 子上下文中。句号前移 L128 起此外对应 EN Moreover + datum L262 。若分句 L263 相等则返回对应 EN Return true); 行首标点复扫 0 (arraysubs L142 /* …… 为 EN \"...\" 镜像开篇不计); 括号全角配平 5 文件全过 (datum 7/7 tsvector 1/1 inet 6/6 mac8 6/6 arraysubs 7/7); 门禁: verify_c_comments adt 43 文件 rc=0 (W7 advisory 仅 2 站涉本批: inet_net_pton L1 W7_UNTRANSLATED=ISC 许可证块保留 (inet_cidr_ntop.c L1 同款先例) + mac8 L247 W7_IDENT_LOST=format→格式 语义翻译); term_lint 本批 5 文件 0 hits (全树 1 error 系 init/postinit.c 既有 非本批范围); halfen 本批 5 文件 7 findings 全 class=mixed advisory (datum 4: \"toasted\"/varlena/cstring datum 标识符邻接 + inet_net_pton 3: 函数签名行 static int/src,dst,size 保留邻接 = inet_cidr_ntop.c 3 站同款先例), adt 目录 18 findings 其余 11 站为既有文件; 术语: lexeme=词位 (0392 口径) subscript=下标 upper/lower bound=上界/下界 (jsonbsubs 0402 口径同源对齐: 源容器位于 step 的结果变量/输入容器（可能为 null）/结果永不为 NULL/常规获取情形 全句同款) flattened=展平 expanded=展开对象 pton/AF_INET/EUI-64 标识符保留 dotted=点分 ops/operator=算子; keep 披露: inet_net_pton ISC 版权与许可文本整块保留 (先例 inet_cidr_ntop.c 头部同款) + Paul Vixie 作者行保留",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "26e5652436e92ca682747f8e81915bf47b074404",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/backend/utils/adt/datum.c",
+            "kind": "c_comment",
+            "note": "whole-file comment translation, batch-0404 (adt small files)"
+        },
+        {
+            "pattern": "src/backend/utils/adt/tsvector.c",
+            "kind": "c_comment",
+            "note": "whole-file comment translation, batch-0404 (adt small files)"
+        },
+        {
+            "pattern": "src/backend/utils/adt/inet_net_pton.c",
+            "kind": "c_comment",
+            "note": "whole-file comment translation, batch-0404 (adt small files)"
+        },
+        {
+            "pattern": "src/backend/utils/adt/mac8.c",
+            "kind": "c_comment",
+            "note": "whole-file comment translation, batch-0404 (adt small files)"
+        },
+        {
+            "pattern": "src/backend/utils/adt/arraysubs.c",
+            "kind": "c_comment",
+            "note": "whole-file comment translation, batch-0404 (adt small files)"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0404-adt-small5.json",
+            "kind": "manifest",
+            "note": "this batch manifest"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append batch-0404 entries (5 adt .c + this manifest; pure append)"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/backend/utils/adt/datum.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 39,
+            "translated": 39,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "Datum 机制 (datum 标识符保留, DatumGetSize/datumCopy 等函数名行保留, byVal=按值传递, toasted=已被 \"toasted\", expanded=展开对象, flatten=展平); keep=头部保留行5 (文件名/版权2/IDENT/路径) + 函数名行10 (L55/118/184/206/260/330/381/403/433/512) + L22 \"sizeof(Datum)\" 纯字面量续行; blocks=39 zh-lines=113 keep-EN-lines=16"
+        },
+        {
+            "path": "src/backend/utils/adt/tsvector.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 28,
+            "translated": 28,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "文本检索向量 I/O (tsvector/WordEntry/WordEntryIN 标识符保留, lexeme=词位 0392 口径, position=位置); keep=头部保留行4 + L327-394 扫描器误粘合伪块中 65 行纯代码逐字节未动 + L327/L332 行内多段微注释 (/* '' */ /* space */ /* \\0 */ /* : */ /* int2 + , + weight */) 字节预算保留 EN + L404 uint16 WordEntryPos 纯类型行; L330 /* for escape */→/* 转义用 */ RAW 精准替换; L453-455 datalen 跨行尾注释三行联译 RAW 行数守恒; blocks=28 zh-lines=46 keep-EN-lines=72"
+        },
+        {
+            "path": "src/backend/utils/adt/inet_net_pton.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 41,
+            "translated": 41,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "网络地址解析 (pton/AF_INET/ENOENT/CIDR 标识符保留, octet=八位组 nybble=半字节 dotted=点分, 呈现格式/网络格式/网络字节序=inet_cidr_ntop.c 姊妹口径); keep=ISC 版权与许可证块 13 行整块保留 (inet_cidr_ntop.c 头部同款先例) + 函数名/签名行 4 (L44/45/81/82/243/244 中 6 行) + 作者行 3 (L54/94/257) + note: 标签 2 (L90/252); L32-33 /* needed on some platforms */ 两行联译 RAW (pgrminclude ignore 工具指令逐字保留); blocks=41 zh-lines=72 keep-EN-lines=24"
+        },
+        {
+            "path": "src/backend/utils/adt/mac8.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 29,
+            "translated": 29,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "MAC8 地址 (macaddr8/EUI-48/EUI-64/OUI 标识符保留, modified EUI-64=修改版 EUI-64); keep=头部保留行4 (文件名/版权/IDENT/路径); L248 括号随 EN 半角; blocks=29 zh-lines=39 keep-EN-lines=4"
+        },
+        {
+            "path": "src/backend/utils/adt/arraysubs.c",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 58,
+            "translated": 58,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "数组下标 (subscript=下标, SubscriptingRef/SubscriptingRefState 标识符保留, upper/lower bound=上界/下界, fetch=获取 assignment=赋值 0402 jsonbsubs 同源口径: L167/169-174/229/231/233/288/290-291/391-396 与 jsonbsubs.c 同 EN 全句同译); keep=头部保留行5 + 函数名行2 (L531/553); blocks=58 zh-lines=124 keep-EN-lines=7"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0404-adt-small5.json",
+            "kind": "manifest",
+            "action": "add",
+            "note": "batch manifest (block-granularity counts)",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": []
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "note": "append batch-0404 entries (5 adt .c + this manifest; pure append)",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": []
+        }
+    ]
+}

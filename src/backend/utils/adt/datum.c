@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * datum.c
- *	  POSTGRES Datum (abstract data type) manipulation routines.
+ *	  POSTGRES Datum（抽象数据类型）操作例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -14,30 +14,30 @@
  */
 
 /*
- * In the implementation of these routines we assume the following:
+ * 在实现这些例程时，我们做如下假设：
  *
- * A) if a type is "byVal" then all the information is stored in the
- * Datum itself (i.e. no pointers involved!). In this case the
- * length of the type is always greater than zero and not more than
+ * A) 若类型为 "byVal"，则全部信息都存放在
+ * Datum 本身（即不涉及任何指针！）。此时，
+ * 类型的长度总是大于零，并且不超过
  * "sizeof(Datum)"
  *
- * B) if a type is not "byVal" and it has a fixed length (typlen > 0),
- * then the "Datum" always contains a pointer to a stream of bytes.
- * The number of significant bytes are always equal to the typlen.
+ * B) 若某类型不为 "byVal" 且长度固定（typlen > 0），
+ * 那么 "Datum" 总包含一个指向字节流的指针。
+ * 有效字节的数目总是等于 typlen。
  *
- * C) if a type is not "byVal" and has typlen == -1,
- * then the "Datum" always points to a "struct varlena".
- * This varlena structure has information about the actual length of this
- * particular instance of the type and about its value.
+ * C) 若某类型不为 "byVal" 且 typlen == -1，
+ * 此时 "Datum" 总指向 "struct varlena"。
+ * 该 varlena 结构中存有关于此类型当前实例
+ * 实际长度及其取值的信息。
  *
- * D) if a type is not "byVal" and has typlen == -2,
- * then the "Datum" always points to a null-terminated C string.
+ * D) 若某类型不为 "byVal" 且 typlen == -2，
+ * 此时 "Datum" 总指向 NUL 结尾的 C 字符串。
  *
- * Note that we do not treat "toasted" datums specially; therefore what
- * will be copied or compared is the compressed data or toast reference.
- * An exception is made for datumCopy() of an expanded object, however,
- * because most callers expect to get a simple contiguous (and pfree'able)
- * result from datumCopy().  See also datumTransfer().
+ * 注意我们对 "toasted" datum 不作特殊处理；因此
+ * 被复制或比较的是压缩后的数据或 toast 引用。
+ * 不过，对展开对象的 datumCopy() 是个例外，
+ * 因为多数调用方期望 datumCopy() 返回简单连续（
+ * pfree 的）结果。另见 datumTransfer()。
  */
 
 #include "postgres.h"
@@ -54,12 +54,12 @@
 /*-------------------------------------------------------------------------
  * datumGetSize
  *
- * Find the "real" size of a datum, given the datum value,
- * whether it is a "by value", and the declared type length.
- * (For TOAST pointer datums, this is the size of the pointer datum.)
+ * 求 datum 的"真实"大小，需给定 datum 值、
+ * 是否"按值传递"及声明的类型长度。
+ * （对于 TOAST 指针 datum，这是指针 datum 的大小。）
  *
- * This is essentially an out-of-line version of the att_addlength_datum()
- * macro in access/tupmacs.h.  We do a tad more error checking though.
+ * 这实质上是 att_addlength_datum() 宏的脱离内联版本，
+ * 该宏在 access/tupmacs.h 中，我们多做些错误检查。
  *-------------------------------------------------------------------------
  */
 Size
@@ -69,7 +69,7 @@ datumGetSize(Datum value, bool typByVal, int typLen)
 
 	if (typByVal)
 	{
-		/* Pass-by-value types are always fixed-length */
+		/* 按值传递的类型总是定长的 */
 		Assert(typLen > 0 && typLen <= sizeof(Datum));
 		size = (Size) typLen;
 	}
@@ -77,12 +77,12 @@ datumGetSize(Datum value, bool typByVal, int typLen)
 	{
 		if (typLen > 0)
 		{
-			/* Fixed-length pass-by-ref type */
+			/* 定长传引用类型 */
 			size = (Size) typLen;
 		}
 		else if (typLen == -1)
 		{
-			/* It is a varlena datatype */
+			/* varlena 数据类型 */
 			struct varlena *s = (struct varlena *) DatumGetPointer(value);
 
 			if (!PointerIsValid(s))
@@ -94,7 +94,7 @@ datumGetSize(Datum value, bool typByVal, int typLen)
 		}
 		else if (typLen == -2)
 		{
-			/* It is a cstring datatype */
+			/* cstring 数据类型 */
 			char	   *s = (char *) DatumGetPointer(value);
 
 			if (!PointerIsValid(s))
@@ -107,7 +107,7 @@ datumGetSize(Datum value, bool typByVal, int typLen)
 		else
 		{
 			elog(ERROR, "invalid typLen: %d", typLen);
-			size = 0;			/* keep compiler quiet */
+			size = 0;			/* 让编译器安静 */
 		}
 	}
 
@@ -117,16 +117,16 @@ datumGetSize(Datum value, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * datumCopy
  *
- * Make a copy of a non-NULL datum.
+ * 复制非 NULL datum。
  *
- * If the datatype is pass-by-reference, memory is obtained with palloc().
+ * 若数据类型为传引用，则用 palloc() 获取内存。
  *
- * If the value is a reference to an expanded object, we flatten into memory
- * obtained with palloc().  We need to copy because one of the main uses of
- * this function is to copy a datum out of a transient memory context that's
- * about to be destroyed, and the expanded object is probably in a child
- * context that will also go away.  Moreover, many callers assume that the
- * result is a single pfree-able chunk.
+ * 若该值是展开对象的引用，我们会将其展平进内存，
+ * 内存由 palloc() 提供。必须复制：本函数主要用途
+ * 之一是从即将销毁的临时上下文复制出 datum，
+ * 而展开对象多半位于同样会消失的子上下文中。
+ * 此外，许多调用方都假定
+ * 结果为单个可 pfree 的块。
  *-------------------------------------------------------------------------
  */
 Datum
@@ -138,12 +138,12 @@ datumCopy(Datum value, bool typByVal, int typLen)
 		res = value;
 	else if (typLen == -1)
 	{
-		/* It is a varlena datatype */
+		/* varlena 数据类型 */
 		struct varlena *vl = (struct varlena *) DatumGetPointer(value);
 
 		if (VARATT_IS_EXTERNAL_EXPANDED(vl))
 		{
-			/* Flatten into the caller's memory context */
+			/* 展平到调用方的内存上下文 */
 			ExpandedObjectHeader *eoh = DatumGetEOHP(value);
 			Size		resultsize;
 			char	   *resultptr;
@@ -155,7 +155,7 @@ datumCopy(Datum value, bool typByVal, int typLen)
 		}
 		else
 		{
-			/* Otherwise, just copy the varlena datum verbatim */
+			/* 否则，原样复制 varlena datum */
 			Size		realSize;
 			char	   *resultptr;
 
@@ -167,7 +167,7 @@ datumCopy(Datum value, bool typByVal, int typLen)
 	}
 	else
 	{
-		/* Pass by reference, but not varlena, so not toasted */
+		/* 传引用且非 varlena，故未被 TOAST */
 		Size		realSize;
 		char	   *resultptr;
 
@@ -183,12 +183,12 @@ datumCopy(Datum value, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * datumTransfer
  *
- * Transfer a non-NULL datum into the current memory context.
+ * 把非 NULL datum 转移到当前内存上下文。
  *
- * This is equivalent to datumCopy() except when the datum is a read-write
- * pointer to an expanded object.  In that case we merely reparent the object
- * into the current context, and return its standard R/W pointer (in case the
- * given one is a transient pointer of shorter lifespan).
+ * 此函数与 datumCopy() 等价，除非 datum 是展开对象的
+ * 读写指针。那种情况下我们仅把该对象重新挂接
+ * 到当前上下文，并返回其标准读写指针（以防传入的
+ * 是寿命较短的临时指针）。
  *-------------------------------------------------------------------------
  */
 Datum
@@ -205,19 +205,19 @@ datumTransfer(Datum value, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * datumIsEqual
  *
- * Return true if two datums are equal, false otherwise
+ * 两 datum 相等则返回 true，否则 false
  *
- * NOTE: XXX!
- * We just compare the bytes of the two values, one by one.
- * This routine will return false if there are 2 different
- * representations of the same value (something along the lines
- * of say the representation of zero in one's complement arithmetic).
- * Also, it will probably not give the answer you want if either
- * datum has been "toasted".
+ * 注意！
+ * 我们只是逐字节地比较两个值。
+ * 若同一值有不同表示，本例程将返回 false
+ * （例如反码算术中
+ * 零的表示就属于这种情况）。
+ * 另外，若任一 datum 已被 "toasted"，答案多半
+ * 不合你意。
  *
- * Do not try to make this any smarter than it currently is with respect
- * to "toasted" datums, because some of the callers could be working in the
- * context of an aborted transaction.
+ * 不要试图在处理 "toasted" datum 方面把本函数做得比
+ * 现在更聪明，因为有些调用方可能正处于事务
+ * 中止的上下文中工作。
  *-------------------------------------------------------------------------
  */
 bool
@@ -228,10 +228,10 @@ datumIsEqual(Datum value1, Datum value2, bool typByVal, int typLen)
 	if (typByVal)
 	{
 		/*
-		 * just compare the two datums. NOTE: just comparing "len" bytes will
-		 * not do the work, because we do not know how these bytes are aligned
-		 * inside the "Datum".  We assume instead that any given datatype is
-		 * consistent about how it fills extraneous bits in the Datum.
+		 * 直接比较两个 datum。注意：只比较 "len" 个字节是
+		 * 不行的，因为我们不知道这些字节在 "Datum" 内部
+		 * 是如何对齐的。我们改而假定任何给定类型对
+		 * 如何填充 Datum 中的多余位都是一致的。
 		 */
 		res = (value1 == value2);
 	}
@@ -243,7 +243,7 @@ datumIsEqual(Datum value1, Datum value2, bool typByVal, int typLen)
 				   *s2;
 
 		/*
-		 * Compare the bytes pointed by the pointers stored in the datums.
+		 * 比较各 datum 中所存指针指向的字节。
 		 */
 		size1 = datumGetSize(value1, typByVal, typLen);
 		size2 = datumGetSize(value2, typByVal, typLen);
@@ -259,8 +259,8 @@ datumIsEqual(Datum value1, Datum value2, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * datum_image_eq
  *
- * Compares two datums for identical contents, based on byte images.  Return
- * true if the two datums are equal, false otherwise.
+ * 基于字节映像比较两个 datum 的内容是否完全相同。若
+ * 相等则返回 true，否则返回 false。
  *-------------------------------------------------------------------------
  */
 bool
@@ -284,7 +284,7 @@ datum_image_eq(Datum value1, Datum value2, bool typByVal, int typLen)
 	{
 		len1 = toast_raw_datum_size(value1);
 		len2 = toast_raw_datum_size(value2);
-		/* No need to de-toast if lengths don't match. */
+		/* 长度不匹配则无需去 TOAST。 */
 		if (len1 != len2)
 			result = false;
 		else
@@ -299,7 +299,7 @@ datum_image_eq(Datum value1, Datum value2, bool typByVal, int typLen)
 							 VARDATA_ANY(arg2val),
 							 len1 - VARHDRSZ) == 0);
 
-			/* Only free memory if it's a copy made here. */
+			/* 仅释放此处生成的副本内存。 */
 			if ((Pointer) arg1val != (Pointer) value1)
 				pfree(arg1val);
 			if ((Pointer) arg2val != (Pointer) value2)
@@ -311,7 +311,7 @@ datum_image_eq(Datum value1, Datum value2, bool typByVal, int typLen)
 		char	   *s1,
 				   *s2;
 
-		/* Compare cstring datums */
+		/* 比较 cstring datum */
 		s1 = DatumGetCString(value1);
 		s2 = DatumGetCString(value2);
 		len1 = strlen(s1) + 1;
@@ -329,10 +329,10 @@ datum_image_eq(Datum value1, Datum value2, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * datum_image_hash
  *
- * Generate a hash value based on the binary representation of 'value'.  Most
- * use cases will want to use the hash function specific to the Datum's type,
- * however, some corner cases require generating a hash value based on the
- * actual bits rather than the logical value.
+ * 基于 'value' 的二进制表示生成哈希值。多数
+ * 用例应使用 Datum 类型专有的哈希函数，不过某些
+ * 边角情况需要基于实际位而非逻辑值来生成
+ * 哈希值。
  *-------------------------------------------------------------------------
  */
 uint32
@@ -355,7 +355,7 @@ datum_image_hash(Datum value, bool typByVal, int typLen)
 
 		result = hash_bytes((unsigned char *) VARDATA_ANY(val), len - VARHDRSZ);
 
-		/* Only free memory if it's a copy made here. */
+		/* 仅释放此处生成的副本内存。 */
 		if ((Pointer) val != (Pointer) value)
 			pfree(val);
 	}
@@ -371,7 +371,7 @@ datum_image_hash(Datum value, bool typByVal, int typLen)
 	else
 	{
 		elog(ERROR, "unexpected typLen: %d", typLen);
-		result = 0;				/* keep compiler quiet */
+		result = 0;				/* 让编译器安静 */
 	}
 
 	return result;
@@ -380,15 +380,15 @@ datum_image_hash(Datum value, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * btequalimage
  *
- * Generic "equalimage" support function.
+ * 通用的 "equalimage" 支持函数。
  *
- * B-Tree operator classes whose equality function could safely be replaced by
- * datum_image_eq() in all cases can use this as their "equalimage" support
- * function.
+ * B-Tree 算子类的相等函数若在任何情况下都能安全地
+ * 用 datum_image_eq() 替代，可用它作为其 "equalimage" 支持
+ * 函数。
  *
- * Earlier minor releases erroneously associated this function with
- * interval_ops.  Detect that case to rescind deduplication support, without
- * requiring initdb.
+ * 较早的次要版本曾把本函数错误地关联到
+ * interval_ops。检测到该情况时撤回去重支持，而无需
+ * initdb。
  *-------------------------------------------------------------------------
  */
 Datum
@@ -402,8 +402,8 @@ btequalimage(PG_FUNCTION_ARGS)
 /*-------------------------------------------------------------------------
  * datumEstimateSpace
  *
- * Compute the amount of space that datumSerialize will require for a
- * particular Datum.
+ * 计算 datumSerialize 对某个 Datum 所需的
+ * 空间量。
  *-------------------------------------------------------------------------
  */
 Size
@@ -413,13 +413,13 @@ datumEstimateSpace(Datum value, bool isnull, bool typByVal, int typLen)
 
 	if (!isnull)
 	{
-		/* no need to use add_size, can't overflow */
+		/* 无需使用 add_size，不会溢出 */
 		if (typByVal)
 			sz += sizeof(Datum);
 		else if (typLen == -1 &&
 				 VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(value)))
 		{
-			/* Expanded objects need to be flattened, see comment below */
+			/* 展开对象需要展平，见下方注释 */
 			sz += EOH_get_flat_size(DatumGetEOHP(value));
 		}
 		else
@@ -432,25 +432,25 @@ datumEstimateSpace(Datum value, bool isnull, bool typByVal, int typLen)
 /*-------------------------------------------------------------------------
  * datumSerialize
  *
- * Serialize a possibly-NULL datum into caller-provided storage.
+ * 将可能为 NULL 的 datum 序列化到调用方存储。
  *
- * Note: "expanded" objects are flattened so as to produce a self-contained
- * representation, but other sorts of toast pointers are transferred as-is.
- * This is because the intended use of this function is to pass the value
- * to another process within the same database server.  The other process
- * could not access an "expanded" object within this process's memory, but
- * we assume it can dereference the same TOAST pointers this one can.
+ * 注意："expanded" 对象会被展平以产生自包含的表示，
+ * 而其他种类的 toast 指针则原样转移。
+ * 这是因为本函数的预期用途是把值传递给
+ * 同一数据库服务器内的另一进程。对方进程无法
+ * 访问本进程内存中的 "expanded" 对象，但假定它能
+ * 解引用与本进程相同的那些 TOAST 指针。
  *
- * The format is as follows: first, we write a 4-byte header word, which
- * is either the length of a pass-by-reference datum, -1 for a
- * pass-by-value datum, or -2 for a NULL.  If the value is NULL, nothing
- * further is written.  If it is pass-by-value, sizeof(Datum) bytes
- * follow.  Otherwise, the number of bytes indicated by the header word
- * follow.  The caller is responsible for ensuring that there is enough
- * storage to store the number of bytes that will be written; use
- * datumEstimateSpace() to find out how many will be needed.
- * *start_address is updated to point to the byte immediately following
- * those written.
+ * 格式如下：首先写入一个 4 字节头部字，它可能是
+ * 传引用 datum 的长度，传值 datum 为 -1，
+ * NULL 则为 -2。若值为 NULL，则不再写入任何
+ * 内容。若为传值，则其后跟 sizeof(Datum) 个
+ * 字节。否则，其后跟头部字所指示的字节数，
+ * 调用方负责确保有足够的存储空间来容纳将要写入
+ * 的字节数；可使用 datumEstimateSpace() 来了解
+ * 具体需要多少字节。
+ * *start_address 更新为指向紧随已写
+ * 的字节。
  *-------------------------------------------------------------------------
  */
 void
@@ -460,7 +460,7 @@ datumSerialize(Datum value, bool isnull, bool typByVal, int typLen,
 	ExpandedObjectHeader *eoh = NULL;
 	int			header;
 
-	/* Write header word. */
+	/* 写头部字。 */
 	if (isnull)
 		header = -2;
 	else if (typByVal)
@@ -476,7 +476,7 @@ datumSerialize(Datum value, bool isnull, bool typByVal, int typLen,
 	memcpy(*start_address, &header, sizeof(int));
 	*start_address += sizeof(int);
 
-	/* If not null, write payload bytes. */
+	/* 非 NULL 则写载荷字节。 */
 	if (!isnull)
 	{
 		if (typByVal)
@@ -489,15 +489,15 @@ datumSerialize(Datum value, bool isnull, bool typByVal, int typLen,
 			char	   *tmp;
 
 			/*
-			 * EOH_flatten_into expects the target address to be maxaligned,
-			 * so we can't store directly to *start_address.
+			 * EOH_flatten_into 期望目标地址按最大对齐，
+			 * 因此不能直接存入 *start_address。
 			 */
 			tmp = (char *) palloc(header);
 			EOH_flatten_into(eoh, (void *) tmp, header);
 			memcpy(*start_address, tmp, header);
 			*start_address += header;
 
-			/* be tidy. */
+			/*收尾。*/
 			pfree(tmp);
 		}
 		else
@@ -511,8 +511,8 @@ datumSerialize(Datum value, bool isnull, bool typByVal, int typLen,
 /*-------------------------------------------------------------------------
  * datumRestore
  *
- * Restore a possibly-NULL datum previously serialized by datumSerialize.
- * *start_address is updated according to the number of bytes consumed.
+ * 恢复由 datumSerialize 序列化的可能为 NULL 的 datum。
+ * *start_address 会按已消耗的字节数相应更新。
  *-------------------------------------------------------------------------
  */
 Datum
@@ -521,21 +521,21 @@ datumRestore(char **start_address, bool *isnull)
 	int			header;
 	void	   *d;
 
-	/* Read header word. */
+	/* 读头部字。 */
 	memcpy(&header, *start_address, sizeof(int));
 	*start_address += sizeof(int);
 
-	/* If this datum is NULL, we can stop here. */
+	/* datum 为 NULL 则到此为止。 */
 	if (header == -2)
 	{
 		*isnull = true;
 		return (Datum) 0;
 	}
 
-	/* OK, datum is not null. */
+	/* OK，datum 非空。 */
 	*isnull = false;
 
-	/* If this datum is pass-by-value, sizeof(Datum) bytes follow. */
+	/* datum 为传值时其后为 sizeof(Datum) 个字节。 */
 	if (header == -1)
 	{
 		Datum		val;
@@ -545,7 +545,7 @@ datumRestore(char **start_address, bool *isnull)
 		return val;
 	}
 
-	/* Pass-by-reference case; copy indicated number of bytes. */
+	/* 传引用情形；复制指定数量的字节。 */
 	Assert(header > 0);
 	d = palloc(header);
 	memcpy(d, *start_address, header);

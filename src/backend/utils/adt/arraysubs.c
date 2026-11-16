@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * arraysubs.c
- *	  Subscripting support functions for arrays.
+ *	  数组下标支持函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -25,20 +25,20 @@
 #include "utils/lsyscache.h"
 
 
-/* SubscriptingRefState.workspace for array subscripting execution */
+/* 用于数组下标执行的 SubscriptingRefState.workspace */
 typedef struct ArraySubWorkspace
 {
-	/* Values determined during expression compilation */
-	Oid			refelemtype;	/* OID of the array element type */
-	int16		refattrlength;	/* typlen of array type */
-	int16		refelemlength;	/* typlen of the array element type */
-	bool		refelembyval;	/* is the element type pass-by-value? */
-	char		refelemalign;	/* typalign of the element type */
+	/* 表达式编译期间确定的值 */
+	Oid			refelemtype;	/* 数组元素类型的 OID */
+	int16		refattrlength;	/* 数组类型 typlen */
+	int16		refelemlength;	/* 数组元素类型的 typlen */
+	bool		refelembyval;	/* 元素类型是否按值传递？ */
+	char		refelemalign;	/* 元素类型的 typalign */
 
 	/*
-	 * Subscript values converted to integers.  Note that these arrays must be
-	 * of length MAXDIM even when dealing with fewer subscripts, because
-	 * array_get/set_slice may scribble on the extra entries.
+	 * 下标值转换为整数。注意即便处理更少的下标，这些
+	 * 数组长度也必须是 MAXDIM，因为 array_get/set_slice
+	 * 可能会涂写额外条目。
 	 */
 	int			upperindex[MAXDIM];
 	int			lowerindex[MAXDIM];
@@ -46,10 +46,10 @@ typedef struct ArraySubWorkspace
 
 
 /*
- * Finish parse analysis of a SubscriptingRef expression for an array.
+ * 完成对数组的 SubscriptingRef 表达式的解析分析。
  *
- * Transform the subscript expressions, coerce them to integers,
- * and determine the result type of the SubscriptingRef node.
+ * 变换各下标表达式，并将它们强转为整数，
+ * 并确定 SubscriptingRef 节点的结果类型。
  */
 static void
 array_subscript_transform(SubscriptingRef *sbsref,
@@ -63,12 +63,12 @@ array_subscript_transform(SubscriptingRef *sbsref,
 	ListCell   *idx;
 
 	/*
-	 * Transform the subscript expressions, and separate upper and lower
-	 * bounds into two lists.
+	 * 转换下标表达式，并把上界与下界拆
+	 * 分成两个列表。
 	 *
-	 * If we have a container slice expression, we convert any non-slice
-	 * indirection items to slices by treating the single subscript as the
-	 * upper bound and supplying an assumed lower bound of 1.
+	 * 若有容器切片表达式，我们把任何非切片的间接
+	 * 项转换为切片：把单个下标视为上界，并提供
+	 * 下界 1。
 	 */
 	foreach(idx, indirection)
 	{
@@ -80,7 +80,7 @@ array_subscript_transform(SubscriptingRef *sbsref,
 			if (ai->lidx)
 			{
 				subexpr = transformExpr(pstate, ai->lidx, pstate->p_expr_kind);
-				/* If it's not int4 already, try to coerce */
+				/* 若尚非 int4，尝试强转 */
 				subexpr = coerce_to_target_type(pstate,
 												subexpr, exprType(subexpr),
 												INT4OID, -1,
@@ -95,18 +95,18 @@ array_subscript_transform(SubscriptingRef *sbsref,
 			}
 			else if (!ai->is_slice)
 			{
-				/* Make a constant 1 */
+				/* 生成常量 1 */
 				subexpr = (Node *) makeConst(INT4OID,
 											 -1,
 											 InvalidOid,
 											 sizeof(int32),
 											 Int32GetDatum(1),
 											 false,
-											 true); /* pass by value */
+											 true); /* 按值传递 */
 			}
 			else
 			{
-				/* Slice with omitted lower bound, put NULL into the list */
+				/* 省略下界的切片，把 NULL 放入列表 */
 				subexpr = NULL;
 			}
 			lowerIndexpr = lappend(lowerIndexpr, subexpr);
@@ -117,7 +117,7 @@ array_subscript_transform(SubscriptingRef *sbsref,
 		if (ai->uidx)
 		{
 			subexpr = transformExpr(pstate, ai->uidx, pstate->p_expr_kind);
-			/* If it's not int4 already, try to coerce */
+			/* 若尚非 int4，尝试强转 */
 			subexpr = coerce_to_target_type(pstate,
 											subexpr, exprType(subexpr),
 											INT4OID, -1,
@@ -132,30 +132,30 @@ array_subscript_transform(SubscriptingRef *sbsref,
 		}
 		else
 		{
-			/* Slice with omitted upper bound, put NULL into the list */
+			/* 省略上界的切片，把 NULL 放入列表 */
 			Assert(isSlice && ai->is_slice);
 			subexpr = NULL;
 		}
 		upperIndexpr = lappend(upperIndexpr, subexpr);
 	}
 
-	/* ... and store the transformed lists into the SubscriptRef node */
+	/* ……并把转换后的列表存入 SubscriptRef 节点 */
 	sbsref->refupperindexpr = upperIndexpr;
 	sbsref->reflowerindexpr = lowerIndexpr;
 
-	/* Verify subscript list lengths are within implementation limit */
+	/* 校验下标列表长度在实现限制之内 */
 	if (list_length(upperIndexpr) > MAXDIM)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("number of array dimensions (%d) exceeds the maximum allowed (%d)",
 						list_length(upperIndexpr), MAXDIM)));
-	/* We need not check lowerIndexpr separately */
+	/* 无需单独检查 lowerIndexpr */
 
 	/*
-	 * Determine the result type of the subscripting operation.  It's the same
-	 * as the array type if we're slicing, else it's the element type.  In
-	 * either case, the typmod is the same as the array's, so we need not
-	 * change reftypmod.
+	 * 确定下标操作的结果类型。若为切片，结果类型与
+	 * 数组类型相同，否则为元素类型。两种情况下
+	 * typmod 都与数组相同，因此我们无需改变
+	 * reftypmod。
 	 */
 	if (isSlice)
 		sbsref->refrestype = sbsref->refcontainertype;
@@ -164,17 +164,17 @@ array_subscript_transform(SubscriptingRef *sbsref,
 }
 
 /*
- * During execution, process the subscripts in a SubscriptingRef expression.
+ * 执行期间，处理 SubscriptingRef 表达式中的各下标。
  *
- * The subscript expressions are already evaluated in Datum form in the
- * SubscriptingRefState's arrays.  Check and convert them as necessary.
+ * 各下标表达式已在 SubscriptingRefState 的数组中
+ * 以 Datum 形式完成求值。按需检查并转换。
  *
- * If any subscript is NULL, we throw error in assignment cases, or in fetch
- * cases set result to NULL and return false (instructing caller to skip the
- * rest of the SubscriptingRef sequence).
+ * 若任一下标为 NULL，则在赋值情形下抛错，或在
+ * 获取情形下把结果置为 NULL 并返回 false（指示调用方
+ * 跳过该序列的其余部分）。
  *
- * We convert all the subscripts to plain integers and save them in the
- * sbsrefstate->workspace arrays.
+ * 我们把全部下标转换为普通整数，并保存进
+ * sbsrefstate->workspace 数组
  */
 static bool
 array_subscript_check_subscripts(ExprState *state,
@@ -184,12 +184,12 @@ array_subscript_check_subscripts(ExprState *state,
 	SubscriptingRefState *sbsrefstate = op->d.sbsref_subscript.state;
 	ArraySubWorkspace *workspace = (ArraySubWorkspace *) sbsrefstate->workspace;
 
-	/* Process upper subscripts */
+	/* 处理上界下标 */
 	for (int i = 0; i < sbsrefstate->numupper; i++)
 	{
 		if (sbsrefstate->upperprovided[i])
 		{
-			/* If any index expr yields NULL, result is NULL or error */
+			/* 任一下标表达式为 NULL 则结果 NULL 或报错 */
 			if (sbsrefstate->upperindexnull[i])
 			{
 				if (sbsrefstate->isassignment)
@@ -203,12 +203,12 @@ array_subscript_check_subscripts(ExprState *state,
 		}
 	}
 
-	/* Likewise for lower subscripts */
+	/* 下界下标同理 */
 	for (int i = 0; i < sbsrefstate->numlower; i++)
 	{
 		if (sbsrefstate->lowerprovided[i])
 		{
-			/* If any index expr yields NULL, result is NULL or error */
+			/* 任一下标表达式为 NULL 则结果 NULL 或报错 */
 			if (sbsrefstate->lowerindexnull[i])
 			{
 				if (sbsrefstate->isassignment)
@@ -226,11 +226,11 @@ array_subscript_check_subscripts(ExprState *state,
 }
 
 /*
- * Evaluate SubscriptingRef fetch for an array element.
+ * 为数组元素求值 SubscriptingRef 获取。
  *
- * Source container is in step's result variable (it's known not NULL, since
- * we set fetch_strict to true), and indexes have already been evaluated into
- * workspace array.
+ * 源容器位于 step 的结果变量中（已知非 NULL，因为
+ * fetch_strict 为 true），且下标已求值到 workspace
+ * 数组中。
  */
 static void
 array_subscript_fetch(ExprState *state,
@@ -240,7 +240,7 @@ array_subscript_fetch(ExprState *state,
 	SubscriptingRefState *sbsrefstate = op->d.sbsref.state;
 	ArraySubWorkspace *workspace = (ArraySubWorkspace *) sbsrefstate->workspace;
 
-	/* Should not get here if source array (or any subscript) is null */
+	/* 源数组或任一下标为 null 时不应走到这里 */
 	Assert(!(*op->resnull));
 
 	*op->resvalue = array_get_element(*op->resvalue,
@@ -254,11 +254,11 @@ array_subscript_fetch(ExprState *state,
 }
 
 /*
- * Evaluate SubscriptingRef fetch for an array slice.
+ * 为数组切片求值 SubscriptingRef 获取。
  *
- * Source container is in step's result variable (it's known not NULL, since
- * we set fetch_strict to true), and indexes have already been evaluated into
- * workspace array.
+ * 源容器位于 step 的结果变量中（已知非 NULL，因为
+ * fetch_strict 为 true），且下标已求值到 workspace
+ * 数组中。
  */
 static void
 array_subscript_fetch_slice(ExprState *state,
@@ -268,7 +268,7 @@ array_subscript_fetch_slice(ExprState *state,
 	SubscriptingRefState *sbsrefstate = op->d.sbsref.state;
 	ArraySubWorkspace *workspace = (ArraySubWorkspace *) sbsrefstate->workspace;
 
-	/* Should not get here if source array (or any subscript) is null */
+	/* 源数组或任一下标为 null 时不应走到这里 */
 	Assert(!(*op->resnull));
 
 	*op->resvalue = array_get_slice(*op->resvalue,
@@ -281,14 +281,14 @@ array_subscript_fetch_slice(ExprState *state,
 									workspace->refelemlength,
 									workspace->refelembyval,
 									workspace->refelemalign);
-	/* The slice is never NULL, so no need to change *op->resnull */
+	/* 切片从不为 NULL，故无需改动 *op->resnull */
 }
 
 /*
- * Evaluate SubscriptingRef assignment for an array element assignment.
+ * 对数组元素赋值求取 SubscriptingRef 赋值。
  *
- * Input container (possibly null) is in result area, replacement value is in
- * SubscriptingRefState's replacevalue/replacenull.
+ * 输入容器（可能为 null）位于结果区，替换值位于
+ * SubscriptingRefState replacevalue/replacenull。
  */
 static void
 array_subscript_assign(ExprState *state,
@@ -300,9 +300,9 @@ array_subscript_assign(ExprState *state,
 	Datum		arraySource = *op->resvalue;
 
 	/*
-	 * For an assignment to a fixed-length array type, both the original array
-	 * and the value to be assigned into it must be non-NULL, else we punt and
-	 * return the original array.
+	 * 对定长数组类型赋值时，原数组与待赋入的值都必
+	 * 须非 NULL，否则我们放弃并
+	 * 返回原数组。
 	 */
 	if (workspace->refattrlength > 0)
 	{
@@ -311,10 +311,10 @@ array_subscript_assign(ExprState *state,
 	}
 
 	/*
-	 * For assignment to varlena arrays, we handle a NULL original array by
-	 * substituting an empty (zero-dimensional) array; insertion of the new
-	 * element will result in a singleton array value.  It does not matter
-	 * whether the new element is NULL.
+	 * 对 varlena 数组赋值时，我们这样处理 NULL 原
+	 * 数组：以空（零维）数组替代之；插入新元素后将
+	 * 得到单元素数组值。新元素是否为 NULL 并
+	 * 不重要。
 	 */
 	if (*op->resnull)
 	{
@@ -331,14 +331,14 @@ array_subscript_assign(ExprState *state,
 									  workspace->refelemlength,
 									  workspace->refelembyval,
 									  workspace->refelemalign);
-	/* The result is never NULL, so no need to change *op->resnull */
+	/* 结果永不为 NULL，因此无需改动 *op->resnull */
 }
 
 /*
- * Evaluate SubscriptingRef assignment for an array slice assignment.
+ * 对数组切片赋值求取 SubscriptingRef 赋值。
  *
- * Input container (possibly null) is in result area, replacement value is in
- * SubscriptingRefState's replacevalue/replacenull.
+ * 输入容器（可能为 null）位于结果区，替换值位于
+ * SubscriptingRefState replacevalue/replacenull。
  */
 static void
 array_subscript_assign_slice(ExprState *state,
@@ -350,9 +350,9 @@ array_subscript_assign_slice(ExprState *state,
 	Datum		arraySource = *op->resvalue;
 
 	/*
-	 * For an assignment to a fixed-length array type, both the original array
-	 * and the value to be assigned into it must be non-NULL, else we punt and
-	 * return the original array.
+	 * 对定长数组类型赋值时，原数组与待赋入的值都必
+	 * 须非 NULL，否则我们放弃并
+	 * 返回原数组。
 	 */
 	if (workspace->refattrlength > 0)
 	{
@@ -361,10 +361,10 @@ array_subscript_assign_slice(ExprState *state,
 	}
 
 	/*
-	 * For assignment to varlena arrays, we handle a NULL original array by
-	 * substituting an empty (zero-dimensional) array; insertion of the new
-	 * element will result in a singleton array value.  It does not matter
-	 * whether the new element is NULL.
+	 * 对 varlena 数组赋值时，我们这样处理 NULL 原
+	 * 数组：以空（零维）数组替代之；插入新元素后将
+	 * 得到单元素数组值。新元素是否为 NULL 并
+	 * 不重要。
 	 */
 	if (*op->resnull)
 	{
@@ -384,16 +384,16 @@ array_subscript_assign_slice(ExprState *state,
 									workspace->refelemlength,
 									workspace->refelembyval,
 									workspace->refelemalign);
-	/* The result is never NULL, so no need to change *op->resnull */
+	/* 结果永不为 NULL，因此无需改动 *op->resnull */
 }
 
 /*
- * Compute old array element value for a SubscriptingRef assignment
- * expression.  Will only be called if the new-value subexpression
- * contains SubscriptingRef or FieldStore.  This is the same as the
- * regular fetch case, except that we have to handle a null array,
- * and the value should be stored into the SubscriptingRefState's
- * prevvalue/prevnull fields.
+ * 为 SubscriptingRef 赋值表达式计算旧的数组
+ * 元素值。仅当新值子表达式包含
+ * SubscriptingRef 或 FieldStore 时才会被调用。这与
+ * 常规获取情形相同，但必须处理 null 数组，
+ * 且值要存入 SubscriptingRefState 的
+ * prevvalue/prevnull 字段
  */
 static void
 array_subscript_fetch_old(ExprState *state,
@@ -405,7 +405,7 @@ array_subscript_fetch_old(ExprState *state,
 
 	if (*op->resnull)
 	{
-		/* whole array is null, so any element is too */
+		/* 数组为空，故任一元素亦为空 */
 		sbsrefstate->prevvalue = (Datum) 0;
 		sbsrefstate->prevnull = true;
 	}
@@ -421,19 +421,19 @@ array_subscript_fetch_old(ExprState *state,
 }
 
 /*
- * Compute old array slice value for a SubscriptingRef assignment
- * expression.  Will only be called if the new-value subexpression
- * contains SubscriptingRef or FieldStore.  This is the same as the
- * regular fetch case, except that we have to handle a null array,
- * and the value should be stored into the SubscriptingRefState's
- * prevvalue/prevnull fields.
+ * 为 SubscriptingRef 赋值表达式计算旧的数组
+ * 切片值。仅当新值子表达式包含
+ * SubscriptingRef 或 FieldStore 时才会被调用。这与
+ * 常规获取情形相同，但必须处理 null 数组，
+ * 且值要存入 SubscriptingRefState 的
+ * prevvalue/prevnull 字段
  *
- * Note: this is presently dead code, because the new value for a
- * slice would have to be an array, so it couldn't directly contain a
- * FieldStore; nor could it contain a SubscriptingRef assignment, since
- * we consider adjacent subscripts to index one multidimensional array
- * not nested array types.  Future generalizations might make this
- * reachable, however.
+ * 注意：当前是死代码，因为切片的新值必须是
+ * 数组，所以它不能直接包含 FieldStore；也不能包含
+ * SubscriptingRef 赋值，因为我们把相邻的下标视为
+ * 对一个多维数组进行索引，而非嵌套的数组类型，
+ * 不过将来的泛化或许会使
+ * 其重新可达。
  */
 static void
 array_subscript_fetch_old_slice(ExprState *state,
@@ -445,7 +445,7 @@ array_subscript_fetch_old_slice(ExprState *state,
 
 	if (*op->resnull)
 	{
-		/* whole array is null, so any slice is too */
+		/* 数组为空，故任一切片亦为空 */
 		sbsrefstate->prevvalue = (Datum) 0;
 		sbsrefstate->prevnull = true;
 	}
@@ -461,13 +461,13 @@ array_subscript_fetch_old_slice(ExprState *state,
 												 workspace->refelemlength,
 												 workspace->refelembyval,
 												 workspace->refelemalign);
-		/* slices of non-null arrays are never null */
+		/* 非空数组的切片永不为空 */
 		sbsrefstate->prevnull = false;
 	}
 }
 
 /*
- * Set up execution state for an array subscript operation.
+ * 为数组下标操作建立执行状态。
  */
 static void
 array_exec_setup(const SubscriptingRef *sbsref,
@@ -478,9 +478,9 @@ array_exec_setup(const SubscriptingRef *sbsref,
 	ArraySubWorkspace *workspace;
 
 	/*
-	 * Enforce the implementation limit on number of array subscripts.  This
-	 * check isn't entirely redundant with checking at parse time; conceivably
-	 * the expression was stored by a backend with a different MAXDIM value.
+	 * 强制实施数组下标数量的实现限制。该检查与解析
+	 * 期间的检查并非完全冗余；表达式可能是由具有不
+	 * 同 MAXDIM 值的后端存储的。
 	 */
 	if (sbsrefstate->numupper > MAXDIM)
 		ereport(ERROR,
@@ -488,19 +488,19 @@ array_exec_setup(const SubscriptingRef *sbsref,
 				 errmsg("number of array dimensions (%d) exceeds the maximum allowed (%d)",
 						sbsrefstate->numupper, MAXDIM)));
 
-	/* Should be impossible if parser is sane, but check anyway: */
+	/* 若解析器正常则不应发生，但仍作检查： */
 	if (sbsrefstate->numlower != 0 &&
 		sbsrefstate->numupper != sbsrefstate->numlower)
 		elog(ERROR, "upper and lower index lists are not same length");
 
 	/*
-	 * Allocate type-specific workspace.
+	 * 分配类型专属工作区。
 	 */
 	workspace = (ArraySubWorkspace *) palloc(sizeof(ArraySubWorkspace));
 	sbsrefstate->workspace = workspace;
 
 	/*
-	 * Collect datatype details we'll need at execution.
+	 * 收集执行时所需的数据类型细节。
 	 */
 	workspace->refelemtype = sbsref->refelemtype;
 	workspace->refattrlength = get_typlen(sbsref->refcontainertype);
@@ -510,7 +510,7 @@ array_exec_setup(const SubscriptingRef *sbsref,
 						 &workspace->refelemalign);
 
 	/*
-	 * Pass back pointers to appropriate step execution functions.
+	 * 回传指向相应步骤执行函数的指针。
 	 */
 	methods->sbs_check_subscripts = array_subscript_check_subscripts;
 	if (is_slice)
@@ -529,11 +529,11 @@ array_exec_setup(const SubscriptingRef *sbsref,
 
 /*
  * array_subscript_handler
- *		Subscripting handler for standard varlena arrays.
+ *		标准 varlena 数组的下标处理器。
  *
- * This should be used only for "true" array types, which have array headers
- * as understood by the varlena array routines, and are referenced by the
- * element type's pg_type.typarray field.
+ * 本函数应仅用于"真"数组类型，即拥有 varlena 数组
+ * 例程所能理解的数组头部、且由元素类型的
+ * pg_type.typarray 字段引用的类型
  */
 Datum
 array_subscript_handler(PG_FUNCTION_ARGS)
@@ -541,9 +541,9 @@ array_subscript_handler(PG_FUNCTION_ARGS)
 	static const SubscriptRoutines sbsroutines = {
 		.transform = array_subscript_transform,
 		.exec_setup = array_exec_setup,
-		.fetch_strict = true,	/* fetch returns NULL for NULL inputs */
-		.fetch_leakproof = true,	/* fetch returns NULL for bad subscript */
-		.store_leakproof = false	/* ... but assignment throws error */
+		.fetch_strict = true,	/* 输入为 NULL 时获取 NULL */
+		.fetch_leakproof = true,	/* 下标不当时获取返回 NULL */
+		.store_leakproof = false	/* 但赋值则抛出错误 */
 	};
 
 	PG_RETURN_POINTER(&sbsroutines);
@@ -551,16 +551,16 @@ array_subscript_handler(PG_FUNCTION_ARGS)
 
 /*
  * raw_array_subscript_handler
- *		Subscripting handler for "raw" arrays.
+ *		"raw" 数组的下标处理器。
  *
- * A "raw" array just contains N independent instances of the element type.
- * Currently we require both the element type and the array type to be fixed
- * length, but it wouldn't be too hard to relax that for the array type.
+ * "raw" 数组只是包含元素类型的 N 个独立实例。
+ * 当前我们要求元素类型与数组类型都是定长的，
+ * 但放宽对数组类型的要求并不太难。
  *
- * As of now, all the support code is shared with standard varlena arrays.
- * We may split those into separate code paths, but probably that would yield
- * only marginal speedups.  The main point of having a separate handler is
- * so that pg_type.typsubscript clearly indicates the type's semantics.
+ * 目前，全部支持代码都与标准 varlena 数组共用。
+ * 我们或许会把它们拆成独立的代码路径，但这多半
+ * 只能带来边际的性能提升。设置独立处理器的主要
+ * 目的在于让 pg_type.typsubscript 明确表明类型的语义。
  */
 Datum
 raw_array_subscript_handler(PG_FUNCTION_ARGS)
@@ -568,9 +568,9 @@ raw_array_subscript_handler(PG_FUNCTION_ARGS)
 	static const SubscriptRoutines sbsroutines = {
 		.transform = array_subscript_transform,
 		.exec_setup = array_exec_setup,
-		.fetch_strict = true,	/* fetch returns NULL for NULL inputs */
-		.fetch_leakproof = true,	/* fetch returns NULL for bad subscript */
-		.store_leakproof = false	/* ... but assignment throws error */
+		.fetch_strict = true,	/* 输入为 NULL 时获取 NULL */
+		.fetch_leakproof = true,	/* 下标不当时获取返回 NULL */
+		.store_leakproof = false	/* 但赋值则抛出错误 */
 	};
 
 	PG_RETURN_POINTER(&sbsroutines);

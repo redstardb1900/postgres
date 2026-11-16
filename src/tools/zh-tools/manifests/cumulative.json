@@ -6971,6 +6971,36 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0403-adt-small4.json",
    "kind": "manifest",
    "note": "batch-0403 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0404-adt-small5.json",
+   "kind": "manifest",
+   "note": "batch-0404 manifest (adt 5 small files whole-file comment translation)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/datum.c",
+   "kind": "c_comment",
+   "note": "Datum 机制 (datum/byVal/toasted 标识符保留, 展开对象/展平 0403 口径); whole-file comment translation (batch-0404, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsvector.c",
+   "kind": "c_comment",
+   "note": "文本检索向量 I/O (tsvector/WordEntry 标识符保留, lexeme=词位 0392 口径); whole-file comment translation (batch-0404, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/inet_net_pton.c",
+   "kind": "c_comment",
+   "note": "网络地址解析 (pton/CIDR 标识符保留, octet=八位组 nybble=半字节, inet_cidr_ntop.c 姊妹口径); whole-file comment translation (batch-0404, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/mac8.c",
+   "kind": "c_comment",
+   "note": "MAC8 地址 (macaddr8/EUI-64 标识符保留, modified EUI-64=修改版 EUI-64); whole-file comment translation (batch-0404, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/arraysubs.c",
+   "kind": "c_comment",
+   "note": "数组下标 (subscript=下标, SubscriptingRef 标识符保留, 上界/下界 jsonbsubs 0402 同源口径); whole-file comment translation (batch-0404, adt small files)"
   }
  ],
  "files": [
@@ -22615,6 +22645,66 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0403 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0404-adt-small5.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch-0404 manifest (adt 5 small files whole-file comment translation)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/utils/adt/datum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 39,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Datum 机制 (datum/byVal/toasted 标识符保留, 展开对象/展平 0403 口径); whole-file comment translation (batch-0404, adt small files); blocks=39 zh-lines=113 keep-EN-lines=16"
+  },
+  {
+   "path": "src/backend/utils/adt/tsvector.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 28,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "文本检索向量 I/O (tsvector/WordEntry 标识符保留, lexeme=词位 0392 口径); whole-file comment translation (batch-0404, adt small files); blocks=28 zh-lines=46 keep-EN-lines=72"
+  },
+  {
+   "path": "src/backend/utils/adt/inet_net_pton.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 41,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "网络地址解析 (pton/CIDR 标识符保留, octet=八位组 nybble=半字节, inet_cidr_ntop.c 姊妹口径); whole-file comment translation (batch-0404, adt small files); blocks=41 zh-lines=72 keep-EN-lines=24"
+  },
+  {
+   "path": "src/backend/utils/adt/mac8.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "MAC8 地址 (macaddr8/EUI-64 标识符保留, modified EUI-64=修改版 EUI-64); whole-file comment translation (batch-0404, adt small files); blocks=29 zh-lines=39 keep-EN-lines=4"
+  },
+  {
+   "path": "src/backend/utils/adt/arraysubs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 58,
+   "translated": 58,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "数组下标 (subscript=下标, SubscriptingRef 标识符保留, 上界/下界 jsonbsubs 0402 同源口径); whole-file comment translation (batch-0404, adt small files); blocks=58 zh-lines=124 keep-EN-lines=7"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

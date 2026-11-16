@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsquery_rewrite.c
- *	  Utilities for reconstructing tsquery
+ *	  重构 tsquery 的工具函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -22,42 +22,42 @@
 
 
 /*
- * If "node" is equal to "ex", return a copy of "subs" instead.
- * If "ex" matches a subset of node's children, return a modified version
- * of "node" in which those children are replaced with a copy of "subs".
- * Otherwise return "node" unmodified.
+ * 若 "node" 等于 "ex"，返回 "subs" 的副本。
+ * 若 "ex" 匹配 node 子节点的子集，则返回修改后的
+ * "node"，其中这些子节点被替换为 "subs" 的副本。
+ * 否则原样返回 "node"。
  *
- * The QTN_NOCHANGE bit is set in successfully modified nodes, so that
- * we won't uselessly recurse into them.
- * Also, set *isfind true if we make a replacement.
+ * 成功修改的节点会设置 QTN_NOCHANGE 位，以免徒劳
+ * 地递归进去。
+ * 此外，替换时把 *isfind 设为 true。
  */
 static QTNode *
 findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 {
-	/* Can't match unless signature matches and node type matches. */
+	/* 除非签名和节点类型匹配，否则无法匹配。 */
 	if ((node->sign & ex->sign) != ex->sign ||
 		node->valnode->type != ex->valnode->type)
 		return node;
 
-	/* Ignore nodes marked NOCHANGE, too. */
+	/* 同时忽略 NOCHANGE 节点。 */
 	if (node->flags & QTN_NOCHANGE)
 		return node;
 
 	if (node->valnode->type == QI_OPR)
 	{
-		/* Must be same operator. */
+		/* 须为同一算子。 */
 		if (node->valnode->qoperator.oper != ex->valnode->qoperator.oper)
 			return node;
 
 		if (node->nchild == ex->nchild)
 		{
 			/*
-			 * Simple case: when same number of children, match if equal.
-			 * (This is reliable when the children were sorted earlier.)
+			 * 简单情形：子节点数相同，相等即匹配。
+			 * （这在子节点先前已排序时是可靠的。）
 			 */
 			if (QTNEq(node, ex))
 			{
-				/* Match; delete node and return a copy of subs instead. */
+				/* 匹配；删除节点，改为返回 subs 副本。 */
 				QTNFree(node);
 				if (subs)
 				{
@@ -72,26 +72,26 @@ findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 		else if (node->nchild > ex->nchild && ex->nchild > 0)
 		{
 			/*
-			 * AND and OR are commutative/associative, so we should check if a
-			 * subset of the children match.  For example, if node is A|B|C,
-			 * and ex is B|C, we have a match after we notionally convert node
-			 * to A|(B|C).  This does not work for NOT or PHRASE nodes, but we
-			 * can't get here for those node types because they have a fixed
-			 * number of children.
+			 * AND 与 OR 可交换/可结合，故应查子节点的子集
+			 * 是否匹配。例如 node 是 A|B|C 而 ex 是 B|C，
+			 * 那么把 node 在概念上转换为 A|(B|C) 后即匹配
+			 * 但这不适用于 NOT 或 PHRASE 节点，因为
+			 * 这些节点类型的子节点数是固定的，所以我
+			 * 们不会到此。
 			 *
-			 * Because we expect that the children are sorted, it suffices to
-			 * make one pass through the two lists to find the matches.
+			 * 因预期子节点已排序，单趟扫描两个列表
+			 * 即可找出所有匹配。
 			 */
 			bool	   *matched;
 			int			nmatched;
 			int			i,
 						j;
 
-			/* Assert that the subset rule is OK */
+			/* 断言子集规则是成立的 */
 			Assert(node->valnode->qoperator.oper == OP_AND ||
 				   node->valnode->qoperator.oper == OP_OR);
 
-			/* matched[] will record which children of node matched */
+			/* matched[] 将记录 node 哪些子节点匹配了 */
 			matched = (bool *) palloc0(node->nchild * sizeof(bool));
 			nmatched = 0;
 			i = j = 0;
@@ -101,26 +101,26 @@ findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 
 				if (cmp == 0)
 				{
-					/* match! */
+					/* 匹配 */
 					matched[i] = true;
 					nmatched++;
 					i++, j++;
 				}
 				else if (cmp < 0)
 				{
-					/* node->child[i] has no match, ignore it */
+					/* node->child[i] 无匹配，忽略它 */
 					i++;
 				}
 				else
 				{
-					/* ex->child[j] has no match; we can give up immediately */
+					/* ex->child[j] 无匹配；可以立即放弃 */
 					break;
 				}
 			}
 
 			if (nmatched == ex->nchild)
 			{
-				/* collapse out the matched children of node */
+				/* 剔除 node 已匹配的子节点 */
 				j = 0;
 				for (i = 0; i < node->nchild; i++)
 				{
@@ -130,7 +130,7 @@ findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 						node->child[j++] = node->child[i];
 				}
 
-				/* and instead insert a copy of subs */
+				/* 并改为插入 subs 的副本 */
 				if (subs)
 				{
 					subs = QTNCopy(subs);
@@ -141,19 +141,19 @@ findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 				node->nchild = j;
 
 				/*
-				 * At this point we might have a node with zero or one child,
-				 * which should be simplified.  But we leave it to our caller
-				 * (dofindsubquery) to take care of that.
+				 * 此时可能得到子节点数为 0 或 1 的节点，
+				 * 应当把它简化。但这留给调用者
+				 * （dofindsubquery）来处理。
 				 */
 
 				/*
-				 * Re-sort the node to put new child in the right place.  This
-				 * is a bit bogus, because it won't matter for findsubquery's
-				 * remaining processing, and it's insufficient to prepare the
-				 * tree for another search (we would need to re-flatten as
-				 * well, and we don't want to do that because we'd lose the
-				 * QTN_NOCHANGE marking on the new child).  But it's needed to
-				 * keep the results the same as the regression tests expect.
+				 * 重新为节点排序，把新子节点放到正确位置
+				 * 这有点勉强：这不会影响 findsubquery
+				 * 的后续处理，也不足以让树备好再次搜索
+				 * （那需重新展平，而我们不想那样，因为
+				 * 丢掉新子节点的 QTN_NOCHANGE 标记）。但要
+				 * 结果与回归测试的预期一致，所以这一步
+				 * 是必需的。
 				 */
 				QTNSort(node);
 
@@ -189,12 +189,12 @@ findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 }
 
 /*
- * Recursive guts of findsubquery(): attempt to replace "ex" with "subs"
- * at the root node, and if we failed to do so, recursively match against
- * child nodes.
+ * findsubquery() 递归主体：尝试在根节点处把 "ex" 换
+ * 为 "subs"；如果失败，就递归地对子节点进
+ * 行匹配。
  *
- * Delete any void subtrees resulting from the replacement.
- * In the following example '5' is replaced by empty operand:
+ * 删除替换产生的任何空子树。
+ * 在下例中 '5' 被空操作数替换：
  *
  *	  AND		->	  6
  *	 /	 \
@@ -205,16 +205,16 @@ findeq(QTNode *node, QTNode *ex, QTNode *subs, bool *isfind)
 static QTNode *
 dofindsubquery(QTNode *root, QTNode *ex, QTNode *subs, bool *isfind)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
-	/* also, since it's a bit expensive, let's check for query cancel. */
+	/* 另外，既然有点昂贵，就顺便检查查询取消。 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* match at the node itself */
+	/* 在节点本身匹配 */
 	root = findeq(root, ex, subs, isfind);
 
-	/* unless we matched here, consider matches at child nodes */
+	/* 除非在此匹配，否则考虑子节点处的匹配 */
 	if (root && (root->flags & QTN_NOCHANGE) == 0 &&
 		root->valnode->type == QI_OPR)
 	{
@@ -222,8 +222,8 @@ dofindsubquery(QTNode *root, QTNode *ex, QTNode *subs, bool *isfind)
 					j = 0;
 
 		/*
-		 * Any subtrees that are replaced by NULL must be dropped from the
-		 * tree.
+		 * 任何被替换成 NULL 的子树都必须从树中剔
+		 * 除
 		 */
 		for (i = 0; i < root->nchild; i++)
 		{
@@ -235,8 +235,8 @@ dofindsubquery(QTNode *root, QTNode *ex, QTNode *subs, bool *isfind)
 		root->nchild = j;
 
 		/*
-		 * If we have just zero or one remaining child node, simplify out this
-		 * operator node.
+		 * 如果只剩零个或一个子节点，就把该算子节点
+		 * 简化掉。
 		 */
 		if (root->nchild == 0)
 		{
@@ -256,12 +256,12 @@ dofindsubquery(QTNode *root, QTNode *ex, QTNode *subs, bool *isfind)
 }
 
 /*
- * Substitute "subs" for "ex" throughout the QTNode tree at root.
+ * 在整个根部的 QTNode 树中把 "ex" 替换为 "subs"。
  *
- * If isfind isn't NULL, set *isfind to show whether we made any substitution.
+ * 如果 isfind 非 NULL，则以 *isfind 表明是否做过替换。
  *
- * Both "root" and "ex" must have been through QTNTernary and QTNSort
- * to ensure reliable matching.
+ * "root" 与 "ex" 都必须先经过 QTNTernary 与 QTNSort，
+ * 以确保匹配可靠。
  */
 QTNode *
 findsubquery(QTNode *root, QTNode *ex, QTNode *subs, bool *isfind)
@@ -371,7 +371,7 @@ tsquery_rewrite_query(PG_FUNCTION_ARGS)
 
 				if (tree)
 				{
-					/* ready the tree for another pass */
+					/* 让树准备好进行下一轮 */
 					QTNClearFlags(tree, QTN_NOCHANGE);
 					QTNTernary(tree);
 					QTNSort(tree);

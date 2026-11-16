@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsquery_util.c
- *	  Utilities for tsquery datatype
+ *	  tsquery 实用工具
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -19,14 +19,14 @@
 #include "varatt.h"
 
 /*
- * Build QTNode tree for a tsquery given in QueryItem array format.
+ * 为 QueryItem 数组格式的 tsquery 构建 QTNode 树。
  */
 QTNode *
 QT2QTN(QueryItem *in, char *operand)
 {
 	QTNode	   *node = (QTNode *) palloc0(sizeof(QTNode));
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	node->valnode = in;
@@ -55,10 +55,10 @@ QT2QTN(QueryItem *in, char *operand)
 }
 
 /*
- * Free a QTNode tree.
+ * 释放 QTNode 树
  *
- * Referenced "word" and "valnode" items are freed if marked as transient
- * by flags.
+ * 被引用的 "word"、"valnode" 条目若被 flags 标为暂态即
+ * 释放。
  */
 void
 QTNFree(QTNode *in)
@@ -66,7 +66,7 @@ QTNFree(QTNode *in)
 	if (!in)
 		return;
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (in->valnode->type == QI_VAL && in->word && (in->flags & QTN_WORDFREE) != 0)
@@ -89,14 +89,14 @@ QTNFree(QTNode *in)
 }
 
 /*
- * Sort comparator for QTNodes.
+ * QTNode 的排序比较器。
  *
- * The sort order is somewhat arbitrary.
+ * 排序次序带有一定随意性。
  */
 int
 QTNodeCompare(QTNode *an, QTNode *bn)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (an->valnode->type != bn->valnode->type)
@@ -142,12 +142,12 @@ QTNodeCompare(QTNode *an, QTNode *bn)
 	else
 	{
 		elog(ERROR, "unrecognized QueryItem type: %d", an->valnode->type);
-		return 0;				/* keep compiler quiet */
+		return 0;				/* 防编译器告警 */
 	}
 }
 
 /*
- * qsort comparator for QTNode pointers.
+ * QTNode 指针的 qsort 比较器。
  */
 static int
 cmpQTN(const void *a, const void *b)
@@ -156,15 +156,15 @@ cmpQTN(const void *a, const void *b)
 }
 
 /*
- * Canonicalize a QTNode tree by sorting the children of AND/OR nodes
- * into an arbitrary but well-defined order.
+ * 通过对 AND/OR 节点的子节点排序，把 QTNode 树规
+ * 范化成任意但良定义的次序。
  */
 void
 QTNSort(QTNode *in)
 {
 	int			i;
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (in->valnode->type != QI_OPR)
@@ -177,7 +177,7 @@ QTNSort(QTNode *in)
 }
 
 /*
- * Are two QTNode trees equal according to QTNodeCompare?
+ * 两棵 QTNode 树按 QTNodeCompare 相等吗？
  */
 bool
 QTNEq(QTNode *a, QTNode *b)
@@ -191,7 +191,7 @@ QTNEq(QTNode *a, QTNode *b)
 }
 
 /*
- * Remove unnecessary intermediate nodes. For example:
+ * 移除不必要的中间节点。例如：
  *
  *	OR			OR
  * a  OR	-> a b c
@@ -202,7 +202,7 @@ QTNTernary(QTNode *in)
 {
 	int			i;
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (in->valnode->type != QI_OPR)
@@ -211,7 +211,7 @@ QTNTernary(QTNode *in)
 	for (i = 0; i < in->nchild; i++)
 		QTNTernary(in->child[i]);
 
-	/* Only AND and OR are associative, so don't flatten other node types */
+	/* 只有 AND 与 OR 有结合律，勿展平其他节点类型 */
 	if (in->valnode->qoperator.oper != OP_AND &&
 		in->valnode->qoperator.oper != OP_OR)
 		return;
@@ -243,15 +243,15 @@ QTNTernary(QTNode *in)
 }
 
 /*
- * Convert a tree to binary tree by inserting intermediate nodes.
- * (Opposite of QTNTernary)
+ * 通过插入中间节点把树转换成二叉树。
+ * （QTNTernary 之逆）
  */
 void
 QTNBinary(QTNode *in)
 {
 	int			i;
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (in->valnode->type != QI_OPR)
@@ -284,14 +284,14 @@ QTNBinary(QTNode *in)
 }
 
 /*
- * Count the total length of operand strings in tree (including '\0'-
- * terminators) and the total number of nodes.
- * Caller must initialize *sumlen and *nnode to zeroes.
+ * 统计树中操作数字符串的总长度（包括 '\0' 终止
+ * 符）以及节点总数。
+ * 调用者须将 *sumlen 与 *nnode 置零。
  */
 static void
 cntsize(QTNode *in, int *sumlen, int *nnode)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	*nnode += 1;
@@ -316,13 +316,13 @@ typedef struct
 } QTN2QTState;
 
 /*
- * Recursively convert a QTNode tree into flat tsquery format.
- * Caller must have allocated arrays of the correct size.
+ * 把 QTNode 树递归转换成平面 tsquery 格式。
+ * 调用者必须已分配好大小正确的数组。
  */
 static void
 fillQT(QTN2QTState *state, QTNode *in)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (in->valnode->type == QI_VAL)
@@ -357,7 +357,7 @@ fillQT(QTN2QTState *state, QTNode *in)
 }
 
 /*
- * Build flat tsquery from a QTNode tree.
+ * 从 QTNode 树构建平面 tsquery。
  */
 TSQuery
 QTN2QT(QTNode *in)
@@ -388,16 +388,16 @@ QTN2QT(QTNode *in)
 }
 
 /*
- * Copy a QTNode tree.
+ * 复制 QTNode 树
  *
- * Modifiable copies of the words and valnodes are made, too.
+ * 也会制作可修改的 words 与 valnodes 副本。
  */
 QTNode *
 QTNCopy(QTNode *in)
 {
 	QTNode	   *out;
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	out = (QTNode *) palloc(sizeof(QTNode));
@@ -428,12 +428,12 @@ QTNCopy(QTNode *in)
 }
 
 /*
- * Clear the specified flag bit(s) in all nodes of a QTNode tree.
+ * 清除 QTNode 树中所有节点的指定标志位。
  */
 void
 QTNClearFlags(QTNode *in, uint32 flags)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	in->flags &= ~flags;

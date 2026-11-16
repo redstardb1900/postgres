@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * like.c
- *	  like expression handling code.
+ *	  like 表达式的处理。
  *
  *	 NOTES
- *		A big hack of the regexp.c code!! Contributed by
+ *		regexp.c 代码的大改！！贡献者：
  *		Keith Parks <emkxp01@mtcc.demon.co.uk> (7/95).
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -50,8 +50,8 @@ static int	GenericMatchText(const char *s, int slen, const char *p, int plen, Oi
 static int	Generic_Text_IC_like(text *str, text *pat, Oid collation);
 
 /*--------------------
- * Support routine for MatchText. Compares given multibyte streams
- * as wide characters. If they match, returns 1 otherwise returns 0.
+ * MatchText 的辅助例程。把给定的多字节流按宽字
+ * 符进行比较。匹配则返回 1，否则返回 0。
  *--------------------
  */
 static inline int
@@ -59,7 +59,7 @@ wchareq(const char *p1, const char *p2)
 {
 	int			p1_len;
 
-	/* Optimization:  quickly compare the first byte. */
+	/* 优化：快速比较第一个字节。 */
 	if (*p1 != *p2)
 		return 0;
 
@@ -67,7 +67,7 @@ wchareq(const char *p1, const char *p2)
 	if (pg_mblen(p2) != p1_len)
 		return 0;
 
-	/* They are the same length */
+	/* 两者长度相同 */
 	while (p1_len--)
 	{
 		if (*p1++ != *p2++)
@@ -77,18 +77,18 @@ wchareq(const char *p1, const char *p2)
 }
 
 /*
- * Formerly we had a routine iwchareq() here that tried to do case-insensitive
- * comparison of multibyte characters.  It did not work at all, however,
- * because it relied on tolower() which has a single-byte API ... and
- * towlower() wouldn't be much better since we have no suitably cheap way
- * of getting a single character transformed to the system's wchar_t format.
- * So now, we just downcase the strings using lower() and apply regular LIKE
- * comparison.  This should be revisited when we install better locale support.
+ * 以前我们这里有一个 iwchareq() 例程，它试图对多字
+ * 节字符做大小写不敏感的比较。然而它完全没用，
+ * 因为它依赖具有单字节 API 的 tolower() …… 而
+ * towlower() 也不会好多少，因为我们没有足够廉价
+ * 的办法把单个字符转换成系统 wchar_t 格式。所以
+ * 现在我们只用 lower() 把串变小写，再应用常规的
+ * LIKE 比较。待区域设置支持更好后再重新审视。
  */
 
 /*
- * We do handle case-insensitive matching for single-byte encodings using
- * fold-on-the-fly processing, however.
+ * 不过对于单字节编码，我们确实用即时折叠处理
+ * 来做大小写不敏感匹配。
  */
 static char
 SB_lower_char(unsigned char c, pg_locale_t locale, bool locale_is_c)
@@ -106,7 +106,7 @@ SB_lower_char(unsigned char c, pg_locale_t locale, bool locale_is_c)
 
 #define NextByte(p, plen)	((p)++, (plen)--)
 
-/* Set up to compile like_match.c for multibyte characters */
+/* 设置 like_match.c 的多字节字符编译 */
 #define CHAREQ(p1, p2) wchareq((p1), (p2))
 #define NextChar(p, plen) \
 	do { int __l = pg_mblen(p); (p) +=__l; (plen) -=__l; } while (0)
@@ -122,7 +122,7 @@ SB_lower_char(unsigned char c, pg_locale_t locale, bool locale_is_c)
 
 #include "like_match.c"
 
-/* Set up to compile like_match.c for single-byte characters */
+/* 设置 like_match.c 的单字节字符编译 */
 #define CHAREQ(p1, p2) (*(p1) == *(p2))
 #define NextChar(p, plen) NextByte((p), (plen))
 #define CopyAdvChar(dst, src, srclen) (*(dst)++ = *(src)++, (srclen)--)
@@ -132,14 +132,14 @@ SB_lower_char(unsigned char c, pg_locale_t locale, bool locale_is_c)
 
 #include "like_match.c"
 
-/* setup to compile like_match.c for single byte case insensitive matches */
+/* 设置 like_match.c 的单字节大小写不敏感匹配编译 */
 #define MATCH_LOWER(t) SB_lower_char((unsigned char) (t), locale, locale_is_c)
 #define NextChar(p, plen) NextByte((p), (plen))
 #define MatchText SB_IMatchText
 
 #include "like_match.c"
 
-/* setup to compile like_match.c for UTF8 encoding, using fast NextChar */
+/* 设置 like_match.c 的 UTF8 编码编译，使用快速 NextChar */
 
 #define NextChar(p, plen) \
 	do { (p)++; (plen)--; } while ((plen) > 0 && (*(p) & 0xC0) == 0x80 )
@@ -147,7 +147,7 @@ SB_lower_char(unsigned char c, pg_locale_t locale, bool locale_is_c)
 
 #include "like_match.c"
 
-/* Generic for all cases not requiring inline case-folding */
+/* 所有无需内联大小写折叠情形通用 */
 static inline int
 GenericMatchText(const char *s, int slen, const char *p, int plen, Oid collation)
 {
@@ -182,8 +182,8 @@ Generic_Text_IC_like(text *str, text *pat, Oid collation)
 	if (!OidIsValid(collation))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 这通常意味着解析器无法消解隐式排序规则
+		 * 的冲突，因此就这样报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -202,11 +202,11 @@ Generic_Text_IC_like(text *str, text *pat, Oid collation)
 				 errmsg("nondeterministic collations are not supported for ILIKE")));
 
 	/*
-	 * For efficiency reasons, in the single byte case we don't call lower()
-	 * on the pattern and text, but instead call SB_lower_char on each
-	 * character.  In the multi-byte case we don't have much choice :-(. Also,
-	 * ICU does not support single-character case folding, so we go the long
-	 * way.
+	 * 出于效率考虑，单字节情形我们不对模式与文本
+	 * 调 lower()，而是逐字符调 SB_lower_char。多
+	 * 字节情形下只好 :-(。另外 ICU 也不支持单字
+	 * 符折叠，因此我们只能绕远路而
+	 * 行
 	 */
 
 	if (pg_database_encoding_max_length() > 1 || (locale && locale->provider == COLLPROVIDER_ICU))
@@ -235,7 +235,7 @@ Generic_Text_IC_like(text *str, text *pat, Oid collation)
 }
 
 /*
- *	interface routines called by the function manager
+ *	由函数管理器调用的接口例程
  */
 
 Datum
@@ -365,7 +365,7 @@ byteanlike(PG_FUNCTION_ARGS)
 }
 
 /*
- * Case-insensitive versions
+ * 大小写不敏感版本
  */
 
 Datum
@@ -423,8 +423,8 @@ texticnlike(PG_FUNCTION_ARGS)
 }
 
 /*
- * like_escape() --- given a pattern and an ESCAPE string,
- * convert the pattern to use Postgres' standard backslash escape convention.
+ * like_escape() --- 给定模式和 ESCAPE 串，
+ * 把模式转换为使用 Postgres 的标准反斜杠转义约定。
  */
 Datum
 like_escape(PG_FUNCTION_ARGS)
@@ -442,8 +442,8 @@ like_escape(PG_FUNCTION_ARGS)
 }
 
 /*
- * like_escape_bytea() --- given a pattern and an ESCAPE string,
- * convert the pattern to use Postgres' standard backslash escape convention.
+ * like_escape_bytea() --- 给定模式和 ESCAPE 串，
+ * 把模式转换为使用 Postgres 的标准反斜杠转义约定。
  */
 Datum
 like_escape_bytea(PG_FUNCTION_ARGS)

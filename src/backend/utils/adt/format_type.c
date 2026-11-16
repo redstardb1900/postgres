@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * format_type.c
- *	  Display type names "nicely".
+ *	  美观地显示类型名。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -31,30 +31,30 @@ static char *printTypmod(const char *typname, int32 typmod, Oid typmodout);
 
 
 /*
- * SQL function: format_type(type_oid, typemod)
+ * SQL 函数：format_type(type_oid, typemod)
  *
- * `type_oid' is from pg_type.oid, `typemod' is from
- * pg_attribute.atttypmod. This function will get the type name and
- * format it and the modifier to canonical SQL format, if the type is
- * a standard type. Otherwise you just get pg_type.typname back,
- * double quoted if it contains funny characters or matches a keyword.
+ * type_oid 来自 pg_type.oid，typemod 来自
+ * pg_attribute.atttypmod。本函数会取得类型名并
+ * 把类型名与修饰符格式化成规范 SQL 格式，前提
+ * 是该类型为标准类型；否则只会取回
+ * pg_type.typname，怪异字符或关键字相同时加双引号。
  *
- * If typemod is NULL then we are formatting a type name in a context where
- * no typemod is available, eg a function argument or result type.  This
- * yields a slightly different result from specifying typemod = -1 in some
- * cases.  Given typemod = -1 we feel compelled to produce an output that
- * the parser will interpret as having typemod -1, so that pg_dump will
- * produce CREATE TABLE commands that recreate the original state.  But
- * given NULL typemod, we assume that the parser's interpretation of
- * typemod doesn't matter, and so we are willing to output a slightly
- * "prettier" representation of the same type.  For example, type = bpchar
- * and typemod = NULL gets you "character", whereas typemod = -1 gets you
- * "bpchar" --- the former will be interpreted as character(1) by the
- * parser, which does not yield typemod -1.
+ * 如果 typemod 为 NULL，说明我们是在无 typemod
+ * 可用的上下文中格式化类型名，例如函数参数或
+ * 结果类型。这会与在某些情况下指定 typemod
+ * = -1 产生略有不同的结果。给定 typemod =
+ * -1 时，我们觉得必须产生一个解析器会解释
+ * 为 typemod -1 的输出，让 pg_dump 能产生重建
+ * 原始状态的 CREATE TABLE 命令。但若给定 NULL
+ *  typemod，我们就假定解析器对 typemod 的解释无
+ * 关紧要，所以我们愿意输出同一类型"美观"
+ * 的表示。例如 type = bpchar 且 typemod = NULL 得
+ * 到 "character"；typemod = -1 得到 "bpchar"。前者会解
+ * 释成 character(1)，而非 -1。
  *
- * XXX encoding a meaning in typemod = NULL is ugly; it'd have been
- * cleaner to make two functions of one and two arguments respectively.
- * Not worth changing it now, however.
+ * XXX 在 typemod = NULL 中编码一种含义很丑陋；
+ * 更干净的做法是分别提供一参和两参两个函数。
+ * 不过现在不值得改。
  */
 Datum
 format_type(PG_FUNCTION_ARGS)
@@ -64,7 +64,7 @@ format_type(PG_FUNCTION_ARGS)
 	char	   *result;
 	bits16		flags = FORMAT_TYPE_ALLOW_INVALID;
 
-	/* Since this function is not strict, we must test for null args */
+	/* 由于本函数不是严格的，我们必须测试空参数 */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
@@ -85,28 +85,28 @@ format_type(PG_FUNCTION_ARGS)
 
 /*
  * format_type_extended
- *		Generate a possibly-qualified type name.
+ *		生成可能带限定的类型名。
  *
- * The default behavior is to only qualify if the type is not in the search
- * path, to ignore the given typmod, and to raise an error if a non-existent
- * type_oid is given.
+ * 默认行为是：仅当类型不在搜索路径中时才加限
+ * 定，忽略给定的 typmod，并且在给定的 type_oid 不存在
+ * 时报错。
  *
- * The following bits in 'flags' modify the behavior:
+ * 'flags' 中的下列位会修改行为：
  * - FORMAT_TYPE_TYPEMOD_GIVEN
- *			include the typmod in the output (typmod could still be -1 though)
+ *			在输出中包含 typmod（typmod 仍可能为 -1）
  * - FORMAT_TYPE_ALLOW_INVALID
- *			if the type OID is invalid or unknown, return ??? or such instead
- *			of failing
+ *			若类型 OID 无效或未知，返回 ??? 之类而非
+ *			失败。
  * - FORMAT_TYPE_INVALID_AS_NULL
- *			if the type OID is invalid or unknown, return NULL instead of ???
- *			or such
+ *			若类型 OID 无效或未知，返回 NULL 而非 ??? 之
+ *			类
  * - FORMAT_TYPE_FORCE_QUALIFY
- *			always schema-qualify type names, regardless of search_path
+ *			总是给类型名加上模式限定，无视 search_path
  *
- * Note that TYPEMOD_GIVEN is not interchangeable with "typemod == -1";
- * see the comments above for format_type().
+ * 注意 TYPEMOD_GIVEN 与 "typemod == -1" 不可互换；
+ * 参见上文 format_type() 的注释。
  *
- * Returns a palloc'd string, or NULL.
+ * 返回 palloc 的串或 NULL。
  */
 char *
 format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
@@ -139,17 +139,17 @@ format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
 	typeform = (Form_pg_type) GETSTRUCT(tuple);
 
 	/*
-	 * Check if it's a "true" array type.  Pseudo-array types such as "name"
-	 * shouldn't get deconstructed.  Also check the toast property, and don't
-	 * deconstruct "plain storage" array types --- this is because we don't
-	 * want to show oidvector as oid[].
+	 * 检查它是否是"真正的"数组类型。像 "name" 这类伪
+	 * 数组类型不应被解构。还要检查 toast 属性，并且不
+	 * 要解构"plain storage"的数组类型 —— 这是因为我们不
+	 * 想把oidvector显示为oid[]。
 	 */
 	array_base_type = typeform->typelem;
 
 	if (IsTrueArrayType(typeform) &&
 		typeform->typstorage != TYPSTORAGE_PLAIN)
 	{
-		/* Switch our attention to the array element type */
+		/* 把注意力切换到数组元素类型 */
 		ReleaseSysCache(tuple);
 		tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(array_base_type));
 		if (!HeapTupleIsValid(tuple))
@@ -171,17 +171,17 @@ format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
 	with_typemod = (flags & FORMAT_TYPE_TYPEMOD_GIVEN) != 0 && (typemod >= 0);
 
 	/*
-	 * See if we want to special-case the output for certain built-in types.
-	 * Note that these special cases should all correspond to special
-	 * productions in gram.y, to ensure that the type name will be taken as a
-	 * system type, not a user type of the same name.
+	 * 看看是否要对某些内置类型的输出做特殊处理。
+	 * 注意这些特殊情况都应与 gram.y 中的特殊产
+	 * 式对应，以确保类型名被当作系统类型，而不是
+	 * 同名用户类型。
 	 *
-	 * If we do not provide a special-case output here, the type name will be
-	 * handled the same way as a user type name --- in particular, it will be
-	 * double-quoted if it matches any lexer keyword.  This behavior is
-	 * essential for some cases, such as types "bit" and "char".
+	 * 如果我们不在这里提供特殊输出，类型名的处理
+	 * 方式将与用户类型名相同 —— 特别是，当它匹配任
+	 * 何词法关键字时都要加双引号。这种行为对某
+	 * 些情况至关重要，如类型 "bit" 与 "char"。
 	 */
-	buf = NULL;					/* flag for no special case */
+	buf = NULL;					/* 无特殊情形的标志 */
 
 	switch (type_oid)
 	{
@@ -191,9 +191,9 @@ format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
 			else if ((flags & FORMAT_TYPE_TYPEMOD_GIVEN) != 0)
 			{
 				/*
-				 * bit with typmod -1 is not the same as BIT, which means
-				 * BIT(1) per SQL spec.  Report it as the quoted typename so
-				 * that parser will not assign a bogus typmod.
+				 * 带 typmod -1 的 bit 不等同于 BIT，后者意为
+				 * BIT(1)。要把它报告为带引号类型名，以免解
+				 * 析器指派伪造的 typmod。
 				 */
 			}
 			else
@@ -210,9 +210,9 @@ format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
 			else if ((flags & FORMAT_TYPE_TYPEMOD_GIVEN) != 0)
 			{
 				/*
-				 * bpchar with typmod -1 is not the same as CHARACTER, which
-				 * means CHARACTER(1) per SQL spec.  Report it as bpchar so
-				 * that parser will not assign a bogus typmod.
+				 * 带 typmod -1 的 bpchar 不等同于 CHARACTER，后者
+				 * 按 SQL 标准意为 CHARACTER(1)。把它报告为
+				 * bpchar，以免解析器误设 typmod。
 				 */
 			}
 			else
@@ -299,10 +299,10 @@ format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
 	if (buf == NULL)
 	{
 		/*
-		 * Default handling: report the name as it appears in the catalog.
-		 * Here, we must qualify the name if it is not visible in the search
-		 * path or if caller requests it; and we must double-quote it if it's
-		 * not a standard identifier or if it matches any keyword.
+		 * 默认处理：报告名字在目录中的原样。
+		 * 这里若名字在搜索路径中不可见或调用者要求，
+		 * 就必须加以限定；并且若它不是标准标识符或匹配
+		 * 任何关键字，就必须加上双引号。
 		 */
 		char	   *nspname;
 		char	   *typname;
@@ -330,10 +330,10 @@ format_type_extended(Oid type_oid, int32 typemod, bits16 flags)
 }
 
 /*
- * This version is for use within the backend in error messages, etc.
- * One difference is that it will fail for an invalid type.
+ * 这个版本供后端内部在错误消息等处使用。
+ * 一个差别是它对无效类型会失败。
  *
- * The result is always a palloc'd string.
+ * 结果总是 palloc 的串。
  */
 char *
 format_type_be(Oid type_oid)
@@ -342,8 +342,8 @@ format_type_be(Oid type_oid)
 }
 
 /*
- * This version returns a name that is always qualified (unless it's one
- * of the SQL-keyword type names, such as TIMESTAMP WITH TIME ZONE).
+ * 这个版本返回总是带限定的名字（除非它属于
+ * TIMESTAMP WITH TIME ZONE 这类 SQL 关键字类型名）。
  */
 char *
 format_type_be_qualified(Oid type_oid)
@@ -352,7 +352,7 @@ format_type_be_qualified(Oid type_oid)
 }
 
 /*
- * This version allows a nondefault typemod to be specified.
+ * 这个版本允许指定非默认的 typemod。
  */
 char *
 format_type_with_typemod(Oid type_oid, int32 typemod)
@@ -361,24 +361,24 @@ format_type_with_typemod(Oid type_oid, int32 typemod)
 }
 
 /*
- * Add typmod decoration to the basic type name
+ * 给基本类型名加上 typmod 修饰
  */
 static char *
 printTypmod(const char *typname, int32 typmod, Oid typmodout)
 {
 	char	   *res;
 
-	/* Shouldn't be called if typmod is -1 */
+	/* typmod 为 -1 时不应调用 */
 	Assert(typmod >= 0);
 
 	if (typmodout == InvalidOid)
 	{
-		/* Default behavior: just print the integer typmod with parens */
+		/* 默认行为：只打印带括号的整数 typmod */
 		res = psprintf("%s(%d)", typname, (int) typmod);
 	}
 	else
 	{
-		/* Use the type-specific typmodout procedure */
+		/* 使用类型特定的 typmodout 例程 */
 		char	   *tmstr;
 
 		tmstr = DatumGetCString(OidFunctionCall1(typmodout,
@@ -391,18 +391,18 @@ printTypmod(const char *typname, int32 typmod, Oid typmodout)
 
 
 /*
- * type_maximum_size --- determine maximum width of a variable-width column
+ * type_maximum_size --- 确定变宽列的最大宽度
  *
- * If the max width is indeterminate, return -1.  In particular, we return
- * -1 for any type not known to this routine.  We assume the caller has
- * already determined that the type is a variable-width type, so it's not
- * necessary to look up the type's pg_type tuple here.
+ * 如果最大宽度不确定，则返回 -1。特别是，本例程
+ * 对任何它不认识的类型都返回 -1。我们假定调用者
+ * 已经确定该类型是变宽类型，因此无需在这里查找
+ * 该类型的 pg_type 元组。
  *
- * This may appear unrelated to format_type(), but in fact the two routines
- * share knowledge of the encoding of typmod for different types, so it's
- * convenient to keep them together.  (XXX now that most of this knowledge
- * has been pushed out of format_type into the typmodout functions, it's
- * interesting to wonder if it's worth trying to factor this code too...)
+ * 这看起来似乎与 format_type() 无关，但实际上两个
+ * 例程共享对不同类型 typmod 编码方式的知识，所以
+ * 把它们放在一起很方便。（XXX 既然这类知识大多
+ * 已被移出 format_type 而进入 typmodout 函数，是否值
+ * 得把这部分代码也分解出来倒是值得玩味……）
  */
 int32
 type_maximum_size(Oid type_oid, int32 typemod)
@@ -414,9 +414,9 @@ type_maximum_size(Oid type_oid, int32 typemod)
 	{
 		case BPCHAROID:
 		case VARCHAROID:
-			/* typemod includes varlena header */
+			/* typemod 含 varlena 头部 */
 
-			/* typemod is in characters not bytes */
+			/* typemod 以字符计而非字节 */
 			return (typemod - VARHDRSZ) *
 				pg_encoding_max_length(GetDatabaseEncoding())
 				+ VARHDRSZ;
@@ -426,18 +426,18 @@ type_maximum_size(Oid type_oid, int32 typemod)
 
 		case VARBITOID:
 		case BITOID:
-			/* typemod is the (max) number of bits */
+			/* typemod 是（最大）位数 */
 			return (typemod + (BITS_PER_BYTE - 1)) / BITS_PER_BYTE
 				+ 2 * sizeof(int32);
 	}
 
-	/* Unknown type, or unlimited-width type such as 'text' */
+	/* 未知类型或 'text' 这类宽度无限的类型 */
 	return -1;
 }
 
 
 /*
- * oidvectortypes			- converts a vector of type OIDs to "typname" list
+ * oidvectortypes			- 把类型 OID 向量转换成 "typname" 列表
  */
 Datum
 oidvectortypes(PG_FUNCTION_ARGS)

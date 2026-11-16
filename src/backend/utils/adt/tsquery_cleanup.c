@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * tsquery_cleanup.c
- *	 Cleanup query from NOT values and/or stopword
- *	 Utility functions to correct work.
+ *	 从查询中清理 NOT 值和/或停用词
+ *	 提供修正用的工具函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -27,14 +27,14 @@ typedef struct NODE
 } NODE;
 
 /*
- * make query tree from plain view of query
+ * 从查询的平面视图构建查询树
  */
 static NODE *
 maketree(QueryItem *in)
 {
 	NODE	   *node = (NODE *) palloc(sizeof(NODE));
 
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	node->valnode = in;
@@ -49,19 +49,19 @@ maketree(QueryItem *in)
 }
 
 /*
- * Internal state for plaintree and plainnode
+ * plaintree 与 plainnode 的内部状态
  */
 typedef struct
 {
 	QueryItem  *ptr;
-	int			len;			/* allocated size of ptr */
-	int			cur;			/* number of elements in ptr */
+	int			len;			/* ptr 分配的大小 */
+	int			cur;			/* ptr 中的元素个数 */
 } PLAINTREE;
 
 static void
 plainnode(PLAINTREE *state, NODE *node)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (state->cur == state->len)
@@ -91,7 +91,7 @@ plainnode(PLAINTREE *state, NODE *node)
 }
 
 /*
- * make plain view of tree from a NODE-tree representation
+ * 从 NODE 树表示构建树的平面视图
  */
 static QueryItem *
 plaintree(NODE *root, int *len)
@@ -114,7 +114,7 @@ plaintree(NODE *root, int *len)
 static void
 freetree(NODE *node)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (!node)
@@ -127,15 +127,15 @@ freetree(NODE *node)
 }
 
 /*
- * clean tree for ! operator.
- * It's useful for debug, but in
- * other case, such view is used with search in index.
- * Operator ! always return TRUE
+ * 为 ! 算子清理树。
+ * 它对调试有用，但在
+ * 其他情况下该视图随索引搜索使用。
+ * 算子 ! 总是返回 TRUE
  */
 static NODE *
 clean_NOT_intree(NODE *node)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (node->valnode->type == QI_VAL)
@@ -147,7 +147,7 @@ clean_NOT_intree(NODE *node)
 		return NULL;
 	}
 
-	/* operator & or | */
+	/* & 或 | 算子 */
 	if (node->valnode->qoperator.oper == OP_OR)
 	{
 		if ((node->left = clean_NOT_intree(node->left)) == NULL ||
@@ -196,51 +196,51 @@ clean_NOT(QueryItem *ptr, int *len)
 
 
 /*
- * Remove QI_VALSTOP (stopword) nodes from query tree.
+ * 移除查询树的 QI_VALSTOP 停用词节点。
  *
- * Returns NULL if the query degenerates to nothing.  Input must not be NULL.
+ * 若查询退化为空则返回 NULL。输入不得为 NULL。
  *
- * When we remove a phrase operator due to removing one or both of its
- * arguments, we might need to adjust the distance of a parent phrase
- * operator.  For example, 'a' is a stopword, so:
- *		(b <-> a) <-> c  should become	b <2> c
- *		b <-> (a <-> c)  should become	b <2> c
- *		(b <-> (a <-> a)) <-> c  should become	b <3> c
- *		b <-> ((a <-> a) <-> c)  should become	b <3> c
- * To handle that, we define two output parameters:
- *		ladd: amount to add to a phrase distance to the left of this node
- *		radd: amount to add to a phrase distance to the right of this node
- * We need two outputs because we could need to bubble up adjustments to two
- * different parent phrase operators.  Consider
+ * 当我们因移除短语算子的一个或两个参数而
+ * 移除某个短语算子时，可能需要调整其父短语
+ * 算子距离。如 'a' 是停用词，则：
+ *		(b <-> a) <-> c  应变为  b <2> c
+ *		b <-> (a <-> c)  应变为  b <2> c
+ *		(b <-> (a <-> a)) <-> c  应变为  b <3> c
+ *		b <-> ((a <-> a) <-> c)  应变为  b <3> c
+ * 为此我们定义两个输出参数：
+ *		ladd：要加到本节点左侧短语距离上的量
+ *		radd：本节点右侧短语距离所需加上的量
+ * 需要两个输出，因为可能要把调整冒泡传递给
+ * 两个不同的父短语算子。考虑
  *		w <-> (((a <-> x) <2> (y <3> a)) <-> z)
- * After we've removed the two a's and are considering the <2> node (which is
- * now just x <2> y), we have an ladd distance of 1 that needs to propagate
- * up to the topmost (leftmost) <->, and an radd distance of 3 that needs to
- * propagate to the rightmost <->, so that we'll end up with
+ * 移除两个 a 之后，当我们考虑 <2> 节点（此时
+ * 只剩 x <2> y），有一个 ladd 距离 1 需要向上传
+ * 递到最顶上（最左）的 <->，还有一个 radd 距离 3
+ * 要向右传给最右边的 <->，最终将得到
  *		w <2> ((x <2> y) <4> z)
- * Near the bottom of the tree, we may have subtrees consisting only of
- * stopwords.  The distances of any phrase operators within such a subtree are
- * summed and propagated to both ladd and radd, since we don't know which side
- * of the lowest surviving phrase operator we are in.  The rule is that any
- * subtree that degenerates to NULL must return equal values of ladd and radd,
- * and the parent node dealing with it should incorporate only one of those.
+ * 在树的底部附近，我们可能遇到只由停用词构
+ * 成的子树。这种子树内任何短语算子的距离都
+ * 会被求和并同时传播给 ladd 与 radd，因为我们
+ * 不知道自己处于最低存活短语算子的哪一侧。
+ * 规则是：任何退化为 NULL 的子树必须返回相等
+ * 的 ladd 与 radd 值，父节点只应采纳其中一个。
  *
- * Currently, we only implement this adjustment for adjacent phrase operators.
- * Thus for example 'x <-> ((a <-> y) | z)' will become 'x <-> (y | z)', which
- * isn't ideal, but there is no way to represent the really desired semantics
- * without some redesign of the tsquery structure.  Certainly it would not be
- * any better to convert that to 'x <2> (y | z)'.  Since this is such a weird
- * corner case, let it go for now.  But we can fix it in cases where the
- * intervening non-phrase operator also gets removed, for example
- * '((x <-> a) | a) <-> y' will become 'x <2> y'.
+ * 目前，我们只对相邻的短语算子实现这种调整。
+ * 例如 'x <-> ((a <-> y) | z)' 将变成 'x <-> (y | z)'，
+ * 这并不理想，但若不对 tsquery 结构做某些重新
+ * 设计，就没有办法表达真正想要的语义。把它变
+ * 成 'x <2> (y | z)' 显然也不会更好。由于这是
+ * 一个非常怪异的边角情况，暂且放过它。但在
+ * 其中间非短语算子也被移除时便可修复，例如
+ * '((x <-> a) | a) <-> y' 变为 'x <2> y'。
  */
 static NODE *
 clean_stopword_intree(NODE *node, int *ladd, int *radd)
 {
-	/* since this function recurses, it could be driven to stack overflow. */
+	/* 本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
-	/* default output parameters indicate no change in parent distance */
+	/* 默认输出参数表示父距离没有变化 */
 	*ladd = *radd = 0;
 
 	if (node->valnode->type == QI_VAL)
@@ -255,7 +255,7 @@ clean_stopword_intree(NODE *node, int *ladd, int *radd)
 
 	if (node->valnode->qoperator.oper == OP_NOT)
 	{
-		/* NOT doesn't change pattern width, so just report child distances */
+		/* NOT 不改变模式宽度，故只需报告子节点距离 */
 		node->right = clean_stopword_intree(node->right, ladd, radd);
 		if (!node->right)
 		{
@@ -273,25 +273,25 @@ clean_stopword_intree(NODE *node, int *ladd, int *radd)
 					rladd,
 					rradd;
 
-		/* First, recurse */
+		/* 首先递归 */
 		node->left = clean_stopword_intree(node->left, &lladd, &lradd);
 		node->right = clean_stopword_intree(node->right, &rladd, &rradd);
 
-		/* Check if current node is OP_PHRASE, get its distance */
+		/* 若当前节点是 OP_PHRASE，取其距离 */
 		isphrase = (node->valnode->qoperator.oper == OP_PHRASE);
 		ndistance = isphrase ? node->valnode->qoperator.distance : 0;
 
 		if (node->left == NULL && node->right == NULL)
 		{
 			/*
-			 * When we collapse out a phrase node entirely, propagate its own
-			 * distance into both *ladd and *radd; it is the responsibility of
-			 * the parent node to count it only once.  Also, for a phrase
-			 * node, distances coming from children are summed and propagated
-			 * up to parent (we assume lladd == lradd and rladd == rradd, else
-			 * rule was broken at a lower level).  But if this isn't a phrase
-			 * node, take the larger of the two child distances; that
-			 * corresponds to what TS_execute will do in non-stopword cases.
+			 * 当把一个短语节点完全折叠掉时，要把其
+			 * 自身的距离同时传播到 *ladd 与 *radd；只计
+			 * 一次由父节点负责。另外，短语节点的
+			 * 来自子节点的距离会求和并向上传给父节
+			 * 点（我们假定 lladd == lradd 且 rladd == rradd，
+			 * 否则规则在更低层被破坏）。但若这不是
+			 * 短语节点，就取两子距离较大者；这与
+			 * 合 TS_execute 在非停用词情形下的做法。
 			 */
 			if (isphrase)
 				*ladd = *radd = lladd + ndistance + rladd;
@@ -302,17 +302,17 @@ clean_stopword_intree(NODE *node, int *ladd, int *radd)
 		}
 		else if (node->left == NULL)
 		{
-			/* Removing this operator and left subnode */
-			/* lladd and lradd are equal/redundant, don't count both */
+			/* 移除该算子与左子节点 */
+			/* lladd 与 lradd 相等/冗余，不要两个都计 */
 			if (isphrase)
 			{
-				/* operator's own distance must propagate to left */
+				/* 算子自身的距离必须向左传播 */
 				*ladd = lladd + ndistance + rladd;
 				*radd = rradd;
 			}
 			else
 			{
-				/* at non-phrase op, just forget the left subnode entirely */
+				/* 在非短语算子处，完全舍弃左子节点 */
 				*ladd = rladd;
 				*radd = rradd;
 			}
@@ -321,17 +321,17 @@ clean_stopword_intree(NODE *node, int *ladd, int *radd)
 		}
 		else if (node->right == NULL)
 		{
-			/* Removing this operator and right subnode */
-			/* rladd and rradd are equal/redundant, don't count both */
+			/* 移除该算子与右子节点 */
+			/* rladd 与 rradd 相等/冗余，不要两个都计 */
 			if (isphrase)
 			{
-				/* operator's own distance must propagate to right */
+				/* 算子自身的距离必须向右传播 */
 				*ladd = lladd;
 				*radd = lradd + ndistance + rradd;
 			}
 			else
 			{
-				/* at non-phrase op, just forget the right subnode entirely */
+				/* 在非短语算子处，完全舍弃右子节点 */
 				*ladd = lladd;
 				*radd = lradd;
 			}
@@ -340,15 +340,15 @@ clean_stopword_intree(NODE *node, int *ladd, int *radd)
 		}
 		else if (isphrase)
 		{
-			/* Absorb appropriate corrections at this level */
+			/* 在本层吸收相应的修正 */
 			node->valnode->qoperator.distance += lradd + rladd;
-			/* Propagate up any unaccounted-for corrections */
+			/* 把任何未被计入的修正向上传播 */
 			*ladd = lladd;
 			*radd = rradd;
 		}
 		else
 		{
-			/* We're keeping a non-phrase operator, so ladd/radd remain 0 */
+			/* 保留的是非短语算子，故 ladd/radd 保持 0 */
 		}
 
 		return res;
@@ -357,7 +357,7 @@ clean_stopword_intree(NODE *node, int *ladd, int *radd)
 }
 
 /*
- * Number of elements in query tree
+ * 查询树中的元素个数
  */
 static int32
 calcstrlen(NODE *node)
@@ -381,7 +381,7 @@ calcstrlen(NODE *node)
 }
 
 /*
- * Remove QI_VALSTOP (stopword) nodes from TSQuery.
+ * 从 TSQuery 移除 QI_VALSTOP 停用词节点。
  */
 TSQuery
 cleanup_tsquery_stopwords(TSQuery in, bool noisy)
@@ -400,7 +400,7 @@ cleanup_tsquery_stopwords(TSQuery in, bool noisy)
 	if (in->size == 0)
 		return in;
 
-	/* eliminate stop words */
+	/* 消除停用词 */
 	root = clean_stopword_intree(maketree(GETQUERY(in)), &ladd, &radd);
 	if (root == NULL)
 	{
@@ -414,7 +414,7 @@ cleanup_tsquery_stopwords(TSQuery in, bool noisy)
 	}
 
 	/*
-	 * Build TSQuery from plain view
+	 * 从平面视图构建 TSQuery
 	 */
 
 	lenstr = calcstrlen(root);

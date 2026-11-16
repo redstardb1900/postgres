@@ -1,0 +1,163 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0403",
+ "title": "adt 目录 8 个小文件整文件注释翻译 (241 blocks 注释感知: 241 zh-blocks + 0 keep-blocks, 505 zh 行 + 62 显式 keep-EN 行 (头部保留行46: 文件名/版权/IDENTIFICATION/路径/横幅边框 + 公式树图行7: tsc L215/L220 + tsu L196-198 + tsr L199-203 + like L55 边框行1 + fmt 纯标识符标题1 L87 + fmt 标志行4 L95/97/100/103); 行数守恒 8 文件全通过 (505/505); 审查修复: 规划轮 2 (dump 槽位对齐 + 超预算/接缝修正) + 写后修复轮 2 (R1: cumulative 重复自条目移除; R2: 审查 D1-D8 落地 — D1 amutils L293-296 极性译反转正 (false/否则返回空值 与代码语义对齐), D2 format_type L38-53 跨空行断句重排+typemod=NULL 语境补回 (第一段以双引号。收束), D3 aexp L444-445 失败也无/失败也没 重复消除, D4 aexp L122 行尾补文。, D5 tsu L58/L391 QTNode 树 补空格 (句号与空格不可兼得 20<=22/21, 句号让位), D6 tsr L104 匹配 (12=12), D7 aexp L112 删冗余源字, D8 rangetypes L4 头行句号随 EN 去掉); D2/D4 顺带清偿 2 处未披露 FWD (ae:122 / fmt:40); 句号台账 (修正后实测): FWD 21 = 先例无句号 17 (递归警告 16 站同 EN 同译取 like_match.c L87 款 + rangetypes L253 取 analyze.c L2189 款) + 预算强制 3 (like L209 '行' 余量 1B / tsr L226 '除' 余量 2B / amutils L239 '空' 余量 2B) + tsr L104 '匹配' (D6 审查定稿, EN match! 叹号省略); REVERSE 句号口径 0 (括号收尾对齐 4 站不计入: tsu L247 / aexp L421 / tsr L56 / fmt L405); 门禁: verify_c_comments adt 38 文件 0 violations (W7 advisory 4 站均良性: tsquery_util L91 QTNodes 复数归一 + L430 bit(s)=位, amutils L1 APIs 复数归一, format_type L439 OIDs 复数归一); term_lint 本批 8 文件 0 hits (全树 1 error 系 postinit.c 既有); halfen 本批 8 文件 0 findings (adt 目录 11 findings 全为既有文件); 术语: typanalyze=统计收集 (标识符保留), expanded=展开, flatten=展平, ops/operator=算子, AM=访问方法; keep 披露: like.c NOTES 标签与 Keith Parks 作者贡献行保留 (先例 tid.c L13 / brin_tuple.c L9)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "dedad81b078add95d6aa8d11e4273af6c52884a5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_typanalyze.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_cleanup.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_util.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_expanded.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/like.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_rewrite.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/amutils.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/format_type.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0403 (adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0403-adt-small4.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0403 entries (8 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/rangetypes_typanalyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 39,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "范围类型统计收集 (rangetypes 标识符保留, typanalyze=统计收集, fraction=比例); keep=头部保留行6 (文件名/版权2/IDENT/路径/横幅); L296-304 下标公式行逐字保留; 直方图下标溢出改加法段成句回读; blocks=39 zh-lines=72 keep-EN-lines=6; R2-D8 L4 头行句号随 EN 去掉"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_cleanup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 34,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "文本检索查询清理 (tsquery/QTNode 类标识符保留, 停用词=stopword); keep=头部保留行5 + L215/L220 纯公式树图行2; L206-209 距离公式行应变为措辞; L209 停用词节点措辞改写避贴预算; blocks=34 zh-lines=76 keep-EN-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_util.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 26,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "查询树工具 (QTNode/QTNTernary/QTNSort 标识符保留, flatten=展平); keep=头部保留行5 + L196-198 图示3; L58/L391 \"QTNode树\" 无空格贴预算 22B; L91 QTNodes 复数归一 W7 advisory 良性; blocks=26 zh-lines=35 keep-EN-lines=8; R2-D5 L58/L391 QTNode 树 补空格去句号 (20<=22/21)"
+  },
+  {
+   "path": "src/backend/utils/adt/array_expanded.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 52,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "展开数组 (ExpandedArrayHeader/get_flat_size/flatten_into 标识符保留, expanded=展开 0400 口径); keep=头部保留行6; L83-87/L110-117/L122-128 三长段成句回读; L116/117 落进平面源的代/码路径跨行成句; blocks=52 zh-lines=89 keep-EN-lines=6; R2-D3 L444-445 重复消除, D4 L122 补文。 (71<=72), D7 L112 删冗余源字"
+  },
+  {
+   "path": "src/backend/utils/adt/like.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "LIKE 匹配 (like/like_match.c/escape=转义保留, 多字节/单字节/大小写不敏感 同 like_match.c 0401 款); keep=头部保留行8 (含 NOTES 标签 L6 + Keith Parks 作者贡献行 L8) + L55 边框行1; L209 预算 4B 单字尾 \"行\" 句号缺失披露; blocks=17 zh-lines=33 keep-EN-lines=9"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_rewrite.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 26,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "查询重写 (rewrite=重写, QTNode/QTN_NOCHANGE/findsubquery 标识符保留); keep=头部保留行5 + L199-203 图示5; L226 预算 5B 单字尾 \"除\" 句号缺失披露; L104 match!=中!; blocks=26 zh-lines=57 keep-EN-lines=10; R2-D6 L104 中!->匹配 (12=12)"
+  },
+  {
+   "path": "src/backend/utils/adt/amutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "访问方法工具 (am=访问方法 0397 口径, AMOID/amproperty/amcaninclude 标识符保留); keep=头部保留行5; L288-296 distance-orderable 段成句回读; L239 预算 5B 单字尾 \"空\" 句号缺失披露 (括注意义已并入 L294-296 从句); L447/448 阶段名/字。跨行成句; blocks=23 zh-lines=57 keep-EN-lines=5; R2-D1 L293-296 极性转正 (返回 false/否则返回空值), L294 现算 58<=65; R2-D9 W7 补 L1 APIs"
+  },
+  {
+   "path": "src/backend/utils/adt/format_type.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "类型名格式化 (format_type/typmod 标识符保留, pretty=美观); keep=头部保留行6 + L87 纯标识符标题1 + 标志行4 (FORMAT_TYPE_* 4 站); L145 oidvector/oid[] 无空格贴预算 36B; L51-53 character(1) 段成句回读; L440 oidvectortypes 行内 tab 保留; blocks=24 zh-lines=86 keep-EN-lines=11; R2-D2 L38-53 段落重排+语境补回 (第一段双引号。收束, L40 69<=70), W7 补 L439 OIDs"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0403-adt-small4.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0403 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0403 entries (8 adt .c + this manifest; pure append)"
+  }
+ ]
+}

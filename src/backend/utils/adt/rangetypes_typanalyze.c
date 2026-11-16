@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * rangetypes_typanalyze.c
- *	  Functions for gathering statistics from range columns
+ *	  从范围列收集统计信息的函数
  *
- * For a range type column, histograms of lower and upper bounds, and
- * the fraction of NULL and empty ranges are collected.
+ * 对范围类型列，将收集下界与上界的直方图，以及
+ * NULL 与空范围所占的比例。
  *
- * Both histograms have the same length, and they are combined into a
- * single array of ranges. This has the same shape as the histogram that
- * std_typanalyze would collect, but the values are different. Each range
- * in the array is a valid range, even though the lower and upper bounds
- * come from different tuples. In theory, the standard scalar selectivity
- * functions could be used with the combined histogram.
+ * 两个直方图长度相同，且会合并为一个范围数组。
+ * 其形状与 std_typanalyze 所收集的直方图相同，
+ * 但值有所不同。数组中每个范围都是有效的范围，
+ * 即使下界与上界来自不同的元组。
+ * 理论上，标准标量选择率函数
+ * 也可以用于合并后的直方图。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -40,7 +40,7 @@ static void compute_range_stats(VacAttrStats *stats,
 								double totalrows);
 
 /*
- * range_typanalyze -- typanalyze function for range columns
+ * range_typanalyze -- 范围列的统计收集函数
  */
 Datum
 range_typanalyze(PG_FUNCTION_ARGS)
@@ -49,7 +49,7 @@ range_typanalyze(PG_FUNCTION_ARGS)
 	TypeCacheEntry *typcache;
 	Form_pg_attribute attr = stats->attr;
 
-	/* Get information about range type; note column might be a domain */
+	/* 获取范围类型的信息；注意列可能是一个域 */
 	typcache = range_get_typcache(fcinfo, getBaseType(stats->attrtypid));
 
 	if (attr->attstattarget < 0)
@@ -57,17 +57,17 @@ range_typanalyze(PG_FUNCTION_ARGS)
 
 	stats->compute_stats = compute_range_stats;
 	stats->extra_data = typcache;
-	/* same as in std_typanalyze */
+	/* 与 std_typanalyze 相同 */
 	stats->minrows = 300 * attr->attstattarget;
 
 	PG_RETURN_BOOL(true);
 }
 
 /*
- * multirange_typanalyze -- typanalyze function for multirange columns
+ * multirange_typanalyze -- 多范围列的统计收集函数
  *
- * We do the same analysis as for ranges, but on the smallest range that
- * completely includes the multirange.
+ * 我们对范围做同样的分析，但对象是完全包含
+ * 该多范围的最小范围。
  */
 Datum
 multirange_typanalyze(PG_FUNCTION_ARGS)
@@ -76,7 +76,7 @@ multirange_typanalyze(PG_FUNCTION_ARGS)
 	TypeCacheEntry *typcache;
 	Form_pg_attribute attr = stats->attr;
 
-	/* Get information about multirange type; note column might be a domain */
+	/* 获取多范围类型的信息；注意列可能是一个域 */
 	typcache = multirange_get_typcache(fcinfo, getBaseType(stats->attrtypid));
 
 	if (attr->attstattarget < 0)
@@ -84,14 +84,14 @@ multirange_typanalyze(PG_FUNCTION_ARGS)
 
 	stats->compute_stats = compute_range_stats;
 	stats->extra_data = typcache;
-	/* same as in std_typanalyze */
+	/* 与 std_typanalyze 相同 */
 	stats->minrows = 300 * attr->attstattarget;
 
 	PG_RETURN_BOOL(true);
 }
 
 /*
- * Comparison function for sorting float8s, used for range lengths.
+ * 用于排序 float8 的比较函数，供范围长度使用。
  */
 static int
 float8_qsort_cmp(const void *a1, const void *a2, void *arg)
@@ -108,7 +108,7 @@ float8_qsort_cmp(const void *a1, const void *a2, void *arg)
 }
 
 /*
- * Comparison function for sorting RangeBounds.
+ * 用于排序 RangeBounds 的比较函数。
  */
 static int
 range_bound_qsort_cmp(const void *a1, const void *a2, void *arg)
@@ -121,7 +121,7 @@ range_bound_qsort_cmp(const void *a1, const void *a2, void *arg)
 }
 
 /*
- * compute_range_stats() -- compute statistics for a range column
+ * compute_range_stats() -- 计算范围列的统计信息
  */
 static void
 compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
@@ -152,12 +152,12 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		Assert(typcache->typtype == TYPTYPE_RANGE);
 	has_subdiff = OidIsValid(typcache->rng_subdiff_finfo.fn_oid);
 
-	/* Allocate memory to hold range bounds and lengths of the sample ranges. */
+	/* 分配内存以保存范围边界以及采样范围的长度。 */
 	lowers = (RangeBound *) palloc(sizeof(RangeBound) * samplerows);
 	uppers = (RangeBound *) palloc(sizeof(RangeBound) * samplerows);
 	lengths = (float8 *) palloc(sizeof(float8) * samplerows);
 
-	/* Loop over the sample ranges. */
+	/* 遍历采样范围。 */
 	for (range_no = 0; range_no < samplerows; range_no++)
 	{
 		Datum		value;
@@ -174,21 +174,21 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		value = fetchfunc(stats, range_no, &isnull);
 		if (isnull)
 		{
-			/* range is null, just count that */
+			/* 空值范围，仅需计数 */
 			null_cnt++;
 			continue;
 		}
 
 		/*
-		 * XXX: should we ignore wide values, like std_typanalyze does, to
-		 * avoid bloating the statistics table?
+		 * XXX：是否应像 std_typanalyze 那样忽略宽值，以
+		 * 避免统计表膨胀？
 		 */
 		total_width += VARSIZE_ANY(DatumGetPointer(value));
 
-		/* Get range and deserialize it for further analysis. */
+		/* 获取范围并反序列化，供后续分析。 */
 		if (mltrng_typcache != NULL)
 		{
-			/* Treat multiranges like a big range without gaps. */
+			/* 将多范围视为没有间隙的大范围。 */
 			multirange = DatumGetMultirangeTypeP(value);
 			if (!MultirangeIsEmpty(multirange))
 			{
@@ -214,20 +214,20 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 
 		if (!empty)
 		{
-			/* Remember bounds and length for further usage in histograms */
+			/* 记住边界与长度，供后面构建直方图使用 */
 			lowers[non_empty_cnt] = lower;
 			uppers[non_empty_cnt] = upper;
 
 			if (lower.infinite || upper.infinite)
 			{
-				/* Length of any kind of an infinite range is infinite */
+				/* 任何一种无穷范围其长度都是无穷 */
 				length = get_float8_infinity();
 			}
 			else if (has_subdiff)
 			{
 				/*
-				 * For an ordinary range, use subdiff function between upper
-				 * and lower bound values.
+				 * 对于普通范围，在上界值与下界值之间使用
+				 * subdiff 函数。
 				 */
 				length = DatumGetFloat8(FunctionCall2Coll(&typcache->rng_subdiff_finfo,
 														  typcache->rng_collation,
@@ -235,7 +235,7 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 			}
 			else
 			{
-				/* Use default value of 1.0 if no subdiff is available. */
+				/* 若无 subdiff 可用，则使用默认值 1.0。 */
 				length = 1.0;
 			}
 			lengths[non_empty_cnt] = length;
@@ -250,7 +250,7 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 
 	slot_idx = 0;
 
-	/* We can only compute real stats if we found some non-null values. */
+	/* 只有找到非空值，我们才能算出真正的统计信息 */
 	if (non_null_cnt > 0)
 	{
 		Datum	   *bound_hist_values;
@@ -264,23 +264,23 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		float4	   *emptyfrac;
 
 		stats->stats_valid = true;
-		/* Do the simple null-frac and width stats */
+		/* 做简单的空值比例与宽度统计 */
 		stats->stanullfrac = (double) null_cnt / (double) samplerows;
 		stats->stawidth = total_width / (double) non_null_cnt;
 
-		/* Estimate that non-null values are unique */
+		/* 估计非空值都是唯一的 */
 		stats->stadistinct = -1.0 * (1.0 - stats->stanullfrac);
 
-		/* Must copy the target values into anl_context */
+		/* 必须把目标值复制进 anl_context */
 		old_cxt = MemoryContextSwitchTo(stats->anl_context);
 
 		/*
-		 * Generate a bounds histogram slot entry if there are at least two
-		 * values.
+		 * 若有至少两个值，就生成边界直方图槽位条目
+		 * 值。
 		 */
 		if (non_empty_cnt >= 2)
 		{
-			/* Sort bound values */
+			/* 排序边界值 */
 			qsort_interruptible(lowers, non_empty_cnt, sizeof(RangeBound),
 								range_bound_qsort_cmp, typcache);
 			qsort_interruptible(uppers, non_empty_cnt, sizeof(RangeBound),
@@ -293,15 +293,15 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 			bound_hist_values = (Datum *) palloc(num_hist * sizeof(Datum));
 
 			/*
-			 * The object of this loop is to construct ranges from first and
-			 * last entries in lowers[] and uppers[] along with evenly-spaced
-			 * values in between. So the i'th value is a range of lowers[(i *
-			 * (nvals - 1)) / (num_hist - 1)] and uppers[(i * (nvals - 1)) /
-			 * (num_hist - 1)]. But computing that subscript directly risks
-			 * integer overflow when the stats target is more than a couple
-			 * thousand.  Instead we add (nvals - 1) / (num_hist - 1) to pos
-			 * at each step, tracking the integral and fractional parts of the
-			 * sum separately.
+			 * 本循环的目的是用 lowers[] 与 uppers[] 的首
+			 * 尾条目构造范围，其间再插入等距的值。因
+			 * 第 i 个值是 lowers[(i * (nvals - 1)) /
+			 *  (num_hist - 1)] 与 uppers[(i * (nvals - 1)) /
+			 * (num_hist - 1)]。但直接计算该下标，统计目
+			 * 标超过几千时有整数溢出风险。因此我们改
+			 * 为在每一步给 pos 加 (nvals - 1) / (num_hist - 1)，
+			 * 并分别跟踪和的整数部分与分数
+			 * 两部分。
 			 */
 			delta = (non_empty_cnt - 1) / (num_hist - 1);
 			deltafrac = (non_empty_cnt - 1) % (num_hist - 1);
@@ -318,7 +318,7 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 				posfrac += deltafrac;
 				if (posfrac >= (num_hist - 1))
 				{
-					/* fractional part exceeds 1, carry to integer part */
+					/* 分数部分超过 1，进位到整数部分 */
 					pos++;
 					posfrac -= (num_hist - 1);
 				}
@@ -328,7 +328,7 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 			stats->stavalues[slot_idx] = bound_hist_values;
 			stats->numvalues[slot_idx] = num_hist;
 
-			/* Store ranges even if we're analyzing a multirange column */
+			/* 即使分析的是多范围列，也存储这些范围 */
 			stats->statypid[slot_idx] = typcache->type_id;
 			stats->statyplen[slot_idx] = typcache->typlen;
 			stats->statypbyval[slot_idx] = typcache->typbyval;
@@ -338,14 +338,14 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		}
 
 		/*
-		 * Generate a length histogram slot entry if there are at least two
-		 * values.
+		 * 若有至少两个值，就生成长度直方图槽位条目
+		 * 值。
 		 */
 		if (non_empty_cnt >= 2)
 		{
 			/*
-			 * Ascending sort of range lengths for further filling of
-			 * histogram
+			 * 将范围长度升序排序，供随后填充
+			 * 直方图
 			 */
 			qsort_interruptible(lengths, non_empty_cnt, sizeof(float8),
 								float8_qsort_cmp, NULL);
@@ -357,13 +357,13 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 			length_hist_values = (Datum *) palloc(num_hist * sizeof(Datum));
 
 			/*
-			 * The object of this loop is to copy the first and last lengths[]
-			 * entries along with evenly-spaced values in between. So the i'th
-			 * value is lengths[(i * (nvals - 1)) / (num_hist - 1)]. But
-			 * computing that subscript directly risks integer overflow when
-			 * the stats target is more than a couple thousand.  Instead we
-			 * add (nvals - 1) / (num_hist - 1) to pos at each step, tracking
-			 * the integral and fractional parts of the sum separately.
+			 * 本循环的目的是复制 lengths[] 的首尾条目以及
+			 * 其间等距的值。因此第 i 个值为
+			 * lengths[(i * (nvals - 1)) / (num_hist - 1)]。
+			 * 但直接计算该下标在统计目标超过几千时
+			 * 有整数溢出风险。因此我们改为每步给
+			 * pos 增加 (nvals - 1) / (num_hist - 1)，并跟踪
+			 * 和的整数部分与分数部分。
 			 */
 			delta = (non_empty_cnt - 1) / (num_hist - 1);
 			deltafrac = (non_empty_cnt - 1) % (num_hist - 1);
@@ -376,7 +376,7 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 				posfrac += deltafrac;
 				if (posfrac >= (num_hist - 1))
 				{
-					/* fractional part exceeds 1, carry to integer part */
+					/* 分数部分超过 1，进位到整数部分 */
 					pos++;
 					posfrac -= (num_hist - 1);
 				}
@@ -385,10 +385,10 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		else
 		{
 			/*
-			 * Even when we don't create the histogram, store an empty array
-			 * to mean "no histogram". We can't just leave stavalues NULL,
-			 * because get_attstatsslot() errors if you ask for stavalues, and
-			 * it's NULL. We'll still store the empty fraction in stanumbers.
+			 * 即使不建直方图，也要存储一个空数组来
+			 * 表示"没有直方图"。不能把 stavalues 留成
+			 * NULL，因为向 get_attstatsslot() 请求的 stavalues
+			 * 为 NULL 时会报错。空比例仍存入 stanumbers。
 			 */
 			length_hist_values = palloc(0);
 			num_hist = 0;
@@ -402,7 +402,7 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 		stats->statypbyval[slot_idx] = FLOAT8PASSBYVAL;
 		stats->statypalign[slot_idx] = 'd';
 
-		/* Store the fraction of empty ranges */
+		/* 存储空范围的比例 */
 		emptyfrac = (float4 *) palloc(sizeof(float4));
 		*emptyfrac = ((double) empty_cnt) / ((double) non_null_cnt);
 		stats->stanumbers[slot_idx] = emptyfrac;
@@ -415,15 +415,15 @@ compute_range_stats(VacAttrStats *stats, AnalyzeAttrFetchFunc fetchfunc,
 	}
 	else if (null_cnt > 0)
 	{
-		/* We found only nulls; assume the column is entirely null */
+		/* 只发现了空值；假定该列完全为空值 */
 		stats->stats_valid = true;
 		stats->stanullfrac = 1.0;
-		stats->stawidth = 0;	/* "unknown" */
-		stats->stadistinct = 0.0;	/* "unknown" */
+		stats->stawidth = 0;	/* 未知 */
+		stats->stadistinct = 0.0;	/* 未知 */
 	}
 
 	/*
-	 * We don't need to bother cleaning up any of our temporary palloc's. The
-	 * hashtable should also go away, as it used a child memory context.
+	 * 我们不必费心清理任何临时 palloc 的内存。哈希表
+	 * 也应随之消失，因为它使用的是子内存上下文。
 	 */
 }

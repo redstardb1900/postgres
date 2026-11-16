@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * amutils.c
- *	  SQL-level APIs related to index access methods.
+ *	  与索引访问方法相关的 SQL 级 API。
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -21,7 +21,7 @@
 #include "utils/syscache.h"
 
 
-/* Convert string property name to enum, for efficiency */
+/* 为效率起见，把字符串属性名转成枚举 */
 struct am_propname
 {
 	const char *name;
@@ -97,21 +97,21 @@ lookup_prop_name(const char *name)
 			return am_propnames[i].prop;
 	}
 
-	/* We do not throw an error, so that AMs can define their own properties */
+	/* 我们不抛出错误，以便各种 AM 能定义自己的属性 */
 	return AMPROP_UNKNOWN;
 }
 
 /*
- * Common code for properties that are just bit tests of indoptions.
+ * 那些仅对 indoptions 做位测试的属性的公共代码。
  *
- * tuple: the pg_index heaptuple
- * attno: identify the index column to test the indoptions of.
- * guard: if false, a boolean false result is forced (saves code in caller).
- * iopt_mask: mask for interesting indoption bit.
- * iopt_expect: value for a "true" result (should be 0 or iopt_mask).
+ * tuple：pg_index 堆元组
+ * attno：标识要测试其 indoptions 的索引列。
+ * guard：若 false，则强制返回布尔假（省调用者代码）。
+ * iopt_mask：关心之 indoption 位掩码。
+ * iopt_expect：真结果的值（应为 0 或 iopt_mask）。
  *
- * Returns false to indicate a NULL result (for "unknown/inapplicable"),
- * otherwise sets *res to the boolean value to return.
+ * 返回 false 表示 NULL 结果（即"未知/不适用"），
+ * 否则将 *res 设为要返回的布尔值。
  */
 static bool
 test_indoption(HeapTuple tuple, int attno, bool guard,
@@ -140,12 +140,12 @@ test_indoption(HeapTuple tuple, int attno, bool guard,
 
 
 /*
- * Test property of an index AM, index, or index column.
+ * 测试索引 AM、索引或索引列的属性。
  *
- * This is common code for different SQL-level funcs, so the amoid and
- * index_oid parameters are mutually exclusive; we look up the amoid from the
- * index_oid if needed, or if no index oid is given, we're looking at AM-wide
- * properties.
+ * 这是不同 SQL 级函数的公共代码，因此 amoid 与
+ * index_oid 参数互斥；需要时我们会从 index_oid 查出
+ * amoid；若未给出索引 OID，我们查看的就是 AM 级属
+ * 性。
  */
 static Datum
 indexam_property(FunctionCallInfo fcinfo,
@@ -158,10 +158,10 @@ indexam_property(FunctionCallInfo fcinfo,
 	IndexAMProperty prop;
 	IndexAmRoutine *routine;
 
-	/* Try to convert property name to enum (no error if not known) */
+	/* 尝试把属性名转换为枚举（未知时不报错） */
 	prop = lookup_prop_name(propname);
 
-	/* If we have an index OID, look up the AM, and get # of columns too */
+	/* 若有索引 OID，则查出 AM，并顺便取得列数 */
 	if (OidIsValid(index_oid))
 	{
 		HeapTuple	tuple;
@@ -184,24 +184,24 @@ indexam_property(FunctionCallInfo fcinfo,
 	}
 
 	/*
-	 * At this point, either index_oid == InvalidOid or it's a valid index
-	 * OID. Also, after this test and the one below, either attno == 0 for
-	 * index-wide or AM-wide tests, or it's a valid column number in a valid
-	 * index.
+	 * 到这里，index_oid 要么是 InvalidOid，要么是有效索
+	 * 引 OID。经过这个测试和下面的测试之后，要么
+	 * attno == 0（索引级或 AM 级测试），要么是有效索
+	 * 引。
 	 */
 	if (attno < 0 || attno > natts)
 		PG_RETURN_NULL();
 
 	/*
-	 * Get AM information.  If we don't have a valid AM OID, return NULL.
+	 * 取得 AM 信息。若无有效 AM OID，则返回 NULL。
 	 */
 	routine = GetIndexAmRoutineByAmId(amoid, true);
 	if (routine == NULL)
 		PG_RETURN_NULL();
 
 	/*
-	 * If there's an AM property routine, give it a chance to override the
-	 * generic logic.  Proceed if it returns false.
+	 * 若有 AM 属性例程，给它机会覆盖通用逻辑。若返
+	 * 回 false 则继续。
 	 */
 	if (routine->amproperty &&
 		routine->amproperty(index_oid, attno, prop, propname,
@@ -219,9 +219,9 @@ indexam_property(FunctionCallInfo fcinfo,
 		bool		iskey = true;
 
 		/*
-		 * Handle column-level properties. Many of these need the pg_index row
-		 * (which we also need to use to check for nonkey atts) so we fetch
-		 * that first.
+		 * 处理列级属性。其中许多需要 pg_index 行
+		 * （也要用它检查非键属性）所以我们先取
+		 * 来。
 		 */
 		tuple = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(index_oid));
 		if (!HeapTupleIsValid(tuple))
@@ -234,9 +234,9 @@ indexam_property(FunctionCallInfo fcinfo,
 		isnull = true;
 
 		/*
-		 * If amcaninclude, we might be looking at an attno for a nonkey
-		 * column, for which we (generically) assume that most properties are
-		 * null.
+		 * 若 amcaninclude，看的可能是非键列的
+		 * attno，我们（一般地）假定其大多数属性为
+		 * 空
 		 */
 		if (routine->amcaninclude
 			&& attno > rd_index->indnkeyatts)
@@ -275,7 +275,7 @@ indexam_property(FunctionCallInfo fcinfo,
 			case AMPROP_ORDERABLE:
 
 				/*
-				 * generic assumption is that nonkey columns are not orderable
+				 * 通用假定是非键列不可排序
 				 */
 				res = iskey ? routine->amcanorder : false;
 				isnull = false;
@@ -284,16 +284,16 @@ indexam_property(FunctionCallInfo fcinfo,
 			case AMPROP_DISTANCE_ORDERABLE:
 
 				/*
-				 * The conditions for whether a column is distance-orderable
-				 * are really up to the AM (at time of writing, only GiST
-				 * supports it at all). The planner has its own idea based on
-				 * whether it finds an operator with amoppurpose 'o', but
-				 * getting there from just the index column type seems like a
-				 * lot of work. So instead we expect the AM to handle this in
-				 * its amproperty routine. The generic result is to return
-				 * false if the AM says it never supports this, or if this is
-				 * a nonkey column, and null otherwise (meaning we don't
-				 * know).
+				 * 一列是否可按距离排序，条件完全取决于
+				 * AM（撰写时只有 GiST 支持）。规划器有自
+				 * 己的想法：能否找到 amoppurpose 为 'o' 的
+				 * 算子，但仅凭索引列类型就到那步似乎
+				 * 太费事。所以我们期望 AM 在其 amproperty
+				 * 例程中来处理。通用结果是：若 AM 说它从
+				 * 不支持此属性，或者这是非键列，则返
+				 * 回 false；否则返回空值，也就是说我们
+				 * 并不知
+				 * 情。
 				 */
 				if (!iskey || !routine->amcanorderbyop)
 				{
@@ -304,7 +304,7 @@ indexam_property(FunctionCallInfo fcinfo,
 
 			case AMPROP_RETURNABLE:
 
-				/* note that we ignore iskey for this property */
+				/* 注意对这个属性我们忽略 iskey */
 
 				isnull = false;
 				res = false;
@@ -312,9 +312,9 @@ indexam_property(FunctionCallInfo fcinfo,
 				if (routine->amcanreturn)
 				{
 					/*
-					 * If possible, the AM should handle this test in its
-					 * amproperty function without opening the rel. But this
-					 * is the generic fallback if it does not.
+					 * 如有可能，AM 应该在其 amproperty
+					 * 函数中做此测试而不打开 rel。
+					 * 若它不做，这就是通用回退。
 					 */
 					Relation	indexrel = index_open(index_oid, AccessShareLock);
 
@@ -353,9 +353,9 @@ indexam_property(FunctionCallInfo fcinfo,
 	if (OidIsValid(index_oid))
 	{
 		/*
-		 * Handle index-level properties.  Currently, these only depend on the
-		 * AM, but that might not be true forever, so we make users name an
-		 * index not just an AM.
+		 * 处理索引级属性。目前这些只取决于 AM，但可能
+		 * 不会永远如此，所以我们让用户指定索引而不
+		 * 只是 AM。
 		 */
 		switch (prop)
 		{
@@ -377,8 +377,8 @@ indexam_property(FunctionCallInfo fcinfo,
 	}
 
 	/*
-	 * Handle AM-level properties (those that control what you can say in
-	 * CREATE INDEX).
+	 * 处理 AM 级属性（即那些控制你在 CREATE INDEX 中
+	 * 所说）。
 	 */
 	switch (prop)
 	{
@@ -403,7 +403,7 @@ indexam_property(FunctionCallInfo fcinfo,
 }
 
 /*
- * Test property of an AM specified by AM OID
+ * 测试 AM OID 指定的 AM 的属性
  */
 Datum
 pg_indexam_has_property(PG_FUNCTION_ARGS)
@@ -415,7 +415,7 @@ pg_indexam_has_property(PG_FUNCTION_ARGS)
 }
 
 /*
- * Test property of an index specified by index OID
+ * 测试索引 OID 指定的索引的属性
  */
 Datum
 pg_index_has_property(PG_FUNCTION_ARGS)
@@ -427,7 +427,7 @@ pg_index_has_property(PG_FUNCTION_ARGS)
 }
 
 /*
- * Test property of an index column specified by index OID and column number
+ * 测试索引 OID 与列号指定的索引列的属性
  */
 Datum
 pg_index_column_has_property(PG_FUNCTION_ARGS)
@@ -436,7 +436,7 @@ pg_index_column_has_property(PG_FUNCTION_ARGS)
 	int32		attno = PG_GETARG_INT32(1);
 	char	   *propname = text_to_cstring(PG_GETARG_TEXT_PP(2));
 
-	/* Reject attno 0 immediately, so that attno > 0 identifies this case */
+	/* 立即拒绝 attno 0，这样 attno > 0 就能标识此情形 */
 	if (attno <= 0)
 		PG_RETURN_NULL();
 
@@ -444,8 +444,8 @@ pg_index_column_has_property(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return the name of the given phase, as used for progress reporting by the
- * given AM.
+ * 按给定 AM 进度报告时的用法，返回给定阶段名
+ * 字。
  */
 Datum
 pg_indexam_progress_phasename(PG_FUNCTION_ARGS)

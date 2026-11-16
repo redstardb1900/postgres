@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * array_expanded.c
- *	  Basic functions for manipulating expanded arrays.
+ *	  操作展开数组的基本函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,7 +20,7 @@
 #include "utils/memutils.h"
 
 
-/* "Methods" required for an expanded object */
+/* 展开对象所需的 "Methods" */
 static Size EA_get_flat_size(ExpandedObjectHeader *eohptr);
 static void EA_flatten_into(ExpandedObjectHeader *eohptr,
 							void *result, Size allocated_size);
@@ -31,20 +31,20 @@ static const ExpandedObjectMethods EA_methods =
 	EA_flatten_into
 };
 
-/* Other local functions */
+/* 其他本地函数 */
 static void copy_byval_expanded_array(ExpandedArrayHeader *eah,
 									  ExpandedArrayHeader *oldeah);
 
 
 /*
- * expand_array: convert an array Datum into an expanded array
+ * expand_array：把数组 Datum 转换成展开数组
  *
- * The expanded object will be a child of parentcontext.
+ * 展开对象将成为 parentcontext 的子对象。
  *
- * Some callers can provide cache space to avoid repeated lookups of element
- * type data across calls; if so, pass a metacache pointer, making sure that
- * metacache->element_type is initialized to InvalidOid before first call.
- * If no cross-call caching is required, pass NULL for metacache.
+ * 一些调用者可以提供缓存空间，以避免跨调用反
+ * 复查找元素类型数据；若是，传入 metacache 指针，
+ * 确保 metacache->element_type 在首次调用前初始化
+ * 为 InvalidOid。无需跨调用缓存时传 NULL。
  */
 Datum
 expand_array(Datum arraydatum, MemoryContext parentcontext,
@@ -57,22 +57,22 @@ expand_array(Datum arraydatum, MemoryContext parentcontext,
 	ArrayMetaState fakecache;
 
 	/*
-	 * Allocate private context for expanded object.  We start by assuming
-	 * that the array won't be very large; but if it does grow a lot, don't
-	 * constrain aset.c's large-context behavior.
+	 * 为展开对象分配私有上下文。我们起初假定数
+	 * 组不会很大；但如果它真的增长很多，也不要限
+	 * 制 aset.c 的大上下文行为。
 	 */
 	objcxt = AllocSetContextCreate(parentcontext,
 								   "expanded array",
 								   ALLOCSET_START_SMALL_SIZES);
 
-	/* Set up expanded array header */
+	/* 设置展开数组头部 */
 	eah = (ExpandedArrayHeader *)
 		MemoryContextAlloc(objcxt, sizeof(ExpandedArrayHeader));
 
 	EOH_init_header(&eah->hdr, &EA_methods, objcxt);
 	eah->ea_magic = EA_MAGIC;
 
-	/* If the source is an expanded array, we may be able to optimize */
+	/* 若源是展开数组，我们或许可以优化 */
 	if (VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(arraydatum)))
 	{
 		ExpandedArrayHeader *oldeah = (ExpandedArrayHeader *) DatumGetEOHP(arraydatum);
@@ -80,11 +80,11 @@ expand_array(Datum arraydatum, MemoryContext parentcontext,
 		Assert(oldeah->ea_magic == EA_MAGIC);
 
 		/*
-		 * Update caller's cache if provided; we don't need it this time, but
-		 * next call might be for a non-expanded source array.  Furthermore,
-		 * if the caller didn't provide a cache area, use some local storage
-		 * to cache anyway, thereby avoiding a catalog lookup in the case
-		 * where we fall through to the flat-copy code path.
+		 * 若调用者给了缓存则更新；这次虽用不到，
+		 * 但下一次调用可能是非展开源数组。此外，
+		 * 若未提供缓存区，也用本地存储缓存，从而
+		 * 在落入平面拷贝代码路径时避免
+		 * 目录查找。
 		 */
 		if (metacache == NULL)
 			metacache = &fakecache;
@@ -94,65 +94,65 @@ expand_array(Datum arraydatum, MemoryContext parentcontext,
 		metacache->typalign = oldeah->typalign;
 
 		/*
-		 * If element type is pass-by-value and we have a Datum-array
-		 * representation, just copy the source's metadata and Datum/isnull
-		 * arrays.  The original flat array, if present at all, adds no
-		 * additional information so we need not copy it.
+		 * 若元素类型按值传递且有 Datum 数组，
+		 * 就直接拷贝源的元数据与 Datum/isnull 数组。
+		 * 原平面数组即使存在也无额外信息，
+		 * 无需拷贝它。
 		 */
 		if (oldeah->typbyval && oldeah->dvalues != NULL)
 		{
 			copy_byval_expanded_array(eah, oldeah);
-			/* return a R/W pointer to the expanded array */
+			/* 返回指向展开数组的读/写指针 */
 			return EOHPGetRWDatum(&eah->hdr);
 		}
 
 		/*
-		 * Otherwise, either we have only a flat representation or the
-		 * elements are pass-by-reference.  In either case, the best thing
-		 * seems to be to copy the source as a flat representation and then
-		 * deconstruct that later if necessary.  For the pass-by-ref case, we
-		 * could perhaps save some cycles with custom code that generates the
-		 * deconstructed representation in parallel with copying the values,
-		 * but it would be a lot of extra code for fairly marginal gain.  So,
-		 * fall through into the flat-source code path.
+		 * 否则，或只有平面表示，或元素按引用传
+		 * 递。无论哪种情况，最好都是先将源按平面表
+		 * 示拷贝，之后必要时再解构。对按引用的
+		 * 情况，或许可以用自定义代码在拷贝值时同
+		 * 步生成解构表示可省些开销，但要为此写大
+		 * 量额外代码而收益却相当有限。因此，直接
+		 * 落进平面源的代
+		 * 码路径。
 		 */
 	}
 
 	/*
-	 * Detoast and copy source array into private context, as a flat array.
+	 * 把源数组解 TOAST 后作为平面数组拷入私有上下文。
 	 *
-	 * Note that this coding risks leaking some memory in the private context
-	 * if we have to fetch data from a TOAST table; however, experimentation
-	 * says that the leak is minimal.  Doing it this way saves a copy step,
-	 * which seems worthwhile, especially if the array is large enough to need
-	 * external storage.
+	 * 注意这样写法可能在私有上下文中泄漏一些内
+	 * 存；若必须从 TOAST 表取数据的话。不过实验表
+	 * 明这样泄漏极少。这样做省去一次拷贝步骤，看
+	 * 来是值得的，尤其当数组大到需要外部存
+	 * 储时。
 	 */
 	oldcxt = MemoryContextSwitchTo(objcxt);
 	array = DatumGetArrayTypePCopy(arraydatum);
 	MemoryContextSwitchTo(oldcxt);
 
 	eah->ndims = ARR_NDIM(array);
-	/* note these pointers point into the fvalue header! */
+	/* 注意这些指针指向 fvalue 头部！ */
 	eah->dims = ARR_DIMS(array);
 	eah->lbound = ARR_LBOUND(array);
 
-	/* Save array's element-type data for possible use later */
+	/* 保存数组的元素类型数据以备后用 */
 	eah->element_type = ARR_ELEMTYPE(array);
 	if (metacache && metacache->element_type == eah->element_type)
 	{
-		/* We have a valid cache of representational data */
+		/* 我们已有表示数据的有效缓存 */
 		eah->typlen = metacache->typlen;
 		eah->typbyval = metacache->typbyval;
 		eah->typalign = metacache->typalign;
 	}
 	else
 	{
-		/* No, so look it up */
+		/* 否则查找 */
 		get_typlenbyvalalign(eah->element_type,
 							 &eah->typlen,
 							 &eah->typbyval,
 							 &eah->typalign);
-		/* Update cache if provided */
+		/* 如有缓存则更新 */
 		if (metacache)
 		{
 			metacache->element_type = eah->element_type;
@@ -162,24 +162,24 @@ expand_array(Datum arraydatum, MemoryContext parentcontext,
 		}
 	}
 
-	/* we don't make a deconstructed representation now */
+	/* 现在不构建解构后的表示 */
 	eah->dvalues = NULL;
 	eah->dnulls = NULL;
 	eah->dvalueslen = 0;
 	eah->nelems = 0;
 	eah->flat_size = 0;
 
-	/* remember we have a flat representation */
+	/* 记住我们已有平面表示 */
 	eah->fvalue = array;
 	eah->fstartptr = ARR_DATA_PTR(array);
 	eah->fendptr = ((char *) array) + ARR_SIZE(array);
 
-	/* return a R/W pointer to the expanded array */
+	/* 返回指向展开数组的读/写指针 */
 	return EOHPGetRWDatum(&eah->hdr);
 }
 
 /*
- * helper for expand_array(): copy pass-by-value Datum-array representation
+ * expand_array() 辅助例程：拷贝按值 Datum 数组表示
  */
 static void
 copy_byval_expanded_array(ExpandedArrayHeader *eah,
@@ -189,22 +189,22 @@ copy_byval_expanded_array(ExpandedArrayHeader *eah,
 	int			ndims = oldeah->ndims;
 	int			dvalueslen = oldeah->dvalueslen;
 
-	/* Copy array dimensionality information */
+	/* 拷贝数组维度信息 */
 	eah->ndims = ndims;
-	/* We can alloc both dimensionality arrays with one palloc */
+	/* 可以用一次 palloc 分配两个维度数组 */
 	eah->dims = (int *) MemoryContextAlloc(objcxt, ndims * 2 * sizeof(int));
 	eah->lbound = eah->dims + ndims;
-	/* .. but don't assume the source's arrays are contiguous */
+	/* 但不要假定源的数组是连续的 */
 	memcpy(eah->dims, oldeah->dims, ndims * sizeof(int));
 	memcpy(eah->lbound, oldeah->lbound, ndims * sizeof(int));
 
-	/* Copy element-type data */
+	/* 拷元素类型数据 */
 	eah->element_type = oldeah->element_type;
 	eah->typlen = oldeah->typlen;
 	eah->typbyval = oldeah->typbyval;
 	eah->typalign = oldeah->typalign;
 
-	/* Copy the deconstructed representation */
+	/* 拷贝解构后的表示 */
 	eah->dvalues = (Datum *) MemoryContextAlloc(objcxt,
 												dvalueslen * sizeof(Datum));
 	memcpy(eah->dvalues, oldeah->dvalues, dvalueslen * sizeof(Datum));
@@ -220,14 +220,14 @@ copy_byval_expanded_array(ExpandedArrayHeader *eah,
 	eah->nelems = oldeah->nelems;
 	eah->flat_size = oldeah->flat_size;
 
-	/* we don't make a flat representation */
+	/* 我们不构建平面表示 */
 	eah->fvalue = NULL;
 	eah->fstartptr = NULL;
 	eah->fendptr = NULL;
 }
 
 /*
- * get_flat_size method for expanded arrays
+ * 展开数组的 get_flat_size 方法
  */
 static Size
 EA_get_flat_size(ExpandedObjectHeader *eohptr)
@@ -242,18 +242,18 @@ EA_get_flat_size(ExpandedObjectHeader *eohptr)
 
 	Assert(eah->ea_magic == EA_MAGIC);
 
-	/* Easy if we have a valid flattened value */
+	/* 已有有效的扁平值时很简单 */
 	if (eah->fvalue)
 		return ARR_SIZE(eah->fvalue);
 
-	/* If we have a cached size value, believe that */
+	/* 如果缓存了大小值，就相信它 */
 	if (eah->flat_size)
 		return eah->flat_size;
 
 	/*
-	 * Compute space needed by examining dvalues/dnulls.  Note that the result
-	 * array will have a nulls bitmap if dnulls isn't NULL, even if the array
-	 * doesn't actually contain any nulls now.
+	 * 检查 dvalues/dnulls 来计算所需空间。注意结果数
+	 * 组若 dnulls 非 NULL 就会带有空值位图，即使该数
+	 * 组现在并不真含空值。
 	 */
 	nelems = eah->nelems;
 	ndims = eah->ndims;
@@ -267,7 +267,7 @@ EA_get_flat_size(ExpandedObjectHeader *eohptr)
 			continue;
 		nbytes = att_addlength_datum(nbytes, eah->typlen, dvalues[i]);
 		nbytes = att_align_nominal(nbytes, eah->typalign);
-		/* check for overflow of total request */
+		/* 检查总请求是否溢出 */
 		if (!AllocSizeIsValid(nbytes))
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -280,14 +280,14 @@ EA_get_flat_size(ExpandedObjectHeader *eohptr)
 	else
 		nbytes += ARR_OVERHEAD_NONULLS(ndims);
 
-	/* cache for next time */
+	/* 缓存供下次用 */
 	eah->flat_size = nbytes;
 
 	return nbytes;
 }
 
 /*
- * flatten_into method for expanded arrays
+ * 展开数组的 flatten_into 方法
  */
 static void
 EA_flatten_into(ExpandedObjectHeader *eohptr,
@@ -301,7 +301,7 @@ EA_flatten_into(ExpandedObjectHeader *eohptr,
 
 	Assert(eah->ea_magic == EA_MAGIC);
 
-	/* Easy if we have a valid flattened value */
+	/* 已有有效的扁平值时很简单 */
 	if (eah->fvalue)
 	{
 		Assert(allocated_size == ARR_SIZE(eah->fvalue));
@@ -309,19 +309,19 @@ EA_flatten_into(ExpandedObjectHeader *eohptr,
 		return;
 	}
 
-	/* Else allocation should match previous get_flat_size result */
+	/* 否则分配应与之前 get_flat_size 结果一致 */
 	Assert(allocated_size == eah->flat_size);
 
-	/* Fill result array from dvalues/dnulls */
+	/* 由 dvalues/dnulls 填结果数组 */
 	nelems = eah->nelems;
 	ndims = eah->ndims;
 
 	if (eah->dnulls)
 		dataoffset = ARR_OVERHEAD_WITHNULLS(ndims, nelems);
 	else
-		dataoffset = 0;			/* marker for no null bitmap */
+		dataoffset = 0;			/* 无空值位图标记 */
 
-	/* We must ensure that any pad space is zero-filled */
+	/* 必须确保任何填充空间都清零 */
 	memset(aresult, 0, allocated_size);
 
 	SET_VARSIZE(aresult, allocated_size);
@@ -338,20 +338,20 @@ EA_flatten_into(ExpandedObjectHeader *eohptr,
 }
 
 /*
- * Argument fetching support code
+ * 参数获取支持代码
  */
 
 /*
- * DatumGetExpandedArray: get a writable expanded array from an input argument
+ * DatumGetExpandedArray：从输入参数取得可写的展开数组
  *
- * Caution: if the input is a read/write pointer, this returns the input
- * argument; so callers must be sure that their changes are "safe", that is
- * they cannot leave the array in a corrupt state.
+ * 注意：若输入是读/写指针，这里会返回该输入参
+ * 数本身；因此调用者必须确保修改是"安全"的，即
+ * 它们不会把数组留在损坏状态。
  */
 ExpandedArrayHeader *
 DatumGetExpandedArray(Datum d)
 {
-	/* If it's a writable expanded array already, just return it */
+	/* 如果已是可写的展开数组，直接返回它 */
 	if (VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(d)))
 	{
 		ExpandedArrayHeader *eah = (ExpandedArrayHeader *) DatumGetEOHP(d);
@@ -360,24 +360,24 @@ DatumGetExpandedArray(Datum d)
 		return eah;
 	}
 
-	/* Else expand the hard way */
+	/* 否则费劲展开 */
 	d = expand_array(d, CurrentMemoryContext, NULL);
 	return (ExpandedArrayHeader *) DatumGetEOHP(d);
 }
 
 /*
- * As above, when caller has the ability to cache element type info
+ * 同上，用于调用者能缓存元素类型信息的情况
  */
 ExpandedArrayHeader *
 DatumGetExpandedArrayX(Datum d, ArrayMetaState *metacache)
 {
-	/* If it's a writable expanded array already, just return it */
+	/* 如果已是可写的展开数组，直接返回它 */
 	if (VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(d)))
 	{
 		ExpandedArrayHeader *eah = (ExpandedArrayHeader *) DatumGetEOHP(d);
 
 		Assert(eah->ea_magic == EA_MAGIC);
-		/* Update cache if provided */
+		/* 如有缓存则更新 */
 		if (metacache)
 		{
 			metacache->element_type = eah->element_type;
@@ -388,14 +388,14 @@ DatumGetExpandedArrayX(Datum d, ArrayMetaState *metacache)
 		return eah;
 	}
 
-	/* Else expand using caller's cache if any */
+	/* 否则用调用者缓存来展开 */
 	d = expand_array(d, CurrentMemoryContext, metacache);
 	return (ExpandedArrayHeader *) DatumGetEOHP(d);
 }
 
 /*
- * DatumGetAnyArrayP: return either an expanded array or a detoasted varlena
- * array.  The result must not be modified in-place.
+ * DatumGetAnyArrayP：返回展开数组或者解 TOAST 后的
+ * varlena 数组。结果不得被就地修改。
  */
 AnyArrayType *
 DatumGetAnyArrayP(Datum d)
@@ -403,7 +403,7 @@ DatumGetAnyArrayP(Datum d)
 	ExpandedArrayHeader *eah;
 
 	/*
-	 * If it's an expanded array (RW or RO), return the header pointer.
+	 * 若是展开数组（读/写或只读），返回头指针。
 	 */
 	if (VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(d)))
 	{
@@ -412,13 +412,13 @@ DatumGetAnyArrayP(Datum d)
 		return (AnyArrayType *) eah;
 	}
 
-	/* Else do regular detoasting as needed */
+	/* 否则按需做常规的解 TOAST */
 	return (AnyArrayType *) PG_DETOAST_DATUM(d);
 }
 
 /*
- * Create the Datum/isnull representation of an expanded array object
- * if we didn't do so previously
+ * 为展开数组对象创建 Datum/isnull 表示
+ * （若此前未做过）
  */
 void
 deconstruct_expanded_array(ExpandedArrayHeader *eah)
@@ -439,11 +439,11 @@ deconstruct_expanded_array(ExpandedArrayHeader *eah)
 						  &nelems);
 
 		/*
-		 * Update header only after successful completion of this step.  If
-		 * deconstruct_array fails partway through, worst consequence is some
-		 * leaked memory in the object's context.  If the caller fails at a
-		 * later point, that's fine, since the deconstructed representation is
-		 * valid anyhow.
+		 * 只有在这一步成功完成后才更新头部。如果
+		 * deconstruct_array 中途失败，最坏后果只是对象上
+		 * 下文泄漏内存。调用者若在更晚时点失败也没
+		 * 关系，因为解构后的表示无论如何是
+		 * 有效的。
 		 */
 		eah->dvalues = dvalues;
 		eah->dnulls = dnulls;

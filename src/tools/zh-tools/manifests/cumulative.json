@@ -6926,6 +6926,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0402-补-manifest.json",
    "kind": "manifest",
    "note": "batch-0402-补 fixup manifest (六 .c 补提交入库)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_typanalyze.c",
+   "kind": "c_comment",
+   "note": "范围类型统计收集 (rangetypes 标识符保留, typanalyze=统计收集, fraction=比例); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_cleanup.c",
+   "kind": "c_comment",
+   "note": "文本检索查询清理 (tsquery/QTNode 类标识符保留, 停用词=stopword); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_util.c",
+   "kind": "c_comment",
+   "note": "查询树工具 (QTNode/QTNTernary/QTNSort 标识符保留, flatten=展平); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/array_expanded.c",
+   "kind": "c_comment",
+   "note": "展开数组 (ExpandedArrayHeader/get_flat_size/flatten_into 标识符保留, expanded=展开 0400 口径); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/like.c",
+   "kind": "c_comment",
+   "note": "LIKE 匹配 (like/like_match.c/escape=转义保留, 多字节/单字节/大小写不敏感 同 like_match.c 0401 款); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsquery_rewrite.c",
+   "kind": "c_comment",
+   "note": "查询重写 (rewrite=重写, QTNode/QTN_NOCHANGE/findsubquery 标识符保留); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/amutils.c",
+   "kind": "c_comment",
+   "note": "访问方法工具 (am=访问方法 0397 口径, AMOID/amproperty/amcaninclude 标识符保留); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/format_type.c",
+   "kind": "c_comment",
+   "note": "类型名格式化 (format_type/typmod 标识符保留, pretty=美观); whole-file comment translation (batch-0403, adt small files)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0403-adt-small4.json",
+   "kind": "manifest",
+   "note": "batch-0403 manifest"
   }
  ],
  "files": [
@@ -22480,6 +22525,96 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0402-补 fixup manifest (六 .c 补提交入库)"
+  },
+  {
+   "path": "src/backend/utils/adt/rangetypes_typanalyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 39,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "范围类型统计收集 (rangetypes 标识符保留, typanalyze=统计收集, fraction=比例); keep=头部保留行6 (文件名/版权2/IDENT/路径/横幅); L296-304 下标公式行逐字保留; 直方图下标溢出改加法段成句回读; blocks=39 zh-lines=72 keep-EN-lines=6"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_cleanup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 34,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "文本检索查询清理 (tsquery/QTNode 类标识符保留, 停用词=stopword); keep=头部保留行5 + L215/L220 纯公式树图行2; L206-209 距离公式行应变为措辞; L209 停用词节点措辞改写避贴预算; blocks=34 zh-lines=76 keep-EN-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_util.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 26,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "查询树工具 (QTNode/QTNTernary/QTNSort 标识符保留, flatten=展平); keep=头部保留行5 + L196-198 图示3; L58/L391 \"QTNode树\" 无空格贴预算 22B; L91 QTNodes 复数归一 W7 advisory 良性; blocks=26 zh-lines=35 keep-EN-lines=8"
+  },
+  {
+   "path": "src/backend/utils/adt/array_expanded.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 52,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "展开数组 (ExpandedArrayHeader/get_flat_size/flatten_into 标识符保留, expanded=展开 0400 口径); keep=头部保留行6; L83-87/L110-117/L122-128 三长段成句回读; L116/117 落进平面源的代/码路径跨行成句; blocks=52 zh-lines=89 keep-EN-lines=6"
+  },
+  {
+   "path": "src/backend/utils/adt/like.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "LIKE 匹配 (like/like_match.c/escape=转义保留, 多字节/单字节/大小写不敏感 同 like_match.c 0401 款); keep=头部保留行8 (含 NOTES 标签 L6 + Keith Parks 作者贡献行 L8) + L55 边框行1; L209 预算 4B 单字尾 \"行\" 句号缺失披露; blocks=17 zh-lines=33 keep-EN-lines=9"
+  },
+  {
+   "path": "src/backend/utils/adt/tsquery_rewrite.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 26,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "查询重写 (rewrite=重写, QTNode/QTN_NOCHANGE/findsubquery 标识符保留); keep=头部保留行5 + L199-203 图示5; L226 预算 5B 单字尾 \"除\" 句号缺失披露; L104 match!=中!; blocks=26 zh-lines=57 keep-EN-lines=10"
+  },
+  {
+   "path": "src/backend/utils/adt/amutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "访问方法工具 (am=访问方法 0397 口径, AMOID/amproperty/amcaninclude 标识符保留); keep=头部保留行5; L288-296 distance-orderable 段成句回读; L239 预算 5B 单字尾 \"空\" 句号缺失披露 (括注意义已并入 L294-296 从句); L447/448 阶段名/字。跨行成句; blocks=23 zh-lines=57 keep-EN-lines=5"
+  },
+  {
+   "path": "src/backend/utils/adt/format_type.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "类型名格式化 (format_type/typmod 标识符保留, pretty=美观); keep=头部保留行6 + L87 纯标识符标题1 + 标志行4 (FORMAT_TYPE_* 4 站); L145 oidvector/oid[] 无空格贴预算 36B; L51-53 character(1) 段成句回读; L440 oidvectortypes 行内 tab 保留; blocks=24 zh-lines=86 keep-EN-lines=11"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0403-adt-small4.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0403 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

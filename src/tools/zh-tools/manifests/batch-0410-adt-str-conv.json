@@ -1,0 +1,94 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0410",
+ "title": "adt 目录字符串/数字转换三文件整文件注释翻译 213块 (oracle_compat/varchar/numutils); 修复: 规划轮 1 (三 dump 通读 + 注释感知重扫 + spec 逐行 zh + dry-run 64 违规全数裁决) + 写后修复轮 1 (预算裁剪/跨行全角括号拆除/跨行重字拆分/孤立闭括号清除); 门禁: verify_c_comments adt 63 文件 0 violation rc=0 / term_lint 本批 3 文件 0 hits (rc=1 系 postinit.c L1428 既有 TL01) / scan_halfen adt 63 文件 60 findings, 本批新增 16 站全 MIXED advisory (oracle_compat banner 语法签名+CJK 固有混排 15 站, varchar L1111 bpchar datum); W7 advisory 本批 8 站 (varchar INSERTs/CHARACTERS/BYTES 大写形与 box EN 行); 句号台账 FWD 18 + REV 2, 行号清单见 files[].note; review round (主会话就地修复): D1 numutils 三站补「的…。」(55≤66, 十六/八/二进制紧排)、N3 两站 得以→得到以 (59=59 恰满)、N5 三站 处理符号、N6 三站 最小负数、N8 两站 检查以; oracle N1/N2/N4 三站审查估算全部实测超 1-3B 放弃维持现状披露; REV 台账补 numutils 三站; 半角冒号 30 站口径勘正 (先例/签名样式非预算)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ece2b0b218b01b8efcf08af9f297d260ba17d765",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/oracle_compat.c",
+   "kind": "c_comment",
+   "note": "Oracle 兼容函数 (函数名标识符保留, multibyte→多字节); whole-file comment translation, batch-0410"
+  },
+  {
+   "pattern": "src/backend/utils/adt/varchar.c",
+   "kind": "c_comment",
+   "note": "变长/定长字符串 char(n)/bpchar/varchar(n) (标识符保留, typmod 保留, 截断/空白填充/排序规则口径); whole-file comment translation, batch-0410"
+  },
+  {
+   "pattern": "src/backend/utils/adt/numutils.c",
+   "kind": "c_comment",
+   "note": "数字工具 (pg_strtoint 系/pg_itoa/pg_ltoa 系标识符保留, 解析/溢出/数字位口径); whole-file comment translation, batch-0410"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0410-adt-str-conv.json",
+   "kind": "manifest",
+   "note": "batch-0410 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0410 entries (3 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/oracle_compat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 53,
+   "translated": 53,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 38 (头部 6 + 函数名标签 15 + 语法签名 15 + 纯标识符 2, 详见 note)"
+   ],
+   "note": "Oracle 兼容函数 (lower/upper/initcap/lpad/rpad/btrim/ltrim/rtrim/translate/ascii/chr/repeat 等函数名标识符全保留, multibyte→多字节, single-byte→单字节, locale 不出现; 0408 char.c 口径); whole-file comment translation, batch-0410; dump 权威块数 53 注释感知重扫一致; content 行 160 = 译 121 + FILL 消化 1 (L913) + 保留 EN 38; 行数守恒 1157 不变 (git diff numstat 122/122); 规划轮 1 + 写后修复轮 1 (dry-run 64 违规: 语法:/目的: 全角冒号超预算改半角, btrim/ltrim/rtrim 族行尾预算裁剪, L107-L109 跨行重字拆分重排, ascii banner L919/L920 跨行全角括号拆除, 均复核通过); 句号台账 FWD 1 [912 B类 EN 句界同行消化] + REV 0; keep 披露: 头部 6 (L2 文件名/L5 版权/L7-L8 作者行/L11 IDENTIFICATION/L12 路径, 头部功能描述行 L3 已译) + 函数名标签 15 (L36/L67/L98/L132/L230/L328/L602/L630/L657/L684/L732/L781/L904/L985/L1108) + 语法签名 15 (L40/L71/L102/L136/L234/L332/L606/L634/L661/L688/L736/L785/L908/L989/L1112) + 纯标识符 2 (L1037 U+1FFFFF./L1078 UTF8., 与 zh 前行接缝拼读成句); 语法:/目的: 半角冒号为预算所迫 (EN ' * Syntax:' 10B), 20 站; banner MIXED 15 站为标识符+CJK 固有混排 advisory; review round (主会话就地修复): D1 numutils 三站补「的…。」(55≤66, 十六/八/二进制紧排)、N3 两站 得以→得到以 (59=59 恰满)、N5 三站 处理符号、N6 三站 最小负数、N8 两站 检查以; oracle N1/N2/N4 三站审查估算全部实测超 1-3B 放弃维持现状披露; REV 台账补 numutils 三站; 半角冒号 30 站口径勘正 (先例/签名样式非预算)"
+  },
+  {
+   "path": "src/backend/utils/adt/varchar.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 67,
+   "translated": 66,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块保留 1: L110-L112 bpchar - char() box banner (内容行 L111 纯标识符); 保留行 13 (头部 5 + 作者行 L106 + box banner L111/L435 + L283 VARHDRSZ 续行 + 函数标签 L350/L368/L401/L557, 详见 note)"
+   ],
+   "note": "变长/定长字符串类型 char(n) bpchar varchar(n) (标识符全保留, typmod 标识符保留 0403 format_type 口径, blank-padded→空白填充, truncation→截断, collation→排序规则, operator 词形译算子 (L1112-L1115)); whole-file comment translation, batch-0410; dump 权威块数 67 注释感知重扫一致 (L282 尾注释续行 L283 'VARHDRSZ */' 伪块校正, 保留 EN); content 行 164 = 译 144 + FILL 消化 7 (L64/L104/L269/L607/L1040/L1098/L1116) + 保留 EN 13; 行数守恒 1235 不变 (git diff numstat 151/151); 规划轮 1 + 写后修复轮 1 (dry-run 修复: L43/L92/L733 超预算裁剪, L94-L97/L102-L103/L266-L268/L604-L606 跨行全角括号拆除, L1229 SortSupport 行改写, L97 孤立全角闭括号清除, 均复核通过); 句号台账 FWD 7 [44/63/103/268/606/1039/1097 全为 B类 EN 句界同行或紧邻行消化] + REV 2 [629 EN '...' 省略号→zh '…' 对应; 1113 EN 句号在 zh 行内 '索引。' 消化, 与 L1112 zh 接缝拼读成句] 自洽; keep 披露: 头部 5 (L3 文件名/L6-L7 版权/L10 IDENTIFICATION/L11 路径, 功能描述行 L4 已译) + 作者行 L106 (- ay 6/95) + box banner 标识符行 2 (L111 bpchar - char()/L435 varchar - varchar(n)) + L283 VARHDRSZ 续行 + 函数标签 4 (L350 char_bpchar()/L368 bpchar_name()/L401 name_bpchar()/L557 varchar_support()); W7 advisory 8 站 (L86 INSERTs 复数形未保留, L110 box EN 行, L142/L152/L166/L174/L319/L327 CHARACTERS/BYTES 大写强调形未保留)"
+  },
+  {
+   "path": "src/backend/utils/adt/numutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 93,
+   "translated": 93,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 17 (头部 5 + 函数名标签 L1248/L1292 + 代码示例 10 行 L1259-L1264/L1301-L1304, 详见 note)"
+   ],
+   "note": "数字工具 (pg_strtoint16/32/64/pg_strtointNN_safe/pg_strtouint32/64/pg_itoa/pg_ltoa/pg_lltoa/pg_ultoa_n/pg_ultostr 系标识符全保留, parse→解析, overflow→溢出, digit→数字位, two's complement→补码, fastpath→快速路径, 无效输入语法语境未涉错误文案); whole-file comment translation, batch-0410; dump 权威块数 93 注释感知重扫一致; content 行 234 = 译 208 + FILL 消化 9 (L119/L141/L351/L403/L643/L665/L951/L1267/L1307) + 保留 EN 17; 行数守恒 1315 不变 (git diff numstat 217/217); 规划轮 1 + 写后修复轮 1 (dry-run 修复: L27/L137 系超预算裁剪, L1054-L1055/L1253-L1254/L1295-L1296 跨行全角括号拆除, L1139-L1140 句界重排, 3x int 块共享行 shift 表生成, 均复核通过); 句号台账 FWD 10 [57/82/118/380/642/950/1055/1139/1266/1306 全为 B类 EN 句界同行或紧邻行消化] + REV 0 自洽; keep 披露: 头部 5 (L3 文件名/L6-L7 版权/L10 IDENTIFICATION/L11 路径, 功能描述行 L4 已译) + 函数名标签 2 (L1248 pg_ultostr_zeropad/L1292 pg_ultostr) + 代码示例行 10 (L1259-L1264/L1301-L1304 C 调用示例逐字保留); 同 EN 块必同译: 3x pg_strtoint 块共享行同串 (shift 表), 3x 快速路径块同串, lpad/rpad 共享行同串; review round (主会话就地修复): D1 numutils 三站补「的…。」(55≤66, 十六/八/二进制紧排)、N3 两站 得以→得到以 (59=59 恰满)、N5 三站 处理符号、N6 三站 最小负数、N8 两站 检查以; oracle N1/N2/N4 三站审查估算全部实测超 1-3B 放弃维持现状披露; REV 台账补 numutils 三站; 半角冒号 30 站口径勘正 (先例/签名样式非预算)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0410-adt-str-conv.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0410 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0410 entries (3 adt .c + manifest; pure append, 自条目不重复登记)"
+  }
+ ]
+}

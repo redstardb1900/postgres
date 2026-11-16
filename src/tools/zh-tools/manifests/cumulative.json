@@ -7111,6 +7111,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0409-adt-selfuncs-cash.json",
    "kind": "manifest",
    "note": "batch-0409 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/oracle_compat.c",
+   "kind": "c_comment",
+   "note": "Oracle 兼容函数 (函数名标识符保留, multibyte→多字节); whole-file comment translation, batch-0410"
+  },
+  {
+   "pattern": "src/backend/utils/adt/varchar.c",
+   "kind": "c_comment",
+   "note": "变长/定长字符串 char(n)/bpchar/varchar(n) (标识符保留, typmod 保留, 截断/空白填充/排序规则口径); whole-file comment translation, batch-0410"
+  },
+  {
+   "pattern": "src/backend/utils/adt/numutils.c",
+   "kind": "c_comment",
+   "note": "数字工具 (pg_strtoint 系/pg_itoa/pg_ltoa 系标识符保留, 解析/溢出/数字位口径); whole-file comment translation, batch-0410"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0410-adt-str-conv.json",
+   "kind": "manifest",
+   "note": "batch-0410 manifest"
   }
  ],
  "files": [
@@ -23047,6 +23067,52 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0409 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/oracle_compat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 53,
+   "translated": 53,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 38 (头部 6 + 函数名标签 15 + 语法签名 15 + 纯标识符 2)"
+   ],
+   "note": "Oracle 兼容函数 (lower/upper/initcap/lpad/rpad/btrim/ltrim/rtrim/translate/ascii/chr/repeat 函数名标识符保留, multibyte→多字节 口径); whole-file comment translation, batch-0410; 行数守恒 1157 (numstat 122/122); blocks=53 translated=53 preserved=0 keep-EN-lines=38"
+  },
+  {
+   "path": "src/backend/utils/adt/varchar.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 67,
+   "translated": 66,
+   "preserved": 1,
+   "preserved_reasons": [
+    "整块保留 1: L110-L112 bpchar - char() box banner; 保留行 13 (头部 5 + 作者行 + box banner 2 + VARHDRSZ 续行 + 函数标签 4)"
+   ],
+   "note": "变长/定长字符串 char(n)/bpchar/varchar(n) (标识符保留, typmod 保留, 截断/空白填充/排序规则口径, operator 词形译算子); whole-file comment translation, batch-0410; 行数守恒 1235 (numstat 151/151); blocks=67 translated=66 preserved=1 keep-EN-lines=13 fill-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/numutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 93,
+   "translated": 93,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 17 (头部 5 + 函数名标签 2 + 代码示例 10 行)"
+   ],
+   "note": "数字工具 (pg_strtoint 系/pg_itoa/pg_ltoa/pg_ultoa 系标识符保留, 解析/溢出/数字位/补码口径); whole-file comment translation, batch-0410; 行数守恒 1315 (numstat 217/217); blocks=93 translated=93 preserved=0 keep-EN-lines=17 fill-lines=9"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0410-adt-str-conv.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0410 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

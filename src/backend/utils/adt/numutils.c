@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * numutils.c
- *	  utility functions for I/O of built-in numeric types.
+ *	  内置数值类型 I/O 的工具函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,8 +23,8 @@
 #include "port/pg_bitutils.h"
 
 /*
- * A table of all two-digit numbers. This is used to speed up decimal digit
- * generation by copying pairs of digits into the final output.
+ * 包含所有两位数字的表。用于把成对的数字位
+ * 复制到最终输出，加速十进制数字位生成。
  */
 static const char DIGIT_TABLE[200] =
 "00" "01" "02" "03" "04" "05" "06" "07" "08" "09"
@@ -39,7 +39,7 @@ static const char DIGIT_TABLE[200] =
 "90" "91" "92" "93" "94" "95" "96" "97" "98" "99";
 
 /*
- * Adapted from http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog10
+ * 改编自 http://graphics.stanford.edu/~seander/bithacks.html#IntegerLog10
  */
 static inline int
 decimalLength32(const uint32 v)
@@ -53,8 +53,8 @@ decimalLength32(const uint32 v)
 	};
 
 	/*
-	 * Compute base-10 logarithm by dividing the base-2 logarithm by a
-	 * good-enough approximation of the base-2 logarithm of 10
+	 * 把以 2 为底的对数除以 10 的以 2 为底对数
+	 * 的足够好近似值，得到以 10 为底的对数。
 	 */
 	t = (pg_leftmost_one_pos32(v) + 1) * 1233 / 4096;
 	return t + (v >= PowersOfTen[t]);
@@ -78,8 +78,8 @@ decimalLength64(const uint64 v)
 	};
 
 	/*
-	 * Compute base-10 logarithm by dividing the base-2 logarithm by a
-	 * good-enough approximation of the base-2 logarithm of 10
+	 * 把以 2 为底的对数除以 10 的以 2 为底对数
+	 * 的足够好近似值，得到以 10 为底的对数。
 	 */
 	t = (pg_leftmost_one_pos64(v) + 1) * 1233 / 4096;
 	return t + (v >= PowersOfTen[t]);
@@ -97,26 +97,26 @@ static const int8 hexlookup[128] = {
 };
 
 /*
- * Convert input string to a signed 16 bit integer.  Input strings may be
- * expressed in base-10, hexadecimal, octal, or binary format, all of which
- * can be prefixed by an optional sign character, either '+' (the default) or
- * '-' for negative numbers.  Hex strings are recognized by the digits being
- * prefixed by 0x or 0X while octal strings are recognized by the 0o or 0O
- * prefix.  The binary representation is recognized by the 0b or 0B prefix.
+ * 将输入字符串转为有符号 16 位整数。输入字符串可
+ * 以十进制/十六进制/八进制/二进制格式表示，均可
+ * 带有可选的符号字符前缀，'+'（默认）或负数用的
+ * '-'。十六进制串以数字带 0x 或 0X 前缀来识别，
+ * 而八进制串则以 0o 或 0O 前缀识别。二进制表示则
+ * 以 0b 或 0B 前缀识别。
  *
- * Allows any number of leading or trailing whitespace characters.  Digits may
- * optionally be separated by a single underscore character.  These can only
- * come between digits and not before or after the digits.  Underscores have
- * no effect on the return value and are supported only to assist in improving
- * the human readability of the input strings.
+ * 允许任意数量的前导或尾随空白字符。数字位之间
+ * 可以用单个下划线字符分隔。这些下划线只能
+ * 出现在数字位之间，不能位于其前或其后。下划线
+ * 对返回值没有影响，支持它们只是为了帮助提高
+ * 输入字符串的人类可读性。
  *
- * pg_strtoint16() will throw ereport() upon bad input format or overflow;
- * while pg_strtoint16_safe() instead returns such complaints in *escontext,
- * if it's an ErrorSaveContext.
+ * pg_strtoint16() 在输入格式错误或溢出时将抛出 ereport()；
+ * 而 pg_strtoint16_safe() 则把此类问题返回到 *escontext，
+ * 若为 ErrorSaveContext。
 *
- * NB: Accumulate input as an unsigned number, to deal with two's complement
- * representation of the most negative number, which can't be represented as a
- * signed positive number.
+ * 注意：将输入累积为无符号数，以处理最小负数的补码
+ * 表示，该数无法表示为有符号正数。
+ *
  */
 int16
 pg_strtoint16(const char *s)
@@ -134,14 +134,14 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 	unsigned char digit;
 
 	/*
-	 * The majority of cases are likely to be base-10 digits without any
-	 * underscore separator characters.  We'll first try to parse the string
-	 * with the assumption that's the case and only fallback on a slower
-	 * implementation which handles hex, octal and binary strings and
-	 * underscores if the fastpath version cannot parse the string.
+	 * 多数情况很可能是不带下划线分隔符的十进制
+	 * 数字位。我们先按此假设尝试解析字符串，
+	 * 仅当快速路径版本无法解析时，才回退到能处理
+	 * 十六、八、二进制及下划线实现较慢。
+	 *
 	 */
 
-	/* leave it up to the slow path to look for leading spaces */
+	/* 前导空格留给慢速路径去检查 */
 
 	if (*ptr == '-')
 	{
@@ -149,14 +149,14 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 		neg = true;
 	}
 
-	/* a leading '+' is uncommon so leave that for the slow path */
+	/* 前导 '+' 不常见，故留给慢速路径处理 */
 
-	/* process the first digit */
+	/* 处理首个数字位 */
 	digit = (*ptr - '0');
 
 	/*
-	 * Exploit unsigned arithmetic to save having to check both the upper and
-	 * lower bounds of the digit.
+	 * 利用无符号算术，省去对数字位上、下边界的
+	 * 双重检查。
 	 */
 	if (likely(digit < 10))
 	{
@@ -165,11 +165,11 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 	}
 	else
 	{
-		/* we need at least one digit */
+		/* 至少一个数字位 */
 		goto slow;
 	}
 
-	/* process remaining digits */
+	/* 处理其余数字位 */
 	for (;;)
 	{
 		digit = (*ptr - '0');
@@ -185,13 +185,13 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 		tmp = tmp * 10 + digit;
 	}
 
-	/* when the string does not end in a digit, let the slow path handle it */
+	/* 字符串未以数字位结尾时，交给慢速路径处理 */
 	if (unlikely(*ptr != '\0'))
 		goto slow;
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
+		/* 检查负数等价值能否在不溢出的情况下容纳 */
 		if (unlikely(tmp > (uint16) (-(PG_INT16_MIN + 1)) + 1))
 			goto out_of_range;
 		return -((int16) tmp);
@@ -205,13 +205,13 @@ pg_strtoint16_safe(const char *s, Node *escontext)
 slow:
 	tmp = 0;
 	ptr = s;
-	/* no need to reset neg */
+	/* 无需重置 neg */
 
-	/* skip leading spaces */
+	/* 跳过前导空格 */
 	while (isspace((unsigned char) *ptr))
 		ptr++;
 
-	/* handle sign */
+	/* 处理符号 */
 	if (*ptr == '-')
 	{
 		ptr++;
@@ -220,7 +220,7 @@ slow:
 	else if (*ptr == '+')
 		ptr++;
 
-	/* process digits */
+	/* 处理数字 */
 	if (ptr[0] == '0' && (ptr[1] == 'x' || ptr[1] == 'X'))
 	{
 		firstdigit = ptr += 2;
@@ -236,7 +236,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || !isxdigit((unsigned char) *ptr))
 					goto invalid_syntax;
@@ -260,7 +260,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || *ptr < '0' || *ptr > '7')
 					goto invalid_syntax;
@@ -284,7 +284,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || *ptr < '0' || *ptr > '1')
 					goto invalid_syntax;
@@ -308,10 +308,10 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore may not be first */
+				/* 下划线不得在开头 */
 				if (unlikely(ptr == firstdigit))
 					goto invalid_syntax;
-				/* and it must be followed by more digits */
+				/* 且其后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || !isdigit((unsigned char) *ptr))
 					goto invalid_syntax;
@@ -321,11 +321,11 @@ slow:
 		}
 	}
 
-	/* require at least one digit */
+	/* 至少一个数字位 */
 	if (unlikely(ptr == firstdigit))
 		goto invalid_syntax;
 
-	/* allow trailing whitespace, but not other trailing chars */
+	/* 允许尾随空白，但不允许其他尾随字符 */
 	while (isspace((unsigned char) *ptr))
 		ptr++;
 
@@ -334,7 +334,7 @@ slow:
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
+		/* 检查负数等价值能否在不溢出的情况下容纳 */
 		if (tmp > (uint16) (-(PG_INT16_MIN + 1)) + 1)
 			goto out_of_range;
 		return -((int16) tmp);
@@ -359,26 +359,26 @@ invalid_syntax:
 }
 
 /*
- * Convert input string to a signed 32 bit integer.  Input strings may be
- * expressed in base-10, hexadecimal, octal, or binary format, all of which
- * can be prefixed by an optional sign character, either '+' (the default) or
- * '-' for negative numbers.  Hex strings are recognized by the digits being
- * prefixed by 0x or 0X while octal strings are recognized by the 0o or 0O
- * prefix.  The binary representation is recognized by the 0b or 0B prefix.
+ * 将输入字符串转为有符号 32 位整数。输入字符串可
+ * 以十进制/十六进制/八进制/二进制格式表示，均可
+ * 带有可选的符号字符前缀，'+'（默认）或负数用的
+ * '-'。十六进制串以数字带 0x 或 0X 前缀来识别，
+ * 而八进制串则以 0o 或 0O 前缀识别。二进制表示则
+ * 以 0b 或 0B 前缀识别。
  *
- * Allows any number of leading or trailing whitespace characters.  Digits may
- * optionally be separated by a single underscore character.  These can only
- * come between digits and not before or after the digits.  Underscores have
- * no effect on the return value and are supported only to assist in improving
- * the human readability of the input strings.
+ * 允许任意数量的前导或尾随空白字符。数字位之间
+ * 可以用单个下划线字符分隔。这些下划线只能
+ * 出现在数字位之间，不能位于其前或其后。下划线
+ * 对返回值没有影响，支持它们只是为了帮助提高
+ * 输入字符串的人类可读性。
  *
- * pg_strtoint32() will throw ereport() upon bad input format or overflow;
- * while pg_strtoint32_safe() instead returns such complaints in *escontext,
- * if it's an ErrorSaveContext.
+ * pg_strtoint32() 在输入格式错误或溢出时将抛出 ereport()；
+ * 而 pg_strtoint32_safe() 则把此类问题返回到 *escontext，
+ * 若为 ErrorSaveContext。
  *
- * NB: Accumulate input as an unsigned number, to deal with two's complement
- * representation of the most negative number, which can't be represented as a
- * signed positive number.
+ * 注意：将输入累积为无符号数，以处理最小负数的补码
+ * 表示，该数无法表示为有符号正数。
+ *
  */
 int32
 pg_strtoint32(const char *s)
@@ -396,14 +396,14 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 	unsigned char digit;
 
 	/*
-	 * The majority of cases are likely to be base-10 digits without any
-	 * underscore separator characters.  We'll first try to parse the string
-	 * with the assumption that's the case and only fallback on a slower
-	 * implementation which handles hex, octal and binary strings and
-	 * underscores if the fastpath version cannot parse the string.
+	 * 多数情况很可能是不带下划线分隔符的十进制
+	 * 数字位。我们先按此假设尝试解析字符串，
+	 * 仅当快速路径版本无法解析时，才回退到能处理
+	 * 十六、八、二进制及下划线实现较慢。
+	 *
 	 */
 
-	/* leave it up to the slow path to look for leading spaces */
+	/* 前导空格留给慢速路径去检查 */
 
 	if (*ptr == '-')
 	{
@@ -411,14 +411,14 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 		neg = true;
 	}
 
-	/* a leading '+' is uncommon so leave that for the slow path */
+	/* 前导 '+' 不常见，故留给慢速路径处理 */
 
-	/* process the first digit */
+	/* 处理首个数字位 */
 	digit = (*ptr - '0');
 
 	/*
-	 * Exploit unsigned arithmetic to save having to check both the upper and
-	 * lower bounds of the digit.
+	 * 利用无符号算术，省去对数字位上、下边界的
+	 * 双重检查。
 	 */
 	if (likely(digit < 10))
 	{
@@ -427,11 +427,11 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 	}
 	else
 	{
-		/* we need at least one digit */
+		/* 至少一个数字位 */
 		goto slow;
 	}
 
-	/* process remaining digits */
+	/* 处理其余数字位 */
 	for (;;)
 	{
 		digit = (*ptr - '0');
@@ -447,13 +447,13 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 		tmp = tmp * 10 + digit;
 	}
 
-	/* when the string does not end in a digit, let the slow path handle it */
+	/* 字符串未以数字位结尾时，交给慢速路径处理 */
 	if (unlikely(*ptr != '\0'))
 		goto slow;
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
+		/* 检查负数等价值能否在不溢出的情况下容纳 */
 		if (unlikely(tmp > (uint32) (-(PG_INT32_MIN + 1)) + 1))
 			goto out_of_range;
 		return -((int32) tmp);
@@ -467,13 +467,13 @@ pg_strtoint32_safe(const char *s, Node *escontext)
 slow:
 	tmp = 0;
 	ptr = s;
-	/* no need to reset neg */
+	/* 无需重置 neg */
 
-	/* skip leading spaces */
+	/* 跳过前导空格 */
 	while (isspace((unsigned char) *ptr))
 		ptr++;
 
-	/* handle sign */
+	/* 处理符号 */
 	if (*ptr == '-')
 	{
 		ptr++;
@@ -482,7 +482,7 @@ slow:
 	else if (*ptr == '+')
 		ptr++;
 
-	/* process digits */
+	/* 处理数字 */
 	if (ptr[0] == '0' && (ptr[1] == 'x' || ptr[1] == 'X'))
 	{
 		firstdigit = ptr += 2;
@@ -498,7 +498,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || !isxdigit((unsigned char) *ptr))
 					goto invalid_syntax;
@@ -522,7 +522,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || *ptr < '0' || *ptr > '7')
 					goto invalid_syntax;
@@ -546,7 +546,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || *ptr < '0' || *ptr > '1')
 					goto invalid_syntax;
@@ -570,10 +570,10 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore may not be first */
+				/* 下划线不得在开头 */
 				if (unlikely(ptr == firstdigit))
 					goto invalid_syntax;
-				/* and it must be followed by more digits */
+				/* 且其后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || !isdigit((unsigned char) *ptr))
 					goto invalid_syntax;
@@ -583,11 +583,11 @@ slow:
 		}
 	}
 
-	/* require at least one digit */
+	/* 至少一个数字位 */
 	if (unlikely(ptr == firstdigit))
 		goto invalid_syntax;
 
-	/* allow trailing whitespace, but not other trailing chars */
+	/* 允许尾随空白，但不允许其他尾随字符 */
 	while (isspace((unsigned char) *ptr))
 		ptr++;
 
@@ -596,7 +596,7 @@ slow:
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
+		/* 检查负数等价值能否在不溢出的情况下容纳 */
 		if (tmp > (uint32) (-(PG_INT32_MIN + 1)) + 1)
 			goto out_of_range;
 		return -((int32) tmp);
@@ -621,26 +621,26 @@ invalid_syntax:
 }
 
 /*
- * Convert input string to a signed 64 bit integer.  Input strings may be
- * expressed in base-10, hexadecimal, octal, or binary format, all of which
- * can be prefixed by an optional sign character, either '+' (the default) or
- * '-' for negative numbers.  Hex strings are recognized by the digits being
- * prefixed by 0x or 0X while octal strings are recognized by the 0o or 0O
- * prefix.  The binary representation is recognized by the 0b or 0B prefix.
+ * 将输入字符串转为有符号 64 位整数。输入字符串可
+ * 以十进制/十六进制/八进制/二进制格式表示，均可
+ * 带有可选的符号字符前缀，'+'（默认）或负数用的
+ * '-'。十六进制串以数字带 0x 或 0X 前缀来识别，
+ * 而八进制串则以 0o 或 0O 前缀识别。二进制表示则
+ * 以 0b 或 0B 前缀识别。
  *
- * Allows any number of leading or trailing whitespace characters.  Digits may
- * optionally be separated by a single underscore character.  These can only
- * come between digits and not before or after the digits.  Underscores have
- * no effect on the return value and are supported only to assist in improving
- * the human readability of the input strings.
+ * 允许任意数量的前导或尾随空白字符。数字位之间
+ * 可以用单个下划线字符分隔。这些下划线只能
+ * 出现在数字位之间，不能位于其前或其后。下划线
+ * 对返回值没有影响，支持它们只是为了帮助提高
+ * 输入字符串的人类可读性。
  *
- * pg_strtoint64() will throw ereport() upon bad input format or overflow;
- * while pg_strtoint64_safe() instead returns such complaints in *escontext,
- * if it's an ErrorSaveContext.
+ * pg_strtoint64() 在输入格式错误或溢出时将抛出 ereport()；
+ * 而 pg_strtoint64_safe() 则把此类问题返回到 *escontext，
+ * 若为 ErrorSaveContext。
  *
- * NB: Accumulate input as an unsigned number, to deal with two's complement
- * representation of the most negative number, which can't be represented as a
- * signed positive number.
+ * 注意：将输入累积为无符号数，以处理最小负数的补码
+ * 表示，该数无法表示为有符号正数。
+ *
  */
 int64
 pg_strtoint64(const char *s)
@@ -658,14 +658,14 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 	unsigned char digit;
 
 	/*
-	 * The majority of cases are likely to be base-10 digits without any
-	 * underscore separator characters.  We'll first try to parse the string
-	 * with the assumption that's the case and only fallback on a slower
-	 * implementation which handles hex, octal and binary strings and
-	 * underscores if the fastpath version cannot parse the string.
+	 * 多数情况很可能是不带下划线分隔符的十进制
+	 * 数字位。我们先按此假设尝试解析字符串，
+	 * 仅当快速路径版本无法解析时，才回退到能处理
+	 * 十六、八、二进制及下划线实现较慢。
+	 *
 	 */
 
-	/* leave it up to the slow path to look for leading spaces */
+	/* 前导空格留给慢速路径去检查 */
 
 	if (*ptr == '-')
 	{
@@ -673,14 +673,14 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 		neg = true;
 	}
 
-	/* a leading '+' is uncommon so leave that for the slow path */
+	/* 前导 '+' 不常见，故留给慢速路径处理 */
 
-	/* process the first digit */
+	/* 处理首个数字位 */
 	digit = (*ptr - '0');
 
 	/*
-	 * Exploit unsigned arithmetic to save having to check both the upper and
-	 * lower bounds of the digit.
+	 * 利用无符号算术，省去对数字位上、下边界的
+	 * 双重检查。
 	 */
 	if (likely(digit < 10))
 	{
@@ -689,11 +689,11 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 	}
 	else
 	{
-		/* we need at least one digit */
+		/* 至少一个数字位 */
 		goto slow;
 	}
 
-	/* process remaining digits */
+	/* 处理其余数字位 */
 	for (;;)
 	{
 		digit = (*ptr - '0');
@@ -709,13 +709,13 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 		tmp = tmp * 10 + digit;
 	}
 
-	/* when the string does not end in a digit, let the slow path handle it */
+	/* 字符串未以数字位结尾时，交给慢速路径处理 */
 	if (unlikely(*ptr != '\0'))
 		goto slow;
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
+		/* 检查负数等价值能否在不溢出的情况下容纳 */
 		if (unlikely(tmp > (uint64) (-(PG_INT64_MIN + 1)) + 1))
 			goto out_of_range;
 		return -((int64) tmp);
@@ -729,13 +729,13 @@ pg_strtoint64_safe(const char *s, Node *escontext)
 slow:
 	tmp = 0;
 	ptr = s;
-	/* no need to reset neg */
+	/* 无需重置 neg */
 
-	/* skip leading spaces */
+	/* 跳过前导空格 */
 	while (isspace((unsigned char) *ptr))
 		ptr++;
 
-	/* handle sign */
+	/* 处理符号 */
 	if (*ptr == '-')
 	{
 		ptr++;
@@ -744,7 +744,7 @@ slow:
 	else if (*ptr == '+')
 		ptr++;
 
-	/* process digits */
+	/* 处理数字 */
 	if (ptr[0] == '0' && (ptr[1] == 'x' || ptr[1] == 'X'))
 	{
 		firstdigit = ptr += 2;
@@ -760,7 +760,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || !isxdigit((unsigned char) *ptr))
 					goto invalid_syntax;
@@ -784,7 +784,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || *ptr < '0' || *ptr > '7')
 					goto invalid_syntax;
@@ -808,7 +808,7 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || *ptr < '0' || *ptr > '1')
 					goto invalid_syntax;
@@ -832,10 +832,10 @@ slow:
 			}
 			else if (*ptr == '_')
 			{
-				/* underscore may not be first */
+				/* 下划线不得在开头 */
 				if (unlikely(ptr == firstdigit))
 					goto invalid_syntax;
-				/* and it must be followed by more digits */
+				/* 且其后必须还有更多数字位 */
 				ptr++;
 				if (*ptr == '\0' || !isdigit((unsigned char) *ptr))
 					goto invalid_syntax;
@@ -845,11 +845,11 @@ slow:
 		}
 	}
 
-	/* require at least one digit */
+	/* 至少一个数字位 */
 	if (unlikely(ptr == firstdigit))
 		goto invalid_syntax;
 
-	/* allow trailing whitespace, but not other trailing chars */
+	/* 允许尾随空白，但不允许其他尾随字符 */
 	while (isspace((unsigned char) *ptr))
 		ptr++;
 
@@ -858,7 +858,7 @@ slow:
 
 	if (neg)
 	{
-		/* check the negative equivalent will fit without overflowing */
+		/* 检查负数等价值能否在不溢出的情况下容纳 */
 		if (tmp > (uint64) (-(PG_INT64_MIN + 1)) + 1)
 			goto out_of_range;
 		return -((int64) tmp);
@@ -883,19 +883,19 @@ invalid_syntax:
 }
 
 /*
- * Convert input string to an unsigned 32 bit integer.
+ * 将输入字符串转为无符号 32 位整数。
  *
- * Allows any number of leading or trailing whitespace characters.
+ * 允许任意数量的前导或尾随空白字符。
  *
- * If endloc isn't NULL, store a pointer to the rest of the string there,
- * so that caller can parse the rest.  Otherwise, it's an error if anything
- * but whitespace follows.
+ * 若 endloc 非 NULL，则把指向字符串剩余部分的指针
+ * 存到那里，以便调用者解析剩余部分。否则其后出现
+ * 非空白即错误。
  *
- * typname is what is reported in error messges.
+ * typname 是错误消息中报告的名称。
  *
- * If escontext points to an ErrorSaveContext node, that is filled instead
- * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()
- * to detect errors.
+ * 若 escontext 指向 ErrorSaveContext 节点，则填充该节点
+ * 而非抛出错误；调用者须检查以 SOFT_ERROR_OCCURRED()
+ * 检测错误。
  */
 uint32
 uint32in_subr(const char *s, char **endloc,
@@ -909,10 +909,10 @@ uint32in_subr(const char *s, char **endloc,
 	cvt = strtoul(s, &endptr, 0);
 
 	/*
-	 * strtoul() normally only sets ERANGE.  On some systems it may also set
-	 * EINVAL, which simply means it couldn't parse the input string.  Be sure
-	 * to report that the same way as the standard error indication (that
-	 * endptr == s).
+	 * strtoul() 通常只置 ERANGE。在某些系统上它还可能置
+	 * EINVAL，这只意味着它无法解析输入字符串。务必
+	 * 以与标准错误指示（即 endptr == s）相同的方式
+	 * 报告它。
 	 */
 	if ((errno && errno != ERANGE) || endptr == s)
 		ereturn(escontext, 0,
@@ -928,12 +928,12 @@ uint32in_subr(const char *s, char **endloc,
 
 	if (endloc)
 	{
-		/* caller wants to deal with rest of string */
+		/* 调用者要处理字符串剩余部分 */
 		*endloc = endptr;
 	}
 	else
 	{
-		/* allow only whitespace after number */
+		/* 数字之后只允许空白 */
 		while (*endptr && isspace((unsigned char) *endptr))
 			endptr++;
 		if (*endptr)
@@ -946,16 +946,16 @@ uint32in_subr(const char *s, char **endloc,
 	result = (uint32) cvt;
 
 	/*
-	 * Cope with possibility that unsigned long is wider than uint32, in which
-	 * case strtoul will not raise an error for some values that are out of
-	 * the range of uint32.
+	 * 应对无符号 long 宽于 uint32 的可能性，此时对于某些
+	 * 超出 uint32 范围的值，strtoul 将不会报错。
 	 *
-	 * For backwards compatibility, we want to accept inputs that are given
-	 * with a minus sign, so allow the input value if it matches after either
-	 * signed or unsigned extension to long.
 	 *
-	 * To ensure consistent results on 32-bit and 64-bit platforms, make sure
-	 * the error message is the same as if strtoul() had returned ERANGE.
+	 * 出于向后兼容的考虑，要接受带负号给出的输入，
+	 * 即若该值经有符号或无符号任一方式扩展到 long
+	 * 后仍匹配则接受。
+	 *
+	 * 为保证 32 位与 64 位平台上的结果一致，务必确保
+	 * 错误消息与 strtoul() 返回 ERANGE 时相同。
 	 */
 #if PG_UINT32_MAX != ULONG_MAX
 	if (cvt != (unsigned long) result &&
@@ -970,19 +970,19 @@ uint32in_subr(const char *s, char **endloc,
 }
 
 /*
- * Convert input string to an unsigned 64 bit integer.
+ * 将输入字符串转为无符号 64 位整数。
  *
- * Allows any number of leading or trailing whitespace characters.
+ * 允许任意数量的前导或尾随空白字符。
  *
- * If endloc isn't NULL, store a pointer to the rest of the string there,
- * so that caller can parse the rest.  Otherwise, it's an error if anything
- * but whitespace follows.
+ * 若 endloc 非 NULL，则把指向字符串剩余部分的指针
+ * 存到那里，以便调用者解析剩余部分。否则其后出现
+ * 非空白即错误。
  *
- * typname is what is reported in error messges.
+ * typname 是错误消息中报告的名称。
  *
- * If escontext points to an ErrorSaveContext node, that is filled instead
- * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()
- * to detect errors.
+ * 若 escontext 指向 ErrorSaveContext 节点，则填充该节点
+ * 而非抛出错误；调用者须检查以 SOFT_ERROR_OCCURRED()
+ * 检测错误。
  */
 uint64
 uint64in_subr(const char *s, char **endloc,
@@ -995,10 +995,10 @@ uint64in_subr(const char *s, char **endloc,
 	result = strtou64(s, &endptr, 0);
 
 	/*
-	 * strtoul[l] normally only sets ERANGE.  On some systems it may also set
-	 * EINVAL, which simply means it couldn't parse the input string.  Be sure
-	 * to report that the same way as the standard error indication (that
-	 * endptr == s).
+	 * strtoul[l] 通常只置 ERANGE。在某些系统上还可能置
+	 * EINVAL，这只意味着它无法解析输入字符串。务必
+	 * 以与标准错误指示（即 endptr == s）相同的方式
+	 * 报告它。
 	 */
 	if ((errno && errno != ERANGE) || endptr == s)
 		ereturn(escontext, 0,
@@ -1014,12 +1014,12 @@ uint64in_subr(const char *s, char **endloc,
 
 	if (endloc)
 	{
-		/* caller wants to deal with rest of string */
+		/* 调用者要处理字符串剩余部分 */
 		*endloc = endptr;
 	}
 	else
 	{
-		/* allow only whitespace after number */
+		/* 数字之后只允许空白 */
 		while (*endptr && isspace((unsigned char) *endptr))
 			endptr++;
 		if (*endptr)
@@ -1033,13 +1033,13 @@ uint64in_subr(const char *s, char **endloc,
 }
 
 /*
- * pg_itoa: converts a signed 16-bit integer to its string representation
- * and returns strlen(a).
+ * pg_itoa：将有符号 16 位整数转换为它的字符串表示，
+ * 并返回 strlen(a)。
  *
- * Caller must ensure that 'a' points to enough memory to hold the result
- * (at least 7 bytes, counting a leading sign and trailing NUL).
+ * 调用者必须确保 'a' 指向足以容纳结果的内存
+ * （至少 7 字节，含前导符号与结尾 NUL）。
  *
- * It doesn't seem worth implementing this separately.
+ * 似乎不值得单独实现这个函数。
  */
 int
 pg_itoa(int16 i, char *a)
@@ -1048,11 +1048,11 @@ pg_itoa(int16 i, char *a)
 }
 
 /*
- * pg_ultoa_n: converts an unsigned 32-bit integer to its string representation,
- * not NUL-terminated, and returns the length of that string representation
+ * pg_ultoa_n：将无符号 32 位整数转换为它的字符串表示，
+ * 不以 NUL 结尾，并返回该字符串表示的长度
  *
- * Caller must ensure that 'a' points to enough memory to hold the result (at
- * least 10 bytes)
+ * 调用者必须确保 'a' 指向足以容纳结果的内存，至少
+ * 10 字节。
  */
 int
 pg_ultoa_n(uint32 value, char *a)
@@ -1060,7 +1060,7 @@ pg_ultoa_n(uint32 value, char *a)
 	int			olength,
 				i = 0;
 
-	/* Degenerate case */
+	/* 退化情形 */
 	if (value == 0)
 	{
 		*a = '0';
@@ -1069,7 +1069,7 @@ pg_ultoa_n(uint32 value, char *a)
 
 	olength = decimalLength32(value);
 
-	/* Compute the result string. */
+	/* 计算结果字符串。 */
 	while (value >= 10000)
 	{
 		const uint32 c = value - 10000 * (value / 10000);
@@ -1112,12 +1112,12 @@ pg_ultoa_n(uint32 value, char *a)
 }
 
 /*
- * pg_ltoa: converts a signed 32-bit integer to its string representation and
- * returns strlen(a).
+ * pg_ltoa：将有符号 32 位整数转为字符串表示并返回
+ * strlen(a)。
  *
- * It is the caller's responsibility to ensure that a is at least 12 bytes long,
- * which is enough room to hold a minus sign, a maximally long int32, and the
- * above terminating NUL.
+ * 调用者有责任确保 a 的长度至少为 12 字节，
+ * 这一空间足以容纳一个负号、一个最长 int32 以及上述
+ * 的结尾 NUL。
  */
 int
 pg_ltoa(int32 value, char *a)
@@ -1136,8 +1136,8 @@ pg_ltoa(int32 value, char *a)
 }
 
 /*
- * Get the decimal representation, not NUL-terminated, and return the length of
- * same.  Caller must ensure that a points to at least MAXINT8LEN bytes.
+ * 取得十进制表示（不以 NUL 结尾），并返回其长度。
+ * 调用者必须确保 a 指向至少 MAXINT8LEN 字节。
  */
 int
 pg_ulltoa_n(uint64 value, char *a)
@@ -1146,7 +1146,7 @@ pg_ulltoa_n(uint64 value, char *a)
 				i = 0;
 	uint32		value2;
 
-	/* Degenerate case */
+	/* 退化情形 */
 	if (value == 0)
 	{
 		*a = '0';
@@ -1155,7 +1155,7 @@ pg_ulltoa_n(uint64 value, char *a)
 
 	olength = decimalLength64(value);
 
-	/* Compute the result string. */
+	/* 计算结果字符串。 */
 	while (value >= 100000000)
 	{
 		const uint64 q = value / 100000000;
@@ -1179,7 +1179,7 @@ pg_ulltoa_n(uint64 value, char *a)
 		i += 8;
 	}
 
-	/* Switch to 32-bit for speed */
+	/* 切换 32 位以提速 */
 	value2 = (uint32) value;
 
 	if (value2 >= 10000)
@@ -1220,11 +1220,11 @@ pg_ulltoa_n(uint64 value, char *a)
 }
 
 /*
- * pg_lltoa: converts a signed 64-bit integer to its string representation and
- * returns strlen(a).
+ * pg_lltoa：将有符号 64 位整数转为字符串表示并返回
+ * strlen(a)。
  *
- * Caller must ensure that 'a' points to enough memory to hold the result
- * (at least MAXINT8LEN + 1 bytes, counting a leading sign and trailing NUL).
+ * 调用者必须确保 'a' 指向足以容纳结果的内存
+ * （至少 MAXINT8LEN + 1 字节，含前导符号与结尾 NUL）。
  */
 int
 pg_lltoa(int64 value, char *a)
@@ -1246,15 +1246,15 @@ pg_lltoa(int64 value, char *a)
 
 /*
  * pg_ultostr_zeropad
- *		Converts 'value' into a decimal string representation stored at 'str'.
- *		'minwidth' specifies the minimum width of the result; any extra space
- *		is filled up by prefixing the number with zeros.
+ *		将 'value' 转换为存储在 'str' 处的十进制字符串表示。
+ *		'minwidth' 指定结果的最小宽度；多余的空间
+ *		以数字前导零填充。
  *
- * Returns the ending address of the string result (the last character written
- * plus 1).  Note that no NUL terminator is written.
+ * 返回字符串结果的结束地址，即最后写入的字符
+ * 加 1。注意不会写入 NUL 终止符。
  *
- * The intended use-case for this function is to build strings that contain
- * multiple individual numbers, for example:
+ * 本函数的预期用例是构建包含多个独立数字的字符串，
+ * 例如：
  *
  *	str = pg_ultostr_zeropad(str, hours, 2);
  *	*str++ = ':';
@@ -1263,8 +1263,8 @@ pg_lltoa(int64 value, char *a)
  *	str = pg_ultostr_zeropad(str, secs, 2);
  *	*str = '\0';
  *
- * Note: Caller must ensure that 'str' points to enough memory to hold the
- * result.
+ * 注意：调用者须确保 'str' 指向足以容纳结果的内存。
+ *
  */
 char *
 pg_ultostr_zeropad(char *str, uint32 value, int32 minwidth)
@@ -1273,7 +1273,7 @@ pg_ultostr_zeropad(char *str, uint32 value, int32 minwidth)
 
 	Assert(minwidth > 0);
 
-	if (value < 100 && minwidth == 2)	/* Short cut for common case */
+	if (value < 100 && minwidth == 2)	/* 常见情形的捷径 */
 	{
 		memcpy(str, DIGIT_TABLE + value * 2, 2);
 		return str + 2;
@@ -1290,21 +1290,21 @@ pg_ultostr_zeropad(char *str, uint32 value, int32 minwidth)
 
 /*
  * pg_ultostr
- *		Converts 'value' into a decimal string representation stored at 'str'.
+ *		将 'value' 转换为存储在 'str' 处的十进制字符串表示。
  *
- * Returns the ending address of the string result (the last character written
- * plus 1).  Note that no NUL terminator is written.
+ * 返回字符串结果的结束地址，即最后写入的字符
+ * 加 1。注意不会写入 NUL 终止符。
  *
- * The intended use-case for this function is to build strings that contain
- * multiple individual numbers, for example:
+ * 本函数的预期用例是构建包含多个独立数字的字符串，
+ * 例如：
  *
  *	str = pg_ultostr(str, a);
  *	*str++ = ' ';
  *	str = pg_ultostr(str, b);
  *	*str = '\0';
  *
- * Note: Caller must ensure that 'str' points to enough memory to hold the
- * result.
+ * 注意：调用者须确保 'str' 指向足以容纳结果的内存。
+ *
  */
 char *
 pg_ultostr(char *str, uint32 value)

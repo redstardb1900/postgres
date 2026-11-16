@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * varchar.c
- *	  Functions for the built-in types char(n) and varchar(n).
+ *	  内置类型 char(n) 与 varchar(n) 的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,7 +29,7 @@
 #include "utils/pg_locale.h"
 #include "utils/varlena.h"
 
-/* common code for bpchartypmodin and varchartypmodin */
+/* bpchartypmodin 与 varchartypmodin 的公共代码 */
 static int32
 anychar_typmodin(ArrayType *ta, const char *typename)
 {
@@ -40,8 +40,8 @@ anychar_typmodin(ArrayType *ta, const char *typename)
 	tl = ArrayGetIntegerTypmods(ta, &n);
 
 	/*
-	 * we're not too tense about good error message here because grammar
-	 * shouldn't allow wrong number of modifiers for CHAR
+	 * 此处不细究错误消息好坏，因为文法不应允许
+	 * CHAR 的修饰符数量错误。
 	 */
 	if (n != 1)
 		ereport(ERROR,
@@ -59,16 +59,16 @@ anychar_typmodin(ArrayType *ta, const char *typename)
 						typename, MaxAttrSize)));
 
 	/*
-	 * For largely historical reasons, the typmod is VARHDRSZ plus the number
-	 * of characters; there is enough client-side code that knows about that
-	 * that we'd better not change it.
+	 * 主要出于历史原因，typmod 是 VARHDRSZ 加上字符数；
+	 * 有太多客户端代码知道这一点，最好不要改变它。
+	 *
 	 */
 	typmod = VARHDRSZ + *tl;
 
 	return typmod;
 }
 
-/* common code for bpchartypmodout and varchartypmodout */
+/* bpchartypmodout 与 varchartypmodout 的公共代码 */
 static char *
 anychar_typmodout(int32 typmod)
 {
@@ -84,24 +84,24 @@ anychar_typmodout(int32 typmod)
 
 
 /*
- * CHAR() and VARCHAR() types are part of the SQL standard. CHAR()
- * is for blank-padded string whose length is specified in CREATE TABLE.
- * VARCHAR is for storing string whose length is at most the length specified
- * at CREATE TABLE time.
+ * CHAR() 与 VARCHAR() 类型是 SQL 标准的一部分。CHAR()
+ * 为空白填充的字符串，其长度在 CREATE TABLE 中指定。
+ * VARCHAR 用于存储长度至多为 CREATE TABLE 时所指定长度的
+ * 字符串。
  *
- * It's hard to implement these types because we cannot figure out
- * the length of the type from the type itself. I changed (hopefully all) the
- * fmgr calls that invoke input functions of a data type to supply the
- * length also. (eg. in INSERTs, we have the tupleDescriptor which contains
- * the length of the attributes and hence the exact length of the char() or
- * varchar(). We pass this to bpcharin() or varcharin().) In the case where
- * we cannot determine the length, we pass in -1 instead and the input
- * converter does not enforce any length check.
+ * 这些类型难实现，因为我们无法从类型本身得知
+ * 类型的长度。我修改（希望是全部）那些调用数据类型
+ * 输入函数的 fmgr 调用，让它们同时提供长度。例如
+ * 在 INSERT 语句中，我们有包含属性长度的 tupleDescriptor，
+ * 因而可知 char() 或 varchar() 的确切长度。我们把它
+ * 传给 bpcharin() 或 varcharin()。在无法确定长度的
+ * 情形下，改为传入 -1，此时输入转换器不执行任何
+ * 长度检查。
  *
- * We actually implement this as a varlena so that we don't have to pass in
- * the length for the comparison functions. (The difference between these
- * types and "text" is that we truncate and possibly blank-pad the string
- * at insertion time.)
+ * 我们实际将其实现为 varlena，这样比较函数就无需
+ * 传入长度。这些类型与 "text" 的区别是插入时可能
+ * 截断并填充。
+ *
  *
  *															  - ay 6/95
  */
@@ -112,20 +112,20 @@ anychar_typmodout(int32 typmod)
  *****************************************************************************/
 
 /*
- * bpchar_input -- common guts of bpcharin and bpcharrecv
+ * bpchar_input -- bpcharin/bpcharrecv 的公共主体
  *
- * s is the input text of length len (may not be null-terminated)
- * atttypmod is the typmod value to apply
+ * s 是长度为 len 的输入文本（未必是 NUL 结尾）
+ * atttypmod 是要应用的 typmod 值
  *
- * Note that atttypmod is measured in characters, which
- * is not necessarily the same as the number of bytes.
+ * 注意 atttypmod 的计量单位是字符，
+ * 这与字节数未必相同。
  *
- * If the input string is too long, raise an error, unless the extra
- * characters are spaces, in which case they're truncated.  (per SQL)
+ * 若输入字符串过长则报错，除非多出的字符都是
+ * 空格，此时将其截断。（依 SQL）
  *
- * If escontext points to an ErrorSaveContext node, that is filled instead
- * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()
- * to detect errors.
+ * 若 escontext 指向 ErrorSaveContext 节点，则填充该节点
+ * 而非抛出错误；调用者须检查 SOFT_ERROR_OCCURRED()
+ * 检测错误。
  */
 static BpChar *
 bpchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
@@ -134,25 +134,25 @@ bpchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
 	char	   *r;
 	size_t		maxlen;
 
-	/* If typmod is -1 (or invalid), use the actual string length */
+	/* 若 typmod 为 -1 或无效，则用实际字符串长度 */
 	if (atttypmod < (int32) VARHDRSZ)
 		maxlen = len;
 	else
 	{
-		size_t		charlen;	/* number of CHARACTERS in the input */
+		size_t		charlen;	/* 输入中的字符个数 */
 
 		maxlen = atttypmod - VARHDRSZ;
 		charlen = pg_mbstrlen_with_len(s, len);
 		if (charlen > maxlen)
 		{
-			/* Verify that extra characters are spaces, and clip them off */
+			/* 校验多出的字符是否为空格，并将其剪除 */
 			size_t		mbmaxlen = pg_mbcharcliplen(s, len, maxlen);
 			size_t		j;
 
 			/*
-			 * at this point, len is the actual BYTE length of the input
-			 * string, maxlen is the max number of CHARACTERS allowed for this
-			 * bpchar type, mbmaxlen is the length in BYTES of those chars.
+			 * 此时，len 是输入的实际 BYTE 长度，
+			 * maxlen 是此 bpchar 类型允许的最大字符数，
+			 * mbmaxlen 是这些字符的 BYTE 长度。
 			 */
 			for (j = mbmaxlen; j < len; j++)
 			{
@@ -164,16 +164,16 @@ bpchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
 			}
 
 			/*
-			 * Now we set maxlen to the necessary byte length, not the number
-			 * of CHARACTERS!
+			 * 现在将 maxlen 设为所需的字节长度，而非
+			 * 字符数！
 			 */
 			maxlen = len = mbmaxlen;
 		}
 		else
 		{
 			/*
-			 * Now we set maxlen to the necessary byte length, not the number
-			 * of CHARACTERS!
+			 * 现在将 maxlen 设为所需的字节长度，而非
+			 * 字符数！
 			 */
 			maxlen = len + (maxlen - charlen);
 		}
@@ -184,7 +184,7 @@ bpchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
 	r = VARDATA(result);
 	memcpy(r, s, len);
 
-	/* blank pad the string if necessary */
+	/* 必要时以空格填充字符串 */
 	if (maxlen > len)
 		memset(r + len, ' ', maxlen - len);
 
@@ -192,8 +192,8 @@ bpchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
 }
 
 /*
- * Convert a C string to CHARACTER internal representation.  atttypmod
- * is the declared length of the type plus VARHDRSZ.
+ * 将 C 字符串转为 CHARACTER 内部表示。atttypmod
+ * 是类型的声明长度加上 VARHDRSZ。
  */
 Datum
 bpcharin(PG_FUNCTION_ARGS)
@@ -211,10 +211,10 @@ bpcharin(PG_FUNCTION_ARGS)
 
 
 /*
- * Convert a CHARACTER value to a C string.
+ * 将 CHARACTER 值转为 C 字符串。
  *
- * Uses the text conversion functions, which is only appropriate if BpChar
- * and text are equivalent types.
+ * 使用 text 转换函数，这仅在 BpChar 与 text 是等价
+ * 类型时才合适。
  */
 Datum
 bpcharout(PG_FUNCTION_ARGS)
@@ -225,7 +225,7 @@ bpcharout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		bpcharrecv			- converts external binary format to bpchar
+ *		bpcharrecv			- 将外部二进制格式转为 bpchar
  */
 Datum
 bpcharrecv(PG_FUNCTION_ARGS)
@@ -246,27 +246,27 @@ bpcharrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		bpcharsend			- converts bpchar to binary format
+ *		bpcharsend		- 将 bpchar 转为二进制格式
  */
 Datum
 bpcharsend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as textsend, so share code */
+	/* 与 textsend 完全相同，故共享代码 */
 	return textsend(fcinfo);
 }
 
 
 /*
- * Converts a CHARACTER type to the specified size.
+ * 将 CHARACTER 类型转换为指定大小。
  *
- * maxlen is the typmod, ie, declared length plus VARHDRSZ bytes.
- * isExplicit is true if this is for an explicit cast to char(N).
+ * maxlen 是 typmod，即声明长度加 VARHDRSZ 字节。
+ * isExplicit 为真表示这是到 char(N) 的显式转换。
  *
- * Truncation rules: for an explicit cast, silently truncate to the given
- * length; for an implicit cast, raise error unless extra characters are
- * all spaces.  (This is sort-of per SQL: the spec would actually have us
- * raise a "completion condition" for the explicit cast case, but Postgres
- * hasn't got such a concept.)
+ * 截断规则：显式转换静默截断到给定长度；隐式转换
+ * 则报错，除非多出的字符全为空格。这大致依 SQL：
+ * 标准其实要求我们对显式转换引发 "完成条件"，但
+ * Postgres 并无此概念。
+ *
  */
 Datum
 bpchar(PG_FUNCTION_ARGS)
@@ -279,10 +279,10 @@ bpchar(PG_FUNCTION_ARGS)
 	char	   *r;
 	char	   *s;
 	int			i;
-	int			charlen;		/* number of characters in the input string +
+	int			charlen;		/* 输入字符串中的字符数 +
 								 * VARHDRSZ */
 
-	/* No work if typmod is invalid */
+	/* typmod 无效时无需处理 */
 	if (maxlen < (int32) VARHDRSZ)
 		PG_RETURN_BPCHAR_P(source);
 
@@ -293,13 +293,13 @@ bpchar(PG_FUNCTION_ARGS)
 
 	charlen = pg_mbstrlen_with_len(s, len);
 
-	/* No work if supplied data matches typmod already */
+	/* 传入数据已符合 typmod 时无需处理 */
 	if (charlen == maxlen)
 		PG_RETURN_BPCHAR_P(source);
 
 	if (charlen > maxlen)
 	{
-		/* Verify that extra characters are spaces, and clip them off */
+		/* 校验多出的字符是否为空格，并将其剪除 */
 		size_t		maxmblen;
 
 		maxmblen = pg_mbcharcliplen(s, len, maxlen);
@@ -317,16 +317,16 @@ bpchar(PG_FUNCTION_ARGS)
 		len = maxmblen;
 
 		/*
-		 * At this point, maxlen is the necessary byte length, not the number
-		 * of CHARACTERS!
+		 * 此时 maxlen 即所需的字节长度，而非
+		 * 字符数！
 		 */
 		maxlen = len;
 	}
 	else
 	{
 		/*
-		 * At this point, maxlen is the necessary byte length, not the number
-		 * of CHARACTERS!
+		 * 此时 maxlen 即所需的字节长度，而非
+		 * 字符数！
 		 */
 		maxlen = len + (maxlen - charlen);
 	}
@@ -339,7 +339,7 @@ bpchar(PG_FUNCTION_ARGS)
 
 	memcpy(r, s, len);
 
-	/* blank pad the string if necessary */
+	/* 必要时以空格填充字符串 */
 	if (maxlen > len)
 		memset(r + len, ' ', maxlen - len);
 
@@ -348,7 +348,7 @@ bpchar(PG_FUNCTION_ARGS)
 
 
 /* char_bpchar()
- * Convert char to bpchar(1).
+ * char 转为 bpchar(1)。
  */
 Datum
 char_bpchar(PG_FUNCTION_ARGS)
@@ -366,7 +366,7 @@ char_bpchar(PG_FUNCTION_ARGS)
 
 
 /* bpchar_name()
- * Converts a bpchar() type to a NameData type.
+ * 将 bpchar() 类型转为 NameData 类型。
  */
 Datum
 bpchar_name(PG_FUNCTION_ARGS)
@@ -379,11 +379,11 @@ bpchar_name(PG_FUNCTION_ARGS)
 	len = VARSIZE_ANY_EXHDR(s);
 	s_data = VARDATA_ANY(s);
 
-	/* Truncate oversize input */
+	/* 截断超长输入 */
 	if (len >= NAMEDATALEN)
 		len = pg_mbcliplen(s_data, len, NAMEDATALEN - 1);
 
-	/* Remove trailing blanks */
+	/* 移除尾部空白 */
 	while (len > 0)
 	{
 		if (s_data[len - 1] != ' ')
@@ -391,7 +391,7 @@ bpchar_name(PG_FUNCTION_ARGS)
 		len--;
 	}
 
-	/* We use palloc0 here to ensure result is zero-padded */
+	/* 此处用 palloc0 确保结果零填充 */
 	result = (Name) palloc0(NAMEDATALEN);
 	memcpy(NameStr(*result), s_data, len);
 
@@ -399,10 +399,10 @@ bpchar_name(PG_FUNCTION_ARGS)
 }
 
 /* name_bpchar()
- * Converts a NameData type to a bpchar type.
+ * 将 NameData 类型转为 bpchar 类型。
  *
- * Uses the text conversion functions, which is only appropriate if BpChar
- * and text are equivalent types.
+ * 使用 text 转换函数，这仅在 BpChar 与 text 是等价
+ * 类型时才合适。
  */
 Datum
 name_bpchar(PG_FUNCTION_ARGS)
@@ -434,25 +434,25 @@ bpchartypmodout(PG_FUNCTION_ARGS)
 /*****************************************************************************
  *	 varchar - varchar(n)
  *
- * Note: varchar piggybacks on type text for most operations, and so has no
- * C-coded functions except for I/O and typmod checking.
+ * 注意：varchar 在大多数操作上借用 text 类型，因此除
+ * I/O 与 typmod 检查外没有 C 编码函数。
  *****************************************************************************/
 
 /*
- * varchar_input -- common guts of varcharin and varcharrecv
+ * varchar_input -- varcharin/varcharrecv 的公共主体
  *
- * s is the input text of length len (may not be null-terminated)
- * atttypmod is the typmod value to apply
+ * s 是长度为 len 的输入文本（未必是 NUL 结尾）
+ * atttypmod 是要应用的 typmod 值
  *
- * Note that atttypmod is measured in characters, which
- * is not necessarily the same as the number of bytes.
+ * 注意 atttypmod 的计量单位是字符，
+ * 这与字节数未必相同。
  *
- * If the input string is too long, raise an error, unless the extra
- * characters are spaces, in which case they're truncated.  (per SQL)
+ * 若输入字符串过长则报错，除非多出的字符都是
+ * 空格，此时将其截断。（依 SQL）
  *
- * If escontext points to an ErrorSaveContext node, that is filled instead
- * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()
- * to detect errors.
+ * 若 escontext 指向 ErrorSaveContext 节点，则填充该节点
+ * 而非抛出错误；调用者须检查 SOFT_ERROR_OCCURRED()
+ * 检测错误。
  */
 static VarChar *
 varchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
@@ -464,7 +464,7 @@ varchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
 
 	if (atttypmod >= (int32) VARHDRSZ && len > maxlen)
 	{
-		/* Verify that extra characters are spaces, and clip them off */
+		/* 校验多出的字符是否为空格，并将其剪除 */
 		size_t		mbmaxlen = pg_mbcharcliplen(s, len, maxlen);
 		size_t		j;
 
@@ -481,16 +481,16 @@ varchar_input(const char *s, size_t len, int32 atttypmod, Node *escontext)
 	}
 
 	/*
-	 * We can use cstring_to_text_with_len because VarChar and text are
-	 * binary-compatible types.
+	 * 可以用 cstring_to_text_with_len，因为 VarChar 与 text
+	 * 二进制兼容。
 	 */
 	result = (VarChar *) cstring_to_text_with_len(s, len);
 	return result;
 }
 
 /*
- * Convert a C string to VARCHAR internal representation.  atttypmod
- * is the declared length of the type plus VARHDRSZ.
+ * 将 C 字符串转为 VARCHAR 内部表示。atttypmod
+ * 是类型的声明长度加上 VARHDRSZ。
  */
 Datum
 varcharin(PG_FUNCTION_ARGS)
@@ -508,10 +508,10 @@ varcharin(PG_FUNCTION_ARGS)
 
 
 /*
- * Convert a VARCHAR value to a C string.
+ * 将 VARCHAR 值转为 C 字符串。
  *
- * Uses the text to C string conversion function, which is only appropriate
- * if VarChar and text are equivalent types.
+ * 使用 text 转 C 字符串的转换函数，这仅在 VarChar
+ * 与 text 是等价类型时才合适。
  */
 Datum
 varcharout(PG_FUNCTION_ARGS)
@@ -522,7 +522,7 @@ varcharout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		varcharrecv			- converts external binary format to varchar
+ *		varcharrecv			- 将外部二进制格式转为 varchar
  */
 Datum
 varcharrecv(PG_FUNCTION_ARGS)
@@ -543,12 +543,12 @@ varcharrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		varcharsend			- converts varchar to binary format
+ *		varcharsend		- 将 varchar 转为二进制格式
  */
 Datum
 varcharsend(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as textsend, so share code */
+	/* 与 textsend 完全相同，故共享代码 */
 	return textsend(fcinfo);
 }
 
@@ -556,11 +556,11 @@ varcharsend(PG_FUNCTION_ARGS)
 /*
  * varchar_support()
  *
- * Planner support function for the varchar() length coercion function.
+ * varchar() 长度强制转换函数的规划器支持函数。
  *
- * Currently, the only interesting thing we can do is flatten calls that set
- * the new maximum length >= the previous maximum length.  We can ignore the
- * isExplicit argument, since that only affects truncation cases.
+ * 目前我们能做的唯一有意义的事是把新最大长度
+ * 设为不小于旧最大长度的调用展平。isExplicit 参数可以
+ * 忽略，因为它只影响截断情形。
  */
 Datum
 varchar_support(PG_FUNCTION_ARGS)
@@ -595,16 +595,16 @@ varchar_support(PG_FUNCTION_ARGS)
 }
 
 /*
- * Converts a VARCHAR type to the specified size.
+ * 将 VARCHAR 类型转换为指定大小。
  *
- * maxlen is the typmod, ie, declared length plus VARHDRSZ bytes.
- * isExplicit is true if this is for an explicit cast to varchar(N).
+ * maxlen 是 typmod，即声明长度加 VARHDRSZ 字节。
+ * isExplicit 为真表示这是到 varchar(N) 的显式转换。
  *
- * Truncation rules: for an explicit cast, silently truncate to the given
- * length; for an implicit cast, raise error unless extra characters are
- * all spaces.  (This is sort-of per SQL: the spec would actually have us
- * raise a "completion condition" for the explicit cast case, but Postgres
- * hasn't got such a concept.)
+ * 截断规则：显式转换静默截断到给定长度；隐式转换
+ * 则报错，除非多出的字符全为空格。这大致依 SQL：
+ * 标准其实要求我们对显式转换引发 "完成条件"，但
+ * Postgres 并无此概念。
+ *
  */
 Datum
 varchar(PG_FUNCTION_ARGS)
@@ -622,13 +622,13 @@ varchar(PG_FUNCTION_ARGS)
 	s_data = VARDATA_ANY(source);
 	maxlen = typmod - VARHDRSZ;
 
-	/* No work if typmod is invalid or supplied data fits it already */
+	/* typmod 无效或传入数据已符合时无需处理 */
 	if (maxlen < 0 || len <= maxlen)
 		PG_RETURN_VARCHAR_P(source);
 
-	/* only reach here if string is too long... */
+	/* 字符串过长才会到这里… */
 
-	/* truncate multibyte string preserving multibyte boundary */
+	/* 截断多字节字符串，保留多字节边界 */
 	maxmblen = pg_mbcharcliplen(s_data, len, maxlen);
 
 	if (!isExplicit)
@@ -663,10 +663,10 @@ varchartypmodout(PG_FUNCTION_ARGS)
 
 
 /*****************************************************************************
- * Exported functions
+ * 导出函数
  *****************************************************************************/
 
-/* "True" length (not counting trailing blanks) of a BpChar */
+/* BpChar 的 "真实" 长度（不计尾部空白） */
 static inline int
 bcTruelen(BpChar *arg)
 {
@@ -679,8 +679,8 @@ bpchartruelen(char *s, int len)
 	int			i;
 
 	/*
-	 * Note that we rely on the assumption that ' ' is a singleton unit on
-	 * every supported multibyte server encoding.
+	 * 我们依赖如下假设：' ' 在所有受支持的多字节
+	 * 服务器编码上是单一单元。
 	 */
 	for (i = len - 1; i >= 0; i--)
 	{
@@ -696,10 +696,10 @@ bpcharlen(PG_FUNCTION_ARGS)
 	BpChar	   *arg = PG_GETARG_BPCHAR_PP(0);
 	int			len;
 
-	/* get number of bytes, ignoring trailing spaces */
+	/* 取字节数，忽略尾部空格 */
 	len = bcTruelen(arg);
 
-	/* in multibyte encoding, convert to number of characters */
+	/* 多字节编码时，转换为字符数 */
 	if (pg_database_encoding_max_length() != 1)
 		len = pg_mbstrlen_with_len(VARDATA_ANY(arg), len);
 
@@ -711,17 +711,17 @@ bpcharoctetlen(PG_FUNCTION_ARGS)
 {
 	Datum		arg = PG_GETARG_DATUM(0);
 
-	/* We need not detoast the input at all */
+	/* 完全无需 detoast 输入 */
 	PG_RETURN_INT32(toast_raw_datum_size(arg) - VARHDRSZ);
 }
 
 
 /*****************************************************************************
- *	Comparison Functions used for bpchar
+ *	bpchar 用的比较函数
  *
- * Note: btree indexes need these routines not to leak memory; therefore,
- * be careful to free working copies of toasted datums.  Most places don't
- * need to be so careful.
+ * 注意：btree 索引要求这些例程不泄漏内存；因此，
+ * 对 toast 化 datum 的工作副本要小心释放。大多数地方
+ * 不必如此小心。
  *****************************************************************************/
 
 static void
@@ -730,8 +730,8 @@ check_collation_set(Oid collid)
 	if (!OidIsValid(collid))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 通常意味着解析器无法解决隐式排序规则冲突，
+		 * 因此按该方式报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -765,8 +765,8 @@ bpchareq(PG_FUNCTION_ARGS)
 	if (locale_is_c || pg_locale_deterministic(mylocale))
 	{
 		/*
-		 * Since we only care about equality or not-equality, we can avoid all
-		 * the expense of strcoll() here, and just do bitwise comparison.
+		 * 由于我们只关心相等或不相等，这里可以省去
+		 * strcoll() 的开销，只做按位比较。
 		 */
 		if (len1 != len2)
 			result = false;
@@ -810,8 +810,8 @@ bpcharne(PG_FUNCTION_ARGS)
 	if (locale_is_c || pg_locale_deterministic(mylocale))
 	{
 		/*
-		 * Since we only care about equality or not-equality, we can avoid all
-		 * the expense of strcoll() here, and just do bitwise comparison.
+		 * 由于我们只关心相等或不相等，这里可以省去
+		 * strcoll() 的开销，只做按位比较。
 		 */
 		if (len1 != len2)
 			result = true;
@@ -944,7 +944,7 @@ bpchar_sortsupport(PG_FUNCTION_ARGS)
 
 	oldcontext = MemoryContextSwitchTo(ssup->ssup_cxt);
 
-	/* Use generic string SortSupport */
+	/* 用通用字符串 SortSupport */
 	varstr_sortsupport(ssup, BPCHAROID, collid);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -990,8 +990,8 @@ bpchar_smaller(PG_FUNCTION_ARGS)
 
 
 /*
- * bpchar needs a specialized hash function because we want to ignore
- * trailing blanks in comparisons.
+ * bpchar 需要专用的哈希函数，因为我们想在比较中
+ * 忽略尾部空白。
  */
 Datum
 hashbpchar(PG_FUNCTION_ARGS)
@@ -1030,21 +1030,21 @@ hashbpchar(PG_FUNCTION_ARGS)
 
 		rsize = pg_strnxfrm(buf, bsize + 1, keydata, keylen, mylocale);
 
-		/* the second call may return a smaller value than the first */
+		/* 第二次调用可能返回比第一次更小的值 */
 		if (rsize > bsize)
 			elog(ERROR, "pg_strnxfrm() returned unexpected result");
 
 		/*
-		 * In principle, there's no reason to include the terminating NUL
-		 * character in the hash, but it was done before and the behavior must
-		 * be preserved.
+		 * 原则上没理由把 NUL 终止符包含进哈希，但
+		 * 之前却这样做了，且行为必须保留。
+		 *
 		 */
 		result = hash_any((uint8_t *) buf, bsize + 1);
 
 		pfree(buf);
 	}
 
-	/* Avoid leaking memory for toasted inputs */
+	/* 避免 toast 输入的内存泄漏 */
 	PG_FREE_IF_COPY(key, 0);
 
 	return result;
@@ -1088,14 +1088,14 @@ hashbpcharextended(PG_FUNCTION_ARGS)
 
 		rsize = pg_strnxfrm(buf, bsize + 1, keydata, keylen, mylocale);
 
-		/* the second call may return a smaller value than the first */
+		/* 第二次调用可能返回比第一次更小的值 */
 		if (rsize > bsize)
 			elog(ERROR, "pg_strnxfrm() returned unexpected result");
 
 		/*
-		 * In principle, there's no reason to include the terminating NUL
-		 * character in the hash, but it was done before and the behavior must
-		 * be preserved.
+		 * 原则上没理由把 NUL 终止符包含进哈希，但
+		 * 之前却这样做了，且行为必须保留。
+		 *
 		 */
 		result = hash_any_extended((uint8_t *) buf, bsize + 1,
 								   PG_GETARG_INT64(1));
@@ -1109,11 +1109,11 @@ hashbpcharextended(PG_FUNCTION_ARGS)
 }
 
 /*
- * The following operators support character-by-character comparison
- * of bpchar datums, to allow building indexes suitable for LIKE clauses.
- * Note that the regular bpchareq/bpcharne comparison operators, and
- * regular support functions 1 and 2 with "C" collation are assumed to be
- * compatible with these!
+ * 以下算子支持对 bpchar datum 的逐字符比较，
+ * 以便构建适用于 LIKE 子句的索引。注意，常规的
+ * bpchareq/bpcharne 比较算子，以及采用 "C" 排序规则
+ * 的常规支持函数 1 和 2 被假定与这些算子兼容！
+ *
  */
 
 static int
@@ -1226,7 +1226,7 @@ btbpchar_pattern_sortsupport(PG_FUNCTION_ARGS)
 
 	oldcontext = MemoryContextSwitchTo(ssup->ssup_cxt);
 
-	/* Use generic string SortSupport, forcing "C" collation */
+	/* 用通用字符串 SortSupport（"C" 排序规则） */
 	varstr_sortsupport(ssup, BPCHAROID, C_COLLATION_OID);
 
 	MemoryContextSwitchTo(oldcontext);

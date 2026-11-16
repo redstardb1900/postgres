@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * oracle_compat.c
- *	Oracle compatible functions.
+ *	Oracle 兼容函数。
  *
  * Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -35,13 +35,13 @@ static bytea *dobyteatrim(bytea *string, bytea *set,
  *
  * lower
  *
- * Syntax:
+ * 语法:
  *
  *	 text lower(text string)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string, with all letters forced to lowercase.
+ *	 返回 string，所有字母强制为小写。
  *
  ********************************************************************/
 
@@ -66,13 +66,13 @@ lower(PG_FUNCTION_ARGS)
  *
  * upper
  *
- * Syntax:
+ * 语法:
  *
  *	 text upper(text string)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string, with all letters forced to uppercase.
+ *	 返回 string，所有字母强制为大写。
  *
  ********************************************************************/
 
@@ -97,16 +97,16 @@ upper(PG_FUNCTION_ARGS)
  *
  * initcap
  *
- * Syntax:
+ * 语法:
  *
  *	 text initcap(text string)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string, with first letter of each word in uppercase, all
- *	 other letters in lowercase. A word is defined as a sequence of
- *	 alphanumeric characters, delimited by non-alphanumeric
- *	 characters.
+ *	 返回 string，其中每个单词的首字母大写，
+ *	 其余字母小写。单词的定义是由
+ *	 字母数字字符构成、以非字母数字
+ *	 分隔。
  *
  ********************************************************************/
 
@@ -131,15 +131,15 @@ initcap(PG_FUNCTION_ARGS)
  *
  * lpad
  *
- * Syntax:
+ * 语法:
  *
  *	 text lpad(text string1, int4 len, text string2)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string1, left-padded to length len with the sequence of
- *	 characters in string2.  If len is less than the length of string1,
- *	 instead truncate (on the right) to len.
+ *	 返回 string1，用 string2 的字符序列将其向左
+ *	 填充至 len 长度。若 len 小于 string1 的长度，
+ *	 则改为（右侧）截断至 len。
  *
  ********************************************************************/
 
@@ -160,27 +160,27 @@ lpad(PG_FUNCTION_ARGS)
 				s2len;
 	int			bytelen;
 
-	/* Negative len is silently taken as zero */
+	/* len 为负时静默当作零 */
 	if (len < 0)
 		len = 0;
 
 	s1len = VARSIZE_ANY_EXHDR(string1);
 	if (s1len < 0)
-		s1len = 0;				/* shouldn't happen */
+		s1len = 0;				/* 不应发生 */
 
 	s2len = VARSIZE_ANY_EXHDR(string2);
 	if (s2len < 0)
-		s2len = 0;				/* shouldn't happen */
+		s2len = 0;				/* 不应发生 */
 
 	s1len = pg_mbstrlen_with_len(VARDATA_ANY(string1), s1len);
 
 	if (s1len > len)
-		s1len = len;			/* truncate string1 to len chars */
+		s1len = len;			/* 把 string1 截到 len 字符 */
 
 	if (s2len <= 0)
-		len = s1len;			/* nothing to pad with, so don't pad */
+		len = s1len;			/* 没有填充串，故不填充 */
 
-	/* compute worst-case output length */
+	/* 计算最坏情况输出长度 */
 	if (unlikely(pg_mul_s32_overflow(pg_database_encoding_max_length(), len,
 									 &bytelen)) ||
 		unlikely(pg_add_s32_overflow(bytelen, VARHDRSZ, &bytelen)) ||
@@ -204,7 +204,7 @@ lpad(PG_FUNCTION_ARGS)
 		memcpy(ptr_ret, ptr2, mlen);
 		ptr_ret += mlen;
 		ptr2 += mlen;
-		if (ptr2 == ptr2end)	/* wrap around at end of s2 */
+		if (ptr2 == ptr2end)	/* 到 s2 末尾时回绕 */
 			ptr2 = ptr2start;
 	}
 
@@ -229,15 +229,15 @@ lpad(PG_FUNCTION_ARGS)
  *
  * rpad
  *
- * Syntax:
+ * 语法:
  *
  *	 text rpad(text string1, int4 len, text string2)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string1, right-padded to length len with the sequence of
- *	 characters in string2.  If len is less than the length of string1,
- *	 instead truncate (on the right) to len.
+ *	 返回 string1，用 string2 的字符序列将其向右
+ *	 填充至 len 长度。若 len 小于 string1 的长度，
+ *	 则改为（右侧）截断至 len。
  *
  ********************************************************************/
 
@@ -258,27 +258,27 @@ rpad(PG_FUNCTION_ARGS)
 				s2len;
 	int			bytelen;
 
-	/* Negative len is silently taken as zero */
+	/* len 为负时静默当作零 */
 	if (len < 0)
 		len = 0;
 
 	s1len = VARSIZE_ANY_EXHDR(string1);
 	if (s1len < 0)
-		s1len = 0;				/* shouldn't happen */
+		s1len = 0;				/* 不应发生 */
 
 	s2len = VARSIZE_ANY_EXHDR(string2);
 	if (s2len < 0)
-		s2len = 0;				/* shouldn't happen */
+		s2len = 0;				/* 不应发生 */
 
 	s1len = pg_mbstrlen_with_len(VARDATA_ANY(string1), s1len);
 
 	if (s1len > len)
-		s1len = len;			/* truncate string1 to len chars */
+		s1len = len;			/* 把 string1 截到 len 字符 */
 
 	if (s2len <= 0)
-		len = s1len;			/* nothing to pad with, so don't pad */
+		len = s1len;			/* 没有填充串，故不填充 */
 
-	/* compute worst-case output length */
+	/* 计算最坏情况输出长度 */
 	if (unlikely(pg_mul_s32_overflow(pg_database_encoding_max_length(), len,
 									 &bytelen)) ||
 		unlikely(pg_add_s32_overflow(bytelen, VARHDRSZ, &bytelen)) ||
@@ -313,7 +313,7 @@ rpad(PG_FUNCTION_ARGS)
 		memcpy(ptr_ret, ptr2, mlen);
 		ptr_ret += mlen;
 		ptr2 += mlen;
-		if (ptr2 == ptr2end)	/* wrap around at end of s2 */
+		if (ptr2 == ptr2end)	/* 到 s2 末尾时回绕 */
 			ptr2 = ptr2start;
 	}
 
@@ -327,14 +327,14 @@ rpad(PG_FUNCTION_ARGS)
  *
  * btrim
  *
- * Syntax:
+ * 语法:
  *
  *	 text btrim(text string, text set)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string with characters removed from the front and back
- *	 up to the first character not in set.
+ *	 返回 string，将其从头、尾两端移除字符，
+ *	 直到不在 set 中的首字符。
  *
  ********************************************************************/
 
@@ -354,7 +354,7 @@ btrim(PG_FUNCTION_ARGS)
 
 /********************************************************************
  *
- * btrim1 --- btrim with set fixed as ' '
+ * btrim1 --- set 固定为 ' ' 的 btrim
  *
  ********************************************************************/
 
@@ -372,7 +372,7 @@ btrim1(PG_FUNCTION_ARGS)
 }
 
 /*
- * Common implementation for btrim, ltrim, rtrim
+ * btrim、ltrim、rtrim 的公共实现
  */
 static text *
 dotrim(const char *string, int stringlen,
@@ -381,15 +381,15 @@ dotrim(const char *string, int stringlen,
 {
 	int			i;
 
-	/* Nothing to do if either string or set is empty */
+	/* string 或 set 为空时无事可做 */
 	if (stringlen > 0 && setlen > 0)
 	{
 		if (pg_database_encoding_max_length() > 1)
 		{
 			/*
-			 * In the multibyte-encoding case, build arrays of pointers to
-			 * character starts, so that we can avoid inefficient checks in
-			 * the inner loops.
+			 * 多字节编码情形下，构建指向各字符起始
+			 * 位置的指针数组，从而避免内层循环里的
+			 * 低效检查。
 			 */
 			const char **stringchars;
 			const char **setchars;
@@ -433,7 +433,7 @@ dotrim(const char *string, int stringlen,
 				len -= mblen;
 			}
 
-			resultndx = 0;		/* index in stringchars[] */
+			resultndx = 0;		/* stringchars[] 下标 */
 			resultnchars = stringnchars;
 
 			if (doltrim)
@@ -449,7 +449,7 @@ dotrim(const char *string, int stringlen,
 							break;
 					}
 					if (i >= setnchars)
-						break;	/* no match here */
+						break;	/* 无匹配 */
 					string += str_len;
 					stringlen -= str_len;
 					resultndx++;
@@ -470,7 +470,7 @@ dotrim(const char *string, int stringlen,
 							break;
 					}
 					if (i >= setnchars)
-						break;	/* no match here */
+						break;	/* 无匹配 */
 					stringlen -= str_len;
 					resultnchars--;
 				}
@@ -484,7 +484,7 @@ dotrim(const char *string, int stringlen,
 		else
 		{
 			/*
-			 * In the single-byte-encoding case, we don't need such overhead.
+			 * 单字节编码情形下无需这种额外开销。
 			 */
 			if (doltrim)
 			{
@@ -498,7 +498,7 @@ dotrim(const char *string, int stringlen,
 							break;
 					}
 					if (i >= setlen)
-						break;	/* no match here */
+						break;	/* 无匹配 */
 					string++;
 					stringlen--;
 				}
@@ -516,19 +516,19 @@ dotrim(const char *string, int stringlen,
 							break;
 					}
 					if (i >= setlen)
-						break;	/* no match here */
+						break;	/* 无匹配 */
 					stringlen--;
 				}
 			}
 		}
 	}
 
-	/* Return selected portion of string */
+	/* 返回选中的字符串片段 */
 	return cstring_to_text_with_len(string, stringlen);
 }
 
 /*
- * Common implementation for bytea versions of btrim, ltrim, rtrim
+ * btrim、ltrim、rtrim 的 bytea 版本公共实现
  */
 bytea *
 dobyteatrim(bytea *string, bytea *set, bool doltrim, bool dortrim)
@@ -601,16 +601,16 @@ dobyteatrim(bytea *string, bytea *set, bool doltrim, bool dortrim)
  *
  * byteatrim
  *
- * Syntax:
+ * 语法:
  *
  *	 bytea byteatrim(bytea string, bytea set)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string with characters removed from the front and back
- *	 up to the first character not in set.
+ *	 返回 string，将其从头、尾两端移除字符，
+ *	 直到不在 set 中的首字符。
  *
- * Cloned from btrim and modified as required.
+ * 从 btrim 克隆并按需修改。
  ********************************************************************/
 
 Datum
@@ -629,14 +629,14 @@ byteatrim(PG_FUNCTION_ARGS)
  *
  * bytealtrim
  *
- * Syntax:
+ * 语法:
  *
  *	 bytea bytealtrim(bytea string, bytea set)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string with initial characters removed up to the first
- *	 character not in set.
+ *	 返回 string，移除起始字符直到不在 set 中的
+ *	 首个字符为止。
  *
  ********************************************************************/
 
@@ -656,14 +656,14 @@ bytealtrim(PG_FUNCTION_ARGS)
  *
  * byteartrim
  *
- * Syntax:
+ * 语法:
  *
  *	 bytea byteartrim(bytea string, bytea set)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string with final characters removed after the last
- *	 character not in set.
+ *	 返回 string，删去末尾字符，直到最后一个
+ *	 不在 set 即止。
  *
  ********************************************************************/
 
@@ -683,14 +683,14 @@ byteartrim(PG_FUNCTION_ARGS)
  *
  * ltrim
  *
- * Syntax:
+ * 语法:
  *
  *	 text ltrim(text string, text set)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string with initial characters removed up to the first
- *	 character not in set.
+ *	 返回 string，移除起始字符直到不在 set 中的
+ *	 首个字符为止。
  *
  ********************************************************************/
 
@@ -710,7 +710,7 @@ ltrim(PG_FUNCTION_ARGS)
 
 /********************************************************************
  *
- * ltrim1 --- ltrim with set fixed as ' '
+ * ltrim1 --- set 固定为 ' ' 的 ltrim
  *
  ********************************************************************/
 
@@ -731,14 +731,14 @@ ltrim1(PG_FUNCTION_ARGS)
  *
  * rtrim
  *
- * Syntax:
+ * 语法:
  *
  *	 text rtrim(text string, text set)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string with final characters removed after the last
- *	 character not in set.
+ *	 返回 string，删去末尾字符，直到最后一个
+ *	 不在 set 即止。
  *
  ********************************************************************/
 
@@ -758,7 +758,7 @@ rtrim(PG_FUNCTION_ARGS)
 
 /********************************************************************
  *
- * rtrim1 --- rtrim with set fixed as ' '
+ * rtrim1 --- set 固定为 ' ' 的 rtrim
  *
  ********************************************************************/
 
@@ -780,16 +780,16 @@ rtrim1(PG_FUNCTION_ARGS)
  *
  * translate
  *
- * Syntax:
+ * 语法:
  *
  *	 text translate(text string, text from, text to)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns string after replacing all occurrences of characters in from
- *	 with the corresponding character in to.  If from is longer than to,
- *	 occurrences of the extra characters in from are deleted.
- *	 Improved by Edwin Ramirez <ramirez@doc.mssm.edu>.
+ *	 返回 string，将 from 中出现的所有字符替换为
+ *	 to 中对应的字符。若 from 比 to 长，
+ *	 则 from 中多出字符的出现处会被删除。
+ *	 改进：Edwin Ramirez <ramirez@doc.mssm.edu>。
  *
  ********************************************************************/
 
@@ -827,8 +827,8 @@ translate(PG_FUNCTION_ARGS)
 	to_end = to_ptr + tolen;
 
 	/*
-	 * The worst-case expansion is to substitute a max-length character for a
-	 * single-byte character at each position of the string.
+	 * 最坏情况的膨胀是：在字符串的每个位置
+	 * 用一个最长字符替换一个单字节字符。
 	 */
 	if (unlikely(pg_mul_s32_overflow(pg_database_encoding_max_length(), m,
 									 &bytelen)) ||
@@ -859,7 +859,7 @@ translate(PG_FUNCTION_ARGS)
 		}
 		if (i < fromlen)
 		{
-			/* substitute, or delete if no corresponding "to" character */
+			/* 替换，或在没有对应 "to" 字符时删除 */
 			char	   *p = to_ptr;
 
 			for (i = 0; i < from_index; i++)
@@ -878,7 +878,7 @@ translate(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* no match, so copy */
+			/* 无匹配, 复制 */
 			memcpy(target, source, source_len);
 			target += source_len;
 			retlen += source_len;
@@ -891,9 +891,9 @@ translate(PG_FUNCTION_ARGS)
 	SET_VARSIZE(result, retlen + VARHDRSZ);
 
 	/*
-	 * The function result is probably much bigger than needed, if we're using
-	 * a multibyte encoding, but it's not worth reallocating it; the result
-	 * probably won't live long anyway.
+	 * 若使用多字节编码，函数结果的长度很可能远大于
+	 * 实际所需，但不值得为此重新分配内存；反正结果
+	 * 大概也存不了多久。
 	 */
 
 	PG_RETURN_TEXT_P(result);
@@ -903,21 +903,21 @@ translate(PG_FUNCTION_ARGS)
  *
  * ascii
  *
- * Syntax:
+ * 语法:
  *
  *	 int ascii(text string)
  *
- * Purpose:
+ * 目的:
  *
- *	 Returns the decimal representation of the first character from
- *	 string.
- *	 If the string is empty we return 0.
- *	 If the database encoding is UTF8, we return the Unicode codepoint.
- *	 If the database encoding is any other multi-byte encoding, we
- *	 return the value of the first byte if it is an ASCII character
- *	 (range 1 .. 127), or raise an error.
- *	 For all other encodings we return the value of the first byte,
- *	 (range 1..255).
+ *	 返回 string 首字符的十进制表示。
+ *
+ *	 若 string 为空则返回 0。
+ *	 若数据库编码为 UTF8，则返回 Unicode 码点。
+ *	 若数据库编码为其他多字节编码，当首字节
+ *	 为 ASCII 字符（范围 1..127）时返回其值，
+ *	 否则报错。
+ *	 对于所有其他编码，返回首字节的值在范围
+ *	 1..255 内。
  *
  ********************************************************************/
 
@@ -935,7 +935,7 @@ ascii(PG_FUNCTION_ARGS)
 
 	if (encoding == PG_UTF8 && *data > 127)
 	{
-		/* return the code point for Unicode */
+		/* 返回 Unicode 的码点 */
 
 		int			result = 0,
 					tbytes = 0,
@@ -984,21 +984,21 @@ ascii(PG_FUNCTION_ARGS)
  *
  * chr
  *
- * Syntax:
+ * 语法:
  *
  *	 text chr(int val)
  *
- * Purpose:
+ * 目的:
  *
- *	Returns the character having the binary equivalent to val.
+ *	返回与 val 二进制等值的字符。
  *
- * For UTF8 we treat the argument as a Unicode code point.
- * For other multi-byte encodings we raise an error for arguments
- * outside the strict ASCII range (1..127).
+ * 对 UTF8，参数视为 Unicode 码点。
+ * 对其他多字节编码，参数超出严格 ASCII 范围
+ * （1..127）时会报错。
  *
- * It's important that we don't ever return a value that is not valid
- * in the database encoding, so that this doesn't become a way for
- * invalid data to enter the database.
+ * 关键在于我们绝不能返回在数据库编码中
+ * 无效的值，以免它成为无效数据进入数据库
+ * 的途径。
  *
  ********************************************************************/
 
@@ -1011,8 +1011,8 @@ chr			(PG_FUNCTION_ARGS)
 	int			encoding = GetDatabaseEncoding();
 
 	/*
-	 * Error out on arguments that make no sense or that we can't validly
-	 * represent in the encoding.
+	 * 对无意义或无法在当前编码中有效表示的
+	 * 参数报错。
 	 */
 	if (arg < 0)
 		ereport(ERROR,
@@ -1027,13 +1027,13 @@ chr			(PG_FUNCTION_ARGS)
 
 	if (encoding == PG_UTF8 && cvalue > 127)
 	{
-		/* for Unicode we treat the argument as a code point */
+		/* 对 Unicode，参数被视为码点 */
 		int			bytes;
 		unsigned char *wch;
 
 		/*
-		 * We only allow valid Unicode code points; per RFC3629 that stops at
-		 * U+10FFFF, even though 4-byte UTF8 sequences can hold values up to
+		 * 我们只允许有效的 Unicode 码点；按 RFC3629，上界
+		 * 为 U+10FFFF，尽管 4 字节 UTF8 序列可容纳到
 		 * U+1FFFFF.
 		 */
 		if (cvalue > 0x0010ffff)
@@ -1073,8 +1073,8 @@ chr			(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * The preceding range check isn't sufficient, because UTF8 excludes
-		 * Unicode "surrogate pair" codes.  Make sure what we created is valid
+		 * 前面的范围检查并不充分，因为 UTF8 排除
+		 * Unicode "代理对"码。需确保所构造的结果为有效
 		 * UTF8.
 		 */
 		if (!pg_utf8_islegal(wch, bytes))
@@ -1107,13 +1107,13 @@ chr			(PG_FUNCTION_ARGS)
  *
  * repeat
  *
- * Syntax:
+ * 语法:
  *
  *	 text repeat(text string, int val)
  *
- * Purpose:
+ * 目的:
  *
- *	Repeat string by val.
+ *	按 val 重复。
  *
  ********************************************************************/
 

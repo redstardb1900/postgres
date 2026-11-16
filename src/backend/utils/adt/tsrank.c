@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsrank.c
- *		rank tsvector by tsquery
+ *		按 tsquery 排 tsvector
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -38,7 +38,7 @@ static float calc_rank_or(const float *w, TSVector t, TSQuery q);
 static float calc_rank_and(const float *w, TSVector t, TSQuery q);
 
 /*
- * Returns a weight of a word collocation
+ * 返回词搭配的权重
  */
 static float4
 word_distance(int32 w)
@@ -78,9 +78,9 @@ cnt_length(TSVector t)
 
 
 /*
- * Returns a pointer to a WordEntry's array corresponding to 'item' from
- * tsvector 't'. 'q' is the TSQuery containing 'item'.
- * Returns NULL if not found.
+ * 返回与 tsvector 't' 中 'item' 对应的
+ * WordEntry 数组指针。'q' 是包含 'item' 的
+ * TSQuery。若无则NULL。
  */
 static WordEntry *
 find_wordentry(TSVector t, TSQuery q, QueryOperand *item, int32 *nitem)
@@ -92,7 +92,7 @@ find_wordentry(TSVector t, TSQuery q, QueryOperand *item, int32 *nitem)
 
 	*nitem = 0;
 
-	/* Loop invariant: StopLow <= item < StopHigh */
+	/* 循环不变式 StopLow <= item < StopHigh */
 	while (StopLow < StopHigh)
 	{
 		StopMiddle = StopLow + (StopHigh - StopLow) / 2;
@@ -129,7 +129,7 @@ find_wordentry(TSVector t, TSQuery q, QueryOperand *item, int32 *nitem)
 
 
 /*
- * sort QueryOperands by (length, word)
+ * 按长度与词排序 QueryOperands
  */
 static int
 compareQueryOperand(const void *a, const void *b, void *arg)
@@ -144,11 +144,11 @@ compareQueryOperand(const void *a, const void *b, void *arg)
 }
 
 /*
- * Returns a sorted, de-duplicated array of QueryOperands in a query.
- * The returned QueryOperands are pointers to the original QueryOperands
- * in the query.
+ * 返回查询中已排序、去重的 QueryOperand 数组。
+ * 返回的 QueryOperand 是指向查询中原始 QueryOperand
+ * 的指针。
  *
- * Length of the returned array is stored in *size
+ * 返回数组的长度存放在 *size 中
  */
 static QueryOperand **
 SortAndUniqItems(TSQuery q, int *size)
@@ -161,7 +161,7 @@ SortAndUniqItems(TSQuery q, int *size)
 
 	ptr = res = (QueryOperand **) palloc(sizeof(QueryOperand *) * *size);
 
-	/* Collect all operands from the tree to res */
+	/* 将树中所有操作数收进 res */
 	while ((*size)--)
 	{
 		if (item->type == QI_VAL)
@@ -181,7 +181,7 @@ SortAndUniqItems(TSQuery q, int *size)
 	ptr = res + 1;
 	prevptr = res;
 
-	/* remove duplicates */
+	/* 去除重复项 */
 	while (ptr - res < *size)
 	{
 		if (compareQueryOperand((void *) ptr, (void *) prevptr, (void *) operand) != 0)
@@ -226,7 +226,7 @@ calc_rank_and(const float *w, TSVector t, TSQuery q)
 	}
 	pos = (WordEntryPosVector **) palloc0(sizeof(WordEntryPosVector *) * q->size);
 
-	/* A dummy WordEntryPos array to use when haspos is false */
+	/* haspos 为假时使用的哑 WordEntryPos 数组 */
 	posnull.npos = 1;
 	posnull.pos[0] = 0;
 	WEP_SETPOS(posnull.pos[0], MAXENTRYPOS - 1);
@@ -294,7 +294,7 @@ calc_rank_or(const float *w, TSVector t, TSQuery q)
 	QueryOperand **item;
 	int			size = q->size;
 
-	/* A dummy WordEntryPos array to use when haspos is false */
+	/* haspos 为假时使用的哑 WordEntryPos 数组 */
 	posnull.npos = 1;
 	posnull.pos[0] = 0;
 
@@ -338,8 +338,8 @@ calc_rank_or(const float *w, TSVector t, TSQuery q)
 /*
 			limit (sum(1/i^2),i=1,inf) = pi^2/6
 			resj = sum(wi/i^2),i=1,noccurrence,
-			wi - should be sorted desc,
-			don't sort for now, just choose maximum weight. This should be corrected
+			wi 应按降序排序，
+			眼下不做排序，只选取最大权重。这一点有待修正。
 			Oleg Bartunov
 */
 			res = res + (wjm + resj - wjm / ((jm + 1) * (jm + 1))) / 1.64493406685;
@@ -363,7 +363,7 @@ calc_rank(const float *w, TSVector t, TSQuery q, int32 method)
 	if (!t->size || !q->size)
 		return 0.0;
 
-	/* XXX: What about NOT? */
+	/* XXX: 那 NOT 呢？ */
 	res = (item->type == QI_OPR && (item->qoperator.oper == OP_AND ||
 									item->qoperator.oper == OP_PHRASE)) ?
 		calc_rank_and(w, t, q) :
@@ -382,7 +382,7 @@ calc_rank(const float *w, TSVector t, TSQuery q, int32 method)
 			res /= (float) len;
 	}
 
-	/* RANK_NORM_EXTDIST not applicable */
+	/* RANK_NORM_EXTDIST 不适用 */
 
 	if ((method & RANK_NORM_UNIQ) && t->size > 0)
 		res /= (float) (t->size);
@@ -501,13 +501,13 @@ typedef struct
 	union
 	{
 		struct
-		{						/* compiled doc representation */
+		{						/* 已编译的文档表示 */
 			QueryItem **items;
 			int16		nitem;
 		}			query;
 		struct
-		{						/* struct is used for preparing doc
-								 * representation */
+		{						/* 该结构用于准备文档
+								 * 表示 */
 			QueryItem  *item;
 			WordEntry  *entry;
 		}			map;
@@ -541,8 +541,8 @@ compareDocR(const void *va, const void *vb)
 typedef struct
 {
 	bool		operandexists;
-	bool		reverseinsert;	/* indicates insert order, true means
-								 * descending order */
+	bool		reverseinsert;	/* 指示插入顺序，true 即
+								 * 为降序 */
 	uint32		npos;
 	WordEntryPos pos[MAXQROPOS];
 } QueryRepresentationOperand;
@@ -557,7 +557,7 @@ typedef struct
 	( (q)->operandData + (((QueryItem*)(v)) - GETQUERY((q)->query)) )
 
 /*
- * TS_execute callback for matching a tsquery operand to QueryRepresentation
+ * TS_execute 回调：将 tsquery 操作数匹配到 QueryRepresentation
  */
 static TSTernaryValue
 checkcondition_QueryOperand(void *checkval, QueryOperand *val,
@@ -650,8 +650,8 @@ Cover(DocRepresentation *doc, int len, QueryRepresentation *qr, CoverExt *ext)
 	bool		found = false;
 
 	/*
-	 * since this function recurses, it could be driven to stack overflow.
-	 * (though any decent compiler will optimize away the tail-recursion.
+	 * 由于本函数会递归，可能被逼到栈溢出的地步。
+	 * （尽管像样的编译器都会优化掉尾递归。）
 	 */
 	check_stack_depth();
 
@@ -661,7 +661,7 @@ Cover(DocRepresentation *doc, int len, QueryRepresentation *qr, CoverExt *ext)
 	ext->q = 0;
 	ptr = doc + ext->pos;
 
-	/* find upper bound of cover from current position, move up */
+	/* 从当前位置起查找覆盖的上界，向上移动 */
 	while (ptr - doc < len)
 	{
 		fillQueryRepresentationData(qr, ptr);
@@ -688,11 +688,11 @@ Cover(DocRepresentation *doc, int len, QueryRepresentation *qr, CoverExt *ext)
 
 	ptr = doc + lastpos;
 
-	/* find lower bound of cover from found upper bound, move down */
+	/* 从已找到的上界查找覆盖下界，向下移动 */
 	while (ptr >= doc + ext->pos)
 	{
 		/*
-		 * we scan doc from right to left, so pos info in reverse order!
+		 * doc 从右向左扫描，因此 pos 信息为倒序！
 		 */
 		fillQueryRepresentationData(qr, ptr);
 
@@ -712,8 +712,8 @@ Cover(DocRepresentation *doc, int len, QueryRepresentation *qr, CoverExt *ext)
 	if (ext->p <= ext->q)
 	{
 		/*
-		 * set position for next try to next lexeme after beginning of found
-		 * cover
+		 * 把下次尝试的位置设为已找到的覆盖开头之后。
+		 *
 		 */
 		ext->pos = (ptr - doc) + 1;
 		return true;
@@ -730,7 +730,7 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 	WordEntry  *entry,
 			   *firstentry;
 	WordEntryPos *post;
-	int32		dimt,			/* number of 'post' items */
+	int32		dimt,			/* 'post' 项的数目 */
 				j,
 				i,
 				nitem;
@@ -741,8 +741,8 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 	doc = (DocRepresentation *) palloc(sizeof(DocRepresentation) * len);
 
 	/*
-	 * Iterate through query to make DocRepresentation for words and it's
-	 * entries satisfied by query
+	 * 遍历查询，为词及其满足查询的条目构造
+	 * DocRepresentation
 	 */
 	for (i = 0; i < qr->query->size; i++)
 	{
@@ -757,7 +757,7 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 		if (!entry)
 			continue;
 
-		/* iterations over entries in tsvector */
+		/* 在 tsvector 中遍历各条目 */
 		while (entry - firstentry < nitem)
 		{
 			if (entry->haspos)
@@ -767,7 +767,7 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 			}
 			else
 			{
-				/* ignore words without positions */
+				/* 忽略没有位置的词 */
 				entry++;
 				continue;
 			}
@@ -778,7 +778,7 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 				doc = (DocRepresentation *) repalloc(doc, sizeof(DocRepresentation) * len);
 			}
 
-			/* iterations over entry's positions */
+			/* 遍历该条目的各个位置 */
 			for (j = 0; j < dimt; j++)
 			{
 				if (curoperand->weight == 0 ||
@@ -802,12 +802,12 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 					storage;
 
 		/*
-		 * Sort representation in ascending order by pos and entry
+		 * 按 pos 与 entry 将表示升序排序
 		 */
 		qsort(doc, cur, sizeof(DocRepresentation), compareDocR);
 
 		/*
-		 * Join QueryItem per WordEntry and it's position
+		 * 按 WordEntry 及其位置连接 QueryItem
 		 */
 		storage.pos = doc->pos;
 		storage.data.query.items = palloc(sizeof(QueryItem *) * qr->query->size);
@@ -901,9 +901,9 @@ calc_rank_cd(const float4 *arrdata, TSVector txt, TSQuery query, int method)
 		Cpos = ((double) (ext.end - ext.begin + 1)) / InvSum;
 
 		/*
-		 * if doc are big enough then ext.q may be equal to ext.p due to limit
-		 * of positional information. In this case we approximate number of
-		 * noise word as half cover's length
+		 * 若 doc 足够大，则 ext.q 可能等于 ext.p，这是
+		 * 由于位置信息的限制所致。此时我们把噪声词的
+		 * 数目近似覆盖长度之半
 		 */
 		nNoise = (ext.q - ext.p) - (ext.end - ext.begin);
 		if (nNoise < 0)
@@ -911,9 +911,9 @@ calc_rank_cd(const float4 *arrdata, TSVector txt, TSQuery query, int method)
 		Wdoc += Cpos / ((double) (1 + nNoise));
 
 		CurExtPos = ((double) (ext.q + ext.p)) / 2.0;
-		if (NExtent > 0 && CurExtPos > PrevExtPos	/* prevent division by
-													 * zero in a case of
-			  * multiple lexize */ )
+		if (NExtent > 0 && CurExtPos > PrevExtPos	/* 防止
+													 * 在多个
+			  * lexize 时除零*/ )
 			SumDist += 1.0 / (CurExtPos - PrevExtPos);
 
 		PrevExtPos = CurExtPos;

@@ -1,6 +1,6 @@
 /*
  * dbsize.c
- *		Database object size functions, and related inquiries
+ *		数据库对象尺寸函数与相关查询
  *
  * Copyright (c) 2002-2023, PostgreSQL Global Development Group
  *
@@ -32,21 +32,21 @@
 #include "utils/relmapper.h"
 #include "utils/syscache.h"
 
-/* Divide by two and round away from zero */
+/* 除以二并远离零舍入 */
 #define half_rounded(x)   (((x) + ((x) < 0 ? -1 : 1)) / 2)
 
-/* Units used in pg_size_pretty functions.  All units must be powers of 2 */
+/* pg_size_pretty 函数所用的单位。所有单位必须是 2 的幂 */
 struct size_pretty_unit
 {
-	const char *name;			/* bytes, kB, MB, GB etc */
-	uint32		limit;			/* upper limit, prior to half rounding after
-								 * converting to this unit. */
-	bool		round;			/* do half rounding for this unit */
-	uint8		unitbits;		/* (1 << unitbits) bytes to make 1 of this
-								 * unit */
+	const char *name;			/* 字节 kB MB GB 等 */
+	uint32		limit;			/* 半舍入转换成该单位
+								 * 之前的上限。 */
+	bool		round;			/* 该单位做半舍入 */
+	uint8		unitbits;		/* (1 << unitbits) 字节折合 1 个单
+								 * 位 */
 };
 
-/* When adding units here also update the docs and the error message in pg_size_bytes */
+/* 在此处添加单位时，也请更新文档与 pg_size_bytes 的错误信息 */
 static const struct size_pretty_unit size_pretty_units[] = {
 	{"bytes", 10 * 1024, false, 0},
 	{"kB", 20 * 1024 - 1, true, 10},
@@ -57,20 +57,20 @@ static const struct size_pretty_unit size_pretty_units[] = {
 	{NULL, 0, false, 0}
 };
 
-/* Additional unit aliases accepted by pg_size_bytes */
+/* pg_size_bytes 接受的附加单位别名 */
 struct size_bytes_unit_alias
 {
 	const char *alias;
-	int			unit_index;		/* corresponding size_pretty_units element */
+	int			unit_index;		/* 对应的 size_pretty_units 元素 */
 };
 
-/* When adding units here also update the docs and the error message in pg_size_bytes */
+/* 在此处添加单位时，也请更新文档与 pg_size_bytes 的错误信息 */
 static const struct size_bytes_unit_alias size_bytes_aliases[] = {
 	{"B", 0},
 	{NULL}
 };
 
-/* Return physical size of directory contents, or 0 if dir doesn't exist */
+/* 返回目录内容的物理尺寸；目录不存在时返回 0 */
 static int64
 db_dir_size(const char *path)
 {
@@ -113,7 +113,7 @@ db_dir_size(const char *path)
 }
 
 /*
- * calculate size of database in all tablespaces
+ * 计算所有表空间中的数据库尺寸
  */
 static int64
 calculate_database_size(Oid dbOid)
@@ -126,8 +126,8 @@ calculate_database_size(Oid dbOid)
 	AclResult	aclresult;
 
 	/*
-	 * User must have connect privilege for target database or have privileges
-	 * of pg_read_all_stats
+	 * 用户须有目标数据库的连接权限，或拥有
+	 * pg_read_all_stats
 	 */
 	aclresult = object_aclcheck(DatabaseRelationId, dbOid, GetUserId(), ACL_CONNECT);
 	if (aclresult != ACLCHECK_OK &&
@@ -137,13 +137,13 @@ calculate_database_size(Oid dbOid)
 					   get_database_name(dbOid));
 	}
 
-	/* Shared storage in pg_global is not counted */
+	/* pg_global 中的共享存储不计入 */
 
-	/* Include pg_default storage */
+	/* 计入 pg_default 存储 */
 	snprintf(pathname, sizeof(pathname), "base/%u", dbOid);
 	totalsize = db_dir_size(pathname);
 
-	/* Scan the non-default tablespaces */
+	/* 扫描非默认表空间 */
 	snprintf(dirpath, MAXPGPATH, "pg_tblspc");
 	dirdesc = AllocateDir(dirpath);
 
@@ -196,8 +196,8 @@ pg_database_size_name(PG_FUNCTION_ARGS)
 
 
 /*
- * Calculate total size of tablespace. Returns -1 if the tablespace directory
- * cannot be found.
+ * 计算表空间的总尺寸。若表空间目录找不到，则
+ * 返回 -1。
  */
 static int64
 calculate_tablespace_size(Oid tblspcOid)
@@ -210,9 +210,9 @@ calculate_tablespace_size(Oid tblspcOid)
 	AclResult	aclresult;
 
 	/*
-	 * User must have privileges of pg_read_all_stats or have CREATE privilege
-	 * for target tablespace, either explicitly granted or implicitly because
-	 * it is default for current database.
+	 * 用户必须拥有 pg_read_all_stats 权限，或对目标
+	 * 表空间有 CREATE 权限，显式授予或因它是当前
+	 * 默认表空间而隐式获得。
 	 */
 	if (tblspcOid != MyDatabaseTableSpace &&
 		!has_privs_of_role(GetUserId(), ROLE_PG_READ_ALL_STATS))
@@ -300,10 +300,10 @@ pg_tablespace_size_name(PG_FUNCTION_ARGS)
 
 
 /*
- * calculate size of (one fork of) a relation
+ * 计算关系（某个分支）的尺寸
  *
- * Note: we can safely apply this to temp tables of other sessions, so there
- * is no check here or at the call sites for that.
+ * 注意：我们可以安全地把本函数用于其他会话的
+ * 临时表，此处与调用点均不检查。
  */
 static int64
 calculate_relation_size(RelFileLocator *rfn, BackendId backend, ForkNumber forknum)
@@ -354,11 +354,11 @@ pg_relation_size(PG_FUNCTION_ARGS)
 	rel = try_relation_open(relOid, AccessShareLock);
 
 	/*
-	 * Before 9.2, we used to throw an error if the relation didn't exist, but
-	 * that makes queries like "SELECT pg_relation_size(oid) FROM pg_class"
-	 * less robust, because while we scan pg_class with an MVCC snapshot,
-	 * someone else might drop the table. It's better to return NULL for
-	 * already-dropped tables than throw an error and abort the whole query.
+	 * 在 9.2 之前，若关系不存在我们会抛出错误，但这
+	 * 会让形如 "SELECT pg_relation_size(oid) FROM pg_class"
+	 * 的查询不够健壮：我们用 MVCC 快照扫描
+	 * 时别人可能删掉该表。对已删除的表返回
+	 * NULL 要好于抛出错误并中止整个查询。
 	 */
 	if (rel == NULL)
 		PG_RETURN_NULL();
@@ -372,8 +372,8 @@ pg_relation_size(PG_FUNCTION_ARGS)
 }
 
 /*
- * Calculate total on-disk size of a TOAST relation, including its indexes.
- * Must not be applied to non-TOAST relations.
+ * 计算 TOAST 关系的总磁盘尺寸，包括其索引。
+ * 不得用于非 TOAST 关系。
  */
 static int64
 calculate_toast_table_size(Oid toastrelid)
@@ -386,15 +386,15 @@ calculate_toast_table_size(Oid toastrelid)
 
 	toastRel = relation_open(toastrelid, AccessShareLock);
 
-	/* toast heap size, including FSM and VM size */
+	/* toast 堆尺寸，含 FSM 和 VM 尺寸 */
 	for (forkNum = 0; forkNum <= MAX_FORKNUM; forkNum++)
 		size += calculate_relation_size(&(toastRel->rd_locator),
 										toastRel->rd_backend, forkNum);
 
-	/* toast index size, including FSM and VM size */
+	/* toast 索引尺寸，含 FSM/VM 尺寸 */
 	indexlist = RelationGetIndexList(toastRel);
 
-	/* Size is calculated using all the indexes available */
+	/* 尺寸用所有可用索引来计算 */
 	foreach(lc, indexlist)
 	{
 		Relation	toastIdxRel;
@@ -414,12 +414,12 @@ calculate_toast_table_size(Oid toastrelid)
 }
 
 /*
- * Calculate total on-disk size of a given table,
- * including FSM and VM, plus TOAST table if any.
- * Indexes other than the TOAST table's index are not included.
+ * 计算给定表的总磁盘尺寸，
+ * 包括 FSM/VM，如有 TOAST 表也计入。
+ * 除 TOAST 表索引之外的索引不计入。
  *
- * Note that this also behaves sanely if applied to an index or toast table;
- * those won't have attached toast tables, but they can have multiple forks.
+ * 注意若用于索引或 toast 表，本函数的行为也是合理的；
+ * 它们没有附接的 toast 表，但可以有多个分支。
  */
 static int64
 calculate_table_size(Relation rel)
@@ -428,14 +428,14 @@ calculate_table_size(Relation rel)
 	ForkNumber	forkNum;
 
 	/*
-	 * heap size, including FSM and VM
+	 * 堆尺寸，含 FSM 与 VM
 	 */
 	for (forkNum = 0; forkNum <= MAX_FORKNUM; forkNum++)
 		size += calculate_relation_size(&(rel->rd_locator), rel->rd_backend,
 										forkNum);
 
 	/*
-	 * Size of toast relation
+	 * toast 关系尺寸
 	 */
 	if (OidIsValid(rel->rd_rel->reltoastrelid))
 		size += calculate_toast_table_size(rel->rd_rel->reltoastrelid);
@@ -444,9 +444,9 @@ calculate_table_size(Relation rel)
 }
 
 /*
- * Calculate total on-disk size of all indexes attached to the given table.
+ * 计算附接到给定表的所有索引的总磁盘尺寸。
  *
- * Can be applied safely to an index, but you'll just get zero.
+ * 可安全地用于索引，但只会得到零。
  */
 static int64
 calculate_indexes_size(Relation rel)
@@ -454,7 +454,7 @@ calculate_indexes_size(Relation rel)
 	int64		size = 0;
 
 	/*
-	 * Aggregate all indexes on the given relation
+	 * 聚合给定关系上的所有索引
 	 */
 	if (rel->rd_rel->relhasindex)
 	{
@@ -522,8 +522,8 @@ pg_indexes_size(PG_FUNCTION_ARGS)
 }
 
 /*
- *	Compute the on-disk size of all files for the relation,
- *	including heap data, index data, toast data, FSM, VM.
+ *	计算关系所有文件的磁盘尺寸，
+ *	包括堆、索引、toast 数据、FSM、VM。
  */
 static int64
 calculate_total_relation_size(Relation rel)
@@ -531,13 +531,13 @@ calculate_total_relation_size(Relation rel)
 	int64		size;
 
 	/*
-	 * Aggregate the table size, this includes size of the heap, toast and
-	 * toast index with free space and visibility map
+	 * 聚合表尺寸，其中包括堆、toast 以及
+	 * toast 索引与空闲空间和可见性图
 	 */
 	size = calculate_table_size(rel);
 
 	/*
-	 * Add size of all attached indexes as well
+	 * 再加上所有附接索引的尺寸
 	 */
 	size += calculate_indexes_size(rel);
 
@@ -564,7 +564,7 @@ pg_total_relation_size(PG_FUNCTION_ARGS)
 }
 
 /*
- * formatting with size units
+ * 以尺寸单位格式化
  */
 Datum
 pg_size_pretty(PG_FUNCTION_ARGS)
@@ -579,8 +579,8 @@ pg_size_pretty(PG_FUNCTION_ARGS)
 		uint64		abs_size = size < 0 ? 0 - (uint64) size : (uint64) size;
 
 		/*
-		 * Use this unit if there are no more units or the absolute size is
-		 * below the limit for the current unit.
+		 * 若已无更多单位或绝对尺寸低于当前单位
+		 * 的限制时，使用该单位。
 		 */
 		if (unit[1].name == NULL || abs_size < unit->limit)
 		{
@@ -592,13 +592,13 @@ pg_size_pretty(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Determine the number of bits to use to build the divisor.  We may
-		 * need to use 1 bit less than the difference between this and the
-		 * next unit if the next unit uses half rounding.  Or we may need to
-		 * shift an extra bit if this unit uses half rounding and the next one
-		 * does not.  We use division rather than shifting right by this
-		 * number of bits to ensure positive and negative values are rounded
-		 * in the same way.
+		 * 确定构造除数所用的位数。若下一级单位做半
+		 * 舍入，就要比本级与下一级的差值少用 1 位。
+		 * 或者，若本级做半舍入而下一级不做，
+		 * 就额外多移 1 位。为此我们用除法而不是
+		 * 按此位数右移，以确保正值与负值能
+		 * 以相同的方式
+		 * 舍入。
 		 */
 		bits = (unit[1].unitbits - unit->unitbits - (unit[1].round == true)
 				+ (unit->round == true));
@@ -680,7 +680,7 @@ pg_size_pretty_numeric(PG_FUNCTION_ARGS)
 	{
 		unsigned int shiftby;
 
-		/* use this unit if there are no more units or we're below the limit */
+		/* 若已无更多单位或已低于该限制，就用此单位 */
 		if (unit[1].name == NULL ||
 			numeric_is_less(numeric_absolute(size),
 							int64_to_numeric(unit->limit)))
@@ -693,11 +693,11 @@ pg_size_pretty_numeric(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Determine the number of bits to use to build the divisor.  We may
-		 * need to use 1 bit less than the difference between this and the
-		 * next unit if the next unit uses half rounding.  Or we may need to
-		 * shift an extra bit if this unit uses half rounding and the next one
-		 * does not.
+		 * 确定构造除数所用的位数。若下一级单位做半
+		 * 舍入，就要比本级与下一级的差少用 1 位；
+		 * 或者，若本级做半舍入而下一级不做，
+		 * 就额外多移 1 位。
+		 *
 		 */
 		shiftby = (unit[1].unitbits - unit->unitbits - (unit[1].round == true)
 				   + (unit->round == true));
@@ -708,7 +708,7 @@ pg_size_pretty_numeric(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert a human-readable size to a size in bytes
+ * 把人类可读的尺寸转换为字节数
  */
 Datum
 pg_size_bytes(PG_FUNCTION_ARGS)
@@ -724,19 +724,19 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 
 	str = text_to_cstring(arg);
 
-	/* Skip leading whitespace */
+	/* 跳过前导空白 */
 	strptr = str;
 	while (isspace((unsigned char) *strptr))
 		strptr++;
 
-	/* Check that we have a valid number and determine where it ends */
+	/* 检查数字是否有效，并确定其结束位置 */
 	endptr = strptr;
 
-	/* Part (1): sign */
+	/* (1)：符号 */
 	if (*endptr == '-' || *endptr == '+')
 		endptr++;
 
-	/* Part (2): main digit string */
+	/* (2)：主要数字串 */
 	if (isdigit((unsigned char) *endptr))
 	{
 		have_digits = true;
@@ -745,7 +745,7 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 		while (isdigit((unsigned char) *endptr));
 	}
 
-	/* Part (3): optional decimal point and fractional digits */
+	/* (3)：可选的小数点与小数位 */
 	if (*endptr == '.')
 	{
 		endptr++;
@@ -758,31 +758,31 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Complain if we don't have a valid number at this point */
+	/* 若此时没有有效数字则报错 */
 	if (!have_digits)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("invalid size: \"%s\"", str)));
 
-	/* Part (4): optional exponent */
+	/* (4)：可选的指数 */
 	if (*endptr == 'e' || *endptr == 'E')
 	{
 		long		exponent;
 		char	   *cp;
 
 		/*
-		 * Note we might one day support EB units, so if what follows 'E'
-		 * isn't a number, just treat it all as a unit to be parsed.
+		 * 注意我们日后可能支持 EB 单位，若 'E' 后面
+		 * 跟的不是数字，就整体当单位来解析。
 		 */
 		exponent = strtol(endptr + 1, &cp, 10);
-		(void) exponent;		/* Silence -Wunused-result warnings */
+		(void) exponent;		/* 消除 -Wunused-result 警告 */
 		if (cp > endptr + 1)
 			endptr = cp;
 	}
 
 	/*
-	 * Parse the number, saving the next character, which may be the first
-	 * character of the unit string.
+	 * 解析数字，保存下一字符，其可能是单位
+	 * 串的首字符。
 	 */
 	saved_char = *endptr;
 	*endptr = '\0';
@@ -794,18 +794,18 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 
 	*endptr = saved_char;
 
-	/* Skip whitespace between number and unit */
+	/* 跳过数字与单位之间的空白 */
 	strptr = endptr;
 	while (isspace((unsigned char) *strptr))
 		strptr++;
 
-	/* Handle possible unit */
+	/* 处理潜在单位 */
 	if (*strptr != '\0')
 	{
 		const struct size_pretty_unit *unit;
 		int64		multiplier = 0;
 
-		/* Trim any trailing whitespace */
+		/* 去除尾随空白 */
 		endptr = str + VARSIZE_ANY_EXHDR(arg) - 1;
 
 		while (isspace((unsigned char) *endptr))
@@ -816,12 +816,12 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 
 		for (unit = size_pretty_units; unit->name != NULL; unit++)
 		{
-			/* Parse the unit case-insensitively */
+			/* 解析单位，不分大小写 */
 			if (pg_strcasecmp(strptr, unit->name) == 0)
 				break;
 		}
 
-		/* If not found, look in table of aliases */
+		/* 若未找到，则查找别名表 */
 		if (unit->name == NULL)
 		{
 			for (const struct size_bytes_unit_alias *a = size_bytes_aliases; a->alias != NULL; a++)
@@ -834,7 +834,7 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 			}
 		}
 
-		/* Verify we found a valid unit in the loop above */
+		/* 核实上面的循环找到了有效单位 */
 		if (unit->name == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -863,18 +863,18 @@ pg_size_bytes(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the filenode of a relation
+ * 获取关系的 filenode
  *
- * This is expected to be used in queries like
+ * 预期会用于形如下面的查询
  *		SELECT pg_relation_filenode(oid) FROM pg_class;
- * That leads to a couple of choices.  We work from the pg_class row alone
- * rather than actually opening each relation, for efficiency.  We don't
- * fail if we can't find the relation --- some rows might be visible in
- * the query's MVCC snapshot even though the relations have been dropped.
- * (Note: we could avoid using the catcache, but there's little point
- * because the relation mapper also works "in the now".)  We also don't
- * fail if the relation doesn't have storage.  In all these cases it
- * seems better to quietly return NULL.
+ * 这带来若干抉择。我们仅凭 pg_class 行工作，
+ * 而不是真正打开每个关系，这是为了效率。我们
+ * 找不到关系时不报错——某些行可能仍然
+ * 在查询的 MVCC 快照中可见，即使那些关系已被删除。
+ * （注意：我们可以不使用 catcache，但意义不大，
+ * 因为关系映射器同样能在"当前时刻"工作。）我们
+ * 也不会在关系没有存储时报错。在所有这些情况
+ * 下静默返回 NULL 更好。
  */
 Datum
 pg_relation_filenode(PG_FUNCTION_ARGS)
@@ -893,13 +893,13 @@ pg_relation_filenode(PG_FUNCTION_ARGS)
 	{
 		if (relform->relfilenode)
 			result = relform->relfilenode;
-		else					/* Consult the relation mapper */
+		else					/* 查询关系映射器 */
 			result = RelationMapOidToFilenumber(relid,
 												relform->relisshared);
 	}
 	else
 	{
-		/* no storage, return NULL */
+		/* 无存储，返回NULL */
 		result = InvalidRelFileNumber;
 	}
 
@@ -912,20 +912,20 @@ pg_relation_filenode(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the relation via (reltablespace, relfilenumber)
+ * 按 (reltablespace, relfilenumber) 获取关系
  *
- * This is expected to be used when somebody wants to match an individual file
- * on the filesystem back to its table. That's not trivially possible via
- * pg_class, because that doesn't contain the relfilenumbers of shared and nailed
- * tables.
+ * 预期用途是：当有人想把文件系统上的单个文件
+ * 匹配回其所属的表时使用。通过 pg_class 无法
+ * 做到，因为 pg_class 中不含共享与钉住表的编
+ * 号。
  *
- * We don't fail but return NULL if we cannot find a mapping.
+ * 若找不到映射，我们不报错而是返回 NULL。
  *
- * Temporary relations are not detected, returning NULL (see
- * RelidByRelfilenumber() for the reasons).
+ * 临时关系不会被检测到，而返回 NULL（缘由
+ * 参见 RelidByRelfilenumber()）。
  *
- * InvalidOid can be passed instead of the current database's default
- * tablespace.
+ * 也可以传入 InvalidOid 来代替当前数据库的默认表
+ * 空间。
  */
 Datum
 pg_filenode_relation(PG_FUNCTION_ARGS)
@@ -934,7 +934,7 @@ pg_filenode_relation(PG_FUNCTION_ARGS)
 	RelFileNumber relfilenumber = PG_GETARG_OID(1);
 	Oid			heaprel;
 
-	/* test needed so RelidByRelfilenumber doesn't misbehave */
+	/* 需此测试以防 RelidByRelfilenumber 行为异常 */
 	if (!RelFileNumberIsValid(relfilenumber))
 		PG_RETURN_NULL();
 
@@ -947,9 +947,9 @@ pg_filenode_relation(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the pathname (relative to $PGDATA) of a relation
+ * 获取关系的路径名（相对于 $PGDATA）
  *
- * See comments for pg_relation_filenode.
+ * 注释见 pg_relation_filenode。
  */
 Datum
 pg_relation_filepath(PG_FUNCTION_ARGS)
@@ -968,7 +968,7 @@ pg_relation_filepath(PG_FUNCTION_ARGS)
 
 	if (RELKIND_HAS_STORAGE(relform->relkind))
 	{
-		/* This logic should match RelationInitPhysicalAddr */
+		/* 此逻辑须与 RelationInitPhysicalAddr 一致 */
 		if (relform->reltablespace)
 			rlocator.spcOid = relform->reltablespace;
 		else
@@ -979,15 +979,15 @@ pg_relation_filepath(PG_FUNCTION_ARGS)
 			rlocator.dbOid = MyDatabaseId;
 		if (relform->relfilenode)
 			rlocator.relNumber = relform->relfilenode;
-		else					/* Consult the relation mapper */
+		else					/* 查询关系映射器 */
 			rlocator.relNumber = RelationMapOidToFilenumber(relid,
 															relform->relisshared);
 	}
 	else
 	{
-		/* no storage, return NULL */
+		/* 无存储，返回NULL */
 		rlocator.relNumber = InvalidRelFileNumber;
-		/* some compilers generate warnings without these next two lines */
+		/* 若没有下面这两行，某些编译器会产生警告 */
 		rlocator.dbOid = InvalidOid;
 		rlocator.spcOid = InvalidOid;
 	}
@@ -998,7 +998,7 @@ pg_relation_filepath(PG_FUNCTION_ARGS)
 		PG_RETURN_NULL();
 	}
 
-	/* Determine owning backend. */
+	/* 确定所属的后端。 */
 	switch (relform->relpersistence)
 	{
 		case RELPERSISTENCE_UNLOGGED:
@@ -1010,14 +1010,14 @@ pg_relation_filepath(PG_FUNCTION_ARGS)
 				backend = BackendIdForTempRelations();
 			else
 			{
-				/* Do it the hard way. */
+				/* 用笨办法。 */
 				backend = GetTempNamespaceBackendId(relform->relnamespace);
 				Assert(backend != InvalidBackendId);
 			}
 			break;
 		default:
 			elog(ERROR, "invalid relpersistence: %c", relform->relpersistence);
-			backend = InvalidBackendId; /* placate compiler */
+			backend = InvalidBackendId; /* 安抚编译器 */
 			break;
 	}
 

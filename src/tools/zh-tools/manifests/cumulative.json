@@ -7051,6 +7051,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0406-adt-gist-family.json",
    "kind": "manifest",
    "note": "batch-0406 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_spgist.c",
+   "kind": "c_comment",
+   "note": "范围类型 SP-GiST 索引支持 (quad tree/象限/质心/遍历值/外接框, overleft/overright 不延伸到右侧/左侧, geo_spgist 0406 同族口径); whole-file comment translation, batch-0407 (adt spg/rank/dbsize)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsrank.c",
+   "kind": "c_comment",
+   "note": "文本检索排名 (ts_rank/ts_rankcd 标识符保留, 排名/权重/归一化/词频/覆盖密度, tsvector 系口径); whole-file comment translation, batch-0407 (adt spg/rank/dbsize)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/dbsize.c",
+   "kind": "c_comment",
+   "note": "数据库尺寸函数 (表空间/关系/分支, pg_relation_size/pg_size_pretty/pg_size_bytes 标识符保留, genfile 0405 服务器函数语境); whole-file comment translation, batch-0407 (adt spg/rank/dbsize)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0407-adt-spg-rank-dbsize.json",
+   "kind": "manifest",
+   "note": "batch-0407 manifest"
   }
  ],
  "files": [
@@ -22848,6 +22868,46 @@
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0406-adt-gist-family.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch manifest (block-granularity counts)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/backend/utils/adt/rangetypes_spgist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 77,
+   "translated": 77,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "范围类型 SP-GiST 索引支持 (象限/质心/遍历值/外接框, overleft/overright 不延伸到右侧/左侧, geo_spgist 0406 同族口径); whole-file comment translation (batch-0407, adt spg/rank/dbsize); blocks=77 zh-lines=220 fill-lines=3 keep-EN-lines=24"
+  },
+  {
+   "path": "src/backend/utils/adt/tsrank.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 31,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "文本检索排名 (ts_rank/ts_rankcd 保留, 排名/权重/归一化/词频/覆盖密度, tsvector 系口径); whole-file comment translation (batch-0407, adt spg/rank/dbsize); blocks=31 zh-lines=45 fill-lines=1 keep-EN-lines=7"
+  },
+  {
+   "path": "src/backend/utils/adt/dbsize.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 68,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "数据库尺寸函数 (表空间/关系/分支, pg_relation_size/pg_size_pretty/pg_size_bytes 保留, genfile 0405 语境); whole-file comment translation (batch-0407, adt spg/rank/dbsize); blocks=68 zh-lines=120 keep-EN-lines=5"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0407-adt-spg-rank-dbsize.json",
    "kind": "manifest",
    "action": "add",
    "note": "batch manifest (block-granularity counts)",

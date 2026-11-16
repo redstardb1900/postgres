@@ -1,0 +1,88 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0407",
+ "title": "adt 目录 SP-GiST 范围/文本检索排名/数据库尺寸 3 文件整文件注释翻译 (176 blocks 注释感知: 176 zh-blocks + 0 keep-blocks, 385 zh 行 + 4 消化填充行 + 36 显式 keep-EN 行 (3 文件头部保留行共 13: 文件名/版权/IDENTIFICATION/路径 + rangetypes_spgist L62 注释掉的代码行零改动 + L78-L80 ASCII 象限示意图 3 行 + L773/L851 函数名标签行 + L809-L813 与 L831-L835 ASCII 对照表 10 行 + L871-L873 ASCII 数值示例 3 行; tsrank L339-L340 公式行 2 + L343 人名行; dbsize L869 SQL 示例行); 行数守恒 3 文件全通过 (998/1012/1029 行不变); 规划轮 2 (dump 块/行实测 77+31+68=176 块 + spec 逐行 zh + dry-run 预算/near-dup 修剪) + 写后修复轮 2 (R1: dbsize L918 P02 不能→无法; R2: 审查 D2/D3 清单——rsg L672/L694/L721 与 tsrank L716/dbsize L700 共 5 处 EN 残留桩行消化 (L694/L721 按审查文本、L672/L716/L700 因预算物理不可容 zh[现算 5B<15B] 以 ' *' 填充行消化、句在上一行收尾) + rsg L690-693/L717-720 重排 + L741-742 补 allocated in 语义 + D3 三站句号 (L551/L567/L570) + rsg L856-860 补 for this bound 限定语 + L797-799/L827-829 同步同译限定语 + L515/L534 补到 + L8 补关联动词 (关联缺口实位于 L8-9, 审查所记 L18-19 系行号笔误) + dbsize L696-700 与 L595-601 同句同译统一); tsrank dump 伪块校正: @L914 块 99 行实为 L914-L916 三行尾注释 (*/ 后随 ')'), 96 行代码零改动; 句号台账 (python 块尾现算, 终态): FILL 5 站自洽 (rsg L672/L694/L721 + tsrank L716 + dbsize L700, EN 句号随整句并入上行), FWD 2 站自洽披露 (tsrank L82 zh 句号后移至 L83 + tsrank L654 zh 句号在补闭括号内——EN '(though...tail-recursion.' 括号未闭合, zh 按全角配平补 ')'), REV 站均为 zh 句界前移/为 EN 无句号句补句号, 真违规 0; 行首标点复扫 0; 括号全角配平 3 文件全过 (rsg 11/11 tsrank 1/1 dbsize 4/4); ASCII 双引号计数 3 文件与 EN 对齐, 单引号差额为 EN 缩写撇号随译文消失; 门禁: verify_c_comments adt 54 文件 rc=0 (0 violation/0 parse; W7 本批 4 站 advisory: rsg L62 注释掉的代码行 UNTRANSLATED 属零改动设计 + rsg L734 quadrant→象限/L934 comparison→比较 语义译 + tsrank L146 QueryOperands→QueryOperand 单复数); term_lint rc=1 (1 error 为 init/postinit.c L1428 TL01 既有非本批), 本批 3 文件 0 hits; halfen adt 54 文件 30 findings rc=0, 本批终态 4 站全 class=mixed advisory (rsg L796/L826 强调星 *大于*/*小于* run=4 + tsrank L338 保留公式行 run=2 + dbsize L914 run=2; 修复前另有 rsg L687/L714 数字混排 2 站, R2 重排后消失), 其余 26 站为既有文件; 术语: spgist→SP-GiST/GiST 保留, quadrant→象限/centroid→质心/bounding box→外接框/traversal value→遍历值 (geo_spgist 0406 同族口径), bounds→边界/lower bound→下界/upper bound→上界 (rangetypes_typanalyze 口径), overleft/overright→不延伸到右侧/左侧 (geo_spgist 0406 口径), adjacent→相邻, rank→排名/weight→权重/normalization→归一化/词频/覆盖密度 (brin_minmax_multi+tsvector 系口径), ts_rank/ts_rankcd 标识符保留, tablespace→表空间/relation→关系/fork→分支 (0393 relmapper 口径), database size→数据库尺寸, operand→操作数, cover→覆盖; keep 披露: 见上; rangetypes_spgist EN L612 疑似笔误 (upper bound of range A 应为 range B) 按原文照译披露; 桩行预算主张更正: 首轮台账 tsrank L716 记 4B 实为 5B、rangetypes_spgist L742 记 23B 实为 22B, 该两主张作废 (桩行本轮已消化); review round (主会话就地修复): D2-1 残留桩行消化/D2-2 allocated in/D3 句号三站/记账订正",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "a21154b69af6ee5151bdb93fcba70056480f710d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/rangetypes_spgist.c",
+   "kind": "c_comment",
+   "note": "范围类型 SP-GiST 索引支持 (quad tree/象限/质心/遍历值/外接框, overleft/overright 不延伸到右侧/左侧, geo_spgist 0406 同族口径); whole-file comment translation, batch-0407 (adt spg/rank/dbsize)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsrank.c",
+   "kind": "c_comment",
+   "note": "文本检索排名 (ts_rank/ts_rankcd 标识符保留, 排名/权重/归一化/词频/覆盖密度, tsvector 系口径); whole-file comment translation, batch-0407 (adt spg/rank/dbsize)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/dbsize.c",
+   "kind": "c_comment",
+   "note": "数据库尺寸函数 (表空间/关系/分支, pg_relation_size/pg_size_pretty/pg_size_bytes 标识符保留, genfile 0405 服务器函数语境); whole-file comment translation, batch-0407 (adt spg/rank/dbsize)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0407-adt-spg-rank-dbsize.json",
+   "kind": "manifest",
+   "note": "this batch manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0407 entries (3 adt .c + this manifest; pure append)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/rangetypes_spgist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 77,
+   "translated": 77,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "范围类型 SP-GiST 索引支持 (象限/质心/遍历值/外接框, overleft/overright 不延伸到右侧/左侧, geo_spgist 0406 同族口径); whole-file comment translation, batch-0407; blocks=77 zh-lines=220 fill-lines=3 (L672/L694/L721 消化) keep-EN-lines=24"
+  },
+  {
+   "path": "src/backend/utils/adt/tsrank.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 31,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "文本检索排名 (ts_rank/ts_rankcd 保留, 排名/权重/归一化/词频/覆盖密度, tsvector 系口径); whole-file comment translation, batch-0407; blocks=31 zh-lines=45 fill-lines=1 (L716 消化) keep-EN-lines=7 (dump @L914 伪块校正: 实为 L914-L916 三行尾注释, 96 行代码零改动)"
+  },
+  {
+   "path": "src/backend/utils/adt/dbsize.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 68,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "数据库尺寸函数 (表空间/关系/分支, pg_relation_size/pg_size_pretty/pg_size_bytes 保留, genfile 0405 语境); whole-file comment translation, batch-0407; blocks=68 zh-lines=120 keep-EN-lines=5"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0407-adt-spg-rank-dbsize.json",
+   "kind": "manifest",
+   "action": "add",
+   "note": "batch manifest (block-granularity counts)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "note": "append batch-0407 entries (3 adt .c + this manifest; pure append)",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ]
+}

@@ -1,29 +1,29 @@
 /*-------------------------------------------------------------------------
  *
  * rangetypes_spgist.c
- *	  implementation of quad tree over ranges mapped to 2d-points for SP-GiST.
+ *	  针对映射为二维点的范围实现 SP-GiST 四叉树。
  *
- * Quad tree is a data structure similar to a binary tree, but is adapted to
- * 2d data. Each inner node of a quad tree contains a point (centroid) which
- * divides the 2d-space into 4 quadrants. Each quadrant is associated with a
- * child node.
+ * 四叉树是一种类似于二叉树、但适配于二维
+ * 数据的结构。每个内部节点都包含一个点（质心），
+ * 它把二维空间划分为 4 个象限。每个象限关联一个子
+ * 节点。
  *
- * Ranges are mapped to 2d-points so that the lower bound is one dimension,
- * and the upper bound is another. By convention, we visualize the lower bound
- * to be the horizontal axis, and upper bound the vertical axis.
+ * 把范围映射为二维点：下界作为其中一个维度，
+ * 上界作为另一个维度。按照惯例，我们把下界画成
+ * 横轴，把上界画成纵轴。
  *
- * One quirk with this mapping is the handling of empty ranges. An empty range
- * doesn't have lower and upper bounds, so it cannot be mapped to 2d space in
- * a straightforward way. To cope with that, the root node can have a 5th
- * quadrant, which is reserved for empty ranges. Furthermore, there can be
- * inner nodes in the tree with no centroid. They contain only two child nodes,
- * one for empty ranges and another for non-empty ones. Such a node can appear
- * as the root node, or in the tree under the 5th child of the root node (in
- * which case it will only contain empty nodes).
+ * 这种映射有一个特别之处：空范围的处理。空范围
+ * 没有下界和上界，因此无法以直观的方式映射到
+ * 二维空间。为应对这一点，根节点可以拥有第 5 个
+ * 象限，专门保留给空范围。此外，树中还可以存在
+ * 没有质心的内部节点。它们只包含两个子节点：
+ * 一个用于空范围，另一个用于非空范围。这样的节点
+ * 可以作为根节点出现，也可以出现在根节点第 5 个
+ * 子之下（此时它只含空范围）。
  *
- * The SP-GiST picksplit function uses medians along both axes as the centroid.
- * This implementation only uses the comparison function of the range element
- * datatype, therefore it works for any range type.
+ * SP-GiST 的 picksplit 函数使用两轴上的中位数作为质心。
+ * 该实现只使用范围元素数据类型的比较函数，因此
+ * 适用于任何范围类型。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -54,7 +54,7 @@ static int	adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
 								const RangeBound *centroid);
 
 /*
- * SP-GiST 'config' interface function.
+ * SP-GiST 'config' 接口函数。
  */
 Datum
 spg_range_quad_config(PG_FUNCTION_ARGS)
@@ -63,32 +63,32 @@ spg_range_quad_config(PG_FUNCTION_ARGS)
 	spgConfigOut *cfg = (spgConfigOut *) PG_GETARG_POINTER(1);
 
 	cfg->prefixType = ANYRANGEOID;
-	cfg->labelType = VOIDOID;	/* we don't need node labels */
+	cfg->labelType = VOIDOID;	/* 无需节点标签 */
 	cfg->canReturnData = true;
 	cfg->longValuesOK = false;
 	PG_RETURN_VOID();
 }
 
 /*----------
- * Determine which quadrant a 2d-mapped range falls into, relative to the
- * centroid.
+ * 判断二维映射后的范围相对于质心会落入哪个
+ * 象限。
  *
- * Quadrants are numbered like this:
+ * 象限编号方式如下：
  *
  *	 4	|  1
  *	----+----
  *	 3	|  2
  *
- * Where the lower bound of range is the horizontal axis and upper bound the
- * vertical axis.
+ * 其中范围的下界为横轴，上界为
+ * 纵轴。
  *
- * Ranges on one of the axes are taken to lie in the quadrant with higher value
- * along perpendicular axis. That is, a value on the horizontal axis is taken
- * to belong to quadrant 1 or 4, and a value on the vertical axis is taken to
- * belong to quadrant 1 or 2. A range equal to centroid is taken to lie in
- * quadrant 1.
+ * 位于某个轴上的范围被视为落在垂直轴上取值更
+ * 大的那一象限。也就是说，横轴上的值被归入
+ * 象限 1 或 4，纵轴上的值则被归入
+ * 象限 1 或 2。等于质心的范围被视为位于
+ * 象限 1。
  *
- * Empty ranges are taken to lie in the special quadrant 5.
+ * 空范围被视为位于特殊的象限 5。
  *----------
  */
 static int16
@@ -125,7 +125,7 @@ getQuadrant(TypeCacheEntry *typcache, const RangeType *centroid, const RangeType
 }
 
 /*
- * Choose SP-GiST function: choose path for addition of new range.
+ * SP-GiST choose 函数：为新加入的范围选择路径。
  */
 Datum
 spg_range_quad_choose(PG_FUNCTION_ARGS)
@@ -140,7 +140,7 @@ spg_range_quad_choose(PG_FUNCTION_ARGS)
 	if (in->allTheSame)
 	{
 		out->resultType = spgMatchNode;
-		/* nodeN will be set by core */
+		/* nodeN 由核心设置 */
 		out->result.matchNode.levelAdd = 0;
 		out->result.matchNode.restDatum = RangeTypePGetDatum(inRange);
 		PG_RETURN_VOID();
@@ -149,9 +149,9 @@ spg_range_quad_choose(PG_FUNCTION_ARGS)
 	typcache = range_get_typcache(fcinfo, RangeTypeGetOid(inRange));
 
 	/*
-	 * A node with no centroid divides ranges purely on whether they're empty
-	 * or not. All empty ranges go to child node 0, all non-empty ranges go to
-	 * node 1.
+	 * 没有质心的节点完全依据范围是否为空来划分。
+	 * 空范围都进入子节点 0，非空范围都进入节点
+	 * 1。
 	 */
 	if (!in->hasPrefix)
 	{
@@ -170,7 +170,7 @@ spg_range_quad_choose(PG_FUNCTION_ARGS)
 
 	Assert(quadrant <= in->nNodes);
 
-	/* Select node matching to quadrant number */
+	/* 选择与象限号匹配的节点 */
 	out->resultType = spgMatchNode;
 	out->result.matchNode.nodeN = quadrant - 1;
 	out->result.matchNode.levelAdd = 1;
@@ -180,7 +180,7 @@ spg_range_quad_choose(PG_FUNCTION_ARGS)
 }
 
 /*
- * Bound comparison for sorting.
+ * 排序用边界比较。
  */
 static int
 bound_cmp(const void *a, const void *b, void *arg)
@@ -193,8 +193,8 @@ bound_cmp(const void *a, const void *b, void *arg)
 }
 
 /*
- * Picksplit SP-GiST function: split ranges into nodes. Select "centroid"
- * range and distribute ranges according to quadrants.
+ * Picksplit SP-GiST 函数：拆分范围到各节点，选"质心"
+ * 范围，并按象限分配各范围。
  */
 Datum
 spg_range_quad_picksplit(PG_FUNCTION_ARGS)
@@ -208,19 +208,19 @@ spg_range_quad_picksplit(PG_FUNCTION_ARGS)
 	bool		empty;
 	TypeCacheEntry *typcache;
 
-	/* Use the median values of lower and upper bounds as the centroid range */
+	/* 用下界和上界的中位数值作为质心范围 */
 	RangeBound *lowerBounds,
 			   *upperBounds;
 
 	typcache = range_get_typcache(fcinfo,
 								  RangeTypeGetOid(DatumGetRangeTypeP(in->datums[0])));
 
-	/* Allocate memory for bounds */
+	/* 为边界分配内存 */
 	lowerBounds = palloc(sizeof(RangeBound) * in->nTuples);
 	upperBounds = palloc(sizeof(RangeBound) * in->nTuples);
 	j = 0;
 
-	/* Deserialize bounds of ranges, count non-empty ranges */
+	/* 反序列化范围边界，统计非空范围数 */
 	for (i = 0; i < in->nTuples; i++)
 	{
 		range_deserialize(typcache, DatumGetRangeTypeP(in->datums[i]),
@@ -231,22 +231,22 @@ spg_range_quad_picksplit(PG_FUNCTION_ARGS)
 	nonEmptyCount = j;
 
 	/*
-	 * All the ranges are empty. The best we can do is to construct an inner
-	 * node with no centroid, and put all ranges into node 0. If non-empty
-	 * ranges are added later, they will be routed to node 1.
+	 * 所有范围均为空。最好的办法是构造一个没有质心
+	 * 的内部节点，并把所有范围放入节点 0。若之后
+	 * 加入非空范围，将被路由到节点 1。
 	 */
 	if (nonEmptyCount == 0)
 	{
 		out->nNodes = 2;
 		out->hasPrefix = false;
-		/* Prefix is empty */
+		/* 前缀为空 */
 		out->prefixDatum = PointerGetDatum(NULL);
 		out->nodeLabels = NULL;
 
 		out->mapTuplesToNodes = palloc(sizeof(int) * in->nTuples);
 		out->leafTupleDatums = palloc(sizeof(Datum) * in->nTuples);
 
-		/* Place all ranges into node 0 */
+		/* 全部范围放入节点 0 */
 		for (i = 0; i < in->nTuples; i++)
 		{
 			RangeType  *range = DatumGetRangeTypeP(in->datums[i]);
@@ -257,28 +257,28 @@ spg_range_quad_picksplit(PG_FUNCTION_ARGS)
 		PG_RETURN_VOID();
 	}
 
-	/* Sort range bounds in order to find medians */
+	/* 排序范围边界以求得中位数 */
 	qsort_arg(lowerBounds, nonEmptyCount, sizeof(RangeBound),
 			  bound_cmp, typcache);
 	qsort_arg(upperBounds, nonEmptyCount, sizeof(RangeBound),
 			  bound_cmp, typcache);
 
-	/* Construct "centroid" range from medians of lower and upper bounds */
+	/* 由下界与上界的中位数构造"质心"范围 */
 	centroid = range_serialize(typcache, &lowerBounds[nonEmptyCount / 2],
 							   &upperBounds[nonEmptyCount / 2], false, NULL);
 	out->hasPrefix = true;
 	out->prefixDatum = RangeTypePGetDatum(centroid);
 
-	/* Create node for empty ranges only if it is a root node */
+	/* 仅当是根节点时才为空范围创建节点 */
 	out->nNodes = (in->level == 0) ? 5 : 4;
-	out->nodeLabels = NULL;		/* we don't need node labels */
+	out->nodeLabels = NULL;		/* 无需节点标签 */
 
 	out->mapTuplesToNodes = palloc(sizeof(int) * in->nTuples);
 	out->leafTupleDatums = palloc(sizeof(Datum) * in->nTuples);
 
 	/*
-	 * Assign ranges to corresponding nodes according to quadrants relative to
-	 * "centroid" range.
+	 * 根据相对于"质心"范围的象限，把各范围分配到
+	 * 对应节点。
 	 */
 	for (i = 0; i < in->nTuples; i++)
 	{
@@ -293,8 +293,8 @@ spg_range_quad_picksplit(PG_FUNCTION_ARGS)
 }
 
 /*
- * SP-GiST consistent function for inner nodes: check which nodes are
- * consistent with given set of queries.
+ * 内部节点的 SP-GiST 一致性函数：检查哪些节点与
+ * 给定的查询集合一致。
  */
 Datum
 spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
@@ -306,15 +306,15 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 	MemoryContext oldCtx;
 
 	/*
-	 * For adjacent search we need also previous centroid (if any) to improve
-	 * the precision of the consistent check. In this case needPrevious flag
-	 * is set and centroid is passed into traversalValue.
+	 * 对于相邻搜索，还需要上一个质心（若有）来提
+	 * 高一致性检查的精度。此时设置 needPrevious 标志，
+	 * 并将质心传入 traversalValue。
 	 */
 	bool		needPrevious = false;
 
 	if (in->allTheSame)
 	{
-		/* Report that all nodes should be visited */
+		/* 报告所有节点都应被访问 */
 		out->nNodes = in->nNodes;
 		out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 		for (i = 0; i < in->nNodes; i++)
@@ -325,15 +325,15 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 	if (!in->hasPrefix)
 	{
 		/*
-		 * No centroid on this inner node. Such a node has two child nodes,
-		 * the first for empty ranges, and the second for non-empty ones.
+		 * 该内部节点没有质心。这种节点有两个子节点，
+		 * 第一个用于空范围，第二个用于非空范围。
 		 */
 		Assert(in->nNodes == 2);
 
 		/*
-		 * Nth bit of which variable means that (N - 1)th node should be
-		 * visited. Initially all bits are set. Bits of nodes which should be
-		 * skipped will be unset.
+		 * which 变量的第 N 位表示第 (N - 1) 个节点应被
+		 * 访问。初始时所有位都被置位。应跳过节点的位
+		 * 将被清除。
 		 */
 		which = (1 << 1) | (1 << 2);
 		for (i = 0; i < in->nkeys; i++)
@@ -342,8 +342,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			bool		empty;
 
 			/*
-			 * The only strategy when second argument of operator is not range
-			 * is RANGESTRAT_CONTAINS_ELEM.
+			 * 算子第二参数不是范围的唯一策略是
+			 * RANGESTRAT_CONTAINS_ELEM。
 			 */
 			if (strategy != RANGESTRAT_CONTAINS_ELEM)
 				empty = RangeIsEmpty(DatumGetRangeTypeP(in->scankeys[i].sk_argument));
@@ -358,7 +358,7 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_OVERRIGHT:
 				case RANGESTRAT_AFTER:
 				case RANGESTRAT_ADJACENT:
-					/* These strategies return false if any argument is empty */
+					/* 只要任一参数为空，这些策略就返回假 */
 					if (empty)
 						which = 0;
 					else
@@ -368,8 +368,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_CONTAINS:
 
 					/*
-					 * All ranges contain an empty range. Only non-empty
-					 * ranges can contain a non-empty range.
+					 * 所有范围都包含空范围。仅非空范围
+					 * 才能包含非空范围。
 					 */
 					if (!empty)
 						which &= (1 << 2);
@@ -378,9 +378,9 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_CONTAINED_BY:
 
 					/*
-					 * Only an empty range is contained by an empty range.
-					 * Both empty and non-empty ranges can be contained by a
-					 * non-empty range.
+					 * 只有空范围会被空范围包含。
+					 * 空范围和非空范围都能被某个非空
+					 * 范围包含。
 					 */
 					if (empty)
 						which &= (1 << 1);
@@ -402,7 +402,7 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 					break;
 			}
 			if (which == 0)
-				break;			/* no need to consider remaining conditions */
+				break;			/* 无需考虑其余条件 */
 		}
 	}
 	else
@@ -413,7 +413,7 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 		TypeCacheEntry *typcache;
 		RangeType  *centroid;
 
-		/* This node has a centroid. Fetch it. */
+		/* 此节点有质心。取出它。 */
 		centroid = DatumGetRangeTypeP(in->prefixDatum);
 		typcache = range_get_typcache(fcinfo,
 									  RangeTypeGetOid(centroid));
@@ -423,9 +423,9 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 		Assert(in->nNodes == 4 || in->nNodes == 5);
 
 		/*
-		 * Nth bit of which variable means that (N - 1)th node (Nth quadrant)
-		 * should be visited. Initially all bits are set. Bits of nodes which
-		 * can be skipped will be unset.
+		 * which 变量的第 N 位表示第 (N - 1) 个节点（第 N
+		 * 象限）应被访问。初始时全部置位。可跳过节
+		 * 点的位将被清除。
 		 */
 		which = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
 
@@ -442,13 +442,13 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 						prevUpper;
 			bool		prevEmpty;
 
-			/* Restrictions on range bounds according to scan strategy */
+			/* 按扫描策略对范围边界的限制 */
 			RangeBound *minLower = NULL,
 					   *maxLower = NULL,
 					   *minUpper = NULL,
 					   *maxUpper = NULL;
 
-			/* Are the restrictions on range bounds inclusive? */
+			/* 范围边界的限制是否为包含式？ */
 			bool		inclusive = true;
 			bool		strictEmpty = true;
 			int			cmp,
@@ -458,10 +458,10 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			strategy = in->scankeys[i].sk_strategy;
 
 			/*
-			 * RANGESTRAT_CONTAINS_ELEM is just like RANGESTRAT_CONTAINS, but
-			 * the argument is a single element. Expand the single element to
-			 * a range containing only the element, and treat it like
-			 * RANGESTRAT_CONTAINS.
+			 * RANGESTRAT_CONTAINS_ELEM 如同 RANGESTRAT_CONTAINS，
+			 * 但其参数是单个元素。把该单个元素扩展为
+			 * 只含它的范围，再按 RANGESTRAT_CONTAINS
+			 * 处理。
 			 */
 			if (strategy == RANGESTRAT_CONTAINS_ELEM)
 			{
@@ -486,23 +486,23 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			}
 
 			/*
-			 * Most strategies are handled by forming a bounding box from the
-			 * search key, defined by a minLower, maxLower, minUpper,
-			 * maxUpper. Some modify 'which' directly, to specify exactly
-			 * which quadrants need to be visited.
+			 * 多数策略的处理是：由搜索键构造外接框，
+			 * 由 minLower、maxLower、minUpper、
+			 * maxUpper 定义。有些策略直接修改 'which'，以
+			 * 确切指定需访问的象限。
 			 *
-			 * For most strategies, nothing matches an empty search key, and
-			 * an empty range never matches a non-empty key. If a strategy
-			 * does not behave like that wrt. empty ranges, set strictEmpty to
-			 * false.
+			 * 多数策略下，空搜索键匹配不到任何东西，而
+			 * 空范围永远不匹配非空键。若某策略
+			 * 对空范围的行为与此不同，就把 strictEmpty 设为
+			 * 假。
 			 */
 			switch (strategy)
 			{
 				case RANGESTRAT_BEFORE:
 
 					/*
-					 * Range A is before range B if upper bound of A is lower
-					 * than lower bound of B.
+					 * 若 A 的上界小于 B 的下界，则 A 位于
+					 * 范围 B 之前。
 					 */
 					maxUpper = &lower;
 					inclusive = false;
@@ -511,8 +511,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_OVERLEFT:
 
 					/*
-					 * Range A is overleft to range B if upper bound of A is
-					 * less than or equal to upper bound of B.
+					 * 若 A 的上界不大于 B 的上界，A 不延伸
+					 * 到范围 B 的右侧。
 					 */
 					maxUpper = &upper;
 					break;
@@ -520,8 +520,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_OVERLAPS:
 
 					/*
-					 * Non-empty ranges overlap, if lower bound of each range
-					 * is lower or equal to upper bound of the other range.
+					 * 非空范围重叠：各范围的下界小于等于
+					 * 对方范围的上界。
 					 */
 					maxLower = &upper;
 					minUpper = &lower;
@@ -530,8 +530,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_OVERRIGHT:
 
 					/*
-					 * Range A is overright to range B if lower bound of A is
-					 * greater than or equal to lower bound of B.
+					 * 若 A 的下界不小于 B 的下界，则 A 不延伸
+					 * 到范围 B 的左侧。
 					 */
 					minLower = &lower;
 					break;
@@ -539,8 +539,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_AFTER:
 
 					/*
-					 * Range A is after range B if lower bound of A is greater
-					 * than upper bound of B.
+					 * 若 A 的下界大于 B 的上界，则 A 位于
+					 * 范围 B 之后。
 					 */
 					minLower = &upper;
 					inclusive = false;
@@ -548,12 +548,12 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 
 				case RANGESTRAT_ADJACENT:
 					if (empty)
-						break;	/* Skip to strictEmpty check. */
+						break;	/* 跳至strictEmpty检查。 */
 
 					/*
-					 * Previously selected quadrant could exclude possibility
-					 * for lower or upper bounds to be adjacent. Deserialize
-					 * previous centroid range if present for checking this.
+					 * 先前选定的象限可能排除了下界或上界
+					 * 相邻的可能。若存在上一个质心范围，
+					 * 则反序列化它以进行此项检查。
 					 */
 					if (in->traversalValue)
 					{
@@ -563,13 +563,13 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 					}
 
 					/*
-					 * For a range's upper bound to be adjacent to the
-					 * argument's lower bound, it will be found along the line
-					 * adjacent to (and just below) Y=lower. Therefore, if the
-					 * argument's lower bound is less than the centroid's
-					 * upper bound, the line falls in quadrants 2 and 3; if
-					 * greater, the line falls in quadrants 1 and 4. (see
-					 * adjacent_cmp_bounds for description of edge cases).
+					 * 若范围上界要与参数的下界相邻，
+					 * 将沿紧邻（且略低于）Y=lower的线找到它。
+					 * 因此，若参数的下界小于质心的
+					 * 上界，则该线落在象限 2 和 3 中；若
+					 * 大于，该线落在象限 1 与 4 内。（参见
+					 * adjacent_cmp_bounds，了解边界情况
+					 * 的说明）。
 					 */
 					cmp = adjacent_inner_consistent(typcache, &lower,
 													&centroidUpper,
@@ -582,10 +582,10 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 						which1 = 0;
 
 					/*
-					 * Also search for ranges's adjacent to argument's upper
-					 * bound. They will be found along the line adjacent to
-					 * (and just right of) X=upper, which falls in quadrants 3
-					 * and 4, or 1 and 2.
+					 * 同时搜索与参数上界相邻的范围，将沿
+					 * 紧邻（并恰位于其右）X=upper 的线，
+					 * 该线落在象限 3 和 4，或 1
+					 * 和 2 中。
 					 */
 					cmp = adjacent_inner_consistent(typcache, &upper,
 													&centroidLower,
@@ -597,7 +597,7 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 					else
 						which2 = 0;
 
-					/* We must chase down ranges adjacent to either bound. */
+					/* 必须追查与任一边界相邻的范围。 */
 					which &= which1 | which2;
 
 					needPrevious = true;
@@ -606,12 +606,12 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_CONTAINS:
 
 					/*
-					 * Non-empty range A contains non-empty range B if lower
-					 * bound of A is lower or equal to lower bound of range B
-					 * and upper bound of range A is greater than or equal to
-					 * upper bound of range A.
+					 * 非空范围 A 包含非空范围 B 当 A 的下界
+					 * 小于等于范围 B 的下界，且范围 A
+					 * 的上界大于等于
+					 * 范围 A 的上界。
 					 *
-					 * All non-empty ranges contain an empty range.
+					 * 所有非空范围都包含空范围。
 					 */
 					strictEmpty = false;
 					if (!empty)
@@ -623,11 +623,11 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 					break;
 
 				case RANGESTRAT_CONTAINED_BY:
-					/* The opposite of contains. */
+					/* 与 contains 相反。 */
 					strictEmpty = false;
 					if (empty)
 					{
-						/* An empty range is only contained by an empty range */
+						/* 空范围只会被空范围包含 */
 						which &= (1 << 5);
 					}
 					else
@@ -640,8 +640,8 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 				case RANGESTRAT_EQ:
 
 					/*
-					 * Equal range can be only in the same quadrant where
-					 * argument would be placed to.
+					 * 相等范围只可能位于参数会被放入的
+					 * 同一个象限中。
 					 */
 					strictEmpty = false;
 					which &= (1 << getQuadrant(typcache, centroid, range));
@@ -656,28 +656,28 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			{
 				if (empty)
 				{
-					/* Scan key is empty, no branches are satisfying */
+					/* 扫描键为空，没有分支满足 */
 					which = 0;
 					break;
 				}
 				else
 				{
-					/* Shouldn't visit tree branch with empty ranges */
+					/* 不应访问含空范围的树分支 */
 					which &= (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4);
 				}
 			}
 
 			/*
-			 * Using the bounding box, see which quadrants we have to descend
-			 * into.
+			 * 利用外接框，判断需要下降进入哪些象限。
+			 *
 			 */
 			if (minLower)
 			{
 				/*
-				 * If the centroid's lower bound is less than or equal to the
-				 * minimum lower bound, anything in the 3rd and 4th quadrants
-				 * will have an even smaller lower bound, and thus can't
-				 * match.
+				 * 若质心的下界小于等于最小下界，第 3 和第
+				 * 4 象限中任何范围的下界都更小，因而
+				 * 不能匹
+				 * 配。
 				 */
 				if (range_cmp_bounds(typcache, &centroidLower, minLower) <= 0)
 					which &= (1 << 1) | (1 << 2) | (1 << 5);
@@ -685,13 +685,13 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			if (maxLower)
 			{
 				/*
-				 * If the centroid's lower bound is greater than the maximum
-				 * lower bound, anything in the 1st and 2nd quadrants will
-				 * also have a greater than or equal lower bound, and thus
-				 * can't match. If the centroid's lower bound is equal to the
-				 * maximum lower bound, we can still exclude the 1st and 2nd
-				 * quadrants if we're looking for a value strictly greater
-				 * than the maximum.
+				 * 若质心的下界大于最大下界，第 1 和第
+				 * 2 象限中的任何范围其下界也都会大于等
+				 * 于，因而不能匹配。
+				 * 若质心的下界等于
+				 * 最大下界，则当所要查找的值严格大于该
+				 * 最大值时，仍可排除第 1 和第 2 个象限。
+				 *
 				 */
 
 				cmp = range_cmp_bounds(typcache, &centroidLower, maxLower);
@@ -701,10 +701,10 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			if (minUpper)
 			{
 				/*
-				 * If the centroid's upper bound is less than or equal to the
-				 * minimum upper bound, anything in the 2nd and 3rd quadrants
-				 * will have an even smaller upper bound, and thus can't
-				 * match.
+				 * 若质心的上界小于等于最小上界，第 2 和第
+				 * 3 象限中任何范围的上界都会更小，因而
+				 * 不能匹
+				 * 配。
 				 */
 				if (range_cmp_bounds(typcache, &centroidUpper, minUpper) <= 0)
 					which &= (1 << 1) | (1 << 4) | (1 << 5);
@@ -712,13 +712,13 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			if (maxUpper)
 			{
 				/*
-				 * If the centroid's upper bound is greater than the maximum
-				 * upper bound, anything in the 1st and 4th quadrants will
-				 * also have a greater than or equal upper bound, and thus
-				 * can't match. If the centroid's upper bound is equal to the
-				 * maximum upper bound, we can still exclude the 1st and 4th
-				 * quadrants if we're looking for a value strictly greater
-				 * than the maximum.
+				 * 若质心的上界大于最大上界，第 1 和第 4
+				 * 象限中的任何范围其上界也都会大于等
+				 * 于，因而不能匹配。
+				 * 若质心的上界等于
+				 * 最大上界，则当所要查找的值严格大于该
+				 * 最大值时，仍可排除第 1 和第 4 个象限。
+				 *
 				 */
 
 				cmp = range_cmp_bounds(typcache, &centroidUpper, maxUpper);
@@ -727,19 +727,19 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 			}
 
 			if (which == 0)
-				break;			/* no need to consider remaining conditions */
+				break;			/* 无需考虑其余条件 */
 		}
 	}
 
-	/* We must descend into the quadrant(s) identified by 'which' */
+	/* 我们必须下降到 'which' 所标识的象限 */
 	out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 	if (needPrevious)
 		out->traversalValues = (void **) palloc(sizeof(void *) * in->nNodes);
 	out->nNodes = 0;
 
 	/*
-	 * Elements of traversalValues should be allocated in
-	 * traversalMemoryContext
+	 * traversalValues 元素应在traversalMemoryContext
+	 * 中分配。
 	 */
 	oldCtx = MemoryContextSwitchTo(in->traversalMemoryContext);
 
@@ -747,14 +747,14 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 	{
 		if (which & (1 << i))
 		{
-			/* Save previous prefix if needed */
+			/* 按需保存上一个前缀 */
 			if (needPrevious)
 			{
 				Datum		previousCentroid;
 
 				/*
-				 * We know, that in->prefixDatum in this place is varlena,
-				 * because it's range
+				 * 我们知道，此处 in->prefixDatum 为 varlena，
+				 * 因为它是范围
 				 */
 				previousCentroid = datumCopy(in->prefixDatum, false, -1);
 				out->traversalValues[out->nNodes] = (void *) previousCentroid;
@@ -772,14 +772,14 @@ spg_range_quad_inner_consistent(PG_FUNCTION_ARGS)
 /*
  * adjacent_cmp_bounds
  *
- * Given an argument and centroid bound, this function determines if any
- * bounds that are adjacent to the argument are smaller than, or greater than
- * or equal to centroid. For brevity, we call the arg < centroid "left", and
- * arg >= centroid case "right". This corresponds to how the quadrants are
- * arranged, if you imagine that "left" is equivalent to "down" and "right"
- * is equivalent to "up".
+ * 给定参数与质心边界，本函数判断是否有任何与
+ * 参数相邻的边界是小于质心，还是大于等于质心。
+ * 为简洁，我们把参数 < 质心的情形称为"左"，
+ * 参数 >= 质心时则称"右"。这与象限的排列
+ * 方式一致，只要把"左"想象成"下"，"右"想象成
+ * "上"即可。
  *
- * For the "left" case, returns -1, and for the "right" case, returns 1.
+ * "左"情形返回 -1，"右"情形返回 1。
  */
 static int
 adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
@@ -794,17 +794,17 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
 	if (centroid->lower)
 	{
 		/*------
-		 * The argument is an upper bound, we are searching for adjacent lower
-		 * bounds. A matching adjacent lower bound must be *larger* than the
-		 * argument, but only just.
+		 * 参数是一个上界，此时搜索的是与该边界相邻
+		 * 的下界。匹配的相邻下界必须*大于*该参数
+		 * 但只大一点。
 		 *
-		 * The following table illustrates the desired result with a fixed
-		 * argument bound, and different centroids. The CMP column shows
-		 * the value of 'cmp' variable, and ADJ shows whether the argument
-		 * and centroid are adjacent, per bounds_adjacent(). (N) means we
-		 * don't need to check for that case, because it's implied by CMP.
-		 * With the argument range [..., 500), the adjacent range we're
-		 * searching for is [500, ...):
+		 * 下表以固定的参数边界和不同质心展示期望
+		 * 的结果。CMP 列显示变量 'cmp' 的取值，ADJ 列
+		 * 则显示参数与质心是否相邻（依据
+		 * bounds_adjacent() 判断）。(N) 表示该情形
+		 * 无需检查，因为 CMP 已经隐含了它。
+		 * 设参数范围为 [..., 500)，要找的相邻范围
+		 * 是 [500, ...)：
 		 *
 		 *	ARGUMENT   CENTROID		CMP   ADJ
 		 *	[..., 500) [498, ...)	 >	  (N)	[500, ...) is to the right
@@ -812,8 +812,8 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
 		 *	[..., 500) [500, ...)	 <	   Y	[500, ...) is to the right
 		 *	[..., 500) [501, ...)	 <	   N	[500, ...) is to the left
 		 *
-		 * So, we must search left when the argument is smaller than, and not
-		 * adjacent, to the centroid. Otherwise search right.
+		 * 因此，当参数小于质心且不相邻时，必须
+		 * 向左搜索；否则向右搜索。
 		 *------
 		 */
 		if (cmp < 0 && !bounds_adjacent(typcache, *arg, *centroid))
@@ -824,9 +824,9 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
 	else
 	{
 		/*------
-		 * The argument is a lower bound, we are searching for adjacent upper
-		 * bounds. A matching adjacent upper bound must be *smaller* than the
-		 * argument, but only just.
+		 * 参数是一个下界，此时搜索的是与该边界相邻
+		 * 的上界。匹配的相邻上界必须*小于*该参数
+		 * 但只小一点。
 		 *
 		 *	ARGUMENT   CENTROID		CMP   ADJ
 		 *	[500, ...) [..., 499)	 >	  (N)	[..., 500) is to the right
@@ -834,10 +834,10 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
 		 *	[500, ...) [..., 501)	 =	  (N)	[..., 500) is to the left
 		 *	[500, ...) [..., 502)	 <	  (N)	[..., 500) is to the left
 		 *
-		 * We must search left when the argument is smaller than or equal to
-		 * the centroid. Otherwise search right. We don't need to check
-		 * whether the argument is adjacent with the centroid, because it
-		 * doesn't matter.
+		 * 当参数小于等于质心时必须向左搜索；否则向右
+		 * 搜索。无需检查参数与质心
+		 * 是否相邻，因为这一点无关
+		 * 紧要。
 		 *------
 		 */
 		if (cmp <= 0)
@@ -850,37 +850,37 @@ adjacent_cmp_bounds(TypeCacheEntry *typcache, const RangeBound *arg,
 /*----------
  * adjacent_inner_consistent
  *
- * Like adjacent_cmp_bounds, but also takes into account the previous
- * level's centroid. We might've traversed left (or right) at the previous
- * node, in search for ranges adjacent to the other bound, even though we
- * already ruled out the possibility for any matches in that direction for
- * this bound. By comparing the argument with the previous centroid, and
- * the previous centroid with the current centroid, we can determine which
- * direction we should've moved in at previous level, and which direction we
- * actually moved.
+ * 与 adjacent_cmp_bounds 类似，但还要把上一层质
+ * 心纳入考虑。在上层节点，我们可能曾向左（或向
+ * 右）遍历以搜索与另一边界相邻的范围，尽管
+ * 对这一边界而言，该方向上的匹配可能早已
+ * 被排除。通过把参数与上一个质心比较，再把上
+ * 一个质心与当前质心比较，我们就能确定上一层
+ * 本应朝哪个方向移动，以及我们实际朝哪个方向
+ * 移动。
  *
- * If there can be any matches to the left, returns -1. If to the right,
- * returns 1. If there can be no matches below this centroid, because we
- * already ruled them out at the previous level, returns 0.
+ * 若左侧可能存在匹配，返回 -1；若在右侧，
+ * 返回 1。若在此质心之下不可能有匹配（因为我
+ * 们已在上层将其排除），返回 0。
  *
- * XXX: Comparing just the previous and current level isn't foolproof; we
- * might still search some branches unnecessarily. For example, imagine that
- * we are searching for value 15, and we traverse the following centroids
- * (only considering one bound for the moment):
+ * XXX: 仅比较上一层与当前层并非万无一失；我们
+ * 可能仍会不必要地搜索某些分支。例如，设想我们
+ * 正在查找值 15，并按如下顺序遍历各质心（暂时
+ * 只考虑其中一个边界）：
  *
  * Level 1: 20
  * Level 2: 50
  * Level 3: 25
  *
- * At this point, previous centroid is 50, current centroid is 25, and the
- * target value is to the left. But because we already moved right from
- * centroid 20 to 50 in the first level, there cannot be any values < 20 in
- * the current branch. But we don't know that just by looking at the previous
- * and current centroid, so we traverse left, unnecessarily. The reason we are
- * down this branch is that we're searching for matches with the *other*
- * bound. If we kept track of which bound we are searching for explicitly,
- * instead of deducing that from the previous and current centroid, we could
- * avoid some unnecessary work.
+ * 此时，上一个质心是 50，当前质心是 25，而目标
+ * 值在左侧。但由于我们在第一层已经从质心 20 移
+ * 动到了 50，当前分支中不可能存在任何 < 20 的
+ * 值。但仅凭观察上一个质心与当前质心，我们是
+ * 不知道这一点的，于是我们向左遍历，白费功夫。
+ * 我们之所以在这条分支上，是因为我们正在搜索
+ * 与*另一*边界的匹配。如果我们显式记录正在搜
+ * 索的边界，而非从上一个与当前质心来推断，便
+ * 可避免多余的工作。
  *----------
  */
 static int
@@ -893,15 +893,15 @@ adjacent_inner_consistent(TypeCacheEntry *typcache, const RangeBound *arg,
 		int			cmp;
 
 		/*
-		 * Which direction were we supposed to traverse at previous level,
-		 * left or right?
+		 * 上一层我们本应朝哪个方向遍历，向左还是向
+		 * 右？
 		 */
 		prevcmp = adjacent_cmp_bounds(typcache, arg, prev);
 
-		/* and which direction did we actually go? */
+		/* 而我们实际走了哪个方向？ */
 		cmp = range_cmp_bounds(typcache, centroid, prev);
 
-		/* if the two don't agree, there's nothing to see here */
+		/* 若两者不一致，那就没什么可看 */
 		if ((prevcmp < 0 && cmp >= 0) || (prevcmp > 0 && cmp < 0))
 			return 0;
 	}
@@ -910,8 +910,8 @@ adjacent_inner_consistent(TypeCacheEntry *typcache, const RangeBound *arg,
 }
 
 /*
- * SP-GiST consistent function for leaf nodes: check leaf value against query
- * using corresponding function.
+ * 叶子节点的 SP-GiST 一致性函数：按查询用相应
+ * 的函数检查叶子值。
  */
 Datum
 spg_range_quad_leaf_consistent(PG_FUNCTION_ARGS)
@@ -923,21 +923,21 @@ spg_range_quad_leaf_consistent(PG_FUNCTION_ARGS)
 	bool		res;
 	int			i;
 
-	/* all tests are exact */
+	/* 测试全部精确 */
 	out->recheck = false;
 
-	/* leafDatum is what it is... */
+	/* leafDatum 原样... */
 	out->leafValue = in->leafDatum;
 
 	typcache = range_get_typcache(fcinfo, RangeTypeGetOid(leafRange));
 
-	/* Perform the required comparison(s) */
+	/* 执行所需的比较 */
 	res = true;
 	for (i = 0; i < in->nkeys; i++)
 	{
 		Datum		keyDatum = in->scankeys[i].sk_argument;
 
-		/* Call the function corresponding to the scan strategy */
+		/* 调用与扫描策略对应的函数 */
 		switch (in->scankeys[i].sk_strategy)
 		{
 			case RANGESTRAT_BEFORE:
@@ -987,8 +987,8 @@ spg_range_quad_leaf_consistent(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * If leaf datum doesn't match to a query key, no need to check
-		 * subsequent keys.
+		 * 若叶子 datum 不匹配某查询键，无需检查
+		 * 后续的键。
 		 */
 		if (!res)
 			break;

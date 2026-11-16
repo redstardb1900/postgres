@@ -1,22 +1,22 @@
 /*-------------------------------------------------------------------------
  *
  * varbit.c
- *	  Functions for the SQL datatypes BIT() and BIT VARYING().
+ *	  SQL 类型 BIT() 与 BIT VARYING() 的支持函数。
  *
- * The data structure contains the following elements:
- *   header  -- length of the whole data structure (incl header)
- *              in bytes (as with all varying length datatypes)
- *   data section -- private data section for the bits data structures
- *     bitlength -- length of the bit string in bits
- *     bitdata   -- bit string, most significant byte first
+ * 该数据结构包含以下元素：
+ *     header  -- 整个数据结构的长度（含头部）
+ *              （以字节计，同所有变长类型）
+ *     data section -- 位数据结构专用的数据区
+ *     bitlength -- 位串的位长度
+ *     bitdata   -- 位串，最高有效字节在前
  *
- * The length of the bitdata vector should always be exactly as many
- * bytes as are needed for the given bitlength.  If the bitlength is
- * not a multiple of 8, the extra low-order padding bits of the last
- * byte must be zeroes.
+ * bitdata 向量的长度应当总是恰好等于给定
+ * 位长度所需的字节数。若位长度不是 8 的倍数，
+ * 则最后一个字节中多余的低位填充位必须
+ * 为零。
  *
- * attypmod is defined as the length of the bit string in bits, or for
- * varying bits the maximum length.
+ * attypmod 定义为位串的位长度；对变长位串则
+ * 是最大长度。
  *
  * Code originally contributed by Adriaan Joubert.
  *
@@ -43,7 +43,7 @@
 
 #define HEXDIG(z)	 ((z)<10 ? ((z)+'0') : ((z)-10+'A'))
 
-/* Mask off any bits that should be zero in the last byte of a bitstring */
+/* 屏蔽位串最后一个字节中本应为零的位 */
 #define VARBIT_PAD(vb) \
 	do { \
 		int32	pad_ = VARBITPAD(vb); \
@@ -53,8 +53,8 @@
 	} while (0)
 
 /*
- * Many functions work byte-by-byte, so they have a pointer handy to the
- * last-plus-one byte, which saves a cycle or two.
+ * 很多函数逐字节工作，因此手头都有一个指向
+ * 末字节后位置的指针，可省一拍。
  */
 #define VARBIT_PAD_LAST(vb, ptr) \
 	do { \
@@ -64,7 +64,7 @@
 			*((ptr) - 1) &= BITMASK << pad_; \
 	} while (0)
 
-/* Assert proper padding of a bitstring */
+/* 断言位串填充正确 */
 #ifdef USE_ASSERT_CHECKING
 #define VARBIT_CORRECTLY_PADDED(vb) \
 	do { \
@@ -84,7 +84,7 @@ static VarBit *bit_overlay(VarBit *t1, VarBit *t2, int sp, int sl);
 
 
 /*
- * common code for bittypmodin and varbittypmodin
+ * bittypmodin 与 varbittypmodin 的公共代码
  */
 static int32
 anybit_typmodin(ArrayType *ta, const char *typename)
@@ -96,8 +96,8 @@ anybit_typmodin(ArrayType *ta, const char *typename)
 	tl = ArrayGetIntegerTypmods(ta, &n);
 
 	/*
-	 * we're not too tense about good error message here because grammar
-	 * shouldn't allow wrong number of modifiers for BIT
+	 * 这里对错误信息不必太讲究，因为语法不该允许
+	 * BIT 的修饰符数量出错
 	 */
 	if (n != 1)
 		ereport(ERROR,
@@ -121,7 +121,7 @@ anybit_typmodin(ArrayType *ta, const char *typename)
 }
 
 /*
- * common code for bittypmodout and varbittypmodout
+ * bittypmodout 与 varbittypmodout 的公共代码
  */
 static char *
 anybit_typmodout(int32 typmod)
@@ -139,9 +139,9 @@ anybit_typmodout(int32 typmod)
 
 /*
  * bit_in -
- *	  converts a char string to the internal representation of a bitstring.
- *		  The length is determined by the number of bits required plus
- *		  VARHDRSZ bytes or from atttypmod.
+ *	  把字符串转换为位串的内部表示。
+ *		  长度由所需位数加上 VARHDRSZ 字节决定，或由
+ *		  attypmod 决定。
  */
 Datum
 bit_in(PG_FUNCTION_ARGS)
@@ -152,17 +152,17 @@ bit_in(PG_FUNCTION_ARGS)
 #endif
 	int32		atttypmod = PG_GETARG_INT32(2);
 	Node	   *escontext = fcinfo->context;
-	VarBit	   *result;			/* The resulting bit string			  */
-	char	   *sp;				/* pointer into the character string  */
-	bits8	   *r;				/* pointer into the result */
-	int			len,			/* Length of the whole data structure */
-				bitlen,			/* Number of bits in the bit string   */
-				slen;			/* Length of the input string		  */
-	bool		bit_not_hex;	/* false = hex string  true = bit string */
+	VarBit	   *result;			/* 结果位串 */
+	char	   *sp;				/* 指向字符串的指针 */
+	bits8	   *r;				/* 指向结果 */
+	int			len,			/* 整个数据结构的长度 */
+				bitlen,			/* 位串中的位数 */
+				slen;			/* 输入串的长度 */
+	bool		bit_not_hex;	/* false=十六进制串  true=位串 */
 	int			bc;
 	bits8		x = 0;
 
-	/* Check that the first character is a b or an x */
+	/* 检查首个字符是 b 还是 x */
 	if (input_string[0] == 'b' || input_string[0] == 'B')
 	{
 		bit_not_hex = true;
@@ -176,16 +176,16 @@ bit_in(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * Otherwise it's binary.  This allows things like cast('1001' as bit)
-		 * to work transparently.
+		 * 否则按二进制处理。这使 cast('1001' as bit) 之类
+		 * 写法透明可用。
 		 */
 		bit_not_hex = true;
 		sp = input_string;
 	}
 
 	/*
-	 * Determine bitlength from input string.  MaxAllocSize ensures a regular
-	 * input is small enough, but we must check hex input.
+	 * 从输入字符串推定位长度。MaxAllocSize 保证常规
+	 * 输入足够小，但须检查十六进制输入。
 	 */
 	slen = strlen(sp);
 	if (bit_not_hex)
@@ -201,8 +201,8 @@ bit_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Sometimes atttypmod is not supplied. If it is supplied we need to make
-	 * sure that the bitstring fits.
+	 * 有时未提供 atttypmod。若提供了它，就须确保
+	 * 位串能装得下。
 	 */
 	if (atttypmod <= 0)
 		atttypmod = bitlen;
@@ -213,7 +213,7 @@ bit_in(PG_FUNCTION_ARGS)
 						bitlen, atttypmod)));
 
 	len = VARBITTOTALLEN(atttypmod);
-	/* set to 0 so that *r is always initialised and string is zero-padded */
+	/* 置 0 使 *r 总被初始化且字符串为零填充 */
 	result = (VarBit *) palloc0(len);
 	SET_VARSIZE(result, len);
 	VARBITLEN(result) = atttypmod;
@@ -221,8 +221,8 @@ bit_in(PG_FUNCTION_ARGS)
 	r = VARBITS(result);
 	if (bit_not_hex)
 	{
-		/* Parse the bit representation of the string */
-		/* We know it fits, as bitlen was compared to atttypmod */
+		/* 解析字符串的位表示 */
+		/* 已知装得下，bitlen 与 atttypmod 比较过 */
 		x = HIGHBIT;
 		for (; *sp; sp++)
 		{
@@ -244,7 +244,7 @@ bit_in(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Parse the hex representation of the string */
+		/* 解析字符串的十六进制表示 */
 		for (bc = 0; *sp; sp++)
 		{
 			if (*sp >= '0' && *sp <= '9')
@@ -280,13 +280,13 @@ Datum
 bit_out(PG_FUNCTION_ARGS)
 {
 #if 1
-	/* same as varbit output */
+	/* 同 varbit 输出 */
 	return varbit_out(fcinfo);
 #else
 
 	/*
-	 * This is how one would print a hex string, in case someone wants to
-	 * write a formatting function.
+	 * 这是打印十六进制字符串的方式，以备有人想
+	 * 编写格式化函数。
 	 */
 	VarBit	   *s = PG_GETARG_VARBIT_P(0);
 	char	   *result,
@@ -296,7 +296,7 @@ bit_out(PG_FUNCTION_ARGS)
 				len,
 				bitlen;
 
-	/* Assertion to help catch any bit functions that don't pad correctly */
+	/* 断言：帮助捕获任何未正确填充的位函数 */
 	VARBIT_CORRECTLY_PADDED(s);
 
 	bitlen = VARBITLEN(s);
@@ -305,7 +305,7 @@ bit_out(PG_FUNCTION_ARGS)
 	sp = VARBITS(s);
 	r = result;
 	*r++ = 'X';
-	/* we cheat by knowing that we store full bytes zero padded */
+	/* 我们取巧：已知存储的是零填充的整字节 */
 	for (i = 0; i < len; i += 2, sp++)
 	{
 		*r++ = HEXDIG((*sp) >> 4);
@@ -313,8 +313,8 @@ bit_out(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Go back one step if we printed a hex number that was not part of the
-	 * bitstring anymore
+	 * 若我们打印的十六进制数字已不属于该位串，
+	 * 则回退一步
 	 */
 	if (i > len)
 		r--;
@@ -325,7 +325,7 @@ bit_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		bit_recv			- converts external binary format to bit
+ *		bit_recv - 把外部二进制格式转换为 bit
  */
 Datum
 bit_recv(PG_FUNCTION_ARGS)
@@ -347,8 +347,8 @@ bit_recv(PG_FUNCTION_ARGS)
 				 errmsg("invalid length in external bit string")));
 
 	/*
-	 * Sometimes atttypmod is not supplied. If it is supplied we need to make
-	 * sure that the bitstring fits.
+	 * 有时未提供 atttypmod。若提供了它，就须确保
+	 * 位串能装得下。
 	 */
 	if (atttypmod > 0 && bitlen != atttypmod)
 		ereport(ERROR,
@@ -363,29 +363,29 @@ bit_recv(PG_FUNCTION_ARGS)
 
 	pq_copymsgbytes(buf, (char *) VARBITS(result), VARBITBYTES(result));
 
-	/* Make sure last byte is correctly zero-padded */
+	/* 确保最后一字节零填充正确 */
 	VARBIT_PAD(result);
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
- *		bit_send			- converts bit to binary format
+ *		bit_send - 将 bit 转为二进制格式
  */
 Datum
 bit_send(PG_FUNCTION_ARGS)
 {
-	/* Exactly the same as varbit_send, so share code */
+	/* 与 varbit_send 完全相同，故共享代码 */
 	return varbit_send(fcinfo);
 }
 
 /*
  * bit()
- * Converts a bit() type to a specific internal length.
- * len is the bitlength specified in the column definition.
+ * 把 bit() 类型转换为特定内部长度。
+ * len 是列定义中指定的位长度。
  *
- * If doing implicit cast, raise error when source data is wrong length.
- * If doing explicit cast, silently truncate or zero-pad to specified length.
+ * 隐式转换时，若源数据长度不对则报错。
+ * 显式转换时，静默截断或零填充到指定长度。
  */
 Datum
 bit(PG_FUNCTION_ARGS)
@@ -396,7 +396,7 @@ bit(PG_FUNCTION_ARGS)
 	VarBit	   *result;
 	int			rlen;
 
-	/* No work if typmod is invalid or supplied data matches it already */
+	/* typmod 无效或给定数据已与其匹配时无须处理 */
 	if (len <= 0 || len > VARBITMAXLEN || len == VARBITLEN(arg))
 		PG_RETURN_VARBIT_P(arg);
 
@@ -407,7 +407,7 @@ bit(PG_FUNCTION_ARGS)
 						VARBITLEN(arg), len)));
 
 	rlen = VARBITTOTALLEN(len);
-	/* set to 0 so that string is zero-padded */
+	/* 置 0 使字符串为零填充 */
 	result = (VarBit *) palloc0(rlen);
 	SET_VARSIZE(result, rlen);
 	VARBITLEN(result) = len;
@@ -416,9 +416,9 @@ bit(PG_FUNCTION_ARGS)
 		   Min(VARBITBYTES(result), VARBITBYTES(arg)));
 
 	/*
-	 * Make sure last byte is zero-padded if needed.  This is useless but safe
-	 * if source data was shorter than target length (we assume the last byte
-	 * of the source data was itself correctly zero-padded).
+	 * 必要时确保最后一字节零填充。若源数据短于
+	 * 目标长度，这一步无用但安全（我们假定源数据
+	 * 的最后一字节本身已被正确零填充）。
 	 */
 	VARBIT_PAD(result);
 
@@ -444,9 +444,9 @@ bittypmodout(PG_FUNCTION_ARGS)
 
 /*
  * varbit_in -
- *	  converts a string to the internal representation of a bitstring.
- *		This is the same as bit_in except that atttypmod is taken as
- *		the maximum length, not the exact length to force the bitstring to.
+ *	  把字符串转换为位串的内部表示。
+ *		与 bit_in 相同，只是 atttypmod 被当作最大
+ *		长度而非强制位串达到的精确长度。
  */
 Datum
 varbit_in(PG_FUNCTION_ARGS)
@@ -457,17 +457,17 @@ varbit_in(PG_FUNCTION_ARGS)
 #endif
 	int32		atttypmod = PG_GETARG_INT32(2);
 	Node	   *escontext = fcinfo->context;
-	VarBit	   *result;			/* The resulting bit string			  */
-	char	   *sp;				/* pointer into the character string  */
-	bits8	   *r;				/* pointer into the result */
-	int			len,			/* Length of the whole data structure */
-				bitlen,			/* Number of bits in the bit string   */
-				slen;			/* Length of the input string		  */
-	bool		bit_not_hex;	/* false = hex string  true = bit string */
+	VarBit	   *result;			/* 结果位串 */
+	char	   *sp;				/* 指向字符串的指针 */
+	bits8	   *r;				/* 指向结果 */
+	int			len,			/* 整个数据结构的长度 */
+				bitlen,			/* 位串中的位数 */
+				slen;			/* 输入串的长度 */
+	bool		bit_not_hex;	/* false=十六进制串  true=位串 */
 	int			bc;
 	bits8		x = 0;
 
-	/* Check that the first character is a b or an x */
+	/* 检查首个字符是 b 还是 x */
 	if (input_string[0] == 'b' || input_string[0] == 'B')
 	{
 		bit_not_hex = true;
@@ -485,8 +485,8 @@ varbit_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Determine bitlength from input string.  MaxAllocSize ensures a regular
-	 * input is small enough, but we must check hex input.
+	 * 从输入字符串推定位长度。MaxAllocSize 保证常规
+	 * 输入足够小，但须检查十六进制输入。
 	 */
 	slen = strlen(sp);
 	if (bit_not_hex)
@@ -502,8 +502,8 @@ varbit_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Sometimes atttypmod is not supplied. If it is supplied we need to make
-	 * sure that the bitstring fits.
+	 * 有时未提供 atttypmod。若提供了它，就须确保
+	 * 位串能装得下。
 	 */
 	if (atttypmod <= 0)
 		atttypmod = bitlen;
@@ -514,7 +514,7 @@ varbit_in(PG_FUNCTION_ARGS)
 						atttypmod)));
 
 	len = VARBITTOTALLEN(bitlen);
-	/* set to 0 so that *r is always initialised and string is zero-padded */
+	/* 置 0 使 *r 总被初始化且字符串为零填充 */
 	result = (VarBit *) palloc0(len);
 	SET_VARSIZE(result, len);
 	VARBITLEN(result) = Min(bitlen, atttypmod);
@@ -522,8 +522,8 @@ varbit_in(PG_FUNCTION_ARGS)
 	r = VARBITS(result);
 	if (bit_not_hex)
 	{
-		/* Parse the bit representation of the string */
-		/* We know it fits, as bitlen was compared to atttypmod */
+		/* 解析字符串的位表示 */
+		/* 已知装得下，bitlen 与 atttypmod 比较过 */
 		x = HIGHBIT;
 		for (; *sp; sp++)
 		{
@@ -545,7 +545,7 @@ varbit_in(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Parse the hex representation of the string */
+		/* 解析字符串的十六进制表示 */
 		for (bc = 0; *sp; sp++)
 		{
 			if (*sp >= '0' && *sp <= '9')
@@ -578,10 +578,10 @@ varbit_in(PG_FUNCTION_ARGS)
 
 /*
  * varbit_out -
- *	  Prints the string as bits to preserve length accurately
+ *	  以位形式打印字符串以准确保留长度
  *
- * XXX varbit_recv() and hex input to varbit_in() can load a value that this
- * cannot emit.  Consider using hex output for such values.
+ * XXX varbit_recv() 与 varbit_in() 的十六进制输入能
+ * 加载函数无法输出的值，宜用 hex 输出
  */
 Datum
 varbit_out(PG_FUNCTION_ARGS)
@@ -595,7 +595,7 @@ varbit_out(PG_FUNCTION_ARGS)
 				k,
 				len;
 
-	/* Assertion to help catch any bit functions that don't pad correctly */
+	/* 断言：帮助捕获任何未正确填充的位函数 */
 	VARBIT_CORRECTLY_PADDED(s);
 
 	len = VARBITLEN(s);
@@ -604,7 +604,7 @@ varbit_out(PG_FUNCTION_ARGS)
 	r = result;
 	for (i = 0; i <= len - BITS_PER_BYTE; i += BITS_PER_BYTE, sp++)
 	{
-		/* print full bytes */
+		/*打印整字节*/
 		x = *sp;
 		for (k = 0; k < BITS_PER_BYTE; k++)
 		{
@@ -614,7 +614,7 @@ varbit_out(PG_FUNCTION_ARGS)
 	}
 	if (i < len)
 	{
-		/* print the last partial byte */
+		/* 打印残余字节 */
 		x = *sp;
 		for (k = i; k < len; k++)
 		{
@@ -628,9 +628,9 @@ varbit_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		varbit_recv			- converts external binary format to varbit
+ *		varbit_recv - 把外部二进制格式转换为 varbit
  *
- * External format is the bitlen as an int32, then the byte array.
+ * 外部格式为 int32 的 bitlen，随后是字节数组。
  */
 Datum
 varbit_recv(PG_FUNCTION_ARGS)
@@ -652,8 +652,8 @@ varbit_recv(PG_FUNCTION_ARGS)
 				 errmsg("invalid length in external bit string")));
 
 	/*
-	 * Sometimes atttypmod is not supplied. If it is supplied we need to make
-	 * sure that the bitstring fits.
+	 * 有时未提供 atttypmod。若提供了它，就须确保
+	 * 位串能装得下。
 	 */
 	if (atttypmod > 0 && bitlen > atttypmod)
 		ereport(ERROR,
@@ -668,14 +668,14 @@ varbit_recv(PG_FUNCTION_ARGS)
 
 	pq_copymsgbytes(buf, (char *) VARBITS(result), VARBITBYTES(result));
 
-	/* Make sure last byte is correctly zero-padded */
+	/* 确保最后一字节零填充正确 */
 	VARBIT_PAD(result);
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
- *		varbit_send			- converts varbit to binary format
+ *		varbit_send - 将 varbit 转为二进制格式
  */
 Datum
 varbit_send(PG_FUNCTION_ARGS)
@@ -692,11 +692,11 @@ varbit_send(PG_FUNCTION_ARGS)
 /*
  * varbit_support()
  *
- * Planner support function for the varbit() length coercion function.
+ * varbit() 长度强转函数的规划器支持函数。
  *
- * Currently, the only interesting thing we can do is flatten calls that set
- * the new maximum length >= the previous maximum length.  We can ignore the
- * isExplicit argument, since that only affects truncation cases.
+ * 目前我们唯一能做的有意思的事，是把满足
+ * 新最大长度 >= 旧最大长度这一条件的调用展平。
+ * isExplicit 参数可忽略，因为它只影响截断情形。
  */
 Datum
 varbit_support(PG_FUNCTION_ARGS)
@@ -721,7 +721,7 @@ varbit_support(PG_FUNCTION_ARGS)
 			int32		old_max = exprTypmod(source);
 			int32		new_max = new_typmod;
 
-			/* Note: varbit() treats typmod 0 as invalid, so we do too */
+			/* 注：varbit() 以 typmod 0 为无效，我们亦然 */
 			if (new_max <= 0 || (old_max > 0 && old_max <= new_max))
 				ret = relabel_to_typmod(source, new_typmod);
 		}
@@ -732,11 +732,11 @@ varbit_support(PG_FUNCTION_ARGS)
 
 /*
  * varbit()
- * Converts a varbit() type to a specific internal length.
- * len is the maximum bitlength specified in the column definition.
+ * 把 varbit() 类型转换为特定内部长度。
+ * len 是列定义中指定的最大位长度。
  *
- * If doing implicit cast, raise error when source data is too long.
- * If doing explicit cast, silently truncate to max length.
+ * 隐式转换时，若源数据过长则报错。
+ * 显式转换时，静默截断到最大长度。
  */
 Datum
 varbit(PG_FUNCTION_ARGS)
@@ -747,7 +747,7 @@ varbit(PG_FUNCTION_ARGS)
 	VarBit	   *result;
 	int			rlen;
 
-	/* No work if typmod is invalid or supplied data matches it already */
+	/* typmod 无效或给定数据已与其匹配时无须处理 */
 	if (len <= 0 || len >= VARBITLEN(arg))
 		PG_RETURN_VARBIT_P(arg);
 
@@ -764,7 +764,7 @@ varbit(PG_FUNCTION_ARGS)
 
 	memcpy(VARBITS(result), VARBITS(arg), VARBITBYTES(result));
 
-	/* Make sure last byte is correctly zero-padded */
+	/* 确保最后一字节零填充正确 */
 	VARBIT_PAD(result);
 
 	PG_RETURN_VARBIT_P(result);
@@ -788,31 +788,31 @@ varbittypmodout(PG_FUNCTION_ARGS)
 
 
 /*
- * Comparison operators
+ * 比较算子
  *
- * We only need one set of comparison operators for bitstrings, as the lengths
- * are stored in the same way for zero-padded and varying bit strings.
+ * 位串只需一组比较算子，因为零填充位串与
+ * 变长位串的长度存储方式相同。
  *
- * Note that the standard is not unambiguous about the comparison between
- * zero-padded bit strings and varying bitstrings. If the same value is written
- * into a zero padded bitstring as into a varying bitstring, but the zero
- * padded bitstring has greater length, it will be bigger.
+ * 注意标准对零填充位串与变长位串之间的比较
+ * 并未给出无歧义的规定。若把同一个值写入零
+ * 填充位串和变长位串，而零填充位串的长度
+ * 更大，则它会更大。
  *
- * Zeros from the beginning of a bitstring cannot simply be ignored, as they
- * may be part of a bit string and may be significant.
+ * 位串开头处的零无法被简单地忽略，因为它们
+ * 可能是位串的一部分且可能有意义。
  *
- * Note: btree indexes need these routines not to leak memory; therefore,
- * be careful to free working copies of toasted datums.  Most places don't
- * need to be so careful.
+ * 注意：btree 索引要求这些例程不泄漏内存；因此，
+ * 务必当心释放 toast 值的工作副本。大多数地方
+ * 无须如此当心。
  */
 
 /*
  * bit_cmp
  *
- * Compares two bitstrings and returns <0, 0, >0 depending on whether the first
- * string is smaller, equal, or bigger than the second. All bits are considered
- * and additional zero bits may make one string smaller/larger than the other,
- * even if their zero-padded values would be the same.
+ * 比较两个位串，按第一个串小于、等于或大于
+ * 第二个串分别返回 <0、0、>0。所有位都参与比较，
+ * 且额外的零位可能使一个串比另一个更小或更大，
+ * 即使二者零填充后的值相同。
  */
 static int32
 bit_cmp(VarBit *arg1, VarBit *arg2)
@@ -849,7 +849,7 @@ biteq(PG_FUNCTION_ARGS)
 	bitlen1 = VARBITLEN(arg1);
 	bitlen2 = VARBITLEN(arg2);
 
-	/* fast path for different-length inputs */
+	/* 不同长度的快速路径 */
 	if (bitlen1 != bitlen2)
 		result = false;
 	else
@@ -873,7 +873,7 @@ bitne(PG_FUNCTION_ARGS)
 	bitlen1 = VARBITLEN(arg1);
 	bitlen2 = VARBITLEN(arg2);
 
-	/* fast path for different-length inputs */
+	/* 不同长度的快速路径 */
 	if (bitlen1 != bitlen2)
 		result = true;
 	else
@@ -962,7 +962,7 @@ bitcmp(PG_FUNCTION_ARGS)
 
 /*
  * bitcat
- * Concatenation of bit strings
+ * 位串的连接
  */
 Datum
 bitcat(PG_FUNCTION_ARGS)
@@ -999,10 +999,10 @@ bit_catenate(VarBit *arg1, VarBit *arg2)
 	SET_VARSIZE(result, bytelen);
 	VARBITLEN(result) = bitlen1 + bitlen2;
 
-	/* Copy the first bitstring in */
+	/* 复制第一个位串 */
 	memcpy(VARBITS(result), VARBITS(arg1), VARBITBYTES(arg1));
 
-	/* Copy the second bit string */
+	/* 复制第二个位串 */
 	bit1pad = VARBITPAD(arg1);
 	if (bit1pad == 0)
 	{
@@ -1011,7 +1011,7 @@ bit_catenate(VarBit *arg1, VarBit *arg2)
 	}
 	else if (bitlen2 > 0)
 	{
-		/* We need to shift all the bits to fit */
+		/* 须移位全部位以对齐 */
 		bit2shift = BITS_PER_BYTE - bit1pad;
 		pr = VARBITS(result) + VARBITBYTES(arg1) - 1;
 		for (pa = VARBITS(arg2); pa < VARBITEND(arg2); pa++)
@@ -1023,15 +1023,15 @@ bit_catenate(VarBit *arg1, VarBit *arg2)
 		}
 	}
 
-	/* The pad bits should be already zero at this point */
+	/* 此时填充位应当已经为零 */
 
 	return result;
 }
 
 /*
  * bitsubstr
- * retrieve a substring from the bit string.
- * Note, s is 1-based.
+ * 从位串中取子串。
+ * 注：s 从 1 起
  * SQL draft 6.10 9)
  */
 Datum
@@ -1068,24 +1068,24 @@ bitsubstring(VarBit *arg, int32 s, int32 l, bool length_not_specified)
 
 	bitlen = VARBITLEN(arg);
 	s1 = Max(s, 1);
-	/* If we do not have an upper bound, use end of string */
+	/* 若无上界，则用字符串末尾 */
 	if (length_not_specified)
 	{
 		e1 = bitlen + 1;
 	}
 	else if (l < 0)
 	{
-		/* SQL99 says to throw an error for E < S, i.e., negative length */
+		/* SQL99 规定 E < S（即长度为负）时报错 */
 		ereport(ERROR,
 				(errcode(ERRCODE_SUBSTRING_ERROR),
 				 errmsg("negative substring length not allowed")));
-		e1 = -1;				/* silence stupider compilers */
+		e1 = -1;				/* 安抚笨编译器 */
 	}
 	else if (pg_add_s32_overflow(s, l, &e))
 	{
 		/*
-		 * L could be large enough for S + L to overflow, in which case the
-		 * substring must run to end of string.
+		 * L 可能大到使 S + L 溢出，此时子串必须延伸到
+		 * 字符串末尾。
 		 */
 		e1 = bitlen + 1;
 	}
@@ -1095,7 +1095,7 @@ bitsubstring(VarBit *arg, int32 s, int32 l, bool length_not_specified)
 	}
 	if (s1 > bitlen || e1 <= s1)
 	{
-		/* Need to return a zero-length bitstring */
+		/* 须返回零长度位串 */
 		len = VARBITTOTALLEN(0);
 		result = (VarBit *) palloc(len);
 		SET_VARSIZE(result, len);
@@ -1104,8 +1104,8 @@ bitsubstring(VarBit *arg, int32 s, int32 l, bool length_not_specified)
 	else
 	{
 		/*
-		 * OK, we've got a true substring starting at position s1-1 and ending
-		 * at position e1-1
+		 * 好，我们得到了真正的子串，从位置 s1-1 开始
+		 * 到 e1-1 结束
 		 */
 		rbitlen = e1 - s1;
 		len = VARBITTOTALLEN(rbitlen);
@@ -1113,16 +1113,16 @@ bitsubstring(VarBit *arg, int32 s, int32 l, bool length_not_specified)
 		SET_VARSIZE(result, len);
 		VARBITLEN(result) = rbitlen;
 		len -= VARHDRSZ + VARBITHDRSZ;
-		/* Are we copying from a byte boundary? */
+		/* 是否从字节边界复制？ */
 		if ((s1 - 1) % BITS_PER_BYTE == 0)
 		{
-			/* Yep, we are copying bytes */
+			/* 是，复制整字节 */
 			memcpy(VARBITS(result), VARBITS(arg) + (s1 - 1) / BITS_PER_BYTE,
 				   len);
 		}
 		else
 		{
-			/* Figure out how much we need to shift the sequence by */
+			/* 算出序列需要移位多少 */
 			ishift = (s1 - 1) % BITS_PER_BYTE;
 			r = VARBITS(result);
 			ps = VARBITS(arg) + (s1 - 1) / BITS_PER_BYTE;
@@ -1135,7 +1135,7 @@ bitsubstring(VarBit *arg, int32 s, int32 l, bool length_not_specified)
 			}
 		}
 
-		/* Make sure last byte is correctly zero-padded */
+		/* 确保最后一字节零填充正确 */
 		VARBIT_PAD(result);
 	}
 
@@ -1144,18 +1144,18 @@ bitsubstring(VarBit *arg, int32 s, int32 l, bool length_not_specified)
 
 /*
  * bitoverlay
- *	Replace specified substring of first string with second
+ *	用第二个串替换第一个串中指定的子串
  *
- * The SQL standard defines OVERLAY() in terms of substring and concatenation.
- * This code is a direct implementation of what the standard says.
+ * SQL 标准用子串与连接来定义 OVERLAY()。
+ * 此代码是对标准所述内容的直接实现。
  */
 Datum
 bitoverlay(PG_FUNCTION_ARGS)
 {
 	VarBit	   *t1 = PG_GETARG_VARBIT_P(0);
 	VarBit	   *t2 = PG_GETARG_VARBIT_P(1);
-	int			sp = PG_GETARG_INT32(2);	/* substring start position */
-	int			sl = PG_GETARG_INT32(3);	/* substring length */
+	int			sp = PG_GETARG_INT32(2);	/* 子串起始位置 */
+	int			sl = PG_GETARG_INT32(3);	/* 子串长度 */
 
 	PG_RETURN_VARBIT_P(bit_overlay(t1, t2, sp, sl));
 }
@@ -1165,10 +1165,10 @@ bitoverlay_no_len(PG_FUNCTION_ARGS)
 {
 	VarBit	   *t1 = PG_GETARG_VARBIT_P(0);
 	VarBit	   *t2 = PG_GETARG_VARBIT_P(1);
-	int			sp = PG_GETARG_INT32(2);	/* substring start position */
+	int			sp = PG_GETARG_INT32(2);	/* 子串起始位置 */
 	int			sl;
 
-	sl = VARBITLEN(t2);			/* defaults to length(t2) */
+	sl = VARBITLEN(t2);			/* 即 length(t2) */
 	PG_RETURN_VARBIT_P(bit_overlay(t1, t2, sp, sl));
 }
 
@@ -1181,9 +1181,9 @@ bit_overlay(VarBit *t1, VarBit *t2, int sp, int sl)
 	int			sp_pl_sl;
 
 	/*
-	 * Check for possible integer-overflow cases.  For negative sp, throw a
-	 * "substring length" error because that's what should be expected
-	 * according to the spec's definition of OVERLAY().
+	 * 检查可能的整数溢出情形。对负的 sp，抛出
+	 * "子串长度"错误，因为按规范对 OVERLAY()
+	 * 定义，这正是应有的行为。
 	 */
 	if (sp <= 0)
 		ereport(ERROR,
@@ -1205,7 +1205,7 @@ bit_overlay(VarBit *t1, VarBit *t2, int sp, int sl)
 /*
  * bit_count
  *
- * Returns the number of bits set in a bit string.
+ * 返回位串中置位的位数。
  */
 Datum
 bit_bit_count(PG_FUNCTION_ARGS)
@@ -1217,7 +1217,7 @@ bit_bit_count(PG_FUNCTION_ARGS)
 
 /*
  * bitlength, bitoctetlength
- * Return the length of a bit string
+ * 返回位串的长度
  */
 Datum
 bitlength(PG_FUNCTION_ARGS)
@@ -1237,7 +1237,7 @@ bitoctetlength(PG_FUNCTION_ARGS)
 
 /*
  * bit_and
- * perform a logical AND on two bit strings.
+ * 对两个位串执行逻辑 AND。
  */
 Datum
 bit_and(PG_FUNCTION_ARGS)
@@ -1271,14 +1271,14 @@ bit_and(PG_FUNCTION_ARGS)
 	for (i = 0; i < VARBITBYTES(arg1); i++)
 		*r++ = *p1++ & *p2++;
 
-	/* Padding is not needed as & of 0 pads is 0 */
+	/* 无须填充，0 填充位相与仍为 0 */
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
  * bit_or
- * perform a logical OR on two bit strings.
+ * 对两个位串执行逻辑 OR。
  */
 Datum
 bit_or(PG_FUNCTION_ARGS)
@@ -1311,14 +1311,14 @@ bit_or(PG_FUNCTION_ARGS)
 	for (i = 0; i < VARBITBYTES(arg1); i++)
 		*r++ = *p1++ | *p2++;
 
-	/* Padding is not needed as | of 0 pads is 0 */
+	/* 无须填充，0 填充位相或仍为 0 */
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
  * bitxor
- * perform a logical XOR on two bit strings.
+ * 对两个位串执行逻辑 XOR。
  */
 Datum
 bitxor(PG_FUNCTION_ARGS)
@@ -1352,14 +1352,14 @@ bitxor(PG_FUNCTION_ARGS)
 	for (i = 0; i < VARBITBYTES(arg1); i++)
 		*r++ = *p1++ ^ *p2++;
 
-	/* Padding is not needed as ^ of 0 pads is 0 */
+	/* 无须填充，0 填充位异或仍为 0 */
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
  * bitnot
- * perform a logical NOT on a bit string.
+ * 对一个位串执行逻辑 NOT。
  */
 Datum
 bitnot(PG_FUNCTION_ARGS)
@@ -1378,7 +1378,7 @@ bitnot(PG_FUNCTION_ARGS)
 	for (; p < VARBITEND(arg); p++)
 		*r++ = ~*p;
 
-	/* Must zero-pad the result, because extra bits are surely 1's here */
+	/* 必须将结果零填充，因为此处多余位必为 1 */
 	VARBIT_PAD_LAST(result, r);
 
 	PG_RETURN_VARBIT_P(result);
@@ -1386,7 +1386,7 @@ bitnot(PG_FUNCTION_ARGS)
 
 /*
  * bitshiftleft
- * do a left shift (i.e. towards the beginning of the string)
+ * 执行左移（即朝字符串开头方向）
  */
 Datum
 bitshiftleft(PG_FUNCTION_ARGS)
@@ -1400,10 +1400,10 @@ bitshiftleft(PG_FUNCTION_ARGS)
 	bits8	   *p,
 			   *r;
 
-	/* Negative shift is a shift to the right */
+	/* 负移位是向右移位 */
 	if (shft < 0)
 	{
-		/* Prevent integer overflow in negation */
+		/* 防止取负时整数溢出 */
 		if (shft < -VARBITMAXLEN)
 			shft = -VARBITMAXLEN;
 		PG_RETURN_DATUM(DirectFunctionCall2(bitshiftright,
@@ -1416,7 +1416,7 @@ bitshiftleft(PG_FUNCTION_ARGS)
 	VARBITLEN(result) = VARBITLEN(arg);
 	r = VARBITS(result);
 
-	/* If we shifted all the bits out, return an all-zero string */
+	/* 若所有位都被移出，则返回全零串 */
 	if (shft >= VARBITLEN(arg))
 	{
 		MemSet(r, 0, VARBITBYTES(arg));
@@ -1429,7 +1429,7 @@ bitshiftleft(PG_FUNCTION_ARGS)
 
 	if (ishift == 0)
 	{
-		/* Special case: we can do a memcpy */
+		/* 特例：可以用 memcpy */
 		len = VARBITBYTES(arg) - byte_shift;
 		memcpy(r, p, len);
 		MemSet(r + len, 0, byte_shift);
@@ -1446,14 +1446,14 @@ bitshiftleft(PG_FUNCTION_ARGS)
 			*r = 0;
 	}
 
-	/* The pad bits should be already zero at this point */
+	/* 此时填充位应当已经为零 */
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
  * bitshiftright
- * do a right shift (i.e. towards the end of the string)
+ * 执行右移（即朝字符串末尾方向）
  */
 Datum
 bitshiftright(PG_FUNCTION_ARGS)
@@ -1467,10 +1467,10 @@ bitshiftright(PG_FUNCTION_ARGS)
 	bits8	   *p,
 			   *r;
 
-	/* Negative shift is a shift to the left */
+	/* 负移位是向左移位 */
 	if (shft < 0)
 	{
-		/* Prevent integer overflow in negation */
+		/* 防止取负时整数溢出 */
 		if (shft < -VARBITMAXLEN)
 			shft = -VARBITMAXLEN;
 		PG_RETURN_DATUM(DirectFunctionCall2(bitshiftleft,
@@ -1483,7 +1483,7 @@ bitshiftright(PG_FUNCTION_ARGS)
 	VARBITLEN(result) = VARBITLEN(arg);
 	r = VARBITS(result);
 
-	/* If we shifted all the bits out, return an all-zero string */
+	/* 若所有位都被移出，则返回全零串 */
 	if (shft >= VARBITLEN(arg))
 	{
 		MemSet(r, 0, VARBITBYTES(arg));
@@ -1494,13 +1494,13 @@ bitshiftright(PG_FUNCTION_ARGS)
 	ishift = shft % BITS_PER_BYTE;
 	p = VARBITS(arg);
 
-	/* Set the first part of the result to 0 */
+	/* 把结果的第一部分置 0 */
 	MemSet(r, 0, byte_shift);
 	r += byte_shift;
 
 	if (ishift == 0)
 	{
-		/* Special case: we can do a memcpy */
+		/* 特例：可以用 memcpy */
 		len = VARBITBYTES(arg) - byte_shift;
 		memcpy(r, p, len);
 		r += len;
@@ -1508,7 +1508,7 @@ bitshiftright(PG_FUNCTION_ARGS)
 	else
 	{
 		if (r < VARBITEND(result))
-			*r = 0;				/* initialize first byte */
+			*r = 0;				/* 首字节置0 */
 		for (; r < VARBITEND(result); p++)
 		{
 			*r |= *p >> ishift;
@@ -1517,15 +1517,15 @@ bitshiftright(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* We may have shifted 1's into the pad bits, so fix that */
+	/* 可能已把 1 移入填充位，所以要修正 */
 	VARBIT_PAD_LAST(result, r);
 
 	PG_RETURN_VARBIT_P(result);
 }
 
 /*
- * This is not defined in any standard. We retain the natural ordering of
- * bits here, as it just seems more intuitive.
+ * 任何标准都未定义此函数。我们在这里保留位
+ * 的自然顺序，因为它更直观。
  */
 Datum
 bitfromint4(PG_FUNCTION_ARGS)
@@ -1539,7 +1539,7 @@ bitfromint4(PG_FUNCTION_ARGS)
 				srcbitsleft;
 
 	if (typmod <= 0 || typmod > VARBITMAXLEN)
-		typmod = 1;				/* default bit length */
+		typmod = 1;				/* 默认位长 */
 
 	rlen = VARBITTOTALLEN(typmod);
 	result = (VarBit *) palloc(rlen);
@@ -1549,33 +1549,33 @@ bitfromint4(PG_FUNCTION_ARGS)
 	r = VARBITS(result);
 	destbitsleft = typmod;
 	srcbitsleft = 32;
-	/* drop any input bits that don't fit */
+	/* 丢弃装不下的输入位 */
 	srcbitsleft = Min(srcbitsleft, destbitsleft);
-	/* sign-fill any excess bytes in output */
+	/* 对多余字节做符号填充 */
 	while (destbitsleft >= srcbitsleft + 8)
 	{
 		*r++ = (bits8) ((a < 0) ? BITMASK : 0);
 		destbitsleft -= 8;
 	}
-	/* store first fractional byte */
+	/* 存首小数字节 */
 	if (destbitsleft > srcbitsleft)
 	{
 		unsigned int val = (unsigned int) (a >> (destbitsleft - 8));
 
-		/* Force sign-fill in case the compiler implements >> as zero-fill */
+		/* 强制符号填充，以防编译器把 >> 实现为补零 */
 		if (a < 0)
 			val |= ((unsigned int) -1) << (srcbitsleft + 8 - destbitsleft);
 		*r++ = (bits8) (val & BITMASK);
 		destbitsleft -= 8;
 	}
-	/* Now srcbitsleft and destbitsleft are the same, need not track both */
-	/* store whole bytes */
+	/* srcbitsleft 与 destbitsleft 此时相同，无须都跟踪 */
+	/* 存整字节 */
 	while (destbitsleft >= 8)
 	{
 		*r++ = (bits8) ((a >> (destbitsleft - 8)) & BITMASK);
 		destbitsleft -= 8;
 	}
-	/* store last fractional byte */
+	/* 存末小数字节 */
 	if (destbitsleft > 0)
 		*r = (bits8) ((a << (8 - destbitsleft)) & BITMASK);
 
@@ -1589,7 +1589,7 @@ bittoint4(PG_FUNCTION_ARGS)
 	uint32		result;
 	bits8	   *r;
 
-	/* Check that the bit string is not too long */
+	/* 检查位串是否过长 */
 	if (VARBITLEN(arg) > sizeof(result) * BITS_PER_BYTE)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1601,7 +1601,7 @@ bittoint4(PG_FUNCTION_ARGS)
 		result <<= BITS_PER_BYTE;
 		result |= *r;
 	}
-	/* Now shift the result to take account of the padding at the end */
+	/* 现在将结果移位以顾及末端的填充 */
 	result >>= VARBITPAD(arg);
 
 	PG_RETURN_INT32(result);
@@ -1619,7 +1619,7 @@ bitfromint8(PG_FUNCTION_ARGS)
 				srcbitsleft;
 
 	if (typmod <= 0 || typmod > VARBITMAXLEN)
-		typmod = 1;				/* default bit length */
+		typmod = 1;				/* 默认位长 */
 
 	rlen = VARBITTOTALLEN(typmod);
 	result = (VarBit *) palloc(rlen);
@@ -1629,33 +1629,33 @@ bitfromint8(PG_FUNCTION_ARGS)
 	r = VARBITS(result);
 	destbitsleft = typmod;
 	srcbitsleft = 64;
-	/* drop any input bits that don't fit */
+	/* 丢弃装不下的输入位 */
 	srcbitsleft = Min(srcbitsleft, destbitsleft);
-	/* sign-fill any excess bytes in output */
+	/* 对多余字节做符号填充 */
 	while (destbitsleft >= srcbitsleft + 8)
 	{
 		*r++ = (bits8) ((a < 0) ? BITMASK : 0);
 		destbitsleft -= 8;
 	}
-	/* store first fractional byte */
+	/* 存首小数字节 */
 	if (destbitsleft > srcbitsleft)
 	{
 		unsigned int val = (unsigned int) (a >> (destbitsleft - 8));
 
-		/* Force sign-fill in case the compiler implements >> as zero-fill */
+		/* 强制符号填充，以防编译器把 >> 实现为补零 */
 		if (a < 0)
 			val |= ((unsigned int) -1) << (srcbitsleft + 8 - destbitsleft);
 		*r++ = (bits8) (val & BITMASK);
 		destbitsleft -= 8;
 	}
-	/* Now srcbitsleft and destbitsleft are the same, need not track both */
-	/* store whole bytes */
+	/* srcbitsleft 与 destbitsleft 此时相同，无须都跟踪 */
+	/* 存整字节 */
 	while (destbitsleft >= 8)
 	{
 		*r++ = (bits8) ((a >> (destbitsleft - 8)) & BITMASK);
 		destbitsleft -= 8;
 	}
-	/* store last fractional byte */
+	/* 存末小数字节 */
 	if (destbitsleft > 0)
 		*r = (bits8) ((a << (8 - destbitsleft)) & BITMASK);
 
@@ -1669,7 +1669,7 @@ bittoint8(PG_FUNCTION_ARGS)
 	uint64		result;
 	bits8	   *r;
 
-	/* Check that the bit string is not too long */
+	/* 检查位串是否过长 */
 	if (VARBITLEN(arg) > sizeof(result) * BITS_PER_BYTE)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1681,7 +1681,7 @@ bittoint8(PG_FUNCTION_ARGS)
 		result <<= BITS_PER_BYTE;
 		result |= *r;
 	}
-	/* Now shift the result to take account of the padding at the end */
+	/* 现在将结果移位以顾及末端的填充 */
 	result >>= VARBITPAD(arg);
 
 	PG_RETURN_INT64(result);
@@ -1689,10 +1689,10 @@ bittoint8(PG_FUNCTION_ARGS)
 
 
 /*
- * Determines the position of S2 in the bitstring S1 (1-based string).
- * If S2 does not appear in S1 this function returns 0.
- * If S2 is of length 0 this function returns 1.
- * Compatible in usage with POSITION() functions for other data types.
+ * 确定 S2 在位串 S1 中的位置（串从 1 起算）。
+ * 若 S2 未出现在 S1 中，本函数返回 0。
+ * 若 S2 长度为 0，本函数返回 1。
+ * 用法与其他数据类型的 POSITION() 函数兼容。
  */
 Datum
 bitposition(PG_FUNCTION_ARGS)
@@ -1703,28 +1703,28 @@ bitposition(PG_FUNCTION_ARGS)
 				str_length,
 				i,
 				is;
-	bits8	   *s,				/* pointer into substring */
-			   *p;				/* pointer into str */
-	bits8		cmp,			/* shifted substring byte to compare */
-				mask1,			/* mask for substring byte shifted right */
-				mask2,			/* mask for substring byte shifted left */
-				end_mask,		/* pad mask for last substring byte */
-				str_mask;		/* pad mask for last string byte */
+	bits8	   *s,				/* 子串内指针 */
+			   *p;				/*串内指针*/
+	bits8		cmp,			/* 移位后待比子串字节 */
+				mask1,			/* 子串字节右移的掩码 */
+				mask2,			/* 子串字节左移的掩码 */
+				end_mask,		/* 末子串字节之掩码 */
+				str_mask;		/* 末串字节之掩码 */
 	bool		is_match;
 
-	/* Get the substring length */
+	/* 取子串长度 */
 	substr_length = VARBITLEN(substr);
 	str_length = VARBITLEN(str);
 
-	/* String has zero length or substring longer than string, return 0 */
+	/* 串长为零或子串长于串时返回 0 */
 	if ((str_length == 0) || (substr_length > str_length))
 		PG_RETURN_INT32(0);
 
-	/* zero-length substring means return 1 */
+	/* 零长度子串意味着返回 1 */
 	if (substr_length == 0)
 		PG_RETURN_INT32(1);
 
-	/* Initialise the padding masks */
+	/* 初始化填充掩码 */
 	end_mask = BITMASK << VARBITPAD(substr);
 	str_mask = BITMASK << VARBITPAD(str);
 	for (i = 0; i < VARBITBYTES(str) - VARBITBYTES(substr) + 1; i++)
@@ -1744,7 +1744,7 @@ bitposition(PG_FUNCTION_ARGS)
 					mask1 &= end_mask >> is;
 					if (p == VARBITEND(str) - 1)
 					{
-						/* Check that there is enough of str left */
+						/* 检查 str 剩余部分是否足够 */
 						if (mask1 & ~str_mask)
 						{
 							is_match = false;
@@ -1756,7 +1756,7 @@ bitposition(PG_FUNCTION_ARGS)
 				is_match = ((cmp ^ *p) & mask1) == 0;
 				if (!is_match)
 					break;
-				/* Move on to the next byte */
+				/* 前进到下一字节 */
 				p++;
 				if (p == VARBITEND(str))
 				{
@@ -1784,7 +1784,7 @@ bitposition(PG_FUNCTION_ARGS)
 				}
 				is_match = ((cmp ^ *p) & mask2) == 0;
 			}
-			/* Have we found a match? */
+			/* 找到匹配？ */
 			if (is_match)
 				PG_RETURN_INT32(i * BITS_PER_BYTE + is + 1);
 		}
@@ -1796,12 +1796,12 @@ bitposition(PG_FUNCTION_ARGS)
 /*
  * bitsetbit
  *
- * Given an instance of type 'bit' creates a new one with
- * the Nth bit set to the given value.
+ * 给定一个 'bit' 类型实例，创建一个把第
+ * N 位置为给定值的新实例。
  *
- * The bit location is specified left-to-right in a zero-based fashion
- * consistent with the other get_bit and set_bit functions, but
- * inconsistent with the standard substring, position, overlay functions
+ * 位位置的指定方式是从左到右、从零开始，
+ * 与其他 get_bit 和 set_bit 函数一致，但与
+ * 标准的 substring、position、overlay 函数不一致。
  */
 Datum
 bitsetbit(PG_FUNCTION_ARGS)
@@ -1825,7 +1825,7 @@ bitsetbit(PG_FUNCTION_ARGS)
 						n, bitlen - 1)));
 
 	/*
-	 * sanity check!
+	 * 健全检查!
 	 */
 	if (newBit != 0 && newBit != 1)
 		ereport(ERROR,
@@ -1846,7 +1846,7 @@ bitsetbit(PG_FUNCTION_ARGS)
 	bitNo = BITS_PER_BYTE - 1 - (n % BITS_PER_BYTE);
 
 	/*
-	 * Update the byte.
+	 * 更新字节。
 	 */
 	if (newBit == 0)
 		r[byteNo] &= (~(1 << bitNo));
@@ -1859,11 +1859,11 @@ bitsetbit(PG_FUNCTION_ARGS)
 /*
  * bitgetbit
  *
- * returns the value of the Nth bit of a bit array (0 or 1).
+ * 返回位数组第 N 位的值（0 或 1）。
  *
- * The bit location is specified left-to-right in a zero-based fashion
- * consistent with the other get_bit and set_bit functions, but
- * inconsistent with the standard substring, position, overlay functions
+ * 位位置的指定方式是从左到右、从零开始，
+ * 与其他 get_bit 和 set_bit 函数一致，但与
+ * 标准的 substring、position、overlay 函数不一致。
  */
 Datum
 bitgetbit(PG_FUNCTION_ARGS)

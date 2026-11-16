@@ -7156,6 +7156,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0411-adt-json-tsquery.json",
    "kind": "manifest",
    "note": "batch-0411 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/json.c",
+   "kind": "c_comment",
+   "note": "JSON 输入输出 (json 标识符保留, escape→转义, scalar→标量, array/object→数组/对象, parse→解析, token→词位 0392 口径, unicode escape→unicode 转义); whole-file comment translation, batch-0412"
+  },
+  {
+   "pattern": "src/backend/utils/adt/varbit.c",
+   "kind": "c_comment",
+   "note": "变长位串 (varbit/bit varying 标识符保留, bit→位, bit string→位串, shift→移位, pad→填充, 溢出/长度校验 pgdoc 口径); whole-file comment translation, batch-0412"
+  },
+  {
+   "pattern": "src/backend/utils/adt/int8.c",
+   "kind": "c_comment",
+   "note": "int8 读写与算术 (int8/i128/u128 等标识符保留, overflow→溢出, negation→取负, strtol/strtoull 保留, operators→算子); whole-file comment translation, batch-0412"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0412-adt-json-varbit-int8.json",
+   "kind": "manifest",
+   "note": "batch-0412 manifest"
   }
  ],
  "files": [
@@ -23196,6 +23216,55 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0411 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/json.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 129,
+   "translated": 127,
+   "preserved": 2,
+   "preserved_reasons": [
+    "@152 Binary send. 标题块: 二进制发送 6 字超出 12B 预算, 整块保留 EN (见 note)",
+    "@1783 /* ok */ 行内注释: 9B>8B 预算, 保留 EN"
+   ],
+   "note": "JSON 输入输出 (json/jsonb 标识符保留, escape→转义, scalar→标量, token→词位 0392 口径, built-in→内建, unique key→键唯一性); whole-file comment translation, batch-0412; dump 权威块数 129 注释感知重扫一致; content 行 201 = zh 193 + 保留 EN 8 (L3 文件名/L6·L7 版权/L9 IDENTIFICATION/L10 路径/L1305 translator xgettext 保护注释/L152 Binary send./L1783 ok); 行数守恒 1839 不变 (git diff numstat 193/193); 代码字节零改动 (独立剥离 stripped 全等); NUL 字节扫描 0; verify_c_comments adt 0 violation rc=0, 本文件 W7 advisory 1 站 (L1135 块级 NULLs 复数形; L897 行级 NULLs advisory 已按 N3 修为 NULLs 快速路径消除); term_lint 本文件 0 hits; scan_halfen 本文件 0 findings; 同 EN 同译实证: L858=L953=L1085=L1259 因参数为 internal 类型而无法直接调用, L416=L434=L447=L459=L492 同 X()，但强制 DateStyle 族, L1148=L1322, L1393=L1449, L1404=L1460, L1185-1188=L1356-1359; R5_PROTECTED L1305 translator 注释按 xgettext 约定恢复 EN; 修复轮: 规划轮 1 (dry-run 预算 9 站修正) + 写后 2 轮 (R1: translator 恢复/P02 cannot→无法 4 站/L897 补 NULL 值; R2: L189 补是 59≤70 EN 基线现算) + 审查修复轮 (N2-N6: L1770 return false; 代码行误删当场恢复并全文件 stripped 审计; L897 NULLs; L341/L678/L1340/L1374/L1770/L1796 粘连处置; L178 补句号 19≤19; 均 sed 回读核实); N4 粘连处置清单: 修复 L341 escape_json 前空格 (55≤56)/L678 JSON 两空格去句号 (38≤39)/L1340·L1374 处理键·处理值 标准空格 (15≤19·21)/L1770 json 无效 空格 (17≤19)/L1796 COMMA或END→顿号并列去句号 (53≤57); 入台账: L41 /*数组*/·L42 /*复合*/·L44 /*其余*/ 贴预算无空间; 句号台账 FWD 8 逐行: [121 输入, 140 输出, 166 二进制接收, 190 JSONTYPE_CAST…OID, 342 即可, 678 JSON 文本 (空格换句号), 1140 unknownout() 正常, 1790 类型清单 (引号句尾)]; REV 1 逐行: [1792 词位句提前收束 EN 行尾无句号]"
+  },
+  {
+   "path": "src/backend/utils/adt/varbit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 155,
+   "translated": 155,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 27 (头部 6: L3 文件名/L21 作者行 Code originally contributed by Adriaan Joubert/L23·L24 版权/L26 IDENTIFICATION/L27 路径 + 名称行 20 + L1035 SQL draft 6.10 9) 引文, 详见 note"
+   ],
+   "note": "变长位串 (varbit/bit varying 标识符保留, bit→位, bit string→位串, shift→移位, pad/padding→填充, zero-pad→零填充, sign-fill→符号填充, typmod 标识符保留); whole-file comment translation, batch-0412; dump 权威块数 155 注释感知重扫一致; content 行 255 = zh 228 + 保留 EN 27 (L3 文件名/L21 作者行/L23·L24 版权/L26/L27 IDENTIFICATION·路径/L1035 SQL draft 引文 + 名称行 L141 bit_in/L383 bit()/L446 varbit_in/L580 varbit_out/L693 varbit_support()/L734 varbit()/L810 bit_cmp/L964 bitcat/L1032 bitsubstr/L1146 bitoverlay/L1206 bit_count/L1219 bitlength,bitoctetlength/L1239 bit_and/L1280 bit_or/L1320 bitxor/L1361 bitnot/L1388 bitshiftleft/L1455 bitshiftright/L1797 bitsetbit/L1860 bitgetbit); 行数守恒 1894 不变 (git diff numstat 228/228); 代码字节零改动 (stripped 全等); NUL 扫描 0; verify rc=0 本文件 W7 advisory 0 站; term_lint 0 hits; scan_halfen 本文件 2 站 mixed advisory (L178 cast('1001' as bit) 代码串固有混排, L1218 名称行保留); N2: L225=L526 attypmod 勘正 (已知装得下，bitlen 与 atttypmod 比较过 52≤60; L18/L448 zh 忠实保留 EN 上游原生 typo attypmod 勿动); 同 EN 同译实证: L155=L460, L156=L461, L157=L462, L158=L463, L159=L464, L160=L465, L161=L466, L165=L470, L187=L488, L188=L489, L204=L350=L505=L655, L216=L517, L225=L526, L247=L548, L299=L598, L366=L671=L767=L1138, L399=L750, L852=L876, L1026=L1449, L1157=L1168, L1403/L1470 按 EN 向右·向左 分译, L1406=L1473, L1419=L1486, L1432=L1503, L1542=L1622, L1552=L1632, L1554=L1634, L1560=L1640, L1565=L1645, L1571=L1651, L1572=L1652, L1578=L1658, L1592=L1672, L1604=L1684; 修复轮: 规划轮 1 (dry-run 18 站预算/行号修正) + 写后 1 轮 (P02 cannot→无法 L801) + 审查修复轮 (N2 attypmod 2 站; N4 粘连: L283 同 varbit 输出 23≤28/L584 宜用 hex 输出 50≤54/L678 将 varbit 转为 46≤48/L1274·L1314·L1355 0 填充位…0 空格 46≤48; 均 sed 回读核实); 句号台账 FWD 2 逐行: [584 宜用 hex 输出 (空格换句号), 1034 注：s 从 1 起]; REV 3 逐行: [698 展平句提前收束, 1804, 1866 (L1804=L1866 同 EN 同译)]"
+  },
+  {
+   "path": "src/backend/utils/adt/int8.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 84,
+   "translated": 81,
+   "preserved": 3,
+   "preserved_reasons": [
+    "@48 int8in() 名称块整块保留 EN",
+    "@59 int8out() 名称块整块保留 EN",
+    "@698 lcm(x, y) = abs(...) 纯公式注释保留 EN"
+   ],
+   "note": "int8 读写与算术 (int8 标识符保留, overflow→溢出, negation→取负, INT64_MIN/gcd/lcm 逐字, gcc bug 逐字保留, operators→算子); whole-file comment translation, batch-0412; dump 权威块数 84 注释感知重扫一致; content 行 169 = zh 149 + 保留 EN 20 (头部 5: L3 文件名/L6·L7 版权/L9 IDENTIFICATION/L10 路径 + 名称行 12: L48 int8in()/L59 int8out()/L110 int8relop()/L167 int84relop()/L224 int48relop()/L281 int82relop()/L338 int28relop()/L543 int8abs()/L560 int8mod()/L823 int8inc_support/L1309 dtoi8()/L1344 ftoi8() + 公式 3: L596/L598 gcd 特例/L698 lcm 公式); 行数守恒 1539 不变 (git diff numstat 149/149); 代码字节零改动 (stripped 全等); NUL 扫描 0; verify rc=0 本文件 W7 advisory 1 站 (L698 W7_UNTRANSLATED 公式保留即 preserved @698 披露); term_lint 0 hits; scan_halfen 本文件 4 站 mixed advisory (L167/L224/L281/L338 relop 名称行保留紧邻 zh); 同 EN 同译实证: L516=L574=L959=L1039=L1101=L1181 gcc bug 6 站, L521-524=L964-967=L1106-1109 INT64_MIN/-1 三组, L723-727=L761-765, L729=L767 兼控 int8, L744=L781, L1318-1320=L1353-1355, L1324=L1359, L544/L561 同译, L111/L168/L225/L282/L339 relop 族同构; 修复轮: 规划轮 2 (dry-run 预算 10 站修正) + 写后 0 轮 + 审查修复轮 (N4 粘连: L642/643 结果 移行 (57≤66·25≤31), L692/693 以及 移行后 x = INT64_MIN 时 GCD 溢出错误。 (66≤71·37≤43), L1310/L1345 8 字节两空格去句号 (32≤33); N5: L801 补句号 66≤69; 均 sed 回读核实); 忠实度披露: L726-727 of course 省略 (预算 37B), L603-604 signed 省略 (预算 8B); 句号台账 FWD 5 逐行: [604 整数, 725/763 我们知道参数是可修改的本地存储，因此 (句号移入 L727 块尾), 1310/1345 8 字节整数 (空格换句号)]; REV 5 逐行: [4 内部运算 EN 无句号, 523/966/1108 异常句提前收束 (三组同 EN 同译)]"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0412-adt-json-varbit-int8.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0412 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

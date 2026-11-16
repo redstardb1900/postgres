@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * json.c
- *		JSON data type support.
+ *		JSON 类型支持。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,32 +29,32 @@
 #include "utils/lsyscache.h"
 #include "utils/typcache.h"
 
-typedef enum					/* type categories for datum_to_json */
+typedef enum					/* datum_to_json 的类型类别 */
 {
-	JSONTYPE_NULL,				/* null, so we didn't bother to identify */
-	JSONTYPE_BOOL,				/* boolean (built-in types only) */
-	JSONTYPE_NUMERIC,			/* numeric (ditto) */
-	JSONTYPE_DATE,				/* we use special formatting for datetimes */
+	JSONTYPE_NULL,				/* 为 NULL，故未费心识别 */
+	JSONTYPE_BOOL,				/* 布尔（仅内建类型） */
+	JSONTYPE_NUMERIC,			/* 数值（同） */
+	JSONTYPE_DATE,				/* 对日期时间类型用特殊格式化 */
 	JSONTYPE_TIMESTAMP,
 	JSONTYPE_TIMESTAMPTZ,
-	JSONTYPE_JSON,				/* JSON itself (and JSONB) */
-	JSONTYPE_ARRAY,				/* array */
-	JSONTYPE_COMPOSITE,			/* composite */
-	JSONTYPE_CAST,				/* something with an explicit cast to JSON */
-	JSONTYPE_OTHER				/* all else */
+	JSONTYPE_JSON,				/* JSON（含 JSONB） */
+	JSONTYPE_ARRAY,				/*数组*/
+	JSONTYPE_COMPOSITE,			/*复合*/
+	JSONTYPE_CAST,				/* 具有到 JSON 的显式转换 */
+	JSONTYPE_OTHER				/*其余*/
 } JsonTypeCategory;
 
 
 /*
- * Support for fast key uniqueness checking.
+ * 支持快速检查键的唯一性。
  *
- * We maintain a hash table of used keys in JSON objects for fast detection
- * of duplicates.
+ * 我们为 JSON 对象中已用的键维护一张哈希表，以便快速
+ * 查重。
  */
-/* Common context for key uniqueness check */
-typedef struct HTAB *JsonUniqueCheckState;	/* hash table for key names */
+/* 键唯一性检查的公共上下文 */
+typedef struct HTAB *JsonUniqueCheckState;	/* 存放键名的哈希表 */
 
-/* Hash entry for JsonUniqueCheckState */
+/* JsonUniqueCheckState 哈希条目 */
 typedef struct JsonUniqueHashEntry
 {
 	const char *key;
@@ -62,14 +62,14 @@ typedef struct JsonUniqueHashEntry
 	int			object_id;
 } JsonUniqueHashEntry;
 
-/* Stack element for key uniqueness check during JSON parsing */
+/* JSON 解析期间键唯一性检查的栈元素 */
 typedef struct JsonUniqueStackEntry
 {
 	struct JsonUniqueStackEntry *parent;
 	int			object_id;
 } JsonUniqueStackEntry;
 
-/* Context struct for key uniqueness check during JSON parsing */
+/* JSON 解析期间键唯一性检查的上下文结构体 */
 typedef struct JsonUniqueParsingState
 {
 	JsonLexContext *lex;
@@ -79,16 +79,16 @@ typedef struct JsonUniqueParsingState
 	bool		unique;
 } JsonUniqueParsingState;
 
-/* Context struct for key uniqueness check during JSON building */
+/* JSON 构建期间键唯一性检查的上下文结构体 */
 typedef struct JsonUniqueBuilderState
 {
-	JsonUniqueCheckState check; /* unique check */
-	StringInfoData skipped_keys;	/* skipped keys with NULL values */
-	MemoryContext mcxt;			/* context for saving skipped keys */
+	JsonUniqueCheckState check; /* 唯一检查 */
+	StringInfoData skipped_keys;	/* 跳过值为 NULL 的键 */
+	MemoryContext mcxt;			/* 保存跳过键的上下文 */
 } JsonUniqueBuilderState;
 
 
-/* State struct for JSON aggregation */
+/* JSON 聚合的状态结构体 */
 typedef struct JsonAggState
 {
 	StringInfo	str;
@@ -118,7 +118,7 @@ static void add_json(Datum val, bool is_null, StringInfo result,
 static text *catenate_stringinfo_string(StringInfo buffer, const char *addon);
 
 /*
- * Input.
+ * 输入
  */
 Datum
 json_in(PG_FUNCTION_ARGS)
@@ -127,22 +127,22 @@ json_in(PG_FUNCTION_ARGS)
 	text	   *result = cstring_to_text(json);
 	JsonLexContext *lex;
 
-	/* validate it */
+	/* 先校验 */
 	lex = makeJsonLexContext(result, false);
 	if (!pg_parse_json_or_errsave(lex, &nullSemAction, fcinfo->context))
 		PG_RETURN_NULL();
 
-	/* Internal representation is the same as text */
+	/* 内部表示与 text 相同 */
 	PG_RETURN_TEXT_P(result);
 }
 
 /*
- * Output.
+ * 输出
  */
 Datum
 json_out(PG_FUNCTION_ARGS)
 {
-	/* we needn't detoast because text_to_cstring will handle that */
+	/* 无须 detoast，text_to_cstring 会处理它 */
 	Datum		txt = PG_GETARG_DATUM(0);
 
 	PG_RETURN_CSTRING(TextDatumGetCString(txt));
@@ -163,7 +163,7 @@ json_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * Binary receive.
+ * 二进制接收
  */
 Datum
 json_recv(PG_FUNCTION_ARGS)
@@ -175,7 +175,7 @@ json_recv(PG_FUNCTION_ARGS)
 
 	str = pq_getmsgtext(buf, buf->len - buf->cursor, &nbytes);
 
-	/* Validate it. */
+	/* 先校验。 */
 	lex = makeJsonLexContextCstringLen(str, nbytes, GetDatabaseEncoding(), false);
 	pg_parse_json_or_ereport(lex, &nullSemAction);
 
@@ -183,11 +183,11 @@ json_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- * Determine how we want to print values of a given type in datum_to_json.
+ * 确定在 datum_to_json 中如何打印给定类型的值。
  *
- * Given the datatype OID, return its JsonTypeCategory, as well as the type's
- * output function OID.  If the returned category is JSONTYPE_CAST, we
- * return the OID of the type->JSON cast function instead.
+ * 给定数据类型 OID，返回其 JsonTypeCategory，
+ * 以及该类型的输出函数 OID。若返回的类别是
+ * JSONTYPE_CAST 则返回到 JSON 的转换函数 OID
  */
 static void
 json_categorize_type(Oid typoid,
@@ -196,15 +196,15 @@ json_categorize_type(Oid typoid,
 {
 	bool		typisvarlena;
 
-	/* Look through any domain */
+	/* 穿透任何域 */
 	typoid = getBaseType(typoid);
 
 	*outfuncoid = InvalidOid;
 
 	/*
-	 * We need to get the output function for everything except date and
-	 * timestamp types, array and composite types, booleans, and non-builtin
-	 * types where there's a cast to json.
+	 * 除了 date/timestamp 类型、数组与复合类型、
+	 * 布尔值以及存在到 json 转换的非内建类型，
+	 * 都需要获取其输出函数。
 	 */
 
 	switch (typoid)
@@ -242,17 +242,17 @@ json_categorize_type(Oid typoid,
 			break;
 
 		default:
-			/* Check for arrays and composites */
+			/* 检查数组和复合类型 */
 			if (OidIsValid(get_element_type(typoid)) || typoid == ANYARRAYOID
 				|| typoid == ANYCOMPATIBLEARRAYOID || typoid == RECORDARRAYOID)
 				*tcategory = JSONTYPE_ARRAY;
-			else if (type_is_rowtype(typoid))	/* includes RECORDOID */
+			else if (type_is_rowtype(typoid))	/* 含 RECORDOID */
 				*tcategory = JSONTYPE_COMPOSITE;
 			else
 			{
-				/* It's probably the general case ... */
+				/* 多半是一般情形 ... */
 				*tcategory = JSONTYPE_OTHER;
-				/* but let's look for a cast to json, if it's not built-in */
+				/* 但若非内建，则查找是否有到 json 的转换 */
 				if (typoid >= FirstNormalObjectId)
 				{
 					Oid			castfunc;
@@ -268,13 +268,13 @@ json_categorize_type(Oid typoid,
 					}
 					else
 					{
-						/* non builtin type with no cast */
+						/* 无转换的非内建类型 */
 						getTypeOutputInfo(typoid, outfuncoid, &typisvarlena);
 					}
 				}
 				else
 				{
-					/* any other builtin type */
+					/* 其他内建类型 */
 					getTypeOutputInfo(typoid, outfuncoid, &typisvarlena);
 				}
 			}
@@ -283,13 +283,13 @@ json_categorize_type(Oid typoid,
 }
 
 /*
- * Turn a Datum into JSON text, appending the string to "result".
+ * 把 Datum 转成 JSON 文本并追加到 "result"。
  *
- * tcategory and outfuncoid are from a previous call to json_categorize_type,
- * except that if is_null is true then they can be invalid.
+ * tcategory 与 outfuncoid 来自此前一次 json_categorize_type 调用，
+ * 但若 is_null 为真则二者可以为无效值。
  *
- * If key_scalar is true, the value is being printed as a key, so insist
- * it's of an acceptable type, and force it to be quoted.
+ * 若 key_scalar 为真，说明该值正作为键打印，必须
+ * 确保其类型可接受，并强制加引号。
  */
 static void
 datum_to_json(Datum val, bool is_null, StringInfo result,
@@ -301,7 +301,7 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 
 	check_stack_depth();
 
-	/* callers are expected to ensure that null keys are not passed in */
+	/* 调用方应确保不传入 NULL 键 */
 	Assert(!(key_scalar && is_null));
 
 	if (is_null)
@@ -338,8 +338,8 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 			outputstr = OidOutputFunctionCall(outfuncoid, val);
 
 			/*
-			 * Don't call escape_json for a non-key if it's a valid JSON
-			 * number.
+			 * 非键若为合法 JSON 数字则不调用 escape_json
+			 * 即可
 			 */
 			if (!key_scalar && IsValidJsonNumber(outputstr, strlen(outputstr)))
 				appendStringInfoString(result, outputstr);
@@ -372,13 +372,13 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 			}
 			break;
 		case JSONTYPE_JSON:
-			/* JSON and JSONB output will already be escaped */
+			/* JSON 与 JSONB 的输出已转义过 */
 			outputstr = OidOutputFunctionCall(outfuncoid, val);
 			appendStringInfoString(result, outputstr);
 			pfree(outputstr);
 			break;
 		case JSONTYPE_CAST:
-			/* outfuncoid refers to a cast function, not an output function */
+			/* outfuncoid 指向的是转换函数而非输出函数 */
 			jsontext = DatumGetTextPP(OidFunctionCall1(outfuncoid, val));
 			outputstr = text_to_cstring(jsontext);
 			appendStringInfoString(result, outputstr);
@@ -394,9 +394,9 @@ datum_to_json(Datum val, bool is_null, StringInfo result,
 }
 
 /*
- * Encode 'value' of datetime type 'typid' into JSON string in ISO format using
- * optionally preallocated buffer 'buf'.  Optional 'tzp' determines time-zone
- * offset (in seconds) in which we want to show timestamptz.
+ * 将 datetime 类型 'typid' 的值 'value' 按 ISO 格式编码，
+ * 写入可选预分配的缓冲区 'buf'。可选的 'tzp' 决定显示
+ * timestamptz 时的时区偏移量（单位为秒）。
  */
 char *
 JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
@@ -413,7 +413,7 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 
 				date = DatumGetDateADT(value);
 
-				/* Same as date_out(), but forcing DateStyle */
+				/* 同 date_out()，但强制 DateStyle */
 				if (DATE_NOT_FINITE(date))
 					EncodeSpecialDate(date, buf);
 				else
@@ -431,7 +431,7 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 						   *tm = &tt;
 				fsec_t		fsec;
 
-				/* Same as time_out(), but forcing DateStyle */
+				/* 同 time_out()，但强制 DateStyle */
 				time2tm(time, tm, &fsec);
 				EncodeTimeOnly(tm, fsec, false, 0, USE_XSD_DATES, buf);
 			}
@@ -444,7 +444,7 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 				fsec_t		fsec;
 				int			tz;
 
-				/* Same as timetz_out(), but forcing DateStyle */
+				/* 同 timetz_out()，但强制 DateStyle */
 				timetz2tm(time, tm, &fsec, &tz);
 				EncodeTimeOnly(tm, fsec, true, tz, USE_XSD_DATES, buf);
 			}
@@ -456,7 +456,7 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 				fsec_t		fsec;
 
 				timestamp = DatumGetTimestamp(value);
-				/* Same as timestamp_out(), but forcing DateStyle */
+				/* 同 timestamp_out()，但强制 DateStyle */
 				if (TIMESTAMP_NOT_FINITE(timestamp))
 					EncodeSpecialTimestamp(timestamp, buf);
 				else if (timestamp2tm(timestamp, NULL, &tm, &fsec, NULL, NULL) == 0)
@@ -478,10 +478,10 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 				timestamp = DatumGetTimestampTz(value);
 
 				/*
-				 * If a time zone is specified, we apply the time-zone shift,
-				 * convert timestamptz to pg_tm as if it were without a time
-				 * zone, and then use the specified time zone for converting
-				 * the timestamp into a string.
+				 * 若指定了时区，则先应用时区偏移，
+				 * 再把 timestamptz 视作无时区转为 pg_tm，
+				 * 最后再以指定的时区把时间戳
+				 * 转换成字符串。
 				 */
 				if (tzp)
 				{
@@ -489,14 +489,14 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 					timestamp -= (TimestampTz) tz * USECS_PER_SEC;
 				}
 
-				/* Same as timestamptz_out(), but forcing DateStyle */
+				/* 同 timestamptz_out()，但强制 DateStyle */
 				if (TIMESTAMP_NOT_FINITE(timestamp))
 					EncodeSpecialTimestamp(timestamp, buf);
 				else if (timestamp2tm(timestamp, tzp ? NULL : &tz, &tm, &fsec,
 									  tzp ? NULL : &tzn, NULL) == 0)
 				{
 					if (tzp)
-						tm.tm_isdst = 1;	/* set time-zone presence flag */
+						tm.tm_isdst = 1;	/* 置时区存在标志 */
 
 					EncodeDateTime(&tm, fsec, true, tz, tzn, USE_XSD_DATES, buf);
 				}
@@ -515,9 +515,9 @@ JsonEncodeDateTime(char *buf, Datum value, Oid typid, const int *tzp)
 }
 
 /*
- * Process a single dimension of an array.
- * If it's the innermost dimension, output the values, otherwise call
- * ourselves recursively to process the next dimension.
+ * 处理数组的一个维度。
+ * 若是最内层维度则输出各值，否则递归调用自身
+ * 去处理下一个维度。
  */
 static void
 array_dim_to_json(StringInfo result, int dim, int ndims, int *dims, Datum *vals,
@@ -547,8 +547,8 @@ array_dim_to_json(StringInfo result, int dim, int ndims, int *dims, Datum *vals,
 		else
 		{
 			/*
-			 * Do we want line feeds on inner dimensions of arrays? For now
-			 * we'll say no.
+			 * 要不要在数组的内层维度上也换行？目前
+			 * 先不换。
 			 */
 			array_dim_to_json(result, dim + 1, ndims, dims, vals, nulls,
 							  valcount, tcategory, outfuncoid, false);
@@ -559,7 +559,7 @@ array_dim_to_json(StringInfo result, int dim, int ndims, int *dims, Datum *vals,
 }
 
 /*
- * Turn an array into JSON.
+ * 把数组转成 JSON。
  */
 static void
 array_to_json_internal(Datum array, StringInfo result, bool use_line_feeds)
@@ -606,7 +606,7 @@ array_to_json_internal(Datum array, StringInfo result, bool use_line_feeds)
 }
 
 /*
- * Turn a composite / record into JSON.
+ * 把复合类型/记录转成 JSON。
  */
 static void
 composite_to_json(Datum composite, StringInfo result, bool use_line_feeds)
@@ -625,12 +625,12 @@ composite_to_json(Datum composite, StringInfo result, bool use_line_feeds)
 
 	td = DatumGetHeapTupleHeader(composite);
 
-	/* Extract rowtype info and find a tupdesc */
+	/* 提取行类型信息并找到 tupdesc */
 	tupType = HeapTupleHeaderGetTypeId(td);
 	tupTypmod = HeapTupleHeaderGetTypMod(td);
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 
-	/* Build a temporary HeapTuple control structure */
+	/* 构建临时 HeapTuple 控制结构 */
 	tmptup.t_len = HeapTupleHeaderGetDatumLength(td);
 	tmptup.t_data = td;
 	tuple = &tmptup;
@@ -675,11 +675,11 @@ composite_to_json(Datum composite, StringInfo result, bool use_line_feeds)
 }
 
 /*
- * Append JSON text for "val" to "result".
+ * 向结果追加 "val" 的 JSON 文本
  *
- * This is just a thin wrapper around datum_to_json.  If the same type will be
- * printed many times, avoid using this; better to do the json_categorize_type
- * lookups only once.
+ * 这只是 datum_to_json 的一个薄封装。若同一类型要打印
+ * 很多次，应避免使用它；最好只做一次 json_categorize_type
+ * 的查找。
  */
 static void
 add_json(Datum val, bool is_null, StringInfo result,
@@ -706,7 +706,7 @@ add_json(Datum val, bool is_null, StringInfo result,
 }
 
 /*
- * SQL function array_to_json(row)
+ * SQL 函数 array_to_json(row)
  */
 Datum
 array_to_json(PG_FUNCTION_ARGS)
@@ -722,7 +722,7 @@ array_to_json(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function array_to_json(row, prettybool)
+ * SQL 函数 array_to_json(row, prettybool)
  */
 Datum
 array_to_json_pretty(PG_FUNCTION_ARGS)
@@ -739,7 +739,7 @@ array_to_json_pretty(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function row_to_json(row)
+ * SQL 函数 row_to_json(row)
  */
 Datum
 row_to_json(PG_FUNCTION_ARGS)
@@ -755,7 +755,7 @@ row_to_json(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function row_to_json(row, prettybool)
+ * SQL 函数 row_to_json(row, prettybool)
  */
 Datum
 row_to_json_pretty(PG_FUNCTION_ARGS)
@@ -772,11 +772,11 @@ row_to_json_pretty(PG_FUNCTION_ARGS)
 }
 
 /*
- * Is the given type immutable when coming out of a JSON context?
+ * 给定类型脱离 JSON 上下文后还算不可变吗？
  *
- * At present, datetimes are all considered mutable, because they
- * depend on timezone.  XXX we should also drill down into objects
- * and arrays, but do not.
+ * 目前所有日期时间类型都被视为可变，因为
+ * 依赖时区。XXX 另外还应深入对象与数组，
+ * 但并未这样做。
  */
 bool
 to_json_is_immutable(Oid typoid)
@@ -799,10 +799,10 @@ to_json_is_immutable(Oid typoid)
 			return false;
 
 		case JSONTYPE_ARRAY:
-			return false;		/* TODO recurse into elements */
+			return false;		/* TODO 递归处理元素 */
 
 		case JSONTYPE_COMPOSITE:
-			return false;		/* TODO recurse into fields */
+			return false;		/* TODO 递归处理字段 */
 
 		case JSONTYPE_NUMERIC:
 		case JSONTYPE_CAST:
@@ -810,11 +810,11 @@ to_json_is_immutable(Oid typoid)
 			return func_volatile(outfuncoid) == PROVOLATILE_IMMUTABLE;
 	}
 
-	return false;				/* not reached */
+	return false;				/* 不可达 */
 }
 
 /*
- * SQL function to_json(anyvalue)
+ * SQL 函数 to_json(anyvalue)
  */
 Datum
 to_json(PG_FUNCTION_ARGS)
@@ -841,9 +841,9 @@ to_json(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_agg transition function
+ * json_agg 转换函数
  *
- * aggregate input column as a json array value.
+ * 把输入列聚合为一个 json 数组值。
  */
 static Datum
 json_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
@@ -855,7 +855,7 @@ json_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 因参数为 internal 类型而无法直接调用 */
 		elog(ERROR, "json_agg_transfn called in non-aggregate context");
 	}
 
@@ -869,10 +869,10 @@ json_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 					 errmsg("could not determine input data type")));
 
 		/*
-		 * Make this state object in a context where it will persist for the
-		 * duration of the aggregate call.  MemoryContextSwitchTo is only
-		 * needed the first time, as the StringInfo routines make sure they
-		 * use the right context to enlarge the object if necessary.
+		 * 此状态对象要创建在能存活整个聚合调用期间的
+		 * 上下文中。MemoryContextSwitchTo 只在第一次
+		 * 时才需要，因为 StringInfo 例程会确保在必要时
+		 * 使用正确的上下文来扩大该对象。
 		 */
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 		state = (JsonAggState *) palloc(sizeof(JsonAggState));
@@ -894,7 +894,7 @@ json_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 	if (state->str->len > 1)
 		appendStringInfoString(state->str, ", ");
 
-	/* fast path for NULLs */
+	/* NULLs 快速路径 */
 	if (PG_ARGISNULL(1))
 	{
 		datum_to_json((Datum) 0, true, state->str, JSONTYPE_NULL,
@@ -904,7 +904,7 @@ json_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 
 	val = PG_GETARG_DATUM(1);
 
-	/* add some whitespace if structured type and not first item */
+	/* 若为结构化类型且非首项则加些空白 */
 	if (!PG_ARGISNULL(0) && state->str->len > 1 &&
 		(state->val_category == JSONTYPE_ARRAY ||
 		 state->val_category == JSONTYPE_COMPOSITE))
@@ -916,16 +916,16 @@ json_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 				  state->val_output_func, false);
 
 	/*
-	 * The transition type for json_agg() is declared to be "internal", which
-	 * is a pass-by-value type the same size as a pointer.  So we can safely
-	 * pass the JsonAggState pointer through nodeAgg.c's machinations.
+	 * json_agg() 的转换类型被声明为 "internal"，这是一个
+	 * 与指针同尺寸的按值传递类型。因此我们可以放心地
+	 * 把 JsonAggState 指针传过 nodeAgg.c 的种种处理。
 	 */
 	PG_RETURN_POINTER(state);
 }
 
 
 /*
- * json_agg aggregate function
+ * json_agg 聚合函数
  */
 Datum
 json_agg_transfn(PG_FUNCTION_ARGS)
@@ -934,7 +934,7 @@ json_agg_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_agg_strict aggregate function
+ * json_agg_strict 聚合函数
  */
 Datum
 json_agg_strict_transfn(PG_FUNCTION_ARGS)
@@ -943,29 +943,29 @@ json_agg_strict_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_agg final function
+ * json_agg 最终函数
  */
 Datum
 json_agg_finalfn(PG_FUNCTION_ARGS)
 {
 	JsonAggState *state;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ?
 		NULL :
 		(JsonAggState *) PG_GETARG_POINTER(0);
 
-	/* NULL result for no rows in, as is standard with aggregates */
+	/* 无输入行时返回 NULL，与聚合的标准相同 */
 	if (state == NULL)
 		PG_RETURN_NULL();
 
-	/* Else return state with appropriate array terminator added */
+	/* 否则返回加上相应数组终止符后的状态 */
 	PG_RETURN_TEXT_P(catenate_stringinfo_string(state->str, "]"));
 }
 
-/* Functions implementing hash table for key uniqueness check */
+/* 实现键唯一性检查哈希表的函数 */
 static uint32
 json_unique_hash(const void *key, Size keysize)
 {
@@ -993,10 +993,10 @@ json_unique_hash_match(const void *key1, const void *key2, Size keysize)
 }
 
 /*
- * Uniqueness detection support.
+ * 唯一性检测支持。
  *
- * In order to detect uniqueness during building or parsing of a JSON
- * object, we maintain a hash table of key names already seen.
+ * 为了在构建或解析 JSON 对象期间检测唯一性，
+ * 我们维护一张已见键名的哈希表。
  */
 static void
 json_unique_check_init(JsonUniqueCheckState *cxt)
@@ -1040,9 +1040,9 @@ json_unique_check_key(JsonUniqueCheckState *cxt, const char *key, int object_id)
 }
 
 /*
- * On-demand initialization of a throwaway StringInfo.  This is used to
- * read a key name that we don't need to store in the output object, for
- * duplicate key detection when the value is NULL.
+ * 按需初始化一个用后即弃的 StringInfo。它用于
+ * 读取无需存入输出对象的键名，用于值为 NULL 时
+ * 的重复键检测。
  */
 static StringInfo
 json_unique_builder_get_throwawaybuf(JsonUniqueBuilderState *cxt)
@@ -1057,16 +1057,16 @@ json_unique_builder_get_throwawaybuf(JsonUniqueBuilderState *cxt)
 		MemoryContextSwitchTo(oldcxt);
 	}
 	else
-		/* Just reset the string to empty */
+		/* 把字符串重置为空 */
 		out->len = 0;
 
 	return out;
 }
 
 /*
- * json_object_agg transition function.
+ * json_object_agg 转换函数。
  *
- * aggregate two input columns as a single json object value.
+ * 把两个输入列聚合为单个 json 对象值。
  */
 static Datum
 json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
@@ -1082,7 +1082,7 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 因参数为 internal 类型而无法直接调用 */
 		elog(ERROR, "json_object_agg_transfn called in non-aggregate context");
 	}
 
@@ -1091,10 +1091,10 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 		Oid			arg_type;
 
 		/*
-		 * Make the StringInfo in a context where it will persist for the
-		 * duration of the aggregate call. Switching context is only needed
-		 * for this initial step, as the StringInfo and dynahash routines make
-		 * sure they use the right context to enlarge the object if necessary.
+		 * StringInfo 要创建在能存活整个聚合调用期间的
+		 * 上下文中。切换上下文只在最初这一步需要，
+		 * 因为 StringInfo 与 dynahash 例程会确保在必要时
+		 * 使用正确的上下文来扩大对象。
 		 */
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 		state = (JsonAggState *) palloc(sizeof(JsonAggState));
@@ -1133,11 +1133,11 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 	}
 
 	/*
-	 * Note: since json_object_agg() is declared as taking type "any", the
-	 * parser will not do any type conversion on unknown-type literals (that
-	 * is, undecorated strings or NULLs).  Such values will arrive here as
-	 * type UNKNOWN, which fortunately does not matter to us, since
-	 * unknownout() works fine.
+	 * 注意：由于 json_object_agg() 声明为接受 "any" 类型，
+	 * 解析器不会对未知类型字面量（即未加修饰的字符串
+	 * 或 NULL）做任何类型转换。这类值会以 UNKNOWN
+	 * 类型到来，所幸这对我们无关紧要，因为
+	 * unknownout() 正常
 	 */
 
 	if (PG_ARGISNULL(1))
@@ -1145,15 +1145,15 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("null value not allowed for object key")));
 
-	/* Skip null values if absent_on_null */
+	/* absent_on_null 时跳过 NULL 值 */
 	skip = absent_on_null && PG_ARGISNULL(2);
 
 	if (skip)
 	{
 		/*
-		 * We got a NULL value and we're not storing those; if we're not
-		 * testing key uniqueness, we're done.  If we are, use the throwaway
-		 * buffer to store the key name so that we can check it.
+		 * 我们得到 NULL 值且不打算存储它；若不检测
+		 * 键唯一性，那就完成了。若要检测，就得借助
+		 * 用后即弃缓冲区存下键名以便检查。
 		 */
 		if (!unique_keys)
 			PG_RETURN_POINTER(state);
@@ -1165,8 +1165,8 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 		out = state->str;
 
 		/*
-		 * Append comma delimiter only if we have already output some fields
-		 * after the initial string "{ ".
+		 * 只有在初始字符串 "{ " 之后已输出过一些字段时
+		 * 才追加逗号分隔符。
 		 */
 		if (out->len > 2)
 			appendStringInfoString(out, ", ");
@@ -1182,10 +1182,10 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 	if (unique_keys)
 	{
 		/*
-		 * Copy the key first, instead of pointing into the buffer. It will be
-		 * added to the hash table, but the buffer may get reallocated as
-		 * we're appending more data to it. That would invalidate pointers to
-		 * keys in the current buffer.
+		 * 先复制键而非指向缓冲区内部。它会被
+		 * 加入哈希表，但缓冲区可能因继续追加
+		 * 数据而被重新分配，这会使指向当前缓冲区
+		 * 中键的指针失效。
 		 */
 		const char *key = MemoryContextStrdup(aggcontext,
 											  &out->data[key_offset]);
@@ -1213,7 +1213,7 @@ json_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 }
 
 /*
- * json_object_agg aggregate function
+ * json_object_agg 聚合函数
  */
 Datum
 json_object_agg_transfn(PG_FUNCTION_ARGS)
@@ -1222,7 +1222,7 @@ json_object_agg_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_object_agg_strict aggregate function
+ * json_object_agg_strict 聚合函数
  */
 Datum
 json_object_agg_strict_transfn(PG_FUNCTION_ARGS)
@@ -1231,7 +1231,7 @@ json_object_agg_strict_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_object_agg_unique aggregate function
+ * json_object_agg_unique 聚合函数
  */
 Datum
 json_object_agg_unique_transfn(PG_FUNCTION_ARGS)
@@ -1240,7 +1240,7 @@ json_object_agg_unique_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_object_agg_unique_strict aggregate function
+ * json_object_agg_unique_strict 聚合函数
  */
 Datum
 json_object_agg_unique_strict_transfn(PG_FUNCTION_ARGS)
@@ -1249,35 +1249,35 @@ json_object_agg_unique_strict_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * json_object_agg final function.
+ * json_object_agg 最终函数。
  */
 Datum
 json_object_agg_finalfn(PG_FUNCTION_ARGS)
 {
 	JsonAggState *state;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ? NULL : (JsonAggState *) PG_GETARG_POINTER(0);
 
-	/* NULL result for no rows in, as is standard with aggregates */
+	/* 无输入行时返回 NULL，与聚合的标准相同 */
 	if (state == NULL)
 		PG_RETURN_NULL();
 
-	/* Else return state with appropriate object terminator added */
+	/* 否则返回加上相应对象终止符后的状态 */
 	PG_RETURN_TEXT_P(catenate_stringinfo_string(state->str, " }"));
 }
 
 /*
- * Helper function for aggregates: return given StringInfo's contents plus
- * specified trailing string, as a text datum.  We need this because aggregate
- * final functions are not allowed to modify the aggregate state.
+ * 聚合辅助函数：返回给定 StringInfo 的内容加上
+ * 指定结尾串而成的 text 值。之所以需要它，是因为聚合
+ * 的最终函数不允许修改聚合状态。
  */
 static text *
 catenate_stringinfo_string(StringInfo buffer, const char *addon)
 {
-	/* custom version of cstring_to_text_with_len */
+	/* cstring_to_text_with_len 定制版本 */
 	int			buflen = buffer->len;
 	int			addlen = strlen(addon);
 	text	   *result = (text *) palloc(buflen + addlen + VARHDRSZ);
@@ -1319,12 +1319,12 @@ json_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 		bool		skip;
 		int			key_offset;
 
-		/* Skip null values if absent_on_null */
+		/* absent_on_null 时跳过 NULL 值 */
 		skip = absent_on_null && nulls[i + 1];
 
 		if (skip)
 		{
-			/* If key uniqueness check is needed we must save skipped keys */
+			/* 若需要键唯一性检查则必须保存被跳过的键 */
 			if (!unique_keys)
 				continue;
 
@@ -1337,13 +1337,13 @@ json_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 			out = result;
 		}
 
-		/* process key */
+		/* 处理键 */
 		if (nulls[i])
 			ereport(ERROR,
 					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 					 errmsg("null value not allowed for object key")));
 
-		/* save key offset before appending it */
+		/* 在追加前保存键偏移量 */
 		key_offset = out->len;
 
 		add_json(args[i], false, out, types[i], true);
@@ -1351,12 +1351,12 @@ json_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 		if (unique_keys)
 		{
 			/*
-			 * check key uniqueness after key appending
+			 * 在追加键之后检查键唯一性
 			 *
-			 * Copy the key first, instead of pointing into the buffer. It
-			 * will be added to the hash table, but the buffer may get
-			 * reallocated as we're appending more data to it. That would
-			 * invalidate pointers to keys in the current buffer.
+			 * 先复制键而非指向缓冲区内部。它会被
+			 * 加入哈希表，但缓冲区可能因继续追加
+			 * 数据而被重新分配，这会使指向当前缓冲区
+			 * 中键的指针失效。
 			 */
 			const char *key = pstrdup(&out->data[key_offset]);
 
@@ -1371,7 +1371,7 @@ json_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 
 		appendStringInfoString(result, " : ");
 
-		/* process value */
+		/* 处理值 */
 		add_json(args[i + 1], nulls[i + 1], result, types[i + 1], false);
 	}
 
@@ -1381,7 +1381,7 @@ json_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 }
 
 /*
- * SQL function json_build_object(variadic "any")
+ * SQL 函数 json_build_object(variadic "any")
  */
 Datum
 json_build_object(PG_FUNCTION_ARGS)
@@ -1390,7 +1390,7 @@ json_build_object(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	Oid		   *types;
 
-	/* build argument values to build the object */
+	/* 构建组成该对象的参数值 */
 	int			nargs = extract_variadic_args(fcinfo, 0, true,
 											  &args, &types, &nulls);
 
@@ -1401,7 +1401,7 @@ json_build_object(PG_FUNCTION_ARGS)
 }
 
 /*
- * degenerate case of json_build_object where it gets 0 arguments.
+ * json_build_object 收到 0 个参数时的退化情形。
  */
 Datum
 json_build_object_noargs(PG_FUNCTION_ARGS)
@@ -1437,7 +1437,7 @@ json_build_array_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 }
 
 /*
- * SQL function json_build_array(variadic "any")
+ * SQL 函数 json_build_array(variadic "any")
  */
 Datum
 json_build_array(PG_FUNCTION_ARGS)
@@ -1446,7 +1446,7 @@ json_build_array(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	Oid		   *types;
 
-	/* build argument values to build the object */
+	/* 构建组成该对象的参数值 */
 	int			nargs = extract_variadic_args(fcinfo, 0, true,
 											  &args, &types, &nulls);
 
@@ -1457,7 +1457,7 @@ json_build_array(PG_FUNCTION_ARGS)
 }
 
 /*
- * degenerate case of json_build_array where it gets 0 arguments.
+ * json_build_array 收到 0 个参数时的退化情形。
  */
 Datum
 json_build_array_noargs(PG_FUNCTION_ARGS)
@@ -1466,10 +1466,10 @@ json_build_array_noargs(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function json_object(text[])
+ * SQL 函数 json_object(text[])
  *
- * take a one or two dimensional array of text as key/value pairs
- * for a json object.
+ * 取一维或二维 text 数组作为 json 对象的
+ * 键/值对。
  */
 Datum
 json_object(PG_FUNCTION_ARGS)
@@ -1554,10 +1554,10 @@ json_object(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function json_object(text[], text[])
+ * SQL 函数 json_object(text[], text[])
  *
- * take separate key and value arrays of text to construct a json object
- * pairwise.
+ * 取分开的 text 键数组和值数组来按对构造
+ * 对象。
  */
 Datum
 json_object_two_arg(PG_FUNCTION_ARGS)
@@ -1635,7 +1635,7 @@ json_object_two_arg(PG_FUNCTION_ARGS)
 
 
 /*
- * Produce a JSON string literal, properly escaping characters in the text.
+ * 生成一个 JSON 字符串字面量，正确转义文本中的字符。
  */
 void
 escape_json(StringInfo buf, const char *str)
@@ -1679,7 +1679,7 @@ escape_json(StringInfo buf, const char *str)
 	appendStringInfoCharMacro(buf, '"');
 }
 
-/* Semantic actions for key uniqueness check */
+/* 键唯一性检查的语义动作 */
 static JsonParseErrorType
 json_unique_object_start(void *_state)
 {
@@ -1689,7 +1689,7 @@ json_unique_object_start(void *_state)
 	if (!state->unique)
 		return JSON_SUCCESS;
 
-	/* push object entry to stack */
+	/* 把对象条目压栈 */
 	entry = palloc(sizeof(*entry));
 	entry->object_id = state->id_counter++;
 	entry->parent = state->stack;
@@ -1708,7 +1708,7 @@ json_unique_object_end(void *_state)
 		return JSON_SUCCESS;
 
 	entry = state->stack;
-	state->stack = entry->parent;	/* pop object from stack */
+	state->stack = entry->parent;	/* 弹出对象 */
 	pfree(entry);
 	return JSON_SUCCESS;
 }
@@ -1722,13 +1722,13 @@ json_unique_object_field_start(void *_state, char *field, bool isnull)
 	if (!state->unique)
 		return JSON_SUCCESS;
 
-	/* find key collision in the current object */
+	/* 在当前对象中查找键冲突 */
 	if (json_unique_check_key(&state->check, field, state->stack->object_id))
 		return JSON_SUCCESS;
 
 	state->unique = false;
 
-	/* pop all objects entries */
+	/* 弹出所有条目 */
 	while ((entry = state->stack))
 	{
 		state->stack = entry->parent;
@@ -1737,7 +1737,7 @@ json_unique_object_field_start(void *_state, char *field, bool isnull)
 	return JSON_SUCCESS;
 }
 
-/* Validate JSON text and additionally check key uniqueness */
+/* 校验 JSON 文本并额外检查键唯一性 */
 bool
 json_validate(text *json, bool check_unique_keys, bool throw_error)
 {
@@ -1767,7 +1767,7 @@ json_validate(text *json, bool check_unique_keys, bool throw_error)
 		if (throw_error)
 			json_errsave_error(result, lex, NULL);
 
-		return false;			/* invalid json */
+		return false;			/* json 无效 */
 	}
 
 	if (check_unique_keys && !state.unique)
@@ -1777,23 +1777,23 @@ json_validate(text *json, bool check_unique_keys, bool throw_error)
 					(errcode(ERRCODE_DUPLICATE_JSON_OBJECT_KEY_VALUE),
 					 errmsg("duplicate JSON object key value")));
 
-		return false;			/* not unique keys */
+		return false;			/* 键不唯一 */
 	}
 
 	return true;				/* ok */
 }
 
 /*
- * SQL function json_typeof(json) -> text
+ * SQL 函数 json_typeof(json) -> text
  *
- * Returns the type of the outermost JSON value as TEXT.  Possible types are
- * "object", "array", "string", "number", "boolean", and "null".
+ * 以 TEXT 返回最外层 JSON 值的类型。可能的类型为
+ * "object"、"array"、"string"、"number"、"boolean"、"null"
  *
- * Performs a single call to json_lex() to get the first token of the supplied
- * value.  This initial token uniquely determines the value's type.  As our
- * input must already have been validated by json_in() or json_recv(), the
- * initial token should never be JSON_TOKEN_OBJECT_END, JSON_TOKEN_ARRAY_END,
- * JSON_TOKEN_COLON, JSON_TOKEN_COMMA, or JSON_TOKEN_END.
+ * 对给定值执行一次 json_lex() 调用来取得其第一个词位。
+ * 该初始词位唯一决定值的类型。由于我们的输入必
+ * 已经先经 json_in() 或 json_recv() 校验过，因此初始
+ * 词位绝不应当是 JSON_TOKEN_OBJECT_END、JSON_TOKEN_ARRAY_END、
+ * JSON_TOKEN_COLON、JSON_TOKEN_COMMA、JSON_TOKEN_END
  */
 Datum
 json_typeof(PG_FUNCTION_ARGS)
@@ -1804,7 +1804,7 @@ json_typeof(PG_FUNCTION_ARGS)
 	JsonTokenType tok;
 	JsonParseErrorType result;
 
-	/* Lex exactly one token from the input and check its type. */
+	/* 从输入精确解析一个词位并检查其类型。 */
 	result = json_lex(lex);
 	if (result != JSON_SUCCESS)
 		json_errsave_error(result, lex, NULL);

@@ -1,0 +1,58 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0420",
+ "title": "adt 目录 acl.c 整文件注释翻译 323 块 777/906 行 — batch 0420",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "bd470ce9692cf43da4619670ee14bc7a42320ceb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/acl.c",
+   "kind": "c_comment",
+   "note": "ACL 数据结构操纵/解析/权限检查/成员关系缓存; whole-file comment translation, batch-0420"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0420-adt-acl.json",
+   "kind": "manifest",
+   "note": "batch-0420 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0420 entries (acl.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/acl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 323,
+   "translated": 323,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "acl.c 权限域核心 (ACL 数据结构操纵/解析/权限检查/成员关系缓存); whole-file comment translation, batch-0420; 术语全取既译同款: privilege→权限/grant→授予/revoke→收回/grantee→被授权者/grantor→授权者/owner→属主 (tablecmds.c L668/L1591、ri_triggers.c L1438/L2288、fmgr.c 既译先例), role→角色/aclchk.c L194「授权选项只能授予单个角色，不能授予 PUBLIC」同款 PUBLIC 大写保留, default ACL→默认权限 (catalog/heap.c L1082), detoast→去 toast (mcv.c L766、extended_stats.c L54 既译), SQL 语境 equality operator→相等操作符 (parse_clause.c/partbounds.c executor 外既译), opclass→操作符类, ACL/ACLITEM/AclItem/AclMode/ACL_*/OID/Oid/has_*_privilege/pg_has_role/ROLE_PG_READ_ALL_SETTINGS 等标识符逐字保留; 权威 universe: 注释感知状态机扫描 323 块 content 行 906, verify block_comments=323 两方一致; content 行 906 = zh 768 + 空框行 9 (L1011/1147/1156/1355/1430/1792/2481/5009/5171, EN 短语已并入上行译文, 0365 空框行判例) + 保留 EN 129 (头部 5 = L3 文件名/L6/L7 版权×2/L10 IDENTIFICATION/L11 路径, 头部功能描述行 L4 已译; 裸函数名/变体名 banner 112 = getid/aclparse/allocacl/aclitemin/aclitemout/aclitem_match/aclitemComparator/aclmembers 与 has_*_privilege_* 系列全部变体名行, 描述行均译; RETURNS: 旧式文档标记 5 = L149/254/413/602/633, 预算 11B 仅容标记词; 代码/SQL 样例 7 = L243 ACL 语法产生式/L1364/L1367/L1370 aclmask 用法代码示例/L1763 aclexplode 输入表达式/L1767-69 结果表样例); preserved 口径: 本批 preserved=0 块与 verify changed=323/未变 0 一致 (整文件无整块保留, 行级保留 129 行为已译块内的行级保留, 见上); 行数守恒 5427 不变 (numstat 777/777); 代码字节零改动 (c_verify compare status=ok violations=0, changed=323, splices=0); NUL 扫描 0; 尾注释分支正则经 5 行单元测试验证命中后始用 (apply 内置, 含 acl.c 实线 case 'R' 与 PG_RETURN_NULL); 同 EN 必同译: apply 内置 same_en 断言零违例, 大宗同 EN 站全量同译 (L499=L552, L663=L691, L155/156=L260/261, L978=L1099, L980=L1101, L1383=L1471, L1391=L1479, L1397=L1485, L2040=L2263=L2906=L3103=L3300=L3500=L3691=L3882=L4075=L4266=L4465=L4554「把文本串转换为 AclMode 值。」13 站 (grep 实测, 审后 N2 修订), 「current_user is assumed」→「默认为 current_user」29 行 (grep 实测, 审后 N2 修订, 原报 20 系笔误), L4980=L5014=L5060=L5088「简单情形快速路径」4 站, L4984=L5064 2 站, 家族 intro 模板「它们在 SQL 层面都名为…」14 系 (grep 实测, 审后 N2 修订)、「OID 或隐式用户 = current_user 的组合。」11 站、「结果是布尔值：用户有指明权限则 true，」13 站 (审后 R4 修 false-if-not 模板后实测)); 异 EN 同 zh 反查 5 组全良性披露: 「让编译器安静/高兴」(L863 vs L1583/1593、L5322 vs L5369, 同一 EN 短语 keep compiler quiet/happy 在不同代码行), 「忽略旧 RULE 权限」×3 (同一注释短语, 代码上下文不同), 「不要用本函数做权限检查…」L5049 vs L5083 (EN 一字之差同义), 「递归，然后看目标角色是否为其中之一。」L4990/5024 vs L5070/5094 (multi-level 已由前一行 zh「包括多级递归」吸收); 极性代码对照 20 块 (≥12): L133 getid 无需引号即接受 (unquoted 接受极性), L428 从不放入任何空值 (never), L489 NULL 输入返回 NULL, L886-93 属主条目无授权选项但普通权限自授可收回 (revoke 语义链), L975-76 仅当指定删除授权选项时才相关, L1064-66 调整后无权限则删除, L1077-79 仅当被授权者并非 PUBLIC 时才能处理级联收回 (not PUBLIC), L1218-20 只能授予角色不能授予 PUBLIC (not PUBLIC), L1271-76 遗弃权限要么一并收回要么报错 (either/or), L1300 属主绝不会真正失去授权选项 (never), L1352-59 ACLMASK_ALL 交掩码/ANY 任一位为真即返回 (any-bit polarity), L1455-59 仅 roleid 直接持有不含经角色继承 (only directly), L2484-88 有权限 1/没有 0/已删除 -1 三态极性, L2485 不抛出错误 (don't throw), L4969-73 不经由不可继承授权递归且只有可继承授权才自动赋权 (defined not to recurse), L4997-5001 每一环都允许 SET ROLE 才可 (each of which), L5044-47 无论可继承与否都经由其递归 (与 L4972 反向极性成对), L5115/5137 角色无法对自身有 WITH ADMIN OPTION (cannot, P02 修 cannot→无法), L5163-71 全部被授予权限看起来出自属主且绝无多个原始来源 (never multiple sources), L5197-201 属主被当作持全部授权选项/超级用户隐式属于每角色; 枚举横幅逐项点数 (0417 D1 判例): L75-77 RoleRecurseType 3 成员 3/3 逐项译, L1352-59 用法模式 3 式 3/3 (代码示例行保留), 家族 intro 参数组合 5 元「关系名/OID/用户名/用户 OID/隐式用户」全数 (9 系 intro 逐系核对; L4482-83 曾漏「用户名」于自查点数时抓出并补回), L3902-03/L3127-28 server/fdw 系 5 元全数 (隐式用户二字因预算省略披露), L4728-31 USAGE/MEMBER/MEMBER WITH GRANT OPTION 3 项 3/3 + 无对应 ACL 位说明, L4836-38 三 ROLERECURSE_* 递归语义 3/3, L4894-96 单列表双用途 2/2, L1664-68 权限名列表规则 2/2, L5127-30 授权者优先级 3 层全数; 门禁三连实测: verify_c_comments rc=0 (1 files 0 violations comments=323 changed=323 splices=0), term_lint rc=0 (87 rules, 0 error hits, 20 warnings: P53×13 空理由块级散文提示, P80×7 pgdoc server 家族块, P02×2 cannot 已修复不再出现, 均为 advisory), check_scope 于 manifest 落盘后实测; W7 advisory 10 站 (--paths src/backend/utils/adt 口径, 全为 W7_IDENT_LOST): ACLs×4 (L127/461/485/542)/AclItems×2 (L698/710)/ANDed (L1349, zh「与 'mask' 相与」语义在场)/OIDs (L1516)/RoleIds (L1544)/HeapTuple (L5332), 均为英文散文复数 s 或词形变体, 0372 散文复数量裁不修; scan_halfen MIXED 85 站: 84 站为 has_*/pg_has_role 变体块 (裸函数名 banner 行 + name/text 参数类型串保留 EN 的固有 run) + L1349 aclmask 用法示例块 (代码示例行保留), 均为有意保留的标识符/代码引用 run, 非翻译遗漏; 句号台账 (块级尾句 python 全量比对): FWD 1 = L5146 (EN 'does what it says ...' 省略号, zh「如其所言……」等价, 误报口径披露), L4925/4929 两站 EN 句号脱落已修复补「。」(复位重放后清零); REV 2 = L206 (EN 行尾为 pg_dump/dumputils.c 文件名无句号, zh「保持同步。」自洽)、L230 (EN 行尾为 \"\" 引号无句号, zh「被编码为 \"\"。」自洽), 均为 zh 句法自洽补句号, 披露; 修复轮如实披露: 规划轮 (干跑不写盘) spec 三段修剪 fix/fix2/fix3 (79→30→0 违规), 首次写盘零违规; 写后修复 3 轮 = R1 直接补丁 P02 cannot→无法 ×2 (L5115/5137) → R2 复位重放 (误未含 P02 于 spec, 失误轮) → R3 复位重放补齐 P02+句号台账 L4925/4929+枚举丢项 L4482「用户名」, 每轮 git checkout HEAD 全量复位重放, 未 commit; A 级披露: A7「检查用户对 X 权限，给定」缺「的」族 (table/sequence/database/fdw/server/tablespace/type/parameter/role 九族变体块约 40 余站, 系预算压缩下的定语省略, 语义自洽) 已登记台账留 sweep 批统一补「的」; A 级其余各条 (半角括号混用、丢限定语、REVERSE 等) 维持原披露; 审后清偿轮 R4 (审查 FAIL 7D/3N/7A): D1 false-if-not 12 站模板缺陷全修 (行尾去悬空「则」+次行补「否则」, 紧站 L1866/2075 用「时移行」变体, grep 'true，则$' 残留 0), D2 L2288-2290 条件错位改在保同 EN 前提下修复 (L2288 与 T2 族同文故保持同译, 条件「所针对的是该表任一列」移入 L2289, 未采审查原案因其破坏同 EN 同译硬规则), D3 L4485 去尾「则」, D4 并入 D1 变体, D5 L2475-77 谓语「返回」移行修复, D6 L1273-74 补「其」接成分, D7 L5069/L5093 去「递归，然后」二次渲染 (对照干净版 L4989-90), N1 L2485-86 行移位, N2 manifest 站数实测修订, N3 L1095 全角括号 (现算 49≤50); 修后 grep 'true，则$'=0、'否则为 false' 14 站全为否定式, 门禁三连复测 rc=0/0/0 (P53 13 站不随 D1 消散: 系 phrasebook owner→属主 decided 词条核对性 advisory, 13 站全为 EN 含 owner 的块, zh 已全用属主, 非缺陷), 全量复扫通过; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0420-adt-acl.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0420 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0420 entries (acl.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

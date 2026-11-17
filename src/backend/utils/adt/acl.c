@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * acl.c
- *	  Basic access control list data structures manipulation routines.
+ *	  基础访问控制列表（ACL）数据结构操作例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -57,24 +57,24 @@ typedef struct
 } priv_map;
 
 /*
- * We frequently need to test whether a given role is a member of some other
- * role.  In most of these tests the "given role" is the same, namely the
- * active current user.  So we can optimize it by keeping cached lists of all
- * the roles the "given role" is a member of, directly or indirectly.
+ * 我们经常需要测试某给定角色是否是另一角色的
+ * 成员。在多数这类测试中，"给定角色"都是同一个，
+ * 即当前活跃用户。为此可缓存列表来优化，列表内容为
+ * "给定角色"直接或间接所属的全部角色。
  *
- * Possibly this mechanism should be generalized to allow caching membership
- * info for multiple roles?
+ * 也许这个机制应当被泛化，以允许为多个角色缓存
+ * 成员信息？
  *
- * Each element of cached_roles is an OID list of constituent roles for the
- * corresponding element of cached_role (always including the cached_role
- * itself).  There's a separate cache for each RoleRecurseType, with the
- * corresponding semantics.
+ * cached_roles 的每个元素是对应 cached_role 元素的
+ * 组成角色 OID 列表（始终包含 cached_role 本身）。
+ * 每种 RoleRecurseType 都有独立的缓存，语义与
+ * 其对应。
  */
 enum RoleRecurseType
 {
-	ROLERECURSE_MEMBERS = 0,	/* recurse unconditionally */
-	ROLERECURSE_PRIVS = 1,		/* recurse through inheritable grants */
-	ROLERECURSE_SETROLE = 2		/* recurse through grants with set_option */
+	ROLERECURSE_MEMBERS = 0,	/* 无条件递归 */
+	ROLERECURSE_PRIVS = 1,		/* 沿可继承授权递归 */
+	ROLERECURSE_SETROLE = 2		/* 沿带 set_option 的授权递归 */
 };
 static Oid	cached_role[] = {InvalidOid, InvalidOid, InvalidOid};
 static List *cached_roles[] = {NIL, NIL, NIL};
@@ -125,12 +125,12 @@ static void RoleMembershipCacheCallback(Datum arg, int cacheid, uint32 hashvalue
 
 
 /*
- * Test whether an identifier char can be left unquoted in ACLs.
+ * 测试标识符字符在 ACL 中是否可不加引号。
  *
- * Formerly, we used isalnum() even on non-ASCII characters, resulting in
- * unportable behavior.  To ensure dump compatibility with old versions,
- * we now treat high-bit-set characters as always requiring quoting during
- * putid(), but getid() will always accept them without quotes.
+ * 过去我们即使在非 ASCII 字符上也使用 isalnum()，
+ * 产生不可移植的行为。为确保与旧版转储兼容，
+ * 现在在 putid() 中，高位字符一律视为需要加引号，
+ * 但 getid() 总是无需引号即接受它们。
  */
 static inline bool
 is_safe_acl_char(unsigned char c, bool is_getid)
@@ -142,18 +142,18 @@ is_safe_acl_char(unsigned char c, bool is_getid)
 
 /*
  * getid
- *		Consumes the first alphanumeric string (identifier) found in string
- *		's', ignoring any leading white space.  If it finds a double quote
- *		it returns the word inside the quotes.
+ *		消耗 's' 中出现的第一个字母数字串（标识符），
+ *		忽略任何前导空白。若遇到双引号，
+ *		则返回引号内的词。
  *
  * RETURNS:
- *		the string position in 's' that points to the next non-space character
- *		in 's', after any quotes.  Also:
- *		- loads the identifier into 'n'.  (If no identifier is found, 'n'
- *		  contains an empty string.)  'n' must be NAMEDATALEN bytes.
+ *		 's' 中（越过任何引号之后）指向下一个非空白
+ *		字符处。此外还：
+ *		- 将标识符载入 'n'。（若未找到标识符，则 'n'
+ *		  内容为空串。）'n' 必须为 NAMEDATALEN 字节。
  *
- * Errors are reported via ereport, unless escontext is an ErrorSaveData node,
- * in which case we log the error there and return NULL.
+ * 错误经 ereport 报告，除非 escontext 是 ErrorSaveData 节点，
+ * 此时我们将错误记录于其中并返回 NULL。
  */
 static const char *
 getid(const char *s, char *n, Node *escontext)
@@ -177,17 +177,17 @@ getid(const char *s, char *n, Node *escontext)
 				in_quotes = true;
 				continue;
 			}
-			/* safe to look at next char (could be '\0' though) */
+			/* 可安全读下一字符（或为 '\0'） */
 			if (*(s + 1) != '"')
 			{
 				in_quotes = false;
 				continue;
 			}
-			/* it's an escaped double quote; skip the escaping char */
+			/* 这是被转义的双引号；跳过转义字符 */
 			s++;
 		}
 
-		/* Add the character to the string */
+		/* 把该字符加入字符串 */
 		if (len >= NAMEDATALEN - 1)
 			ereturn(escontext, NULL,
 					(errcode(ERRCODE_NAME_TOO_LONG),
@@ -204,9 +204,9 @@ getid(const char *s, char *n, Node *escontext)
 }
 
 /*
- * Write a role name at *p, adding double quotes if needed.
- * There must be at least (2*NAMEDATALEN)+2 bytes available at *p.
- * This needs to be kept in sync with dequoteAclUserName in pg_dump/dumputils.c
+ * 在 *p 处写角色名，必要时加双引号。
+ * 在 *p 处必须至少有 (2*NAMEDATALEN)+2 字节可用。
+ * 此处需与 pg_dump/dumputils.c 中的 dequoteAclUserName 保持同步。
  */
 static void
 putid(char *p, const char *s)
@@ -214,7 +214,7 @@ putid(char *p, const char *s)
 	const char *src;
 	bool		safe = true;
 
-	/* Detect whether we need to use double quotes */
+	/* 检测是否需要使用双引号 */
 	for (src = s; *src; src++)
 	{
 		if (!is_safe_acl_char(*src, false))
@@ -227,7 +227,7 @@ putid(char *p, const char *s)
 		*p++ = '"';
 	for (src = s; *src; src++)
 	{
-		/* A double quote character in a username is encoded as "" */
+		/* 用户名中的双引号字符被编码为 ""。 */
 		if (*src == '"')
 			*p++ = '"';
 		*p++ = *src;
@@ -239,26 +239,26 @@ putid(char *p, const char *s)
 
 /*
  * aclparse
- *		Consumes and parses an ACL specification of the form:
+ *		消耗并解析如下形式的 ACL 规格：
  *				[group|user] [A-Za-z0-9]*=[rwaR]*
- *		from string 's', ignoring any leading white space or white space
- *		between the optional id type keyword (group|user) and the actual
- *		ACL specification.
+ *		取自字符串 's'，忽略任何前导空白或介于可选
+ *		id 类型关键字 (group|user) 与实际 ACL 规格
+ *		之间的空白。
  *
- *		The group|user decoration is unnecessary in the roles world,
- *		but we still accept it for backward compatibility.
+ *		group|user 修饰在角色世界中已无必要，
+ *		但为向后兼容我们仍接受它。
  *
- *		This routine is called by the parser as well as aclitemin(), hence
- *		the added generality.
+ *		该例程既被解析器又被 aclitemin() 调用，因而
+ *		有通用性。
  *
  * RETURNS:
- *		the string position in 's' immediately following the ACL
- *		specification.  Also:
- *		- loads the structure pointed to by 'aip' with the appropriate
- *		  UID/GID, id type identifier and mode type values.
+ *		 's' 中紧随 ACL 规格之后的字符串位置。
+ *		此外还：
+ *		- 以适当的 UID/GID、id 类型标识符与模式类型值
+ *		  填充 'aip' 所指向的结构。
  *
- * Errors are reported via ereport, unless escontext is an ErrorSaveData node,
- * in which case we log the error there and return NULL.
+ * 错误经 ereport 报告，除非 escontext 是 ErrorSaveData 节点，
+ * 此时我们将错误记录于其中并返回 NULL。
  */
 static const char *
 aclparse(const char *s, AclItem *aip, Node *escontext)
@@ -276,13 +276,13 @@ aclparse(const char *s, AclItem *aip, Node *escontext)
 		return NULL;
 	if (*s != '=')
 	{
-		/* we just read a keyword, not a name */
+		/* 读到的是关键字而非名字 */
 		if (strcmp(name, "group") != 0 && strcmp(name, "user") != 0)
 			ereturn(escontext, NULL,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("unrecognized key word: \"%s\"", name),
 					 errhint("ACL key word must be \"group\" or \"user\".")));
-		/* move s to the name beyond the keyword */
+		/* 把 s 移到关键字后的名字处 */
 		s = getid(s, name, escontext);
 		if (s == NULL)
 			return NULL;
@@ -349,7 +349,7 @@ aclparse(const char *s, AclItem *aip, Node *escontext)
 			case ACL_ALTER_SYSTEM_CHR:
 				read = ACL_ALTER_SYSTEM;
 				break;
-			case 'R':			/* ignore old RULE privileges */
+			case 'R':			/* 忽略旧 RULE 权限 */
 				read = 0;
 				break;
 			default:
@@ -374,8 +374,8 @@ aclparse(const char *s, AclItem *aip, Node *escontext)
 	}
 
 	/*
-	 * XXX Allow a degree of backward compatibility by defaulting the grantor
-	 * to the superuser.
+	 * XXX 把授权者默认设为超级用户，借此容许一定
+	 * 的兼容性。
 	 */
 	if (*s == '/')
 	{
@@ -408,10 +408,10 @@ aclparse(const char *s, AclItem *aip, Node *escontext)
 
 /*
  * allocacl
- *		Allocates storage for a new Acl with 'n' entries.
+ *		为含 'n' 个条目的新 Acl 分配存储。
  *
  * RETURNS:
- *		the new Acl
+ *		新 Acl
  */
 static Acl *
 allocacl(int n)
@@ -425,7 +425,7 @@ allocacl(int n)
 	new_acl = (Acl *) palloc0(size);
 	SET_VARSIZE(new_acl, size);
 	new_acl->ndim = 1;
-	new_acl->dataoffset = 0;	/* we never put in any nulls */
+	new_acl->dataoffset = 0;	/* 从不放入任何空值 */
 	new_acl->elemtype = ACLITEMOID;
 	ARR_LBOUND(new_acl)[0] = 1;
 	ARR_DIMS(new_acl)[0] = n;
@@ -433,7 +433,7 @@ allocacl(int n)
 }
 
 /*
- * Create a zero-entry ACL
+ * 创建零条目 ACL
  */
 Acl *
 make_empty_acl(void)
@@ -442,7 +442,7 @@ make_empty_acl(void)
 }
 
 /*
- * Copy an ACL
+ * 复制 ACL
  */
 Acl *
 aclcopy(const Acl *orig_acl)
@@ -459,10 +459,10 @@ aclcopy(const Acl *orig_acl)
 }
 
 /*
- * Concatenate two ACLs
+ * 拼接两个 ACL
  *
- * This is a bit cheesy, since we may produce an ACL with redundant entries.
- * Be careful what the result is used for!
+ * 这有点投机取巧，因为可能产生含冗余条目的 ACL。
+ * 注意结果会被用于何处！
  */
 Acl *
 aclconcat(const Acl *left_acl, const Acl *right_acl)
@@ -483,10 +483,10 @@ aclconcat(const Acl *left_acl, const Acl *right_acl)
 }
 
 /*
- * Merge two ACLs
+ * 两 ACL 合并
  *
- * This produces a properly merged ACL with no redundant entries.
- * Returns NULL on NULL input.
+ * 这会产生一个正确合并、无冗余条目的 ACL。
+ * NULL 输入返回 NULL。
  */
 Acl *
 aclmerge(const Acl *left_acl, const Acl *right_acl, Oid ownerId)
@@ -496,7 +496,7 @@ aclmerge(const Acl *left_acl, const Acl *right_acl, Oid ownerId)
 	int			i,
 				num;
 
-	/* Check for cases where one or both are empty/null */
+	/* 检查一方或双方为空/null 的情形 */
 	if (left_acl == NULL || ACL_NUM(left_acl) == 0)
 	{
 		if (right_acl == NULL || ACL_NUM(right_acl) == 0)
@@ -510,7 +510,7 @@ aclmerge(const Acl *left_acl, const Acl *right_acl, Oid ownerId)
 			return aclcopy(left_acl);
 	}
 
-	/* Merge them the hard way, one item at a time */
+	/* 以笨办法合并，一次一个条目 */
 	result_acl = aclcopy(left_acl);
 
 	aip = ACL_DAT(right_acl);
@@ -530,7 +530,7 @@ aclmerge(const Acl *left_acl, const Acl *right_acl, Oid ownerId)
 }
 
 /*
- * Sort the items in an ACL (into an arbitrary but consistent order)
+ * 对 ACL 中的条目排序（按任意但一致的顺序）
  */
 void
 aclitemsort(Acl *acl)
@@ -540,16 +540,16 @@ aclitemsort(Acl *acl)
 }
 
 /*
- * Check if two ACLs are exactly equal
+ * 检查两个 ACL 是否完全相等
  *
- * This will not detect equality if the two arrays contain the same items
- * in different orders.  To handle that case, sort both inputs first,
- * using aclitemsort().
+ * 若两数组以不同顺序包含相同条目，本函数不能
+ * 检出相等。要处理这种情况，请先用
+ * aclitemsort()。
  */
 bool
 aclequal(const Acl *left_acl, const Acl *right_acl)
 {
-	/* Check for cases where one or both are empty/null */
+	/* 检查一方或双方为空/null 的情形 */
 	if (left_acl == NULL || ACL_NUM(left_acl) == 0)
 	{
 		if (right_acl == NULL || ACL_NUM(right_acl) == 0)
@@ -575,7 +575,7 @@ aclequal(const Acl *left_acl, const Acl *right_acl)
 }
 
 /*
- * Verify that an ACL array is acceptable (one-dimensional and has no nulls)
+ * 校验 ACL 数组是可接受的（一维且不含空值）
  */
 static void
 check_acl(const Acl *acl)
@@ -596,11 +596,11 @@ check_acl(const Acl *acl)
 
 /*
  * aclitemin
- *		Allocates storage for, and fills in, a new AclItem given a string
- *		's' that contains an ACL specification.  See aclparse for details.
+ *		为新 AclItem 分配存储并填充，输入为含 ACL
+ *		的字符串 's'。细节见 aclparse。
  *
  * RETURNS:
- *		the new AclItem
+ *		新 AclItem
  */
 Datum
 aclitemin(PG_FUNCTION_ARGS)
@@ -627,11 +627,11 @@ aclitemin(PG_FUNCTION_ARGS)
 
 /*
  * aclitemout
- *		Allocates storage for, and fills in, a new null-delimited string
- *		containing a formatted ACL specification.  See aclparse for details.
+ *		为以 null 分隔的新字符串分配存储并填入格式化
+ *		的 ACL 规格。细节见 aclparse。
  *
  * RETURNS:
- *		the new string
+ *		新字符串
  */
 Datum
 aclitemout(PG_FUNCTION_ARGS)
@@ -660,7 +660,7 @@ aclitemout(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* Generate numeric OID if we don't find an entry */
+			/* 若未找到条目则生成数字 OID */
 			sprintf(p, "%u", aip->ai_grantee);
 		}
 	}
@@ -688,7 +688,7 @@ aclitemout(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Generate numeric OID if we don't find an entry */
+		/* 若未找到条目则生成数字 OID */
 		sprintf(p, "%u", aip->ai_grantor);
 	}
 
@@ -697,8 +697,8 @@ aclitemout(PG_FUNCTION_ARGS)
 
 /*
  * aclitem_match
- *		Two AclItems are considered to match iff they have the same
- *		grantee and grantor; the privileges are ignored.
+ *		两 AclItem 具有相同被授权者与授权者时，
+ *		即视为匹配；权限被忽略。
  */
 static bool
 aclitem_match(const AclItem *a1, const AclItem *a2)
@@ -709,7 +709,7 @@ aclitem_match(const AclItem *a1, const AclItem *a2)
 
 /*
  * aclitemComparator
- *		qsort comparison function for AclItems
+ *		用于 AclItem 的 qsort 比较函数
  */
 static int
 aclitemComparator(const void *arg1, const void *arg2)
@@ -733,7 +733,7 @@ aclitemComparator(const void *arg1, const void *arg2)
 }
 
 /*
- * aclitem equality operator
+ * aclitem 相等操作符
  */
 Datum
 aclitem_eq(PG_FUNCTION_ARGS)
@@ -749,25 +749,25 @@ aclitem_eq(PG_FUNCTION_ARGS)
 }
 
 /*
- * aclitem hash function
+ * aclitem 哈希函数
  *
- * We make aclitems hashable not so much because anyone is likely to hash
- * them, as because we want array equality to work on aclitem arrays, and
- * with the typcache mechanism we must have a hash or btree opclass.
+ * 我们使 aclitem 可哈希，与其说因有人会哈希它们，
+ * 不如说是因为想让数组相等能用于 aclitem 数组，而
+ * 有了 typcache 机制就必须有哈希或 btree 操作符类。
  */
 Datum
 hash_aclitem(PG_FUNCTION_ARGS)
 {
 	AclItem    *a = PG_GETARG_ACLITEM_P(0);
 
-	/* not very bright, but avoids any issue of padding in struct */
+	/* 不聪明，但可避免结构体填充的任何问题 */
 	PG_RETURN_UINT32((uint32) (a->ai_privs + a->ai_grantee + a->ai_grantor));
 }
 
 /*
- * 64-bit hash function for aclitem.
+ * aclitem 的 64 位哈希函数。
  *
- * Similar to hash_aclitem, but accepts a seed and returns a uint64 value.
+ * 与 hash_aclitem 类似，但接受一个种子并返回 uint64 值。
  */
 Datum
 hash_aclitem_extended(PG_FUNCTION_ARGS)
@@ -780,15 +780,15 @@ hash_aclitem_extended(PG_FUNCTION_ARGS)
 }
 
 /*
- * acldefault()  --- create an ACL describing default access permissions
+ * acldefault()  --- 创建一个描述默认访问权限的 ACL
  *
- * Change this routine if you want to alter the default access policy for
- * newly-created objects (or any object with a NULL acl entry).  When
- * you make a change here, don't forget to update the GRANT man page,
- * which explains all the default permissions.
+ * 若你想更改新建对象默认访问策略（或任何 ACL 条目
+ * 为 NULL 的对象），请修改此例程。改动后别忘了
+ * 更新 GRANT 手册页，
+ * 其中解释了全部默认权限。
  *
- * Note that these are the hard-wired "defaults" that are used in the
- * absence of any pg_default_acl entry.
+ * 注意这些是硬编码的"默认值"，在没有 pg_default_acl
+ * 条目存在时使用。
  */
 Acl *
 acldefault(ObjectType objtype, Oid ownerId)
@@ -802,7 +802,7 @@ acldefault(ObjectType objtype, Oid ownerId)
 	switch (objtype)
 	{
 		case OBJECT_COLUMN:
-			/* by default, columns have no extra privileges */
+			/* 默认情况下，列没有额外权限 */
 			world_default = ACL_NO_RIGHTS;
 			owner_default = ACL_NO_RIGHTS;
 			break;
@@ -815,17 +815,17 @@ acldefault(ObjectType objtype, Oid ownerId)
 			owner_default = ACL_ALL_RIGHTS_SEQUENCE;
 			break;
 		case OBJECT_DATABASE:
-			/* for backwards compatibility, grant some rights by default */
+			/* 为向后兼容，默认授予某些权限 */
 			world_default = ACL_CREATE_TEMP | ACL_CONNECT;
 			owner_default = ACL_ALL_RIGHTS_DATABASE;
 			break;
 		case OBJECT_FUNCTION:
-			/* Grant EXECUTE by default, for now */
+			/* 目前默认授予 EXECUTE */
 			world_default = ACL_EXECUTE;
 			owner_default = ACL_ALL_RIGHTS_FUNCTION;
 			break;
 		case OBJECT_LANGUAGE:
-			/* Grant USAGE by default, for now */
+			/* 目前默认授予 USAGE */
 			world_default = ACL_USAGE;
 			owner_default = ACL_ALL_RIGHTS_LANGUAGE;
 			break;
@@ -860,7 +860,7 @@ acldefault(ObjectType objtype, Oid ownerId)
 			break;
 		default:
 			elog(ERROR, "unrecognized object type: %d", (int) objtype);
-			world_default = ACL_NO_RIGHTS;	/* keep compiler quiet */
+			world_default = ACL_NO_RIGHTS;	/* 让编译器安静 */
 			owner_default = ACL_NO_RIGHTS;
 			break;
 	}
@@ -883,14 +883,14 @@ acldefault(ObjectType objtype, Oid ownerId)
 	}
 
 	/*
-	 * Note that the owner's entry shows all ordinary privileges but no grant
-	 * options.  This is because his grant options come "from the system" and
-	 * not from his own efforts.  (The SQL spec says that the owner's rights
-	 * come from a "_SYSTEM" authid.)  However, we do consider that the
-	 * owner's ordinary privileges are self-granted; this lets him revoke
-	 * them.  We implement the owner's grant options without any explicit
-	 * "_SYSTEM"-like ACL entry, by internally special-casing the owner
-	 * wherever we are testing grant options.
+	 * 注：属主条目显示所有普通权限而无授权选项。因
+	 * 他的授权选项"来自系统"，而非凭他自身努力。
+	 * （SQL 规范说属主的权限来自一个
+	 *  "_SYSTEM" authid。）不过，我们确实认为属主
+	 * 的普通权限是自授的；这让他能够收回它们。
+	 * 我们实现属主授权选项时不需要任何显式的
+	 *  "_SYSTEM" 式 ACL 条目，凡在测试授权选项之处，
+	 * 我们都对属主做内部特判。
 	 */
 	if (owner_default != ACL_NO_RIGHTS)
 	{
@@ -904,8 +904,8 @@ acldefault(ObjectType objtype, Oid ownerId)
 
 
 /*
- * SQL-accessible version of acldefault().  Hackish mapping from "char" type to
- * OBJECT_* values.
+ * acldefault() 的 SQL 版本。从 "char" 类型到 OBJECT_* 值的
+ * 凑合映射。
  */
 Datum
 acldefault_sql(PG_FUNCTION_ARGS)
@@ -964,20 +964,20 @@ acldefault_sql(PG_FUNCTION_ARGS)
 
 
 /*
- * Update an ACL array to add or remove specified privileges.
+ * 更新 ACL 数组以增加或移除指定的权限。
  *
- *	old_acl: the input ACL array
- *	mod_aip: defines the privileges to be added, removed, or substituted
- *	modechg: ACL_MODECHG_ADD, ACL_MODECHG_DEL, or ACL_MODECHG_EQL
- *	ownerId: Oid of object owner
- *	behavior: RESTRICT or CASCADE behavior for recursive removal
+ *	old_acl: 输入 ACL 数组
+ *	mod_aip: 定义要被增加、移除或替换的权限
+ *	modechg: ACL_MODECHG_ADD、ACL_MODECHG_DEL 或ACL_MODECHG_EQL
+ *	ownerId: 对象属主的 Oid
+ *	behavior: 递归移除时采用 RESTRICT 或 CASCADE 行为
  *
- * ownerid and behavior are only relevant when the update operation specifies
- * deletion of grant options.
+ * ownerid 与 behavior 仅当更新操作指定删除授权选项时
+ * 才相关。
  *
- * The result is a modified copy; the input object is not changed.
+ * 结果为修改后的副本；输入对象不会被更改。
  *
- * NB: caller is responsible for having detoasted the input ACL, if needed.
+ * 注意：调用者负责在需要时对输入 ACL 预先去 toast。
  */
 Acl *
 aclupdate(const Acl *old_acl, const AclItem *mod_aip,
@@ -993,10 +993,10 @@ aclupdate(const Acl *old_acl, const AclItem *mod_aip,
 	int			dst,
 				num;
 
-	/* Caller probably already checked old_acl, but be safe */
+	/* 调用者多半已检查过 old_acl，但求稳妥 */
 	check_acl(old_acl);
 
-	/* If granting grant options, check for circularity */
+	/* 若授予授权选项，则检查循环性 */
 	if (modechg != ACL_MODECHG_DEL &&
 		ACLITEM_GET_GOPTIONS(*mod_aip) != ACL_NO_RIGHTS)
 		check_circularity(old_acl, mod_aip, ownerId);
@@ -1005,17 +1005,17 @@ aclupdate(const Acl *old_acl, const AclItem *mod_aip,
 	old_aip = ACL_DAT(old_acl);
 
 	/*
-	 * Search the ACL for an existing entry for this grantee and grantor. If
-	 * one exists, just modify the entry in-place (well, in the same position,
-	 * since we actually return a copy); otherwise, insert the new entry at
-	 * the end.
+	 * 在 ACL 中搜索此被授权者和授权者的既有条目。若
+	 * 存在，就原位修改该条目（确切说是同一位置，因为
+	 * 实际返回的是副本）；否则把新条目插入到末尾。
+	 *
 	 */
 
 	for (dst = 0; dst < num; ++dst)
 	{
 		if (aclitem_match(mod_aip, old_aip + dst))
 		{
-			/* found a match, so modify existing item */
+			/* 找到匹配，故修改既有条目 */
 			new_acl = allocacl(num);
 			new_aip = ACL_DAT(new_acl);
 			memcpy(new_acl, old_acl, ACL_SIZE(old_acl));
@@ -1025,23 +1025,23 @@ aclupdate(const Acl *old_acl, const AclItem *mod_aip,
 
 	if (dst == num)
 	{
-		/* need to append a new item */
+		/* 需要追加新条目 */
 		new_acl = allocacl(num + 1);
 		new_aip = ACL_DAT(new_acl);
 		memcpy(new_aip, old_aip, num * sizeof(AclItem));
 
-		/* initialize the new entry with no permissions */
+		/* 以无权限初始化新条目 */
 		new_aip[dst].ai_grantee = mod_aip->ai_grantee;
 		new_aip[dst].ai_grantor = mod_aip->ai_grantor;
 		ACLITEM_SET_PRIVS_GOPTIONS(new_aip[dst],
 								   ACL_NO_RIGHTS, ACL_NO_RIGHTS);
-		num++;					/* set num to the size of new_acl */
+		num++;					/* 设 num 为 new_acl 大小 */
 	}
 
 	old_rights = ACLITEM_GET_RIGHTS(new_aip[dst]);
 	old_goptions = ACLITEM_GET_GOPTIONS(new_aip[dst]);
 
-	/* apply the specified permissions change */
+	/* 应用指定的权限变更 */
 	switch (modechg)
 	{
 		case ACL_MODECHG_ADD:
@@ -1062,21 +1062,21 @@ aclupdate(const Acl *old_acl, const AclItem *mod_aip,
 	new_goptions = ACLITEM_GET_GOPTIONS(new_aip[dst]);
 
 	/*
-	 * If the adjusted entry has no permissions, delete it from the list.
+	 * 若调整后条目已无权限，则将其从列表中删除。
 	 */
 	if (new_rights == ACL_NO_RIGHTS)
 	{
 		memmove(new_aip + dst,
 				new_aip + dst + 1,
 				(num - dst - 1) * sizeof(AclItem));
-		/* Adjust array size to be 'num - 1' items */
+		/* 调整数组大小为 'num - 1' 项 */
 		ARR_DIMS(new_acl)[0] = num - 1;
 		SET_VARSIZE(new_acl, ACL_N_SIZE(num - 1));
 	}
 
 	/*
-	 * Remove abandoned privileges (cascading revoke).  Currently we can only
-	 * handle this when the grantee is not PUBLIC.
+	 * 移除被弃权限（级联收回）。目前仅当被授权者并非
+	 * PUBLIC 时才能处理这种情况。
 	 */
 	if ((old_goptions & ~new_goptions) != 0)
 	{
@@ -1090,15 +1090,15 @@ aclupdate(const Acl *old_acl, const AclItem *mod_aip,
 }
 
 /*
- * Update an ACL array to reflect a change of owner to the parent object
+ * 更新 ACL 数组以反映父对象属主的变更
  *
- *	old_acl: the input ACL array (must not be NULL)
- *	oldOwnerId: Oid of the old object owner
- *	newOwnerId: Oid of the new object owner
+ *	old_acl: 输入 ACL 数组（不得为NULL）
+ *	oldOwnerId: 旧对象属主的 Oid
+ *	newOwnerId: 新对象属主的 Oid
  *
- * The result is a modified copy; the input object is not changed.
+ * 结果为修改后的副本；输入对象不会被更改。
  *
- * NB: caller is responsible for having detoasted the input ACL, if needed.
+ * 注意：调用者负责在需要时对输入 ACL 预先去 toast。
  */
 Acl *
 aclnewowner(const Acl *old_acl, Oid oldOwnerId, Oid newOwnerId)
@@ -1118,9 +1118,9 @@ aclnewowner(const Acl *old_acl, Oid oldOwnerId, Oid newOwnerId)
 	check_acl(old_acl);
 
 	/*
-	 * Make a copy of the given ACL, substituting new owner ID for old
-	 * wherever it appears as either grantor or grantee.  Also note if the new
-	 * owner ID is already present.
+	 * 复制 ACL，旧属主 ID 以授权者或被授权者出现
+	 * 之处，替换为新属主 ID；同时若新属主 ID
+	 * 已存在则记录之。
 	 */
 	num = ACL_NUM(old_acl);
 	old_aip = ACL_DAT(old_acl);
@@ -1140,30 +1140,30 @@ aclnewowner(const Acl *old_acl, Oid oldOwnerId, Oid newOwnerId)
 	}
 
 	/*
-	 * If the old ACL contained any references to the new owner, then we may
-	 * now have generated an ACL containing duplicate entries.  Find them and
-	 * merge them so that there are not duplicates.  (This is relatively
-	 * expensive since we use a stupid O(N^2) algorithm, but it's unlikely to
-	 * be the normal case.)
+	 * 若旧 ACL 曾引用新属主，我们此时可能生成了一个
+	 * 含重复条目的 ACL。把它们找出来合并，以消除重复。
+	 * （代价高，因我们用 O(N^2) 笨算法，但情况不太
+	 * 可能是常态。）
 	 *
-	 * To simplify deletion of duplicate entries, we temporarily leave them in
-	 * the array but set their privilege masks to zero; when we reach such an
-	 * entry it's just skipped.  (Thus, a side effect of this code will be to
-	 * remove privilege-free entries, should there be any in the input.)  dst
-	 * is the next output slot, targ is the currently considered input slot
-	 * (always >= dst), and src scans entries to the right of targ looking for
-	 * duplicates.  Once an entry has been emitted to dst it is known
-	 * duplicate-free and need not be considered anymore.
+	 *
+	 * 为简化重复条目的删除，我们暂时把它们留在数组里
+	 * 但把其权限掩码设为零；遇到这种条目即跳过。
+	 * （故本代码副作用之一是清除无权限条目，若输入中
+	 * 有这类条目。）dst 是下一个输出槽位，targ 是当前
+	 * 考察的输入槽位（总是 >= dst），src 向右扫描其右侧
+	 * 条目以查找重复。一个条目一旦被输出到 dst，即可知
+	 * 无重复，无需再被考察。
+	 *
 	 */
 	if (newpresent)
 	{
 		dst = 0;
 		for (targ = 0, targ_aip = new_aip; targ < num; targ++, targ_aip++)
 		{
-			/* ignore if deleted in an earlier pass */
+			/* 若前一轮已删除则忽略 */
 			if (ACLITEM_GET_RIGHTS(*targ_aip) == ACL_NO_RIGHTS)
 				continue;
-			/* find and merge any duplicates */
+			/* 查找并合并重复条目 */
 			for (src = targ + 1, src_aip = targ_aip + 1; src < num;
 				 src++, src_aip++)
 			{
@@ -1174,15 +1174,15 @@ aclnewowner(const Acl *old_acl, Oid oldOwnerId, Oid newOwnerId)
 					ACLITEM_SET_RIGHTS(*targ_aip,
 									   ACLITEM_GET_RIGHTS(*targ_aip) |
 									   ACLITEM_GET_RIGHTS(*src_aip));
-					/* mark the duplicate deleted */
+					/* 把重复标为已删除 */
 					ACLITEM_SET_RIGHTS(*src_aip, ACL_NO_RIGHTS);
 				}
 			}
-			/* and emit to output */
+			/* 并输出到结果 */
 			new_aip[dst] = *targ_aip;
 			dst++;
 		}
-		/* Adjust array size to be 'dst' items */
+		/* 调整数组大小为 'dst' 项 */
 		ARR_DIMS(new_acl)[0] = dst;
 		SET_VARSIZE(new_acl, ACL_N_SIZE(dst));
 	}
@@ -1192,16 +1192,16 @@ aclnewowner(const Acl *old_acl, Oid oldOwnerId, Oid newOwnerId)
 
 
 /*
- * When granting grant options, we must disallow attempts to set up circular
- * chains of grant options.  Suppose A (the object owner) grants B some
- * privileges with grant option, and B re-grants them to C.  If C could
- * grant the privileges to B as well, then A would be unable to effectively
- * revoke the privileges from B, since recursive_revoke would consider that
- * B still has 'em from C.
+ * 在授予授权选项时，我们必须禁止任何建立循环授权选
+ * 项链的企图。设 A（对象属主）授予 B 一些权限且带
+ * 授权选项，然后 B 又把它们转授给 C。若 C 也能把这
+ * 些权限也授予 B，那么 A 将无法有效地从 B 收回这些权
+ * 限，因为 recursive_revoke 会认为 B 仍从 C 处持有
+ * 它们。
  *
- * We check for this by recursively deleting all grant options belonging to
- * the target grantee, and then seeing if the would-be grantor still has the
- * grant option or not.
+ * 我们对此的检查方式是：递归删除属于目标被授权者的
+ * 全部授权选项，然后看准授权者是否还
+ * 持有它。
  */
 static void
 check_circularity(const Acl *old_acl, const AclItem *mod_aip,
@@ -1216,20 +1216,20 @@ check_circularity(const Acl *old_acl, const AclItem *mod_aip,
 	check_acl(old_acl);
 
 	/*
-	 * For now, grant options can only be granted to roles, not PUBLIC.
-	 * Otherwise we'd have to work a bit harder here.
+	 * 目前授权选项只能授予角色，不能授予 PUBLIC。
+	 * 否则我们得在这里多花些功夫。
 	 */
 	Assert(mod_aip->ai_grantee != ACL_ID_PUBLIC);
 
-	/* The owner always has grant options, no need to check */
+	/* 属主总是持有授权选项，无需检查 */
 	if (mod_aip->ai_grantor == ownerId)
 		return;
 
-	/* Make a working copy */
+	/* 建立工作副本 */
 	acl = allocacl(ACL_NUM(old_acl));
 	memcpy(acl, old_acl, ACL_SIZE(old_acl));
 
-	/* Zap all grant options of target grantee, plus what depends on 'em */
+	/* 清除目标被授权者的全部授权选项及其所依赖项 */
 cc_restart:
 	num = ACL_NUM(acl);
 	aip = ACL_DAT(acl);
@@ -1240,7 +1240,7 @@ cc_restart:
 		{
 			Acl		   *new_acl;
 
-			/* We'll actually zap ordinary privs too, but no matter */
+			/* 实际也会清除普通权限，但无关紧要 */
 			new_acl = aclupdate(acl, &aip[i], ACL_MODECHG_DEL,
 								ownerId, DROP_CASCADE);
 
@@ -1251,7 +1251,7 @@ cc_restart:
 		}
 	}
 
-	/* Now we can compute grantor's independently-derived privileges */
+	/* 现在我们可以计算授权者独立取得的权限了 */
 	own_privs = aclmask(acl,
 						mod_aip->ai_grantor,
 						ownerId,
@@ -1269,19 +1269,19 @@ cc_restart:
 
 
 /*
- * Ensure that no privilege is "abandoned".  A privilege is abandoned
- * if the user that granted the privilege loses the grant option.  (So
- * the chain through which it was granted is broken.)  Either the
- * abandoned privileges are revoked as well, or an error message is
- * printed, depending on the drop behavior option.
+ * 确保没有任何权限被"遗弃"。所谓遗弃，
+ * 是指授权该权限的用户失去了授权选项。（即其
+ * 授权链断。）此时，
+ * 要么把这些遗弃权限一并收回，要么打印错误
+ * 消息，取决于丢弃行为选项。
  *
- *	acl: the input ACL list
- *	grantee: the user from whom some grant options have been revoked
- *	revoke_privs: the grant options being revoked
- *	ownerId: Oid of object owner
- *	behavior: RESTRICT or CASCADE behavior for recursive removal
+ *	acl: 输入 ACL 列表
+ *	grantee: 被收回了某些授权选项的用户
+ *	revoke_privs: 正被收回的授权选项
+ *	ownerId: 对象属主的 Oid
+ *	behavior: 递归移除时采用 RESTRICT 或 CASCADE 行为
  *
- * The input Acl object is pfree'd if replaced.
+ * 若被替换，输入 Acl 会被 pfree。
  */
 static Acl *
 recursive_revoke(Acl *acl,
@@ -1297,11 +1297,11 @@ recursive_revoke(Acl *acl,
 
 	check_acl(acl);
 
-	/* The owner can never truly lose grant options, so short-circuit */
+	/* 属主绝不会真正失去授权选项，故走捷径 */
 	if (grantee == ownerId)
 		return acl;
 
-	/* The grantee might still have some grant options via another grantor */
+	/* 被授权者可能仍经由另一授权者持有某些授权选项 */
 	still_has = aclmask(acl, grantee, ownerId,
 						ACL_GRANT_OPTION_FOR(revoke_privs),
 						ACLMASK_ALL);
@@ -1347,26 +1347,26 @@ restart:
 
 
 /*
- * aclmask --- compute bitmask of all privileges held by roleid.
+ * aclmask --- 计算 roleid 所持全部权限的位掩码。
  *
- * When 'how' = ACLMASK_ALL, this simply returns the privilege bits
- * held by the given roleid according to the given ACL list, ANDed
- * with 'mask'.  (The point of passing 'mask' is to let the routine
- * exit early if all privileges of interest have been found.)
+ * 当 'how' = ACLMASK_ALL 时，仅按给定 ACL 列表返回该
+ *  roleid 持有的权限位与 'mask' 相与。（传 'mask'
+ * 意在让例程找齐所需权限后即提前退出。）
  *
- * When 'how' = ACLMASK_ANY, returns as soon as any bit in the mask
- * is known true.  (This lets us exit soonest in cases where the
- * caller is only going to test for zero or nonzero result.)
  *
- * Usage patterns:
+ * 当 'how' = ACLMASK_ANY 时，掩码中任一位已知为真
+ * 即返回。（调用者只想测零与否时，可最早退
+ * 出。）
  *
- * To see if any of a set of privileges are held:
+ * 用法模式：
+ *
+ * 查一组权限中是否有任一被持有：
  *		if (aclmask(acl, roleid, ownerId, privs, ACLMASK_ANY) != 0)
  *
- * To see if all of a set of privileges are held:
+ * 检查一组权限是否全部被持有：
  *		if (aclmask(acl, roleid, ownerId, privs, ACLMASK_ALL) == privs)
  *
- * To determine exactly which of a set of privileges are held:
+ * 确定一组权限中具体哪些被持有：
  *		heldprivs = aclmask(acl, roleid, ownerId, privs, ACLMASK_ALL);
  */
 AclMode
@@ -1380,21 +1380,21 @@ aclmask(const Acl *acl, Oid roleid, Oid ownerId,
 				num;
 
 	/*
-	 * Null ACL should not happen, since caller should have inserted
-	 * appropriate default
+	 * 空 ACL 不应出现，因为调用者应当已插入
+	 * 相应的默认值
 	 */
 	if (acl == NULL)
 		elog(ERROR, "null ACL");
 
 	check_acl(acl);
 
-	/* Quick exit for mask == 0 */
+	/* mask == 0 快速退出 */
 	if (mask == 0)
 		return 0;
 
 	result = 0;
 
-	/* Owner always implicitly has all grant options */
+	/* 属主总是隐式持有全部授权选项 */
 	if ((mask & ACLITEM_ALL_GOPTION_BITS) &&
 		has_privs_of_role(roleid, ownerId))
 	{
@@ -1407,7 +1407,7 @@ aclmask(const Acl *acl, Oid roleid, Oid ownerId,
 	aidat = ACL_DAT(acl);
 
 	/*
-	 * Check privileges granted directly to roleid or to public
+	 * 检查直接授予 roleid 或 public 的权限
 	 */
 	for (i = 0; i < num; i++)
 	{
@@ -1423,11 +1423,11 @@ aclmask(const Acl *acl, Oid roleid, Oid ownerId,
 	}
 
 	/*
-	 * Check privileges granted indirectly via role memberships. We do this in
-	 * a separate pass to minimize expensive indirect membership tests.  In
-	 * particular, it's worth testing whether a given ACL entry grants any
-	 * privileges still of interest before we perform the has_privs_of_role
-	 * test.
+	 * 检查经角色成员关系间接授予的权限。我们用单独一
+	 * 轮来做，以尽量减少高代价的间接成员测试。特别
+	 * 是，值得先测试某 ACL 条目是否仍授予我们所需的
+	 * 权限，然后再执行 has_privs_of_role 测试。
+	 *
 	 */
 	remaining = mask & ~result;
 	for (i = 0; i < num; i++)
@@ -1436,7 +1436,7 @@ aclmask(const Acl *acl, Oid roleid, Oid ownerId,
 
 		if (aidata->ai_grantee == ACL_ID_PUBLIC ||
 			aidata->ai_grantee == roleid)
-			continue;			/* already checked it */
+			continue;			/* 已检查过 */
 
 		if ((aidata->ai_privs & remaining) &&
 			has_privs_of_role(roleid, aidata->ai_grantee))
@@ -1453,10 +1453,10 @@ aclmask(const Acl *acl, Oid roleid, Oid ownerId,
 
 
 /*
- * aclmask_direct --- compute bitmask of all privileges held by roleid.
+ * aclmask_direct --- 计算 roleid 所持全部权限的位掩码。
  *
- * This is exactly like aclmask() except that we consider only privileges
- * held *directly* by roleid, not those inherited via role membership.
+ * 本函数与 aclmask() 完全相同，除了我们只考虑
+ *  roleid *直接*持有的权限，不含经角色继承所得。
  */
 static AclMode
 aclmask_direct(const Acl *acl, Oid roleid, Oid ownerId,
@@ -1468,21 +1468,21 @@ aclmask_direct(const Acl *acl, Oid roleid, Oid ownerId,
 				num;
 
 	/*
-	 * Null ACL should not happen, since caller should have inserted
-	 * appropriate default
+	 * 空 ACL 不应出现，因为调用者应当已插入
+	 * 相应的默认值
 	 */
 	if (acl == NULL)
 		elog(ERROR, "null ACL");
 
 	check_acl(acl);
 
-	/* Quick exit for mask == 0 */
+	/* mask == 0 快速退出 */
 	if (mask == 0)
 		return 0;
 
 	result = 0;
 
-	/* Owner always implicitly has all grant options */
+	/* 属主总是隐式持有全部授权选项 */
 	if ((mask & ACLITEM_ALL_GOPTION_BITS) &&
 		roleid == ownerId)
 	{
@@ -1495,7 +1495,7 @@ aclmask_direct(const Acl *acl, Oid roleid, Oid ownerId,
 	aidat = ACL_DAT(acl);
 
 	/*
-	 * Check privileges granted directly to roleid (and not to public)
+	 * 检查直接授予 roleid（而非 public）的权限
 	 */
 	for (i = 0; i < num; i++)
 	{
@@ -1515,11 +1515,11 @@ aclmask_direct(const Acl *acl, Oid roleid, Oid ownerId,
 
 /*
  * aclmembers
- *		Find out all the roleids mentioned in an Acl.
- *		Note that we do not distinguish grantors from grantees.
+ *		找出一个 Acl 中提及的全部 roleid。
+ *		注意我们不区分授权者与被授权者。
  *
- * *roleids is set to point to a palloc'd array containing distinct OIDs
- * in sorted order.  The length of the array is the function result.
+ * *roleids 被设为指向一个 palloc 出来的数组，其中按排
+ * 序含去重 OID。数组长度即函数返回值。
  */
 int
 aclmembers(const Acl *acl, Oid **roleids)
@@ -1537,12 +1537,12 @@ aclmembers(const Acl *acl, Oid **roleids)
 
 	check_acl(acl);
 
-	/* Allocate the worst-case space requirement */
+	/* 按最坏情形分配所需空间 */
 	list = palloc(ACL_NUM(acl) * 2 * sizeof(Oid));
 	acldat = ACL_DAT(acl);
 
 	/*
-	 * Walk the ACL collecting mentioned RoleIds.
+	 * 遍历 ACL，收集提及的 RoleId。
 	 */
 	j = 0;
 	for (i = 0; i < ACL_NUM(acl); i++)
@@ -1551,27 +1551,27 @@ aclmembers(const Acl *acl, Oid **roleids)
 
 		if (ai->ai_grantee != ACL_ID_PUBLIC)
 			list[j++] = ai->ai_grantee;
-		/* grantor is currently never PUBLIC, but let's check anyway */
+		/* 授权者目前从不会是 PUBLIC，但仍检查一下 */
 		if (ai->ai_grantor != ACL_ID_PUBLIC)
 			list[j++] = ai->ai_grantor;
 	}
 
-	/* Sort the array */
+	/* 数组排序 */
 	qsort(list, j, sizeof(Oid), oid_cmp);
 
 	/*
-	 * We could repalloc the array down to minimum size, but it's hardly worth
-	 * it since it's only transient memory.
+	 * 本可以把数组 repalloc 缩到最小，但那几乎不值得，
+	 * 因为它只是临时内存。
 	 */
 	*roleids = list;
 
-	/* Remove duplicates from the array */
+	/* 从数组中移除重复项 */
 	return qunique(list, j, sizeof(Oid), oid_cmp);
 }
 
 
 /*
- * aclinsert (exported function)
+ * aclinsert（导出函数）
  */
 Datum
 aclinsert(PG_FUNCTION_ARGS)
@@ -1580,7 +1580,7 @@ aclinsert(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("aclinsert is no longer supported")));
 
-	PG_RETURN_NULL();			/* keep compiler quiet */
+	PG_RETURN_NULL();			/* 让编译器安静 */
 }
 
 Datum
@@ -1590,7 +1590,7 @@ aclremove(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("aclremove is no longer supported")));
 
-	PG_RETURN_NULL();			/* keep compiler quiet */
+	PG_RETURN_NULL();			/* 让编译器安静 */
 }
 
 Datum
@@ -1640,7 +1640,7 @@ makeaclitem(PG_FUNCTION_ARGS)
 		{"CONNECT", ACL_CONNECT},
 		{"SET", ACL_SET},
 		{"ALTER SYSTEM", ACL_ALTER_SYSTEM},
-		{"RULE", 0},			/* ignore old RULE privileges */
+		{"RULE", 0},			/* 忽略旧 RULE 权限 */
 		{NULL, 0}
 	};
 
@@ -1659,13 +1659,13 @@ makeaclitem(PG_FUNCTION_ARGS)
 
 
 /*
- * convert_any_priv_string: recognize privilege strings for has_foo_privilege
+ * convert_any_priv_string: 识别 has_foo_privilege 的权限字符串
  *
- * We accept a comma-separated list of case-insensitive privilege names,
- * producing a bitmask of the OR'd privilege bits.  We are liberal about
- * whitespace between items, not so much about whitespace within items.
- * The allowed privilege names are given as an array of priv_map structs,
- * terminated by one with a NULL name pointer.
+ * 我们接受以逗号分隔、大小写不敏感的权限名列表，
+ * 产生各权限位按位或的位掩码。对条目之间的空白我
+ * 们相当宽容，对条目内部的空白则不然。
+ * 允许的权限名以 priv_map 结构体数组的形式给出，
+ * 以名字指针为 NULL 的项收尾。
  */
 static AclMode
 convert_any_priv_string(text *priv_type_text,
@@ -1676,18 +1676,18 @@ convert_any_priv_string(text *priv_type_text,
 	char	   *chunk;
 	char	   *next_chunk;
 
-	/* We rely on priv_type being a private, modifiable string */
+	/* 此处依赖 priv_type 为私有可修改字符串 */
 	for (chunk = priv_type; chunk; chunk = next_chunk)
 	{
 		int			chunk_len;
 		const priv_map *this_priv;
 
-		/* Split string at commas */
+		/* 在逗号处拆分 */
 		next_chunk = strchr(chunk, ',');
 		if (next_chunk)
 			*next_chunk++ = '\0';
 
-		/* Drop leading/trailing whitespace in this chunk */
+		/* 去掉本段的首尾空白 */
 		while (*chunk && isspace((unsigned char) *chunk))
 			chunk++;
 		chunk_len = strlen(chunk);
@@ -1695,7 +1695,7 @@ convert_any_priv_string(text *priv_type_text,
 			chunk_len--;
 		chunk[chunk_len] = '\0';
 
-		/* Match to the privileges list */
+		/* 对权限列表做匹配 */
 		for (this_priv = privileges; this_priv->name; this_priv++)
 		{
 			if (pg_strcasecmp(this_priv->name, chunk) == 0)
@@ -1756,13 +1756,13 @@ convert_aclright_to_string(int aclright)
 
 
 /*----------
- * Convert an aclitem[] to a table.
+ * 将 aclitem[] 转成表。
  *
- * Example:
+ * 示例
  *
  * aclexplode('{=r/joe,foo=a*w/joe}'::aclitem[])
  *
- * returns the table
+ * 返回该表
  *
  * {{ OID(joe), 0::OID,   'SELECT', false },
  *	{ OID(joe), OID(foo), 'INSERT', true },
@@ -1788,8 +1788,8 @@ aclexplode(PG_FUNCTION_ARGS)
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 		/*
-		 * build tupdesc for result tuples (matches out parameters in pg_proc
-		 * entry)
+		 * 为结果元组构建 tupdesc（匹配 pg_proc 的输出参数）
+		 *
 		 */
 		tupdesc = CreateTemplateTupleDesc(4);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "grantor",
@@ -1803,10 +1803,10 @@ aclexplode(PG_FUNCTION_ARGS)
 
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
-		/* allocate memory for user context */
+		/* 为用户上下文分配内存 */
 		idx = (int *) palloc(sizeof(int[2]));
-		idx[0] = 0;				/* ACL array item index */
-		idx[1] = -1;			/* privilege type counter */
+		idx[0] = 0;				/* ACL 条目索引 */
+		idx[1] = -1;			/* 权限类型计数器 */
 		funcctx->user_fctx = (void *) idx;
 
 		MemoryContextSwitchTo(oldcontext);
@@ -1816,7 +1816,7 @@ aclexplode(PG_FUNCTION_ARGS)
 	idx = (int *) funcctx->user_fctx;
 	aidat = ACL_DAT(acl);
 
-	/* need test here in case acl has no items */
+	/* 此处需测试以防 acl 无条目 */
 	while (idx[0] < ACL_NUM(acl))
 	{
 		AclItem    *aidata;
@@ -1827,7 +1827,7 @@ aclexplode(PG_FUNCTION_ARGS)
 		{
 			idx[1] = 0;
 			idx[0]++;
-			if (idx[0] >= ACL_NUM(acl)) /* done */
+			if (idx[0] >= ACL_NUM(acl)) /* 完 */
 				break;
 		}
 		aidata = &aidat[idx[0]];
@@ -1857,21 +1857,21 @@ aclexplode(PG_FUNCTION_ARGS)
 
 
 /*
- * has_table_privilege variants
- *		These are all named "has_table_privilege" at the SQL level.
- *		They take various combinations of relation name, relation OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_table_privilege 变体
+ *		它们在 SQL 层面都名为 "has_table_privilege"。
+ *		它们接受关系名、关系 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.  The variants that take a relation OID
- *		return NULL if the OID doesn't exist (rather than failing, as
- *		they did before Postgres 8.4).
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。接受关系 OID 的变体在 OID 不存在
+ *		时返回 NULL（而非报错；Postgres
+ *		 8.4 之前会失败）。
  */
 
 /*
  * has_table_privilege_name_name
- *		Check user privileges on a table given
- *		name username, text tablename, and text priv name.
+ *		检查用户对表的权限，给定
+ *		name username, text tablename, text priv name。
  */
 Datum
 has_table_privilege_name_name(PG_FUNCTION_ARGS)
@@ -1895,9 +1895,9 @@ has_table_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_table_privilege_name
- *		Check user privileges on a table given
- *		text tablename and text priv name.
- *		current_user is assumed
+ *		检查用户对表的权限，给定
+ *		text tablename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_table_privilege_name(PG_FUNCTION_ARGS)
@@ -1920,8 +1920,8 @@ has_table_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_table_privilege_name_id
- *		Check user privileges on a table given
- *		name usename, table oid, and text priv name.
+ *		检查用户对表的权限，给定
+ *		name usename, table oid, text priv name。
  */
 Datum
 has_table_privilege_name_id(PG_FUNCTION_ARGS)
@@ -1946,9 +1946,9 @@ has_table_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_table_privilege_id
- *		Check user privileges on a table given
- *		table oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对表的权限，给定
+ *		table oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_table_privilege_id(PG_FUNCTION_ARGS)
@@ -1972,8 +1972,8 @@ has_table_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_table_privilege_id_name
- *		Check user privileges on a table given
- *		roleid, text tablename, and text priv name.
+ *		检查用户对表的权限，给定
+ *		roleid, text tablename, text priv name。
  */
 Datum
 has_table_privilege_id_name(PG_FUNCTION_ARGS)
@@ -1995,8 +1995,8 @@ has_table_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_table_privilege_id_id
- *		Check user privileges on a table given
- *		roleid, table oid, and text priv name.
+ *		检查用户对表的权限，给定
+ *		roleid, table oid, text priv name。
  */
 Datum
 has_table_privilege_id_id(PG_FUNCTION_ARGS)
@@ -2018,11 +2018,11 @@ has_table_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_table_privilege family.
+ *		has_table_privilege 家族的支撑例程。
  */
 
 /*
- * Given a table name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的表名，查找并返回其 Oid
  */
 static Oid
 convert_table_name(text *tablename)
@@ -2031,13 +2031,13 @@ convert_table_name(text *tablename)
 
 	relrv = makeRangeVarFromNameList(textToQualifiedNameList(tablename));
 
-	/* We might not even have permissions on this relation; don't lock it. */
+	/* 我们可能根本没有此关系上的权限；不要锁定它。 */
 	return RangeVarGetRelid(relrv, NoLock, false);
 }
 
 /*
  * convert_table_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_table_priv_string(text *priv_type_text)
@@ -2057,7 +2057,7 @@ convert_table_priv_string(text *priv_type_text)
 		{"REFERENCES WITH GRANT OPTION", ACL_GRANT_OPTION_FOR(ACL_REFERENCES)},
 		{"TRIGGER", ACL_TRIGGER},
 		{"TRIGGER WITH GRANT OPTION", ACL_GRANT_OPTION_FOR(ACL_TRIGGER)},
-		{"RULE", 0},			/* ignore old RULE privileges */
+		{"RULE", 0},			/* 忽略旧 RULE 权限 */
 		{"RULE WITH GRANT OPTION", 0},
 		{NULL, 0}
 	};
@@ -2066,20 +2066,20 @@ convert_table_priv_string(text *priv_type_text)
 }
 
 /*
- * has_sequence_privilege variants
- *		These are all named "has_sequence_privilege" at the SQL level.
- *		They take various combinations of relation name, relation OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_sequence_privilege 变体
+ *		它们在 SQL 层面都名为 "has_sequence_privilege"。
+ *		它们接受关系名、关系 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.  The variants that take a relation OID
- *		return NULL if the OID doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。接受关系 OID 的变体在 OID 不存在
+ *		时返回 NULL。
  */
 
 /*
  * has_sequence_privilege_name_name
- *		Check user privileges on a sequence given
- *		name username, text sequencename, and text priv name.
+ *		检查用户对序列的权限，给定
+ *		name username, text sequencename, text priv name。
  */
 Datum
 has_sequence_privilege_name_name(PG_FUNCTION_ARGS)
@@ -2108,9 +2108,9 @@ has_sequence_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_sequence_privilege_name
- *		Check user privileges on a sequence given
- *		text sequencename and text priv name.
- *		current_user is assumed
+ *		检查用户对序列的权限，给定
+ *		text sequencename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_sequence_privilege_name(PG_FUNCTION_ARGS)
@@ -2138,8 +2138,8 @@ has_sequence_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_sequence_privilege_name_id
- *		Check user privileges on a sequence given
- *		name usename, sequence oid, and text priv name.
+ *		检查用户对序列的权限，给定
+ *		name usename, sequence oid, text priv name。
  */
 Datum
 has_sequence_privilege_name_id(PG_FUNCTION_ARGS)
@@ -2170,9 +2170,9 @@ has_sequence_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_sequence_privilege_id
- *		Check user privileges on a sequence given
- *		sequence oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对序列的权限，给定
+ *		sequence oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_sequence_privilege_id(PG_FUNCTION_ARGS)
@@ -2202,8 +2202,8 @@ has_sequence_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_sequence_privilege_id_name
- *		Check user privileges on a sequence given
- *		roleid, text sequencename, and text priv name.
+ *		检查用户对序列的权限，给定
+ *		roleid, text sequencename, text priv name。
  */
 Datum
 has_sequence_privilege_id_name(PG_FUNCTION_ARGS)
@@ -2230,8 +2230,8 @@ has_sequence_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_sequence_privilege_id_id
- *		Check user privileges on a sequence given
- *		roleid, sequence oid, and text priv name.
+ *		检查用户对序列的权限，给定
+ *		roleid, sequence oid, text priv name。
  */
 Datum
 has_sequence_privilege_id_id(PG_FUNCTION_ARGS)
@@ -2260,7 +2260,7 @@ has_sequence_privilege_id_id(PG_FUNCTION_ARGS)
 
 /*
  * convert_sequence_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_sequence_priv_string(text *priv_type_text)
@@ -2280,20 +2280,20 @@ convert_sequence_priv_string(text *priv_type_text)
 
 
 /*
- * has_any_column_privilege variants
- *		These are all named "has_any_column_privilege" at the SQL level.
- *		They take various combinations of relation name, relation OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_any_column_privilege 变体
+ *		它们在 SQL 层面都名为 "has_any_column_privilege"。
+ *		它们接受关系名、关系 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege for any column of the table, false if not.  The variants
- *		that take a relation OID return NULL if the OID doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		所针对的是该表任一列，否则为 false。接受关系
+ *		 OID 的变体在 OID 不存在时返回 NULL。
  */
 
 /*
  * has_any_column_privilege_name_name
- *		Check user privileges on any column of a table given
- *		name username, text tablename, and text priv name.
+ *		检查用户对表任意列的权限，给定
+ *		name username, text tablename, text priv name。
  */
 Datum
 has_any_column_privilege_name_name(PG_FUNCTION_ARGS)
@@ -2310,7 +2310,7 @@ has_any_column_privilege_name_name(PG_FUNCTION_ARGS)
 	tableoid = convert_table_name(tablename);
 	mode = convert_column_priv_string(priv_type_text);
 
-	/* First check at table level, then examine each column if needed */
+	/* 先在表级检查，然后若需要再逐列检查 */
 	aclresult = pg_class_aclcheck(tableoid, roleid, mode);
 	if (aclresult != ACLCHECK_OK)
 		aclresult = pg_attribute_aclcheck_all(tableoid, roleid, mode,
@@ -2321,9 +2321,9 @@ has_any_column_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_any_column_privilege_name
- *		Check user privileges on any column of a table given
- *		text tablename and text priv name.
- *		current_user is assumed
+ *		检查用户对表任意列的权限，给定
+ *		text tablename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_any_column_privilege_name(PG_FUNCTION_ARGS)
@@ -2339,7 +2339,7 @@ has_any_column_privilege_name(PG_FUNCTION_ARGS)
 	tableoid = convert_table_name(tablename);
 	mode = convert_column_priv_string(priv_type_text);
 
-	/* First check at table level, then examine each column if needed */
+	/* 先在表级检查，然后若需要再逐列检查 */
 	aclresult = pg_class_aclcheck(tableoid, roleid, mode);
 	if (aclresult != ACLCHECK_OK)
 		aclresult = pg_attribute_aclcheck_all(tableoid, roleid, mode,
@@ -2350,8 +2350,8 @@ has_any_column_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_any_column_privilege_name_id
- *		Check user privileges on any column of a table given
- *		name usename, table oid, and text priv name.
+ *		检查用户对表任意列的权限，给定
+ *		name usename, table oid, text priv name。
  */
 Datum
 has_any_column_privilege_name_id(PG_FUNCTION_ARGS)
@@ -2369,7 +2369,7 @@ has_any_column_privilege_name_id(PG_FUNCTION_ARGS)
 	if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(tableoid)))
 		PG_RETURN_NULL();
 
-	/* First check at table level, then examine each column if needed */
+	/* 先在表级检查，然后若需要再逐列检查 */
 	aclresult = pg_class_aclcheck(tableoid, roleid, mode);
 	if (aclresult != ACLCHECK_OK)
 		aclresult = pg_attribute_aclcheck_all(tableoid, roleid, mode,
@@ -2380,9 +2380,9 @@ has_any_column_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_any_column_privilege_id
- *		Check user privileges on any column of a table given
- *		table oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对表任意列的权限，给定
+ *		table oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_any_column_privilege_id(PG_FUNCTION_ARGS)
@@ -2399,7 +2399,7 @@ has_any_column_privilege_id(PG_FUNCTION_ARGS)
 	if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(tableoid)))
 		PG_RETURN_NULL();
 
-	/* First check at table level, then examine each column if needed */
+	/* 先在表级检查，然后若需要再逐列检查 */
 	aclresult = pg_class_aclcheck(tableoid, roleid, mode);
 	if (aclresult != ACLCHECK_OK)
 		aclresult = pg_attribute_aclcheck_all(tableoid, roleid, mode,
@@ -2410,8 +2410,8 @@ has_any_column_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_any_column_privilege_id_name
- *		Check user privileges on any column of a table given
- *		roleid, text tablename, and text priv name.
+ *		检查用户对表任意列的权限，给定
+ *		roleid, text tablename, text priv name。
  */
 Datum
 has_any_column_privilege_id_name(PG_FUNCTION_ARGS)
@@ -2426,7 +2426,7 @@ has_any_column_privilege_id_name(PG_FUNCTION_ARGS)
 	tableoid = convert_table_name(tablename);
 	mode = convert_column_priv_string(priv_type_text);
 
-	/* First check at table level, then examine each column if needed */
+	/* 先在表级检查，然后若需要再逐列检查 */
 	aclresult = pg_class_aclcheck(tableoid, roleid, mode);
 	if (aclresult != ACLCHECK_OK)
 		aclresult = pg_attribute_aclcheck_all(tableoid, roleid, mode,
@@ -2437,8 +2437,8 @@ has_any_column_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_any_column_privilege_id_id
- *		Check user privileges on any column of a table given
- *		roleid, table oid, and text priv name.
+ *		检查用户对表任意列的权限，给定
+ *		roleid, table oid, text priv name。
  */
 Datum
 has_any_column_privilege_id_id(PG_FUNCTION_ARGS)
@@ -2454,7 +2454,7 @@ has_any_column_privilege_id_id(PG_FUNCTION_ARGS)
 	if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(tableoid)))
 		PG_RETURN_NULL();
 
-	/* First check at table level, then examine each column if needed */
+	/* 先在表级检查，然后若需要再逐列检查 */
 	aclresult = pg_class_aclcheck(tableoid, roleid, mode);
 	if (aclresult != ACLCHECK_OK)
 		aclresult = pg_attribute_aclcheck_all(tableoid, roleid, mode,
@@ -2465,27 +2465,27 @@ has_any_column_privilege_id_id(PG_FUNCTION_ARGS)
 
 
 /*
- * has_column_privilege variants
- *		These are all named "has_column_privilege" at the SQL level.
- *		They take various combinations of relation name, relation OID,
- *		column name, column attnum, user name, user OID, or
- *		implicit user = current_user.
+ * has_column_privilege 变体
+ *		它们在 SQL 层面都名为 "has_column_privilege"。
+ *		它们接受关系名、关系 OID、用户名、用户
+ *		列名、列 attnum、用户名、用户 OID 或
+ *		隐式用户=current_user。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.  The variants that take a relation OID
- *		return NULL (rather than throwing an error) if that relation OID
- *		doesn't exist.  Likewise, the variants that take an integer attnum
- *		return NULL (rather than throwing an error) if there is no such
- *		pg_attribute entry.  All variants return NULL if an attisdropped
- *		column is selected.  These rules are meant to avoid unnecessary
- *		failures in queries that scan pg_attribute.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。接受关系 OID 的变体在 OID 不存在
+ *		时返回 NULL（不抛错），同样，接受整数 attnum
+ *		的变体在没有这样的 pg_attribute 条目时也返回 NULL
+ *		（不抛错误）。若选中 attisdropped 列，所有变体
+ *		都返回 NULL。这些规则旨在避免那些扫描
+ *		 pg_attribute 的查询出现不必要的失败。
+ *
  */
 
 /*
- * column_privilege_check: check column privileges, but don't throw an error
- *		for dropped column or table
+ * column_privilege_check: 检查列权限，但列或表已删除时
+ *		不抛出错误
  *
- * Returns 1 if have the privilege, 0 if not, -1 if dropped column/table.
+ * 有权限返回 1，没有返回 0，列/表已删除返回 -1。
  */
 static int
 column_privilege_check(Oid tableoid, AttrNumber attnum,
@@ -2495,15 +2495,15 @@ column_privilege_check(Oid tableoid, AttrNumber attnum,
 	bool		is_missing = false;
 
 	/*
-	 * If convert_column_name failed, we can just return -1 immediately.
+	 * 若 convert_column_name 失败，我们可以直接返回 -1。
 	 */
 	if (attnum == InvalidAttrNumber)
 		return -1;
 
 	/*
-	 * Check for column-level privileges first. This serves in part as a check
-	 * on whether the column even exists, so we need to do it before checking
-	 * table-level privilege.
+	 * 先检查列级权限。这部分也顺带检查该列是否真的存
+	 * 在，所以我们需要在检查表级权限之前
+	 * 先做这一步。
 	 */
 	aclresult = pg_attribute_aclcheck_ext(tableoid, attnum, roleid,
 										  mode, &is_missing);
@@ -2512,7 +2512,7 @@ column_privilege_check(Oid tableoid, AttrNumber attnum,
 	else if (is_missing)
 		return -1;
 
-	/* Next check if we have the privilege at the table level */
+	/* 接着检查我们在表级是否有该权限 */
 	aclresult = pg_class_aclcheck_ext(tableoid, roleid, mode, &is_missing);
 	if (aclresult == ACLCHECK_OK)
 		return 1;
@@ -2524,8 +2524,8 @@ column_privilege_check(Oid tableoid, AttrNumber attnum,
 
 /*
  * has_column_privilege_name_name_name
- *		Check user privileges on a column given
- *		name username, text tablename, text colname, and text priv name.
+ *		检查用户对列的权限，给定
+ *		name username, text tablename, text colname, text priv name。
  */
 Datum
 has_column_privilege_name_name_name(PG_FUNCTION_ARGS)
@@ -2553,8 +2553,8 @@ has_column_privilege_name_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_name_name_attnum
- *		Check user privileges on a column given
- *		name username, text tablename, int attnum, and text priv name.
+ *		检查用户对列的权限，给定
+ *		name username, text tablename, int attnum, text priv name。
  */
 Datum
 has_column_privilege_name_name_attnum(PG_FUNCTION_ARGS)
@@ -2580,8 +2580,8 @@ has_column_privilege_name_name_attnum(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_name_id_name
- *		Check user privileges on a column given
- *		name username, table oid, text colname, and text priv name.
+ *		检查用户对列的权限，给定
+ *		name username, table oid, text colname, text priv name。
  */
 Datum
 has_column_privilege_name_id_name(PG_FUNCTION_ARGS)
@@ -2607,8 +2607,8 @@ has_column_privilege_name_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_name_id_attnum
- *		Check user privileges on a column given
- *		name username, table oid, int attnum, and text priv name.
+ *		检查用户对列的权限，给定
+ *		name username, table oid, int attnum, text priv name。
  */
 Datum
 has_column_privilege_name_id_attnum(PG_FUNCTION_ARGS)
@@ -2632,8 +2632,8 @@ has_column_privilege_name_id_attnum(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_id_name_name
- *		Check user privileges on a column given
- *		oid roleid, text tablename, text colname, and text priv name.
+ *		检查用户对列的权限，给定
+ *		oid roleid, text tablename, text colname, text priv name。
  */
 Datum
 has_column_privilege_id_name_name(PG_FUNCTION_ARGS)
@@ -2659,8 +2659,8 @@ has_column_privilege_id_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_id_name_attnum
- *		Check user privileges on a column given
- *		oid roleid, text tablename, int attnum, and text priv name.
+ *		检查用户对列的权限，给定
+ *		oid roleid, text tablename, int attnum, text priv name。
  */
 Datum
 has_column_privilege_id_name_attnum(PG_FUNCTION_ARGS)
@@ -2684,8 +2684,8 @@ has_column_privilege_id_name_attnum(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_id_id_name
- *		Check user privileges on a column given
- *		oid roleid, table oid, text colname, and text priv name.
+ *		检查用户对列的权限，给定
+ *		oid roleid, table oid, text colname, text priv name。
  */
 Datum
 has_column_privilege_id_id_name(PG_FUNCTION_ARGS)
@@ -2709,8 +2709,8 @@ has_column_privilege_id_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_id_id_attnum
- *		Check user privileges on a column given
- *		oid roleid, table oid, int attnum, and text priv name.
+ *		检查用户对列的权限，给定
+ *		oid roleid, table oid, int attnum, text priv name。
  */
 Datum
 has_column_privilege_id_id_attnum(PG_FUNCTION_ARGS)
@@ -2732,9 +2732,9 @@ has_column_privilege_id_id_attnum(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_name_name
- *		Check user privileges on a column given
- *		text tablename, text colname, and text priv name.
- *		current_user is assumed
+ *		检查用户对列的权限，给定
+ *		text tablename, text colname, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_column_privilege_name_name(PG_FUNCTION_ARGS)
@@ -2761,9 +2761,9 @@ has_column_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_name_attnum
- *		Check user privileges on a column given
- *		text tablename, int attnum, and text priv name.
- *		current_user is assumed
+ *		检查用户对列的权限，给定
+ *		text tablename, int attnum, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_column_privilege_name_attnum(PG_FUNCTION_ARGS)
@@ -2788,9 +2788,9 @@ has_column_privilege_name_attnum(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_id_name
- *		Check user privileges on a column given
- *		table oid, text colname, and text priv name.
- *		current_user is assumed
+ *		检查用户对列的权限，给定
+ *		table oid, text colname, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_column_privilege_id_name(PG_FUNCTION_ARGS)
@@ -2815,9 +2815,9 @@ has_column_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_column_privilege_id_attnum
- *		Check user privileges on a column given
- *		table oid, int attnum, and text priv name.
- *		current_user is assumed
+ *		检查用户对列的权限，给定
+ *		table oid, int attnum, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_column_privilege_id_attnum(PG_FUNCTION_ARGS)
@@ -2839,13 +2839,13 @@ has_column_privilege_id_attnum(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_column_privilege family.
+ *		has_column_privilege 家族的支撑例程。
  */
 
 /*
- * Given a table OID and a column name expressed as a string, look it up
- * and return the column number.  Returns InvalidAttrNumber in cases
- * where caller should return NULL instead of failing.
+ * 给定表 OID 与字符串形式的列名，查找并
+ * 返回列号。若调用者应返回 NULL 而非失败，则
+ * 返回 InvalidAttrNumber。
  */
 static AttrNumber
 convert_column_name(Oid tableoid, text *column)
@@ -2857,9 +2857,9 @@ convert_column_name(Oid tableoid, text *column)
 	colname = text_to_cstring(column);
 
 	/*
-	 * We don't use get_attnum() here because it will report that dropped
-	 * columns don't exist.  We need to treat dropped columns differently from
-	 * nonexistent columns.
+	 * 我们不用 get_attnum()，因为它会把已删除列报
+	 * 告为不存在。我们需要区别对待已删除列与
+	 * 不存在的列。
 	 */
 	attTuple = SearchSysCache2(ATTNAME,
 							   ObjectIdGetDatum(tableoid),
@@ -2869,7 +2869,7 @@ convert_column_name(Oid tableoid, text *column)
 		Form_pg_attribute attributeForm;
 
 		attributeForm = (Form_pg_attribute) GETSTRUCT(attTuple);
-		/* We want to return NULL for dropped columns */
+		/* 对已删除列要返回 NULL */
 		if (attributeForm->attisdropped)
 			attnum = InvalidAttrNumber;
 		else
@@ -2881,19 +2881,19 @@ convert_column_name(Oid tableoid, text *column)
 		char	   *tablename = get_rel_name(tableoid);
 
 		/*
-		 * If the table OID is bogus, or it's just been dropped, we'll get
-		 * NULL back.  In such cases we want has_column_privilege to return
-		 * NULL too, so just return InvalidAttrNumber.
+		 * 若表 OID 无效或刚删除，我们将得到 NULL。这种
+		 * 情况下我们希望 has_column_privilege 也返回 NULL，
+		 * 所以只需返回 InvalidAttrNumber。
 		 */
 		if (tablename != NULL)
 		{
-			/* tableoid exists, colname does not, so throw error */
+			/* tableoid 存在但列名不存在，故报错 */
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_COLUMN),
 					 errmsg("column \"%s\" of relation \"%s\" does not exist",
 							colname, tablename)));
 		}
-		/* tableoid doesn't exist, so act like attisdropped case */
+		/* tableoid 不存在，故按 attisdropped 情形处理 */
 		attnum = InvalidAttrNumber;
 	}
 
@@ -2903,7 +2903,7 @@ convert_column_name(Oid tableoid, text *column)
 
 /*
  * convert_column_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_column_priv_string(text *priv_type_text)
@@ -2925,19 +2925,19 @@ convert_column_priv_string(text *priv_type_text)
 
 
 /*
- * has_database_privilege variants
- *		These are all named "has_database_privilege" at the SQL level.
- *		They take various combinations of database name, database OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_database_privilege 变体
+ *		它们在 SQL 层面都名为 "has_database_privilege"。
+ *		接受数据库名、数据库 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not, or NULL if object doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false，对象不存在则返回 NULL。
  */
 
 /*
  * has_database_privilege_name_name
- *		Check user privileges on a database given
- *		name username, text databasename, and text priv name.
+ *		检查用户对数据库权限，给定
+ *		name username, text databasename, text priv name。
  */
 Datum
 has_database_privilege_name_name(PG_FUNCTION_ARGS)
@@ -2961,9 +2961,9 @@ has_database_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_database_privilege_name
- *		Check user privileges on a database given
- *		text databasename and text priv name.
- *		current_user is assumed
+ *		检查用户对数据库权限，给定
+ *		text databasename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_database_privilege_name(PG_FUNCTION_ARGS)
@@ -2986,8 +2986,8 @@ has_database_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_database_privilege_name_id
- *		Check user privileges on a database given
- *		name usename, database oid, and text priv name.
+ *		检查用户对数据库权限，给定
+ *		name usename, database oid, text priv name。
  */
 Datum
 has_database_privilege_name_id(PG_FUNCTION_ARGS)
@@ -3012,9 +3012,9 @@ has_database_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_database_privilege_id
- *		Check user privileges on a database given
- *		database oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对数据库权限，给定
+ *		database oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_database_privilege_id(PG_FUNCTION_ARGS)
@@ -3038,8 +3038,8 @@ has_database_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_database_privilege_id_name
- *		Check user privileges on a database given
- *		roleid, text databasename, and text priv name.
+ *		检查用户对数据库权限，给定
+ *		roleid, text databasename, text priv name。
  */
 Datum
 has_database_privilege_id_name(PG_FUNCTION_ARGS)
@@ -3061,8 +3061,8 @@ has_database_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_database_privilege_id_id
- *		Check user privileges on a database given
- *		roleid, database oid, and text priv name.
+ *		检查用户对数据库权限，给定
+ *		roleid, database oid, text priv name。
  */
 Datum
 has_database_privilege_id_id(PG_FUNCTION_ARGS)
@@ -3084,11 +3084,11 @@ has_database_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_database_privilege family.
+ *		has_database_privilege 家族的支撑例程。
  */
 
 /*
- * Given a database name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的数据库名，查找并返回其 Oid
  */
 static Oid
 convert_database_name(text *databasename)
@@ -3100,7 +3100,7 @@ convert_database_name(text *databasename)
 
 /*
  * convert_database_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_database_priv_string(text *priv_type_text)
@@ -3122,19 +3122,19 @@ convert_database_priv_string(text *priv_type_text)
 
 
 /*
- * has_foreign_data_wrapper_privilege variants
- *		These are all named "has_foreign_data_wrapper_privilege" at the SQL level.
- *		They take various combinations of foreign-data wrapper name,
- *		fdw OID, user name, user OID, or implicit user = current_user.
+ * has_foreign_data_wrapper_privilege 变体
+ *		它们在 SQL 层面都名为 "has_foreign_data_wrapper_privilege"。
+ *		它们接受外部数据包装器名、
+ *		fdw OID、用户名、用户OID 或 current_user。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。
  */
 
 /*
  * has_foreign_data_wrapper_privilege_name_name
- *		Check user privileges on a foreign-data wrapper given
- *		name username, text fdwname, and text priv name.
+ *		检查用户对外部数据包装器权限，给定
+ *		name username, text fdwname, text priv name。
  */
 Datum
 has_foreign_data_wrapper_privilege_name_name(PG_FUNCTION_ARGS)
@@ -3158,9 +3158,9 @@ has_foreign_data_wrapper_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_foreign_data_wrapper_privilege_name
- *		Check user privileges on a foreign-data wrapper given
- *		text fdwname and text priv name.
- *		current_user is assumed
+ *		检查用户对外部数据包装器权限，给定
+ *		text fdwname, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_foreign_data_wrapper_privilege_name(PG_FUNCTION_ARGS)
@@ -3183,8 +3183,8 @@ has_foreign_data_wrapper_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_foreign_data_wrapper_privilege_name_id
- *		Check user privileges on a foreign-data wrapper given
- *		name usename, foreign-data wrapper oid, and text priv name.
+ *		检查用户对外部数据包装器权限，给定
+ *		name usename, foreign-data wrapper oid, text priv name。
  */
 Datum
 has_foreign_data_wrapper_privilege_name_id(PG_FUNCTION_ARGS)
@@ -3209,9 +3209,9 @@ has_foreign_data_wrapper_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_foreign_data_wrapper_privilege_id
- *		Check user privileges on a foreign-data wrapper given
- *		foreign-data wrapper oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对外部数据包装器权限，给定
+ *		foreign-data wrapper oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_foreign_data_wrapper_privilege_id(PG_FUNCTION_ARGS)
@@ -3235,8 +3235,8 @@ has_foreign_data_wrapper_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_foreign_data_wrapper_privilege_id_name
- *		Check user privileges on a foreign-data wrapper given
- *		roleid, text fdwname, and text priv name.
+ *		检查用户对外部数据包装器权限，给定
+ *		roleid, text fdwname, text priv name。
  */
 Datum
 has_foreign_data_wrapper_privilege_id_name(PG_FUNCTION_ARGS)
@@ -3258,8 +3258,8 @@ has_foreign_data_wrapper_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_foreign_data_wrapper_privilege_id_id
- *		Check user privileges on a foreign-data wrapper given
- *		roleid, fdw oid, and text priv name.
+ *		检查用户对外部数据包装器权限，给定
+ *		roleid, fdw oid, text priv name。
  */
 Datum
 has_foreign_data_wrapper_privilege_id_id(PG_FUNCTION_ARGS)
@@ -3281,11 +3281,11 @@ has_foreign_data_wrapper_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_foreign_data_wrapper_privilege family.
+ *		has_foreign_data_wrapper_privilege 家族的支撑例程。
  */
 
 /*
- * Given a FDW name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的 FDW 名，查找并返回其 Oid
  */
 static Oid
 convert_foreign_data_wrapper_name(text *fdwname)
@@ -3297,7 +3297,7 @@ convert_foreign_data_wrapper_name(text *fdwname)
 
 /*
  * convert_foreign_data_wrapper_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_foreign_data_wrapper_priv_string(text *priv_type_text)
@@ -3313,19 +3313,19 @@ convert_foreign_data_wrapper_priv_string(text *priv_type_text)
 
 
 /*
- * has_function_privilege variants
- *		These are all named "has_function_privilege" at the SQL level.
- *		They take various combinations of function name, function OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_function_privilege 变体
+ *		它们在 SQL 层面都名为 "has_function_privilege"。
+ *		它们接受函数名、函数 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not, or NULL if object doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false，对象不存在则返回 NULL。
  */
 
 /*
  * has_function_privilege_name_name
- *		Check user privileges on a function given
- *		name username, text functionname, and text priv name.
+ *		检查用户对函数的权限，给定
+ *		name username, text functionname, text priv name。
  */
 Datum
 has_function_privilege_name_name(PG_FUNCTION_ARGS)
@@ -3349,9 +3349,9 @@ has_function_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_function_privilege_name
- *		Check user privileges on a function given
- *		text functionname and text priv name.
- *		current_user is assumed
+ *		检查用户对函数的权限，给定
+ *		text functionname, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_function_privilege_name(PG_FUNCTION_ARGS)
@@ -3374,8 +3374,8 @@ has_function_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_function_privilege_name_id
- *		Check user privileges on a function given
- *		name usename, function oid, and text priv name.
+ *		检查用户对函数的权限，给定
+ *		name usename, function oid, text priv name。
  */
 Datum
 has_function_privilege_name_id(PG_FUNCTION_ARGS)
@@ -3400,9 +3400,9 @@ has_function_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_function_privilege_id
- *		Check user privileges on a function given
- *		function oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对函数的权限，给定
+ *		function oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_function_privilege_id(PG_FUNCTION_ARGS)
@@ -3426,8 +3426,8 @@ has_function_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_function_privilege_id_name
- *		Check user privileges on a function given
- *		roleid, text functionname, and text priv name.
+ *		检查用户对函数的权限，给定
+ *		roleid, text functionname, text priv name。
  */
 Datum
 has_function_privilege_id_name(PG_FUNCTION_ARGS)
@@ -3449,8 +3449,8 @@ has_function_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_function_privilege_id_id
- *		Check user privileges on a function given
- *		roleid, function oid, and text priv name.
+ *		检查用户对函数的权限，给定
+ *		roleid, function oid, text priv name。
  */
 Datum
 has_function_privilege_id_id(PG_FUNCTION_ARGS)
@@ -3472,11 +3472,11 @@ has_function_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_function_privilege family.
+ *		has_function_privilege 家族的支撑例程。
  */
 
 /*
- * Given a function name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的函数名，查找并返回其 Oid
  */
 static Oid
 convert_function_name(text *functionname)
@@ -3497,7 +3497,7 @@ convert_function_name(text *functionname)
 
 /*
  * convert_function_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_function_priv_string(text *priv_type_text)
@@ -3513,19 +3513,19 @@ convert_function_priv_string(text *priv_type_text)
 
 
 /*
- * has_language_privilege variants
- *		These are all named "has_language_privilege" at the SQL level.
- *		They take various combinations of language name, language OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_language_privilege 变体
+ *		它们在 SQL 层面都名为 "has_language_privilege"。
+ *		它们接受语言名、语言 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not, or NULL if object doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false，对象不存在则返回 NULL。
  */
 
 /*
  * has_language_privilege_name_name
- *		Check user privileges on a language given
- *		name username, text languagename, and text priv name.
+ *		检查用户对语言的权限，给定
+ *		name username, text languagename, text priv name。
  */
 Datum
 has_language_privilege_name_name(PG_FUNCTION_ARGS)
@@ -3549,9 +3549,9 @@ has_language_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_language_privilege_name
- *		Check user privileges on a language given
- *		text languagename and text priv name.
- *		current_user is assumed
+ *		检查用户对语言的权限，给定
+ *		text languagename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_language_privilege_name(PG_FUNCTION_ARGS)
@@ -3574,8 +3574,8 @@ has_language_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_language_privilege_name_id
- *		Check user privileges on a language given
- *		name usename, language oid, and text priv name.
+ *		检查用户对语言的权限，给定
+ *		name usename, language oid, text priv name。
  */
 Datum
 has_language_privilege_name_id(PG_FUNCTION_ARGS)
@@ -3600,9 +3600,9 @@ has_language_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_language_privilege_id
- *		Check user privileges on a language given
- *		language oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对语言的权限，给定
+ *		language oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_language_privilege_id(PG_FUNCTION_ARGS)
@@ -3626,8 +3626,8 @@ has_language_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_language_privilege_id_name
- *		Check user privileges on a language given
- *		roleid, text languagename, and text priv name.
+ *		检查用户对语言的权限，给定
+ *		roleid, text languagename, text priv name。
  */
 Datum
 has_language_privilege_id_name(PG_FUNCTION_ARGS)
@@ -3649,8 +3649,8 @@ has_language_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_language_privilege_id_id
- *		Check user privileges on a language given
- *		roleid, language oid, and text priv name.
+ *		检查用户对语言的权限，给定
+ *		roleid, language oid, text priv name。
  */
 Datum
 has_language_privilege_id_id(PG_FUNCTION_ARGS)
@@ -3672,11 +3672,11 @@ has_language_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_language_privilege family.
+ *		has_language_privilege 家族的支撑例程。
  */
 
 /*
- * Given a language name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的语言名，查找并返回其 Oid
  */
 static Oid
 convert_language_name(text *languagename)
@@ -3688,7 +3688,7 @@ convert_language_name(text *languagename)
 
 /*
  * convert_language_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_language_priv_string(text *priv_type_text)
@@ -3704,19 +3704,19 @@ convert_language_priv_string(text *priv_type_text)
 
 
 /*
- * has_schema_privilege variants
- *		These are all named "has_schema_privilege" at the SQL level.
- *		They take various combinations of schema name, schema OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_schema_privilege 变体
+ *		它们在 SQL 层面都名为 "has_schema_privilege"。
+ *		它们接受模式名、模式 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not, or NULL if object doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false，对象不存在则返回 NULL。
  */
 
 /*
  * has_schema_privilege_name_name
- *		Check user privileges on a schema given
- *		name username, text schemaname, and text priv name.
+ *		检查用户对模式的权限，给定
+ *		name username, text schemaname, text priv name。
  */
 Datum
 has_schema_privilege_name_name(PG_FUNCTION_ARGS)
@@ -3740,9 +3740,9 @@ has_schema_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_schema_privilege_name
- *		Check user privileges on a schema given
- *		text schemaname and text priv name.
- *		current_user is assumed
+ *		检查用户对模式的权限，给定
+ *		text schemaname, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_schema_privilege_name(PG_FUNCTION_ARGS)
@@ -3765,8 +3765,8 @@ has_schema_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_schema_privilege_name_id
- *		Check user privileges on a schema given
- *		name usename, schema oid, and text priv name.
+ *		检查用户对模式的权限，给定
+ *		name usename, schema oid, text priv name。
  */
 Datum
 has_schema_privilege_name_id(PG_FUNCTION_ARGS)
@@ -3791,9 +3791,9 @@ has_schema_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_schema_privilege_id
- *		Check user privileges on a schema given
- *		schema oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对模式的权限，给定
+ *		schema oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_schema_privilege_id(PG_FUNCTION_ARGS)
@@ -3817,8 +3817,8 @@ has_schema_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_schema_privilege_id_name
- *		Check user privileges on a schema given
- *		roleid, text schemaname, and text priv name.
+ *		检查用户对模式的权限，给定
+ *		roleid, text schemaname, text priv name。
  */
 Datum
 has_schema_privilege_id_name(PG_FUNCTION_ARGS)
@@ -3840,8 +3840,8 @@ has_schema_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_schema_privilege_id_id
- *		Check user privileges on a schema given
- *		roleid, schema oid, and text priv name.
+ *		检查用户对模式的权限，给定
+ *		roleid, schema oid, text priv name。
  */
 Datum
 has_schema_privilege_id_id(PG_FUNCTION_ARGS)
@@ -3863,11 +3863,11 @@ has_schema_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_schema_privilege family.
+ *		has_schema_privilege 家族的支撑例程。
  */
 
 /*
- * Given a schema name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的模式名，查找并返回其 Oid
  */
 static Oid
 convert_schema_name(text *schemaname)
@@ -3879,7 +3879,7 @@ convert_schema_name(text *schemaname)
 
 /*
  * convert_schema_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_schema_priv_string(text *priv_type_text)
@@ -3897,19 +3897,19 @@ convert_schema_priv_string(text *priv_type_text)
 
 
 /*
- * has_server_privilege variants
- *		These are all named "has_server_privilege" at the SQL level.
- *		They take various combinations of foreign server name,
- *		server OID, user name, user OID, or implicit user = current_user.
+ * has_server_privilege 变体
+ *		它们在 SQL 层面都名为 "has_server_privilege"。
+ *		它们接受外部服务器名、
+ *		server OID、用户名、用户OID 或 current_user。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。
  */
 
 /*
  * has_server_privilege_name_name
- *		Check user privileges on a foreign server given
- *		name username, text servername, and text priv name.
+ *		检查用户对外部服务器权限，给定
+ *		name username, text servername, text priv name。
  */
 Datum
 has_server_privilege_name_name(PG_FUNCTION_ARGS)
@@ -3933,9 +3933,9 @@ has_server_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_server_privilege_name
- *		Check user privileges on a foreign server given
- *		text servername and text priv name.
- *		current_user is assumed
+ *		检查用户对外部服务器权限，给定
+ *		text servername, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_server_privilege_name(PG_FUNCTION_ARGS)
@@ -3958,8 +3958,8 @@ has_server_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_server_privilege_name_id
- *		Check user privileges on a foreign server given
- *		name usename, foreign server oid, and text priv name.
+ *		检查用户对外部服务器权限，给定
+ *		name usename, foreign server oid, text priv name。
  */
 Datum
 has_server_privilege_name_id(PG_FUNCTION_ARGS)
@@ -3984,9 +3984,9 @@ has_server_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_server_privilege_id
- *		Check user privileges on a foreign server given
- *		server oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对外部服务器权限，给定
+ *		server oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_server_privilege_id(PG_FUNCTION_ARGS)
@@ -4010,8 +4010,8 @@ has_server_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_server_privilege_id_name
- *		Check user privileges on a foreign server given
- *		roleid, text servername, and text priv name.
+ *		检查用户对外部服务器权限，给定
+ *		roleid, text servername, text priv name。
  */
 Datum
 has_server_privilege_id_name(PG_FUNCTION_ARGS)
@@ -4033,8 +4033,8 @@ has_server_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_server_privilege_id_id
- *		Check user privileges on a foreign server given
- *		roleid, server oid, and text priv name.
+ *		检查用户对外部服务器权限，给定
+ *		roleid, server oid, text priv name。
  */
 Datum
 has_server_privilege_id_id(PG_FUNCTION_ARGS)
@@ -4056,11 +4056,11 @@ has_server_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_server_privilege family.
+ *		has_server_privilege 家族的支撑例程。
  */
 
 /*
- * Given a server name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的服务器名，查找并返回其 Oid
  */
 static Oid
 convert_server_name(text *servername)
@@ -4072,7 +4072,7 @@ convert_server_name(text *servername)
 
 /*
  * convert_server_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_server_priv_string(text *priv_type_text)
@@ -4088,19 +4088,19 @@ convert_server_priv_string(text *priv_type_text)
 
 
 /*
- * has_tablespace_privilege variants
- *		These are all named "has_tablespace_privilege" at the SQL level.
- *		They take various combinations of tablespace name, tablespace OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_tablespace_privilege 变体
+ *		它们在 SQL 层面都名为 "has_tablespace_privilege"。
+ *		它们接受表空间名、表空间 OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。
  */
 
 /*
  * has_tablespace_privilege_name_name
- *		Check user privileges on a tablespace given
- *		name username, text tablespacename, and text priv name.
+ *		检查用户对表空间的权限，给定
+ *		name username, text tablespacename, text priv name。
  */
 Datum
 has_tablespace_privilege_name_name(PG_FUNCTION_ARGS)
@@ -4124,9 +4124,9 @@ has_tablespace_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_tablespace_privilege_name
- *		Check user privileges on a tablespace given
- *		text tablespacename and text priv name.
- *		current_user is assumed
+ *		检查用户对表空间的权限，给定
+ *		text tablespacename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_tablespace_privilege_name(PG_FUNCTION_ARGS)
@@ -4149,8 +4149,8 @@ has_tablespace_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_tablespace_privilege_name_id
- *		Check user privileges on a tablespace given
- *		name usename, tablespace oid, and text priv name.
+ *		检查用户对表空间的权限，给定
+ *		name usename, tablespace oid, text priv name。
  */
 Datum
 has_tablespace_privilege_name_id(PG_FUNCTION_ARGS)
@@ -4175,9 +4175,9 @@ has_tablespace_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_tablespace_privilege_id
- *		Check user privileges on a tablespace given
- *		tablespace oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对表空间的权限，给定
+ *		tablespace oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_tablespace_privilege_id(PG_FUNCTION_ARGS)
@@ -4201,8 +4201,8 @@ has_tablespace_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_tablespace_privilege_id_name
- *		Check user privileges on a tablespace given
- *		roleid, text tablespacename, and text priv name.
+ *		检查用户对表空间的权限，给定
+ *		roleid, text tablespacename, text priv name。
  */
 Datum
 has_tablespace_privilege_id_name(PG_FUNCTION_ARGS)
@@ -4224,8 +4224,8 @@ has_tablespace_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_tablespace_privilege_id_id
- *		Check user privileges on a tablespace given
- *		roleid, tablespace oid, and text priv name.
+ *		检查用户对表空间的权限，给定
+ *		roleid, tablespace oid, text priv name。
  */
 Datum
 has_tablespace_privilege_id_id(PG_FUNCTION_ARGS)
@@ -4247,11 +4247,11 @@ has_tablespace_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_tablespace_privilege family.
+ *		has_tablespace_privilege 家族的支撑例程。
  */
 
 /*
- * Given a tablespace name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的表空间名，查找并返回其 Oid
  */
 static Oid
 convert_tablespace_name(text *tablespacename)
@@ -4263,7 +4263,7 @@ convert_tablespace_name(text *tablespacename)
 
 /*
  * convert_tablespace_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_tablespace_priv_string(text *priv_type_text)
@@ -4278,19 +4278,19 @@ convert_tablespace_priv_string(text *priv_type_text)
 }
 
 /*
- * has_type_privilege variants
- *		These are all named "has_type_privilege" at the SQL level.
- *		They take various combinations of type name, type OID,
- *		user name, user OID, or implicit user = current_user.
+ * has_type_privilege 变体
+ *		它们在 SQL 层面都名为 "has_type_privilege"。
+ *		它们接受类型名、类型OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not, or NULL if object doesn't exist.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false，对象不存在则返回 NULL。
  */
 
 /*
  * has_type_privilege_name_name
- *		Check user privileges on a type given
- *		name username, text typename, and text priv name.
+ *		检查用户对类型权限，给定
+ *		name username, text typename, text priv name。
  */
 Datum
 has_type_privilege_name_name(PG_FUNCTION_ARGS)
@@ -4314,9 +4314,9 @@ has_type_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_type_privilege_name
- *		Check user privileges on a type given
- *		text typename and text priv name.
- *		current_user is assumed
+ *		检查用户对类型权限，给定
+ *		text typename, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_type_privilege_name(PG_FUNCTION_ARGS)
@@ -4339,8 +4339,8 @@ has_type_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_type_privilege_name_id
- *		Check user privileges on a type given
- *		name usename, type oid, and text priv name.
+ *		检查用户对类型权限，给定
+ *		name usename, type oid, text priv name。
  */
 Datum
 has_type_privilege_name_id(PG_FUNCTION_ARGS)
@@ -4365,9 +4365,9 @@ has_type_privilege_name_id(PG_FUNCTION_ARGS)
 
 /*
  * has_type_privilege_id
- *		Check user privileges on a type given
- *		type oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对类型权限，给定
+ *		type oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 has_type_privilege_id(PG_FUNCTION_ARGS)
@@ -4391,8 +4391,8 @@ has_type_privilege_id(PG_FUNCTION_ARGS)
 
 /*
  * has_type_privilege_id_name
- *		Check user privileges on a type given
- *		roleid, text typename, and text priv name.
+ *		检查用户对类型权限，给定
+ *		roleid, text typename, text priv name。
  */
 Datum
 has_type_privilege_id_name(PG_FUNCTION_ARGS)
@@ -4414,8 +4414,8 @@ has_type_privilege_id_name(PG_FUNCTION_ARGS)
 
 /*
  * has_type_privilege_id_id
- *		Check user privileges on a type given
- *		roleid, type oid, and text priv name.
+ *		检查用户对类型权限，给定
+ *		roleid, type oid, text priv name。
  */
 Datum
 has_type_privilege_id_id(PG_FUNCTION_ARGS)
@@ -4437,11 +4437,11 @@ has_type_privilege_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_type_privilege family.
+ *		has_type_privilege 家族的支撑例程。
  */
 
 /*
- * Given a type name expressed as a string, look it up and return Oid
+ * 给定以字符串表示的类型名，查找并返回其 Oid
  */
 static Oid
 convert_type_name(text *typename)
@@ -4462,7 +4462,7 @@ convert_type_name(text *typename)
 
 /*
  * convert_type_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_type_priv_string(text *priv_type_text)
@@ -4477,20 +4477,20 @@ convert_type_priv_string(text *priv_type_text)
 }
 
 /*
- * has_parameter_privilege variants
- *		These are all named "has_parameter_privilege" at the SQL level.
- *		They take various combinations of parameter name with
- *		user name, user OID, or implicit user = current_user.
+ * has_parameter_privilege 变体
+ *		它们在 SQL 层面都名为 "has_parameter_privilege"。
+ *		它们接受参数名与用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has been granted
- *		the indicated privilege or false if not.
+ *		结果是布尔值：用户获授指明权限则 true，
+ *		否则为 false。
  */
 
 /*
  * has_param_priv_byname
  *
- *		Helper function to check user privileges on a parameter given the
- *		role by Oid, parameter by text name, and privileges as AclMode.
+ *		辅助函数：在给定角色 Oid、text 参数名与 AclMode
+ *		权限时，检查用户对参数的权限。
  */
 static bool
 has_param_priv_byname(Oid roleid, const text *parameter, AclMode priv)
@@ -4502,8 +4502,8 @@ has_param_priv_byname(Oid roleid, const text *parameter, AclMode priv)
 
 /*
  * has_parameter_privilege_name_name
- *		Check user privileges on a parameter given name username, text
- *		parameter, and text priv name.
+ *		检查用户对参数的权限，给定 name username、text
+ *		 parameter、text priv name。
  */
 Datum
 has_parameter_privilege_name_name(PG_FUNCTION_ARGS)
@@ -4518,8 +4518,8 @@ has_parameter_privilege_name_name(PG_FUNCTION_ARGS)
 
 /*
  * has_parameter_privilege_name
- *		Check user privileges on a parameter given text parameter and text priv
- *		name.  current_user is assumed
+ *		检查用户对参数的权限，给定 text parameter、text priv
+ *		 name。默认为 current_user
  */
 Datum
 has_parameter_privilege_name(PG_FUNCTION_ARGS)
@@ -4532,8 +4532,8 @@ has_parameter_privilege_name(PG_FUNCTION_ARGS)
 
 /*
  * has_parameter_privilege_id_name
- *		Check user privileges on a parameter given roleid, text parameter, and
- *		text priv name.
+ *		检查用户对参数的权限，给定 roleid、text parameter、
+ *		 priv name。
  */
 Datum
 has_parameter_privilege_id_name(PG_FUNCTION_ARGS)
@@ -4546,12 +4546,12 @@ has_parameter_privilege_id_name(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for has_parameter_privilege family.
+ *		has_parameter_privilege 家族的支撑例程。
  */
 
 /*
  * convert_parameter_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  */
 static AclMode
 convert_parameter_priv_string(text *priv_text)
@@ -4568,19 +4568,19 @@ convert_parameter_priv_string(text *priv_text)
 }
 
 /*
- * pg_has_role variants
- *		These are all named "pg_has_role" at the SQL level.
- *		They take various combinations of role name, role OID,
- *		user name, user OID, or implicit user = current_user.
+ * pg_has_role 变体
+ *		它们在 SQL 层面都名为 "pg_has_role"。
+ *		它们接受角色名、角色OID、用户名、用户
+ *		 OID 或隐式用户 = current_user 的组合。
  *
- *		The result is a boolean value: true if user has the indicated
- *		privilege, false if not.
+ *		结果是布尔值：用户有指明权限则 true，
+ *		否则为 false。
  */
 
 /*
  * pg_has_role_name_name
- *		Check user privileges on a role given
- *		name username, name rolename, and text priv name.
+ *		检查用户对角色权限，给定
+ *		name username, name rolename, text priv name。
  */
 Datum
 pg_has_role_name_name(PG_FUNCTION_ARGS)
@@ -4604,9 +4604,9 @@ pg_has_role_name_name(PG_FUNCTION_ARGS)
 
 /*
  * pg_has_role_name
- *		Check user privileges on a role given
- *		name rolename and text priv name.
- *		current_user is assumed
+ *		检查用户对角色权限，给定
+ *		name rolename, text priv name。
+ *		默认为 current_user
  */
 Datum
 pg_has_role_name(PG_FUNCTION_ARGS)
@@ -4629,8 +4629,8 @@ pg_has_role_name(PG_FUNCTION_ARGS)
 
 /*
  * pg_has_role_name_id
- *		Check user privileges on a role given
- *		name usename, role oid, and text priv name.
+ *		检查用户对角色权限，给定
+ *		name usename, role oid, text priv name。
  */
 Datum
 pg_has_role_name_id(PG_FUNCTION_ARGS)
@@ -4652,9 +4652,9 @@ pg_has_role_name_id(PG_FUNCTION_ARGS)
 
 /*
  * pg_has_role_id
- *		Check user privileges on a role given
- *		role oid, and text priv name.
- *		current_user is assumed
+ *		检查用户对角色权限，给定
+ *		role oid, text priv name。
+ *		默认为 current_user
  */
 Datum
 pg_has_role_id(PG_FUNCTION_ARGS)
@@ -4675,8 +4675,8 @@ pg_has_role_id(PG_FUNCTION_ARGS)
 
 /*
  * pg_has_role_id_name
- *		Check user privileges on a role given
- *		roleid, name rolename, and text priv name.
+ *		检查用户对角色权限，给定
+ *		roleid, name rolename, text priv name。
  */
 Datum
 pg_has_role_id_name(PG_FUNCTION_ARGS)
@@ -4698,8 +4698,8 @@ pg_has_role_id_name(PG_FUNCTION_ARGS)
 
 /*
  * pg_has_role_id_id
- *		Check user privileges on a role given
- *		roleid, role oid, and text priv name.
+ *		检查用户对角色权限，给定
+ *		roleid, role oid, text priv name。
  */
 Datum
 pg_has_role_id_id(PG_FUNCTION_ARGS)
@@ -4718,18 +4718,18 @@ pg_has_role_id_id(PG_FUNCTION_ARGS)
 }
 
 /*
- *		Support routines for pg_has_role family.
+ *		pg_has_role 家族的支撑例程。
  */
 
 /*
  * convert_role_priv_string
- *		Convert text string to AclMode value.
+ *		把文本串转换为 AclMode 值。
  *
- * We use USAGE to denote whether the privileges of the role are accessible
- * (has_privs_of_role), MEMBER to denote is_member, and MEMBER WITH GRANT
- * (or ADMIN) OPTION to denote is_admin.  There is no ACL bit corresponding
- * to MEMBER so we cheat and use ACL_CREATE for that.  This convention
- * is shared only with pg_role_aclcheck, below.
+ * 我们用 USAGE 表示角色的权限是否可访问
+ * （has_privs_of_role），用 MEMBER 表示 is_member，而
+ * MEMBER WITH GRANT（或 ADMIN OPTION）表示 is_admin。没有
+ * 与 MEMBER 对应的 ACL 位，故取巧以 ACL_CREATE 代替。
+ * 此约定仅 pg_role_aclcheck 使用。
  */
 static AclMode
 convert_role_priv_string(text *priv_type_text)
@@ -4752,7 +4752,7 @@ convert_role_priv_string(text *priv_type_text)
 
 /*
  * pg_role_aclcheck
- *		Quick-and-dirty support for pg_has_role
+ *		pg_has_role 快速简陋的支持
  */
 static AclResult
 pg_role_aclcheck(Oid role_oid, Oid roleid, AclMode mode)
@@ -4782,7 +4782,7 @@ pg_role_aclcheck(Oid role_oid, Oid roleid, AclMode mode)
 
 
 /*
- * initialization function (called by InitPostgres)
+ * 初始化函数（InitPostgres 调用）
  */
 void
 initialize_acl(void)
@@ -4794,9 +4794,9 @@ initialize_acl(void)
 								  ObjectIdGetDatum(MyDatabaseId));
 
 		/*
-		 * In normal mode, set a callback on any syscache invalidation of rows
-		 * of pg_auth_members (for roles_is_member_of()) pg_database (for
-		 * roles_is_member_of())
+		 * 正常模式下，为 pg_auth_members 行的任何 syscache 失
+		 * 效事件设置回调（供 roles_is_member_of() 使用；
+		 * pg_database 亦然）
 		 */
 		CacheRegisterSyscacheCallback(AUTHMEMROLEMEM,
 									  RoleMembershipCacheCallback,
@@ -4812,7 +4812,7 @@ initialize_acl(void)
 
 /*
  * RoleMembershipCacheCallback
- *		Syscache inval callback function
+ *		Syscache 失效回调函数
  */
 static void
 RoleMembershipCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
@@ -4821,33 +4821,33 @@ RoleMembershipCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
 		hashvalue != cached_db_hash &&
 		hashvalue != 0)
 	{
-		return;					/* ignore pg_database changes for other DBs */
+		return;					/* 忽略其他库的 pg_database 变更 */
 	}
 
-	/* Force membership caches to be recomputed on next use */
+	/* 强制成员缓存在下次使用时重算 */
 	cached_role[ROLERECURSE_MEMBERS] = InvalidOid;
 	cached_role[ROLERECURSE_PRIVS] = InvalidOid;
 	cached_role[ROLERECURSE_SETROLE] = InvalidOid;
 }
 
 /*
- * Get a list of roles that the specified roleid is a member of
+ * 取得指定 roleid 作为成员所属的角色列表
  *
- * Type ROLERECURSE_MEMBERS recurses through all grants; ROLERECURSE_PRIVS
- * recurses only through inheritable grants; and ROLERECURSE_SETROLE recurses
- * only through grants with set_option.
+ * ROLERECURSE_MEMBERS 类型经全部授权递归；ROLERECURSE_PRIVS
+ * 仅经由可继承授权递归；ROLERECURSE_SETROLE 仅经由带
+ *  set_option 的授权递归。
  *
- * Since indirect membership testing is relatively expensive, we cache
- * a list of memberships.  Hence, the result is only guaranteed good until
- * the next call of roles_is_member_of()!
+ * 由于间接成员测试代价相对较高，我们缓存一份
+ * 成员关系列表。因此，结果只保证在下一次调用
+ * roles_is_member_of() 之前有效！
  *
- * For the benefit of select_best_grantor, the result is defined to be
- * in breadth-first order, ie, closer relationships earlier.
+ * 为方便 select_best_grantor，结果定义为按广度优先顺
+ * 序排列，即更近的关系在前。
  *
- * If admin_of is not InvalidOid, this function sets *admin_role, either
- * to the OID of the first role in the result list that directly possesses
- * ADMIN OPTION on the role corresponding to admin_of, or to InvalidOid if
- * there is no such role.
+ * 若 admin_of 不是 InvalidOid，本函数会设置 *admin_role，
+ * 其值为结果列表中第一个在 admin_of 对应角色上直接
+ * 持有 ADMIN OPTION 的角色 OID，若无这样的角色则为其
+ * InvalidOid。
  */
 static List *
 roles_is_member_of(Oid roleid, enum RoleRecurseType type,
@@ -4863,15 +4863,15 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	if (admin_role != NULL)
 		*admin_role = InvalidOid;
 
-	/* If cache is valid and ADMIN OPTION not sought, just return the list */
+	/* 若缓存有效且未要求 ADMIN OPTION，则直接返回列表 */
 	if (cached_role[type] == roleid && !OidIsValid(admin_of) &&
 		OidIsValid(cached_role[type]))
 		return cached_roles[type];
 
 	/*
-	 * Role expansion happens in a non-database backend when guc.c checks
-	 * ROLE_PG_READ_ALL_SETTINGS for a physical walsender SHOW command.  In
-	 * that case, no role gets pg_database_owner.
+	 * 角色展开发生在非数据库后端中，当 guc.c 为物理
+	 * walsender 执行 SHOW 命令检查 ROLE_PG_READ_ALL_SETTINGS
+	 * 时无角色获得 pg_database_owner。
 	 */
 	if (!OidIsValid(MyDatabaseId))
 		dba = InvalidOid;
@@ -4887,15 +4887,15 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	}
 
 	/*
-	 * Find all the roles that roleid is a member of, including multi-level
-	 * recursion.  The role itself will always be the first element of the
-	 * resulting list.
+	 * 找出 roleid 作为成员所涉及的全部角色，包括多级
+	 * 递归。角色本身总是结果的
+	 * 首元素。
 	 *
-	 * Each element of the list is scanned to see if it adds any indirect
-	 * memberships.  We can use a single list as both the record of
-	 * already-found memberships and the agenda of roles yet to be scanned.
-	 * This is a bit tricky but works because the foreach() macro doesn't
-	 * fetch the next list element until the bottom of the loop.
+	 * 列表中每个元素都被扫描，看是否带来间接
+	 * 成员关系。我们可以用单个列表同时充当
+	 * 已发现成员关系的记录与待扫描角色的议程。
+	 * 这有点巧妙但行得通，因为 foreach() 宏直到循环底
+	 * 部才获取下一个列表元素。
 	 */
 	roles_list = list_make1_oid(roleid);
 
@@ -4905,7 +4905,7 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 		CatCList   *memlist;
 		int			i;
 
-		/* Find roles that memberid is directly a member of */
+		/* 查找 memberid 直接作为成员的角色 */
 		memlist = SearchSysCacheList1(AUTHMEMMEMROLE,
 									  ObjectIdGetDatum(memberid));
 		for (i = 0; i < memlist->n_members; i++)
@@ -4915,38 +4915,38 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 			Oid			otherid = form->roleid;
 
 			/*
-			 * While otherid==InvalidOid shouldn't appear in the catalog, the
-			 * OidIsValid() avoids crashing if that arises.
+			 * 虽然 otherid==InvalidOid 不应出现在目录中，但
+			 * OidIsValid() 可在发生时避免崩溃。
 			 */
 			if (otherid == admin_of && form->admin_option &&
 				OidIsValid(admin_of) && !OidIsValid(*admin_role))
 				*admin_role = memberid;
 
-			/* If we're supposed to ignore non-heritable grants, do so. */
+			/* 若应忽略不可继承的授权，就这么做。 */
 			if (type == ROLERECURSE_PRIVS && !form->inherit_option)
 				continue;
 
-			/* If we're supposed to ignore non-SET grants, do so. */
+			/* 若应忽略非 SET 授权，就这么做。 */
 			if (type == ROLERECURSE_SETROLE && !form->set_option)
 				continue;
 
 			/*
-			 * Even though there shouldn't be any loops in the membership
-			 * graph, we must test for having already seen this role. It is
-			 * legal for instance to have both A->B and A->C->B.
+			 * 虽然成员关系图不应有环，仍须检查
+			 * 已见过此角色。比如同时有 A->B 和 A->C->B 是
+			 * 合法的。
 			 */
 			roles_list = list_append_unique_oid(roles_list, otherid);
 		}
 		ReleaseSysCacheList(memlist);
 
-		/* implement pg_database_owner implicit membership */
+		/* 实现 pg_database_owner 的隐式成员关系 */
 		if (memberid == dba && OidIsValid(dba))
 			roles_list = list_append_unique_oid(roles_list,
 												ROLE_PG_DATABASE_OWNER);
 	}
 
 	/*
-	 * Copy the completed list into TopMemoryContext so it will persist.
+	 * 把完成的列表复制入 TopMemoryContext 以持久保存。
 	 */
 	oldctx = MemoryContextSwitchTo(TopMemoryContext);
 	new_cached_roles = list_copy(roles_list);
@@ -4954,40 +4954,40 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	list_free(roles_list);
 
 	/*
-	 * Now safe to assign to state variable
+	 * 现在可安全赋给状态变量
 	 */
-	cached_role[type] = InvalidOid; /* just paranoia */
+	cached_role[type] = InvalidOid; /* 以防万一 */
 	list_free(cached_roles[type]);
 	cached_roles[type] = new_cached_roles;
 	cached_role[type] = roleid;
 
-	/* And now we can return the answer */
+	/* 现在可以返回答案了 */
 	return cached_roles[type];
 }
 
 
 /*
- * Does member have the privileges of role (directly or indirectly)?
+ * member 是否拥有 role 的权限（直接或间接）？
  *
- * This is defined not to recurse through grants that are not inherited,
- * and only inherited grants confer the associated privileges automatically.
+ * 本函数被定义为不经由不可继承的授权递归，且只有
+ * 可继承的授权才自动赋予相关权限。
  *
- * See also member_can_set_role, below.
+ * 另见下方 member_can_set_role。
  */
 bool
 has_privs_of_role(Oid member, Oid role)
 {
-	/* Fast path for simple case */
+	/* 简单情形快速路径 */
 	if (member == role)
 		return true;
 
-	/* Superusers have every privilege, so are part of every role */
+	/* 超级用户拥有全部权限，故属于每个角色 */
 	if (superuser_arg(member))
 		return true;
 
 	/*
-	 * Find all the roles that member has the privileges of, including
-	 * multi-level recursion, then see if target role is any one of them.
+	 * 找出 member 拥有其权限的全部角色，包括多级
+	 * 递归，然后看目标角色是否为其中之一。
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
 											  InvalidOid, NULL),
@@ -4995,33 +4995,33 @@ has_privs_of_role(Oid member, Oid role)
 }
 
 /*
- * Can member use SET ROLE to this role?
+ * member 能 SET ROLE 到该角色？
  *
- * There must be a chain of grants from 'member' to 'role' each of which
- * permits SET ROLE; that is, each of which has set_option = true.
+ * 必须存在一条从 'member' 到 'role' 的授权链，其中每一
+ * 个授权都允许 SET ROLE，即 set_option 均为 true。
  *
- * It doesn't matter whether the grants are inheritable. That's a separate
- * question; see has_privs_of_role.
+ * 授权是否可继承并不重要。那是另一个问题；见
+ * has_privs_of_role。
  *
- * This function should be used to determine whether the session user can
- * use SET ROLE to become the target user. We also use it to determine whether
- * the session user can change an existing object to be owned by the target
- * user, or create new objects owned by the target user.
+ * 本函数应当用于判定会话用户能否用 SET ROLE 变身为
+ * 目标用户。我们也用它判定会话用户可否把既有对象
+ * 改为由目标用户拥有，或创建归其所有的新对象。
+ *
  */
 bool
 member_can_set_role(Oid member, Oid role)
 {
-	/* Fast path for simple case */
+	/* 简单情形快速路径 */
 	if (member == role)
 		return true;
 
-	/* Superusers have every privilege, so can always SET ROLE */
+	/* 超级用户拥有全部权限，故总能 SET ROLE */
 	if (superuser_arg(member))
 		return true;
 
 	/*
-	 * Find all the roles that member can access via SET ROLE, including
-	 * multi-level recursion, then see if target role is any one of them.
+	 * 找出 member 经 SET ROLE 可访问的角色，包括多级
+	 * 递归，然后看目标角色是否为其中之一。
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_SETROLE,
 											  InvalidOid, NULL),
@@ -5029,7 +5029,7 @@ member_can_set_role(Oid member, Oid role)
 }
 
 /*
- * Permission violation error unless able to SET ROLE to target role.
+ * 除非能 SET ROLE 到目标角色，否则报权限错误。
  */
 void
 check_can_set_role(Oid member, Oid role)
@@ -5042,32 +5042,32 @@ check_can_set_role(Oid member, Oid role)
 }
 
 /*
- * Is member a member of role (directly or indirectly)?
+ * member 是 role 的成员（直接或间接）吗？
  *
- * This is defined to recurse through grants whether they are inherited or not.
+ * 本函数被定义为无论授权可继承与否都经由其递归。
  *
- * Do not use this for privilege checking, instead use has_privs_of_role().
- * Don't use it for determining whether it's possible to SET ROLE to some
- * other role; for that, use member_can_set_role(). And don't use it for
- * determining whether it's OK to create an object owned by some other role:
- * use member_can_set_role() for that, too.
+ * 不要用本函数做权限检查，请改用 has_privs_of_role()
+ * 也不要用它判定能否对某角色 SET ROLE；那要用
+ * member_can_set_role()。
+ * 也不要用它判定创建归其他角色所有的对象是否可行：
+ * 同样用 member_can_set_role()。
  *
- * In short, calling this function is the wrong thing to do nearly everywhere.
+ * 简而言之，在几乎所有场合调用本函数都是错误的做法。
  */
 bool
 is_member_of_role(Oid member, Oid role)
 {
-	/* Fast path for simple case */
+	/* 简单情形快速路径 */
 	if (member == role)
 		return true;
 
-	/* Superusers have every privilege, so are part of every role */
+	/* 超级用户拥有全部权限，故属于每个角色 */
 	if (superuser_arg(member))
 		return true;
 
 	/*
-	 * Find all the roles that member is a member of, including multi-level
-	 * recursion, then see if target role is any one of them.
+	 * 找出 member 所属的所有角色，包括多级
+	 * 递归，然后看目标角色是否为其中之一。
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_MEMBERS,
 											  InvalidOid, NULL),
@@ -5075,23 +5075,23 @@ is_member_of_role(Oid member, Oid role)
 }
 
 /*
- * Is member a member of role, not considering superuserness?
+ * member 是 role 成员吗（不计超级用户身份）？
  *
- * This is identical to is_member_of_role except we ignore superuser
- * status.
+ * 本函数与 is_member_of_role 相同，唯忽略超级用户身
+ * 份。
  *
- * Do not use this for privilege checking, instead use has_privs_of_role()
+ * 不要用本函数做权限检查，请改用 has_privs_of_role()
  */
 bool
 is_member_of_role_nosuper(Oid member, Oid role)
 {
-	/* Fast path for simple case */
+	/* 简单情形快速路径 */
 	if (member == role)
 		return true;
 
 	/*
-	 * Find all the roles that member is a member of, including multi-level
-	 * recursion, then see if target role is any one of them.
+	 * 找出 member 所属的所有角色，包括多级
+	 * 递归，然后看目标角色是否为其中之一。
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_MEMBERS,
 											  InvalidOid, NULL),
@@ -5100,9 +5100,9 @@ is_member_of_role_nosuper(Oid member, Oid role)
 
 
 /*
- * Is member an admin of role?	That is, is member the role itself (subject to
- * restrictions below), a member (directly or indirectly) WITH ADMIN OPTION,
- * or a superuser?
+ * member 是否为 role 的管理员？即 member 是 role 本身（受下
+ * 述限制）、（直接或间接）持 ADMIN OPTION 的成员，或是
+ * 超级用户？
  */
 bool
 is_admin_of_role(Oid member, Oid role)
@@ -5112,7 +5112,7 @@ is_admin_of_role(Oid member, Oid role)
 	if (superuser_arg(member))
 		return true;
 
-	/* By policy, a role cannot have WITH ADMIN OPTION on itself. */
+	/* 按策略，角色无法对自身有 WITH ADMIN OPTION。 */
 	if (member == role)
 		return false;
 
@@ -5121,20 +5121,20 @@ is_admin_of_role(Oid member, Oid role)
 }
 
 /*
- * Find a role whose privileges "member" inherits which has ADMIN OPTION
- * on "role", ignoring super-userness.
+ * 找出一个其权限被 member 继承、对 "role" 持有 ADMIN
+ *  OPTION，不计超级用户。
  *
- * There might be more than one such role; prefer one which involves fewer
- * hops. That is, if member has ADMIN OPTION, prefer that over all other
- * options; if not, prefer a role from which member inherits more directly
- * over more indirect inheritance.
+ * 这样的角色可能不止一个；优先选跳数更少的那
+ * 的。也就是说，若 member 持有 ADMIN OPTION，优先选它
+ * 而非其他选项；若没有，则优先选择 member 从中更
+ * 直接继承权限的角色。
  */
 Oid
 select_best_admin(Oid member, Oid role)
 {
 	Oid			admin_role;
 
-	/* By policy, a role cannot have WITH ADMIN OPTION on itself. */
+	/* 按策略，角色无法对自身有 WITH ADMIN OPTION。 */
 	if (member == role)
 		return InvalidOid;
 
@@ -5143,13 +5143,13 @@ select_best_admin(Oid member, Oid role)
 }
 
 
-/* does what it says ... */
+/* 如其所言…… */
 static int
 count_one_bits(AclMode mask)
 {
 	int			nbits = 0;
 
-	/* this code relies on AclMode being an unsigned type */
+	/* 此代码依赖 AclMode 是无符号类型 */
 	while (mask)
 	{
 		if (mask & 1)
@@ -5161,28 +5161,28 @@ count_one_bits(AclMode mask)
 
 
 /*
- * Select the effective grantor ID for a GRANT or REVOKE operation.
+ * 为 GRANT 或 REVOKE 操作选择有效授权者 ID。
  *
- * The grantor must always be either the object owner or some role that has
- * been explicitly granted grant options.  This ensures that all granted
- * privileges appear to flow from the object owner, and there are never
- * multiple "original sources" of a privilege.  Therefore, if the would-be
- * grantor is a member of a role that has the needed grant options, we have
- * to do the grant as that role instead.
+ * 授权者必须始终是对象属主，或是某个被显式授予了授
+ * 权选项的角色。这确保被授予的权限看起来全都出
+ * 自对象属主，权限绝无多个"原始来源"。故若
+ * 准授权者是某个持有所需授权选项角色的成员，就
+ * 必须以该角色执行授予。
  *
- * It is possible that the would-be grantor is a member of several roles
- * that have different subsets of the desired grant options, but no one
- * role has 'em all.  In this case we pick a role with the largest number
- * of desired options.  Ties are broken in favor of closer ancestors.
  *
- * roleId: the role attempting to do the GRANT/REVOKE
- * privileges: the privileges to be granted/revoked
- * acl: the ACL of the object in question
- * ownerId: the role owning the object in question
- * *grantorId: receives the OID of the role to do the grant as
- * *grantOptions: receives the grant options actually held by grantorId
+ * 可能准授权者是好几个角色的成员，这些角色拥有所
+ * 需授权选项的不同子集，但无单一角色全都有。
+ * 此时我们挑选拥有最多所需选项的角色。
+ * 平手时偏向更近的祖先。
  *
- * If no grant options exist, we set grantorId to roleId, grantOptions to 0.
+ * roleId: 尝试执行 GRANT/REVOKE 的角色
+ * privileges: 要被授予/收回的权限
+ * acl: 相关对象的 ACL
+ * ownerId: 拥有相关对象的角色
+ * *grantorId: 接收用来执行授予的角色 OID
+ * *grantOptions: 接收 grantorId 实际持有的授权选项
+ *
+ * 若无授权选项，则 grantorId 设为 roleId，grantOptions 设 0。
  */
 void
 select_best_grantor(Oid roleId, AclMode privileges,
@@ -5195,10 +5195,10 @@ select_best_grantor(Oid roleId, AclMode privileges,
 	ListCell   *l;
 
 	/*
-	 * The object owner is always treated as having all grant options, so if
-	 * roleId is the owner it's easy.  Also, if roleId is a superuser it's
-	 * easy: superusers are implicitly members of every role, so they act as
-	 * the object owner.
+	 * 对象属主总被当作持有全部授权选项，若 roleId
+	 * 是属主就简单了。同样，若 roleId 是超级用户也很
+	 * 简单：超级用户是每个角色的隐式成员，故以
+	 * 属主行事。
 	 */
 	if (roleId == ownerId || superuser_arg(roleId))
 	{
@@ -5208,15 +5208,15 @@ select_best_grantor(Oid roleId, AclMode privileges,
 	}
 
 	/*
-	 * Otherwise we have to do a careful search to see if roleId has the
-	 * privileges of any suitable role.  Note: we can hang onto the result of
-	 * roles_is_member_of() throughout this loop, because aclmask_direct()
-	 * doesn't query any role memberships.
+	 * 否则须小心搜索 roleId 是否拥有任何合适角色的
+	 * 权限。注意：我们可以在整个循环中一直保留 
+	 * roles_is_member_of() 的结果，因为 aclmask_direct() 不会查
+	 * 询任何角色成员关系。
 	 */
 	roles_list = roles_is_member_of(roleId, ROLERECURSE_PRIVS,
 									InvalidOid, NULL);
 
-	/* initialize candidate result as default */
+	/* 以默认值初始化候选结果 */
 	*grantorId = roleId;
 	*grantOptions = ACL_NO_RIGHTS;
 	nrights = 0;
@@ -5230,15 +5230,15 @@ select_best_grantor(Oid roleId, AclMode privileges,
 									needed_goptions, ACLMASK_ALL);
 		if (otherprivs == needed_goptions)
 		{
-			/* Found a suitable grantor */
+			/* 找到合适的授权者 */
 			*grantorId = otherrole;
 			*grantOptions = otherprivs;
 			return;
 		}
 
 		/*
-		 * If it has just some of the needed privileges, remember best
-		 * candidate.
+		 * 若它只有部分所需权限，记住最佳候选
+		 * 者。
 		 */
 		if (otherprivs != ACL_NO_RIGHTS)
 		{
@@ -5255,10 +5255,10 @@ select_best_grantor(Oid roleId, AclMode privileges,
 }
 
 /*
- * get_role_oid - Given a role name, look up the role's OID.
+ * get_role_oid - 给定角色名查其 OID。
  *
- * If missing_ok is false, throw an error if role name not found.  If
- * true, just return InvalidOid.
+ * 若 missing_ok 为 false，找不到角色名即报错。若为
+ * true 返回 InvalidOid。
  */
 Oid
 get_role_oid(const char *rolname, bool missing_ok)
@@ -5275,8 +5275,8 @@ get_role_oid(const char *rolname, bool missing_ok)
 }
 
 /*
- * get_role_oid_or_public - As above, but return ACL_ID_PUBLIC if the
- *		role name is "public".
+ * get_role_oid_or_public - 同上，但角色名为 "public" 则
+ *		返回ACL_ID_PUBLIC。
  */
 Oid
 get_role_oid_or_public(const char *rolname)
@@ -5288,11 +5288,11 @@ get_role_oid_or_public(const char *rolname)
 }
 
 /*
- * Given a RoleSpec node, return the OID it corresponds to.  If missing_ok is
- * true, return InvalidOid if the role does not exist.
+ * 给定 RoleSpec 节点，返回其对应的 OID。若 missing_ok 为
+ * true，角色不存在时返回 InvalidOid。
  *
- * PUBLIC is always disallowed here.  Routines wanting to handle the PUBLIC
- * case must check the case separately.
+ * 此处总是不允许 PUBLIC。想要自己处理 PUBLIC 情形的
+ * 例程必须单独检查之。
  */
 Oid
 get_rolespec_oid(const RoleSpec *role, bool missing_ok)
@@ -5319,7 +5319,7 @@ get_rolespec_oid(const RoleSpec *role, bool missing_ok)
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("role \"%s\" does not exist", "public")));
-			oid = InvalidOid;	/* make compiler happy */
+			oid = InvalidOid;	/* 让编译器高兴 */
 			break;
 
 		default:
@@ -5330,8 +5330,8 @@ get_rolespec_oid(const RoleSpec *role, bool missing_ok)
 }
 
 /*
- * Given a RoleSpec node, return the pg_authid HeapTuple it corresponds to.
- * Caller must ReleaseSysCache when done with the result tuple.
+ * 给定 RoleSpec 节点，返回其对应的 pg_authid 堆元组。
+ * 用完结果元组后调用者必须 ReleaseSysCache。
  */
 HeapTuple
 get_rolespec_tuple(const RoleSpec *role)
@@ -5366,7 +5366,7 @@ get_rolespec_tuple(const RoleSpec *role)
 			ereport(ERROR,
 					(errcode(ERRCODE_UNDEFINED_OBJECT),
 					 errmsg("role \"%s\" does not exist", "public")));
-			tuple = NULL;		/* make compiler happy */
+			tuple = NULL;		/* 让编译器高兴 */
 			break;
 
 		default:
@@ -5377,7 +5377,7 @@ get_rolespec_tuple(const RoleSpec *role)
 }
 
 /*
- * Given a RoleSpec, returns a palloc'ed copy of the corresponding role's name.
+ * 给定 RoleSpec，返回对应角色名的 palloc 出来的副本。
  */
 char *
 get_rolespec_name(const RoleSpec *role)
@@ -5395,11 +5395,11 @@ get_rolespec_name(const RoleSpec *role)
 }
 
 /*
- * Given a RoleSpec, throw an error if the name is reserved, using detail_msg,
- * if provided (which must be already translated).
+ * 给定 RoleSpec，若名字是保留名则报错，使用 detail_msg
+ * （若提供；其必须已被翻译）。
  *
- * If node is NULL, no error is thrown.  If detail_msg is NULL then no detail
- * message is provided.
+ * 若节点为 NULL，则不报错。若 detail_msg 为 NULL，则不
+ * 提供详情。
  */
 void
 check_rolespec_name(const RoleSpec *role, const char *detail_msg)

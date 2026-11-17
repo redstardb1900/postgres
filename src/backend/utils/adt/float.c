@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * float.c
- *	  Functions for the built-in floating-point types.
+ *	  内置浮点数类型的相关函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -33,16 +33,16 @@
 
 
 /*
- * Configurable GUC parameter
+ * 可配置的 GUC 参数
  *
- * If >0, use shortest-decimal format for output; this is both the default and
- * allows for compatibility with clients that explicitly set a value here to
- * get round-trip-accurate results. If 0 or less, then use the old, slow,
- * decimal rounding method.
+ * 若 >0，输出采用最短十进制格式；这既是默认行为，也
+ * 使显式在此处设置值的客户端保持兼容，获得往返
+ * 精确的结果。若为 0 或更小，则使用旧的、缓慢的
+ * 十进制舍入方法。
  */
 int			extra_float_digits = 1;
 
-/* Cached constants for degree-based trig functions */
+/* 基于角度的三角函数的缓存常量 */
 static bool degree_consts_set = false;
 static float8 sin_30 = 0;
 static float8 one_minus_cos_60 = 0;
@@ -53,10 +53,10 @@ static float8 tan_45 = 0;
 static float8 cot_45 = 0;
 
 /*
- * These are intentionally not static; don't "fix" them.  They will never
- * be referenced by other files, much less changed; but we don't want the
- * compiler to know that, else it might try to precompute expressions
- * involving them.  See comments for init_degree_constants().
+ * 这些变量刻意不用 static；不要"修复"它们。它们永远
+ * 不会被其他文件引用，更不会被改动；但我们不想让
+ * 编译器知道，否则它可能预计算涉及它们的表达
+ * 式。参见 init_degree_constants() 的注释。
  */
 float8		degree_c_thirty = 30.0;
 float8		degree_c_forty_five = 45.0;
@@ -64,22 +64,22 @@ float8		degree_c_sixty = 60.0;
 float8		degree_c_one_half = 0.5;
 float8		degree_c_one = 1.0;
 
-/* State for drandom() and setseed() */
+/* drandom()/setseed() 的状态 */
 static bool drandom_seed_set = false;
 static pg_prng_state drandom_seed;
 
-/* Local function prototypes */
+/* 局部函数声明 */
 static double sind_q1(double x);
 static double cosd_q1(double x);
 static void init_degree_constants(void);
 
 
 /*
- * We use these out-of-line ereport() calls to report float overflow,
- * underflow, and zero-divide, because following our usual practice of
- * repeating them at each call site would lead to a lot of code bloat.
+ * 我们用这些行外 ereport() 调用报告浮点溢出、下溢
+ * 和除零，因为按惯例在每个调用点重复它们会产生
+ * 大量代码膨胀。
  *
- * This does mean that you don't get a useful error location indicator.
+ * 这确实意味着你得不到有用的错误位置指示。
  */
 pg_noinline void
 float_overflow_error(void)
@@ -107,11 +107,11 @@ float_zero_divide_error(void)
 
 
 /*
- * Returns -1 if 'val' represents negative infinity, 1 if 'val'
- * represents (positive) infinity, and 0 otherwise. On some platforms,
- * this is equivalent to the isinf() macro, but not everywhere: C99
- * does not specify that isinf() needs to distinguish between positive
- * and negative infinity.
+ * 若 'val' 表示负无穷，返回 -1；若 'val' 表示
+ * （正）无穷，则返回 1；否则返回 0。有些平台上
+ * 它等价于 isinf() 宏，但并非处处如此：C99 并未
+ * 规定 isinf() 必须区分正无穷与
+ * 负无穷。
  */
 int
 is_infinite(double val)
@@ -127,36 +127,36 @@ is_infinite(double val)
 }
 
 
-/* ========== USER I/O ROUTINES ========== */
+/* ========== 用户 I/O 例程 ========== */
 
 
 /*
- *		float4in		- converts "num" to float4
+ *		float4in		- 把 "num" 转成 float4
  *
- * Note that this code now uses strtof(), where it used to use strtod().
+ * 注意此代码现在使用 strtof()，以前用的是 strtod()。
  *
- * The motivation for using strtof() is to avoid a double-rounding problem:
- * for certain decimal inputs, if you round the input correctly to a double,
- * and then round the double to a float, the result is incorrect in that it
- * does not match the result of rounding the decimal value to float directly.
+ * 使用 strtof() 的动机是避免二次舍入问题：
+ * 对某些十进制输入，若先把输入正确舍入为 double，
+ * 再将该 double 舍入为 float，其结果就不正确——与把
+ * 十进制值直接舍入为 float 的结果不相符。
  *
- * One of the best examples is 7.038531e-26:
+ * 最佳例证之一是 7.038531e-26：
  *
  * 0xAE43FDp-107 = 7.03853069185120912085...e-26
  *      midpoint   7.03853100000000022281...e-26
  * 0xAE43FEp-107 = 7.03853130814879132477...e-26
  *
- * making 0xAE43FDp-107 the correct float result, but if you do the conversion
- * via a double, you get
+ * 这使得 0xAE43FDp-107 成为正确的 float 结果；但若经由 double
+ * 转换则得到
  *
  * 0xAE43FD.7FFFFFF8p-107 = 7.03853099999999907487...e-26
  *               midpoint   7.03853099999999964884...e-26
  * 0xAE43FD.80000000p-107 = 7.03853100000000022281...e-26
  * 0xAE43FD.80000008p-107 = 7.03853100000000137076...e-26
  *
- * so the value rounds to the double exactly on the midpoint between the two
- * nearest floats, and then rounding again to a float gives the incorrect
- * result of 0xAE43FEp-107.
+ * 因此该值恰好舍入到两个相邻 float 的中点上（以 double
+ * 表示），然后再舍入为 float 就会得到错误的结果
+ * 0xAE43FEp-107。
  *
  */
 Datum
@@ -169,14 +169,14 @@ float4in(PG_FUNCTION_ARGS)
 }
 
 /*
- * float4in_internal - guts of float4in()
+ * float4in_internal - float4in() 内部
  *
- * This is exposed for use by functions that want a reasonably
- * platform-independent way of inputting floats. The behavior is
- * essentially like strtof + ereturn on error.
+ * 对外暴露本函数，供希望以较独立于平台
+ * 的方式输入浮点数的函数使用。其行为本质上
+ * 如同 strtof + 出错时 ereturn。
  *
- * Uses the same API as float8in_internal below, so most of its
- * comments also apply here, except regarding use in geometric types.
+ * 它使用与下方 float8in_internal 相同的 API，其注
+ * 释也适用于此处，但涉及几何类型的使用除外。
  */
 float4
 float4in_internal(char *num, char **endptr_p,
@@ -187,18 +187,18 @@ float4in_internal(char *num, char **endptr_p,
 	char	   *endptr;
 
 	/*
-	 * endptr points to the first character _after_ the sequence we recognized
-	 * as a valid floating point number. orig_string points to the original
-	 * input string.
+	 * endptr 指向被我们识别为有效浮点数的序列之后的第
+	 * 一个字符。orig_string 指向最初的输入
+	 * 字符串。
 	 */
 
-	/* skip leading whitespace */
+	/* 跳过前导空白 */
 	while (*num != '\0' && isspace((unsigned char) *num))
 		num++;
 
 	/*
-	 * Check for an empty-string input to begin with, to avoid the vagaries of
-	 * strtod() on different platforms.
+	 * 首先检查空字符串输入，以避开 strtod() 在不同平台
+	 * 的怪异行为。
 	 */
 	if (*num == '\0')
 		ereturn(escontext, 0,
@@ -209,20 +209,20 @@ float4in_internal(char *num, char **endptr_p,
 	errno = 0;
 	val = strtof(num, &endptr);
 
-	/* did we not see anything that looks like a double? */
+	/* 是否没看到任何形似 double 的内容? */
 	if (endptr == num || errno != 0)
 	{
 		int			save_errno = errno;
 
 		/*
-		 * C99 requires that strtof() accept NaN, [+-]Infinity, and [+-]Inf,
-		 * but not all platforms support all of these (and some accept them
-		 * but set ERANGE anyway...)  Therefore, we check for these inputs
-		 * ourselves if strtof() fails.
+		 * C99 要求 strtof() 接受 NaN、[+-]Infinity、[+-]Inf，
+		 * 但并非所有平台都支持它们（有的接受后却仍设
+		 * 置 ERANGE……）。因此若 strtof() 失败，我们会
+		 * 自行检查这些输入。
 		 *
-		 * Note: C99 also requires hexadecimal input as well as some extended
-		 * forms of NaN, but we consider these forms unportable and don't try
-		 * to support them.  You can use 'em if your strtof() takes 'em.
+		 * 注意：C99 还要求十六进制输入以及一些扩展形式
+		 * 的 NaN，但我们认为这些形式不可移植，不打算支
+		 * 持它们。若你的 strtof() 接受，那尽管用好了。
 		 */
 		if (pg_strncasecmp(num, "NaN", 3) == 0)
 		{
@@ -262,11 +262,11 @@ float4in_internal(char *num, char **endptr_p,
 		else if (save_errno == ERANGE)
 		{
 			/*
-			 * Some platforms return ERANGE for denormalized numbers (those
-			 * that are not zero, but are too close to zero to have full
-			 * precision).  We'd prefer not to throw error for that, so try to
-			 * detect whether it's a "real" out-of-range condition by checking
-			 * to see if the result is zero or huge.
+			 * 有些平台会对非规范化数（非零、但太接近零
+			 * 而不具备完整精度）返回 ERANGE。我们不愿
+			 * 为此抛出错误，因此尝试通过检查结果来判断：
+			 * 它是否是"真实"的越界情形，也就是结果是否
+			 * 为零或巨大。
 			 */
 			if (val == 0.0 ||
 #if !defined(HUGE_VALF)
@@ -276,7 +276,7 @@ float4in_internal(char *num, char **endptr_p,
 #endif
 				)
 			{
-				/* see comments in float8in_internal for rationale */
+				/* 理由见 float8in_internal 中注释 */
 				char	   *errnumber = pstrdup(num);
 
 				errnumber[endptr - num] = '\0';
@@ -294,11 +294,11 @@ float4in_internal(char *num, char **endptr_p,
 							type_name, orig_string)));
 	}
 
-	/* skip trailing whitespace */
+	/* 跳过尾部空白 */
 	while (*endptr != '\0' && isspace((unsigned char) *endptr))
 		endptr++;
 
-	/* report stopping point if wanted, else complain if not end of string */
+	/* 需要时报告停止点，否则若未到末尾则报错 */
 	if (endptr_p)
 		*endptr_p = endptr;
 	else if (*endptr != '\0')
@@ -311,8 +311,8 @@ float4in_internal(char *num, char **endptr_p,
 }
 
 /*
- *		float4out		- converts a float4 number to a string
- *						  using a standard output format
+ *		float4out		- 把 float4 数转成字符串，
+ *						  采用标准输出格式
  */
 Datum
 float4out(PG_FUNCTION_ARGS)
@@ -332,7 +332,7 @@ float4out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float4recv			- converts external binary format to float4
+ *		float4recv			- 将外部二进制格式转成 float4
  */
 Datum
 float4recv(PG_FUNCTION_ARGS)
@@ -343,7 +343,7 @@ float4recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float4send			- converts float4 to binary format
+ *		float4send			- 把 float4 转成二进制格式
  */
 Datum
 float4send(PG_FUNCTION_ARGS)
@@ -357,7 +357,7 @@ float4send(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float8in		- converts "num" to float8
+ *		float8in		- 把 "num" 转成 float8
  */
 Datum
 float8in(PG_FUNCTION_ARGS)
@@ -369,26 +369,26 @@ float8in(PG_FUNCTION_ARGS)
 }
 
 /*
- * float8in_internal - guts of float8in()
+ * float8in_internal - float8in() 内部
  *
- * This is exposed for use by functions that want a reasonably
- * platform-independent way of inputting doubles.  The behavior is
- * essentially like strtod + ereturn on error, but note the following
- * differences:
- * 1. Both leading and trailing whitespace are skipped.
- * 2. If endptr_p is NULL, we report error if there's trailing junk.
- * Otherwise, it's up to the caller to complain about trailing junk.
- * 3. In event of a syntax error, the report mentions the given type_name
- * and prints orig_string as the input; this is meant to support use of
- * this function with types such as "box" and "point", where what we are
- * parsing here is just a substring of orig_string.
+ * 对外暴露本函数，供希望以较独立于平台
+ * 方式输入 double。其行为本质上类似于
+ * strtod + 出错时 ereturn，但请注意以
+ * 下差异：
+ * 1. 前导与尾部空白均会被跳过。
+ * 2. 若 endptr_p 为 NULL，则存在尾部垃圾时报错；
+ * 否则由调用者负责处理尾部垃圾的投诉。
+ * 3. 出现语法错误时，报告会提及给定的 type_name，
+ * 并把 orig_string 作为输入打印；这是为了支持把本函
+ * 数用于 "box"、"point" 这类类型——此时我们在此解析
+ * 的只是 orig_string 的一个子串。
  *
- * If escontext points to an ErrorSaveContext node, that is filled instead
- * of throwing an error; the caller must check SOFT_ERROR_OCCURRED()
- * to detect errors.
+ * 如果 escontext 指向 ErrorSaveContext 节点，则改为填
+ * 充它而不抛错；调用者需检查 SOFT_ERROR_OCCURRED()
+ * 检测错误。
  *
- * "num" could validly be declared "const char *", but that results in an
- * unreasonable amount of extra casting both here and in callers, so we don't.
+ * "num" 本可声明为 "const char *"，但这会在本函数
+ * 和调用者中带来不合理的大量额外转换，故没这么做。
  */
 float8
 float8in_internal(char *num, char **endptr_p,
@@ -398,13 +398,13 @@ float8in_internal(char *num, char **endptr_p,
 	double		val;
 	char	   *endptr;
 
-	/* skip leading whitespace */
+	/* 跳过前导空白 */
 	while (*num != '\0' && isspace((unsigned char) *num))
 		num++;
 
 	/*
-	 * Check for an empty-string input to begin with, to avoid the vagaries of
-	 * strtod() on different platforms.
+	 * 首先检查空字符串输入，以避开 strtod() 在不同平台
+	 * 的怪异行为。
 	 */
 	if (*num == '\0')
 		ereturn(escontext, 0,
@@ -415,20 +415,20 @@ float8in_internal(char *num, char **endptr_p,
 	errno = 0;
 	val = strtod(num, &endptr);
 
-	/* did we not see anything that looks like a double? */
+	/* 是否没看到任何形似 double 的内容? */
 	if (endptr == num || errno != 0)
 	{
 		int			save_errno = errno;
 
 		/*
-		 * C99 requires that strtod() accept NaN, [+-]Infinity, and [+-]Inf,
-		 * but not all platforms support all of these (and some accept them
-		 * but set ERANGE anyway...)  Therefore, we check for these inputs
-		 * ourselves if strtod() fails.
+		 * C99 要求 strtod() 接受 NaN、[+-]Infinity、[+-]Inf，
+		 * 但并非所有平台都支持它们（有的接受后却仍设
+		 * 置 ERANGE……）。因此若 strtod() 失败，我们会
+		 * 自行检查这些输入。
 		 *
-		 * Note: C99 also requires hexadecimal input as well as some extended
-		 * forms of NaN, but we consider these forms unportable and don't try
-		 * to support them.  You can use 'em if your strtod() takes 'em.
+		 * 注意：C99 还要求十六进制输入以及一些扩展形式
+		 * 的 NaN，但我们认为这些形式不可移植，不打算支
+		 * 持它们。若你的 strtod() 接受，那尽管用好了。
 		 */
 		if (pg_strncasecmp(num, "NaN", 3) == 0)
 		{
@@ -468,15 +468,15 @@ float8in_internal(char *num, char **endptr_p,
 		else if (save_errno == ERANGE)
 		{
 			/*
-			 * Some platforms return ERANGE for denormalized numbers (those
-			 * that are not zero, but are too close to zero to have full
-			 * precision).  We'd prefer not to throw error for that, so try to
-			 * detect whether it's a "real" out-of-range condition by checking
-			 * to see if the result is zero or huge.
+			 * 有些平台会对非规范化数（非零、但太接近零
+			 * 而不具备完整精度）返回 ERANGE。我们不愿
+			 * 为此抛出错误，因此尝试通过检查结果来判断：
+			 * 它是否是"真实"的越界情形，也就是结果是否
+			 * 为零或巨大。
 			 *
-			 * On error, we intentionally complain about double precision not
-			 * the given type name, and we print only the part of the string
-			 * that is the current number.
+			 * 出错时，我们刻意报告 double 精度而非给定的
+			 * 类型名，且只打印字符串中作当前数字的那一
+			 * 部分。
 			 */
 			if (val == 0.0 || val >= HUGE_VAL || val <= -HUGE_VAL)
 			{
@@ -496,11 +496,11 @@ float8in_internal(char *num, char **endptr_p,
 							type_name, orig_string)));
 	}
 
-	/* skip trailing whitespace */
+	/* 跳过尾部空白 */
 	while (*endptr != '\0' && isspace((unsigned char) *endptr))
 		endptr++;
 
-	/* report stopping point if wanted, else complain if not end of string */
+	/* 需要时报告停止点，否则若未到末尾则报错 */
 	if (endptr_p)
 		*endptr_p = endptr;
 	else if (*endptr != '\0')
@@ -514,8 +514,8 @@ float8in_internal(char *num, char **endptr_p,
 
 
 /*
- *		float8out		- converts float8 number to a string
- *						  using a standard output format
+ *		float8out		- 把 float8 数转成字符串，
+ *						  采用标准输出格式
  */
 Datum
 float8out(PG_FUNCTION_ARGS)
@@ -526,11 +526,11 @@ float8out(PG_FUNCTION_ARGS)
 }
 
 /*
- * float8out_internal - guts of float8out()
+ * float8out_internal - float8out() 内部
  *
- * This is exposed for use by functions that want a reasonably
- * platform-independent way of outputting doubles.
- * The result is always palloc'd.
+ * 对外暴露本函数，供希望以较独立于平台
+ * 方式输出 double。
+ * 结果总是 palloc 的。
  */
 char *
 float8out_internal(double num)
@@ -549,7 +549,7 @@ float8out_internal(double num)
 }
 
 /*
- *		float8recv			- converts external binary format to float8
+ *		float8recv			- 将外部二进制格式转成 float8
  */
 Datum
 float8recv(PG_FUNCTION_ARGS)
@@ -560,7 +560,7 @@ float8recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float8send			- converts float8 to binary format
+ *		float8send			- 把 float8 转成二进制格式
  */
 Datum
 float8send(PG_FUNCTION_ARGS)
@@ -574,17 +574,17 @@ float8send(PG_FUNCTION_ARGS)
 }
 
 
-/* ========== PUBLIC ROUTINES ========== */
+/* ========== 公开例程 ========== */
 
 
 /*
  *		======================
- *		FLOAT4 BASE OPERATIONS
+ *		FLOAT4 基本运算
  *		======================
  */
 
 /*
- *		float4abs		- returns |arg1| (absolute value)
+ *		float4abs		- 返回 |arg1| (绝对值)
  */
 Datum
 float4abs(PG_FUNCTION_ARGS)
@@ -595,7 +595,7 @@ float4abs(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float4um		- returns -arg1 (unary minus)
+ *		float4um		- 返回 -arg1 (一元负号)
  */
 Datum
 float4um(PG_FUNCTION_ARGS)
@@ -645,12 +645,12 @@ float4smaller(PG_FUNCTION_ARGS)
 
 /*
  *		======================
- *		FLOAT8 BASE OPERATIONS
+ *		FLOAT8 基本运算
  *		======================
  */
 
 /*
- *		float8abs		- returns |arg1| (absolute value)
+ *		float8abs		- 返回 |arg1| (绝对值)
  */
 Datum
 float8abs(PG_FUNCTION_ARGS)
@@ -662,7 +662,7 @@ float8abs(PG_FUNCTION_ARGS)
 
 
 /*
- *		float8um		- returns -arg1 (unary minus)
+ *		float8um		- 返回 -arg1 (一元负号)
  */
 Datum
 float8um(PG_FUNCTION_ARGS)
@@ -713,15 +713,15 @@ float8smaller(PG_FUNCTION_ARGS)
 
 /*
  *		====================
- *		ARITHMETIC OPERATORS
+ *		算术算子
  *		====================
  */
 
 /*
- *		float4pl		- returns arg1 + arg2
- *		float4mi		- returns arg1 - arg2
- *		float4mul		- returns arg1 * arg2
- *		float4div		- returns arg1 / arg2
+ *		float4pl		- 返回 arg1 + arg2
+ *		float4mi		- 返回 arg1 - arg2
+ *		float4mul		- 返回 arg1 * arg2
+ *		float4div		- 返回 arg1 / arg2
  */
 Datum
 float4pl(PG_FUNCTION_ARGS)
@@ -760,10 +760,10 @@ float4div(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float8pl		- returns arg1 + arg2
- *		float8mi		- returns arg1 - arg2
- *		float8mul		- returns arg1 * arg2
- *		float8div		- returns arg1 / arg2
+ *		float8pl		- 返回 arg1 + arg2
+ *		float8mi		- 返回 arg1 - arg2
+ *		float8mul		- 返回 arg1 * arg2
+ *		float8div		- 返回 arg1 / arg2
  */
 Datum
 float8pl(PG_FUNCTION_ARGS)
@@ -804,12 +804,12 @@ float8div(PG_FUNCTION_ARGS)
 
 /*
  *		====================
- *		COMPARISON OPERATORS
+ *		比较算子
  *		====================
  */
 
 /*
- *		float4{eq,ne,lt,le,gt,ge}		- float4/float4 comparison operations
+ *		float4{eq,ne,lt,le,gt,ge}		- float4/float4 比较运算
  */
 int
 float4_cmp_internal(float4 a, float4 b)
@@ -903,7 +903,7 @@ btfloat4sortsupport(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float8{eq,ne,lt,le,gt,ge}		- float8/float8 comparison operations
+ *		float8{eq,ne,lt,le,gt,ge}		- float8/float8 比较运算
  */
 int
 float8_cmp_internal(float8 a, float8 b)
@@ -1002,7 +1002,7 @@ btfloat48cmp(PG_FUNCTION_ARGS)
 	float4		arg1 = PG_GETARG_FLOAT4(0);
 	float8		arg2 = PG_GETARG_FLOAT8(1);
 
-	/* widen float4 to float8 and then compare */
+	/* 先展宽 float4 为 float8 再比较 */
 	PG_RETURN_INT32(float8_cmp_internal(arg1, arg2));
 }
 
@@ -1012,15 +1012,15 @@ btfloat84cmp(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float4		arg2 = PG_GETARG_FLOAT4(1);
 
-	/* widen float4 to float8 and then compare */
+	/* 先展宽 float4 为 float8 再比较 */
 	PG_RETURN_INT32(float8_cmp_internal(arg1, arg2));
 }
 
 /*
- * in_range support function for float8.
+ * float8 的 in_range 支持函数。
  *
- * Note: we needn't supply a float8_float4 variant, as implicit coercion
- * of the offset value takes care of that scenario just as well.
+ * 注意：我们无需提供 float8_float4 变体，因为偏移值的
+ * 隐式类型转换同样能处理该场景。
  */
 Datum
 in_range_float8_float8(PG_FUNCTION_ARGS)
@@ -1033,8 +1033,8 @@ in_range_float8_float8(PG_FUNCTION_ARGS)
 	float8		sum;
 
 	/*
-	 * Reject negative or NaN offset.  Negative is per spec, and NaN is
-	 * because appropriate semantics for that seem non-obvious.
+	 * 拒绝负数或 NaN 偏移。负数是规范要求，而 NaN 则
+	 * 是因为针对它的合适语义似乎并不明显。
 	 */
 	if (isnan(offset) || offset < 0)
 		ereport(ERROR,
@@ -1042,9 +1042,9 @@ in_range_float8_float8(PG_FUNCTION_ARGS)
 				 errmsg("invalid preceding or following size in window function")));
 
 	/*
-	 * Deal with cases where val and/or base is NaN, following the rule that
-	 * NaN sorts after non-NaN (cf float8_cmp_internal).  The offset cannot
-	 * affect the conclusion.
+	 * 处理 val 和/或 base 为 NaN 的情形，遵循 NaN 排在非
+	 * NaN 之后的规则（参见 float8_cmp_internal）。偏移量
+	 * 无法影响结论。
 	 */
 	if (isnan(val))
 	{
@@ -1059,27 +1059,27 @@ in_range_float8_float8(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Deal with cases where both base and offset are infinite, and computing
-	 * base +/- offset would produce NaN.  This corresponds to a window frame
-	 * whose boundary infinitely precedes +inf or infinitely follows -inf,
-	 * which is not well-defined.  For consistency with other cases involving
-	 * infinities, such as the fact that +inf infinitely follows +inf, we
-	 * choose to assume that +inf infinitely precedes +inf and -inf infinitely
-	 * follows -inf, and therefore that all finite and infinite values are in
-	 * such a window frame.
+	 * 处理 base 与 offset 均为无穷，且计算 base +/- offset 会产
+	 * 生 NaN 的情形。这对应于边界无限前于 +inf 或无限
+	 * 后于 -inf 的窗口帧，这并非良定义。为与其他涉及
+	 * 无穷的情形保持一致——例如 +inf 无限后于 +inf，我
+	 * 们选择假定 +inf 无限前于 +inf，且 -inf 无限后于
+	 * -inf，从而所有有限值与无穷值都处于这样
+	 * 的窗口
+	 * 帧中。
 	 *
-	 * offset is known positive, so we need only check the sign of base in
-	 * this test.
+	 * offset 已知为正，因此在该测试中只需检查 base 的
+	 * 符号。
 	 */
 	if (isinf(offset) && isinf(base) &&
 		(sub ? base > 0 : base < 0))
 		PG_RETURN_BOOL(true);
 
 	/*
-	 * Otherwise it should be safe to compute base +/- offset.  We trust the
-	 * FPU to cope if an input is +/-inf or the true sum would overflow, and
-	 * produce a suitably signed infinity, which will compare properly against
-	 * val whether or not that's infinity.
+	 * 否则计算 base +/- offset 应当是安全的。我们相信
+	 * FPU 能应付输入为 +/-inf 或真实和会溢出的情况，并
+	 * 产生带有适当符号的无穷大，无论 val 是否为无穷，
+	 * 它都能正确参与比较。
 	 */
 	if (sub)
 		sum = base - offset;
@@ -1093,10 +1093,10 @@ in_range_float8_float8(PG_FUNCTION_ARGS)
 }
 
 /*
- * in_range support function for float4.
+ * float4 的 in_range 支持函数。
  *
- * We would need a float4_float8 variant in any case, so we supply that and
- * let implicit coercion take care of the float4_float4 case.
+ * 无论如何我们都需要一个 float4_float8 变体，因此提
+ * 供它，让隐式转换处理 float4_float4 的情形。
  */
 Datum
 in_range_float4_float8(PG_FUNCTION_ARGS)
@@ -1109,8 +1109,8 @@ in_range_float4_float8(PG_FUNCTION_ARGS)
 	float8		sum;
 
 	/*
-	 * Reject negative or NaN offset.  Negative is per spec, and NaN is
-	 * because appropriate semantics for that seem non-obvious.
+	 * 拒绝负数或 NaN 偏移。负数是规范要求，而 NaN 则
+	 * 是因为针对它的合适语义似乎并不明显。
 	 */
 	if (isnan(offset) || offset < 0)
 		ereport(ERROR,
@@ -1118,9 +1118,9 @@ in_range_float4_float8(PG_FUNCTION_ARGS)
 				 errmsg("invalid preceding or following size in window function")));
 
 	/*
-	 * Deal with cases where val and/or base is NaN, following the rule that
-	 * NaN sorts after non-NaN (cf float8_cmp_internal).  The offset cannot
-	 * affect the conclusion.
+	 * 处理 val 和/或 base 为 NaN 的情形，遵循 NaN 排在非
+	 * NaN 之后的规则（参见 float8_cmp_internal）。偏移量
+	 * 无法影响结论。
 	 */
 	if (isnan(val))
 	{
@@ -1135,27 +1135,27 @@ in_range_float4_float8(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Deal with cases where both base and offset are infinite, and computing
-	 * base +/- offset would produce NaN.  This corresponds to a window frame
-	 * whose boundary infinitely precedes +inf or infinitely follows -inf,
-	 * which is not well-defined.  For consistency with other cases involving
-	 * infinities, such as the fact that +inf infinitely follows +inf, we
-	 * choose to assume that +inf infinitely precedes +inf and -inf infinitely
-	 * follows -inf, and therefore that all finite and infinite values are in
-	 * such a window frame.
+	 * 处理 base 与 offset 均为无穷，且计算 base +/- offset 会产
+	 * 生 NaN 的情形。这对应于边界无限前于 +inf 或无限
+	 * 后于 -inf 的窗口帧，这并非良定义。为与其他涉及
+	 * 无穷的情形保持一致——例如 +inf 无限后于 +inf，我
+	 * 们选择假定 +inf 无限前于 +inf，且 -inf 无限后于
+	 * -inf，从而所有有限值与无穷值都处于这样
+	 * 的窗口
+	 * 帧中。
 	 *
-	 * offset is known positive, so we need only check the sign of base in
-	 * this test.
+	 * offset 已知为正，因此在该测试中只需检查 base 的
+	 * 符号。
 	 */
 	if (isinf(offset) && isinf(base) &&
 		(sub ? base > 0 : base < 0))
 		PG_RETURN_BOOL(true);
 
 	/*
-	 * Otherwise it should be safe to compute base +/- offset.  We trust the
-	 * FPU to cope if an input is +/-inf or the true sum would overflow, and
-	 * produce a suitably signed infinity, which will compare properly against
-	 * val whether or not that's infinity.
+	 * 否则计算 base +/- offset 应当是安全的。我们相信
+	 * FPU 能应付输入为 +/-inf 或真实和会溢出的情况，并
+	 * 产生带有适当符号的无穷大，无论 val 是否为无穷，
+	 * 它都能正确参与比较。
 	 */
 	if (sub)
 		sum = base - offset;
@@ -1171,12 +1171,12 @@ in_range_float4_float8(PG_FUNCTION_ARGS)
 
 /*
  *		===================
- *		CONVERSION ROUTINES
+ *		转换例程
  *		===================
  */
 
 /*
- *		ftod			- converts a float4 number to a float8 number
+ *		ftod			- 把 float4 数转换为 float8 数
  */
 Datum
 ftod(PG_FUNCTION_ARGS)
@@ -1188,7 +1188,7 @@ ftod(PG_FUNCTION_ARGS)
 
 
 /*
- *		dtof			- converts a float8 number to a float4 number
+ *		dtof			- 把 float8 数转换为 float4 数
  */
 Datum
 dtof(PG_FUNCTION_ARGS)
@@ -1207,7 +1207,7 @@ dtof(PG_FUNCTION_ARGS)
 
 
 /*
- *		dtoi4			- converts a float8 number to an int4 number
+ *		dtoi4			- 把 float8 数转换为 int4 数
  */
 Datum
 dtoi4(PG_FUNCTION_ARGS)
@@ -1215,13 +1215,13 @@ dtoi4(PG_FUNCTION_ARGS)
 	float8		num = PG_GETARG_FLOAT8(0);
 
 	/*
-	 * Get rid of any fractional part in the input.  This is so we don't fail
-	 * on just-out-of-range values that would round into range.  Note
-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+	 * 去掉输入中的所有小数部分。这样我们就不会因
+	 * 那些恰好略微超界但舍入后落入范围内的值
+	 * 而失败。注意假定 rint() 会原样通过 NaN 或 Inf。
 	 */
 	num = rint(num);
 
-	/* Range check */
+	/* 范围检查*/
 	if (unlikely(isnan(num) || !FLOAT8_FITS_IN_INT32(num)))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1232,7 +1232,7 @@ dtoi4(PG_FUNCTION_ARGS)
 
 
 /*
- *		dtoi2			- converts a float8 number to an int2 number
+ *		dtoi2			- 把 float8 数转换为 int2 数
  */
 Datum
 dtoi2(PG_FUNCTION_ARGS)
@@ -1240,13 +1240,13 @@ dtoi2(PG_FUNCTION_ARGS)
 	float8		num = PG_GETARG_FLOAT8(0);
 
 	/*
-	 * Get rid of any fractional part in the input.  This is so we don't fail
-	 * on just-out-of-range values that would round into range.  Note
-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+	 * 去掉输入中的所有小数部分。这样我们就不会因
+	 * 那些恰好略微超界但舍入后落入范围内的值
+	 * 而失败。注意假定 rint() 会原样通过 NaN 或 Inf。
 	 */
 	num = rint(num);
 
-	/* Range check */
+	/* 范围检查*/
 	if (unlikely(isnan(num) || !FLOAT8_FITS_IN_INT16(num)))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1257,7 +1257,7 @@ dtoi2(PG_FUNCTION_ARGS)
 
 
 /*
- *		i4tod			- converts an int4 number to a float8 number
+ *		i4tod			- 把 int4 数转换为 float8 数
  */
 Datum
 i4tod(PG_FUNCTION_ARGS)
@@ -1269,7 +1269,7 @@ i4tod(PG_FUNCTION_ARGS)
 
 
 /*
- *		i2tod			- converts an int2 number to a float8 number
+ *		i2tod			- 把 int2 数转换为 float8 数
  */
 Datum
 i2tod(PG_FUNCTION_ARGS)
@@ -1281,7 +1281,7 @@ i2tod(PG_FUNCTION_ARGS)
 
 
 /*
- *		ftoi4			- converts a float4 number to an int4 number
+ *		ftoi4			- 把 float4 数转换为 int4 数
  */
 Datum
 ftoi4(PG_FUNCTION_ARGS)
@@ -1289,13 +1289,13 @@ ftoi4(PG_FUNCTION_ARGS)
 	float4		num = PG_GETARG_FLOAT4(0);
 
 	/*
-	 * Get rid of any fractional part in the input.  This is so we don't fail
-	 * on just-out-of-range values that would round into range.  Note
-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+	 * 去掉输入中的所有小数部分。这样我们就不会因
+	 * 那些恰好略微超界但舍入后落入范围内的值
+	 * 而失败。注意假定 rint() 会原样通过 NaN 或 Inf。
 	 */
 	num = rint(num);
 
-	/* Range check */
+	/* 范围检查*/
 	if (unlikely(isnan(num) || !FLOAT4_FITS_IN_INT32(num)))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1306,7 +1306,7 @@ ftoi4(PG_FUNCTION_ARGS)
 
 
 /*
- *		ftoi2			- converts a float4 number to an int2 number
+ *		ftoi2			- 把 float4 数转换为 int2 数
  */
 Datum
 ftoi2(PG_FUNCTION_ARGS)
@@ -1314,13 +1314,13 @@ ftoi2(PG_FUNCTION_ARGS)
 	float4		num = PG_GETARG_FLOAT4(0);
 
 	/*
-	 * Get rid of any fractional part in the input.  This is so we don't fail
-	 * on just-out-of-range values that would round into range.  Note
-	 * assumption that rint() will pass through a NaN or Inf unchanged.
+	 * 去掉输入中的所有小数部分。这样我们就不会因
+	 * 那些恰好略微超界但舍入后落入范围内的值
+	 * 而失败。注意假定 rint() 会原样通过 NaN 或 Inf。
 	 */
 	num = rint(num);
 
-	/* Range check */
+	/* 范围检查*/
 	if (unlikely(isnan(num) || !FLOAT4_FITS_IN_INT16(num)))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1331,7 +1331,7 @@ ftoi2(PG_FUNCTION_ARGS)
 
 
 /*
- *		i4tof			- converts an int4 number to a float4 number
+ *		i4tof			- 把 int4 数转换为 float4 数
  */
 Datum
 i4tof(PG_FUNCTION_ARGS)
@@ -1343,7 +1343,7 @@ i4tof(PG_FUNCTION_ARGS)
 
 
 /*
- *		i2tof			- converts an int2 number to a float4 number
+ *		i2tof			- 把 int2 数转换为 float4 数
  */
 Datum
 i2tof(PG_FUNCTION_ARGS)
@@ -1356,12 +1356,12 @@ i2tof(PG_FUNCTION_ARGS)
 
 /*
  *		=======================
- *		RANDOM FLOAT8 OPERATORS
+ *		float8 随机算子
  *		=======================
  */
 
 /*
- *		dround			- returns	ROUND(arg1)
+ *		dround			- 返回 ROUND(arg1)
  */
 Datum
 dround(PG_FUNCTION_ARGS)
@@ -1372,8 +1372,8 @@ dround(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dceil			- returns the smallest integer greater than or
- *						  equal to the specified float
+ *		dceil			- 返回大于或等于给定 float 的
+ *						  最小整数
  */
 Datum
 dceil(PG_FUNCTION_ARGS)
@@ -1384,8 +1384,8 @@ dceil(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dfloor			- returns the largest integer lesser than or
- *						  equal to the specified float
+ *		dfloor			- 返回小于或等于给定 float 的
+ *						  最大整数
  */
 Datum
 dfloor(PG_FUNCTION_ARGS)
@@ -1396,9 +1396,9 @@ dfloor(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dsign			- returns -1 if the argument is less than 0, 0
- *						  if the argument is equal to 0, and 1 if the
- *						  argument is greater than zero.
+ *		dsign			- 参数小于 0 时返回 -1，参数
+ *						  等于 0 时返回 0，大于零时返回
+ *						  1。
  */
 Datum
 dsign(PG_FUNCTION_ARGS)
@@ -1417,11 +1417,11 @@ dsign(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dtrunc			- returns truncation-towards-zero of arg1,
- *						  arg1 >= 0 ... the greatest integer less
- *										than or equal to arg1
- *						  arg1 < 0	... the least integer greater
- *										than or equal to arg1
+ *		dtrunc			- 返回 arg1 朝零截断的结果，
+ *						  arg1>=0 …… 不大于 arg1 最大
+ *										整数。
+ *						  arg1<0 …… 不小于 arg1 最小
+ *										整数。
  */
 Datum
 dtrunc(PG_FUNCTION_ARGS)
@@ -1439,7 +1439,7 @@ dtrunc(PG_FUNCTION_ARGS)
 
 
 /*
- *		dsqrt			- returns square root of arg1
+ *		dsqrt			- 返回 arg1 的平方根
  */
 Datum
 dsqrt(PG_FUNCTION_ARGS)
@@ -1463,7 +1463,7 @@ dsqrt(PG_FUNCTION_ARGS)
 
 
 /*
- *		dcbrt			- returns cube root of arg1
+ *		dcbrt			- 返回 arg1 的立方根
  */
 Datum
 dcbrt(PG_FUNCTION_ARGS)
@@ -1482,7 +1482,7 @@ dcbrt(PG_FUNCTION_ARGS)
 
 
 /*
- *		dpow			- returns pow(arg1,arg2)
+ *		dpow			- 返回 pow(arg1,arg2)
  */
 Datum
 dpow(PG_FUNCTION_ARGS)
@@ -1492,10 +1492,10 @@ dpow(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * The POSIX spec says that NaN ^ 0 = 1, and 1 ^ NaN = 1, while all other
-	 * cases with NaN inputs yield NaN (with no error).  Many older platforms
-	 * get one or more of these cases wrong, so deal with them via explicit
-	 * logic rather than trusting pow(3).
+	 * POSIX 规范规定 NaN ^ 0 = 1 且 1 ^ NaN = 1，而其他所
+	 * 有含 NaN 输入的情形都得到 NaN（不报错）。许多较旧
+	 * 的平台会弄错其中一种或多种情形，所以要用显式
+	 * 逻辑处理而非信任 pow(3)。
 	 */
 	if (isnan(arg1))
 	{
@@ -1511,9 +1511,9 @@ dpow(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The SQL spec requires that we emit a particular SQLSTATE error code for
-	 * certain error conditions.  Specifically, we don't return a
-	 * divide-by-zero error code for 0 ^ -1.
+	 * SQL 规范要求我们对某些错误情况发出特定的
+	 * SQLSTATE 错误码。具体来说，对 0 ^ -1 我们不
+	 * 返回除以零的错误码。
 	 */
 	if (arg1 == 0 && arg2 < 0)
 		ereport(ERROR,
@@ -1525,9 +1525,9 @@ dpow(PG_FUNCTION_ARGS)
 				 errmsg("a negative number raised to a non-integer power yields a complex result")));
 
 	/*
-	 * We don't trust the platform's pow() to handle infinity cases per POSIX
-	 * spec either, so deal with those explicitly too.  It's easier to handle
-	 * infinite y first, so that it doesn't matter if x is also infinite.
+	 * 我们也不信任平台 pow() 按 POSIX 规范处理无穷
+	 * 情形，所以这些情形也显式处理。先处理 y 为无穷
+	 * 比较容易，这样 x 是否也为无穷就无关紧要。
 	 */
 	if (isinf(arg2))
 	{
@@ -1564,12 +1564,12 @@ dpow(PG_FUNCTION_ARGS)
 		else					/* x = -Inf */
 		{
 			/*
-			 * Per POSIX, the sign of the result depends on whether y is an
-			 * odd integer.  Since x < 0, we already know from the previous
-			 * domain check that y is an integer.  It is odd if y/2 is not
-			 * also an integer.
+			 * 按 POSIX，结果的符号取决于 y 是否为奇整
+			 * 数。由于 x < 0，从前面的定义域检查已得知 y
+			 * 是整数。若 y/2 不是整数，则 y 就是奇
+			 * 数。
 			 */
-			float8		halfy = arg2 / 2;	/* should be computed exactly */
+			float8		halfy = arg2 / 2;	/* 必须精确计算 */
 			bool		yisoddinteger = (floor(halfy) != halfy);
 
 			if (arg2 > 0.0)
@@ -1581,29 +1581,29 @@ dpow(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * pow() sets errno on only some platforms, depending on whether it
-		 * follows _IEEE_, _POSIX_, _XOPEN_, or _SVID_, so we must check both
-		 * errno and invalid output values.  (We can't rely on just the
-		 * latter, either; some old platforms return a large-but-finite
-		 * HUGE_VAL when reporting overflow.)
+		 * pow() 只在部分平台上设置 errno，取决于它遵循
+		 * _IEEE_、_POSIX_、_XOPEN_ 还是 _SVID_，所以我们必须
+		 * 同时检查 errno 与无效的输出值。（仅凭
+		 * 后者也不可靠；一些旧平台报告溢出时会返回
+		 * 很大但有限的 HUGE_VAL。）
 		 */
 		errno = 0;
 		result = pow(arg1, arg2);
 		if (errno == EDOM || isnan(result))
 		{
 			/*
-			 * We handled all possible domain errors above, so this should be
-			 * impossible.  However, old glibc versions on x86 have a bug that
-			 * causes them to fail this way for abs(y) greater than 2^63:
+			 * 上面已处理完所有可能的定义域错误，所以这
+			 * 种情况本不该发生。但 x86 上的旧版 glibc 有一
+			 * 个缺陷，当 abs(y) 大于 2^63 时会这样失败：
 			 *
 			 * https://sourceware.org/bugzilla/show_bug.cgi?id=3866
 			 *
-			 * Hence, if we get here, assume y is finite but large (large
-			 * enough to be certainly even). The result should be 0 if x == 0,
-			 * 1.0 if abs(x) == 1.0, otherwise an overflow or underflow error.
+			 * 若走到这里，就假定 y 有限但很大（大到必
+			 * 定为偶数）。结果应为：若 x == 0 则为 0，若
+			 * abs(x) == 1.0 则为 1.0，否则为溢出或下溢错误。
 			 */
 			if (arg1 == 0.0)
-				result = 0.0;	/* we already verified y is positive */
+				result = 0.0;	/* 前面已验证 y 为正 */
 			else
 			{
 				float8		absx = fabs(arg1);
@@ -1637,7 +1637,7 @@ dpow(PG_FUNCTION_ARGS)
 
 
 /*
- *		dexp			- returns the exponential function of arg1
+ *		dexp			- 返回 arg1 的指数函数值
  */
 Datum
 dexp(PG_FUNCTION_ARGS)
@@ -1646,22 +1646,22 @@ dexp(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * Handle NaN and Inf cases explicitly.  This avoids needing to assume
-	 * that the platform's exp() conforms to POSIX for these cases, and it
-	 * removes some edge cases for the overflow checks below.
+	 * 显式处理 NaN 与 Inf 情形。这避免了必须假定平
+	 * 台的 exp() 在这些情形下符合 POSIX，并且它消掉
+	 * 了下面溢出检查的一些边界情形。
 	 */
 	if (isnan(arg1))
 		result = arg1;
 	else if (isinf(arg1))
 	{
-		/* Per POSIX, exp(-Inf) is 0 */
+		/* 按 POSIX，exp(-Inf)=0 */
 		result = (arg1 > 0.0) ? arg1 : 0;
 	}
 	else
 	{
 		/*
-		 * On some platforms, exp() will not set errno but just return Inf or
-		 * zero to report overflow/underflow; therefore, test both cases.
+		 * 在一些平台上，exp() 不会设置 errno，而只是返回
+		 * Inf 或零来报告溢出/下溢；因此两者都要测试。
 		 */
 		errno = 0;
 		result = exp(arg1);
@@ -1683,7 +1683,7 @@ dexp(PG_FUNCTION_ARGS)
 
 
 /*
- *		dlog1			- returns the natural logarithm of arg1
+ *		dlog1			- 返回 arg1 的自然对数
  */
 Datum
 dlog1(PG_FUNCTION_ARGS)
@@ -1692,8 +1692,8 @@ dlog1(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * Emit particular SQLSTATE error codes for ln(). This is required by the
-	 * SQL standard.
+	 * 为 ln() 发出特定的 SQLSTATE 错误码。这是 SQL 标准
+	 * 的要求。
 	 */
 	if (arg1 == 0.0)
 		ereport(ERROR,
@@ -1715,7 +1715,7 @@ dlog1(PG_FUNCTION_ARGS)
 
 
 /*
- *		dlog10			- returns the base 10 logarithm of arg1
+ *		dlog10			- 返回 arg1 以 10 为底的对数
  */
 Datum
 dlog10(PG_FUNCTION_ARGS)
@@ -1724,9 +1724,9 @@ dlog10(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * Emit particular SQLSTATE error codes for log(). The SQL spec doesn't
-	 * define log(), but it does define ln(), so it makes sense to emit the
-	 * same error code for an analogous error condition.
+	 * 为 log() 发出特定的 SQLSTATE 错误码。SQL 规范并
+	 * 未定义 log()，但定义了 ln()，因此对类似的错误情
+	 * 况发出相同的错误码是有意义的。
 	 */
 	if (arg1 == 0.0)
 		ereport(ERROR,
@@ -1748,7 +1748,7 @@ dlog10(PG_FUNCTION_ARGS)
 
 
 /*
- *		dacos			- returns the arccos of arg1 (radians)
+ *		dacos			- 返回 arg1 的反余弦 (弧度)
  */
 Datum
 dacos(PG_FUNCTION_ARGS)
@@ -1756,14 +1756,14 @@ dacos(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	/*
-	 * The principal branch of the inverse cosine function maps values in the
-	 * range [-1, 1] to values in the range [0, Pi], so we should reject any
-	 * inputs outside that range and the result will always be finite.
+	 * 反余弦函数的主支把 [-1, 1] 范围内的值映射到
+	 * [0, Pi] 范围，所以我们应当拒绝该范围之外的任
+	 * 何输入，而结果将总是有限的。
 	 */
 	if (arg1 < -1.0 || arg1 > 1.0)
 		ereport(ERROR,
@@ -1779,7 +1779,7 @@ dacos(PG_FUNCTION_ARGS)
 
 
 /*
- *		dasin			- returns the arcsin of arg1 (radians)
+ *		dasin			- 返回 arg1 的反正弦 (弧度)
  */
 Datum
 dasin(PG_FUNCTION_ARGS)
@@ -1787,14 +1787,14 @@ dasin(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	/*
-	 * The principal branch of the inverse sine function maps values in the
-	 * range [-1, 1] to values in the range [-Pi/2, Pi/2], so we should reject
-	 * any inputs outside that range and the result will always be finite.
+	 * 反正弦函数的主支把 [-1, 1] 范围内的值映射到
+	 * [-Pi/2, Pi/2] 范围，所以我们应当拒绝该范围之外
+	 * 的任何输入，而结果将总是有限的。
 	 */
 	if (arg1 < -1.0 || arg1 > 1.0)
 		ereport(ERROR,
@@ -1810,7 +1810,7 @@ dasin(PG_FUNCTION_ARGS)
 
 
 /*
- *		datan			- returns the arctan of arg1 (radians)
+ *		datan			- 返回 arg1 的反正切 (弧度)
  */
 Datum
 datan(PG_FUNCTION_ARGS)
@@ -1818,14 +1818,14 @@ datan(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	/*
-	 * The principal branch of the inverse tangent function maps all inputs to
-	 * values in the range [-Pi/2, Pi/2], so the result should always be
-	 * finite, even if the input is infinite.
+	 * 反正切函数的主支把所有输入映射到 [-Pi/2,
+	 * Pi/2] 范围内的值，所以结果应总是有限的，即便
+	 * 输入是无穷。
 	 */
 	result = atan(arg1);
 	if (unlikely(isinf(result)))
@@ -1836,7 +1836,7 @@ datan(PG_FUNCTION_ARGS)
 
 
 /*
- *		atan2			- returns the arctan of arg1/arg2 (radians)
+ *		atan2			- 返回 arg1/arg2 的反正切 (弧度)
  */
 Datum
 datan2(PG_FUNCTION_ARGS)
@@ -1845,13 +1845,13 @@ datan2(PG_FUNCTION_ARGS)
 	float8		arg2 = PG_GETARG_FLOAT8(1);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if either input is NaN */
+	/* 按 POSIX 规范，任一输入为 NaN 时返回 NaN */
 	if (isnan(arg1) || isnan(arg2))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	/*
-	 * atan2 maps all inputs to values in the range [-Pi, Pi], so the result
-	 * should always be finite, even if the inputs are infinite.
+	 * atan2 把所有输入映射到 [-Pi, Pi] 范围，所以结
+	 * 果应总是有限的，即便输入是无穷。
 	 */
 	result = atan2(arg1, arg2);
 	if (unlikely(isinf(result)))
@@ -1862,7 +1862,7 @@ datan2(PG_FUNCTION_ARGS)
 
 
 /*
- *		dcos			- returns the cosine of arg1 (radians)
+ *		dcos			- 返回 arg1 的余弦 (弧度)
  */
 Datum
 dcos(PG_FUNCTION_ARGS)
@@ -1870,24 +1870,24 @@ dcos(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	/*
-	 * cos() is periodic and so theoretically can work for all finite inputs,
-	 * but some implementations may choose to throw error if the input is so
-	 * large that there are no significant digits in the result.  So we should
-	 * check for errors.  POSIX allows an error to be reported either via
-	 * errno or via fetestexcept(), but currently we only support checking
-	 * errno.  (fetestexcept() is rumored to report underflow unreasonably
-	 * early on some platforms, so it's not clear that believing it would be a
-	 * net improvement anyway.)
+	 * cos() 是周期性的，因此理论上可对所有有限输入
+	 * 起作用，但某些实现可能选择在输入大到结果中
+	 * 没有任何有效数字时报错。所以我们应当检查错
+	 * 误。POSIX 允许经由 errno 或 fetestexcept() 报错，
+	 * 但目前我们只支持检查 errno。（传闻 fetestexcept()
+	 * 会在某些平台上不合理地过早报告下溢，所以
+	 * 无论如何，听信它是否是净改进也不
+	 * 明确。）
 	 *
-	 * For infinite inputs, POSIX specifies that the trigonometric functions
-	 * should return a domain error; but we won't notice that unless the
-	 * platform reports via errno, so also explicitly test for infinite
-	 * inputs.
+	 * 对于无穷输入，POSIX 规定三角函数应返回定义域
+	 * 错误；但除非平台经由 errno 报告，我们不会注意
+	 * 到这一点，所以也要显式地测试无穷输入情
+	 * 况。
 	 */
 	errno = 0;
 	result = cos(arg1);
@@ -1903,7 +1903,7 @@ dcos(PG_FUNCTION_ARGS)
 
 
 /*
- *		dcot			- returns the cotangent of arg1 (radians)
+ *		dcot			- 返回 arg1 的余切 (弧度)
  */
 Datum
 dcot(PG_FUNCTION_ARGS)
@@ -1911,11 +1911,11 @@ dcot(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
-	/* Be sure to throw an error if the input is infinite --- see dcos() */
+	/* 若输入为无穷务必抛出错误 --- 参见 dcos() */
 	errno = 0;
 	result = tan(arg1);
 	if (errno != 0 || isinf(arg1))
@@ -1924,14 +1924,14 @@ dcot(PG_FUNCTION_ARGS)
 				 errmsg("input is out of range")));
 
 	result = 1.0 / result;
-	/* Not checking for overflow because cot(0) == Inf */
+	/* 不检查溢出，因为 cot(0) == Inf */
 
 	PG_RETURN_FLOAT8(result);
 }
 
 
 /*
- *		dsin			- returns the sine of arg1 (radians)
+ *		dsin			- 返回 arg1 的正弦 (弧度)
  */
 Datum
 dsin(PG_FUNCTION_ARGS)
@@ -1939,11 +1939,11 @@ dsin(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
-	/* Be sure to throw an error if the input is infinite --- see dcos() */
+	/* 若输入为无穷务必抛出错误 --- 参见 dcos() */
 	errno = 0;
 	result = sin(arg1);
 	if (errno != 0 || isinf(arg1))
@@ -1958,7 +1958,7 @@ dsin(PG_FUNCTION_ARGS)
 
 
 /*
- *		dtan			- returns the tangent of arg1 (radians)
+ *		dtan			- 返回 arg1 的正切 (弧度)
  */
 Datum
 dtan(PG_FUNCTION_ARGS)
@@ -1966,53 +1966,53 @@ dtan(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
-	/* Be sure to throw an error if the input is infinite --- see dcos() */
+	/* 若输入为无穷务必抛出错误 --- 参见 dcos() */
 	errno = 0;
 	result = tan(arg1);
 	if (errno != 0 || isinf(arg1))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("input is out of range")));
-	/* Not checking for overflow because tan(pi/2) == Inf */
+	/* 不检查溢出，因为 tan(pi/2) == Inf */
 
 	PG_RETURN_FLOAT8(result);
 }
 
 
-/* ========== DEGREE-BASED TRIGONOMETRIC FUNCTIONS ========== */
+/* ========== 基于角度的三角函数 ========== */
 
 
 /*
- * Initialize the cached constants declared at the head of this file
- * (sin_30 etc).  The fact that we need those at all, let alone need this
- * Rube-Goldberg-worthy method of initializing them, is because there are
- * compilers out there that will precompute expressions such as sin(constant)
- * using a sin() function different from what will be used at runtime.  If we
- * want exact results, we must ensure that none of the scaling constants used
- * in the degree-based trig functions are computed that way.  To do so, we
- * compute them from the variables degree_c_thirty etc, which are also really
- * constants, but the compiler cannot assume that.
+ * 初始化本文件头部声明的缓存常量（sin_30 等）。
+ * 我们之所以根本需要这些常量，更别说需要这种鲁
+ * 布-戈德堡式的初始化方法，是因为现有的编译器
+ * 中会有人预计算诸如 sin(constant) 这样的表达式，
+ * 而其所用的 sin() 函数与运行时实际使用的不同。
+ * 如果我们想要精确的结果，就必须确保基于角度的
+ * 三角函数所用的缩放常量没有一个是以那种方式计
+ * 算的。为此，我们用 degree_c_thirty 等变量来算；它
+ * 们虽是常量，但编译器无法假定。
  *
- * Other hazards we are trying to forestall with this kluge include the
- * possibility that compilers will rearrange the expressions, or compute
- * some intermediate results in registers wider than a standard double.
+ * 我们想用这个补丁式手法预防的其他风险还包括：
+ * 编译器可能重排表达式，或者在比标准 double 更
+ * 宽的寄存器中计算某些中间结果。
  *
- * In the places where we use these constants, the typical pattern is like
+ * 在使用这些常量的地方，典型模式如下：
  *		volatile float8 sin_x = sin(x * RADIANS_PER_DEGREE);
  *		return (sin_x / sin_30);
- * where we hope to get a value of exactly 1.0 from the division when x = 30.
- * The volatile temporary variable is needed on machines with wide float
- * registers, to ensure that the result of sin(x) is rounded to double width
- * the same as the value of sin_30 has been.  Experimentation with gcc shows
- * that marking the temp variable volatile is necessary to make the store and
- * reload actually happen; hopefully the same trick works for other compilers.
- * (gcc's documentation suggests using the -ffloat-store compiler switch to
- * ensure this, but that is compiler-specific and it also pessimizes code in
- * many places where we don't care about this.)
+ * 我们希望当 x = 30 时除法恰好得到 1.0。
+ * 在具有宽浮点寄存器的机器上，需要 volatile 的临
+ * 时变量，以确保 sin(x) 的结果像 sin_30 的值一样被
+ * 舍入到 double 宽度。用 gcc 实验表明，把临时变量
+ * 标记为 volatile 是让存储和重载真正发生的必要条
+ * 件；希望同样的技巧对其他编译器也有效。
+ * （gcc 的文档建议使用 -ffloat-store 编译器开关来
+ * 确保这一点，但那是编译器特定的，而且在很多我
+ * 们不在乎的地方会劣化代码。）
  */
 static void
 init_degree_constants(void)
@@ -2035,22 +2035,22 @@ do { \
 
 
 /*
- *		asind_q1		- returns the inverse sine of x in degrees, for x in
- *						  the range [0, 1].  The result is an angle in the
- *						  first quadrant --- [0, 90] degrees.
+ *		asind_q1		- 返回 x 的反正弦值（以度为单位），
+ *						  x 在 [0, 1] 范围内。结果是第一象限
+ *						  内的角度 --- [0, 90] 度。
  *
- *						  For the 3 special case inputs (0, 0.5 and 1), this
- *						  function will return exact values (0, 30 and 90
- *						  degrees respectively).
+ *						  对 0、0.5 和 1 这 3 个特殊输入，它会
+ *						  分别返回精确值（分别为 0、30 和
+ *						  90 度）。
  */
 static double
 asind_q1(double x)
 {
 	/*
-	 * Stitch together inverse sine and cosine functions for the ranges [0,
-	 * 0.5] and (0.5, 1].  Each expression below is guaranteed to return
-	 * exactly 30 for x=0.5, so the result is a continuous monotonic function
-	 * over the full range.
+	 * 拼接 [0, 0.5] 与 (0.5, 1] 范围的反正弦和反余弦
+	 * 函数。下面的每个表达式都保证对 x=0.5 精确返
+	 * 回 30，因此结果在整个范围上是连续的单调
+	 * 函数。
 	 */
 	if (x <= 0.5)
 	{
@@ -2068,22 +2068,22 @@ asind_q1(double x)
 
 
 /*
- *		acosd_q1		- returns the inverse cosine of x in degrees, for x in
- *						  the range [0, 1].  The result is an angle in the
- *						  first quadrant --- [0, 90] degrees.
+ *		acosd_q1		- 返回 x 的反余弦值（以度为单位），
+ *						  x 在 [0, 1] 范围内。结果是第一象限
+ *						  内的角度 --- [0, 90] 度。
  *
- *						  For the 3 special case inputs (0, 0.5 and 1), this
- *						  function will return exact values (0, 60 and 90
- *						  degrees respectively).
+ *						  对 0、0.5 和 1 这 3 个特殊输入，它会
+ *						  分别返回精确值（分别为 0、60 和
+ *						  90 度）。
  */
 static double
 acosd_q1(double x)
 {
 	/*
-	 * Stitch together inverse sine and cosine functions for the ranges [0,
-	 * 0.5] and (0.5, 1].  Each expression below is guaranteed to return
-	 * exactly 60 for x=0.5, so the result is a continuous monotonic function
-	 * over the full range.
+	 * 拼接 [0, 0.5] 与 (0.5, 1] 范围的反正弦和反余弦
+	 * 函数。下面的每个表达式都保证对 x=0.5 精确返
+	 * 回 60，因此结果在整个范围上是连续的单调
+	 * 函数。
 	 */
 	if (x <= 0.5)
 	{
@@ -2101,7 +2101,7 @@ acosd_q1(double x)
 
 
 /*
- *		dacosd			- returns the arccos of arg1 (degrees)
+ *		dacosd			- 返回 arg1 的反余弦 (度)
  */
 Datum
 dacosd(PG_FUNCTION_ARGS)
@@ -2109,16 +2109,16 @@ dacosd(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	INIT_DEGREE_CONSTANTS();
 
 	/*
-	 * The principal branch of the inverse cosine function maps values in the
-	 * range [-1, 1] to values in the range [0, 180], so we should reject any
-	 * inputs outside that range and the result will always be finite.
+	 * 反余弦函数的主支把 [-1, 1] 范围内的值映射到
+	 * [0, 180] 范围，所以我们应当拒绝该范围之外的
+	 * 任何输入，而结果将总是有限的。
 	 */
 	if (arg1 < -1.0 || arg1 > 1.0)
 		ereport(ERROR,
@@ -2138,7 +2138,7 @@ dacosd(PG_FUNCTION_ARGS)
 
 
 /*
- *		dasind			- returns the arcsin of arg1 (degrees)
+ *		dasind			- 返回 arg1 的反正弦 (度)
  */
 Datum
 dasind(PG_FUNCTION_ARGS)
@@ -2146,16 +2146,16 @@ dasind(PG_FUNCTION_ARGS)
 	float8		arg1 = PG_GETARG_FLOAT8(0);
 	float8		result;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	INIT_DEGREE_CONSTANTS();
 
 	/*
-	 * The principal branch of the inverse sine function maps values in the
-	 * range [-1, 1] to values in the range [-90, 90], so we should reject any
-	 * inputs outside that range and the result will always be finite.
+	 * 反正弦函数的主支把 [-1, 1] 范围内的值映射到
+	 * [-90, 90] 范围，所以我们应当拒绝该范围之外的
+	 * 任何输入，而结果将总是有限的。
 	 */
 	if (arg1 < -1.0 || arg1 > 1.0)
 		ereport(ERROR,
@@ -2175,7 +2175,7 @@ dasind(PG_FUNCTION_ARGS)
 
 
 /*
- *		datand			- returns the arctan of arg1 (degrees)
+ *		datand			- 返回 arg1 的反正切 (度)
  */
 Datum
 datand(PG_FUNCTION_ARGS)
@@ -2184,17 +2184,17 @@ datand(PG_FUNCTION_ARGS)
 	float8		result;
 	volatile float8 atan_arg1;
 
-	/* Per the POSIX spec, return NaN if the input is NaN */
+	/* 按 POSIX 规范，输入为 NaN 时返回 NaN */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	INIT_DEGREE_CONSTANTS();
 
 	/*
-	 * The principal branch of the inverse tangent function maps all inputs to
-	 * values in the range [-90, 90], so the result should always be finite,
-	 * even if the input is infinite.  Additionally, we take care to ensure
-	 * than when arg1 is 1, the result is exactly 45.
+	 * 反正切函数的主支把所有输入映射到 [-90, 90]
+	 * 范围内的值，所以结果应总是有限的，即便输入
+	 * 是无穷。此外，我们注意确保当 arg1 为 1 时，
+	 * 结果恰好是 45。
 	 */
 	atan_arg1 = atan(arg1);
 	result = (atan_arg1 / atan_1_0) * 45.0;
@@ -2207,7 +2207,7 @@ datand(PG_FUNCTION_ARGS)
 
 
 /*
- *		atan2d			- returns the arctan of arg1/arg2 (degrees)
+ *		atan2d			- 返回 arg1/arg2 的反正切 (度)
  */
 Datum
 datan2d(PG_FUNCTION_ARGS)
@@ -2217,20 +2217,20 @@ datan2d(PG_FUNCTION_ARGS)
 	float8		result;
 	volatile float8 atan2_arg1_arg2;
 
-	/* Per the POSIX spec, return NaN if either input is NaN */
+	/* 按 POSIX 规范，任一输入为 NaN 时返回 NaN */
 	if (isnan(arg1) || isnan(arg2))
 		PG_RETURN_FLOAT8(get_float8_nan());
 
 	INIT_DEGREE_CONSTANTS();
 
 	/*
-	 * atan2d maps all inputs to values in the range [-180, 180], so the
-	 * result should always be finite, even if the inputs are infinite.
+	 * atan2d 把所有输入映射到 [-180, 180] 范围，所以
+	 * 结果应总是有限的，即便输入是无穷。
 	 *
-	 * Note: this coding assumes that atan(1.0) is a suitable scaling constant
-	 * to get an exact result from atan2().  This might well fail on us at
-	 * some point, requiring us to decide exactly what inputs we think we're
-	 * going to guarantee an exact result for.
+	 * 注意：这段代码假定 atan(1.0) 是一个合适的缩放
+	 * 常量，能让 atan2() 得到精确结果。这一点在某天
+	 * 可能会让我们失望，届时需要我们确切决定要为哪
+	 * 些输入保证精确结果。
 	 */
 	atan2_arg1_arg2 = atan2(arg1, arg2);
 	result = (atan2_arg1_arg2 / atan_1_0) * 45.0;
@@ -2243,9 +2243,9 @@ datan2d(PG_FUNCTION_ARGS)
 
 
 /*
- *		sind_0_to_30	- returns the sine of an angle that lies between 0 and
- *						  30 degrees.  This will return exactly 0 when x is 0,
- *						  and exactly 0.5 when x is 30 degrees.
+ *		sind_0_to_30	- 返回 0 到 30 度之间的角的正弦。
+ *						  x 为 0 时精确返回 0；x 为 30 度时精确
+ *						  返回 0.5。
  */
 static double
 sind_0_to_30(double x)
@@ -2257,9 +2257,9 @@ sind_0_to_30(double x)
 
 
 /*
- *		cosd_0_to_60	- returns the cosine of an angle that lies between 0
- *						  and 60 degrees.  This will return exactly 1 when x
- *						  is 0, and exactly 0.5 when x is 60 degrees.
+ *		cosd_0_to_60	- 返回 0 到 60 度之间的角的余弦。
+ *						  x 为 0 时精确返回 1；x 为 60 度时精确
+ *						  返回 0.5。
  */
 static double
 cosd_0_to_60(double x)
@@ -2271,17 +2271,17 @@ cosd_0_to_60(double x)
 
 
 /*
- *		sind_q1			- returns the sine of an angle in the first quadrant
- *						  (0 to 90 degrees).
+ *		sind_q1			- 返回第一象限（0 到 90 度）内的
+ *						  角的正弦。
  */
 static double
 sind_q1(double x)
 {
 	/*
-	 * Stitch together the sine and cosine functions for the ranges [0, 30]
-	 * and (30, 90].  These guarantee to return exact answers at their
-	 * endpoints, so the overall result is a continuous monotonic function
-	 * that gives exact results when x = 0, 30 and 90 degrees.
+	 * 拼接 [0, 30] 与 (30, 90] 的正弦和余弦函数
+	 * 它们保证在端点处返回精确答案，因此整体结果
+	 * 是一个连续的单调函数，在 x = 0、30、90 度时
+	 * 给出精确结果。
 	 */
 	if (x <= 30.0)
 		return sind_0_to_30(x);
@@ -2291,17 +2291,17 @@ sind_q1(double x)
 
 
 /*
- *		cosd_q1			- returns the cosine of an angle in the first quadrant
- *						  (0 to 90 degrees).
+ *		cosd_q1			- 返回第一象限（0 到 90 度）内的
+ *						  角的余弦。
  */
 static double
 cosd_q1(double x)
 {
 	/*
-	 * Stitch together the sine and cosine functions for the ranges [0, 60]
-	 * and (60, 90].  These guarantee to return exact answers at their
-	 * endpoints, so the overall result is a continuous monotonic function
-	 * that gives exact results when x = 0, 60 and 90 degrees.
+	 * 拼接 [0, 60] 与 (60, 90] 的正弦和余弦函数
+	 * 它们保证在端点处返回精确答案，因此整体结果
+	 * 是一个连续的单调函数，在 x = 0、60、90 度时
+	 * 给出精确结果。
 	 */
 	if (x <= 60.0)
 		return cosd_0_to_60(x);
@@ -2311,7 +2311,7 @@ cosd_q1(double x)
 
 
 /*
- *		dcosd			- returns the cosine of arg1 (degrees)
+ *		dcosd			- 返回 arg1 的余弦 (度)
  */
 Datum
 dcosd(PG_FUNCTION_ARGS)
@@ -2321,8 +2321,8 @@ dcosd(PG_FUNCTION_ARGS)
 	int			sign = 1;
 
 	/*
-	 * Per the POSIX spec, return NaN if the input is NaN and throw an error
-	 * if the input is infinite.
+	 * 按 POSIX 规范，输入为 NaN 时返回 NaN，输入为无
+	 * 穷时抛出错误。
 	 */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
@@ -2334,7 +2334,7 @@ dcosd(PG_FUNCTION_ARGS)
 
 	INIT_DEGREE_CONSTANTS();
 
-	/* Reduce the range of the input to [0,90] degrees */
+	/* 把输入的范围约减到 [0,90] 度 */
 	arg1 = fmod(arg1, 360.0);
 
 	if (arg1 < 0.0)
@@ -2366,7 +2366,7 @@ dcosd(PG_FUNCTION_ARGS)
 
 
 /*
- *		dcotd			- returns the cotangent of arg1 (degrees)
+ *		dcotd			- 返回 arg1 的余切 (度)
  */
 Datum
 dcotd(PG_FUNCTION_ARGS)
@@ -2377,8 +2377,8 @@ dcotd(PG_FUNCTION_ARGS)
 	int			sign = 1;
 
 	/*
-	 * Per the POSIX spec, return NaN if the input is NaN and throw an error
-	 * if the input is infinite.
+	 * 按 POSIX 规范，输入为 NaN 时返回 NaN，输入为无
+	 * 穷时抛出错误。
 	 */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
@@ -2390,7 +2390,7 @@ dcotd(PG_FUNCTION_ARGS)
 
 	INIT_DEGREE_CONSTANTS();
 
-	/* Reduce the range of the input to [0,90] degrees */
+	/* 把输入的范围约减到 [0,90] 度 */
 	arg1 = fmod(arg1, 360.0);
 
 	if (arg1 < 0.0)
@@ -2418,21 +2418,21 @@ dcotd(PG_FUNCTION_ARGS)
 	result = sign * (cot_arg1 / cot_45);
 
 	/*
-	 * On some machines we get cotd(270) = minus zero, but this isn't always
-	 * true.  For portability, and because the user constituency for this
-	 * function probably doesn't want minus zero, force it to plain zero.
+	 * 在某些机器上我们会得到 cotd(270) = 负零，但这并
+	 * 非总是如此。为了可移植性，也因为这个函数的用
+	 * 户群体多半不想要负零，我们强制其为普通零。
 	 */
 	if (result == 0.0)
 		result = 0.0;
 
-	/* Not checking for overflow because cotd(0) == Inf */
+	/* 不检查溢出，因为 cotd(0) == Inf */
 
 	PG_RETURN_FLOAT8(result);
 }
 
 
 /*
- *		dsind			- returns the sine of arg1 (degrees)
+ *		dsind			- 返回 arg1 的正弦 (度)
  */
 Datum
 dsind(PG_FUNCTION_ARGS)
@@ -2442,8 +2442,8 @@ dsind(PG_FUNCTION_ARGS)
 	int			sign = 1;
 
 	/*
-	 * Per the POSIX spec, return NaN if the input is NaN and throw an error
-	 * if the input is infinite.
+	 * 按 POSIX 规范，输入为 NaN 时返回 NaN，输入为无
+	 * 穷时抛出错误。
 	 */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
@@ -2455,7 +2455,7 @@ dsind(PG_FUNCTION_ARGS)
 
 	INIT_DEGREE_CONSTANTS();
 
-	/* Reduce the range of the input to [0,90] degrees */
+	/* 把输入的范围约减到 [0,90] 度 */
 	arg1 = fmod(arg1, 360.0);
 
 	if (arg1 < 0.0)
@@ -2488,7 +2488,7 @@ dsind(PG_FUNCTION_ARGS)
 
 
 /*
- *		dtand			- returns the tangent of arg1 (degrees)
+ *		dtand			- 返回 arg1 的正切 (度)
  */
 Datum
 dtand(PG_FUNCTION_ARGS)
@@ -2499,8 +2499,8 @@ dtand(PG_FUNCTION_ARGS)
 	int			sign = 1;
 
 	/*
-	 * Per the POSIX spec, return NaN if the input is NaN and throw an error
-	 * if the input is infinite.
+	 * 按 POSIX 规范，输入为 NaN 时返回 NaN，输入为无
+	 * 穷时抛出错误。
 	 */
 	if (isnan(arg1))
 		PG_RETURN_FLOAT8(get_float8_nan());
@@ -2512,7 +2512,7 @@ dtand(PG_FUNCTION_ARGS)
 
 	INIT_DEGREE_CONSTANTS();
 
-	/* Reduce the range of the input to [0,90] degrees */
+	/* 把输入的范围约减到 [0,90] 度 */
 	arg1 = fmod(arg1, 360.0);
 
 	if (arg1 < 0.0)
@@ -2540,21 +2540,21 @@ dtand(PG_FUNCTION_ARGS)
 	result = sign * (tan_arg1 / tan_45);
 
 	/*
-	 * On some machines we get tand(180) = minus zero, but this isn't always
-	 * true.  For portability, and because the user constituency for this
-	 * function probably doesn't want minus zero, force it to plain zero.
+	 * 在某些机器上我们会得到 tand(180) = 负零，但这并
+	 * 非总是如此。为了可移植性，也因为这个函数的用
+	 * 户群体多半不想要负零，我们强制其为普通零。
 	 */
 	if (result == 0.0)
 		result = 0.0;
 
-	/* Not checking for overflow because tand(90) == Inf */
+	/* 不检查溢出，因为 tand(90) == Inf */
 
 	PG_RETURN_FLOAT8(result);
 }
 
 
 /*
- *		degrees		- returns degrees converted from radians
+ *		degrees		- 返回由弧度转换而来的角度
  */
 Datum
 degrees(PG_FUNCTION_ARGS)
@@ -2566,7 +2566,7 @@ degrees(PG_FUNCTION_ARGS)
 
 
 /*
- *		dpi				- returns the constant PI
+ *		dpi				- 返回常量 PI
  */
 Datum
 dpi(PG_FUNCTION_ARGS)
@@ -2576,7 +2576,7 @@ dpi(PG_FUNCTION_ARGS)
 
 
 /*
- *		radians		- returns radians converted from degrees
+ *		radians		- 返回由角度转换而来的弧度
  */
 Datum
 radians(PG_FUNCTION_ARGS)
@@ -2587,11 +2587,11 @@ radians(PG_FUNCTION_ARGS)
 }
 
 
-/* ========== HYPERBOLIC FUNCTIONS ========== */
+/* ========== 双曲函数 ========== */
 
 
 /*
- *		dsinh			- returns the hyperbolic sine of arg1
+ *		dsinh			- 返回 arg1 的双曲正弦
  */
 Datum
 dsinh(PG_FUNCTION_ARGS)
@@ -2603,9 +2603,9 @@ dsinh(PG_FUNCTION_ARGS)
 	result = sinh(arg1);
 
 	/*
-	 * if an ERANGE error occurs, it means there is an overflow.  For sinh,
-	 * the result should be either -infinity or infinity, depending on the
-	 * sign of arg1.
+	 * 若发生 ERANGE 错误，就意味着溢出。对 sinh 而
+	 * 言，结果应为 -Inf 或 Inf，取决于 arg1 的符
+	 * 号。
 	 */
 	if (errno == ERANGE)
 	{
@@ -2620,7 +2620,7 @@ dsinh(PG_FUNCTION_ARGS)
 
 
 /*
- *		dcosh			- returns the hyperbolic cosine of arg1
+ *		dcosh			- 返回 arg1 的双曲余弦
  */
 Datum
 dcosh(PG_FUNCTION_ARGS)
@@ -2632,8 +2632,8 @@ dcosh(PG_FUNCTION_ARGS)
 	result = cosh(arg1);
 
 	/*
-	 * if an ERANGE error occurs, it means there is an overflow.  As cosh is
-	 * always positive, it always means the result is positive infinity.
+	 * 若发生 ERANGE 错误，就意味着溢出。由于 cosh 总
+	 * 为正，因此这总是意味着结果为正无穷。
 	 */
 	if (errno == ERANGE)
 		result = get_float8_infinity();
@@ -2645,7 +2645,7 @@ dcosh(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dtanh			- returns the hyperbolic tangent of arg1
+ *		dtanh			- 返回 arg1 的双曲正切
  */
 Datum
 dtanh(PG_FUNCTION_ARGS)
@@ -2654,7 +2654,7 @@ dtanh(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * For tanh, we don't need an errno check because it never overflows.
+	 * 对 tanh 而言，无需 errno 检查，因为它从不溢出。
 	 */
 	result = tanh(arg1);
 
@@ -2665,7 +2665,7 @@ dtanh(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dasinh			- returns the inverse hyperbolic sine of arg1
+ *		dasinh			- 返回 arg1 的反双曲正弦
  */
 Datum
 dasinh(PG_FUNCTION_ARGS)
@@ -2674,7 +2674,7 @@ dasinh(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * For asinh, we don't need an errno check because it never overflows.
+	 * 对 asinh 而言，无需 errno 检查，因为它从不溢出。
 	 */
 	result = asinh(arg1);
 
@@ -2682,7 +2682,7 @@ dasinh(PG_FUNCTION_ARGS)
 }
 
 /*
- *		dacosh			- returns the inverse hyperbolic cosine of arg1
+ *		dacosh			- 返回 arg1 的反双曲余弦
  */
 Datum
 dacosh(PG_FUNCTION_ARGS)
@@ -2691,10 +2691,10 @@ dacosh(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * acosh is only defined for inputs >= 1.0.  By checking this ourselves,
-	 * we need not worry about checking for an EDOM error, which is a good
-	 * thing because some implementations will report that for NaN. Otherwise,
-	 * no error is possible.
+	 * acosh 仅对 >= 1.0 的输入有定义。我们自己检查这
+	 * 一点后，就无需操心 EDOM 错误的检查，这是一件
+	 * 好事，因为某些实现对 NaN 也会报告该错误。除此之
+	 * 外不可能出错。
 	 */
 	if (arg1 < 1.0)
 		ereport(ERROR,
@@ -2707,7 +2707,7 @@ dacosh(PG_FUNCTION_ARGS)
 }
 
 /*
- *		datanh			- returns the inverse hyperbolic tangent of arg1
+ *		datanh			- 返回 arg1 的反双曲正切
  */
 Datum
 datanh(PG_FUNCTION_ARGS)
@@ -2716,9 +2716,9 @@ datanh(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * atanh is only defined for inputs between -1 and 1.  By checking this
-	 * ourselves, we need not worry about checking for an EDOM error, which is
-	 * a good thing because some implementations will report that for NaN.
+	 * atanh 仅对 -1 与 1 之间的输入有定义。我们自己
+	 * 检查这一点后，就无需操心 EDOM 错误的检查，这
+	 * 是一件好事，因为某些实现对 NaN 也报告该错误。
 	 */
 	if (arg1 < -1.0 || arg1 > 1.0)
 		ereport(ERROR,
@@ -2726,9 +2726,9 @@ datanh(PG_FUNCTION_ARGS)
 				 errmsg("input is out of range")));
 
 	/*
-	 * Also handle the infinity cases ourselves; this is helpful because old
-	 * glibc versions may produce the wrong errno for this.  All other inputs
-	 * cannot produce an error.
+	 * 我们也自行处理无穷的情形；这很有帮助，因为旧
+	 * 版 glibc 可能为此产生错误的 errno。所有其他输入
+	 * 都不可能出错。
 	 */
 	if (arg1 == -1.0)
 		result = -get_float8_infinity();
@@ -2741,11 +2741,11 @@ datanh(PG_FUNCTION_ARGS)
 }
 
 
-/* ========== ERROR FUNCTIONS ========== */
+/* ========== 误差函数 ========== */
 
 
 /*
- *		derf			- returns the error function: erf(arg1)
+ *		derf			- 返回误差函数：erf(arg1)
  */
 Datum
 derf(PG_FUNCTION_ARGS)
@@ -2754,7 +2754,7 @@ derf(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * For erf, we don't need an errno check because it never overflows.
+	 * 对 erf 而言，无需 errno 检查，因为它从不溢出。
 	 */
 	result = erf(arg1);
 
@@ -2765,7 +2765,7 @@ derf(PG_FUNCTION_ARGS)
 }
 
 /*
- *		derfc			- returns the complementary error function: 1 - erf(arg1)
+ *		derfc			- 返回互补误差函数：1 - erf(arg1)
  */
 Datum
 derfc(PG_FUNCTION_ARGS)
@@ -2774,7 +2774,7 @@ derfc(PG_FUNCTION_ARGS)
 	float8		result;
 
 	/*
-	 * For erfc, we don't need an errno check because it never overflows.
+	 * 对 erfc 而言，无需 errno 检查，因为它从不溢出。
 	 */
 	result = erfc(arg1);
 
@@ -2785,29 +2785,29 @@ derfc(PG_FUNCTION_ARGS)
 }
 
 
-/* ========== RANDOM FUNCTIONS ========== */
+/* ========== 随机函数 ========== */
 
 
 /*
- * initialize_drandom_seed - initialize drandom_seed if not yet done
+ * initialize_drandom_seed - 尚未完成则初始化 drandom_seed
  */
 static void
 initialize_drandom_seed(void)
 {
-	/* Initialize random seed, if not done yet in this process */
+	/* 初始化随机种子，若本进程中尚未完成 */
 	if (unlikely(!drandom_seed_set))
 	{
 		/*
-		 * If possible, initialize the seed using high-quality random bits.
-		 * Should that fail for some reason, we fall back on a lower-quality
-		 * seed based on current time and PID.
+		 * 如有可能，用高质量随机比特来初始化种子。
+		 * 若因故失败，我们退而使用基于当前时间和 PID 的
+		 * 较低质量种子。
 		 */
 		if (unlikely(!pg_prng_strong_seed(&drandom_seed)))
 		{
 			TimestampTz now = GetCurrentTimestamp();
 			uint64		iseed;
 
-			/* Mix the PID with the most predictable bits of the timestamp */
+			/* 把 PID 与时间戳中最可预测的比特混合 */
 			iseed = (uint64) now ^ ((uint64) MyProcPid << 32);
 			pg_prng_seed(&drandom_seed, iseed);
 		}
@@ -2816,7 +2816,7 @@ initialize_drandom_seed(void)
 }
 
 /*
- *		drandom		- returns a random number
+ *		drandom		- 返回一个随机数
  */
 Datum
 drandom(PG_FUNCTION_ARGS)
@@ -2825,14 +2825,14 @@ drandom(PG_FUNCTION_ARGS)
 
 	initialize_drandom_seed();
 
-	/* pg_prng_double produces desired result range [0.0 - 1.0) */
+	/* pg_prng_double 产生期望的结果范围 [0.0 - 1.0) */
 	result = pg_prng_double(&drandom_seed);
 
 	PG_RETURN_FLOAT8(result);
 }
 
 /*
- *		drandom_normal	- returns a random number from a normal distribution
+ *		drandom_normal	- 返回来自正态分布的随机数
  */
 Datum
 drandom_normal(PG_FUNCTION_ARGS)
@@ -2844,17 +2844,17 @@ drandom_normal(PG_FUNCTION_ARGS)
 
 	initialize_drandom_seed();
 
-	/* Get random value from standard normal(mean = 0.0, stddev = 1.0) */
+	/* 从标准正态（均值 0.0，标准差 1.0）取随机值 */
 	z = pg_prng_double_normal(&drandom_seed);
-	/* Transform the normal standard variable (z) */
-	/* using the target normal distribution parameters */
+	/* 变换正态标准变量 (z) */
+	/* 使用目标正态分布的参数 */
 	result = (stddev * z) + mean;
 
 	PG_RETURN_FLOAT8(result);
 }
 
 /*
- *		setseed		- set seed for the random number generator
+ *		setseed		- 为随机数发生器设置种子
  */
 Datum
 setseed(PG_FUNCTION_ARGS)
@@ -2877,40 +2877,40 @@ setseed(PG_FUNCTION_ARGS)
 
 /*
  *		=========================
- *		FLOAT AGGREGATE OPERATORS
+ *		浮点聚合算子
  *		=========================
  *
- *		float8_accum		- accumulate for AVG(), variance aggregates, etc.
- *		float4_accum		- same, but input data is float4
- *		float8_avg			- produce final result for float AVG()
- *		float8_var_samp		- produce final result for float VAR_SAMP()
- *		float8_var_pop		- produce final result for float VAR_POP()
- *		float8_stddev_samp	- produce final result for float STDDEV_SAMP()
- *		float8_stddev_pop	- produce final result for float STDDEV_POP()
+ *		float8_accum		- 为 AVG()、方差聚合等累加
+ *		float4_accum		- 同上，但输入是 float4
+ *		float8_avg			- 为 float AVG() 产出最终结果
+ *		float8_var_samp		- 为 float VAR_SAMP() 产出最终结果
+ *		float8_var_pop		- 为 float VAR_POP() 产出最终结果
+ *		float8_stddev_samp	- 为 float STDDEV_SAMP() 产出最终结果
+ *		float8_stddev_pop	- 为 float STDDEV_POP() 产出最终结果
  *
- * The naive schoolbook implementation of these aggregates works by
- * accumulating sum(X) and sum(X^2).  However, this approach suffers from
- * large rounding errors in the final computation of quantities like the
- * population variance (N*sum(X^2) - sum(X)^2) / N^2, since each of the
- * intermediate terms is potentially very large, while the difference is often
- * quite small.
+ * 这些聚合的朴素书本式实现通过累加 sum(X) 与
+ * sum(X^2) 来工作。然而这种方法在最终计算诸如总
+ * 体方差 (N*sum(X^2) - sum(X)^2) / N^2 这类量时会
+ * 产生很大的舍入误差，因为每个中间项都可能非常
+ * 大，而差值往往
+ * 很小。
  *
- * Instead we use the Youngs-Cramer algorithm [1] which works by accumulating
- * Sx=sum(X) and Sxx=sum((X-Sx/N)^2), using a numerically stable algorithm to
- * incrementally update those quantities.  The final computations of each of
- * the aggregate values is then trivial and gives more accurate results (for
- * example, the population variance is just Sxx/N).  This algorithm is also
- * fairly easy to generalize to allow parallel execution without loss of
- * precision (see, for example, [2]).  For more details, and a comparison of
- * this with other algorithms, see [3].
+ * 因此我们改用 Youngs-Cramer 算法[1]，它通过累加
+ * Sx=sum(X) 与 Sxx=sum((X-Sx/N)^2)，并用数值稳定的
+ * 算法来增量更新这些量。此后各聚合值的最终计算
+ * 都很简单，且能给出更精确的结果（例如总体方差
+ * 就是 Sxx/N）。该算法还相当容易推广为可并行执行
+ * 而不损失精度（例如参见 [2]）。更多细节以及其他
+ * 算法的比较
+ * 参见 [3]。
  *
- * The transition datatype for all these aggregates is a 3-element array
- * of float8, holding the values N, Sx, Sxx in that order.
+ * 所有这些聚合的过渡数据类型都是一个 3 元素的
+ * float8 数组，按顺序存放 N、Sx、Sxx。
  *
- * Note that we represent N as a float to avoid having to build a special
- * datatype.  Given a reasonable floating-point implementation, there should
- * be no accuracy loss unless N exceeds 2 ^ 52 or so (by which time the
- * user will have doubtless lost interest anyway...)
+ * 注意我们把 N 表示为 float，以避免构建一种特殊
+ * 的数据类型。只要浮点实现合理，除非 N 超过 2 ^ 52
+ * 左右，否则不应有精度损失（到那时用户恐怕早已
+ * 失去兴趣了……）
  *
  * [1] Some Results Relevant to Choice of Sum and Sum-of-Product Algorithms,
  * E. A. Youngs and E. M. Cramer, Technometrics Vol 13, No 3, August 1971.
@@ -2927,9 +2927,9 @@ static float8 *
 check_float8_array(ArrayType *transarray, const char *caller, int n)
 {
 	/*
-	 * We expect the input to be an N-element float array; verify that. We
-	 * don't need to use deconstruct_array() since the array data is just
-	 * going to look like a C array of N float8 values.
+	 * 我们期望输入是一个 N 元素的 float 数组；请验证
+	 * 这一点。无需使用 deconstruct_array()，因为数组数据
+	 * 只是 N 个 float8 值构成的 C 数组。
 	 */
 	if (ARR_NDIM(transarray) != 1 ||
 		ARR_DIMS(transarray)[0] != n ||
@@ -2942,10 +2942,10 @@ check_float8_array(ArrayType *transarray, const char *caller, int n)
 /*
  * float8_combine
  *
- * An aggregate combine function used to combine two 3 fields
- * aggregate transition data into a single transition data.
- * This function is used only in two stage aggregation and
- * shouldn't be called outside aggregate context.
+ * 合并函数，把两份 3 字段聚合过渡数据合并
+ * 成单一过渡数据。本函数仅用于两阶段聚
+ * 合中，不应在聚合上下文之外
+ * 调用。
  */
 Datum
 float8_combine(PG_FUNCTION_ARGS)
@@ -2977,16 +2977,16 @@ float8_combine(PG_FUNCTION_ARGS)
 	Sxx2 = transvalues2[2];
 
 	/*--------------------
-	 * The transition values combine using a generalization of the
-	 * Youngs-Cramer algorithm as follows:
+	 * 过渡值按下述推广的 Youngs-Cramer 算法合并：
+	 * 具体如下：
 	 *
 	 *	N = N1 + N2
 	 *	Sx = Sx1 + Sx2
 	 *	Sxx = Sxx1 + Sxx2 + N1 * N2 * (Sx1/N1 - Sx2/N2)^2 / N;
 	 *
-	 * It's worth handling the special cases N1 = 0 and N2 = 0 separately
-	 * since those cases are trivial, and we then don't need to worry about
-	 * division-by-zero errors in the general case.
+	 * 值得单独处理 N1 = 0 与 N2 = 0 这两种特殊情形，
+	 * 因为这两种情形很平凡，而且此后在一般情形中我
+	 * 们无需担心除以零的错误。
 	 *--------------------
 	 */
 	if (N1 == 0.0)
@@ -3012,9 +3012,9 @@ float8_combine(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we construct a
-	 * new array with the updated transition data and return it.
+	 * 如果我们作为聚合被调用，可以作弊并就地修改第
+	 * 一个参数，以减少 palloc 开销。否则我们构造含
+	 * 有更新后过渡数据的新数组并返回它。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
@@ -3058,8 +3058,8 @@ float8_accum(PG_FUNCTION_ARGS)
 	Sxx = transvalues[2];
 
 	/*
-	 * Use the Youngs-Cramer algorithm to incorporate the new value into the
-	 * transition values.
+	 * 用 Youngs-Cramer 算法把新值合并进
+	 * 过渡值中。
 	 */
 	N += 1.0;
 	Sx += newval;
@@ -3069,10 +3069,10 @@ float8_accum(PG_FUNCTION_ARGS)
 		Sxx += tmp * tmp / (N * transvalues[0]);
 
 		/*
-		 * Overflow check.  We only report an overflow error when finite
-		 * inputs lead to infinite results.  Note also that Sxx should be NaN
-		 * if any of the inputs are infinite, so we intentionally prevent Sxx
-		 * from becoming infinite.
+		 * 溢出检查。有限输入导致无穷结果时，我们
+		 * 才报告溢出错误。还要注意，若任何输入为无
+		 * 穷，Sxx 就应为 NaN，所以我们有意阻止 Sxx
+		 * 变成无穷。
 		 */
 		if (isinf(Sx) || isinf(Sxx))
 		{
@@ -3085,19 +3085,19 @@ float8_accum(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * At the first input, we normally can leave Sxx as 0.  However, if
-		 * the first input is Inf or NaN, we'd better force Sxx to NaN;
-		 * otherwise we will falsely report variance zero when there are no
-		 * more inputs.
+		 * 在第一个输入时，我们通常可以让 Sxx 保持为 0。
+		 * 但如果第一个输入是 Inf 或 NaN，最好把 Sxx 强
+		 * 制为 NaN；否则当没有更多输入时我们会误报方差
+		 * 为零。
 		 */
 		if (isnan(newval) || isinf(newval))
 			Sxx = get_float8_nan();
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we construct a
-	 * new array with the updated transition data and return it.
+	 * 如果我们作为聚合被调用，可以作弊并就地修改第
+	 * 一个参数，以减少 palloc 开销。否则我们构造含
+	 * 有更新后过渡数据的新数组并返回它。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
@@ -3129,7 +3129,7 @@ float4_accum(PG_FUNCTION_ARGS)
 {
 	ArrayType  *transarray = PG_GETARG_ARRAYTYPE_P(0);
 
-	/* do computations as float8 */
+	/* 以 float8 进行计算 */
 	float8		newval = PG_GETARG_FLOAT4(1);
 	float8	   *transvalues;
 	float8		N,
@@ -3143,8 +3143,8 @@ float4_accum(PG_FUNCTION_ARGS)
 	Sxx = transvalues[2];
 
 	/*
-	 * Use the Youngs-Cramer algorithm to incorporate the new value into the
-	 * transition values.
+	 * 用 Youngs-Cramer 算法把新值合并进
+	 * 过渡值中。
 	 */
 	N += 1.0;
 	Sx += newval;
@@ -3154,10 +3154,10 @@ float4_accum(PG_FUNCTION_ARGS)
 		Sxx += tmp * tmp / (N * transvalues[0]);
 
 		/*
-		 * Overflow check.  We only report an overflow error when finite
-		 * inputs lead to infinite results.  Note also that Sxx should be NaN
-		 * if any of the inputs are infinite, so we intentionally prevent Sxx
-		 * from becoming infinite.
+		 * 溢出检查。有限输入导致无穷结果时，我们
+		 * 才报告溢出错误。还要注意，若任何输入为无
+		 * 穷，Sxx 就应为 NaN，所以我们有意阻止 Sxx
+		 * 变成无穷。
 		 */
 		if (isinf(Sx) || isinf(Sxx))
 		{
@@ -3170,19 +3170,19 @@ float4_accum(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * At the first input, we normally can leave Sxx as 0.  However, if
-		 * the first input is Inf or NaN, we'd better force Sxx to NaN;
-		 * otherwise we will falsely report variance zero when there are no
-		 * more inputs.
+		 * 在第一个输入时，我们通常可以让 Sxx 保持为 0。
+		 * 但如果第一个输入是 Inf 或 NaN，最好把 Sxx 强
+		 * 制为 NaN；否则当没有更多输入时我们会误报方差
+		 * 为零。
 		 */
 		if (isnan(newval) || isinf(newval))
 			Sxx = get_float8_nan();
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we construct a
-	 * new array with the updated transition data and return it.
+	 * 如果我们作为聚合被调用，可以作弊并就地修改第
+	 * 一个参数，以减少 palloc 开销。否则我们构造含
+	 * 有更新后过渡数据的新数组并返回它。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
@@ -3220,9 +3220,9 @@ float8_avg(PG_FUNCTION_ARGS)
 	transvalues = check_float8_array(transarray, "float8_avg", 3);
 	N = transvalues[0];
 	Sx = transvalues[1];
-	/* ignore Sxx */
+	/* 忽略 Sxx */
 
-	/* SQL defines AVG of no values to be NULL */
+	/* SQL 定义无值时 AVG 为 NULL */
 	if (N == 0.0)
 		PG_RETURN_NULL();
 
@@ -3239,14 +3239,14 @@ float8_var_pop(PG_FUNCTION_ARGS)
 
 	transvalues = check_float8_array(transarray, "float8_var_pop", 3);
 	N = transvalues[0];
-	/* ignore Sx */
+	/* 忽略 Sx */
 	Sxx = transvalues[2];
 
-	/* Population variance is undefined when N is 0, so return NULL */
+	/* N 为 0 时总体方差无定义，因此返回 NULL */
 	if (N == 0.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
 	PG_RETURN_FLOAT8(Sxx / N);
 }
@@ -3261,14 +3261,14 @@ float8_var_samp(PG_FUNCTION_ARGS)
 
 	transvalues = check_float8_array(transarray, "float8_var_samp", 3);
 	N = transvalues[0];
-	/* ignore Sx */
+	/* 忽略 Sx */
 	Sxx = transvalues[2];
 
-	/* Sample variance is undefined when N is 0 or 1, so return NULL */
+	/* N 为 0 或 1 时样本方差无定义，因此返回 NULL */
 	if (N <= 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
 	PG_RETURN_FLOAT8(Sxx / (N - 1.0));
 }
@@ -3283,14 +3283,14 @@ float8_stddev_pop(PG_FUNCTION_ARGS)
 
 	transvalues = check_float8_array(transarray, "float8_stddev_pop", 3);
 	N = transvalues[0];
-	/* ignore Sx */
+	/* 忽略 Sx */
 	Sxx = transvalues[2];
 
-	/* Population stddev is undefined when N is 0, so return NULL */
+	/* N 为 0 时总体标准差无定义，因此返回 NULL */
 	if (N == 0.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
 	PG_RETURN_FLOAT8(sqrt(Sxx / N));
 }
@@ -3305,37 +3305,37 @@ float8_stddev_samp(PG_FUNCTION_ARGS)
 
 	transvalues = check_float8_array(transarray, "float8_stddev_samp", 3);
 	N = transvalues[0];
-	/* ignore Sx */
+	/* 忽略 Sx */
 	Sxx = transvalues[2];
 
-	/* Sample stddev is undefined when N is 0 or 1, so return NULL */
+	/* N 为 0 或 1 时样本标准差无定义故返回 NULL */
 	if (N <= 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
 	PG_RETURN_FLOAT8(sqrt(Sxx / (N - 1.0)));
 }
 
 /*
  *		=========================
- *		SQL2003 BINARY AGGREGATES
+ *		SQL2003 二元聚合
  *		=========================
  *
- * As with the preceding aggregates, we use the Youngs-Cramer algorithm to
- * reduce rounding errors in the aggregate final functions.
+ * 与前面的聚合一样，我们使用 Youngs-Cramer 算法来
+ * 降低聚合最终函数中的舍入误差。
  *
- * The transition datatype for all these aggregates is a 6-element array of
- * float8, holding the values N, Sx=sum(X), Sxx=sum((X-Sx/N)^2), Sy=sum(Y),
- * Syy=sum((Y-Sy/N)^2), Sxy=sum((X-Sx/N)*(Y-Sy/N)) in that order.
+ * 所有这些聚合的过渡数据类型都是一个 6 元素的
+ * float8 数组，按顺序存放 N、Sx=sum(X)、Sxx=sum((X-Sx/N)^2)、
+ * Sy=sum(Y), Syy=sum((Y-Sy/N)^2), Sxy=sum((X-Sx/N)*(Y-Sy/N))。
  *
- * Note that Y is the first argument to all these aggregates!
+ * 注意 Y 是所有这些聚合的第一个参数！
  *
- * It might seem attractive to optimize this by having multiple accumulator
- * functions that only calculate the sums actually needed.  But on most
- * modern machines, a couple of extra floating-point multiplies will be
- * insignificant compared to the other per-tuple overhead, so I've chosen
- * to minimize code space instead.
+ * 通过设置多个只计算实际需要的和的累加器函数来
+ * 优化，看起来挺有吸引力。但在大多数现代机器
+ * 上，额外几次浮点乘法与其他每元组开销相比无足
+ * 轻重，所以我选择把代码空间减到
+ * 最小。
  */
 
 Datum
@@ -3364,8 +3364,8 @@ float8_regr_accum(PG_FUNCTION_ARGS)
 	Sxy = transvalues[5];
 
 	/*
-	 * Use the Youngs-Cramer algorithm to incorporate the new values into the
-	 * transition values.
+	 * 用 Youngs-Cramer 算法把新值合并进
+	 * 过渡值中。
 	 */
 	N += 1.0;
 	Sx += newvalX;
@@ -3380,10 +3380,10 @@ float8_regr_accum(PG_FUNCTION_ARGS)
 		Sxy += tmpX * tmpY * scale;
 
 		/*
-		 * Overflow check.  We only report an overflow error when finite
-		 * inputs lead to infinite results.  Note also that Sxx, Syy and Sxy
-		 * should be NaN if any of the relevant inputs are infinite, so we
-		 * intentionally prevent them from becoming infinite.
+		 * 溢出检查。有限输入导致无穷结果时，我们
+		 * 才报告溢出错误。还须注意，若有任何相关输
+		 * 入为无穷，则 Sxx、Syy 与 Sxy 都应为 NaN，
+		 * 所以我们有意阻止它们变成无穷。
 		 */
 		if (isinf(Sx) || isinf(Sxx) || isinf(Sy) || isinf(Syy) || isinf(Sxy))
 		{
@@ -3407,10 +3407,10 @@ float8_regr_accum(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * At the first input, we normally can leave Sxx et al as 0.  However,
-		 * if the first input is Inf or NaN, we'd better force the dependent
-		 * sums to NaN; otherwise we will falsely report variance zero when
-		 * there are no more inputs.
+		 * 在第一个输入时，我们通常可以让 Sxx 等保持为
+		 * 0。但如果第一个输入是 Inf 或 NaN，最好把依赖
+		 * 的和强制为 NaN；否则当没有更多输入时我们会误
+		 * 报方差为零。
 		 */
 		if (isnan(newvalX) || isinf(newvalX))
 			Sxx = Sxy = get_float8_nan();
@@ -3419,9 +3419,9 @@ float8_regr_accum(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we construct a
-	 * new array with the updated transition data and return it.
+	 * 如果我们作为聚合被调用，可以作弊并就地修改第
+	 * 一个参数，以减少 palloc 开销。否则我们构造含
+	 * 有更新后过渡数据的新数组并返回它。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
@@ -3457,10 +3457,10 @@ float8_regr_accum(PG_FUNCTION_ARGS)
 /*
  * float8_regr_combine
  *
- * An aggregate combine function used to combine two 6 fields
- * aggregate transition data into a single transition data.
- * This function is used only in two stage aggregation and
- * shouldn't be called outside aggregate context.
+ * 一种合并函数，把两份 6 字段聚合过渡数据
+ * 合并成单一过渡数据。只用于两阶段聚
+ * 合中，不应在聚合上下文之外
+ * 调用。
  */
 Datum
 float8_regr_combine(PG_FUNCTION_ARGS)
@@ -3508,8 +3508,8 @@ float8_regr_combine(PG_FUNCTION_ARGS)
 	Sxy2 = transvalues2[5];
 
 	/*--------------------
-	 * The transition values combine using a generalization of the
-	 * Youngs-Cramer algorithm as follows:
+	 * 过渡值按下述推广的 Youngs-Cramer 算法合并：
+	 * 具体如下：
 	 *
 	 *	N = N1 + N2
 	 *	Sx = Sx1 + Sx2
@@ -3518,9 +3518,9 @@ float8_regr_combine(PG_FUNCTION_ARGS)
 	 *	Syy = Syy1 + Syy2 + N1 * N2 * (Sy1/N1 - Sy2/N2)^2 / N
 	 *	Sxy = Sxy1 + Sxy2 + N1 * N2 * (Sx1/N1 - Sx2/N2) * (Sy1/N1 - Sy2/N2) / N
 	 *
-	 * It's worth handling the special cases N1 = 0 and N2 = 0 separately
-	 * since those cases are trivial, and we then don't need to worry about
-	 * division-by-zero errors in the general case.
+	 * 值得单独处理 N1 = 0 与 N2 = 0 这两种特殊情形，
+	 * 因为这两种情形很平凡，而且此后在一般情形中我
+	 * 们无需担心除以零的错误。
 	 *--------------------
 	 */
 	if (N1 == 0.0)
@@ -3560,9 +3560,9 @@ float8_regr_combine(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we construct a
-	 * new array with the updated transition data and return it.
+	 * 如果我们作为聚合被调用，可以作弊并就地修改第
+	 * 一个参数，以减少 palloc 开销。否则我们构造含
+	 * 有更新后过渡数据的新数组并返回它。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
@@ -3608,11 +3608,11 @@ float8_regr_sxx(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Sxx = transvalues[2];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
 	PG_RETURN_FLOAT8(Sxx);
 }
@@ -3629,11 +3629,11 @@ float8_regr_syy(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Syy = transvalues[4];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Syy is guaranteed to be non-negative */
+	/* 注意 Syy 保证非负 */
 
 	PG_RETURN_FLOAT8(Syy);
 }
@@ -3650,11 +3650,11 @@ float8_regr_sxy(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Sxy = transvalues[5];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* A negative result is valid here */
+	/* 此处结果为负是合法的 */
 
 	PG_RETURN_FLOAT8(Sxy);
 }
@@ -3671,7 +3671,7 @@ float8_regr_avgx(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Sx = transvalues[1];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
@@ -3690,7 +3690,7 @@ float8_regr_avgy(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Sy = transvalues[3];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
@@ -3709,7 +3709,7 @@ float8_covar_pop(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Sxy = transvalues[5];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
@@ -3728,7 +3728,7 @@ float8_covar_samp(PG_FUNCTION_ARGS)
 	N = transvalues[0];
 	Sxy = transvalues[5];
 
-	/* if N is <= 1 we should return NULL */
+	/* 若 N <= 1 应返回 NULL */
 	if (N < 2.0)
 		PG_RETURN_NULL();
 
@@ -3751,13 +3751,13 @@ float8_corr(PG_FUNCTION_ARGS)
 	Syy = transvalues[4];
 	Sxy = transvalues[5];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx and Syy are guaranteed to be non-negative */
+	/* 注意 Sxx 与 Syy 保证非负 */
 
-	/* per spec, return NULL for horizontal and vertical lines */
+	/* 按规范，对水平和垂直线返回 NULL */
 	if (Sxx == 0 || Syy == 0)
 		PG_RETURN_NULL();
 
@@ -3780,17 +3780,17 @@ float8_regr_r2(PG_FUNCTION_ARGS)
 	Syy = transvalues[4];
 	Sxy = transvalues[5];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx and Syy are guaranteed to be non-negative */
+	/* 注意 Sxx 与 Syy 保证非负 */
 
-	/* per spec, return NULL for a vertical line */
+	/* 按规范，对垂直线返回 NULL */
 	if (Sxx == 0)
 		PG_RETURN_NULL();
 
-	/* per spec, return 1.0 for a horizontal line */
+	/* 按规范，对水平线返回 1.0 */
 	if (Syy == 0)
 		PG_RETURN_FLOAT8(1.0);
 
@@ -3811,13 +3811,13 @@ float8_regr_slope(PG_FUNCTION_ARGS)
 	Sxx = transvalues[2];
 	Sxy = transvalues[5];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
-	/* per spec, return NULL for a vertical line */
+	/* 按规范，对垂直线返回 NULL */
 	if (Sxx == 0)
 		PG_RETURN_NULL();
 
@@ -3842,13 +3842,13 @@ float8_regr_intercept(PG_FUNCTION_ARGS)
 	Sy = transvalues[3];
 	Sxy = transvalues[5];
 
-	/* if N is 0 we should return NULL */
+	/* 若 N 为 0 应返回 NULL */
 	if (N < 1.0)
 		PG_RETURN_NULL();
 
-	/* Note that Sxx is guaranteed to be non-negative */
+	/* 注意 Sxx 保证非负 */
 
-	/* per spec, return NULL for a vertical line */
+	/* 按规范，对垂直线返回 NULL */
 	if (Sxx == 0)
 		PG_RETURN_NULL();
 
@@ -3858,15 +3858,15 @@ float8_regr_intercept(PG_FUNCTION_ARGS)
 
 /*
  *		====================================
- *		MIXED-PRECISION ARITHMETIC OPERATORS
+ *		混合精度算术算子
  *		====================================
  */
 
 /*
- *		float48pl		- returns arg1 + arg2
- *		float48mi		- returns arg1 - arg2
- *		float48mul		- returns arg1 * arg2
- *		float48div		- returns arg1 / arg2
+ *		float48pl		- 返回 arg1 + arg2
+ *		float48mi		- 返回 arg1 - arg2
+ *		float48mul		- 返回 arg1 * arg2
+ *		float48div		- 返回 arg1 / arg2
  */
 Datum
 float48pl(PG_FUNCTION_ARGS)
@@ -3905,10 +3905,10 @@ float48div(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float84pl		- returns arg1 + arg2
- *		float84mi		- returns arg1 - arg2
- *		float84mul		- returns arg1 * arg2
- *		float84div		- returns arg1 / arg2
+ *		float84pl		- 返回 arg1 + arg2
+ *		float84mi		- 返回 arg1 - arg2
+ *		float84mul		- 返回 arg1 * arg2
+ *		float84div		- 返回 arg1 / arg2
  */
 Datum
 float84pl(PG_FUNCTION_ARGS)
@@ -3948,12 +3948,12 @@ float84div(PG_FUNCTION_ARGS)
 
 /*
  *		====================
- *		COMPARISON OPERATORS
+ *		比较算子
  *		====================
  */
 
 /*
- *		float48{eq,ne,lt,le,gt,ge}		- float4/float8 comparison operations
+ *		float48{eq,ne,lt,le,gt,ge}		- float4/float8 比较运算
  */
 Datum
 float48eq(PG_FUNCTION_ARGS)
@@ -4010,7 +4010,7 @@ float48ge(PG_FUNCTION_ARGS)
 }
 
 /*
- *		float84{eq,ne,lt,le,gt,ge}		- float8/float4 comparison operations
+ *		float84{eq,ne,lt,le,gt,ge}		- float8/float4 比较运算
  */
 Datum
 float84eq(PG_FUNCTION_ARGS)
@@ -4067,18 +4067,18 @@ float84ge(PG_FUNCTION_ARGS)
 }
 
 /*
- * Implements the float8 version of the width_bucket() function
- * defined by SQL2003. See also width_bucket_numeric().
+ * 实现 SQL2003 定义的 width_bucket() 函数的 float8
+ * 版本。另参见 width_bucket_numeric()。
  *
- * 'bound1' and 'bound2' are the lower and upper bounds of the
- * histogram's range, respectively. 'count' is the number of buckets
- * in the histogram. width_bucket() returns an integer indicating the
- * bucket number that 'operand' belongs to in an equiwidth histogram
- * with the specified characteristics. An operand smaller than the
- * lower bound is assigned to bucket 0. An operand greater than or equal
- * to the upper bound is assigned to an additional bucket (with number
- * count+1). We don't allow "NaN" for any of the float8 inputs, and we
- * don't allow either of the histogram bounds to be +/- infinity.
+ * 'bound1' 和 'bound2' 分别是直方图的下界与
+ * 上界。'count' 为直方图中的桶数。width_bucket()
+ * 返回一个整数，指明 'operand' 在具有上述特征的
+ * 等宽直方图所属的桶号。小于下界的操作数被分
+ * 配到桶 0。大于等于上界的操作数被分到一个附
+ * 加的桶（桶号为 count+1）。我们不
+ * 允许任何 float8 输入为 "NaN"，也不允许
+ * 直方图的两个边界中的任何一个为
+ * +/- 无穷。
  */
 Datum
 width_bucket_float8(PG_FUNCTION_ARGS)
@@ -4099,7 +4099,7 @@ width_bucket_float8(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_ARGUMENT_FOR_WIDTH_BUCKET_FUNCTION),
 				 errmsg("operand, lower bound, and upper bound cannot be NaN")));
 
-	/* Note that we allow "operand" to be infinite */
+	/* 注意我们允许 "operand" 为无穷 */
 	if (isinf(bound1) || isinf(bound2))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_ARGUMENT_FOR_WIDTH_BUCKET_FUNCTION),
@@ -4120,26 +4120,26 @@ width_bucket_float8(PG_FUNCTION_ARGS)
 		{
 			if (!isinf(bound2 - bound1))
 			{
-				/* The quotient is surely in [0,1], so this can't overflow */
+				/* 商必然在 [0,1] 内，因此不会溢出 */
 				result = count * ((operand - bound1) / (bound2 - bound1));
 			}
 			else
 			{
 				/*
-				 * We get here if bound2 - bound1 overflows DBL_MAX.  Since
-				 * both bounds are finite, their difference can't exceed twice
-				 * DBL_MAX; so we can perform the computation without overflow
-				 * by dividing all the inputs by 2.  That should be exact too,
-				 * except in the case where a very small operand underflows to
-				 * zero, which would have negligible impact on the result
-				 * given such large bounds.
+				 * 若 bound2 - bound1 溢出 DBL_MAX 就会走到这里。
+				 * 两边界均有限，其差不会超过两倍的
+				 * DBL_MAX；故把全部输入除以 2 即可无溢出地
+				 * 完成计算。这亦应精确，除非极小的操作数
+				 * 下溢为零。
+				 * 这对结果的影响可以忽略不计——鉴于
+				 * 边界如此之大。
 				 */
 				result = count * ((operand / 2 - bound1 / 2) / (bound2 / 2 - bound1 / 2));
 			}
-			/* The quotient could round to 1.0, which would be a lie */
+			/* 商可能舍入为 1.0，那就是撒谎了 */
 			if (result >= count)
 				result = count - 1;
-			/* Having done that, we can add 1 without fear of overflow */
+			/* 此后即可放心加 1 而不必担心溢出 */
 			result++;
 		}
 	}
@@ -4170,7 +4170,7 @@ width_bucket_float8(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_ARGUMENT_FOR_WIDTH_BUCKET_FUNCTION),
 				 errmsg("lower bound cannot equal upper bound")));
-		result = 0;				/* keep the compiler quiet */
+		result = 0;				/* 让编译器安静 */
 	}
 
 	PG_RETURN_INT32(result);

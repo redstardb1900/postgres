@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0417",
+ "title": "adt 目录 float.c 单文件整文件注释翻译 299 块 642/699 行 — batch 0417",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "bbe0bb6ba0dd86c0070706ee1a249daf7be64aff",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/float.c",
+   "kind": "c_comment",
+   "note": "浮点数类型; whole-file comment translation, batch-0417"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0417-adt-float.json",
+   "kind": "manifest",
+   "note": "batch-0417 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0417 entries (float.c + 本 manifest; 追加前查重无 float.c/batch-0417 既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/float.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 299,
+   "translated": 277,
+   "preserved": 22,
+   "preserved_reasons": [
+    "整块保留 22 块 (全部为单行数学恒等式/算式标注块): NAN 比较 6 (L1052/1054/1058/1128/1130/1134), y/x=±Inf 4 (L1538/1545/1557/1564), cosd/sind/cotd/tand 恒等式 12 (L2342/2348/2354/2398/2405/2412/2463/2470/2477/2520/2527/2534); 行级保留 EN 57 行 (55 + 头部横幅 border 行 L1/L13 计入): 头部 5 (L3 文件名/L6/L7 版权×2/L10 IDENTIFICATION/L11 路径), 头部功能描述 L4 已译; ASCII 数值例 7 (L145-147/L152-155, 7.038531e-26 double 中点表); 伪块代码行 2 (L303/L505 endptr_p 赋值); URL 1 (L1599 sourceware bug 3866); 代码示例行 2 (L2005/2006 volatile sin_x 模式); 参考文献引用行 7 (L2915/2916/2918/2919/2921/2922/2923); 函数名标题行 2 (L2943 float8_combine/L3458 float8_regr_combine); ASCII 公式行 9 (L2983-2985 N/Sx/Sxx 合并式 + L3514-3519 regr 六式); 数学恒等式标注行 22 (同整块保留清单)"
+   ],
+   "note": "浮点数类型 (float4/float8 标识符保留, float4→单精度/float8→双精度仅在行文需要处以「float4/float8」原词优先, NaN/Infinity/+Inf/-Inf 保留, extra_float_digits/float8_repl/DBL_MAX/HUGE_VAL/errno/EDOM/ERANGE 保留, underflow→下溢/overflow→溢出, denormalized→非规范化, precision→精度, digits→数字位 (0410 numutils 口径), risk of overflow→溢出风险, window frame→窗口帧, transition data→过渡数据, combine function→合并函数, Youngs-Cramer 算法保留, ops/operator/operators→算子 (ARITHMETIC/COMPARISON OPERATORS 横幅=算术/比较算子), routines→例程, OID 逐字); whole-file comment translation, batch-0417; dump 299 块注释感知重扫权威一致 299 块; content 行 699 = zh 642 + 保留 EN 57 (55 + 头部横幅 border 行 L1/L13 计入, 审查勘正; 头部 5: L3 文件名/L6/L7 版权×2/L10 IDENTIFICATION/L11 路径, 头部功能描述 L4 已译, 头部浮点哈希全局一致性说明段 L1694-1800 无此段——本文件头部仅 GUC/缓存常量/drandom 说明均已译; ASCII 数值例 7: L145-147/L152-155 (7.038531e-26 中点表); 伪块代码行 2: L303/L505 (endptr_p 赋值, date L217 判例); 代码示例行 2: L2005/L2006 (volatile sin_x 模式); 参考文献引用行 7: L2915/2916/2918/2919/2921/2922/2923; 函数名标题行 2: L2943 float8_combine/L3458 float8_regr_combine; ASCII 公式行 9: L2983-2985 (N/Sx/Sxx 合并式)+L3514-3519 (regr 六式); 数学恒等式标注行 22: NAN 比较 6 (L1052/1054/1058/1128/1130/1134)+y/x=±Inf 4 (L1538/1545/1557/1564)+cosd/sind/cotd/tand 恒等式 12 (L2342/2348/2354/2398/2405/2412/2463/2470/2477/2520/2527/2534); 全清单 57 行见 preserved_reasons (块口径: 299=译 277+整块保留 22, 恒等式单行块计入保留, 混块计入译); 行数守恒 4177 不变 (git diff numstat 642/642); 代码字节零改动 (新旧逐行对照非键行 0 变更, 尾注代码行 L1572/L1606/L4173 仅注释段替换且代码段逐字节相同); NUL 扫描 0; 同 EN 同译实证: L174=L374=L531 对外暴露本函数供希望以较独立于平台, L195=L401 跳过前导空白, L199=L406 空串检查段, L212=L418 是否没看到任何形似 double 的内容?, L218-225=L424-431 C99 段, L265-269=L471-475 ERANGE 非规范化段, L499=L503 停止点, L1036-37=L1112-13 拒绝偏移, L1045-47=L1121-23 NaN 排序段, L1062-68=L1138-44 窗口帧段, L1079-82=L1155-58 FPU 段, L1218-20=L1243-45=L1292-94=L1317-19 小数部分段, L1224=L1249=L1298=L1323 范围检查, L1759=L1790=L1821=L1873=L1914=L1942=L1969=L2112=L2149=L2187 按 POSIX 规范返回 NaN, L1848=L2220 任一输入 NaN, L1918=L1946=L1973 务必抛出错误, L2324-25=L2380-81=L2445-46=L2502-03 NaN/无穷段, L2337=L2393=L2458=L2515 约减范围, L2421-23=L2543-45 负零段, L2657=L2677=L2757=L2777 无需 errno 检查, L3015-17=L3098-100=L3183-85=L3422-24=L3563-65 聚合作弊段, L3061-62=L3146-47=L3367-68 Youngs-Cramer 合并, L3072-75=L3157-60 溢出检查段, L3242=L3264=L3286=L3308 忽略 Sx, L3249=L3271=L3293=L3315=L3615=L3818=L3849 注意 Sxx 保证非负, L3611=L3632=L3653=L3674=L3693=L3712=L3754=L3783=L3814=L3845 若 N 为 0 应返回 NULL; 极性自查 (与代码语义对照): which is not well-defined→这并非良定义 / don't allow→不允许 / needn't supply→无需提供 / never overflows→从不溢出 / cannot produce an error→不可能出错 / isn't always true→并非总是如此 / don't return a divide-by-zero error code→不返回除以零的错误码 / can't rely on just the latter→仅凭后者也不可靠 / unportable→不可移植 / we don't want the compiler to know→不想让编译器知道 / dceil greatest→最大(大于等于)/dfloor least→最小(小于等于)/dtrunc 不大于最大+不小于最小 均与 EN 极性一致无反转; W7 advisory 29 站: 18 IDENT_LOST (横幅 16: L130/577/580/646/714/805/1172/1357/1986/2590/2744/2788/2878/3320/3859/3949 + L189 _after_ + L2847 normal) + 11 UNTRANSLATED (L2348/2354/2398/2405/2412/2463/2470/2477/2520/2527/2534 恒等式行); term_lint 本文件 5 站 advisory (TL08/P23: L217/L423/L1513), 全树唯一 error 为 postinit.c TL01 既往非本批; scan_halfen 本文件 5 站 MIXED (L371/1794/1852/1989/2878, 引号与标识符 run 固有); 句号台账 FWD 10 = L1422/L1424/L1990/L1994/L2246/L2260/L3088/L3173/L4129/L4133 (zh 句在该行收束而 EN 行为续行, 逐行 sed/python 回读核实); REV 6 = L212/L418 (ASCII ? 问答式注记)/L379 (句号后移合并至 L380 报诉。)/L2883 (列表式条目行与 L2884-89 同款无句号)/L2946/L3461 (句号后移至 L2947/L3462 调用。), 均自洽; 修复轮: 规划 2 (逐帧 dump 通读+spec 预算修剪), 写后 4 (R1 段落级散文残留 9 行清偿: L1068/1069/1144/1145/1885/2896/2905/2948/3338/3463/4081/4135 分行重排; R2 a 文件键修复漏放+L4081 重排+L376; R3 L376/L4081 微调; R4 L4133-4135 下溢为零重复缺陷清偿; 每轮 checkout 复位全量重放, 超 ≤3 约定 1 次如实披露: R3 readback 发现 R4 级硬伤必须清偿); 审后修复轮 5 (R5): D1 L3329-3330 六元素补全 Sxx/Sy (原仅 4 项, 73≤75/63≤65 现算复核); D2 L2696-2697 「其他|下不可能出错」字符残缺 → 「除此之|外不可能出错」; N1 L374-377 四行改写 strtod 归位 L376 (行数守恒); N2 L1883-1885 无论如何语序前移; N3 L4133 「为下溢。」→「下溢为零。」补回 zero 语义 (审查建议为下溢为零, 采同旨更顺形); N4-N6 L2281/L2301 统一「拼接 [0, 30] 与 (30, 90] 的正弦和余弦函数」/[0, 60] 带空格区间一致化; N7 L3332 EN 末叹号对齐 zh 叹号台账披露; 修复轮合计: 规划 2 + 写后 4 + 审后 1; 台账补记: L3332 (EN !/ZH !) 对齐项; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0417-adt-float.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0417 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0417 entries (float.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

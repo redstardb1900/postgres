@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonfuncs.c
- *		Functions to process JSON data types.
+ *		处理 JSON 数据类型的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,7 +38,7 @@
 #include "utils/syscache.h"
 #include "utils/typcache.h"
 
-/* Operations available for setPath */
+/* setPath 可用的操作 */
 #define JB_PATH_CREATE					0x0001
 #define JB_PATH_DELETE					0x0002
 #define JB_PATH_REPLACE					0x0004
@@ -49,7 +49,7 @@
 #define JB_PATH_FILL_GAPS				0x0020
 #define JB_PATH_CONSISTENT_POSITION		0x0040
 
-/* state for json_object_keys */
+/* json_object_keys 的状态 */
 typedef struct OkeysState
 {
 	JsonLexContext *lex;
@@ -59,28 +59,28 @@ typedef struct OkeysState
 	int			sent_count;
 } OkeysState;
 
-/* state for iterate_json_values function */
+/* iterate_json_values 函数的状态 */
 typedef struct IterateJsonStringValuesState
 {
 	JsonLexContext *lex;
-	JsonIterateStringValuesAction action;	/* an action that will be applied
-											 * to each json value */
-	void	   *action_state;	/* any necessary context for iteration */
-	uint32		flags;			/* what kind of elements from a json we want
-								 * to iterate */
+	JsonIterateStringValuesAction action;	/* 将应用到每个
+											 * json 值的操作 */
+	void	   *action_state;	/* 迭代所需的上下文 */
+	uint32		flags;			/* 想要从 json 中迭代的
+								 * 元素 */
 } IterateJsonStringValuesState;
 
-/* state for transform_json_string_values function */
+/* transform_json_string_values 函数的状态 */
 typedef struct TransformJsonStringValuesState
 {
 	JsonLexContext *lex;
-	StringInfo	strval;			/* resulting json */
-	JsonTransformStringValuesAction action; /* an action that will be applied
-											 * to each json value */
-	void	   *action_state;	/* any necessary context for transformation */
+	StringInfo	strval;			/* 结果 json */
+	JsonTransformStringValuesAction action; /* 将应用到每个
+											 * json 值的操作 */
+	void	   *action_state;	/* 变换所需的上下文 */
 } TransformJsonStringValuesState;
 
-/* state for json_get* functions */
+/* json_get* 函数的状态 */
 typedef struct GetState
 {
 	JsonLexContext *lex;
@@ -88,22 +88,22 @@ typedef struct GetState
 	char	   *result_start;
 	bool		normalize_results;
 	bool		next_scalar;
-	int			npath;			/* length of each path-related array */
-	char	  **path_names;		/* field name(s) being sought */
-	int		   *path_indexes;	/* array index(es) being sought */
-	bool	   *pathok;			/* is path matched to current depth? */
-	int		   *array_cur_index;	/* current element index at each path
-									 * level */
+	int			npath;			/* 各路径相关数组的长度 */
+	char	  **path_names;		/* 要查找的字段名 */
+	int		   *path_indexes;	/* 要查找的数组下标 */
+	bool	   *pathok;			/* 路径是否匹配当前深度? */
+	int		   *array_cur_index;	/* 各路径层级当前元素
+									 * 下标*/
 } GetState;
 
-/* state for json_array_length */
+/* json_array_length 的状态 */
 typedef struct AlenState
 {
 	JsonLexContext *lex;
 	int			count;
 } AlenState;
 
-/* state for json_each */
+/* json_each 的状态 */
 typedef struct EachState
 {
 	JsonLexContext *lex;
@@ -116,7 +116,7 @@ typedef struct EachState
 	char	   *normalized_scalar;
 } EachState;
 
-/* state for json_array_elements */
+/* json_array_elements 的状态 */
 typedef struct ElementsState
 {
 	JsonLexContext *lex;
@@ -130,7 +130,7 @@ typedef struct ElementsState
 	char	   *normalized_scalar;
 } ElementsState;
 
-/* state for get_json_object_as_hash */
+/* get_json_object_as_hash 的状态 */
 typedef struct JHashState
 {
 	JsonLexContext *lex;
@@ -141,59 +141,59 @@ typedef struct JHashState
 	JsonTokenType saved_token_type;
 } JHashState;
 
-/* hashtable element */
+/* 哈希表元素 */
 typedef struct JsonHashEntry
 {
-	char		fname[NAMEDATALEN]; /* hash key (MUST BE FIRST) */
+	char		fname[NAMEDATALEN]; /* 哈希键 (必须居首) */
 	char	   *val;
 	JsonTokenType type;
 } JsonHashEntry;
 
-/* structure to cache type I/O metadata needed for populate_scalar() */
+/* 缓存 populate_scalar() 所需类型 I/O 元数据的结构 */
 typedef struct ScalarIOData
 {
 	Oid			typioparam;
 	FmgrInfo	typiofunc;
 } ScalarIOData;
 
-/* these two structures are used recursively */
+/* 这两个结构会被递归使用 */
 typedef struct ColumnIOData ColumnIOData;
 typedef struct RecordIOData RecordIOData;
 
-/* structure to cache metadata needed for populate_array() */
+/* 缓存 populate_array() 所需元数据的结构 */
 typedef struct ArrayIOData
 {
-	ColumnIOData *element_info; /* metadata cache */
-	Oid			element_type;	/* array element type id */
-	int32		element_typmod; /* array element type modifier */
+	ColumnIOData *element_info; /* 元数据缓存*/
+	Oid			element_type;	/* 数组元素类型 id */
+	int32		element_typmod; /* 数组元素类型修饰符 */
 } ArrayIOData;
 
-/* structure to cache metadata needed for populate_composite() */
+/* 缓存 populate_composite() 所需元数据的结构 */
 typedef struct CompositeIOData
 {
 	/*
-	 * We use pointer to a RecordIOData here because variable-length struct
-	 * RecordIOData can't be used directly in ColumnIOData.io union
+	 * 此处用 RecordIOData 指针，因为变长结构
+	 * RecordIOData 无法直接用于 ColumnIOData.io 联合
 	 */
-	RecordIOData *record_io;	/* metadata cache for populate_record() */
-	TupleDesc	tupdesc;		/* cached tuple descriptor */
-	/* these fields differ from target type only if domain over composite: */
-	Oid			base_typid;		/* base type id */
-	int32		base_typmod;	/* base type modifier */
-	/* this field is used only if target type is domain over composite: */
-	void	   *domain_info;	/* opaque cache for domain checks */
+	RecordIOData *record_io;	/* populate_record() 的元数据缓存 */
+	TupleDesc	tupdesc;		/* 缓存的元组描述符*/
+	/* 仅当目标类型为复合上的域时这些字段才与之不同: */
+	Oid			base_typid;		/* 基类型 id */
+	int32		base_typmod;	/* 基类型修饰符 */
+	/* 仅当目标类型为复合上的域时才使用此字段: */
+	void	   *domain_info;	/* 域检查的不透明缓存*/
 } CompositeIOData;
 
-/* structure to cache metadata needed for populate_domain() */
+/* 缓存 populate_domain() 所需元数据的结构 */
 typedef struct DomainIOData
 {
-	ColumnIOData *base_io;		/* metadata cache */
-	Oid			base_typid;		/* base type id */
-	int32		base_typmod;	/* base type modifier */
-	void	   *domain_info;	/* opaque cache for domain checks */
+	ColumnIOData *base_io;		/* 元数据缓存*/
+	Oid			base_typid;		/* 基类型 id */
+	int32		base_typmod;	/* 基类型修饰符 */
+	void	   *domain_info;	/* 域检查的不透明缓存*/
 } DomainIOData;
 
-/* enumeration type categories */
+/* 枚举类型类别 */
 typedef enum TypeCat
 {
 	TYPECAT_SCALAR = 's',
@@ -203,26 +203,26 @@ typedef enum TypeCat
 	TYPECAT_DOMAIN = 'd'
 } TypeCat;
 
-/* these two are stolen from hstore / record_out, used in populate_record* */
+/* 这两个取自 hstore / record_out，用于 populate_record* */
 
-/* structure to cache record metadata needed for populate_record_field() */
+/* 缓存 populate_record_field() 所需记录元数据的结构 */
 struct ColumnIOData
 {
-	Oid			typid;			/* column type id */
-	int32		typmod;			/* column type modifier */
-	TypeCat		typcat;			/* column type category */
-	ScalarIOData scalar_io;		/* metadata cache for direct conversion
-								 * through input function */
+	Oid			typid;			/* 列类型 id */
+	int32		typmod;			/* 列类型修饰符 */
+	TypeCat		typcat;			/* 列类型类别 */
+	ScalarIOData scalar_io;		/* 元数据缓存，供直接
+								 * 经输入函数转换 */
 	union
 	{
 		ArrayIOData array;
 		CompositeIOData composite;
 		DomainIOData domain;
-	}			io;				/* metadata cache for various column type
-								 * categories */
+	}			io;				/* 各种列类型类别共用的
+								 * 缓存 */
 };
 
-/* structure to cache record metadata needed for populate_record() */
+/* 缓存 populate_record() 所需记录元数据的结构 */
 struct RecordIOData
 {
 	Oid			record_type;
@@ -231,15 +231,15 @@ struct RecordIOData
 	ColumnIOData columns[FLEXIBLE_ARRAY_MEMBER];
 };
 
-/* per-query cache for populate_record_worker and populate_recordset_worker */
+/* populate_record_worker 与 populate_recordset_worker 的每查询缓存 */
 typedef struct PopulateRecordCache
 {
-	Oid			argtype;		/* declared type of the record argument */
-	ColumnIOData c;				/* metadata cache for populate_composite() */
-	MemoryContext fn_mcxt;		/* where this is stored */
+	Oid			argtype;		/* record 参数的声明类型 */
+	ColumnIOData c;				/* populate_composite() 的元数据缓存 */
+	MemoryContext fn_mcxt;		/* 其存放位置 */
 } PopulateRecordCache;
 
-/* per-call state for populate_recordset */
+/* populate_recordset 每次调用状态*/
 typedef struct PopulateRecordsetState
 {
 	JsonLexContext *lex;
@@ -253,31 +253,31 @@ typedef struct PopulateRecordsetState
 	PopulateRecordCache *cache;
 } PopulateRecordsetState;
 
-/* common data for populate_array_json() and populate_array_dim_jsonb() */
+/* populate_array_json() 与 populate_array_dim_jsonb() 的公共数据 */
 typedef struct PopulateArrayContext
 {
-	ArrayBuildState *astate;	/* array build state */
-	ArrayIOData *aio;			/* metadata cache */
-	MemoryContext acxt;			/* array build memory context */
-	MemoryContext mcxt;			/* cache memory context */
-	const char *colname;		/* for diagnostics only */
-	int		   *dims;			/* dimensions */
-	int		   *sizes;			/* current dimension counters */
-	int			ndims;			/* number of dimensions */
+	ArrayBuildState *astate;	/* 数组构建状态*/
+	ArrayIOData *aio;			/* 元数据缓存*/
+	MemoryContext acxt;			/* 数组构建内存上下文*/
+	MemoryContext mcxt;			/* 缓存内存上下文*/
+	const char *colname;		/* 仅用于诊断 */
+	int		   *dims;			/* 维度 */
+	int		   *sizes;			/* 各维度当前计数 */
+	int			ndims;			/* 维度数 */
 } PopulateArrayContext;
 
-/* state for populate_array_json() */
+/* populate_array_json() 的状态 */
 typedef struct PopulateArrayState
 {
-	JsonLexContext *lex;		/* json lexer */
-	PopulateArrayContext *ctx;	/* context */
-	char	   *element_start;	/* start of the current array element */
-	char	   *element_scalar; /* current array element token if it is a
-								 * scalar */
-	JsonTokenType element_type; /* current array element type */
+	JsonLexContext *lex;		/* json 词法*/
+	PopulateArrayContext *ctx;	/*上下文*/
+	char	   *element_start;	/* 当前数组元素的起始处 */
+	char	   *element_scalar; /* 当前数组元素记号，若
+								 * 标量 */
+	JsonTokenType element_type; /* 当前数组元素类型 */
 } PopulateArrayState;
 
-/* state for json_strip_nulls */
+/* json_strip_nulls 的状态 */
 typedef struct StripnullState
 {
 	JsonLexContext *lex;
@@ -285,7 +285,7 @@ typedef struct StripnullState
 	bool		skip_next_null;
 } StripnullState;
 
-/* structure for generalized json/jsonb value passing */
+/* 广义的 json/jsonb 值传递结构 */
 typedef struct JsValue
 {
 	bool		is_json;		/* json/jsonb */
@@ -293,12 +293,12 @@ typedef struct JsValue
 	{
 		struct
 		{
-			char	   *str;	/* json string */
-			int			len;	/* json string length or -1 if null-terminated */
-			JsonTokenType type; /* json type */
-		}			json;		/* json value */
+			char	   *str;	/* json 串 */
+			int			len;	/* json 串长度，null 结尾时为 -1 */
+			JsonTokenType type; /* 类型 */
+		}			json;		/* json 值 */
 
-		JsonbValue *jsonb;		/* jsonb value */
+		JsonbValue *jsonb;		/* jsonb 值 */
 	}			val;
 } JsValue;
 
@@ -312,7 +312,7 @@ typedef struct JsObject
 	}			val;
 } JsObject;
 
-/* useful macros for testing JsValue properties */
+/* 测试 JsValue 属性的实用宏 */
 #define JsValueIsNull(jsv) \
 	((jsv)->is_json ?  \
 		(!(jsv)->val.json.str || (jsv)->val.json.type == JSON_TOKEN_NULL) : \
@@ -336,12 +336,12 @@ typedef struct JsObject
 
 static int	report_json_context(JsonLexContext *lex);
 
-/* semantic action functions for json_object_keys */
+/* json_object_keys 的语义动作函数 */
 static JsonParseErrorType okeys_object_field_start(void *state, char *fname, bool isnull);
 static JsonParseErrorType okeys_array_start(void *state);
 static JsonParseErrorType okeys_scalar(void *state, char *token, JsonTokenType tokentype);
 
-/* semantic action functions for json_get* functions */
+/* json_get* 函数的语义动作函数 */
 static JsonParseErrorType get_object_start(void *state);
 static JsonParseErrorType get_object_end(void *state);
 static JsonParseErrorType get_object_field_start(void *state, char *fname, bool isnull);
@@ -352,58 +352,58 @@ static JsonParseErrorType get_array_element_start(void *state, bool isnull);
 static JsonParseErrorType get_array_element_end(void *state, bool isnull);
 static JsonParseErrorType get_scalar(void *state, char *token, JsonTokenType tokentype);
 
-/* common worker function for json getter functions */
+/* json 取值函数的公共工作函数 */
 static Datum get_path_all(FunctionCallInfo fcinfo, bool as_text);
 static text *get_worker(text *json, char **tpath, int *ipath, int npath,
 						bool normalize_results);
 static Datum get_jsonb_path_all(FunctionCallInfo fcinfo, bool as_text);
 static text *JsonbValueAsText(JsonbValue *v);
 
-/* semantic action functions for json_array_length */
+/* json_array_length 的语义动作函数 */
 static JsonParseErrorType alen_object_start(void *state);
 static JsonParseErrorType alen_scalar(void *state, char *token, JsonTokenType tokentype);
 static JsonParseErrorType alen_array_element_start(void *state, bool isnull);
 
-/* common workers for json{b}_each* functions */
+/* json{b}_each* 的公共工作函数 */
 static Datum each_worker(FunctionCallInfo fcinfo, bool as_text);
 static Datum each_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname,
 							   bool as_text);
 
-/* semantic action functions for json_each */
+/* json_each 的语义动作函数 */
 static JsonParseErrorType each_object_field_start(void *state, char *fname, bool isnull);
 static JsonParseErrorType each_object_field_end(void *state, char *fname, bool isnull);
 static JsonParseErrorType each_array_start(void *state);
 static JsonParseErrorType each_scalar(void *state, char *token, JsonTokenType tokentype);
 
-/* common workers for json{b}_array_elements_* functions */
+/* json{b}_array_elements_* 函数的公共工作函数 */
 static Datum elements_worker(FunctionCallInfo fcinfo, const char *funcname,
 							 bool as_text);
 static Datum elements_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname,
 								   bool as_text);
 
-/* semantic action functions for json_array_elements */
+/* json_array_elements 的语义动作函数 */
 static JsonParseErrorType elements_object_start(void *state);
 static JsonParseErrorType elements_array_element_start(void *state, bool isnull);
 static JsonParseErrorType elements_array_element_end(void *state, bool isnull);
 static JsonParseErrorType elements_scalar(void *state, char *token, JsonTokenType tokentype);
 
-/* turn a json object into a hash table */
+/* 把 json 对象转成哈希表 */
 static HTAB *get_json_object_as_hash(char *json, int len, const char *funcname);
 
-/* semantic actions for populate_array_json */
+/* populate_array_json 的语义动作 */
 static JsonParseErrorType populate_array_object_start(void *_state);
 static JsonParseErrorType populate_array_array_end(void *_state);
 static JsonParseErrorType populate_array_element_start(void *_state, bool isnull);
 static JsonParseErrorType populate_array_element_end(void *_state, bool isnull);
 static JsonParseErrorType populate_array_scalar(void *_state, char *token, JsonTokenType tokentype);
 
-/* semantic action functions for get_json_object_as_hash */
+/* get_json_object_as_hash 的语义动作函数 */
 static JsonParseErrorType hash_object_field_start(void *state, char *fname, bool isnull);
 static JsonParseErrorType hash_object_field_end(void *state, char *fname, bool isnull);
 static JsonParseErrorType hash_array_start(void *state);
 static JsonParseErrorType hash_scalar(void *state, char *token, JsonTokenType tokentype);
 
-/* semantic action functions for populate_recordset */
+/* populate_recordset 的语义动作函数 */
 static JsonParseErrorType populate_recordset_object_field_start(void *state, char *fname, bool isnull);
 static JsonParseErrorType populate_recordset_object_field_end(void *state, char *fname, bool isnull);
 static JsonParseErrorType populate_recordset_scalar(void *state, char *token, JsonTokenType tokentype);
@@ -412,7 +412,7 @@ static JsonParseErrorType populate_recordset_object_end(void *state);
 static JsonParseErrorType populate_recordset_array_start(void *state);
 static JsonParseErrorType populate_recordset_array_element_start(void *state, bool isnull);
 
-/* semantic action functions for json_strip_nulls */
+/* json_strip_nulls 的语义动作函数 */
 static JsonParseErrorType sn_object_start(void *state);
 static JsonParseErrorType sn_object_end(void *state);
 static JsonParseErrorType sn_array_start(void *state);
@@ -421,13 +421,13 @@ static JsonParseErrorType sn_object_field_start(void *state, char *fname, bool i
 static JsonParseErrorType sn_array_element_start(void *state, bool isnull);
 static JsonParseErrorType sn_scalar(void *state, char *token, JsonTokenType tokentype);
 
-/* worker functions for populate_record, to_record, populate_recordset and to_recordset */
+/* populate_record、to_record、populate_recordset 和 to_recordset 的工作函数 */
 static Datum populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
 									   bool is_json, bool have_record_arg);
 static Datum populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 									bool is_json, bool have_record_arg);
 
-/* helper functions for populate_record[set] */
+/* populate_record[set] 的辅助函数 */
 static HeapTupleHeader populate_record(TupleDesc tupdesc, RecordIOData **record_p,
 									   HeapTupleHeader defaultval, MemoryContext mcxt,
 									   JsObject *obj);
@@ -462,7 +462,7 @@ static Datum populate_array(ArrayIOData *aio, const char *colname,
 static Datum populate_domain(DomainIOData *io, Oid typid, const char *colname,
 							 MemoryContext mcxt, JsValue *jsv, bool isnull);
 
-/* functions supporting jsonb_delete, jsonb_set and jsonb_concat */
+/* 支持 jsonb_delete、jsonb_set 和 jsonb_concat 的函数 */
 static JsonbValue *IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 								  JsonbParseState **state);
 static JsonbValue *setPath(JsonbIterator **it, Datum *path_elems,
@@ -478,11 +478,11 @@ static void setPathArray(JsonbIterator **it, Datum *path_elems,
 						 int level,
 						 JsonbValue *newval, uint32 nelems, int op_type);
 
-/* function supporting iterate_json_values */
+/* 支持 iterate_json_values 的函数 */
 static JsonParseErrorType iterate_values_scalar(void *state, char *token, JsonTokenType tokentype);
 static JsonParseErrorType iterate_values_object_field_start(void *state, char *fname, bool isnull);
 
-/* functions supporting transform_json_string_values */
+/* 支持 transform_json_string_values 的函数 */
 static JsonParseErrorType transform_string_values_object_start(void *state);
 static JsonParseErrorType transform_string_values_object_end(void *state);
 static JsonParseErrorType transform_string_values_array_start(void *state);
@@ -495,13 +495,13 @@ static JsonParseErrorType transform_string_values_scalar(void *state, char *toke
 /*
  * pg_parse_json_or_errsave
  *
- * This function is like pg_parse_json, except that it does not return a
- * JsonParseErrorType. Instead, in case of any failure, this function will
- * save error data into *escontext if that's an ErrorSaveContext, otherwise
+ * 本函数类似于 pg_parse_json，但不返回
+ * JsonParseErrorType。发生任何失败时，本函数都会
+ * 若为 ErrorSaveContext 则将错误数据存入 *escontext，否则
  * ereport(ERROR).
  *
- * Returns a boolean indicating success or failure (failure will only be
- * returned when escontext is an ErrorSaveContext).
+ * 返回一个布尔值指示成败（失败只会在 escontext 为
+ * ErrorSaveContext 时返回）。
  */
 bool
 pg_parse_json_or_errsave(JsonLexContext *lex, JsonSemAction *sem,
@@ -521,15 +521,15 @@ pg_parse_json_or_errsave(JsonLexContext *lex, JsonSemAction *sem,
 /*
  * makeJsonLexContext
  *
- * This is like makeJsonLexContextCstringLen, but it accepts a text value
- * directly.
+ * 类似 makeJsonLexContextCstringLen，但直接接受 text
+ * 值。
  */
 JsonLexContext *
 makeJsonLexContext(text *json, bool need_escapes)
 {
 	/*
-	 * Most callers pass a detoasted datum, but it's not clear that they all
-	 * do.  pg_detoast_datum_packed() is cheap insurance.
+	 * 多数调用者传入去 toast 的 datum，但未必全都如此。
+	 * pg_detoast_datum_packed() 是廉价保险。
 	 */
 	json = pg_detoast_datum_packed(json);
 
@@ -540,16 +540,16 @@ makeJsonLexContext(text *json, bool need_escapes)
 }
 
 /*
- * SQL function json_object_keys
+ * SQL 函数 json_object_keys
  *
- * Returns the set of keys for the object argument.
+ * 返回对象参数的键集合。
  *
- * This SRF operates in value-per-call mode. It processes the
- * object during the first call, and the keys are simply stashed
- * in an array, whose size is expanded as necessary. This is probably
- * safe enough for a list of keys of a single object, since they are
- * limited in size to NAMEDATALEN and the number of keys is unlikely to
- * be so huge that it has major memory implications.
+ * 本 SRF 以 value-per-call 模式运作，首次调用时
+ * 处理对象，键只是被存入一个数组，其大小
+ * 按需扩展。这对单个对象的键列表而言大概是
+ * 安全的，因为键的大小受限于 NAMEDATALEN，且
+ * 键的数量不至于大到
+ * 对内存有重大影响。
  */
 Datum
 jsonb_object_keys(PG_FUNCTION_ARGS)
@@ -622,7 +622,7 @@ jsonb_object_keys(PG_FUNCTION_ARGS)
 }
 
 /*
- * Report a JSON error.
+ * 报告JSON 错误。
  */
 void
 json_errsave_error(JsonParseErrorType error, JsonLexContext *lex,
@@ -638,7 +638,7 @@ json_errsave_error(JsonParseErrorType error, JsonLexContext *lex,
 				 report_json_context(lex)));
 	else if (error == JSON_SEM_ACTION_FAILED)
 	{
-		/* semantic action function had better have reported something */
+		/* 语义动作函数最好已经报告了些什么 */
 		if (!SOFT_ERROR_OCCURRED(escontext))
 			elog(ERROR, "JSON semantic action function did not provide error information");
 	}
@@ -651,14 +651,14 @@ json_errsave_error(JsonParseErrorType error, JsonLexContext *lex,
 }
 
 /*
- * Report a CONTEXT line for bogus JSON input.
+ * 为无效 JSON 输入报告 CONTEXT 行。
  *
- * lex->token_terminator must be set to identify the spot where we detected
- * the error.  Note that lex->token_start might be NULL, in case we recognized
- * error at EOF.
+ * 必须设置 lex->token_terminator 以标识我们检测到错误的
+ * 位置。注意 lex->token_start 可能为 NULL，比如 EOF 处识别出
+ * 错误。
  *
- * The return value isn't meaningful, but we make it non-void so that this
- * can be invoked inside ereport().
+ * 返回值并无意义，但我们将其设为非 void，以便本函数
+ * 能在 ereport() 内被调用。
  */
 static int
 report_json_context(JsonLexContext *lex)
@@ -671,16 +671,16 @@ report_json_context(JsonLexContext *lex)
 	const char *prefix;
 	const char *suffix;
 
-	/* Choose boundaries for the part of the input we will display */
+	/* 为要显示的输入部分选择边界 */
 	line_start = lex->line_start;
 	context_start = line_start;
 	context_end = lex->token_terminator;
 	Assert(context_end >= context_start);
 
-	/* Advance until we are close enough to context_end */
+	/* 前进到足够接近 context_end 为止 */
 	while (context_end - context_start >= 50)
 	{
-		/* Advance to next multibyte character */
+		/* 前进到下一个多字节字符 */
 		if (IS_HIGHBIT_SET(*context_start))
 			context_start += pg_mblen(context_start);
 		else
@@ -688,22 +688,22 @@ report_json_context(JsonLexContext *lex)
 	}
 
 	/*
-	 * We add "..." to indicate that the excerpt doesn't start at the
-	 * beginning of the line ... but if we're within 3 characters of the
-	 * beginning of the line, we might as well just show the whole line.
+	 * 我们加上 "..." 来指示摘录不是从行首开始的，
+	 * 但如果距行首不足 3 个字符，那不如干脆显示
+	 * 整行。
 	 */
 	if (context_start - line_start <= 3)
 		context_start = line_start;
 
-	/* Get a null-terminated copy of the data to present */
+	/* 获取以 null 结尾的数据副本供展示 */
 	ctxtlen = context_end - context_start;
 	ctxt = palloc(ctxtlen + 1);
 	memcpy(ctxt, context_start, ctxtlen);
 	ctxt[ctxtlen] = '\0';
 
 	/*
-	 * Show the context, prefixing "..." if not starting at start of line, and
-	 * suffixing "..." if not ending at end of line.
+	 * 显示上下文，若不是从行首开始则前缀 "..."，若不是
+	 * 在行尾结束则后缀 "..."。
 	 */
 	prefix = (context_start > line_start) ? "..." : "";
 	suffix = (lex->token_type != JSON_TOKEN_END &&
@@ -744,10 +744,10 @@ json_object_keys(PG_FUNCTION_ARGS)
 		sem->array_start = okeys_array_start;
 		sem->scalar = okeys_scalar;
 		sem->object_field_start = okeys_object_field_start;
-		/* remainder are all NULL, courtesy of palloc0 above */
+		/* 其余都是 NULL，拜上面的 palloc0 所赐 */
 
 		pg_parse_json_or_ereport(lex, sem);
-		/* keys are now in state->result */
+		/* 键现在位于 state->result */
 
 		pfree(lex->strval->data);
 		pfree(lex->strval);
@@ -776,11 +776,11 @@ okeys_object_field_start(void *state, char *fname, bool isnull)
 {
 	OkeysState *_state = (OkeysState *) state;
 
-	/* only collecting keys for the top level object */
+	/* 只为顶层对象收集键 */
 	if (_state->lex->lex_level != 1)
 		return JSON_SUCCESS;
 
-	/* enlarge result array if necessary */
+	/* 必要时扩大结果数组 */
 	if (_state->result_count >= _state->result_size)
 	{
 		_state->result_size *= 2;
@@ -788,7 +788,7 @@ okeys_object_field_start(void *state, char *fname, bool isnull)
 			repalloc(_state->result, sizeof(char *) * _state->result_size);
 	}
 
-	/* save a copy of the field name */
+	/* 保存字段名的副本 */
 	_state->result[_state->result_count++] = pstrdup(fname);
 
 	return JSON_SUCCESS;
@@ -799,7 +799,7 @@ okeys_array_start(void *state)
 {
 	OkeysState *_state = (OkeysState *) state;
 
-	/* top level must be a json object */
+	/* 顶层必须是 json 对象 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -814,7 +814,7 @@ okeys_scalar(void *state, char *token, JsonTokenType tokentype)
 {
 	OkeysState *_state = (OkeysState *) state;
 
-	/* top level must be a json object */
+	/* 顶层必须是 json 对象 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -825,9 +825,9 @@ okeys_scalar(void *state, char *token, JsonTokenType tokentype)
 }
 
 /*
- * json and jsonb getter functions
- * these implement the -> ->> #> and #>> operators
- * and the json{b?}_extract_path*(json, text, ...) functions
+ * json 与 jsonb 取值函数
+ * 它们实现了 -> ->> #> 和 #>> 算子
+ * 以及 json{b?}_extract_path*(json, text, ...) 函数
  */
 
 
@@ -932,7 +932,7 @@ jsonb_array_element(PG_FUNCTION_ARGS)
 	if (!JB_ROOT_IS_ARRAY(jb))
 		PG_RETURN_NULL();
 
-	/* Handle negative subscript */
+	/* 处理负下标 */
 	if (element < 0)
 	{
 		uint32		nelements = JB_ROOT_COUNT(jb);
@@ -975,7 +975,7 @@ jsonb_array_element_text(PG_FUNCTION_ARGS)
 	if (!JB_ROOT_IS_ARRAY(jb))
 		PG_RETURN_NULL();
 
-	/* Handle negative subscript */
+	/* 处理负下标 */
 	if (element < 0)
 	{
 		uint32		nelements = JB_ROOT_COUNT(jb);
@@ -1007,7 +1007,7 @@ json_extract_path_text(PG_FUNCTION_ARGS)
 }
 
 /*
- * common routine for extract_path functions
+ * extract_path 系列函数的公共例程
  */
 static Datum
 get_path_all(FunctionCallInfo fcinfo, bool as_text)
@@ -1023,11 +1023,11 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
 	int			i;
 
 	/*
-	 * If the array contains any null elements, return NULL, on the grounds
-	 * that you'd have gotten NULL if any RHS value were NULL in a nested
-	 * series of applications of the -> operator.  (Note: because we also
-	 * return NULL for error cases such as no-such-field, this is true
-	 * regardless of the contents of the rest of the array.)
+	 * 若数组含有任何 null 元素则返回 NULL——因为在逐层
+	 * 应用 -> 算子的序列中，任一 RHS 值为 NULL 都将得到
+	 * NULL。（注：由于像无此字段这样的错误情况我们
+	 * 也会返回 NULL，所以无论数组其余内容如何这一
+	 * 点都成立。）
 	 */
 	if (array_contains_nulls(path))
 		PG_RETURN_NULL();
@@ -1043,9 +1043,9 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
 		tpath[i] = TextDatumGetCString(pathtext[i]);
 
 		/*
-		 * we have no idea at this stage what structure the document is so
-		 * just convert anything in the path that we can to an integer and set
-		 * all the other integers to INT_MIN which will never match.
+			 * 此阶段不知文档结构，故把路径中能转成整数
+			 * 的都转为整数，其余设为永不匹配的 INT_MIN。
+			 *
 		 */
 		if (*tpath[i] != '\0')
 		{
@@ -1074,19 +1074,19 @@ get_path_all(FunctionCallInfo fcinfo, bool as_text)
 /*
  * get_worker
  *
- * common worker for all the json getter functions
+ * 所有 json 取值函数的公共工作函数
  *
- * json: JSON object (in text form)
- * tpath[]: field name(s) to extract
- * ipath[]: array index(es) (zero-based) to extract, accepts negatives
- * npath: length of tpath[] and/or ipath[]
- * normalize_results: true to de-escape string and null scalars
+ * json: 文本形式 JSON 对象
+ * tpath[]: 要提取的字段名
+ * ipath[]: 要提取的数组下标（0 起算），接受负值
+ * npath: tpath[] / ipath[] 的长度
+ * normalize_results: true 时去转义字符串和 null 标量
  *
- * tpath can be NULL, or any one tpath[] entry can be NULL, if an object
- * field is not to be matched at that nesting level.  Similarly, ipath can
- * be NULL, or any one ipath[] entry can be INT_MIN if an array element is
- * not to be matched at that nesting level (a json datum should never be
- * large enough to have -INT_MIN elements due to MaxAllocSize restriction).
+ * tpath 可为 NULL，或任一 tpath[] 元素可为 NULL——若
+ * 对象字段无需在该嵌套层级匹配。类似地，ipath 可为
+ * NULL，或任一 ipath[] 元素可为 INT_MIN——若数组元素无
+ * 需在该嵌套层级匹配（json 数据绝不可能大到拥有
+ * -INT_MIN 个元素，因为受 MaxAllocSize 限制）。
  */
 static text *
 get_worker(text *json,
@@ -1102,7 +1102,7 @@ get_worker(text *json,
 	Assert(npath >= 0);
 
 	state->lex = lex;
-	/* is it "_as_text" variant? */
+	/* 是 "_as_text" 变体吗? */
 	state->normalize_results = normalize_results;
 	state->npath = npath;
 	state->path_names = tpath;
@@ -1116,8 +1116,8 @@ get_worker(text *json,
 	sem->semstate = (void *) state;
 
 	/*
-	 * Not all variants need all the semantic routines. Only set the ones that
-	 * are actually needed for maximum efficiency.
+	 * 并非所有变体需要全部语义例程。只设置实际需要
+	 * 的那些，以求最大效率。
 	 */
 	sem->scalar = get_scalar;
 	if (npath == 0)
@@ -1153,9 +1153,9 @@ get_object_start(void *state)
 	if (lex_level == 0 && _state->npath == 0)
 	{
 		/*
-		 * Special case: we should match the entire object.  We only need this
-		 * at outermost level because at nested levels the match will have
-		 * been started by the outer field or array element callback.
+			 * 特例：应匹配整个对象。这只需
+			 * 在最外层做，因为嵌套层级的匹配已由外层
+			 * 字段或数组元素回调启动。
 		 */
 		_state->result_start = _state->lex->token_start;
 	}
@@ -1171,7 +1171,7 @@ get_object_end(void *state)
 
 	if (lex_level == 0 && _state->npath == 0)
 	{
-		/* Special case: return the entire object */
+		/* 特例：返回整个对象 */
 		char	   *start = _state->result_start;
 		int			len = _state->lex->prev_token_terminator - start;
 
@@ -1196,31 +1196,31 @@ get_object_field_start(void *state, char *fname, bool isnull)
 	{
 		if (lex_level < _state->npath)
 		{
-			/* if not at end of path just mark path ok */
+			/* 若未到路径末尾则只标记匹配 */
 			_state->pathok[lex_level] = true;
 		}
 		else
 		{
-			/* end of path, so we want this value */
+			/* 路径结束，我们要这个值 */
 			get_next = true;
 		}
 	}
 
 	if (get_next)
 	{
-		/* this object overrides any previous matching object */
+		/* 该对象覆盖之前任何匹配的对象 */
 		_state->tresult = NULL;
 		_state->result_start = NULL;
 
 		if (_state->normalize_results &&
 			_state->lex->token_type == JSON_TOKEN_STRING)
 		{
-			/* for as_text variants, tell get_scalar to set it for us */
+			/* 对 as_text 变体，让 get_scalar 代为设置 */
 			_state->next_scalar = true;
 		}
 		else
 		{
-			/* for non-as_text variants, just note the json starting point */
+			/* 对非 as_text 变体，只记录 json 起始点 */
 			_state->result_start = _state->lex->token_start;
 		}
 	}
@@ -1235,7 +1235,7 @@ get_object_field_end(void *state, char *fname, bool isnull)
 	bool		get_last = false;
 	int			lex_level = _state->lex->lex_level;
 
-	/* same tests as in get_object_field_start */
+	/* 同 get_object_field_start 的测试 */
 	if (lex_level <= _state->npath &&
 		_state->pathok[lex_level - 1] &&
 		_state->path_names != NULL &&
@@ -1244,23 +1244,23 @@ get_object_field_end(void *state, char *fname, bool isnull)
 	{
 		if (lex_level < _state->npath)
 		{
-			/* done with this field so reset pathok */
+			/* 此字段完毕，重置 pathok */
 			_state->pathok[lex_level] = false;
 		}
 		else
 		{
-			/* end of path, so we want this value */
+			/* 路径结束，我们要这个值 */
 			get_last = true;
 		}
 	}
 
-	/* for as_text scalar case, our work is already done */
+	/* as_text 标量情形下工作已完成 */
 	if (get_last && _state->result_start != NULL)
 	{
 		/*
-		 * make a text object from the string from the previously noted json
-		 * start up to the end of the previous token (the lexer is by now
-		 * ahead of us on whatever came after what we're interested in).
+			 * 用先前记录的 json 起点到上一记号末尾的字符串
+			 * 构造 text 对象（词法分析器已越过
+			 * 我们感兴趣的内容之后的部分）。
 		 */
 		if (isnull && _state->normalize_results)
 			_state->tresult = (text *) NULL;
@@ -1272,7 +1272,7 @@ get_object_field_end(void *state, char *fname, bool isnull)
 			_state->tresult = cstring_to_text_with_len(start, len);
 		}
 
-		/* this should be unnecessary but let's do it for cleanliness: */
+		/* 这本无必要，但为了整洁还是做一下： */
 		_state->result_start = NULL;
 	}
 
@@ -1287,14 +1287,14 @@ get_array_start(void *state)
 
 	if (lex_level < _state->npath)
 	{
-		/* Initialize counting of elements in this array */
+		/* 初始化该数组中元素的计数 */
 		_state->array_cur_index[lex_level] = -1;
 
-		/* INT_MIN value is reserved to represent invalid subscript */
+		/* INT_MIN 值保留用于表示无效下标 */
 		if (_state->path_indexes[lex_level] < 0 &&
 			_state->path_indexes[lex_level] != INT_MIN)
 		{
-			/* Negative subscript -- convert to positive-wise subscript */
+			/* 负下标——转换为正向计的下标 */
 			JsonParseErrorType error;
 			int			nelements;
 
@@ -1309,9 +1309,9 @@ get_array_start(void *state)
 	else if (lex_level == 0 && _state->npath == 0)
 	{
 		/*
-		 * Special case: we should match the entire array.  We only need this
-		 * at the outermost level because at nested levels the match will have
-		 * been started by the outer field or array element callback.
+			 * 特例：应匹配整个数组。这只需在最外层做，
+			 * 因为嵌套层级的匹配已由外层字段或数组元素
+			 * 回调启动。
 		 */
 		_state->result_start = _state->lex->token_start;
 	}
@@ -1327,7 +1327,7 @@ get_array_end(void *state)
 
 	if (lex_level == 0 && _state->npath == 0)
 	{
-		/* Special case: return the entire array */
+		/* 特例：返回整个数组 */
 		char	   *start = _state->result_start;
 		int			len = _state->lex->prev_token_terminator - start;
 
@@ -1344,7 +1344,7 @@ get_array_element_start(void *state, bool isnull)
 	bool		get_next = false;
 	int			lex_level = _state->lex->lex_level;
 
-	/* Update array element counter */
+	/* 更新数组元素计数器 */
 	if (lex_level <= _state->npath)
 		_state->array_cur_index[lex_level - 1]++;
 
@@ -1355,17 +1355,17 @@ get_array_element_start(void *state, bool isnull)
 	{
 		if (lex_level < _state->npath)
 		{
-			/* if not at end of path just mark path ok */
+			/* 若未到路径末尾则只标记匹配 */
 			_state->pathok[lex_level] = true;
 		}
 		else
 		{
-			/* end of path, so we want this value */
+			/* 路径结束，我们要这个值 */
 			get_next = true;
 		}
 	}
 
-	/* same logic as for objects */
+	/* 与对象相同的逻辑 */
 	if (get_next)
 	{
 		_state->tresult = NULL;
@@ -1392,7 +1392,7 @@ get_array_element_end(void *state, bool isnull)
 	bool		get_last = false;
 	int			lex_level = _state->lex->lex_level;
 
-	/* same tests as in get_array_element_start */
+	/* 同 get_array_element_start 的测试 */
 	if (lex_level <= _state->npath &&
 		_state->pathok[lex_level - 1] &&
 		_state->path_indexes != NULL &&
@@ -1400,17 +1400,17 @@ get_array_element_end(void *state, bool isnull)
 	{
 		if (lex_level < _state->npath)
 		{
-			/* done with this element so reset pathok */
+			/* 此元素完毕，重置 pathok */
 			_state->pathok[lex_level] = false;
 		}
 		else
 		{
-			/* end of path, so we want this value */
+			/* 路径结束，我们要这个值 */
 			get_last = true;
 		}
 	}
 
-	/* same logic as for objects */
+	/* 与对象相同的逻辑 */
 	if (get_last && _state->result_start != NULL)
 	{
 		if (isnull && _state->normalize_results)
@@ -1435,12 +1435,12 @@ get_scalar(void *state, char *token, JsonTokenType tokentype)
 	GetState   *_state = (GetState *) state;
 	int			lex_level = _state->lex->lex_level;
 
-	/* Check for whole-object match */
+	/* 检查整个对象匹配 */
 	if (lex_level == 0 && _state->npath == 0)
 	{
 		if (_state->normalize_results && tokentype == JSON_TOKEN_STRING)
 		{
-			/* we want the de-escaped string */
+			/* 要去转义后的字符串 */
 			_state->next_scalar = true;
 		}
 		else if (_state->normalize_results && tokentype == JSON_TOKEN_NULL)
@@ -1450,9 +1450,9 @@ get_scalar(void *state, char *token, JsonTokenType tokentype)
 		else
 		{
 			/*
-			 * This is a bit hokey: we will suppress whitespace after the
-			 * scalar token, but not whitespace before it.  Probably not worth
-			 * doing our own space-skipping to avoid that.
+				 * 有点凑合：我们抑制标量记号后的空白，
+				 * 但不抑制其前空白。大概不值得为此专门
+				 * 跳过空格来避免它。
 			 */
 			char	   *start = _state->lex->input;
 			int			len = _state->lex->prev_token_terminator - start;
@@ -1463,9 +1463,9 @@ get_scalar(void *state, char *token, JsonTokenType tokentype)
 
 	if (_state->next_scalar)
 	{
-		/* a de-escaped text value is wanted, so supply it */
+		/* 需要去转义的文本值，因此提供它 */
 		_state->tresult = cstring_to_text(token);
-		/* make sure the next call to get_scalar doesn't overwrite it */
+		/* 确保下一次 get_scalar 调用不会覆盖它 */
 		_state->next_scalar = false;
 	}
 
@@ -1496,11 +1496,11 @@ get_jsonb_path_all(FunctionCallInfo fcinfo, bool as_text)
 	Datum		res;
 
 	/*
-	 * If the array contains any null elements, return NULL, on the grounds
-	 * that you'd have gotten NULL if any RHS value were NULL in a nested
-	 * series of applications of the -> operator.  (Note: because we also
-	 * return NULL for error cases such as no-such-field, this is true
-	 * regardless of the contents of the rest of the array.)
+	 * 若数组含有任何 null 元素则返回 NULL——因为在逐层
+	 * 应用 -> 算子的序列中，任一 RHS 值为 NULL 都将得到
+	 * NULL。（注：由于像无此字段这样的错误情况我们
+	 * 也会返回 NULL，所以无论数组其余内容如何这一
+	 * 点都成立。）
 	 */
 	if (array_contains_nulls(path))
 		PG_RETURN_NULL();
@@ -1526,7 +1526,7 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
 
 	*isnull = false;
 
-	/* Identify whether we have object, array, or scalar at top-level */
+	/* 判明顶层是对象、数组还是标量 */
 	if (JB_ROOT_IS_OBJECT(jb))
 		have_object = true;
 	else if (JB_ROOT_IS_ARRAY(jb) && !JB_ROOT_IS_SCALAR(jb))
@@ -1534,18 +1534,18 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
 	else
 	{
 		Assert(JB_ROOT_IS_ARRAY(jb) && JB_ROOT_IS_SCALAR(jb));
-		/* Extract the scalar value, if it is what we'll return */
+		/* 若要返回的是标量值则提取它 */
 		if (npath <= 0)
 			jbvp = getIthJsonbValueFromContainer(container, 0);
 	}
 
 	/*
-	 * If the array is empty, return the entire LHS object, on the grounds
-	 * that we should do zero field or element extractions.  For the
-	 * non-scalar case we can just hand back the object without much work. For
-	 * the scalar case, fall through and deal with the value below the loop.
-	 * (This inconsistency arises because there's no easy way to generate a
-	 * JsonbValue directly for root-level containers.)
+	 * 若数组为空，返回整个 LHS 对象，理由是我们应当
+	 * 做零次字段或元素提取。对非标量情形可以
+	 * 不费什么事就把对象交回去。对标量情形则落到
+	 * 循环下方处理该值。
+	 * （这种不一致源于无法轻松地为根级容器直接生成
+	 * JsonbValue。）
 	 */
 	if (npath <= 0 && jbvp == NULL)
 	{
@@ -1557,7 +1557,7 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
 		}
 		else
 		{
-			/* not text mode - just hand back the jsonb */
+			/* 非文本模式——直接交回 jsonb */
 			PG_RETURN_JSONB_P(jb);
 		}
 	}
@@ -1594,10 +1594,10 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
 			}
 			else
 			{
-				/* Handle negative subscript */
+				/* 处理负下标 */
 				uint32		nelements;
 
-				/* Container must be array, but make sure */
+				/* 容器必须是数组，但需确认 */
 				if (!JsonContainerIsArray(container))
 					elog(ERROR, "not a jsonb array");
 
@@ -1616,7 +1616,7 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
 		}
 		else
 		{
-			/* scalar, extraction yields a null */
+			/* 标量，则提取得到 null */
 			*isnull = true;
 			return PointerGetDatum(NULL);
 		}
@@ -1658,7 +1658,7 @@ jsonb_get_element(Jsonb *jb, Datum *path, int npath, bool *isnull, bool as_text)
 	{
 		Jsonb	   *res = JsonbValueToJsonb(jbvp);
 
-		/* not text mode - just hand back the jsonb */
+		/* 非文本模式——直接交回 jsonb */
 		PG_RETURN_JSONB_P(res);
 	}
 }
@@ -1698,30 +1698,30 @@ push_null_elements(JsonbParseState **ps, int num)
 }
 
 /*
- * Prepare a new structure containing nested empty objects and arrays
- * corresponding to the specified path, and assign a new value at the end of
- * this path. E.g. the path [a][0][b] with the new value 1 will produce the
- * structure {a: [{b: 1}]}.
+ * 准备一个包含嵌套空对象和空数组的新结构，
+ * 使之对应指定路径，并在该路径末尾赋予新值。
+ * 例如带新值 1 的路径 [a][0][b] 将产生结构
+ * {a: [{b: 1}]}。
  *
- * Caller is responsible to make sure such path does not exist yet.
+ * 调用者负责确保这样的路径尚不存在。
  */
 static void
 push_path(JsonbParseState **st, int level, Datum *path_elems,
 		  bool *path_nulls, int path_len, JsonbValue *newval)
 {
 	/*
-	 * tpath contains expected type of an empty jsonb created at each level
-	 * higher or equal than the current one, either jbvObject or jbvArray.
-	 * Since it contains only information about path slice from level to the
-	 * end, the access index must be normalized by level.
+	 * tpath 包含每一层级上创建的空 jsonb 的预期类型，
+	 * 即高于或等于当前层级者，为 jbvObject 或 jbvArray。
+	 * 由于它只包含从某层级到末尾的路径切片信息，
+	 * 访问下标必须按层级归一化。
 	 */
 	enum jbvType *tpath = palloc0((path_len - level) * sizeof(enum jbvType));
 	JsonbValue	newkey;
 
 	/*
-	 * Create first part of the chain with beginning tokens. For the current
-	 * level WJB_BEGIN_OBJECT/WJB_BEGIN_ARRAY was already created, so start
-	 * with the next one.
+	 * 用起始记号创建链的第一部分。当前层级的
+	 * WJB_BEGIN_OBJECT/WJB_BEGIN_ARRAY 已创建，故从
+	 * 下一项起。
 	 */
 	for (int i = level + 1; i < path_len; i++)
 	{
@@ -1733,15 +1733,15 @@ push_path(JsonbParseState **st, int level, Datum *path_elems,
 			break;
 
 		/*
-		 * Try to convert to an integer to find out the expected type, object
-		 * or array.
+			 * 尝试转成整数以查明预期类型是对象还是数组。
+			 *
 		 */
 		c = TextDatumGetCString(path_elems[i]);
 		errno = 0;
 		lindex = strtoint(c, &badp, 10);
 		if (badp == c || *badp != '\0' || errno != 0)
 		{
-			/* text, an object is expected */
+			/* 文本，预期是对象 */
 			newkey.type = jbvString;
 			newkey.val.string.val = c;
 			newkey.val.string.len = strlen(c);
@@ -1753,7 +1753,7 @@ push_path(JsonbParseState **st, int level, Datum *path_elems,
 		}
 		else
 		{
-			/* integer, an array is expected */
+			/* 整数，预期是数组 */
 			(void) pushJsonbValue(st, WJB_BEGIN_ARRAY, NULL);
 
 			push_null_elements(st, lindex);
@@ -1762,7 +1762,7 @@ push_path(JsonbParseState **st, int level, Datum *path_elems,
 		}
 	}
 
-	/* Insert an actual value for either an object or array */
+	/* 为对象或数组插入实际值 */
 	if (tpath[(path_len - level) - 1] == jbvArray)
 	{
 		(void) pushJsonbValue(st, WJB_ELEM, newval);
@@ -1771,8 +1771,8 @@ push_path(JsonbParseState **st, int level, Datum *path_elems,
 		(void) pushJsonbValue(st, WJB_VALUE, newval);
 
 	/*
-	 * Close everything up to the last but one level. The last one will be
-	 * closed outside of this function.
+	 * 闭合到倒数第二层为止的一切。最后一层将由
+	 * 本函数之外闭合。
 	 */
 	for (int i = path_len - 1; i > level; i--)
 	{
@@ -1787,7 +1787,7 @@ push_path(JsonbParseState **st, int level, Datum *path_elems,
 }
 
 /*
- * Return the text representation of the given JsonbValue.
+ * 返回给定 JsonbValue 的文本表示。
  */
 static text *
 JsonbValueAsText(JsonbValue *v)
@@ -1834,7 +1834,7 @@ JsonbValueAsText(JsonbValue *v)
 }
 
 /*
- * SQL function json_array_length(json) -> int
+ * SQL 函数 json_array_length(json) -> int
  */
 Datum
 json_array_length(PG_FUNCTION_ARGS)
@@ -1848,7 +1848,7 @@ json_array_length(PG_FUNCTION_ARGS)
 	state = palloc0(sizeof(AlenState));
 	sem = palloc0(sizeof(JsonSemAction));
 
-	/* palloc0 does this for us */
+	/* palloc0 代劳 */
 #if 0
 	state->count = 0;
 #endif
@@ -1882,8 +1882,8 @@ jsonb_array_length(PG_FUNCTION_ARGS)
 }
 
 /*
- * These next two checks ensure that the json is an array (since it can't be
- * a scalar or an object).
+ * 接下来这两个检查确保 json 是数组（因为它不可能是
+ * 标量或对象）。
  */
 
 static JsonParseErrorType
@@ -1891,7 +1891,7 @@ alen_object_start(void *state)
 {
 	AlenState  *_state = (AlenState *) state;
 
-	/* json structure check */
+	/* json 结构检查 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1905,7 +1905,7 @@ alen_scalar(void *state, char *token, JsonTokenType tokentype)
 {
 	AlenState  *_state = (AlenState *) state;
 
-	/* json structure check */
+	/* json 结构检查 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1919,7 +1919,7 @@ alen_array_element_start(void *state, bool isnull)
 {
 	AlenState  *_state = (AlenState *) state;
 
-	/* just count up all the level 1 elements */
+	/* 只需数一遍所有 1 层元素 */
 	if (_state->lex->lex_level == 1)
 		_state->count++;
 
@@ -1927,14 +1927,14 @@ alen_array_element_start(void *state, bool isnull)
 }
 
 /*
- * SQL function json_each and json_each_text
+ * SQL 函数 json_each 与 json_each_text
  *
- * decompose a json object into key value pairs.
+ * 把 json 对象分解为键值对。
  *
- * Unlike json_object_keys() these SRFs operate in materialize mode,
- * stashing results into a Tuplestore object as they go.
- * The construction of tuples is done using a temporary memory context
- * that is cleared out after each tuple is built.
+ * 与 json_object_keys() 不同，它们以物化模式运作，
+ * 边执行边把结果存入 Tuplestore 对象。
+ * 元组的构造用一个临时内存上下文完成，该上下文
+ * 于每个元组构建后清空。
  */
 Datum
 json_each(PG_FUNCTION_ARGS)
@@ -1997,14 +1997,14 @@ each_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname, bool as_text)
 			Datum		values[2];
 			bool		nulls[2] = {false, false};
 
-			/* Use the tmp context so we can clean up after each tuple is done */
+			/* 使用 tmp 上下文，以便每个元组完成后清理 */
 			old_cxt = MemoryContextSwitchTo(tmp_cxt);
 
 			key = cstring_to_text_with_len(v.val.string.val, v.val.string.len);
 
 			/*
-			 * The next thing the iterator fetches should be the value, no
-			 * matter what shape it is.
+			 * 迭代器取的下一个东西应是值，无论其形状
+			 * 如何。
 			 */
 			r = JsonbIteratorNext(&it, &v, skipNested);
 			Assert(r != WJB_DONE);
@@ -2015,7 +2015,7 @@ each_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname, bool as_text)
 			{
 				if (v.type == jbvNull)
 				{
-					/* a json null is an sql null in text mode */
+					/* 文本模式下 json null 即 sql null */
 					nulls[1] = true;
 					values[1] = (Datum) NULL;
 				}
@@ -2024,7 +2024,7 @@ each_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname, bool as_text)
 			}
 			else
 			{
-				/* Not in text mode, just return the Jsonb */
+				/* 非文本模式，直接返回 Jsonb */
 				Jsonb	   *val = JsonbValueToJsonb(&v);
 
 				values[1] = PointerGetDatum(val);
@@ -2032,7 +2032,7 @@ each_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname, bool as_text)
 
 			tuplestore_putvalues(rsi->setResult, rsi->setDesc, values, nulls);
 
-			/* clean up and switch back */
+			/* 清理并切回 */
 			MemoryContextSwitchTo(old_cxt);
 			MemoryContextReset(tmp_cxt);
 		}
@@ -2089,13 +2089,13 @@ each_object_field_start(void *state, char *fname, bool isnull)
 {
 	EachState  *_state = (EachState *) state;
 
-	/* save a pointer to where the value starts */
+	/* 保存指向值起始处的指针 */
 	if (_state->lex->lex_level == 1)
 	{
 		/*
-		 * next_scalar will be reset in the object_field_end handler, and
-		 * since we know the value is a scalar there is no danger of it being
-		 * on while recursing down the tree.
+		 * next_scalar 会在 object_field_end 处理器中被重置，
+		 * 由于已知值是标量，它在沿树向下递归时保持
+		 * 开启并无危险。
 		 */
 		if (_state->normalize_results && _state->lex->token_type == JSON_TOKEN_STRING)
 			_state->next_scalar = true;
@@ -2117,11 +2117,11 @@ each_object_field_end(void *state, char *fname, bool isnull)
 	Datum		values[2];
 	bool		nulls[2] = {false, false};
 
-	/* skip over nested objects */
+	/* 跳过嵌套对象 */
 	if (_state->lex->lex_level != 1)
 		return JSON_SUCCESS;
 
-	/* use the tmp context so we can clean up after each tuple is done */
+	/* 使用 tmp 上下文，以便每个元组完成后清理 */
 	old_cxt = MemoryContextSwitchTo(_state->tmp_cxt);
 
 	values[0] = CStringGetTextDatum(fname);
@@ -2147,7 +2147,7 @@ each_object_field_end(void *state, char *fname, bool isnull)
 
 	tuplestore_puttuple(_state->tuple_store, tuple);
 
-	/* clean up and switch back */
+	/* 清理并切回 */
 	MemoryContextSwitchTo(old_cxt);
 	MemoryContextReset(_state->tmp_cxt);
 
@@ -2159,7 +2159,7 @@ each_array_start(void *state)
 {
 	EachState  *_state = (EachState *) state;
 
-	/* json structure check */
+	/* json 结构检查 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -2173,13 +2173,13 @@ each_scalar(void *state, char *token, JsonTokenType tokentype)
 {
 	EachState  *_state = (EachState *) state;
 
-	/* json structure check */
+	/* json 结构检查 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("cannot deconstruct a scalar")));
 
-	/* supply de-escaped value if required */
+	/* 需要时提供去转义的值 */
 	if (_state->next_scalar)
 		_state->normalized_scalar = token;
 
@@ -2187,11 +2187,11 @@ each_scalar(void *state, char *token, JsonTokenType tokentype)
 }
 
 /*
- * SQL functions json_array_elements and json_array_elements_text
+ * SQL 函数 json_array_elements 与 json_array_elements_text
  *
- * get the elements from a json array
+ * 从 json 数组中获取元素
  *
- * a lot of this processing is similar to the json_each* functions
+ * 这里的许多处理与 json_each* 函数类似
  */
 
 Datum
@@ -2247,14 +2247,14 @@ elements_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname,
 			Datum		values[1];
 			bool		nulls[1] = {false};
 
-			/* use the tmp context so we can clean up after each tuple is done */
+			/* 使用 tmp 上下文，以便每个元组完成后清理 */
 			old_cxt = MemoryContextSwitchTo(tmp_cxt);
 
 			if (as_text)
 			{
 				if (v.type == jbvNull)
 				{
-					/* a json null is an sql null in text mode */
+					/* 文本模式下 json null 即 sql null */
 					nulls[0] = true;
 					values[0] = (Datum) NULL;
 				}
@@ -2263,7 +2263,7 @@ elements_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname,
 			}
 			else
 			{
-				/* Not in text mode, just return the Jsonb */
+				/* 非文本模式，直接返回 Jsonb */
 				Jsonb	   *val = JsonbValueToJsonb(&v);
 
 				values[0] = PointerGetDatum(val);
@@ -2271,7 +2271,7 @@ elements_worker_jsonb(FunctionCallInfo fcinfo, const char *funcname,
 
 			tuplestore_putvalues(rsi->setResult, rsi->setDesc, values, nulls);
 
-			/* clean up and switch back */
+			/* 清理并切回 */
 			MemoryContextSwitchTo(old_cxt);
 			MemoryContextReset(tmp_cxt);
 		}
@@ -2299,7 +2299,7 @@ elements_worker(FunctionCallInfo fcinfo, const char *funcname, bool as_text)
 {
 	text	   *json = PG_GETARG_TEXT_PP(0);
 
-	/* elements only needs escaped strings when as_text */
+	/* 仅 as_text 时元素才需要转义字符串 */
 	JsonLexContext *lex = makeJsonLexContext(json, as_text);
 	JsonSemAction *sem;
 	ReturnSetInfo *rsi;
@@ -2339,13 +2339,13 @@ elements_array_element_start(void *state, bool isnull)
 {
 	ElementsState *_state = (ElementsState *) state;
 
-	/* save a pointer to where the value starts */
+	/* 保存指向值起始处的指针 */
 	if (_state->lex->lex_level == 1)
 	{
 		/*
-		 * next_scalar will be reset in the array_element_end handler, and
-		 * since we know the value is a scalar there is no danger of it being
-		 * on while recursing down the tree.
+		 * next_scalar 会在 array_element_end 处理器中被重置，
+		 * 由于已知值是标量，它在沿树向下递归时保持
+		 * 开启并无危险。
 		 */
 		if (_state->normalize_results && _state->lex->token_type == JSON_TOKEN_STRING)
 			_state->next_scalar = true;
@@ -2367,11 +2367,11 @@ elements_array_element_end(void *state, bool isnull)
 	Datum		values[1];
 	bool		nulls[1] = {false};
 
-	/* skip over nested objects */
+	/* 跳过嵌套对象 */
 	if (_state->lex->lex_level != 1)
 		return JSON_SUCCESS;
 
-	/* use the tmp context so we can clean up after each tuple is done */
+	/* 使用 tmp 上下文，以便每个元组完成后清理 */
 	old_cxt = MemoryContextSwitchTo(_state->tmp_cxt);
 
 	if (isnull && _state->normalize_results)
@@ -2395,7 +2395,7 @@ elements_array_element_end(void *state, bool isnull)
 
 	tuplestore_puttuple(_state->tuple_store, tuple);
 
-	/* clean up and switch back */
+	/* 清理并切回 */
 	MemoryContextSwitchTo(old_cxt);
 	MemoryContextReset(_state->tmp_cxt);
 
@@ -2407,7 +2407,7 @@ elements_object_start(void *state)
 {
 	ElementsState *_state = (ElementsState *) state;
 
-	/* json structure check */
+	/* json 结构检查 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -2422,14 +2422,14 @@ elements_scalar(void *state, char *token, JsonTokenType tokentype)
 {
 	ElementsState *_state = (ElementsState *) state;
 
-	/* json structure check */
+	/* json 结构检查 */
 	if (_state->lex->lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("cannot call %s on a scalar",
 						_state->function_name)));
 
-	/* supply de-escaped value if required */
+	/* 需要时提供去转义的值 */
 	if (_state->next_scalar)
 		_state->normalized_scalar = token;
 
@@ -2437,16 +2437,16 @@ elements_scalar(void *state, char *token, JsonTokenType tokentype)
 }
 
 /*
- * SQL function json_populate_record
+ * SQL 函数 json_populate_record
  *
- * set fields in a record from the argument json
+ * 根据参数 json 设置记录中的字段
  *
- * Code adapted shamelessly from hstore's populate_record
- * which is in turn partly adapted from record_out.
+ * 代码无耻地改编自 hstore 的 populate_record
+ * 而后者又部分改编自 record_out。
  *
- * The json is decomposed into a hash table, in which each
- * field in the record is then looked up by name. For jsonb
- * we fetch the values direct from the object.
+ * json 被分解成哈希表，随后按名查找每个
+ * 记录字段。对 jsonb 则直接从对象取值。
+ *
  */
 Datum
 jsonb_populate_record(PG_FUNCTION_ARGS)
@@ -2476,7 +2476,7 @@ json_to_record(PG_FUNCTION_ARGS)
 								  true, false);
 }
 
-/* helper function for diagnostics */
+/* 诊断用辅助函数 */
 static void
 populate_array_report_expected_array(PopulateArrayContext *ctx, int ndim)
 {
@@ -2519,7 +2519,7 @@ populate_array_report_expected_array(PopulateArrayContext *ctx, int ndim)
 	}
 }
 
-/* set the number of dimensions of the populated array when it becomes known */
+/* 在已知时设置已填充数组的维度数 */
 static void
 populate_array_assign_ndims(PopulateArrayContext *ctx, int ndims)
 {
@@ -2535,17 +2535,17 @@ populate_array_assign_ndims(PopulateArrayContext *ctx, int ndims)
 	ctx->sizes = palloc0(sizeof(int) * ndims);
 
 	for (i = 0; i < ndims; i++)
-		ctx->dims[i] = -1;		/* dimensions are unknown yet */
+		ctx->dims[i] = -1;		/* 维度尚不可知 */
 }
 
-/* check the populated subarray dimension */
+/* 检查已填充子数组维度 */
 static void
 populate_array_check_dimension(PopulateArrayContext *ctx, int ndim)
 {
-	int			dim = ctx->sizes[ndim]; /* current dimension counter */
+	int			dim = ctx->sizes[ndim]; /* 当前维度计数器 */
 
 	if (ctx->dims[ndim] == -1)
-		ctx->dims[ndim] = dim;	/* assign dimension if not yet known */
+		ctx->dims[ndim] = dim;	/* 若尚不知则赋维度 */
 	else if (ctx->dims[ndim] != dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -2553,10 +2553,10 @@ populate_array_check_dimension(PopulateArrayContext *ctx, int ndim)
 				 errdetail("Multidimensional arrays must have "
 						   "sub-arrays with matching dimensions.")));
 
-	/* reset the current array dimension size counter */
+	/* 重置当前数组维度大小计数器 */
 	ctx->sizes[ndim] = 0;
 
-	/* increment the parent dimension counter if it is a nested sub-array */
+	/* 若是嵌套子数组则递增父维度计数器 */
 	if (ndim > 0)
 		ctx->sizes[ndim - 1]++;
 }
@@ -2567,7 +2567,7 @@ populate_array_element(PopulateArrayContext *ctx, int ndim, JsValue *jsv)
 	Datum		element;
 	bool		element_isnull;
 
-	/* populate the array element */
+	/* 填充数组元素 */
 	element = populate_record_field(ctx->aio->element_info,
 									ctx->aio->element_type,
 									ctx->aio->element_typmod,
@@ -2578,10 +2578,10 @@ populate_array_element(PopulateArrayContext *ctx, int ndim, JsValue *jsv)
 					 ctx->aio->element_type, ctx->acxt);
 
 	Assert(ndim > 0);
-	ctx->sizes[ndim - 1]++;		/* increment current dimension counter */
+	ctx->sizes[ndim - 1]++;		/* 递增当前维度计数器 */
 }
 
-/* json object start handler for populate_array_json() */
+/* populate_array_json() 的 json 对象开始回调 */
 static JsonParseErrorType
 populate_array_object_start(void *_state)
 {
@@ -2596,7 +2596,7 @@ populate_array_object_start(void *_state)
 	return JSON_SUCCESS;
 }
 
-/* json array end handler for populate_array_json() */
+/* populate_array_json() 的json 数组结束回调 */
 static JsonParseErrorType
 populate_array_array_end(void *_state)
 {
@@ -2613,7 +2613,7 @@ populate_array_array_end(void *_state)
 	return JSON_SUCCESS;
 }
 
-/* json array element start handler for populate_array_json() */
+/* populate_array_json() 的 json 数组元素开始回调 */
 static JsonParseErrorType
 populate_array_element_start(void *_state, bool isnull)
 {
@@ -2622,7 +2622,7 @@ populate_array_element_start(void *_state, bool isnull)
 
 	if (state->ctx->ndims <= 0 || ndim == state->ctx->ndims)
 	{
-		/* remember current array element start */
+		/* 记住当前数组元素起始处 */
 		state->element_start = state->lex->token_start;
 		state->element_type = state->lex->token_type;
 		state->element_scalar = NULL;
@@ -2631,7 +2631,7 @@ populate_array_element_start(void *_state, bool isnull)
 	return JSON_SUCCESS;
 }
 
-/* json array element end handler for populate_array_json() */
+/* populate_array_json() 的 json 数组元素结束回调 */
 static JsonParseErrorType
 populate_array_element_end(void *_state, bool isnull)
 {
@@ -2657,7 +2657,7 @@ populate_array_element_end(void *_state, bool isnull)
 		else if (state->element_scalar)
 		{
 			jsv.val.json.str = state->element_scalar;
-			jsv.val.json.len = -1;	/* null-terminated */
+			jsv.val.json.len = -1;	/* null 结尾 */
 		}
 		else
 		{
@@ -2672,7 +2672,7 @@ populate_array_element_end(void *_state, bool isnull)
 	return JSON_SUCCESS;
 }
 
-/* json scalar handler for populate_array_json() */
+/* populate_array_json() 的 json 标量回调 */
 static JsonParseErrorType
 populate_array_scalar(void *_state, char *token, JsonTokenType tokentype)
 {
@@ -2687,16 +2687,16 @@ populate_array_scalar(void *_state, char *token, JsonTokenType tokentype)
 
 	if (ndim == ctx->ndims)
 	{
-		/* remember the scalar element token */
+		/* 记住标量元素记号 */
 		state->element_scalar = token;
-		/* element_type must already be set in populate_array_element_start() */
+		/* element_type 必须已在 populate_array_element_start() 中设置 */
 		Assert(state->element_type == tokentype);
 	}
 
 	return JSON_SUCCESS;
 }
 
-/* parse a json array and populate array */
+/* 解析 json 数组并填充数组 */
 static void
 populate_array_json(PopulateArrayContext *ctx, char *json, int len)
 {
@@ -2716,20 +2716,20 @@ populate_array_json(PopulateArrayContext *ctx, char *json, int len)
 
 	pg_parse_json_or_ereport(state.lex, &sem);
 
-	/* number of dimensions should be already known */
+	/* 维度数应当已知 */
 	Assert(ctx->ndims > 0 && ctx->dims);
 
 	pfree(state.lex);
 }
 
 /*
- * populate_array_dim_jsonb() -- Iterate recursively through jsonb sub-array
- *		elements and accumulate result using given ArrayBuildState.
+ * populate_array_dim_jsonb() —— 递归遍历 jsonb 子数组
+ *		元素，并用给定的 ArrayBuildState 累积结果。
  */
 static void
-populate_array_dim_jsonb(PopulateArrayContext *ctx, /* context */
-						 JsonbValue *jbv,	/* jsonb sub-array */
-						 int ndim)	/* current dimension */
+populate_array_dim_jsonb(PopulateArrayContext *ctx, /*上下文*/
+						 JsonbValue *jbv,	/* jsonb 子数组*/
+						 int ndim)	/* 当前维度 */
 {
 	JsonbContainer *jbc = jbv->val.binary.data;
 	JsonbIterator *it;
@@ -2752,9 +2752,9 @@ populate_array_dim_jsonb(PopulateArrayContext *ctx, /* context */
 	tok = JsonbIteratorNext(&it, &val, true);
 
 	/*
-	 * If the number of dimensions is not yet known and we have found end of
-	 * the array, or the first child element is not an array, then assign the
-	 * number of dimensions now.
+	 * 若维度数尚不可知且我们已找到数组结尾，或第一个
+	 * 子元素不是数组，则此刻就赋予
+	 * 维度数。
 	 */
 	if (ctx->ndims <= 0 &&
 		(tok == WJB_END_ARRAY ||
@@ -2766,21 +2766,21 @@ populate_array_dim_jsonb(PopulateArrayContext *ctx, /* context */
 	jsv.is_json = false;
 	jsv.val.jsonb = &val;
 
-	/* process all the array elements */
+	/* 处理所有数组元素 */
 	while (tok == WJB_ELEM)
 	{
 		/*
-		 * Recurse only if the dimensions of dimensions is still unknown or if
-		 * it is not the innermost dimension.
+		 * 仅当维度数仍未知，或其并非最内层
+		 * 维度时才递归。
 		 */
 		if (ctx->ndims > 0 && ndim >= ctx->ndims)
 			populate_array_element(ctx, ndim, &jsv);
 		else
 		{
-			/* populate child sub-array */
+			/* 填充下级子数组 */
 			populate_array_dim_jsonb(ctx, &val, ndim + 1);
 
-			/* number of dimensions should be already known */
+			/* 维度数应当已知 */
 			Assert(ctx->ndims > 0 && ctx->dims);
 
 			populate_array_check_dimension(ctx, ndim);
@@ -2791,12 +2791,12 @@ populate_array_dim_jsonb(PopulateArrayContext *ctx, /* context */
 
 	Assert(tok == WJB_END_ARRAY);
 
-	/* free iterator, iterating until WJB_DONE */
+	/* 释放迭代器，迭代直至 WJB_DONE */
 	tok = JsonbIteratorNext(&it, &val, true);
 	Assert(tok == WJB_DONE && !it);
 }
 
-/* recursively populate an array from json/jsonb */
+/* 从 json/jsonb 递归填充数组 */
 static Datum
 populate_array(ArrayIOData *aio,
 			   const char *colname,
@@ -2813,7 +2813,7 @@ populate_array(ArrayIOData *aio,
 	ctx.acxt = CurrentMemoryContext;
 	ctx.astate = initArrayResult(aio->element_type, ctx.acxt, true);
 	ctx.colname = colname;
-	ctx.ndims = 0;				/* unknown yet */
+	ctx.ndims = 0;				/* 尚不可知*/
 	ctx.dims = NULL;
 	ctx.sizes = NULL;
 
@@ -2851,7 +2851,7 @@ JsValueToJsObject(JsValue *jsv, JsObject *jso)
 
 	if (jsv->is_json)
 	{
-		/* convert plain-text json into a hash table */
+		/* 把纯文本 json 转成哈希表 */
 		jso->val.json_hash =
 			get_json_object_as_hash(jsv->val.json.str,
 									jsv->val.json.len >= 0
@@ -2886,7 +2886,7 @@ JsValueToJsObject(JsValue *jsv, JsObject *jso)
 	}
 }
 
-/* acquire or update cached tuple descriptor for a composite type */
+/* 获取或更新复合类型的缓存元组描述符 */
 static void
 update_cached_tupdesc(CompositeIOData *io, MemoryContext mcxt)
 {
@@ -2901,7 +2901,7 @@ update_cached_tupdesc(CompositeIOData *io, MemoryContext mcxt)
 		if (io->tupdesc)
 			FreeTupleDesc(io->tupdesc);
 
-		/* copy tuple desc without constraints into cache memory context */
+		/* 把无约束元组描述符复制进缓存内存上下文 */
 		oldcxt = MemoryContextSwitchTo(mcxt);
 		io->tupdesc = CreateTupleDescCopy(tupdesc);
 		MemoryContextSwitchTo(oldcxt);
@@ -2910,7 +2910,7 @@ update_cached_tupdesc(CompositeIOData *io, MemoryContext mcxt)
 	}
 }
 
-/* recursively populate a composite (row type) value from json/jsonb */
+/* 从 json/jsonb 递归填充复合（行类型）值 */
 static Datum
 populate_composite(CompositeIOData *io,
 				   Oid typid,
@@ -2922,7 +2922,7 @@ populate_composite(CompositeIOData *io,
 {
 	Datum		result;
 
-	/* acquire/update cached tuple descriptor */
+	/* 获取/更新缓存的元组描述符 */
 	update_cached_tupdesc(io, mcxt);
 
 	if (isnull)
@@ -2932,10 +2932,10 @@ populate_composite(CompositeIOData *io,
 		HeapTupleHeader tuple;
 		JsObject	jso;
 
-		/* prepare input value */
+		/* 准备输入值 */
 		JsValueToJsObject(jsv, &jso);
 
-		/* populate resulting record tuple */
+		/* 填充结果记录元组 */
 		tuple = populate_record(io->tupdesc, &io->record_io,
 								defaultval, mcxt, &jso);
 		result = HeapTupleHeaderGetDatum(tuple);
@@ -2944,9 +2944,9 @@ populate_composite(CompositeIOData *io,
 	}
 
 	/*
-	 * If it's domain over composite, check domain constraints.  (This should
-	 * probably get refactored so that we can see the TYPECAT value, but for
-	 * now, we can tell by comparing typid to base_typid.)
+	 * 若是复合上的域，则检查域约束。（或许应重构以能
+	 * 看到 TYPECAT 值，但现在可以通过比较 typid 与
+	 * base_typid 来判别。）
 	 */
 	if (typid != io->base_typid && typid != RECORDOID)
 		domain_check(result, isnull, typid, &io->domain_info, mcxt);
@@ -2954,7 +2954,7 @@ populate_composite(CompositeIOData *io,
 	return result;
 }
 
-/* populate non-null scalar value from json/jsonb value */
+/* 从 json/jsonb 值填充非空标量值 */
 static Datum
 populate_scalar(ScalarIOData *io, Oid typid, int32 typmod, JsValue *jsv)
 {
@@ -2970,15 +2970,15 @@ populate_scalar(ScalarIOData *io, Oid typid, int32 typmod, JsValue *jsv)
 		Assert(json);
 		if (len >= 0)
 		{
-			/* Need to copy non-null-terminated string */
+			/* 需要复制非 null 结尾的字符串 */
 			str = palloc(len + 1 * sizeof(char));
 			memcpy(str, json, len);
 			str[len] = '\0';
 		}
 		else
-			str = json;			/* string is already null-terminated */
+			str = json;			/* 字符串已以 null 结尾 */
 
-		/* If converting to json/jsonb, make string into valid JSON literal */
+		/* 若转成 json/jsonb，把字符串变成合法 JSON 字面量 */
 		if ((typid == JSONOID || typid == JSONBOID) &&
 			jsv->val.json.type == JSON_TOKEN_STRING)
 		{
@@ -2986,7 +2986,7 @@ populate_scalar(ScalarIOData *io, Oid typid, int32 typmod, JsValue *jsv)
 
 			initStringInfo(&buf);
 			escape_json(&buf, str);
-			/* free temporary buffer */
+			/* 释放临时缓冲区 */
 			if (str != json)
 				pfree(str);
 			str = buf.data;
@@ -2998,22 +2998,22 @@ populate_scalar(ScalarIOData *io, Oid typid, int32 typmod, JsValue *jsv)
 
 		if (typid == JSONBOID)
 		{
-			Jsonb	   *jsonb = JsonbValueToJsonb(jbv); /* directly use jsonb */
+			Jsonb	   *jsonb = JsonbValueToJsonb(jbv); /* 直接使用 jsonb */
 
 			return JsonbPGetDatum(jsonb);
 		}
-		/* convert jsonb to string for typio call */
+		/* 把 jsonb 转成字符串供 typio 用 */
 		else if (typid == JSONOID && jbv->type != jbvBinary)
 		{
 			/*
-			 * Convert scalar jsonb (non-scalars are passed here as jbvBinary)
-			 * to json string, preserving quotes around top-level strings.
+				 * 把标量 jsonb 转成 json 串（非标量以 jbvBinary
+				 * 传入），保留顶层字符串两侧的引号。
 			 */
 			Jsonb	   *jsonb = JsonbValueToJsonb(jbv);
 
 			str = JsonbToCString(NULL, &jsonb->root, VARSIZE(jsonb));
 		}
-		else if (jbv->type == jbvString)	/* quotes are stripped */
+		else if (jbv->type == jbvString)	/* 引号已被剥离 */
 			str = pnstrdup(jbv->val.string.val, jbv->val.string.len);
 		else if (jbv->type == jbvBool)
 			str = pstrdup(jbv->val.boolean ? "true" : "false");
@@ -3029,7 +3029,7 @@ populate_scalar(ScalarIOData *io, Oid typid, int32 typmod, JsValue *jsv)
 
 	res = InputFunctionCall(&io->typiofunc, str, io->typioparam, typmod);
 
-	/* free temporary buffer */
+	/* 释放临时缓冲区 */
 	if (str != json)
 		pfree(str);
 
@@ -3062,7 +3062,7 @@ populate_domain(DomainIOData *io,
 	return res;
 }
 
-/* prepare column metadata cache for the given type */
+/* 为给定类型准备列元数据缓存 */
 static void
 prepare_column_cache(ColumnIOData *column,
 					 Oid typid,
@@ -3085,8 +3085,8 @@ prepare_column_cache(ColumnIOData *column,
 	if (type->typtype == TYPTYPE_DOMAIN)
 	{
 		/*
-		 * We can move directly to the bottom base type; domain_check() will
-		 * take care of checking all constraints for a stack of domains.
+		 * 我们可以直接移到最底层基类型；domain_check() 会
+		 * 负责检查一叠域的所有约束。
 		 */
 		Oid			base_typid;
 		int32		base_typmod = typmod;
@@ -3094,7 +3094,7 @@ prepare_column_cache(ColumnIOData *column,
 		base_typid = getBaseTypeAndTypmod(typid, &base_typmod);
 		if (get_typtype(base_typid) == TYPTYPE_COMPOSITE)
 		{
-			/* domain over composite has its own code path */
+			/* 复合上的域有专门的代码路径 */
 			column->typcat = TYPECAT_COMPOSITE_DOMAIN;
 			column->io.composite.record_io = NULL;
 			column->io.composite.tupdesc = NULL;
@@ -3104,7 +3104,7 @@ prepare_column_cache(ColumnIOData *column,
 		}
 		else
 		{
-			/* domain over anything else */
+			/* 其他类型上的域 */
 			column->typcat = TYPECAT_DOMAIN;
 			column->io.domain.base_typid = base_typid;
 			column->io.domain.base_typmod = base_typmod;
@@ -3128,7 +3128,7 @@ prepare_column_cache(ColumnIOData *column,
 		column->io.array.element_info = MemoryContextAllocZero(mcxt,
 															   sizeof(ColumnIOData));
 		column->io.array.element_type = type->typelem;
-		/* array element typemod stored in attribute's typmod */
+		/* 数组元素 typemod 存于属性的 typmod */
 		column->io.array.element_typmod = typmod;
 	}
 	else
@@ -3137,7 +3137,7 @@ prepare_column_cache(ColumnIOData *column,
 		need_scalar = true;
 	}
 
-	/* caller can force us to look up scalar_io info even for non-scalars */
+	/* 调用者可强制我们对非标量也查找 scalar_io 信息 */
 	if (need_scalar)
 	{
 		Oid			typioproc;
@@ -3149,7 +3149,7 @@ prepare_column_cache(ColumnIOData *column,
 	ReleaseSysCache(tup);
 }
 
-/* recursively populate a record field or an array element from a json/jsonb value */
+/* 从 json/jsonb 值递归填充记录字段或数组元素 */
 static Datum
 populate_record_field(ColumnIOData *col,
 					  Oid typid,
@@ -3165,8 +3165,8 @@ populate_record_field(ColumnIOData *col,
 	check_stack_depth();
 
 	/*
-	 * Prepare column metadata cache for the given type.  Force lookup of the
-	 * scalar_io data so that the json string hack below will work.
+	 * 为给定类型准备列元数据缓存。强制查找 scalar_io
+	 * 数据，以便下面的 json 字符串技巧能生效。
 	 */
 	if (col->typid != typid || col->typmod != typmod)
 		prepare_column_cache(col, typid, typmod, mcxt, true);
@@ -3175,14 +3175,14 @@ populate_record_field(ColumnIOData *col,
 
 	typcat = col->typcat;
 
-	/* try to convert json string to a non-scalar type through input function */
+	/* 尝试经由输入函数把 json 字符串转成非标量类型 */
 	if (JsValueIsString(jsv) &&
 		(typcat == TYPECAT_ARRAY ||
 		 typcat == TYPECAT_COMPOSITE ||
 		 typcat == TYPECAT_COMPOSITE_DOMAIN))
 		typcat = TYPECAT_SCALAR;
 
-	/* we must perform domain checks for NULLs, otherwise exit immediately */
+	/* 对 NULL 也必须执行域检查，否则立即退出 */
 	if (*isnull &&
 		typcat != TYPECAT_DOMAIN &&
 		typcat != TYPECAT_COMPOSITE_DOMAIN)
@@ -3244,7 +3244,7 @@ JsObjectGetField(JsObject *obj, char *field, JsValue *jsv)
 		jsv->val.json.type = hashentry ? hashentry->type : JSON_TOKEN_NULL;
 		jsv->val.json.str = jsv->val.json.type == JSON_TOKEN_NULL ? NULL :
 			hashentry->val;
-		jsv->val.json.len = jsv->val.json.str ? -1 : 0; /* null-terminated */
+		jsv->val.json.len = jsv->val.json.str ? -1 : 0; /* null 结尾 */
 
 		return hashentry != NULL;
 	}
@@ -3258,7 +3258,7 @@ JsObjectGetField(JsObject *obj, char *field, JsValue *jsv)
 	}
 }
 
-/* populate a record tuple from json/jsonb value */
+/* 从 json/jsonb 值填充记录元组 */
 static HeapTupleHeader
 populate_record(TupleDesc tupdesc,
 				RecordIOData **record_p,
@@ -3274,19 +3274,19 @@ populate_record(TupleDesc tupdesc,
 	int			i;
 
 	/*
-	 * if the input json is empty, we can only skip the rest if we were passed
-	 * in a non-null record, since otherwise there may be issues with domain
-	 * nulls.
+	 * 若输入 json 为空，只有在我们被传入的是非空记录时
+	 * 才能跳过其余步骤，否则可能有域 null 相关的问题。
+	 *
 	 */
 	if (defaultval && JsObjectIsEmpty(obj))
 		return defaultval;
 
-	/* (re)allocate metadata cache */
+	/* 再分配元数据缓存 */
 	if (record == NULL ||
 		record->ncolumns != ncolumns)
 		*record_p = record = allocate_record_info(mcxt, ncolumns);
 
-	/* invalidate metadata cache if the record type has changed */
+	/* 若记录类型已变则令元数据缓存失效 */
 	if (record->record_type != tupdesc->tdtypeid ||
 		record->record_typmod != tupdesc->tdtypmod)
 	{
@@ -3304,13 +3304,13 @@ populate_record(TupleDesc tupdesc,
 	{
 		HeapTupleData tuple;
 
-		/* Build a temporary HeapTuple control structure */
+		/* 构建临时 HeapTuple 控制结构 */
 		tuple.t_len = HeapTupleHeaderGetDatumLength(defaultval);
 		ItemPointerSetInvalid(&(tuple.t_self));
 		tuple.t_tableOid = InvalidOid;
 		tuple.t_data = defaultval;
 
-		/* Break down the tuple into fields */
+		/* 将元组分解为字段 */
 		heap_deform_tuple(&tuple, tupdesc, values, nulls);
 	}
 	else
@@ -3329,7 +3329,7 @@ populate_record(TupleDesc tupdesc,
 		JsValue		field = {0};
 		bool		found;
 
-		/* Ignore dropped columns in datatype */
+		/* 忽略类型中已丢弃的列 */
 		if (att->attisdropped)
 		{
 			nulls[i] = true;
@@ -3339,12 +3339,12 @@ populate_record(TupleDesc tupdesc,
 		found = JsObjectGetField(obj, colname, &field);
 
 		/*
-		 * we can't just skip here if the key wasn't found since we might have
-		 * a domain to deal with. If we were passed in a non-null record
-		 * datum, we assume that the existing values are valid (if they're
-		 * not, then it's not our fault), but if we were passed in a null,
-		 * then every field which we don't populate needs to be run through
-		 * the input function just in case it's a domain type.
+			 * 若键未找到，此处不能直接跳过，因为可能还有
+			 * 域要处理。若传入非空记录 datum，则假定
+			 * 现有值有效（错也不怪我们），但若传入
+			 * 的是 null，则未填充的字段都需过一遍
+			 * 输入函数，以防它是域类型。
+			 *
 		 */
 		if (defaultval && !found)
 			continue;
@@ -3368,9 +3368,9 @@ populate_record(TupleDesc tupdesc,
 }
 
 /*
- * Setup for json{b}_populate_record{set}: result type will be same as first
- * argument's type --- unless first argument is "null::record", which we can't
- * extract type info from; we handle that later.
+ * json{b}_populate_record{set} 的设置：结果类型与第一个
+ * 参数的类型相同——除非第一个参数是 "null::record"，
+ * 它无法提取类型信息；稍后处理。
  */
 static void
 get_record_type_from_argument(FunctionCallInfo fcinfo,
@@ -3391,12 +3391,12 @@ get_record_type_from_argument(FunctionCallInfo fcinfo,
 }
 
 /*
- * Setup for json{b}_to_record{set}: result type is specified by calling
- * query.  We'll also use this code for json{b}_populate_record{set},
- * if we discover that the first argument is a null of type RECORD.
+ * json{b}_to_record{set} 的设置：结果类型由调用查询
+ * 指定。若发现首参数是 RECORD 类型的 null，这段
+ * 代码也用于 json{b}_populate_record{set}。
  *
- * Here it is syntactically impossible to specify the target type
- * as domain-over-composite.
+ * 此处语法上无法把目标类型指定为
+ * 复合上的域。
  */
 static void
 get_record_type_from_query(FunctionCallInfo fcinfo,
@@ -3419,11 +3419,11 @@ get_record_type_from_query(FunctionCallInfo fcinfo,
 	Assert(tupdesc);
 	cache->argtype = tupdesc->tdtypeid;
 
-	/* If we go through this more than once, avoid memory leak */
+	/* 若不止一次经过此处，避免内存泄漏 */
 	if (cache->c.io.composite.tupdesc)
 		FreeTupleDesc(cache->c.io.composite.tupdesc);
 
-	/* Save identified tupdesc */
+	/* 保存已判明 tupdesc */
 	old_cxt = MemoryContextSwitchTo(cache->fn_mcxt);
 	cache->c.io.composite.tupdesc = CreateTupleDescCopy(tupdesc);
 	cache->c.io.composite.base_typid = tupdesc->tdtypeid;
@@ -3432,8 +3432,8 @@ get_record_type_from_query(FunctionCallInfo fcinfo,
 }
 
 /*
- * common worker for json{b}_populate_record() and json{b}_to_record()
- * is_json and have_record_arg identify the specific function
+ * json{b}_populate_record() 与 json{b}_to_record() 的工作函数
+ * is_json 与 have_record_arg 标识具体函数
  */
 static Datum
 populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
@@ -3448,9 +3448,9 @@ populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 	PopulateRecordCache *cache = fcinfo->flinfo->fn_extra;
 
 	/*
-	 * If first time through, identify input/result record type.  Note that
-	 * this stanza looks only at fcinfo context, which can't change during the
-	 * query; so we may not be able to fully resolve a RECORD input type yet.
+	 * 若是首次执行，判明输入/结果记录类型。注意此段
+	 * 只查看 fcinfo 上下文，而它在查询期间不会变；因此
+	 * 我们可能尚不能完全解析 RECORD 输入类型。
 	 */
 	if (!cache)
 	{
@@ -3464,16 +3464,16 @@ populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 			get_record_type_from_query(fcinfo, funcname, cache);
 	}
 
-	/* Collect record arg if we have one */
+	/* 若有 record 参数则收集 */
 	if (!have_record_arg)
-		rec = NULL;				/* it's json{b}_to_record() */
+		rec = NULL;				/* 即 json{b}_to_record() */
 	else if (!PG_ARGISNULL(0))
 	{
 		rec = PG_GETARG_HEAPTUPLEHEADER(0);
 
 		/*
-		 * When declared arg type is RECORD, identify actual record type from
-		 * the tuple itself.
+			 * 当声明参数类型为 RECORD 时，判明实际记录类型
+			 * 取自元组。
 		 */
 		if (cache->argtype == RECORDOID)
 		{
@@ -3486,18 +3486,18 @@ populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 		rec = NULL;
 
 		/*
-		 * When declared arg type is RECORD, identify actual record type from
-		 * calling query, or fail if we can't.
+			 * 当声明参数类型为 RECORD 时，判明实际记录类型
+			 * 取自调用查询或失败。
 		 */
 		if (cache->argtype == RECORDOID)
 		{
 			get_record_type_from_query(fcinfo, funcname, cache);
-			/* This can't change argtype, which is important for next time */
+			/* 这不会改变 argtype，这对下次很重要 */
 			Assert(cache->argtype == RECORDOID);
 		}
 	}
 
-	/* If no JSON argument, just return the record (if any) unchanged */
+	/* 若无 JSON 参数，则原样返回记录（若有） */
 	if (PG_ARGISNULL(json_arg_num))
 	{
 		if (rec)
@@ -3514,7 +3514,7 @@ populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 
 		jsv.val.json.str = VARDATA_ANY(json);
 		jsv.val.json.len = VARSIZE_ANY_EXHDR(json);
-		jsv.val.json.type = JSON_TOKEN_INVALID; /* not used in
+		jsv.val.json.type = JSON_TOKEN_INVALID; /* 不用于
 												 * populate_composite() */
 	}
 	else
@@ -3523,7 +3523,7 @@ populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 
 		jsv.val.jsonb = &jbv;
 
-		/* fill binary jsonb value pointing to jb */
+		/* 填充指向 jb 的二进制 jsonb 值 */
 		jbv.type = jbvBinary;
 		jbv.val.binary.data = &jb->root;
 		jbv.val.binary.len = VARSIZE(jb) - VARHDRSZ;
@@ -3538,7 +3538,7 @@ populate_record_worker(FunctionCallInfo fcinfo, const char *funcname,
 /*
  * get_json_object_as_hash
  *
- * decompose a json object into a hash table.
+ * 把 json 对象分解为哈希表。
  */
 static HTAB *
 get_json_object_as_hash(char *json, int len, const char *funcname)
@@ -3583,18 +3583,18 @@ hash_object_field_start(void *state, char *fname, bool isnull)
 	if (_state->lex->lex_level > 1)
 		return JSON_SUCCESS;
 
-	/* remember token type */
+	/* 记住记号类型 */
 	_state->saved_token_type = _state->lex->token_type;
 
 	if (_state->lex->token_type == JSON_TOKEN_ARRAY_START ||
 		_state->lex->token_type == JSON_TOKEN_OBJECT_START)
 	{
-		/* remember start position of the whole text of the subobject */
+		/* 记住子对象整个文本的起始位置 */
 		_state->save_json_start = _state->lex->token_start;
 	}
 	else
 	{
-		/* must be a scalar */
+		/* 必须是标量 */
 		_state->save_json_start = NULL;
 	}
 
@@ -3609,17 +3609,17 @@ hash_object_field_end(void *state, char *fname, bool isnull)
 	bool		found;
 
 	/*
-	 * Ignore nested fields.
+	 * 忽略嵌套字段。
 	 */
 	if (_state->lex->lex_level > 1)
 		return JSON_SUCCESS;
 
 	/*
-	 * Ignore field names >= NAMEDATALEN - they can't match a record field.
-	 * (Note: without this test, the hash code would truncate the string at
-	 * NAMEDATALEN-1, and could then match against a similarly-truncated
-	 * record field name.  That would be a reasonable behavior, but this code
-	 * has previously insisted on exact equality, so we keep this behavior.)
+	 * 忽略 >= NAMEDATALEN 的字段名——它们匹配不了
+	 * 记录字段。（注：若无此测试，哈希代码会在
+	 * NAMEDATALEN-1 处截断字符串，进而可能匹配到同样被
+	 * 截断的记录字段名。那本是合理行为，但此代码素来
+	 * 坚持精确相等，所以我们保留这一行为。）
 	 */
 	if (strlen(fname) >= NAMEDATALEN)
 		return JSON_SUCCESS;
@@ -3627,8 +3627,8 @@ hash_object_field_end(void *state, char *fname, bool isnull)
 	hashentry = hash_search(_state->hash, fname, HASH_ENTER, &found);
 
 	/*
-	 * found being true indicates a duplicate. We don't do anything about
-	 * that, a later field with the same name overrides the earlier field.
+	 * found 为真表示重复。对此我们不做处理——同名
+	 * 的后一个字段会覆盖先前的字段。
 	 */
 
 	hashentry->type = _state->saved_token_type;
@@ -3645,7 +3645,7 @@ hash_object_field_end(void *state, char *fname, bool isnull)
 	}
 	else
 	{
-		/* must have had a scalar instead */
+		/* 本应是标量才对 */
 		hashentry->val = _state->saved_scalar;
 	}
 
@@ -3678,7 +3678,7 @@ hash_scalar(void *state, char *token, JsonTokenType tokentype)
 	if (_state->lex->lex_level == 1)
 	{
 		_state->saved_scalar = token;
-		/* saved_token_type must already be set in hash_object_field_start() */
+		/* saved_token_type 必须已在 hash_object_field_start() 中设置 */
 		Assert(_state->saved_token_type == tokentype);
 	}
 
@@ -3687,14 +3687,14 @@ hash_scalar(void *state, char *token, JsonTokenType tokentype)
 
 
 /*
- * SQL function json_populate_recordset
+ * SQL 函数 json_populate_recordset
  *
- * set fields in a set of records from the argument json,
- * which must be an array of objects.
+ * 根据参数 json 设置一组记录中的字段，
+ * 参数必须为对象数组。
  *
- * similar to json_populate_record, but the tuple-building code
- * is pushed down into the semantic action handlers so it's done
- * per object in the array.
+ * 与 json_populate_record 类似，但元组构建代码
+ * 下推到语义动作处理器，按数组中每个
+ * 对象执行。
  */
 Datum
 jsonb_populate_recordset(PG_FUNCTION_ARGS)
@@ -3731,24 +3731,24 @@ populate_recordset_record(PopulateRecordsetState *state, JsObject *obj)
 	HeapTupleHeader tuphead;
 	HeapTupleData tuple;
 
-	/* acquire/update cached tuple descriptor */
+	/* 获取/更新缓存的元组描述符 */
 	update_cached_tupdesc(&cache->c.io.composite, cache->fn_mcxt);
 
-	/* replace record fields from json */
+	/* 以 json 替换记录字段 */
 	tuphead = populate_record(cache->c.io.composite.tupdesc,
 							  &cache->c.io.composite.record_io,
 							  state->rec,
 							  cache->fn_mcxt,
 							  obj);
 
-	/* if it's domain over composite, check domain constraints */
+	/* 若是复合上的域，检查域约束 */
 	if (cache->c.typcat == TYPECAT_COMPOSITE_DOMAIN)
 		domain_check(HeapTupleHeaderGetDatum(tuphead), false,
 					 cache->argtype,
 					 &cache->c.io.composite.domain_info,
 					 cache->fn_mcxt);
 
-	/* ok, save into tuplestore */
+	/* 好，存入 tuplestore */
 	tuple.t_len = HeapTupleHeaderGetDatumLength(tuphead);
 	ItemPointerSetInvalid(&(tuple.t_self));
 	tuple.t_tableOid = InvalidOid;
@@ -3758,8 +3758,8 @@ populate_recordset_record(PopulateRecordsetState *state, JsObject *obj)
 }
 
 /*
- * common worker for json{b}_populate_recordset() and json{b}_to_recordset()
- * is_json and have_record_arg identify the specific function
+ * json{b}_populate_recordset() 与 json{b}_to_recordset() 的工作函数
+ * is_json 与 have_record_arg 标识具体函数
  */
 static Datum
 populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
@@ -3787,9 +3787,9 @@ populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
 	rsi->returnMode = SFRM_Materialize;
 
 	/*
-	 * If first time through, identify input/result record type.  Note that
-	 * this stanza looks only at fcinfo context, which can't change during the
-	 * query; so we may not be able to fully resolve a RECORD input type yet.
+	 * 若是首次执行，判明输入/结果记录类型。注意此段
+	 * 只查看 fcinfo 上下文，而它在查询期间不会变；因此
+	 * 我们可能尚不能完全解析 RECORD 输入类型。
 	 */
 	if (!cache)
 	{
@@ -3803,16 +3803,16 @@ populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
 			get_record_type_from_query(fcinfo, funcname, cache);
 	}
 
-	/* Collect record arg if we have one */
+	/* 若有 record 参数则收集 */
 	if (!have_record_arg)
-		rec = NULL;				/* it's json{b}_to_recordset() */
+		rec = NULL;				/* 即 json{b}_to_recordset() */
 	else if (!PG_ARGISNULL(0))
 	{
 		rec = PG_GETARG_HEAPTUPLEHEADER(0);
 
 		/*
-		 * When declared arg type is RECORD, identify actual record type from
-		 * the tuple itself.
+			 * 当声明参数类型为 RECORD 时，判明实际记录类型
+			 * 取自元组。
 		 */
 		if (cache->argtype == RECORDOID)
 		{
@@ -3825,30 +3825,30 @@ populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
 		rec = NULL;
 
 		/*
-		 * When declared arg type is RECORD, identify actual record type from
-		 * calling query, or fail if we can't.
+			 * 当声明参数类型为 RECORD 时，判明实际记录类型
+			 * 取自调用查询或失败。
 		 */
 		if (cache->argtype == RECORDOID)
 		{
 			get_record_type_from_query(fcinfo, funcname, cache);
-			/* This can't change argtype, which is important for next time */
+			/* 这不会改变 argtype，这对下次很重要 */
 			Assert(cache->argtype == RECORDOID);
 		}
 	}
 
-	/* if the json is null send back an empty set */
+	/* 若 json 为 null 则返回空集 */
 	if (PG_ARGISNULL(json_arg_num))
 		PG_RETURN_NULL();
 
 	/*
-	 * Forcibly update the cached tupdesc, to ensure we have the right tupdesc
-	 * to return even if the JSON contains no rows.
+	 * 强制更新缓存 tupdesc，确保即使 JSON 不含行我们也有
+	 * 正确的 tupdesc 可返回。
 	 */
 	update_cached_tupdesc(&cache->c.io.composite, cache->fn_mcxt);
 
 	state = palloc0(sizeof(PopulateRecordsetState));
 
-	/* make tuplestore in a sufficiently long-lived memory context */
+	/* 在足够长寿命的内存上下文中创建 tuplestore */
 	old_cxt = MemoryContextSwitchTo(rsi->econtext->ecxt_per_query_memory);
 	state->tuple_store = tuplestore_begin_heap(rsi->allowedModes &
 											   SFRM_Materialize_Random,
@@ -3922,9 +3922,9 @@ populate_recordset_worker(FunctionCallInfo fcinfo, const char *funcname,
 	}
 
 	/*
-	 * Note: we must copy the cached tupdesc because the executor will free
-	 * the passed-back setDesc, but we want to hang onto the cache in case
-	 * we're called again in the same query.
+	 * 注意：必须复制缓存 tupdesc，因为执行器会释放传回
+	 * 的 setDesc，但我们要保留缓存以备同一查询内
+	 * 被再次调用。
 	 */
 	rsi->setResult = state->tuple_store;
 	rsi->setDesc = CreateTupleDescCopy(cache->c.io.composite.tupdesc);
@@ -3939,18 +3939,18 @@ populate_recordset_object_start(void *state)
 	int			lex_level = _state->lex->lex_level;
 	HASHCTL		ctl;
 
-	/* Reject object at top level: we must have an array at level 0 */
+	/* 拒绝顶层对象：0 层必须是数组 */
 	if (lex_level == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("cannot call %s on an object",
 						_state->function_name)));
 
-	/* Nested objects require no special processing */
+	/* 嵌套对象无需特殊处理 */
 	if (lex_level > 1)
 		return JSON_SUCCESS;
 
-	/* Object at level 1: set up a new hash table for this object */
+	/* 1 层对象：为该对象建立新哈希表 */
 	ctl.keysize = NAMEDATALEN;
 	ctl.entrysize = sizeof(JsonHashEntry);
 	ctl.hcxt = CurrentMemoryContext;
@@ -3968,17 +3968,17 @@ populate_recordset_object_end(void *state)
 	PopulateRecordsetState *_state = (PopulateRecordsetState *) state;
 	JsObject	obj;
 
-	/* Nested objects require no special processing */
+	/* 嵌套对象无需特殊处理 */
 	if (_state->lex->lex_level > 1)
 		return JSON_SUCCESS;
 
 	obj.is_json = true;
 	obj.val.json_hash = _state->json_hash;
 
-	/* Otherwise, construct and return a tuple based on this level-1 object */
+	/* 否则，基于该 1 层对象构造并返回一个元组 */
 	populate_recordset_record(_state, &obj);
 
-	/* Done with hash for this object */
+	/* 本对象哈希完毕 */
 	hash_destroy(_state->json_hash);
 	_state->json_hash = NULL;
 
@@ -4003,7 +4003,7 @@ populate_recordset_array_element_start(void *state, bool isnull)
 static JsonParseErrorType
 populate_recordset_array_start(void *state)
 {
-	/* nothing to do */
+	/* 无事可做 */
 	return JSON_SUCCESS;
 }
 
@@ -4055,17 +4055,17 @@ populate_recordset_object_field_end(void *state, char *fname, bool isnull)
 	bool		found;
 
 	/*
-	 * Ignore nested fields.
+	 * 忽略嵌套字段。
 	 */
 	if (_state->lex->lex_level > 2)
 		return JSON_SUCCESS;
 
 	/*
-	 * Ignore field names >= NAMEDATALEN - they can't match a record field.
-	 * (Note: without this test, the hash code would truncate the string at
-	 * NAMEDATALEN-1, and could then match against a similarly-truncated
-	 * record field name.  That would be a reasonable behavior, but this code
-	 * has previously insisted on exact equality, so we keep this behavior.)
+	 * 忽略 >= NAMEDATALEN 的字段名——它们匹配不了
+	 * 记录字段。（注：若无此测试，哈希代码会在
+	 * NAMEDATALEN-1 处截断字符串，进而可能匹配到同样被
+	 * 截断的记录字段名。那本是合理行为，但此代码素来
+	 * 坚持精确相等，所以我们保留这一行为。）
 	 */
 	if (strlen(fname) >= NAMEDATALEN)
 		return JSON_SUCCESS;
@@ -4073,8 +4073,8 @@ populate_recordset_object_field_end(void *state, char *fname, bool isnull)
 	hashentry = hash_search(_state->json_hash, fname, HASH_ENTER, &found);
 
 	/*
-	 * found being true indicates a duplicate. We don't do anything about
-	 * that, a later field with the same name overrides the earlier field.
+	 * found 为真表示重复。对此我们不做处理——同名
+	 * 的后一个字段会覆盖先前的字段。
 	 */
 
 	hashentry->type = _state->saved_token_type;
@@ -4091,7 +4091,7 @@ populate_recordset_object_field_end(void *state, char *fname, bool isnull)
 	}
 	else
 	{
-		/* must have had a scalar instead */
+		/* 本应是标量才对 */
 		hashentry->val = _state->saved_scalar;
 	}
 
@@ -4099,12 +4099,12 @@ populate_recordset_object_field_end(void *state, char *fname, bool isnull)
 }
 
 /*
- * Semantic actions for json_strip_nulls.
+ * json_strip_nulls 的语义动作。
  *
- * Simply repeat the input on the output unless we encounter
- * a null object field. State for this is set when the field
- * is started and reset when the scalar action (which must be next)
- * is called.
+ * 简单地将输入重复到输出，除非遇到 null 的
+ * 对象字段。相关状态在字段开始时设置，
+ * 在标量动作（必须是下一个）被调用时
+ * 重置。
  */
 
 static JsonParseErrorType
@@ -4155,9 +4155,9 @@ sn_object_field_start(void *state, char *fname, bool isnull)
 	if (isnull)
 	{
 		/*
-		 * The next thing must be a scalar or isnull couldn't be true, so
-		 * there is no danger of this state being carried down into a nested
-		 * object or array. The flag will be reset in the scalar action.
+			 * 下一个必是标量否则 isnull 不可能为真，因此
+			 * 无风险把这一状态带入嵌套的对象或数组。
+			 * 该标志将在标量动作中被重置。
 		 */
 		_state->skip_next_null = true;
 		return JSON_SUCCESS;
@@ -4167,8 +4167,8 @@ sn_object_field_start(void *state, char *fname, bool isnull)
 		appendStringInfoCharMacro(_state->strval, ',');
 
 	/*
-	 * Unfortunately we don't have the quoted and escaped string any more, so
-	 * we have to re-escape it.
+	 * 遗憾的是带引号的转义字符串已不复存在，所以必须
+	 * 对其重新转义。
 	 */
 	escape_json(_state->strval, fname);
 
@@ -4209,7 +4209,7 @@ sn_scalar(void *state, char *token, JsonTokenType tokentype)
 }
 
 /*
- * SQL function json_strip_nulls(json) -> json
+ * SQL 函数 json_strip_nulls(json) -> json
  */
 Datum
 json_strip_nulls(PG_FUNCTION_ARGS)
@@ -4243,7 +4243,7 @@ json_strip_nulls(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_strip_nulls(jsonb) -> jsonb
+ * SQL 函数 jsonb_strip_nulls(jsonb) -> jsonb
  */
 Datum
 jsonb_strip_nulls(PG_FUNCTION_ARGS)
@@ -4268,7 +4268,7 @@ jsonb_strip_nulls(PG_FUNCTION_ARGS)
 
 		if (type == WJB_KEY)
 		{
-			/* stash the key until we know if it has a null value */
+			/* 暂存键，直到得知其值是否为 null */
 			k = v;
 			last_was_key = true;
 			continue;
@@ -4276,14 +4276,14 @@ jsonb_strip_nulls(PG_FUNCTION_ARGS)
 
 		if (last_was_key)
 		{
-			/* if the last element was a key this one can't be */
+			/* 若上一元素是键则这个不能是 */
 			last_was_key = false;
 
-			/* skip this field if value is null */
+			/* 值为null 则跳过此字段 */
 			if (type == WJB_VALUE && v.type == jbvNull)
 				continue;
 
-			/* otherwise, do a delayed push of the key */
+			/* 否则延迟压入该键 */
 			(void) pushJsonbValue(&parseState, WJB_KEY, &k);
 		}
 
@@ -4299,9 +4299,9 @@ jsonb_strip_nulls(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_pretty (jsonb)
+ * SQL 函数 jsonb_pretty (jsonb)
  *
- * Pretty-printed text for the jsonb
+ * jsonb 的美化打印文本
  */
 Datum
 jsonb_pretty(PG_FUNCTION_ARGS)
@@ -4315,9 +4315,9 @@ jsonb_pretty(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_concat (jsonb, jsonb)
+ * SQL 函数 jsonb_concat (jsonb, jsonb)
  *
- * function for || operator
+ * || 算子的函数
  */
 Datum
 jsonb_concat(PG_FUNCTION_ARGS)
@@ -4330,10 +4330,10 @@ jsonb_concat(PG_FUNCTION_ARGS)
 			   *it2;
 
 	/*
-	 * If one of the jsonb is empty, just return the other if it's not scalar
-	 * and both are of the same kind.  If it's a scalar or they are of
-	 * different kinds we need to perform the concatenation even if one is
-	 * empty.
+	 * 若一个 jsonb 为空，另一个非标量且二者同类，则直接
+	 * 返回另一个。若其为标量或二者类别不同，
+	 * 则即使其中一个为空也要执行连接。
+	 *
 	 */
 	if (JB_ROOT_IS_OBJECT(jb1) == JB_ROOT_IS_OBJECT(jb2))
 	{
@@ -4355,10 +4355,10 @@ jsonb_concat(PG_FUNCTION_ARGS)
 
 
 /*
- * SQL function jsonb_delete (jsonb, text)
+ * SQL 函数 jsonb_delete (jsonb, text)
  *
- * return a copy of the jsonb with the indicated item
- * removed.
+ * 返回删除了指定条目的 jsonb 副本，
+ *
  */
 Datum
 jsonb_delete(PG_FUNCTION_ARGS)
@@ -4392,7 +4392,7 @@ jsonb_delete(PG_FUNCTION_ARGS)
 			(v.type == jbvString && keylen == v.val.string.len &&
 			 memcmp(keyptr, v.val.string.val, keylen) == 0))
 		{
-			/* skip corresponding value as well */
+			/* 同时跳过对应的值 */
 			if (r == WJB_KEY)
 				(void) JsonbIteratorNext(&it, &v, true);
 
@@ -4408,10 +4408,10 @@ jsonb_delete(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_delete (jsonb, variadic text[])
+ * SQL 函数 jsonb_delete (jsonb, variadic text[])
  *
- * return a copy of the jsonb with the indicated items
- * removed.
+ * 返回删除了指定条目的 jsonb 副本，
+ *
  */
 Datum
 jsonb_delete_array(PG_FUNCTION_ARGS)
@@ -4465,7 +4465,7 @@ jsonb_delete_array(PG_FUNCTION_ARGS)
 				if (keys_nulls[i])
 					continue;
 
-				/* We rely on the array elements not being toasted */
+				/* 我们依赖数组元素未被 toast 的前提 */
 				keyptr = VARDATA_ANY(keys_elems[i]);
 				keylen = VARSIZE_ANY_EXHDR(keys_elems[i]);
 				if (keylen == v.val.string.len &&
@@ -4477,7 +4477,7 @@ jsonb_delete_array(PG_FUNCTION_ARGS)
 			}
 			if (found)
 			{
-				/* skip corresponding value as well */
+				/* 同时跳过对应的值 */
 				if (r == WJB_KEY)
 					(void) JsonbIteratorNext(&it, &v, true);
 
@@ -4494,11 +4494,11 @@ jsonb_delete_array(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_delete (jsonb, int)
+ * SQL 函数 jsonb_delete (jsonb, int)
  *
- * return a copy of the jsonb with the indicated item
- * removed. Negative int means count back from the
- * end of the items.
+ * 返回删除了指定条目的 jsonb 副本，
+ * 负 int 表示从条目末尾向前计数。
+ *
  */
 Datum
 jsonb_delete_idx(PG_FUNCTION_ARGS)
@@ -4562,7 +4562,7 @@ jsonb_delete_idx(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_set(jsonb, text[], jsonb, boolean)
+ * SQL 函数 jsonb_set(jsonb, text[], jsonb, boolean)
  */
 Datum
 jsonb_set(PG_FUNCTION_ARGS)
@@ -4611,7 +4611,7 @@ jsonb_set(PG_FUNCTION_ARGS)
 
 
 /*
- * SQL function jsonb_set_lax(jsonb, text[], jsonb, boolean, text)
+ * SQL 函数 jsonb_set_lax(jsonb, text[], jsonb, boolean, text)
  */
 Datum
 jsonb_set_lax(PG_FUNCTION_ARGS)
@@ -4626,13 +4626,13 @@ jsonb_set_lax(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(3))
 		PG_RETURN_NULL();
 
-	/* could happen if they pass in an explicit NULL */
+	/* 若调用者显式传入 NULL 则可能发生 */
 	if (PG_ARGISNULL(4))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("null_value_treatment must be \"delete_key\", \"return_target\", \"use_json_null\", or \"raise_exception\"")));
 
-	/* if the new value isn't an SQL NULL just call jsonb_set */
+	/* 若新值不是 SQL NULL 则直接调用 jsonb_set */
 	if (!PG_ARGISNULL(2))
 		return jsonb_set(fcinfo);
 
@@ -4646,7 +4646,7 @@ jsonb_set_lax(PG_FUNCTION_ARGS)
 				 errmsg("JSON value must not be null"),
 				 errdetail("Exception was raised because null_value_treatment is \"raise_exception\"."),
 				 errhint("To avoid, either change the null_value_treatment argument or ensure that an SQL NULL is not passed.")));
-		return (Datum) 0;		/* silence stupider compilers */
+		return (Datum) 0;		/* 让较笨编译器安静 */
 	}
 	else if (strcmp(handle_val, "use_json_null") == 0)
 	{
@@ -4673,12 +4673,12 @@ jsonb_set_lax(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("null_value_treatment must be \"delete_key\", \"return_target\", \"use_json_null\", or \"raise_exception\"")));
-		return (Datum) 0;		/* silence stupider compilers */
+		return (Datum) 0;		/* 让较笨编译器安静 */
 	}
 }
 
 /*
- * SQL function jsonb_delete_path(jsonb, text[])
+ * SQL 函数 jsonb_delete_path(jsonb, text[])
  */
 Datum
 jsonb_delete_path(PG_FUNCTION_ARGS)
@@ -4721,7 +4721,7 @@ jsonb_delete_path(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL function jsonb_insert(jsonb, text[], jsonb, boolean)
+ * SQL 函数 jsonb_insert(jsonb, text[], jsonb, boolean)
  */
 Datum
 jsonb_insert(PG_FUNCTION_ARGS)
@@ -4766,11 +4766,11 @@ jsonb_insert(PG_FUNCTION_ARGS)
 }
 
 /*
- * Iterate over all jsonb objects and merge them into one.
- * The logic of this function copied from the same hstore function,
- * except the case, when it1 & it2 represents jbvObject.
- * In that case we just append the content of it2 to it1 without any
- * verifications.
+ * 遍历所有 jsonb 对象并将之合并成一个。
+ * 本函数的逻辑复制自 hstore 的同名函数，
+ * 除了 it1 与 it2 表示 jbvObject 的情形。
+ * 该情形下我们直接把 it2 的内容不校验地追加
+ * 到 it1。
  */
 static JsonbValue *
 IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
@@ -4788,25 +4788,25 @@ IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 	rk2 = JsonbIteratorNext(it2, &v2, false);
 
 	/*
-	 * JsonbIteratorNext reports raw scalars as if they were single-element
-	 * arrays; hence we only need consider "object" and "array" cases here.
+	 * JsonbIteratorNext 会把 raw scalar 报成单元素数组；
+	 * 因此此处只需考虑 "object" 与 "array" 两种情形。
 	 */
 	if (rk1 == WJB_BEGIN_OBJECT && rk2 == WJB_BEGIN_OBJECT)
 	{
 		/*
-		 * Both inputs are objects.
+			 * 双方皆为对象。
 		 *
-		 * Append all the tokens from v1 to res, except last WJB_END_OBJECT
-		 * (because res will not be finished yet).
+			 * 把 v1 的记号都追加到 res，除最后的 WJB_END_OBJECT
+			 * （因为 res 尚未完结）。
 		 */
 		pushJsonbValue(state, rk1, NULL);
 		while ((r1 = JsonbIteratorNext(it1, &v1, true)) != WJB_END_OBJECT)
 			pushJsonbValue(state, r1, &v1);
 
 		/*
-		 * Append all the tokens from v2 to res, including last WJB_END_OBJECT
-		 * (the concatenation will be completed).  Any duplicate keys will
-		 * automatically override the value from the first object.
+			 * 把 v2 的记号都追加到 res，包括最后的 WJB_END_OBJECT
+			 * （拼接即告完成）。任何重复键都会自动
+			 * 覆盖第一个对象的值。
 		 */
 		while ((r2 = JsonbIteratorNext(it2, &v2, true)) != WJB_DONE)
 			res = pushJsonbValue(state, r2, r2 != WJB_END_OBJECT ? &v2 : NULL);
@@ -4814,7 +4814,7 @@ IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 	else if (rk1 == WJB_BEGIN_ARRAY && rk2 == WJB_BEGIN_ARRAY)
 	{
 		/*
-		 * Both inputs are arrays.
+			 * 两者皆为数组。
 		 */
 		pushJsonbValue(state, rk1, NULL);
 
@@ -4830,12 +4830,12 @@ IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 			pushJsonbValue(state, WJB_ELEM, &v2);
 		}
 
-		res = pushJsonbValue(state, WJB_END_ARRAY, NULL /* signal to sort */ );
+		res = pushJsonbValue(state, WJB_END_ARRAY, NULL /* 通知排序 */ );
 	}
 	else if (rk1 == WJB_BEGIN_OBJECT)
 	{
 		/*
-		 * We have object || array.
+			 * 即对象 || 数组。
 		 */
 		Assert(rk2 == WJB_BEGIN_ARRAY);
 
@@ -4851,7 +4851,7 @@ IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 	else
 	{
 		/*
-		 * We have array || object.
+			 * 即数组 || 对象。
 		 */
 		Assert(rk1 == WJB_BEGIN_ARRAY);
 		Assert(rk2 == WJB_BEGIN_OBJECT);
@@ -4872,33 +4872,33 @@ IteratorConcat(JsonbIterator **it1, JsonbIterator **it2,
 }
 
 /*
- * Do most of the heavy work for jsonb_set/jsonb_insert
+ * 为 jsonb_set/jsonb_insert 完成大部分重活
  *
- * If JB_PATH_DELETE bit is set in op_type, the element is to be removed.
+ * 若 op_type 中设置了 JB_PATH_DELETE 位，则要移除元素。
  *
- * If any bit mentioned in JB_PATH_CREATE_OR_INSERT is set in op_type,
- * we create the new value if the key or array index does not exist.
+ * 若 op_type 设置了 JB_PATH_CREATE_OR_INSERT 中任一位，
+ * 则在键或数组下标不存在时创建新值。
  *
- * Bits JB_PATH_INSERT_BEFORE and JB_PATH_INSERT_AFTER in op_type
- * behave as JB_PATH_CREATE if new value is inserted in JsonbObject.
+ * op_type 中的 JB_PATH_INSERT_BEFORE 与 JB_PATH_INSERT_AFTER
+ * 位在新值插入 JsonbObject 时行为如同 JB_PATH_CREATE。
  *
- * If JB_PATH_FILL_GAPS bit is set, this will change an assignment logic in
- * case if target is an array. The assignment index will not be restricted by
- * number of elements in the array, and if there are any empty slots between
- * last element of the array and a new one they will be filled with nulls. If
- * the index is negative, it still will be considered an index from the end
- * of the array. Of a part of the path is not present and this part is more
- * than just one last element, this flag will instruct to create the whole
- * chain of corresponding objects and insert the value.
+ * 若设置了 JB_PATH_FILL_GAPS 位，当目标为数组时赋值逻辑
+ * 将会改变。赋值下标将不受数组元素数量的限制，
+ * 且若数组最后一个元素与新元素之间存在空槽，
+ * 这些空槽将以 null 填充。若
+ * 下标为负，它仍将被视为从数组末尾起算的下标。若
+ * 路径的某部分不存在且该部分不止最后一个元素，
+ * 此标志将指示创建整条相应对象链并
+ * 插入该值。
  *
- * JB_PATH_CONSISTENT_POSITION for an array indicates that the caller wants to
- * keep values with fixed indices. Indices for existing elements could be
- * changed (shifted forward) in case if the array is prepended with a new value
- * and a negative index out of the range, so this behavior will be prevented
- * and return an error.
+ * JB_PATH_CONSISTENT_POSITION 对数组而言表示调用者想要
+ * 保持具有固定下标的值。现有元素的下标可能被改变
+ * （前移）——当数组被前插新值且负下标越界的
+ * 时候，这一行为将被阻止并返回
+ * 错误。
  *
- * All path elements before the last must already exist
- * whatever bits in op_type are set, or nothing is done.
+ * 最后一个之前全部路径元素必须已存在
+ * ——无论 op_type 设何位，否则不做。
  */
 static JsonbValue *
 setPath(JsonbIterator **it, Datum *path_elems,
@@ -4924,10 +4924,10 @@ setPath(JsonbIterator **it, Datum *path_elems,
 		case WJB_BEGIN_ARRAY:
 
 			/*
-			 * If instructed complain about attempts to replace within a raw
-			 * scalar value. This happens even when current level is equal to
-			 * path_len, because the last path key should also correspond to
-			 * an object or an array, not raw scalar.
+				 * 若被指示，对在 raw
+				 * scalar 内替换企图也报错，即使当前层级等于
+				 * path_len 也如此，因为最后路径键同样应对应
+				 * 对象或数组而非 raw scalar。
 			 */
 			if ((op_type & JB_PATH_FILL_GAPS) && (level <= path_len - 1) &&
 				v.val.array.rawScalar)
@@ -4956,10 +4956,10 @@ setPath(JsonbIterator **it, Datum *path_elems,
 		case WJB_VALUE:
 
 			/*
-			 * If instructed complain about attempts to replace within a
-			 * scalar value. This happens even when current level is equal to
-			 * path_len, because the last path key should also correspond to
-			 * an object or an array, not an element or value.
+				 * 若被指示，对试图在
+				 * scalar 内替换企图也报错，即使当前层级等于
+				 * path_len 也如此，因为最后路径键同样应对应
+				 * 对象或数组而非元素或值。
 			 */
 			if ((op_type & JB_PATH_FILL_GAPS) && (level <= path_len - 1))
 				ereport(ERROR,
@@ -4972,7 +4972,7 @@ setPath(JsonbIterator **it, Datum *path_elems,
 			break;
 		default:
 			elog(ERROR, "unrecognized iterator result: %d", (int) r);
-			res = NULL;			/* keep compiler quiet */
+			res = NULL;			/* 让编译器安静 */
 			break;
 	}
 
@@ -4980,7 +4980,7 @@ setPath(JsonbIterator **it, Datum *path_elems,
 }
 
 /*
- * Object walker for setPath
+ * setPath的对象遍历器
  */
 static void
 setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
@@ -4997,11 +4997,11 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 		done = true;
 	else
 	{
-		/* The path Datum could be toasted, in which case we must detoast it */
+		/* 路径 Datum 可能被 toast，此时必须对其去 toast */
 		pathelem = DatumGetTextPP(path_elems[level]);
 	}
 
-	/* empty object is a special case for create */
+	/* 空对象是创建时的特例 */
 	if ((npairs == 0) && (op_type & JB_PATH_CREATE_OR_INSERT) &&
 		(level == path_len - 1))
 	{
@@ -5031,8 +5031,8 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 			if (level == path_len - 1)
 			{
 				/*
-				 * called from jsonb_insert(), it forbids redefining an
-				 * existing value
+					 * 由 jsonb_insert() 调用，禁止重定义
+					 * 已有值
 				 */
 				if (op_type & (JB_PATH_INSERT_BEFORE | JB_PATH_INSERT_AFTER))
 					ereport(ERROR,
@@ -5041,7 +5041,7 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 							 errhint("Try using the function jsonb_set "
 									 "to replace key value.")));
 
-				r = JsonbIteratorNext(it, &v, true);	/* skip value */
+				r = JsonbIteratorNext(it, &v, true);	/* 跳过值 */
 				if (!(op_type & JB_PATH_DELETE))
 				{
 					(void) pushJsonbValue(st, WJB_KEY, &k);
@@ -5093,14 +5093,14 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	}
 
 	/*--
-	 * If we got here there are only few possibilities:
-	 * - no target path was found, and an open object with some keys/values was
-	 *   pushed into the state
-	 * - an object is empty, only WJB_BEGIN_OBJECT is pushed
+	 * 走到这里只可能有几种情况：
+	 * - 未找到目标路径，且带若干键/值的开放对象被压入
+	 *   状态。
+	 * - 对象为空，只压入了 WJB_BEGIN_OBJECT
 	 *
-	 * In both cases if instructed to create the path when not present,
-	 * generate the whole chain of empty objects and insert the new value
-	 * there.
+	 * 两种情况下，若被指示在路径缺失时创建路径，
+	 * 就生成整条空对象链并在其中插入新值。
+	 *
 	 */
 	if (!done && (op_type & JB_PATH_FILL_GAPS) && (level < path_len - 1))
 	{
@@ -5114,12 +5114,12 @@ setPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 		(void) push_path(st, level, path_elems, path_nulls,
 						 path_len, newval);
 
-		/* Result is closed with WJB_END_OBJECT outside of this function */
+		/* 结果在本函数之外以 WJB_END_OBJECT 闭合 */
 	}
 }
 
 /*
- * Array walker for setPath
+ * setPath 数组遍历器
  */
 static void
 setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
@@ -5131,7 +5131,7 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 				i;
 	bool		done = false;
 
-	/* pick correct index */
+	/* 选正确下标 */
 	if (level < path_len && !path_nulls[level])
 	{
 		char	   *c = TextDatumGetCString(path_elems[level]);
@@ -5153,8 +5153,8 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 		if (-idx > nelems)
 		{
 			/*
-			 * If asked to keep elements position consistent, it's not allowed
-			 * to prepend the array.
+				 * 若被要求保持元素位置一致，则不允许前插
+				 * 数组。
 			 */
 			if (op_type & JB_PATH_CONSISTENT_POSITION)
 				ereport(ERROR,
@@ -5169,8 +5169,8 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	}
 
 	/*
-	 * Filling the gaps means there are no limits on the positive index are
-	 * imposed, we can set any element. Otherwise limit the index by nelems.
+	 * 填充空隙意味着对正下标不设限制，我们可以
+	 * 设置任意元素。否则以 nelems 限制下标。
 	 */
 	if (!(op_type & JB_PATH_FILL_GAPS))
 	{
@@ -5179,9 +5179,9 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	}
 
 	/*
-	 * if we're creating, and idx == INT_MIN, we prepend the new value to the
-	 * array also if the array is empty - in which case we don't really care
-	 * what the idx value is
+	 * 若处于创建态且 idx == INT_MIN，我们会把新值前插到
+	 * 数组，若数组为空也是如此——此时我们并不
+	 * 在意 idx 的值。
 	 */
 	if ((idx == INT_MIN || nelems == 0) && (level == path_len - 1) &&
 		(op_type & JB_PATH_CREATE_OR_INSERT))
@@ -5196,7 +5196,7 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 		done = true;
 	}
 
-	/* iterate over the array elements */
+	/* 遍历数组元素 */
 	for (i = 0; i < nelems; i++)
 	{
 		JsonbIteratorToken r;
@@ -5207,15 +5207,15 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 
 			if (level == path_len - 1)
 			{
-				r = JsonbIteratorNext(it, &v, true);	/* skip */
+				r = JsonbIteratorNext(it, &v, true);	/*跳过*/
 
 				if (op_type & (JB_PATH_INSERT_BEFORE | JB_PATH_CREATE))
 					(void) pushJsonbValue(st, WJB_ELEM, newval);
 
 				/*
-				 * We should keep current value only in case of
-				 * JB_PATH_INSERT_BEFORE or JB_PATH_INSERT_AFTER because
-				 * otherwise it should be deleted or replaced
+					 * 只有 JB_PATH_INSERT_BEFORE 或
+					 * JB_PATH_INSERT_AFTER 才保留，否则应
+					 * 将其删除或替换。
 				 */
 				if (op_type & (JB_PATH_INSERT_AFTER | JB_PATH_INSERT_BEFORE))
 					(void) pushJsonbValue(st, r, &v);
@@ -5255,8 +5255,8 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	if ((op_type & JB_PATH_CREATE_OR_INSERT) && !done && level == path_len - 1)
 	{
 		/*
-		 * If asked to fill the gaps, idx could be bigger than nelems, so
-		 * prepend the new element with nulls if that's the case.
+			 * 若被要求填空隙，idx 可能大于 nelems，那么
+			 * 就用 null 前插新元素。
 		 */
 		if (op_type & JB_PATH_FILL_GAPS && idx > nelems)
 			push_null_elements(st, idx - nelems);
@@ -5266,14 +5266,14 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 	}
 
 	/*--
-	 * If we got here there are only few possibilities:
-	 * - no target path was found, and an open array with some keys/values was
-	 *   pushed into the state
-	 * - an array is empty, only WJB_BEGIN_ARRAY is pushed
+	 * 走到这里只可能有几种情况：
+	 * - 未找到目标路径，带若干键/值的开放数组被压入
+	 *   状态。
+	 * - 数组为空，只压入了 WJB_BEGIN_ARRAY
 	 *
-	 * In both cases if instructed to create the path when not present,
-	 * generate the whole chain of empty objects and insert the new value
-	 * there.
+	 * 两种情况下，若被指示在路径缺失时创建路径，
+	 * 就生成整条空对象链并在其中插入新值。
+	 *
 	 */
 	if (!done && (op_type & JB_PATH_FILL_GAPS) && (level < path_len - 1))
 	{
@@ -5283,14 +5283,14 @@ setPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
 		(void) push_path(st, level, path_elems, path_nulls,
 						 path_len, newval);
 
-		/* Result is closed with WJB_END_OBJECT outside of this function */
+		/* 结果在本函数之外以 WJB_END_OBJECT 闭合 */
 	}
 }
 
 /*
- * Parse information about what elements of a jsonb document we want to iterate
- * in functions iterate_json(b)_values. This information is presented in jsonb
- * format, so that it can be easily extended in the future.
+ * 解析我们想在 iterate_json(b)_values 函数中遍历 jsonb 文档
+ * 的哪些元素的信息。该信息以 jsonb 格式表示，便于日后
+ * 轻松扩展。
  */
 uint32
 parse_jsonb_index_flags(Jsonb *jb)
@@ -5305,9 +5305,9 @@ parse_jsonb_index_flags(Jsonb *jb)
 	type = JsonbIteratorNext(&it, &v, false);
 
 	/*
-	 * We iterate over array (scalar internally is represented as array, so,
-	 * we will accept it too) to check all its elements.  Flag names are
-	 * chosen the same as jsonb_typeof uses.
+	 * 我们遍历数组（标量内部也表示为数组，故也接受）
+	 * 以检查其全部元素。标志名的选取与
+	 * jsonb_typeof 所用的一致。
 	 */
 	if (type != WJB_BEGIN_ARRAY)
 		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -5344,11 +5344,11 @@ parse_jsonb_index_flags(Jsonb *jb)
 					 errhint("Possible values are: \"string\", \"numeric\", \"boolean\", \"key\", and \"all\".")));
 	}
 
-	/* expect end of array now */
+	/* 该是数组结尾了 */
 	if (type != WJB_END_ARRAY)
 		elog(ERROR, "unexpected end of flag array");
 
-	/* get final WJB_DONE and free iterator */
+	/* 取 WJB_DONE 并释放迭代器 */
 	type = JsonbIteratorNext(&it, &v, false);
 	if (type != WJB_DONE)
 		elog(ERROR, "unexpected end of flag array");
@@ -5357,8 +5357,8 @@ parse_jsonb_index_flags(Jsonb *jb)
 }
 
 /*
- * Iterate over jsonb values or elements, specified by flags, and pass them
- * together with an iteration state to a specified JsonIterateStringValuesAction.
+ * 按 flags 的指定遍历 jsonb 值或元素，把它们连同迭代
+ * 状态一起传给指定的 JsonIterateStringValuesAction。
  */
 void
 iterate_jsonb_values(Jsonb *jb, uint32 flags, void *state,
@@ -5371,8 +5371,8 @@ iterate_jsonb_values(Jsonb *jb, uint32 flags, void *state,
 	it = JsonbIteratorInit(&jb->root);
 
 	/*
-	 * Just recursively iterating over jsonb and call callback on all
-	 * corresponding elements
+	 * 只是递归遍历 jsonb 并对所有对应元素调用回调
+	 * 即可。
 	 */
 	while ((type = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
 	{
@@ -5385,11 +5385,11 @@ iterate_jsonb_values(Jsonb *jb, uint32 flags, void *state,
 		}
 		else if (!(type == WJB_VALUE || type == WJB_ELEM))
 		{
-			/* do not call callback for composite JsonbValue */
+			/* 不为复合 JsonbValue 调用回调 */
 			continue;
 		}
 
-		/* JsonbValue is a value of object or element of array */
+		/* JsonbValue 是对象的值或数组的元素 */
 		switch (v.type)
 		{
 			case jbvString:
@@ -5418,15 +5418,15 @@ iterate_jsonb_values(Jsonb *jb, uint32 flags, void *state,
 				}
 				break;
 			default:
-				/* do not call callback for composite JsonbValue */
+				/* 不为复合 JsonbValue 调用回调 */
 				break;
 		}
 	}
 }
 
 /*
- * Iterate over json values and elements, specified by flags, and pass them
- * together with an iteration state to a specified JsonIterateStringValuesAction.
+ * 按 flags 的指定遍历 json 值与元素，把它们连同迭代
+ * 状态一起传给指定的 JsonIterateStringValuesAction。
  */
 void
 iterate_json_values(text *json, uint32 flags, void *action_state,
@@ -5449,8 +5449,8 @@ iterate_json_values(text *json, uint32 flags, void *action_state,
 }
 
 /*
- * An auxiliary function for iterate_json_values to invoke a specified
- * JsonIterateStringValuesAction for specified values.
+ * iterate_json_values 的辅助函数，对指定值调用指定的
+ * JsonIterateStringValuesAction。
  */
 static JsonParseErrorType
 iterate_values_scalar(void *state, char *token, JsonTokenType tokentype)
@@ -5473,7 +5473,7 @@ iterate_values_scalar(void *state, char *token, JsonTokenType tokentype)
 				_state->action(_state->action_state, token, strlen(token));
 			break;
 		default:
-			/* do not call callback for any other token */
+			/* 不为任何其他记号调用回调 */
 			break;
 	}
 
@@ -5496,10 +5496,10 @@ iterate_values_object_field_start(void *state, char *fname, bool isnull)
 }
 
 /*
- * Iterate over a jsonb, and apply a specified JsonTransformStringValuesAction
- * to every string value or element. Any necessary context for a
- * JsonTransformStringValuesAction can be passed in the action_state variable.
- * Function returns a copy of an original jsonb object with transformed values.
+ * 遍历一个 jsonb，并对每个字符串值或元素应用一个
+ * 指定的 JsonTransformStringValuesAction。所需的任何
+ * 上下文都可以经 action_state 变量传入。
+ * 函数返回变换后值的原 jsonb 对象副本。
  */
 Jsonb *
 transform_jsonb_string_values(Jsonb *jsonb, void *action_state,
@@ -5521,7 +5521,7 @@ transform_jsonb_string_values(Jsonb *jsonb, void *action_state,
 		if ((type == WJB_VALUE || type == WJB_ELEM) && v.type == jbvString)
 		{
 			out = transform_action(action_state, v.val.string.val, v.val.string.len);
-			/* out is probably not toasted, but let's be sure */
+			/* out 大概未被 toast，但还是确认一下 */
 			out = pg_detoast_datum_packed(out);
 			v.val.string.val = VARDATA_ANY(out);
 			v.val.string.len = VARSIZE_ANY_EXHDR(out);
@@ -5542,11 +5542,11 @@ transform_jsonb_string_values(Jsonb *jsonb, void *action_state,
 }
 
 /*
- * Iterate over a json, and apply a specified JsonTransformStringValuesAction
- * to every string value or element. Any necessary context for a
- * JsonTransformStringValuesAction can be passed in the action_state variable.
- * Function returns a StringInfo, which is a copy of an original json with
- * transformed values.
+ * 遍历一个 json，并对每个字符串值或元素应用一个
+ * 指定的 JsonTransformStringValuesAction。所需的任何
+ * 上下文都可以经 action_state 变量传入。
+ * StringInfo，即原 json 的一份已变换
+ * 值的副本。
  */
 text *
 transform_json_string_values(text *json, void *action_state,
@@ -5576,9 +5576,9 @@ transform_json_string_values(text *json, void *action_state,
 }
 
 /*
- * Set of auxiliary functions for transform_json_string_values to invoke a
- * specified JsonTransformStringValuesAction for all values and left everything
- * else untouched.
+ * transform_json_string_values 的一组辅助函数，对所有值
+ * 调用指定的 JsonTransformStringValuesAction，其余一切
+ * 不动。
  */
 static JsonParseErrorType
 transform_string_values_object_start(void *state)
@@ -5629,8 +5629,8 @@ transform_string_values_object_field_start(void *state, char *fname, bool isnull
 		appendStringInfoCharMacro(_state->strval, ',');
 
 	/*
-	 * Unfortunately we don't have the quoted and escaped string any more, so
-	 * we have to re-escape it.
+	 * 遗憾的是带引号的转义字符串已不复存在，所以必须
+	 * 对其重新转义。
 	 */
 	escape_json(_state->strval, fname);
 	appendStringInfoCharMacro(_state->strval, ':');
@@ -5674,7 +5674,7 @@ json_get_first_token(text *json, bool throw_error)
 
 	lex = makeJsonLexContext(json, false);
 
-	/* Lex exactly one token from the input and check its type. */
+	/* 从输入只词法分析一个记号并检查类型。 */
 	result = json_lex(lex);
 
 	if (result == JSON_SUCCESS)
@@ -5683,5 +5683,5 @@ json_get_first_token(text *json, bool throw_error)
 	if (throw_error)
 		json_errsave_error(result, lex, NULL);
 
-	return JSON_TOKEN_INVALID;	/* invalid json */
+	return JSON_TOKEN_INVALID;	/* 无效 json */
 }

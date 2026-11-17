@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0422",
+ "title": "adt 目录 jsonfuncs.c 整文件注释翻译 414 块 643/5687 行 — batch 0422",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c914bf3af7c0e819309ceaaa3e5dec6d6558029f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/jsonfuncs.c",
+   "kind": "c_comment",
+   "note": "json/jsonb 域函数库(populate_record 系/each/array_elements/object_keys/strip_nulls/jsonb_set/insert/delete/concat/iterate/transform); whole-file comment translation, batch-0422"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0422-adt-jsonfuncs.json",
+   "kind": "manifest",
+   "note": "batch-0422 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0422 entries (jsonfuncs.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/jsonfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 414,
+   "translated": 406,
+   "preserved": 8,
+   "preserved_reasons": [
+    "B284/B286: /* translator: %s is a function name, eg json_to_record */ (R5_PROTECTED 受保护注释, verify 强制保留, 初版误译被 verify 抓出后回退)",
+    "B355/B356/B357/B358: 注释掉的旧代码声明 (/* Jsonb *in = PG_GETARG_JSONB_P(0); */ 等 4 行, 代码保留)",
+    "B074/B080: /* json/jsonb */ 纯类型记法标记 (无散文语义)"
+   ],
+   "note": "jsonfuncs.c JSON 域函数库 (json_object_keys/get 系/each/array_elements/populate_record 系/populate_array 系/strip_nulls/jsonb_concat/delete/set/set_lax/delete_path/insert/iterate_json(b)_values/transform_json_string_values); whole-file comment translation, batch-0422; 术语全取同域既译同款: object→对象/array→数组/element→元素/nested→嵌套/container→容器/key→键/value→值/scalar→标量 (jsonb_util.c 0411 L30-338 同款), record→记录 (json.c 0412 L609 同款), domain→域 (expandedrecord.c 0413 L577 同款), populate→填充 (jsonb_util.c L492 填充 JsonbValue 同款), detoast→去 toast (acl.c 0420 L980 预先去 toast 同款), flatten→展平 (datum.c L124 同款), prepend→前插 (schemacmds.c L159 前插同款), token→记号 (战役既译口径, term_lint P75 advisory 10 站不修), handler→回调 (populate_array_json 5 站 B223/B224/B225/B227/B229, 函数指针语义), walker→遍历器 (B377/B384 新定, 全树无既译), sibling 未出现; Oid/函数名/JSON 令牌枚举 (WJB_*/JB_PATH_*/JSON_TOKEN_*) 逐字保留; 权威 universe: 注释感知状态机扫描 414 块 content 行 924, verify block_comments=414 changed=406 两方一致; content 行 924 = zh 643 + 保留 EN 281 (帧/空框 258 + 内容保留 23: 下述 22 项 + B298 populate_composite() 纯标识符行, 头部 7 = L1/L12 分隔线+文件名/版权×2/IDENTIFICATION/路径, 头部功能描述行 L4 已译; 裸函数名 banner 4 = B100 pg_parse_json_or_errsave/B101 makeJsonLexContext/B126 get_worker/B299 get_json_object_as_hash, postinit.c 判例; 记法 2 = B074/B080 json/jsonb; translator 2 = B284/B286 R5_PROTECTED; 注释掉的代码 4 = B355-B358; /*-- 状态标记 2 = B382/B393) + zh 空框行 11 (EN 尾短语上并后的空框: B125/B172/B212/B276/B282/B346/B347/B349/B352/B382/B393, 0365 判例); preserved 口径: preserved=8 块与 verify 未变 8 块一致 (translated 406+preserved 8=414), 8 块清单见 preserved_reasons; 行数守恒 5687 不变 (numstat 643/643); 代码字节零改动 (skeleton 逐字节相等 verify rc=0, splices=14 为既有); NUL 扫描 0; 尾注释分支经 B370 行中注释 (pushJsonbValue NULL /* signal to sort */ ); 尾部代码随行保留) 等实线验证, B228/B274 null 结尾 尾注两站; 同 EN 必同译: apply 断言 + 终扫剩 1 组良性披露: B129 L3 与 B145 L3 EN 同行 (been started by the outer field or array element callback.) zh 分别为 字段或数组元素回调启动。/回调启动。 — 两块为同构 Special case 段落 (entire object vs entire array), 上文行 EN 相异 (at outermost level vs at the outermost level) 故断行点不同, 段落级语义完整平行, 68/72 字节预算所迫无法统一; 写后 R2 曾修 3 组同 EN 行异 zh 至零残差 (B375 L2 对齐 B374 scalar 内替换企图也报错/B374+B375 L3 同为 path_len 也如此，因为最后路径键同样应对应/B407+B409 L3 同为 上下文都可以经 action_state 变量传入。); 异 EN 同 zh 反查 3 组全良性: 错误。 x2 (B106 error at EOF 续行 vs B373 and return an error, 语义各自成立), 使用 tmp 上下文，以便每个元组完成后清理 x2 (B193/B207 vs B185/B199, EN 仅句首 Use/use 大小写变体), 返回删除了指定条目的 jsonb 副本， x2 (B347/B349 item vs B352 items, 散文复数 0372 量裁); 极性代码对照 20 块 (≥12): B124/B160 数组含 null 元素则返回 NULL 且错误情形亦返回 NULL 故无论其余内容, B163 数组为空返回整个 LHS 对象(零次提取)/标量情形落到循环下方, B121/B122/B165 负下标处理, B172/B173/B174 文本→预期对象/整数→预期数组, B273 对 NULL 也必须域检查否则立即退出, B282 键未找到也不能跳过(可能有域)/传入 null 则未填充字段过输入函数, B294/B318 取自调用查询否则失败, B320 json 为 null 则返回空集, B324 顶层对象拒绝(0 层必须数组), B342 值为 null 则跳过字段, B343 否则延迟压键, B346 一个 jsonb 为空且非标量同类→直接返回另一个/标量或异类→即使为空也执行连接, B359 显式传入 NULL 则可能发生, B360 新值非 SQL NULL 才直接调 jsonb_set, B366 raw scalar 报成单元素数组故只需考虑 object/array, B373 JB_PATH_DELETE 移除/CREATE_OR_INSERT 创建/INSERT_BEFORE_AFTER 如同 CREATE/FILL_GAPS 改变赋值逻辑/CONSISTENT_POSITION 阻止前插并报错, B374 raw scalar 内替换报错(即使 level==path_len), B386 要求位置一致则不允许前插, B387 填空隙则正下标无限制否则以 nelems 限制, B388 创建且 idx==INT_MIN 则前插(数组为空时无视 idx), B391 仅 INSERT_BEFORE/AFTER 保留否则删除或替换, B392 填空隙则 idx 可超 nelems 用 null 前插; 枚举横幅逐项点数 (0417 D1 判例): B373 JB_PATH_* 横幅 7 枚举全数 (DELETE/CREATE_OR_INSERT/INSERT_BEFORE/INSERT_AFTER/FILL_GAPS/CONSISTENT_POSITION/CREATE), B120 -> ->> #> #>> 4 算子全数, B126 参数清单 5 项全数 (json/tpath[]/ipath[]/npath/normalize_results), B043 枚举类型类别, B283/B285 result type 双句全数, B173/B174 text/integer 两分支全数, B304 NAMEDATALEN 截断论证 5 句全数; 门禁三连实测: verify_c_comments rc=0 (1 files, comments=414, changed=406, splices=14 既有, 0 violations), term_lint rc=0 (87 rules 21 error/66 warning, 0 error hits, 15 warnings 全 advisory: P75 token→记号 10 站 (战役既译口径, phrasebook 词元/令牌 为建议), P38 5 站空提示; N1/N2 勘正: 自报 P75 11/P38 4 与 zh 647+277 实测失实, 审查实测 P75 10/P38 5 与 643+281 后勘正), check_scope 于 manifest+cumulative 落盘后实测; scan_halfen 未跑本批 (摘 json 系无长 EN run 需求, B284/B286 translator 行为既有 run 且 R5 保留); W7 10 站 (--paths src/backend/utils/adt 口径, verify 实测): IDENT_LOST 6 = name (L92)/index (L93)/FIRST (L147)/index+name (L1074)/SRFs (L1929)/NULLs (L3185), 均为散文词且 zh 译词在场 (字段名/下标/居首/数/NULL), 0372 散文复数量裁不修; UNTRANSLATED 4 = L4619-4622 注释掉的代码声明 (preserved B355-B358 有意保留); 句号台账 (块级尾句 python 全量比对, EN 基线 git show HEAD 现算): FWD 0 (EN 句号 zh 全数在场), REV 3 全良性 = B388 (在意 idx 的值。)/B391 (将其删除或替换。)/B400 (即可。), EN 行尾无句号 zh 句法自洽补句号 (REVERSE 变通判例, zh 文本无歧义); EN 尾短语上并后空框 11 站 (0365 判例); CJK-EN 相邻空格预算紧行省略 19 站 (L166/184/190/193/242/259/260/261/262/272/273/625/2599/2730/2731/2816/4282/4983/5210, 语义无歧义, 0421 A 级披露同款); B104 报告JSON 错误。(23B 恰满预算); 修复轮如实披露: 规划轮 spec dry-run 多次迭代 (预算超限 26 行/行数错配 45 处双尾 None/缩进归一 80 行, 全部 dry-run 或 checkout 复位重放, 未触及工作树), 写后 3 轮 = R1 B284/B286 translator 注释 R5_PROTECTED 回退保留 EN (verify 抓出), R2 同 EN 行统一 (B375/B407/B409), R3 B177 整句文档注释漏译补译 (语义已译? 自查抓出); 每轮 git checkout HEAD 复位重放后 verify rc=0; A 级披露: B370 行中尾注 /* 通知排序 */ 后随代码 ); 随行保留, B100 L6 ereport(ERROR). 行保留 EN (纯代码引用行), B102 pg_detoast_datum_packed() 前移句式改排 (但未必全都如此), B126 normalize_results 行 63B 恰满, B067 json 词法 (17B 预算放不下 词法分析器, 全树 词法分析器 为既译但本行预算所迫缩略), B075/B076 json 串 (18B 预算放不下 字符串), B077 /* 类型 */ (14B 预算放不下 json 类型, union 分支名 json 已在代码), B223-B229 handler 统一译 回调 (B224 54B 预算排除 处理器 9B 版本); 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0422-adt-jsonfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0422 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0422 entries (jsonfuncs.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

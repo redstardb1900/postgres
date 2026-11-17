@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0421",
+ "title": "adt 目录 geo_ops.c 整文件注释翻译 334 块 624/1089 行 — batch 0421",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9b17d92307e92eeb7634b899fca7e92dd02abf57",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/geo_ops.c",
+   "kind": "c_comment",
+   "note": "二维几何类型输入输出/关系谓词/距离/相交/最近点/共线与包含判定; whole-file comment translation, batch-0421"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0421-adt-geoops.json",
+   "kind": "manifest",
+   "note": "batch-0421 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0421 entries (geo_ops.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/geo_ops.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 334,
+   "translated": 322,
+   "preserved": 12,
+   "preserved_reasons": [
+    "B012/B013/B017/B018: 尾注释裸函数名 banner /* single_decode() */ /* single_encode() */ /* path_decode() */ /* path_encode() */ (postinit.c InitPostgres 判例, 裸函数名保留 EN 合规)",
+    "B177/B178: on_ppath 开放/闭合分支状态标记 /*-- OPEN --*/ /*-- CLOSED --*/",
+    "B231/B232: 扫描分支代码标签 /* Y-cross */",
+    "B311/B313/B315/B316: 纯数学条件注释 /* x > 0 */ /* prev_x > 0? */ /* prev_x < 0? */ /* y != 0 */ (数学表达式保留)"
+   ],
+   "note": "geo_ops.c 几何域核心 (point/line/lseg/box/path/polygon/circle 七类型 in/out/recv/send、关系谓词、距离、交点、最近点、包含与共线判定); whole-file comment translation, batch-0421; 术语全取同域既译同款: box→矩形/bounding box→外接框 (geo_spgist.c 0406 战役既译 L242-365 rect_box 模板用矩形、L505/528/855/863 外接框, rangetypes_spgist.c L489/671 同款; gistproc.c 战役前旧译 盒子/边界框 不取, 披露), operator→算子 (geo_selfuncs.c 0400 既译 L4/26/28/45 同域), operator class→操作符类 (B043/B190, 0420 acl.c opclass→操作符类同款), overlap→重叠 (geo_spgist), vertex→顶点 (gistproc 既译; 本文件 zh 中未出现顶点字样, EN vertex 仅在 gistproc), point→点/line→直线/lseg→线段/path→路径/polygon→多边形/circle→圆, slope→斜率/intercept 截距 (yinter 保留标识符)/collinear→共线/perpendicular→垂直/parallel→平行/endpoint→端点/radius→半径/center→圆心/diameter→直径, toast→toast (0409 系既译), 新定 inverse slope→反向斜率 (全树无既译先例, 披露)、polyline→折线 (B082, EN 折线'引号体保留)、hypotenuse→斜边 (B328); 权威 universe: 注释感知状态机扫描 334 块 content 行 1089, verify block_comments=334 changed=322 两方一致; content 行 1089 = zh 609 + 保留 EN 465 (帧 */ 193 + EN 空框 73 + 分隔横幅帧 46 + banner 17 + 内容保留 136: 头部 5 = 文件名/版权×2/IDENTIFICATION/路径, 头部功能描述行已译; B001 函数模板签名 6; 记法样例 17 = B019×2/B022/B083×5/B104×2/B116×2/B192×2/B263; B328 公式推导 3; B302 文献引用 URL 5; 数学条件注释与署名行等) + zh 空框行 15 (EN 短语上并后的空框, 0365 判例); preserved 口径: preserved=12 块与 verify 未变 12 块一致 (translated 322+preserved 12=334), 12 块清单见 preserved_reasons; 行数守恒 5562 不变 (numstat 563/563); 代码字节零改动 (skeleton 逐字节相等 verify rc=0, splices=0); NUL 扫描 0; 尾注释分支经 B078/B094 等实线验证; 同 EN 必同译: apply 断言零违例, 大宗同 EN 站 grep 实测: 避免 toast 输入泄漏内存……rtree 索引需要 12 站 (B200-216+224/237/240), 包含闭合段 5 站 (B094/095/099/100/102), 检查整数溢出 4 站 (B085/193/250/298), 防止未用填充字节的不稳定性 4 站 (B086/088/251/260), 空洞置零 3 站 (B194/197/299), 逐对检查线段相交 3 站 (B093/185/188), 逐对检查线段距离 2 站, 初始化以让编译器安静 2 站 (B098/241), 必须接受 NaN 2 站 (B266/269), 相对位置例程 2 站 (B070/123), 直线算术例程 2 站 (B074/126), 格式化与转换例程 2 站 (B021/262), 转换算子 2 站 (B091/296), 旋转与缩放算子 2 站 (B253/287), 平移算子 2 站 (B252/286), 返回矩形的面积 2 站 (B046/051), 返回圆的面积 2 站 (B288/295), 若涉及任何 NaN 则坚持精确相等 2 站 (B072/111), 必要时重排角点顺序 2 站 (B023/026), 需要时报告停止点 2 站 (B014/016), 二维点例程 2 站 (B103/244), 将字符串转为内部形式 2 站 (B022 box_in/B263 circle_in 同模板), 多边形A是否…族 10 站 (B199-215 方位各异逐站独立核), 严格在 circle2/box2 各 4 站; 异 EN 同 zh 反查 6 组全良性披露: 上/下/左/右边缘或其侧 x4 (B033/035/037/039 box2 系 vs B274/277/282/283 circle2 系, 同构谓词 continuation 行, EN 仅对象名异), 二维矩形例程 (B020 'two-dimensional boxes' vs B245 '2D boxes' 同义 EN 变体), 包含闭合段 (B094-102 注释体同 EN 仅代码前缀 iprev/jprev/path 异); 极性代码对照 22 块 (≥12): B072 涉及 NaN 则坚持精确相等, B073 否则参数成比例即相同, B080 不应返回 false/否则意味着平行, B096 无任何两线段相交, B109 除非 EPSILON=0.0 否则结果可能是谎言, B128 并非看起来那样/几乎完全对称, B129 不在 l2 内则完全不存在有效线段交点, B154 非 NULL 才设置交点, B157 若存在交点则显式检查/未匹配因 LSB 残留, B169 可能不存在唯一最近点, B182 线段完全位于矩形内也算相交/为不相交优化, B183 没有接近重叠则不会相交, B189 落到此处即无交点, B219 若找到则重叠否则检查包含, B225 应不被 s 包含/这并不代表线段在多边形内, B226 a 在 s 上 b 不在, B227 可能并非如此但稍后检查, B234 若未找到 X 相交则查中点/否则已查全部子段, B242 若重叠则距离为零/路径距离会错, B243 不重叠时计算相同, B255/B259 绝不溢出, B322/B323 非负故跨越正 X 轴/非正故不跨越, B328 除非最终结果越界否则不会溢出/INF 而非 NAN, B302 改编但未照抄; 枚举横幅逐项点数 (0417 D1 判例): B000 头部类型清单 6 项全数保序 (point/line/line segment/box/circle/polygon; 预算所迫改排: 矩形上并以顿号并入线段行 L10、圆上移 L11、L12 空框、多边形 L13, 逐项在案), B029/B271 关系算子清单 <,>,<=,>=,== 5 项全数, B225 true 条件 2 项 + 特殊含义 2 条全数, B302 返回值 1/0/2 三态全数, B176 开放/闭合两分支全数, B043 box_below_eq/box_above_eq 双函数名+PG 8.1 版本号保真, B072 精度算子清单 (point_vert, point_horiz) 保留; 门禁三连实测: verify_c_comments rc=0 (1 files, comments=334, changed=322, splices=0, 0 violations), term_lint rc=0 (87 rules 21 error/66 warning, 0 error hits, 3 warnings 全 advisory: TL08/P23 L384 requires→要求 (zh「要求字符串中分隔符数目为奇数」, phrasebook 需要 为建议译法, 语义等价不修), P24 L5497 expected/got 句式提示), check_scope 于 manifest 落盘后实测; scan_halfen MIXED 5 站 (--paths geo_ops.c 口径, rc=1 系有 finding 的预期退出码): B001 代码模板签名 (L40), B044/B284 area(x) relop 伪码 (L740/4899), B083 旧格式记法样例 (L1368), B302 文献 URL 行 (L5326), 均为有意保留的代码/伪码/URL run 非翻译遗漏; W7_IDENT_LOST 6 站 (--paths src/backend/utils/adt 口径, verify 实测): BOXes (L543)/NaNs (L1200/1979/4745)/POLYGONS (L3364)/CIRCLEs (L4740), 均为散文复数 s 词形变体且 zh 译词在场 (矩形/NaN/多边形/圆), 0372 散文复数量裁不修, 全树口径含历史批次噪声未重跑仅注 adt 口径; 句号台账 (块级尾句 python 全量比对, HEAD 为 EN 基线现算): FWD 4 全良性 = B310 (EN '? ' zh 保持 ASCII '?' 于伪码注释), B254/B023/B026 (EN '...' 省略号, zh 保持 '...'/'…' 等价变体, 0418 单字符省略号判例); REV 1 = B228 (EN 行尾无句号, zh「从 start 检查多边形各边。」句法自洽补句号, 披露); EN 尾短语上并后空框 4 = B272 'to be found.'/B169 'cases.'/B124 'both segments.'/B130 '2D objects.' (0365 空框行判例); 修复轮如实披露: 规划轮 spec 修剪若干次均 dry-run 未写盘 (含 2 次 spec 索引错位误改: B109/B225 首次修错行索引、B025/B027 误投 spec_02 文件, 均在 dry-run/写盘前发现并纠正, 未触及工作树); 写后修复 R1 1 轮 = B025/B027 块内行误以 /* 开头构成 R3_NESTED_OPEN (L462/497), git checkout HEAD 复位重放后 verify rc=0, 复位区相邻行目检无残迹; A 级披露: B000 类型清单改排 (预算所迫, 6 项全数保序), zh-EN 相邻空格在预算紧行处省略 (B278/279/040/041 contained/contain 族、B280/281、B238 等约 10 站, 语义无歧义), B176 L7 帧紧排 *效应 (预算 1 字节之差), B176 L2 (叹气) 保留 EN (groan) 语气, B092/B271 算子清单中的比较符按 EN 原样保留, 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0421-adt-geoops.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0421 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0421 entries (geo_ops.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

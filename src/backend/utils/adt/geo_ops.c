@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * geo_ops.c
- *	  2D geometric operations
+ *	  二维几何运算
  *
- * This module implements the geometric functions and operators.  The
- * geometric types are (from simple to more complicated):
+ * 本模块实现几何函数与算子。
+ * 几何类型（由简单到较复杂）为：
  *
- * - point
- * - line
- * - line segment
- * - box
- * - circle
- * - polygon
+ * 点
+ * 直线
+ *线段、矩形
+ * 圆
+ *
+ * 多边形
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,36 +38,36 @@
 #include "varatt.h"
 
 /*
- * * Type constructors have this form:
+ * 类型构造器形式如下：
  *   void type_construct(Type *result, ...);
  *
- * * Operators commonly have signatures such as
+ * 算子通常有类似如下的签名
  *   void type1_operator_type2(Type *result, Type1 *obj1, Type2 *obj2);
  *
- * Common operators are:
- * * Intersection point:
+ * 常见算子有：
+ * * 交点：
  *   bool type1_interpt_type2(Point *result, Type1 *obj1, Type2 *obj2);
- *		Return whether the two objects intersect. If *result is not NULL,
- *		it is set to the intersection point.
+ *		返回两对象是否相交。若 *result 非 NULL，
+ *		则将其设置为交点。
  *
- * * Containment:
+ * * 包含：
  *   bool type1_contain_type2(Type1 *obj1, Type2 *obj2);
- *		Return whether obj1 contains obj2.
+ *		返回 obj1 是否包含 obj2。
  *   bool type1_contain_type2(Type1 *contains_obj, Type1 *contained_obj);
- *		Return whether obj1 contains obj2 (used when types are the same)
+ *		返回 obj1 是否包含 obj2（两类型相同时使用）
  *
- * * Distance of closest point in or on obj1 to obj2:
+ * * obj1 内或其上最近点到 obj2 的距离：
  *   float8 type1_closept_type2(Point *result, Type1 *obj1, Type2 *obj2);
- *		Returns the shortest distance between two objects.  If *result is not
- *		NULL, it is set to the closest point in or on obj1 to obj2.
+ *		返回两对象间的最短距离。若 *result 非 NULL，
+ *		则设为 obj1 内或其上距 obj2 最近的点。
  *
- * These functions may be used to implement multiple SQL-level operators.  For
- * example, determining whether two lines are parallel is done by checking
- * whether they don't intersect.
+ * 这些函数可用于实现多个 SQL 层面的算子。
+ * 例如，判断两条直线是否平行的方式是检查它们
+ * 是否不相交。
  */
 
 /*
- * Internal routines
+ * 内部例程
  */
 
 enum path_delim
@@ -75,7 +75,7 @@ enum path_delim
 	PATH_NONE, PATH_OPEN, PATH_CLOSED
 };
 
-/* Routines for points */
+/* 点相关例程 */
 static inline void point_construct(Point *result, float8 x, float8 y);
 static inline void point_add_point(Point *result, Point *pt1, Point *pt2);
 static inline void point_sub_point(Point *result, Point *pt1, Point *pt2);
@@ -86,7 +86,7 @@ static inline float8 point_dt(Point *pt1, Point *pt2);
 static inline float8 point_sl(Point *pt1, Point *pt2);
 static int	point_inside(Point *p, int npts, Point *plist);
 
-/* Routines for lines */
+/* 直线相关例程 */
 static inline void line_construct(LINE *result, Point *pt, float8 m);
 static inline float8 line_sl(LINE *line);
 static inline float8 line_invsl(LINE *line);
@@ -94,7 +94,7 @@ static bool line_interpt_line(Point *result, LINE *l1, LINE *l2);
 static bool line_contain_point(LINE *line, Point *point);
 static float8 line_closept_point(Point *result, LINE *line, Point *point);
 
-/* Routines for line segments */
+/* 线段相关例程 */
 static inline void statlseg_construct(LSEG *lseg, Point *pt1, Point *pt2);
 static inline float8 lseg_sl(LSEG *lseg);
 static inline float8 lseg_invsl(LSEG *lseg);
@@ -106,7 +106,7 @@ static float8 lseg_closept_point(Point *result, LSEG *lseg, Point *pt);
 static float8 lseg_closept_line(Point *result, LSEG *lseg, LINE *line);
 static float8 lseg_closept_lseg(Point *result, LSEG *on_lseg, LSEG *to_lseg);
 
-/* Routines for boxes */
+/* 矩形相关例程 */
 static inline void box_construct(BOX *result, Point *pt1, Point *pt2);
 static void box_cn(Point *center, BOX *box);
 static bool box_ov(BOX *box1, BOX *box2);
@@ -120,10 +120,10 @@ static bool box_interpt_lseg(Point *result, BOX *box, LSEG *lseg);
 static float8 box_closept_point(Point *result, BOX *box, Point *pt);
 static float8 box_closept_lseg(Point *result, BOX *box, LSEG *lseg);
 
-/* Routines for circles */
+/* 圆相关例程 */
 static float8 circle_ar(CIRCLE *circle);
 
-/* Routines for polygons */
+/* 多边形相关例程 */
 static void make_bound_box(POLYGON *poly);
 static void poly_to_circle(CIRCLE *result, POLYGON *poly);
 static bool lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start);
@@ -131,7 +131,7 @@ static bool poly_contain_poly(POLYGON *contains_poly, POLYGON *contained_poly);
 static bool plist_same(int npts, Point *p1, Point *p2);
 static float8 dist_ppoly_internal(Point *pt, POLYGON *poly);
 
-/* Routines for encoding and decoding */
+/* 编码与解码例程 */
 static bool single_decode(char *num, float8 *x, char **endptr_p,
 						  const char *type_name, const char *orig_string,
 						  Node *escontext);
@@ -149,9 +149,9 @@ static char *path_encode(enum path_delim path_delim, int npts, Point *pt);
 
 
 /*
- * Delimiters for input and output strings.
- * LDELIM, RDELIM, and DELIM are left, right, and separator delimiters, respectively.
- * LDELIM_EP, RDELIM_EP are left and right delimiters for paths with endpoints.
+ * 输入/输出字符串的分隔符。
+ * LDELIM、RDELIM 和 DELIM 分别为左定界符、右定界符和分隔符。
+ * LDELIM_EP、RDELIM_EP 为带端点路径的左、右定界符。
  */
 
 #define LDELIM			'('
@@ -166,28 +166,28 @@ static char *path_encode(enum path_delim path_delim, int npts, Point *pt);
 
 
 /*
- * Geometric data types are composed of points.
- * This code tries to support a common format throughout the data types,
- *	to allow for more predictable usage and data type conversion.
- * The fundamental unit is the point. Other units are line segments,
- *	open paths, boxes, closed paths, and polygons (which should be considered
- *	non-intersecting closed paths).
+ * 几何数据类型由点构成。
+ * 这段代码力图在各数据类型间支持统一格式，
+ *	以获得更可预期的用法与数据类型转换。
+ * 基本单位是点。其他单位有线段、
+ *	开放路径、矩形、闭合路径与多边形（应视为
+ *	非相交的闭合路径）。
  *
- * Data representation is as follows:
- *	point:				(x,y)
- *	line segment:		[(x1,y1),(x2,y2)]
- *	box:				(x1,y1),(x2,y2)
- *	open path:			[(x1,y1),...,(xn,yn)]
- *	closed path:		((x1,y1),...,(xn,yn))
- *	polygon:			((x1,y1),...,(xn,yn))
+ * 数据表示形式如下：
+ *	点:				(x,y)
+ *	线段:		[(x1,y1),(x2,y2)]
+ *	矩形:	(x1,y1),(x2,y2)
+ *	开放路径:[(x1,y1),...,(xn,yn)]
+ *	闭合路径:	((x1,y1),...,(xn,yn))
+ *	多边形:	((x1,y1),...,(xn,yn))
  *
- * For boxes, the points are opposite corners with the first point at the top right.
- * For closed paths and polygons, the points should be reordered to allow
- *	fast and correct equality comparisons.
+ * 对矩形而言，各点为相对的角点，第一个点位于右上角。
+ * 对闭合路径与多边形而言，各点应重新排序，
+ *	以便快速且正确比较等值。
  *
- * XXX perhaps points in complex shapes should be reordered internally
- *	to allow faster internal operations, but should keep track of input order
- *	and restore that order for text output - tgl 97/01/16
+ * XXX 或许应对复杂形状内部的点重排，
+ *	以便加快内部运算，但应记录输入顺序，
+ *	文本输出时再恢复该顺序 - tgl 97/01/16
  */
 
 static bool
@@ -237,7 +237,7 @@ pair_decode(char *str, float8 *x, float8 *y, char **endptr_p,
 			str++;
 	}
 
-	/* report stopping point if wanted, else complain if not end of string */
+	/* 需要时报告停止点，否则若字符串未结束则报错 */
 	if (endptr_p)
 		*endptr_p = str;
 	else if (*str != '\0')
@@ -276,7 +276,7 @@ path_decode(char *str, bool opentype, int npts, Point *p,
 		str++;
 	if ((*isopen = (*str == LDELIM_EP)))
 	{
-		/* no open delimiter allowed? */
+		/* 不允许左定界符？ */
 		if (!opentype)
 			goto fail;
 		depth++;
@@ -322,7 +322,7 @@ path_decode(char *str, bool opentype, int npts, Point *p,
 			goto fail;
 	}
 
-	/* report stopping point if wanted, else complain if not end of string */
+	/* 需要时报告停止点，否则若字符串未结束则报错 */
 	if (endptr_p)
 		*endptr_p = str;
 	else if (*str != '\0')
@@ -382,11 +382,11 @@ path_encode(enum path_delim path_delim, int npts, Point *pt)
 }								/* path_encode() */
 
 /*-------------------------------------------------------------
- * pair_count - count the number of points
- * allow the following notation:
+ * pair_count - 统计点的数目
+ * 允许如下记法：
  * '((1,2),(3,4))'
  * '(1,3,2,4)'
- * require an odd number of delim characters in the string
+ * 要求字符串中分隔符数目为奇数
  *-------------------------------------------------------------*/
 static int
 pair_count(char *s, char delim)
@@ -404,19 +404,19 @@ pair_count(char *s, char delim)
 
 /***********************************************************************
  **
- **		Routines for two-dimensional boxes.
+ **		二维矩形例程。
  **
  ***********************************************************************/
 
 /*----------------------------------------------------------
- * Formatting and conversion routines.
+ * 格式化与转换例程。
  *---------------------------------------------------------*/
 
-/*		box_in	-		convert a string to internal form.
+/*		box_in	-		将字符串转为内部形式。
  *
- *		External format: (two corners of box)
+ *		外部格式：（矩形两角）
  *				"(f8, f8), (f8, f8)"
- *				also supports the older style "(f8, f8, f8, f8)"
+ *			也支持旧式 "(f8, f8, f8, f8)"
  */
 Datum
 box_in(PG_FUNCTION_ARGS)
@@ -432,7 +432,7 @@ box_in(PG_FUNCTION_ARGS)
 					 escontext))
 		PG_RETURN_NULL();
 
-	/* reorder corners if necessary... */
+	/* 必要时重排角点顺序… */
 	if (float8_lt(box->high.x, box->low.x))
 	{
 		x = box->high.x;
@@ -449,7 +449,7 @@ box_in(PG_FUNCTION_ARGS)
 	PG_RETURN_BOX_P(box);
 }
 
-/*		box_out -		convert a box to external form.
+/*	box_out -	将矩形转为外部形式。
  */
 Datum
 box_out(PG_FUNCTION_ARGS)
@@ -460,7 +460,7 @@ box_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		box_recv			- converts external binary format to box
+ *	box_recv	- 将外部二进制格式转为矩形
  */
 Datum
 box_recv(PG_FUNCTION_ARGS)
@@ -477,7 +477,7 @@ box_recv(PG_FUNCTION_ARGS)
 	box->low.x = pq_getmsgfloat8(buf);
 	box->low.y = pq_getmsgfloat8(buf);
 
-	/* reorder corners if necessary... */
+	/* 必要时重排角点顺序… */
 	if (float8_lt(box->high.x, box->low.x))
 	{
 		x = box->high.x;
@@ -495,7 +495,7 @@ box_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		box_send			- converts box to binary format
+ *	box_send	- 将矩形转为二进制格式
  */
 Datum
 box_send(PG_FUNCTION_ARGS)
@@ -512,7 +512,7 @@ box_send(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_construct	-		fill in a new box.
+/*	box_construct	- 填充新矩形。
  */
 static inline void
 box_construct(BOX *result, Point *pt1, Point *pt2)
@@ -541,11 +541,11 @@ box_construct(BOX *result, Point *pt1, Point *pt2)
 
 
 /*----------------------------------------------------------
- *	Relational operators for BOXes.
- *		<, >, <=, >=, and == are based on box area.
+ * 矩形的关系算子。
+ *		<, >, <=, >= 和 == 基于矩形面积。
  *---------------------------------------------------------*/
 
-/*		box_same		-		are two boxes identical?
+/*		box_same	-		两矩形是否相同？
  */
 Datum
 box_same(PG_FUNCTION_ARGS)
@@ -557,7 +557,7 @@ box_same(PG_FUNCTION_ARGS)
 				   point_eq_point(&box1->low, &box2->low));
 }
 
-/*		box_overlap		-		does box1 overlap box2?
+/*		box_overlap	-		box1 与 box2 重叠？
  */
 Datum
 box_overlap(PG_FUNCTION_ARGS)
@@ -577,7 +577,7 @@ box_ov(BOX *box1, BOX *box2)
 			FPle(box2->low.y, box1->high.y));
 }
 
-/*		box_left		-		is box1 strictly left of box2?
+/*		box_left	-		box1 严格在 box2 左侧？
  */
 Datum
 box_left(PG_FUNCTION_ARGS)
@@ -588,11 +588,11 @@ box_left(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPlt(box1->high.x, box2->low.x));
 }
 
-/*		box_overleft	-		is the right edge of box1 at or left of
- *								the right edge of box2?
+/*		box_overleft	-	box1 的右边缘是否在 box2
+ *						右边缘或其左侧？
  *
- *		This is "less than or equal" for the end of a time range,
- *		when time ranges are stored as rectangles.
+ *		这相当于时间范围末端的"小于等于"，
+ *		用于以矩形存储的时间范围。
  */
 Datum
 box_overleft(PG_FUNCTION_ARGS)
@@ -603,7 +603,7 @@ box_overleft(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPle(box1->high.x, box2->high.x));
 }
 
-/*		box_right		-		is box1 strictly right of box2?
+/*		box_right	-		box1 严格在 box2 右侧？
  */
 Datum
 box_right(PG_FUNCTION_ARGS)
@@ -614,11 +614,11 @@ box_right(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPgt(box1->low.x, box2->high.x));
 }
 
-/*		box_overright	-		is the left edge of box1 at or right of
- *								the left edge of box2?
+/*		box_overright	-	box1 的左边缘是否在 box2
+ *						左边缘或其右侧？
  *
- *		This is "greater than or equal" for time ranges, when time ranges
- *		are stored as rectangles.
+ *		当时间范围以矩形存储时，这相当于时间范围的
+ *		"大于等于"。
  */
 Datum
 box_overright(PG_FUNCTION_ARGS)
@@ -629,7 +629,7 @@ box_overright(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPge(box1->low.x, box2->low.x));
 }
 
-/*		box_below		-		is box1 strictly below box2?
+/*		box_below	-		box1 严格在 box2 下方？
  */
 Datum
 box_below(PG_FUNCTION_ARGS)
@@ -640,8 +640,8 @@ box_below(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPlt(box1->high.y, box2->low.y));
 }
 
-/*		box_overbelow	-		is the upper edge of box1 at or below
- *								the upper edge of box2?
+/*		box_overbelow	-	box1 的上边缘是否在 box2
+ *						上边缘或其下方？
  */
 Datum
 box_overbelow(PG_FUNCTION_ARGS)
@@ -652,7 +652,7 @@ box_overbelow(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPle(box1->high.y, box2->high.y));
 }
 
-/*		box_above		-		is box1 strictly above box2?
+/*		box_above	-		box1 严格在 box2 上方？
  */
 Datum
 box_above(PG_FUNCTION_ARGS)
@@ -663,8 +663,8 @@ box_above(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPgt(box1->low.y, box2->high.y));
 }
 
-/*		box_overabove	-		is the lower edge of box1 at or above
- *								the lower edge of box2?
+/*		box_overabove	-	box1 的下边缘是否在 box2
+ *						下边缘或其上方？
  */
 Datum
 box_overabove(PG_FUNCTION_ARGS)
@@ -675,7 +675,7 @@ box_overabove(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(FPge(box1->low.y, box2->low.y));
 }
 
-/*		box_contained	-		is box1 contained by box2?
+/*		box_contained	-		box1是否被box2包含？
  */
 Datum
 box_contained(PG_FUNCTION_ARGS)
@@ -686,7 +686,7 @@ box_contained(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(box_contain_box(box2, box1));
 }
 
-/*		box_contain		-		does box1 contain box2?
+/*		box_contain		-		box1是否包含box2？
  */
 Datum
 box_contain(PG_FUNCTION_ARGS)
@@ -698,7 +698,7 @@ box_contain(PG_FUNCTION_ARGS)
 }
 
 /*
- * Check whether the second box is in the first box or on its border
+ * 检查第二矩形是否在第一矩形内部或其边界上
  */
 static bool
 box_contain_box(BOX *contains_box, BOX *contained_box)
@@ -711,12 +711,12 @@ box_contain_box(BOX *contains_box, BOX *contained_box)
 
 
 /*		box_positionop	-
- *				is box1 entirely {above,below} box2?
+ *			box1是否整体在box2上/下方？
  *
- * box_below_eq and box_above_eq are obsolete versions that (probably
- * erroneously) accept the equal-boundaries case.  Since these are not
- * in sync with the box_left and box_right code, they are deprecated and
- * not supported in the PG 8.1 rtree operator class extension.
+ * box_below_eq 和 box_above_eq 是旧版本，其（可能
+ * 错误地）接受边界相等的情形。由于这些
+ * 代码与 box_left 和 box_right 不一致，已被弃用，
+ * 且不受 PG 8.1 rtree 操作符类扩展的支持。
  */
 Datum
 box_below_eq(PG_FUNCTION_ARGS)
@@ -737,8 +737,8 @@ box_above_eq(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_relop		-		is area(box1) relop area(box2), within
- *								our accuracy constraint?
+/*		box_relop		-		area(box1) relop area(box2)在精度
+ *						约束内是否成立？
  */
 Datum
 box_lt(PG_FUNCTION_ARGS)
@@ -787,10 +787,10 @@ box_ge(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	"Arithmetic" operators on boxes.
+ * 矩形上的"算术"算子。
  *---------------------------------------------------------*/
 
-/*		box_area		-		returns the area of the box.
+/*		box_area		-		返回矩形的面积。
  */
 Datum
 box_area(PG_FUNCTION_ARGS)
@@ -801,8 +801,8 @@ box_area(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_width		-		returns the width of the box
- *								  (horizontal magnitude).
+/*		box_width		-		返回矩形的宽度
+ *						  （水平量）。
  */
 Datum
 box_width(PG_FUNCTION_ARGS)
@@ -813,8 +813,8 @@ box_width(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_height		-		returns the height of the box
- *								  (vertical magnitude).
+/*		box_height		-		返回矩形的高度
+ *						  （垂直量）。
  */
 Datum
 box_height(PG_FUNCTION_ARGS)
@@ -825,8 +825,8 @@ box_height(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_distance	-		returns the distance between the
- *								  center points of two boxes.
+/*		box_distance	-		返回两个矩形的中心点
+ *						  之间的距离。
  */
 Datum
 box_distance(PG_FUNCTION_ARGS)
@@ -843,7 +843,7 @@ box_distance(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_center		-		returns the center point of the box.
+/*		box_center		-		返回矩形的中心点。
  */
 Datum
 box_center(PG_FUNCTION_ARGS)
@@ -857,7 +857,7 @@ box_center(PG_FUNCTION_ARGS)
 }
 
 
-/*		box_ar	-		returns the area of the box.
+/*		box_ar	-		返回矩形的面积。
  */
 static float8
 box_ar(BOX *box)
@@ -866,7 +866,7 @@ box_ar(BOX *box)
 }
 
 
-/*		box_cn	-		stores the centerpoint of the box into *center.
+/*		box_cn	-		把矩形的中心点存入 *center。
  */
 static void
 box_cn(Point *center, BOX *box)
@@ -876,8 +876,8 @@ box_cn(Point *center, BOX *box)
 }
 
 
-/*		box_wd	-		returns the width (length) of the box
- *								  (horizontal magnitude).
+/*		box_wd	-		返回矩形的宽度（长度）
+ *						  （水平量）。
  */
 static float8
 box_wd(BOX *box)
@@ -886,8 +886,8 @@ box_wd(BOX *box)
 }
 
 
-/*		box_ht	-		returns the height of the box
- *								  (vertical magnitude).
+/*		box_ht	-		返回矩形的高度
+ *						  （垂直量）。
  */
 static float8
 box_ht(BOX *box)
@@ -897,12 +897,12 @@ box_ht(BOX *box)
 
 
 /*----------------------------------------------------------
- *	Funky operations.
+ * 特殊操作。
  *---------------------------------------------------------*/
 
 /*		box_intersect	-
- *				returns the overlapping portion of two boxes,
- *				  or NULL if they do not intersect.
+ *				返回两矩形相互重叠的部分，
+ *				  不相交时为 NULL。
  */
 Datum
 box_intersect(PG_FUNCTION_ARGS)
@@ -926,8 +926,8 @@ box_intersect(PG_FUNCTION_ARGS)
 
 
 /*		box_diagonal	-
- *				returns a line segment which happens to be the
- *				  positive-slope diagonal of "box".
+ *				返回一条恰好为"box"的
+ *				  正斜率对角线。
  */
 Datum
 box_diagonal(PG_FUNCTION_ARGS)
@@ -942,14 +942,14 @@ box_diagonal(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for 2D lines.
+ **		二维直线例程。
  **
  ***********************************************************************/
 
 static bool
 line_decode(char *s, const char *str, LINE *line, Node *escontext)
 {
-	/* s was already advanced over leading '{' */
+	/* s 已越过前导的 '{' */
 	if (!single_decode(s, &line->A, &s, "line", str, escontext))
 		return false;
 	if (*s++ != DELIM)
@@ -1008,9 +1008,9 @@ line_in(PG_FUNCTION_ARGS)
 					 errmsg("invalid line specification: must be two distinct points")));
 
 		/*
-		 * XXX lseg_sl() and line_construct() can throw overflow/underflow
-		 * errors.  Eventually we should allow those to be soft, but the
-		 * notational pain seems to outweigh the value for now.
+ *		 XXX lseg_sl() 和 line_construct() 可能抛出溢出/下溢
+ *		 错误。最终我们应允许其软性出现，但
+ *		 这种记法之痛目前大于其价值。
 		 */
 		line_construct(line, &lseg.p[0], lseg_sl(&lseg));
 	}
@@ -1032,7 +1032,7 @@ line_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		line_recv			- converts external binary format to line
+ *	line_recv	- 将外部二进制格式转为直线
  */
 Datum
 line_recv(PG_FUNCTION_ARGS)
@@ -1055,7 +1055,7 @@ line_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		line_send			- converts line to binary format
+ *	line_send	- 将直线转为二进制格式
  */
 Datum
 line_send(PG_FUNCTION_ARGS)
@@ -1072,44 +1072,44 @@ line_send(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Conversion routines from one line formula to internal.
- *		Internal form:	Ax+By+C=0
+ * 直线方程到内部形式的转换例程。
+ *		内部形式：Ax+By+C=0
  *---------------------------------------------------------*/
 
 /*
- * Fill already-allocated LINE struct from the point and the slope
+ * 由点和斜率填充已分配的 LINE 结构
  */
 static inline void
 line_construct(LINE *result, Point *pt, float8 m)
 {
 	if (isinf(m))
 	{
-		/* vertical - use "x = C" */
+		/* 垂直：用 "x = C" */
 		result->A = -1.0;
 		result->B = 0.0;
 		result->C = pt->x;
 	}
 	else if (m == 0)
 	{
-		/* horizontal - use "y = C" */
+		/* 水平：用 "y = C" */
 		result->A = 0.0;
 		result->B = -1.0;
 		result->C = pt->y;
 	}
 	else
 	{
-		/* use "mx - y + yinter = 0" */
+		/* 用 "mx - y + yinter = 0" */
 		result->A = m;
 		result->B = -1.0;
 		result->C = float8_mi(pt->y, float8_mul(m, pt->x));
-		/* on some platforms, the preceding expression tends to produce -0 */
+		/* 在某些平台上，前面的表达式可能产生 -0 */
 		if (result->C == 0.0)
 			result->C = 0.0;
 	}
 }
 
 /* line_construct_pp()
- * two points
+ * 两点
  */
 Datum
 line_construct_pp(PG_FUNCTION_ARGS)
@@ -1130,7 +1130,7 @@ line_construct_pp(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Relative position routines.
+ * 相对位置例程。
  *---------------------------------------------------------*/
 
 Datum
@@ -1188,7 +1188,7 @@ line_horizontal(PG_FUNCTION_ARGS)
 
 
 /*
- * Check whether the two lines are the same
+ * 检查两条直线是否相同
  */
 Datum
 line_eq(PG_FUNCTION_ARGS)
@@ -1197,7 +1197,7 @@ line_eq(PG_FUNCTION_ARGS)
 	LINE	   *l2 = PG_GETARG_LINE_P(1);
 	float8		ratio;
 
-	/* If any NaNs are involved, insist on exact equality */
+	/* 若涉及任何 NaN，则坚持精确相等 */
 	if (unlikely(isnan(l1->A) || isnan(l1->B) || isnan(l1->C) ||
 				 isnan(l2->A) || isnan(l2->B) || isnan(l2->C)))
 	{
@@ -1206,7 +1206,7 @@ line_eq(PG_FUNCTION_ARGS)
 					   float8_eq(l1->C, l2->C));
 	}
 
-	/* Otherwise, lines whose parameters are proportional are the same */
+	/* 否则，参数成比例的直线相同 */
 	if (!FPzero(l2->A))
 		ratio = float8_div(l1->A, l2->A);
 	else if (!FPzero(l2->B))
@@ -1223,11 +1223,11 @@ line_eq(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Line arithmetic routines.
+ * 直线算术例程。
  *---------------------------------------------------------*/
 
 /*
- * Return slope of the line
+ * 返回直线的斜率
  */
 static inline float8
 line_sl(LINE *line)
@@ -1241,7 +1241,7 @@ line_sl(LINE *line)
 
 
 /*
- * Return inverse slope of the line
+ * 返回直线的反向斜率
  */
 static inline float8
 line_invsl(LINE *line)
@@ -1255,7 +1255,7 @@ line_invsl(LINE *line)
 
 
 /* line_distance()
- * Distance between two lines.
+ * 两直线间的距离。
  */
 Datum
 line_distance(PG_FUNCTION_ARGS)
@@ -1264,7 +1264,7 @@ line_distance(PG_FUNCTION_ARGS)
 	LINE	   *l2 = PG_GETARG_LINE_P(1);
 	float8		ratio;
 
-	if (line_interpt_line(NULL, l1, l2))	/* intersecting? */
+	if (line_interpt_line(NULL, l1, l2))	/* 相交？ */
 		PG_RETURN_FLOAT8(0.0);
 
 	if (!FPzero(l1->A) && !isnan(l1->A) && !FPzero(l2->A) && !isnan(l2->A))
@@ -1280,7 +1280,7 @@ line_distance(PG_FUNCTION_ARGS)
 }
 
 /* line_interpt()
- * Point where two lines l1, l2 intersect (if any)
+ * 两直线 l1、l2 的交点（若有）
  */
 Datum
 line_interpt(PG_FUNCTION_ARGS)
@@ -1297,18 +1297,18 @@ line_interpt(PG_FUNCTION_ARGS)
 }
 
 /*
- * Internal version of line_interpt
+ * line_interpt 的内部版本
  *
- * Return whether two lines intersect. If *result is not NULL, it is set to
- * the intersection point.
+ * 返回两直线是否相交。若 *result 非 NULL，则将其
+ * 设置为交点。
  *
- * NOTE: If the lines are identical then we will find they are parallel
- * and report "no intersection".  This is a little weird, but since
- * there's no *unique* intersection, maybe it's appropriate behavior.
+ * 注意：若两直线相同，则会发现它们平行，
+ * 并报告"无交点"。这有点怪，但由于
+ * 不存在*唯一*交点，或许是恰当的行为。
  *
- * If the lines have NaN constants, we will return true, and the intersection
- * point would have NaN coordinates.  We shouldn't return false in this case
- * because that would mean the lines are parallel.
+ * 若直线含 NaN 常量，我们将返回 true，且交点
+ * 将会具有 NaN 坐标。此时我们不应返回 false，
+ * 因为那意味着两直线平行。
  */
 static bool
 line_interpt_line(Point *result, LINE *l1, LINE *l2)
@@ -1341,7 +1341,7 @@ line_interpt_line(Point *result, LINE *l1, LINE *l2)
 	else
 		return false;
 
-	/* On some platforms, the preceding expressions tend to produce -0. */
+	/* 在某些平台上，前面的表达式可能产生 -0。 */
 	if (x == 0.0)
 		x = 0.0;
 	if (y == 0.0)
@@ -1356,23 +1356,23 @@ line_interpt_line(Point *result, LINE *l1, LINE *l2)
 
 /***********************************************************************
  **
- **		Routines for 2D paths (sequences of line segments, also
- **				called `polylines').
+ **		二维路径（线段序列，也
+ **				称为`折线'）。
  **
- **				This is not a general package for geometric paths,
- **				which of course include polygons; the emphasis here
- **				is on (for example) usefulness in wire layout.
+ **				这并非通用的几何路径程序包，
+ **				当然也包含多边形；此处的重点是
+ **				（例如）在布线中的实用性。
  **
  ***********************************************************************/
 
 /*----------------------------------------------------------
- *	String to path / path to string conversion.
- *		External format:
+ * 字符串与路径的相互转换。
+ *		外部格式：
  *				"((xcoord, ycoord),... )"
  *				"[(xcoord, ycoord),... ]"
  *				"(xcoord, ycoord),... "
  *				"[xcoord, ycoord,... ]"
- *		Also support older format:
+ *		同时支持旧格式：
  *				"(closed, npts, xcoord, ycoord,... )"
  *---------------------------------------------------------*/
 
@@ -1421,7 +1421,7 @@ path_in(PG_FUNCTION_ARGS)
 	while (isspace((unsigned char) *s))
 		s++;
 
-	/* skip single leading paren */
+	/* 跳过单个前导括号 */
 	if ((*s == LDELIM) && (strrchr(s, LDELIM) == s))
 	{
 		s++;
@@ -1431,7 +1431,7 @@ path_in(PG_FUNCTION_ARGS)
 	base_size = sizeof(path->p[0]) * npts;
 	size = offsetof(PATH, p) + base_size;
 
-	/* Check for integer overflow */
+	/* 检查整数溢出 */
 	if (base_size / npts != sizeof(path->p[0]) || size <= base_size)
 		ereturn(escontext, (Datum) 0,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -1463,7 +1463,7 @@ path_in(PG_FUNCTION_ARGS)
 						"path", str)));
 
 	path->closed = (!isopen);
-	/* prevent instability in unused pad bytes */
+	/* 防止未用填充字节的不稳定性 */
 	path->dummy = 0;
 
 	PG_RETURN_PATH_P(path);
@@ -1479,10 +1479,10 @@ path_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		path_recv			- converts external binary format to path
+ *	path_recv	- 将外部二进制格式转为路径
  *
- * External representation is closed flag (a boolean byte), int32 number
- * of points, and the points.
+ * 外部表示为闭合标志（一个布尔字节）、int32 的
+ * 点数，以及各点。
  */
 Datum
 path_recv(PG_FUNCTION_ARGS)
@@ -1507,7 +1507,7 @@ path_recv(PG_FUNCTION_ARGS)
 	SET_VARSIZE(path, size);
 	path->npts = npts;
 	path->closed = (closed ? 1 : 0);
-	/* prevent instability in unused pad bytes */
+	/* 防止未用填充字节的不稳定性 */
 	path->dummy = 0;
 
 	for (i = 0; i < npts; i++)
@@ -1520,7 +1520,7 @@ path_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		path_send			- converts path to binary format
+ *	path_send	- 将路径转为二进制格式
  */
 Datum
 path_send(PG_FUNCTION_ARGS)
@@ -1542,11 +1542,11 @@ path_send(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Relational operators.
- *		These are based on the path cardinality,
- *		as stupid as that sounds.
+ * 关系算子。
+ *		这些基于路径的基数，
+ *		虽然听着蠢。
  *
- *		Better relops and access methods coming soon.
+ *		更佳关系算子与访问方法将至。
  *---------------------------------------------------------*/
 
 Datum
@@ -1595,7 +1595,7 @@ path_n_ge(PG_FUNCTION_ARGS)
 }
 
 /*----------------------------------------------------------
- * Conversion operators.
+ * 转换算子。
  *---------------------------------------------------------*/
 
 Datum
@@ -1645,9 +1645,9 @@ path_open(PG_FUNCTION_ARGS)
 
 
 /* path_inter -
- *		Does p1 intersect p2 at any point?
- *		Use bounding boxes for a quick (O(n)) check, then do a
- *		O(n^2) iterative edge check.
+ *		p1 与 p2 是否在某点相交？
+ *		用外接框做快速 (O(n)) 检查，然后再做
+ *		O(n^2) 逐边迭代检查。
  */
 Datum
 path_inter(PG_FUNCTION_ARGS)
@@ -1684,7 +1684,7 @@ path_inter(PG_FUNCTION_ARGS)
 	if (!box_ov(&b1, &b2))
 		PG_RETURN_BOOL(false);
 
-	/* pairwise check lseg intersections */
+	/* 逐对检查线段相交 */
 	for (i = 0; i < p1->npts; i++)
 	{
 		int			iprev;
@@ -1695,7 +1695,7 @@ path_inter(PG_FUNCTION_ARGS)
 		{
 			if (!p1->closed)
 				continue;
-			iprev = p1->npts - 1;	/* include the closure segment */
+			iprev = p1->npts - 1;	/* 包含闭合段 */
 		}
 
 		for (j = 0; j < p2->npts; j++)
@@ -1708,7 +1708,7 @@ path_inter(PG_FUNCTION_ARGS)
 			{
 				if (!p2->closed)
 					continue;
-				jprev = p2->npts - 1;	/* include the closure segment */
+				jprev = p2->npts - 1;	/* 包含闭合段 */
 			}
 
 			statlseg_construct(&seg1, &p1->p[iprev], &p1->p[i]);
@@ -1718,20 +1718,20 @@ path_inter(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* if we dropped through, no two segs intersected */
+	/* 落到此处即无任何两线段相交 */
 	PG_RETURN_BOOL(false);
 }
 
 /* path_distance()
- * This essentially does a cartesian product of the lsegs in the
- *	two paths, and finds the min distance between any two lsegs
+ * 这实质上对两条路径中的线段做笛卡尔积，
+ *	并求任意两线段间的最小距离
  */
 Datum
 path_distance(PG_FUNCTION_ARGS)
 {
 	PATH	   *p1 = PG_GETARG_PATH_P(0);
 	PATH	   *p2 = PG_GETARG_PATH_P(1);
-	float8		min = 0.0;		/* initialize to keep compiler quiet */
+	float8		min = 0.0;		/* 初始化以让编译器安静 */
 	bool		have_min = false;
 	float8		tmp;
 	int			i,
@@ -1749,7 +1749,7 @@ path_distance(PG_FUNCTION_ARGS)
 		{
 			if (!p1->closed)
 				continue;
-			iprev = p1->npts - 1;	/* include the closure segment */
+			iprev = p1->npts - 1;	/* 包含闭合段 */
 		}
 
 		for (j = 0; j < p2->npts; j++)
@@ -1762,7 +1762,7 @@ path_distance(PG_FUNCTION_ARGS)
 			{
 				if (!p2->closed)
 					continue;
-				jprev = p2->npts - 1;	/* include the closure segment */
+				jprev = p2->npts - 1;	/* 包含闭合段 */
 			}
 
 			statlseg_construct(&seg1, &p1->p[iprev], &p1->p[i]);
@@ -1785,7 +1785,7 @@ path_distance(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	"Arithmetic" operations.
+ * "算术"操作。
  *---------------------------------------------------------*/
 
 Datum
@@ -1805,7 +1805,7 @@ path_length(PG_FUNCTION_ARGS)
 		{
 			if (!path->closed)
 				continue;
-			iprev = path->npts - 1; /* include the closure segment */
+			iprev = path->npts - 1; /* 包含闭合段 */
 		}
 
 		result = float8_pl(result, point_dt(&path->p[iprev], &path->p[i]));
@@ -1816,13 +1816,13 @@ path_length(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for 2D points.
+ **		二维点例程。
  **
  ***********************************************************************/
 
 /*----------------------------------------------------------
- *	String to point, point to string conversion.
- *		External format:
+ * 字符串与点的相互转换。
+ *		外部格式：
  *				"(x,y)"
  *				"x,y"
  *---------------------------------------------------------*/
@@ -1833,7 +1833,7 @@ point_in(PG_FUNCTION_ARGS)
 	char	   *str = PG_GETARG_CSTRING(0);
 	Point	   *point = (Point *) palloc(sizeof(Point));
 
-	/* Ignore failure from pair_decode, since our return value won't matter */
+	/* 忽略 pair_decode 失败，因为我们的返回值无关紧要 */
 	pair_decode(str, &point->x, &point->y, NULL, "point", str, fcinfo->context);
 	PG_RETURN_POINT_P(point);
 }
@@ -1847,7 +1847,7 @@ point_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		point_recv			- converts external binary format to point
+ *		point_recv			- 将外部二进制格式转为点
  */
 Datum
 point_recv(PG_FUNCTION_ARGS)
@@ -1862,7 +1862,7 @@ point_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		point_send			- converts point to binary format
+ *		point_send			- 将点转为二进制格式
  */
 Datum
 point_send(PG_FUNCTION_ARGS)
@@ -1878,7 +1878,7 @@ point_send(PG_FUNCTION_ARGS)
 
 
 /*
- * Initialize a point
+ * 初始化一个点
  */
 static inline void
 point_construct(Point *result, float8 x, float8 y)
@@ -1889,12 +1889,12 @@ point_construct(Point *result, float8 x, float8 y)
 
 
 /*----------------------------------------------------------
- *	Relational operators for Points.
- *		Since we do have a sense of coordinates being
- *		"equal" to a given accuracy (point_vert, point_horiz),
- *		the other ops must preserve that sense.  This means
- *		that results may, strictly speaking, be a lie (unless
- *		EPSILON = 0.0).
+ * 点的关系算子。
+ *		由于我们确有坐标"相等"的概念，
+ *		即按给定精度 (point_vert, point_horiz)，
+ *		其他算子必须保持这一概念。这意味着
+ *		严格来说，除非 EPSILON=0.0，结果可能
+ *		是个谎言。
  *---------------------------------------------------------*/
 
 Datum
@@ -1971,12 +1971,12 @@ point_ne(PG_FUNCTION_ARGS)
 
 
 /*
- * Check whether the two points are the same
+ * 检查两个点是否相同
  */
 static inline bool
 point_eq_point(Point *pt1, Point *pt2)
 {
-	/* If any NaNs are involved, insist on exact equality */
+	/* 若涉及任何 NaN，则坚持精确相等 */
 	if (unlikely(isnan(pt1->x) || isnan(pt1->y) ||
 				 isnan(pt2->x) || isnan(pt2->y)))
 		return (float8_eq(pt1->x, pt2->x) && float8_eq(pt1->y, pt2->y));
@@ -1986,7 +1986,7 @@ point_eq_point(Point *pt1, Point *pt2)
 
 
 /*----------------------------------------------------------
- *	"Arithmetic" operators on points.
+ * 点上的"算术"算子。
  *---------------------------------------------------------*/
 
 Datum
@@ -2015,9 +2015,9 @@ point_slope(PG_FUNCTION_ARGS)
 
 
 /*
- * Return slope of two points
+ * 返回两点的斜率
  *
- * Note that this function returns Inf when the points are the same.
+ * 注意当两点相同时此函数返回 Inf。
  */
 static inline float8
 point_sl(Point *pt1, Point *pt2)
@@ -2031,9 +2031,9 @@ point_sl(Point *pt1, Point *pt2)
 
 
 /*
- * Return inverse slope of two points
+ * 返回两点的反向斜率
  *
- * Note that this function returns 0.0 when the points are the same.
+ * 注意当两点相同时此函数返回 0.0。
  */
 static inline float8
 point_invsl(Point *pt1, Point *pt2)
@@ -2048,17 +2048,17 @@ point_invsl(Point *pt1, Point *pt2)
 
 /***********************************************************************
  **
- **		Routines for 2D line segments.
+ **		二维线段例程。
  **
  ***********************************************************************/
 
 /*----------------------------------------------------------
- *	String to lseg, lseg to string conversion.
- *		External forms: "[(x1, y1), (x2, y2)]"
+ * 字符串与线段的相互转换。
+ *		外部形式: "[(x1, y1), (x2, y2)]"
  *						"(x1, y1), (x2, y2)"
  *						"x1, y1, x2, y2"
- *		closed form ok	"((x1, y1), (x2, y2))"
- *		(old form)		"(x1, y1, x2, y2)"
+ *		闭合形式	"((x1, y1), (x2, y2))"
+ *		旧形式	"(x1, y1, x2, y2)"
  *---------------------------------------------------------*/
 
 Datum
@@ -2086,7 +2086,7 @@ lseg_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		lseg_recv			- converts external binary format to lseg
+ *	lseg_recv	- 将外部二进制格式转为线段
  */
 Datum
 lseg_recv(PG_FUNCTION_ARGS)
@@ -2105,7 +2105,7 @@ lseg_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		lseg_send			- converts lseg to binary format
+ *	lseg_send	- 将线段转为二进制格式
  */
 Datum
 lseg_send(PG_FUNCTION_ARGS)
@@ -2123,7 +2123,7 @@ lseg_send(PG_FUNCTION_ARGS)
 
 
 /* lseg_construct -
- *		form a LSEG from two Points.
+ *		由两点构成 LSEG。
  */
 Datum
 lseg_construct(PG_FUNCTION_ARGS)
@@ -2137,7 +2137,7 @@ lseg_construct(PG_FUNCTION_ARGS)
 	PG_RETURN_LSEG_P(result);
 }
 
-/* like lseg_construct, but assume space already allocated */
+/* 类似 lseg_construct，但假定空间已分配 */
 static inline void
 statlseg_construct(LSEG *lseg, Point *pt1, Point *pt2)
 {
@@ -2149,7 +2149,7 @@ statlseg_construct(LSEG *lseg, Point *pt1, Point *pt2)
 
 
 /*
- * Return slope of the line segment
+ * 返回线段的斜率
  */
 static inline float8
 lseg_sl(LSEG *lseg)
@@ -2159,7 +2159,7 @@ lseg_sl(LSEG *lseg)
 
 
 /*
- * Return inverse slope of the line segment
+ * 返回线段的反向斜率
  */
 static inline float8
 lseg_invsl(LSEG *lseg)
@@ -2177,12 +2177,12 @@ lseg_length(PG_FUNCTION_ARGS)
 }
 
 /*----------------------------------------------------------
- *	Relative position routines.
+ * 相对位置例程。
  *---------------------------------------------------------*/
 
 /*
- **  find intersection of the two lines, and see if it falls on
- **  both segments.
+ **  求两直线交点，看它是否落在两线段上。
+ **
  */
 Datum
 lseg_intersect(PG_FUNCTION_ARGS)
@@ -2204,7 +2204,7 @@ lseg_parallel(PG_FUNCTION_ARGS)
 }
 
 /*
- * Determine if two line segments are perpendicular.
+ * 判断两条线段是否垂直。
  */
 Datum
 lseg_perp(PG_FUNCTION_ARGS)
@@ -2294,13 +2294,13 @@ lseg_ge(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Line arithmetic routines.
+ * 直线算术例程。
  *---------------------------------------------------------*/
 
 /* lseg_distance -
- *		If two segments don't intersect, then the closest
- *		point will be from one of the endpoints to the other
- *		segment.
+ *		若两线段不相交，则最近的点
+ *		将是从某一线段的端点到另一
+ *		段。
  */
 Datum
 lseg_distance(PG_FUNCTION_ARGS)
@@ -2328,11 +2328,11 @@ lseg_center(PG_FUNCTION_ARGS)
 
 
 /*
- * Return whether the two segments intersect. If *result is not NULL,
- * it is set to the intersection point.
+ * 返回两线段是否相交。若 *result 非 NULL，
+ * 则将其设置为交点。
  *
- * This function is almost perfectly symmetric, even though it doesn't look
- * like it.  See lseg_interpt_line() for the other half of it.
+ * 此函数几乎完全对称，尽管看起来并不像。
+ * 另一半参见 lseg_interpt_line()。
  */
 static bool
 lseg_interpt_lseg(Point *result, LSEG *l1, LSEG *l2)
@@ -2345,8 +2345,8 @@ lseg_interpt_lseg(Point *result, LSEG *l1, LSEG *l2)
 		return false;
 
 	/*
-	 * If the line intersection point isn't within l2, there is no valid
-	 * segment intersection point at all.
+	 * 若直线交点不在 l2 内，则完全不存在有效的
+	 * 线段交点。
 	 */
 	if (!lseg_contain_point(l2, &interpt))
 		return false;
@@ -2373,18 +2373,18 @@ lseg_interpt(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for position comparisons of differently-typed
- **				2D objects.
+ **		不同类型二维对象的位置比较例程。
+ **
  **
  ***********************************************************************/
 
 /*---------------------------------------------------------------------
  *		dist_
- *				Minimum distance from one object to another.
+ *				一个对象到另一对象最小距离。
  *-------------------------------------------------------------------*/
 
 /*
- * Distance from a point to a line
+ * 点到直线的距离
  */
 Datum
 dist_pl(PG_FUNCTION_ARGS)
@@ -2396,7 +2396,7 @@ dist_pl(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a line to a point
+ * 直线到点的距离
  */
 Datum
 dist_lp(PG_FUNCTION_ARGS)
@@ -2408,7 +2408,7 @@ dist_lp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a point to a lseg
+ * 点到线段的距离
  */
 Datum
 dist_ps(PG_FUNCTION_ARGS)
@@ -2420,7 +2420,7 @@ dist_ps(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a lseg to a point
+ * 线段到点的距离
  */
 Datum
 dist_sp(PG_FUNCTION_ARGS)
@@ -2434,7 +2434,7 @@ dist_sp(PG_FUNCTION_ARGS)
 static float8
 dist_ppath_internal(Point *pt, PATH *path)
 {
-	float8		result = 0.0;	/* keep compiler quiet */
+	float8		result = 0.0;	/* 让编译器安静 */
 	bool		have_min = false;
 	float8		tmp;
 	int			i;
@@ -2443,8 +2443,8 @@ dist_ppath_internal(Point *pt, PATH *path)
 	Assert(path->npts > 0);
 
 	/*
-	 * The distance from a point to a path is the smallest distance from the
-	 * point to any of its constituent segments.
+	 * 点到路径的距离是从该点到其任一
+	 * 组成线段的最小距离。
 	 */
 	for (i = 0; i < path->npts; i++)
 	{
@@ -2456,7 +2456,7 @@ dist_ppath_internal(Point *pt, PATH *path)
 		{
 			if (!path->closed)
 				continue;
-			iprev = path->npts - 1; /* Include the closure segment */
+			iprev = path->npts - 1; /* 包含闭合线段 */
 		}
 
 		statlseg_construct(&lseg, &path->p[iprev], &path->p[i]);
@@ -2472,7 +2472,7 @@ dist_ppath_internal(Point *pt, PATH *path)
 }
 
 /*
- * Distance from a point to a path
+ * 点到路径的距离
  */
 Datum
 dist_ppath(PG_FUNCTION_ARGS)
@@ -2484,7 +2484,7 @@ dist_ppath(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a path to a point
+ * 路径到点的距离
  */
 Datum
 dist_pathp(PG_FUNCTION_ARGS)
@@ -2496,7 +2496,7 @@ dist_pathp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a point to a box
+ * 点到矩形的距离
  */
 Datum
 dist_pb(PG_FUNCTION_ARGS)
@@ -2508,7 +2508,7 @@ dist_pb(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a box to a point
+ * 矩形到点的距离
  */
 Datum
 dist_bp(PG_FUNCTION_ARGS)
@@ -2520,7 +2520,7 @@ dist_bp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a lseg to a line
+ * 线段到直线的距离
  */
 Datum
 dist_sl(PG_FUNCTION_ARGS)
@@ -2532,7 +2532,7 @@ dist_sl(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a line to a lseg
+ * 直线到线段的距离
  */
 Datum
 dist_ls(PG_FUNCTION_ARGS)
@@ -2544,7 +2544,7 @@ dist_ls(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a lseg to a box
+ * 线段到矩形的距离
  */
 Datum
 dist_sb(PG_FUNCTION_ARGS)
@@ -2556,7 +2556,7 @@ dist_sb(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a box to a lseg
+ * 矩形到线段的距离
  */
 Datum
 dist_bs(PG_FUNCTION_ARGS)
@@ -2572,7 +2572,7 @@ dist_cpoly_internal(CIRCLE *circle, POLYGON *poly)
 {
 	float8		result;
 
-	/* calculate distance to center, and subtract radius */
+	/* 计算到圆心的距离，再减去半径 */
 	result = float8_mi(dist_ppoly_internal(&circle->center, poly),
 					   circle->radius);
 	if (result < 0.0)
@@ -2582,7 +2582,7 @@ dist_cpoly_internal(CIRCLE *circle, POLYGON *poly)
 }
 
 /*
- * Distance from a circle to a polygon
+ * 圆到多边形的距离
  */
 Datum
 dist_cpoly(PG_FUNCTION_ARGS)
@@ -2594,7 +2594,7 @@ dist_cpoly(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a polygon to a circle
+ * 多边形到圆的距离
  */
 Datum
 dist_polyc(PG_FUNCTION_ARGS)
@@ -2606,7 +2606,7 @@ dist_polyc(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a point to a polygon
+ * 点到多边形的距离
  */
 Datum
 dist_ppoly(PG_FUNCTION_ARGS)
@@ -2637,14 +2637,14 @@ dist_ppoly_internal(Point *pt, POLYGON *poly)
 	if (point_inside(pt, poly->npts, poly->p) != 0)
 		return 0.0;
 
-	/* initialize distance with segment between first and last points */
+	/* 用首尾两点间的线段初始化距离 */
 	seg.p[0].x = poly->p[0].x;
 	seg.p[0].y = poly->p[0].y;
 	seg.p[1].x = poly->p[poly->npts - 1].x;
 	seg.p[1].y = poly->p[poly->npts - 1].y;
 	result = lseg_closept_point(NULL, &seg, pt);
 
-	/* check distances for other segments */
+	/* 检查其余线段的距离 */
 	for (i = 0; i < poly->npts - 1; i++)
 	{
 		seg.p[0].x = poly->p[i].x;
@@ -2662,14 +2662,14 @@ dist_ppoly_internal(Point *pt, POLYGON *poly)
 
 /*---------------------------------------------------------------------
  *		interpt_
- *				Intersection point of objects.
- *				We choose to ignore the "point" of intersection between
- *				  lines and boxes, since there are typically two.
+ *				对象的交点。
+ *				我们选择忽略直线与矩形之间
+ *				  的"交点"，因为通常有两个。
  *-------------------------------------------------------------------*/
 
 /*
- * Return whether the line segment intersect with the line. If *result is not
- * NULL, it is set to the intersection point.
+ * 返回线段与直线是否相交。若 *result
+ * 非 NULL，则将其设置为交点。
  */
 static bool
 lseg_interpt_line(Point *result, LSEG *lseg, LINE *line)
@@ -2678,26 +2678,26 @@ lseg_interpt_line(Point *result, LSEG *lseg, LINE *line)
 	LINE		tmp;
 
 	/*
-	 * First, we promote the line segment to a line, because we know how to
-	 * find the intersection point of two lines.  If they don't have an
-	 * intersection point, we are done.
+	 * 首先，我们把线段提升为直线，因为我们知道
+	 * 如何求两直线的交点。若它们没有
+	 * 交点，就完成了。
 	 */
 	line_construct(&tmp, &lseg->p[0], lseg_sl(lseg));
 	if (!line_interpt_line(&interpt, &tmp, line))
 		return false;
 
 	/*
-	 * Then, we check whether the intersection point is actually on the line
-	 * segment.
+	 * 然后，我们检查交点是否确实在该线
+	 * 上。
 	 */
 	if (!lseg_contain_point(lseg, &interpt))
 		return false;
 	if (result != NULL)
 	{
 		/*
-		 * If there is an intersection, then check explicitly for matching
-		 * endpoints since there may be rounding effects with annoying LSB
-		 * residue.
+		 * 若存在交点，则显式检查端点是否匹配，
+		 * 因为可能存在恼人的 LSB 舍入残留
+		 *效应。
 		 */
 		if (point_eq_point(&lseg->p[0], &interpt))
 			*result = lseg->p[0];
@@ -2712,13 +2712,13 @@ lseg_interpt_line(Point *result, LSEG *lseg, LINE *line)
 
 /*---------------------------------------------------------------------
  *		close_
- *				Point of closest proximity between objects.
+ *				对象间最接近的点。
  *-------------------------------------------------------------------*/
 
 /*
- * If *result is not NULL, it is set to the intersection point of a
- * perpendicular of the line through the point.  Returns the distance
- * of those two points.
+ * 若 *result 非 NULL，则将其设置为
+ * 从该点向直线所作垂线的交点。返回这两
+ * 个点的距离。
  */
 static float8
 line_closept_point(Point *result, LINE *line, Point *point)
@@ -2727,9 +2727,9 @@ line_closept_point(Point *result, LINE *line, Point *point)
 	LINE		tmp;
 
 	/*
-	 * We drop a perpendicular to find the intersection point.  Ordinarily we
-	 * should always find it, but that can fail in the presence of NaN
-	 * coordinates, and perhaps even from simple roundoff issues.
+	 * 我们作一条垂线来求交点。通常我们
+	 * 总能找到它，但在存在 NaN 坐标时可能失败，
+	 * 甚至可能仅因简单的舍入问题。
 	 */
 	line_construct(&tmp, point, line_invsl(line));
 	if (!line_interpt_line(&closept, &tmp, line))
@@ -2763,10 +2763,10 @@ close_pl(PG_FUNCTION_ARGS)
 
 
 /*
- * Closest point on line segment to specified point.
+ * 线段上到指定点的最近点。
  *
- * If *result is not NULL, set it to the closest point on the line segment
- * to the point.  Returns the distance of the two points.
+ * 若 *result 非 NULL，则将其设置为线段
+ * 上距该点最近的点。返回这两点的距离。
  */
 static float8
 lseg_closept_point(Point *result, LSEG *lseg, Point *pt)
@@ -2775,8 +2775,8 @@ lseg_closept_point(Point *result, LSEG *lseg, Point *pt)
 	LINE		tmp;
 
 	/*
-	 * To find the closest point, we draw a perpendicular line from the point
-	 * to the line segment.
+	 * 为求最近点，我们从该点作一条垂线
+	 * 到线段。
 	 */
 	line_construct(&tmp, pt, point_invsl(&lseg->p[0], &lseg->p[1]));
 	lseg_closept_line(&closept, lseg, &tmp);
@@ -2804,7 +2804,7 @@ close_ps(PG_FUNCTION_ARGS)
 
 
 /*
- * Closest point on line segment to line segment
+ * 线段上到线段的最近点
  */
 static float8
 lseg_closept_lseg(Point *result, LSEG *on_lseg, LSEG *to_lseg)
@@ -2813,13 +2813,13 @@ lseg_closept_lseg(Point *result, LSEG *on_lseg, LSEG *to_lseg)
 	float8		dist,
 				d;
 
-	/* First, we handle the case when the line segments are intersecting. */
+	/* 首先，我们处理两线段相交的情形。 */
 	if (lseg_interpt_lseg(result, on_lseg, to_lseg))
 		return 0.0;
 
 	/*
-	 * Then, we find the closest points from the endpoints of the second line
-	 * segment, and keep the closest one.
+	 * 然后，我们从第二条线段的端点求最近点，
+	 * 并保留最近的一个。
 	 */
 	dist = lseg_closept_point(result, on_lseg, &to_lseg->p[0]);
 	d = lseg_closept_point(&point, on_lseg, &to_lseg->p[1]);
@@ -2830,7 +2830,7 @@ lseg_closept_lseg(Point *result, LSEG *on_lseg, LSEG *to_lseg)
 			*result = point;
 	}
 
-	/* The closest point can still be one of the endpoints, so we test them. */
+	/* 最近点仍可能是端点之一，所以我们测试它们。 */
 	d = lseg_closept_point(NULL, to_lseg, &on_lseg->p[0]);
 	if (float8_lt(d, dist))
 	{
@@ -2869,10 +2869,10 @@ close_lseg(PG_FUNCTION_ARGS)
 
 
 /*
- * Closest point on or in box to specified point.
+ * 矩形上或内部到指定点的最近点。
  *
- * If *result is not NULL, set it to the closest point on the box to the
- * given point, and return the distance of the two points.
+ * 若 *result 非 NULL，则将其设置为矩形
+ * 上距给定点最近的点，并返回两点距离。
  */
 static float8
 box_closept_point(Point *result, BOX *box, Point *pt)
@@ -2891,7 +2891,7 @@ box_closept_point(Point *result, BOX *box, Point *pt)
 		return 0.0;
 	}
 
-	/* pairwise check lseg distances */
+	/* 逐对检查线段距离 */
 	point.x = box->low.x;
 	point.y = box->high.y;
 	statlseg_construct(&lseg, &box->low, &point);
@@ -2945,16 +2945,16 @@ close_pb(PG_FUNCTION_ARGS)
 }
 
 /*
- * Closest point on line segment to line.
+ * 线段上到直线的最近点。
  *
- * Return the distance between the line and the closest point of the line
- * segment to the line.  If *result is not NULL, set it to that point.
+ * 返回直线与线段上到该直线最近点
+ * 之间的距离。若 *result 非 NULL，则将其设为该点。
  *
- * NOTE: When the lines are parallel, endpoints of one of the line segment
- * are FPeq(), in presence of NaN or Infinite coordinates, or perhaps =
- * even because of simple roundoff issues, there may not be a single closest
- * point.  We are likely to set the result to the second endpoint in these
- * cases.
+ * 注意：当两直线平行时，若线段的端点
+ * 为 FPeq()，或在存在 NaN 或 Infinite 坐标时，
+ * 或仅因简单的舍入问题，可能不存在唯一最近点。
+ * 我们很可能在这些情形下把结果设为第二个端点。
+ *
  */
 static float8
 lseg_closept_line(Point *result, LSEG *lseg, LINE *line)
@@ -3004,10 +3004,10 @@ close_ls(PG_FUNCTION_ARGS)
 
 
 /*
- * Closest point on or in box to line segment.
+ * 矩形上或内部到线段的最近点。
  *
- * Returns the distance between the closest point on or in the box to
- * the line segment.  If *result is not NULL, it is set to that point.
+ * 返回矩形上或内部到线段最近点之间
+ * 的距离。若 *result 非 NULL，则设置为该点。
  */
 static float8
 box_closept_lseg(Point *result, BOX *box, LSEG *lseg)
@@ -3021,7 +3021,7 @@ box_closept_lseg(Point *result, BOX *box, LSEG *lseg)
 	if (box_interpt_lseg(result, box, lseg))
 		return 0.0;
 
-	/* pairwise check lseg distances */
+	/* 逐对检查线段距离 */
 	point.x = box->low.x;
 	point.y = box->high.y;
 	statlseg_construct(&bseg, &box->low, &point);
@@ -3077,11 +3077,11 @@ close_sb(PG_FUNCTION_ARGS)
 
 /*---------------------------------------------------------------------
  *		on_
- *				Whether one object lies completely within another.
+ *				一个对象是否完全位于另一对象内。
  *-------------------------------------------------------------------*/
 
 /*
- *		Does the point satisfy the equation?
+ *		该点是否满足方程？
  */
 static bool
 line_contain_point(LINE *line, Point *point)
@@ -3102,8 +3102,8 @@ on_pl(PG_FUNCTION_ARGS)
 
 
 /*
- *		Determine colinearity by detecting a triangle inequality.
- * This algorithm seems to behave nicely even with lsb residues - tgl 1997-07-09
+ *		通过检测三角不等式来判断共线性。
+ * 该算法即使在 lsb 残留下表现良好 - tgl 1997-07-09
  */
 static bool
 lseg_contain_point(LSEG *lseg, Point *pt)
@@ -3124,7 +3124,7 @@ on_ps(PG_FUNCTION_ARGS)
 
 
 /*
- * Check whether the point is in the box or on its border
+ * 检查该点是否在矩形内部或其边界上
  */
 static bool
 box_contain_point(BOX *box, Point *point)
@@ -3152,15 +3152,15 @@ box_contain_pt(PG_FUNCTION_ARGS)
 }
 
 /* on_ppath -
- *		Whether a point lies within (on) a polyline.
- *		If open, we have to (groan) check each segment.
- * (uses same algorithm as for point intersecting segment - tgl 1997-07-09)
- *		If closed, we use the old O(n) ray method for point-in-polygon.
- *				The ray is horizontal, from pt out to the right.
- *				Each segment that crosses the ray counts as an
- *				intersection; note that an endpoint or edge may touch
- *				but not cross.
- *				(we can do p-in-p in lg(n), but it takes preprocessing)
+ *		点是否位于折线内（上）。
+ *		若开放，则须（叹气）逐段检查。
+ * (使用与点相交线段相同的算法 - tgl 1997-07-09)
+ *		若闭合，则用旧 O(n) 射线法求点在多边形内。
+ *				射线为水平，从 pt 向右延伸。
+ *				每条跨过射线的线段计为一次
+ *				相交；注意端点或边可能接触
+ *			但未跨过。
+ *				(p-in-p 可用 lg(n) 完成，但需预处理)
  */
 Datum
 on_ppath(PG_FUNCTION_ARGS)
@@ -3193,9 +3193,9 @@ on_ppath(PG_FUNCTION_ARGS)
 
 
 /*
- * Check whether the line segment is on the line or close enough
+ * 检查线段是否在该直线上或足够接近
  *
- * It is, if both of its points are on the line or close enough.
+ * 是的，若两端点都在该直线上或足够接近。
  */
 Datum
 on_sl(PG_FUNCTION_ARGS)
@@ -3209,9 +3209,9 @@ on_sl(PG_FUNCTION_ARGS)
 
 
 /*
- * Check whether the line segment is in the box or on its border
+ * 检查线段是否在矩形内部或其边界上
  *
- * It is, if both of its points are in the box or on its border.
+ * 是的，若两端点都在矩形内部或其边界上。
  */
 static bool
 box_contain_lseg(BOX *box, LSEG *lseg)
@@ -3231,7 +3231,7 @@ on_sb(PG_FUNCTION_ARGS)
 
 /*---------------------------------------------------------------------
  *		inter_
- *				Whether one object intersects another.
+ *				对象是否与另一对象相交。
  *-------------------------------------------------------------------*/
 
 Datum
@@ -3245,18 +3245,18 @@ inter_sl(PG_FUNCTION_ARGS)
 
 
 /*
- * Do line segment and box intersect?
+ * 线段与矩形是否相交？
  *
- * Segment completely inside box counts as intersection.
- * If you want only segments crossing box boundaries,
- *	try converting box to path first.
+ * 线段完全位于矩形内也算相交。
+ * 若只想知道跨过矩形边界的线段，
+ *	请先把矩形转为路径。
  *
- * This function also sets the *result to the closest point on the line
- * segment to the center of the box when they overlap and the result is
- * not NULL.  It is somewhat arbitrary, but maybe the best we can do as
- * there are typically two points they intersect.
+ * 当两者重叠且 *result 非 NULL 时，本函数还会将
+ * *result 设置为线段上到矩形中心的最近点。
+ * 这有些随意，但也许已是我们能做到的最佳结果，
+ * 因为它们通常交于两点。
  *
- * Optimize for non-intersection by checking for box intersection first.
+ * 通过先检查矩形是否相交来为不相交优化。
  * - thomas 1998-01-30
  */
 static bool
@@ -3271,7 +3271,7 @@ box_interpt_lseg(Point *result, BOX *box, LSEG *lseg)
 	lbox.high.x = float8_max(lseg->p[0].x, lseg->p[1].x);
 	lbox.high.y = float8_max(lseg->p[0].y, lseg->p[1].y);
 
-	/* nothing close to overlap? then not going to intersect */
+	/* 没有接近重叠？那么不会相交 */
 	if (!box_ov(&lbox, box))
 		return false;
 
@@ -3281,12 +3281,12 @@ box_interpt_lseg(Point *result, BOX *box, LSEG *lseg)
 		lseg_closept_point(result, lseg, &point);
 	}
 
-	/* an endpoint of segment is inside box? then clearly intersects */
+	/* 线段端点在矩形内？那么显然相交 */
 	if (box_contain_point(box, &lseg->p[0]) ||
 		box_contain_point(box, &lseg->p[1]))
 		return true;
 
-	/* pairwise check lseg intersections */
+	/* 逐对检查线段相交 */
 	point.x = box->low.x;
 	point.y = box->high.y;
 	statlseg_construct(&bseg, &box->low, &point);
@@ -3307,7 +3307,7 @@ box_interpt_lseg(Point *result, BOX *box, LSEG *lseg)
 	if (lseg_interpt_lseg(NULL, &bseg, lseg))
 		return true;
 
-	/* if we dropped through, no two segs intersected */
+	/* 落到此处即无任何两线段相交 */
 	return false;
 }
 
@@ -3322,7 +3322,7 @@ inter_sb(PG_FUNCTION_ARGS)
 
 
 /* inter_lb()
- * Do line and box intersect?
+ * 直线与矩形相交？
  */
 Datum
 inter_lb(PG_FUNCTION_ARGS)
@@ -3333,7 +3333,7 @@ inter_lb(PG_FUNCTION_ARGS)
 	Point		p1,
 				p2;
 
-	/* pairwise check lseg intersections */
+	/* 逐对检查线段相交 */
 	p1.x = box->low.x;
 	p1.y = box->low.y;
 	p2.x = box->low.x;
@@ -3357,20 +3357,20 @@ inter_lb(PG_FUNCTION_ARGS)
 	if (lseg_interpt_line(NULL, &bseg, line))
 		PG_RETURN_BOOL(true);
 
-	/* if we dropped through, no intersection */
+	/* 落到此处即无交点 */
 	PG_RETURN_BOOL(false);
 }
 
 /*------------------------------------------------------------------
- * The following routines define a data type and operator class for
- * POLYGONS .... Part of which (the polygon's bounding box) is built on
- * top of the BOX data type.
+ * 以下例程为多边形定义数据类型与操作符类，
+ * 其中一部分（多边形的外接框）构建于
+ * BOX 数据类型之上。
  *
- * make_bound_box - create the bounding box for the input polygon
+ * make_bound_box - 为输入多边形创建外接框
  *------------------------------------------------------------------*/
 
 /*---------------------------------------------------------------------
- * Make the smallest bounding box for the given polygon.
+ * 为给定多边形制作最小外接框。
  *---------------------------------------------------------------------*/
 static void
 make_bound_box(POLYGON *poly)
@@ -3404,12 +3404,12 @@ make_bound_box(POLYGON *poly)
 }
 
 /*------------------------------------------------------------------
- * poly_in - read in the polygon from a string specification
+ * poly_in - 从字符串描述读入多边形
  *
- *		External format:
+ *		外部格式：
  *				"((x0,y0),...,(xn,yn))"
  *				"x0,y0,...,xn,yn"
- *				also supports the older style "(x1,...,xn,y1,...yn)"
+ *			也支持旧式 "(x1,...,xn,y1,...yn)"
  *------------------------------------------------------------------*/
 Datum
 poly_in(PG_FUNCTION_ARGS)
@@ -3431,13 +3431,13 @@ poly_in(PG_FUNCTION_ARGS)
 	base_size = sizeof(poly->p[0]) * npts;
 	size = offsetof(POLYGON, p) + base_size;
 
-	/* Check for integer overflow */
+	/* 检查整数溢出 */
 	if (base_size / npts != sizeof(poly->p[0]) || size <= base_size)
 		ereturn(escontext, (Datum) 0,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("too many points requested")));
 
-	poly = (POLYGON *) palloc0(size);	/* zero any holes */
+	poly = (POLYGON *) palloc0(size);	/* 空洞置零 */
 
 	SET_VARSIZE(poly, size);
 	poly->npts = npts;
@@ -3452,8 +3452,8 @@ poly_in(PG_FUNCTION_ARGS)
 }
 
 /*---------------------------------------------------------------
- * poly_out - convert internal POLYGON representation to the
- *			  character string format "((f8,f8),...,(f8,f8))"
+ * poly_out - 将内部 POLYGON 表示转换为
+ *		  字符串格式 "((f8,f8),...,(f8,f8))"
  *---------------------------------------------------------------*/
 Datum
 poly_out(PG_FUNCTION_ARGS)
@@ -3464,12 +3464,12 @@ poly_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		poly_recv			- converts external binary format to polygon
+ *		poly_recv			- 将外部二进制格式转为多边形
  *
- * External representation is int32 number of points, and the points.
- * We recompute the bounding box on read, instead of trusting it to
- * be valid.  (Checking it would take just as long, so may as well
- * omit it from external representation.)
+ * 外部表示为 int32 点数以及各点。
+ * 我们在读取时重算外接框，而非轻信其有效。
+ * (检查它同样耗时，所以不妨
+ * 从外部表示中省略它。)
  */
 Datum
 poly_recv(PG_FUNCTION_ARGS)
@@ -3487,7 +3487,7 @@ poly_recv(PG_FUNCTION_ARGS)
 				 errmsg("invalid number of points in external \"polygon\" value")));
 
 	size = offsetof(POLYGON, p) + sizeof(poly->p[0]) * npts;
-	poly = (POLYGON *) palloc0(size);	/* zero any holes */
+	poly = (POLYGON *) palloc0(size);	/* 空洞置零 */
 
 	SET_VARSIZE(poly, size);
 	poly->npts = npts;
@@ -3504,7 +3504,7 @@ poly_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		poly_send			- converts polygon to binary format
+ *		poly_send			-将多边形转为二进制格式
  */
 Datum
 poly_send(PG_FUNCTION_ARGS)
@@ -3525,9 +3525,9 @@ poly_send(PG_FUNCTION_ARGS)
 
 
 /*-------------------------------------------------------
- * Is polygon A strictly left of polygon B? i.e. is
- * the right most point of A left of the left most point
- * of B?
+ * 多边形A是否严格在多边形B左侧？即
+ * A 最右点是否在 B 最左点左侧？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_left(PG_FUNCTION_ARGS)
@@ -3539,7 +3539,7 @@ poly_left(PG_FUNCTION_ARGS)
 	result = polya->boundbox.high.x < polyb->boundbox.low.x;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3548,9 +3548,9 @@ poly_left(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A overlapping or left of polygon B? i.e. is
- * the right most point of A at or left of the right most point
- * of B?
+ * 多边形A是否重叠或在多边形B左侧？即
+ * A 的最右点是否在 B 的最右点或其左侧？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_overleft(PG_FUNCTION_ARGS)
@@ -3562,7 +3562,7 @@ poly_overleft(PG_FUNCTION_ARGS)
 	result = polya->boundbox.high.x <= polyb->boundbox.high.x;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3571,9 +3571,9 @@ poly_overleft(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A strictly right of polygon B? i.e. is
- * the left most point of A right of the right most point
- * of B?
+ * 多边形A是否严格在多边形B右侧？即
+ * A 的最左点是否在 B 的最右点右侧？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_right(PG_FUNCTION_ARGS)
@@ -3585,7 +3585,7 @@ poly_right(PG_FUNCTION_ARGS)
 	result = polya->boundbox.low.x > polyb->boundbox.high.x;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3594,9 +3594,9 @@ poly_right(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A overlapping or right of polygon B? i.e. is
- * the left most point of A at or right of the left most point
- * of B?
+ * 多边形A是否重叠或在多边形B右侧？即
+ * A 的最左点是否在 B 的最左点或其右侧？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_overright(PG_FUNCTION_ARGS)
@@ -3608,7 +3608,7 @@ poly_overright(PG_FUNCTION_ARGS)
 	result = polya->boundbox.low.x >= polyb->boundbox.low.x;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3617,9 +3617,9 @@ poly_overright(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A strictly below polygon B? i.e. is
- * the upper most point of A below the lower most point
- * of B?
+ * 多边形A是否严格在B下方？即
+ * A 的最高点是否在 B 的最低点下方？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_below(PG_FUNCTION_ARGS)
@@ -3631,7 +3631,7 @@ poly_below(PG_FUNCTION_ARGS)
 	result = polya->boundbox.high.y < polyb->boundbox.low.y;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3640,9 +3640,9 @@ poly_below(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A overlapping or below polygon B? i.e. is
- * the upper most point of A at or below the upper most point
- * of B?
+ * 多边形A是否重叠或在多边形B下方？即
+ * A 的最高点是否在 B 的最高点或其下方？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_overbelow(PG_FUNCTION_ARGS)
@@ -3654,7 +3654,7 @@ poly_overbelow(PG_FUNCTION_ARGS)
 	result = polya->boundbox.high.y <= polyb->boundbox.high.y;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3663,9 +3663,9 @@ poly_overbelow(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A strictly above polygon B? i.e. is
- * the lower most point of A above the upper most point
- * of B?
+ * 多边形A是否严格在B上方？即
+ * A 的最低点是否在 B 的最高点上方？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_above(PG_FUNCTION_ARGS)
@@ -3677,7 +3677,7 @@ poly_above(PG_FUNCTION_ARGS)
 	result = polya->boundbox.low.y > polyb->boundbox.high.y;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3686,9 +3686,9 @@ poly_above(PG_FUNCTION_ARGS)
 }
 
 /*-------------------------------------------------------
- * Is polygon A overlapping or above polygon B? i.e. is
- * the lower most point of A at or above the lower most point
- * of B?
+ * 多边形A是否重叠或在多边形B上方？即
+ * A 的最低点是否在 B 的最低点或其上方？
+ *
  *-------------------------------------------------------*/
 Datum
 poly_overabove(PG_FUNCTION_ARGS)
@@ -3700,7 +3700,7 @@ poly_overabove(PG_FUNCTION_ARGS)
 	result = polya->boundbox.low.y >= polyb->boundbox.low.y;
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3710,11 +3710,11 @@ poly_overabove(PG_FUNCTION_ARGS)
 
 
 /*-------------------------------------------------------
- * Is polygon A the same as polygon B? i.e. are all the
- * points the same?
- * Check all points for matches in both forward and reverse
- *	direction since polygons are non-directional and are
- *	closed shapes.
+ * 多边形A与多边形B是否相同？即全部
+ * 点都相同？
+ * 正向与反向都检查所有点是否匹配，
+ *	因为多边形无方向且为闭合形状。
+ *
  *-------------------------------------------------------*/
 Datum
 poly_same(PG_FUNCTION_ARGS)
@@ -3729,7 +3729,7 @@ poly_same(PG_FUNCTION_ARGS)
 		result = plist_same(polya->npts, polya->p, polyb->p);
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3738,7 +3738,7 @@ poly_same(PG_FUNCTION_ARGS)
 }
 
 /*-----------------------------------------------------------------
- * Determine if polygon A overlaps polygon B
+ * 判断多边形A是否与多边形B重叠
  *-----------------------------------------------------------------*/
 static bool
 poly_overlap_internal(POLYGON *polya, POLYGON *polyb)
@@ -3747,13 +3747,13 @@ poly_overlap_internal(POLYGON *polya, POLYGON *polyb)
 
 	Assert(polya->npts > 0 && polyb->npts > 0);
 
-	/* Quick check by bounding box */
+	/* 用外接框快速检查 */
 	result = box_ov(&polya->boundbox, &polyb->boundbox);
 
 	/*
-	 * Brute-force algorithm - try to find intersected edges, if so then
-	 * polygons are overlapped else check is one polygon inside other or not
-	 * by testing single point of them.
+	 * 暴力算法 - 尝试找出相交的边，若找到，
+	 * 则两多边形重叠，否则检查一个多边形
+	 * 是否位于另一个之内。
 	 */
 	if (result)
 	{
@@ -3762,16 +3762,16 @@ poly_overlap_internal(POLYGON *polya, POLYGON *polyb)
 		LSEG		sa,
 					sb;
 
-		/* Init first of polya's edge with last point */
+		/* 用末点初始化 polya 边第一点 */
 		sa.p[0] = polya->p[polya->npts - 1];
 		result = false;
 
 		for (ia = 0; ia < polya->npts && !result; ia++)
 		{
-			/* Second point of polya's edge is a current one */
+			/* polya 边的第二点为当前点 */
 			sa.p[1] = polya->p[ia];
 
-			/* Init first of polyb's edge with last point */
+			/* 用末点初始化 polyb 边第一点 */
 			sb.p[0] = polyb->p[polyb->npts - 1];
 
 			for (ib = 0; ib < polyb->npts && !result; ib++)
@@ -3782,7 +3782,7 @@ poly_overlap_internal(POLYGON *polya, POLYGON *polyb)
 			}
 
 			/*
-			 * move current endpoint to the first point of next edge
+			 * 将当前端点移到下一条边的第一点
 			 */
 			sa.p[0] = sa.p[1];
 		}
@@ -3807,7 +3807,7 @@ poly_overlap(PG_FUNCTION_ARGS)
 	result = poly_overlap_internal(polya, polyb);
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3816,20 +3816,20 @@ poly_overlap(PG_FUNCTION_ARGS)
 }
 
 /*
- * Tests special kind of segment for in/out of polygon.
- * Special kind means:
- *	- point a should be on segment s
- *	- segment (a,b) should not be contained by s
- * Returns true if:
- *	- segment (a,b) is collinear to s and (a,b) is in polygon
- *	- segment (a,b) s not collinear to s. Note: that doesn't
- *	  mean that segment is in polygon!
+ * 测试特殊线段相对多边形的进出情况。
+ * 特殊意味着：
+ *	- 点 a 应在线段 s 上
+ *	- 线段 (a,b) 应不被 s 包含
+ * true 条件：
+ *	- 线段 (a,b) 与 s 共线且 (a,b) 在多边形内
+ *	-线段(a,b)不与s共线。注意：这并不代表
+ *	  线段在多边形内！
  */
 
 static bool
 touched_lseg_inside_poly(Point *a, Point *b, LSEG *s, POLYGON *poly, int start)
 {
-	/* point a is on s, b is not */
+	/* a 在 s 上，b 不在 */
 	LSEG		t;
 
 	t.p[0] = *a;
@@ -3854,13 +3854,13 @@ touched_lseg_inside_poly(Point *a, Point *b, LSEG *s, POLYGON *poly, int start)
 		return lseg_inside_poly(b, s->p + 1, poly, start);
 	}
 
-	return true;				/* may be not true, but that will check later */
+	return true;				/* 可能并非如此，但稍后会检查 */
 }
 
 /*
- * Returns true if segment (a,b) is in polygon, option
- * start is used for optimization - function checks
- * polygon's edges starting from start
+ * 若线段 (a,b) 在多边形内则返回 true，
+ * start 用于优化 - 函数
+ *	从 start 检查多边形各边。
  */
 static bool
 lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start)
@@ -3871,7 +3871,7 @@ lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start)
 	bool		res = true,
 				intersection = false;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 由于本函数会递归，可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	t.p[0] = *a;
@@ -3889,7 +3889,7 @@ lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start)
 		if (lseg_contain_point(&s, t.p))
 		{
 			if (lseg_contain_point(&s, t.p + 1))
-				return true;	/* t is contained by s */
+				return true;	/* t 被 s 包含 */
 
 			/* Y-cross */
 			res = touched_lseg_inside_poly(t.p, t.p + 1, &s, poly, i + 1);
@@ -3902,7 +3902,7 @@ lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start)
 		else if (lseg_interpt_lseg(&interpt, &t, &s))
 		{
 			/*
-			 * segments are X-crossing, go to check each subsegment
+			 * 线段 X 相交，继续检查每个子线段
 			 */
 
 			intersection = true;
@@ -3919,8 +3919,8 @@ lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start)
 		Point		p;
 
 		/*
-		 * if X-intersection wasn't found, then check central point of tested
-		 * segment. In opposite case we already check all subsegments
+		 * 若未找到 X 相交，则检查被测线段的
+		 * 中点。否则我们已检查过全部子线段
 		 */
 		p.x = float8_div(float8_pl(t.p[0].x, t.p[1].x), 2.0);
 		p.y = float8_div(float8_pl(t.p[0].y, t.p[1].y), 2.0);
@@ -3932,7 +3932,7 @@ lseg_inside_poly(Point *a, Point *b, POLYGON *poly, int start)
 }
 
 /*
- * Check whether the first polygon contains the second
+ * 检查第一个多边形是否包含第二个
  */
 static bool
 poly_contain_poly(POLYGON *contains_poly, POLYGON *contained_poly)
@@ -3943,8 +3943,8 @@ poly_contain_poly(POLYGON *contains_poly, POLYGON *contained_poly)
 	Assert(contains_poly->npts > 0 && contained_poly->npts > 0);
 
 	/*
-	 * Quick check to see if contained's bounding box is contained in
-	 * contains' bb.
+	 * 快速检查被包含者的外接框是否包含于包含者
+	 * 外接框。
 	 */
 	if (!box_contain_box(&contains_poly->boundbox, &contained_poly->boundbox))
 		return false;
@@ -3972,7 +3972,7 @@ poly_contain(PG_FUNCTION_ARGS)
 	result = poly_contain_poly(polya, polyb);
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -3982,7 +3982,7 @@ poly_contain(PG_FUNCTION_ARGS)
 
 
 /*-----------------------------------------------------------------
- * Determine if polygon A is contained by polygon B
+ * 判断多边形A是否被多边形B包含
  *-----------------------------------------------------------------*/
 Datum
 poly_contained(PG_FUNCTION_ARGS)
@@ -3991,11 +3991,11 @@ poly_contained(PG_FUNCTION_ARGS)
 	POLYGON    *polyb = PG_GETARG_POLYGON_P(1);
 	bool		result;
 
-	/* Just switch the arguments and pass it off to poly_contain */
+	/* 只是交换参数并转交给 poly_contain */
 	result = poly_contain_poly(polyb, polya);
 
 	/*
-	 * Avoid leaking memory for toasted inputs ... needed for rtree indexes
+	 * 避免 toast 输入泄漏内存……rtree 索引需要
 	 */
 	PG_FREE_IF_COPY(polya, 0);
 	PG_FREE_IF_COPY(polyb, 1);
@@ -4028,7 +4028,7 @@ poly_distance(PG_FUNCTION_ARGS)
 {
 	POLYGON    *polya = PG_GETARG_POLYGON_P(0);
 	POLYGON    *polyb = PG_GETARG_POLYGON_P(1);
-	float8		min = 0.0;		/* initialize to keep compiler quiet */
+	float8		min = 0.0;		/* 初始化以让编译器安静 */
 	bool		have_min = false;
 	float8		tmp;
 	int			i,
@@ -4037,17 +4037,17 @@ poly_distance(PG_FUNCTION_ARGS)
 				seg2;
 
 	/*
-	 * Distance is zero if polygons overlap.  We must check this because the
-	 * path distance will not give the right answer if one poly is entirely
-	 * within the other.
+	 * 若多边形重叠则距离为零。我们必须检查这一点，
+	 * 因为若一个多边形完全位于另一个内，路径
+	 * 距离会错。
 	 */
 	if (poly_overlap_internal(polya, polyb))
 		PG_RETURN_FLOAT8(0.0);
 
 	/*
-	 * When they don't overlap, the distance calculation is identical to that
-	 * for closed paths (i.e., we needn't care about the fact that polygons
-	 * include their contained areas).  See path_distance().
+	 * 当它们不重叠时，距离计算与闭合路径的
+ * 计算完全相同（即无需关心多边形包含其
+ * 内部区域这一事实。）见 path_distance()。
 	 */
 	for (i = 0; i < polya->npts; i++)
 	{
@@ -4088,7 +4088,7 @@ poly_distance(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for 2D points.
+ **		二维点例程。
  **
  ***********************************************************************/
 
@@ -4209,7 +4209,7 @@ point_div(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for 2D boxes.
+ **		二维矩形例程。
  **
  ***********************************************************************/
 
@@ -4296,7 +4296,7 @@ box_div(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert point to empty box
+ * 将点转换为空矩形
  */
 Datum
 point_box(PG_FUNCTION_ARGS)
@@ -4315,7 +4315,7 @@ point_box(PG_FUNCTION_ARGS)
 }
 
 /*
- * Smallest bounding box that includes both of the given boxes
+ * 包含两个给定矩形的最小外接框
  */
 Datum
 boxes_bound_box(PG_FUNCTION_ARGS)
@@ -4337,12 +4337,12 @@ boxes_bound_box(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for 2D paths.
+ **		二维路径例程。
  **
  ***********************************************************************/
 
 /* path_add()
- * Concatenate two paths (only if they are both open).
+ * 连接两条路径（仅当两者均开放）。
  */
 Datum
 path_add(PG_FUNCTION_ARGS)
@@ -4360,7 +4360,7 @@ path_add(PG_FUNCTION_ARGS)
 	base_size = sizeof(p1->p[0]) * (p1->npts + p2->npts);
 	size = offsetof(PATH, p) + base_size;
 
-	/* Check for integer overflow */
+	/* 检查整数溢出 */
 	if (base_size / sizeof(p1->p[0]) != (p1->npts + p2->npts) ||
 		size <= base_size)
 		ereport(ERROR,
@@ -4372,7 +4372,7 @@ path_add(PG_FUNCTION_ARGS)
 	SET_VARSIZE(result, size);
 	result->npts = (p1->npts + p2->npts);
 	result->closed = p1->closed;
-	/* prevent instability in unused pad bytes */
+	/* 防止未用填充字节的不稳定性 */
 	result->dummy = 0;
 
 	for (i = 0; i < p1->npts; i++)
@@ -4390,7 +4390,7 @@ path_add(PG_FUNCTION_ARGS)
 }
 
 /* path_add_pt()
- * Translation operators.
+ * 平移算子。
  */
 Datum
 path_add_pt(PG_FUNCTION_ARGS)
@@ -4419,7 +4419,7 @@ path_sub_pt(PG_FUNCTION_ARGS)
 }
 
 /* path_mul_pt()
- * Rotation and scaling operators.
+ * 旋转与缩放算子。
  */
 Datum
 path_mul_pt(PG_FUNCTION_ARGS)
@@ -4456,15 +4456,15 @@ path_poly(PG_FUNCTION_ARGS)
 	int			size;
 	int			i;
 
-	/* This is not very consistent --- other similar cases return NULL ... */
+	/* 这不太一致 --- 其他类似情形返回 NULL ... */
 	if (!path->closed)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("open path cannot be converted to polygon")));
 
 	/*
-	 * Never overflows: the old size fit in MaxAllocSize, and the new size is
-	 * just a small constant larger.
+	 * 绝不溢出：旧大小能放入 MaxAllocSize，而新大小只
+	 * 比它大一个小常量。
 	 */
 	size = offsetof(POLYGON, p) + sizeof(poly->p[0]) * path->npts;
 	poly = (POLYGON *) palloc(size);
@@ -4486,7 +4486,7 @@ path_poly(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for 2D polygons.
+ **		二维多边形例程。
  **
  ***********************************************************************/
 
@@ -4529,7 +4529,7 @@ poly_box(PG_FUNCTION_ARGS)
 
 
 /* box_poly()
- * Convert a box to a polygon.
+ * 把矩形转为多边形。
  */
 Datum
 box_poly(PG_FUNCTION_ARGS)
@@ -4538,7 +4538,7 @@ box_poly(PG_FUNCTION_ARGS)
 	POLYGON    *poly;
 	int			size;
 
-	/* map four corners of the box to a polygon */
+	/* 把矩形的四个角映射为多边形 */
 	size = offsetof(POLYGON, p) + sizeof(poly->p[0]) * 4;
 	poly = (POLYGON *) palloc(size);
 
@@ -4569,8 +4569,8 @@ poly_path(PG_FUNCTION_ARGS)
 	int			i;
 
 	/*
-	 * Never overflows: the old size fit in MaxAllocSize, and the new size is
-	 * smaller by a small constant.
+	 * 绝不溢出：旧大小能放入 MaxAllocSize，而新大小只
+	 * 比它小一个小常量。
 	 */
 	size = offsetof(PATH, p) + sizeof(path->p[0]) * poly->npts;
 	path = (PATH *) palloc(size);
@@ -4578,7 +4578,7 @@ poly_path(PG_FUNCTION_ARGS)
 	SET_VARSIZE(path, size);
 	path->npts = poly->npts;
 	path->closed = true;
-	/* prevent instability in unused pad bytes */
+	/* 防止未用填充字节的不稳定性 */
 	path->dummy = 0;
 
 	for (i = 0; i < poly->npts; i++)
@@ -4593,19 +4593,19 @@ poly_path(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Routines for circles.
+ **		圆例程。
  **
  ***********************************************************************/
 
 /*----------------------------------------------------------
- * Formatting and conversion routines.
+ * 格式化与转换例程。
  *---------------------------------------------------------*/
 
-/*		circle_in		-		convert a string to internal form.
+/*		circle_in		-		将字符串转为内部形式。
  *
- *		External format: (center and radius of circle)
+ *		外部格式：（圆的圆心与半径）
  *				"<(f8,f8),f8>"
- *				also supports quick entry style "f8,f8,f8"
+ *			也支持快速输入样式 "f8,f8,f8"
  */
 Datum
 circle_in(PG_FUNCTION_ARGS)
@@ -4624,7 +4624,7 @@ circle_in(PG_FUNCTION_ARGS)
 		depth++, s++;
 	else if (*s == LDELIM)
 	{
-		/* If there are two left parens, consume the first one */
+		/* 若有两个左括号，则消费第一个 */
 		cp = (s + 1);
 		while (isspace((unsigned char) *cp))
 			cp++;
@@ -4632,7 +4632,7 @@ circle_in(PG_FUNCTION_ARGS)
 			depth++, s = cp;
 	}
 
-	/* pair_decode will consume parens around the pair, if any */
+	/* 若有的话 pair_decode 会消费数对周围括号 */
 	if (!pair_decode(s, &circle->center.x, &circle->center.y, &s, "circle", str,
 					 escontext))
 		PG_RETURN_NULL();
@@ -4643,7 +4643,7 @@ circle_in(PG_FUNCTION_ARGS)
 	if (!single_decode(s, &circle->radius, &s, "circle", str, escontext))
 		PG_RETURN_NULL();
 
-	/* We have to accept NaN. */
+	/* 必须接受 NaN。 */
 	if (circle->radius < 0.0)
 		ereturn(escontext, (Datum) 0,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -4675,7 +4675,7 @@ circle_in(PG_FUNCTION_ARGS)
 	PG_RETURN_CIRCLE_P(circle);
 }
 
-/*		circle_out		-		convert a circle to external form.
+/*		circle_out		-		将圆转为外部形式。
  */
 Datum
 circle_out(PG_FUNCTION_ARGS)
@@ -4697,7 +4697,7 @@ circle_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		circle_recv			- converts external binary format to circle
+ *		circle_recv			- 将外部二进制格式转为圆
  */
 Datum
 circle_recv(PG_FUNCTION_ARGS)
@@ -4711,7 +4711,7 @@ circle_recv(PG_FUNCTION_ARGS)
 	circle->center.y = pq_getmsgfloat8(buf);
 	circle->radius = pq_getmsgfloat8(buf);
 
-	/* We have to accept NaN. */
+	/* 必须接受 NaN。 */
 	if (circle->radius < 0.0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_BINARY_REPRESENTATION),
@@ -4721,7 +4721,7 @@ circle_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		circle_send			- converts circle to binary format
+ *		circle_send			- 将圆转为二进制格式
  */
 Datum
 circle_send(PG_FUNCTION_ARGS)
@@ -4738,14 +4738,14 @@ circle_send(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Relational operators for CIRCLEs.
- *		<, >, <=, >=, and == are based on circle area.
+ * 圆的关系算子。
+ *		<, >, <=, >= 和 == 基于圆面积。
  *---------------------------------------------------------*/
 
-/*		circles identical?
+/*		圆是否相同？
  *
- * We consider NaNs values to be equal to each other to let those circles
- * to be found.
+ * 我们将 NaN 值视为彼此相等，以便能找到这些圆。
+ *
  */
 Datum
 circle_same(PG_FUNCTION_ARGS)
@@ -4758,7 +4758,7 @@ circle_same(PG_FUNCTION_ARGS)
 				   point_eq_point(&circle1->center, &circle2->center));
 }
 
-/*		circle_overlap	-		does circle1 overlap circle2?
+/*		circle_overlap	-		circle1 与 circle2 重叠？
  */
 Datum
 circle_overlap(PG_FUNCTION_ARGS)
@@ -4770,8 +4770,8 @@ circle_overlap(PG_FUNCTION_ARGS)
 						float8_pl(circle1->radius, circle2->radius)));
 }
 
-/*		circle_overleft -		is the right edge of circle1 at or left of
- *								the right edge of circle2?
+/*		circle_overleft -		circle1 的右边缘是否在 circle2
+ *						右边缘或其左侧？
  */
 Datum
 circle_overleft(PG_FUNCTION_ARGS)
@@ -4783,7 +4783,7 @@ circle_overleft(PG_FUNCTION_ARGS)
 						float8_pl(circle2->center.x, circle2->radius)));
 }
 
-/*		circle_left		-		is circle1 strictly left of circle2?
+/*		circle_left		-		circle1 严格在 circle2 左侧？
  */
 Datum
 circle_left(PG_FUNCTION_ARGS)
@@ -4795,7 +4795,7 @@ circle_left(PG_FUNCTION_ARGS)
 						float8_mi(circle2->center.x, circle2->radius)));
 }
 
-/*		circle_right	-		is circle1 strictly right of circle2?
+/*		circle_right	-		circle1 严格在 circle2 右侧？
  */
 Datum
 circle_right(PG_FUNCTION_ARGS)
@@ -4807,8 +4807,8 @@ circle_right(PG_FUNCTION_ARGS)
 						float8_pl(circle2->center.x, circle2->radius)));
 }
 
-/*		circle_overright	-	is the left edge of circle1 at or right of
- *								the left edge of circle2?
+/*		circle_overright	-	circle1 的左边缘是否在 circle2
+ *						左边缘或其右侧？
  */
 Datum
 circle_overright(PG_FUNCTION_ARGS)
@@ -4820,7 +4820,7 @@ circle_overright(PG_FUNCTION_ARGS)
 						float8_mi(circle2->center.x, circle2->radius)));
 }
 
-/*		circle_contained		-		is circle1 contained by circle2?
+/*		circle_contained		-		circle1是否被circle2包含？
  */
 Datum
 circle_contained(PG_FUNCTION_ARGS)
@@ -4832,7 +4832,7 @@ circle_contained(PG_FUNCTION_ARGS)
 						float8_mi(circle2->radius, circle1->radius)));
 }
 
-/*		circle_contain	-		does circle1 contain circle2?
+/*		circle_contain	-		circle1是否包含circle2？
  */
 Datum
 circle_contain(PG_FUNCTION_ARGS)
@@ -4845,7 +4845,7 @@ circle_contain(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_below		-		is circle1 strictly below circle2?
+/*		circle_below		-		circle1 严格在 circle2下方？
  */
 Datum
 circle_below(PG_FUNCTION_ARGS)
@@ -4857,7 +4857,7 @@ circle_below(PG_FUNCTION_ARGS)
 						float8_mi(circle2->center.y, circle2->radius)));
 }
 
-/*		circle_above	-		is circle1 strictly above circle2?
+/*		circle_above	-		circle1 严格在 circle2上方？
  */
 Datum
 circle_above(PG_FUNCTION_ARGS)
@@ -4869,8 +4869,8 @@ circle_above(PG_FUNCTION_ARGS)
 						float8_pl(circle2->center.y, circle2->radius)));
 }
 
-/*		circle_overbelow -		is the upper edge of circle1 at or below
- *								the upper edge of circle2?
+/*		circle_overbelow -		circle1 的上边缘是否在 circle2
+ *						上边缘或其下方？
  */
 Datum
 circle_overbelow(PG_FUNCTION_ARGS)
@@ -4882,8 +4882,8 @@ circle_overbelow(PG_FUNCTION_ARGS)
 						float8_pl(circle2->center.y, circle2->radius)));
 }
 
-/*		circle_overabove	-	is the lower edge of circle1 at or above
- *								the lower edge of circle2?
+/*		circle_overabove	-	circle1 的下边缘是否在 circle2
+ *						下边缘或其上方？
  */
 Datum
 circle_overabove(PG_FUNCTION_ARGS)
@@ -4896,8 +4896,8 @@ circle_overabove(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_relop	-		is area(circle1) relop area(circle2), within
- *								our accuracy constraint?
+/*		circle_relop	-		area(circle1) relop area(circle2)在精度
+ *						约束内是否成立？
  */
 Datum
 circle_eq(PG_FUNCTION_ARGS)
@@ -4955,11 +4955,11 @@ circle_ge(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	"Arithmetic" operators on circles.
+ * 圆上的"算术"算子。
  *---------------------------------------------------------*/
 
 /* circle_add_pt()
- * Translation operator.
+ * 平移算子。
  */
 Datum
 circle_add_pt(PG_FUNCTION_ARGS)
@@ -4993,7 +4993,7 @@ circle_sub_pt(PG_FUNCTION_ARGS)
 
 
 /* circle_mul_pt()
- * Rotation and scaling operators.
+ * 旋转与缩放算子。
  */
 Datum
 circle_mul_pt(PG_FUNCTION_ARGS)
@@ -5026,7 +5026,7 @@ circle_div_pt(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_area		-		returns the area of the circle.
+/*		circle_area		-		返回圆的面积。
  */
 Datum
 circle_area(PG_FUNCTION_ARGS)
@@ -5037,7 +5037,7 @@ circle_area(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_diameter -		returns the diameter of the circle.
+/*		circle_diameter -		返回圆的直径。
  */
 Datum
 circle_diameter(PG_FUNCTION_ARGS)
@@ -5048,7 +5048,7 @@ circle_diameter(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_radius	-		returns the radius of the circle.
+/*		circle_radius	-		返回圆的半径。
  */
 Datum
 circle_radius(PG_FUNCTION_ARGS)
@@ -5059,8 +5059,8 @@ circle_radius(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_distance -		returns the distance between
- *								  two circles.
+/*		circle_distance -		返回两个圆之间
+ *						  的距离。
  */
 Datum
 circle_distance(PG_FUNCTION_ARGS)
@@ -5102,8 +5102,8 @@ pt_contained_circle(PG_FUNCTION_ARGS)
 }
 
 
-/*		dist_pc -		returns the distance between
- *						  a point and a circle.
+/*		dist_pc	-		返回一个点与
+ *				  一个圆的距离。
  */
 Datum
 dist_pc(PG_FUNCTION_ARGS)
@@ -5121,7 +5121,7 @@ dist_pc(PG_FUNCTION_ARGS)
 }
 
 /*
- * Distance from a circle to a point
+ * 圆到点的距离
  */
 Datum
 dist_cpoint(PG_FUNCTION_ARGS)
@@ -5137,7 +5137,7 @@ dist_cpoint(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(result);
 }
 
-/*		circle_center	-		returns the center point of the circle.
+/*		circle_center	-		返回圆的圆心。
  */
 Datum
 circle_center(PG_FUNCTION_ARGS)
@@ -5153,7 +5153,7 @@ circle_center(PG_FUNCTION_ARGS)
 }
 
 
-/*		circle_ar		-		returns the area of the circle.
+/*		circle_ar		-		返回圆的面积。
  */
 static float8
 circle_ar(CIRCLE *circle)
@@ -5163,7 +5163,7 @@ circle_ar(CIRCLE *circle)
 
 
 /*----------------------------------------------------------
- *	Conversion operators.
+ * 转换算子。
  *---------------------------------------------------------*/
 
 Datum
@@ -5202,7 +5202,7 @@ circle_box(PG_FUNCTION_ARGS)
 }
 
 /* box_circle()
- * Convert a box to a circle.
+ * 将矩形转换为圆。
  */
 Datum
 box_circle(PG_FUNCTION_ARGS)
@@ -5246,13 +5246,13 @@ circle_poly(PG_FUNCTION_ARGS)
 	base_size = sizeof(poly->p[0]) * npts;
 	size = offsetof(POLYGON, p) + base_size;
 
-	/* Check for integer overflow */
+	/* 检查整数溢出 */
 	if (base_size / npts != sizeof(poly->p[0]) || size <= base_size)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("too many points requested")));
 
-	poly = (POLYGON *) palloc0(size);	/* zero any holes */
+	poly = (POLYGON *) palloc0(size);	/* 空洞置零 */
 	SET_VARSIZE(poly, size);
 	poly->npts = npts;
 
@@ -5274,12 +5274,12 @@ circle_poly(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert polygon to circle
+ * 将多边形转换为圆
  *
- * The result must be preallocated.
+ * 结果必须预先分配。
  *
- * XXX This algorithm should use weighted means of line segments
- *	rather than straight average values of points - tgl 97/01/21.
+ * XXX 本算法应使用线段的加权均值，
+ *	而非点的简单平均值 - tgl 97/01/21。
  */
 static void
 poly_to_circle(CIRCLE *result, POLYGON *poly)
@@ -5319,14 +5319,14 @@ poly_circle(PG_FUNCTION_ARGS)
 
 /***********************************************************************
  **
- **		Private routines for multiple types.
+ **		多类型私有例程。
  **
  ***********************************************************************/
 
 /*
- *	Test to see if the point is inside the polygon, returns 1/0, or 2 if
- *	the point is on the polygon.
- *	Code adapted but not copied from integer-based routines in WN: A
+ * 测试点是否在多边形内部，返回 1/0，
+ * 在多边形上则为2。
+ * 代码改编但未照抄自 WN: A
  *	Server for the HTTP
  *	version 1.15.1, file wn/image.c
  *	http://hopf.math.northwestern.edu/index.html
@@ -5351,20 +5351,20 @@ point_inside(Point *p, int npts, Point *plist)
 
 	Assert(npts > 0);
 
-	/* compute first polygon point relative to single point */
+	/* 计算第一个多边形点相对于单点 */
 	x0 = float8_mi(plist[0].x, p->x);
 	y0 = float8_mi(plist[0].y, p->y);
 
 	prev_x = x0;
 	prev_y = y0;
-	/* loop over polygon points and aggregate total_cross */
+	/* 遍历多边形各点并累计 total_cross */
 	for (i = 1; i < npts; i++)
 	{
-		/* compute next polygon point relative to single point */
+		/* 计算下一个多边形点相对于单点 */
 		x = float8_mi(plist[i].x, p->x);
 		y = float8_mi(plist[i].y, p->y);
 
-		/* compute previous to current point crossing */
+		/* 计算前一点到当前点的跨越 */
 		if ((cross = lseg_crossing(x, y, prev_x, prev_y)) == POINT_ON_POLYGON)
 			return 2;
 		total_cross += cross;
@@ -5373,7 +5373,7 @@ point_inside(Point *p, int npts, Point *plist)
 		prev_y = y;
 	}
 
-	/* now do the first point */
+	/* 现在处理首点 */
 	if ((cross = lseg_crossing(x0, y0, prev_x, prev_y)) == POINT_ON_POLYGON)
 		return 2;
 	total_cross += cross;
@@ -5385,12 +5385,12 @@ point_inside(Point *p, int npts, Point *plist)
 
 
 /* lseg_crossing()
- * Returns +/-2 if line segment crosses the positive X-axis in a +/- direction.
- * Returns +/-1 if one point is on the positive X-axis.
- * Returns 0 if both points are on the positive X-axis, or there is no crossing.
- * Returns POINT_ON_POLYGON if the segment contains (0,0).
- * Wow, that is one confusing API, but it is used above, and when summed,
- * can tell is if a point is in a polygon.
+ * 线段以 +/- 方向跨过正 X 轴时返回 +/-2。
+ * 一个点位于正 X 轴上时返回 +/-1。
+ * 两点都在正 X 轴上或没有跨越时返回 0。
+ * 线段包含 (0,0) 时返回 POINT_ON_POLYGON。
+ * 哇，这真是一个令人困惑的 API，但上面用到了它，
+ * 求和即可判断点在多边形内。
  */
 
 static int
@@ -5400,18 +5400,18 @@ lseg_crossing(float8 x, float8 y, float8 prev_x, float8 prev_y)
 	int			y_sign;
 
 	if (FPzero(y))
-	{							/* y == 0, on X axis */
-		if (FPzero(x))			/* (x,y) is (0,0)? */
+	{							/* y==0 在 X 轴上 */
+		if (FPzero(x))			/* (x,y)=(0,0)? */
 			return POINT_ON_POLYGON;
 		else if (FPgt(x, 0))
 		{						/* x > 0 */
-			if (FPzero(prev_y)) /* y and prev_y are zero */
+			if (FPzero(prev_y)) /* y、prev_y 均为零 */
 				/* prev_x > 0? */
 				return FPgt(prev_x, 0.0) ? 0 : POINT_ON_POLYGON;
 			return FPlt(prev_y, 0.0) ? 1 : -1;
 		}
 		else
-		{						/* x < 0, x not on positive X axis */
+		{						/* x < 0，x 不在正 X 轴上 */
 			if (FPzero(prev_y))
 				/* prev_x < 0? */
 				return FPlt(prev_x, 0.0) ? 0 : POINT_ON_POLYGON;
@@ -5420,26 +5420,26 @@ lseg_crossing(float8 x, float8 y, float8 prev_x, float8 prev_y)
 	}
 	else
 	{							/* y != 0 */
-		/* compute y crossing direction from previous point */
+		/* 计算 y 相对前一点的跨越方向 */
 		y_sign = FPgt(y, 0.0) ? 1 : -1;
 
 		if (FPzero(prev_y))
-			/* previous point was on X axis, so new point is either off or on */
+			/* 前一点在 X 轴上，故新点要么离开要么在其上 */
 			return FPlt(prev_x, 0.0) ? 0 : y_sign;
 		else if ((y_sign < 0 && FPlt(prev_y, 0.0)) ||
 				 (y_sign > 0 && FPgt(prev_y, 0.0)))
-			/* both above or below X axis */
-			return 0;			/* same sign */
+			/* 同在 X 轴上或下方 */
+			return 0;			/* 同号 */
 		else
-		{						/* y and prev_y cross X-axis */
+		{						/* y 与 prev_y 跨越 X 轴 */
 			if (FPge(x, 0.0) && FPgt(prev_x, 0.0))
-				/* both non-negative so cross positive X-axis */
+				/* 均为非负，故跨越正 X 轴 */
 				return 2 * y_sign;
 			if (FPlt(x, 0.0) && FPle(prev_x, 0.0))
-				/* both non-positive so do not cross positive X-axis */
+				/* 均为非正，故不跨越正 X 轴 */
 				return 0;
 
-			/* x and y cross axes, see URL above point_inside() */
+			/* x 与 y 跨轴，见上方 point_inside() 的URL */
 			z = float8_mi(float8_mul(float8_mi(x, prev_x), y),
 						  float8_mul(float8_mi(y, prev_y), x));
 			if (FPzero(z))
@@ -5460,13 +5460,13 @@ plist_same(int npts, Point *p1, Point *p2)
 				ii,
 				j;
 
-	/* find match for first point */
+	/* 查找首点的匹配 */
 	for (i = 0; i < npts; i++)
 	{
 		if (point_eq_point(&p2[i], &p1[0]))
 		{
 
-			/* match found? then look forward through remaining points */
+			/* 找到匹配？则向前查看其余各点 */
 			for (ii = 1, j = i + 1; ii < npts; ii++, j++)
 			{
 				if (j >= npts)
@@ -5477,7 +5477,7 @@ plist_same(int npts, Point *p1, Point *p2)
 			if (ii == npts)
 				return true;
 
-			/* match not found forwards? then look backwards */
+			/* 向前未找到匹配？则向后查看 */
 			for (ii = 1, j = i - 1; ii < npts; ii++, j--)
 			{
 				if (j < 0)
@@ -5495,24 +5495,24 @@ plist_same(int npts, Point *p1, Point *p2)
 
 
 /*-------------------------------------------------------------------------
- * Determine the hypotenuse.
+ * 求斜边。
  *
- * If required, x and y are swapped to make x the larger number. The
- * traditional formula of x^2+y^2 is rearranged to factor x outside the
- * sqrt. This allows computation of the hypotenuse for significantly
- * larger values, and with a higher precision than when using the naive
- * formula.  In particular, this cannot overflow unless the final result
- * would be out-of-range.
+ * 如有需要，则交换 x 与 y 使 x 成为较大数。
+ * 传统的 x^2+y^2 公式经重排把 x 因子提到
+ * sqrt 之外。故能对显著更大的值计算斜边，
+ * 且比使用朴素公式精度更高。特别是，
+ * 除非最终结果越界，否则这不会溢出。
+ *
  *
  * sqrt( x^2 + y^2 ) = sqrt( x^2( 1 + y^2/x^2) )
  *					 = x * sqrt( 1 + y^2/x^2 )
  *					 = x * sqrt( 1 + y/x * y/x )
  *
- * It is expected that this routine will eventually be replaced with the
- * C99 hypot() function.
+ * 预期本例程最终将被 C99 hypot()
+ * 函数取代。
  *
- * This implementation conforms to IEEE Std 1003.1 and GLIBC, in that the
- * case of hypot(inf,nan) results in INF, and not NAN.
+ * 本实现遵循 IEEE Std 1003.1 与 GLIBC：即
+ * hypot(inf,nan) 的结果是 INF 而非 NAN。
  *-----------------------------------------------------------------------
  */
 float8
@@ -5521,18 +5521,18 @@ pg_hypot(float8 x, float8 y)
 	float8		yx,
 				result;
 
-	/* Handle INF and NaN properly */
+	/* 正确处理 INF 与 NaN */
 	if (isinf(x) || isinf(y))
 		return get_float8_infinity();
 
 	if (isnan(x) || isnan(y))
 		return get_float8_nan();
 
-	/* Else, drop any minus signs */
+	/* 否则去掉负号 */
 	x = fabs(x);
 	y = fabs(y);
 
-	/* Swap x and y if needed to make x the larger one */
+	/* 如有需要则交换 x 与 y 使 x 较大 */
 	if (x < y)
 	{
 		float8		temp = x;
@@ -5542,14 +5542,14 @@ pg_hypot(float8 x, float8 y)
 	}
 
 	/*
-	 * If y is zero, the hypotenuse is x.  This test saves a few cycles in
-	 * such cases, but more importantly it also protects against
-	 * divide-by-zero errors, since now x >= y.
+	 * 若 y 为零则斜边为 x。这一测试在此类情形
+	 * 下节省几个周期，但更重要的是它还能
+	 * 防止除零错误，因 x >= y。
 	 */
 	if (y == 0.0)
 		return x;
 
-	/* Determine the hypotenuse */
+	/* 求斜边 */
 	yx = y / x;
 	result = x * sqrt(1.0 + (yx * yx));
 

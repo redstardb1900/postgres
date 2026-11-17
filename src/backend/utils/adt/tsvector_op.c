@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tsvector_op.c
- *	  operations over tsvector
+ *	  tsvector 上的操作
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -44,8 +44,8 @@ typedef struct
 
 typedef struct StatEntry
 {
-	uint32		ndoc;			/* zero indicates that we were already here
-								 * while walking through the tree */
+	uint32		ndoc;			/* 0 表示我们在遍历树的过程中
+								 * 已经到过此处 */
 	uint32		nentry;
 	struct StatEntry *left;
 	struct StatEntry *right;
@@ -80,7 +80,7 @@ static Datum tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column);
 
 
 /*
- * Order: haspos, len, word, for all positions (pos, weight)
+ * 顺序：haspos, len, word 及所有位置 (pos, weight)
  */
 static int
 silly_cmp_tsvector(const TSVector a, const TSVector b)
@@ -153,7 +153,7 @@ tsvector_##type(PG_FUNCTION_ARGS)						\
 	PG_FREE_IF_COPY(b,1);								\
 	PG_RETURN_##ret( res action 0 );					\
 }	\
-/* keep compiler quiet - no extra ; */					\
+/* 让编译器安静 - 无多余 ; */					\
 extern int no_such_variable
 
 TSVECTORCMPFUNC(lt, <, BOOL);
@@ -238,7 +238,7 @@ tsvector_setweight(PG_FUNCTION_ARGS)
 			w = 0;
 			break;
 		default:
-			/* internal error */
+			/* 内部错误 */
 			elog(ERROR, "unrecognized weight: %d", cw);
 	}
 
@@ -267,7 +267,7 @@ tsvector_setweight(PG_FUNCTION_ARGS)
 /*
  * setweight(tsin tsvector, char_weight "char", lexemes "text"[])
  *
- * Assign weight w to elements of tsin that are listed in lexemes.
+ * 给 tsin 中列于 lexemes 里的元素赋予权重 w。
  */
 Datum
 tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
@@ -304,7 +304,7 @@ tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
 			weight = 0;
 			break;
 		default:
-			/* internal error */
+			/* 内部错误 */
 			elog(ERROR, "unrecognized weight: %c", char_weight);
 	}
 
@@ -315,9 +315,9 @@ tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
 	deconstruct_array_builtin(lexemes, TEXTOID, &dlexemes, &nulls, &nlexemes);
 
 	/*
-	 * Assuming that lexemes array is significantly shorter than tsvector we
-	 * can iterate through lexemes performing binary search of each lexeme
-	 * from lexemes in tsvector.
+	 * 假定 lexemes 数组远短于 tsvector，我们就可以遍历
+	 * lexemes，对其中每个词位在 tsvector 中
+	 * 做二分查找。
 	 */
 	for (i = 0; i < nlexemes; i++)
 	{
@@ -325,7 +325,7 @@ tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
 		int			lex_len,
 					lex_pos;
 
-		/* Ignore null array elements, they surely don't match */
+		/* 忽略 NULL 数组元素，它们必然不匹配 */
 		if (nulls[i])
 			continue;
 
@@ -357,8 +357,8 @@ tsvector_setweight_by_filter(PG_FUNCTION_ARGS)
 					false)
 
 /*
- * Add positions from src to dest after offsetting them by maxpos.
- * Return the number added (might be less than expected due to overflow)
+ * 把 src 的位置偏移 maxpos 后加到 dest 上。
+ * 返回加入的数量（因溢出可能少于预期）
  */
 static int32
 add_pos(TSVector src, WordEntry *srcptr,
@@ -392,9 +392,9 @@ add_pos(TSVector src, WordEntry *srcptr,
 }
 
 /*
- * Perform binary search of given lexeme in TSVector.
- * Returns lexeme position in TSVector's entry array or -1 if lexeme wasn't
- * found.
+ * 在 TSVector 中对给定词位二分查找。
+ * 返回该词位在 TSVector 条目数组中的位置，未找到则为
+ * -1。
  */
 static int
 tsvector_bsearch(const TSVector tsv, char *lexeme, int lexeme_len)
@@ -418,7 +418,7 @@ tsvector_bsearch(const TSVector tsv, char *lexeme, int lexeme_len)
 			StopHigh = StopMiddle;
 		else if (cmp > 0)
 			StopLow = StopMiddle + 1;
-		else					/* found it */
+		else					/* 找到 */
 			return StopMiddle;
 	}
 
@@ -426,7 +426,7 @@ tsvector_bsearch(const TSVector tsv, char *lexeme, int lexeme_len)
 }
 
 /*
- * qsort comparator functions
+ * qsort 比较函数
  */
 
 static int
@@ -454,13 +454,13 @@ compare_text_lexemes(const void *va, const void *vb)
 }
 
 /*
- * Internal routine to delete lexemes from TSVector by array of offsets.
+ * 按偏移量数组从 TSVector 中删除词位的内部例程。
  *
- * int *indices_to_delete -- array of lexeme offsets to delete (modified here!)
- * int indices_count -- size of that array
+ * int *indices_to_delete -- 待删除词位偏移数组（此处会改！）
+ * int indices_count -- 该数组的大小
  *
- * Returns new TSVector without given lexemes along with their positions
- * and weights.
+ * 返回去除了给定词位及其位置与权重的新
+ * TSVector。
  */
 static TSVector
 tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
@@ -471,15 +471,15 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 			   *arrout;
 	char	   *data = STRPTR(tsv),
 			   *dataout;
-	int			i,				/* index in arrin */
-				j,				/* index in arrout */
-				k,				/* index in indices_to_delete */
-				curoff;			/* index in dataout area */
+	int			i,				/* arrin 下标 */
+				j,				/* arrout 下标 */
+				k,				/* indices_to_delete 下标 */
+				curoff;			/* dataout 区下标 */
 
 	/*
-	 * Sort the filter array to simplify membership checks below.  Also, get
-	 * rid of any duplicate entries, so that we can assume that indices_count
-	 * is exactly equal to the number of lexemes that will be removed.
+	 * 对过滤数组排序，以简化下面的成员检查。另外，
+	 * 去掉其中重复条目，这样我们可假定 indices_count
+	 * 恰好等于将被删除的词位个数。
 	 */
 	if (indices_count > 1)
 	{
@@ -489,16 +489,16 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 	}
 
 	/*
-	 * Here we overestimate tsout size, since we don't know how much space is
-	 * used by the deleted lexeme(s).  We will set exact size below.
+	 * 这里我们高估 tsout 的大小，因为我们不知道被删除
+	 * 词位用掉多少空间。稍后设置精确大小。
 	 */
 	tsout = (TSVector) palloc0(VARSIZE(tsv));
 
-	/* This count must be correct because STRPTR(tsout) relies on it. */
+	/* 这个计数必须正确，因为 STRPTR(tsout) 依赖它。 */
 	tsout->size = tsv->size - indices_count;
 
 	/*
-	 * Copy tsv to tsout, skipping lexemes listed in indices_to_delete.
+	 * 把 tsv 复制到 tsout，跳过 indices_to_delete 所列项。
 	 */
 	arrout = ARRPTR(tsout);
 	dataout = STRPTR(tsout);
@@ -506,9 +506,9 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 	for (i = j = k = 0; i < tsv->size; i++)
 	{
 		/*
-		 * If current i is present in indices_to_delete, skip this lexeme.
-		 * Since indices_to_delete is already sorted, we only need to check
-		 * the current (k'th) entry.
+		 * 若当前 i 在 indices_to_delete 中，则跳过该词位。
+		 * 由于 indices_to_delete 已排序，我们只需检查当前
+		 * 的第 k 个条目。
 		 */
 		if (k < indices_count && i == indices_to_delete[k])
 		{
@@ -516,7 +516,7 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 			continue;
 		}
 
-		/* Copy lexeme and its positions and weights */
+		/* 复制词位及其位置和权重 */
 		memcpy(dataout + curoff, data + arrin[i].pos, arrin[i].len);
 		arrout[j].haspos = arrin[i].haspos;
 		arrout[j].len = arrin[i].len;
@@ -538,9 +538,9 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 	}
 
 	/*
-	 * k should now be exactly equal to indices_count. If it isn't then the
-	 * caller provided us with indices outside of [0, tsv->size) range and
-	 * estimation of tsout's size is wrong.
+	 * 现在 k 应当恰好等于 indices_count。若不是这样，则
+	 * 调用者给我们的下标超出了 [0, tsv->size) 范围，而
+	 * 对 tsout 大小的估计有误。
 	 */
 	Assert(k == indices_count);
 
@@ -549,8 +549,8 @@ tsvector_delete_by_indices(TSVector tsv, int *indices_to_delete,
 }
 
 /*
- * Delete given lexeme from tsvector.
- * Implementation of user-level ts_delete(tsvector, text).
+ * 从 tsvector 删除给定词位。
+ * 用户级 ts_delete(tsvector, text) 的实现。
  */
 Datum
 tsvector_delete_str(PG_FUNCTION_ARGS)
@@ -573,8 +573,8 @@ tsvector_delete_str(PG_FUNCTION_ARGS)
 }
 
 /*
- * Delete given array of lexemes from tsvector.
- * Implementation of user-level ts_delete(tsvector, text[]).
+ * 从 tsvector 删除给定的词位数组。
+ * 用户级 ts_delete(tsvector, text[]) 的实现。
  */
 Datum
 tsvector_delete_arr(PG_FUNCTION_ARGS)
@@ -592,9 +592,9 @@ tsvector_delete_arr(PG_FUNCTION_ARGS)
 	deconstruct_array_builtin(lexemes, TEXTOID, &dlexemes, &nulls, &nlex);
 
 	/*
-	 * In typical use case array of lexemes to delete is relatively small. So
-	 * here we optimize things for that scenario: iterate through lexarr
-	 * performing binary search of each lexeme from lexarr in tsvector.
+	 * 在典型用例中，待删除的词位数组相对较小。因此
+	 * 我们针对该场景做优化：遍历 lexarr，对 lexarr 中
+	 * 的每个词位在 tsvector 中执行二分查找。
 	 */
 	skip_indices = palloc0(nlex * sizeof(int));
 	for (i = skip_count = 0; i < nlex; i++)
@@ -603,7 +603,7 @@ tsvector_delete_arr(PG_FUNCTION_ARGS)
 		int			lex_len,
 					lex_pos;
 
-		/* Ignore null array elements, they surely don't match */
+		/* 忽略 NULL 数组元素，它们必然不匹配 */
 		if (nulls[i])
 			continue;
 
@@ -625,10 +625,10 @@ tsvector_delete_arr(PG_FUNCTION_ARGS)
 }
 
 /*
- * Expand tsvector as table with following columns:
- *	   lexeme: lexeme text
- *	   positions: integer array of lexeme positions
- *	   weights: char array of weights corresponding to positions
+ * 把 tsvector 展开为具有下列列的表：
+ *	   lexeme:词位文本
+ *	   positions：词位位置的整数数组
+ *	   weights：与位置对应的权重字符数组
  */
 Datum
 tsvector_unnest(PG_FUNCTION_ARGS)
@@ -683,9 +683,9 @@ tsvector_unnest(PG_FUNCTION_ARGS)
 			char		weight;
 
 			/*
-			 * Internally tsvector stores position and weight in the same
-			 * uint16 (2 bits for weight, 14 for position). Here we extract
-			 * that in two separate arrays.
+			 * tsvector 内部将位置与权重一并存放于
+			 * 同一 uint16（权重 2 位，位置 14 位），把两者
+			 * 拆分为两个数组。
 			 */
 			posv = _POSVECPTR(tsin, arrin + i);
 			positions = palloc(posv->npos * sizeof(Datum));
@@ -716,7 +716,7 @@ tsvector_unnest(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert tsvector to array of lexemes.
+ * 把 tsvector 转换成词位数组。
  */
 Datum
 tsvector_to_array(PG_FUNCTION_ARGS)
@@ -743,7 +743,7 @@ tsvector_to_array(PG_FUNCTION_ARGS)
 }
 
 /*
- * Build tsvector from array of lexemes.
+ * 从词位数组构建 tsvector。
  */
 Datum
 array_to_tsvector(PG_FUNCTION_ARGS)
@@ -762,8 +762,8 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 	deconstruct_array_builtin(v, TEXTOID, &dlexemes, &nulls, &nitems);
 
 	/*
-	 * Reject nulls and zero length strings (maybe we should just ignore them,
-	 * instead?)
+	 * 拒绝 NULL 和零长度字符串（或许该直接忽略它们，
+	 * 如何）
 	 */
 	for (i = 0; i < nitems; i++)
 	{
@@ -778,7 +778,7 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 					 errmsg("lexeme array may not contain empty strings")));
 	}
 
-	/* Sort and de-dup, because this is required for a valid tsvector. */
+	/* 排序并去重，这是有效 tsvector 的必要条件。 */
 	if (nitems > 1)
 	{
 		qsort(dlexemes, nitems, sizeof(Datum), compare_text_lexemes);
@@ -786,12 +786,12 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 						 compare_text_lexemes);
 	}
 
-	/* Calculate space needed for surviving lexemes. */
+	/* 计算存活词位所需的空间。 */
 	for (i = 0; i < nitems; i++)
 		datalen += VARSIZE(dlexemes[i]) - VARHDRSZ;
 	tslen = CALCDATASIZE(nitems, datalen);
 
-	/* Allocate and fill tsvector. */
+	/* 分配并填充 tsvector。 */
 	tsout = (TSVector) palloc0(tslen);
 	SET_VARSIZE(tsout, tslen);
 	tsout->size = nitems;
@@ -815,7 +815,7 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 }
 
 /*
- * ts_filter(): keep only lexemes with given weights in tsvector.
+ * ts_filter()：仅保留 tsvector 中给定权重的词位。
  */
 Datum
 tsvector_filter(PG_FUNCTION_ARGS)
@@ -897,7 +897,7 @@ tsvector_filter(PG_FUNCTION_ARGS)
 				posvout->pos[npos++] = posvin->pos[k];
 		}
 
-		/* if no satisfactory positions found, skip lexeme */
+		/* 未找到合适位置，则跳过该词位 */
 		if (!npos)
 			continue;
 
@@ -945,7 +945,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 			   *data1,
 			   *data2;
 
-	/* Get max position in in1; we'll need this to offset in2's positions */
+	/* 取 in1 的最大位置；需用它来偏移 in2 的位置 */
 	ptr = ARRPTR(in1);
 	i = in1->size;
 	while (i--)
@@ -971,9 +971,9 @@ tsvector_concat(PG_FUNCTION_ARGS)
 	i2 = in2->size;
 
 	/*
-	 * Conservative estimate of space needed.  We might need all the data in
-	 * both inputs, and conceivably add a pad byte before position data for
-	 * each item where there was none before.
+	 * 对所需空间的保守估计。我们可能需要
+	 * 两个输入的全部数据，且可能要在原本没有填充
+	 * 字节处补上填充字节。
 	 */
 	output_bytes = VARSIZE(in1) + VARSIZE(in2) + i1 + i2;
 
@@ -981,8 +981,8 @@ tsvector_concat(PG_FUNCTION_ARGS)
 	SET_VARSIZE(out, output_bytes);
 
 	/*
-	 * We must make out->size valid so that STRPTR(out) is sensible.  We'll
-	 * collapse out any unused space at the end.
+	 * 我们必须让 out->size 有效，以便 STRPTR(out) 有意义。
+	 * 最后会收缩掉所有未用空间。
 	 */
 	out->size = in1->size + in2->size;
 
@@ -994,7 +994,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 		int			cmp = compareEntry(data1, ptr1, data2, ptr2);
 
 		if (cmp < 0)
-		{						/* in1 first */
+		{						/* 先 in1 */
 			ptr->haspos = ptr1->haspos;
 			ptr->len = ptr1->len;
 			memcpy(data + dataoff, data1 + ptr1->pos, ptr1->len);
@@ -1012,7 +1012,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 			i1--;
 		}
 		else if (cmp > 0)
-		{						/* in2 first */
+		{						/* 先 in2 */
 			ptr->haspos = ptr2->haspos;
 			ptr->len = ptr2->len;
 			memcpy(data + dataoff, data2 + ptr2->pos, ptr2->len);
@@ -1052,7 +1052,7 @@ tsvector_concat(PG_FUNCTION_ARGS)
 					if (ptr2->haspos)
 						dataoff += add_pos(in2, ptr2, out, ptr, maxpos) * sizeof(WordEntryPos);
 				}
-				else			/* must have ptr2->haspos */
+				else			/* 必然有 ptr2->haspos */
 				{
 					int			addlen = add_pos(in2, ptr2, out, ptr, maxpos);
 
@@ -1119,8 +1119,8 @@ tsvector_concat(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Instead of checking each offset individually, we check for overflow of
-	 * pos fields once at the end.
+	 * 我们不逐个检查各偏移量，而是统一
+	 * 在末尾查 pos 溢出。
 	 */
 	if (dataoff > MAXSTRPOS)
 		ereport(ERROR,
@@ -1128,8 +1128,8 @@ tsvector_concat(PG_FUNCTION_ARGS)
 				 errmsg("string is too long for tsvector (%d bytes, max %d bytes)", dataoff, MAXSTRPOS)));
 
 	/*
-	 * Adjust sizes (asserting that we didn't overrun the original estimates)
-	 * and collapse out any unused array entries.
+	 * 调整大小（断言我们没有超出最初的估计），
+	 * 并收缩掉未使用的数组条目。
 	 */
 	output_size = ptr - ARRPTR(out);
 	Assert(output_size <= out->size);
@@ -1146,9 +1146,9 @@ tsvector_concat(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compare two strings by tsvector rules.
+ * 按 tsvector 规则比较字符串。
  *
- * if prefix = true then it returns zero value iff b has prefix a
+ * 若 prefix 为 true，则当且仅当 b 有前缀 a 时得零
  */
 int32
 tsCompareString(char *a, int lena, char *b, int lenb, bool prefix)
@@ -1158,7 +1158,7 @@ tsCompareString(char *a, int lena, char *b, int lenb, bool prefix)
 	if (lena == 0)
 	{
 		if (prefix)
-			cmp = 0;			/* empty string is prefix of anything */
+			cmp = 0;			/* 空字符串是任意串的前缀 */
 		else
 			cmp = (lenb > 0) ? -1 : 0;
 	}
@@ -1173,7 +1173,7 @@ tsCompareString(char *a, int lena, char *b, int lenb, bool prefix)
 		if (prefix)
 		{
 			if (cmp == 0 && lena > lenb)
-				cmp = 1;		/* a is longer, so not a prefix of b */
+				cmp = 1;		/* a 更长，故不是 b 的前缀 */
 		}
 		else if (cmp == 0 && lena != lenb)
 		{
@@ -1185,7 +1185,7 @@ tsCompareString(char *a, int lena, char *b, int lenb, bool prefix)
 }
 
 /*
- * Check weight info or/and fill 'data' with the required positions
+ * 检查权重信息和/或用所需位置填充 'data'
  */
 static TSTernaryValue
 checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
@@ -1200,8 +1200,8 @@ checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
 		WordEntryPosVector *posvec;
 
 		/*
-		 * We can't use the _POSVECPTR macro here because the pointer to the
-		 * tsvector's lexeme storage is already contained in chkval->values.
+		 * 这里我们不能使用 _POSVECPTR 宏，因为指向
+		 * tsvector 词位存储的指针已包含在 chkval->values 中。
 		 */
 		posvec = (WordEntryPosVector *)
 			(chkval->values + SHORTALIGN(entry->pos + entry->len));
@@ -1212,15 +1212,15 @@ checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
 			WordEntryPos *dptr;
 
 			/*
-			 * Filter position information by weights
+			 * 按权重过滤位置信息
 			 */
 			dptr = data->pos = palloc(sizeof(WordEntryPos) * posvec->npos);
 			data->allocated = true;
 
-			/* Is there a position with a matching weight? */
+			/* 是否存在权重匹配的位置？ */
 			while (posvec_iter < posvec->pos + posvec->npos)
 			{
-				/* If true, append this position to the data->pos */
+				/* 若为真，则把该位置追加到 data->pos */
 				if (val->weight & (1 << WEP_GETWEIGHT(*posvec_iter)))
 				{
 					*dptr = WEP_GETPOS(*posvec_iter);
@@ -1245,13 +1245,13 @@ checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
 		{
 			WordEntryPos *posvec_iter = posvec->pos;
 
-			/* Is there a position with a matching weight? */
+			/* 是否存在权重匹配的位置？ */
 			while (posvec_iter < posvec->pos + posvec->npos)
 			{
 				if (val->weight & (1 << WEP_GETWEIGHT(*posvec_iter)))
 				{
 					result = TS_YES;
-					break;		/* no need to go further */
+					break;		/* 无需再继续 */
 				}
 
 				posvec_iter++;
@@ -1266,20 +1266,20 @@ checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
 		}
 		else
 		{
-			/* simplest case: no weight check, positions not needed */
+			/* 最简单情形：无权重检查，不需要位置 */
 			result = TS_YES;
 		}
 	}
 	else
 	{
 		/*
-		 * Position info is lacking, so if the caller requires it, we can only
-		 * say that maybe there is a match.
+		 * 位置信息缺失，因此若调用者需要位置信息，
+		 * 只能说也许存在匹配。
 		 *
-		 * Notice, however, that we *don't* check val->weight here.
-		 * Historically, stripped tsvectors are considered to match queries
-		 * whether or not the query has a weight restriction; that's a little
-		 * dubious but we'll preserve the behavior.
+		 * 但请注意，这里我们*不*检查 val->weight。
+		 * 按照惯例，去除位置的 tsvector 被视为可以匹配
+		 * 查询，无论查询是否带权重限制；这有点可疑，
+		 * 但我们会保留这种行为。
 		 */
 		if (data)
 			result = TS_MAYBE;
@@ -1291,7 +1291,7 @@ checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
 }
 
 /*
- * TS_execute callback for matching a tsquery operand to plain tsvector data
+ * 把 tsquery 操作数匹配到普通 tsvector 数据的 TS_execute 回调
  */
 static TSTernaryValue
 checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
@@ -1302,7 +1302,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	WordEntry  *StopMiddle = StopHigh;
 	TSTernaryValue res = TS_NO;
 
-	/* Loop invariant: StopLow <= val < StopHigh */
+	/* 循环不变式:StopLow <= val < StopHigh */
 	while (StopLow < StopHigh)
 	{
 		int			difference;
@@ -1316,7 +1316,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 
 		if (difference == 0)
 		{
-			/* Check weight info & fill 'data' with positions */
+			/* 检查权重信息并用位置填充 'data' */
 			res = checkclass_str(chkval, StopMiddle, val, data);
 			break;
 		}
@@ -1327,11 +1327,11 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	}
 
 	/*
-	 * If it's a prefix search, we should also consider lexemes that the
-	 * search term is a prefix of (which will necessarily immediately follow
-	 * the place we found in the above loop).  But we can skip them if there
-	 * was a definite match on the exact term AND the caller doesn't need
-	 * position info.
+	 * 如果是前缀搜索，我们还应考虑那些以搜索
+	 * 词为前缀的词位（它们必然紧跟在上面循环
+	 * 中找到的位置之后）。但如果对精确词已
+	 * 确定匹配，且调用者不需要位置信息，则
+	 * 可跳过。
 	 */
 	if (val->prefix && (res != TS_YES || data))
 	{
@@ -1339,11 +1339,11 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 		int			npos = 0,
 					totalpos = 0;
 
-		/* adjust start position for corner case */
+		/* 针对边界情形调整起始位置 */
 		if (StopLow >= StopHigh)
 			StopMiddle = StopHigh;
 
-		/* we don't try to re-use any data from the initial match */
+		/* 我们不尝试重用初始匹配的任何数据 */
 		if (data)
 		{
 			if (data->allocated)
@@ -1371,18 +1371,18 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 				if (data)
 				{
 					/*
-					 * We need to join position information
+					 * 我们需要合并位置信息
 					 */
 					if (subres == TS_MAYBE)
 					{
 						/*
-						 * No position info for this match, so we must report
-						 * MAYBE overall.
+						 * 此匹配无位置信息，故整体必须报告
+						 *  MAYBE。
 						 */
 						res = TS_MAYBE;
-						/* forget any previous positions */
+						/* 忘掉之前所有的位置 */
 						npos = 0;
-						/* don't leak storage */
+						/* 不要泄漏存储 */
 						if (allpos)
 							pfree(allpos);
 						break;
@@ -1405,17 +1405,17 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 					memcpy(allpos + npos, data->pos, sizeof(WordEntryPos) * data->npos);
 					npos += data->npos;
 
-					/* don't leak storage from individual matches */
+					/* 不要从各个单独匹配中泄漏存储 */
 					if (data->allocated)
 						pfree(data->pos);
 					data->pos = NULL;
 					data->allocated = false;
-					/* it's important to reset data->npos before next loop */
+					/* 在下一轮循环前重置 data->npos 很重要 */
 					data->npos = 0;
 				}
 				else
 				{
-					/* Don't need positions, just handle YES/MAYBE */
+					/* 不需要位置，只需处理 YES/MAYBE */
 					if (subres == TS_YES || res == TS_NO)
 						res = subres;
 				}
@@ -1426,7 +1426,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 
 		if (data && npos > 0)
 		{
-			/* Sort and make unique array of found positions */
+			/* 对找到的位置排序并去重 */
 			data->pos = allpos;
 			qsort(data->pos, npos, sizeof(WordEntryPos), compareWordEntryPos);
 			data->npos = qunique(data->pos, npos, sizeof(WordEntryPos),
@@ -1440,31 +1440,31 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 }
 
 /*
- * Compute output position list for a tsquery operator in phrase mode.
+ * 为短语模式下的 tsquery 算子计算输出位置列表。
  *
- * Merge the position lists in Ldata and Rdata as specified by "emit",
- * returning the result list into *data.  The input position lists must be
- * sorted and unique, and the output will be as well.
+ * 按 "emit" 的指定合并 Ldata 与 Rdata 中的位置列表，
+ * 并把结果列表写入 *data。输入的位置列表必须
+ * 已排序且无重复，输出也将如此。
  *
- * data: pointer to initially-all-zeroes output struct, or NULL
- * Ldata, Rdata: input position lists
- * emit: bitmask of TSPO_XXX flags
- * Loffset: offset to be added to Ldata positions before comparing/outputting
- * Roffset: offset to be added to Rdata positions before comparing/outputting
- * max_npos: maximum possible required size of output position array
+ * data：指向初始全零输出结构的指针（或 NULL）
+ * Ldata, Rdata：输入位置列表
+ * emit：TSPO_XXX 位掩码
+ * Loffset：比较或输出前加到 Ldata 位置的偏移量
+ * Roffset：比较或输出前加至 Rdata 位置的偏移量
+ * max_npos：输出位置数组可能需要的最大大小
  *
- * Loffset and Roffset should not be negative, else we risk trying to output
- * negative positions, which won't fit into WordEntryPos.
+ * Loffset 与 Roffset 不应为负，否则我们可能试图
+ * 输出负位置值，其无法装入 WordEntryPos。
  *
- * The result is boolean (TS_YES or TS_NO), but for the caller's convenience
- * we return it as TSTernaryValue.
+ * 结果是布尔值（TS_YES 或 TS_NO），但为调用者方便，
+ * 以 TSTernaryValue 返回。
  *
- * Returns TS_YES if any positions were emitted to *data; or if data is NULL,
- * returns TS_YES if any positions would have been emitted.
+ * 若有任何位置被输出到 *data 则返回 TS_YES；若 data
+ * 为 NULL，则应输出任何位置时返回 TS_YES。
  */
-#define TSPO_L_ONLY		0x01	/* emit positions appearing only in L */
-#define TSPO_R_ONLY		0x02	/* emit positions appearing only in R */
-#define TSPO_BOTH		0x04	/* emit positions appearing in both L&R */
+#define TSPO_L_ONLY		0x01	/* 输出仅出现在 L 中的位置 */
+#define TSPO_R_ONLY		0x02	/* 输出仅在 R 中出现的位置 */
+#define TSPO_BOTH		0x04	/* 输出 L、R 共有的位置 */
 
 static TSTernaryValue
 TS_phrase_output(ExecPhraseData *data,
@@ -1478,7 +1478,7 @@ TS_phrase_output(ExecPhraseData *data,
 	int			Lindex,
 				Rindex;
 
-	/* Loop until both inputs are exhausted */
+	/* 循环直到两个输入都耗尽 */
 	Lindex = Rindex = 0;
 	while (Lindex < Ldata->npos || Rindex < Rdata->npos)
 	{
@@ -1487,14 +1487,14 @@ TS_phrase_output(ExecPhraseData *data,
 		int			output_pos = 0;
 
 		/*
-		 * Fetch current values to compare.  WEP_GETPOS() is needed because
-		 * ExecPhraseData->data can point to a tsvector's WordEntryPosVector.
+		 * 取出要比较的当前值。需要 WEP_GETPOS()，因为
+		 * ExecPhraseData->data 可能指向 tsvector WordEntryPosVector。
 		 */
 		if (Lindex < Ldata->npos)
 			Lpos = WEP_GETPOS(Ldata->pos[Lindex]) + Loffset;
 		else
 		{
-			/* L array exhausted, so we're done if R_ONLY isn't set */
+			/* L 数组耗尽，因此若 R_ONLY 未置位则结束 */
 			if (!(emit & TSPO_R_ONLY))
 				break;
 			Lpos = INT_MAX;
@@ -1503,23 +1503,23 @@ TS_phrase_output(ExecPhraseData *data,
 			Rpos = WEP_GETPOS(Rdata->pos[Rindex]) + Roffset;
 		else
 		{
-			/* R array exhausted, so we're done if L_ONLY isn't set */
+			/* R 数组耗尽，因此若 L_ONLY 未置位则结束 */
 			if (!(emit & TSPO_L_ONLY))
 				break;
 			Rpos = INT_MAX;
 		}
 
-		/* Merge-join the two input lists */
+		/* 归并连接两个输入列表 */
 		if (Lpos < Rpos)
 		{
-			/* Lpos is not matched in Rdata, should we output it? */
+			/* Lpos 在 Rdata 中无匹配，是否输出它？ */
 			if (emit & TSPO_L_ONLY)
 				output_pos = Lpos;
 			Lindex++;
 		}
 		else if (Lpos == Rpos)
 		{
-			/* Lpos and Rpos match ... should we output it? */
+			/* Lpos 与 Rpos 匹配……是否输出它？ */
 			if (emit & TSPO_BOTH)
 				output_pos = Rpos;
 			Lindex++;
@@ -1527,7 +1527,7 @@ TS_phrase_output(ExecPhraseData *data,
 		}
 		else					/* Lpos > Rpos */
 		{
-			/* Rpos is not matched in Ldata, should we output it? */
+			/* Rpos 在 Ldata 中无匹配，是否输出它？ */
 			if (emit & TSPO_R_ONLY)
 				output_pos = Rpos;
 			Rindex++;
@@ -1537,7 +1537,7 @@ TS_phrase_output(ExecPhraseData *data,
 		{
 			if (data)
 			{
-				/* Store position, first allocating output array if needed */
+				/* 存储位置，如有需要先分配输出数组 */
 				if (data->pos == NULL)
 				{
 					data->pos = (WordEntryPos *)
@@ -1549,8 +1549,8 @@ TS_phrase_output(ExecPhraseData *data,
 			else
 			{
 				/*
-				 * Exact positions not needed, so return TS_YES as soon as we
-				 * know there is at least one.
+				 * 不需要精确位置，因此一旦知道至少有一个
+				 * 即返回 TS_YES。
 				 */
 				return TS_YES;
 			}
@@ -1559,7 +1559,7 @@ TS_phrase_output(ExecPhraseData *data,
 
 	if (data && data->npos > 0)
 	{
-		/* Let's assert we didn't overrun the array */
+		/* 让我们断言没有越出该数组 */
 		Assert(data->npos <= max_npos);
 		return TS_YES;
 	}
@@ -1567,45 +1567,45 @@ TS_phrase_output(ExecPhraseData *data,
 }
 
 /*
- * Execute tsquery at or below an OP_PHRASE operator.
+ * 在 OP_PHRASE 算子处或以下执行 tsquery。
  *
- * This handles tsquery execution at recursion levels where we need to care
- * about match locations.
+ * 本函数处理需要关心匹配位置的递归层级上的
+ * tsquery 执行。
  *
- * In addition to the same arguments used for TS_execute, the caller may pass
- * a preinitialized-to-zeroes ExecPhraseData struct, to be filled with lexeme
- * match position info on success.  data == NULL if no position data need be
- * returned.
- * Note: the function assumes data != NULL for operators other than OP_PHRASE.
- * This is OK because an outside call always starts from an OP_PHRASE node,
- * and all internal recursion cases pass data != NULL.
+ * 除了 TS_execute 所用的相同参数外，调用者还可以
+ * 传入一个预初始化为零的 ExecPhraseData 结构，成功时
+ * 其中填入词位匹配位置信息；若无需位置数据则为
+ * NULL。
+ * 注意：OP_PHRASE 以外的算子，函数假定 data != NULL。
+ * 这是可行的，因为外部调用总是从 OP_PHRASE 节点开始，
+ * 而所有内部递归都传入 data != NULL。
  *
- * The detailed semantics of the match data, given that the function returned
- * TS_YES (successful match), are:
+ * 在函数返回 TS_YES（成功匹配）的前提下，匹配数据
+ * 的详细语义如下：
  *
  * npos > 0, negate = false:
- *	 query is matched at specified position(s) (and only those positions)
+ *	 查询在指定位置（且仅在这些位置）匹配
  * npos > 0, negate = true:
- *	 query is matched at all positions *except* specified position(s)
+ *	 查询在除指定位置外的所有位置匹配
  * npos = 0, negate = true:
- *	 query is matched at all positions
+ *	 查询在所有位置匹配
  * npos = 0, negate = false:
- *	 disallowed (this should result in TS_NO or TS_MAYBE, as appropriate)
+ *	 不允许（此时应视情况得到 TS_NO 或 TS_MAYBE）
  *
- * Successful matches also return a "width" value which is the match width in
- * lexemes, less one.  Hence, "width" is zero for simple one-lexeme matches,
- * and is the sum of the phrase operator distances for phrase matches.  Note
- * that when width > 0, the listed positions represent the ends of matches not
- * the starts.  (This unintuitive rule is needed to avoid possibly generating
- * negative positions, which wouldn't fit into the WordEntryPos arrays.)
+ * 成功的匹配还会返回一个 "width" 值，即以词位计的
+ * 匹配宽度减一。因此对于简单的单词位匹配，"width"
+ * 为零；对于短语匹配，则是短语算子距离之和。注意
+ * 当 width > 0 时，所列位置表示匹配的末端而非起点。
+ * （这条不直观的规则是为避免可能生成负的位置值，
+ * 负值无法装入 WordEntryPos 数组。）
  *
- * If the TSExecuteCallback function reports that an operand is present
- * but fails to provide position(s) for it, we will return TS_MAYBE when
- * it is possible but not certain that the query is matched.
+ * 若 TSExecuteCallback 函数报告某个操作数存在，
+ * 但未能提供它的位置，则当查询有可能匹配但
+ * 不确定时，我们将返回 TS_MAYBE。
  *
- * When the function returns TS_NO or TS_MAYBE, it must return npos = 0,
- * negate = false (which is the state initialized by the caller); but the
- * "width" output in such cases is undefined.
+ * 当函数返回 TS_NO 或 TS_MAYBE 时，它必须返回
+ * npos = 0, negate = false（即调用者初始化的状态）；
+ * 此时 "width" 输出未定义。
  */
 static TSTernaryValue
 TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
@@ -1620,10 +1620,10 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 				Roffset,
 				maxwidth;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，因此可能被驱动到栈溢出 */
 	check_stack_depth();
 
-	/* ... and let's check for query cancel while we're at it */
+	/* 另外，顺便检查一下查询取消 */
 	CHECK_FOR_INTERRUPTS();
 
 	if (curitem->type == QI_VAL)
@@ -1634,12 +1634,12 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 		case OP_NOT:
 
 			/*
-			 * We need not touch data->width, since a NOT operation does not
-			 * change the match width.
+			 * 我们无需改动 data->width，因为 NOT 运算并不
+			 * 改变匹配宽度。
 			 */
 			if (flags & TS_EXEC_SKIP_NOT)
 			{
-				/* with SKIP_NOT, report NOT as "match everywhere" */
+				/* 有 SKIP_NOT 时 NOT 报告为 "处处匹配" */
 				Assert(data->npos == 0 && !data->negate);
 				data->negate = true;
 				return TS_YES;
@@ -1647,28 +1647,28 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			switch (TS_phrase_execute(curitem + 1, arg, flags, chkcond, data))
 			{
 				case TS_NO:
-					/* change "match nowhere" to "match everywhere" */
+					/* 把 "无处匹配" 改成 "处处匹配" */
 					Assert(data->npos == 0 && !data->negate);
 					data->negate = true;
 					return TS_YES;
 				case TS_YES:
 					if (data->npos > 0)
 					{
-						/* we have some positions, invert negate flag */
+						/* 若有位置，则反转 negate 标志 */
 						data->negate = !data->negate;
 						return TS_YES;
 					}
 					else if (data->negate)
 					{
-						/* change "match everywhere" to "match nowhere" */
+						/* 把 "处处匹配" 改成 "无处匹配" */
 						data->negate = false;
 						return TS_NO;
 					}
-					/* Should not get here if result was TS_YES */
+					/* 若结果为 TS_YES 不应到达此处 */
 					Assert(false);
 					break;
 				case TS_MAYBE:
-					/* match positions are, and remain, uncertain */
+					/* 匹配位置不确定，且保持不确定 */
 					return TS_MAYBE;
 			}
 			break;
@@ -1689,8 +1689,8 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 				return TS_NO;
 
 			/*
-			 * If either operand has no position information, then we can't
-			 * return reliable position data, only a MAYBE result.
+			 * 若任一操作数没有位置信息，我们就无法
+			 * 返回可靠位置数据，只能返回 MAYBE。
 			 */
 			if (lmatch == TS_MAYBE || rmatch == TS_MAYBE)
 				return TS_MAYBE;
@@ -1698,8 +1698,8 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			if (curitem->qoperator.oper == OP_PHRASE)
 			{
 				/*
-				 * Compute Loffset and Roffset suitable for phrase match, and
-				 * compute overall width of whole phrase match.
+				 * 计算适用于短语匹配的 Loffset 和 Roffset，
+				 * 并计算整个短语匹配的总宽度。
 				 */
 				Loffset = curitem->qoperator.distance + Rdata.width;
 				Roffset = 0;
@@ -1710,8 +1710,8 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			else
 			{
 				/*
-				 * For OP_AND, set output width and alignment like OP_OR (see
-				 * comment below)
+				 * 对于 OP_AND，同 OP_OR 一样设置宽度与对齐
+				 * （见下）
 				 */
 				maxwidth = Max(Ldata.width, Rdata.width);
 				Loffset = maxwidth - Ldata.width;
@@ -1722,7 +1722,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 
 			if (Ldata.negate && Rdata.negate)
 			{
-				/* !L & !R: treat as !(L | R) */
+				/* !L & !R: 视为 !(L | R) */
 				(void) TS_phrase_output(data, &Ldata, &Rdata,
 										TSPO_BOTH | TSPO_L_ONLY | TSPO_R_ONLY,
 										Loffset, Roffset,
@@ -1749,7 +1749,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			}
 			else
 			{
-				/* straight AND */
+				/* 直接 AND */
 				return TS_phrase_output(data, &Ldata, &Rdata,
 										TSPO_BOTH,
 										Loffset, Roffset,
@@ -1769,16 +1769,16 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 				return TS_NO;
 
 			/*
-			 * If either operand has no position information, then we can't
-			 * return reliable position data, only a MAYBE result.
+			 * 若任一操作数没有位置信息，我们就无法
+			 * 返回可靠位置数据，只能返回 MAYBE。
 			 */
 			if (lmatch == TS_MAYBE || rmatch == TS_MAYBE)
 				return TS_MAYBE;
 
 			/*
-			 * Cope with undefined output width from failed submatch.  (This
-			 * takes less code than trying to ensure that all failure returns
-			 * set data->width to zero.)
+			 * 应对来自失败子匹配的未定义输出宽度。（这
+			 * 比设法保证所有失败返回都将 data->width 置零
+			 * 代码更少。）
 			 */
 			if (lmatch == TS_NO)
 				Ldata.width = 0;
@@ -1786,10 +1786,10 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 				Rdata.width = 0;
 
 			/*
-			 * For OP_AND and OP_OR, report the width of the wider of the two
-			 * inputs, and align the narrower input's positions to the right
-			 * end of that width.  This rule deals at least somewhat
-			 * reasonably with cases like "x <-> (y | z <-> q)".
+			 * 对于 OP_AND 与 OP_OR，报告两者中较宽输入的
+			 * 宽度，并把较窄输入的位置对齐到该宽度的
+			 * 右端。这条规则至少能还算合理地应对
+			 * "x <-> (y | z <-> q)" 这类情形。
 			 */
 			maxwidth = Max(Ldata.width, Rdata.width);
 			Loffset = maxwidth - Ldata.width;
@@ -1798,7 +1798,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 
 			if (Ldata.negate && Rdata.negate)
 			{
-				/* !L | !R: treat as !(L & R) */
+				/* !L | !R: 视为 !(L & R) */
 				(void) TS_phrase_output(data, &Ldata, &Rdata,
 										TSPO_BOTH,
 										Loffset, Roffset,
@@ -1808,7 +1808,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			}
 			else if (Ldata.negate)
 			{
-				/* !L | R: treat as !(L & !R) */
+				/* !L | R: 视为 !(L & !R) */
 				(void) TS_phrase_output(data, &Ldata, &Rdata,
 										TSPO_L_ONLY,
 										Loffset, Roffset,
@@ -1818,7 +1818,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			}
 			else if (Rdata.negate)
 			{
-				/* L | !R: treat as !(!L & R) */
+				/* L | !R: 视为 !(!L & R) */
 				(void) TS_phrase_output(data, &Ldata, &Rdata,
 										TSPO_R_ONLY,
 										Loffset, Roffset,
@@ -1828,7 +1828,7 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			}
 			else
 			{
-				/* straight OR */
+				/* 直接 OR */
 				return TS_phrase_output(data, &Ldata, &Rdata,
 										TSPO_BOTH | TSPO_L_ONLY | TSPO_R_ONLY,
 										Loffset, Roffset,
@@ -1839,35 +1839,35 @@ TS_phrase_execute(QueryItem *curitem, void *arg, uint32 flags,
 			elog(ERROR, "unrecognized operator: %d", curitem->qoperator.oper);
 	}
 
-	/* not reachable, but keep compiler quiet */
+	/* 不可达，但让编译器安静 */
 	return TS_NO;
 }
 
 
 /*
- * Evaluate tsquery boolean expression.
+ * 求值 tsquery 布尔表达式。
  *
- * curitem: current tsquery item (initially, the first one)
- * arg: opaque value to pass through to callback function
- * flags: bitmask of flag bits shown in ts_utils.h
- * chkcond: callback function to check whether a primitive value is present
+ * curitem：当前 tsquery 条目（初始为第一个）
+ * arg：传给回调函数的不透明值
+ * flags：ts_utils.h 中标志位的位掩码
+ * chkcond：检查某个基本值是否存在的回调函数
  */
 bool
 TS_execute(QueryItem *curitem, void *arg, uint32 flags,
 		   TSExecuteCallback chkcond)
 {
 	/*
-	 * If we get TS_MAYBE from the recursion, return true.  We could only see
-	 * that result if the caller passed TS_EXEC_PHRASE_NO_POS, so there's no
-	 * need to check again.
+	 * 如果递归返回 TS_MAYBE，则返回真。只有当调用者
+	 * 传入 TS_EXEC_PHRASE_NO_POS 时才会出现该结果，
+	 * 无需再查。
 	 */
 	return TS_execute_recurse(curitem, arg, flags, chkcond) != TS_NO;
 }
 
 /*
- * Evaluate tsquery boolean expression.
+ * 求值 tsquery 布尔表达式。
  *
- * This is the same as TS_execute except that TS_MAYBE is returned as-is.
+ * 与 TS_execute 相同，只是 TS_MAYBE 原样返回。
  */
 TSTernaryValue
 TS_execute_ternary(QueryItem *curitem, void *arg, uint32 flags,
@@ -1877,9 +1877,9 @@ TS_execute_ternary(QueryItem *curitem, void *arg, uint32 flags,
 }
 
 /*
- * TS_execute recursion for operators above any phrase operator.  Here we do
- * not need to worry about lexeme positions.  As soon as we hit an OP_PHRASE
- * operator, we pass it off to TS_phrase_execute which does worry.
+ * 用于任何短语算子之上算子的 TS_execute 递归。这里
+ * 我们无需关心词位位置。一旦遇到 OP_PHRASE 算子，
+ * 就把它交给会关心此事的 TS_phrase_execute。
  */
 static TSTernaryValue
 TS_execute_recurse(QueryItem *curitem, void *arg, uint32 flags,
@@ -1887,15 +1887,15 @@ TS_execute_recurse(QueryItem *curitem, void *arg, uint32 flags,
 {
 	TSTernaryValue lmatch;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，因此可能被驱动到栈溢出 */
 	check_stack_depth();
 
-	/* ... and let's check for query cancel while we're at it */
+	/* 另外，顺便检查一下查询取消 */
 	CHECK_FOR_INTERRUPTS();
 
 	if (curitem->type == QI_VAL)
 		return chkcond(arg, (QueryOperand *) curitem,
-					   NULL /* don't need position info */ );
+					   NULL /* 不需要位置信息 */ );
 
 	switch (curitem->qoperator.oper)
 	{
@@ -1948,13 +1948,13 @@ TS_execute_recurse(QueryItem *curitem, void *arg, uint32 flags,
 		case OP_PHRASE:
 
 			/*
-			 * If we get a MAYBE result, and the caller doesn't want that,
-			 * convert it to NO.  It would be more consistent, perhaps, to
-			 * return the result of TS_phrase_execute() verbatim and then
-			 * convert MAYBE results at the top of the recursion.  But
-			 * converting at the topmost phrase operator gives results that
-			 * are bug-compatible with the old implementation, so do it like
-			 * this for now.
+			 * 若得到 MAYBE 结果而调用者不想要，
+			 * 就把它转换为 NO。更一致的做法或许是原样
+			 * 返回 TS_phrase_execute() 的结果，然后
+			 * 在递归顶部转换 MAYBE 结果。但在最顶层
+			 * 的短语算子处进行转换，所得结果与旧
+			 * 实现 bug 兼容，所以目前就
+			 * 这样做。
 			 */
 			switch (TS_phrase_execute(curitem, arg, flags, chkcond, NULL))
 			{
@@ -1971,39 +1971,39 @@ TS_execute_recurse(QueryItem *curitem, void *arg, uint32 flags,
 			elog(ERROR, "unrecognized operator: %d", curitem->qoperator.oper);
 	}
 
-	/* not reachable, but keep compiler quiet */
+	/* 不可达，但让编译器安静 */
 	return TS_NO;
 }
 
 /*
- * Evaluate tsquery and report locations of matching terms.
+ * 求值 tsquery 并报告匹配词的位置。
  *
- * This is like TS_execute except that it returns match locations not just
- * success/failure status.  The callback function is required to provide
- * position data (we report failure if it doesn't).
+ * 这与 TS_execute 类似，只是它返回匹配位置而不只是
+ * 成功/失败状态。回调函数必须提供位置数据
+ * （若不提供，我们将报告失败）。
  *
- * On successful match, the result is a List of ExecPhraseData structs, one
- * for each AND'ed term or phrase operator in the query.  Each struct includes
- * a sorted array of lexeme positions matching that term.  (Recall that for
- * phrase operators, the match includes width+1 lexemes, and the recorded
- * position is that of the rightmost lexeme.)
+ * 匹配成功时，结果是一个 ExecPhraseData 结构列表，
+ * 查询中每个 AND 连接的词项或短语算子各对应一个。
+ * 每个结构含一个已排序的、匹配该词项的词位
+ * 的位置数组。（回顾：短语算子的匹配含 width+1
+ * 词位，记录的是最右词位。）
  *
- * OR subexpressions are handled by union'ing their match locations into a
- * single List element, which is valid since any of those locations contains
- * a match.  However, when some of the OR'ed terms are phrase operators, we
- * report the maximum width of any of the OR'ed terms, making such cases
- * slightly imprecise in the conservative direction.  (For example, if the
- * tsquery is "(A <-> B) | C", an occurrence of C in the data would be
- * reported as though it includes the lexeme to the left of C.)
+ * OR 子表达式通过把它们的匹配位置并成一个列表
+ * 元素来处理，这是可行的，因为其中任一位置都
+ * 含有匹配。但当某些 OR 连接的词项是短语算子时，
+ * 我们报告这些词项中的最大宽度，这使得此类情形
+ * 在保守方向上略有失真。（例如，若 tsquery 为
+ * "(A <-> B) | C"，数据中 C 的一次出现将被报告成
+ * 仿佛它包含 C 左侧的词位。）
  *
- * Locations of NOT subexpressions are not reported.  (Obviously, there can
- * be no successful NOT matches at top level, or the match would have failed.
- * So this amounts to ignoring NOTs underneath ORs.)
+ * NOT 子表达式的位置不予报告。（显然，顶层不可能
+ * 存在成功的 NOT 匹配，否则整个匹配早已失败。
+ * 所以这相当于忽略 OR 下方的 NOT。）
  *
- * The result is NIL if no match, or if position data was not returned.
+ * 若无匹配，或未返回位置数据，则结果为 NIL。
  *
- * Arguments are the same as for TS_execute, although flags is currently
- * vestigial since none of the defined bits are sensible here.
+ * 参数与 TS_execute 相同，不过 flags 目前只是残留，
+ * 因为已定义的各位在此处都无意义。
  */
 List *
 TS_execute_locations(QueryItem *curitem, void *arg,
@@ -2012,7 +2012,7 @@ TS_execute_locations(QueryItem *curitem, void *arg,
 {
 	List	   *result;
 
-	/* No flags supported, as yet */
+	/* 尚不支持任何标志 */
 	Assert(flags == TS_EXEC_EMPTY);
 	if (TS_execute_locations_recurse(curitem, arg, chkcond, &result))
 		return result;
@@ -2020,8 +2020,8 @@ TS_execute_locations(QueryItem *curitem, void *arg,
 }
 
 /*
- * TS_execute_locations recursion for operators above any phrase operator.
- * OP_PHRASE subexpressions can be passed off to TS_phrase_execute.
+ * 用于短语算子之上算子的 TS_execute_locations 递归。
+ * OP_PHRASE 子表达式可以交给 TS_phrase_execute 处理。
  */
 static bool
 TS_execute_locations_recurse(QueryItem *curitem, void *arg,
@@ -2034,13 +2034,13 @@ TS_execute_locations_recurse(QueryItem *curitem, void *arg,
 			   *rlocations;
 	ExecPhraseData *data;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，因此可能被驱动到栈溢出 */
 	check_stack_depth();
 
-	/* ... and let's check for query cancel while we're at it */
+	/* 另外，顺便检查一下查询取消 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* Default locations result is empty */
+	/* 默认位置结果为空 */
 	*locations = NIL;
 
 	if (curitem->type == QI_VAL)
@@ -2060,7 +2060,7 @@ TS_execute_locations_recurse(QueryItem *curitem, void *arg,
 		case OP_NOT:
 			if (!TS_execute_locations_recurse(curitem + 1, arg, chkcond,
 											  &llocations))
-				return true;	/* we don't pass back any locations */
+				return true;	/* 我们不回传任何位置 */
 			return false;
 
 		case OP_AND:
@@ -2085,12 +2085,12 @@ TS_execute_locations_recurse(QueryItem *curitem, void *arg,
 			if (lmatch || rmatch)
 			{
 				/*
-				 * We generate an AND'able location struct from each
-				 * combination of sub-matches, following the disjunctive law
-				 * (A & B) | (C & D) = (A | C) & (A | D) & (B | C) & (B | D).
+				 * 我们从子匹配的每种组合生成一个可
+				 * 与之 AND 的位置结构，遵循析取律
+				 * (A&B)|(C&D)=(A|C)&(A|D)&(B|C)&(B|D)。
 				 *
-				 * However, if either input didn't produce locations (i.e., it
-				 * failed or was a NOT), we must just return the other list.
+				 * 不过，若任一输入未产生位置（即其失败
+				 * 或为 NOT），就必须直接返回另一列表。
 				 */
 				if (llocations == NIL)
 					*locations = rlocations;
@@ -2114,7 +2114,7 @@ TS_execute_locations_recurse(QueryItem *curitem, void *arg,
 													TSPO_BOTH | TSPO_L_ONLY | TSPO_R_ONLY,
 													0, 0,
 													ldata->npos + rdata->npos);
-							/* Report the larger width, as explained above. */
+							/* 如上所述，报告较大的宽度。 */
 							data->width = Max(ldata->width, rdata->width);
 							*locations = lappend(*locations, data);
 						}
@@ -2126,7 +2126,7 @@ TS_execute_locations_recurse(QueryItem *curitem, void *arg,
 			return false;
 
 		case OP_PHRASE:
-			/* We can hand this off to TS_phrase_execute */
+			/* 可交给 TS_phrase_execute 处理 */
 			data = palloc0_object(ExecPhraseData);
 			if (TS_phrase_execute(curitem, arg, TS_EXEC_EMPTY, chkcond,
 								  data) == TS_YES)
@@ -2142,22 +2142,22 @@ TS_execute_locations_recurse(QueryItem *curitem, void *arg,
 			elog(ERROR, "unrecognized operator: %d", curitem->qoperator.oper);
 	}
 
-	/* not reachable, but keep compiler quiet */
+	/* 不可达，但让编译器安静 */
 	return false;
 }
 
 /*
- * Detect whether a tsquery boolean expression requires any positive matches
- * to values shown in the tsquery.
+ * 检测 tsquery 布尔表达式是否需要对 tsquery 中所示
+ * 的值有任何肯定匹配。
  *
- * This is needed to know whether a GIN index search requires full index scan.
- * For example, 'x & !y' requires a match of x, so it's sufficient to scan
- * entries for x; but 'x | !y' could match rows containing neither x nor y.
+ * 需要以此来判断 GIN 索引搜索是否需要全索引扫描。
+ * 例如，'x & !y' 要求匹配 x，因此只需扫描 x 的
+ * 条目；但 'x | !y' 可能匹配既不含 x 也不含 y 的行。
  */
 bool
 tsquery_requires_match(QueryItem *curitem)
 {
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，因此可能被驱动到栈溢出 */
 	check_stack_depth();
 
 	if (curitem->type == QI_VAL)
@@ -2168,26 +2168,26 @@ tsquery_requires_match(QueryItem *curitem)
 		case OP_NOT:
 
 			/*
-			 * Assume there are no required matches underneath a NOT.  For
-			 * some cases with nested NOTs, we could prove there's a required
-			 * match, but it seems unlikely to be worth the trouble.
+			 * 假定 NOT 之下没有必需的匹配。对于某些
+			 * 嵌套 NOT 的情形，我们本可以证明存在必需
+			 * 匹配，但这似乎不值得费那个麻烦。
 			 */
 			return false;
 
 		case OP_PHRASE:
 
 			/*
-			 * Treat OP_PHRASE as OP_AND here
+			 * 此处视 OP_PHRASE 为 OP_AND
 			 */
 		case OP_AND:
-			/* If either side requires a match, we're good */
+			/* 若任一侧要求匹配，即为满足 */
 			if (tsquery_requires_match(curitem + curitem->qoperator.left))
 				return true;
 			else
 				return tsquery_requires_match(curitem + 1);
 
 		case OP_OR:
-			/* Both sides must require a match */
+			/* 两侧都必须要求匹配 */
 			if (tsquery_requires_match(curitem + curitem->qoperator.left))
 				return tsquery_requires_match(curitem + 1);
 			else
@@ -2197,12 +2197,12 @@ tsquery_requires_match(QueryItem *curitem)
 			elog(ERROR, "unrecognized operator: %d", curitem->qoperator.oper);
 	}
 
-	/* not reachable, but keep compiler quiet */
+	/* 不可达，但让编译器安静 */
 	return false;
 }
 
 /*
- * boolean operations
+ * 布尔运算
  */
 Datum
 ts_match_qv(PG_FUNCTION_ARGS)
@@ -2220,7 +2220,7 @@ ts_match_vq(PG_FUNCTION_ARGS)
 	CHKVAL		chkval;
 	bool		result;
 
-	/* empty query matches nothing */
+	/* 空查询不匹配任何项 */
 	if (!query->size)
 	{
 		PG_FREE_IF_COPY(val, 0);
@@ -2285,13 +2285,13 @@ ts_match_tq(PG_FUNCTION_ARGS)
 }
 
 /*
- * ts_stat statistic function support
+ * ts_stat 统计函数支持
  */
 
 
 /*
- * Returns the number of positions in value 'wptr' within tsvector 'txt',
- * that have a weight equal to one of the weights in 'weight' bitmask.
+ * 返回 tsvector 'txt' 中值 'wptr' 的位置里，权重等于
+ * 'weight' 位掩码中某个权重的位置个数。
  */
 static int
 check_weight(TSVector txt, WordEntry *wptr, int8 weight)
@@ -2330,7 +2330,7 @@ insertStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVector tx
 		n = (we->haspos) ? check_weight(txt, we, stat->weight) : 0;
 
 	if (n == 0)
-		return;					/* nothing to insert */
+		return;					/* 无可插入项 */
 
 	while (node)
 	{
@@ -2400,15 +2400,15 @@ chooseNextStatEntry(MemoryContext persistentContext, TSVectorStat *stat, TSVecto
 }
 
 /*
- * This is written like a custom aggregate function, because the
- * original plan was to do just that. Unfortunately, an aggregate function
- * can't return a set, so that plan was abandoned. If that limitation is
- * lifted in the future, ts_stat could be a real aggregate function so that
- * you could use it like this:
+ * 本函数写成类似自定义聚集函数，因为最初
+ * 的计划正是那样做。遗憾的是，聚集函数无法
+ * 返回集合，所以那个计划被放弃了。如果将来
+ * 这一限制被解除，ts_stat 可以成为真正的聚集函数，
+ * 届时可这样使用：
  *
  *	 SELECT ts_stat(vector_column) FROM vector_table;
  *
- *	where vector_column is a tsvector-type column in vector_table.
+ *	其中 vector_column 为 vector_table 的 tsvector 列。
  */
 
 static TSVectorStat *
@@ -2420,12 +2420,12 @@ ts_accum(MemoryContext persistentContext, TSVectorStat *stat, Datum data)
 				offset;
 
 	if (stat == NULL)
-	{							/* Init in first */
+	{							/* 初始 */
 		stat = MemoryContextAllocZero(persistentContext, sizeof(TSVectorStat));
 		stat->maxdepth = 1;
 	}
 
-	/* simple check of correctness */
+	/* 简单的正确性检查 */
 	if (txt == NULL || txt->size == 0)
 	{
 		if (txt && txt != (TSVector) DatumGetPointer(data))
@@ -2462,7 +2462,7 @@ ts_setup_firstcall(FunctionCallInfo fcinfo, FuncCallContext *funcctx,
 	stat->stackpos = 0;
 
 	node = stat->root;
-	/* find leftmost value */
+	/* 找最左边的值 */
 	if (node == NULL)
 		stat->stack[stat->stackpos] = NULL;
 	else
@@ -2497,16 +2497,16 @@ walkStatEntryTree(TSVectorStat *stat)
 
 	if (node->ndoc != 0)
 	{
-		/* return entry itself: we already was at left sublink */
+		/* 直接返回该条目：已位于左子链接 */
 		return node;
 	}
 	else if (node->right && node->right != stat->stack[stat->stackpos + 1])
 	{
-		/* go on right sublink */
+		/* 转向右子链接 */
 		stat->stackpos++;
 		node = node->right;
 
-		/* find most-left value */
+		/* 找最左边的值 */
 		for (;;)
 		{
 			stat->stack[stat->stackpos] = node;
@@ -2522,7 +2522,7 @@ walkStatEntryTree(TSVectorStat *stat)
 	}
 	else
 	{
-		/* we already return all left subtree, itself and  right subtree */
+		/* 我们已返回全部左子树、自身和右子树 */
 		if (stat->stackpos == 0)
 			return NULL;
 
@@ -2564,7 +2564,7 @@ ts_process_call(FuncCallContext *funcctx)
 
 		pfree(values[0]);
 
-		/* mark entry as already visited */
+		/* 标记该条目已访问 */
 		entry->ndoc = 0;
 
 		return result;
@@ -2583,11 +2583,11 @@ ts_stat_sql(MemoryContext persistentContext, text *txt, text *ws)
 	SPIPlanPtr	plan;
 
 	if ((plan = SPI_prepare(query, 0, NULL)) == NULL)
-		/* internal error */
+		/* 内部错误 */
 		elog(ERROR, "SPI_prepare(\"%s\") failed", query);
 
 	if ((portal = SPI_cursor_open(NULL, plan, NULL, NULL, true)) == NULL)
-		/* internal error */
+		/* 内部错误 */
 		elog(ERROR, "SPI_cursor_open(\"%s\") failed", query);
 
 	SPI_cursor_fetch(portal, true, 100);
@@ -2716,14 +2716,14 @@ ts_stat2(PG_FUNCTION_ARGS)
 
 
 /*
- * Triggers for automatic update of a tsvector column from text column(s)
+ * 用文本列自动更新 tsvector 列的触发器
  *
- * Trigger arguments are either
- *		name of tsvector col, name of tsconfig to use, name(s) of text col(s)
- *		name of tsvector col, name of regconfig col, name(s) of text col(s)
- * ie, tsconfig can either be specified by name, or indirectly as the
- * contents of a regconfig field in the row.  If the name is used, it must
- * be explicitly schema-qualified.
+ * 参数为以下两种之一
+ *		tsvector 列名、所用 tsconfig 的名字、文本列的名字
+ *		tsvector 列名、regconfig 列名、文本列的名字
+ * 即 tsconfig 既可以通过名字指定，也可以间接地以
+ * 行中 regconfig 字段的内容指定。若使用名字，
+ * 则必须显式限定模式。
  */
 Datum
 tsvector_update_trigger_byid(PG_FUNCTION_ARGS)
@@ -2753,8 +2753,8 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 	Oid			cfgId;
 	bool		update_needed;
 
-	/* Check call context */
-	if (!CALLED_AS_TRIGGER(fcinfo)) /* internal error */
+	/* 查调用上下文 */
+	if (!CALLED_AS_TRIGGER(fcinfo)) /* 内部错误 */
 		elog(ERROR, "tsvector_update_trigger: not fired by trigger manager");
 
 	trigdata = (TriggerData *) fcinfo->context;
@@ -2771,7 +2771,7 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 	else if (TRIGGER_FIRED_BY_UPDATE(trigdata->tg_event))
 	{
 		rettuple = trigdata->tg_newtuple;
-		update_needed = false;	/* computed below */
+		update_needed = false;	/* 下方计算 */
 	}
 	else
 		elog(ERROR, "tsvector_update_trigger: must be fired for INSERT or UPDATE");
@@ -2782,14 +2782,14 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 	if (trigger->tgnargs < 3)
 		elog(ERROR, "tsvector_update_trigger: arguments must be tsvector_field, ts_config, text_field1, ...)");
 
-	/* Find the target tsvector column */
+	/* 找出目标 tsvector 列 */
 	tsvector_attr_num = SPI_fnumber(rel->rd_att, trigger->tgargs[0]);
 	if (tsvector_attr_num == SPI_ERROR_NOATTRIBUTE)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_COLUMN),
 				 errmsg("tsvector column \"%s\" does not exist",
 						trigger->tgargs[0])));
-	/* This will effectively reject system columns, so no separate test: */
+	/* 这实际上会拒绝系统列，因此无需单独测试： */
 	if (!IsBinaryCoercible(SPI_gettypeid(rel->rd_att, tsvector_attr_num),
 						   TSVECTOROID))
 		ereport(ERROR,
@@ -2797,7 +2797,7 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 				 errmsg("column \"%s\" is not of tsvector type",
 						trigger->tgargs[0])));
 
-	/* Find the configuration to use */
+	/* 找出要使用的配置 */
 	if (config_column)
 	{
 		int			config_attr_num;
@@ -2828,7 +2828,7 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 		List	   *names;
 
 		names = stringToQualifiedNameList(trigger->tgargs[1], NULL);
-		/* require a schema so that results are not search path dependent */
+		/* 需要带模式，使结果不依赖于搜索路径 */
 		if (list_length(names) < 2)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -2837,13 +2837,13 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 		cfgId = get_ts_config_oid(names, false);
 	}
 
-	/* initialize parse state */
+	/* 初始化解析状态 */
 	prs.lenwords = 32;
 	prs.curwords = 0;
 	prs.pos = 0;
 	prs.words = (ParsedWord *) palloc(sizeof(ParsedWord) * prs.lenwords);
 
-	/* find all words in indexable column(s) */
+	/* 在可索引列中找出所有词 */
 	for (i = 2; i < trigger->tgnargs; i++)
 	{
 		int			numattr;
@@ -2877,11 +2877,11 @@ tsvector_update_trigger(PG_FUNCTION_ARGS, bool config_column)
 
 	if (update_needed)
 	{
-		/* make tsvector value */
+		/* 构造 tsvector 值 */
 		datum = TSVectorGetDatum(make_tsvector(&prs));
 		isnull = false;
 
-		/* and insert it into tuple */
+		/* 并把它插入元组 */
 		rettuple = heap_modify_tuple_by_cols(rettuple, rel->rd_att,
 											 1, &tsvector_attr_num,
 											 &datum, &isnull);

@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * multirangetypes.c
- *	  I/O functions, operators, and support functions for multirange types.
+ *	  多范围类型的 I/O 函数、算子与支持函数。
  *
- * The stored (serialized) format of a multirange value is:
+ * 多范围值的存储（序列化）格式如下：
  *
- *	12 bytes: MultirangeType struct including varlena header, multirange
- *			  type's OID and the number of ranges in the multirange.
- *	4 * (rangesCount - 1) bytes: 32-bit items pointing to the each range
- *								 in the multirange starting from
- *								 the second one.
- *	1 * rangesCount bytes : 8-bit flags for each range in the multirange
- *	The rest of the multirange are range bound values pointed by multirange
- *	items.
+ *	12 字节：MultirangeType 结构，包括 varlena 头、多范围
+ *			  类型的 OID 以及多范围中范围的个数。
+ *	4 * (rangesCount - 1) 字节：32 位条目，指向多范围中从
+ *								 第二个范围起的
+ *								 各范围。
+ *	1 * rangesCount 字节：多范围中每个范围的 8 位标志
+ *	多范围其余部分为这些条目所指向的范围边界
+ *	值。
  *
- *	Majority of items contain lengths of corresponding range bound values.
- *	Thanks to that items are typically low numbers.  This makes multiranges
- *	compression-friendly.  Every MULTIRANGE_ITEM_OFFSET_STRIDE item contains
- *	an offset of the corresponding range bound values.  That allows fast lookups
- *	for a particular range index.  Offsets are counted starting from the end of
- *	flags aligned to the bound type.
+ *	大多数条目包含相应范围边界值的长度。
+ *	因此条目通常是很小的数字。这使多范围
+ *	利于压缩。每 MULTIRANGE_ITEM_OFFSET_STRIDE 个条目
+ *	包含一个相应范围边界值的偏移量。这样可以快速
+ *	查找特定的范围下标。偏移量从按边界类型对齐后的
+ *	标志结尾处开始计数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -46,12 +46,12 @@
 #include "utils/array.h"
 #include "utils/memutils.h"
 
-/* fn_extra cache entry for one of the range I/O functions */
+/* 某个范围 I/O 函数的 fn_extra 缓存条目 */
 typedef struct MultirangeIOData
 {
-	TypeCacheEntry *typcache;	/* multirange type's typcache entry */
-	FmgrInfo	typioproc;		/* range type's I/O proc */
-	Oid			typioparam;		/* range type's I/O parameter */
+	TypeCacheEntry *typcache;	/* 多范围类型 typcache 条目 */
+	FmgrInfo	typioproc;		/* 范围 I/O 过程 */
+	Oid			typioparam;		/* 范围类型的 I/O 参数 */
 } MultirangeIOData;
 
 typedef enum
@@ -66,8 +66,8 @@ typedef enum
 } MultirangeParseState;
 
 /*
- * Macros for accessing past MultirangeType parts of multirange: items, flags
- * and boundaries.
+ * 用于访问多范围中 MultirangeType 之后各部分：条目、标志
+ * 与边界。
  */
 #define MultirangeGetItemsPtr(mr) ((uint32 *) ((Pointer) (mr) + \
 	sizeof(MultirangeType)))
@@ -98,21 +98,21 @@ static int32 multirange_canonicalize(TypeCacheEntry *rangetyp,
 
 /*
  *----------------------------------------------------------
- * I/O FUNCTIONS
+ * I/O 函数
  *----------------------------------------------------------
  */
 
 /*
- * Converts string to multirange.
+ * 把字符串转为多范围。
  *
- * We expect curly brackets to bound the list, with zero or more ranges
- * separated by commas.  We accept whitespace anywhere: before/after our
- * brackets and around the commas.  Ranges can be the empty literal or some
- * stuff inside parens/brackets.  Mostly we delegate parsing the individual
- * range contents to range_in, but we have to detect quoting and
- * backslash-escaping which can happen for range bounds.  Backslashes can
- * escape something inside or outside a quoted string, and a quoted string
- * can escape quote marks with either backslashes or double double-quotes.
+ * 我们期望花括号界定列表，其中包含零个或多个
+ * 以逗号分隔的范围。我们接受空白出现在任何地方：
+ * 括号前后以及逗号周围。范围可以是空字面值，
+ * 或是圆括号/方括号内的内容。我们大多把解析单个
+ * 范围内容交给 range_in 解析，但须检测范围边界
+ * 可能出现的引号与反斜杠转义。反斜杠既可以在
+ * 带引号字符串之内也可以在其之外转义字符，而带
+ * 引号字符串可用反斜杠或连续两个双引号转义引号。
  */
 Datum
 multirange_in(PG_FUNCTION_ARGS)
@@ -139,7 +139,7 @@ multirange_in(PG_FUNCTION_ARGS)
 	cache = get_multirange_io_data(fcinfo, mltrngtypoid, IOFunc_input);
 	rangetyp = cache->typcache->rngtype;
 
-	/* consume whitespace */
+	/* 消耗空白 */
 	while (*ptr != '\0' && isspace((unsigned char) *ptr))
 		ptr++;
 
@@ -152,7 +152,7 @@ multirange_in(PG_FUNCTION_ARGS)
 						input_str),
 				 errdetail("Missing left brace.")));
 
-	/* consume ranges */
+	/* 消耗范围 */
 	parse_state = MULTIRANGE_BEFORE_RANGE;
 	for (; parse_state != MULTIRANGE_FINISHED; ptr++)
 	{
@@ -165,7 +165,7 @@ multirange_in(PG_FUNCTION_ARGS)
 							input_str),
 					 errdetail("Unexpected end of input.")));
 
-		/* skip whitespace */
+		/* 跳过空白 */
 		if (isspace((unsigned char) ch))
 			continue;
 
@@ -183,7 +183,7 @@ multirange_in(PG_FUNCTION_ARGS)
 										strlen(RANGE_EMPTY_LITERAL)) == 0)
 				{
 					ranges_seen++;
-					/* nothing to do with an empty range */
+					/* 对空范围无需任何处理 */
 					ptr += strlen(RANGE_EMPTY_LITERAL) - 1;
 					parse_state = MULTIRANGE_AFTER_RANGE;
 				}
@@ -226,16 +226,16 @@ multirange_in(PG_FUNCTION_ARGS)
 						parse_state = MULTIRANGE_IN_RANGE_ESCAPED;
 
 					/*
-					 * We will include this character into range_str once we
-					 * find the end of the range value.
+					 * 一旦找到范围值结尾，我们就
+					 * 会把它纳入 range_str。
 					 */
 				}
 				break;
 			case MULTIRANGE_IN_RANGE_ESCAPED:
 
 				/*
-				 * We will include this character into range_str once we find
-				 * the end of the range value.
+				 * 一旦找到范围值的结尾，我们就会
+				 * 把它纳入 range_str。
 				 */
 				parse_state = MULTIRANGE_IN_RANGE;
 				break;
@@ -243,7 +243,7 @@ multirange_in(PG_FUNCTION_ARGS)
 				if (ch == '"')
 					if (*(ptr + 1) == '"')
 					{
-						/* two quote marks means an escaped quote mark */
+						/* 连续两个引号表示转义过的引号 */
 						ptr++;
 					}
 					else
@@ -252,8 +252,8 @@ multirange_in(PG_FUNCTION_ARGS)
 					parse_state = MULTIRANGE_IN_RANGE_QUOTED_ESCAPED;
 
 				/*
-				 * We will include this character into range_str once we find
-				 * the end of the range value.
+				 * 一旦找到范围值的结尾，我们就会
+				 * 把它纳入 range_str。
 				 */
 				break;
 			case MULTIRANGE_AFTER_RANGE:
@@ -271,8 +271,8 @@ multirange_in(PG_FUNCTION_ARGS)
 			case MULTIRANGE_IN_RANGE_QUOTED_ESCAPED:
 
 				/*
-				 * We will include this character into range_str once we find
-				 * the end of the range value.
+				 * 一旦找到范围值的结尾，我们就会
+				 * 把它纳入 range_str。
 				 */
 				parse_state = MULTIRANGE_IN_RANGE_QUOTED;
 				break;
@@ -281,7 +281,7 @@ multirange_in(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* consume whitespace */
+	/* 消耗空白 */
 	while (*ptr != '\0' && isspace((unsigned char) *ptr))
 		ptr++;
 
@@ -331,8 +331,8 @@ multirange_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * Binary representation: First a int32-sized count of ranges, followed by
- * ranges in their native binary representation.
+ * 二进制表示：先是一个 int32 大小的范围个数，
+ * 随后是按原生二进制表示的范围。
  */
 Datum
 multirange_recv(PG_FUNCTION_ARGS)
@@ -386,7 +386,7 @@ multirange_send(PG_FUNCTION_ARGS)
 
 	cache = get_multirange_io_data(fcinfo, mltrngtypoid, IOFunc_send);
 
-	/* construct output */
+	/* 构造输出 */
 	pq_begintypsend(buf);
 
 	pq_sendint32(buf, multirange->rangeCount);
@@ -407,11 +407,11 @@ multirange_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * get_multirange_io_data: get cached information needed for multirange type I/O
+ * get_multirange_io_data：获取多范围类型 I/O 所需的缓存信息
  *
- * The multirange I/O functions need a bit more cached info than other multirange
- * functions, so they store a MultirangeIOData struct in fn_extra, not just a
- * pointer to a type cache entry.
+ * 多范围 I/O 函数比其他多范围函数需要更多的缓存
+ * 信息，所以它们在 fn_extra 中存储 MultirangeIOData 结构，
+ * 而非仅指针。
  */
 static MultirangeIOData *
 get_multirange_io_data(FunctionCallInfo fcinfo, Oid mltrngtypid, IOFuncSelector func)
@@ -432,7 +432,7 @@ get_multirange_io_data(FunctionCallInfo fcinfo, Oid mltrngtypid, IOFuncSelector 
 		if (cache->typcache->rngtype == NULL)
 			elog(ERROR, "type %u is not a multirange type", mltrngtypid);
 
-		/* get_type_io_data does more than we need, but is convenient */
+		/* get_type_io_data 做的事多于所需，但很方便 */
 		get_type_io_data(cache->typcache->rngtype->type_id,
 						 func,
 						 &typlen,
@@ -444,7 +444,7 @@ get_multirange_io_data(FunctionCallInfo fcinfo, Oid mltrngtypid, IOFuncSelector 
 
 		if (!OidIsValid(typiofunc))
 		{
-			/* this could only happen for receive or send */
+			/* 这只可能发生在接收或发送时 */
 			if (func == IOFunc_receive)
 				ereport(ERROR,
 						(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -466,13 +466,13 @@ get_multirange_io_data(FunctionCallInfo fcinfo, Oid mltrngtypid, IOFuncSelector 
 }
 
 /*
- * Converts a list of arbitrary ranges into a list that is sorted and merged.
- * Changes the contents of `ranges`.
+ * 把任意范围的列表转换成已排序且已合并的列表。
+ * 会改变 `ranges` 的内容。
  *
- * Returns the number of slots actually used, which may be less than
- * input_range_count but never more.
+ * 返回实际使用的槽位数，可能小于
+ * input_range_count，绝不超。
  *
- * We assume that no input ranges are null, but empties are okay.
+ * 假定输入范围均非 NULL，但允许空范围。
  */
 static int32
 multirange_canonicalize(TypeCacheEntry *rangetyp, int32 input_range_count,
@@ -483,11 +483,11 @@ multirange_canonicalize(TypeCacheEntry *rangetyp, int32 input_range_count,
 	int32		i;
 	int32		output_range_count = 0;
 
-	/* Sort the ranges so we can find the ones that overlap/meet. */
+	/* 对范围排序，以便找出重叠/相接的范围。 */
 	qsort_arg(ranges, input_range_count, sizeof(RangeType *), range_compare,
 			  rangetyp);
 
-	/* Now merge where possible: */
+	/* 现在尽可能合并： */
 	for (i = 0; i < input_range_count; i++)
 	{
 		currentRange = ranges[i];
@@ -501,25 +501,25 @@ multirange_canonicalize(TypeCacheEntry *rangetyp, int32 input_range_count,
 		}
 
 		/*
-		 * range_adjacent_internal gives true if *either* A meets B or B meets
-		 * A, which is not quite want we want, but we rely on the sorting
-		 * above to rule out B meets A ever happening.
+		 * 只要 *A 相接于 B* 或 *B 相接于 A* 之一，
+		 * range_adjacent_internal 就返回真，这并非所要，但
+		 * 靠排序可排除 B 相接于 A。
 		 */
 		if (range_adjacent_internal(rangetyp, lastRange, currentRange))
 		{
-			/* The two ranges touch (without overlap), so merge them: */
+			/* 两个范围相触（不重叠），故合并它们： */
 			ranges[output_range_count - 1] = lastRange =
 				range_union_internal(rangetyp, lastRange, currentRange, false);
 		}
 		else if (range_before_internal(rangetyp, lastRange, currentRange))
 		{
-			/* There's a gap, so make a new entry: */
+			/* 有间隙，故创建新条目： */
 			lastRange = ranges[output_range_count] = currentRange;
 			output_range_count++;
 		}
 		else
 		{
-			/* They must overlap, so merge them: */
+			/* 它们必然重叠，故合并： */
 			ranges[output_range_count - 1] = lastRange =
 				range_union_internal(rangetyp, lastRange, currentRange, true);
 		}
@@ -530,20 +530,20 @@ multirange_canonicalize(TypeCacheEntry *rangetyp, int32 input_range_count,
 
 /*
  *----------------------------------------------------------
- * SUPPORT FUNCTIONS
+ * 支持函数
  *
- *	 These functions aren't in pg_proc, but are useful for
- *	 defining new generic multirange functions in C.
+ *	 这些函数不在 pg_proc 中，但对 C 里定义
+ *	 新的通用多范围函数很有用。
  *----------------------------------------------------------
  */
 
 /*
- * multirange_get_typcache: get cached information about a multirange type
+ * multirange_get_typcache：获取多范围类型的缓存信息
  *
- * This is for use by multirange-related functions that follow the convention
- * of using the fn_extra field as a pointer to the type cache entry for
- * the multirange type.  Functions that need to cache more information than
- * that must fend for themselves.
+ * 供遵循以下惯例的多范围相关函数使用：把 fn_extra
+ * 字段用作指向多范围类型的类型缓存条目的指针。
+ * 需要缓存更多信息的多范围函数
+ * 必须自行设法。
  */
 TypeCacheEntry *
 multirange_get_typcache(FunctionCallInfo fcinfo, Oid mltrngtypid)
@@ -564,7 +564,7 @@ multirange_get_typcache(FunctionCallInfo fcinfo, Oid mltrngtypid)
 
 
 /*
- * Estimate size occupied by serialized multirange.
+ * 估算序列化多范围占用的空间大小。
  */
 static Size
 multirange_size_estimate(TypeCacheEntry *rangetyp, int32 range_count,
@@ -575,13 +575,13 @@ multirange_size_estimate(TypeCacheEntry *rangetyp, int32 range_count,
 	int32		i;
 
 	/*
-	 * Count space for MultirangeType struct, items and flags.
+	 * 为 MultirangeType 结构/条目/标志计空间。
 	 */
 	size = att_align_nominal(sizeof(MultirangeType) +
 							 Max(range_count - 1, 0) * sizeof(uint32) +
 							 range_count * sizeof(uint8), elemalign);
 
-	/* Count space for range bounds */
+	/* 为范围边界值计空间 */
 	for (i = 0; i < range_count; i++)
 		size += att_align_nominal(VARSIZE(ranges[i]) -
 								  sizeof(RangeType) -
@@ -591,7 +591,7 @@ multirange_size_estimate(TypeCacheEntry *rangetyp, int32 range_count,
 }
 
 /*
- * Write multirange data into pre-allocated space.
+ * 把多范围数据写入预分配的空间。
  */
 static void
 write_multirange_data(MultirangeType *multirange, TypeCacheEntry *rangetyp,
@@ -615,9 +615,9 @@ write_multirange_data(MultirangeType *multirange, TypeCacheEntry *rangetyp,
 		if (i > 0)
 		{
 			/*
-			 * Every range, except the first one, has an item.  Every
-			 * MULTIRANGE_ITEM_OFFSET_STRIDE item contains an offset, others
-			 * contain lengths.
+			 * 除首个范围外，各范围均有一个条目。
+			 * 每 MULTIRANGE_ITEM_OFFSET_STRIDE 个条目有偏移，其余
+			 * 是长度。
 			 */
 			items[i - 1] = ptr - begin;
 			if ((i % MULTIRANGE_ITEM_OFFSET_STRIDE) != 0)
@@ -635,13 +635,13 @@ write_multirange_data(MultirangeType *multirange, TypeCacheEntry *rangetyp,
 
 
 /*
- * This serializes the multirange from a list of non-null ranges.  It also
- * sorts the ranges and merges any that touch.  The ranges should already be
- * detoasted, and there should be no NULLs.  This should be used by most
- * callers.
+ * 本函数从非 NULL 范围的列表序列化多范围。它还会
+ * 对范围排序并合并相触的范围。范围应已被
+ * 解 TOAST，且其中不应有 NULL。大多数调用者都应使用
+ * 它。
  *
- * Note that we may change the `ranges` parameter (the pointers, but not
- * any already-existing RangeType contents).
+ * 注意：我们可能改变 `ranges` 参数（仅指针，
+ * 已存在 RangeType 内容不变）。
  */
 MultirangeType *
 make_multirange(Oid mltrngtypoid, TypeCacheEntry *rangetyp, int32 range_count,
@@ -650,15 +650,15 @@ make_multirange(Oid mltrngtypoid, TypeCacheEntry *rangetyp, int32 range_count,
 	MultirangeType *multirange;
 	Size		size;
 
-	/* Sort and merge input ranges. */
+	/* 排序合并输入范围。 */
 	range_count = multirange_canonicalize(rangetyp, range_count, ranges);
 
-	/* Note: zero-fill is required here, just as in heap tuples */
+	/* 注意：此处需零填充，就像堆元组一样 */
 	size = multirange_size_estimate(rangetyp, range_count, ranges);
 	multirange = palloc0(size);
 	SET_VARSIZE(multirange, size);
 
-	/* Now fill in the datum */
+	/* 现在填入 datum */
 	multirange->multirangetypid = mltrngtypoid;
 	multirange->rangeCount = range_count;
 
@@ -668,7 +668,7 @@ make_multirange(Oid mltrngtypoid, TypeCacheEntry *rangetyp, int32 range_count,
 }
 
 /*
- * Get offset of bounds values of the i'th range in the multirange.
+ * 获取多范围中第 i 个范围边界值的偏移量。
  */
 static uint32
 multirange_get_bounds_offset(const MultirangeType *multirange, int32 i)
@@ -677,7 +677,7 @@ multirange_get_bounds_offset(const MultirangeType *multirange, int32 i)
 	uint32		offset = 0;
 
 	/*
-	 * Summarize lengths till we meet an offset.
+	 * 累加长度，直至遇到偏移量。
 	 */
 	while (i > 0)
 	{
@@ -690,7 +690,7 @@ multirange_get_bounds_offset(const MultirangeType *multirange, int32 i)
 }
 
 /*
- * Fetch the i'th range from the multirange.
+ * 从多范围中取出第 i 个范围。
  */
 RangeType *
 multirange_get_range(TypeCacheEntry *rangetyp,
@@ -712,10 +712,10 @@ multirange_get_range(TypeCacheEntry *rangetyp,
 	ptr = begin = MultirangeGetBoundariesPtr(multirange, typalign) + offset;
 
 	/*
-	 * Calculate the size of bound values.  In principle, we could get offset
-	 * of the next range bound values and calculate accordingly.  But range
-	 * bound values are aligned, so we have to walk the values to get the
-	 * exact size.
+	 * 计算边界值的大小。原则上我们可以取下一
+	 * 个范围边界值的偏移量来推算。但范围边界
+	 * 值是对齐的，所以必须逐一遍历方能知其大
+	 * 小。
 	 */
 	if (RANGE_HAS_LBOUND(flags))
 		ptr = (Pointer) att_addlength_pointer(ptr, typlen, ptr);
@@ -737,9 +737,9 @@ multirange_get_range(TypeCacheEntry *rangetyp,
 }
 
 /*
- * Fetch bounds from the i'th range of the multirange.  This is the shortcut for
- * doing the same thing as multirange_get_range() + range_deserialize(), but
- * performing fewer operations.
+ * 从多范围的第 i 个范围取出边界。这相当于把
+ * multirange_get_range() + range_deserialize() 合
+ * 而为一，操作更少。
  */
 void
 multirange_get_bounds(TypeCacheEntry *rangetyp,
@@ -761,30 +761,30 @@ multirange_get_bounds(TypeCacheEntry *rangetyp,
 	flags = MultirangeGetFlagsPtr(multirange)[i];
 	ptr = MultirangeGetBoundariesPtr(multirange, typalign) + offset;
 
-	/* multirange can't contain empty ranges */
+	/* 多范围不能包含空范围 */
 	Assert((flags & RANGE_EMPTY) == 0);
 
-	/* fetch lower bound, if any */
+	/* 若有则取下边界 */
 	if (RANGE_HAS_LBOUND(flags))
 	{
-		/* att_align_pointer cannot be necessary here */
+		/* att_align_pointer 在此处绝无必要 */
 		lbound = fetch_att(ptr, typbyval, typlen);
 		ptr = (Pointer) att_addlength_pointer(ptr, typlen, ptr);
 	}
 	else
 		lbound = (Datum) 0;
 
-	/* fetch upper bound, if any */
+	/* 若有则取上边界 */
 	if (RANGE_HAS_UBOUND(flags))
 	{
 		ptr = (Pointer) att_align_pointer(ptr, typalign, typlen, ptr);
 		ubound = fetch_att(ptr, typbyval, typlen);
-		/* no need for att_addlength_pointer */
+		/* 无需 att_addlength_pointer */
 	}
 	else
 		ubound = (Datum) 0;
 
-	/* emit results */
+	/* 输出结果 */
 	lower->val = lbound;
 	lower->infinite = (flags & RANGE_LB_INF) != 0;
 	lower->inclusive = (flags & RANGE_LB_INC) != 0;
@@ -797,7 +797,7 @@ multirange_get_bounds(TypeCacheEntry *rangetyp,
 }
 
 /*
- * Construct union range from the multirange.
+ * 从多范围构造并集范围。
  */
 RangeType *
 multirange_get_union_range(TypeCacheEntry *rangetyp,
@@ -818,10 +818,10 @@ multirange_get_union_range(TypeCacheEntry *rangetyp,
 
 
 /*
- * multirange_deserialize: deconstruct a multirange value
+ * multirange_deserialize：解构多范围值
  *
- * NB: the given multirange object must be fully detoasted; it cannot have a
- * short varlena header.
+ * 注意：给定的多范围对象必须完全解 TOAST，无法有
+ * 短 varlena 头。
  */
 void
 multirange_deserialize(TypeCacheEntry *rangetyp,
@@ -830,7 +830,7 @@ multirange_deserialize(TypeCacheEntry *rangetyp,
 {
 	*range_count = multirange->rangeCount;
 
-	/* Convert each ShortRangeType into a RangeType */
+	/* 把每个 ShortRangeType 转换成 RangeType */
 	if (*range_count > 0)
 	{
 		int			i;
@@ -852,8 +852,8 @@ make_empty_multirange(Oid mltrngtypoid, TypeCacheEntry *rangetyp)
 }
 
 /*
- * Similar to range_overlaps_internal(), but takes range bounds instead of
- * ranges as arguments.
+ * 与 range_overlaps_internal() 类似，但参数取范围
+ * 边界而非范围.
  */
 static bool
 range_bounds_overlaps(TypeCacheEntry *typcache,
@@ -872,8 +872,8 @@ range_bounds_overlaps(TypeCacheEntry *typcache,
 }
 
 /*
- * Similar to range_contains_internal(), but takes range bounds instead of
- * ranges as arguments.
+ * 与 range_contains_internal() 类似，但参数取范围
+ * 边界而非范围.
  */
 static bool
 range_bounds_contains(TypeCacheEntry *typcache,
@@ -888,12 +888,12 @@ range_bounds_contains(TypeCacheEntry *typcache,
 }
 
 /*
- * Check if the given key matches any range in multirange using binary search.
- * If the required range isn't found, that counts as a mismatch.  When the
- * required range is found, the comparison function can still report this as
- * either match or mismatch.  For instance, if we search for containment, we can
- * found a range, which is overlapping but not containing the key range, and
- * that would count as a mismatch.
+ * 使用二分查找检查给定键是否匹配多范围中的
+ * 某个范围。若未找到所需的范围，则视为不匹配。
+ * 即使找到所需的范围，比较函数仍可能报告
+ * 匹配或不匹配。例如，若我们搜索的是包含关系，
+ * 可能找到一个与键范围重叠但不包含它的范围，
+ * 这将视为不匹配。
  */
 static bool
 multirange_bsearch_match(TypeCacheEntry *typcache, const MultirangeType *mr,
@@ -929,14 +929,14 @@ multirange_bsearch_match(TypeCacheEntry *typcache, const MultirangeType *mr,
 
 /*
  *----------------------------------------------------------
- * GENERIC FUNCTIONS
+ * 通用函数
  *----------------------------------------------------------
  */
 
 /*
- * Construct multirange value from zero or more ranges.  Since this is a
- * variadic function we get passed an array.  The array must contain ranges
- * that match our return value, and there must be no NULLs.
+ * 从零个或多个范围构造多范围值。由于这是
+ * 可变参数函数，我们收到的是一个数组。该数组
+ * 须包含与返回值匹配的范围，且无 NULL。
  */
 Datum
 multirange_constructor2(PG_FUNCTION_ARGS)
@@ -957,16 +957,16 @@ multirange_constructor2(PG_FUNCTION_ARGS)
 	rangetyp = typcache->rngtype;
 
 	/*
-	 * A no-arg invocation should call multirange_constructor0 instead, but
-	 * returning an empty range is what that does.
+	 * 无参调用本应改调 multirange_constructor0，
+	 * 但那样做返回的也是空范围。
 	 */
 
 	if (PG_NARGS() == 0)
 		PG_RETURN_MULTIRANGE_P(make_multirange(mltrngtypid, rangetyp, 0, NULL));
 
 	/*
-	 * This check should be guaranteed by our signature, but let's do it just
-	 * in case.
+	 * 这个检查本应由我们的签名保证，但仍执行以防万一
+	 * 即可
 	 */
 
 	if (PG_ARGISNULL(0))
@@ -986,7 +986,7 @@ multirange_constructor2(PG_FUNCTION_ARGS)
 		elog(ERROR, "type %u does not match constructor type", rngtypid);
 
 	/*
-	 * Be careful: we can still be called with zero ranges, like this:
+	 * 注意：我们仍可能以零个范围被调用，像这样：
 	 * `int4multirange(variadic '{}'::int4range[])
 	 */
 	if (dims == 0)
@@ -1007,7 +1007,7 @@ multirange_constructor2(PG_FUNCTION_ARGS)
 						(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 						 errmsg("multirange values cannot contain null members")));
 
-			/* make_multirange will do its own copy */
+			/* make_multirange 会自行复制 */
 			ranges[i] = DatumGetRangeTypeP(elements[i]);
 		}
 	}
@@ -1016,9 +1016,9 @@ multirange_constructor2(PG_FUNCTION_ARGS)
 }
 
 /*
- * Construct multirange value from a single range.  It'd be nice if we could
- * just use multirange_constructor2 for this case, but we need a non-variadic
- * single-arg function to let us define a CAST from a range to its multirange.
+ * 从单个范围构造多范围值。要是这种情况也能用
+ * multirange_constructor2 就好了，但我们需要一个
+ * 非可变参数的单参函数来定义从范围到其多范围的 CAST。
  */
 Datum
 multirange_constructor1(PG_FUNCTION_ARGS)
@@ -1033,8 +1033,8 @@ multirange_constructor1(PG_FUNCTION_ARGS)
 	rangetyp = typcache->rngtype;
 
 	/*
-	 * This check should be guaranteed by our signature, but let's do it just
-	 * in case.
+	 * 这个检查本应由我们的签名保证，但仍执行以防万一
+	 * 即可
 	 */
 
 	if (PG_ARGISNULL(0))
@@ -1043,7 +1043,7 @@ multirange_constructor1(PG_FUNCTION_ARGS)
 
 	range = PG_GETARG_RANGE_P(0);
 
-	/* Make sure the range type matches. */
+	/* 确保范围类型匹配。 */
 	rngtypid = RangeTypeGetOid(range);
 	if (rngtypid != rangetyp->type_id)
 		elog(ERROR, "type %u does not match constructor type", rngtypid);
@@ -1052,9 +1052,9 @@ multirange_constructor1(PG_FUNCTION_ARGS)
 }
 
 /*
- * Constructor just like multirange_constructor1, but opr_sanity gets angry
- * if the same internal function handles multiple functions with different arg
- * counts.
+ * 与 multirange_constructor1 一样的构造函数，但 opr_sanity
+ * 会生
+ * 气。
  */
 Datum
 multirange_constructor0(PG_FUNCTION_ARGS)
@@ -1063,7 +1063,7 @@ multirange_constructor0(PG_FUNCTION_ARGS)
 	TypeCacheEntry *typcache;
 	TypeCacheEntry *rangetyp;
 
-	/* This should always be called without arguments */
+	/* 本函数应当总是以无参形式调用 */
 	if (PG_NARGS() != 0)
 		elog(ERROR,
 			 "niladic multirange constructor must not receive arguments");
@@ -1076,9 +1076,9 @@ multirange_constructor0(PG_FUNCTION_ARGS)
 }
 
 
-/* multirange, multirange -> multirange type functions */
+/* 多范围、多范围 -> 多范围类型函数 */
 
-/* multirange union */
+/* 多范围并集 */
 Datum
 multirange_union(PG_FUNCTION_ARGS)
 {
@@ -1110,7 +1110,7 @@ multirange_union(PG_FUNCTION_ARGS)
 										   range_count3, ranges3));
 }
 
-/* multirange minus */
+/* 多范围差集 */
 Datum
 multirange_minus(PG_FUNCTION_ARGS)
 {
@@ -1154,16 +1154,16 @@ multirange_minus_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 	int32		i2;
 
 	/*
-	 * Worst case: every range in ranges1 makes a different cut to some range
-	 * in ranges2.
+	 * 最坏情形：ranges1 各范围对 ranges2 各做一次不同
+	 * 切割。
 	 */
 	ranges3 = palloc0((range_count1 + range_count2) * sizeof(RangeType *));
 	range_count3 = 0;
 
 	/*
-	 * For each range in mr1, keep subtracting until it's gone or the ranges
-	 * in mr2 have passed it. After a subtraction we assign what's left back
-	 * to r1. The parallel progress through mr1 and mr2 is similar to
+	 * 对 mr1 中的每个范围，不断做减法，直到它消失
+	 * 或 mr2 中的范围已越过它。每次减法后我们把
+	 * 剩余部分赋回 r1。mr1 与 mr2 平行推进的方式同
 	 * multirange_overlaps_multirange_internal.
 	 */
 	r2 = ranges2[0];
@@ -1171,7 +1171,7 @@ multirange_minus_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 	{
 		r1 = ranges1[i1];
 
-		/* Discard r2s while r2 << r1 */
+		/* 在 r2 << r1 时丢弃 r2 */
 		while (r2 != NULL && range_before_internal(rangetyp, r2, r1))
 		{
 			r2 = ++i2 >= range_count2 ? NULL : ranges2[i2];
@@ -1182,8 +1182,8 @@ multirange_minus_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 			if (range_split_internal(rangetyp, r1, r2, &ranges3[range_count3], &r1))
 			{
 				/*
-				 * If r2 takes a bite out of the middle of r1, we need two
-				 * outputs
+				 * 若 r2 从 r1 中间咬掉一口，就需要两个
+				 * 输出
 				 */
 				range_count3++;
 				r2 = ++i2 >= range_count2 ? NULL : ranges2[i2];
@@ -1191,15 +1191,15 @@ multirange_minus_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 			else if (range_overlaps_internal(rangetyp, r1, r2))
 			{
 				/*
-				 * If r2 overlaps r1, replace r1 with r1 - r2.
+				 * 若 r2 与 r1 重叠，用 r1-r2 替换。
 				 */
 				r1 = range_minus_internal(rangetyp, r1, r2);
 
 				/*
-				 * If r2 goes past r1, then we need to stay with it, in case
-				 * it hits future r1s. Otherwise we need to keep r1, in case
-				 * future r2s hit it. Since we already subtracted, there's no
-				 * point in using the overright/overleft calls.
+				 * 若 r2 越过了 r1，那么我们要留在它上面，
+				 * 以防它碰到后面的 r1。否则我们要保留 r1，
+				 * 以防后面的 r2 碰到它。既然已经做过减法，
+				 * 用 overright/overleft 调用便无意义。
 				 */
 				if (RangeIsEmpty(r1) || range_before_internal(rangetyp, r1, r2))
 					break;
@@ -1209,16 +1209,16 @@ multirange_minus_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 			else
 			{
 				/*
-				 * This and all future r2s are past r1, so keep them. Also
-				 * assign whatever is left of r1 to the result.
+				 * 这个以及所有后续的 r2 都已越过 r1，
+				 * 故保留之，r1 所余计入结果。
 				 */
 				break;
 			}
 		}
 
 		/*
-		 * Nothing else can remove anything from r1, so keep it. Even if r1 is
-		 * empty here, make_multirange will remove it.
+		 * 再无其他可从 r1 移除部分，故保留它。即使
+		 * r1 为空，make_multirange 也会移除。
 		 */
 		ranges3[range_count3++] = r1;
 	}
@@ -1226,7 +1226,7 @@ multirange_minus_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 	return make_multirange(mltrngtypoid, rangetyp, range_count3, ranges3);
 }
 
-/* multirange intersection */
+/* 多范围交集 */
 Datum
 multirange_intersect(PG_FUNCTION_ARGS)
 {
@@ -1273,31 +1273,31 @@ multirange_intersect_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 		return make_multirange(mltrngtypoid, rangetyp, 0, NULL);
 
 	/*-----------------------------------------------
-	 * Worst case is a stitching pattern like this:
+	 * 最坏情形是这样的拼接图案：
 	 *
 	 * mr1: --- --- --- ---
 	 * mr2:   --- --- ---
 	 * mr3:   - - - - - -
 	 *
-	 * That seems to be range_count1 + range_count2 - 1,
-	 * but one extra won't hurt.
+	 * 看起来是 range_count1 + range_count2 - 1，
+	 * 但多留一个无妨。
 	 *-----------------------------------------------
 	 */
 	ranges3 = palloc0((range_count1 + range_count2) * sizeof(RangeType *));
 	range_count3 = 0;
 
 	/*
-	 * For each range in mr1, keep intersecting until the ranges in mr2 have
-	 * passed it. The parallel progress through mr1 and mr2 is similar to
-	 * multirange_minus_multirange_internal, but we don't have to assign back
-	 * to r1.
+	 * 对 mr1 中每个范围，不断求交，直到 mr2 中的范围
+	 * 越过它。mr1 与 mr2 上的平行推进类似于
+	 * multirange_minus_multirange_internal，但不必赋回
+	 * r1。
 	 */
 	r2 = ranges2[0];
 	for (i1 = 0, i2 = 0; i1 < range_count1; i1++)
 	{
 		r1 = ranges1[i1];
 
-		/* Discard r2s while r2 << r1 */
+		/* 在 r2 << r1 时丢弃 r2 */
 		while (r2 != NULL && range_before_internal(rangetyp, r2, r1))
 		{
 			r2 = ++i2 >= range_count2 ? NULL : ranges2[i2];
@@ -1307,23 +1307,23 @@ multirange_intersect_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 		{
 			if (range_overlaps_internal(rangetyp, r1, r2))
 			{
-				/* Keep the overlapping part */
+				/* 保留重叠部分 */
 				ranges3[range_count3++] = range_intersect_internal(rangetyp, r1, r2);
 
-				/* If we "used up" all of r2, go to the next one... */
+				/* 若 r2 已被"用尽"，则转到下一个…… */
 				if (range_overleft_internal(rangetyp, r2, r1))
 					r2 = ++i2 >= range_count2 ? NULL : ranges2[i2];
 
-				/* ...otherwise go to the next r1 */
+				/* ……否则转到下一个 r1 */
 				else
 					break;
 			}
 			else
-				/* We're past r1, so move to the next one */
+				/* 已越过 r1，故移到下一个 */
 				break;
 		}
 
-		/* If we're out of r2s, there can be no more intersections */
+		/* 若 r2 已用尽，则不可能再有交集 */
 		if (r2 == NULL)
 			break;
 	}
@@ -1332,10 +1332,10 @@ multirange_intersect_internal(Oid mltrngtypoid, TypeCacheEntry *rangetyp,
 }
 
 /*
- * range_agg_transfn: combine adjacent/overlapping ranges.
+ * range_agg_transfn：合并相邻/重叠的范围。
  *
- * All we do here is gather the input ranges into an array
- * so that the finalfn can sort and combine them.
+ * 此处只是把输入范围收进一个数组，
+ * 以便 finalfn 能排序并合并它们。
  */
 Datum
 range_agg_transfn(PG_FUNCTION_ARGS)
@@ -1356,7 +1356,7 @@ range_agg_transfn(PG_FUNCTION_ARGS)
 	else
 		state = (ArrayBuildState *) PG_GETARG_POINTER(0);
 
-	/* skip NULLs */
+	/* 略 NULL */
 	if (!PG_ARGISNULL(1))
 		accumArrayResult(state, PG_GETARG_DATUM(1), false, rngtypoid, aggContext);
 
@@ -1364,9 +1364,9 @@ range_agg_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * range_agg_finalfn: use our internal array to merge touching ranges.
+ * range_agg_finalfn：用内部数组合并相触的范围。
  *
- * Shared by range_agg_finalfn(anyrange) and
+ * 由 range_agg_finalfn(anyrange) 与
  * multirange_agg_finalfn(anymultirange).
  */
 Datum
@@ -1385,10 +1385,10 @@ range_agg_finalfn(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (ArrayBuildState *) PG_GETARG_POINTER(0);
 	if (state == NULL)
-		/* This shouldn't be possible, but just in case.... */
+		/* 这本不该发生，但以防万一…… */
 		PG_RETURN_NULL();
 
-	/* Also return NULL if we had zero inputs, like other aggregates */
+	/* 若输入为零，也像其他聚集一样返回 NULL */
 	range_count = state->nelems;
 	if (range_count == 0)
 		PG_RETURN_NULL();
@@ -1404,10 +1404,10 @@ range_agg_finalfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * multirange_agg_transfn: combine adjacent/overlapping multiranges.
+ * multirange_agg_transfn：合并相邻/重叠的多范围。
  *
- * All we do here is gather the input multiranges' ranges into an array so
- * that the finalfn can sort and combine them.
+ * 此处所做只是把各输入多范围的范围收进一
+ * 个数组，供 finalfn 排序合并。
  */
 Datum
 multirange_agg_transfn(PG_FUNCTION_ARGS)
@@ -1433,7 +1433,7 @@ multirange_agg_transfn(PG_FUNCTION_ARGS)
 	else
 		state = (ArrayBuildState *) PG_GETARG_POINTER(0);
 
-	/* skip NULLs */
+	/* 略 NULL */
 	if (!PG_ARGISNULL(1))
 	{
 		MultirangeType *current;
@@ -1445,8 +1445,8 @@ multirange_agg_transfn(PG_FUNCTION_ARGS)
 		if (range_count == 0)
 		{
 			/*
-			 * Add an empty range so we get an empty result (not a null
-			 * result).
+			 * 加入一个空范围，使结果为空而非
+			 * NULL。
 			 */
 			accumArrayResult(state,
 							 RangeTypePGetDatum(make_empty_range(rngtypcache)),
@@ -1484,7 +1484,7 @@ multirange_intersect_agg_transfn(PG_FUNCTION_ARGS)
 
 	typcache = multirange_get_typcache(fcinfo, mltrngtypoid);
 
-	/* strictness ensures these are non-null */
+	/* 严格性保证这些非 NULL */
 	result = PG_GETARG_MULTIRANGE_P(0);
 	current = PG_GETARG_MULTIRANGE_P(1);
 
@@ -1501,9 +1501,9 @@ multirange_intersect_agg_transfn(PG_FUNCTION_ARGS)
 }
 
 
-/* multirange -> element type functions */
+/* 多范围 -> 元素类型函数 */
 
-/* extract lower bound value */
+/* 提取下边界值 */
 Datum
 multirange_lower(PG_FUNCTION_ARGS)
 {
@@ -1526,7 +1526,7 @@ multirange_lower(PG_FUNCTION_ARGS)
 		PG_RETURN_NULL();
 }
 
-/* extract upper bound value */
+/* 提取上边界值 */
 Datum
 multirange_upper(PG_FUNCTION_ARGS)
 {
@@ -1550,9 +1550,9 @@ multirange_upper(PG_FUNCTION_ARGS)
 }
 
 
-/* multirange -> bool functions */
+/* 多范围 -> bool 函数 */
 
-/* is multirange empty? */
+/* 多范围为空？ */
 Datum
 multirange_empty(PG_FUNCTION_ARGS)
 {
@@ -1561,7 +1561,7 @@ multirange_empty(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(MultirangeIsEmpty(mr));
 }
 
-/* is lower bound inclusive? */
+/* 下边界是否包含 */
 Datum
 multirange_lower_inc(PG_FUNCTION_ARGS)
 {
@@ -1580,7 +1580,7 @@ multirange_lower_inc(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(lower.inclusive);
 }
 
-/* is upper bound inclusive? */
+/* 上边界是否包含 */
 Datum
 multirange_upper_inc(PG_FUNCTION_ARGS)
 {
@@ -1599,7 +1599,7 @@ multirange_upper_inc(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(upper.inclusive);
 }
 
-/* is lower bound infinite? */
+/* 下边界是否为无穷 */
 Datum
 multirange_lower_inf(PG_FUNCTION_ARGS)
 {
@@ -1618,7 +1618,7 @@ multirange_lower_inf(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(lower.infinite);
 }
 
-/* is upper bound infinite? */
+/* 上边界是否为无穷 */
 Datum
 multirange_upper_inf(PG_FUNCTION_ARGS)
 {
@@ -1639,9 +1639,9 @@ multirange_upper_inf(PG_FUNCTION_ARGS)
 
 
 
-/* multirange, element -> bool functions */
+/* 多范围、元素 -> bool 函数 */
 
-/* contains? */
+/* 包含？ */
 Datum
 multirange_contains_elem(PG_FUNCTION_ARGS)
 {
@@ -1654,7 +1654,7 @@ multirange_contains_elem(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(multirange_contains_elem_internal(typcache->rngtype, mr, val));
 }
 
-/* contained by? */
+/* 被包含？ */
 Datum
 elem_contained_by_multirange(PG_FUNCTION_ARGS)
 {
@@ -1668,8 +1668,8 @@ elem_contained_by_multirange(PG_FUNCTION_ARGS)
 }
 
 /*
- * Comparison function for checking if any range of multirange contains given
- * key element using binary search.
+ * 用于以二分查找检查多范围的任一范围是否包含给
+ * 定键元素的比较函数。
  */
 static int
 multirange_elem_bsearch_comparison(TypeCacheEntry *typcache,
@@ -1702,7 +1702,7 @@ multirange_elem_bsearch_comparison(TypeCacheEntry *typcache,
 }
 
 /*
- * Test whether multirange mr contains a specific element value.
+ * 测试多范围 mr 是否包含特定的元素值。
  */
 bool
 multirange_contains_elem_internal(TypeCacheEntry *rangetyp,
@@ -1715,9 +1715,9 @@ multirange_contains_elem_internal(TypeCacheEntry *rangetyp,
 									multirange_elem_bsearch_comparison);
 }
 
-/* multirange, range -> bool functions */
+/* 多范围、范围 -> bool 函数 */
 
-/* contains? */
+/* 包含？ */
 Datum
 multirange_contains_range(PG_FUNCTION_ARGS)
 {
@@ -1742,7 +1742,7 @@ range_contains_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(range_contains_multirange_internal(typcache->rngtype, r, mr));
 }
 
-/* contained by? */
+/* 被包含？ */
 Datum
 range_contained_by_multirange(PG_FUNCTION_ARGS)
 {
@@ -1768,8 +1768,8 @@ multirange_contained_by_range(PG_FUNCTION_ARGS)
 }
 
 /*
- * Comparison function for checking if any range of multirange contains given
- * key range using binary search.
+ * 用于以二分查找检查多范围的任一范围是否包含给
+ * 定键范围的比较函数。
  */
 static int
 multirange_range_contains_bsearch_comparison(TypeCacheEntry *typcache,
@@ -1779,16 +1779,16 @@ multirange_range_contains_bsearch_comparison(TypeCacheEntry *typcache,
 	RangeBound *keyLower = (RangeBound *) key;
 	RangeBound *keyUpper = (RangeBound *) key + 1;
 
-	/* Check if key range is strictly in the left or in the right */
+	/* 检查键范围是否严格位于左侧或右侧 */
 	if (range_cmp_bounds(typcache, keyUpper, lower) < 0)
 		return -1;
 	if (range_cmp_bounds(typcache, keyLower, upper) > 0)
 		return 1;
 
 	/*
-	 * At this point we found overlapping range.  But we have to check if it
-	 * really contains the key range.  Anyway, we have to stop our search
-	 * here, because multirange contains only non-overlapping ranges.
+	 * 此时我们找到了重叠的范围。但还必须检查它
+	 * 是否真的包含键范围。无论如何，搜索必须在此
+	 * 停止，因为多范围只包含互不重叠的范围。
 	 */
 	*match = range_bounds_contains(typcache, lower, upper, keyLower, keyUpper);
 
@@ -1796,7 +1796,7 @@ multirange_range_contains_bsearch_comparison(TypeCacheEntry *typcache,
 }
 
 /*
- * Test whether multirange mr contains a specific range r.
+ * 测试多范围 mr 是否包含特定的范围 r。
  */
 bool
 multirange_contains_range_internal(TypeCacheEntry *rangetyp,
@@ -1807,8 +1807,8 @@ multirange_contains_range_internal(TypeCacheEntry *rangetyp,
 	bool		empty;
 
 	/*
-	 * Every multirange contains an infinite number of empty ranges, even an
-	 * empty one.
+	 * 每个多范围都含无穷多个空范围，即使它本身为空亦
+	 * 然。
 	 */
 	if (RangeIsEmpty(r))
 		return true;
@@ -1824,7 +1824,7 @@ multirange_contains_range_internal(TypeCacheEntry *rangetyp,
 }
 
 /*
- * Test whether range r contains a multirange mr.
+ * 测试范围 r 是否包含多范围 mr。
  */
 bool
 range_contains_multirange_internal(TypeCacheEntry *rangetyp,
@@ -1839,8 +1839,8 @@ range_contains_multirange_internal(TypeCacheEntry *rangetyp,
 	bool		empty;
 
 	/*
-	 * Every range contains an infinite number of empty multiranges, even an
-	 * empty one.
+	 * 每个范围都含无穷多个空多范围，即使它本身为空亦
+	 * 然。
 	 */
 	if (MultirangeIsEmpty(mr))
 		return true;
@@ -1848,7 +1848,7 @@ range_contains_multirange_internal(TypeCacheEntry *rangetyp,
 	if (RangeIsEmpty(r))
 		return false;
 
-	/* Range contains multirange iff it contains its union range. */
+	/* 范围包含多范围当且仅当其包含并集范围。 */
 	range_deserialize(rangetyp, r, &lower1, &upper1, &empty);
 	Assert(!empty);
 	multirange_get_bounds(rangetyp, mr, 0, &lower2, &tmp);
@@ -1858,9 +1858,9 @@ range_contains_multirange_internal(TypeCacheEntry *rangetyp,
 }
 
 
-/* multirange, multirange -> bool functions */
+/* 多范围、多范围 -> bool 函数 */
 
-/* equality (internal version) */
+/* 相等（内部版本） */
 bool
 multirange_eq_internal(TypeCacheEntry *rangetyp,
 					   const MultirangeType *mr1,
@@ -1874,7 +1874,7 @@ multirange_eq_internal(TypeCacheEntry *rangetyp,
 				lower2,
 				upper2;
 
-	/* Different types should be prevented by ANYMULTIRANGE matching rules */
+	/* 不同类型本应由 ANYMULTIRANGE 匹配规则来防止 */
 	if (MultirangeTypeGetOid(mr1) != MultirangeTypeGetOid(mr2))
 		elog(ERROR, "multirange types do not match");
 
@@ -1897,7 +1897,7 @@ multirange_eq_internal(TypeCacheEntry *rangetyp,
 	return true;
 }
 
-/* equality */
+/* 相等 */
 Datum
 multirange_eq(PG_FUNCTION_ARGS)
 {
@@ -1910,7 +1910,7 @@ multirange_eq(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(multirange_eq_internal(typcache->rngtype, mr1, mr2));
 }
 
-/* inequality (internal version) */
+/* 不等（内部版本） */
 bool
 multirange_ne_internal(TypeCacheEntry *rangetyp,
 					   const MultirangeType *mr1,
@@ -1919,7 +1919,7 @@ multirange_ne_internal(TypeCacheEntry *rangetyp,
 	return (!multirange_eq_internal(rangetyp, mr1, mr2));
 }
 
-/* inequality */
+/* 不等 */
 Datum
 multirange_ne(PG_FUNCTION_ARGS)
 {
@@ -1932,7 +1932,7 @@ multirange_ne(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(multirange_ne_internal(typcache->rngtype, mr1, mr2));
 }
 
-/* overlaps? */
+/* 重叠？ */
 Datum
 range_overlaps_multirange(PG_FUNCTION_ARGS)
 {
@@ -1970,8 +1970,8 @@ multirange_overlaps_multirange(PG_FUNCTION_ARGS)
 }
 
 /*
- * Comparison function for checking if any range of multirange overlaps given
- * key range using binary search.
+ * 用于以二分查找检查多范围任一范围与给定键
+ * 范围重叠的比较函数。
  */
 static int
 multirange_range_overlaps_bsearch_comparison(TypeCacheEntry *typcache,
@@ -1999,8 +1999,8 @@ range_overlaps_multirange_internal(TypeCacheEntry *rangetyp,
 	bool		empty;
 
 	/*
-	 * Empties never overlap, even with empties. (This seems strange since
-	 * they *do* contain each other, but we want to follow how ranges work.)
+	 * 空范围从不重叠，即使对空范围。（看似奇怪，
+	 * 它们*确实*互相包含，但我们遵循范围的做法。）
 	 */
 	if (RangeIsEmpty(r) || MultirangeIsEmpty(mr))
 		return false;
@@ -2027,8 +2027,8 @@ multirange_overlaps_multirange_internal(TypeCacheEntry *rangetyp,
 				upper2;
 
 	/*
-	 * Empties never overlap, even with empties. (This seems strange since
-	 * they *do* contain each other, but we want to follow how ranges work.)
+	 * 空范围从不重叠，即使对空范围。（看似奇怪，
+	 * 它们*确实*互相包含，但我们遵循范围的做法。）
 	 */
 	if (MultirangeIsEmpty(mr1) || MultirangeIsEmpty(mr2))
 		return false;
@@ -2037,11 +2037,11 @@ multirange_overlaps_multirange_internal(TypeCacheEntry *rangetyp,
 	range_count2 = mr2->rangeCount;
 
 	/*
-	 * Every range in mr1 gets a chance to overlap with the ranges in mr2, but
-	 * we can use their ordering to avoid O(n^2). This is similar to
-	 * range_overlaps_multirange where r1 : r2 :: mrr : r, but there if we
-	 * don't find an overlap with r we're done, and here if we don't find an
-	 * overlap with r2 we try the next r2.
+	 * mr1 中的每个范围都有机会与 mr2 中的范围重叠，
+	 * 但可用其排序避免 O(n^2)。这类似于
+	 * range_overlaps_multirange（r1 : r2 :: mrr : r），但那里
+	 * 找不到与 r 的重叠就结束，而这里找不到与 r2 的
+	 * 重叠则尝试下一个 r2。
 	 */
 	i1 = 0;
 	multirange_get_bounds(rangetyp, mr1, i1, &lower1, &upper1);
@@ -2049,7 +2049,7 @@ multirange_overlaps_multirange_internal(TypeCacheEntry *rangetyp,
 	{
 		multirange_get_bounds(rangetyp, mr2, i2, &lower2, &upper2);
 
-		/* Discard r1s while r1 << r2 */
+		/* 在 r1 << r2 时丢弃 r1 */
 		while (range_cmp_bounds(rangetyp, &upper1, &lower2) < 0)
 		{
 			if (++i1 >= range_count1)
@@ -2058,18 +2058,18 @@ multirange_overlaps_multirange_internal(TypeCacheEntry *rangetyp,
 		}
 
 		/*
-		 * If r1 && r2, we're done, otherwise we failed to find an overlap for
-		 * r2, so go to the next one.
+		 * 若 r1 && r2 则完成；否则未为 r2 找到
+		 * 重叠，转下一个。
 		 */
 		if (range_bounds_overlaps(rangetyp, &lower1, &upper1, &lower2, &upper2))
 			return true;
 	}
 
-	/* We looked through all of mr2 without finding an overlap */
+	/* 查遍 mr2 也未找到重叠 */
 	return false;
 }
 
-/* does not extend to right of? */
+/* 是否不延伸到右侧？ */
 bool
 range_overleft_multirange_internal(TypeCacheEntry *rangetyp,
 								   const RangeType *r,
@@ -2154,7 +2154,7 @@ multirange_overleft_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(range_cmp_bounds(typcache->rngtype, &upper1, &upper2) <= 0);
 }
 
-/* does not extend to left of? */
+/* 是否不延伸到左侧？ */
 bool
 range_overright_multirange_internal(TypeCacheEntry *rangetyp,
 									const RangeType *r,
@@ -2234,7 +2234,7 @@ multirange_overright_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(range_cmp_bounds(typcache->rngtype, &lower1, &lower2) >= 0);
 }
 
-/* contains? */
+/* 包含？ */
 Datum
 multirange_contains_multirange(PG_FUNCTION_ARGS)
 {
@@ -2247,7 +2247,7 @@ multirange_contains_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(multirange_contains_multirange_internal(typcache->rngtype, mr1, mr2));
 }
 
-/* contained by? */
+/* 被包含？ */
 Datum
 multirange_contained_by_multirange(PG_FUNCTION_ARGS)
 {
@@ -2261,7 +2261,7 @@ multirange_contained_by_multirange(PG_FUNCTION_ARGS)
 }
 
 /*
- * Test whether multirange mr1 contains every range from another multirange mr2.
+ * 测试多范围 mr1 是否包含另一个多范围 mr2 中的每个范围。
  */
 bool
 multirange_contains_multirange_internal(TypeCacheEntry *rangetyp,
@@ -2278,10 +2278,10 @@ multirange_contains_multirange_internal(TypeCacheEntry *rangetyp,
 				upper2;
 
 	/*
-	 * We follow the same logic for empties as ranges: - an empty multirange
-	 * contains an empty range/multirange. - an empty multirange can't contain
-	 * any other range/multirange. - an empty multirange is contained by any
-	 * other range/multirange.
+	 * 对空多范围，我们沿用与范围相同的逻辑：
+	 * 空多范围包含空范围/空多范围；空多范围
+	 * 不能包含任何其他范围/多范围；空多范围会被任何
+	 * 范围所包含。
 	 */
 
 	if (range_count2 == 0)
@@ -2290,8 +2290,8 @@ multirange_contains_multirange_internal(TypeCacheEntry *rangetyp,
 		return false;
 
 	/*
-	 * Every range in mr2 must be contained by some range in mr1. To avoid
-	 * O(n^2) we walk through both ranges in tandem.
+	 * mr2 中的每个范围都必须被 mr1 中的某个范围包含。
+	 * 为避免 O(n^2)，同步遍历两者。
 	 */
 	i1 = 0;
 	multirange_get_bounds(rangetyp, mr1, i1, &lower1, &upper1);
@@ -2299,7 +2299,7 @@ multirange_contains_multirange_internal(TypeCacheEntry *rangetyp,
 	{
 		multirange_get_bounds(rangetyp, mr2, i2, &lower2, &upper2);
 
-		/* Discard r1s while r1 << r2 */
+		/* 在 r1 << r2 时丢弃 r1 */
 		while (range_cmp_bounds(rangetyp, &upper1, &lower2) < 0)
 		{
 			if (++i1 >= range_count1)
@@ -2308,23 +2308,23 @@ multirange_contains_multirange_internal(TypeCacheEntry *rangetyp,
 		}
 
 		/*
-		 * If r1 @> r2, go to the next r2, otherwise return false (since every
-		 * r1[n] and r1[n+1] must have a gap). Note this will give weird
-		 * answers if you don't canonicalize, e.g. with a custom
-		 * int2multirange {[1,1], [2,2]} there is a "gap". But that is
-		 * consistent with other range operators, e.g. '[1,1]'::int2range -|-
-		 * '[2,2]'::int2range is false.
+		 * 若 r1 @> r2 则转到下一个 r2，否则返回 false
+		 * （各 r1[n] 与 r1[n+1] 之间必有间隙）。注意：
+		 * 若不规范化则结果怪异，例如自定义的
+		 * int2multirange {[1,1], [2,2]} 就存在 "间隙"。但这
+		 * 与其他范围算子一致，例如 '[1,1]'::int2range -|-
+		 * '[2,2]'::int2range为false.
 		 */
 		if (!range_bounds_contains(rangetyp, &lower1, &upper1,
 								   &lower2, &upper2))
 			return false;
 	}
 
-	/* All ranges in mr2 are satisfied */
+	/* mr2 所有范围均已满足 */
 	return true;
 }
 
-/* strictly left of? */
+/* 严格在左？ */
 Datum
 range_before_multirange(PG_FUNCTION_ARGS)
 {
@@ -2361,7 +2361,7 @@ multirange_before_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(multirange_before_multirange_internal(typcache->rngtype, mr1, mr2));
 }
 
-/* strictly right of? */
+/* 严格在右？ */
 Datum
 range_after_multirange(PG_FUNCTION_ARGS)
 {
@@ -2398,7 +2398,7 @@ multirange_after_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(multirange_before_multirange_internal(typcache->rngtype, mr2, mr1));
 }
 
-/* strictly left of? (internal version) */
+/* 严格在左？（内部版） */
 bool
 range_before_multirange_internal(TypeCacheEntry *rangetyp,
 								 const RangeType *r,
@@ -2442,7 +2442,7 @@ multirange_before_multirange_internal(TypeCacheEntry *rangetyp,
 	return (range_cmp_bounds(rangetyp, &upper1, &lower2) < 0);
 }
 
-/* strictly right of? (internal version) */
+/* 严格在右？（内部版） */
 bool
 range_after_multirange_internal(TypeCacheEntry *rangetyp,
 								const RangeType *r,
@@ -2503,7 +2503,7 @@ range_adjacent_multirange_internal(TypeCacheEntry *rangetyp,
 	return false;
 }
 
-/* adjacent to? */
+/* 相邻？ */
 Datum
 range_adjacent_multirange(PG_FUNCTION_ARGS)
 {
@@ -2569,9 +2569,9 @@ multirange_adjacent_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(false);
 }
 
-/* Btree support */
+/* Btree 支持 */
 
-/* btree comparator */
+/* btree 比较器 */
 Datum
 multirange_cmp(PG_FUNCTION_ARGS)
 {
@@ -2582,9 +2582,9 @@ multirange_cmp(PG_FUNCTION_ARGS)
 	int32		range_count_max;
 	int32		i;
 	TypeCacheEntry *typcache;
-	int			cmp = 0;		/* If both are empty we'll use this. */
+	int			cmp = 0;		/* 两者皆空时用此值。 */
 
-	/* Different types should be prevented by ANYMULTIRANGE matching rules */
+	/* 不同类型本应由 ANYMULTIRANGE 匹配规则来防止 */
 	if (MultirangeTypeGetOid(mr1) != MultirangeTypeGetOid(mr2))
 		elog(ERROR, "multirange types do not match");
 
@@ -2593,7 +2593,7 @@ multirange_cmp(PG_FUNCTION_ARGS)
 	range_count_1 = mr1->rangeCount;
 	range_count_2 = mr2->rangeCount;
 
-	/* Loop over source data */
+	/* 遍历源数据 */
 	range_count_max = Max(range_count_1, range_count_2);
 	for (i = 0; i < range_count_max; i++)
 	{
@@ -2603,11 +2603,11 @@ multirange_cmp(PG_FUNCTION_ARGS)
 					upper2;
 
 		/*
-		 * If one multirange is shorter, it's as if it had empty ranges at the
-		 * end to extend its length. An empty range compares earlier than any
-		 * other range, so the shorter multirange comes before the longer.
-		 * This is the same behavior as in other types, e.g. in strings 'aaa'
-		 * < 'aaaaaa'.
+		 * 若一个多范围更短，就好比它在末尾有空范围来
+		 * 延长其长度。空范围比任何其他范围都小，
+		 * 因此较短的多范围排在较长者之前。
+		 * 这与其他类型的行为一致，例如字符串 'aaa' <
+		 * 'aaaaaa'。
 		 */
 		if (i >= range_count_1)
 		{
@@ -2636,7 +2636,7 @@ multirange_cmp(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(cmp);
 }
 
-/* inequality operators using the multirange_cmp function */
+/* 使用 multirange_cmp 函数的不等算子 */
 Datum
 multirange_lt(PG_FUNCTION_ARGS)
 {
@@ -2669,9 +2669,9 @@ multirange_gt(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(cmp > 0);
 }
 
-/* multirange -> range functions */
+/* 多范围 -> 范围函数 */
 
-/* Find the smallest range that includes everything in the multirange */
+/* 找出包含多范围中一切的最小范围 */
 Datum
 range_merge_from_multirange(PG_FUNCTION_ARGS)
 {
@@ -2709,7 +2709,7 @@ range_merge_from_multirange(PG_FUNCTION_ARGS)
 	PG_RETURN_RANGE_P(result);
 }
 
-/* Turn multirange into a set of ranges */
+/* 把多范围变成一组范围 */
 Datum
 multirange_unnest(PG_FUNCTION_ARGS)
 {
@@ -2724,32 +2724,32 @@ multirange_unnest(PG_FUNCTION_ARGS)
 	multirange_unnest_fctx *fctx;
 	MemoryContext oldcontext;
 
-	/* stuff done only on the first call of the function */
+	/* 仅在函数首次调用时做的事 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		MultirangeType *mr;
 
-		/* create a function context for cross-call persistence */
+		/* 创建用于跨调用持久化的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 		/*
-		 * Get the multirange value and detoast if needed.  We can't do this
-		 * earlier because if we have to detoast, we want the detoasted copy
-		 * to be in multi_call_memory_ctx, so it will go away when we're done
-		 * and not before.  (If no detoast happens, we assume the originally
-		 * passed multirange will stick around till then.)
+		 * 取得多范围值，并按需解 TOAST。我们不能更早
+		 * 做这件事，因为若必须解 TOAST，我们会希望解
+		 * TOAST 后的副本位于 multi_call_memory_ctx 中，
+		 * 它要待我们完成时才会消失（若未发生解
+		 * TOAST，则原多范围会留到那时。）
 		 */
 		mr = PG_GETARG_MULTIRANGE_P(0);
 
-		/* allocate memory for user context */
+		/* 为用户上下文分配内存 */
 		fctx = (multirange_unnest_fctx *) palloc(sizeof(multirange_unnest_fctx));
 
-		/* initialize state */
+		/* 初始化状态 */
 		fctx->mr = mr;
 		fctx->index = 0;
 		fctx->typcache = lookup_type_cache(MultirangeTypeGetOid(mr),
@@ -2759,7 +2759,7 @@ multirange_unnest(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次函数调用都要做的事 */
 	funcctx = SRF_PERCALL_SETUP();
 	fctx = funcctx->user_fctx;
 
@@ -2776,14 +2776,14 @@ multirange_unnest(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* do when there is no more left */
+		/* 没有剩余内容时执行 */
 		SRF_RETURN_DONE(funcctx);
 	}
 }
 
-/* Hash support */
+/* 哈希支持 */
 
-/* hash a multirange value */
+/* 对多范围值哈希 */
 Datum
 hash_multirange(PG_FUNCTION_ARGS)
 {
@@ -2833,15 +2833,15 @@ hash_multirange(PG_FUNCTION_ARGS)
 		else
 			upper_hash = 0;
 
-		/* Merge hashes of flags and bounds */
+		/* 合并标志与边界的哈希 */
 		range_hash = hash_uint32((uint32) flags);
 		range_hash ^= lower_hash;
 		range_hash = pg_rotate_left32(range_hash, 1);
 		range_hash ^= upper_hash;
 
 		/*
-		 * Use the same approach as hash_array to combine the individual
-		 * elements' hash values:
+		 * 采用与 hash_array 相同的方法合并各个
+		 * 元素的哈希值：
 		 */
 		result = (result << 5) - result + range_hash;
 	}
@@ -2852,8 +2852,8 @@ hash_multirange(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns 64-bit value by hashing a value to a 64-bit value, with a seed.
- * Otherwise, similar to hash_multirange.
+ * 将值哈希为 64 位值（带种子）并返回之。
+ * 其余同 hash_multirange。
  */
 Datum
 hash_multirange_extended(PG_FUNCTION_ARGS)
@@ -2907,7 +2907,7 @@ hash_multirange_extended(PG_FUNCTION_ARGS)
 		else
 			upper_hash = 0;
 
-		/* Merge hashes of flags and bounds */
+		/* 合并标志与边界的哈希 */
 		range_hash = DatumGetUInt64(hash_uint32_extended((uint32) flags,
 														 DatumGetInt64(seed)));
 		range_hash ^= lower_hash;
@@ -2915,8 +2915,8 @@ hash_multirange_extended(PG_FUNCTION_ARGS)
 		range_hash ^= upper_hash;
 
 		/*
-		 * Use the same approach as hash_array to combine the individual
-		 * elements' hash values:
+		 * 采用与 hash_array 相同的方法合并各个
+		 * 元素的哈希值：
 		 */
 		result = (result << 5) - result + range_hash;
 	}

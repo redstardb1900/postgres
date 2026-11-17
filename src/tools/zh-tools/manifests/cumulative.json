@@ -7211,6 +7211,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0414-adt-rgist-like-json.json",
    "kind": "manifest",
    "note": "batch-0414 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/tsvector_op.c",
+   "kind": "c_comment",
+   "note": "文本检索向量运算 (tsvector 保留, lexeme→词位, weight→权重, position→位置, phrase→短语, prefix→前缀, stripped→去除位置的, operators→算子词形, OID 逐字); whole-file comment translation, batch-0415"
+  },
+  {
+   "pattern": "src/backend/utils/adt/multirangetypes.c",
+   "kind": "c_comment",
+   "note": "多范围类型 (multirange→多范围, range→范围, bounds→边界, empty→空, contains/contained→包含/被包含, overlap→重叠, minus→差集, union→并集, intersect→交集, adjacent→相邻/相接, canonicalize→规范化, detoast→解 TOAST, 操作符名保留, OID 逐字); whole-file comment translation, batch-0415"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0415-adt-tsvop-multirange.json",
+   "kind": "manifest",
+   "note": "batch-0415 manifest"
   }
  ],
  "files": [
@@ -23388,6 +23403,40 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0414 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/tsvector_op.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 169,
+   "translated": 166,
+   "preserved": 3,
+   "preserved_reasons": [
+    "L1528 /* Lpos > Rpos */ / L1736 /* !L & R */ / L1744 /* L & !R */ 三个纯符号注释块整块保留 (无自然语言成分), 保留行 13 见 note"
+   ],
+   "note": "文本检索向量运算 (tsvector 标识符保留, lexeme→词位 0392/0407 口径, rank 不涉及, weight→权重, position→位置, phrase→短语, prefix→前缀, stem 不涉及, stopword 不涉及, stripped→去除位置的, AND/OR/NOT 运算保留, operator/ops→算子词形, OID 逐字); whole-file comment translation, batch-0415; dump 伪块 167 注释感知重扫权威 169 块 (L47 行内结构注释/L156 宏内注释/L1898 行内注释 三站 dump 合并伪块); content 行 336 = zh 323 + 保留 EN 13 (头部 4: L3 文件名/L6 版权/L9 IDENTIFICATION/L10 路径, 头部功能描述行 L4 已译; L268 函数签名; L1528/L1736/L1744 纯符号注释 3 站整块保留; L1586/L1588/L1590/L1592 npos/negate 代码语义行 4 站; L2409 SQL 行); 行数守恒 2893 不变 (git diff numstat 323/323); 代码字节零改动 (R1_SKELETON 一度违例 L1898 已修复复扫 rc=0); NUL 扫描 0; W7 advisory 6 站 (L491 lexeme/L1569 position/L1978·L2170 NOTs/L2718 col,column,name/L2846 column); term_lint 本文件 7 站 advisory (TL08/P23 L2149 requires 已改需要仍泛告警, L2183/L2190 要求 demand 义保留, P39 L2718); scan_halfen 本文件 3 站 mixed advisory (L82 标识符 run/L267 签名行/L2292 引号标识符); 同 EN 同译实证: L241=L307=L2586=L2590=L2757 内部错误, L328=L606 忽略 NULL 数组元素, L1220=L1248, L1623=L1890=L2037=L2160 栈溢出, L1626=L1893=L2040 查询取消, L1842=L1974=L2145=L2200 不可达, L1692-1693=L1772-1773, L1848=L1868; 极性自查: they surely don't match→必然不匹配 / *don't* check→*不*检查 / iff→当且仅当 / doesn't need→不需要 / can't return reliable→无法返回可靠 均与代码语义对照无反转"
+  },
+  {
+   "path": "src/backend/utils/adt/multirangetypes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 177,
+   "translated": 177,
+   "preserved": 0,
+   "preserved_reasons": [
+    "无整块保留; 保留行 11 见 note"
+   ],
+   "note": "多范围类型 (multirange→多范围 0396/0409 口径, range→范围 0392, bounds→边界, empty→空, contains/contained→包含/被包含, overlap→重叠, minus→差集, union→并集, intersect→交集, adjacent→相邻/相接, meet→相接, canonicalize→规范化, detoast→解 TOAST, @>/<<@/&&/-|-/<<>> 操作符名与 r1/r2/mr 标识符保留, operators→算子词形, OID 逐字); whole-file comment translation, batch-0415; dump 177 块注释感知重扫一致 177 块; content 行 316 = zh 305 + 保留 EN 11 (头部 5: L3 文件名/L24·L25 版权×2/L28 IDENTIFICATION/L29 路径, 头部功能描述行 L4 与存储格式 L6-L22 已译; L990 代码样例行; L1167/L1370 纯标识符续行 2 站; L1278-1280 ASCII 拼接图示 3 行); 行数守恒 2927 不变 (git diff numstat 305/305); 代码字节零改动 (diff 审计 + verify rc=0); NUL 扫描 0; W7 advisory 7 站 (L99/L531/L930 横幅词 FUNCTIONS/SUPPORT/GENERIC, L637/L936/L1359/L1436 NULLs); term_lint 本文件 0 hits (P02 cannot→无法有 L823-824 已修); scan_halfen 本文件 1 站 mixed advisory (L988 代码样例行 固有); 同 EN 同译实证: L142=L284 消耗空白, L237-238=L255-256=L274-275 (B13 因缩进/预算分译 同句), L968-969=L1036-1037, L1174=L1300, L2052=L2302, L2002-2003=L2030-2031, L2836=L2910, L2843-2844=L2918-2919; 极性自查: can't contain empty ranges→不能包含空范围 / never overlap→从不重叠 / never more→绝不超 / we don't have to assign back→不必赋回 / won't fit→无法装入 / must be fully detoasted→必须完全解 TOAST 均与代码语义对照无反转; 句号台账见 title: FWD 5 = L856/L876 (边界而非范围. 半角句点, 全角 21>20B 不可行), L969/L1037 (即可, 万一。 9>8B 不可行), L2316 ('[2,2]'::int2range为false. 半角句点, 全角 29>28B 不可行); REV 0"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0415-adt-tsvop-multirange.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0415 manifest (cumulative 自条目不重复登记)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

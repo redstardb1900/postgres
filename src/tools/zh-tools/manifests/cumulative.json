@@ -7226,6 +7226,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0415-adt-tsvop-multirange.json",
    "kind": "manifest",
    "note": "batch-0415 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/ri_triggers.c",
+   "kind": "c_comment",
+   "note": "引用完整性触发器; whole-file comment translation, batch-0416"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pg_locale.c",
+   "kind": "c_comment",
+   "note": "区域设置/排序规则; whole-file comment translation, batch-0416"
+  },
+  {
+   "pattern": "src/backend/utils/adt/date.c",
+   "kind": "c_comment",
+   "note": "日期/时间类型; whole-file comment translation, batch-0416"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0416-adt-ri-locale-date.json",
+   "kind": "manifest",
+   "note": "batch-0416 manifest"
   }
  ],
  "files": [
@@ -23437,6 +23457,52 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0415 manifest (cumulative 自条目不重复登记)"
+  },
+  {
+   "path": "src/backend/utils/adt/ri_triggers.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 255,
+   "translated": 250,
+   "preserved": 5,
+   "preserved_reasons": [
+    "整块保留 5 块: @141 RI_QueryHashEntry 标题/@161 RI_CompareHashEntry 标题/@173 Local data 预算/@2885+@2889 typmod 标识符注释; 行级保留 EN 76 行: 头部 4 行 (L3/L6/L17/L19); 结构体/函数名标题行 34 行为标识符保留; SQL 示例与标签行 27 行为查询样例保留 (含 For MATCH SIMPLE/FULL 标签行); 预算不可行行 11 行保留 (L101 ri_constraint_cache. 23B, L174 Local data 13B, L294 MATCH. 12B, L1289 type. 5B, L1317 later. 6B, L1325 yet. 8B, L1511 failure. 12B, L2528 privileges. 11B, L2885/L2889 typmod 注释, L2914 if not. 7B; 审后 L1635 fake_riinfo 行已转译为 zh); 全清单 76 行见 note (块口径: 255=译 250+整块保留 5, 行文流混块计入译)"
+   ],
+   "note": "引用完整性触发器 (ri_triggers/RI_*/ri_* 标识符保留, PK/FK→主键/外键 (战役口径), referential integrity→引用完整性 (0396 typcache 口径), cascade→级联, restrict→限制 (RESTRICT 保留), NO ACTION 保留, snapshot→快照, equality operators→相等算子 (operators 算子词形), attnum/OID 逐字); whole-file comment translation, batch-0416; dump 255 块注释感知重扫权威一致 255 块; content 行 628 = zh 552 + 保留 EN 76 (审后 L1635 转译; 头部 4: L3 文件名/L6 头横幅/L17 版权/L19 路径, 头部功能描述 L5 与内存管理说明 L8-L14 已译; 结构体/函数名标题行 34: L98/131/142/151/162/237/422/438/454/547/564/584/601/621/741/847/968/983/998/1013/1028/1218/1252/1351/1657/1978/2199/2638/2677/2712/2765/2794/2868/2911; SQL 示例与标签行 27: L364/365/496/497/683/684/790/901/902/1124/1125/1452-1459/1690-1697; 预算不可行行 11: L101/L174/L294/L1289/L1317/L1325/L1511/L2528/L2885/L2889/L2914; 行数守恒 3032 不变 (git diff numstat 552/552); 代码字节零改动 (新旧逐行对照非键行 0 变更); NUL 扫描 0; 同 EN 同译实证: L429=L576=L613 检查这是在正确时机与事件上的有效触发器调用, L106=L167 已成功初始化？, L394=L525=L717=L822=L944=L1176 准备并保存该计划, L728=L834=L955=L1187 须探测新行, L1222-1224=L1256-1258 AFTER 队列管理器段, L1243=L1342, L1247=L1346, L2295=L2413 切换 UID, L2307=L2425 恢复 UID 与安全上下文, L2149=L2153 不应发生, L1536-1547=L1776-1787 work_mem 段, L1563-1564=L1803-1804, L1573-1577=L1813-1817, L1585=L1825=L2428 检查结果, L1461=L1699 算子附 COLLATE, L1609-1610=L1849-1850 改变其惯用 pk_rel 或 fk_rel tupdesc, L1649=L1863 恢复 work_mem/hash_mem_multiplier; 极性自查: should not even consider→根本不应考虑 / don't wish→不愿替换 / can't change infinity→无法改变无穷 (L510/L534) / must not throw→不能在此处报错 / doesn't exceed→不超过 / can't use→不能用 / 不会出现 (-1 case cannot occur) 均与代码语义对照无反转; 句号台账 FWD 8 = L871(旧元组, +。=12>9 不可行)/L1224+L1258(则返回假, 15>13)/L1577+L1817(传 limit=1 尾, 53>51)/L1635(即可 尾, 36>34)/L2135+L2226(句跨行提前收束); REV 23 = L5/L9/L262/L264/L293/L402/L457/L1206/L1220/L1254/L1288/L1316/L1324/L1510/L1536/L1776/L1937/L1942/L2232/L2352/L2527/L2853/L2913 (行文流整句提前收束自洽, python 回读对账)"
+  },
+  {
+   "path": "src/backend/utils/adt/pg_locale.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 265,
+   "translated": 233,
+   "preserved": 32,
+   "preserved_reasons": [
+    "整块保留 32 块: 全部为 #endif/#else 预处理分支标记单行注释块 (L202/245/247/760/762/932/1179/1187/1189/1440/1445/1479/1596/1601/1833/1859/1898/2018/2851/2856/2923/2928/2975/2987/2994/2995/2999/3048/3064/3071/3072/3076); 行级保留 EN 66 行: 头部 2 (L5/L7); 代码序列 L38-41; URL L48/L1005/L1006; 示例串 L1016/L1058; 代码语法图 L1101; #endif/#else 分支标记与函数名标题行见 note 清单; 预算不可行句尾行 L30/544/817/1461/1587/1638/2461/2686 等; 全清单 66 行见 note (块口径: 265=译 233+整块保留 32, 行文流混块计入译)"
+   ],
+   "note": "区域设置 (locale→区域设置 (0400 cash 口径), collate/collation→排序规则 (战役口径), provider→提供者, ICU/ICU UChar 保留, builtin→内置, locale_t/localeconv/setlocale/strcoll 族/wcstombs 族 标识符保留, LC_* 类别名保留, OID 逐字); whole-file comment translation, batch-0416; dump 265 块注释感知重扫权威一致 265 块; content 行 642 = zh 576 + 保留 EN 66 (其中 L2958 MultiByteToWideChar() 为标识符保留行 (审后⑮披露), L760 redefine strftime() 为预算保留行; 头部 2: L5/L7 版权×1+路径, 头部功能描述 L3 与 L13-L49 机制总述已译; #endif/#else 预处理分支标记单行注释块 21 块见整块保留清单; 函数名标题行 12: L163/1836/1876/1923/1979/2021/2052/2305/2337/2392/2423/2858; 代码行 4: L38-41 setlocale 序列; URL/引用行 3: L48/1005/1006; 其余为预算不可行句尾行 (L30/544/817/1461/1587/1638/2461/2686 等); 行数守恒 3101 不变 (git diff numstat 596/596, 其中 20 行为相邻块 diff 对齐的 frame 行假变化, 实际变更 576); 代码字节零改动 (新旧逐行对照非键行 0 变更); NUL 扫描 0; 同 EN 同译实证: L591=L605 现在须复制数据以防 setlocale() 覆盖, L575=L835 保存 ctype 区域设置现行值, L864=L936 本地化日, L876=L947 本地化月份, L649=L907 释放 pstrdup 区域设置名, L2964=L3035 返回零即失败, L2988=L3065 只得临时把该区域设置设为当前... 唯 (审后⑯ L3065 唯→唉, 现两行同译一致), L2996=L3073 无 HAVE_LOCALE_T 时不能有 locale != 0, L1906=L2122 以 nul 终结参数, L2131=L2180 若定义了 dest 它就应以 nul 终结, L2139=L2186=L2234 'srclen' 为 -1 表示字符串以 NUL 终结, L1441=L2924 排序规则若由带 ICU 的构建创建则会到这, L1296-1297=L1349-1350, L1303-1304=L1356-1357, L1330=L1383, L1337=L1390, L2029=L2064, L2307-2309=L2339-2341, L2316=L2348, L2394-2402=L2425-2433, L2346-2348=L2314-2316, L2321=L2358=L2408=L2443 让编译器安静, L2045=L2081=L2102=L2298=L2330=L2367=L2385 不应发生, 极性自查: DOES NOT WORK RELIABLY→并不能可靠地工作 / can't change the transaction snapshot→无法更改事务快照 / we don't actually set→实际上并不 / we can't even check→甚至无法检查 / it's important that this not throw→不得抛出 / won't happen we hope→但愿不会发生 / 均无反转; 句号台账 FWD 18 = L36/L44/L447/L858/L968/L1012/L1015/L1057/L1198/L1409/L2025/L2312/L2344/L2375/L2699/L2703/L2815/L2932=L2933 (句跨行提前收束或 +。3B 不可行, 如 L447 一致 尾 +。超预算, L968 接口串 尾 +。3B 不可行, L2703 uloc_canonicalize() 标识符尾); REV 15 = L14/L29/L166/L188/L543/L743/L816/L967/L1126/L1460/L1637/L2460/L2685/L3086/L3088 (同上自洽, python 回读对账)"
+  },
+  {
+   "path": "src/backend/utils/adt/date.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 154,
+   "translated": 146,
+   "preserved": 8,
+   "preserved_reasons": [
+    "整块保留 8 块: @103 Date ADT 横幅/@1368 Time ADT 横幅/@2164/@2175/@2952/@2963/@2998 ASCII 算式块/@2246 Time With Time Zone ADT 横幅; 行级保留 EN 79 行: 头部 5 (L3/L6/L7/L10/L11); 代码行 14 (date L217-L225 伪块, L224 }); 公式行 15 (L2165/2166/2176/2177/2953/2954/2964/2965/2999/3000/1922/1953); 函数名标题行/ADT 横幅与 L1641 - thomas 署名行豁免等 45 行见 note 清单; 全清单 79 行见 note (块口径: 154=译 146+整块保留 8, date L217 伪块混块计入译)"
+   ],
+   "note": "日期/时间类型 (date/time/timestamp/timestamptz/timetz/interval 标识符保留, AD/BC 纪元标记保留 (BC 年→公元前口径仅 L255 语义注记), julian day→儒略日, leap year 不涉及, in_range/extract/part 函数名保留, OVERLAPS 算子名保留, OID 逐字); whole-file comment translation, batch-0416; dump 154 块注释感知重扫权威一致 154 块 (date L217 dump 伪块: 注释 /* ok */ ; 与后续代码行并块, 代码行 L218-L225 全数保留 EN, 块口径按注释感知重扫 154 块); content 行 312 = zh 233 + 保留 EN 79 (头部 5: L3 文件名/L6/L7 版权×2/L10 IDENTIFICATION/L11 路径, 头部功能描述 L4 已译; 代码行 14: L217 /* ok */ ; 与 L218-L225 else if/ereport/PG_RETURN/} 及空行; 公式行 15: L2165/2166/2176/2177/2953/2954/2964/2965/2999/3000 (ASCII 算式) 与 L1922/L1953 (USECS_PER_DAY 续式); 函数名标题行与横幅 ADT 行 45: L104/1369/2247 Date/Time ADT 等见清单; 行数守恒 3129 不变 (git diff numstat 233/233); 代码字节零改动 (新旧逐行对照非键行 0 变更); NUL 扫描 0; 同 EN 同译实证: L162=L270 儒略日例程防溢出, L170=L279 刚好越界, L510=L534 无法改变无穷, L514=L538 整数溢出与超出允许范围, L577=L640, L596=L729 date 为 2000 起天数, L750=L830, L1436=L1469 hour = 24 或 sec = 60, L1428=L1452 逐个对各字段做范围检查, L1412=L2251 把 tm 结构转为 time 类型, L1620=L2412 按指定刻度调整, L1621=L2413 PostgreSQL 类型系统用于填列, L1803-1805=L2695-2697 null 端点段, L1847-1848=L2739-2740, L1853-1854=L2745-2746, L1864-1865=L2756-2757, L1871=L2763, L1880-1881=L2772-2773, L1888-1889=L2780-2781, L1811=L1831=L2703=L2723 换入非 null, L1826=L2718 区间 2 同理, L1777-1779=L2669-2671 SQL 规范段, L1921=L1952 USECS_PER_DAY 式, L1156=L1164=L1172 timestamp_part 注释, L3086=L3120 C99 取模, 极性自查: shouldn't allow wrong number→不应允许错误的修饰符数量 / can't change infinity→无法改变无穷 / can't use time_pl_interval→不能用 / won't need that again→之后不再需要 / 均无反转; 审后① L241 make_date 函数名勘正; 句号台账 FWD 27 = L40/L550/L613/L1032/L1242/L1262/L1279/L1293/L1323/L1338/L1412/L1482/L1621/L1889/L1901/L1931/L1962/L1985/L2003/L2005/L2052/L2251/L2413/L2584/L2781/L2830/L2859 (转换类一句式注记 +。预算不可行或句跨行); REV 2 = L321/L1640 (同上自洽, python 回读对账)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0416-adt-ri-locale-date.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0416 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

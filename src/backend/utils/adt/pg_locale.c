@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------
  *
- * PostgreSQL locale utilities
+ * PostgreSQL 区域设置
  *
  * Portions Copyright (c) 2002-2023, PostgreSQL Global Development Group
  *
@@ -10,40 +10,40 @@
  */
 
 /*----------
- * Here is how the locale stuff is handled: LC_COLLATE and LC_CTYPE
- * are fixed at CREATE DATABASE time, stored in pg_database, and cannot
- * be changed. Thus, the effects of strcoll(), strxfrm(), isupper(),
- * toupper(), etc. are always in the same fixed locale.
+ * 区域设置的处理方式如下：LC_COLLATE 与 LC_CTYPE
+ * 在 CREATE DATABASE 时固定并存于 pg_database，不可更改。
+ * 因此，strcoll()、strxfrm()、isupper()、
+ * toupper() 等总在同一固定区域设置生效。
  *
- * LC_MESSAGES is settable at run time and will take effect
- * immediately.
+ * LC_MESSAGES 可在运行时设置，并将立即
+ * 生效。
  *
- * The other categories, LC_MONETARY, LC_NUMERIC, and LC_TIME are also
- * settable at run-time.  However, we don't actually set those locale
- * categories permanently.  This would have bizarre effects like no
- * longer accepting standard floating-point literals in some locales.
- * Instead, we only set these locale categories briefly when needed,
- * cache the required information obtained from localeconv() or
- * strftime(), and then set the locale categories back to "C".
- * The cached information is only used by the formatting functions
- * (to_char, etc.) and the money type.  For the user, this should all be
+ * 其他类别 LC_MONETARY、LC_NUMERIC 与 LC_TIME 也可在
+ * 运行时设置。但我们实际上并不永久设置这些区域
+ * 设置类别。因为这会导致奇怪的效果，例如
+ * 某些区域设置不再接受标准浮点文字。
+ * 相反，只在需要时短暂设置这些类别，
+ * 缓存 localeconv() 或 strftime() 取得的信息，
+ * 然后把区域设置类别设回 "C"。
+ * 缓存的信息仅供格式化函数（to_char 等）与货币
+ * 类型使用。对用户而言，这一切都应当是透明的。
  * transparent.
  *
- * !!! NOW HEAR THIS !!!
+ * !!! 听好了 !!!
  *
- * We've been bitten repeatedly by this bug, so let's try to keep it in
- * mind in future: on some platforms, the locale functions return pointers
- * to static data that will be overwritten by any later locale function.
- * Thus, for example, the obvious-looking sequence
+ * 我们已被这个 bug 反复坑过，所以今后要把它牢
+ * 记在心间：在某些平台上，区域设置函数返回的
+ * 是指向静态数据的指针，会被之后任何区域设置
+ * 函数覆盖。例如看似显然的序列
  *			save = setlocale(category, NULL);
  *			if (!setlocale(category, value))
  *				fail = true;
  *			setlocale(category, save);
- * DOES NOT WORK RELIABLY: on some platforms the second setlocale() call
- * will change the memory save is pointing at.  To do this sort of thing
- * safely, you *must* pstrdup what setlocale returns the first time.
+ * 并不能可靠地工作：在某些平台上第二次
+ * setlocale() 调用会改变 save 所指向的内存。安全
+ * 做法：你 *必须* 对 setlocale 首次返回值 pstrdup
  *
- * The POSIX locale standard is available here:
+ * POSIX 区域设置标准见此：
  *
  *	http://www.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap07.html
  *----------
@@ -82,20 +82,20 @@
 #include <shlwapi.h>
 #endif
 
-/* Error triggered for locale-sensitive subroutines */
+/* 区域设置敏感子例程触发的错误 */
 #define		PGLOCALE_SUPPORT_ERROR(provider) \
 	elog(ERROR, "unsupported collprovider for %s: %c", __func__, provider)
 
 /*
- * This should be large enough that most strings will fit, but small enough
- * that we feel comfortable putting it on the stack
+ * 它应当足够大以容纳大多数字符串，但又足够小，
+ * 让我们可以放心地把它放在栈上
  */
 #define		TEXTBUFLEN			1024
 
 #define		MAX_L10N_DATA		80
 
 
-/* GUC settings */
+/* GUC 设置 */
 char	   *locale_messages;
 char	   *locale_monetary;
 char	   *locale_numeric;
@@ -104,33 +104,33 @@ char	   *locale_time;
 int			icu_validation_level = WARNING;
 
 /*
- * lc_time localization cache.
+ * lc_time 本地化缓存。
  *
- * We use only the first 7 or 12 entries of these arrays.  The last array
- * element is left as NULL for the convenience of outside code that wants
- * to sequentially scan these arrays.
+ * 我们只用这些数组的前 7 或 12 项。末尾数组
+ * 元素留为 NULL，以便外部代码可以顺序扫描这些
+ * 数组。
  */
 char	   *localized_abbrev_days[7 + 1];
 char	   *localized_full_days[7 + 1];
 char	   *localized_abbrev_months[12 + 1];
 char	   *localized_full_months[12 + 1];
 
-/* is the databases's LC_CTYPE the C locale? */
+/* 数据库 LC_CTYPE 是否为 C locale？ */
 bool		database_ctype_is_c = false;
 
-/* indicates whether locale information cache is valid */
+/* 指示区域设置信息缓存是否有效 */
 static bool CurrentLocaleConvValid = false;
 static bool CurrentLCTimeValid = false;
 
-/* Cache for collation-related knowledge */
+/* 排序规则相关知识的缓存 */
 
 typedef struct
 {
-	Oid			collid;			/* hash key: pg_collation OID */
-	bool		collate_is_c;	/* is collation's LC_COLLATE C? */
-	bool		ctype_is_c;		/* is collation's LC_CTYPE C? */
-	bool		flags_valid;	/* true if above flags are valid */
-	pg_locale_t locale;			/* locale_t struct, or 0 if not valid */
+	Oid			collid;			/* 哈希键:pg_collation OID */
+	bool		collate_is_c;	/* LC_COLLATE 是否为 C？ */
+	bool		ctype_is_c;		/* LC_CTYPE 是否为 C？ */
+	bool		flags_valid;	/* 以上标志是否有效 */
+	pg_locale_t locale;			/* locale_t 结构，无效时为 0 */
 } collation_cache_entry;
 
 static HTAB *collation_cache = NULL;
@@ -142,9 +142,9 @@ static char *IsoLocaleName(const char *);
 
 #ifdef USE_ICU
 /*
- * Converter object for converting between ICU's UChar strings and C strings
- * in database encoding.  Since the database encoding doesn't change, we only
- * need one of these per session.
+ * 用于在 ICU 的 UChar 字符串与数据库编码的 C 字符串
+ * 之间转换的转换器对象。数据库编码不会变化，
+ * 每个会话只需一个。
  */
 static UConverter *icu_converter = NULL;
 
@@ -162,16 +162,16 @@ static void icu_set_collation_attributes(UCollator *collator, const char *loc,
 /*
  * pg_perm_setlocale
  *
- * This wraps the libc function setlocale(), with two additions.  First, when
- * changing LC_CTYPE, update gettext's encoding for the current message
- * domain.  GNU gettext automatically tracks LC_CTYPE on most platforms, but
- * not on Windows.  Second, if the operation is successful, the corresponding
- * LC_XXX environment variable is set to match.  By setting the environment
- * variable, we ensure that any subsequent use of setlocale(..., "") will
- * preserve the settings made through this routine.  Of course, LC_ALL must
- * also be unset to fully ensure that, but that has to be done elsewhere after
- * all the individual LC_XXX variables have been set correctly.  (Thank you
- * Perl for making this kluge necessary.)
+ * 这是 libc 函数 setlocale() 的封装，有两点补充。其一，
+ * 当更改 LC_CTYPE 时，更新当前消息域的 gettext 编码。
+ * GNU gettext 在大多数平台上会自动跟踪 LC_CTYPE，但
+ * Windows 上则不会。第二，如果操作成功，相应的
+ * LC_XXX 环境变量会被设为匹配的值。通过设置环境
+ * 变量，我们确保之后任何对 setlocale(..., "") 的使用
+ * 都会保留通过本例程所做的设置。当然，LC_ALL 也
+ * 必须被取消设置才能完全确保这一点，但这必须在
+ * 所有单个 LC_XXX 变量都正确设置之后在其他地方完
+ * 成（拜 Perl 所赐。）
  */
 char *
 pg_perm_setlocale(int category, const char *locale)
@@ -184,10 +184,10 @@ pg_perm_setlocale(int category, const char *locale)
 #else
 
 	/*
-	 * On Windows, setlocale(LC_MESSAGES) does not work, so just assume that
-	 * the given value is good and set it in the environment variables. We
-	 * must ignore attempts to set to "", which means "keep using the old
-	 * environment value".
+	 * 在 Windows 上，setlocale(LC_MESSAGES) 不生效，所以只
+	 * 需假定给定值是好的，并将其设置到环境变量中。
+	 * 必须忽略设为 "" 的尝试，那意味着 "继续使用旧
+	 * 的环境值"。
 	 */
 #ifdef LC_MESSAGES
 	if (category == LC_MESSAGES)
@@ -202,20 +202,20 @@ pg_perm_setlocale(int category, const char *locale)
 #endif							/* WIN32 */
 
 	if (result == NULL)
-		return result;			/* fall out immediately on failure */
+		return result;			/* 失败时立即跳出 */
 
 	/*
-	 * Use the right encoding in translated messages.  Under ENABLE_NLS, let
-	 * pg_bind_textdomain_codeset() figure it out.  Under !ENABLE_NLS, message
-	 * format strings are ASCII, but database-encoding strings may enter the
-	 * message via %s.  This makes the overall message encoding equal to the
-	 * database encoding.
+	 * 在翻译消息中使用正确的编码。在 ENABLE_NLS 下，让
+	 * pg_bind_textdomain_codeset() 自行判断。在 !ENABLE_NLS
+	 * 下，消息格式字符串都是 ASCII，但数据库编码的字
+	 * 符串可能经由 %s 进入消息。这使整体消息编码等于
+	 * 数据库编码。
 	 */
 	if (category == LC_CTYPE)
 	{
 		static char save_lc_ctype[LOCALE_NAME_BUFLEN];
 
-		/* copy setlocale() return value before callee invokes it again */
+		/* 在被调方再次调用前复制 setlocale() 返回值 */
 		strlcpy(save_lc_ctype, result, sizeof(save_lc_ctype));
 		result = save_lc_ctype;
 
@@ -256,7 +256,7 @@ pg_perm_setlocale(int category, const char *locale)
 			break;
 		default:
 			elog(FATAL, "unrecognized LC category: %d", category);
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 让编译器安静 */
 	}
 
 	if (setenv(envvar, result, 1) != 0)
@@ -267,14 +267,14 @@ pg_perm_setlocale(int category, const char *locale)
 
 
 /*
- * Is the locale name valid for the locale category?
+ * 区域设置名对该类别是否有效？
  *
- * If successful, and canonname isn't NULL, a palloc'd copy of the locale's
- * canonical name is stored there.  This is especially useful for figuring out
- * what locale name "" means (ie, the server environment value).  (Actually,
- * it seems that on most implementations that's the only thing it's good for;
- * we could wish that setlocale gave back a canonically spelled version of
- * the locale name, but typically it doesn't.)
+ * 如果成功且 canonname 非 NULL，则该区域设置规范名
+ * 的一份 palloc 副本将存于其中。这对弄清区域设置名
+ * "" 的含义特别有用（即服务器环境值）。（实际上，
+ * 在大多数实现上这似乎是它唯一有用的地方；我们
+ * 可能希望 setlocale 返回规范拼写的区域设置名称，
+ * 但通常它并不这么做。）
  */
 bool
 check_locale(int category, const char *locale, char **canonname)
@@ -282,7 +282,7 @@ check_locale(int category, const char *locale, char **canonname)
 	char	   *save;
 	char	   *res;
 
-	/* Don't let Windows' non-ASCII locale names in. */
+	/* 不放行 Windows 非 ASCII 区域设置名 */
 	if (!pg_is_ascii(locale))
 	{
 		ereport(WARNING,
@@ -293,28 +293,28 @@ check_locale(int category, const char *locale, char **canonname)
 	}
 
 	if (canonname)
-		*canonname = NULL;		/* in case of failure */
+		*canonname = NULL;		/* 以防失败 */
 
 	save = setlocale(category, NULL);
 	if (!save)
-		return false;			/* won't happen, we hope */
+		return false;			/* 但愿不会发生 */
 
-	/* save may be pointing at a modifiable scratch variable, see above. */
+	/* save 可能指向一个可修改的暂存变量，见上文。 */
 	save = pstrdup(save);
 
-	/* set the locale with setlocale, to see if it accepts it. */
+	/* 用 setlocale 设置区域设置，看是否接受 */
 	res = setlocale(category, locale);
 
-	/* save canonical name if requested. */
+	/* 如要求则保存规范名 */
 	if (res && canonname)
 		*canonname = pstrdup(res);
 
-	/* restore old value. */
+	/* 恢复旧值 */
 	if (!setlocale(category, save))
 		elog(WARNING, "failed to restore old locale \"%s\"", save);
 	pfree(save);
 
-	/* Don't let Windows' non-ASCII locale names out. */
+	/* 不放出 Windows 非 ASCII 区域设置名。 */
 	if (canonname && *canonname && !pg_is_ascii(*canonname))
 	{
 		ereport(WARNING,
@@ -331,15 +331,15 @@ check_locale(int category, const char *locale, char **canonname)
 
 
 /*
- * GUC check/assign hooks
+ * GUC 检查赋值钩子
  *
- * For most locale categories, the assign hook doesn't actually set the locale
- * permanently, just reset flags so that the next use will cache the
- * appropriate values.  (See explanation at the top of this file.)
+ * 对大多数区域设置类别而言，赋值钩子实际上并不
+ * 永久设置区域设置，只是重置标志，以便下次
+ * 使用时缓存适当的值。（见文件顶部说明。）
  *
- * Note: we accept value = "" as selecting the postmaster's environment
- * value, whatever it was (so long as the environment setting is legal).
- * This will have been locked down by an earlier call to pg_perm_setlocale.
+ * 注意：我们接受 value = "" 作为选择 postmaster 的
+ * 环境值，无论它是什么（只要环境设置合法）。
+ * 这应当已被先前对 pg_perm_setlocale 的调用锁定。
  */
 bool
 check_locale_monetary(char **newval, void **extra, GucSource source)
@@ -378,14 +378,14 @@ assign_locale_time(const char *newval, void *extra)
 }
 
 /*
- * We allow LC_MESSAGES to actually be set globally.
+ * 我们允许 LC_MESSAGES 真正被全局设置。
  *
- * Note: we normally disallow value = "" because it wouldn't have consistent
- * semantics (it'd effectively just use the previous value).  However, this
- * is the value passed for PGC_S_DEFAULT, so don't complain in that case,
- * not even if the attempted setting fails due to invalid environment value.
- * The idea there is just to accept the environment setting *if possible*
- * during startup, until we can read the proper value from postgresql.conf.
+ * 注意：我们通常拒绝 value = ""，因为它的语义会不
+ * 一致（它实际上只会沿用先前的值）。但是，这是
+ * PGC_S_DEFAULT 传入的值，所以那种情况下不要抱
+ * 怨，即使尝试的设置因环境值非法而失败也不要。
+ * 那里的想法只是在启动期间 *尽可能* 接受环境设
+ * 置，直到我们能从 postgresql.conf 读到正确的值。
  */
 bool
 check_locale_messages(char **newval, void **extra, GucSource source)
@@ -399,9 +399,9 @@ check_locale_messages(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * LC_MESSAGES category does not exist everywhere, but accept it anyway
+	 * LC_MESSAGES 类别并非处处存在，但还是接受它
 	 *
-	 * On Windows, we can't even check the value, so accept blindly
+	 * Windows 上甚至无法检查该值，只能盲目接受
 	 */
 #if defined(LC_MESSAGES) && !defined(WIN32)
 	return check_locale(LC_MESSAGES, *newval, NULL);
@@ -414,8 +414,8 @@ void
 assign_locale_messages(const char *newval, void *extra)
 {
 	/*
-	 * LC_MESSAGES category does not exist everywhere, but accept it anyway.
-	 * We ignore failure, as per comment above.
+	 * LC_MESSAGES 类别并非处处存在，但还是接受它。
+	 * 失败则忽略，理由见上。
 	 */
 #ifdef LC_MESSAGES
 	(void) pg_perm_setlocale(LC_MESSAGES, newval);
@@ -424,8 +424,8 @@ assign_locale_messages(const char *newval, void *extra)
 
 
 /*
- * Frees the malloced content of a struct lconv.  (But not the struct
- * itself.)  It's important that this not throw elog(ERROR).
+ * 释放 struct lconv 中 malloc 的内容。（但不含该结构
+ * 本身。）重要的是它不得抛出 elog(ERROR)。
  */
 static void
 free_struct_lconv(struct lconv *s)
@@ -443,8 +443,8 @@ free_struct_lconv(struct lconv *s)
 }
 
 /*
- * Check that all fields of a struct lconv (or at least, the ones we care
- * about) are non-NULL.  The field list must match free_struct_lconv().
+ * 检查 struct lconv 的所有字段（至少是我们关心的
+ * 那些）非 NULL。字段列表须与 free_struct_lconv() 一致
  */
 static bool
 struct_lconv_is_valid(struct lconv *s)
@@ -474,8 +474,8 @@ struct_lconv_is_valid(struct lconv *s)
 
 
 /*
- * Convert the strdup'd string at *str from the specified encoding to the
- * database encoding.
+ * 将 *str 处以指定编码保存的 strdup 字符串转换为
+ * 数据库编码。
  */
 static void
 db_encoding_convert(int encoding, char **str)
@@ -483,19 +483,19 @@ db_encoding_convert(int encoding, char **str)
 	char	   *pstr;
 	char	   *mstr;
 
-	/* convert the string to the database encoding */
+	/* 把字符串转换为数据库编码 */
 	pstr = pg_any_to_server(*str, strlen(*str), encoding);
 	if (pstr == *str)
-		return;					/* no conversion happened */
+		return;					/* 未发生转换 */
 
-	/* need it malloc'd not palloc'd */
+	/* 需要 malloc 而非 palloc */
 	mstr = strdup(pstr);
 	if (mstr == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory")));
 
-	/* replace old string */
+	/* 替换旧字符串 */
 	free(*str);
 	*str = mstr;
 
@@ -504,8 +504,8 @@ db_encoding_convert(int encoding, char **str)
 
 
 /*
- * Return the POSIX lconv struct (contains number/money formatting
- * information) with locale information for all categories.
+ * 返回 POSIX lconv 结构（含数字/货币格式信息），
+ * 并带有所有类别的区域设置信息。
  */
 struct lconv *
 PGLC_localeconv(void)
@@ -520,11 +520,11 @@ PGLC_localeconv(void)
 	char	   *save_lc_ctype;
 #endif
 
-	/* Did we do it already? */
+	/* 已做过吗？ */
 	if (CurrentLocaleConvValid)
 		return &CurrentLocaleConv;
 
-	/* Free any already-allocated storage */
+	/* 释放任何已分配的存储 */
 	if (CurrentLocaleConvAllocated)
 	{
 		free_struct_lconv(&CurrentLocaleConv);
@@ -532,20 +532,20 @@ PGLC_localeconv(void)
 	}
 
 	/*
-	 * This is tricky because we really don't want to risk throwing error
-	 * while the locale is set to other than our usual settings.  Therefore,
-	 * the process is: collect the usual settings, set locale to special
-	 * setting, copy relevant data into worklconv using strdup(), restore
-	 * normal settings, convert data to desired encoding, and finally stash
-	 * the collected data in CurrentLocaleConv.  This makes it safe if we
-	 * throw an error during encoding conversion or run out of memory anywhere
-	 * in the process.  All data pointed to by struct lconv members is
-	 * allocated with strdup, to avoid premature elog(ERROR) and to allow
+	 * 这很棘手，因为我们实在不想冒在区域设置处于非
+	 * 常规设置时抛出错误的风险。因此，流程是：收集
+	 * 常规设置，将区域设为特殊值，用 strdup() 把相
+	 * 关数据复制到 worklconv，恢复常规设置，转换数据
+	 * 为所需编码，最后把收集到的数据存入
+	 * CurrentLocaleConv。这样即使在编码转换期间抛错
+	 * 或过程中任何地方内存耗尽也是安全的。struct lconv
+	 * 成员指向的数据都用 strdup 分配，以免过早
+	 * 的 elog(ERROR)，并允许使用单一清理例程。
 	 * using a single cleanup routine.
 	 */
 	memset(&worklconv, 0, sizeof(worklconv));
 
-	/* Save prevailing values of monetary and numeric locales */
+	/* 保存货币与数字区域设置的现行值 */
 	save_lc_monetary = setlocale(LC_MONETARY, NULL);
 	if (!save_lc_monetary)
 		elog(ERROR, "setlocale(NULL) failed");
@@ -559,50 +559,50 @@ PGLC_localeconv(void)
 #ifdef WIN32
 
 	/*
-	 * The POSIX standard explicitly says that it is undefined what happens if
-	 * LC_MONETARY or LC_NUMERIC imply an encoding (codeset) different from
-	 * that implied by LC_CTYPE.  In practice, all Unix-ish platforms seem to
-	 * believe that localeconv() should return strings that are encoded in the
-	 * codeset implied by the LC_MONETARY or LC_NUMERIC locale name.  Hence,
-	 * once we have successfully collected the localeconv() results, we will
-	 * convert them from that codeset to the desired server encoding.
+	 * POSIX 标准明确指出，如果 LC_MONETARY 或 LC_NUMERIC
+	 * 暗示的编码（codeset）不同于 LC_CTYPE 的情况，
+	 * 其行为是未定义的。实践中，所有类 Unix 平台似乎
+	 * 都相信 localeconv() 应返回按 LC_MONETARY 或
+	 * LC_NUMERIC 区域设置名所暗示编码的字符串。因此，
+	 * 一旦我们成功收集到 localeconv() 的结果，就会把它
+	 * 从该编码转换为所需的服务器编码。
 	 *
-	 * Windows, of course, resolutely does things its own way; on that
-	 * platform LC_CTYPE has to match LC_MONETARY/LC_NUMERIC to get sane
-	 * results.  Hence, we must temporarily set that category as well.
+	 * Windows 则坚持自行其是；在该平台上，
+	 * LC_CTYPE 必须与 LC_MONETARY/LC_NUMERIC 匹配才能得
+	 * 到合理结果。因此必须临时设置该类别。
 	 */
 
-	/* Save prevailing value of ctype locale */
+	/* 保存 ctype 区域设置现行值 */
 	save_lc_ctype = setlocale(LC_CTYPE, NULL);
 	if (!save_lc_ctype)
 		elog(ERROR, "setlocale(NULL) failed");
 	save_lc_ctype = pstrdup(save_lc_ctype);
 
-	/* Here begins the critical section where we must not throw error */
+	/* 从这里开始是不得抛错的关键区段 */
 
-	/* use numeric to set the ctype */
+	/* 用 numeric 来设置 ctype */
 	setlocale(LC_CTYPE, locale_numeric);
 #endif
 
-	/* Get formatting information for numeric */
+	/* 获取 numeric 的格式化信息 */
 	setlocale(LC_NUMERIC, locale_numeric);
 	extlconv = localeconv();
 
-	/* Must copy data now in case setlocale() overwrites it */
+	/* 现在须复制数据，以防 setlocale() 覆盖 */
 	worklconv.decimal_point = strdup(extlconv->decimal_point);
 	worklconv.thousands_sep = strdup(extlconv->thousands_sep);
 	worklconv.grouping = strdup(extlconv->grouping);
 
 #ifdef WIN32
-	/* use monetary to set the ctype */
+	/* 用 monetary 来设置 ctype */
 	setlocale(LC_CTYPE, locale_monetary);
 #endif
 
-	/* Get formatting information for monetary */
+	/* 获取 monetary 格式化信息 */
 	setlocale(LC_MONETARY, locale_monetary);
 	extlconv = localeconv();
 
-	/* Must copy data now in case setlocale() overwrites it */
+	/* 现在须复制数据，以防 setlocale() 覆盖 */
 	worklconv.int_curr_symbol = strdup(extlconv->int_curr_symbol);
 	worklconv.currency_symbol = strdup(extlconv->currency_symbol);
 	worklconv.mon_decimal_point = strdup(extlconv->mon_decimal_point);
@@ -610,7 +610,7 @@ PGLC_localeconv(void)
 	worklconv.mon_grouping = strdup(extlconv->mon_grouping);
 	worklconv.positive_sign = strdup(extlconv->positive_sign);
 	worklconv.negative_sign = strdup(extlconv->negative_sign);
-	/* Copy scalar fields as well */
+	/* 同时复制标量字段 */
 	worklconv.int_frac_digits = extlconv->int_frac_digits;
 	worklconv.frac_digits = extlconv->frac_digits;
 	worklconv.p_cs_precedes = extlconv->p_cs_precedes;
@@ -621,12 +621,12 @@ PGLC_localeconv(void)
 	worklconv.n_sign_posn = extlconv->n_sign_posn;
 
 	/*
-	 * Restore the prevailing locale settings; failure to do so is fatal.
-	 * Possibly we could limp along with nondefault LC_MONETARY or LC_NUMERIC,
-	 * but proceeding with the wrong value of LC_CTYPE would certainly be bad
-	 * news; and considering that the prevailing LC_MONETARY and LC_NUMERIC
-	 * are almost certainly "C", there's really no reason that restoring those
-	 * should fail.
+	 * 恢复现行区域设置；恢复失败是致命的。
+	 * 也许我们可以在非默认 LC_MONETARY 或 LC_NUMERIC 下
+	 * 勉强维持，但带着错误的 LC_CTYPE 值继续下去肯定
+	 * 是坏消息；而且考虑到现行的 LC_MONETARY 与
+	 * LC_NUMERIC 几乎可以肯定是 "C"，实在没有理由让恢复
+	 * 失败。
 	 */
 #ifdef WIN32
 	if (!setlocale(LC_CTYPE, save_lc_ctype))
@@ -638,33 +638,33 @@ PGLC_localeconv(void)
 		elog(FATAL, "failed to restore LC_NUMERIC to \"%s\"", save_lc_numeric);
 
 	/*
-	 * At this point we've done our best to clean up, and can call functions
-	 * that might possibly throw errors with a clean conscience.  But let's
-	 * make sure we don't leak any already-strdup'd fields in worklconv.
+	 * 至此我们已尽力清理，可以问心无愧地调用可能
+	 * 抛错的函数了。但让我们确保不泄漏 worklconv 中
+	 * 任何已 strdup 的字段。
 	 */
 	PG_TRY();
 	{
 		int			encoding;
 
-		/* Release the pstrdup'd locale names */
+		/* 释放 pstrdup 区域设置名 */
 		pfree(save_lc_monetary);
 		pfree(save_lc_numeric);
 #ifdef WIN32
 		pfree(save_lc_ctype);
 #endif
 
-		/* If any of the preceding strdup calls failed, complain now. */
+		/* 若前面任何 strdup 调用失败，现在报错。 */
 		if (!struct_lconv_is_valid(&worklconv))
 			ereport(ERROR,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
 					 errmsg("out of memory")));
 
 		/*
-		 * Now we must perform encoding conversion from whatever's associated
-		 * with the locales into the database encoding.  If we can't identify
-		 * the encoding implied by LC_NUMERIC or LC_MONETARY (ie we get -1),
-		 * use PG_SQL_ASCII, which will result in just validating that the
-		 * strings are OK in the database encoding.
+		 * 现在我们必须把与区域设置相关联的编码转换为
+		 * 数据库编码。如果我们无法识别 LC_NUMERIC 或
+		 * LC_MONETARY 暗示的编码（即得到 -1），则使用
+		 * PG_SQL_ASCII，这样只会验证字符串在
+		 * 数据库编码下是否正常。
 		 */
 		encoding = pg_get_encoding_from_locale(locale_numeric, true);
 		if (encoding < 0)
@@ -672,7 +672,7 @@ PGLC_localeconv(void)
 
 		db_encoding_convert(encoding, &worklconv.decimal_point);
 		db_encoding_convert(encoding, &worklconv.thousands_sep);
-		/* grouping is not text and does not require conversion */
+		/* grouping 不是文本，无需转换 */
 
 		encoding = pg_get_encoding_from_locale(locale_monetary, true);
 		if (encoding < 0)
@@ -682,7 +682,7 @@ PGLC_localeconv(void)
 		db_encoding_convert(encoding, &worklconv.currency_symbol);
 		db_encoding_convert(encoding, &worklconv.mon_decimal_point);
 		db_encoding_convert(encoding, &worklconv.mon_thousands_sep);
-		/* mon_grouping is not text and does not require conversion */
+		/* mon_grouping 不是文本，无需转换 */
 		db_encoding_convert(encoding, &worklconv.positive_sign);
 		db_encoding_convert(encoding, &worklconv.negative_sign);
 	}
@@ -694,7 +694,7 @@ PGLC_localeconv(void)
 	PG_END_TRY();
 
 	/*
-	 * Everything is good, so save the results.
+	 * 一切正常，保存结果。
 	 */
 	CurrentLocaleConv = worklconv;
 	CurrentLocaleConvAllocated = true;
@@ -704,31 +704,31 @@ PGLC_localeconv(void)
 
 #ifdef WIN32
 /*
- * On Windows, strftime() returns its output in encoding CP_ACP (the default
- * operating system codepage for the computer), which is likely different
- * from SERVER_ENCODING.  This is especially important in Japanese versions
- * of Windows which will use SJIS encoding, which we don't support as a
- * server encoding.
+ * 在 Windows 上，strftime() 返回以 CP_ACP 编码（计算机
+ * 默认操作系统代码页）的输出，这很可能与
+ * SERVER_ENCODING 不同。这在日语版 Windows 上尤其
+ * 重要，因其使用 SJIS 编码，而这并非我们
+ * 支持的。
  *
- * So, instead of using strftime(), use wcsftime() to return the value in
- * wide characters (internally UTF16) and then convert to UTF8, which we
- * know how to handle directly.
+ * 所以，我们不使用 strftime()，而是用 wcsftime() 以宽
+ * 字符（内部为 UTF16）返回值，再转换为 UTF8，这一
+ * 点我们可直接处理。
  *
- * Note that this only affects the calls to strftime() in this file, which are
- * used to get the locale-aware strings. Other parts of the backend use
- * pg_strftime(), which isn't locale-aware and does not need to be replaced.
+ * 注意这只影响本文件中对 strftime() 的调用，这些调
+ * 用用于获取区域设置感知字符串。后端的其他部
+ * 分使用 pg_strftime()，它不感知区域设置，无需替换。
  */
 static size_t
 strftime_win32(char *dst, size_t dstlen,
 			   const char *format, const struct tm *tm)
 {
 	size_t		len;
-	wchar_t		wformat[8];		/* formats used below need 3 chars */
+	wchar_t		wformat[8];		/* 下方格式需要 3 字符 */
 	wchar_t		wbuf[MAX_L10N_DATA];
 
 	/*
-	 * Get a wchar_t version of the format string.  We only actually use
-	 * plain-ASCII formats in this file, so we can say that they're UTF8.
+	 * 获取格式串的 wchar_t 版本。实际只使用
+	 * 纯 ASCII 格式，因此可以说它们是 UTF8。
 	 */
 	len = MultiByteToWideChar(CP_UTF8, 0, format, -1,
 							  wformat, lengthof(wformat));
@@ -740,8 +740,8 @@ strftime_win32(char *dst, size_t dstlen,
 	if (len == 0)
 	{
 		/*
-		 * wcsftime failed, possibly because the result would not fit in
-		 * MAX_L10N_DATA.  Return 0 with the contents of dst unspecified.
+		 * wcsftime 失败，可能因结果装不下 MAX_L10N_DATA。
+		 * 返回 0 且 dst 内容未指定。
 		 */
 		return 0;
 	}
@@ -762,9 +762,9 @@ strftime_win32(char *dst, size_t dstlen,
 #endif							/* WIN32 */
 
 /*
- * Subroutine for cache_locale_time().
- * Convert the given string from encoding "encoding" to the database
- * encoding, and store the result at *dst, replacing any previous value.
+ * cache_locale_time() 子例程。
+ * 把给定串从 "encoding" 编码转换到数据库编码，
+ * 并把结果存到 *dst，替换任何先前值。
  */
 static void
 cache_single_string(char **dst, const char *src, int encoding)
@@ -772,22 +772,22 @@ cache_single_string(char **dst, const char *src, int encoding)
 	char	   *ptr;
 	char	   *olddst;
 
-	/* Convert the string to the database encoding, or validate it's OK */
+	/* 把字符串转换为数据库编码，或验证其有效 */
 	ptr = pg_any_to_server(src, strlen(src), encoding);
 
-	/* Store the string in long-lived storage, replacing any previous value */
+	/* 把字符串存入长效存储，替换任何先前值 */
 	olddst = *dst;
 	*dst = MemoryContextStrdup(TopMemoryContext, ptr);
 	if (olddst)
 		pfree(olddst);
 
-	/* Might as well clean up any palloc'd conversion result, too */
+	/* 不妨也清理任何 palloc 的转换结果 */
 	if (ptr != src)
 		pfree(ptr);
 }
 
 /*
- * Update the lc_time localization cache variables if needed.
+ * 如需要，更新 lc_time 本地化缓存变量。
  */
 void
 cache_locale_time(void)
@@ -804,20 +804,20 @@ cache_locale_time(void)
 	char	   *save_lc_ctype;
 #endif
 
-	/* did we do this already? */
+	/* 已做过此事吗？ */
 	if (CurrentLCTimeValid)
 		return;
 
 	elog(DEBUG3, "cache_locale_time() executed; locale: \"%s\"", locale_time);
 
 	/*
-	 * As in PGLC_localeconv(), it's critical that we not throw error while
-	 * libc's locale settings have nondefault values.  Hence, we just call
-	 * strftime() within the critical section, and then convert and save its
+	 * 与 PGLC_localeconv() 一样，libc 区域设置为非默认
+	 * 值时绝不能抛错。因此，我们只在关键区段内调用
+	 * strftime()，然后再转换并保存其结果。
 	 * results afterwards.
 	 */
 
-	/* Save prevailing value of time locale */
+	/* 保存 time 区域设置现行值 */
 	save_lc_time = setlocale(LC_TIME, NULL);
 	if (!save_lc_time)
 		elog(ERROR, "setlocale(NULL) failed");
@@ -826,42 +826,42 @@ cache_locale_time(void)
 #ifdef WIN32
 
 	/*
-	 * On Windows, it appears that wcsftime() internally uses LC_CTYPE, so we
-	 * must set it here.  This code looks the same as what PGLC_localeconv()
-	 * does, but the underlying reason is different: this does NOT determine
-	 * the encoding we'll get back from strftime_win32().
+	 * 在 Windows 上，wcsftime() 内部似乎会使用 LC_CTYPE，
+	 * 所以必须在这里设置它。这段代码看上去与
+	 * PGLC_localeconv() 所做的相同，但根本原因不同：这并
+	 * 不决定 strftime_win32() 将返回的编码。
 	 */
 
-	/* Save prevailing value of ctype locale */
+	/* 保存 ctype 区域设置现行值 */
 	save_lc_ctype = setlocale(LC_CTYPE, NULL);
 	if (!save_lc_ctype)
 		elog(ERROR, "setlocale(NULL) failed");
 	save_lc_ctype = pstrdup(save_lc_ctype);
 
-	/* use lc_time to set the ctype */
+	/* 用 lc_time 来设置 ctype */
 	setlocale(LC_CTYPE, locale_time);
 #endif
 
 	setlocale(LC_TIME, locale_time);
 
-	/* We use times close to current time as data for strftime(). */
+	/* 用接近当前的时间作为 strftime() 数据 */
 	timenow = time(NULL);
 	timeinfo = localtime(&timenow);
 
-	/* Store the strftime results in MAX_L10N_DATA-sized portions of buf[] */
+	/* 把 strftime 结果存入 buf[] 中 MAX_L10N_DATA 大小的片段 */
 	bufptr = buf;
 
 	/*
-	 * MAX_L10N_DATA is sufficient buffer space for every known locale, and
-	 * POSIX defines no strftime() errors.  (Buffer space exhaustion is not an
-	 * error.)  An implementation might report errors (e.g. ENOMEM) by
-	 * returning 0 (or, less plausibly, a negative value) and setting errno.
-	 * Report errno just in case the implementation did that, but clear it in
-	 * advance of the calls so we don't emit a stale, unrelated errno.
+	 * MAX_L10N_DATA 对于每个已知区域设置都是足够的缓冲
+	 * 空间，且 POSIX 未定义任何 strftime() 错误。（缓冲空间
+	 * 耗尽不算错误。）实现可能返回 0（或不太可
+	 * 能的负值）并设 errno 来报告错误。万一真如此，
+	 * 做了，就报告 errno，但要提前清除它，这样我们就
+	 * 不会发出陈旧且无关的 errno。
 	 */
 	errno = 0;
 
-	/* localized days */
+	/* 本地化日 */
 	for (i = 0; i < 7; i++)
 	{
 		timeinfo->tm_wday = i;
@@ -873,11 +873,11 @@ cache_locale_time(void)
 		bufptr += MAX_L10N_DATA;
 	}
 
-	/* localized months */
+	/* 本地化月份 */
 	for (i = 0; i < 12; i++)
 	{
 		timeinfo->tm_mon = i;
-		timeinfo->tm_mday = 1;	/* make sure we don't have invalid date */
+		timeinfo->tm_mday = 1;	/* 确保没有无效日期 */
 		if (strftime(bufptr, MAX_L10N_DATA, "%b", timeinfo) <= 0)
 			strftimefail = true;
 		bufptr += MAX_L10N_DATA;
@@ -887,8 +887,8 @@ cache_locale_time(void)
 	}
 
 	/*
-	 * Restore the prevailing locale settings; as in PGLC_localeconv(),
-	 * failure to do so is fatal.
+	 * 恢复现行区域设置；与 PGLC_localeconv() 中一样，
+	 * 失败是致命的。
 	 */
 #ifdef WIN32
 	if (!setlocale(LC_CTYPE, save_lc_ctype))
@@ -898,13 +898,13 @@ cache_locale_time(void)
 		elog(FATAL, "failed to restore LC_TIME to \"%s\"", save_lc_time);
 
 	/*
-	 * At this point we've done our best to clean up, and can throw errors, or
-	 * call functions that might throw errors, with a clean conscience.
+	 * 至此我们已尽力清理，可以问心无愧地抛错，或调
+	 * 用可能抛错的函数。
 	 */
 	if (strftimefail)
 		elog(ERROR, "strftime() failed: %m");
 
-	/* Release the pstrdup'd locale names */
+	/* 释放 pstrdup 区域设置名 */
 	pfree(save_lc_time);
 #ifdef WIN32
 	pfree(save_lc_ctype);
@@ -913,9 +913,9 @@ cache_locale_time(void)
 #ifndef WIN32
 
 	/*
-	 * As in PGLC_localeconv(), we must convert strftime()'s output from the
-	 * encoding implied by LC_TIME to the database encoding.  If we can't
-	 * identify the LC_TIME encoding, just perform encoding validation.
+	 * 与 PGLC_localeconv() 一样，必须把 strftime() 输出从
+	 * LC_TIME 暗示的编码转换为数据库编码。如果我们无
+	 * 法识别 LC_TIME 编码，就只做编码验证。
 	 */
 	encoding = pg_get_encoding_from_locale(locale_time, true);
 	if (encoding < 0)
@@ -924,8 +924,8 @@ cache_locale_time(void)
 #else
 
 	/*
-	 * On Windows, strftime_win32() always returns UTF8 data, so convert from
-	 * that if necessary.
+	 * 在 Windows 上，strftime_win32() 总是返回 UTF8 数据，
+	 * 必要时转换。
 	 */
 	encoding = PG_UTF8;
 
@@ -933,7 +933,7 @@ cache_locale_time(void)
 
 	bufptr = buf;
 
-	/* localized days */
+	/* 本地化日 */
 	for (i = 0; i < 7; i++)
 	{
 		cache_single_string(&localized_abbrev_days[i], bufptr, encoding);
@@ -944,7 +944,7 @@ cache_locale_time(void)
 	localized_abbrev_days[7] = NULL;
 	localized_full_days[7] = NULL;
 
-	/* localized months */
+	/* 本地化月份 */
 	for (i = 0; i < 12; i++)
 	{
 		cache_single_string(&localized_abbrev_months[i], bufptr, encoding);
@@ -961,46 +961,46 @@ cache_locale_time(void)
 
 #if defined(WIN32) && defined(LC_MESSAGES)
 /*
- * Convert a Windows setlocale() argument to a Unix-style one.
+ * 将 Windows setlocale() 参数转为 Unix 风格。
  *
- * Regardless of platform, we install message catalogs under a Unix-style
- * LL[_CC][.ENCODING][@VARIANT] naming convention.  Only LC_MESSAGES settings
- * following that style will elicit localized interface strings.
+ * 无论平台如何，我们都以 Unix 风格的
+ * LL[_CC][.ENCODING][@VARIANT] 命名约定安装消息目录。
+ * 该风格 LC_MESSAGES 设置方能引出本地化接口串
  *
- * Before Visual Studio 2012 (msvcr110.dll), Windows setlocale() accepted "C"
- * (but not "c") and strings of the form <Language>[_<Country>][.<CodePage>],
- * case-insensitive.  setlocale() returns the fully-qualified form; for
- * example, setlocale("thaI") returns "Thai_Thailand.874".  Internally,
- * setlocale() and _create_locale() select a "locale identifier"[1] and store
- * it in an undocumented _locale_t field.  From that LCID, we can retrieve the
- * ISO 639 language and the ISO 3166 country.  Character encoding does not
- * matter, because the server and client encodings govern that.
+ * 在 Visual Studio 2012（msvcr110.dll）前，Windows 的
+ * setlocale() 接受 "C"（但不接受 "c"）以及形如
+ * <Language>[_<Country>][.<CodePage>] 的字符串，不区分
+ * 大小写。setlocale() 返回完全限定的形式；例如，
+ * setlocale("thaI") 返回 "Thai_Thailand.874"。在内部，
+ * setlocale() 与 _create_locale() 会选择一个"区域设置标识符"[1]
+ * 并把它存入未公开文档的 _locale_t 字段。从该 LCID，
+ * 符编码无关紧要，由两端编码决定。
  *
- * Windows Vista introduced the "locale name" concept[2], closely following
- * RFC 4646.  Locale identifiers are now deprecated.  Starting with Visual
- * Studio 2012, setlocale() accepts locale names in addition to the strings it
- * accepted historically.  It does not standardize them; setlocale("Th-tH")
- * returns "Th-tH".  setlocale(category, "") still returns a traditional
- * string.  Furthermore, msvcr110.dll changed the undocumented _locale_t
- * content to carry locale names instead of locale identifiers.
+ * Windows Vista 引入了"区域设置名称"概念[2]，紧密遵循
+ * RFC 4646。区域设置标识符现已弃用。从 Visual
+ * Studio 2012 起，setlocale() 除历史接受的字符串外还接
+ * 受区域设置名称。它不将其标准化；setlocale("Th-tH")
+ * 返回 "Th-tH"。setlocale(category, "") 仍返回
+ * 传统的字符串。此外，msvcr110.dll 把未公开文档的
+ * _locale_t 内容改为携带名称而非标识符。
  *
- * Visual Studio 2015 should still be able to do the same as Visual Studio
- * 2012, but the declaration of locale_name is missing in _locale_t, causing
- * this code compilation to fail, hence this falls back instead on to
- * enumerating all system locales by using EnumSystemLocalesEx to find the
- * required locale name.  If the input argument is in Unix-style then we can
- * get ISO Locale name directly by using GetLocaleInfoEx() with LCType as
- * LOCALE_SNAME.
+ * Visual Studio 2015 应仍能做到与 Visual Studio 2012 相
+ * 同的事情，但 _locale_t 中缺少 locale_name 声明，导致
+ * 这段代码编译失败，因此这里转而回退到
+ * 用 EnumSystemLocalesEx 枚举所有系统区域设置，以找出
+ * 所需的区域设置名称。如果输入参数是 Unix 风格，则
+ * 可以用 GetLocaleInfoEx() 以 LCType 直接取得 ISO 区域
+ * 设置名。
  *
- * MinGW headers declare _create_locale(), but msvcrt.dll lacks that symbol in
- * releases before Windows 8. IsoLocaleName() always fails in a MinGW-built
- * postgres.exe, so only Unix-style values of the lc_messages GUC can elicit
- * localized messages. In particular, every lc_messages setting that initdb
- * can select automatically will yield only C-locale messages. XXX This could
- * be fixed by running the fully-qualified locale name through a lookup table.
+ * MinGW 头文件声明了 _create_locale()，但 Windows 8 之前
+ * 的发布版 msvcrt.dll 缺少该符号。IsoLocaleName() 在
+ * MinGW 构建的 postgres.exe 中总是失败，所以只有 Unix
+ * 风格的 lc_messages GUC 值才能引出本地化消息。特别
+ * 是 initdb 能自动选择的每个 lc_messages 设置都只会得
+ * 到 C 区域设置的消息。XXX 可让完全限定名查表解决。
  *
- * This function returns a pointer to a static buffer bearing the converted
- * name or NULL if conversion fails.
+ * 本函数返回指向静态缓冲区的指针，其中承载转换后
+ * 的名称，否则为 NULL。
  *
  * [1] https://docs.microsoft.com/en-us/windows/win32/intl/locale-identifiers
  * [2] https://docs.microsoft.com/en-us/windows/win32/intl/locale-names
@@ -1009,16 +1009,16 @@ cache_locale_time(void)
 #if defined(_MSC_VER)
 
 /*
- * Callback function for EnumSystemLocalesEx() in get_iso_localename().
+ * 供 get_iso_localename() 中 EnumSystemLocalesEx() 使用的
  *
- * This function enumerates all system locales, searching for one that matches
- * an input with the format: <Language>[_<Country>], e.g.
+ * 回调函数。本函数枚举所有系统区域设置，搜索与以
+ * <Language>[_<Country>] 格式输入的匹配项，如
  * English[_United States]
  *
- * The input is a three wchar_t array as an LPARAM. The first element is the
- * locale_name we want to match, the second element is an allocated buffer
- * where the Unix-style locale is copied if a match is found, and the third
- * element is the search status, 1 if a match was found, 0 otherwise.
+ * 输入是一个作为 LPARAM 传入的三元素 wchar_t 数组。第
+ * 一个元素是我们想匹配的 locale_name，第二个元素是
+ * 一块已分配的缓冲区，匹配找到时会把 Unix 风格区域
+ * 设置复制进去，第三个是搜索状态（1=找到）。
  */
 static BOOL CALLBACK
 search_locale_enum(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
@@ -1033,14 +1033,14 @@ search_locale_enum(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
 
 	memset(test_locale, 0, sizeof(test_locale));
 
-	/* Get the name of the <Language> in English */
+	/* 以英文获取 <Language> 的名称 */
 	if (GetLocaleInfoEx(pStr, LOCALE_SENGLISHLANGUAGENAME,
 						test_locale, LOCALE_NAME_MAX_LENGTH))
 	{
 		/*
-		 * If the enumerated locale does not have a hyphen ("en") OR the
-		 * locale_name input does not have an underscore ("English"), we only
-		 * need to compare the <Language> tags.
+		 * 若枚举到的区域设置无连字符（"en"），或
+		 * locale_name 输入没有下划线（"English"），那么我们只
+		 * 需比较 <Language> 标签。
 		 */
 		if (wcsrchr(pStr, '-') == NULL || wcsrchr(argv[0], '_') == NULL)
 		{
@@ -1053,8 +1053,8 @@ search_locale_enum(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
 		}
 
 		/*
-		 * We have to compare a full <Language>_<Country> tag, so we append
-		 * the underscore and name of the country/region in English, e.g.
+		 * 我们必须比较完整的 <Language>_<Country> 标签，因此
+		 * 要追加下划线与国家/地区的英文名称，例如
 		 * "English_United States".
 		 */
 		else
@@ -1081,10 +1081,10 @@ search_locale_enum(LPWSTR pStr, DWORD dwFlags, LPARAM lparam)
 }
 
 /*
- * This function converts a Windows locale name to an ISO formatted version
- * for Visual Studio 2015 or greater.
+ * 本函数将 Windows 区域设置名称转换为 ISO 格式版本，
+ * 供 Visual Studio 2015+ 用。
  *
- * Returns NULL, if no valid conversion was found.
+ * 如果找不到有效转换则返回 NULL。
  */
 static char *
 get_iso_localename(const char *winlocname)
@@ -1097,11 +1097,11 @@ get_iso_localename(const char *winlocname)
 	int			ret_val;
 
 	/*
-	 * Valid locales have the following syntax:
+	 * 有效区域设置具有以下语法：
 	 * <Language>[_<Country>[.<CodePage>]]
 	 *
-	 * GetLocaleInfoEx can only take locale name without code-page and for the
-	 * purpose of this API the code-page doesn't matter.
+	 * GetLocaleInfoEx 只能接受不带代码页的区域设置名称，
+	 * 且对该 API 而言代码页无关紧要。
 	 */
 	period = strchr(winlocname, '.');
 	if (period != NULL)
@@ -1115,15 +1115,15 @@ get_iso_localename(const char *winlocname)
 						LOCALE_NAME_MAX_LENGTH);
 
 	/*
-	 * If the lc_messages is already a Unix-style string, we have a direct
-	 * match with LOCALE_SNAME, e.g. en-US, en_US.
+	 * 如果 lc_messages 已经是 Unix 风格字符串，我们会与
+	 * LOCALE_SNAME 直接匹配，如 en-US。
 	 */
 	ret_val = GetLocaleInfoEx(wc_locale_name, LOCALE_SNAME, (LPWSTR) &buffer,
 							  LOCALE_NAME_MAX_LENGTH);
 	if (!ret_val)
 	{
 		/*
-		 * Search for a locale in the system that matches language and country
+		 * 在系统中搜索语言与国家/地区名匹配的区域设置。
 		 * name.
 		 */
 		wchar_t    *argv[3];
@@ -1140,17 +1140,17 @@ get_iso_localename(const char *winlocname)
 		size_t		rc;
 		char	   *hyphen;
 
-		/* Locale names use only ASCII, any conversion locale suffices. */
+		/* 区域设置名仅用 ASCII，任何转换编码皆可 */
 		rc = wchar2char(iso_lc_messages, buffer, sizeof(iso_lc_messages), NULL);
 		if (rc == -1 || rc == sizeof(iso_lc_messages))
 			return NULL;
 
 		/*
-		 * Since the message catalogs sit on a case-insensitive filesystem, we
-		 * need not standardize letter case here.  So long as we do not ship
-		 * message catalogs for which it would matter, we also need not
-		 * translate the script/variant portion, e.g.  uz-Cyrl-UZ to
-		 * uz_UZ@cyrillic.  Simply replace the hyphen with an underscore.
+		 * 由于消息目录位于大小写不敏感的文件系统上，我
+		 * 们无需在此规范字母大小写。只要我们不发布会
+		 * 有影响目录，也无需翻译变体部分，如把
+		 * uz-Cyrl-UZ 换成 uz_UZ@cyrillic。只需把连字符
+		 * 替换为下划线即可。
 		 */
 		hyphen = strchr(iso_lc_messages, '-');
 		if (hyphen)
@@ -1181,7 +1181,7 @@ IsoLocaleName(const char *winlocname)
 static char *
 IsoLocaleName(const char *winlocname)
 {
-	return NULL;				/* Not supported on MinGW */
+	return NULL;				/* MinGW 不支持 */
 }
 
 #endif							/* defined(_MSC_VER) */
@@ -1190,27 +1190,27 @@ IsoLocaleName(const char *winlocname)
 
 
 /*
- * Cache mechanism for collation information.
+ * 排序规则信息的缓存机制。
  *
- * We cache two flags: whether the collation's LC_COLLATE or LC_CTYPE is C
- * (or POSIX), so we can optimize a few code paths in various places.
- * For the built-in C and POSIX collations, we can know that without even
- * doing a cache lookup, but we want to support aliases for C/POSIX too.
- * For the "default" collation, there are separate static cache variables,
- * since consulting the pg_collation catalog doesn't tell us what we need.
+ * 我们缓存两个标志：排序规则的 LC_COLLATE 或 LC_CTYPE
+ * 是否为 C/POSIX，以便在多处优化少量代码路径。
+ * 对于内置的 C 与 POSIX 排序规则，我们甚至无需缓存
+ * 查找就能知道这一点，但我们也想支持 C/POSIX 的别
+ * 名。对"default"排序规则，另有单独的静态缓存变量，
+ * 因为查询 pg_collation 目录并不能告诉我们所需信息。
  *
- * Also, if a pg_locale_t has been requested for a collation, we cache that
- * for the life of a backend.
+ * 此外，若某排序规则已请求 pg_locale_t，我们会将其
+ * 缓存至后端结束。
  *
- * Note that some code relies on the flags not reporting false negatives
- * (that is, saying it's not C when it is).  For example, char2wchar()
- * could fail if the locale is C, so str_tolower() shouldn't call it
- * in that case.
+ * 注意有些代码依赖这些标志不报假阴性（即在确实
+ * 为 C 时却说不为 C）。例如，若区域设置为 C，
+ * char2wchar() 可能失败，所以 str_tolower() 不应
+ * 调用它。
  *
- * Note that we currently lack any way to flush the cache.  Since we don't
- * support ALTER COLLATION, this is OK.  The worst case is that someone
- * drops a collation, and a useless cache entry hangs around in existing
- * backends.
+ * 注意我们目前缺乏任何刷新缓存的手段。因为我们不
+ * 支持 ALTER COLLATION，这没有问题。最坏的情况是
+ * 有人删除了一个排序规则，而一个无用的缓存条目
+ * 滞留。
  */
 
 static collation_cache_entry *
@@ -1224,7 +1224,7 @@ lookup_collation_cache(Oid collation, bool set_flags)
 
 	if (collation_cache == NULL)
 	{
-		/* First time through, initialize the hash table */
+		/* 首次进入时初始化哈希表 */
 		HASHCTL		ctl;
 
 		ctl.keysize = sizeof(Oid);
@@ -1237,8 +1237,8 @@ lookup_collation_cache(Oid collation, bool set_flags)
 	if (!found)
 	{
 		/*
-		 * Make sure cache entry is marked invalid, in case we fail before
-		 * setting things.
+		 * 确保缓存条目标记为无效，以防我们在设置
+		 * 之前失败。
 		 */
 		cache_entry->flags_valid = false;
 		cache_entry->locale = 0;
@@ -1246,7 +1246,7 @@ lookup_collation_cache(Oid collation, bool set_flags)
 
 	if (set_flags && !cache_entry->flags_valid)
 	{
-		/* Attempt to set the flags */
+		/* 尝试设置标志 */
 		HeapTuple	tp;
 		Form_pg_collation collform;
 
@@ -1287,21 +1287,21 @@ lookup_collation_cache(Oid collation, bool set_flags)
 
 
 /*
- * Detect whether collation's LC_COLLATE property is C
+ * 检测排序规则的 LC_COLLATE 属性是否为 C
  */
 bool
 lc_collate_is_c(Oid collation)
 {
 	/*
-	 * If we're asked about "collation 0", return false, so that the code will
-	 * go into the non-C path and report that the collation is bogus.
+	 * 若被问及"排序规则 0"则返回假，让代码走入
+	 * 非 C 路径并报告该排序规则是伪造的。
 	 */
 	if (!OidIsValid(collation))
 		return false;
 
 	/*
-	 * If we're asked about the default collation, we have to inquire of the C
-	 * library.  Cache the result so we only have to compute it once.
+	 * 如果我们被问及默认排序规则，就必须向 C 库查
+	 * 询。缓存结果，这样只需计算一次。
 	 */
 	if (collation == DEFAULT_COLLATION_OID)
 	{
@@ -1327,34 +1327,34 @@ lc_collate_is_c(Oid collation)
 	}
 
 	/*
-	 * If we're asked about the built-in C/POSIX collations, we know that.
+	 * 若被问及内置的 C/POSIX 排序规则，我们是知道的。
 	 */
 	if (collation == C_COLLATION_OID ||
 		collation == POSIX_COLLATION_OID)
 		return true;
 
 	/*
-	 * Otherwise, we have to consult pg_collation, but we cache that.
+	 * 否则我们必须查询 pg_collation，但会缓存之。
 	 */
 	return (lookup_collation_cache(collation, true))->collate_is_c;
 }
 
 /*
- * Detect whether collation's LC_CTYPE property is C
+ * 检测排序规则的 LC_CTYPE 属性是否为 C
  */
 bool
 lc_ctype_is_c(Oid collation)
 {
 	/*
-	 * If we're asked about "collation 0", return false, so that the code will
-	 * go into the non-C path and report that the collation is bogus.
+	 * 若被问及"排序规则 0"则返回假，让代码走入
+	 * 非 C 路径并报告该排序规则是伪造的。
 	 */
 	if (!OidIsValid(collation))
 		return false;
 
 	/*
-	 * If we're asked about the default collation, we have to inquire of the C
-	 * library.  Cache the result so we only have to compute it once.
+	 * 如果我们被问及默认排序规则，就必须向 C 库查
+	 * 询。缓存结果，这样只需计算一次。
 	 */
 	if (collation == DEFAULT_COLLATION_OID)
 	{
@@ -1380,14 +1380,14 @@ lc_ctype_is_c(Oid collation)
 	}
 
 	/*
-	 * If we're asked about the built-in C/POSIX collations, we know that.
+	 * 若被问及内置的 C/POSIX 排序规则，我们是知道的。
 	 */
 	if (collation == C_COLLATION_OID ||
 		collation == POSIX_COLLATION_OID)
 		return true;
 
 	/*
-	 * Otherwise, we have to consult pg_collation, but we cache that.
+	 * 否则我们必须查询 pg_collation，但会缓存之。
 	 */
 	return (lookup_collation_cache(collation, true))->ctype_is_c;
 }
@@ -1405,8 +1405,8 @@ make_icu_collator(const char *iculocstr,
 	collator = pg_ucol_open(iculocstr);
 
 	/*
-	 * If rules are specified, we extract the rules of the standard collation,
-	 * add our own rules, and make a new collator with the combined rules.
+	 * 如果指定了规则，我们就提取标准排序规则的规则，
+	 * 加上自己的规则，用合并后的规则新建排序器
 	 */
 	if (icurules)
 	{
@@ -1434,11 +1434,11 @@ make_icu_collator(const char *iculocstr,
 							iculocstr, icurules, u_errorName(status))));
 	}
 
-	/* We will leak this string if the caller errors later :-( */
+	/* 调用者之后若报错，此串将泄漏 :-( */
 	resultp->info.icu.locale = MemoryContextStrdup(TopMemoryContext, iculocstr);
 	resultp->info.icu.ucol = collator;
 #else							/* not USE_ICU */
-	/* could get here if a collation was created by a build with ICU */
+	/* 排序规则若由带 ICU 的构建创建则会到这 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("ICU is not supported in this build")));
@@ -1446,7 +1446,7 @@ make_icu_collator(const char *iculocstr,
 }
 
 
-/* simple subroutine for reporting errors from newlocale() */
+/* 供报告 newlocale() 错误的简单子例程 */
 #ifdef HAVE_LOCALE_T
 static void
 report_newlocale_failure(const char *localename)
@@ -1454,20 +1454,20 @@ report_newlocale_failure(const char *localename)
 	int			save_errno;
 
 	/*
-	 * Windows doesn't provide any useful error indication from
-	 * _create_locale(), and BSD-derived platforms don't seem to feel they
-	 * need to set errno either (even though POSIX is pretty clear that
-	 * newlocale should do so).  So, if errno hasn't been set, assume ENOENT
+	 * Windows 对 _create_locale() 无有用错误指示，
+	 * 而 BSD 系平台似乎也认为无需设置 errno（尽管
+	 * POSIX 明确要求 newlocale 应这么做）。所以，若
+	 * errno 尚未设置，就假定要报告的是 ENOENT。
 	 * is what to report.
 	 */
 	if (errno == 0)
 		errno = ENOENT;
 
 	/*
-	 * ENOENT means "no such locale", not "no such file", so clarify that
-	 * errno with an errdetail message.
+	 * ENOENT 意为"无此区域设置"而非"无此文件"，
+	 * 故用 errdetail 澄清之。
 	 */
-	save_errno = errno;			/* auxiliary funcs might change errno */
+	save_errno = errno;			/* 辅助函数可能改变 errno */
 	ereport(ERROR,
 			(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 			 errmsg("could not create locale \"%s\": %m",
@@ -1481,7 +1481,7 @@ report_newlocale_failure(const char *localename)
 bool
 pg_locale_deterministic(pg_locale_t locale)
 {
-	/* default locale must always be deterministic */
+	/* 默认区域设置必须为确定性 */
 	if (locale == NULL)
 		return true;
 	else
@@ -1489,25 +1489,25 @@ pg_locale_deterministic(pg_locale_t locale)
 }
 
 /*
- * Create a locale_t from a collation OID.  Results are cached for the
- * lifetime of the backend.  Thus, do not free the result with freelocale().
+ * 由排序规则 OID 创建 locale_t。结果为后端生命周期
+ * 内缓存。因此不要用 freelocale() 释放结果。
  *
- * As a special optimization, the default/database collation returns 0.
- * Callers should then revert to the non-locale_t-enabled code path.
- * Also, callers should avoid calling this before going down a C/POSIX
- * fastpath, because such a fastpath should work even on platforms without
- * locale_t support in the C library.
+ * 作为特别优化，默认/数据库排序规则返回 0。
+ * 调用者此时应回退到未启用 locale_t 的代码路径。
+ * 此外，调用者应避免在走 C/POSIX 快路径前调用
+ * 本函数，因为这样的快速路径即使在 C 库不支持
+ * locale_t 的平台也工作。
  *
- * For simplicity, we always generate COLLATE + CTYPE even though we
- * might only need one of them.  Since this is called only once per session,
- * it shouldn't cost much.
+ * 简单起见，我们总是同时生成 COLLATE 与 CTYPE，尽
+ * 管可能只需要其中之一。由于本函数每个会话只调用
+ * 一次，无碍。
  */
 pg_locale_t
 pg_newlocale_from_collation(Oid collid)
 {
 	collation_cache_entry *cache_entry;
 
-	/* Callers must pass a valid OID */
+	/* 调用者须传有效 OID */
 	Assert(OidIsValid(collid));
 
 	if (collid == DEFAULT_COLLATION_OID)
@@ -1522,7 +1522,7 @@ pg_newlocale_from_collation(Oid collid)
 
 	if (cache_entry->locale == 0)
 	{
-		/* We haven't computed this yet in this session, so do it */
+		/* 本会话尚未计算过它，所以现在算 */
 		HeapTuple	tp;
 		Form_pg_collation collform;
 		struct pg_locale_struct result;
@@ -1535,7 +1535,7 @@ pg_newlocale_from_collation(Oid collid)
 			elog(ERROR, "cache lookup failed for collation %u", collid);
 		collform = (Form_pg_collation) GETSTRUCT(tp);
 
-		/* We'll fill in the result struct locally before allocating memory */
+		/* 在分配内存前先在本地填写结果结构体 */
 		memset(&result, 0, sizeof(result));
 		result.provider = collform->collprovider;
 		result.deterministic = collform->collisdeterministic;
@@ -1554,7 +1554,7 @@ pg_newlocale_from_collation(Oid collid)
 
 			if (strcmp(collcollate, collctype) == 0)
 			{
-				/* Normal case where they're the same */
+				/* 两者相同的正常情形 */
 				errno = 0;
 #ifndef WIN32
 				loc = newlocale(LC_COLLATE_MASK | LC_CTYPE_MASK, collcollate,
@@ -1568,7 +1568,7 @@ pg_newlocale_from_collation(Oid collid)
 			else
 			{
 #ifndef WIN32
-				/* We need two newlocale() steps */
+				/* 需两步 newlocale() */
 				locale_t	loc1;
 
 				errno = 0;
@@ -1582,8 +1582,8 @@ pg_newlocale_from_collation(Oid collid)
 #else
 
 				/*
-				 * XXX The _create_locale() API doesn't appear to support
-				 * this. Could perhaps be worked around by changing
+				 * XXX _create_locale() API 似乎不支持，或许能
+				 * 可改为让 pg_locale_t 含两个独立字段
 				 * pg_locale_t to contain two separate fields.
 				 */
 				ereport(ERROR,
@@ -1594,7 +1594,7 @@ pg_newlocale_from_collation(Oid collid)
 
 			result.info.lt = loc;
 #else							/* not HAVE_LOCALE_T */
-			/* platform that doesn't support locale_t */
+			/* 不支持 locale_t 的平台 */
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("collation provider LIBC is not supported on this platform")));
@@ -1633,8 +1633,8 @@ pg_newlocale_from_collation(Oid collid)
 			if (!actual_versionstr)
 			{
 				/*
-				 * This could happen when specifying a version in CREATE
-				 * COLLATION but the provider does not support versioning, or
+				 * CREATE COLLATION 带版本而提供者不支持时，
+				 * 或有人手动在目录中制造混乱时发生。
 				 * manually creating a mess in the catalogs.
 				 */
 				ereport(ERROR,
@@ -1658,7 +1658,7 @@ pg_newlocale_from_collation(Oid collid)
 
 		ReleaseSysCache(tp);
 
-		/* We'll keep the pg_locale_t structures in TopMemoryContext */
+		/* 我们会把 pg_locale_t 结构保存在 TopMemoryContext */
 		resultp = MemoryContextAlloc(TopMemoryContext, sizeof(*resultp));
 		*resultp = result;
 
@@ -1669,8 +1669,8 @@ pg_newlocale_from_collation(Oid collid)
 }
 
 /*
- * Get provider-specific collation version string for the given collation from
- * the operating system/library.
+ * 从操作系统/库获取给定排序规则的提供者特定排序规
+ * 则版本字符串。
  */
 char *
 get_collation_actual_version(char collprovider, const char *collcollate)
@@ -1700,12 +1700,12 @@ get_collation_actual_version(char collprovider, const char *collcollate)
 			pg_strcasecmp("POSIX", collcollate) != 0)
 	{
 #if defined(__GLIBC__)
-		/* Use the glibc version because we don't have anything better. */
+		/* 没有更好的选择，故使用 glibc 版本 */
 		collversion = pstrdup(gnu_get_libc_version());
 #elif defined(LC_VERSION_MASK)
 		locale_t	loc;
 
-		/* Look up FreeBSD collation version. */
+		/* 查 FreeBSD 排序规则版本 */
 		loc = newlocale(LC_COLLATE_MASK, collcollate, NULL);
 		if (loc)
 		{
@@ -1718,9 +1718,9 @@ get_collation_actual_version(char collprovider, const char *collcollate)
 					(errmsg("could not load locale \"%s\"", collcollate)));
 #elif defined(WIN32)
 		/*
-		 * If we are targeting Windows Vista and above, we can ask for a name
-		 * given a collation name (earlier versions required a location code
-		 * that we don't have).
+		 * 如果我们的目标是 Windows Vista 及以上，就可以给定
+		 * 排序规则名来请求版本（更早版本要求的
+		 * 位置代码）。
 		 */
 		NLSVERSIONINFOEX version = {sizeof(NLSVERSIONINFOEX)};
 		WCHAR		wide_collcollate[LOCALE_NAME_MAX_LENGTH];
@@ -1730,11 +1730,11 @@ get_collation_actual_version(char collprovider, const char *collcollate)
 		if (!GetNLSVersionEx(COMPARE_STRING, wide_collcollate, &version))
 		{
 			/*
-			 * GetNLSVersionEx() wants a language tag such as "en-US", not a
-			 * locale name like "English_United States.1252".  Until those
-			 * values can be prevented from entering the system, or 100%
-			 * reliably converted to the more useful tag format, tolerate the
-			 * resulting error and report that we have no version data.
+			 * GetNLSVersionEx() 要 "en-US" 这类语言标签，而非
+			 * "English_United States.1252" 这类区域设置名。在
+			 * 能阻止这些值进入系统或把它们完全可靠地
+			 * 换为更有用的标签格式前，只能容忍产生的
+			 * 错误并报告我们没有版本数据。
 			 */
 			if (GetLastError() == ERROR_INVALID_PARAMETER)
 				return NULL;
@@ -1758,8 +1758,8 @@ get_collation_actual_version(char collprovider, const char *collcollate)
 /*
  * pg_strncoll_libc_win32_utf8
  *
- * Win32 does not have UTF-8. Convert UTF8 arguments to wide characters and
- * invoke wcscoll() or wcscoll_l().
+ * Win32 没有 UTF-8。把 UTF8 参数转换为宽字符并调用
+ * wcscoll() 或 wcscoll_l()。
  */
 #ifdef WIN32
 static int
@@ -1787,7 +1787,7 @@ pg_strncoll_libc_win32_utf8(const char *arg1, size_t len1, const char *arg2,
 	a1p = buf;
 	a2p = buf + a1len;
 
-	/* API does not work for zero-length input */
+	/* API 对零长度输入不工作 */
 	if (len1 == 0)
 		r = 0;
 	else
@@ -1821,7 +1821,7 @@ pg_strncoll_libc_win32_utf8(const char *arg1, size_t len1, const char *arg2,
 	else
 #endif
 		result = wcscoll((LPWSTR) a1p, (LPWSTR) a2p);
-	if (result == 2147483647)	/* _NLSCMPERROR; missing from mingw headers */
+	if (result == 2147483647)	/* _NLSCMPERROR；mingw 头文件缺失 */
 		ereport(ERROR,
 				(errmsg("could not compare Unicode strings: %m")));
 
@@ -1835,11 +1835,11 @@ pg_strncoll_libc_win32_utf8(const char *arg1, size_t len1, const char *arg2,
 /*
  * pg_strcoll_libc
  *
- * Call strcoll(), strcoll_l(), wcscoll(), or wcscoll_l() as appropriate for
- * the given locale, platform, and database encoding. If the locale is NULL,
- * use the database collation.
+ * 按给定区域设置、平台与数据库编码酌情调用
+ * strcoll() 等函数。若 locale 为 NULL，
+ * 用数据库排序规则。
  *
- * Arguments must be encoded in the database encoding and nul-terminated.
+ * 参数必须以数据库编码编码并以 nul 结尾。
  */
 static int
 pg_strcoll_libc(const char *arg1, const char *arg2, pg_locale_t locale)
@@ -1862,7 +1862,7 @@ pg_strcoll_libc(const char *arg1, const char *arg2, pg_locale_t locale)
 #ifdef HAVE_LOCALE_T
 		result = strcoll_l(arg1, arg2, locale->info.lt);
 #else
-		/* shouldn't happen */
+		/* 不应发生 */
 		elog(ERROR, "unsupported collprovider: %c", locale->provider);
 #endif
 	}
@@ -1875,7 +1875,7 @@ pg_strcoll_libc(const char *arg1, const char *arg2, pg_locale_t locale)
 /*
  * pg_strncoll_libc
  *
- * Nul-terminate the arguments and call pg_strcoll_libc().
+ * 以 nul 终结参数并调用 pg_strcoll_libc()。
  */
 static int
 pg_strncoll_libc(const char *arg1, size_t len1, const char *arg2, size_t len2,
@@ -1892,7 +1892,7 @@ pg_strncoll_libc(const char *arg1, size_t len1, const char *arg2, size_t len2,
 	Assert(!locale || locale->provider == COLLPROVIDER_LIBC);
 
 #ifdef WIN32
-	/* check for this case before doing the work for nul-termination */
+	/* 在为 nul 终结做工作之前先检查这种情况 */
 	if (GetDatabaseEncoding() == PG_UTF8)
 		return pg_strncoll_libc_win32_utf8(arg1, len1, arg2, len2, locale);
 #endif							/* WIN32 */
@@ -1903,7 +1903,7 @@ pg_strncoll_libc(const char *arg1, size_t len1, const char *arg2, size_t len2,
 	arg1n = buf;
 	arg2n = buf + bufsize1;
 
-	/* nul-terminate arguments */
+	/* 以 nul 终结参数 */
 	memcpy(arg1n, arg1, len1);
 	arg1n[len1] = '\0';
 	memcpy(arg2n, arg2, len2);
@@ -1922,12 +1922,12 @@ pg_strncoll_libc(const char *arg1, size_t len1, const char *arg2, size_t len2,
 /*
  * pg_strncoll_icu_no_utf8
  *
- * Convert the arguments from the database encoding to UChar strings, then
- * call ucol_strcoll(). An argument length of -1 means that the string is
- * NUL-terminated.
+ * 把参数从数据库编码转换为 UChar 字符串，然后调用
+ * ucol_strcoll()。参数长度为 -1 表示字符串以 NUL 终
+ * 止。
  *
- * When the database encoding is UTF-8, and ICU supports ucol_strcollUTF8(),
- * caller should call that instead.
+ * 当数据库编码为 UTF-8 且 ICU 支持 ucol_strcollUTF8()
+ * 时调用者应调用后者。
  */
 static int
 pg_strncoll_icu_no_utf8(const char *arg1, int32_t len1,
@@ -1978,11 +1978,11 @@ pg_strncoll_icu_no_utf8(const char *arg1, int32_t len1,
 /*
  * pg_strncoll_icu
  *
- * Call ucol_strcollUTF8() or ucol_strcoll() as appropriate for the given
- * database encoding. An argument length of -1 means the string is
- * NUL-terminated.
+ * 按给定数据库编码酌情调用 ucol_strcollUTF8() 或
+ * ucol_strcoll()。参数长度 -1 表示字符串已以 NUL
+ * 终结。
  *
- * Arguments must be encoded in the database encoding.
+ * 参数必须以数据库编码编码。
  */
 static int
 pg_strncoll_icu(const char *arg1, int32_t len1, const char *arg2, int32_t len2,
@@ -2020,15 +2020,15 @@ pg_strncoll_icu(const char *arg1, int32_t len1, const char *arg2, int32_t len2,
 /*
  * pg_strcoll
  *
- * Call ucol_strcollUTF8(), ucol_strcoll(), strcoll(), strcoll_l(), wcscoll(),
- * or wcscoll_l() as appropriate for the given locale, platform, and database
- * encoding. If the locale is not specified, use the database collation.
+ * 按给定区域设置、平台与数据库编码，酌情调用
+ * ucol_strcollUTF8()、ucol_strcoll()、strcoll()、
+ * strcoll_l()、wcscoll() 或 wcscoll_l()。若未指定区域
  *
- * Arguments must be encoded in the database encoding and nul-terminated.
+ * 设置，则使用数据库排序规则。
  *
- * The caller is responsible for breaking ties if the collation is
- * deterministic; this maintains consistency with pg_strxfrm(), which cannot
- * easily account for deterministic collations.
+ * 若排序规则为确定性，调用者负责打破平局；
+ * 这与 pg_strxfrm() 保持一致，后者难以顾及确定性排
+ * 序规则。
  */
 int
 pg_strcoll(const char *arg1, const char *arg2, pg_locale_t locale)
@@ -2042,7 +2042,7 @@ pg_strcoll(const char *arg1, const char *arg2, pg_locale_t locale)
 		result = pg_strncoll_icu(arg1, -1, arg2, -1, locale);
 #endif
 	else
-		/* shouldn't happen */
+		/* 不应发生 */
 		PGLOCALE_SUPPORT_ERROR(locale->provider);
 
 	return result;
@@ -2051,19 +2051,19 @@ pg_strcoll(const char *arg1, const char *arg2, pg_locale_t locale)
 /*
  * pg_strncoll
  *
- * Call ucol_strcollUTF8(), ucol_strcoll(), strcoll(), strcoll_l(), wcscoll(),
- * or wcscoll_l() as appropriate for the given locale, platform, and database
- * encoding. If the locale is not specified, use the database collation.
+ * ucol_strcollUTF8()、ucol_strcoll()、strcoll()、
+ * strcoll_l()、wcscoll() 或 wcscoll_l()，按给定区域设置、
+ * 平台与数据库编码。未指定时用数据库排序规则。
  *
- * Arguments must be encoded in the database encoding.
+ * 参数必须以数据库编码编码。
  *
- * This function may need to nul-terminate the arguments for libc functions;
- * so if the caller already has nul-terminated strings, it should call
- * pg_strcoll() instead.
+ * 本函数可能需要为 libc 函数以 nul 终结参数；所以如
+ * 果调用者已有以 nul 终结的字符串，则应改为调用
+ * pg_strcoll()。
  *
- * The caller is responsible for breaking ties if the collation is
- * deterministic; this maintains consistency with pg_strnxfrm(), which cannot
- * easily account for deterministic collations.
+ * 若排序规则为确定性，调用者负责打破平局；
+ * 这与 pg_strnxfrm() 保持一致，后者难以顾及确定性排
+ * 序规则。
  */
 int
 pg_strncoll(const char *arg1, size_t len1, const char *arg2, size_t len2,
@@ -2078,7 +2078,7 @@ pg_strncoll(const char *arg1, size_t len1, const char *arg2, size_t len2,
 		result = pg_strncoll_icu(arg1, len1, arg2, len2, locale);
 #endif
 	else
-		/* shouldn't happen */
+		/* 不应发生 */
 		PGLOCALE_SUPPORT_ERROR(locale->provider);
 
 	return result;
@@ -2099,9 +2099,9 @@ pg_strxfrm_libc(char *dest, const char *src, size_t destsize,
 #endif
 		return strxfrm(dest, src, destsize);
 #else
-	/* shouldn't happen */
+	/* 不应发生 */
 	PGLOCALE_SUPPORT_ERROR(locale->provider);
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 #endif
 }
 
@@ -2119,7 +2119,7 @@ pg_strnxfrm_libc(char *dest, const char *src, size_t srclen, size_t destsize,
 	if (bufsize > TEXTBUFLEN)
 		buf = palloc(bufsize);
 
-	/* nul-terminate arguments */
+	/* 以 nul 终结参数 */
 	memcpy(buf, src, srclen);
 	buf[srclen] = '\0';
 
@@ -2128,7 +2128,7 @@ pg_strnxfrm_libc(char *dest, const char *src, size_t srclen, size_t destsize,
 	if (buf != sbuf)
 		pfree(buf);
 
-	/* if dest is defined, it should be nul-terminated */
+	/* 若定义了 dest，它就应以 nul 终结 */
 	Assert(result >= destsize || dest[result] == '\0');
 
 	return result;
@@ -2136,7 +2136,7 @@ pg_strnxfrm_libc(char *dest, const char *src, size_t srclen, size_t destsize,
 
 #ifdef USE_ICU
 
-/* 'srclen' of -1 means the strings are NUL-terminated */
+/* 'srclen' 为 -1 表示字符串以 NUL 终结 */
 static size_t
 pg_strnxfrm_icu(char *dest, const char *src, int32_t srclen, int32_t destsize,
 				pg_locale_t locale)
@@ -2168,8 +2168,8 @@ pg_strnxfrm_icu(char *dest, const char *src, int32_t srclen, int32_t destsize,
 								   (uint8_t *) dest, destsize);
 
 	/*
-	 * ucol_getSortKey() counts the nul-terminator in the result length, but
-	 * this function should not.
+	 * ucol_getSortKey() 把 nul 终结符计入结果长度，但本函
+	 * 数不应这样。
 	 */
 	Assert(result_bsize > 0);
 	result_bsize--;
@@ -2177,13 +2177,13 @@ pg_strnxfrm_icu(char *dest, const char *src, int32_t srclen, int32_t destsize,
 	if (buf != sbuf)
 		pfree(buf);
 
-	/* if dest is defined, it should be nul-terminated */
+	/* 若定义了 dest，它就应以 nul 终结 */
 	Assert(result_bsize >= destsize || dest[result_bsize] == '\0');
 
 	return result_bsize;
 }
 
-/* 'srclen' of -1 means the strings are NUL-terminated */
+/* 'srclen' 为 -1 表示字符串以 NUL 终结 */
 static size_t
 pg_strnxfrm_prefix_icu_no_utf8(char *dest, const char *src, int32_t srclen,
 							   int32_t destsize, pg_locale_t locale)
@@ -2215,7 +2215,7 @@ pg_strnxfrm_prefix_icu_no_utf8(char *dest, const char *src, int32_t srclen,
 	ulen = uchar_convert(icu_converter, uchar, ulen + 1, src, srclen);
 
 	uiter_setString(&iter, uchar, ulen);
-	state[0] = state[1] = 0;	/* won't need that again */
+	state[0] = state[1] = 0;	/* 之后不再需要 */
 	status = U_ZERO_ERROR;
 	result_bsize = ucol_nextSortKeyPart(locale->info.icu.ucol,
 										&iter,
@@ -2231,7 +2231,7 @@ pg_strnxfrm_prefix_icu_no_utf8(char *dest, const char *src, int32_t srclen,
 	return result_bsize;
 }
 
-/* 'srclen' of -1 means the strings are NUL-terminated */
+/* 'srclen' 为 -1 表示字符串以 NUL 终结 */
 static size_t
 pg_strnxfrm_prefix_icu(char *dest, const char *src, int32_t srclen,
 					   int32_t destsize, pg_locale_t locale)
@@ -2247,7 +2247,7 @@ pg_strnxfrm_prefix_icu(char *dest, const char *src, int32_t srclen,
 		UErrorCode	status;
 
 		uiter_setUTF8(&iter, src, srclen);
-		state[0] = state[1] = 0;	/* won't need that again */
+		state[0] = state[1] = 0;	/* 之后不再需要 */
 		status = U_ZERO_ERROR;
 		result = ucol_nextSortKeyPart(locale->info.icu.ucol,
 									  &iter,
@@ -2270,18 +2270,18 @@ pg_strnxfrm_prefix_icu(char *dest, const char *src, int32_t srclen,
 #endif
 
 /*
- * Return true if the collation provider supports pg_strxfrm() and
- * pg_strnxfrm(); otherwise false.
+ * 返回排序规则提供者是否支持 pg_strxfrm() 与
+ * pg_strnxfrm(); 否则假。
  *
- * Unfortunately, it seems that strxfrm() for non-C collations is broken on
- * many common platforms; testing of multiple versions of glibc reveals that,
- * for many locales, strcoll() and strxfrm() do not return consistent
- * results. While no other libc other than Cygwin has so far been shown to
- * have a problem, we take the conservative course of action for right now and
- * disable this categorically.  (Users who are certain this isn't a problem on
- * their system can define TRUST_STRXFRM.)
+ * 不幸的是，非 C 排序规则的 strxfrm() 在许多常见平台
+ * 上都有问题；对多个 glibc 版本的测试表明，对许多区
+ * 域设置而言 strcoll() 与 strxfrm() 结果不一致。虽
+ * 然除 Cygwin 之外尚无其他 libc 被证明有问题，但我们
+ * 现在采取保守做法，将这一律禁用。（
+ * 确信其系统上没有此问题的用户可以定义
+ *  TRUST_STRXFRM。）
  *
- * No similar problem is known for the ICU provider.
+ * ICU 提供者没有已知类似问题。
  */
 bool
 pg_strxfrm_enabled(pg_locale_t locale)
@@ -2295,30 +2295,30 @@ pg_strxfrm_enabled(pg_locale_t locale)
 	else if (locale->provider == COLLPROVIDER_ICU)
 		return true;
 	else
-		/* shouldn't happen */
+		/* 不应发生 */
 		PGLOCALE_SUPPORT_ERROR(locale->provider);
 
-	return false;				/* keep compiler quiet */
+	return false;				/* 让编译器安静 */
 }
 
 /*
  * pg_strxfrm
  *
- * Transforms 'src' to a nul-terminated string stored in 'dest' such that
- * ordinary strcmp() on transformed strings is equivalent to pg_strcoll() on
- * untransformed strings.
+ * 把 'src' 转换为以 nul 终结、存于 'dest' 的字符串，使
+ * 得对转换后字符串的 strcmp() 等价于对未转换串
+ * 的 pg_strcoll()。
  *
- * The provided 'src' must be nul-terminated. If 'destsize' is zero, 'dest'
- * may be NULL.
+ * 提供的 src 必须以 nul 终结。destsize 为零时 dest
+ * 可为 NULL
  *
- * Returns the number of bytes needed (or more) to store the transformed
- * string, excluding the terminating nul byte. If the value returned is
- * 'destsize' or greater, the resulting contents of 'dest' are undefined.
+ * 返回存储转换后字符串所需（或更多）的字节数，不
+ * 含结尾的 nul 字节。若返回值大于等于 destsize，
+ * 则 'dest' 最终内容未定义。
  */
 size_t
 pg_strxfrm(char *dest, const char *src, size_t destsize, pg_locale_t locale)
 {
-	size_t		result = 0;		/* keep compiler quiet */
+	size_t		result = 0;		/* 让编译器安静 */
 
 	if (!locale || locale->provider == COLLPROVIDER_LIBC)
 		result = pg_strxfrm_libc(dest, src, destsize, locale);
@@ -2327,7 +2327,7 @@ pg_strxfrm(char *dest, const char *src, size_t destsize, pg_locale_t locale)
 		result = pg_strnxfrm_icu(dest, src, -1, destsize, locale);
 #endif
 	else
-		/* shouldn't happen */
+		/* 不应发生 */
 		PGLOCALE_SUPPORT_ERROR(locale->provider);
 
 	return result;
@@ -2336,26 +2336,26 @@ pg_strxfrm(char *dest, const char *src, size_t destsize, pg_locale_t locale)
 /*
  * pg_strnxfrm
  *
- * Transforms 'src' to a nul-terminated string stored in 'dest' such that
- * ordinary strcmp() on transformed strings is equivalent to pg_strcoll() on
- * untransformed strings.
+ * 把 'src' 转换为以 nul 终结、存于 'dest' 的字符串，使
+ * 得对转换后字符串的 strcmp() 等价于对未转换串
+ * 的 pg_strcoll()。
  *
- * 'src' does not need to be nul-terminated. If 'destsize' is zero, 'dest' may
- * be NULL.
+ * 'src' 无需以 nul 终结。destsize 为零时 dest 可
+ * 为空
  *
- * Returns the number of bytes needed (or more) to store the transformed
- * string, excluding the terminating nul byte. If the value returned is
- * 'destsize' or greater, the resulting contents of 'dest' are undefined.
+ * 返回存储转换后字符串所需（或更多）的字节数，不
+ * 含结尾的 nul 字节。若返回值大于等于 destsize，
+ * 则 'dest' 最终内容未定义。
  *
- * This function may need to nul-terminate the argument for libc functions;
- * so if the caller already has a nul-terminated string, it should call
- * pg_strxfrm() instead.
+ * 本函数可能需要为 libc 函数以 nul 终结参数，所以如
+ * 果调用者已有以 nul 终结的字符串，则应改为调用
+ * pg_strxfrm()。
  */
 size_t
 pg_strnxfrm(char *dest, size_t destsize, const char *src, size_t srclen,
 			pg_locale_t locale)
 {
-	size_t		result = 0;		/* keep compiler quiet */
+	size_t		result = 0;		/* 让编译器安静 */
 
 	if (!locale || locale->provider == COLLPROVIDER_LIBC)
 		result = pg_strnxfrm_libc(dest, src, srclen, destsize, locale);
@@ -2364,15 +2364,15 @@ pg_strnxfrm(char *dest, size_t destsize, const char *src, size_t srclen,
 		result = pg_strnxfrm_icu(dest, src, srclen, destsize, locale);
 #endif
 	else
-		/* shouldn't happen */
+		/* 不应发生 */
 		PGLOCALE_SUPPORT_ERROR(locale->provider);
 
 	return result;
 }
 
 /*
- * Return true if the collation provider supports pg_strxfrm_prefix() and
- * pg_strnxfrm_prefix(); otherwise false.
+ * 返回排序规则提供者是否支持 pg_strxfrm_prefix()
+ * 与 pg_strnxfrm_prefix()；否则假
  */
 bool
 pg_strxfrm_prefix_enabled(pg_locale_t locale)
@@ -2382,30 +2382,30 @@ pg_strxfrm_prefix_enabled(pg_locale_t locale)
 	else if (locale->provider == COLLPROVIDER_ICU)
 		return true;
 	else
-		/* shouldn't happen */
+		/* 不应发生 */
 		PGLOCALE_SUPPORT_ERROR(locale->provider);
 
-	return false;				/* keep compiler quiet */
+	return false;				/* 让编译器安静 */
 }
 
 /*
  * pg_strxfrm_prefix
  *
- * Transforms 'src' to a byte sequence stored in 'dest' such that ordinary
- * memcmp() on the byte sequence is equivalent to pg_strcoll() on
- * untransformed strings. The result is not nul-terminated.
+ * 把 'src' 转换为存于 'dest' 的字节序列，使对字节序
+ * 列做普通 memcmp() 等价于对未转换字符串做
+ * pg_strcoll()。结果不以 nul 终结。
  *
- * The provided 'src' must be nul-terminated.
+ * 提供的 'src' 必须以 nul 终结。
  *
- * If destsize is not large enough to hold the resulting byte sequence, stores
- * only the first destsize bytes in 'dest'. Returns the number of bytes
- * actually copied to 'dest'.
+ * 如果 destsize 不足以容纳得到的字节序列，则只在
+ * 'dest' 中存储前 destsize 个字节。返回实际复制到
+ * 'dest' 的字节数。
  */
 size_t
 pg_strxfrm_prefix(char *dest, const char *src, size_t destsize,
 				  pg_locale_t locale)
 {
-	size_t		result = 0;		/* keep compiler quiet */
+	size_t		result = 0;		/* 让编译器安静 */
 
 	if (!locale)
 		PGLOCALE_SUPPORT_ERROR(COLLPROVIDER_LIBC);
@@ -2422,25 +2422,25 @@ pg_strxfrm_prefix(char *dest, const char *src, size_t destsize,
 /*
  * pg_strnxfrm_prefix
  *
- * Transforms 'src' to a byte sequence stored in 'dest' such that ordinary
- * memcmp() on the byte sequence is equivalent to pg_strcoll() on
- * untransformed strings. The result is not nul-terminated.
+ * 把 'src' 转换为存于 'dest' 的字节序列，使对字节序
+ * 列做普通 memcmp() 等价于对未转换字符串做
+ * pg_strcoll()。结果不以 nul 终结。
  *
- * The provided 'src' must be nul-terminated.
+ * 提供的 'src' 必须以 nul 终结。
  *
- * If destsize is not large enough to hold the resulting byte sequence, stores
- * only the first destsize bytes in 'dest'. Returns the number of bytes
- * actually copied to 'dest'.
+ * 如果 destsize 不足以容纳得到的字节序列，则只在
+ * 'dest' 中存储前 destsize 个字节。返回实际复制到
+ * 'dest' 的字节数。
  *
- * This function may need to nul-terminate the argument for libc functions;
- * so if the caller already has a nul-terminated string, it should call
- * pg_strxfrm_prefix() instead.
+ * 本函数可能需要为 libc 函数以 nul 终结参数，所以如
+ * 果调用者已有以 nul 终结的字符串，则应改为调用
+ * pg_strxfrm_prefix()。
  */
 size_t
 pg_strnxfrm_prefix(char *dest, size_t destsize, const char *src,
 				   size_t srclen, pg_locale_t locale)
 {
-	size_t		result = 0;		/* keep compiler quiet */
+	size_t		result = 0;		/* 让编译器安静 */
 
 	if (!locale)
 		PGLOCALE_SUPPORT_ERROR(COLLPROVIDER_LIBC);
@@ -2457,7 +2457,7 @@ pg_strnxfrm_prefix(char *dest, size_t destsize, const char *src,
 #ifdef USE_ICU
 
 /*
- * Wrapper around ucol_open() to handle API differences for older ICU
+ * 包装 ucol_open() 以处理旧版 ICU 的 API 差异。
  * versions.
  */
 static UCollator *
@@ -2469,21 +2469,21 @@ pg_ucol_open(const char *loc_str)
 	char	   *fixed_str = NULL;
 
 	/*
-	 * Must never open default collator, because it depends on the environment
-	 * and may change at any time. Should not happen, but check here to catch
-	 * bugs that might be hard to catch otherwise.
+	 * 绝不能打开默认排序器，因为它依赖环境且可能随时
+	 * 改变。本不应发生，但在此检查以捕获那些原本难以
+	 * 捕获的 bug。
 	 *
-	 * NB: the default collator is not the same as the collator for the root
-	 * locale. The root locale may be specified as the empty string, "und", or
-	 * "root". The default collator is opened by passing NULL to ucol_open().
+	 * 注意：默认排序器不等于根区域设置的排序器。根区
+	 * 域设置可以用空字符串、"und" 或 "root" 指定。默认排
+	 * 序器通过向 ucol_open() 传递 NULL 来打开。
 	 */
 	if (loc_str == NULL)
 		elog(ERROR, "opening default collator is not supported");
 
 	/*
-	 * In ICU versions 54 and earlier, "und" is not a recognized spelling of
-	 * the root locale. If the first component of the locale is "und", replace
-	 * with "root" before opening.
+	 * 在 ICU 54 及更早版本中，"und" 不是根区域设置的公认
+	 * 拼法。若区域设置首个成分是 "und"，则在打开前
+	 * 替换为 "root"。
 	 */
 	if (U_ICU_VERSION_MAJOR_NUM < 55)
 	{
@@ -2514,7 +2514,7 @@ pg_ucol_open(const char *loc_str)
 	collator = ucol_open(loc_str, &status);
 	if (U_FAILURE(status))
 		ereport(ERROR,
-		/* use original string for error report */
+		/* 用原字符串报告错误 */
 				(errmsg("could not open collator for locale \"%s\": %s",
 						orig_str, u_errorName(status))));
 
@@ -2524,8 +2524,8 @@ pg_ucol_open(const char *loc_str)
 		icu_set_collation_attributes(collator, loc_str, &status);
 
 		/*
-		 * Pretend the error came from ucol_open(), for consistent error
-		 * message across ICU versions.
+		 * 假称错误来自 ucol_open()，使各 ICU 版本的错误
+		 * 消息保持一致。
 		 */
 		if (U_FAILURE(status) || status == U_STRING_NOT_TERMINATED_WARNING)
 		{
@@ -2550,7 +2550,7 @@ init_icu_converter(void)
 	UConverter *conv;
 
 	if (icu_converter)
-		return;					/* already done */
+		return;					/* 已做过 */
 
 	icu_encoding_name = get_encoding_name_for_icu(GetDatabaseEncoding());
 	if (!icu_encoding_name)
@@ -2570,7 +2570,7 @@ init_icu_converter(void)
 }
 
 /*
- * Find length, in UChars, of given string if converted to UChar string.
+ * 求给定串转为 UChar 字符串后的 UChar 长度。
  */
 static size_t
 uchar_length(UConverter *converter, const char *str, int32_t len)
@@ -2586,8 +2586,8 @@ uchar_length(UConverter *converter, const char *str, int32_t len)
 }
 
 /*
- * Convert the given source string into a UChar string, stored in dest, and
- * return the length (in UChars).
+ * 把给定源字符串转换为一个 UChar 字符串，存入 dest，
+ * 并返回 UChar 数。
  */
 static int32_t
 uchar_convert(UConverter *converter, UChar *dest, int32_t destlen,
@@ -2605,16 +2605,16 @@ uchar_convert(UConverter *converter, UChar *dest, int32_t destlen,
 }
 
 /*
- * Convert a string in the database encoding into a string of UChars.
+ * 把数据库编码的字符串转换为 UChar 字符串。
  *
- * The source string at buff is of length nbytes
- * (it needn't be nul-terminated)
+ * 位于 buff 的源字符串长度为 nbytes
+ * （不必 nul 终结）
  *
- * *buff_uchar receives a pointer to the palloc'd result string, and
- * the function's result is the number of UChars generated.
+ * *buff_uchar 收到 palloc 结果串的指针，本函数
+ * 的结果为生成的 UChar 数。
  *
- * The result string is nul-terminated, though most callers rely on the
- * result length instead.
+ * 结果字符串以 nul 终结，但多数调用者依赖的是
+ * 长度本身。
  */
 int32_t
 icu_to_uchar(UChar **buff_uchar, const char *buff, size_t nbytes)
@@ -2633,15 +2633,15 @@ icu_to_uchar(UChar **buff_uchar, const char *buff, size_t nbytes)
 }
 
 /*
- * Convert a string of UChars into the database encoding.
+ * 把 UChar 字符串转换为数据库编码。
  *
- * The source string at buff_uchar is of length len_uchar
- * (it needn't be nul-terminated)
+ * 位于 buff_uchar 的源字符串长度为 len_uchar
+ * （不必 nul 终结）
  *
- * *result receives a pointer to the palloc'd result string, and the
- * function's result is the number of bytes generated (not counting nul).
+ * *result 收到 palloc 结果串的指针，本函数
+ * 的结果为生成的字节数（不计 nul）。
  *
- * The result string is nul-terminated.
+ * 结果串以 nul 终结。
  */
 int32_t
 icu_from_uchar(char **result, const UChar *buff_uchar, int32_t len_uchar)
@@ -2674,15 +2674,15 @@ icu_from_uchar(char **result, const UChar *buff_uchar, int32_t len_uchar)
 }
 
 /*
- * Parse collation attributes from the given locale string and apply them to
- * the open collator.
+ * 从给定的区域设置字符串解析排序规则属性并应用到
+ * 排序器上。
  *
- * First, the locale string is canonicalized to an ICU format locale ID such
- * as "und@colStrength=primary;colCaseLevel=yes". Then, it parses and applies
- * the key-value arguments.
+ * 首先，把区域设置字符串规范化为 ICU 格式区域设
+ * 置 ID（如 "und@colStrength=primary;colCaseLevel=yes"），
+ * 解析并应用参数。
  *
- * Starting with ICU version 54, the attributes are processed automatically by
- * ucol_open(), so this is only necessary for emulating this behavior on older
+ * 从 ICU 54 版开始，属性由 ucol_open() 自动处理，因此
+ * 只有在旧版本上模拟这种行为时才需要这样做。
  * versions.
  */
 pg_attribute_unused()
@@ -2696,11 +2696,11 @@ icu_set_collation_attributes(UCollator *collator, const char *loc,
 	char	   *str;
 
 	/*
-	 * The input locale may be a BCP 47 language tag, e.g.
-	 * "und-u-kc-ks-level1", which expresses the same attributes in a
-	 * different form. It will be converted to the equivalent ICU format
-	 * locale ID, e.g. "und@colcaselevel=yes;colstrength=primary", by
-	 * uloc_canonicalize().
+	 * 输入可能是 BCP 47 语言标签，例如
+	 * "und-u-kc-ks-level1"，它以不同形式表达相同的属
+	 * 性。它会被转换为等价的 ICU 格式区域设置 ID，如
+	 * "und@colcaselevel=yes;colstrength=primary"，经
+	 * uloc_canonicalize()
 	 */
 	*status = U_ZERO_ERROR;
 	len = uloc_canonicalize(loc, NULL, 0, status);
@@ -2737,7 +2737,7 @@ icu_set_collation_attributes(UCollator *collator, const char *loc,
 			value = e + 1;
 
 			/*
-			 * See attribute name and value lists in ICU i18n/coll.cpp
+			 * 属性名与值的清单见 ICU i18n/coll.cpp
 			 */
 			if (strcmp(name, "colstrength") == 0)
 				uattr = UCOL_STRENGTH;
@@ -2754,7 +2754,7 @@ icu_set_collation_attributes(UCollator *collator, const char *loc,
 			else if (strcmp(name, "colnumeric") == 0)
 				uattr = UCOL_NUMERIC_COLLATION;
 			else
-				/* ignore if unknown */
+				/* 未知则忽略 */
 				continue;
 
 			if (strcmp(value, "primary") == 0)
@@ -2794,13 +2794,13 @@ icu_set_collation_attributes(UCollator *collator, const char *loc,
 #endif
 
 /*
- * Return the BCP47 language tag representation of the requested locale.
+ * 返回所请求区域设置的 BCP47 语言标签表示。
  *
- * This function should be called before passing the string to ucol_open(),
- * because conversion to a language tag also performs "level 2
- * canonicalization". In addition to producing a consistent format, level 2
- * canonicalization is able to more accurately interpret different input
- * locale string formats, such as POSIX and .NET IDs.
+ * 本函数应在把字符串传给 ucol_open() 之前调用，因为
+ * 转换成语言标签会顺带做"二级规范化"，
+ * 化"。这不只能产生一致的格式，还能更准
+ * 确地解释各种输入的区域设置字符串格
+ * 式，如 POSIX 与 .NET ID。
  */
 char *
 icu_language_tag(const char *loc_str, int elevel)
@@ -2808,14 +2808,14 @@ icu_language_tag(const char *loc_str, int elevel)
 #ifdef USE_ICU
 	UErrorCode	status;
 	char	   *langtag;
-	size_t		buflen = 32;	/* arbitrary starting buffer size */
+	size_t		buflen = 32;	/* 任意起始缓冲大小 */
 	const bool	strict = true;
 
 	/*
-	 * A BCP47 language tag doesn't have a clearly-defined upper limit (cf.
-	 * RFC5646 section 4.4). Additionally, in older ICU versions,
-	 * uloc_toLanguageTag() doesn't always return the ultimate length on the
-	 * first call, necessitating a loop.
+	 * BCP47 语言标签没有明确的上限（参见 RFC5646 第 4.4
+	 * 节）。另外，旧版 ICU 的 uloc_toLanguageTag()
+	 * 首次调用未必返回最终长度，
+	 * 故需要循环。
 	 */
 	langtag = palloc(buflen);
 	while (true)
@@ -2823,7 +2823,7 @@ icu_language_tag(const char *loc_str, int elevel)
 		status = U_ZERO_ERROR;
 		uloc_toLanguageTag(loc_str, langtag, buflen, strict, &status);
 
-		/* try again if the buffer is not large enough */
+		/* 若缓冲区不够大则重试 */
 		if ((status == U_BUFFER_OVERFLOW_ERROR ||
 			 status == U_STRING_NOT_TERMINATED_WARNING) &&
 			buflen < MaxAllocSize)
@@ -2852,12 +2852,12 @@ icu_language_tag(const char *loc_str, int elevel)
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("ICU is not supported in this build")));
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 #endif							/* not USE_ICU */
 }
 
 /*
- * Perform best-effort check that the locale is a valid one.
+ * 尽力检查该区域设置是否有效。
  */
 void
 icu_validate_locale(const char *loc_str)
@@ -2869,15 +2869,15 @@ icu_validate_locale(const char *loc_str)
 	bool		found = false;
 	int			elevel = icu_validation_level;
 
-	/* no validation */
+	/* 无验证 */
 	if (elevel < 0)
 		return;
 
-	/* downgrade to WARNING during pg_upgrade */
+	/* pg_upgrade 时降为 WARNING */
 	if (IsBinaryUpgrade && elevel > WARNING)
 		elevel = WARNING;
 
-	/* validate that we can extract the language */
+	/* 验证我们能提取语言 */
 	status = U_ZERO_ERROR;
 	uloc_getLanguage(loc_str, lang, ULOC_LANG_CAPACITY, &status);
 	if (U_FAILURE(status) || status == U_STRING_NOT_TERMINATED_WARNING)
@@ -2890,12 +2890,12 @@ icu_validate_locale(const char *loc_str)
 		return;
 	}
 
-	/* check for special language name */
+	/* 检查特殊语言名 */
 	if (strcmp(lang, "") == 0 ||
 		strcmp(lang, "root") == 0 || strcmp(lang, "und") == 0)
 		found = true;
 
-	/* search for matching language within ICU */
+	/* 在 ICU 内搜索匹配的语言 */
 	for (int32_t i = 0; !found && i < uloc_countAvailable(); i++)
 	{
 		const char *otherloc = uloc_getAvailable(i);
@@ -2917,11 +2917,11 @@ icu_validate_locale(const char *loc_str)
 				 errhint("To disable ICU locale validation, set the parameter \"%s\" to \"%s\".",
 						 "icu_validation_level", "disabled")));
 
-	/* check that it can be opened */
+	/* 检查它能被打开 */
 	collator = pg_ucol_open(loc_str);
 	ucol_close(collator);
 #else							/* not USE_ICU */
-	/* could get here if a collation was created by a build with ICU */
+	/* 排序规则若由带 ICU 的构建创建则会到这 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("ICU is not supported in this build")));
@@ -2929,16 +2929,16 @@ icu_validate_locale(const char *loc_str)
 }
 
 /*
- * These functions convert from/to libc's wchar_t, *not* pg_wchar_t.
- * Therefore we keep them here rather than with the mbutils code.
+ * 这些函数与 libc 的 wchar_t 相互转换，*而非*
+ * pg_wchar_t。故放于此处，而非 mbutils 代码
  */
 
 /*
- * wchar2char --- convert wide characters to multibyte format
+ * wchar2char --- 把宽字符转换为多字节格式
  *
- * This has the same API as the standard wcstombs_l() function; in particular,
- * tolen is the maximum number of bytes to store at *to, and *from must be
- * zero-terminated.  The output will be zero-terminated iff there is room.
+ * 它与标准 wcstombs_l() 函数的 API 相同；特别地，
+ * tolen 是存入 *to 的最大字节数，且 *from 必须
+ * 以零终结。输出只在有空间时才会以零终结。
  */
 size_t
 wchar2char(char *to, const wchar_t *from, size_t tolen, pg_locale_t locale)
@@ -2953,21 +2953,21 @@ wchar2char(char *to, const wchar_t *from, size_t tolen, pg_locale_t locale)
 #ifdef WIN32
 
 	/*
-	 * On Windows, the "Unicode" locales assume UTF16 not UTF8 encoding, and
-	 * for some reason mbstowcs and wcstombs won't do this for us, so we use
+	 * 在 Windows 上，"Unicode" 区域设置假定编码为
+	 * UTF16 而非 UTF8；mbstowcs/wcstombs 不代劳，故改用
 	 * MultiByteToWideChar().
 	 */
 	if (GetDatabaseEncoding() == PG_UTF8)
 	{
 		result = WideCharToMultiByte(CP_UTF8, 0, from, -1, to, tolen,
 									 NULL, NULL);
-		/* A zero return is failure */
+		/* 返回零即失败 */
 		if (result <= 0)
 			result = -1;
 		else
 		{
 			Assert(result <= tolen);
-			/* Microsoft counts the zero terminator in the result */
+			/* 微软把零终结符计入结果 */
 			result--;
 		}
 	}
@@ -2975,17 +2975,17 @@ wchar2char(char *to, const wchar_t *from, size_t tolen, pg_locale_t locale)
 #endif							/* WIN32 */
 	if (locale == (pg_locale_t) 0)
 	{
-		/* Use wcstombs directly for the default locale */
+		/* 默认区域设置直接用 wcstombs */
 		result = wcstombs(to, from, tolen);
 	}
 	else
 	{
 #ifdef HAVE_LOCALE_T
 #ifdef HAVE_WCSTOMBS_L
-		/* Use wcstombs_l for nondefault locales */
+		/* 非默认区域设置用 wcstombs_l */
 		result = wcstombs_l(to, from, tolen, locale->info.lt);
 #else							/* !HAVE_WCSTOMBS_L */
-		/* We have to temporarily set the locale as current ... ugh */
+		/* 只得临时把该区域设置设为当前... 唉 */
 		locale_t	save_locale = uselocale(locale->info.lt);
 
 		result = wcstombs(to, from, tolen);
@@ -2993,9 +2993,9 @@ wchar2char(char *to, const wchar_t *from, size_t tolen, pg_locale_t locale)
 		uselocale(save_locale);
 #endif							/* HAVE_WCSTOMBS_L */
 #else							/* !HAVE_LOCALE_T */
-		/* Can't have locale != 0 without HAVE_LOCALE_T */
+		/* 无 HAVE_LOCALE_T 时不能有 locale != 0 */
 		elog(ERROR, "wcstombs_l is not available");
-		result = 0;				/* keep compiler quiet */
+		result = 0;				/* 让编译器安静 */
 #endif							/* HAVE_LOCALE_T */
 	}
 
@@ -3003,13 +3003,13 @@ wchar2char(char *to, const wchar_t *from, size_t tolen, pg_locale_t locale)
 }
 
 /*
- * char2wchar --- convert multibyte characters to wide characters
+ * char2wchar --- 把多字节字符转换为宽字符
  *
- * This has almost the API of mbstowcs_l(), except that *from need not be
- * null-terminated; instead, the number of input bytes is specified as
- * fromlen.  Also, we ereport() rather than returning -1 for invalid
- * input encoding.  tolen is the maximum number of wchar_t's to store at *to.
- * The output will be zero-terminated iff there is room.
+ * 它的 API 与 mbstowcs_l() 几乎相同，区别是 *from
+ * 无需以 null 终结；而是把输入字节数指定为
+ * fromlen。且对非法输入编码我们 ereport() 而非
+ * 返回 -1。tolen 是要存到 *to 的 wchar_t 最大个数。
+ * 输出只在有空间时才以零终结。
  */
 size_t
 char2wchar(wchar_t *to, size_t tolen, const char *from, size_t fromlen,
@@ -3023,16 +3023,16 @@ char2wchar(wchar_t *to, size_t tolen, const char *from, size_t fromlen,
 		return 0;
 
 #ifdef WIN32
-	/* See WIN32 "Unicode" comment above */
+	/* 见上 WIN32 "Unicode" 注释 */
 	if (GetDatabaseEncoding() == PG_UTF8)
 	{
-		/* Win32 API does not work for zero-length input */
+		/* Win32 API 对零长度输入不工作 */
 		if (fromlen == 0)
 			result = 0;
 		else
 		{
 			result = MultiByteToWideChar(CP_UTF8, 0, from, fromlen, to, tolen - 1);
-			/* A zero return is failure */
+			/* 返回零即失败 */
 			if (result == 0)
 				result = -1;
 		}
@@ -3040,29 +3040,29 @@ char2wchar(wchar_t *to, size_t tolen, const char *from, size_t fromlen,
 		if (result != -1)
 		{
 			Assert(result < tolen);
-			/* Append trailing null wchar (MultiByteToWideChar() does not) */
+			/* 追加结尾 null wchar（MultiByteToWideChar() 不加） */
 			to[result] = 0;
 		}
 	}
 	else
 #endif							/* WIN32 */
 	{
-		/* mbstowcs requires ending '\0' */
+		/* mbstowcs 需结尾 '\0' */
 		char	   *str = pnstrdup(from, fromlen);
 
 		if (locale == (pg_locale_t) 0)
 		{
-			/* Use mbstowcs directly for the default locale */
+			/* 默认区域设置直接用 mbstowcs */
 			result = mbstowcs(to, str, tolen);
 		}
 		else
 		{
 #ifdef HAVE_LOCALE_T
 #ifdef HAVE_MBSTOWCS_L
-			/* Use mbstowcs_l for nondefault locales */
+			/* 非默认区域设置用 mbstowcs_l */
 			result = mbstowcs_l(to, str, tolen, locale->info.lt);
 #else							/* !HAVE_MBSTOWCS_L */
-			/* We have to temporarily set the locale as current ... ugh */
+			/* 只得临时把该区域设置设为当前... 唉 */
 			locale_t	save_locale = uselocale(locale->info.lt);
 
 			result = mbstowcs(to, str, tolen);
@@ -3070,9 +3070,9 @@ char2wchar(wchar_t *to, size_t tolen, const char *from, size_t fromlen,
 			uselocale(save_locale);
 #endif							/* HAVE_MBSTOWCS_L */
 #else							/* !HAVE_LOCALE_T */
-			/* Can't have locale != 0 without HAVE_LOCALE_T */
+			/* 无 HAVE_LOCALE_T 时不能有 locale != 0 */
 			elog(ERROR, "mbstowcs_l is not available");
-			result = 0;			/* keep compiler quiet */
+			result = 0;			/* 让编译器安静 */
 #endif							/* HAVE_LOCALE_T */
 		}
 
@@ -3082,15 +3082,15 @@ char2wchar(wchar_t *to, size_t tolen, const char *from, size_t fromlen,
 	if (result == -1)
 	{
 		/*
-		 * Invalid multibyte character encountered.  We try to give a useful
-		 * error message by letting pg_verifymbstr check the string.  But it's
-		 * possible that the string is OK to us, and not OK to mbstowcs ---
-		 * this suggests that the LC_CTYPE locale is different from the
-		 * database encoding.  Give a generic error message if pg_verifymbstr
-		 * can't find anything wrong.
+		 * 碰到非法多字节字符。我们试图借
+		 * pg_verifymbstr 检查该字符串来给出有用的错误消息。
+		 * 但也可能此串对我们没问题，mbstowcs 却认为
+		 * 行 --- 这暗示 LC_CTYPE 与数据库编码不同。
+		 * 若 pg_verifymbstr 找不出问题，就给出一条通用
+		 * 错误消息。
 		 */
-		pg_verifymbstr(from, fromlen, false);	/* might not return */
-		/* but if it does ... */
+		pg_verifymbstr(from, fromlen, false);	/* 可能不返回 */
+		/* 若返回了... */
 		ereport(ERROR,
 				(errcode(ERRCODE_CHARACTER_NOT_IN_REPERTOIRE),
 				 errmsg("invalid multibyte character for locale"),

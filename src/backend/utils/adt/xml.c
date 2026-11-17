@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xml.c
- *	  XML data type support.
+ *	  XML 类型支持。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -13,33 +13,33 @@
  */
 
 /*
- * Generally, XML type support is only available when libxml use was
- * configured during the build.  But even if that is not done, the
- * type and all the functions are available, but most of them will
- * fail.  For one thing, this avoids having to manage variant catalog
- * installations.  But it also has nice effects such as that you can
- * dump a database containing XML type data even if the server is not
- * linked with libxml.  Thus, make sure xml_out() works even if nothing
- * else does.
+ * 通常，XML 类型支持仅在构建期间配置了
+ * libxml 时才可用。即使未配置，类型与所有函数
+ * 都仍可用，只是多数会失败。一方面，这避免了
+ * 管理多种系统目录安装的工作。但它也有不错的
+ * 效果，例如即使服务器未链接 libxml，也可以转储
+ * 包含 XML 类型数据的数据库。因此，要确保即使
+ * 其他都不行，xml_out() 也必须能
+ * 工作。
  */
 
 /*
- * Notes on memory management:
+ * 内存管理注意事项：
  *
- * Sometimes libxml allocates global structures in the hope that it can reuse
- * them later on.  This makes it impractical to change the xmlMemSetup
- * functions on-the-fly; that is likely to lead to trying to pfree() chunks
- * allocated with malloc() or vice versa.  Since libxml might be used by
- * loadable modules, eg libperl, our only safe choices are to change the
- * functions at postmaster/backend launch or not at all.  Since we'd rather
- * not activate libxml in sessions that might never use it, the latter choice
- * is the preferred one.  However, for debugging purposes it can be awfully
- * handy to constrain libxml's allocations to be done in a specific palloc
- * context, where they're easy to track.  Therefore there is code here that
- * can be enabled in debug builds to redirect libxml's allocations into a
- * special context LibxmlContext.  It's not recommended to turn this on in
- * a production build because of the possibility of bad interactions with
- * external modules.
+ * libxml 有时会分配一些全局结构体，指望之后能够
+ * 复用它们。这使得动态更改 xmlMemSetup 函数变
+ * 得不切实际；那很可能导致对以 malloc() 分配的
+ * 块调用 pfree()，或者相反。由于 libxml 可能会被
+ * 可加载模块（例如 libperl）使用，唯一安全的选择
+ * 要么是在 postmaster/backend 启动时更改这些函数，
+ * 要么完全不更改。我们不想在可能永远用不到 libxml
+ * 的会话中激活它，因此后一种选择是更可取的。但出
+ * 于调试目的，把 libxml 的内存分配约束在特定的
+ * palloc 上下文中进行会非常方便，因为在那里易于
+ * 追踪。因此这里有一些代码，可在调试构建中启用，
+ * 它能把 libxml 的分配重定向到 LibxmlContext 这一特
+ * 殊的上下文。生产构建不建议开启，恐与外部模块
+ * 不良交互。
  */
 /* #define USE_LIBXMLCONTEXT */
 
@@ -59,16 +59,16 @@
 #include <libxml/xpathInternals.h>
 
 /*
- * We used to check for xmlStructuredErrorContext via a configure test; but
- * that doesn't work on Windows, so instead use this grottier method of
- * testing the library version number.
+ * 过去我们用 configure 测试来检查 xmlStructuredErrorContext，
+ * 但在 Windows 上行不通，故改用更粗糙的检验方法：
+ * 查库的版本号。
  */
 #if LIBXML_VERSION >= 20704
 #define HAVE_XMLSTRUCTUREDERRORCONTEXT 1
 #endif
 
 /*
- * libxml2 2.12 decided to insert "const" into the error handler API.
+ * libxml2 2.12 决定在错误处理 API 中插入 "const"。
  */
 #if LIBXML_VERSION >= 21200
 #define PgXmlErrorPtr const xmlError *
@@ -105,27 +105,27 @@
 #include "utils/xml.h"
 
 
-/* GUC variables */
+/* GUC 变量 */
 int			xmlbinary = XMLBINARY_BASE64;
 int			xmloption = XMLOPTION_CONTENT;
 
 #ifdef USE_LIBXML
 
-/* random number to identify PgXmlErrorContext */
+/* 用于标识 PgXmlErrorContext 的随机数 */
 #define ERRCXT_MAGIC	68275028
 
 struct PgXmlErrorContext
 {
 	int			magic;
-	/* strictness argument passed to pg_xml_init */
+	/* 传给 pg_xml_init 的严格性参数 */
 	PgXmlStrictness strictness;
-	/* current error status and accumulated message, if any */
+	/* 当前错误状态及累积的消息（如有） */
 	bool		err_occurred;
 	StringInfoData err_buf;
-	/* previous libxml error handling state (saved by pg_xml_init) */
+	/* 原 libxml 错误状态（pg_xml_init 保存） */
 	xmlStructuredErrorFunc saved_errfunc;
 	void	   *saved_errcxt;
-	/* previous libxml entity handler (saved by pg_xml_init) */
+	/* 原 libxml 实体处理器（pg_xml_init 保存） */
 	xmlExternalEntityLoader saved_entityfunc;
 };
 
@@ -189,9 +189,9 @@ static void SPI_sql_row_to_xmlelement(uint64 rownum, StringInfo result,
 									  char *tablename, bool nulls, bool tableforest,
 									  const char *targetns, bool top_level);
 
-/* XMLTABLE support */
+/* XMLTABLE 支持 */
 #ifdef USE_LIBXML
-/* random number to identify XmlTableContext */
+/* 用于标识 XmlTableContext 的随机数 */
 #define XMLTABLE_CONTEXT_MAGIC	46922182
 typedef struct XmlTableBuilderData
 {
@@ -239,7 +239,7 @@ const TableFuncRoutine XmlTableRoutine =
 			 errdetail("This functionality requires the server to be built with libxml support.")))
 
 
-/* from SQL/XML:2008 section 4.9 */
+/* 来自 SQL/XML:2008 4.9 节 */
 #define NAMESPACE_XSD "http://www.w3.org/2001/XMLSchema"
 #define NAMESPACE_XSI "http://www.w3.org/2001/XMLSchema-instance"
 #define NAMESPACE_SQLXML "http://standards.iso.org/iso/9075/2003/sqlxml"
@@ -263,11 +263,11 @@ xmlChar_to_encoding(const xmlChar *encoding_name)
 
 
 /*
- * xml_in uses a plain C string to VARDATA conversion, so for the time being
- * we use the conversion function for the text datatype.
+ * xml_in 使用普通的 C 字符串到 VARDATA 转换，所以暂时
+ * 使用 text 数据类型的转换函数。
  *
- * This is only acceptable so long as xmltype and text use the same
- * representation.
+ * 只要 xmltype 与 text 表示形式相同，这样做就是可
+ * 接受的。
  */
 Datum
 xml_in(PG_FUNCTION_ARGS)
@@ -277,13 +277,13 @@ xml_in(PG_FUNCTION_ARGS)
 	xmltype    *vardata;
 	xmlDocPtr	doc;
 
-	/* Build the result object. */
+	/* 构建结果对象。 */
 	vardata = (xmltype *) cstring_to_text(s);
 
 	/*
-	 * Parse the data to check if it is well-formed XML data.
+	 * 解析数据以检查其是否为良构 XML 数据。
 	 *
-	 * Note: we don't need to worry about whether a soft error is detected.
+	 * 注意：我们无需关心是否检测到软错误。
 	 */
 	doc = xml_parse(vardata, xmloption, true, GetDatabaseEncoding(),
 					NULL, NULL, fcinfo->context);
@@ -302,11 +302,11 @@ xml_in(PG_FUNCTION_ARGS)
 
 
 /*
- * xml_out_internal uses a plain VARDATA to C string conversion, so for the
- * time being we use the conversion function for the text datatype.
+ * xml_out_internal 使用普通的 VARDATA 到 C 字符串转换，所以
+ * 暂时使用 text 数据类型的转换函数。
  *
- * This is only acceptable so long as xmltype and text use the same
- * representation.
+ * 只要 xmltype 与 text 表示形式相同，这样做就是可
+ * 接受的。
  */
 static char *
 xml_out_internal(xmltype *x, pg_enc target_encoding)
@@ -329,9 +329,9 @@ xml_out_internal(xmltype *x, pg_enc target_encoding)
 		if (!print_xml_decl(&buf, version, target_encoding, standalone))
 		{
 			/*
-			 * If we are not going to produce an XML declaration, eat a single
-			 * newline in the original string to prevent empty first lines in
-			 * the output.
+			 * 如果不产出 XML 声明，就吃掉原字符串中的一个
+			 * 换行符，以免输出的第一行为
+			 * 空。
 			 */
 			if (*(str + len) == '\n')
 				len += 1;
@@ -358,10 +358,10 @@ xml_out(PG_FUNCTION_ARGS)
 	xmltype    *x = PG_GETARG_XML_P(0);
 
 	/*
-	 * xml_out removes the encoding property in all cases.  This is because we
-	 * cannot control from here whether the datum will be converted to a
-	 * different client encoding, so we'd do more harm than good by including
-	 * it.
+	 * xml_out 在任何情况下都移除编码属性。这是因为我们
+	 * 无法在这里控制 datum 之后会不会被转换为某种不
+	 * 同的客户端编码，把它包含在内反而会弊大于
+	 * 利
 	 */
 	PG_RETURN_CSTRING(xml_out_internal(x, 0));
 }
@@ -381,17 +381,17 @@ xml_recv(PG_FUNCTION_ARGS)
 	int			encoding;
 
 	/*
-	 * Read the data in raw format. We don't know yet what the encoding is, as
-	 * that information is embedded in the xml declaration; so we have to
-	 * parse that before converting to server encoding.
+	 * 以原始格式读取数据。编码未知，因为该信息嵌在 XML
+	 * 声明里；所以必须在转为服务器编码之前
+	 * 先对它进行解析。
 	 */
 	nbytes = buf->len - buf->cursor;
 	str = (char *) pq_getmsgbytes(buf, nbytes);
 
 	/*
-	 * We need a null-terminated string to pass to parse_xml_decl().  Rather
-	 * than make a separate copy, make the temporary result one byte bigger
-	 * than it needs to be.
+	 * 必须给 parse_xml_decl() 传入以空字符结尾的字符串。
+	 * 与其单独复制一份，不如让临时结果比所需的再多
+	 * 出一个字节。
 	 */
 	result = palloc(nbytes + 1 + VARHDRSZ);
 	SET_VARSIZE(result, nbytes + VARHDRSZ);
@@ -402,21 +402,21 @@ xml_recv(PG_FUNCTION_ARGS)
 	parse_xml_decl((const xmlChar *) str, NULL, NULL, &encodingStr, NULL);
 
 	/*
-	 * If encoding wasn't explicitly specified in the XML header, treat it as
-	 * UTF-8, as that's the default in XML. This is different from xml_in(),
-	 * where the input has to go through the normal client to server encoding
-	 * conversion.
+	 * 若 XML 头未显式指定编码，则将其视为 UTF-8，因为
+	 * 这是 XML 的默认值。这点与 xml_in() 不同，后者的输
+	 * 入必须走常规的客户端到服务器编码
+	 * 转换。
 	 */
 	encoding = encodingStr ? xmlChar_to_encoding(encodingStr) : PG_UTF8;
 
 	/*
-	 * Parse the data to check if it is well-formed XML data.  Assume that
-	 * xml_parse will throw ERROR if not.
+	 * 解析数据以检查其是否为良构 XML 数据。假定
+	 * 否则 xml_parse 将抛 ERROR。
 	 */
 	doc = xml_parse(result, xmloption, true, encoding, NULL, NULL, NULL);
 	xmlFreeDoc(doc);
 
-	/* Now that we know what we're dealing with, convert to server encoding */
+	/* 既然已经知道要处理的对象，就转换到服务器编码 */
 	newstr = pg_any_to_server(str, nbytes, encoding);
 
 	if (newstr != str)
@@ -442,8 +442,8 @@ xml_send(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	/*
-	 * xml_out_internal doesn't convert the encoding, it just prints the right
-	 * declaration. pq_sendtext will do the conversion.
+	 * xml_out_internal 不转换编码，只打印正确的声明。
+	 * pq_sendtext 会进行转换。
 	 */
 	outval = xml_out_internal(x, pg_get_client_encoding());
 
@@ -497,7 +497,7 @@ xmlcomment(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 	int			i;
 
-	/* check for "--" in string or "-" at the end */
+	/* 检查字符串中的 "--" 或结尾 "-" */
 	for (i = 1; i < len; i++)
 	{
 		if (argdata[i] == '-' && argdata[i - 1] == '-')
@@ -525,8 +525,8 @@ xmlcomment(PG_FUNCTION_ARGS)
 
 
 /*
- * TODO: xmlconcat needs to merge the notations and unparsed entities
- * of the argument values.  Not very important in practice, though.
+ * TODO：xmlconcat 需合并参数值的记法与未解析实体。
+ * 不过实践中这不太重要。
  */
 xmltype *
 xmlconcat(List *args)
@@ -592,7 +592,7 @@ xmlconcat(List *args)
 
 
 /*
- * XMLAGG support
+ * XMLAGG 支持
  */
 Datum
 xmlconcat2(PG_FUNCTION_ARGS)
@@ -626,7 +626,7 @@ xmltotext(PG_FUNCTION_ARGS)
 {
 	xmltype    *data = PG_GETARG_XML_P(0);
 
-	/* It's actually binary compatible. */
+	/* 实际上二进制兼容。 */
 	PG_RETURN_TEXT_P((text *) data);
 }
 
@@ -648,9 +648,9 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 	if (xmloption_arg != XMLOPTION_DOCUMENT && !indent)
 	{
 		/*
-		 * We don't actually need to do anything, so just return the
-		 * binary-compatible input.  For backwards-compatibility reasons,
-		 * allow such cases to succeed even without USE_LIBXML.
+		 * 其实无需做任何事，直接返回二进制兼容
+		 * 输入即可。为向后兼容，即使无 USE_LIBXML
+		 * 也允许此类情况成功。
 		 */
 		return (text *) data;
 	}
@@ -658,10 +658,10 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 #ifdef USE_LIBXML
 
 	/*
-	 * Parse the input according to the xmloption.
+	 * 根据 xmloption 解析输入。
 	 *
-	 * preserve_whitespace is set to false in case we are indenting, otherwise
-	 * libxml2 will fail to indent elements that have whitespace between them.
+	 * 如果我们打算缩进，就把 preserve_whitespace 设为 false，
+	 * 否则 libxml2 将无法缩进彼此之间有空白的元素。
 	 */
 	doc = xml_parse(data, xmloption_arg, !indent, GetDatabaseEncoding(),
 					&parsed_xmloptiontype, &content_nodes,
@@ -670,13 +670,13 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 	{
 		if (doc)
 			xmlFreeDoc(doc);
-		/* A soft error must be failure to conform to XMLOPTION_DOCUMENT */
+		/* 软错误必须是不符合 XMLOPTION_DOCUMENT 的情形 */
 		ereport(ERROR,
 				(errcode(ERRCODE_NOT_AN_XML_DOCUMENT),
 				 errmsg("not an XML document")));
 	}
 
-	/* If we weren't asked to indent, we're done. */
+	/* 如果未要求缩进，即告完成。 */
 	if (!indent)
 	{
 		xmlFreeDoc(doc);
@@ -684,10 +684,10 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 	}
 
 	/*
-	 * Otherwise, we gotta spin up some error handling.  Unlike most other
-	 * routines in this module, we already have a libxml "doc" structure to
-	 * free, so we need to call pg_xml_init() inside the PG_TRY and be
-	 * prepared for it to fail (typically due to palloc OOM).
+	 * 否则就得准备错误处理。与模块中大多数其他例程
+	 * 不同，我们已有待释放的 libxml "doc" 结构，因此要
+	 * 在 PG_TRY 内调用 pg_xml_init()，并准备好接受它
+	 * 失败（通常因 palloc OOM）。
 	 */
 	PG_TRY();
 	{
@@ -695,21 +695,21 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 
 		xmlerrcxt = pg_xml_init(PG_XML_STRICTNESS_ALL);
 
-		/* The serialized data will go into this buffer. */
+		/* 序列化后的数据将进入此缓冲区。 */
 		buf = xmlBufferCreate();
 
 		if (buf == NULL || xmlerrcxt->err_occurred)
 			xml_ereport(xmlerrcxt, ERROR, ERRCODE_OUT_OF_MEMORY,
 						"could not allocate xmlBuffer");
 
-		/* Detect whether there's an XML declaration */
+		/* 检测是否存在 XML 声明 */
 		parse_xml_decl(xml_text2xmlChar(data), &decl_len, NULL, NULL, NULL);
 
 		/*
-		 * Emit declaration only if the input had one.  Note: some versions of
-		 * xmlSaveToBuffer leak memory if a non-null encoding argument is
-		 * passed, so don't do that.  We don't want any encoding conversion
-		 * anyway.
+		 * 仅当输入带有声明时才输出它。注意：某些版本的
+		 * xmlSaveToBuffer 在传入非空 encoding 参数时会泄
+		 * 漏内存，故勿那样做。反正不需要任何编码转
+		 * 换。
 		 */
 		if (decl_len == 0)
 			ctxt = xmlSaveToBuffer(buf, NULL,
@@ -724,7 +724,7 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 
 		if (parsed_xmloptiontype == XMLOPTION_DOCUMENT)
 		{
-			/* If it's a document, saving is easy. */
+			/* 若是文档，保存就简单。 */
 			if (xmlSaveDoc(ctxt, doc) == -1 || xmlerrcxt->err_occurred)
 				xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
 							"could not save document to xmlBuffer");
@@ -732,10 +732,10 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 		else if (content_nodes != NULL)
 		{
 			/*
-			 * Deal with the case where we have non-singly-rooted XML.
-			 * libxml's dump functions don't work well for that without help.
-			 * We build a fake root node that serves as a container for the
-			 * content nodes, and then iterate over the nodes.
+			 * 处理非单一根 XML 的情形。
+			 * 没有帮助时 libxml 的转储函数对此处理得不好。
+			 * 构建伪根节点作为内容节点的容器，然后
+			 * 遍历这些节点。
 			 */
 			xmlNodePtr	root;
 			xmlNodePtr	oldroot;
@@ -747,8 +747,8 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 							"could not allocate xml node");
 
 			/*
-			 * This attaches root to doc, so we need not free it separately...
-			 * but instead, we have to free the old root if there was one.
+			 * 这会把 root 挂到 doc 上，无需单独释放它……
+			 * 但相反，如果之前有旧根，就必须释放它。
 			 */
 			oldroot = xmlDocSetRootElement(doc, root);
 			if (oldroot != NULL)
@@ -757,11 +757,11 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 			xmlAddChildList(root, content_nodes);
 
 			/*
-			 * We use this node to insert newlines in the dump.  Note: in at
-			 * least some libxml versions, xmlNewDocText would not attach the
-			 * node to the document even if we passed it.  Therefore, manage
-			 * freeing of this node manually, and pass NULL here to make sure
-			 * there's not a dangling link.
+			 * 以该节点在转储中插入换行。注意：至少一
+			 * 些 libxml 版本里，即便传文档，xmlNewDocText 也不
+			 * 会把节点挂上文档。因此要手动管理其释放，
+			 * 并在此传入 NULL 以确保不会留下悬空链
+			 * 接。
 			 */
 			newline = xmlNewDocText(NULL, (const xmlChar *) "\n");
 			if (newline == NULL || xmlerrcxt->err_occurred)
@@ -770,7 +770,7 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 
 			for (xmlNodePtr node = root->children; node; node = node->next)
 			{
-				/* insert newlines between nodes */
+				/* 在节点之间插入换行 */
 				if (node->type != XML_TEXT_NODE && node->prev != NULL)
 				{
 					if (xmlSaveTree(ctxt, newline) == -1 || xmlerrcxt->err_occurred)
@@ -794,13 +794,13 @@ xmltotext_with_options(xmltype *data, XmlOptionType xmloption_arg, bool indent)
 
 		if (xmlSaveClose(ctxt) == -1 || xmlerrcxt->err_occurred)
 		{
-			ctxt = NULL;		/* don't try to close it again */
+			ctxt = NULL;		/* 不要再次尝试关闭 */
 			xml_ereport(xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
 						"could not close xmlSaveCtxtPtr");
 		}
 
 		/*
-		 * xmlDocContentDumpOutput may add a trailing newline, so remove that.
+		 * xmlDocContentDumpOutput 可能会加尾随换行，故移除它。
 		 */
 		if (xmloption_arg == XMLOPTION_DOCUMENT)
 		{
@@ -861,11 +861,11 @@ xmlelement(XmlExpr *xexpr,
 	volatile xmlTextWriterPtr writer = NULL;
 
 	/*
-	 * All arguments are already evaluated, and their values are passed in the
-	 * named_argvalue/named_argnull or argvalue/argnull arrays.  This avoids
-	 * issues if one of the arguments involves a call to some other function
-	 * or subsystem that wants to use libxml on its own terms.  We examine the
-	 * original XmlExpr to identify the numbers and types of the arguments.
+	 * 所有参数均已求值，其值通过 named_argvalue/named_argnull
+	 * 或 argvalue/argnull 数组传入。这可避免某参数牵涉调
+	 * 用其他函数或子系统的情况，那些函数想按自己的
+	 * 方式使用 libxml。我们考察原始 XmlExpr 来确定参数的
+	 * 数量与类型。
 	 */
 	named_arg_strings = NIL;
 	i = 0;
@@ -891,7 +891,7 @@ xmlelement(XmlExpr *xexpr,
 		Expr	   *e = (Expr *) lfirst(arg);
 		char	   *str;
 
-		/* here we can just forget NULL elements immediately */
+		/* 这里可以直接忽略 NULL 元素 */
 		if (!argnull[i])
 		{
 			str = map_sql_value_to_xml_value(argvalue[i],
@@ -937,7 +937,7 @@ xmlelement(XmlExpr *xexpr,
 
 		xmlTextWriterEndElement(writer);
 
-		/* we MUST do this now to flush data out to the buffer ... */
+		/* 现在必须这样做，把数据刷入缓冲区…… */
 		xmlFreeTextWriter(writer);
 		writer = NULL;
 
@@ -995,13 +995,13 @@ xmlpi(const char *target, text *arg, bool arg_is_null, bool *result_is_null)
 
 	if (pg_strcasecmp(target, "xml") == 0)
 		ereport(ERROR,
-				(errcode(ERRCODE_SYNTAX_ERROR), /* really */
+				(errcode(ERRCODE_SYNTAX_ERROR), /* 确实 */
 				 errmsg("invalid XML processing instruction"),
 				 errdetail("XML processing instruction target name cannot be \"%s\".", target)));
 
 	/*
-	 * Following the SQL standard, the null check comes after the syntax check
-	 * above.
+	 * 按照 SQL 标准，空值检查要放在上文语法检查之后。
+	 * 
 	 */
 	*result_is_null = arg_is_null;
 	if (*result_is_null)
@@ -1070,7 +1070,7 @@ xmlroot(xmltype *data, text *version, int standalone)
 			orig_standalone = -1;
 			break;
 		case XML_STANDALONE_OMITTED:
-			/* leave original value */
+			/* 保留原值 */
 			break;
 	}
 
@@ -1087,12 +1087,12 @@ xmlroot(xmltype *data, text *version, int standalone)
 
 
 /*
- * Validate document (given as string) against DTD (given as external link)
+ * 针对 DTD（以外链给定）校验文档（以字符串给定）
  *
- * This has been removed because it is a security hole: unprivileged users
- * should not be able to use Postgres to fetch arbitrary external files,
- * which unfortunately is exactly what libxml is willing to do with the DTD
- * parameter.
+ * 此功能已移除，因为它是个安全漏洞：无特权用户不
+ * 应能用 Postgres 获取任意外部文件，遗憾的是这恰
+ * 恰是 libxml 愿意借 DTD 参数去做的事
+ * 情。
  */
 Datum
 xmlvalidate(PG_FUNCTION_ARGS)
@@ -1112,7 +1112,7 @@ xml_is_document(xmltype *arg)
 	ErrorSaveContext escontext = {T_ErrorSaveContext};
 
 	/*
-	 * We'll report "true" if no soft error is reported by xml_parse().
+	 * 若 xml_parse() 未报告软错误，我们将报告 "true"。
 	 */
 	doc = xml_parse((text *) arg, XMLOPTION_DOCUMENT, true,
 					GetDatabaseEncoding(), NULL, NULL, (Node *) &escontext);
@@ -1130,15 +1130,15 @@ xml_is_document(xmltype *arg)
 #ifdef USE_LIBXML
 
 /*
- * pg_xml_init_library --- set up for use of libxml
+ * pg_xml_init_library --- 准备使用 libxml
  *
- * This should be called by each function that is about to use libxml
- * facilities but doesn't require error handling.  It initializes libxml
- * and verifies compatibility with the loaded libxml version.  These are
- * once-per-session activities.
+ * 每个将使用 libxml 设施但不需要错误处理的函数
+ * 都应调用本函数。它会初始化 libxml 并校验
+ * 与所加载 libxml 版本的兼容性。这些都是每会话一次
+ * 活动。
  *
- * TODO: xmlChar is utf8-char, make proper tuning (initdb with enc!=utf8 and
- * check)
+ * TODO：xmlChar 为 utf8 字符，需调优（initdb 在 enc!=utf8 时验
+ * 证）
  */
 void
 pg_xml_init_library(void)
@@ -1147,11 +1147,11 @@ pg_xml_init_library(void)
 
 	if (first_time)
 	{
-		/* Stuff we need do only once per session */
+		/* 每会话只需做一次的事情 */
 
 		/*
-		 * Currently, we have no pure UTF-8 support for internals -- check if
-		 * we can work.
+		 * 目前内部尚不支持纯 UTF-8 —— 检查我们能否工
+		 * 作。
 		 */
 		if (sizeof(char) != sizeof(xmlChar))
 			ereport(ERROR,
@@ -1160,11 +1160,11 @@ pg_xml_init_library(void)
 							   sizeof(char), sizeof(xmlChar))));
 
 #ifdef USE_LIBXMLCONTEXT
-		/* Set up libxml's memory allocation our way */
+		/* 按我们方式设置 libxml 内存分配 */
 		xml_memory_init();
 #endif
 
-		/* Check library compatibility */
+		/* 检查库兼容性 */
 		LIBXML_TEST_VERSION;
 
 		first_time = false;
@@ -1172,19 +1172,19 @@ pg_xml_init_library(void)
 }
 
 /*
- * pg_xml_init --- set up for use of libxml and register an error handler
+ * pg_xml_init --- 准备使用 libxml 并注册错误处理器
  *
- * This should be called by each function that is about to use libxml
- * facilities and requires error handling.  It initializes libxml with
- * pg_xml_init_library() and establishes our libxml error handler.
+ * 每个将使用 libxml 设施且需要错误处理的函数都
+ * 应调用本函数。它先用 pg_xml_init_library() 初
+ * 始化 libxml，并建立我们的 libxml 错误处理器。
  *
- * strictness determines which errors are reported and which are ignored.
+ * strictness 决定哪些错误被报告，哪些被忽略。
  *
- * Calls to this function MUST be followed by a PG_TRY block that guarantees
- * that pg_xml_done() is called during either normal or error exit.
+ * 对此函数的调用之后必须紧跟一个 PG_TRY 块，以保证在
+ * 正常退出或错误退出时都会调用 pg_xml_done()。
  *
- * This is exported for use by contrib/xml2, as well as other code that might
- * wish to share use of this module's libxml error handler.
+ * 此函数导出供 contrib/xml2 使用，也供其他可能希望共享本
+ * 模块 libxml 错误处理器的代码使用。
  */
 PgXmlErrorContext *
 pg_xml_init(PgXmlStrictness strictness)
@@ -1192,10 +1192,10 @@ pg_xml_init(PgXmlStrictness strictness)
 	PgXmlErrorContext *errcxt;
 	void	   *new_errcxt;
 
-	/* Do one-time setup if needed */
+	/* 需要时做一次性设置 */
 	pg_xml_init_library();
 
-	/* Create error handling context structure */
+	/* 创建错误处理上下文结构 */
 	errcxt = (PgXmlErrorContext *) palloc(sizeof(PgXmlErrorContext));
 	errcxt->magic = ERRCXT_MAGIC;
 	errcxt->strictness = strictness;
@@ -1203,11 +1203,11 @@ pg_xml_init(PgXmlStrictness strictness)
 	initStringInfo(&errcxt->err_buf);
 
 	/*
-	 * Save original error handler and install ours. libxml originally didn't
-	 * distinguish between the contexts for generic and for structured error
-	 * handlers.  If we're using an old libxml version, we must thus save the
-	 * generic error context, even though we're using a structured error
-	 * handler.
+	 * 保存原错误处理器并安装我们的。libxml 最初并不区
+	 * 分通用与结构化错误处理器的上下文；所以若用旧版
+	 * 本 libxml，就必须保存通用错误上下文，即便我们用的
+	 * 是结构化错误处理
+	 * 器。
 	 */
 	errcxt->saved_errfunc = xmlStructuredError;
 
@@ -1220,17 +1220,17 @@ pg_xml_init(PgXmlStrictness strictness)
 	xmlSetStructuredErrorFunc((void *) errcxt, xml_errorHandler);
 
 	/*
-	 * Verify that xmlSetStructuredErrorFunc set the context variable we
-	 * expected it to.  If not, the error context pointer we just saved is not
-	 * the correct thing to restore, and since that leaves us without a way to
-	 * restore the context in pg_xml_done, we must fail.
+	 * 校验 xmlSetStructuredErrorFunc 是否设置了我们期望的
+	 * 上下文变量。若否，我们刚保存的错误上下文指针就
+	 * 不是应恢复的正确对象，而这使我们在 pg_xml_done
+	 * 中无法恢复上下文，故必须失败。
 	 *
-	 * The only known situation in which this test fails is if we compile with
-	 * headers from a libxml2 that doesn't track the structured error context
-	 * separately (< 2.7.4), but at runtime use a version that does, or vice
-	 * versa.  The libxml2 authors did not treat that change as constituting
-	 * an ABI break, so the LIBXML_TEST_VERSION test in pg_xml_init_library
-	 * fails to protect us from this.
+	 * 已知唯一会使此检验失败的情形：编译用头文件来自
+	 * 不跟踪结构化错误上下文的 libxml2（< 2.7.4），但运
+	 * 行时却用会跟踪的版本，或反之。libxml2 作者不认为
+	 * 这一变更构成 ABI 破坏，所以 pg_xml_init_library 中的
+	 * LIBXML_TEST_VERSION 检验无法保护我们免受
+	 * 此问题。
 	 */
 
 #ifdef HAVE_XMLSTRUCTUREDERRORCONTEXT
@@ -1248,8 +1248,8 @@ pg_xml_init(PgXmlStrictness strictness)
 						 " header files that PostgreSQL was built with.")));
 
 	/*
-	 * Also, install an entity loader to prevent unwanted fetches of external
-	 * files and URLs.
+	 * 另外，安装实体加载器，防止获取不想要的外部文件
+	 * 和 URL。
 	 */
 	errcxt->saved_entityfunc = xmlGetExternalEntityLoader();
 	xmlSetExternalEntityLoader(xmlPgEntityLoader);
@@ -1259,33 +1259,33 @@ pg_xml_init(PgXmlStrictness strictness)
 
 
 /*
- * pg_xml_done --- restore previous libxml error handling
+ * pg_xml_done --- 恢复原 libxml 错误处理
  *
- * Resets libxml's global error-handling state to what it was before
- * pg_xml_init() was called.
+ * 把 libxml 的全局错误处理状态重置回 pg_xml_init() 被
+ * 调用之前的状态。
  *
- * This routine verifies that all pending errors have been dealt with
- * (in assert-enabled builds, anyway).
+ * 本例程校验所有未决错误已处理（至少在启用断言
+ * 的构建中）。
  */
 void
 pg_xml_done(PgXmlErrorContext *errcxt, bool isError)
 {
 	void	   *cur_errcxt;
 
-	/* An assert seems like enough protection here */
+	/* 断言在此似乎已是足够的保护 */
 	Assert(errcxt->magic == ERRCXT_MAGIC);
 
 	/*
-	 * In a normal exit, there should be no un-handled libxml errors.  But we
-	 * shouldn't try to enforce this during error recovery, since the longjmp
-	 * could have been thrown before xml_ereport had a chance to run.
+	 * 正常退出时不应有未处理的 libxml 错误。但在错误恢
+	 * 复期间不应强制这一点，因为 longjmp 可能在 xml_ereport
+	 * 有机会运行之前就被抛出。
 	 */
 	Assert(!errcxt->err_occurred || isError);
 
 	/*
-	 * Check that libxml's global state is correct, warn if not.  This is a
-	 * real test and not an Assert because it has a higher probability of
-	 * happening.
+	 * 检查 libxml 全局状态是否正确，不对则告警。这是真
+	 * 正的检验而非 Assert，因为它发生的机会更大一
+	 * 些。
 	 */
 #ifdef HAVE_XMLSTRUCTUREDERRORCONTEXT
 	cur_errcxt = xmlStructuredErrorContext;
@@ -1296,24 +1296,24 @@ pg_xml_done(PgXmlErrorContext *errcxt, bool isError)
 	if (cur_errcxt != (void *) errcxt)
 		elog(WARNING, "libxml error handling state is out of sync with xml.c");
 
-	/* Restore the saved handlers */
+	/* 恢复保存的处理器 */
 	xmlSetStructuredErrorFunc(errcxt->saved_errcxt, errcxt->saved_errfunc);
 	xmlSetExternalEntityLoader(errcxt->saved_entityfunc);
 
 	/*
-	 * Mark the struct as invalid, just in case somebody somehow manages to
-	 * call xml_errorHandler or xml_ereport with it.
+	 * 将结构标记为无效，以防有人不知怎么竟用它调用
+	 * xml_errorHandler 或 xml_ereport。
 	 */
 	errcxt->magic = 0;
 
-	/* Release memory */
+	/* 释放内存 */
 	pfree(errcxt->err_buf.data);
 	pfree(errcxt);
 }
 
 
 /*
- * pg_xml_error_occurred() --- test the error flag
+ * pg_xml_error_occurred() --- 测试错误标志
  */
 bool
 pg_xml_error_occurred(PgXmlErrorContext *errcxt)
@@ -1323,12 +1323,12 @@ pg_xml_error_occurred(PgXmlErrorContext *errcxt)
 
 
 /*
- * SQL/XML allows storing "XML documents" or "XML content".  "XML
- * documents" are specified by the XML specification and are parsed
- * easily by libxml.  "XML content" is specified by SQL/XML as the
- * production "XMLDecl? content".  But libxml can only parse the
- * "content" part, so we have to parse the XML declaration ourselves
- * to complete this.
+ * SQL/XML 允许存储 "XML 文档"或 "XML 内容"。
+ * "XML 文档"由 XML 规范定义，libxml 很容易解析。
+ * "XML content" 由 SQL/XML 指定为产生式 "XMLDecl?
+ *  content"。但 libxml 只能解析 "content" 部分，故须
+ * 自行解析 XML 声明来完成这
+ * 件事。
  */
 
 #define CHECK_XML_SPACE(p) \
@@ -1341,7 +1341,7 @@ pg_xml_error_occurred(PgXmlErrorContext *errcxt)
 	while (xmlIsBlank_ch(*(p))) (p)++
 
 /* Letter | Digit | '.' | '-' | '_' | ':' | CombiningChar | Extender */
-/* Beware of multiple evaluations of argument! */
+/* 当心参数被多次求值！ */
 #define PG_XMLISNAMECHAR(c) \
 	(xmlIsBaseChar_ch(c) || xmlIsIdeographicQ(c) \
 			|| xmlIsDigit_ch(c) \
@@ -1349,7 +1349,7 @@ pg_xml_error_occurred(PgXmlErrorContext *errcxt)
 			|| xmlIsCombiningQ(c) \
 			|| xmlIsExtender_ch(c))
 
-/* pnstrdup, but deal with xmlChar not char; len is measured in xmlChars */
+/* pnstrdup，但面向 xmlChar 而非 char；len 按 xmlChar 计 */
 static xmlChar *
 xml_pnstrdup(const xmlChar *str, size_t len)
 {
@@ -1361,7 +1361,7 @@ xml_pnstrdup(const xmlChar *str, size_t len)
 	return result;
 }
 
-/* Ditto, except input is char* */
+/* 同上，但输入为 char* */
 static xmlChar *
 pg_xmlCharStrndup(const char *str, size_t len)
 {
@@ -1375,9 +1375,9 @@ pg_xmlCharStrndup(const char *str, size_t len)
 }
 
 /*
- * Copy xmlChar string to PostgreSQL-owned memory, freeing the input.
+ * 把 xmlChar 串复制到 PostgreSQL 自有内存，释放输入。
  *
- * The input xmlChar is freed regardless of success of the copy.
+ * 无论复制成败与否，输入的 xmlChar 都将释放。
  */
 static char *
 xml_pstrdup_and_free(xmlChar *str)
@@ -1403,10 +1403,10 @@ xml_pstrdup_and_free(xmlChar *str)
 }
 
 /*
- * str is the null-terminated input string.  Remaining arguments are
- * output arguments; each can be NULL if value is not wanted.
- * version and encoding are returned as locally-palloc'd strings.
- * Result is 0 if OK, an error code if not.
+ * str 是空值结尾的输入串。其余参数是输出参数；
+ * 每个都可以在不需要该值时传入 NULL。
+ * version 与 encoding 以本地 palloc 的字符串返回。
+ * 成功时为 0，否则为错误码。
  */
 static int
 parse_xml_decl(const xmlChar *str, size_t *lenp,
@@ -1419,14 +1419,14 @@ parse_xml_decl(const xmlChar *str, size_t *lenp,
 	int			utf8len;
 
 	/*
-	 * Only initialize libxml.  We don't need error handling here, but we do
-	 * need to make sure libxml is initialized before calling any of its
-	 * functions.  Note that this is safe (and a no-op) if caller has already
-	 * done pg_xml_init().
+	 * 仅初始化 libxml。此处无需错误处理，但在调用其任
+	 * 何函数之前必须确保 libxml 已初始化。注意若已
+	 * 经调用过 pg_xml_init()，这是安全的（也是
+	 * 空操作）。
 	 */
 	pg_xml_init_library();
 
-	/* Initialize output arguments to "not present" */
+	/* 把输出参数初始化为"不存在" */
 	if (version)
 		*version = NULL;
 	if (encoding)
@@ -1440,12 +1440,12 @@ parse_xml_decl(const xmlChar *str, size_t *lenp,
 		goto finished;
 
 	/*
-	 * If next char is a name char, it's a PI like <?xml-stylesheet ...?>
-	 * rather than an XMLDecl, so we have done what we came to do and found no
-	 * XMLDecl.
+	 * 若下一字符是名字字符，那就是形如 <?xml-stylesheet
+	 *  ...?> 的 PI 而非 XMLDecl，故已做完该做的事，并无
+	 * XMLDecl
 	 *
-	 * We need an input length value for xmlGetUTF8Char, but there's no need
-	 * to count the whole document size, so use strnlen not strlen.
+	 * xmlGetUTF8Char 需要输入长度值，但无需统计整个文档
+	 * 的大小，所以用 strnlen 而非 strlen。
 	 */
 	utf8len = strnlen((const char *) (p + 5), MAX_MULTIBYTE_CHAR_LEN);
 	utf8char = xmlGetUTF8Char(p + 5, &utf8len);
@@ -1568,18 +1568,18 @@ finished:
 
 
 /*
- * Write an XML declaration.  On output, we adjust the XML declaration
- * as follows.  (These rules are the moral equivalent of the clause
- * "Serialization of an XML value" in the SQL standard.)
+ * 写 XML 声明。输出时，我们按如下规则调整 XML 声明
+ * （这些规则等同于 SQL 标准的"XML 值序列化"条
+ * 款。）
  *
- * We try to avoid generating an XML declaration if possible.  This is
- * so that you don't get trivial things like xml '<foo/>' resulting in
- * '<?xml version="1.0"?><foo/>', which would surely be annoying.  We
- * must provide a declaration if the standalone property is specified
- * or if we include an encoding declaration.  If we have a
- * declaration, we must specify a version (XML requires this).
- * Otherwise we only make a declaration if the version is not "1.0",
- * which is the default version specified in SQL:2003.
+ * 我们尽量避免生成 XML 声明。这是为了免得出现像
+ * xml '<foo/>' 产出 '<?xml version="1.0"?><foo/>' 这种
+ * 绝对恼人的结果。
+ * 若指定了 standalone 属性或包含编码声明，就必须
+ * 提供声明。
+ * 有声明时必须指定版本（XML 要求）；否则只
+ * 在版本不是 "1.0" 时才生成声明，"1.0" 是 SQL:2003 中
+ * 指定的默认版本。
  */
 static bool
 print_xml_decl(StringInfo buf, const xmlChar *version,
@@ -1599,8 +1599,8 @@ print_xml_decl(StringInfo buf, const xmlChar *version,
 		if (encoding && encoding != PG_UTF8)
 		{
 			/*
-			 * XXX might be useful to convert this to IANA names (ISO-8859-1
-			 * instead of LATIN1 etc.); needs field experience
+			 * XXX 把这里的值转成 IANA 名（用 ISO-8859-1 替代
+			 * LATIN1 等）；需要实践检验。
 			 */
 			appendStringInfo(buf, " encoding=\"%s\"",
 							 pg_encoding_to_char(encoding));
@@ -1619,33 +1619,33 @@ print_xml_decl(StringInfo buf, const xmlChar *version,
 }
 
 /*
- * Test whether an input that is to be parsed as CONTENT contains a DTD.
+ * 测试将要按 CONTENT 解析的输入是否包含 DTD。
  *
- * The SQL/XML:2003 definition of CONTENT ("XMLDecl? content") is not
- * satisfied by a document with a DTD, which is a bit of a wart, as it means
- * the CONTENT type is not a proper superset of DOCUMENT.  SQL/XML:2006 and
- * later fix that, by redefining content with reference to the "more
- * permissive" Document Node of the XQuery/XPath Data Model, such that any
- * DOCUMENT value is indeed also a CONTENT value.  That definition is more
- * useful, as CONTENT becomes usable for parsing input of unknown form (think
- * pg_restore).
+ * SQL/XML:2003 对 CONTENT（"XMLDecl? content"）的定义并
+ * 未被带 DTD 的文档所满足，这有点瑕疵，因为它意味着
+ * CONTENT 类型并非 DOCUMENT 的真超集。SQL/XML:2006 及
+ * 后续版本修正了它：借 XQuery/XPath 数据模型中
+ * "更宽松"的 Document Node 重新定义 content，使得任何
+ * DOCUMENT 值确实也是 CONTENT 值。该定义更有用，因
+ * 为 CONTENT 可用于解析未知形态的输入(如 pg_
+ * restore)。
  *
- * As used below in parse_xml when parsing for CONTENT, libxml does not give
- * us the 2006+ behavior, but only the 2003; it will choke if the input has
- * a DTD.  But we can provide the 2006+ definition of CONTENT easily enough,
- * by detecting this case first and simply doing the parse as DOCUMENT.
+ * 正如下方 parse_xml 按 CONTENT 解析时所用的那样，libxml
+ * 并不会给我们 2006+ 的行为，而只给 2003 的；若输入带
+ * 有 DTD 它就会噎住。但我们可以相当轻松地提供 2006+
+ * 的 CONTENT 定义：先检测出这种情形，然后直接按
  *
- * A DTD can be found arbitrarily far in, but that would be a contrived case;
- * it will ordinarily start within a few dozen characters.  The only things
- * that can precede it are an XMLDecl (here, the caller will have called
- * parse_xml_decl already), whitespace, comments, and processing instructions.
- * This function need only return true if it sees a valid sequence of such
- * things leading to <!DOCTYPE.  It can simply return false in any other
- * cases, including malformed input; that will mean the input gets parsed as
- * CONTENT as originally planned, with libxml reporting any errors.
+ * DTD 可出现在任意深处，但那是刻意构造的案例；
+ * 它通常会在头几十个字符内开始。唯一能出现在它之前
+ * 的有 XMLDecl（此处调用方已调 parse_xml_decl）、空白、
+ * 注释和处理指令。本函数只要看到通向 <!DOCTYPE 的
+ * 有效序列返回 true 即可。其余任何情形（包括畸形输
+ * 入在内）都可返回 false；即输入将按原计划
+ * 作为 CONTENT 解析，并由 libxml 报告任何错
+ * 误。
  *
- * This is only to be called from xml_parse, when pg_xml_init has already
- * been called.  The input is already in UTF8 encoding.
+ * 只能从 xml_parse 内调用，且前提是 pg_xml_init 已被调
+ * 用过。输入已处于 UTF8 编码。
  */
 static bool
 xml_doctype_in_content(const xmlChar *str)
@@ -1665,63 +1665,63 @@ xml_doctype_in_content(const xmlChar *str)
 		{
 			p++;
 
-			/* if we see <!DOCTYPE, we can return true */
+			/* 看到 <!DOCTYPE 即可返回 true */
 			if (xmlStrncmp(p, (xmlChar *) "DOCTYPE", 7) == 0)
 				return true;
 
-			/* otherwise, if it's not a comment, fail */
+			/* 否则，若不是注释则失败 */
 			if (xmlStrncmp(p, (xmlChar *) "--", 2) != 0)
 				return false;
-			/* find end of comment: find -- and a > must follow */
+			/* 找注释结尾：找 -- 且其后必有 > */
 			p = xmlStrstr(p + 2, (xmlChar *) "--");
 			if (!p || p[2] != '>')
 				return false;
-			/* advance over comment, and keep scanning */
+			/* 越过注释并继续扫描 */
 			p += 3;
 			continue;
 		}
 
-		/* otherwise, if it's not a PI <?target something?>, fail */
+		/* 否则，若不是 PI <?target something?> 则失败 */
 		if (*p != '?')
 			return false;
 		p++;
 
-		/* find end of PI (the string ?> is forbidden within a PI) */
+		/* 找 PI 结尾（PI 内禁止出现 ?> 字符串） */
 		e = xmlStrstr(p, (xmlChar *) "?>");
 		if (!e)
 			return false;
 
-		/* advance over PI, keep scanning */
+		/* 越过 PI 并继续扫描 */
 		p = e + 2;
 	}
 }
 
 
 /*
- * Convert a text object to XML internal representation
+ * 把 text 对象转换为 XML 内部表示
  *
- * data is the source data (must not be toasted!), encoding is its encoding,
- * and xmloption_arg and preserve_whitespace are options for the
- * transformation.
+ * data 为源数据（不得为已 TOAST 的！），encoding 为其
+ * 编码，xmloption_arg 与 preserve_whitespace 是转换
+ * 的选项。
  *
- * If parsed_xmloptiontype isn't NULL, *parsed_xmloptiontype is set to the
- * XmlOptionType actually used to parse the input (typically the same as
- * xmloption_arg, but a DOCTYPE node in the input can force DOCUMENT mode).
+ * 若 parsed_xmloptiontype 非 NULL，*parsed_xmloptiontype 将被
+ * 设为实际用于解析输入的 XmlOptionType（通常与
+ * xmloption_arg 相同，有 DOCTYPE 时可强制 DOCUMENT 模式）。
  *
- * If parsed_nodes isn't NULL and we parse in CONTENT mode, the list
- * of parsed nodes from the xmlParseBalancedChunkMemory call will be returned
- * to *parsed_nodes.  (It is caller's responsibility to free that.)
+ * 若 parsed_nodes 非 NULL 且按 CONTENT 模式解析，
+ * xmlParseBalancedChunkMemory 调用所解析出的节点列表将
+ * 返回到 *parsed_nodes。（释放它是调用方责任。）
  *
- * Errors normally result in ereport(ERROR), but if escontext is an
- * ErrorSaveContext, then "safe" errors are reported there instead, and the
- * caller must check SOFT_ERROR_OCCURRED() to see whether that happened.
+ * 错误通常导致 ereport(ERROR)，但若 escontext 是
+ * ErrorSaveContext，则"安全"错误改在那里报告，调用方
+ * 必须检查 SOFT_ERROR_OCCURRED() 来确认是否发生了此事。
  *
- * Note: it is caller's responsibility to xmlFreeDoc() the result,
- * else a permanent memory leak will ensue!  But note the result could
- * be NULL after a soft error.
+ * 注意：对结果调用 xmlFreeDoc() 是调用方的责任，
+ * 否则将永久泄漏内存！但注意软错误后结果可能
+ * 为 NULL。
  *
- * TODO maybe libxml2's xmlreader is better? (do not construct DOM,
- * yet do not use SAX - see xmlreader.c)
+ * TODO 或许 libxml2 的 xmlreader 更好？(不构建 DOM，
+ * 也不用 SAX —— 见 xmlreader.c)
  */
 static xmlDocPtr
 xml_parse(text *data, XmlOptionType xmloption_arg,
@@ -1738,28 +1738,28 @@ xml_parse(text *data, XmlOptionType xmloption_arg,
 	volatile int save_keep_blanks = -1;
 
 	/*
-	 * This step looks annoyingly redundant, but we must do it to have a
-	 * null-terminated string in case encoding conversion isn't required.
+	 * 这步看似多余，但为了在无需编码转换时也得到
+	 * 空字符结尾字符串而必须这样做。
 	 */
-	len = VARSIZE_ANY_EXHDR(data);	/* will be useful later */
+	len = VARSIZE_ANY_EXHDR(data);	/* 稍后会用到 */
 	string = xml_text2xmlChar(data);
 
 	/*
-	 * If the data isn't UTF8, we must translate before giving it to libxml.
+	 * 若数据非 UTF8，必须在交给 libxml 之前先做转换。
 	 *
-	 * XXX ideally, we'd catch any encoding conversion failure and return a
-	 * soft error.  However, failure to convert to UTF8 should be pretty darn
-	 * rare, so for now this is left undone.
+	 * XXX 理想情况是捕获任何编码转换失败并返回软错
+	 * 误。不过转换到 UTF8 失败应该相当罕见，所以暂不
+	 * 处理。
 	 */
 	utf8string = pg_do_encoding_conversion(string,
 										   len,
 										   encoding,
 										   PG_UTF8);
 
-	/* Start up libxml and its parser */
+	/* 启动 libxml 和解析器 */
 	xmlerrcxt = pg_xml_init(PG_XML_STRICTNESS_WELLFORMED);
 
-	/* Use a TRY block to ensure we clean up correctly */
+	/* 用 TRY 块来确保正确清理 */
 	PG_TRY();
 	{
 		bool		parse_as_document = false;
@@ -1768,15 +1768,15 @@ xml_parse(text *data, XmlOptionType xmloption_arg,
 		xmlChar    *version = NULL;
 		int			standalone = 0;
 
-		/* Any errors here are reported as hard ereport's */
+		/* 此处任何错误都按硬 ereport 报告 */
 		xmlInitParser();
 
-		/* Decide whether to parse as document or content */
+		/* 决定按 DOCUMENT 还是 CONTENT 解析 */
 		if (xmloption_arg == XMLOPTION_DOCUMENT)
 			parse_as_document = true;
 		else
 		{
-			/* Parse and skip over the XML declaration, if any */
+			/* 解析并跳过 XML 声明（如有） */
 			res_code = parse_xml_decl(utf8string,
 									  &count, &version, NULL, &standalone);
 			if (res_code != 0)
@@ -1788,12 +1788,12 @@ xml_parse(text *data, XmlOptionType xmloption_arg,
 				goto fail;
 			}
 
-			/* Is there a DOCTYPE element? */
+			/* 有 DOCTYPE 元素吗 */
 			if (xml_doctype_in_content(utf8string + count))
 				parse_as_document = true;
 		}
 
-		/* initialize output parameters */
+		/* 初始化输出参数 */
 		if (parsed_xmloptiontype != NULL)
 			*parsed_xmloptiontype = parse_as_document ? XMLOPTION_DOCUMENT :
 				XMLOPTION_CONTENT;
@@ -1804,32 +1804,32 @@ xml_parse(text *data, XmlOptionType xmloption_arg,
 		{
 			int			options;
 
-			/* set up parser context used by xmlCtxtReadDoc */
+			/* 配置 xmlCtxtReadDoc 用解析器上下文 */
 			ctxt = xmlNewParserCtxt();
 			if (ctxt == NULL || xmlerrcxt->err_occurred)
 				xml_ereport(xmlerrcxt, ERROR, ERRCODE_OUT_OF_MEMORY,
 							"could not allocate parser context");
 
 			/*
-			 * Select parse options.
+			 * 选择解析选项。
 			 *
-			 * Note that here we try to apply DTD defaults (XML_PARSE_DTDATTR)
-			 * according to SQL/XML:2008 GR 10.16.7.d: 'Default values defined
-			 * by internal DTD are applied'.  As for external DTDs, we try to
-			 * support them too (see SQL/XML:2008 GR 10.16.7.e), but that
-			 * doesn't really happen because xmlPgEntityLoader prevents it.
+			 * 注意这里尝试应用 DTD 默认值(XML_PARSE_DTDATTR)
+			 * 依据 SQL/XML:2008 GR 10.16.7.d：'内部 DTD 定义的默
+			 * 认值会被应用'。至于外部 DTD 也尝试支持(见
+			 * SQL/XML:2008 GR 10.16.7.e)，实际不会发生，因为
+			 * xmlPgEntityLoader 会阻止它。
 			 */
 			options = XML_PARSE_NOENT | XML_PARSE_DTDATTR
 				| (preserve_whitespace ? 0 : XML_PARSE_NOBLANKS);
 
 			doc = xmlCtxtReadDoc(ctxt, utf8string,
-								 NULL,	/* no URL */
+								 NULL,	/* 无URL */
 								 "UTF-8",
 								 options);
 
 			if (doc == NULL || xmlerrcxt->err_occurred)
 			{
-				/* Use original option to decide which error code to report */
+				/* 用原始选项决定报告哪个错误码 */
 				if (xmloption_arg == XMLOPTION_DOCUMENT)
 					xml_errsave(escontext, xmlerrcxt,
 								ERRCODE_INVALID_XML_DOCUMENT,
@@ -1843,7 +1843,7 @@ xml_parse(text *data, XmlOptionType xmloption_arg,
 		}
 		else
 		{
-			/* set up document that xmlParseBalancedChunkMemory will add to */
+			/* 设置 xmlParseBalancedChunkMemory 将加入的文档 */
 			doc = xmlNewDoc(version);
 			if (doc == NULL || xmlerrcxt->err_occurred)
 				xml_ereport(xmlerrcxt, ERROR, ERRCODE_OUT_OF_MEMORY,
@@ -1856,10 +1856,10 @@ xml_parse(text *data, XmlOptionType xmloption_arg,
 							"could not allocate XML document");
 			doc->standalone = standalone;
 
-			/* set parse options --- have to do this the ugly way */
+			/* 设置解析选项 --- 只好采用丑陋做法 */
 			save_keep_blanks = xmlKeepBlanksDefault(preserve_whitespace ? 1 : 0);
 
-			/* allow empty content */
+			/* 允许空 content */
 			if (*(utf8string + count))
 			{
 				res_code = xmlParseBalancedChunkMemory(doc, NULL, NULL, 0,
@@ -1906,7 +1906,7 @@ fail:
 
 
 /*
- * xmlChar<->text conversions
+ * xmlChar<->text 转换
  */
 static xmlChar *
 xml_text2xmlChar(text *in)
@@ -1918,24 +1918,24 @@ xml_text2xmlChar(text *in)
 #ifdef USE_LIBXMLCONTEXT
 
 /*
- * Manage the special context used for all libxml allocations (but only
- * in special debug builds; see notes at top of file)
+ * 管理 libxml 分配所用的特殊上下文（仅特殊调试构建
+ * 时启用；见文件顶部注释）。
  */
 static void
 xml_memory_init(void)
 {
-	/* Create memory context if not there already */
+	/* 若尚未存在则创建内存上下文 */
 	if (LibxmlContext == NULL)
 		LibxmlContext = AllocSetContextCreate(TopMemoryContext,
 											  "Libxml context",
 											  ALLOCSET_DEFAULT_SIZES);
 
-	/* Re-establish the callbacks even if already set */
+	/* 即使已设置也要重新建立回调 */
 	xmlMemSetup(xml_pfree, xml_palloc, xml_repalloc, xml_pstrdup);
 }
 
 /*
- * Wrappers for memory management functions
+ * 内存管理函数的包装器
  */
 static void *
 xml_palloc(size_t size)
@@ -1954,7 +1954,7 @@ xml_repalloc(void *ptr, size_t size)
 static void
 xml_pfree(void *ptr)
 {
-	/* At least some parts of libxml assume xmlFree(NULL) is allowed */
+	/* libxml 至少部分假定 xmlFree(NULL) 是允许的 */
 	if (ptr)
 		pfree(ptr);
 }
@@ -1969,15 +1969,15 @@ xml_pstrdup(const char *string)
 
 
 /*
- * xmlPgEntityLoader --- entity loader callback function
+ * xmlPgEntityLoader --- 实体加载器回调函数
  *
- * Silently prevent any external entity URL from being loaded.  We don't want
- * to throw an error, so instead make the entity appear to expand to an empty
- * string.
+ * 静默阻止任何外部实体 URL 被加载。我们不想抛出错误，
+ * 所以改为让实体看似展开成空
+ * 串。
  *
- * We would prefer to allow loading entities that exist in the system's
- * global XML catalog; but the available libxml2 APIs make that a complex
- * and fragile task.  For now, just shut down all external access.
+ * 我们其实更愿意允许加载存在于系统 XML 目录的实
+ * 体；但现有 libxml2 API 使之成为复杂而脆弱的任务。
+ * 目前，直接关闭所有外部访问。
  */
 static xmlParserInputPtr
 xmlPgEntityLoader(const char *URL, const char *ID,
@@ -1988,28 +1988,28 @@ xmlPgEntityLoader(const char *URL, const char *ID,
 
 
 /*
- * xml_ereport --- report an XML-related error
+ * xml_ereport --- 报告 XML 相关错误
  *
- * The "msg" is the SQL-level message; some can be adopted from the SQL/XML
- * standard.  This function adds libxml's native error message, if any, as
- * detail.
+ * "msg" 是 SQL 级的消息；有些可以沿用 SQL/XML 标准的。
+ * 本函数把 libxml 原生错误消息（若有）作为 detail 附
+ * 加。
  *
- * This is exported for modules that want to share the core libxml error
- * handler.  Note that pg_xml_init() *must* have been called previously.
+ * 该函数导出给希望共享核心 libxml 错误处理器的模
+ * 块。注意此前必须已调用过 pg_xml_init()。
  */
 void
 xml_ereport(PgXmlErrorContext *errcxt, int level, int sqlcode, const char *msg)
 {
 	char	   *detail;
 
-	/* Defend against someone passing us a bogus context struct */
+	/* 防止有人给我们传入伪造的上下文结构 */
 	if (errcxt->magic != ERRCXT_MAGIC)
 		elog(ERROR, "xml_ereport called with invalid PgXmlErrorContext");
 
-	/* Flag that the current libxml error has been reported */
+	/* 标记当前 libxml 错误已被报告 */
 	errcxt->err_occurred = false;
 
-	/* Include detail only if we have some text from libxml */
+	/* 仅当有 libxml 文本时才包含 detail */
 	if (errcxt->err_buf.len > 0)
 		detail = errcxt->err_buf.data;
 	else
@@ -2023,16 +2023,16 @@ xml_ereport(PgXmlErrorContext *errcxt, int level, int sqlcode, const char *msg)
 
 
 /*
- * xml_errsave --- save an XML-related error
+ * xml_errsave --- 保存 XML 相关错误
  *
- * If escontext is an ErrorSaveContext, error details are saved into it,
- * and control returns normally.
+ * 若 escontext 是 ErrorSaveContext，错误详情保存进去，
+ * 然后控制正常返回。
  *
- * Otherwise, the error is thrown, so that this is equivalent to
- * xml_ereport() with level == ERROR.
+ * 否则错误被抛出，因此这等价于 level == ERROR
+ * 的 xml_ereport()。
  *
- * This should be used only for errors that we're sure we do not need
- * a transaction abort to clean up after.
+ * 只应用于我们确定不需要事务中止来清理善后的
+ * 错误。
  */
 static void
 xml_errsave(Node *escontext, PgXmlErrorContext *errcxt,
@@ -2040,14 +2040,14 @@ xml_errsave(Node *escontext, PgXmlErrorContext *errcxt,
 {
 	char	   *detail;
 
-	/* Defend against someone passing us a bogus context struct */
+	/* 防止有人给我们传入伪造的上下文结构 */
 	if (errcxt->magic != ERRCXT_MAGIC)
 		elog(ERROR, "xml_errsave called with invalid PgXmlErrorContext");
 
-	/* Flag that the current libxml error has been reported */
+	/* 标记当前 libxml 错误已被报告 */
 	errcxt->err_occurred = false;
 
-	/* Include detail only if we have some text from libxml */
+	/* 仅当有 libxml 文本时才包含 detail */
 	if (errcxt->err_buf.len > 0)
 		detail = errcxt->err_buf.data;
 	else
@@ -2061,7 +2061,7 @@ xml_errsave(Node *escontext, PgXmlErrorContext *errcxt,
 
 
 /*
- * Error handler for libxml errors and warnings
+ * libxml 错误与警告的错误处理器
  */
 static void
 xml_errorHandler(void *data, PgXmlErrorPtr error)
@@ -2077,20 +2077,20 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 	StringInfo	errorBuf;
 
 	/*
-	 * Defend against someone passing us a bogus context struct.
+	 * 防止有人给我们传入伪造的上下文结构。
 	 *
-	 * We force a backend exit if this check fails because longjmp'ing out of
-	 * libxml would likely render it unsafe to use further.
+	 * 若此检查失败则强制后端退出，因为从 libxml 里
+	 * longjmp 跳出可能使其此后不安全。
 	 */
 	if (xmlerrcxt->magic != ERRCXT_MAGIC)
 		elog(FATAL, "xml_errorHandler called with invalid PgXmlErrorContext");
 
 	/*----------
-	 * Older libxml versions report some errors differently.
-	 * First, some errors were previously reported as coming from the parser
-	 * domain but are now reported as coming from the namespace domain.
-	 * Second, some warnings were upgraded to errors.
-	 * We attempt to compensate for that here.
+	 * 旧版 libxml 对某些错误的报告方式不同。
+	 * 首先，一些错误此前报告来自解析器域，现在报告自
+	 * 命名空间域。
+	 * 其次，部分警告升级为错误。我们
+	 * 试图在此补偿这种差异。
 	 *----------
 	 */
 	switch (error->code)
@@ -2112,17 +2112,17 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 			break;
 	}
 
-	/* Decide whether to act on the error or not */
+	/* 决定是否对该错误采取行动 */
 	switch (domain)
 	{
 		case XML_FROM_PARSER:
 
 			/*
-			 * XML_ERR_NOT_WELL_BALANCED is typically reported after some
-			 * other, more on-point error.  Furthermore, libxml2 2.13 reports
-			 * it under a completely different set of rules than prior
-			 * versions.  To avoid cross-version behavioral differences,
-			 * suppress it so long as we already logged some error.
+			 * XML_ERR_NOT_WELL_BALANCED 通常是在某个其他更
+			 * 切题的错误之后才被报告。此外，libxml2 2.13 报
+			 * 告它依据的规则集与旧版完全不同。为免
+			 * 跨版本行为差异，只要已记录过某个错误就
+			 * 抑制它。
 			 */
 			if (error->code == XML_ERR_NOT_WELL_BALANCED &&
 				xmlerrcxt->err_occurred)
@@ -2134,23 +2134,23 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 		case XML_FROM_IO:
 
 			/*
-			 * Suppress warnings about undeclared entities.  We need to do
-			 * this to avoid problems due to not loading DTD definitions.
+			 * 抑制未声明实体警告。这样做以免因不加载
+			 * DTD 定义而产生问题。
 			 */
 			if (error->code == XML_WAR_UNDECLARED_ENTITY)
 				return;
 
-			/* Otherwise, accept error regardless of the parsing purpose */
+			/* 否则，无论解析目的如何都接受该错误 */
 			break;
 
 		default:
-			/* Ignore error if only doing well-formedness check */
+			/* 若只做良构性检查则忽略错误 */
 			if (xmlerrcxt->strictness == PG_XML_STRICTNESS_WELLFORMED)
 				return;
 			break;
 	}
 
-	/* Prepare error message in errorBuf */
+	/* 在 errorBuf 写错误消息 */
 	errorBuf = makeStringInfo();
 
 	if (error->line > 0)
@@ -2163,15 +2163,15 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 		appendStringInfoString(errorBuf, "(no message provided)");
 
 	/*
-	 * Append context information to errorBuf.
+	 * 向 errorBuf 追加上下文信息。
 	 *
-	 * xmlParserPrintFileContext() uses libxml's "generic" error handler to
-	 * write the context.  Since we don't want to duplicate libxml
-	 * functionality here, we set up a generic error handler temporarily.
+	 * xmlParserPrintFileContext() 用 libxml 的"通用"错误处理器
+	 * 来写上下文。不想重复 libxml 功能，所以暂时
+	 * 在此临时设置一个通用错误处理器。
 	 *
-	 * We use appendStringInfo() directly as libxml's generic error handler.
-	 * This should work because it has essentially the same signature as
-	 * libxml expects, namely (void *ptr, const char *msg, ...).
+	 * 我们直接把 appendStringInfo() 用作 libxml 的通用错误处
+	 * 理器。这应当可行，因为其签名与 libxml 所期望的
+	 * 基本一致，即 (void *ptr, const char *msg, ...)。
 	 */
 	if (input != NULL)
 	{
@@ -2181,25 +2181,25 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 		xmlSetGenericErrorFunc((void *) errorBuf,
 							   (xmlGenericErrorFunc) appendStringInfo);
 
-		/* Add context information to errorBuf */
+		/* 向 errorBuf 加上下文信息 */
 		appendStringInfoLineSeparator(errorBuf);
 
 		xmlParserPrintFileContext(input);
 
-		/* Restore generic error func */
+		/* 恢复通用错误函数 */
 		xmlSetGenericErrorFunc(errCtxSaved, errFuncSaved);
 	}
 
-	/* Get rid of any trailing newlines in errorBuf */
+	/* 去掉 errorBuf 中的所有尾随换行 */
 	chopStringInfoNewlines(errorBuf);
 
 	/*
-	 * Legacy error handling mode.  err_occurred is never set, we just add the
-	 * message to err_buf.  This mode exists because the xml2 contrib module
-	 * uses our error-handling infrastructure, but we don't want to change its
-	 * behaviour since it's deprecated anyway.  This is also why we don't
-	 * distinguish between notices, warnings and errors here --- the old-style
-	 * generic error handler wouldn't have done that either.
+	 * 旧式错误处理模式。err_occurred 从不设置，只把消息加
+	 * 入 err_buf。此模式存在的原因是 xml2 contrib 模块用我
+	 * 们的错误处理设施，但我们不想改变其行为，因它已
+	 * 被弃用。这也是我们不在此区分 notice、warning 与
+	 *  error 的原因 --- 旧式通用错误处理器本来也不会
+	 * 做这种区分。
 	 */
 	if (xmlerrcxt->strictness == PG_XML_STRICTNESS_LEGACY)
 	{
@@ -2213,12 +2213,12 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 	}
 
 	/*
-	 * We don't want to ereport() here because that'd probably leave libxml in
-	 * an inconsistent state.  Instead, we remember the error and ereport()
-	 * from xml_ereport().
+	 * 我们不想在此 ereport()，因为那很可能让 libxml 处于不
+	 * 一致状态。作为替代，我们记住该错误，并交由
+	 * xml_ereport()。
 	 *
-	 * Warnings and notices can be reported immediately since they won't cause
-	 * a longjmp() out of libxml.
+	 * 警告和通知可以立即报告，因为它们不会导致从 libxml
+	 * 中 longjmp() 跳出。
 	 */
 	if (level >= XML_ERR_ERROR)
 	{
@@ -2245,13 +2245,13 @@ xml_errorHandler(void *data, PgXmlErrorPtr error)
 
 
 /*
- * Convert libxml error codes into textual errdetail messages.
+ * 把 libxml 错误码转换为文本 errdetail 消息。
  *
- * This should be called within an ereport or errsave invocation,
- * just as errdetail would be.
+ * 应当在 ereport 或 errsave 调用内部调用本函数，
+ * 就像 errdetail 那样。
  *
- * At the moment, we only need to cover those codes that we
- * may raise in this file.
+ * 目前我们只需覆盖那些本文件可能
+ * 引发的错误码。
  */
 static int
 errdetail_for_xml_code(int code)
@@ -2288,7 +2288,7 @@ errdetail_for_xml_code(int code)
 
 
 /*
- * Remove all trailing newlines from a StringInfo string
+ * 从 StringInfo 字符串移除全部尾随换行
  */
 static void
 chopStringInfoNewlines(StringInfo str)
@@ -2299,7 +2299,7 @@ chopStringInfoNewlines(StringInfo str)
 
 
 /*
- * Append a newline after removing any existing trailing newlines
+ * 先移除已有的尾随换行，再附加一个换行
  */
 static void
 appendStringInfoLineSeparator(StringInfo str)
@@ -2311,15 +2311,15 @@ appendStringInfoLineSeparator(StringInfo str)
 
 
 /*
- * Convert one char in the current server encoding to a Unicode codepoint.
+ * 把当前服务器编码中的一个字符转换成 Unicode 码点。
  */
 static pg_wchar
 sqlchar_to_unicode(const char *s)
 {
 	char	   *utf8string;
-	pg_wchar	ret[2];			/* need space for trailing zero */
+	pg_wchar	ret[2];			/* 需要结尾零的空间 */
 
-	/* note we're not assuming s is null-terminated */
+	/* 注意我们不假定 s 以空字符结尾 */
 	utf8string = pg_server_to_any(s, pg_mblen(s), PG_UTF8);
 
 	pg_encoding_mb2wchar_with_len(PG_UTF8, utf8string, ret,
@@ -2355,7 +2355,7 @@ is_valid_xml_namechar(pg_wchar c)
 
 
 /*
- * Map SQL identifier to XML name; see SQL/XML:2008 section 9.1.
+ * SQL 标识符映射为 XML 名；见 SQL/XML:2008 9.1 节。
  */
 char *
 map_sql_identifier_to_xml_name(const char *ident, bool fully_escaped,
@@ -2366,8 +2366,8 @@ map_sql_identifier_to_xml_name(const char *ident, bool fully_escaped,
 	const char *p;
 
 	/*
-	 * SQL/XML doesn't make use of this case anywhere, so it's probably a
-	 * mistake.
+	 * SQL/XML 未在任何处使用此情形，多半是个错
+	 * 误。
 	 */
 	Assert(fully_escaped || !escape_period);
 
@@ -2411,7 +2411,7 @@ map_sql_identifier_to_xml_name(const char *ident, bool fully_escaped,
 
 
 /*
- * Map XML name to SQL identifier; see SQL/XML:2008 section 9.3.
+ * XML 名映射为 SQL 标识符；见 SQL/XML:2008 9.3 节。
  */
 char *
 map_xml_name_to_sql_identifier(const char *name)
@@ -2446,14 +2446,14 @@ map_xml_name_to_sql_identifier(const char *name)
 }
 
 /*
- * Map SQL value to XML value; see SQL/XML:2008 section 9.8.
+ * SQL 值映射为 XML 值；见 SQL/XML:2008 9.8 节。
  *
- * When xml_escape_strings is true, then certain characters in string
- * values are replaced by entity references (&lt; etc.), as specified
- * in SQL/XML:2008 section 9.8 GR 9) a) iii).   This is normally what is
- * wanted.  The false case is mainly useful when the resulting value
- * is used with xmlTextWriterWriteAttribute() to write out an
- * attribute, because that function does the escaping itself.
+ * 当 xml_escape_strings 为 true 时，字符串值中某些字符
+ * 会被实体引用（&lt; 等）替换，如 SQL/XML:2008 9.8 节
+ * GR 9) a) iii) 所规定。这通常正是想要的。false 情形
+ * 主要用于结果值要与 xmlTextWriterWriteAttribute()
+ * 一起使用来写出属性时，该函数会自行
+ * 做转义。
  */
 char *
 map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
@@ -2505,13 +2505,13 @@ map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
 		char	   *str;
 
 		/*
-		 * Flatten domains; the special-case treatments below should apply to,
-		 * eg, domains over boolean not just boolean.
+		 * 展平域；下方特殊情形处理应当也适用于，比如说
+		 * boolean 上的域而不仅是 boolean。
 		 */
 		type = getBaseType(type);
 
 		/*
-		 * Special XSD formatting for some data types
+		 * 某些数据类型的特殊 XSD 格式化
 		 */
 		switch (type)
 		{
@@ -2528,7 +2528,7 @@ map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
 					char		buf[MAXDATELEN + 1];
 
 					date = DatumGetDateADT(value);
-					/* XSD doesn't support infinite values */
+					/* XSD 不支持无限值 */
 					if (DATE_NOT_FINITE(date))
 						ereport(ERROR,
 								(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -2550,7 +2550,7 @@ map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
 
 					timestamp = DatumGetTimestamp(value);
 
-					/* XSD doesn't support infinite values */
+					/* XSD 不支持无限值 */
 					if (TIMESTAMP_NOT_FINITE(timestamp))
 						ereport(ERROR,
 								(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -2577,7 +2577,7 @@ map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
 
 					timestamp = DatumGetTimestamp(value);
 
-					/* XSD doesn't support infinite values */
+					/* XSD 不支持无限值 */
 					if (TIMESTAMP_NOT_FINITE(timestamp))
 						ereport(ERROR,
 								(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -2622,7 +2622,7 @@ map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
 							xmlTextWriterWriteBinHex(writer, VARDATA_ANY(bstr),
 													 0, VARSIZE_ANY_EXHDR(bstr));
 
-						/* we MUST do this now to flush data out to the buffer */
+						/* 现在必须这么做，把数据刷到缓冲区 */
 						xmlFreeTextWriter(writer);
 						writer = NULL;
 
@@ -2652,27 +2652,27 @@ map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings)
 		}
 
 		/*
-		 * otherwise, just use the type's native text representation
+		 * 否则，直接使用该类型的原生文本表示
 		 */
 		getTypeOutputInfo(type, &typeOut, &isvarlena);
 		str = OidOutputFunctionCall(typeOut, value);
 
-		/* ... exactly as-is for XML, and when escaping is not wanted */
+		/* ……对 XML 保持原样，且不想要转义时 */
 		if (type == XMLOID || !xml_escape_strings)
 			return str;
 
-		/* otherwise, translate special characters as needed */
+		/* 否则按需转义特殊字符 */
 		return escape_xml(str);
 	}
 }
 
 
 /*
- * Escape characters in text that have special meanings in XML.
+ * 转义 text 中在 XML 里有特殊含义的字符。
  *
- * Returns a palloc'd string.
+ * 返回 palloc 字符串。
  *
- * NB: this is intentionally not dependent on libxml.
+ * 注意：这里有意不依赖 libxml。
  */
 char *
 escape_xml(const char *str)
@@ -2718,50 +2718,50 @@ _SPI_strdup(const char *s)
 
 
 /*
- * SQL to XML mapping functions
+ * SQL 到 XML 的映射函数
  *
- * What follows below was at one point intentionally organized so that
- * you can read along in the SQL/XML standard. The functions are
- * mostly split up the way the clauses lay out in the standards
- * document, and the identifiers are also aligned with the standard
- * text.  Unfortunately, SQL/XML:2006 reordered the clauses
- * differently than SQL/XML:2003, so the order below doesn't make much
- * sense anymore.
+ * 以下内容曾一度有意加以组织，使得你可以顺着
+ *  SQL/XML 标准阅读。这些函数大多按条款在标准
+ * 文档中的排布拆分，标识符也与标准正文
+ * 对齐。遗憾的是，SQL/XML:2006 对条款的排序
+ * 不同于 SQL/XML:2003，所以下面的顺序已没
+ * 有多大意
+ * 义了。
  *
- * There are many things going on there:
+ * 其中发生着很多事情：
  *
- * There are two kinds of mappings: Mapping SQL data (table contents)
- * to XML documents, and mapping SQL structure (the "schema") to XML
- * Schema.  And there are functions that do both at the same time.
+ * 映射有两类：把 SQL 数据（表内容）映射成 XML 文
+ * 档，以及把 SQL 结构（"模式"）映射为 XML Schema。
+ * 还有一些函数同时做这两件事。
  *
- * Then you can map a database, a schema, or a table, each in both
- * ways.  This breaks down recursively: Mapping a database invokes
- * mapping schemas, which invokes mapping tables, which invokes
- * mapping rows, which invokes mapping columns, although you can't
- * call the last two from the outside.  Because of this, there are a
- * number of xyz_internal() functions which are to be called both from
- * the function manager wrapper and from some upper layer in a
- * recursive call.
+ * 然后能够映射数据库、模式或表，各自按
+ * 这两种方式进行。这会递归分解：映射数据库
+ * 引发映射模式，后者引发映射表，再引发映
+ * 射行与映射列，只是最后两者不能从外部调
+ * 用。正因如此，有许多 xyz_internal() 函数既要
+ * 从函数管理器包装器来调用，也要从递归调用
+ * 里的某个上层来调
+ * 用。
  *
- * See the documentation about what the common function arguments
- * nulls, tableforest, and targetns mean.
+ * 关于公共函数参数 nulls、tableforest 和
+ * targetns 的含义请见文档。
  *
- * Some style guidelines for XML output: Use double quotes for quoting
- * XML attributes.  Indent XML elements by two spaces, but remember
- * that a lot of code is called recursively at different levels, so
- * it's better not to indent rather than create output that indents
- * and outdents weirdly.  Add newlines to make the output look nice.
+ * XML 输出的一些风格准则：引用 XML 属性时要用双
+ * 引号。XML 元素缩进两空格；许多代码会在不同
+ * 层级上递归调用，因此宁可不缩进，也不要造
+ * 出缩进与退格怪异的输出。加换行让输
+ * 出好看
  */
 
 
 /*
- * Visibility of objects for XML mappings; see SQL/XML:2008 section
- * 4.10.8.
+ * XML 映射的对象可见性；见 SQL/XML:2008 第 4.10.8
+ * 节。
  */
 
 /*
- * Given a query, which must return type oid as first column, produce
- * a list of Oids with the query results.
+ * 给定一个首列须返回 oid 类型的查询，产生一个
+ * 含查询结果的 Oid 列表。
  */
 static List *
 query_to_oid_list(const char *query)
@@ -2811,8 +2811,8 @@ schema_get_xml_visible_tables(Oid nspid)
 
 
 /*
- * Including the system schemas is probably not useful for a database
- * mapping.
+ * 就数据库映射而言，包含系统模式多半没有用
+ * 处。
  */
 #define XML_VISIBLE_SCHEMAS_EXCLUDE "(nspname ~ '^pg_' OR nspname = 'information_schema')"
 
@@ -2829,7 +2829,7 @@ database_get_xml_visible_schemas(void)
 static List *
 database_get_xml_visible_tables(void)
 {
-	/* At the moment there is no order required here. */
+	/* 目前这里不需要任何排序。 */
 	return query_to_oid_list("SELECT oid FROM pg_catalog.pg_class"
 							 " WHERE relkind IN ("
 							 CppAsString2(RELKIND_RELATION) ","
@@ -2841,8 +2841,8 @@ database_get_xml_visible_tables(void)
 
 
 /*
- * Map SQL table to XML and/or XML Schema document; see SQL/XML:2008
- * section 9.11.
+ * 把 SQL 表映射为 XML 和/或 XML Schema 文档；见
+ * 9.11 节。
  */
 
 static StringInfo
@@ -2933,23 +2933,23 @@ cursor_to_xml(PG_FUNCTION_ARGS)
 
 
 /*
- * Write the start tag of the root element of a data mapping.
+ * 写出数据映射之根元素的开始标签。
  *
- * top_level means that this is the very top level of the eventual
- * output.  For example, when the user calls table_to_xml, then a call
- * with a table name to this function is the top level.  When the user
- * calls database_to_xml, then a call with a schema name to this
- * function is not the top level.  If top_level is false, then the XML
- * namespace declarations are omitted, because they supposedly already
- * appeared earlier in the output.  Repeating them is not wrong, but
- * it looks ugly.
+ * top_level 表示这是最终输出的最顶层。如用户调
+ * table_to_xml 时，用表名对该函数的调用就是顶层。当
+ * 用户调用 database_to_xml 时，用模式名对该函数的调
+ * 用并非顶层。若 top_level 为 false，则 XML 命名
+ * 空间声明会被省略，因为它们应已在此前输出中出
+ * 现过。重复它们并不算错，只是看起来
+ * 有点难
+ * 看。
  */
 static void
 xmldata_root_element_start(StringInfo result, const char *eltname,
 						   const char *xmlschema, const char *targetns,
 						   bool top_level)
 {
-	/* This isn't really wrong but currently makes no sense. */
+	/* 这其实不算错，但目前毫无意义。 */
 	Assert(top_level || !xmlschema);
 
 	appendStringInfo(result, "<%s", eltname);
@@ -2961,7 +2961,7 @@ xmldata_root_element_start(StringInfo result, const char *eltname,
 	}
 	if (xmlschema)
 	{
-		/* FIXME: better targets */
+		/* FIXME:更佳目标 */
 		if (strlen(targetns) > 0)
 			appendStringInfo(result, " xsi:schemaLocation=\"%s #\"", targetns);
 		else
@@ -3154,8 +3154,8 @@ query_to_xml_and_xmlschema(PG_FUNCTION_ARGS)
 
 
 /*
- * Map SQL schema to XML and/or XML Schema document; see SQL/XML:2008
- * sections 9.13, 9.14.
+ * 把 SQL 模式映射为 XML 和/或 XML Schema 文档；见
+ * 9.13、9.14 节。
  */
 
 static StringInfo
@@ -3221,7 +3221,7 @@ schema_to_xml(PG_FUNCTION_ARGS)
 
 
 /*
- * Write the start element of the root element of an XML Schema mapping.
+ * 写出 XML Schema 映射之根元素的开始元素。
  */
 static void
 xsd_schema_element_start(StringInfo result, const char *targetns)
@@ -3329,8 +3329,8 @@ schema_to_xml_and_xmlschema(PG_FUNCTION_ARGS)
 
 
 /*
- * Map SQL database to XML and/or XML Schema document; see SQL/XML:2008
- * sections 9.16, 9.17.
+ * 把 SQL 数据库映射为 XML 和/或 XML Schema 文档；见
+ * 9.16、9.17 节。
  */
 
 static StringInfo
@@ -3459,7 +3459,7 @@ database_to_xml_and_xmlschema(PG_FUNCTION_ARGS)
 
 
 /*
- * Map a multi-part SQL name to an XML name; see SQL/XML:2008 section
+ * 把多段 SQL 名映射为 XML 名；见 SQL/XML:2008
  * 9.2.
  */
 static char *
@@ -3487,10 +3487,10 @@ map_multipart_sql_identifier_to_xml_name(const char *a, const char *b, const cha
 
 
 /*
- * Map an SQL table to an XML Schema document; see SQL/XML:2008
- * section 9.11.
+ * 把 SQL 表映射为 XML Schema 文档；见
+ * 9.11 节。
  *
- * Map an SQL table to XML Schema data types; see SQL/XML:2008 section
+ * 把 SQL 表映射为 XML Schema 数据类型；见
  * 9.9.
  */
 static const char *
@@ -3595,8 +3595,8 @@ map_sql_table_to_xmlschema(TupleDesc tupdesc, Oid relid, bool nulls,
 
 
 /*
- * Map an SQL schema to XML Schema data types; see SQL/XML:2008
- * section 9.12.
+ * 把 SQL 模式映射成 XML Schema 数据类型；见
+ * 9.12 节。
  */
 static const char *
 map_sql_schema_to_xmlschema_types(Oid nspid, List *relid_list, bool nulls,
@@ -3668,8 +3668,8 @@ map_sql_schema_to_xmlschema_types(Oid nspid, List *relid_list, bool nulls,
 
 
 /*
- * Map an SQL catalog to XML Schema data types; see SQL/XML:2008
- * section 9.15.
+ * 把 SQL 目录映射成 XML Schema 数据类型；见
+ * 9.15 节。
  */
 static const char *
 map_sql_catalog_to_xmlschema_types(List *nspid_list, bool nulls,
@@ -3726,7 +3726,7 @@ map_sql_catalog_to_xmlschema_types(List *nspid_list, bool nulls,
 
 
 /*
- * Map an SQL data type to an XML name; see SQL/XML:2008 section 9.4.
+ * 把 SQL 数据类型映射为 XML 名；见 SQL/XML:2008 9.4 节
  */
 static const char *
 map_sql_type_to_xml_name(Oid typeoid, int typmod)
@@ -3830,8 +3830,8 @@ map_sql_type_to_xml_name(Oid typeoid, int typmod)
 
 
 /*
- * Map a collection of SQL data types to XML Schema data types; see
- * SQL/XML:2008 section 9.7.
+ * SQL 数据类型集合映射为 XML Schema 数据类型；见
+ * SQL/XML:2008 9.7 节。
  */
 static const char *
 map_sql_typecoll_to_xmlschema_types(List *tupdesc_list)
@@ -3841,7 +3841,7 @@ map_sql_typecoll_to_xmlschema_types(List *tupdesc_list)
 	StringInfoData result;
 	ListCell   *cell0;
 
-	/* extract all column types used in the set of TupleDescs */
+	/* 提取 TupleDesc 集合中用到的所有列类型 */
 	foreach(cell0, tupdesc_list)
 	{
 		TupleDesc	tupdesc = (TupleDesc) lfirst(cell0);
@@ -3856,7 +3856,7 @@ map_sql_typecoll_to_xmlschema_types(List *tupdesc_list)
 		}
 	}
 
-	/* add base types of domains */
+	/* 加入域的基类型 */
 	foreach(cell0, uniquetypes)
 	{
 		Oid			typid = lfirst_oid(cell0);
@@ -3866,7 +3866,7 @@ map_sql_typecoll_to_xmlschema_types(List *tupdesc_list)
 			uniquetypes = list_append_unique_oid(uniquetypes, basetypid);
 	}
 
-	/* Convert to textual form */
+	/* 转换为文本形式 */
 	initStringInfo(&result);
 
 	foreach(cell0, uniquetypes)
@@ -3881,12 +3881,12 @@ map_sql_typecoll_to_xmlschema_types(List *tupdesc_list)
 
 
 /*
- * Map an SQL data type to a named XML Schema data type; see
- * SQL/XML:2008 sections 9.5 and 9.6.
+ * 把 SQL 数据类型映射为具名 XML Schema 数据类
+ * 型；见 SQL/XML:2008 9.5/9.6 节
  *
- * (The distinction between 9.5 and 9.6 is basically that 9.6 adds
- * a name attribute, which this function does.  The name-less version
- * 9.5 doesn't appear to be required anywhere.)
+ * （9.5 与 9.6 的区别基本在于 9.6 加了一个 name 属
+ * 性，本函数正是这样做的。无名的 9.5 版似乎任何
+ * 地方都不需要用到它。）
  */
 static const char *
 map_sql_type_to_xmlschema_type(Oid typeoid, int typmod)
@@ -4060,8 +4060,8 @@ map_sql_type_to_xmlschema_type(Oid typeoid, int typmod)
 
 
 /*
- * Map an SQL row to an XML element, taking the row from the active
- * SPI cursor.  See also SQL/XML:2008 section 9.10.
+ * 把 SQL 行映射成 XML 元素，行取自活动 SPI 游标。
+ * 另见 SQL/XML:2008 9.10 节。
  */
 static void
 SPI_sql_row_to_xmlelement(uint64 rownum, StringInfo result, char *tablename,
@@ -4122,16 +4122,16 @@ SPI_sql_row_to_xmlelement(uint64 rownum, StringInfo result, char *tablename,
 
 
 /*
- * XPath related functions
+ * XPath 相关函数
  */
 
 #ifdef USE_LIBXML
 
 /*
- * Convert XML node to text.
+ * XML 节点转文本。
  *
- * For attribute and text nodes, return the escaped text.  For anything else,
- * dump the whole subtree.
+ * 对属性和文本节点，返回转义后的文本。对其他任何
+ * 情形转储子树。
  */
 static text *
 xml_xmlnodetoxmltype(xmlNodePtr cur, PgXmlErrorContext *xmlerrcxt)
@@ -4154,16 +4154,16 @@ xml_xmlnodetoxmltype(xmlNodePtr cur, PgXmlErrorContext *xmlerrcxt)
 							"could not allocate xmlBuffer");
 
 			/*
-			 * Produce a dump of the node that we can serialize.  xmlNodeDump
-			 * does that, but the result of that function won't contain
-			 * namespace definitions from ancestor nodes, so we first do a
-			 * xmlCopyNode() which duplicates the node along with its required
-			 * namespace definitions.
+			 * 产出该节点的一个可供序列化的转储。xmlNodeDump
+			 * 能做到，但其结果不含祖先节点命名空间
+			 * 定义，因此我们先执行一次 xmlCopyNode()，它
+			 * 会把节点连同其所需的命名空间定义一起复
+			 * 制过来。
 			 *
-			 * Some old libxml2 versions such as 2.7.6 produce partially
-			 * broken XML_DOCUMENT_NODE nodes (unset content field) when
-			 * copying them.  xmlNodeDump of such a node works fine, but
-			 * xmlFreeNode crashes; set us up to call xmlFreeDoc instead.
+			 * 某些旧 libxml2（如 2.7.6）复制会产生部分损
+			 * 坏的 XML_DOCUMENT_NODE 节点（content 字段未设
+			 * 置）。该节点用 xmlNodeDump 没问题，但
+			 * xmlFreeNode 会崩溃；要安排改调 xmlFreeDoc。
 			 */
 			cur_copy = xmlCopyNode(cur, 1);
 			if (cur_copy == NULL || xmlerrcxt->err_occurred)
@@ -4195,7 +4195,7 @@ xml_xmlnodetoxmltype(xmlNodePtr cur, PgXmlErrorContext *xmlerrcxt)
 		str = xmlXPathCastNodeToString(cur);
 		PG_TRY();
 		{
-			/* Here we rely on XML having the same representation as TEXT */
+			/* 这里依赖 XML 与 TEXT 表示形式相同这一事实 */
 			char	   *escaped = escape_xml((char *) str);
 
 			result = (xmltype *) cstring_to_text(escaped);
@@ -4212,16 +4212,16 @@ xml_xmlnodetoxmltype(xmlNodePtr cur, PgXmlErrorContext *xmlerrcxt)
 }
 
 /*
- * Convert an XML XPath object (the result of evaluating an XPath expression)
- * to an array of xml values, which are appended to astate.  The function
- * result value is the number of elements in the array.
+ * 把 XML XPath 对象（对 XPath 表达式求值的结果）转换
+ * 为 xml 值数组，这些值会附加到 astate。函数的返回值
+ * 是数组中元素的个数。
  *
- * If "astate" is NULL then we don't generate the array value, but we still
- * return the number of elements it would have had.
+ * 如果 "astate" 为 NULL，那么就不生成数组值，但仍返回
+ * 它本应拥有的元素个数。
  *
- * Nodesets are converted to an array containing the nodes' textual
- * representations.  Primitive values (float, double, string) are converted
- * to a single-element array containing the value's string representation.
+ * 节点集转换成一个包含节点文本表示的数组。原
+ * 始值（float、double、string）会转换成单元素数组，
+ * 其中含有该值的字符串表示。
  */
 static int
 xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
@@ -4278,10 +4278,10 @@ xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
 		default:
 			elog(ERROR, "xpath expression result type %d is unsupported",
 				 xpathobj->type);
-			return 0;			/* keep compiler quiet */
+			return 0;			/* 让编译器安静 */
 	}
 
-	/* Common code for scalar-value cases */
+	/* 标量值情形的公共代码 */
 	result_str = map_sql_value_to_xml_value(datum, datumtype, true);
 	datum = PointerGetDatum(cstring_to_xmltype(result_str));
 	(void) accumArrayResult(astate, datum, false,
@@ -4291,15 +4291,15 @@ xml_xpathobjtoxmlarray(xmlXPathObjectPtr xpathobj,
 
 
 /*
- * Common code for xpath() and xmlexists()
+ * xpath() 与 xmlexists() 的公共代码
  *
- * Evaluate XPath expression and return number of nodes in res_nitems
- * and array of XML values in astate.  Either of those pointers can be
- * NULL if the corresponding result isn't wanted.
+ * 求值 XPath 表达式，节点数返回在 res_nitems，而
+ * XML 值数组则返回在 astate。这两个指针中任何一个
+ * 可为 NULL，如果不需要对应结果。
  *
- * It is up to the user to ensure that the XML passed is in fact
- * an XML document - XPath doesn't work easily on fragments without
- * a context node being known.
+ * 需由用户确保传入的 XML 确实是 XML 文档 ——
+ * XPath 在缺少已知上下文节点的情
+ * 况下难以处理。
  */
 static void
 xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
@@ -4324,11 +4324,11 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 	int			ns_count;
 
 	/*
-	 * Namespace mappings are passed as text[].  If an empty array is passed
-	 * (ndim = 0, "0-dimensional"), then there are no namespace mappings.
-	 * Else, a 2-dimensional array with length of the second axis being equal
-	 * to 2 should be passed, i.e., every subarray contains 2 elements, the
-	 * first element defining the name, the second one the URI.  Example:
+	 * 命名空间映射以 text[] 传入。如果传入的是空数组
+	 * （ndim = 0，"0 维"），则无命名空间映射。否则
+	 * 应传入一个二维数组，其第二轴长度应等于
+	 *  2，即每个子数组包含 2 个元素，第一个元素定义名
+	 * 称，第二个元素是 URI。例如：
 	 * ARRAY[ARRAY['myns', 'http://example.com'], ARRAY['myns2',
 	 * 'http://example2.com']].
 	 */
@@ -4351,8 +4351,8 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 								  &ns_names_uris, &ns_names_uris_nulls,
 								  &ns_count);
 
-		Assert((ns_count % 2) == 0);	/* checked above */
-		ns_count /= 2;			/* count pairs only */
+		Assert((ns_count % 2) == 0);	/* 上面查过 */
+		ns_count /= 2;			/* 只计配对 */
 	}
 	else
 	{
@@ -4373,11 +4373,11 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 	xpath_expr = pg_xmlCharStrndup(VARDATA_ANY(xpath_expr_text), xpath_len);
 
 	/*
-	 * In a UTF8 database, skip any xml declaration, which might assert
-	 * another encoding.  Ignore parse_xml_decl() failure, letting
-	 * xmlCtxtReadMemory() report parse errors.  Documentation disclaims
-	 * xpath() support for non-ASCII data in non-UTF8 databases, so leave
-	 * those scenarios bug-compatible with historical behavior.
+	 * UTF8 数据库中，跳过任何 xml 声明，它可能断言另
+	 * 一种编码。忽略 parse_xml_decl() 的失败，让
+	 * xmlCtxtReadMemory() 报告解析错误。文档不承诺非
+	 * UTF8 数据库中非 ASCII 数据的 xpath() 支持，所以让这
+	 * 些情形按 bug 兼容方式保持历史行为。
 	 */
 	if (GetDatabaseEncoding() == PG_UTF8)
 		parse_xml_decl(string, &xmldecl_len, NULL, NULL, NULL);
@@ -4389,8 +4389,8 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 		xmlInitParser();
 
 		/*
-		 * redundant XML parsing (two parsings for the same value during one
-		 * command execution are possible)
+		 * 冗余的 XML 解析（同一命令执行期间可能对同一值
+		 * 解析两次）
 		 */
 		ctxt = xmlNewParserCtxt();
 		if (ctxt == NULL || xmlerrcxt->err_occurred)
@@ -4407,7 +4407,7 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 						"could not allocate XPath context");
 		xpathctx->node = (xmlNodePtr) doc;
 
-		/* register namespaces, if any */
+		/* 如有则注册命名空间 */
 		if (ns_count > 0)
 		{
 			for (i = 0; i < ns_count; i++)
@@ -4425,16 +4425,16 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 				if (xmlXPathRegisterNs(xpathctx,
 									   (xmlChar *) ns_name,
 									   (xmlChar *) ns_uri) != 0)
-					ereport(ERROR,	/* is this an internal error??? */
+					ereport(ERROR,	/* 这是内部错误吗 */
 							(errmsg("could not register XML namespace with name \"%s\" and URI \"%s\"",
 									ns_name, ns_uri)));
 			}
 		}
 
 		/*
-		 * Note: here and elsewhere, be careful to use xmlXPathCtxtCompile not
-		 * xmlXPathCompile.  In libxml2 2.13.3 and older, the latter function
-		 * fails to defend itself against recursion-to-stack-overflow.  See
+		 * 注意：此处和其他地方要小心使用 xmlXPathCtxtCompile
+		 * 而非 xmlXPathCompile。在 libxml2 2.13.3 及更老版本中，
+		 * 后一函数不能自防御递归到栈溢出。见
 		 * https://gitlab.gnome.org/GNOME/libxml2/-/issues/799
 		 */
 		xpathcomp = xmlXPathCtxtCompile(xpathctx, xpath_expr);
@@ -4443,11 +4443,11 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 						"invalid XPath expression");
 
 		/*
-		 * Version 2.6.27 introduces a function named
-		 * xmlXPathCompiledEvalToBoolean, which would be enough for xmlexists,
-		 * but we can derive the existence by whether any nodes are returned,
-		 * thereby preventing a library version upgrade and keeping the code
-		 * the same.
+		 * 2.6.27 版引入了一个名为
+		 * xmlXPathCompiledEvalToBoolean 的函数，它对 xmlexists
+		 * 已足够，但我们可以由是否返回节点推断存在性，
+		 * 从而避免库版本升级，并让代码保持
+		 * 不变。
 		 */
 		xpathobj = xmlXPathCompiledEval(xpathcomp, xpathctx);
 		if (xpathobj == NULL || xmlerrcxt->err_occurred)
@@ -4455,7 +4455,7 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 						"could not create XPath object");
 
 		/*
-		 * Extract the results as requested.
+		 * 按要求提取结果。
 		 */
 		if (res_nitems != NULL)
 			*res_nitems = xml_xpathobjtoxmlarray(xpathobj, astate, xmlerrcxt);
@@ -4492,11 +4492,11 @@ xpath_internal(text *xpath_expr_text, xmltype *data, ArrayType *namespaces,
 #endif							/* USE_LIBXML */
 
 /*
- * Evaluate XPath expression and return array of XML values.
+ * 对 XPath 表达式求值并返回 XML 值数组。
  *
- * As we have no support of XQuery sequences yet, this function seems
- * to be the most useful one (array of XML functions plays a role of
- * some kind of substitution for XQuery sequences).
+ * 由于尚不支持 XQuery 序列，本函数似乎是最有用的
+ * （XML 函数数组起着某种 XQuery 序列替代品的作
+ * 用）。
  */
 Datum
 xpath(PG_FUNCTION_ARGS)
@@ -4518,8 +4518,8 @@ xpath(PG_FUNCTION_ARGS)
 }
 
 /*
- * Determines if the node specified by the supplied XPath exists
- * in a given XML document, returning a boolean.
+ * 判断所给 XPath 指定的节点是否在给定 XML 文
+ * 档中，返回布尔值。
  */
 Datum
 xmlexists(PG_FUNCTION_ARGS)
@@ -4540,9 +4540,9 @@ xmlexists(PG_FUNCTION_ARGS)
 }
 
 /*
- * Determines if the node specified by the supplied XPath exists
- * in a given XML document, returning a boolean. Differs from
- * xmlexists as it supports namespaces and is not defined in SQL/XML.
+ * 判断所给 XPath 指定的节点是否在给定 XML 文
+ * 档中，返回布尔值。它与
+ * xmlexists 不同：支持命名空间且不在 SQL/XML 内。
  */
 Datum
 xpath_exists(PG_FUNCTION_ARGS)
@@ -4564,7 +4564,7 @@ xpath_exists(PG_FUNCTION_ARGS)
 }
 
 /*
- * Functions for checking well-formed-ness
+ * 良构性检查函数
  */
 
 #ifdef USE_LIBXML
@@ -4575,7 +4575,7 @@ wellformed_xml(text *data, XmlOptionType xmloption_arg)
 	ErrorSaveContext escontext = {T_ErrorSaveContext};
 
 	/*
-	 * We'll report "true" if no soft error is reported by xml_parse().
+	 * 若 xml_parse() 未报告软错误，我们将报告 "true"。
 	 */
 	doc = xml_parse(data, xmloption_arg, true,
 					GetDatabaseEncoding(), NULL, NULL, (Node *) &escontext);
@@ -4626,14 +4626,14 @@ xml_is_well_formed_content(PG_FUNCTION_ARGS)
 }
 
 /*
- * support functions for XMLTABLE
+ * XMLTABLE 的支持函数
  *
  */
 #ifdef USE_LIBXML
 
 /*
- * Returns private data from executor state. Ensure validity by check with
- * MAGIC number.
+ * 从执行器状态返回私有数据。通过与 MAGIC 数字校
+ * 验。
  */
 static inline XmlTableBuilderData *
 GetXmlTableBuilderPrivateData(TableFuncScanState *state, const char *fname)
@@ -4652,14 +4652,14 @@ GetXmlTableBuilderPrivateData(TableFuncScanState *state, const char *fname)
 
 /*
  * XmlTableInitOpaque
- *		Fill in TableFuncScanState->opaque for XmlTable processor; initialize
- *		the XML parser.
+ *		为 XmlTable 处理器填充 TableFuncScanState->opaque；初始化
+ *		XML 解析器
  *
- * Note: Because we call pg_xml_init() here and pg_xml_done() in
- * XmlTableDestroyOpaque, it is critical for robustness that no other
- * executor nodes run until this node is processed to completion.  Caller
- * must execute this to completion (probably filling a tuplestore to exhaust
- * this node in a single pass) instead of using row-per-call mode.
+ * 注意：因为我们在此调用 pg_xml_init() 而在
+ * XmlTableDestroyOpaque 中调用 pg_xml_done()，所以为了健壮
+ * 性起见，本节点处理完毕前不得运行任何其他执行器
+ * 节点。调用方必须将其执行到底（多半是填满一个
+ * tuplestore 单趟耗尽节点），而非逐行调用模式。
  */
 static void
 XmlTableInitOpaque(TableFuncScanState *state, int natts)
@@ -4707,7 +4707,7 @@ XmlTableInitOpaque(TableFuncScanState *state, int natts)
 
 /*
  * XmlTableSetDocument
- *		Install the input document
+ *		安装输入文档
  */
 static void
 XmlTableSetDocument(TableFuncScanState *state, Datum value)
@@ -4724,8 +4724,8 @@ XmlTableSetDocument(TableFuncScanState *state, Datum value)
 	xtCxt = GetXmlTableBuilderPrivateData(state, "XmlTableSetDocument");
 
 	/*
-	 * Use out function for casting to string (remove encoding property). See
-	 * comment in xml_out.
+	 * 用输出函数来转换成字符串（移除编码属性）。见
+	 * xml_out 注释。
 	 */
 	str = xml_out_internal(xmlval, 0);
 
@@ -4764,7 +4764,7 @@ XmlTableSetDocument(TableFuncScanState *state, Datum value)
 
 /*
  * XmlTableSetNamespace
- *		Add a namespace declaration
+ *		添加命名空间声明
  */
 static void
 XmlTableSetNamespace(TableFuncScanState *state, const char *name, const char *uri)
@@ -4790,7 +4790,7 @@ XmlTableSetNamespace(TableFuncScanState *state, const char *name, const char *ur
 
 /*
  * XmlTableSetRowFilter
- *		Install the row-filter Xpath expression.
+ *		安装行过滤 XPath 表达式。
  */
 static void
 XmlTableSetRowFilter(TableFuncScanState *state, const char *path)
@@ -4808,7 +4808,7 @@ XmlTableSetRowFilter(TableFuncScanState *state, const char *path)
 
 	xstr = pg_xmlCharStrndup(path, strlen(path));
 
-	/* We require XmlTableSetDocument to have been done already */
+	/* 要求已经执行过 XmlTableSetDocument */
 	Assert(xtCxt->xpathcxt != NULL);
 
 	xtCxt->xpathcomp = xmlXPathCtxtCompile(xtCxt->xpathcxt, xstr);
@@ -4822,7 +4822,7 @@ XmlTableSetRowFilter(TableFuncScanState *state, const char *path)
 
 /*
  * XmlTableSetColumnFilter
- *		Install the column-filter Xpath expression, for the given column.
+ *		为给定列安装列过滤 XPath 表达式。
  */
 static void
 XmlTableSetColumnFilter(TableFuncScanState *state, const char *path, int colnum)
@@ -4842,7 +4842,7 @@ XmlTableSetColumnFilter(TableFuncScanState *state, const char *path, int colnum)
 
 	xstr = pg_xmlCharStrndup(path, strlen(path));
 
-	/* We require XmlTableSetDocument to have been done already */
+	/* 要求已经执行过 XmlTableSetDocument */
 	Assert(xtCxt->xpathcxt != NULL);
 
 	xtCxt->xpathscomp[colnum] = xmlXPathCtxtCompile(xtCxt->xpathcxt, xstr);
@@ -4856,8 +4856,8 @@ XmlTableSetColumnFilter(TableFuncScanState *state, const char *path, int colnum)
 
 /*
  * XmlTableFetchRow
- *		Prepare the next "current" tuple for upcoming GetValue calls.
- *		Returns false if the row-filter expression returned no more rows.
+ *		为后续 GetValue 调用备好下一个"当前"元组。
+ *		若行过滤表达式不再返回行，则返回 false。
  */
 static bool
 XmlTableFetchRow(TableFuncScanState *state)
@@ -4867,7 +4867,7 @@ XmlTableFetchRow(TableFuncScanState *state)
 
 	xtCxt = GetXmlTableBuilderPrivateData(state, "XmlTableFetchRow");
 
-	/* Propagate our own error context to libxml2 */
+	/* 把自身错误上下文传播给 libxml2 */
 	xmlSetStructuredErrorFunc((void *) xtCxt->xmlerrcxt, xml_errorHandler);
 
 	if (xtCxt->xpathobj == NULL)
@@ -4898,11 +4898,11 @@ XmlTableFetchRow(TableFuncScanState *state)
 
 /*
  * XmlTableGetValue
- *		Return the value for column number 'colnum' for the current row.  If
- *		column -1 is requested, return representation of the whole row.
+ *		返回当前行列号为 'colnum' 的值。如果请求的列号为
+ *		-1，则返回整行的表示形式。
  *
- * This leaks memory, so be sure to reset often the context in which it's
- * called.
+ * 此函数会泄漏内存，故要确保经常重置调用它的上
+ * 文。
  */
 static Datum
 XmlTableGetValue(TableFuncScanState *state, int colnum,
@@ -4921,7 +4921,7 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 		   xtCxt->xpathobj->type == XPATH_NODESET &&
 		   xtCxt->xpathobj->nodesetval != NULL);
 
-	/* Propagate our own error context to libxml2 */
+	/* 把自身错误上下文传播给 libxml2 */
 	xmlSetStructuredErrorFunc((void *) xtCxt->xmlerrcxt, xml_errorHandler);
 
 	*isnull = false;
@@ -4932,21 +4932,21 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 
 	PG_TRY();
 	{
-		/* Set current node as entry point for XPath evaluation */
+		/* 把当前节点设为 XPath 求值的入口点 */
 		xtCxt->xpathcxt->node = cur;
 
-		/* Evaluate column path */
+		/* 求值列路径 */
 		xpathobj = xmlXPathCompiledEval(xtCxt->xpathscomp[colnum], xtCxt->xpathcxt);
 		if (xpathobj == NULL || xtCxt->xmlerrcxt->err_occurred)
 			xml_ereport(xtCxt->xmlerrcxt, ERROR, ERRCODE_INTERNAL_ERROR,
 						"could not create XPath object");
 
 		/*
-		 * There are four possible cases, depending on the number of nodes
-		 * returned by the XPath expression and the type of the target column:
-		 * a) XPath returns no nodes.  b) The target type is XML (return all
-		 * as XML).  For non-XML return types:  c) One node (return content).
-		 * d) Multiple nodes (error).
+		 * 依 XPath 表达式返回的节点数与目标列类型，共
+		 * 有四种情形：a) XPath 无节点返回；b) 目标类型
+		 * 为 XML（全按 XML 返回）。非 XML 返回类型时：c)
+		 * 单个节点（返回内容）。d) 多个节点（错
+		 * 误）。
 		 */
 		if (xpathobj->type == XPATH_NODESET)
 		{
@@ -4966,7 +4966,7 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 					text	   *textstr;
 					StringInfoData str;
 
-					/* Concatenate serialized values */
+					/* 串接序列化后的值 */
 					initStringInfo(&str);
 					for (int i = 0; i < count; i++)
 					{
@@ -4994,7 +4994,7 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 		}
 		else if (xpathobj->type == XPATH_STRING)
 		{
-			/* Content should be escaped when target will be XML */
+			/* 当目标将是 XML 时，content 应被转义 */
 			if (typid == XMLOID)
 				cstr = escape_xml((char *) xpathobj->stringval);
 			else
@@ -5006,7 +5006,7 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 			bool		typispreferred;
 			xmlChar    *str;
 
-			/* Allow implicit casting from boolean to numbers */
+			/* 允许从 boolean 到数字的隐式转换 */
 			get_type_category_preferred(typid, &typcategory, &typispreferred);
 
 			if (typcategory != TYPCATEGORY_NUMERIC)
@@ -5027,8 +5027,8 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 			elog(ERROR, "unexpected XPath object type %u", xpathobj->type);
 
 		/*
-		 * By here, either cstr contains the result value, or the isnull flag
-		 * has been set.
+		 * 到这里，cstr 要么已含结果值，要么已设 isnull 标
+		 * 志。
 		 */
 		Assert(cstr || *isnull);
 
@@ -5054,7 +5054,7 @@ XmlTableGetValue(TableFuncScanState *state, int colnum,
 
 /*
  * XmlTableDestroyOpaque
- *		Release all libxml2 resources
+ *		释放全部 libxml2 资源
  */
 static void
 XmlTableDestroyOpaque(TableFuncScanState *state)
@@ -5064,7 +5064,7 @@ XmlTableDestroyOpaque(TableFuncScanState *state)
 
 	xtCxt = GetXmlTableBuilderPrivateData(state, "XmlTableDestroyOpaque");
 
-	/* Propagate our own error context to libxml2 */
+	/* 把自身错误上下文传播给 libxml2 */
 	xmlSetStructuredErrorFunc((void *) xtCxt->xmlerrcxt, xml_errorHandler);
 
 	if (xtCxt->xpathscomp != NULL)
@@ -5089,7 +5089,7 @@ XmlTableDestroyOpaque(TableFuncScanState *state)
 
 	pg_xml_done(xtCxt->xmlerrcxt, true);
 
-	/* not valid anymore */
+	/* 不再有效 */
 	xtCxt->magic = 0;
 	state->opaque = NULL;
 

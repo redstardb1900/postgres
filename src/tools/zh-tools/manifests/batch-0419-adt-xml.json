@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0419",
+ "title": "adt 目录 xml.c 整文件注释翻译 259 块 583/630 行 — batch 0419",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "59e9c9dc9644a22a1d583015813d42fe791ba72c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/xml.c",
+   "kind": "c_comment",
+   "note": "XML 数据类型支持函数; whole-file comment translation, batch-0419"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0419-adt-xml.json",
+   "kind": "manifest",
+   "note": "batch-0419 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0419 entries (xml.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/xml.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 259,
+   "translated": 229,
+   "preserved": 30,
+   "preserved_reasons": [
+    "整块保留 30 块 (与 verify_c_comments changed=229/未变 30 块逐块字节级核对完全一致): 预处理器守卫尾注 22 (L79/L150/L168/L1968/L2354/L2650/L4492 USE_LIBXML 系列, L1123/L1126/L2406/L2409/L4599/L4612/L4625/L4705/L4762/L4788/L4820/L4854/L4896/L5052/L5098 not USE_LIBXML 系列, pg_locale.c 0416 同判例), 注释掉的代码 1 (L44 #define USE_LIBXMLCONTEXT, 0418 注释掉的代码同口径), XML 语法产生式记号 3 (L1343/L2338/L2347 Letter|Digit|'.'|'-'|'_'|':'|CombiningChar|Extender 规范记号行, ASCII 记号保留同 0418), 声明字段标签 3 (L1457 version/L1484 encoding/L1517 standalone, 声明字段标识符保留), fall through 落入标注 1 (L2130, 0418 FALLTHROUGH 标注同口径), 节号续行 2 (L3463 ' 9.2.'/L3494 ' 9.9.', 预算 4 字节无法容中文, 前行 zh 以「见 SQL/XML:2008」收尾语义连贯); 行级保留 EN 47 行 (内容行全集 630 = zh 583 + 保留 47): 上述整块保留块内行 32 + 混合块内保留 15 = 头部 4 (L3 文件名/L7/L8 版权×2/L10 路径, 头部功能描述 L4 已译), ARRAY URL 例行 2 (L4332/L4333 含 http://example.com 示例), URL 行 1 (L4438 libxml2 issue 链接), 裸函数名 banner 8 (L4654 XmlTableInitOpaque/L4709 XmlTableSetDocument/L4766 XmlTableSetNamespace/L4792 XmlTableSetRowFilter/L4824 XmlTableSetColumnFilter/L4858 XmlTableFetchRow/L4900 XmlTableGetValue/L5056 XmlTableDestroyOpaque, 描述行均译); preserved 口径说明: 本 manifest preserved=30 块与 verify_c_comments 未变块 30 完全一致 (块口径), 行级保留 47 行为另一口径, 其余保留行为已译块内的行级保留"
+   ],
+   "note": "XML 数据类型支持函数 (well-formed→良构 (tsquery.c 0411 既译先例「良构性」), namespace→命名空间 (regproc/name 先例), escape→转义, parse→解析, serialize→序列化 (多文件先例), entity→实体/entity loader→实体加载器 (本批新定, 全树 grep 无既译先例), error handler→错误处理器 (本批新定), notation→记法, nodeset→节点集, soft error→软错误 (tsquery/tsvector_parser 先例), document→文档/CONTENT/DOCUMENT 大写术语保留, PI(处理指令) 保留 PI 缩写, version/encoding/standalone 声明字段标签保留 EN, XPath/DTD/DOCTYPE/XMLDecl/SAX/libxml2/XML_PARSE_* 选项常量/XML_OPTION_*/SQL/XML 章节号逐字保留, OID 无站点); whole-file comment translation, batch-0419; 权威 universe: 注释感知状态机扫描 259 块 content 行 630, naive grep '/\\*' 计数同 259 双口径一致, verify block_comments=259 三方一致; content 行 630 = zh 583 + 保留 EN 47 (全清单见 preserved_reasons); 行数守恒 5099 不变 (git diff numstat 583/583); 代码字节零改动 (注释剥离比对 strip IDENTICAL, 尾注释分支正则经 6 行单元测试验证命中后始用); NUL 扫描 0; 同 EN 同译实证: 相同 EN 注释程序化审计零不一致 (L1135=L1177 两站统一「每个即将使用 libxml 设施的函数都应调用本函数。」, L1115=L4578 两站统一, L2005=L2043=L2080 三站统一「防止有人给我们传入伪造的上下文结构」, L4811=L4845 两站统一, L284=L413 同句首同译, L269-270=L308-309 整段同译); 异 EN 同 zh 反查仅 1 组「误。」×2 系跨行续行碎片 (L2370 个错误。/L4949 误。), 良性; 极性对照 20 块 (≥12): L17-18 即使未配置也仍可用/L673 必须是不符合 XMLOPTION_DOCUMENT/L679 如果未要求缩进即告完成/L711 反正不需要任何编码转换/L1092-95 无特权用户不应能获取任意外部文件 (should not be able, 规划期自查抓出丢 not 极性反转并已修复)/L1115+L4578 若未报告软错误则报 true/L1226 故必须失败/L1286 不对则告警/L1642-45 其余情形返回 false/L1703 不得为已 TOAST 的 (must not be toasted, 曾误写「不得已」歧义已改)/L1719-21 否则永久泄漏内存+结果可能为 NULL/L2034 只应用于确定不需要事务中止善后的错误/L2147 若只做良构性检查则忽略错误/L2509 而不仅是 boolean/L3888-89 似乎任何地方都不需要用到/L4219-20 若为 NULL 则不生成但仍返回个数/L4378-79 文档不承诺非 UTF8 库非 ASCII 数据的 xpath() 支持/L4660 不得运行任何其他执行器节点/L4860 若不再返回行则返回 false/L4945-49 a) 无节点返回, 均与代码语义极性一致; 枚举横幅逐项点数 (0417 D1 判例): L2733-35 映射两类+兼做 3/3, L2737-44 递归链库→模式→表→行→列 5 级全数+最后两者不可外部调用, L4945-49 四情形 a/b/c/d 4/4, L2938-45 top_level 例 2/2, L4327-31 命名空间数组规则 4/4, L1090 外链/字符串 2/2; 门禁三连实测: verify_c_comments rc=0 (1 files, 0 violations, comments=259 changed=229 splices=14, 与权威扫描一致), term_lint rc=0 (87 rules, 0 error, 7 warnings: P24 L1222 expected/got 句式 advisory, TL08/P23 requires→要求 L1570/L4811/L4845 共 5 条 advisory, 均为短语级提示非缺陷), check_scope 于 manifest 写好后实测 (rc 见提交说明); W7 advisory 9 站 (--paths src/backend/utils/adt 口径, L128 pg_xml_init 已修复后实测): W7_UNTRANSLATED 4 (L44/L1343/L2338/L2347 均系有意保留的整块, 见 preserved_reasons), W7_IDENT_LOST 5 (L1250 URLs/L1813 DTDs/L1971 APIs 为英文复数 s, 0372 散文复数量裁不修; L1621 pg_restore 系跨行拆分 pg_/restore 标识符在场; L3844 TupleDescs 译为「TupleDesc 集合」语义在场); scan_halfen 6 站 MIXED (L686-691 libxml \"doc\" 引号词, L1570-83 xml '<foo/>' 代码例, L1621-49 Document Node 术语, L1684 <?target something?> 语法例, L2165-75 函数签名 (void *ptr, const char *msg, ...) 引文, L2196-2203 xml2 contrib 模块名, 均为标识符/代码引用固有 run); 句号台账: FWD 3 = L364 (预算 4 字节仅容单字「利」, EN 'it.' 句号省)、L2753 (预算 11 字节仅容「出好看」, 句号省)、L3729 (节号横幅「…9.4 节」句号省), python 回读核实自洽; FWD 另 4 为保留块或省略号误报 (L940 EN 'buffer ...' 对 zh 「缓冲区……」等价); REV 2 = L1603 (EN 'field experience' 无句号, zh 补「需要实践检验。」)、L1922 (EN 'top of file)' 无句号, zh 补「注释）。」), zh 句自洽披露; 修复轮: 规划 2 (逐帧 dump 通读 + spec 五段 + 干跑三轮修剪 100→21→3→0 违规, 规划轮内同修 L737/738 接缝重字「遍」), 写后针对性修复重放 3 次 (R1: L128 补回 pg_xml_init 标识符, 0372 代码标识符判例; R2: L1092-95 补回否定词「不」修极性反转 + L1703 「不得已」歧义改「不得为已 TOAST 的」; R3: L1703-1705 重排落盘), 每轮 git checkout HEAD 复位全量重放【审后清偿轮 R4-R6 (审查 FAIL 8D/5N/5A 全清偿, 每轮 checkout HEAD 复位全量重放)】R4 落地 8D+5N: D1 L41-42 补「不」修极性反转 (不良交互); D2 L688 行首「同」→「不同」修 unlike 译反; D3+D2连带 L689 删行尾「失败」消「失败失败」重字并补行首「在」; D4 L1003 补「后。」修错字 (原「之/行。」), L1004 改空注释行「\\t *」保行数守恒; D5 L1135-1136/L1177-1178 残片重排 (两站恢复异构: 「但不需要」/「且需要」, 同 EN 行因紧随帧下文不同而异译, 属帧语境差异非同文漂移, 例外如实披露, apply 同 EN 断言对该行对白名单放行并 WARN); D6 L1638 删行尾「通常」消「通常它通常」; D7 L2200 行尾补「 与」恢复 notice、warning 与 error 分隔; D8 L2814 补「用」成「没有用/处。」; N1 L651-653 重排 (保留「其实」限定语, 压缩至预算); N2 不改正文, 句号台账 FWD 3→4 补登 L1445 「XMLDecl」无句号 (预算 12 字节仅容 4 字, 同 L364 判例措辞; 审查行号 1446 现场核实偏差 1, 实为 L1445, 其下行 L1446 为帧行); N3 L2137 重排; N4 L760 补「一」成「至少一/些」; N5 L4946-4947 重排; R5-R6 readback 验算审查方案时抓出审查建议自身引入两处双字并修正 (L688/689 「要在在」→去 L688 尾「在」; L4946/4947 「类型型」→去 L4947 首「型」); 「不良」二字未再拆行 (D1 成因专项核查); 修后门禁三连复测 rc=0/0/0, numstat 583/583, strip IDENTICAL, NUL 0, W7/halfen 与修前完全一致 (9 站/6 站), 接缝拼读/近重复/行首标点/括号块级平衡全量复扫通过 (apply 内置断言 + readback)。A 级披露补充: A1 半角括号混用两处 (L1723 「(不构建 DOM，」/L1818 「尝试支持(见」与下行 ASCII 右括号配对, 系预算所迫避免与全角（）全局计数失衡, 括号对内自洽); A3 丢限定语群维持披露 (N1 修复时已回补「其实」一处); A2/A4/A5 维持既有披露。累计修复轮: 规划 2 + 写后 3 + 审后 3 (R4 一次落地 8D/5N, R5/R6 为审查方案双字验算修正), 审后为清偿让位如实披露; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0419-adt-xml.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0419 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0419 entries (xml.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

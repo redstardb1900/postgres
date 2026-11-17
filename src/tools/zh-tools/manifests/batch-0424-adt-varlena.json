@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0424",
+ "title": "adt 目录 varlena.c 整文件注释翻译 564 块 1137/6532 行 — batch 0424",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "76c98bf16cb586acc0f579582ce62bbf62cac6ee",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/varlena.c",
+   "kind": "c_comment",
+   "note": "字符串/文本类型核心函数库(text/cstring 转换系/bytea I/O 系/substr/overlay/position/text_position BMH 搜索系/varstr_cmp 排序规则系/sortsupport 缩写键系/text-name 互转/SplitIdentifier/Directories/GUCList 系/replace_text 系/split_part 系/text_to_array/table 系/string_agg 聚合系/concat 系/left/right/reverse/text_format 系/Levenshtein/Unicode 系); whole-file comment translation, batch-0424"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0424-adt-varlena.json",
+   "kind": "manifest",
+   "note": "batch-0424 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0424 entries (varlena.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/varlena.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 564,
+   "translated": 558,
+   "preserved": 6,
+   "preserved_reasons": [
+    "6 个未变块 (与 verify changed=558 对齐, 564-558=6): @2401 #else /* SIZEOF_DATUM != 8 */ 预处理器分支标签, @2554 注掉的代码行 /* Oid opcintype = PG_GETARG_OID(0); */, @3144 bit_count 裸函数名 banner 块, @5007 /* cstring */ 类型标签(预算9B), @5229 /* data */ 标签(预算4B), @5270 /* data */ 标签(预算4B); 变更块内另有 KEPT 行 84 行级保留: 头部 5 (L3 文件名/L6-7 版权/L10 IDENTIFICATION/L11 路径), 裸函数名 banner 49 (L175/L188/L205/L233/L686/L700/L724/L738/L757/L797/L823/L859/L872/L1083/L1143/L1159/L1522/L1586/L2913/L2928/L2944/L2987/L3011/L3085/L3156/L3199/L3227/L3265/L3297/L3352/L3375/L3973/L3985/L4063/L4096/L4190/L4360/L4506/L4529/L4543/L4564/L4758/L4772/L5159/L5207/L5238), 标签行 13 (L283 BUGS:/L827/L828/L1162/L1165/L2991/L2992/L3438/L3567/L3572/L3689/L3695/L3444 Inputs/Outputs/Result 标签), 作者/日期/文献 11 (L742/L743/L745/L825/L837/L840/L842/L847/L1146/L1147), 用法样例代码 4 (L6099/L6101/L6102/L6104), 见 note"
+   ],
+   "note": "varlena.c 字符串/文本类型核心函数库 (text/cstring 转换系/bytea I/O 系/substr/overlay/position/text_position Boyer-Moore-Horspool 系/varstr_cmp 排序规则系/sortsupport 缩写键系/text_name 互转/SplitIdentifier/Directories/GUCList 三胞胎/replace_text/regexp 替换系/split_part 系/text_to_array/table 系/string_agg 聚合系/concat 系/left/right/reverse/text_format 系/Levenshtein/Unicode 规范化系); whole-file comment translation, batch-0424; 权威 universe: 注释感知状态机扫描 564 块全含内容, content 行 1221, verify block_comments=564 changed=558 两方一致; content 行 1221 = zh 1076 (逐行 spec, 含 3 行跨行尾注释闭合行 L81/L901/L964) + 横幅整行替换 2 (L171/L269, R6 起真实生效) + 裸星 BARE 59 (EN 尾短语被上行吸收, 0365 R6 判例; 含 L2275/L2283/L2463/L2482/L2490/L2491/L2508-2510/L2517-2518/L2534-2535 等) + 保留 EN 84 (KEPT, 归类见 preserved_reasons; 6 整块未变 + 78 行散布于变更块); 行级: 头部 5 保留而功能描述行 L4 已译 (jsonfuncs.c/datetime.c 同款); 裸函数名 banner 49 保留 EN 合规 (0372 判例, 其中 12 条 banner 描述行 byteain/byteaout/bytearecv/byteasend/textin/textout/textrecv/textsend/unknownin/unknownout/unknownrecv/unknownsend 已译且函数名前缀从 EN 逐字符程序化提取拼回 — 0423 D1 typmodin 判例同族缺陷 R5 清偿); FALL THRU 0 站 (本文件无); 行数守恒 6532 不变 (numstat 1137/1137); 代码零改动 (verify rc=0, 0 violations, R1_SKELETON 两轮抓出的 L80 跨行尾注释起始行吞代码 char *buf1 与 L81/L901/L964 闭合行吞 */ 均已分支修复, TRAIL/跨行起始行分支有 sed 回读实证 L80/81/900-901/963-964); NUL 扫描 0; 术语全取既译同款: collation→排序规则 (varchar.c L733/L738 既译, 本文件 15 站), locale→区域设置 (pg_locale.c 全文件既译, 本文件 13 站), regexp→正则 (like_support.c L4/L239 既译, 9 站), substring→子串 (varbit.c L1033 既译, 24 站), detoast→去 toast (acl.c L980 判例, 6 站), toasted→toast 化 (varchar.c L723 同款), null-terminated→以 null 结尾 (extension.c L720 同款, 6 站), haystack→干草堆串/needle→needle 保留 (L1258-1259 术语定义段: \"haystack\"（干草堆）是被搜索的串 t1，\"needle\"（针）是要找的模式 t2), 跳过表 10 站, 缩写键 17 站, 平局 5 站, 八进制/转义/可打印 (char.c/like.c 既译); 跨文件同 EN 对齐实证 (2 组逐字照抄 + 2 组 R6 按既译口径对齐): Note: btree indexes need these routines not to leak memory... 三行 → L1610-1612/L3785-3787 注意：btree 索引要求这些例程不泄漏内存；因此，/对 toast 化 datum 的工作副本要小心释放。大多数地方/不必如此小心。 ×2 (R6 补「地方」后与 varchar.c L722-724 逐字一致), This typically means that the parser could not resolve a conflict... → L1512-1513 通常意味着解析器无法解决隐式排序规则冲突，/因此按该方式报告。 (varchar.c L733-734 逐字), Since we only care about equality or not-equality... → L1638-1639 由于我们只关心相等或不相等，这里可以省去/strcoll() 的开销，只做按位比较。 (varchar.c L768-769 逐字, R6 把「既然」对齐为「由于」), We need not detoast the input at all → 完全无需 detoast 输入 ×2 (L733/L2923, varchar.c L714 逐字), Adjust interval type 模板不适用本文件; 同 EN 必同译: apply 断言 same_map 全量 + 注释体级终扫; 首轮终扫存在 N1 一组同 EN 异译 (L5374-5376 段 vs L5604-5606 段), R6 清偿后终态 0 冲突; 异 EN 同 zh 反查 9 组全良性: L 可能大到使…延伸到 ×3 (L914/L977 同 EN + L3059 差定冠词), get_fn_expr_variadic…×2 (L5373/L5604 差 call 一词), |n| 个字符以外的字符。×2 (L5459/L5483 last/first 区分已由前行 L5458 返回除最后/L5482 返回除最前 承载), 串尾。×3 (L915/L978 同 EN + L3059 差冠词), 取字节数，忽略尾部空格 (L2163 取真实字节数 已区分), 可以的。×2 (L5376/L5607 差 array rather than), 把 cstring 转为内部表示 ×2 (L574/L629 函数名前缀各自在场), 把内部表示转为 cstring ×2 (L585/L641 同理), 非 null 参数必须是数组…×2 (L5372/L5603 差 call); 极性代码对照 16 块 (≥12): L832-834 起始≤0/长度<0 双分支, L892-893 S 零或负仍从串首取, L900-901/L963-964 length_not_specified 特例 ×2, L905/L968/L3049 E<S 负长度抛错 ×3, L914-915 S+L 溢出→延伸到串尾, L922-923 结束位置零/负→零长串, L933-935 起始超串尾→DatumGetTextPSlice 零长串, L993-994 E 超串尾→toaster 截断, L1030-1031 start>slice_strlen→零长串, L1121-1123/L3123-3125 负 sp→子串长度错误 ×2, L1178 空 needle 位置 1 对偶 L1182 haystack 短则无法匹配, L1340 空模式 false, L1374-1376 假阳性→跳过续搜, L1447-1449 needle 内出现→对齐/否则整长前进, L1975-1977 cache_blob false→信比较缓存/true→信 strxfrm 缓存, L2259-2264 C 排序规则→memcpy/否则 strxfrm, L2450-2452 只见 NULL→钳制, L4362/4418 负字段号从尾计数→转正, L4442 字段不存在→空串, L4473 请求最后字段→返回/否则空串, L4582 结果 null→false 否则 true, L5367 VARIADIC NULL→NULL, L5458-5459/5482-5483 n 正/负双向, L6029 负宽度→隐含 '-' 取绝对值; 枚举/横幅逐项点数 (0417 D1 判例): L171/L269/L683 三条 section 横幅全译 (R6 起真实生效) (CONVERSION ROUTINES EXPORTED FOR USE BY C CODE→供 C 代码使用的转换例程/USER I/O ROUTINES→用户 I/O 例程 与 0423 L141 同 EN 同译/PUBLIC ROUTINES→公共例程), L283 BUGS: 标签 KEPT+两行 bug 全译, L827-830 Input 三字段全数, L1162-1167 Inputs(t1/t2)+Result 全数, L3438-3446/L3567-3574/L3689-3697 Inputs/Outputs(rawstring/separator/namelist) 三组全数, L4065-4067 返回 0/1/2 三态全数, L4196-4200 参数 cflags/collation/search_start/n 四项全数, L5458-5459/5482-5483 left/right 负 n 两情形全数, L5872-5878 输出参数 argpos/widthpos/flags/width 四项全数, L6094-6104 用法样例 KEPT 三行; 同模板句逐站 grep -c 零漂移 (文件内实测): 由于有 internal 类型参数，无法直接调用 5, 非 null 时附加该值，前置分隔符。 2, 完全无需 detoast 输入 2, 必要时破平局。 2, 偏执起见……或许该改为抛出错误？ 2, 语法无效 3, 跳过前导空白 6 (3 站+3 站复合), SQL99 规定 E < S（即长度为负）时抛出错误 3, 串语法正确返回 true，有语法错误返回 false。 3, 此处不能容忍内存泄漏。 3, n/8 已知 < len，可安全转成 int 2, 找下一个转义字符 2, 子串起始位置 4, L 可能大到使 S + L 溢出，此时子串必须延伸到 3, 位置为负或一时。SQL99 规定返回零长度串。 3, 构建临时 text datum 传给 split_text_accum_result 2, 目前不支持类型 NAME 使用缩写 2, 使用通用串 SortSupport，强制\"C\"排序规则 2, 好，可以安全取数组值了 2, 参数索引显式为 0 立即拒绝 2, 游标 2, 比所需大，但属合理 2, 表示与 cstring 相同 4, 把相邻引号折叠成一个引号，再看一遍 3, 特例——取长度至 2, 检查可能的整数溢出情形。 2; 门禁三连实测: verify_c_comments rc=0 (--worktree HEAD 仓库根 --paths src/backend/utils/adt: 1 files, 1 ok, 0 violations, comments=564, changed=558, splices=12 既有, NUL/trigraph 0), term_lint rc=0 (--pgnls /home/redstar/pg/pgsty/pgnls: 87 rules 21 error/66 warning, 0 error hits, 5 warnings 全 advisory 不修: P43×1 L1859 块级配对噪声, P24×4 L3430/L3555/L3670/L4162 expected-X-got-Y 模板无实际命中), check_scope 于 manifest+cumulative 落盘后实测; W7 14 站 (--paths src/backend/utils/adt 口径, verify 实测): IDENT_LOST 13 = ANDing (L63 zh 与运算 在场)/CONVERSION,EXPORTED,ROUTINES (L170 横幅译 供 C 代码使用的转换例程, 词面不在而语义在场; R6 前该站裁决建立在占位符幽灵上, 已按修复后实况重裁)/null_terminated (L187-191 zh null 结尾 在场)/ROUTINES ×2 (L268 用户 I/O 例程/L683 公共例程 在场)/text_position,text_position_get_match_pos (L1196 名清单 L1197 在场+L1203-1204 跨行拆分 get_match_pos 在场)/NULs (L2258 zh NUL 字节 在场)/NULLs (L2449 NULL 在场)/CPUs (L2526 CPU 在场)/ERROR (L2986 zh 抛出错误 语义在场)/downcase_truncate_identifier (L3506 跨行拆分 downcase_truncate_+identifier 在场)/substring (L4189 zh 子串 在场)/replace_text (L4302 跨行拆分 replace_+text 在场), 均 0372 量裁语义在场不修; UNTRANSLATED 1 = L2554 注掉的代码行 (KEPT 声明); 句号台账 (行级 python 全量比对, R6 后 SP 1076 行, EN 基线 git show HEAD 现算): FWD 33 = 断行点位移 14 (L98/L1486/L1860/L1865/L2531/L2548/L2787/L3391/L3674/L3676/L3677/L3679/L3682/L3686 句号落后续 zh 行, 良性) + 省略号变体 5 (L485/L783/L786/L2970/L2973 EN ... ↔ zh .../……) + 真缺陷 2 已修 (L1204 EN a pointer or 1-based character position zh 曾丢字符位置成分 R4 补回分别返回末次匹配的指针和字符位置; L6144 曾丢设 false R4 补回时设 false) + 补句号 3 已修 (L1917/L2315/L4121 预算内补 。) + 预算不足披露 9 (L861/L3013 同 EN 换行函数名占满预算/L2043/L4078/L4116/L4579/L5876/L5989 转义/L6006 清理); REV 58 全为断行点位移 zh 句自洽 (zh 行 N 句号对应 EN 行 N±1 句点, 0391 判例 REVERSE 变通: zh 文本自洽无歧义, 逐组抽样 L923/L2282/L2530 核证) 全良性; 修复轮如实披露: 规划轮 dry-run 5 次 (首轮 94 错: 超预算约 55/覆盖缺口 24/接缝重字 3/括号不平衡 4/同 EN 异译 1, 次轮 12 错, 三轮 4 错, 四轮 1 错 [L4165 覆盖条目正则未中], 五轮 0 错; 全部 dry-run 或 checkout 复位重放), 写后 5 轮 (超 ≤3 纪律, gate 级缺陷让位如实披露, 0417 判例): R1 L80 跨行尾注释起始行吞代码 (verify R1_SKELETON non-comment bytes differ 抓出, 新增 /*无*/ 分支保留代码前缀), R2 L81/L901/L964 跨行尾注释闭合行吞 */ (verify comment count 564→561 抓出, TRAIL 分支), R3 term_lint advisory 清偿 P02 cannot→无法 6 站 (L553/L1974/L5092/L5219/L5252/L5286, 不能→无法 等字节; 首跑 L1968 键位错, 1968 为块起始帧行, 现场核正为 L1974 重放 — 0394/0423 行号现场核判例) + P08 invalid→无效 3 站 (L3535/L3647/L3765, 非法→无效 等字节), R4 句号台账真缺陷 2+补句号 3 (上引), R5 banner 函数名 12 站逐字拼回 (走读抓出 byteain 等函数名被 m_star 分支吞, 0423 D1 同族; 前缀自 EN 行程序化提取非手抄); 每轮 git checkout HEAD -- 复位重放后双门禁复跑 rc=0; 函数名逐字符校验结论: 12 条 banner 名前缀程序化提取拼回 + sed 回读逐条核对 (L277/380/466/483/574/585/596/614/629/641/653/668), SplitIdentifierString/SplitDirectoriesString/SplitGUCList/textToQualifiedNameList/string_agg 系/text_position 系/varstr 系标识符经 W7 全量扫描 0 丢失, 代码区标识符交集审计 (W7 同口径) 13 站全部裁决在案; A 级披露: REV 58 站断行点位移变通, FWD 预算不足 9 站 (上引), L1489 搜起。/L740 L2930 裸星吸收 the two., L5876 flags 标志位掩码 无句号 (预算), CJK-EN 相邻空格预算紧行省略若干站 (L845/L3976 等), 单引号 SQL 串 '' (L845/L3989) 逐字保留；审后清偿轮 R6（只读审查 FAIL 3D/3N/5A → 全清偿，单笔落工作树未提交）: D1 占位符残留 ×2（L171/L269 曾为 FULL_BANNER_171/FULL_BANNER_269 字面量——spec 合并时 SP 占位键未剔除、FULL 被 SP 后写覆盖，本批最重缺陷；已剔除并落 FULL 整行替换，sed 回读对齐实况，连带三处幽灵披露按修复后实况改写：「三条 section 横幅全译」现真实成立，W7 L170/L268 重裁：CONVERSION/EXPORTED/ROUTINES 词面不在横幅译文而语义（转换例程/供 C 代码使用/用户 I/O 例程/公共例程）在场）; D2 跨行丢字「尽」（L2151-2152「尽管」被裁断，L2152 行首补「尽」，62B≤65B）; D3 接缝双字「已被|被改」×2（L3439-3440/L3690-3691 同 EN 复制块同构同修：L3439/L3690 行尾「返回时它已」56B≤69B + L3440/L3691「被改成包含拆分出的标识符。」42B≤44B）; N1 同 EN 异译 ×2 清偿（L5371-5376 与 L5602-5607 EN 逐字相同，L5605 所以→因此 等字节 + L5375 应该是→应当 57B≤62B，统一为「因此…应当」，清偿后终态 0 冲突）; N2 跨文件对齐（L1638 既然→由于 等字节，对齐 varchar.c L768 既译）; N3 L1611/L3786 补「地方」71B≤71B 等预算对齐 varchar.c L723; A1 L394 十六进制→打印 hex（13B≤16B）; A2 L6144 补句号（52B≤67B）; A4 「TOAST 机（tuple toaster）」登记战役级 glossary backlog; A3/A5 维持量裁; 连带清偿（接缝/重复家族全文件复扫；检查器修复：接缝检查 tb 先 lstrip——历史版本对 m_star 长前缀行恒不触发，即 D3 漏网根因；新增双字缝与跨行词重复检查）: L3511-3512 可能|可能（R4 残迹）、L2512-2513 仍可能|也可能、L3077-3079 零长度串——|返回零长度串——（L3078/L3079 改吸收式衔接，L3077 与 L933 同 EN 同译保持）、L5778-5779 重用|则重用、L3678-3679 导致|已经导致、L6144 句号被重复条目覆盖勘正; 良性保留披露 2 组：L999-1000 长度×2 与 L5874-5875 宽度×2（EN 镜像语义各异）+ 叠字「看看」合法; 修复后门禁三连复跑 rc=0×3 + 全文件终扫（单字缝/双字缝/跨行词重复/叠字/行首标点/括号引号平衡/块尾悬挂）通过; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0424-adt-varlena.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0424 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0424 entries (varlena.c + 本 manifest; 两数组各 +2, 纯追加, 追加前查重无 varlena 既有条目)"
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * varlena.c
- *	  Functions for the variable-length built-in types.
+ *	  变长内建类型的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,61 +42,61 @@
 #include "utils/varlena.h"
 
 
-/* GUC variable */
+/* GUC 变量 */
 int			bytea_output = BYTEA_OUTPUT_HEX;
 
 typedef struct varlena VarString;
 
 /*
- * State for text_position_* functions.
+ * text_position_* 函数的状态。
  */
 typedef struct
 {
-	bool		is_multibyte_char_in_char;	/* need to check char boundaries? */
+	bool		is_multibyte_char_in_char;	/* 需要检查字符边界? */
 
-	char	   *str1;			/* haystack string */
-	char	   *str2;			/* needle string */
-	int			len1;			/* string lengths in bytes */
+	char	   *str1;			/* 待搜索的串 */
+	char	   *str2;			/* 模式串 */
+	int			len1;			/* 以字节计的串长 */
 	int			len2;
 
-	/* Skip table for Boyer-Moore-Horspool search algorithm: */
-	int			skiptablemask;	/* mask for ANDing with skiptable subscripts */
-	int			skiptable[256]; /* skip distance for given mismatched char */
+	/* Boyer-Moore-Horspool 搜索算法的跳过表： */
+	int			skiptablemask;	/* 与跳过表下标做与运算的掩码 */
+	int			skiptable[256]; /* 给定失配字符的跳过距离 */
 
-	char	   *last_match;		/* pointer to last match in 'str1' */
+	char	   *last_match;		/* 'str1' 中上次匹配处 */
 
 	/*
-	 * Sometimes we need to convert the byte position of a match to a
-	 * character position.  These store the last position that was converted,
-	 * so that on the next call, we can continue from that point, rather than
-	 * count characters from the very beginning.
+	 * 有时我们需要把匹配的字节位置转换为
+	 * 字符位置。这两个字段保存上次转换的位置，
+	 * 以便下一次调用时从该点继续，而不必
+	 * 从头开始数字符。
 	 */
-	char	   *refpoint;		/* pointer within original haystack string */
-	int			refpos;			/* 0-based character offset of the same point */
+	char	   *refpoint;		/* 原始干草堆串内的指针 */
+	int			refpos;			/* 同一位置的 0 起算字符偏移 */
 } TextPositionState;
 
 typedef struct
 {
-	char	   *buf1;			/* 1st string, or abbreviation original string
-								 * buf */
-	char	   *buf2;			/* 2nd string, or abbreviation strxfrm() buf */
-	int			buflen1;		/* Allocated length of buf1 */
-	int			buflen2;		/* Allocated length of buf2 */
-	int			last_len1;		/* Length of last buf1 string/strxfrm() input */
-	int			last_len2;		/* Length of last buf2 string/strxfrm() blob */
-	int			last_returned;	/* Last comparison result (cache) */
-	bool		cache_blob;		/* Does buf2 contain strxfrm() blob, etc? */
+	char	   *buf1;			/* 第一串，或缩写的原始串缓冲
+								 * 区 */
+	char	   *buf2;			/* 第二串，或缩写 strxfrm() 缓冲 */
+	int			buflen1;		/* buf1 的分配长度 */
+	int			buflen2;		/* buf2 的分配长度 */
+	int			last_len1;		/* 上次 buf1 串/strxfrm() 输入的长度 */
+	int			last_len2;		/* 上次 buf2 串/strxfrm() 块长 */
+	int			last_returned;	/* 上次比较结果（缓存） */
+	bool		cache_blob;		/* buf2 是否包含 strxfrm() 块等? */
 	bool		collate_c;
-	Oid			typid;			/* Actual datatype (text/bpchar/bytea/name) */
-	hyperLogLogState abbr_card; /* Abbreviated key cardinality state */
-	hyperLogLogState full_card; /* Full key cardinality state */
-	double		prop_card;		/* Required cardinality proportion */
+	Oid			typid;			/* 实际类型（text/bpchar/bytea/name） */
+	hyperLogLogState abbr_card; /* 缩写键基数状态 */
+	hyperLogLogState full_card; /* 完整键基数状态 */
+	double		prop_card;		/* 所需的基数比例 */
 	pg_locale_t locale;
 } VarStringSortSupport;
 
 /*
- * Output data for split_text(): we output either to an array or a table.
- * tupstore and tupdesc must be set up in advance to output to a table.
+ * split_text() 的输出数据：我们要么输出到数组，
+ * 要么输出到表。tupstore/tupdesc 需为表输出预先建好。
  */
 typedef struct
 {
@@ -106,8 +106,8 @@ typedef struct
 } SplitTextOutputData;
 
 /*
- * This should be large enough that most strings will fit, but small enough
- * that we feel comfortable putting it on the stack
+ * 该值应大到足以容纳大多数字符串，但又小到
+ * 让我们能放心地把它放在栈上
  */
 #define TEXTBUFLEN		1024
 
@@ -168,15 +168,15 @@ static void text_format_append_string(StringInfo buf, const char *str,
 
 
 /*****************************************************************************
- *	 CONVERSION ROUTINES EXPORTED FOR USE BY C CODE							 *
+ *	 供 C 代码使用的转换例程                     *
  *****************************************************************************/
 
 /*
  * cstring_to_text
  *
- * Create a text value from a null-terminated C string.
+ * 由以 null 结尾的 C 字符串创建 text 值。
  *
- * The new text value is freshly palloc'd with a full-size VARHDR.
+ * 新 text 值以完整 VARHDR 经 palloc 新分配。
  */
 text *
 cstring_to_text(const char *s)
@@ -187,8 +187,8 @@ cstring_to_text(const char *s)
 /*
  * cstring_to_text_with_len
  *
- * Same as cstring_to_text except the caller specifies the string length;
- * the string need not be null_terminated.
+ * 与 cstring_to_text 相同，但由调用者指定串长；
+ * 串不必以 null 结尾。
  */
 text *
 cstring_to_text_with_len(const char *s, int len)
@@ -204,17 +204,17 @@ cstring_to_text_with_len(const char *s, int len)
 /*
  * text_to_cstring
  *
- * Create a palloc'd, null-terminated C string from a text value.
+ * 从 text 值创建 palloc'd、null 结尾的 C 字符串。
  *
- * We support being passed a compressed or toasted text value.
- * This is a bit bogus since such values shouldn't really be referred to as
- * "text *", but it seems useful for robustness.  If we didn't handle that
- * case here, we'd need another routine that did, anyway.
+ * 我们支持传入压缩或 toast 化的 text 值。
+ * 这有点不妥，因为这样的值本不该被称作
+ * "text *"，但看起来对健壮性有用。如果不在这里
+ * 反正也需要一个做此事的例程。
  */
 char *
 text_to_cstring(const text *t)
 {
-	/* must cast away the const, unfortunately */
+	/* 很遗憾，必须抛弃 const */
 	text	   *tunpacked = pg_detoast_datum_packed(unconstify(text *, t));
 	int			len = VARSIZE_ANY_EXHDR(tunpacked);
 	char	   *result;
@@ -232,20 +232,20 @@ text_to_cstring(const text *t)
 /*
  * text_to_cstring_buffer
  *
- * Copy a text value into a caller-supplied buffer of size dst_len.
+ * 把 text 值复制到调用者给定的 dst_len 缓冲区。
  *
- * The text string is truncated if necessary to fit.  The result is
- * guaranteed null-terminated (unless dst_len == 0).
+ * 必要时截断 text 串以适配，结果保证 null 结尾
+ * （dst_len == 0 时除外）。
  *
- * We support being passed a compressed or toasted text value.
- * This is a bit bogus since such values shouldn't really be referred to as
- * "text *", but it seems useful for robustness.  If we didn't handle that
- * case here, we'd need another routine that did, anyway.
+ * 我们支持传入压缩或 toast 化的 text 值。
+ * 这有点不妥，因为这样的值本不该被称作
+ * "text *"，但看起来对健壮性有用。如果不在这里
+ * 反正也需要一个做此事的例程。
  */
 void
 text_to_cstring_buffer(const text *src, char *dst, size_t dst_len)
 {
-	/* must cast away the const, unfortunately */
+	/* 很遗憾，必须抛弃 const */
 	text	   *srcunpacked = pg_detoast_datum_packed(unconstify(text *, src));
 	size_t		src_len = VARSIZE_ANY_EXHDR(srcunpacked);
 
@@ -254,7 +254,7 @@ text_to_cstring_buffer(const text *src, char *dst, size_t dst_len)
 		dst_len--;
 		if (dst_len >= src_len)
 			dst_len = src_len;
-		else					/* ensure truncation is encoding-safe */
+		else					/* 确保截断是编码安全的 */
 			dst_len = pg_mbcliplen(VARDATA_ANY(srcunpacked), src_len, dst_len);
 		memcpy(dst, VARDATA_ANY(srcunpacked), dst_len);
 		dst[dst_len] = '\0';
@@ -266,7 +266,7 @@ text_to_cstring_buffer(const text *src, char *dst, size_t dst_len)
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程               *
  *****************************************************************************/
 
 
@@ -274,15 +274,15 @@ text_to_cstring_buffer(const text *src, char *dst, size_t dst_len)
 #define DIG(VAL)		((VAL) + '0')
 
 /*
- *		byteain			- converts from printable representation of byte array
+ *		byteain			- 把字节数组的可打印表示转为内部形式
  *
- *		Non-printable characters must be passed as '\nnn' (octal) and are
- *		converted to internal form.  '\' must be passed as '\\'.
- *		ereport(ERROR, ...) if bad form.
+ *		非打印字符必须以 \nnn（八进制）传入，并会被
+ *		转换为内部形式。\ 必须写成 \\。
+ *		格式错 ereport(ERROR, ...)。
  *
  *		BUGS:
- *				The input is scanned twice.
- *				The error checking of input is minimal.
+ *				输入会被扫描两次。
+ *				对输入的错误检查极少。
  */
 Datum
 byteain(PG_FUNCTION_ARGS)
@@ -294,21 +294,21 @@ byteain(PG_FUNCTION_ARGS)
 	int			bc;
 	bytea	   *result;
 
-	/* Recognize hex input */
+	/* 识别 hex 输入 */
 	if (inputText[0] == '\\' && inputText[1] == 'x')
 	{
 		size_t		len = strlen(inputText);
 
-		bc = (len - 2) / 2 + VARHDRSZ;	/* maximum possible length */
+		bc = (len - 2) / 2 + VARHDRSZ;	/* 最大可能长度 */
 		result = palloc(bc);
 		bc = hex_decode_safe(inputText + 2, len - 2, VARDATA(result),
 							 escontext);
-		SET_VARSIZE(result, bc + VARHDRSZ); /* actual length */
+		SET_VARSIZE(result, bc + VARHDRSZ); /* 实际长度 */
 
 		PG_RETURN_BYTEA_P(result);
 	}
 
-	/* Else, it's the traditional escaped style */
+	/* 否则就是传统转义风格 */
 	for (bc = 0, tp = inputText; *tp != '\0'; bc++)
 	{
 		if (tp[0] != '\\')
@@ -324,7 +324,7 @@ byteain(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * one backslash, not followed by another or ### valid octal
+			 * 一个反斜杠，后面不是反斜杠或 ### 八进制
 			 */
 			ereturn(escontext, (Datum) 0,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -365,7 +365,7 @@ byteain(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * We should never get here. The first pass should not allow it.
+			 * 不应到达此处：第一遍扫描应已阻止它。
 			 */
 			ereturn(escontext, (Datum) 0,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -377,10 +377,10 @@ byteain(PG_FUNCTION_ARGS)
 }
 
 /*
- *		byteaout		- converts to printable representation of byte array
+ *		byteaout		- 把字节数组转换为可打印表示形式
  *
- *		In the traditional escaped format, non-printable characters are
- *		printed as '\nnn' (octal) and '\' as '\\'.
+ *		传统转义格式中不可打印字符以 \nnn（八进制）
+ *		打印，而 \ 打印为 \\。
  */
 Datum
 byteaout(PG_FUNCTION_ARGS)
@@ -391,7 +391,7 @@ byteaout(PG_FUNCTION_ARGS)
 
 	if (bytea_output == BYTEA_OUTPUT_HEX)
 	{
-		/* Print hex format */
+		/* 打印 hex */
 		rp = result = palloc(VARSIZE_ANY_EXHDR(vlena) * 2 + 2 + 1);
 		*rp++ = '\\';
 		*rp++ = 'x';
@@ -399,12 +399,12 @@ byteaout(PG_FUNCTION_ARGS)
 	}
 	else if (bytea_output == BYTEA_OUTPUT_ESCAPE)
 	{
-		/* Print traditional escaped format */
+		/* 打印传统转义格式 */
 		char	   *vp;
 		uint64		len;
 		int			i;
 
-		len = 1;				/* empty string has 1 char */
+		len = 1;				/* 空串有 1 个字符 */
 		vp = VARDATA_ANY(vlena);
 		for (i = VARSIZE_ANY_EXHDR(vlena); i != 0; i--, vp++)
 		{
@@ -417,9 +417,9 @@ byteaout(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * In principle len can't overflow uint32 if the input fit in 1GB, but
-		 * for safety let's check rather than relying on palloc's internal
-		 * check.
+		 * 原则上若输入在 1GB 内，len 就不会溢出 uint32，但
+		 * 为安全起见自行检查，而非依赖 palloc 内部
+		 *
 		 */
 		if (len > MaxAllocSize)
 			ereport(ERROR,
@@ -437,7 +437,7 @@ byteaout(PG_FUNCTION_ARGS)
 			}
 			else if ((unsigned char) *vp < 0x20 || (unsigned char) *vp > 0x7e)
 			{
-				int			val;	/* holds unprintable chars */
+				int			val;	/* 存不可打印字符 */
 
 				val = *vp;
 				rp[0] = '\\';
@@ -456,14 +456,14 @@ byteaout(PG_FUNCTION_ARGS)
 	{
 		elog(ERROR, "unrecognized bytea_output setting: %d",
 			 bytea_output);
-		rp = result = NULL;		/* keep compiler quiet */
+		rp = result = NULL;		/* 让编译器安静 */
 	}
 	*rp = '\0';
 	PG_RETURN_CSTRING(result);
 }
 
 /*
- *		bytearecv			- converts external binary format to bytea
+ *		bytearecv			- 将外部二进制格式转换为 bytea
  */
 Datum
 bytearecv(PG_FUNCTION_ARGS)
@@ -480,9 +480,9 @@ bytearecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		byteasend			- converts bytea to binary format
+ *		byteasend			- 把 bytea 转为二进制格式
  *
- * This is a special case: just copy the input...
+ * 这是一个特例：只需复制输入...
  */
 Datum
 byteasend(PG_FUNCTION_ARGS)
@@ -499,22 +499,22 @@ bytea_string_agg_transfn(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
-	/* Append the value unless null, preceding it with the delimiter. */
+	/* 非 null 时附加该值，前置分隔符。 */
 	if (!PG_ARGISNULL(1))
 	{
 		bytea	   *value = PG_GETARG_BYTEA_PP(1);
 		bool		isfirst = false;
 
 		/*
-		 * You might think we can just throw away the first delimiter, however
-		 * we must keep it as we may be a parallel worker doing partial
-		 * aggregation building a state to send to the main process.  We need
-		 * to keep the delimiter of every aggregation so that the combine
-		 * function can properly join up the strings of two separately
-		 * partially aggregated results.  The first delimiter is only stripped
-		 * off in the final function.  To know how much to strip off the front
-		 * of the string, we store the length of the first delimiter in the
-		 * StringInfo's cursor field, which we don't otherwise need here.
+		 * 你可能认为可以径直丢弃第一个分隔符，然而
+		 * 必须保留它：我们可能是并行 worker，
+		 * 正在做部分聚合并构建要发给主进程的状态。每个
+		 * 聚合的分隔符都要保留，让 combine 函数能正确
+		 * 拼接两个分别部分聚合的串。
+		 * 第一个分隔符只在最终函数中被剥离。要知道应从
+		 * 串首剥掉多少，我们把第一个分隔符的长度存进
+		 * StringInfo 的 cursor 字段，此处无其他用途。
+		 *
 		 */
 		if (state == NULL)
 		{
@@ -537,8 +537,8 @@ bytea_string_agg_transfn(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
-	 * which is a pass-by-value type the same size as a pointer.
+	 * string_agg() 的转换类型被声明为 "internal"，
+	 * 这是一个与指针同尺寸的按值传递类型。
 	 */
 	if (state)
 		PG_RETURN_POINTER(state);
@@ -550,14 +550,14 @@ bytea_string_agg_finalfn(PG_FUNCTION_ARGS)
 {
 	StringInfo	state;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 由于有 internal 类型参数，无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	if (state != NULL)
 	{
-		/* As per comment in transfn, strip data before the cursor position */
+		/* 按 transfn 注释所述，剥离 cursor 位置前的数据 */
 		bytea	   *result;
 		int			strippedlen = state->len - state->cursor;
 
@@ -571,7 +571,7 @@ bytea_string_agg_finalfn(PG_FUNCTION_ARGS)
 }
 
 /*
- *		textin			- converts cstring to internal representation
+ *		textin			- 把 cstring 转为内部表示
  */
 Datum
 textin(PG_FUNCTION_ARGS)
@@ -582,7 +582,7 @@ textin(PG_FUNCTION_ARGS)
 }
 
 /*
- *		textout			- converts internal representation to cstring
+ *		textout			- 把内部表示转为 cstring
  */
 Datum
 textout(PG_FUNCTION_ARGS)
@@ -593,7 +593,7 @@ textout(PG_FUNCTION_ARGS)
 }
 
 /*
- *		textrecv			- converts external binary format to text
+ *		textrecv			- 将外部二进制格式转换为 text
  */
 Datum
 textrecv(PG_FUNCTION_ARGS)
@@ -611,7 +611,7 @@ textrecv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		textsend			- converts text to binary format
+ *		textsend			- 把 text 转为二进制格式
  */
 Datum
 textsend(PG_FUNCTION_ARGS)
@@ -626,31 +626,31 @@ textsend(PG_FUNCTION_ARGS)
 
 
 /*
- *		unknownin			- converts cstring to internal representation
+ *		unknownin			- 把 cstring 转为内部表示
  */
 Datum
 unknownin(PG_FUNCTION_ARGS)
 {
 	char	   *str = PG_GETARG_CSTRING(0);
 
-	/* representation is same as cstring */
+	/* 表示与 cstring 相同 */
 	PG_RETURN_CSTRING(pstrdup(str));
 }
 
 /*
- *		unknownout			- converts internal representation to cstring
+ *		unknownout			- 把内部表示转为 cstring
  */
 Datum
 unknownout(PG_FUNCTION_ARGS)
 {
-	/* representation is same as cstring */
+	/* 表示与 cstring 相同 */
 	char	   *str = PG_GETARG_CSTRING(0);
 
 	PG_RETURN_CSTRING(pstrdup(str));
 }
 
 /*
- *		unknownrecv			- converts external binary format to unknown
+ *		unknownrecv			- 将外部二进制格式转换为 unknown
  */
 Datum
 unknownrecv(PG_FUNCTION_ARGS)
@@ -660,17 +660,17 @@ unknownrecv(PG_FUNCTION_ARGS)
 	int			nbytes;
 
 	str = pq_getmsgtext(buf, buf->len - buf->cursor, &nbytes);
-	/* representation is same as cstring */
+	/* 表示与 cstring 相同 */
 	PG_RETURN_CSTRING(str);
 }
 
 /*
- *		unknownsend			- converts unknown to binary format
+ *		unknownsend			- 把 unknown 转为二进制格式
  */
 Datum
 unknownsend(PG_FUNCTION_ARGS)
 {
-	/* representation is same as cstring */
+	/* 表示与 cstring 相同 */
 	char	   *str = PG_GETARG_CSTRING(0);
 	StringInfoData buf;
 
@@ -680,35 +680,35 @@ unknownsend(PG_FUNCTION_ARGS)
 }
 
 
-/* ========== PUBLIC ROUTINES ========== */
+/* ========== 公共例程 ========== */
 
 /*
  * textlen -
- *	  returns the logical length of a text*
- *	   (which is less than the VARSIZE of the text*)
+ *	  返回 text* 的逻辑长度
+ *	   （小于该 text* 的 VARSIZE）
  */
 Datum
 textlen(PG_FUNCTION_ARGS)
 {
 	Datum		str = PG_GETARG_DATUM(0);
 
-	/* try to avoid decompressing argument */
+	/* 尽量避免解压缩参数 */
 	PG_RETURN_INT32(text_length(str));
 }
 
 /*
  * text_length -
- *	Does the real work for textlen()
+ *	做 textlen() 的实际工作
  *
- *	This is broken out so it can be called directly by other string processing
- *	functions.  Note that the argument is passed as a Datum, to indicate that
- *	it may still be in compressed form.  We can avoid decompressing it at all
- *	in some cases.
+ *	单独拆出此函数是为了让其他字符串处理函数可以直接
+ *	调用它。注意参数以 Datum 传入，以表明它可能仍处于
+ *	压缩形式。某些情况下我们可以完全避免解压缩它。
+ *
  */
 static int32
 text_length(Datum str)
 {
-	/* fastpath when max encoding length is one */
+	/* 编码最大长度 1 时走快速路径 */
 	if (pg_database_encoding_max_length() == 1)
 		PG_RETURN_INT32(toast_raw_datum_size(str) - VARHDRSZ);
 	else
@@ -722,26 +722,26 @@ text_length(Datum str)
 
 /*
  * textoctetlen -
- *	  returns the physical length of a text*
- *	   (which is less than the VARSIZE of the text*)
+ *	  返回 text* 的物理长度
+ *	   （小于该 text* 的 VARSIZE）
  */
 Datum
 textoctetlen(PG_FUNCTION_ARGS)
 {
 	Datum		str = PG_GETARG_DATUM(0);
 
-	/* We need not detoast the input at all */
+	/* 完全无需 detoast 输入 */
 	PG_RETURN_INT32(toast_raw_datum_size(str) - VARHDRSZ);
 }
 
 /*
  * textcat -
- *	  takes two text* and returns a text* that is the concatenation of
- *	  the two.
+ *	  取两个 text* 并返回两者拼接成的 text*。
+ *
  *
  * Rewritten by Sapa, sapa@hq.icb.chel.su. 8-Jul-96.
  * Updated by Thomas, Thomas.Lockhart@jpl.nasa.gov 1997-07-10.
- * Allocate space for output in all cases.
+ * 无条件为输出分配空间。
  * XXX - thomas 1997-07-10
  */
 Datum
@@ -755,9 +755,9 @@ textcat(PG_FUNCTION_ARGS)
 
 /*
  * text_catenate
- *	Guts of textcat(), broken out so it can be used by other functions
+ *	textcat() 的核心逻辑，拆出以便其他函数使用
  *
- * Arguments can be in short-header form, but not compressed or out-of-line
+ * 参数可为短头部形式，但不可为压缩或行外存储形式
  */
 static text *
 text_catenate(text *t1, text *t2)
@@ -771,7 +771,7 @@ text_catenate(text *t1, text *t2)
 	len1 = VARSIZE_ANY_EXHDR(t1);
 	len2 = VARSIZE_ANY_EXHDR(t2);
 
-	/* paranoia ... probably should throw error instead? */
+	/* 偏执起见……或许该改为抛出错误？ */
 	if (len1 < 0)
 		len1 = 0;
 	if (len2 < 0)
@@ -780,10 +780,10 @@ text_catenate(text *t1, text *t2)
 	len = len1 + len2 + VARHDRSZ;
 	result = (text *) palloc(len);
 
-	/* Set size of result string... */
+	/* 设置结果串大小…… */
 	SET_VARSIZE(result, len);
 
-	/* Fill data field of result string... */
+	/* 填充结果串数据字段…… */
 	ptr = VARDATA(result);
 	if (len1 > 0)
 		memcpy(ptr, VARDATA_ANY(t1), len1);
@@ -795,17 +795,17 @@ text_catenate(text *t1, text *t2)
 
 /*
  * charlen_to_bytelen()
- *	Compute the number of bytes occupied by n characters starting at *p
+ *	计算从 *p 开始的 n 个字符占用的字节数
  *
- * It is caller's responsibility that there actually are n characters;
- * the string need not be null-terminated.
+ * 调用者须确保串中确实存在 n 个字符；串不必以
+ * null 结尾。
  */
 static int
 charlen_to_bytelen(const char *p, int n)
 {
 	if (pg_database_encoding_max_length() == 1)
 	{
-		/* Optimization for single-byte encodings */
+		/* 单字节编码的优化 */
 		return n;
 	}
 	else
@@ -821,29 +821,29 @@ charlen_to_bytelen(const char *p, int n)
 
 /*
  * text_substr()
- * Return a substring starting at the specified position.
+ * 返回从指定位置开始的子串。
  * - thomas 1997-12-31
  *
  * Input:
  *	- string
- *	- starting position (is one-based)
- *	- string length
+ *	- 起始位置（1 起算）
+ *	- 串长度
  *
- * If the starting position is zero or less, then return from the start of the string
- *	adjusting the length to be consistent with the "negative start" per SQL.
- * If the length is less than zero, return the remaining string.
+ * 若起始位置为零或更小，则从串首开始返回，
+ *	并按 SQL 的"负起始"约定调整长度。
+ * 若长度小于零，则返回剩余串。
  *
- * Added multibyte support.
+ * 增加多字节支持。
  * - Tatsuo Ishii 1998-4-21
- * Changed behavior if starting position is less than one to conform to SQL behavior.
- * Formerly returned the entire string; now returns a portion.
+ * 为符合 SQL 行为，改变了起始位置小于 1 时的行为。
+ * 以前返回整个串；现在返回其中一部分。
  * - Thomas Lockhart 1998-12-10
- * Now uses faster TOAST-slicing interface
+ * 现用更快的 TOAST 切片接口
  * - John Gray 2002-02-22
- * Remove "#ifdef MULTIBYTE" and test for encoding_max_length instead. Change
- * behaviors conflicting with SQL to meet SQL (if E = S + L < S throw
- * error; if E < 1, return '', not entire string). Fixed MB related bug when
- * S > LC and < LC + 4 sometimes garbage characters are returned.
+ * 移除 "#ifdef MULTIBYTE"，改为检查 encoding_max_length。
+ * 将与 SQL 冲突的行为改为满足 SQL（若 E = S + L < S 则
+ * 抛错误；若 E < 1，返回 ''，而非整个串）。修复了 MB
+ * bug：S > LC 且 < LC+4 时有时返回垃圾字符。
  * - Joe Conway 2002-08-10
  */
 Datum
@@ -857,8 +857,8 @@ text_substr(PG_FUNCTION_ARGS)
 
 /*
  * text_substr_no_len -
- *	  Wrapper to avoid opr_sanity failure due to
- *	  one function accepting a different number of args.
+ *	  包装函数，避免 opr_sanity 因
+ *	  同一函数接受不同数量的参数而失败
  */
 Datum
 text_substr_no_len(PG_FUNCTION_ARGS)
@@ -870,58 +870,58 @@ text_substr_no_len(PG_FUNCTION_ARGS)
 
 /*
  * text_substring -
- *	Does the real work for text_substr() and text_substr_no_len()
+ *	text_substr() 与 text_substr_no_len() 的实际工作
  *
- *	This is broken out so it can be called directly by other string processing
- *	functions.  Note that the argument is passed as a Datum, to indicate that
- *	it may still be in compressed/toasted form.  We can avoid detoasting all
- *	of it in some cases.
+ *	单独拆出此函数是为了让其他字符串处理函数可以直接
+ *	调用它。注意参数以 Datum 传入，以表明它可能仍处于
+ *	压缩/toast 化形式。某些情况下可免于全部去 toast。
  *
- *	The result is always a freshly palloc'd datum.
+ *
+ *	结果总是新近 palloc 的 datum。
  */
 static text *
 text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 {
 	int32		eml = pg_database_encoding_max_length();
-	int32		S = start;		/* start position */
-	int32		S1;				/* adjusted start position */
-	int32		L1;				/* adjusted substring length */
-	int32		E;				/* end position */
+	int32		S = start;		/* 起始位置 */
+	int32		S1;				/* 调整后起始位置 */
+	int32		L1;				/* 调整后的子串长度 */
+	int32		E;				/* 结束位置 */
 
 	/*
-	 * SQL99 says S can be zero or negative, but we still must fetch from the
-	 * start of the string.
+	 * SQL99 说 S 可以为零或负，但我们仍须从串首开始
+	 * 取数据。
 	 */
 	S1 = Max(S, 1);
 
-	/* life is easy if the encoding max length is 1 */
+	/* 若编码最大长度为 1，则事情简单 */
 	if (eml == 1)
 	{
-		if (length_not_specified)	/* special case - get length to end of
-									 * string */
+		if (length_not_specified)	/* 特例——取长度至
+									 * 串尾 */
 			L1 = -1;
 		else if (length < 0)
 		{
-			/* SQL99 says to throw an error for E < S, i.e., negative length */
+			/* SQL99 规定 E < S（即长度为负）时抛出错误 */
 			ereport(ERROR,
 					(errcode(ERRCODE_SUBSTRING_ERROR),
 					 errmsg("negative substring length not allowed")));
-			L1 = -1;			/* silence stupider compilers */
+			L1 = -1;			/* 让较笨编译器安静 */
 		}
 		else if (pg_add_s32_overflow(S, length, &E))
 		{
 			/*
-			 * L could be large enough for S + L to overflow, in which case
-			 * the substring must run to end of string.
+			 * L 可能大到使 S + L 溢出，此时子串必须延伸到
+			 * 串尾。
 			 */
 			L1 = -1;
 		}
 		else
 		{
 			/*
-			 * A zero or negative value for the end position can happen if the
-			 * start was negative or one. SQL99 says to return a zero-length
-			 * string.
+			 * 结束位置出现零或负值的情形，可能发生在起始
+			 * 位置为负或一时。SQL99 规定返回零长度串。
+			 *
 			 */
 			if (E < 1)
 				return cstring_to_text("");
@@ -930,18 +930,18 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 		}
 
 		/*
-		 * If the start position is past the end of the string, SQL99 says to
-		 * return a zero-length string -- DatumGetTextPSlice() will do that
-		 * for us.  We need only convert S1 to zero-based starting position.
+		 * 若起始位置超过串尾，SQL99 规定返回零长度串——
+		 * DatumGetTextPSlice() 会替我们做到。只需把 S1 转为
+		 * 0 起算的起始位置即可。
 		 */
 		return DatumGetTextPSlice(str, S1 - 1, L1);
 	}
 	else if (eml > 1)
 	{
 		/*
-		 * When encoding max length is > 1, we can't get LC without
-		 * detoasting, so we'll grab a conservatively large slice now and go
-		 * back later to do the right thing
+		 * 当编码最大长度 > 1，需去 toast 才能取 LC，
+		 * 所以现在先保守地取一大片切片，稍后再回来
+		 * 正确处理
 		 */
 		int32		slice_start;
 		int32		slice_size;
@@ -954,59 +954,59 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 		text	   *ret;
 
 		/*
-		 * We need to start at position zero because there is no way to know
-		 * in advance which byte offset corresponds to the supplied start
-		 * position.
+		 * 必须从位置 0 开始，因为无法预知哪个字节偏移
+		 * 对应给定的起始位置。
+		 *
 		 */
 		slice_start = 0;
 
-		if (length_not_specified)	/* special case - get length to end of
-									 * string */
+		if (length_not_specified)	/* 特例——取长度至
+									 * 串尾 */
 			slice_size = L1 = -1;
 		else if (length < 0)
 		{
-			/* SQL99 says to throw an error for E < S, i.e., negative length */
+			/* SQL99 规定 E < S（即长度为负）时抛出错误 */
 			ereport(ERROR,
 					(errcode(ERRCODE_SUBSTRING_ERROR),
 					 errmsg("negative substring length not allowed")));
-			slice_size = L1 = -1;	/* silence stupider compilers */
+			slice_size = L1 = -1;	/* 让较笨编译器安静 */
 		}
 		else if (pg_add_s32_overflow(S, length, &E))
 		{
 			/*
-			 * L could be large enough for S + L to overflow, in which case
-			 * the substring must run to end of string.
+			 * L 可能大到使 S + L 溢出，此时子串必须延伸到
+			 * 串尾。
 			 */
 			slice_size = L1 = -1;
 		}
 		else
 		{
 			/*
-			 * A zero or negative value for the end position can happen if the
-			 * start was negative or one. SQL99 says to return a zero-length
-			 * string.
+			 * 结束位置出现零或负值的情形，可能发生在起始
+			 * 位置为负或一时。SQL99 规定返回零长度串。
+			 *
 			 */
 			if (E < 1)
 				return cstring_to_text("");
 
 			/*
-			 * if E is past the end of the string, the tuple toaster will
-			 * truncate the length for us
+			 * 若 E 超过串尾，TOAST 机（tuple toaster）
+			 * 会替我们截断长度
 			 */
 			L1 = E - S1;
 
 			/*
-			 * Total slice size in bytes can't be any longer than the start
-			 * position plus substring length times the encoding max length.
-			 * If that overflows, we can just use -1.
+			 * 切片总字节数不会超过起始位置加上子串长度
+			 * 乘以编码最大长度。若溢出，直接用 -1 即可。
+			 *
 			 */
 			if (pg_mul_s32_overflow(E, eml, &slice_size))
 				slice_size = -1;
 		}
 
 		/*
-		 * If we're working with an untoasted source, no need to do an extra
-		 * copying step.
+		 * 若源数据未被 toast，则无需额外的复制步骤。
+		 *
 		 */
 		if (VARATT_IS_COMPRESSED(DatumGetPointer(str)) ||
 			VARATT_IS_EXTERNAL(DatumGetPointer(str)))
@@ -1014,7 +1014,7 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 		else
 			slice = (text *) DatumGetPointer(str);
 
-		/* see if we got back an empty string */
+		/* 看看是否取回了空串 */
 		if (VARSIZE_ANY_EXHDR(slice) == 0)
 		{
 			if (slice != (text *) DatumGetPointer(str))
@@ -1022,13 +1022,13 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 			return cstring_to_text("");
 		}
 
-		/* Now we can get the actual length of the slice in MB characters */
+		/* 现在可以按多字节字符数取得切片的实际长度 */
 		slice_strlen = pg_mbstrlen_with_len(VARDATA_ANY(slice),
 											VARSIZE_ANY_EXHDR(slice));
 
 		/*
-		 * Check that the start position wasn't > slice_strlen. If so, SQL99
-		 * says to return a zero-length string.
+		 * 检查起始位置是否大于 slice_strlen。若是，SQL99
+		 * 规定返回零长度串。
 		 */
 		if (S1 > slice_strlen)
 		{
@@ -1038,8 +1038,8 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 		}
 
 		/*
-		 * Adjust L1 and E1 now that we know the slice string length. Again
-		 * remember that S1 is one based, and slice_start is zero based.
+		 * 现在已知切片串长，调整 L1 与 E1。再次记住 S1
+		 * 以 1 起算，而 slice_start 以 0 起算。
 		 */
 		if (L1 > -1)
 			E1 = Min(S1 + L1, slice_start + 1 + slice_strlen);
@@ -1047,18 +1047,18 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 			E1 = slice_start + 1 + slice_strlen;
 
 		/*
-		 * Find the start position in the slice; remember S1 is not zero based
+		 * 在切片中找到起始位置；记住 S1 不是 0 起算的
 		 */
 		p = VARDATA_ANY(slice);
 		for (i = 0; i < S1 - 1; i++)
 			p += pg_mblen(p);
 
-		/* hang onto a pointer to our start position */
+		/* 保留一个指向起始位置的指针 */
 		s = p;
 
 		/*
-		 * Count the actual bytes used by the substring of the requested
-		 * length.
+		 * 统计所请求长度的子串实际使用的字节数
+		 *
 		 */
 		for (i = S1; i < E1; i++)
 			p += pg_mblen(p);
@@ -1075,24 +1075,24 @@ text_substring(Datum str, int32 start, int32 length, bool length_not_specified)
 	else
 		elog(ERROR, "invalid backend encoding: encoding max length < 1");
 
-	/* not reached: suppress compiler warning */
+	/* 不会到达：抑制编译器警告 */
 	return NULL;
 }
 
 /*
  * textoverlay
- *	Replace specified substring of first string with second
+ *	用第二串替换第一串中指定的子串
  *
- * The SQL standard defines OVERLAY() in terms of substring and concatenation.
- * This code is a direct implementation of what the standard says.
+ * SQL 标准以子串与拼接来定义 OVERLAY()。
+ * 此代码是对标准所述内容的直接实现。
  */
 Datum
 textoverlay(PG_FUNCTION_ARGS)
 {
 	text	   *t1 = PG_GETARG_TEXT_PP(0);
 	text	   *t2 = PG_GETARG_TEXT_PP(1);
-	int			sp = PG_GETARG_INT32(2);	/* substring start position */
-	int			sl = PG_GETARG_INT32(3);	/* substring length */
+	int			sp = PG_GETARG_INT32(2);	/* 子串起始位置 */
+	int			sl = PG_GETARG_INT32(3);	/* 子串长度 */
 
 	PG_RETURN_TEXT_P(text_overlay(t1, t2, sp, sl));
 }
@@ -1102,10 +1102,10 @@ textoverlay_no_len(PG_FUNCTION_ARGS)
 {
 	text	   *t1 = PG_GETARG_TEXT_PP(0);
 	text	   *t2 = PG_GETARG_TEXT_PP(1);
-	int			sp = PG_GETARG_INT32(2);	/* substring start position */
+	int			sp = PG_GETARG_INT32(2);	/* 子串起始位置 */
 	int			sl;
 
-	sl = text_length(PointerGetDatum(t2));	/* defaults to length(t2) */
+	sl = text_length(PointerGetDatum(t2));	/* 缺省 length(t2) */
 	PG_RETURN_TEXT_P(text_overlay(t1, t2, sp, sl));
 }
 
@@ -1118,9 +1118,9 @@ text_overlay(text *t1, text *t2, int sp, int sl)
 	int			sp_pl_sl;
 
 	/*
-	 * Check for possible integer-overflow cases.  For negative sp, throw a
-	 * "substring length" error because that's what should be expected
-	 * according to the spec's definition of OVERLAY().
+	 * 检查可能的整数溢出情形。对负 sp，抛出"子串长度"
+	 * 错误——按规范对 OVERLAY() 的定义这是应当
+	 * 预期到的结果。
 	 */
 	if (sp <= 0)
 		ereport(ERROR,
@@ -1141,8 +1141,8 @@ text_overlay(text *t1, text *t2, int sp, int sl)
 
 /*
  * textpos -
- *	  Return the position of the specified substring.
- *	  Implements the SQL POSITION() function.
+ *	  返回指定子串的位置。
+ *	  实现 SQL POSITION() 函数。
  *	  Ref: A Guide To The SQL Standard, Date & Darwen, 1997
  * - thomas 1997-07-27
  */
@@ -1157,17 +1157,17 @@ textpos(PG_FUNCTION_ARGS)
 
 /*
  * text_position -
- *	Does the real work for textpos()
+ *	做 textpos() 的实际工作
  *
  * Inputs:
- *		t1 - string to be searched
- *		t2 - pattern to match within t1
+ *		t1 - 待搜索的串
+ *		t2 - 在 t1 内匹配的模式
  * Result:
- *		Character index of the first matched char, starting from 1,
- *		or 0 if no match.
+ *		首个匹配字符的字符索引，从 1 起算，
+ *		无匹配则 0。
  *
- *	This is broken out so it can be called directly by other string processing
- *	functions.
+ *	单独拆出此函数是为了让其他字符串处理函数可以直接
+ *	调用。
  */
 static int
 text_position(text *t1, text *t2, Oid collid)
@@ -1175,11 +1175,11 @@ text_position(text *t1, text *t2, Oid collid)
 	TextPositionState state;
 	int			result;
 
-	/* Empty needle always matches at position 1 */
+	/* 空 needle 总在位置 1 匹配 */
 	if (VARSIZE_ANY_EXHDR(t2) < 1)
 		return 1;
 
-	/* Otherwise, can't match if haystack is shorter than needle */
+	/* 否则，若干草堆串比 needle 短则无法匹配 */
 	if (VARSIZE_ANY_EXHDR(t1) < VARSIZE_ANY_EXHDR(t2))
 		return 0;
 
@@ -1194,19 +1194,19 @@ text_position(text *t1, text *t2, Oid collid)
 
 
 /*
- * text_position_setup, text_position_next, text_position_cleanup -
- *	Component steps of text_position()
+ * text_position_setup、text_position_next、
+ *	text_position_cleanup 等步骤
  *
- * These are broken out so that a string can be efficiently searched for
- * multiple occurrences of the same pattern.  text_position_next may be
- * called multiple times, and it advances to the next match on each call.
- * text_position_get_match_ptr() and text_position_get_match_pos() return
- * a pointer or 1-based character position of the last match, respectively.
+ * 这些步骤独立拆出，以便在一个串中高效地查找
+ * 同一模式多次出现。text_position_next 可被
+ * 调用多次，且每次调用都前进到下一个匹配处。
+ * text_position_get_match_ptr() 与 text_position_
+ * get_match_pos() 分别返回末次匹配的指针和字符位置。
  *
- * The "state" variable is normally just a local variable in the caller.
+ * "state" 变量通常只是调用者中的一个局部变量。
  *
- * NOTE: text_position_next skips over the matched portion.  For example,
- * searching for "xx" in "xxx" returns only one match, not two.
+ * 注意：text_position_next 会跳过已匹配的部分。例如，
+ * 在 "xxx" 内搜索 "xx" 只得一个匹配而非两个。
  */
 
 static void
@@ -1230,13 +1230,13 @@ text_position_setup(text *t1, text *t2, Oid collid, TextPositionState *state)
 	Assert(len2 > 0);
 
 	/*
-	 * Even with a multi-byte encoding, we perform the search using the raw
-	 * byte sequence, ignoring multibyte issues.  For UTF-8, that works fine,
-	 * because in UTF-8 the byte sequence of one character cannot contain
-	 * another character.  For other multi-byte encodings, we do the search
-	 * initially as a simple byte search, ignoring multibyte issues, but
-	 * verify afterwards that the match we found is at a character boundary,
-	 * and continue the search if it was a false match.
+	 * 即便多字节编码，搜索仍按原始字节序列进行，
+	 * 忽略多字节问题。对 UTF-8 无碍，因为 UTF-8 中
+	 * 一个字符的字节序列不会包含另一字符。对其他
+	 * 的多字节编码，先按简单字节搜索执行搜索，
+	 * 同样忽略多字节问题，但事后验证匹配是否在
+	 * 字符边界上，假匹配则继续搜索。
+	 *
 	 */
 	if (pg_database_encoding_max_length() == 1)
 		state->is_multibyte_char_in_char = false;
@@ -1254,14 +1254,14 @@ text_position_setup(text *t1, text *t2, Oid collid, TextPositionState *state)
 	state->refpos = 0;
 
 	/*
-	 * Prepare the skip table for Boyer-Moore-Horspool searching.  In these
-	 * notes we use the terminology that the "haystack" is the string to be
-	 * searched (t1) and the "needle" is the pattern being sought (t2).
+	 * 为 Boyer-Moore-Horspool 搜索准备跳过表。在这些
+	 * 注释中我们的术语是："haystack"（干草堆）是被
+	 * 搜索的串 t1，"needle"（针）是要找的模式 t2。
 	 *
-	 * If the needle is empty or bigger than the haystack then there is no
-	 * point in wasting cycles initializing the table.  We also choose not to
-	 * use B-M-H for needles of length 1, since the skip table can't possibly
-	 * save anything in that case.
+	 * 若 needle 为空或比 haystack 大，那么初始化表就是
+	 * 浪费时间。对长度为 1 的 needle 我们也选择不用
+	 * B-M-H，因为此时跳过表省不了任何东西。
+	 *
 	 */
 	if (len1 >= len2 && len2 > 1)
 	{
@@ -1272,16 +1272,16 @@ text_position_setup(text *t1, text *t2, Oid collid, TextPositionState *state)
 		const char *str2 = state->str2;
 
 		/*
-		 * First we must determine how much of the skip table to use.  The
-		 * declaration of TextPositionState allows up to 256 elements, but for
-		 * short search problems we don't really want to have to initialize so
-		 * many elements --- it would take too long in comparison to the
-		 * actual search time.  So we choose a useful skip table size based on
-		 * the haystack length minus the needle length.  The closer the needle
-		 * length is to the haystack length the less useful skipping becomes.
+		 * 首先必须确定跳过表要用多大。TextPositionState 的
+		 * 声明允许最多 256 个元素，但对短搜索问题我们不
+		 * 想初始化这么多元素——比起实际搜索时间，这样
+		 * 做代价太高。故根据干草堆串长度减去
+		 * needle 长度来选择一个有用的跳过表大小。needle
+		 * 长度越接近干草堆串长度，跳过就越无用。
 		 *
-		 * Note: since we use bit-masking to select table elements, the skip
-		 * table size MUST be a power of 2, and so the mask must be 2^N-1.
+		 *
+		 * 注意：我们用位掩码选择表元素，故跳过表大小
+		 * 必须是 2 的幂，因此掩码必须是 2^N-1。
 		 */
 		if (searchlength < 16)
 			skiptablemask = 3;
@@ -1300,19 +1300,19 @@ text_position_setup(text *t1, text *t2, Oid collid, TextPositionState *state)
 		state->skiptablemask = skiptablemask;
 
 		/*
-		 * Initialize the skip table.  We set all elements to the needle
-		 * length, since this is the correct skip distance for any character
-		 * not found in the needle.
+		 * 初始化跳过表：所有元素先设为 needle 长度，
+		 * 因为这是任何不在 needle 中的字符的正确跳过
+		 * 距离。
 		 */
 		for (i = 0; i <= skiptablemask; i++)
 			state->skiptable[i] = len2;
 
 		/*
-		 * Now examine the needle.  For each character except the last one,
-		 * set the corresponding table element to the appropriate skip
-		 * distance.  Note that when two characters share the same skip table
-		 * entry, the one later in the needle must determine the skip
-		 * distance.
+		 * 现在检查 needle。对其最后一个字符之外的每个
+		 * 字符，对应表元素设为相应跳过距离。注意
+		 * 当两个字符共用同一跳过表项时，必须由 needle 中
+		 * 较后的那个字符决定跳过距离。
+		 *
 		 */
 		last = len2 - 1;
 
@@ -1322,12 +1322,12 @@ text_position_setup(text *t1, text *t2, Oid collid, TextPositionState *state)
 }
 
 /*
- * Advance to the next match, starting from the end of the previous match
- * (or the beginning of the string, on first call).  Returns true if a match
- * is found.
+ * 从上一个匹配的结尾开始前进到下一个匹配（首次调
+ * 用时从串首开始）。若找到匹配则返回 true。
  *
- * Note that this refuses to match an empty-string needle.  Most callers
- * will have handled that case specially and we'll never see it here.
+ *
+ * 注意此函数拒绝匹配空串 needle。大多数调用者会
+ * 专门处理那种情况，所以这里不会见到它。
  */
 static bool
 text_position_next(TextPositionState *state)
@@ -1337,9 +1337,9 @@ text_position_next(TextPositionState *state)
 	char	   *matchptr;
 
 	if (needle_len <= 0)
-		return false;			/* result for empty pattern */
+		return false;			/* 空模式的结果 */
 
-	/* Start from the point right after the previous match. */
+	/* 从紧挨上一个匹配之后的点开始。 */
 	if (state->last_match)
 		start_ptr = state->last_match + needle_len;
 	else
@@ -1352,29 +1352,29 @@ retry:
 		return false;
 
 	/*
-	 * Found a match for the byte sequence.  If this is a multibyte encoding,
-	 * where one character's byte sequence can appear inside a longer
-	 * multi-byte character, we need to verify that the match was at a
-	 * character boundary, not in the middle of a multi-byte character.
+	 * 找到了字节序列的匹配。若是多字节编码，其中一个
+	 * 字符的字节序列可能出现在更长
+	 * 的多字节字符内部，需要验证匹配是在
+	 * 字符边界上，而非多字节字符中间。
 	 */
 	if (state->is_multibyte_char_in_char)
 	{
-		/* Walk one character at a time, until we reach the match. */
+		/* 一次走一个字符，直到到达匹配处。 */
 
-		/* the search should never move backwards. */
+		/* 搜索绝不应向后移动。 */
 		Assert(state->refpoint <= matchptr);
 
 		while (state->refpoint < matchptr)
 		{
-			/* step to next character. */
+			/* 移到下一字符。 */
 			state->refpoint += pg_mblen(state->refpoint);
 			state->refpos++;
 
 			/*
-			 * If we stepped over the match's start position, then it was a
-			 * false positive, where the byte sequence appeared in the middle
-			 * of a multi-byte character.  Skip it, and continue the search at
-			 * the next character boundary.
+			 * 若跨过了匹配的起始位置，则是假阳性——
+			 * 字节序列出现在多字节字符中间。跳过它，从
+			 * 下一字符边界处继续搜索。
+			 *
 			 */
 			if (state->refpoint > matchptr)
 			{
@@ -1389,9 +1389,9 @@ retry:
 }
 
 /*
- * Subroutine of text_position_next().  This searches for the raw byte
- * sequence, ignoring any multi-byte encoding issues.  Returns the first
- * match starting at 'start_ptr', or NULL if no match is found.
+ * text_position_next() 的子例程。此函数搜索原始字节
+ * 序列，忽略任何多字节编码问题。返回自 start_ptr
+ * 开始的第一个匹配，若无匹配则返回 NULL。
  */
 static char *
 text_position_next_internal(char *start_ptr, TextPositionState *state)
@@ -1408,7 +1408,7 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
 
 	if (needle_len == 1)
 	{
-		/* No point in using B-M-H for a one-character needle */
+		/* 单字符 needle 无须使用 B-M-H */
 		char		nchar = *needle;
 
 		hptr = start_ptr;
@@ -1423,11 +1423,11 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
 	{
 		const char *needle_last = &needle[needle_len - 1];
 
-		/* Start at startpos plus the length of the needle */
+		/* 从 startpos 加 needle 长度处开始 */
 		hptr = start_ptr + needle_len - 1;
 		while (hptr < haystack_end)
 		{
-			/* Match the needle scanning *backward* */
+			/* 按*反向*扫描匹配 needle */
 			const char *nptr;
 			const char *p;
 
@@ -1435,31 +1435,31 @@ text_position_next_internal(char *start_ptr, TextPositionState *state)
 			p = hptr;
 			while (*nptr == *p)
 			{
-				/* Matched it all?	If so, return 1-based position */
+				/* 全匹配？若是返回 1 起算位置 */
 				if (nptr == needle)
 					return (char *) p;
 				nptr--, p--;
 			}
 
 			/*
-			 * No match, so use the haystack char at hptr to decide how far to
-			 * advance.  If the needle had any occurrence of that character
-			 * (or more precisely, one sharing the same skiptable entry)
-			 * before its last character, then we advance far enough to align
-			 * the last such needle character with that haystack position.
-			 * Otherwise we can advance by the whole needle length.
+			 * 无匹配，于是用干草堆串中 hptr 处的字符决定
+			 * 前进多远。若 needle 的最后一个字符之前出现
+			 * 过该字符（或跳过表项相同者），则前进使
+			 * needle 中最后出现的该字符对齐此干草堆位置。
+			 * 否则可以按整个 needle 长度前进。
+			 *
 			 */
 			hptr += state->skiptable[(unsigned char) *hptr & skiptablemask];
 		}
 	}
 
-	return 0;					/* not found */
+	return 0;					/* 未找到 */
 }
 
 /*
- * Return a pointer to the current match.
+ * 返回指向当前匹配的指针。
  *
- * The returned pointer points into the original haystack string.
+ * 返回的指针指向原始干草堆串内部。
  */
 static char *
 text_position_get_match_ptr(TextPositionState *state)
@@ -1468,14 +1468,14 @@ text_position_get_match_ptr(TextPositionState *state)
 }
 
 /*
- * Return the offset of the current match.
+ * 返回当前匹配的偏移。
  *
- * The offset is in characters, 1-based.
+ * 偏移以字符计，1 起算。
  */
 static int
 text_position_get_match_pos(TextPositionState *state)
 {
-	/* Convert the byte position to char position. */
+	/* 把字节位置转换为字符位置。 */
 	state->refpos += pg_mbstrlen_with_len(state->refpoint,
 										  state->last_match - state->refpoint);
 	state->refpoint = state->last_match;
@@ -1483,10 +1483,10 @@ text_position_get_match_pos(TextPositionState *state)
 }
 
 /*
- * Reset search state to the initial state installed by text_position_setup.
+ * 把搜索状态重置为 text_position_setup 安装的初始
  *
- * The next call to text_position_next will search from the beginning
- * of the string.
+ * 状态。下一次调用 text_position_next 将从串首
+ * 搜起。
  */
 static void
 text_position_reset(TextPositionState *state)
@@ -1499,7 +1499,7 @@ text_position_reset(TextPositionState *state)
 static void
 text_position_cleanup(TextPositionState *state)
 {
-	/* no cleanup needed */
+	/* 无需清理 */
 }
 
 
@@ -1509,8 +1509,8 @@ check_collation_set(Oid collid)
 	if (!OidIsValid(collid))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 通常意味着解析器无法解决隐式排序规则冲突，
+		 * 因此按该方式报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -1520,17 +1520,17 @@ check_collation_set(Oid collid)
 }
 
 /* varstr_cmp()
- * Comparison function for text strings with given lengths.
- * Includes locale support, but must copy strings to temporary memory
- *	to allow null-termination for inputs to strcoll().
- * Returns an integer less than, equal to, or greater than zero, indicating
- * whether arg1 is less than, equal to, or greater than arg2.
+ * 对给定长度的文本串进行比较的函数。
+ * 包含区域设置支持，但须把串复制到临时内存，
+ *	以让 strcoll() 输入 null 结尾。
+ * 返回一个小于、等于或大于零的整数，表明 arg1
+ * 小于、等于还是大于 arg2。
  *
- * Note: many functions that depend on this are marked leakproof; therefore,
- * avoid reporting the actual contents of the input when throwing errors.
- * All errors herein should be things that can't happen except on corrupt
- * data, anyway; otherwise we will have trouble with indexing strings that
- * would cause them.
+ * 注意：许多依赖此函数的函数都被标记为 leakproof；
+ * 因此抛错时务必避免报告输入的实际内容。
+ * 总之此处的所有错误都应当是除了数据损坏之外
+ * 不可能发生的情况；否则给会造成这些错误的串
+ * 会出麻烦。
  */
 int
 varstr_cmp(const char *arg1, int len1, const char *arg2, int len2, Oid collid)
@@ -1540,10 +1540,10 @@ varstr_cmp(const char *arg1, int len1, const char *arg2, int len2, Oid collid)
 	check_collation_set(collid);
 
 	/*
-	 * Unfortunately, there is no strncoll(), so in the non-C locale case we
-	 * have to do some memory copying.  This turns out to be significantly
-	 * slower, so we optimize the case where LC_COLLATE is C.  We also try to
-	 * optimize relatively-short strings by avoiding palloc/pfree overhead.
+	 * 遗憾的是没有 strncoll()，所以在非 C 区域设置下
+	 * 我们必须做一些内存复制。这显著变慢，因此我们
+	 * 对 LC_COLLATE 为 C 的情形做了优化。我们还尽量
+	 * 通过避免 palloc/pfree 开销来优化较短的串。
 	 */
 	if (lc_collate_is_c(collid))
 	{
@@ -1558,20 +1558,20 @@ varstr_cmp(const char *arg1, int len1, const char *arg2, int len2, Oid collid)
 		mylocale = pg_newlocale_from_collation(collid);
 
 		/*
-		 * memcmp() can't tell us which of two unequal strings sorts first,
-		 * but it's a cheap way to tell if they're equal.  Testing shows that
-		 * memcmp() followed by strcoll() is only trivially slower than
-		 * strcoll() by itself, so we don't lose much if this doesn't work out
-		 * very often, and if it does - for example, because there are many
-		 * equal strings in the input - then we win big by avoiding expensive
-		 * collation-aware comparisons.
+		 * memcmp() 无法告知两个不等串哪个先排序，
+		 * 但它是判断两者是否相等的廉价方法。测试表明
+		 * memcmp()+strcoll() 只比单独 strcoll() 慢一点，
+		 * 所以即使此法不常奏效我们也没损失多少；而若它
+		 * 确实奏效——如输入中有很多相等的串——那么
+		 * 通过避免昂贵的排序规则感知比较而大获其利。
+		 *
 		 */
 		if (len1 == len2 && memcmp(arg1, arg2, len1) == 0)
 			return 0;
 
 		result = pg_strncoll(arg1, len1, arg2, len2, mylocale);
 
-		/* Break tie if necessary. */
+		/* 必要时破平局。 */
 		if (result == 0 && pg_locale_deterministic(mylocale))
 		{
 			result = memcmp(arg1, arg2, Min(len1, len2));
@@ -1584,8 +1584,8 @@ varstr_cmp(const char *arg1, int len1, const char *arg2, int len2, Oid collid)
 }
 
 /* text_cmp()
- * Internal comparison function for text strings.
- * Returns -1, 0 or 1
+ * 文本串的内部比较函数。
+ * 返回 -1/0/1
  */
 static int
 text_cmp(text *arg1, text *arg2, Oid collid)
@@ -1605,11 +1605,11 @@ text_cmp(text *arg1, text *arg2, Oid collid)
 }
 
 /*
- * Comparison functions for text strings.
+ * 文本串的比较函数。
  *
- * Note: btree indexes need these routines not to leak memory; therefore,
- * be careful to free working copies of toasted datums.  Most places don't
- * need to be so careful.
+ * 注意：btree 索引要求这些例程不泄漏内存；因此，
+ * 对 toast 化 datum 的工作副本要小心释放。大多数地方
+ * 不必如此小心。
  */
 
 Datum
@@ -1635,11 +1635,11 @@ texteq(PG_FUNCTION_ARGS)
 					len2;
 
 		/*
-		 * Since we only care about equality or not-equality, we can avoid all
-		 * the expense of strcoll() here, and just do bitwise comparison.  In
-		 * fact, we don't even have to do a bitwise comparison if we can show
-		 * the lengths of the strings are unequal; which might save us from
-		 * having to detoast one or both values.
+		 * 由于我们只关心相等或不相等，这里可以省去
+		 * strcoll() 的开销，只做按位比较。事实上若能证明
+		 * 两串长度不等，我们甚至无须做按位比较；这或许
+		 * 能省去对其中一个或两个值去 toast。
+		 *
 		 */
 		len1 = toast_raw_datum_size(arg1);
 		len2 = toast_raw_datum_size(arg2);
@@ -1693,7 +1693,7 @@ textne(PG_FUNCTION_ARGS)
 		Size		len1,
 					len2;
 
-		/* See comment in texteq() */
+		/* 见 texteq() 内注释 */
 		len1 = toast_raw_datum_size(arg1);
 		len2 = toast_raw_datum_size(arg2);
 		if (len1 != len2)
@@ -1848,7 +1848,7 @@ bttextsortsupport(PG_FUNCTION_ARGS)
 
 	oldcontext = MemoryContextSwitchTo(ssup->ssup_cxt);
 
-	/* Use generic string SortSupport */
+	/* 用通用字符串 SortSupport */
 	varstr_sortsupport(ssup, TEXTOID, collid);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -1857,14 +1857,14 @@ bttextsortsupport(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic sortsupport interface for character type's operator classes.
- * Includes locale support, and support for BpChar semantics (i.e. removing
- * trailing spaces before comparison).
+ * 字符类型算子类的通用 sortsupport 接口。包含区域
+ * 设置支持，以及对 BpChar 语义的支持（即比较前移除
+ * 尾部空格）。
  *
- * Relies on the assumption that text, VarChar, BpChar, and bytea all have the
- * same representation.  Callers that always use the C collation (e.g.
- * non-collatable type callers like bytea) may have NUL bytes in their strings;
- * this will not work with any other collation, though.
+ * 依赖 text、VarChar、BpChar 与 bytea 具有相同表示形
+ * 式的假设。始终使用 C 排序规则的调用者（例如
+ * bytea 这类不可排序类型）的串中可能有 NUL 字节；
+ * 但这在其他排序规则下行不通。
  */
 void
 varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
@@ -1877,17 +1877,17 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 	check_collation_set(collid);
 
 	/*
-	 * If possible, set ssup->comparator to a function which can be used to
-	 * directly compare two datums.  If we can do this, we'll avoid the
-	 * overhead of a trip through the fmgr layer for every comparison, which
-	 * can be substantial.
+	 * 若可能，把 ssup->comparator 设为一个可直接比较两
+	 * 个 datum 的函数。若能做到，就免了每次比较
+	 * 都要经过 fmgr 层的开销，这可能相当可观。
 	 *
-	 * Most typically, we'll set the comparator to varlenafastcmp_locale,
-	 * which uses strcoll() to perform comparisons.  We use that for the
-	 * BpChar case too, but type NAME uses namefastcmp_locale. However, if
-	 * LC_COLLATE = C, we can make things quite a bit faster with
-	 * varstrfastcmp_c, bpcharfastcmp_c, or namefastcmp_c, all of which use
-	 * memcmp() rather than strcoll().
+	 *
+	 * 最典型的是把比较器设为 varlenafastcmp_locale，
+	 * 它用 strcoll() 执行比较。BpChar 情形我们也用它，
+	 * 而类型 NAME 用 namefastcmp_locale。不过若
+	 * LC_COLLATE = C，则可以用 varstrfastcmp_c、
+	 * bpcharfastcmp_c 或 namefastcmp_c，它们都用
+	 * memcmp() 而非 strcoll()。
 	 */
 	if (lc_collate_is_c(collid))
 	{
@@ -1896,7 +1896,7 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 		else if (typid == NAMEOID)
 		{
 			ssup->comparator = namefastcmp_c;
-			/* Not supporting abbreviation with type NAME, for now */
+			/* 目前不支持类型 NAME 使用缩写 */
 			abbreviate = false;
 		}
 		else
@@ -1907,19 +1907,19 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 	else
 	{
 		/*
-		 * We need a collation-sensitive comparison.  To make things faster,
-		 * we'll figure out the collation based on the locale id and cache the
-		 * result.
+		 * 需要排序规则敏感的比较。为提速，将基于
+		 * 区域设置 id 求出排序规则并缓存结果。
+		 *
 		 */
 		locale = pg_newlocale_from_collation(collid);
 
 		/*
-		 * We use varlenafastcmp_locale except for type NAME.
+		 * 类型 NAME 之外都用 varlenafastcmp_locale。
 		 */
 		if (typid == NAMEOID)
 		{
 			ssup->comparator = namefastcmp_locale;
-			/* Not supporting abbreviation with type NAME, for now */
+			/* 目前不支持类型 NAME 使用缩写 */
 			abbreviate = false;
 		}
 		else
@@ -1927,29 +1927,29 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 	}
 
 	/*
-	 * Unfortunately, it seems that abbreviation for non-C collations is
-	 * broken on many common platforms; see pg_strxfrm_enabled().
+	 * 遗憾的是，非 C 排序规则缩写在很多常见平台上
+	 * 似乎已损坏；参见 pg_strxfrm_enabled()。
 	 *
-	 * Even apart from the risk of broken locales, it's possible that there
-	 * are platforms where the use of abbreviated keys should be disabled at
-	 * compile time.  Having only 4 byte datums could make worst-case
-	 * performance drastically more likely, for example.  Moreover, macOS's
-	 * strxfrm() implementation is known to not effectively concentrate a
-	 * significant amount of entropy from the original string in earlier
-	 * transformed blobs.  It's possible that other supported platforms are
-	 * similarly encumbered.  So, if we ever get past disabling this
-	 * categorically, we may still want or need to disable it for particular
-	 * platforms.
+	 * 即便撇开损坏的区域设置的风险不谈，也可能存在
+	 * 这样的平台：缩写键的使用应当在编译期禁用。如
+	 * 果只有 4 字节 datum，最坏情况性能就可能急剧
+	 * 变差。此外，macOS 的 strxfrm() 实现已知不能
+	 * 有效地把原串的大量熵集中到较早的变换块中。其
+	 * 他受支持的平台可能同样受制。所以若我们
+	 * 最终越过一揽子禁用它的阶段，可能仍然想要或需
+	 * 要针对特定平台禁用它。
+	 *
+	 *
 	 */
 	if (!collate_c && !pg_strxfrm_enabled(locale))
 		abbreviate = false;
 
 	/*
-	 * If we're using abbreviated keys, or if we're using a locale-aware
-	 * comparison, we need to initialize a VarStringSortSupport object. Both
-	 * cases will make use of the temporary buffers we initialize here for
-	 * scratch space (and to detect requirement for BpChar semantics from
-	 * caller), and the abbreviation case requires additional state.
+	 * 若用缩写键，或用区域设置感知的比较，我们
+	 * 需要初始化一个 VarStringSortSupport 对象。两种
+	 * 情形都会用到我们在这里初始化的临时缓冲区（作
+	 * 为暂存空间，并从调用者探测 BpChar 语义需求），
+	 * 缩写情形还需要额外的状态。
 	 */
 	if (abbreviate || !collate_c)
 	{
@@ -1958,26 +1958,26 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 		sss->buflen1 = TEXTBUFLEN;
 		sss->buf2 = palloc(TEXTBUFLEN);
 		sss->buflen2 = TEXTBUFLEN;
-		/* Start with invalid values */
+		/* 以无效值开始 */
 		sss->last_len1 = -1;
 		sss->last_len2 = -1;
-		/* Initialize */
+		/* 初始化 */
 		sss->last_returned = 0;
 		sss->locale = locale;
 
 		/*
-		 * To avoid somehow confusing a strxfrm() blob and an original string,
-		 * constantly keep track of the variety of data that buf1 and buf2
-		 * currently contain.
+		 * 为避免把 strxfrm() 块与原始串搞混，须持续跟踪
+		 * buf1 与 buf2 当前包含的数据种类。
 		 *
-		 * Comparisons may be interleaved with conversion calls.  Frequently,
-		 * conversions and comparisons are batched into two distinct phases,
-		 * but the correctness of caching cannot hinge upon this.  For
-		 * comparison caching, buffer state is only trusted if cache_blob is
-		 * found set to false, whereas strxfrm() caching only trusts the state
-		 * when cache_blob is found set to true.
 		 *
-		 * Arbitrarily initialize cache_blob to true.
+		 * 比较可能与转换调用交错。转换与比较常常分批成
+		 * 两个不同阶段，但缓存正确性无法系于此。对
+		 * 比较缓存方面，只有发现 cache_blob 为 false 时
+		 * 缓冲区状态才可信；而 strxfrm() 缓存只在发现
+		 * cache_blob 为 true 时才信任状态。
+		 *
+		 *
+		 * cache_blob 随意初始化为 true。
 		 */
 		sss->cache_blob = true;
 		sss->collate_c = collate_c;
@@ -1985,9 +1985,9 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 		ssup->ssup_extra = sss;
 
 		/*
-		 * If possible, plan to use the abbreviated keys optimization.  The
-		 * core code may switch back to authoritative comparator should
-		 * abbreviation be aborted.
+		 * 若可能，计划采用缩写键优化。缩写中止时核
+		 * 心代码可以换回权威比较器。
+		 *
 		 */
 		if (abbreviate)
 		{
@@ -2003,7 +2003,7 @@ varstr_sortsupport(SortSupport ssup, Oid typid, Oid collid)
 }
 
 /*
- * sortsupport comparison func (for C locale case)
+ * sortsupport 比较函数（C 区域设置）
  */
 static int
 varstrfastcmp_c(Datum x, Datum y, SortSupport ssup)
@@ -2026,7 +2026,7 @@ varstrfastcmp_c(Datum x, Datum y, SortSupport ssup)
 	if ((result == 0) && (len1 != len2))
 		result = (len1 < len2) ? -1 : 1;
 
-	/* We can't afford to leak memory here. */
+	/* 此处不能容忍内存泄漏。 */
 	if (PointerGetDatum(arg1) != x)
 		pfree(arg1);
 	if (PointerGetDatum(arg2) != y)
@@ -2036,11 +2036,11 @@ varstrfastcmp_c(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * sortsupport comparison func (for BpChar C locale case)
+ * sortsupport 比较函数（BpChar C 区域设置）
  *
- * BpChar outsources its sortsupport to this module.  Specialization for the
- * varstr_sortsupport BpChar case, modeled on
- * internal_bpchar_pattern_compare().
+ * BpChar 把它的 sortsupport 委托给本模块。针对
+ * varstr_sortsupport 的 BpChar 情形仿照
+ * internal_bpchar_pattern_compare()
  */
 static int
 bpcharfastcmp_c(Datum x, Datum y, SortSupport ssup)
@@ -2063,7 +2063,7 @@ bpcharfastcmp_c(Datum x, Datum y, SortSupport ssup)
 	if ((result == 0) && (len1 != len2))
 		result = (len1 < len2) ? -1 : 1;
 
-	/* We can't afford to leak memory here. */
+	/* 此处不能容忍内存泄漏。 */
 	if (PointerGetDatum(arg1) != x)
 		pfree(arg1);
 	if (PointerGetDatum(arg2) != y)
@@ -2073,7 +2073,7 @@ bpcharfastcmp_c(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * sortsupport comparison func (for NAME C locale case)
+ * sortsupport 比较函数（NAME C 区域设置）
  */
 static int
 namefastcmp_c(Datum x, Datum y, SortSupport ssup)
@@ -2085,7 +2085,7 @@ namefastcmp_c(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * sortsupport comparison func (for locale case with all varlena types)
+ * sortsupport 比较函数（所有 varlena 类型的区域设置）
  */
 static int
 varlenafastcmp_locale(Datum x, Datum y, SortSupport ssup)
@@ -2106,7 +2106,7 @@ varlenafastcmp_locale(Datum x, Datum y, SortSupport ssup)
 
 	result = varstrfastcmp_locale(a1p, len1, a2p, len2, ssup);
 
-	/* We can't afford to leak memory here. */
+	/* 此处不能容忍内存泄漏。 */
 	if (PointerGetDatum(arg1) != x)
 		pfree(arg1);
 	if (PointerGetDatum(arg2) != y)
@@ -2116,7 +2116,7 @@ varlenafastcmp_locale(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * sortsupport comparison func (for locale case with NAME type)
+ * sortsupport 比较函数（NAME 类型的区域设置）
  */
 static int
 namefastcmp_locale(Datum x, Datum y, SortSupport ssup)
@@ -2130,7 +2130,7 @@ namefastcmp_locale(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * sortsupport comparison func for locale cases
+ * 区域设置 sortsupport 比较函数
  */
 static int
 varstrfastcmp_locale(char *a1p, int len1, char *a2p, int len2, SortSupport ssup)
@@ -2139,28 +2139,28 @@ varstrfastcmp_locale(char *a1p, int len1, char *a2p, int len2, SortSupport ssup)
 	int			result;
 	bool		arg1_match;
 
-	/* Fast pre-check for equality, as discussed in varstr_cmp() */
+	/* 相等性快速预检查，如 varstr_cmp() 中所述 */
 	if (len1 == len2 && memcmp(a1p, a2p, len1) == 0)
 	{
 		/*
-		 * No change in buf1 or buf2 contents, so avoid changing last_len1 or
-		 * last_len2.  Existing contents of buffers might still be used by
-		 * next call.
+		 * buf1 与 buf2 内容不变，避免改动 last_len1 或
+		 * last_len2。缓冲区现有内容可能仍被下次调用
+		 * 使用。
 		 *
-		 * It's fine to allow the comparison of BpChar padding bytes here,
-		 * even though that implies that the memcmp() will usually be
-		 * performed for BpChar callers (though multibyte characters could
-		 * still prevent that from occurring).  The memcmp() is still very
-		 * cheap, and BpChar's funny semantics have us remove trailing spaces
-		 * (not limited to padding), so we need make no distinction between
-		 * padding space characters and "real" space characters.
+		 * 这里允许比较 BpChar 填充字节没问题，尽管这意
+		 * 味着 memcmp() 通常会对 BpChar 调用者执行（
+		 * 尽管多字节字符仍可能阻止这一点）。memcmp() 仍
+		 * 然非常便宜，而且 BpChar 的奇特语义要求我们移
+		 * 除尾部空格（不限于填充），所以我们无须区分填
+		 * 充空格字符与"真实"空格字符。
+		 *
 		 */
 		return 0;
 	}
 
 	if (sss->typid == BPCHAROID)
 	{
-		/* Get true number of bytes, ignoring trailing spaces */
+		/* 取真实字节数，忽略尾部空格 */
 		len1 = bpchartruelen(a1p, len1);
 		len2 = bpchartruelen(a2p, len2);
 	}
@@ -2177,14 +2177,14 @@ varstrfastcmp_locale(char *a1p, int len1, char *a2p, int len2, SortSupport ssup)
 	}
 
 	/*
-	 * We're likely to be asked to compare the same strings repeatedly, and
-	 * memcmp() is so much cheaper than strcoll() that it pays to try to cache
-	 * comparisons, even though in general there is no reason to think that
-	 * that will work out (every string datum may be unique).  Caching does
-	 * not slow things down measurably when it doesn't work out, and can speed
-	 * things up by rather a lot when it does.  In part, this is because the
-	 * memcmp() compares data from cachelines that are needed in L1 cache even
-	 * when the last comparison's result cannot be reused.
+	 * 我们很可能被要求反复比较相同串，而 memcmp()
+	 * 比 strcoll() 便宜得多，所以值得尝试缓存比较，
+	 * 尽管一般没有理由认为它会奏效（每个串 datum 都
+	 * 可能是唯一的）。不奏效时缓存不会显著拖慢，而
+	 * 奏效时却能大幅提速。部分原因在于 memcmp() 比
+	 * 较的数据来自 L1 缓存中本就需要的缓存行，即使
+	 * 上次比较的结果无法复用。
+	 *
 	 */
 	arg1_match = true;
 	if (len1 != sss->last_len1 || memcmp(sss->buf1, a1p, len1) != 0)
@@ -2196,10 +2196,10 @@ varstrfastcmp_locale(char *a1p, int len1, char *a2p, int len2, SortSupport ssup)
 	}
 
 	/*
-	 * If we're comparing the same two strings as last time, we can return the
-	 * same answer without calling strcoll() again.  This is more likely than
-	 * it seems (at least with moderate to low cardinality sets), because
-	 * quicksort compares the same pivot against many values.
+	 * 若与上次比较的是相同的两个串，则可以直接返回
+	 * 相同的答案而无须再调 strcoll()。这比看上去更可
+	 * 能发生（至少在中低基数的集合中），因为快速排
+	 * 序会用同一个枢轴与许多值比较。
 	 */
 	if (len2 != sss->last_len2 || memcmp(sss->buf2, a2p, len2) != 0)
 	{
@@ -2209,28 +2209,28 @@ varstrfastcmp_locale(char *a1p, int len1, char *a2p, int len2, SortSupport ssup)
 	}
 	else if (arg1_match && !sss->cache_blob)
 	{
-		/* Use result cached following last actual strcoll() call */
+		/* 用上次实际 strcoll() 调用后缓存的结果 */
 		return sss->last_returned;
 	}
 
 	result = pg_strcoll(sss->buf1, sss->buf2, sss->locale);
 
-	/* Break tie if necessary. */
+	/* 必要时破平局。 */
 	if (result == 0 && pg_locale_deterministic(sss->locale))
 		result = strcmp(sss->buf1, sss->buf2);
 
-	/* Cache result, perhaps saving an expensive strcoll() call next time */
+	/* 缓存结果，或许省掉下次昂贵的 strcoll() 调用 */
 	sss->cache_blob = false;
 	sss->last_returned = result;
 	return result;
 }
 
 /*
- * Conversion routine for sortsupport.  Converts original to abbreviated key
- * representation.  Our encoding strategy is simple -- pack the first 8 bytes
- * of a strxfrm() blob into a Datum (on little-endian machines, the 8 bytes are
- * stored in reverse order), and treat it as an unsigned integer.  When the "C"
- * locale is used, or in case of bytea, just memcpy() from original instead.
+ * sortsupport 的转换例程。把原始值转换为缩写键
+ * 表示。我们的编码策略很简单——把 strxfrm() 块
+ * 的前 8 字节打包进一个 Datum（小端机上这 8 字节
+ * 以反序存储），并将其当作无符号整数。使用 "C"
+ * 区域设置或 bytea 的情形，直接从原始值 memcpy()。
  */
 static Datum
 varstr_abbrev_convert(Datum original, SortSupport ssup)
@@ -2240,47 +2240,47 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 	VarString  *authoritative = DatumGetVarStringPP(original);
 	char	   *authoritative_data = VARDATA_ANY(authoritative);
 
-	/* working state */
+	/* 工作状态 */
 	Datum		res;
 	char	   *pres;
 	int			len;
 	uint32		hash;
 
 	pres = (char *) &res;
-	/* memset(), so any non-overwritten bytes are NUL */
+	/* 已 memset()，未覆写的字节均为 NUL */
 	memset(pres, 0, max_prefix_bytes);
 	len = VARSIZE_ANY_EXHDR(authoritative);
 
-	/* Get number of bytes, ignoring trailing spaces */
+	/* 取字节数，忽略尾部空格 */
 	if (sss->typid == BPCHAROID)
 		len = bpchartruelen(authoritative_data, len);
 
 	/*
-	 * If we're using the C collation, use memcpy(), rather than strxfrm(), to
-	 * abbreviate keys.  The full comparator for the C locale is always
-	 * memcmp().  It would be incorrect to allow bytea callers (callers that
-	 * always force the C collation -- bytea isn't a collatable type, but this
-	 * approach is convenient) to use strxfrm().  This is because bytea
-	 * strings may contain NUL bytes.  Besides, this should be faster, too.
+	 * 若使用 C 排序规则，就用 memcpy() 而非 strxfrm()
+	 * 缩写键。C 区域设置的完整比较器总是 memcmp()。
+	 * 允许 bytea 调用者（始终强制 C 排序规则的调用者
+	 * ——bytea 不是可排序类型，但这个做法很方便）使
+	 * 用 strxfrm() 是不正确的。因为 bytea 串可能含有
+	 * NUL 字节。此外这样也应该更快。
 	 *
-	 * More generally, it's okay that bytea callers can have NUL bytes in
-	 * strings because abbreviated cmp need not make a distinction between
-	 * terminating NUL bytes, and NUL bytes representing actual NULs in the
-	 * authoritative representation.  Hopefully a comparison at or past one
-	 * abbreviated key's terminating NUL byte will resolve the comparison
-	 * without consulting the authoritative representation; specifically, some
-	 * later non-NUL byte in the longer string can resolve the comparison
-	 * against a subsequent terminating NUL in the shorter string.  There will
-	 * usually be what is effectively a "length-wise" resolution there and
-	 * then.
+	 * 更一般地说，bytea 调用者的串中含有 NUL 字节也
+	 * 没有问题，因为缩写比较无须区分结尾 NUL 字节
+	 * 与代表权威表示中真实 NUL 的 NUL 字节。希望在
+	 * 缩写键的结尾 NUL 字节处或之后的比较能够解决
+	 * 比较而无须查询权威表示；具体来说，较长串中
+	 * 某个后续的非 NUL 字节可以解决较长串与较短串
+	 * 中后续结尾 NUL 的比较。那里通常会有一个实际
+	 * 上"按长度"的解决。
 	 *
-	 * If that doesn't work out -- if all bytes in the longer string
-	 * positioned at or past the offset of the smaller string's (first)
-	 * terminating NUL are actually representative of NUL bytes in the
-	 * authoritative binary string (perhaps with some *terminating* NUL bytes
-	 * towards the end of the longer string iff it happens to still be small)
-	 * -- then an authoritative tie-breaker will happen, and do the right
-	 * thing: explicitly consider string length.
+	 *
+	 *
+	 * 若行不通——较长串中位于较短串（首个）
+	 * 结尾 NUL 偏移处或之后的所有字节其实代表权威
+	 * 二进制串中的 NUL 字节（若较长串恰好仍很小，
+	 * 或许在较长串末尾附近有一些*结尾* NUL 字节）
+	 * ——那么将进行权威平局裁决，并正确处理：显式
+	 * 考虑串长度。
+	 *
 	 */
 	if (sss->collate_c)
 		memcpy(pres, authoritative_data, Min(len, max_prefix_bytes));
@@ -2289,30 +2289,30 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 		Size		bsize;
 
 		/*
-		 * We're not using the C collation, so fall back on strxfrm or ICU
-		 * analogs.
+		 * 不使用 C 排序规则时，退回 strxfrm/ICU 类似物。
+		 *
 		 */
 
-		/* By convention, we use buffer 1 to store and NUL-terminate */
+		/* 按惯例用缓冲区 1 存放并 NUL 终止 */
 		if (len >= sss->buflen1)
 		{
 			sss->buflen1 = Max(len + 1, Min(sss->buflen1 * 2, MaxAllocSize));
 			sss->buf1 = repalloc(sss->buf1, sss->buflen1);
 		}
 
-		/* Might be able to reuse strxfrm() blob from last call */
+		/* 或许能复用上次的 strxfrm() 块 */
 		if (sss->last_len1 == len && sss->cache_blob &&
 			memcmp(sss->buf1, authoritative_data, len) == 0)
 		{
 			memcpy(pres, sss->buf2, Min(max_prefix_bytes, sss->last_len2));
-			/* No change affecting cardinality, so no hashing required */
+			/* 基数无变化，无须哈希 */
 			goto done;
 		}
 
 		memcpy(sss->buf1, authoritative_data, len);
 
 		/*
-		 * pg_strxfrm() and pg_strxfrm_prefix expect NUL-terminated strings.
+		 * pg_strxfrm() 与 pg_strxfrm_prefix 期望以 NUL 结尾。
 		 */
 		sss->buf1[len] = '\0';
 		sss->last_len1 = len;
@@ -2333,11 +2333,11 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 		else
 		{
 			/*
-			 * Loop: Call pg_strxfrm(), possibly enlarge buffer, and try
-			 * again.  The pg_strxfrm() function leaves the result buffer
-			 * content undefined if the result did not fit, so we need to
-			 * retry until everything fits, even though we only need the first
-			 * few bytes in the end.
+			 * 循环：调用 pg_strxfrm()，扩缓冲区后重试。
+			 * 若放不下，pg_strxfrm() 会把结果缓冲区内容
+			 * 置为未定义，故即使最终只需头几字节也要
+			 * 必须重试直到全部放得下。
+			 *
 			 */
 			for (;;)
 			{
@@ -2349,7 +2349,7 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 					break;
 
 				/*
-				 * Grow buffer and retry.
+				 * 扩缓冲重试。
 				 */
 				sss->buflen2 = Max(bsize + 1,
 								   Min(sss->buflen2 * 2, MaxAllocSize));
@@ -2358,27 +2358,27 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 		}
 
 		/*
-		 * Every Datum byte is always compared.  This is safe because the
-		 * strxfrm() blob is itself NUL terminated, leaving no danger of
-		 * misinterpreting any NUL bytes not intended to be interpreted as
-		 * logically representing termination.
+		 * Datum 的每个字节都会被比较。这安全，因为
+		 * strxfrm() 块本身以 NUL 结尾，不会误解释任何本
+		 * 不该按逻辑代表结尾的 NUL 字节。
 		 *
-		 * (Actually, even if there were NUL bytes in the blob it would be
-		 * okay.  See remarks on bytea case above.)
+		 *
+		 * （实际上即使块中有 NUL 字节也没关系。参见上
+		 * 述 bytea 情形的说明。）
 		 */
 		memcpy(pres, sss->buf2, Min(max_prefix_bytes, bsize));
 	}
 
 	/*
-	 * Maintain approximate cardinality of both abbreviated keys and original,
-	 * authoritative keys using HyperLogLog.  Used as cheap insurance against
-	 * the worst case, where we do many string transformations for no saving
-	 * in full strcoll()-based comparisons.  These statistics are used by
-	 * varstr_abbrev_abort().
+	 * 用 HyperLogLog 维护缩写键与原始权威键两者的
+	 * 近似基数。用作针对最坏情形的廉价保险——最坏
+	 * 情形是做了很多串变换却在完整 strcoll() 比较上
+	 * 毫无节省。这些统计被 varstr_abbrev_abort() 使用。
 	 *
-	 * First, Hash key proper, or a significant fraction of it.  Mix in length
-	 * in order to compensate for cases where differences are past
-	 * PG_CACHE_LINE_SIZE bytes, so as to limit the overhead of hashing.
+	 *
+	 * 首先，对键本体或其重要部分做哈希。混入长度以
+	 * 补偿差异位于 PG_CACHE_LINE_SIZE 字节之外的
+	 * 情形，以限制哈希的开销。
 	 */
 	hash = DatumGetUInt32(hash_any((unsigned char *) authoritative_data,
 								   Min(len, PG_CACHE_LINE_SIZE)));
@@ -2388,7 +2388,7 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 
 	addHyperLogLog(&sss->full_card, hash);
 
-	/* Hash abbreviated key */
+	/* 哈希缩写键 */
 #if SIZEOF_DATUM == 8
 	{
 		uint32		lohalf,
@@ -2404,21 +2404,21 @@ varstr_abbrev_convert(Datum original, SortSupport ssup)
 
 	addHyperLogLog(&sss->abbr_card, hash);
 
-	/* Cache result, perhaps saving an expensive strxfrm() call next time */
+	/* 缓存结果，或许省掉下次昂贵的 strxfrm() 调用 */
 	sss->cache_blob = true;
 done:
 
 	/*
-	 * Byteswap on little-endian machines.
+	 * 小端机上进行字节交换。
 	 *
-	 * This is needed so that ssup_datum_unsigned_cmp() (an unsigned integer
-	 * 3-way comparator) works correctly on all platforms.  If we didn't do
-	 * this, the comparator would have to call memcmp() with a pair of
-	 * pointers to the first byte of each abbreviated key, which is slower.
+	 * 这样做是为了让 ssup_datum_unsigned_cmp()（无
+	 * 符号整数三路比较器）在所有平台上都正确工作。
+	 * 若不这样做，比较器就得对指向每个缩写键首字
+	 * 节的指针对调用 memcmp()，那会更慢。
 	 */
 	res = DatumBigEndianToNative(res);
 
-	/* Don't leak memory here */
+	/* 不要泄漏内存 */
 	if (PointerGetDatum(authoritative) != original)
 		pfree(authoritative);
 
@@ -2426,9 +2426,9 @@ done:
 }
 
 /*
- * Callback for estimating effectiveness of abbreviated key optimization, using
- * heuristic rules.  Returns value indicating if the abbreviation optimization
- * should be aborted, based on its projected effectiveness.
+ * 用启发式规则估计缩写键优化有效性的回调。根
+ * 据其预期有效性返回指示是否应中止缩写优化的
+ * 值。
  */
 static bool
 varstr_abbrev_abort(int memtupcount, SortSupport ssup)
@@ -2439,7 +2439,7 @@ varstr_abbrev_abort(int memtupcount, SortSupport ssup)
 
 	Assert(ssup->abbreviate);
 
-	/* Have a little patience */
+	/* 稍微有点耐心 */
 	if (memtupcount < 100)
 		return false;
 
@@ -2447,9 +2447,9 @@ varstr_abbrev_abort(int memtupcount, SortSupport ssup)
 	key_distinct = estimateHyperLogLog(&sss->full_card);
 
 	/*
-	 * Clamp cardinality estimates to at least one distinct value.  While
-	 * NULLs are generally disregarded, if only NULL values were seen so far,
-	 * that might misrepresent costs if we failed to clamp.
+	 * 把基数估计钳制到至少一个不同值。虽然通常忽略
+	 * NULL，但若到目前为止只见过 NULL 值，不钳制的
+	 * 话可能会错估成本。
 	 */
 	if (abbrev_distinct <= 1.0)
 		abbrev_distinct = 1.0;
@@ -2458,9 +2458,9 @@ varstr_abbrev_abort(int memtupcount, SortSupport ssup)
 		key_distinct = 1.0;
 
 	/*
-	 * In the worst case all abbreviated keys are identical, while at the same
-	 * time there are differences within full key strings not captured in
-	 * abbreviations.
+	 * 最坏情况下所有缩写键都相同，同时完整键串中
+	 * 存在缩写未能捕捉的差异。
+	 *
 	 */
 #ifdef TRACE_SORT
 	if (trace_sort)
@@ -2475,47 +2475,47 @@ varstr_abbrev_abort(int memtupcount, SortSupport ssup)
 #endif
 
 	/*
-	 * If the number of distinct abbreviated keys approximately matches the
-	 * number of distinct authoritative original keys, that's reason enough to
-	 * proceed.  We can win even with a very low cardinality set if most
-	 * tie-breakers only memcmp().  This is by far the most important
-	 * consideration.
+	 * 若不同缩写键的数量与不同权威原始键的数量大致
+	 * 相符，那就有充分的理由继续。即使基数非常低，
+	 * 只要多数平局裁决只做 memcmp() 就能赢。这是
+	 * 迄今最重要的考量。
 	 *
-	 * While comparisons that are resolved at the abbreviated key level are
-	 * considerably cheaper than tie-breakers resolved with memcmp(), both of
-	 * those two outcomes are so much cheaper than a full strcoll() once
-	 * sorting is underway that it doesn't seem worth it to weigh abbreviated
-	 * cardinality against the overall size of the set in order to more
-	 * accurately model costs.  Assume that an abbreviated comparison, and an
-	 * abbreviated comparison with a cheap memcmp()-based authoritative
-	 * resolution are equivalent.
+	 *
+	 * 虽然在缩写键层面就能解决的比较远比用 memcmp()
+	 * 解决的平局裁决便宜得多，但这两种结果都比排序
+	 * 开始后的完整 strcoll() 便宜太多，所以似乎不值得
+	 * 为了更准确地建模成本而把缩写基数与集合的整体
+	 * 大小进行权衡。假定缩写比较与
+	 * 带有廉价 memcmp() 权威裁决的缩写比较是等价的。
+	 *
+	 *
 	 */
 	if (abbrev_distinct > key_distinct * sss->prop_card)
 	{
 		/*
-		 * When we have exceeded 10,000 tuples, decay required cardinality
-		 * aggressively for next call.
+		 * 当元组数超过 10000 时，为下一次调用积极衰减
+		 * 所需基数。
 		 *
-		 * This is useful because the number of comparisons required on
-		 * average increases at a linearithmic rate, and at roughly 10,000
-		 * tuples that factor will start to dominate over the linear costs of
-		 * string transformation (this is a conservative estimate).  The decay
-		 * rate is chosen to be a little less aggressive than halving -- which
-		 * (since we're called at points at which memtupcount has doubled)
-		 * would never see the cost model actually abort past the first call
-		 * following a decay.  This decay rate is mostly a precaution against
-		 * a sudden, violent swing in how well abbreviated cardinality tracks
-		 * full key cardinality.  The decay also serves to prevent a marginal
-		 * case from being aborted too late, when too much has already been
-		 * invested in string transformation.
+		 * 有用：平均比较次数按线性对数速率增长，且
+		 * 在大约 10000 元组时该因素将开始压过串变换的
+		 * 线性成本（这是保守估计）。衰减率选得比减半
+		 * 略保守——由于我们是在 memtupcount 翻倍的时点
+		 * 被调用，衰减后的首次调用之后成本模型实际永
+		 * 不会再现中止。该衰减率主要防备缩写基数对
+		 * 完整键基数的追随突然剧烈摆动。衰减还能防止
+		 * 边缘情形过晚中止——那时已在串变换上投入
+		 * 过多。
 		 *
-		 * It's possible for sets of several million distinct strings with
-		 * mere tens of thousands of distinct abbreviated keys to still
-		 * benefit very significantly.  This will generally occur provided
-		 * each abbreviated key is a proxy for a roughly uniform number of the
-		 * set's full keys. If it isn't so, we hope to catch that early and
-		 * abort.  If it isn't caught early, by the time the problem is
-		 * apparent it's probably not worth aborting.
+		 *
+		 *
+		 *
+		 * 几百万不同串只配几万不同缩写键的集合仍
+		 * 可能获益巨大。通常只要缩写键是集合中
+		 * 大致均匀数量完整键的代理就会如此。若并非如
+		 * 此，我们希望能及早发现并中止。若未及早发现，
+		 * 等问题明显时再中止多半已不值得。
+		 *
+		 *
 		 */
 		if (memtupcount > 10000)
 			sss->prop_card *= 0.65;
@@ -2524,15 +2524,15 @@ varstr_abbrev_abort(int memtupcount, SortSupport ssup)
 	}
 
 	/*
-	 * Abort abbreviation strategy.
+	 * 中止缩写策略。
 	 *
-	 * The worst case, where all abbreviated keys are identical while all
-	 * original strings differ will typically only see a regression of about
-	 * 10% in execution time for small to medium sized lists of strings.
-	 * Whereas on modern CPUs where cache stalls are the dominant cost, we can
-	 * often expect very large improvements, particularly with sets of strings
-	 * of moderately high to high abbreviated cardinality.  There is little to
-	 * lose but much to gain, which our strategy reflects.
+	 * 最坏情形——缩写键全同而原始串全异——通常只
+	 * 会让小到中型串列表的执行时间退化约 10%。
+	 * 缓存停顿为主成本的现代 CPU 上常能期待非常
+	 * 大的改进，特别是对中高到高缩写基数的串集合。
+	 * 失之甚少得之甚多，我们的策略正体现这点。
+	 *
+	 *
 	 */
 #ifdef TRACE_SORT
 	if (trace_sort)
@@ -2545,8 +2545,8 @@ varstr_abbrev_abort(int memtupcount, SortSupport ssup)
 }
 
 /*
- * Generic equalimage support function for character type's operator classes.
- * Disables the use of deduplication with nondeterministic collations.
+ * 字符类型算子类的通用 equalimage 支持函数。禁止
+ * 在非确定性排序规则下使用去重。
  */
 Datum
 btvarstrequalimage(PG_FUNCTION_ARGS)
@@ -2590,7 +2590,7 @@ text_smaller(PG_FUNCTION_ARGS)
 
 
 /*
- * Cross-type comparison functions for types text and name.
+ * text 与 name 类型的跨类型比较函数。
  */
 
 Datum
@@ -2783,11 +2783,11 @@ textgename(PG_FUNCTION_ARGS)
 
 
 /*
- * The following operators support character-by-character comparison
- * of text datums, to allow building indexes suitable for LIKE clauses.
- * Note that the regular texteq/textne comparison operators, and regular
- * support functions 1 and 2 with "C" collation are assumed to be
- * compatible with these!
+ * 下面的算子支持对 text datum 的逐字符比较，
+ * 以便构建适合 LIKE 子句的索引。注意常规的
+ * texteq/textne 比较算子以及带 "C" 排序规则的
+ * 常规支持函数 1 和 2 被假定与这些兼容！
+ *
  */
 
 static int
@@ -2900,7 +2900,7 @@ bttext_pattern_sortsupport(PG_FUNCTION_ARGS)
 
 	oldcontext = MemoryContextSwitchTo(ssup->ssup_cxt);
 
-	/* Use generic string SortSupport, forcing "C" collation */
+	/* 使用通用串 SortSupport，强制"C"排序规则 */
 	varstr_sortsupport(ssup, TEXTOID, C_COLLATION_OID);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -2912,7 +2912,7 @@ bttext_pattern_sortsupport(PG_FUNCTION_ARGS)
 /*-------------------------------------------------------------
  * byteaoctetlen
  *
- * get the number of bytes contained in an instance of type 'bytea'
+ * 取 'bytea' 类型实例所含的字节数
  *-------------------------------------------------------------
  */
 Datum
@@ -2920,16 +2920,16 @@ byteaoctetlen(PG_FUNCTION_ARGS)
 {
 	Datum		str = PG_GETARG_DATUM(0);
 
-	/* We need not detoast the input at all */
+	/* 完全无需 detoast 输入 */
 	PG_RETURN_INT32(toast_raw_datum_size(str) - VARHDRSZ);
 }
 
 /*
  * byteacat -
- *	  takes two bytea* and returns a bytea* that is the concatenation of
- *	  the two.
+ *	  取两个 bytea* 并返回两者拼接成的 bytea*。
  *
- * Cloned from textcat and modified as required.
+ *
+ * 从 textcat 克隆并按需修改。
  */
 Datum
 byteacat(PG_FUNCTION_ARGS)
@@ -2942,9 +2942,9 @@ byteacat(PG_FUNCTION_ARGS)
 
 /*
  * bytea_catenate
- *	Guts of byteacat(), broken out so it can be used by other functions
+ *	byteacat() 的核心逻辑，拆出以便其他函数使用
  *
- * Arguments can be in short-header form, but not compressed or out-of-line
+ * 参数可为短头部形式，但不可为压缩或行外存储形式
  */
 static bytea *
 bytea_catenate(bytea *t1, bytea *t2)
@@ -2958,7 +2958,7 @@ bytea_catenate(bytea *t1, bytea *t2)
 	len1 = VARSIZE_ANY_EXHDR(t1);
 	len2 = VARSIZE_ANY_EXHDR(t2);
 
-	/* paranoia ... probably should throw error instead? */
+	/* 偏执起见……或许该改为抛出错误？ */
 	if (len1 < 0)
 		len1 = 0;
 	if (len2 < 0)
@@ -2967,10 +2967,10 @@ bytea_catenate(bytea *t1, bytea *t2)
 	len = len1 + len2 + VARHDRSZ;
 	result = (bytea *) palloc(len);
 
-	/* Set size of result string... */
+	/* 设置结果串大小…… */
 	SET_VARSIZE(result, len);
 
-	/* Fill data field of result string... */
+	/* 填充结果串数据字段…… */
 	ptr = VARDATA(result);
 	if (len1 > 0)
 		memcpy(ptr, VARDATA_ANY(t1), len1);
@@ -2985,18 +2985,18 @@ bytea_catenate(bytea *t1, bytea *t2)
 
 /*
  * bytea_substr()
- * Return a substring starting at the specified position.
- * Cloned from text_substr and modified as required.
+ * 返回从指定位置开始的子串。
+ * 从 text_substr 克隆并按需修改。
  *
  * Input:
  *	- string
- *	- starting position (is one-based)
- *	- string length (optional)
+ *	- 起始位置（1 起算）
+ *	- 串长（可选）
  *
- * If the starting position is zero or less, then return from the start of the string
- * adjusting the length to be consistent with the "negative start" per SQL.
- * If the length is less than zero, an ERROR is thrown. If no third argument
- * (length) is provided, the length to the end of the string is assumed.
+ * 若起始位置为零或更小，则从串首开始返回，
+ * 并按 SQL 的"负起始"约定调整长度。
+ * 若长度小于零则抛出错误。若未提供第三个参数
+ * （长度），则假定长度到串尾为止。
  */
 Datum
 bytea_substr(PG_FUNCTION_ARGS)
@@ -3009,8 +3009,8 @@ bytea_substr(PG_FUNCTION_ARGS)
 
 /*
  * bytea_substr_no_len -
- *	  Wrapper to avoid opr_sanity failure due to
- *	  one function accepting a different number of args.
+ *	  包装函数，避免 opr_sanity 因
+ *	  同一函数接受不同数量的参数而失败
  */
 Datum
 bytea_substr_no_len(PG_FUNCTION_ARGS)
@@ -3027,45 +3027,45 @@ bytea_substring(Datum str,
 				int L,
 				bool length_not_specified)
 {
-	int32		S1;				/* adjusted start position */
-	int32		L1;				/* adjusted substring length */
-	int32		E;				/* end position */
+	int32		S1;				/* 调整后起始位置 */
+	int32		L1;				/* 调整后的子串长度 */
+	int32		E;				/* 结束位置 */
 
 	/*
-	 * The logic here should generally match text_substring().
+	 * 此处逻辑通常应与 text_substring() 一致。
 	 */
 	S1 = Max(S, 1);
 
 	if (length_not_specified)
 	{
 		/*
-		 * Not passed a length - DatumGetByteaPSlice() grabs everything to the
-		 * end of the string if we pass it a negative value for length.
+		 * 未传长度——若给 DatumGetByteaPSlice() 传负长度，
+		 * 它会抓取到串尾的全部内容。
 		 */
 		L1 = -1;
 	}
 	else if (L < 0)
 	{
-		/* SQL99 says to throw an error for E < S, i.e., negative length */
+		/* SQL99 规定 E < S（即长度为负）时抛出错误 */
 		ereport(ERROR,
 				(errcode(ERRCODE_SUBSTRING_ERROR),
 				 errmsg("negative substring length not allowed")));
-		L1 = -1;				/* silence stupider compilers */
+		L1 = -1;				/* 让较笨编译器安静 */
 	}
 	else if (pg_add_s32_overflow(S, L, &E))
 	{
 		/*
-		 * L could be large enough for S + L to overflow, in which case the
-		 * substring must run to end of string.
+		 * L 可能大到使 S + L 溢出，此时子串必须延伸到
+		 * 串尾。
 		 */
 		L1 = -1;
 	}
 	else
 	{
 		/*
-		 * A zero or negative value for the end position can happen if the
-		 * start was negative or one. SQL99 says to return a zero-length
-		 * string.
+		 * 结束位置出现零或负值的情形，可能发生在起始
+		 * 位置为负或一时。SQL99 规定返回零长度串。
+		 *
 		 */
 		if (E < 1)
 			return PG_STR_GET_BYTEA("");
@@ -3074,27 +3074,27 @@ bytea_substring(Datum str,
 	}
 
 	/*
-	 * If the start position is past the end of the string, SQL99 says to
-	 * return a zero-length string -- DatumGetByteaPSlice() will do that for
-	 * us.  We need only convert S1 to zero-based starting position.
+	 * 若起始位置超过串尾，SQL99 规定返回零长度串——
+	 * DatumGetByteaPSlice() 会替我们做到。只需把
+	 * S1 转为 0 起算的起始位置。
 	 */
 	return DatumGetByteaPSlice(str, S1 - 1, L1);
 }
 
 /*
  * byteaoverlay
- *	Replace specified substring of first string with second
+ *	用第二串替换第一串中指定的子串
  *
- * The SQL standard defines OVERLAY() in terms of substring and concatenation.
- * This code is a direct implementation of what the standard says.
+ * SQL 标准以子串与拼接来定义 OVERLAY()。
+ * 此代码是对标准所述内容的直接实现。
  */
 Datum
 byteaoverlay(PG_FUNCTION_ARGS)
 {
 	bytea	   *t1 = PG_GETARG_BYTEA_PP(0);
 	bytea	   *t2 = PG_GETARG_BYTEA_PP(1);
-	int			sp = PG_GETARG_INT32(2);	/* substring start position */
-	int			sl = PG_GETARG_INT32(3);	/* substring length */
+	int			sp = PG_GETARG_INT32(2);	/* 子串起始位置 */
+	int			sl = PG_GETARG_INT32(3);	/* 子串长度 */
 
 	PG_RETURN_BYTEA_P(bytea_overlay(t1, t2, sp, sl));
 }
@@ -3104,10 +3104,10 @@ byteaoverlay_no_len(PG_FUNCTION_ARGS)
 {
 	bytea	   *t1 = PG_GETARG_BYTEA_PP(0);
 	bytea	   *t2 = PG_GETARG_BYTEA_PP(1);
-	int			sp = PG_GETARG_INT32(2);	/* substring start position */
+	int			sp = PG_GETARG_INT32(2);	/* 子串起始位置 */
 	int			sl;
 
-	sl = VARSIZE_ANY_EXHDR(t2); /* defaults to length(t2) */
+	sl = VARSIZE_ANY_EXHDR(t2); /* 缺省 length(t2) */
 	PG_RETURN_BYTEA_P(bytea_overlay(t1, t2, sp, sl));
 }
 
@@ -3120,9 +3120,9 @@ bytea_overlay(bytea *t1, bytea *t2, int sp, int sl)
 	int			sp_pl_sl;
 
 	/*
-	 * Check for possible integer-overflow cases.  For negative sp, throw a
-	 * "substring length" error because that's what should be expected
-	 * according to the spec's definition of OVERLAY().
+	 * 检查可能的整数溢出情形。对负 sp，抛出"子串长度"
+	 * 错误——按规范对 OVERLAY() 的定义这是应当
+	 * 预期到的结果。
 	 */
 	if (sp <= 0)
 		ereport(ERROR,
@@ -3154,9 +3154,9 @@ bytea_bit_count(PG_FUNCTION_ARGS)
 
 /*
  * byteapos -
- *	  Return the position of the specified substring.
- *	  Implements the SQL POSITION() function.
- * Cloned from textpos and modified as required.
+ *	  返回指定子串的位置。
+ *	  实现 SQL POSITION() 函数。
+ * 从 textpos 克隆并按需修改。
  */
 Datum
 byteapos(PG_FUNCTION_ARGS)
@@ -3175,7 +3175,7 @@ byteapos(PG_FUNCTION_ARGS)
 	len2 = VARSIZE_ANY_EXHDR(t2);
 
 	if (len2 <= 0)
-		PG_RETURN_INT32(1);		/* result for empty pattern */
+		PG_RETURN_INT32(1);		/* 空模式的结果 */
 
 	p1 = VARDATA_ANY(t1);
 	p2 = VARDATA_ANY(t2);
@@ -3198,8 +3198,8 @@ byteapos(PG_FUNCTION_ARGS)
 /*-------------------------------------------------------------
  * byteaGetByte
  *
- * this routine treats "bytea" as an array of bytes.
- * It returns the Nth byte (a number between 0 and 255).
+ * 此例程把 "bytea" 当作字节数组对待。
+ * 它返回第 N 字节（0..255 的数）。
  *-------------------------------------------------------------
  */
 Datum
@@ -3226,8 +3226,8 @@ byteaGetByte(PG_FUNCTION_ARGS)
 /*-------------------------------------------------------------
  * byteaGetBit
  *
- * This routine treats a "bytea" type like an array of bits.
- * It returns the value of the Nth bit (0 or 1).
+ * 此例程把 "bytea" 类型当作位数组对待。
+ * 它返回第 N 位的值（0 或 1）。
  *
  *-------------------------------------------------------------
  */
@@ -3249,7 +3249,7 @@ byteaGetBit(PG_FUNCTION_ARGS)
 				 errmsg("index %lld out of valid range, 0..%lld",
 						(long long) n, (long long) len * 8 - 1)));
 
-	/* n/8 is now known < len, so safe to cast to int */
+	/* n/8 已知 < len，可安全转成 int */
 	byteNo = (int) (n / 8);
 	bitNo = (int) (n % 8);
 
@@ -3264,8 +3264,8 @@ byteaGetBit(PG_FUNCTION_ARGS)
 /*-------------------------------------------------------------
  * byteaSetByte
  *
- * Given an instance of type 'bytea' creates a new one with
- * the Nth byte set to the given value.
+ * 给定 'bytea' 类型实例，创建一个新实例，
+ * 把第 N 字节设为给定值。
  *
  *-------------------------------------------------------------
  */
@@ -3286,7 +3286,7 @@ byteaSetByte(PG_FUNCTION_ARGS)
 						n, len - 1)));
 
 	/*
-	 * Now set the byte.
+	 * 设置字节。
 	 */
 	((unsigned char *) VARDATA(res))[n] = newByte;
 
@@ -3296,8 +3296,8 @@ byteaSetByte(PG_FUNCTION_ARGS)
 /*-------------------------------------------------------------
  * byteaSetBit
  *
- * Given an instance of type 'bytea' creates a new one with
- * the Nth bit set to the given value.
+ * 给定 'bytea' 类型实例，创建一个新实例，
+ * 把第 N 位设为给定值。
  *
  *-------------------------------------------------------------
  */
@@ -3321,12 +3321,12 @@ byteaSetBit(PG_FUNCTION_ARGS)
 				 errmsg("index %lld out of valid range, 0..%lld",
 						(long long) n, (long long) len * 8 - 1)));
 
-	/* n/8 is now known < len, so safe to cast to int */
+	/* n/8 已知 < len，可安全转成 int */
 	byteNo = (int) (n / 8);
 	bitNo = (int) (n % 8);
 
 	/*
-	 * sanity check!
+	 * 检查!
 	 */
 	if (newBit != 0 && newBit != 1)
 		ereport(ERROR,
@@ -3334,7 +3334,7 @@ byteaSetBit(PG_FUNCTION_ARGS)
 				 errmsg("new bit must be 0 or 1")));
 
 	/*
-	 * Update the byte.
+	 * 更新字节。
 	 */
 	oldByte = ((unsigned char *) VARDATA(res))[byteNo];
 
@@ -3350,7 +3350,7 @@ byteaSetBit(PG_FUNCTION_ARGS)
 
 
 /* text_name()
- * Converts a text type to a Name type.
+ * 把 text 转为 Name 类型。
  */
 Datum
 text_name(PG_FUNCTION_ARGS)
@@ -3361,11 +3361,11 @@ text_name(PG_FUNCTION_ARGS)
 
 	len = VARSIZE_ANY_EXHDR(s);
 
-	/* Truncate oversize input */
+	/* 截断超长输入 */
 	if (len >= NAMEDATALEN)
 		len = pg_mbcliplen(VARDATA_ANY(s), len, NAMEDATALEN - 1);
 
-	/* We use palloc0 here to ensure result is zero-padded */
+	/* 此处用 palloc0 以确保结果被零填充 */
 	result = (Name) palloc0(NAMEDATALEN);
 	memcpy(NameStr(*result), VARDATA_ANY(s), len);
 
@@ -3373,7 +3373,7 @@ text_name(PG_FUNCTION_ARGS)
 }
 
 /* name_text()
- * Converts a Name type to a text type.
+ * 把 Name 转为 text 类型。
  */
 Datum
 name_text(PG_FUNCTION_ARGS)
@@ -3385,12 +3385,12 @@ name_text(PG_FUNCTION_ARGS)
 
 
 /*
- * textToQualifiedNameList - convert a text object to list of names
+ * textToQualifiedNameList - 把 text 对象转换为名字列表
  *
- * This implements the input parsing needed by nextval() and other
- * functions that take a text parameter representing a qualified name.
- * We split the name at dots, downcase if not double-quoted, and
- * truncate names if they're too long.
+ * 这实现了 nextval() 及其他接受表示限定名的 text
+ * 参数的函数所需的输入解析。我们在点号处拆名，
+ * 非双引号包裹时转为小写，名字过长则截断。
+ *
  */
 List *
 textToQualifiedNameList(text *textval)
@@ -3400,8 +3400,8 @@ textToQualifiedNameList(text *textval)
 	List	   *namelist;
 	ListCell   *l;
 
-	/* Convert to C string (handles possible detoasting). */
-	/* Note we rely on being able to modify rawname below. */
+	/* 转为 C 串（处理可能有的去 toast）。 */
+	/* 注意我们依赖能在下方修改 rawname。 */
 	rawname = text_to_cstring(textval);
 
 	if (!SplitIdentifierString(rawname, '.', &namelist))
@@ -3428,27 +3428,27 @@ textToQualifiedNameList(text *textval)
 }
 
 /*
- * SplitIdentifierString --- parse a string containing identifiers
+ * SplitIdentifierString --- 解析包含标识符的串
  *
- * This is the guts of textToQualifiedNameList, and is exported for use in
- * other situations such as parsing GUC variables.  In the GUC case, it's
- * important to avoid memory leaks, so the API is designed to minimize the
- * amount of stuff that needs to be allocated and freed.
+ * 这是 textToQualifiedNameList 的核心，并导出供其他
+ * 情形使用，比如解析 GUC 变量。在 GUC 的场景下，
+ * 避免内存泄漏很重要，所以此 API 被设计成尽量减少
+ * 需要分配和释放的东西的数量。
  *
  * Inputs:
- *	rawstring: the input string; must be overwritable!	On return, it's
- *			   been modified to contain the separated identifiers.
- *	separator: the separator punctuation expected between identifiers
- *			   (typically '.' or ',').  Whitespace may also appear around
- *			   identifiers.
+ *	rawstring: 输入串；必须可覆写！返回时它已
+ *			   被改成包含拆分出的标识符。
+ *	separator: 标识符之间期望的分隔标点（通常为
+ *			   "." 或 ","）。标识符周围也可以有空白。
+ *			   标识符。
  * Outputs:
- *	namelist: filled with a palloc'd list of pointers to identifiers within
- *			  rawstring.  Caller should list_free() this even on error return.
+ *	namelist: 填入指向 rawstring 内标识符的 palloc 列表
+ *			  调用者即使出错返回也应 list_free() 它。
  *
- * Returns true if okay, false if there is a syntax error in the string.
+ * 串语法正确返回 true，有语法错误返回 false。
  *
- * Note that an empty string is considered okay here, though not in
- * textToQualifiedNameList.
+ * 注意此处空串视为合法，但 textToQualifiedNameList
+ * 中却不行。
  */
 bool
 SplitIdentifierString(char *rawstring, char separator,
@@ -3460,12 +3460,12 @@ SplitIdentifierString(char *rawstring, char separator,
 	*namelist = NIL;
 
 	while (scanner_isspace(*nextp))
-		nextp++;				/* skip leading whitespace */
+		nextp++;				/* 跳过前导空白 */
 
 	if (*nextp == '\0')
-		return true;			/* allow empty string */
+		return true;			/* 允许空串 */
 
-	/* At the top of the loop, we are at start of a new identifier. */
+	/* 在循环顶部，我们位于新标识符的开始处。 */
 	do
 	{
 		char	   *curname;
@@ -3473,25 +3473,25 @@ SplitIdentifierString(char *rawstring, char separator,
 
 		if (*nextp == '"')
 		{
-			/* Quoted name --- collapse quote-quote pairs, no downcasing */
+			/* 带引号名 —— 折叠引号引号对，不转小写 */
 			curname = nextp + 1;
 			for (;;)
 			{
 				endp = strchr(nextp + 1, '"');
 				if (endp == NULL)
-					return false;	/* mismatched quotes */
+					return false;	/* 引号不匹配 */
 				if (endp[1] != '"')
-					break;		/* found end of quoted name */
-				/* Collapse adjacent quotes into one quote, and look again */
+					break;		/* 到达引号名结尾 */
+				/* 把相邻引号折叠成一个引号，再看一遍 */
 				memmove(endp, endp + 1, strlen(endp));
 				nextp = endp;
 			}
-			/* endp now points at the terminating quote */
+			/* endp 现在指向结尾引号 */
 			nextp = endp + 1;
 		}
 		else
 		{
-			/* Unquoted name --- extends to separator or whitespace */
+			/* 不带引号名 —— 延伸到分隔符或空白 */
 			char	   *downname;
 			int			len;
 
@@ -3501,51 +3501,51 @@ SplitIdentifierString(char *rawstring, char separator,
 				nextp++;
 			endp = nextp;
 			if (curname == nextp)
-				return false;	/* empty unquoted name not allowed */
+				return false;	/* 不允许不带引号的空名 */
 
 			/*
-			 * Downcase the identifier, using same code as main lexer does.
+			 * 用与主词法器相同的代码把标识符转小写。
 			 *
-			 * XXX because we want to overwrite the input in-place, we cannot
-			 * support a downcasing transformation that increases the string
-			 * length.  This is not a problem given the current implementation
-			 * of downcase_truncate_identifier, but we'll probably have to do
-			 * something about this someday.
+			 * XXX 由于我们要原地覆写输入，无法支持会把串
+			 * 长度变大的小写转换。就当前 downcase_truncate_
+			 * identifier 的实现这不是问题，但将来某天
+			 * 可能得为此做点什么。
+			 *
 			 */
 			len = endp - curname;
 			downname = downcase_truncate_identifier(curname, len, false);
 			Assert(strlen(downname) <= len);
-			strncpy(curname, downname, len);	/* strncpy is required here */
+			strncpy(curname, downname, len);	/* 此处必须 strncpy */
 			pfree(downname);
 		}
 
 		while (scanner_isspace(*nextp))
-			nextp++;			/* skip trailing whitespace */
+			nextp++;			/* 跳过尾部空白 */
 
 		if (*nextp == separator)
 		{
 			nextp++;
 			while (scanner_isspace(*nextp))
-				nextp++;		/* skip leading whitespace for next */
-			/* we expect another name, so done remains false */
+				nextp++;		/* 为下一个跳过前导空白 */
+			/* 期待另一个名字，done 保持 false */
 		}
 		else if (*nextp == '\0')
 			done = true;
 		else
-			return false;		/* invalid syntax */
+			return false;		/* 语法无效 */
 
-		/* Now safe to overwrite separator with a null */
+		/* 现在可安全将分隔符覆写为 null */
 		*endp = '\0';
 
-		/* Truncate name if it's overlength */
+		/* 若名字超长则截断 */
 		truncate_identifier(curname, strlen(curname), false);
 
 		/*
-		 * Finished isolating current name --- add it to list
+		 * 当前名字隔离完毕 —— 加入列表
 		 */
 		*namelist = lappend(*namelist, curname);
 
-		/* Loop back if we didn't reach end of string */
+		/* 若未到达串尾则循环回去 */
 	} while (!done);
 
 	return true;
@@ -3553,29 +3553,29 @@ SplitIdentifierString(char *rawstring, char separator,
 
 
 /*
- * SplitDirectoriesString --- parse a string containing file/directory names
+ * SplitDirectoriesString --- 解析包含文件/目录名的串
  *
- * This works fine on file names too; the function name is historical.
+ * 这同样适用于文件名；函数名是历史遗留。
  *
- * This is similar to SplitIdentifierString, except that the parsing
- * rules are meant to handle pathnames instead of identifiers: there is
- * no downcasing, embedded spaces are allowed, the max length is MAXPGPATH-1,
- * and we apply canonicalize_path() to each extracted string.  Because of the
- * last, the returned strings are separately palloc'd rather than being
- * pointers into rawstring --- but we still scribble on rawstring.
+ * 这与 SplitIdentifierString 类似，但解析规则旨在
+ * 处理路径名而非标识符：不转小写，允许空白，
+ * 最大长度为 MAXPGPATH-1，并对每个提取出的串应用
+ * canonicalize_path()。因此，返回的串是各自独立 palloc
+ * 的，而不是指向 rawstring 的指针 —— 但我们仍然会
+ * 涂改 rawstring。
  *
  * Inputs:
- *	rawstring: the input string; must be modifiable!
- *	separator: the separator punctuation expected between directories
- *			   (typically ',' or ';').  Whitespace may also appear around
- *			   directories.
+ *	rawstring: 输入串；必须可修改！
+ *	separator: 目录之间期望的分隔标点（通常为
+ *			   "," 或 ";"）。目录周围也可以有空白。
+ *			   目录。
  * Outputs:
- *	namelist: filled with a palloc'd list of directory names.
- *			  Caller should list_free_deep() this even on error return.
+ *	namelist: 填入 palloc 的目录名列表。
+ *			  出错返回时也须 list_free_deep() 它。
  *
- * Returns true if okay, false if there is a syntax error in the string.
+ * 串语法正确返回 true，有语法错误返回 false。
  *
- * Note that an empty string is considered okay here.
+ * 注意这里空串被视为合法。
  */
 bool
 SplitDirectoriesString(char *rawstring, char separator,
@@ -3587,12 +3587,12 @@ SplitDirectoriesString(char *rawstring, char separator,
 	*namelist = NIL;
 
 	while (scanner_isspace(*nextp))
-		nextp++;				/* skip leading whitespace */
+		nextp++;				/* 跳过前导空白 */
 
 	if (*nextp == '\0')
-		return true;			/* allow empty string */
+		return true;			/* 允许空串 */
 
-	/* At the top of the loop, we are at start of a new directory. */
+	/* 在循环顶部，我们位于新目录的开始处。 */
 	do
 	{
 		char	   *curname;
@@ -3600,67 +3600,67 @@ SplitDirectoriesString(char *rawstring, char separator,
 
 		if (*nextp == '"')
 		{
-			/* Quoted name --- collapse quote-quote pairs */
+			/* 带引号名 —— 折叠引号引号对 */
 			curname = nextp + 1;
 			for (;;)
 			{
 				endp = strchr(nextp + 1, '"');
 				if (endp == NULL)
-					return false;	/* mismatched quotes */
+					return false;	/* 引号不匹配 */
 				if (endp[1] != '"')
-					break;		/* found end of quoted name */
-				/* Collapse adjacent quotes into one quote, and look again */
+					break;		/* 到达引号名结尾 */
+				/* 把相邻引号折叠成一个引号，再看一遍 */
 				memmove(endp, endp + 1, strlen(endp));
 				nextp = endp;
 			}
-			/* endp now points at the terminating quote */
+			/* endp 现在指向结尾引号 */
 			nextp = endp + 1;
 		}
 		else
 		{
-			/* Unquoted name --- extends to separator or end of string */
+			/* 不带引号名 —— 延伸到分隔符或串尾 */
 			curname = endp = nextp;
 			while (*nextp && *nextp != separator)
 			{
-				/* trailing whitespace should not be included in name */
+				/* 尾随空白不应计入名字 */
 				if (!scanner_isspace(*nextp))
 					endp = nextp + 1;
 				nextp++;
 			}
 			if (curname == endp)
-				return false;	/* empty unquoted name not allowed */
+				return false;	/* 不允许不带引号的空名 */
 		}
 
 		while (scanner_isspace(*nextp))
-			nextp++;			/* skip trailing whitespace */
+			nextp++;			/* 跳过尾部空白 */
 
 		if (*nextp == separator)
 		{
 			nextp++;
 			while (scanner_isspace(*nextp))
-				nextp++;		/* skip leading whitespace for next */
-			/* we expect another name, so done remains false */
+				nextp++;		/* 为下一个跳过前导空白 */
+			/* 期待另一个名字，done 保持 false */
 		}
 		else if (*nextp == '\0')
 			done = true;
 		else
-			return false;		/* invalid syntax */
+			return false;		/* 语法无效 */
 
-		/* Now safe to overwrite separator with a null */
+		/* 现在可安全将分隔符覆写为 null */
 		*endp = '\0';
 
-		/* Truncate path if it's overlength */
+		/* 若路径超长则截断 */
 		if (strlen(curname) >= MAXPGPATH)
 			curname[MAXPGPATH - 1] = '\0';
 
 		/*
-		 * Finished isolating current name --- add it to list
+		 * 当前名字隔离完毕 —— 加入列表
 		 */
 		curname = pstrdup(curname);
 		canonicalize_path(curname);
 		*namelist = lappend(*namelist, curname);
 
-		/* Loop back if we didn't reach end of string */
+		/* 若未到达串尾则循环回去 */
 	} while (!done);
 
 	return true;
@@ -3668,35 +3668,35 @@ SplitDirectoriesString(char *rawstring, char separator,
 
 
 /*
- * SplitGUCList --- parse a string containing identifiers or file names
+ * SplitGUCList --- 解析包含标识符或文件名的串
  *
- * This is used to split the value of a GUC_LIST_QUOTE GUC variable, without
- * presuming whether the elements will be taken as identifiers or file names.
- * We assume the input has already been through flatten_set_variable_args(),
- * so that we need never downcase (if appropriate, that was done already).
- * Nor do we ever truncate, since we don't know the correct max length.
- * We disallow embedded whitespace for simplicity (it shouldn't matter,
- * because any embedded whitespace should have led to double-quoting).
- * Otherwise the API is identical to SplitIdentifierString.
+ * 这用于拆分 GUC_LIST_QUOTE 类 GUC 变量的值，不必预
+ * 先假定元素会被当作标识符还是文件名。我们假定输入
+ * 已经过 flatten_set_variable_args() 处理，因此无须
+ * 再转小写（若适用则已做过）。我们也不截断，因为
+ * 不知道正确的最大长度。为简单起见不允许
+ * 内嵌空白（应无妨，任何内嵌空白都应已
+ * 导致加上双引号）。其余 API 与
+ * SplitIdentifierString 相同。
  *
- * XXX it's annoying to have so many copies of this string-splitting logic.
- * However, it's not clear that having one function with a bunch of option
- * flags would be much better.
+ * XXX 有这么多份串拆分逻辑的副本令人恼火。然而，
+ * 并不清楚带一堆选项标志的单一函数会好多少。
  *
- * XXX there is a version of this function in src/bin/pg_dump/dumputils.c.
- * Be sure to update that if you have to change this.
+ *
+ * XXX src/bin/pg_dump/dumputils.c 中有此函数的一个
+ * 版本。必须改此处时务必一并更新。
  *
  * Inputs:
- *	rawstring: the input string; must be overwritable!	On return, it's
- *			   been modified to contain the separated identifiers.
- *	separator: the separator punctuation expected between identifiers
- *			   (typically '.' or ',').  Whitespace may also appear around
- *			   identifiers.
+ *	rawstring: 输入串；必须可覆写！返回时它已
+ *			   被改成包含拆分出的标识符。
+ *	separator: 标识符之间期望的分隔标点（通常为
+ *			   "." 或 ","）。标识符周围也可以有空白。
+ *			   标识符。
  * Outputs:
- *	namelist: filled with a palloc'd list of pointers to identifiers within
- *			  rawstring.  Caller should list_free() this even on error return.
+ *	namelist: 填入指向 rawstring 内标识符的 palloc 列表
+ *			  调用者即使出错返回也应 list_free() 它。
  *
- * Returns true if okay, false if there is a syntax error in the string.
+ * 串语法正确返回 true，有语法错误返回 false。
  */
 bool
 SplitGUCList(char *rawstring, char separator,
@@ -3708,12 +3708,12 @@ SplitGUCList(char *rawstring, char separator,
 	*namelist = NIL;
 
 	while (scanner_isspace(*nextp))
-		nextp++;				/* skip leading whitespace */
+		nextp++;				/* 跳过前导空白 */
 
 	if (*nextp == '\0')
-		return true;			/* allow empty string */
+		return true;			/* 允许空串 */
 
-	/* At the top of the loop, we are at start of a new identifier. */
+	/* 在循环顶部，我们位于新标识符的开始处。 */
 	do
 	{
 		char	   *curname;
@@ -3721,58 +3721,58 @@ SplitGUCList(char *rawstring, char separator,
 
 		if (*nextp == '"')
 		{
-			/* Quoted name --- collapse quote-quote pairs */
+			/* 带引号名 —— 折叠引号引号对 */
 			curname = nextp + 1;
 			for (;;)
 			{
 				endp = strchr(nextp + 1, '"');
 				if (endp == NULL)
-					return false;	/* mismatched quotes */
+					return false;	/* 引号不匹配 */
 				if (endp[1] != '"')
-					break;		/* found end of quoted name */
-				/* Collapse adjacent quotes into one quote, and look again */
+					break;		/* 到达引号名结尾 */
+				/* 把相邻引号折叠成一个引号，再看一遍 */
 				memmove(endp, endp + 1, strlen(endp));
 				nextp = endp;
 			}
-			/* endp now points at the terminating quote */
+			/* endp 现在指向结尾引号 */
 			nextp = endp + 1;
 		}
 		else
 		{
-			/* Unquoted name --- extends to separator or whitespace */
+			/* 不带引号名 —— 延伸到分隔符或空白 */
 			curname = nextp;
 			while (*nextp && *nextp != separator &&
 				   !scanner_isspace(*nextp))
 				nextp++;
 			endp = nextp;
 			if (curname == nextp)
-				return false;	/* empty unquoted name not allowed */
+				return false;	/* 不允许不带引号的空名 */
 		}
 
 		while (scanner_isspace(*nextp))
-			nextp++;			/* skip trailing whitespace */
+			nextp++;			/* 跳过尾部空白 */
 
 		if (*nextp == separator)
 		{
 			nextp++;
 			while (scanner_isspace(*nextp))
-				nextp++;		/* skip leading whitespace for next */
-			/* we expect another name, so done remains false */
+				nextp++;		/* 为下一个跳过前导空白 */
+			/* 期待另一个名字，done 保持 false */
 		}
 		else if (*nextp == '\0')
 			done = true;
 		else
-			return false;		/* invalid syntax */
+			return false;		/* 语法无效 */
 
-		/* Now safe to overwrite separator with a null */
+		/* 现在可安全将分隔符覆写为 null */
 		*endp = '\0';
 
 		/*
-		 * Finished isolating current name --- add it to list
+		 * 当前名字隔离完毕 —— 加入列表
 		 */
 		*namelist = lappend(*namelist, curname);
 
-		/* Loop back if we didn't reach end of string */
+		/* 若未到达串尾则循环回去 */
 	} while (!done);
 
 	return true;
@@ -3780,11 +3780,11 @@ SplitGUCList(char *rawstring, char separator,
 
 
 /*****************************************************************************
- *	Comparison Functions used for bytea
+ *	bytea 用的比较函数
  *
- * Note: btree indexes need these routines not to leak memory; therefore,
- * be careful to free working copies of toasted datums.  Most places don't
- * need to be so careful.
+ * 注意：btree 索引要求这些例程不泄漏内存；因此，
+ * 对 toast 化 datum 的工作副本要小心释放。大多数地方
+ * 不必如此小心。
  *****************************************************************************/
 
 Datum
@@ -3797,8 +3797,8 @@ byteaeq(PG_FUNCTION_ARGS)
 				len2;
 
 	/*
-	 * We can use a fast path for unequal lengths, which might save us from
-	 * having to detoast one or both values.
+	 * 长度不等时可走快速路径，这或许能让我们免于
+	 * 对其中一值或两值去 toast。
 	 */
 	len1 = toast_raw_datum_size(arg1);
 	len2 = toast_raw_datum_size(arg2);
@@ -3829,8 +3829,8 @@ byteane(PG_FUNCTION_ARGS)
 				len2;
 
 	/*
-	 * We can use a fast path for unequal lengths, which might save us from
-	 * having to detoast one or both values.
+	 * 长度不等时可走快速路径，这或许能让我们免于
+	 * 对其中一值或两值去 toast。
 	 */
 	len1 = toast_raw_datum_size(arg1);
 	len2 = toast_raw_datum_size(arg2);
@@ -3961,7 +3961,7 @@ bytea_sortsupport(PG_FUNCTION_ARGS)
 
 	oldcontext = MemoryContextSwitchTo(ssup->ssup_cxt);
 
-	/* Use generic string SortSupport, forcing "C" collation */
+	/* 使用通用串 SortSupport，强制"C"排序规则 */
 	varstr_sortsupport(ssup, BYTEAOID, C_COLLATION_OID);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -3972,8 +3972,8 @@ bytea_sortsupport(PG_FUNCTION_ARGS)
 /*
  * appendStringInfoText
  *
- * Append a text to str.
- * Like appendStringInfoString(str, text_to_cstring(t)) but faster.
+ * text 附到 str。
+ * 同 appendStringInfoString(str, text_to_cstring(t))但更快。
  */
 static void
 appendStringInfoText(StringInfo str, const text *t)
@@ -3983,11 +3983,11 @@ appendStringInfoText(StringInfo str, const text *t)
 
 /*
  * replace_text
- * replace all occurrences of 'old_sub_str' in 'orig_str'
- * with 'new_sub_str' to form 'new_str'
+ * 把 'orig_str' 中所有 'old_sub_str' 换成
+ * 'new_sub_str'，即得 'new_str'
  *
- * returns 'orig_str' if 'old_sub_str' == '' or 'orig_str' == ''
- * otherwise returns 'new_str'
+ * 若 'old_sub_str' == '' 或 'orig_str' == ''，
+ * 否则返回 'new_str'
  */
 Datum
 replace_text(PG_FUNCTION_ARGS)
@@ -4008,7 +4008,7 @@ replace_text(PG_FUNCTION_ARGS)
 	src_text_len = VARSIZE_ANY_EXHDR(src_text);
 	from_sub_text_len = VARSIZE_ANY_EXHDR(from_sub_text);
 
-	/* Return unmodified source string if empty source or pattern */
+	/* 源串或模式为空时返回未修改的源串 */
 	if (src_text_len < 1 || from_sub_text_len < 1)
 	{
 		PG_RETURN_TEXT_P(src_text);
@@ -4018,7 +4018,7 @@ replace_text(PG_FUNCTION_ARGS)
 
 	found = text_position_next(&state);
 
-	/* When the from_sub_text is not found, there is nothing to do. */
+	/* 找不到 from_sub_text 时无事可做。 */
 	if (!found)
 	{
 		text_position_cleanup(&state);
@@ -4033,7 +4033,7 @@ replace_text(PG_FUNCTION_ARGS)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		/* copy the data skipped over by last text_position_next() */
+		/* 复制上次 text_position_next() 跳过的数据 */
 		chunk_len = curr_ptr - start_ptr;
 		appendBinaryStringInfo(&str, start_ptr, chunk_len);
 
@@ -4047,7 +4047,7 @@ replace_text(PG_FUNCTION_ARGS)
 	}
 	while (found);
 
-	/* copy trailing data */
+	/* 复制尾随数据 */
 	chunk_len = ((char *) src_text + VARSIZE_ANY(src_text)) - start_ptr;
 	appendBinaryStringInfo(&str, start_ptr, chunk_len);
 
@@ -4062,9 +4062,9 @@ replace_text(PG_FUNCTION_ARGS)
 /*
  * check_replace_text_has_escape
  *
- * Returns 0 if text contains no backslashes that need processing.
- * Returns 1 if text contains backslashes, but not regexp submatch specifiers.
- * Returns 2 if text contains regexp submatch specifiers (\1 .. \9).
+ * 若文本不含需要处理的反斜杠则返回 0。
+ * 若文本含反斜杠但不含正则子匹配指示符则返回 1。
+ * 若文本含正则子匹配指示符（\1 .. \9）则返回 2。
  */
 static int
 check_replace_text_has_escape(const text *replace_text)
@@ -4075,17 +4075,17 @@ check_replace_text_has_escape(const text *replace_text)
 
 	while (p < p_end)
 	{
-		/* Find next escape char, if any. */
+		/* 找下一个转义字符 */
 		p = memchr(p, '\\', p_end - p);
 		if (p == NULL)
 			break;
 		p++;
-		/* Note: a backslash at the end doesn't require extra processing. */
+		/* 注意：末尾的反斜杠不需要额外处理。 */
 		if (p < p_end)
 		{
 			if (*p >= '1' && *p <= '9')
-				return 2;		/* Found a submatch specifier, so done */
-			result = 1;			/* Found some other sequence, keep looking */
+				return 2;		/* 找到子匹配指示符，完成 */
+			result = 1;			/* 找到其他序列，继续找 */
 			p++;
 		}
 	}
@@ -4095,9 +4095,9 @@ check_replace_text_has_escape(const text *replace_text)
 /*
  * appendStringInfoRegexpSubstr
  *
- * Append replace_text to str, substituting regexp back references for
- * \n escapes.  start_ptr is the start of the match in the source string,
- * at logical character position data_pos.
+ * 把 replace_text 附加到 str，把其中的正则反向引用
+ * 替换为 \n 转义。start_ptr 是源串中匹配的起点，
+ * 在逻辑字符位置 data_pos 处。
  */
 static void
 appendStringInfoRegexpSubstr(StringInfo str, text *replace_text,
@@ -4113,30 +4113,30 @@ appendStringInfoRegexpSubstr(StringInfo str, text *replace_text,
 		int			so;
 		int			eo;
 
-		/* Find next escape char, if any. */
+		/* 找下一个转义字符 */
 		p = memchr(p, '\\', p_end - p);
 		if (p == NULL)
 			p = p_end;
 
-		/* Copy the text we just scanned over, if any. */
+		/* 若有，复制刚扫描过的文本。 */
 		if (p > chunk_start)
 			appendBinaryStringInfo(str, chunk_start, p - chunk_start);
 
-		/* Done if at end of string, else advance over escape char. */
+		/* 到串尾即完成，否则前进越过转义字符。 */
 		if (p >= p_end)
 			break;
 		p++;
 
 		if (p >= p_end)
 		{
-			/* Escape at very end of input.  Treat same as unexpected char */
+			/* 输入最末尾的转义。与意外字符同样处理 */
 			appendStringInfoChar(str, '\\');
 			break;
 		}
 
 		if (*p >= '1' && *p <= '9')
 		{
-			/* Use the back reference of regexp. */
+			/* 使用正则的反向引用。 */
 			int			idx = *p - '0';
 
 			so = pmatch[idx].rm_so;
@@ -4145,14 +4145,14 @@ appendStringInfoRegexpSubstr(StringInfo str, text *replace_text,
 		}
 		else if (*p == '&')
 		{
-			/* Use the entire matched string. */
+			/* 使用整个匹配的串。 */
 			so = pmatch[0].rm_so;
 			eo = pmatch[0].rm_eo;
 			p++;
 		}
 		else if (*p == '\\')
 		{
-			/* \\ means transfer one \ to output. */
+			/* \ 表示向输出传一个 \。 */
 			appendStringInfoChar(str, '\\');
 			p++;
 			continue;
@@ -4160,9 +4160,9 @@ appendStringInfoRegexpSubstr(StringInfo str, text *replace_text,
 		else
 		{
 			/*
-			 * If escape char is not followed by any expected char, just treat
-			 * it as ordinary data to copy.  (XXX would it be better to throw
-			 * an error?)
+			 * 若转义字符后未跟任何期望的字符，就把它当作
+			 * 要复制的普通数据处理。（XXX 抛错是否
+			 * 好？）
 			 */
 			appendStringInfoChar(str, '\\');
 			continue;
@@ -4171,8 +4171,8 @@ appendStringInfoRegexpSubstr(StringInfo str, text *replace_text,
 		if (so >= 0 && eo >= 0)
 		{
 			/*
-			 * Copy the text that is back reference of regexp.  Note so and eo
-			 * are counted in characters not bytes.
+			 * 复制作为正则反向引用的文本。注意 so 与 eo
+			 * 以字符计而非以字节计。
 			 */
 			char	   *chunk_start;
 			int			chunk_len;
@@ -4189,15 +4189,15 @@ appendStringInfoRegexpSubstr(StringInfo str, text *replace_text,
 /*
  * replace_text_regexp
  *
- * replace substring(s) in src_text that match pattern with replace_text.
- * The replace_text can contain backslash markers to substitute
- * (parts of) the matched text.
+ * 把 src_text 中匹配 pattern 的子串替换为 replace_text。
+ * replace_text 可含反斜杠标记，用以代入
+ * （部分）匹配文本。
  *
- * cflags: regexp compile flags.
- * collation: collation to use.
- * search_start: the character (not byte) offset in src_text at which to
- * begin searching.
- * n: if 0, replace all matches; if > 0, replace only the N'th match.
+ * cflags: 正则编译标志。
+ * collation：排序规则。
+ * search_start：src_text 中开始搜索的字符（非字节）
+ * 偏移量。
+ * n：0 时替换所有匹配；>0 时只换第 N 个匹配。
  */
 text *
 replace_text_regexp(text *src_text, text *pattern_text,
@@ -4210,7 +4210,7 @@ replace_text_regexp(text *src_text, text *pattern_text,
 	int			src_text_len = VARSIZE_ANY_EXHDR(src_text);
 	int			nmatches = 0;
 	StringInfoData buf;
-	regmatch_t	pmatch[10];		/* main match, plus \1 to \9 */
+	regmatch_t	pmatch[10];		/* 主匹配与 \1..\9 */
 	int			nmatch = lengthof(pmatch);
 	pg_wchar   *data;
 	size_t		data_len;
@@ -4220,25 +4220,25 @@ replace_text_regexp(text *src_text, text *pattern_text,
 
 	initStringInfo(&buf);
 
-	/* Convert data string to wide characters. */
+	/* 把数据串转换为宽字符。 */
 	data = (pg_wchar *) palloc((src_text_len + 1) * sizeof(pg_wchar));
 	data_len = pg_mb2wchar_with_len(VARDATA_ANY(src_text), data, src_text_len);
 
-	/* Check whether replace_text has escapes, especially regexp submatches. */
+	/* 检查 replace_text 是否有转义，尤其正则子匹配。 */
 	escape_status = check_replace_text_has_escape(replace_text);
 
-	/* If no regexp submatches, we can use REG_NOSUB. */
+	/* 无正则子匹配时可用 REG_NOSUB。 */
 	if (escape_status < 2)
 	{
 		cflags |= REG_NOSUB;
-		/* Also tell pg_regexec we only want the whole-match location. */
+		/* 并告知 pg_regexec 只需整个匹配的位置。 */
 		nmatch = 1;
 	}
 
-	/* Prepare the regexp. */
+	/* 准备正则。 */
 	re = RE_compile_and_cache(pattern_text, cflags, collation);
 
-	/* start_ptr points to the data_pos'th character of src_text */
+	/* start_ptr 指向 src_text 的第 data_pos 个字符 */
 	start_ptr = (char *) VARDATA_ANY(src_text);
 	data_pos = 0;
 
@@ -4252,7 +4252,7 @@ replace_text_regexp(text *src_text, text *pattern_text,
 									data,
 									data_len,
 									search_start,
-									NULL,	/* no details */
+									NULL,	/* 无细节 */
 									nmatch,
 									pmatch,
 									0);
@@ -4271,15 +4271,15 @@ replace_text_regexp(text *src_text, text *pattern_text,
 		}
 
 		/*
-		 * Count matches, and decide whether to replace this match.
+		 * 统计匹配次数，并决定是否替换此匹配。
 		 */
 		nmatches++;
 		if (n > 0 && nmatches != n)
 		{
 			/*
-			 * No, so advance search_start, but not start_ptr/data_pos. (Thus,
-			 * we treat the matched text as if it weren't matched, and copy it
-			 * to the output later.)
+			 * 否，那么推进 search_start，但不推进 start_ptr/
+			 * data_pos。（于是我们视被匹配文本为未匹配，
+			 * 稍后再复制。）
 			 */
 			search_start = pmatch[0].rm_eo;
 			if (pmatch[0].rm_so == pmatch[0].rm_eo)
@@ -4288,8 +4288,8 @@ replace_text_regexp(text *src_text, text *pattern_text,
 		}
 
 		/*
-		 * Copy the text to the left of the match position.  Note we are given
-		 * character not byte indexes.
+		 * 复制匹配位置左侧的文本。注意给出的索引是
+		 * 字符而非字节索引。
 		 */
 		if (pmatch[0].rm_so - data_pos > 0)
 		{
@@ -4300,15 +4300,15 @@ replace_text_regexp(text *src_text, text *pattern_text,
 			appendBinaryStringInfo(&buf, start_ptr, chunk_len);
 
 			/*
-			 * Advance start_ptr over that text, to avoid multiple rescans of
-			 * it if the replace_text contains multiple back-references.
+			 * 把 start_ptr 前移越过那段文本，以免在 replace_
+			 * text 含多个反向引用时重复重扫它。
 			 */
 			start_ptr += chunk_len;
 			data_pos = pmatch[0].rm_so;
 		}
 
 		/*
-		 * Copy the replace_text, processing escapes if any are present.
+		 * 复制 replace_text，若其中含转义则进行处理。
 		 */
 		if (escape_status > 0)
 			appendStringInfoRegexpSubstr(&buf, replace_text, pmatch,
@@ -4316,22 +4316,22 @@ replace_text_regexp(text *src_text, text *pattern_text,
 		else
 			appendStringInfoText(&buf, replace_text);
 
-		/* Advance start_ptr and data_pos over the matched text. */
+		/* 前移 start_ptr 与 data_pos 越过匹配文本。 */
 		start_ptr += charlen_to_bytelen(start_ptr,
 										pmatch[0].rm_eo - data_pos);
 		data_pos = pmatch[0].rm_eo;
 
 		/*
-		 * If we only want to replace one occurrence, we're done.
+		 * 若只想替换一次出现，就完成了。
 		 */
 		if (n > 0)
 			break;
 
 		/*
-		 * Advance search position.  Normally we start the next search at the
-		 * end of the previous match; but if the match was of zero length, we
-		 * have to advance by one character, or we'd just find the same match
-		 * again.
+		 * 推进搜索位置。通常下一次搜索从上一个匹配的
+		 * 结尾开始；但如果匹配长度为零，就必须前进一个
+		 * 字符，否则只会再次找到同一个匹配。
+		 *
 		 */
 		search_start = data_pos;
 		if (pmatch[0].rm_so == pmatch[0].rm_eo)
@@ -4339,7 +4339,7 @@ replace_text_regexp(text *src_text, text *pattern_text,
 	}
 
 	/*
-	 * Copy the text to the right of the last match.
+	 * 复制上一个匹配右侧的文本。
 	 */
 	if (data_pos < data_len)
 	{
@@ -4358,8 +4358,8 @@ replace_text_regexp(text *src_text, text *pattern_text,
 
 /*
  * split_part
- * parse input string based on provided field separator
- * return N'th item (1 based, negative counts from end)
+ * 按给定的字段分隔符解析输入串
+ * 返回第 N 项（1 起算，负数从尾计数）
  */
 Datum
 split_part(PG_FUNCTION_ARGS)
@@ -4375,7 +4375,7 @@ split_part(PG_FUNCTION_ARGS)
 	text	   *result_text;
 	bool		found;
 
-	/* field number is 1 based */
+	/* 字段号 1 起算 */
 	if (fldnum == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -4384,30 +4384,30 @@ split_part(PG_FUNCTION_ARGS)
 	inputstring_len = VARSIZE_ANY_EXHDR(inputstring);
 	fldsep_len = VARSIZE_ANY_EXHDR(fldsep);
 
-	/* return empty string for empty input string */
+	/* 输入串为空时返回空串 */
 	if (inputstring_len < 1)
 		PG_RETURN_TEXT_P(cstring_to_text(""));
 
-	/* handle empty field separator */
+	/* 处理空字段分隔符 */
 	if (fldsep_len < 1)
 	{
-		/* if first or last field, return input string, else empty string */
+		/* 首末字段返回输入串，其余返回空串 */
 		if (fldnum == 1 || fldnum == -1)
 			PG_RETURN_TEXT_P(inputstring);
 		else
 			PG_RETURN_TEXT_P(cstring_to_text(""));
 	}
 
-	/* find the first field separator */
+	/* 找第一个字段分隔符 */
 	text_position_setup(inputstring, fldsep, PG_GET_COLLATION(), &state);
 
 	found = text_position_next(&state);
 
-	/* special case if fldsep not found at all */
+	/* 完全找不到 fldsep 的特例 */
 	if (!found)
 	{
 		text_position_cleanup(&state);
-		/* if first or last field, return input string, else empty string */
+		/* 首末字段返回输入串，其余返回空串 */
 		if (fldnum == 1 || fldnum == -1)
 			PG_RETURN_TEXT_P(inputstring);
 		else
@@ -4415,18 +4415,18 @@ split_part(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * take care of a negative field number (i.e. count from the right) by
-	 * converting to a positive field number; we need total number of fields
+	 * 把负字段号（即从右往左数）转为正字段号来
+	 * 处理；我们需要字段总数
 	 */
 	if (fldnum < 0)
 	{
-		/* we found a fldsep, so there are at least two fields */
+		/* 找到了 fldsep，至少有两个字段 */
 		int			numfields = 2;
 
 		while (text_position_next(&state))
 			numfields++;
 
-		/* special case of last field does not require an extra pass */
+		/* 最后一个字段的特例无须额外一遍扫描 */
 		if (fldnum == -1)
 		{
 			start_ptr = text_position_get_match_ptr(&state) + fldsep_len;
@@ -4436,29 +4436,29 @@ split_part(PG_FUNCTION_ARGS)
 													  end_ptr - start_ptr));
 		}
 
-		/* else, convert fldnum to positive notation */
+		/* 否则把 fldnum 转为正数记法 */
 		fldnum += numfields + 1;
 
-		/* if nonexistent field, return empty string */
+		/* 若字段不存在，返回空串 */
 		if (fldnum <= 0)
 		{
 			text_position_cleanup(&state);
 			PG_RETURN_TEXT_P(cstring_to_text(""));
 		}
 
-		/* reset to pointing at first match, but now with positive fldnum */
+		/* 重置为指向第一个匹配处，但现在 fldnum 为正 */
 		text_position_reset(&state);
 		found = text_position_next(&state);
 		Assert(found);
 	}
 
-	/* identify bounds of first field */
+	/* 确定首个字段边界 */
 	start_ptr = VARDATA_ANY(inputstring);
 	end_ptr = text_position_get_match_ptr(&state);
 
 	while (found && --fldnum > 0)
 	{
-		/* identify bounds of next field */
+		/* 确定下一字段边界 */
 		start_ptr = end_ptr + fldsep_len;
 		found = text_position_next(&state);
 		if (found)
@@ -4469,8 +4469,8 @@ split_part(PG_FUNCTION_ARGS)
 
 	if (fldnum > 0)
 	{
-		/* N'th field separator not found */
-		/* if last field requested, return it, else empty string */
+		/* 第 N 个分隔符未找到 */
+		/* 若请求最后字段则返回它，否则空串 */
 		if (fldnum == 1)
 		{
 			int			last_len = start_ptr - VARDATA_ANY(inputstring);
@@ -4483,7 +4483,7 @@ split_part(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* non-last field requested */
+		/* 请求非最后字段 */
 		result_text = cstring_to_text_with_len(start_ptr, end_ptr - start_ptr);
 	}
 
@@ -4491,7 +4491,7 @@ split_part(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convenience function to return true when two text params are equal.
+ * 当两个 text 参数相等时返回 true 的便利函数。
  */
 static bool
 text_isequal(text *txt1, text *txt2, Oid collid)
@@ -4504,15 +4504,15 @@ text_isequal(text *txt1, text *txt2, Oid collid)
 
 /*
  * text_to_array
- * parse input string and return text array of elements,
- * based on provided field separator
+ * 解析输入串并返回 text 元素数组，
+ * 基于给定的字段分隔符
  */
 Datum
 text_to_array(PG_FUNCTION_ARGS)
 {
 	SplitTextOutputData tstate;
 
-	/* For array output, tstate should start as all zeroes */
+	/* 对数组输出，tstate 开始时应全为零 */
 	memset(&tstate, 0, sizeof(tstate));
 
 	if (!split_text(fcinfo, &tstate))
@@ -4527,11 +4527,11 @@ text_to_array(PG_FUNCTION_ARGS)
 
 /*
  * text_to_array_null
- * parse input string and return text array of elements,
- * based on provided field separator and null string
+ * 解析输入串并返回 text 元素数组，
+ * 基于给定的字段分隔符与 null 串
  *
- * This is a separate entry point only to prevent the regression tests from
- * complaining about different argument sets for the same internal function.
+ * 设置单独入口只是为了防止回归测试抱怨同一个内部
+ * 函数有不同的参数集合。
  */
 Datum
 text_to_array_null(PG_FUNCTION_ARGS)
@@ -4541,8 +4541,8 @@ text_to_array_null(PG_FUNCTION_ARGS)
 
 /*
  * text_to_table
- * parse input string and return table of elements,
- * based on provided field separator
+ * 解析输入串并返回元素组成的表，
+ * 基于给定的字段分隔符
  */
 Datum
 text_to_table(PG_FUNCTION_ARGS)
@@ -4562,11 +4562,11 @@ text_to_table(PG_FUNCTION_ARGS)
 
 /*
  * text_to_table_null
- * parse input string and return table of elements,
- * based on provided field separator and null string
+ * 解析输入串并返回元素组成的表，
+ * 基于给定的字段分隔符与 null 串
  *
- * This is a separate entry point only to prevent the regression tests from
- * complaining about different argument sets for the same internal function.
+ * 设置单独入口只是为了防止回归测试抱怨同一个内部
+ * 函数有不同的参数集合。
  */
 Datum
 text_to_table_null(PG_FUNCTION_ARGS)
@@ -4575,14 +4575,14 @@ text_to_table_null(PG_FUNCTION_ARGS)
 }
 
 /*
- * Common code for text_to_array, text_to_array_null, text_to_table
- * and text_to_table_null functions.
+ * text_to_array、text_to_array_null、text_to_table 与
+ * text_to_table_null 公共代码
  *
- * These are not strict so we have to test for null inputs explicitly.
- * Returns false if result is to be null, else returns true.
+ * 这些函数非 strict，必须显式测试 null 输入。
+ * 结果应为 null 则返回 false，否则 true。
  *
- * Note that if the result is valid but empty (zero elements), we return
- * without changing *tstate --- caller must handle that case, too.
+ * 注意若结果合法但为空（零个元素），我们不改动
+ * *tstate 就返回 —— 调用者也必须处理该情形。
  */
 static bool
 split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
@@ -4596,19 +4596,19 @@ split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
 	char	   *start_ptr;
 	text	   *result_text;
 
-	/* when input string is NULL, then result is NULL too */
+	/* 输入串为 NULL 时结果也为 NULL */
 	if (PG_ARGISNULL(0))
 		return false;
 
 	inputstring = PG_GETARG_TEXT_PP(0);
 
-	/* fldsep can be NULL */
+	/* fldsep 可为 NULL */
 	if (!PG_ARGISNULL(1))
 		fldsep = PG_GETARG_TEXT_PP(1);
 	else
 		fldsep = NULL;
 
-	/* null_string can be NULL or omitted */
+	/* null_string 可为 NULL/省略 */
 	if (PG_NARGS() > 2 && !PG_ARGISNULL(2))
 		null_string = PG_GETARG_TEXT_PP(2);
 	else
@@ -4617,19 +4617,19 @@ split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
 	if (fldsep != NULL)
 	{
 		/*
-		 * Normal case with non-null fldsep.  Use the text_position machinery
-		 * to search for occurrences of fldsep.
+		 * 有非 null fldsep 的正常情形。用 text_position 机制
+		 * 搜索 fldsep 的出现位置。
 		 */
 		TextPositionState state;
 
 		inputstring_len = VARSIZE_ANY_EXHDR(inputstring);
 		fldsep_len = VARSIZE_ANY_EXHDR(fldsep);
 
-		/* return empty set for empty input string */
+		/* 输入串为空时返回空集合 */
 		if (inputstring_len < 1)
 			return true;
 
-		/* empty field separator: return input string as a one-element set */
+		/* 空字段分隔符：把输入串作为单元素集合返回 */
 		if (fldsep_len < 1)
 		{
 			split_text_accum_result(tstate, inputstring,
@@ -4652,21 +4652,21 @@ split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
 			found = text_position_next(&state);
 			if (!found)
 			{
-				/* fetch last field */
+				/* 取最后字段 */
 				chunk_len = ((char *) inputstring + VARSIZE_ANY(inputstring)) - start_ptr;
-				end_ptr = NULL; /* not used, but some compilers complain */
+				end_ptr = NULL; /* 不使用，但有些编译器抱怨 */
 			}
 			else
 			{
-				/* fetch non-last field */
+				/* 取非最后字段 */
 				end_ptr = text_position_get_match_ptr(&state);
 				chunk_len = end_ptr - start_ptr;
 			}
 
-			/* build a temp text datum to pass to split_text_accum_result */
+			/* 构建临时 text datum 传给 split_text_accum_result */
 			result_text = cstring_to_text_with_len(start_ptr, chunk_len);
 
-			/* stash away this field */
+			/* 暂存此字段 */
 			split_text_accum_result(tstate, result_text,
 									null_string, collation);
 
@@ -4683,9 +4683,9 @@ split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
 	else
 	{
 		/*
-		 * When fldsep is NULL, each character in the input string becomes a
-		 * separate element in the result set.  The separator is effectively
-		 * the space between characters.
+		 * fldsep 为 NULL 时，输入串的每个字符都成为结果
+		 * 集合中的一个元素。分隔符实际上是字符之间的
+		 * 空隙。
 		 */
 		inputstring_len = VARSIZE_ANY_EXHDR(inputstring);
 
@@ -4697,10 +4697,10 @@ split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
 
 			CHECK_FOR_INTERRUPTS();
 
-			/* build a temp text datum to pass to split_text_accum_result */
+			/* 构建临时 text datum 传给 split_text_accum_result */
 			result_text = cstring_to_text_with_len(start_ptr, chunk_len);
 
-			/* stash away this field */
+			/* 暂存此字段 */
 			split_text_accum_result(tstate, result_text,
 									null_string, collation);
 
@@ -4715,10 +4715,10 @@ split_text(FunctionCallInfo fcinfo, SplitTextOutputData *tstate)
 }
 
 /*
- * Add text item to result set (table or array).
+ * text 项加入结果集（表/数组）。
  *
- * This is also responsible for checking to see if the item matches
- * the null_string, in which case we should emit NULL instead.
+ * 还负责检查此项是否与 null_string 匹配，若是则
+ * 应改为发出 NULL。
  */
 static void
 split_text_accum_result(SplitTextOutputData *tstate,
@@ -4756,8 +4756,8 @@ split_text_accum_result(SplitTextOutputData *tstate,
 
 /*
  * array_to_text
- * concatenate Cstring representation of input array elements
- * using provided field separator
+ * 用给定的字段分隔符拼接输入数组元素的
+ * Cstring 表示
  */
 Datum
 array_to_text(PG_FUNCTION_ARGS)
@@ -4770,10 +4770,10 @@ array_to_text(PG_FUNCTION_ARGS)
 
 /*
  * array_to_text_null
- * concatenate Cstring representation of input array elements
- * using provided field separator and null string
+ * 用给定的字段分隔符拼接输入数组元素的
+ * Cstring 表示（另给 null 串）
  *
- * This version is not strict so we have to test for null inputs explicitly.
+ * 此版本不是 strict 的，所以必须显式测试 null 输入。
  */
 Datum
 array_to_text_null(PG_FUNCTION_ARGS)
@@ -4782,14 +4782,14 @@ array_to_text_null(PG_FUNCTION_ARGS)
 	char	   *fldsep;
 	char	   *null_string;
 
-	/* returns NULL when first or second parameter is NULL */
+	/* 第一或第二参数为 NULL 时返回 NULL */
 	if (PG_ARGISNULL(0) || PG_ARGISNULL(1))
 		PG_RETURN_NULL();
 
 	v = PG_GETARG_ARRAYTYPE_P(0);
 	fldsep = text_to_cstring(PG_GETARG_TEXT_PP(1));
 
-	/* NULL null string is passed through as a null pointer */
+	/* null 串为 NULL 时按空指针透传 */
 	if (!PG_ARGISNULL(2))
 		null_string = text_to_cstring(PG_GETARG_TEXT_PP(2));
 	else
@@ -4799,7 +4799,7 @@ array_to_text_null(PG_FUNCTION_ARGS)
 }
 
 /*
- * common code for array_to_text and array_to_text_null functions
+ * array_to_text 与 array_to_text_null 函数的公共代码
  */
 static text *
 array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
@@ -4825,7 +4825,7 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 	dims = ARR_DIMS(v);
 	nitems = ArrayGetNItems(ndims, dims);
 
-	/* if there are no elements, return an empty string */
+	/* 若无元素，返回空串 */
 	if (nitems == 0)
 		return cstring_to_text_with_len("", 0);
 
@@ -4833,9 +4833,9 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 	initStringInfo(&buf);
 
 	/*
-	 * We arrange to look up info about element type, including its output
-	 * conversion proc, only once per series of calls, assuming the element
-	 * type doesn't change underneath us.
+	 * 我们安排每系列调用只查找一次元素类型的信息，
+	 * 包括其输出转换过程，前提是元素类型没有在我们
+	 * 底下发生变化。
 	 */
 	my_extra = (ArrayMetaState *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL)
@@ -4849,7 +4849,7 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 	if (my_extra->element_type != element_type)
 	{
 		/*
-		 * Get info about element type, including its output conversion proc
+		 * 取得元素类型的信息，包括其输出转换过程
 		 */
 		get_type_io_data(element_type, IOFunc_output,
 						 &my_extra->typlen, &my_extra->typbyval,
@@ -4872,10 +4872,10 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 		Datum		itemvalue;
 		char	   *value;
 
-		/* Get source element, checking for NULL */
+		/* 取源元素，检查 NULL */
 		if (bitmap && (*bitmap & bitmask) == 0)
 		{
-			/* if null_string is NULL, we just ignore null elements */
+			/* 若 null_string 为 NULL，直接忽略 null 元素 */
 			if (null_string != NULL)
 			{
 				if (printed)
@@ -4901,7 +4901,7 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 			p = (char *) att_align_nominal(p, typalign);
 		}
 
-		/* advance bitmap pointer if any */
+		/* 若有则前移位图指针 */
 		if (bitmap)
 		{
 			bitmask <<= 1;
@@ -4921,8 +4921,8 @@ array_to_text_internal(FunctionCallInfo fcinfo, ArrayType *v,
 
 #define HEXBASE 16
 /*
- * Convert an int32 to a string containing a base 16 (hex) representation of
- * the number.
+ * 把 int32 转换为包含该数十六进制（base 16）表示
+ * 的串。
  */
 Datum
 to_hex32(PG_FUNCTION_ARGS)
@@ -4930,7 +4930,7 @@ to_hex32(PG_FUNCTION_ARGS)
 	uint32		value = (uint32) PG_GETARG_INT32(0);
 	char	   *ptr;
 	const char *digits = "0123456789abcdef";
-	char		buf[32];		/* bigger than needed, but reasonable */
+	char		buf[32];		/* 比所需大，但属合理 */
 
 	ptr = buf + sizeof(buf) - 1;
 	*ptr = '\0';
@@ -4945,8 +4945,8 @@ to_hex32(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert an int64 to a string containing a base 16 (hex) representation of
- * the number.
+ * 把 int64 转换为包含该数十六进制（base 16）表示
+ * 的串。
  */
 Datum
 to_hex64(PG_FUNCTION_ARGS)
@@ -4954,7 +4954,7 @@ to_hex64(PG_FUNCTION_ARGS)
 	uint64		value = (uint64) PG_GETARG_INT64(0);
 	char	   *ptr;
 	const char *digits = "0123456789abcdef";
-	char		buf[32];		/* bigger than needed, but reasonable */
+	char		buf[32];		/* 比所需大，但属合理 */
 
 	ptr = buf + sizeof(buf) - 1;
 	*ptr = '\0';
@@ -4969,9 +4969,9 @@ to_hex64(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return the size of a datum, possibly compressed
+ * 返回 datum 的大小，可能已压缩
  *
- * Works on any data type
+ * 适用任意类型
  */
 Datum
 pg_column_size(PG_FUNCTION_ARGS)
@@ -4980,14 +4980,14 @@ pg_column_size(PG_FUNCTION_ARGS)
 	int32		result;
 	int			typlen;
 
-	/* On first call, get the input type's typlen, and save at *fn_extra */
+	/* 首次调用时取输入类型的 typlen，并保存在 *fn_extra */
 	if (fcinfo->flinfo->fn_extra == NULL)
 	{
-		/* Lookup the datatype of the supplied argument */
+		/* 查找所提供参数的数据类型 */
 		Oid			argtypeid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 
 		typlen = get_typlen(argtypeid);
-		if (typlen == 0)		/* should not happen */
+		if (typlen == 0)		/* 不应发生 */
 			elog(ERROR, "cache lookup failed for type %u", argtypeid);
 
 		fcinfo->flinfo->fn_extra = MemoryContextAlloc(fcinfo->flinfo->fn_mcxt,
@@ -4999,7 +4999,7 @@ pg_column_size(PG_FUNCTION_ARGS)
 
 	if (typlen == -1)
 	{
-		/* varlena type, possibly toasted */
+		/* varlena 型，可能已 toast */
 		result = toast_datum_size(value);
 	}
 	else if (typlen == -2)
@@ -5009,7 +5009,7 @@ pg_column_size(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* ordinary fixed-width type */
+		/* 普通定长类型 */
 		result = typlen;
 	}
 
@@ -5017,8 +5017,8 @@ pg_column_size(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return the compression method stored in the compressed attribute.  Return
- * NULL for non varlena type or uncompressed data.
+ * 返回压缩属性中存储的压缩方法。非 varlena 类型或
+ * 未压缩数据则返回 NULL。
  */
 Datum
 pg_column_compression(PG_FUNCTION_ARGS)
@@ -5027,14 +5027,14 @@ pg_column_compression(PG_FUNCTION_ARGS)
 	char	   *result;
 	ToastCompressionId cmid;
 
-	/* On first call, get the input type's typlen, and save at *fn_extra */
+	/* 首次调用时取输入类型的 typlen，并保存在 *fn_extra */
 	if (fcinfo->flinfo->fn_extra == NULL)
 	{
-		/* Lookup the datatype of the supplied argument */
+		/* 查找所提供参数的数据类型 */
 		Oid			argtypeid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 
 		typlen = get_typlen(argtypeid);
-		if (typlen == 0)		/* should not happen */
+		if (typlen == 0)		/* 不应发生 */
 			elog(ERROR, "cache lookup failed for type %u", argtypeid);
 
 		fcinfo->flinfo->fn_extra = MemoryContextAlloc(fcinfo->flinfo->fn_mcxt,
@@ -5047,13 +5047,13 @@ pg_column_compression(PG_FUNCTION_ARGS)
 	if (typlen != -1)
 		PG_RETURN_NULL();
 
-	/* get the compression method id stored in the compressed varlena */
+	/* 取压缩 varlena 中存储的压缩方法 id */
 	cmid = toast_get_compression_id((struct varlena *)
 									DatumGetPointer(PG_GETARG_DATUM(0)));
 	if (cmid == TOAST_INVALID_COMPRESSION_ID)
 		PG_RETURN_NULL();
 
-	/* convert compression method id to compression method name */
+	/* 把压缩方法 id 转换为压缩方法名 */
 	switch (cmid)
 	{
 		case TOAST_PGLZ_COMPRESSION_ID:
@@ -5070,16 +5070,16 @@ pg_column_compression(PG_FUNCTION_ARGS)
 }
 
 /*
- * string_agg - Concatenates values and returns string.
+ * string_agg - 拼接各值并返回字符串。
  *
- * Syntax: string_agg(value text, delimiter text) RETURNS text
+ * 语法: string_agg(value text, delimiter text) RETURNS text
  *
- * Note: Any NULL values are ignored. The first-call delimiter isn't
- * actually used at all, and on subsequent calls the delimiter precedes
- * the associated value.
+ * 注意：NULL 值会被忽略。首次调用的分隔符其实并
+ * 完全未被用到；后续调用中分隔符在相关值之前。
+ *
  */
 
-/* subroutine to initialize state */
+/* 初始化状态的子例程 */
 static StringInfo
 makeStringAggState(FunctionCallInfo fcinfo)
 {
@@ -5089,13 +5089,13 @@ makeStringAggState(FunctionCallInfo fcinfo)
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 由于有 internal 类型参数，无法直接调用 */
 		elog(ERROR, "string_agg_transfn called in non-aggregate context");
 	}
 
 	/*
-	 * Create state in aggregate context.  It'll stay there across subsequent
-	 * calls.
+	 * 在聚合上下文中创建状态。它会在后续调用间留在那
+	 * 里。
 	 */
 	oldcontext = MemoryContextSwitchTo(aggcontext);
 	state = makeStringInfo();
@@ -5111,22 +5111,22 @@ string_agg_transfn(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
-	/* Append the value unless null, preceding it with the delimiter. */
+	/* 非 null 时附加该值，前置分隔符。 */
 	if (!PG_ARGISNULL(1))
 	{
 		text	   *value = PG_GETARG_TEXT_PP(1);
 		bool		isfirst = false;
 
 		/*
-		 * You might think we can just throw away the first delimiter, however
-		 * we must keep it as we may be a parallel worker doing partial
-		 * aggregation building a state to send to the main process.  We need
-		 * to keep the delimiter of every aggregation so that the combine
-		 * function can properly join up the strings of two separately
-		 * partially aggregated results.  The first delimiter is only stripped
-		 * off in the final function.  To know how much to strip off the front
-		 * of the string, we store the length of the first delimiter in the
-		 * StringInfo's cursor field, which we don't otherwise need here.
+		 * 你可能认为可以径直丢弃第一个分隔符，然而
+		 * 必须保留它：我们可能是并行 worker，
+		 * 正在做部分聚合并构建要发给主进程的状态。每个
+		 * 聚合的分隔符都要保留，让 combine 函数能正确
+		 * 拼接两个分别部分聚合的串。
+		 * 第一个分隔符只在最终函数中被剥离。要知道应从
+		 * 串首剥掉多少，我们把第一个分隔符的长度存进
+		 * StringInfo 的 cursor 字段，此处无其他用途。
+		 *
 		 */
 		if (state == NULL)
 		{
@@ -5147,8 +5147,8 @@ string_agg_transfn(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
-	 * which is a pass-by-value type the same size as a pointer.
+	 * string_agg() 的转换类型被声明为 "internal"，
+	 * 这是一个与指针同尺寸的按值传递类型。
 	 */
 	if (state)
 		PG_RETURN_POINTER(state);
@@ -5157,7 +5157,7 @@ string_agg_transfn(PG_FUNCTION_ARGS)
 
 /*
  * string_agg_combine
- *		Aggregate combine function for string_agg(text) and string_agg(bytea)
+ *		string_agg(text) 与 string_agg(bytea) 的聚合组合函数
  */
 Datum
 string_agg_combine(PG_FUNCTION_ARGS)
@@ -5175,8 +5175,8 @@ string_agg_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 	{
 		/*
-		 * NULL state2 is easy, just return state1, which we know is already
-		 * in the agg_context
+		 * state2 为 NULL 时很简单，直接返回 state1，它已知
+		 * 位于 agg_context
 		 */
 		if (state1 == NULL)
 			PG_RETURN_NULL();
@@ -5185,7 +5185,7 @@ string_agg_combine(PG_FUNCTION_ARGS)
 
 	if (state1 == NULL)
 	{
-		/* We must copy state2's data into the agg_context */
+		/* 必须把 state2 的数据复制进 agg_context */
 		MemoryContext old_context;
 
 		old_context = MemoryContextSwitchTo(agg_context);
@@ -5196,7 +5196,7 @@ string_agg_combine(PG_FUNCTION_ARGS)
 	}
 	else if (state2->len > 0)
 	{
-		/* Combine ... state1->cursor does not change in this case */
+		/* 组合……此情形中 state1->cursor 不变 */
 		appendBinaryStringInfo(state1, state2->data, state2->len);
 	}
 
@@ -5205,9 +5205,9 @@ string_agg_combine(PG_FUNCTION_ARGS)
 
 /*
  * string_agg_serialize
- *		Aggregate serialize function for string_agg(text) and string_agg(bytea)
+ *		string_agg(text) 与 string_agg(bytea) 的聚合序列化函数
  *
- * This is strict, so we need not handle NULL input
+ * 这是 strict 的，无须处理 NULL 输入
  */
 Datum
 string_agg_serialize(PG_FUNCTION_ARGS)
@@ -5216,14 +5216,14 @@ string_agg_serialize(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 	bytea	   *result;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 由于有 internal 类型参数，无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = (StringInfo) PG_GETARG_POINTER(0);
 
 	pq_begintypsend(&buf);
 
-	/* cursor */
+	/* 游标 */
 	pq_sendint(&buf, state->cursor, 4);
 
 	/* data */
@@ -5236,9 +5236,9 @@ string_agg_serialize(PG_FUNCTION_ARGS)
 
 /*
  * string_agg_deserialize
- *		Aggregate deserial function for string_agg(text) and string_agg(bytea)
+ *		string_agg(text) 与 string_agg(bytea) 的聚合反序列化函数
  *
- * This is strict, so we need not handle NULL input
+ * 这是 strict 的，无须处理 NULL 输入
  */
 Datum
 string_agg_deserialize(PG_FUNCTION_ARGS)
@@ -5249,14 +5249,14 @@ string_agg_deserialize(PG_FUNCTION_ARGS)
 	char	   *data;
 	int			datalen;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 由于有 internal 类型参数，无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	sstate = PG_GETARG_BYTEA_PP(0);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 复制进 StringInfo，以便我们能用标准的 recv
+	 * 函数基础设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -5264,7 +5264,7 @@ string_agg_deserialize(PG_FUNCTION_ARGS)
 
 	result = makeStringAggState(fcinfo);
 
-	/* cursor */
+	/* 游标 */
 	result->cursor = pq_getmsgint(&buf, 4);
 
 	/* data */
@@ -5283,14 +5283,14 @@ string_agg_finalfn(PG_FUNCTION_ARGS)
 {
 	StringInfo	state;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 由于有 internal 类型参数，无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	if (state != NULL)
 	{
-		/* As per comment in transfn, strip data before the cursor position */
+		/* 按 transfn 注释所述，剥离 cursor 位置前的数据 */
 		PG_RETURN_TEXT_P(cstring_to_text_with_len(&state->data[state->cursor],
 												  state->len - state->cursor));
 	}
@@ -5299,10 +5299,10 @@ string_agg_finalfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Prepare cache with fmgr info for the output functions of the datatypes of
- * the arguments of a concat-like function, beginning with argument "argidx".
- * (Arguments before that will have corresponding slots in the resulting
- * FmgrInfo array, but we don't fill those slots.)
+ * 为 concat 类函数参数的数据类型的输出函数准备
+ * fmgr 信息缓存，从参数 "argidx" 开始。
+ * （之前的参数在结果 FmgrInfo 数组中会有对应槽位，
+ * 但我们不填这些槽位。）
  */
 static FmgrInfo *
 build_concat_foutcache(FunctionCallInfo fcinfo, int argidx)
@@ -5310,7 +5310,7 @@ build_concat_foutcache(FunctionCallInfo fcinfo, int argidx)
 	FmgrInfo   *foutcache;
 	int			i;
 
-	/* We keep the info in fn_mcxt so it survives across calls */
+	/* 我们把信息保存在 fn_mcxt 中以跨调用存活 */
 	foutcache = (FmgrInfo *) MemoryContextAlloc(fcinfo->flinfo->fn_mcxt,
 												PG_NARGS() * sizeof(FmgrInfo));
 
@@ -5334,13 +5334,13 @@ build_concat_foutcache(FunctionCallInfo fcinfo, int argidx)
 }
 
 /*
- * Implementation of both concat() and concat_ws().
+ * concat() 与 concat_ws() 两者的实现。
  *
- * sepstr is the separator string to place between values.
- * argidx identifies the first argument to concatenate (counting from zero);
- * note that this must be constant across any one series of calls.
+ * sepstr 是放在各值之间的分隔串。
+ * argidx 标识第一个要拼接的参数（从零计数）；
+ * 注意在任一调用系列中它必须是常量。
  *
- * Returns NULL if result should be NULL, else text value.
+ * 结果应为 NULL 时返回 NULL，否则 text 值。
  */
 static text *
 concat_internal(const char *sepstr, int argidx,
@@ -5353,44 +5353,44 @@ concat_internal(const char *sepstr, int argidx,
 	int			i;
 
 	/*
-	 * concat(VARIADIC some-array) is essentially equivalent to
-	 * array_to_text(), ie concat the array elements with the given separator.
-	 * So we just pass the case off to that code.
+	 * concat(VARIADIC some-array) 本质上等同于
+	 * array_to_text()，即用给定分隔符拼接数组元素。
+	 * 所以我们直接把此情形交给它。
 	 */
 	if (get_fn_expr_variadic(fcinfo->flinfo))
 	{
 		ArrayType  *arr;
 
-		/* Should have just the one argument */
+		/* 应当只有这一个参数 */
 		Assert(argidx == PG_NARGS() - 1);
 
-		/* concat(VARIADIC NULL) is defined as NULL */
+		/* concat(VARIADIC NULL) 定义为 NULL */
 		if (PG_ARGISNULL(argidx))
 			return NULL;
 
 		/*
-		 * Non-null argument had better be an array.  We assume that any call
-		 * context that could let get_fn_expr_variadic return true will have
-		 * checked that a VARIADIC-labeled parameter actually is an array.  So
-		 * it should be okay to just Assert that it's an array rather than
-		 * doing a full-fledged error check.
+		 * 非 null 参数必须是数组。我们假定任何能让
+		 * get_fn_expr_variadic 返回 true 的调用上下文都已
+		 * 检查过带 VARIADIC 标记的参数确实是数组。因此
+		 * 直接断言它是数组而不做完整错误检查应当
+		 * 可以的。
 		 */
 		Assert(OidIsValid(get_base_element_type(get_fn_expr_argtype(fcinfo->flinfo, argidx))));
 
-		/* OK, safe to fetch the array value */
+		/* 好，可以安全取数组值了 */
 		arr = PG_GETARG_ARRAYTYPE_P(argidx);
 
 		/*
-		 * And serialize the array.  We tell array_to_text to ignore null
-		 * elements, which matches the behavior of the loop below.
+		 * 然后序列化数组。让 array_to_text 忽略 null
+		 * 元素，与下方循环行为一致。
 		 */
 		return array_to_text_internal(fcinfo, arr, sepstr, NULL);
 	}
 
-	/* Normal case without explicit VARIADIC marker */
+	/* 无显式 VARIADIC 标记的正常情形 */
 	initStringInfo(&str);
 
-	/* Get output function info, building it if first time through */
+	/* 取输出函数信息，首次经过时构建 */
 	foutcache = (FmgrInfo *) fcinfo->flinfo->fn_extra;
 	if (foutcache == NULL)
 		foutcache = build_concat_foutcache(fcinfo, argidx);
@@ -5401,13 +5401,13 @@ concat_internal(const char *sepstr, int argidx,
 		{
 			Datum		value = PG_GETARG_DATUM(i);
 
-			/* add separator if appropriate */
+			/* 若合适则加分隔符 */
 			if (first_arg)
 				first_arg = false;
 			else
 				appendStringInfoString(&str, sepstr);
 
-			/* call the appropriate type output function, append the result */
+			/* 调用相应类型的输出函数，附加结果 */
 			appendStringInfoString(&str,
 								   OutputFunctionCall(&foutcache[i], value));
 		}
@@ -5420,7 +5420,7 @@ concat_internal(const char *sepstr, int argidx,
 }
 
 /*
- * Concatenate all arguments. NULL arguments are ignored.
+ * 拼接所有参数。NULL 参数被忽略。
  */
 Datum
 text_concat(PG_FUNCTION_ARGS)
@@ -5434,8 +5434,8 @@ text_concat(PG_FUNCTION_ARGS)
 }
 
 /*
- * Concatenate all but first argument value with separators. The first
- * parameter is used as the separator. NULL arguments are ignored.
+ * 用分隔符拼接除第一个之外的所有参数值。第一个
+ * 参数被用作分隔符。NULL 参数被忽略。
  */
 Datum
 text_concat_ws(PG_FUNCTION_ARGS)
@@ -5443,7 +5443,7 @@ text_concat_ws(PG_FUNCTION_ARGS)
 	char	   *sep;
 	text	   *result;
 
-	/* return NULL when separator is NULL */
+	/* 分隔符为 NULL 时返回 NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 	sep = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -5455,8 +5455,8 @@ text_concat_ws(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return first n characters in the string. When n is negative,
- * return all but last |n| characters.
+ * 返回串中前 n 个字符。n 为负时，返回除最后
+ * |n| 个字符以外的字符。
  */
 Datum
 text_left(PG_FUNCTION_ARGS)
@@ -5479,8 +5479,8 @@ text_left(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return last n characters in the string. When n is negative,
- * return all but first |n| characters.
+ * 返回串中后 n 个字符。n 为负时，返回除最前
+ * |n| 个字符以外的字符。
  */
 Datum
 text_right(PG_FUNCTION_ARGS)
@@ -5501,7 +5501,7 @@ text_right(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return reversed string
+ * 返回反转的串
  */
 Datum
 text_reverse(PG_FUNCTION_ARGS)
@@ -5519,7 +5519,7 @@ text_reverse(PG_FUNCTION_ARGS)
 
 	if (pg_database_encoding_max_length() > 1)
 	{
-		/* multibyte version */
+		/* 多字节版本 */
 		while (p < endp)
 		{
 			int			sz;
@@ -5532,7 +5532,7 @@ text_reverse(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* single byte version */
+		/* 单字节版本 */
 		while (p < endp)
 			*(--dst) = *p++;
 	}
@@ -5542,9 +5542,9 @@ text_reverse(PG_FUNCTION_ARGS)
 
 
 /*
- * Support macros for text_format()
+ * text_format() 的支持宏
  */
-#define TEXT_FORMAT_FLAG_MINUS	0x0001	/* is minus flag present? */
+#define TEXT_FORMAT_FLAG_MINUS	0x0001	/* 是否有减号标志? */
 
 #define ADVANCE_PARSE_POINTER(ptr,end_ptr) \
 	do { \
@@ -5556,7 +5556,7 @@ text_reverse(PG_FUNCTION_ARGS)
 	} while (0)
 
 /*
- * Returns a formatted string
+ * 返回格式化后的串
  */
 Datum
 text_format(PG_FUNCTION_ARGS)
@@ -5578,11 +5578,11 @@ text_format(PG_FUNCTION_ARGS)
 	FmgrInfo	typoutputfinfo;
 	FmgrInfo	typoutputinfo_width;
 
-	/* When format string is null, immediately return null */
+	/* 格式串为 null 时立即返回 null */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
-	/* If argument is marked VARIADIC, expand array into elements */
+	/* 若参数标记为 VARIADIC，把数组展开为元素 */
 	if (get_fn_expr_variadic(fcinfo->flinfo))
 	{
 		ArrayType  *arr;
@@ -5591,32 +5591,32 @@ text_format(PG_FUNCTION_ARGS)
 		char		elmalign;
 		int			nitems;
 
-		/* Should have just the one argument */
+		/* 应当只有这一个参数 */
 		Assert(PG_NARGS() == 2);
 
-		/* If argument is NULL, we treat it as zero-length array */
+		/* 若参数为 NULL，视作零长度数组 */
 		if (PG_ARGISNULL(1))
 			nitems = 0;
 		else
 		{
 			/*
-			 * Non-null argument had better be an array.  We assume that any
-			 * call context that could let get_fn_expr_variadic return true
-			 * will have checked that a VARIADIC-labeled parameter actually is
-			 * an array.  So it should be okay to just Assert that it's an
-			 * array rather than doing a full-fledged error check.
+			 * 非 null 参数必须是数组。我们假定任何能让
+			 * get_fn_expr_variadic 返回 true 的调用上下文都已
+			 * 检查过带 VARIADIC 标记的参数确实是数组。因此
+			 * 直接断言它是数组而不做完整错误检查应当
+			 * 可以的。
 			 */
 			Assert(OidIsValid(get_base_element_type(get_fn_expr_argtype(fcinfo->flinfo, 1))));
 
-			/* OK, safe to fetch the array value */
+			/* 好，可以安全取数组值了 */
 			arr = PG_GETARG_ARRAYTYPE_P(1);
 
-			/* Get info about array element type */
+			/* 取数组元素类型的信息 */
 			element_type = ARR_ELEMTYPE(arr);
 			get_typlenbyvalalign(element_type,
 								 &elmlen, &elmbyval, &elmalign);
 
-			/* Extract all array elements */
+			/* 提取所有数组元素 */
 			deconstruct_array(arr, element_type, elmlen, elmbyval, elmalign,
 							  &elements, &nulls, &nitems);
 		}
@@ -5626,19 +5626,19 @@ text_format(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Non-variadic case, we'll process the arguments individually */
+		/* 非 VARIADIC 情形：我们将逐个处理参数 */
 		nargs = PG_NARGS();
 		funcvariadic = false;
 	}
 
-	/* Setup for main loop. */
+	/* 主循环准备。 */
 	fmt = PG_GETARG_TEXT_PP(0);
 	start_ptr = VARDATA_ANY(fmt);
 	end_ptr = start_ptr + VARSIZE_ANY_EXHDR(fmt);
 	initStringInfo(&str);
-	arg = 1;					/* next argument position to print */
+	arg = 1;					/* 下个要打印的参数位置 */
 
-	/* Scan format string, looking for conversion specifiers. */
+	/* 扫描格式串，寻找转换指示符。 */
 	for (cp = start_ptr; cp < end_ptr; cp++)
 	{
 		int			argpos;
@@ -5650,8 +5650,8 @@ text_format(PG_FUNCTION_ARGS)
 		Oid			typid;
 
 		/*
-		 * If it's not the start of a conversion specifier, just copy it to
-		 * the output buffer.
+		 * 若不是转换指示符的开头，直接把它复制到输出
+		 * 缓冲区。
 		 */
 		if (*cp != '%')
 		{
@@ -5661,25 +5661,25 @@ text_format(PG_FUNCTION_ARGS)
 
 		ADVANCE_PARSE_POINTER(cp, end_ptr);
 
-		/* Easy case: %% outputs a single % */
+		/* 简单情形：%% 输出单个 % */
 		if (*cp == '%')
 		{
 			appendStringInfoCharMacro(&str, *cp);
 			continue;
 		}
 
-		/* Parse the optional portions of the format specifier */
+		/* 解析格式指示符的可选部分 */
 		cp = text_format_parse_format(cp, end_ptr,
 									  &argpos, &widthpos,
 									  &flags, &width);
 
 		/*
-		 * Next we should see the main conversion specifier.  Whether or not
-		 * an argument position was present, it's known that at least one
-		 * character remains in the string at this point.  Experience suggests
-		 * that it's worth checking that that character is one of the expected
-		 * ones before we try to fetch arguments, so as to produce the least
-		 * confusing response to a mis-formatted specifier.
+		 * 接下来应看到主转换指示符。无论参数位置是否
+		 * 出现过，此刻串中至少还剩一个字符。经验
+		 * 表明值得先检查该字符是否为预期字符之一，再
+		 * 去取参数，以便对格式错误的指示符给出最不令
+		 * 人困惑的响应。
+		 *
 		 */
 		if (strchr("sIL", *cp) == NULL)
 			ereport(ERROR,
@@ -5688,10 +5688,10 @@ text_format(PG_FUNCTION_ARGS)
 							pg_mblen(cp), cp),
 					 errhint("For a single \"%%\" use \"%%%%\".")));
 
-		/* If indirect width was specified, get its value */
+		/* 若指定了间接宽度，取其值 */
 		if (widthpos >= 0)
 		{
-			/* Collect the specified or next argument position */
+			/* 收集指定或下一个参数位置 */
 			if (widthpos > 0)
 				arg = widthpos;
 			if (arg >= nargs)
@@ -5699,7 +5699,7 @@ text_format(PG_FUNCTION_ARGS)
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("too few arguments for format()")));
 
-			/* Get the value and type of the selected argument */
+			/* 取所选参数的值和类型 */
 			if (!funcvariadic)
 			{
 				value = PG_GETARG_DATUM(arg);
@@ -5717,7 +5717,7 @@ text_format(PG_FUNCTION_ARGS)
 
 			arg++;
 
-			/* We can treat NULL width the same as zero */
+			/* NULL 宽度可当作零处理 */
 			if (isNull)
 				width = 0;
 			else if (typid == INT4OID)
@@ -5726,7 +5726,7 @@ text_format(PG_FUNCTION_ARGS)
 				width = DatumGetInt16(value);
 			else
 			{
-				/* For less-usual datatypes, convert to text then to int */
+				/* 较不常用类型：先转 text 再转 int */
 				char	   *str;
 
 				if (typid != prev_width_type)
@@ -5741,14 +5741,14 @@ text_format(PG_FUNCTION_ARGS)
 
 				str = OutputFunctionCall(&typoutputinfo_width, value);
 
-				/* pg_strtoint32 will complain about bad data or overflow */
+				/* 数据坏或溢出时 pg_strtoint32 会抱怨 */
 				width = pg_strtoint32(str);
 
 				pfree(str);
 			}
 		}
 
-		/* Collect the specified or next argument position */
+		/* 收集指定或下一个参数位置 */
 		if (argpos > 0)
 			arg = argpos;
 		if (arg >= nargs)
@@ -5756,7 +5756,7 @@ text_format(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("too few arguments for format()")));
 
-		/* Get the value and type of the selected argument */
+		/* 取所选参数的值和类型 */
 		if (!funcvariadic)
 		{
 			value = PG_GETARG_DATUM(arg);
@@ -5775,9 +5775,9 @@ text_format(PG_FUNCTION_ARGS)
 		arg++;
 
 		/*
-		 * Get the appropriate typOutput function, reusing previous one if
-		 * same type as previous argument.  That's particularly useful in the
-		 * variadic-array case, but often saves work even for ordinary calls.
+		 * 取 typOutput 函数，与前一个参数同类型时
+		 * 则重用上一个。这在变长数组情形下特别有用，但
+		 * 对普通调用也常能省事。
 		 */
 		if (typid != prev_type)
 		{
@@ -5790,7 +5790,7 @@ text_format(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * And now we can format the value.
+		 * 现在可格式化该值了。
 		 */
 		switch (*cp)
 		{
@@ -5802,7 +5802,7 @@ text_format(PG_FUNCTION_ARGS)
 											  flags, width);
 				break;
 			default:
-				/* should not get here, because of previous check */
+				/* 不应到达此处：前面已检查过 */
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("unrecognized format() type specifier \"%.*s\"",
@@ -5812,13 +5812,13 @@ text_format(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Don't need deconstruct_array results anymore. */
+	/* 不再需要 deconstruct_array 的结果。 */
 	if (elements != NULL)
 		pfree(elements);
 	if (nulls != NULL)
 		pfree(nulls);
 
-	/* Generate results. */
+	/* 生成结果。 */
 	result = cstring_to_text_with_len(str.data, str.len);
 	pfree(str.data);
 
@@ -5826,14 +5826,14 @@ text_format(PG_FUNCTION_ARGS)
 }
 
 /*
- * Parse contiguous digits as a decimal number.
+ * 把连续数字解析为十进制数。
  *
- * Returns true if some digits could be parsed.
- * The value is returned into *value, and *ptr is advanced to the next
- * character to be parsed.
+ * 若能解析出一些数字则返回 true。
+ * 值返回到 *value 中，*ptr 前进到下一个要解析的
+ * 字符处。
  *
- * Note parsing invariant: at least one character is known available before
- * string end (end_ptr) at entry, and this is still true at exit.
+ * 注意解析不变式：入口处已知串尾（end_ptr）之前
+ * 至少有一个字符可用，出口处仍然如此。
  */
 static bool
 text_format_parse_digits(const char **ptr, const char *end_ptr, int *value)
@@ -5862,27 +5862,27 @@ text_format_parse_digits(const char **ptr, const char *end_ptr, int *value)
 }
 
 /*
- * Parse a format specifier (generally following the SUS printf spec).
+ * 解析格式指示符（大体遵循 SUS printf 规范）。
  *
- * We have already advanced over the initial '%', and we are looking for
- * [argpos][flags][width]type (but the type character is not consumed here).
+ * 我们已经越过开头的 '%'，正在寻找
+ * [argpos][flags][width]type（但类型字符不在此处消费）。
  *
- * Inputs are start_ptr (the position after '%') and end_ptr (string end + 1).
- * Output parameters:
- *	argpos: argument position for value to be printed.  -1 means unspecified.
- *	widthpos: argument position for width.  Zero means the argument position
- *			was unspecified (ie, take the next arg) and -1 means no width
- *			argument (width was omitted or specified as a constant).
- *	flags: bitmask of flags.
- *	width: directly-specified width value.  Zero means the width was omitted
- *			(note it's not necessary to distinguish this case from an explicit
- *			zero width value).
+ * 输入为 start_ptr（'%' 之后）与 end_ptr（串尾+1）。
+ * 输出参数：
+ *	argpos：要打印的值的参数位置。-1 表示未指定。
+ *	widthpos：宽度的参数位置。零表示参数位置
+ *			未指定（即取下一个参数），-1 表示没有宽度
+ *			参数（宽度被省略或指定为常量）。
+ *	flags: 标志位掩码
+ *	width：直接指定的宽度值。零表示宽度被省略
+ *			（无须把这个情形与显式的零宽度值区分开）。
  *
- * The function result is the next character position to be parsed, ie, the
- * location where the type character is/should be.
  *
- * Note parsing invariant: at least one character is known available before
- * string end (end_ptr) at entry, and this is still true at exit.
+ * 函数结果是要解析的下一个字符位置，即类型字符
+ * 所在/应在的位置。
+ *
+ * 注意解析不变式：入口处已知串尾（end_ptr）之前
+ * 至少有一个字符可用，出口处仍然如此。
  */
 static const char *
 text_format_parse_format(const char *start_ptr, const char *end_ptr,
@@ -5892,24 +5892,24 @@ text_format_parse_format(const char *start_ptr, const char *end_ptr,
 	const char *cp = start_ptr;
 	int			n;
 
-	/* set defaults for output parameters */
+	/* 为输出参数设置默认值 */
 	*argpos = -1;
 	*widthpos = -1;
 	*flags = 0;
 	*width = 0;
 
-	/* try to identify first number */
+	/* 尝试识别第一个数字 */
 	if (text_format_parse_digits(&cp, end_ptr, &n))
 	{
 		if (*cp != '$')
 		{
-			/* Must be just a width and a type, so we're done */
+			/* 必然只是宽度和类型，于是完成 */
 			*width = n;
 			return cp;
 		}
-		/* The number was argument position */
+		/* 该数字是参数位置 */
 		*argpos = n;
-		/* Explicit 0 for argument index is immediately refused */
+		/* 参数索引显式为 0 立即拒绝 */
 		if (n == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -5917,7 +5917,7 @@ text_format_parse_format(const char *start_ptr, const char *end_ptr,
 		ADVANCE_PARSE_POINTER(cp, end_ptr);
 	}
 
-	/* Handle flags (only minus is supported now) */
+	/* 处理标志（现在只支持减号） */
 	while (*cp == '-')
 	{
 		*flags |= TEXT_FORMAT_FLAG_MINUS;
@@ -5926,18 +5926,18 @@ text_format_parse_format(const char *start_ptr, const char *end_ptr,
 
 	if (*cp == '*')
 	{
-		/* Handle indirect width */
+		/* 处理间接宽度 */
 		ADVANCE_PARSE_POINTER(cp, end_ptr);
 		if (text_format_parse_digits(&cp, end_ptr, &n))
 		{
-			/* number in this position must be closed by $ */
+			/* 此位置的数字必须以 $ 结尾 */
 			if (*cp != '$')
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("width argument position must be ended by \"$\"")));
-			/* The number was width argument position */
+			/* 该数字是宽度的参数位置 */
 			*widthpos = n;
-			/* Explicit 0 for argument index is immediately refused */
+			/* 参数索引显式为 0 立即拒绝 */
 			if (n == 0)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -5945,21 +5945,21 @@ text_format_parse_format(const char *start_ptr, const char *end_ptr,
 			ADVANCE_PARSE_POINTER(cp, end_ptr);
 		}
 		else
-			*widthpos = 0;		/* width's argument position is unspecified */
+			*widthpos = 0;		/* 宽度的参数位置未指定 */
 	}
 	else
 	{
-		/* Check for direct width specification */
+		/* 检查直接宽度指定 */
 		if (text_format_parse_digits(&cp, end_ptr, &n))
 			*width = n;
 	}
 
-	/* cp should now be pointing at type character */
+	/* cp 现在应指向类型字符 */
 	return cp;
 }
 
 /*
- * Format a %s, %I, or %L conversion
+ * 格式化 %s、%I 或 %L 转换
  */
 static void
 text_format_string_conversion(StringInfo buf, char conversion,
@@ -5969,7 +5969,7 @@ text_format_string_conversion(StringInfo buf, char conversion,
 {
 	char	   *str;
 
-	/* Handle NULL arguments before trying to stringify the value. */
+	/* 在尝试把值串化之前先处理 NULL 参数。 */
 	if (isNull)
 	{
 		if (conversion == 's')
@@ -5983,13 +5983,13 @@ text_format_string_conversion(StringInfo buf, char conversion,
 		return;
 	}
 
-	/* Stringify. */
+	/* 串化。 */
 	str = OutputFunctionCall(typOutputInfo, value);
 
-	/* Escape. */
+	/* 转义 */
 	if (conversion == 'I')
 	{
-		/* quote_identifier may or may not allocate a new string. */
+		/* quote_identifier 或分配或不分配新串。 */
 		text_format_append_string(buf, quote_identifier(str), flags, width);
 	}
 	else if (conversion == 'L')
@@ -5997,18 +5997,18 @@ text_format_string_conversion(StringInfo buf, char conversion,
 		char	   *qstr = quote_literal_cstr(str);
 
 		text_format_append_string(buf, qstr, flags, width);
-		/* quote_literal_cstr() always allocates a new string */
+		/* quote_literal_cstr() 总是分配新串 */
 		pfree(qstr);
 	}
 	else
 		text_format_append_string(buf, str, flags, width);
 
-	/* Cleanup. */
+	/* 清理 */
 	pfree(str);
 }
 
 /*
- * Append str to buf, padding as directed by flags/width
+ * 把 str 附加到 buf，按 flags/width 指示填充
  */
 static void
 text_format_append_string(StringInfo buf, const char *str,
@@ -6017,7 +6017,7 @@ text_format_append_string(StringInfo buf, const char *str,
 	bool		align_to_left = false;
 	int			len;
 
-	/* fast path for typical easy case */
+	/* 常见易例的快路径 */
 	if (width == 0)
 	{
 		appendStringInfoString(buf, str);
@@ -6026,9 +6026,9 @@ text_format_append_string(StringInfo buf, const char *str,
 
 	if (width < 0)
 	{
-		/* Negative width: implicit '-' flag, then take absolute value */
+		/* 负宽度：隐含 '-' 标志，然后取绝对值 */
 		align_to_left = true;
-		/* -INT_MIN is undefined */
+		/* -INT_MIN 未定义 */
 		if (width <= INT_MIN)
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -6041,14 +6041,14 @@ text_format_append_string(StringInfo buf, const char *str,
 	len = pg_mbstrlen(str);
 	if (align_to_left)
 	{
-		/* left justify */
+		/* 左对齐 */
 		appendStringInfoString(buf, str);
 		if (len < width)
 			appendStringInfoSpaces(buf, width - len);
 	}
 	else
 	{
-		/* right justify */
+		/* 右对齐 */
 		if (len < width)
 			appendStringInfoSpaces(buf, width - len);
 		appendStringInfoString(buf, str);
@@ -6056,11 +6056,11 @@ text_format_append_string(StringInfo buf, const char *str,
 }
 
 /*
- * text_format_nv - nonvariadic wrapper for text_format function.
+ * text_format_nv - text_format 函数的非变长包装。
  *
- * note: this wrapper is necessary to pass the sanity check in opr_sanity,
- * which checks that all built-in functions that share the implementing C
- * function take the same number of arguments.
+ * 注意：opr_sanity 的健全性检查要求共享同一实现 C
+ * 函数的内建函数接受相同数量的参数，所以需要此
+ * 包装。
  */
 Datum
 text_format_nv(PG_FUNCTION_ARGS)
@@ -6069,8 +6069,8 @@ text_format_nv(PG_FUNCTION_ARGS)
 }
 
 /*
- * Helper function for Levenshtein distance functions. Faster than memcmp(),
- * for this use case.
+ * Levenshtein 距离函数的辅助函数。在此用例中比
+ * memcmp() 更快。
  */
 static inline bool
 rest_of_char_same(const char *s1, const char *s2, int len)
@@ -6084,17 +6084,17 @@ rest_of_char_same(const char *s1, const char *s2, int len)
 	return true;
 }
 
-/* Expand each Levenshtein distance variant */
+/* 展开每个 Levenshtein 距离变体 */
 #include "levenshtein.c"
 #define LEVENSHTEIN_LESS_EQUAL
 #include "levenshtein.c"
 
 
 /*
- * The following *ClosestMatch() functions can be used to determine whether a
- * user-provided string resembles any known valid values, which is useful for
- * providing hints in log messages, among other things.  Use these functions
- * like so:
+ * 下面的 *ClosestMatch() 函数可用来判断用户提供的串
+ * 是否与任何已知合法值相似，这在为日志消息提供
+ * 提示等方面很有用。这些函数的用法如下：
+ *
  *
  *		initClosestMatch(&state, source_string, max_distance);
  *
@@ -6105,8 +6105,8 @@ rest_of_char_same(const char *s1, const char *s2, int len)
  */
 
 /*
- * Initialize the given state with the source string and maximum Levenshtein
- * distance to consider.
+ * 用源串和要考虑的最大 Levenshtein 距离初始化给定
+ * 的状态。
  */
 void
 initClosestMatch(ClosestMatchState *state, const char *source, int max_d)
@@ -6121,12 +6121,12 @@ initClosestMatch(ClosestMatchState *state, const char *source, int max_d)
 }
 
 /*
- * If the candidate string is a closer match than the current one saved (or
- * there is no match saved), save it as the closest match.
+ * 若候选串比当前保存的匹配更近（或尚无保存的匹
+ * 配），则将其保存为最接近的匹配。
  *
- * If the source or candidate string is NULL, empty, or too long, this function
- * takes no action.  Likewise, if the Levenshtein distance exceeds the maximum
- * allowed or more than half the characters are different, no action is taken.
+ * 若源串或候选串为 NULL、为空或过长，此函数不做
+ * 任何动作。同样，若 Levenshtein 距离超过允许的
+ * 最大值，或超过半数字符不同，则也不采取动作。
  */
 void
 updateClosestMatch(ClosestMatchState *state, const char *candidate)
@@ -6140,8 +6140,8 @@ updateClosestMatch(ClosestMatchState *state, const char *candidate)
 		return;
 
 	/*
-	 * To avoid ERROR-ing, we check the lengths here instead of setting
-	 * 'trusted' to false in the call to varstr_levenshtein_less_equal().
+	 * 为避免报 ERROR，我们在这里检查长度，而不是在
+	 * 调用 varstr_levenshtein_less_equal() 时设 false。
 	 */
 	if (strlen(state->source) > MAX_LEVENSHTEIN_STRLEN ||
 		strlen(candidate) > MAX_LEVENSHTEIN_STRLEN)
@@ -6160,8 +6160,8 @@ updateClosestMatch(ClosestMatchState *state, const char *candidate)
 }
 
 /*
- * Return the closest match.  If no suitable candidates were provided via
- * updateClosestMatch(), return NULL.
+ * 返回最接近的匹配。若未通过 updateClosestMatch()
+ * 提供候选，则返回 NULL。
  */
 const char *
 getClosestMatch(ClosestMatchState *state)
@@ -6173,7 +6173,7 @@ getClosestMatch(ClosestMatchState *state)
 
 
 /*
- * Unicode support
+ * Unicode 支持
  */
 
 static UnicodeNormalizationForm
@@ -6182,7 +6182,7 @@ unicode_norm_form_from_string(const char *formstr)
 	UnicodeNormalizationForm form = -1;
 
 	/*
-	 * Might as well check this while we're here.
+	 * 既然在此，不妨顺便检查。
 	 */
 	if (GetDatabaseEncoding() != PG_UTF8)
 		ereport(ERROR,
@@ -6220,7 +6220,7 @@ unicode_normalize_func(PG_FUNCTION_ARGS)
 
 	form = unicode_norm_form_from_string(formstr);
 
-	/* convert to pg_wchar */
+	/* 转换为 pg_wchar */
 	size = pg_mbstrlen_with_len(VARDATA_ANY(input), VARSIZE_ANY_EXHDR(input));
 	input_chars = palloc((size + 1) * sizeof(pg_wchar));
 	p = (unsigned char *) VARDATA_ANY(input);
@@ -6232,10 +6232,10 @@ unicode_normalize_func(PG_FUNCTION_ARGS)
 	input_chars[i] = (pg_wchar) '\0';
 	Assert((char *) p == VARDATA_ANY(input) + VARSIZE_ANY_EXHDR(input));
 
-	/* action */
+	/* 动作 */
 	output_chars = unicode_normalize(form, input_chars);
 
-	/* convert back to UTF-8 string */
+	/* 转换回 UTF-8 串 */
 	size = 0;
 	for (pg_wchar *wp = output_chars; *wp; wp++)
 	{
@@ -6260,16 +6260,16 @@ unicode_normalize_func(PG_FUNCTION_ARGS)
 }
 
 /*
- * Check whether the string is in the specified Unicode normalization form.
+ * 检查串是否处于指定的 Unicode 规范化形式。
  *
- * This is done by converting the string to the specified normal form and then
- * comparing that to the original string.  To speed that up, we also apply the
- * "quick check" algorithm specified in UAX #15, which can give a yes or no
- * answer for many strings by just scanning the string once.
+ * 做法是把串转换为指定的规范形式，然后与原串比
+ * 较。为提速，我们还应用 UAX #15 规定的"快速检查"
+ * 算法，它只扫一遍串就能对许多串给出是或否的
+ * 答案。
  *
- * This function should generally be optimized for the case where the string
- * is in fact normalized.  In that case, we'll end up looking at the entire
- * string, so it's probably not worth doing any incremental conversion etc.
+ * 此函数通常应针对串确实已规范化的情形优化。在
+ * 那种情况下我们将查看整个串，所以进行任何增量
+ * 转换等操作可能都不值得。
  */
 Datum
 unicode_is_normalized(PG_FUNCTION_ARGS)
@@ -6288,7 +6288,7 @@ unicode_is_normalized(PG_FUNCTION_ARGS)
 
 	form = unicode_norm_form_from_string(formstr);
 
-	/* convert to pg_wchar */
+	/* 转换为 pg_wchar */
 	size = pg_mbstrlen_with_len(VARDATA_ANY(input), VARSIZE_ANY_EXHDR(input));
 	input_chars = palloc((size + 1) * sizeof(pg_wchar));
 	p = (unsigned char *) VARDATA_ANY(input);
@@ -6300,14 +6300,14 @@ unicode_is_normalized(PG_FUNCTION_ARGS)
 	input_chars[i] = (pg_wchar) '\0';
 	Assert((char *) p == VARDATA_ANY(input) + VARSIZE_ANY_EXHDR(input));
 
-	/* quick check (see UAX #15) */
+	/* 快速检查（UAX #15） */
 	quickcheck = unicode_is_normalized_quickcheck(form, input_chars);
 	if (quickcheck == UNICODE_NORM_QC_YES)
 		PG_RETURN_BOOL(true);
 	else if (quickcheck == UNICODE_NORM_QC_NO)
 		PG_RETURN_BOOL(false);
 
-	/* normalize and compare with original */
+	/* 规范化并与原串比较 */
 	output_chars = unicode_normalize(form, input_chars);
 
 	output_size = 0;
@@ -6321,7 +6321,7 @@ unicode_is_normalized(PG_FUNCTION_ARGS)
 }
 
 /*
- * Check if first n chars are hexadecimal digits
+ * 检查前 n 字符是否十六进制数
  */
 static bool
 isxdigits_n(const char *instr, size_t n)
@@ -6343,11 +6343,11 @@ hexval(unsigned char c)
 	if (c >= 'A' && c <= 'F')
 		return c - 'A' + 0xA;
 	elog(ERROR, "invalid hexadecimal digit");
-	return 0;					/* not reached */
+	return 0;					/* 不可达 */
 }
 
 /*
- * Translate string with hexadecimal digits to number
+ * 把含十六进制数字的串转换为数字
  */
 static unsigned int
 hexval_n(const char *instr, size_t n)
@@ -6361,7 +6361,7 @@ hexval_n(const char *instr, size_t n)
 }
 
 /*
- * Replaces Unicode escape sequences by Unicode characters
+ * 把 Unicode 转义序列替换为 Unicode 字符
  */
 Datum
 unistr(PG_FUNCTION_ARGS)
@@ -6515,7 +6515,7 @@ unistr(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* unfinished surrogate pair? */
+	/* 未完成的代理对? */
 	if (pair_first)
 		goto invalid_pair;
 
@@ -6528,5 +6528,5 @@ invalid_pair:
 	ereport(ERROR,
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("invalid Unicode surrogate pair")));
-	PG_RETURN_NULL();			/* keep compiler quiet */
+	PG_RETURN_NULL();			/* 让编译器安静 */
 }

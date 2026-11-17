@@ -7306,6 +7306,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0422-adt-jsonfuncs.json",
    "kind": "manifest",
    "note": "batch-0422 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/timestamp.c",
+   "kind": "c_comment",
+   "note": "时间/时间戳/interval 域函数库(I/O 系/scale 系/make 系/justify 系/bin_trunc 系/isoweek 系/part 系/zone 系/generate_series 系); whole-file comment translation, batch-0423"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0423-adt-timestamp.json",
+   "kind": "manifest",
+   "note": "batch-0423 manifest"
   }
  ],
  "files": [
@@ -23693,6 +23703,29 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0422 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/timestamp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 364,
+   "translated": 299,
+   "preserved": 65,
+   "preserved_reasons": [
+    "58 个单行标签块: /* ok */ ×2 (L259/L815 预算不足), /* full zone name */ (L528 预算不足), 返回值枚举标签 ×15 (L1195-1226 SECOND/MINUTE/HOUR/DAY/MONTH/YEAR), 内联 /* SECOND */ (L1291), SQL 字段范围标签 ×7 (L1397/L1421/L1428/L1436/L1444/L1451/L1458), /* dt2time() */ (L1815), /* SetEpochTimestamp() */ (L2116), FALL THRU ×27 (L4122-4157×9/L4329-4369×9/L4485-4511×9), SECOND=0..YEAR=5 映射 (L1189), 三情形清单 (L2604), epoch 公式 ×2 (L4989/L5260), /* timestamp_izone() */ (L5612)",
+    "7 个公式块 (4 行/块): L4852/L4863/L5138/L5149/L5364/L5375/L5450 算式推导记法 (tm->tm_sec * 1000 + fsec / 1000 型与 result = secs_from_day_month 型, 代码保留)"
+   ],
+   "note": "timestamp.c whole-file comment translation, batch-0423 (364 块, zh 558 行 + 保留 156 行, 审后 R4-R5 清偿 2D/3N)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0423-adt-timestamp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0423 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

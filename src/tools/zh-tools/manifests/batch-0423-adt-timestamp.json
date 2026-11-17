@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0423",
+ "title": "adt 目录 timestamp.c 整文件注释翻译 364 块 557/6015 行 — batch 0423",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "abeb832748404713d68ac34c656ecb6f78407768",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/timestamp.c",
+   "kind": "c_comment",
+   "note": "时间/时间戳/interval 域函数库(I/O 系/scale 系/make 系/justify 系/bin_trunc 系/isoweek 系/part 系/zone 系/generate_series 系); whole-file comment translation, batch-0423"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0423-adt-timestamp.json",
+   "kind": "manifest",
+   "note": "batch-0423 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0423 entries (timestamp.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/timestamp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 364,
+   "translated": 299,
+   "preserved": 65,
+   "preserved_reasons": [
+    "56 个单行标签块: /* ok */ ×2 (L259/L815 预算不足), /* full zone name */ (L528 预算不足), 返回值枚举标签 ×15 (L1195-1226 SECOND/MINUTE/HOUR/DAY/MONTH/YEAR), 内联 /* SECOND */ (L1291), SQL 字段范围标签 ×7 (L1397/L1421/L1428/L1436/L1444/L1451/L1458), /* dt2time() */ (L1815), /* SetEpochTimestamp() */ (L2116), FALL THRU ×27 (L4122-4157×9/L4329-4369×9/L4485-4511×9), epoch 公式 ×2 (L4989/L5260), /* timestamp_izone() */ (L5612)；变更块内联保留行（非 preserved 块）另含 L1189 SECOND=0..YEAR=5 映射行, 见 note",
+    "7 个公式块 (4 行/块): L4852/L4863/L5138/L5149/L5364/L5375/L5450 算式推导记法 (tm->tm_sec * 1000 + fsec / 1000 型与 result = secs_from_day_month 型, 代码保留)"
+   ],
+   "note": "timestamp.c 时间/时间戳/interval 域函数库 (I/O 系/timestamp_scale 系/make_timestamp 系/interval typmod 系/GetCurrentTimestamp/TimestampDifference 系/timestamp2tm 系/关系算子/interval 哈希/OVERLAPS/算术算子/justify 系/pl_interval 系/in_range 系/accum_avg/age 系/bin_trunc 系/isoweek 系/part 系/zone 系/generate_series 系); whole-file comment translation, batch-0423; 权威 universe: 注释感知状态机扫描 364 块全含内容, content 行 714, verify block_comments=364 changed=299 两方一致; content 行 714 = zh 558 (551 逐行 spec + L140/L2058 两横幅块, 译文行 L141/L2059) + 裸星 5 (L2509/L3374/L3751/L3869/L5444, EN 尾短语被上行吸收, 0365 R6 判例) + 保留 EN 156 (归类见 preserved_reasons 与下述; 审后 N2 将 L2604 三情形行由保留转翻译, zh「ts1 > ts2、ts1 < ts2、ts1 = ts2」37B/42B); 行级: 头部 5 保留 (L3 文件名/L6-7 版权/L10 IDENTIFICATION/L11 路径) 而头部功能描述行 L4 已译 (jsonfuncs.c/datetime.c 同款); 裸函数名 banner 56 + 伪 SQL relop banner 2 (L2122/L2388, postinit.c/0372 判例); FALL THRU 27 站 (mbutils.c 既译先例); 返回值枚举标签 15 (SECOND/MINUTE/HOUR/DAY/MONTH/YEAR, dt.h 宏名) + 内联 /* SECOND */ 1 (L1291) + SQL 字段范围标签 7 (YEAR TO MONTH 型) + SECOND=0..YEAR=5 映射行 L1189 保留 (变更块内联保留行); psql 会话示例 14 (L2717-2735 回归测试会话, 0421 记法样例同类); 算式推导 20 (tm_sec*1000 型 12 + result=secs 型 2 + abs 公式 2 + 世纪公式 2 + epoch 公式 2); URL 2 (pgsql-general 邮件列表) + 作者署名 1 (karel 2000/08/07) + Returns: 1 + /* ok */ 2 + /* full zone name */ 1 (23B 预算放不下 27B 译文); 157 行逐行语义已译? 判别: 全部为标识符/记法/公式/标签/样例, 无散文语义残留桩行 (0407 半 EN 债形态零出现); preserved 口径: preserved=65 块与 verify 未变块数一致 (translated 299+preserved 65=364), 65 块全为单行标签/公式块 (58 个 1 行 + 7 个 4 行公式块), 清单 @259/@528/@815/@1195-1226×15/@1291/@1397-1458×7/@1815/@2116/@4122-4157×9/@4329-4369×9/@4485-4511×9/@4852/@4863/@4989/@5138/@5149/@5260/@5364/@5375/@5450/@5612; 行数守恒 6015 不变 (numstat 558/558); 代码零改动 (verify rc=0 skeleton 相等, splices=2 既有); NUL 扫描 0; 尾注释/行中注释分支实测: L1099/L1934/L1945/L1953/L1962/L3412/L3487/L4780 代码前缀逐字保留 (让编译器安静), L4362 redotz = true; 保留, L1231 return 0; 保留, L2530 /* 无闭合起始行分支; 术语全取同域既译同款: 儒略日/闰年/夏令时/时区/精度 (datetime.c 0418 L268/L972 同款), AD→公元/BC→公元前 (datetime.c L2521 同款), Gregorian→公历 (本文件 L4548 新定但与 0418 口径一致), epoch→纪元 (datetime.c L126 系统纪元 同款), overflow→溢出/underflow 未出现/infinity→无穷 (float.c 0417 L110 同款), NaN 保留, operator→算子 (date.c L1775 实现 SQL OVERLAPS 算子 跨文件同款 EN), interval→标识符保留/prose 时间间隔仅 datetime.c 既有站沿用 (本文件按 0418 同域标识符保留处理), keep compiler quiet→让编译器安静 (全树既译), recv banner 将外部二进制格式转换为 X/send banner 把 X 转为二进制格式 (date.c L205/L227 同款句式), Prevent overflow in Julian-day routines→在儒略日例程中防止溢出 (date.c L162 跨文件同 EN 同译), timestamp[tz]/fsec/TimeOffset/typmod/INT128/pg_time_t/OID 标识符逐字保留; 跨文件同 EN 必同译实证: Adjust time type for specified scale factor.→按指定刻度调整 time 类型。 ×2 (date.c L1620 同款), Used by PostgreSQL type system to stuff columns.→由 PostgreSQL 类型系统用于填列 ×3 (date.c L1621 同款, EN 有句号 zh 无 句号沿袭 date.c 既有译法 披露为句号台账 FWD 例外 3 站), Returns true on success, false on failure (if escontext... 模板 ×2 (L346-347/L1326-1327 同模板逐字一致, 0420 D1 判例条栏归位); 同 EN 必同译: apply 断言 + 注释体级终扫 0 冲突; 异 EN 同 zh 反查 0 组 (语义近邻站均异译: L1655 若非如此 vs L1685 否则就, L3995 以 interval 分箱 vs L4195 用指定起点…分箱, L5632 转为 GMT vs L5711 转为本地); 极性代码对照 16 块 (≥12): L346/L1326 true-if-escontext 双站, L2248/L2253 dt1 与 ±无穷大小关系对偶, L5648-5650 overflow NULL 抛错/非 NULL 存符号返无穷, L1655/L1685 start>stop 返回零( zeros/zero 异 EN 异译), L2559-2561 双 null→null/单 null→取非 null 端/否则取小端, L2603-2604 三情形, L2609-2610 冗余但 null 在场并非完全冗余, L2620-2621/L2636-2637 te1/te2 非 null 传递对偶, L2644-2645 两者均非 null 则真否则 null, L2567/L2587 null↔非 null 交换, L1285-1288 字段×精度双轴不变/变→无操作, L2782-2785 预 justify 不溢出/未预 justify 异号仍不溢出, L4044-4046/L4244-4246 tm_diff 负且非倍数→向负无穷舍入+调整可致溢出 (×2), L1354-1355 未指定→不调整, L2000/L2029 成功 0 溢出 -1 (×2), L1824-1825 0 成功/-1 越界; 枚举/横幅逐项点数 (0417 D1 判例): L1189 SECOND/MINUTE/HOUR/DAY/MONTH/YEAR 6 项全数 (保留 EN 核对), L2747-2751 month/day/time 三字段+两公式界限全数, L1397-1458 七个 SQL 字段范围标签全数保留, L2122/L2388 relop 记法保留, L4317 DTK_THOUSAND/DTK_HUNDRED 两项全数, L4323 千年序列 4 值全数保留, L141 用户 I/O 例程/L2059 公共例程 横幅译 zh 尾分隔列对齐 (float.c 0417 段落横幅先例), L4920-4921 世纪区间两公式保留, generate_series 两函数 22 语句逐句同构对译零漂移; 同模板句逐站 grep -c 零漂移 (文件内实测): 让编译器安静 9 (8 站+L1231 复合句), 注意：C 的除法余数可能为负 7, 我们目前不费心去规避此处的溢出风险 3, 小数秒舍入将在下方处理 4, 当年的第四天 3, day0 == 到一周首日 7, 固定偏移量缩写 3, 动态偏移量缩写 3, 查找所请求的时区。 4, 把字符串转为内部表示。 3, 由 PostgreSQL 类型系统用于填列 3, 成功时返回 true 2, 溢出检查复制自 3, FALL THRU 27, generate_series 全套双站 13 句各 2; 门禁三连实测: verify_c_comments rc=0 (1 files, comments=364, changed=299, splices=2 既有, 0 violations), term_lint rc=0 (87 rules 21 error/66 warning, 0 error hits, 9 warnings 全 advisory: P30×2/P39/P24/P70/P23/TL08/TL06/P11, 均 phrasebook 建议级不修), check_scope 于 manifest+cumulative 落盘后实测; W7 16 站 (--paths src/backend/utils/adt 口径, verify 实测): IDENT_LOST 6 = ROUTINES (L140 横幅词)/PUBLIC, ROUTINES (L2058 横幅词)/format (L877 format(s)→格式 语义在场)/_not_ ×2 (L1818/L1918 强调记号 zh 并非/而非 在场)/_be_,_to_ (L5511 强调记号 zh _转换到_/_等于_ 在场), 均语义已译 0372 量裁不修; UNTRANSLATED 10 = L2116/L4852/L4863/L4989/L5138/L5149/L5260/L5364/L5375/L5450 全为 KEPT 公式/banner 块; 句号台账 (行级 python 全量比对, EN 基线 git show HEAD 现算): FWD 19 = 省略号等义 13 (EN ... ↔ zh .../…: L724/L1384/L2112/L2950/L3076/L3782/L3839/L3902/L3963/L4317/L4322 i.e. 缩写点/L4331/L4909) + 跨文件同款 3 (L326/L860/L1305 填列, date.c 既有译法沿袭) + 已披露 REV 变通 2 (L2621/L2637 预算所迫去句号) + 真缺陷 1 已修 (L44 句末逗号→句号, R3); REV 17 = 断行点位移 zh 句自洽 (L466/L486/L1016/L1286/L1378/L1580 EN 本身无句号/L1680/L1875/L2392/L2508/L2782 EN 句中点镜像/L3360/L3373/L4620/L4675) 全良性, 其中 L1021-1022 曾现 孤句 计算。 已 R3 重排消除; 修复轮如实披露: 规划轮 spec dry-run 3 次 (首轮 54 错: 形态识别 10/超预算 25/漏录 11 等, 次轮 4 错, 三轮 0 错写盘; 全部 dry-run 未触工作树或 checkout 复位重放), 写后 3 轮 (达限): R1 recv/send 六站 banner 函数名被星号前缀正则误吞 (W7_IDENT_LOST 抓出, body 补回 funcname+tab), R2 L141/L2059 FULL 横幅未生效修复+L1017 行首多余空格, R3 L44 句号+L1021/1022 孤句重排; 审后清偿轮 R4-R5 (为审查 FAIL 让位, 2D/3N/2A): D1 L84 标识符错写 timestamptztypmodout→timestamptztypmodin (50B/63B), D2 L43-44 补回限定语 where timeval is double (L43 72B/74B + L44 60B/69B), N1 L3750/L3868 块末悬空逗号→句号 ×2 (等字节), N2 L2603-2605 中英混排清偿 (L2603「…情形有三种：」58B/71B + L2604 转译 37B/42B); N3/A1 manifest 口径修正: preserved_reasons 移除 L1189/L2604 (二者为变更块内联保留行, 非 preserved 块; preserved=65 总数与 note 块清单不变), 横幅引文行号按块起始行改 L140/L2058; 审查方案 L1189→L1196 行号修正经现场核实不成立 (L1196 为空行, 映射行确在 L1189, 0394 审查行号判例); 每轮 git checkout HEAD -- 复位重放后门禁复跑 rc=0; A 级披露: L2621/L2637 句号 REV 变通 (预算差 1B, EN 句点落 zh 无句号, REVERSE 判例), L4909 前 11 到前 2… 省略号单字符变体, L4046/L4246 origin .. timestamp 范围词省略 (超出…语义自洽), L1017 range 行首对齐空格删除, CJK-EN 相邻空格预算紧行省略若干站 (L1653/L1681/L2645 等, 语义无歧义); 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0423-adt-timestamp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0423 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0423 entries (timestamp.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

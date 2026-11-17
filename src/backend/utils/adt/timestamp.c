@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * timestamp.c
- *	  Functions for the built-in SQL types "timestamp" and "interval".
+ *	  内建 SQL 类型 "timestamp" 与 "interval" 的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -40,8 +40,8 @@
 #include "utils/sortsupport.h"
 
 /*
- * gcc's -ffast-math switch breaks routines that expect exact results from
- * expressions like timeval / SECS_PER_HOUR, where timeval is double.
+ * gcc 的 -ffast-math 开关会破坏期望 timeval / SECS_PER_HOUR 类
+ * 表达式精确结果的例程（timeval 为 double）。
  */
 #ifdef __FAST_MATH__
 #error -ffast-math is known to break this code
@@ -49,10 +49,10 @@
 
 #define SAMESIGN(a,b)	(((a) < 0) == ((b) < 0))
 
-/* Set at postmaster start */
+/* postmaster 启动设置 */
 TimestampTz PgStartTime;
 
-/* Set at configuration reload */
+/* 配置重载时设置 */
 TimestampTz PgReloadTime;
 
 typedef struct
@@ -81,7 +81,7 @@ static TimestampTz timestamp2timestamptz(Timestamp timestamp);
 static Timestamp timestamptz2timestamp(TimestampTz timestamp);
 
 
-/* common code for timestamptypmodin and timestamptztypmodin */
+/* timestamptypmodin/timestamptztypmodin 公共代码 */
 static int32
 anytimestamp_typmodin(bool istz, ArrayType *ta)
 {
@@ -91,8 +91,8 @@ anytimestamp_typmodin(bool istz, ArrayType *ta)
 	tl = ArrayGetIntegerTypmods(ta, &n);
 
 	/*
-	 * we're not too tense about good error message here because grammar
-	 * shouldn't allow wrong number of modifiers for TIMESTAMP
+	 * 此处我们并不苛求好的错误消息，因为语法不应
+	 * 允许 TIMESTAMP 的修饰符个数出错
 	 */
 	if (n != 1)
 		ereport(ERROR,
@@ -102,7 +102,7 @@ anytimestamp_typmodin(bool istz, ArrayType *ta)
 	return anytimestamp_typmod_check(istz, tl[0]);
 }
 
-/* exported so parse_expr.c can use it */
+/* 导出供 parse_expr.c 使用 */
 int32
 anytimestamp_typmod_check(bool istz, int32 typmod)
 {
@@ -124,7 +124,7 @@ anytimestamp_typmod_check(bool istz, int32 typmod)
 	return typmod;
 }
 
-/* common code for timestamptypmodout and timestamptztypmodout */
+/* timestamptypmodout/timestamptztypmodout 公共代码 */
 static char *
 anytimestamp_typmodout(bool istz, int32 typmod)
 {
@@ -138,11 +138,11 @@ anytimestamp_typmodout(bool istz, int32 typmod)
 
 
 /*****************************************************************************
- *	 USER I/O ROUTINES														 *
+ *	 用户 I/O 例程               *
  *****************************************************************************/
 
 /* timestamp_in()
- * Convert a string to internal form.
+ * 把字符串转为内部表示。
  */
 Datum
 timestamp_in(PG_FUNCTION_ARGS)
@@ -210,7 +210,7 @@ timestamp_in(PG_FUNCTION_ARGS)
 }
 
 /* timestamp_out()
- * Convert a timestamp to external form.
+ * 把 timestamp 转为外部表示。
  */
 Datum
 timestamp_out(PG_FUNCTION_ARGS)
@@ -236,7 +236,7 @@ timestamp_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		timestamp_recv			- converts external binary format to timestamp
+ *		timestamp_recv			- 将外部二进制格式转换为 timestamp
  */
 Datum
 timestamp_recv(PG_FUNCTION_ARGS)
@@ -254,7 +254,7 @@ timestamp_recv(PG_FUNCTION_ARGS)
 
 	timestamp = (Timestamp) pq_getmsgint64(buf);
 
-	/* range check: see if timestamp_out would like it */
+	/* 范围检查：timestamp_out 是否会接受 */
 	if (TIMESTAMP_NOT_FINITE(timestamp))
 		 /* ok */ ;
 	else if (timestamp2tm(timestamp, NULL, tm, &fsec, NULL, NULL) != 0 ||
@@ -269,7 +269,7 @@ timestamp_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		timestamp_send			- converts timestamp to binary format
+ *		timestamp_send			- 把 timestamp 转为二进制格式
  */
 Datum
 timestamp_send(PG_FUNCTION_ARGS)
@@ -302,8 +302,8 @@ timestamptypmodout(PG_FUNCTION_ARGS)
 /*
  * timestamp_support()
  *
- * Planner support function for the timestamp_scale() and timestamptz_scale()
- * length coercion functions (we need not distinguish them here).
+ * timestamp_scale() 与 timestamptz_scale() 长度强制
+ * 函数的计划器支持函数（无须区分二者）。
  */
 Datum
 timestamp_support(PG_FUNCTION_ARGS)
@@ -322,8 +322,8 @@ timestamp_support(PG_FUNCTION_ARGS)
 }
 
 /* timestamp_scale()
- * Adjust time type for specified scale factor.
- * Used by PostgreSQL type system to stuff columns.
+ * 按指定刻度调整 time 类型。
+ * 由 PostgreSQL 类型系统用于填列
  */
 Datum
 timestamp_scale(PG_FUNCTION_ARGS)
@@ -340,11 +340,11 @@ timestamp_scale(PG_FUNCTION_ARGS)
 }
 
 /*
- * AdjustTimestampForTypmod --- round off a timestamp to suit given typmod
- * Works for either timestamp or timestamptz.
+ * AdjustTimestampForTypmod --- 把 timestamp 舍入至给定 typmod
+ * 对 timestamp 或 timestamptz 皆适用。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功时返回 true，失败时返回 false（若 escontext 指向
+ * ErrorSaveContext，否则会抛出错误）。
  */
 bool
 AdjustTimestampForTypmod(Timestamp *time, int32 typmod, Node *escontext)
@@ -394,7 +394,7 @@ AdjustTimestampForTypmod(Timestamp *time, int32 typmod, Node *escontext)
 }
 
 /* timestamptz_in()
- * Convert a string to internal form.
+ * 把字符串转为内部表示。
  */
 Datum
 timestamptz_in(PG_FUNCTION_ARGS)
@@ -463,11 +463,11 @@ timestamptz_in(PG_FUNCTION_ARGS)
 }
 
 /*
- * Try to parse a timezone specification, and return its timezone offset value
- * if it's acceptable.  Otherwise, an error is thrown.
+ * 尝试解析时区说明，若其可接受则返回其时区偏移值。
+ * 否则会抛出错误。
  *
- * Note: some code paths update tm->tm_isdst, and some don't; current callers
- * don't care, so we don't bother being consistent.
+ * 注意：部分代码路径会更新 tm->tm_isdst，部分不会；
+ * 调用方并不在意，故无需保持一致。
  */
 static int
 parse_sane_timezone(struct pg_tm *tm, text *zone)
@@ -479,14 +479,14 @@ parse_sane_timezone(struct pg_tm *tm, text *zone)
 	text_to_cstring_buffer(zone, tzname, sizeof(tzname));
 
 	/*
-	 * Look up the requested timezone.  First we try to interpret it as a
-	 * numeric timezone specification; if DecodeTimezone decides it doesn't
-	 * like the format, we try timezone abbreviations and names.
+	 * 查找所请求的时区。首先尝试将其解释为
+	 * 数字时区说明；若 DecodeTimezone 不接受该格式，
+	 * 则改试时区缩写与时区名。
 	 *
-	 * Note pg_tzset happily parses numeric input that DecodeTimezone would
-	 * reject.  To avoid having it accept input that would otherwise be seen
-	 * as invalid, it's enough to disallow having a digit in the first
-	 * position of our input string.
+	 * 注意 pg_tzset 能解析 DecodeTimezone 拒绝的数字输入。
+	 * 为避免它接受本会被视为无效的输入，
+	 * 只需确保输入串的第一个字符
+	 * 不是数字即可。
 	 */
 	if (isdigit((unsigned char) *tzname))
 		ereport(ERROR,
@@ -515,12 +515,12 @@ parse_sane_timezone(struct pg_tm *tm, text *zone)
 
 		if (type == TZNAME_FIXED_OFFSET)
 		{
-			/* fixed-offset abbreviation */
+			/* 固定偏移量缩写 */
 			tz = -val;
 		}
 		else if (type == TZNAME_DYNTZ)
 		{
-			/* dynamic-offset abbreviation, resolve using specified time */
+			/* 动态偏移量缩写，用指定时间解析 */
 			tz = DetermineTimeZoneAbbrevOffset(tm, tzname, tzp);
 		}
 		else
@@ -534,9 +534,9 @@ parse_sane_timezone(struct pg_tm *tm, text *zone)
 }
 
 /*
- * Look up the requested timezone, returning a pg_tz struct.
+ * 查找所请求的时区，返回 pg_tz 结构体。
  *
- * This is the same as DecodeTimezoneNameToTz, but starting with a text Datum.
+ * 与 DecodeTimezoneNameToTz 相同，但以 text Datum 为起点。
  */
 static pg_tz *
 lookup_timezone(text *zone)
@@ -550,7 +550,7 @@ lookup_timezone(text *zone)
 
 /*
  * make_timestamp_internal
- *		workhorse for make_timestamp and make_timestamptz
+ *		make_timestamp/make_timestamptz 的主力函数
  */
 static Timestamp
 make_timestamp_internal(int year, int month, int day,
@@ -567,7 +567,7 @@ make_timestamp_internal(int year, int month, int day,
 	tm.tm_mon = month;
 	tm.tm_mday = day;
 
-	/* Handle negative years as BC */
+	/* 按公元前处理负年份 */
 	if (tm.tm_year < 0)
 	{
 		bc = true;
@@ -590,19 +590,19 @@ make_timestamp_internal(int year, int month, int day,
 
 	date = date2j(tm.tm_year, tm.tm_mon, tm.tm_mday) - POSTGRES_EPOCH_JDATE;
 
-	/* Check for time overflow */
+	/* 检查时间溢出 */
 	if (float_time_overflows(hour, min, sec))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_FIELD_OVERFLOW),
 				 errmsg("time field value out of range: %d:%02d:%02g",
 						hour, min, sec)));
 
-	/* This should match tm2time */
+	/* 应与 tm2time 一致 */
 	time = (((hour * MINS_PER_HOUR + min) * SECS_PER_MINUTE)
 			* USECS_PER_SEC) + (int64) rint(sec * USECS_PER_SEC);
 
 	result = date * USECS_PER_DAY + time;
-	/* check for major overflow */
+	/* 检查重大溢出 */
 	if ((result - time) / USECS_PER_DAY != date)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -610,8 +610,8 @@ make_timestamp_internal(int year, int month, int day,
 						year, month, day,
 						hour, min, sec)));
 
-	/* check for just-barely overflow (okay except time-of-day wraps) */
-	/* caution: we want to allow 1999-12-31 24:00:00 */
+	/* 检查刚好越界的溢出（时刻回绕除外均可） */
+	/* 注意：我们要允许 1999-12-31 24:00:00 */
 	if ((result < 0 && date > 0) ||
 		(result > 0 && date < -1))
 		ereport(ERROR,
@@ -620,7 +620,7 @@ make_timestamp_internal(int year, int month, int day,
 						year, month, day,
 						hour, min, sec)));
 
-	/* final range check catches just-out-of-range timestamps */
+	/* 最终范围检查会截住刚好越界的时间戳 */
 	if (!IS_VALID_TIMESTAMP(result))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -632,7 +632,7 @@ make_timestamp_internal(int year, int month, int day,
 }
 
 /*
- * make_timestamp() - timestamp constructor
+ * make_timestamp() - timestamp 构造器
  */
 Datum
 make_timestamp(PG_FUNCTION_ARGS)
@@ -652,7 +652,7 @@ make_timestamp(PG_FUNCTION_ARGS)
 }
 
 /*
- * make_timestamptz() - timestamp with time zone constructor
+ * make_timestamptz() - 带时区 timestamp 构造器
  */
 Datum
 make_timestamptz(PG_FUNCTION_ARGS)
@@ -672,8 +672,8 @@ make_timestamptz(PG_FUNCTION_ARGS)
 }
 
 /*
- * Construct a timestamp with time zone.
- *		As above, but the time zone is specified as seventh argument.
+ * 构造一个带时区的 timestamp。
+ *		同上，但时区由第七个参数指定。
  */
 Datum
 make_timestamptz_at_timezone(PG_FUNCTION_ARGS)
@@ -713,7 +713,7 @@ make_timestamptz_at_timezone(PG_FUNCTION_ARGS)
 
 /*
  * to_timestamp(double precision)
- * Convert UNIX epoch to timestamptz.
+ * UNIX epoch 转为 timestamptz。
  */
 Datum
 float8_timestamptz(PG_FUNCTION_ARGS)
@@ -721,7 +721,7 @@ float8_timestamptz(PG_FUNCTION_ARGS)
 	float8		seconds = PG_GETARG_FLOAT8(0);
 	TimestampTz result;
 
-	/* Deal with NaN and infinite inputs ... */
+	/* 处理 NaN 与无穷输入 ... */
 	if (isnan(seconds))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -736,7 +736,7 @@ float8_timestamptz(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Out of range? */
+		/* 越界？ */
 		if (seconds <
 			(float8) SECS_PER_DAY * (DATETIME_MIN_JULIAN - UNIX_EPOCH_JDATE)
 			|| seconds >=
@@ -745,13 +745,13 @@ float8_timestamptz(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 					 errmsg("timestamp out of range: \"%g\"", seconds)));
 
-		/* Convert UNIX epoch to Postgres epoch */
+		/* UNIX epoch 转为 Postgres 纪元 */
 		seconds -= ((POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * SECS_PER_DAY);
 
 		seconds = rint(seconds * USECS_PER_SEC);
 		result = (int64) seconds;
 
-		/* Recheck in case roundoff produces something just out of range */
+		/* 重新检查，以防舍入产生刚好越界的值 */
 		if (!IS_VALID_TIMESTAMP(result))
 			ereport(ERROR,
 					(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -763,7 +763,7 @@ float8_timestamptz(PG_FUNCTION_ARGS)
 }
 
 /* timestamptz_out()
- * Convert a timestamp to external form.
+ * 把 timestamp 转为外部表示。
  */
 Datum
 timestamptz_out(PG_FUNCTION_ARGS)
@@ -791,7 +791,7 @@ timestamptz_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		timestamptz_recv			- converts external binary format to timestamptz
+ *		timestamptz_recv			- 将外部二进制格式转换为 timestamptz
  */
 Datum
 timestamptz_recv(PG_FUNCTION_ARGS)
@@ -810,7 +810,7 @@ timestamptz_recv(PG_FUNCTION_ARGS)
 
 	timestamp = (TimestampTz) pq_getmsgint64(buf);
 
-	/* range check: see if timestamptz_out would like it */
+	/* 范围检查：timestamptz_out 是否会接受 */
 	if (TIMESTAMP_NOT_FINITE(timestamp))
 		 /* ok */ ;
 	else if (timestamp2tm(timestamp, &tz, tm, &fsec, NULL, NULL) != 0 ||
@@ -825,7 +825,7 @@ timestamptz_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		timestamptz_send			- converts timestamptz to binary format
+ *		timestamptz_send			- 把 timestamptz 转为二进制格式
  */
 Datum
 timestamptz_send(PG_FUNCTION_ARGS)
@@ -856,8 +856,8 @@ timestamptztypmodout(PG_FUNCTION_ARGS)
 
 
 /* timestamptz_scale()
- * Adjust time type for specified scale factor.
- * Used by PostgreSQL type system to stuff columns.
+ * 按指定刻度调整 time 类型。
+ * 由 PostgreSQL 类型系统用于填列
  */
 Datum
 timestamptz_scale(PG_FUNCTION_ARGS)
@@ -875,10 +875,10 @@ timestamptz_scale(PG_FUNCTION_ARGS)
 
 
 /* interval_in()
- * Convert a string to internal form.
+ * 把字符串转为内部表示。
  *
- * External format(s):
- *	Uses the generic date/time parsing and decoding routines.
+ * 外部格式：
+ *	使用通用的日期/时间解析与解码例程。
  */
 Datum
 interval_in(PG_FUNCTION_ARGS)
@@ -917,7 +917,7 @@ interval_in(PG_FUNCTION_ARGS)
 		dterr = DecodeInterval(field, ftype, nf, range,
 							   &dtype, itm_in);
 
-	/* if those functions think it's a bad format, try ISO8601 style */
+	/* 若上述函数认为格式不佳，则改试 ISO8601 风格 */
 	if (dterr == DTERR_BAD_FORMAT)
 		dterr = DecodeISO8601Interval(str,
 									  &dtype, itm_in);
@@ -952,7 +952,7 @@ interval_in(PG_FUNCTION_ARGS)
 }
 
 /* interval_out()
- * Convert a time span to external form.
+ * 把时间跨度转为外部表示。
  */
 Datum
 interval_out(PG_FUNCTION_ARGS)
@@ -971,7 +971,7 @@ interval_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		interval_recv			- converts external binary format to interval
+ *		interval_recv			- 将外部二进制格式转换为 interval
  */
 Datum
 interval_recv(PG_FUNCTION_ARGS)
@@ -996,7 +996,7 @@ interval_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		interval_send			- converts interval to binary format
+ *		interval_send			- 把 interval 转为二进制格式
  */
 Datum
 interval_send(PG_FUNCTION_ARGS)
@@ -1012,16 +1012,16 @@ interval_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * The interval typmod stores a "range" in its high 16 bits and a "precision"
- * in its low 16 bits.  Both contribute to defining the resolution of the
- * type.  Range addresses resolution granules larger than one second, and
- * precision specifies resolution below one second.  This representation can
- * express all SQL standard resolutions, but we implement them all in terms of
- * truncating rightward from some position.  Range is a bitmap of permitted
- * fields, but only the temporally-smallest such field is significant to our
- * calculations.  Precision is a count of sub-second decimal places to retain.
- * Setting all bits (INTERVAL_FULL_PRECISION) gives the same truncation
- * semantics as choosing MAX_INTERVAL_PRECISION.
+ * interval 的 typmod 在其高 16 位存放"范围"，
+ * 低 16 位存放"精度"。二者共同决定类型的分辨率。
+ * range 处理大于一秒的分辨率粒度，
+ * precision 指定低于一秒的分辨率。这种表示法能够
+ * 表达所有 SQL 标准的分辨率，但我们对它们的实现都是
+ * 从某个位置向右截断。range 是允许字段的位图，
+ * 但对计算而言只有其中时间上最小的字段才起作用。
+ * precision 是要保留的亚秒小数位个数。
+ * 全部置位（INTERVAL_FULL_PRECISION）时的截断语义
+ * 等同于选择 MAX_INTERVAL_PRECISION。
  */
 Datum
 intervaltypmodin(PG_FUNCTION_ARGS)
@@ -1034,10 +1034,10 @@ intervaltypmodin(PG_FUNCTION_ARGS)
 	tl = ArrayGetIntegerTypmods(ta, &n);
 
 	/*
-	 * tl[0] - interval range (fields bitmask)	tl[1] - precision (optional)
+	 * tl[0] - interval 范围（字段位图）	tl[1] - 精度（可选）
 	 *
-	 * Note we must validate tl[0] even though it's normally guaranteed
-	 * correct by the grammar --- consider SELECT 'foo'::"interval"(1000).
+	 * 注意我们必须校验 tl[0]，尽管它通常由语法保证
+	 * 正确 --- 例如 SELECT 'foo'::"interval"(1000)。
 	 */
 	if (n > 0)
 	{
@@ -1057,7 +1057,7 @@ intervaltypmodin(PG_FUNCTION_ARGS)
 			case INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
 			case INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
 			case INTERVAL_FULL_RANGE:
-				/* all OK */
+				/* 正常 */
 				break;
 			default:
 				ereport(ERROR,
@@ -1096,7 +1096,7 @@ intervaltypmodin(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("invalid INTERVAL type modifier")));
-		typmod = 0;				/* keep compiler quiet */
+		typmod = 0;				/* 让编译器安静 */
 	}
 
 	PG_RETURN_INT32(typmod);
@@ -1179,13 +1179,13 @@ intervaltypmodout(PG_FUNCTION_ARGS)
 }
 
 /*
- * Given an interval typmod value, return a code for the least-significant
- * field that the typmod allows to be nonzero, for instance given
- * INTERVAL DAY TO HOUR we want to identify "hour".
+ * 给定一个 interval typmod 值，返回该 typmod 所允许非零的
+ * 最低有效字段的编码。例如给定
+ * INTERVAL DAY TO HOUR 需识别出"hour"。
  *
- * The results should be ordered by field significance, which means
- * we can't use the dt.h macros YEAR etc, because for some odd reason
- * they aren't ordered that way.  Instead, arbitrarily represent
+ * 结果应按字段重要性排序，这意味着
+ * 不能用 dt.h 的 YEAR 等宏，因为出于某个奇怪原因
+ * 它们并未如此排序。因此人为约定
  * SECOND = 0, MINUTE = 1, HOUR = 2, DAY = 3, MONTH = 4, YEAR = 5.
  */
 static int
@@ -1228,18 +1228,18 @@ intervaltypmodleastfield(int32 typmod)
 			elog(ERROR, "invalid INTERVAL typmod: 0x%x", typmod);
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 到不了这里，让编译器安静 */
 }
 
 
 /*
  * interval_support()
  *
- * Planner support function for interval_scale().
+ * interval_scale() 的计划器支持函数。
  *
- * Flatten superfluous calls to interval_scale().  The interval typmod is
- * complex to permit accepting and regurgitating all SQL standard variations.
- * For truncation purposes, it boils down to a single, simple granularity.
+ * 熨平对 interval_scale() 的多余调用。interval 的 typmod
+ * 之所以复杂，是为了能接受并回吐所有 SQL 标准变体。
+ * 就截断而言，它归结为单一、简单的粒度。
  */
 Datum
 interval_support(PG_FUNCTION_ARGS)
@@ -1282,10 +1282,10 @@ interval_support(PG_FUNCTION_ARGS)
 				new_precis = INTERVAL_PRECISION(new_typmod);
 
 				/*
-				 * Cast is a no-op if least field stays the same or decreases
-				 * while precision stays the same or increases.  But
-				 * precision, which is to say, sub-second precision, only
-				 * affects ranges that include SECOND.
+				 * 若最低字段保持不变或减小，而
+				 * 精度不变或增大，则转换无操作。
+				 * 但 precision，也就是亚秒精度，只影响
+				 * 包含 SECOND 的范围。
 				 */
 				noop = (new_least_field <= old_least_field) &&
 					(old_least_field > 0 /* SECOND */ ||
@@ -1301,8 +1301,8 @@ interval_support(PG_FUNCTION_ARGS)
 }
 
 /* interval_scale()
- * Adjust interval type for specified fields.
- * Used by PostgreSQL type system to stuff columns.
+ * 按指定字段调整 interval 类型。
+ * 由 PostgreSQL 类型系统用于填列
  */
 Datum
 interval_scale(PG_FUNCTION_ARGS)
@@ -1320,11 +1320,11 @@ interval_scale(PG_FUNCTION_ARGS)
 }
 
 /*
- *	Adjust interval for specified precision, in both YEAR to SECOND
- *	range and sub-second precision.
+ *	按指定精度调整 interval，同时覆盖 YEAR 到 SECOND
+ *	范围与亚秒精度。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功时返回 true，失败时返回 false（若 escontext 指向
+ * ErrorSaveContext，否则会抛出错误）。
  */
 static bool
 AdjustIntervalForTypmod(Interval *interval, int32 typmod,
@@ -1351,8 +1351,8 @@ AdjustIntervalForTypmod(Interval *interval, int32 typmod,
 	};
 
 	/*
-	 * Unspecified range and precision? Then not necessary to adjust. Setting
-	 * typmod to -1 is the convention for all data types.
+	 * 范围与精度未指定？那就无须调整。将 typmod 设为 -1
+	 * 是所有数据类型的惯例。
 	 */
 	if (typmod >= 0)
 	{
@@ -1360,28 +1360,28 @@ AdjustIntervalForTypmod(Interval *interval, int32 typmod,
 		int			precision = INTERVAL_PRECISION(typmod);
 
 		/*
-		 * Our interpretation of intervals with a limited set of fields is
-		 * that fields to the right of the last one specified are zeroed out,
-		 * but those to the left of it remain valid.  Thus for example there
-		 * is no operational difference between INTERVAL YEAR TO MONTH and
-		 * INTERVAL MONTH.  In some cases we could meaningfully enforce that
-		 * higher-order fields are zero; for example INTERVAL DAY could reject
-		 * nonzero "month" field.  However that seems a bit pointless when we
-		 * can't do it consistently.  (We cannot enforce a range limit on the
-		 * highest expected field, since we do not have any equivalent of
-		 * SQL's <interval leading field precision>.)  If we ever decide to
-		 * revisit this, interval_support will likely require adjusting.
+		 * 我们对字段集受限的 interval 的解释是：
+		 * 最后一个指定字段右侧的字段全部清零，
+		 * 而其左侧的字段仍然有效。因此例如
+		 * INTERVAL YEAR TO MONTH 与 INTERVAL MONTH 之间在行为上
+		 * 并无差别。某些情形下我们本可以有意义地强制
+		 * 高阶字段为零；例如 INTERVAL DAY 可以拒绝非零的
+		 * "month" 字段。但由于我们无法一致地做到这一点，
+		 * 这样做似乎没什么意义。（我们无法对预期的
+		 * 最高字段施加范围限制，因为没有等价于 SQL
+		 * <interval leading field precision> 的手段。）如果我们
+		 * 重审此点，interval_support 可能也需要调整。
 		 *
-		 * Note: before PG 8.4 we interpreted a limited set of fields as
-		 * actually causing a "modulo" operation on a given value, potentially
-		 * losing high-order as well as low-order information.  But there is
-		 * no support for such behavior in the standard, and it seems fairly
-		 * undesirable on data consistency grounds anyway.  Now we only
-		 * perform truncation or rounding of low-order fields.
+		 * 注意：PG 8.4 前我们把字段集受限解释为
+		 * 实际会对给定值执行"取模"操作，可能同时丢失
+		 * 高阶与低阶信息。但标准中并不支持这种行为，
+		 * 且从数据一致性角度看也相当不可取。
+		 * 现在我们只会对低阶字段执行
+		 * 截断或舍入。
 		 */
 		if (range == INTERVAL_FULL_RANGE)
 		{
-			/* Do nothing... */
+			/* 无操作… */
 		}
 		else if (range == INTERVAL_MASK(YEAR))
 		{
@@ -1416,7 +1416,7 @@ AdjustIntervalForTypmod(Interval *interval, int32 typmod,
 		}
 		else if (range == INTERVAL_MASK(SECOND))
 		{
-			/* fractional-second rounding will be dealt with below */
+			/* 小数秒舍入将在下方处理 */
 		}
 		/* DAY TO HOUR */
 		else if (range == (INTERVAL_MASK(DAY) |
@@ -1439,7 +1439,7 @@ AdjustIntervalForTypmod(Interval *interval, int32 typmod,
 						   INTERVAL_MASK(MINUTE) |
 						   INTERVAL_MASK(SECOND)))
 		{
-			/* fractional-second rounding will be dealt with below */
+			/* 小数秒舍入将在下方处理 */
 		}
 		/* HOUR TO MINUTE */
 		else if (range == (INTERVAL_MASK(HOUR) |
@@ -1453,18 +1453,18 @@ AdjustIntervalForTypmod(Interval *interval, int32 typmod,
 						   INTERVAL_MASK(MINUTE) |
 						   INTERVAL_MASK(SECOND)))
 		{
-			/* fractional-second rounding will be dealt with below */
+			/* 小数秒舍入将在下方处理 */
 		}
 		/* MINUTE TO SECOND */
 		else if (range == (INTERVAL_MASK(MINUTE) |
 						   INTERVAL_MASK(SECOND)))
 		{
-			/* fractional-second rounding will be dealt with below */
+			/* 小数秒舍入将在下方处理 */
 		}
 		else
 			elog(ERROR, "unrecognized interval typmod: %d", typmod);
 
-		/* Need to adjust sub-second precision? */
+		/* 需要调整亚秒精度吗？ */
 		if (precision != INTERVAL_FULL_PRECISION)
 		{
 			if (precision < 0 || precision > MAX_INTERVAL_PRECISION)
@@ -1494,7 +1494,7 @@ AdjustIntervalForTypmod(Interval *interval, int32 typmod,
 }
 
 /*
- * make_interval - numeric Interval constructor
+ * make_interval - 数值 Interval 构造器
  */
 Datum
 make_interval(PG_FUNCTION_ARGS)
@@ -1509,8 +1509,8 @@ make_interval(PG_FUNCTION_ARGS)
 	Interval   *result;
 
 	/*
-	 * Reject out-of-range inputs.  We really ought to check the integer
-	 * inputs as well, but it's not entirely clear what limits to apply.
+	 * 拒绝越界输入。其实我们也应该检查整数输入，
+	 * 但目前并不完全清楚该应用什么限制。
 	 */
 	if (isinf(secs) || isnan(secs))
 		ereport(ERROR,
@@ -1530,7 +1530,7 @@ make_interval(PG_FUNCTION_ARGS)
 }
 
 /* EncodeSpecialTimestamp()
- * Convert reserved timestamp data type to string.
+ * 把保留 timestamp 类型转为字符串。
  */
 void
 EncodeSpecialTimestamp(Timestamp dt, char *str)
@@ -1539,7 +1539,7 @@ EncodeSpecialTimestamp(Timestamp dt, char *str)
 		strcpy(str, EARLY);
 	else if (TIMESTAMP_IS_NOEND(dt))
 		strcpy(str, LATE);
-	else						/* shouldn't happen */
+	else						/* 不应发生 */
 		elog(ERROR, "invalid argument for EncodeSpecialTimestamp");
 }
 
@@ -1574,10 +1574,10 @@ pg_conf_load_time(PG_FUNCTION_ARGS)
 }
 
 /*
- * GetCurrentTimestamp -- get the current operating system time
+ * GetCurrentTimestamp -- 取得当前操作系统时间
  *
- * Result is in the form of a TimestampTz value, and is expressed to the
- * full precision of the gettimeofday() syscall
+ * 结果为 TimestampTz 值，精度达 gettimeofday() 系统调用
+ * 的全精度。
  */
 TimestampTz
 GetCurrentTimestamp(void)
@@ -1595,7 +1595,7 @@ GetCurrentTimestamp(void)
 }
 
 /*
- * GetSQLCurrentTimestamp -- implements CURRENT_TIMESTAMP, CURRENT_TIMESTAMP(n)
+ * GetSQLCurrentTimestamp -- 实现 CURRENT_TIMESTAMP、CURRENT_TIMESTAMP(n)
  */
 TimestampTz
 GetSQLCurrentTimestamp(int32 typmod)
@@ -1609,7 +1609,7 @@ GetSQLCurrentTimestamp(int32 typmod)
 }
 
 /*
- * GetSQLLocalTimestamp -- implements LOCALTIMESTAMP, LOCALTIMESTAMP(n)
+ * GetSQLLocalTimestamp -- 实现 LOCALTIMESTAMP、LOCALTIMESTAMP(n)
  */
 Timestamp
 GetSQLLocalTimestamp(int32 typmod)
@@ -1623,7 +1623,7 @@ GetSQLLocalTimestamp(int32 typmod)
 }
 
 /*
- * timeofday(*) -- returns the current time as a text.
+ * timeofday(*) -- 以文本返回当前时间。
  */
 Datum
 timeofday(PG_FUNCTION_ARGS)
@@ -1643,17 +1643,17 @@ timeofday(PG_FUNCTION_ARGS)
 }
 
 /*
- * TimestampDifference -- convert the difference between two timestamps
- *		into integer seconds and microseconds
+ * TimestampDifference -- 将两个 timestamp 的差转换为整数秒
+ *		与微秒
  *
- * This is typically used to calculate a wait timeout for select(2),
- * which explains the otherwise-odd choice of output format.
+ * 这通常用于为 select(2) 计算等待超时，
+ * 这解释了输出格式初看费解的原因。
  *
- * Both inputs must be ordinary finite timestamps (in current usage,
- * they'll be results from GetCurrentTimestamp()).
+ * 两者都必须是普通有限 timestamp（在目前用法中，
+ * 它们是 GetCurrentTimestamp() 的结果）。
  *
- * We expect start_time <= stop_time.  If not, we return zeros,
- * since then we're already past the previously determined stop_time.
+ * 预期 start_time <= stop_time。若非如此，返回零，
+ * 因为那时已经过了先前确定的 stop_time。
  */
 void
 TimestampDifference(TimestampTz start_time, TimestampTz stop_time,
@@ -1674,32 +1674,32 @@ TimestampDifference(TimestampTz start_time, TimestampTz stop_time,
 }
 
 /*
- * TimestampDifferenceMilliseconds -- convert the difference between two
- * 		timestamps into integer milliseconds
+ * TimestampDifferenceMilliseconds -- 将两个 timestamp 的差
+ * 		转换为整数毫秒
  *
- * This is typically used to calculate a wait timeout for WaitLatch()
- * or a related function.  The choice of "long" as the result type
- * is to harmonize with that; furthermore, we clamp the result to at most
- * INT_MAX milliseconds, because that's all that WaitLatch() allows.
+ * 这通常用于为 WaitLatch() 等函数计算等待超时。
+ * 结果类型选为 "long" 正是为了与之匹配；此外，
+ * 我们将结果钳制到最多 INT_MAX 毫秒，
+ * 因为那是 WaitLatch() 所允许的上限。
  *
- * We expect start_time <= stop_time.  If not, we return zero,
- * since then we're already past the previously determined stop_time.
+ * 预期 start_time <= stop_time。否则就返回零，
+ * 因为那时已经过了先前确定的 stop_time。
  *
- * Subtracting finite and infinite timestamps works correctly, returning
- * zero or INT_MAX as appropriate.
+ * 有限与无限 timestamp 相减可正确工作，视情况返回零
+ * 或 INT_MAX。
  *
- * Note we round up any fractional millisecond, since waiting for just
- * less than the intended timeout is undesirable.
+ * 注意会把不足一毫秒的部分向上取整，因为等待
+ * 比预期超时略短一点并不可取。
  */
 long
 TimestampDifferenceMilliseconds(TimestampTz start_time, TimestampTz stop_time)
 {
 	TimestampTz diff;
 
-	/* Deal with zero or negative elapsed time quickly. */
+	/* 快速处理零或负的流逝时间。 */
 	if (start_time >= stop_time)
 		return 0;
-	/* To not fail with timestamp infinities, we must detect overflow. */
+	/* 为免在 timestamp 无穷值上出错，必须检测溢出。 */
 	if (pg_sub_s64_overflow(stop_time, start_time, &diff))
 		return (long) INT_MAX;
 	if (diff >= (INT_MAX * INT64CONST(1000) - 999))
@@ -1709,11 +1709,11 @@ TimestampDifferenceMilliseconds(TimestampTz start_time, TimestampTz stop_time)
 }
 
 /*
- * TimestampDifferenceExceeds -- report whether the difference between two
- *		timestamps is >= a threshold (expressed in milliseconds)
+ * TimestampDifferenceExceeds -- 报告两个 timestamp 之差
+ *		是否 >= 以毫秒表示的阈值
  *
- * Both inputs must be ordinary finite timestamps (in current usage,
- * they'll be results from GetCurrentTimestamp()).
+ * 两者都必须是普通有限 timestamp（在目前用法中，
+ * 它们是 GetCurrentTimestamp() 的结果）。
  */
 bool
 TimestampDifferenceExceeds(TimestampTz start_time,
@@ -1726,15 +1726,15 @@ TimestampDifferenceExceeds(TimestampTz start_time,
 }
 
 /*
- * Convert a time_t to TimestampTz.
+ * time_t 转 TimestampTz。
  *
- * We do not use time_t internally in Postgres, but this is provided for use
- * by functions that need to interpret, say, a stat(2) result.
+ * Postgres 内部并不使用 time_t，但提供此函数供需要解释
+ * 诸如 stat(2) 结果的函数使用。
  *
- * To avoid having the function's ABI vary depending on the width of time_t,
- * we declare the argument as pg_time_t, which is cast-compatible with
- * time_t but always 64 bits wide (unless the platform has no 64-bit type).
- * This detail should be invisible to callers, at least at source code level.
+ * 为了避免该函数的 ABI 随 time_t 宽度而变化，
+ * 我们把参数声明为 pg_time_t，它与 time_t 转型兼容，
+ * 但宽度恒为 64 位（除非平台没有 64 位类型）。
+ * 该细节应对调用方不可见，至少在源代码层面如此。
  */
 TimestampTz
 time_t_to_timestamptz(pg_time_t tm)
@@ -1749,14 +1749,14 @@ time_t_to_timestamptz(pg_time_t tm)
 }
 
 /*
- * Convert a TimestampTz to time_t.
+ * TimestampTz 转 time_t。
  *
- * This too is just marginally useful, but some places need it.
+ * 它同样只是略有用处，但有些地方需要它。
  *
- * To avoid having the function's ABI vary depending on the width of time_t,
- * we declare the result as pg_time_t, which is cast-compatible with
- * time_t but always 64 bits wide (unless the platform has no 64-bit type).
- * This detail should be invisible to callers, at least at source code level.
+ * 为了避免该函数的 ABI 随 time_t 宽度而变化，
+ * 我们把结果声明为 pg_time_t，与 time_t 转型兼容，
+ * 但宽度恒为 64 位（除非平台没有 64 位类型）。
+ * 该细节应对调用方不可见，至少在源代码层面如此。
  */
 pg_time_t
 timestamptz_to_time_t(TimestampTz t)
@@ -1770,13 +1770,13 @@ timestamptz_to_time_t(TimestampTz t)
 }
 
 /*
- * Produce a C-string representation of a TimestampTz.
+ * 生成 TimestampTz 的 C 字符串表示。
  *
- * This is mostly for use in emitting messages.  The primary difference
- * from timestamptz_out is that we force the output format to ISO.  Note
- * also that the result is in a static buffer, not pstrdup'd.
+ * 主要用于发送消息。与 timestamptz_out 相比的主要差别
+ * 在于我们强制输出格式为 ISO。另注意结果存于静态
+ * 缓冲区，而非 pstrdup 出来的。
  *
- * See also pg_strftime.
+ * 另见 pg_strftime。
  */
 const char *
 timestamptz_to_str(TimestampTz t)
@@ -1816,15 +1816,15 @@ dt2time(Timestamp jd, int *hour, int *min, int *sec, fsec_t *fsec)
 
 
 /*
- * timestamp2tm() - Convert timestamp data type to POSIX time structure.
+ * timestamp2tm() - 把 timestamp 转为 POSIX 时间结构。
  *
- * Note that year is _not_ 1900-based, but is an explicit full value.
- * Also, month is one-based, _not_ zero-based.
+ * 注意年份并非以 1900 为基准，而是显式的完整值。
+ * 另外，月份从 1 起算而非 0。
  * Returns:
- *	 0 on success
- *	-1 on out of range
+ *	 0 为成功
+ *	-1 表示越界
  *
- * If attimezone is NULL, the global timezone setting will be used.
+ * 若 attimezone 为 NULL，则使用全局时区设置。
  */
 int
 timestamp2tm(Timestamp dt, int *tzp, struct pg_tm *tm, fsec_t *fsec, const char **tzn, pg_tz *attimezone)
@@ -1833,7 +1833,7 @@ timestamp2tm(Timestamp dt, int *tzp, struct pg_tm *tm, fsec_t *fsec, const char 
 	Timestamp	time;
 	pg_time_t	utime;
 
-	/* Use session timezone if caller asks for default */
+	/* 调用方要求默认时用会话时区 */
 	if (attimezone == NULL)
 		attimezone = session_timezone;
 
@@ -1846,17 +1846,17 @@ timestamp2tm(Timestamp dt, int *tzp, struct pg_tm *tm, fsec_t *fsec, const char 
 		date -= 1;
 	}
 
-	/* add offset to go from J2000 back to standard Julian date */
+	/* 加上偏移量以便从 J2000 回到标准儒略日 */
 	date += POSTGRES_EPOCH_JDATE;
 
-	/* Julian day routine does not work for negative Julian days */
+	/* 儒略日例程不能处理负儒略日 */
 	if (date < 0 || date > (Timestamp) INT_MAX)
 		return -1;
 
 	j2date((int) date, &tm->tm_year, &tm->tm_mon, &tm->tm_mday);
 	dt2time(time, &tm->tm_hour, &tm->tm_min, &tm->tm_sec, fsec);
 
-	/* Done if no TZ conversion wanted */
+	/* 若不需时区转换则完成 */
 	if (tzp == NULL)
 	{
 		tm->tm_isdst = -1;
@@ -1868,14 +1868,14 @@ timestamp2tm(Timestamp dt, int *tzp, struct pg_tm *tm, fsec_t *fsec, const char 
 	}
 
 	/*
-	 * If the time falls within the range of pg_time_t, use pg_localtime() to
-	 * rotate to the local time zone.
+	 * 若时间落在 pg_time_t 的范围内，则用 pg_localtime() 转换
+	 * 到本地时区。
 	 *
-	 * First, convert to an integral timestamp, avoiding possibly
-	 * platform-specific roundoff-in-wrong-direction errors, and adjust to
-	 * Unix epoch.  Then see if we can convert to pg_time_t without loss. This
-	 * coding avoids hardwiring any assumptions about the width of pg_time_t,
-	 * so it should behave sanely on machines without int64.
+	 * 先取整为 timestamp，避免平台向错误方向
+	 * 舍入的误差，并调整到 Unix 纪元。
+	 * 然后看能否无损转换为 pg_time_t。这种
+	 * 编码方式避免硬编码任何关于 pg_time_t 宽度的假设，
+	 * 因此在无 int64 的机器上也能表现正常。
 	 */
 	dt = (dt - *fsec) / USECS_PER_SEC +
 		(POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE) * SECS_PER_DAY;
@@ -1900,10 +1900,10 @@ timestamp2tm(Timestamp dt, int *tzp, struct pg_tm *tm, fsec_t *fsec, const char 
 	else
 	{
 		/*
-		 * When out of range of pg_time_t, treat as GMT
+		 * 超出 pg_time_t 范围时，按 GMT 处理
 		 */
 		*tzp = 0;
-		/* Mark this as *no* time zone available */
+		/* 标记为*无*可用时区 */
 		tm->tm_isdst = -1;
 		tm->tm_gmtoff = 0;
 		tm->tm_zone = NULL;
@@ -1916,11 +1916,11 @@ timestamp2tm(Timestamp dt, int *tzp, struct pg_tm *tm, fsec_t *fsec, const char 
 
 
 /* tm2timestamp()
- * Convert a tm structure to a timestamp data type.
- * Note that year is _not_ 1900-based, but is an explicit full value.
- * Also, month is one-based, _not_ zero-based.
+ * 把 tm 结构转换为 timestamp 数据类型。
+ * 注意年份并非以 1900 为基准，而是显式的完整值。
+ * 另外，月份从 1 起算而非 0。
  *
- * Returns -1 on failure (value out of range).
+ * 失败时返回 -1（值越界）。
  */
 int
 tm2timestamp(struct pg_tm *tm, fsec_t fsec, int *tzp, Timestamp *result)
@@ -1928,10 +1928,10 @@ tm2timestamp(struct pg_tm *tm, fsec_t fsec, int *tzp, Timestamp *result)
 	TimeOffset	date;
 	TimeOffset	time;
 
-	/* Prevent overflow in Julian-day routines */
+	/* 在儒略日例程中防止溢出 */
 	if (!IS_VALID_JULIAN(tm->tm_year, tm->tm_mon, tm->tm_mday))
 	{
-		*result = 0;			/* keep compiler quiet */
+		*result = 0;			/* 让编译器安静 */
 		return -1;
 	}
 
@@ -1939,27 +1939,27 @@ tm2timestamp(struct pg_tm *tm, fsec_t fsec, int *tzp, Timestamp *result)
 	time = time2t(tm->tm_hour, tm->tm_min, tm->tm_sec, fsec);
 
 	*result = date * USECS_PER_DAY + time;
-	/* check for major overflow */
+	/* 检查重大溢出 */
 	if ((*result - time) / USECS_PER_DAY != date)
 	{
-		*result = 0;			/* keep compiler quiet */
+		*result = 0;			/* 让编译器安静 */
 		return -1;
 	}
-	/* check for just-barely overflow (okay except time-of-day wraps) */
-	/* caution: we want to allow 1999-12-31 24:00:00 */
+	/* 检查刚好越界的溢出（时刻回绕除外均可） */
+	/* 注意：我们要允许 1999-12-31 24:00:00 */
 	if ((*result < 0 && date > 0) ||
 		(*result > 0 && date < -1))
 	{
-		*result = 0;			/* keep compiler quiet */
+		*result = 0;			/* 让编译器安静 */
 		return -1;
 	}
 	if (tzp != NULL)
 		*result = dt2local(*result, -(*tzp));
 
-	/* final range check catches just-out-of-range timestamps */
+	/* 最终范围检查会截住刚好越界的时间戳 */
 	if (!IS_VALID_TIMESTAMP(*result))
 	{
-		*result = 0;			/* keep compiler quiet */
+		*result = 0;			/* 让编译器安静 */
 		return -1;
 	}
 
@@ -1968,9 +1968,9 @@ tm2timestamp(struct pg_tm *tm, fsec_t fsec, int *tzp, Timestamp *result)
 
 
 /* interval2itm()
- * Convert an Interval to a pg_itm structure.
- * Note: overflow is not possible, because the pg_itm fields are
- * wide enough for all possible conversion results.
+ * 把 Interval 转换为 pg_itm 结构。
+ * 注意：不可能溢出；pg_itm 各字段足够宽，
+ * 足以容纳所有可能的转换结果。
  */
 void
 interval2itm(Interval span, struct pg_itm *itm)
@@ -1996,8 +1996,8 @@ interval2itm(Interval span, struct pg_itm *itm)
 }
 
 /* itm2interval()
- * Convert a pg_itm structure to an Interval.
- * Returns 0 if OK, -1 on overflow.
+ * 把 pg_itm 结构转换为 Interval。
+ * 成功返回 0，溢出 -1。
  */
 int
 itm2interval(struct pg_itm *itm, Interval *span)
@@ -2011,7 +2011,7 @@ itm2interval(struct pg_itm *itm, Interval *span)
 	if (pg_mul_s64_overflow(itm->tm_hour, USECS_PER_HOUR,
 							&span->time))
 		return -1;
-	/* tm_min, tm_sec are 32 bits, so intermediate products can't overflow */
+	/* tm_min 与 tm_sec 是 32 位，因此中间乘积不会溢出 */
 	if (pg_add_s64_overflow(span->time, itm->tm_min * USECS_PER_MINUTE,
 							&span->time))
 		return -1;
@@ -2025,8 +2025,8 @@ itm2interval(struct pg_itm *itm, Interval *span)
 }
 
 /* itmin2interval()
- * Convert a pg_itm_in structure to an Interval.
- * Returns 0 if OK, -1 on overflow.
+ * 把 pg_itm_in 结构转换为 Interval。
+ * 成功返回 0，溢出 -1。
  */
 int
 itmin2interval(struct pg_itm_in *itm_in, Interval *span)
@@ -2056,7 +2056,7 @@ dt2local(Timestamp dt, int timezone)
 
 
 /*****************************************************************************
- *	 PUBLIC ROUTINES														 *
+ *	 公共例程                  *
  *****************************************************************************/
 
 
@@ -2076,7 +2076,7 @@ interval_finite(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Relational operators for timestamp.
+ *	timestamp 的关系算子。
  *---------------------------------------------------------*/
 
 void
@@ -2109,15 +2109,15 @@ SetEpochTimestamp(void)
 			   *tm = &tt;
 
 	GetEpochTime(tm);
-	/* we don't bother to test for failure ... */
+	/* 我们懒得测试失败... */
 	tm2timestamp(tm, 0, NULL, &dt);
 
 	return dt;
 }								/* SetEpochTimestamp() */
 
 /*
- * We are currently sharing some code between timestamp and timestamptz.
- * The comparison functions are among them. - thomas 2001-09-25
+ * 目前我们在 timestamp 与 timestamptz 之间共享部分代码。
+ * 比较函数即在其中。 - thomas 2001-09-25
  *
  *		timestamp_relop - is timestamp1 relop timestamp2
  */
@@ -2191,7 +2191,7 @@ timestamp_cmp(PG_FUNCTION_ARGS)
 }
 
 #if SIZEOF_DATUM < 8
-/* note: this is used for timestamptz also */
+/* 注意：这也用于 timestamptz */
 static int
 timestamp_fastcmp(Datum x, Datum y, SortSupport ssup)
 {
@@ -2210,8 +2210,8 @@ timestamp_sortsupport(PG_FUNCTION_ARGS)
 #if SIZEOF_DATUM >= 8
 
 	/*
-	 * If this build has pass-by-value timestamps, then we can use a standard
-	 * comparator function.
+	 * 若本构建的 timestamp 按值传递，那么可以改用标准的
+	 * 比较器函数。
 	 */
 	ssup->comparator = ssup_datum_signed_cmp;
 #else
@@ -2233,7 +2233,7 @@ timestamp_hash_extended(PG_FUNCTION_ARGS)
 }
 
 /*
- * Cross-type comparison functions for timestamp vs timestamptz
+ * timestamp 与 timestamptz 的跨类型比较函数
  */
 
 int32
@@ -2245,12 +2245,12 @@ timestamp_cmp_timestamptz_internal(Timestamp timestampVal, TimestampTz dt2)
 	dt1 = timestamp2timestamptz_opt_overflow(timestampVal, &overflow);
 	if (overflow > 0)
 	{
-		/* dt1 is larger than any finite timestamp, but less than infinity */
+		/* dt1 大于任何有限 timestamp，但小于无穷 */
 		return TIMESTAMP_IS_NOEND(dt2) ? -1 : +1;
 	}
 	if (overflow < 0)
 	{
-		/* dt1 is less than any finite timestamp, but more than -infinity */
+		/* dt1 小于任何有限 timestamp，但大于负无穷 */
 		return TIMESTAMP_IS_NOBEGIN(dt2) ? +1 : -1;
 	}
 
@@ -2387,11 +2387,11 @@ timestamptz_cmp_timestamp(PG_FUNCTION_ARGS)
 /*
  *		interval_relop	- is interval1 relop interval2
  *
- * Interval comparison is based on converting interval values to a linear
- * representation expressed in the units of the time field (microseconds,
- * in the case of integer timestamps) with days assumed to be always 24 hours
- * and months assumed to be always 30 days.  To avoid overflow, we need a
- * wider-than-int64 datatype for the linear representation, so use INT128.
+ * interval 比较基于把 interval 值转换为线性表示，
+ * 该表示以 time 字段的单位表达（整数 timestamp 情形下
+ * 为微秒），并假定天恒为 24 小时、月恒为 30 天。
+ * 为避免溢出，我们需要一个比 int64 更宽的数据
+ * 类型来表达线性表示，因此使用 INT128。
  */
 
 static inline INT128
@@ -2401,16 +2401,16 @@ interval_cmp_value(const Interval *interval)
 	int64		days;
 
 	/*
-	 * Combine the month and day fields into an integral number of days.
-	 * Because the inputs are int32, int64 arithmetic suffices here.
+	 * 把 month 与 day 字段合成整数天数。
+	 * 由于输入是 int32，int64 运算在此足够。
 	 */
 	days = interval->month * INT64CONST(30);
 	days += interval->day;
 
-	/* Widen time field to 128 bits */
+	/* 加宽 time 至 128 位 */
 	span = int64_to_int128(interval->time);
 
-	/* Scale up days to microseconds, forming a 128-bit product */
+	/* 把天数放大到微秒，形成 128 位乘积 */
 	int128_add_int64_mul_int64(&span, days, USECS_PER_DAY);
 
 	return span;
@@ -2489,11 +2489,11 @@ interval_cmp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Hashing for intervals
+ * interval 的哈希
  *
- * We must produce equal hashvals for values that interval_cmp_internal()
- * considers equal.  So, compute the net span the same way it does,
- * and then hash that.
+ * 对于 interval_cmp_internal() 认为相等的值，必须
+ * 产生相等的哈希值。所以以同样方式计算净跨
+ * 度，再哈希。
  */
 Datum
 interval_hash(PG_FUNCTION_ARGS)
@@ -2503,10 +2503,10 @@ interval_hash(PG_FUNCTION_ARGS)
 	int64		span64;
 
 	/*
-	 * Use only the least significant 64 bits for hashing.  The upper 64 bits
-	 * seldom add any useful information, and besides we must do it like this
-	 * for compatibility with hashes calculated before use of INT128 was
-	 * introduced.
+	 * 哈希只使用最低有效 64 位。高 64 位很少能提供
+	 * 有用信息，而且为了与引入 INT128 之前所计算的哈希
+	 * 保持兼容，我们也必须这样做。
+	 *
 	 */
 	span64 = int128_to_int64(span);
 
@@ -2520,26 +2520,26 @@ interval_hash_extended(PG_FUNCTION_ARGS)
 	INT128		span = interval_cmp_value(interval);
 	int64		span64;
 
-	/* Same approach as interval_hash */
+	/* 与 interval_hash 同法 */
 	span64 = int128_to_int64(span);
 
 	return DirectFunctionCall2(hashint8extended, Int64GetDatumFast(span64),
 							   PG_GETARG_DATUM(1));
 }
 
-/* overlaps_timestamp() --- implements the SQL OVERLAPS operator.
+/* overlaps_timestamp() --- 实现 SQL OVERLAPS 算子。
  *
- * Algorithm is per SQL spec.  This is much harder than you'd think
- * because the spec requires us to deliver a non-null answer in some cases
- * where some of the inputs are null.
+ * 算法依 SQL 标准而定。这比你想的要难得多，
+ * 因为标准要求我们在某些输入为 null 的情形下也必须
+ * 给出非 null 的答案。
  */
 Datum
 overlaps_timestamp(PG_FUNCTION_ARGS)
 {
 	/*
-	 * The arguments are Timestamps, but we leave them as generic Datums to
-	 * avoid unnecessary conversions between value and reference forms --- not
-	 * to mention possible dereferences of null pointers.
+	 * 参数是 timestamp，但我们把它们留作通用 Datum，
+	 * 以避免值形式与引用形式之间不必要的转换 --- 更
+	 * 不必说还可能对 null 指针解引用。
 	 */
 	Datum		ts1 = PG_GETARG_DATUM(0);
 	Datum		te1 = PG_GETARG_DATUM(1);
@@ -2556,15 +2556,15 @@ overlaps_timestamp(PG_FUNCTION_ARGS)
 	DatumGetBool(DirectFunctionCall2(timestamp_lt,t1,t2))
 
 	/*
-	 * If both endpoints of interval 1 are null, the result is null (unknown).
-	 * If just one endpoint is null, take ts1 as the non-null one. Otherwise,
-	 * take ts1 as the lesser endpoint.
+	 * 若 interval 1 两端点均为 null，则结果为 null（未知）。
+	 * 若仅一端为 null，则取非 null 端为 ts1。否则，
+	 * 取较小端点为 ts1。
 	 */
 	if (ts1IsNull)
 	{
 		if (te1IsNull)
 			PG_RETURN_NULL();
-		/* swap null for non-null */
+		/* 非 null 换 null */
 		ts1 = te1;
 		te1IsNull = true;
 	}
@@ -2579,12 +2579,12 @@ overlaps_timestamp(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Likewise for interval 2. */
+	/* interval 2 同理。 */
 	if (ts2IsNull)
 	{
 		if (te2IsNull)
 			PG_RETURN_NULL();
-		/* swap null for non-null */
+		/* 非 null 换 null */
 		ts2 = te2;
 		te2IsNull = true;
 	}
@@ -2600,14 +2600,14 @@ overlaps_timestamp(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * At this point neither ts1 nor ts2 is null, so we can consider three
-	 * cases: ts1 > ts2, ts1 < ts2, ts1 = ts2
+	 * 此时 ts1 与 ts2 均不为 null，情形有三种：
+	 * ts1 > ts2、ts1 < ts2、ts1 = ts2
 	 */
 	if (TIMESTAMP_GT(ts1, ts2))
 	{
 		/*
-		 * This case is ts1 < te2 OR te1 < te2, which may look redundant but
-		 * in the presence of nulls it's not quite completely so.
+		 * 此情形为 ts1 < te2 OR te1 < te2，看似冗余，
+		 * 但在有 null 的情况下并不完全如此。
 		 */
 		if (te2IsNull)
 			PG_RETURN_NULL();
@@ -2617,14 +2617,14 @@ overlaps_timestamp(PG_FUNCTION_ARGS)
 			PG_RETURN_NULL();
 
 		/*
-		 * If te1 is not null then we had ts1 <= te1 above, and we just found
-		 * ts1 >= te2, hence te1 >= te2.
+		 * 若 te1 非 null，则前文已有 ts1 <= te1，且刚找到
+		 * ts1 >= te2，故 te1 >= te2
 		 */
 		PG_RETURN_BOOL(false);
 	}
 	else if (TIMESTAMP_LT(ts1, ts2))
 	{
-		/* This case is ts2 < te1 OR te2 < te1 */
+		/* 此情形为 ts2 < te1 OR te2 < te1 */
 		if (te1IsNull)
 			PG_RETURN_NULL();
 		if (TIMESTAMP_LT(ts2, te1))
@@ -2633,16 +2633,16 @@ overlaps_timestamp(PG_FUNCTION_ARGS)
 			PG_RETURN_NULL();
 
 		/*
-		 * If te2 is not null then we had ts2 <= te2 above, and we just found
-		 * ts2 >= te1, hence te2 >= te1.
+		 * 若 te2 非 null，则前文已有 ts2 <= te2，且刚找到
+		 * ts2 >= te1，故 te2 >= te1
 		 */
 		PG_RETURN_BOOL(false);
 	}
 	else
 	{
 		/*
-		 * For ts1 = ts2 the spec says te1 <> te2 OR te1 = te2, which is a
-		 * rather silly way of saying "true if both are non-null, else null".
+		 * 对 ts1 = ts2，标准说 te1 <> te2 OR te1 = te2，这是
+		 * 绕圈子的说法：两者均非 null 则真，否则为 null。
 		 */
 		if (te1IsNull || te2IsNull)
 			PG_RETURN_NULL();
@@ -2655,7 +2655,7 @@ overlaps_timestamp(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	"Arithmetic" operators on date/times.
+ *	日期/时间的"算术"算子。
  *---------------------------------------------------------*/
 
 Datum
@@ -2665,7 +2665,7 @@ timestamp_smaller(PG_FUNCTION_ARGS)
 	Timestamp	dt2 = PG_GETARG_TIMESTAMP(1);
 	Timestamp	result;
 
-	/* use timestamp_cmp_internal to be sure this agrees with comparisons */
+	/* 使用 timestamp_cmp_internal 以确保与比较行为一致 */
 	if (timestamp_cmp_internal(dt1, dt2) < 0)
 		result = dt1;
 	else
@@ -2711,8 +2711,8 @@ timestamp_mi(PG_FUNCTION_ARGS)
 	result->day = 0;
 
 	/*----------
-	 *	This is wrong, but removing it breaks a lot of regression tests.
-	 *	For example:
+	 *	这不对，但移除它会破坏大量回归测试。
+	 *	例如：
 	 *
 	 *	test=> SET timezone = 'EST5EDT';
 	 *	test=> SELECT
@@ -2723,7 +2723,7 @@ timestamp_mi(PG_FUNCTION_ARGS)
 	 *	 1 day 01:00:00
 	 *	 (1 row)
 	 *
-	 *	so adding that to the first timestamp gets:
+	 *	故把它加到首个 timestamp 得到：
 	 *
 	 *	 test=> SELECT
 	 *	 test-> ('2005-10-29 13:22:00-04'::timestamptz +
@@ -2744,14 +2744,14 @@ timestamp_mi(PG_FUNCTION_ARGS)
 /*
  *	interval_justify_interval()
  *
- *	Adjust interval so 'month', 'day', and 'time' portions are within
- *	customary bounds.  Specifically:
+ *	调整 interval，使 'month'、'day' 与 'time' 部分都在
+ *	常规界限内。即：
  *
  *		0 <= abs(time) < 24 hours
  *		0 <= abs(day)  < 30 days
  *
- *	Also, the sign bit on all three fields is made equal, so either
- *	all three fields are negative or all are positive.
+ *	另外，三个字段的符号位改为一致，于是要么
+ *	全为负，要么全为正。
  */
 Datum
 interval_justify_interval(PG_FUNCTION_ARGS)
@@ -2766,7 +2766,7 @@ interval_justify_interval(PG_FUNCTION_ARGS)
 	result->day = span->day;
 	result->time = span->time;
 
-	/* pre-justify days if it might prevent overflow */
+	/* 若可防止溢出则预先 justify day */
 	if ((result->day > 0 && result->time > 0) ||
 		(result->day < 0 && result->time < 0))
 	{
@@ -2779,10 +2779,10 @@ interval_justify_interval(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Since TimeOffset is int64, abs(wholeday) can't exceed about 1.07e8.  If
-	 * we pre-justified then abs(result->day) is less than DAYS_PER_MONTH, so
-	 * this addition can't overflow.  If we didn't pre-justify, then day and
-	 * time are of different signs, so it still can't overflow.
+	 * 由于 TimeOffset 是 int64，abs(wholeday) 不会超过约 1.07e8。
+	 * 若我们做了预 justify，则 abs(result->day) 小于
+	 * DAYS_PER_MONTH，因此此加法不会溢出。若未做预
+	 * justify，则 day 与 time 异号，仍不会溢出。
 	 */
 	TMODULO(result->time, wholeday, USECS_PER_DAY);
 	result->day += wholeday;
@@ -2824,10 +2824,10 @@ interval_justify_interval(PG_FUNCTION_ARGS)
 /*
  *	interval_justify_hours()
  *
- *	Adjust interval so 'time' contains less than a whole day, adding
- *	the excess to 'day'.  This is useful for
- *	situations (such as non-TZ) where '1 day' = '24 hours' is valid,
- *	e.g. interval subtraction and division.
+ *	调整 interval，使 'time' 含不足一整天，并把超出
+ *	部分加到 'day' 上。这对
+ *	诸如非 TZ 这类 '1 day' = '24 hours' 成立的情形
+ *	有用，如 interval 减法/除法。
  */
 Datum
 interval_justify_hours(PG_FUNCTION_ARGS)
@@ -2864,8 +2864,8 @@ interval_justify_hours(PG_FUNCTION_ARGS)
 /*
  *	interval_justify_days()
  *
- *	Adjust interval so 'day' contains less than 30 days, adding
- *	the excess to 'month'.
+ *	调整 interval，使 'day' 少于 30 天，超出则
+ *	加到 'month' 上。
  */
 Datum
 interval_justify_days(PG_FUNCTION_ARGS)
@@ -2901,14 +2901,14 @@ interval_justify_days(PG_FUNCTION_ARGS)
 }
 
 /* timestamp_pl_interval()
- * Add an interval to a timestamp data type.
- * Note that interval has provisions for qualitative year/month and day
- *	units, so try to do the right thing with them.
- * To add a month, increment the month, and use the same day of month.
- * Then, if the next month has fewer days, set the day of month
- *	to the last day of month.
- * To add a day, increment the mday, and use the same time of day.
- * Lastly, add in the "quantitative time".
+ * 给 timestamp 加上 interval。
+ * 注意 interval 带有定性 year/month 与 day 单位的机制，
+ *	所以要对它们做恰当处理。
+ * 加一个月时，递增月份，并使用月内同一日。
+ * 然后若下月天数较少，则把月内之日设为该月
+ *	最后一日。
+ * 加一天时，递增 mday，并使用一天内同一时刻。
+ * 最后，加上"定量时间"。
  */
 Datum
 timestamp_pl_interval(PG_FUNCTION_ARGS)
@@ -2947,7 +2947,7 @@ timestamp_pl_interval(PG_FUNCTION_ARGS)
 				tm->tm_mon = tm->tm_mon % MONTHS_PER_YEAR + MONTHS_PER_YEAR;
 			}
 
-			/* adjust for end of month boundary problems... */
+			/* 针对月末边界问题做调整... */
 			if (tm->tm_mday > day_tab[isleap(tm->tm_year)][tm->tm_mon - 1])
 				tm->tm_mday = (day_tab[isleap(tm->tm_year)][tm->tm_mon - 1]);
 
@@ -2970,8 +2970,8 @@ timestamp_pl_interval(PG_FUNCTION_ARGS)
 						 errmsg("timestamp out of range")));
 
 			/*
-			 * Add days by converting to and from Julian.  We need an overflow
-			 * check here since j2date expects a non-negative integer input.
+			 * 以儒略日往复转换的方式加天数。此处需溢出
+			 * 检查，因为 j2date 要求非负整数输入。
 			 */
 			julian = date2j(tm->tm_year, tm->tm_mon, tm->tm_mday);
 			if (pg_add_s32_overflow(julian, span->day, &julian) ||
@@ -3021,15 +3021,15 @@ timestamp_mi_interval(PG_FUNCTION_ARGS)
 
 
 /* timestamptz_pl_interval_internal()
- * Add an interval to a timestamptz, in the given (or session) timezone.
+ * 在给定（或会话）时区下把 interval 加到 timestamptz。
  *
- * Note that interval has provisions for qualitative year/month and day
- *	units, so try to do the right thing with them.
- * To add a month, increment the month, and use the same day of month.
- * Then, if the next month has fewer days, set the day of month
- *	to the last day of month.
- * To add a day, increment the mday, and use the same time of day.
- * Lastly, add in the "quantitative time".
+ * 注意 interval 带有定性 year/month 与 day 单位的机制，
+ *	所以要对它们做恰当处理。
+ * 加一个月时，递增月份，并使用月内同一日。
+ * 然后若下月天数较少，则把月内之日设为该月
+ *	最后一日。
+ * 加一天时，递增 mday，并使用一天内同一时刻。
+ * 最后，加上"定量时间"。
  */
 static TimestampTz
 timestamptz_pl_interval_internal(TimestampTz timestamp,
@@ -3043,7 +3043,7 @@ timestamptz_pl_interval_internal(TimestampTz timestamp,
 		result = timestamp;
 	else
 	{
-		/* Use session timezone if caller asks for default */
+		/* 调用方要求默认时用会话时区 */
 		if (attimezone == NULL)
 			attimezone = session_timezone;
 
@@ -3073,7 +3073,7 @@ timestamptz_pl_interval_internal(TimestampTz timestamp,
 				tm->tm_mon = tm->tm_mon % MONTHS_PER_YEAR + MONTHS_PER_YEAR;
 			}
 
-			/* adjust for end of month boundary problems... */
+			/* 针对月末边界问题做调整... */
 			if (tm->tm_mday > day_tab[isleap(tm->tm_year)][tm->tm_mon - 1])
 				tm->tm_mday = (day_tab[isleap(tm->tm_year)][tm->tm_mon - 1]);
 
@@ -3098,11 +3098,11 @@ timestamptz_pl_interval_internal(TimestampTz timestamp,
 						 errmsg("timestamp out of range")));
 
 			/*
-			 * Add days by converting to and from Julian.  We need an overflow
-			 * check here since j2date expects a non-negative integer input.
-			 * In practice though, it will give correct answers for small
-			 * negative Julian dates; we should allow -1 to avoid
-			 * timezone-dependent failures, as discussed in timestamp.h.
+			 * 以儒略日往复转换的方式加天数。此处需溢出
+			 * 检查，因为 j2date 要求非负整数输入。
+			 * 不过实践上小负儒略日它会给出正确答案；
+			 * 我们应允许 -1，以避免
+			 * 依赖时区的失败，如 timestamp.h 中所讨论。
 			 */
 			julian = date2j(tm->tm_year, tm->tm_mon, tm->tm_mday);
 			if (pg_add_s32_overflow(julian, span->day, &julian) ||
@@ -3137,7 +3137,7 @@ timestamptz_pl_interval_internal(TimestampTz timestamp,
 }
 
 /* timestamptz_mi_interval_internal()
- * As above, but subtract the interval.
+ * 同上，但减去 interval。
  */
 static TimestampTz
 timestamptz_mi_interval_internal(TimestampTz timestamp,
@@ -3154,7 +3154,7 @@ timestamptz_mi_interval_internal(TimestampTz timestamp,
 }
 
 /* timestamptz_pl_interval()
- * Add an interval to a timestamptz, in the session timezone.
+ * 在会话时区下把 interval 加到 timestamptz。
  */
 Datum
 timestamptz_pl_interval(PG_FUNCTION_ARGS)
@@ -3175,7 +3175,7 @@ timestamptz_mi_interval(PG_FUNCTION_ARGS)
 }
 
 /* timestamptz_pl_interval_at_zone()
- * Add an interval to a timestamptz, in the specified timezone.
+ * 在指定时区下把 interval 加到 timestamptz。
  */
 Datum
 timestamptz_pl_interval_at_zone(PG_FUNCTION_ARGS)
@@ -3208,7 +3208,7 @@ interval_um(PG_FUNCTION_ARGS)
 	result = (Interval *) palloc(sizeof(Interval));
 
 	result->time = -interval->time;
-	/* overflow check copied from int4um */
+	/* 溢出检查复制自 int4um */
 	if (interval->time != 0 && SAMESIGN(result->time, interval->time))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -3235,7 +3235,7 @@ interval_smaller(PG_FUNCTION_ARGS)
 	Interval   *interval2 = PG_GETARG_INTERVAL_P(1);
 	Interval   *result;
 
-	/* use interval_cmp_internal to be sure this agrees with comparisons */
+	/* 使用 interval_cmp_internal 以确保与比较行为一致 */
 	if (interval_cmp_internal(interval1, interval2) < 0)
 		result = interval1;
 	else
@@ -3267,7 +3267,7 @@ interval_pl(PG_FUNCTION_ARGS)
 	result = (Interval *) palloc(sizeof(Interval));
 
 	result->month = span1->month + span2->month;
-	/* overflow check copied from int4pl */
+	/* 溢出检查复制自 int4pl */
 	if (SAMESIGN(span1->month, span2->month) &&
 		!SAMESIGN(result->month, span1->month))
 		ereport(ERROR,
@@ -3301,7 +3301,7 @@ interval_mi(PG_FUNCTION_ARGS)
 	result = (Interval *) palloc(sizeof(Interval));
 
 	result->month = span1->month - span2->month;
-	/* overflow check copied from int4mi */
+	/* 溢出检查复制自 int4mi */
 	if (!SAMESIGN(span1->month, span2->month) &&
 		!SAMESIGN(result->month, span1->month))
 		ereport(ERROR,
@@ -3326,7 +3326,7 @@ interval_mi(PG_FUNCTION_ARGS)
 }
 
 /*
- *	There is no interval_abs():  it is unclear what value to return:
+ *	没有 interval_abs()：不清楚该返回什么值：
  *	  http://archives.postgresql.org/pgsql-general/2009-10/msg01031.php
  *	  http://archives.postgresql.org/pgsql-general/2009-11/msg00041.php
  */
@@ -3356,22 +3356,22 @@ interval_mul(PG_FUNCTION_ARGS)
 	result->day = (int32) result_double;
 
 	/*
-	 * The above correctly handles the whole-number part of the month and day
-	 * products, but we have to do something with any fractional part
-	 * resulting when the factor is non-integral.  We cascade the fractions
-	 * down to lower units using the conversion factors DAYS_PER_MONTH and
-	 * SECS_PER_DAY.  Note we do NOT cascade up, since we are not forced to do
-	 * so by the representation.  The user can choose to cascade up later,
-	 * using justify_hours and/or justify_days.
+	 * 上面正确处理了 month 与 day 乘积的整数部分，
+	 * 但当因子非整数时产生的小数部分仍需处理。
+	 * 我们使用 DAYS_PER_MONTH 与 SECS_PER_DAY 这两个
+	 * 换算因子把小数部分向下级联到更低位，
+	 * 注意我们_不_向上级联，因为表示法并未强迫我们这
+	 * 样做。用户之后可以选择用 justify_hours 和/或
+	 * justify_days 来向上级联。
 	 */
 
 	/*
-	 * Fractional months full days into days.
+	 * 小数月的整天并入 day。
 	 *
-	 * Floating point calculation are inherently imprecise, so these
-	 * calculations are crafted to produce the most reliable result possible.
-	 * TSROUND() is needed to more accurately produce whole numbers where
-	 * appropriate.
+	 * 浮点计算天生不精确，因此这些计算经过精心
+	 * 设计以求尽可能可靠的结果。
+	 * 在适当时需要 TSROUND() 才能更准确地产生整数。
+	 *
 	 */
 	month_remainder_days = (orig_month * factor - result->month) * DAYS_PER_MONTH;
 	month_remainder_days = TSROUND(month_remainder_days);
@@ -3380,9 +3380,9 @@ interval_mul(PG_FUNCTION_ARGS)
 	sec_remainder = TSROUND(sec_remainder);
 
 	/*
-	 * Might have 24:00:00 hours due to rounding, or >24 hours because of time
-	 * cascade from months and days.  It might still be >24 if the combination
-	 * of cascade and the seconds factor operation itself.
+	 * 可能因舍入得到 24:00:00 小时，或因 month 与 day
+	 * 的时间级联而大于 24 小时。若级联与秒因子运算本身
+	 * 的组合作用仍然可能大于 24。
 	 */
 	if (fabs(sec_remainder) >= SECS_PER_DAY)
 	{
@@ -3393,7 +3393,7 @@ interval_mul(PG_FUNCTION_ARGS)
 		sec_remainder -= (int) (sec_remainder / SECS_PER_DAY) * SECS_PER_DAY;
 	}
 
-	/* cascade units down */
+	/* 向下级联 */
 	if (pg_add_s32_overflow(result->day, (int32) month_remainder_days,
 							&result->day))
 		goto out_of_range;
@@ -3409,13 +3409,13 @@ out_of_range:
 			errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 			errmsg("interval out of range"));
 
-	PG_RETURN_NULL();			/* keep compiler quiet */
+	PG_RETURN_NULL();			/* 让编译器安静 */
 }
 
 Datum
 mul_d_interval(PG_FUNCTION_ARGS)
 {
-	/* Args are float8 and Interval *, but leave them as generic Datum */
+	/* 参数是 float8 与 Interval *，但留作通用 Datum */
 	Datum		factor = PG_GETARG_DATUM(0);
 	Datum		span = PG_GETARG_DATUM(1);
 
@@ -3452,7 +3452,7 @@ interval_div(PG_FUNCTION_ARGS)
 	result->day = (int32) result_double;
 
 	/*
-	 * Fractional months full days into days.  See comment in interval_mul().
+	 * 小数月的整天并入 day。参见 interval_mul() 中的注释。
 	 */
 	month_remainder_days = (orig_month / factor - result->month) * DAYS_PER_MONTH;
 	month_remainder_days = TSROUND(month_remainder_days);
@@ -3468,7 +3468,7 @@ interval_div(PG_FUNCTION_ARGS)
 		sec_remainder -= (int) (sec_remainder / SECS_PER_DAY) * SECS_PER_DAY;
 	}
 
-	/* cascade units down */
+	/* 向下级联 */
 	if (pg_add_s32_overflow(result->day, (int32) month_remainder_days,
 							&result->day))
 		goto out_of_range;
@@ -3484,17 +3484,17 @@ out_of_range:
 			errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 			errmsg("interval out of range"));
 
-	PG_RETURN_NULL();			/* keep compiler quiet */
+	PG_RETURN_NULL();			/* 让编译器安静 */
 }
 
 
 /*
- * in_range support functions for timestamps and intervals.
+ * timestamp 与 interval 的 in_range 支持函数。
  *
- * Per SQL spec, we support these with interval as the offset type.
- * The spec's restriction that the offset not be negative is a bit hard to
- * decipher for intervals, but we choose to interpret it the same as our
- * interval comparison operators would.
+ * 依 SQL 标准，以 interval 为偏移类型支持它们。
+ * 标准关于偏移不得为负的限制对 interval 来说有点
+ * 难以解读，但我们选择按我们自己的 interval 比较
+ * 算子的语义来解读。
  */
 
 Datum
@@ -3512,7 +3512,7 @@ in_range_timestamptz_interval(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE),
 				 errmsg("invalid preceding or following size in window function")));
 
-	/* We don't currently bother to avoid overflow hazards here */
+	/* 我们目前不费心去规避此处的溢出风险 */
 	if (sub)
 		sum = timestamptz_mi_interval_internal(base, offset, NULL);
 	else
@@ -3539,7 +3539,7 @@ in_range_timestamp_interval(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE),
 				 errmsg("invalid preceding or following size in window function")));
 
-	/* We don't currently bother to avoid overflow hazards here */
+	/* 我们目前不费心去规避此处的溢出风险 */
 	if (sub)
 		sum = DatumGetTimestamp(DirectFunctionCall2(timestamp_mi_interval,
 													TimestampGetDatum(base),
@@ -3570,7 +3570,7 @@ in_range_interval_interval(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PRECEDING_OR_FOLLOWING_SIZE),
 				 errmsg("invalid preceding or following size in window function")));
 
-	/* We don't currently bother to avoid overflow hazards here */
+	/* 我们目前不费心去规避此处的溢出风险 */
 	if (sub)
 		sum = DatumGetIntervalP(DirectFunctionCall2(interval_mi,
 													IntervalPGetDatum(base),
@@ -3588,13 +3588,13 @@ in_range_interval_interval(PG_FUNCTION_ARGS)
 
 
 /*
- * interval_accum, interval_accum_inv, and interval_avg implement the
- * AVG(interval) aggregate.
+ * interval_accum、interval_accum_inv 与 interval_avg 实现
+ * AVG(interval) 聚合。
  *
- * The transition datatype for this aggregate is a 2-element array of
- * intervals, where the first is the running sum and the second contains
- * the number of values so far in its 'time' field.  This is a bit ugly
- * but it beats inventing a specialized datatype for the purpose.
+ * 该聚合的迁移数据类型为二元素 interval 数组，
+ * 第一个元素是至今的累计和，第二个元素在其 'time'
+ * 字段中存放至今的值个数。这有点丑，
+ * 但总比为此专门发明一种数据类型要好。
  */
 
 Datum
@@ -3734,7 +3734,7 @@ interval_avg(PG_FUNCTION_ARGS)
 	sumX = *(DatumGetIntervalP(transdatums[0]));
 	N = *(DatumGetIntervalP(transdatums[1]));
 
-	/* SQL defines AVG of no values to be NULL */
+	/* SQL 定义空输入的 AVG 为 NULL */
 	if (N.time == 0)
 		PG_RETURN_NULL();
 
@@ -3745,10 +3745,10 @@ interval_avg(PG_FUNCTION_ARGS)
 
 
 /* timestamp_age()
- * Calculate time difference while retaining year/month fields.
- * Note that this does not result in an accurate absolute time span
- *	since year and month are out of context once the arithmetic
- *	is done.
+ * 计算时间差，同时保留 year/month 字段。
+ * 注意这并不会得到精确的绝对时间跨度，
+ *	因为算完之后 year 与 month 便脱离上下文。
+ *
  */
 Datum
 timestamp_age(PG_FUNCTION_ARGS)
@@ -3770,7 +3770,7 @@ timestamp_age(PG_FUNCTION_ARGS)
 	if (timestamp2tm(dt1, NULL, tm1, &fsec1, NULL, NULL) == 0 &&
 		timestamp2tm(dt2, NULL, tm2, &fsec2, NULL, NULL) == 0)
 	{
-		/* form the symbolic difference */
+		/* 构造符号化差值 */
 		tm->tm_usec = fsec1 - fsec2;
 		tm->tm_sec = tm1->tm_sec - tm2->tm_sec;
 		tm->tm_min = tm1->tm_min - tm2->tm_min;
@@ -3779,7 +3779,7 @@ timestamp_age(PG_FUNCTION_ARGS)
 		tm->tm_mon = tm1->tm_mon - tm2->tm_mon;
 		tm->tm_year = tm1->tm_year - tm2->tm_year;
 
-		/* flip sign if necessary... */
+		/* 必要时翻转符号... */
 		if (dt1 < dt2)
 		{
 			tm->tm_usec = -tm->tm_usec;
@@ -3791,7 +3791,7 @@ timestamp_age(PG_FUNCTION_ARGS)
 			tm->tm_year = -tm->tm_year;
 		}
 
-		/* propagate any negative fields into the next higher field */
+		/* 把负字段传播进更高一级字段 */
 		while (tm->tm_usec < 0)
 		{
 			tm->tm_usec += USECS_PER_SEC;
@@ -3836,7 +3836,7 @@ timestamp_age(PG_FUNCTION_ARGS)
 			tm->tm_year--;
 		}
 
-		/* recover sign if necessary... */
+		/* 必要时恢复符号... */
 		if (dt1 < dt2)
 		{
 			tm->tm_usec = -tm->tm_usec;
@@ -3863,10 +3863,10 @@ timestamp_age(PG_FUNCTION_ARGS)
 
 
 /* timestamptz_age()
- * Calculate time difference while retaining year/month fields.
- * Note that this does not result in an accurate absolute time span
- *	since year and month are out of context once the arithmetic
- *	is done.
+ * 计算时间差，同时保留 year/month 字段。
+ * 注意这并不会得到精确的绝对时间跨度，
+ *	因为算完之后 year 与 month 便脱离上下文。
+ *
  */
 Datum
 timestamptz_age(PG_FUNCTION_ARGS)
@@ -3890,7 +3890,7 @@ timestamptz_age(PG_FUNCTION_ARGS)
 	if (timestamp2tm(dt1, &tz1, tm1, &fsec1, NULL, NULL) == 0 &&
 		timestamp2tm(dt2, &tz2, tm2, &fsec2, NULL, NULL) == 0)
 	{
-		/* form the symbolic difference */
+		/* 构造符号化差值 */
 		tm->tm_usec = fsec1 - fsec2;
 		tm->tm_sec = tm1->tm_sec - tm2->tm_sec;
 		tm->tm_min = tm1->tm_min - tm2->tm_min;
@@ -3899,7 +3899,7 @@ timestamptz_age(PG_FUNCTION_ARGS)
 		tm->tm_mon = tm1->tm_mon - tm2->tm_mon;
 		tm->tm_year = tm1->tm_year - tm2->tm_year;
 
-		/* flip sign if necessary... */
+		/* 必要时翻转符号... */
 		if (dt1 < dt2)
 		{
 			tm->tm_usec = -tm->tm_usec;
@@ -3911,7 +3911,7 @@ timestamptz_age(PG_FUNCTION_ARGS)
 			tm->tm_year = -tm->tm_year;
 		}
 
-		/* propagate any negative fields into the next higher field */
+		/* 把负字段传播进更高一级字段 */
 		while (tm->tm_usec < 0)
 		{
 			tm->tm_usec += USECS_PER_SEC;
@@ -3957,10 +3957,10 @@ timestamptz_age(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Note: we deliberately ignore any difference between tz1 and tz2.
+		 * 注意：我们有意忽略 tz1 与 tz2 之间的任何差异。
 		 */
 
-		/* recover sign if necessary... */
+		/* 必要时恢复符号... */
 		if (dt1 < dt2)
 		{
 			tm->tm_usec = -tm->tm_usec;
@@ -3987,12 +3987,12 @@ timestamptz_age(PG_FUNCTION_ARGS)
 
 
 /*----------------------------------------------------------
- *	Conversion operators.
+ *	转换算子。
  *---------------------------------------------------------*/
 
 
 /* timestamp_bin()
- * Bin timestamp into specified interval.
+ * 以 interval 分箱 timestamp。
  */
 Datum
 timestamp_bin(PG_FUNCTION_ARGS)
@@ -4035,15 +4035,15 @@ timestamp_bin(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 				 errmsg("interval out of range")));
 
-	/* These calculations cannot overflow */
+	/* 这些计算不会溢出 */
 	tm_modulo = tm_diff % stride_usecs;
 	tm_delta = tm_diff - tm_modulo;
 	result = origin + tm_delta;
 
 	/*
-	 * We want to round towards -infinity, not 0, when tm_diff is negative and
-	 * not a multiple of stride_usecs.  This adjustment *can* cause overflow,
-	 * since the result might now be out of the range origin .. timestamp.
+	 * 当 tm_diff 为负且并非 stride_usecs 的倍数时，
+	 * 我们要向负无穷舍入而非向 0 舍入。此调整*可能*
+	 * 导致溢出，因为结果可能超出 origin .. timestamp。
 	 */
 	if (tm_modulo < 0)
 	{
@@ -4058,7 +4058,7 @@ timestamp_bin(PG_FUNCTION_ARGS)
 }
 
 /* timestamp_trunc()
- * Truncate timestamp to specified units.
+ * 把 timestamp 截断到指定单位。
  */
 Datum
 timestamp_trunc(PG_FUNCTION_ARGS)
@@ -4098,9 +4098,9 @@ timestamp_trunc(PG_FUNCTION_ARGS)
 					woy = date2isoweek(tm->tm_year, tm->tm_mon, tm->tm_mday);
 
 					/*
-					 * If it is week 52/53 and the month is January, then the
-					 * week must belong to the previous year. Also, some
-					 * December dates belong to the next year.
+					 * 若为 52/53 周且月份为一月，该周必属于
+					 * 上一年。此外，有些十二月日期属于
+					 * 下一年。
 					 */
 					if (woy >= 52 && tm->tm_mon == 1)
 						--tm->tm_year;
@@ -4114,21 +4114,21 @@ timestamp_trunc(PG_FUNCTION_ARGS)
 					break;
 				}
 			case DTK_MILLENNIUM:
-				/* see comments in timestamptz_trunc */
+				/* 见 timestamptz_trunc 注释 */
 				if (tm->tm_year > 0)
 					tm->tm_year = ((tm->tm_year + 999) / 1000) * 1000 - 999;
 				else
 					tm->tm_year = -((999 - (tm->tm_year - 1)) / 1000) * 1000 + 1;
 				/* FALL THRU */
 			case DTK_CENTURY:
-				/* see comments in timestamptz_trunc */
+				/* 见 timestamptz_trunc 注释 */
 				if (tm->tm_year > 0)
 					tm->tm_year = ((tm->tm_year + 99) / 100) * 100 - 99;
 				else
 					tm->tm_year = -((99 - (tm->tm_year - 1)) / 100) * 100 + 1;
 				/* FALL THRU */
 			case DTK_DECADE:
-				/* see comments in timestamptz_trunc */
+				/* 见 timestamptz_trunc 注释 */
 				if (val != DTK_MILLENNIUM && val != DTK_CENTURY)
 				{
 					if (tm->tm_year > 0)
@@ -4192,7 +4192,7 @@ timestamp_trunc(PG_FUNCTION_ARGS)
 }
 
 /* timestamptz_bin()
- * Bin timestamptz into specified interval using specified origin.
+ * 用指定起点把 timestamptz 按指定 interval 分箱。
  */
 Datum
 timestamptz_bin(PG_FUNCTION_ARGS)
@@ -4235,15 +4235,15 @@ timestamptz_bin(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 				 errmsg("interval out of range")));
 
-	/* These calculations cannot overflow */
+	/* 这些计算不会溢出 */
 	tm_modulo = tm_diff % stride_usecs;
 	tm_delta = tm_diff - tm_modulo;
 	result = origin + tm_delta;
 
 	/*
-	 * We want to round towards -infinity, not 0, when tm_diff is negative and
-	 * not a multiple of stride_usecs.  This adjustment *can* cause overflow,
-	 * since the result might now be out of the range origin .. timestamp.
+	 * 当 tm_diff 为负且并非 stride_usecs 的倍数时，
+	 * 我们要向负无穷舍入而非向 0 舍入。此调整*可能*
+	 * 导致溢出，因为结果可能超出 origin .. timestamp。
 	 */
 	if (tm_modulo < 0)
 	{
@@ -4258,10 +4258,10 @@ timestamptz_bin(PG_FUNCTION_ARGS)
 }
 
 /*
- * Common code for timestamptz_trunc() and timestamptz_trunc_zone().
+ * timestamptz_trunc()/timestamptz_trunc_zone() 公共代码。
  *
- * tzp identifies the zone to truncate with respect to.  We assume
- * infinite timestamps have already been rejected.
+ * tzp 标识截断所参照的时区。我们假定
+ * 无限 timestamp 已被拒绝。
  */
 static TimestampTz
 timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
@@ -4298,9 +4298,9 @@ timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
 					woy = date2isoweek(tm->tm_year, tm->tm_mon, tm->tm_mday);
 
 					/*
-					 * If it is week 52/53 and the month is January, then the
-					 * week must belong to the previous year. Also, some
-					 * December dates belong to the next year.
+					 * 若为 52/53 周且月份为一月，该周必属于
+					 * 上一年。此外，有些十二月日期属于
+					 * 下一年。
 					 */
 					if (woy >= 52 && tm->tm_mon == 1)
 						--tm->tm_year;
@@ -4314,12 +4314,12 @@ timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
 					redotz = true;
 					break;
 				}
-				/* one may consider DTK_THOUSAND and DTK_HUNDRED... */
+				/* 可考虑 DTK_THOUSAND 与 DTK_HUNDRED... */
 			case DTK_MILLENNIUM:
 
 				/*
-				 * truncating to the millennium? what is this supposed to
-				 * mean? let us put the first year of the millennium... i.e.
+				 * 截断到千年？什么意思？我们取
+				 * 千年的第一年……也就是：
 				 * -1000, 1, 1001, 2001...
 				 */
 				if (tm->tm_year > 0)
@@ -4328,7 +4328,7 @@ timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
 					tm->tm_year = -((999 - (tm->tm_year - 1)) / 1000) * 1000 + 1;
 				/* FALL THRU */
 			case DTK_CENTURY:
-				/* truncating to the century? as above: -100, 1, 101... */
+				/* 截断到世纪？同上：-100, 1, 101... */
 				if (tm->tm_year > 0)
 					tm->tm_year = ((tm->tm_year + 99) / 100) * 100 - 99;
 				else
@@ -4337,8 +4337,8 @@ timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
 			case DTK_DECADE:
 
 				/*
-				 * truncating to the decade? first year of the decade. must
-				 * not be applied if year was truncated before!
+				 * 截断到十年？十年首年。若年份
+				 * 之前已被截断，则不得应用！
 				 */
 				if (val != DTK_MILLENNIUM && val != DTK_CENTURY)
 				{
@@ -4359,7 +4359,7 @@ timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
 				/* FALL THRU */
 			case DTK_DAY:
 				tm->tm_hour = 0;
-				redotz = true;	/* for all cases >= DAY */
+				redotz = true;	/* 凡 >= DAY 之情形 */
 				/* FALL THRU */
 			case DTK_HOUR:
 				tm->tm_min = 0;
@@ -4405,7 +4405,7 @@ timestamptz_trunc_internal(text *units, TimestampTz timestamp, pg_tz *tzp)
 }
 
 /* timestamptz_trunc()
- * Truncate timestamptz to specified units in session timezone.
+ * 在会话时区中把 timestamptz 截断到指定单位。
  */
 Datum
 timestamptz_trunc(PG_FUNCTION_ARGS)
@@ -4423,7 +4423,7 @@ timestamptz_trunc(PG_FUNCTION_ARGS)
 }
 
 /* timestamptz_trunc_zone()
- * Truncate timestamptz to specified units in specified timezone.
+ * 在指定时区中把 timestamptz 截断到指定单位。
  */
 Datum
 timestamptz_trunc_zone(PG_FUNCTION_ARGS)
@@ -4435,14 +4435,14 @@ timestamptz_trunc_zone(PG_FUNCTION_ARGS)
 	pg_tz	   *tzp;
 
 	/*
-	 * timestamptz_zone() doesn't look up the zone for infinite inputs, so we
-	 * don't do so here either.
+	 * timestamptz_zone() 对无限输入不会查找时区，因此这里
+	 * 同样不做。
 	 */
 	if (TIMESTAMP_NOT_FINITE(timestamp))
 		PG_RETURN_TIMESTAMP(timestamp);
 
 	/*
-	 * Look up the requested timezone.
+	 * 查找所请求的时区。
 	 */
 	tzp = lookup_timezone(zone);
 
@@ -4452,7 +4452,7 @@ timestamptz_trunc_zone(PG_FUNCTION_ARGS)
 }
 
 /* interval_trunc()
- * Extract specified field from interval.
+ * 从 interval 中抽取指定字段。
  */
 Datum
 interval_trunc(PG_FUNCTION_ARGS)
@@ -4480,15 +4480,15 @@ interval_trunc(PG_FUNCTION_ARGS)
 		switch (val)
 		{
 			case DTK_MILLENNIUM:
-				/* caution: C division may have negative remainder */
+				/* 注意：C 的除法余数可能为负 */
 				tm->tm_year = (tm->tm_year / 1000) * 1000;
 				/* FALL THRU */
 			case DTK_CENTURY:
-				/* caution: C division may have negative remainder */
+				/* 注意：C 的除法余数可能为负 */
 				tm->tm_year = (tm->tm_year / 100) * 100;
 				/* FALL THRU */
 			case DTK_DECADE:
-				/* caution: C division may have negative remainder */
+				/* 注意：C 的除法余数可能为负 */
 				tm->tm_year = (tm->tm_year / 10) * 10;
 				/* FALL THRU */
 			case DTK_YEAR:
@@ -4544,8 +4544,8 @@ interval_trunc(PG_FUNCTION_ARGS)
 
 /* isoweek2j()
  *
- *	Return the Julian day which corresponds to the first day (Monday) of the given ISO 8601 year and week.
- *	Julian days are used to convert between ISO week dates and Gregorian dates.
+ *	返回与给定 ISO 8601 年和周相对应的儒略日。
+ *	儒略日用于在 ISO 周日期与公历日期之间转换。
  */
 int
 isoweek2j(int year, int week)
@@ -4553,18 +4553,18 @@ isoweek2j(int year, int week)
 	int			day0,
 				day4;
 
-	/* fourth day of current year */
+	/* 当年的第四天 */
 	day4 = date2j(year, 1, 4);
 
-	/* day0 == offset to first day of week (Monday) */
+	/* day0 == 到一周首日（周一）的偏移 */
 	day0 = j2day(day4 - 1);
 
 	return ((week - 1) * 7) + (day4 - day0);
 }
 
 /* isoweek2date()
- * Convert ISO week of year number to date.
- * The year field must be specified with the ISO year!
+ * 把 ISO 年内周数转换为日期。
+ * year 字段必须给定 ISO 年！
  * karel 2000/08/07
  */
 void
@@ -4575,10 +4575,10 @@ isoweek2date(int woy, int *year, int *mon, int *mday)
 
 /* isoweekdate2date()
  *
- *	Convert an ISO 8601 week date (ISO year, ISO week) into a Gregorian date.
- *	Gregorian day of week sent so weekday strings can be supplied.
- *	Populates year, mon, and mday with the correct Gregorian values.
- *	year must be passed in as the ISO year.
+ *	把 ISO 8601 周日期（ISO 年、周）转换为公历日期。
+ *	传入公历的周内日，以便能提供周几字符串。
+ *	以正确的公历值填充 year、mon 与 mday。
+ *	year 必须以 ISO 年传入。
  */
 void
 isoweekdate2date(int isoweek, int wday, int *year, int *mon, int *mday)
@@ -4586,7 +4586,7 @@ isoweekdate2date(int isoweek, int wday, int *year, int *mon, int *mday)
 	int			jday;
 
 	jday = isoweek2j(*year, isoweek);
-	/* convert Gregorian week start (Sunday=1) to ISO week start (Monday=1) */
+	/* 把公历周首日（周日=1）转成 ISO 周首日（周一=1） */
 	if (wday > 1)
 		jday += wday - 2;
 	else
@@ -4596,7 +4596,7 @@ isoweekdate2date(int isoweek, int wday, int *year, int *mon, int *mday)
 
 /* date2isoweek()
  *
- *	Returns ISO week number of year.
+ *	返回 ISO 年内周数。
  */
 int
 date2isoweek(int year, int mon, int mday)
@@ -4606,38 +4606,38 @@ date2isoweek(int year, int mon, int mday)
 				day4,
 				dayn;
 
-	/* current day */
+	/* 当天 */
 	dayn = date2j(year, mon, mday);
 
-	/* fourth day of current year */
+	/* 当年的第四天 */
 	day4 = date2j(year, 1, 4);
 
-	/* day0 == offset to first day of week (Monday) */
+	/* day0 == 到一周首日（周一）的偏移 */
 	day0 = j2day(day4 - 1);
 
 	/*
-	 * We need the first week containing a Thursday, otherwise this day falls
-	 * into the previous year for purposes of counting weeks
+	 * 我们需要包含周四的第一周，否则按周计数而言
+	 * 这一天会落入上一年。
 	 */
 	if (dayn < day4 - day0)
 	{
 		day4 = date2j(year - 1, 1, 4);
 
-		/* day0 == offset to first day of week (Monday) */
+		/* day0 == 到一周首日（周一）的偏移 */
 		day0 = j2day(day4 - 1);
 	}
 
 	result = (dayn - (day4 - day0)) / 7 + 1;
 
 	/*
-	 * Sometimes the last few days in a year will fall into the first week of
-	 * the next year, so check for this.
+	 * 有时年末最后几天会落入下一年的第一周，所以要
+	 * 对此进行检查。
 	 */
 	if (result >= 52)
 	{
 		day4 = date2j(year + 1, 1, 4);
 
-		/* day0 == offset to first day of week (Monday) */
+		/* day0 == 到一周首日（周一）的偏移 */
 		day0 = j2day(day4 - 1);
 
 		if (dayn >= day4 - day0)
@@ -4650,8 +4650,8 @@ date2isoweek(int year, int mon, int mday)
 
 /* date2isoyear()
  *
- *	Returns ISO 8601 year number.
- *	Note: zero or negative results follow the year-zero-exists convention.
+ *	返回 ISO 8601 年数。
+ *	注意：零或负结果遵循"零年存在"约定。
  */
 int
 date2isoyear(int year, int mon, int mday)
@@ -4661,24 +4661,24 @@ date2isoyear(int year, int mon, int mday)
 				day4,
 				dayn;
 
-	/* current day */
+	/* 当天 */
 	dayn = date2j(year, mon, mday);
 
-	/* fourth day of current year */
+	/* 当年的第四天 */
 	day4 = date2j(year, 1, 4);
 
-	/* day0 == offset to first day of week (Monday) */
+	/* day0 == 到一周首日（周一）的偏移 */
 	day0 = j2day(day4 - 1);
 
 	/*
-	 * We need the first week containing a Thursday, otherwise this day falls
-	 * into the previous year for purposes of counting weeks
+	 * 我们需要包含周四的第一周，否则按周计数而言
+	 * 这一天会落入上一年。
 	 */
 	if (dayn < day4 - day0)
 	{
 		day4 = date2j(year - 1, 1, 4);
 
-		/* day0 == offset to first day of week (Monday) */
+		/* day0 == 到一周首日（周一）的偏移 */
 		day0 = j2day(day4 - 1);
 
 		year--;
@@ -4687,14 +4687,14 @@ date2isoyear(int year, int mon, int mday)
 	result = (dayn - (day4 - day0)) / 7 + 1;
 
 	/*
-	 * Sometimes the last few days in a year will fall into the first week of
-	 * the next year, so check for this.
+	 * 有时年末最后几天会落入下一年的第一周，所以要
+	 * 对此进行检查。
 	 */
 	if (result >= 52)
 	{
 		day4 = date2j(year + 1, 1, 4);
 
-		/* day0 == offset to first day of week (Monday) */
+		/* day0 == 到一周首日（周一）的偏移 */
 		day0 = j2day(day4 - 1);
 
 		if (dayn >= day4 - day0)
@@ -4707,8 +4707,8 @@ date2isoyear(int year, int mon, int mday)
 
 /* date2isoyearday()
  *
- *	Returns the ISO 8601 day-of-year, given a Gregorian year, month and day.
- *	Possible return values are 1 through 371 (364 in non-leap years).
+ *	给定公历年、月、日，返回 ISO 8601 年内日数。
+ *	可能的返回值为 1 到 371（非闰年为 364）。
  */
 int
 date2isoyearday(int year, int mon, int mday)
@@ -4719,13 +4719,13 @@ date2isoyearday(int year, int mon, int mday)
 /*
  * NonFiniteTimestampTzPart
  *
- *	Used by timestamp_part and timestamptz_part when extracting from infinite
- *	timestamp[tz].  Returns +/-Infinity if that is the appropriate result,
- *	otherwise returns zero (which should be taken as meaning to return NULL).
+ *	供 timestamp_part 与 timestamptz_part 在从无限
+ *	timestamp[tz] 抽取时用。适当时返回 +/-Infinity，
+ *	否则返回零（应理解为返回 NULL）。
  *
- *	Errors thrown here for invalid units should exactly match those that
- *	would be thrown in the calling functions, else there will be unexpected
- *	discrepancies between finite- and infinite-input cases.
+ *	此处对无效单位抛出的错误必须与调用函数中会
+ *	抛出的错误完全一致，否则有限输入与无限输入两
+ *	种情形之间会出现意料之外的差异。
  */
 static float8
 NonFiniteTimestampTzPart(int type, int unit, char *lowunits,
@@ -4740,7 +4740,7 @@ NonFiniteTimestampTzPart(int type, int unit, char *lowunits,
 
 	switch (unit)
 	{
-			/* Oscillating units */
+			/* 振荡型单位 */
 		case DTK_MICROSEC:
 		case DTK_MILLISEC:
 		case DTK_SECOND:
@@ -4758,7 +4758,7 @@ NonFiniteTimestampTzPart(int type, int unit, char *lowunits,
 		case DTK_TZ_HOUR:
 			return 0.0;
 
-			/* Monotonically-increasing units */
+			/* 单调递增型单位 */
 		case DTK_YEAR:
 		case DTK_DECADE:
 		case DTK_CENTURY:
@@ -4777,12 +4777,12 @@ NonFiniteTimestampTzPart(int type, int unit, char *lowunits,
 					 errmsg("unit \"%s\" not supported for type %s",
 							lowunits,
 							format_type_be(isTz ? TIMESTAMPTZOID : TIMESTAMPOID))));
-			return 0.0;			/* keep compiler quiet */
+			return 0.0;			/* 让编译器安静 */
 	}
 }
 
 /* timestamp_part() and extract_timestamp()
- * Extract specified field from timestamp.
+ * 从 timestamp 中抽取指定字段。
  */
 static Datum
 timestamp_part_common(PG_FUNCTION_ARGS, bool retnumeric)
@@ -4897,16 +4897,16 @@ timestamp_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				if (tm->tm_year > 0)
 					intresult = tm->tm_year;
 				else
-					/* there is no year 0, just 1 BC and 1 AD */
+					/* 无零年，仅公元前 1 与公元 1 */
 					intresult = tm->tm_year - 1;
 				break;
 
 			case DTK_DECADE:
 
 				/*
-				 * what is a decade wrt dates? let us assume that decade 199
-				 * is 1990 thru 1999... decade 0 starts on year 1 BC, and -1
-				 * is 11 BC thru 2 BC...
+				 * 十年段对日期为何？我们假定 199 十年段
+				 * 为 1990-1999…十年段 0 始于公元前 1 年，-1
+				 * 为前 11 到前 2…
 				 */
 				if (tm->tm_year >= 0)
 					intresult = tm->tm_year / 10;
@@ -4919,18 +4919,18 @@ timestamp_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				/* ----
 				 * centuries AD, c>0: year in [ (c-1)* 100 + 1 : c*100 ]
 				 * centuries BC, c<0: year in [ c*100 : (c+1) * 100 - 1]
-				 * there is no number 0 century.
+				 * 不存在第 0 世纪。
 				 * ----
 				 */
 				if (tm->tm_year > 0)
 					intresult = (tm->tm_year + 99) / 100;
 				else
-					/* caution: C division may have negative remainder */
+					/* 注意：C 的除法余数可能为负 */
 					intresult = -((99 - (tm->tm_year - 1)) / 100);
 				break;
 
 			case DTK_MILLENNIUM:
-				/* see comments above. */
+				/* 见上文注释。 */
 				if (tm->tm_year > 0)
 					intresult = (tm->tm_year + 999) / 1000;
 				else
@@ -4952,7 +4952,7 @@ timestamp_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 
 			case DTK_ISOYEAR:
 				intresult = date2isoyear(tm->tm_year, tm->tm_mon, tm->tm_mday);
-				/* Adjust BC years */
+				/* 调整 BC 年 */
 				if (intresult <= 0)
 					intresult -= 1;
 				break;
@@ -5010,7 +5010,7 @@ timestamp_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				{
 					float8		result;
 
-					/* try to avoid precision loss in subtraction */
+					/* 尽量避免减法中的精度损失 */
 					if (timestamp < (PG_INT64_MAX + epoch))
 						result = (timestamp - epoch) / 1000000.0;
 					else
@@ -5055,7 +5055,7 @@ extract_timestamp(PG_FUNCTION_ARGS)
 }
 
 /* timestamptz_part() and extract_timestamptz()
- * Extract specified field from timestamp with time zone.
+ * 从带时区 timestamp 中抽取指定字段。
  */
 static Datum
 timestamptz_part_common(PG_FUNCTION_ARGS, bool retnumeric)
@@ -5183,12 +5183,12 @@ timestamptz_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				if (tm->tm_year > 0)
 					intresult = tm->tm_year;
 				else
-					/* there is no year 0, just 1 BC and 1 AD */
+					/* 无零年，仅公元前 1 与公元 1 */
 					intresult = tm->tm_year - 1;
 				break;
 
 			case DTK_DECADE:
-				/* see comments in timestamp_part */
+				/* 见 timestamp_part 注释 */
 				if (tm->tm_year > 0)
 					intresult = tm->tm_year / 10;
 				else
@@ -5196,7 +5196,7 @@ timestamptz_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				break;
 
 			case DTK_CENTURY:
-				/* see comments in timestamp_part */
+				/* 见 timestamp_part 注释 */
 				if (tm->tm_year > 0)
 					intresult = (tm->tm_year + 99) / 100;
 				else
@@ -5204,7 +5204,7 @@ timestamptz_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				break;
 
 			case DTK_MILLENNIUM:
-				/* see comments in timestamp_part */
+				/* 见 timestamp_part 注释 */
 				if (tm->tm_year > 0)
 					intresult = (tm->tm_year + 999) / 1000;
 				else
@@ -5226,7 +5226,7 @@ timestamptz_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 
 			case DTK_ISOYEAR:
 				intresult = date2isoyear(tm->tm_year, tm->tm_mon, tm->tm_mday);
-				/* Adjust BC years */
+				/* 调整 BC 年 */
 				if (intresult <= 0)
 					intresult -= 1;
 				break;
@@ -5281,7 +5281,7 @@ timestamptz_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				{
 					float8		result;
 
-					/* try to avoid precision loss in subtraction */
+					/* 尽量避免减法中的精度损失 */
 					if (timestamp < (PG_INT64_MAX + epoch))
 						result = (timestamp - epoch) / 1000000.0;
 					else
@@ -5328,7 +5328,7 @@ extract_timestamptz(PG_FUNCTION_ARGS)
 
 
 /* interval_part() and extract_interval()
- * Extract specified field from interval.
+ * 从 interval 中抽取指定字段。
  */
 static Datum
 interval_part_common(PG_FUNCTION_ARGS, bool retnumeric)
@@ -5406,17 +5406,17 @@ interval_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 				break;
 
 			case DTK_DECADE:
-				/* caution: C division may have negative remainder */
+				/* 注意：C 的除法余数可能为负 */
 				intresult = tm->tm_year / 10;
 				break;
 
 			case DTK_CENTURY:
-				/* caution: C division may have negative remainder */
+				/* 注意：C 的除法余数可能为负 */
 				intresult = tm->tm_year / 100;
 				break;
 
 			case DTK_MILLENNIUM:
-				/* caution: C division may have negative remainder */
+				/* 注意：C 的除法余数可能为负 */
 				intresult = tm->tm_year / 1000;
 				break;
 
@@ -5437,11 +5437,11 @@ interval_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 			int64		val;
 
 			/*
-			 * To do this calculation in integer arithmetic even though
-			 * DAYS_PER_YEAR is fractional, multiply everything by 4 and then
-			 * divide by 4 again at the end.  This relies on DAYS_PER_YEAR
-			 * being a multiple of 0.25 and on SECS_PER_DAY being a multiple
-			 * of 4.
+			 * 虽然 DAYS_PER_YEAR 带小数，仍须以整数
+			 * 运算来完成此计算：先把所有值乘以 4，最后再
+			 * 除以 4。这依赖于 DAYS_PER_YEAR 是 0.25 的倍数，
+			 * 且 SECS_PER_DAY 是 4 的倍数。
+			 *
 			 */
 			secs_from_day_month = ((int64) (4 * DAYS_PER_YEAR) * (interval->month / MONTHS_PER_YEAR) +
 								   (int64) (4 * DAYS_PER_MONTH) * (interval->month % MONTHS_PER_YEAR) +
@@ -5453,9 +5453,9 @@ interval_part_common(PG_FUNCTION_ARGS, bool retnumeric)
 			 */
 
 			/*
-			 * Try the computation inside int64; if it overflows, do it in
-			 * numeric (slower).  This overflow happens around 10^9 days, so
-			 * not common in practice.
+			 * 先在 int64 内尝试计算；若溢出，则改用
+			 * numeric（较慢）。该溢出发生在约 10^9 天附近，
+			 * 实践中不常见。
 			 */
 			if (!pg_mul_s64_overflow(secs_from_day_month, 1000000, &val) &&
 				!pg_add_s64_overflow(val, interval->time, &val))
@@ -5509,12 +5509,12 @@ extract_interval(PG_FUNCTION_ARGS)
 
 
 /*	timestamp_zone()
- *	Encode timestamp type with specified time zone.
- *	This function is just timestamp2timestamptz() except instead of
- *	shifting to the global timezone, we shift to the specified timezone.
- *	This is different from the other AT TIME ZONE cases because instead
- *	of shifting _to_ a new time zone, it sets the time to _be_ the
- *	specified timezone.
+ *	用指定时区编码 timestamp 类型。
+ *	本函数就是 timestamp2timestamptz()，只不过不是
+ *	转换到全局时区，而是转换到指定时区。
+ *	这与其他 AT TIME ZONE 用例不同：别的用例是把时间
+ *	_转换到_新时区，而它是把时间设为_等于_指定
+ *	时区。
  */
 Datum
 timestamp_zone(PG_FUNCTION_ARGS)
@@ -5534,7 +5534,7 @@ timestamp_zone(PG_FUNCTION_ARGS)
 		PG_RETURN_TIMESTAMPTZ(timestamp);
 
 	/*
-	 * Look up the requested timezone.
+	 * 查找所请求的时区。
 	 */
 	text_to_cstring_buffer(zone, tzname, sizeof(tzname));
 
@@ -5542,13 +5542,13 @@ timestamp_zone(PG_FUNCTION_ARGS)
 
 	if (type == TZNAME_FIXED_OFFSET)
 	{
-		/* fixed-offset abbreviation */
+		/* 固定偏移量缩写 */
 		tz = val;
 		result = dt2local(timestamp, tz);
 	}
 	else if (type == TZNAME_DYNTZ)
 	{
-		/* dynamic-offset abbreviation, resolve using specified time */
+		/* 动态偏移量缩写，用指定时间解析 */
 		if (timestamp2tm(timestamp, NULL, &tm, &fsec, NULL, tzp) != 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -5558,7 +5558,7 @@ timestamp_zone(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* full zone name, rotate to that zone */
+		/* 完整时区名，转到该时区 */
 		if (timestamp2tm(timestamp, NULL, &tm, &fsec, NULL, tzp) != 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -5579,7 +5579,7 @@ timestamp_zone(PG_FUNCTION_ARGS)
 }
 
 /* timestamp_izone()
- * Encode timestamp type with specified time interval as time zone.
+ * 用指定时间间隔作为时区来编码 timestamp 类型。
  */
 Datum
 timestamp_izone(PG_FUNCTION_ARGS)
@@ -5613,10 +5613,10 @@ timestamp_izone(PG_FUNCTION_ARGS)
 
 /* TimestampTimestampTzRequiresRewrite()
  *
- * Returns false if the TimeZone GUC setting causes timestamp_timestamptz and
- * timestamptz_timestamp to be no-ops, where the return value has the same
- * bits as the argument.  Since project convention is to assume a GUC changes
- * no more often than STABLE functions change, the answer is valid that long.
+ * 若 TimeZone GUC 设置使 timestamp_timestamptz 与
+ * timestamptz_timestamp 成为无操作，即返回值与参数
+ * 具有相同的位。由于项目惯例是假定 GUC 的变化频率
+ * 不高于 STABLE 函数变化频率，故答案在该期限内有效。
  */
 bool
 TimestampTimestampTzRequiresRewrite(void)
@@ -5629,7 +5629,7 @@ TimestampTimestampTzRequiresRewrite(void)
 }
 
 /* timestamp_timestamptz()
- * Convert local timestamp to timestamp at GMT
+ * 把本地 timestamp 转为 GMT timestamp
  */
 Datum
 timestamp_timestamptz(PG_FUNCTION_ARGS)
@@ -5640,14 +5640,14 @@ timestamp_timestamptz(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert timestamp to timestamp with time zone.
+ * 把 timestamp 转换为带时区 timestamp。
  *
- * On successful conversion, *overflow is set to zero if it's not NULL.
+ * 转换成功时，若 *overflow 非 NULL 则将其置为零。
  *
- * If the timestamp is finite but out of the valid range for timestamptz, then:
- * if overflow is NULL, we throw an out-of-range error.
- * if overflow is not NULL, we store +1 or -1 there to indicate the sign
- * of the overflow, and return the appropriate timestamptz infinity.
+ * 若 timestamp 有限但超出 timestamptz 的有效范围，那么：
+ * 若 overflow 为 NULL，则抛出越界错误。
+ * 若 overflow 非 NULL，则在其中存入 +1 或 -1 以标示
+ * 溢出的符号，并返回相应的 timestamptz 无穷值。
  */
 TimestampTz
 timestamp2timestamptz_opt_overflow(Timestamp timestamp, int *overflow)
@@ -5664,7 +5664,7 @@ timestamp2timestamptz_opt_overflow(Timestamp timestamp, int *overflow)
 	if (TIMESTAMP_NOT_FINITE(timestamp))
 		return timestamp;
 
-	/* We don't expect this to fail, but check it pro forma */
+	/* 不预期此处失败，但例行检查一下 */
 	if (timestamp2tm(timestamp, NULL, tm, &fsec, NULL, NULL) == 0)
 	{
 		tz = DetermineTimeZoneOffset(tm, session_timezone);
@@ -5699,7 +5699,7 @@ timestamp2timestamptz_opt_overflow(Timestamp timestamp, int *overflow)
 }
 
 /*
- * Promote timestamp to timestamptz, throwing error for overflow.
+ * 把 timestamp 提升为 timestamptz，溢出则报错。
  */
 static TimestampTz
 timestamp2timestamptz(Timestamp timestamp)
@@ -5708,7 +5708,7 @@ timestamp2timestamptz(Timestamp timestamp)
 }
 
 /* timestamptz_timestamp()
- * Convert timestamp at GMT to local timestamp
+ * GMT 处 timestamp 转为本地 timestamp
  */
 Datum
 timestamptz_timestamp(PG_FUNCTION_ARGS)
@@ -5744,8 +5744,8 @@ timestamptz2timestamp(TimestampTz timestamp)
 }
 
 /* timestamptz_zone()
- * Evaluate timestamp with time zone type at the specified time zone.
- * Returns a timestamp without time zone.
+ * 在指定时区对带时区类型求值。
+ * 返回不带时区的 timestamp。
  */
 Datum
 timestamptz_zone(PG_FUNCTION_ARGS)
@@ -5763,7 +5763,7 @@ timestamptz_zone(PG_FUNCTION_ARGS)
 		PG_RETURN_TIMESTAMP(timestamp);
 
 	/*
-	 * Look up the requested timezone.
+	 * 查找所请求的时区。
 	 */
 	text_to_cstring_buffer(zone, tzname, sizeof(tzname));
 
@@ -5771,13 +5771,13 @@ timestamptz_zone(PG_FUNCTION_ARGS)
 
 	if (type == TZNAME_FIXED_OFFSET)
 	{
-		/* fixed-offset abbreviation */
+		/* 固定偏移量缩写 */
 		tz = -val;
 		result = dt2local(timestamp, tz);
 	}
 	else if (type == TZNAME_DYNTZ)
 	{
-		/* dynamic-offset abbreviation, resolve using specified time */
+		/* 动态偏移量缩写，用指定时间解析 */
 		int			isdst;
 
 		tz = DetermineTimeZoneAbbrevOffsetTS(timestamp, tzname, tzp, &isdst);
@@ -5785,7 +5785,7 @@ timestamptz_zone(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* full zone name, rotate from that zone */
+		/* 完整时区名，自该时区转换 */
 		struct pg_tm tm;
 		fsec_t		fsec;
 
@@ -5808,8 +5808,8 @@ timestamptz_zone(PG_FUNCTION_ARGS)
 }
 
 /* timestamptz_izone()
- * Encode timestamp with time zone type with specified time interval as time zone.
- * Returns a timestamp without time zone.
+ * 用指定时间间隔作为时区来编码带时区类型的 timestamp。
+ * 返回不带时区的 timestamp。
  */
 Datum
 timestamptz_izone(PG_FUNCTION_ARGS)
@@ -5842,7 +5842,7 @@ timestamptz_izone(PG_FUNCTION_ARGS)
 }
 
 /* generate_series_timestamp()
- * Generate the set of timestamps from start to finish by step
+ * 按步长生成从起点到终点的 timestamp 集合
  */
 Datum
 generate_series_timestamp(PG_FUNCTION_ARGS)
@@ -5851,7 +5851,7 @@ generate_series_timestamp(PG_FUNCTION_ARGS)
 	generate_series_timestamp_fctx *fctx;
 	Timestamp	result;
 
-	/* stuff done only on the first call of the function */
+	/* 仅函数首次调用时执行的部分 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		Timestamp	start = PG_GETARG_TIMESTAMP(0);
@@ -5860,27 +5860,27 @@ generate_series_timestamp(PG_FUNCTION_ARGS)
 		MemoryContext oldcontext;
 		const Interval interval_zero = {0};
 
-		/* create a function context for cross-call persistence */
+		/* 创建供跨调用持久化使用的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* allocate memory for user context */
+		/* 为用户上下文分配内存 */
 		fctx = (generate_series_timestamp_fctx *)
 			palloc(sizeof(generate_series_timestamp_fctx));
 
 		/*
-		 * Use fctx to keep state from call to call. Seed current with the
-		 * original start value
+		 * 用 fctx 在多次调用间保存状态。用原始起始值
+		 * 为 current 赋值
 		 */
 		fctx->current = start;
 		fctx->finish = finish;
 		fctx->step = *step;
 
-		/* Determine sign of the interval */
+		/* 确定 interval 的符号 */
 		fctx->step_sign = interval_cmp_internal(&fctx->step, &interval_zero);
 
 		if (fctx->step_sign == 0)
@@ -5892,11 +5892,11 @@ generate_series_timestamp(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 函数每次调用时执行的部分 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	/*
-	 * get the saved state and use current as the result for this iteration
+	 * 取回保存的状态，并把 current 用作本轮迭代结果
 	 */
 	fctx = funcctx->user_fctx;
 	result = fctx->current;
@@ -5905,24 +5905,24 @@ generate_series_timestamp(PG_FUNCTION_ARGS)
 		timestamp_cmp_internal(result, fctx->finish) <= 0 :
 		timestamp_cmp_internal(result, fctx->finish) >= 0)
 	{
-		/* increment current in preparation for next iteration */
+		/* 递增 current 为下一轮迭代做准备 */
 		fctx->current = DatumGetTimestamp(DirectFunctionCall2(timestamp_pl_interval,
 															  TimestampGetDatum(fctx->current),
 															  PointerGetDatum(&fctx->step)));
 
-		/* do when there is more left to send */
+		/* 还有剩余要发送时执行 */
 		SRF_RETURN_NEXT(funcctx, TimestampGetDatum(result));
 	}
 	else
 	{
-		/* do when there is no more left */
+		/* 没有剩余时执行 */
 		SRF_RETURN_DONE(funcctx);
 	}
 }
 
 /* generate_series_timestamptz()
- * Generate the set of timestamps from start to finish by step,
- * doing arithmetic in the specified or session timezone.
+ * 按步长生成从起点到终点的 timestamp 集合，
+ * 在指定或会话时区中进行算术运算。
  */
 static Datum
 generate_series_timestamptz_internal(FunctionCallInfo fcinfo)
@@ -5931,7 +5931,7 @@ generate_series_timestamptz_internal(FunctionCallInfo fcinfo)
 	generate_series_timestamptz_fctx *fctx;
 	TimestampTz result;
 
-	/* stuff done only on the first call of the function */
+	/* 仅函数首次调用时执行的部分 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		TimestampTz start = PG_GETARG_TIMESTAMPTZ(0);
@@ -5941,28 +5941,28 @@ generate_series_timestamptz_internal(FunctionCallInfo fcinfo)
 		MemoryContext oldcontext;
 		const Interval interval_zero = {0};
 
-		/* create a function context for cross-call persistence */
+		/* 创建供跨调用持久化使用的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* allocate memory for user context */
+		/* 为用户上下文分配内存 */
 		fctx = (generate_series_timestamptz_fctx *)
 			palloc(sizeof(generate_series_timestamptz_fctx));
 
 		/*
-		 * Use fctx to keep state from call to call. Seed current with the
-		 * original start value
+		 * 用 fctx 在多次调用间保存状态。用原始起始值
+		 * 为 current 赋值
 		 */
 		fctx->current = start;
 		fctx->finish = finish;
 		fctx->step = *step;
 		fctx->attimezone = zone ? lookup_timezone(zone) : session_timezone;
 
-		/* Determine sign of the interval */
+		/* 确定 interval 的符号 */
 		fctx->step_sign = interval_cmp_internal(&fctx->step, &interval_zero);
 
 		if (fctx->step_sign == 0)
@@ -5974,11 +5974,11 @@ generate_series_timestamptz_internal(FunctionCallInfo fcinfo)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 函数每次调用时执行的部分 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	/*
-	 * get the saved state and use current as the result for this iteration
+	 * 取回保存的状态，并把 current 用作本轮迭代结果
 	 */
 	fctx = funcctx->user_fctx;
 	result = fctx->current;
@@ -5987,17 +5987,17 @@ generate_series_timestamptz_internal(FunctionCallInfo fcinfo)
 		timestamp_cmp_internal(result, fctx->finish) <= 0 :
 		timestamp_cmp_internal(result, fctx->finish) >= 0)
 	{
-		/* increment current in preparation for next iteration */
+		/* 递增 current 为下一轮迭代做准备 */
 		fctx->current = timestamptz_pl_interval_internal(fctx->current,
 														 &fctx->step,
 														 fctx->attimezone);
 
-		/* do when there is more left to send */
+		/* 还有剩余要发送时执行 */
 		SRF_RETURN_NEXT(funcctx, TimestampTzGetDatum(result));
 	}
 	else
 	{
-		/* do when there is no more left */
+		/* 没有剩余时执行 */
 		SRF_RETURN_DONE(funcctx);
 	}
 }

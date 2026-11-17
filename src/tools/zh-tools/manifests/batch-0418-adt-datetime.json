@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0418",
+ "title": "adt 目录 datetime.c 整文件注释翻译 466 块 865/935 行 — batch 0418",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f29f38463f02c1332dd8981ae134672751e5b29f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/datetime.c",
+   "kind": "c_comment",
+   "note": "日期/时间类型支持函数; whole-file comment translation, batch-0418"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0418-adt-datetime.json",
+   "kind": "manifest",
+   "note": "batch-0418 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0418 entries (datetime.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/datetime.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 466,
+   "translated": 454,
+   "preserved": 12,
+   "preserved_reasons": [
+    "整块保留 12 块 (与 verify changed=454/未变 12 块完全一致): ASCII 记号标注 2 (L2974 hhmmss, L2986 hhmm?), FALLTHROUGH 标注 3 (L3395/L3795/L3878), 数值例尾注 1 (L112 00:00:00), 函数结尾横幅 4 (L310 date2j/L335 j2date/L355 j2day/L3957 DecodeUnits), 注释掉的代码 2 (L3472/L3584 DTK_M(type)); 行级保留 EN 69 行 (内容行全集 935 = zh 866 + 保留 69; L1116 DecodeNumberField 标识行经审后 N1 修复已译): 头部 5 (L3 文件名/L6/L7 版权×2/L10 IDENTIFICATION/L11 路径, 头部功能描述 L4 已译), datetktbl 数值例尾注 1 (L112), 裸函数名标题行 32 (L359 GetCurrentDateTime/L376 GetCurrentTimeUsec/L724 ParseDateTime/L952 DecodeDateTime/L1574/L1595/L1733/L1780/L1817/L1850/L2389/L2505/L2581/L2666/L2695/L2724/L2906/L3003/L3072/L3137/L3177/L3239/L3261 ClearPgItmIn/L3275/L3697/L3922/L4034 datebsearch/L4068/L4109/L4189/L4211/L4451), ASCII 例 17 (L961-965/L968-970 外部格式例 8, L3308 负1天1时例, L4221-4225 日期风格格式 5, L4462 ISO 8601 例, L2974/L2986 记号标注 2), FALLTHROUGH 3 (L3395/L3795/L3878), 注释掉的代码 2 (L3472/L3584), 署名行 5 (L977 thomas 1997-05-27/L1057 thomas 2001-12-25/L1861 thomas 2000-03-10/L4457 thomas 1998-04-30/L4464 ron 2003-07-14); preserved 口径说明: 本 manifest preserved=12 块与 verify_c_comments 未变块 12 完全一致 (块口径), 行级保留 EN 69 行为另一口径, 两者不矛盾 (其余保留行为已译块内的行级保留)"
+   ],
+   "note": "日期/时间类型支持函数 (date/time/timestamp/timestamptz/interval 标识符逐字保留, prose 中 timestamptz 沿 date.c 0416 口径「带时区 timestamp」语境按需, julian day→儒略日, leap year→闰年, DST→夏令时, timezone→时区, token→记号 (战役既定译名, P75 advisory 即此), 本批新定统一口径: AD→公元/BC→公元前/Gregorian→公历 (与 date.c 0416 保留 BC/AD 原词不同, 差异在此披露; 本文件实际站点如实披露: L2506 保留 BC 原词「处理 BC 与年积日情形」, L2521/L2524/L2529 三站按新口径译公元/公元前, Gregorian 本文件 0 站), fsec/fsec_t/funits/dtk/DTK_*/pg_time_t/typmod/RelabelType 等代码标识符逐字保留, OID 无站点); whole-file comment translation, batch-0418; 权威 universe: 注释感知状态机扫描 (字符串/行注释感知) 466 块 content 行 935, naive dump 同 466 块双口径一致; content 行 935 = zh 866 + 保留 EN 69 (R4 后口径, 全清单见 preserved_reasons); 行数守恒 5068 不变 (git diff numstat 866/866); 代码字节零改动 (注释剥离比对 strip IDENTICAL); NUL 扫描 0 (曾因 L3751 C 字面量 backslash-0 经 re.sub 替换模板误转 NUL 被自检抓出并修复); 同 EN 同译实证: 相同 EN 注释 683 组零不一致 (程序化审计), 含 Returns true if successful, false if itm_in overflows×7/\"hour\" relative×5/时区设置稍后应用×4/拒连续未处理单位×4 等均同译; 极性对照 19 块 (≥12): L1583-84 don't throw an error→不抛错/L1860 must infer→必须/L1904-05 not allowed→不应接受/L1934 should not get here→不应到这里/L2299 could not do it before→此前无法/L2570 don't use→不用+unlikely→不像/L2521 no year zero→无零年/L2524 1 BC as year zero→公元前1年为零年/L2654 caller must check→由调用方检查/L3355 at least one digit→至少有一位/L3706 doesn't look like→不像/L3967-68 not used→不用/L4422 nonzero→非零/L4485 guaranteed→保证+need to check→还需/L4722 can't get there→到达不了+caught already→早已拦下/L4840 doesn't go away→不会消失/L4903 only on first call→只在首次/L5043-45 continues→继续/L1604 should use→应该使用, 均与代码语义极性一致无反转; 枚举横幅逐项点数 (0417 D1 判例): L743-748 六种字段类型 6/6, L751-753 三种意外容纳 3/3, L3182-3184 三类 TZNAME 3/3, L3075-3077 TZ/DTZ/DYNTZ 3/3, L103 三种条目 3/3, L961-970 外部格式 8 行全数; 门禁三连实测: verify_c_comments rc=0 (1 files, 0 violations, comments=466 changed=454 splices=6, 与权威扫描一致; R4 后复测 rc=0), term_lint rc=0 (87 rules, 0 error, 13 warnings 全为 P75 token→记号 advisory 战役既定译名), check_scope 于 manifest 写好后实测 (rc 见提交说明); W7_IDENT_LOST advisory 4 站 (--paths src/backend/utils/adt 口径, R4 后实测): L91 PRIVATE ROUTINES 横幅 (译为私有例程+尾星对齐保留), L952 format, L4597/L4622 DateStyle (保留于 iso/非 iso 括注); scan_halfen 8 站 MIXED (L110/L132 引号词, L952-978/L1053-62/L4211-26/L4462 ASCII 例, L4332 Postgres abstime, L5003-06 集合元组, L5039-47 IANA 长缩写引文, 引号与标识符 run 固有); 句号台账: FWD 12 = L95/L825/L1545/L1736/L1742/L2897/L3085/L3643/L3964/L4110/L4195/L4645 (zh 句号后移至次行或预算紧省略, python 回读核实自洽); REV 12 = L739/L1710/L2101/L2333/L2363/L2785/L3081/L3382/L3699/L4374/L4422/L4603 (zh 句在前行收束而 EN 行为续行, 语义完整自洽); REVERSE 变通 3 处逐条披露: L1544-45 (EN resolve it/now., zh 现在就解析/它, EN 句号省略), L1560-61 (EN then/error, zh 那么报/错, EN 句号省略), L3083-85 (EN 句号省略, zh 完句); 修复轮: 规划 2 (逐帧 dump 通读+spec 七段+干跑断言两轮修剪), 写后 3+审后 1 (R4 见文末披露) (R1: apply open-tail 分支正则 $ 锚失效致 else 分支吞 L3796/L3879 case 代码两行, strip 审计当场抓出, 修正则复位重放, 0412 L1770 同族判例再现; R2: 句号台账 4 处清偿 L3750-51/L3712/L4510/L4756 含 L4756 丢词「无其他错误条件」; R3: L3751 NUL 修复; 每轮 checkout 复位全量重放, 符合 ≤3 约定); 未 commit\n【审后修复轮 R4 (审查 FAIL 清偿)】D1 L2529 补回宾语 '0'/'00' (现算 70≤71); D2 L3973-3975 三行重排补回「看似无用」转折与 SQLSTATE (65≤73/71≤76/18≤34, SQLSTATE 现于 L3975 在场); N1 L1115-1116 补 DecodeNumberField 语义 (38≤42/27≤28); N2 L1928 补「麻烦了」与 DecodeDateTime 同句对齐 (54≤59); N3 L3967-3968 补「可为 NULL」(70≤75/13≤16, zh 句号移括号外 NULL）。为预算所迫, 披露); A1 L1605-1606 补「版本的」(72≤77/18≤23); N4 cumulative.json 尾 LF 恢复; 事故披露: R4 修补脚本写盘未 pop 尾空元素致文件多一尾空行触发 verify R1_SKELETON, 当即剥除复位, numstat 866/866 + strip IDENTICAL 复核; W7 修复后 4 站 (L3959 SQLSTATE 因 D2 清偿消失)."
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0418-adt-datetime.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0418 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0418 entries (datetime.c + 本 manifest; 两数组各 +2, 纯追加, 自条目不重复登记)"
+  }
+ ]
+}

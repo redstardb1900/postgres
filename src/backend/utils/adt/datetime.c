@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * datetime.c
- *	  Support functions for date/time types.
+ *	  日期/时间类型的支持函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -88,50 +88,50 @@ const char *const days[] = {"Sunday", "Monday", "Tuesday", "Wednesday",
 
 
 /*****************************************************************************
- *	 PRIVATE ROUTINES														 *
+ *	 私有例程                   *
  *****************************************************************************/
 
 /*
- * datetktbl holds date/time keywords.
+ * datetktbl 存日期/时间关键字
  *
- * Note that this table must be strictly alphabetically ordered to allow an
- * O(ln(N)) search algorithm to be used.
+ * 注意本表必须严格按字母顺序排列，这样才能使用
+ *  O(ln(N)) 搜索算法。
  *
- * The token field must be NUL-terminated; we truncate entries to TOKMAXLEN
- * characters to fit.
+ * token 字段必须以 NUL 终止；我们把条目截断到 TOKMAXLEN
+ * 个字符。
  *
- * The static table contains no TZ, DTZ, or DYNTZ entries; rather those
- * are loaded from configuration files and stored in zoneabbrevtbl, whose
- * abbrevs[] field has the same format as the static datetktbl.
+ * 静态表不含 TZ、DTZ 或 DYNTZ 条目；这些条目改为
+ * 从配置文件装载并存入 zoneabbrevtbl，其
+ * abbrevs[] 字段与静态 datetktbl 格式相同。
  */
 static const datetkn datetktbl[] = {
-	/* token, type, value */
-	{"+infinity", RESERV, DTK_LATE},	/* same as "infinity" */
-	{EARLY, RESERV, DTK_EARLY}, /* "-infinity" reserved for "early time" */
-	{DA_D, ADBC, AD},			/* "ad" for years > 0 */
+	/* token/type/value */
+	{"+infinity", RESERV, DTK_LATE},	/* 同"infinity" */
+	{EARLY, RESERV, DTK_EARLY}, /* "-infinity" 保留给 "early time" */
+	{DA_D, ADBC, AD},			/* 年份>0 用 "ad" */
 	{"allballs", RESERV, DTK_ZULU}, /* 00:00:00 */
 	{"am", AMPM, AM},
 	{"apr", MONTH, 4},
 	{"april", MONTH, 4},
-	{"at", IGNORE_DTF, 0},		/* "at" (throwaway) */
+	{"at", IGNORE_DTF, 0},		/* "at" (弃词) */
 	{"aug", MONTH, 8},
 	{"august", MONTH, 8},
-	{DB_C, ADBC, BC},			/* "bc" for years <= 0 */
-	{"d", UNITS, DTK_DAY},		/* "day of month" for ISO input */
+	{DB_C, ADBC, BC},			/* 年份<=0 用 "bc" */
+	{"d", UNITS, DTK_DAY},		/* ISO 输入的 "月内日" */
 	{"dec", MONTH, 12},
 	{"december", MONTH, 12},
-	{"dow", UNITS, DTK_DOW},	/* day of week */
-	{"doy", UNITS, DTK_DOY},	/* day of year */
+	{"dow", UNITS, DTK_DOW},	/* 周内日 */
+	{"doy", UNITS, DTK_DOY},	/* 年积日 */
 	{"dst", DTZMOD, SECS_PER_HOUR},
-	{EPOCH, RESERV, DTK_EPOCH}, /* "epoch" reserved for system epoch time */
+	{EPOCH, RESERV, DTK_EPOCH}, /* "epoch" 保留给系统纪元时间 */
 	{"feb", MONTH, 2},
 	{"february", MONTH, 2},
 	{"fri", DOW, 5},
 	{"friday", DOW, 5},
-	{"h", UNITS, DTK_HOUR},		/* "hour" */
-	{LATE, RESERV, DTK_LATE},	/* "infinity" reserved for "late time" */
-	{"isodow", UNITS, DTK_ISODOW},	/* ISO day of week, Sunday == 7 */
-	{"isoyear", UNITS, DTK_ISOYEAR},	/* year in terms of the ISO week date */
+	{"h", UNITS, DTK_HOUR},		/* "时" */
+	{LATE, RESERV, DTK_LATE},	/* "infinity" 保留给 "late time" */
+	{"isodow", UNITS, DTK_ISODOW},	/* ISO 周内日，周日 == 7 */
+	{"isoyear", UNITS, DTK_ISOYEAR},	/* 按 ISO 周日期计的年份 */
 	{"j", UNITS, DTK_JULIAN},
 	{"jan", MONTH, 1},
 	{"january", MONTH, 1},
@@ -141,21 +141,21 @@ static const datetkn datetktbl[] = {
 	{"july", MONTH, 7},
 	{"jun", MONTH, 6},
 	{"june", MONTH, 6},
-	{"m", UNITS, DTK_MONTH},	/* "month" for ISO input */
+	{"m", UNITS, DTK_MONTH},	/* ISO 输入的 "月" */
 	{"mar", MONTH, 3},
 	{"march", MONTH, 3},
 	{"may", MONTH, 5},
-	{"mm", UNITS, DTK_MINUTE},	/* "minute" for ISO input */
+	{"mm", UNITS, DTK_MINUTE},	/* ISO 输入的 "分" */
 	{"mon", DOW, 1},
 	{"monday", DOW, 1},
 	{"nov", MONTH, 11},
 	{"november", MONTH, 11},
-	{NOW, RESERV, DTK_NOW},		/* current transaction time */
+	{NOW, RESERV, DTK_NOW},		/* 当前事务时间 */
 	{"oct", MONTH, 10},
 	{"october", MONTH, 10},
-	{"on", IGNORE_DTF, 0},		/* "on" (throwaway) */
+	{"on", IGNORE_DTF, 0},		/* "on" (弃词) */
 	{"pm", AMPM, PM},
-	{"s", UNITS, DTK_SECOND},	/* "seconds" for ISO input */
+	{"s", UNITS, DTK_SECOND},	/* ISO 输入的 "秒" */
 	{"sat", DOW, 6},
 	{"saturday", DOW, 6},
 	{"sep", MONTH, 9},
@@ -163,99 +163,99 @@ static const datetkn datetktbl[] = {
 	{"september", MONTH, 9},
 	{"sun", DOW, 0},
 	{"sunday", DOW, 0},
-	{"t", ISOTIME, DTK_TIME},	/* Filler for ISO time fields */
+	{"t", ISOTIME, DTK_TIME},	/* ISO 时间字段占位符 */
 	{"thu", DOW, 4},
 	{"thur", DOW, 4},
 	{"thurs", DOW, 4},
 	{"thursday", DOW, 4},
-	{TODAY, RESERV, DTK_TODAY}, /* midnight */
-	{TOMORROW, RESERV, DTK_TOMORROW},	/* tomorrow midnight */
+	{TODAY, RESERV, DTK_TODAY}, /* 午夜 */
+	{TOMORROW, RESERV, DTK_TOMORROW},	/* 明日午夜 */
 	{"tue", DOW, 2},
 	{"tues", DOW, 2},
 	{"tuesday", DOW, 2},
 	{"wed", DOW, 3},
 	{"wednesday", DOW, 3},
 	{"weds", DOW, 3},
-	{"y", UNITS, DTK_YEAR},		/* "year" for ISO input */
-	{YESTERDAY, RESERV, DTK_YESTERDAY}	/* yesterday midnight */
+	{"y", UNITS, DTK_YEAR},		/* ISO 输入的 "年" */
+	{YESTERDAY, RESERV, DTK_YESTERDAY}	/* 昨日午夜 */
 };
 
 static const int szdatetktbl = sizeof datetktbl / sizeof datetktbl[0];
 
 /*
- * deltatktbl: same format as datetktbl, but holds keywords used to represent
- * time units (eg, for intervals, and for EXTRACT).
+ * deltatktbl：与 datetktbl 格式相同，但保存用于表示
+ * 时间单位（如 interval 与 EXTRACT）。
  */
 static const datetkn deltatktbl[] = {
-	/* token, type, value */
-	{"@", IGNORE_DTF, 0},		/* postgres relative prefix */
-	{DAGO, AGO, 0},				/* "ago" indicates negative time offset */
-	{"c", UNITS, DTK_CENTURY},	/* "century" relative */
-	{"cent", UNITS, DTK_CENTURY},	/* "century" relative */
-	{"centuries", UNITS, DTK_CENTURY},	/* "centuries" relative */
-	{DCENTURY, UNITS, DTK_CENTURY}, /* "century" relative */
-	{"d", UNITS, DTK_DAY},		/* "day" relative */
-	{DDAY, UNITS, DTK_DAY},		/* "day" relative */
-	{"days", UNITS, DTK_DAY},	/* "days" relative */
-	{"dec", UNITS, DTK_DECADE}, /* "decade" relative */
-	{DDECADE, UNITS, DTK_DECADE},	/* "decade" relative */
-	{"decades", UNITS, DTK_DECADE}, /* "decades" relative */
-	{"decs", UNITS, DTK_DECADE},	/* "decades" relative */
-	{"h", UNITS, DTK_HOUR},		/* "hour" relative */
-	{DHOUR, UNITS, DTK_HOUR},	/* "hour" relative */
-	{"hours", UNITS, DTK_HOUR}, /* "hours" relative */
-	{"hr", UNITS, DTK_HOUR},	/* "hour" relative */
-	{"hrs", UNITS, DTK_HOUR},	/* "hours" relative */
-	{"m", UNITS, DTK_MINUTE},	/* "minute" relative */
-	{"microsecon", UNITS, DTK_MICROSEC},	/* "microsecond" relative */
-	{"mil", UNITS, DTK_MILLENNIUM}, /* "millennium" relative */
-	{"millennia", UNITS, DTK_MILLENNIUM},	/* "millennia" relative */
-	{DMILLENNIUM, UNITS, DTK_MILLENNIUM},	/* "millennium" relative */
-	{"millisecon", UNITS, DTK_MILLISEC},	/* relative */
-	{"mils", UNITS, DTK_MILLENNIUM},	/* "millennia" relative */
-	{"min", UNITS, DTK_MINUTE}, /* "minute" relative */
-	{"mins", UNITS, DTK_MINUTE},	/* "minutes" relative */
-	{DMINUTE, UNITS, DTK_MINUTE},	/* "minute" relative */
-	{"minutes", UNITS, DTK_MINUTE}, /* "minutes" relative */
-	{"mon", UNITS, DTK_MONTH},	/* "months" relative */
-	{"mons", UNITS, DTK_MONTH}, /* "months" relative */
-	{DMONTH, UNITS, DTK_MONTH}, /* "month" relative */
+	/* token/type/value */
+	{"@", IGNORE_DTF, 0},		/* postgres 相对前缀 */
+	{DAGO, AGO, 0},				/* "ago" 表示负的时间偏移 */
+	{"c", UNITS, DTK_CENTURY},	/* "世纪"(相对) */
+	{"cent", UNITS, DTK_CENTURY},	/* "世纪"(相对) */
+	{"centuries", UNITS, DTK_CENTURY},	/* "世纪"(相对) */
+	{DCENTURY, UNITS, DTK_CENTURY}, /* "世纪"(相对) */
+	{"d", UNITS, DTK_DAY},		/* "日"(相对) */
+	{DDAY, UNITS, DTK_DAY},		/* "日"(相对) */
+	{"days", UNITS, DTK_DAY},	/* "日"(相对) */
+	{"dec", UNITS, DTK_DECADE}, /* "十年"(相对) */
+	{DDECADE, UNITS, DTK_DECADE},	/* "十年"(相对) */
+	{"decades", UNITS, DTK_DECADE}, /* "十年"(相对) */
+	{"decs", UNITS, DTK_DECADE},	/* "十年"(相对) */
+	{"h", UNITS, DTK_HOUR},		/* "时"(相对) */
+	{DHOUR, UNITS, DTK_HOUR},	/* "时"(相对) */
+	{"hours", UNITS, DTK_HOUR}, /* "小时"(相对) */
+	{"hr", UNITS, DTK_HOUR},	/* "时"(相对) */
+	{"hrs", UNITS, DTK_HOUR},	/* "小时"(相对) */
+	{"m", UNITS, DTK_MINUTE},	/* "分"(相对) */
+	{"microsecon", UNITS, DTK_MICROSEC},	/* "微秒"(相对) */
+	{"mil", UNITS, DTK_MILLENNIUM}, /* "千年"(相对) */
+	{"millennia", UNITS, DTK_MILLENNIUM},	/* "千年"(相对) */
+	{DMILLENNIUM, UNITS, DTK_MILLENNIUM},	/* "千年"(相对) */
+	{"millisecon", UNITS, DTK_MILLISEC},	/* 相对 */
+	{"mils", UNITS, DTK_MILLENNIUM},	/* "千年"(相对) */
+	{"min", UNITS, DTK_MINUTE}, /* "分"(相对) */
+	{"mins", UNITS, DTK_MINUTE},	/* "分"(相对) */
+	{DMINUTE, UNITS, DTK_MINUTE},	/* "分"(相对) */
+	{"minutes", UNITS, DTK_MINUTE}, /* "分"(相对) */
+	{"mon", UNITS, DTK_MONTH},	/* "月"(相对) */
+	{"mons", UNITS, DTK_MONTH}, /* "月"(相对) */
+	{DMONTH, UNITS, DTK_MONTH}, /* "月"(相对) */
 	{"months", UNITS, DTK_MONTH},
 	{"ms", UNITS, DTK_MILLISEC},
 	{"msec", UNITS, DTK_MILLISEC},
 	{DMILLISEC, UNITS, DTK_MILLISEC},
 	{"mseconds", UNITS, DTK_MILLISEC},
 	{"msecs", UNITS, DTK_MILLISEC},
-	{"qtr", UNITS, DTK_QUARTER},	/* "quarter" relative */
-	{DQUARTER, UNITS, DTK_QUARTER}, /* "quarter" relative */
+	{"qtr", UNITS, DTK_QUARTER},	/* "季度"(相对) */
+	{DQUARTER, UNITS, DTK_QUARTER}, /* "季度"(相对) */
 	{"s", UNITS, DTK_SECOND},
 	{"sec", UNITS, DTK_SECOND},
 	{DSECOND, UNITS, DTK_SECOND},
 	{"seconds", UNITS, DTK_SECOND},
 	{"secs", UNITS, DTK_SECOND},
-	{DTIMEZONE, UNITS, DTK_TZ}, /* "timezone" time offset */
-	{"timezone_h", UNITS, DTK_TZ_HOUR}, /* timezone hour units */
-	{"timezone_m", UNITS, DTK_TZ_MINUTE},	/* timezone minutes units */
-	{"us", UNITS, DTK_MICROSEC},	/* "microsecond" relative */
-	{"usec", UNITS, DTK_MICROSEC},	/* "microsecond" relative */
-	{DMICROSEC, UNITS, DTK_MICROSEC},	/* "microsecond" relative */
-	{"useconds", UNITS, DTK_MICROSEC},	/* "microseconds" relative */
-	{"usecs", UNITS, DTK_MICROSEC}, /* "microseconds" relative */
-	{"w", UNITS, DTK_WEEK},		/* "week" relative */
-	{DWEEK, UNITS, DTK_WEEK},	/* "week" relative */
-	{"weeks", UNITS, DTK_WEEK}, /* "weeks" relative */
-	{"y", UNITS, DTK_YEAR},		/* "year" relative */
-	{DYEAR, UNITS, DTK_YEAR},	/* "year" relative */
-	{"years", UNITS, DTK_YEAR}, /* "years" relative */
-	{"yr", UNITS, DTK_YEAR},	/* "year" relative */
-	{"yrs", UNITS, DTK_YEAR}	/* "years" relative */
+	{DTIMEZONE, UNITS, DTK_TZ}, /* "时区"时间偏移 */
+	{"timezone_h", UNITS, DTK_TZ_HOUR}, /* 时区小时单位 */
+	{"timezone_m", UNITS, DTK_TZ_MINUTE},	/* 时区分钟单位 */
+	{"us", UNITS, DTK_MICROSEC},	/* "微秒"(相对) */
+	{"usec", UNITS, DTK_MICROSEC},	/* "微秒"(相对) */
+	{DMICROSEC, UNITS, DTK_MICROSEC},	/* "微秒"(相对) */
+	{"useconds", UNITS, DTK_MICROSEC},	/* "微秒"(相对) */
+	{"usecs", UNITS, DTK_MICROSEC}, /* "微秒"(相对) */
+	{"w", UNITS, DTK_WEEK},		/* "周"(相对) */
+	{DWEEK, UNITS, DTK_WEEK},	/* "周"(相对) */
+	{"weeks", UNITS, DTK_WEEK}, /* "周"(相对) */
+	{"y", UNITS, DTK_YEAR},		/* "年"(相对) */
+	{DYEAR, UNITS, DTK_YEAR},	/* "年"(相对) */
+	{"years", UNITS, DTK_YEAR}, /* "年"(相对) */
+	{"yr", UNITS, DTK_YEAR},	/* "年"(相对) */
+	{"yrs", UNITS, DTK_YEAR}	/* "年"(相对) */
 };
 
 static const int szdeltatktbl = sizeof deltatktbl / sizeof deltatktbl[0];
 
 static TimeZoneAbbrevTable *zoneabbrevtbl = NULL;
 
-/* Caches of recent lookup results in the above tables */
+/* 上面各表近期查找结果的缓存 */
 
 static const datetkn *datecache[MAXDATEFIELDS] = {NULL};
 
@@ -265,23 +265,23 @@ static const datetkn *abbrevcache[MAXDATEFIELDS] = {NULL};
 
 
 /*
- * Calendar time to Julian date conversions.
- * Julian date is commonly used in astronomical applications,
- *	since it is numerically accurate and computationally simple.
- * The algorithms here will accurately convert between Julian day
- *	and calendar date for all non-negative Julian days
- *	(i.e. from Nov 24, -4713 on).
+ * 日历时间与儒略日期的换算。
+ * 儒略日期常用于天文学应用中，
+ *	因为它数值精确且计算简单。
+ * 这里的算法能在儒略日与
+ *	日历日期之间对所有非负儒略日换算
+ *	（自 -4713-11-24 起）。
  *
- * Rewritten to eliminate overflow problems. This now allows the
- * routines to work correctly for all Julian day counts from
- * 0 to 2147483647	(Nov 24, -4713 to Jun 3, 5874898) assuming
- * a 32-bit integer. Longer types should also work to the limits
- * of their precision.
+ * 重写以消除溢出问题。现在可让这些
+ * 例程对从 0 到 2147483647 的儒略日计数
+ * （-4713-11-24 到 5874898-06-03）在假设
+ * 为 32 位整数时都正确。更长类型也应在其
+ * 精度内可行。
  *
- * Actually, date2j() will work sanely, in the sense of producing
- * valid negative Julian dates, significantly before Nov 24, -4713.
- * We rely on it to do so back to Nov 1, -4713; see IS_VALID_JULIAN()
- * and associated commentary in timestamp.h.
+ * 实际上，date2j() 能以产生有效负儒略日期的
+ * 合理方式工作，且远在 -4713-11-24 之前即如此。
+ * 我们依赖它追溯到 -4713-11-01；见 IS_VALID_JULIAN()
+ * 及 timestamp.h 中的相关说明。
  */
 
 int
@@ -336,18 +336,18 @@ j2date(int jd, int *year, int *month, int *day)
 
 
 /*
- * j2day - convert Julian date to day-of-week (0..6 == Sun..Sat)
+ * j2day - 儒略日期转周内日 (0..6 == 周日..周六)
  *
- * Note: various places use the locution j2day(date - 1) to produce a
- * result according to the convention 0..6 = Mon..Sun.  This is a bit of
- * a crock, but will work as long as the computation here is just a modulo.
+ * 注意：多处使用 j2day(date - 1) 这一写法来产生
+ * 符合 0..6 = 周一..周日 约定的结果。这有点
+ * 不严谨，但只要这里的计算只是取模，它就能工作。
  */
 int
 j2day(int date)
 {
 	date += 1;
 	date %= 7;
-	/* Cope if division truncates towards zero, as it probably does */
+	/* 若除法向零截断则作补偿，它很可能如此 */
 	if (date < 0)
 		date += 7;
 
@@ -358,11 +358,11 @@ j2day(int date)
 /*
  * GetCurrentDateTime()
  *
- * Get the transaction start time ("now()") broken down as a struct pg_tm,
- * converted according to the session timezone setting.
+ * 取得事务开始时间（"now()"）并分解为 struct pg_tm，
+ * 并按会话时区设置加以转换。
  *
- * This is just a convenience wrapper for GetCurrentTimeUsec, to cover the
- * case where caller doesn't need either fractional seconds or tz offset.
+ * 这只是 GetCurrentTimeUsec 的便捷包装，用于覆盖
+ * 调用方既不需要小数秒也不需要时区偏移的情形。
  */
 void
 GetCurrentDateTime(struct pg_tm *tm)
@@ -375,15 +375,15 @@ GetCurrentDateTime(struct pg_tm *tm)
 /*
  * GetCurrentTimeUsec()
  *
- * Get the transaction start time ("now()") broken down as a struct pg_tm,
- * including fractional seconds and timezone offset.  The time is converted
- * according to the session timezone setting.
+ * 取得事务开始时间（"now()"）并分解为 struct pg_tm，
+ * 包括小数秒与时区偏移。时间按会话时区设置
+ * 加以转换。
  *
- * Callers may pass tzp = NULL if they don't need the offset, but this does
- * not affect the conversion behavior (unlike timestamp2tm()).
+ * 调用方若不需要偏移可传 tzp = NULL，但这并不
+ * 影响转换行为（不同于 timestamp2tm()）。
  *
- * Internally, we cache the result, since this could be called many times
- * in a transaction, within which now() doesn't change.
+ * 内部我们会缓存结果，因为它可能在一个事务中
+ * 被调用多次，其间 now() 不会改变。
  */
 void
 GetCurrentTimeUsec(struct pg_tm *tm, fsec_t *fsec, int *tzp)
@@ -391,12 +391,12 @@ GetCurrentTimeUsec(struct pg_tm *tm, fsec_t *fsec, int *tzp)
 	TimestampTz cur_ts = GetCurrentTransactionStartTimestamp();
 
 	/*
-	 * The cache key must include both current time and current timezone.  By
-	 * representing the timezone by just a pointer, we're assuming that
-	 * distinct timezone settings could never have the same pointer value.
-	 * This is true by virtue of the hashtable used inside pg_tzset();
-	 * however, it might need another look if we ever allow entries in that
-	 * hash to be recycled.
+	 * 缓存键必须同时包含当前时间与当前时区。由于
+	 * 仅用指针表示时区，我们是在假设
+	 * 不同的时区设置绝不会有相同的指针值。
+	 * 这得益于 pg_tzset() 内部使用的哈希表；
+	 * 不过，如果将来允许该哈希中的条目被回收，
+	 * 则需再看。
 	 */
 	static TimestampTz cache_ts = 0;
 	static pg_tz *cache_timezone = NULL;
@@ -407,15 +407,15 @@ GetCurrentTimeUsec(struct pg_tm *tm, fsec_t *fsec, int *tzp)
 	if (cur_ts != cache_ts || session_timezone != cache_timezone)
 	{
 		/*
-		 * Make sure cache is marked invalid in case of error after partial
-		 * update within timestamp2tm.
+		 * 若 timestamp2tm 内发生部分更新之后出错，要
+		 * 确保缓存无效。
 		 */
 		cache_timezone = NULL;
 
 		/*
-		 * Perform the computation, storing results into cache.  We do not
-		 * really expect any error here, since current time surely ought to be
-		 * within range, but check just for sanity's sake.
+		 * 执行计算并把结果存入缓存。我们并不
+		 * 真的预期这里会出错，因为当前时间理应
+		 * 在范围内，但为稳妥仍检查。
 		 */
 		if (timestamp2tm(cur_ts, &cache_tz, &cache_tm, &cache_fsec,
 						 NULL, session_timezone) != 0)
@@ -423,7 +423,7 @@ GetCurrentTimeUsec(struct pg_tm *tm, fsec_t *fsec, int *tzp)
 					(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 					 errmsg("timestamp out of range")));
 
-		/* OK, so mark the cache valid. */
+		/* 好，标记缓存有效。 */
 		cache_ts = cur_ts;
 		cache_timezone = session_timezone;
 	}
@@ -436,15 +436,15 @@ GetCurrentTimeUsec(struct pg_tm *tm, fsec_t *fsec, int *tzp)
 
 
 /*
- * Append seconds and fractional seconds (if any) at *cp.
+ * 在 *cp 处追加秒与小数秒（如有）。
  *
- * precision is the max number of fraction digits, fillzeros says to
- * pad to two integral-seconds digits.
+ * precision 是小数位数的上限，fillzeros 表示要
+ * 补足两位整数秒数字。
  *
- * Returns a pointer to the new end of string.  No NUL terminator is put
- * there; callers are responsible for NUL terminating str themselves.
+ * 返回指向字符串新末尾的指针。不在那里放
+ * NUL 终止符；调用方需自行负责 str 的 NUL 终止。
  *
- * Note that any sign is stripped from the input sec and fsec values.
+ * 注意 sec 与 fsec 输入值的任何符号都会被剥除。
  */
 static char *
 AppendSeconds(char *cp, int sec, fsec_t fsec, int precision, bool fillzeros)
@@ -456,7 +456,7 @@ AppendSeconds(char *cp, int sec, fsec_t fsec, int precision, bool fillzeros)
 	else
 		cp = pg_ultostr(cp, abs(sec));
 
-	/* fsec_t is just an int32 */
+	/* fsec_t 只是 int32 */
 	if (fsec != 0)
 	{
 		int32		value = abs(fsec);
@@ -466,9 +466,9 @@ AppendSeconds(char *cp, int sec, fsec_t fsec, int precision, bool fillzeros)
 		*cp++ = '.';
 
 		/*
-		 * Append the fractional seconds part.  Note that we don't want any
-		 * trailing zeros here, so since we're building the number in reverse
-		 * we'll skip appending zeros until we've output a non-zero digit.
+		 * 追加小数秒部分。注意我们不想要任何
+		 * 尾部零，所以由于我们是反向构建数字，
+		 * 在输出非零数字前会跳过追加零。
 		 */
 		while (precision--)
 		{
@@ -478,7 +478,7 @@ AppendSeconds(char *cp, int sec, fsec_t fsec, int precision, bool fillzeros)
 			value /= 10;
 			remainder = oldval - value * 10;
 
-			/* check if we got a non-zero */
+			/* 查是否得到非零 */
 			if (remainder)
 				gotnonzero = true;
 
@@ -489,9 +489,9 @@ AppendSeconds(char *cp, int sec, fsec_t fsec, int precision, bool fillzeros)
 		}
 
 		/*
-		 * If we still have a non-zero value then precision must have not been
-		 * enough to print the number.  We punt the problem to pg_ultostr(),
-		 * which will generate a correct answer in the minimum valid width.
+		 * 如果我们仍有非零值，那么 precision 必然
+		 * 不足以打印该数字。我们把问题交给 pg_ultostr()，
+		 * 它会以最小有效宽度生成正确答案。
 		 */
 		if (value)
 			return pg_ultostr(cp, abs(fsec));
@@ -504,10 +504,10 @@ AppendSeconds(char *cp, int sec, fsec_t fsec, int precision, bool fillzeros)
 
 
 /*
- * Variant of above that's specialized to timestamp case.
+ * 上面的变体，专用于 timestamp 情形。
  *
- * Returns a pointer to the new end of string.  No NUL terminator is put
- * there; callers are responsible for NUL terminating str themselves.
+ * 返回指向字符串新末尾的指针。不在那里放
+ * NUL 终止符；调用方需自行负责 str 的 NUL 终止。
  */
 static char *
 AppendTimestampSeconds(char *cp, struct pg_tm *tm, fsec_t fsec)
@@ -517,8 +517,8 @@ AppendTimestampSeconds(char *cp, struct pg_tm *tm, fsec_t fsec)
 
 
 /*
- * Add val * multiplier to *sum.
- * Returns true if successful, false on overflow.
+ * val*multiplier 加到*sum。
+ * 成功返回 true，溢出则返回 false。
  */
 static bool
 int64_multiply_add(int64 val, int64 multiplier, int64 *sum)
@@ -532,8 +532,8 @@ int64_multiply_add(int64 val, int64 multiplier, int64 *sum)
 }
 
 /*
- * Multiply frac by scale (to produce microseconds) and add to itm_in->tm_usec.
- * Returns true if successful, false if itm_in overflows.
+ * 把 frac 乘以 scale（得到微秒）并加到 itm_in->tm_usec。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustFractMicroseconds(double frac, int64 scale,
@@ -541,18 +541,18 @@ AdjustFractMicroseconds(double frac, int64 scale,
 {
 	int64		usec;
 
-	/* Fast path for common case */
+	/* 常用快速路径 */
 	if (frac == 0)
 		return true;
 
 	/*
-	 * We assume the input frac has abs value less than 1, so overflow of frac
-	 * or usec is not an issue for interesting values of scale.
+	 * 我们假设输入 frac 的绝对值小于 1，因此 frac 或
+	 * usec 不会溢出（对有意义的 scale 值）。
 	 */
 	frac *= scale;
 	usec = (int64) frac;
 
-	/* Round off any fractional microsecond */
+	/* 对任何小数微秒做舍入 */
 	frac -= usec;
 	if (frac > 0.5)
 		usec++;
@@ -563,9 +563,9 @@ AdjustFractMicroseconds(double frac, int64 scale,
 }
 
 /*
- * Multiply frac by scale (to produce days).  Add the integral part of the
- * result to itm_in->tm_mday, the fractional part to itm_in->tm_usec.
- * Returns true if successful, false if itm_in overflows.
+ * 把 frac 乘以 scale（得到天）。把结果的整数部分加
+ * 到 itm_in->tm_mday，小数部分加到 itm_in->tm_usec。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustFractDays(double frac, int scale,
@@ -573,39 +573,39 @@ AdjustFractDays(double frac, int scale,
 {
 	int			extra_days;
 
-	/* Fast path for common case */
+	/* 常用快速路径 */
 	if (frac == 0)
 		return true;
 
 	/*
-	 * We assume the input frac has abs value less than 1, so overflow of frac
-	 * or extra_days is not an issue.
+	 * 我们假设输入 frac 的绝对值小于 1，因此 frac 或
+	 * extra_days 不构成问题。
 	 */
 	frac *= scale;
 	extra_days = (int) frac;
 
-	/* ... but this could overflow, if tm_mday is already nonzero */
+	/* 但若 tm_mday 已非零，此处可能溢出 */
 	if (pg_add_s32_overflow(itm_in->tm_mday, extra_days, &itm_in->tm_mday))
 		return false;
 
-	/* Handle any fractional day */
+	/* 处理任何小数天 */
 	frac -= extra_days;
 	return AdjustFractMicroseconds(frac, USECS_PER_DAY, itm_in);
 }
 
 /*
- * Multiply frac by scale (to produce years), then further scale up to months.
- * Add the integral part of the result to itm_in->tm_mon, discarding any
- * fractional part.
- * Returns true if successful, false if itm_in overflows.
+ * 把 frac 乘以 scale（得到年），再进一步放大到月。
+ * 把结果的整数部分加到 itm_in->tm_mon，丢弃任何
+ * 小数部分。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustFractYears(double frac, int scale,
 				 struct pg_itm_in *itm_in)
 {
 	/*
-	 * As above, we assume abs(frac) < 1, so this can't overflow for any
-	 * interesting value of scale.
+	 * 同上，我们假设 abs(frac) < 1，因此只要 scale
+	 * 有意义就不溢出。
 	 */
 	int			extra_months = (int) rint(frac * scale * MONTHS_PER_YEAR);
 
@@ -613,23 +613,23 @@ AdjustFractYears(double frac, int scale,
 }
 
 /*
- * Add (val + fval) * scale to itm_in->tm_usec.
- * Returns true if successful, false if itm_in overflows.
+ * (val+fval)*scale 加到 itm_in->tm_usec。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustMicroseconds(int64 val, double fval, int64 scale,
 				   struct pg_itm_in *itm_in)
 {
-	/* Handle the integer part */
+	/* 处理整数部分 */
 	if (!int64_multiply_add(val, scale, &itm_in->tm_usec))
 		return false;
-	/* Handle the float part */
+	/* 处理浮点部分 */
 	return AdjustFractMicroseconds(fval, scale, itm_in);
 }
 
 /*
- * Multiply val by scale (to produce days) and add to itm_in->tm_mday.
- * Returns true if successful, false if itm_in overflows.
+ * 把 val 乘以 scale（得到天）并加到 itm_in->tm_mday。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustDays(int64 val, int scale, struct pg_itm_in *itm_in)
@@ -643,9 +643,9 @@ AdjustDays(int64 val, int scale, struct pg_itm_in *itm_in)
 }
 
 /*
- * Add val to itm_in->tm_mon (no need for scale here, as val is always
- * in months already).
- * Returns true if successful, false if itm_in overflows.
+ * 把 val 加到 itm_in->tm_mon（此处无需 scale，
+ * 已以月计）。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustMonths(int64 val, struct pg_itm_in *itm_in)
@@ -656,8 +656,8 @@ AdjustMonths(int64 val, struct pg_itm_in *itm_in)
 }
 
 /*
- * Multiply val by scale (to produce years) and add to itm_in->tm_year.
- * Returns true if successful, false if itm_in overflows.
+ * 把 val 乘以 scale（得到年）并加到 itm_in->tm_year。
+ * 成功返回 true，itm_in 溢出则返回 false。
  */
 static bool
 AdjustYears(int64 val, int scale,
@@ -673,20 +673,20 @@ AdjustYears(int64 val, int scale,
 
 
 /*
- * Parse the fractional part of a number (decimal point and optional digits,
- * followed by end of string).  Returns the fractional value into *frac.
+ * 解析数字的小数部分（小数点与可选数字，
+ * 后接字符串结尾）。把小数值返回到 *frac 中。
  *
- * Returns 0 if successful, DTERR code if bogus input detected.
+ * 成功返回 0，检测到伪输入则返回 DTERR 码。
  */
 static int
 ParseFraction(char *cp, double *frac)
 {
-	/* Caller should always pass the start of the fraction part */
+	/* 调用方应始终传入小数部分的开头 */
 	Assert(*cp == '.');
 
 	/*
-	 * We want to allow just "." with no digits, but some versions of strtod
-	 * will report EINVAL for that, so special-case it.
+	 * 我们想允许不带数字的单独 "."，但某些版本的 strtod
+	 * 会为此报告 EINVAL，所以特判它。
 	 */
 	if (cp[1] == '\0')
 	{
@@ -696,7 +696,7 @@ ParseFraction(char *cp, double *frac)
 	{
 		errno = 0;
 		*frac = strtod(cp, &cp);
-		/* check for parse failure */
+		/* 查解析是否失败 */
 		if (*cp != '\0' || errno != 0)
 			return DTERR_BAD_FORMAT;
 	}
@@ -704,8 +704,8 @@ ParseFraction(char *cp, double *frac)
 }
 
 /*
- * Fetch a fractional-second value with suitable error checking.
- * Same as ParseFraction except we convert the result to integer microseconds.
+ * 在适当错误检查下取小数秒值。
+ * 同 ParseFraction，但会把结果转换为整数微秒。
  */
 static int
 ParseFractionalSecond(char *cp, fsec_t *fsec)
@@ -722,35 +722,35 @@ ParseFractionalSecond(char *cp, fsec_t *fsec)
 
 
 /* ParseDateTime()
- *	Break string into tokens based on a date/time context.
- *	Returns 0 if successful, DTERR code if bogus input detected.
+ *	按日期/时间语境切分字符串为记号。
+ *	成功返回 0，检测到伪输入则返回 DTERR 码。
  *
- * timestr - the input string
- * workbuf - workspace for field string storage. This must be
- *	 larger than the largest legal input for this datetime type --
- *	 some additional space will be needed to NUL terminate fields.
- * buflen - the size of workbuf
- * field[] - pointers to field strings are returned in this array
- * ftype[] - field type indicators are returned in this array
- * maxfields - dimensions of the above two arrays
- * *numfields - set to the actual number of fields detected
+ * timestr - 输入字符串
+ * workbuf - 存储字段字符串的工作区。它必须
+ *	 大于该日期时间类型最大合法输入 --
+ *	 因为 NUL 终止字段还需要一些额外空间。
+ * buflen - workbuf 的大小
+ * field[] - 字段字符串的指针返回到此数组中
+ * ftype[] - 字段类型指示符返回到此数组中
+ * maxfields - 上面两个数组的维度
+ * *numfields - 置为检测到的实际字段数
  *
- * The fields extracted from the input are stored as separate,
- * null-terminated strings in the workspace at workbuf. Any text is
- * converted to lower case.
+ * 从输入提取的字段作为独立的、
+ * 以 NUL 终止的字符串存入 workbuf 工作区。
+ * 文本都转为小写。
  *
- * Several field types are assigned:
- *	DTK_NUMBER - digits and (possibly) a decimal point
- *	DTK_DATE - digits and two delimiters, or digits and text
- *	DTK_TIME - digits, colon delimiters, and possibly a decimal point
- *	DTK_STRING - text (no digits or punctuation)
- *	DTK_SPECIAL - leading "+" or "-" followed by text
- *	DTK_TZ - leading "+" or "-" followed by digits (also eats ':', '.', '-')
+ * 会指定几种字段类型：
+ *	DTK_NUMBER - 数字和（可能的）小数点
+ *	DTK_DATE - 数字与两个定界符，或数字与文本
+ *	DTK_TIME - 数字、冒号定界符，可能有小数点
+ *	DTK_STRING - 文本（无数字或标点）
+ *	DTK_SPECIAL - 前导 "+" 或 "-" 后接文本
+ *	DTK_TZ - 前导 "+" 或 "-" 后接数字（也吞入 ':'、'.'、'-'）
  *
- * Note that some field types can hold unexpected items:
- *	DTK_NUMBER can hold date fields (yy.ddd)
- *	DTK_STRING can hold months (January) and time zones (PST)
- *	DTK_DATE can hold time zone names (America/New_York, GMT-8)
+ * 注意某些字段类型可容纳意外条目：
+ *	DTK_NUMBER 容纳日期字段 (yy.ddd)
+ *	DTK_STRING 可容纳月份 (January) 与时区 (PST)
+ *	DTK_DATE 可容纳时区名 (America/New_York, GMT-8)
  */
 int
 ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
@@ -762,10 +762,10 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 	const char *bufend = workbuf + buflen;
 
 	/*
-	 * Set the character pointed-to by "bufptr" to "newchar", and increment
-	 * "bufptr". "end" gives the end of the buffer -- we return an error if
-	 * there is no space left to append a character to the buffer. Note that
-	 * "bufptr" is evaluated twice.
+	 * 把 "bufptr" 所指字符置为 "newchar"，并递增
+	 * "bufptr"。"end" 给出缓冲区末尾 -- 若
+	 * 缓冲区已无空间追加字符就返回错误。注意
+	 * "bufptr" 被求值两次。
 	 */
 #define APPEND_CHAR(bufptr, end, newchar)		\
 	do											\
@@ -775,29 +775,29 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 		*(bufptr)++ = newchar;					\
 	} while (0)
 
-	/* outer loop through fields */
+	/* 外层循环遍历字段 */
 	while (*cp != '\0')
 	{
-		/* Ignore spaces between fields */
+		/* 忽略字段之间的空白 */
 		if (isspace((unsigned char) *cp))
 		{
 			cp++;
 			continue;
 		}
 
-		/* Record start of current field */
+		/* 记录当前字段的起点 */
 		if (nf >= maxfields)
 			return DTERR_BAD_FORMAT;
 		field[nf] = bufp;
 
-		/* leading digit? then date or time */
+		/* 前导数字?为日期或时间 */
 		if (isdigit((unsigned char) *cp))
 		{
 			APPEND_CHAR(bufp, bufend, *cp++);
 			while (isdigit((unsigned char) *cp))
 				APPEND_CHAR(bufp, bufend, *cp++);
 
-			/* time field? */
+			/* 时间? */
 			if (*cp == ':')
 			{
 				ftype[nf] = DTK_TIME;
@@ -806,14 +806,14 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 					   (*cp == ':') || (*cp == '.'))
 					APPEND_CHAR(bufp, bufend, *cp++);
 			}
-			/* date field? allow embedded text month */
+			/* 日期字段?允许内嵌文本月份 */
 			else if (*cp == '-' || *cp == '/' || *cp == '.')
 			{
-				/* save delimiting character to use later */
+				/* 保存定界字符供稍后使用 */
 				char		delim = *cp;
 
 				APPEND_CHAR(bufp, bufend, *cp++);
-				/* second field is all digits? then no embedded text month */
+				/* 第二字段全为数字？则无内嵌文本月份 */
 				if (isdigit((unsigned char) *cp))
 				{
 					ftype[nf] = ((delim == '.') ? DTK_NUMBER : DTK_DATE);
@@ -821,8 +821,8 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 						APPEND_CHAR(bufp, bufend, *cp++);
 
 					/*
-					 * insist that the delimiters match to get a three-field
-					 * date.
+					 * 坚持定界符必须匹配才能得到三字段日
+					 * 期
 					 */
 					if (*cp == delim)
 					{
@@ -841,13 +841,13 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 			}
 
 			/*
-			 * otherwise, number only and will determine year, month, day, or
-			 * concatenated fields later...
+			 * 否则为纯数字，稍后将判定年、月、日或
+			 * 连接字段……
 			 */
 			else
 				ftype[nf] = DTK_NUMBER;
 		}
-		/* Leading decimal point? Then fractional seconds... */
+		/* 前导小数点？那么是小数秒…… */
 		else if (*cp == '.')
 		{
 			APPEND_CHAR(bufp, bufend, *cp++);
@@ -858,7 +858,7 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 		}
 
 		/*
-		 * text? then date string, month, day of week, special, or timezone
+		 * 文本？则为日期串、月份、周内日、特殊或时区
 		 */
 		else if (isalpha((unsigned char) *cp))
 		{
@@ -870,20 +870,20 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 				APPEND_CHAR(bufp, bufend, pg_tolower((unsigned char) *cp++));
 
 			/*
-			 * Dates can have embedded '-', '/', or '.' separators.  It could
-			 * also be a timezone name containing embedded '/', '+', '-', '_',
-			 * or ':' (but '_' or ':' can't be the first punctuation). If the
-			 * next character is a digit or '+', we need to check whether what
-			 * we have so far is a recognized non-timezone keyword --- if so,
-			 * don't believe that this is the start of a timezone.
+			 * 日期可内嵌 '-'、'/' 或 '.' 分隔符。它也可能
+			 * 是内嵌 '/'、'+'、'-'、'_'、
+			 * ':'（但 '_' 或 ':' 不能是首个标点）。如果
+			 * 下一字符是数字或 '+'，我们需要检查目前
+			 * 内容是否为已识别的非时区关键字---若是，
+			 * 则不要认为这是时区的开头。
 			 */
 			is_date = false;
 			if (*cp == '-' || *cp == '/' || *cp == '.')
 				is_date = true;
 			else if (*cp == '+' || isdigit((unsigned char) *cp))
 			{
-				*bufp = '\0';	/* null-terminate current field value */
-				/* we need search only the core token table, not TZ names */
+				*bufp = '\0';	/* 以 NUL 终止当前字段值 */
+				/* 只需搜索核心记号表，无需搜 TZ 名 */
 				if (datebsearch(field[nf], datetktbl, szdatetktbl) == NULL)
 					is_date = true;
 			}
@@ -899,15 +899,15 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 						 isalnum((unsigned char) *cp));
 			}
 		}
-		/* sign? then special or numeric timezone */
+		/* 符号?则为特殊词或数字时区 */
 		else if (*cp == '+' || *cp == '-')
 		{
 			APPEND_CHAR(bufp, bufend, *cp++);
-			/* soak up leading whitespace */
+			/* 吞掉前导空白 */
 			while (isspace((unsigned char) *cp))
 				cp++;
-			/* numeric timezone? */
-			/* note that "DTK_TZ" could also be a signed float or yyyy-mm */
+			/* 数字时区？ */
+			/* 注意 "DTK_TZ" 也可能是带符号浮点数或 yyyy-mm */
 			if (isdigit((unsigned char) *cp))
 			{
 				ftype[nf] = DTK_TZ;
@@ -916,7 +916,7 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 					   *cp == ':' || *cp == '.' || *cp == '-')
 					APPEND_CHAR(bufp, bufend, *cp++);
 			}
-			/* special? */
+			/* 特殊? */
 			else if (isalpha((unsigned char) *cp))
 			{
 				ftype[nf] = DTK_SPECIAL;
@@ -924,21 +924,21 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 				while (isalpha((unsigned char) *cp))
 					APPEND_CHAR(bufp, bufend, pg_tolower((unsigned char) *cp++));
 			}
-			/* otherwise something wrong... */
+			/* 否则哪里不对…… */
 			else
 				return DTERR_BAD_FORMAT;
 		}
-		/* ignore other punctuation but use as delimiter */
+		/* 忽略其他标点但用作定界符 */
 		else if (ispunct((unsigned char) *cp))
 		{
 			cp++;
 			continue;
 		}
-		/* otherwise, something is not right... */
+		/* 否则，某些地方不对…… */
 		else
 			return DTERR_BAD_FORMAT;
 
-		/* force in a delimiter after each field */
+		/* 每字段后强制加一定界符 */
 		*bufp++ = '\0';
 		nf++;
 	}
@@ -950,30 +950,30 @@ ParseDateTime(const char *timestr, char *workbuf, size_t buflen,
 
 
 /* DecodeDateTime()
- * Interpret previously parsed fields for general date and time.
- * Return 0 if full date, 1 if only time, and negative DTERR code if problems.
- * (Currently, all callers treat 1 as an error return too.)
+ * 解释先前解析的字段，用于一般日期与时间。
+ * 完整日期返回 0，仅时间返回 1，有问题返回负 DTERR 码。
+ * （目前所有调用方把 1 当作错误返回。）
  *
- * Inputs are field[] and ftype[] arrays, of length nf.
- * Other arguments are outputs.
+ * 输入是 field[]/ftype[] 数组，长度为 nf。
+ * 其他参数都是输出。
  *
- *		External format(s):
+ *		外部格式：
  *				"<weekday> <month>-<day>-<year> <hour>:<minute>:<second>"
  *				"Fri Feb-7-1997 15:23:27"
  *				"Feb-7-1997 15:23:27"
  *				"2-7-1997 15:23:27"
  *				"1997-2-7 15:23:27"
- *				"1997.038 15:23:27"		(day of year 1-366)
- *		Also supports input in compact time:
+ *				 "1997.038 15:23:27"		(年积日 1-366)
+ *		也支持紧凑时间输入：
  *				"970207 152327"
  *				"97038 152327"
  *				"20011225T040506.789-07"
  *
- * Use the system-provided functions to get the current time zone
- * if not specified in the input string.
+ * 若输入串未指定时区，则使用系统提供的函数
+ * 取得当前时区。
  *
- * If the date is outside the range of pg_time_t (in practice that could only
- * happen if pg_time_t is just 32 bits), then assume UTC time zone - thomas
+ * 若日期超出 pg_time_t 的范围（实际上这只有在
+ * pg_time_t 仅 32 位时才可能发生），则假定 UTC 时区 -thomas
  * 1997-05-27
  */
 int
@@ -984,7 +984,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 	int			fmask = 0,
 				tmask,
 				type;
-	int			ptype = 0;		/* "prefix type" for ISO and Julian formats */
+	int			ptype = 0;		/* ISO 与儒略格式的 "前缀类型" */
 	int			i;
 	int			val;
 	int			dterr;
@@ -1000,15 +1000,15 @@ DecodeDateTime(char **field, int *ftype, int nf,
 	struct pg_tm cur_tm;
 
 	/*
-	 * We'll insist on at least all of the date fields, but initialize the
-	 * remaining fields in case they are not set later...
+	 * 我们会坚持至少要有全部日期字段，但会初始化
+	 * 其余字段以防稍后未设置……
 	 */
 	*dtype = DTK_DATE;
 	tm->tm_hour = 0;
 	tm->tm_min = 0;
 	tm->tm_sec = 0;
 	*fsec = 0;
-	/* don't know daylight savings time status apriori */
+	/* 事先不知道夏令时状态 */
 	tm->tm_isdst = -1;
 	if (tzp != NULL)
 		*tzp = 0;
@@ -1020,9 +1020,9 @@ DecodeDateTime(char **field, int *ftype, int nf,
 			case DTK_DATE:
 
 				/*
-				 * Integral julian day with attached time zone? All other
-				 * forms with JD will be separated into distinct fields, so we
-				 * handle just this case here.
+				 * 带附加时区的整数儒略日？所有其他
+				 * 带 JD 的形式都会被分隔成独立字段，所以
+				 * 只处理这一情形。
 				 */
 				if (ptype == DTK_JULIAN)
 				{
@@ -1040,7 +1040,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					j2date(jday, &tm->tm_year, &tm->tm_mon, &tm->tm_mday);
 					isjulian = true;
 
-					/* Get the time zone from the end of the string */
+					/* 从字符串末尾取得时区 */
 					dterr = DecodeTimezone(cp, tzp);
 					if (dterr)
 						return dterr;
@@ -1051,20 +1051,20 @@ DecodeDateTime(char **field, int *ftype, int nf,
 				}
 
 				/*
-				 * Already have a date? Then this might be a time zone name
-				 * with embedded punctuation (e.g. "America/New_York") or a
-				 * run-together time with trailing time zone (e.g. hhmmss-zz).
+				 * 已有日期？那么这可能是带内嵌标点的
+				 * 时区名（如 "America/New_York"），或是
+				 * 带尾随时区的连写时间（如 hhmmss-zz）。
 				 * - thomas 2001-12-25
 				 *
-				 * We consider it a time zone if we already have month & day.
-				 * This is to allow the form "mmm dd hhmmss tz year", which
-				 * we've historically accepted.
+				 * 若我们已有月和日，就把它视为时区。
+				 * 这是为了允许 "mmm dd hhmmss tz year"，
+				 * 历史上一直接受。
 				 */
 				else if (ptype != 0 ||
 						 ((fmask & (DTK_M(MONTH) | DTK_M(DAY))) ==
 						  (DTK_M(MONTH) | DTK_M(DAY))))
 				{
-					/* No time zone accepted? Then quit... */
+					/* 不接受时区?那么退出…… */
 					if (tzp == NULL)
 						return DTERR_BAD_FORMAT;
 
@@ -1073,20 +1073,20 @@ DecodeDateTime(char **field, int *ftype, int nf,
 						char	   *cp;
 
 						/*
-						 * Allow a preceding "t" field, but no other units.
+						 * 允许前导 "t" 字段，不许其他单位。
 						 */
 						if (ptype != 0)
 						{
-							/* Sanity check; should not fail this test */
+							/* 健全性检查；本测试不应失败 */
 							if (ptype != DTK_TIME)
 								return DTERR_BAD_FORMAT;
 							ptype = 0;
 						}
 
 						/*
-						 * Starts with a digit but we already have a time
-						 * field? Then we are in trouble with a date and time
-						 * already...
+						 * 以数字开头但我们已有时间
+						 * 字段?那么日期和时间都已存在，情况
+						 * 不妙…
 						 */
 						if ((fmask & DTK_TIME_M) == DTK_TIME_M)
 							return DTERR_BAD_FORMAT;
@@ -1094,15 +1094,15 @@ DecodeDateTime(char **field, int *ftype, int nf,
 						if ((cp = strchr(field[i], '-')) == NULL)
 							return DTERR_BAD_FORMAT;
 
-						/* Get the time zone from the end of the string */
+						/* 从字符串末尾取得时区 */
 						dterr = DecodeTimezone(cp, tzp);
 						if (dterr)
 							return dterr;
 						*cp = '\0';
 
 						/*
-						 * Then read the rest of the field as a concatenated
-						 * time
+						 * 然后把字段其余部分读作连写
+						 * 间
 						 */
 						dterr = DecodeNumberField(strlen(field[i]), field[i],
 												  fmask,
@@ -1112,8 +1112,8 @@ DecodeDateTime(char **field, int *ftype, int nf,
 							return dterr;
 
 						/*
-						 * modify tmask after returning from
-						 * DecodeNumberField()
+						 * tmask 在 DecodeNumberField()
+						 * 返回后再修改
 						 */
 						tmask |= DTK_M(TZ);
 					}
@@ -1125,7 +1125,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 							extra->dtee_timezone = field[i];
 							return DTERR_BAD_TIMEZONE;
 						}
-						/* we'll apply the zone setting below */
+						/* 时区设置稍后应用 */
 						tmask = DTK_M(TZ);
 					}
 				}
@@ -1141,11 +1141,11 @@ DecodeDateTime(char **field, int *ftype, int nf,
 			case DTK_TIME:
 
 				/*
-				 * This might be an ISO time following a "t" field.
+				 * 这可能是 "t" 字段后的 ISO 时间。
 				 */
 				if (ptype != 0)
 				{
-					/* Sanity check; should not fail this test */
+					/* 健全性检查；本测试不应失败 */
 					if (ptype != DTK_TIME)
 						return DTERR_BAD_FORMAT;
 					ptype = 0;
@@ -1155,7 +1155,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 				if (dterr)
 					return dterr;
 
-				/* check for time overflow */
+				/* 检查时间溢出 */
 				if (time_overflows(tm->tm_hour, tm->tm_min, tm->tm_sec,
 								   *fsec))
 					return DTERR_FIELD_OVERFLOW;
@@ -1179,7 +1179,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 			case DTK_NUMBER:
 
 				/*
-				 * Deal with cases where previous field labeled this one
+				 * 处理前一字段为本字段作标记的情形
 				 */
 				if (ptype != 0)
 				{
@@ -1196,14 +1196,14 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					switch (ptype)
 					{
 						case DTK_JULIAN:
-							/* previous field was a label for "julian date" */
+							/* 前一字段为儒略日期的标记 */
 							if (value < 0)
 								return DTERR_FIELD_OVERFLOW;
 							tmask = DTK_DATE_M;
 							j2date(value, &tm->tm_year, &tm->tm_mon, &tm->tm_mday);
 							isjulian = true;
 
-							/* fractional Julian Day? */
+							/* 小数儒略日？ */
 							if (*cp == '.')
 							{
 								double		time;
@@ -1220,7 +1220,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 							break;
 
 						case DTK_TIME:
-							/* previous field was "t" for ISO time */
+							/* 前字段是 ISO 时间 "t" */
 							dterr = DecodeNumberField(strlen(field[i]), field[i],
 													  (fmask | DTK_DATE_M),
 													  &tmask, tm,
@@ -1247,7 +1247,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					flen = strlen(field[i]);
 					cp = strchr(field[i], '.');
 
-					/* Embedded decimal and no date yet? */
+					/* 内嵌小数点且无日期？ */
 					if (cp != NULL && !(fmask & DTK_DATE_M))
 					{
 						dterr = DecodeDate(field[i], fmask,
@@ -1255,13 +1255,13 @@ DecodeDateTime(char **field, int *ftype, int nf,
 						if (dterr)
 							return dterr;
 					}
-					/* embedded decimal and several digits before? */
+					/* 小数点前有多位数字？ */
 					else if (cp != NULL && flen - strlen(cp) > 2)
 					{
 						/*
-						 * Interpret as a concatenated date or time Set the
-						 * type field to allow decoding other fields later.
-						 * Example: 20011223 or 040506
+						 * 解释为连写的日期或时间。设置
+						 * 类型字段以便稍后解码其他字段。
+						 * 例：20011223 或 040506
 						 */
 						dterr = DecodeNumberField(flen, field[i], fmask,
 												  &tmask, tm,
@@ -1271,13 +1271,13 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					}
 
 					/*
-					 * Is this a YMD or HMS specification, or a year number?
-					 * YMD and HMS are required to be six digits or more, so
-					 * if it is 5 digits, it is a year.  If it is six or more
-					 * digits, we assume it is YMD or HMS unless no date and
-					 * no time values have been specified.  This forces 6+
-					 * digit years to be at the end of the string, or to use
-					 * the ISO date specification.
+					 * 这是 YMD 或 HMS 规格还是年份数？
+					 * YMD 与 HMS 要求六位或更多数字，所以
+					 * 若是 5 位数即年份。六位或更多，
+					 * 我们假定它是 YMD 或 HMS，除非日期与
+					 * 时间值均未指定。这迫使 6+
+					 * 位年份必须位于字符串末尾，或使用
+					 * ISO 日期规格。
 					 */
 					else if (flen >= 6 && (!(fmask & DTK_DATE_M) ||
 										   !(fmask & DTK_TIME_M)))
@@ -1288,7 +1288,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 						if (dterr < 0)
 							return dterr;
 					}
-					/* otherwise it is a single date/time field... */
+					/* 否则为单日期时间字段 */
 					else
 					{
 						dterr = DecodeNumber(flen, field[i],
@@ -1303,7 +1303,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 
 			case DTK_STRING:
 			case DTK_SPECIAL:
-				/* timezone abbrevs take precedence over built-in tokens */
+				/* 时区缩写优先于内建记号 */
 				dterr = DecodeTimezoneAbbrev(i, field[i],
 											 &type, &val, &valtz, extra);
 				if (dterr)
@@ -1365,7 +1365,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 							case DTK_EARLY:
 								tmask = (DTK_DATE_M | DTK_TIME_M | DTK_M(TZ));
 								*dtype = val;
-								/* caller ignores tm for these dtype codes */
+								/* 调用方对这些码忽略 tm */
 								break;
 
 							default:
@@ -1378,8 +1378,8 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					case MONTH:
 
 						/*
-						 * already have a (numeric) month? then see if we can
-						 * substitute...
+						 * 已有（数字）月份？那么看看能否
+						 * 替换……
 						 */
 						if ((fmask & DTK_M(MONTH)) && !haveTextMonth &&
 							!(fmask & DTK_M(DAY)) && tm->tm_mon >= 1 &&
@@ -1395,8 +1395,8 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					case DTZMOD:
 
 						/*
-						 * daylight savings time modifier (solves "MET DST"
-						 * syntax)
+						 * 夏令时修正 (解决 "MET DST"
+						 * 语法)
 						 */
 						tmask |= DTK_M(DTZ);
 						tm->tm_isdst = 1;
@@ -1408,8 +1408,8 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					case DTZ:
 
 						/*
-						 * set mask for TZ here _or_ check for DTZ later when
-						 * getting default timezone
+						 * 在此处为 TZ 设掩码 _or_ 稍后取默认
+						 * 时区时再检查 DTZ
 						 */
 						tmask |= DTK_M(TZ);
 						tm->tm_isdst = 1;
@@ -1429,7 +1429,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 						tmask |= DTK_M(TZ);
 						if (tzp == NULL)
 							return DTERR_BAD_FORMAT;
-						/* we'll determine the actual offset later */
+						/* 稍后我们再确定实际偏移 */
 						abbrevTz = valtz;
 						abbrev = field[i];
 						break;
@@ -1448,7 +1448,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 
 					case UNITS:
 						tmask = 0;
-						/* reject consecutive unhandled units */
+						/* 拒连续未处理单位 */
 						if (ptype != 0)
 							return DTERR_BAD_FORMAT;
 						ptype = val;
@@ -1457,16 +1457,16 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					case ISOTIME:
 
 						/*
-						 * This is a filler field "t" indicating that the next
-						 * field is time. Try to verify that this is sensible.
+						 * 这是占位字段 "t"，表示下一
+						 * 字段是时间。尝试验证这是否合理。
 						 */
 						tmask = 0;
 
-						/* No preceding date? Then quit... */
+						/* 前无日期？则退出 */
 						if ((fmask & DTK_DATE_M) != DTK_DATE_M)
 							return DTERR_BAD_FORMAT;
 
-						/* reject consecutive unhandled units */
+						/* 拒连续未处理单位 */
 						if (ptype != 0)
 							return DTERR_BAD_FORMAT;
 						ptype = val;
@@ -1475,13 +1475,13 @@ DecodeDateTime(char **field, int *ftype, int nf,
 					case UNKNOWN_FIELD:
 
 						/*
-						 * Before giving up and declaring error, check to see
-						 * if it is an all-alpha timezone name.
+						 * 在放弃并宣告错误之前，检查它
+						 * 是否为全字母的时区名。
 						 */
 						namedTz = pg_tzset(field[i]);
 						if (!namedTz)
 							return DTERR_BAD_FORMAT;
-						/* we'll apply the zone setting below */
+						/* 时区设置稍后应用 */
 						tmask = DTK_M(TZ);
 						break;
 
@@ -1497,21 +1497,21 @@ DecodeDateTime(char **field, int *ftype, int nf,
 		if (tmask & fmask)
 			return DTERR_BAD_FORMAT;
 		fmask |= tmask;
-	}							/* end loop over fields */
+	}							/* 字段循环结束 */
 
-	/* reject if prefix type appeared and was never handled */
+	/* 前缀类型未获处理则拒绝 */
 	if (ptype != 0)
 		return DTERR_BAD_FORMAT;
 
-	/* do additional checking for normal date specs (but not "infinity" etc) */
+	/* 普通日期规格另加检查（"infinity" 除外） */
 	if (*dtype == DTK_DATE)
 	{
-		/* do final checking/adjustment of Y/M/D fields */
+		/* Y/M/D 字段终检与调整 */
 		dterr = ValidateDate(fmask, isjulian, is2digits, bc, tm);
 		if (dterr)
 			return dterr;
 
-		/* handle AM/PM */
+		/* 处理 AM/PM */
 		if (mer != HR24 && tm->tm_hour > HOURS_PER_DAY / 2)
 			return DTERR_FIELD_OVERFLOW;
 		if (mer == AM && tm->tm_hour == HOURS_PER_DAY / 2)
@@ -1519,7 +1519,7 @@ DecodeDateTime(char **field, int *ftype, int nf,
 		else if (mer == PM && tm->tm_hour != HOURS_PER_DAY / 2)
 			tm->tm_hour += HOURS_PER_DAY / 2;
 
-		/* check for incomplete input */
+		/* 检查不完整输入 */
 		if ((fmask & DTK_DATE_M) != DTK_DATE_M)
 		{
 			if ((fmask & DTK_TIME_M) == DTK_TIME_M)
@@ -1528,12 +1528,12 @@ DecodeDateTime(char **field, int *ftype, int nf,
 		}
 
 		/*
-		 * If we had a full timezone spec, compute the offset (we could not do
-		 * it before, because we need the date to resolve DST status).
+		 * 若已有完整时区规格，则计算偏移（之前无法
+		 * 做，因需日期判定夏令时状态）。
 		 */
 		if (namedTz != NULL)
 		{
-			/* daylight savings time modifier disallowed with full TZ */
+			/* 完整时区禁用夏令时修饰符 */
 			if (fmask & DTK_M(DTZMOD))
 				return DTERR_BAD_FORMAT;
 
@@ -1541,24 +1541,24 @@ DecodeDateTime(char **field, int *ftype, int nf,
 		}
 
 		/*
-		 * Likewise, if we had a dynamic timezone abbreviation, resolve it
-		 * now.
+		 * 同样，若我们已有动态时区缩写，现在就解析
+		 * 它
 		 */
 		if (abbrevTz != NULL)
 		{
-			/* daylight savings time modifier disallowed with dynamic TZ */
+			/* 动态时区下不允许夏令时修饰符 */
 			if (fmask & DTK_M(DTZMOD))
 				return DTERR_BAD_FORMAT;
 
 			*tzp = DetermineTimeZoneAbbrevOffset(tm, abbrev, abbrevTz);
 		}
 
-		/* timezone not specified? then use session timezone */
+		/* 未指定时区？则用会话时区 */
 		if (tzp != NULL && !(fmask & DTK_M(TZ)))
 		{
 			/*
-			 * daylight savings time modifier but no standard timezone? then
-			 * error
+			 * 夏令时修饰符但无标准时区？那么报
+			 * 错
 			 */
 			if (fmask & DTK_M(DTZMOD))
 				return DTERR_BAD_FORMAT;
@@ -1573,15 +1573,15 @@ DecodeDateTime(char **field, int *ftype, int nf,
 
 /* DetermineTimeZoneOffset()
  *
- * Given a struct pg_tm in which tm_year, tm_mon, tm_mday, tm_hour, tm_min,
- * and tm_sec fields are set, and a zic-style time zone definition, determine
- * the applicable GMT offset and daylight-savings status at that time.
- * Set the struct pg_tm's tm_isdst field accordingly, and return the GMT
- * offset as the function result.
+ * 给定 struct pg_tm，其 tm_year、tm_mon、tm_mday、tm_hour、tm_min
+ * tm_sec 字段已设置，并给定 zic 风格时区定义，确定
+ * 该时刻适用的 GMT 偏移与夏令时状态。
+ * 相应设置 struct pg_tm 的 tm_isdst 字段，并返回
+ * GMT 偏移为函数结果。
  *
- * Note: if the date is out of the range we can deal with, we return zero
- * as the GMT offset and set tm_isdst = 0.  We don't throw an error here,
- * though probably some higher-level code will.
+ * 注意：若日期超出我们能处理的范围，则返回
+ * 零作为 GMT 偏移并置 tm_isdst = 0。此处我们
+ * 不抛错，不过上层代码可能会。
  */
 int
 DetermineTimeZoneOffset(struct pg_tm *tm, pg_tz *tzp)
@@ -1594,16 +1594,16 @@ DetermineTimeZoneOffset(struct pg_tm *tm, pg_tz *tzp)
 
 /* DetermineTimeZoneOffsetInternal()
  *
- * As above, but also return the actual UTC time imputed to the date/time
- * into *tp.
+ * 同上，但还会把归于该日期/时间的实际 UTC 时间写入
+ * *tp。
  *
- * In event of an out-of-range date, we punt by returning zero into *tp.
- * This is okay for the immediate callers but is a good reason for not
- * exposing this worker function globally.
+ * 日期越界时，我们以向 *tp 返回零来搪塞。
+ * 这对直接调用方没问题，但也是不把
+ * 此工作函数全局暴露的理由。
  *
- * Note: it might seem that we should use mktime() for this, but bitter
- * experience teaches otherwise.  This code is much faster than most versions
- * of mktime(), anyway.
+ * 注意：看起来我们应该为此使用 mktime()，但
+ * 惨痛经验的教训并非如此。这段代码远快于多数版本
+ * 的 mktime()。
  */
 static int
 DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
@@ -1623,10 +1623,10 @@ DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
 	int			res;
 
 	/*
-	 * First, generate the pg_time_t value corresponding to the given
-	 * y/m/d/h/m/s taken as GMT time.  If this overflows, punt and decide the
-	 * timezone is GMT.  (For a valid Julian date, integer overflow should be
-	 * impossible with 64-bit pg_time_t, but let's check for safety.)
+	 * 首先，按 GMT 时间解释给定的
+	 * y/m/d/h/m/s 生成 pg_time_t 值。若溢出，就搪塞并
+	 * 认定时区为 GMT。（对有效儒略日，整数溢出
+	 * 64 位 pg_time_t 下本不可能，但仍为安全检查。）
 	 */
 	if (!IS_VALID_JULIAN(tm->tm_year, tm->tm_mon, tm->tm_mday))
 		goto overflow;
@@ -1637,15 +1637,15 @@ DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
 		goto overflow;
 	sec = tm->tm_sec + (tm->tm_min + tm->tm_hour * MINS_PER_HOUR) * SECS_PER_MINUTE;
 	mytime = day + sec;
-	/* since sec >= 0, overflow could only be from +day to -mytime */
+	/* sec >= 0 故溢出仅在 +day 到 -mytime 间 */
 	if (mytime < 0 && day > 0)
 		goto overflow;
 
 	/*
-	 * Find the DST time boundary just before or following the target time. We
-	 * assume that all zones have GMT offsets less than 24 hours, and that DST
-	 * boundaries can't be closer together than 48 hours, so backing up 24
-	 * hours and finding the "next" boundary will work.
+	 * 找到紧邻目标时间之前或之后的夏令时边界。我们
+	 * 假设所有时区的 GMT 偏移都小于 24 小时，且
+	 * 夏令时边界相距不会小于 48 小时，所以
+	 * 回退 24 小时找 "下一" 边界即可。
 	 */
 	prevtime = mytime - SECS_PER_DAY;
 	if (mytime < 0 && prevtime > 0)
@@ -1657,18 +1657,18 @@ DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
 							   &after_gmtoff, &after_isdst,
 							   tzp);
 	if (res < 0)
-		goto overflow;			/* failure? */
+		goto overflow;			/* 失败? */
 
 	if (res == 0)
 	{
-		/* Non-DST zone, life is simple */
+		/* 非夏令时区则简单 */
 		tm->tm_isdst = before_isdst;
 		*tp = mytime - before_gmtoff;
 		return -(int) before_gmtoff;
 	}
 
 	/*
-	 * Form the candidate pg_time_t values with local-time adjustment
+	 * 用本地时间调整构造候选 pg_time_t 值
 	 */
 	beforetime = mytime - before_gmtoff;
 	if ((before_gmtoff > 0 &&
@@ -1684,9 +1684,9 @@ DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
 		goto overflow;
 
 	/*
-	 * If both before or both after the boundary time, we know what to do. The
-	 * boundary time itself is considered to be after the transition, which
-	 * means we can accept aftertime == boundary in the second case.
+	 * 若都在边界时间之前或都在其后，我们
+	 * 知道该怎么处理。边界时间本身算作过渡
+	 * 之后情形，故可接受 aftertime == boundary。
 	 */
 	if (beforetime < boundary && aftertime < boundary)
 	{
@@ -1702,15 +1702,15 @@ DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
 	}
 
 	/*
-	 * It's an invalid or ambiguous time due to timezone transition.  In a
-	 * spring-forward transition, prefer the "before" interpretation; in a
-	 * fall-back transition, prefer "after".  (We used to define and implement
-	 * this test as "prefer the standard-time interpretation", but that rule
-	 * does not help to resolve the behavior when both times are reported as
-	 * standard time; which does happen, eg Europe/Moscow in Oct 2014.  Also,
-	 * in some zones such as Europe/Dublin, there is widespread confusion
-	 * about which time offset is "standard" time, so it's fortunate that our
-	 * behavior doesn't depend on that.)
+	 * 因时区过渡导致时间无效或含糊。在
+	 * 春季前跳过渡取 "之前" 解释；在
+	 * 秋后回过渡中取 "之后"。（我们曾把此检验
+	 * 定义并实现为 "偏向标准时间解释"，但该规则
+	 * 无助于分辨两个时间均为标准时的情形；
+	 * 这确实会发生，如 2014 年 10 月的 Europe/Moscow。
+	 * 另外，在某些时区如 Europe/Dublin，
+	 * 哪个偏移是 "标准" 时间普遍混淆，
+	 * 幸好行为不靠它。）
 	 */
 	if (beforetime > aftertime)
 	{
@@ -1723,7 +1723,7 @@ DetermineTimeZoneOffsetInternal(struct pg_tm *tm, pg_tz *tzp, pg_time_t *tp)
 	return -(int) after_gmtoff;
 
 overflow:
-	/* Given date is out of range, so assume UTC */
+	/* 日期越界故取 UTC */
 	tm->tm_isdst = 0;
 	*tp = 0;
 	return 0;
@@ -1732,17 +1732,17 @@ overflow:
 
 /* DetermineTimeZoneAbbrevOffset()
  *
- * Determine the GMT offset and DST flag to be attributed to a dynamic
- * time zone abbreviation, that is one whose meaning has changed over time.
- * *tm contains the local time at which the meaning should be determined,
- * and tm->tm_isdst receives the DST flag.
+ * 确定动态时区缩写（即含义随时间变化的缩写）
+ * 应归于的 GMT 偏移与夏令时标志。*tm 含有
+ * 应在其处确定含义的本地时间，tm->tm_isdst
+ * 接收夏令时标志。
  *
- * This differs from the behavior of DetermineTimeZoneOffset() in that a
- * standard-time or daylight-time abbreviation forces use of the corresponding
- * GMT offset even when the zone was then in DS or standard time respectively.
- * (However, that happens only if we can match the given abbreviation to some
- * abbreviation that appears in the IANA timezone data.  Otherwise, we fall
- * back to doing DetermineTimeZoneOffset().)
+ * 本函数与 DetermineTimeZoneOffset() 的行为不同之处在于：
+ * 标准时间或夏令时缩写会强制使用对应的
+ * GMT 偏移，即使当时该时区分别处于夏令时
+ * 或标准时间。（不过，这仅当我们能把给定缩写
+ * 匹配到 IANA 时区数据中出现的某个缩写。否则，
+ * 退回 DetermineTimeZoneOffset()。）
  */
 int
 DetermineTimeZoneAbbrevOffset(struct pg_tm *tm, const char *abbr, pg_tz *tzp)
@@ -1753,25 +1753,25 @@ DetermineTimeZoneAbbrevOffset(struct pg_tm *tm, const char *abbr, pg_tz *tzp)
 	int			abbr_isdst;
 
 	/*
-	 * Compute the UTC time we want to probe at.  (In event of overflow, we'll
-	 * probe at the epoch, which is a bit random but probably doesn't matter.)
+	 * 计算我们想要探测的 UTC 时间。（若溢出，
+	 * 就在纪元处探测，这有点随意但大概无关紧要。）
 	 */
 	zone_offset = DetermineTimeZoneOffsetInternal(tm, tzp, &t);
 
 	/*
-	 * Try to match the abbreviation to something in the zone definition.
+	 * 尝试把缩写匹配到时区定义中的某项。
 	 */
 	if (DetermineTimeZoneAbbrevOffsetInternal(t, abbr, tzp,
 											  &abbr_offset, &abbr_isdst))
 	{
-		/* Success, so use the abbrev-specific answers. */
+		/* 成功，故使用缩写专用的答案。 */
 		tm->tm_isdst = abbr_isdst;
 		return abbr_offset;
 	}
 
 	/*
-	 * No match, so use the answers we already got from
-	 * DetermineTimeZoneOffsetInternal.
+	 * 无匹配，用 DetermineTimeZoneOffsetInternal
+	 * 已经得到的答案。
 	 */
 	return zone_offset;
 }
@@ -1779,8 +1779,8 @@ DetermineTimeZoneAbbrevOffset(struct pg_tm *tm, const char *abbr, pg_tz *tzp)
 
 /* DetermineTimeZoneAbbrevOffsetTS()
  *
- * As above but the probe time is specified as a TimestampTz (hence, UTC time),
- * and DST status is returned into *isdst rather than into tm->tm_isdst.
+ * 同上，但探测时间以 TimestampTz 指定（即 UTC 时间），
+ * 且夏令时状态返回到 *isdst 而非 tm->tm_isdst。
  */
 int
 DetermineTimeZoneAbbrevOffsetTS(TimestampTz ts, const char *abbr,
@@ -1794,14 +1794,14 @@ DetermineTimeZoneAbbrevOffsetTS(TimestampTz ts, const char *abbr,
 	fsec_t		fsec;
 
 	/*
-	 * If the abbrev matches anything in the zone data, this is pretty easy.
+	 * 若缩写匹配到时区数据中任何项，这相当简单。
 	 */
 	if (DetermineTimeZoneAbbrevOffsetInternal(t, abbr, tzp,
 											  &abbr_offset, isdst))
 		return abbr_offset;
 
 	/*
-	 * Else, break down the timestamp so we can use DetermineTimeZoneOffset.
+	 * 否则，分解 timestamp 以便使用 DetermineTimeZoneOffset。
 	 */
 	if (timestamp2tm(ts, &tz, &tm, &fsec, NULL, tzp) != 0)
 		ereport(ERROR,
@@ -1816,8 +1816,8 @@ DetermineTimeZoneAbbrevOffsetTS(TimestampTz ts, const char *abbr,
 
 /* DetermineTimeZoneAbbrevOffsetInternal()
  *
- * Workhorse for above two functions: work from a pg_time_t probe instant.
- * On success, return GMT offset and DST status into *offset and *isdst.
+ * 上述两函数的主力：从 pg_time_t 探测时刻出发。
+ * 成功时 GMT 偏移与夏令时状态返回到 *offset 与 *isdst。
  */
 static bool
 DetermineTimeZoneAbbrevOffsetInternal(pg_time_t t, const char *abbr, pg_tz *tzp,
@@ -1827,19 +1827,19 @@ DetermineTimeZoneAbbrevOffsetInternal(pg_time_t t, const char *abbr, pg_tz *tzp,
 	unsigned char *p;
 	long int	gmtoff;
 
-	/* We need to force the abbrev to upper case */
+	/* 我们需要把缩写强制转为大写 */
 	strlcpy(upabbr, abbr, sizeof(upabbr));
 	for (p = (unsigned char *) upabbr; *p; p++)
 		*p = pg_toupper(*p);
 
-	/* Look up the abbrev's meaning at this time in this zone */
+	/* 在此时区中查找缩写的含义 */
 	if (pg_interpret_timezone_abbrev(upabbr,
 									 &t,
 									 &gmtoff,
 									 isdst,
 									 tzp))
 	{
-		/* Change sign to agree with DetermineTimeZoneOffset() */
+		/* 改变符号以与 DetermineTimeZoneOffset() 一致 */
 		*offset = (int) -gmtoff;
 		return true;
 	}
@@ -1848,19 +1848,19 @@ DetermineTimeZoneAbbrevOffsetInternal(pg_time_t t, const char *abbr, pg_tz *tzp,
 
 
 /* DecodeTimeOnly()
- * Interpret parsed string as time fields only.
- * Returns 0 if successful, DTERR code if bogus input detected.
+ * 把解析串解释为仅时间字段。
+ * 成功返回 0，检测到伪输入则返回 DTERR 码。
  *
- * Inputs are field[] and ftype[] arrays, of length nf.
- * Other arguments are outputs.
+ * 输入是 field[]/ftype[] 数组，长度为 nf。
+ * 其他参数都是输出。
  *
- * Note that support for time zone is here for
- * SQL TIME WITH TIME ZONE, but it reveals
- * bogosity with SQL date/time standards, since
- * we must infer a time zone from current time.
+ * 注意这里支持时区是为了
+ * SQL TIME WITH TIME ZONE，但它暴露
+ * SQL 日期/时间标准荒谬之处，因为
+ * 我们必须从当前时间推断时区。
  * - thomas 2000-03-10
- * Allow specifying date to get a better time zone,
- * if time zones are allowed. - thomas 2001-12-26
+ * 允许指定日期以获得更好的时区，
+ * 如果允许时区。- thomas 2001-12-26
  */
 int
 DecodeTimeOnly(char **field, int *ftype, int nf,
@@ -1870,7 +1870,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 	int			fmask = 0,
 				tmask,
 				type;
-	int			ptype = 0;		/* "prefix type" for ISO and Julian formats */
+	int			ptype = 0;		/* ISO 与儒略格式的 "前缀类型" */
 	int			i;
 	int			val;
 	int			dterr;
@@ -1888,7 +1888,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 	tm->tm_min = 0;
 	tm->tm_sec = 0;
 	*fsec = 0;
-	/* don't know daylight savings time status apriori */
+	/* 事先不知道夏令时状态 */
 	tm->tm_isdst = -1;
 
 	if (tzp != NULL)
@@ -1901,13 +1901,13 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 			case DTK_DATE:
 
 				/*
-				 * Time zone not allowed? Then should not accept dates or time
-				 * zones no matter what else!
+				 * 不允许时区？那么无论如何都不应接受
+				 * 日期或时区！
 				 */
 				if (tzp == NULL)
 					return DTERR_BAD_FORMAT;
 
-				/* Under limited circumstances, we will accept a date... */
+				/* 在有限情形下我们会接受日期…… */
 				if (i == 0 && nf >= 2 &&
 					(ftype[nf - 1] == DTK_DATE || ftype[1] == DTK_TIME))
 				{
@@ -1916,7 +1916,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 					if (dterr)
 						return dterr;
 				}
-				/* otherwise, this is a time and/or time zone */
+				/* 否则这是时间和/或时区 */
 				else
 				{
 					if (isdigit((unsigned char) *field[i]))
@@ -1924,27 +1924,27 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 						char	   *cp;
 
 						/*
-						 * Starts with a digit but we already have a time
-						 * field? Then we are in trouble with time already...
+						 * 以数字开头但我们已有时间
+						 * 字段？那么时间已存在，麻烦了…
 						 */
 						if ((fmask & DTK_TIME_M) == DTK_TIME_M)
 							return DTERR_BAD_FORMAT;
 
 						/*
-						 * Should not get here and fail. Sanity check only...
+						 * 不应到这里并失败，仅健全性检查…
 						 */
 						if ((cp = strchr(field[i], '-')) == NULL)
 							return DTERR_BAD_FORMAT;
 
-						/* Get the time zone from the end of the string */
+						/* 从字符串末尾取得时区 */
 						dterr = DecodeTimezone(cp, tzp);
 						if (dterr)
 							return dterr;
 						*cp = '\0';
 
 						/*
-						 * Then read the rest of the field as a concatenated
-						 * time
+						 * 然后把字段其余部分读作连写
+						 * 间
 						 */
 						dterr = DecodeNumberField(strlen(field[i]), field[i],
 												  (fmask | DTK_DATE_M),
@@ -1964,7 +1964,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 							extra->dtee_timezone = field[i];
 							return DTERR_BAD_TIMEZONE;
 						}
-						/* we'll apply the zone setting below */
+						/* 时区设置稍后应用 */
 						ftype[i] = DTK_TZ;
 						tmask = DTK_M(TZ);
 					}
@@ -1974,7 +1974,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 			case DTK_TIME:
 
 				/*
-				 * This might be an ISO time following a "t" field.
+				 * 这可能是 "t" 字段后的 ISO 时间。
 				 */
 				if (ptype != 0)
 				{
@@ -2008,7 +2008,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 			case DTK_NUMBER:
 
 				/*
-				 * Deal with cases where previous field labeled this one
+				 * 处理前一字段为本字段作标记的情形
 				 */
 				if (ptype != 0)
 				{
@@ -2025,7 +2025,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 					switch (ptype)
 					{
 						case DTK_JULIAN:
-							/* previous field was a label for "julian date" */
+							/* 前一字段为儒略日期的标记 */
 							if (tzp == NULL)
 								return DTERR_BAD_FORMAT;
 							if (value < 0)
@@ -2050,7 +2050,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 							break;
 
 						case DTK_TIME:
-							/* previous field was "t" for ISO time */
+							/* 前字段是 ISO 时间 "t" */
 							dterr = DecodeNumberField(strlen(field[i]), field[i],
 													  (fmask | DTK_DATE_M),
 													  &tmask, tm,
@@ -2079,12 +2079,12 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 					flen = strlen(field[i]);
 					cp = strchr(field[i], '.');
 
-					/* Embedded decimal? */
+					/* 内嵌小数点? */
 					if (cp != NULL)
 					{
 						/*
-						 * Under limited circumstances, we will accept a
-						 * date...
+						 * 在有限情形下我们会接受日
+						 * 期…
 						 */
 						if (i == 0 && nf >= 2 && ftype[nf - 1] == DTK_DATE)
 						{
@@ -2093,13 +2093,13 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 							if (dterr)
 								return dterr;
 						}
-						/* embedded decimal and several digits before? */
+						/* 小数点前有多位数字？ */
 						else if (flen - strlen(cp) > 2)
 						{
 							/*
-							 * Interpret as a concatenated date or time Set
-							 * the type field to allow decoding other fields
-							 * later. Example: 20011223 or 040506
+							 * 解释为连写的日期或时间。设置
+							 * 类型字段以便稍后解码其他字段。
+							 * 例：20011223 或 040506
 							 */
 							dterr = DecodeNumberField(flen, field[i],
 													  (fmask | DTK_DATE_M),
@@ -2122,7 +2122,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 							return dterr;
 						ftype[i] = dterr;
 					}
-					/* otherwise it is a single date/time field... */
+					/* 否则为单日期时间字段 */
 					else
 					{
 						dterr = DecodeNumber(flen, field[i],
@@ -2138,7 +2138,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 
 			case DTK_STRING:
 			case DTK_SPECIAL:
-				/* timezone abbrevs take precedence over built-in tokens */
+				/* 时区缩写优先于内建记号 */
 				dterr = DecodeTimezoneAbbrev(i, field[i],
 											 &type, &val, &valtz, extra);
 				if (dterr)
@@ -2178,8 +2178,8 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 					case DTZMOD:
 
 						/*
-						 * daylight savings time modifier (solves "MET DST"
-						 * syntax)
+						 * 夏令时修正 (解决 "MET DST"
+						 * 语法)
 						 */
 						tmask |= DTK_M(DTZ);
 						tm->tm_isdst = 1;
@@ -2191,8 +2191,8 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 					case DTZ:
 
 						/*
-						 * set mask for TZ here _or_ check for DTZ later when
-						 * getting default timezone
+						 * 在此处为 TZ 设掩码 _or_ 稍后取默认
+						 * 时区时再检查 DTZ
 						 */
 						tmask |= DTK_M(TZ);
 						tm->tm_isdst = 1;
@@ -2214,7 +2214,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 						tmask |= DTK_M(TZ);
 						if (tzp == NULL)
 							return DTERR_BAD_FORMAT;
-						/* we'll determine the actual offset later */
+						/* 稍后我们再确定实际偏移 */
 						abbrevTz = valtz;
 						abbrev = field[i];
 						ftype[i] = DTK_TZ;
@@ -2230,7 +2230,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 
 					case UNITS:
 						tmask = 0;
-						/* reject consecutive unhandled units */
+						/* 拒连续未处理单位 */
 						if (ptype != 0)
 							return DTERR_BAD_FORMAT;
 						ptype = val;
@@ -2238,7 +2238,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 
 					case ISOTIME:
 						tmask = 0;
-						/* reject consecutive unhandled units */
+						/* 拒连续未处理单位 */
 						if (ptype != 0)
 							return DTERR_BAD_FORMAT;
 						ptype = val;
@@ -2247,13 +2247,13 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 					case UNKNOWN_FIELD:
 
 						/*
-						 * Before giving up and declaring error, check to see
-						 * if it is an all-alpha timezone name.
+						 * 在放弃并宣告错误之前，检查它
+						 * 是否为全字母的时区名。
 						 */
 						namedTz = pg_tzset(field[i]);
 						if (!namedTz)
 							return DTERR_BAD_FORMAT;
-						/* we'll apply the zone setting below */
+						/* 时区设置稍后应用 */
 						tmask = DTK_M(TZ);
 						break;
 
@@ -2269,18 +2269,18 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 		if (tmask & fmask)
 			return DTERR_BAD_FORMAT;
 		fmask |= tmask;
-	}							/* end loop over fields */
+	}							/* 字段循环结束 */
 
-	/* reject if prefix type appeared and was never handled */
+	/* 前缀类型未获处理则拒绝 */
 	if (ptype != 0)
 		return DTERR_BAD_FORMAT;
 
-	/* do final checking/adjustment of Y/M/D fields */
+	/* Y/M/D 字段终检与调整 */
 	dterr = ValidateDate(fmask, isjulian, is2digits, bc, tm);
 	if (dterr)
 		return dterr;
 
-	/* handle AM/PM */
+	/* 处理 AM/PM */
 	if (mer != HR24 && tm->tm_hour > HOURS_PER_DAY / 2)
 		return DTERR_FIELD_OVERFLOW;
 	if (mer == AM && tm->tm_hour == HOURS_PER_DAY / 2)
@@ -2288,7 +2288,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 	else if (mer == PM && tm->tm_hour != HOURS_PER_DAY / 2)
 		tm->tm_hour += HOURS_PER_DAY / 2;
 
-	/* check for time overflow */
+	/* 检查时间溢出 */
 	if (time_overflows(tm->tm_hour, tm->tm_min, tm->tm_sec, *fsec))
 		return DTERR_FIELD_OVERFLOW;
 
@@ -2296,25 +2296,25 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 		return DTERR_BAD_FORMAT;
 
 	/*
-	 * If we had a full timezone spec, compute the offset (we could not do it
-	 * before, because we may need the date to resolve DST status).
+	 * 若已有完整时区规格，则计算偏移（此前无法
+	 * 做，因可能需日期判定夏令时状态）。
 	 */
 	if (namedTz != NULL)
 	{
 		long int	gmtoff;
 
-		/* daylight savings time modifier disallowed with full TZ */
+		/* 完整时区禁用夏令时修饰符 */
 		if (fmask & DTK_M(DTZMOD))
 			return DTERR_BAD_FORMAT;
 
-		/* if non-DST zone, we do not need to know the date */
+		/* 若非夏令时区则无需知道日期 */
 		if (pg_get_timezone_offset(namedTz, &gmtoff))
 		{
 			*tzp = -(int) gmtoff;
 		}
 		else
 		{
-			/* a date has to be specified */
+			/* 须有日期 */
 			if ((fmask & DTK_DATE_M) != DTK_DATE_M)
 				return DTERR_BAD_FORMAT;
 			*tzp = DetermineTimeZoneOffset(tm, namedTz);
@@ -2322,7 +2322,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 	}
 
 	/*
-	 * Likewise, if we had a dynamic timezone abbreviation, resolve it now.
+	 * 同样，若我们已有动态时区缩写，现在就解析它。
 	 */
 	if (abbrevTz != NULL)
 	{
@@ -2330,7 +2330,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 				   *tmp = &tt;
 
 		/*
-		 * daylight savings time modifier but no standard timezone? then error
+		 * 夏令时修饰符但无标准时区？那么报错。
 		 */
 		if (fmask & DTK_M(DTZMOD))
 			return DTERR_BAD_FORMAT;
@@ -2339,7 +2339,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 			GetCurrentDateTime(tmp);
 		else
 		{
-			/* a date has to be specified */
+			/* 须有日期 */
 			if ((fmask & DTK_DATE_M) != DTK_DATE_M)
 				return DTERR_BAD_FORMAT;
 			tmp->tm_year = tm->tm_year;
@@ -2353,14 +2353,14 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 		tm->tm_isdst = tmp->tm_isdst;
 	}
 
-	/* timezone not specified? then use session timezone */
+	/* 未指定时区？则用会话时区 */
 	if (tzp != NULL && !(fmask & DTK_M(TZ)))
 	{
 		struct pg_tm tt,
 				   *tmp = &tt;
 
 		/*
-		 * daylight savings time modifier but no standard timezone? then error
+		 * 夏令时修饰符但无标准时区？那么报错。
 		 */
 		if (fmask & DTK_M(DTZMOD))
 			return DTERR_BAD_FORMAT;
@@ -2369,7 +2369,7 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 			GetCurrentDateTime(tmp);
 		else
 		{
-			/* a date has to be specified */
+			/* 须有日期 */
 			if ((fmask & DTK_DATE_M) != DTK_DATE_M)
 				return DTERR_BAD_FORMAT;
 			tmp->tm_year = tm->tm_year;
@@ -2387,14 +2387,14 @@ DecodeTimeOnly(char **field, int *ftype, int nf,
 }
 
 /* DecodeDate()
- * Decode date string which includes delimiters.
- * Return 0 if okay, a DTERR code if not.
+ * 解码含定界符的日期字符串。
+ * 正常返回 0，否则 DTERR 码。
  *
- *	str: field to be parsed
- *	fmask: bitmask for field types already seen
- *	*tmask: receives bitmask for fields found here
- *	*is2digits: set to true if we find 2-digit year
- *	*tm: field values are stored into appropriate members of this struct
+ *	str: 待解析字段
+ *	fmask: 已见字段类型的位掩码
+ *	*tmask: 接收此处发现字段的位掩码
+ *	*is2digits: 若发现两位年份则置为 true
+ *	*tm: 字段值存入本结构的相应成员中
  */
 static int
 DecodeDate(char *str, int fmask, int *tmask, bool *is2digits,
@@ -2413,15 +2413,15 @@ DecodeDate(char *str, int fmask, int *tmask, bool *is2digits,
 
 	*tmask = 0;
 
-	/* parse this string... */
+	/* 解析此字符串 */
 	while (*str != '\0' && nf < MAXDATEFIELDS)
 	{
-		/* skip field separators */
+		/* 跳过字段分隔符 */
 		while (*str != '\0' && !isalnum((unsigned char) *str))
 			str++;
 
 		if (*str == '\0')
-			return DTERR_BAD_FORMAT;	/* end of string after separator */
+			return DTERR_BAD_FORMAT;	/* 分隔符后是串结尾 */
 
 		field[nf] = str;
 		if (isdigit((unsigned char) *str))
@@ -2435,13 +2435,13 @@ DecodeDate(char *str, int fmask, int *tmask, bool *is2digits,
 				str++;
 		}
 
-		/* Just get rid of any non-digit, non-alpha characters... */
+		/* 去掉任何非数字、非字母字符…… */
 		if (*str != '\0')
 			*str++ = '\0';
 		nf++;
 	}
 
-	/* look first for text fields, since that will be unambiguous month */
+	/* 先查找文本字段，因为它将是无歧义的月份 */
 	for (i = 0; i < nf; i++)
 	{
 		if (isalpha((unsigned char) *field[i]))
@@ -2467,12 +2467,12 @@ DecodeDate(char *str, int fmask, int *tmask, bool *is2digits,
 			fmask |= dmask;
 			*tmask |= dmask;
 
-			/* mark this field as being completed */
+			/* 标记此字段完成 */
 			field[i] = NULL;
 		}
 	}
 
-	/* now pick up remaining numeric fields */
+	/* 取其余数字字段 */
 	for (i = 0; i < nf; i++)
 	{
 		if (field[i] == NULL)
@@ -2497,14 +2497,14 @@ DecodeDate(char *str, int fmask, int *tmask, bool *is2digits,
 	if ((fmask & ~(DTK_M(DOY) | DTK_M(TZ))) != DTK_DATE_M)
 		return DTERR_BAD_FORMAT;
 
-	/* validation of the field values must wait until ValidateDate() */
+	/* 字段值验证须等到 ValidateDate() */
 
 	return 0;
 }
 
 /* ValidateDate()
- * Check valid year/month/day values, handle BC and DOY cases
- * Return 0 if okay, a DTERR code if not.
+ * 检查有效年/月/日值，处理 BC 与年积日情形
+ * 正常返回 0，否则 DTERR 码。
  */
 int
 ValidateDate(int fmask, bool isjulian, bool is2digits, bool bc,
@@ -2514,20 +2514,20 @@ ValidateDate(int fmask, bool isjulian, bool is2digits, bool bc,
 	{
 		if (isjulian)
 		{
-			/* tm_year is correct and should not be touched */
+			/* tm_year 正确且不应被改动 */
 		}
 		else if (bc)
 		{
-			/* there is no year zero in AD/BC notation */
+			/* 公元/公元前无零年 */
 			if (tm->tm_year <= 0)
 				return DTERR_FIELD_OVERFLOW;
-			/* internally, we represent 1 BC as year zero, 2 BC as -1, etc */
+			/* 内部公元前 1 年为零年，2 为 -1 等 */
 			tm->tm_year = -(tm->tm_year - 1);
 		}
 		else if (is2digits)
 		{
-			/* process 1 or 2-digit input as 1970-2069 AD, allow '0' and '00' */
-			if (tm->tm_year < 0)	/* just paranoia */
+			/* 1 或 2 位输入按公元 1970-2069 处理，允许 '0'/'00' */
+			if (tm->tm_year < 0)	/* 仅是防呆 */
 				return DTERR_FIELD_OVERFLOW;
 			if (tm->tm_year < 70)
 				tm->tm_year += 2000;
@@ -2536,27 +2536,27 @@ ValidateDate(int fmask, bool isjulian, bool is2digits, bool bc,
 		}
 		else
 		{
-			/* there is no year zero in AD/BC notation */
+			/* 公元/公元前无零年 */
 			if (tm->tm_year <= 0)
 				return DTERR_FIELD_OVERFLOW;
 		}
 	}
 
-	/* now that we have correct year, decode DOY */
+	/* 既有正确年份，解码年积日 */
 	if (fmask & DTK_M(DOY))
 	{
 		j2date(date2j(tm->tm_year, 1, 1) + tm->tm_yday - 1,
 			   &tm->tm_year, &tm->tm_mon, &tm->tm_mday);
 	}
 
-	/* check for valid month */
+	/* 检查有效月份 */
 	if (fmask & DTK_M(MONTH))
 	{
 		if (tm->tm_mon < 1 || tm->tm_mon > MONTHS_PER_YEAR)
 			return DTERR_MD_FIELD_OVERFLOW;
 	}
 
-	/* minimal check for valid day */
+	/* 最小检查有效日 */
 	if (fmask & DTK_M(DAY))
 	{
 		if (tm->tm_mday < 1 || tm->tm_mday > 31)
@@ -2566,9 +2566,9 @@ ValidateDate(int fmask, bool isjulian, bool is2digits, bool bc,
 	if ((fmask & DTK_DATE_M) == DTK_DATE_M)
 	{
 		/*
-		 * Check for valid day of month, now that we know for sure the month
-		 * and year.  Note we don't use MD_FIELD_OVERFLOW here, since it seems
-		 * unlikely that "Feb 29" is a YMD-order error.
+		 * 既然已确知月份和年份，现在检查月内
+		 * 日是否有效。注意我们这里不用 MD_FIELD_OVERFLOW，
+		 * 因 "Feb 29" 不像 YMD 顺序错误。
 		 */
 		if (tm->tm_mday > day_tab[isleap(tm->tm_year)][tm->tm_mon - 1])
 			return DTERR_FIELD_OVERFLOW;
@@ -2579,14 +2579,14 @@ ValidateDate(int fmask, bool isjulian, bool is2digits, bool bc,
 
 
 /* DecodeTimeCommon()
- * Decode time string which includes delimiters.
- * Return 0 if okay, a DTERR code if not.
- * tmask and itm are output parameters.
+ * 解码含定界符的时间字符串。
+ * 正常返回 0，否则 DTERR 码。
+ * tmask 与 itm 是输出参数。
  *
- * This code is shared between the timestamp and interval cases.
- * We return a struct pg_itm (of which only the tm_usec, tm_sec, tm_min,
- * and tm_hour fields are used) and let the wrapper functions below
- * convert and range-check as necessary.
+ * 此代码由 timestamp 与 interval 两种情形共享。
+ * 我们返回 struct pg_itm（其中仅 tm_usec、tm_sec、tm_min、
+ * tm_hour 字段被使用），再让下面的包装函数
+ * 按需做转换与范围检查。
  */
 static int
 DecodeTimeCommon(char *str, int fmask, int range,
@@ -2611,7 +2611,7 @@ DecodeTimeCommon(char *str, int fmask, int range,
 	if (*cp == '\0')
 	{
 		itm->tm_sec = 0;
-		/* If it's a MINUTE TO SECOND interval, take 2 fields as being mm:ss */
+		/* 是 MINUTE TO SECOND 则两字段作 mm:ss */
 		if (range == (INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND)))
 		{
 			if (itm->tm_hour > INT_MAX || itm->tm_hour < INT_MIN)
@@ -2623,7 +2623,7 @@ DecodeTimeCommon(char *str, int fmask, int range,
 	}
 	else if (*cp == '.')
 	{
-		/* always assume mm:ss.sss is MINUTE TO SECOND */
+		/* mm:ss.sss 即 MINUTE TO SECOND */
 		dterr = ParseFractionalSecond(cp, &fsec);
 		if (dterr)
 			return dterr;
@@ -2651,7 +2651,7 @@ DecodeTimeCommon(char *str, int fmask, int range,
 	else
 		return DTERR_BAD_FORMAT;
 
-	/* do a sanity check; but caller must check the range of tm_hour */
+	/* 健全性检查；tm_hour 范围由调用方检查 */
 	if (itm->tm_hour < 0 ||
 		itm->tm_min < 0 || itm->tm_min > MINS_PER_HOUR - 1 ||
 		itm->tm_sec < 0 || itm->tm_sec > SECS_PER_MINUTE ||
@@ -2664,11 +2664,11 @@ DecodeTimeCommon(char *str, int fmask, int range,
 }
 
 /* DecodeTime()
- * Decode time string which includes delimiters.
- * Return 0 if okay, a DTERR code if not.
+ * 解码含定界符的时间字符串。
+ * 正常返回 0，否则 DTERR 码。
  *
- * This version is used for timestamps.  The results are returned into
- * the tm_hour/tm_min/tm_sec fields of *tm, and microseconds into *fsec.
+ * 此版本用于 timestamp。结果返回到 *tm 的
+ * tm_hour/tm_min/tm_sec 字段，微秒返回到 *fsec。
  */
 static int
 DecodeTime(char *str, int fmask, int range,
@@ -2693,11 +2693,11 @@ DecodeTime(char *str, int fmask, int range,
 }
 
 /* DecodeTimeForInterval()
- * Decode time string which includes delimiters.
- * Return 0 if okay, a DTERR code if not.
+ * 解码含定界符的时间字符串。
+ * 正常返回 0，否则 DTERR 码。
  *
- * This version is used for intervals.  The results are returned into
- * itm_in->tm_usec.
+ * 此版本用于 interval。结果返回到 itm_in->
+ * tm_usec。
  */
 static int
 DecodeTimeForInterval(char *str, int fmask, int range,
@@ -2722,8 +2722,8 @@ DecodeTimeForInterval(char *str, int fmask, int range,
 
 
 /* DecodeNumber()
- * Interpret plain numeric field as a date value in context.
- * Return 0 if okay, a DTERR code if not.
+ * 按上下文把纯数字字段解释为日期值。
+ * 正常返回 0，否则 DTERR 码。
  */
 static int
 DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
@@ -2745,8 +2745,8 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 	if (*cp == '.')
 	{
 		/*
-		 * More than two digits before decimal point? Then could be a date or
-		 * a run-together time: 2001.360 20011225 040506.789
+		 * 小数点前超过两位数字？则可能是日期或
+		 * 连写时间：2001.360 20011225 040506.789
 		 */
 		if (cp - str > 2)
 		{
@@ -2766,27 +2766,27 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 	else if (*cp != '\0')
 		return DTERR_BAD_FORMAT;
 
-	/* Special case for day of year */
+	/* 年积日特例 */
 	if (flen == 3 && (fmask & DTK_DATE_M) == DTK_M(YEAR) && val >= 1 &&
 		val <= 366)
 	{
 		*tmask = (DTK_M(DOY) | DTK_M(MONTH) | DTK_M(DAY));
 		tm->tm_yday = val;
-		/* tm_mon and tm_mday can't actually be set yet ... */
+		/* tm_mon/tm_mday 实际尚未设置 */
 		return 0;
 	}
 
-	/* Switch based on what we have so far */
+	/* 按目前已有内容分支 */
 	switch (fmask & DTK_DATE_M)
 	{
 		case 0:
 
 			/*
-			 * Nothing so far; make a decision about what we think the input
-			 * is.  There used to be lots of heuristics here, but the
-			 * consensus now is to be paranoid.  It *must* be either
-			 * YYYY-MM-DD (with a more-than-two-digit year field), or the
-			 * field order defined by DateOrder.
+			 * 一无所有；对我们认为输入是什么做判定。
+			 * 这里曾有很多启发式规则，但现在
+			 * 的共识是保持警惕。它 *必须* 要么是
+			 * YYYY-MM-DD（年份字段多于两位），或
+			 * DateOrder 的字段顺序。
 			 */
 			if (flen >= 3 || DateOrder == DATEORDER_YMD)
 			{
@@ -2806,7 +2806,7 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 			break;
 
 		case (DTK_M(YEAR)):
-			/* Must be at second field of YY-MM-DD */
+			/* 必为 YY-MM-DD 第二字段 */
 			*tmask = DTK_M(MONTH);
 			tm->tm_mon = val;
 			break;
@@ -2815,11 +2815,11 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 			if (haveTextMonth)
 			{
 				/*
-				 * We are at the first numeric field of a date that included a
-				 * textual month name.  We want to support the variants
-				 * MON-DD-YYYY, DD-MON-YYYY, and YYYY-MON-DD as unambiguous
-				 * inputs.  We will also accept MON-DD-YY or DD-MON-YY in
-				 * either DMY or MDY modes, as well as YY-MON-DD in YMD mode.
+				 * 我们处于含文本月份名的日期的第一个
+				 * 数字字段。想支持这些无歧义变体：
+				 * MON-DD-YYYY、DD-MON-YYYY、YYYY-MON-DD。
+				 * 也会在 DMY 或 MDY 模式下接受 MON-DD-YY 或
+				 * DD-MON-YY，YMD 模式下也接受 YY-MON-DD。
 				 */
 				if (flen >= 3 || DateOrder == DATEORDER_YMD)
 				{
@@ -2834,7 +2834,7 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 			}
 			else
 			{
-				/* Must be at second field of MM-DD-YY */
+				/* 必为 MM-DD-YY 第二字段 */
 				*tmask = DTK_M(DAY);
 				tm->tm_mday = val;
 			}
@@ -2843,11 +2843,11 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 		case (DTK_M(YEAR) | DTK_M(MONTH)):
 			if (haveTextMonth)
 			{
-				/* Need to accept DD-MON-YYYY even in YMD mode */
+				/* YMD 模式下也须接受 DD-MON-YYYY */
 				if (flen >= 3 && *is2digits)
 				{
-					/* Guess that first numeric field is day was wrong */
-					*tmask = DTK_M(DAY);	/* YEAR is already set */
+					/* 猜首字段为日是错的 */
+					*tmask = DTK_M(DAY);	/* YEAR 已被设置 */
 					tm->tm_mday = tm->tm_year;
 					tm->tm_year = val;
 					*is2digits = false;
@@ -2860,26 +2860,26 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 			}
 			else
 			{
-				/* Must be at third field of YY-MM-DD */
+				/* 必为 YY-MM-DD 第三字段 */
 				*tmask = DTK_M(DAY);
 				tm->tm_mday = val;
 			}
 			break;
 
 		case (DTK_M(DAY)):
-			/* Must be at second field of DD-MM-YY */
+			/* 必为 DD-MM-YY 第二字段 */
 			*tmask = DTK_M(MONTH);
 			tm->tm_mon = val;
 			break;
 
 		case (DTK_M(MONTH) | DTK_M(DAY)):
-			/* Must be at third field of DD-MM-YY or MM-DD-YY */
+			/* 必为 DD-MM-YY/MM-DD-YY 第三字段 */
 			*tmask = DTK_M(YEAR);
 			tm->tm_year = val;
 			break;
 
 		case (DTK_M(YEAR) | DTK_M(MONTH) | DTK_M(DAY)):
-			/* we have all the date, so it must be a time field */
+			/* 日期已齐，必为时间字段 */
 			dterr = DecodeNumberField(flen, str, fmask,
 									  tmask, tm,
 									  fsec, is2digits);
@@ -2888,13 +2888,13 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 			return 0;
 
 		default:
-			/* Anything else is bogus input */
+			/* 余皆伪输入 */
 			return DTERR_BAD_FORMAT;
 	}
 
 	/*
-	 * When processing a year field, mark it for adjustment if it's only one
-	 * or two digits.
+	 * 处理年份字段时，若仅有一或两位数字则标记
+	 * 待调整
 	 */
 	if (*tmask == DTK_M(YEAR))
 		*is2digits = (flen <= 2);
@@ -2904,11 +2904,11 @@ DecodeNumber(int flen, char *str, bool haveTextMonth, int fmask,
 
 
 /* DecodeNumberField()
- * Interpret numeric string as a concatenated date or time field.
- * Return a DTK token (>= 0) if successful, a DTERR code (< 0) if not.
+ * 把数字字符串解释为连写的日期或时间字段。
+ * 成功返回 DTK 记号 (>= 0)，否则返回 DTERR 码 (< 0)。
  *
- * Use the context of previously decoded fields to help with
- * the interpretation.
+ * 利用先前已解码字段的上下文帮助
+ * 进行解释。
  */
 static int
 DecodeNumberField(int len, char *str, int fmask,
@@ -2917,18 +2917,18 @@ DecodeNumberField(int len, char *str, int fmask,
 	char	   *cp;
 
 	/*
-	 * Have a decimal point? Then this is a date or something with a seconds
-	 * field...
+	 * 有小数点？那么这是日期或带秒字段的东
+	 * 西
 	 */
 	if ((cp = strchr(str, '.')) != NULL)
 	{
 		/*
-		 * Can we use ParseFractionalSecond here?  Not clear whether trailing
-		 * junk should be rejected ...
+		 * 我们能否在这里用 ParseFractionalSecond？尚不清楚
+		 * 尾部垃圾是否应拒…
 		 */
 		if (cp[1] == '\0')
 		{
-			/* avoid assuming that strtod will accept "." */
+			/* 避免假定 strtod 会接受 "." */
 			*fsec = 0;
 		}
 		else
@@ -2941,11 +2941,11 @@ DecodeNumberField(int len, char *str, int fmask,
 				return DTERR_BAD_FORMAT;
 			*fsec = rint(frac * 1000000);
 		}
-		/* Now truncate off the fraction for further processing */
+		/* 现在截去小数部分以便后续处理 */
 		*cp = '\0';
 		len = strlen(str);
 	}
-	/* No decimal point and no complete date yet? */
+	/* 无小数点且无完整日期？ */
 	else if ((fmask & DTK_DATE_M) != DTK_DATE_M)
 	{
 		if (len >= 6)
@@ -2953,8 +2953,8 @@ DecodeNumberField(int len, char *str, int fmask,
 			*tmask = DTK_DATE_M;
 
 			/*
-			 * Start from end and consider first 2 as Day, next 2 as Month,
-			 * and the rest as Year.
+			 * 从末尾起，头 2 位看作日，次 2 位看作月，
+			 * 其余看作年份。
 			 */
 			tm->tm_mday = atoi(str + (len - 2));
 			*(str + (len - 2)) = '\0';
@@ -2968,7 +2968,7 @@ DecodeNumberField(int len, char *str, int fmask,
 		}
 	}
 
-	/* not all time fields are specified? */
+	/* 字段未全指定 */
 	if ((fmask & DTK_TIME_M) != DTK_TIME_M)
 	{
 		/* hhmmss */
@@ -3001,9 +3001,9 @@ DecodeNumberField(int len, char *str, int fmask,
 
 
 /* DecodeTimezone()
- * Interpret string as a numeric timezone.
+ * 把字符串解释为数字时区。
  *
- * Return 0 if okay (and set *tzp), a DTERR code if not okay.
+ * 正常返回 0（设 *tzp），否则 DTERR 码。
  */
 int
 DecodeTimezone(const char *str, int *tzp)
@@ -3014,7 +3014,7 @@ DecodeTimezone(const char *str, int *tzp)
 				sec = 0;
 	char	   *cp;
 
-	/* leading character must be "+" or "-" */
+	/* 首字符须为 "+" 或 "-" */
 	if (*str != '+' && *str != '-')
 		return DTERR_BAD_FORMAT;
 
@@ -3023,7 +3023,7 @@ DecodeTimezone(const char *str, int *tzp)
 	if (errno == ERANGE)
 		return DTERR_TZDISP_OVERFLOW;
 
-	/* explicit delimiter? */
+	/* 定界符? */
 	if (*cp == ':')
 	{
 		errno = 0;
@@ -3038,17 +3038,17 @@ DecodeTimezone(const char *str, int *tzp)
 				return DTERR_TZDISP_OVERFLOW;
 		}
 	}
-	/* otherwise, might have run things together... */
+	/* 否则可能连写在一起…… */
 	else if (*cp == '\0' && strlen(str) > 3)
 	{
 		min = hr % 100;
 		hr = hr / 100;
-		/* we could, but don't, support a run-together hhmmss format */
+		/* 我们本可以但不支持连写的 hhmmss 格式 */
 	}
 	else
 		min = 0;
 
-	/* Range-check the values; see notes in datatype/timestamp.h */
+	/* 范围检查；详见 datatype/timestamp.h */
 	if (hr < 0 || hr > MAX_TZDISP_HOUR)
 		return DTERR_TZDISP_OVERFLOW;
 	if (min < 0 || min >= MINS_PER_HOUR)
@@ -3070,24 +3070,24 @@ DecodeTimezone(const char *str, int *tzp)
 
 
 /* DecodeTimezoneAbbrev()
- * Interpret string as a timezone abbreviation, if possible.
+ * 如可能，把字符串解释为时区缩写。
  *
- * Sets *ftype to an abbreviation type (TZ, DTZ, or DYNTZ), or UNKNOWN_FIELD if
- * string is not any known abbreviation.  On success, set *offset and *tz to
- * represent the UTC offset (for TZ or DTZ) or underlying zone (for DYNTZ).
- * Note that full timezone names (such as America/New_York) are not handled
- * here, mostly for historical reasons.
+ * 把 *ftype 置为缩写类型（TZ、DTZ 或 DYNTZ），或当
+ * 字符串非已知缩写时置 UNKNOWN_FIELD。成功时把 *offset
+ * 与 *tz 置为 UTC 偏移（TZ 或 DTZ）或底层时区（DYNTZ）。
+ * 注意完整时区名（如 America/New_York）不在此处理，
+ * 多半出于历史原因。
  *
- * The function result is 0 or a DTERR code; in the latter case, *extra
- * is filled as needed.  Note that unknown-abbreviation is not considered
- * an error case.  Also note that many callers assume that the DTERR code
- * is one that DateTimeParseError does not require "str" or "datatype"
- * strings for.
+ * 函数结果为 0 或 DTERR 码；后者情形下按需填 *extra。
+ * 未知缩写不算错误情形。还要注意许多调用方假定
+ * DTERR 码是
+ * DateTimeParseError 无需 "str"/"datatype" 字
+ * 符串
  *
- * Given string must be lowercased already.
+ * 给定字符串必须已为小写。
  *
- * Implement a cache lookup since it is likely that dates
- *	will be related in format.
+ * 实现缓存查找，因为各日期很可能
+ *	在格式上相关联。
  */
 int
 DecodeTimezoneAbbrev(int field, const char *lowtoken,
@@ -3097,7 +3097,7 @@ DecodeTimezoneAbbrev(int field, const char *lowtoken,
 	const datetkn *tp;
 
 	tp = abbrevcache[field];
-	/* use strncmp so that we match truncated tokens */
+	/* 用 strncmp 以匹配被截断的记号 */
 	if (tp == NULL || strncmp(lowtoken, tp->token, TOKMAXLEN) != 0)
 	{
 		if (zoneabbrevtbl)
@@ -3135,16 +3135,16 @@ DecodeTimezoneAbbrev(int field, const char *lowtoken,
 
 
 /* DecodeSpecial()
- * Decode text string using lookup table.
+ * 用查找表解码文本字符串。
  *
- * Recognizes the keywords listed in datetktbl.
- * Note: at one time this would also recognize timezone abbreviations,
- * but no more; use DecodeTimezoneAbbrev for that.
+ * 识别 datetktbl 中列出的关键字。
+ * 注意：本函数曾也能识别时区缩写，
+ * 但已不行；用 DecodeTimezoneAbbrev。
  *
- * Given string must be lowercased already.
+ * 给定字符串必须已为小写。
  *
- * Implement a cache lookup since it is likely that dates
- *	will be related in format.
+ * 实现缓存查找，因为各日期很可能
+ *	在格式上相关联。
  */
 int
 DecodeSpecial(int field, const char *lowtoken, int *val)
@@ -3153,7 +3153,7 @@ DecodeSpecial(int field, const char *lowtoken, int *val)
 	const datetkn *tp;
 
 	tp = datecache[field];
-	/* use strncmp so that we match truncated tokens */
+	/* 用 strncmp 以匹配被截断的记号 */
 	if (tp == NULL || strncmp(lowtoken, tp->token, TOKMAXLEN) != 0)
 	{
 		tp = datebsearch(lowtoken, datetktbl, szdatetktbl);
@@ -3175,18 +3175,18 @@ DecodeSpecial(int field, const char *lowtoken, int *val)
 
 
 /* DecodeTimezoneName()
- * Interpret string as a timezone abbreviation or name.
- * Throw error if the name is not recognized.
+ * 把字符串解释为时区缩写或名称。
+ * 若名称不被识别则抛错。
  *
- * The return value indicates what kind of zone identifier it is:
- *	TZNAME_FIXED_OFFSET: fixed offset from UTC
- *	TZNAME_DYNTZ: dynamic timezone abbreviation
- *	TZNAME_ZONE: full tzdb zone name
+ * 返回值指示时区标识符是哪一类：
+ *	TZNAME_FIXED_OFFSET: 相对 UTC 偏移
+ *	TZNAME_DYNTZ: 动态时区缩写
+ *	TZNAME_ZONE: tzdb 全名
  *
- * For TZNAME_FIXED_OFFSET, *offset receives the UTC offset (in seconds,
- * with ISO sign convention: positive is east of Greenwich).
- * For the other two cases, *tz receives the timezone struct representing
- * the zone name or the abbreviation's underlying zone.
+ * TZNAME_FIXED_OFFSET 时 *offset 接收 UTC 偏移（以秒计，
+ * ISO 符号约定：正值在格林威治以东）。
+ * 对于另外两种情形，*tz 接收代表时区名或缩写
+ * 底层时区的 timezone 结构。
  */
 int
 DecodeTimezoneName(const char *tzname, int *offset, pg_tz **tz)
@@ -3197,15 +3197,15 @@ DecodeTimezoneName(const char *tzname, int *offset, pg_tz **tz)
 	DateTimeErrorExtra extra;
 
 	/*
-	 * First we look in the timezone abbreviation table (to handle cases like
-	 * "EST"), and if that fails, we look in the timezone database (to handle
-	 * cases like "America/New_York").  This matches the order in which
-	 * timestamp input checks the cases; it's important because the timezone
-	 * database unwisely uses a few zone names that are identical to offset
-	 * abbreviations.
+	 * 首先查时区缩写表（处理 "EST" 之类情形），
+	 * 若失败则查时区数据库（处理 "America/New_York"
+	 * 之类情形）。这与 timestamp 输入检查这些情形的
+	 * 顺序一致；这很重要，因为时区数据库不明智地
+	 * 把少数几个与偏移缩写同名的时区名用作
+	 * 时区名。
 	 */
 
-	/* DecodeTimezoneAbbrev requires lowercase input */
+	/* DecodeTimezoneAbbrev 须小写 */
 	lowzone = downcase_truncate_identifier(tzname,
 										   strlen(tzname),
 										   false);
@@ -3216,17 +3216,17 @@ DecodeTimezoneName(const char *tzname, int *offset, pg_tz **tz)
 
 	if (type == TZ || type == DTZ)
 	{
-		/* fixed-offset abbreviation, return the offset */
+		/* 固定偏移缩写，返回该偏移 */
 		return TZNAME_FIXED_OFFSET;
 	}
 	else if (type == DYNTZ)
 	{
-		/* dynamic-offset abbreviation, return its referenced timezone */
+		/* 动态偏移缩写，返回其引用的时区 */
 		return TZNAME_DYNTZ;
 	}
 	else
 	{
-		/* try it as a full zone name */
+		/* 试作完整名 */
 		*tz = pg_tzset(tzname);
 		if (*tz == NULL)
 			ereport(ERROR,
@@ -3237,11 +3237,11 @@ DecodeTimezoneName(const char *tzname, int *offset, pg_tz **tz)
 }
 
 /* DecodeTimezoneNameToTz()
- * Interpret string as a timezone abbreviation or name.
- * Throw error if the name is not recognized.
+ * 把字符串解释为时区缩写或名称。
+ * 若名称不被识别则抛错。
  *
- * This is a simple wrapper for DecodeTimezoneName that produces a pg_tz *
- * result in all cases.
+ * 这是 DecodeTimezoneName 的简单包装，总产出
+ * pg_tz * 结果。
  */
 pg_tz *
 DecodeTimezoneNameToTz(const char *tzname)
@@ -3251,8 +3251,8 @@ DecodeTimezoneNameToTz(const char *tzname)
 
 	if (DecodeTimezoneName(tzname, &offset, &result) == TZNAME_FIXED_OFFSET)
 	{
-		/* fixed-offset abbreviation, get a pg_tz descriptor for that */
-		result = pg_tzset_offset(-offset);	/* flip to POSIX sign convention */
+		/* 固定偏移缩写，为它取 pg_tz 描述符 */
+		result = pg_tzset_offset(-offset);	/* 翻转到 POSIX 符号约定 */
 	}
 	return result;
 }
@@ -3260,7 +3260,7 @@ DecodeTimezoneNameToTz(const char *tzname)
 
 /* ClearPgItmIn
  *
- * Zero out a pg_itm_in
+ * 把 pg_itm_in 清零
  */
 static inline void
 ClearPgItmIn(struct pg_itm_in *itm_in)
@@ -3273,15 +3273,15 @@ ClearPgItmIn(struct pg_itm_in *itm_in)
 
 
 /* DecodeInterval()
- * Interpret previously parsed fields for general time interval.
- * Returns 0 if successful, DTERR code if bogus input detected.
- * dtype and itm_in are output parameters.
+ * 解释先前解析的字段，用于一般时间间隔。
+ * 成功返回 0，检测到伪输入则返回 DTERR 码。
+ * dtype 与 itm_in 是输出参数。
  *
- * Allow "date" field DTK_DATE since this could be just
- *	an unsigned floating point number. - thomas 1997-11-16
+ * 允许 "date" 字段为 DTK_DATE，因可能只是
+ *	一个无符号浮点数。- thomas 1997-11-16
  *
- * Allow ISO-style time span, with implicit units on number of days
- *	preceding an hh:mm:ss field. - thomas 1998-04-30
+ * 允许 ISO 风格的时间跨度，天数带隐含单位，
+ *	其前为 hh:mm:ss 字段。- thomas 1998-04-30
  */
 int
 DecodeInterval(char **field, int *ftype, int nf, int range,
@@ -3304,25 +3304,25 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 	ClearPgItmIn(itm_in);
 
 	/*----------
-	 * The SQL standard defines the interval literal
+	 * SQL 标准定义 interval 字面值
 	 *	 '-1 1:00:00'
-	 * to mean "negative 1 days and negative 1 hours", while Postgres
-	 * traditionally treats this as meaning "negative 1 days and positive
-	 * 1 hours".  In SQL_STANDARD intervalstyle, we apply the leading sign
-	 * to all fields if there are no other explicit signs.
+	 * 表示 "负 1 天且负 1 小时"，而 Postgres 传统上
+	 * 把它当作 "负 1 天且正 1 小时" 的意思。在
+	 * SQL_STANDARD intervalstyle 中，若无其他显式符号，
+	 * 我们会把前导符号应用于所有字段。
 	 *
-	 * We leave the signs alone if there are additional explicit signs.
-	 * This protects us against misinterpreting postgres-style dump output,
-	 * since the postgres-style output code has always put an explicit sign on
-	 * all fields following a negative field.  But note that SQL-spec output
-	 * is ambiguous and can be misinterpreted on load!	(So it's best practice
-	 * to dump in postgres style, not SQL style.)
+	 * 若另有其他显式符号，我们就不管这些符号。
+	 * 这保护我们免于误读 postgres 风格的转储输出，
+	 * 因为 postgres 风格的输出代码总是给负
+	 * 字段之后的所有字段放显式符号。但注意 SQL
+	 * 规格输出有歧义且载入时可能被误读！（所以
+	 * 最好用 postgres 而非 SQL 转储）
 	 *----------
 	 */
 	if (IntervalStyle == INTSTYLE_SQL_STANDARD && nf > 0 && *field[0] == '-')
 	{
 		force_negative = true;
-		/* Check for additional explicit signs */
+		/* 查其他显式符号 */
 		for (i = 1; i < nf; i++)
 		{
 			if (*field[i] == '-' || *field[i] == '+')
@@ -3333,7 +3333,7 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 		}
 	}
 
-	/* read through list backwards to pick up units before values */
+	/* 反向读列表，在数值前拾取单位 */
 	for (i = nf - 1; i >= 0; i--)
 	{
 		switch (ftype[i])
@@ -3352,15 +3352,15 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 			case DTK_TZ:
 
 				/*
-				 * Timezone means a token with a leading sign character and at
-				 * least one digit; there could be ':', '.', '-' embedded in
-				 * it as well.
+				 * 时区指带前导符号字符且至少
+				 * 有一位数字的记号；其中内嵌 ':'、'.',
+				 * '-' 等。
 				 */
 				Assert(*field[i] == '-' || *field[i] == '+');
 
 				/*
-				 * Check for signed hh:mm or hh:mm:ss.  If so, process exactly
-				 * like DTK_TIME case above, plus handling the sign.
+				 * 检查带符号的 hh:mm 或 hh:mm:ss。若是，
+				 * 则如上 DTK_TIME 处理，另加符号。
 				 */
 				if (strchr(field[i] + 1, ':') != NULL &&
 					DecodeTimeForInterval(field[i] + 1, fmask, range,
@@ -3368,7 +3368,7 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 				{
 					if (*field[i] == '-')
 					{
-						/* flip the sign on time field */
+						/* 翻转时间符号 */
 						if (itm_in->tm_usec == PG_INT64_MIN)
 							return DTERR_FIELD_OVERFLOW;
 						itm_in->tm_usec = -itm_in->tm_usec;
@@ -3379,17 +3379,17 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 						itm_in->tm_usec = -itm_in->tm_usec;
 
 					/*
-					 * Set the next type to be a day, if units are not
-					 * specified. This handles the case of '1 +02:03' since we
-					 * are reading right to left.
+					 * 未指定单位则把下一类型设为日。
+					 * 这处理 '1 +02:03' 情形，因为我们是
+					 * 自右向左读取的。
 					 */
 					type = DTK_DAY;
 					break;
 				}
 
 				/*
-				 * Otherwise, fall through to DTK_NUMBER case, which can
-				 * handle signed float numbers and signed year-month values.
+				 * 否则落入 DTK_NUMBER 情形，能处理带符号
+				 * 的浮点数与带符号的年-月值。
 				 */
 
 				/* FALLTHROUGH */
@@ -3398,7 +3398,7 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 			case DTK_NUMBER:
 				if (type == IGNORE_DTF)
 				{
-					/* use typmod to decide what rightmost field is */
+					/* 以 typmod 决定最右字段 */
 					switch (range)
 					{
 						case INTERVAL_MASK(YEAR):
@@ -3439,7 +3439,7 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 
 				if (*cp == '-')
 				{
-					/* SQL "years-months" syntax */
+					/* SQL "年-月" 语法 */
 					int			val2;
 
 					val2 = strtoint(cp + 1, &cp, 10);
@@ -3473,7 +3473,7 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 
 				if (force_negative)
 				{
-					/* val and fval should be of same sign, but test anyway */
+					/* val 与 fval 应同号，但仍测试 */
 					if (val > 0)
 						val = -val;
 					if (fval > 0)
@@ -3499,8 +3499,8 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 							return DTERR_FIELD_OVERFLOW;
 
 						/*
-						 * If any subseconds were specified, consider this
-						 * microsecond and millisecond input as well.
+						 * 若指定任何亚秒，也把这些微秒与
+						 * 毫秒输入考虑在内。
 						 */
 						if (fval == 0)
 							tmask = DTK_M(SECOND);
@@ -3518,7 +3518,7 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 						if (!AdjustMicroseconds(val, fval, USECS_PER_HOUR, itm_in))
 							return DTERR_FIELD_OVERFLOW;
 						tmask = DTK_M(HOUR);
-						type = DTK_DAY; /* set for next field */
+						type = DTK_DAY; /* 供下一字段用 */
 						break;
 
 					case DTK_DAY:
@@ -3612,11 +3612,11 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 		fmask |= tmask;
 	}
 
-	/* ensure that at least one time field has been found */
+	/* 确保至少找到一个时间字段 */
 	if (fmask == 0)
 		return DTERR_BAD_FORMAT;
 
-	/* finally, AGO negates everything */
+	/* AGO 一律取反 */
 	if (is_before)
 	{
 		if (itm_in->tm_usec == PG_INT64_MIN ||
@@ -3636,11 +3636,11 @@ DecodeInterval(char **field, int *ftype, int nf, int range,
 
 
 /*
- * Helper functions to avoid duplicated code in DecodeISO8601Interval.
+ * 用于避免 DecodeISO8601Interval 代码重复的辅助函数。
  *
- * Parse a decimal value and break it into integer and fractional parts.
- * Set *endptr to end+1 of the parsed substring.
- * Returns 0 or DTERR code.
+ * 解析十进制值并把它拆分为整数与小数部分。
+ * 把 *endptr 置为已解析子串 end+1。
+ * 返回 0 或 DTERR 码
  */
 static int
 ParseISO8601Number(char *str, char **endptr, int64 *ipart, double *fpart)
@@ -3648,46 +3648,46 @@ ParseISO8601Number(char *str, char **endptr, int64 *ipart, double *fpart)
 	double		val;
 
 	/*
-	 * Historically this has accepted anything that strtod() would take,
-	 * notably including "e" notation, so continue doing that.  This is
-	 * slightly annoying because the precision of double is less than that of
-	 * int64, so we would lose accuracy for inputs larger than 2^53 or so.
-	 * However, historically we rejected inputs outside the int32 range,
-	 * making that concern moot.  What we do now is reject abs(val) above
-	 * 1.0e15 (a round number a bit less than 2^50), so that any accepted
-	 * value will have an exact integer part, and thereby a fraction part with
-	 * abs(*fpart) less than 1.  In the absence of field complaints it doesn't
-	 * seem worth working harder.
+	 * 历史上它接受 strtod() 会接受的任何东西，
+	 * 尤其包括 "e" 记法，所以继续这么做。这有点
+	 * 令人不快，因为 double 的精度低于 int64，所以
+	 * 对 2^53 以上的输入我们会损失精度。
+	 * 不过历史上我们拒绝过 int32 范围之外的输入，
+	 * 这让该顾虑变得无关紧要。我们现在拒绝 abs(val)
+	 * 超过 1.0e15（比 2^50 略小的整数），这样任何
+	 * 被接受的值的整数部分都是精确的，从而小数部分的
+	 * abs(*fpart) 小于 1。在没有现场投诉的情况下，
+	 * 似乎不值得更细。
 	 */
 	if (!(isdigit((unsigned char) *str) || *str == '-' || *str == '.'))
 		return DTERR_BAD_FORMAT;
 	errno = 0;
 	val = strtod(str, endptr);
-	/* did we not see anything that looks like a double? */
+	/* 没看到形似 double 的东西？ */
 	if (*endptr == str || errno != 0)
 		return DTERR_BAD_FORMAT;
-	/* watch out for overflow, including infinities; reject NaN too */
+	/* 当心溢出（包括无穷），也拒绝 NaN */
 	if (isnan(val) || val < -1.0e15 || val > 1.0e15)
 		return DTERR_FIELD_OVERFLOW;
-	/* be very sure we truncate towards zero (cf dtrunc()) */
+	/* 确保向零截断（cf dtrunc()） */
 	if (val >= 0)
 		*ipart = (int64) floor(val);
 	else
 		*ipart = (int64) -floor(-val);
 	*fpart = val - *ipart;
-	/* Callers expect this to hold */
+	/* 预期成立 */
 	Assert(*fpart > -1.0 && *fpart < 1.0);
 	return 0;
 }
 
 /*
- * Determine number of integral digits in a valid ISO 8601 number field
- * (we should ignore sign and any fraction part)
+ * 确定有效 ISO 8601 数字字段中整数部分的位数
+ * （应忽略符号与任何小数部分）
  */
 static int
 ISO8601IntegerWidth(char *fieldstart)
 {
-	/* We might have had a leading '-' */
+	/* 可能有前导 '-' */
 	if (*fieldstart == '-')
 		fieldstart++;
 	return strspn(fieldstart, "0123456789");
@@ -3695,21 +3695,21 @@ ISO8601IntegerWidth(char *fieldstart)
 
 
 /* DecodeISO8601Interval()
- *	Decode an ISO 8601 time interval of the "format with designators"
- *	(section 4.4.3.2) or "alternative format" (section 4.4.3.3)
- *	Examples:  P1D	for 1 day
- *			   PT1H for 1 hour
- *			   P2Y6M7DT1H30M for 2 years, 6 months, 7 days 1 hour 30 min
- *			   P0002-06-07T01:30:00 the same value in alternative format
+ *	解码 "指示符格式"（4.4.3.2 节）或"替代格式"
+ *	（4.4.3.3 节）的 ISO 8601 时间间隔。
+ *	例:  P1D	为 1 天
+ *			   PT1H: 1 小时
+ *			   P2Y6M7DT1H30M 为 2 年 6 月 7 天 1 小时 30 分
+ *			   P0002-06-07T01:30:00 替代格式的同值
  *
- * Returns 0 if successful, DTERR code if bogus input detected.
- * Note: error code should be DTERR_BAD_FORMAT if input doesn't look like
- * ISO8601, otherwise this could cause unexpected error messages.
- * dtype and itm_in are output parameters.
+ * 成功返回 0，检测到伪输入则返回 DTERR 码。
+ * 注意：若输入不像 ISO8601，错误码应为 DTERR_BAD_FORMAT，
+ * 否则可能导致意外的错误消息。
+ * dtype 与 itm_in 是输出参数。
  *
- *	A couple exceptions from the spec:
- *	 - a week field ('W') may coexist with other units
- *	 - allows decimals in fields other than the least significant unit.
+ *	与规范有两处不同：
+ *	 - 周字段（'W'）可与其他单位共存
+ *	 - 允许在非最低有效单位的字段中使用小数。
  */
 int
 DecodeISO8601Interval(char *str,
@@ -3733,7 +3733,7 @@ DecodeISO8601Interval(char *str,
 		char		unit;
 		int			dterr;
 
-		if (*str == 'T')		/* T indicates the beginning of the time part */
+		if (*str == 'T')		/* T 表示时间部分的开始 */
 		{
 			datepart = false;
 			havefield = false;
@@ -3747,14 +3747,14 @@ DecodeISO8601Interval(char *str,
 			return dterr;
 
 		/*
-		 * Note: we could step off the end of the string here.  Code below
-		 * *must* exit the loop if unit == '\0'.
+		 * 注意：这里可能越过字符串末尾。代码在 unit
+		 * 为 '\0' 时须退出循环。
 		 */
 		unit = *str++;
 
 		if (datepart)
 		{
-			switch (unit)		/* before T: Y M W D */
+			switch (unit)		/* T 之前: Y M W D */
 			{
 				case 'Y':
 					if (!AdjustYears(val, 1, itm_in) ||
@@ -3776,7 +3776,7 @@ DecodeISO8601Interval(char *str,
 						!AdjustFractMicroseconds(fval, USECS_PER_DAY, itm_in))
 						return DTERR_FIELD_OVERFLOW;
 					break;
-				case 'T':		/* ISO 8601 4.4.3.3 Alternative Format / Basic */
+				case 'T':		/* ISO 8601 4.4.3.3 替代格式/基本格式 */
 				case '\0':
 					if (ISO8601IntegerWidth(fieldstart) == 8 && !havefield)
 					{
@@ -3791,10 +3791,10 @@ DecodeISO8601Interval(char *str,
 						havefield = false;
 						continue;
 					}
-					/* Else fall through to extended alternative format */
+					/* 否则落到扩展替代格式 */
 					/* FALLTHROUGH */
-				case '-':		/* ISO 8601 4.4.3.3 Alternative Format,
-								 * Extended */
+				case '-':		/* ISO 8601 4.4.3.3 备用格式,
+								 * 扩展 */
 					if (havefield)
 						return DTERR_BAD_FORMAT;
 
@@ -3844,13 +3844,13 @@ DecodeISO8601Interval(char *str,
 					}
 					return DTERR_BAD_FORMAT;
 				default:
-					/* not a valid date unit suffix */
+					/* 日期单位无效 */
 					return DTERR_BAD_FORMAT;
 			}
 		}
 		else
 		{
-			switch (unit)		/* after T: H M S */
+			switch (unit)		/* T 后: H M S */
 			{
 				case 'H':
 					if (!AdjustMicroseconds(val, fval, USECS_PER_HOUR, itm_in))
@@ -3864,7 +3864,7 @@ DecodeISO8601Interval(char *str,
 					if (!AdjustMicroseconds(val, fval, USECS_PER_SEC, itm_in))
 						return DTERR_FIELD_OVERFLOW;
 					break;
-				case '\0':		/* ISO 8601 4.4.3.3 Alternative Format */
+				case '\0':		/* ISO 8601 4.4.3.3 替代格式 */
 					if (ISO8601IntegerWidth(fieldstart) == 6 && !havefield)
 					{
 						if (!AdjustMicroseconds(val / 10000, 0, USECS_PER_HOUR, itm_in) ||
@@ -3874,10 +3874,10 @@ DecodeISO8601Interval(char *str,
 							return DTERR_FIELD_OVERFLOW;
 						return 0;
 					}
-					/* Else fall through to extended alternative format */
+					/* 否则落到扩展替代格式 */
 					/* FALLTHROUGH */
-				case ':':		/* ISO 8601 4.4.3.3 Alternative Format,
-								 * Extended */
+				case ':':		/* ISO 8601 4.4.3.3 备用格式,
+								 * 扩展 */
 					if (havefield)
 						return DTERR_BAD_FORMAT;
 
@@ -3907,7 +3907,7 @@ DecodeISO8601Interval(char *str,
 					return DTERR_BAD_FORMAT;
 
 				default:
-					/* not a valid time unit suffix */
+					/* 时间单位无效 */
 					return DTERR_BAD_FORMAT;
 			}
 		}
@@ -3920,14 +3920,14 @@ DecodeISO8601Interval(char *str,
 
 
 /* DecodeUnits()
- * Decode text string using lookup table.
+ * 用查找表解码文本字符串。
  *
- * This routine recognizes keywords associated with time interval units.
+ * 本例程识别与时间间隔单位相关联的关键字。
  *
- * Given string must be lowercased already.
+ * 给定字符串必须已为小写。
  *
- * Implement a cache lookup since it is likely that dates
- *	will be related in format.
+ * 实现缓存查找，因为各日期很可能
+ *	在格式上相关联。
  */
 int
 DecodeUnits(int field, const char *lowtoken, int *val)
@@ -3936,7 +3936,7 @@ DecodeUnits(int field, const char *lowtoken, int *val)
 	const datetkn *tp;
 
 	tp = deltacache[field];
-	/* use strncmp so that we match truncated tokens */
+	/* 用 strncmp 以匹配被截断的记号 */
 	if (tp == NULL || strncmp(lowtoken, tp->token, TOKMAXLEN) != 0)
 	{
 		tp = datebsearch(lowtoken, deltatktbl, szdeltatktbl);
@@ -3957,22 +3957,22 @@ DecodeUnits(int field, const char *lowtoken, int *val)
 }								/* DecodeUnits() */
 
 /*
- * Report an error detected by one of the datetime input processing routines.
+ * 报告由某个日期时间输入处理例程检测到的错误。
  *
- * dterr is the error code, and *extra contains any auxiliary info we need
- * for the error report.  extra can be NULL if not needed for the particular
- * dterr value.
+ * dterr 是错误码，*extra 含错误报告所需的
+ * 任何辅助信息。特定 dterr 值不需要时
+ * 则为 NULL
  *
- * str is the original input string, and datatype is the name of the datatype
- * we were trying to accept.  (For some DTERR codes, these are not used and
- * can be NULL.)
+ * str 是原始输入字符串，datatype 是我们试图接受的
+ * 数据类型的名称。（某些 DTERR 码下这些不用、可为
+ * NULL）。
  *
- * If escontext points to an ErrorSaveContext node, that is filled instead
- * of throwing an error.
+ * 若 escontext 指向 ErrorSaveContext 节点，则填充它
+ * 而不是抛错。
  *
- * Note: it might seem useless to distinguish DTERR_INTERVAL_OVERFLOW and
- * DTERR_TZDISP_OVERFLOW from DTERR_FIELD_OVERFLOW, but SQL99 mandates three
- * separate SQLSTATE codes, so ...
+ * 注意：把 DTERR_INTERVAL_OVERFLOW 与 DTERR_TZDISP_OVERFLOW
+ * 从 DTERR_FIELD_OVERFLOW 分出看似无用，但 SQL99 强制三个
+ * SQLSTATE 码。
  */
 void
 DateTimeParseError(int dterr, DateTimeErrorExtra *extra,
@@ -3988,7 +3988,7 @@ DateTimeParseError(int dterr, DateTimeErrorExtra *extra,
 							str)));
 			break;
 		case DTERR_MD_FIELD_OVERFLOW:
-			/* <nanny>same as above, but add hint about DateStyle</nanny> */
+			/* 同上，但加上 DateStyle 提示 */
 			errsave(escontext,
 					(errcode(ERRCODE_DATETIME_FIELD_OVERFLOW),
 					 errmsg("date/time field value out of range: \"%s\"",
@@ -4032,8 +4032,8 @@ DateTimeParseError(int dterr, DateTimeErrorExtra *extra,
 }
 
 /* datebsearch()
- * Binary search -- from Knuth (6.2.1) Algorithm B.  Special case like this
- * is WAY faster than the generic bsearch().
+ * 二分查找 -- 出自 Knuth (6.2.1) 算法 B。这类特化
+ * 情形远快于通用 bsearch()。
  */
 static const datetkn *
 datebsearch(const char *key, const datetkn *base, int nel)
@@ -4047,11 +4047,11 @@ datebsearch(const char *key, const datetkn *base, int nel)
 		while (last >= base)
 		{
 			position = base + ((last - base) >> 1);
-			/* precheck the first character for a bit of extra speed */
+			/* 预检首字符换取额外速度 */
 			result = (int) key[0] - (int) position->token[0];
 			if (result == 0)
 			{
-				/* use strncmp so that we match truncated tokens */
+				/* 用 strncmp 以匹配被截断的记号 */
 				result = strncmp(key, position->token, TOKMAXLEN);
 				if (result == 0)
 					return position;
@@ -4066,10 +4066,10 @@ datebsearch(const char *key, const datetkn *base, int nel)
 }
 
 /* EncodeTimezone()
- *		Copies representation of a numeric timezone offset to str.
+ *		把数字时区偏移的表示复制到 str。
  *
- * Returns a pointer to the new end of string.  No NUL terminator is put
- * there; callers are responsible for NUL terminating str themselves.
+ * 返回指向字符串新末尾的指针。不在那里放
+ * NUL 终止符；调用方需自行负责 str 的 NUL 终止。
  */
 static char *
 EncodeTimezone(char *str, int tz, int style)
@@ -4084,7 +4084,7 @@ EncodeTimezone(char *str, int tz, int style)
 	hour = min / MINS_PER_HOUR;
 	min -= hour * MINS_PER_HOUR;
 
-	/* TZ is negated compared to sign we wish to display ... */
+	/* TZ 相对我们欲显示的符号取反 */
 	*str++ = (tz <= 0 ? '+' : '-');
 
 	if (sec != 0)
@@ -4107,7 +4107,7 @@ EncodeTimezone(char *str, int tz, int style)
 }
 
 /* EncodeDateOnly()
- * Encode date as local time.
+ * 按本地时间编码
  */
 void
 EncodeDateOnly(struct pg_tm *tm, int style, char *str)
@@ -4118,7 +4118,7 @@ EncodeDateOnly(struct pg_tm *tm, int style, char *str)
 	{
 		case USE_ISO_DATES:
 		case USE_XSD_DATES:
-			/* compatible with ISO date formats */
+			/* 与 ISO 格式兼容 */
 			str = pg_ultostr_zeropad(str,
 									 (tm->tm_year > 0) ? tm->tm_year : -(tm->tm_year - 1), 4);
 			*str++ = '-';
@@ -4128,7 +4128,7 @@ EncodeDateOnly(struct pg_tm *tm, int style, char *str)
 			break;
 
 		case USE_SQL_DATES:
-			/* compatible with Oracle/Ingres date formats */
+			/* 兼容 Oracle/Ingres 格式 */
 			if (DateOrder == DATEORDER_DMY)
 			{
 				str = pg_ultostr_zeropad(str, tm->tm_mday, 2);
@@ -4147,7 +4147,7 @@ EncodeDateOnly(struct pg_tm *tm, int style, char *str)
 			break;
 
 		case USE_GERMAN_DATES:
-			/* German-style date format */
+			/* 德国式格式 */
 			str = pg_ultostr_zeropad(str, tm->tm_mday, 2);
 			*str++ = '.';
 			str = pg_ultostr_zeropad(str, tm->tm_mon, 2);
@@ -4158,7 +4158,7 @@ EncodeDateOnly(struct pg_tm *tm, int style, char *str)
 
 		case USE_POSTGRES_DATES:
 		default:
-			/* traditional date-only style for Postgres */
+			/* Postgres 仅日期风格 */
 			if (DateOrder == DATEORDER_DMY)
 			{
 				str = pg_ultostr_zeropad(str, tm->tm_mday, 2);
@@ -4179,7 +4179,7 @@ EncodeDateOnly(struct pg_tm *tm, int style, char *str)
 
 	if (tm->tm_year <= 0)
 	{
-		memcpy(str, " BC", 3);	/* Don't copy NUL */
+		memcpy(str, " BC", 3);	/* 不复制 NUL */
 		str += 3;
 	}
 	*str = '\0';
@@ -4187,12 +4187,12 @@ EncodeDateOnly(struct pg_tm *tm, int style, char *str)
 
 
 /* EncodeTimeOnly()
- * Encode time fields only.
+ * 仅编码时间字段。
  *
- * tm and fsec are the value to encode, print_tz determines whether to include
- * a time zone (the difference between time and timetz types), tz is the
- * numeric time zone offset, style is the date style, str is where to write the
- * output.
+ * tm 与 fsec 是要编码的值，print_tz 决定是否包含
+ * 时区（time 与 timetz 类型的差别所在），tz 是
+ * 数字时区偏移，style 是日期风格，str 是写出之
+ * 处
  */
 void
 EncodeTimeOnly(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, int style, char *str)
@@ -4209,15 +4209,15 @@ EncodeTimeOnly(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, int style, 
 
 
 /* EncodeDateTime()
- * Encode date and time interpreted as local time.
+ * 编码解释为本地时间的日期时间。
  *
- * tm and fsec are the value to encode, print_tz determines whether to include
- * a time zone (the difference between timestamp and timestamptz types), tz is
- * the numeric time zone offset, tzn is the textual time zone, which if
- * specified will be used instead of tz by some styles, style is the date
- * style, str is where to write the output.
+ * tm 与 fsec 是要编码的值，print_tz 决定是否包含
+ * 时区（timestamp 与 timestamptz 类型的差别），tz 是
+ * 数字时区偏移，tzn 是文本时区，若指定它则某些
+ * 风格会用它替代 tz，style 是日期风格，str 是输出
+ * 位置。
  *
- * Supported date styles:
+ * 日期风格：
  *	Postgres - day mon hh:mm:ss yyyy tz
  *	SQL - mm/dd/yyyy hh:mm:ss.ss tz
  *	ISO - yyyy-mm-dd hh:mm:ss+/-tz
@@ -4232,7 +4232,7 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 	Assert(tm->tm_mon >= 1 && tm->tm_mon <= MONTHS_PER_YEAR);
 
 	/*
-	 * Negative tm_isdst means we have no valid time zone translation.
+	 * 负 tm_isdst 表示我们没有有效的时区转换。
 	 */
 	if (tm->tm_isdst < 0)
 		print_tz = false;
@@ -4241,7 +4241,7 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 	{
 		case USE_ISO_DATES:
 		case USE_XSD_DATES:
-			/* Compatible with ISO-8601 date formats */
+			/* 兼容 ISO-8601 格式 */
 			str = pg_ultostr_zeropad(str,
 									 (tm->tm_year > 0) ? tm->tm_year : -(tm->tm_year - 1), 4);
 			*str++ = '-';
@@ -4259,7 +4259,7 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 			break;
 
 		case USE_SQL_DATES:
-			/* Compatible with Oracle/Ingres date formats */
+			/* 兼容 Oracle/Ingres 格式 */
 			if (DateOrder == DATEORDER_DMY)
 			{
 				str = pg_ultostr_zeropad(str, tm->tm_mday, 2);
@@ -4283,10 +4283,10 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 			str = AppendTimestampSeconds(str, tm, fsec);
 
 			/*
-			 * Note: the uses of %.*s in this function would be risky if the
-			 * timezone names ever contain non-ASCII characters, since we are
-			 * not being careful to do encoding-aware clipping.  However, all
-			 * TZ abbreviations in the IANA database are plain ASCII.
+			 * 注意：若时区名将来包含非 ASCII 字符，这里
+			 * %.*s 的使用就有风险，因为我们没有小心地做
+			 * 编码感知的裁剪。不过 IANA 数据库中的
+			 * TZ 缩写都是纯 ASCII。
 			 */
 			if (print_tz)
 			{
@@ -4301,7 +4301,7 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 			break;
 
 		case USE_GERMAN_DATES:
-			/* German variant on European style */
+			/* 德国风格变体 */
 			str = pg_ultostr_zeropad(str, tm->tm_mday, 2);
 			*str++ = '.';
 			str = pg_ultostr_zeropad(str, tm->tm_mon, 2);
@@ -4329,7 +4329,7 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 
 		case USE_POSTGRES_DATES:
 		default:
-			/* Backward-compatible with traditional Postgres abstime dates */
+			/* 向后兼容传统 Postgres abstime 日期 */
 			day = date2j(tm->tm_year, tm->tm_mon, tm->tm_mday);
 			tm->tm_wday = j2day(day);
 			memcpy(str, days[tm->tm_wday], 3);
@@ -4369,10 +4369,10 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 				else
 				{
 					/*
-					 * We have a time zone, but no string version. Use the
-					 * numeric form, but be sure to include a leading space to
-					 * avoid formatting something which would be rejected by
-					 * the date/time parser later. - thomas 2001-10-19
+					 * 有时区但无字符串版。用数字形式，
+					 * 但务必加上前导空格，以免把之后会被
+					 * 日期/时间解析器拒绝的东西格式化。
+					 * - thomas 2001-10-19
 					 */
 					*str++ = ' ';
 					str = EncodeTimezone(str, tz, style);
@@ -4383,7 +4383,7 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 
 	if (tm->tm_year <= 0)
 	{
-		memcpy(str, " BC", 3);	/* Don't copy NUL */
+		memcpy(str, " BC", 3);	/* 不复制 NUL */
 		str += 3;
 	}
 	*str = '\0';
@@ -4391,10 +4391,10 @@ EncodeDateTime(struct pg_tm *tm, fsec_t fsec, bool print_tz, int tz, const char 
 
 
 /*
- * Helper functions to avoid duplicated code in EncodeInterval.
+ * 用于避免 EncodeInterval 代码重复的辅助函数。
  */
 
-/* Append an ISO-8601-style interval field, but only if value isn't zero */
+/* 追加 ISO-8601 风格的 interval 字段，但仅当值非零 */
 static char *
 AddISO8601IntPart(char *cp, int64 value, char units)
 {
@@ -4404,7 +4404,7 @@ AddISO8601IntPart(char *cp, int64 value, char units)
 	return cp + strlen(cp);
 }
 
-/* Append a postgres-style interval field, but only if value isn't zero */
+/* 追加 postgres 风格的 interval 字段，但仅当值非零 */
 static char *
 AddPostgresIntPart(char *cp, int64 value, const char *units,
 				   bool *is_zero, bool *is_before)
@@ -4419,22 +4419,22 @@ AddPostgresIntPart(char *cp, int64 value, const char *units,
 			(value != 1) ? "s" : "");
 
 	/*
-	 * Each nonzero field sets is_before for (only) the next one.  This is a
-	 * tad bizarre but it's how it worked before...
+	 * 每个非零字段为（仅）下一个字段设置 is_before。
+	 * 这有点怪，但过去就这样……
 	 */
 	*is_before = (value < 0);
 	*is_zero = false;
 	return cp + strlen(cp);
 }
 
-/* Append a verbose-style interval field, but only if value isn't zero */
+/* 追加详细风格的 interval 字段，但仅当值非零时 */
 static char *
 AddVerboseIntPart(char *cp, int64 value, const char *units,
 				  bool *is_zero, bool *is_before)
 {
 	if (value == 0)
 		return cp;
-	/* first nonzero value sets is_before */
+	/* 先设 is_before */
 	if (*is_zero)
 	{
 		*is_before = (value < 0);
@@ -4449,23 +4449,23 @@ AddVerboseIntPart(char *cp, int64 value, const char *units,
 
 
 /* EncodeInterval()
- * Interpret time structure as a delta time and convert to string.
+ * 把时间结构解释为差值时间并转换为字符串。
  *
- * Support "traditional Postgres" and ISO-8601 styles.
- * Actually, afaik ISO does not address time interval formatting,
- *	but this looks similar to the spec for absolute date/time.
+ * 支持 "传统 Postgres" 与 ISO-8601 风格。
+ * 其实，据我所知 ISO 并未规定时间间隔格式化，
+ *	但这个看起来类似绝对日期/时间的规范。
  * - thomas 1998-04-30
  *
- * Actually, afaik, ISO 8601 does specify formats for "time
- * intervals...[of the]...format with time-unit designators", which
- * are pretty ugly.  The format looks something like
+ * 其实，据我所知 ISO 8601 确实为 "时间
+ * 间隔……时间单位指示符格式"做了规定，
+ * 它们相当丑陋。格式如下：
  *	   P1Y1M1DT1H1M1.12345S
- * but useful for exchanging data with computers instead of humans.
+ * 但它适合在计算机之间而非与人交换数据。
  * - ron 2003-07-14
  *
- * And ISO's SQL 2008 standard specifies standards for
- * "year-month literal"s (that look like '2-3') and
- * "day-time literal"s (that look like ('4 5:6:7')
+ * 而 ISO 的 SQL 2008 标准为
+ * "年-月字面值"（形如 '2-3'）以及
+ * "日-时字面值"（形如 '4 5:6:7'）
  */
 void
 EncodeInterval(struct pg_itm *itm, int style, char *str)
@@ -4473,7 +4473,7 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 	char	   *cp = str;
 	int			year = itm->tm_year;
 	int			mon = itm->tm_mon;
-	int64		mday = itm->tm_mday;	/* tm_mday could be INT_MIN */
+	int64		mday = itm->tm_mday;	/* tm_mday 可为 INT_MIN */
 	int64		hour = itm->tm_hour;
 	int			min = itm->tm_min;
 	int			sec = itm->tm_sec;
@@ -4482,14 +4482,14 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 	bool		is_zero = true;
 
 	/*
-	 * The sign of year and month are guaranteed to match, since they are
-	 * stored internally as "month". But we'll need to check for is_before and
-	 * is_zero when determining the signs of day and hour/minute/seconds
-	 * fields.
+	 * 年与月的符号保证一致，因为它们内部以
+	 * "month" 存储。但判定日与时/分/秒字段
+	 * 符号时，还需检查 is_before 与 is_zero 这两
+	 * 项。
 	 */
 	switch (style)
 	{
-			/* SQL Standard interval format */
+			/* SQL 标准格式 */
 		case INTSTYLE_SQL_STANDARD:
 			{
 				bool		has_negative = year < 0 || mon < 0 ||
@@ -4506,8 +4506,8 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 					!(has_year_month && has_day_time);
 
 				/*
-				 * SQL Standard wants only 1 "<sign>" preceding the whole
-				 * interval ... but can't do that if mixed signs.
+				 * SQL 标准要求 interval 前只有一个符号，
+				 * 但若符号混合则做不到。
 				 */
 				if (has_negative && sql_standard_value)
 				{
@@ -4528,9 +4528,9 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 				else if (!sql_standard_value)
 				{
 					/*
-					 * For non sql-standard interval values, force outputting
-					 * the signs to avoid ambiguities with intervals with
-					 * mixed sign components.
+					 * 非 sql 标准 interval 强制输出符号，
+					 * 以免与带混合符号的 interval
+					 * 分量产生歧义。
 					 */
 					char		year_sign = (year < 0 || mon < 0) ? '-' : '+';
 					char		day_sign = (mday < 0) ? '-' : '+';
@@ -4567,9 +4567,9 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 			}
 			break;
 
-			/* ISO 8601 "time-intervals by duration only" */
+			/* ISO 8601 "仅时长时距" */
 		case INTSTYLE_ISO_8601:
-			/* special-case zero to avoid printing nothing */
+			/* 特判零以免打印空 */
 			if (year == 0 && mon == 0 && mday == 0 &&
 				hour == 0 && min == 0 && sec == 0 && fsec == 0)
 			{
@@ -4594,14 +4594,14 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 			}
 			break;
 
-			/* Compatible with postgresql < 8.4 when DateStyle = 'iso' */
+			/* 与 postgresql<8.4 兼容（iso 时） */
 		case INTSTYLE_POSTGRES:
 			cp = AddPostgresIntPart(cp, year, "year", &is_zero, &is_before);
 
 			/*
-			 * Ideally we should spell out "month" like we do for "year" and
-			 * "day".  However, for backward compatibility, we can't easily
-			 * fix this.  bjm 2011-05-24
+			 * 理想情况下我们应像对 "year" 与 "day" 那样拼出
+			 * "month"，但向后兼容使我们难以修复它。
+			 * bjm 2011-05-24
 			 */
 			cp = AddPostgresIntPart(cp, mon, "mon", &is_zero, &is_before);
 			cp = AddPostgresIntPart(cp, mday, "day", &is_zero, &is_before);
@@ -4619,7 +4619,7 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 			}
 			break;
 
-			/* Compatible with postgresql < 8.4 when DateStyle != 'iso' */
+			/* 与 postgresql<8.4 兼容（非 iso 时） */
 		case INTSTYLE_POSTGRES_VERBOSE:
 		default:
 			strcpy(cp, "@");
@@ -4642,12 +4642,12 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 				else if (is_before)
 					*cp++ = '-';
 				cp = AppendSeconds(cp, sec, fsec, MAX_INTERVAL_PRECISION, false);
-				/* We output "ago", not negatives, so use abs(). */
+				/* 输出 "ago" 故用 abs() */
 				sprintf(cp, " sec%s",
 						(abs(sec) != 1 || fsec != 0) ? "s" : "");
 				is_zero = false;
 			}
-			/* identically zero? then put in a unitless zero... */
+			/* 恰为零？则放入无单位零 */
 			if (is_zero)
 				strcat(cp, " 0");
 			if (is_before)
@@ -4658,8 +4658,8 @@ EncodeInterval(struct pg_itm *itm, int style, char *str)
 
 
 /*
- * We've been burnt by stupid errors in the ordering of the datetkn tables
- * once too often.  Arrange to check them during postmaster start.
+ * 我们被 datetkn 表排序中的愚蠢错误坑过太
+ * 多次了。安排在 postmaster 启动时检查它们。
  */
 static bool
 CheckDateTokenTable(const char *tablename, const datetkn *base, int nel)
@@ -4669,17 +4669,17 @@ CheckDateTokenTable(const char *tablename, const datetkn *base, int nel)
 
 	for (i = 0; i < nel; i++)
 	{
-		/* check for token strings that don't fit */
+		/* 查放不下的记号串 */
 		if (strlen(base[i].token) > TOKMAXLEN)
 		{
-			/* %.*s is safe since all our tokens are ASCII */
+			/* %.*s 安全：全 ASCII 记号 */
 			elog(LOG, "token too long in %s table: \"%.*s\"",
 				 tablename,
 				 TOKMAXLEN + 1, base[i].token);
 			ok = false;
-			break;				/* don't risk applying strcmp */
+			break;				/* 不冒险调用 strcmp */
 		}
-		/* check for out of order */
+		/* 顺序检查 */
 		if (i > 0 &&
 			strcmp(base[i - 1].token, base[i].token) >= 0)
 		{
@@ -4707,20 +4707,20 @@ CheckDateTokenTables(void)
 }
 
 /*
- * Common code for temporal prosupport functions: simplify, if possible,
- * a call to a temporal type's length-coercion function.
+ * 时间类型 prosupport 函数的公共代码：如可能，
+ * 化简时间类型长度强制函数的调用。
  *
- * Types time, timetz, timestamp and timestamptz each have a range of allowed
- * precisions.  An unspecified precision is rigorously equivalent to the
- * highest specifiable precision.  We can replace the function call with a
- * no-op RelabelType if it is coercing to the same or higher precision as the
- * input is known to have.
+ * time、timetz、timestamp 与 timestamptz 各有一段允许
+ * 的精度范围。未指定的精度严格等价于可指定
+ * 的最高精度。若该调用强制的精度等于或高于
+ * 已知输入所具有的精度，则以 RelabelType 空操作
+ * 取代。
  *
- * The input Node is always a FuncExpr, but to reduce the #include footprint
- * of datetime.h, we declare it as Node *.
+ * 输入 Node 总是 FuncExpr，但为了减小 datetime.h
+ * 的包含足迹，声明为 Node *。
  *
- * Note: timestamp_scale throws an error when the typmod is out of range, but
- * we can't get there from a cast: our typmodin will have caught it already.
+ * 注意：typmod 越界时 timestamp_scale 会抛错，但从
+ * cast 到达不了那里：我们的 typmodin 早已把它拦下。
  */
 Node *
 TemporalSimplify(int32 max_precis, Node *node)
@@ -4748,12 +4748,12 @@ TemporalSimplify(int32 max_precis, Node *node)
 }
 
 /*
- * This function gets called during timezone config file load or reload
- * to create the final array of timezone tokens.  The argument array
- * is already sorted in name order.
+ * 本函数在时区配置文件装载或重载期间被调用，
+ * 以创建最终的时区记号数组。参数数组已按名称
+ * 顺序排好序。
  *
- * The result is a TimeZoneAbbrevTable (which must be a single guc_malloc'd
- * chunk) or NULL on alloc failure.  No other error conditions are defined.
+ * 结果是一个 TimeZoneAbbrevTable（必须是单块
+ * guc_malloc 块）或分配失败时为 NULL。无其他错误条件。
  */
 TimeZoneAbbrevTable *
 ConvertTimeZoneAbbrevs(struct tzEntry *abbrevs, int n)
@@ -4762,11 +4762,11 @@ ConvertTimeZoneAbbrevs(struct tzEntry *abbrevs, int n)
 	Size		tbl_size;
 	int			i;
 
-	/* Space for fixed fields and datetkn array */
+	/* 固定字段与数组区 */
 	tbl_size = offsetof(TimeZoneAbbrevTable, abbrevs) +
 		n * sizeof(datetkn);
 	tbl_size = MAXALIGN(tbl_size);
-	/* Count up space for dynamic abbreviations */
+	/* 累计动态缩写空间 */
 	for (i = 0; i < n; i++)
 	{
 		struct tzEntry *abbr = abbrevs + i;
@@ -4781,15 +4781,15 @@ ConvertTimeZoneAbbrevs(struct tzEntry *abbrevs, int n)
 		}
 	}
 
-	/* Alloc the result ... */
+	/* 分配 */
 	tbl = guc_malloc(LOG, tbl_size);
 	if (!tbl)
 		return NULL;
 
-	/* ... and fill it in */
+	/* 填充 */
 	tbl->tblsize = tbl_size;
 	tbl->numabbrevs = n;
-	/* in this loop, tbl_size reprises the space calculation above */
+	/* 此循环中 tbl_size 重演上面的空间计算 */
 	tbl_size = offsetof(TimeZoneAbbrevTable, abbrevs) +
 		n * sizeof(datetkn);
 	tbl_size = MAXALIGN(tbl_size);
@@ -4798,11 +4798,11 @@ ConvertTimeZoneAbbrevs(struct tzEntry *abbrevs, int n)
 		struct tzEntry *abbr = abbrevs + i;
 		datetkn    *dtoken = tbl->abbrevs + i;
 
-		/* use strlcpy to truncate name if necessary */
+		/* 需要时以 strlcpy 截断 */
 		strlcpy(dtoken->token, abbr->abbrev, TOKMAXLEN + 1);
 		if (abbr->zone != NULL)
 		{
-			/* Allocate a DynamicZoneAbbrev for this abbreviation */
+			/* 为此缩写分配 DynamicZoneAbbrev */
 			DynamicZoneAbbrev *dtza;
 			Size		dsize;
 
@@ -4811,7 +4811,7 @@ ConvertTimeZoneAbbrevs(struct tzEntry *abbrevs, int n)
 			strcpy(dtza->zone, abbr->zone);
 
 			dtoken->type = DYNTZ;
-			/* value is offset from table start to DynamicZoneAbbrev */
+			/* 值为表起点到 DynamicZoneAbbrev 偏移 */
 			dtoken->value = (int32) tbl_size;
 
 			dsize = offsetof(DynamicZoneAbbrev, zone) +
@@ -4825,32 +4825,32 @@ ConvertTimeZoneAbbrevs(struct tzEntry *abbrevs, int n)
 		}
 	}
 
-	/* Assert the two loops above agreed on size calculations */
+	/* 断言两循环的大小计算一致 */
 	Assert(tbl->tblsize == tbl_size);
 
-	/* Check the ordering, if testing */
+	/* 测试时验证 */
 	Assert(CheckDateTokenTable("timezone abbreviations", tbl->abbrevs, n));
 
 	return tbl;
 }
 
 /*
- * Install a TimeZoneAbbrevTable as the active table.
+ * 安装 TimeZoneAbbrevTable 为活动表。
  *
- * Caller is responsible that the passed table doesn't go away while in use.
+ * 调用方负责确保所传入的表在使用期间不会消失。
  */
 void
 InstallTimeZoneAbbrevs(TimeZoneAbbrevTable *tbl)
 {
 	zoneabbrevtbl = tbl;
-	/* reset abbrevcache, which may contain pointers into old table */
+	/* 重置 abbrevcache，它可能含指向旧表的指针 */
 	memset(abbrevcache, 0, sizeof(abbrevcache));
 }
 
 /*
- * Helper subroutine to locate pg_tz timezone for a dynamic abbreviation.
+ * 为动态缩写定位 pg_tz 时区的辅助子例程。
  *
- * On failure, returns NULL and fills *extra for a DTERR_BAD_ZONE_ABBREV error.
+ * 失败时返回 NULL 并为 DTERR_BAD_ZONE_ABBREV 错误填充 *extra。
  */
 static pg_tz *
 FetchDynamicTimeZone(TimeZoneAbbrevTable *tbl, const datetkn *tp,
@@ -4858,19 +4858,19 @@ FetchDynamicTimeZone(TimeZoneAbbrevTable *tbl, const datetkn *tp,
 {
 	DynamicZoneAbbrev *dtza;
 
-	/* Just some sanity checks to prevent indexing off into nowhere */
+	/* 防止索引越界的健全性检查 */
 	Assert(tp->type == DYNTZ);
 	Assert(tp->value > 0 && tp->value < tbl->tblsize);
 
 	dtza = (DynamicZoneAbbrev *) ((char *) tbl + tp->value);
 
-	/* Look up the underlying zone if we haven't already */
+	/* 若尚未查找则查找底层时区 */
 	if (dtza->tz == NULL)
 	{
 		dtza->tz = pg_tzset(dtza->zone);
 		if (dtza->tz == NULL)
 		{
-			/* Ooops, bogus zone name in config file entry */
+			/* 配置条目中时区名有误 */
 			extra->dtee_timezone = dtza->zone;
 			extra->dtee_abbrev = tp->token;
 		}
@@ -4880,8 +4880,8 @@ FetchDynamicTimeZone(TimeZoneAbbrevTable *tbl, const datetkn *tp,
 
 
 /*
- * This set-returning function reads all the available time zone abbreviations
- * and returns a set of (abbrev, utc_offset, is_dst).
+ * 本集合返回函数读取所有可用的时区缩写，
+ * 并返回 (abbrev, utc_offset, is_dst) 集合。
  */
 Datum
 pg_timezone_abbrevs(PG_FUNCTION_ARGS)
@@ -4900,21 +4900,21 @@ pg_timezone_abbrevs(PG_FUNCTION_ARGS)
 	struct pg_itm_in itm_in;
 	Interval   *resInterval;
 
-	/* stuff done only on the first call of the function */
+	/* 只在函数首次调用时做 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		TupleDesc	tupdesc;
 		MemoryContext oldcontext;
 
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用的函数上下文以持久化 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* allocate memory for user context */
+		/* 分配用户内存 */
 		pindex = (int *) palloc(sizeof(int));
 		*pindex = 0;
 		funcctx->user_fctx = (void *) pindex;
@@ -4926,7 +4926,7 @@ pg_timezone_abbrevs(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次函数调用都做 */
 	funcctx = SRF_PERCALL_SETUP();
 	pindex = (int *) funcctx->user_fctx;
 
@@ -4948,7 +4948,7 @@ pg_timezone_abbrevs(PG_FUNCTION_ARGS)
 			break;
 		case DYNTZ:
 			{
-				/* Determine the current meaning of the abbrev */
+				/* 定该缩写当前含义 */
 				pg_tz	   *tzp;
 				DateTimeErrorExtra extra;
 				TimestampTz now;
@@ -4968,14 +4968,14 @@ pg_timezone_abbrevs(PG_FUNCTION_ARGS)
 			}
 		default:
 			elog(ERROR, "unrecognized timezone type %d", (int) tp->type);
-			gmtoffset = 0;		/* keep compiler quiet */
+			gmtoffset = 0;		/* 让编译器安静 */
 			is_dst = false;
 			break;
 	}
 
 	/*
-	 * Convert name to text, using upcasing conversion that is the inverse of
-	 * what ParseDateTime() uses.
+	 * 把名称转换为文本，使用与 ParseDateTime() 所用
+	 * 相反大写转换。
 	 */
 	strlcpy(buffer, tp->token, sizeof(buffer));
 	for (p = (unsigned char *) buffer; *p; p++)
@@ -4983,7 +4983,7 @@ pg_timezone_abbrevs(PG_FUNCTION_ARGS)
 
 	values[0] = CStringGetTextDatum(buffer);
 
-	/* Convert offset (in seconds) to an interval; can't overflow */
+	/* 偏移（秒）转 interval；不溢出 */
 	MemSet(&itm_in, 0, sizeof(struct pg_itm_in));
 	itm_in.tm_usec = (int64) gmtoffset * USECS_PER_SEC;
 	resInterval = (Interval *) palloc(sizeof(Interval));
@@ -5001,8 +5001,8 @@ pg_timezone_abbrevs(PG_FUNCTION_ARGS)
 }
 
 /*
- * This set-returning function reads all the available full time zones
- * and returns a set of (name, abbrev, utc_offset, is_dst).
+ * 本集合返回函数读取所有可用的完整时区，
+ * 并返回 (name, abbrev, utc_offset, is_dst) 集合。
  */
 Datum
 pg_timezone_names(PG_FUNCTION_ARGS)
@@ -5021,29 +5021,29 @@ pg_timezone_names(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* initialize timezone scanning code */
+	/* 初始时区扫描 */
 	tzenum = pg_tzenumerate_start();
 
-	/* search for another zone to display */
+	/* 搜下一个时区 */
 	for (;;)
 	{
 		tz = pg_tzenumerate_next(tzenum);
 		if (!tz)
 			break;
 
-		/* Convert now() to local time in this zone */
+		/* now() 转本区本地时间 */
 		if (timestamp2tm(GetCurrentTransactionStartTimestamp(),
 						 &tzoff, &tm, &fsec, &tzn, tz) != 0)
-			continue;			/* ignore if conversion fails */
+			continue;			/* 若转换失败则忽略 */
 
 		/*
-		 * IANA's rather silly "Factory" time zone used to emit ridiculously
-		 * long "abbreviations" such as "Local time zone must be set--see zic
-		 * manual page" or "Local time zone must be set--use tzsetup".  While
-		 * modern versions of tzdb emit the much saner "-00", it seems some
-		 * benighted packagers are hacking the IANA data so that it continues
-		 * to produce these strings.  To prevent producing a weirdly wide
-		 * abbrev column, reject ridiculously long abbreviations.
+		 * IANA 那个相当愚蠢的 "Factory" 时区过去会发出
+		 * 荒谬的长 "缩写"，如 "Local time zone must be set--see zic
+		 * 手册页"或 "Local time zone must be set--use tzsetup"。虽然
+		 * 现代版本的 tzdb 发出合理得多的 "-00"，但似乎
+		 * 某些蒙昧的打包者仍在黑改 IANA 数据，使其继续
+		 * 产生这些字符串。为防止产生过宽的缩写列，
+		 * 拒绝荒谬的长缩写。
 		 */
 		if (tzn && strlen(tzn) > 31)
 			continue;
@@ -5051,7 +5051,7 @@ pg_timezone_names(PG_FUNCTION_ARGS)
 		values[0] = CStringGetTextDatum(pg_get_timezone_name(tz));
 		values[1] = CStringGetTextDatum(tzn ? tzn : "");
 
-		/* Convert tzoff to an interval; can't overflow */
+		/* tzoff 转 interval；不溢出 */
 		MemSet(&itm_in, 0, sizeof(struct pg_itm_in));
 		itm_in.tm_usec = (int64) -tzoff * USECS_PER_SEC;
 		resInterval = (Interval *) palloc(sizeof(Interval));

@@ -9,34 +9,34 @@
  *
  *	 TO_CHAR(); TO_TIMESTAMP(); TO_DATE(); TO_NUMBER();
  *
- *	 The PostgreSQL routines for a timestamp/int/float/numeric formatting,
- *	 inspired by the Oracle TO_CHAR() / TO_DATE() / TO_NUMBER() routines.
+ *	 PostgreSQL 为 timestamp/int/float/numeric 提供格式化例程，
+ *	 灵感来自 Oracle TO_CHAR() / TO_DATE() / TO_NUMBER() 例程。
  *
  *
- *	 Cache & Memory:
- *	Routines use (itself) internal cache for format pictures.
+ *	缓存与内存
+ *	例程使用自身内部的缓存存放格式模式。
  *
- *	The cache uses a static buffer and is persistent across transactions.  If
- *	the format-picture is bigger than the cache buffer, the parser is called
- *	always.
+ *	该缓存使用静态缓冲区，在事务间持久存在。  若格式
+ *	模式大于缓存缓冲区，则总是调用解析器。
  *
- *	 NOTE for Number version:
- *	All in this version is implemented as keywords ( => not used
- *	suffixes), because a format picture is for *one* item (number)
- *	only. It not is as a timestamp version, where each keyword (can)
- *	has suffix.
  *
- *	 NOTE for Timestamp routines:
- *	In this module the POSIX 'struct tm' type is *not* used, but rather
- *	PgSQL type, which has tm_mon based on one (*non* zero) and
- *	year *not* based on 1900, but is used full year number.
- *	Module supports AD / BC / AM / PM.
+ *	 数字版说明：
+ *	本版全部实现为关键字（即不使用后缀），
+ *	因为一个格式模式只针对*一个*条目（数字）。
+ *	timestamp 版则不同——那边关键字可带后缀。
  *
- *	Supported types for to_char():
+ *
+ *	 timestamp 例程注意：
+ *	本模块不使用 POSIX 的 'struct tm' 类型，而是使用
+ *	PgSQL 类型——其 tm_mon 基于一（*非*零），
+ *	年份不以 1900 为基，而是使用完整年份。
+ *	模块支持 AD/BC/AM/PM。
+ *
+ *	to_char() 支持的类型：
  *
  *		Timestamp, Numeric, int4, int8, float4, float8
  *
- *	Supported types for reverse conversion:
+ *	逆向转换支持的类型：
  *
  *		Timestamp	- to_timestamp()
  *		Date		- to_date()
@@ -46,13 +46,13 @@
  *	Karel Zak
  *
  * TODO
- *	- better number building (formatting) / parsing, now it isn't
- *		  ideal code
- *	- use Assert()
- *	- add support for roman number to standard number conversion
- *	- add support for number spelling
- *	- add support for string to string formatting (we must be better
- *	  than Oracle :-),
+ *	- 更好的数字构造（格式化）/解析，现尚不
+ *		  理想。
+ *	- 用 Assert()
+ *	- 增加罗马数字转标准数字的支持
+ *	- 增加数字拼写支持
+ *	- 增加串到串格式化的支持（我们必须胜过
+ *	  Oracle）。
  *		to_char('Hello', 'X X X X X') -> 'H e l l o'
  *
  * -----------------------------------------------------------------------
@@ -92,52 +92,52 @@
 
 
 /* ----------
- * Routines flags
+ * 例程标志
  * ----------
  */
-#define DCH_FLAG		0x1		/* DATE-TIME flag	*/
-#define NUM_FLAG		0x2		/* NUMBER flag	*/
-#define STD_FLAG		0x4		/* STANDARD flag	*/
+#define DCH_FLAG		0x1		/* 日期-时间 */
+#define NUM_FLAG		0x2		/* 数字标志*/
+#define STD_FLAG		0x4		/* 标准标志 */
 
 /* ----------
- * KeyWord Index (ascii from position 32 (' ') to 126 (~))
+ * 关键字索引（ASCII 从 32 (' ') 到 126 (~)）
  * ----------
  */
 #define KeyWord_INDEX_SIZE		('~' - ' ')
 #define KeyWord_INDEX_FILTER(_c)	((_c) <= ' ' || (_c) >= '~' ? 0 : 1)
 
 /* ----------
- * Maximal length of one node
+ * 单节点最大长度
  * ----------
  */
-#define DCH_MAX_ITEM_SIZ	   12	/* max localized day name		*/
-#define NUM_MAX_ITEM_SIZ		8	/* roman number (RN has 15 chars)	*/
+#define DCH_MAX_ITEM_SIZ	   12	/* 本地化日名上限		*/
+#define NUM_MAX_ITEM_SIZ		8	/* 罗马数字（RN 15 字符）	*/
 
 
 /* ----------
- * Format parser structs
+ * 格式解析器结构
  * ----------
  */
 typedef struct
 {
-	const char *name;			/* suffix string		*/
-	int			len,			/* suffix length		*/
-				id,				/* used in node->suffix */
-				type;			/* prefix / postfix		*/
+	const char *name;			/* 后缀串		*/
+	int			len,			/* 后缀长度		*/
+				id,				/* 用于 node->suffix */
+				type;			/* 前缀 / 后缀		*/
 } KeySuffix;
 
 /* ----------
  * FromCharDateMode
  * ----------
  *
- * This value is used to nominate one of several distinct (and mutually
- * exclusive) date conventions that a keyword can belong to.
+ * 该值用于指名关键字可归属的数种不同（且互斥）
+ * 的日期约定中的哪一种。
  */
 typedef enum
 {
-	FROM_CHAR_DATE_NONE = 0,	/* Value does not affect date mode. */
-	FROM_CHAR_DATE_GREGORIAN,	/* Gregorian (day, month, year) style date */
-	FROM_CHAR_DATE_ISOWEEK		/* ISO 8601 week date */
+	FROM_CHAR_DATE_NONE = 0,	/* 该值不影响日期模式。 */
+	FROM_CHAR_DATE_GREGORIAN,	/* 公历（日、月、年）风格日期 */
+	FROM_CHAR_DATE_ISOWEEK		/* ISO 8601 周日期 */
 } FromCharDateMode;
 
 typedef struct
@@ -151,10 +151,10 @@ typedef struct
 
 typedef struct
 {
-	uint8		type;			/* NODE_TYPE_XXX, see below */
-	char		character[MAX_MULTIBYTE_CHAR_LEN + 1];	/* if type is CHAR */
-	uint8		suffix;			/* keyword prefix/suffix code, if any */
-	const KeyWord *key;			/* if type is ACTION */
+	uint8		type;			/* NODE_TYPE_XXX，见下 */
+	char		character[MAX_MULTIBYTE_CHAR_LEN + 1];	/* 若为 CHAR */
+	uint8		suffix;			/* 关键字前后缀码（如有）*/
+	const KeyWord *key;			/* 若为 ACTION */
 } FormatNode;
 
 #define NODE_TYPE_END		1
@@ -171,7 +171,7 @@ typedef struct
 
 
 /* ----------
- * Full months
+ * 全月名
  * ----------
  */
 static const char *const months_full[] = {
@@ -186,9 +186,9 @@ static const char *const days_short[] = {
 /* ----------
  * AD / BC
  * ----------
- *	There is no 0 AD.  Years go from 1 BC to 1 AD, so we make it
- *	positive and map year == -1 to year zero, and shift all negative
- *	years up one.  For interval years, we just return the year.
+ *	不存在公元 0 年。年份从公元前 1 年跨到
+ *	公元 1 年，故将其取为正数：year == -1 映射为
+ *	零年，负年份上移。interval 年份返回原值。
  */
 #define ADJUST_YEAR(year, is_interval)	((is_interval) ? (year) : ((year) <= 0 ? -((year) - 1) : (year)))
 
@@ -203,14 +203,14 @@ static const char *const days_short[] = {
 #define bc_STR		"bc"
 
 /*
- * AD / BC strings for seq_search.
+ * seq_search 用 AD/BC 串。
  *
- * These are given in two variants, a long form with periods and a standard
- * form without.
+ * 各有两种变体：带句点的长形式与无句点的标准形
+ * 式。
  *
- * The array is laid out such that matches for AD have an even index, and
- * matches for BC have an odd index.  So the boolean value for BC is given by
- * taking the array index of the match, modulo 2.
+ * 数组的排布方式使得 AD 的匹配项都位于偶数下标，而
+ * BC 的匹配项都位于奇数下标。因此 BC 的布尔值由匹配
+ * 项的数组下标对 2 取模得出。
  */
 static const char *const adbc_strings[] = {ad_STR, bc_STR, AD_STR, BC_STR, NULL};
 static const char *const adbc_strings_long[] = {a_d_STR, b_c_STR, A_D_STR, B_C_STR, NULL};
@@ -230,22 +230,22 @@ static const char *const adbc_strings_long[] = {a_d_STR, b_c_STR, A_D_STR, B_C_S
 #define pm_STR		"pm"
 
 /*
- * AM / PM strings for seq_search.
+ * seq_search 用 AM/PM 串。
  *
- * These are given in two variants, a long form with periods and a standard
- * form without.
+ * 各有两种变体：带句点的长形式与无句点的标准形
+ * 式。
  *
- * The array is laid out such that matches for AM have an even index, and
- * matches for PM have an odd index.  So the boolean value for PM is given by
- * taking the array index of the match, modulo 2.
+ * 数组的排布方式使得 AM 的匹配项都位于偶数下标，而
+ * PM 的匹配项都位于奇数下标。因此 PM 的布尔值由匹配
+ * 项的数组下标对 2 取模得出。
  */
 static const char *const ampm_strings[] = {am_STR, pm_STR, AM_STR, PM_STR, NULL};
 static const char *const ampm_strings_long[] = {a_m_STR, p_m_STR, A_M_STR, P_M_STR, NULL};
 
 /* ----------
- * Months in roman-numeral
- * (Must be in reverse order for seq_search (in FROM_CHAR), because
- *	'VIII' must have higher precedence than 'V')
+ * 罗马数字月份
+ * （FROM_CHAR 里 seq_search 必须逆序存放，因为
+ *	'VIII' 的优先级必须高于 'V'）
  * ----------
  */
 static const char *const rm_months_upper[] =
@@ -255,7 +255,7 @@ static const char *const rm_months_lower[] =
 {"xii", "xi", "x", "ix", "viii", "vii", "vi", "v", "iv", "iii", "ii", "i", NULL};
 
 /* ----------
- * Roman numbers
+ * 罗马数字
  * ----------
  */
 static const char *const rm1[] = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", NULL};
@@ -263,38 +263,38 @@ static const char *const rm10[] = {"X", "XX", "XXX", "XL", "L", "LX", "LXX", "LX
 static const char *const rm100[] = {"C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM", NULL};
 
 /* ----------
- * Ordinal postfixes
+ * 序数后缀
  * ----------
  */
 static const char *const numTH[] = {"ST", "ND", "RD", "TH", NULL};
 static const char *const numth[] = {"st", "nd", "rd", "th", NULL};
 
 /* ----------
- * Flags & Options:
+ * 标志与选项
  * ----------
  */
 #define TH_UPPER		1
 #define TH_LOWER		2
 
 /* ----------
- * Number description struct
+ * 数字描述结构体
  * ----------
  */
 typedef struct
 {
-	int			pre,			/* (count) numbers before decimal */
-				post,			/* (count) numbers after decimal  */
-				lsign,			/* want locales sign		  */
-				flag,			/* number parameters		  */
-				pre_lsign_num,	/* tmp value for lsign		  */
-				multi,			/* multiplier for 'V'		  */
-				zero_start,		/* position of first zero	  */
-				zero_end,		/* position of last zero	  */
-				need_locale;	/* needs it locale		  */
+	int			pre,			/* 小数点前的位数 */
+				post,			/* 小数点后的位数 */
+				lsign,			/* 需要区域符号 */
+				flag,			/* 数字参数	  */
+				pre_lsign_num,	/* lsign 临时值		  */
+				multi,			/* 'V' 的乘数		  */
+				zero_start,		/* 首个零的位置		  */
+				zero_end,		/* 末个零的位置		  */
+				need_locale;	/* 需要区域		  */
 } NUMDesc;
 
 /* ----------
- * Flags for NUMBER version
+ * NUMBER 版的标志
  * ----------
  */
 #define NUM_F_DECIMAL		(1 << 1)
@@ -334,21 +334,21 @@ typedef struct
 #define IS_EEEE(_f)		((_f)->flag & NUM_F_EEEE)
 
 /* ----------
- * Format picture cache
+ * 格式模式缓存
  *
- * We will cache datetime format pictures up to DCH_CACHE_SIZE bytes long;
- * likewise number format pictures up to NUM_CACHE_SIZE bytes long.
+ * 缓存最长 DCH_CACHE_SIZE 字节的日期时间格式模式；
+ * 同样缓存最长 NUM_CACHE_SIZE 字节的数字格式模式。
  *
- * For simplicity, the cache entries are fixed-size, so they allow for the
- * worst case of a FormatNode for each byte in the picture string.
+ * 简化起见，缓存条目为固定大小，故可容纳最坏情形
+ * ——格式串的每个字节一个 FormatNode。
  *
- * The CACHE_SIZE constants are computed to make sizeof(DCHCacheEntry) and
- * sizeof(NUMCacheEntry) be powers of 2, or just less than that, so that
- * we don't waste too much space by palloc'ing them individually.  Be sure
- * to adjust those macros if you add fields to those structs.
+ * CACHE_SIZE 常量的取值经过计算，使 sizeof(DCHCacheEntry)
+ * 和 sizeof(NUMCacheEntry) 为 2 的幂或略小，这样
+ * 单独 palloc 它们时不会浪费太多空间。
+ * 若给这些结构体加字段，务必调整这些宏。
  *
- * The max number of entries in each cache is DCH_CACHE_ENTRIES
- * resp. NUM_CACHE_ENTRIES.
+ * 每个缓存的最大条目数为 DCH_CACHE_ENTRIES
+ * 或 NUM_CACHE_ENTRIES。
  * ----------
  */
 #define DCH_CACHE_OVERHEAD \
@@ -382,18 +382,18 @@ typedef struct
 	NUMDesc		Num;
 } NUMCacheEntry;
 
-/* global cache for date/time format pictures */
+/* 日期/时间格式模式的全局缓存 */
 static DCHCacheEntry *DCHCache[DCH_CACHE_ENTRIES];
-static int	n_DCHCache = 0;		/* current number of entries */
-static int	DCHCounter = 0;		/* aging-event counter */
+static int	n_DCHCache = 0;		/* 当前条目数 */
+static int	DCHCounter = 0;		/* 老化事件计数 */
 
-/* global cache for number format pictures */
+/* 数字格式模式的全局缓存 */
 static NUMCacheEntry *NUMCache[NUM_CACHE_ENTRIES];
-static int	n_NUMCache = 0;		/* current number of entries */
-static int	NUMCounter = 0;		/* aging-event counter */
+static int	n_NUMCache = 0;		/* 当前条目数 */
+static int	NUMCounter = 0;		/* 老化事件计数 */
 
 /* ----------
- * For char->date/time conversion
+ * 用于 char->date/time 转换
  * ----------
  */
 typedef struct
@@ -404,7 +404,7 @@ typedef struct
 				mi,
 				ss,
 				ssss,
-				d,				/* stored as 1-7, Sunday = 1, 0 means missing */
+				d,				/* 存为 1-7，周日=1，0 表示缺失 */
 				dd,
 				ddd,
 				mm,
@@ -416,12 +416,12 @@ typedef struct
 				cc,
 				j,
 				us,
-				yysz,			/* is it YY or YYYY ? */
-				clock,			/* 12 or 24 hour clock? */
-				tzsign,			/* +1, -1 or 0 if timezone info is absent */
+				yysz,			/* YY 还是 YYYY？*/
+				clock,			/* 12 或 24 小时制 */
+				tzsign,			/* 无时区信息时为 +1、-1 或 0 */
 				tzh,
 				tzm,
-				ff;				/* fractional precision */
+				ff;				/* 小数部分精度 */
 } TmFromChar;
 
 #define ZERO_tmfc(_X) memset(_X, 0, sizeof(TmFromChar))
@@ -448,11 +448,11 @@ typedef struct
 #endif
 
 /* ----------
- * Datetime to char conversion
+ * 日期时间到 char 转换
  *
- * To support intervals as well as timestamps, we use a custom "tm" struct
- * that is almost like struct pg_tm, but has a 64-bit tm_hour field.
- * We omit the tm_isdst and tm_zone fields, which are not used here.
+ * 为同时支持 interval 与 timestamp，我们使用自定义 "tm"
+ * 结构体，近似 struct pg_tm，但有 64 位 tm_hour 字段。
+ * 我们省略了此处不用的 tm_isdst 与 tm_zone 字段。
  * ----------
  */
 struct fmt_tm
@@ -470,16 +470,16 @@ struct fmt_tm
 
 typedef struct TmToChar
 {
-	struct fmt_tm tm;			/* almost the classic 'tm' struct */
-	fsec_t		fsec;			/* fractional seconds */
-	const char *tzn;			/* timezone */
+	struct fmt_tm tm;			/* 近似经典的 'tm' 结构体 */
+	fsec_t		fsec;			/* 小数秒 */
+	const char *tzn;			/* 时区 */
 } TmToChar;
 
 #define tmtcTm(_X)	(&(_X)->tm)
 #define tmtcTzn(_X) ((_X)->tzn)
 #define tmtcFsec(_X)	((_X)->fsec)
 
-/* Note: this is used to copy pg_tm to fmt_tm, so not quite a bitwise copy */
+/* 注意：用于把 pg_tm 复制到 fmt_tm，并非完全按位复制 */
 #define COPY_tm(_DST, _SRC) \
 do {	\
 	(_DST)->tm_sec = (_SRC)->tm_sec; \
@@ -493,7 +493,7 @@ do {	\
 	(_DST)->tm_gmtoff = (_SRC)->tm_gmtoff; \
 } while(0)
 
-/* Caution: this is used to zero both pg_tm and fmt_tm structs */
+/* 当心：用于把 pg_tm 与 fmt_tm 结构体都清零 */
 #define ZERO_tm(_X) \
 do {	\
 	memset(_X, 0, sizeof(*(_X))); \
@@ -508,8 +508,8 @@ do { \
 } while(0)
 
 /*
- *	to_char(time) appears to to_char() as an interval, so this check
- *	is really for interval and time data types.
+ *	to_char(time) 在 to_char() 看来是 interval，所以此检查
+ *	实为 interval 与 time 类型而设。
  */
 #define INVALID_FOR_INTERVAL  \
 do { \
@@ -521,11 +521,11 @@ do { \
 } while(0)
 
 /*****************************************************************************
- *			KeyWord definitions
+ *			关键字定义
  *****************************************************************************/
 
 /* ----------
- * Suffixes (FormatNode.suffix is an OR of these codes)
+ * 后缀（FormatNode.suffix 为这些码的 OR）
  * ----------
  */
 #define DCH_S_FM	0x01
@@ -535,7 +535,7 @@ do { \
 #define DCH_S_TM	0x10
 
 /* ----------
- * Suffix tests
+ * 后缀测试
  * ----------
  */
 #define S_THth(_s)	((((_s) & DCH_S_TH) || ((_s) & DCH_S_th)) ? 1 : 0)
@@ -543,13 +543,13 @@ do { \
 #define S_th(_s)	(((_s) & DCH_S_th) ? 1 : 0)
 #define S_TH_TYPE(_s)	(((_s) & DCH_S_TH) ? TH_UPPER : TH_LOWER)
 
-/* Oracle toggles FM behavior, we don't; see docs. */
+/* Oracle 切换 FM，我们不；见文档。 */
 #define S_FM(_s)	(((_s) & DCH_S_FM) ? 1 : 0)
 #define S_SP(_s)	(((_s) & DCH_S_SP) ? 1 : 0)
 #define S_TM(_s)	(((_s) & DCH_S_TM) ? 1 : 0)
 
 /* ----------
- * Suffixes definition for DATE-TIME TO/FROM CHAR
+ * DATE-TIME TO/FROM CHAR 的后缀定义
  * ----------
  */
 #define TM_SUFFIX_LEN	2
@@ -568,29 +568,29 @@ static const KeySuffix DCH_suff[] = {
 
 
 /* ----------
- * Format-pictures (KeyWord).
+ * 格式模式 (KeyWord)。
  *
- * The KeyWord field; alphabetic sorted, *BUT* strings alike is sorted
- *		  complicated -to-> easy:
+ * KeyWord 字段按字母排序，*但*相似串的排序按
+ *		  由难到易：
  *
- *	(example: "DDD","DD","Day","D" )
+ *	(示例："DDD","DD","Day","D")
  *
- * (this specific sort needs the algorithm for sequential search for strings,
- * which not has exact end; -> How keyword is in "HH12blabla" ? - "HH"
- * or "HH12"? You must first try "HH12", because "HH" is in string, but
- * it is not good.
+ * (这种排序需要串的顺序搜索算法来处理——匹配没有
+ * 精确终点；→ "HH12blabla" 中的关键字是什么？："HH"
+ * 还是 "HH12"？必须先试 "HH12"，因为 "HH" 在串中，
+ * 但那不行。
  *
  * (!)
- *	 - Position for the keyword is similar as position in the enum DCH/NUM_poz.
+ *	 - 关键字的位置与 DCH/NUM_poz 枚举中的位置相对应。
  * (!)
  *
- * For fast search is used the 'int index[]', index is ascii table from position
- * 32 (' ') to 126 (~), in this index is DCH_ / NUM_ enums for each ASCII
- * position or -1 if char is not used in the KeyWord. Search example for
- * string "MM":
- *	1)	see in index to index['M' - 32],
- *	2)	take keywords position (enum DCH_MI) from index
- *	3)	run sequential search in keywords[] from this position
+ * 快速搜索使用 'int index[]'，该索引是从位置 32 (' ') 到
+ * 126 (~) 的 ASCII 表，索引中每个 ASCII 位置都存有 DCH_ /
+ * NUM_ 值，若字符未被 KeyWord 使用则为 -1。搜索示例：
+ * "MM" 串：
+ *	1)	查 index['M' - 32]，
+ *	2)	从索引取关键字位置（枚举 DCH_MI）
+ *	3)	从该位置起在 keywords[] 中顺序搜索
  *
  * ----------
  */
@@ -611,13 +611,13 @@ typedef enum
 	DCH_Day,
 	DCH_Dy,
 	DCH_D,
-	DCH_FF1,					/* FFn codes must be consecutive */
+	DCH_FF1,					/* FFn 代码必须连续 */
 	DCH_FF2,
 	DCH_FF3,
 	DCH_FF4,
 	DCH_FF5,
 	DCH_FF6,
-	DCH_FX,						/* global suffix */
+	DCH_FX,						/* 全局后缀 */
 	DCH_HH24,
 	DCH_HH12,
 	DCH_HH,
@@ -758,7 +758,7 @@ typedef enum
 }			NUM_poz;
 
 /* ----------
- * KeyWords for DATE-TIME version
+ * DATE-TIME 版的 KeyWords
  * ----------
  */
 static const KeyWord DCH_keywords[] = {
@@ -881,9 +881,9 @@ static const KeyWord DCH_keywords[] = {
 };
 
 /* ----------
- * KeyWords for NUMBER version
+ * NUMBER 版的 KeyWords
  *
- * The is_digit and date_mode fields are not relevant here.
+ * is_digit 与 date_mode 字段在此处不相关。
  * ----------
  */
 static const KeyWord NUM_keywords[] = {
@@ -931,14 +931,14 @@ static const KeyWord NUM_keywords[] = {
 
 
 /* ----------
- * KeyWords index for DATE-TIME version
+ * DATE-TIME 版的 KeyWords 索引
  * ----------
  */
 static const int DCH_index[KeyWord_INDEX_SIZE] = {
 /*
 0	1	2	3	4	5	6	7	8	9
 */
-	/*---- first 0..31 chars are skipped ----*/
+	/*---- 前 0..31 个字符被跳过 ----*/
 
 	-1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -951,18 +951,18 @@ static const int DCH_index[KeyWord_INDEX_SIZE] = {
 	-1, DCH_of, DCH_p_m, DCH_q, DCH_rm, DCH_sssss, DCH_tzh, DCH_us, -1, DCH_ww,
 	-1, DCH_y_yyy, -1, -1, -1, -1
 
-	/*---- chars over 126 are skipped ----*/
+	/*---- 大于 126 的字符跳过 ----*/
 };
 
 /* ----------
- * KeyWords index for NUMBER version
+ * NUMBER 版的 KeyWords 索引
  * ----------
  */
 static const int NUM_index[KeyWord_INDEX_SIZE] = {
 /*
 0	1	2	3	4	5	6	7	8	9
 */
-	/*---- first 0..31 chars are skipped ----*/
+	/*---- 前 0..31 个字符被跳过 ----*/
 
 	-1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, NUM_COMMA, -1, NUM_DEC, -1, NUM_0, -1,
@@ -975,34 +975,34 @@ static const int NUM_index[KeyWord_INDEX_SIZE] = {
 	-1, -1, NUM_pl, -1, NUM_rn, NUM_sg, NUM_th, -1, NUM_v, -1,
 	-1, -1, -1, -1, -1, -1
 
-	/*---- chars over 126 are skipped ----*/
+	/*---- 大于 126 的字符跳过 ----*/
 };
 
 /* ----------
- * Number processor struct
+ * 数字处理结构体
  * ----------
  */
 typedef struct NUMProc
 {
 	bool		is_to_char;
-	NUMDesc    *Num;			/* number description		*/
+	NUMDesc    *Num;			/* 数字描述		*/
 
-	int			sign,			/* '-' or '+'			*/
-				sign_wrote,		/* was sign write		*/
-				num_count,		/* number of write digits	*/
-				num_in,			/* is inside number		*/
-				num_curr,		/* current position in number	*/
-				out_pre_spaces, /* spaces before first digit	*/
+	int			sign,			/* '-' 或 '+'		*/
+				sign_wrote,		/* 已写符号		*/
+				num_count,		/* 已写数字个数	*/
+				num_in,			/* 位于数字内		*/
+				num_curr,		/* 数字中当前位置	*/
+				out_pre_spaces, /* 首数字前的空格	*/
 
-				read_dec,		/* to_number - was read dec. point	*/
-				read_post,		/* to_number - number of dec. digit */
-				read_pre;		/* to_number - number non-dec. digit */
+				read_dec,		/* to_number - 已读小数点	*/
+				read_post,		/* to_number - 小数位个数 */
+				read_pre;		/* to_number - 非小数位个数 */
 
-	char	   *number,			/* string with number	*/
-			   *number_p,		/* pointer to current number position */
-			   *inout,			/* in / out buffer	*/
-			   *inout_p,		/* pointer to current inout position */
-			   *last_relevant,	/* last relevant number after decimal point */
+	char	   *number,			/* 数字串	*/
+			   *number_p,		/* 当前数字位置的指针 */
+			   *inout,			/* 输入/输出	*/
+			   *inout_p,		/* 当前 inout 位置的指针 */
+			   *last_relevant,	/* 小数点后的最后有效数字 */
 
 			   *L_negative_sign,	/* Locale */
 			   *L_positive_sign,
@@ -1011,13 +1011,13 @@ typedef struct NUMProc
 			   *L_currency_symbol;
 } NUMProc;
 
-/* Return flags for DCH_from_char() */
+/* DCH_from_char() 的返回标志 */
 #define DCH_DATED	0x01
 #define DCH_TIMED	0x02
 #define DCH_ZONED	0x04
 
 /* ----------
- * Functions
+ * 函数
  * ----------
  */
 static const KeyWord *index_seq_search(const char *str, const KeyWord *kw,
@@ -1079,9 +1079,9 @@ static NUMCacheEntry *NUM_cache_fetch(const char *str);
 
 
 /* ----------
- * Fast sequential search, use index for data selection which
- * go to seq. cycle (it is very fast for unwanted strings)
- * (can't be used binary search in format parsing)
+ * 快速顺序搜索，用索引预筛进入循环的数据
+ * （对不需要的串非常快）
+ * （格式解析中无法用二分搜索）
  * ----------
  */
 static const KeyWord *
@@ -1127,7 +1127,7 @@ suff_search(const char *str, const KeySuffix *suf, int type)
 static bool
 is_separator_char(const char *str)
 {
-	/* ASCII printable character, but not letter or digit */
+	/* ASCII 可打印字符，但非字母或数字 */
 	return (*str > 0x20 && *str < 0x7F &&
 			!(*str >= 'A' && *str <= 'Z') &&
 			!(*str >= 'a' && *str <= 'z') &&
@@ -1135,7 +1135,7 @@ is_separator_char(const char *str)
 }
 
 /* ----------
- * Prepare NUMDesc (number description struct) via FormatNode struct
+ * 用 FormatNode 结构体准备 NUMDesc（数字描述结构）
  * ----------
  */
 static void
@@ -1307,10 +1307,10 @@ NUMDesc_prepare(NUMDesc *num, FormatNode *n)
 }
 
 /* ----------
- * Format parser, search small keywords and keyword's suffixes, and make
- * format-node tree.
+ * 格式解析器：查找小关键字与关键字后缀并构建格式
+ * 节点树。
  *
- * for DATE-TIME & NUMBER version
+ * DATE-TIME & NUMBER 版适用
  * ----------
  */
 static void
@@ -1331,7 +1331,7 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 		const KeySuffix *s;
 
 		/*
-		 * Prefix
+		 * 前缀
 		 */
 		if ((flags & DCH_FLAG) &&
 			(s = suff_search(str, suf, SUFFTYPE_PREFIX)) != NULL)
@@ -1352,13 +1352,13 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 				str += n->key->len;
 
 			/*
-			 * NUM version: Prepare global NUMDesc struct
+			 * NUM 版：准备全局 NUMDesc 结构体
 			 */
 			if (flags & NUM_FLAG)
 				NUMDesc_prepare(Num, n);
 
 			/*
-			 * Postfix
+			 * 后缀
 			 */
 			if ((flags & DCH_FLAG) && *str &&
 				(s = suff_search(str, suf, SUFFTYPE_POSTFIX)) != NULL)
@@ -1377,9 +1377,9 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 			if ((flags & STD_FLAG) && *str != '"')
 			{
 				/*
-				 * Standard mode, allow only following separators: "-./,':; ".
-				 * However, we support double quotes even in standard mode
-				 * (see below).  This is our extension of standard mode.
+				 * 标准模式，只允许以下分隔符："-./,':; "。
+				 * 但即使在标准模式我们也支持双引号
+				 * （见下）。此为我们对标准模式扩展。
 				 */
 				if (strchr("-./,':; ", *str) == NULL)
 					ereport(ERROR,
@@ -1402,7 +1402,7 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 			else if (*str == '"')
 			{
 				/*
-				 * Process double-quoted literal string, if any
+				 * 若有双引号括起的字面串则处理
 				 */
 				str++;
 				while (*str)
@@ -1412,7 +1412,7 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 						str++;
 						break;
 					}
-					/* backslash quotes the next character, if any */
+					/* 反斜杠转义后一个字符（如有） */
 					if (*str == '\\' && *(str + 1))
 						str++;
 					chlen = pg_mblen(str);
@@ -1428,8 +1428,8 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 			else
 			{
 				/*
-				 * Outside double-quoted strings, backslash is only special if
-				 * it immediately precedes a double quote.
+				 * 在双引号串之外，反斜杠仅在其后
+				 * 紧邻双引号时才特殊。
 				 */
 				if (*str == '\\' && *(str + 1) == '"')
 					str++;
@@ -1457,7 +1457,7 @@ parse_format(FormatNode *node, const char *str, const KeyWord *kw,
 }
 
 /* ----------
- * DEBUG: Dump the FormatNode Tree (debug)
+ * DEBUG：转储 FormatNode 树(调试)
  * ----------
  */
 #ifdef DEBUG_TO_FROM_CHAR
@@ -1493,12 +1493,12 @@ dump_node(FormatNode *node, int max)
 #endif							/* DEBUG */
 
 /*****************************************************************************
- *			Private utils
+ *			私有工具
  *****************************************************************************/
 
 /* ----------
- * Return ST/ND/RD/TH for simple (1..9) numbers
- * type --> 0 upper, 1 lower
+ * 为简单数字（1..9）返回 ST/ND/RD/TH
+ * type 0=大写 1=小写
  * ----------
  */
 static const char *
@@ -1514,8 +1514,8 @@ get_th(char *num, int type)
 				 errmsg("\"%s\" is not a number", num)));
 
 	/*
-	 * All "teens" (<x>1[0-9]) get 'TH/th', while <x>[02-9][123] still get
-	 * 'ST/st', 'ND/nd', 'RD/rd', respectively
+	 * 所有 "teens"（<x>1[0-9]）得到 'TH/th'，而 <x>[02-9][123]
+	 * 仍分别取'ST/st'、'ND/nd'、'RD/rd'
 	 */
 	if ((len > 1) && (num[len - 2] == '1'))
 		last = 0;
@@ -1542,8 +1542,8 @@ get_th(char *num, int type)
 }
 
 /* ----------
- * Convert string-number to ordinal string-number
- * type --> 0 upper, 1 lower
+ * 把数字串转换为序数数字串
+ * type 0=大写 1=小写
  * ----------
  */
 static char *
@@ -1556,7 +1556,7 @@ str_numth(char *dest, char *num, int type)
 }
 
 /*****************************************************************************
- *			upper/lower/initcap functions
+ *			upper/lower/initcap 函数
  *****************************************************************************/
 
 #ifdef USE_ICU
@@ -1573,14 +1573,14 @@ icu_convert_case(ICU_Convert_Func func, pg_locale_t mylocale,
 	UErrorCode	status;
 	int32_t		len_dest;
 
-	len_dest = len_source;		/* try first with same length */
+	len_dest = len_source;		/* 先以相同长度尝试 */
 	*buff_dest = palloc(len_dest * sizeof(**buff_dest));
 	status = U_ZERO_ERROR;
 	len_dest = func(*buff_dest, len_dest, buff_source, len_source,
 					mylocale->info.icu.locale, &status);
 	if (status == U_BUFFER_OVERFLOW_ERROR)
 	{
-		/* try again with adjusted length */
+		/* 以调整后的长度重试 */
 		pfree(*buff_dest);
 		*buff_dest = palloc(len_dest * sizeof(**buff_dest));
 		status = U_ZERO_ERROR;
@@ -1606,26 +1606,26 @@ u_strToTitle_default_BI(UChar *dest, int32_t destCapacity,
 #endif							/* USE_ICU */
 
 /*
- * If the system provides the needed functions for wide-character manipulation
- * (which are all standardized by C99), then we implement upper/lower/initcap
- * using wide-character functions, if necessary.  Otherwise we use the
- * traditional <ctype.h> functions, which of course will not work as desired
- * in multibyte character sets.  Note that in either case we are effectively
- * assuming that the database character encoding matches the encoding implied
- * by LC_CTYPE.
+ * 若系统提供宽字符操纵所需的各函数
+ * （均由 C99 标准化），则 upper/lower/initcap
+ * 必要时会用宽字符函数实现；否则用传统
+ * <ctype.h> 函数，它们在多字节字符集下当然
+ * 无法如愿。注意无论哪种情形，我们实际上
+ * 都在假定数据库字符编码与 LC_CTYPE
+ * 一致。
  *
- * If the system provides locale_t and associated functions (which are
- * standardized by Open Group's XBD), we can support collations that are
- * neither default nor C.  The code is written to handle both combinations
- * of have-wide-characters and have-locale_t, though it's rather unlikely
- * a platform would have the latter without the former.
+ * 若系统提供 locale_t 及相关函数（由 Open Group 的 XBD
+ * 标准化），可支持非默认非 C 的排序规则。代码
+ * 编写为同时处理 have-wide-characters 与 have-locale_t
+ * 两种组合，不过某平台有后者而无前者的情况
+ * 相当罕见。
  */
 
 /*
- * collation-aware, wide-character-aware lower function
+ * 感知排序规则与宽字符的 lower 函数
  *
- * We pass the number of bytes so we can pass varlena and char*
- * to this function.  The result is a palloc'd, null-terminated string.
+ * 传入字节数，以便能把 varlena 和 char* 传给
+ * 本函数。结果为 palloc 的、以 null 结尾的串。
  */
 char *
 str_tolower(const char *buff, size_t nbytes, Oid collid)
@@ -1638,8 +1638,8 @@ str_tolower(const char *buff, size_t nbytes, Oid collid)
 	if (!OidIsValid(collid))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 通常意味着解析器无法解决隐式排序规则
+		 * 冲突，因此按该方式报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -1648,7 +1648,7 @@ str_tolower(const char *buff, size_t nbytes, Oid collid)
 				 errhint("Use the COLLATE clause to set the collation explicitly.")));
 	}
 
-	/* C/POSIX collations use this path regardless of database encoding */
+	/* C/POSIX 排序规则无论数据库编码为何都走此路径 */
 	if (lc_ctype_is_c(collid))
 	{
 		result = asc_tolower(buff, nbytes);
@@ -1683,13 +1683,13 @@ str_tolower(const char *buff, size_t nbytes, Oid collid)
 				size_t		curr_char;
 				size_t		result_size;
 
-				/* Overflow paranoia */
+				/* 溢出偏执 */
 				if ((nbytes + 1) > (INT_MAX / sizeof(wchar_t)))
 					ereport(ERROR,
 							(errcode(ERRCODE_OUT_OF_MEMORY),
 							 errmsg("out of memory")));
 
-				/* Output workspace cannot have more codes than input bytes */
+				/* 输出工作区的字符数无法多于输入字节 */
 				workspace = (wchar_t *) palloc((nbytes + 1) * sizeof(wchar_t));
 
 				char2wchar(workspace, nbytes + 1, buff, nbytes, mylocale);
@@ -1705,8 +1705,8 @@ str_tolower(const char *buff, size_t nbytes, Oid collid)
 				}
 
 				/*
-				 * Make result large enough; case change might change number
-				 * of bytes
+				 * 结果要足够大；大小写改变可能改变字节
+				 * 数。
 				 */
 				result_size = curr_char * pg_database_encoding_max_length() + 1;
 				result = palloc(result_size);
@@ -1721,11 +1721,11 @@ str_tolower(const char *buff, size_t nbytes, Oid collid)
 				result = pnstrdup(buff, nbytes);
 
 				/*
-				 * Note: we assume that tolower_l() will not be so broken as
-				 * to need an isupper_l() guard test.  When using the default
-				 * collation, we apply the traditional Postgres behavior that
-				 * forces ASCII-style treatment of I/i, but in non-default
-				 * collations you get exactly what the collation says.
+				 * 注意：我们假定 tolower_l() 不会坏到需要
+				 * isupper_l() 守卫测试。使用默认排序规则时，
+				 * 我们沿用 Postgres 传统，强制按 ASCII 风格
+				 * 处理 I/i，但在非默认排序规则下，
+				 * 你得到的正是排序规则所说的。
 				 */
 				for (p = result; *p; p++)
 				{
@@ -1744,10 +1744,10 @@ str_tolower(const char *buff, size_t nbytes, Oid collid)
 }
 
 /*
- * collation-aware, wide-character-aware upper function
+ * 感知排序规则与宽字符的 upper 函数
  *
- * We pass the number of bytes so we can pass varlena and char*
- * to this function.  The result is a palloc'd, null-terminated string.
+ * 传入字节数，以便能把 varlena 和 char* 传给
+ * 本函数。结果为 palloc 的、以 null 结尾的串。
  */
 char *
 str_toupper(const char *buff, size_t nbytes, Oid collid)
@@ -1760,8 +1760,8 @@ str_toupper(const char *buff, size_t nbytes, Oid collid)
 	if (!OidIsValid(collid))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 通常意味着解析器无法解决隐式排序规则
+		 * 冲突，因此按该方式报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -1770,7 +1770,7 @@ str_toupper(const char *buff, size_t nbytes, Oid collid)
 				 errhint("Use the COLLATE clause to set the collation explicitly.")));
 	}
 
-	/* C/POSIX collations use this path regardless of database encoding */
+	/* C/POSIX 排序规则无论数据库编码为何都走此路径 */
 	if (lc_ctype_is_c(collid))
 	{
 		result = asc_toupper(buff, nbytes);
@@ -1805,13 +1805,13 @@ str_toupper(const char *buff, size_t nbytes, Oid collid)
 				size_t		curr_char;
 				size_t		result_size;
 
-				/* Overflow paranoia */
+				/* 溢出偏执 */
 				if ((nbytes + 1) > (INT_MAX / sizeof(wchar_t)))
 					ereport(ERROR,
 							(errcode(ERRCODE_OUT_OF_MEMORY),
 							 errmsg("out of memory")));
 
-				/* Output workspace cannot have more codes than input bytes */
+				/* 输出工作区的字符数无法多于输入字节 */
 				workspace = (wchar_t *) palloc((nbytes + 1) * sizeof(wchar_t));
 
 				char2wchar(workspace, nbytes + 1, buff, nbytes, mylocale);
@@ -1827,8 +1827,8 @@ str_toupper(const char *buff, size_t nbytes, Oid collid)
 				}
 
 				/*
-				 * Make result large enough; case change might change number
-				 * of bytes
+				 * 结果要足够大；大小写改变可能改变字节
+				 * 数。
 				 */
 				result_size = curr_char * pg_database_encoding_max_length() + 1;
 				result = palloc(result_size);
@@ -1843,11 +1843,11 @@ str_toupper(const char *buff, size_t nbytes, Oid collid)
 				result = pnstrdup(buff, nbytes);
 
 				/*
-				 * Note: we assume that toupper_l() will not be so broken as
-				 * to need an islower_l() guard test.  When using the default
-				 * collation, we apply the traditional Postgres behavior that
-				 * forces ASCII-style treatment of I/i, but in non-default
-				 * collations you get exactly what the collation says.
+				 * 注意：我们假定 toupper_l() 不会坏到需要
+				 * islower_l() 守卫测试。使用默认排序规则时，
+				 * 我们沿用 Postgres 传统，强制按 ASCII 风格
+				 * 处理 I/i，但在非默认排序规则下，
+				 * 你得到的正是排序规则所说的。
 				 */
 				for (p = result; *p; p++)
 				{
@@ -1866,10 +1866,10 @@ str_toupper(const char *buff, size_t nbytes, Oid collid)
 }
 
 /*
- * collation-aware, wide-character-aware initcap function
+ * 感知排序规则与宽字符的 initcap 函数
  *
- * We pass the number of bytes so we can pass varlena and char*
- * to this function.  The result is a palloc'd, null-terminated string.
+ * 传入字节数，以便能把 varlena 和 char* 传给
+ * 本函数。结果为 palloc 的、以 null 结尾的串。
  */
 char *
 str_initcap(const char *buff, size_t nbytes, Oid collid)
@@ -1883,8 +1883,8 @@ str_initcap(const char *buff, size_t nbytes, Oid collid)
 	if (!OidIsValid(collid))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 通常意味着解析器无法解决隐式排序规则
+		 * 冲突，因此按该方式报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -1893,7 +1893,7 @@ str_initcap(const char *buff, size_t nbytes, Oid collid)
 				 errhint("Use the COLLATE clause to set the collation explicitly.")));
 	}
 
-	/* C/POSIX collations use this path regardless of database encoding */
+	/* C/POSIX 排序规则无论数据库编码为何都走此路径 */
 	if (lc_ctype_is_c(collid))
 	{
 		result = asc_initcap(buff, nbytes);
@@ -1928,13 +1928,13 @@ str_initcap(const char *buff, size_t nbytes, Oid collid)
 				size_t		curr_char;
 				size_t		result_size;
 
-				/* Overflow paranoia */
+				/* 溢出偏执 */
 				if ((nbytes + 1) > (INT_MAX / sizeof(wchar_t)))
 					ereport(ERROR,
 							(errcode(ERRCODE_OUT_OF_MEMORY),
 							 errmsg("out of memory")));
 
-				/* Output workspace cannot have more codes than input bytes */
+				/* 输出工作区的字符数无法多于输入字节 */
 				workspace = (wchar_t *) palloc((nbytes + 1) * sizeof(wchar_t));
 
 				char2wchar(workspace, nbytes + 1, buff, nbytes, mylocale);
@@ -1962,8 +1962,8 @@ str_initcap(const char *buff, size_t nbytes, Oid collid)
 				}
 
 				/*
-				 * Make result large enough; case change might change number
-				 * of bytes
+				 * 结果要足够大；大小写改变可能改变字节
+				 * 数。
 				 */
 				result_size = curr_char * pg_database_encoding_max_length() + 1;
 				result = palloc(result_size);
@@ -1978,11 +1978,11 @@ str_initcap(const char *buff, size_t nbytes, Oid collid)
 				result = pnstrdup(buff, nbytes);
 
 				/*
-				 * Note: we assume that toupper_l()/tolower_l() will not be so
-				 * broken as to need guard tests.  When using the default
-				 * collation, we apply the traditional Postgres behavior that
-				 * forces ASCII-style treatment of I/i, but in non-default
-				 * collations you get exactly what the collation says.
+				 * 注意：我们假定 toupper_l()/tolower_l() 不会坏到
+				 * 需要守卫测试。用默认排序规则时，
+				 * 我们沿用 Postgres 传统，强制按 ASCII 风格
+				 * 处理 I/i，但在非默认排序规则下，
+				 * 你得到的正是排序规则所说的。
 				 */
 				for (p = result; *p; p++)
 				{
@@ -2013,10 +2013,10 @@ str_initcap(const char *buff, size_t nbytes, Oid collid)
 }
 
 /*
- * ASCII-only lower function
+ * 纯 ASCII lower 函数
  *
- * We pass the number of bytes so we can pass varlena and char*
- * to this function.  The result is a palloc'd, null-terminated string.
+ * 传入字节数，以便能把 varlena 和 char* 传给
+ * 本函数。结果为 palloc 的、以 null 结尾的串。
  */
 char *
 asc_tolower(const char *buff, size_t nbytes)
@@ -2036,10 +2036,10 @@ asc_tolower(const char *buff, size_t nbytes)
 }
 
 /*
- * ASCII-only upper function
+ * 纯 ASCII upper 函数
  *
- * We pass the number of bytes so we can pass varlena and char*
- * to this function.  The result is a palloc'd, null-terminated string.
+ * 传入字节数，以便能把 varlena 和 char* 传给
+ * 本函数。结果为 palloc 的、以 null 结尾的串。
  */
 char *
 asc_toupper(const char *buff, size_t nbytes)
@@ -2059,10 +2059,10 @@ asc_toupper(const char *buff, size_t nbytes)
 }
 
 /*
- * ASCII-only initcap function
+ * 纯 ASCII initcap 函数
  *
- * We pass the number of bytes so we can pass varlena and char*
- * to this function.  The result is a palloc'd, null-terminated string.
+ * 传入字节数，以便能把 varlena 和 char* 传给
+ * 本函数。结果为 palloc 的、以 null 结尾的串。
  */
 char *
 asc_initcap(const char *buff, size_t nbytes)
@@ -2084,7 +2084,7 @@ asc_initcap(const char *buff, size_t nbytes)
 			*p = c = pg_ascii_tolower((unsigned char) *p);
 		else
 			*p = c = pg_ascii_toupper((unsigned char) *p);
-		/* we don't trust isalnum() here */
+		/* 这里不信任 isalnum() */
 		wasalnum = ((c >= 'A' && c <= 'Z') ||
 					(c >= 'a' && c <= 'z') ||
 					(c >= '0' && c <= '9'));
@@ -2093,7 +2093,7 @@ asc_initcap(const char *buff, size_t nbytes)
 	return result;
 }
 
-/* convenience routines for when the input is null-terminated */
+/* 输入以 null 结尾时使用的便利例程 */
 
 static char *
 str_tolower_z(const char *buff, Oid collid)
@@ -2125,13 +2125,13 @@ asc_toupper_z(const char *buff)
 	return asc_toupper(buff, strlen(buff));
 }
 
-/* asc_initcap_z is not currently needed */
+/* 目前尚不需要 asc_initcap_z */
 
 
 /* ----------
- * Skip TM / th in FROM_CHAR
+ * FROM_CHAR 跳过 TM/th
  *
- * If S_THth is on, skip two chars, assuming there are two available
+ * 若 S_THth 开启，跳过两字符（假定有两个可用）
  * ----------
  */
 #define SKIP_THth(ptr, _suf) \
@@ -2146,8 +2146,8 @@ asc_toupper_z(const char *buff)
 
 #ifdef DEBUG_TO_FROM_CHAR
 /* -----------
- * DEBUG: Call for debug and for index checking; (Show ASCII char
- * and defined keyword for each used position
+ * DEBUG：调试与索引检查用；（显示 ASCII 字符
+ * 与每个所用位置定义的关键字）
  * ----------
  */
 static void
@@ -2178,7 +2178,7 @@ dump_index(const KeyWord *k, const int *index)
 #endif							/* DEBUG */
 
 /* ----------
- * Return true if next format picture is not digit value
+ * 若下一个格式模式不是数字值则返回真
  * ----------
  */
 static bool
@@ -2195,7 +2195,7 @@ is_next_separator(FormatNode *n)
 	 */
 	n++;
 
-	/* end of format string is treated like a non-digit separator */
+	/* 格式串末尾视为非数字分隔符 */
 	if (n->type == NODE_TYPE_END)
 		return true;
 
@@ -2210,7 +2210,7 @@ is_next_separator(FormatNode *n)
 			 isdigit((unsigned char) n->character[0]))
 		return false;
 
-	return true;				/* some non-digit input (separator) */
+	return true;				/* 某非数字输入（分隔符）*/
 }
 
 
@@ -2218,19 +2218,19 @@ static int
 adjust_partial_year_to_2020(int year)
 {
 	/*
-	 * Adjust all dates toward 2020; this is effectively what happens when we
-	 * assume '70' is 1970 and '69' is 2069.
+	 * 把所有日期调向 2020；这实际上等价于我们假定
+	 * '70' 为 1970 且 '69' 为 2069。
 	 */
-	/* Force 0-69 into the 2000's */
+	/* 0-69 归入 2000 年代 */
 	if (year < 70)
 		return year + 2000;
-	/* Force 70-99 into the 1900's */
+	/* 70-99 归入 1900 年代 */
 	else if (year < 100)
 		return year + 1900;
-	/* Force 100-519 into the 2000's */
+	/* 100-519 归入 2000 年代 */
 	else if (year < 520)
 		return year + 2000;
-	/* Force 520-999 into the 1000's */
+	/* 520-999 归入 1000 年代 */
 	else if (year < 1000)
 		return year + 1000;
 	else
@@ -2252,13 +2252,13 @@ strspace_len(const char *str)
 }
 
 /*
- * Set the date mode of a from-char conversion.
+ * 设置 from-char 转换的日期模式。
  *
- * Puke if the date mode has already been set, and the caller attempts to set
- * it to a conflicting mode.
+ * 若日期模式已被设置，而调用者又试图将其设为
+ * 冲突模式则报错。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功返回真，失败返回假（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
  */
 static bool
 from_char_set_mode(TmFromChar *tmfc, const FromCharDateMode mode,
@@ -2279,13 +2279,13 @@ from_char_set_mode(TmFromChar *tmfc, const FromCharDateMode mode,
 }
 
 /*
- * Set the integer pointed to by 'dest' to the given value.
+ * 把 'dest' 所指的整数设为给定值。
  *
- * Puke if the destination integer has previously been set to some other
- * non-zero value.
+ * 若目标整数此前已被设为其他非零值，
+ * 则报错。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功返回真，失败返回假（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
  */
 static bool
 from_char_set_int(int *dest, const int value, const FormatNode *node,
@@ -2303,25 +2303,25 @@ from_char_set_int(int *dest, const int value, const FormatNode *node,
 }
 
 /*
- * Read a single integer from the source string, into the int pointed to by
- * 'dest'. If 'dest' is NULL, the result is discarded.
+ * 从源串读取单个整数存入 'dest' 所指的 int；若 'dest'
+ * 为 NULL，则丢弃结果。
  *
- * In fixed-width mode (the node does not have the FM suffix), consume at most
- * 'len' characters.  However, any leading whitespace isn't counted in 'len'.
+ * 在定宽模式（节点不带 FM 后缀）下，最多消耗 'len' 个
+ * 字符；不过前导空白不计入 'len'。
  *
- * We use strtol() to recover the integer value from the source string, in
- * accordance with the given FormatNode.
+ * 我们用 strtol() 从源串恢复整数值，以与给定
+ * FormatNode 相符。
  *
- * If the conversion completes successfully, src will have been advanced to
- * point at the character immediately following the last character used in the
- * conversion.
+ * 若转换成功完成，src 将前进到指向转换所用最后一个
+ * 字符之后紧邻的字符。
  *
- * Returns the number of characters consumed, or -1 on error (if escontext
- * points to an ErrorSaveContext; otherwise errors are thrown).
  *
- * Note that from_char_parse_int() provides a more convenient wrapper where
- * the length of the field is the same as the length of the format keyword (as
- * with DD and MI).
+ * 返回所消耗的字符数，出错时 -1（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
+ *
+ * 注意 from_char_parse_int() 提供了更方便的包装，适用于
+ * 字段长度与格式关键字长度相同的情形（如 DD 与 MI）。
+ *
  */
 static int
 from_char_parse_int_len(int *dest, const char **src, const int len, FormatNode *node,
@@ -2333,7 +2333,7 @@ from_char_parse_int_len(int *dest, const char **src, const int len, FormatNode *
 	int			used;
 
 	/*
-	 * Skip any whitespace before parsing the integer.
+	 * 解析整数前先跳过所有空白。
 	 */
 	*src += strspace_len(*src);
 
@@ -2343,8 +2343,8 @@ from_char_parse_int_len(int *dest, const char **src, const int len, FormatNode *
 	if (S_FM(node->suffix) || is_next_separator(node))
 	{
 		/*
-		 * This node is in Fill Mode, or the next node is known to be a
-		 * non-digit value, so we just slurp as many characters as we can get.
+		 * 本节点处于填充模式，或已知下一节点
+		 * 是非数字值，因此我们只管尽量多地抓取字符。
 		 */
 		char	   *endptr;
 
@@ -2355,8 +2355,8 @@ from_char_parse_int_len(int *dest, const char **src, const int len, FormatNode *
 	else
 	{
 		/*
-		 * We need to pull exactly the number of characters given in 'len' out
-		 * of the string, and convert those.
+		 * 我们需要从串中恰好拉出 'len' 给定的字符数，并
+		 * 转换这些字符。
 		 */
 		char	   *last;
 
@@ -2412,13 +2412,13 @@ from_char_parse_int_len(int *dest, const char **src, const int len, FormatNode *
 }
 
 /*
- * Call from_char_parse_int_len(), using the length of the format keyword as
- * the expected length of the field.
+ * 调用 from_char_parse_int_len()，以格式关键字的长度
+ * 作为字段的期望长度。
  *
- * Don't call this function if the field differs in length from the format
- * keyword (as with HH24; the keyword length is 4, but the field length is 2).
- * In such cases, call from_char_parse_int_len() instead to specify the
- * required length explicitly.
+ * 若字段长度与格式关键字不同，则不要调用本函数
+ * （如 HH24；关键字长度为 4，而字段长度为 2）。此时
+ * 应改为调用 from_char_parse_int_len() 来显式指定
+ * 所需长度。
  */
 static int
 from_char_parse_int(int *dest, const char **src, FormatNode *node,
@@ -2428,15 +2428,15 @@ from_char_parse_int(int *dest, const char **src, FormatNode *node,
 }
 
 /*
- * Sequentially search null-terminated "array" for a case-insensitive match
- * to the initial character(s) of "name".
+ * 在以 null 结尾的"数组"中顺序搜索，进行大小写不敏
+ * 感匹配，与"name"起始字符。
  *
- * Returns array index of match, or -1 for no match.
+ * 返回匹配的下标，无匹配返回 -1。
  *
- * *len is set to the length of the match, or 0 for no match.
+ * *len 被设为匹配的长度，无匹配则设为 0。
  *
- * Case-insensitivity is defined per pg_ascii_tolower, so this is only
- * suitable for comparisons to ASCII strings.
+ * 大小写不敏感以 pg_ascii_tolower 定义，故本函数只
+ * 适合与 ASCII 串比较。
  */
 static int
 seq_search_ascii(const char *name, const char *const *array, int *len)
@@ -2446,11 +2446,11 @@ seq_search_ascii(const char *name, const char *const *array, int *len)
 
 	*len = 0;
 
-	/* empty string can't match anything */
+	/* 空串匹配不到任何内容 */
 	if (!*name)
 		return -1;
 
-	/* we handle first char specially to gain some speed */
+	/* 特殊处理首字符以获取一些速度 */
 	firstc = pg_ascii_tolower((unsigned char) *name);
 
 	for (a = array; *a != NULL; a++)
@@ -2458,23 +2458,23 @@ seq_search_ascii(const char *name, const char *const *array, int *len)
 		const char *p;
 		const char *n;
 
-		/* compare first chars */
+		/* 比较首字符 */
 		if (pg_ascii_tolower((unsigned char) **a) != firstc)
 			continue;
 
-		/* compare rest of string */
+		/* 比较串其余部分 */
 		for (p = *a + 1, n = name + 1;; p++, n++)
 		{
-			/* return success if we matched whole array entry */
+			/* 匹配整个数组条目则返回成功 */
 			if (*p == '\0')
 			{
 				*len = n - name;
 				return a - array;
 			}
-			/* else, must have another character in "name" ... */
+			/* 否则，"name" 中必然还有字符... */
 			if (*n == '\0')
 				break;
-			/* ... and it must match */
+			/* ... 且必须匹配 */
 			if (pg_ascii_tolower((unsigned char) *p) !=
 				pg_ascii_tolower((unsigned char) *n))
 				break;
@@ -2485,15 +2485,15 @@ seq_search_ascii(const char *name, const char *const *array, int *len)
 }
 
 /*
- * Sequentially search an array of possibly non-English words for
- * a case-insensitive match to the initial character(s) of "name".
+ * 在可能含非英文单词的数组中顺序搜索，
+ * 与 "name" 起始字符做大小写不敏感的匹配。
  *
- * This has the same API as seq_search_ascii(), but we use a more general
- * case-folding transformation to achieve case-insensitivity.  Case folding
- * is done per the rules of the collation identified by "collid".
+ * 其 API 与 seq_search_ascii() 相同，但我们使用更通用
+ * 的大小写折叠变换来实现大小写不敏感。大小写折叠
+ * 按 "collid" 所标识排序规则的规则完成。
  *
- * The array is treated as const, but we don't declare it that way because
- * the arrays exported by pg_locale.c aren't const.
+ * 数组按 const 对待，但不那样声明，因为 pg_locale.c
+ * 导出的数组并非 const。
  */
 static int
 seq_search_localized(const char *name, char **array, int *len, Oid collid)
@@ -2504,13 +2504,13 @@ seq_search_localized(const char *name, char **array, int *len, Oid collid)
 
 	*len = 0;
 
-	/* empty string can't match anything */
+	/* 空串匹配不到任何内容 */
 	if (!*name)
 		return -1;
 
 	/*
-	 * The case-folding processing done below is fairly expensive, so before
-	 * doing that, make a quick pass to see if there is an exact match.
+	 * 下面的大小写折叠处理相当昂贵，因此在做之前，
+	 * 先快速过一遍，看是否有精确匹配。
 	 */
 	for (a = array; *a != NULL; a++)
 	{
@@ -2524,8 +2524,8 @@ seq_search_localized(const char *name, char **array, int *len, Oid collid)
 	}
 
 	/*
-	 * Fold to upper case, then to lower case, so that we can match reliably
-	 * even in languages in which case conversions are not injective.
+	 * 先折为大写，再折为小写，这样即使在大小写转换
+	 * 非单射的语言中也能可靠匹配。
 	 */
 	upper_name = str_toupper(unconstify(char *, name), strlen(name), collid);
 	lower_name = str_tolower(upper_name, strlen(upper_name), collid);
@@ -2537,7 +2537,7 @@ seq_search_localized(const char *name, char **array, int *len, Oid collid)
 		char	   *lower_element;
 		int			element_len;
 
-		/* Likewise upper/lower-case array element */
+		/* 同样处理大小写数组元素 */
 		upper_element = str_toupper(*a, strlen(*a), collid);
 		lower_element = str_tolower(upper_element, strlen(upper_element),
 									collid);
@@ -2560,24 +2560,24 @@ seq_search_localized(const char *name, char **array, int *len, Oid collid)
 }
 
 /*
- * Perform a sequential search in 'array' (or 'localized_array', if that's
- * not NULL) for an entry matching the first character(s) of the 'src'
- * string case-insensitively.
+ * 在 'array'（若 'localized_array' 非 NULL 则在其中）
+ * 做顺序搜索，寻找与 'src' 串起始字符大小写不敏
+ * 感匹配的条目。
  *
- * The 'array' is presumed to be English words (all-ASCII), but
- * if 'localized_array' is supplied, that might be non-English
- * so we need a more expensive case-folding transformation
- * (which will follow the rules of the collation 'collid').
+ * 'array' 被假定为英文单词（全 ASCII），但
+ * 若给了 'localized_array'，那可能是非英文，
+ * 因此需要更昂贵的大小写折叠变换
+ * （将遵循排序规则 'collid' 的规则）。
  *
- * If a match is found, copy the array index of the match into the integer
- * pointed to by 'dest' and advance 'src' to the end of the part of the string
- * which matched.
+ * 若找到匹配，则把匹配的数组下标复制到 'dest' 所指
+ * 的整数，并把 'src' 前进到串中匹配部分末尾之后。
  *
- * Returns true on match, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
  *
- * 'node' is used only for error reports: node->key->name identifies the
- * field type we were searching for.
+ * 匹配返回真，失败返回假（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
+ *
+ * 'node' 仅用于错误报告：node->key->name 标识我们
+ * 要搜索的字段类型。
  */
 static bool
 from_char_seq_search(int *dest, const char **src, const char *const *array,
@@ -2594,8 +2594,8 @@ from_char_seq_search(int *dest, const char **src, const char *const *array,
 	if (len <= 0)
 	{
 		/*
-		 * In the error report, truncate the string at the next whitespace (if
-		 * any) to avoid including irrelevant data.
+		 * 在错误报告中，把串截断到下一空白处（如有），
+		 * 以避免包含无关数据。
 		 */
 		char	   *copy = pstrdup(*src);
 		char	   *c;
@@ -2621,8 +2621,8 @@ from_char_seq_search(int *dest, const char **src, const char *const *array,
 }
 
 /* ----------
- * Process a TmToChar struct as denoted by a list of FormatNodes.
- * The formatted data is written to the string pointed to by 'out'.
+ * 按 FormatNodes 列表所指明的处理 TmToChar 结构体。
+ * 格式化后的数据写入 'out' 所指的串。
  * ----------
  */
 static void
@@ -2633,7 +2633,7 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 	struct fmt_tm *tm = &in->tm;
 	int			i;
 
-	/* cache localized days and months */
+	/* 缓存本地化的日与月 */
 	cache_locale_time();
 
 	s = out;
@@ -2676,8 +2676,8 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 			case DCH_HH12:
 
 				/*
-				 * display time as shown on a 12-hour clock, even for
-				 * intervals
+				 * 时间按 12 小时制时钟显示，即便对
+				 * interval
 				 */
 				sprintf(s, "%0*lld", S_FM(n->suffix) ? 0 : (tm->tm_hour >= 0) ? 2 : 3,
 						tm->tm_hour % (HOURS_PER_DAY / 2) == 0 ?
@@ -2715,24 +2715,24 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 					str_numth(s, s, S_TH_TYPE(n->suffix)); \
 				s += strlen(s)
 
-			case DCH_FF1:		/* tenth of second */
+			case DCH_FF1:		/* 十分之一秒 */
 				DCH_to_char_fsec("%01d", in->fsec / 100000);
 				break;
-			case DCH_FF2:		/* hundredth of second */
+			case DCH_FF2:		/* 百分之一秒 */
 				DCH_to_char_fsec("%02d", in->fsec / 10000);
 				break;
 			case DCH_FF3:
-			case DCH_MS:		/* millisecond */
+			case DCH_MS:		/* 毫秒 */
 				DCH_to_char_fsec("%03d", in->fsec / 1000);
 				break;
-			case DCH_FF4:		/* tenth of a millisecond */
+			case DCH_FF4:		/* 十分之一毫秒 */
 				DCH_to_char_fsec("%04d", in->fsec / 100);
 				break;
-			case DCH_FF5:		/* hundredth of a millisecond */
+			case DCH_FF5:		/* 百分之一毫秒 */
 				DCH_to_char_fsec("%05d", in->fsec / 10);
 				break;
 			case DCH_FF6:
-			case DCH_US:		/* microsecond */
+			case DCH_US:		/* 微秒 */
 				DCH_to_char_fsec("%06d", in->fsec);
 				break;
 #undef DCH_to_char_fsec
@@ -2749,7 +2749,7 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 				INVALID_FOR_INTERVAL;
 				if (tmtcTzn(in))
 				{
-					/* We assume here that timezone names aren't localized */
+					/* 我们假定时区名未被本地化 */
 					char	   *p = asc_tolower_z(tmtcTzn(in));
 
 					strcpy(s, p);
@@ -3098,15 +3098,15 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 				s += strlen(s);
 				break;
 			case DCH_CC:
-				if (is_interval)	/* straight calculation */
+				if (is_interval)	/* 直接计算 */
 					i = tm->tm_year / 100;
 				else
 				{
 					if (tm->tm_year > 0)
-						/* Century 20 == 1901 - 2000 */
+						/* 世纪 20 == 1901 - 2000 */
 						i = (tm->tm_year - 1) / 100 + 1;
 					else
-						/* Century 6BC == 600BC - 501BC */
+						/* 世纪 6BC == 600BC - 501BC */
 						i = tm->tm_year / 100 - 1;
 				}
 				if (i <= 99 && i >= -99)
@@ -3188,8 +3188,8 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 			case DCH_rm:
 
 				/*
-				 * For intervals, values like '12 month' will be reduced to 0
-				 * month and some years.  These should be processed.
+				 * 对 interval，'12 month' 这类值会化简为
+				 * 0 月和若干年，这些应得到处理。
 				 */
 				if (!tm->tm_mon && !tm->tm_year)
 					break;
@@ -3204,33 +3204,33 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 						months = rm_months_lower;
 
 					/*
-					 * Compute the position in the roman-numeral array.  Note
-					 * that the contents of the array are reversed, December
-					 * being first and January last.
+					 * 计算在罗马数字数组中的位置。注意
+					 * 数组内容是逆序的：十二月在首，
+					 * 一月在末。
 					 */
 					if (tm->tm_mon == 0)
 					{
 						/*
-						 * This case is special, and tracks the case of full
-						 * interval years.
+						 * 此情形特殊，对应完整 interval 年
+						 * 的情形。
 						 */
 						mon = tm->tm_year >= 0 ? 0 : MONTHS_PER_YEAR - 1;
 					}
 					else if (tm->tm_mon < 0)
 					{
 						/*
-						 * Negative case.  In this case, the calculation is
-						 * reversed, where -1 means December, -2 November,
-						 * etc.
+						 * 负值情形。此时计算是反向的：
+						 * -1 十二月，-2 十一月，等等。
+							 *
 						 */
 						mon = -1 * (tm->tm_mon + 1);
 					}
 					else
 					{
 						/*
-						 * Common case, with a strictly positive value.  The
-						 * position in the array matches with the value of
-						 * tm_mon.
+						 * 常见情形，值为严格正数。数组中的
+						 * 位置与 tm_mon 的值相对应。
+							 *
 						 */
 						mon = MONTHS_PER_YEAR - tm->tm_mon;
 					}
@@ -3259,18 +3259,18 @@ DCH_to_char(FormatNode *node, bool is_interval, TmToChar *in, char *out, Oid col
 }
 
 /*
- * Process the string 'in' as denoted by the array of FormatNodes 'node[]'.
- * The TmFromChar struct pointed to by 'out' is populated with the results.
+ * 按 FormatNodes 数组 'node[]' 所指明的来处理串 'in'。
+ * 结果填充到 'out' 所指的 TmFromChar 结构体中。
  *
- * 'collid' identifies the collation to use, if needed.
- * 'std' specifies standard parsing mode.
+ * 'collid' 标识所需排序规则（如需）。
+ * 'std' 指定标准解析模式。
  *
- * If escontext points to an ErrorSaveContext, data errors will be reported
- * by filling that struct; the caller must test SOFT_ERROR_OCCURRED() to see
- * whether an error occurred.  Otherwise, errors are thrown.
+ * 若 escontext 指向 ErrorSaveContext，数据错误将通过填充
+ * 该结构体来报告；调用者必须测试 SOFT_ERROR_OCCURRED()
+ * 来看是否发生了错误。否则抛出错误。
  *
- * Note: we currently don't have any to_interval() function, so there
- * is no need here for INVALID_FOR_INTERVAL checks.
+ * 注意：目前还没有 to_interval() 函数，所以此处
+ * 无需 INVALID_FOR_INTERVAL 检查。
  */
 static void
 DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
@@ -3282,17 +3282,17 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 				value;
 	bool		fx_mode = std;
 
-	/* number of extra skipped characters (more than given in format string) */
+	/* 多跳过的字符数（多于格式串所给定的） */
 	int			extra_skip = 0;
 
-	/* cache localized days and months */
+	/* 缓存本地化的日与月 */
 	cache_locale_time();
 
 	for (n = node, s = in; n->type != NODE_TYPE_END && *s != '\0'; n++)
 	{
 		/*
-		 * Ignore spaces at the beginning of the string and before fields when
-		 * not in FX (fixed width) mode.
+		 * 非 FX（定宽）模式下，忽略串开头以及字段之前的
+		 * 空白。
 		 */
 		if (!fx_mode && (n->type != NODE_TYPE_ACTION || n->key->id != DCH_FX) &&
 			(n->type == NODE_TYPE_ACTION || n == node))
@@ -3309,8 +3309,8 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			if (std)
 			{
 				/*
-				 * Standard mode requires strict matching between format
-				 * string separators/spaces and input string.
+				 * 标准模式要求格式串的分隔符/空格与
+				 * 输入串严格匹配。
 				 */
 				Assert(n->character[0] && !n->character[1]);
 
@@ -3325,10 +3325,10 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			else if (!fx_mode)
 			{
 				/*
-				 * In non FX (fixed format) mode one format string space or
-				 * separator match to one space or separator in input string.
-				 * Or match nothing if there is no space or separator in the
-				 * current position of input string.
+				 * 非 FX（定格式）模式下，一个格式串
+				 * 空格或分隔符，匹配输入串中一个空格或
+				 * 分隔符。若输入当前位置无空格/分隔符，
+				 * 则什么都不匹配。
 				 */
 				extra_skip--;
 				if (isspace((unsigned char) *s) || is_separator_char(s))
@@ -3340,10 +3340,10 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			else
 			{
 				/*
-				 * In FX mode, on format string space or separator we consume
-				 * exactly one character from input string.  Notice we don't
-				 * insist that the consumed character match the format's
-				 * character.
+				 * FX 模式下，遇到格式串空格或分隔符时恰好
+				 * 从输入串消耗一个字符。注意我们并不
+				 * 坚持被消耗的字符与格式的字符匹配。
+				 *
 				 */
 				s += pg_mblen(s);
 			}
@@ -3352,17 +3352,17 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 		else if (n->type != NODE_TYPE_ACTION)
 		{
 			/*
-			 * Text character, so consume one character from input string.
-			 * Notice we don't insist that the consumed character match the
-			 * format's character.
+			 * 文本字符，因此从输入串消耗一个字符。
+			 * 注意我们并不坚持被消耗的字符与格式
+			 * 的字符匹配。
 			 */
 			if (!fx_mode)
 			{
 				/*
-				 * In non FX mode we might have skipped some extra characters
-				 * (more than specified in format string) before.  In this
-				 * case we don't skip input string character, because it might
-				 * be part of field.
+				 * 非 FX 模式下，此前可能已多跳过一些字符
+				 * （多于格式串所指定的）。此时我们不
+				 * 跳过输入串字符，因其可能属字段。
+				 *
 				 */
 				if (extra_skip > 0)
 					extra_skip--;
@@ -3374,7 +3374,7 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 				int			chlen = pg_mblen(s);
 
 				/*
-				 * Standard mode requires strict match of format characters.
+				 * 标准模式要求格式字符严格匹配。
 				 */
 				if (std && n->type == NODE_TYPE_CHAR &&
 					strncmp(s, n->character, chlen) != 0)
@@ -3442,13 +3442,13 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 					return;
 				SKIP_THth(s, n->suffix);
 				break;
-			case DCH_MS:		/* millisecond */
+			case DCH_MS:		/* 毫秒 */
 				len = from_char_parse_int_len(&out->ms, &s, 3, n, escontext);
 				if (len < 0)
 					return;
 
 				/*
-				 * 25 is 0.25 and 250 is 0.25 too; 025 is 0.025 and not 0.25
+				 * 25 是 0.25，250 也是 0.25；025 是 0.025 而非 0.25
 				 */
 				out->ms *= len == 1 ? 100 :
 					len == 2 ? 10 : 1;
@@ -3463,7 +3463,7 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			case DCH_FF6:
 				out->ff = n->key->id - DCH_FF1 + 1;
 				/* fall through */
-			case DCH_US:		/* microsecond */
+			case DCH_US:		/* 微秒 */
 				len = from_char_parse_int_len(&out->us, &s,
 											  n->key->id == DCH_US ? 6 :
 											  out->ff, n, escontext);
@@ -3494,11 +3494,11 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			case DCH_TZH:
 
 				/*
-				 * Value of TZH might be negative.  And the issue is that we
-				 * might swallow minus sign as the separator.  So, if we have
-				 * skipped more characters than specified in the format
-				 * string, then we consider prepending last skipped minus to
-				 * TZH.
+				 * TZH 的值可能为负。问题在于我们可能把
+				 * 负号当作分隔符吞掉。所以若我们跳过
+				 * 的字符多于格式串指定，则考虑把最后
+				 * 跳过的负号前置到 TZH。
+				 *
 				 */
 				if (*s == '+' || *s == '-' || *s == ' ')
 				{
@@ -3517,7 +3517,7 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 					return;
 				break;
 			case DCH_TZM:
-				/* assign positive timezone sign if TZH was not seen before */
+				/* 若此前未见过 TZH 则赋正时区符号 */
 				if (!out->tzsign)
 					out->tzsign = +1;
 				if (from_char_parse_int_len(&out->tzm, &s, 2, n, escontext) < 0)
@@ -3619,7 +3619,7 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			case DCH_ID:
 				if (from_char_parse_int_len(&out->d, &s, 1, n, escontext) < 0)
 					return;
-				/* Shift numbering to match Gregorian where Sunday = 1 */
+				/* 平移编号以匹配周日=1 的公历 */
 				if (++out->d > 7)
 					out->d = 1;
 				SKIP_THth(s, n->suffix);
@@ -3633,14 +3633,14 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 			case DCH_Q:
 
 				/*
-				 * We ignore 'Q' when converting to date because it is unclear
-				 * which date in the quarter to use, and some people specify
-				 * both quarter and month, so if it was honored it might
-				 * conflict with the supplied month. That is also why we don't
-				 * throw an error.
+				 * 转日期时我们忽略 'Q'，因为不清楚该使用
+				 * 季度中的哪个日期，且有些人会同时指定
+				 * 季度和月份，若遵从它可能与所给的
+				 * 月份冲突。这也是我们不抛出错误的原因。
 				 *
-				 * We still parse the source string for an integer, but it
-				 * isn't stored anywhere in 'out'.
+				 *
+				 * 我们仍会解析源串中的整数，但不会
+				 * 存入'out'任何位置。
 				 */
 				if (from_char_parse_int((int *) NULL, &s, n, escontext) < 0)
 					return;
@@ -3730,7 +3730,7 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 				break;
 		}
 
-		/* Ignore all spaces after fields */
+		/* 忽略字段后所有空格 */
 		if (!fx_mode)
 		{
 			extra_skip = 0;
@@ -3743,8 +3743,8 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 	}
 
 	/*
-	 * Standard parsing mode doesn't allow unmatched format patterns or
-	 * trailing characters in the input string.
+	 * 标准解析模式不允许未匹配的格式模式或
+	 * 输入串中的尾随字符。
 	 */
 	if (std)
 	{
@@ -3764,11 +3764,11 @@ DCH_from_char(FormatNode *node, const char *in, TmFromChar *out,
 }
 
 /*
- * The invariant for DCH cache entry management is that DCHCounter is equal
- * to the maximum age value among the existing entries, and we increment it
- * whenever an access occurs.  If we approach overflow, deal with that by
- * halving all the age values, so that we retain a fairly accurate idea of
- * which entries are oldest.
+ * DCH 缓存条目管理的不变式是：DCHCounter 等于现存
+ * 条目中的最大年龄值，且每次访问都递增它。若接
+ * 近溢出，就把所有年龄值减半处理，从而对哪些条目
+ * 最老保持相当准确的判断。
+ *
  */
 static inline void
 DCH_prevent_counter_overflow(void)
@@ -3782,7 +3782,7 @@ DCH_prevent_counter_overflow(void)
 }
 
 /*
- * Get mask of date/time/zone components present in format nodes.
+ * 获取格式节点中日期/时间/时区成分的掩码。
  */
 static int
 DCH_datetime_type(FormatNode *node)
@@ -3812,8 +3812,8 @@ DCH_datetime_type(FormatNode *node)
 			case DCH_HH24:
 			case DCH_MI:
 			case DCH_SS:
-			case DCH_MS:		/* millisecond */
-			case DCH_US:		/* microsecond */
+			case DCH_MS:		/* 毫秒 */
+			case DCH_US:		/* 微秒 */
 			case DCH_FF1:
 			case DCH_FF2:
 			case DCH_FF3:
@@ -3880,17 +3880,17 @@ DCH_datetime_type(FormatNode *node)
 	return flags;
 }
 
-/* select a DCHCacheEntry to hold the given format picture */
+/* 选一个 DCHCacheEntry 来容纳给定的格式模式 */
 static DCHCacheEntry *
 DCH_cache_getnew(const char *str, bool std)
 {
 	DCHCacheEntry *ent;
 
-	/* Ensure we can advance DCHCounter below */
+	/* 确保下面能递增 DCHCounter */
 	DCH_prevent_counter_overflow();
 
 	/*
-	 * If cache is full, remove oldest entry (or recycle first not-valid one)
+	 * 若缓存已满，移除最老条目（或回收首个无效条目）
 	 */
 	if (n_DCHCache >= DCH_CACHE_ENTRIES)
 	{
@@ -3919,7 +3919,7 @@ DCH_cache_getnew(const char *str, bool std)
 		old->valid = false;
 		strlcpy(old->str, str, DCH_CACHE_SIZE + 1);
 		old->age = (++DCHCounter);
-		/* caller is expected to fill format, then set valid */
+		/* 期望调用者填好 format 后再置为有效 */
 		return old;
 	}
 	else
@@ -3934,17 +3934,17 @@ DCH_cache_getnew(const char *str, bool std)
 		strlcpy(ent->str, str, DCH_CACHE_SIZE + 1);
 		ent->std = std;
 		ent->age = (++DCHCounter);
-		/* caller is expected to fill format, then set valid */
+		/* 期望调用者填好 format 后再置为有效 */
 		++n_DCHCache;
 		return ent;
 	}
 }
 
-/* look for an existing DCHCacheEntry matching the given format picture */
+/* 查找与给定格式模式匹配的既有 DCHCacheEntry */
 static DCHCacheEntry *
 DCH_cache_search(const char *str, bool std)
 {
-	/* Ensure we can advance DCHCounter below */
+	/* 确保下面能递增 DCHCounter */
 	DCH_prevent_counter_overflow();
 
 	for (int i = 0; i < n_DCHCache; i++)
@@ -3961,7 +3961,7 @@ DCH_cache_search(const char *str, bool std)
 	return NULL;
 }
 
-/* Find or create a DCHCacheEntry for the given format picture */
+/* 为给定格式模式查找或创建 DCHCacheEntry */
 static DCHCacheEntry *
 DCH_cache_fetch(const char *str, bool std)
 {
@@ -3970,9 +3970,9 @@ DCH_cache_fetch(const char *str, bool std)
 	if ((ent = DCH_cache_search(str, std)) == NULL)
 	{
 		/*
-		 * Not in the cache, must run parser and save a new format-picture to
-		 * the cache.  Do not mark the cache entry valid until parsing
-		 * succeeds.
+		 * 不在缓存中，须运行解析器并把新格式模式存
+		 * 缓存。解析成功前不要标记条目为有效。
+		 *
 		 */
 		ent = DCH_cache_getnew(str, std);
 
@@ -3985,9 +3985,9 @@ DCH_cache_fetch(const char *str, bool std)
 }
 
 /*
- * Format a date/time or interval into a string according to fmt.
- * We parse fmt into a list of FormatNodes.  This is then passed to DCH_to_char
- * for formatting.
+ * 按 fmt 把日期/时间或 interval 格式化为串。
+ * 我们把 fmt 解析为 FormatNodes 列表，随后传给 DCH_to_char
+ * 去格式化。
  */
 static text *
 datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
@@ -4000,13 +4000,13 @@ datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
 	text	   *res;
 
 	/*
-	 * Convert fmt to C string
+	 * 把 fmt 转成 C 串
 	 */
 	fmt_str = text_to_cstring(fmt);
 	fmt_len = strlen(fmt_str);
 
 	/*
-	 * Allocate workspace for result as C string
+	 * 为 C 串形式的结果分配工作区
 	 */
 	result = palloc((fmt_len * DCH_MAX_ITEM_SIZ) + 1);
 	*result = '\0';
@@ -4014,8 +4014,8 @@ datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
 	if (fmt_len > DCH_CACHE_SIZE)
 	{
 		/*
-		 * Allocate new memory if format picture is bigger than static cache
-		 * and do not use cache (call parser always)
+		 * 若格式模式大于静态缓存则分配新内存，并且
+		 * 不使用缓存（总调用解析器）
 		 */
 		incache = false;
 
@@ -4027,7 +4027,7 @@ datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
 	else
 	{
 		/*
-		 * Use cache buffers
+		 * 使用缓存
 		 */
 		DCHCacheEntry *ent = DCH_cache_fetch(fmt_str, false);
 
@@ -4035,7 +4035,7 @@ datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
 		format = ent->format;
 	}
 
-	/* The real work is here */
+	/* 真正的工作在此 */
 	DCH_to_char(format, is_interval, tmtc, result, collid);
 
 	if (!incache)
@@ -4043,7 +4043,7 @@ datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
 
 	pfree(fmt_str);
 
-	/* convert C-string result to TEXT format */
+	/* 把 C 串结果转为 TEXT 格式 */
 	res = cstring_to_text(result);
 
 	pfree(result);
@@ -4051,7 +4051,7 @@ datetime_to_char_body(TmToChar *tmtc, text *fmt, bool is_interval, Oid collid)
 }
 
 /****************************************************************************
- *				Public routines
+ *			公共例程
  ***************************************************************************/
 
 /* -------------------
@@ -4080,7 +4080,7 @@ timestamp_to_char(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 				 errmsg("timestamp out of range")));
 
-	/* calculate wday and yday, because timestamp2tm doesn't */
+	/* 计算 wday 和 yday，因为 timestamp2tm 不算 */
 	thisdate = date2j(tt.tm_year, tt.tm_mon, tt.tm_mday);
 	tt.tm_wday = (thisdate + 1) % 7;
 	tt.tm_yday = thisdate - date2j(tt.tm_year, 1, 1) + 1;
@@ -4116,7 +4116,7 @@ timestamptz_to_char(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 				 errmsg("timestamp out of range")));
 
-	/* calculate wday and yday, because timestamp2tm doesn't */
+	/* 计算 wday 和 yday，因为 timestamp2tm 不算 */
 	thisdate = date2j(tt.tm_year, tt.tm_mon, tt.tm_mday);
 	tt.tm_wday = (thisdate + 1) % 7;
 	tt.tm_yday = thisdate - date2j(tt.tm_year, 1, 1) + 1;
@@ -4160,7 +4160,7 @@ interval_to_char(PG_FUNCTION_ARGS)
 	tm->tm_mon = itm->tm_mon;
 	tm->tm_year = itm->tm_year;
 
-	/* wday is meaningless, yday approximates the total span in days */
+	/* wday 无意义，yday 近似以天计的总跨度 */
 	tm->tm_yday = (tm->tm_year * MONTHS_PER_YEAR + tm->tm_mon) * DAYS_PER_MONTH + tm->tm_mday;
 
 	if (!(res = datetime_to_char_body(&tmtc, fmt, true, PG_GET_COLLATION())))
@@ -4172,8 +4172,8 @@ interval_to_char(PG_FUNCTION_ARGS)
 /* ---------------------
  * TO_TIMESTAMP()
  *
- * Make Timestamp from date_str which is formatted at argument 'fmt'
- * ( to_timestamp is reverse to_char() )
+ * 从按参数 'fmt' 格式化的 date_str 构造 Timestamp
+ * （to_timestamp 为 to_char() 逆）
  * ---------------------
  */
 Datum
@@ -4191,7 +4191,7 @@ to_timestamp(PG_FUNCTION_ARGS)
 	do_to_timestamp(date_txt, fmt, collid, false,
 					&tm, &fsec, &fprec, NULL, NULL);
 
-	/* Use the specified time zone, if any. */
+	/* 使用指定的时区（如有）。 */
 	if (tm.tm_zone)
 	{
 		DateTimeErrorExtra extra;
@@ -4209,7 +4209,7 @@ to_timestamp(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
 				 errmsg("timestamp out of range")));
 
-	/* Use the specified fractional precision, if any. */
+	/* 使用指定的小数精度（如有）。 */
 	if (fprec)
 		AdjustTimestampForTypmod(&result, fprec, NULL);
 
@@ -4218,7 +4218,7 @@ to_timestamp(PG_FUNCTION_ARGS)
 
 /* ----------
  * TO_DATE
- *	Make Date from date_str which is formatted at argument 'fmt'
+ *	从按参数 'fmt' 格式化的 date_str 构造 Date
  * ----------
  */
 Datum
@@ -4234,7 +4234,7 @@ to_date(PG_FUNCTION_ARGS)
 	do_to_timestamp(date_txt, fmt, collid, false,
 					&tm, &fsec, NULL, NULL, NULL);
 
-	/* Prevent overflow in Julian-day routines */
+	/* 防止儒略日例程溢出 */
 	if (!IS_VALID_JULIAN(tm.tm_year, tm.tm_mon, tm.tm_mday))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -4243,7 +4243,7 @@ to_date(PG_FUNCTION_ARGS)
 
 	result = date2j(tm.tm_year, tm.tm_mon, tm.tm_mday) - POSTGRES_EPOCH_JDATE;
 
-	/* Now check for just-out-of-range dates */
+	/* 现在检查略超范围的日期 */
 	if (!IS_VALID_DATE(result))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -4254,19 +4254,19 @@ to_date(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert the 'date_txt' input to a datetime type using argument 'fmt'
- * as a format string.  The collation 'collid' may be used for case-folding
- * rules in some cases.  'strict' specifies standard parsing mode.
+ * 使用参数 'fmt' 作为格式串，把 'date_txt' 输入转换为
+ * datetime 类型。排序规则 'collid' 在某些情形下可用于
+ * 大小写折叠规则。'strict' 指定标准解析模式。
  *
- * The actual data type (returned in 'typid', 'typmod') is determined by
- * the presence of date/time/zone components in the format string.
+ * 实际数据类型（在 'typid'、'typmod' 中返回）由格式串
+ * 中日期/时间/时区成分是否出现来决定。
  *
- * When a timezone component is present, the corresponding offset is
- * returned in '*tz'.
+ * 当时区成分存在时，相应偏移量返回在 '*tz' 中。
  *
- * If escontext points to an ErrorSaveContext, data errors will be reported
- * by filling that struct; the caller must test SOFT_ERROR_OCCURRED() to see
- * whether an error occurred.  Otherwise, errors are thrown.
+ *
+ * 若 escontext 指向 ErrorSaveContext，数据错误将通过填充
+ * 该结构体来报告；调用者必须测试 SOFT_ERROR_OCCURRED()
+ * 来看是否发生了错误。否则抛出错误。
  */
 Datum
 parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
@@ -4282,7 +4282,7 @@ parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
 						 &tm, &fsec, &fprec, &flags, escontext))
 		return (Datum) 0;
 
-	*typmod = fprec ? fprec : -1;	/* fractional part precision */
+	*typmod = fprec ? fprec : -1;	/* 小数部分精度 */
 
 	if (flags & DCH_DATED)
 	{
@@ -4308,9 +4308,9 @@ parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
 				else
 				{
 					/*
-					 * Time zone is present in format string, but not in input
-					 * string.  Assuming do_to_timestamp() triggers no error
-					 * this should be possible only in non-strict case.
+					 * 格式串有时区成分但输入串没有。假定
+					 * do_to_timestamp() 不报错，这只应在
+					 * 非严格情形下发生。
 					 */
 					Assert(!strict);
 
@@ -4356,7 +4356,7 @@ parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
 			{
 				DateADT		result;
 
-				/* Prevent overflow in Julian-day routines */
+				/* 防止儒略日例程溢出 */
 				if (!IS_VALID_JULIAN(tm.tm_year, tm.tm_mon, tm.tm_mday))
 					ereturn(escontext, (Datum) 0,
 							(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -4366,7 +4366,7 @@ parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
 				result = date2j(tm.tm_year, tm.tm_mon, tm.tm_mday) -
 					POSTGRES_EPOCH_JDATE;
 
-				/* Now check for just-out-of-range dates */
+				/* 现在检查略超范围的日期 */
 				if (!IS_VALID_DATE(result))
 					ereturn(escontext, (Datum) 0,
 							(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
@@ -4400,9 +4400,9 @@ parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
 			else
 			{
 				/*
-				 * Time zone is present in format string, but not in input
-				 * string.  Assuming do_to_timestamp() triggers no error this
-				 * should be possible only in non-strict case.
+				 * 格式串有时区成分但输入串没有。假定
+				 * do_to_timestamp() 不报错，这只应在
+				 * 非严格情形下发生。
 				 */
 				Assert(!strict);
 
@@ -4445,27 +4445,27 @@ parse_datetime(text *date_txt, text *fmt, Oid collid, bool strict,
 }
 
 /*
- * do_to_timestamp: shared code for to_timestamp and to_date
+ * do_to_timestamp：to_timestamp 与 to_date 共用代码
  *
- * Parse the 'date_txt' according to 'fmt', return results as a struct pg_tm,
- * fractional seconds, and fractional precision.
+ * 按 'fmt' 解析 'date_txt'，把结果作为 struct pg_tm、
+ * 小数秒与小数精度返回。
  *
- * 'collid' identifies the collation to use, if needed.
- * 'std' specifies standard parsing mode.
+ * 'collid' 标识所需排序规则（如需）。
+ * 'std' 指定标准解析模式。
  *
- * Bit mask of date/time/zone components found in 'fmt' is returned in 'flags',
- * if that is not NULL.
+ * 'fmt' 中找到的日期/时间/时区成分的位掩码在 'flags'
+ * 若非 NULL。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).  Note that currently,
- * soft-error behavior is provided for bad data but not bad format.
+ * 成功返回真，失败返回假（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。注意当前仅为
+ * 坏数据提供软错误行为，坏格式则没有。
  *
- * We parse 'fmt' into a list of FormatNodes, which is then passed to
- * DCH_from_char to populate a TmFromChar with the parsed contents of
- * 'date_txt'.
+ * 我们把 'fmt' 解析为 FormatNodes 列表，随后传给
+ * DCH_from_char，以 'date_txt' 的解析结果填充
+ * TmFromChar
  *
- * The TmFromChar is then analysed and converted into the final results in
- * struct 'tm', 'fsec', and 'fprec'.
+ * 随后分析 TmFromChar 并转换为最终结果，存入结构体
+ * 'tm'、'fsec' 与 'fprec'。
  */
 static bool
 do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
@@ -4491,7 +4491,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 		*fprec = 0;
 	if (flags)
 		*flags = 0;
-	fmask = 0;					/* bit mask for ValidateDate() */
+	fmask = 0;					/* ValidateDate() 的位掩码 */
 
 	fmt_len = VARSIZE_ANY_EXHDR(fmt);
 
@@ -4504,8 +4504,8 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 		if (fmt_len > DCH_CACHE_SIZE)
 		{
 			/*
-			 * Allocate new memory if format picture is bigger than static
-			 * cache and do not use cache (call parser always)
+			 * 若格式模式大于静态缓存则分配新内存，
+			 * 不使用缓存（总调用解析器）
 			 */
 			format = (FormatNode *) palloc((fmt_len + 1) * sizeof(FormatNode));
 
@@ -4515,7 +4515,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 		else
 		{
 			/*
-			 * Use cache buffers
+			 * 使用缓存
 			 */
 			DCHCacheEntry *ent = DCH_cache_fetch(fmt_str, std);
 
@@ -4546,7 +4546,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 	DEBUG_TMFC(&tmfc);
 
 	/*
-	 * Convert to_date/to_timestamp input fields to standard 'tm'
+	 * 把 to_date/to_timestamp 输入字段转换为标准 'tm'
 	 */
 	if (tmfc.ssss)
 	{
@@ -4587,10 +4587,10 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 	if (tmfc.year)
 	{
 		/*
-		 * If CC and YY (or Y) are provided, use YY as 2 low-order digits for
-		 * the year in the given century.  Keep in mind that the 21st century
-		 * AD runs from 2001-2100, not 2000-2099; 6th century BC runs from
-		 * 600BC to 501BC.
+		 * 若给出 CC 与 YY（或 Y），则用 YY 作给定世纪中
+		 * 年份的低 2 位数字。注意公元 21 世纪是从 2001 到
+		 * 2100，而非 2000-2099；公元前 6 世纪是从 600BC 到
+		 * 501BC。
 		 */
 		if (tmfc.cc && tmfc.yysz <= 2)
 		{
@@ -4606,17 +4606,17 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 			}
 			else
 			{
-				/* find century year for dates ending in "00" */
+				/* 找出以"00"结尾日期的世纪年 */
 				tm->tm_year = tmfc.cc * 100 + ((tmfc.cc >= 0) ? 0 : 1);
 			}
 		}
 		else
 		{
-			/* If a 4-digit year is provided, we use that and ignore CC. */
+			/* 若给了 4 位年份，则用它并忽略 CC。 */
 			tm->tm_year = tmfc.year;
 			if (tmfc.bc)
 				tm->tm_year = -tm->tm_year;
-			/* correct for our representation of BC years */
+			/* 校正我们的公元前年表示法 */
 			if (tm->tm_year < 0)
 				tm->tm_year++;
 		}
@@ -4624,14 +4624,14 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 	}
 	else if (tmfc.cc)
 	{
-		/* use first year of century */
+		/* 使用世纪首年 */
 		if (tmfc.bc)
 			tmfc.cc = -tmfc.cc;
 		if (tmfc.cc >= 0)
-			/* +1 because 21st century started in 2001 */
+			/* +1 因为 21 世纪始于 2001 */
 			tm->tm_year = (tmfc.cc - 1) * 100 + 1;
 		else
-			/* +1 because year == 599 is 600 BC */
+			/* +1 因为 year == 599 是 600 BC */
 			tm->tm_year = tmfc.cc * 100 + 1;
 		fmask |= DTK_M(YEAR);
 	}
@@ -4647,8 +4647,8 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 		if (tmfc.mode == FROM_CHAR_DATE_ISOWEEK)
 		{
 			/*
-			 * If tmfc.d is not set, then the date is left at the beginning of
-			 * the ISO week (Monday).
+			 * 若 tmfc.d 未设置，则日期留在 ISO 周的开头
+			 * （周一）。
 			 */
 			if (tmfc.d)
 				isoweekdate2date(tmfc.ww, tmfc.d, &tm->tm_year, &tm->tm_mon, &tm->tm_mday);
@@ -4676,10 +4676,10 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 	if (tmfc.ddd && (tm->tm_mon <= 1 || tm->tm_mday <= 1))
 	{
 		/*
-		 * The month and day field have not been set, so we use the
-		 * day-of-year field to populate them.  Depending on the date mode,
-		 * this field may be interpreted as a Gregorian day-of-year, or an ISO
-		 * week date day-of-year.
+		 * 月和日字段未设置，故用年内日字段来
+		 * 填充它们。依日期模式不同，该字段可能被解释
+		 * 为公历年内日，或 ISO 周日期年内日。
+		 *
 		 */
 
 		if (!tm->tm_year && !tmfc.bc)
@@ -4692,7 +4692,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 
 		if (tmfc.mode == FROM_CHAR_DATE_ISOWEEK)
 		{
-			int			j0;		/* zeroth day of the ISO year, in Julian */
+			int			j0;		/* ISO 年的第零日（儒略日） */
 
 			j0 = isoweek2j(tm->tm_year, 1) - 1;
 
@@ -4730,20 +4730,20 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 	if (tmfc.us)
 		*fsec += tmfc.us;
 	if (fprec)
-		*fprec = tmfc.ff;		/* fractional precision, if specified */
+		*fprec = tmfc.ff;		/* 小数部分精度（如指定） */
 
-	/* Range-check date fields according to bit mask computed above */
+	/* 按上面算得的位掩码范围检查日期字段 */
 	if (fmask != 0)
 	{
-		/* We already dealt with AD/BC, so pass isjulian = true */
+		/* 已处理过 AD/BC，故传 isjulian = true */
 		int			dterr = ValidateDate(fmask, true, false, false, tm);
 
 		if (dterr != 0)
 		{
 			/*
-			 * Force the error to be DTERR_FIELD_OVERFLOW even if ValidateDate
-			 * said DTERR_MD_FIELD_OVERFLOW, because we don't want to print an
-			 * irrelevant hint about datestyle.
+			 * 即使 ValidateDate 说的是 DTERR_MD_FIELD_OVERFLOW，
+			 * 也要把错误定为 DTERR_FIELD_OVERFLOW，以免打印
+			 * 无关的 datestyle 提示。
 			 */
 			DateTimeParseError(DTERR_FIELD_OVERFLOW, NULL,
 							   date_str, "timestamp", escontext);
@@ -4751,7 +4751,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 		}
 	}
 
-	/* Range-check time fields too */
+	/* 也检查时间字段 */
 	if (tm->tm_hour < 0 || tm->tm_hour >= HOURS_PER_DAY ||
 		tm->tm_min < 0 || tm->tm_min >= MINS_PER_HOUR ||
 		tm->tm_sec < 0 || tm->tm_sec >= SECS_PER_MINUTE ||
@@ -4762,7 +4762,7 @@ do_to_timestamp(text *date_txt, text *fmt, Oid collid, bool std,
 		goto fail;
 	}
 
-	/* Save parsed time-zone into tm->tm_zone if it was specified */
+	/* 若有指定则把解析出的时区存入 tm->tm_zone */
 	if (tmfc.tzsign)
 	{
 		char	   *tz;
@@ -4799,7 +4799,7 @@ fail:
 
 
 /**********************************************************************
- *	the NUMBER version part
+ *	NUMBER 版部分
  *********************************************************************/
 
 
@@ -4824,7 +4824,7 @@ do { \
 	(_n)->zero_end		= 0;	\
 } while(0)
 
-/* This works the same as DCH_prevent_counter_overflow */
+/* 工作方式同 DCH_prevent_counter_overflow */
 static inline void
 NUM_prevent_counter_overflow(void)
 {
@@ -4836,17 +4836,17 @@ NUM_prevent_counter_overflow(void)
 	}
 }
 
-/* select a NUMCacheEntry to hold the given format picture */
+/* 选一个 NUMCacheEntry 来容纳给定的格式模式 */
 static NUMCacheEntry *
 NUM_cache_getnew(const char *str)
 {
 	NUMCacheEntry *ent;
 
-	/* Ensure we can advance NUMCounter below */
+	/* 确保下面能递增 NUMCounter */
 	NUM_prevent_counter_overflow();
 
 	/*
-	 * If cache is full, remove oldest entry (or recycle first not-valid one)
+	 * 若缓存已满，移除最老条目（或回收首个无效条目）
 	 */
 	if (n_NUMCache >= NUM_CACHE_ENTRIES)
 	{
@@ -4875,7 +4875,7 @@ NUM_cache_getnew(const char *str)
 		old->valid = false;
 		strlcpy(old->str, str, NUM_CACHE_SIZE + 1);
 		old->age = (++NUMCounter);
-		/* caller is expected to fill format and Num, then set valid */
+		/* 期望调用者填好 format 和 Num 后再置为有效 */
 		return old;
 	}
 	else
@@ -4889,17 +4889,17 @@ NUM_cache_getnew(const char *str)
 		ent->valid = false;
 		strlcpy(ent->str, str, NUM_CACHE_SIZE + 1);
 		ent->age = (++NUMCounter);
-		/* caller is expected to fill format and Num, then set valid */
+		/* 期望调用者填好 format 和 Num 后再置为有效 */
 		++n_NUMCache;
 		return ent;
 	}
 }
 
-/* look for an existing NUMCacheEntry matching the given format picture */
+/* 查找与给定格式模式匹配的既有 NUMCacheEntry */
 static NUMCacheEntry *
 NUM_cache_search(const char *str)
 {
-	/* Ensure we can advance NUMCounter below */
+	/* 确保下面能递增 NUMCounter */
 	NUM_prevent_counter_overflow();
 
 	for (int i = 0; i < n_NUMCache; i++)
@@ -4916,7 +4916,7 @@ NUM_cache_search(const char *str)
 	return NULL;
 }
 
-/* Find or create a NUMCacheEntry for the given format picture */
+/* 为给定格式模式查找或创建 NUMCacheEntry */
 static NUMCacheEntry *
 NUM_cache_fetch(const char *str)
 {
@@ -4925,9 +4925,9 @@ NUM_cache_fetch(const char *str)
 	if ((ent = NUM_cache_search(str)) == NULL)
 	{
 		/*
-		 * Not in the cache, must run parser and save a new format-picture to
-		 * the cache.  Do not mark the cache entry valid until parsing
-		 * succeeds.
+		 * 不在缓存中，须运行解析器并把新格式模式存
+		 * 缓存。解析成功前不要标记条目为有效。
+		 *
 		 */
 		ent = NUM_cache_getnew(str);
 
@@ -4942,7 +4942,7 @@ NUM_cache_fetch(const char *str)
 }
 
 /* ----------
- * Cache routine for NUM to_char version
+ * NUM to_char 版的缓存例程
  * ----------
  */
 static FormatNode *
@@ -4956,8 +4956,8 @@ NUM_cache(int len, NUMDesc *Num, text *pars_str, bool *shouldFree)
 	if (len > NUM_CACHE_SIZE)
 	{
 		/*
-		 * Allocate new memory if format picture is bigger than static cache
-		 * and do not use cache (call parser always)
+		 * 若格式模式大于静态缓存则分配新内存，并且
+		 * 不使用缓存（总调用解析器）
 		 */
 		format = (FormatNode *) palloc((len + 1) * sizeof(FormatNode));
 
@@ -4971,7 +4971,7 @@ NUM_cache(int len, NUMDesc *Num, text *pars_str, bool *shouldFree)
 	else
 	{
 		/*
-		 * Use cache buffers
+		 * 使用缓存
 		 */
 		NUMCacheEntry *ent = NUM_cache_fetch(str);
 
@@ -4980,7 +4980,7 @@ NUM_cache(int len, NUMDesc *Num, text *pars_str, bool *shouldFree)
 		format = ent->format;
 
 		/*
-		 * Copy cache to used struct
+		 * 复制缓存到结构体
 		 */
 		Num->flag = ent->Num.flag;
 		Num->lsign = ent->Num.lsign;
@@ -5060,12 +5060,12 @@ NUM_prepare_locale(NUMProc *Np)
 		struct lconv *lconv;
 
 		/*
-		 * Get locales
+		 * 取区域
 		 */
 		lconv = PGLC_localeconv();
 
 		/*
-		 * Positive / Negative number sign
+		 * 正/负数符号
 		 */
 		if (lconv->negative_sign && *lconv->negative_sign)
 			Np->L_negative_sign = lconv->negative_sign;
@@ -5078,7 +5078,7 @@ NUM_prepare_locale(NUMProc *Np)
 			Np->L_positive_sign = "+";
 
 		/*
-		 * Number decimal point
+		 * 数字小数点
 		 */
 		if (lconv->decimal_point && *lconv->decimal_point)
 			Np->decimal = lconv->decimal_point;
@@ -5090,22 +5090,22 @@ NUM_prepare_locale(NUMProc *Np)
 			Np->decimal = ".";
 
 		/*
-		 * Number thousands separator
+		 * 数字千位分隔符
 		 *
-		 * Some locales (e.g. broken glibc pt_BR), have a comma for decimal,
-		 * but "" for thousands_sep, so we set the thousands_sep too.
+		 * 某些区域设置（如 glibc pt_BR 的缺陷）小数点用
+		 * 逗号，千位分隔符为""，故我们也设置之。
 		 * http://archives.postgresql.org/pgsql-hackers/2007-11/msg00772.php
 		 */
 		if (lconv->thousands_sep && *lconv->thousands_sep)
 			Np->L_thousands_sep = lconv->thousands_sep;
-		/* Make sure thousands separator doesn't match decimal point symbol. */
+		/* 确保千位分隔符不与小数点符号匹配。 */
 		else if (strcmp(Np->decimal, ",") != 0)
 			Np->L_thousands_sep = ",";
 		else
 			Np->L_thousands_sep = ".";
 
 		/*
-		 * Currency symbol
+		 * 货币符号
 		 */
 		if (lconv->currency_symbol && *lconv->currency_symbol)
 			Np->L_currency_symbol = lconv->currency_symbol;
@@ -5115,7 +5115,7 @@ NUM_prepare_locale(NUMProc *Np)
 	else
 	{
 		/*
-		 * Default values
+		 * 默认值
 		 */
 		Np->L_negative_sign = "-";
 		Np->L_positive_sign = "+";
@@ -5127,11 +5127,11 @@ NUM_prepare_locale(NUMProc *Np)
 }
 
 /* ----------
- * Return pointer of last relevant number after decimal point
- *	12.0500 --> last relevant is '5'
- *	12.0000 --> last relevant is '.'
- * If there is no decimal point, return NULL (which will result in same
- * behavior as if FM hadn't been specified).
+ * 返回小数点后最后一个有效数字的指针
+ *	12.0500 --> 最后有效是 '5'
+ *	12.0000 --> 最后有效是 '.'
+ * 若无小数点，则返回 NULL（结果将与未指定 FM 时
+ * 的行为相同）。
  * ----------
  */
 static char *
@@ -5159,15 +5159,15 @@ get_last_relevant_decnum(char *num)
 }
 
 /*
- * These macros are used in NUM_processor() and its subsidiary routines.
- * OVERLOAD_TEST: true if we've reached end of input string
- * AMOUNT_TEST(s): true if at least s bytes remain in string
+ * 这些宏用于 NUM_processor() 及其附属例程。
+ * OVERLOAD_TEST：若已到达输入串末尾则为真
+ * AMOUNT_TEST(s)：若串中至少剩 s 字节则为真
  */
 #define OVERLOAD_TEST	(Np->inout_p >= Np->inout + input_len)
 #define AMOUNT_TEST(s)	(Np->inout_p <= Np->inout + (input_len - (s)))
 
 /* ----------
- * Number extraction for TO_NUMBER()
+ * TO_NUMBER() 的数字提取
  * ----------
  */
 static void
@@ -5190,7 +5190,7 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 		return;
 
 	/*
-	 * read sign before number
+	 * 数字前读符号
 	 */
 	if (*Np->number == ' ' && (id == NUM_0 || id == NUM_9) &&
 		(Np->read_pre + Np->read_post) == 0)
@@ -5237,12 +5237,12 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 			if (*Np->inout_p == '-' || (IS_BRACKET(Np->Num) &&
 										*Np->inout_p == '<'))
 			{
-				*Np->number = '-';	/* set - */
+				*Np->number = '-';	/* 置 - */
 				Np->inout_p++;
 			}
 			else if (*Np->inout_p == '+')
 			{
-				*Np->number = '+';	/* set + */
+				*Np->number = '+';	/* 置 + */
 				Np->inout_p++;
 			}
 		}
@@ -5256,7 +5256,7 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 #endif
 
 	/*
-	 * read digit or decimal point
+	 * 读取数字或小数点
 	 */
 	if (isdigit((unsigned char) *Np->inout_p))
 	{
@@ -5280,9 +5280,9 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 	else if (IS_DECIMAL(Np->Num) && Np->read_dec == false)
 	{
 		/*
-		 * We need not test IS_LDECIMAL(Np->Num) explicitly here, because
-		 * Np->decimal is always just "." if we don't have a D format token.
-		 * So we just unconditionally match to Np->decimal.
+		 * 此处无需显式测试 IS_LDECIMAL(Np->Num)，因为
+		 * 若没有 D 格式 token，Np->decimal 就总是 "."。
+		 * 所以仅无条件与 Np->decimal 匹配。
 		 */
 		int			x = strlen(Np->decimal);
 
@@ -5304,10 +5304,10 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 		return;
 
 	/*
-	 * Read sign behind "last" number
+	 * 读"最后"数字后的符号
 	 *
-	 * We need sign detection because determine exact position of post-sign is
-	 * difficult:
+	 * 需要检测符号，因为后置符号的精确位置难以确定：
+	 *
 	 *
 	 * FM9999.9999999S	   -> 123.001- 9.9S			   -> .5- FM9.999999MI ->
 	 * 5.01-
@@ -5315,9 +5315,9 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 	if (*Np->number == ' ' && Np->read_pre + Np->read_post > 0)
 	{
 		/*
-		 * locale sign (NUM_S) is always anchored behind a last number, if: -
-		 * locale sign expected - last read char was NUM_0/9 or NUM_DEC - and
-		 * next char is not digit
+		 * 区域符号（NUM_S）总锚定在末个数字后，若：
+		 * 预期为区域符号 - 末读字符为 NUM_0/9 或 NUM_DEC
+		 * 且下字符非数字
 		 */
 		if (IS_LSIGN(Np->Num) && isread &&
 			(Np->inout_p + 1) < Np->inout + input_len &&
@@ -5333,30 +5333,30 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 				AMOUNT_TEST(x) &&
 				strncmp(Np->inout_p, Np->L_negative_sign, x) == 0)
 			{
-				Np->inout_p += x - 1;	/* -1 .. NUM_processor() do inout_p++ */
+				Np->inout_p += x - 1;	/* -1 .. NUM_processor()会 inout_p++ */
 				*Np->number = '-';
 			}
 			else if ((x = strlen(Np->L_positive_sign)) &&
 					 AMOUNT_TEST(x) &&
 					 strncmp(Np->inout_p, Np->L_positive_sign, x) == 0)
 			{
-				Np->inout_p += x - 1;	/* -1 .. NUM_processor() do inout_p++ */
+				Np->inout_p += x - 1;	/* -1 .. NUM_processor()会 inout_p++ */
 				*Np->number = '+';
 			}
 			if (*Np->number == ' ')
-				/* no sign read */
+				/* 未读符号 */
 				Np->inout_p = tmp;
 		}
 
 		/*
-		 * try read non-locale sign, it's happen only if format is not exact
-		 * and we cannot determine sign position of MI/PL/SG, an example:
+		 * 尝试读非区域符号，仅当格式不精确时，如：
+		 * 且我们无法确定 MI/PL/SG 的符号位置：
 		 *
 		 * FM9.999999MI			   -> 5.01-
 		 *
-		 * if (.... && IS_LSIGN(Np->Num)==false) prevents read wrong formats
-		 * like to_number('1 -', '9S') where sign is not anchored to last
-		 * number.
+		 * if (.... && IS_LSIGN(Np->Num)==false) 防止误读
+		 * 如 to_number('1 -', '9S')，符号未锚定于最后
+		 * 数字
 		 */
 		else if (isread == false && IS_LSIGN(Np->Num) == false &&
 				 (IS_PLUS(Np->Num) || IS_MINUS(Np->Num)))
@@ -5366,10 +5366,10 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 #endif
 
 			/*
-			 * simple + -
+			 * 简单 +-
 			 */
 			if (*Np->inout_p == '-' || *Np->inout_p == '+')
-				/* NUM_processor() do inout_p++ */
+				/* NUM_processor() inout_p++ */
 				*Np->number = *Np->inout_p;
 		}
 	}
@@ -5382,7 +5382,7 @@ NUM_numpart_from_char(NUMProc *Np, int id, int input_len)
 				 (_n)->Num->post != 0)
 
 /* ----------
- * Add digit or sign to number-string
+ * 加数字或符号到数字串
  * ----------
  */
 static void
@@ -5393,13 +5393,13 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 	if (IS_ROMAN(Np->Num))
 		return;
 
-	/* Note: in this elog() output not set '\0' in 'inout' */
+	/* 注意：elog() 输出未在 'inout' 中置 '\0' */
 
 #ifdef DEBUG_TO_FROM_CHAR
 
 	/*
-	 * Np->num_curr is number of current item in format-picture, it is not
-	 * current position in inout!
+	 * Np->num_curr 是格式模式中当前条目的序号，它不是
+	 * inout 的当前位置！
 	 */
 	elog(DEBUG_elog_output,
 		 "SIGN_WROTE: %d, CURRENT: %d, NUMBER_P: \"%s\", INOUT: \"%s\"",
@@ -5411,8 +5411,8 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 	Np->num_in = false;
 
 	/*
-	 * Write sign if real number will write to output Note: IS_PREDEC_SPACE()
-	 * handle "9.9" --> " .1"
+	 * 若实际数字将写往输出则写符号 注意：IS_PREDEC_SPACE()
+	 * 处理 "9.9" --> " .1"
 	 */
 	if (Np->sign_wrote == false &&
 		(Np->num_curr >= Np->out_pre_spaces || (IS_ZERO(Np->Num) && Np->Num->zero_start == Np->num_curr)) &&
@@ -5440,13 +5440,13 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 		{
 			if (!IS_FILLMODE(Np->Num))
 			{
-				*Np->inout_p = ' '; /* Write + */
+				*Np->inout_p = ' '; /* 写 + */
 				++Np->inout_p;
 			}
 			Np->sign_wrote = true;
 		}
 		else if (Np->sign == '-')
-		{						/* Write - */
+		{						/* 写 - */
 			*Np->inout_p = '-';
 			++Np->inout_p;
 			Np->sign_wrote = true;
@@ -5455,7 +5455,7 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 
 
 	/*
-	 * digits / FM / Zero / Dec. point
+	 * 数字 / FM / 零 / 小数点
 	 */
 	if (id == NUM_9 || id == NUM_0 || id == NUM_D || id == NUM_DEC)
 	{
@@ -5463,11 +5463,11 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 			(Np->Num->zero_start > Np->num_curr || !IS_ZERO(Np->Num)))
 		{
 			/*
-			 * Write blank space
+			 * 写空白
 			 */
 			if (!IS_FILLMODE(Np->Num))
 			{
-				*Np->inout_p = ' '; /* Write ' ' */
+				*Np->inout_p = ' '; /* 写 ' ' */
 				++Np->inout_p;
 			}
 		}
@@ -5476,22 +5476,22 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 				 Np->Num->zero_start <= Np->num_curr)
 		{
 			/*
-			 * Write ZERO
+			 * 写 ZERO
 			 */
-			*Np->inout_p = '0'; /* Write '0' */
+			*Np->inout_p = '0'; /* 写 '0' */
 			++Np->inout_p;
 			Np->num_in = true;
 		}
 		else
 		{
 			/*
-			 * Write Decimal point
+			 * 写小数点
 			 */
 			if (*Np->number_p == '.')
 			{
 				if (!Np->last_relevant || *Np->last_relevant != '.')
 				{
-					strcpy(Np->inout_p, Np->decimal);	/* Write DEC/D */
+					strcpy(Np->inout_p, Np->decimal);	/* 写 DEC/D */
 					Np->inout_p += strlen(Np->inout_p);
 				}
 
@@ -5501,14 +5501,14 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 				else if (IS_FILLMODE(Np->Num) &&
 						 Np->last_relevant && *Np->last_relevant == '.')
 				{
-					strcpy(Np->inout_p, Np->decimal);	/* Write DEC/D */
+					strcpy(Np->inout_p, Np->decimal);	/* 写 DEC/D */
 					Np->inout_p += strlen(Np->inout_p);
 				}
 			}
 			else
 			{
 				/*
-				 * Write Digits
+				 * 写数字
 				 */
 				if (Np->last_relevant && Np->number_p > Np->last_relevant &&
 					id != NUM_0)
@@ -5536,12 +5536,12 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 				}
 				else
 				{
-					*Np->inout_p = *Np->number_p;	/* Write DIGIT */
+					*Np->inout_p = *Np->number_p;	/* 写数字 */
 					++Np->inout_p;
 					Np->num_in = true;
 				}
 			}
-			/* do no exceed string length */
+			/* 不超过串长度 */
 			if (*Np->number_p)
 				++Np->number_p;
 		}
@@ -5573,7 +5573,7 @@ NUM_numpart_to_char(NUMProc *Np, int id)
 }
 
 /*
- * Skip over "n" input characters, but only if they aren't numeric data
+ * 跳过 "n" 个输入字符，但仅当它们不是数字数据时
  */
 static void
 NUM_eat_non_data_chars(NUMProc *Np, int n, int input_len)
@@ -5581,9 +5581,9 @@ NUM_eat_non_data_chars(NUMProc *Np, int n, int input_len)
 	while (n-- > 0)
 	{
 		if (OVERLOAD_TEST)
-			break;				/* end of input */
+			break;				/* 输入结束 */
 		if (strchr("0123456789.,+-", *Np->inout_p) != NULL)
-			break;				/* it's a data character */
+			break;				/* 是数据字符 */
 		Np->inout_p += pg_mblen(Np->inout_p);
 	}
 }
@@ -5623,7 +5623,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 	}
 
 	/*
-	 * Roman correction
+	 * 罗马修正
 	 */
 	if (IS_ROMAN(Np->Num))
 	{
@@ -5652,13 +5652,13 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 	{
 		Np->sign = sign;
 
-		/* MI/PL/SG - write sign itself and not in number */
+		/* MI/PL/SG - 写符号本身，不写入数字 */
 		if (IS_PLUS(Np->Num) || IS_MINUS(Np->Num))
 		{
 			if (IS_PLUS(Np->Num) && IS_MINUS(Np->Num) == false)
-				Np->sign_wrote = false; /* need sign */
+				Np->sign_wrote = false; /* 需符号 */
 			else
-				Np->sign_wrote = true;	/* needn't sign */
+				Np->sign_wrote = true;	/* 无需符号 */
 		}
 		else
 		{
@@ -5669,9 +5669,9 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 			}
 
 			if (Np->sign == '+' && IS_FILLMODE(Np->Num) && IS_LSIGN(Np->Num) == false)
-				Np->sign_wrote = true;	/* needn't sign */
+				Np->sign_wrote = true;	/* 无需符号 */
 			else
-				Np->sign_wrote = false; /* need sign */
+				Np->sign_wrote = false; /* 需符号 */
 
 			if (Np->Num->lsign == NUM_LSIGN_PRE && Np->Num->pre == Np->Num->pre_lsign_num)
 				Np->Num->lsign = NUM_LSIGN_POST;
@@ -5694,17 +5694,17 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 			Np->last_relevant = get_last_relevant_decnum(Np->number);
 
 			/*
-			 * If any '0' specifiers are present, make sure we don't strip
-			 * those digits.  But don't advance last_relevant beyond the last
-			 * character of the Np->number string, which is a hazard if the
-			 * number got shortened due to precision limitations.
+			 * 若有 '0' 指示符，确保不剥除这些数字。
+			 * 但别把 last_relevant 前进到越过 Np->number
+			 * 串末字符——若数字因精度限制变短，这是
+			 * 一种风险。
 			 */
 			if (Np->last_relevant && Np->Num->zero_end > Np->out_pre_spaces)
 			{
 				int			last_zero_pos;
 				char	   *last_zero;
 
-				/* note that Np->number cannot be zero-length here */
+				/* 注意此处 Np->number 不可能为零长 */
 				last_zero_pos = strlen(Np->number) - 1;
 				last_zero_pos = Min(last_zero_pos,
 									Np->Num->zero_end - Np->out_pre_spaces);
@@ -5720,7 +5720,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 	else
 	{
 		Np->out_pre_spaces = 0;
-		*Np->number = ' ';		/* sign space */
+		*Np->number = ' ';		/* 符号位 */
 		*(Np->number + 1) = '\0';
 	}
 
@@ -5756,42 +5756,42 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 	NUM_prepare_locale(Np);
 
 	/*
-	 * Processor direct cycle
+	 * 处理器直通循环
 	 */
 	if (Np->is_to_char)
 		Np->number_p = Np->number;
 	else
-		Np->number_p = Np->number + 1;	/* first char is space for sign */
+		Np->number_p = Np->number + 1;	/* 首字符是符号的空位 */
 
 	for (n = node, Np->inout_p = Np->inout; n->type != NODE_TYPE_END; n++)
 	{
 		if (!Np->is_to_char)
 		{
 			/*
-			 * Check at least one byte remains to be scanned.  (In actions
-			 * below, must use AMOUNT_TEST if we want to read more bytes than
-			 * that.)
+			 * 检查至少还剩一个字节待扫描。（下方动作
+			 * 中，若想读更多字节就必须用 AMOUNT_TEST。）
+			 *
 			 */
 			if (OVERLOAD_TEST)
 				break;
 		}
 
 		/*
-		 * Format pictures actions
+		 * 格式模式动作
 		 */
 		if (n->type == NODE_TYPE_ACTION)
 		{
 			/*
-			 * Create/read digit/zero/blank/sign/special-case
+			 * 创建/读取数字/零/空白/符号/特例
 			 *
-			 * 'NUM_S' note: The locale sign is anchored to number and we
-			 * read/write it when we work with first or last number
-			 * (NUM_0/NUM_9).  This is why NUM_S is missing in switch().
+			 * 'NUM_S' 注：区域符号锚定于数字，我们只在
+			 * 处理首个或末个数字时才读/写它
+			 * （NUM_0/NUM_9）。故 switch() 无 NUM_S。
 			 *
-			 * Notice the "Np->inout_p++" at the bottom of the loop.  This is
-			 * why most of the actions advance inout_p one less than you might
-			 * expect.  In cases where we don't want that increment to happen,
-			 * a switch case ends with "continue" not "break".
+			 * 注意循环底部的 "Np->inout_p++"。这就是多数动
+			 * 作为什么 inout_p 前进得比预期少一位。
+			 * 在不想要该递增发生的情形，switch 分支以
+			 * "continue" 结束而非 "break"。
 			 */
 			switch (n->key->id)
 			{
@@ -5846,7 +5846,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 								continue;
 							else
 							{
-								/* just in case there are MB chars */
+								/* 以防有多字节字符 */
 								pattern_len = pg_mbstrlen(pattern);
 								memset(Np->inout_p, ' ', pattern_len);
 								Np->inout_p += pattern_len - 1;
@@ -5867,10 +5867,10 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 						}
 
 						/*
-						 * Because L_thousands_sep typically contains data
-						 * characters (either '.' or ','), we can't use
-						 * NUM_eat_non_data_chars here.  Instead skip only if
-						 * the input matches L_thousands_sep.
+						 * 因 L_thousands_sep 常含数据字符
+						 * （'.' 或 ','），所以不能用
+						 * NUM_eat_non_data_chars。只当输入匹配
+						 * L_thousands_sep 时跳过。
 						 */
 						if (AMOUNT_TEST(pattern_len) &&
 							strncmp(Np->inout_p, pattern, pattern_len) == 0)
@@ -5932,7 +5932,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 					}
 					else
 					{
-						/* All variants of 'th' occupy 2 characters */
+						/* 'th' 的所有变体占 2 个字符 */
 						NUM_eat_non_data_chars(Np, 2, input_len);
 						continue;
 					}
@@ -5950,7 +5950,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 					}
 					else
 					{
-						/* All variants of 'TH' occupy 2 characters */
+						/* 'TH' 的所有变体占 2 个字符 */
 						NUM_eat_non_data_chars(Np, 2, input_len);
 						continue;
 					}
@@ -6025,10 +6025,10 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 		else
 		{
 			/*
-			 * In TO_CHAR, non-pattern characters in the format are copied to
-			 * the output.  In TO_NUMBER, we skip one input character for each
-			 * non-pattern format character, whether or not it matches the
-			 * format character.
+			 * TO_CHAR 中，格式里的非模式字符会复制到输出。
+			 * TO_NUMBER 中，每个非模式格式字符对应跳过
+			 * 一个输入字符，无论是否匹配该格式字符。
+			 *
 			 */
 			if (Np->is_to_char)
 			{
@@ -6057,7 +6057,7 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 			*Np->number_p = '\0';
 
 		/*
-		 * Correction - precision of dec. number
+		 * 修正——小数数字的精度
 		 */
 		Np->Num->post = Np->read_post;
 
@@ -6069,8 +6069,8 @@ NUM_processor(FormatNode *node, NUMDesc *Num, char *inout,
 }
 
 /* ----------
- * MACRO: Start part of NUM - for all NUM's to_char variants
- *	(sorry, but I hate copy same code - macro is better..)
+ * MACRO：NUM 起始部分——所有 NUM to_char 变体
+ *	（抱歉，讨厌复制同码，宏更好）
  * ----------
  */
 #define NUM_TOCHAR_prepare \
@@ -6083,7 +6083,7 @@ do { \
 } while (0)
 
 /* ----------
- * MACRO: Finish part of NUM
+ * MACRO：NUM 收尾部分
  * ----------
  */
 #define NUM_TOCHAR_finish \
@@ -6096,16 +6096,16 @@ do { \
 		pfree(format);				\
 									\
 	/*								\
-	 * Convert null-terminated representation of result to standard text. \
-	 * The result is usually much bigger than it needs to be, but there \
-	 * seems little point in realloc'ing it smaller. \
+	 * 把以 null 结尾的结果表示转为标准 text。 \
+	 * 结果通常比所需大得多，但把它重分配得更小 \
+	 * 似乎没什么意义。 \
 	 */								\
 	len = strlen(VARDATA(result));	\
 	SET_VARSIZE(result, len + VARHDRSZ); \
 } while (0)
 
 /* -------------------
- * NUMERIC to_number() (convert string to numeric)
+ * NUMERIC to_number()（把串转为 numeric）
  * -------------------
  */
 Datum
@@ -6186,7 +6186,7 @@ numeric_to_char(PG_FUNCTION_ARGS)
 	NUM_TOCHAR_prepare;
 
 	/*
-	 * On DateType depend part (numeric)
+	 * DateType 相关段（numeric）
 	 */
 	if (IS_ROMAN(&Num))
 	{
@@ -6202,18 +6202,18 @@ numeric_to_char(PG_FUNCTION_ARGS)
 		orgnum = numeric_out_sci(value, Num.post);
 
 		/*
-		 * numeric_out_sci() does not emit a sign for positive numbers.  We
-		 * need to add a space in this case so that positive and negative
-		 * numbers are aligned.  Also must check for NaN/infinity cases, which
-		 * we handle the same way as in float8_to_char.
+		 * numeric_out_sci() 不为正数输出符号。此时我们需要
+		 * 补一个空格，使正数与负数对齐。还必须检查
+		 * NaN/无穷的情形，处理方式与 float8_to_char 相同。
+		 *
 		 */
 		if (strcmp(orgnum, "NaN") == 0 ||
 			strcmp(orgnum, "Infinity") == 0 ||
 			strcmp(orgnum, "-Infinity") == 0)
 		{
 			/*
-			 * Allow 6 characters for the leading sign, the decimal point,
-			 * "e", the exponent's sign and two exponent digits.
+			 * 为前导符号、小数点、"e"、指数符号与
+			 * 两位指数数字预留 6 个字符。
 			 */
 			numstr = (char *) palloc(Num.pre + Num.post + 7);
 			fill_str(numstr, '#', Num.pre + Num.post + 6);
@@ -6272,10 +6272,10 @@ numeric_to_char(PG_FUNCTION_ARGS)
 		else
 			numstr_pre_len = strlen(numstr);
 
-		/* needs padding? */
+		/* 需要填充? */
 		if (numstr_pre_len < Num.pre)
 			out_pre_spaces = Num.pre - numstr_pre_len;
-		/* overflowed prefix digit format? */
+		/* 前缀数字格式溢出? */
 		else if (numstr_pre_len > Num.pre)
 		{
 			numstr = (char *) palloc(Num.pre + Num.post + 2);
@@ -6309,19 +6309,19 @@ int4_to_char(PG_FUNCTION_ARGS)
 	NUM_TOCHAR_prepare;
 
 	/*
-	 * On DateType depend part (int32)
+	 * DateType 相关段（int32）
 	 */
 	if (IS_ROMAN(&Num))
 		numstr = int_to_roman(value);
 	else if (IS_EEEE(&Num))
 	{
-		/* we can do it easily because float8 won't lose any precision */
+		/* 轻松做到，因 float8 不丢任何精度 */
 		float8		val = (float8) value;
 
 		orgnum = (char *) psprintf("%+.*e", Num.post, val);
 
 		/*
-		 * Swap a leading positive sign for a space.
+		 * 把前导正号换成空格。
 		 */
 		if (*orgnum == '+')
 			*orgnum = ' ';
@@ -6354,7 +6354,7 @@ int4_to_char(PG_FUNCTION_ARGS)
 
 		numstr_pre_len = strlen(orgnum);
 
-		/* post-decimal digits?  Pad out with zeros. */
+		/* 小数后有数字？用零补足。 */
 		if (Num.post)
 		{
 			numstr = (char *) palloc(numstr_pre_len + Num.post + 2);
@@ -6366,10 +6366,10 @@ int4_to_char(PG_FUNCTION_ARGS)
 		else
 			numstr = orgnum;
 
-		/* needs padding? */
+		/* 需要填充? */
 		if (numstr_pre_len < Num.pre)
 			out_pre_spaces = Num.pre - numstr_pre_len;
-		/* overflowed prefix digit format? */
+		/* 前缀数字格式溢出? */
 		else if (numstr_pre_len > Num.pre)
 		{
 			numstr = (char *) palloc(Num.pre + Num.post + 2);
@@ -6403,23 +6403,23 @@ int8_to_char(PG_FUNCTION_ARGS)
 	NUM_TOCHAR_prepare;
 
 	/*
-	 * On DateType depend part (int32)
+	 * DateType 相关段（int32）
 	 */
 	if (IS_ROMAN(&Num))
 	{
-		/* Currently don't support int8 conversion to roman... */
+		/* 目前不支持 int8 转罗马数字... */
 		numstr = int_to_roman(DatumGetInt32(DirectFunctionCall1(int84, Int64GetDatum(value))));
 	}
 	else if (IS_EEEE(&Num))
 	{
-		/* to avoid loss of precision, must go via numeric not float8 */
+		/* 为避免精度损失，须经由 numeric 而非 float8 */
 		orgnum = numeric_out_sci(int64_to_numeric(value),
 								 Num.post);
 
 		/*
-		 * numeric_out_sci() does not emit a sign for positive numbers.  We
-		 * need to add a space in this case so that positive and negative
-		 * numbers are aligned.  We don't have to worry about NaN/inf here.
+		 * numeric_out_sci() 不为正数输出符号。此时我们需要
+		 * 补一个空格，使正数与负数对齐。此处
+		 * 无需担心 NaN/inf。
 		 */
 		if (*orgnum != '-')
 		{
@@ -6460,7 +6460,7 @@ int8_to_char(PG_FUNCTION_ARGS)
 
 		numstr_pre_len = strlen(orgnum);
 
-		/* post-decimal digits?  Pad out with zeros. */
+		/* 小数后有数字？用零补足。 */
 		if (Num.post)
 		{
 			numstr = (char *) palloc(numstr_pre_len + Num.post + 2);
@@ -6472,10 +6472,10 @@ int8_to_char(PG_FUNCTION_ARGS)
 		else
 			numstr = orgnum;
 
-		/* needs padding? */
+		/* 需要填充? */
 		if (numstr_pre_len < Num.pre)
 			out_pre_spaces = Num.pre - numstr_pre_len;
-		/* overflowed prefix digit format? */
+		/* 前缀数字格式溢出? */
 		else if (numstr_pre_len > Num.pre)
 		{
 			numstr = (char *) palloc(Num.pre + Num.post + 2);
@@ -6515,8 +6515,8 @@ float4_to_char(PG_FUNCTION_ARGS)
 		if (isnan(value) || isinf(value))
 		{
 			/*
-			 * Allow 6 characters for the leading sign, the decimal point,
-			 * "e", the exponent's sign and two exponent digits.
+			 * 为前导符号、小数点、"e"、指数符号与
+			 * 两位指数数字预留 6 个字符。
 			 */
 			numstr = (char *) palloc(Num.pre + Num.post + 7);
 			fill_str(numstr, '#', Num.pre + Num.post + 6);
@@ -6528,7 +6528,7 @@ float4_to_char(PG_FUNCTION_ARGS)
 			numstr = psprintf("%+.*e", Num.post, value);
 
 			/*
-			 * Swap a leading positive sign for a space.
+			 * 把前导正号换成空格。
 			 */
 			if (*numstr == '+')
 				*numstr = ' ';
@@ -6551,7 +6551,7 @@ float4_to_char(PG_FUNCTION_ARGS)
 		orgnum = psprintf("%.0f", fabs(val));
 		numstr_pre_len = strlen(orgnum);
 
-		/* adjust post digits to fit max float digits */
+		/* 调整小数位适配 float 最大位数 */
 		if (numstr_pre_len >= FLT_DIG)
 			Num.post = 0;
 		else if (numstr_pre_len + Num.post > FLT_DIG)
@@ -6574,10 +6574,10 @@ float4_to_char(PG_FUNCTION_ARGS)
 		else
 			numstr_pre_len = strlen(numstr);
 
-		/* needs padding? */
+		/* 需要填充? */
 		if (numstr_pre_len < Num.pre)
 			out_pre_spaces = Num.pre - numstr_pre_len;
-		/* overflowed prefix digit format? */
+		/* 前缀数字格式溢出? */
 		else if (numstr_pre_len > Num.pre)
 		{
 			numstr = (char *) palloc(Num.pre + Num.post + 2);
@@ -6617,8 +6617,8 @@ float8_to_char(PG_FUNCTION_ARGS)
 		if (isnan(value) || isinf(value))
 		{
 			/*
-			 * Allow 6 characters for the leading sign, the decimal point,
-			 * "e", the exponent's sign and two exponent digits.
+			 * 为前导符号、小数点、"e"、指数符号与
+			 * 两位指数数字预留 6 个字符。
 			 */
 			numstr = (char *) palloc(Num.pre + Num.post + 7);
 			fill_str(numstr, '#', Num.pre + Num.post + 6);
@@ -6630,7 +6630,7 @@ float8_to_char(PG_FUNCTION_ARGS)
 			numstr = psprintf("%+.*e", Num.post, value);
 
 			/*
-			 * Swap a leading positive sign for a space.
+			 * 把前导正号换成空格。
 			 */
 			if (*numstr == '+')
 				*numstr = ' ';
@@ -6653,7 +6653,7 @@ float8_to_char(PG_FUNCTION_ARGS)
 		orgnum = psprintf("%.0f", fabs(val));
 		numstr_pre_len = strlen(orgnum);
 
-		/* adjust post digits to fit max double digits */
+		/* 调整小数位适配 double 最大位数 */
 		if (numstr_pre_len >= DBL_DIG)
 			Num.post = 0;
 		else if (numstr_pre_len + Num.post > DBL_DIG)
@@ -6676,10 +6676,10 @@ float8_to_char(PG_FUNCTION_ARGS)
 		else
 			numstr_pre_len = strlen(numstr);
 
-		/* needs padding? */
+		/* 需要填充? */
 		if (numstr_pre_len < Num.pre)
 			out_pre_spaces = Num.pre - numstr_pre_len;
-		/* overflowed prefix digit format? */
+		/* 前缀数字格式溢出? */
 		else if (numstr_pre_len > Num.pre)
 		{
 			numstr = (char *) palloc(Num.pre + Num.post + 2);

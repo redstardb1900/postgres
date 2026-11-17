@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0425",
+ "title": "adt 目录 formatting.c 整文件注释翻译 698 行 489 块 — batch 0425",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5f2cc403902bc8b425a0a635aa13df19d1d36e58",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/formatting.c",
+   "kind": "c_comment",
+   "note": "Oracle 兼容日期/数字格式化核心 (to_char/to_timestamp/to_date/to_number/DCH 与 NUM 格式模式解析器/FormatNode 缓存系/upper-lower-initcap 排序规则感知系/seq_search 系/TmToChar 与 TmFromChar 处理器/NUM_processor); whole-file comment translation, batch-0425"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0425-adt-formatting.json",
+   "kind": "manifest",
+   "note": "batch-0425 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0425 entries (formatting.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/formatting.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 489,
+   "translated": 378,
+   "preserved": 111,
+   "preserved_reasons": [
+    "111 个未变块 (与 verify changed=378 对齐, 489-378=111): 头部帧与文件名/版权/路径行 (SEG 0000 内 33 行), 区段横幅帧行 /* ---------- */ 与空 * 行 ~120 行 (散布于 267 个变更块), AM/PM 横幅整块 @218-221 (标识符横幅), 裸标签行 Tests @319-322/Debug @429-432/Keyword @1344/Next node @2193-2195/Sign @5648-5650/Count @5684/Locale @5051-5054 与 @5753-5755/Match? @2547/locale sign @5203-5205/simple + - < > @5234-5236 (预算 8-16B 单词标签), /* last */ 5 站 (@565/@713/@756/@879/@928), FALLTHROUGH @1196/@3187 与 /* fall through */ @3465 (verify 保护), #endif 标签 @1493/@1606/@2178, 字段名清单 @765 (name,len,id,is_digit,date_mode)/@890 (name,len,id,is in Index), DCH_keywords 表 36 条字母标签行 @766-873 + /* last */ @879, NUM_keywords 表 30 条字母标签行 @891-926 + /* last */ @928, 数字行框架 @938-940/@962-964, 注掉的调试代码行 @4527/@4528/@4997, 格式样例行 @5312-5313 (FM9999.9999999S -> 123.001- 等)/@5355/@5498-5500 (Ora 'n' -- FM9.9 --> 'n.')/@5517-5519 ('0.1' -- 9.9 --> '  .1')/@5528-5530 ('0' -- FM9.9 --> '0.'), 区段标题 @4057-4060 (TIMESTAMP to_char())/@4133-4136 (INTERVAL to_char())/@4173 (TO_TIMESTAMP())/@4220 (TO_DATE)/@6166-6169 (NUMERIC to_char())/@6291-6294 (INT4)/@6311-6313 (INT8 标题帧)/@6385-6388 (INT8)/@6491-6494 (FLOAT4)/@6593-6596 (FLOAT8)/@6311 区 (标识符标题), for()/switch() 标记 @5805/@5810, < 0 标记 @6562/@6664, URL @5097; 变更块内另有 KEPT 行 506 行级保留 (横幅帧/空 * 行/样例行), 见 note"
+   ],
+   "note": "formatting.c Oracle 兼容日期/数字格式化核心 (to_char/to_timestamp/to_date/to_number/DCH 与 NUM 格式模式解析器/FormatNode 缓存系/upper-lower-initcap 排序规则感知系/seq_search 系/TmToChar 与 TmFromChar 处理器/NUM_processor/CC-YY 世纪换算/罗马数字月/序数后缀); whole-file comment translation, batch-0425; 权威 universe: 注释感知状态机扫描 489 块 0 警告, content 行 1372, verify comments=489 changed=378 两方一致; content 行 1372 = zh 698 (逐行 spec) + 保留 EN 674 (KEPT; 其中 506 行散布于 378 个变更块 + 168 行位于 111 个整块未变块); 行级: 头部功能描述行 L10-59 已译 (文件名 L2/版权 L7/路径 L4/TO_CHAR 函数清单 L10 保留, TO_CHAR();…清单为标识符行预算恰 54B), Karel Zak L46/TODO L48 标签保留; FALL THRU 2 站 KEPT (verify 保护: @1196/@3187) + /* fall through */ @3465 KEPT; 行数守恒 6693 不变 (numstat 698/698); 代码零改动 (verify rc=0, 0 violations, 0 parse errors); 宏内注释续行反斜杠 3 行 RAW 处理 (L6099-6101 结尾 ' \\' 保留, 断言验证); NUL 扫描 0; 术语全取既译同款: 格式模式 (format picture/pattern, 本文件 23 站, pgnls 格式化模式口径), 排序规则 (collation, varchar.c L733 既译, 本文件 24 站), 区域设置 (locale, pg_locale.c/0424 varlena 13 站既译, 本文件 区域设置/区域 9 站), 儒略日 (julian, datetime.c L268 既译, 3 站, R5 勘正), 公元/公元前 (AD/BC, datetime.c L2521 既译, 5 站, 公元 5 含公元前 3, R5 勘正), 公历 (Gregorian, timestamp.c L4548 既译, 3 站), 夏令时 0 站 (本文件无 DST prose), 闰年 0 站, 纪元 0 站, 溢出 (overflow, 既译, 11 站, R5 勘正), 无穷 (infinity, float.c 既译, 1 站), 精度 (precision, 既译, 9 站, R5 勘正), 序数后缀 (ordinal postfix, 1 站), 前导零 0 站 (leading zero prose 无), 填充模式 (Fill Mode, L2346 填充模式 1 站), null-terminated→以 null 结尾 (0424 判例同款, 独立 3 站, 同模板句 6 站另计, 全文 null 结尾 9 站, R5 口径注明), AM/PM/BC/AD/DOW/WW/IW/Q/J/SSSSS/FM/FX/TH 等格式 token 标识符逐字保留; 跨文件同 EN 对齐实证: This typically means that the parser could not resolve a conflict of implicit collations, so report it that way. 两行 → L1641-1642/L1763-1764/L1886-1887 ×3 「通常意味着解析器无法解决隐式排序规则/冲突，因此按该方式报告。」 (W4 后与 varlena.c L1512-1513 逐字一致, 去「这」后 62B≤70B); 同 EN 必同译: 块级全量断言终态 0 冲突 (W2 清偿 L6312 与 L6406 On DateType depend part (int32) 同 EN 统一为 DateType 相关段（int32）); 异 EN 同 zh 反查 2 组全良性: 小数部分精度 ×2 (L4285 EN fractional part precision vs L4733 EN fractional precision, if specified — 近变体同义, 后者另带（如指定）), 格式串有时区成分但输入串没有…×2 (L4311 vs L4403, EN 断行位置不同 this should be/should be, 语义同); 极性代码对照 16 块 (≥12): L2224 0-69→2000 年代 对偶 L2227 70-99→1900 年代 对偶 L2230 100-519→2000 年代 对偶 L2233 520-999→1000 年代, L2257-2258 日期模式已设置且冲突→报错, L2284-2285 目标整数已设非零值→报错, L2307 dest 为 NULL 则丢弃结果, L2346-2347 填充模式或下节点非数字→尽量抓取, L2449 空串匹配不到任何内容, L2468 匹配整个条目返回成功 对偶 L2474 否则还有字符 对偶 L2477 必须匹配, L2576 匹配返回真失败返回假, L3222-3223 负值情形 -1 十二月 对偶 L3231-3232 严格正数情形 tm_mon 对应, L3497-3500+3520 TZH 可负/负号吞掉风险 对偶 未见过 TZH 赋正号, L3636-3643 忽略 Q 不报错且不存入, L5283-5285 无 D token 时 decimal 总是点号故无需显式测试, L5655 写符号本身而不写入数字, L5659/5661+5672/5674 需要符号/无需符号 ×2 双分支, L6205-6207 正数不输出符号→补空格+必须查 NaN/无穷, L6420-6422 同模板但 int8 无需担心 NaN/inf; 枚举/token 表逐项点数 (0417 D1 判例, 程序化统计): FromCharDateMode 枚举 3 值全译 (L138 该值不影响日期模式/L139 公历（日、月、年）风格日期/L140 ISO 8601 周日期) + 横幅 L133-134 已译; NUMDesc 结构体 9 字段全译 (L285 小数点前的位数/L286 小数点后的位数/L287 需要区域符号/L288 数字参数/L289 lsign 临时值/L290 'V' 的乘数/L291 首个零的位置/L292 末个零的位置/L293 需要区域), datetime 字段 5 全译 (L407 存为 1-7 周日=1 0 表示缺失/L419 YY 还是 YYYY/L420 12 或 24 小时制/L421 无时区信息时为 +1、-1 或 0/L424 小数部分精度), fmt_tm 3 全译 (L473-475), NUM 队列 10 全译 (L988-999), NUM_processor 结构体 6 (L1001-1005 已译 5 + L1007 Locale 标签 KEPT 预算 36B 仅容 2 字), 后缀枚举 2 已译 (L614 FFn 代码必须连续/L620 全局后缀), KeyWords 文档横幅 L571-596 全译含搜索算法三步 (L591-593 1)/2)/3) 全数) 与 ascii 32(' ')..126(~) 边界两数字均在译文 (L587-588), DCH_keywords 表 36 条字母标签行 + /* last */ KEPT (数据行代码未触碰, 表头字段清单 L765 KEPT), NUM_keywords 表 30 条 + last KEPT, DCH/NUM 索引数字行框架 KEPT, 缓存横幅 L337-351 全译 (DCH_CACHE_SIZE/NUM_CACHE_SIZE/CACHE_SIZE/DCH_CACHE_ENTRIES/NUM_CACHE_ENTRIES 5 标识符均在译文), 秒分数族 6 站全译 (L2718 十分之一秒/L2721 百分之一秒/L2725 毫秒/L2728 十分之一毫秒/L2731 百分之一毫秒/L2735 微秒, 同 EN 复现站 L3445/L3466/L3815/L3816 同译); 同模板句逐站 grep -c 零漂移 (文件内实测): 成功返回真，失败返回假（若 escontext 指向 3, ErrorSaveContext；否则抛出错误）。 7, 传入字节数，以便能把 varlena 和 char* 传给 6, 本函数。结果为 palloc 的、以 null 结尾的串。 6, 需要填充? 5, 前缀数字格式溢出? 5, 我们沿用 Postgres 传统，强制按 ASCII 风格 3, 处理 I/i，但在非默认排序规则下， 3, 你得到的正是排序规则所说的。 3, 结果要足够大；大小写改变可能改变字节 3, 溢出偏执 3, 输出工作区的字符数无法多于输入字节 3, C/POSIX 排序规则无论数据库编码为何都走此路径 3, 空串匹配不到任何内容 2, DateType 相关段（int32） 2, 把前导正号换成空格。 3, 为前导符号、小数点、\"e\"、指数符号与 3, 两位指数数字预留 6 个字符。 3, 不在缓存中，须运行解析器并把新格式模式存 2, 使用缓存 2, 若格式模式大于静态缓存则分配新内存 2; 门禁三连实测: verify_c_comments rc=0 (--worktree HEAD 仓库根 --paths src/backend/utils/adt: 1 files, 1 ok, 0 violations, 0 parse errors, comments=489, changed=378, splices=89 既有, NUL/trigraph 0), term_lint rc=0 (--pgnls /home/redstar/pg/pgsty/pgnls: 87 rules 21 error/66 warning, 0 error hits, 14 warnings 全 advisory 不修: P43×4 L293/L5317/L5351/L5784 块级配对噪声无实际命中, P24×5 L2414/L3922/L3937/L4878/L4892 expected-X-got-Y 模板无实际命中 (此处 expected 为 期望调用者 非错误模板), P17×1 L407 missing→缺失 语义正确 (missing=缺席非数据丢失), TL08+P23×2 站 L3311/L3376 requires→要求 规则注记自身允许 requirement 场景), check_scope 于 manifest+cumulative 落盘后实测; W7 27 站 (--paths src/backend/utils/adt 口径, verify 实测): IDENT_LOST 9 = NUMBER (L99 zh 数字标志 在场)/STANDARD (L100 zh 标准标志 在场)/KeyWord ×2 (L102 zh 关键字索引 在场/L523 zh 关键字定义 在场)/character ×3 (L2430 zh 起始字符 在场/L2487 起始字符 在场/L2562 起始字符大小写不敏 在场)/thousands_sep (L5092 zh 千位分隔符 在场)/DIGIT (L5539 zh 写数字 在场), 均 0372 量裁语义在场不修 (NUM_DEC 曾于 W3 检出真丢失已恢复 L5319, 现不在 W7 清单); UNTRANSLATED 18 = 全部 KEPT 声明站 (标签/表头/注掉代码/样例/区段标题/横幅帧, 见 preserved_reasons); 句号台账 (行级 python 全量比对, EN 基线 git show HEAD 现算): FWD 33 = 断行点位移/句号前置吸收 (EN 句点落次行, zh 句号并入本行, 良性; 抽样 L20/L2316/L3500/L4264 核证, L3500 EN 句点在 L3501 TZH. zh 并入 跳过的负号前置到 TZH。) 全良性; REV 64 全为断行点位移 zh 句自洽 (zh 行 N 句号对应 EN 行 N±1 句点, 0391 判例 REVERSE 变通: zh 文本自洽无歧义, 抽样 L98/L512/L2255 核证) 全良性; 修复轮如实披露: 规划轮 dry-run 约 12 次 (chunk01-05 逐块预算迭代: 超预算约 45 站/覆盖缺口 138 行 frame 漏登/行号映射错位 1 起 (SEG 0197 blank 行 L1616)/KEPT-SPEC 冲突 1 起 (L350), 全部 dry-run 或 checkout 复位重放), 写后 4 轮 (超 ≤3 纪律, 一致性/标识符级缺陷让位如实披露, 0417 判例): W1 term_lint P02 cannot→无法 3 站 (L1692/L1814/L1937 不能→无法 等字节), W2 同 EN 必同译清偿 L6312 (与 L6406 统一 DateType 相关段（int32）, 35B≤35B), W3 W7 真缺陷 NUM_DEC 标识符恢复 (L5317 IDENT_LOST: L5319-5320 重构为 预期为区域符号 - 末读字符为 NUM_0/9 或 NUM_DEC/且下字符非数字, 63B≤71B+26B≤27B), W4 跨文件对齐 varlena.c L1512-1513 (L1641/L1763/L1886 去「这」, 62B≤70B ×3); 每轮 git checkout HEAD -- 复位重放后门禁复跑 rc=0; 函数名/标识符逐字校验结论: 本文件无裸函数名 banner (无 「 * funcname() - desc」 形态横幅), 55 个关键标识符 (DCH_from_char/DCH_to_char/from_char_parse_int_len/NUM_processor/do_to_timestamp/ValidateDate/OVERLOAD_TEST/ErrorSaveContext 等) 程序化全量核在 (MISSING: none), W7 全量扫描 0 代码标识符丢失; A 级披露: L5359 末数字句号省略 (预算 12B 仅容 5B, EN number.), L5318-5320 区域符号锚定条件三行压缩 (若:-/末读字符/且下字符非数字, EN 列表破折号结构简化为逗号衔接, 语义完备), L1380 标准模式分隔符串 \"-./,':; \" 逐字保留 (单引号数为奇数系串内字符, EN 同), L1381-1382 双引号扩展说明全译, L2255 设置 from-char 转换的日期模式。 47B≤47B 恰满, L21/L27/L5310/L5313 等 25 行 EN 尾短语被上行吸收为裸 * 行 (0365 R6 判例), L4220 TO_DATE/L4173 TO_TIMESTAMP()/L4058 TIMESTAMP to_char() 等 10 站标识符标题 KEPT, CJK-EN 相邻空格预算紧行省略若干站 (L2680/L3643 等); 修复后门禁三连复跑 rc=0×2 + 全文件终扫 (单字缝 0/双字缝 0/行首标点 0/括号平衡 0/同 EN 异译 0) 通过; 审后清偿轮 R5 (只读审查 FAIL 1D+2N+6A → 清偿, 落工作树未提交): D1 L5095-5096 千位分隔符注释补回「小数点用逗号」核心成分 (L5095 66B≤70B/L5096 61B≤63B, 引号 ASCII), N1 L2257-2258 Puke 悬挂条件句补全 (L2258 冲突模式。→冲突模式则报错。 27B≤28B, 现算; 审查估 28B=28B 经现场重算修正), N2 帧缩进漂移 16 行/6 站对齐 EN (L3207-3209/L3214-3215/L3222-3223/L3231-3232/L4311-4313/L5870-5873 各减一 tab, 语义文本不动, 逐站前缀程序化比对 16/16 OK+sed 回读), A1 L99 /* 数字标志*/ 等额修法 (40B=40B), A4 L2431-2432 对齐 L2488-2489 润色因 41B 预算放不下且须保全起始字符成分→披露不修, A5 本 note 术语计数勘正 (儒略日 3/公元 5 含公元前 3/溢出 11/精度 9/null 结尾 9 独立 3+模板 6), A2/A3/A6 维持量裁; R5 后门禁三连复跑 rc=0×3 (verify 489/378 + term_lint 0 error 14 advisory + check_scope PASS), 修复区相邻行复查+接缝双字复扫 0; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0425-adt-formatting.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0425 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0425 entries (formatting.c + 本 manifest; 两数组各 +2, 纯追加, 追加前查重无 formatting 既有条目)"
+  }
+ ]
+}

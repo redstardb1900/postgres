@@ -7326,6 +7326,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0424-adt-varlena.json",
    "kind": "manifest",
    "note": "batch-0424 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/formatting.c",
+   "kind": "c_comment",
+   "note": "whole-file comment translation, batch-0425"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0425-adt-formatting.json",
+   "kind": "manifest",
+   "note": "batch-0425 manifest"
   }
  ],
  "files": [
@@ -23758,6 +23768,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0424 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/formatting.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 489,
+   "translated": 378,
+   "preserved": 111,
+   "preserved_reasons": [
+    "111 个未变块 (与 verify changed=378 对齐): 横幅帧/裸标签行/字母标签表/注掉代码行/样例行/区段标题等, 见 batch-0425 manifest preserved_reasons"
+   ],
+   "note": "formatting.c Oracle 兼容日期/数字格式化核心 (to_char 系/DCH 与 NUM 格式模式解析器/缓存系/upper-lower-initcap 系/seq_search 系/NUM_processor); whole-file comment translation, batch-0425; 489 块, content 1372 = zh 698 + KEPT 674; verify rc=0, term_lint rc=0 0 error"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0425-adt-formatting.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0425 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

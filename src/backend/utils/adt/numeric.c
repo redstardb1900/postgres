@@ -8312,8 +8312,8 @@ numericvar_to_double_no_overflow(const NumericVar *var)
 /*
  * cmp_var() -
  *
- *	Compare two values on variable level.  We assume zeroes have been
- *	truncated to no digits.
+ *	在变量层面比较两个值。假定零值已被截断为
+ *	没有数字位。
  */
 static int
 cmp_var(const NumericVar *var1, const NumericVar *var2)
@@ -8327,8 +8327,8 @@ cmp_var(const NumericVar *var1, const NumericVar *var2)
 /*
  * cmp_var_common() -
  *
- *	Main routine of cmp_var(). This function can be used by both
- *	NumericVar and Numeric.
+ *	cmp_var() 的主例程。NumericVar 和
+ *	Numeric 皆可用。
  */
 static int
 cmp_var_common(const NumericDigit *var1digits, int var1ndigits,
@@ -8370,21 +8370,21 @@ cmp_var_common(const NumericDigit *var1digits, int var1ndigits,
 /*
  * add_var() -
  *
- *	Full version of add functionality on variable level (handling signs).
- *	result might point to one of the operands too without danger.
+ *	变量层面加法功能的完整版本（处理符号）。
+ *	result 也可以安全地指向某个操作数。
  */
 static void
 add_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 {
 	/*
-	 * Decide on the signs of the two variables what to do
+	 * 根据两个变量的符号决定要做什么
 	 */
 	if (var1->sign == NUMERIC_POS)
 	{
 		if (var2->sign == NUMERIC_POS)
 		{
 			/*
-			 * Both are positive result = +(ABS(var1) + ABS(var2))
+			 * 两者均为正 result = +(ABS(var1) + ABS(var2))
 			 */
 			add_abs(var1, var2, result);
 			result->sign = NUMERIC_POS;
@@ -8392,7 +8392,7 @@ add_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		else
 		{
 			/*
-			 * var1 is positive, var2 is negative Must compare absolute values
+			 * var1 为正，var2 为负。必须比较绝对值
 			 */
 			switch (cmp_abs(var1, var2))
 			{
@@ -8433,8 +8433,8 @@ add_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		if (var2->sign == NUMERIC_POS)
 		{
 			/* ----------
-			 * var1 is negative, var2 is positive
-			 * Must compare absolute values
+			 * var1 为负，var2 为正
+			 * 必须比较绝对值
 			 * ----------
 			 */
 			switch (cmp_abs(var1, var2))
@@ -8473,7 +8473,7 @@ add_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		else
 		{
 			/* ----------
-			 * Both are negative
+			 * 两者均为负
 			 * result = -(ABS(var1) + ABS(var2))
 			 * ----------
 			 */
@@ -8487,21 +8487,21 @@ add_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 /*
  * sub_var() -
  *
- *	Full version of sub functionality on variable level (handling signs).
- *	result might point to one of the operands too without danger.
+ *	变量层面减法功能的完整版本（处理符号）。
+ *	result 也可以安全地指向某个操作数。
  */
 static void
 sub_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 {
 	/*
-	 * Decide on the signs of the two variables what to do
+	 * 根据两个变量的符号决定要做什么
 	 */
 	if (var1->sign == NUMERIC_POS)
 	{
 		if (var2->sign == NUMERIC_NEG)
 		{
 			/* ----------
-			 * var1 is positive, var2 is negative
+			 * var1 为正，var2 为负
 			 * result = +(ABS(var1) + ABS(var2))
 			 * ----------
 			 */
@@ -8511,8 +8511,8 @@ sub_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		else
 		{
 			/* ----------
-			 * Both are positive
-			 * Must compare absolute values
+			 * 两者均为正
+			 * 必须比较绝对值
 			 * ----------
 			 */
 			switch (cmp_abs(var1, var2))
@@ -8554,8 +8554,8 @@ sub_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		if (var2->sign == NUMERIC_NEG)
 		{
 			/* ----------
-			 * Both are negative
-			 * Must compare absolute values
+			 * 两者均为负
+			 * 必须比较绝对值
 			 * ----------
 			 */
 			switch (cmp_abs(var1, var2))
@@ -8594,7 +8594,7 @@ sub_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		else
 		{
 			/* ----------
-			 * var1 is negative, var2 is positive
+			 * var1 为负，var2 为正
 			 * result = -(ABS(var1) + ABS(var2))
 			 * ----------
 			 */
@@ -8608,8 +8608,8 @@ sub_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 /*
  * mul_var() -
  *
- *	Multiplication on variable level. Product of var1 * var2 is stored
- *	in result.  Result is rounded to no more than rscale fractional digits.
+ *	变量层面的乘法。var1 * var2 的乘积存入
+ *	result。结果被舍入到不超过 rscale 位小数。
  */
 static void
 mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
@@ -8633,11 +8633,11 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 				i2;
 
 	/*
-	 * Arrange for var1 to be the shorter of the two numbers.  This improves
-	 * performance because the inner multiplication loop is much simpler than
-	 * the outer loop, so it's better to have a smaller number of iterations
-	 * of the outer loop.  This also reduces the number of times that the
-	 * accumulator array needs to be normalized.
+	 * 安排 var1 作为两数中较短的一个。这能改善性能，
+	 * 因为内层乘法循环比外层循环简单得多，
+	 * 所以让外层循环的迭代次数更少更好。
+	 * 这也减少了累加器数组需要被
+	 * 规范化的次数。
 	 */
 	if (var1->ndigits > var2->ndigits)
 	{
@@ -8647,7 +8647,7 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		var2 = tmp;
 	}
 
-	/* copy these values into local vars for speed in inner loop */
+	/* 把这些值拷贝到局部变量以加速内层循环 */
 	var1ndigits = var1->ndigits;
 	var2ndigits = var2->ndigits;
 	var1digits = var1->digits;
@@ -8655,13 +8655,13 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 
 	if (var1ndigits == 0 || var2ndigits == 0)
 	{
-		/* one or both inputs is zero; so is result */
+		/* 任一输入为零；结果也为零 */
 		zero_var(result);
 		result->dscale = rscale;
 		return;
 	}
 
-	/* Determine result sign and (maximum possible) weight */
+	/* 确定结果符号与（最大可能的）权重 */
 	if (var1->sign == var2->sign)
 		res_sign = NUMERIC_POS;
 	else
@@ -8669,16 +8669,16 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	res_weight = var1->weight + var2->weight + 2;
 
 	/*
-	 * Determine the number of result digits to compute.  If the exact result
-	 * would have more than rscale fractional digits, truncate the computation
-	 * with MUL_GUARD_DIGITS guard digits, i.e., ignore input digits that
-	 * would only contribute to the right of that.  (This will give the exact
-	 * rounded-to-rscale answer unless carries out of the ignored positions
-	 * would have propagated through more than MUL_GUARD_DIGITS digits.)
+	 * 确定要计算的结果数字位数。若精确结果
+	 * 的小数位会超过 rscale 位，则截断计算，
+	 * 并用 MUL_GUARD_DIGITS 个保护位，即忽略只会
+	 * 贡献到其右侧的输入数字位。（这样将给出精确
+	 * 的舍入到 rscale 的答案，除非被忽略位置产生的
+	 * 进位传播超过 MUL_GUARD_DIGITS 个数字位。）
 	 *
-	 * Note: an exact computation could not produce more than var1ndigits +
-	 * var2ndigits digits, but we allocate one extra output digit in case
-	 * rscale-driven rounding produces a carry out of the highest exact digit.
+	 * 注意：精确计算不可能产生多于 var1ndigits +
+	 * var2ndigits 个数字位，但会多分配一个输出数字位，
+	 * 以防 rscale 舍入在最高精确位产生进位。
 	 */
 	res_ndigits = var1ndigits + var2ndigits + 1;
 	maxdigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS +
@@ -8687,39 +8687,39 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 
 	if (res_ndigits < 3)
 	{
-		/* All input digits will be ignored; so result is zero */
+		/* 所有输入数字位都将被忽略；结果为零 */
 		zero_var(result);
 		result->dscale = rscale;
 		return;
 	}
 
 	/*
-	 * We do the arithmetic in an array "dig[]" of signed int's.  Since
-	 * INT_MAX is noticeably larger than NBASE*NBASE, this gives us headroom
-	 * to avoid normalizing carries immediately.
+	 * 我们在有符号 int 数组 "dig[]" 中做算术。由于
+	 * INT_MAX 明显大于 NBASE*NBASE，这就留出了余量
+	 * 使我们无需立即规范化进位。
 	 *
-	 * maxdig tracks the maximum possible value of any dig[] entry; when this
-	 * threatens to exceed INT_MAX, we take the time to propagate carries.
-	 * Furthermore, we need to ensure that overflow doesn't occur during the
-	 * carry propagation passes either.  The carry values could be as much as
-	 * INT_MAX/NBASE, so really we must normalize when digits threaten to
-	 * exceed INT_MAX - INT_MAX/NBASE.
+	 * maxdig 跟踪任何 dig[] 元素可能的最大值；当该值
+	 * 将要超过 INT_MAX 时，我们才花时间传播进位。
+	 * 此外，还需确保在进位传播过程中也不会
+	 * 发生溢出。进位值可能高达 INT_MAX/NBASE，
+	 * 所以实际上当数字位将要超过
+	 * INT_MAX - INT_MAX/NBASE。
 	 *
-	 * To avoid overflow in maxdig itself, it actually represents the max
-	 * possible value divided by NBASE-1, ie, at the top of the loop it is
-	 * known that no dig[] entry exceeds maxdig * (NBASE-1).
+	 * 为避免 maxdig 自身溢出，它实际表示的是最大
+	 * 可能值除以 NBASE-1 后的值，也就是说在循环
+	 * 顶部即知无元素超过 maxdig * (NBASE-1)。
 	 */
 	dig = (int *) palloc0(res_ndigits * sizeof(int));
 	maxdig = 0;
 
 	/*
-	 * The least significant digits of var1 should be ignored if they don't
-	 * contribute directly to the first res_ndigits digits of the result that
-	 * we are computing.
+	 * var1 的最低有效数字位应被忽略，如果它们不
+	 * 直接贡献于我们所计算结果的头 res_ndigits 个
+	 * 数字位。
 	 *
-	 * Digit i1 of var1 and digit i2 of var2 are multiplied and added to digit
-	 * i1+i2+2 of the accumulator array, so we need only consider digits of
-	 * var1 for which i1 <= res_ndigits - 3.
+	 * var1 的数字位 i1 与 var2 的数字位 i2 相乘后加到
+	 * 累加器数组的 i1+i2+2 位上，故只需考虑 var1 中
+	 * 符合 i1 <= res_ndigits - 3 的数字位。
 	 */
 	for (i1 = Min(var1ndigits - 1, res_ndigits - 3); i1 >= 0; i1--)
 	{
@@ -8728,11 +8728,11 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		if (var1digit == 0)
 			continue;
 
-		/* Time to normalize? */
+		/* 要规范化？ */
 		maxdig += var1digit;
 		if (maxdig > (INT_MAX - INT_MAX / NBASE) / (NBASE - 1))
 		{
-			/* Yes, do it */
+			/* 执行 */
 			carry = 0;
 			for (i = res_ndigits - 1; i >= 0; i--)
 			{
@@ -8747,22 +8747,22 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 				dig[i] = newdig;
 			}
 			Assert(carry == 0);
-			/* Reset maxdig to indicate new worst-case */
+			/* 重置 maxdig 反映新最坏情况 */
 			maxdig = 1 + var1digit;
 		}
 
 		/*
-		 * Add the appropriate multiple of var2 into the accumulator.
+		 * 把 var2 的适当倍数加进累加器。
 		 *
-		 * As above, digits of var2 can be ignored if they don't contribute,
-		 * so we only include digits for which i1+i2+2 < res_ndigits.
+		 * 如上，var2 无贡献的数字位可忽略，故只纳入
+		 * 满足 i1+i2+2 < res_ndigits 的数字位。
 		 *
-		 * This inner loop is the performance bottleneck for multiplication,
-		 * so we want to keep it simple enough so that it can be
-		 * auto-vectorized.  Accordingly, process the digits left-to-right
-		 * even though schoolbook multiplication would suggest right-to-left.
-		 * Since we aren't propagating carries in this loop, the order does
-		 * not matter.
+		 * 这个内层循环是乘法的性能瓶颈，
+		 * 所以我们希望它保持足够简单以便能被
+		 * 自动向量化。因此，按从左到右处理数字位，
+		 * 尽管竖式乘法暗示的是从右到左。
+		 * 由于我们在这个循环中不传播进位，顺序
+		 * 无关。
 		 */
 		{
 			int			i2limit = Min(var2ndigits, res_ndigits - i1 - 2);
@@ -8774,9 +8774,9 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	}
 
 	/*
-	 * Now we do a final carry propagation pass to normalize the result, which
-	 * we combine with storing the result digits into the output. Note that
-	 * this is still done at full precision w/guard digits.
+	 * 现在我们做最后一轮进位传播来规范化结果，
+	 * 并将其与把结果数字位存入输出合并进行。注意
+	 * 这一步仍以带保护位的全精度进行。
 	 */
 	alloc_var(result, res_ndigits);
 	res_digits = result->digits;
@@ -8798,15 +8798,15 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	pfree(dig);
 
 	/*
-	 * Finally, round the result to the requested precision.
+	 * 最后，把结果舍入到要求的精度。
 	 */
 	result->weight = res_weight;
 	result->sign = res_sign;
 
-	/* Round to target rscale (and set result->dscale) */
+	/* 舍入到目标 rscale（设 result->dscale） */
 	round_var(result, rscale);
 
-	/* Strip leading and trailing zeroes */
+	/* 去除前导与末尾零 */
 	strip_var(result);
 }
 
@@ -8814,10 +8814,10 @@ mul_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 /*
  * div_var() -
  *
- *	Division on variable level. Quotient of var1 / var2 is stored in result.
- *	The quotient is figured to exactly rscale fractional digits.
- *	If round is true, it is rounded at the rscale'th digit; if false, it
- *	is truncated (towards zero) at that digit.
+ *	变量层面的除法。var1 / var2 的商存入 result。
+ *	商精确地算到 rscale 位小数。
+ *	若 round 为真，则在第 rscale 位做舍入；若为假，
+ *	则在该位向零截断。
  */
 static void
 div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
@@ -8837,13 +8837,13 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	int			i;
 	int			j;
 
-	/* copy these values into local vars for speed in inner loop */
+	/* 把这些值拷贝到局部变量以加速内层循环 */
 	int			var1ndigits = var1->ndigits;
 	int			var2ndigits = var2->ndigits;
 
 	/*
-	 * First of all division by zero check; we must not be handed an
-	 * unnormalized divisor.
+	 * 首先检查除零；不得传入未规范化的
+	 * 除数。
 	 */
 	if (var2ndigits == 0 || var2->digits[0] == 0)
 		ereport(ERROR,
@@ -8851,11 +8851,11 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 				 errmsg("division by zero")));
 
 	/*
-	 * If the divisor has just one or two digits, delegate to div_var_int(),
-	 * which uses fast short division.
+	 * 若除数只有一或两个数字位，则转交 div_var_int()，
+	 * 它使用快速的短除法。
 	 *
-	 * Similarly, on platforms with 128-bit integer support, delegate to
-	 * div_var_int64() for divisors with three or four digits.
+	 * 类似地，在支持 128 位整数的平台上，三或四个
+	 * 数字位的除数则转交 div_var_int64()。
 	 */
 	if (var2ndigits <= 2)
 	{
@@ -8897,10 +8897,10 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 #endif
 
 	/*
-	 * Otherwise, perform full long division.
+	 * 否则执行完整的长除法。
 	 */
 
-	/* Result zero check */
+	/* 零结果检查 */
 	if (var1ndigits == 0)
 	{
 		zero_var(result);
@@ -8909,42 +8909,42 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	}
 
 	/*
-	 * Determine the result sign, weight and number of digits to calculate.
-	 * The weight figured here is correct if the emitted quotient has no
-	 * leading zero digits; otherwise strip_var() will fix things up.
+	 * 确定结果符号、权重以及要计算的数字位个数。
+	 * 此处算得的权重在输出商没有前导零数字位时
+	 * 才是正确的；否则由 strip_var() 修正。
 	 */
 	if (var1->sign == var2->sign)
 		res_sign = NUMERIC_POS;
 	else
 		res_sign = NUMERIC_NEG;
 	res_weight = var1->weight - var2->weight;
-	/* The number of accurate result digits we need to produce: */
+	/* 我们需要产生的精确结果数字位个数： */
 	res_ndigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS;
-	/* ... but always at least 1 */
+	/* ...但至少为 1 */
 	res_ndigits = Max(res_ndigits, 1);
-	/* If rounding needed, figure one more digit to ensure correct result */
+	/* 若需舍入，则多算一位以确保结果正确 */
 	if (round)
 		res_ndigits++;
 
 	/*
-	 * The working dividend normally requires res_ndigits + var2ndigits
-	 * digits, but make it at least var1ndigits so we can load all of var1
-	 * into it.  (There will be an additional digit dividend[0] in the
-	 * dividend space, but for consistency with Knuth's notation we don't
-	 * count that in div_ndigits.)
+	 * 工作被除数通常需要 res_ndigits + var2ndigits 个
+	 * 数字位，但至少设为 var1ndigits，以便能装下
+	 * var1 的全部。（被除数空间中另有一个额外
+	 * 数字位 dividend[0]，但为与 Knuth 的记法一致，
+	 * 不计入 div_ndigits。）
 	 */
 	div_ndigits = res_ndigits + var2ndigits;
 	div_ndigits = Max(div_ndigits, var1ndigits);
 
 	/*
-	 * We need a workspace with room for the working dividend (div_ndigits+1
-	 * digits) plus room for the possibly-normalized divisor (var2ndigits
-	 * digits).  It is convenient also to have a zero at divisor[0] with the
-	 * actual divisor data in divisor[1 .. var2ndigits].  Transferring the
-	 * digits into the workspace also allows us to realloc the result (which
-	 * might be the same as either input var) before we begin the main loop.
-	 * Note that we use palloc0 to ensure that divisor[0], dividend[0], and
-	 * any additional dividend positions beyond var1ndigits, start out 0.
+	 * 我们需要一个工作区，容纳工作被除数（div_ndigits+1
+	 * 个数字位）加上可能规范化后的除数（var2ndigits
+	 * 个数字位）。另在 divisor[0] 放一个零也很方便，
+	 * 实际除数数据则放在 divisor[1 .. var2ndigits]。把数字
+	 * 位搬入工作区还使我们能在开始主循环之前重新
+	 * 分配 result（它可能与任一输入 var 是同一个）。
+	 * 注意我们用 palloc0 来确保 divisor[0]、dividend[0]
+	 * 以及 var1ndigits 之外的额外被除数位置都从 0 开始。
 	 */
 	dividend = (NumericDigit *)
 		palloc0((div_ndigits + var2ndigits + 2) * sizeof(NumericDigit));
@@ -8953,19 +8953,19 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 	memcpy(divisor + 1, var2->digits, var2ndigits * sizeof(NumericDigit));
 
 	/*
-	 * Now we can realloc the result to hold the generated quotient digits.
+	 * 现在可以重新分配 result 来容纳生成的商数字位。
 	 */
 	alloc_var(result, res_ndigits);
 	res_digits = result->digits;
 
 	/*
-	 * The full multiple-place algorithm is taken from Knuth volume 2,
-	 * Algorithm 4.3.1D.
+	 * 完整的多位算法取自 Knuth 第二卷
+	 * 算法 4.3.1D。
 	 *
-	 * We need the first divisor digit to be >= NBASE/2.  If it isn't, make it
-	 * so by scaling up both the divisor and dividend by the factor "d".  (The
-	 * reason for allocating dividend[0] above is to leave room for possible
-	 * carry here.)
+	 * 我们要求首个除数数字位 >= NBASE/2。若不是，
+	 * 就把除数与被除数同乘因子 "d" 来放大。（在上面
+	 * 分配 dividend[0] 的原因就是为这里的可能进位留出
+	 * 空间。）
 	 */
 	if (divisor[1] < HALF_NBASE)
 	{
@@ -8980,7 +8980,7 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		}
 		Assert(carry == 0);
 		carry = 0;
-		/* at this point only var1ndigits of dividend can be nonzero */
+		/* 此刻被除数仅 var1ndigits 个数字位可能非零 */
 		for (i = var1ndigits; i >= 0; i--)
 		{
 			carry += dividend[i] * d;
@@ -8990,26 +8990,26 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 		Assert(carry == 0);
 		Assert(divisor[1] >= HALF_NBASE);
 	}
-	/* First 2 divisor digits are used repeatedly in main loop */
+	/* 头两个除数数字位在主循环中被反复使用 */
 	divisor1 = divisor[1];
 	divisor2 = divisor[2];
 
 	/*
-	 * Begin the main loop.  Each iteration of this loop produces the j'th
-	 * quotient digit by dividing dividend[j .. j + var2ndigits] by the
-	 * divisor; this is essentially the same as the common manual procedure
-	 * for long division.
+	 * 开始主循环。此循环的每次迭代都以 dividend[j ..
+	 * j + var2ndigits] 除以除数，产生第 j 个
+	 * 商数字位；本质上与手工长除法的常规做法一致。
+	 *
 	 */
 	for (j = 0; j < res_ndigits; j++)
 	{
-		/* Estimate quotient digit from the first two dividend digits */
+		/* 由头两个被除数数字位估计商数字位 */
 		int			next2digits = dividend[j] * NBASE + dividend[j + 1];
 		int			qhat;
 
 		/*
-		 * If next2digits are 0, then quotient digit must be 0 and there's no
-		 * need to adjust the working dividend.  It's worth testing here to
-		 * fall out ASAP when processing trailing zeroes in a dividend.
+		 * 若 next2digits 为 0，则商数字位必为 0，无需调整
+		 * 工作被除数。此处做测试是值得的，可在处理
+		 * 被除数尾部零时尽快退出。
 		 */
 		if (next2digits == 0)
 		{
@@ -9023,27 +9023,27 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 			qhat = next2digits / divisor1;
 
 		/*
-		 * Adjust quotient digit if it's too large.  Knuth proves that after
-		 * this step, the quotient digit will be either correct or just one
-		 * too large.  (Note: it's OK to use dividend[j+2] here because we
-		 * know the divisor length is at least 2.)
+		 * 若商数字位过大则调整。Knuth 证明经此步后，
+		 * 商数字位要么正确，要么只是大了 1。
+		 * （注意：这里可以使用 dividend[j+2]，因为我们
+		 * 知道除数长度至少为 2。）
 		 */
 		while (divisor2 * qhat >
 			   (next2digits - qhat * divisor1) * NBASE + dividend[j + 2])
 			qhat--;
 
-		/* As above, need do nothing more when quotient digit is 0 */
+		/* 如上，商数字位为 0 时无需再做任何事 */
 		if (qhat > 0)
 		{
 			NumericDigit *dividend_j = &dividend[j];
 
 			/*
-			 * Multiply the divisor by qhat, and subtract that from the
-			 * working dividend.  The multiplication and subtraction are
-			 * folded together here, noting that qhat <= NBASE (since it might
-			 * be one too large), and so the intermediate result "tmp_result"
-			 * is in the range [-NBASE^2, NBASE - 1], and "borrow" is in the
-			 * range [0, NBASE].
+			 * 将除数乘 qhat，并从工作被除数减去它。
+			 * 乘法与减法在此合而为一。注意 qhat <= NBASE
+			 * （它可能大了 1），故中间结果 "tmp_result" 的
+			 * 范围是 [-NBASE^2, NBASE - 1]，而 "borrow" 的范围
+			 *
+			 * 是 [0, NBASE]。
 			 */
 			borrow = 0;
 			for (i = var2ndigits; i >= 0; i--)
@@ -9056,12 +9056,12 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 			}
 
 			/*
-			 * If we got a borrow out of the top dividend digit, then indeed
-			 * qhat was one too large.  Fix it, and add back the divisor to
-			 * correct the working dividend.  (Knuth proves that this will
-			 * occur only about 3/NBASE of the time; hence, it's a good idea
-			 * to test this code with small NBASE to be sure this section gets
-			 * exercised.)
+			 * 若最高被除数数字位发生借位，则 qhat 确实
+			 * 是大了 1。修正它，并把除数加回以校正
+			 * 工作被除数。（Knuth 证明这只约 3/NBASE 的
+			 * 概率发生；因此，最好用小 NBASE 测试这段代码，
+			 *
+			 * 确保它被演练到。）
 			 */
 			if (borrow)
 			{
@@ -9081,30 +9081,30 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 						carry = 0;
 					}
 				}
-				/* A carry should occur here to cancel the borrow above */
+				/* 这里应产生一个进位来抵消上面的借位 */
 				Assert(carry == 1);
 			}
 		}
 
-		/* And we're done with this quotient digit */
+		/* 这个商数字位就处理完了 */
 		res_digits[j] = qhat;
 	}
 
 	pfree(dividend);
 
 	/*
-	 * Finally, round or truncate the result to the requested precision.
+	 * 最后，把结果舍入或截断到要求的精度。
 	 */
 	result->weight = res_weight;
 	result->sign = res_sign;
 
-	/* Round or truncate to target rscale (and set result->dscale) */
+	/* 舍入或截断到目标 rscale（设 result->dscale） */
 	if (round)
 		round_var(result, rscale);
 	else
 		trunc_var(result, rscale);
 
-	/* Strip leading and trailing zeroes */
+	/* 去除前导与末尾零 */
 	strip_var(result);
 }
 
@@ -9112,20 +9112,20 @@ div_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result,
 /*
  * div_var_fast() -
  *
- *	This has the same API as div_var, but is implemented using the division
- *	algorithm from the "FM" library, rather than Knuth's schoolbook-division
- *	approach.  This is significantly faster but can produce inaccurate
- *	results, because it sometimes has to propagate rounding to the left,
- *	and so we can never be entirely sure that we know the requested digits
- *	exactly.  We compute DIV_GUARD_DIGITS extra digits, but there is
- *	no certainty that that's enough.  We use this only in the transcendental
- *	function calculation routines, where everything is approximate anyway.
+ *	它与 div_var 接口相同，但实现用的是 "FM" 库的除法
+ *	算法，而非 Knuth 竖式除法方案。这显著更快，但可能
+ *	产生不准确的结果，因为它有时须向左传播舍入，
+ *	所以我们永远无法完全确知所求的数字位是
+ *	精确的。我们会多算 DIV_GUARD_DIGITS 个数字位，
+ *	但并不能肯定这就够了。我们只在超越函数计算
+ *	例程中使用它，那里的一切本来就是近似的。
  *
- *	Although we provide a "round" argument for consistency with div_var,
- *	it is unwise to use this function with round=false.  In truncation mode
- *	it is possible to get a result with no significant digits, for example
- *	with rscale=0 we might compute 0.99999... and truncate that to 0 when
- *	the correct answer is 1.
+ *
+ *	尽管为了与 div_var 一致而提供了 "round" 参数，
+ *	但在 round=false 时使用本函数并不明智。在截断模式
+ *	下可能得到没有有效数字的结果，例如 rscale=0 时
+ *	可能算出 0.99999... 并把它截断成 0，而正确答案是 1。
+ *
  */
 static void
 div_var_fast(const NumericVar *var1, const NumericVar *var2,
@@ -9148,15 +9148,15 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 	int			qi;
 	int			i;
 
-	/* copy these values into local vars for speed in inner loop */
+	/* 把这些值拷贝到局部变量以加速内层循环 */
 	int			var1ndigits = var1->ndigits;
 	int			var2ndigits = var2->ndigits;
 	NumericDigit *var1digits = var1->digits;
 	NumericDigit *var2digits = var2->digits;
 
 	/*
-	 * First of all division by zero check; we must not be handed an
-	 * unnormalized divisor.
+	 * 首先检查除零；不得传入未规范化的
+	 * 除数。
 	 */
 	if (var2ndigits == 0 || var2digits[0] == 0)
 		ereport(ERROR,
@@ -9164,11 +9164,11 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 				 errmsg("division by zero")));
 
 	/*
-	 * If the divisor has just one or two digits, delegate to div_var_int(),
-	 * which uses fast short division.
+	 * 若除数只有一或两个数字位，则转交 div_var_int()，
+	 * 它使用快速的短除法。
 	 *
-	 * Similarly, on platforms with 128-bit integer support, delegate to
-	 * div_var_int64() for divisors with three or four digits.
+	 * 类似地，在支持 128 位整数的平台上，三或四个
+	 * 数字位的除数则转交 div_var_int64()。
 	 */
 	if (var2ndigits <= 2)
 	{
@@ -9210,10 +9210,10 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 #endif
 
 	/*
-	 * Otherwise, perform full long division.
+	 * 否则执行完整的长除法。
 	 */
 
-	/* Result zero check */
+	/* 零结果检查 */
 	if (var1ndigits == 0)
 	{
 		zero_var(result);
@@ -9222,37 +9222,37 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 	}
 
 	/*
-	 * Determine the result sign, weight and number of digits to calculate
+	 * 确定结果符号、权重以及要计算的数字位个数
 	 */
 	if (var1->sign == var2->sign)
 		res_sign = NUMERIC_POS;
 	else
 		res_sign = NUMERIC_NEG;
 	res_weight = var1->weight - var2->weight + 1;
-	/* The number of accurate result digits we need to produce: */
+	/* 我们需要产生的精确结果数字位个数： */
 	div_ndigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS;
-	/* Add guard digits for roundoff error */
+	/* 为舍入误差增加保护位 */
 	div_ndigits += DIV_GUARD_DIGITS;
 	if (div_ndigits < DIV_GUARD_DIGITS)
 		div_ndigits = DIV_GUARD_DIGITS;
 
 	/*
-	 * We do the arithmetic in an array "div[]" of signed int's.  Since
-	 * INT_MAX is noticeably larger than NBASE*NBASE, this gives us headroom
-	 * to avoid normalizing carries immediately.
+	 * 我们在有符号 int 数组 "div[]" 中做算术。由于
+	 * INT_MAX 明显大于 NBASE*NBASE，这就留出了余量
+	 * 使我们无需立即规范化进位。
 	 *
-	 * We start with div[] containing one zero digit followed by the
-	 * dividend's digits (plus appended zeroes to reach the desired precision
-	 * including guard digits).  Each step of the main loop computes an
-	 * (approximate) quotient digit and stores it into div[], removing one
-	 * position of dividend space.  A final pass of carry propagation takes
-	 * care of any mistaken quotient digits.
+	 * 初始 div[] 含一个零数字位，其后是被除数
+	 * 的数字位（外加补零以凑足含保护位的精度）。
+	 * 主循环每步产生一个（近似）商数字位并写入
+	 * div[]，从而腾出一个被除数位置。最后一轮进位
 	 *
-	 * Note that div[] doesn't necessarily contain all of the digits from the
-	 * dividend --- the desired precision plus guard digits might be less than
-	 * the dividend's precision.  This happens, for example, in the square
-	 * root algorithm, where we typically divide a 2N-digit number by an
-	 * N-digit number, and only require a result with N digits of precision.
+	 * 传播会处理好任何错误的商数字位。
+	 *
+	 * 注意 div[] 未必包含被除数的全部数字位 --- 目标精度
+	 * 加保护位可能小于被除数自身的精度。例如在平方根
+	 * 算法中就是这种情况：通常以 2N 位数字的数除以
+	 *
+	 * N 个数字位的数，只要求 N 个数字位的精度。
 	 */
 	div = (int *) palloc0((div_ndigits + 1) * sizeof(int));
 	load_ndigits = Min(div_ndigits, var1ndigits);
@@ -9260,10 +9260,10 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 		div[i + 1] = var1digits[i];
 
 	/*
-	 * We estimate each quotient digit using floating-point arithmetic, taking
-	 * the first four digits of the (current) dividend and divisor.  This must
-	 * be float to avoid overflow.  The quotient digits will generally be off
-	 * by no more than one from the exact answer.
+	 * 我们用浮点运算估计各商数字位，取（当前）被除数
+	 * 与除数的头四个数字位。这必须是 float 以免溢出。
+	 * 商数字位一般与精确答案相差不过 1。
+	 *
 	 */
 	fdivisor = (double) var2digits[0];
 	for (i = 1; i < 4; i++)
@@ -9275,30 +9275,30 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 	fdivisorinverse = 1.0 / fdivisor;
 
 	/*
-	 * maxdiv tracks the maximum possible absolute value of any div[] entry;
-	 * when this threatens to exceed INT_MAX, we take the time to propagate
-	 * carries.  Furthermore, we need to ensure that overflow doesn't occur
-	 * during the carry propagation passes either.  The carry values may have
-	 * an absolute value as high as INT_MAX/NBASE + 1, so really we must
-	 * normalize when digits threaten to exceed INT_MAX - INT_MAX/NBASE - 1.
+	 * maxdiv 跟踪 div[] 各元素可能的最大绝对值；当该值
+	 * 将要超过 INT_MAX 时，我们才花时间传播进位。
+	 * 此外，还需确保在进位传播过程中也不会
+	 * 发生溢出。进位值的绝对值可能高达 INT_MAX/NBASE + 1，
+	 * 所以实际上当数字位将要超过
+	 * INT_MAX - INT_MAX/NBASE - 1。
 	 *
-	 * To avoid overflow in maxdiv itself, it represents the max absolute
-	 * value divided by NBASE-1, ie, at the top of the loop it is known that
-	 * no div[] entry has an absolute value exceeding maxdiv * (NBASE-1).
+	 * 为避免 maxdiv 自身溢出，它表示最大绝对值除以
+	 * NBASE-1 后的值，即循环顶部时可确信任何 div[] 元素
+	 * 的绝对值都不会超过 maxdiv * (NBASE-1)。
 	 *
-	 * Actually, though, that holds good only for div[] entries after div[qi];
-	 * the adjustment done at the bottom of the loop may cause div[qi + 1] to
-	 * exceed the maxdiv limit, so that div[qi] in the next iteration is
-	 * beyond the limit.  This does not cause problems, as explained below.
+	 * 不过实际上该结论只对 div[qi] 之后的 div[] 元素成立；
+	 * 循环底部做的调整可能导致 div[qi + 1] 超出 maxdiv 限
+	 * 制，于是下一轮迭代中 div[qi] 会超出限制。这并
+	 * 不会造成问题，原因见下文解释。
 	 */
 	maxdiv = 1;
 
 	/*
-	 * Outer loop computes next quotient digit, which will go into div[qi]
+	 * 外层循环计算下一个商数字位，它将放入 div[qi]
 	 */
 	for (qi = 0; qi < div_ndigits; qi++)
 	{
-		/* Approximate the current dividend value */
+		/* 近似计算当前被除数的值 */
 		fdividend = (double) div[qi];
 		for (i = 1; i < 4; i++)
 		{
@@ -9306,23 +9306,23 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 			if (qi + i <= div_ndigits)
 				fdividend += (double) div[qi + i];
 		}
-		/* Compute the (approximate) quotient digit */
+		/* 计算（近似）商数字位 */
 		fquotient = fdividend * fdivisorinverse;
 		qdigit = (fquotient >= 0.0) ? ((int) fquotient) :
-			(((int) fquotient) - 1);	/* truncate towards -infinity */
+			(((int) fquotient) - 1);	/* 向负无穷方向截断 */
 
 		if (qdigit != 0)
 		{
-			/* Do we need to normalize now? */
+			/* 现在需要规范化吗？ */
 			maxdiv += abs(qdigit);
 			if (maxdiv > (INT_MAX - INT_MAX / NBASE - 1) / (NBASE - 1))
 			{
 				/*
-				 * Yes, do it.  Note that if var2ndigits is much smaller than
-				 * div_ndigits, we can save a significant amount of effort
-				 * here by noting that we only need to normalise those div[]
-				 * entries touched where prior iterations subtracted multiples
-				 * of the divisor.
+				 * 是，执行。若 var2ndigits 远小于 div_ndigits，
+				 * 则能省很多工夫：只需规范化前几轮中
+				 * 减过除数倍数的位置触及的 div[] 元素。
+				 *
+				 *
 				 */
 				carry = 0;
 				for (i = Min(qi + var2ndigits - 2, div_ndigits); i > qi; i--)
@@ -9346,15 +9346,15 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 				div[qi] = newdig;
 
 				/*
-				 * All the div[] digits except possibly div[qi] are now in the
-				 * range 0..NBASE-1.  We do not need to consider div[qi] in
-				 * the maxdiv value anymore, so we can reset maxdiv to 1.
+				 * 现在除 div[qi] 外，所有 div[] 数字位都已在
+				 * 0..NBASE-1 内。maxdiv 不再计入 div[qi]，
+				 * 因此可以把 maxdiv 重置为 1。
 				 */
 				maxdiv = 1;
 
 				/*
-				 * Recompute the quotient digit since new info may have
-				 * propagated into the top four dividend digits
+				 * 重算商数字位，因新信息可能已传到
+				 * 被除数的头四位数字中。
 				 */
 				fdividend = (double) div[qi];
 				for (i = 1; i < 4; i++)
@@ -9363,30 +9363,30 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 					if (qi + i <= div_ndigits)
 						fdividend += (double) div[qi + i];
 				}
-				/* Compute the (approximate) quotient digit */
+				/* 计算（近似）商数字位 */
 				fquotient = fdividend * fdivisorinverse;
 				qdigit = (fquotient >= 0.0) ? ((int) fquotient) :
-					(((int) fquotient) - 1);	/* truncate towards -infinity */
+					(((int) fquotient) - 1);	/* 向负无穷方向截断 */
 				maxdiv += abs(qdigit);
 			}
 
 			/*
-			 * Subtract off the appropriate multiple of the divisor.
+			 * 减去除数的适当倍数。
 			 *
-			 * The digits beyond div[qi] cannot overflow, because we know they
-			 * will fall within the maxdiv limit.  As for div[qi] itself, note
-			 * that qdigit is approximately trunc(div[qi] / vardigits[0]),
-			 * which would make the new value simply div[qi] mod vardigits[0].
-			 * The lower-order terms in qdigit can change this result by not
-			 * more than about twice INT_MAX/NBASE, so overflow is impossible.
+			 * div[qi] 之后的数字位不会溢出，因为它们必然落
+			 * 在 maxdiv 限制之内。至于 div[qi] 本身，注意 qdigit
+			 * 约为 trunc(div[qi] / vardigits[0])，这会使新值恰
+			 * 为 div[qi] mod vardigits[0]。qdigit 中的低阶项对
+			 * 这一结果的改变量至多约两倍 INT_MAX/NBASE，故
+			 * 不可能发生。
 			 *
-			 * This inner loop is the performance bottleneck for division, so
-			 * code it in the same way as the inner loop of mul_var() so that
-			 * it can be auto-vectorized.  We cast qdigit to NumericDigit
-			 * before multiplying to allow the compiler to generate more
-			 * efficient code (using 16-bit multiplication), which is safe
-			 * since we know that the quotient digit is off by at most one, so
-			 * there is no overflow risk.
+			 * 此内层循环是除法的性能瓶颈，故把它写成与
+			 * mul_var() 内层循环相同的方式，使其能被自动向
+			 * 量化。乘法前将 qdigit 转型为 NumericDigit，
+			 * 让编译器生成更高效代码（16 位乘法），这
+			 * 很安全，因为商数字位至多偏差 1，所以
+			 *
+			 * 并无溢出风险。
 			 */
 			if (qdigit != 0)
 			{
@@ -9399,26 +9399,26 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 		}
 
 		/*
-		 * The dividend digit we are about to replace might still be nonzero.
-		 * Fold it into the next digit position.
+		 * 我们即将替换掉的被除数数字位可能仍非零。
+		 * 把它折入下一个数字位上。
 		 *
-		 * There is no risk of overflow here, although proving that requires
-		 * some care.  Much as with the argument for div[qi] not overflowing,
-		 * if we consider the first two terms in the numerator and denominator
-		 * of qdigit, we can see that the final value of div[qi + 1] will be
-		 * approximately a remainder mod (vardigits[0]*NBASE + vardigits[1]).
-		 * Accounting for the lower-order terms is a bit complicated but ends
-		 * up adding not much more than INT_MAX/NBASE to the possible range.
-		 * Thus, div[qi + 1] cannot overflow here, and in its role as div[qi]
-		 * in the next loop iteration, it can't be large enough to cause
-		 * overflow in the carry propagation step (if any), either.
+		 * 此处并无溢出风险，尽管要证明这点还须细心。
+		 * 这与 div[qi] 不溢出的论证大体相同：若考察分子
+		 * 与分母的头两项，可见 div[qi + 1] 的最终值将近似
+		 * 等于一个模 (vardigits[0]*NBASE + vardigits[1]) 的余数。
+		 * 计入低阶项略复杂，但最终给可能范围增加的
+		 * 量不过比 INT_MAX/NBASE 多多少。
+		 * 因此 div[qi + 1] 在此不可能溢出，且它在下一轮循
+		 * 迭代中作为 div[qi] 时，也不至于大到会在进位
 		 *
-		 * But having said that: div[qi] can be more than INT_MAX/NBASE, as
-		 * noted above, which means that the product div[qi] * NBASE *can*
-		 * overflow.  When that happens, adding it to div[qi + 1] will always
-		 * cause a canceling overflow so that the end result is correct.  We
-		 * could avoid the intermediate overflow by doing the multiplication
-		 * and addition in int64 arithmetic, but so far there appears no need.
+		 * 传播步骤（如果有的话）中造成溢出。
+		 *
+		 * 不过话虽如此：div[qi] 可能大于 INT_MAX/NBASE，如
+		 * 上文所述，这意味着乘积 div[qi] * NBASE *确实*
+		 * 溢出。一旦发生，把它加到 div[qi + 1] 上总会引起
+		 * 一次抵消性溢出，使最终结果仍正确。我们本可
+		 * 以 int64 算术完成乘法与加法来避免中间溢出，但
+		 * 到目前为止似乎并无必要。
 		 */
 		div[qi + 1] += div[qi] * NBASE;
 
@@ -9426,23 +9426,23 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 	}
 
 	/*
-	 * Approximate and store the last quotient digit (div[div_ndigits])
+	 * 近似算出并存储末个商数字位（div[div_ndigits]）
 	 */
 	fdividend = (double) div[qi];
 	for (i = 1; i < 4; i++)
 		fdividend *= NBASE;
 	fquotient = fdividend * fdivisorinverse;
 	qdigit = (fquotient >= 0.0) ? ((int) fquotient) :
-		(((int) fquotient) - 1);	/* truncate towards -infinity */
+		(((int) fquotient) - 1);	/* 向负无穷方向截断 */
 	div[qi] = qdigit;
 
 	/*
-	 * Because the quotient digits might be off by one, some of them might be
-	 * -1 or NBASE at this point.  The represented value is correct in a
-	 * mathematical sense, but it doesn't look right.  We do a final carry
-	 * propagation pass to normalize the digits, which we combine with storing
-	 * the result digits into the output.  Note that this is still done at
-	 * full precision w/guard digits.
+	 * 由于商数字位可能偏差 1，此时其中某些可能是 -1 或
+	 * NBASE。数值在数学上正确，但看上去不对。我们
+	 * 要做最后一轮进位传播来规范化这些数字位，并将
+	 * 其与把结果数字位存入输出合并进行。注意这一步
+	 * 仍是以带保护位的全精度完成的。
+	 *
 	 */
 	alloc_var(result, div_ndigits + 1);
 	res_digits = result->digits;
@@ -9469,18 +9469,18 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 	pfree(div);
 
 	/*
-	 * Finally, round the result to the requested precision.
+	 * 最后，把结果舍入到要求的精度。
 	 */
 	result->weight = res_weight;
 	result->sign = res_sign;
 
-	/* Round to target rscale (and set result->dscale) */
+	/* 舍入到目标 rscale（设 result->dscale） */
 	if (round)
 		round_var(result, rscale);
 	else
 		trunc_var(result, rscale);
 
-	/* Strip leading and trailing zeroes */
+	/* 去除前导与末尾零 */
 	strip_var(result);
 }
 
@@ -9488,8 +9488,8 @@ div_var_fast(const NumericVar *var1, const NumericVar *var2,
 /*
  * div_var_int() -
  *
- *	Divide a numeric variable by a 32-bit integer with the specified weight.
- *	The quotient var / (ival * NBASE^ival_weight) is stored in result.
+ *	把一个 numeric 变量除以给定了权重的 32 位整数。
+ *	商 var / (ival * NBASE^ival_weight) 存入 result。
  */
 static void
 div_var_int(const NumericVar *var, int ival, int ival_weight,
@@ -9505,13 +9505,13 @@ div_var_int(const NumericVar *var, int ival, int ival_weight,
 	uint32		divisor;
 	int			i;
 
-	/* Guard against division by zero */
+	/* 防止除以零 */
 	if (ival == 0)
 		ereport(ERROR,
 				errcode(ERRCODE_DIVISION_BY_ZERO),
 				errmsg("division by zero"));
 
-	/* Result zero check */
+	/* 零结果检查 */
 	if (var_ndigits == 0)
 	{
 		zero_var(result);
@@ -9520,42 +9520,42 @@ div_var_int(const NumericVar *var, int ival, int ival_weight,
 	}
 
 	/*
-	 * Determine the result sign, weight and number of digits to calculate.
-	 * The weight figured here is correct if the emitted quotient has no
-	 * leading zero digits; otherwise strip_var() will fix things up.
+	 * 确定结果符号、权重以及要计算的数字位个数。
+	 * 此处算得的权重在输出商没有前导零数字位时
+	 * 才是正确的；否则由 strip_var() 修正。
 	 */
 	if (var->sign == NUMERIC_POS)
 		res_sign = ival > 0 ? NUMERIC_POS : NUMERIC_NEG;
 	else
 		res_sign = ival > 0 ? NUMERIC_NEG : NUMERIC_POS;
 	res_weight = var->weight - ival_weight;
-	/* The number of accurate result digits we need to produce: */
+	/* 我们需要产生的精确结果数字位个数： */
 	res_ndigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS;
-	/* ... but always at least 1 */
+	/* ...但至少为 1 */
 	res_ndigits = Max(res_ndigits, 1);
-	/* If rounding needed, figure one more digit to ensure correct result */
+	/* 若需舍入，则多算一位以确保结果正确 */
 	if (round)
 		res_ndigits++;
 
 	res_buf = digitbuf_alloc(res_ndigits + 1);
-	res_buf[0] = 0;				/* spare digit for later rounding */
+	res_buf[0] = 0;				/* 留待舍入的数字位 */
 	res_digits = res_buf + 1;
 
 	/*
-	 * Now compute the quotient digits.  This is the short division algorithm
-	 * described in Knuth volume 2, section 4.3.1 exercise 16, except that we
-	 * allow the divisor to exceed the internal base.
+	 * 现在计算商数字位。这是 Knuth 第二卷 4.3.1 节习题 16
+	 * 所述的短除法算法，
+	 * 只是我们允许除数超过内部基数。
 	 *
-	 * In this algorithm, the carry from one digit to the next is at most
-	 * divisor - 1.  Therefore, while processing the next digit, carry may
-	 * become as large as divisor * NBASE - 1, and so it requires a 64-bit
-	 * integer if this exceeds UINT_MAX.
+	 * 该算法中，从一个数字位传到下一位的进位至多
+	 * divisor - 1。因此在处理下一个数字位时，carry 可能
+	 * 变得大至 divisor * NBASE - 1，所以若超过 UINT_MAX 就
+	 * 需要 64 位整数。
 	 */
 	divisor = abs(ival);
 
 	if (divisor <= UINT_MAX / NBASE)
 	{
-		/* carry cannot overflow 32 bits */
+		/* carry 不会溢出 32 位 */
 		uint32		carry = 0;
 
 		for (i = 0; i < res_ndigits; i++)
@@ -9567,7 +9567,7 @@ div_var_int(const NumericVar *var, int ival, int ival_weight,
 	}
 	else
 	{
-		/* carry may exceed 32 bits */
+		/* carry 可超 32 位 */
 		uint64		carry = 0;
 
 		for (i = 0; i < res_ndigits; i++)
@@ -9578,7 +9578,7 @@ div_var_int(const NumericVar *var, int ival, int ival_weight,
 		}
 	}
 
-	/* Store the quotient in result */
+	/* 把商存入 result */
 	digitbuf_free(result->buf);
 	result->ndigits = res_ndigits;
 	result->buf = res_buf;
@@ -9586,13 +9586,13 @@ div_var_int(const NumericVar *var, int ival, int ival_weight,
 	result->weight = res_weight;
 	result->sign = res_sign;
 
-	/* Round or truncate to target rscale (and set result->dscale) */
+	/* 舍入或截断到目标 rscale（设 result->dscale） */
 	if (round)
 		round_var(result, rscale);
 	else
 		trunc_var(result, rscale);
 
-	/* Strip leading/trailing zeroes */
+	/* 去除前导/末尾零 */
 	strip_var(result);
 }
 
@@ -9601,11 +9601,11 @@ div_var_int(const NumericVar *var, int ival, int ival_weight,
 /*
  * div_var_int64() -
  *
- *	Divide a numeric variable by a 64-bit integer with the specified weight.
- *	The quotient var / (ival * NBASE^ival_weight) is stored in result.
+ *	把一个 numeric 变量除以给定了权重的 64 位整数。
+ *	商 var / (ival * NBASE^ival_weight) 存入 result。
  *
- *	This duplicates the logic in div_var_int(), so any changes made there
- *	should be made here too.
+ *	这复制了 div_var_int() 中的逻辑，因此对该处所做的
+ *	修改亦须同步。
  */
 static void
 div_var_int64(const NumericVar *var, int64 ival, int ival_weight,
@@ -9621,13 +9621,13 @@ div_var_int64(const NumericVar *var, int64 ival, int ival_weight,
 	uint64		divisor;
 	int			i;
 
-	/* Guard against division by zero */
+	/* 防止除以零 */
 	if (ival == 0)
 		ereport(ERROR,
 				errcode(ERRCODE_DIVISION_BY_ZERO),
 				errmsg("division by zero"));
 
-	/* Result zero check */
+	/* 零结果检查 */
 	if (var_ndigits == 0)
 	{
 		zero_var(result);
@@ -9636,42 +9636,42 @@ div_var_int64(const NumericVar *var, int64 ival, int ival_weight,
 	}
 
 	/*
-	 * Determine the result sign, weight and number of digits to calculate.
-	 * The weight figured here is correct if the emitted quotient has no
-	 * leading zero digits; otherwise strip_var() will fix things up.
+	 * 确定结果符号、权重以及要计算的数字位个数。
+	 * 此处算得的权重在输出商没有前导零数字位时
+	 * 才是正确的；否则由 strip_var() 修正。
 	 */
 	if (var->sign == NUMERIC_POS)
 		res_sign = ival > 0 ? NUMERIC_POS : NUMERIC_NEG;
 	else
 		res_sign = ival > 0 ? NUMERIC_NEG : NUMERIC_POS;
 	res_weight = var->weight - ival_weight;
-	/* The number of accurate result digits we need to produce: */
+	/* 我们需要产生的精确结果数字位个数： */
 	res_ndigits = res_weight + 1 + (rscale + DEC_DIGITS - 1) / DEC_DIGITS;
-	/* ... but always at least 1 */
+	/* ...但至少为 1 */
 	res_ndigits = Max(res_ndigits, 1);
-	/* If rounding needed, figure one more digit to ensure correct result */
+	/* 若需舍入，则多算一位以确保结果正确 */
 	if (round)
 		res_ndigits++;
 
 	res_buf = digitbuf_alloc(res_ndigits + 1);
-	res_buf[0] = 0;				/* spare digit for later rounding */
+	res_buf[0] = 0;				/* 留待舍入的数字位 */
 	res_digits = res_buf + 1;
 
 	/*
-	 * Now compute the quotient digits.  This is the short division algorithm
-	 * described in Knuth volume 2, section 4.3.1 exercise 16, except that we
-	 * allow the divisor to exceed the internal base.
+	 * 现在计算商数字位。这是 Knuth 第二卷 4.3.1 节习题 16
+	 * 所述的短除法算法，
+	 * 只是我们允许除数超过内部基数。
 	 *
-	 * In this algorithm, the carry from one digit to the next is at most
-	 * divisor - 1.  Therefore, while processing the next digit, carry may
-	 * become as large as divisor * NBASE - 1, and so it requires a 128-bit
-	 * integer if this exceeds PG_UINT64_MAX.
+	 * 该算法中，从一个数字位传到下一位的进位至多
+	 * divisor - 1。因此在处理下一个数字位时，carry 可能
+	 * 变得大至 divisor * NBASE - 1，所以若超过 PG_UINT64_MAX
+	 * 就需要 128 位整数。
 	 */
 	divisor = i64abs(ival);
 
 	if (divisor <= PG_UINT64_MAX / NBASE)
 	{
-		/* carry cannot overflow 64 bits */
+		/* carry 不会溢出 64 位 */
 		uint64		carry = 0;
 
 		for (i = 0; i < res_ndigits; i++)
@@ -9683,7 +9683,7 @@ div_var_int64(const NumericVar *var, int64 ival, int ival_weight,
 	}
 	else
 	{
-		/* carry may exceed 64 bits */
+		/* carry 可超 64 位 */
 		uint128		carry = 0;
 
 		for (i = 0; i < res_ndigits; i++)
@@ -9694,7 +9694,7 @@ div_var_int64(const NumericVar *var, int64 ival, int ival_weight,
 		}
 	}
 
-	/* Store the quotient in result */
+	/* 把商存入 result */
 	digitbuf_free(result->buf);
 	result->ndigits = res_ndigits;
 	result->buf = res_buf;
@@ -9702,22 +9702,22 @@ div_var_int64(const NumericVar *var, int64 ival, int ival_weight,
 	result->weight = res_weight;
 	result->sign = res_sign;
 
-	/* Round or truncate to target rscale (and set result->dscale) */
+	/* 舍入或截断到目标 rscale（设 result->dscale） */
 	if (round)
 		round_var(result, rscale);
 	else
 		trunc_var(result, rscale);
 
-	/* Strip leading/trailing zeroes */
+	/* 去除前导/末尾零 */
 	strip_var(result);
 }
 #endif
 
 
 /*
- * Default scale selection for division
+ * 除法的默认标度选择
  *
- * Returns the appropriate result scale for the division result.
+ * 返回适合除法结果的结果标度。
  */
 static int
 select_div_scale(const NumericVar *var1, const NumericVar *var2)
@@ -9731,16 +9731,16 @@ select_div_scale(const NumericVar *var1, const NumericVar *var2)
 	int			rscale;
 
 	/*
-	 * The result scale of a division isn't specified in any SQL standard. For
-	 * PostgreSQL we select a result scale that will give at least
-	 * NUMERIC_MIN_SIG_DIGITS significant digits, so that numeric gives a
-	 * result no less accurate than float8; but use a scale not less than
-	 * either input's display scale.
+	 * 除法的结果标度在任何 SQL 标准中都没有规定。对于
+	 * PostgreSQL，我们选择的结果标度至少给出
+	 * NUMERIC_MIN_SIG_DIGITS 个有效数字，使 numeric 给出的
+	 * 结果不逊于 float8 的精度；但标度不得低于任一
+	 * 输入的显示标度。
 	 */
 
-	/* Get the actual (normalized) weight and first digit of each input */
+	/* 取每个输入实际的（规范化）权重与首个数字位 */
 
-	weight1 = 0;				/* values to use if var1 is zero */
+	weight1 = 0;				/* var1 为零时使用的值 */
 	firstdigit1 = 0;
 	for (i = 0; i < var1->ndigits; i++)
 	{
@@ -9752,7 +9752,7 @@ select_div_scale(const NumericVar *var1, const NumericVar *var2)
 		}
 	}
 
-	weight2 = 0;				/* values to use if var2 is zero */
+	weight2 = 0;				/* var2 为零时使用的值 */
 	firstdigit2 = 0;
 	for (i = 0; i < var2->ndigits; i++)
 	{
@@ -9765,14 +9765,14 @@ select_div_scale(const NumericVar *var1, const NumericVar *var2)
 	}
 
 	/*
-	 * Estimate weight of quotient.  If the two first digits are equal, we
-	 * can't be sure, but assume that var1 is less than var2.
+	 * 估计商的权重。若两数首位数字位相等，我们无法
+	 * 确定，但可假定 var1 小于 var2。
 	 */
 	qweight = weight1 - weight2;
 	if (firstdigit1 <= firstdigit2)
 		qweight--;
 
-	/* Select result scale */
+	/* 选择结果标度 */
 	rscale = NUMERIC_MIN_SIG_DIGITS - qweight * DEC_DIGITS;
 	rscale = Max(rscale, var1->dscale);
 	rscale = Max(rscale, var2->dscale);
@@ -9786,7 +9786,7 @@ select_div_scale(const NumericVar *var1, const NumericVar *var2)
 /*
  * mod_var() -
  *
- *	Calculate the modulo of two numerics at variable level
+ *	在变量层面计算两个 numeric 的模
  */
 static void
 mod_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
@@ -9796,9 +9796,9 @@ mod_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	init_var(&tmp);
 
 	/* ---------
-	 * We do this using the equation
+	 * 我们利用如下等式
 	 *		mod(x,y) = x - trunc(x/y)*y
-	 * div_var can be persuaded to give us trunc(x/y) directly.
+	 * 可以让 div_var 直接给出 trunc(x/y)。
 	 * ----------
 	 */
 	div_var(var1, var2, &tmp, 0, false);
@@ -9814,8 +9814,8 @@ mod_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 /*
  * div_mod_var() -
  *
- *	Calculate the truncated integer quotient and numeric remainder of two
- *	numeric variables.  The remainder is precise to var2's dscale.
+ *	计算两个 numeric 变量的截断整数商与 numeric 余数。
+ *	余数精确到 var2 的 dscale。
  */
 static void
 div_mod_var(const NumericVar *var1, const NumericVar *var2,
@@ -9828,24 +9828,24 @@ div_mod_var(const NumericVar *var1, const NumericVar *var2,
 	init_var(&r);
 
 	/*
-	 * Use div_var_fast() to get an initial estimate for the integer quotient.
-	 * This might be inaccurate (per the warning in div_var_fast's comments),
-	 * but we can correct it below.
+	 * 用 div_var_fast() 得到整数商的初始估计值。
+	 * 这可能有偏差（见 div_var_fast 注释中的警告），
+	 * 但下文可以修正它。
 	 */
 	div_var_fast(var1, var2, &q, 0, false);
 
-	/* Compute initial estimate of remainder using the quotient estimate. */
+	/* 用商的估计值计算余数的初始估计值。 */
 	mul_var(var2, &q, &r, var2->dscale);
 	sub_var(var1, &r, &r);
 
 	/*
-	 * Adjust the results if necessary --- the remainder should have the same
-	 * sign as var1, and its absolute value should be less than the absolute
-	 * value of var2.
+	 * 如有必要则调整结果 --- 余数应与 var1 同号，且其绝
+	 * 对值应小于 var2 的绝对值。
+	 *
 	 */
 	while (r.ndigits != 0 && r.sign != var1->sign)
 	{
-		/* The absolute value of the quotient is too large */
+		/* 商的绝对值过大 */
 		if (var1->sign == var2->sign)
 		{
 			sub_var(&q, &const_one, &q);
@@ -9860,7 +9860,7 @@ div_mod_var(const NumericVar *var1, const NumericVar *var2,
 
 	while (cmp_abs(&r, var2) >= 0)
 	{
-		/* The absolute value of the quotient is too small */
+		/* 商的绝对值过小 */
 		if (var1->sign == var2->sign)
 		{
 			add_var(&q, &const_one, &q);
@@ -9884,8 +9884,8 @@ div_mod_var(const NumericVar *var1, const NumericVar *var2,
 /*
  * ceil_var() -
  *
- *	Return the smallest integer greater than or equal to the argument
- *	on variable level
+ *	返回大于等于参数的最小整数
+ *	（变量层面）
  */
 static void
 ceil_var(const NumericVar *var, NumericVar *result)
@@ -9908,8 +9908,8 @@ ceil_var(const NumericVar *var, NumericVar *result)
 /*
  * floor_var() -
  *
- *	Return the largest integer equal to or less than the argument
- *	on variable level
+ *	返回小于等于参数的最大整数
+ *	（变量层面）
  */
 static void
 floor_var(const NumericVar *var, NumericVar *result)
@@ -9932,7 +9932,7 @@ floor_var(const NumericVar *var, NumericVar *result)
 /*
  * gcd_var() -
  *
- *	Calculate the greatest common divisor of two numerics at variable level
+ *	在变量层面计算两个 numeric 的最大公约数
  */
 static void
 gcd_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
@@ -9945,10 +9945,10 @@ gcd_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	res_dscale = Max(var1->dscale, var2->dscale);
 
 	/*
-	 * Arrange for var1 to be the number with the greater absolute value.
+	 * 安排 var1 为绝对值较大的那个数。
 	 *
-	 * This would happen automatically in the loop below, but avoids an
-	 * expensive modulo operation.
+	 * 这本来会在下方循环中自动发生，但能避免一次
+	 * 代价高昂的取模。
 	 */
 	cmp = cmp_abs(var1, var2);
 	if (cmp < 0)
@@ -9960,8 +9960,8 @@ gcd_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	}
 
 	/*
-	 * Also avoid the taking the modulo if the inputs have the same absolute
-	 * value, or if the smaller input is zero.
+	 * 另外，如果两输入绝对值相同，或较小输入为零，
+	 * 也要避免做取模。
 	 */
 	if (cmp == 0 || var2->ndigits == 0)
 	{
@@ -9974,13 +9974,13 @@ gcd_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	init_var(&tmp_arg);
 	init_var(&mod);
 
-	/* Use the Euclidean algorithm to find the GCD */
+	/* 用欧几里得算法求最大公约数 */
 	set_var_from_var(var1, &tmp_arg);
 	set_var_from_var(var2, result);
 
 	for (;;)
 	{
-		/* this loop can take a while, so allow it to be interrupted */
+		/* 这个循环可能耗时较久，因此允许它被中断 */
 		CHECK_FOR_INTERRUPTS();
 
 		mod_var(&tmp_arg, result, &mod);
@@ -10000,9 +10000,9 @@ gcd_var(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 /*
  * sqrt_var() -
  *
- *	Compute the square root of x using the Karatsuba Square Root algorithm.
- *	NOTE: we allow rscale < 0 here, implying rounding before the decimal
- *	point.
+ *	使用 Karatsuba 平方根算法计算 x 的平方根。
+ *	注意：这里允许 rscale < 0，即在小数点前舍入。
+ *
  */
 static void
 sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
@@ -10034,8 +10034,8 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	}
 
 	/*
-	 * SQL2003 defines sqrt() in terms of power, so we need to emit the right
-	 * SQLSTATE error code if the operand is negative.
+	 * SQL2003 用幂来定义 sqrt()，因此若操作数为负，我们
+	 * 需要发出正确的 SQLSTATE 错误码。
 	 */
 	if (stat < 0)
 		ereport(ERROR,
@@ -10050,8 +10050,8 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	init_var(&u_var);
 
 	/*
-	 * The result weight is half the input weight, rounded towards minus
-	 * infinity --- res_weight = floor(arg->weight / 2).
+	 * 结果权重为输入权重之半，向负无穷舍入 ---
+	 * res_weight = floor(arg->weight / 2)。
 	 */
 	if (arg->weight >= 0)
 		res_weight = arg->weight / 2;
@@ -10059,10 +10059,10 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 		res_weight = -((-arg->weight - 1) / 2 + 1);
 
 	/*
-	 * Number of NBASE digits to compute.  To ensure correct rounding, compute
-	 * at least 1 extra decimal digit.  We explicitly allow rscale to be
-	 * negative here, but must always compute at least 1 NBASE digit.  Thus
-	 * res_ndigits = res_weight + 1 + ceil((rscale + 1) / DEC_DIGITS) or 1.
+	 * 要计算的 NBASE 数字位个数。为确保舍入正确，至少
+	 * 多算 1 位十进制数字。这里明确允许 rscale 为负，
+	 * 但必须始终至少计算 1 个 NBASE 数字位。因此
+	 * res_ndigits = res_weight + 1 + ceil((rscale + 1) / DEC_DIGITS) 或 1。
 	 */
 	if (rscale + 1 >= 0)
 		res_ndigits = res_weight + 1 + (rscale + DEC_DIGITS) / DEC_DIGITS;
@@ -10071,18 +10071,18 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	res_ndigits = Max(res_ndigits, 1);
 
 	/*
-	 * Number of source NBASE digits logically required to produce a result
-	 * with this precision --- every digit before the decimal point, plus 2
-	 * for each result digit after the decimal point (or minus 2 for each
-	 * result digit we round before the decimal point).
+	 * 逻辑上要产生具有此精度的结果所需的源 NBASE 数字
+	 * 位个数 --- 小数点前的每个数字位，加上小数点后
+	 * 每个结果数字位加 2（或对每个在小数点前即舍入
+	 * 的结果数字位减 2）。
 	 */
 	src_ndigits = arg->weight + 1 + (res_ndigits - res_weight - 1) * 2;
 	src_ndigits = Max(src_ndigits, 1);
 
 	/* ----------
-	 * From this point on, we treat the input and the result as integers and
-	 * compute the integer square root and remainder using the Karatsuba
-	 * Square Root algorithm, which may be written recursively as follows:
+	 * 从这里开始，我们把输入和结果均当作整数，并以
+	 * Karatsuba 平方根算法计算整数平方根与余数。该
+	 * 算法可递归地写成如下形式：
 	 *
 	 *	SqrtRem(n = a3*b^3 + a2*b^2 + a1*b + a0):
 	 *		[ for some base b, and coefficients a0,a1,a2,a3 chosen so that
@@ -10097,75 +10097,75 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	 *			Let r = r + s
 	 *		Return (s,r)
 	 *
-	 * See "Karatsuba Square Root", Paul Zimmermann, INRIA Research Report
-	 * RR-3805, November 1999.  At the time of writing this was available
-	 * on the net at <https://hal.inria.fr/inria-00072854>.
+	 * 参见 "Karatsuba Square Root"，Paul Zimmermann，INRIA
+	 * 研究报告 RR-3805，1999 年 11 月。撰写时可在网络
+	 * 上取得：<https://hal.inria.fr/inria-00072854>。
 	 *
-	 * The way to read the assumption "n = a3*b^3 + a2*b^2 + a1*b + a0" is
-	 * "choose a base b such that n requires at least four base-b digits to
-	 * express; then those digits are a3,a2,a1,a0, with a3 possibly larger
-	 * than b".  For optimal performance, b should have approximately a
-	 * quarter the number of digits in the input, so that the outer square
-	 * root computes roughly twice as many digits as the inner one.  For
-	 * simplicity, we choose b = NBASE^blen, an integer power of NBASE.
+	 * 对假设 "n = a3*b^3 + a2*b^2 + a1*b + a0" 的读法是：
+	 * "选定一个基 b，使 n 至少要用四个以 b 为基的数字
+	 * 位来表达；随后那些数字位就是 a3,a2,a1,a0，其中 a3
+	 * 可能大于 b"。最优性能下，b 应约为输入数字位个
+	 * 数的四分之一，令外层平方根约计算两倍于内层的
+	 * 数字位个数。为简单起见，我们选 b = NBASE^blen，即
+	 * NBASE 的整数次幂。
 	 *
-	 * We implement the algorithm iteratively rather than recursively, to
-	 * allow the working variables to be reused.  With this approach, each
-	 * digit of the input is read precisely once --- src_idx tracks the number
-	 * of input digits used so far.
+	 * 我们以迭代而非递归实现该算法，以便各工作
+	 * 变量得以复用。采用这一做法，输入的每个数字位
+	 * 都恰好被读取一次 --- src_idx 跟踪到目前为止已用
+	 * 的输入数字位个数。
 	 *
-	 * The array ndigits[] holds the number of NBASE digits of the input that
-	 * will have been used at the end of each iteration, which roughly doubles
-	 * each time.  Note that the array elements are stored in reverse order,
-	 * so if the final iteration requires src_ndigits = 37 input digits, the
-	 * array will contain [37,19,11,7,5,3], and we would start by computing
-	 * the square root of the 3 most significant NBASE digits.
+	 * 数组 ndigits[] 存放输入在每次迭代结束时将被用到的
+	 * NBASE 数字位个数，该个数每次约翻倍。注意数组元素
+	 * 按逆序存放，因此若最
+	 * 后一次迭代需要 src_ndigits = 37 个输入数字位，那么
+	 * 数组将包含 [37,19,11,7,5,3]，且我们会从 3 个最高的
+	 * NBASE 数字位开始计算平方根。
 	 *
-	 * In each iteration, we choose blen to be the largest integer for which
-	 * the input number has a3 >= b/4, when written in the form above.  In
-	 * general, this means blen = src_ndigits / 4 (truncated), but if
-	 * src_ndigits is a multiple of 4, that might lead to the coefficient a3
-	 * being less than b/4 (if the first input digit is less than NBASE/4), in
-	 * which case we choose blen = src_ndigits / 4 - 1.  The number of digits
-	 * in the inner square root is then src_ndigits - 2*blen.  So, for
-	 * example, if we have src_ndigits = 26 initially, the array ndigits[]
-	 * will be either [26,14,8,4] or [26,14,8,6,4], depending on the size of
-	 * the first input digit.
+	 * 每次迭代中，我们把 blen 选成按上述形式书写时能使
+	 * a3 >= b/4 成立的最大整数。一般而言，这意味着
+	 * blen = src_ndigits / 4（截断）；但如果 src_ndigits
+	 * 是 4 的倍数，可能使系数 a3 小于 b/4（若首个输入数字
+	 * 位小于 NBASE/4），此时我们选 blen = src_ndigits / 4 - 1。
+	 * 内层平方根的数字位个数随后为 src_ndigits - 2*blen。
+	 * 例如，若最初 src_ndigits = 26，则数组 ndigits[]
+	 * 将视首个输入数字位的大小而为 [26,14,8,4] 或
+	 * [26,14,8,6,4]。
 	 *
-	 * Additionally, we can put an upper bound on the number of steps required
-	 * as follows --- suppose that the number of source digits is an n-bit
-	 * number in the range [2^(n-1), 2^n-1], then blen will be in the range
-	 * [2^(n-3)-1, 2^(n-2)-1] and the number of digits in the inner square
-	 * root will be in the range [2^(n-2), 2^(n-1)+1].  In the next step, blen
-	 * will be in the range [2^(n-4)-1, 2^(n-3)] and the number of digits in
-	 * the next inner square root will be in the range [2^(n-3), 2^(n-2)+1].
-	 * This pattern repeats, and in the worst case the array ndigits[] will
-	 * contain [2^n-1, 2^(n-1)+1, 2^(n-2)+1, ... 9, 5, 3], and the computation
-	 * will require n steps.  Therefore, since all digit array sizes are
-	 * signed 32-bit integers, the number of steps required is guaranteed to
-	 * be less than 32.
+	 *
+	 * 此外，我们可为所需步数给出上界，方法如下 ---
+	 * 假定源数字位个数是一个处于 [2^(n-1), 2^n-1] 范围的
+	 * n 位数值，则 blen 将处于 [2^(n-3)-1, 2^(n-2)-1] 范围，
+	 * 而内层平方根的数字位个数将处于 [2^(n-2),
+	 * 2^(n-1)+1] 范围。下一步中 blen 将处于 [2^(n-4)-1,
+	 * 2^(n-3)] 范围，而下一个内层平方根的数字位个数
+	 * 将处于 [2^(n-3), 2^(n-2)+1] 范围。此模式不断重复，
+	 * 最坏情况下数组 ndigits[] 将包含 [2^n-1,
+	 * 2^(n-1)+1, 2^(n-2)+1, ... 9, 5, 3]，计算需要 n 步。
+	 * 故由于所有数字位数组的大小均为有符号 32 位整
+	 * 数，因此可以保证所需步数必少于
+	 * 32。
 	 * ----------
 	 */
 	step = 0;
 	while ((ndigits[step] = src_ndigits) > 4)
 	{
-		/* Choose b so that a3 >= b/4, as described above */
+		/* 按上文所述选择 b 使 a3 >= b/4 */
 		blen = src_ndigits / 4;
 		if (blen * 4 == src_ndigits && arg->digits[0] < NBASE / 4)
 			blen--;
 
-		/* Number of digits in the next step (inner square root) */
+		/* 下一步（内层平方根）的数字位个数 */
 		src_ndigits -= 2 * blen;
 		step++;
 	}
 
 	/*
-	 * First iteration (innermost square root and remainder):
+	 * 第一次迭代（最内层平方根与余数）：
 	 *
-	 * Here src_ndigits <= 4, and the input fits in an int64.  Its square root
-	 * has at most 9 decimal digits, so estimate it using double precision
-	 * arithmetic, which will in fact almost certainly return the correct
-	 * result with no further correction required.
+	 * 这里 src_ndigits <= 4，输入能装进 int64。其平方根至多
+	 * 有 9 位十进制数字，所以用双精度算术来估计它，
+	 * 实际上这几乎必然返回正确结果，无须再修正。
+	 *
 	 */
 	arg_int64 = arg->digits[0];
 	for (src_idx = 1; src_idx < src_ndigits; src_idx++)
@@ -10179,14 +10179,14 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	r_int64 = arg_int64 - s_int64 * s_int64;
 
 	/*
-	 * Use Newton's method to correct the result, if necessary.
+	 * 如有必要，用牛顿法修正结果。
 	 *
-	 * This uses integer division with truncation to compute the truncated
-	 * integer square root by iterating using the formula x -> (x + n/x) / 2.
-	 * This is known to converge to isqrt(n), unless n+1 is a perfect square.
-	 * If n+1 is a perfect square, the sequence will oscillate between the two
-	 * values isqrt(n) and isqrt(n)+1, so we can be assured of convergence by
-	 * checking the remainder.
+	 * 这里用带截断的整数除法，以公式 x -> (x + n/x) / 2
+	 * 进行迭代来计算截断的整数平方根。已知该迭代会收
+	 * 敛到 isqrt(n)，除非 n+1 是完全平方数。若 n+1 是完全
+	 * 平方数，序列就会在 isqrt(n) 与 isqrt(n)+1 两个值之间
+	 * 振荡，因此通过检查余数我们就能确保收敛。
+	 *
 	 */
 	while (r_int64 < 0 || r_int64 > 2 * s_int64)
 	{
@@ -10195,23 +10195,23 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	}
 
 	/*
-	 * Iterations with src_ndigits <= 8:
+	 * src_ndigits <= 8 的迭代：
 	 *
-	 * The next 1 or 2 iterations compute larger (outer) square roots with
-	 * src_ndigits <= 8, so the result still fits in an int64 (even though the
-	 * input no longer does) and we can continue to compute using int64
-	 * variables to avoid more expensive numeric computations.
+	 * 接下来的 1 或 2 次迭代计算更大的（外层）平方根，
+	 * 其 src_ndigits <= 8，所以结果仍能装进 int64（即便输入
+	 * 已装不下），可继续用 int64 变量来计算，避免
+	 * 更昂贵的 numeric 计算。
 	 *
-	 * It is fairly easy to see that there is no risk of the intermediate
-	 * values below overflowing 64-bit integers.  In the worst case, the
-	 * previous iteration will have computed a 3-digit square root (of a
-	 * 6-digit input less than NBASE^6 / 4), so at the start of this
-	 * iteration, s will be less than NBASE^3 / 2 = 10^12 / 2, and r will be
-	 * less than 10^12.  In this case, blen will be 1, so numer will be less
-	 * than 10^17, and denom will be less than 10^12 (and hence u will also be
-	 * less than 10^12).  Finally, since q^2 = u*b + a0 - r, we can also be
-	 * sure that q^2 < 10^17.  Therefore all these quantities fit comfortably
-	 * in 64-bit integers.
+	 * 不难看出下列中间值没有溢出 64 位整数的风险。
+	 * 最坏情况下，上轮迭代算出的是 3 位数字平方根
+	 * （输入为小于 NBASE^6 / 4 的 6 位数字），故本轮
+	 * 迭代开始时 s < NBASE^3 / 2 = 10^12 / 2，而 r 小于
+	 * 10^12。此时 blen 将为 1，所以 numer 将小于 10^17，
+	 * 而 denom 将小于 10^12（因而 u 也将小于 10^12）。
+	 *
+	 * 最后，由于 q^2 = u*b + a0 - r，我们还能确信
+	 * q^2 < 10^17。因此所有这些量都能轻松装进
+	 * 64 位整数。
 	 */
 	step--;
 	while (step >= 0 && (src_ndigits = ndigits[step]) <= 8)
@@ -10227,7 +10227,7 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 
 		blen = (src_ndigits - src_idx) / 2;
 
-		/* Extract a1 and a0, and compute b */
+		/* 提取 a1 与 a0，并计算 b */
 		a0 = 0;
 		a1 = 0;
 		b = 1;
@@ -10247,31 +10247,31 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 				a0 += arg->digits[src_idx];
 		}
 
-		/* Compute (q,u) = DivRem(r*b + a1, 2*s) */
+		/* 计算 (q,u) = DivRem(r*b + a1, 2*s) */
 		numer = r_int64 * b + a1;
 		denom = 2 * s_int64;
 		q = numer / denom;
 		u = numer - q * denom;
 
-		/* Compute s = s*b + q and r = u*b + a0 - q^2 */
+		/* 计算 s = s*b + q 与 r = u*b + a0 - q^2 */
 		s_int64 = s_int64 * b + q;
 		r_int64 = u * b + a0 - q * q;
 
 		if (r_int64 < 0)
 		{
-			/* s is too large by 1; set r += s, s--, r += s */
+			/* s 大了 1；设 r += s、s--、r += s */
 			r_int64 += s_int64;
 			s_int64--;
 			r_int64 += s_int64;
 		}
 
-		Assert(src_idx == src_ndigits); /* All input digits consumed */
+		Assert(src_idx == src_ndigits); /* 输入数字位已用尽 */
 		step--;
 	}
 
 	/*
-	 * On platforms with 128-bit integer support, we can further delay the
-	 * need to use numeric variables.
+	 * 在支持 128 位整数的平台上，还能进一步推迟
+	 * 求助于 numeric 变量。
 	 */
 #ifdef HAVE_INT128
 	if (step >= 0)
@@ -10283,10 +10283,10 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 		r_int128 = r_int64;
 
 		/*
-		 * Iterations with src_ndigits <= 16:
+		 * src_ndigits <= 16 的迭代：
 		 *
-		 * The result fits in an int128 (even though the input doesn't) so we
-		 * use int128 variables to avoid more expensive numeric computations.
+		 * 结果能装进 int128（即便输入不行），故我们用
+		 * int128 变量来计算，避免更昂贵的 numeric 计算。
 		 */
 		while (step >= 0 && (src_ndigits = ndigits[step]) <= 16)
 		{
@@ -10301,7 +10301,7 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 
 			blen = (src_ndigits - src_idx) / 2;
 
-			/* Extract a1 and a0, and compute b */
+			/* 提取 a1 与 a0，并计算 b */
 			a0 = 0;
 			a1 = 0;
 			b = 1;
@@ -10321,33 +10321,33 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 					a0 += arg->digits[src_idx];
 			}
 
-			/* Compute (q,u) = DivRem(r*b + a1, 2*s) */
+			/* 计算 (q,u) = DivRem(r*b + a1, 2*s) */
 			numer = r_int128 * b + a1;
 			denom = 2 * s_int128;
 			q = numer / denom;
 			u = numer - q * denom;
 
-			/* Compute s = s*b + q and r = u*b + a0 - q^2 */
+			/* 计算 s = s*b + q 与 r = u*b + a0 - q^2 */
 			s_int128 = s_int128 * b + q;
 			r_int128 = u * b + a0 - q * q;
 
 			if (r_int128 < 0)
 			{
-				/* s is too large by 1; set r += s, s--, r += s */
+				/* s 大了 1；设 r += s、s--、r += s */
 				r_int128 += s_int128;
 				s_int128--;
 				r_int128 += s_int128;
 			}
 
-			Assert(src_idx == src_ndigits); /* All input digits consumed */
+			Assert(src_idx == src_ndigits); /* 输入数字位已用尽 */
 			step--;
 		}
 
 		/*
-		 * All remaining iterations require numeric variables.  Convert the
-		 * integer values to NumericVar and continue.  Note that in the final
-		 * iteration we don't need the remainder, so we can save a few cycles
-		 * there by not fully computing it.
+		 * 其余迭代都需要 numeric 变量。把整数值转换成
+		 * NumericVar 并继续。注意在最后一次迭代中我们不需
+		 * 要余数，因此可以在那里不把它算完来省下
+		 * 几个周期。
 		 */
 		int128_to_numericvar(s_int128, &s_var);
 		if (step >= 0)
@@ -10356,7 +10356,7 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 	else
 	{
 		int64_to_numericvar(s_int64, &s_var);
-		/* step < 0, so we certainly don't need r */
+		/* step < 0，肯定不需要 r */
 	}
 #else							/* !HAVE_INT128 */
 	int64_to_numericvar(s_int64, &s_var);
@@ -10365,8 +10365,8 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 #endif							/* HAVE_INT128 */
 
 	/*
-	 * The remaining iterations with src_ndigits > 8 (or 16, if have int128)
-	 * use numeric variables.
+	 * src_ndigits > 8（如果有 int128 则为 16）的其余迭代
+	 * 使用 numeric 变量。
 	 */
 	while (step >= 0)
 	{
@@ -10375,7 +10375,7 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 		src_ndigits = ndigits[step];
 		blen = (src_ndigits - src_idx) / 2;
 
-		/* Extract a1 and a0 */
+		/* 提取 a1 与 a0 */
 		if (src_idx < arg->ndigits)
 		{
 			tmp_len = Min(blen, arg->ndigits - src_idx);
@@ -10412,23 +10412,23 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 		}
 		src_idx += blen;
 
-		/* Compute (q,u) = DivRem(r*b + a1, 2*s) */
+		/* 计算 (q,u) = DivRem(r*b + a1, 2*s) */
 		set_var_from_var(&r_var, &q_var);
 		q_var.weight += blen;
 		add_var(&q_var, &a1_var, &q_var);
 		add_var(&s_var, &s_var, &u_var);
 		div_mod_var(&q_var, &u_var, &q_var, &u_var);
 
-		/* Compute s = s*b + q */
+		/* 计算 s = s*b + q */
 		s_var.weight += blen;
 		add_var(&s_var, &q_var, &s_var);
 
 		/*
-		 * Compute r = u*b + a0 - q^2.
+		 * 求 r = u*b + a0 - q^2。
 		 *
-		 * In the final iteration, we don't actually need r; we just need to
-		 * know whether it is negative, so that we know whether to adjust s.
-		 * So instead of the final subtraction we can just compare.
+		 * 最后一轮迭代中并不真正需要 r，只需知道它是
+		 * 否为负以便知道要不要调 s。因此最后一次减法可
+		 * 以换成一次比较。
 		 */
 		u_var.weight += blen;
 		add_var(&u_var, &a0_var, &u_var);
@@ -10436,11 +10436,11 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 
 		if (step > 0)
 		{
-			/* Need r for later iterations */
+			/* 后续迭代需要 r */
 			sub_var(&u_var, &q_var, &r_var);
 			if (r_var.sign == NUMERIC_NEG)
 			{
-				/* s is too large by 1; set r += s, s--, r += s */
+				/* s 大了 1；设 r += s、s--、r += s */
 				add_var(&r_var, &s_var, &r_var);
 				sub_var(&s_var, &const_one, &s_var);
 				add_var(&r_var, &s_var, &r_var);
@@ -10448,26 +10448,26 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 		}
 		else
 		{
-			/* Don't need r anymore, except to test if s is too large by 1 */
+			/* 不再需要 r，除非要测试 s 是否大了 1 */
 			if (cmp_var(&u_var, &q_var) < 0)
 				sub_var(&s_var, &const_one, &s_var);
 		}
 
-		Assert(src_idx == src_ndigits); /* All input digits consumed */
+		Assert(src_idx == src_ndigits); /* 输入数字位已用尽 */
 		step--;
 	}
 
 	/*
-	 * Construct the final result, rounding it to the requested precision.
+	 * 构造最终结果，并把它舍入到要求的精度。
 	 */
 	set_var_from_var(&s_var, result);
 	result->weight = res_weight;
 	result->sign = NUMERIC_POS;
 
-	/* Round to target rscale (and set result->dscale) */
+	/* 舍入到目标 rscale（设 result->dscale） */
 	round_var(result, rscale);
 
-	/* Strip leading and trailing zeroes */
+	/* 去除前导与末尾零 */
 	strip_var(result);
 
 	free_var(&s_var);
@@ -10482,7 +10482,7 @@ sqrt_var(const NumericVar *arg, NumericVar *result, int rscale)
 /*
  * exp_var() -
  *
- *	Raise e to the power of x, computed to rscale fractional digits
+ *	计算 e 的 x 次幂，精确到 rscale 位小数
  */
 static void
 exp_var(const NumericVar *arg, NumericVar *result, int rscale)
@@ -10502,13 +10502,13 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 	set_var_from_var(arg, &x);
 
 	/*
-	 * Estimate the dweight of the result using floating point arithmetic, so
-	 * that we can choose an appropriate local rscale for the calculation.
+	 * 用浮点算术估计结果的 dweight，以便能为计算选择
+	 * 合适的局部 rscale。
 	 */
 	val = numericvar_to_double_no_overflow(&x);
 
-	/* Guard against overflow/underflow */
-	/* If you change this limit, see also power_var()'s limit */
+	/* 防止溢出/下溢 */
+	/* 若改此限制，另见 power_var() 的限制 */
 	if (fabs(val) >= NUMERIC_MAX_RESULT_SCALE * 3)
 	{
 		if (val > 0)
@@ -10520,15 +10520,15 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 		return;
 	}
 
-	/* decimal weight = log10(e^x) = x * log10(e) */
+	/* 十进制权重=log10(e^x)=x*log10(e) */
 	dweight = (int) (val * 0.434294481903252);
 
 	/*
-	 * Reduce x to the range -0.01 <= x <= 0.01 (approximately) by dividing by
-	 * 2^ndiv2, to improve the convergence rate of the Taylor series.
+	 * 通过除以 2^ndiv2 把 x 缩减到约 -0.01 <= x <= 0.01 的
+	 * 范围，以改善泰勒级数的收敛速度。
 	 *
-	 * Note that the overflow check above ensures that fabs(x) < 6000, which
-	 * means that ndiv2 <= 20 here.
+	 * 注意上面的溢出检查确保了 fabs(x) < 6000，这意味着
+	 * 此处 ndiv2 <= 20。
 	 */
 	if (fabs(val) > 0.01)
 	{
@@ -10548,11 +10548,11 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 		ndiv2 = 0;
 
 	/*
-	 * Set the scale for the Taylor series expansion.  The final result has
-	 * (dweight + rscale + 1) significant digits.  In addition, we have to
-	 * raise the Taylor series result to the power 2^ndiv2, which introduces
-	 * an error of up to around log10(2^ndiv2) digits, so work with this many
-	 * extra digits of precision (plus a few more for good measure).
+	 * 为泰勒级数展开设置标度。最终结果有 (dweight +
+	 * rscale + 1) 个有效数字。此外，我们还须把泰勒级数
+	 * 的结果要自乘 2^ndiv2 次幂，这会带来最多约
+	 * log10(2^ndiv2) 位数字的误差，所以要多用这么多位
+	 * 额外的精度数字（外加几分保险余量）。
 	 */
 	sig_digits = 1 + dweight + rscale + (int) (ndiv2 * 0.301029995663981);
 	sig_digits = Max(sig_digits, 0) + 8;
@@ -10560,12 +10560,12 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 	local_rscale = sig_digits - 1;
 
 	/*
-	 * Use the Taylor series
+	 * 使用泰勒级数
 	 *
 	 * exp(x) = 1 + x + x^2/2! + x^3/3! + ...
 	 *
-	 * Given the limited range of x, this should converge reasonably quickly.
-	 * We run the series until the terms fall below the local_rscale limit.
+	 * 鉴于 x 范围有限，该级数应收敛得相当快。我们一直
+	 * 运行级数直到各项低于 local_rscale 限制为止。
 	 */
 	add_var(&const_one, &x, result);
 
@@ -10583,9 +10583,9 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 	}
 
 	/*
-	 * Compensate for the argument range reduction.  Since the weight of the
-	 * result doubles with each multiplication, we can reduce the local rscale
-	 * as we proceed.
+	 * 补偿参数范围缩减。结果的权重每乘一次就翻
+	 * 倍，所以可以随着进行而缩减局部 rscale。
+	 *
 	 */
 	while (ndiv2-- > 0)
 	{
@@ -10594,7 +10594,7 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 		mul_var(result, result, result, local_rscale);
 	}
 
-	/* Round to requested rscale */
+	/* 舍入到要求的 rscale */
 	round_var(result, rscale);
 
 	free_var(&x);
@@ -10603,22 +10603,22 @@ exp_var(const NumericVar *arg, NumericVar *result, int rscale)
 
 
 /*
- * Estimate the dweight of the most significant decimal digit of the natural
- * logarithm of a number.
+ * 估计一个数自然对数的最高有效十进制数字位的
+ * dweight。
  *
- * Essentially, we're approximating log10(abs(ln(var))).  This is used to
- * determine the appropriate rscale when computing natural logarithms.
+ * 本质上，我们是在近似 log10(abs(ln(var)))。这用于
+ * 在计算自然对数时确定合适的 rscale。
  *
- * Note: many callers call this before range-checking the input.  Therefore,
- * we must be robust against values that are invalid to apply ln() to.
- * We don't wish to throw an error here, so just return zero in such cases.
+ * 注意：很多调用方会在对输入做范围检查之前调用本函
+ * 数。因此我们必须对不适用于 ln() 的值保持稳健。
+ * 我们不想在这里抛出错误，所以这种情况直接返回零。
  */
 static int
 estimate_ln_dweight(const NumericVar *var)
 {
 	int			ln_dweight;
 
-	/* Caller should fail on ln(negative), but for the moment return zero */
+	/* 调用方对 ln(负数) 应报错，暂返回零 */
 	if (var->sign != NUMERIC_POS)
 		return 0;
 
@@ -10628,8 +10628,8 @@ estimate_ln_dweight(const NumericVar *var)
 		/*
 		 * 0.9 <= var <= 1.1
 		 *
-		 * ln(var) has a negative weight (possibly very large).  To get a
-		 * reasonably accurate result, estimate it using ln(1+x) ~= x.
+		 * ln(var) 权重为负（可能很大）。要得到较精确的
+		 * 确的结果，可用 ln(1+x) ~= x 来估计。
 		 */
 		NumericVar	x;
 
@@ -10638,12 +10638,12 @@ estimate_ln_dweight(const NumericVar *var)
 
 		if (x.ndigits > 0)
 		{
-			/* Use weight of most significant decimal digit of x */
+			/* 用 x 的最高十进制数字位权重 */
 			ln_dweight = x.weight * DEC_DIGITS + (int) log10(x.digits[0]);
 		}
 		else
 		{
-			/* x = 0.  Since ln(1) = 0 exactly, we don't need extra digits */
+			/* x = 0。ln(1) = 0 是精确的，无需额外数字位 */
 			ln_dweight = 0;
 		}
 
@@ -10652,9 +10652,9 @@ estimate_ln_dweight(const NumericVar *var)
 	else
 	{
 		/*
-		 * Estimate the logarithm using the first couple of digits from the
-		 * input number.  This will give an accurate result whenever the input
-		 * is not too close to 1.
+		 * 用输入数的头几位数字位估计对数。只要输入不
+		 * 太接近 1，这都能给出精确的结果。
+		 *
 		 */
 		if (var->ndigits > 0)
 		{
@@ -10672,8 +10672,8 @@ estimate_ln_dweight(const NumericVar *var)
 			}
 
 			/*----------
-			 * We have var ~= digits * 10^dweight
-			 * so ln(var) ~= ln(digits) + dweight * ln(10)
+			 * 即 var ~= digits * 10^dweight
+			 * 故 ln(var) ~= ln(digits) + dweight * ln(10)
 			 *----------
 			 */
 			ln_var = log((double) digits) + dweight * 2.302585092994046;
@@ -10681,7 +10681,7 @@ estimate_ln_dweight(const NumericVar *var)
 		}
 		else
 		{
-			/* Caller should fail on ln(0), but for the moment return zero */
+			/* 调用方对 ln(0) 应报错，暂返回零 */
 			ln_dweight = 0;
 		}
 	}
@@ -10693,7 +10693,7 @@ estimate_ln_dweight(const NumericVar *var)
 /*
  * ln_var() -
  *
- *	Compute the natural log of x
+ *	计算 x 的自然对数
  */
 static void
 ln_var(const NumericVar *arg, NumericVar *result, int rscale)
@@ -10726,19 +10726,19 @@ ln_var(const NumericVar *arg, NumericVar *result, int rscale)
 	set_var_from_var(&const_two, &fact);
 
 	/*
-	 * Reduce input into range 0.9 < x < 1.1 with repeated sqrt() operations.
+	 * 通过反复 sqrt() 把输入缩减到 0.9 < x < 1.1 范围。
 	 *
-	 * The final logarithm will have up to around rscale+6 significant digits.
-	 * Each sqrt() will roughly halve the weight of x, so adjust the local
-	 * rscale as we work so that we keep this many significant digits at each
-	 * step (plus a few more for good measure).
+	 * 最终的对数将有约 rscale+6 个有效数字。每次 sqrt() 都
+	 * 会大致把 x 的权重减半，所以工作中要调整局部
+	 * rscale，以便每一步都保持这么多有效数字（外加几
+	 * 分保险余量）。
 	 *
-	 * Note that we allow local_rscale < 0 during this input reduction
-	 * process, which implies rounding before the decimal point.  sqrt_var()
-	 * explicitly supports this, and it significantly reduces the work
-	 * required to reduce very large inputs to the required range.  Once the
-	 * input reduction is complete, x.weight will be 0 and its display scale
-	 * will be non-negative again.
+	 * 注意在输入缩减过程中允许 local_rscale < 0，这
+	 * 意味着在小数点之前舍入。sqrt_var() 明确支持这一
+	 * 点，并显著减少了把超大输入缩到所需范围所
+	 * 需的工作。输入缩减一旦完成，x.weight 将为 0，且
+	 * 其显示标度将重新变为非负。
+	 *
 	 */
 	nsqrt = 0;
 	while (cmp_var(&x, &const_zero_point_nine) <= 0)
@@ -10757,19 +10757,19 @@ ln_var(const NumericVar *arg, NumericVar *result, int rscale)
 	}
 
 	/*
-	 * We use the Taylor series for 0.5 * ln((1+z)/(1-z)),
+	 * 我们用 0.5 * ln((1+z)/(1-z)) 的泰勒级数，
 	 *
 	 * z + z^3/3 + z^5/5 + ...
 	 *
-	 * where z = (x-1)/(x+1) is in the range (approximately) -0.053 .. 0.048
-	 * due to the above range-reduction of x.
+	 * 其中 z = (x-1)/(x+1) 因上述对 x 的范围缩减而处于
+	 * 约 -0.053 .. 0.048 的范围内。
 	 *
-	 * The convergence of this is not as fast as one would like, but is
-	 * tolerable given that z is small.
+	 * 其收敛速度不如人意，但鉴于 z 很小尚可忍受。
 	 *
-	 * The Taylor series result will be multiplied by 2^(nsqrt+1), which has a
-	 * decimal weight of (nsqrt+1) * log10(2), so work with this many extra
-	 * digits of precision (plus a few more for good measure).
+	 *
+	 * 泰勒级数的结果将乘以 2^(nsqrt+1)，其十进制权重为
+	 * (nsqrt+1) * log10(2)，所以要多用这么多位额外的精
+	 * 度数字（外加几分保险余量）。
 	 */
 	local_rscale = rscale + (int) ((nsqrt + 1) * 0.301029995663981) + 8;
 
@@ -10796,7 +10796,7 @@ ln_var(const NumericVar *arg, NumericVar *result, int rscale)
 			break;
 	}
 
-	/* Compensate for argument range reduction, round to requested rscale */
+	/* 补偿参数范围缩减，舍入到要求的 rscale */
 	mul_var(result, &fact, result, rscale);
 
 	free_var(&x);
@@ -10809,9 +10809,9 @@ ln_var(const NumericVar *arg, NumericVar *result, int rscale)
 /*
  * log_var() -
  *
- *	Compute the logarithm of num in a given base.
+ *	以给定的基计算 num 的对数。
  *
- *	Note: this routine chooses dscale of the result.
+ *	注意：本例程会选择结果的 dscale。
  */
 static void
 log_var(const NumericVar *base, const NumericVar *num, NumericVar *result)
@@ -10828,15 +10828,15 @@ log_var(const NumericVar *base, const NumericVar *num, NumericVar *result)
 	init_var(&ln_base);
 	init_var(&ln_num);
 
-	/* Estimated dweights of ln(base), ln(num) and the final result */
+	/* ln(base)、ln(num) 与最终结果的估计 dweight */
 	ln_base_dweight = estimate_ln_dweight(base);
 	ln_num_dweight = estimate_ln_dweight(num);
 	result_dweight = ln_num_dweight - ln_base_dweight;
 
 	/*
-	 * Select the scale of the result so that it will have at least
-	 * NUMERIC_MIN_SIG_DIGITS significant digits and is not less than either
-	 * input's display scale.
+	 * 选择结果标度，使其至少有
+	 * NUMERIC_MIN_SIG_DIGITS 个有效数字，且不低于任一输入
+	 * 的显示标度。
 	 */
 	rscale = NUMERIC_MIN_SIG_DIGITS - result_dweight;
 	rscale = Max(rscale, base->dscale);
@@ -10845,8 +10845,8 @@ log_var(const NumericVar *base, const NumericVar *num, NumericVar *result)
 	rscale = Min(rscale, NUMERIC_MAX_DISPLAY_SCALE);
 
 	/*
-	 * Set the scales for ln(base) and ln(num) so that they each have more
-	 * significant digits than the final result.
+	 * 设置 ln(base)/ln(num) 的标度，使其各自的有效数字
+	 * 个数都多于最终结果。
 	 */
 	ln_base_rscale = rscale + result_dweight - ln_base_dweight + 8;
 	ln_base_rscale = Max(ln_base_rscale, NUMERIC_MIN_DISPLAY_SCALE);
@@ -10854,11 +10854,11 @@ log_var(const NumericVar *base, const NumericVar *num, NumericVar *result)
 	ln_num_rscale = rscale + result_dweight - ln_num_dweight + 8;
 	ln_num_rscale = Max(ln_num_rscale, NUMERIC_MIN_DISPLAY_SCALE);
 
-	/* Form natural logarithms */
+	/* 求出自然对数 */
 	ln_var(base, &ln_base, ln_base_rscale);
 	ln_var(num, &ln_num, ln_num_rscale);
 
-	/* Divide and round to the required scale */
+	/* 相除并舍入到要求的标度 */
 	div_var_fast(&ln_num, &ln_base, result, rscale, true);
 
 	free_var(&ln_num);
@@ -10869,9 +10869,9 @@ log_var(const NumericVar *base, const NumericVar *num, NumericVar *result)
 /*
  * power_var() -
  *
- *	Raise base to the power of exp
+ *	计算 base 的 exp 次幂
  *
- *	Note: this routine chooses dscale of the result.
+ *	注意：本例程会选择结果的 dscale。
  */
 static void
 power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
@@ -10886,17 +10886,17 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 	int			local_rscale;
 	double		val;
 
-	/* If exp can be represented as an integer, use power_var_int */
+	/* 若 exp 能表示为整数，则用 power_var_int */
 	if (exp->ndigits == 0 || exp->ndigits <= exp->weight + 1)
 	{
-		/* exact integer, but does it fit in int? */
+		/* 精确整数，int 装得下？ */
 		int64		expval64;
 
 		if (numericvar_to_int64(exp, &expval64))
 		{
 			if (expval64 >= PG_INT32_MIN && expval64 <= PG_INT32_MAX)
 			{
-				/* Okay, use power_var_int */
+				/* 好，用 power_var_int */
 				power_var_int(base, (int) expval64, exp->dscale, result);
 				return;
 			}
@@ -10904,13 +10904,13 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 	}
 
 	/*
-	 * This avoids log(0) for cases of 0 raised to a non-integer.  0 ^ 0 is
-	 * handled by power_var_int().
+	 * 这避免了 0 的非整数次幂情形下的 log(0)。0 ^ 0 由
+	 * power_var_int() 处理。
 	 */
 	if (cmp_var(base, &const_zero) == 0)
 	{
 		set_var_from_var(&const_zero, result);
-		result->dscale = NUMERIC_MIN_SIG_DIGITS;	/* no need to round */
+		result->dscale = NUMERIC_MIN_SIG_DIGITS;	/* 无需舍入 */
 		return;
 	}
 
@@ -10919,28 +10919,28 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 	init_var(&ln_num);
 
 	/*
-	 * If base is negative, insist that exp be an integer.  The result is then
-	 * positive if exp is even and negative if exp is odd.
+	 * 若 base 为负，则坚持要求 exp 为整数。此时若 exp 为偶
+	 * 数则结果为正，exp 为奇数则为负。
 	 */
 	if (base->sign == NUMERIC_NEG)
 	{
 		/*
-		 * Check that exp is an integer.  This error code is defined by the
-		 * SQL standard, and matches other errors in numeric_power().
+		 * 检查 exp 是否为整数。此错误码由 SQL 标准定义，
+		 * 并与 numeric_power() 中的其他错误一致。
 		 */
 		if (exp->ndigits > 0 && exp->ndigits > exp->weight + 1)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_POWER_FUNCTION),
 					 errmsg("a negative number raised to a non-integer power yields a complex result")));
 
-		/* Test if exp is odd or even */
+		/* 测试 exp 为奇还是偶 */
 		if (exp->ndigits > 0 && exp->ndigits == exp->weight + 1 &&
 			(exp->digits[exp->ndigits - 1] & 1))
 			res_sign = NUMERIC_NEG;
 		else
 			res_sign = NUMERIC_POS;
 
-		/* Then work with abs(base) below */
+		/* 下文改用 abs(base) 计算 */
 		set_var_from_var(base, &abs_base);
 		abs_base.sign = NUMERIC_POS;
 		base = &abs_base;
@@ -10949,30 +10949,30 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 		res_sign = NUMERIC_POS;
 
 	/*----------
-	 * Decide on the scale for the ln() calculation.  For this we need an
-	 * estimate of the weight of the result, which we obtain by doing an
-	 * initial low-precision calculation of exp * ln(base).
+	 * 选定 ln() 计算的标度。为此我们需要估计结果的
+	 * 估计值，其来源是先做一次 exp * ln(base) 的低精度
+	 * 初始计算。
 	 *
-	 * We want result = e ^ (exp * ln(base))
-	 * so result dweight = log10(result) = exp * ln(base) * log10(e)
+	 * 即 result = e ^ (exp * ln(base))
+	 * 故 result dweight = log10(result) = exp * ln(base) * log10(e)
 	 *
-	 * We also perform a crude overflow test here so that we can exit early if
-	 * the full-precision result is sure to overflow, and to guard against
-	 * integer overflow when determining the scale for the real calculation.
-	 * exp_var() supports inputs up to NUMERIC_MAX_RESULT_SCALE * 3, so the
-	 * result will overflow if exp * ln(base) >= NUMERIC_MAX_RESULT_SCALE * 3.
-	 * Since the values here are only approximations, we apply a small fuzz
-	 * factor to this overflow test and let exp_var() determine the exact
-	 * overflow threshold so that it is consistent for all inputs.
+	 * 这里还做了一个粗略溢出测试，以便在全精度结果
+	 * 必然溢出时提前退出，并防止真实计算定标度时发
+	 * 生整数溢出。
+	 * exp_var() 支持最大到 NUMERIC_MAX_RESULT_SCALE * 3 的
+	 * 输入，故当 exp * ln(base) >= NUMERIC_MAX_RESULT_SCALE * 3
+	 * 时结果会溢出。由于这里的值只是近似，我们对此
+	 * 溢出测试施加小容差因子，并让 exp_var() 确定精确
+	 * 的溢出阈值，以使其对所有输入都一致。
 	 *----------
 	 */
 	ln_dweight = estimate_ln_dweight(base);
 
 	/*
-	 * Set the scale for the low-precision calculation, computing ln(base) to
-	 * around 8 significant digits.  Note that ln_dweight may be as small as
-	 * -NUMERIC_DSCALE_MAX, so the scale may exceed NUMERIC_MAX_DISPLAY_SCALE
-	 * here.
+	 * 为低精度计算设置标度，把 ln(base) 算到约 8 个有效数
+	 * 字。注意 ln_dweight 可能小到 -NUMERIC_DSCALE_MAX，
+	 * 所以此处的标度可能超过 NUMERIC_MAX_DISPLAY_SCALE。
+	 *
 	 */
 	local_rscale = 8 - ln_dweight;
 	local_rscale = Max(local_rscale, NUMERIC_MIN_DISPLAY_SCALE);
@@ -10983,7 +10983,7 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 
 	val = numericvar_to_double_no_overflow(&ln_num);
 
-	/* initial overflow/underflow test with fuzz factor */
+	/* 带容差因子的初始溢出/下溢测试 */
 	if (fabs(val) > NUMERIC_MAX_RESULT_SCALE * 3.01)
 	{
 		if (val > 0)
@@ -10995,24 +10995,24 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 		return;
 	}
 
-	val *= 0.434294481903252;	/* approximate decimal result weight */
+	val *= 0.434294481903252;	/* 十进制结果权重的近似值 */
 
-	/* choose the result scale */
+	/* 选择结果标度 */
 	rscale = NUMERIC_MIN_SIG_DIGITS - (int) val;
 	rscale = Max(rscale, base->dscale);
 	rscale = Max(rscale, exp->dscale);
 	rscale = Max(rscale, NUMERIC_MIN_DISPLAY_SCALE);
 	rscale = Min(rscale, NUMERIC_MAX_DISPLAY_SCALE);
 
-	/* significant digits required in the result */
+	/* 结果中要求的有效数字位数 */
 	sig_digits = rscale + (int) val;
 	sig_digits = Max(sig_digits, 0);
 
-	/* set the scale for the real exp * ln(base) calculation */
+	/* 为真实的 exp * ln(base) 计算设置标度 */
 	local_rscale = sig_digits - ln_dweight + 8;
 	local_rscale = Max(local_rscale, NUMERIC_MIN_DISPLAY_SCALE);
 
-	/* and do the real calculation */
+	/* 然后做真正的计算 */
 
 	ln_var(base, &ln_base, local_rscale);
 
@@ -11031,9 +11031,9 @@ power_var(const NumericVar *base, const NumericVar *exp, NumericVar *result)
 /*
  * power_var_int() -
  *
- *	Raise base to the power of exp, where exp is an integer.
+ *	计算 base 的 exp 次幂，其中 exp 为整数。
  *
- *	Note: this routine chooses dscale of the result.
+ *	注意：本例程会选择结果的 dscale。
  */
 static void
 power_var_int(const NumericVar *base, int exp, int exp_dscale,
@@ -11050,19 +11050,19 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 	int			local_rscale;
 
 	/*
-	 * Choose the result scale.  For this we need an estimate of the decimal
-	 * weight of the result, which we obtain by approximating using double
-	 * precision arithmetic.
+	 * 选定结果标度。为此需要估计结果的十进制权重，
+	 * 其来源是用双精度算术做近似而得。
 	 *
-	 * We also perform crude overflow/underflow tests here so that we can exit
-	 * early if the result is sure to overflow/underflow, and to guard against
-	 * integer overflow when choosing the result scale.
+	 *
+	 * 这里还做粗略的溢出/下溢测试，以便在结果必
+	 * 然溢出/下溢时提前退出，并防止选择结果标度时发生
+	 * 整数溢出。
 	 */
 	if (base->ndigits != 0)
 	{
 		/*----------
-		 * Choose f (double) and p (int) such that base ~= f * 10^p.
-		 * Then log10(result) = log10(base^exp) ~= exp * (log10(f) + p).
+		 * 选 f（double）和 p（int）使 base ~= f * 10^p。
+		 * 则 log10(result) = log10(base^exp) ~= exp * (log10(f) + p)。
 		 *----------
 		 */
 		f = base->digits[0];
@@ -11074,12 +11074,12 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 			p -= DEC_DIGITS;
 		}
 
-		f = exp * (log10(f) + p);	/* approximate decimal result weight */
+		f = exp * (log10(f) + p);	/* 十进制结果权重的近似值 */
 	}
 	else
-		f = 0;					/* result is 0 or 1 (weight 0), or error */
+		f = 0;					/* 结果为 0/1（权重 0）或出错 */
 
-	/* overflow/underflow tests with fuzz factors */
+	/* 带容差因子的溢出/下溢测试 */
 	if (f > (NUMERIC_WEIGHT_MAX + 1) * DEC_DIGITS)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -11092,9 +11092,9 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 	}
 
 	/*
-	 * Choose the result scale in the same way as power_var(), so it has at
-	 * least NUMERIC_MIN_SIG_DIGITS significant digits and is not less than
-	 * either input's display scale.
+	 * 按与 power_var() 相同的方式选择结果标度，使其至少
+	 * 有 NUMERIC_MIN_SIG_DIGITS 个有效数字，且不低于任一
+	 * 输入的显示标度。
 	 */
 	rscale = NUMERIC_MIN_SIG_DIGITS - (int) f;
 	rscale = Max(rscale, base->dscale);
@@ -11102,19 +11102,19 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 	rscale = Max(rscale, NUMERIC_MIN_DISPLAY_SCALE);
 	rscale = Min(rscale, NUMERIC_MAX_DISPLAY_SCALE);
 
-	/* Handle some common special cases, as well as corner cases */
+	/* 处理一些常见的特殊情形以及边角情形 */
 	switch (exp)
 	{
 		case 0:
 
 			/*
-			 * While 0 ^ 0 can be either 1 or indeterminate (error), we treat
-			 * it as 1 because most programming languages do this. SQL:2003
-			 * also requires a return value of 1.
+			 * 0 ^ 0 可为 1 或不确定（出错），多数编程语言都
+			 * 把它当 1，我们也如此处理。SQL:2003 也要求返
+			 * 回值为 1。
 			 * https://en.wikipedia.org/wiki/Exponentiation#Zero_to_the_zero_power
 			 */
 			set_var_from_var(&const_one, result);
-			result->dscale = rscale;	/* no need to round */
+			result->dscale = rscale;	/* 无需舍入 */
 			return;
 		case 1:
 			set_var_from_var(base, result);
@@ -11130,7 +11130,7 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 			break;
 	}
 
-	/* Handle the special case where the base is zero */
+	/* 处理底数为零的特殊情形 */
 	if (base->ndigits == 0)
 	{
 		if (exp < 0)
@@ -11143,30 +11143,30 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 	}
 
 	/*
-	 * The general case repeatedly multiplies base according to the bit
-	 * pattern of exp.
+	 * 一般情形是根据 exp 的位模式反复相乘 base。
 	 *
-	 * The local rscale used for each multiplication is varied to keep a fixed
-	 * number of significant digits, sufficient to give the required result
-	 * scale.
+	 *
+	 * 每次乘法所用局部 rscale 会动态调整，以保持固定数
+	 * 量的有效数字，足以给出所需的结果标度。
+	 *
 	 */
 
 	/*
-	 * Approximate number of significant digits in the result.  Note that the
-	 * underflow test above, together with the choice of rscale, ensures that
-	 * this approximation is necessarily > 0.
+	 * 结果中有效数字个数的近似值。注意上面的下溢测试
+	 * 连同 rscale 的选取保证了该近似值必然 > 0。
+	 *
 	 */
 	sig_digits = 1 + rscale + (int) f;
 
 	/*
-	 * The multiplications to produce the result may introduce an error of up
-	 * to around log10(abs(exp)) digits, so work with this many extra digits
-	 * of precision (plus a few more for good measure).
+	 * 为产生结果而做的乘法可能引入至多约 log10(abs(exp))
+	 * 位数字的误差，故要多用这么多位额外的精度数字
+	 * （外加几分保险余量）。
 	 */
 	sig_digits += (int) log(fabs((double) exp)) + 8;
 
 	/*
-	 * Now we can proceed with the multiplications.
+	 * 现在可以开始进行乘法了。
 	 */
 	neg = (exp < 0);
 	mask = abs(exp);
@@ -11182,9 +11182,9 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 	while ((mask >>= 1) > 0)
 	{
 		/*
-		 * Do the multiplications using rscales large enough to hold the
-		 * results to the required number of significant digits, but don't
-		 * waste time by exceeding the scales of the numbers themselves.
+		 * 用能容下所需有效数字的 rscale 做乘法，但不浪
+		 * 费时间把标度超出数字本身的标度。
+		 *
 		 */
 		local_rscale = sig_digits - 2 * base_prod.weight * DEC_DIGITS;
 		local_rscale = Min(local_rscale, 2 * base_prod.dscale);
@@ -11204,17 +11204,17 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 		}
 
 		/*
-		 * When abs(base) > 1, the number of digits to the left of the decimal
-		 * point in base_prod doubles at each iteration, so if exp is large we
-		 * could easily spend large amounts of time and memory space doing the
-		 * multiplications.  But once the weight exceeds what will fit in
-		 * int16, the final result is guaranteed to overflow (or underflow, if
-		 * exp < 0), so we can give up before wasting too many cycles.
+		 * 当 abs(base) > 1 时，base_prod 小数点左边的数字位数
+		 * 每轮迭代翻倍，若 exp 很大，可能耗费大量时间与
+		 * 内存来做这些乘法。但一旦权重超过 int16 能容纳
+		 * 的量，最终结果必然溢出（exp < 0 时则下溢），
+		 * 所以我们能在浪费过多时间之前放弃。
+		 *
 		 */
 		if (base_prod.weight > NUMERIC_WEIGHT_MAX ||
 			result->weight > NUMERIC_WEIGHT_MAX)
 		{
-			/* overflow, unless neg, in which case result should be 0 */
+			/* 溢出，除非 neg 为真，那时结果应为 0 */
 			if (!neg)
 				ereport(ERROR,
 						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -11227,7 +11227,7 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 
 	free_var(&base_prod);
 
-	/* Compensate for input sign, and round to requested rscale */
+	/* 补偿输入符号，并舍入到要求的 rscale */
 	if (neg)
 		div_var_fast(&const_one, result, result, rscale, true);
 	else
@@ -11237,19 +11237,19 @@ power_var_int(const NumericVar *base, int exp, int exp_dscale,
 /*
  * power_ten_int() -
  *
- *	Raise ten to the power of exp, where exp is an integer.  Note that unlike
- *	power_var_int(), this does no overflow/underflow checking or rounding.
+ *	计算 10 的 exp 次幂，其中 exp 为整数。注意与
+ *	power_var_int() 不同，这里不做溢出/下溢检查或舍入。
  */
 static void
 power_ten_int(int exp, NumericVar *result)
 {
-	/* Construct the result directly, starting from 10^0 = 1 */
+	/* 从 10^0 = 1 出发直接构造结果 */
 	set_var_from_var(&const_one, result);
 
-	/* Scale needed to represent the result exactly */
+	/* 精确表示结果所需的标度 */
 	result->dscale = exp < 0 ? -exp : 0;
 
-	/* Base-NBASE weight of result and remaining exponent */
+	/* 结果的 base-NBASE 权重与剩余指数 */
 	if (exp >= 0)
 		result->weight = exp / DEC_DIGITS;
 	else
@@ -11257,7 +11257,7 @@ power_ten_int(int exp, NumericVar *result)
 
 	exp -= result->weight * DEC_DIGITS;
 
-	/* Final adjustment of the result's single NBASE digit */
+	/* 对结果唯一 NBASE 数字位的最终调整 */
 	while (exp-- > 0)
 		result->digits[0] *= 10;
 }
@@ -11265,8 +11265,8 @@ power_ten_int(int exp, NumericVar *result)
 
 /* ----------------------------------------------------------------------
  *
- * Following are the lowest level functions that operate unsigned
- * on the variable level
+ * 以下为变量层面无符号运作的最低层各函数。
+ *
  *
  * ----------------------------------------------------------------------
  */
@@ -11275,10 +11275,10 @@ power_ten_int(int exp, NumericVar *result)
 /* ----------
  * cmp_abs() -
  *
- *	Compare the absolute values of var1 and var2
- *	Returns:	-1 for ABS(var1) < ABS(var2)
- *				0  for ABS(var1) == ABS(var2)
- *				1  for ABS(var1) > ABS(var2)
+ *	比较 var1 与 var2 的绝对值
+ *	返回：	-1 ABS(var1) < ABS(var2)
+ *				0 ABS(var1) == ABS(var2)
+ *				1 ABS(var1) > ABS(var2)
  * ----------
  */
 static int
@@ -11291,8 +11291,8 @@ cmp_abs(const NumericVar *var1, const NumericVar *var2)
 /* ----------
  * cmp_abs_common() -
  *
- *	Main routine of cmp_abs(). This function can be used by both
- *	NumericVar and Numeric.
+ *	cmp_abs() 的主例程。NumericVar 和
+ *	Numeric 皆可用。
  * ----------
  */
 static int
@@ -11302,7 +11302,7 @@ cmp_abs_common(const NumericDigit *var1digits, int var1ndigits, int var1weight,
 	int			i1 = 0;
 	int			i2 = 0;
 
-	/* Check any digits before the first common digit */
+	/* 检查首个共同数字位前的各数字位 */
 
 	while (var1weight > var2weight && i1 < var1ndigits)
 	{
@@ -11317,7 +11317,7 @@ cmp_abs_common(const NumericDigit *var1digits, int var1ndigits, int var1weight,
 		var2weight--;
 	}
 
-	/* At this point, either w1 == w2 or we've run out of digits */
+	/* 此时要么 w1 == w2，要么数字位已用尽 */
 
 	if (var1weight == var2weight)
 	{
@@ -11335,8 +11335,8 @@ cmp_abs_common(const NumericDigit *var1digits, int var1ndigits, int var1weight,
 	}
 
 	/*
-	 * At this point, we've run out of digits on one side or the other; so any
-	 * remaining nonzero digits imply that side is larger
+	 * 此时某一边的数字位已用尽；因此另一边任何剩下的
+	 * 非零数字位都意味着该侧更大。
 	 */
 	while (i1 < var1ndigits)
 	{
@@ -11356,8 +11356,8 @@ cmp_abs_common(const NumericDigit *var1digits, int var1ndigits, int var1weight,
 /*
  * add_abs() -
  *
- *	Add the absolute values of two variables into result.
- *	result might point to one of the operands without danger.
+ *	把两个变量的绝对值相加存入 result。
+ *	result 指向某个操作数也没有危险。
  */
 static void
 add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
@@ -11375,7 +11375,7 @@ add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 				i2;
 	int			carry = 0;
 
-	/* copy these values into local vars for speed in inner loop */
+	/* 把这些值拷贝到局部变量以加速内层循环 */
 	int			var1ndigits = var1->ndigits;
 	int			var2ndigits = var2->ndigits;
 	NumericDigit *var1digits = var1->digits;
@@ -11385,7 +11385,7 @@ add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 
 	res_dscale = Max(var1->dscale, var2->dscale);
 
-	/* Note: here we are figuring rscale in base-NBASE digits */
+	/* 注意：此处按 base-NBASE 数字位计算 rscale */
 	rscale1 = var1->ndigits - var1->weight - 1;
 	rscale2 = var2->ndigits - var2->weight - 1;
 	res_rscale = Max(rscale1, rscale2);
@@ -11395,7 +11395,7 @@ add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		res_ndigits = 1;
 
 	res_buf = digitbuf_alloc(res_ndigits + 1);
-	res_buf[0] = 0;				/* spare digit for later rounding */
+	res_buf[0] = 0;				/* 留待舍入的数字位 */
 	res_digits = res_buf + 1;
 
 	i1 = res_rscale + var1->weight + 1;
@@ -11421,7 +11421,7 @@ add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		}
 	}
 
-	Assert(carry == 0);			/* else we failed to allow for carry out */
+	Assert(carry == 0);			/* 否则就是未为进位留出空间 */
 
 	digitbuf_free(result->buf);
 	result->ndigits = res_ndigits;
@@ -11430,7 +11430,7 @@ add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	result->weight = res_weight;
 	result->dscale = res_dscale;
 
-	/* Remove leading/trailing zeroes */
+	/* 移除前导/末尾零 */
 	strip_var(result);
 }
 
@@ -11438,11 +11438,11 @@ add_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 /*
  * sub_abs()
  *
- *	Subtract the absolute value of var2 from the absolute value of var1
- *	and store in result. result might point to one of the operands
- *	without danger.
+ *	从 var1 的绝对值中减去 var2 的绝对值并存入 result。
+ *	result 指向某个操作数也没有
+ *	危险。
  *
- *	ABS(var1) MUST BE GREATER OR EQUAL ABS(var2) !!!
+ *	ABS(var1) 必须大于等于 ABS(var2) ！！！
  */
 static void
 sub_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
@@ -11460,7 +11460,7 @@ sub_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 				i2;
 	int			borrow = 0;
 
-	/* copy these values into local vars for speed in inner loop */
+	/* 把这些值拷贝到局部变量以加速内层循环 */
 	int			var1ndigits = var1->ndigits;
 	int			var2ndigits = var2->ndigits;
 	NumericDigit *var1digits = var1->digits;
@@ -11470,7 +11470,7 @@ sub_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 
 	res_dscale = Max(var1->dscale, var2->dscale);
 
-	/* Note: here we are figuring rscale in base-NBASE digits */
+	/* 注意：此处按 base-NBASE 数字位计算 rscale */
 	rscale1 = var1->ndigits - var1->weight - 1;
 	rscale2 = var2->ndigits - var2->weight - 1;
 	res_rscale = Max(rscale1, rscale2);
@@ -11480,7 +11480,7 @@ sub_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		res_ndigits = 1;
 
 	res_buf = digitbuf_alloc(res_ndigits + 1);
-	res_buf[0] = 0;				/* spare digit for later rounding */
+	res_buf[0] = 0;				/* 留待舍入的数字位 */
 	res_digits = res_buf + 1;
 
 	i1 = res_rscale + var1->weight + 1;
@@ -11506,7 +11506,7 @@ sub_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 		}
 	}
 
-	Assert(borrow == 0);		/* else caller gave us var1 < var2 */
+	Assert(borrow == 0);		/* 调用方给错了 var1 < var2 */
 
 	digitbuf_free(result->buf);
 	result->ndigits = res_ndigits;
@@ -11515,16 +11515,16 @@ sub_abs(const NumericVar *var1, const NumericVar *var2, NumericVar *result)
 	result->weight = res_weight;
 	result->dscale = res_dscale;
 
-	/* Remove leading/trailing zeroes */
+	/* 移除前导/末尾零 */
 	strip_var(result);
 }
 
 /*
  * round_var
  *
- * Round the value of a variable to no more than rscale decimal digits
- * after the decimal point.  NOTE: we allow rscale < 0 here, implying
- * rounding before the decimal point.
+ * 把变量值舍入到小数点后至多 rscale 位小数。
+ * 注意：这里允许 rscale < 0，意味着在小数点之前
+ * 进行舍入。
  */
 static void
 round_var(NumericVar *var, int rscale)
@@ -11536,12 +11536,12 @@ round_var(NumericVar *var, int rscale)
 
 	var->dscale = rscale;
 
-	/* decimal digits wanted */
+	/* 所需十进制位 */
 	di = (var->weight + 1) * DEC_DIGITS + rscale;
 
 	/*
-	 * If di = 0, the value loses all digits, but could round up to 1 if its
-	 * first extra digit is >= 5.  If di < 0 the result must be 0.
+	 * 若 di = 0，值失去全部数字位，但若首个额外数字位
+	 * 不小于 5 则可向上舍入为 1。di < 0 时必为 0。
 	 */
 	if (di < 0)
 	{
@@ -11551,10 +11551,10 @@ round_var(NumericVar *var, int rscale)
 	}
 	else
 	{
-		/* NBASE digits wanted */
+		/* 所需的 NBASE 位 */
 		ndigits = (di + DEC_DIGITS - 1) / DEC_DIGITS;
 
-		/* 0, or number of decimal digits to keep in last NBASE digit */
+		/* 0，或末位 NBASE 数字位中保留的十进制位数 */
 		di %= DEC_DIGITS;
 
 		if (ndigits < var->ndigits ||
@@ -11563,14 +11563,14 @@ round_var(NumericVar *var, int rscale)
 			var->ndigits = ndigits;
 
 #if DEC_DIGITS == 1
-			/* di must be zero */
+			/* di 必为零 */
 			carry = (digits[ndigits] >= HALF_NBASE) ? 1 : 0;
 #else
 			if (di == 0)
 				carry = (digits[ndigits] >= HALF_NBASE) ? 1 : 0;
 			else
 			{
-				/* Must round within last NBASE digit */
+				/* 须在末个 NBASE 位内舍入 */
 				int			extra,
 							pow10;
 
@@ -11597,7 +11597,7 @@ round_var(NumericVar *var, int rscale)
 			}
 #endif
 
-			/* Propagate carry if needed */
+			/* 需要时传播进位 */
 			while (carry)
 			{
 				carry += digits[--ndigits];
@@ -11615,7 +11615,7 @@ round_var(NumericVar *var, int rscale)
 
 			if (ndigits < 0)
 			{
-				Assert(ndigits == -1);	/* better not have added > 1 digit */
+				Assert(ndigits == -1);	/* 不应多加超过 1 个位 */
 				Assert(var->digits > var->buf);
 				var->digits--;
 				var->ndigits++;
@@ -11628,9 +11628,9 @@ round_var(NumericVar *var, int rscale)
 /*
  * trunc_var
  *
- * Truncate (towards zero) the value of a variable at rscale decimal digits
- * after the decimal point.  NOTE: we allow rscale < 0 here, implying
- * truncation before the decimal point.
+ * 把变量的值在 rscale 位小数处向零截断。
+ * 注意：这里允许 rscale < 0，意味着在小数点之前
+ * 进行截断。
  */
 static void
 trunc_var(NumericVar *var, int rscale)
@@ -11640,11 +11640,11 @@ trunc_var(NumericVar *var, int rscale)
 
 	var->dscale = rscale;
 
-	/* decimal digits wanted */
+	/* 所需十进制位 */
 	di = (var->weight + 1) * DEC_DIGITS + rscale;
 
 	/*
-	 * If di <= 0, the value loses all digits.
+	 * di <= 0 时值失去全部数字位。
 	 */
 	if (di <= 0)
 	{
@@ -11654,7 +11654,7 @@ trunc_var(NumericVar *var, int rscale)
 	}
 	else
 	{
-		/* NBASE digits wanted */
+		/* 所需的 NBASE 位 */
 		ndigits = (di + DEC_DIGITS - 1) / DEC_DIGITS;
 
 		if (ndigits <= var->ndigits)
@@ -11662,14 +11662,14 @@ trunc_var(NumericVar *var, int rscale)
 			var->ndigits = ndigits;
 
 #if DEC_DIGITS == 1
-			/* no within-digit stuff to worry about */
+			/* 无需担心数字位内的处理 */
 #else
-			/* 0, or number of decimal digits to keep in last NBASE digit */
+			/* 0，或末位 NBASE 数字位中保留的十进制位数 */
 			di %= DEC_DIGITS;
 
 			if (di > 0)
 			{
-				/* Must truncate within last NBASE digit */
+				/* 须在末个 NBASE 数字位内截断 */
 				NumericDigit *digits = var->digits;
 				int			extra,
 							pow10;
@@ -11692,7 +11692,7 @@ trunc_var(NumericVar *var, int rscale)
 /*
  * strip_var
  *
- * Strip any leading and trailing zeroes from a numeric variable
+ * 去除 numeric 变量的所有前导与末尾零
  */
 static void
 strip_var(NumericVar *var)
@@ -11700,7 +11700,7 @@ strip_var(NumericVar *var)
 	NumericDigit *digits = var->digits;
 	int			ndigits = var->ndigits;
 
-	/* Strip leading zeroes */
+	/* 去除前导零 */
 	while (ndigits > 0 && *digits == 0)
 	{
 		digits++;
@@ -11708,11 +11708,11 @@ strip_var(NumericVar *var)
 		ndigits--;
 	}
 
-	/* Strip trailing zeroes */
+	/* 去除末尾零 */
 	while (ndigits > 0 && digits[ndigits - 1] == 0)
 		ndigits--;
 
-	/* If it's zero, normalize the sign and weight */
+	/* 若其为零，则规范化符号与权重 */
 	if (ndigits == 0)
 	{
 		var->sign = NUMERIC_POS;
@@ -11726,14 +11726,14 @@ strip_var(NumericVar *var)
 
 /* ----------------------------------------------------------------------
  *
- * Fast sum accumulator functions
+ * 快速求和累加器函数
  *
  * ----------------------------------------------------------------------
  */
 
 /*
- * Reset the accumulator's value to zero.  The buffers to hold the digits
- * are not free'd.
+ * 把累加器的值重置为零。存放数字位的缓冲区不会被
+ * 释放。
  */
 static void
 accum_sum_reset(NumericSumAccum *accum)
@@ -11749,7 +11749,7 @@ accum_sum_reset(NumericSumAccum *accum)
 }
 
 /*
- * Accumulate a new value.
+ * 累加一个新值。
  */
 static void
 accum_sum_add(NumericSumAccum *accum, const NumericVar *val)
@@ -11761,18 +11761,18 @@ accum_sum_add(NumericSumAccum *accum, const NumericVar *val)
 	NumericDigit *val_digits;
 
 	/*
-	 * If we have accumulated too many values since the last carry
-	 * propagation, do it now, to avoid overflowing.  (We could allow more
-	 * than NBASE - 1, if we reserved two extra digits, rather than one, for
-	 * carry propagation.  But even with NBASE - 1, this needs to be done so
-	 * seldom, that the performance difference is negligible.)
+	 * 若上次进位传播后累积过多，就现在做，
+	 * 以免溢出。（若为进位传播预留两个额外数字位，
+	 * 而非一个，则可以允许多于 NBASE - 1。但即便预留
+	 * NBASE - 1，这件事也很少需要做，性能差异可以忽略
+	 * 不计。）
 	 */
 	if (accum->num_uncarried == NBASE - 1)
 		accum_sum_carry(accum);
 
 	/*
-	 * Adjust the weight or scale of the old value, so that it can accommodate
-	 * the new value.
+	 * 调整旧值的权重或标度，使其能容纳新值。
+	 *
 	 */
 	accum_sum_rescale(accum, val);
 
@@ -11782,7 +11782,7 @@ accum_sum_add(NumericSumAccum *accum, const NumericVar *val)
 	else
 		accum_digits = accum->neg_digits;
 
-	/* copy these values into local vars for speed in loop */
+	/* 把这些值拷贝到局部变量以加速循环 */
 	val_ndigits = val->ndigits;
 	val_digits = val->digits;
 
@@ -11797,7 +11797,7 @@ accum_sum_add(NumericSumAccum *accum, const NumericVar *val)
 }
 
 /*
- * Propagate carries.
+ * 传播进位。
  */
 static void
 accum_sum_carry(NumericSumAccum *accum)
@@ -11809,24 +11809,24 @@ accum_sum_carry(NumericSumAccum *accum)
 	int32		newdig = 0;
 
 	/*
-	 * If no new values have been added since last carry propagation, nothing
-	 * to do.
+	 * 若上次进位传播以来没有加入新值，则无事可做。
+	 *
 	 */
 	if (accum->num_uncarried == 0)
 		return;
 
 	/*
-	 * We maintain that the weight of the accumulator is always one larger
-	 * than needed to hold the current value, before carrying, to make sure
-	 * there is enough space for the possible extra digit when carry is
-	 * propagated.  We cannot expand the buffer here, unless we require
-	 * callers of accum_sum_final() to switch to the right memory context.
+	 * 我们让累加器权重总比进位前容纳当前值所需的大
+	 * 1，以确保进位传播时可能的额外数字位有足够的空
+	 * 间。除非要求 accum_sum_final() 的调用方自行切换
+	 * 到正确的内存上下文，否则我们无法在此扩大缓冲区。
+	 *
 	 */
 	Assert(accum->pos_digits[0] == 0 && accum->neg_digits[0] == 0);
 
 	ndigits = accum->ndigits;
 
-	/* Propagate carry in the positive sum */
+	/* 在正数和中传播进位 */
 	dig = accum->pos_digits;
 	carry = 0;
 	for (i = ndigits - 1; i >= 0; i--)
@@ -11841,11 +11841,11 @@ accum_sum_carry(NumericSumAccum *accum)
 			carry = 0;
 		dig[i] = newdig;
 	}
-	/* Did we use up the digit reserved for carry propagation? */
+	/* 是否用掉进位传播预留的数字位？ */
 	if (newdig > 0)
 		accum->have_carry_space = false;
 
-	/* And the same for the negative sum */
+	/* 负数和也同样处理 */
 	dig = accum->neg_digits;
 	carry = 0;
 	for (i = ndigits - 1; i >= 0; i--)
@@ -11867,10 +11867,10 @@ accum_sum_carry(NumericSumAccum *accum)
 }
 
 /*
- * Re-scale accumulator to accommodate new value.
+ * 重新缩放累加器以容纳新值。
  *
- * If the new value has more digits than the current digit buffers in the
- * accumulator, enlarge the buffers.
+ * 如果新值的数字位多于累加器当前的数字位缓冲区，
+ * 则扩大缓冲区。
  */
 static void
 accum_sum_rescale(NumericSumAccum *accum, const NumericVar *val)
@@ -11886,13 +11886,13 @@ accum_sum_rescale(NumericSumAccum *accum, const NumericVar *val)
 	accum_ndigits = old_ndigits;
 
 	/*
-	 * Does the new value have a larger weight? If so, enlarge the buffers,
-	 * and shift the existing value to the new weight, by adding leading
-	 * zeros.
+	 * 新值的权重更大吗？若是则扩大缓冲区，把现有值移
+	 * 到新权重，即添加前导零。
 	 *
-	 * We enforce that the accumulator always has a weight one larger than
-	 * needed for the inputs, so that we have space for an extra digit at the
-	 * final carry-propagation phase, if necessary.
+	 *
+	 * 我们强制累加器权重总比输入所需大 1，从而在最
+	 * 后进位传播阶段有余量容纳一个额外数字位（如有必
+	 * 要）。
 	 */
 	if (val->weight >= accum_weight)
 	{
@@ -11901,9 +11901,9 @@ accum_sum_rescale(NumericSumAccum *accum, const NumericVar *val)
 	}
 
 	/*
-	 * Even though the new value is small, we might've used up the space
-	 * reserved for the carry digit in the last call to accum_sum_carry().  If
-	 * so, enlarge to make room for another one.
+	 * 即便新值很小，上次调用 accum_sum_carry() 时可能
+	 * 已用掉为进位数字预留的空间。若如此，则扩大空间
+	 * 以再容纳一个。
 	 */
 	else if (!accum->have_carry_space)
 	{
@@ -11911,7 +11911,7 @@ accum_sum_rescale(NumericSumAccum *accum, const NumericVar *val)
 		accum_ndigits++;
 	}
 
-	/* Is the new value wider on the right side? */
+	/* 新值在右侧是否更宽？ */
 	accum_rscale = accum_ndigits - accum_weight - 1;
 	val_rscale = val->ndigits - val->weight - 1;
 	if (val_rscale > accum_rscale)
@@ -11955,11 +11955,11 @@ accum_sum_rescale(NumericSumAccum *accum, const NumericVar *val)
 }
 
 /*
- * Return the current value of the accumulator.  This perform final carry
- * propagation, and adds together the positive and negative sums.
+ * 返回累加器的当前值。这里会执行最后的进位传播，
+ * 并把正数和与负数和相加。
  *
- * Unlike all the other routines, the caller is not required to switch to
- * the memory context that holds the accumulator.
+ * 与所有其他例程不同，这里不要求调用方切换到保存
+ * 累加器的内存上下文。
  */
 static void
 accum_sum_final(NumericSumAccum *accum, NumericVar *result)
@@ -11974,10 +11974,10 @@ accum_sum_final(NumericSumAccum *accum, NumericVar *result)
 		return;
 	}
 
-	/* Perform final carry */
+	/* 做最后进位 */
 	accum_sum_carry(accum);
 
-	/* Create NumericVars representing the positive and negative sums */
+	/* 创建表示正数和与负数和的 NumericVars */
 	init_var(&pos_var);
 	init_var(&neg_var);
 
@@ -11999,18 +11999,18 @@ accum_sum_final(NumericSumAccum *accum, NumericVar *result)
 		neg_var.digits[i] = (int16) accum->neg_digits[i];
 	}
 
-	/* And add them together */
+	/* 然后把它们相加 */
 	add_var(&pos_var, &neg_var, result);
 
-	/* Remove leading/trailing zeroes */
+	/* 移除前导/末尾零 */
 	strip_var(result);
 }
 
 /*
- * Copy an accumulator's state.
+ * 拷贝累加器的状态。
  *
- * 'dst' is assumed to be uninitialized beforehand.  No attempt is made at
- * freeing old values.
+ * 假定 'dst' 事先未初始化。不做任何释放旧值的尝试。
+ *
  */
 static void
 accum_sum_copy(NumericSumAccum *dst, NumericSumAccum *src)
@@ -12027,7 +12027,7 @@ accum_sum_copy(NumericSumAccum *dst, NumericSumAccum *src)
 }
 
 /*
- * Add the current value of 'accum2' into 'accum'.
+ * 把 'accum2' 的当前值加进 'accum'。
  */
 static void
 accum_sum_combine(NumericSumAccum *accum, NumericSumAccum *accum2)

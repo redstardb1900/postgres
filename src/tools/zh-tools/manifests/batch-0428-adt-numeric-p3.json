@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0428",
+ "title": "adt 目录 numeric.c 整文件注释翻译 part3 (L8311-12043) 322 块 — batch 0428 收官批",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f4069eb176e8d59b6b8503ca474e25c33a884721",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "note": "numeric 数值类型 part3 (whole-file 拆批收官): cmp_var/cmp_abs 比较族+add_var/sub_var/mul_var/div_var/div_var_fast/div_var_int/div_var_int64/mod_var/div_mod_var/ceil/floor/gcd 余下四则与数学函数+sqrt_var (Karatsuba)/exp_var/ln_var/log_var/power_var/power_var_int/power_ten_int+round_var/trunc_var/strip_var/accum_sum 系支持函数, L8311 至文件尾; whole-file 拆批 part 3 (收官), batch-0428"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p3.json",
+   "kind": "manifest",
+   "note": "batch-0428 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0428-p3 entry (本 manifest; numeric.c 已由 part1 在册查重不重复追加, 各数组 +1) + parent_commit 由 0a4ea1b79af 更新为现 HEAD f4069eb176e (part1/part2 判例, 非纯追加特此披露)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 322,
+   "translated": 307,
+   "preserved": 15,
+   "preserved_reasons": [
+    "15 个未变块 (与 verify changed=307 对齐, 322-307=15): add_var/sub_var 符号分支算式标签块 12 块 (blk 666/667/668/670/671/672/678/679/680/682/683/684 @8400-8600, 内容 ABS(var1) ==/> /< ABS(var2) 与 result = +/-(...) 共 27 行, 0428-p1 公式/记法标签判例跨批一致), #else /* !HAVE_INT128 */ @10361 与 #endif /* HAVE_INT128 */ @10365 (条件注释判例 0428-p1/p2), 空框行块 blk 963 @11779 (/* */ 裸终止符, 空框行判例)。另 KEPT 行 75 行中 28 行为函数名横幅 (cmp_var() - 等, 0372 判例)、SqrtRem 伪代码 12 行 (10087-10098)、Taylor 公式 2 行 (10565/10762)、条件标签 10629、URL 11114、mod_var 等式 9800 — 均在已译块内不计 preserved。函数名横幅行保留 EN 合规"
+   ],
+   "note": "numeric.c part3 整文件拆批收官批: 权威 universe 由注释感知状态机扫描 (全文件 982 块, part3=块 660-981 @L8312-12031, cmp_var 文档块起至文件尾); verify rc=0 (1 ok, 0 violations, comments=982 changed=307, splices=27, trigraphs 0/0); 前半零改动自证: git diff 首 hunk @@ -8312, L1-8310 与 HEAD cmp 逐字节相等 (part1+part2 译文未触碰); 跨批同译对照断言: part1+part2 区 (L1-8310) 提取 EN→zh 映射, 与 part3 宇宙 700 条 TRANS 行 EN 重叠仅 2 站 (9887/9911 ceil/floor doc, 逐字沿用既译 '返回大于等于参数的最小整数'/'返回小于等于参数的最大整数', 断言过); 批内 same-EN→same-zh 断言 0 冲突 (含初跑暴露 2 组已修复: 9523-9525/9639-9641 下标错位组, 9738/11097 'either input\\'s display scale.' 组); 术语定款承 part1/part2 manifest: digit→数字位/weight→权重/scale/dscale→标度/显示标度/rscale 保标识符+结果标度语境/precision→精度/overflow→溢出/underflow→下溢/rounding→四舍五入(紧行用舍入)/carry→进位/quotient→商/divisor→除数/dividend→被除数/guard digits→保护位/packed→打包; W7_UNTRANSLATED 18 站 = 6 站 part1/p2 preserved (L315/2330/2407/3415/6205/6207) + 12 站本批 preserved 算式标签块首行 (8400-8584 偶数站, 见 preserved_reasons), 全文件 L1-12043 无未译散文残留 (preserved 类除外, 收官验收); W7_IDENT_LOST 2 站全 advisory (11438 EQUAL/GREATER→大于等于 已达意量裁, 11980 NumericVars 已补复数复验); term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则 21 error/66 warning, 0 error hits, 6 warnings 全 advisory: TL08+P23 x3 站 9239/11110/11818 '要求' 渲染 require, 0428-p2 同族 advisory 判例); REVERSE 0 站; emptied 空框行折叠 21 站 (句尾短词/收束词行折入前行, 行数守恒 12043); 行级超限 20 站 (含 L9064 +16 修 'exercised.)' 短行, L9249 +11, L8722 +7, L10065 +3 公式行, 其余 +1/+2) 全部块级现算放行 (322/322 块级预算全过); 10523 公式行空格压缩披露: '十进制权重=log10(e^x)=x*log10(e)' 等号两侧空格因预算 46B 移除, 公式内容未改动; 近重复行扫描 29 对全为标识符/公式共享所致 (div[qi]/rscale/NBASE 等), 逐对判读非翻译重复; 极性对照 16 块无反转 (cmp_var 符号分支 4 象限 result 符号逐一核对, div_var round true/false 舍入/截断方向, div_var_fast trunc 向负无穷 x3, numeric 下溢/溢出方向, sub_abs 借位, add_abs 进位 Assert, round_var/trunc_var 舍入 vs 截断, up/down var); apply 迭代 4 轮 (coverage 28 缺口+4 多余→行号错位修复; same-EN 冲突 2 组; 尾注释块预算 29 块超限收紧), 每轮 git checkout HEAD 复位一轮一跑, 未 commit; 只读审查 PASS 零 D → 审后清偿轮 R4 (主会话执行, 块级预算断言): N1 L11821-11822 补「正确的」限定语+句式理顺 (「除非要求 accum_sum_final() 的调用方自行切换/到正确的内存上下文，否则…」), N2 「外加几步保险余量」→「几分保险余量」三站统一 (L10555/L10772/L11164), N3 依审查量裁豁免 (EN 本非对称), N4 SqrtRem 框注依记法框注判例豁免 (KEPT 伪代码块内翻动将牵动账目), M1 cumulative.json 尾换行已补回, M2 自查底册 L10957 条过时 (现场实文 result 限定语在位), 审查行号偏差 1 处 (N1 实 L11821) 守卫拦截; 行级超限 2 站 (L11822+8/L5839 既有) 块级放行 (N1 块 288≤353); 全文件收官验收 PASS (982=889+93 三方闭合, 93 preserved 全合规, 漏译 0, 跨批 15 词族零漂移); 审后门禁复跑 rc=0×3; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0428 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0428-p3 entry (各数组 +1) + parent_commit 更新为现 HEAD (非纯追加披露)"
+  }
+ ]
+}

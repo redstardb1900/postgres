@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "0a4ea1b79af2aab029d860b3cced41930fee4b6a",
+ "parent_commit": "f4069eb176e8d59b6b8503ca474e25c33a884721",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7371,6 +7371,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p2.json",
    "kind": "manifest",
    "note": "batch-0428 manifest (numeric.c part2; numeric.c 已由 part1 在册查重不重复追加)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p3.json",
+   "kind": "manifest",
+   "note": "batch-0428 manifest (numeric.c part3 收官批; numeric.c 已由 part1 在册查重不重复追加)"
   }
  ],
  "files": [
@@ -23901,6 +23906,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0428 manifest (numeric.c part2)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0428-p3 收官批 (numeric.c L8311-12043, cmp_var 文档块起): 比较/余下四则(add/sub/mul/div/var 族)/幂(exp/ln/log/power_var 系)/方根(sqrt Karatsuba)/转换/支持函数/accum_sum 系尾段; 322 块, translated 307 + preserved 15; whole-file 拆批 part 3, batch-0428; 本条目为 pure append (+1 files/+1 allowed_paths), parent_commit 由 0a4ea1b79af (part2 期值) 更新为现 HEAD f4069eb176e (part1/part2 判例, 非纯追加特此披露)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

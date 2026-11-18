@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0427",
+ "title": "adt 目录 selfuncs.c 整文件注释翻译 2087 行 664 块 — batch 0427",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b1e815e1871e508176fd48d34e1f09469c13a79f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/selfuncs.c",
+   "kind": "c_comment",
+   "note": "选择率与索引代价估算 (eqsel/eqjoinsel/neqsel/scalarltsel 系/rangejoinsel/match_special_index_operator/examine_variable/estimate_multivariate_ndistinct/索引代价估算系); whole-file comment translation, batch-0427"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0427-adt-selfuncs.json",
+   "kind": "manifest",
+   "note": "batch-0427 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0427 entries (selfuncs.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 664,
+   "translated": 661,
+   "preserved": 3,
+   "preserved_reasons": [
+    "3 个未变块 (与 verify changed=661 对齐, 664-661=3): /* easy case */ 标签 2 块 (@2991/@3034, 预算约 14B 仅容 4 字, 0426 /* skip */ 同款量裁), Support routines 装饰横幅 @3916 (0426 arrayfuncs @4795 Support Routines 同款先例); 头部 L3 文件名/L10-L11 版权/L13-L14 IDENTIFICATION 冻结行保留, L4-L9 功能描述行已译 (0383 判例)"
+   ],
+   "note": "selfuncs.c 选择率与索引代价估算; whole-file comment translation, batch-0427; 权威口径: verify comments=664 changed=661; 行数守恒 8090 不变 (numstat 2087/2087); 代码零改动 (verify rc=0, 1 ok, 0 violations, 0 parse errors, splices=0, 骨架逐字节相等); 批次沿革: apply 于上一会话完成 (会话因重启中断, /tmp spec/dump 丢失), 本会话重建现场后以门禁三连+机械终检核验 (NUL 0/行首标点 0/ASCII 引号奇数块 0/括号不平衡块 0); 门禁实测: verify_c_comments rc=0 (--worktree HEAD . --paths src/backend/utils/adt/selfuncs.c), warnings 31 全 advisory: W7_IDENT_LOST 30 (MCVs ×11/NULLs/OIDs/CTEs/RelOptInfos/AppendRelInfos/PlaceHolderVars/SRFs/VarInfos/ScalarArrayOpExprs ×3 = 复数散文词 0372 量裁类; type/value/column ×3/version/ANDing,clause/nominal_element_type = 语义在场类), W7_UNTRANSLATED 1 (L3916 Support routines 横幅=preserved); term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则 21 error/66 warning, 0 error hits, 9 warnings 全 advisory: P24 L3670 expected X got Y 公式块, TL08+P23 L3950 requires→要求 (规则注记自身允许), TL08 L5340 requires→要求, P53 L5477/L5520, P38 L6232); halfen 扫描 10 MIXED 全部甄别为标识符/公式/引号术语类 (L23 WHERE/L2417 MCV/L2594 semi join eqjoinsel/L2901 merge join/L3670 N,n,p 公式/L4901 var op var/L4952 examine_variable 函数名/L6140 reg proc/L7295 include empty 引号术语/L7866 posting list), 0421 geo_ops 记法样例/公式/ASCII 标签类同款, 不修; 术语取既译同款: 选择率 (本文件全文域), 算子 (executor 全局规则 TL16), 连接 (join 0415+ 既译), 最常用值 (MCV), 直方图, 相关性, 公共统计/公共因子, 索引访问方法; 跨批同译断言留审查方独立复核; W7_IDENT_LOST 30 站按 0372 量裁 advisory 不修 (复数散文词中文不分单复数且译词在场), type/value/column/version 各站译词在场待审查复核; 只读审查 FAIL 9D/6N → 审后清偿轮 R4 全部落地 (主会话执行, python 现算逐行+块级双重预算断言, 行数守恒, 修复后三门禁复跑 rc=0×3 + 机械终检复扫全零): D1 L1288 删行尾逗号 (「而非 constval」/「的原因在于」断句), D2 L3679-3680 Yao 论文标题补回 in database (跨行断点移位), D3 L3688 同 EN 二次渲染删「算得更快。」句改「该公式形式在…常见情形下」(与 L3689 拼接成句), D4a L3590-3592 空行打断句子重排 (文本|空框|文本 → 文本|文本|空框, 行数守恒), D4b L3758/3760 「因此」下移至空框后行首, D4c L3530 悬挂句补「全常量或全布尔」, D5 L7539-7541 悬挂句重排 (nPendingPages 主句+ie 从句全数在场, 「未超索引大小」极性核证; 审查稿 4 行方案放不进 3 行位, 主会话改 3 行等义版, 0391 判例), D6 L7200-7201/L7314-7315/L7357-7358 三站同款拼接不成句修正 (「估算测试如下给定对象」→「给定 GIN…，估算所需搜索的索引条目数，」, 与审查文案等义变体披露), D7 L7796-7797 「页在磁盘上可能相距很远。」成句+ASCII 句点转全角 (审查方案 A 落地), N1 ASCII 句点 4 站转全角 (L362/L4279/L6198/L7337; L3681 pp.260-261. 文献页码豁免不改), N2 L5425 「测试就适用于 DISTINCT ON 情形」, N3 L5472 补空格+「有一天」, N4 L361-362 同 EN 句统一「虽然相等函数/绝不该这样。」(与 L2452/L2682 对齐), N5 L4176 补「因为」, N6 L6660 「需要检测」→「需要复查本身」; 行级预算: 30 项修复中 9 项行级超 EN 对应行 1-8B (L3679+1/L7541+3/L7797+7/L362+4/L4279+2/L6198+1/L5425+8/L5472+5/L4176+5), 全部经块级现算 ≤ EN 块总 (17 受触块全过, 最大块 3734-3776 zh 1786 vs EN 2330) 按块级预算口径放行并披露; 修复轮数: 审后 1 轮; 审查方零 manifest 勘正; W7_IDENT_LOST 30 站经审查逐站量裁复核全维持 advisory (复数散文词译词/单数标识符在场, L2034 名义元素类型/L6232 元组版本/L6689 相与+谓词子句等对证); 审查跨批同译对照: 「让编译器安静」四文件零漂移/「算子」88 处 (opclass 例外 2 站 L7235/L7805 为 PG 文档惯例备案)/「选择率」101/「最常用值」17/「直方图」60; 审查极性对照 13 块无反转; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0427-adt-selfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0427 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0427 entries (selfuncs.c + 本 manifest; 两数组各 +2, 纯追加, 追加前查重无 selfuncs 既有条目)"
+  }
+ ]
+}

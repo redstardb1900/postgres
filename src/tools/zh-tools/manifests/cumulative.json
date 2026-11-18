@@ -7346,6 +7346,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0426-adt-arrayfuncs.json",
    "kind": "manifest",
    "note": "batch-0426 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/selfuncs.c",
+   "kind": "c_comment",
+   "note": "选择率与索引代价估算 (eqsel/eqjoinsel 系/examine_variable/estimate_multivariate_ndistinct/索引代价估算系); whole-file comment translation, batch-0427"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0427-adt-selfuncs.json",
+   "kind": "manifest",
+   "note": "batch-0427 manifest"
   }
  ],
  "files": [
@@ -23822,6 +23832,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0426 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 664,
+   "translated": 661,
+   "preserved": 3,
+   "preserved_reasons": [
+    "3 个未变块 (verify changed=661 对齐): /* easy case */ 标签 2 块 (@2991/@3034), Support routines 装饰横幅 @3916; 见 batch-0427 manifest preserved_reasons"
+   ],
+   "note": "selfuncs.c 选择率与索引代价估算; whole-file comment translation, batch-0427; 664 块 (661+3); verify rc=0 (664/661), term_lint rc=0 (0 error), 行数守恒 8090, numstat 2087/2087; apply 于重启中断的上一会话完成, 本会话重建现场核验"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0427-adt-selfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0427 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

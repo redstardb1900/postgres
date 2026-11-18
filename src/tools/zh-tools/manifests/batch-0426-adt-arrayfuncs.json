@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0426",
+ "title": "adt 目录 arrayfuncs.c 整文件注释翻译 1065 行 522 块 — batch 0426",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "bcfe9519f48eeb215fad4fdc5025fee9e05d5da8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/arrayfuncs.c",
+   "kind": "c_comment",
+   "note": "数组核心 I/O 与操作函数 (array_in/out/recv/send/Count/ReadArrayStr/ReadArrayBinary/get/set_element/get_slice/set_slice/array_map/construct 系/deconstruct/array_eq/array_cmp/哈希系/array_contain_compare/迭代器系/accumArrayResult 系/generate_subscripts/array_replace/array_remove/width_bucket_array 系/trim_array); whole-file comment translation, batch-0426"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0426-adt-arrayfuncs.json",
+   "kind": "manifest",
+   "note": "batch-0426 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0426 entries (arrayfuncs.c + 本 manifest; 追加前查重无既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/arrayfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 522,
+   "translated": 502,
+   "preserved": 20,
+   "preserved_reasons": [
+    "20 个未变块 (与 verify changed=502 对齐, 522-502=20): 头部文件名/版权/IDENTIFICATION 行 (SEG 0000 内, L3/L6/L7/L10/L11 保留, L4 功能描述行已译), 注掉的代码行注释 12 块 (@2371/@2372/@2385/@2386/@2648/@2649/@2663/@2664/@2979/@2980/@2993/@2994), /* XXX */ @2115, /* equal */ 标签 @4112 (预算 11B 仅容 1 字), Support Routines 装饰横幅 @4795, UNNEST SQL 关键字横幅 @6269, /* skip */ 标签 2 块 (@270/@284 预算 16B 仅容 3 字), 无内容 border 块 2 个 (@4794/@4796); 变更块内另有 KEPT 行: 裸函数名 banner 26 行 (array_in L168/array_recv L1288/ReadArrayBinary L1458/array_send L1579/array_ndims L1684/array_dims L1700/array_lower L1737/array_upper L1764/array_length L1794/array_cardinality L1822/array_get_element L1835/array_get_slice L2036/array_set_element L2205/array_set_slice L2801/array_map L3211/array_eq L3829/array_cmp L4003/array_contain_compare L4398/initArrayResultWithSize L5329/generate_subscripts L5931/generate_subscripts_nodir L5995/array_fill_with_lower_bounds L6006/array_fill L6047/ReadArrayStr L706/ArrayCount L460, 另签名行 generate_subscripts L5931 单列), 见 note"
+   ],
+   "note": "arrayfuncs.c 数组核心 I/O 与操作函数 (array_in/out/recv/send/ArrayCount/ReadArrayStr/ReadArrayBinary/get/set_element/get_slice/set_slice/array_map/construct_array/construct_md_array/construct_empty_array/deconstruct_array/array_eq/array_cmp/哈希系/array_contain_compare/迭代器系/accumArrayResult 系/generate_subscripts/array_replace/array_remove/width_bucket_array 系/trim_array); whole-file comment translation, batch-0426; 权威 universe: 注释感知状态机扫描 522 块 (含 2 个无内容 border 块), content 行 1114, verify comments=522 changed=502 两方一致; content 行 1114 = zh 1050 (逐行 spec) + 裸星吸收行 14 (BARE; EN 尾短语被上行译文吸收, 0365 R6 判例) + 保留 EN 50 (KEPT; banner 26 + 头部 5 + 注掉代码 12 + 小标签 4 + 装饰横幅 1 + UNNEST 1 + 签名行 1 (五口径合一, 加总 50)); 行数守恒 6976 不变 (numstat 1065/1065); 代码零改动 (verify rc=0, 0 violations, 0 parse errors; 剥离比对 stripped EN==zh True); NUL 扫描 0; 术语全取既译同款 (现场 grep 引证): 数组/元素 (array_userfuncs.c L4/L51, 0413), 下界/上界 (arrayutils.c L120-123/arraysubs.c L66-71, 本文件 下界 18 站/上界 8 站), 切片 (arraysubs.c L70/L109, 本文件 30 站), 下标 (arraysubs.c L66/L187/jsonb_util.c L133, 本文件 38 站), 空值位图 (array_expanded.c L255/L322/array_userfuncs.c L447/L460, 本文件 22 站), 分隔符 (varlena.c L502-515 0424, 本文件 8 站), 转义/引号/加引号 (varlena.c L311/L382/L3476, 本文件 转义 4/加引号 3), 字面量 1 站 (L1165 字面量 NULL), 解 TOAST (array_expanded.c L122/L415/expandedrecord.c L498/L606 既译同款, 本文件 TOAST 43 站其中解 TOAST 14 站 (grep -o 计)), 平铺 (array_expanded.c L122 平面数组/flat 口径, 本文件 6 站), 展开数组 (expandedrecord 0413 既译, 8 站), 排序规则 (varchar.c L733 既译, 1 站 L6393); 跨文件同 EN 对齐实证: 数组的内部比较函数 (varlena.c L1587 同款 L4004), 取得源元素/取得元素与 0413 array_userfuncs 同款; 同 EN 必同译: 块级全量断言 0 冲突 (同 EN 站全部统一: Loop over source data 7 站/Get element(s) 10 站/Avoid leaking 7 站/Sanity check 10 站/params 行 4 站×4 文件族); 异 EN 同 zh 反查 11 组全良性: -1 长度为 NULL ×2 (EN 差冠词 a), 下标。 ×2 (subscripts/subscripts. 差句点), 为了在被用作索引支持函数时…×4 (EN 断行位移同句), 代码够多值得保留 API ×2 (EN 断行位移), 分配并初始化结果数组 ×2 (EN 差定冠词 the), 取得元素，检查 NULL ×5 (Get elements/Get element 单复数), 是元素类型不在中途被更换 ×2 (EN 断行位移同句), 检查数组维度是否溢出 ×3 (L1375 This checks...array dimensions 无 the 与 L2693/L5741 Check...the array dimensions, 语义同), 漏。 ×4 (EN 断行位移), 确保数据未被 TOAST ×3 (Ensure/make sure 同义), 计算所需空间 ×3 (compute/Compute 大小写); 极性代码对照 20 块 (≥12): L1511/L1665 -1 长度为 NULL 对偶 正长度正常, L2233-2234 赋值抛错对偶获取路径返回 NULL (L1914/L1986 下标无效返回 NULL), L2273-2274 定长不可扩展对偶 L2228 一维可扩展, L2401/L2680/L3009 多维不支持扩展 ×3 站, L4401-4402 matchall 真=全部成员/假=任一成员 对偶极性, L4488-4490 严格操作符 NULL 无法匹配+XXX 分歧注记, L3922 两 NULL 相等 NULL 与非 NULL 不等 对偶 L4084 NULL>非 NULL, L4509 NULL 元素不可能匹配 对偶 L4526/L4535 找到/无匹配, L2133-2135 切片超限静默截断+空切片返回空数组, L3546 ndims<=0 或 dims[i]==0 返回空数组 对偶 L3532/L1323/L6135 允许零维但负维报错 ×3 站, L2719-2720 需位图而无则创建+全标非空, L4884/4949 nitems>=0 边界, L4981-4983 srcbitmap NULL 则假定全非空填 1 对偶 位图存在则按位拷贝, L6429 空数组原样返回 对偶 L6434-6435 多维移除报错 对偶 L6603 全移除返回空数组, L6785-6789 NaN 探测值大于等于所有阈值无需查找, L4277 空值视为哈希值 0, L3232-3233 输入数组必须非 NULL 但数组内 NULL 元素无妨, L4979 nitems>=0, L4449 附近 upper/lower provided 真值语义 (L2048/L2049), L3642-3644 不支持 NULL 传 nullsp 则报错信息量低 仅确不预期时用; 枚举横幅逐项点数 (0417 D1 判例, 程序化全数): Inputs/Outputs/Result 参数清单 19 个横幅块逐项全译 (ReadArrayStr 输入 9+输出 5, ReadArrayBinary 输入 5+输出 4, array_get_element 输入 7+输出 2, array_get_slice 输入 10+输出 1+注 3 行, array_set_element 输入 9+结果 4 行, array_set_slice 输入 12+结果 2 行, construct_array 4, construct_md_array 6, deconstruct_array 5, initArrayResult 3+注, accumArrayResult 4, makeArrayResult 2, makeMdArrayResult 3, initArrayResultArr 4, accumArrayResultArr 4, makeArrayResultArr 3, initArrayResultAny 3, accumArrayResultAny 4, makeArrayResultAny 3), 支撑例程 8 块参数清单 (array_ref/get/set 元素 null 位图 seek copyarray copybits space slice extract insert) 逐项全译, 数组-数组布尔操作符横幅 4 行全译 (L3958-3962), fmt 横幅逐行已译; 同模板句逐站 grep -c 零漂移 (文件内实测): 每轮调用只查找一次 6, 不在中途被更换 10 (元素类型前缀口径 6), 为了在被用作索引支持函数时不发生内存泄 4, 取得源元素，检查 NULL 5, 取得元素，检查 NULL 5, 遍历源数据 7, 传入 TOAST 输入时避免内存泄漏 7, 合理性检查：看起来像数组吗 6, 合理性检查：维度有效 4, 无空值位图的标记 6, 检查总请求是否溢出 5, 将插入空值 6, 此处检查数组维度是否溢出 4, 让编译器安静 3, 找到桶 3, 我们不期望比较支持函数返回 null 3, 把操作符应用于元素对 3, 必要时解 TOAST 输入数组 2, 定长数组 —— 假定为一维、以 0 为基 3, arg1 大于 arg2 2, arg1 小于 arg2 2, 确保数据未被 TOAST 3, 计算所需空间 3, 展开数组：放到单独的函数中处理 2, 上面的 palloc0 已把插入位置标为空值 2, 在 rcontext 中构建最终数组结果 2, astate 是工作状态（不得为 NULL） 4, rcontext 是构建结果之处 4, release 为真表示可以释放工作状态 3, 清理杂物 2; 门禁三连实测: verify_c_comments rc=0 (--worktree HEAD . --paths src/backend/utils/adt: 1 files, 1 ok, 0 violations, 0 parse errors, comments=522, changed=502, splices=4 既有, NUL/trigraph 0; warnings 28 全 advisory: W7_IDENT_LOST 15 = CAUTION/oids 复数/StringInfos 复数/NULLs 复数 9 站/range 语义在场/NaNs 复数, 均 0372 量裁语义在场不修; W7_UNTRANSLATED 13 = 全部 KEPT 声明站), term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则 21 error/66 warning, 0 error hits, 5 warnings 全 advisory 不修: TL08+P23 L239 requires→我们要求 规则注记自身允许, P43 L438 块级配对噪声, P17 L2149/L3028 missing→缺失 语义正确 0394 判例同款), check_scope 于 manifest+cumulative 落盘后实测; 句号台账 (行级 python 全量比对, EN 基线 git show HEAD:arrayfuncs.c 现算): FWD 25 = 断行点位移/句号前置吸收 (EN 句点落次行, zh 句号并入本行; 抽样 L347/L589/L1348 核证) 全良性; REV 78 中真实缺陷 13 站已清偿 (L1837-1838 返回的 Datum 是数组对象内的指针。/L2029 只要 Datum 引用还在，即假定值不变。两处悬挂句重构, L2497/L2773/L2779/L3216/L3949/L4167/L4304/L4558/L4576/L4594/L4618/L5789/L6758 句号补齐), 其余为 KEPT 行 (L3/L11)/BARE 吸收行 (L562/L590/L640/L664/L2612/L4233/L5118/L5331/L2804)/省略号伪句点 (L983/L1412)/pg_type.typlen 等标识符内点/断行位移 (参数清单行 L1846 族等), 均良性; 预算恰句号未补披露 2 站: L812 (整行 53B=53B) 与 L5432 (整行 69B=69B) 及 L5310 半角句点 (整行 20B=20B); 修复轮如实披露: 规划轮 dry-run 3 次 (超预算约 30 站 + 覆盖缺口 10 行 + 同 EN 冲突 5 组, 全部 dry-run 期修正), 写后 2 轮 (≤3 纪律内): W1 句号台账清偿 13 站 (上列, 含 2 处悬挂句重构) + 接缝哈希 dup (L4177 对各元素哈希) + L6785 阈值|值 接缝重字修复, W2 同 EN 链修正 (L6185/6186 与 L6443/6444 前提 前移对齐 L3874 族; L4558 句号), 每轮 checkout HEAD -- 复位重放后门禁复跑 rc=0; 修复后全量复扫: 单字缝 0/双字缝 0/行首标点 0/括号平衡 0/ASCII 引号成对 0 (L773 改 双引号与反斜杠 消除奇引号)/近重复 13 条均 EN 平行结构良性 (elmbyval/elmalign 参数行族/upperIndx lowerIndx 族/matchall 真假对偶行); 函数名/标识符逐字校验结论: 裸函数名 banner 26 行全部 KEPT 逐字保留 (含 L460 ArrayCount/L706 ReadArrayStr), 无 banner 译文改写; 关键标识符程序化核在 (apply 同 EN 断言 + verify 0 violations); W7 全量扫描 (--paths src/backend/utils/adt 口径) 15 站全为复数词/语义在场 advisory; A 级披露: L513/L256/L245 等 8 站预算紧行压缩措辞 (无论如何此时/项内不许/每维度项), L3961 只是逐元素而非 独立行预算吸收, L4401-4402 matchall 两行 149B 预算内全语义, L2061-2063/L2834-2836 多为临时值 压缩 (EN These are generally just temporaries), L5805-5808 故查 get_array_type 后 EN not get_element_type 省略 (前句已列二者对比, L5806), L5310 半角句点 (预算 17B=17B), L3414 操纵系统目录的数组时很有用 (EN from/for), L3179/L3196 代码够多，值得保留 API (EN enough code like that 压缩), L2166-2167 could be smarter 略去 (预算 20B), L2894 解两数组 TOAST (EN arrays 复数显化), L3546 或 dims[i]==0 省任一 (预算), L4112 /* equal */ KEPT (11B 仅容 1 字) 与 L6713 查输入 (17B) 小标签量裁, CJK-EN 相邻空格预算紧行省略若干站 (L5714 N+1维/L4884 (>=0)/L4949 (>=0)); 审后清偿轮 R4 (只读审查 FAIL 8D/3N/5A+4M → 清偿, 落工作树未提交): D1 L735+L1475 必须拥→必须拥有 (两站同 EN 同修), D2 L1056 悬挂外加 补回 ':' +'[]' (54B≤63B), D3 L2533-2534 丢失状态 补回 (L2533 损坏状态 69B≤75B, L2534 转 BARE 空框行守恒), D4 L3371 补回 结果 (64B≤74B), D5 L3508 注→注意 (65B≤74B), D6 L3716 内→内建 (56B≤71B), D7 L3835 悬空相等 补谓语 可能有意义。 (73B≤75B), D8 L4219-4221 三行重排 (可哈|希。…不支持哈希则|失败。 哈希宾语+失败后果 全数在场, L4221 9B≤15B 含句号), N1 L5806 都满足 删重 (与 L5805 同时满足 缝重复; 修法与审查稿异: L5806 62B≤73B 保留 我们倾向把它们 前移, L5807 当作标量… 故查 不变, L5808 get_array_type。 不变), N2 L3226 双须 删一 (调用前清零 37B≤43B), N3 L3636 丢的 超预算 维持披露不修, A2 L2760 补项 (空值填补 addedafter 项 36B≤39B 现算可容), M1-M4 全部勘正 (banner 26/签名行 1 分列, ReadArrayStr 输出 5 与 ReadArrayBinary 输出 4, L812/L5432/L5310 整行口径 53/69/20, 不在中途被更换 10 站); R4 后门禁三连复跑 rc=0×3 + 剥离审计相等 + 贴线丢字家族全量复扫 (行尾连接词悬挂 0 真实, 9 候选均跨行续字良性) + 修复区相邻行复查 0; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0426-adt-arrayfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0426 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0426 entries (arrayfuncs.c + 本 manifest; 两数组各 +2, 纯追加, 追加前查重无 arrayfuncs 既有条目)"
+  }
+ ]
+}

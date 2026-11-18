@@ -7336,6 +7336,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0425-adt-formatting.json",
    "kind": "manifest",
    "note": "batch-0425 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/arrayfuncs.c",
+   "kind": "c_comment",
+   "note": "数组核心 I/O 与操作函数 (array_in/out/recv/send/Count/ReadArrayStr/get/set_element/slice 系/map/construct 系/eq/cmp/哈希/contain_compare/迭代器/accumArrayResult 系/generate_subscripts/replace/remove/width_bucket/trim_array); whole-file comment translation, batch-0426"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0426-adt-arrayfuncs.json",
+   "kind": "manifest",
+   "note": "batch-0426 manifest"
   }
  ],
  "files": [
@@ -23790,6 +23800,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0425 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/arrayfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 522,
+   "translated": 502,
+   "preserved": 20,
+   "preserved_reasons": [
+    "20 个未变块 (与 verify changed=502 对齐): 头部文件名/版权/IDENTIFICATION 行, 注掉的代码行注释 12 块, /* XXX */ /* equal */ /* skip */ 小标签, Support Routines 装饰横幅, UNNEST 横幅, 无内容 border 块 2; 见 batch-0426 manifest preserved_reasons"
+   ],
+   "note": "arrayfuncs.c 数组核心 I/O 与操作函数; whole-file comment translation, batch-0426; 522 块, content 1114 = zh 1050 + 裸星 14 + KEPT 50; verify rc=0 (522/502), term_lint rc=0 0 error 5 advisory, 剥离比对相等, numstat 1065/1065"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0426-adt-arrayfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0426 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

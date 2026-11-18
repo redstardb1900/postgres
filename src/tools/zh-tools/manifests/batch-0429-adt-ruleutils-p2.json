@@ -1,0 +1,58 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0429",
+ "title": "adt 目录 ruleutils.c 整文件注释翻译拆批 part2 (L3795-8093) 357 块 — batch 0429",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1dbe6338c6e8ee7bdb5baa237fd2dca3e4f30c1a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "note": "ruleutils 反解析器 part2 (whole-file 拆批): 别名/列名分配族 (set_rtable_names/set_deparse_for_query/set_simple_column_names/has_dangerous_join_using/set_using_names/set_relation_column_names/set_join_column_names/colname_is_unique/make_colname_unique/expand_colnames_array_to/identify_join_columns/get_rtable_name) + plan 反解析栈族 (set_deparse_plan/find_recursive_union/push_child_plan/pop_child_plan/push_ancestor_plan/pop_ancestor_plan) + 规则/视图重建 (make_ruledef/make_viewdef) + 主体反解析家族 (get_query_def/get_values_def/get_with_clause/get_select_query_def/get_simple_values_rte/get_basic_select_query/get_target_list/get_setop_query/get_rule_sortgroupclause/get_rule_groupingset/get_rule_orderby/get_rule_windowclause/get_rule_windowspec/get_insert_query_def/get_update_query_def/get_update_query_targetlist_def/get_delete_query_def/get_merge_query_def/get_utility_query_def) + Var 解析家族 (get_variable/get_special_variable/resolve_special_varno/get_name_for_var_field), L3795-8093; 截止点=块 633 @L8094 (find_param_referent 文档块) 之前的自然函数族边界, 不切注释块; whole-file 拆批 part 2, batch-0429"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0429-adt-ruleutils-p2.json",
+   "kind": "manifest",
+   "note": "batch-0429 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0429-p2 entries (各数组 +1: ruleutils.c 已在册只加本 manifest, 0428-p2 判例) + parent_commit 由 1dbe6338c6e 保持为现 HEAD (p1 已更新至本批父提交, 无需变更)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 357,
+   "translated": 357,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ruleutils.c part2 拆批判: 权威 universe 由注释感知状态机扫描 (全文件 906 块, part2=块 276-632 @L3795-8093, 357 块 771 content 行); verify rc=0 (1 ok, 0 violations, comments=906 changed=357, splices=3, trigraphs 0/0); 范围守卫: apply 断言 L1-3794 与 L8093 之后逐行零改动 + git diff 首 hunk @@ -3793,17 末 hunk @@ -8082,11 (止于 L8092); 底稿改用 HEAD 工作树读取 (初版误用 en_full.txt 导致 part1 区回退, 已修复并重跑, 属规划轮自纠, 判例: 拆批 part2+ 的 apply 底稿禁用 part1 之前的 EN dump); same-EN→same-zh 断言 0 冲突 (初跑暴露 1 组 L6715/L7022 同 EN 'off the top-level nodes...' 已统一为 '代表间接赋值的顶层节点。'); 跨批同译定款核对 (grep p1 既译): 反解析 (p1 L125/L153 既译, 禁反编译)/范围表 (p1 L290 既译, 禁关系表)/美化打印+美化标志 (p1 L98/L88)/表达式树 (p1 既译)/模式限定 (p1 L973 加模式限定)/别名/列别名/连接树 (p1 L214)/USING 名 (p1 L151)/目标列表 (p1 L118); 域内新定款: whole-row Var→整行 Var, junk entries→垃圾项, referent→引用对象 (语法引用对象/语义引用对象), drill down→下钻/下钻到, resjunk/eref/tlist 等标识符逐字保留; W7_UNTRANSLATED part2 区 12 站 (L3990/4010/4335/4455/4477/4893/5429/5821/6196/6911/6959/7907) 全为多行块 opener 裸 /* 行 (块本身已译, changed=357 全覆盖), advisory 量裁不修; 另 L107/L315 为 part1 preserved 块 (上批既裁); term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则 21 error/66 warning, 0 error hits, 5 warnings 全 advisory: P39 ×2 (L4852/L7655 块级检测), TL08+P23 (L6680 requires→需要/要求 子串巧合, 0428-p2 同族 advisory 判例)); REVERSE 0 站; emptied 空框行折叠 26 行 (句尾短词/收束行折入前行, 行数守恒 12718): L3806/3897/4164/4204/4206/4288/4807/4898/4943/5051/5433/5848/6129/6205/6261/6320/6719/7297/7466/7880/7881/7917/7918/7919/8049/8050; 行内空格压缩 34 站 (0373 判例: 预算恰等时去前导/尾随空格); 行级超预算 0 站、块级超预算 0 块 (逐行 byte 断言, 修复轮共压缩 45 站超限); 跨行接缝双字 0 (断言); 行首标点 0 (初跑 1 处 L5262 行首省略号已改为 '待重新设计查询树时…'); 弯引号 0; NUL 0; ASCII 引号块级配对全过; 近重复行 15 对逐一判读全为 EN 本身对称/标识符复现所致 (L4594/4595 左右输入对称句、L6344/6345 PRETTY_PAREN 双现、L7258/7259 \"tab.*\" 双现、L5812/5813 VALUES RTE 等), 非翻译重复; 极性对照 14 块无反转: L4201-4202 未命名连接必要且无歧义风险、L4456-4457 关系 RTE 仅不同才打印 vs 函数 RTE 总是输出 双向、L4969-4970 不用 OUTER 因将来冲突、L4982-4983 并非用于 INSERT..CONFLICT 而是用于 RETURNING 双向、L5741-5742 文法接受前者但后者不行、L6170-6172 需要/不应出现 双向、L6313-6317 常量歧义/Var 重指派风险/复杂表达式强制括号、L6453 ASC 默认不输出 vs L6460 DESC 默认 NULLS FIRST、L6533/6551/6560 分区总是继承/排序仅非继承/帧从不继承 三态、L7444-7446 未命名→无法引用整行→无需覆盖、L7480-7485 ORDER BY 加前缀仅当名字冲突、L7587-7588 varno 特殊则递归、L7968-7969 除非非法声明否则到不了这里、L8047-8048 CTE 被证明为空则退回 fN; 枚举/清单横幅逐项点数: 块 434 get_query_def 参数清单 9 项 (query/buf/parentnamespace/resultDesc×2/colNamesVisible×2/prettyFlags/wrapColumn/startIndent) 齐全; 块 399 plan/outer_plan/inner_plan/outer_tlist/inner_tlist/index_tlist 6 字段齐全; 块 317 两策略 (unique_using 真/假)+同代码实现 齐全; SQL 关键字横幅保留判定: SELECT/INSERT INTO/UPDATE..SET/DELETE FROM/MERGE INTO/WITH/ORDER BY/LIMIT/GROUP BY/HAVING/WINDOW/DISTINCT/FOR [KEY] UPDATE/SHARE/ON CONFLICT/RETURNING/VALUES/DEFAULT VALUES/INSERT..SELECT/ON CONFLICT .. UPDATE/INSTEAD/NOTIFY 均按命令清单式引用保留原文; 函数名/标识符逐字抽查: set_rtable_names/set_using_names/set_relation_column_names/set_join_column_names/identify_join_columns/find_recursive_union/push_child_plan/pop_ancestor_plan/make_ruledef/make_viewdef/get_values_def/get_target_list/get_setop_query/get_insert_query_def/get_variable/get_name_for_var_field/findTargetlistEntrySQL92/transformValuesClause/expandRecordVariable/get_expr_result_tupdesc/processIndirection/FigureColname/NAMEDATALEN/leftattnos/rightattnos/joinaliasvars 全部逐字在位; 预算迫使的紧缩译法/省略披露: L4943 'single plan tree' 并入 L4942 '同一 plan 树内'、L4978 targetlist 渲染 tlist 且 EN 句号省略 (11B)、L5051 'be any)' 并入 L5050 括号内、L5413 wrapColumn 行-1 表示禁止换行、L5901 'time.' 仅存 '时' (5B 预算, 'did at parse' 语义并入 L5900 逆转句)、L6205/6261/6320/6719/7466/7880-7881/7917-7919/8049-8050 收束行折入、L7723 get_expr_result_tupdesc() 行尾句号因预算 45B 省略、L6448 'datatype'→类型、L6815/6871 'Deparse targetlist'→反解析 targetlist (19B 预算不足以容 '反解析目标列表'=21B); apply 迭代 7 轮 (R1 覆盖断言补 6 空项; R2 same-EN 1 组冲突修复; R3-R5 预算修复 45 站+行首标点 1 站; R6 底稿改用工作树修复 part1 回退; R7 确认轮), 每轮 git checkout HEAD 复位一轮一跑, 未 commit; 只读审查 FAIL 4D/6N → 审后清偿轮 R4 全部落地 (主会话执行, 块级预算断言 10 受触块全过): D1 L4015-4016 「连接别名 Var」宾语补回+括号闭合, D2 L5050-5051 「有任何此类情况）。」补回 (原披露「并入 L5050 括号内」失实已勘正), D3 L7266 「则返回 NULL」补回, D4 L7659-7660 「varlevelsup」补回, N1 L4041-4042 JOIN USING 宾语补行, N2 L4456 只要→只有, N3 L5900-5901 「在解析时所做的」补回+空框归并, N4 L6311 「则用列号形式」主句谓语补回, N5 L8012-8013 同步语病理顺, N6 L3996 Asserts in 补回; 行级超限 5 站全块级放行 (N1 块 309≤310/N4 块 200≤207 现算); M1 轮次口径勘正 (manifest 7 轮 vs 通报 8 轮+写后 1 轮, 以本披露为准); M2 行内注释 /*中文*/ 16 站风格混用备案 (门禁不查, 留战役级 glossary backlog); 审查实证: L1-3794 与 L8094+ 逐字节 cmp IDENTICAL (底稿事故无残留), 违款词「反编译/关系表」全文 0 命中, 极性 14 块无反转; 审后门禁复跑 rc=0×3; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0429-adt-ruleutils-p2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0429 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0429-p2 manifest entry (files/allowed_paths 各 +1) + parent_commit 复核为现 HEAD 1dbe6338c6e (p1 已更新, 本批无变更)"
+  }
+ ]
+}

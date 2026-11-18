@@ -3793,17 +3793,17 @@ select_rtable_names_for_explain(List *rtable, Bitmapset *rels_used)
 }
 
 /*
- * set_rtable_names: select RTE aliases to be used in printing a query
+ * set_rtable_names：选择用于打印查询的 RTE 别名
  *
- * We fill in dpns->rtable_names with a list of names that is one-for-one with
- * the already-filled dpns->rtable list.  Each RTE name is unique among those
- * in the new namespace plus any ancestor namespaces listed in
- * parent_namespaces.
+ * 我们在 dpns->rtable_names 中填入一个与已填好的 dpns->rtable
+ * 列表一一对应的别名列表。每个 RTE 名在新命名空间
+ * 及 parent_namespaces 祖先命名空间中都是唯一
+ * 的。
  *
- * If rels_used isn't NULL, only RTE indexes listed in it are given aliases.
+ * 若 rels_used 非 NULL，只有其中列出的 RTE 索引才分配别名
  *
- * Note that this function is only concerned with relation names, not column
- * names.
+ * 注意本函数只关心关系名，而不关心列名。
+ *
  */
 static void
 set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
@@ -3817,13 +3817,13 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 	ListCell   *lc;
 
 	dpns->rtable_names = NIL;
-	/* nothing more to do if empty rtable */
+	/* 空 rtable 则无需再做任何事*/
 	if (dpns->rtable == NIL)
 		return;
 
 	/*
-	 * We use a hash table to hold known names, so that this process is O(N)
-	 * not O(N^2) for N names.
+	 * 我们用哈希表保存已知名字，使本过程对 N 个名字是
+	 * O(N) 而非 O(N^2)。
 	 */
 	hash_ctl.keysize = NAMEDATALEN;
 	hash_ctl.entrysize = sizeof(NameHashEntry);
@@ -3833,7 +3833,7 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 							 &hash_ctl,
 							 HASH_ELEM | HASH_STRINGS | HASH_CONTEXT);
 
-	/* Preload the hash table with names appearing in parent_namespaces */
+	/* 以 parent_namespaces 中出现的名字预填充哈希表 */
 	foreach(lc, parent_namespaces)
 	{
 		deparse_namespace *olddpns = (deparse_namespace *) lfirst(lc);
@@ -3849,52 +3849,52 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 												   oldname,
 												   HASH_ENTER,
 												   &found);
-			/* we do not complain about duplicate names in parent namespaces */
+			/* 对父命名空间中的重复名字不作报错 */
 			hentry->counter = 0;
 		}
 	}
 
-	/* Now we can scan the rtable */
+	/* 现在扫描 rtable */
 	rtindex = 1;
 	foreach(lc, dpns->rtable)
 	{
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(lc);
 		char	   *refname;
 
-		/* Just in case this takes an unreasonable amount of time ... */
+		/* 以防万一这里耗时超出合理范围…… */
 		CHECK_FOR_INTERRUPTS();
 
 		if (rels_used && !bms_is_member(rtindex, rels_used))
 		{
-			/* Ignore unreferenced RTE */
+			/* 忽略未引用的 RTE */
 			refname = NULL;
 		}
 		else if (rte->alias)
 		{
-			/* If RTE has a user-defined alias, prefer that */
+			/* 若 RTE 有自定义别名，则优先用之 */
 			refname = rte->alias->aliasname;
 		}
 		else if (rte->rtekind == RTE_RELATION)
 		{
-			/* Use the current actual name of the relation */
+			/* 使用该关系当前的实际名称 */
 			refname = get_rel_name(rte->relid);
 		}
 		else if (rte->rtekind == RTE_JOIN)
 		{
-			/* Unnamed join has no refname */
+			/*未命名连接没有 refname*/
 			refname = NULL;
 		}
 		else
 		{
-			/* Otherwise use whatever the parser assigned */
+			/* 否则使用解析器分配的名字 */
 			refname = rte->eref->aliasname;
 		}
 
 		/*
-		 * If the selected name isn't unique, append digits to make it so, and
-		 * make a new hash entry for it once we've got a unique name.  For a
-		 * very long input name, we might have to truncate to stay within
-		 * NAMEDATALEN.
+		 * 若选定的名字不唯一，则追加数字使其唯一，并且
+		 * 一旦得到唯一名就为它建新哈希条目。对于
+		 * 名字过长时，可能须截断以留在 NAMEDATALEN 内。
+		 *
 		 */
 		if (refname)
 		{
@@ -3904,7 +3904,7 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 												   &found);
 			if (found)
 			{
-				/* Name already in use, must choose a new one */
+				/* 名字已被占用，必须另选一个 */
 				int			refnamelen = strlen(refname);
 				char	   *modname = (char *) palloc(refnamelen + 16);
 				NameHashEntry *hentry2;
@@ -3918,7 +3918,7 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 						sprintf(modname + refnamelen, "_%d", hentry->counter);
 						if (strlen(modname) < NAMEDATALEN)
 							break;
-						/* drop chars from refname to keep all the digits */
+						/* 从 refname 删字符以保留全部数字 */
 						refnamelen = pg_mbcliplen(refname, refnamelen,
 												  refnamelen - 1);
 					}
@@ -3927,12 +3927,12 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 															HASH_ENTER,
 															&found);
 				} while (found);
-				hentry2->counter = 0;	/* init new hash entry */
+				hentry2->counter = 0;	/*初始化新哈希项*/
 				refname = modname;
 			}
 			else
 			{
-				/* Name not previously used, need only initialize hentry */
+				/* 名字此前未用过，只需初始化 hentry */
 				hentry->counter = 0;
 			}
 		}
@@ -3945,10 +3945,10 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 }
 
 /*
- * set_deparse_for_query: set up deparse_namespace for deparsing a Query tree
+ * set_deparse_for_query：为反解析 Query 树建立 deparse_namespace
  *
- * For convenience, this is defined to initialize the deparse_namespace struct
- * from scratch.
+ * 为方便起见，本函数被定义为从头初始化 deparse_namespace
+ * 结构。
  */
 static void
 set_deparse_for_query(deparse_namespace *dpns, Query *query,
@@ -3957,43 +3957,43 @@ set_deparse_for_query(deparse_namespace *dpns, Query *query,
 	ListCell   *lc;
 	ListCell   *lc2;
 
-	/* Initialize *dpns and fill rtable/ctes links */
+	/* 初始化 *dpns 并填充 rtable/ctes 链接*/
 	memset(dpns, 0, sizeof(deparse_namespace));
 	dpns->rtable = query->rtable;
 	dpns->subplans = NIL;
 	dpns->ctes = query->cteList;
 	dpns->appendrels = NULL;
 
-	/* Assign a unique relation alias to each RTE */
+	/* 给每个 RTE 分配唯一的关系别名 */
 	set_rtable_names(dpns, parent_namespaces, NULL);
 
-	/* Initialize dpns->rtable_columns to contain zeroed structs */
+	/* 初始化 dpns->rtable_columns 为全零结构 */
 	dpns->rtable_columns = NIL;
 	while (list_length(dpns->rtable_columns) < list_length(dpns->rtable))
 		dpns->rtable_columns = lappend(dpns->rtable_columns,
 									   palloc0(sizeof(deparse_columns)));
 
-	/* If it's a utility query, it won't have a jointree */
+	/* 若是 utility 查询，则不会有连接树 */
 	if (query->jointree)
 	{
-		/* Detect whether global uniqueness of USING names is needed */
+		/* 检测是否需要对 USING 名做全局唯一化 */
 		dpns->unique_using =
 			has_dangerous_join_using(dpns, (Node *) query->jointree);
 
 		/*
-		 * Select names for columns merged by USING, via a recursive pass over
-		 * the query jointree.
+		 * 通过递归遍历查询连接树，为被 USING 合并的
+		 * 列选择名字
 		 */
 		set_using_names(dpns, (Node *) query->jointree, NIL);
 	}
 
 	/*
-	 * Now assign remaining column aliases for each RTE.  We do this in a
-	 * linear scan of the rtable, so as to process RTEs whether or not they
-	 * are in the jointree (we mustn't miss NEW.*, INSERT target relations,
-	 * etc).  JOIN RTEs must be processed after their children, but this is
-	 * okay because they appear later in the rtable list than their children
-	 * (cf Asserts in identify_join_columns()).
+	 * 现在为每个 RTE 分配其余的列别名。我们以对
+	 * rtable 做线性扫描的方式进行，这样无论 RTE 是否在
+	 * 连接树中都会被处理（我们不能漏掉 NEW.*、INSERT 目
+	 * 标关系等）。JOIN RTE 必须在其子节点之后处理，但
+	 * 这样可行，因为它们在 rtable 列表中位于子节点后
+	 * （cf Asserts in identify_join_columns()）。
 	 */
 	forboth(lc, dpns->rtable, lc2, dpns->rtable_columns)
 	{
@@ -4008,12 +4008,12 @@ set_deparse_for_query(deparse_namespace *dpns, Query *query,
 }
 
 /*
- * set_simple_column_names: fill in column aliases for non-query situations
+ * set_simple_column_names：为非查询情形填入列别名
  *
- * This handles EXPLAIN and cases where we only have relation RTEs.  Without
- * a join tree, we can't do anything smart about join RTEs, but we don't
- * need to (note that EXPLAIN should never see join alias Vars anyway).
- * If we do hit a join RTE we'll just process it like a non-table base RTE.
+ * 本函数处理 EXPLAIN 以及我们只有关系 RTE 的情形。
+ * 没有连接树时，我们无法对连接 RTE 做任何巧妙处
+ * 理，但也无需这么做（注意 EXPLAIN 反正永远不应见连接
+ * 别名 Var）；若真遇到连接 RTE，就把它当非表基础 RTE 处理。
  */
 static void
 set_simple_column_names(deparse_namespace *dpns)
@@ -4021,13 +4021,13 @@ set_simple_column_names(deparse_namespace *dpns)
 	ListCell   *lc;
 	ListCell   *lc2;
 
-	/* Initialize dpns->rtable_columns to contain zeroed structs */
+	/* 初始化 dpns->rtable_columns 为全零结构 */
 	dpns->rtable_columns = NIL;
 	while (list_length(dpns->rtable_columns) < list_length(dpns->rtable))
 		dpns->rtable_columns = lappend(dpns->rtable_columns,
 									   palloc0(sizeof(deparse_columns)));
 
-	/* Assign unique column aliases within each RTE */
+	/* 在每个 RTE 内分配唯一的列别名 */
 	forboth(lc, dpns->rtable, lc2, dpns->rtable_columns)
 	{
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(lc);
@@ -4038,30 +4038,30 @@ set_simple_column_names(deparse_namespace *dpns)
 }
 
 /*
- * has_dangerous_join_using: search jointree for unnamed JOIN USING
+ * has_dangerous_join_using：在连接树中搜索未命名的
+ * JOIN USING 列。
+ * JOIN USING 合并列的行为可能不同于任一输入列，
+ * 原因或是它们用 COALESCE 合并（FULL JOIN 时），或
+ * 是因为需要对底层输入列做隐式类型转换。
+ * 这种情况下该列必须作为 JOIN 的列来引用，而不是
+ * 作为任一输入的列。若连接未命名（无别名），这就
+ * 成了问题：我们无法用 RTE 名来限定该列的名字，
+ * 因为根本没有名字。（强行给连接分配别名并非解决
+ * 之法，那会阻止对连接下方表的合法引用。）
+ * 为确保查询中每一列都能无歧义地引用，
+ * 我们必须给这类合并列取全查询范围内全局唯一的
+ * 名字，必要时给其他列改别名让路。
  *
- * Merged columns of a JOIN USING may act differently from either of the input
- * columns, either because they are merged with COALESCE (in a FULL JOIN) or
- * because an implicit coercion of the underlying input column is required.
- * In such a case the column must be referenced as a column of the JOIN not as
- * a column of either input.  And this is problematic if the join is unnamed
- * (alias-less): we cannot qualify the column's name with an RTE name, since
- * there is none.  (Forcibly assigning an alias to the join is not a solution,
- * since that will prevent legal references to tables below the join.)
- * To ensure that every column in the query is unambiguously referenceable,
- * we must assign such merged columns names that are globally unique across
- * the whole query, aliasing other columns out of the way as necessary.
- *
- * Because the ensuing re-aliasing is fairly damaging to the readability of
- * the query, we don't do this unless we have to.  So, we must pre-scan
- * the join tree to see if we have to, before starting set_using_names().
+ * 由于随之而来的重定别名相当有损查询可读性，
+ * 除非迫不得已我们不做这件事。因此必须预扫描
+ * 连接树判断是否必要，然后再启动 set_using_names()。
  */
 static bool
 has_dangerous_join_using(deparse_namespace *dpns, Node *jtnode)
 {
 	if (IsA(jtnode, RangeTblRef))
 	{
-		/* nothing to do here */
+		/* 此处无事可做 */
 	}
 	else if (IsA(jtnode, FromExpr))
 	{
@@ -4078,17 +4078,17 @@ has_dangerous_join_using(deparse_namespace *dpns, Node *jtnode)
 	{
 		JoinExpr   *j = (JoinExpr *) jtnode;
 
-		/* Is it an unnamed JOIN with USING? */
+		/* 是带 USING 的未命名 JOIN？ */
 		if (j->alias == NULL && j->usingClause)
 		{
 			/*
-			 * Yes, so check each join alias var to see if any of them are not
-			 * simple references to underlying columns.  If so, we have a
-			 * dangerous situation and must pick unique aliases.
+			 * 是，须检查每个连接别名 Var，看它们是否都
+			 * 是底层列的简单引用。若是，就遇到了
+			 * 危险局面，必须挑选唯一别名。
 			 */
 			RangeTblEntry *jrte = rt_fetch(j->rtindex, dpns->rtable);
 
-			/* We need only examine the merged columns */
+			/* 我们只需检查合并列 */
 			for (int i = 0; i < jrte->joinmergedcols; i++)
 			{
 				Node	   *aliasvar = list_nth(jrte->joinaliasvars, i);
@@ -4098,7 +4098,7 @@ has_dangerous_join_using(deparse_namespace *dpns, Node *jtnode)
 			}
 		}
 
-		/* Nope, but inspect children */
+		/* 不是，但要查子节点*/
 		if (has_dangerous_join_using(dpns, j->larg))
 			return true;
 		if (has_dangerous_join_using(dpns, j->rarg))
@@ -4111,23 +4111,23 @@ has_dangerous_join_using(deparse_namespace *dpns, Node *jtnode)
 }
 
 /*
- * set_using_names: select column aliases to be used for merged USING columns
+ * set_using_names：为 USING 合并列选择要用的列别名
  *
- * We do this during a recursive descent of the query jointree.
- * dpns->unique_using must already be set to determine the global strategy.
+ * 我们在查询连接树的递归下降中做此事。
+ * dpns->unique_using 必须已设置好，以决定全局策略。
  *
- * Column alias info is saved in the dpns->rtable_columns list, which is
- * assumed to be filled with pre-zeroed deparse_columns structs.
+ * 列别名信息保存在 dpns->rtable_columns 列表中，该
+ * 列表假定已预填清零的 deparse_columns 结构。
  *
- * parentUsing is a list of all USING aliases assigned in parent joins of
- * the current jointree node.  (The passed-in list must not be modified.)
+ * parentUsing 是在当前连接树节点的父连接中分配的
+ * 全部 USING 别名的列表。（传入的列表不得修改。）
  */
 static void
 set_using_names(deparse_namespace *dpns, Node *jtnode, List *parentUsing)
 {
 	if (IsA(jtnode, RangeTblRef))
 	{
-		/* nothing to do now */
+		/* 现在无事可做*/
 	}
 	else if (IsA(jtnode, FromExpr))
 	{
@@ -4149,19 +4149,19 @@ set_using_names(deparse_namespace *dpns, Node *jtnode, List *parentUsing)
 		int			i;
 		ListCell   *lc;
 
-		/* Get info about the shape of the join */
+		/* 取得连接形态的相关信息 */
 		identify_join_columns(j, rte, colinfo);
 		leftattnos = colinfo->leftattnos;
 		rightattnos = colinfo->rightattnos;
 
-		/* Look up the not-yet-filled-in child deparse_columns structs */
+		/* 查找尚未填好的子 deparse_columns 结构 */
 		leftcolinfo = deparse_columns_fetch(colinfo->leftrti, dpns);
 		rightcolinfo = deparse_columns_fetch(colinfo->rightrti, dpns);
 
 		/*
-		 * If this join is unnamed, then we cannot substitute new aliases at
-		 * this level, so any name requirements pushed down to here must be
-		 * pushed down again to the children.
+		 * 若此连接未命名，则本层无法替换新别名，因此
+		 * 下推至此的名字要求必须再次下推到子节点。
+		 *
 		 */
 		if (rte->alias == NULL)
 		{
@@ -4172,14 +4172,14 @@ set_using_names(deparse_namespace *dpns, Node *jtnode, List *parentUsing)
 				if (colname == NULL)
 					continue;
 
-				/* Push down to left column, unless it's a system column */
+				/* 下推到左列，除非它是系统列 */
 				if (leftattnos[i] > 0)
 				{
 					expand_colnames_array_to(leftcolinfo, leftattnos[i]);
 					leftcolinfo->colnames[leftattnos[i] - 1] = colname;
 				}
 
-				/* Same on the righthand side */
+				/* 右侧同样处理 */
 				if (rightattnos[i] > 0)
 				{
 					expand_colnames_array_to(rightcolinfo, rightattnos[i]);
@@ -4189,74 +4189,74 @@ set_using_names(deparse_namespace *dpns, Node *jtnode, List *parentUsing)
 		}
 
 		/*
-		 * If there's a USING clause, select the USING column names and push
-		 * those names down to the children.  We have two strategies:
+		 * 若有 USING 子句，则选出 USING 列名并将其下推
+		 * 到子节点。我们有两种策略：
 		 *
-		 * If dpns->unique_using is true, we force all USING names to be
-		 * unique across the whole query level.  In principle we'd only need
-		 * the names of dangerous USING columns to be globally unique, but to
-		 * safely assign all USING names in a single pass, we have to enforce
-		 * the same uniqueness rule for all of them.  However, if a USING
-		 * column's name has been pushed down from the parent, we should use
-		 * it as-is rather than making a uniqueness adjustment.  This is
-		 * necessary when we're at an unnamed join, and it creates no risk of
-		 * ambiguity.  Also, if there's a user-written output alias for a
-		 * merged column, we prefer to use that rather than the input name;
-		 * this simplifies the logic and seems likely to lead to less aliasing
-		 * overall.
+		 * 若 dpns->unique_using 为真，我们强制所有 USING 名
+		 * 在整个查询层内唯一。原则上我们只需要危险的
+		 * USING 列名全局唯一，但为了在单次遍历中安全地
+		 * 分配全部 USING 名，就必须对它们施行同一唯一性
+		 * 规则。不过，若某 USING 列的名字已从父层下推
+		 * 而来，我们就应按原样使用它，而不是做唯一性
+		 * 调整。这在未命名连接处必要，且不会带来
+		 * 歧义风险。另外，若某合并列有用户写的输出别
+		 * 名，我们更愿意用它而非输入名；
 		 *
-		 * If dpns->unique_using is false, we only need USING names to be
-		 * unique within their own join RTE.  We still need to honor
-		 * pushed-down names, though.
+		 * 这样做可简化逻辑，而且似乎整体上能减少改名。
 		 *
-		 * Though significantly different in results, these two strategies are
-		 * implemented by the same code, with only the difference of whether
-		 * to put assigned names into dpns->using_names.
+		 *
+		 * 若 dpns->unique_using 为假，我们只需要 USING 名
+		 * 在其连接 RTE 内唯一。但仍需遵从下推名
+		 * 字。
+		 *
+		 * 这两种策略结果大不相同，却由同一段代码
+		 * 实现，唯一区别在于是否把分配的名字放入
+		 * dpns->using_names 中。
 		 */
 		if (j->usingClause)
 		{
-			/* Copy the input parentUsing list so we don't modify it */
+			/* 复制输入的 parentUsing 列表以免修改它 */
 			parentUsing = list_copy(parentUsing);
 
-			/* USING names must correspond to the first join output columns */
+			/* USING 名必须对应最前面的连接输出列 */
 			expand_colnames_array_to(colinfo, list_length(j->usingClause));
 			i = 0;
 			foreach(lc, j->usingClause)
 			{
 				char	   *colname = strVal(lfirst(lc));
 
-				/* Assert it's a merged column */
+				/* 断言这是合并列 */
 				Assert(leftattnos[i] != 0 && rightattnos[i] != 0);
 
-				/* Adopt passed-down name if any, else select unique name */
+				/* 若有下推名则采用，否则选唯一名 */
 				if (colinfo->colnames[i] != NULL)
 					colname = colinfo->colnames[i];
 				else
 				{
-					/* Prefer user-written output alias if any */
+					/* 若有用户写的输出别名则优先 */
 					if (rte->alias && i < list_length(rte->alias->colnames))
 						colname = strVal(list_nth(rte->alias->colnames, i));
-					/* Make it appropriately unique */
+					/* 使其适当地唯一 */
 					colname = make_colname_unique(colname, dpns, colinfo);
 					if (dpns->unique_using)
 						dpns->using_names = lappend(dpns->using_names,
 													colname);
-					/* Save it as output column name, too */
+					/* 同时把它存为输出列名 */
 					colinfo->colnames[i] = colname;
 				}
 
-				/* Remember selected names for use later */
+				/* 记住选定的名字供以后使用 */
 				colinfo->usingNames = lappend(colinfo->usingNames, colname);
 				parentUsing = lappend(parentUsing, colname);
 
-				/* Push down to left column, unless it's a system column */
+				/* 下推到左列，除非它是系统列 */
 				if (leftattnos[i] > 0)
 				{
 					expand_colnames_array_to(leftcolinfo, leftattnos[i]);
 					leftcolinfo->colnames[leftattnos[i] - 1] = colname;
 				}
 
-				/* Same on the righthand side */
+				/* 右侧同样处理 */
 				if (rightattnos[i] > 0)
 				{
 					expand_colnames_array_to(rightcolinfo, rightattnos[i]);
@@ -4267,11 +4267,11 @@ set_using_names(deparse_namespace *dpns, Node *jtnode, List *parentUsing)
 			}
 		}
 
-		/* Mark child deparse_columns structs with correct parentUsing info */
+		/* 给子 deparse_columns 结构标记正确的 parentUsing 信息 */
 		leftcolinfo->parentUsing = parentUsing;
 		rightcolinfo->parentUsing = parentUsing;
 
-		/* Now recursively assign USING column names in children */
+		/* 现在递归地在子节点中分配 USING 列名 */
 		set_using_names(dpns, j->larg, parentUsing);
 		set_using_names(dpns, j->rarg, parentUsing);
 	}
@@ -4281,11 +4281,11 @@ set_using_names(deparse_namespace *dpns, Node *jtnode, List *parentUsing)
 }
 
 /*
- * set_relation_column_names: select column aliases for a non-join RTE
+ * set_relation_column_names：为非连接 RTE 选择列别名
  *
- * Column alias info is saved in *colinfo, which is assumed to be pre-zeroed.
- * If any colnames entries are already filled in, those override local
- * choices.
+ * 列别名信息保存在 *colinfo 中，假定其已被预清零。
+ * 若 colnames 中存在已填项，则它们优先于本地选择。
+ *
  */
 static void
 set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
@@ -4299,13 +4299,13 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 	int			j;
 
 	/*
-	 * Construct an array of the current "real" column names of the RTE.
-	 * real_colnames[] will be indexed by physical column number, with NULL
-	 * entries for dropped columns.
+	 * 构造一个数组存放 RTE 当前的 "real" 列名。
+	 * real_colnames[] 以物理列号为下标，已删除列的
+	 * 项为 NULL。
 	 */
 	if (rte->rtekind == RTE_RELATION)
 	{
-		/* Relation --- look to the system catalogs for up-to-date info */
+		/* 关系 --- 到系统目录中查找最新信息 */
 		Relation	rel;
 		TupleDesc	tupdesc;
 
@@ -4328,29 +4328,29 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 	}
 	else
 	{
-		/* Otherwise get the column names from eref or expandRTE() */
+		/* 否则从 eref 或 expandRTE() 取得列名 */
 		List	   *colnames;
 		ListCell   *lc;
 
 		/*
-		 * Functions returning composites have the annoying property that some
-		 * of the composite type's columns might have been dropped since the
-		 * query was parsed.  If possible, use expandRTE() to handle that
-		 * case, since it has the tedious logic needed to find out about
-		 * dropped columns.  However, if we're explaining a plan, then we
-		 * don't have rte->functions because the planner thinks that won't be
-		 * needed later, and that breaks expandRTE().  So in that case we have
-		 * to rely on rte->eref, which may lead us to report a dropped
-		 * column's old name; that seems close enough for EXPLAIN's purposes.
+		 * 返回复合类型的函数有个恼人性质：自查询被
+		 * 解析以来，复合类型的某些列可能已被删除。如
+		 * 可能则用 expandRTE() 来处理这种情况，因为它
+		 * 具备查明已删列的繁琐逻辑。但若我们正在
+		 * 解释 plan，那么我们没有 rte->functions，因为
+		 * 规划器认为后面用不上它，这会破坏 expandRTE()。
+		 * 所以这种情况下只能依赖 rte->eref，这可能导致
+		 * 我们会报告已删列的旧名；对 EXPLAIN 而言
+		 * 这似乎已经足够接近了。
 		 *
-		 * For non-RELATION, non-FUNCTION RTEs, we can just look at rte->eref,
-		 * which should be sufficiently up-to-date: no other RTE types can
-		 * have columns get dropped from under them after parsing.
+		 * 对于非 RELATION、非 FUNCTION 的 RTE，直接看 rte->eref
+		 * 即可，它应足够新：其他 RTE 类型解析后不会
+		 * 有列被删掉。
 		 */
 		if (rte->rtekind == RTE_FUNCTION && rte->functions != NIL)
 		{
-			/* Since we're not creating Vars, rtindex etc. don't matter */
-			expandRTE(rte, 1, 0, -1, true /* include dropped */ ,
+			/* 因为我们不创建 Var，rtindex 等无关紧要 */
+			expandRTE(rte, 1, 0, -1, true /* 含已删除列 */ ,
 					  &colnames, NULL);
 		}
 		else
@@ -4363,8 +4363,8 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 		foreach(lc, colnames)
 		{
 			/*
-			 * If the column name we find here is an empty string, then it's a
-			 * dropped column, so change to NULL.
+			 * 若在此处找到的列名是空串，那它就是已删
+			 * 除列，因此改为 NULL。
 			 */
 			char	   *cname = strVal(lfirst(lc));
 
@@ -4376,32 +4376,32 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 	}
 
 	/*
-	 * Ensure colinfo->colnames has a slot for each column.  (It could be long
-	 * enough already, if we pushed down a name for the last column.)  Note:
-	 * it's possible that there are now more columns than there were when the
-	 * query was parsed, ie colnames could be longer than rte->eref->colnames.
-	 * We must assign unique aliases to the new columns too, else there could
-	 * be unresolved conflicts when the view/rule is reloaded.
+	 * 确保 colinfo->colnames 为每列都有一个槽位。（如果
+	 * 我们已经为最后一列下推过名字，它可能已经足够
+	 * 长了。）注意：现在有可能列数比查询被解析时更
+	 * 多，即 colnames 可能比 rte->eref->colnames 长。我们
+	 * 也必须给新列分配唯一别名，否则视图/规则重新载
+	 * 入时可能出现未解决的冲突。
 	 */
 	expand_colnames_array_to(colinfo, ncolumns);
 	Assert(colinfo->num_cols == ncolumns);
 
 	/*
-	 * Make sufficiently large new_colnames and is_new_col arrays, too.
+	 * 也要把 new_colnames 与 is_new_col 数组建得足够大。
 	 *
-	 * Note: because we leave colinfo->num_new_cols zero until after the loop,
-	 * colname_is_unique will not consult that array, which is fine because it
-	 * would only be duplicate effort.
+	 * 注意：由于在循环结束前 colinfo->num_new_cols 一直
+	 * 保持为零，colname_is_unique 便不会查该数组，反正
+	 * 也只是重复劳动。
 	 */
 	colinfo->new_colnames = (char **) palloc(ncolumns * sizeof(char *));
 	colinfo->is_new_col = (bool *) palloc(ncolumns * sizeof(bool));
 
 	/*
-	 * Scan the columns, select a unique alias for each one, and store it in
-	 * colinfo->colnames and colinfo->new_colnames.  The former array has NULL
-	 * entries for dropped columns, the latter omits them.  Also mark
-	 * new_colnames entries as to whether they are new since parse time; this
-	 * is the case for entries beyond the length of rte->eref->colnames.
+	 * 扫描各列，为每列选一个唯一别名，并把它存入
+	 * colinfo->colnames 与 colinfo->new_colnames。前者数组
+	 * 中已删除列为 NULL，后者略去它们。并标记
+	 * new_colnames 项是否为解析时新增；超出
+	 * rte->eref->colnames 长度的项就是这种情况。
 	 */
 	noldcolumns = list_length(rte->eref->colnames);
 	changed_any = false;
@@ -4411,56 +4411,56 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 		char	   *real_colname = real_colnames[i];
 		char	   *colname = colinfo->colnames[i];
 
-		/* Skip dropped columns */
+		/* 跳过已删除列 */
 		if (real_colname == NULL)
 		{
-			Assert(colname == NULL);	/* colnames[i] is already NULL */
+			Assert(colname == NULL);	/* colnames[i] 已是 NULL */
 			continue;
 		}
 
-		/* If alias already assigned, that's what to use */
+		/* 若已分配别名，就用它 */
 		if (colname == NULL)
 		{
-			/* If user wrote an alias, prefer that over real column name */
+			/* 若用户写过别名，则优先于真实列名使用它 */
 			if (rte->alias && i < list_length(rte->alias->colnames))
 				colname = strVal(list_nth(rte->alias->colnames, i));
 			else
 				colname = real_colname;
 
-			/* Unique-ify and insert into colinfo */
+			/* 唯一化并插入 colinfo */
 			colname = make_colname_unique(colname, dpns, colinfo);
 
 			colinfo->colnames[i] = colname;
 		}
 
-		/* Put names of non-dropped columns in new_colnames[] too */
+		/* 把非删除列的名字也放进 new_colnames[] */
 		colinfo->new_colnames[j] = colname;
-		/* And mark them as new or not */
+		/* 并标记是否为新列 */
 		colinfo->is_new_col[j] = (i >= noldcolumns);
 		j++;
 
-		/* Remember if any assigned aliases differ from "real" name */
+		/* 记住是否有别名与 "real" 名不同 */
 		if (!changed_any && strcmp(colname, real_colname) != 0)
 			changed_any = true;
 	}
 
 	/*
-	 * Set correct length for new_colnames[] array.  (Note: if columns have
-	 * been added, colinfo->num_cols includes them, which is not really quite
-	 * right but is harmless, since any new columns must be at the end where
-	 * they won't affect varattnos of pre-existing columns.)
+	 * 为 new_colnames[] 数组设置正确长度。（注意：若增
+	 * 加了列，colinfo->num_cols 会把它们计入，这并不完
+	 * 全正确但无害，因为新列必然位于末尾，不会影响
+	 * 既有列的 varattno。）
 	 */
 	colinfo->num_new_cols = j;
 
 	/*
-	 * For a relation RTE, we need only print the alias column names if any
-	 * are different from the underlying "real" names.  For a function RTE,
-	 * always emit a complete column alias list; this is to protect against
-	 * possible instability of the default column names (eg, from altering
-	 * parameter names).  For tablefunc RTEs, we never print aliases, because
-	 * the column names are part of the clause itself.  For other RTE types,
-	 * print if we changed anything OR if there were user-written column
-	 * aliases (since the latter would be part of the underlying "reality").
+	 * 对关系 RTE，只有别名列名与底层 "real" 名有任何
+	 * 不同才需要打印。对函数 RTE，总是输出完整的列
+	 * 别名列表；这是为了防范默认列名可能的不稳定
+	 * （例如改参数名所致）。对 tablefunc RTE，我们从不
+	 * 打印别名，因为列名是子句本身的一部分。对其
+	 * 他 RTE 类型，若我们改动过任何东西，或有用户写
+	 * 的列别名就打印
+	 * （因为后者属于底层 "reality"）。
 	 */
 	if (rte->rtekind == RTE_RELATION)
 		colinfo->printaliases = changed_any;
@@ -4475,13 +4475,13 @@ set_relation_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 }
 
 /*
- * set_join_column_names: select column aliases for a join RTE
+ * set_join_column_names：为连接 RTE 选择列别名
  *
- * Column alias info is saved in *colinfo, which is assumed to be pre-zeroed.
- * If any colnames entries are already filled in, those override local
- * choices.  Also, names for USING columns were already chosen by
- * set_using_names().  We further expect that column alias selection has been
- * completed for both input RTEs.
+ * 列别名信息保存在 *colinfo 中，假定其已被预清零。
+ * 若 colnames 中存在已填项，则它们优先于本地选择。
+ * 另外，USING 列的名字已由
+ * set_using_names() 选定。我们还进一步期望两个输入
+ * RTE 已完成列别名选择
  */
 static void
 set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
@@ -4499,26 +4499,26 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 	int			ic;
 	int			jc;
 
-	/* Look up the previously-filled-in child deparse_columns structs */
+	/* 查找之前已填好的子 deparse_columns 结构 */
 	leftcolinfo = deparse_columns_fetch(colinfo->leftrti, dpns);
 	rightcolinfo = deparse_columns_fetch(colinfo->rightrti, dpns);
 
 	/*
-	 * Ensure colinfo->colnames has a slot for each column.  (It could be long
-	 * enough already, if we pushed down a name for the last column.)  Note:
-	 * it's possible that one or both inputs now have more columns than there
-	 * were when the query was parsed, but we'll deal with that below.  We
-	 * only need entries in colnames for pre-existing columns.
+	 * 确保 colinfo->colnames 为每列都有一个槽位。（如果
+	 * 我们已经为最后一列下推过名字，它可能已经足够
+	 * 长了。）注意：现在可能一个或两个输入的列数
+	 * 比解析时更多，但我们会在下面处理。我们
+	 * 只需要 colnames 中既有列的项。
 	 */
 	noldcolumns = list_length(rte->eref->colnames);
 	expand_colnames_array_to(colinfo, noldcolumns);
 	Assert(colinfo->num_cols == noldcolumns);
 
 	/*
-	 * Scan the join output columns, select an alias for each one, and store
-	 * it in colinfo->colnames.  If there are USING columns, set_using_names()
-	 * already selected their names, so we can start the loop at the first
-	 * non-merged column.
+	 * 扫描连接输出列，为每列选一个别名，并存入
+	 * colinfo->colnames。若有 USING 列，set_using_names()
+	 * 已选好它们的名字，因此循环可从第一个非合并
+	 * 列开始。
 	 */
 	changed_any = false;
 	for (i = list_length(colinfo->usingNames); i < noldcolumns; i++)
@@ -4526,60 +4526,60 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 		char	   *colname = colinfo->colnames[i];
 		char	   *real_colname;
 
-		/* Join column must refer to at least one input column */
+		/* 连接列必须引用至少一个输入列 */
 		Assert(colinfo->leftattnos[i] != 0 || colinfo->rightattnos[i] != 0);
 
-		/* Get the child column name */
+		/* 取得子列名 */
 		if (colinfo->leftattnos[i] > 0)
 			real_colname = leftcolinfo->colnames[colinfo->leftattnos[i] - 1];
 		else if (colinfo->rightattnos[i] > 0)
 			real_colname = rightcolinfo->colnames[colinfo->rightattnos[i] - 1];
 		else
 		{
-			/* We're joining system columns --- use eref name */
+			/* 我们连接的是系统列 --- 使用 eref 名*/
 			real_colname = strVal(list_nth(rte->eref->colnames, i));
 		}
 
-		/* If child col has been dropped, no need to assign a join colname */
+		/* 若子列已被删除，则无需分配连接列名 */
 		if (real_colname == NULL)
 		{
 			colinfo->colnames[i] = NULL;
 			continue;
 		}
 
-		/* In an unnamed join, just report child column names as-is */
+		/* 在未命名连接中，直接按原样报告子列名 */
 		if (rte->alias == NULL)
 		{
 			colinfo->colnames[i] = real_colname;
 			continue;
 		}
 
-		/* If alias already assigned, that's what to use */
+		/* 若已分配别名，就用它 */
 		if (colname == NULL)
 		{
-			/* If user wrote an alias, prefer that over real column name */
+			/* 若用户写过别名，则优先于真实列名使用它 */
 			if (rte->alias && i < list_length(rte->alias->colnames))
 				colname = strVal(list_nth(rte->alias->colnames, i));
 			else
 				colname = real_colname;
 
-			/* Unique-ify and insert into colinfo */
+			/* 唯一化并插入 colinfo */
 			colname = make_colname_unique(colname, dpns, colinfo);
 
 			colinfo->colnames[i] = colname;
 		}
 
-		/* Remember if any assigned aliases differ from "real" name */
+		/* 记住是否有别名与 "real" 名不同 */
 		if (!changed_any && strcmp(colname, real_colname) != 0)
 			changed_any = true;
 	}
 
 	/*
-	 * Calculate number of columns the join would have if it were re-parsed
-	 * now, and create storage for the new_colnames and is_new_col arrays.
+	 * 计算若此连接现在重新解析将拥有的列数，并为
+	 * new_colnames 与 is_new_col 数组创建存储。
 	 *
-	 * Note: colname_is_unique will be consulting new_colnames[] during the
-	 * loops below, so its not-yet-filled entries must be zeroes.
+	 * 注意：colname_is_unique 在下面的循环中会查询
+	 * new_colnames[]，所以其未填的项必须为零。
 	 */
 	nnewcolumns = leftcolinfo->num_new_cols + rightcolinfo->num_new_cols -
 		list_length(colinfo->usingNames);
@@ -4588,32 +4588,32 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 	colinfo->is_new_col = (bool *) palloc0(nnewcolumns * sizeof(bool));
 
 	/*
-	 * Generating the new_colnames array is a bit tricky since any new columns
-	 * added since parse time must be inserted in the right places.  This code
-	 * must match the parser, which will order a join's columns as merged
-	 * columns first (in USING-clause order), then non-merged columns from the
-	 * left input (in attnum order), then non-merged columns from the right
-	 * input (ditto).  If one of the inputs is itself a join, its columns will
-	 * be ordered according to the same rule, which means newly-added columns
-	 * might not be at the end.  We can figure out what's what by consulting
-	 * the leftattnos and rightattnos arrays plus the input is_new_col arrays.
+	 * 生成 new_colnames 数组有点棘手，因为解析后新增
+	 * 的列必须插入到正确的位置。这段代码必须与解析
+	 * 器一致：解析器会把连接的列排序为先是合并列
+	 * （按 USING 子句顺序），然后是来自左输入的非合
+	 * 并列（按 attnum 顺序），然后是来自右输入的同样
+	 * 列（同理）。若某输入本身是连接，则它的列将按
+	 * 同一规则排序，这意味着新增列未必
+	 * 位于末尾。我们可以通过查阅
+	 * leftattnos 和 rightattnos 数组以及输入的 is_new_col
 	 *
-	 * In these loops, i indexes leftattnos/rightattnos (so it's join varattno
-	 * less one), j indexes new_colnames/is_new_col, and ic/jc have similar
-	 * meanings for the current child RTE.
+	 * 在这些循环中，i 是 leftattnos/rightattnos 的下标
+	 * （即连接 varattno 减一），j 是 new_colnames/is_new_col
+	 * 下标；ic/jc 对子 RTE 类同。
 	 */
 
-	/* Handle merged columns; they are first and can't be new */
+	/* 处理合并列；它们最先且不可能为新列 */
 	i = j = 0;
 	while (i < noldcolumns &&
 		   colinfo->leftattnos[i] != 0 &&
 		   colinfo->rightattnos[i] != 0)
 	{
-		/* column name is already determined and known unique */
+		/* 列名已确定且已知唯一 */
 		colinfo->new_colnames[j] = colinfo->colnames[i];
 		colinfo->is_new_col[j] = false;
 
-		/* build bitmapsets of child attnums of merged columns */
+		/* 构建合并列的子 attnum 位图集 */
 		if (colinfo->leftattnos[i] > 0)
 			leftmerged = bms_add_member(leftmerged, colinfo->leftattnos[i]);
 		if (colinfo->rightattnos[i] > 0)
@@ -4622,7 +4622,7 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 		i++, j++;
 	}
 
-	/* Handle non-merged left-child columns */
+	/* 处理左子节点的非合并列 */
 	ic = 0;
 	for (jc = 0; jc < leftcolinfo->num_new_cols; jc++)
 	{
@@ -4630,30 +4630,30 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 
 		if (!leftcolinfo->is_new_col[jc])
 		{
-			/* Advance ic to next non-dropped old column of left child */
+			/* 把 ic 前进到左子节点下一个未删除的旧列 */
 			while (ic < leftcolinfo->num_cols &&
 				   leftcolinfo->colnames[ic] == NULL)
 				ic++;
 			Assert(ic < leftcolinfo->num_cols);
 			ic++;
-			/* If it is a merged column, we already processed it */
+			/* 若它是合并列，我们已处理过它 */
 			if (bms_is_member(ic, leftmerged))
 				continue;
-			/* Else, advance i to the corresponding existing join column */
+			/* 否则把 i 前进到对应的既有连接列 */
 			while (i < colinfo->num_cols &&
 				   colinfo->colnames[i] == NULL)
 				i++;
 			Assert(i < colinfo->num_cols);
 			Assert(ic == colinfo->leftattnos[i]);
-			/* Use the already-assigned name of this column */
+			/* 使用该列已分配的名字 */
 			colinfo->new_colnames[j] = colinfo->colnames[i];
 			i++;
 		}
 		else
 		{
 			/*
-			 * Unique-ify the new child column name and assign, unless we're
-			 * in an unnamed join, in which case just copy
+			 * 将新的子列名唯一化并赋值，除非我们处于
+			 * 未命名连接中，此时只需复制
 			 */
 			if (rte->alias != NULL)
 			{
@@ -4671,7 +4671,7 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 		j++;
 	}
 
-	/* Handle non-merged right-child columns in exactly the same way */
+	/* 以完全相同的方式处理右子节点的非合并列 */
 	ic = 0;
 	for (jc = 0; jc < rightcolinfo->num_new_cols; jc++)
 	{
@@ -4679,30 +4679,30 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 
 		if (!rightcolinfo->is_new_col[jc])
 		{
-			/* Advance ic to next non-dropped old column of right child */
+			/* 把 ic 前进到右子节点下一个未删除的旧列 */
 			while (ic < rightcolinfo->num_cols &&
 				   rightcolinfo->colnames[ic] == NULL)
 				ic++;
 			Assert(ic < rightcolinfo->num_cols);
 			ic++;
-			/* If it is a merged column, we already processed it */
+			/* 若它是合并列，我们已处理过它 */
 			if (bms_is_member(ic, rightmerged))
 				continue;
-			/* Else, advance i to the corresponding existing join column */
+			/* 否则把 i 前进到对应的既有连接列 */
 			while (i < colinfo->num_cols &&
 				   colinfo->colnames[i] == NULL)
 				i++;
 			Assert(i < colinfo->num_cols);
 			Assert(ic == colinfo->rightattnos[i]);
-			/* Use the already-assigned name of this column */
+			/* 使用该列已分配的名字 */
 			colinfo->new_colnames[j] = colinfo->colnames[i];
 			i++;
 		}
 		else
 		{
 			/*
-			 * Unique-ify the new child column name and assign, unless we're
-			 * in an unnamed join, in which case just copy
+			 * 将新的子列名唯一化并赋值，除非我们处于
+			 * 未命名连接中，此时只需复制
 			 */
 			if (rte->alias != NULL)
 			{
@@ -4720,7 +4720,7 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 		j++;
 	}
 
-	/* Assert we processed the right number of columns */
+	/* 断言我们处理的列数正确 */
 #ifdef USE_ASSERT_CHECKING
 	while (i < colinfo->num_cols && colinfo->colnames[i] == NULL)
 		i++;
@@ -4729,8 +4729,8 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 #endif
 
 	/*
-	 * For a named join, print column aliases if we changed any from the child
-	 * names.  Unnamed joins cannot print aliases.
+	 * 对命名连接，若列名相对子列名有改动则打印别名。
+	 * 未命名连接不能打印别名。
 	 */
 	if (rte->alias != NULL)
 		colinfo->printaliases = changed_any;
@@ -4739,9 +4739,9 @@ set_join_column_names(deparse_namespace *dpns, RangeTblEntry *rte,
 }
 
 /*
- * colname_is_unique: is colname distinct from already-chosen column names?
+ * colname_is_unique：colname 是否区别于已选定的列名？
  *
- * dpns is query-wide info, colinfo is for the column's RTE
+ * dpns 是查询级信息，colinfo 属于该列的 RTE
  */
 static bool
 colname_is_unique(const char *colname, deparse_namespace *dpns,
@@ -4750,7 +4750,7 @@ colname_is_unique(const char *colname, deparse_namespace *dpns,
 	int			i;
 	ListCell   *lc;
 
-	/* Check against already-assigned column aliases within RTE */
+	/* 对照 RTE 内已分配的列别名检查 */
 	for (i = 0; i < colinfo->num_cols; i++)
 	{
 		char	   *oldname = colinfo->colnames[i];
@@ -4760,8 +4760,8 @@ colname_is_unique(const char *colname, deparse_namespace *dpns,
 	}
 
 	/*
-	 * If we're building a new_colnames array, check that too (this will be
-	 * partially but not completely redundant with the previous checks)
+	 * 若我们在构建 new_colnames 数组，也要检查它（这
+	 * 与前面的检查部分重复但不完全重复）
 	 */
 	for (i = 0; i < colinfo->num_new_cols; i++)
 	{
@@ -4771,7 +4771,7 @@ colname_is_unique(const char *colname, deparse_namespace *dpns,
 			return false;
 	}
 
-	/* Also check against USING-column names that must be globally unique */
+	/* 还要对照必须全局唯一的 USING 列名检查 */
 	foreach(lc, dpns->using_names)
 	{
 		char	   *oldname = (char *) lfirst(lc);
@@ -4780,7 +4780,7 @@ colname_is_unique(const char *colname, deparse_namespace *dpns,
 			return false;
 	}
 
-	/* Also check against names already assigned for parent-join USING cols */
+	/* 还要对照已为父连接 USING 列分配的名字检查 */
 	foreach(lc, colinfo->parentUsing)
 	{
 		char	   *oldname = (char *) lfirst(lc);
@@ -4793,18 +4793,18 @@ colname_is_unique(const char *colname, deparse_namespace *dpns,
 }
 
 /*
- * make_colname_unique: modify colname if necessary to make it unique
+ * make_colname_unique：必要时修改 colname 使其唯一
  *
- * dpns is query-wide info, colinfo is for the column's RTE
+ * dpns 是查询级信息，colinfo 属于该列的 RTE
  */
 static char *
 make_colname_unique(char *colname, deparse_namespace *dpns,
 					deparse_columns *colinfo)
 {
 	/*
-	 * If the selected name isn't unique, append digits to make it so.  For a
-	 * very long input name, we might have to truncate to stay within
-	 * NAMEDATALEN.
+	 * 若选定的名字不唯一，则追加数字使其唯一。对于
+	 * 名字过长时，可能须截断以留在 NAMEDATALEN 内。
+	 *
 	 */
 	if (!colname_is_unique(colname, dpns, colinfo))
 	{
@@ -4821,7 +4821,7 @@ make_colname_unique(char *colname, deparse_namespace *dpns,
 				sprintf(modname + colnamelen, "_%d", i);
 				if (strlen(modname) < NAMEDATALEN)
 					break;
-				/* drop chars from colname to keep all the digits */
+				/* 从 colname 删字符以保留全部数字 */
 				colnamelen = pg_mbcliplen(colname, colnamelen,
 										  colnamelen - 1);
 			}
@@ -4832,9 +4832,9 @@ make_colname_unique(char *colname, deparse_namespace *dpns,
 }
 
 /*
- * expand_colnames_array_to: make colinfo->colnames at least n items long
+ * expand_colnames_array_to：使 colinfo->colnames 至少有 n 项长
  *
- * Any added array entries are initialized to zero.
+ * 新增的数组项都初始化为零。
  */
 static void
 expand_colnames_array_to(deparse_columns *colinfo, int n)
@@ -4850,10 +4850,10 @@ expand_colnames_array_to(deparse_columns *colinfo, int n)
 }
 
 /*
- * identify_join_columns: figure out where columns of a join come from
+ * identify_join_columns：弄清连接的列来自何处
  *
- * Fills the join-specific fields of the colinfo struct, except for
- * usingNames which is filled later.
+ * 填充 colinfo 结构的连接特有字段，但 usingNames
+ * 除外，它稍后填充。
  */
 static void
 identify_join_columns(JoinExpr *j, RangeTblEntry *jrte,
@@ -4864,7 +4864,7 @@ identify_join_columns(JoinExpr *j, RangeTblEntry *jrte,
 	int			rcolno;
 	ListCell   *lc;
 
-	/* Extract left/right child RT indexes */
+	/* 提取左/右子 RT 索引 */
 	if (IsA(j->larg, RangeTblRef))
 		colinfo->leftrti = ((RangeTblRef *) j->larg)->rtindex;
 	else if (IsA(j->larg, JoinExpr))
@@ -4880,22 +4880,22 @@ identify_join_columns(JoinExpr *j, RangeTblEntry *jrte,
 		elog(ERROR, "unrecognized node type in jointree: %d",
 			 (int) nodeTag(j->rarg));
 
-	/* Assert children will be processed earlier than join in second pass */
+	/* 断言子节点在第二遍中会先于连接被处理 */
 	Assert(colinfo->leftrti < j->rtindex);
 	Assert(colinfo->rightrti < j->rtindex);
 
-	/* Initialize result arrays with zeroes */
+	/* 用零初始化结果数组 */
 	numjoincols = list_length(jrte->joinaliasvars);
 	Assert(numjoincols == list_length(jrte->eref->colnames));
 	colinfo->leftattnos = (int *) palloc0(numjoincols * sizeof(int));
 	colinfo->rightattnos = (int *) palloc0(numjoincols * sizeof(int));
 
 	/*
-	 * Deconstruct RTE's joinleftcols/joinrightcols into desired format.
-	 * Recall that the column(s) merged due to USING are the first column(s)
-	 * of the join output.  We need not do anything special while scanning
-	 * joinleftcols, but while scanning joinrightcols we must distinguish
-	 * merged from unmerged columns.
+	 * 把 RTE 的 joinleftcols/joinrightcols 分解成所需格
+	 * 式。回顾一下：因 USING 而合并的列是连接输出的
+	 * 第一列。扫描 joinleftcols 时无需做任何特殊处理，
+	 * 但扫描 joinrightcols 时必须区分合并列与非合并列。
+	 *
 	 */
 	jcolno = 0;
 	foreach(lc, jrte->joinleftcols)
@@ -4909,7 +4909,7 @@ identify_join_columns(JoinExpr *j, RangeTblEntry *jrte,
 	{
 		int			rightattno = lfirst_int(lc);
 
-		if (rcolno < jrte->joinmergedcols)	/* merged column? */
+		if (rcolno < jrte->joinmergedcols)	/* 合并列？ */
 			colinfo->rightattnos[rcolno] = rightattno;
 		else
 			colinfo->rightattnos[jcolno++] = rightattno;
@@ -4919,9 +4919,9 @@ identify_join_columns(JoinExpr *j, RangeTblEntry *jrte,
 }
 
 /*
- * get_rtable_name: convenience function to get a previously assigned RTE alias
+ * get_rtable_name：获取先前分配的 RTE 别名的便利函数
  *
- * The RTE must belong to the topmost namespace level in "context".
+ * 该 RTE 必须属于 "context" 最顶层的命名空间层。
  */
 static char *
 get_rtable_name(int rtindex, deparse_context *context)
@@ -4933,14 +4933,14 @@ get_rtable_name(int rtindex, deparse_context *context)
 }
 
 /*
- * set_deparse_plan: set up deparse_namespace to parse subexpressions
- * of a given Plan node
+ * set_deparse_plan：建立 deparse_namespace 以解析给定
+ * Plan 的子表达式
  *
- * This sets the plan, outer_plan, inner_plan, outer_tlist, inner_tlist,
- * and index_tlist fields.  Caller must already have adjusted the ancestors
- * list if necessary.  Note that the rtable, subplans, and ctes fields do
- * not need to change when shifting attention to different plan nodes in a
- * single plan tree.
+ * 本函数设置 plan、outer_plan、inner_plan、outer_tlist、
+ * inner_tlist 与 index_tlist 字段。调用方必须已按需要
+ * 调整过 ancestors 列表。注意 rtable、subplans、ctes
+ * 字段在转向同一 plan 树内不同 plan 节点时无需改变
+ *
  */
 static void
 set_deparse_plan(deparse_namespace *dpns, Plan *plan)
@@ -4948,10 +4948,10 @@ set_deparse_plan(deparse_namespace *dpns, Plan *plan)
 	dpns->plan = plan;
 
 	/*
-	 * We special-case Append and MergeAppend to pretend that the first child
-	 * plan is the OUTER referent; we have to interpret OUTER Vars in their
-	 * tlists according to one of the children, and the first one is the most
-	 * natural choice.
+	 * 我们对 Append 与 MergeAppend 特殊处理，假装第一个
+	 * 子 plan 是 OUTER 引用对象；我们必须把其 tlist 中的
+	 * OUTER Var 按某个子节点来解释，而第一个是最自然
+	 * 的选择。
 	 */
 	if (IsA(plan, Append))
 		dpns->outer_plan = linitial(((Append *) plan)->appendplans);
@@ -4966,21 +4966,21 @@ set_deparse_plan(deparse_namespace *dpns, Plan *plan)
 		dpns->outer_tlist = NIL;
 
 	/*
-	 * For a SubqueryScan, pretend the subplan is INNER referent.  (We don't
-	 * use OUTER because that could someday conflict with the normal meaning.)
-	 * Likewise, for a CteScan, pretend the subquery's plan is INNER referent.
-	 * For a WorkTableScan, locate the parent RecursiveUnion plan node and use
-	 * that as INNER referent.
+	 * 对 SubqueryScan，假装子 plan 是 INNER 引用对象。（
+	 * 我们不用 OUTER，因为那将来可能与正常含义冲突。）
+	 * 同样，对 CteScan，假装子查询的 plan 是 INNER 引用
+	 * 对象。对 WorkTableScan，则定位为 INNER 引用对象的
+	 * 父 RecursiveUnion。
 	 *
-	 * For MERGE, pretend the ModifyTable's source plan (its outer plan) is
-	 * INNER referent.  This is the join from the target relation to the data
-	 * source, and all INNER_VAR Vars in other parts of the query refer to its
-	 * targetlist.
+	 * 对 MERGE，假装 ModifyTable 的源 plan（其 outer plan）
+	 * 是 INNER 引用对象。这就是从目标关系到数据源的
+	 * 连接，查询其他部分的所有 INNER_VAR Var 都引用它
+	 * 的 tlist
 	 *
-	 * For ON CONFLICT .. UPDATE we just need the inner tlist to point to the
-	 * excluded expression's tlist. (Similar to the SubqueryScan we don't want
-	 * to reuse OUTER, it's used for RETURNING in some modify table cases,
-	 * although not INSERT .. CONFLICT).
+	 * 对 ON CONFLICT .. UPDATE，我们只需让 inner tlist 指向
+	 * excluded 表达式的 tlist。（与 SubqueryScan 类似，我们
+	 * 不想复用 OUTER：它并非用于 INSERT .. CONFLICT，
+	 * 而是用于 RETURNING）。
 	 */
 	if (IsA(plan, SubqueryScan))
 		dpns->inner_plan = ((SubqueryScan *) plan)->subplan;
@@ -5007,7 +5007,7 @@ set_deparse_plan(deparse_namespace *dpns, Plan *plan)
 	else
 		dpns->inner_tlist = NIL;
 
-	/* Set up referent for INDEX_VAR Vars, if needed */
+	/* 如需，为 INDEX_VAR Var 设置引用对象 */
 	if (IsA(plan, IndexOnlyScan))
 		dpns->index_tlist = ((IndexOnlyScan *) plan)->indextlist;
 	else if (IsA(plan, ForeignScan))
@@ -5019,9 +5019,9 @@ set_deparse_plan(deparse_namespace *dpns, Plan *plan)
 }
 
 /*
- * Locate the ancestor plan node that is the RecursiveUnion generating
- * the WorkTableScan's work table.  We can match on wtParam, since that
- * should be unique within the plan tree.
+ * 找到作为生成 WorkTableScan 工作表的 RecursiveUnion
+ * 的祖先 plan 节点。我们可以按 wtParam 匹配，因为它
+ * 在 plan 树内应当唯一。
  */
 static Plan *
 find_recursive_union(deparse_namespace *dpns, WorkTableScan *wtscan)
@@ -5042,63 +5042,63 @@ find_recursive_union(deparse_namespace *dpns, WorkTableScan *wtscan)
 }
 
 /*
- * push_child_plan: temporarily transfer deparsing attention to a child plan
+ * push_child_plan：临时把反解析注意力转移到子 plan
  *
- * When expanding an OUTER_VAR or INNER_VAR reference, we must adjust the
- * deparse context in case the referenced expression itself uses
- * OUTER_VAR/INNER_VAR.  We modify the top stack entry in-place to avoid
- * affecting levelsup issues (although in a Plan tree there really shouldn't
- * be any).
+ * 在展开 OUTER_VAR 或 INNER_VAR 引用时，我们必须调整
+ * 反解析上下文，以防被引用的表达式本身用到
+ * OUTER_VAR/INNER_VAR。我们就地修改栈顶项，以避免
+ * 影响 levelsup 问题（尽管在 Plan 树中本来就不应该
+ * 有任何此类情况）。
  *
- * Caller must provide a local deparse_namespace variable to save the
- * previous state for pop_child_plan.
+ * 调用方必须提供一个局部 deparse_namespace 变量来保
+ * 存 pop_child_plan 先前状态。
  */
 static void
 push_child_plan(deparse_namespace *dpns, Plan *plan,
 				deparse_namespace *save_dpns)
 {
-	/* Save state for restoration later */
+	/* 保存状态供以后恢复 */
 	*save_dpns = *dpns;
 
-	/* Link current plan node into ancestors list */
+	/*把当前 plan 节点链入 ancestors 列表*/
 	dpns->ancestors = lcons(dpns->plan, dpns->ancestors);
 
-	/* Set attention on selected child */
+	/* 注意力转向所选子节点 */
 	set_deparse_plan(dpns, plan);
 }
 
 /*
- * pop_child_plan: undo the effects of push_child_plan
+ * pop_child_plan：撤销 push_child_plan 的效果
  */
 static void
 pop_child_plan(deparse_namespace *dpns, deparse_namespace *save_dpns)
 {
 	List	   *ancestors;
 
-	/* Get rid of ancestors list cell added by push_child_plan */
+	/* 去掉 push_child_plan 加入的 ancestors 列表单元 */
 	ancestors = list_delete_first(dpns->ancestors);
 
-	/* Restore fields changed by push_child_plan */
+	/* 恢复被 push_child_plan 改变的字段 */
 	*dpns = *save_dpns;
 
-	/* Make sure dpns->ancestors is right (may be unnecessary) */
+	/* 确保 dpns->ancestors 正确（可能不必要） */
 	dpns->ancestors = ancestors;
 }
 
 /*
- * push_ancestor_plan: temporarily transfer deparsing attention to an
- * ancestor plan
+ * push_ancestor_plan：临时把反解析注意力转移到
+ * 祖先 plan
  *
- * When expanding a Param reference, we must adjust the deparse context
- * to match the plan node that contains the expression being printed;
- * otherwise we'd fail if that expression itself contains a Param or
- * OUTER_VAR/INNER_VAR/INDEX_VAR variable.
+ * 在展开 Param 引用时，我们必须调整反解析上下文
+ * 使之与包含待打印表达式的 plan 节点相匹配；
+ * 否则，若该表达式本身包含 Param 或 OUTER_VAR/
+ * INNER_VAR/INDEX_VAR，就会失败。
  *
- * The target ancestor is conveniently identified by the ListCell holding it
- * in dpns->ancestors.
+ * 目标祖先可用 dpns->ancestors 中持有它的那个
+ * ListCell 标识。
  *
- * Caller must provide a local deparse_namespace variable to save the
- * previous state for pop_ancestor_plan.
+ * 调用方必须提供一个局部 deparse_namespace 变量来保
+ * 存 pop_ancestor_plan 先前状态。
  */
 static void
 push_ancestor_plan(deparse_namespace *dpns, ListCell *ancestor_cell,
@@ -5106,35 +5106,35 @@ push_ancestor_plan(deparse_namespace *dpns, ListCell *ancestor_cell,
 {
 	Plan	   *plan = (Plan *) lfirst(ancestor_cell);
 
-	/* Save state for restoration later */
+	/* 保存状态供以后恢复 */
 	*save_dpns = *dpns;
 
-	/* Build a new ancestor list with just this node's ancestors */
+	/* 构建一个只含本节点祖先的新 ancestors 列表 */
 	dpns->ancestors =
 		list_copy_tail(dpns->ancestors,
 					   list_cell_number(dpns->ancestors, ancestor_cell) + 1);
 
-	/* Set attention on selected ancestor */
+	/* 把注意力集中到所选祖先 */
 	set_deparse_plan(dpns, plan);
 }
 
 /*
- * pop_ancestor_plan: undo the effects of push_ancestor_plan
+ * pop_ancestor_plan：撤销 push_ancestor_plan 的效果
  */
 static void
 pop_ancestor_plan(deparse_namespace *dpns, deparse_namespace *save_dpns)
 {
-	/* Free the ancestor list made in push_ancestor_plan */
+	/* 释放 push_ancestor_plan 中建立的祖先列表*/
 	list_free(dpns->ancestors);
 
-	/* Restore fields changed by push_ancestor_plan */
+	/* 恢复被 push_ancestor_plan 改变的字段 */
 	*dpns = *save_dpns;
 }
 
 
 /* ----------
- * make_ruledef			- reconstruct the CREATE RULE command
- *				  for a given pg_rewrite tuple
+ * make_ruledef			- 重建 CREATE RULE 命令
+ *				  针对 pg_rewrite 元组
  * ----------
  */
 static void
@@ -5155,7 +5155,7 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 	bool		isnull;
 
 	/*
-	 * Get the attribute values from the rules tuple
+	 * 从规则元组取得属性值
 	 */
 	fno = SPI_fnumber(rulettc, "rulename");
 	dat = SPI_getbinval(ruletup, rulettc, fno, &isnull);
@@ -5191,7 +5191,7 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 	ev_relation = table_open(ev_class, AccessShareLock);
 
 	/*
-	 * Build the rules definition text
+	 * 构建规则定义文本
 	 */
 	appendStringInfo(buf, "CREATE RULE %s AS",
 					 quote_identifier(rulename));
@@ -5201,7 +5201,7 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 	else
 		appendStringInfoString(buf, " ON ");
 
-	/* The event the rule is fired for */
+	/* 规则所针对的事件 */
 	switch (ev_type)
 	{
 		case '1':
@@ -5229,13 +5229,13 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 			break;
 	}
 
-	/* The relation the rule is fired on */
+	/* 规则所作用的关系 */
 	appendStringInfo(buf, " TO %s",
 					 (prettyFlags & PRETTYFLAG_SCHEMA) ?
 					 generate_relation_name(ev_class, NIL) :
 					 generate_qualified_relation_name(ev_class));
 
-	/* If the rule has an event qualification, add it */
+	/* 若规则有事件条件，则把它加上 */
 	if (strcmp(ev_qual, "<>") != 0)
 	{
 		Node	   *qual;
@@ -5250,20 +5250,20 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 		qual = stringToNode(ev_qual);
 
 		/*
-		 * We need to make a context for recognizing any Vars in the qual
-		 * (which can only be references to OLD and NEW).  Use the rtable of
-		 * the first query in the action list for this purpose.
+		 * 我们需要构造上下文来识别条件里的任何 Var
+		 * （它们只能是对 OLD 和 NEW 的引用）。为此使用
+		 * 动作列表中第一个查询的 rtable。
 		 */
 		query = (Query *) linitial(actions);
 
 		/*
-		 * If the action is INSERT...SELECT, OLD/NEW have been pushed down
-		 * into the SELECT, and that's what we need to look at. (Ugly kluge
-		 * ... try to fix this when we redesign querytrees.)
+		 * 若动作是 INSERT...SELECT，则 OLD/NEW 已被下推进
+		 * SELECT，我们要看的正是它。（丑陋的权宜之计
+		 * 待重新设计查询树时再修好。）
 		 */
 		query = getInsertSelectQuery(query, NULL);
 
-		/* Must acquire locks right away; see notes in get_query_def() */
+		/* 必须立刻获取锁；参见 get_query_def() 中的说明 */
 		AcquireRewriteLocks(query, false, false);
 
 		context.buf = buf;
@@ -5287,11 +5287,11 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 
 	appendStringInfoString(buf, " DO ");
 
-	/* The INSTEAD keyword (if so) */
+	/*INSTEAD 关键字（如是）*/
 	if (is_instead)
 		appendStringInfoString(buf, "INSTEAD ");
 
-	/* Finally the rules actions */
+	/* 最后是规则动作 */
 	if (list_length(actions) > 1)
 	{
 		ListCell   *action;
@@ -5325,8 +5325,8 @@ make_ruledef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 
 
 /* ----------
- * make_viewdef			- reconstruct the SELECT part of a
- *				  view rewrite rule
+ * make_viewdef			- 重建视图重写规则的
+ *				  SELECT 部分
  * ----------
  */
 static void
@@ -5346,7 +5346,7 @@ make_viewdef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 	bool		isnull;
 
 	/*
-	 * Get the attribute values from the rules tuple
+	 * 从规则元组取得属性值
 	 */
 	fno = SPI_fnumber(rulettc, "ev_type");
 	dat = SPI_getbinval(ruletup, rulettc, fno, &isnull);
@@ -5374,7 +5374,7 @@ make_viewdef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 
 	if (list_length(actions) != 1)
 	{
-		/* keep output buffer empty and leave */
+		/*保持输出缓冲区为空并返回*/
 		return;
 	}
 
@@ -5383,7 +5383,7 @@ make_viewdef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 	if (ev_type != '1' || !is_instead ||
 		strcmp(ev_qual, "<>") != 0 || query->commandType != CMD_SELECT)
 	{
-		/* keep output buffer empty and leave */
+		/*保持输出缓冲区为空并返回*/
 		return;
 	}
 
@@ -5398,20 +5398,20 @@ make_viewdef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 
 
 /* ----------
- * get_query_def			- Parse back one query parsetree
+ * get_query_def			- 反解析查询解析树
  *
- * query: parsetree to be displayed
- * buf: output text is appended to buf
- * parentnamespace: list (initially empty) of outer-level deparse_namespace's
- * resultDesc: if not NULL, the output tuple descriptor for the view
- *		represented by a SELECT query.  We use the column names from it
- *		to label SELECT output columns, in preference to names in the query
- * colNamesVisible: true if the surrounding context cares about the output
- *		column names at all (as, for example, an EXISTS() context does not);
- *		when false, we can suppress dummy column labels such as "?column?"
- * prettyFlags: bitmask of PRETTYFLAG_XXX options
- * wrapColumn: maximum line length, or -1 to disable wrapping
- * startIndent: initial indentation amount
+ * query：待显示的解析树
+ * buf：输出文本追加到 buf
+ * parentnamespace：外层 deparse_namespace 的列表（初始时为空）
+ * resultDesc：若非 NULL，则视图（由 SELECT 查询表示）
+ *		的输出元组描述符。我们使用其中的列名来
+ *		标记 SELECT 输出列，优先于查询中的名字
+ * colNamesVisible：若外围上下文关心输出列名则为
+ *		真（例如 EXISTS() 上下文就不关心）；为假时我们
+ *		可省略 "?column?" 这类哑列标签。
+ * prettyFlags：PRETTYFLAG_XXX 选项位掩码
+ * wrapColumn：最大行宽，-1 表示禁止换行
+ * startIndent：初始缩进量
  * ----------
  */
 static void
@@ -5422,18 +5422,18 @@ get_query_def(Query *query, StringInfo buf, List *parentnamespace,
 	deparse_context context;
 	deparse_namespace dpns;
 
-	/* Guard against excessively long or deeply-nested queries */
+	/* 防范过长或嵌套过深的查询 */
 	CHECK_FOR_INTERRUPTS();
 	check_stack_depth();
 
 	/*
-	 * Before we begin to examine the query, acquire locks on referenced
-	 * relations, and fix up deleted columns in JOIN RTEs.  This ensures
-	 * consistent results.  Note we assume it's OK to scribble on the passed
-	 * querytree!
+	 * 在检查查询之前，先给被引用关系加锁，并修复
+	 * JOIN RTE 中已删除的列。这保证结果一致。注意我
+	 * 们假定可以直接涂改传入的查询树！
 	 *
-	 * We are only deparsing the query (we are not about to execute it), so we
-	 * only need AccessShareLock on the relations it mentions.
+	 *
+	 * 我们只是反解析查询（不会执行它），所以只需
+	 * 要它所提到关系上的 AccessShareLock。
 	 */
 	AcquireRewriteLocks(query, false, false);
 
@@ -5457,7 +5457,7 @@ get_query_def(Query *query, StringInfo buf, List *parentnamespace,
 	switch (query->commandType)
 	{
 		case CMD_SELECT:
-			/* We set context.resultDesc only if it's a SELECT */
+			/* 仅当是 SELECT 时才设置 context.resultDesc*/
 			context.resultDesc = resultDesc;
 			get_select_query_def(query, &context);
 			break;
@@ -5494,7 +5494,7 @@ get_query_def(Query *query, StringInfo buf, List *parentnamespace,
 }
 
 /* ----------
- * get_values_def			- Parse back a VALUES list
+ * get_values_def			- 反解析 VALUES 列表
  * ----------
  */
 static void
@@ -5528,7 +5528,7 @@ get_values_def(List *values_lists, deparse_context *context)
 				appendStringInfoChar(buf, ',');
 
 			/*
-			 * Print the value.  Whole-row Vars need special treatment.
+			 * 打印该值。整行 Var 需要特殊处理。
 			 */
 			get_rule_expr_toplevel(col, context, false);
 		}
@@ -5537,7 +5537,7 @@ get_values_def(List *values_lists, deparse_context *context)
 }
 
 /* ----------
- * get_with_clause			- Parse back a WITH clause
+ * get_with_clause			- 反解析 WITH 子句
  * ----------
  */
 static void
@@ -5676,7 +5676,7 @@ get_with_clause(Query *query, deparse_context *context)
 }
 
 /* ----------
- * get_select_query_def			- Parse back a SELECT parsetree
+ * get_select_query_def			- 反解析 SELECT 解析树
  * ----------
  */
 static void
@@ -5686,22 +5686,22 @@ get_select_query_def(Query *query, deparse_context *context)
 	bool		force_colno;
 	ListCell   *l;
 
-	/* Insert the WITH clause if given */
+	/* 若有 WITH 子句则插入 */
 	get_with_clause(query, context);
 
-	/* Subroutines may need to consult the SELECT targetlist and windowClause */
+	/* 子例程可能需要查阅 SELECT 目标列表与 windowClause */
 	context->targetList = query->targetList;
 	context->windowClause = query->windowClause;
 
 	/*
-	 * If the Query node has a setOperations tree, then it's the top level of
-	 * a UNION/INTERSECT/EXCEPT query; only the WITH, ORDER BY and LIMIT
-	 * fields are interesting in the top query itself.
+	 * 若 Query 节点有 setOperations 树，则它是
+	 * UNION/INTERSECT/EXCEPT 查询的顶层；此时顶层查询
+	 * 本身仅 WITH、ORDER BY、LIMIT 有意义。
 	 */
 	if (query->setOperations)
 	{
 		get_setop_query(query->setOperations, query, context);
-		/* ORDER BY clauses must be simple in this case */
+		/* 此时 ORDER BY 子句必须简单 */
 		force_colno = true;
 	}
 	else
@@ -5710,7 +5710,7 @@ get_select_query_def(Query *query, deparse_context *context)
 		force_colno = false;
 	}
 
-	/* Add the ORDER BY clause if given */
+	/* 若有 ORDER BY 子句则添加 */
 	if (query->sortClause != NIL)
 	{
 		appendContextKeyword(context, " ORDER BY ",
@@ -5720,8 +5720,8 @@ get_select_query_def(Query *query, deparse_context *context)
 	}
 
 	/*
-	 * Add the LIMIT/OFFSET clauses if given. If non-default options, use the
-	 * standard spelling of LIMIT.
+	 * 若有 LIMIT/OFFSET 子句则添加。若非默认选项，则使用
+	 * LIMIT 的标准拼写。
 	 */
 	if (query->limitOffset != NULL)
 	{
@@ -5734,12 +5734,12 @@ get_select_query_def(Query *query, deparse_context *context)
 		if (query->limitOption == LIMIT_OPTION_WITH_TIES)
 		{
 			/*
-			 * The limitCount arg is a c_expr, so it needs parens. Simple
-			 * literals and function expressions would not need parens, but
-			 * unfortunately it's hard to tell if the expression will be
-			 * printed as a simple literal like 123 or as a typecast
-			 * expression, like '-123'::int4. The grammar accepts the former
-			 * without quoting, but not the latter.
+			 * limitCount 参数是 c_expr，所以需要括号。简单
+			 * 字面量与函数表达式本不需要括号，但
+			 * 遗憾的是，难断定表达式打印成形如 123 的
+			 * 简单字面量，还是 '-123'::int4 型转换
+			 * 表达式。文法接受前者不带引号的形式，但后
+			 * 者不行。
 			 */
 			appendContextKeyword(context, " FETCH FIRST ",
 								 -PRETTYINDENT_STD, PRETTYINDENT_STD, 0);
@@ -5760,21 +5760,21 @@ get_select_query_def(Query *query, deparse_context *context)
 		}
 	}
 
-	/* Add FOR [KEY] UPDATE/SHARE clauses if present */
+	/* 若有 FOR [KEY] UPDATE/SHARE 子句则添加 */
 	if (query->hasForUpdate)
 	{
 		foreach(l, query->rowMarks)
 		{
 			RowMarkClause *rc = (RowMarkClause *) lfirst(l);
 
-			/* don't print implicit clauses */
+			/* 不打印隐式子句 */
 			if (rc->pushedDown)
 				continue;
 
 			switch (rc->strength)
 			{
 				case LCS_NONE:
-					/* we intentionally throw an error for LCS_NONE */
+					/* 对 LCS_NONE 我们有意抛出错误 */
 					elog(ERROR, "unrecognized LockClauseStrength %d",
 						 (int) rc->strength);
 					break;
@@ -5808,9 +5808,9 @@ get_select_query_def(Query *query, deparse_context *context)
 }
 
 /*
- * Detect whether query looks like SELECT ... FROM VALUES(),
- * with no need to rename the output columns of the VALUES RTE.
- * If so, return the VALUES RTE.  Otherwise return NULL.
+ * 检测查询是否形如 SELECT ... FROM VALUES()，
+ * 且无需重命名 VALUES RTE 的输出列。
+ * 若是则返回 VALUES RTE，否则返回 NULL。
  */
 static RangeTblEntry *
 get_simple_values_rte(Query *query, TupleDesc resultDesc)
@@ -5819,9 +5819,9 @@ get_simple_values_rte(Query *query, TupleDesc resultDesc)
 	ListCell   *lc;
 
 	/*
-	 * We want to detect a match even if the Query also contains OLD or NEW
-	 * rule RTEs.  So the idea is to scan the rtable and see if there is only
-	 * one inFromCl RTE that is a VALUES RTE.
+	 * 即使 Query 还包含 OLD 或 NEW 规则 RTE，我们也想
+	 * 检测到匹配。所以思路是扫描 rtable，看是否只有
+	 * 一个 inFromCl 且是 VALUES RTE。
 	 */
 	foreach(lc, query->rtable)
 	{
@@ -5830,23 +5830,23 @@ get_simple_values_rte(Query *query, TupleDesc resultDesc)
 		if (rte->rtekind == RTE_VALUES && rte->inFromCl)
 		{
 			if (result)
-				return NULL;	/* multiple VALUES (probably not possible) */
+				return NULL;	/* 多个 VALUES（多半不可能） */
 			result = rte;
 		}
 		else if (rte->rtekind == RTE_RELATION && !rte->inFromCl)
-			continue;			/* ignore rule entries */
+			continue;			/* 忽略规则项 */
 		else
-			return NULL;		/* something else -> not simple VALUES */
+			return NULL;		/* 别的 -> 非简单 VALUES */
 	}
 
 	/*
-	 * We don't need to check the targetlist in any great detail, because
-	 * parser/analyze.c will never generate a "bare" VALUES RTE --- they only
-	 * appear inside auto-generated sub-queries with very restricted
-	 * structure.  However, DefineView might have modified the tlist by
-	 * injecting new column aliases, or we might have some other column
-	 * aliases forced by a resultDesc.  We can only simplify if the RTE's
-	 * column names match the names that get_target_list() would select.
+	 * 我们无需过细地检查目标列表，因为
+	 * parser/analyze.c 永远不会生成 "bare" VALUES RTE ---
+	 * 它们只出现在结构受限的自动生成子查询中。
+	 * 但 DefineView 可能已通过注入新列别名改动了 tlist
+	 * 或 resultDesc 强加了别的列别名。只有当 RTE 的
+	 *
+	 * 列名与 get_target_list() 会选的名字一致才能简化。
 	 */
 	if (result)
 	{
@@ -5854,7 +5854,7 @@ get_simple_values_rte(Query *query, TupleDesc resultDesc)
 		int			colno;
 
 		if (list_length(query->targetList) != list_length(result->eref->colnames))
-			return NULL;		/* this probably cannot happen */
+			return NULL;		/* 这多半不会发生 */
 		colno = 0;
 		forboth(lc, query->targetList, lcn, result->eref->colnames)
 		{
@@ -5863,18 +5863,18 @@ get_simple_values_rte(Query *query, TupleDesc resultDesc)
 			char	   *colname;
 
 			if (tle->resjunk)
-				return NULL;	/* this probably cannot happen */
+				return NULL;	/* 这多半不会发生 */
 
-			/* compute name that get_target_list would use for column */
+			/* 计算 get_target_list 会为该列使用的名字 */
 			colno++;
 			if (resultDesc && colno <= resultDesc->natts)
 				colname = NameStr(TupleDescAttr(resultDesc, colno - 1)->attname);
 			else
 				colname = tle->resname;
 
-			/* does it match the VALUES RTE? */
+			/* 它与 VALUES RTE 匹配吗？*/
 			if (colname == NULL || strcmp(colname, cname) != 0)
-				return NULL;	/* column name has been changed */
+				return NULL;	/* 列名已被改动 */
 		}
 	}
 
@@ -5896,9 +5896,9 @@ get_basic_select_query(Query *query, deparse_context *context)
 	}
 
 	/*
-	 * If the query looks like SELECT * FROM (VALUES ...), then print just the
-	 * VALUES part.  This reverses what transformValuesClause() did at parse
-	 * time.
+	 * 若查询形如 SELECT * FROM (VALUES ...)，则只打印
+	 * VALUES 部分。这逆转 transformValuesClause() 在解析时所做的
+	 *
 	 */
 	values_rte = get_simple_values_rte(query, context->resultDesc);
 	if (values_rte)
@@ -5908,14 +5908,14 @@ get_basic_select_query(Query *query, deparse_context *context)
 	}
 
 	/*
-	 * Build up the query string - first we say SELECT
+	 * 开始构建查询字符串 - 首先写 SELECT
 	 */
 	if (query->isReturn)
 		appendStringInfoString(buf, "RETURN");
 	else
 		appendStringInfoString(buf, "SELECT");
 
-	/* Add the DISTINCT clause if given */
+	/* 若有 DISTINCT 子句则添加 */
 	if (query->distinctClause != NIL)
 	{
 		if (query->hasDistinctOn)
@@ -5937,13 +5937,13 @@ get_basic_select_query(Query *query, deparse_context *context)
 			appendStringInfoString(buf, " DISTINCT");
 	}
 
-	/* Then we tell what to select (the targetlist) */
+	/* 然后说明选择什么（目标列表） */
 	get_target_list(query->targetList, context);
 
-	/* Add the FROM clause if needed */
+	/* 如需要则添加 FROM 子句*/
 	get_from_clause(query, " FROM ", context);
 
-	/* Add the WHERE clause if given */
+	/* 若有 WHERE 子句则添加 */
 	if (query->jointree->quals != NULL)
 	{
 		appendContextKeyword(context, " WHERE ",
@@ -5951,7 +5951,7 @@ get_basic_select_query(Query *query, deparse_context *context)
 		get_rule_expr(query->jointree->quals, context, false);
 	}
 
-	/* Add the GROUP BY clause if given */
+	/* 若有 GROUP BY 子句则添加 */
 	if (query->groupClause != NULL || query->groupingSets != NULL)
 	{
 		bool		save_ingroupby;
@@ -5993,7 +5993,7 @@ get_basic_select_query(Query *query, deparse_context *context)
 		context->inGroupBy = save_ingroupby;
 	}
 
-	/* Add the HAVING clause if given */
+	/* 若有 HAVING 子句则添加 */
 	if (query->havingQual != NULL)
 	{
 		appendContextKeyword(context, " HAVING ",
@@ -6001,15 +6001,15 @@ get_basic_select_query(Query *query, deparse_context *context)
 		get_rule_expr(query->havingQual, context, false);
 	}
 
-	/* Add the WINDOW clause if needed */
+	/* 如需要则添加 WINDOW 子句*/
 	if (query->windowClause != NIL)
 		get_rule_windowclause(query, context);
 }
 
 /* ----------
- * get_target_list			- Parse back a SELECT target list
+ * get_target_list			- 反解析 SELECT 目标列表
  *
- * This is also used for RETURNING lists in INSERT/UPDATE/DELETE.
+ * 也用于 INSERT/UPDATE/DELETE 的 RETURNING 列表。
  * ----------
  */
 static void
@@ -6022,7 +6022,7 @@ get_target_list(List *targetList, deparse_context *context)
 	int			colno;
 	ListCell   *l;
 
-	/* we use targetbuf to hold each TLE's text temporarily */
+	/* 我们用 targetbuf 暂时存放每个 TLE 的文本 */
 	initStringInfo(&targetbuf);
 
 	sep = " ";
@@ -6034,28 +6034,28 @@ get_target_list(List *targetList, deparse_context *context)
 		char	   *attname;
 
 		if (tle->resjunk)
-			continue;			/* ignore junk entries */
+			continue;			/* 忽略垃圾项 */
 
 		appendStringInfoString(buf, sep);
 		sep = ", ";
 		colno++;
 
 		/*
-		 * Put the new field text into targetbuf so we can decide after we've
-		 * got it whether or not it needs to go on a new line.
+		 * 把新字段文本放入 targetbuf，以便在取得它后再决
+		 * 定它是否需要另起一行。
 		 */
 		resetStringInfo(&targetbuf);
 		context->buf = &targetbuf;
 
 		/*
-		 * We special-case Var nodes rather than using get_rule_expr. This is
-		 * needed because get_rule_expr will display a whole-row Var as
-		 * "foo.*", which is the preferred notation in most contexts, but at
-		 * the top level of a SELECT list it's not right (the parser will
-		 * expand that notation into multiple columns, yielding behavior
-		 * different from a whole-row Var).  We need to call get_variable
-		 * directly so that we can tell it to do the right thing, and so that
-		 * we can get the attribute name which is the default AS label.
+		 * 我们特殊处理 Var 节点而不使用 get_rule_expr。这是
+		 * 因为 get_rule_expr 会把整行 Var 显示成 "foo.*"，
+		 * 这在多数上下文中是首选记法，但在 SELECT 列表的
+		 * 顶层却不行（解析器会把它展开成多列，产生
+		 * 与整行 Var 不同的行为）。
+		 * 我们需要直接调用 get_variable，好让它
+		 * 做正确的事，也让我们能取得作为默认 AS 标签的
+		 * 属性名。
 		 */
 		if (tle->expr && (IsA(tle->expr, Var)))
 		{
@@ -6066,18 +6066,18 @@ get_target_list(List *targetList, deparse_context *context)
 			get_rule_expr((Node *) tle->expr, context, true);
 
 			/*
-			 * When colNamesVisible is true, we should always show the
-			 * assigned column name explicitly.  Otherwise, show it only if
-			 * it's not FigureColname's fallback.
+			 * 当 colNamesVisible 为真时，我们总应显式
+			 * 显示已分配的列名。否则，仅当名字不是
+			 * FigureColname 兜底时显示。
 			 */
 			attname = context->colNamesVisible ? NULL : "?column?";
 		}
 
 		/*
-		 * Figure out what the result column should be called.  In the context
-		 * of a view, use the view's tuple descriptor (so as to pick up the
-		 * effects of any column RENAME that's been done on the view).
-		 * Otherwise, just use what we can find in the TLE.
+		 * 弄清结果列应该叫什么。在视图的上下文中，
+		 * 使用视图的元组描述符（以便体现对视图做过的
+		 * 任何列 RENAME 的效果）。
+		 * 否则就直接使用能从 TLE 中找到的。
 		 */
 		if (context->resultDesc && colno <= context->resultDesc->natts)
 			colname = NameStr(TupleDescAttr(context->resultDesc,
@@ -6085,38 +6085,38 @@ get_target_list(List *targetList, deparse_context *context)
 		else
 			colname = tle->resname;
 
-		/* Show AS unless the column's name is correct as-is */
-		if (colname)			/* resname could be NULL */
+		/* 除非列名本来就正确，否则显示 AS */
+		if (colname)			/* resname 可空 */
 		{
 			if (attname == NULL || strcmp(attname, colname) != 0)
 				appendStringInfo(&targetbuf, " AS %s", quote_identifier(colname));
 		}
 
-		/* Restore context's output buffer */
+		/*恢复上下文的输出缓冲区*/
 		context->buf = buf;
 
-		/* Consider line-wrapping if enabled */
+		/* 若启用则考虑换行 */
 		if (PRETTY_INDENT(context) && context->wrapColumn >= 0)
 		{
 			int			leading_nl_pos;
 
-			/* Does the new field start with a new line? */
+			/* 新字段是否以新行开始？ */
 			if (targetbuf.len > 0 && targetbuf.data[0] == '\n')
 				leading_nl_pos = 0;
 			else
 				leading_nl_pos = -1;
 
-			/* If so, we shouldn't add anything */
+			/* 若是，则不应再加东西 */
 			if (leading_nl_pos >= 0)
 			{
-				/* instead, remove any trailing spaces currently in buf */
+				/* 而是去掉 buf 中现有的尾部空格 */
 				removeStringInfoSpaces(buf);
 			}
 			else
 			{
 				char	   *trailing_nl;
 
-				/* Locate the start of the current line in the output buffer */
+				/* 在输出缓冲区中定位当前行的起点 */
 				trailing_nl = strrchr(buf->data, '\n');
 				if (trailing_nl == NULL)
 					trailing_nl = buf->data;
@@ -6124,9 +6124,9 @@ get_target_list(List *targetList, deparse_context *context)
 					trailing_nl++;
 
 				/*
-				 * Add a newline, plus some indentation, if the new field is
-				 * not the first and either the new field would cause an
-				 * overflow or the last field used more than one line.
+				 * 若新字段不是第一个，且新字段会致溢出，
+				 * 或上一字段占多行，则加换行与缩进。
+				 *
 				 */
 				if (colno > 1 &&
 					((strlen(trailing_nl) + targetbuf.len > context->wrapColumn) ||
@@ -6135,16 +6135,16 @@ get_target_list(List *targetList, deparse_context *context)
 										 PRETTYINDENT_STD, PRETTYINDENT_VAR);
 			}
 
-			/* Remember this field's multiline status for next iteration */
+			/* 记住本字段的多行状态供下次迭代使用 */
 			last_was_multiline =
 				(strchr(targetbuf.data + leading_nl_pos + 1, '\n') != NULL);
 		}
 
-		/* Add the new field */
+		/* 添加新字段 */
 		appendBinaryStringInfo(buf, targetbuf.data, targetbuf.len);
 	}
 
-	/* clean up */
+	/* 清理 */
 	pfree(targetbuf.data);
 }
 
@@ -6154,7 +6154,7 @@ get_setop_query(Node *setOp, Query *query, deparse_context *context)
 	StringInfo	buf = context->buf;
 	bool		need_paren;
 
-	/* Guard against excessively long or deeply-nested queries */
+	/* 防范过长或嵌套过深的查询 */
 	CHECK_FOR_INTERRUPTS();
 	check_stack_depth();
 
@@ -6167,10 +6167,10 @@ get_setop_query(Node *setOp, Query *query, deparse_context *context)
 		Assert(subquery != NULL);
 
 		/*
-		 * We need parens if WITH, ORDER BY, FOR UPDATE, or LIMIT; see gram.y.
-		 * Also add parens if the leaf query contains its own set operations.
-		 * (That shouldn't happen unless one of the other clauses is also
-		 * present, see transformSetOperationTree; but let's be safe.)
+		 * 若有 WITH、ORDER BY、FOR UPDATE 或 LIMIT 则需要
+		 * 括号（见 gram.y）。叶子查询自身含集合操作时要
+		 * 括号。（除非其他子句在场，否则不应出现这
+		 * 情况，见 transformSetOperationTree；但求稳。）
 		 */
 		need_paren = (subquery->cteList ||
 					  subquery->sortClause ||
@@ -6194,15 +6194,15 @@ get_setop_query(Node *setOp, Query *query, deparse_context *context)
 		bool		save_colnamesvisible;
 
 		/*
-		 * We force parens when nesting two SetOperationStmts, except when the
-		 * lefthand input is another setop of the same kind.  Syntactically,
-		 * we could omit parens in rather more cases, but it seems best to use
-		 * parens to flag cases where the setop operator changes.  If we use
-		 * parens, we also increase the indentation level for the child query.
+		 * 嵌套两个 SetOperationStmt 时我们强制加括号，除非
+		 * 左输入是同类 setop。从语法上说，我们本可以在
+		 * 更多情形下省略括号，但最好还是用括号来标记
+		 * 集合操作算子变化的情形。若我们用了括号，还
+		 * 会同时增加子查询的缩进级别。
 		 *
-		 * There are some cases in which parens are needed around a leaf query
-		 * too, but those are more easily handled at the next level down (see
-		 * code above).
+		 * 还有些情形需要对叶子查询也加括号，但这些在
+		 * 下一层处理更方便（见上面代码）。
+		 *
 		 */
 		if (IsA(op->larg, SetOperationStmt))
 		{
@@ -6252,13 +6252,13 @@ get_setop_query(Node *setOp, Query *query, deparse_context *context)
 		if (op->all)
 			appendStringInfoString(buf, "ALL ");
 
-		/* Always parenthesize if RHS is another setop */
+		/* 若 RHS 是另一 setop 则总是加括号 */
 		need_paren = IsA(op->rarg, SetOperationStmt);
 
 		/*
-		 * The indentation code here is deliberately a bit different from that
-		 * for the lefthand input, because we want the line breaks in
-		 * different places.
+		 * 这里的缩进代码有意与左输入的缩进代码略有
+		 * 不同，因为我们希望换行出现在不同位置。
+		 *
 		 */
 		if (need_paren)
 		{
@@ -6270,7 +6270,7 @@ get_setop_query(Node *setOp, Query *query, deparse_context *context)
 		appendContextKeyword(context, "", subindent, 0, 0);
 
 		/*
-		 * The output column names of the RHS sub-select don't matter.
+		 * RHS 子选择的输出列名无关紧要。
 		 */
 		save_colnamesvisible = context->colNamesVisible;
 		context->colNamesVisible = false;
@@ -6292,9 +6292,9 @@ get_setop_query(Node *setOp, Query *query, deparse_context *context)
 }
 
 /*
- * Display a sort/group clause.
+ * 显示排序/分组子句。
  *
- * Also returns the expression tree, so caller need not find it again.
+ * 同时返回表达式树，调用方无需再找一遍。
  */
 static Node *
 get_rule_sortgroupclause(Index ref, List *tlist, bool force_colno,
@@ -6308,16 +6308,16 @@ get_rule_sortgroupclause(Index ref, List *tlist, bool force_colno,
 	expr = (Node *) tle->expr;
 
 	/*
-	 * Use column-number form if requested by caller.  Otherwise, if
-	 * expression is a constant, force it to be dumped with an explicit cast
-	 * as decoration --- this is because a simple integer constant is
-	 * ambiguous (and will be misinterpreted by findTargetlistEntrySQL92()) if
-	 * we dump it without any decoration.  Similarly, if it's just a Var,
-	 * there is risk of misinterpretation if the column name is reassigned in
-	 * the SELECT list, so we may need to force table qualification.  And, if
-	 * it's anything more complex than a simple Var, then force extra parens
-	 * around it, to ensure it can't be misinterpreted as a cube() or rollup()
-	 * construct.
+	 * 若调用方要求则用列号形式。否则，若表达式是
+	 * 常量，则强制以显式类型转换修饰来输出 --- 因为
+	 * 简单整数常量若不加任何修饰输出会有歧义
+	 * （并且会被 findTargetlistEntrySQL92() 误解），如果我们
+	 * 不加修饰地输出它。类似地，如果它只是 Var，
+	 * 那么若列名在 SELECT 列表中被重新指派，也有被误
+	 * 解的风险，所以可能需要强制表限定。还有，如果
+	 * 它比简单 Var 更复杂，则强制在其周围加额外括号，
+	 * 以确保它不会被误解为 cube() 或 rollup() 结构。
+	 *
 	 */
 	if (force_colno)
 	{
@@ -6325,12 +6325,12 @@ get_rule_sortgroupclause(Index ref, List *tlist, bool force_colno,
 		appendStringInfo(buf, "%d", tle->resno);
 	}
 	else if (!expr)
-		 /* do nothing, probably can't happen */ ;
+		 /* 什么都不做，多半不可能 */ ;
 	else if (IsA(expr, Const))
 		get_const_expr((Const *) expr, context, 1);
 	else if (IsA(expr, Var))
 	{
-		/* Tell get_variable to check for name conflict */
+		/* 让 get_variable 检查名字冲突 */
 		bool		save_varinorderby = context->varInOrderBy;
 
 		context->varInOrderBy = true;
@@ -6340,11 +6340,11 @@ get_rule_sortgroupclause(Index ref, List *tlist, bool force_colno,
 	else
 	{
 		/*
-		 * We must force parens for function-like expressions even if
-		 * PRETTY_PAREN is off, since those are the ones in danger of
-		 * misparsing. For other expressions we need to force them only if
-		 * PRETTY_PAREN is on, since otherwise the expression will output them
-		 * itself. (We can't skip the parens.)
+		 * 对类函数表达式我们必须强制加括号，即使
+		 * PRETTY_PAREN 关闭也得加，因其正是有误读危
+		 * 险的表达式。对其他表达式，仅当 PRETTY_PAREN
+		 * 开启时才需强制，否则表达式自己会输出括号。
+		 * （括号不能省。）
 		 */
 		bool		need_paren = (PRETTY_PAREN(context)
 								  || IsA(expr, FuncExpr)
@@ -6363,7 +6363,7 @@ get_rule_sortgroupclause(Index ref, List *tlist, bool force_colno,
 }
 
 /*
- * Display a GroupingSet
+ * 显示 GroupingSet
  */
 static void
 get_rule_groupingset(GroupingSet *gset, List *targetlist,
@@ -6423,7 +6423,7 @@ get_rule_groupingset(GroupingSet *gset, List *targetlist,
 }
 
 /*
- * Display an ORDER BY list.
+ * 显示 ORDER BY 列表。
  */
 static void
 get_rule_orderby(List *orderList, List *targetList,
@@ -6445,19 +6445,19 @@ get_rule_orderby(List *orderList, List *targetList,
 		sortexpr = get_rule_sortgroupclause(srt->tleSortGroupRef, targetList,
 											force_colno, context);
 		sortcoltype = exprType(sortexpr);
-		/* See whether operator is default < or > for datatype */
+		/* 查看操作符是否为该类型的默认 < 或 > */
 		typentry = lookup_type_cache(sortcoltype,
 									 TYPECACHE_LT_OPR | TYPECACHE_GT_OPR);
 		if (srt->sortop == typentry->lt_opr)
 		{
-			/* ASC is default, so emit nothing for it */
+			/*ASC 是默认，故不输出任何内容*/
 			if (srt->nulls_first)
 				appendStringInfoString(buf, " NULLS FIRST");
 		}
 		else if (srt->sortop == typentry->gt_opr)
 		{
 			appendStringInfoString(buf, " DESC");
-			/* DESC defaults to NULLS FIRST */
+			/* DESC 默认为 NULLS FIRST */
 			if (!srt->nulls_first)
 				appendStringInfoString(buf, " NULLS LAST");
 		}
@@ -6467,7 +6467,7 @@ get_rule_orderby(List *orderList, List *targetList,
 							 generate_operator_name(srt->sortop,
 													sortcoltype,
 													sortcoltype));
-			/* be specific to eliminate ambiguity */
+			/* 明确指定以消除歧义 */
 			if (srt->nulls_first)
 				appendStringInfoString(buf, " NULLS FIRST");
 			else
@@ -6478,10 +6478,10 @@ get_rule_orderby(List *orderList, List *targetList,
 }
 
 /*
- * Display a WINDOW clause.
+ * 显示 WINDOW 子句。
  *
- * Note that the windowClause list might contain only anonymous window
- * specifications, in which case we should print nothing here.
+ * 注意 windowClause 列表可能只含匿名窗口定义，
+ * 此时这里应什么都不打印。
  */
 static void
 get_rule_windowclause(Query *query, deparse_context *context)
@@ -6496,7 +6496,7 @@ get_rule_windowclause(Query *query, deparse_context *context)
 		WindowClause *wc = (WindowClause *) lfirst(l);
 
 		if (wc->name == NULL)
-			continue;			/* ignore anonymous windows */
+			continue;			/* 忽略匿名窗口 */
 
 		if (sep == NULL)
 			appendContextKeyword(context, " WINDOW ",
@@ -6513,7 +6513,7 @@ get_rule_windowclause(Query *query, deparse_context *context)
 }
 
 /*
- * Display a window definition
+ * 显示窗口定义
  */
 static void
 get_rule_windowspec(WindowClause *wc, List *targetList,
@@ -6530,7 +6530,7 @@ get_rule_windowspec(WindowClause *wc, List *targetList,
 		appendStringInfoString(buf, quote_identifier(wc->refname));
 		needspace = true;
 	}
-	/* partition clauses are always inherited, so only print if no refname */
+	/* 分区子句总是被继承，所以只在无 refname 时打印 */
 	if (wc->partitionClause && !wc->refname)
 	{
 		if (needspace)
@@ -6548,7 +6548,7 @@ get_rule_windowspec(WindowClause *wc, List *targetList,
 		}
 		needspace = true;
 	}
-	/* print ordering clause only if not inherited */
+	/* 仅在不被继承时才打印排序子句 */
 	if (wc->orderClause && !wc->copiedOrder)
 	{
 		if (needspace)
@@ -6557,7 +6557,7 @@ get_rule_windowspec(WindowClause *wc, List *targetList,
 		get_rule_orderby(wc->orderClause, targetList, false, context);
 		needspace = true;
 	}
-	/* framing clause is never inherited, so print unless it's default */
+	/* 帧子句从不被继承，故除非是默认否则都打印 */
 	if (wc->frameOptions & FRAMEOPTION_NONDEFAULT)
 	{
 		if (needspace)
@@ -6614,14 +6614,14 @@ get_rule_windowspec(WindowClause *wc, List *targetList,
 			appendStringInfoString(buf, "EXCLUDE GROUP ");
 		else if (wc->frameOptions & FRAMEOPTION_EXCLUDE_TIES)
 			appendStringInfoString(buf, "EXCLUDE TIES ");
-		/* we will now have a trailing space; remove it */
+		/* 现在末尾会有一个空格；把它去掉*/
 		buf->len--;
 	}
 	appendStringInfoChar(buf, ')');
 }
 
 /* ----------
- * get_insert_query_def			- Parse back an INSERT parsetree
+ * get_insert_query_def			- 反解析 INSERT 解析树
  * ----------
  */
 static void
@@ -6635,12 +6635,12 @@ get_insert_query_def(Query *query, deparse_context *context)
 	ListCell   *l;
 	List	   *strippedexprs;
 
-	/* Insert the WITH clause if given */
+	/* 若有 WITH 子句则插入 */
 	get_with_clause(query, context);
 
 	/*
-	 * If it's an INSERT ... SELECT or multi-row VALUES, there will be a
-	 * single RTE for the SELECT or VALUES.  Plain VALUES has neither.
+	 * 若是 INSERT ... SELECT 或多行 VALUES，则会有一
+	 * 个 SELECT 或 VALUES 的 RTE。纯 VALUES 则两者皆无
 	 */
 	foreach(l, query->rtable)
 	{
@@ -6664,7 +6664,7 @@ get_insert_query_def(Query *query, deparse_context *context)
 		elog(ERROR, "both subquery and values RTEs in INSERT");
 
 	/*
-	 * Start the query with INSERT INTO relname
+	 * 查询以 INSERT INTO relname 开头
 	 */
 	rte = rt_fetch(query->resultRelation, query->rtable);
 	Assert(rte->rtekind == RTE_RELATION);
@@ -6677,15 +6677,15 @@ get_insert_query_def(Query *query, deparse_context *context)
 	appendStringInfo(buf, "INSERT INTO %s",
 					 generate_relation_name(rte->relid, NIL));
 
-	/* Print the relation alias, if needed; INSERT requires explicit AS */
+	/* 如需要则打印关系别名；INSERT 要求显式 AS */
 	get_rte_alias(rte, query->resultRelation, true, context);
 
-	/* always want a space here */
+	/* 此处总要有空格 */
 	appendStringInfoChar(buf, ' ');
 
 	/*
-	 * Add the insert-column-names list.  Any indirection decoration needed on
-	 * the column names can be inferred from the top targetlist.
+	 * 添加插入列名列表。列名上所需的任何间接
+	 * 修饰都可以从顶层目标列表推断出来。
 	 */
 	strippedexprs = NIL;
 	sep = "";
@@ -6696,14 +6696,14 @@ get_insert_query_def(Query *query, deparse_context *context)
 		TargetEntry *tle = (TargetEntry *) lfirst(l);
 
 		if (tle->resjunk)
-			continue;			/* ignore junk entries */
+			continue;			/* 忽略垃圾项 */
 
 		appendStringInfoString(buf, sep);
 		sep = ", ";
 
 		/*
-		 * Put out name of target column; look in the catalogs, not at
-		 * tle->resname, since resname will fail to track RENAME.
+		 * 输出目标列的名字；查系统目录，而不是看
+		 * tle->resname，因为 resname 不会跟随 RENAME。
 		 */
 		appendStringInfoString(buf,
 							   quote_identifier(get_attname(rte->relid,
@@ -6711,12 +6711,12 @@ get_insert_query_def(Query *query, deparse_context *context)
 															false)));
 
 		/*
-		 * Print any indirection needed (subfields or subscripts), and strip
-		 * off the top-level nodes representing the indirection assignments.
-		 * Add the stripped expressions to strippedexprs.  (If it's a
-		 * single-VALUES statement, the stripped expressions are the VALUES to
-		 * print below.  Otherwise they're just Vars and not really
-		 * interesting.)
+		 * 打印所需的任何间接（子字段或下标），并剥掉
+		 * 代表间接赋值的顶层节点。
+		 * 把剥出的表达式加入 strippedexprs。
+		 * （若是 single-VALUES，剥出的表达式就是下面要打印
+		 * 的 VALUES；否则只是 Var，并非真的有趣。
+		 *
 		 */
 		strippedexprs = lappend(strippedexprs,
 								processIndirection((Node *) tle->expr,
@@ -6735,7 +6735,7 @@ get_insert_query_def(Query *query, deparse_context *context)
 
 	if (select_rte)
 	{
-		/* Add the SELECT */
+		/* 添加 SELECT */
 		get_query_def(select_rte->subquery, buf, context->namespaces, NULL,
 					  false,
 					  context->prettyFlags, context->wrapColumn,
@@ -6743,12 +6743,12 @@ get_insert_query_def(Query *query, deparse_context *context)
 	}
 	else if (values_rte)
 	{
-		/* Add the multi-VALUES expression lists */
+		/* 添加多 VALUES 表达式列表 */
 		get_values_def(values_rte->values_lists, context);
 	}
 	else if (strippedexprs)
 	{
-		/* Add the single-VALUES expression list */
+		/* 添加 single-VALUES 表达式列表 */
 		appendContextKeyword(context, "VALUES (",
 							 -PRETTYINDENT_STD, PRETTYINDENT_STD, 2);
 		get_rule_list_toplevel(strippedexprs, context, false);
@@ -6756,11 +6756,11 @@ get_insert_query_def(Query *query, deparse_context *context)
 	}
 	else
 	{
-		/* No expressions, so it must be DEFAULT VALUES */
+		/* 没有表达式，所以必是 DEFAULT VALUES*/
 		appendStringInfoString(buf, "DEFAULT VALUES");
 	}
 
-	/* Add ON CONFLICT if present */
+	/*若有 ON CONFLICT 则添加*/
 	if (query->onConflict)
 	{
 		OnConflictExpr *confl = query->onConflict;
@@ -6769,20 +6769,20 @@ get_insert_query_def(Query *query, deparse_context *context)
 
 		if (confl->arbiterElems)
 		{
-			/* Add the single-VALUES expression list */
+			/* 添加 single-VALUES 表达式列表 */
 			appendStringInfoChar(buf, '(');
 			get_rule_expr((Node *) confl->arbiterElems, context, false);
 			appendStringInfoChar(buf, ')');
 
-			/* Add a WHERE clause (for partial indexes) if given */
+			/* 若有 WHERE 子句（部分索引用）则添加 */
 			if (confl->arbiterWhere != NULL)
 			{
 				bool		save_varprefix;
 
 				/*
-				 * Force non-prefixing of Vars, since parser assumes that they
-				 * belong to target relation.  WHERE clause does not use
-				 * InferenceElem, so this is separately required.
+				 * 强制 Var 不带前缀，因为解析器假定它们属于
+				 * 目标关系。WHERE 子句不用 InferenceElem，
+				 * 所以这里需要单独处理。
 				 */
 				save_varprefix = context->varprefix;
 				context->varprefix = false;
@@ -6812,11 +6812,11 @@ get_insert_query_def(Query *query, deparse_context *context)
 		else
 		{
 			appendStringInfoString(buf, " DO UPDATE SET ");
-			/* Deparse targetlist */
+			/*反解析 targetlist*/
 			get_update_query_targetlist_def(query, confl->onConflictSet,
 											context, rte);
 
-			/* Add a WHERE clause if given */
+			/* 若有 WHERE 子句则添加*/
 			if (confl->onConflictWhere != NULL)
 			{
 				appendContextKeyword(context, " WHERE ",
@@ -6826,7 +6826,7 @@ get_insert_query_def(Query *query, deparse_context *context)
 		}
 	}
 
-	/* Add RETURNING if present */
+	/*若有 RETURNING 则添加*/
 	if (query->returningList)
 	{
 		appendContextKeyword(context, " RETURNING",
@@ -6837,7 +6837,7 @@ get_insert_query_def(Query *query, deparse_context *context)
 
 
 /* ----------
- * get_update_query_def			- Parse back an UPDATE parsetree
+ * get_update_query_def			- 反解析 UPDATE 解析树
  * ----------
  */
 static void
@@ -6846,11 +6846,11 @@ get_update_query_def(Query *query, deparse_context *context)
 	StringInfo	buf = context->buf;
 	RangeTblEntry *rte;
 
-	/* Insert the WITH clause if given */
+	/* 若有 WITH 子句则插入 */
 	get_with_clause(query, context);
 
 	/*
-	 * Start the query with UPDATE relname SET
+	 * 查询以 UPDATE relname SET 开头
 	 */
 	rte = rt_fetch(query->resultRelation, query->rtable);
 	Assert(rte->rtekind == RTE_RELATION);
@@ -6863,18 +6863,18 @@ get_update_query_def(Query *query, deparse_context *context)
 					 only_marker(rte),
 					 generate_relation_name(rte->relid, NIL));
 
-	/* Print the relation alias, if needed */
+	/* 如需要则打印关系别名 */
 	get_rte_alias(rte, query->resultRelation, false, context);
 
 	appendStringInfoString(buf, " SET ");
 
-	/* Deparse targetlist */
+	/*反解析 targetlist*/
 	get_update_query_targetlist_def(query, query->targetList, context, rte);
 
-	/* Add the FROM clause if needed */
+	/* 如需要则添加 FROM 子句*/
 	get_from_clause(query, " FROM ", context);
 
-	/* Add a WHERE clause if given */
+	/* 若有 WHERE 子句则添加*/
 	if (query->jointree->quals != NULL)
 	{
 		appendContextKeyword(context, " WHERE ",
@@ -6882,7 +6882,7 @@ get_update_query_def(Query *query, deparse_context *context)
 		get_rule_expr(query->jointree->quals, context, false);
 	}
 
-	/* Add RETURNING if present */
+	/*若有 RETURNING 则添加*/
 	if (query->returningList)
 	{
 		appendContextKeyword(context, " RETURNING",
@@ -6893,7 +6893,7 @@ get_update_query_def(Query *query, deparse_context *context)
 
 
 /* ----------
- * get_update_query_targetlist_def			- Parse back an UPDATE targetlist
+ * get_update_query_targetlist_def			- 反解析 UPDATE 目标列表
  * ----------
  */
 static void
@@ -6909,12 +6909,12 @@ get_update_query_targetlist_def(Query *query, List *targetList,
 	List	   *ma_sublinks;
 
 	/*
-	 * Prepare to deal with MULTIEXPR assignments: collect the source SubLinks
-	 * into a list.  We expect them to appear, in ID order, in resjunk tlist
-	 * entries.
+	 * 准备处理 MULTIEXPR 赋值：把来源 SubLink 收集成列
+	 * 表。我们期望它们在 resjunk 目标列表项中按 ID
+	 * 排列
 	 */
 	ma_sublinks = NIL;
-	if (query->hasSubLinks)		/* else there can't be any */
+	if (query->hasSubLinks)		/* 否则不可能有 */
 	{
 		foreach(l, targetList)
 		{
@@ -6936,7 +6936,7 @@ get_update_query_targetlist_def(Query *query, List *targetList,
 	cur_ma_sublink = NULL;
 	remaining_ma_columns = 0;
 
-	/* Add the comma separated list of 'attname = value' */
+	/* 添加逗号分隔的 'attname = value' 列表 */
 	sep = "";
 	foreach(l, targetList)
 	{
@@ -6944,26 +6944,26 @@ get_update_query_targetlist_def(Query *query, List *targetList,
 		Node	   *expr;
 
 		if (tle->resjunk)
-			continue;			/* ignore junk entries */
+			continue;			/* 忽略垃圾项 */
 
-		/* Emit separator (OK whether we're in multiassignment or not) */
+		/* 输出分隔符（无论是否处于多赋值中都可行）*/
 		appendStringInfoString(buf, sep);
 		sep = ", ";
 
 		/*
-		 * Check to see if we're starting a multiassignment group: if so,
-		 * output a left paren.
+		 * 检查是否开始多赋值组：若是，则
+		 * 输出左括号。
 		 */
 		if (next_ma_cell != NULL && cur_ma_sublink == NULL)
 		{
 			/*
-			 * We must dig down into the expr to see if it's a PARAM_MULTIEXPR
-			 * Param.  That could be buried under FieldStores and
-			 * SubscriptingRefs and CoerceToDomains (cf processIndirection()),
-			 * and underneath those there could be an implicit type coercion.
-			 * Because we would ignore implicit type coercions anyway, we
-			 * don't need to be as careful as processIndirection() is about
-			 * descending past implicit CoerceToDomains.
+			 * 我们必须深入 expr 内部，看它是否是
+			 * PARAM_MULTIEXPR Param。可能埋在 FieldStore
+			 * SubscriptingRefs 与 CoerceToDomains 之下（参见
+			 * processIndirection()），下面还可能有隐式转换。
+			 * 反正我们会忽略隐式转换，所以不需要像
+			 * processIndirection() 那样小心地跳过隐式
+			 * CoerceToDomains。
 			 */
 			expr = (Node *) tle->expr;
 			while (expr)
@@ -7009,8 +7009,8 @@ get_update_query_targetlist_def(Query *query, List *targetList,
 		}
 
 		/*
-		 * Put out name of target column; look in the catalogs, not at
-		 * tle->resname, since resname will fail to track RENAME.
+		 * 输出目标列的名字；查系统目录，而不是看
+		 * tle->resname，因为 resname 不会跟随 RENAME。
 		 */
 		appendStringInfoString(buf,
 							   quote_identifier(get_attname(rte->relid,
@@ -7018,20 +7018,20 @@ get_update_query_targetlist_def(Query *query, List *targetList,
 															false)));
 
 		/*
-		 * Print any indirection needed (subfields or subscripts), and strip
-		 * off the top-level nodes representing the indirection assignments.
+		 * 打印所需的任何间接（子字段或下标），并剥掉
+		 * 代表间接赋值的顶层节点。
 		 */
 		expr = processIndirection((Node *) tle->expr, context);
 
 		/*
-		 * If we're in a multiassignment, skip printing anything more, unless
-		 * this is the last column; in which case, what we print should be the
-		 * sublink, not the Param.
+		 * 若处于多赋值中，则跳过不再打印任何内容，除非
+		 * 这是最后一列；此时应打印的是 sublink 而
+		 * 不是 Param。
 		 */
 		if (cur_ma_sublink != NULL)
 		{
 			if (--remaining_ma_columns > 0)
-				continue;		/* not the last column of multiassignment */
+				continue;		/* 非多赋值的最后一列 */
 			appendStringInfoChar(buf, ')');
 			expr = (Node *) cur_ma_sublink;
 			cur_ma_sublink = NULL;
@@ -7045,7 +7045,7 @@ get_update_query_targetlist_def(Query *query, List *targetList,
 
 
 /* ----------
- * get_delete_query_def			- Parse back a DELETE parsetree
+ * get_delete_query_def			- 反解析 DELETE 解析树
  * ----------
  */
 static void
@@ -7054,11 +7054,11 @@ get_delete_query_def(Query *query, deparse_context *context)
 	StringInfo	buf = context->buf;
 	RangeTblEntry *rte;
 
-	/* Insert the WITH clause if given */
+	/* 若有 WITH 子句则插入 */
 	get_with_clause(query, context);
 
 	/*
-	 * Start the query with DELETE FROM relname
+	 * 查询以 DELETE FROM relname 开头
 	 */
 	rte = rt_fetch(query->resultRelation, query->rtable);
 	Assert(rte->rtekind == RTE_RELATION);
@@ -7071,13 +7071,13 @@ get_delete_query_def(Query *query, deparse_context *context)
 					 only_marker(rte),
 					 generate_relation_name(rte->relid, NIL));
 
-	/* Print the relation alias, if needed */
+	/* 如需要则打印关系别名 */
 	get_rte_alias(rte, query->resultRelation, false, context);
 
-	/* Add the USING clause if given */
+	/* 若有 USING 子句则添加 */
 	get_from_clause(query, " USING ", context);
 
-	/* Add a WHERE clause if given */
+	/* 若有 WHERE 子句则添加*/
 	if (query->jointree->quals != NULL)
 	{
 		appendContextKeyword(context, " WHERE ",
@@ -7085,7 +7085,7 @@ get_delete_query_def(Query *query, deparse_context *context)
 		get_rule_expr(query->jointree->quals, context, false);
 	}
 
-	/* Add RETURNING if present */
+	/*若有 RETURNING 则添加*/
 	if (query->returningList)
 	{
 		appendContextKeyword(context, " RETURNING",
@@ -7096,7 +7096,7 @@ get_delete_query_def(Query *query, deparse_context *context)
 
 
 /* ----------
- * get_merge_query_def				- Parse back a MERGE parsetree
+ * get_merge_query_def				- 反解析 MERGE 解析树
  * ----------
  */
 static void
@@ -7106,11 +7106,11 @@ get_merge_query_def(Query *query, deparse_context *context)
 	RangeTblEntry *rte;
 	ListCell   *lc;
 
-	/* Insert the WITH clause if given */
+	/* 若有 WITH 子句则插入 */
 	get_with_clause(query, context);
 
 	/*
-	 * Start the query with MERGE INTO relname
+	 * 查询以 MERGE INTO relname 开头
 	 */
 	rte = rt_fetch(query->resultRelation, query->rtable);
 	Assert(rte->rtekind == RTE_RELATION);
@@ -7123,16 +7123,16 @@ get_merge_query_def(Query *query, deparse_context *context)
 					 only_marker(rte),
 					 generate_relation_name(rte->relid, NIL));
 
-	/* Print the relation alias, if needed */
+	/* 如需要则打印关系别名 */
 	get_rte_alias(rte, query->resultRelation, false, context);
 
-	/* Print the source relation and join clause */
+	/* 打印源关系与连接子句 */
 	get_from_clause(query, " USING ", context);
 	appendContextKeyword(context, " ON ",
 						 -PRETTYINDENT_STD, PRETTYINDENT_STD, 2);
 	get_rule_expr(query->jointree->quals, context, false);
 
-	/* Print each merge action */
+	/*打印每个 merge 动作*/
 	foreach(lc, query->mergeActionList)
 	{
 		MergeAction *action = lfirst_node(MergeAction, lc);
@@ -7152,7 +7152,7 @@ get_merge_query_def(Query *query, deparse_context *context)
 
 		if (action->commandType == CMD_INSERT)
 		{
-			/* This generally matches get_insert_query_def() */
+			/* 这大体上与 get_insert_query_def() 一致 */
 			List	   *strippedexprs = NIL;
 			const char *sep = "";
 			ListCell   *lc2;
@@ -7211,13 +7211,13 @@ get_merge_query_def(Query *query, deparse_context *context)
 			appendStringInfoString(buf, "DO NOTHING");
 	}
 
-	/* No RETURNING support in MERGE yet */
+	/* MERGE 尚不支持 RETURNING */
 	Assert(query->returningList == NIL);
 }
 
 
 /* ----------
- * get_utility_query_def			- Parse back a UTILITY parsetree
+ * get_utility_query_def			- 反解析 UTILITY 解析树
  * ----------
  */
 static void
@@ -7241,29 +7241,29 @@ get_utility_query_def(Query *query, deparse_context *context)
 	}
 	else
 	{
-		/* Currently only NOTIFY utility commands can appear in rules */
+		/* 目前规则中只能出现 NOTIFY 实用命令 */
 		elog(ERROR, "unexpected utility statement type");
 	}
 }
 
 /*
- * Display a Var appropriately.
+ * 恰当地显示 Var。
  *
- * In some cases (currently only when recursing into an unnamed join)
- * the Var's varlevelsup has to be interpreted with respect to a context
- * above the current one; levelsup indicates the offset.
+ * 某些情况（目前仅递归进入未命名连接时）下，
+ * Var 的 varlevelsup 必须相对于当前之上的上下文
+ * 来解释；levelsup 指示偏移量。
  *
- * If istoplevel is true, the Var is at the top level of a SELECT's
- * targetlist, which means we need special treatment of whole-row Vars.
- * Instead of the normal "tab.*", we'll print "tab.*::typename", which is a
- * dirty hack to prevent "tab.*" from being expanded into multiple columns.
- * (The parser will strip the useless coercion, so no inefficiency is added in
- * dump and reload.)  We used to print just "tab" in such cases, but that is
- * ambiguous and will yield the wrong result if "tab" is also a plain column
- * name in the query.
+ * 若 istoplevel 为真，则 Var 位于 SELECT 目标列表的
+ * 顶层，这意味着我们需要对整行 Var 特殊处理。
+ * 我们将不打印正常的 "tab.*"，而是打印 "tab.*::typename"，
+ * 这是一个肮脏的 hack，防止 "tab.*" 被展开成多列。
+ * （解析器会剥掉无用的类型转换，所以在转储与重
+ * 载时不会增加低效。）过去我们在这种情况下只打
+ * 印 "tab"，但这有歧义，若 "tab" 也是查询中的普通列
+ * 名时会出错。
  *
- * Returns the attname of the Var, or NULL if the Var has no attname (because
- * it is a whole-row Var or a subplan output reference).
+ * 返回 Var 的 attname；若 Var 没有 attname（因为它是
+ * 整行 Var 或子 plan 输出引用），则返回 NULL。
  */
 static char *
 get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
@@ -7280,7 +7280,7 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 	char	   *attname;
 	bool		need_prefix;
 
-	/* Find appropriate nesting depth */
+	/* 找到适当的嵌套深度 */
 	netlevelsup = var->varlevelsup + levelsup;
 	if (netlevelsup >= list_length(context->namespaces))
 		elog(ERROR, "bogus varlevelsup: %d offset %d",
@@ -7289,12 +7289,12 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 										  netlevelsup);
 
 	/*
-	 * If we have a syntactic referent for the Var, and we're working from a
-	 * parse tree, prefer to use the syntactic referent.  Otherwise, fall back
-	 * on the semantic referent.  (Forcing use of the semantic referent when
-	 * printing plan trees is a design choice that's perhaps more motivated by
-	 * backwards compatibility than anything else.  But it does have the
-	 * advantage of making plans more explicit.)
+	 * 若我们拥有该 Var 的语法引用对象，且正在根据
+	 * 解析树工作，则优先使用语法引用对象。否则退回
+	 * 语义引用对象。（在打印 plan 树时强制使用语义引
+	 * 用对象是一种设计选择，其动机或许更多是向后
+	 * 兼容而非其他。但它确实有让 plan 更显式之效。
+	 *
 	 */
 	if (var->varnosyn > 0 && dpns->plan == NULL)
 	{
@@ -7308,15 +7308,15 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 	}
 
 	/*
-	 * Try to find the relevant RTE in this rtable.  In a plan tree, it's
-	 * likely that varno is OUTER_VAR or INNER_VAR, in which case we must dig
-	 * down into the subplans, or INDEX_VAR, which is resolved similarly. Also
-	 * find the aliases previously assigned for this RTE.
+	 * 设法在本 rtable 中找到相关 RTE。在 plan 树中，
+	 * varno 很可能是 OUTER_VAR 或 INNER_VAR，此时我们
+	 * 必须深入子 plan；INDEX_VAR 也按类似方式解析。同时
+	 * 还要找到之前为该 RTE 分配的别名。
 	 */
 	if (varno >= 1 && varno <= list_length(dpns->rtable))
 	{
 		/*
-		 * We might have been asked to map child Vars to some parent relation.
+		 * 我们可能被要求把子 Var 映射到某个父关系。
 		 */
 		if (context->appendparents && dpns->appendrels)
 		{
@@ -7325,32 +7325,32 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 			AppendRelInfo *appinfo = dpns->appendrels[pvarno];
 			bool		found = false;
 
-			/* Only map up to inheritance parents, not UNION ALL appendrels */
+			/* 只映射继承父关系，不映射 UNION ALL appendrels */
 			while (appinfo &&
 				   rt_fetch(appinfo->parent_relid,
 							dpns->rtable)->rtekind == RTE_RELATION)
 			{
 				found = false;
-				if (pvarattno > 0)	/* system columns stay as-is */
+				if (pvarattno > 0)	/* 系统列保持原样 */
 				{
 					if (pvarattno > appinfo->num_child_cols)
-						break;	/* safety check */
+						break;	/* 保险 */
 					pvarattno = appinfo->parent_colnos[pvarattno - 1];
 					if (pvarattno == 0)
-						break;	/* Var is local to child */
+						break;	/* Var 属子节点 */
 				}
 
 				pvarno = appinfo->parent_relid;
 				found = true;
 
-				/* If the parent is itself a child, continue up. */
+				/* 若父本身也是子，则继续向上。 */
 				Assert(pvarno > 0 && pvarno <= list_length(dpns->rtable));
 				appinfo = dpns->appendrels[pvarno];
 			}
 
 			/*
-			 * If we found an ancestral rel, and that rel is included in
-			 * appendparents, print that column not the original one.
+			 * 若找到了某个祖先关系，且该关系包含在
+			 * appendparents 中，则打印该列而非原列。
 			 */
 			if (found && bms_is_member(pvarno, context->appendparents))
 			{
@@ -7372,15 +7372,15 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 	}
 
 	/*
-	 * The planner will sometimes emit Vars referencing resjunk elements of a
-	 * subquery's target list (this is currently only possible if it chooses
-	 * to generate a "physical tlist" for a SubqueryScan or CteScan node).
-	 * Although we prefer to print subquery-referencing Vars using the
-	 * subquery's alias, that's not possible for resjunk items since they have
-	 * no alias.  So in that case, drill down to the subplan and print the
-	 * contents of the referenced tlist item.  This works because in a plan
-	 * tree, such Vars can only occur in a SubqueryScan or CteScan node, and
-	 * we'll have set dpns->inner_plan to reference the child plan node.
+	 * 规划器有时会发出引用子查询目标列表 resjunk 项
+	 * 的 Var（目前仅当它选择为 SubqueryScan 或 CteScan
+	 * 节点生成 "physical tlist" 时才可能发生）。虽然我
+	 * 们更喜欢用子查询的别名来打印引用子查询的
+	 * Var，但 resjunk 项没有别名，所以做不到。此时我
+	 * 们就下钻到子 plan 并打印被引用的目标列表项的
+	 * 内容。这能行得通，因为在 plan 树中，这类 Var 只
+	 * 可能出现在 SubqueryScan 或 CteScan 节点中，而且我
+	 * 们已把 dpns->inner_plan 设置为引用子 plan 节点。
 	 */
 	if ((rte->rtekind == RTE_SUBQUERY || rte->rtekind == RTE_CTE) &&
 		attnum > list_length(rte->eref->colnames) &&
@@ -7398,8 +7398,8 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 		push_child_plan(dpns, dpns->inner_plan, &save_dpns);
 
 		/*
-		 * Force parentheses because our caller probably assumed a Var is a
-		 * simple expression.
+		 * 强制加括号，因为调用方很可能假定 Var 是简单
+		 * 表达式。
 		 */
 		if (!IsA(tle->expr, Var))
 			appendStringInfoChar(buf, '(');
@@ -7412,16 +7412,16 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 	}
 
 	/*
-	 * If it's an unnamed join, look at the expansion of the alias variable.
-	 * If it's a simple reference to one of the input vars, then recursively
-	 * print the name of that var instead.  When it's not a simple reference,
-	 * we have to just print the unqualified join column name.  (This can only
-	 * happen with "dangerous" merged columns in a JOIN USING; we took pains
-	 * previously to make the unqualified column name unique in such cases.)
+	 * 若是未命名连接，则查看别名变量的展开。若它
+	 * 只是对某个输入 Var 的简单引用，则递归打印该
+	 * Var 的名字。当它不是简单引用时，我们只能直接
+	 * 打印不带限定的连接列名。（这只可能发生在
+	 * JOIN USING 的 "dangerous" 合并列上；此前我们已
+	 * 费心让这种场合下的不带限定列名保持唯一。）
 	 *
-	 * This wouldn't work in decompiling plan trees, because we don't store
-	 * joinaliasvars lists after planning; but a plan tree should never
-	 * contain a join alias variable.
+	 * 这在反解析 plan 树时行不通，因为规划之后我们
+	 * 不保存 joinaliasvars 列表；但 plan 树决不应包含
+	 * 连接别名 Var。
 	 */
 	if (rte->rtekind == RTE_JOIN && rte->alias == NULL)
 	{
@@ -7432,7 +7432,7 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 			Var		   *aliasvar;
 
 			aliasvar = (Var *) list_nth(rte->joinaliasvars, attnum - 1);
-			/* we intentionally don't strip implicit coercions here */
+			/* 我们有意不在这里剥离隐式转换 */
 			if (aliasvar && IsA(aliasvar, Var))
 			{
 				return get_variable(aliasvar, var->varlevelsup + levelsup,
@@ -7441,9 +7441,9 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 		}
 
 		/*
-		 * Unnamed join has no refname.  (Note: since it's unnamed, there is
-		 * no way the user could have referenced it to create a whole-row Var
-		 * for it.  So we don't have to cover that case below.)
+		 * 未命名连接没有 refname。（注意：既然未命名，
+		 * 用户就不可能引用它来创建整行 Var，所以下面的
+		 * 情况就无需覆盖。）
 		 */
 		Assert(refname == NULL);
 	}
@@ -7452,37 +7452,37 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 		attname = NULL;
 	else if (attnum > 0)
 	{
-		/* Get column name to use from the colinfo struct */
+		/* 从 colinfo 结构取得要用的列名 */
 		if (attnum > colinfo->num_cols)
 			elog(ERROR, "invalid attnum %d for relation \"%s\"",
 				 attnum, rte->eref->aliasname);
 		attname = colinfo->colnames[attnum - 1];
 
 		/*
-		 * If we find a Var referencing a dropped column, it seems better to
-		 * print something (anything) than to fail.  In general this should
-		 * not happen, but it used to be possible for some cases involving
-		 * functions returning named composite types, and perhaps there are
-		 * still bugs out there.
+		 * 若我们发现引用已删除列的 Var，似乎打印点什
+		 * 么（什么都行）总比失败好。一般来说这不应
+		 * 该发生，但过去某些涉及返回命名复合类型函数
+		 * 的情形可能触发，而且或许外面还有 bug 存在。
+		 *
 		 */
 		if (attname == NULL)
 			attname = "?dropped?column?";
 	}
 	else
 	{
-		/* System column - name is fixed, get it from the catalog */
+		/* 系统列 - 名字固定，从目录中取得 */
 		attname = get_rte_attribute_name(rte, attnum);
 	}
 
 	need_prefix = (context->varprefix || attname == NULL);
 
 	/*
-	 * If we're considering a plain Var in an ORDER BY (but not GROUP BY)
-	 * clause, we may need to add a table-name prefix to prevent
-	 * findTargetlistEntrySQL92 from misinterpreting the name as an
-	 * output-column name.  To avoid cluttering the output with unnecessary
-	 * prefixes, do so only if there is a name match to a SELECT tlist item
-	 * that is different from the Var.
+	 * 如果我们面对的是 ORDER BY（而非 GROUP BY）子句中
+	 * 的普通 Var，可能需要加表名前缀以防
+	 * findTargetlistEntrySQL92 把该名字误解为输出列
+	 * 名。为避免不必要的前缀弄乱输出，只有当存在
+	 * 与某个 SELECT tlist 项名字匹配且该 Var 与之不同
+	 * 的情况时才这么做。
 	 */
 	if (context->varInOrderBy && !context->inGroupBy && !need_prefix)
 	{
@@ -7495,10 +7495,10 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 			char	   *colname;
 
 			if (tle->resjunk)
-				continue;		/* ignore junk entries */
+				continue;		/* 忽略垃圾项 */
 			colno++;
 
-			/* This must match colname-choosing logic in get_target_list() */
+			/* 这必须与 get_target_list() 中选列名的逻辑一致 */
 			if (context->resultDesc && colno <= context->resultDesc->natts)
 				colname = NameStr(TupleDescAttr(context->resultDesc,
 												colno - 1)->attname);
@@ -7534,11 +7534,11 @@ get_variable(Var *var, int levelsup, bool istoplevel, deparse_context *context)
 }
 
 /*
- * Deparse a Var which references OUTER_VAR, INNER_VAR, or INDEX_VAR.  This
- * routine is actually a callback for resolve_special_varno, which handles
- * finding the correct TargetEntry.  We get the expression contained in that
- * TargetEntry and just need to deparse it, a job we can throw back on
- * get_rule_expr.
+ * 反解析引用 OUTER_VAR、INNER_VAR 或 INDEX_VAR 的 Var。
+ * 本例程实际上是 resolve_special_varno 的回调，后者
+ * 负责找到正确的 TargetEntry。我们取得其中包含的
+ * 表达式，只需对它做反解析，这个活可丢回给
+ * get_rule_expr
  */
 static void
 get_special_variable(Node *node, deparse_context *context, void *callback_arg)
@@ -7546,8 +7546,8 @@ get_special_variable(Node *node, deparse_context *context, void *callback_arg)
 	StringInfo	buf = context->buf;
 
 	/*
-	 * For a non-Var referent, force parentheses because our caller probably
-	 * assumed a Var is a simple expression.
+	 * 对非 Var 引用对象要强制加括号，调用方很可能
+	 * 假定 Var 是简单表达式。
 	 */
 	if (!IsA(node, Var))
 		appendStringInfoChar(buf, '(');
@@ -7557,9 +7557,9 @@ get_special_variable(Node *node, deparse_context *context, void *callback_arg)
 }
 
 /*
- * Chase through plan references to special varnos (OUTER_VAR, INNER_VAR,
- * INDEX_VAR) until we find a real Var or some kind of non-Var node; then,
- * invoke the callback provided.
+ * 沿着 plan 引用追踪特殊 varno（OUTER_VAR、INNER_VAR、
+ * INDEX_VAR），直到找到真正的 Var 或某种非 Var 节点；
+ * 然后调用给定回调。
  */
 static void
 resolve_special_varno(Node *node, deparse_context *context,
@@ -7568,24 +7568,24 @@ resolve_special_varno(Node *node, deparse_context *context,
 	Var		   *var;
 	deparse_namespace *dpns;
 
-	/* This function is recursive, so let's be paranoid. */
+	/* 本函数递归，所以我们格外小心。 */
 	check_stack_depth();
 
-	/* If it's not a Var, invoke the callback. */
+	/* 若它不是 Var，则调用回调。 */
 	if (!IsA(node, Var))
 	{
 		(*callback) (node, context, callback_arg);
 		return;
 	}
 
-	/* Find appropriate nesting depth */
+	/* 找到适当的嵌套深度 */
 	var = (Var *) node;
 	dpns = (deparse_namespace *) list_nth(context->namespaces,
 										  var->varlevelsup);
 
 	/*
-	 * If varno is special, recurse.  (Don't worry about varnosyn; if we're
-	 * here, we already decided not to use that.)
+	 * 若 varno 是特殊的，则递归。（不必管 varnosyn；
+	 * 既然到此，就已决定不用它）
 	 */
 	if (var->varno == OUTER_VAR && dpns->outer_tlist)
 	{
@@ -7598,9 +7598,9 @@ resolve_special_varno(Node *node, deparse_context *context,
 			elog(ERROR, "bogus varattno for OUTER_VAR var: %d", var->varattno);
 
 		/*
-		 * If we're descending to the first child of an Append or MergeAppend,
-		 * update appendparents.  This will affect deparsing of all Vars
-		 * appearing within the eventually-resolved subexpression.
+		 * 若我们正下行到 Append 或 MergeAppend 的第一个子
+		 * 节点，就更新 appendparents。这会影响其中出现
+		 * 的所有 Var 的反解析。
 		 */
 		save_appendparents = context->appendparents;
 
@@ -7648,26 +7648,26 @@ resolve_special_varno(Node *node, deparse_context *context,
 	else if (var->varno < 1 || var->varno > list_length(dpns->rtable))
 		elog(ERROR, "bogus varno: %d", var->varno);
 
-	/* Not special.  Just invoke the callback. */
+	/* 非特殊。直接调用回调。 */
 	(*callback) (node, context, callback_arg);
 }
 
 /*
- * Get the name of a field of an expression of composite type.  The
- * expression is usually a Var, but we handle other cases too.
+ * 取得复合类型表达式的字段名。该表达式
+ * 通常是 Var，但我们也处理其他情形。
  *
- * levelsup is an extra offset to interpret the Var's varlevelsup correctly.
+ * levelsup 是额外的偏移量，用于正确解释 Var 的
+ * varlevelsup。
+ * 当表达式具有命名的复合类型时，这件事相当
+ * 直接了当；只需在目录中查该类型即可。不过，
+ * 类型也可能是 RECORD。由于实际的表列或视图列都
+ * 不允许为 RECORD 类型，所以 RECORD 类型的 Var 必须
+ * 引用 JOIN 或 FUNCTION RTE，或者引用子查询输出。我
+ * 们会下钻找最终定义表达式，并尽力推断字段
+ * 名。失败则报错。
  *
- * This is fairly straightforward when the expression has a named composite
- * type; we need only look up the type in the catalogs.  However, the type
- * could also be RECORD.  Since no actual table or view column is allowed to
- * have type RECORD, a Var of type RECORD must refer to a JOIN or FUNCTION RTE
- * or to a subquery output.  We drill down to find the ultimate defining
- * expression and attempt to infer the field name from it.  We ereport if we
- * can't determine the name.
- *
- * Similarly, a PARAM of type RECORD has to refer to some expression of
- * a determinable composite type.
+ * 类似地，RECORD 类型的 PARAM 必须引用某个可确定
+ * 复合类型的表达式。
  */
 static const char *
 get_name_for_var_field(Var *var, int fieldno,
@@ -7683,9 +7683,9 @@ get_name_for_var_field(Var *var, int fieldno,
 	Node	   *expr;
 
 	/*
-	 * If it's a RowExpr that was expanded from a whole-row Var, use the
-	 * column names attached to it.  (We could let get_expr_result_tupdesc()
-	 * handle this, but it's much cheaper to just pull out the name we need.)
+	 * 若它是由整行 Var 展开而来的 RowExpr，则使用附
+	 * 着它的列名。（本可以让 get_expr_result_tupdesc()
+	 * 来处理，但直接取出所需的名字要便宜得多。）
 	 */
 	if (IsA(var, RowExpr))
 	{
@@ -7696,7 +7696,7 @@ get_name_for_var_field(Var *var, int fieldno,
 	}
 
 	/*
-	 * If it's a Param of type RECORD, try to find what the Param refers to.
+	 * 若它是 RECORD 类型的 Param，设法找到它引用的对
 	 */
 	if (IsA(var, Param))
 	{
@@ -7706,7 +7706,7 @@ get_name_for_var_field(Var *var, int fieldno,
 		expr = find_param_referent(param, context, &dpns, &ancestor_cell);
 		if (expr)
 		{
-			/* Found a match, so recurse to decipher the field name */
+			/* 找到匹配，于是递归破解字段名 */
 			deparse_namespace save_dpns;
 			const char *result;
 
@@ -7719,19 +7719,19 @@ get_name_for_var_field(Var *var, int fieldno,
 	}
 
 	/*
-	 * If it's a Var of type RECORD, we have to find what the Var refers to;
-	 * if not, we can use get_expr_result_tupdesc().
+	 * 若它是 RECORD 类型的 Var，就必须找到该 Var 引用
+	 * 对象，否则用 get_expr_result_tupdesc()
 	 */
 	if (!IsA(var, Var) ||
 		var->vartype != RECORDOID)
 	{
 		tupleDesc = get_expr_result_tupdesc((Node *) var, false);
-		/* Got the tupdesc, so we can extract the field name */
+		/* 拿到 tupdesc，就可以提取字段名 */
 		Assert(fieldno >= 1 && fieldno <= tupleDesc->natts);
 		return NameStr(TupleDescAttr(tupleDesc, fieldno - 1)->attname);
 	}
 
-	/* Find appropriate nesting depth */
+	/* 找到适当的嵌套深度 */
 	netlevelsup = var->varlevelsup + levelsup;
 	if (netlevelsup >= list_length(context->namespaces))
 		elog(ERROR, "bogus varlevelsup: %d offset %d",
@@ -7740,9 +7740,9 @@ get_name_for_var_field(Var *var, int fieldno,
 										  netlevelsup);
 
 	/*
-	 * If we have a syntactic referent for the Var, and we're working from a
-	 * parse tree, prefer to use the syntactic referent.  Otherwise, fall back
-	 * on the semantic referent.  (See comments in get_variable().)
+	 * 若我们拥有该 Var 的语法引用对象，且正在根据
+	 * 解析树工作，则优先使用语法引用对象。否则退回
+	 * 语义引用对象。（见 get_variable() 内注释。）
 	 */
 	if (var->varnosyn > 0 && dpns->plan == NULL)
 	{
@@ -7756,13 +7756,13 @@ get_name_for_var_field(Var *var, int fieldno,
 	}
 
 	/*
-	 * Try to find the relevant RTE in this rtable.  In a plan tree, it's
-	 * likely that varno is OUTER_VAR or INNER_VAR, in which case we must dig
-	 * down into the subplans, or INDEX_VAR, which is resolved similarly.
+	 * 设法在本 rtable 中找到相关 RTE。在 plan 树中，
+	 * varno 很可能是 OUTER_VAR 或 INNER_VAR，此时我们
+	 * 必须深入子 plan；INDEX_VAR 也按类似方式解析。
 	 *
-	 * Note: unlike get_variable and resolve_special_varno, we need not worry
-	 * about inheritance mapping: a child Var should have the same datatype as
-	 * its parent, and here we're really only interested in the Var's type.
+	 * 注意：与 get_variable 和 resolve_special_varno 不同，
+	 * 我们无需操心继承映射：子 Var 的数据类型应与
+	 * 其父相同，这里我们真正关心的只是 Var 的类型。
 	 */
 	if (varno >= 1 && varno <= list_length(dpns->rtable))
 	{
@@ -7826,23 +7826,23 @@ get_name_for_var_field(Var *var, int fieldno,
 	else
 	{
 		elog(ERROR, "bogus varno: %d", varno);
-		return NULL;			/* keep compiler quiet */
+		return NULL;			/* 让编译器安静 */
 	}
 
 	if (attnum == InvalidAttrNumber)
 	{
-		/* Var is whole-row reference to RTE, so select the right field */
+		/* Var 是对 RTE 的整行引用，所以选择正确字段 */
 		return get_rte_attribute_name(rte, fieldno);
 	}
 
 	/*
-	 * This part has essentially the same logic as the parser's
-	 * expandRecordVariable() function, but we are dealing with a different
-	 * representation of the input context, and we only need one field name
-	 * not a TupleDesc.  Also, we need special cases for finding subquery and
-	 * CTE subplans when deparsing Plan trees.
+	 * 这部分逻辑本质上与解析器的
+	 * expandRecordVariable() 相同，但我们处理的是不同的
+	 * 输入上下文表示，而且我们只需要一个字段名而
+	 * 不是 TupleDesc。另外，反解析 plan 树时需要特殊
+	 * 情形找子查询与 CTE 子 plan。
 	 */
-	expr = (Node *) var;		/* default if we can't drill down */
+	expr = (Node *) var;		/* 无法下钻时的默认值 */
 
 	switch (rte->rtekind)
 	{
@@ -7852,13 +7852,13 @@ get_name_for_var_field(Var *var, int fieldno,
 		case RTE_RESULT:
 
 			/*
-			 * This case should not occur: a column of a table, values list,
-			 * or ENR shouldn't have type RECORD.  Fall through and fail (most
-			 * likely) at the bottom.
+			 * 这情形不应出现：表列、values 列表或 ENR 的列
+			 * 不应具有 RECORD 类型。直接落到底部失败（多半
+			 * 如此）。
 			 */
 			break;
 		case RTE_SUBQUERY:
-			/* Subselect-in-FROM: examine sub-select's output expr */
+			/*FROM 中的子选择：查子选择的输出表达式*/
 			{
 				if (rte->subquery)
 				{
@@ -7872,13 +7872,13 @@ get_name_for_var_field(Var *var, int fieldno,
 					if (IsA(expr, Var))
 					{
 						/*
-						 * Recurse into the sub-select to see what its Var
-						 * refers to. We have to build an additional level of
-						 * namespace to keep in step with varlevelsup in the
-						 * subselect; furthermore, the subquery RTE might be
-						 * from an outer query level, in which case the
-						 * namespace for the subselect must have that outer
-						 * level as parent namespace.
+						 * 递归进子选择，看 Var 引用什么。
+						 * 须额外建一层命名空间同步子选择内
+						 * varlevelsup；子查询 RTE 可能来自外层，
+						 * 此时子选择的命名空间必须以该外层
+						 * 为父命名空间。
+						 *
+						 *
 						 */
 						List	   *save_nslist = context->namespaces;
 						List	   *parent_namespaces;
@@ -7900,23 +7900,23 @@ get_name_for_var_field(Var *var, int fieldno,
 
 						return result;
 					}
-					/* else fall through to inspect the expression */
+					/* 否则落到下面检查该表达式 */
 				}
 				else
 				{
 					/*
-					 * We're deparsing a Plan tree so we don't have complete
-					 * RTE entries (in particular, rte->subquery is NULL). But
-					 * the only place we'd normally see a Var directly
-					 * referencing a SUBQUERY RTE is in a SubqueryScan plan
-					 * node, and we can look into the child plan's tlist
-					 * instead.  An exception occurs if the subquery was
-					 * proven empty and optimized away: then we'd find such a
-					 * Var in a childless Result node, and there's nothing in
-					 * the plan tree that would let us figure out what it had
-					 * originally referenced.  In that case, fall back on
-					 * printing "fN", analogously to the default column names
-					 * for RowExprs.
+					 * 我们在反解析 plan 树，故无完整的 RTE 项
+					 * （rte->subquery 为 NULL）。不过直接引用
+					 * SUBQUERY RTE 的 Var 处仅 SubqueryScan plan
+					 * 节点，可改看子 plan 的 tlist。例外是
+					 * 子查询被证明为空且被优化掉：会在
+					 * 无子 Result 节点中见这种 Var，且
+					 * plan 树中没有任何线索能弄清它当初引用
+					 * 的是什么。那时退回打印 "fN"，类似
+					 * 于 RowExpr 的默认列名。
+					 *
+					 *
+					 *
 					 */
 					TargetEntry *tle;
 					deparse_namespace save_dpns;
@@ -7948,36 +7948,36 @@ get_name_for_var_field(Var *var, int fieldno,
 			}
 			break;
 		case RTE_JOIN:
-			/* Join RTE --- recursively inspect the alias variable */
+			/* 连接 RTE --- 递归检查别名变量 */
 			if (rte->joinaliasvars == NIL)
 				elog(ERROR, "cannot decompile join alias var in plan tree");
 			Assert(attnum > 0 && attnum <= list_length(rte->joinaliasvars));
 			expr = (Node *) list_nth(rte->joinaliasvars, attnum - 1);
 			Assert(expr != NULL);
-			/* we intentionally don't strip implicit coercions here */
+			/* 我们有意不在这里剥离隐式转换 */
 			if (IsA(expr, Var))
 				return get_name_for_var_field((Var *) expr, fieldno,
 											  var->varlevelsup + levelsup,
 											  context);
-			/* else fall through to inspect the expression */
+			/* 否则落到下面检查该表达式 */
 			break;
 		case RTE_FUNCTION:
 		case RTE_TABLEFUNC:
 
 			/*
-			 * We couldn't get here unless a function is declared with one of
-			 * its result columns as RECORD, which is not allowed.
+			 * 除非某函数把其结果列之一声明为 RECORD，否则
+			 * 我们到不了这里，而那是不允许的。
 			 */
 			break;
 		case RTE_CTE:
-			/* CTE reference: examine subquery's output expr */
+			/* CTE 引用：检查子查询的输出表达式*/
 			{
 				CommonTableExpr *cte = NULL;
 				Index		ctelevelsup;
 				ListCell   *lc;
 
 				/*
-				 * Try to find the referenced CTE using the namespace stack.
+				 * 利用命名空间栈设法找到被引用的 CTE。
 				 */
 				ctelevelsup = rte->ctelevelsup + netlevelsup;
 				if (ctelevelsup >= list_length(context->namespaces))
@@ -8008,11 +8008,11 @@ get_name_for_var_field(Var *var, int fieldno,
 					if (IsA(expr, Var))
 					{
 						/*
-						 * Recurse into the CTE to see what its Var refers to.
-						 * We have to build an additional level of namespace
-						 * to keep in step with varlevelsup in the CTE;
-						 * furthermore it could be an outer CTE (compare
-						 * SUBQUERY case above).
+						 * 递归进入 CTE，看其 Var 引用什么。
+						 * 须额外建一层命名空间，以与 CTE 内 varlevelsup
+						 * 保持同步；
+						 * 另外它可能是外层 CTE（对比
+						 * SUBQUERY 情形）。
 						 */
 						List	   *save_nslist = context->namespaces;
 						List	   *parent_namespaces;
@@ -8034,20 +8034,20 @@ get_name_for_var_field(Var *var, int fieldno,
 
 						return result;
 					}
-					/* else fall through to inspect the expression */
+					/* 否则落到下面检查该表达式 */
 				}
 				else
 				{
 					/*
-					 * We're deparsing a Plan tree so we don't have a CTE
-					 * list.  But the only places we'd normally see a Var
-					 * directly referencing a CTE RTE are in CteScan or
-					 * WorkTableScan plan nodes.  For those cases,
-					 * set_deparse_plan arranged for dpns->inner_plan to be
-					 * the plan node that emits the CTE or RecursiveUnion
-					 * result, and we can look at its tlist instead.  As
-					 * above, this can fail if the CTE has been proven empty,
-					 * in which case fall back to "fN".
+					 * 反解析 plan 树时没有 CTE 列表。但
+					 * 唯一会直接引用 CTE RTE 的 Var 之处是
+					 * CteScan 或 WorkTableScan 节点。对它们
+					 * set_deparse_plan 已让 dpns->inner_plan
+					 * 是发出 CTE/RecursiveUnion 结果 plan 节点，
+					 * 可改看其 tlist。同上，若 CTE 被证明
+					 * 为空，那就退回到 "fN"。
+					 *
+					 *
 					 */
 					TargetEntry *tle;
 					deparse_namespace save_dpns;
@@ -8082,11 +8082,11 @@ get_name_for_var_field(Var *var, int fieldno,
 	}
 
 	/*
-	 * We now have an expression we can't expand any more, so see if
-	 * get_expr_result_tupdesc() can do anything with it.
+	 * 现在我们有一个无法再展开的表达式，看看
+	 * get_expr_result_tupdesc() 能否处理它。
 	 */
 	tupleDesc = get_expr_result_tupdesc(expr, false);
-	/* Got the tupdesc, so we can extract the field name */
+	/* 拿到 tupdesc，就可以提取字段名 */
 	Assert(fieldno >= 1 && fieldno <= tupleDesc->natts);
 	return NameStr(TupleDescAttr(tupleDesc, fieldno - 1)->attname);
 }

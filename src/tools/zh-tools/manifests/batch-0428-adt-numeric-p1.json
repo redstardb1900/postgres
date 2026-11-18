@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0428",
+ "title": "adt 目录 numeric.c 整文件注释翻译 part1 (L1-4130) 326 块 — batch 0428",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "838e503d8456b1db973a902487153af96c55021b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "note": "numeric 数值类型 part1 (partial-file 拆批判例): 文件头+数字格式体系 (NumericShort/NumericLong/NumericChoice/digit 系/格式判定宏/NumericVar/NumericSumAccum)+I/O 族 (numeric_in/out/recv/send/typmod 系/numeric_support/numeric())+符号与舍入系+generate_series+width_bucket+排序支持(缩略键)+比较函数+in_range+hash+基本四则运算+gcd/lcm/fac/sqrt/exp/ln/log/power, 截止于 numeric_power 收官/numeric_scale 之前; whole-file 拆批 part 1, batch-0428 (part2-4 留后续批次)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p1.json",
+   "kind": "manifest",
+   "note": "batch-0428 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0428 entries (numeric.c + 本 manifest; files 与 allowed_paths 两数组各 +2, 追加前查重无 numeric 既有条目, 纯追加)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 326,
+   "translated": 295,
+   "preserved": 31,
+   "preserved_reasons": [
+    "31 个未变块 (与 verify changed=295 对齐, 326-295=31): 公式/记法标签 bound1 < bound2 (@1890) / bound1 > bound2 (@1901)、FALLTHROUGH x3 (@2302/@2305/@2308)、cmp_numerics 情形标签 NAN = NAN / NAN > non-NAN / PINF < NAN / PINF = PINF / NINF = NINF (@2534-@2550)、in_range 情形标签 NAN = NAN / NAN > non-NAN / non-NAN < NAN / PINF = PINF / NINF = NINF (@2605-@2662)、算式标签 Inf + -Inf / -Inf + Inf / Inf - Inf / -Inf - -Inf / Inf * 0 / -Inf * 0 / 0 * Inf / 0 * -Inf / Inf / [-]Inf / -Inf / [-]Inf x2 / Inf % any nonzero = NaN (@2899-@3415)、#endif 条件注释 NUMERIC_ABBREV_BITS == 64/32 (@2330/@2407)、枚举清单注释 L315 (NUMERIC_POS, _NEG, _NAN, _PINF, or _NINF)、字段清单注释 L1072 (ndigits, weight, sign, dscale, NumericDigits.) — 0421 记法样例/ASCII 标签/公式同款量裁; 函数名横幅行 (numeric_in() - 等 ~40 行) 保留 EN 合规; 头部 L3/L14/L16/L17 冻结行保留, L4/L6/L8-L12 功能描述行已译 (0383 判例); 31 块内横幅所属块因其他行已译不计入 preserved"
+   ],
+   "note": "numeric.c part1 整文件拆批判例首批: 权威 universe 由注释感知状态机扫描得出 (982 块全文件, part1=326 块 L1-4130); verify rc=0 (1 ok, 0 violations, comments=982 changed=295, splices=27, trigraphs 0/0, 骨架 stripped 审计逐字节相等); 行数守恒 12043 (part1 4130 行内逐行 1:1); term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则, 0 error hits, 2 warnings 全 advisory: P15 L1978 横幅装饰块, TL08 L4096 requires→要求 (规则注记自身允许)); W7_UNTRANSLATED 43 站: 39 站 L4131+ 为 part2-4 拆批待译预期非缺陷 + 4 站 in-range preserved (L315/L2330/L2407/L3415); W7_IDENT_LOST 7 站全 advisory 量裁不修 (0372 判例): NaNs x4 (L105/L348/L2056 译词 NaN 在场复数量裁, L2524 NANs 大小写变体), NumericDigits x2 (L961/L2732 译 NumericDigit 单数在场), sum L3105 (译词'之和'在场); 术语定款: digit→数字位 (numutils.c 0410 同款), weight→权重, scale/dscale→标度/显示标度 (本文件新定, formatting.c 小数位为计数语境不同义), precision→精度, overflow→溢出, rounding→四舍五入, carry→进位, abbreviation→缩略, cardinality→基数, bucket→桶, histogram→直方图, packed→打包 (varlena 0424 同款), detoast→解 TOAST, 算子 (TL16 全树规则, L3108 * 算子); 「让编译器安静」L1359 与 0427 四文件零漂移同款; same-EN-same-zh 断言: 三站 'Do it the easy way...' / 两站 '此处 num1 必为有限...' / 五站 opt_error 族同构句 / 两站 '打包格式总已...' / 两站 '限制标度值...' / 两站 '处理 NaN 与无穷大' x13 等批内零漂移; 跨批同译对照由审查方独立复核; REVERSE (EN 句点落次行 zh 句号前置) 34 站逐条披露于 selfcheck.md, 均伴随 emptied 空框行且行数守恒; 修复轮: apply 规划迭代 5 轮 (预算断言逐轮收敛, 每轮 checkout 复位) + 写后接缝修复 2 轮 (接缝双字「特殊/殊值」「取整/整」3 站 + 块63 全角括号失衡 1 站); 只读审查未跑 (翻译 agent 产出自查阶段), 未 commit; 只读审查 PASS 有条件 (4D/4N/5A/4M) → 审后清偿轮 R4 全部落地 (主会话执行, 裸星行守卫+行级/块级双重预算断言, 行数守恒): D1 L658 补「十进制」(非十进制整数 0x/0o/0b 语境), D2 L1220-1221 补「标度不变」条件 (「只要标度不变且精度未减小」), D3 L1284 补「复制」动作 (与 L1256 同源句副本款对齐), D4 L975-976 解 TOAST 定款+「至单字节」(「varlena 头存盘前通常被解 TOAST 至单字节，/ 也可能用短头部。」), N1 L195 删重「必须」, N2 L64 删重「处理」, N3 L393-394/L965-968/L2008-2009 三站句中空框截断重排 (续文提入空框行, 行数守恒), N4 L231 「曾把」→「才会把」, A3 L1286 「诚实」→「如实」, A4 L2240 「最有效」→「最高有效」, A5 L676 「小数」→「小数点」; 行级超限 3 站 (L1220+4B/L1284+6B/L676+2B) 全部块级现算放行 (12 受触块全过) 并披露; M1 REVERSE 30→34 站勘正, M2 W7 归因 43→39+4 勘正, 写后修复轮 1→2 诚实修正; M4: cumulative.json 本批将 parent_commit 由 676f3d292 (0347 期 stale 值) 更新为 838e503d845 (修正 stale 元数据, 方向经审查核证正确, 门禁全过, 非纯追加特此披露); scale→标度 定款经审查核证成立 (formatting.c 小数位为计数语境), 建议 glossary 台账登记; 审后门禁复跑 rc=0×3; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0428 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0428 entries (numeric.c + 本 manifest; files 与 allowed_paths 两数组各 +2, 纯追加, 追加前查重无 numeric 既有条目)"
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "676f3d292a089ab1824a90aa1952ab58b63a022a",
+ "parent_commit": "838e503d8456b1db973a902487153af96c55021b",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7356,6 +7356,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0427-adt-selfuncs.json",
    "kind": "manifest",
    "note": "batch-0427 manifest"
+  },
+  {
+   "pattern": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "note": "numeric 数值类型: part1 L1-4130 格式体系+I/O+算术/数学函数; whole-file 拆批 part 1, batch-0428 (part2-4 待后续批次)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p1.json",
+   "kind": "manifest",
+   "note": "batch-0428 manifest"
   }
  ],
  "files": [
@@ -23854,6 +23864,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0427 manifest"
+  },
+  {
+   "path": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 326,
+   "translated": 295,
+   "preserved": 31,
+   "preserved_reasons": [
+    "31 个未变块 (verify changed=295 对齐, 326-295=31): 公式/记法标签 bound1 < bound2、bound1 > bound2、FALLTHROUGH x3、NAN = NAN / NAN > non-NAN / PINF < NAN / PINF = PINF / NINF = NINF、in_range 情形标签 NAN = NAN / NAN > non-NAN / non-NAN < NAN / PINF = PINF / NINF = NINF、Inf +/- 算式标签 x13 (Inf + -Inf/-Inf + Inf/Inf - Inf/-Inf - -Inf/Inf * 0/-Inf * 0/0 * Inf/0 * -Inf/Inf / [-]Inf/-Inf / [-]Inf x2/Inf % any nonzero = NaN)、#endif 条件注释 NUMERIC_ABBREV_BITS == 64/32、枚举清单注释 L315 (NUMERIC_POS, _NEG...)、字段清单注释 L1072 (ndigits, weight, sign, dscale, NumericDigits.); 头部 L3/L14/L16/L17 冻结行保留, L4/L6/L8-L12 功能描述行已译"
+   ],
+   "note": "numeric.c part1 (partial-file 拆批判例 0386/0387/0398/0399): L1-4130 (文件头+数字格式体系 NumericShort/NumericLong/digit 系+I/O 族 numeric_in/out/recv/send/typmod 系+符号/舍入+generate_series+width_bucket+排序支持+比较+in_range+hash+四则运算+gcd/lcm/fac/sqrt/exp/ln/log/power 至 numeric_power 收官, 截止于 numeric_scale 前); whole-file 拆批 part 1, batch-0428; verify rc=0 (comments=982 changed=295, 0 violations, splices=27, 骨架逐字节相等), term_lint rc=0 (0 error, 2 warnings 全 advisory: P15 L1978 装饰横幅, TL08 L4096 requires→要求 规则自注允许); part2-4 区域 43 站 W7_UNTRANSLATED 为待批预期; W7_IDENT_LOST 7 站全 advisory (NaNs/NANs x4 复数量裁, NumericDigits x2 单复数量裁, sum L3105 译词'之和'在场); 行数守恒 12043"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0428 manifest (numeric.c part1)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

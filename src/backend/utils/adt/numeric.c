@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * numeric.c
- *	  An exact numeric data type for the Postgres database system
+ *	Postgres 数据库系统的精确数值数据类型
  *
- * Original coding 1998, Jan Wieck.  Heavily revised 2003, Tom Lane.
+ * 1998 年 Jan Wieck 首创，2003 年 Tom Lane 大幅修订。
  *
- * Many of the algorithmic ideas are borrowed from David M. Smith's "FM"
- * multiple-precision math library, most recently published as Algorithm
- * 786: Multiple-Precision Complex Arithmetic and Functions, ACM
- * Transactions on Mathematical Software, Vol. 24, No. 4, December 1998,
- * pages 359-367.
+ * 许多算法思想都借鉴自 David M. Smith 的"FM"多精度
+ * 数学库，该库最近发表为 Algorithm 786: Multiple-Precision
+ *  Complex Arithmetic and Functions, ACM Transactions on
+ * Mathematical Software, Vol. 24, No. 4, 1998 年 12 月，
+ * 359-367 页。
  *
  * Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -44,39 +44,39 @@
 #include "utils/sortsupport.h"
 
 /* ----------
- * Uncomment the following to enable compilation of dump_numeric()
- * and dump_var() and to get a dump of any result produced by make_result().
+ * 取消下面的注释，即可编译 dump_numeric()
+ * 与 dump_var()，并转储 make_result() 产生的任何结果。
  * ----------
 #define NUMERIC_DEBUG
  */
 
 
 /* ----------
- * Local data types
+ * 局部类型
  *
- * Numeric values are represented in a base-NBASE floating point format.
- * Each "digit" ranges from 0 to NBASE-1.  The type NumericDigit is signed
- * and wide enough to store a digit.  We assume that NBASE*NBASE can fit in
- * an int.  Although the purely calculational routines could handle any even
- * NBASE that's less than sqrt(INT_MAX), in practice we are only interested
- * in NBASE a power of ten, so that I/O conversions and decimal rounding
- * are easy.  Also, it's actually more efficient if NBASE is rather less than
- * sqrt(INT_MAX), so that there is "headroom" for mul_var and div_var_fast to
- * postpone processing carries.
+ * 数值以基数为 NBASE 的浮点格式表示。
+ * 每个"数字位"取值范围从 0 到 NBASE-1。NumericDigit 类型
+ * 为有符号且足以存放一个数字位。假定 NBASE*NBASE 可
+ * 容纳于一个 int 中。虽然纯计算例程本可处理任何小于
+ * sqrt(INT_MAX) 的偶数 NBASE，但实际我们只关心 NBASE
+ * 为 10 的幂，这样 I/O 转换与十进制四舍五入都简单。
+ * 另外，NBASE 若明显小于 sqrt(INT_MAX)，实际上也更高效，
+ * 这样 mul_var 与 div_var_fast 就有"余量"可以推迟
+ * 进位的处理。
  *
- * Values of NBASE other than 10000 are considered of historical interest only
- * and are no longer supported in any sense; no mechanism exists for the client
- * to discover the base, so every client supporting binary mode expects the
- * base-10000 format.  If you plan to change this, also note the numeric
- * abbreviation code, which assumes NBASE=10000.
+ * 除 10000 以外的 NBASE 取值仅具有历史意义，如今在
+ * 任何意义上都不再受支持；客户端没有任何机制能探知
+ * 基数，因此支持二进制模式的客户端都预期 base-10000
+ * 格式。若打算改变此点，也要注意 numeric 缩略代码，
+ * 其假定 NBASE=10000。
  * ----------
  */
 
 #if 0
 #define NBASE		10
 #define HALF_NBASE	5
-#define DEC_DIGITS	1			/* decimal digits per NBASE digit */
-#define MUL_GUARD_DIGITS	4	/* these are measured in NBASE digits */
+#define DEC_DIGITS	1			/* 每 NBASE 位十进制位数 */
+#define MUL_GUARD_DIGITS	4	/* 以 NBASE 数字位为单位计量 */
 #define DIV_GUARD_DIGITS	8
 
 typedef signed char NumericDigit;
@@ -85,8 +85,8 @@ typedef signed char NumericDigit;
 #if 0
 #define NBASE		100
 #define HALF_NBASE	50
-#define DEC_DIGITS	2			/* decimal digits per NBASE digit */
-#define MUL_GUARD_DIGITS	3	/* these are measured in NBASE digits */
+#define DEC_DIGITS	2			/* 每 NBASE 位十进制位数 */
+#define MUL_GUARD_DIGITS	3	/* 以 NBASE 数字位为单位计量 */
 #define DIV_GUARD_DIGITS	6
 
 typedef signed char NumericDigit;
@@ -95,71 +95,71 @@ typedef signed char NumericDigit;
 #if 1
 #define NBASE		10000
 #define HALF_NBASE	5000
-#define DEC_DIGITS	4			/* decimal digits per NBASE digit */
-#define MUL_GUARD_DIGITS	2	/* these are measured in NBASE digits */
+#define DEC_DIGITS	4			/* 每 NBASE 位十进制位数 */
+#define MUL_GUARD_DIGITS	2	/* 以 NBASE 数字位为单位计量 */
 #define DIV_GUARD_DIGITS	4
 
 typedef int16 NumericDigit;
 #endif
 
 /*
- * The Numeric type as stored on disk.
+ * Numeric 的磁盘存储形式。
  *
- * If the high bits of the first word of a NumericChoice (n_header, or
- * n_short.n_header, or n_long.n_sign_dscale) are NUMERIC_SHORT, then the
- * numeric follows the NumericShort format; if they are NUMERIC_POS or
- * NUMERIC_NEG, it follows the NumericLong format. If they are NUMERIC_SPECIAL,
- * the value is a NaN or Infinity.  We currently always store SPECIAL values
- * using just two bytes (i.e. only n_header), but previous releases used only
- * the NumericLong format, so we might find 4-byte NaNs (though not infinities)
- * on disk if a database has been migrated using pg_upgrade.  In either case,
- * the low-order bits of a special value's header are reserved and currently
- * should always be set to zero.
+ * 若 NumericChoice 首字的高位（n_header，或
+ * n_short.n_header，或 n_long.n_sign_dscale）为 NUMERIC_SHORT，
+ * 则该数值遵循 NumericShort 格式；若为 NUMERIC_POS 或
+ * NUMERIC_NEG，则遵循 NumericLong 格式。若为 NUMERIC_SPECIAL，
+ * 则值为 NaN 或无穷大。目前我们总是只用两个字节存储
+ * SPECIAL 值（即仅 n_header），但旧版本只使用 NumericLong
+ * 格式，因此若数据库经 pg_upgrade 迁移，磁盘上可能仍有
+ * 4 字节的 NaN（但不会有无穷大）。无论哪种情形，
+ * 特殊值头部的低位是保留位，目前
+ * 应始终将其置为零。
  *
- * In the NumericShort format, the remaining 14 bits of the header word
- * (n_short.n_header) are allocated as follows: 1 for sign (positive or
- * negative), 6 for dynamic scale, and 7 for weight.  In practice, most
- * commonly-encountered values can be represented this way.
+ * 在 NumericShort 格式下，头部字（n_short.n_header）
+ * 其余 14 位分配如下：1 位用于符号（正或负），6 位
+ * 用于动态标度，7 位用于权重。实践中多数常见值
+ * 都能以这种方式表示。
  *
- * In the NumericLong format, the remaining 14 bits of the header word
- * (n_long.n_sign_dscale) represent the display scale; and the weight is
- * stored separately in n_weight.
+ * 在 NumericLong 格式下，头部字
+ * （n_long.n_sign_dscale）的其余 14 位表示显示标度；而
+ * 权重存于 n_weight。
  *
- * NOTE: by convention, values in the packed form have been stripped of
- * all leading and trailing zero digits (where a "digit" is of base NBASE).
- * In particular, if the value is zero, there will be no digits at all!
- * The weight is arbitrary in that case, but we normally set it to zero.
+ * 注意：惯例上打包形式的值已剥除全部前导与尾随
+ * 零数字位（此处"数字位"即以 NBASE 为基）。
+ * 特别地，若值为零，将完全不含任何数字位！
+ * 此时权重可为任意值，但我们通常将其置为零。
  */
 
 struct NumericShort
 {
-	uint16		n_header;		/* Sign + display scale + weight */
-	NumericDigit n_data[FLEXIBLE_ARRAY_MEMBER]; /* Digits */
+	uint16		n_header;		/* 符号+显示标度+权重 */
+	NumericDigit n_data[FLEXIBLE_ARRAY_MEMBER]; /* 数位 */
 };
 
 struct NumericLong
 {
-	uint16		n_sign_dscale;	/* Sign + display scale */
-	int16		n_weight;		/* Weight of 1st digit	*/
-	NumericDigit n_data[FLEXIBLE_ARRAY_MEMBER]; /* Digits */
+	uint16		n_sign_dscale;	/* 符号+显示标度 */
+	int16		n_weight;		/* 首位数字权重*/
+	NumericDigit n_data[FLEXIBLE_ARRAY_MEMBER]; /* 数位 */
 };
 
 union NumericChoice
 {
-	uint16		n_header;		/* Header word */
-	struct NumericLong n_long;	/* Long form (4-byte header) */
-	struct NumericShort n_short;	/* Short form (2-byte header) */
+	uint16		n_header;		/* 头部字 */
+	struct NumericLong n_long;	/* 长形式（4字节头） */
+	struct NumericShort n_short;	/* 短形式（2字节头） */
 };
 
 struct NumericData
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	union NumericChoice choice; /* choice of format */
+	int32		vl_len_;		/* varlena 头（切勿直接触碰！） */
+	union NumericChoice choice; /* 格式选择 */
 };
 
 
 /*
- * Interpretation of high bits.
+ * 高位的解释。
  */
 
 #define NUMERIC_SIGN_MASK	0xC000
@@ -176,9 +176,9 @@ struct NumericData
 #define NUMERIC_HDRSZ_SHORT (VARHDRSZ + sizeof(uint16))
 
 /*
- * If the flag bits are NUMERIC_SHORT or NUMERIC_SPECIAL, we want the short
- * header; otherwise, we want the long one.  Instead of testing against each
- * value, we can just look at the high bit, for a slight efficiency gain.
+ * 若标志位为 NUMERIC_SHORT 或 NUMERIC_SPECIAL，我们要的
+ * 是短头部；否则要长头部。与其逐一比较每个取值，
+ * 不如只看高位，还能略有效率提升。
  */
 #define NUMERIC_HEADER_IS_SHORT(n)	(((n)->choice.n_header & 0x8000) != 0)
 #define NUMERIC_HEADER_SIZE(n) \
@@ -186,15 +186,15 @@ struct NumericData
 	 (NUMERIC_HEADER_IS_SHORT(n) ? 0 : sizeof(int16)))
 
 /*
- * Definitions for special values (NaN, positive infinity, negative infinity).
+ * 特殊值的定义（NaN、正无穷大、负无穷大）。
  *
- * The two bits after the NUMERIC_SPECIAL bits are 00 for NaN, 01 for positive
- * infinity, 11 for negative infinity.  (This makes the sign bit match where
- * it is in a short-format value, though we make no use of that at present.)
- * We could mask off the remaining bits before testing the active bits, but
- * currently those bits must be zeroes, so masking would just add cycles.
+ * NUMERIC_SPECIAL 位之后的两位：00 表示 NaN，01 表示正
+ * 无穷大，11 表示负无穷大。（这使得符号位与短格式值
+ * 中符号位的位置一致，不过目前并未利用这一点。）
+ * 本可先屏蔽其余位再测试有效位，但目前这些位必须
+ * 为零，因此屏蔽只会平添开销。
  */
-#define NUMERIC_EXT_SIGN_MASK	0xF000	/* high bits plus NaN/Inf flag bits */
+#define NUMERIC_EXT_SIGN_MASK	0xF000	/* 高位加 NaN/Inf 标志位 */
 #define NUMERIC_NAN				0xC000
 #define NUMERIC_PINF			0xD000
 #define NUMERIC_NINF			0xF000
@@ -208,7 +208,7 @@ struct NumericData
 	(((n)->choice.n_header & ~NUMERIC_INF_SIGN_MASK) == NUMERIC_PINF)
 
 /*
- * Short format definitions.
+ * 短格式定义。
  */
 
 #define NUMERIC_SHORT_SIGN_MASK			0x2000
@@ -222,13 +222,13 @@ struct NumericData
 #define NUMERIC_SHORT_WEIGHT_MIN		(-(NUMERIC_SHORT_WEIGHT_MASK+1))
 
 /*
- * Extract sign, display scale, weight.  These macros extract field values
- * suitable for the NumericVar format from the Numeric (on-disk) format.
+ * 提取符号、显示标度与权重。这些宏把字段值从 Numeric
+ * （磁盘上）格式转换为适配 NumericVar 格式的形式。
  *
- * Note that we don't trouble to ensure that dscale and weight read as zero
- * for an infinity; however, that doesn't matter since we never convert
- * "special" numerics to NumericVar form.  Only the constants defined below
- * (const_nan, etc) ever represent a non-finite value as a NumericVar.
+ * 注意，我们并不刻意保证无穷大的 dscale 与 weight 读为
+ * 零；不过这无关紧要，因为我们从不把"特殊"值转成
+ * NumericVar 形式。只有下面定义的常量（const_nan 等）
+ * 才会把非有限值表示为 NumericVar。
  */
 
 #define NUMERIC_DSCALE_MASK			0x3FFF
@@ -251,76 +251,76 @@ struct NumericData
 	: ((n)->choice.n_long.n_weight))
 
 /*
- * Maximum weight of a stored Numeric value (based on the use of int16 for the
- * weight in NumericLong).  Note that intermediate values held in NumericVar
- * and NumericSumAccum variables may have much larger weights.
+ * 已存储 Numeric 值的最大权重（基于 NumericLong 中权重
+ * 使用 int16 的事实）。注意，NumericVar 与 NumericSumAccum
+ * 变量保存的中间值权重可能大得多。
  */
 #define NUMERIC_WEIGHT_MAX			PG_INT16_MAX
 
 /* ----------
- * NumericVar is the format we use for arithmetic.  The digit-array part
- * is the same as the NumericData storage format, but the header is more
- * complex.
+ * NumericVar 是做算术运算所用的格式。数字位数组部分
+ * 与 NumericData 存储格式相同，但头部更为复杂。
  *
- * The value represented by a NumericVar is determined by the sign, weight,
- * ndigits, and digits[] array.  If it is a "special" value (NaN or Inf)
- * then only the sign field matters; ndigits should be zero, and the weight
- * and dscale fields are ignored.
  *
- * Note: the first digit of a NumericVar's value is assumed to be multiplied
- * by NBASE ** weight.  Another way to say it is that there are weight+1
- * digits before the decimal point.  It is possible to have weight < 0.
+ * NumericVar 所表示的值由符号、权重、ndigits 与
+ * digits[] 数组共同决定。若为"特殊"值（NaN 或 Inf），
+ * 则只有符号字段有意义；ndigits 应为零，weight 与
+ * dscale 字段则被忽略。
  *
- * buf points at the physical start of the palloc'd digit buffer for the
- * NumericVar.  digits points at the first digit in actual use (the one
- * with the specified weight).  We normally leave an unused digit or two
- * (preset to zeroes) between buf and digits, so that there is room to store
- * a carry out of the top digit without reallocating space.  We just need to
- * decrement digits (and increment weight) to make room for the carry digit.
- * (There is no such extra space in a numeric value stored in the database,
- * only in a NumericVar in memory.)
+ * 注意：假定 NumericVar 值的首个数字位要乘以
+ * NBASE ** weight。换个说法，小数点前有 weight+1
+ * 个数字位。weight 也可以小于 0。
  *
- * If buf is NULL then the digit buffer isn't actually palloc'd and should
- * not be freed --- see the constants below for an example.
+ * buf 指向 NumericVar 经 palloc 的数字位缓冲区的物理
+ * 起始处。digits 指向实际使用的首个数字位（具有
+ * 指定权重的那一个）。通常会在 buf 与 digits 之间
+ * 留一两个未用数字位（预置为零），以便有空间存放
+ * 最高数字位的进位而无需重新分配空间。只需将 digits
+ * 递减（并递增 weight）就能为进位数字位腾出空间。
+ * （数据库中存储的 numeric 值没有这种额外空间，它
+ * 只在内存的 NumericVar。）
  *
- * dscale, or display scale, is the nominal precision expressed as number
- * of digits after the decimal point (it must always be >= 0 at present).
- * dscale may be more than the number of physically stored fractional digits,
- * implying that we have suppressed storage of significant trailing zeroes.
- * It should never be less than the number of stored digits, since that would
- * imply hiding digits that are present.  NOTE that dscale is always expressed
- * in *decimal* digits, and so it may correspond to a fractional number of
- * base-NBASE digits --- divide by DEC_DIGITS to convert to NBASE digits.
+ * 若 buf 为 NULL，则数字位缓冲区并未真正 palloc，因此
+ * 不应被释放 --- 参见下面常量中的示例。
  *
- * rscale, or result scale, is the target precision for a computation.
- * Like dscale it is expressed as number of *decimal* digits after the decimal
- * point, and is always >= 0 at present.
- * Note that rscale is not stored in variables --- it's figured on-the-fly
- * from the dscales of the inputs.
+ * dscale 即显示标度，为小数点后数字位个数的标称精度
+ * （目前它必须始终 >= 0）。dscale 可以大于实际存储的
+ * 小数数字位个数，这意味着我们已抑制了有意义的尾随
+ * 零的存储。
+ * 它绝不应小于已存储数字位的个数，因为那意味着隐藏
+ * 实际存在的数字位。注意 dscale 始终以十进制数字位
+ * 表示，因此可能对应非整数个的 NBASE 数字位 --- 除以
+ * DEC_DIGITS 即可换算成 NBASE 数字位。
  *
- * While we consistently use "weight" to refer to the base-NBASE weight of
- * a numeric value, it is convenient in some scale-related calculations to
- * make use of the base-10 weight (ie, the approximate log10 of the value).
- * To avoid confusion, such a decimal-units weight is called a "dweight".
+ * rscale 即结果标度，是计算的目标精度。
+ * 与 dscale 一样，以小数点后的十进制数字位个数表示，
+ * 且目前始终 >= 0。
+ * 注意 rscale 并不存入变量 --- 它是根据各输入的
+ * dscale 现算出来的。
  *
- * NB: All the variable-level functions are written in a style that makes it
- * possible to give one and the same variable as argument and destination.
- * This is feasible because the digit buffer is separate from the variable.
+ * 我们始终用"weight"指 numeric 值的 NBASE 基权重，但在
+ * 某些标度相关的计算中，用 10 基权重（即数值的近似
+ * log10）会更方便。为避免混淆，这种十进制单位的权重
+ * 称为"dweight"。
+ *
+ * 注意：所有变量级函数的编写风格都允许将同一个变量
+ * 既作参数又作目标。这可行是因为数字位缓冲区与
+ * 变量本身是彼此分开的。
  * ----------
  */
 typedef struct NumericVar
 {
-	int			ndigits;		/* # of digits in digits[] - can be 0! */
-	int			weight;			/* weight of first digit */
+	int			ndigits;		/* digits[] 的位数 - 可为 0！ */
+	int			weight;			/* 首数字位权重 */
 	int			sign;			/* NUMERIC_POS, _NEG, _NAN, _PINF, or _NINF */
-	int			dscale;			/* display scale */
-	NumericDigit *buf;			/* start of palloc'd space for digits[] */
-	NumericDigit *digits;		/* base-NBASE digits */
+	int			dscale;			/* 显示标度 */
+	NumericDigit *buf;			/* digits[] palloc 空间的起始处 */
+	NumericDigit *digits;		/* NBASE 数字位 */
 } NumericVar;
 
 
 /* ----------
- * Data for generate_series
+ * generate_series 数据
  * ----------
  */
 typedef struct
@@ -332,47 +332,47 @@ typedef struct
 
 
 /* ----------
- * Sort support.
+ * 排序支持
  * ----------
  */
 typedef struct
 {
-	void	   *buf;			/* buffer for short varlenas */
-	int64		input_count;	/* number of non-null values seen */
-	bool		estimating;		/* true if estimating cardinality */
+	void	   *buf;			/* 短 varlena 的缓冲区 */
+	int64		input_count;	/* 已见到的非空值个数 */
+	bool		estimating;		/* 估算基数时为 true */
 
-	hyperLogLogState abbr_card; /* cardinality estimator */
+	hyperLogLogState abbr_card; /* 基数估算器 */
 } NumericSortSupport;
 
 
 /* ----------
- * Fast sum accumulator.
+ * 快速和累加器。
  *
- * NumericSumAccum is used to implement SUM(), and other standard aggregates
- * that track the sum of input values.  It uses 32-bit integers to store the
- * digits, instead of the normal 16-bit integers (with NBASE=10000).  This
- * way, we can safely accumulate up to NBASE - 1 values without propagating
- * carry, before risking overflow of any of the digits.  'num_uncarried'
- * tracks how many values have been accumulated without propagating carry.
+ * NumericSumAccum 用于实现 SUM() 以及其他跟踪输入值总和
+ * 的标准聚合。它以 32 位整数存数字位，而非普通的
+ * 16 位整数（NBASE=10000 时）。这样我们可以安全地累加
+ * 最多 NBASE - 1 个值而不传播进位，然后才有任何数字位
+ * 溢出的风险。'num_uncarried' 记录已累加了多少个值而
+ * 未传播进位。
  *
- * Positive and negative values are accumulated separately, in 'pos_digits'
- * and 'neg_digits'.  This is simpler and faster than deciding whether to add
- * or subtract from the current value, for each new value (see sub_var() for
- * the logic we avoid by doing this).  Both buffers are of same size, and
- * have the same weight and scale.  In accum_sum_final(), the positive and
- * negative sums are added together to produce the final result.
+ * 正值与负值分别累加在 'pos_digits' 与 'neg_digits' 中。
+ * 这比对每个新值判断该做加法还是减法更简单、更快速
+ * （这样避免的逻辑见 sub_var()）。两缓冲区大小相同，
+ * 且权重与标度相同。
+ * 在 accum_sum_final() 中，正和与负
+ * 和相加以产生最终结果。
  *
- * When a new value has a larger ndigits or weight than the accumulator
- * currently does, the accumulator is enlarged to accommodate the new value.
- * We normally have one zero digit reserved for carry propagation, and that
- * is indicated by the 'have_carry_space' flag.  When accum_sum_carry() uses
- * up the reserved digit, it clears the 'have_carry_space' flag.  The next
- * call to accum_sum_add() will enlarge the buffer, to make room for the
- * extra digit, and set the flag again.
+ * 当新值的 ndigits 或 weight 大于累加器当前的对应值
+ * 时，累加器会扩大以容纳该新值。
+ * 我们通常预留一个零数字位用于进位传播，这一点由
+ * 'have_carry_space' 标志表示。当 accum_sum_carry() 用尽
+ * 该保留数字位时，会清除 'have_carry_space' 标志。下一次
+ * 调用 accum_sum_add() 时会扩大缓冲区，为多出的数字位
+ * 腾出空间，再置位标志。
  *
- * To initialize a new accumulator, simply reset all fields to zeros.
+ * 要初始化新的累加器，只需把所有字段重置为零。
  *
- * The accumulator does not handle NaNs.
+ * 累加器不处理 NaN。
  * ----------
  */
 typedef struct NumericSumAccum
@@ -388,16 +388,16 @@ typedef struct NumericSumAccum
 
 
 /*
- * We define our own macros for packing and unpacking abbreviated-key
- * representations for numeric values in order to avoid depending on
- * USE_FLOAT8_BYVAL.  The type of abbreviation we use is based only on
- * the size of a datum, not the argument-passing convention for float8.
+ * 为 numeric 缩略键表示自定义的打包/解包宏，以免
+ * 依赖于 USE_FLOAT8_BYVAL。所用缩略的类型只取决于
+ * datum 的大小，
+ * 而非 float8 的参数传递约定。
  *
- * The range of abbreviations for finite values is from +PG_INT64/32_MAX
- * to -PG_INT64/32_MAX.  NaN has the abbreviation PG_INT64/32_MIN, and we
- * define the sort ordering to make that work out properly (see further
- * comments below).  PINF and NINF share the abbreviations of the largest
- * and smallest finite abbreviation classes.
+ * 有限值的缩略范围从 +PG_INT64/32_MAX 到
+ * -PG_INT64/32_MAX。NaN 的缩略为 PG_INT64/32_MIN，我们
+ * 定义排序顺序使其成立（详见下方注释）。
+ * PINF 与 NINF 共用最大与最小有限缩略类的缩略值。
+ *
  */
 #define NUMERIC_ABBREV_BITS (SIZEOF_DATUM * BITS_PER_BYTE)
 #if SIZEOF_DATUM == 8
@@ -416,7 +416,7 @@ typedef struct NumericSumAccum
 
 
 /* ----------
- * Some preinitialized constants
+ * 一些预初始化的常量
  * ----------
  */
 static const NumericDigit const_zero_data[1] = {0};
@@ -469,7 +469,7 @@ static const int round_powers[4] = {0, 1000, 100, 10};
 
 
 /* ----------
- * Local functions
+ * 局部函数
  * ----------
  */
 
@@ -619,7 +619,7 @@ static void accum_sum_combine(NumericSumAccum *accum, NumericSumAccum *accum2);
 
 /* ----------------------------------------------------------------------
  *
- * Input-, output- and rounding-functions
+ * 输入、输出与四舍五入函数
  *
  * ----------------------------------------------------------------------
  */
@@ -628,7 +628,7 @@ static void accum_sum_combine(NumericSumAccum *accum, NumericSumAccum *accum2);
 /*
  * numeric_in() -
  *
- *	Input function for numeric data type
+ *	numeric 数据类型的输入函数
  */
 Datum
 numeric_in(PG_FUNCTION_ARGS)
@@ -644,7 +644,7 @@ numeric_in(PG_FUNCTION_ARGS)
 	const char *numstart;
 	int			sign;
 
-	/* Skip leading spaces */
+	/* 跳过前导空格 */
 	cp = str;
 	while (*cp)
 	{
@@ -654,9 +654,9 @@ numeric_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Process the number's sign. This duplicates logic in set_var_from_str(),
-	 * but it's worth doing here, since it simplifies the handling of
-	 * infinities and non-decimal integers.
+	 * 处理数值的符号。这与 set_var_from_str() 中的逻辑重复，
+	 * 但此处值得重做，以简化无穷大与非十进制
+	 * 整数的处理。
 	 */
 	numstart = cp;
 	sign = NUMERIC_POS;
@@ -670,17 +670,17 @@ numeric_in(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Check for NaN and infinities.  We recognize the same strings allowed by
-	 * float8in().
+	 * 检查 NaN 与无穷大。识别的字符串与 float8in() 相同。
 	 *
-	 * Since all other legal inputs have a digit or a decimal point after the
-	 * sign, we need only check for NaN/infinity if that's not the case.
+	 *
+	 * 由于其余合法输入符号后都有数字位或小数点，仅需在
+	 * 不是这种情形时才检查 NaN/无穷大。
 	 */
 	if (!isdigit((unsigned char) *cp) && *cp != '.')
 	{
 		/*
-		 * The number must be NaN or infinity; anything else can only be a
-		 * syntax error. Note that NaN mustn't have a sign.
+		 * 该数必为 NaN 或无穷大；其余只能是语法错误。
+		 * 注意 NaN 绝不能带符号。
 		 */
 		if (pg_strncasecmp(numstart, "NaN", 3) == 0)
 		{
@@ -701,11 +701,11 @@ numeric_in(PG_FUNCTION_ARGS)
 			goto invalid_syntax;
 
 		/*
-		 * Check for trailing junk; there should be nothing left but spaces.
+		 * 检查尾随垃圾；之后应当只剩空格。
 		 *
-		 * We intentionally do this check before applying the typmod because
-		 * we would like to throw any trailing-junk syntax error before any
-		 * semantic error resulting from apply_typmod_special().
+		 * 特意在 typmod 前检查，想让尾随垃圾语法错误先于
+		 * apply_typmod_special() 所产生的语义错误。
+		 *
 		 */
 		while (*cp)
 		{
@@ -720,8 +720,8 @@ numeric_in(PG_FUNCTION_ARGS)
 	else
 	{
 		/*
-		 * We have a normal numeric value, which may be a non-decimal integer
-		 * or a regular decimal number.
+		 * 此时是普通 numeric 值，可能是非十进制整数或常规
+		 * 十进制数。
 		 */
 		NumericVar	value;
 		int			base;
@@ -730,8 +730,8 @@ numeric_in(PG_FUNCTION_ARGS)
 		init_var(&value);
 
 		/*
-		 * Determine the number's base by looking for a non-decimal prefix
-		 * indicator ("0x", "0o", or "0b").
+		 * 看非十进制前缀（"0x"、"0o" 或 "0b"）判定基数。
+		 *
 		 */
 		if (cp[0] == '0')
 		{
@@ -756,7 +756,7 @@ numeric_in(PG_FUNCTION_ARGS)
 		else
 			base = 10;
 
-		/* Parse the rest of the number and apply the sign */
+		/* 解析数值的其余部分并应用符号 */
 		if (base == 10)
 		{
 			if (!set_var_from_str(str, cp, &value, &cp, escontext))
@@ -771,8 +771,8 @@ numeric_in(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Should be nothing left but spaces. As above, throw any typmod error
-		 * after finishing syntax check.
+		 * 此时应只剩空格。同上文，完成语法检查后再抛
+		 * typmod 错误。
 		 */
 		while (*cp)
 		{
@@ -807,7 +807,7 @@ invalid_syntax:
 /*
  * numeric_out() -
  *
- *	Output function for numeric data type
+ *	numeric 数据类型的输出函数
  */
 Datum
 numeric_out(PG_FUNCTION_ARGS)
@@ -817,7 +817,7 @@ numeric_out(PG_FUNCTION_ARGS)
 	char	   *str;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
@@ -830,7 +830,7 @@ numeric_out(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Get the number in the variable format.
+	 * 取得变量格式的数值。
 	 */
 	init_var_from_num(num, &x);
 
@@ -842,7 +842,7 @@ numeric_out(PG_FUNCTION_ARGS)
 /*
  * numeric_is_nan() -
  *
- *	Is Numeric value a NaN?
+ *	Numeric 值为 NaN？
  */
 bool
 numeric_is_nan(Numeric num)
@@ -853,7 +853,7 @@ numeric_is_nan(Numeric num)
 /*
  * numeric_is_inf() -
  *
- *	Is Numeric value an infinity?
+ *	Numeric 值是无穷大吗？
  */
 bool
 numeric_is_inf(Numeric num)
@@ -864,14 +864,14 @@ numeric_is_inf(Numeric num)
 /*
  * numeric_is_integral() -
  *
- *	Is Numeric value integral?
+ *	Numeric 值是整数吗？
  */
 static bool
 numeric_is_integral(Numeric num)
 {
 	NumericVar	arg;
 
-	/* Reject NaN, but infinities are considered integral */
+	/* 拒绝 NaN，但无穷大视为整数 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
 		if (NUMERIC_IS_NAN(num))
@@ -879,7 +879,7 @@ numeric_is_integral(Numeric num)
 		return true;
 	}
 
-	/* Integral if there are no digits to the right of the decimal point */
+	/* 若小数点右侧没有数字位则为整数 */
 	init_var_from_num(num, &arg);
 
 	return (arg.ndigits == 0 || arg.ndigits <= arg.weight + 1);
@@ -888,17 +888,17 @@ numeric_is_integral(Numeric num)
 /*
  * make_numeric_typmod() -
  *
- *	Pack numeric precision and scale values into a typmod.  The upper 16 bits
- *	are used for the precision (though actually not all these bits are needed,
- *	since the maximum allowed precision is 1000).  The lower 16 bits are for
- *	the scale, but since the scale is constrained to the range [-1000, 1000],
- *	we use just the lower 11 of those 16 bits, and leave the remaining 5 bits
- *	unset, for possible future use.
+ *	把 numeric 的精度与标度值打包进一个 typmod。高 16 位
+ *	用于精度（实际上并非所有位都需要，因最大允许精度
+ *	为 1000）。低 16 位用于标度，但由于标度被限制在
+ *	[-1000, 1000] 区间内，我们只使用这 16 位中的低 11 位，
+ *	其余 5 位留空未用，以备将来使用。
  *
- *	For purely historical reasons VARHDRSZ is then added to the result, thus
- *	the unused space in the upper 16 bits is not all as freely available as it
- *	might seem.  (We can't let the result overflow to a negative int32, as
- *	other parts of the system would interpret that as not-a-valid-typmod.)
+ *
+ *	由于纯历史原因，结果还要加上 VARHDRSZ，因此高 16 位
+ *	中未用空间并不像看上去那样全部可用。（不能让结
+ *	果溢出为负 int32，否则系统其他部分会将其视为无效
+ *	的 typmod。）
  */
 static inline int32
 make_numeric_typmod(int precision, int scale)
@@ -907,7 +907,7 @@ make_numeric_typmod(int precision, int scale)
 }
 
 /*
- * Because of the offset, valid numeric typmods are at least VARHDRSZ
+ * 由于这一偏移，有效的 numeric typmod 至少为 VARHDRSZ
  */
 static inline bool
 is_valid_numeric_typmod(int32 typmod)
@@ -918,7 +918,7 @@ is_valid_numeric_typmod(int32 typmod)
 /*
  * numeric_typmod_precision() -
  *
- *	Extract the precision from a numeric typmod --- see make_numeric_typmod().
+ *	从 numeric typmod 中提取精度 --- 见 make_numeric_typmod()。
  */
 static inline int
 numeric_typmod_precision(int32 typmod)
@@ -929,11 +929,11 @@ numeric_typmod_precision(int32 typmod)
 /*
  * numeric_typmod_scale() -
  *
- *	Extract the scale from a numeric typmod --- see make_numeric_typmod().
+ *	从 numeric typmod 中提取标度 --- 见 make_numeric_typmod()。
  *
- *	Note that the scale may be negative, so we must do sign extension when
- *	unpacking it.  We do this using the bit hack (x^1024)-1024, which sign
- *	extends an 11-bit two's complement number x.
+ *	注意标度可能为负，所以解包时必须做符号扩展。
+ *	使用位技巧 (x^1024)-1024 来完成，它可将 11 位二进制
+ *	补码数 x 做符号扩展。
  */
 static inline int
 numeric_typmod_scale(int32 typmod)
@@ -944,7 +944,7 @@ numeric_typmod_scale(int32 typmod)
 /*
  * numeric_maximum_size() -
  *
- *	Maximum size of a numeric with given typmod, or -1 if unlimited/unknown.
+ *	给定 typmod 的 numeric 最大尺寸，无限制/未知时为 -1。
  */
 int32
 numeric_maximum_size(int32 typmod)
@@ -955,27 +955,27 @@ numeric_maximum_size(int32 typmod)
 	if (!is_valid_numeric_typmod(typmod))
 		return -1;
 
-	/* precision (ie, max # of digits) is in upper bits of typmod */
+	/* 精度（即最大数字位个数）在 typmod 高位 */
 	precision = numeric_typmod_precision(typmod);
 
 	/*
-	 * This formula computes the maximum number of NumericDigits we could need
-	 * in order to store the specified number of decimal digits. Because the
-	 * weight is stored as a number of NumericDigits rather than a number of
-	 * decimal digits, it's possible that the first NumericDigit will contain
-	 * only a single decimal digit.  Thus, the first two decimal digits can
-	 * require two NumericDigits to store, but it isn't until we reach
-	 * DEC_DIGITS + 2 decimal digits that we potentially need a third
-	 * NumericDigit.
+	 * 此公式算出存储指定个数十进制数字位所需
+	 * NumericDigit 个数上限。由于权重以 NumericDigit 个数而
+	 * 非十进制位数存储，首个 NumericDigit 可能只含一个
+	 * 十进制数字位。故前两个十进制位可能需两个
+	 * NumericDigit 来存放；到 DEC_DIGITS + 2 个十进制
+	 * 位时，才可能需要第三个 NumericDigit。
+	 *
+	 *
 	 */
 	numeric_digits = (precision + 2 * (DEC_DIGITS - 1)) / DEC_DIGITS;
 
 	/*
-	 * In most cases, the size of a numeric will be smaller than the value
-	 * computed below, because the varlena header will typically get toasted
-	 * down to a single byte before being stored on disk, and it may also be
-	 * possible to use a short numeric header.  But our job here is to compute
-	 * the worst case.
+	 * 多数情况下 numeric 尺寸会小于下面算出的值，因
+	 * varlena 头存盘前通常被解 TOAST 至单字节，
+	 * 也可能用短头部。
+	 * 但此处我们的任务是计算最坏情形。
+	 *
 	 */
 	return NUMERIC_HDRSZ + (numeric_digits * sizeof(NumericDigit));
 }
@@ -983,7 +983,7 @@ numeric_maximum_size(int32 typmod)
 /*
  * numeric_out_sci() -
  *
- *	Output function for numeric data type in scientific notation.
+ *	以科学记数法输出 numeric 数据类型的函数。
  */
 char *
 numeric_out_sci(Numeric num, int scale)
@@ -992,7 +992,7 @@ numeric_out_sci(Numeric num, int scale)
 	char	   *str;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
@@ -1014,10 +1014,10 @@ numeric_out_sci(Numeric num, int scale)
 /*
  * numeric_normalize() -
  *
- *	Output function for numeric data type, suppressing insignificant trailing
- *	zeroes and then any trailing decimal point.  The intent of this is to
- *	produce strings that are equal if and only if the input numeric values
- *	compare equal.
+ *	numeric 输出函数，抑制无意义的尾随零，并去掉随后
+ *	的尾随小数点。意图是当且仅当输入 numeric 值比较
+ *	相等时，输出字符串才相等。
+ *
  */
 char *
 numeric_normalize(Numeric num)
@@ -1027,7 +1027,7 @@ numeric_normalize(Numeric num)
 	int			last;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
@@ -1043,22 +1043,22 @@ numeric_normalize(Numeric num)
 
 	str = get_str_from_var(&x);
 
-	/* If there's no decimal point, there's certainly nothing to remove. */
+	/* 若无小数点，则必然没有可去除的内容。 */
 	if (strchr(str, '.') != NULL)
 	{
 		/*
-		 * Back up over trailing fractional zeroes.  Since there is a decimal
-		 * point, this loop will terminate safely.
+		 * 回退越过尾随小数零。既然小数点存在，必能安全
+		 * 终止。
 		 */
 		last = strlen(str) - 1;
 		while (str[last] == '0')
 			last--;
 
-		/* We want to get rid of the decimal point too, if it's now last. */
+		/* 若小数点已在最后，也要将其去除。 */
 		if (str[last] == '.')
 			last--;
 
-		/* Delete whatever we backed up over. */
+		/* 删除回退越过的内容。 */
 		str[last + 1] = '\0';
 	}
 
@@ -1066,9 +1066,9 @@ numeric_normalize(Numeric num)
 }
 
 /*
- *		numeric_recv			- converts external binary format to numeric
+ *		numeric_recv			- 把外部二进制格式转换为 numeric
  *
- * External format is a sequence of int16's:
+ * 外部格式是一串 int16：
  * ndigits, weight, sign, dscale, NumericDigits.
  */
 Datum
@@ -1092,7 +1092,7 @@ numeric_recv(PG_FUNCTION_ARGS)
 	alloc_var(&value, len);
 
 	value.weight = (int16) pq_getmsgint(buf, sizeof(int16));
-	/* we allow any int16 for weight --- OK? */
+	/* 权重允许任意 int16，行吗？ */
 
 	value.sign = (uint16) pq_getmsgint(buf, sizeof(uint16));
 	if (!(value.sign == NUMERIC_POS ||
@@ -1122,14 +1122,14 @@ numeric_recv(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If the given dscale would hide any digits, truncate those digits away.
-	 * We could alternatively throw an error, but that would take a bunch of
-	 * extra code (about as much as trunc_var involves), and it might cause
-	 * client compatibility issues.  Be careful not to apply trunc_var to
-	 * special values, as it could do the wrong thing; we don't need it
-	 * anyway, since make_result will ignore all but the sign field.
+	 * 若给定 dscale 会隐藏数字位，就把那些数字位截断。
+	 * 我们也可以改为抛错，但那需要一大堆额外代码（与
+	 * trunc_var 相当），还可能引发客户端兼容性问题。
+	 * 勿对特殊值应用 trunc_var，因其可能出错；反正
+	 * 也用不着它，因为 make_result 会忽略除符号外的
+	 * 所有字段。
 	 *
-	 * After doing that, be sure to check the typmod restriction.
+	 * 做完之后，务必检查 typmod 限制。
 	 */
 	if (value.sign == NUMERIC_POS ||
 		value.sign == NUMERIC_NEG)
@@ -1142,7 +1142,7 @@ numeric_recv(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* apply_typmod_special wants us to make the Numeric first */
+		/* apply_typmod_special 要求我们先构造好 Numeric */
 		res = make_result(&value);
 
 		(void) apply_typmod_special(res, typmod, NULL);
@@ -1154,7 +1154,7 @@ numeric_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		numeric_send			- converts numeric to binary format
+ *		numeric_send		- 把 numeric 转为二进制格式
  */
 Datum
 numeric_send(PG_FUNCTION_ARGS)
@@ -1182,12 +1182,12 @@ numeric_send(PG_FUNCTION_ARGS)
 /*
  * numeric_support()
  *
- * Planner support function for the numeric() length coercion function.
+ * numeric() 长度强转函数的规划器支持函数。
  *
- * Flatten calls that solely represent increases in allowable precision.
- * Scale changes mutate every datum, so they are unoptimizable.  Some values,
- * e.g. 1E-1001, can only fit into an unconstrained numeric, so a change from
- * an unconstrained numeric to any constrained numeric is also unoptimizable.
+ * 展平那些仅表示允许精度提升的调用。
+ * 标度变化会改变每个 datum，因此不可优化。有些值（如
+ * 1E-1001）只能放入无约束 numeric，因此从无约束 numeric
+ * 改为任何有约束 numeric 同样不可优化。
  */
 Datum
 numeric_support(PG_FUNCTION_ARGS)
@@ -1216,11 +1216,11 @@ numeric_support(PG_FUNCTION_ARGS)
 			int32		new_precision = numeric_typmod_precision(new_typmod);
 
 			/*
-			 * If new_typmod is invalid, the destination is unconstrained;
-			 * that's always OK.  If old_typmod is valid, the source is
-			 * constrained, and we're OK if the scale is unchanged and the
-			 * precision is not decreasing.  See further notes in function
-			 * header comment.
+			 * 若 new_typmod 无效，则目标无约束；没问题。
+			 * 若 old_typmod 有效，则源受约束，只要标度不变
+			 * 且精度未减小即可。
+			 * 更多说明见函数头部注释。
+			 *
 			 */
 			if (!is_valid_numeric_typmod(new_typmod) ||
 				(is_valid_numeric_typmod(old_typmod) &&
@@ -1235,9 +1235,9 @@ numeric_support(PG_FUNCTION_ARGS)
 /*
  * numeric() -
  *
- *	This is a special function called by the Postgres database system
- *	before a value is stored in a tuple's attribute. The precision and
- *	scale of the attribute have to be applied on the value.
+ *	这是 Postgres 数据库系统在值存入元组属性之前调
+ *	用的特殊函数。属性的精度与标度须施加于该值。
+ *
  */
 Datum
 numeric		(PG_FUNCTION_ARGS)
@@ -1253,8 +1253,8 @@ numeric		(PG_FUNCTION_ARGS)
 	NumericVar	var;
 
 	/*
-	 * Handle NaN and infinities: if apply_typmod_special doesn't complain,
-	 * just return a copy of the input.
+	 * 处理 NaN 与无穷大：若 apply_typmod_special 不抱怨，
+	 * 就返回输入的副本。
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
@@ -1263,28 +1263,28 @@ numeric		(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If the value isn't a valid type modifier, simply return a copy of the
-	 * input value
+	 * 若值不是有效的类型修饰符，直接返回输入值的副本
+	 *
 	 */
 	if (!is_valid_numeric_typmod(typmod))
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 
 	/*
-	 * Get the precision and scale out of the typmod value
+	 * 从 typmod 值中取出精度与标度
 	 */
 	precision = numeric_typmod_precision(typmod);
 	scale = numeric_typmod_scale(typmod);
 	maxdigits = precision - scale;
 
-	/* The target display scale is non-negative */
+	/* 目标显示标度为非负值 */
 	dscale = Max(scale, 0);
 
 	/*
-	 * If the number is certainly in bounds and due to the target scale no
-	 * rounding could be necessary, just make a copy of the input and modify
-	 * its scale fields, unless the larger scale forces us to abandon the
-	 * short representation.  (Note we assume the existing dscale is
-	 * honest...)
+	 * 若数值必在界内且目标标度无需四舍五入，只需
+	 * 复制输入并改其标度字段，除非更大的标度迫使我们放弃
+	 * 短表示。
+	 * （注意我们假定现有 dscale 如实…）
+	 *
 	 */
 	ddigits = (NUMERIC_WEIGHT(num) + 1) * DEC_DIGITS;
 	if (ddigits <= maxdigits && scale >= NUMERIC_DSCALE(num)
@@ -1303,8 +1303,8 @@ numeric		(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * We really need to fiddle with things - unpack the number into a
-	 * variable and let apply_typmod() do it.
+	 * 确实需要动些手脚 - 把数值解包为变量，交给
+	 * apply_typmod() 去做。
 	 */
 	init_var(&var);
 
@@ -1348,7 +1348,7 @@ numerictypmodin(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("NUMERIC precision %d must be between 1 and %d",
 							tl[0], NUMERIC_MAX_PRECISION)));
-		/* scale defaults to zero */
+		/* 标度默认为零 */
 		typmod = make_numeric_typmod(tl[0], 0);
 	}
 	else
@@ -1356,7 +1356,7 @@ numerictypmodin(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("invalid NUMERIC type modifier")));
-		typmod = 0;				/* keep compiler quiet */
+		typmod = 0;				/* 让编译器安静 */
 	}
 
 	PG_RETURN_INT32(typmod);
@@ -1381,7 +1381,7 @@ numerictypmodout(PG_FUNCTION_ARGS)
 
 /* ----------------------------------------------------------------------
  *
- * Sign manipulation, rounding and the like
+ * 符号处理、四舍五入等函数
  *
  * ----------------------------------------------------------------------
  */
@@ -1393,7 +1393,7 @@ numeric_abs(PG_FUNCTION_ARGS)
 	Numeric		res;
 
 	/*
-	 * Do it the easy way directly on the packed format
+	 * 直接在打包格式上用简单方式处理
 	 */
 	res = duplicate_numeric(num);
 
@@ -1402,7 +1402,7 @@ numeric_abs(PG_FUNCTION_ARGS)
 			num->choice.n_short.n_header & ~NUMERIC_SHORT_SIGN_MASK;
 	else if (NUMERIC_IS_SPECIAL(num))
 	{
-		/* This changes -Inf to Inf, and doesn't affect NaN */
+		/* 这会把 -Inf 变为 Inf，且不影响 NaN */
 		res->choice.n_short.n_header =
 			num->choice.n_short.n_header & ~NUMERIC_INF_SIGN_MASK;
 	}
@@ -1420,26 +1420,26 @@ numeric_uminus(PG_FUNCTION_ARGS)
 	Numeric		res;
 
 	/*
-	 * Do it the easy way directly on the packed format
+	 * 直接在打包格式上用简单方式处理
 	 */
 	res = duplicate_numeric(num);
 
 	if (NUMERIC_IS_SPECIAL(num))
 	{
-		/* Flip the sign, if it's Inf or -Inf */
+		/* 若为 Inf/-Inf 则翻转符号 */
 		if (!NUMERIC_IS_NAN(num))
 			res->choice.n_short.n_header =
 				num->choice.n_short.n_header ^ NUMERIC_INF_SIGN_MASK;
 	}
 
 	/*
-	 * The packed format is known to be totally zero digit trimmed always. So
-	 * once we've eliminated specials, we can identify a zero by the fact that
-	 * there are no digits at all. Do nothing to a zero.
+	 * 打包格式总已完全去除零数字位。所以一旦排除特
+	 * 殊值，即可凭全无数字位识别零。对零不做处理。
+	 *
 	 */
 	else if (NUMERIC_NDIGITS(num) != 0)
 	{
-		/* Else, flip the sign */
+		/* 否则翻转符号 */
 		if (NUMERIC_IS_SHORT(num))
 			res->choice.n_short.n_header =
 				num->choice.n_short.n_header ^ NUMERIC_SHORT_SIGN_MASK;
@@ -1467,9 +1467,9 @@ numeric_uplus(PG_FUNCTION_ARGS)
 /*
  * numeric_sign_internal() -
  *
- * Returns -1 if the argument is less than 0, 0 if the argument is equal
- * to 0, and 1 if the argument is greater than zero.  Caller must have
- * taken care of the NaN case, but we can handle infinities here.
+ * 参数小于 0 时返回 -1，参数等于 0 时返回 0，参数大
+ * 于 0 时返回 1。调用者必须已处理 NaN 情形，但我们
+ * 可以在此处处理无穷大。
  */
 static int
 numeric_sign_internal(Numeric num)
@@ -1477,7 +1477,7 @@ numeric_sign_internal(Numeric num)
 	if (NUMERIC_IS_SPECIAL(num))
 	{
 		Assert(!NUMERIC_IS_NAN(num));
-		/* Must be Inf or -Inf */
+		/* 必为 Inf 或 -Inf */
 		if (NUMERIC_IS_PINF(num))
 			return 1;
 		else
@@ -1485,9 +1485,9 @@ numeric_sign_internal(Numeric num)
 	}
 
 	/*
-	 * The packed format is known to be totally zero digit trimmed always. So
-	 * once we've eliminated specials, we can identify a zero by the fact that
-	 * there are no digits at all.
+	 * 打包格式总已完全去除零数字位。所以一旦排除特
+	 * 殊值，即可凭全无数字位识别零。
+	 *
 	 */
 	else if (NUMERIC_NDIGITS(num) == 0)
 		return 0;
@@ -1500,8 +1500,8 @@ numeric_sign_internal(Numeric num)
 /*
  * numeric_sign() -
  *
- * returns -1 if the argument is less than 0, 0 if the argument is equal
- * to 0, and 1 if the argument is greater than zero.
+ * 参数小于 0 时返回 -1，参数等于 0 时返回 0，参数大
+ * 于 0 时返回 1。
  */
 Datum
 numeric_sign(PG_FUNCTION_ARGS)
@@ -1509,7 +1509,7 @@ numeric_sign(PG_FUNCTION_ARGS)
 	Numeric		num = PG_GETARG_NUMERIC(0);
 
 	/*
-	 * Handle NaN (infinities can be handled normally)
+	 * 处理 NaN（无穷大可正常处理）
 	 */
 	if (NUMERIC_IS_NAN(num))
 		PG_RETURN_NUMERIC(make_result(&const_nan));
@@ -1532,9 +1532,9 @@ numeric_sign(PG_FUNCTION_ARGS)
 /*
  * numeric_round() -
  *
- *	Round a value to have 'scale' digits after the decimal point.
- *	We allow negative 'scale', implying rounding before the decimal
- *	point --- Oracle interprets rounding that way.
+ *	将值四舍五入为小数点后有 'scale' 个数字位。
+ *	允许负 'scale'，即小数点前四舍五入 --- Oracle 将
+ *	这样解释四舍五入。
  */
 Datum
 numeric_round(PG_FUNCTION_ARGS)
@@ -1545,36 +1545,36 @@ numeric_round(PG_FUNCTION_ARGS)
 	NumericVar	arg;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 
 	/*
-	 * Limit the scale value to avoid possible overflow in calculations.
+	 * 限制标度值以避免计算中可能出现的溢出。
 	 *
-	 * These limits are based on the maximum number of digits a Numeric value
-	 * can have before and after the decimal point, but we must allow for one
-	 * extra digit before the decimal point, in case the most significant
-	 * digit rounds up; we must check if that causes Numeric overflow.
+	 * 这些限制基于 Numeric 值小数点前后可有的最大数字位
+	 * 个数，但必须为整数部分多留一位，以防最高位四舍
+	 * 五入进位；我们必须检查这是否导致 Numeric 溢出。
+	 *
 	 */
 	scale = Max(scale, -(NUMERIC_WEIGHT_MAX + 1) * DEC_DIGITS - 1);
 	scale = Min(scale, NUMERIC_DSCALE_MAX);
 
 	/*
-	 * Unpack the argument and round it at the proper digit position
+	 * 解包参数并在正确的数字位位置四舍五入
 	 */
 	init_var(&arg);
 	set_var_from_num(num, &arg);
 
 	round_var(&arg, scale);
 
-	/* We don't allow negative output dscale */
+	/* 不允许输出 dscale 为负 */
 	if (scale < 0)
 		arg.dscale = 0;
 
 	/*
-	 * Return the rounded result
+	 * 返回四舍五入结果
 	 */
 	res = make_result(&arg);
 
@@ -1586,9 +1586,9 @@ numeric_round(PG_FUNCTION_ARGS)
 /*
  * numeric_trunc() -
  *
- *	Truncate a value to have 'scale' digits after the decimal point.
- *	We allow negative 'scale', implying a truncation before the decimal
- *	point --- Oracle interprets truncation that way.
+ *	将值截断为小数点后有 'scale' 个数字位。
+ *	允许负的 'scale'，表示在小数点之前截断 ---
+ *	Oracle 就是这样解释截断的。
  */
 Datum
 numeric_trunc(PG_FUNCTION_ARGS)
@@ -1599,34 +1599,34 @@ numeric_trunc(PG_FUNCTION_ARGS)
 	NumericVar	arg;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 
 	/*
-	 * Limit the scale value to avoid possible overflow in calculations.
+	 * 限制标度值以避免计算中可能出现的溢出。
 	 *
-	 * These limits are based on the maximum number of digits a Numeric value
-	 * can have before and after the decimal point.
+	 * 这些限制基于 Numeric 值小数点前后可有的最大数字位
+	 * 个数。
 	 */
 	scale = Max(scale, -(NUMERIC_WEIGHT_MAX + 1) * DEC_DIGITS);
 	scale = Min(scale, NUMERIC_DSCALE_MAX);
 
 	/*
-	 * Unpack the argument and truncate it at the proper digit position
+	 * 解包参数并在正确的数字位位置截断
 	 */
 	init_var(&arg);
 	set_var_from_num(num, &arg);
 
 	trunc_var(&arg, scale);
 
-	/* We don't allow negative output dscale */
+	/* 不允许输出 dscale 为负 */
 	if (scale < 0)
 		arg.dscale = 0;
 
 	/*
-	 * Return the truncated result
+	 * 返回截断后的结果
 	 */
 	res = make_result(&arg);
 
@@ -1638,7 +1638,7 @@ numeric_trunc(PG_FUNCTION_ARGS)
 /*
  * numeric_ceil() -
  *
- *	Return the smallest integer greater than or equal to the argument
+ *	返回大于等于参数的最小整数
  */
 Datum
 numeric_ceil(PG_FUNCTION_ARGS)
@@ -1648,7 +1648,7 @@ numeric_ceil(PG_FUNCTION_ARGS)
 	NumericVar	result;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
@@ -1666,7 +1666,7 @@ numeric_ceil(PG_FUNCTION_ARGS)
 /*
  * numeric_floor() -
  *
- *	Return the largest integer equal to or less than the argument
+ *	返回小于等于参数的最大整数
  */
 Datum
 numeric_floor(PG_FUNCTION_ARGS)
@@ -1676,7 +1676,7 @@ numeric_floor(PG_FUNCTION_ARGS)
 	NumericVar	result;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
@@ -1694,7 +1694,7 @@ numeric_floor(PG_FUNCTION_ARGS)
 /*
  * generate_series_numeric() -
  *
- *	Generate series of numeric.
+ *	生成 numeric 序列。
  */
 Datum
 generate_series_numeric(PG_FUNCTION_ARGS)
@@ -1715,7 +1715,7 @@ generate_series_step_numeric(PG_FUNCTION_ARGS)
 		Numeric		stop_num = PG_GETARG_NUMERIC(1);
 		NumericVar	steploc = const_one;
 
-		/* Reject NaN and infinities in start and stop values */
+		/* 拒绝 start 与 stop 值中的 NaN 与无穷大 */
 		if (NUMERIC_IS_SPECIAL(start_num))
 		{
 			if (NUMERIC_IS_NAN(start_num))
@@ -1739,7 +1739,7 @@ generate_series_step_numeric(PG_FUNCTION_ARGS)
 						 errmsg("stop value cannot be infinity")));
 		}
 
-		/* see if we were given an explicit step size */
+		/* 看是否给定了显式的步长 */
 		if (PG_NARGS() == 3)
 		{
 			Numeric		step_num = PG_GETARG_NUMERIC(2);
@@ -1764,23 +1764,23 @@ generate_series_step_numeric(PG_FUNCTION_ARGS)
 						 errmsg("step size cannot equal zero")));
 		}
 
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用持久化的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * Switch to memory context appropriate for multiple function calls.
+		 * 切换到适合多次函数调用的内存上下文。
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* allocate memory for user context */
+		/* 为用户上下文分配内存 */
 		fctx = (generate_series_numeric_fctx *)
 			palloc(sizeof(generate_series_numeric_fctx));
 
 		/*
-		 * Use fctx to keep state from call to call. Seed current with the
-		 * original start value. We must copy the start_num and stop_num
-		 * values rather than pointing to them, since we may have detoasted
-		 * them in the per-call context.
+		 * 用 fctx 在调用间保存状态。用原始起始值初始化
+		 * current。必须复制 start_num 与 stop_num 值而非
+		 * 指向它们，因为可能已在调用上下文中执行了解
+		 * TOAST。
 		 */
 		init_var(&fctx->current);
 		init_var(&fctx->stop);
@@ -1794,12 +1794,12 @@ generate_series_step_numeric(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 函数每次调用都要做的事项 */
 	funcctx = SRF_PERCALL_SETUP();
 
 	/*
-	 * Get the saved state and use current state as the result of this
-	 * iteration.
+	 * 取回保存的状态，把 current 用作本轮迭代结果。
+	 *
 	 */
 	fctx = funcctx->user_fctx;
 
@@ -1810,35 +1810,35 @@ generate_series_step_numeric(PG_FUNCTION_ARGS)
 	{
 		Numeric		result = make_result(&fctx->current);
 
-		/* switch to memory context appropriate for iteration calculation */
+		/* 切换到适合迭代计算的内存上下文 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* increment current in preparation for next iteration */
+		/* 递增 current 为下一次迭代做准备 */
 		add_var(&fctx->current, &fctx->step, &fctx->current);
 		MemoryContextSwitchTo(oldcontext);
 
-		/* do when there is more left to send */
+		/* 还有更多值要返回时执行 */
 		SRF_RETURN_NEXT(funcctx, NumericGetDatum(result));
 	}
 	else
-		/* do when there is no more left */
+		/* 没有更多值时执行 */
 		SRF_RETURN_DONE(funcctx);
 }
 
 
 /*
- * Implements the numeric version of the width_bucket() function
- * defined by SQL2003. See also width_bucket_float8().
+ * 实现 width_bucket() 函数的 numeric 版本，该函数由
+ * SQL2003 定义。另见 width_bucket_float8()。
  *
- * 'bound1' and 'bound2' are the lower and upper bounds of the
- * histogram's range, respectively. 'count' is the number of buckets
- * in the histogram. width_bucket() returns an integer indicating the
- * bucket number that 'operand' belongs to in an equiwidth histogram
- * with the specified characteristics. An operand smaller than the
- * lower bound is assigned to bucket 0. An operand greater than or equal
- * to the upper bound is assigned to an additional bucket (with number
- * count+1). We don't allow "NaN" for any of the numeric inputs, and we
- * don't allow either of the histogram bounds to be +/- infinity.
+ * 'bound1' 与 'bound2' 为直方图范围的下、上界。
+ * 'count' 为直方图桶数。width_bucket() 返回一个整
+ * 数，即 'operand' 在指定特征等宽直方图所属的
+ * 桶号。小于下界的操作数归入 0 号桶。大于或
+ * 等于上界的操作数归入额外的桶（编号为
+ * count+1）。任何 numeric 输入都不允许"NaN"，直方图
+ * 的两个边界也都不允许为 +/- 无穷大。
+ *
+ *
  */
 Datum
 width_bucket_numeric(PG_FUNCTION_ARGS)
@@ -1866,7 +1866,7 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_WIDTH_BUCKET_FUNCTION),
 					 errmsg("operand, lower bound, and upper bound cannot be NaN")));
-		/* We allow "operand" to be infinite; cmp_numerics will cope */
+		/* 允许 "operand" 为无穷大；cmp_numerics 能处理 */
 		if (NUMERIC_IS_INF(bound1) || NUMERIC_IS_INF(bound2))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_WIDTH_BUCKET_FUNCTION),
@@ -1876,7 +1876,7 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 	init_var(&result_var);
 	init_var(&count_var);
 
-	/* Convert 'count' to a numeric, for ease of use later */
+	/* 把 'count' 转成 numeric，便于后文使用 */
 	int64_to_numericvar((int64) count, &count_var);
 
 	switch (cmp_numerics(bound1, bound2))
@@ -1910,7 +1910,7 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 			break;
 	}
 
-	/* if result exceeds the range of a legal int4, we ereport here */
+	/* 若结果超出合法 int4 的范围，则在此 ereport */
 	if (!numericvar_to_int32(&result_var, &result))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -1923,10 +1923,10 @@ width_bucket_numeric(PG_FUNCTION_ARGS)
 }
 
 /*
- * 'operand' is inside the bucket range, so determine the correct
- * bucket for it to go. The calculations performed by this function
- * are derived directly from the SQL2003 spec. Note however that we
- * multiply by count before dividing, to avoid unnecessary roundoff error.
+ * 'operand' 在桶范围内，故确定其应归入的正确
+ * 桶。计算直接源自 SQL2003，注意我们先乘以
+ * count 再相除，以避免不必要的舍入误差。
+ *
  */
 static void
 compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
@@ -1958,9 +1958,9 @@ compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
 			select_div_scale(&operand_var, &bound2_var), true);
 
 	/*
-	 * Roundoff in the division could give us a quotient exactly equal to
-	 * "count", which is too large.  Clamp so that we do not emit a result
-	 * larger than "count".
+	 * 除法的舍入可能给出恰好等于"count"的商，该值过
+	 * 大。需截断以使结果不大于"count"。
+	 *
 	 */
 	if (cmp_var(result_var, count_var) >= 0)
 		set_var_from_var(count_var, result_var);
@@ -1977,44 +1977,44 @@ compute_bucket(Numeric operand, Numeric bound1, Numeric bound2,
 
 /* ----------------------------------------------------------------------
  *
- * Comparison functions
+ * 比较函数
  *
- * Note: btree indexes need these routines not to leak memory; therefore,
- * be careful to free working copies of toasted datums.  Most places don't
- * need to be so careful.
+ * 注意：btree 索引要求这些例程不泄漏内存；因此，请
+ * 小心释放已 TOAST 的 datum 的工作副本。大多数地方
+ * 无需如此小心。
  *
- * Sort support:
+ * 排序支持
  *
- * We implement the sortsupport strategy routine in order to get the benefit of
- * abbreviation. The ordinary numeric comparison can be quite slow as a result
- * of palloc/pfree cycles (due to detoasting packed values for alignment);
- * while this could be worked on itself, the abbreviation strategy gives more
- * speedup in many common cases.
+ * 我们实现 sortsupport 策略例程是为了获得缩略的收益。
+ * 普通 numeric 比较可能相当慢，原因是 palloc/pfree 循环
+ * （为对齐而解 TOAST 打包值）；虽本身可改进，但缩略
+ * 策略在许多常见情形下带来更多加速。
  *
- * Two different representations are used for the abbreviated form, one in
- * int32 and one in int64, whichever fits into a by-value Datum.  In both cases
- * the representation is negated relative to the original value, because we use
- * the largest negative value for NaN, which sorts higher than other values. We
- * convert the absolute value of the numeric to a 31-bit or 63-bit positive
- * value, and then negate it if the original number was positive.
  *
- * We abort the abbreviation process if the abbreviation cardinality is below
- * 0.01% of the row count (1 per 10k non-null rows).  The actual break-even
- * point is somewhat below that, perhaps 1 per 30k (at 1 per 100k there's a
- * very small penalty), but we don't want to build up too many abbreviated
- * values before first testing for abort, so we take the slightly pessimistic
- * number.  We make no attempt to estimate the cardinality of the real values,
- * since it plays no part in the cost model here (if the abbreviation is equal,
- * the cost of comparing equal and unequal underlying values is comparable).
- * We discontinue even checking for abort (saving us the hashing overhead) if
- * the estimated cardinality gets to 100k; that would be enough to support many
- * billions of rows while doing no worse than breaking even.
+ * 缩略形式使用两种不同的表示，一种为 int32，一种为
+ * int64，取能放入按值传递 Datum 的那一种。两种情况下
+ * 表示都相对原值取负，因为我们把最大负值用于 NaN，
+ * 而 NaN 的排序高于其他值。我们把 numeric 的绝对值转
+ * 换成 31 位或 63 位的正值，若原数为正则再取负。
+ *
+ *
+ * 若缩略基数低于行数的 0.01%（每 1 万非空行 1 个），
+ * 即中止缩略过程。实际盈亏平衡点略低于该值，也许
+ * 为每 3 万行 1 个（每 10 万行亏一点），但我们
+ * 不想在首次中止测试前积累太多缩略值，故取略显悲
+ * 观的数字。我们不去估算真实值的基数，因为它在此处
+ * 的代价模型中不起作用（若缩略值相等，底层值相等与
+ * 不等的比较代价相当）。若估计基数达到 10 万，我们
+ * 乃至不再检查中止（省掉哈希开销）。这已足以支持数
+ *
+ * 十亿行，且效果不劣于盈亏平衡。
+ *
  *
  * ----------------------------------------------------------------------
  */
 
 /*
- * Sort support strategy routine.
+ * 排序支持策略例程。
  */
 Datum
 numeric_sortsupport(PG_FUNCTION_ARGS)
@@ -2031,8 +2031,8 @@ numeric_sortsupport(PG_FUNCTION_ARGS)
 		nss = palloc(sizeof(NumericSortSupport));
 
 		/*
-		 * palloc a buffer for handling unaligned packed values in addition to
-		 * the support struct
+		 * 额外 palloc 一个缓冲区来处理非对齐打包值，以及
+		 * 支持结构。
 		 */
 		nss->buf = palloc(VARATT_SHORT_MAX + VARHDRSZ + 1);
 
@@ -2054,8 +2054,8 @@ numeric_sortsupport(PG_FUNCTION_ARGS)
 }
 
 /*
- * Abbreviate a numeric datum, handling NaNs and detoasting
- * (must not leak memory!)
+ * 缩略一个 numeric datum，处理 NaN 与解 TOAST
+ * （不得泄漏！）
  */
 static Datum
 numeric_abbrev_convert(Datum original_datum, SortSupport ssup)
@@ -2068,8 +2068,8 @@ numeric_abbrev_convert(Datum original_datum, SortSupport ssup)
 	nss->input_count += 1;
 
 	/*
-	 * This is to handle packed datums without needing a palloc/pfree cycle;
-	 * we keep and reuse a buffer large enough to handle any short datum.
+	 * 这是为了处理打包 datum 而无需 palloc/pfree 循环；
+	 * 我们保留并复用足以处理任何短 datum 的缓冲区。
 	 */
 	if (VARATT_IS_SHORT(original_varatt))
 	{
@@ -2104,7 +2104,7 @@ numeric_abbrev_convert(Datum original_datum, SortSupport ssup)
 		result = numeric_abbrev_convert_var(&var, nss);
 	}
 
-	/* should happen only for external/compressed toasts */
+	/* 应只发生在外部/压缩 TOAST 上 */
 	if ((Pointer) original_varatt != DatumGetPointer(original_datum))
 		pfree(original_varatt);
 
@@ -2112,12 +2112,12 @@ numeric_abbrev_convert(Datum original_datum, SortSupport ssup)
 }
 
 /*
- * Consider whether to abort abbreviation.
+ * 考虑是否中止缩略。
  *
- * We pay no attention to the cardinality of the non-abbreviated data. There is
- * no reason to do so: unlike text, we have no fast check for equal values, so
- * we pay the full overhead whenever the abbreviations are equal regardless of
- * whether the underlying values are also equal.
+ * 我们不关注非缩略数据的基数。没有理由关注它：与
+ * text 不同，我们没有快速检查值相等的方法，因此无论
+ * 底层值是否相等，只要缩略值相等就要付出全部开销。
+ *
  */
 static bool
 numeric_abbrev_abort(int memtupcount, SortSupport ssup)
@@ -2131,10 +2131,10 @@ numeric_abbrev_abort(int memtupcount, SortSupport ssup)
 	abbr_card = estimateHyperLogLog(&nss->abbr_card);
 
 	/*
-	 * If we have >100k distinct values, then even if we were sorting many
-	 * billion rows we'd likely still break even, and the penalty of undoing
-	 * that many rows of abbrevs would probably not be worth it. Stop even
-	 * counting at that point.
+	 * 若已有 >100k 个不同值，那么即使要排序数十亿行，
+	 * 我们很可能仍然不亏，而撤销这么多行的缩略的代价
+	 * 多半也不值得。到该点为止，连计数也停止。
+	 *
 	 */
 	if (abbr_card > 100000.0)
 	{
@@ -2150,13 +2150,13 @@ numeric_abbrev_abort(int memtupcount, SortSupport ssup)
 	}
 
 	/*
-	 * Target minimum cardinality is 1 per ~10k of non-null inputs.  (The
-	 * break even point is somewhere between one per 100k rows, where
-	 * abbreviation has a very slight penalty, and 1 per 10k where it wins by
-	 * a measurable percentage.)  We use the relatively pessimistic 10k
-	 * threshold, and add a 0.5 row fudge factor, because it allows us to
-	 * abort earlier on genuinely pathological data where we've had exactly
-	 * one abbreviated value in the first 10k (non-null) rows.
+	 * 目标最小基数约为每 1 万非空输入 1 个。（平衡点
+	 * 介于每 10 万行 1 个与每 1 万行 1 个之间，前者
+	 * 略有微小代价，后者按百分比胜出。）我们采用
+	 * 相对悲观的 1 万阈值，并加 0.5 行修正，如此可
+	 * 在真正病态的数据上更早中止，即头 1 万非空行
+	 * 中恰好只有 1 个缩略值时。
+	 *
 	 */
 	if (abbr_card < nss->input_count / 10000.0 + 0.5)
 	{
@@ -2183,14 +2183,14 @@ numeric_abbrev_abort(int memtupcount, SortSupport ssup)
 }
 
 /*
- * Non-fmgr interface to the comparison routine to allow sortsupport to elide
- * the fmgr call.  The saving here is small given how slow numeric comparisons
- * are, but it is a required part of the sort support API when abbreviations
- * are performed.
+ * 比较例程的非 fmgr 接口，让 sortsupport 能省掉 fmgr
+ * 调用。鉴于 numeric 比较本身就很慢，这里的节省很小，
+ * 但这是执行缩略时排序支持 API 的必备部分。
  *
- * Two palloc/pfree cycles could be saved here by using persistent buffers for
- * aligning short-varlena inputs, but this has not so far been considered to
- * be worth the effort.
+ *
+ * 这里若用持久缓冲区对齐短 varlena 输入，本可再省
+ * 去两次 palloc/pfree 循环，但迄今认为不值这番工夫。
+ *
  */
 static int
 numeric_fast_cmp(Datum x, Datum y, SortSupport ssup)
@@ -2210,16 +2210,16 @@ numeric_fast_cmp(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * Compare abbreviations of values. (Abbreviations may be equal where the true
- * values differ, but if the abbreviations differ, they must reflect the
- * ordering of the true values.)
+ * 比较各值的缩略。（真实值不同之处缩略可能相等，但
+ * 若缩略不同，则必定反映真实值的排序。）
+ *
  */
 static int
 numeric_cmp_abbrev(Datum x, Datum y, SortSupport ssup)
 {
 	/*
-	 * NOTE WELL: this is intentionally backwards, because the abbreviation is
-	 * negated relative to the original value, to handle NaN/infinity cases.
+	 * 特别注意：此处有意反向，因为缩略相对原值取负，
+	 * 以处理 NaN/无穷大情形。
 	 */
 	if (DatumGetNumericAbbrev(x) < DatumGetNumericAbbrev(y))
 		return 1;
@@ -2229,49 +2229,49 @@ numeric_cmp_abbrev(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * Abbreviate a NumericVar according to the available bit size.
+ * 按可用位长缩略 NumericVar。
  *
- * The 31-bit value is constructed as:
+ * 31 位值的构造方式如下：
  *
  *	0 + 7bits digit weight + 24 bits digit value
  *
- * where the digit weight is in single decimal digits, not digit words, and
- * stored in excess-44 representation[1]. The 24-bit digit value is the 7 most
- * significant decimal digits of the value converted to binary. Values whose
- * weights would fall outside the representable range are rounded off to zero
- * (which is also used to represent actual zeros) or to 0x7FFFFFFF (which
- * otherwise cannot occur). Abbreviation therefore fails to gain any advantage
- * where values are outside the range 10^-44 to 10^83, which is not considered
- * to be a serious limitation, or when values are of the same magnitude and
- * equal in the first 7 decimal digits, which is considered to be an
- * unavoidable limitation given the available bits. (Stealing three more bits
- * to compare another digit would narrow the range of representable weights by
- * a factor of 8, which starts to look like a real limiting factor.)
+ * 其中数字位权重以单个十进制数字位计，而非数字位字
+ * 且以偏移 44 表示[1] 存储。24 位数字位值是该值转换
+ * 为二进制后的前 7 个最高有效十进制数字位。权重超出可
+ * 表示范围的值会被舍入为零（这也用于表示真正的零）
+ * 或舍入为 0x7FFFFFFF（否则不会出现该值）。因此在
+ * 10^-44 到 10^83 范围之外的值上，缩略无法获得任何
+ * 优势，这不被视为严重的局限；或者当两值量级相同且
+ * 前 7 个十进制数字位相等时也是如此，鉴于可用位数，
+ * 这被认为是不可避免的局限。（再偷 3 位比较另
+ * 一个数字位会把可表示权重的范围缩小到 1/8，这开始
+ * 像真正的限制因素了。）
  *
- * (The value 44 for the excess is essentially arbitrary)
  *
- * The 63-bit value is constructed as:
+ * （偏移值 44 基本上是任意选定的）
+ *
+ * 63 位值的构造方式如下：
  *
  *	0 + 7bits weight + 4 x 14-bit packed digit words
  *
- * The weight in this case is again stored in excess-44, but this time it is
- * the original weight in digit words (i.e. powers of 10000). The first four
- * digit words of the value (if present; trailing zeros are assumed as needed)
- * are packed into 14 bits each to form the rest of the value. Again,
- * out-of-range values are rounded off to 0 or 0x7FFFFFFFFFFFFFFF. The
- * representable range in this case is 10^-176 to 10^332, which is considered
- * to be good enough for all practical purposes, and comparison of 4 words
- * means that at least 13 decimal digits are compared, which is considered to
- * be a reasonable compromise between effectiveness and efficiency in computing
- * the abbreviation.
+ * 此情形下权重同样以偏移 44 存储，但这次存的是以数
+ * 字位字为单位的原始权重（即 10000 的幂）。该值的前
+ * 四个数字位字（若存在；必要时假定尾随零）各自打包
+ * 成 14 位以构成其余部分。同样越界值舍入为 0 或
+ * 0x7FFFFFFFFFFFFFFF。此情形下可表示的范围为
+ * 10^-176 到 10^332，这被认为足以应对一切实际用途；
+ * 而比较 4 个字意味着至少比较 13 个十进制数字位，
+ * 这被认为是效果与计算缩略效率之间合理的折中。
  *
- * (The value 44 for the excess is even more arbitrary here, it was chosen just
- * to match the value used in the 31-bit case)
  *
- * [1] - Excess-k representation means that the value is offset by adding 'k'
- * and then treated as unsigned, so the smallest representable value is stored
- * with all bits zero. This allows simple comparisons to work on the composite
- * value.
+ *
+ * （偏移值 44 在这里更加随意，选它只是为了与 31 位
+ * 情形所用的值一致）
+ *
+ * [1] - 偏移 k 表示是指给值加上 'k' 形成偏移，然后
+ * 按无符号数对待，因此最小可表示值以全零位存储。这
+ * 使得简单比较可在复合值上进行。
+ *
  */
 
 #if NUMERIC_ABBREV_BITS == 64
@@ -2312,7 +2312,7 @@ numeric_abbrev_convert_var(const NumericVar *var, NumericSortSupport *nss)
 		}
 	}
 
-	/* the abbrev is negated relative to the original */
+	/* 缩略值相对原值取负 */
 	if (var->sign == NUMERIC_POS)
 		result = -result;
 
@@ -2355,19 +2355,19 @@ numeric_abbrev_convert_var(const NumericVar *var, NumericSortSupport *nss)
 		result = var->digits[0];
 
 		/*
-		 * "result" now has 1 to 4 nonzero decimal digits. We pack in more
-		 * digits to make 7 in total (largest we can fit in 24 bits)
+		 * "result" 现有 1 到 4 个非零十进制位。我们打包更
+		 * 多数字位凑足 7 个（24 位内最大）。
 		 */
 
 		if (result > 999)
 		{
-			/* already have 4 digits, add 3 more */
+			/* 已有 4 位，再加 3 位 */
 			result = (result * 1000) + (nxt1 / 10);
 			weight += 3;
 		}
 		else if (result > 99)
 		{
-			/* already have 3 digits, add 4 more */
+			/* 已有 3 位，再加 4 位 */
 			result = (result * 10000) + nxt1;
 			weight += 2;
 		}
@@ -2375,7 +2375,7 @@ numeric_abbrev_convert_var(const NumericVar *var, NumericSortSupport *nss)
 		{
 			NumericDigit nxt2 = (ndigits > 2) ? var->digits[2] : 0;
 
-			/* already have 2 digits, add 5 more */
+			/* 已有 2 位，再加 5 位 */
 			result = (result * 100000) + (nxt1 * 10) + (nxt2 / 1000);
 			weight += 1;
 		}
@@ -2383,14 +2383,14 @@ numeric_abbrev_convert_var(const NumericVar *var, NumericSortSupport *nss)
 		{
 			NumericDigit nxt2 = (ndigits > 2) ? var->digits[2] : 0;
 
-			/* already have 1 digit, add 6 more */
+			/* 已有 1 位，再加 6 位 */
 			result = (result * 1000000) + (nxt1 * 100) + (nxt2 / 100);
 		}
 
 		result = result | (weight << 24);
 	}
 
-	/* the abbrev is negated relative to the original */
+	/* 缩略值相对原值取负 */
 	if (var->sign == NUMERIC_POS)
 		result = -result;
 
@@ -2407,7 +2407,7 @@ numeric_abbrev_convert_var(const NumericVar *var, NumericSortSupport *nss)
 #endif							/* NUMERIC_ABBREV_BITS == 32 */
 
 /*
- * Ordinary (non-sortsupport) comparisons follow.
+ * 下面是普通（非 sortsupport）比较。
  */
 
 Datum
@@ -2522,9 +2522,9 @@ cmp_numerics(Numeric num1, Numeric num2)
 	int			result;
 
 	/*
-	 * We consider all NANs to be equal and larger than any non-NAN (including
-	 * Infinity).  This is somewhat arbitrary; the important thing is to have
-	 * a consistent sort order.
+	 * 我们视所有 NaN 相等且大于任何非 NaN（含无穷）。
+	 * 这有些任意；关键是要有一致的排序顺序。
+	 *
 	 */
 	if (NUMERIC_IS_SPECIAL(num1))
 	{
@@ -2542,22 +2542,22 @@ cmp_numerics(Numeric num1, Numeric num2)
 			else if (NUMERIC_IS_PINF(num2))
 				result = 0;		/* PINF = PINF */
 			else
-				result = 1;		/* PINF > anything else */
+				result = 1;		/* PINF > 其他一切 */
 		}
-		else					/* num1 must be NINF */
+		else					/* num1 必为 NINF */
 		{
 			if (NUMERIC_IS_NINF(num2))
 				result = 0;		/* NINF = NINF */
 			else
-				result = -1;	/* NINF < anything else */
+				result = -1;	/* NINF < 其他一切 */
 		}
 	}
 	else if (NUMERIC_IS_SPECIAL(num2))
 	{
 		if (NUMERIC_IS_NINF(num2))
-			result = 1;			/* normal > NINF */
+			result = 1;			/* 正常 > NINF */
 		else
-			result = -1;		/* normal < NAN or PINF */
+			result = -1;		/* 正常 < NAN/PINF */
 	}
 	else
 	{
@@ -2571,7 +2571,7 @@ cmp_numerics(Numeric num1, Numeric num2)
 }
 
 /*
- * in_range support function for numeric.
+ * numeric 的 in_range 支持函数。
  */
 Datum
 in_range_numeric_numeric(PG_FUNCTION_ARGS)
@@ -2584,8 +2584,8 @@ in_range_numeric_numeric(PG_FUNCTION_ARGS)
 	bool		result;
 
 	/*
-	 * Reject negative (including -Inf) or NaN offset.  Negative is per spec,
-	 * and NaN is because appropriate semantics for that seem non-obvious.
+	 * 拒绝负（含 -Inf）或 NaN 偏移量。负值系规范所定，
+	 * 而拒绝 NaN 是因为其合适语义并不明显。
 	 */
 	if (NUMERIC_IS_NAN(offset) ||
 		NUMERIC_IS_NINF(offset) ||
@@ -2595,9 +2595,9 @@ in_range_numeric_numeric(PG_FUNCTION_ARGS)
 				 errmsg("invalid preceding or following size in window function")));
 
 	/*
-	 * Deal with cases where val and/or base is NaN, following the rule that
-	 * NaN sorts after non-NaN (cf cmp_numerics).  The offset cannot affect
-	 * the conclusion.
+	 * 处理 val 和/或 base 为 NaN 的情形，遵循 NaN 排在非
+	 * NaN 之后的规则（参见 cmp_numerics）。偏移量不影响
+	 * 结论。
 	 */
 	if (NUMERIC_IS_NAN(val))
 	{
@@ -2612,7 +2612,7 @@ in_range_numeric_numeric(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Deal with infinite offset (necessarily +Inf, at this point).
+	 * 处理无穷偏移量（此时必为 +Inf）。
 	 */
 	else if (NUMERIC_IS_SPECIAL(offset))
 	{
@@ -2620,32 +2620,32 @@ in_range_numeric_numeric(PG_FUNCTION_ARGS)
 		if (sub ? NUMERIC_IS_PINF(base) : NUMERIC_IS_NINF(base))
 		{
 			/*
-			 * base +/- offset would produce NaN, so return true for any val
-			 * (see in_range_float8_float8() for reasoning).
+			 * base +/- offset 会得 NaN，故对任何 val 都返回 true
+			 * （理由见 in_range_float8_float8()）。
 			 */
 			result = true;
 		}
 		else if (sub)
 		{
-			/* base - offset must be -inf */
+			/* base - offset 必为 -inf */
 			if (less)
-				result = NUMERIC_IS_NINF(val);	/* only -inf is <= sum */
+				result = NUMERIC_IS_NINF(val);	/* 仅 -inf <= 和 */
 			else
-				result = true;	/* any val is >= sum */
+				result = true;	/* 任何 val >= 和 */
 		}
 		else
 		{
-			/* base + offset must be +inf */
+			/* base + offset 必为 +inf */
 			if (less)
-				result = true;	/* any val is <= sum */
+				result = true;	/* 任何 val <= 和 */
 			else
-				result = NUMERIC_IS_PINF(val);	/* only +inf is >= sum */
+				result = NUMERIC_IS_PINF(val);	/* 仅 +inf >= 和 */
 		}
 	}
 
 	/*
-	 * Deal with cases where val and/or base is infinite.  The offset, being
-	 * now known finite, cannot affect the conclusion.
+	 * 处理 val 和/或 base 为无穷的情形。偏移量此时已知
+	 * 为有限，不会影响结论。
 	 */
 	else if (NUMERIC_IS_SPECIAL(val))
 	{
@@ -2654,29 +2654,29 @@ in_range_numeric_numeric(PG_FUNCTION_ARGS)
 			if (NUMERIC_IS_PINF(base))
 				result = true;	/* PINF = PINF */
 			else
-				result = !less; /* PINF > any other non-NAN */
+				result = !less; /* PINF > 其他非 NAN */
 		}
-		else					/* val must be NINF */
+		else					/* val 必为 NINF */
 		{
 			if (NUMERIC_IS_NINF(base))
 				result = true;	/* NINF = NINF */
 			else
-				result = less;	/* NINF < anything else */
+				result = less;	/* NINF < 其他一切 */
 		}
 	}
 	else if (NUMERIC_IS_SPECIAL(base))
 	{
 		if (NUMERIC_IS_NINF(base))
-			result = !less;		/* normal > NINF */
+			result = !less;		/* 正常 > NINF */
 		else
-			result = less;		/* normal < PINF */
+			result = less;		/* 正常 < PINF */
 	}
 	else
 	{
 		/*
-		 * Otherwise go ahead and compute base +/- offset.  While it's
-		 * possible for this to overflow the numeric format, it's unlikely
-		 * enough that we don't take measures to prevent it.
+		 * 否则就直接计算 base +/- offset。虽然可能超出
+		 * numeric 范围，可能性小到我们无需防范。
+		 *
 		 */
 		NumericVar	valv;
 		NumericVar	basev;
@@ -2721,7 +2721,7 @@ hash_numeric(PG_FUNCTION_ARGS)
 	int			hash_len;
 	NumericDigit *digits;
 
-	/* If it's NaN or infinity, don't try to hash the rest of the fields */
+	/* 若是 NaN 或无穷大，就不要对其余字段做哈希 */
 	if (NUMERIC_IS_SPECIAL(key))
 		PG_RETURN_UINT32(0);
 
@@ -2730,10 +2730,10 @@ hash_numeric(PG_FUNCTION_ARGS)
 	end_offset = 0;
 
 	/*
-	 * Omit any leading or trailing zeros from the input to the hash. The
-	 * numeric implementation *should* guarantee that leading and trailing
-	 * zeros are suppressed, but we're paranoid. Note that we measure the
-	 * starting and ending offsets in units of NumericDigits, not bytes.
+	 * 从哈希输入略去前导与尾随零。numeric 本应保证前
+	 * 导与尾随零被抑制，但我们不惮以最坏打算。
+	 * 注意我们度量起止偏移时以 NumericDigit 为单位，
+	 * 而非字节。
 	 */
 	digits = NUMERIC_DIGITS(key);
 	for (i = 0; i < NUMERIC_NDIGITS(key); i++)
@@ -2744,15 +2744,15 @@ hash_numeric(PG_FUNCTION_ARGS)
 		start_offset++;
 
 		/*
-		 * The weight is effectively the # of digits before the decimal point,
-		 * so decrement it for each leading zero we skip.
+		 * 权重实为小数点前的数字位数，每跳过一个前导零
+		 * 就将其减 1。
 		 */
 		weight--;
 	}
 
 	/*
-	 * If there are no non-zero digits, then the value of the number is zero,
-	 * regardless of any other fields.
+	 * 若没有任何非零数字位，则数值就是零，与其余字段
+	 * 无关。
 	 */
 	if (NUMERIC_NDIGITS(key) == start_offset)
 		PG_RETURN_UINT32(-1);
@@ -2765,28 +2765,28 @@ hash_numeric(PG_FUNCTION_ARGS)
 		end_offset++;
 	}
 
-	/* If we get here, there should be at least one non-zero digit */
+	/* 走到这里时，应当至少有一个非零数字位 */
 	Assert(start_offset + end_offset < NUMERIC_NDIGITS(key));
 
 	/*
-	 * Note that we don't hash on the Numeric's scale, since two numerics can
-	 * compare equal but have different scales. We also don't hash on the
-	 * sign, although we could: since a sign difference implies inequality,
-	 * this shouldn't affect correctness.
+	 * 注意我们不对 numeric 的标度做哈希，因为两个数值可
+	 * 能相等而标度不同。也不对符号哈希，虽然本可这
+	 * 样：符号相异即不等，故这不应影响正确性。
+	 *
 	 */
 	hash_len = NUMERIC_NDIGITS(key) - start_offset - end_offset;
 	digit_hash = hash_any((unsigned char *) (NUMERIC_DIGITS(key) + start_offset),
 						  hash_len * sizeof(NumericDigit));
 
-	/* Mix in the weight, via XOR */
+	/* 以 XOR 混入权重 */
 	result = digit_hash ^ weight;
 
 	PG_RETURN_DATUM(result);
 }
 
 /*
- * Returns 64-bit value by hashing a value to a 64-bit value, with a seed.
- * Otherwise, similar to hash_numeric.
+ * 通过带种子把值哈希为 64 位值来返回 64 位值。
+ * 其余与 hash_numeric 相似。
  */
 Datum
 hash_numeric_extended(PG_FUNCTION_ARGS)
@@ -2802,7 +2802,7 @@ hash_numeric_extended(PG_FUNCTION_ARGS)
 	int			hash_len;
 	NumericDigit *digits;
 
-	/* If it's NaN or infinity, don't try to hash the rest of the fields */
+	/* 若是 NaN 或无穷大，就不要对其余字段做哈希 */
 	if (NUMERIC_IS_SPECIAL(key))
 		PG_RETURN_UINT64(seed);
 
@@ -2848,7 +2848,7 @@ hash_numeric_extended(PG_FUNCTION_ARGS)
 
 /* ----------------------------------------------------------------------
  *
- * Basic arithmetic functions
+ * 基本算术函数
  *
  * ----------------------------------------------------------------------
  */
@@ -2857,7 +2857,7 @@ hash_numeric_extended(PG_FUNCTION_ARGS)
 /*
  * numeric_add() -
  *
- *	Add two numerics
+ *	两数值相加
  */
 Datum
 numeric_add(PG_FUNCTION_ARGS)
@@ -2874,9 +2874,9 @@ numeric_add(PG_FUNCTION_ARGS)
 /*
  * numeric_add_opt_error() -
  *
- *	Internal version of numeric_add().  If "*have_error" flag is provided,
- *	on error it's set to true, NULL returned.  This is helpful when caller
- *	need to handle errors by itself.
+ *	numeric_add() 的内部版本。若提供了"*have_error"标志，
+ *	出错时置为 true 并返回 NULL。调用者需要自行处理错
+ *	误时会有帮助。
  */
 Numeric
 numeric_add_opt_error(Numeric num1, Numeric num2, bool *have_error)
@@ -2887,7 +2887,7 @@ numeric_add_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -2907,7 +2907,7 @@ numeric_add_opt_error(Numeric num1, Numeric num2, bool *have_error)
 			else
 				return make_result(&const_ninf);
 		}
-		/* by here, num1 must be finite, so num2 is not */
+		/* 此处 num1 必为有限，num2 则不是 */
 		if (NUMERIC_IS_PINF(num2))
 			return make_result(&const_pinf);
 		Assert(NUMERIC_IS_NINF(num2));
@@ -2915,7 +2915,7 @@ numeric_add_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	}
 
 	/*
-	 * Unpack the values, let add_var() compute the result and return it.
+	 * 解包各值，让 add_var() 计算结果并返回它。
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -2934,7 +2934,7 @@ numeric_add_opt_error(Numeric num1, Numeric num2, bool *have_error)
 /*
  * numeric_sub() -
  *
- *	Subtract one numeric from another
+ *	从一个数值中减去另一个
  */
 Datum
 numeric_sub(PG_FUNCTION_ARGS)
@@ -2952,9 +2952,9 @@ numeric_sub(PG_FUNCTION_ARGS)
 /*
  * numeric_sub_opt_error() -
  *
- *	Internal version of numeric_sub().  If "*have_error" flag is provided,
- *	on error it's set to true, NULL returned.  This is helpful when caller
- *	need to handle errors by itself.
+ *	numeric_sub() 的内部版本。若提供了"*have_error"标志，
+ *	出错时置为 true 并返回 NULL。调用者需要自行处理错
+ *	误时会有帮助。
  */
 Numeric
 numeric_sub_opt_error(Numeric num1, Numeric num2, bool *have_error)
@@ -2965,7 +2965,7 @@ numeric_sub_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -2985,7 +2985,7 @@ numeric_sub_opt_error(Numeric num1, Numeric num2, bool *have_error)
 			else
 				return make_result(&const_ninf);
 		}
-		/* by here, num1 must be finite, so num2 is not */
+		/* 此处 num1 必为有限，num2 则不是 */
 		if (NUMERIC_IS_PINF(num2))
 			return make_result(&const_ninf);
 		Assert(NUMERIC_IS_NINF(num2));
@@ -2993,7 +2993,7 @@ numeric_sub_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	}
 
 	/*
-	 * Unpack the values, let sub_var() compute the result and return it.
+	 * 解包各值，让 sub_var() 计算结果并返回它。
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -3012,7 +3012,7 @@ numeric_sub_opt_error(Numeric num1, Numeric num2, bool *have_error)
 /*
  * numeric_mul() -
  *
- *	Calculate the product of two numerics
+ *	计算两个数值的乘积
  */
 Datum
 numeric_mul(PG_FUNCTION_ARGS)
@@ -3030,9 +3030,9 @@ numeric_mul(PG_FUNCTION_ARGS)
 /*
  * numeric_mul_opt_error() -
  *
- *	Internal version of numeric_mul().  If "*have_error" flag is provided,
- *	on error it's set to true, NULL returned.  This is helpful when caller
- *	need to handle errors by itself.
+ *	numeric_mul() 的内部版本。若提供了"*have_error"标志，
+ *	出错时置为 true 并返回 NULL。调用者需要自行处理错
+ *	误时会有帮助。
  */
 Numeric
 numeric_mul_opt_error(Numeric num1, Numeric num2, bool *have_error)
@@ -3043,7 +3043,7 @@ numeric_mul_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -3075,7 +3075,7 @@ numeric_mul_opt_error(Numeric num1, Numeric num2, bool *have_error)
 			}
 			Assert(false);
 		}
-		/* by here, num1 must be finite, so num2 is not */
+		/* 此处 num1 必为有限，num2 则不是 */
 		if (NUMERIC_IS_PINF(num2))
 		{
 			switch (numeric_sign_internal(num1))
@@ -3103,15 +3103,15 @@ numeric_mul_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	}
 
 	/*
-	 * Unpack the values, let mul_var() compute the result and return it.
-	 * Unlike add_var() and sub_var(), mul_var() will round its result. In the
-	 * case of numeric_mul(), which is invoked for the * operator on numerics,
-	 * we request exact representation for the product (rscale = sum(dscale of
-	 * arg1, dscale of arg2)).  If the exact result has more digits after the
-	 * decimal point than can be stored in a numeric, we round it.  Rounding
-	 * after computing the exact result ensures that the final result is
-	 * correctly rounded (rounding in mul_var() using a truncated product
-	 * would not guarantee this).
+	 * 解包各值，让 mul_var() 计算结果并返回它。
+	 * 与 add_var() 和 sub_var() 不同，mul_var() 会对结果
+	 * 四舍五入。numeric_mul() 是为对数值使用的 * 算子而
+	 * 调用的，我们要求乘积的精确表示（rscale = arg1 的
+	 * dscale 与 arg2 的 dscale 之和）。若精确结果小数点后
+	 * 的数字位多于 numeric 能存储的数量，我们就将其四舍
+	 * 五入。先算精确值再舍入，可确保结果被正确
+	 * 舍入（mul_var() 中以截断乘积舍入则无法保证这一
+	 * 点）。
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -3133,7 +3133,7 @@ numeric_mul_opt_error(Numeric num1, Numeric num2, bool *have_error)
 /*
  * numeric_div() -
  *
- *	Divide one numeric into another
+ *	用一个数值除以另一个
  */
 Datum
 numeric_div(PG_FUNCTION_ARGS)
@@ -3151,9 +3151,9 @@ numeric_div(PG_FUNCTION_ARGS)
 /*
  * numeric_div_opt_error() -
  *
- *	Internal version of numeric_div().  If "*have_error" flag is provided,
- *	on error it's set to true, NULL returned.  This is helpful when caller
- *	need to handle errors by itself.
+ *	numeric_div() 的内部版本。若提供了"*have_error"标志，
+ *	出错时置为 true 并返回 NULL。调用者需要自行处理错
+ *	误时会有帮助。
  */
 Numeric
 numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
@@ -3168,7 +3168,7 @@ numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
 		*have_error = false;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -3220,18 +3220,18 @@ numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
 			}
 			Assert(false);
 		}
-		/* by here, num1 must be finite, so num2 is not */
+		/* 此处 num1 必为有限，num2 则不是 */
 
 		/*
-		 * POSIX would have us return zero or minus zero if num1 is zero, and
-		 * otherwise throw an underflow error.  But the numeric type doesn't
-		 * really do underflow, so let's just return zero.
+		 * 按 POSIX，若 num1 为零应返回零或负零，否则应抛出
+		 * 下溢错误。但 numeric 类型其实不会下溢，故直接
+		 * 回零。
 		 */
 		return make_result(&const_zero);
 	}
 
 	/*
-	 * Unpack the arguments
+	 * 解包各参数
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -3239,12 +3239,12 @@ numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	init_var(&result);
 
 	/*
-	 * Select scale for division result
+	 * 为除法结果选择标度
 	 */
 	rscale = select_div_scale(&arg1, &arg2);
 
 	/*
-	 * If "have_error" is provided, check for division by zero here
+	 * 若提供了"have_error"，则在此检查除零
 	 */
 	if (have_error && (arg2.ndigits == 0 || arg2.digits[0] == 0))
 	{
@@ -3253,7 +3253,7 @@ numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	}
 
 	/*
-	 * Do the divide and return the result
+	 * 执行除法并返回结果
 	 */
 	div_var(&arg1, &arg2, &result, rscale, true);
 
@@ -3268,7 +3268,7 @@ numeric_div_opt_error(Numeric num1, Numeric num2, bool *have_error)
 /*
  * numeric_div_trunc() -
  *
- *	Divide one numeric into another, truncating the result to an integer
+ *	用一个数值除以另一个，并将结果截断为整数
  */
 Datum
 numeric_div_trunc(PG_FUNCTION_ARGS)
@@ -3281,7 +3281,7 @@ numeric_div_trunc(PG_FUNCTION_ARGS)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -3323,18 +3323,18 @@ numeric_div_trunc(PG_FUNCTION_ARGS)
 			}
 			Assert(false);
 		}
-		/* by here, num1 must be finite, so num2 is not */
+		/* 此处 num1 必为有限，num2 则不是 */
 
 		/*
-		 * POSIX would have us return zero or minus zero if num1 is zero, and
-		 * otherwise throw an underflow error.  But the numeric type doesn't
-		 * really do underflow, so let's just return zero.
+		 * 按 POSIX，若 num1 为零应返回零或负零，否则应抛出
+		 * 下溢错误。但 numeric 类型其实不会下溢，故直接
+		 * 回零。
 		 */
 		PG_RETURN_NUMERIC(make_result(&const_zero));
 	}
 
 	/*
-	 * Unpack the arguments
+	 * 解包各参数
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -3342,7 +3342,7 @@ numeric_div_trunc(PG_FUNCTION_ARGS)
 	init_var(&result);
 
 	/*
-	 * Do the divide and return the result
+	 * 执行除法并返回结果
 	 */
 	div_var(&arg1, &arg2, &result, 0, false);
 
@@ -3357,7 +3357,7 @@ numeric_div_trunc(PG_FUNCTION_ARGS)
 /*
  * numeric_mod() -
  *
- *	Calculate the modulo of two numerics
+ *	计算两个数值的模
  */
 Datum
 numeric_mod(PG_FUNCTION_ARGS)
@@ -3375,9 +3375,9 @@ numeric_mod(PG_FUNCTION_ARGS)
 /*
  * numeric_mod_opt_error() -
  *
- *	Internal version of numeric_mod().  If "*have_error" flag is provided,
- *	on error it's set to true, NULL returned.  This is helpful when caller
- *	need to handle errors by itself.
+ *	numeric_mod() 的内部版本。若提供了"*have_error"标志，
+ *	出错时置为 true 并返回 NULL。调用者需要自行处理错
+ *	误时会有帮助。
  */
 Numeric
 numeric_mod_opt_error(Numeric num1, Numeric num2, bool *have_error)
@@ -3391,9 +3391,9 @@ numeric_mod_opt_error(Numeric num1, Numeric num2, bool *have_error)
 		*have_error = false;
 
 	/*
-	 * Handle NaN and infinities.  We follow POSIX fmod() on this, except that
-	 * POSIX treats x-is-infinite and y-is-zero identically, raising EDOM and
-	 * returning NaN.  We choose to throw error only for y-is-zero.
+	 * 处理 NaN 与无穷大。此处遵循 POSIX fmod()，但有一点
+	 * 例外：POSIX 对 x 为无穷与 y 为零同等对待，置 EDOM
+	 * 并返回 NaN。我们只选择在 y 为零时报错。
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -3415,7 +3415,7 @@ numeric_mod_opt_error(Numeric num1, Numeric num2, bool *have_error)
 			/* Inf % any nonzero = NaN */
 			return make_result(&const_nan);
 		}
-		/* num2 must be [-]Inf; result is num1 regardless of sign of num2 */
+		/* num2 必为 [-]Inf；无论 num2 符号如何结果都是 num1 */
 		return duplicate_numeric(num1);
 	}
 
@@ -3425,7 +3425,7 @@ numeric_mod_opt_error(Numeric num1, Numeric num2, bool *have_error)
 	init_var(&result);
 
 	/*
-	 * If "have_error" is provided, check for division by zero here
+	 * 若提供了"have_error"，则在此检查除零
 	 */
 	if (have_error && (arg2.ndigits == 0 || arg2.digits[0] == 0))
 	{
@@ -3446,7 +3446,7 @@ numeric_mod_opt_error(Numeric num1, Numeric num2, bool *have_error)
 /*
  * numeric_inc() -
  *
- *	Increment a number by one
+ *	将数值加一
  */
 Datum
 numeric_inc(PG_FUNCTION_ARGS)
@@ -3456,13 +3456,13 @@ numeric_inc(PG_FUNCTION_ARGS)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 
 	/*
-	 * Compute the result and return it
+	 * 计算结果并返回它
 	 */
 	init_var_from_num(num, &arg);
 
@@ -3479,7 +3479,7 @@ numeric_inc(PG_FUNCTION_ARGS)
 /*
  * numeric_smaller() -
  *
- *	Return the smaller of two numbers
+ *	返回两数中较小者
  */
 Datum
 numeric_smaller(PG_FUNCTION_ARGS)
@@ -3488,8 +3488,8 @@ numeric_smaller(PG_FUNCTION_ARGS)
 	Numeric		num2 = PG_GETARG_NUMERIC(1);
 
 	/*
-	 * Use cmp_numerics so that this will agree with the comparison operators,
-	 * particularly as regards comparisons involving NaN.
+	 * 使用 cmp_numerics，使其与比较算子的结果一致，尤其
+	 * 是涉及 NaN 的比较。
 	 */
 	if (cmp_numerics(num1, num2) < 0)
 		PG_RETURN_NUMERIC(num1);
@@ -3501,7 +3501,7 @@ numeric_smaller(PG_FUNCTION_ARGS)
 /*
  * numeric_larger() -
  *
- *	Return the larger of two numbers
+ *	返回两数中较大者
  */
 Datum
 numeric_larger(PG_FUNCTION_ARGS)
@@ -3510,8 +3510,8 @@ numeric_larger(PG_FUNCTION_ARGS)
 	Numeric		num2 = PG_GETARG_NUMERIC(1);
 
 	/*
-	 * Use cmp_numerics so that this will agree with the comparison operators,
-	 * particularly as regards comparisons involving NaN.
+	 * 使用 cmp_numerics，使其与比较算子的结果一致，尤其
+	 * 是涉及 NaN 的比较。
 	 */
 	if (cmp_numerics(num1, num2) > 0)
 		PG_RETURN_NUMERIC(num1);
@@ -3522,7 +3522,7 @@ numeric_larger(PG_FUNCTION_ARGS)
 
 /* ----------------------------------------------------------------------
  *
- * Advanced math functions
+ * 高等数学函数
  *
  * ----------------------------------------------------------------------
  */
@@ -3530,7 +3530,7 @@ numeric_larger(PG_FUNCTION_ARGS)
 /*
  * numeric_gcd() -
  *
- *	Calculate the greatest common divisor of two numerics
+ *	计算两个数值的最大公约数
  */
 Datum
 numeric_gcd(PG_FUNCTION_ARGS)
@@ -3543,14 +3543,14 @@ numeric_gcd(PG_FUNCTION_ARGS)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities: we consider the result to be NaN in all such
-	 * cases.
+	 * 处理 NaN 与无穷大：这类情形的结果我们都视为
+	 * NaN。
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 		PG_RETURN_NUMERIC(make_result(&const_nan));
 
 	/*
-	 * Unpack the arguments
+	 * 解包各参数
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -3558,7 +3558,7 @@ numeric_gcd(PG_FUNCTION_ARGS)
 	init_var(&result);
 
 	/*
-	 * Find the GCD and return the result
+	 * 求出 GCD 并返回结果
 	 */
 	gcd_var(&arg1, &arg2, &result);
 
@@ -3573,7 +3573,7 @@ numeric_gcd(PG_FUNCTION_ARGS)
 /*
  * numeric_lcm() -
  *
- *	Calculate the least common multiple of two numerics
+ *	计算两个数值的最小公倍数
  */
 Datum
 numeric_lcm(PG_FUNCTION_ARGS)
@@ -3586,14 +3586,14 @@ numeric_lcm(PG_FUNCTION_ARGS)
 	Numeric		res;
 
 	/*
-	 * Handle NaN and infinities: we consider the result to be NaN in all such
-	 * cases.
+	 * 处理 NaN 与无穷大：这类情形的结果我们都视为
+	 * NaN。
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 		PG_RETURN_NUMERIC(make_result(&const_nan));
 
 	/*
-	 * Unpack the arguments
+	 * 解包各参数
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
@@ -3601,14 +3601,14 @@ numeric_lcm(PG_FUNCTION_ARGS)
 	init_var(&result);
 
 	/*
-	 * Compute the result using lcm(x, y) = abs(x / gcd(x, y) * y), returning
-	 * zero if either input is zero.
+	 * 用 lcm(x, y) = abs(x / gcd(x, y) * y) 计算结果，若
+	 * 输入为零则返回零。
 	 *
-	 * Note that the division is guaranteed to be exact, returning an integer
-	 * result, so the LCM is an integral multiple of both x and y.  A display
-	 * scale of Min(x.dscale, y.dscale) would be sufficient to represent it,
-	 * but as with other numeric functions, we choose to return a result whose
-	 * display scale is no smaller than either input.
+	 * 注意该除法保证是精确的，会返回整数结果，因此 LCM
+	 * 是 x 和 y 的整数倍。显示标度取 Min(x.dscale,
+	 * y.dscale) 本足以表示它，但与其他 numeric 函数一样，
+	 * 我们选择返回显示标度不小于任一输入的结果。
+	 *
 	 */
 	if (arg1.ndigits == 0 || arg2.ndigits == 0)
 		set_var_from_var(&const_zero, &result);
@@ -3633,7 +3633,7 @@ numeric_lcm(PG_FUNCTION_ARGS)
 /*
  * numeric_fac()
  *
- * Compute factorial
+ * 计算阶乘
  */
 Datum
 numeric_fac(PG_FUNCTION_ARGS)
@@ -3652,7 +3652,7 @@ numeric_fac(PG_FUNCTION_ARGS)
 		res = make_result(&const_one);
 		PG_RETURN_NUMERIC(res);
 	}
-	/* Fail immediately if the result would overflow */
+	/* 若结果将溢出则立即失败 */
 	if (num > 32177)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -3665,7 +3665,7 @@ numeric_fac(PG_FUNCTION_ARGS)
 
 	for (num = num - 1; num > 1; num--)
 	{
-		/* this loop can take awhile, so allow it to be interrupted */
+		/* 此循环可能耗时较久，故允许它被中断 */
 		CHECK_FOR_INTERRUPTS();
 
 		int64_to_numericvar(num, &fact);
@@ -3685,7 +3685,7 @@ numeric_fac(PG_FUNCTION_ARGS)
 /*
  * numeric_sqrt() -
  *
- *	Compute the square root of a numeric.
+ *	计算 numeric 的平方根。
  */
 Datum
 numeric_sqrt(PG_FUNCTION_ARGS)
@@ -3698,34 +3698,34 @@ numeric_sqrt(PG_FUNCTION_ARGS)
 	int			rscale;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
-		/* error should match that in sqrt_var() */
+		/* 错误应与 sqrt_var() 中的一致 */
 		if (NUMERIC_IS_NINF(num))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_POWER_FUNCTION),
 					 errmsg("cannot take square root of a negative number")));
-		/* For NAN or PINF, just duplicate the input */
+		/* 对 NAN 或 PINF，直接复制输入 */
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 	}
 
 	/*
-	 * Unpack the argument and determine the result scale.  We choose a scale
-	 * to give at least NUMERIC_MIN_SIG_DIGITS significant digits; but in any
-	 * case not less than the input's dscale.
+	 * 解包参数并确定结果标度。所选标度至少要给出
+	 * NUMERIC_MIN_SIG_DIGITS 个有效数字；但任何情况下都
+	 * 不低于输入的 dscale。
 	 */
 	init_var_from_num(num, &arg);
 
 	init_var(&result);
 
 	/*
-	 * Assume the input was normalized, so arg.weight is accurate.  The result
-	 * then has at least sweight = floor(arg.weight * DEC_DIGITS / 2 + 1)
-	 * digits before the decimal point.  When DEC_DIGITS is even, we can save
-	 * a few cycles, since the division is exact and there is no need to round
-	 * towards negative infinity.
+	 * 假定输入已规范化，故 arg.weight 是准确的。于是结果
+	 * 至少有 sweight = floor(arg.weight * DEC_DIGITS / 2
+	 * + 1) 个小数点前数字位。当 DEC_DIGITS 为偶数时可以省
+	 * 下几个循环，因为除法是精确的，无需向负无穷
+	 * 取整。
 	 */
 #if DEC_DIGITS == ((DEC_DIGITS / 2) * 2)
 	sweight = arg.weight * DEC_DIGITS / 2 + 1;
@@ -3742,7 +3742,7 @@ numeric_sqrt(PG_FUNCTION_ARGS)
 	rscale = Min(rscale, NUMERIC_MAX_DISPLAY_SCALE);
 
 	/*
-	 * Let sqrt_var() do the calculation and return the result.
+	 * 让 sqrt_var() 执行计算并返回结果。
 	 */
 	sqrt_var(&arg, &result, rscale);
 
@@ -3757,7 +3757,7 @@ numeric_sqrt(PG_FUNCTION_ARGS)
 /*
  * numeric_exp() -
  *
- *	Raise e to the power of x
+ *	求 e 的 x 次幂
  */
 Datum
 numeric_exp(PG_FUNCTION_ARGS)
@@ -3770,36 +3770,36 @@ numeric_exp(PG_FUNCTION_ARGS)
 	double		val;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
-		/* Per POSIX, exp(-Inf) is zero */
+		/* 按 POSIX，exp(-Inf) 为零 */
 		if (NUMERIC_IS_NINF(num))
 			PG_RETURN_NUMERIC(make_result(&const_zero));
-		/* For NAN or PINF, just duplicate the input */
+		/* 对 NAN 或 PINF，直接复制输入 */
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 	}
 
 	/*
-	 * Unpack the argument and determine the result scale.  We choose a scale
-	 * to give at least NUMERIC_MIN_SIG_DIGITS significant digits; but in any
-	 * case not less than the input's dscale.
+	 * 解包参数并确定结果标度。所选标度至少要给出
+	 * NUMERIC_MIN_SIG_DIGITS 个有效数字；但任何情况下都
+	 * 不低于输入的 dscale。
 	 */
 	init_var_from_num(num, &arg);
 
 	init_var(&result);
 
-	/* convert input to float8, ignoring overflow */
+	/* 把输入转成 float8，忽略溢出 */
 	val = numericvar_to_double_no_overflow(&arg);
 
 	/*
-	 * log10(result) = num * log10(e), so this is approximately the decimal
-	 * weight of the result:
+	 * log10(result) = num * log10(e)，所以这近似是结果的
+	 * 十进制权重：
 	 */
 	val *= 0.434294481903252;
 
-	/* limit to something that won't cause integer overflow */
+	/* 限制到不会导致整数溢出的值 */
 	val = Max(val, -NUMERIC_MAX_RESULT_SCALE);
 	val = Min(val, NUMERIC_MAX_RESULT_SCALE);
 
@@ -3809,7 +3809,7 @@ numeric_exp(PG_FUNCTION_ARGS)
 	rscale = Min(rscale, NUMERIC_MAX_DISPLAY_SCALE);
 
 	/*
-	 * Let exp_var() do the calculation and return the result.
+	 * 让 exp_var() 执行计算并返回结果。
 	 */
 	exp_var(&arg, &result, rscale);
 
@@ -3824,7 +3824,7 @@ numeric_exp(PG_FUNCTION_ARGS)
 /*
  * numeric_ln() -
  *
- *	Compute the natural logarithm of x
+ *	计算 x 的自然对数
  */
 Datum
 numeric_ln(PG_FUNCTION_ARGS)
@@ -3837,7 +3837,7 @@ numeric_ln(PG_FUNCTION_ARGS)
 	int			rscale;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num))
 	{
@@ -3845,14 +3845,14 @@ numeric_ln(PG_FUNCTION_ARGS)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_LOG),
 					 errmsg("cannot take logarithm of a negative number")));
-		/* For NAN or PINF, just duplicate the input */
+		/* 对 NAN 或 PINF，直接复制输入 */
 		PG_RETURN_NUMERIC(duplicate_numeric(num));
 	}
 
 	init_var_from_num(num, &arg);
 	init_var(&result);
 
-	/* Estimated dweight of logarithm */
+	/* 对数的估算 dweight */
 	ln_dweight = estimate_ln_dweight(&arg);
 
 	rscale = NUMERIC_MIN_SIG_DIGITS - ln_dweight;
@@ -3873,7 +3873,7 @@ numeric_ln(PG_FUNCTION_ARGS)
 /*
  * numeric_log() -
  *
- *	Compute the logarithm of x in a given base
+ *	计算 x 以给定底数的对数
  */
 Datum
 numeric_log(PG_FUNCTION_ARGS)
@@ -3886,7 +3886,7 @@ numeric_log(PG_FUNCTION_ARGS)
 	NumericVar	result;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
@@ -3895,41 +3895,41 @@ numeric_log(PG_FUNCTION_ARGS)
 
 		if (NUMERIC_IS_NAN(num1) || NUMERIC_IS_NAN(num2))
 			PG_RETURN_NUMERIC(make_result(&const_nan));
-		/* fail on negative inputs including -Inf, as log_var would */
+		/* 对含 -Inf 的负输入报错，如同 log_var 那样 */
 		sign1 = numeric_sign_internal(num1);
 		sign2 = numeric_sign_internal(num2);
 		if (sign1 < 0 || sign2 < 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_LOG),
 					 errmsg("cannot take logarithm of a negative number")));
-		/* fail on zero inputs, as log_var would */
+		/* 对零输入报错，如 log_var */
 		if (sign1 == 0 || sign2 == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_ARGUMENT_FOR_LOG),
 					 errmsg("cannot take logarithm of zero")));
 		if (NUMERIC_IS_PINF(num1))
 		{
-			/* log(Inf, Inf) reduces to Inf/Inf, so it's NaN */
+			/* log(Inf, Inf) 归约为 Inf/Inf，故为 NaN */
 			if (NUMERIC_IS_PINF(num2))
 				PG_RETURN_NUMERIC(make_result(&const_nan));
-			/* log(Inf, finite-positive) is zero (we don't throw underflow) */
+			/* log(Inf, 有限正值) 为零（我们不抛下溢） */
 			PG_RETURN_NUMERIC(make_result(&const_zero));
 		}
 		Assert(NUMERIC_IS_PINF(num2));
-		/* log(finite-positive, Inf) is Inf */
+		/* log(有限正值, Inf) 为 Inf */
 		PG_RETURN_NUMERIC(make_result(&const_pinf));
 	}
 
 	/*
-	 * Initialize things
+	 * 初始化各量
 	 */
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
 	init_var(&result);
 
 	/*
-	 * Call log_var() to compute and return the result; note it handles scale
-	 * selection itself.
+	 * 调用 log_var() 计算并返回结果；注意它自行处理标度
+	 * 选择。
 	 */
 	log_var(&arg1, &arg2, &result);
 
@@ -3944,7 +3944,7 @@ numeric_log(PG_FUNCTION_ARGS)
 /*
  * numeric_power() -
  *
- *	Raise x to the power of y
+ *	求 x 的 y 次幂
  */
 Datum
 numeric_power(PG_FUNCTION_ARGS)
@@ -3959,14 +3959,14 @@ numeric_power(PG_FUNCTION_ARGS)
 				sign2;
 
 	/*
-	 * Handle NaN and infinities
+	 * 处理 NaN 与无穷大
 	 */
 	if (NUMERIC_IS_SPECIAL(num1) || NUMERIC_IS_SPECIAL(num2))
 	{
 		/*
-		 * We follow the POSIX spec for pow(3), which says that NaN ^ 0 = 1,
-		 * and 1 ^ NaN = 1, while all other cases with NaN inputs yield NaN
-		 * (with no error).
+		 * 我们遵循 POSIX pow(3) 规范：NaN ^ 0 = 1，
+		 * 1 ^ NaN = 1，而其他含 NaN 输入的情形都得 NaN
+		 * （无错）。
 		 */
 		if (NUMERIC_IS_NAN(num1))
 		{
@@ -3988,7 +3988,7 @@ numeric_power(PG_FUNCTION_ARGS)
 			}
 			PG_RETURN_NUMERIC(make_result(&const_nan));
 		}
-		/* At least one input is infinite, but error rules still apply */
+		/* 至少一输入为无穷大，错误规则仍适用 */
 		sign1 = numeric_sign_internal(num1);
 		sign2 = numeric_sign_internal(num2);
 		if (sign1 == 0 && sign2 < 0)
@@ -4001,9 +4001,9 @@ numeric_power(PG_FUNCTION_ARGS)
 					 errmsg("a negative number raised to a non-integer power yields a complex result")));
 
 		/*
-		 * POSIX gives this series of rules for pow(3) with infinite inputs:
+		 * POSIX 对含无穷输入的 pow(3) 给出如下一列规则：
 		 *
-		 * For any value of y, if x is +1, 1.0 shall be returned.
+		 * 对任意 y 值，若 x 为 +1，应返回 1.0。
 		 */
 		if (!NUMERIC_IS_SPECIAL(num1))
 		{
@@ -4013,43 +4013,43 @@ numeric_power(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * For any value of x, if y is [-]0, 1.0 shall be returned.
+		 * 对任意 x 值，若 y 为 [-]0，应返回 1.0。
 		 */
 		if (sign2 == 0)
 			PG_RETURN_NUMERIC(make_result(&const_one));
 
 		/*
-		 * For any odd integer value of y > 0, if x is [-]0, [-]0 shall be
-		 * returned.  For y > 0 and not an odd integer, if x is [-]0, +0 shall
-		 * be returned.  (Since we don't deal in minus zero, we need not
-		 * distinguish these two cases.)
+		 * 对 y > 0 的任意奇整数，若 x 为 [-]0，应返回
+		 * [-]0。对 y > 0 且非奇整数的，若 x 为 [-]0，应返回
+		 * +0。（我们不处理负零，无需区分两情形。）
+		 *
 		 */
 		if (sign1 == 0 && sign2 > 0)
 			PG_RETURN_NUMERIC(make_result(&const_zero));
 
 		/*
-		 * If x is -1, and y is [-]Inf, 1.0 shall be returned.
+		 * 若 x 为 -1 且 y 为 [-]Inf，应返回 1.0。
 		 *
-		 * For |x| < 1, if y is -Inf, +Inf shall be returned.
+		 * 若 |x| < 1 且 y 为 -Inf，应返回 +Inf。
 		 *
-		 * For |x| > 1, if y is -Inf, +0 shall be returned.
+		 * 若 |x| > 1 且 y 为 -Inf，应返回 +0。
 		 *
-		 * For |x| < 1, if y is +Inf, +0 shall be returned.
+		 * 若 |x| < 1 且 y 为 +Inf，应返回 +0。
 		 *
-		 * For |x| > 1, if y is +Inf, +Inf shall be returned.
+		 * 若 |x| > 1 且 y 为 +Inf，应返回 +Inf。
 		 */
 		if (NUMERIC_IS_INF(num2))
 		{
 			bool		abs_x_gt_one;
 
 			if (NUMERIC_IS_SPECIAL(num1))
-				abs_x_gt_one = true;	/* x is either Inf or -Inf */
+				abs_x_gt_one = true;	/* x 为 Inf 或 -Inf */
 			else
 			{
 				init_var_from_num(num1, &arg1);
 				if (cmp_var(&arg1, &const_minus_one) == 0)
 					PG_RETURN_NUMERIC(make_result(&const_one));
-				arg1.sign = NUMERIC_POS;	/* now arg1 = abs(x) */
+				arg1.sign = NUMERIC_POS;	/* 即 arg1 = abs(x) */
 				abs_x_gt_one = (cmp_var(&arg1, &const_one) > 0);
 			}
 			if (abs_x_gt_one == (sign2 > 0))
@@ -4059,9 +4059,9 @@ numeric_power(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * For y < 0, if x is +Inf, +0 shall be returned.
+		 * 若 y < 0 且 x 为 +Inf，应返回 +0。
 		 *
-		 * For y > 0, if x is +Inf, +Inf shall be returned.
+		 * 若 y > 0 且 x 为 +Inf，应返回 +Inf。
 		 */
 		if (NUMERIC_IS_PINF(num1))
 		{
@@ -4074,16 +4074,16 @@ numeric_power(PG_FUNCTION_ARGS)
 		Assert(NUMERIC_IS_NINF(num1));
 
 		/*
-		 * For y an odd integer < 0, if x is -Inf, -0 shall be returned.  For
-		 * y < 0 and not an odd integer, if x is -Inf, +0 shall be returned.
-		 * (Again, we need not distinguish these two cases.)
+		 * 若 y 为 < 0 的奇整数且 x 为 -Inf，应返回 -0。若
+		 * y < 0 且非奇整数，若 x 为 -Inf，应返回 +0。（再
+		 * 次，我们无需区分这两种情形。）
 		 */
 		if (sign2 < 0)
 			PG_RETURN_NUMERIC(make_result(&const_zero));
 
 		/*
-		 * For y an odd integer > 0, if x is -Inf, -Inf shall be returned. For
-		 * y > 0 and not an odd integer, if x is -Inf, +Inf shall be returned.
+		 * 若 y 为 > 0 的奇整数且 x 为 -Inf，应返回 -Inf。对
+		 * y > 0 且非奇整数，若 x 为 -Inf，应返回 +Inf。
 		 */
 		init_var_from_num(num2, &arg2);
 		if (arg2.ndigits > 0 && arg2.ndigits == arg2.weight + 1 &&
@@ -4094,11 +4094,11 @@ numeric_power(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The SQL spec requires that we emit a particular SQLSTATE error code for
-	 * certain error conditions.  Specifically, we don't return a
-	 * divide-by-zero error code for 0 ^ -1.  Raising a negative number to a
-	 * non-integer power must produce the same error code, but that case is
-	 * handled in power_var().
+	 * SQL 规范要求我们对某些错误条件发出特定的 SQLSTATE
+	 * 错误码。具体说，0 ^ -1 不返回除零码；
+	 * 数的非整数次幂必须产生同一错误码，但该情形在
+	 * power_var() 中处理。
+	 *
 	 */
 	sign1 = numeric_sign_internal(num1);
 	sign2 = numeric_sign_internal(num2);
@@ -4109,15 +4109,15 @@ numeric_power(PG_FUNCTION_ARGS)
 				 errmsg("zero raised to a negative power is undefined")));
 
 	/*
-	 * Initialize things
+	 * 初始化各量
 	 */
 	init_var(&result);
 	init_var_from_num(num1, &arg1);
 	init_var_from_num(num2, &arg2);
 
 	/*
-	 * Call power_var() to compute and return the result; note it handles
-	 * scale selection itself.
+	 * 调用 power_var() 计算并返回结果；注意它自己处理
+	 * 标度选择。
 	 */
 	power_var(&arg1, &arg2, &result);
 

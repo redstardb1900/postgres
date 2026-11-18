@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0429",
+ "title": "adt 目录 ruleutils.c 整文件注释翻译拆批 part1 (L1-3794) 276 块 — batch 0429",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ec86b6f80b7dd88cd8dd30069b109fb6f283487e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "note": "ruleutils 反解析器 part1 (whole-file 拆批): 文件头+PRETTYINDENT 宏族+deparse_context/deparse_namespace/deparse_columns 核心结构+decompilation 全局态+入口函数群 (pg_get_ruledef/pg_get_viewdef/pg_get_triggerdef/pg_get_indexdef/pg_get_querydef/pg_get_statisticsobjdef 系/pg_get_partkeydef 系/pg_get_constraintdef/decompile_column_index_array/pg_get_expr 系/pg_get_userbyid/pg_get_serial_sequence/pg_get_functiondef 系/deparse_expression 系/deparse_context_for 系/select_rtable_names_for_explain), L1-3794; 截止点=块 276 @L3795 (set_rtable_names 文档块) 之前, 反解析上下文构建函数族自然边界, 不切注释块; whole-file 拆批 part 1, batch-0429"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0429-adt-ruleutils-p1.json",
+   "kind": "manifest",
+   "note": "batch-0429 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0429-p1 entries (各数组 +2: ruleutils.c 首次入册 + 本 manifest) + parent_commit 由 f4069eb176e 更新为现 HEAD ec86b6f80b7 (0428 判例, 非纯追加特此披露)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 276,
+   "translated": 274,
+   "preserved": 2,
+   "preserved_reasons": [
+    "2 个整块保留 (与 verify changed=274 对齐, 276-274=2): 块 8 @L107-110 'Local data types' 章节横幅 (预算 16B 不足以容 6 字译名 '局部数据类型'=18B, 0372 小注释保留判例), 块 64 @L315-318 'Global data' 章节横幅 (预算 11B 不足以容 4 字译名 '全局数据'=12B, 同判例); 另有 20 行 KEPT 位于已译块内不计 preserved: 文件头 5 行 (L3 ruleutils.c 文件名/L7-L8 版权/L11 IDENTIFICATION/L12 路径, 文件头保留范围规则), 12 行裸函数名横幅 (L1545 pg_get_querydef/L1570 pg_get_statisticsobjdef/L1599 pg_get_statisticsobjdef_columns/L1868 pg_get_partkeydef/L2057 pg_get_partition_constraintdef/L2088 pg_get_partconstrdef_string/L2106 pg_get_constraintdef/L2761 pg_get_serial_sequence/L2852 pg_get_functiondef/L3108 pg_get_function_arguments/L3134 pg_get_function_identity_arguments/L3160 pg_get_function_result, 0372 判例), 1 行记法样例 (L1872 '{ RANGE | LIST | HASH } (column opt_collation opt_opclass [, ...])', 0428 记法样例判例)"
+   ],
+   "note": "ruleutils.c part1 拆批判: 权威 universe 由注释感知状态机扫描 (全文件 906 块, part1=块 0-275 @L1-3794); verify rc=0 (1 ok, 0 violations, comments=906 changed=274, splices=3, trigraphs 0/0); 范围守卫: L3794 之后逐行零改动自证 (apply 断言) + git diff 首 hunk 在 part1 区内; same-EN→same-zh 断言: 初跑暴露 1 组冲突已修复 (L3110/L3136 同 EN 前缀行 'This is everything that would go between the parentheses in' 改为同款 '这就是出现在括号之间的' 并把 CREATE FUNCTION/ALTER FUNCTION 差异移到续行, 与 EN 结构一致), 修复后 0 冲突; 同 EN 组按 OID ×3 (L645/664/683)、查找视图名 ×2 (L712/738)、SPI 管理器 4 行 ×2 组 (L571/576/582-584 与 L764/769/775-777)、让编译器安静 ×3、抑制默认值 ×2、只能费劲获取 2 组、Need parens ×3、非列默认时添加排序规则 ×2、若非默认则添加操作符类名 ×2、供 ALTER TABLE 用的内部版本 ×2 等全一致; 术语定款: deparse→反解析 (explain 0323/tablecmds 0420 既译), decompile→反解析 (本文件域内统一, 不用反编译), range table→范围表 (planmain/setrefs 既译), expression tree→表达式树 (prepqual/setrefs 既译), schema-qualify→模式限定 (alter.c/dropcmds 既译), const-folded→常量折叠 (allpaths/planner 既译), jointree→连接树 (joinrels 既译), collation→排序规则, tablespace→表空间, identity column→身份列 (新定款, serial 列保留 serial 原文), pretty-print→美化打印/pretty flags→美化标志 (本文件域内新定, L3-L7 自洽), alias→别名 (explain 0323 既译), Var/RTE/relid/varattno/varlevelsup 等标识符逐字保留; W7_UNTRANSLATED in-range 2 站 = preserved 块 8/64 横幅首行 (L107/L315, 与 preserved=2 对齐), 其余 36 站均在 L3794 之后属 part2 范围; W7_IDENT_LOST 12 站全 advisory 量裁 (RTEs/CTEs/SubPlans/NULLs/OIDs 复数散文词中文不分单复数且译词在列, L3731 'expression' 已译 表达式, 0372 量裁判例); term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则 21 error/66 warning, 0 error hits, 5 warnings 全 advisory: P39 ×2 (L131/L273 Var namespace 段), TL08+P23 (L188 '需要' 渲染 requires), P24 (L3587 '预期为 X，实际为 Y' 短语子串巧合非违规, 0428-p2 同族 advisory 判例)); REVERSE 0 站; emptied 空框行折叠 30 行 (句尾短词/收束行折入前行, 行数守恒 12718); 行内空格压缩 29 站 (0373 判例: 预算恰等时去 '*/' 前空格, 含 L2999-L3002 尾代码 ', ' 4 站与 L86 换行限制、L645/664/683 按 OID、L1409/1526/2023 反解析等); 行级超预算 0 站、块级超预算 0 块 (逐行 byte 断言); 跨行接缝双字 0 (断言, 初跑 1 处 别名|名 已改道消除); 行首标点 0; 弯引号 0; NUL 0; ASCII 引号块级配对全过; 近重复行 17 对逐一判读全为共享标识符所致 (leftattnos/rightattnos ×3、pg_rewrite ×2、plan 节点、OUTER_VAR 系、CREATE FUNCTION 等), 非翻译重复; 极性对照 12 块无反转: L712/738/2782 权限分支 (不能加锁——可能没有权限, NoLock 语义保持), L973-974 pretty false→总是限定/true→不可见才限定 双向, L1135-1136 colno==0 完整定义/>0 仅第 N 键 双向, L244 print_table_args 真→只 TABLE/假→其余全部 双向, L46 is_new_col 假→与非 NULL colnames 一一对应, L53 leftattnos[i]/rightattnos[i] 左右子方向 4 象限, L198 有时无需外层括号/有时确实需要 双向, L184/186 suppress default=抑制默认值, L1320 (116/94) never schema-qualified→永远不应带限定 + but may→可以带 让步极性, L168 无约束→快速返回, L153 无表达式→结束, L70-582 首次调用→准备计划, L1888 内部版本只报告列定义; apply 迭代 4 轮 (R1 same-EN 冲突 1 组修复; R2 预算修复 67 项; R3 预算修复 9 项; R4 一一对应跨行重排+尾注释终结符分支修补), 每轮 git checkout HEAD 复位一轮一跑, 未 commit; 遗留: 预算迫使的紧缩译法已逐站披露于 spec 注释 (L104 SQL 版本省略 '函数' 二字、L106 C 串、L148 全启用时 等), 待审查裁决; 只读审查 FAIL 4D/2N → 审后清偿轮 R4 全部落地 (主会话执行, 行级+块级双预算断言, 7 受触块全过): D1 L2970-2971 接缝叠词「就应/就应该」重排 (翻译方自查断言只查单字相接未查叠词=自查器盲区判例), D2 L3110-3111/L3136-3137 「括号之间的/CREATE FUNCTION」跨行语义反转修复 (「这就是在 CREATE FUNCTION 中出现在括号之间的/全部内容。」同构两站), D3 L198 「反编译」→「反解析」(违反本批自定款, 等字节), D4 五站「关系表」→「范围表」(违反 optimizer setrefs/planmain 既译定款, 与邻站 L3677 自相矛盾, 等字节: L290/L291/L1064/L3662/L3747), N1 三站「未折叠的」→「未常量折叠的」(L1316/L1656/L1943), N2 L126 补「？」, A 级 L1139 行尾空格修剪; 术语定款裁决: deparse→反解析✅/pretty-print→美化打印✅/identity column→身份列✅/decompile 与 range table 两违款已清; 审查行号偏差 1 处 (D2a 实 L3110) 守卫拦截; 审后门禁复跑 rc=0×3; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0429-adt-ruleutils-p1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0429 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0429-p1 entries (各数组 +2) + parent_commit 更新为现 HEAD (非纯追加披露)"
+  }
+ ]
+}

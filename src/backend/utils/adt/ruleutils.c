@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * ruleutils.c
- *	  Functions to convert stored expressions/querytrees back to
- *	  source text
+ *	把已存储的表达式/查询树还原为
+ *	源文本
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -74,31 +74,31 @@
 #include "utils/xml.h"
 
 /* ----------
- * Pretty formatting constants
+ * 美化格式化常量
  * ----------
  */
 
-/* Indent counts */
+/* 缩进计数 */
 #define PRETTYINDENT_STD		8
 #define PRETTYINDENT_JOIN		4
 #define PRETTYINDENT_VAR		4
 
-#define PRETTYINDENT_LIMIT		40	/* wrap limit */
+#define PRETTYINDENT_LIMIT		40	/*换行限制*/
 
-/* Pretty flags */
+/* 美化标志 */
 #define PRETTYFLAG_PAREN		0x0001
 #define PRETTYFLAG_INDENT		0x0002
 #define PRETTYFLAG_SCHEMA		0x0004
 
-/* Standard conversion of a "bool pretty" option to detailed flags */
+/* 将 "bool pretty" 选项标准转换为详细标志 */
 #define GET_PRETTY_FLAGS(pretty) \
 	((pretty) ? (PRETTYFLAG_PAREN | PRETTYFLAG_INDENT | PRETTYFLAG_SCHEMA) \
 	 : PRETTYFLAG_INDENT)
 
-/* Default line length for pretty-print wrapping: 0 means wrap always */
+/* 美化打印换行的默认行长度：0 表示总是换行 */
 #define WRAP_COLUMN_DEFAULT		0
 
-/* macros to test if pretty action needed */
+/* 测试是否需要美化动作的宏 */
 #define PRETTY_PAREN(context)	((context)->prettyFlags & PRETTYFLAG_PAREN)
 #define PRETTY_INDENT(context)	((context)->prettyFlags & PRETTYFLAG_INDENT)
 #define PRETTY_SCHEMA(context)	((context)->prettyFlags & PRETTYFLAG_SCHEMA)
@@ -109,205 +109,205 @@
  * ----------
  */
 
-/* Context info needed for invoking a recursive querytree display routine */
+/* 调用递归查询树显示例程所需的上下文信息 */
 typedef struct
 {
-	StringInfo	buf;			/* output buffer to append to */
-	List	   *namespaces;		/* List of deparse_namespace nodes */
-	TupleDesc	resultDesc;		/* if top level of a view, the view's tupdesc */
-	List	   *targetList;		/* Current query level's SELECT targetlist */
-	List	   *windowClause;	/* Current query level's WINDOW clause */
-	int			prettyFlags;	/* enabling of pretty-print functions */
-	int			wrapColumn;		/* max line length, or -1 for no limit */
-	int			indentLevel;	/* current indent level for pretty-print */
-	bool		varprefix;		/* true to print prefixes on Vars */
-	bool		colNamesVisible;	/* do we care about output column names? */
-	bool		inGroupBy;		/* deparsing GROUP BY clause? */
-	bool		varInOrderBy;	/* deparsing simple Var in ORDER BY? */
-	Bitmapset  *appendparents;	/* if not null, map child Vars of these relids
-								 * back to the parent rel */
+	StringInfo	buf;			/* 待追加的输出缓冲区*/
+	List	   *namespaces;		/* deparse_namespace 节点列表 */
+	TupleDesc	resultDesc;		/* 视图顶层时为该视图的 tupdesc */
+	List	   *targetList;		/* 当前查询层的 SELECT 目标列表 */
+	List	   *windowClause;	/* 当前查询层的 WINDOW 子句 */
+	int			prettyFlags;	/* 启用美化打印函数 */
+	int			wrapColumn;		/* 最大行长度，-1 表示无限制*/
+	int			indentLevel;	/* 美化打印的当前缩进级别 */
+	bool		varprefix;		/* true 时打印 Var 的前缀 */
+	bool		colNamesVisible;	/* 是否关心输出列的名称？ */
+	bool		inGroupBy;		/*反解析 GROUP BY 子句？*/
+	bool		varInOrderBy;	/* 反解析 ORDER BY 简单 Var？*/
+	Bitmapset  *appendparents;	/* 若非空，则把这些 relid 的子 Var
+								 * 映射回父关系 */
 } deparse_context;
 
 /*
- * Each level of query context around a subtree needs a level of Var namespace.
- * A Var having varlevelsup=N refers to the N'th item (counting from 0) in
- * the current context's namespaces list.
+ * 子树外围的每一层查询上下文都需要一层 Var 命名空间。
+ * varlevelsup=N 的 Var 引用当前上下文 namespaces 列表中的
+ * 第 N 项（从 0 起算）。
  *
- * rtable is the list of actual RTEs from the Query or PlannedStmt.
- * rtable_names holds the alias name to be used for each RTE (either a C
- * string, or NULL for nameless RTEs such as unnamed joins).
- * rtable_columns holds the column alias names to be used for each RTE.
+ * rtable 是来自 Query 或 PlannedStmt 的实际 RTE 列表。
+ * rtable_names 保存每个 RTE 使用的别名（可为 C 字
+ * 符串，或对无名 RTE（无名连接）为 NULL）。
+ * rtable_columns 保存每个 RTE 要使用的列别名。
  *
- * subplans is a list of Plan trees for SubPlans and CTEs (it's only used
- * in the PlannedStmt case).
- * ctes is a list of CommonTableExpr nodes (only used in the Query case).
- * appendrels, if not null (it's only used in the PlannedStmt case), is an
- * array of AppendRelInfo nodes, indexed by child relid.  We use that to map
- * child-table Vars to their inheritance parents.
+ * subplans 是 SubPlan 与 CTE 的 Plan 树列表（仅在
+ * PlannedStmt 情形）。
+ * ctes 是 CommonTableExpr 节点列表（仅 Query 情形使用）。
+ * appendrels 若非空（仅在 PlannedStmt 情形使用），是一个
+ * 以子 relid 为索引的 AppendRelInfo 节点数组。我们用它来
+ * 把子表 Var 映射到其继承父关系。
  *
- * In some cases we need to make names of merged JOIN USING columns unique
- * across the whole query, not only per-RTE.  If so, unique_using is true
- * and using_names is a list of C strings representing names already assigned
- * to USING columns.
+ * 某些情况下，我们需要让合并的 JOIN USING 列的名字在
+ * 整个查询中唯一，而不只限单个 RTE。此时 unique_using
+ * 为真，且 using_names 是 C 字符串列表，存放已分配给
+ * USING 列名。
  *
- * When deparsing plan trees, there is always just a single item in the
- * deparse_namespace list (since a plan tree never contains Vars with
- * varlevelsup > 0).  We store the Plan node that is the immediate
- * parent of the expression to be deparsed, as well as a list of that
- * Plan's ancestors.  In addition, we store its outer and inner subplan nodes,
- * as well as their targetlists, and the index tlist if the current plan node
- * might contain INDEX_VAR Vars.  (These fields could be derived on-the-fly
- * from the current Plan node, but it seems notationally clearer to set them
- * up as separate fields.)
+ * 对 plan 树进行反解析时，deparse_namespace 列表中始终
+ * 只有一项（因为 plan 树不含 varlevelsup > 0 的 Var）。
+ * 我们保存作为待反解析表达式直接父节点的 Plan
+ * 节点，以及该 Plan 的祖先列表。此外，我们还
+ * 保存其外部与内部子 plan 节点及其目标列表，
+ * 以及当前 plan 节点可能含有 INDEX_VAR Var 时的
+ * 索引目标列表。（这些字段本可从当前 Plan 节点即时
+ * 导出，但将它们设为独立字段在记法上似乎更清晰。）
+ *
  */
 typedef struct
 {
-	List	   *rtable;			/* List of RangeTblEntry nodes */
-	List	   *rtable_names;	/* Parallel list of names for RTEs */
-	List	   *rtable_columns; /* Parallel list of deparse_columns structs */
-	List	   *subplans;		/* List of Plan trees for SubPlans */
-	List	   *ctes;			/* List of CommonTableExpr nodes */
-	AppendRelInfo **appendrels; /* Array of AppendRelInfo nodes, or NULL */
-	/* Workspace for column alias assignment: */
-	bool		unique_using;	/* Are we making USING names globally unique */
-	List	   *using_names;	/* List of assigned names for USING columns */
-	/* Remaining fields are used only when deparsing a Plan tree: */
-	Plan	   *plan;			/* immediate parent of current expression */
-	List	   *ancestors;		/* ancestors of plan */
-	Plan	   *outer_plan;		/* outer subnode, or NULL if none */
-	Plan	   *inner_plan;		/* inner subnode, or NULL if none */
-	List	   *outer_tlist;	/* referent for OUTER_VAR Vars */
-	List	   *inner_tlist;	/* referent for INNER_VAR Vars */
-	List	   *index_tlist;	/* referent for INDEX_VAR Vars */
-	/* Special namespace representing a function signature: */
+	List	   *rtable;			/* RangeTblEntry 节点列表 */
+	List	   *rtable_names;	/* 与 RTE 并行的名字列表 */
+	List	   *rtable_columns; /* 与 RTE 平行的 deparse_columns 列表 */
+	List	   *subplans;		/* SubPlan 的 Plan 树列表 */
+	List	   *ctes;			/* CommonTableExpr 节点列表 */
+	AppendRelInfo **appendrels; /* AppendRelInfo 节点数组或 NULL */
+	/* 用于列别名分配的工作区： */
+	bool		unique_using;	/* 是否要让 USING 名全局唯一 */
+	List	   *using_names;	/* 已分配给 USING 列的名字列表 */
+	/* 其余字段仅在反解析 plan 树时使用： */
+	Plan	   *plan;			/* 当前表达式的直接父节点 */
+	List	   *ancestors;		/* plan 的祖先 */
+	Plan	   *outer_plan;		/*外部子节点，无则为 NULL*/
+	Plan	   *inner_plan;		/*内部子节点，无则为 NULL*/
+	List	   *outer_tlist;	/* OUTER_VAR Var 的参照 */
+	List	   *inner_tlist;	/* INNER_VAR Var 的参照 */
+	List	   *index_tlist;	/* INDEX_VAR Var 的参照 */
+	/* 表示函数签名的特殊命名空间： */
 	char	   *funcname;
 	int			numargs;
 	char	  **argnames;
 } deparse_namespace;
 
 /*
- * Per-relation data about column alias names.
+ * 每个关系的列别名相关信息。
  *
- * Selecting aliases is unreasonably complicated because of the need to dump
- * rules/views whose underlying tables may have had columns added, deleted, or
- * renamed since the query was parsed.  We must nonetheless print the rule/view
- * in a form that can be reloaded and will produce the same results as before.
+ * 选择别名异常复杂，因为规则/视图的底层表可能在查询
+ * 解析之后增加、删除或重命名过列。我们仍必须以可
+ * 重新载入、且产生与之前相同结果的形式打印该规则/
+ * 视图。
  *
- * For each RTE used in the query, we must assign column aliases that are
- * unique within that RTE.  SQL does not require this of the original query,
- * but due to factors such as *-expansion we need to be able to uniquely
- * reference every column in a decompiled query.  As long as we qualify all
- * column references, per-RTE uniqueness is sufficient for that.
+ * 对于查询中用到的每个 RTE，我们必须分配在该 RTE 内
+ * 唯一的列别名。SQL 并不要求原始查询做到这一点，但
+ * 由于 *-展开 等因素，我们需要能唯一引用反解析
+ * 查询中的每一列。只要所有列引用都带限定，每个 RTE
+ * 内唯一便已足够。
  *
- * However, we can't ensure per-column name uniqueness for unnamed join RTEs,
- * since they just inherit column names from their input RTEs, and we can't
- * rename the columns at the join level.  Most of the time this isn't an issue
- * because we don't need to reference the join's output columns as such; we
- * can reference the input columns instead.  That approach can fail for merged
- * JOIN USING columns, however, so when we have one of those in an unnamed
- * join, we have to make that column's alias globally unique across the whole
- * query to ensure it can be referenced unambiguously.
+ * 然而，对于未命名的连接 RTE，我们无法保证其列名的唯
+ * 一性，因为它们只是从输入 RTE 继承列名，而无法在
+ * 连接层重命名它们。多数时候这不是问题，因为我们不
+ * 需要按列本身引用连接输出列；可改为引用输入列。
+ * 但对合并的 JOIN USING 列而言这种做法会失效，因此当
+ * 未命名连接中出现这种列时，必须让该列别名在整个
+ * 查询范围内全局唯一，以确保能无歧义地引用它。
  *
- * Another problem is that a JOIN USING clause requires the columns to be
- * merged to have the same aliases in both input RTEs, and that no other
- * columns in those RTEs or their children conflict with the USING names.
- * To handle that, we do USING-column alias assignment in a recursive
- * traversal of the query's jointree.  When descending through a JOIN with
- * USING, we preassign the USING column names to the child columns, overriding
- * other rules for column alias assignment.  We also mark each RTE with a list
- * of all USING column names selected for joins containing that RTE, so that
- * when we assign other columns' aliases later, we can avoid conflicts.
  *
- * Another problem is that if a JOIN's input tables have had columns added or
- * deleted since the query was parsed, we must generate a column alias list
- * for the join that matches the current set of input columns --- otherwise, a
- * change in the number of columns in the left input would throw off matching
- * of aliases to columns of the right input.  Thus, positions in the printable
- * column alias list are not necessarily one-for-one with varattnos of the
- * JOIN, so we need a separate new_colnames[] array for printing purposes.
+ * 另一个问题是，JOIN USING 子句要求被合并的列在两个
+ * 输入 RTE 中有相同别名，且这些 RTE 及其子关系中没
+ * 有其他列与 USING 名冲突。为处理这一点，我们在查询
+ * 的连接树递归遍历中做 USING 列别名分配。当沿
+ * 带 USING 的 JOIN 向下走时，我们把 USING 列名预先指派
+ * 给子列，覆盖列别名分配的其他规则。我们还给每个 RTE
+ * 标记上包含它的连接所选的全部 USING 列名，这样以后
+ * 分配其他列的别名时就能避开冲突。
+ *
+ *
+ * 另一个问题是，如果 JOIN 的输入表在查询被解析之后增
+ * 加或删除过列，我们必须为该连接生成与当前输入列集
+ * 相匹配的列别名列表 —— 否则左输入列数变化会使
+ * 别名与右输入列的匹配错位。因此可打印列别名列表
+ * 的位置不一定与 JOIN 的 varattno 一一对应，所以需要一
+ * 个单独的 new_colnames[] 数组用于打印。
+ *
  */
 typedef struct
 {
 	/*
-	 * colnames is an array containing column aliases to use for columns that
-	 * existed when the query was parsed.  Dropped columns have NULL entries.
-	 * This array can be directly indexed by varattno to get a Var's name.
+	 * colnames 是数组，存放查询被解析时就已存在的列所用
+	 * 列别名。已删除的列为 NULL 项。
+	 * 该数组可直接用 varattno 索引来取得 Var 的名字。
 	 *
-	 * Non-NULL entries are guaranteed unique within the RTE, *except* when
-	 * this is for an unnamed JOIN RTE.  In that case we merely copy up names
-	 * from the two input RTEs.
+	 * 非 NULL 项保证在 RTE 内唯一，*除非* 用于未命名的
+	 * JOIN RTE。那种情况下只是从两个输入 RTE 汇集名字。
 	 *
-	 * During the recursive descent in set_using_names(), forcible assignment
-	 * of a child RTE's column name is represented by pre-setting that element
-	 * of the child's colnames array.  So at that stage, NULL entries in this
-	 * array just mean that no name has been preassigned, not necessarily that
-	 * the column is dropped.
+	 *
+	 * 在 set_using_names() 的递归下降过程中，对子 RTE 列名
+	 * 的强制指派表示为预置子 RTE 的 colnames 数组对应
+	 * 元素。所以该阶段 NULL 项只意味着尚未预指派名字，
+	 * 而不一定是该列已被删除。
+	 *
 	 */
-	int			num_cols;		/* length of colnames[] array */
-	char	  **colnames;		/* array of C strings and NULLs */
+	int			num_cols;		/* colnames[] 数组的长度 */
+	char	  **colnames;		/* C 字符串与 NULL 的数组*/
 
 	/*
-	 * new_colnames is an array containing column aliases to use for columns
-	 * that would exist if the query was re-parsed against the current
-	 * definitions of its base tables.  This is what to print as the column
-	 * alias list for the RTE.  This array does not include dropped columns,
-	 * but it will include columns added since original parsing.  Indexes in
-	 * it therefore have little to do with current varattno values.  As above,
-	 * entries are unique unless this is for an unnamed JOIN RTE.  (In such an
-	 * RTE, we never actually print this array, but we must compute it anyway
-	 * for possible use in computing column names of upper joins.) The
-	 * parallel array is_new_col marks which of these columns are new since
-	 * original parsing.  Entries with is_new_col false must match the
-	 * non-NULL colnames entries one-for-one.
+	 * new_colnames 是数组，存放若按基表当前定义重新解析
+	 * 查询时会存在的列所用的别名。这才是要作为该
+	 * RTE 列别名列表打印的内容。此数组不含已删列，但
+	 * 会包含最初解析后新增的列。因此其索引与当前
+	 * varattno 值基本没有关系。如上所述，除非这是用于
+	 * 未命名的 JOIN RTE，否则各项都是唯一的。（在这类
+	 * RTE 中实际从不打印此数组，但仍必须计算它，以备
+	 * 日后计算上层连接列名之用。）与之并行的 is_new_col
+	 * 数组标记这些列中哪些是最初解析后新增的。
+	 * is_new_col 为假的项必须与非 NULL 的 colnames 项
+	 * 一一对应。
+	 *
 	 */
-	int			num_new_cols;	/* length of new_colnames[] array */
-	char	  **new_colnames;	/* array of C strings */
-	bool	   *is_new_col;		/* array of bool flags */
+	int			num_new_cols;	/* new_colnames[] 数组的长度 */
+	char	  **new_colnames;	/* C 字符串数组 */
+	bool	   *is_new_col;		/* 布尔标志数组 */
 
-	/* This flag tells whether we should actually print a column alias list */
+	/* 该标志指示我们是否真的要打印列别名列表 */
 	bool		printaliases;
 
-	/* This list has all names used as USING names in joins above this RTE */
-	List	   *parentUsing;	/* names assigned to parent merged columns */
+	/* 该列表有在此 RTE 之上连接中用作 USING 名的名字 */
+	List	   *parentUsing;	/* 指派给父合并列的名字 */
 
 	/*
-	 * If this struct is for a JOIN RTE, we fill these fields during the
-	 * set_using_names() pass to describe its relationship to its child RTEs.
+	 * 如果此结构用于 JOIN RTE，我们会在 set_using_names()
+	 * 阶段填充这些字段，以描述它与其子 RTE 的关系。
 	 *
-	 * leftattnos and rightattnos are arrays with one entry per existing
-	 * output column of the join (hence, indexable by join varattno).  For a
-	 * simple reference to a column of the left child, leftattnos[i] is the
-	 * child RTE's attno and rightattnos[i] is zero; and conversely for a
-	 * column of the right child.  But for merged columns produced by JOIN
-	 * USING/NATURAL JOIN, both leftattnos[i] and rightattnos[i] are nonzero.
-	 * Note that a simple reference might be to a child RTE column that's been
-	 * dropped; but that's OK since the column could not be used in the query.
+	 * leftattnos/rightattnos 是数组，连接每个现存输出列
+	 * 各占一项（可用连接 varattno 索引）。若简单引用
+	 * 的是左子关系的列，则 leftattnos[i] 是子 RTE 的 attno，
+	 * 且 rightattnos[i] 为零；右子关系的列则相反。但对
+	 * JOIN USING/NATURAL JOIN 产生的合并列，leftattnos[i]
+	 * 与 rightattnos[i] 都非零。注意简单引用可能指向已删除
+	 * 的子 RTE 列；没关系，该列不可能被查询用到。
 	 *
-	 * If it's a JOIN USING, usingNames holds the alias names selected for the
-	 * merged columns (these might be different from the original USING list,
-	 * if we had to modify names to achieve uniqueness).
+	 *
+	 * 若是 JOIN USING，usingNames 保存为合并列选定的别名
+	 * （若为达成唯一性而修改过名字，它们可能与原始
+	 * USING 列表不同）。
 	 */
-	int			leftrti;		/* rangetable index of left child */
-	int			rightrti;		/* rangetable index of right child */
-	int		   *leftattnos;		/* left-child varattnos of join cols, or 0 */
-	int		   *rightattnos;	/* right-child varattnos of join cols, or 0 */
-	List	   *usingNames;		/* names assigned to merged columns */
+	int			leftrti;		/* 左子关系的范围表索引 */
+	int			rightrti;		/* 右子关系的范围表索引 */
+	int		   *leftattnos;		/* 连接列的左子 varattno，或为 0 */
+	int		   *rightattnos;	/* 连接列的右子 varattno，或为 0 */
+	List	   *usingNames;		/* 指派给合并列的名字 */
 } deparse_columns;
 
-/* This macro is analogous to rt_fetch(), but for deparse_columns structs */
+/* 此宏类似于 rt_fetch()，但用于 deparse_columns 结构 */
 #define deparse_columns_fetch(rangetable_index, dpns) \
 	((deparse_columns *) list_nth((dpns)->rtable_columns, (rangetable_index)-1))
 
 /*
- * Entry in set_rtable_names' hash table
+ * set_rtable_names 的哈希表条目
  */
 typedef struct
 {
-	char		name[NAMEDATALEN];	/* Hash key --- must be first */
-	int			counter;		/* Largest addition used so far for name */
+	char		name[NAMEDATALEN];	/* 哈希键 --- 必须居首 */
+	int			counter;		/* 该名字迄今的最大附加数 */
 } NameHashEntry;
 
-/* Callback signature for resolve_special_varno() */
+/* resolve_special_varno() 的回调函数签名 */
 typedef void (*rsv_callback) (Node *node, deparse_context *context,
 							  void *callback_arg);
 
@@ -321,16 +321,16 @@ static const char *query_getrulebyoid = "SELECT * FROM pg_catalog.pg_rewrite WHE
 static SPIPlanPtr plan_getviewrule = NULL;
 static const char *query_getviewrule = "SELECT * FROM pg_catalog.pg_rewrite WHERE ev_class = $1 AND rulename = $2";
 
-/* GUC parameters */
+/* GUC 参数 */
 bool		quote_all_identifiers = false;
 
 
 /* ----------
- * Local functions
+ * 局部函数
  *
- * Most of these functions used to use fixed-size buffers to build their
- * results.  Now, they take an (already initialized) StringInfo object
- * as a parameter, and append their text output to its contents.
+ * 这些函数过去大多用固定大小的缓冲区来构建结果。
+ * 现在它们接受已初始化的 StringInfo 对象作参数，
+ * 并把文本输出追加到其内容中。
  * ----------
  */
 static char *deparse_expression_pretty(Node *expr, List *dpcontext,
@@ -515,9 +515,9 @@ static void get_reloptions(StringInfo buf, Datum reloptions);
 
 
 /* ----------
- * pg_get_ruledef		- Do it all and return a text
- *				  that could be used as a statement
- *				  to recreate the rule
+ * pg_get_ruledef		- 全做完并返回文本
+ *					  其可用作一条重建
+ *					  该规则的语句
  * ----------
  */
 Datum
@@ -568,20 +568,20 @@ pg_get_ruledef_worker(Oid ruleoid, int prettyFlags)
 	StringInfoData buf;
 
 	/*
-	 * Do this first so that string is alloc'd in outer context not SPI's.
+	 * 先做这步，使字符串在外层上下文而非 SPI 内分配
 	 */
 	initStringInfo(&buf);
 
 	/*
-	 * Connect to SPI manager
+	 * 连接 SPI 管理器
 	 */
 	if (SPI_connect() != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed");
 
 	/*
-	 * On the first call prepare the plan to lookup pg_rewrite. We read
-	 * pg_rewrite over the SPI manager instead of using the syscache to be
-	 * checked for read access on pg_rewrite.
+	 * 首次调用时准备 pg_rewrite 查找计划。经 SPI 管理
+	 * 器读取 pg_rewrite，而不使用 syscache，以便对 pg_rewrite
+	 * 的读权限进行检查。
 	 */
 	if (plan_getrulebyoid == NULL)
 	{
@@ -597,7 +597,7 @@ pg_get_ruledef_worker(Oid ruleoid, int prettyFlags)
 	}
 
 	/*
-	 * Get the pg_rewrite tuple for this rule
+	 * 取得此规则的 pg_rewrite 元组
 	 */
 	args[0] = ObjectIdGetDatum(ruleoid);
 	nulls[0] = ' ';
@@ -607,14 +607,14 @@ pg_get_ruledef_worker(Oid ruleoid, int prettyFlags)
 	if (SPI_processed != 1)
 	{
 		/*
-		 * There is no tuple data available here, just keep the output buffer
-		 * empty.
+		 * 此处没有元组数据，只需让输出缓冲区保持空。
+		 *
 		 */
 	}
 	else
 	{
 		/*
-		 * Get the rule's definition and put it into executor's memory
+		 * 取得规则定义并将其放入执行器内存
 		 */
 		ruletup = SPI_tuptable->vals[0];
 		rulettc = SPI_tuptable->tupdesc;
@@ -622,7 +622,7 @@ pg_get_ruledef_worker(Oid ruleoid, int prettyFlags)
 	}
 
 	/*
-	 * Disconnect from SPI manager
+	 * 断开 SPI 管理器连接
 	 */
 	if (SPI_finish() != SPI_OK_FINISH)
 		elog(ERROR, "SPI_finish failed");
@@ -635,14 +635,14 @@ pg_get_ruledef_worker(Oid ruleoid, int prettyFlags)
 
 
 /* ----------
- * pg_get_viewdef		- Mainly the same thing, but we
- *				  only return the SELECT part of a view
+ * pg_get_viewdef		- 大体同上，但只返回
+ *					  视图的 SELECT 部分
  * ----------
  */
 Datum
 pg_get_viewdef(PG_FUNCTION_ARGS)
 {
-	/* By OID */
+	/* 按 OID*/
 	Oid			viewoid = PG_GETARG_OID(0);
 	int			prettyFlags;
 	char	   *res;
@@ -661,7 +661,7 @@ pg_get_viewdef(PG_FUNCTION_ARGS)
 Datum
 pg_get_viewdef_ext(PG_FUNCTION_ARGS)
 {
-	/* By OID */
+	/* 按 OID*/
 	Oid			viewoid = PG_GETARG_OID(0);
 	bool		pretty = PG_GETARG_BOOL(1);
 	int			prettyFlags;
@@ -680,13 +680,13 @@ pg_get_viewdef_ext(PG_FUNCTION_ARGS)
 Datum
 pg_get_viewdef_wrap(PG_FUNCTION_ARGS)
 {
-	/* By OID */
+	/* 按 OID*/
 	Oid			viewoid = PG_GETARG_OID(0);
 	int			wrap = PG_GETARG_INT32(1);
 	int			prettyFlags;
 	char	   *res;
 
-	/* calling this implies we want pretty printing */
+	/* 调用此函数即意味着想要美化打印*/
 	prettyFlags = GET_PRETTY_FLAGS(true);
 
 	res = pg_get_viewdef_worker(viewoid, prettyFlags, wrap);
@@ -700,7 +700,7 @@ pg_get_viewdef_wrap(PG_FUNCTION_ARGS)
 Datum
 pg_get_viewdef_name(PG_FUNCTION_ARGS)
 {
-	/* By qualified name */
+	/* 按限定名 */
 	text	   *viewname = PG_GETARG_TEXT_PP(0);
 	int			prettyFlags;
 	RangeVar   *viewrel;
@@ -709,7 +709,7 @@ pg_get_viewdef_name(PG_FUNCTION_ARGS)
 
 	prettyFlags = PRETTYFLAG_INDENT;
 
-	/* Look up view name.  Can't lock it - we might not have privileges. */
+	/* 查找视图名。不能加锁 —— 我们可能没有权限。 */
 	viewrel = makeRangeVarFromNameList(textToQualifiedNameList(viewname));
 	viewoid = RangeVarGetRelid(viewrel, NoLock, false);
 
@@ -725,7 +725,7 @@ pg_get_viewdef_name(PG_FUNCTION_ARGS)
 Datum
 pg_get_viewdef_name_ext(PG_FUNCTION_ARGS)
 {
-	/* By qualified name */
+	/* 按限定名 */
 	text	   *viewname = PG_GETARG_TEXT_PP(0);
 	bool		pretty = PG_GETARG_BOOL(1);
 	int			prettyFlags;
@@ -735,7 +735,7 @@ pg_get_viewdef_name_ext(PG_FUNCTION_ARGS)
 
 	prettyFlags = GET_PRETTY_FLAGS(pretty);
 
-	/* Look up view name.  Can't lock it - we might not have privileges. */
+	/* 查找视图名。不能加锁 —— 我们可能没有权限。 */
 	viewrel = makeRangeVarFromNameList(textToQualifiedNameList(viewname));
 	viewoid = RangeVarGetRelid(viewrel, NoLock, false);
 
@@ -748,7 +748,7 @@ pg_get_viewdef_name_ext(PG_FUNCTION_ARGS)
 }
 
 /*
- * Common code for by-OID and by-name variants of pg_get_viewdef
+ * pg_get_viewdef 按 OID 与按名两种变体的公共代码
  */
 static char *
 pg_get_viewdef_worker(Oid viewoid, int prettyFlags, int wrapColumn)
@@ -761,20 +761,20 @@ pg_get_viewdef_worker(Oid viewoid, int prettyFlags, int wrapColumn)
 	StringInfoData buf;
 
 	/*
-	 * Do this first so that string is alloc'd in outer context not SPI's.
+	 * 先做这步，使字符串在外层上下文而非 SPI 内分配
 	 */
 	initStringInfo(&buf);
 
 	/*
-	 * Connect to SPI manager
+	 * 连接 SPI 管理器
 	 */
 	if (SPI_connect() != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed");
 
 	/*
-	 * On the first call prepare the plan to lookup pg_rewrite. We read
-	 * pg_rewrite over the SPI manager instead of using the syscache to be
-	 * checked for read access on pg_rewrite.
+	 * 首次调用时准备 pg_rewrite 查找计划。经 SPI 管理
+	 * 器读取 pg_rewrite，而不使用 syscache，以便对 pg_rewrite
+	 * 的读权限进行检查。
 	 */
 	if (plan_getviewrule == NULL)
 	{
@@ -791,7 +791,7 @@ pg_get_viewdef_worker(Oid viewoid, int prettyFlags, int wrapColumn)
 	}
 
 	/*
-	 * Get the pg_rewrite tuple for the view's SELECT rule
+	 * 取得视图 SELECT 规则的 pg_rewrite 元组
 	 */
 	args[0] = ObjectIdGetDatum(viewoid);
 	args[1] = DirectFunctionCall1(namein, CStringGetDatum(ViewSelectRuleName));
@@ -803,14 +803,14 @@ pg_get_viewdef_worker(Oid viewoid, int prettyFlags, int wrapColumn)
 	if (SPI_processed != 1)
 	{
 		/*
-		 * There is no tuple data available here, just keep the output buffer
-		 * empty.
+		 * 此处没有元组数据，只需让输出缓冲区保持空。
+		 *
 		 */
 	}
 	else
 	{
 		/*
-		 * Get the rule's definition and put it into executor's memory
+		 * 取得规则定义并将其放入执行器内存
 		 */
 		ruletup = SPI_tuptable->vals[0];
 		rulettc = SPI_tuptable->tupdesc;
@@ -818,7 +818,7 @@ pg_get_viewdef_worker(Oid viewoid, int prettyFlags, int wrapColumn)
 	}
 
 	/*
-	 * Disconnect from SPI manager
+	 * 断开 SPI 管理器连接
 	 */
 	if (SPI_finish() != SPI_OK_FINISH)
 		elog(ERROR, "SPI_finish failed");
@@ -830,7 +830,7 @@ pg_get_viewdef_worker(Oid viewoid, int prettyFlags, int wrapColumn)
 }
 
 /* ----------
- * pg_get_triggerdef		- Get the definition of a trigger
+ * pg_get_triggerdef		- 获取触发器的定义
  * ----------
  */
 Datum
@@ -879,7 +879,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 	bool		isnull;
 
 	/*
-	 * Fetch the pg_trigger tuple by the Oid of the trigger
+	 * 按触发器的 OID 取得 pg_trigger 元组
 	 */
 	tgrel = table_open(TriggerRelationId, AccessShareLock);
 
@@ -903,8 +903,8 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 	trigrec = (Form_pg_trigger) GETSTRUCT(ht_trig);
 
 	/*
-	 * Start the trigger definition. Note that the trigger's name should never
-	 * be schema-qualified, but the trigger rel's name may be.
+	 * 开始触发器定义。注意触发器的名字永远不应带模式
+	 * 限定，但触发器所在关系的名字可以带。
 	 */
 	initStringInfo(&buf);
 
@@ -942,7 +942,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 		else
 			appendStringInfoString(&buf, " UPDATE");
 		findx++;
-		/* tgattr is first var-width field, so OK to access directly */
+		/* tgattr 是首个变宽字段，因此可以直接访问 */
 		if (trigrec->tgattr.dim1 > 0)
 		{
 			int			i;
@@ -970,8 +970,8 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 	}
 
 	/*
-	 * In non-pretty mode, always schema-qualify the target table name for
-	 * safety.  In pretty mode, schema-qualify only if not visible.
+	 * 非美化模式下为安全起见总是模式限定目标表名。
+	 * 美化模式下，仅在不可见时才加模式限定。
 	 */
 	appendStringInfo(&buf, " ON %s ",
 					 pretty ?
@@ -1020,7 +1020,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 	else
 		appendStringInfoString(&buf, "FOR EACH STATEMENT ");
 
-	/* If the trigger has a WHEN qualification, add that */
+	/*若触发器有 WHEN 限定条件，则将其加上*/
 	value = fastgetattr(ht_trig, Anum_pg_trigger_tgqual,
 						tgrel->rd_att, &isnull);
 	if (!isnull)
@@ -1038,7 +1038,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 
 		relkind = get_rel_relkind(trigrec->tgrelid);
 
-		/* Build minimal OLD and NEW RTEs for the rel */
+		/* 为该关系构建最小的 OLD 与 NEW RTE*/
 		oldrte = makeNode(RangeTblEntry);
 		oldrte->rtekind = RTE_RELATION;
 		oldrte->relid = trigrec->tgrelid;
@@ -1061,7 +1061,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 		newrte->inh = false;
 		newrte->inFromCl = true;
 
-		/* Build two-element rtable */
+		/* 构建两元素范围表 */
 		memset(&dpns, 0, sizeof(dpns));
 		dpns.rtable = list_make2(oldrte, newrte);
 		dpns.subplans = NIL;
@@ -1070,7 +1070,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 		set_rtable_names(&dpns, NIL, NULL);
 		set_simple_column_names(&dpns);
 
-		/* Set up context with one-deep namespace stack */
+		/* 建立带一层命名空间栈的上下文 */
 		context.buf = &buf;
 		context.namespaces = list_make1(&dpns);
 		context.resultDesc = NULL;
@@ -1110,17 +1110,17 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 			if (i > 0)
 				appendStringInfoString(&buf, ", ");
 			simple_quote_literal(&buf, p);
-			/* advance p to next string embedded in tgargs */
+			/* p 推进到 tgargs 内的下一个字符串 */
 			while (*p)
 				p++;
 			p++;
 		}
 	}
 
-	/* We deliberately do not put semi-colon at end */
+	/* 我们刻意不在结尾加分号 */
 	appendStringInfoChar(&buf, ')');
 
-	/* Clean up */
+	/* 清理 */
 	systable_endscan(tgscan);
 
 	table_close(tgrel, AccessShareLock);
@@ -1129,15 +1129,15 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 }
 
 /* ----------
- * pg_get_indexdef			- Get the definition of an index
+ * pg_get_indexdef			- 获取索引的定义
  *
- * In the extended version, there is a colno argument as well as pretty bool.
- *	if colno == 0, we want a complete index definition.
- *	if colno > 0, we only want the Nth index key's variable or expression.
+ * 在扩展版本中，还有 colno 参数以及 pretty 布尔量。
+ *		if colno == 0，我们要完整的索引定义。
+ *		if colno > 0，只要第 N 个索引键的变量或表达式。
  *
- * Note that the SQL-function versions of this omit any info about the
- * index tablespace; this is intentional because pg_dump wants it that way.
- * However pg_get_indexdef_string() includes the index tablespace.
+ * 注意本函数的 SQL 版本会省略索引表空间的信息；
+ * 这是有意为之，因为 pg_dump 希望如此。然而
+ * pg_get_indexdef_string() 会包含索引表空间。
  * ----------
  */
 Datum
@@ -1183,9 +1183,9 @@ pg_get_indexdef_ext(PG_FUNCTION_ARGS)
 }
 
 /*
- * Internal version for use by ALTER TABLE.
- * Includes a tablespace clause in the result.
- * Returns a palloc'd C string; no pretty-printing.
+ * 供 ALTER TABLE 用的内部版本。
+ * 结果中包含表空间子句。
+ * 返回 palloc 的 C 串；不做美化打印。
  */
 char *
 pg_get_indexdef_string(Oid indexrelid)
@@ -1196,7 +1196,7 @@ pg_get_indexdef_string(Oid indexrelid)
 								  0, false);
 }
 
-/* Internal version that just reports the key-column definitions */
+/* 只报告键列定义的内部版本 */
 char *
 pg_get_indexdef_columns(Oid indexrelid, bool pretty)
 {
@@ -1210,7 +1210,7 @@ pg_get_indexdef_columns(Oid indexrelid, bool pretty)
 								  prettyFlags, false);
 }
 
-/* Internal version, extensible with flags to control its behavior */
+/* 内部版本，可通过 flags 扩展以控制其行为 */
 char *
 pg_get_indexdef_columns_extended(Oid indexrelid, bits16 flags)
 {
@@ -1227,10 +1227,10 @@ pg_get_indexdef_columns_extended(Oid indexrelid, bits16 flags)
 }
 
 /*
- * Internal workhorse to decompile an index definition.
+ * 反解析索引定义的内部主力函数。
  *
- * This is now used for exclusion constraints as well: if excludeOps is not
- * NULL then it points to an array of exclusion operator OIDs.
+ * 现在它也用于排除约束：如果 excludeOps 非 NULL，
+ * 则它指向一个由排除操作符 OID 组成的数组。
  */
 static char *
 pg_get_indexdef_worker(Oid indexrelid, int colno,
@@ -1239,7 +1239,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 					   bool showTblSpc, bool inherits,
 					   int prettyFlags, bool missing_ok)
 {
-	/* might want a separate isConstraint parameter later */
+	/* 以后可能想要单独的 isConstraint 参数 */
 	bool		isConstraint = (excludeOps != NULL);
 	HeapTuple	ht_idx;
 	HeapTuple	ht_idxrel;
@@ -1264,7 +1264,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 	char	   *sep;
 
 	/*
-	 * Fetch the pg_index tuple by the Oid of the index
+	 * 按索引的 OID 取得 pg_index 元组
 	 */
 	ht_idx = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(indexrelid));
 	if (!HeapTupleIsValid(ht_idx))
@@ -1278,7 +1278,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 	indrelid = idxrec->indrelid;
 	Assert(indexrelid == idxrec->indexrelid);
 
-	/* Must get indcollation, indclass, and indoption the hard way */
+	/* 只能费劲获取 indcollation、indclass 和 indoption */
 	indcollDatum = SysCacheGetAttrNotNull(INDEXRELID, ht_idx,
 										  Anum_pg_index_indcollation);
 	indcollation = (oidvector *) DatumGetPointer(indcollDatum);
@@ -1292,7 +1292,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 	indoption = (int2vector *) DatumGetPointer(indoptionDatum);
 
 	/*
-	 * Fetch the pg_class tuple of the index relation
+	 * 取得索引关系的 pg_class 元组
 	 */
 	ht_idxrel = SearchSysCache1(RELOID, ObjectIdGetDatum(indexrelid));
 	if (!HeapTupleIsValid(ht_idxrel))
@@ -1300,7 +1300,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 	idxrelrec = (Form_pg_class) GETSTRUCT(ht_idxrel);
 
 	/*
-	 * Fetch the pg_am tuple of the index' access method
+	 * 取得索引访问方法的 pg_am 元组
 	 */
 	ht_am = SearchSysCache1(AMOID, ObjectIdGetDatum(idxrelrec->relam));
 	if (!HeapTupleIsValid(ht_am))
@@ -1308,13 +1308,13 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 			 idxrelrec->relam);
 	amrec = (Form_pg_am) GETSTRUCT(ht_am);
 
-	/* Fetch the index AM's API struct */
+	/* 取得索引 AM 的 API 结构 */
 	amroutine = GetIndexAmRoutine(amrec->amhandler);
 
 	/*
-	 * Get the index expressions, if any.  (NOTE: we do not use the relcache
-	 * versions of the expressions and predicate, because we want to display
-	 * non-const-folded expressions.)
+	 * 取得索引表达式，若有。（注意：我们不使用 relcache
+	 * 中的表达式与谓词版本，因为我们想显示未常量折叠的
+	 * 表达式。）
 	 */
 	if (!heap_attisnull(ht_idx, Anum_pg_index_indexprs, NULL))
 	{
@@ -1335,8 +1335,8 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 	context = deparse_context_for(get_relation_name(indrelid), indrelid);
 
 	/*
-	 * Start the index definition.  Note that the index's name should never be
-	 * schema-qualified, but the indexed rel's name may be.
+	 * 开始索引定义。注意索引名字永远不应带模式限定，
+	 * 但被索引关系的名字可以带。
 	 */
 	initStringInfo(&buf);
 
@@ -1352,13 +1352,13 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 							 generate_relation_name(indrelid, NIL) :
 							 generate_qualified_relation_name(indrelid),
 							 quote_identifier(NameStr(amrec->amname)));
-		else					/* currently, must be EXCLUDE constraint */
+		else					/* 目前，必须是 EXCLUDE 约束 */
 			appendStringInfo(&buf, "EXCLUDE USING %s (",
 							 quote_identifier(NameStr(amrec->amname)));
 	}
 
 	/*
-	 * Report the indexed attributes
+	 * 报告被索引的属性
 	 */
 	sep = "";
 	for (keyno = 0; keyno < idxrec->indnatts; keyno++)
@@ -1368,12 +1368,12 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 		Oid			keycolcollation;
 
 		/*
-		 * Ignore non-key attributes if told to.
+		 * 若被要求，忽略非键属性。
 		 */
 		if (keysOnly && keyno >= idxrec->indnkeyatts)
 			break;
 
-		/* Otherwise, print INCLUDE to divide key and non-key attrs. */
+		/* 否则，打印 INCLUDE 以隔开键与非键属性。 */
 		if (!colno && keyno == idxrec->indnkeyatts)
 		{
 			appendStringInfoString(&buf, ") INCLUDE (");
@@ -1386,7 +1386,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 
 		if (attnum != 0)
 		{
-			/* Simple index column */
+			/* 简单索引列 */
 			char	   *attname;
 			int32		keycoltypmod;
 
@@ -1399,19 +1399,19 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 		}
 		else
 		{
-			/* expressional index */
+			/* 表达式索引 */
 			Node	   *indexkey;
 
 			if (indexpr_item == NULL)
 				elog(ERROR, "too few entries in indexprs list");
 			indexkey = (Node *) lfirst(indexpr_item);
 			indexpr_item = lnext(indexprs, indexpr_item);
-			/* Deparse */
+			/*反解析*/
 			str = deparse_expression_pretty(indexkey, context, false, false,
 											prettyFlags, 0);
 			if (!colno || colno == keyno + 1)
 			{
-				/* Need parens if it's not a bare function call */
+				/* 如果不是纯函数调用则需要括号 */
 				if (looks_like_function(indexkey))
 					appendStringInfoString(&buf, str);
 				else
@@ -1421,7 +1421,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 			keycolcollation = exprCollation(indexkey);
 		}
 
-		/* Print additional decoration for (selected) key columns */
+		/* 为（选定的）键列打印附加的修饰 */
 		if (!attrsOnly && keyno < idxrec->indnkeyatts &&
 			(!colno || colno == keyno + 1))
 		{
@@ -1430,12 +1430,12 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 			Datum		attoptions = get_attoptions(indexrelid, keyno + 1);
 			bool		has_options = attoptions != (Datum) 0;
 
-			/* Add collation, if not default for column */
+			/* 非列默认时添加排序规则 */
 			if (OidIsValid(indcoll) && indcoll != keycolcollation)
 				appendStringInfo(&buf, " COLLATE %s",
 								 generate_collation_name((indcoll)));
 
-			/* Add the operator class name, if not default */
+			/* 若非默认则添加操作符类名 */
 			get_opclass_name(indclass->values[keyno],
 							 has_options ? InvalidOid : keycoltype, &buf);
 
@@ -1446,14 +1446,14 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 				appendStringInfoChar(&buf, ')');
 			}
 
-			/* Add options if relevant */
+			/* 如相关则添加选项*/
 			if (amroutine->amcanorder)
 			{
-				/* if it supports sort ordering, report DESC and NULLS opts */
+				/* 如果支持排序，报告 DESC 与 NULLS 选项 */
 				if (opt & INDOPTION_DESC)
 				{
 					appendStringInfoString(&buf, " DESC");
-					/* NULLS FIRST is the default in this case */
+					/* 这种情况下 NULLS FIRST 是默认值*/
 					if (!(opt & INDOPTION_NULLS_FIRST))
 						appendStringInfoString(&buf, " NULLS LAST");
 				}
@@ -1464,7 +1464,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 				}
 			}
 
-			/* Add the exclusion operator if relevant */
+			/* 如相关则添加排除操作符 */
 			if (excludeOps != NULL)
 				appendStringInfo(&buf, " WITH %s",
 								 generate_operator_name(excludeOps[keyno],
@@ -1481,7 +1481,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 			appendStringInfoString(&buf, " NULLS NOT DISTINCT");
 
 		/*
-		 * If it has options, append "WITH (options)"
+		 * 如有选项，追加 "WITH (options)"
 		 */
 		str = flatten_reloptions(indexrelid);
 		if (str)
@@ -1491,7 +1491,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 		}
 
 		/*
-		 * Print tablespace, but only if requested
+		 * 打印表空间，但仅按要求
 		 */
 		if (showTblSpc)
 		{
@@ -1508,7 +1508,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 		}
 
 		/*
-		 * If it's a partial index, decompile and append the predicate
+		 * 如果是部分索引，则反解析并追加谓词
 		 */
 		if (!heap_attisnull(ht_idx, Anum_pg_index_indpred, NULL))
 		{
@@ -1516,14 +1516,14 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 			Datum		predDatum;
 			char	   *predString;
 
-			/* Convert text string to node tree */
+			/* 把文本串转换为节点树 */
 			predDatum = SysCacheGetAttrNotNull(INDEXRELID, ht_idx,
 											   Anum_pg_index_indpred);
 			predString = TextDatumGetCString(predDatum);
 			node = (Node *) stringToNode(predString);
 			pfree(predString);
 
-			/* Deparse */
+			/*反解析*/
 			str = deparse_expression_pretty(node, context, false, false,
 											prettyFlags, 0);
 			if (isConstraint)
@@ -1533,7 +1533,7 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 		}
 	}
 
-	/* Clean up */
+	/* 清理 */
 	ReleaseSysCache(ht_idx);
 	ReleaseSysCache(ht_idxrel);
 	ReleaseSysCache(ht_am);
@@ -1544,10 +1544,10 @@ pg_get_indexdef_worker(Oid indexrelid, int colno,
 /* ----------
  * pg_get_querydef
  *
- * Public entry point to deparse one query parsetree.
- * The pretty flags are determined by GET_PRETTY_FLAGS(pretty).
+ * 反解析单个查询解析树的入口点。
+ * 美化标志由 GET_PRETTY_FLAGS(pretty) 决定。
  *
- * The result is a palloc'd C string.
+ * 返回 palloc 的 C 字符串。
  * ----------
  */
 char *
@@ -1568,7 +1568,7 @@ pg_get_querydef(Query *query, bool pretty)
 
 /*
  * pg_get_statisticsobjdef
- *		Get the definition of an extended statistics object
+ *			取得扩展统计对象的定义
  */
 Datum
 pg_get_statisticsobjdef(PG_FUNCTION_ARGS)
@@ -1585,9 +1585,9 @@ pg_get_statisticsobjdef(PG_FUNCTION_ARGS)
 }
 
 /*
- * Internal version for use by ALTER TABLE.
- * Includes a tablespace clause in the result.
- * Returns a palloc'd C string; no pretty-printing.
+ * 供 ALTER TABLE 用的内部版本。
+ * 结果中包含表空间子句。
+ * 返回 palloc 的 C 串；不做美化打印。
  */
 char *
 pg_get_statisticsobjdef_string(Oid statextid)
@@ -1597,7 +1597,7 @@ pg_get_statisticsobjdef_string(Oid statextid)
 
 /*
  * pg_get_statisticsobjdef_columns
- *		Get columns and expressions for an extended statistics object
+ *			取得扩展统计对象的列与表达式
  */
 Datum
 pg_get_statisticsobjdef_columns(PG_FUNCTION_ARGS)
@@ -1614,7 +1614,7 @@ pg_get_statisticsobjdef_columns(PG_FUNCTION_ARGS)
 }
 
 /*
- * Internal workhorse to decompile an extended statistics object.
+ * 反解析扩展统计对象的内部主力函数。
  */
 static char *
 pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
@@ -1646,15 +1646,15 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 		elog(ERROR, "cache lookup failed for statistics object %u", statextid);
 	}
 
-	/* has the statistics expressions? */
+	/* 是否有统计表达式？ */
 	has_exprs = !heap_attisnull(statexttup, Anum_pg_statistic_ext_stxexprs, NULL);
 
 	statextrec = (Form_pg_statistic_ext) GETSTRUCT(statexttup);
 
 	/*
-	 * Get the statistics expressions, if any.  (NOTE: we do not use the
-	 * relcache versions of the expressions, because we want to display
-	 * non-const-folded expressions.)
+	 * 取得统计表达式，若有。（注意：不用 relcache 的
+	 * 表达式版本，因为我们想显示未常量折叠的
+	 * 表达式。）
 	 */
 	if (has_exprs)
 	{
@@ -1670,7 +1670,7 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 	else
 		exprs = NIL;
 
-	/* count the number of columns (attributes and expressions) */
+	/* 统计列数（属性与表达式） */
 	ncolumns = statextrec->stxkeys.dim1 + list_length(exprs);
 
 	initStringInfo(&buf);
@@ -1683,8 +1683,8 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 													NameStr(statextrec->stxname)));
 
 		/*
-		 * Decode the stxkind column so that we know which stats types to
-		 * print.
+		 * 解码 stxkind 列，以了解要打印哪些统计类型。
+		 *
 		 */
 		datum = SysCacheGetAttrNotNull(STATEXTOID, statexttup,
 									   Anum_pg_statistic_ext_stxkind);
@@ -1708,19 +1708,19 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 			else if (enabled[i] == STATS_EXT_MCV)
 				mcv_enabled = true;
 
-			/* ignore STATS_EXT_EXPRESSIONS (it's built automatically) */
+			/* 忽略 STATS_EXT_EXPRESSIONS（它是自动构建的） */
 		}
 
 		/*
-		 * If any option is disabled, then we'll need to append the types
-		 * clause to show which options are enabled.  We omit the types clause
-		 * on purpose when all options are enabled, so a pg_dump/pg_restore
-		 * will create all statistics types on a newer postgres version, if
-		 * the statistics had all options enabled on the original version.
+		 * 如果任何一个选项被禁用，就需要追加 types
+		 * 子句显示启用了哪些项。全启用时，我们故意省略
+		 * 该子句：若统计在原版本上启用了全部选项，则
+		 * pg_dump/pg_restore 在较新的 postgres 版本上就会创建
+		 * 全部统计类型。
 		 *
-		 * But if the statistics is defined on just a single column, it has to
-		 * be an expression statistics. In that case we don't need to specify
-		 * kinds.
+		 * 但统计对象若仅定义在单个列上，就必须是表达式
+		 * 统计；那种情况下我们不需要指定 kinds。
+		 *
 		 */
 		if ((!ndistinct_enabled || !dependencies_enabled || !mcv_enabled) &&
 			(ncolumns > 1))
@@ -1750,7 +1750,7 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 		appendStringInfoString(&buf, " ON ");
 	}
 
-	/* decode simple column references */
+	/* 解码简单列引用 */
 	for (colno = 0; colno < statextrec->stxkeys.dim1; colno++)
 	{
 		AttrNumber	attnum = statextrec->stxkeys.values[colno];
@@ -1779,7 +1779,7 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 		if (colno > 0)
 			appendStringInfoString(&buf, ", ");
 
-		/* Need parens if it's not a bare function call */
+		/* 如果不是纯函数调用则需要括号 */
 		if (looks_like_function(expr))
 			appendStringInfoString(&buf, str);
 		else
@@ -1798,7 +1798,7 @@ pg_get_statisticsobj_worker(Oid statextid, bool columns_only, bool missing_ok)
 }
 
 /*
- * Generate text array of expressions for statistics object.
+ * 为统计对象生成表达式的文本数组。
  */
 Datum
 pg_get_statisticsobjdef_expressions(PG_FUNCTION_ARGS)
@@ -1819,10 +1819,10 @@ pg_get_statisticsobjdef_expressions(PG_FUNCTION_ARGS)
 	if (!HeapTupleIsValid(statexttup))
 		PG_RETURN_NULL();
 
-	/* Does the stats object have expressions? */
+	/* 该统计对象有表达式吗？ */
 	has_exprs = !heap_attisnull(statexttup, Anum_pg_statistic_ext_stxexprs, NULL);
 
-	/* no expressions? we're done */
+	/* 无表达式？结束 */
 	if (!has_exprs)
 	{
 		ReleaseSysCache(statexttup);
@@ -1832,7 +1832,7 @@ pg_get_statisticsobjdef_expressions(PG_FUNCTION_ARGS)
 	statextrec = (Form_pg_statistic_ext) GETSTRUCT(statexttup);
 
 	/*
-	 * Get the statistics expressions, and deparse them into text values.
+	 * 取得统计表达式，并将其反解析成文本值。
 	 */
 	datum = SysCacheGetAttrNotNull(STATEXTOID, statexttup,
 								   Anum_pg_statistic_ext_stxexprs);
@@ -1867,7 +1867,7 @@ pg_get_statisticsobjdef_expressions(PG_FUNCTION_ARGS)
 /*
  * pg_get_partkeydef
  *
- * Returns the partition key specification, ie, the following:
+ * 返回分区键说明，即如下形式：
  *
  * { RANGE | LIST | HASH } (column opt_collation opt_opclass [, ...])
  */
@@ -1885,7 +1885,7 @@ pg_get_partkeydef(PG_FUNCTION_ARGS)
 	PG_RETURN_TEXT_P(string_to_text(res));
 }
 
-/* Internal version that just reports the column definitions */
+/* 只报告列定义的内部版本 */
 char *
 pg_get_partkeydef_columns(Oid relid, bool pretty)
 {
@@ -1897,7 +1897,7 @@ pg_get_partkeydef_columns(Oid relid, bool pretty)
 }
 
 /*
- * Internal workhorse to decompile a partition key definition.
+ * 反解析分区键定义的内部主力函数。
  */
 static char *
 pg_get_partkeydef_worker(Oid relid, int prettyFlags,
@@ -1928,7 +1928,7 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 
 	Assert(form->partrelid == relid);
 
-	/* Must get partclass and partcollation the hard way */
+	/* 只能费劲获取 partclass 与 partcollation */
 	datum = SysCacheGetAttrNotNull(PARTRELID, tuple,
 								   Anum_pg_partitioned_table_partclass);
 	partclass = (oidvector *) DatumGetPointer(datum);
@@ -1939,9 +1939,9 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 
 
 	/*
-	 * Get the expressions, if any.  (NOTE: we do not use the relcache
-	 * versions of the expressions, because we want to display
-	 * non-const-folded expressions.)
+	 * 取得表达式，若有。（注意：我们不使用 relcache
+	 * 版本的表达式，因为我们想显示未常量折叠的
+	 * 表达式。）
 	 */
 	if (!heap_attisnull(tuple, Anum_pg_partitioned_table_partexprs, NULL))
 	{
@@ -2000,7 +2000,7 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 		sep = ", ";
 		if (attnum != 0)
 		{
-			/* Simple attribute reference */
+			/* 简单属性引用 */
 			char	   *attname;
 			int32		keycoltypmod;
 
@@ -2012,7 +2012,7 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 		}
 		else
 		{
-			/* Expression */
+			/* 表达式 */
 			Node	   *partkey;
 
 			if (partexpr_item == NULL)
@@ -2020,10 +2020,10 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 			partkey = (Node *) lfirst(partexpr_item);
 			partexpr_item = lnext(partexprs, partexpr_item);
 
-			/* Deparse */
+			/*反解析*/
 			str = deparse_expression_pretty(partkey, context, false, false,
 											prettyFlags, 0);
-			/* Need parens if it's not a bare function call */
+			/* 如果不是纯函数调用则需要括号 */
 			if (looks_like_function(partkey))
 				appendStringInfoString(&buf, str);
 			else
@@ -2033,13 +2033,13 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 			keycolcollation = exprCollation(partkey);
 		}
 
-		/* Add collation, if not default for column */
+		/* 非列默认时添加排序规则 */
 		partcoll = partcollation->values[keyno];
 		if (!attrsOnly && OidIsValid(partcoll) && partcoll != keycolcollation)
 			appendStringInfo(&buf, " COLLATE %s",
 							 generate_collation_name((partcoll)));
 
-		/* Add the operator class name, if not default */
+		/* 若非默认则添加操作符类名 */
 		if (!attrsOnly)
 			get_opclass_name(partclass->values[keyno], keycoltype, &buf);
 	}
@@ -2047,7 +2047,7 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 	if (!attrsOnly)
 		appendStringInfoChar(&buf, ')');
 
-	/* Clean up */
+	/* 清理 */
 	ReleaseSysCache(tuple);
 
 	return buf.data;
@@ -2056,7 +2056,7 @@ pg_get_partkeydef_worker(Oid relid, int prettyFlags,
 /*
  * pg_get_partition_constraintdef
  *
- * Returns partition constraint expression as a string for the input relation
+ * 以字符串形式返回输入关系的分区约束表达式
  */
 Datum
 pg_get_partition_constraintdef(PG_FUNCTION_ARGS)
@@ -2069,12 +2069,12 @@ pg_get_partition_constraintdef(PG_FUNCTION_ARGS)
 
 	constr_expr = get_partition_qual_relid(relationId);
 
-	/* Quick exit if no partition constraint */
+	/*如果没有分区约束则快速返回*/
 	if (constr_expr == NULL)
 		PG_RETURN_NULL();
 
 	/*
-	 * Deparse and return the constraint expression.
+	 * 反解析并返回约束表达式。
 	 */
 	prettyFlags = PRETTYFLAG_INDENT;
 	context = deparse_context_for(get_relation_name(relationId), relationId);
@@ -2087,8 +2087,8 @@ pg_get_partition_constraintdef(PG_FUNCTION_ARGS)
 /*
  * pg_get_partconstrdef_string
  *
- * Returns the partition constraint as a C-string for the input relation, with
- * the given alias.  No pretty-printing.
+ * 以 C 字符串形式返回输入关系的分区约束，并带有给定
+ * 的别名。不做美化打印。
  */
 char *
 pg_get_partconstrdef_string(Oid partitionId, char *aliasname)
@@ -2105,8 +2105,8 @@ pg_get_partconstrdef_string(Oid partitionId, char *aliasname)
 /*
  * pg_get_constraintdef
  *
- * Returns the definition for the constraint, ie, everything that needs to
- * appear after "ALTER TABLE ... ADD CONSTRAINT <constraintname>".
+ * 返回该约束的定义，即所有需要出现在 "ALTER TABLE
+ *  ... ADD CONSTRAINT <constraintname>" 之后的内容。
  */
 Datum
 pg_get_constraintdef(PG_FUNCTION_ARGS)
@@ -2144,7 +2144,7 @@ pg_get_constraintdef_ext(PG_FUNCTION_ARGS)
 }
 
 /*
- * Internal version that returns a full ALTER TABLE ... ADD CONSTRAINT command
+ * 返回完整 "ALTER TABLE ... ADD CONSTRAINT" 命令的内部版本。
  */
 char *
 pg_get_constraintdef_command(Oid constraintId)
@@ -2153,7 +2153,7 @@ pg_get_constraintdef_command(Oid constraintId)
 }
 
 /*
- * As of 9.4, we now use an MVCC snapshot for this.
+ * 从 9.4 起我们为此使用 MVCC 快照。
  */
 static char *
 pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
@@ -2180,8 +2180,8 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 								  scankey);
 
 	/*
-	 * We later use the tuple with SysCacheGetAttr() as if we had obtained it
-	 * via SearchSysCache, which works fine.
+	 * 我们稍后像经 SearchSysCache 获得那样，把该元组用于
+	 * SysCacheGetAttr()，没有问题。
 	 */
 	tup = systable_getnext(scandesc);
 
@@ -2207,11 +2207,11 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 		if (OidIsValid(conForm->conrelid))
 		{
 			/*
-			 * Currently, callers want ALTER TABLE (without ONLY) for CHECK
-			 * constraints, and other types of constraints don't inherit
-			 * anyway so it doesn't matter whether we say ONLY or not. Someday
-			 * we might need to let callers specify whether to put ONLY in the
-			 * command.
+			 * 目前调用方希望 CHECK 约束用 ALTER TABLE（不带
+			 * ONLY）。其余约束不继承，说不说均可。
+			 * 将来可能需允许调用方指定命令中是否带 ONLY。
+			 *
+			 *
 			 */
 			appendStringInfo(&buf, "ALTER TABLE %s ADD CONSTRAINT %s ",
 							 generate_qualified_relation_name(conForm->conrelid),
@@ -2219,7 +2219,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 		}
 		else
 		{
-			/* Must be a domain constraint */
+			/* 必须是域约束 */
 			Assert(OidIsValid(conForm->contypid));
 			appendStringInfo(&buf, "ALTER DOMAIN %s ADD CONSTRAINT %s ",
 							 generate_qualified_type_name(conForm->contypid),
@@ -2235,21 +2235,21 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				bool		isnull;
 				const char *string;
 
-				/* Start off the constraint definition */
+				/* 开始约束定义 */
 				appendStringInfoString(&buf, "FOREIGN KEY (");
 
-				/* Fetch and build referencing-column list */
+				/* 取得并构建引用列列表 */
 				val = SysCacheGetAttrNotNull(CONSTROID, tup,
 											 Anum_pg_constraint_conkey);
 
 				decompile_column_index_array(val, conForm->conrelid, &buf);
 
-				/* add foreign relation name */
+				/* 加上外键关系名 */
 				appendStringInfo(&buf, ") REFERENCES %s(",
 								 generate_relation_name(conForm->confrelid,
 														NIL));
 
-				/* Fetch and build referenced-column list */
+				/* 取得并构建被引用列列表 */
 				val = SysCacheGetAttrNotNull(CONSTROID, tup,
 											 Anum_pg_constraint_confkey);
 
@@ -2257,7 +2257,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 
 				appendStringInfoChar(&buf, ')');
 
-				/* Add match type */
+				/* 加匹配类型*/
 				switch (conForm->confmatchtype)
 				{
 					case FKCONSTR_MATCH_FULL:
@@ -2272,16 +2272,16 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 					default:
 						elog(ERROR, "unrecognized confmatchtype: %d",
 							 conForm->confmatchtype);
-						string = "";	/* keep compiler quiet */
+						string = "";	/* 让编译器安静 */
 						break;
 				}
 				appendStringInfoString(&buf, string);
 
-				/* Add ON UPDATE and ON DELETE clauses, if needed */
+				/* 如需要则添加 ON UPDATE/ON DELETE 子句 */
 				switch (conForm->confupdtype)
 				{
 					case FKCONSTR_ACTION_NOACTION:
-						string = NULL;	/* suppress default */
+						string = NULL;	/* 抑制默认值 */
 						break;
 					case FKCONSTR_ACTION_RESTRICT:
 						string = "RESTRICT";
@@ -2298,7 +2298,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 					default:
 						elog(ERROR, "unrecognized confupdtype: %d",
 							 conForm->confupdtype);
-						string = NULL;	/* keep compiler quiet */
+						string = NULL;	/* 让编译器安静 */
 						break;
 				}
 				if (string)
@@ -2307,7 +2307,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				switch (conForm->confdeltype)
 				{
 					case FKCONSTR_ACTION_NOACTION:
-						string = NULL;	/* suppress default */
+						string = NULL;	/* 抑制默认值 */
 						break;
 					case FKCONSTR_ACTION_RESTRICT:
 						string = "RESTRICT";
@@ -2324,15 +2324,15 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 					default:
 						elog(ERROR, "unrecognized confdeltype: %d",
 							 conForm->confdeltype);
-						string = NULL;	/* keep compiler quiet */
+						string = NULL;	/* 让编译器安静 */
 						break;
 				}
 				if (string)
 					appendStringInfo(&buf, " ON DELETE %s", string);
 
 				/*
-				 * Add columns specified to SET NULL or SET DEFAULT if
-				 * provided.
+				 * 如指定列，为 SET NULL/SET DEFAULT 加列。
+				 *
 				 */
 				val = SysCacheGetAttr(CONSTROID, tup,
 									  Anum_pg_constraint_confdelsetcols, &isnull);
@@ -2353,7 +2353,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				int			keyatts;
 				HeapTuple	indtup;
 
-				/* Start off the constraint definition */
+				/* 开始约束定义 */
 				if (conForm->contype == CONSTRAINT_PRIMARY)
 					appendStringInfoString(&buf, "PRIMARY KEY ");
 				else
@@ -2370,7 +2370,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 
 				appendStringInfoChar(&buf, '(');
 
-				/* Fetch and build target column list */
+				/* 取得并构建目标列列表 */
 				val = SysCacheGetAttrNotNull(CONSTROID, tup,
 											 Anum_pg_constraint_conkey);
 
@@ -2378,7 +2378,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 
 				appendStringInfoChar(&buf, ')');
 
-				/* Build including column list (from pg_index.indkeys) */
+				/* 构建包含列列表（来自 pg_index.indkeys） */
 				val = SysCacheGetAttrNotNull(INDEXRELID, indtup,
 											 Anum_pg_index_indnatts);
 				if (DatumGetInt32(val) > keyatts)
@@ -2411,7 +2411,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				}
 				ReleaseSysCache(indtup);
 
-				/* XXX why do we only print these bits if fullCommand? */
+				/*XXX 为什么仅在 fullCommand 时打印这些位？*/
 				if (fullCommand && OidIsValid(indexId))
 				{
 					char	   *options = flatten_reloptions(indexId);
@@ -2424,10 +2424,10 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 					}
 
 					/*
-					 * Print the tablespace, unless it's the database default.
-					 * This is to help ALTER TABLE usage of this facility,
-					 * which needs this behavior to recreate exact catalog
-					 * state.
+					 * 打印表空间，除非它就是数据库默认值。
+					 * ALTER TABLE 用法需要此行为来准确重现
+					 * 目录状态。
+					 *
 					 */
 					tblspc = get_rel_tablespace(indexId);
 					if (OidIsValid(tblspc))
@@ -2445,23 +2445,23 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				Node	   *expr;
 				List	   *context;
 
-				/* Fetch constraint expression in parsetree form */
+				/* 以解析树形式取得约束表达式 */
 				val = SysCacheGetAttrNotNull(CONSTROID, tup,
 											 Anum_pg_constraint_conbin);
 
 				conbin = TextDatumGetCString(val);
 				expr = stringToNode(conbin);
 
-				/* Set up deparsing context for Var nodes in constraint */
+				/* 为约束中的 Var 节点建立反解析上下文 */
 				if (conForm->conrelid != InvalidOid)
 				{
-					/* relation constraint */
+					/* 关系约束 */
 					context = deparse_context_for(get_relation_name(conForm->conrelid),
 												  conForm->conrelid);
 				}
 				else
 				{
-					/* domain constraint --- can't have Vars */
+					/* 域约束 --- 不可能有 Var */
 					context = NIL;
 				}
 
@@ -2469,16 +2469,16 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 												   prettyFlags, 0);
 
 				/*
-				 * Now emit the constraint definition, adding NO INHERIT if
-				 * necessary.
+				 * 现在输出约束定义，必要时加上 NO INHERIT。
 				 *
-				 * There are cases where the constraint expression will be
-				 * fully parenthesized and we don't need the outer parens ...
-				 * but there are other cases where we do need 'em.  Be
-				 * conservative for now.
 				 *
-				 * Note that simply checking for leading '(' and trailing ')'
-				 * would NOT be good enough, consider "(x > 0) AND (y > 0)".
+				 * 有时表达式完全括起，无需外层括号……
+				 * 但也有些情况确实需要它们。
+				 * 目前采取保守做法。
+				 *
+				 *
+				 * 注意，检查前导 "(" 与尾随 ")" 是不够的，
+				 * 例如 "(x > 0) AND (y > 0)" 这种情况。
 				 */
 				appendStringInfo(&buf, "CHECK (%s)%s",
 								 consrc,
@@ -2488,10 +2488,10 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 		case CONSTRAINT_TRIGGER:
 
 			/*
-			 * There isn't an ALTER TABLE syntax for creating a user-defined
-			 * constraint trigger, but it seems better to print something than
-			 * throw an error; if we throw error then this function couldn't
-			 * safely be applied to all rows of pg_constraint.
+			 * 用户定义约束触发器没有 ALTER TABLE 语法，
+			 * 但打印点什么总比抛错好；若抛错本函数就无法
+			 * 安全地应用于 pg_constraint 的全部行。
+			 *
 			 */
 			appendStringInfoString(&buf, "TRIGGER");
 			break;
@@ -2504,7 +2504,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				int			i;
 				Oid		   *operators;
 
-				/* Extract operator OIDs from the pg_constraint tuple */
+				/* 从 pg_constraint 元组中提取操作符 OID */
 				val = SysCacheGetAttrNotNull(CONSTROID, tup,
 											 Anum_pg_constraint_conexclop);
 
@@ -2515,8 +2515,8 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				for (i = 0; i < nElems; i++)
 					operators[i] = DatumGetObjectId(elems[i]);
 
-				/* pg_get_indexdef_worker does the rest */
-				/* suppress tablespace because pg_dump wants it that way */
+				/* pg_get_indexdef_worker 完成其余 */
+				/* 按 pg_dump 的要求省略表空间 */
 				appendStringInfoString(&buf,
 									   pg_get_indexdef_worker(indexOid,
 															  0,
@@ -2541,7 +2541,7 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 	if (!conForm->convalidated)
 		appendStringInfoString(&buf, " NOT VALID");
 
-	/* Cleanup */
+	/* 清理 */
 	systable_endscan(scandesc);
 	table_close(relation, AccessShareLock);
 
@@ -2550,9 +2550,9 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 
 
 /*
- * Convert an int16[] Datum into a comma-separated list of column names
- * for the indicated relation; append the list to buf.  Returns the number
- * of keys.
+ * 把 int16[] Datum 转换成关系列名的逗号分隔列表；
+ * 把该列表追加到 buf。返回键的数目。
+ *
  */
 static int
 decompile_column_index_array(Datum column_index_array, Oid relId,
@@ -2562,7 +2562,7 @@ decompile_column_index_array(Datum column_index_array, Oid relId,
 	int			nKeys;
 	int			j;
 
-	/* Extract data from array of int16 */
+	/* 从 int16 数组中提取数据 */
 	deconstruct_array_builtin(DatumGetArrayTypeP(column_index_array), INT2OID,
 							  &keys, NULL, &nKeys);
 
@@ -2583,27 +2583,27 @@ decompile_column_index_array(Datum column_index_array, Oid relId,
 
 
 /* ----------
- * pg_get_expr			- Decompile an expression tree
+ * pg_get_expr			- 反解析表达式树
  *
- * Input: an expression tree in nodeToString form, and a relation OID
+ * 输入：nodeToString 形式的表达式树和一个关系 OID
  *
- * Output: reverse-listed expression
+ * 输出：反解析的表达式
  *
- * Currently, the expression can only refer to a single relation, namely
- * the one specified by the second parameter.  This is sufficient for
- * partial indexes, column default expressions, etc.  We also support
- * Var-free expressions, for which the OID can be InvalidOid.
+ * 表达式目前只能引用单个关系，即第二个参数指定的
+ * 该关系。这对部分索引、列默认表达式等足够。
+ * 也支持无 Var 的表达式，此时 OID 可为 InvalidOid。
  *
- * If the OID is nonzero but not actually valid, don't throw an error,
- * just return NULL.  This is a bit questionable, but it's what we've
- * done historically, and it can help avoid unwanted failures when
- * examining catalog entries for just-deleted relations.
  *
- * We expect this function to work, or throw a reasonably clean error,
- * for any node tree that can appear in a catalog pg_node_tree column.
- * Query trees, such as those appearing in pg_rewrite.ev_action, are
- * not supported.  Nor are expressions in more than one relation, which
- * can appear in places like pg_rewrite.ev_qual.
+ * 若 OID 非零但实际无效，不要抛错，只返回 NULL。
+ * 这值得商榷，但它是历史做法，且有助于在检查
+ * 刚删除关系的目录项时避免不想要的失败。
+ *
+ *
+ * 我们期望本函数对任何出现在目录 pg_node_tree 列中
+ * 的节点树都能工作或抛出较干净的错误。查询树，
+ * 例如 pg_rewrite.ev_action 中出现的那些，不受支持。
+ * 多个关系中的表达式也不支持，它们可能出现在
+ * pg_rewrite.ev_qual 之类的地方。
  * ----------
  */
 Datum
@@ -2652,19 +2652,19 @@ pg_get_expr_worker(text *expr, Oid relid, int prettyFlags)
 	Relation	rel = NULL;
 	char	   *str;
 
-	/* Convert input pg_node_tree (really TEXT) object to C string */
+	/* 把 pg_node_tree（实为 TEXT）输入转换成 C 字符串*/
 	exprstr = text_to_cstring(expr);
 
-	/* Convert expression to node tree */
+	/* 把表达式转换为节点树 */
 	node = (Node *) stringToNode(exprstr);
 
 	pfree(exprstr);
 
 	/*
-	 * Throw error if the input is a querytree rather than an expression tree.
-	 * While we could support queries here, there seems no very good reason
-	 * to.  In most such catalog columns, we'll see a List of Query nodes, or
-	 * even nested Lists, so drill down to a non-List node before checking.
+	 * 若输入是查询树而非表达式树则抛错。虽然本可以
+	 * 支持查询，但似乎没有充分理由这么做。在大多数
+	 * 这类目录列中我们会看到 Query 节点的列表，甚至嵌套
+	 * 的列表，因此检查前要先下钻到非列表节点。
 	 */
 	tst = node;
 	while (tst && IsA(tst, List))
@@ -2675,8 +2675,8 @@ pg_get_expr_worker(text *expr, Oid relid, int prettyFlags)
 				 errmsg("input is a query, not an expression")));
 
 	/*
-	 * Throw error if the expression contains Vars we won't be able to
-	 * deparse.
+	 * 若表达式含有我们无法反解析的 Var，则抛错。
+	 *
 	 */
 	relids = pull_varnos(NULL, node);
 	if (OidIsValid(relid))
@@ -2695,10 +2695,10 @@ pg_get_expr_worker(text *expr, Oid relid, int prettyFlags)
 	}
 
 	/*
-	 * Prepare deparse context if needed.  If we are deparsing with a relid,
-	 * we need to transiently open and lock the rel, to make sure it won't go
-	 * away underneath us.  (set_relation_column_names would lock it anyway,
-	 * so this isn't really introducing any new behavior.)
+	 * 如有需要则准备反解析上下文。若带 relid 反解析，
+	 * 就需要临时打开并锁定该关系，确保它不会在
+	 * 我们操作期间消失。（set_relation_column_names 反正
+	 * 也会锁定它，故并未引入新行为。）
 	 */
 	if (OidIsValid(relid))
 	{
@@ -2710,7 +2710,7 @@ pg_get_expr_worker(text *expr, Oid relid, int prettyFlags)
 	else
 		context = NIL;
 
-	/* Deparse */
+	/*反解析*/
 	str = deparse_expression_pretty(node, context, false, false,
 									prettyFlags, 0);
 
@@ -2722,8 +2722,8 @@ pg_get_expr_worker(text *expr, Oid relid, int prettyFlags)
 
 
 /* ----------
- * pg_get_userbyid		- Get a user name by roleid and
- *				  fallback to 'unknown (OID=n)'
+ * pg_get_userbyid		- 按角色 ID 取用户名，
+ *					  回退为 'unknown (OID=n)'
  * ----------
  */
 Datum
@@ -2735,13 +2735,13 @@ pg_get_userbyid(PG_FUNCTION_ARGS)
 	Form_pg_authid role_rec;
 
 	/*
-	 * Allocate space for the result
+	 * 为结果分配空间
 	 */
 	result = (Name) palloc(NAMEDATALEN);
 	memset(NameStr(*result), 0, NAMEDATALEN);
 
 	/*
-	 * Get the pg_authid entry and print the result
+	 * 取得 pg_authid 项并打印结果
 	 */
 	roletup = SearchSysCache1(AUTHOID, ObjectIdGetDatum(roleid));
 	if (HeapTupleIsValid(roletup))
@@ -2759,10 +2759,10 @@ pg_get_userbyid(PG_FUNCTION_ARGS)
 
 /*
  * pg_get_serial_sequence
- *		Get the name of the sequence used by an identity or serial column,
- *		formatted suitably for passing to setval, nextval or currval.
- *		First parameter is not treated as double-quoted, second parameter
- *		is --- see documentation for reason.
+ *			取得身份列或 serial 列所用序列的名称，格式适
+ *			合传给 setval、nextval 或 currval。第一参数不作
+ *			双引号处理，第二参数则要 —— 缘由见文档。
+ *
  */
 Datum
 pg_get_serial_sequence(PG_FUNCTION_ARGS)
@@ -2779,11 +2779,11 @@ pg_get_serial_sequence(PG_FUNCTION_ARGS)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Look up table name.  Can't lock it - we might not have privileges. */
+	/* 查找表名。不能加锁 —— 我们可能没有权限。 */
 	tablerv = makeRangeVarFromNameList(textToQualifiedNameList(tablename));
 	tableOid = RangeVarGetRelid(tablerv, NoLock, false);
 
-	/* Get the number of the column */
+	/* 取得该列的编号 */
 	column = text_to_cstring(columnname);
 
 	attnum = get_attnum(tableOid, column);
@@ -2793,7 +2793,7 @@ pg_get_serial_sequence(PG_FUNCTION_ARGS)
 				 errmsg("column \"%s\" of relation \"%s\" does not exist",
 						column, tablerv->relname)));
 
-	/* Search the dependency table for the dependent sequence */
+	/* 在依赖表中搜索依赖的序列 */
 	depRel = table_open(DependRelationId, AccessShareLock);
 
 	ScanKeyInit(&key[0],
@@ -2817,9 +2817,9 @@ pg_get_serial_sequence(PG_FUNCTION_ARGS)
 		Form_pg_depend deprec = (Form_pg_depend) GETSTRUCT(tup);
 
 		/*
-		 * Look for an auto dependency (serial column) or internal dependency
-		 * (identity column) of a sequence on a column.  (We need the relkind
-		 * test because indexes can also have auto dependencies on columns.)
+		 * 查找序列对列的自动依赖（serial 列）或内部依赖
+		 * （身份列）。（需要 relkind 测试，索引也可能有
+		 * 对列的自动依赖。）
 		 */
 		if (deprec->classid == RelationRelationId &&
 			deprec->objsubid == 0 &&
@@ -2850,13 +2850,13 @@ pg_get_serial_sequence(PG_FUNCTION_ARGS)
 
 /*
  * pg_get_functiondef
- *		Returns the complete "CREATE OR REPLACE FUNCTION ..." statement for
- *		the specified function.
+ *			返回指定函数的完整 "CREATE OR REPLACE FUNCTION ..."
+ *			语句。
  *
- * Note: if you change the output format of this function, be careful not
- * to break psql's rules (in \ef and \sf) for identifying the start of the
- * function body.  To wit: the function body starts on a line that begins with
- * "AS ", "BEGIN ", or "RETURN ", and no preceding line will look like that.
+ * 注意：如果你改变本函数的输出格式，当心不要破坏
+ * psql 的规则（\ef 与 \sf 中识别函数体开头的规则）。
+ * 就是说：函数体所在的行以 "AS "、"BEGIN " 或 "RETURN "
+ * 开头，而之前的任何行都不会看起来像那样。
  */
 Datum
 pg_get_functiondef(PG_FUNCTION_ARGS)
@@ -2877,7 +2877,7 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 
 	initStringInfo(&buf);
 
-	/* Look up the function */
+	/* 查找该函数 */
 	proctup = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
 	if (!HeapTupleIsValid(proctup))
 		PG_RETURN_NULL();
@@ -2893,8 +2893,8 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 	isfunction = (proc->prokind != PROKIND_PROCEDURE);
 
 	/*
-	 * We always qualify the function name, to ensure the right function gets
-	 * replaced.
+	 * 我们总是给函数名加模式限定，确保替换的是正确的
+	 * 函数。
 	 */
 	nsp = get_namespace_name_or_temp(proc->pronamespace);
 	appendStringInfo(&buf, "CREATE OR REPLACE %s %s(",
@@ -2914,7 +2914,7 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 	appendStringInfo(&buf, " LANGUAGE %s\n",
 					 quote_identifier(get_language_name(proc->prolang, false)));
 
-	/* Emit some miscellaneous options on one line */
+	/* 在一行上输出若干杂项选项 */
 	oldlen = buf.len;
 
 	if (proc->prokind == PROKIND_WINDOW)
@@ -2950,7 +2950,7 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 	if (proc->proleakproof)
 		appendStringInfoString(&buf, " LEAKPROOF");
 
-	/* This code for the default cost and rows should match functioncmds.c */
+	/* 此处默认开销与行数的代码应与 functioncmds.c 一致 */
 	if (proc->prolang == INTERNALlanguageId ||
 		proc->prolang == ClanguageId)
 		procost = 1;
@@ -2967,8 +2967,8 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 		Oid			argtypes[1];
 
 		/*
-		 * We should qualify the support function's name if it wouldn't be
-		 * resolved by lookup in the current search path.
+		 * 若支持函数名在当前搜索路径中无法解析，
+		 * 就应给它加上模式限定。
 		 */
 		argtypes[0] = INTERNALOID;
 		appendStringInfo(&buf, " SUPPORT %s",
@@ -2980,7 +2980,7 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 	if (oldlen != buf.len)
 		appendStringInfoChar(&buf, '\n');
 
-	/* Emit any proconfig options, one per line */
+	/* 每行输出一个 proconfig 选项 */
 	tmp = SysCacheGetAttr(PROCOID, proctup, Anum_pg_proc_proconfig, &isnull);
 	if (!isnull)
 	{
@@ -2996,10 +2996,10 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 			Datum		d;
 
 			d = array_ref(a, 1, &i,
-						  -1 /* varlenarray */ ,
-						  -1 /* TEXT's typlen */ ,
-						  false /* TEXT's typbyval */ ,
-						  TYPALIGN_INT /* TEXT's typalign */ ,
+						  -1 /* 变长数组*/ ,
+						  -1 /*TEXT 的 typlen*/ ,
+						  false /*TEXT 的 typbyval*/ ,
+						  TYPALIGN_INT /*TEXT 的 typalign*/ ,
 						  &isnull);
 			if (!isnull)
 			{
@@ -3015,30 +3015,30 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 								 quote_identifier(configitem));
 
 				/*
-				 * Variables that are marked GUC_LIST_QUOTE were already fully
-				 * quoted by flatten_set_variable_args() before they were put
-				 * into the proconfig array.  However, because the quoting
-				 * rules used there aren't exactly like SQL's, we have to
-				 * break the list value apart and then quote the elements as
-				 * string literals.  (The elements may be double-quoted as-is,
-				 * but we can't just feed them to the SQL parser; it would do
-				 * the wrong thing with elements that are zero-length or
-				 * longer than NAMEDATALEN.)
+				 * 标为 GUC_LIST_QUOTE 的变量放入 proconfig 数组前
+				 * 已被 flatten_set_variable_args() 完全加了引号。
+				 * 但那里的引号规则不同于 SQL，须拆开值，
+				 * 再给元素按字面量加引号。（元素或
+				 * 已带双引号，但不能径直交给 SQL 解析器，
+				 * 否则零长度或超 NAMEDATALEN 的元素会出错。）
 				 *
-				 * Variables that are not so marked should just be emitted as
-				 * simple string literals.  If the variable is not known to
-				 * guc.c, we'll do that; this makes it unsafe to use
-				 * GUC_LIST_QUOTE for extension variables.
+				 *
+				 *
+				 *
+				 * 未标记变量则应直接按简单字面量输出。
+				 * 若 guc.c 不认识该变量就会这么做；这使
+				 * 扩展变量用 GUC_LIST_QUOTE 便不安全。
+				 *
 				 */
 				if (GetConfigOptionFlags(configitem, true) & GUC_LIST_QUOTE)
 				{
 					List	   *namelist;
 					ListCell   *lc;
 
-					/* Parse string into list of identifiers */
+					/* 把字符串解析成标识符列表 */
 					if (!SplitGUCList(pos, ',', &namelist))
 					{
-						/* this shouldn't fail really */
+						/* 这实际上不应该失败*/
 						elog(ERROR, "invalid list syntax in proconfig item");
 					}
 					foreach(lc, namelist)
@@ -3057,7 +3057,7 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* And finally the function definition ... */
+	/* 最后是函数定义…… */
 	(void) SysCacheGetAttr(PROCOID, proctup, Anum_pg_proc_prosqlbody, &isnull);
 	if (proc->prolang == SQLlanguageId && !isnull)
 	{
@@ -3071,19 +3071,19 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 		if (!isnull)
 		{
 			simple_quote_literal(&buf, TextDatumGetCString(tmp));
-			appendStringInfoString(&buf, ", "); /* assume prosrc isn't null */
+			appendStringInfoString(&buf, ", "); /* 假定 prosrc 非空 */
 		}
 
 		tmp = SysCacheGetAttrNotNull(PROCOID, proctup, Anum_pg_proc_prosrc);
 		prosrc = TextDatumGetCString(tmp);
 
 		/*
-		 * We always use dollar quoting.  Figure out a suitable delimiter.
+		 * 我们总用美元引号。需要想出合适的定界符。
 		 *
-		 * Since the user is likely to be editing the function body string, we
-		 * shouldn't use a short delimiter that he might easily create a
-		 * conflict with.  Hence prefer "$function$"/"$procedure$", but extend
-		 * if needed.
+		 * 由于用户很可能编辑函数体字符串，不应使用他
+		 * 很容易就能制造冲突的短定界符。因此首选
+		 * "$function$"/"$procedure$"，但必要时加以扩展。
+		 *
 		 */
 		initStringInfo(&dq);
 		appendStringInfoChar(&dq, '$');
@@ -3106,9 +3106,9 @@ pg_get_functiondef(PG_FUNCTION_ARGS)
 
 /*
  * pg_get_function_arguments
- *		Get a nicely-formatted list of arguments for a function.
- *		This is everything that would go between the parentheses in
- *		CREATE FUNCTION.
+ *			取得某函数参数的格式良好列表。
+ *			这就是在 CREATE FUNCTION 中出现在括号之间的
+ *	全部内容。
  */
 Datum
 pg_get_function_arguments(PG_FUNCTION_ARGS)
@@ -3132,9 +3132,9 @@ pg_get_function_arguments(PG_FUNCTION_ARGS)
 
 /*
  * pg_get_function_identity_arguments
- *		Get a formatted list of arguments for a function.
- *		This is everything that would go between the parentheses in
- *		ALTER FUNCTION, etc.  In particular, don't print defaults.
+ *			取得某函数参数的格式化列表。
+ *			这就是在 ALTER FUNCTION 等语句中出现在括号之间的
+ *	全部内容。特别不打印默认值。
  */
 Datum
 pg_get_function_identity_arguments(PG_FUNCTION_ARGS)
@@ -3158,8 +3158,8 @@ pg_get_function_identity_arguments(PG_FUNCTION_ARGS)
 
 /*
  * pg_get_function_result
- *		Get a nicely-formatted version of the result type of a function.
- *		This is what would appear after RETURNS in CREATE FUNCTION.
+ *			取得函数结果类型的格式良好版本。
+ *			即 CREATE FUNCTION 中 RETURNS 之后的内容。
  */
 Datum
 pg_get_function_result(PG_FUNCTION_ARGS)
@@ -3188,8 +3188,8 @@ pg_get_function_result(PG_FUNCTION_ARGS)
 }
 
 /*
- * Guts of pg_get_function_result: append the function's return type
- * to the specified buffer.
+ * pg_get_function_result 的主体：把函数的返回类型
+ * 加到该缓冲区。
  */
 static void
 print_function_rettype(StringInfo buf, HeapTuple proctup)
@@ -3202,7 +3202,7 @@ print_function_rettype(StringInfo buf, HeapTuple proctup)
 
 	if (proc->proretset)
 	{
-		/* It might be a table function; try to print the arguments */
+		/* 它可能是表函数；尝试打印参数 */
 		appendStringInfoString(&rbuf, "TABLE(");
 		ntabargs = print_function_arguments(&rbuf, proctup, true, false);
 		if (ntabargs > 0)
@@ -3213,7 +3213,7 @@ print_function_rettype(StringInfo buf, HeapTuple proctup)
 
 	if (ntabargs == 0)
 	{
-		/* Not a table function, so do the normal thing */
+		/* 不是表函数，按常规处理 */
 		if (proc->proretset)
 			appendStringInfoString(&rbuf, "SETOF ");
 		appendStringInfoString(&rbuf, format_type_be(proc->prorettype));
@@ -3223,11 +3223,11 @@ print_function_rettype(StringInfo buf, HeapTuple proctup)
 }
 
 /*
- * Common code for pg_get_function_arguments and pg_get_function_result:
- * append the desired subset of arguments to buf.  We print only TABLE
- * arguments when print_table_args is true, and all the others when it's false.
- * We print argument defaults only if print_defaults is true.
- * Function return value is the number of arguments printed.
+ * pg_get_function_arguments 与 pg_get_function_result 的
+ * 公共代码：把所需的参数子集追加到 buf。当
+ * print_table_args 为真时只打印 TABLE 参数，为假时打印
+ * 其余参数。print_defaults 为真才打印默认值。
+ * 函数返回值为已打印参数的数目。
  */
 static int
 print_function_arguments(StringInfo buf, HeapTuple proctup,
@@ -3266,12 +3266,12 @@ print_function_arguments(StringInfo buf, HeapTuple proctup,
 			argdefaults = castNode(List, stringToNode(str));
 			pfree(str);
 			nextargdefault = list_head(argdefaults);
-			/* nlackdefaults counts only *input* arguments lacking defaults */
+			/* nlackdefaults 只统计缺少默认值的*输入*参数 */
 			nlackdefaults = proc->pronargs - list_length(argdefaults);
 		}
 	}
 
-	/* Check for special treatment of ordered-set aggregates */
+	/* 检查有序集聚合是否需要特殊处理 */
 	if (proc->prokind == PROKIND_AGGREGATE)
 	{
 		HeapTuple	aggtup;
@@ -3302,8 +3302,8 @@ print_function_arguments(StringInfo buf, HeapTuple proctup,
 			case PROARGMODE_IN:
 
 				/*
-				 * For procedures, explicitly mark all argument modes, so as
-				 * to avoid ambiguity with the SQL syntax for DROP PROCEDURE.
+				 * 过程要显式标记所有参数模式，以避免与
+				 * DROP PROCEDURE 的 SQL 语法产生歧义。
 				 */
 				if (proc->prokind == PROKIND_PROCEDURE)
 					modename = "IN ";
@@ -3329,12 +3329,12 @@ print_function_arguments(StringInfo buf, HeapTuple proctup,
 				break;
 			default:
 				elog(ERROR, "invalid parameter mode '%c'", argmode);
-				modename = NULL;	/* keep compiler quiet */
+				modename = NULL;	/* 让编译器安静 */
 				isinput = false;
 				break;
 		}
 		if (isinput)
-			inputargno++;		/* this is a 1-based counter */
+			inputargno++;		/* 以 1 为基的计数器 */
 
 		if (print_table_args != (argmode == PROARGMODE_TABLE))
 			continue;
@@ -3365,11 +3365,11 @@ print_function_arguments(StringInfo buf, HeapTuple proctup,
 		}
 		argsprinted++;
 
-		/* nasty hack: print the last arg twice for variadic ordered-set agg */
+		/* 取巧：对变参有序集聚合，最后一个参数打印两次*/
 		if (argsprinted == insertorderbyat && i == numargs - 1)
 		{
 			i--;
-			/* aggs shouldn't have defaults anyway, but just to be sure ... */
+			/* 聚合本不该有默认值，但以防万一…… */
 			print_defaults = false;
 		}
 	}
@@ -3387,7 +3387,7 @@ is_input_argument(int nth, const char *argmodes)
 }
 
 /*
- * Append used transformed types to specified buffer
+ * 把用到的转换类型追加到指定缓冲区
  */
 static void
 print_function_trftypes(StringInfo buf, HeapTuple proctup)
@@ -3412,10 +3412,10 @@ print_function_trftypes(StringInfo buf, HeapTuple proctup)
 }
 
 /*
- * Get textual representation of a function argument's default value.  The
- * second argument of this function is the argument number among all arguments
- * (i.e. proallargtypes, *not* proargtypes), starting with 1, because that's
- * how information_schema.sql uses it.
+ * 取得函数参数默认值的文本表示。本函数第二参数
+ * 是全部参数中的参数序号（即 proallargtypes，*不是*
+ * proargtypes），从 1 开始计，因为 information_schema.sql
+ * 就是这样使用它的。
  */
 Datum
 pg_get_function_arg_default(PG_FUNCTION_ARGS)
@@ -3469,8 +3469,8 @@ pg_get_function_arg_default(PG_FUNCTION_ARGS)
 	proc = (Form_pg_proc) GETSTRUCT(proctup);
 
 	/*
-	 * Calculate index into proargdefaults: proargdefaults corresponds to the
-	 * last N input arguments, where N = pronargdefaults.
+	 * 计算 proargdefaults 中的下标：proargdefaults 对应于
+	 * 最后 N 个输入参数，N = pronargdefaults。
 	 */
 	nth_default = nth_inputarg - 1 - (proc->pronargs - proc->pronargdefaults);
 
@@ -3520,7 +3520,7 @@ print_function_sqlbody(StringInfo buf, HeapTuple proctup)
 		{
 			Query	   *query = lfirst_node(Query, lc);
 
-			/* It seems advisable to get at least AccessShareLock on rels */
+			/* 看来宜对关系至少取得 AccessShareLock */
 			AcquireRewriteLocks(query, false, false);
 			get_query_def(query, buf, list_make1(&dpns), NULL, false,
 						  PRETTYFLAG_INDENT, WRAP_COLUMN_DEFAULT, 1);
@@ -3534,7 +3534,7 @@ print_function_sqlbody(StringInfo buf, HeapTuple proctup)
 	{
 		Query	   *query = castNode(Query, n);
 
-		/* It seems advisable to get at least AccessShareLock on rels */
+		/* 看来宜对关系至少取得 AccessShareLock */
 		AcquireRewriteLocks(query, false, false);
 		get_query_def(query, buf, list_make1(&dpns), NULL, false,
 					  0, WRAP_COLUMN_DEFAULT, 0);
@@ -3551,7 +3551,7 @@ pg_get_function_sqlbody(PG_FUNCTION_ARGS)
 
 	initStringInfo(&buf);
 
-	/* Look up the function */
+	/* 查找该函数 */
 	proctup = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcid));
 	if (!HeapTupleIsValid(proctup))
 		PG_RETURN_NULL();
@@ -3572,9 +3572,9 @@ pg_get_function_sqlbody(PG_FUNCTION_ARGS)
 
 
 /*
- * deparse_expression			- General utility for deparsing expressions
+ * deparse_expression			- 反解析表达式的通用工具
  *
- * calls deparse_expression_pretty with all prettyPrinting disabled
+ * 调用 deparse_expression_pretty 并禁用全部美化打印
  */
 char *
 deparse_expression(Node *expr, List *dpcontext,
@@ -3585,22 +3585,22 @@ deparse_expression(Node *expr, List *dpcontext,
 }
 
 /* ----------
- * deparse_expression_pretty	- General utility for deparsing expressions
+ * deparse_expression_pretty	- 反解析表达式的通用工具
  *
- * expr is the node tree to be deparsed.  It must be a transformed expression
- * tree (ie, not the raw output of gram.y).
+ * expr 是要反解析的节点树。它必须是已转换的表达式
+ * 树（非 gram.y 原始输出）。
  *
- * dpcontext is a list of deparse_namespace nodes representing the context
- * for interpreting Vars in the node tree.  It can be NIL if no Vars are
- * expected.
+ * dpcontext 是 deparse_namespace 节点的列表，表示解释
+ * 节点树中 Var 的上下文。如果不期望有 Var，可以为
+ * NIL。
  *
- * forceprefix is true to force all Vars to be prefixed with their table names.
+ * forceprefix 为真强制所有 Var 都带上其表名前缀。
  *
- * showimplicit is true to force all implicit casts to be shown explicitly.
+ * showimplicit 为真强制显示所有隐式转换。
  *
- * Tries to pretty up the output according to prettyFlags and startIndent.
+ * 尝试按 prettyFlags 与 startIndent 美化输出。
  *
- * The result is a palloc'd string.
+ * 结果是 palloc 的字符串。
  * ----------
  */
 static char *
@@ -3632,11 +3632,11 @@ deparse_expression_pretty(Node *expr, List *dpcontext,
 }
 
 /* ----------
- * deparse_context_for			- Build deparse context for a single relation
+ * deparse_context_for			- 为单个关系构建反解析上下文
  *
- * Given the reference name (alias) and OID of a relation, build deparsing
- * context for an expression referencing only that relation (as varno 1,
- * varlevelsup 0).  This is sufficient for many uses of deparse_expression.
+ * 给定关系的引用名（别名）与 OID，为只引用该关系（
+ * varno 为 1、varlevelsup 为 0）的表达式构建反解析
+ * 上下文。这对 deparse_expression 的许多用途已经足够。
  * ----------
  */
 List *
@@ -3647,11 +3647,11 @@ deparse_context_for(const char *aliasname, Oid relid)
 
 	dpns = (deparse_namespace *) palloc0(sizeof(deparse_namespace));
 
-	/* Build a minimal RTE for the rel */
+	/* 为该关系构建最小的 RTE */
 	rte = makeNode(RangeTblEntry);
 	rte->rtekind = RTE_RELATION;
 	rte->relid = relid;
-	rte->relkind = RELKIND_RELATION;	/* no need for exactness here */
+	rte->relkind = RELKIND_RELATION;	/* 此处无需精确 */
 	rte->rellockmode = AccessShareLock;
 	rte->alias = makeAlias(aliasname, NIL);
 	rte->eref = rte->alias;
@@ -3659,7 +3659,7 @@ deparse_context_for(const char *aliasname, Oid relid)
 	rte->inh = false;
 	rte->inFromCl = true;
 
-	/* Build one-element rtable */
+	/* 构建单元素范围表 */
 	dpns->rtable = list_make1(rte);
 	dpns->subplans = NIL;
 	dpns->ctes = NIL;
@@ -3667,22 +3667,22 @@ deparse_context_for(const char *aliasname, Oid relid)
 	set_rtable_names(dpns, NIL, NULL);
 	set_simple_column_names(dpns);
 
-	/* Return a one-deep namespace stack */
+	/* 返回单层命名空间栈 */
 	return list_make1(dpns);
 }
 
 /*
- * deparse_context_for_plan_tree - Build deparse context for a Plan tree
+ * deparse_context_for_plan_tree - 为 plan 树构建反解析上下文
  *
- * When deparsing an expression in a Plan tree, we use the plan's rangetable
- * to resolve names of simple Vars.  The initialization of column names for
- * this is rather expensive if the rangetable is large, and it'll be the same
- * for every expression in the Plan tree; so we do it just once and re-use
- * the result of this function for each expression.  (Note that the result
- * is not usable until set_deparse_context_plan() is applied to it.)
+ * 在 plan 树中反解析表达式时，我们用 plan 的范围表来
+ * 解析简单 Var 的名字。若范围表很大，为其初始化列名
+ * 相当昂贵，而且对 plan 树中的每个表达式来说都一样；
+ * 因此只做一次，并为每个表达式重用本函数结果。
+ * （注意：该结果在应用 set_deparse_context_plan() 之前，
+ * 尚不可用。）
  *
- * In addition to the PlannedStmt, pass the per-RTE alias names
- * assigned by a previous call to select_rtable_names_for_explain.
+ * 除了 PlannedStmt 之外，还要传入先前调用
+ * select_rtable_names_for_explain 时分配的各 RTE 别名。
  */
 List *
 deparse_context_for_plan_tree(PlannedStmt *pstmt, List *rtable_names)
@@ -3691,14 +3691,14 @@ deparse_context_for_plan_tree(PlannedStmt *pstmt, List *rtable_names)
 
 	dpns = (deparse_namespace *) palloc0(sizeof(deparse_namespace));
 
-	/* Initialize fields that stay the same across the whole plan tree */
+	/* 初始化在整个 plan 树中保持不变的字段 */
 	dpns->rtable = pstmt->rtable;
 	dpns->rtable_names = rtable_names;
 	dpns->subplans = pstmt->subplans;
 	dpns->ctes = NIL;
 	if (pstmt->appendRelations)
 	{
-		/* Set up the array, indexed by child relid */
+		/* 建立数组，按子 relid 索引 */
 		int			ntables = list_length(dpns->rtable);
 		ListCell   *lc;
 
@@ -3715,54 +3715,54 @@ deparse_context_for_plan_tree(PlannedStmt *pstmt, List *rtable_names)
 		}
 	}
 	else
-		dpns->appendrels = NULL;	/* don't need it */
+		dpns->appendrels = NULL;	/* 不需要它 */
 
 	/*
-	 * Set up column name aliases.  We will get rather bogus results for join
-	 * RTEs, but that doesn't matter because plan trees don't contain any join
-	 * alias Vars.
+	 * 建立列名别名。对连接 RTE 会得到相当失真的结果，
+	 * 但这没有关系，因为 plan 树不含任何连接别名 Var。
+	 *
 	 */
 	set_simple_column_names(dpns);
 
-	/* Return a one-deep namespace stack */
+	/* 返回单层命名空间栈 */
 	return list_make1(dpns);
 }
 
 /*
- * set_deparse_context_plan - Specify Plan node containing expression
+ * set_deparse_context_plan - 指定包含表达式的 plan 节点
  *
- * When deparsing an expression in a Plan tree, we might have to resolve
- * OUTER_VAR, INNER_VAR, or INDEX_VAR references.  To do this, the caller must
- * provide the parent Plan node.  Then OUTER_VAR and INNER_VAR references
- * can be resolved by drilling down into the left and right child plans.
- * Similarly, INDEX_VAR references can be resolved by reference to the
- * indextlist given in a parent IndexOnlyScan node, or to the scan tlist in
- * ForeignScan and CustomScan nodes.  (Note that we don't currently support
- * deparsing of indexquals in regular IndexScan or BitmapIndexScan nodes;
- * for those, we can only deparse the indexqualorig fields, which won't
- * contain INDEX_VAR Vars.)
+ * 在 plan 树中反解析表达式时，我们可能不得不解析
+ * OUTER_VAR、INNER_VAR 或 INDEX_VAR 引用。为此，调用
+ * 方必须提供父 Plan 节点。这样 OUTER_VAR 与 INNER_VAR
+ * 引用便可通过深入左、右子 plan 来解析。类似地，
+ * INDEX_VAR 引用可以通过引用父 IndexOnlyScan 节点给出
+ * 的 indextlist，或 ForeignScan 与 CustomScan 节点中的
+ * 扫描目标列表来解析。（注意，我们目前不支持对常规
+ * IndexScan 或 BitmapIndexScan 节点中的 indexqual 进行
+ * 反解析；对它们只能反解析 indexqualorig 域，其中
+ * 无 INDEX_VAR Var。）
  *
- * The ancestors list is a list of the Plan's parent Plan and SubPlan nodes,
- * the most-closely-nested first.  This is needed to resolve PARAM_EXEC
- * Params.  Note we assume that all the Plan nodes share the same rtable.
+ * ancestors 列表是该 Plan 的父 Plan 与 SubPlan 节点的列表，
+ * 嵌套最深者在前。这是解析 PARAM_EXEC 参数所需。
+ * 注意我们假定所有 Plan 节点共享同一个范围表。
  *
- * Once this function has been called, deparse_expression() can be called on
- * subsidiary expression(s) of the specified Plan node.  To deparse
- * expressions of a different Plan node in the same Plan tree, re-call this
- * function to identify the new parent Plan node.
+ * 一旦调用过本函数，就可以对指定 Plan 节点的子表达式
+ * 调用 deparse_expression()。要反解析同一 plan 树中另
+ * 一个 Plan 节点的表达式，请重新调用本函数来指认新的
+ * 父 Plan 节点。
  *
- * The result is the same List passed in; this is a notational convenience.
+ * 结果就是传入的同一个 List；这只是记法上的便利。
  */
 List *
 set_deparse_context_plan(List *dpcontext, Plan *plan, List *ancestors)
 {
 	deparse_namespace *dpns;
 
-	/* Should always have one-entry namespace list for Plan deparsing */
+	/* plan 反解析用：命名空间列表应总是只有一项 */
 	Assert(list_length(dpcontext) == 1);
 	dpns = (deparse_namespace *) linitial(dpcontext);
 
-	/* Set our attention on the specific plan node passed in */
+	/* 把注意力集中到传入的特定 plan 节点上 */
 	dpns->ancestors = ancestors;
 	set_deparse_plan(dpns, plan);
 
@@ -3770,11 +3770,11 @@ set_deparse_context_plan(List *dpcontext, Plan *plan, List *ancestors)
 }
 
 /*
- * select_rtable_names_for_explain	- Select RTE aliases for EXPLAIN
+ * select_rtable_names_for_explain	- 为 EXPLAIN 选 RTE 别名
  *
- * Determine the relation aliases we'll use during an EXPLAIN operation.
- * This is just a frontend to set_rtable_names.  We have to expose the aliases
- * to EXPLAIN because EXPLAIN needs to know the right alias names to print.
+ * 确定在 EXPLAIN 操作期间要使用的关系别名。这只是
+ * set_rtable_names 的前端。我们必须把别名暴露给
+ * EXPLAIN，因为 EXPLAIN 需要知道要打印的正确别名。
  */
 List *
 select_rtable_names_for_explain(List *rtable, Bitmapset *rels_used)
@@ -3787,7 +3787,7 @@ select_rtable_names_for_explain(List *rtable, Bitmapset *rels_used)
 	dpns.ctes = NIL;
 	dpns.appendrels = NULL;
 	set_rtable_names(&dpns, NIL, rels_used);
-	/* We needn't bother computing column aliases yet */
+	/* 我们还无需费心计算列别名 */
 
 	return dpns.rtable_names;
 }

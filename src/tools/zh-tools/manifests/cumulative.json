@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "f4069eb176e8d59b6b8503ca474e25c33a884721",
+ "parent_commit": "ec86b6f80b7dd88cd8dd30069b109fb6f283487e",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7376,6 +7376,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p3.json",
    "kind": "manifest",
    "note": "batch-0428 manifest (numeric.c part3 收官批; numeric.c 已由 part1 在册查重不重复追加)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "note": "ruleutils 反解析器 part1 (whole-file 拆批): 文件头+宏族+deparse 核心结构+入口函数群 pg_get_ruledef/viewdef/triggerdef/indexdef/querydef/statisticsobjdef/partkeydef/constraintdef/expr/userbyid/serial_sequence/functiondef/deparse_expression 系, L1-3794 (块 276 @L3795 起 part2); whole-file 拆批 part 1, batch-0429"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0429-adt-ruleutils-p1.json",
+   "kind": "manifest",
+   "note": "batch-0429 manifest (ruleutils.c part1)"
   }
  ],
  "files": [
@@ -23916,6 +23926,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0428-p3 收官批 (numeric.c L8311-12043, cmp_var 文档块起): 比较/余下四则(add/sub/mul/div/var 族)/幂(exp/ln/log/power_var 系)/方根(sqrt Karatsuba)/转换/支持函数/accum_sum 系尾段; 322 块, translated 307 + preserved 15; whole-file 拆批 part 3, batch-0428; 本条目为 pure append (+1 files/+1 allowed_paths), parent_commit 由 0a4ea1b79af (part2 期值) 更新为现 HEAD f4069eb176e (part1/part2 判例, 非纯追加特此披露)"
+  },
+  {
+   "path": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 276,
+   "translated": 274,
+   "preserved": 2,
+   "preserved_reasons": [
+    "2 个整块保留 (verify changed=274 对齐): 块 8 'Local data types' (预算 16B 不足 6 字译名), 块 64 'Global data' (预算 11B 不足 4 字译名), 0372 小注释保留判例; 另 20 行 KEPT 在已译块内: 文件头 5 行 + 12 裸函数名横幅 + 1 记法样例 L1872"
+   ],
+   "note": "ruleutils.c part1 拆批判 (L1-3794, 276 块, translated 274 + preserved 2): 文件头+PRETTYINDENT 宏+deparse_context/deparse_namespace/deparse_columns 结构+入口函数群 (pg_get_*def 系/pg_get_expr 系/pg_get_functiondef 系/deparse_expression 系/select_rtable_names_for_explain), 截止点=反解析上下文构建族尾 (块 276 @L3795 起 part2); verify rc=0 comments=906 changed=274; term_lint rc=0 (0 error, 5 warnings 全 advisory); 术语: deparse→反解析/范围表/表达式树/模式限定/常量折叠/身份列(新定); 本条目 pure append (+1 files), parent_commit 由 f4069eb176e (0428-p3 期值) 更新为现 HEAD ec86b6f80b7 (0428 判例, 非纯追加特此披露)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0429-adt-ruleutils-p1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0429-p1 manifest (ruleutils.c part1); pure append (+1 files/+1 allowed_paths)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

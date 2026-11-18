@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0428",
+ "title": "adt 目录 numeric.c 整文件注释翻译 part2 (L4131-8310) 334 块 — batch 0428",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0a4ea1b79af2aab029d860b3cced41930fee4b6a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "note": "numeric 数值类型 part2 (partial-file 拆批判例): 标度族 (numeric_scale/min_scale/trim_scale/get_min_scale)+类型转换族 (int64 快速除法/int-int2-int4-int8-float4-float8-pg_lsn 互转)+聚合族 (NumericAggState/Int128AggState 字段注释, accum/discard/combine/serialize/deserialize/accum_inv, poly 系, int2/int4/int8 SUM/AVG/avg_accum 系, numeric_avg/sum, stddev/variance 内部含 n-1 自由度与 population/sample 分支)+NumericVar 内部工具族 (Debug support/alloc/free/zero/set_var_from_str/非十进制解析/set_var_from_num/init_var_from_num/set_var_from_var/get_str_from_var/get_str_from_var_sci/numericvar_serialize/deserialize/duplicate_numeric/make_result 系/apply_typmod 系/numericvar↔int64/uint64/int128/float8), 截止于 cmp_var 文档块 (L8311) 之前, cmp_var 起留 part3; whole-file 拆批 part 2, batch-0428"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p2.json",
+   "kind": "manifest",
+   "note": "batch-0428 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0428-p2 entry (本 manifest; numeric.c 已由 part1 在册查重不重复追加, 故各数组 +1 非 +2) + parent_commit 由 838e503d845 (part1 期值) 更新为现 HEAD 0a4ea1b79af (part1 判例, 非纯追加特此披露)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/numeric.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 334,
+   "translated": 287,
+   "preserved": 47,
+   "preserved_reasons": [
+    "47 个未变块 (与 verify changed=287 对齐, 334-287=47): 序列化字段标签 40 块 (/* N */ /* sumX */ /* sumX2 */ /* maxScale */ /* maxScaleCount */ /* NaNcount */ /* pInfcount */ /* nInfcount */ @5159-5899 共 40 站, 0372 裸标识符判例)、算式标签 5 块 (vsumX = sumX * sumX @6205 / vsumX2 = N * sumX2 @6206 / N * sumX2 - sumX * sumX @6207 / N * (N - 1) @6217 / N * N @6219, part1 @2899-3415 同款量裁; stddev @6223 同款并入 KEPT)、#endif NUMERIC_DEBUG @6878 (part1 @2330/@2407 同款)。函数名横幅行 (numeric_scale() - 等 23 行) 保留 EN 合规但所属块因其他行已译不计入 preserved"
+   ],
+   "note": "numeric.c part2 整文件拆批判例第二批: 权威 universe 由注释感知状态机扫描 (全文件 982 块, part2=块 326-659 @L4131-8299, 截止边界 L8310=cmp_var 文档块前, 函数族边界); verify rc=0 (1 ok, 0 violations, comments=982 changed=287, splices=27, trigraphs 0/0, 骨架 stripped 审计逐字节相等); 行数守恒 12043; 前半零改动自证: git diff 首 hunk @@ -4131, L1-4130 零改动 (0428-p1 判例); 跨边界块检查: part1 末块 L4118-4121 (power_var 调用注释) 已译未触碰, 本批首块 L4131-4135 (numeric_scale 文档块); 跨批同译对照断言: part1 区 (L1-4130) 提取 581 条 EN→zh 映射, 与 part2 宇宙 504 条 TRANS 行零 EN 重叠 (无跨批同 EN 站点, 断言有效非空转), 批内 same-EN→same-zh 断言 0 冲突 (含初跑暴露 2 组冲突已修复: 'sum, count and optionally...' 与 'require sumX2.'); 术语定款承 part1 manifest: digit→数字位/weight→权重/scale/dscale→标度/显示标度/precision→精度/overflow→溢出/rounding→四舍五入 (预算紧行处用「舍入」为 0428-p1 语境分工判例变体)/abbreviation→缩略/cardinality→基数/bucket→桶/histogram→直方图/packed→打包/detoast→解 TOAST; W7_UNTRANSLATED 46 站 = 4 站 part1 preserved (L315/2330/2407/3415) + 2 站本批 KEPT 算式标签 (L6205/6207) + 40 站 L8312+ 为 part3 拆批待译预期非缺陷; term_lint rc=0 (--pgnls cbaeef3eb8: 87 规则 21 error/66 warning, 0 error hits, 14 warnings 全 advisory 8 站: TL08+P23 x6 (L4886 dscale 显示标度/L5248/L5304/L5617/L5675/L5758 序列化措辞), P02 L6568 cannot→无法 (0421 判例 advisory), P24 L7168 expected/got 术语注记); W7_IDENT_LOST 4 站全 advisory; REVERSE 0 站 (本批以 emptied 空框行折叠代之, 24 站 emptied 逐条在案: 句尾短词/收束词行折入前行, 行数守恒 1:1); 行级超限 0 站 (块级预算 334/334 全过); 幽灵披露自查: manifest note 与 selfcheck_p2.md 行号均以 git diff sed 现场核证; apply 事故披露: 首轮 apply 误以纯 EN 基线 (en_full.txt) 为回写底稿致 part1 已译区被覆盖回 EN, git diff 首 hunk @@ -1,15 当场暴露, 立即 git checkout HEAD 复位并把底稿改为 HEAD 工作树内容后重跑 (修正轮计入披露, 修复后前半零改动自证成立); apply 规划迭代 3 轮 (初跑 45 块级超限主因尾注释行 */ 与首尾空格开销未计入, 批量修正后收敛) + 底稿事故复位 1 轮, 未 commit; 只读审查 PASS 有条件 (1D/6N) → 审后清偿轮 R4 全部落地 (主会话执行, 正则前缀守卫(制表 banner 行)+裸星行守卫+行级/块级双预算断言): D1 L7662/7664 numericvar_serialize 折叠跨界断句修复 (「为二进制格式」并入首行, 空框行恢复段落界), N1 L4178-4179 补 min_scale 宾语+句号 (「内」字删除换取块预算 83≤85), N2 L5619 悬空逗号→句号, N3 L5677 补句号, N4 L7101 补句号, N5 L7615 补句号, N6 L5839-5841 同 EN 句两站渲染统一为 A 款 (「这里的考量/是，或许有一天会把这些送到另一服务器…」); 行级超限 4 站 (L7662+2/L7101+1/L7615+2/L5839+3) 全部块级现算放行 (7 受触块全过); 审查行号偏差 4 处 (N2 实 L5619/N3 实 L5677/N5 实 L7615/N6 实 L5840) 由断言守卫拦截重定位; preserved 47 块经审查逐站裁决全 KEEP 合规 (40 序列化字段标签=0372 裸标识符判例+part1 判例跨批一致); 极性对照 19 站无反转; part1 区 L1-4130 经 cmp 逐字节完整 (覆盖事故无残留); 审后门禁复跑 rc=0×3; 未 commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0428-adt-numeric-p2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0428 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0428-p2 entry (本 manifest; numeric.c part1 已在册查重不重复追加, 各数组 +1) + parent_commit 更新为现 HEAD (part1 判例, 非纯追加披露)"
+  }
+ ]
+}

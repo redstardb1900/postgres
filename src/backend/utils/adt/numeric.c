@@ -4131,7 +4131,7 @@ numeric_power(PG_FUNCTION_ARGS)
 /*
  * numeric_scale() -
  *
- *	Returns the scale, i.e. the count of decimal digits in the fractional part
+ *	返回标度，即小数部分中十进制数字位的个数
  */
 Datum
 numeric_scale(PG_FUNCTION_ARGS)
@@ -4145,7 +4145,7 @@ numeric_scale(PG_FUNCTION_ARGS)
 }
 
 /*
- * Calculate minimum scale for value.
+ * 计算给定值的最小标度。
  */
 static int
 get_min_scale(NumericVar *var)
@@ -4154,9 +4154,9 @@ get_min_scale(NumericVar *var)
 	int			last_digit_pos;
 
 	/*
-	 * Ordinarily, the input value will be "stripped" so that the last
-	 * NumericDigit is nonzero.  But we don't want to get into an infinite
-	 * loop if it isn't, so explicitly find the last nonzero digit.
+	 * 通常，输入值会被"修剪"，使最后一个
+	 * NumericDigit 为非零。但若并非如此，我们不想陷入
+	 * 无限循环，故显式找出最后一个非零数字位。
 	 */
 	last_digit_pos = var->ndigits - 1;
 	while (last_digit_pos >= 0 &&
@@ -4165,18 +4165,18 @@ get_min_scale(NumericVar *var)
 
 	if (last_digit_pos >= 0)
 	{
-		/* compute min_scale assuming that last ndigit has no zeroes */
+		/* 假定最后一个 ndigit 不含零来计算 min_scale */
 		min_scale = (last_digit_pos - var->weight) * DEC_DIGITS;
 
 		/*
-		 * We could get a negative result if there are no digits after the
-		 * decimal point.  In this case the min_scale must be zero.
+		 * 若小数点后没有数字位，我们可能得到负结果。
+		 * 这种情况下 min_scale 必须为零。
 		 */
 		if (min_scale > 0)
 		{
 			/*
-			 * Reduce min_scale if trailing digit(s) in last NumericDigit are
-			 * zero.
+			 * 若最后 NumericDigit 末尾数字位为零则减小
+			 * min_scale。
 			 */
 			NumericDigit last_digit = var->digits[last_digit_pos];
 
@@ -4190,13 +4190,13 @@ get_min_scale(NumericVar *var)
 			min_scale = 0;
 	}
 	else
-		min_scale = 0;			/* result if input is zero */
+		min_scale = 0;			/* 输入为零时结果 */
 
 	return min_scale;
 }
 
 /*
- * Returns minimum scale required to represent supplied value without loss.
+ * 返回无损表示给定值所需的最小标度。
  */
 Datum
 numeric_min_scale(PG_FUNCTION_ARGS)
@@ -4216,7 +4216,7 @@ numeric_min_scale(PG_FUNCTION_ARGS)
 }
 
 /*
- * Reduce scale of numeric value to represent supplied value without loss.
+ * 减小 numeric 值的标度，以无损表示给定值。
  */
 Datum
 numeric_trim_scale(PG_FUNCTION_ARGS)
@@ -4239,7 +4239,7 @@ numeric_trim_scale(PG_FUNCTION_ARGS)
 
 /* ----------------------------------------------------------------------
  *
- * Type conversion functions
+ * 类型转换函数
  *
  * ----------------------------------------------------------------------
  */
@@ -4262,8 +4262,8 @@ int64_to_numeric(int64 val)
 }
 
 /*
- * Convert val1/(10**log10val2) to numeric.  This is much faster than normal
- * numeric division.
+ * 将 val1/(10**log10val2) 转换为 numeric。这远快于
+ * 普通除法。
  */
 Numeric
 int64_div_fast_to_numeric(int64 val1, int log10val2)
@@ -4276,12 +4276,12 @@ int64_div_fast_to_numeric(int64 val1, int log10val2)
 
 	init_var(&result);
 
-	/* result scale */
+	/* 结果标度 */
 	rscale = log10val2 < 0 ? 0 : log10val2;
 
-	/* how much to decrease the weight by */
+	/* 权重要减去的量 */
 	w = log10val2 / DEC_DIGITS;
-	/* how much is left to divide by */
+	/* 仍需继续除以的量 */
 	m = log10val2 % DEC_DIGITS;
 	if (m < 0)
 	{
@@ -4290,9 +4290,9 @@ int64_div_fast_to_numeric(int64 val1, int log10val2)
 	}
 
 	/*
-	 * If there is anything left to divide by (10^m with 0 < m < DEC_DIGITS),
-	 * multiply the dividend by 10^(DEC_DIGITS - m), and shift the weight by
-	 * one more.
+	 * 若仍有要除的余量（10^m，其中 0 < m < DEC_DIGITS），
+	 * 则将被除数乘以 10^(DEC_DIGITS - m)，并把权重多移
+	 * 一位。
 	 */
 	if (m > 0)
 	{
@@ -4313,14 +4313,14 @@ int64_div_fast_to_numeric(int64 val1, int log10val2)
 		if (unlikely(pg_mul_s64_overflow(val1, factor, &new_val1)))
 		{
 #ifdef HAVE_INT128
-			/* do the multiplication using 128-bit integers */
+			/* 使用 128 位整数执行乘法 */
 			int128		tmp;
 
 			tmp = (int128) val1 * (int128) factor;
 
 			int128_to_numericvar(tmp, &result);
 #else
-			/* do the multiplication using numerics */
+			/* 使用 numeric 执行乘法 */
 			NumericVar	tmp;
 
 			init_var(&tmp);
@@ -4387,7 +4387,7 @@ numeric_int4_opt_error(Numeric num, bool *have_error)
 		}
 	}
 
-	/* Convert to variable format, then convert to int4 */
+	/* 先转换为变量格式，再转换为 int4 */
 	init_var_from_num(num, &x);
 
 	if (!numericvar_to_int32(&x, &result))
@@ -4417,9 +4417,9 @@ numeric_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * Given a NumericVar, convert it to an int32. If the NumericVar
- * exceeds the range of an int32, false is returned, otherwise true is returned.
- * The input NumericVar is *not* free'd.
+ * 将给定的 NumericVar 转换为 int32。若 NumericVar
+ * 超出 int32 的范围则返回 false，否则返回 true。
+ * 输入 NumericVar *不会*释放。
  */
 static bool
 numericvar_to_int32(const NumericVar *var, int32 *result)
@@ -4432,7 +4432,7 @@ numericvar_to_int32(const NumericVar *var, int32 *result)
 	if (unlikely(val < PG_INT32_MIN) || unlikely(val > PG_INT32_MAX))
 		return false;
 
-	/* Down-convert to int4 */
+	/* 降档转换为 int4 */
 	*result = (int32) val;
 
 	return true;
@@ -4466,7 +4466,7 @@ numeric_int8(PG_FUNCTION_ARGS)
 					 errmsg("cannot convert infinity to %s", "bigint")));
 	}
 
-	/* Convert to variable format and thence to int8 */
+	/* 转换为变量格式，进而转为 int8 */
 	init_var_from_num(num, &x);
 
 	if (!numericvar_to_int64(&x, &result))
@@ -4507,7 +4507,7 @@ numeric_int2(PG_FUNCTION_ARGS)
 					 errmsg("cannot convert infinity to %s", "smallint")));
 	}
 
-	/* Convert to variable format and thence to int8 */
+	/* 转换为变量格式，进而转为 int8 */
 	init_var_from_num(num, &x);
 
 	if (!numericvar_to_int64(&x, &val))
@@ -4520,7 +4520,7 @@ numeric_int2(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("smallint out of range")));
 
-	/* Down-convert to int2 */
+	/* 降档转换为 int2 */
 	result = (int16) val;
 
 	PG_RETURN_INT16(result);
@@ -4551,7 +4551,7 @@ float8_numeric(PG_FUNCTION_ARGS)
 
 	init_var(&result);
 
-	/* Assume we need not worry about leading/trailing spaces */
+	/* 假定无需担心前导/尾随空格 */
 	(void) set_var_from_str(buf, buf, &result, &endptr, NULL);
 
 	res = make_result(&result);
@@ -4591,9 +4591,9 @@ numeric_float8(PG_FUNCTION_ARGS)
 
 
 /*
- * Convert numeric to float8; if out of range, return +/- HUGE_VAL
+ * 把 numeric 转为 float8；若超出范围返回 +/- HUGE_VAL
  *
- * (internal helper function, not directly callable from SQL)
+ * （内部辅助函数，不能从 SQL 直接调用）
  */
 Datum
 numeric_float8_no_overflow(PG_FUNCTION_ARGS)
@@ -4645,7 +4645,7 @@ float4_numeric(PG_FUNCTION_ARGS)
 
 	init_var(&result);
 
-	/* Assume we need not worry about leading/trailing spaces */
+	/* 假定无需担心前导/尾随空格 */
 	(void) set_var_from_str(buf, buf, &result, &endptr, NULL);
 
 	res = make_result(&result);
@@ -4703,7 +4703,7 @@ numeric_pg_lsn(PG_FUNCTION_ARGS)
 					 errmsg("cannot convert infinity to %s", "pg_lsn")));
 	}
 
-	/* Convert to variable format and thence to pg_lsn */
+	/* 转换为变量格式，进而转为 pg_lsn */
 	init_var_from_num(num, &x);
 
 	if (!numericvar_to_uint64(&x, (uint64 *) &result))
@@ -4717,39 +4717,39 @@ numeric_pg_lsn(PG_FUNCTION_ARGS)
 
 /* ----------------------------------------------------------------------
  *
- * Aggregate functions
+ * 聚合函数
  *
- * The transition datatype for all these aggregates is declared as INTERNAL.
- * Actually, it's a pointer to a NumericAggState allocated in the aggregate
- * context.  The digit buffers for the NumericVars will be there too.
+ * 所有这些聚合的转移数据类型都声明为 INTERNAL。
+ * 实际上它是指向在聚合上下文中分配的 NumericAggState
+ * 的指针。NumericVar 的数字位缓冲区也在那里。
  *
- * On platforms which support 128-bit integers some aggregates instead use a
- * 128-bit integer based transition datatype to speed up calculations.
+ * 在支持 128 位整数的平台上，一些聚合改用基于 128 位
+ * 整数的转移数据类型来加速计算。
  *
  * ----------------------------------------------------------------------
  */
 
 typedef struct NumericAggState
 {
-	bool		calcSumX2;		/* if true, calculate sumX2 */
-	MemoryContext agg_context;	/* context we're calculating in */
-	int64		N;				/* count of processed numbers */
-	NumericSumAccum sumX;		/* sum of processed numbers */
-	NumericSumAccum sumX2;		/* sum of squares of processed numbers */
-	int			maxScale;		/* maximum scale seen so far */
-	int64		maxScaleCount;	/* number of values seen with maximum scale */
-	/* These counts are *not* included in N!  Use NA_TOTAL_COUNT() as needed */
-	int64		NaNcount;		/* count of NaN values */
-	int64		pInfcount;		/* count of +Inf values */
-	int64		nInfcount;		/* count of -Inf values */
+	bool		calcSumX2;		/* 为真时计算 sumX2 */
+	MemoryContext agg_context;	/* 所在计算上下文 */
+	int64		N;				/* 已处理数字的个数 */
+	NumericSumAccum sumX;		/* 已处理数字之和 */
+	NumericSumAccum sumX2;		/* 已处理数字的平方之和 */
+	int			maxScale;		/* 迄今所见最大标度 */
+	int64		maxScaleCount;	/* 所见具有最大标度的值的个数 */
+	/* 这些计数*并不*包含在 N 中！需要时用 NA_TOTAL_COUNT() */
+	int64		NaNcount;		/* NaN 值的个数 */
+	int64		pInfcount;		/* +Inf 值的个数 */
+	int64		nInfcount;		/* -Inf 值的个数 */
 } NumericAggState;
 
 #define NA_TOTAL_COUNT(na) \
 	((na)->N + (na)->NaNcount + (na)->pInfcount + (na)->nInfcount)
 
 /*
- * Prepare state data for a numeric aggregate function that needs to compute
- * sum, count and optionally sum of squares of the input.
+ * 为需计算输入之和、个数及可选平方之和的 numeric
+ * 聚合函数准备状态数据。
  */
 static NumericAggState *
 makeNumericAggState(FunctionCallInfo fcinfo, bool calcSumX2)
@@ -4773,8 +4773,8 @@ makeNumericAggState(FunctionCallInfo fcinfo, bool calcSumX2)
 }
 
 /*
- * Like makeNumericAggState(), but allocate the state in the current memory
- * context.
+ * 同 makeNumericAggState()，但在当前内存上下文分配状态。
+ *
  */
 static NumericAggState *
 makeNumericAggStateCurrentContext(bool calcSumX2)
@@ -4789,7 +4789,7 @@ makeNumericAggStateCurrentContext(bool calcSumX2)
 }
 
 /*
- * Accumulate a new input value for numeric aggregate functions.
+ * 为 numeric 聚合函数累积一个新的输入值。
  */
 static void
 do_numeric_accum(NumericAggState *state, Numeric newval)
@@ -4798,7 +4798,7 @@ do_numeric_accum(NumericAggState *state, Numeric newval)
 	NumericVar	X2;
 	MemoryContext old_context;
 
-	/* Count NaN/infinity inputs separately from all else */
+	/* 将 NaN/无穷大输入与其他输入分开计数 */
 	if (NUMERIC_IS_SPECIAL(newval))
 	{
 		if (NUMERIC_IS_PINF(newval))
@@ -4810,12 +4810,12 @@ do_numeric_accum(NumericAggState *state, Numeric newval)
 		return;
 	}
 
-	/* load processed number in short-lived context */
+	/* 在短命上下文中加载已处理数字 */
 	init_var_from_num(newval, &X);
 
 	/*
-	 * Track the highest input dscale that we've seen, to support inverse
-	 * transitions (see do_numeric_discard).
+	 * 记录见过的最高输入显示标度，以支持反向转移
+	 * （见 do_numeric_discard）。
 	 */
 	if (X.dscale > state->maxScale)
 	{
@@ -4825,19 +4825,19 @@ do_numeric_accum(NumericAggState *state, Numeric newval)
 	else if (X.dscale == state->maxScale)
 		state->maxScaleCount++;
 
-	/* if we need X^2, calculate that in short-lived context */
+	/* 若需要 X^2，则在短命上下文中计算 */
 	if (state->calcSumX2)
 	{
 		init_var(&X2);
 		mul_var(&X, &X, &X2, X.dscale * 2);
 	}
 
-	/* The rest of this needs to work in the aggregate context */
+	/* 其余部分需要在聚合上下文中进行 */
 	old_context = MemoryContextSwitchTo(state->agg_context);
 
 	state->N++;
 
-	/* Accumulate sums */
+	/* 累积各和值 */
 	accum_sum_add(&(state->sumX), &X);
 
 	if (state->calcSumX2)
@@ -4847,19 +4847,19 @@ do_numeric_accum(NumericAggState *state, Numeric newval)
 }
 
 /*
- * Attempt to remove an input value from the aggregated state.
+ * 尝试从聚合状态中移除一个输入值。
  *
- * If the value cannot be removed then the function will return false; the
- * possible reasons for failing are described below.
+ * 若值无法移除，函数将返回 false；
+ * 可能的原因在下面说明。
  *
- * If we aggregate the values 1.01 and 2 then the result will be 3.01.
- * If we are then asked to un-aggregate the 1.01 then we must fail as we
- * won't be able to tell what the new aggregated value's dscale should be.
- * We don't want to return 2.00 (dscale = 2), since the sum's dscale would
- * have been zero if we'd really aggregated only 2.
+ * 若我们聚合值 1.01 和 2，则结果将是 3.01。
+ * 之后若被要求反聚合掉 1.01，我们必须失败，因为
+ * 无法判断新的聚合值的显示标度应当是多少。
+ * 我们不想返回 2.00（显示标度 = 2），因为若真只聚合
+ * 了 2，和的显示标度本应为零。
  *
- * Note: alternatively, we could count the number of inputs with each possible
- * dscale (up to some sane limit).  Not yet clear if it's worth the trouble.
+ * 注意：另一做法是为每种可能的显示标度统计输入个数，
+ * （最多到某个合理的上限）。尚不清楚这是否值得。
  */
 static bool
 do_numeric_discard(NumericAggState *state, Numeric newval)
@@ -4868,7 +4868,7 @@ do_numeric_discard(NumericAggState *state, Numeric newval)
 	NumericVar	X2;
 	MemoryContext old_context;
 
-	/* Count NaN/infinity inputs separately from all else */
+	/* 将 NaN/无穷大输入与其他输入分开计数 */
 	if (NUMERIC_IS_SPECIAL(newval))
 	{
 		if (NUMERIC_IS_PINF(newval))
@@ -4880,65 +4880,65 @@ do_numeric_discard(NumericAggState *state, Numeric newval)
 		return true;
 	}
 
-	/* load processed number in short-lived context */
+	/* 在短命上下文中加载已处理数字 */
 	init_var_from_num(newval, &X);
 
 	/*
-	 * state->sumX's dscale is the maximum dscale of any of the inputs.
-	 * Removing the last input with that dscale would require us to recompute
-	 * the maximum dscale of the *remaining* inputs, which we cannot do unless
-	 * no more non-NaN inputs remain at all.  So we report a failure instead,
-	 * and force the aggregation to be redone from scratch.
+	 * state->sumX 的显示标度为各输入显示标度最大值。
+	 * 移除具有该显示标度的最后输入会要求我们重新计算
+	 * *剩余*输入的最大显示标度，而这只有当完全不再有非
+	 * NaN 输入时才可能做到。所以我们改为报告失败，
+	 * 并强制从头重做聚合。
 	 */
 	if (X.dscale == state->maxScale)
 	{
 		if (state->maxScaleCount > 1 || state->maxScale == 0)
 		{
 			/*
-			 * Some remaining inputs have same dscale, or dscale hasn't gotten
-			 * above zero anyway
+			 * 仍有些输入具相同显示标度，或显示标度尚未升
+			 * 到零以上。
 			 */
 			state->maxScaleCount--;
 		}
 		else if (state->N == 1)
 		{
-			/* No remaining non-NaN inputs at all, so reset maxScale */
+			/* 完全不再有非 NaN 输入，故重置 maxScale */
 			state->maxScale = 0;
 			state->maxScaleCount = 0;
 		}
 		else
 		{
-			/* Correct new maxScale is uncertain, must fail */
+			/* maxScale 新值无法确定，必须失败 */
 			return false;
 		}
 	}
 
-	/* if we need X^2, calculate that in short-lived context */
+	/* 若需要 X^2，则在短命上下文中计算 */
 	if (state->calcSumX2)
 	{
 		init_var(&X2);
 		mul_var(&X, &X, &X2, X.dscale * 2);
 	}
 
-	/* The rest of this needs to work in the aggregate context */
+	/* 其余部分需要在聚合上下文中进行 */
 	old_context = MemoryContextSwitchTo(state->agg_context);
 
 	if (state->N-- > 1)
 	{
-		/* Negate X, to subtract it from the sum */
+		/* 将 X 取负以便从和减去它 */
 		X.sign = (X.sign == NUMERIC_POS ? NUMERIC_NEG : NUMERIC_POS);
 		accum_sum_add(&(state->sumX), &X);
 
 		if (state->calcSumX2)
 		{
-			/* Negate X^2. X^2 is always positive */
+			/* 将 X^2 取负。X^2 恒为正 */
 			X2.sign = NUMERIC_NEG;
 			accum_sum_add(&(state->sumX2), &X2);
 		}
 	}
 	else
 	{
-		/* Zero the sums */
+		/* 各和清零 */
 		Assert(state->N == 0);
 
 		accum_sum_reset(&state->sumX);
@@ -4952,7 +4952,7 @@ do_numeric_discard(NumericAggState *state, Numeric newval)
 }
 
 /*
- * Generic transition function for numeric aggregates that require sumX2.
+ * 需要 sumX2 的 numeric 聚合的通用转移函数。
  */
 Datum
 numeric_accum(PG_FUNCTION_ARGS)
@@ -4961,7 +4961,7 @@ numeric_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on the first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makeNumericAggState(fcinfo, true);
 
@@ -4972,7 +4972,7 @@ numeric_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic combine function for numeric aggregates which require sumX2
+ * 需要 sumX2 的 numeric 聚合的通用合并函数
  */
 Datum
 numeric_combine(PG_FUNCTION_ARGS)
@@ -4991,7 +4991,7 @@ numeric_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 		PG_RETURN_POINTER(state1);
 
-	/* manually copy all fields from state2 to state1 */
+	/* 手动把 state2 字段全复制到 state1 */
 	if (state1 == NULL)
 	{
 		old_context = MemoryContextSwitchTo(agg_context);
@@ -5020,8 +5020,8 @@ numeric_combine(PG_FUNCTION_ARGS)
 	if (state2->N > 0)
 	{
 		/*
-		 * These are currently only needed for moving aggregates, but let's do
-		 * the right thing anyway...
+		 * 这些目前只有移动聚合才需要，但我们还是把事情
+		 * 做对……
 		 */
 		if (state2->maxScale > state1->maxScale)
 		{
@@ -5031,10 +5031,10 @@ numeric_combine(PG_FUNCTION_ARGS)
 		else if (state2->maxScale == state1->maxScale)
 			state1->maxScaleCount += state2->maxScaleCount;
 
-		/* The rest of this needs to work in the aggregate context */
+		/* 其余部分需要在聚合上下文中进行 */
 		old_context = MemoryContextSwitchTo(agg_context);
 
-		/* Accumulate sums */
+		/* 累积各和值 */
 		accum_sum_combine(&state1->sumX, &state2->sumX);
 		accum_sum_combine(&state1->sumX2, &state2->sumX2);
 
@@ -5044,7 +5044,7 @@ numeric_combine(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic transition function for numeric aggregates that don't require sumX2.
+ * 不需要 sumX2 的 numeric 聚合的通用转移函数。
  */
 Datum
 numeric_avg_accum(PG_FUNCTION_ARGS)
@@ -5053,7 +5053,7 @@ numeric_avg_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on the first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makeNumericAggState(fcinfo, false);
 
@@ -5064,7 +5064,7 @@ numeric_avg_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Combine function for numeric aggregates which don't require sumX2
+ * 不需要 sumX2 的 numeric 聚合的合并函数
  */
 Datum
 numeric_avg_combine(PG_FUNCTION_ARGS)
@@ -5083,7 +5083,7 @@ numeric_avg_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 		PG_RETURN_POINTER(state1);
 
-	/* manually copy all fields from state2 to state1 */
+	/* 手动把 state2 字段全复制到 state1 */
 	if (state1 == NULL)
 	{
 		old_context = MemoryContextSwitchTo(agg_context);
@@ -5111,8 +5111,8 @@ numeric_avg_combine(PG_FUNCTION_ARGS)
 	if (state2->N > 0)
 	{
 		/*
-		 * These are currently only needed for moving aggregates, but let's do
-		 * the right thing anyway...
+		 * 这些目前只有移动聚合才需要，但我们还是把事情
+		 * 做对……
 		 */
 		if (state2->maxScale > state1->maxScale)
 		{
@@ -5122,10 +5122,10 @@ numeric_avg_combine(PG_FUNCTION_ARGS)
 		else if (state2->maxScale == state1->maxScale)
 			state1->maxScaleCount += state2->maxScaleCount;
 
-		/* The rest of this needs to work in the aggregate context */
+		/* 其余部分需要在聚合上下文中进行 */
 		old_context = MemoryContextSwitchTo(agg_context);
 
-		/* Accumulate sums */
+		/* 累积各和值 */
 		accum_sum_combine(&state1->sumX, &state2->sumX);
 
 		MemoryContextSwitchTo(old_context);
@@ -5135,8 +5135,8 @@ numeric_avg_combine(PG_FUNCTION_ARGS)
 
 /*
  * numeric_avg_serialize
- *		Serialize NumericAggState for numeric aggregates that don't require
- *		sumX2.
+ *		为不需要 sumX2 的 numeric 聚合序列化 NumericAggState。
+ *
  */
 Datum
 numeric_avg_serialize(PG_FUNCTION_ARGS)
@@ -5146,7 +5146,7 @@ numeric_avg_serialize(PG_FUNCTION_ARGS)
 	bytea	   *result;
 	NumericVar	tmp_var;
 
-	/* Ensure we disallow calling when not in aggregate context */
+	/* 确保不在聚合上下文中时禁止调用 */
 	if (!AggCheckCallContext(fcinfo, NULL))
 		elog(ERROR, "aggregate function called in non-aggregate context");
 
@@ -5187,8 +5187,8 @@ numeric_avg_serialize(PG_FUNCTION_ARGS)
 
 /*
  * numeric_avg_deserialize
- *		Deserialize bytea into NumericAggState for numeric aggregates that
- *		don't require sumX2.
+ *		为不需要 sumX2 的 numeric 聚合把 bytea 反序列化为
+ *		NumericAggState。
  */
 Datum
 numeric_avg_deserialize(PG_FUNCTION_ARGS)
@@ -5206,8 +5206,8 @@ numeric_avg_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 复制进一个 StringInfo，以便能用标准 recv
+	 * 基础设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -5247,8 +5247,8 @@ numeric_avg_deserialize(PG_FUNCTION_ARGS)
 
 /*
  * numeric_serialize
- *		Serialization function for NumericAggState for numeric aggregates that
- *		require sumX2.
+ *		为要求 sumX2 的 numeric 聚合序列化 NumericAggState。
+ *
  */
 Datum
 numeric_serialize(PG_FUNCTION_ARGS)
@@ -5258,7 +5258,7 @@ numeric_serialize(PG_FUNCTION_ARGS)
 	bytea	   *result;
 	NumericVar	tmp_var;
 
-	/* Ensure we disallow calling when not in aggregate context */
+	/* 确保不在聚合上下文中时禁止调用 */
 	if (!AggCheckCallContext(fcinfo, NULL))
 		elog(ERROR, "aggregate function called in non-aggregate context");
 
@@ -5303,8 +5303,8 @@ numeric_serialize(PG_FUNCTION_ARGS)
 
 /*
  * numeric_deserialize
- *		Deserialization function for NumericAggState for numeric aggregates that
- *		require sumX2.
+ *		为要求 sumX2 的 numeric 聚合反序列化出 NumericAggState。
+ *
  */
 Datum
 numeric_deserialize(PG_FUNCTION_ARGS)
@@ -5322,8 +5322,8 @@ numeric_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 复制进一个 StringInfo，以便能用标准 recv
+	 * 基础设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -5366,8 +5366,8 @@ numeric_deserialize(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic inverse transition function for numeric aggregates
- * (with or without requirement for X^2).
+ * numeric 聚合的通用反向转移函数
+ * （要求或不要求 X^2 均可）。
  */
 Datum
 numeric_accum_inv(PG_FUNCTION_ARGS)
@@ -5376,13 +5376,13 @@ numeric_accum_inv(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* Should not get here with no state */
+	/* 没有状态时不应到达此处 */
 	if (state == NULL)
 		elog(ERROR, "numeric_accum_inv called with NULL state");
 
 	if (!PG_ARGISNULL(1))
 	{
-		/* If we fail to perform the inverse transition, return NULL */
+		/* 若无法执行反向转移，则返回 NULL */
 		if (!do_numeric_discard(state, PG_GETARG_NUMERIC(1)))
 			PG_RETURN_NULL();
 	}
@@ -5392,31 +5392,31 @@ numeric_accum_inv(PG_FUNCTION_ARGS)
 
 
 /*
- * Integer data types in general use Numeric accumulators to share code
- * and avoid risk of overflow.
+ * 整数数据类型一般使用 Numeric 累加器，以共享代码
+ * 并避免溢出风险。
  *
- * However for performance reasons optimized special-purpose accumulator
- * routines are used when possible.
+ * 不过出于性能原因，会尽可能使用优化的专用累加器
+ * 例程。
  *
- * On platforms with 128-bit integer support, the 128-bit routines will be
- * used when sum(X) or sum(X*X) fit into 128-bit.
+ * 在支持 128 位整数的平台上，当 sum(X) 或 sum(X*X) 能放入
+ * 128 位时将使用 128 位例程。
  *
- * For 16 and 32 bit inputs, the N and sum(X) fit into 64-bit so the 64-bit
- * accumulators will be used for SUM and AVG of these data types.
+ * 对 16 和 32 位输入而言，N 与 sum(X) 可放入 64 位，因此
+ * 这些数据类型的 SUM 与 AVG 会使用 64 位累加器。
  */
 
 #ifdef HAVE_INT128
 typedef struct Int128AggState
 {
-	bool		calcSumX2;		/* if true, calculate sumX2 */
-	int64		N;				/* count of processed numbers */
-	int128		sumX;			/* sum of processed numbers */
-	int128		sumX2;			/* sum of squares of processed numbers */
+	bool		calcSumX2;		/* 为真时计算 sumX2 */
+	int64		N;				/* 已处理数字的个数 */
+	int128		sumX;			/* 已处理数字之和 */
+	int128		sumX2;			/* 已处理数字的平方之和 */
 } Int128AggState;
 
 /*
- * Prepare state data for a 128-bit aggregate function that needs to compute
- * sum, count and optionally sum of squares of the input.
+ * 为需计算输入之和、个数及可选平方之和的 128 位
+ * 聚合函数准备状态数据。
  */
 static Int128AggState *
 makeInt128AggState(FunctionCallInfo fcinfo, bool calcSumX2)
@@ -5439,8 +5439,8 @@ makeInt128AggState(FunctionCallInfo fcinfo, bool calcSumX2)
 }
 
 /*
- * Like makeInt128AggState(), but allocate the state in the current memory
- * context.
+ * 同 makeInt128AggState()，但在当前内存上下文分配状态。
+ *
  */
 static Int128AggState *
 makeInt128AggStateCurrentContext(bool calcSumX2)
@@ -5454,7 +5454,7 @@ makeInt128AggStateCurrentContext(bool calcSumX2)
 }
 
 /*
- * Accumulate a new input value for 128-bit aggregate functions.
+ * 为 128 位聚合函数累积一个新的输入值。
  */
 static void
 do_int128_accum(Int128AggState *state, int128 newval)
@@ -5467,7 +5467,7 @@ do_int128_accum(Int128AggState *state, int128 newval)
 }
 
 /*
- * Remove an input value from the aggregated state.
+ * 从聚合状态中移除一个输入值。
  */
 static void
 do_int128_discard(Int128AggState *state, int128 newval)
@@ -5495,7 +5495,7 @@ int2_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on the first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makePolyNumAggState(fcinfo, true);
 
@@ -5518,7 +5518,7 @@ int4_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on the first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makePolyNumAggState(fcinfo, true);
 
@@ -5541,7 +5541,7 @@ int8_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on the first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makeNumericAggState(fcinfo, true);
 
@@ -5552,7 +5552,7 @@ int8_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Combine function for numeric aggregates which require sumX2
+ * 需要 sumX2 的 numeric 聚合的合并函数
  */
 Datum
 numeric_poly_combine(PG_FUNCTION_ARGS)
@@ -5571,7 +5571,7 @@ numeric_poly_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 		PG_RETURN_POINTER(state1);
 
-	/* manually copy all fields from state2 to state1 */
+	/* 手动把 state2 字段全复制到 state1 */
 	if (state1 == NULL)
 	{
 		old_context = MemoryContextSwitchTo(agg_context);
@@ -5600,10 +5600,10 @@ numeric_poly_combine(PG_FUNCTION_ARGS)
 		state1->sumX += state2->sumX;
 		state1->sumX2 += state2->sumX2;
 #else
-		/* The rest of this needs to work in the aggregate context */
+		/* 其余部分需要在聚合上下文中进行 */
 		old_context = MemoryContextSwitchTo(agg_context);
 
-		/* Accumulate sums */
+		/* 累积各和值 */
 		accum_sum_combine(&state1->sumX, &state2->sumX);
 		accum_sum_combine(&state1->sumX2, &state2->sumX2);
 
@@ -5616,8 +5616,8 @@ numeric_poly_combine(PG_FUNCTION_ARGS)
 
 /*
  * numeric_poly_serialize
- *		Serialize PolyNumAggState into bytea for aggregate functions which
- *		require sumX2.
+ *		把要求 sumX2 聚合的 PolyNumAggState 序列化进 bytea。
+ *
  */
 Datum
 numeric_poly_serialize(PG_FUNCTION_ARGS)
@@ -5627,19 +5627,19 @@ numeric_poly_serialize(PG_FUNCTION_ARGS)
 	bytea	   *result;
 	NumericVar	tmp_var;
 
-	/* Ensure we disallow calling when not in aggregate context */
+	/* 确保不在聚合上下文中时禁止调用 */
 	if (!AggCheckCallContext(fcinfo, NULL))
 		elog(ERROR, "aggregate function called in non-aggregate context");
 
 	state = (PolyNumAggState *) PG_GETARG_POINTER(0);
 
 	/*
-	 * If the platform supports int128 then sumX and sumX2 will be a 128 bit
-	 * integer type. Here we'll convert that into a numeric type so that the
-	 * combine state is in the same format for both int128 enabled machines
-	 * and machines which don't support that type. The logic here is that one
-	 * day we might like to send these over to another server for further
-	 * processing and we want a standard format to work with.
+	 * 若平台支持 int128，则 sumX 与 sumX2 将是 128 位整数
+	 * 类型。将其转成 numeric，使合并状态对支持 int128 的
+	 * 机器与不支持该型的机器是同一格式。这里的考量
+	 * 是，或许有一天会把这些送到另一服务器继续处理，
+	 * 所以我们需要一个可用的标准格式。
+	 *
 	 */
 
 	init_var(&tmp_var);
@@ -5674,8 +5674,8 @@ numeric_poly_serialize(PG_FUNCTION_ARGS)
 
 /*
  * numeric_poly_deserialize
- *		Deserialize PolyNumAggState from bytea for aggregate functions which
- *		require sumX2.
+ *		把要求 sumX2 聚合的 PolyNumAggState 自 bytea 反序列化。
+ *
  */
 Datum
 numeric_poly_deserialize(PG_FUNCTION_ARGS)
@@ -5693,8 +5693,8 @@ numeric_poly_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 复制进一个 StringInfo，以便能用标准 recv
+	 * 基础设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -5730,7 +5730,7 @@ numeric_poly_deserialize(PG_FUNCTION_ARGS)
 }
 
 /*
- * Transition function for int8 input when we don't need sumX2.
+ * 不需要 sumX2 的 int8 输入转移函数。
  */
 Datum
 int8_avg_accum(PG_FUNCTION_ARGS)
@@ -5739,7 +5739,7 @@ int8_avg_accum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* Create the state data on the first call */
+	/* 首次调用时创建状态数据 */
 	if (state == NULL)
 		state = makePolyNumAggState(fcinfo, false);
 
@@ -5756,8 +5756,8 @@ int8_avg_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Combine function for PolyNumAggState for aggregates which don't require
- * sumX2
+ * 对不要求 sumX2 的聚合，PolyNumAggState 的合并函数
+ *
  */
 Datum
 int8_avg_combine(PG_FUNCTION_ARGS)
@@ -5776,7 +5776,7 @@ int8_avg_combine(PG_FUNCTION_ARGS)
 	if (state2 == NULL)
 		PG_RETURN_POINTER(state1);
 
-	/* manually copy all fields from state2 to state1 */
+	/* 手动把 state2 字段全复制到 state1 */
 	if (state1 == NULL)
 	{
 		old_context = MemoryContextSwitchTo(agg_context);
@@ -5801,10 +5801,10 @@ int8_avg_combine(PG_FUNCTION_ARGS)
 #ifdef HAVE_INT128
 		state1->sumX += state2->sumX;
 #else
-		/* The rest of this needs to work in the aggregate context */
+		/* 其余部分需要在聚合上下文中进行 */
 		old_context = MemoryContextSwitchTo(agg_context);
 
-		/* Accumulate sums */
+		/* 累积各和值 */
 		accum_sum_combine(&state1->sumX, &state2->sumX);
 
 		MemoryContextSwitchTo(old_context);
@@ -5816,8 +5816,8 @@ int8_avg_combine(PG_FUNCTION_ARGS)
 
 /*
  * int8_avg_serialize
- *		Serialize PolyNumAggState into bytea using the standard
- *		recv-function infrastructure.
+ *		以标准 recv 函数设施序列化 PolyNumAggState
+ *		进 bytea。
  */
 Datum
 int8_avg_serialize(PG_FUNCTION_ARGS)
@@ -5827,19 +5827,19 @@ int8_avg_serialize(PG_FUNCTION_ARGS)
 	bytea	   *result;
 	NumericVar	tmp_var;
 
-	/* Ensure we disallow calling when not in aggregate context */
+	/* 确保不在聚合上下文中时禁止调用 */
 	if (!AggCheckCallContext(fcinfo, NULL))
 		elog(ERROR, "aggregate function called in non-aggregate context");
 
 	state = (PolyNumAggState *) PG_GETARG_POINTER(0);
 
 	/*
-	 * If the platform supports int128 then sumX will be a 128 integer type.
-	 * Here we'll convert that into a numeric type so that the combine state
-	 * is in the same format for both int128 enabled machines and machines
-	 * which don't support that type. The logic here is that one day we might
-	 * like to send these over to another server for further processing and we
-	 * want a standard format to work with.
+	 * 若平台支持 int128，则 sumX 将是 128 位整数类型。这
+	 * 里会把它转换成 numeric 类型，使合并状态对支持
+	 * int128 机器与不支持的机器均为相同格式。这里的考量
+	 * 是，或许有一天会把这些送到另一服务器继续处理，
+	 * 所以我们需要一个可用的标准格式。
+	 *
 	 */
 
 	init_var(&tmp_var);
@@ -5866,7 +5866,7 @@ int8_avg_serialize(PG_FUNCTION_ARGS)
 
 /*
  * int8_avg_deserialize
- *		Deserialize bytea back into PolyNumAggState.
+ *		从 bytea 反序列化 PolyNumAggState。
  */
 Datum
 int8_avg_deserialize(PG_FUNCTION_ARGS)
@@ -5884,8 +5884,8 @@ int8_avg_deserialize(PG_FUNCTION_ARGS)
 	init_var(&tmp_var);
 
 	/*
-	 * Copy the bytea into a StringInfo so that we can "receive" it using the
-	 * standard recv-function infrastructure.
+	 * 把 bytea 复制进一个 StringInfo，以便能用标准 recv
+	 * 基础设施来"接收"它。
 	 */
 	initStringInfo(&buf);
 	appendBinaryStringInfo(&buf,
@@ -5913,7 +5913,7 @@ int8_avg_deserialize(PG_FUNCTION_ARGS)
 }
 
 /*
- * Inverse transition functions to go with the above.
+ * 与上述配套的反向转移函数。
  */
 
 Datum
@@ -5923,7 +5923,7 @@ int2_accum_inv(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* Should not get here with no state */
+	/* 没有状态时不应到达此处 */
 	if (state == NULL)
 		elog(ERROR, "int2_accum_inv called with NULL state");
 
@@ -5932,7 +5932,7 @@ int2_accum_inv(PG_FUNCTION_ARGS)
 #ifdef HAVE_INT128
 		do_int128_discard(state, (int128) PG_GETARG_INT16(1));
 #else
-		/* Should never fail, all inputs have dscale 0 */
+		/* 绝不应失败：显示标度全为 0 */
 		if (!do_numeric_discard(state, int64_to_numeric(PG_GETARG_INT16(1))))
 			elog(ERROR, "do_numeric_discard failed unexpectedly");
 #endif
@@ -5948,7 +5948,7 @@ int4_accum_inv(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* Should not get here with no state */
+	/* 没有状态时不应到达此处 */
 	if (state == NULL)
 		elog(ERROR, "int4_accum_inv called with NULL state");
 
@@ -5957,7 +5957,7 @@ int4_accum_inv(PG_FUNCTION_ARGS)
 #ifdef HAVE_INT128
 		do_int128_discard(state, (int128) PG_GETARG_INT32(1));
 #else
-		/* Should never fail, all inputs have dscale 0 */
+		/* 绝不应失败：显示标度全为 0 */
 		if (!do_numeric_discard(state, int64_to_numeric(PG_GETARG_INT32(1))))
 			elog(ERROR, "do_numeric_discard failed unexpectedly");
 #endif
@@ -5973,13 +5973,13 @@ int8_accum_inv(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* Should not get here with no state */
+	/* 没有状态时不应到达此处 */
 	if (state == NULL)
 		elog(ERROR, "int8_accum_inv called with NULL state");
 
 	if (!PG_ARGISNULL(1))
 	{
-		/* Should never fail, all inputs have dscale 0 */
+		/* 绝不应失败：显示标度全为 0 */
 		if (!do_numeric_discard(state, int64_to_numeric(PG_GETARG_INT64(1))))
 			elog(ERROR, "do_numeric_discard failed unexpectedly");
 	}
@@ -5994,7 +5994,7 @@ int8_avg_accum_inv(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* Should not get here with no state */
+	/* 没有状态时不应到达此处 */
 	if (state == NULL)
 		elog(ERROR, "int8_avg_accum_inv called with NULL state");
 
@@ -6003,7 +6003,7 @@ int8_avg_accum_inv(PG_FUNCTION_ARGS)
 #ifdef HAVE_INT128
 		do_int128_discard(state, (int128) PG_GETARG_INT64(1));
 #else
-		/* Should never fail, all inputs have dscale 0 */
+		/* 绝不应失败：显示标度全为 0 */
 		if (!do_numeric_discard(state, int64_to_numeric(PG_GETARG_INT64(1))))
 			elog(ERROR, "do_numeric_discard failed unexpectedly");
 #endif
@@ -6022,7 +6022,7 @@ numeric_poly_sum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* If there were no non-null inputs, return NULL */
+	/* 若没有非空输入，则返回 NULL */
 	if (state == NULL || state->N == 0)
 		PG_RETURN_NULL();
 
@@ -6051,7 +6051,7 @@ numeric_poly_avg(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (PolyNumAggState *) PG_GETARG_POINTER(0);
 
-	/* If there were no non-null inputs, return NULL */
+	/* 若没有非空输入，则返回 NULL */
 	if (state == NULL || state->N == 0)
 		PG_RETURN_NULL();
 
@@ -6080,14 +6080,14 @@ numeric_avg(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* If there were no non-null inputs, return NULL */
+	/* 若没有非空输入，则返回 NULL */
 	if (state == NULL || NA_TOTAL_COUNT(state) == 0)
 		PG_RETURN_NULL();
 
-	if (state->NaNcount > 0)	/* there was at least one NaN input */
+	if (state->NaNcount > 0)	/* 至少有一个 NaN 输入 */
 		PG_RETURN_NUMERIC(make_result(&const_nan));
 
-	/* adding plus and minus infinities gives NaN */
+	/* 正无穷大与负无穷大相加得 NaN */
 	if (state->pInfcount > 0 && state->nInfcount > 0)
 		PG_RETURN_NUMERIC(make_result(&const_nan));
 	if (state->pInfcount > 0)
@@ -6114,14 +6114,14 @@ numeric_sum(PG_FUNCTION_ARGS)
 
 	state = PG_ARGISNULL(0) ? NULL : (NumericAggState *) PG_GETARG_POINTER(0);
 
-	/* If there were no non-null inputs, return NULL */
+	/* 若没有非空输入，则返回 NULL */
 	if (state == NULL || NA_TOTAL_COUNT(state) == 0)
 		PG_RETURN_NULL();
 
-	if (state->NaNcount > 0)	/* there was at least one NaN input */
+	if (state->NaNcount > 0)	/* 至少有一个 NaN 输入 */
 		PG_RETURN_NUMERIC(make_result(&const_nan));
 
-	/* adding plus and minus infinities gives NaN */
+	/* 正无穷大与负无穷大相加得 NaN */
 	if (state->pInfcount > 0 && state->nInfcount > 0)
 		PG_RETURN_NUMERIC(make_result(&const_nan));
 	if (state->pInfcount > 0)
@@ -6138,15 +6138,15 @@ numeric_sum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Workhorse routine for the standard deviance and variance
- * aggregates. 'state' is aggregate's transition state.
- * 'variance' specifies whether we should calculate the
- * variance or the standard deviation. 'sample' indicates whether the
- * caller is interested in the sample or the population
- * variance/stddev.
+ * 标准差与方差聚合的主力例程。
+ * 'state' 是聚合的转移状态。
+ * 'variance' 指定我们应计算的是方差还是
+ * 标准差。'sample' 表明调用方关心样本还是总体
+ * 的方差/标准差。
  *
- * If appropriate variance statistic is undefined for the input,
- * *is_null is set to true and NULL is returned.
+ *
+ * 若对输入而言相应的方差统计量无定义，
+ * *is_null 被置为 true 并返回 NULL。
  */
 static Numeric
 numeric_stddev_internal(NumericAggState *state,
@@ -6162,9 +6162,9 @@ numeric_stddev_internal(NumericAggState *state,
 	int			rscale;
 
 	/*
-	 * Sample stddev and variance are undefined when N <= 1; population stddev
-	 * is undefined when N == 0.  Return NULL in either case (note that NaNs
-	 * and infinities count as normal inputs for this purpose).
+	 * 样本标准差与方差在 N <= 1 时无定义；总体标准差在
+	 * N == 0 时无定义。两种情况下都返回 NULL（注意 NaN
+	 * 与无穷大在此都算作正常输入）。
 	 */
 	if (state == NULL || (totCount = NA_TOTAL_COUNT(state)) == 0)
 	{
@@ -6181,13 +6181,13 @@ numeric_stddev_internal(NumericAggState *state,
 	*is_null = false;
 
 	/*
-	 * Deal with NaN and infinity cases.  By analogy to the behavior of the
-	 * float8 functions, any infinity input produces NaN output.
+	 * 处理 NaN 与无穷大的情形。参照 float8 函数的行为，
+	 * 任何无穷大输入都会产生 NaN 输出。
 	 */
 	if (state->NaNcount > 0 || state->pInfcount > 0 || state->nInfcount > 0)
 		return make_result(&const_nan);
 
-	/* OK, normal calculation applies */
+	/* 好，进行正常计算 */
 	init_var(&vN);
 	init_var(&vsumX);
 	init_var(&vsumX2);
@@ -6199,7 +6199,7 @@ numeric_stddev_internal(NumericAggState *state,
 	init_var(&vNminus1);
 	sub_var(&vN, &const_one, &vNminus1);
 
-	/* compute rscale for mul_var calls */
+	/* 为 mul_var 调用计算 rscale */
 	rscale = vsumX.dscale * 2;
 
 	mul_var(&vsumX, &vsumX, &vsumX, rscale);	/* vsumX = sumX * sumX */
@@ -6208,7 +6208,7 @@ numeric_stddev_internal(NumericAggState *state,
 
 	if (cmp_var(&vsumX2, &const_zero) <= 0)
 	{
-		/* Watch out for roundoff error producing a negative numerator */
+		/* 提防四舍五入误差使分子变负 */
 		res = make_result(&const_zero);
 	}
 	else
@@ -6218,7 +6218,7 @@ numeric_stddev_internal(NumericAggState *state,
 		else
 			mul_var(&vN, &vN, &vNminus1, 0);	/* N * N */
 		rscale = select_div_scale(&vsumX2, &vNminus1);
-		div_var(&vsumX2, &vNminus1, &vsumX, rscale, true);	/* variance */
+		div_var(&vsumX2, &vNminus1, &vsumX, rscale, true);	/* 方差 */
 		if (!variance)
 			sqrt_var(&vsumX, &vsumX, rscale);	/* stddev */
 
@@ -6309,7 +6309,7 @@ numeric_poly_stddev_internal(Int128AggState *state,
 	NumericAggState numstate;
 	Numeric		res;
 
-	/* Initialize an empty agg state */
+	/* 初始化空的聚合状态 */
 	memset(&numstate, 0, sizeof(NumericAggState));
 
 	if (state)
@@ -6431,23 +6431,23 @@ numeric_poly_stddev_pop(PG_FUNCTION_ARGS)
 }
 
 /*
- * SUM transition functions for integer datatypes.
+ * 整数数据类型的 SUM 转移函数。
  *
- * To avoid overflow, we use accumulators wider than the input datatype.
- * A Numeric accumulator is needed for int8 input; for int4 and int2
- * inputs, we use int8 accumulators which should be sufficient for practical
- * purposes.  (The latter two therefore don't really belong in this file,
- * but we keep them here anyway.)
+ * 为避免溢出，使用比输入数据类型更宽的累加器。
+ * int8 输入需要 Numeric 累加器；对 int4 与 int2
+ * 输入，我们使用 int8 累加器，就实际用途应当足够。
+ * （后两者因此其实并不属于本文件，
+ * 但仍然留在这里。）
  *
- * Because SQL defines the SUM() of no values to be NULL, not zero,
- * the initial condition of the transition data value needs to be NULL. This
- * means we can't rely on ExecAgg to automatically insert the first non-null
- * data value into the transition data: it doesn't know how to do the type
- * conversion.  The upshot is that these routines have to be marked non-strict
- * and handle substitution of the first non-null input themselves.
+ * 由于 SQL 把无值的 SUM() 定义为 NULL 而非零，
+ * 转移数据值的初始条件需要为 NULL。这意味着
+ * 我们不能指望 ExecAgg 自动把第一个非空数据值插
+ * 入转移数据：它不知道如何做类型转换。
+ * 其结果是这些例程必须标记为非严格（non-strict），
+ * 并自行处理第一个非空输入的替换。
  *
- * Note: these functions are used only in plain aggregation mode.
- * In moving-aggregate mode, we use intX_avg_accum and intX_avg_accum_inv.
+ * 注意：这些函数只在普通聚合模式下使用。
+ * 移动聚合模式下改用 intX_avg_accum 与 intX_avg_accum_inv。
  */
 
 Datum
@@ -6457,27 +6457,27 @@ int2_sum(PG_FUNCTION_ARGS)
 
 	if (PG_ARGISNULL(0))
 	{
-		/* No non-null input seen so far... */
+		/* 迄今未见非空输入…… */
 		if (PG_ARGISNULL(1))
-			PG_RETURN_NULL();	/* still no non-null */
-		/* This is the first non-null input. */
+			PG_RETURN_NULL();	/* 无非空输入 */
+		/* 这是第一个非空输入。 */
 		newval = (int64) PG_GETARG_INT16(1);
 		PG_RETURN_INT64(newval);
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to avoid palloc overhead. If not, we need to return
-	 * the new value of the transition variable. (If int8 is pass-by-value,
-	 * then of course this is useless as well as incorrect, so just ifdef it
-	 * out.)
+	 * 若作为聚合被调用，可取巧就地修改第一个参数，
+	 * 以避免 palloc 开销。否则我们需要返回
+	 * 转移变量的新值。（若 int8 为按值传递，这既无用
+	 * 也不正确，所以直接用条件编译把它排除掉。）
+	 *
 	 */
-#ifndef USE_FLOAT8_BYVAL		/* controls int8 too */
+#ifndef USE_FLOAT8_BYVAL		/* 也控制 int8 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
 		int64	   *oldsum = (int64 *) PG_GETARG_POINTER(0);
 
-		/* Leave the running sum unchanged in the new input is null */
+		/* 若新输入为 NULL，运行和保持不变 */
 		if (!PG_ARGISNULL(1))
 			*oldsum = *oldsum + (int64) PG_GETARG_INT16(1);
 
@@ -6488,11 +6488,11 @@ int2_sum(PG_FUNCTION_ARGS)
 	{
 		int64		oldsum = PG_GETARG_INT64(0);
 
-		/* Leave sum unchanged if new input is null. */
+		/* 新输入为 NULL 则和不变。 */
 		if (PG_ARGISNULL(1))
 			PG_RETURN_INT64(oldsum);
 
-		/* OK to do the addition. */
+		/* 可以执行加法。 */
 		newval = oldsum + (int64) PG_GETARG_INT16(1);
 
 		PG_RETURN_INT64(newval);
@@ -6506,27 +6506,27 @@ int4_sum(PG_FUNCTION_ARGS)
 
 	if (PG_ARGISNULL(0))
 	{
-		/* No non-null input seen so far... */
+		/* 迄今未见非空输入…… */
 		if (PG_ARGISNULL(1))
-			PG_RETURN_NULL();	/* still no non-null */
-		/* This is the first non-null input. */
+			PG_RETURN_NULL();	/* 无非空输入 */
+		/* 这是第一个非空输入。 */
 		newval = (int64) PG_GETARG_INT32(1);
 		PG_RETURN_INT64(newval);
 	}
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to avoid palloc overhead. If not, we need to return
-	 * the new value of the transition variable. (If int8 is pass-by-value,
-	 * then of course this is useless as well as incorrect, so just ifdef it
-	 * out.)
+	 * 若作为聚合被调用，可取巧就地修改第一个参数，
+	 * 以避免 palloc 开销。否则我们需要返回
+	 * 转移变量的新值。（若 int8 为按值传递，这既无用
+	 * 也不正确，所以直接用条件编译把它排除掉。）
+	 *
 	 */
-#ifndef USE_FLOAT8_BYVAL		/* controls int8 too */
+#ifndef USE_FLOAT8_BYVAL		/* 也控制 int8 */
 	if (AggCheckCallContext(fcinfo, NULL))
 	{
 		int64	   *oldsum = (int64 *) PG_GETARG_POINTER(0);
 
-		/* Leave the running sum unchanged in the new input is null */
+		/* 若新输入为 NULL，运行和保持不变 */
 		if (!PG_ARGISNULL(1))
 			*oldsum = *oldsum + (int64) PG_GETARG_INT32(1);
 
@@ -6537,11 +6537,11 @@ int4_sum(PG_FUNCTION_ARGS)
 	{
 		int64		oldsum = PG_GETARG_INT64(0);
 
-		/* Leave sum unchanged if new input is null. */
+		/* 新输入为 NULL 则和不变。 */
 		if (PG_ARGISNULL(1))
 			PG_RETURN_INT64(oldsum);
 
-		/* OK to do the addition. */
+		/* 可以执行加法。 */
 		newval = oldsum + (int64) PG_GETARG_INT32(1);
 
 		PG_RETURN_INT64(newval);
@@ -6549,7 +6549,7 @@ int4_sum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Note: this function is obsolete, it's no longer used for SUM(int8).
+ * 注意：此函数已过时，不再用于 SUM(int8)。
  */
 Datum
 int8_sum(PG_FUNCTION_ARGS)
@@ -6558,26 +6558,26 @@ int8_sum(PG_FUNCTION_ARGS)
 
 	if (PG_ARGISNULL(0))
 	{
-		/* No non-null input seen so far... */
+		/* 迄今未见非空输入…… */
 		if (PG_ARGISNULL(1))
-			PG_RETURN_NULL();	/* still no non-null */
-		/* This is the first non-null input. */
+			PG_RETURN_NULL();	/* 无非空输入 */
+		/* 这是第一个非空输入。 */
 		PG_RETURN_NUMERIC(int64_to_numeric(PG_GETARG_INT64(1)));
 	}
 
 	/*
-	 * Note that we cannot special-case the aggregate case here, as we do for
-	 * int2_sum and int4_sum: numeric is of variable size, so we cannot modify
-	 * our first parameter in-place.
+	 * 注意我们不能像对 int2_sum 与 int4_sum 那样在这里
+	 * 特判聚合情形：numeric 大小可变，不能就地修改第一
+	 * 个参数。
 	 */
 
 	oldsum = PG_GETARG_NUMERIC(0);
 
-	/* Leave sum unchanged if new input is null. */
+	/* 新输入为 NULL 则和不变。 */
 	if (PG_ARGISNULL(1))
 		PG_RETURN_NUMERIC(oldsum);
 
-	/* OK to do the addition. */
+	/* 可以执行加法。 */
 	PG_RETURN_DATUM(DirectFunctionCall2(numeric_add,
 										NumericGetDatum(oldsum),
 										NumericGetDatum(int64_to_numeric(PG_GETARG_INT64(1)))));
@@ -6585,12 +6585,12 @@ int8_sum(PG_FUNCTION_ARGS)
 
 
 /*
- * Routines for avg(int2) and avg(int4).  The transition datatype
- * is a two-element int8 array, holding count and sum.
+ * avg(int2) 与 avg(int4) 的例程。其转移数据类型是
+ * 保存个数与和的二元 int8 数组。
  *
- * These functions are also used for sum(int2) and sum(int4) when
- * operating in moving-aggregate mode, since for correct inverse transitions
- * we need to count the inputs.
+ * 这些函数也用于 sum(int2) 与 sum(int4)，此时
+ * 处于移动聚合模式，因为正确的反向转移需要统计输
+ * 入个数。
  */
 
 typedef struct Int8TransTypeData
@@ -6607,9 +6607,9 @@ int2_avg_accum(PG_FUNCTION_ARGS)
 	Int8TransTypeData *transdata;
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we need to make
-	 * a copy of it before scribbling on it.
+	 * 若作为聚合被调用，可取巧就地修改第一个参数，
+	 * 以降低 palloc 开销。否则我们需要在涂改它之前先复制
+	 * 一份副本。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 		transarray = PG_GETARG_ARRAYTYPE_P(0);
@@ -6635,9 +6635,9 @@ int4_avg_accum(PG_FUNCTION_ARGS)
 	Int8TransTypeData *transdata;
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we need to make
-	 * a copy of it before scribbling on it.
+	 * 若作为聚合被调用，可取巧就地修改第一个参数，
+	 * 以降低 palloc 开销。否则我们需要在涂改它之前先复制
+	 * 一份副本。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 		transarray = PG_GETARG_ARRAYTYPE_P(0);
@@ -6694,9 +6694,9 @@ int2_avg_accum_inv(PG_FUNCTION_ARGS)
 	Int8TransTypeData *transdata;
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we need to make
-	 * a copy of it before scribbling on it.
+	 * 若作为聚合被调用，可取巧就地修改第一个参数，
+	 * 以降低 palloc 开销。否则我们需要在涂改它之前先复制
+	 * 一份副本。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 		transarray = PG_GETARG_ARRAYTYPE_P(0);
@@ -6722,9 +6722,9 @@ int4_avg_accum_inv(PG_FUNCTION_ARGS)
 	Int8TransTypeData *transdata;
 
 	/*
-	 * If we're invoked as an aggregate, we can cheat and modify our first
-	 * parameter in-place to reduce palloc overhead. Otherwise we need to make
-	 * a copy of it before scribbling on it.
+	 * 若作为聚合被调用，可取巧就地修改第一个参数，
+	 * 以降低 palloc 开销。否则我们需要在涂改它之前先复制
+	 * 一份副本。
 	 */
 	if (AggCheckCallContext(fcinfo, NULL))
 		transarray = PG_GETARG_ARRAYTYPE_P(0);
@@ -6755,7 +6755,7 @@ int8_avg(PG_FUNCTION_ARGS)
 		elog(ERROR, "expected 2-element int8 array");
 	transdata = (Int8TransTypeData *) ARR_DATA_PTR(transarray);
 
-	/* SQL defines AVG of no values to be NULL */
+	/* SQL 定义无值的 AVG 为 NULL */
 	if (transdata->count == 0)
 		PG_RETURN_NULL();
 
@@ -6766,8 +6766,8 @@ int8_avg(PG_FUNCTION_ARGS)
 }
 
 /*
- * SUM(int2) and SUM(int4) both return int8, so we can use this
- * final function for both.
+ * SUM(int2) 与 SUM(int4) 都返回 int8，因此两者
+ * 均可用此终函数。
  */
 Datum
 int2int4_sum(PG_FUNCTION_ARGS)
@@ -6780,7 +6780,7 @@ int2int4_sum(PG_FUNCTION_ARGS)
 		elog(ERROR, "expected 2-element int8 array");
 	transdata = (Int8TransTypeData *) ARR_DATA_PTR(transarray);
 
-	/* SQL defines SUM of no values to be NULL */
+	/* SQL 定义无值的 SUM 为 NULL */
 	if (transdata->count == 0)
 		PG_RETURN_NULL();
 
@@ -6790,7 +6790,7 @@ int2int4_sum(PG_FUNCTION_ARGS)
 
 /* ----------------------------------------------------------------------
  *
- * Debug support
+ * 调试支持
  *
  * ----------------------------------------------------------------------
  */
@@ -6798,7 +6798,7 @@ int2int4_sum(PG_FUNCTION_ARGS)
 #ifdef NUMERIC_DEBUG
 
 /*
- * dump_numeric() - Dump a value in the db storage format for debugging
+ * dump_numeric() - 以数据库存储格式转储值以便调试
  */
 static void
 dump_numeric(const char *str, Numeric num)
@@ -6840,7 +6840,7 @@ dump_numeric(const char *str, Numeric num)
 
 
 /*
- * dump_var() - Dump a value in the variable format for debugging
+ * dump_var() - 以变量格式转储值以便调试
  */
 static void
 dump_var(const char *str, NumericVar *var)
@@ -6880,11 +6880,11 @@ dump_var(const char *str, NumericVar *var)
 
 /* ----------------------------------------------------------------------
  *
- * Local functions follow
+ * 以下为局部函数
  *
- * In general, these do not support "special" (NaN or infinity) inputs;
- * callers should handle those possibilities first.
- * (There are one or two exceptions, noted in their header comments.)
+ * 通常它们不支持"特殊"（NaN 或无穷大）输入；
+ * 调用方应先处理那些可能性。
+ * （有一两个例外，见它们各自头部的注释。）
  *
  * ----------------------------------------------------------------------
  */
@@ -6893,14 +6893,14 @@ dump_var(const char *str, NumericVar *var)
 /*
  * alloc_var() -
  *
- *	Allocate a digit buffer of ndigits digits (plus a spare digit for rounding)
+ *	分配 ndigits 个数字位的缓冲区（外加一个四舍五入位）
  */
 static void
 alloc_var(NumericVar *var, int ndigits)
 {
 	digitbuf_free(var->buf);
 	var->buf = digitbuf_alloc(ndigits + 1);
-	var->buf[0] = 0;			/* spare digit for rounding */
+	var->buf[0] = 0;			/* 四舍五入备用位 */
 	var->digits = var->buf + 1;
 	var->ndigits = ndigits;
 }
@@ -6909,7 +6909,7 @@ alloc_var(NumericVar *var, int ndigits)
 /*
  * free_var() -
  *
- *	Return the digit buffer of a variable to the free pool
+ *	把变量的数字位缓冲区归还空闲池
  */
 static void
 free_var(NumericVar *var)
@@ -6924,8 +6924,8 @@ free_var(NumericVar *var)
 /*
  * zero_var() -
  *
- *	Set a variable to ZERO.
- *	Note: its dscale is not touched.
+ *	把变量设为零。
+ *	注意：显示标度不变。
  */
 static void
 zero_var(NumericVar *var)
@@ -6934,25 +6934,25 @@ zero_var(NumericVar *var)
 	var->buf = NULL;
 	var->digits = NULL;
 	var->ndigits = 0;
-	var->weight = 0;			/* by convention; doesn't really matter */
-	var->sign = NUMERIC_POS;	/* anything but NAN... */
+	var->weight = 0;			/* 按惯例；实际无关紧要 */
+	var->sign = NUMERIC_POS;	/* 非 NAN 值…… */
 }
 
 
 /*
  * set_var_from_str()
  *
- *	Parse a string and put the number into a variable
+ *	解析字符串并把数字放入变量
  *
- * This function does not handle leading or trailing spaces.  It returns
- * the end+1 position parsed into *endptr, so that caller can check for
- * trailing spaces/garbage if deemed necessary.
+ * 本函数不处理前导或尾随空格。它把解析得到的 end+1
+ * 位置存入 *endptr，以便调用方在需要时检查尾随空
+ * 格/垃圾。
  *
- * cp is the place to actually start parsing; str is what to use in error
- * reports.  (Typically cp would be the same except advanced over spaces.)
+ * cp 是实际开始解析的位置；str 是错误报告所用的
+ * 字符串。（通常 cp 与之相同，只是跳过了空格。）
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功返回 true，失败返回 false（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
  */
 static bool
 set_var_from_str(const char *str, const char *cp,
@@ -6972,8 +6972,8 @@ set_var_from_str(const char *str, const char *cp,
 	NumericDigit *digits;
 
 	/*
-	 * We first parse the string to extract decimal digits and determine the
-	 * correct decimal weight.  Then convert to NBASE representation.
+	 * 我们解析字符串以提取十进制数字位并确定正确的十
+	 * 进制权重。然后转换为 NBASE 表示。
 	 */
 	switch (*cp)
 	{
@@ -6999,7 +6999,7 @@ set_var_from_str(const char *str, const char *cp,
 
 	decdigits = (unsigned char *) palloc(strlen(cp) + DEC_DIGITS * 2);
 
-	/* leading padding for digit alignment later */
+	/* 为稍后数字位对齐做前导填充 */
 	memset(decdigits, 0, DEC_DIGITS);
 	i = DEC_DIGITS;
 
@@ -7019,13 +7019,13 @@ set_var_from_str(const char *str, const char *cp,
 				goto invalid_syntax;
 			have_dp = true;
 			cp++;
-			/* decimal point must not be followed by underscore */
+			/* 小数点后不得紧跟下划线 */
 			if (*cp == '_')
 				goto invalid_syntax;
 		}
 		else if (*cp == '_')
 		{
-			/* underscore must be followed by more digits */
+			/* 下划线后必须还有更多数字位 */
 			cp++;
 			if (!isdigit((unsigned char) *cp))
 				goto invalid_syntax;
@@ -7035,25 +7035,25 @@ set_var_from_str(const char *str, const char *cp,
 	}
 
 	ddigits = i - DEC_DIGITS;
-	/* trailing padding for digit alignment later */
+	/* 为稍后数字位对齐做尾随填充 */
 	memset(decdigits + i, 0, DEC_DIGITS - 1);
 
-	/* Handle exponent, if any */
+	/* 如有指数则处理 */
 	if (*cp == 'e' || *cp == 'E')
 	{
 		int64		exponent = 0;
 		bool		neg = false;
 
 		/*
-		 * At this point, dweight and dscale can't be more than about
-		 * INT_MAX/2 due to the MaxAllocSize limit on string length, so
-		 * constraining the exponent similarly should be enough to prevent
-		 * integer overflow in this function.  If the value is too large to
-		 * fit in storage format, make_result() will complain about it later;
-		 * for consistency use the same ereport errcode/text as make_result().
+		 * 此时，dweight 与 dscale 至多约为 INT_MAX/2，因
+		 * 字符串长度受 MaxAllocSize 限制，类似约束指数
+		 * 即可防止本函数整数溢出。若值过大放不进存储
+		 * 格式，make_result() 稍后会报错；为一致起见，
+		 * 使用与 make_result() 相同的 ereport errcode/text。
+		 *
 		 */
 
-		/* exponent sign */
+		/* 指数符号 */
 		cp++;
 		if (*cp == '+')
 			cp++;
@@ -7063,7 +7063,7 @@ set_var_from_str(const char *str, const char *cp,
 			cp++;
 		}
 
-		/* exponent digits */
+		/* 指数数字位 */
 		if (!isdigit((unsigned char) *cp))
 			goto invalid_syntax;
 
@@ -7077,7 +7077,7 @@ set_var_from_str(const char *str, const char *cp,
 			}
 			else if (*cp == '_')
 			{
-				/* underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				cp++;
 				if (!isdigit((unsigned char) *cp))
 					goto invalid_syntax;
@@ -7096,10 +7096,10 @@ set_var_from_str(const char *str, const char *cp,
 	}
 
 	/*
-	 * Okay, convert pure-decimal representation to base NBASE.  First we need
-	 * to determine the converted weight and ndigits.  offset is the number of
-	 * decimal zeroes to insert before the first given digit to have a
-	 * correctly aligned first NBASE digit.
+	 * 好，把纯十进制表示转换成 NBASE 基。首先须确定转换
+	 * 后的权重与 ndigits。offset 是在第一个给定数字位之前
+	 * 要插入的十进制零个数，以便首个 NBASE 位对齐。
+	 *
 	 */
 	if (dweight >= 0)
 		weight = (dweight + 1 + DEC_DIGITS - 1) / DEC_DIGITS - 1;
@@ -7133,10 +7133,10 @@ set_var_from_str(const char *str, const char *cp,
 
 	pfree(decdigits);
 
-	/* Strip any leading/trailing zeroes, and normalize weight if zero */
+	/* 去除所有前导/尾随零，若为零则归一化权重 */
 	strip_var(dest);
 
-	/* Return end+1 position for caller */
+	/* 返回 end+1 位置给调用方 */
 	*endptr = cp;
 
 	return true;
@@ -7155,7 +7155,7 @@ invalid_syntax:
 
 
 /*
- * Return the numeric value of a single hex digit.
+ * 返回单个十六进制数字位的数值。
  */
 static inline int
 xdigit_value(char dig)
@@ -7168,21 +7168,21 @@ xdigit_value(char dig)
 /*
  * set_var_from_non_decimal_integer_str()
  *
- *	Parse a string containing a non-decimal integer
+ *	解析包含非十进制整数的字符串
  *
- * This function does not handle leading or trailing spaces.  It returns
- * the end+1 position parsed into *endptr, so that caller can check for
- * trailing spaces/garbage if deemed necessary.
+ * 本函数不处理前导或尾随空格。它把解析得到的 end+1
+ * 位置存入 *endptr，以便调用方在需要时检查尾随空
+ * 格/垃圾。
  *
- * cp is the place to actually start parsing; str is what to use in error
- * reports.  The number's sign and base prefix indicator (e.g., "0x") are
- * assumed to have already been parsed, so cp should point to the number's
- * first digit in the base specified.
+ * cp 是实际开始解析的位置；str 是错误报告所用的
+ * 字符串。数字的符号与进制前缀指示符（如 "0x"）被
+ * 假定已解析完毕，所以 cp 应指向数字在指定进制下的
+ * 第一个数字位。
  *
- * base is expected to be 2, 8 or 16.
+ * base 应为 2、8 或 16。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功返回 true，失败返回 false（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
  */
 static bool
 set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
@@ -7199,10 +7199,10 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 	zero_var(dest);
 
 	/*
-	 * Process input digits in groups that fit in int64.  Here "tmp" is the
-	 * value of the digits in the group, and "mul" is base^n, where n is the
-	 * number of digits in the group.  Thus tmp < mul, and we must start a new
-	 * group when mul * base threatens to overflow PG_INT64_MAX.
+	 * 以能放进 int64 的组为单位处理输入数字位。"tmp"是
+	 * 该组数字位的值，"mul" 为 base^n，其中 n 是组内数字
+	 * 位的个数。因此 tmp < mul，当 mul * base 可能溢出
+	 * PG_INT64_MAX 时必须开新组。
 	 */
 	tmp = 0;
 	mul = 1;
@@ -7215,17 +7215,17 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 			{
 				if (mul > PG_INT64_MAX / 16)
 				{
-					/* Add the contribution from this group of digits */
+					/* 加上这组数字位的贡献 */
 					int64_to_numericvar(mul, &tmp_var);
 					mul_var(dest, &tmp_var, dest, 0);
 					int64_to_numericvar(tmp, &tmp_var);
 					add_var(dest, &tmp_var, dest);
 
-					/* Result will overflow if weight overflows int16 */
+					/* 若权重溢出 int16 则结果将溢出 */
 					if (dest->weight > NUMERIC_WEIGHT_MAX)
 						goto out_of_range;
 
-					/* Begin a new group */
+					/* 开新组 */
 					tmp = 0;
 					mul = 1;
 				}
@@ -7235,7 +7235,7 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 			}
 			else if (*cp == '_')
 			{
-				/* Underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				cp++;
 				if (!isxdigit((unsigned char) *cp))
 					goto invalid_syntax;
@@ -7252,17 +7252,17 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 			{
 				if (mul > PG_INT64_MAX / 8)
 				{
-					/* Add the contribution from this group of digits */
+					/* 加上这组数字位的贡献 */
 					int64_to_numericvar(mul, &tmp_var);
 					mul_var(dest, &tmp_var, dest, 0);
 					int64_to_numericvar(tmp, &tmp_var);
 					add_var(dest, &tmp_var, dest);
 
-					/* Result will overflow if weight overflows int16 */
+					/* 若权重溢出 int16 则结果将溢出 */
 					if (dest->weight > NUMERIC_WEIGHT_MAX)
 						goto out_of_range;
 
-					/* Begin a new group */
+					/* 开新组 */
 					tmp = 0;
 					mul = 1;
 				}
@@ -7272,7 +7272,7 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 			}
 			else if (*cp == '_')
 			{
-				/* Underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				cp++;
 				if (*cp < '0' || *cp > '7')
 					goto invalid_syntax;
@@ -7289,17 +7289,17 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 			{
 				if (mul > PG_INT64_MAX / 2)
 				{
-					/* Add the contribution from this group of digits */
+					/* 加上这组数字位的贡献 */
 					int64_to_numericvar(mul, &tmp_var);
 					mul_var(dest, &tmp_var, dest, 0);
 					int64_to_numericvar(tmp, &tmp_var);
 					add_var(dest, &tmp_var, dest);
 
-					/* Result will overflow if weight overflows int16 */
+					/* 若权重溢出 int16 则结果将溢出 */
 					if (dest->weight > NUMERIC_WEIGHT_MAX)
 						goto out_of_range;
 
-					/* Begin a new group */
+					/* 开新组 */
 					tmp = 0;
 					mul = 1;
 				}
@@ -7309,7 +7309,7 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 			}
 			else if (*cp == '_')
 			{
-				/* Underscore must be followed by more digits */
+				/* 下划线后必须还有更多数字位 */
 				cp++;
 				if (*cp < '0' || *cp > '1')
 					goto invalid_syntax;
@@ -7319,14 +7319,14 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 		}
 	}
 	else
-		/* Should never happen; treat as invalid input */
+		/* 不应发生；视为无效输入 */
 		goto invalid_syntax;
 
-	/* Check that we got at least one digit */
+	/* 检查至少得到一个数字位 */
 	if (unlikely(cp == firstdigit))
 		goto invalid_syntax;
 
-	/* Add the contribution from the final group of digits */
+	/* 加上最后一组数字位的贡献 */
 	int64_to_numericvar(mul, &tmp_var);
 	mul_var(dest, &tmp_var, dest, 0);
 	int64_to_numericvar(tmp, &tmp_var);
@@ -7339,7 +7339,7 @@ set_var_from_non_decimal_integer_str(const char *str, const char *cp, int sign,
 
 	free_var(&tmp_var);
 
-	/* Return end+1 position for caller */
+	/* 返回 end+1 位置给调用方 */
 	*endptr = cp;
 
 	return true;
@@ -7360,7 +7360,7 @@ invalid_syntax:
 /*
  * set_var_from_num() -
  *
- *	Convert the packed db format into a variable
+ *	把打包的数据库格式转换为变量
  */
 static void
 set_var_from_num(Numeric num, NumericVar *dest)
@@ -7382,16 +7382,16 @@ set_var_from_num(Numeric num, NumericVar *dest)
 /*
  * init_var_from_num() -
  *
- *	Initialize a variable from packed db format. The digits array is not
- *	copied, which saves some cycles when the resulting var is not modified.
- *	Also, there's no need to call free_var(), as long as you don't assign any
- *	other value to it (with set_var_* functions, or by using the var as the
- *	destination of a function like add_var())
+ *	从打包 db 格式初始化变量。数字位数组并不复制，
+ *	当所得变量不被修改时可省去一些开销。
+ *	此外，只要不给它赋任何其他值（用 set_var_* 函数，或
+ *	把它当作诸如 add_var() 这类函数的目的地），就无
+ *	需调用 free_var()。
  *
- *	CAUTION: Do not modify the digits buffer of a var initialized with this
- *	function, e.g by calling round_var() or trunc_var(), as the changes will
- *	propagate to the original Numeric! It's OK to use it as the destination
- *	argument of one of the calculational functions, though.
+ *	注意：不要修改用本函数初始化的变量的数字位缓冲
+ *	区，例如调用 round_var() 或 trunc_var()，否则改动会
+ *	传播回原 Numeric！不过把它用作计算类函数的
+ *	目的参数则没有问题。
  */
 static void
 init_var_from_num(Numeric num, NumericVar *dest)
@@ -7401,14 +7401,14 @@ init_var_from_num(Numeric num, NumericVar *dest)
 	dest->sign = NUMERIC_SIGN(num);
 	dest->dscale = NUMERIC_DSCALE(num);
 	dest->digits = NUMERIC_DIGITS(num);
-	dest->buf = NULL;			/* digits array is not palloc'd */
+	dest->buf = NULL;			/* 数字位数组未经 palloc */
 }
 
 
 /*
  * set_var_from_var() -
  *
- *	Copy one variable into another
+ *	把变量复制进另一个
  */
 static void
 set_var_from_var(const NumericVar *value, NumericVar *dest)
@@ -7416,8 +7416,8 @@ set_var_from_var(const NumericVar *value, NumericVar *dest)
 	NumericDigit *newbuf;
 
 	newbuf = digitbuf_alloc(value->ndigits + 1);
-	newbuf[0] = 0;				/* spare digit for rounding */
-	if (value->ndigits > 0)		/* else value->digits might be null */
+	newbuf[0] = 0;				/* 四舍五入备用位 */
+	if (value->ndigits > 0)		/* 否则 value->digits 或为空 */
 		memcpy(newbuf + 1, value->digits,
 			   value->ndigits * sizeof(NumericDigit));
 
@@ -7432,9 +7432,9 @@ set_var_from_var(const NumericVar *value, NumericVar *dest)
 /*
  * get_str_from_var() -
  *
- *	Convert a var to text representation (guts of numeric_out).
- *	The var is displayed to the number of digits indicated by its dscale.
- *	Returns a palloc'd string.
+ *	把变量转换成文本表示（numeric_out 核心）。
+ *	变量按其显示标度所指示的数字位个数显示。
+ *	返回 palloc 的串。
  */
 static char *
 get_str_from_var(const NumericVar *var)
@@ -7454,12 +7454,12 @@ get_str_from_var(const NumericVar *var)
 	dscale = var->dscale;
 
 	/*
-	 * Allocate space for the result.
+	 * 为结果分配空间。
 	 *
-	 * i is set to the # of decimal digits before decimal point. dscale is the
-	 * # of decimal digits we will print after decimal point. We may generate
-	 * as many as DEC_DIGITS-1 excess digits at the end, and in addition we
-	 * need room for sign, decimal point, null terminator.
+	 * i 被设为小数点前的十进制数字位个数。dscale 是我们
+	 * 将在小数点后打印的十进制数字位个数。我们可能
+	 * 在末尾多生成多达 DEC_DIGITS-1 个多余数字位，另外
+	 * 还需要符号、小数点与结尾 NUL 空间。
 	 */
 	i = (var->weight + 1) * DEC_DIGITS;
 	if (i <= 0)
@@ -7469,13 +7469,13 @@ get_str_from_var(const NumericVar *var)
 	cp = str;
 
 	/*
-	 * Output a dash for negative values
+	 * 负值输出一个减号
 	 */
 	if (var->sign == NUMERIC_NEG)
 		*cp++ = '-';
 
 	/*
-	 * Output all digits before the decimal point
+	 * 输出小数点前的所有数字位
 	 */
 	if (var->weight < 0)
 	{
@@ -7487,7 +7487,7 @@ get_str_from_var(const NumericVar *var)
 		for (d = 0; d <= var->weight; d++)
 		{
 			dig = (d < var->ndigits) ? var->digits[d] : 0;
-			/* In the first digit, suppress extra leading decimal zeroes */
+			/* 首个数字位中压制多余的前导十进制零 */
 #if DEC_DIGITS == 4
 			{
 				bool		putit = (d > 0);
@@ -7524,9 +7524,9 @@ get_str_from_var(const NumericVar *var)
 	}
 
 	/*
-	 * If requested, output a decimal point and all the digits that follow it.
-	 * We initially put out a multiple of DEC_DIGITS digits, then truncate if
-	 * needed.
+	 * 若需要，输出小数点及其后面的所有数字位。最初
+	 * 会先输出 DEC_DIGITS 的倍数个数字位，若需要再截断。
+	 *
 	 */
 	if (dscale > 0)
 	{
@@ -7561,7 +7561,7 @@ get_str_from_var(const NumericVar *var)
 	}
 
 	/*
-	 * terminate the string and return it
+	 * 终止字符串并返回它
 	 */
 	*cp = '\0';
 	return str;
@@ -7570,24 +7570,24 @@ get_str_from_var(const NumericVar *var)
 /*
  * get_str_from_var_sci() -
  *
- *	Convert a var to a normalised scientific notation text representation.
- *	This function does the heavy lifting for numeric_out_sci().
+ *	把变量转换成规范化科学计数法文本表示。
+ *	本函数为 numeric_out_sci() 承担重活。
  *
- *	This notation has the general form a * 10^b, where a is known as the
- *	"significand" and b is known as the "exponent".
+ *	这种记法的一般形式为 a * 10^b，其中 a 称为
+ *	"尾数"，b 称为"指数"。
  *
- *	Because we can't do superscript in ASCII (and because we want to copy
- *	printf's behaviour) we display the exponent using E notation, with a
- *	minimum of two exponent digits.
+ *	由于 ASCII 中无法使用上标（也因为我们想复刻 printf
+ *	的行为），我们用 E 记法显示指数，指数数字位至
+ *	少两位。
  *
- *	For example, the value 1234 could be output as 1.2e+03.
+ *	例如值 1234 可输出为 1.2e+03。
  *
- *	We assume that the exponent can fit into an int32.
+ *	我们假定指数能放入 int32。
  *
- *	rscale is the number of decimal digits desired after the decimal point in
- *	the output, negative values will be treated as meaning zero.
+ *	rscale 是输出中希望在小数点后保留的十进制数字位个
+ *	数，负值将被视为零。
  *
- *	Returns a palloc'd string.
+ *	返回 palloc 的串。
  */
 static char *
 get_str_from_var_sci(const NumericVar *var, int rscale)
@@ -7602,36 +7602,36 @@ get_str_from_var_sci(const NumericVar *var, int rscale)
 		rscale = 0;
 
 	/*
-	 * Determine the exponent of this number in normalised form.
+	 * 以规范化形式确定此数的指数。
 	 *
-	 * This is the exponent required to represent the number with only one
-	 * significant digit before the decimal place.
+	 * 这是该数以小数点前仅一位有效数字表示时所需的
+	 * 指数。
 	 */
 	if (var->ndigits > 0)
 	{
 		exponent = (var->weight + 1) * DEC_DIGITS;
 
 		/*
-		 * Compensate for leading decimal zeroes in the first numeric digit by
-		 * decrementing the exponent.
+		 * 递减指数以补偿首个 numeric 数字位的前导十进制零。
+		 *
 		 */
 		exponent -= DEC_DIGITS - (int) log10(var->digits[0]);
 	}
 	else
 	{
 		/*
-		 * If var has no digits, then it must be zero.
+		 * 若变量无数字位，则它必为零。
 		 *
-		 * Zero doesn't technically have a meaningful exponent in normalised
-		 * notation, but we just display the exponent as zero for consistency
-		 * of output.
+		 * 严格说零没有有意义的指数，但为了输出一致，
+		 * 我们只把指数显示为零。
+		 *
 		 */
 		exponent = 0;
 	}
 
 	/*
-	 * Divide var by 10^exponent to get the significand, rounding to rscale
-	 * decimal digits in the process.
+	 * 把变量除以 10^exponent 得到尾数，过程中四舍五入到
+	 * rscale 位小数。
 	 */
 	init_var(&tmp_var);
 
@@ -7642,11 +7642,11 @@ get_str_from_var_sci(const NumericVar *var, int rscale)
 	free_var(&tmp_var);
 
 	/*
-	 * Allocate space for the result.
+	 * 为结果分配空间。
 	 *
-	 * In addition to the significand, we need room for the exponent
-	 * decoration ("e"), the sign of the exponent, up to 10 digits for the
-	 * exponent itself, and of course the null terminator.
+	 * 除尾数，还需为指数装饰（"e"）、指数符号
+	 * 与指数本身（至多 10 位数字）留出空间，还有结尾
+	 * NUL 终止符。
 	 */
 	len = strlen(sig_out) + 13;
 	str = palloc(len);
@@ -7659,12 +7659,12 @@ get_str_from_var_sci(const NumericVar *var, int rscale)
 
 
 /*
- * numericvar_serialize - serialize NumericVar to binary format
+ * numericvar_serialize - 序列化 NumericVar 为二进制格式
  *
- * At variable level, no checks are performed on the weight or dscale, allowing
- * us to pass around intermediate values with higher precision than supported
- * by the numeric type.  Note: this is incompatible with numeric_send/recv(),
- * which use 16-bit integers for these fields.
+ * 在变量层面，不对权重或显示标度做检查，允许
+ * 我们传递精度高于 numeric 类型所支持程度的中间值。
+ * 注意：这与 numeric_send/recv() 不兼容，后者对这些
+ * 字段使用 16 位整数。
  */
 static void
 numericvar_serialize(StringInfo buf, const NumericVar *var)
@@ -7680,7 +7680,7 @@ numericvar_serialize(StringInfo buf, const NumericVar *var)
 }
 
 /*
- * numericvar_deserialize - deserialize binary format to NumericVar
+ * numericvar_deserialize - 把二进制反序列化为 NumericVar
  */
 static void
 numericvar_deserialize(StringInfo buf, NumericVar *var)
@@ -7690,7 +7690,7 @@ numericvar_deserialize(StringInfo buf, NumericVar *var)
 
 	len = pq_getmsgint(buf, sizeof(int32));
 
-	alloc_var(var, len);		/* sets var->ndigits */
+	alloc_var(var, len);		/* 设 var->ndigits */
 
 	var->weight = pq_getmsgint(buf, sizeof(int32));
 	var->sign = pq_getmsgint(buf, sizeof(int32));
@@ -7701,9 +7701,9 @@ numericvar_deserialize(StringInfo buf, NumericVar *var)
 
 
 /*
- * duplicate_numeric() - copy a packed-format Numeric
+ * duplicate_numeric() - 复制打包格式 Numeric
  *
- * This will handle NaN and Infinity cases.
+ * 这会处理 NaN 与无穷大情形。
  */
 static Numeric
 duplicate_numeric(Numeric num)
@@ -7718,11 +7718,11 @@ duplicate_numeric(Numeric num)
 /*
  * make_result_opt_error() -
  *
- *	Create the packed db numeric format in palloc()'d memory from
- *	a variable.  This will handle NaN and Infinity cases.
+ *	在 palloc() 内存中由变量创建打包 numeric 格式。
+ *	这会处理 NaN 与无穷大情形。
  *
- *	If "have_error" isn't NULL, on overflow *have_error is set to true and
- *	NULL is returned.  This is helpful when caller needs to handle errors.
+ *	若"have_error"非 NULL，溢出时 *have_error 被置为
+ *	true 并返回 NULL。调用方需要自己处理错误时很有用。
  */
 static Numeric
 make_result_opt_error(const NumericVar *var, bool *have_error)
@@ -7740,9 +7740,9 @@ make_result_opt_error(const NumericVar *var, bool *have_error)
 	if ((sign & NUMERIC_SIGN_MASK) == NUMERIC_SPECIAL)
 	{
 		/*
-		 * Verify valid special value.  This could be just an Assert, perhaps,
-		 * but it seems worthwhile to expend a few cycles to ensure that we
-		 * never write any nonzero reserved bits to disk.
+		 * 验证特殊值有效。这本可只是 Assert，但花几个周期
+		 * 确保绝不向磁盘写入非零保留位是值得的。
+		 *
 		 */
 		if (!(sign == NUMERIC_NAN ||
 			  sign == NUMERIC_PINF ||
@@ -7753,7 +7753,7 @@ make_result_opt_error(const NumericVar *var, bool *have_error)
 
 		SET_VARSIZE(result, NUMERIC_HDRSZ_SHORT);
 		result->choice.n_header = sign;
-		/* the header word is all we need */
+		/* 头字即所需全部 */
 
 		dump_numeric("make_result()", result);
 		return result;
@@ -7761,25 +7761,25 @@ make_result_opt_error(const NumericVar *var, bool *have_error)
 
 	n = var->ndigits;
 
-	/* truncate leading zeroes */
+	/* 截去前导零 */
 	while (n > 0 && *digits == 0)
 	{
 		digits++;
 		weight--;
 		n--;
 	}
-	/* truncate trailing zeroes */
+	/* 截去尾随零 */
 	while (n > 0 && digits[n - 1] == 0)
 		n--;
 
-	/* If zero result, force to weight=0 and positive sign */
+	/* 若结果为零，强制 weight=0 且符号为正 */
 	if (n == 0)
 	{
 		weight = 0;
 		sign = NUMERIC_POS;
 	}
 
-	/* Build the result */
+	/* 构建结果 */
 	if (NUMERIC_CAN_BE_SHORT(var->dscale, weight))
 	{
 		len = NUMERIC_HDRSZ_SHORT + n * sizeof(NumericDigit);
@@ -7806,7 +7806,7 @@ make_result_opt_error(const NumericVar *var, bool *have_error)
 	if (n > 0)
 		memcpy(NUMERIC_DIGITS(result), digits, n * sizeof(NumericDigit));
 
-	/* Check for overflow of int16 fields */
+	/* 检查 int16 字段是否溢出 */
 	if (NUMERIC_WEIGHT(result) != weight ||
 		NUMERIC_DSCALE(result) != var->dscale)
 	{
@@ -7831,7 +7831,7 @@ make_result_opt_error(const NumericVar *var, bool *have_error)
 /*
  * make_result() -
  *
- *	An interface to make_result_opt_error() without "have_error" argument.
+ *	make_result_opt_error() 的无 "have_error" 参数接口。
  */
 static Numeric
 make_result(const NumericVar *var)
@@ -7843,11 +7843,11 @@ make_result(const NumericVar *var)
 /*
  * apply_typmod() -
  *
- *	Do bounds checking and rounding according to the specified typmod.
- *	Note that this is only applied to normal finite values.
+ *	按指定 typmod 做边界检查与四舍五入。
+ *	注意这只应用于普通有限值。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功返回 true，失败返回 false（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
  */
 static bool
 apply_typmod(NumericVar *var, int32 typmod, Node *escontext)
@@ -7858,7 +7858,7 @@ apply_typmod(NumericVar *var, int32 typmod, Node *escontext)
 	int			ddigits;
 	int			i;
 
-	/* Do nothing if we have an invalid typmod */
+	/* 若 typmod 无效则不做事 */
 	if (!is_valid_numeric_typmod(typmod))
 		return true;
 
@@ -7866,31 +7866,31 @@ apply_typmod(NumericVar *var, int32 typmod, Node *escontext)
 	scale = numeric_typmod_scale(typmod);
 	maxdigits = precision - scale;
 
-	/* Round to target scale (and set var->dscale) */
+	/* 舍入到目标标度并设 var->dscale */
 	round_var(var, scale);
 
-	/* but don't allow var->dscale to be negative */
+	/* 但不允许 var->dscale 为负 */
 	if (var->dscale < 0)
 		var->dscale = 0;
 
 	/*
-	 * Check for overflow - note we can't do this before rounding, because
-	 * rounding could raise the weight.  Also note that the var's weight could
-	 * be inflated by leading zeroes, which will be stripped before storage
-	 * but perhaps might not have been yet. In any case, we must recognize a
-	 * true zero, whose weight doesn't mean anything.
+	 * 检查溢出 - 注意不能在四舍五入之前做这一步，
+	 * 四舍五入可能抬高权重。还要注意变量权重可能因前
+	 * 导零而虚高，存盘前会去除，但可能尚未去除。
+	 * 无论如何，我们必须识别真零，其权重没有意义。
+	 *
 	 */
 	ddigits = (var->weight + 1) * DEC_DIGITS;
 	if (ddigits > maxdigits)
 	{
-		/* Determine true weight; and check for all-zero result */
+		/* 确定真权重；并检查全零结果 */
 		for (i = 0; i < var->ndigits; i++)
 		{
 			NumericDigit dig = var->digits[i];
 
 			if (dig)
 			{
-				/* Adjust for any high-order decimal zero digits */
+				/* 针对高位十进制零数字位作调整 */
 #if DEC_DIGITS == 4
 				if (dig < 10)
 					ddigits -= 3;
@@ -7902,7 +7902,7 @@ apply_typmod(NumericVar *var, int32 typmod, Node *escontext)
 				if (dig < 10)
 					ddigits -= 1;
 #elif DEC_DIGITS == 1
-				/* no adjustment */
+				/* 不调整 */
 #else
 #error unsupported NBASE
 #endif
@@ -7912,7 +7912,7 @@ apply_typmod(NumericVar *var, int32 typmod, Node *escontext)
 							 errmsg("numeric field overflow"),
 							 errdetail("A field with precision %d, scale %d must round to an absolute value less than %s%d.",
 									   precision, scale,
-					/* Display 10^0 as 1 */
+					/* 10^0 显示为 1 */
 									   maxdigits ? "10^" : "",
 									   maxdigits ? maxdigits : 1
 									   )));
@@ -7928,11 +7928,11 @@ apply_typmod(NumericVar *var, int32 typmod, Node *escontext)
 /*
  * apply_typmod_special() -
  *
- *	Do bounds checking according to the specified typmod, for an Inf or NaN.
- *	For convenience of most callers, the value is presented in packed form.
+ *	对 Inf 或 NaN 按指定 typmod 做边界检查。
+ *	为方便多数调用方，值以打包形式提供。
  *
- * Returns true on success, false on failure (if escontext points to an
- * ErrorSaveContext; otherwise errors are thrown).
+ * 成功返回 true，失败返回 false（若 escontext 指向
+ * ErrorSaveContext；否则抛出错误）。
  */
 static bool
 apply_typmod_special(Numeric num, int32 typmod, Node *escontext)
@@ -7940,18 +7940,18 @@ apply_typmod_special(Numeric num, int32 typmod, Node *escontext)
 	int			precision;
 	int			scale;
 
-	Assert(NUMERIC_IS_SPECIAL(num));	/* caller error if not */
+	Assert(NUMERIC_IS_SPECIAL(num));	/* 否则调用方错 */
 
 	/*
-	 * NaN is allowed regardless of the typmod; that's rather dubious perhaps,
-	 * but it's a longstanding behavior.  Inf is rejected if we have any
-	 * typmod restriction, since an infinity shouldn't be claimed to fit in
-	 * any finite number of digits.
+	 * 无论 typmod 为何都允许 NaN；这也许颇为可疑，但这是
+	 * 长期行为。有任何 typmod 限制时 Inf 会被拒绝，
+	 * 因为无穷大不应被声称能放进任何有限位数中。
+	 *
 	 */
 	if (NUMERIC_IS_NAN(num))
 		return true;
 
-	/* Do nothing if we have a default typmod (-1) */
+	/* typmod 为默认值（-1）时不做事 */
 	if (!is_valid_numeric_typmod(typmod))
 		return true;
 
@@ -7967,9 +7967,9 @@ apply_typmod_special(Numeric num, int32 typmod, Node *escontext)
 
 
 /*
- * Convert numeric to int8, rounding if needed.
+ * numeric 转 int8，必要时四舍五入。
  *
- * If overflow, return false (no error is raised).  Return true if okay.
+ * 若溢出，返回 false（不抛错）。正常则返回 true。
  */
 static bool
 numericvar_to_int64(const NumericVar *var, int64 *result)
@@ -7982,12 +7982,12 @@ numericvar_to_int64(const NumericVar *var, int64 *result)
 	bool		neg;
 	NumericVar	rounded;
 
-	/* Round to nearest integer */
+	/* 舍入到最近整数 */
 	init_var(&rounded);
 	set_var_from_var(var, &rounded);
 	round_var(&rounded, 0);
 
-	/* Check for zero input */
+	/* 检查零输入 */
 	strip_var(&rounded);
 	ndigits = rounded.ndigits;
 	if (ndigits == 0)
@@ -7998,16 +7998,16 @@ numericvar_to_int64(const NumericVar *var, int64 *result)
 	}
 
 	/*
-	 * For input like 10000000000, we must treat stripped digits as real. So
-	 * the loop assumes there are weight+1 digits before the decimal point.
+	 * 对 10000000000 这类输入，必须把已去除的数字位当作
+	 * 真实。故循环假定小数点前有 weight+1 个数字位。
 	 */
 	weight = rounded.weight;
 	Assert(weight >= 0 && ndigits <= weight + 1);
 
 	/*
-	 * Construct the result. To avoid issues with converting a value
-	 * corresponding to INT64_MIN (which can't be represented as a positive 64
-	 * bit two's complement integer), accumulate value as a negative number.
+	 * 构造结果。为免 INT64_MIN 转换问题，按负数累
+	 * 加该值（它无法表示为正的 64 位二进制补码整数）。
+	 *
 	 */
 	digits = rounded.digits;
 	neg = (rounded.sign == NUMERIC_NEG);
@@ -8044,7 +8044,7 @@ numericvar_to_int64(const NumericVar *var, int64 *result)
 }
 
 /*
- * Convert int8 value to numeric.
+ * 把 int8 值转为 numeric。
  */
 static void
 int64_to_numericvar(int64 val, NumericVar *var)
@@ -8054,7 +8054,7 @@ int64_to_numericvar(int64 val, NumericVar *var)
 	NumericDigit *ptr;
 	int			ndigits;
 
-	/* int64 can require at most 19 decimal digits; add one for safety */
+	/* int64 至多需要 19 个十进制数字位；为安全加一 */
 	alloc_var(var, 20 / DEC_DIGITS);
 	if (val < 0)
 	{
@@ -8089,9 +8089,9 @@ int64_to_numericvar(int64 val, NumericVar *var)
 }
 
 /*
- * Convert numeric to uint64, rounding if needed.
+ * numeric 转 uint64，必要时四舍五入。
  *
- * If overflow, return false (no error is raised).  Return true if okay.
+ * 若溢出，返回 false（不抛错）。正常则返回 true。
  */
 static bool
 numericvar_to_uint64(const NumericVar *var, uint64 *result)
@@ -8103,12 +8103,12 @@ numericvar_to_uint64(const NumericVar *var, uint64 *result)
 	uint64		val;
 	NumericVar	rounded;
 
-	/* Round to nearest integer */
+	/* 舍入到最近整数 */
 	init_var(&rounded);
 	set_var_from_var(var, &rounded);
 	round_var(&rounded, 0);
 
-	/* Check for zero input */
+	/* 检查零输入 */
 	strip_var(&rounded);
 	ndigits = rounded.ndigits;
 	if (ndigits == 0)
@@ -8118,7 +8118,7 @@ numericvar_to_uint64(const NumericVar *var, uint64 *result)
 		return true;
 	}
 
-	/* Check for negative input */
+	/* 检查负输入 */
 	if (rounded.sign == NUMERIC_NEG)
 	{
 		free_var(&rounded);
@@ -8126,13 +8126,13 @@ numericvar_to_uint64(const NumericVar *var, uint64 *result)
 	}
 
 	/*
-	 * For input like 10000000000, we must treat stripped digits as real. So
-	 * the loop assumes there are weight+1 digits before the decimal point.
+	 * 对 10000000000 这类输入，必须把已去除的数字位当作
+	 * 真实。故循环假定小数点前有 weight+1 个数字位。
 	 */
 	weight = rounded.weight;
 	Assert(weight >= 0 && ndigits <= weight + 1);
 
-	/* Construct the result */
+	/* 构造结果 */
 	digits = rounded.digits;
 	val = digits[0];
 	for (i = 1; i <= weight; i++)
@@ -8162,9 +8162,9 @@ numericvar_to_uint64(const NumericVar *var, uint64 *result)
 
 #ifdef HAVE_INT128
 /*
- * Convert numeric to int128, rounding if needed.
+ * numeric 转 int128，必要时四舍五入。
  *
- * If overflow, return false (no error is raised).  Return true if okay.
+ * 若溢出，返回 false（不抛错）。正常则返回 true。
  */
 static bool
 numericvar_to_int128(const NumericVar *var, int128 *result)
@@ -8178,12 +8178,12 @@ numericvar_to_int128(const NumericVar *var, int128 *result)
 	bool		neg;
 	NumericVar	rounded;
 
-	/* Round to nearest integer */
+	/* 舍入到最近整数 */
 	init_var(&rounded);
 	set_var_from_var(var, &rounded);
 	round_var(&rounded, 0);
 
-	/* Check for zero input */
+	/* 检查零输入 */
 	strip_var(&rounded);
 	ndigits = rounded.ndigits;
 	if (ndigits == 0)
@@ -8194,13 +8194,13 @@ numericvar_to_int128(const NumericVar *var, int128 *result)
 	}
 
 	/*
-	 * For input like 10000000000, we must treat stripped digits as real. So
-	 * the loop assumes there are weight+1 digits before the decimal point.
+	 * 对 10000000000 这类输入，必须把已去除的数字位当作
+	 * 真实。故循环假定小数点前有 weight+1 个数字位。
 	 */
 	weight = rounded.weight;
 	Assert(weight >= 0 && ndigits <= weight + 1);
 
-	/* Construct the result */
+	/* 构造结果 */
 	digits = rounded.digits;
 	neg = (rounded.sign == NUMERIC_NEG);
 	val = digits[0];
@@ -8212,13 +8212,13 @@ numericvar_to_int128(const NumericVar *var, int128 *result)
 			val += digits[i];
 
 		/*
-		 * The overflow check is a bit tricky because we want to accept
-		 * INT128_MIN, which will overflow the positive accumulator.  We can
-		 * detect this case easily though because INT128_MIN is the only
-		 * nonzero value for which -val == val (on a two's complement machine,
-		 * anyway).
+		 * 溢出检查有点微妙，因为要接受 INT128_MIN，
+		 * 它使正累加器溢出。但这情况很容易检测，因为
+		 * INT128_MIN 是唯一满足 -val == val 的非零值（在二
+		 * 进制补码机器上）。
+		 *
 		 */
-		if ((val / NBASE) != oldval)	/* possible overflow? */
+		if ((val / NBASE) != oldval)	/* 可能溢出？ */
 		{
 			if (!neg || (-val) != val || val == 0 || oldval < 0)
 			{
@@ -8235,7 +8235,7 @@ numericvar_to_int128(const NumericVar *var, int128 *result)
 }
 
 /*
- * Convert 128 bit integer to numeric.
+ * 把 128 位整数转为 numeric。
  */
 static void
 int128_to_numericvar(int128 val, NumericVar *var)
@@ -8245,7 +8245,7 @@ int128_to_numericvar(int128 val, NumericVar *var)
 	NumericDigit *ptr;
 	int			ndigits;
 
-	/* int128 can require at most 39 decimal digits; add one for safety */
+	/* int128 至多需要 39 个十进制数字位；为安全加一 */
 	alloc_var(var, 40 / DEC_DIGITS);
 	if (val < 0)
 	{
@@ -8281,7 +8281,7 @@ int128_to_numericvar(int128 val, NumericVar *var)
 #endif
 
 /*
- * Convert a NumericVar to float8; if out of range, return +/- HUGE_VAL
+ * 把 NumericVar 转换为 float8；若超出范围返回 +/- HUGE_VAL
  */
 static double
 numericvar_to_double_no_overflow(const NumericVar *var)
@@ -8292,11 +8292,11 @@ numericvar_to_double_no_overflow(const NumericVar *var)
 
 	tmp = get_str_from_var(var);
 
-	/* unlike float8in, we ignore ERANGE from strtod */
+	/* 与 float8in 不同，忽略 strtod ERANGE */
 	val = strtod(tmp, &endptr);
 	if (*endptr != '\0')
 	{
-		/* shouldn't happen ... */
+		/* 不应发生…… */
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type %s: \"%s\"",

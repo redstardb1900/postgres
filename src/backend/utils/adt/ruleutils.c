@@ -8092,25 +8092,25 @@ get_name_for_var_field(Var *var, int fieldno,
 }
 
 /*
- * Try to find the referenced expression for a PARAM_EXEC Param that might
- * reference a parameter supplied by an upper NestLoop or SubPlan plan node.
+ * 尝试为 PARAM_EXEC Param 找到其引用表达式，该参数可能
+ * 引用由上层 NestLoop 或 SubPlan 计划节点提供的参数。
  *
- * If successful, return the expression and set *dpns_p and *ancestor_cell_p
- * appropriately for calling push_ancestor_plan().  If no referent can be
- * found, return NULL.
+ * 若成功，返回该表达式，并设置 *dpns_p 和 *ancestor_cell_p
+ * 以便调用 push_ancestor_plan()。若找不到引用对象，
+ * 则返回 NULL。
  */
 static Node *
 find_param_referent(Param *param, deparse_context *context,
 					deparse_namespace **dpns_p, ListCell **ancestor_cell_p)
 {
-	/* Initialize output parameters to prevent compiler warnings */
+	/* 初始化输出参数以避免编译器警告 */
 	*dpns_p = NULL;
 	*ancestor_cell_p = NULL;
 
 	/*
-	 * If it's a PARAM_EXEC parameter, look for a matching NestLoopParam or
-	 * SubPlan argument.  This will necessarily be in some ancestor of the
-	 * current expression's Plan node.
+	 * 若它是 PARAM_EXEC 参数，则寻找匹配的 NestLoopParam 或
+	 * SubPlan 实参。它必然位于当前表达式 Plan 节点
+	 * 的某个祖先处。
 	 */
 	if (param->paramkind == PARAM_EXEC)
 	{
@@ -8127,7 +8127,7 @@ find_param_referent(Param *param, deparse_context *context,
 			ListCell   *lc2;
 
 			/*
-			 * NestLoops transmit params to their inner child only.
+			 * NestLoop 只向其内层子节点传递参数。
 			 */
 			if (IsA(ancestor, NestLoop) &&
 				child_plan == innerPlan(ancestor))
@@ -8140,7 +8140,7 @@ find_param_referent(Param *param, deparse_context *context,
 
 					if (nlp->paramno == param->paramid)
 					{
-						/* Found a match, so return it */
+						/* 找到匹配，故返回它 */
 						*dpns_p = dpns;
 						*ancestor_cell_p = lc;
 						return (Node *) nlp->paramval;
@@ -8149,7 +8149,7 @@ find_param_referent(Param *param, deparse_context *context,
 			}
 
 			/*
-			 * If ancestor is a SubPlan, check the arguments it provides.
+			 * 若祖先是 SubPlan，则检查它提供的实参。
 			 */
 			if (IsA(ancestor, SubPlan))
 			{
@@ -8165,10 +8165,10 @@ find_param_referent(Param *param, deparse_context *context,
 					if (paramid == param->paramid)
 					{
 						/*
-						 * Found a match, so return it.  But, since Vars in
-						 * the arg are to be evaluated in the surrounding
-						 * context, we have to point to the next ancestor item
-						 * that is *not* a SubPlan.
+						 * 找到匹配，故返回它。但因 arg 中的
+						 * Var 是在外围上下文中求值的，
+						 * 因此我们必须指向下一个祖先项，
+						 * 且*非* SubPlan。
 						 */
 						ListCell   *rest;
 
@@ -8188,26 +8188,26 @@ find_param_referent(Param *param, deparse_context *context,
 					}
 				}
 
-				/* SubPlan isn't a kind of Plan, so skip the rest */
+				/* SubPlan 不是一种 Plan，故跳过其余 */
 				continue;
 			}
 
 			/*
-			 * We need not consider the ancestor's initPlan list, since
-			 * initplans never have any parParams.
+			 * 无须考虑祖先的 initPlan 列表，因为
+			 * initPlan 永远没有 parParams。
 			 */
 
-			/* No luck, crawl up to next ancestor */
+			/* 无果，上溯到下一祖先 */
 			child_plan = (Plan *) ancestor;
 		}
 	}
 
-	/* No referent found */
+	/* 无引用对象 */
 	return NULL;
 }
 
 /*
- * Display a Param appropriately.
+ * 恰当地显示一个 Param。
  */
 static void
 get_parameter(Param *param, deparse_context *context)
@@ -8217,33 +8217,33 @@ get_parameter(Param *param, deparse_context *context)
 	ListCell   *ancestor_cell;
 
 	/*
-	 * If it's a PARAM_EXEC parameter, try to locate the expression from which
-	 * the parameter was computed.  Note that failing to find a referent isn't
-	 * an error, since the Param might well be a subplan output rather than an
-	 * input.
+	 * 若它是 PARAM_EXEC 参数，则尝试定位计算出该参数的
+	 * 表达式。注意：找不到引用对象并非错误，
+	 * 因为该 Param 很可能是子计划的输出，而非
+	 * 输入。
 	 */
 	expr = find_param_referent(param, context, &dpns, &ancestor_cell);
 	if (expr)
 	{
-		/* Found a match, so print it */
+		/* 找到匹配，故打印它*/
 		deparse_namespace save_dpns;
 		bool		save_varprefix;
 		bool		need_paren;
 
-		/* Switch attention to the ancestor plan node */
+		/* 将注意力切换到祖先计划节点 */
 		push_ancestor_plan(dpns, ancestor_cell, &save_dpns);
 
 		/*
-		 * Force prefixing of Vars, since they won't belong to the relation
-		 * being scanned in the original plan node.
+		 * 强制为 Var 加前缀，因为它们不属于
+		 * 原计划节点正在扫描的关系。
 		 */
 		save_varprefix = context->varprefix;
 		context->varprefix = true;
 
 		/*
-		 * A Param's expansion is typically a Var, Aggref, GroupingFunc, or
-		 * upper-level Param, which wouldn't need extra parentheses.
-		 * Otherwise, insert parens to ensure the expression looks atomic.
+		 * Param 的展开结果通常是 Var、Aggref、GroupingFunc
+		 * 或上层 Param，无需额外加括号。
+		 * 否则插入括号，确保表达式看起来是原子的。
 		 */
 		need_paren = !(IsA(expr, Var) ||
 					   IsA(expr, Aggref) ||
@@ -8265,8 +8265,8 @@ get_parameter(Param *param, deparse_context *context)
 	}
 
 	/*
-	 * If it's an external parameter, see if the outermost namespace provides
-	 * function argument names.
+	 * 若它是外部参数，则查看最外层命名空间是否提供了
+	 * 函数实参名。
 	 */
 	if (param->paramkind == PARAM_EXTERN && context->namespaces != NIL)
 	{
@@ -8283,10 +8283,10 @@ get_parameter(Param *param, deparse_context *context)
 				ListCell   *lc;
 
 				/*
-				 * Qualify the parameter name if there are any other deparse
-				 * namespaces with range tables.  This avoids qualifying in
-				 * trivial cases like "RETURN a + b", but makes it safe in all
-				 * other cases.
+				 * 若还有其他带范围表的反解析命名空间，则
+				 * 就给参数名加模式限定。这样在
+				 * 诸如 "RETURN a + b" 这类平凡情形下不会限定，
+				 * 其余情形都安全。
 				 */
 				foreach(lc, context->namespaces)
 				{
@@ -8311,7 +8311,7 @@ get_parameter(Param *param, deparse_context *context)
 	}
 
 	/*
-	 * Not PARAM_EXEC, or couldn't find referent: just print $N.
+	 * 非 PARAM_EXEC 或找不到引用对象：打印 $N。
 	 */
 	appendStringInfo(context->buf, "$%d", param->paramid);
 }
@@ -8319,8 +8319,8 @@ get_parameter(Param *param, deparse_context *context)
 /*
  * get_simple_binary_op_name
  *
- * helper function for isSimpleNode
- * will return single char binary operator name, or NULL if it's not
+ * isSimpleNode 的辅助函数
+ * 若是单字符二元操作符则返回其名，否则返回 NULL
  */
 static const char *
 get_simple_binary_op_name(OpExpr *expr)
@@ -8329,7 +8329,7 @@ get_simple_binary_op_name(OpExpr *expr)
 
 	if (list_length(args) == 2)
 	{
-		/* binary operator */
+		/* 二元操作符 */
 		Node	   *arg1 = (Node *) linitial(args);
 		Node	   *arg2 = (Node *) lsecond(args);
 		const char *op;
@@ -8343,10 +8343,10 @@ get_simple_binary_op_name(OpExpr *expr)
 
 
 /*
- * isSimpleNode - check if given node is simple (doesn't need parenthesizing)
+ * isSimpleNode - 检查给定节点是否简单（无需加括号）
  *
- *	true   : simple in the context of parent node's type
- *	false  : not simple
+ *	true  : 在父节点类型语境下是简单的
+ *	false : 不简单
  */
 static bool
 isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
@@ -8362,7 +8362,7 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 		case T_CoerceToDomainValue:
 		case T_SetToDefault:
 		case T_CurrentOfExpr:
-			/* single words: always simple */
+			/* 单词：总是简单的 */
 			return true;
 
 		case T_SubscriptingRef:
@@ -8379,30 +8379,30 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 		case T_WindowFunc:
 		case T_FuncExpr:
 		case T_JsonConstructorExpr:
-			/* function-like: name(..) or name[..] */
+			/* 函数式：name(..) 或 name[..] */
 			return true;
 
-			/* CASE keywords act as parentheses */
+			/* CASE 关键字起括号作用 */
 		case T_CaseExpr:
 			return true;
 
 		case T_FieldSelect:
 
 			/*
-			 * appears simple since . has top precedence, unless parent is
-			 * T_FieldSelect itself!
+			 * 看似简单，因 . 优先级最高，除非父节点是
+			 * T_FieldSelect！
 			 */
 			return !IsA(parentNode, FieldSelect);
 
 		case T_FieldStore:
 
 			/*
-			 * treat like FieldSelect (probably doesn't matter)
+			 * 按 FieldSelect 处理（多半无关紧要）
 			 */
 			return !IsA(parentNode, FieldStore);
 
 		case T_CoerceToDomain:
-			/* maybe simple, check args */
+			/* 可能简单，查参数 */
 			return isSimpleNode((Node *) ((CoerceToDomain *) node)->arg,
 								node, prettyFlags);
 		case T_RelabelType:
@@ -8420,7 +8420,7 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 
 		case T_OpExpr:
 			{
-				/* depends on parent node type; needs further checking */
+				/* 取决于父节点类型；需进一步检查 */
 				if (prettyFlags & PRETTYFLAG_PAREN && IsA(parentNode, OpExpr))
 				{
 					const char *op;
@@ -8434,7 +8434,7 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 					if (!op)
 						return false;
 
-					/* We know only the basic operators + - and * / % */
+					/* 我们只知道基本操作符 + - 和 * / % */
 					is_lopriop = (strchr("+-", *op) != NULL);
 					is_hipriop = (strchr("*/%", *op) != NULL);
 					if (!(is_lopriop || is_hipriop))
@@ -8450,21 +8450,21 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 						return false;
 
 					if (is_hipriop && is_lopriparent)
-						return true;	/* op binds tighter than parent */
+						return true;	/* 该操作符结合更紧 */
 
 					if (is_lopriop && is_hipriparent)
 						return false;
 
 					/*
-					 * Operators are same priority --- can skip parens only if
-					 * we have (a - b) - c, not a - (b - c).
+					 * 操作符同优先级 --- 仅当是 (a - b) - c
+					 * 才能省略，而非 a - (b - c)。
 					 */
 					if (node == (Node *) linitial(((OpExpr *) parentNode)->args))
 						return true;
 
 					return false;
 				}
-				/* else do the same stuff as for T_SubLink et al. */
+				/* 否则按 T_SubLink 等的方式做同样处理*/
 			}
 			/* FALLTHROUGH */
 
@@ -8477,27 +8477,27 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 			{
 				case T_FuncExpr:
 					{
-						/* special handling for casts and COERCE_SQL_SYNTAX */
+						/* 强制转换与 COERCE_SQL_SYNTAX 特殊处理 */
 						CoercionForm type = ((FuncExpr *) parentNode)->funcformat;
 
 						if (type == COERCE_EXPLICIT_CAST ||
 							type == COERCE_IMPLICIT_CAST ||
 							type == COERCE_SQL_SYNTAX)
 							return false;
-						return true;	/* own parentheses */
+						return true;	/* 自带括号 */
 					}
-				case T_BoolExpr:	/* lower precedence */
-				case T_SubscriptingRef: /* other separators */
-				case T_ArrayExpr:	/* other separators */
-				case T_RowExpr: /* other separators */
-				case T_CoalesceExpr:	/* own parentheses */
-				case T_MinMaxExpr:	/* own parentheses */
-				case T_XmlExpr: /* own parentheses */
-				case T_NullIfExpr:	/* other separators */
-				case T_Aggref:	/* own parentheses */
-				case T_GroupingFunc:	/* own parentheses */
-				case T_WindowFunc:	/* own parentheses */
-				case T_CaseExpr:	/* other separators */
+				case T_BoolExpr:	/* 优先级更低 */
+				case T_SubscriptingRef: /* 其他分隔符 */
+				case T_ArrayExpr:	/* 其他分隔符 */
+				case T_RowExpr: /* 其他分隔符 */
+				case T_CoalesceExpr:	/* 自带括号 */
+				case T_MinMaxExpr:	/* 自带括号 */
+				case T_XmlExpr: /* 自带括号 */
+				case T_NullIfExpr:	/* 其他分隔符 */
+				case T_Aggref:	/* 自带括号 */
+				case T_GroupingFunc:	/* 自带括号 */
+				case T_WindowFunc:	/* 自带括号 */
+				case T_CaseExpr:	/* 其他分隔符 */
 					return true;
 				default:
 					return false;
@@ -8530,49 +8530,49 @@ isSimpleNode(Node *node, Node *parentNode, int prettyFlags)
 					return false;
 				case T_FuncExpr:
 					{
-						/* special handling for casts and COERCE_SQL_SYNTAX */
+						/* 强制转换与 COERCE_SQL_SYNTAX 特殊处理 */
 						CoercionForm type = ((FuncExpr *) parentNode)->funcformat;
 
 						if (type == COERCE_EXPLICIT_CAST ||
 							type == COERCE_IMPLICIT_CAST ||
 							type == COERCE_SQL_SYNTAX)
 							return false;
-						return true;	/* own parentheses */
+						return true;	/* 自带括号 */
 					}
-				case T_SubscriptingRef: /* other separators */
-				case T_ArrayExpr:	/* other separators */
-				case T_RowExpr: /* other separators */
-				case T_CoalesceExpr:	/* own parentheses */
-				case T_MinMaxExpr:	/* own parentheses */
-				case T_XmlExpr: /* own parentheses */
-				case T_NullIfExpr:	/* other separators */
-				case T_Aggref:	/* own parentheses */
-				case T_GroupingFunc:	/* own parentheses */
-				case T_WindowFunc:	/* own parentheses */
-				case T_CaseExpr:	/* other separators */
+				case T_SubscriptingRef: /* 其他分隔符 */
+				case T_ArrayExpr:	/* 其他分隔符 */
+				case T_RowExpr: /* 其他分隔符 */
+				case T_CoalesceExpr:	/* 自带括号 */
+				case T_MinMaxExpr:	/* 自带括号 */
+				case T_XmlExpr: /* 自带括号 */
+				case T_NullIfExpr:	/* 其他分隔符 */
+				case T_Aggref:	/* 自带括号 */
+				case T_GroupingFunc:	/* 自带括号 */
+				case T_WindowFunc:	/* 自带括号 */
+				case T_CaseExpr:	/* 其他分隔符 */
 					return true;
 				default:
 					return false;
 			}
 
 		case T_JsonValueExpr:
-			/* maybe simple, check args */
+			/* 可能简单，查参数 */
 			return isSimpleNode((Node *) ((JsonValueExpr *) node)->raw_expr,
 								node, prettyFlags);
 
 		default:
 			break;
 	}
-	/* those we don't know: in dubio complexo */
+	/* 不认识的：存疑按复杂处理 */
 	return false;
 }
 
 
 /*
- * appendContextKeyword - append a keyword to buffer
+ * appendContextKeyword - 向缓冲区追加关键字
  *
- * If prettyPrint is enabled, perform a line break, and adjust indentation.
- * Otherwise, just append the keyword.
+ * 若启用了美化打印，则执行换行并调整缩进。
+ * 否则只追加关键字。
  */
 static void
 appendContextKeyword(deparse_context *context, const char *str,
@@ -8586,9 +8586,9 @@ appendContextKeyword(deparse_context *context, const char *str,
 
 		context->indentLevel += indentBefore;
 
-		/* remove any trailing spaces currently in the buffer ... */
+		/* 先去掉缓冲区中现有的尾部空格 ... */
 		removeStringInfoSpaces(buf);
-		/* ... then add a newline and some spaces */
+		/*... 然后加一个换行和若干空格*/
 		appendStringInfoChar(buf, '\n');
 
 		if (context->indentLevel < PRETTYINDENT_LIMIT)
@@ -8596,19 +8596,19 @@ appendContextKeyword(deparse_context *context, const char *str,
 		else
 		{
 			/*
-			 * If we're indented more than PRETTYINDENT_LIMIT characters, try
-			 * to conserve horizontal space by reducing the per-level
-			 * indentation.  For best results the scale factor here should
-			 * divide all the indent amounts that get added to indentLevel
-			 * (PRETTYINDENT_STD, etc).  It's important that the indentation
-			 * not grow unboundedly, else deeply-nested trees use O(N^2)
-			 * whitespace; so we also wrap modulo PRETTYINDENT_LIMIT.
+			 * 若缩进超过 PRETTYINDENT_LIMIT 个字符，则尝试
+			 * 通过减小每级缩进量来节省水平空间。
+			 * 为获得最佳效果，此处的比例因子必须能整除
+			 * 加入 indentLevel 的所有缩进量
+			 * （PRETTYINDENT_STD 等）。重要的是缩进量
+			 * 不能无界增长，否则深嵌套树会耗 O(N^2)
+			 * 个空白；故按 PRETTYINDENT_LIMIT 取模折行。
 			 */
 			indentAmount = PRETTYINDENT_LIMIT +
 				(context->indentLevel - PRETTYINDENT_LIMIT) /
 				(PRETTYINDENT_STD / 2);
 			indentAmount %= PRETTYINDENT_LIMIT;
-			/* scale/wrap logic affects indentLevel, but not indentPlus */
+			/* 缩放/折行逻辑改 indentLevel，不改 indentPlus */
 			indentAmount += indentPlus;
 		}
 		appendStringInfoSpaces(buf, indentAmount);
@@ -8624,9 +8624,9 @@ appendContextKeyword(deparse_context *context, const char *str,
 }
 
 /*
- * removeStringInfoSpaces - delete trailing spaces from a buffer.
+ * removeStringInfoSpaces - 从缓冲区删除尾部空格。
  *
- * Possibly this should move to stringinfo.c at some point.
+ * 将来或许应把此函数移到 stringinfo.c。
  */
 static void
 removeStringInfoSpaces(StringInfo str)
@@ -8637,15 +8637,15 @@ removeStringInfoSpaces(StringInfo str)
 
 
 /*
- * get_rule_expr_paren	- deparse expr using get_rule_expr,
- * embracing the string with parentheses if necessary for prettyPrint.
+ * get_rule_expr_paren	- 用 get_rule_expr 反解析表达式，
+ * 必要时为美化打印给字符串加上括号。
  *
- * Never embrace if prettyFlags=0, because it's done in the calling node.
+ * prettyFlags=0 时绝不加括号，因为调用节点会这样做。
  *
- * Any node that does *not* embrace its argument node by sql syntax (with
- * parentheses, non-operator keywords like CASE/WHEN/ON, or comma etc) should
- * use get_rule_expr_paren instead of get_rule_expr so parentheses can be
- * added.
+ * 凡*未*以 SQL 语法（括号、CASE/WHEN/ON 等
+ * 非操作符关键字或逗号）包住其参数节点的节点，都应
+ * 改用 get_rule_expr_paren 而非 get_rule_expr，以便加上括号。
+ *
  */
 static void
 get_rule_expr_paren(Node *node, deparse_context *context,
@@ -8667,16 +8667,16 @@ get_rule_expr_paren(Node *node, deparse_context *context,
 
 
 /* ----------
- * get_rule_expr			- Parse back an expression
+ * get_rule_expr			- 反解析表达式
  *
- * Note: showimplicit determines whether we display any implicit cast that
- * is present at the top of the expression tree.  It is a passed argument,
- * not a field of the context struct, because we change the value as we
- * recurse down into the expression.  In general we suppress implicit casts
- * when the result type is known with certainty (eg, the arguments of an
- * OR must be boolean).  We display implicit casts for arguments of functions
- * and operators, since this is needed to be certain that the same function
- * or operator will be chosen when the expression is re-parsed.
+ * 注意：showimplicit 决定是否显示位于表达式树顶部的
+ * 隐式转换。它是传入的实参，不是结构体字段，
+ * 因为在向下递归表达式时我们会改变它的值。
+ * 一般而言，当结果类型确定无疑时我们会抑制隐式转换
+ * （如 OR 的实参必须为布尔）。函数与操作符的实参
+ * 则显示隐式转换，因为需要保证表达式重新解析时
+ * 会选中相同的函数或操作符。
+ *
  * ----------
  */
 static void
@@ -8688,16 +8688,16 @@ get_rule_expr(Node *node, deparse_context *context,
 	if (node == NULL)
 		return;
 
-	/* Guard against excessively long or deeply-nested queries */
+	/* 防范过长或嵌套过深的查询 */
 	CHECK_FOR_INTERRUPTS();
 	check_stack_depth();
 
 	/*
-	 * Each level of get_rule_expr must emit an indivisible term
-	 * (parenthesized if necessary) to ensure result is reparsed into the same
-	 * expression tree.  The only exception is that when the input is a List,
-	 * we emit the component items comma-separated with no surrounding
-	 * decoration; this is convenient for most callers.
+	 * get_rule_expr 每层都必须输出一个不可分割的项
+	 * （必要时加括号），以确保结果重新解析后得到同一
+	 * 表达式树。唯一的例外是当输入为 List 时，
+	 * 我们以逗号分隔输出各组件项，无外围装饰；
+	 * 这对大多数调用者都很方便。
 	 */
 	switch (nodeTag(node))
 	{
@@ -8737,12 +8737,12 @@ get_rule_expr(Node *node, deparse_context *context,
 				bool		need_parens;
 
 				/*
-				 * If the argument is a CaseTestExpr, we must be inside a
-				 * FieldStore, ie, we are assigning to an element of an array
-				 * within a composite column.  Since we already punted on
-				 * displaying the FieldStore's target information, just punt
-				 * here too, and display only the assignment source
-				 * expression.
+				 * 若实参是 CaseTestExpr，我们必处于 FieldStore
+				 * 内部，即正在给复合列中数组的元素赋值。
+				 * 既然已放弃显示 FieldStore 的目标信息，
+				 * 这里也同样从简，
+				 * 只显示赋值源表达式。
+				 *
 				 */
 				if (IsA(sbsref->refexpr, CaseTestExpr))
 				{
@@ -8753,10 +8753,10 @@ get_rule_expr(Node *node, deparse_context *context,
 				}
 
 				/*
-				 * Parenthesize the argument unless it's a simple Var or a
-				 * FieldSelect.  (In particular, if it's another
-				 * SubscriptingRef, we *must* parenthesize to avoid
-				 * confusion.)
+				 * 除非实参是简单 Var 或 FieldSelect，否则
+				 * 都要加括号。（尤其是另一个
+				 * SubscriptingRef 时必须加括号以免混淆）
+				 *
 				 */
 				need_parens = !IsA(sbsref->refexpr, Var) &&
 					!IsA(sbsref->refexpr, FieldSelect);
@@ -8767,23 +8767,23 @@ get_rule_expr(Node *node, deparse_context *context,
 					appendStringInfoChar(buf, ')');
 
 				/*
-				 * If there's a refassgnexpr, we want to print the node in the
-				 * format "container[subscripts] := refassgnexpr".  This is
-				 * not legal SQL, so decompilation of INSERT or UPDATE
-				 * statements should always use processIndirection as part of
-				 * the statement-level syntax.  We should only see this when
-				 * EXPLAIN tries to print the targetlist of a plan resulting
-				 * from such a statement.
+				 * 若存在 refassgnexpr，我们要把该节点打印成
+				 * "container[subscripts] := refassgnexpr" 的形式。
+				 * 这不是合法 SQL，INSERT/UPDATE 语句反解析
+				 * 应始终把 processIndirection 用作语句级
+				 * 语法的一部分。仅当 EXPLAIN 要打印
+				 * 产生的计划目标列表时才会遇到它。
+				 *
 				 */
 				if (sbsref->refassgnexpr)
 				{
 					Node	   *refassgnexpr;
 
 					/*
-					 * Use processIndirection to print this node's subscripts
-					 * as well as any additional field selections or
-					 * subscripting in immediate descendants.  It returns the
-					 * RHS expr that is actually being "assigned".
+					 * 用 processIndirection 打印本节点的下标，
+					 * 以及直接后代中额外的字段选择或
+					 * 下标操作。它返回实际正在被"赋值"的
+					 * RHS 表达式。
 					 */
 					refassgnexpr = processIndirection(node, context);
 					appendStringInfoString(buf, " := ");
@@ -8791,7 +8791,7 @@ get_rule_expr(Node *node, deparse_context *context,
 				}
 				else
 				{
-					/* Just an ordinary container fetch, so print subscripts */
+					/* 只是普通的容器读取，故打印下标 */
 					printSubscripts(sbsref, context);
 				}
 			}
@@ -8859,16 +8859,16 @@ get_rule_expr(Node *node, deparse_context *context,
 				get_rule_expr_paren(arg2, context, true, node);
 
 				/*
-				 * There's inherent ambiguity in "x op ANY/ALL (y)" when y is
-				 * a bare sub-SELECT.  Since we're here, the sub-SELECT must
-				 * be meant as a scalar sub-SELECT yielding an array value to
-				 * be used in ScalarArrayOpExpr; but the grammar will
-				 * preferentially interpret such a construct as an ANY/ALL
-				 * SubLink.  To prevent misparsing the output that way, insert
-				 * a dummy coercion (which will be stripped by parse analysis,
-				 * so no inefficiency is added in dump and reload).  This is
-				 * indeed most likely what the user wrote to get the construct
-				 * accepted in the first place.
+				 * "x op ANY/ALL (y)" 在 y 是裸子 SELECT 时存在
+				 * 有固有歧义。既然在这里，子 SELECT 必然
+				 * 是打算作为产生数组值的标量子 SELECT，供
+				 * ScalarArrayOpExpr 使用；但文法会优先
+				 * 解释成 ANY/ALL SubLink。为防输出被误解析，
+				 * 可插入哑强制转换（解析分析会将其剥离，
+				 * 故转储重载不会增加
+				 * 低效）。这多半正是用户当初写出这种写法
+				 * 而让该构造被接受。
+				 *
 				 */
 				if (IsA(arg2, SubLink) &&
 					((SubLink *) arg2)->subLinkType == EXPR_SUBLINK)
@@ -8945,10 +8945,10 @@ get_rule_expr(Node *node, deparse_context *context,
 				SubPlan    *subplan = (SubPlan *) node;
 
 				/*
-				 * We cannot see an already-planned subplan in rule deparsing,
-				 * only while EXPLAINing a query plan.  We don't try to
-				 * reconstruct the original SQL, just reference the subplan
-				 * that appears elsewhere in EXPLAIN's result.
+				 * 规则反解析中看不到已计划好的子计划，
+				 * 只在 EXPLAIN 查询计划时出现。我们不
+				 * 尝试重建原始 SQL，只引用 EXPLAIN 结果中
+				 * 其他地方出现的那个子计划。
 				 */
 				if (subplan->useHashTable)
 					appendStringInfo(buf, "(hashed %s)", subplan->plan_name);
@@ -8963,10 +8963,10 @@ get_rule_expr(Node *node, deparse_context *context,
 				ListCell   *lc;
 
 				/*
-				 * This case cannot be reached in normal usage, since no
-				 * AlternativeSubPlan can appear either in parsetrees or
-				 * finished plan trees.  We keep it just in case somebody
-				 * wants to use this code to print planner data structures.
+				 * 正常用法中走不到此分支，因为没有
+				 * AlternativeSubPlan 会出现在解析树或最终
+				 * 计划树中。我们保留此分支以防有人想用
+				 * 这段代码来打印规划器数据结构。
 				 */
 				appendStringInfoString(buf, "(alternatives: ");
 				foreach(lc, asplan->subplans)
@@ -8993,10 +8993,10 @@ get_rule_expr(Node *node, deparse_context *context,
 				bool		need_parens;
 
 				/*
-				 * Parenthesize the argument unless it's an SubscriptingRef or
-				 * another FieldSelect.  Note in particular that it would be
-				 * WRONG to not parenthesize a Var argument; simplicity is not
-				 * the issue here, having the right number of names is.
+				 * 除非实参是 SubscriptingRef 或另一个
+				 * FieldSelect，否则都加括号。尤其注意：不给
+				 * Var 实参加括号是*错误*的；关键不在
+				 * 简单与否，而在名字数量是否正确。
 				 */
 				need_parens = !IsA(arg, SubscriptingRef) &&
 					!IsA(arg, FieldSelect);
@@ -9007,7 +9007,7 @@ get_rule_expr(Node *node, deparse_context *context,
 					appendStringInfoChar(buf, ')');
 
 				/*
-				 * Get and print the field name.
+				 * 取得并打印字段名。
 				 */
 				fieldname = get_name_for_var_field((Var *) arg, fno,
 												   0, context);
@@ -9021,23 +9021,23 @@ get_rule_expr(Node *node, deparse_context *context,
 				bool		need_parens;
 
 				/*
-				 * There is no good way to represent a FieldStore as real SQL,
-				 * so decompilation of INSERT or UPDATE statements should
-				 * always use processIndirection as part of the
-				 * statement-level syntax.  We should only get here when
-				 * EXPLAIN tries to print the targetlist of a plan resulting
-				 * from such a statement.  The plan case is even harder than
-				 * ordinary rules would be, because the planner tries to
-				 * collapse multiple assignments to the same field or subfield
-				 * into one FieldStore; so we can see a list of target fields
-				 * not just one, and the arguments could be FieldStores
-				 * themselves.  We don't bother to try to print the target
-				 * field names; we just print the source arguments, with a
-				 * ROW() around them if there's more than one.  This isn't
-				 * terribly complete, but it's probably good enough for
-				 * EXPLAIN's purposes; especially since anything more would be
-				 * either hopelessly confusing or an even poorer
-				 * representation of what the plan is actually doing.
+				 * 没有好办法把 FieldStore 表示成真正的 SQL，
+				 * 因此 INSERT 或 UPDATE 语句的反解析应始终
+				 * 把 processIndirection 用作语句级语
+				 * 法的一部分。仅当 EXPLAIN 打印由此类语句
+				 * 产生的计划目标列表时才会遇到它。
+				 * 计划情形比普通规则更棘手，因为规划
+				 * 器会把对同一字段或子字段的多次赋值
+				 * 合并成一个 FieldStore；因此我们看到的
+				 * 目标字段是一个列表而不止一个，且实参
+				 * 本身也可能是 FieldStore。
+				 * 我们懒得去打印目标字段名，只打印来源
+				 * 实参，多于一个时给它们套上 ROW()。
+				 * 这并不十分完整，但对 EXPLAIN 的用途而言
+				 * 多半已够用；何况再多做只会要么令人
+				 * 更加困惑，要么把计划实际在做的事表达得
+				 * 甚至更糟。
+				 *
 				 */
 				need_parens = (list_length(fstore->newvals) != 1);
 				if (need_parens)
@@ -9056,7 +9056,7 @@ get_rule_expr(Node *node, deparse_context *context,
 				if (relabel->relabelformat == COERCE_IMPLICIT_CAST &&
 					!showimplicit)
 				{
-					/* don't show the implicit cast */
+					/* 不显示隐式转换 */
 					get_rule_expr_paren(arg, context, false, node);
 				}
 				else
@@ -9077,7 +9077,7 @@ get_rule_expr(Node *node, deparse_context *context,
 				if (iocoerce->coerceformat == COERCE_IMPLICIT_CAST &&
 					!showimplicit)
 				{
-					/* don't show the implicit cast */
+					/* 不显示隐式转换 */
 					get_rule_expr_paren(arg, context, false, node);
 				}
 				else
@@ -9098,7 +9098,7 @@ get_rule_expr(Node *node, deparse_context *context,
 				if (acoerce->coerceformat == COERCE_IMPLICIT_CAST &&
 					!showimplicit)
 				{
-					/* don't show the implicit cast */
+					/* 不显示隐式转换 */
 					get_rule_expr_paren(arg, context, false, node);
 				}
 				else
@@ -9119,7 +9119,7 @@ get_rule_expr(Node *node, deparse_context *context,
 				if (convert->convertformat == COERCE_IMPLICIT_CAST &&
 					!showimplicit)
 				{
-					/* don't show the implicit cast */
+					/* 不显示隐式转换 */
 					get_rule_expr_paren(arg, context, false, node);
 				}
 				else
@@ -9166,16 +9166,16 @@ get_rule_expr(Node *node, deparse_context *context,
 					if (caseexpr->arg)
 					{
 						/*
-						 * The parser should have produced WHEN clauses of the
-						 * form "CaseTestExpr = RHS", possibly with an
-						 * implicit coercion inserted above the CaseTestExpr.
-						 * For accurate decompilation of rules it's essential
-						 * that we show just the RHS.  However in an
-						 * expression that's been through the optimizer, the
-						 * WHEN clause could be almost anything (since the
-						 * equality operator could have been expanded into an
-						 * inline function).  If we don't recognize the form
-						 * of the WHEN clause, just punt and display it as-is.
+						 * 解析器产生的 WHEN 子句应当形如
+						 * "CaseTestExpr = RHS"，且可能在
+						 * CaseTestExpr 之上插入了隐式转换。
+						 * 要准确反解析规则就必须只显示 RHS。
+						 * 但在经过优化器的表达式里，WHEN
+						 * 子句几乎可以是任何形式（因为相等
+						 * 操作符可能被展开成内联函数）。若
+						 *
+						 * 我们认不出 WHEN 子句的形式，
+						 * 就直接敷衍了事，原样显示。
 						 */
 						if (IsA(w, OpExpr))
 						{
@@ -9211,11 +9211,11 @@ get_rule_expr(Node *node, deparse_context *context,
 		case T_CaseTestExpr:
 			{
 				/*
-				 * Normally we should never get here, since for expressions
-				 * that can contain this node type we attempt to avoid
-				 * recursing to it.  But in an optimized expression we might
-				 * be unable to avoid that (see comments for CaseExpr).  If we
-				 * do see one, print it as CASE_TEST_EXPR.
+				 * 正常时到不了这里，因为对可含此节点
+				 * 类型的表达式我们会尽量避免递归。
+				 * 但在优化后的表达式中可能无法避免（见
+				 * CaseExpr 的注释）。如果确实遇到一个，
+				 * 就把它打印成 CASE_TEST_EXPR。
 				 */
 				appendStringInfoString(buf, "CASE_TEST_EXPR");
 			}
@@ -9230,9 +9230,9 @@ get_rule_expr(Node *node, deparse_context *context,
 				appendStringInfoChar(buf, ']');
 
 				/*
-				 * If the array isn't empty, we assume its elements are
-				 * coerced to the desired type.  If it's empty, though, we
-				 * need an explicit coercion to the array type.
+				 * 若数组非空，则假定元素已被转换成所需
+				 * 类型。但如果为空，就需要显式的转换
+				 * 成数组类型。
 				 */
 				if (arrayexpr->elements == NIL)
 					appendStringInfo(buf, "::%s",
@@ -9249,9 +9249,9 @@ get_rule_expr(Node *node, deparse_context *context,
 				char	   *sep;
 
 				/*
-				 * If it's a named type and not RECORD, we may have to skip
-				 * dropped columns and/or claim there are NULLs for added
-				 * columns.
+				 * 若为具名类型且非 RECORD，可能须跳过
+				 * 被删除的列和/或为新增列补上 NULL。
+				 *
 				 */
 				if (rowexpr->row_typeid != RECORDOID)
 				{
@@ -9260,8 +9260,8 @@ get_rule_expr(Node *node, deparse_context *context,
 				}
 
 				/*
-				 * SQL99 allows "ROW" to be omitted when there is more than
-				 * one column, but for simplicity we always print it.
+				 * SQL99 允许在多于一个列时省略 "ROW"，
+				 * 但为简单起见我们总是打印它。
 				 */
 				appendStringInfoString(buf, "ROW(");
 				sep = "";
@@ -9274,7 +9274,7 @@ get_rule_expr(Node *node, deparse_context *context,
 						!TupleDescAttr(tupdesc, i)->attisdropped)
 					{
 						appendStringInfoString(buf, sep);
-						/* Whole-row Vars need special treatment here */
+						/* 整行 Var 在此处需要特殊处理 */
 						get_rule_expr_toplevel(e, context, true);
 						sep = ", ";
 					}
@@ -9307,20 +9307,20 @@ get_rule_expr(Node *node, deparse_context *context,
 				RowCompareExpr *rcexpr = (RowCompareExpr *) node;
 
 				/*
-				 * SQL99 allows "ROW" to be omitted when there is more than
-				 * one column, but for simplicity we always print it.  Within
-				 * a ROW expression, whole-row Vars need special treatment, so
-				 * use get_rule_list_toplevel.
+				 * SQL99 允许在多于一个列时省略 "ROW"，
+				 * 但为简单起见我们总是打印它。在 ROW 表达
+				 * 式中，整行 Var 需要特殊处理，所以要用
+				 * get_rule_list_toplevel。
 				 */
 				appendStringInfoString(buf, "(ROW(");
 				get_rule_list_toplevel(rcexpr->largs, context, true);
 
 				/*
-				 * We assume that the name of the first-column operator will
-				 * do for all the rest too.  This is definitely open to
-				 * failure, eg if some but not all operators were renamed
-				 * since the construct was parsed, but there seems no way to
-				 * be perfect.
+				 * 假定第一列的操作符名对其余的也同样适用。
+				 * 这肯定可能失败，例如解析后仅部分操作符
+				 * 被改名；但似乎没有十全的办法。
+				 *
+				 *
 				 */
 				appendStringInfo(buf, ") %s ROW(",
 								 generate_operator_name(linitial_oid(rcexpr->opnos),
@@ -9364,8 +9364,8 @@ get_rule_expr(Node *node, deparse_context *context,
 				SQLValueFunction *svf = (SQLValueFunction *) node;
 
 				/*
-				 * Note: this code knows that typmod for time, timestamp, and
-				 * timestamptz just prints as integer.
+				 * 注意：本代码知道 time、timestamp 与 timestamptz
+				 * 的 typmod 只打印成整数。
 				 */
 				switch (svf->op)
 				{
@@ -9502,7 +9502,7 @@ get_rule_expr(Node *node, deparse_context *context,
 						case IS_XMLFOREST:
 						case IS_XMLPI:
 						case IS_XMLSERIALIZE:
-							/* no extra decoration needed */
+							/* 无需额外装饰 */
 							get_rule_expr((Node *) xexpr->args, context, true);
 							break;
 						case IS_XMLPARSE:
@@ -9536,7 +9536,7 @@ get_rule_expr(Node *node, deparse_context *context,
 
 							con = lthird_node(Const, xexpr->args);
 							if (con->constisnull)
-								 /* suppress STANDALONE NO VALUE */ ;
+								 /* 抑制 STANDALONE NO VALUE */ ;
 							else
 							{
 								switch (DatumGetInt32(con->constvalue))
@@ -9590,10 +9590,10 @@ get_rule_expr(Node *node, deparse_context *context,
 				get_rule_expr_paren((Node *) ntest->arg, context, true, node);
 
 				/*
-				 * For scalar inputs, we prefer to print as IS [NOT] NULL,
-				 * which is shorter and traditional.  If it's a rowtype input
-				 * but we're applying a scalar test, must print IS [NOT]
-				 * DISTINCT FROM NULL to be semantically correct.
+				 * 对标量输入，我们更愿打印成 IS [NOT] NULL，
+				 * 这样更短也更传统。若输入是行类型但我们
+				 * 在做标量测试，则必须打印 IS [NOT]
+				 * DISTINCT FROM NULL 才语义正确。
 				 */
 				if (ntest->argisrow ||
 					!type_is_rowtype(exprType((Node *) ntest->arg)))
@@ -9675,7 +9675,7 @@ get_rule_expr(Node *node, deparse_context *context,
 				if (ctest->coercionformat == COERCE_IMPLICIT_CAST &&
 					!showimplicit)
 				{
-					/* don't show the implicit cast */
+					/* 不显示隐式转换 */
 					get_rule_expr(arg, context, false);
 				}
 				else
@@ -9714,8 +9714,8 @@ get_rule_expr(Node *node, deparse_context *context,
 				NextValueExpr *nvexpr = (NextValueExpr *) node;
 
 				/*
-				 * This isn't exactly nextval(), but that seems close enough
-				 * for EXPLAIN's purposes.
+				 * 这并不真是 nextval()，但似乎够接近了，
+				 * 对 EXPLAIN 而言。
 				 */
 				appendStringInfoString(buf, "nextval(");
 				simple_quote_literal(buf,
@@ -9732,15 +9732,15 @@ get_rule_expr(Node *node, deparse_context *context,
 				bool		need_parens;
 
 				/*
-				 * InferenceElem can only refer to target relation, so a
-				 * prefix is not useful, and indeed would cause parse errors.
+				 * InferenceElem 只能引用目标关系，因此前缀
+				 * 没有用处，而且实际上会导致解析错误。
 				 */
 				save_varprefix = context->varprefix;
 				context->varprefix = false;
 
 				/*
-				 * Parenthesize the element unless it's a simple Var or a bare
-				 * function call.  Follows pg_get_indexdef_worker().
+				 * 除非是简单 Var 或裸函数调用，否则都给元素加
+				 * 括号。遵循 pg_get_indexdef_worker()。
 				 */
 				need_parens = !IsA(iexpr->expr, Var);
 				if (IsA(iexpr->expr, FuncExpr) &&
@@ -9761,7 +9761,7 @@ get_rule_expr(Node *node, deparse_context *context,
 					appendStringInfo(buf, " COLLATE %s",
 									 generate_collation_name(iexpr->infercollid));
 
-				/* Add the operator class name, if not default */
+				/* 若非默认则添加操作符类名 */
 				if (iexpr->inferopclass)
 				{
 					Oid			inferopclass = iexpr->inferopclass;
@@ -9855,7 +9855,7 @@ get_rule_expr(Node *node, deparse_context *context,
 
 				appendStringInfoString(context->buf, " IS JSON");
 
-				/* TODO: handle FORMAT clause */
+				/* TODO：处理 FORMAT 子句*/
 
 				switch (pred->item_type)
 				{
@@ -9906,15 +9906,15 @@ get_rule_expr(Node *node, deparse_context *context,
 }
 
 /*
- * get_rule_expr_toplevel		- Parse back a toplevel expression
+ * get_rule_expr_toplevel		- 反解析顶层表达式
  *
- * Same as get_rule_expr(), except that if the expr is just a Var, we pass
- * istoplevel = true not false to get_variable().  This causes whole-row Vars
- * to get printed with decoration that will prevent expansion of "*".
- * We need to use this in contexts such as ROW() and VALUES(), where the
- * parser would expand "foo.*" appearing at top level.  (In principle we'd
- * use this in get_target_list() too, but that has additional worries about
- * whether to print AS, so it needs to invoke get_variable() directly anyway.)
+ * 与 get_rule_expr() 一样，区别是若表达式只是一个 Var，
+ * 则以 istoplevel = true（而非 false）传给 get_variable()。
+ * 这使整行 Var 打印时带有防止 "*" 展开的装饰。
+ * 在 ROW() 与 VALUES() 这类场景中需要用它，因为解析器
+ * 会把出现在顶层的 "foo.*" 展开。（原则上
+ * get_target_list() 中也该用它，但它还要多操心
+ * 要不要打印 AS，所以反正得直接调用 get_variable()。）
  */
 static void
 get_rule_expr_toplevel(Node *node, deparse_context *context,
@@ -9927,12 +9927,12 @@ get_rule_expr_toplevel(Node *node, deparse_context *context,
 }
 
 /*
- * get_rule_list_toplevel		- Parse back a list of toplevel expressions
+ * get_rule_list_toplevel		- 反解析顶层表达式列表
  *
- * Apply get_rule_expr_toplevel() to each element of a List.
+ * 对 List 的每个元素应用 get_rule_expr_toplevel()。
  *
- * This adds commas between the expressions, but caller is responsible
- * for printing surrounding decoration.
+ * 本函数会在表达式之间加逗号，但外围装饰
+ * 由调用者负责打印。
  */
 static void
 get_rule_list_toplevel(List *lst, deparse_context *context,
@@ -9953,16 +9953,16 @@ get_rule_list_toplevel(List *lst, deparse_context *context,
 }
 
 /*
- * get_rule_expr_funccall		- Parse back a function-call expression
+ * get_rule_expr_funccall		- 反解析函数调用表达式
  *
- * Same as get_rule_expr(), except that we guarantee that the output will
- * look like a function call, or like one of the things the grammar treats as
- * equivalent to a function call (see the func_expr_windowless production).
- * This is needed in places where the grammar uses func_expr_windowless and
- * you can't substitute a parenthesized a_expr.  If what we have isn't going
- * to look like a function call, wrap it in a dummy CAST() expression, which
- * will satisfy the grammar --- and, indeed, is likely what the user wrote to
- * produce such a thing.
+ * 与 get_rule_expr() 一样，但本函数保证输出看起
+ * 来像函数调用，或像文法视为与函数调用等价的东西
+ * （见 func_expr_windowless 产生式）。
+ * 在文法使用 func_expr_windowless 且不能替换成加括号
+ * a_expr 的地方需要用到本函数。若我们手头的东西
+ * 看起来不会像函数调用，就把它包进一个哑 CAST()
+ * 表达式，这既能满足文法 --- 而且多半正是用户当初
+ * 为此而写的。
  */
 static void
 get_rule_expr_funccall(Node *node, deparse_context *context,
@@ -9975,7 +9975,7 @@ get_rule_expr_funccall(Node *node, deparse_context *context,
 		StringInfo	buf = context->buf;
 
 		appendStringInfoString(buf, "CAST(");
-		/* no point in showing any top-level implicit cast */
+		/* 没有必要显示任何顶层隐式转换 */
 		get_rule_expr(node, context, false);
 		appendStringInfo(buf, " AS %s)",
 						 format_type_with_typemod(exprType(node),
@@ -9984,18 +9984,18 @@ get_rule_expr_funccall(Node *node, deparse_context *context,
 }
 
 /*
- * Helper function to identify node types that satisfy func_expr_windowless.
- * If in doubt, "false" is always a safe answer.
+ * 用于识别满足 func_expr_windowless 的节点类型的辅助函数。
+ * 拿不准时，答 "false" 总是安全的。
  */
 static bool
 looks_like_function(Node *node)
 {
 	if (node == NULL)
-		return false;			/* probably shouldn't happen */
+		return false;			/* 理论上不该发生 */
 	switch (nodeTag(node))
 	{
 		case T_FuncExpr:
-			/* OK, unless it's going to deparse as a cast */
+			/* 可以，除非它反解析为强制转换 */
 			return (((FuncExpr *) node)->funcformat == COERCE_EXPLICIT_CALL ||
 					((FuncExpr *) node)->funcformat == COERCE_SQL_SYNTAX);
 		case T_NullIfExpr:
@@ -10003,7 +10003,7 @@ looks_like_function(Node *node)
 		case T_MinMaxExpr:
 		case T_SQLValueFunction:
 		case T_XmlExpr:
-			/* these are all accepted by func_expr_common_subexpr */
+			/* 这些都被 func_expr_common_subexpr 接受 */
 			return true;
 		default:
 			break;
@@ -10013,7 +10013,7 @@ looks_like_function(Node *node)
 
 
 /*
- * get_oper_expr			- Parse back an OpExpr node
+ * get_oper_expr			- 反解析 OpExpr 节点
  */
 static void
 get_oper_expr(OpExpr *expr, deparse_context *context)
@@ -10026,7 +10026,7 @@ get_oper_expr(OpExpr *expr, deparse_context *context)
 		appendStringInfoChar(buf, '(');
 	if (list_length(args) == 2)
 	{
-		/* binary operator */
+		/* 二元操作符 */
 		Node	   *arg1 = (Node *) linitial(args);
 		Node	   *arg2 = (Node *) lsecond(args);
 
@@ -10039,7 +10039,7 @@ get_oper_expr(OpExpr *expr, deparse_context *context)
 	}
 	else
 	{
-		/* prefix operator */
+		/* 前缀操作符 */
 		Node	   *arg = (Node *) linitial(args);
 
 		appendStringInfo(buf, "%s ",
@@ -10053,7 +10053,7 @@ get_oper_expr(OpExpr *expr, deparse_context *context)
 }
 
 /*
- * get_func_expr			- Parse back a FuncExpr node
+ * get_func_expr			- 反解析 FuncExpr 节点
  */
 static void
 get_func_expr(FuncExpr *expr, deparse_context *context,
@@ -10068,8 +10068,8 @@ get_func_expr(FuncExpr *expr, deparse_context *context,
 	ListCell   *l;
 
 	/*
-	 * If the function call came from an implicit coercion, then just show the
-	 * first argument --- unless caller wants to see implicit coercions.
+	 * 若函数调用来自隐式转换，则只显示第一个实参 ---
+	 * 除非调用者想看到隐式转换。
 	 */
 	if (expr->funcformat == COERCE_IMPLICIT_CAST && !showimplicit)
 	{
@@ -10079,8 +10079,8 @@ get_func_expr(FuncExpr *expr, deparse_context *context,
 	}
 
 	/*
-	 * If the function call came from a cast, then show the first argument
-	 * plus an explicit cast operation.
+	 * 若函数调用来自强制转换，则显示第一个实参
+	 * 外加显式转换操作。
 	 */
 	if (expr->funcformat == COERCE_EXPLICIT_CAST ||
 		expr->funcformat == COERCE_IMPLICIT_CAST)
@@ -10089,7 +10089,7 @@ get_func_expr(FuncExpr *expr, deparse_context *context,
 		Oid			rettype = expr->funcresulttype;
 		int32		coercedTypmod;
 
-		/* Get the typmod if this is a length-coercion function */
+		/* 若这是长度转换函数则取其 typmod */
 		(void) exprIsLengthCoercion((Node *) expr, &coercedTypmod);
 
 		get_coercion_expr(arg, context,
@@ -10100,9 +10100,9 @@ get_func_expr(FuncExpr *expr, deparse_context *context,
 	}
 
 	/*
-	 * If the function was called using one of the SQL spec's random special
-	 * syntaxes, try to reproduce that.  If we don't recognize the function,
-	 * fall through.
+	 * 若函数是按 SQL 标准的某个特殊语法调用的，则尝试
+	 * 重现它。如果我们认不出该函数，
+	 * 走常规。
 	 */
 	if (expr->funcformat == COERCE_SQL_SYNTAX)
 	{
@@ -10111,8 +10111,8 @@ get_func_expr(FuncExpr *expr, deparse_context *context,
 	}
 
 	/*
-	 * Normal function: display as proname(args).  First we need to extract
-	 * the argument datatypes.
+	 * 普通函数：显示成 proname(args)。先要提取实参的
+	 * 数据类型。
 	 */
 	if (list_length(expr->args) > FUNC_MAX_ARGS)
 		ereport(ERROR,
@@ -10149,7 +10149,7 @@ get_func_expr(FuncExpr *expr, deparse_context *context,
 }
 
 /*
- * get_agg_expr			- Parse back an Aggref node
+ * get_agg_expr			- 反解析 Aggref 节点
  */
 static void
 get_agg_expr(Aggref *aggref, deparse_context *context,
@@ -10160,7 +10160,7 @@ get_agg_expr(Aggref *aggref, deparse_context *context,
 }
 
 /*
- * get_agg_expr_helper		- subroutine for get_agg_expr and
+ * get_agg_expr_helper		- 用于 get_agg_expr 与
  *							get_json_agg_constructor
  */
 static void
@@ -10174,11 +10174,11 @@ get_agg_expr_helper(Aggref *aggref, deparse_context *context,
 	bool		use_variadic = false;
 
 	/*
-	 * For a combining aggregate, we look up and deparse the corresponding
-	 * partial aggregate instead.  This is necessary because our input
-	 * argument list has been replaced; the new argument list always has just
-	 * one element, which will point to a partial Aggref that supplies us with
-	 * transition states to combine.
+	 * 对组合聚合，会查找并反解析对应的部分聚合。
+	 * 这很有必要，因为输入实参列表已被替换；
+	 * 新的实参列表始终只有一个元素，它指向为我们
+	 * 提供待组合转换状态的部分 Aggref。
+	 *
 	 */
 	if (DO_AGGSPLIT_COMBINE(aggref->aggsplit))
 	{
@@ -10192,13 +10192,13 @@ get_agg_expr_helper(Aggref *aggref, deparse_context *context,
 	}
 
 	/*
-	 * Mark as PARTIAL, if appropriate.  We look to the original aggref so as
-	 * to avoid printing this when recursing from the code just above.
+	 * 如合适则标记为 PARTIAL。我们查看原始 aggref，
+	 * 以免从上面的代码递归时打印它。
 	 */
 	if (DO_AGGSPLIT_SKIPFINAL(original_aggref->aggsplit))
 		appendStringInfoString(buf, "PARTIAL ");
 
-	/* Extract the argument types as seen by the parser */
+	/* 按解析器所见提取实参类型 */
 	nargs = get_aggregate_argtypes(aggref, argtypes);
 
 	if (!funcname)
@@ -10207,16 +10207,16 @@ get_agg_expr_helper(Aggref *aggref, deparse_context *context,
 										  &use_variadic,
 										  context->inGroupBy);
 
-	/* Print the aggregate name, schema-qualified if needed */
+	/* 打印聚合名，需要时加模式限定 */
 	appendStringInfo(buf, "%s(%s", funcname,
 					 (aggref->aggdistinct != NIL) ? "DISTINCT " : "");
 
 	if (AGGKIND_IS_ORDERED_SET(aggref->aggkind))
 	{
 		/*
-		 * Ordered-set aggregates do not use "*" syntax.  Also, we needn't
-		 * worry about inserting VARIADIC.  So we can just dump the direct
-		 * args as-is.
+		 * 有序集聚合不使用 "*" 语法。另外，我们无须
+		 * 操心插入 VARIADIC，故直接实参
+		 * 原样输出。
 		 */
 		Assert(!aggref->aggvariadic);
 		get_rule_expr((Node *) aggref->aggdirectargs, context, true);
@@ -10226,7 +10226,7 @@ get_agg_expr_helper(Aggref *aggref, deparse_context *context,
 	}
 	else
 	{
-		/* aggstar can be set only in zero-argument aggregates */
+		/* aggstar 只能在零实参聚合中设置 */
 		if (aggref->aggstar)
 			appendStringInfoChar(buf, '*');
 		else
@@ -10248,8 +10248,8 @@ get_agg_expr_helper(Aggref *aggref, deparse_context *context,
 					if (is_json_objectagg)
 					{
 						/*
-						 * the ABSENT ON NULL and WITH UNIQUE args are printed
-						 * separately, so ignore them here
+						 * ABSENT ON NULL 与 WITH UNIQUE 实参是
+						 * 单独打印的，此处忽略
 						 */
 						if (i > 2)
 							break;
@@ -10285,9 +10285,9 @@ get_agg_expr_helper(Aggref *aggref, deparse_context *context,
 }
 
 /*
- * This is a helper function for get_agg_expr().  It's used when we deparse
- * a combining Aggref; resolve_special_varno locates the corresponding partial
- * Aggref and then calls this.
+ * 这是 get_agg_expr() 的辅助函数。当我们反解析
+ * 组合 Aggref 时会用到；resolve_special_varno 找到对应
+ * 的部分 Aggref 后调用本函数。
  */
 static void
 get_agg_combine_expr(Node *node, deparse_context *context, void *callback_arg)
@@ -10303,7 +10303,7 @@ get_agg_combine_expr(Node *node, deparse_context *context, void *callback_arg)
 }
 
 /*
- * get_windowfunc_expr	- Parse back a WindowFunc node
+ * get_windowfunc_expr	- 反解析 WindowFunc 节点
  */
 static void
 get_windowfunc_expr(WindowFunc *wfunc, deparse_context *context)
@@ -10313,7 +10313,7 @@ get_windowfunc_expr(WindowFunc *wfunc, deparse_context *context)
 
 
 /*
- * get_windowfunc_expr_helper	- subroutine for get_windowfunc_expr and
+ * get_windowfunc_expr_helper	- 用于 get_windowfunc_expr 与
  *								get_json_agg_constructor
  */
 static void
@@ -10350,7 +10350,7 @@ get_windowfunc_expr_helper(WindowFunc *wfunc, deparse_context *context,
 
 	appendStringInfo(buf, "%s(", funcname);
 
-	/* winstar can be set only in zero-argument aggregates */
+	/* winstar 只能在零实参聚合中设置 */
 	if (wfunc->winstar)
 		appendStringInfoChar(buf, '*');
 	else
@@ -10396,18 +10396,18 @@ get_windowfunc_expr_helper(WindowFunc *wfunc, deparse_context *context,
 				 wfunc->winref);
 
 		/*
-		 * In EXPLAIN, we don't have window context information available, so
-		 * we have to settle for this:
+		 * 在 EXPLAIN 中我们拿不到窗口上下文信息，所以
+		 * 只好退而求其次：
 		 */
 		appendStringInfoString(buf, "(?)");
 	}
 }
 
 /*
- * get_func_sql_syntax		- Parse back a SQL-syntax function call
+ * get_func_sql_syntax		- 反解析 SQL 语法函数调用
  *
- * Returns true if we successfully deparsed, false if we did not
- * recognize the function.
+ * 成功反解析则返回 true，未认出函数则返回
+ * false。
  */
 static bool
 get_func_sql_syntax(FuncExpr *expr, deparse_context *context)
@@ -10423,7 +10423,7 @@ get_func_sql_syntax(FuncExpr *expr, deparse_context *context)
 		case F_TIMEZONE_TEXT_TIMESTAMP:
 		case F_TIMEZONE_TEXT_TIMESTAMPTZ:
 		case F_TIMEZONE_TEXT_TIMETZ:
-			/* AT TIME ZONE ... note reversed argument order */
+			/* AT TIME ZONE ... 注意实参顺序相反 */
 			appendStringInfoChar(buf, '(');
 			get_rule_expr_paren((Node *) lsecond(expr->args), context, false,
 								(Node *) expr);
@@ -10546,7 +10546,7 @@ get_func_sql_syntax(FuncExpr *expr, deparse_context *context)
 		case F_POSITION_BIT_BIT:
 		case F_POSITION_BYTEA_BYTEA:
 		case F_POSITION_TEXT_TEXT:
-			/* POSITION() ... extra parens since args are b_expr not a_expr */
+			/* POSITION() ... 因实参是 b_expr 非 a_expr 额外加括号*/
 			appendStringInfoString(buf, "POSITION((");
 			get_rule_expr((Node *) lsecond(expr->args), context, false);
 			appendStringInfoString(buf, ") IN (");
@@ -10560,7 +10560,7 @@ get_func_sql_syntax(FuncExpr *expr, deparse_context *context)
 		case F_SUBSTRING_BYTEA_INT4_INT4:
 		case F_SUBSTRING_TEXT_INT4:
 		case F_SUBSTRING_TEXT_INT4_INT4:
-			/* SUBSTRING FROM/FOR (i.e., integer-position variants) */
+			/* SUBSTRING FROM/FOR（即整数位置变体） */
 			appendStringInfoString(buf, "SUBSTRING(");
 			get_rule_expr((Node *) linitial(expr->args), context, false);
 			appendStringInfoString(buf, " FROM ");
@@ -10634,7 +10634,7 @@ get_func_sql_syntax(FuncExpr *expr, deparse_context *context)
 			return true;
 
 		case F_XMLEXISTS:
-			/* XMLEXISTS ... extra parens because args are c_expr */
+			/*XMLEXISTS ... 因实参是 c_expr 而额外加括号*/
 			appendStringInfoString(buf, "XMLEXISTS((");
 			get_rule_expr((Node *) linitial(expr->args), context, false);
 			appendStringInfoString(buf, ") PASSING (");
@@ -10648,7 +10648,7 @@ get_func_sql_syntax(FuncExpr *expr, deparse_context *context)
 /* ----------
  * get_coercion_expr
  *
- *	Make a string representation of a value coerced to a specific type
+ *	生成一个被强制转换到特定类型的值的字符串表示
  * ----------
  */
 static void
@@ -10659,25 +10659,25 @@ get_coercion_expr(Node *arg, deparse_context *context,
 	StringInfo	buf = context->buf;
 
 	/*
-	 * Since parse_coerce.c doesn't immediately collapse application of
-	 * length-coercion functions to constants, what we'll typically see in
-	 * such cases is a Const with typmod -1 and a length-coercion function
-	 * right above it.  Avoid generating redundant output. However, beware of
-	 * suppressing casts when the user actually wrote something like
-	 * 'foo'::text::char(3).
+	 * 由于 parse_coerce.c 不会立即折叠对常量应用的
+	 * 长度转换函数，所以此类情形中我们通常看到的
+	 * 是 typmod -1 的 Const，上面紧接长度转换函数。
+	 * 要避免生成冗余输出。但要注意，当用户确实写了
+	 * 类似 'foo'::text::char(3) 的内容时，须小心抑制
+	 * 强制转换。
 	 *
-	 * Note: it might seem that we are missing the possibility of needing to
-	 * print a COLLATE clause for such a Const.  However, a Const could only
-	 * have nondefault collation in a post-constant-folding tree, in which the
-	 * length coercion would have been folded too.  See also the special
-	 * handling of CollateExpr in coerce_to_target_type(): any collation
-	 * marking will be above the coercion node, not below it.
+	 * 注意：看似我们遗漏了需要为此类 Const 打印
+	 * COLLATE 子句的可能性。然而，Const 只有在
+	 * 常量折叠后的树中才有非默认排序规则，而那种
+	 * 树里长度转换也应已折叠。另见 coerce_to_target_type()
+	 * 中对 CollateExpr 的特殊处理：任何排序规则
+	 * 标记都会位于转换节点之上而非之下。
 	 */
 	if (arg && IsA(arg, Const) &&
 		((Const *) arg)->consttype == resulttype &&
 		((Const *) arg)->consttypmod == -1)
 	{
-		/* Show the constant without normal ::typename decoration */
+		/* 显示常量时不加常规 ::typename 装饰 */
 		get_const_expr((Const *) arg, context, -1);
 	}
 	else
@@ -10690,11 +10690,11 @@ get_coercion_expr(Node *arg, deparse_context *context,
 	}
 
 	/*
-	 * Never emit resulttype(arg) functional notation. A pg_proc entry could
-	 * take precedence, and a resulttype in pg_temp would require schema
-	 * qualification that format_type_with_typemod() would usually omit. We've
-	 * standardized on arg::resulttype, but CAST(arg AS resulttype) notation
-	 * would work fine.
+	 * 绝不输出 resulttype(arg) 函数式记法。pg_proc 中
+	 * 的项可能抢先，pg_temp 中的 resulttype 还需要
+	 * 模式限定，而 format_type_with_typemod() 通常会省略它。
+	 * 我们已统一用 arg::resulttype，但 CAST(arg AS
+	 * resulttype) 记法也行。
 	 */
 	appendStringInfo(buf, "::%s",
 					 format_type_with_typemod(resulttype, resulttypmod));
@@ -10703,16 +10703,16 @@ get_coercion_expr(Node *arg, deparse_context *context,
 /* ----------
  * get_const_expr
  *
- *	Make a string representation of a Const
+ *	生成 Const 的字符串表示
  *
- * showtype can be -1 to never show "::typename" decoration, or +1 to always
- * show it, or 0 to show it only if the constant wouldn't be assumed to be
- * the right type by default.
+ * showtype 可为 -1 表示绝不显示 "::typename" 装饰，
+ * 或 +1 表示总是显示，或 0 表示仅当常量默认不会
+ * 被认定为正确类型时才显示。
  *
- * If the Const's collation isn't default for its type, show that too.
- * We mustn't do this when showtype is -1 (since that means the caller will
- * print "::typename", and we can't put a COLLATE clause in between).  It's
- * caller's responsibility that collation isn't missed in such cases.
+ * 若 Const 排序规则非其类型默认值，也要显示。
+ * showtype 为 -1 时绝不能这样做（因为那意味着调用者
+ * 会打印 "::typename"，无法在其间插入 COLLATE 子句）。
+ * 这种情形下排序规则不被遗漏是调用者的责任。
  * ----------
  */
 static void
@@ -10727,8 +10727,8 @@ get_const_expr(Const *constval, deparse_context *context, int showtype)
 	if (constval->constisnull)
 	{
 		/*
-		 * Always label the type of a NULL constant to prevent misdecisions
-		 * about type when reparsing.
+		 * 总是为 NULL 常量标注类型，以防重新解析时
+		 * 对类型判断失误。
 		 */
 		appendStringInfoString(buf, "NULL");
 		if (showtype >= 0)
@@ -10751,29 +10751,29 @@ get_const_expr(Const *constval, deparse_context *context, int showtype)
 		case INT4OID:
 
 			/*
-			 * INT4 can be printed without any decoration, unless it is
-			 * negative; in that case print it as '-nnn'::integer to ensure
-			 * that the output will re-parse as a constant, not as a constant
-			 * plus operator.  In most cases we could get away with printing
-			 * (-nnn) instead, because of the way that gram.y handles negative
-			 * literals; but that doesn't work for INT_MIN, and it doesn't
-			 * seem that much prettier anyway.
+			 * INT4 可不加任何装饰地打印，除非为负值；
+			 * 此时打印成 '-nnn'::integer 以确保输出重新解析
+			 * 时是一个常量而不是常量加操作符。多数情形
+			 * 下打印 (-nnn) 也能蒙混过去，因为 gram.y 是这样
+			 * 处理负字面量；但 INT_MIN 不适用，而且这样
+			 * 也并不更美观。
+			 *
 			 */
 			if (extval[0] != '-')
 				appendStringInfoString(buf, extval);
 			else
 			{
 				appendStringInfo(buf, "'%s'", extval);
-				needlabel = true;	/* we must attach a cast */
+				needlabel = true;	/* 必须附加转换 */
 			}
 			break;
 
 		case NUMERICOID:
 
 			/*
-			 * NUMERIC can be printed without quotes if it looks like a float
-			 * constant (not an integer, and not Infinity or NaN) and doesn't
-			 * have a leading sign (for the same reason as for INT4).
+			 * NUMERIC 若看起来像 float 常量（非整数，也非
+			 * Infinity 或 NaN）且不带前导符号，就可以不加
+			 * 引号打印（理由与 INT4 相同）。
 			 */
 			if (isdigit((unsigned char) extval[0]) &&
 				strcspn(extval, "eE.") != strlen(extval))
@@ -10783,7 +10783,7 @@ get_const_expr(Const *constval, deparse_context *context, int showtype)
 			else
 			{
 				appendStringInfo(buf, "'%s'", extval);
-				needlabel = true;	/* we must attach a cast */
+				needlabel = true;	/* 必须附加转换 */
 			}
 			break;
 
@@ -10805,28 +10805,28 @@ get_const_expr(Const *constval, deparse_context *context, int showtype)
 		return;
 
 	/*
-	 * For showtype == 0, append ::typename unless the constant will be
-	 * implicitly typed as the right type when it is read in.
+	 * 对 showtype == 0，追加 ::typename，除非该常量被读入
+	 * 时会被隐式定型为正确类型。
 	 *
-	 * XXX this code has to be kept in sync with the behavior of the parser,
-	 * especially make_const.
+	 * XXX 本代码必须与解析器的行为保持同步，尤其是
+	 * make_const。
 	 */
 	switch (constval->consttype)
 	{
 		case BOOLOID:
 		case UNKNOWNOID:
-			/* These types can be left unlabeled */
+			/* 这些类型可以不加标注 */
 			needlabel = false;
 			break;
 		case INT4OID:
-			/* We determined above whether a label is needed */
+			/* 是否需要标注已在上面判定过 */
 			break;
 		case NUMERICOID:
 
 			/*
-			 * Float-looking constants will be typed as numeric, which we
-			 * checked above; but if there's a nondefault typmod we need to
-			 * show it.
+			 * 浮点样常量会被定型为 numeric，这一点
+			 * 上面已查过；但若 typmod 非默认就须显示
+			 * 它。
 			 */
 			needlabel |= (constval->consttypmod >= 0);
 			break;
@@ -10843,7 +10843,7 @@ get_const_expr(Const *constval, deparse_context *context, int showtype)
 }
 
 /*
- * helper for get_const_expr: append COLLATE if needed
+ * get_const_expr 辅助：需要时追加 COLLATE
  */
 static void
 get_const_collation(Const *constval, deparse_context *context)
@@ -10863,7 +10863,7 @@ get_const_collation(Const *constval, deparse_context *context)
 }
 
 /*
- * get_json_format			- Parse back a JsonFormat node
+ * get_json_format			- 反解析 JsonFormat 节点
  */
 static void
 get_json_format(JsonFormat *format, StringInfo buf)
@@ -10888,7 +10888,7 @@ get_json_format(JsonFormat *format, StringInfo buf)
 }
 
 /*
- * get_json_returning		- Parse back a JsonReturning structure
+ * get_json_returning		- 反解析 JsonReturning 结构
  */
 static void
 get_json_returning(JsonReturning *returning, StringInfo buf,
@@ -10908,7 +10908,7 @@ get_json_returning(JsonReturning *returning, StringInfo buf,
 }
 
 /*
- * get_json_constructor		- Parse back a JsonConstructorExpr node
+ * get_json_constructor		- 反解析 JsonConstructorExpr 节点
  */
 static void
 get_json_constructor(JsonConstructorExpr *ctor, deparse_context *context,
@@ -10965,7 +10965,7 @@ get_json_constructor(JsonConstructorExpr *ctor, deparse_context *context,
 }
 
 /*
- * Append options, if any, to the JSON constructor being deparsed
+ * 如有选项则追加到正在反解析的 JSON 构造器
  */
 static void
 get_json_constructor_options(JsonConstructorExpr *ctor, StringInfo buf)
@@ -10990,7 +10990,7 @@ get_json_constructor_options(JsonConstructorExpr *ctor, StringInfo buf)
 }
 
 /*
- * get_json_agg_constructor - Parse back an aggregate JsonConstructorExpr node
+ * get_json_agg_constructor - 反解析聚合 JsonConstructorExpr 节点
  */
 static void
 get_json_agg_constructor(JsonConstructorExpr *ctor, deparse_context *context,
@@ -11015,7 +11015,7 @@ get_json_agg_constructor(JsonConstructorExpr *ctor, deparse_context *context,
 }
 
 /*
- * simple_quote_literal - Format a string as a SQL literal, append to buf
+ * simple_quote_literal - 把字符串作 SQL 字面量追加到 buf
  */
 static void
 simple_quote_literal(StringInfo buf, const char *val)
@@ -11023,9 +11023,9 @@ simple_quote_literal(StringInfo buf, const char *val)
 	const char *valptr;
 
 	/*
-	 * We form the string literal according to the prevailing setting of
-	 * standard_conforming_strings; we never use E''. User is responsible for
-	 * making sure result is used correctly.
+	 * 我们按当前生效的 standard_conforming_strings 设置
+	 * 来构造字符串字面量；我们绝不使用 E''。用户要负责
+	 * 确保结果被正确使用。
 	 */
 	appendStringInfoChar(buf, '\'');
 	for (valptr = val; *valptr; valptr++)
@@ -11041,7 +11041,7 @@ simple_quote_literal(StringInfo buf, const char *val)
 
 
 /* ----------
- * get_sublink_expr			- Parse back a sublink
+ * get_sublink_expr			- 反解析 sublink
  * ----------
  */
 static void
@@ -11058,17 +11058,17 @@ get_sublink_expr(SubLink *sublink, deparse_context *context)
 		appendStringInfoChar(buf, '(');
 
 	/*
-	 * Note that we print the name of only the first operator, when there are
-	 * multiple combining operators.  This is an approximation that could go
-	 * wrong in various scenarios (operators in different schemas, renamed
-	 * operators, etc) but there is not a whole lot we can do about it, since
-	 * the syntax allows only one operator to be shown.
+	 * 注意：当存在多个组合操作符时，我们只打印第一
+	 * 个操作符的名字。这是一种可能出错的近似，出错
+	 * 场景有多种（操作符在不同模式、被改名等），
+	 * 我们对此束手无策，因为语法只能显示一个
+	 * 操作符。
 	 */
 	if (sublink->testexpr)
 	{
 		if (IsA(sublink->testexpr, OpExpr))
 		{
-			/* single combining operator */
+			/* 单一组合操作符 */
 			OpExpr	   *opexpr = (OpExpr *) sublink->testexpr;
 
 			get_rule_expr(linitial(opexpr->args), context, true);
@@ -11078,7 +11078,7 @@ get_sublink_expr(SubLink *sublink, deparse_context *context)
 		}
 		else if (IsA(sublink->testexpr, BoolExpr))
 		{
-			/* multiple combining operators, = or <> cases */
+			/* 多组合操作符，= 或 <> 情形 */
 			char	   *sep;
 			ListCell   *l;
 
@@ -11100,7 +11100,7 @@ get_sublink_expr(SubLink *sublink, deparse_context *context)
 		}
 		else if (IsA(sublink->testexpr, RowCompareExpr))
 		{
-			/* multiple combining operators, < <= > >= cases */
+			/* 多组合操作符，< <= > >= 情形 */
 			RowCompareExpr *rcexpr = (RowCompareExpr *) sublink->testexpr;
 
 			appendStringInfoChar(buf, '(');
@@ -11124,7 +11124,7 @@ get_sublink_expr(SubLink *sublink, deparse_context *context)
 			break;
 
 		case ANY_SUBLINK:
-			if (strcmp(opname, "=") == 0)	/* Represent = ANY as IN */
+			if (strcmp(opname, "=") == 0)	/* 把 = ANY 表示成 IN*/
 				appendStringInfoString(buf, " IN ");
 			else
 				appendStringInfo(buf, " %s ANY ", opname);
@@ -11144,7 +11144,7 @@ get_sublink_expr(SubLink *sublink, deparse_context *context)
 			need_paren = false;
 			break;
 
-		case CTE_SUBLINK:		/* shouldn't occur in a SubLink */
+		case CTE_SUBLINK:		/* 不应出现在 SubLink 中 */
 		default:
 			elog(ERROR, "unrecognized sublink type: %d",
 				 (int) sublink->subLinkType);
@@ -11166,7 +11166,7 @@ get_sublink_expr(SubLink *sublink, deparse_context *context)
 
 
 /* ----------
- * get_tablefunc			- Parse back a table function
+ * get_tablefunc			- 反解析表函数
  * ----------
  */
 static void
@@ -11174,7 +11174,7 @@ get_tablefunc(TableFunc *tf, deparse_context *context, bool showimplicit)
 {
 	StringInfo	buf = context->buf;
 
-	/* XMLTABLE is the only existing implementation.  */
+	/* XMLTABLE 是现存的唯一实现。  */
 
 	appendStringInfoString(buf, "XMLTABLE(");
 
@@ -11268,11 +11268,11 @@ get_tablefunc(TableFunc *tf, deparse_context *context, bool showimplicit)
 }
 
 /* ----------
- * get_from_clause			- Parse back a FROM clause
+ * get_from_clause			- 反解析 FROM 子句
  *
- * "prefix" is the keyword that denotes the start of the list of FROM
- * elements. It is FROM when used to parse back SELECT and UPDATE, but
- * is USING when parsing back DELETE.
+ * "prefix" 是标记 FROM 元素列表起始处的关键字。
+ * 反解析 SELECT 与 UPDATE 时它是 FROM，而反解析
+ * DELETE 时是 USING。
  * ----------
  */
 static void
@@ -11283,11 +11283,11 @@ get_from_clause(Query *query, const char *prefix, deparse_context *context)
 	ListCell   *l;
 
 	/*
-	 * We use the query's jointree as a guide to what to print.  However, we
-	 * must ignore auto-added RTEs that are marked not inFromCl. (These can
-	 * only appear at the top level of the jointree, so it's sufficient to
-	 * check here.)  This check also ensures we ignore the rule pseudo-RTEs
-	 * for NEW and OLD.
+	 * 我们以查询的连接树为打印内容的依据。但是，我们
+	 * 必须忽略标记为不在 inFromCl 中的自动添加 RTE
+	 * 它们只会出现在连接树顶层，故在此检查即可；
+	 * 这一检查也确保我们忽略 NEW 与 OLD 的规则伪 RTE。
+	 *
 	 */
 	foreach(l, query->jointree->fromlist)
 	{
@@ -11317,32 +11317,32 @@ get_from_clause(Query *query, const char *prefix, deparse_context *context)
 			appendStringInfoString(buf, ", ");
 
 			/*
-			 * Put the new FROM item's text into itembuf so we can decide
-			 * after we've got it whether or not it needs to go on a new line.
+			 * 把新 FROM 项文本放入 itembuf，以便之后判断
+			 * 它是否需要另起一行。
 			 */
 			initStringInfo(&itembuf);
 			context->buf = &itembuf;
 
 			get_from_clause_item(jtnode, query, context);
 
-			/* Restore context's output buffer */
+			/* 恢复上下文输出缓冲区 */
 			context->buf = buf;
 
-			/* Consider line-wrapping if enabled */
+			/* 若启用则考虑换行 */
 			if (PRETTY_INDENT(context) && context->wrapColumn >= 0)
 			{
-				/* Does the new item start with a new line? */
+				/* 新项是否以新行开始？ */
 				if (itembuf.len > 0 && itembuf.data[0] == '\n')
 				{
-					/* If so, we shouldn't add anything */
-					/* instead, remove any trailing spaces currently in buf */
+					/* 若是，则不应再加东西 */
+					/* 而是去掉 buf 中现有的尾部空格 */
 					removeStringInfoSpaces(buf);
 				}
 				else
 				{
 					char	   *trailing_nl;
 
-					/* Locate the start of the current line in the buffer */
+					/* 在缓冲区中定位当前行的起点 */
 					trailing_nl = strrchr(buf->data, '\n');
 					if (trailing_nl == NULL)
 						trailing_nl = buf->data;
@@ -11350,8 +11350,8 @@ get_from_clause(Query *query, const char *prefix, deparse_context *context)
 						trailing_nl++;
 
 					/*
-					 * Add a newline, plus some indentation, if the new item
-					 * would cause an overflow.
+					 * 如果新项会导致溢出，则加一个换行
+					 * 外加一点缩进。
 					 */
 					if (strlen(trailing_nl) + itembuf.len > context->wrapColumn)
 						appendContextKeyword(context, "", -PRETTYINDENT_STD,
@@ -11360,10 +11360,10 @@ get_from_clause(Query *query, const char *prefix, deparse_context *context)
 				}
 			}
 
-			/* Add the new item */
+			/* 加入新项 */
 			appendBinaryStringInfo(buf, itembuf.data, itembuf.len);
 
-			/* clean up */
+			/* 清理 */
 			pfree(itembuf.data);
 		}
 	}
@@ -11385,18 +11385,18 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 		if (rte->lateral)
 			appendStringInfoString(buf, "LATERAL ");
 
-		/* Print the FROM item proper */
+		/* 打印 FROM 项本身 */
 		switch (rte->rtekind)
 		{
 			case RTE_RELATION:
-				/* Normal relation RTE */
+				/* 普通关系 RTE */
 				appendStringInfo(buf, "%s%s",
 								 only_marker(rte),
 								 generate_relation_name(rte->relid,
 														context->namespaces));
 				break;
 			case RTE_SUBQUERY:
-				/* Subquery RTE */
+				/* 子查询 RTE*/
 				appendStringInfoChar(buf, '(');
 				get_query_def(rte->subquery, buf, context->namespaces, NULL,
 							  true,
@@ -11405,20 +11405,20 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 				appendStringInfoChar(buf, ')');
 				break;
 			case RTE_FUNCTION:
-				/* Function RTE */
+				/* 函数 RTE */
 				rtfunc1 = (RangeTblFunction *) linitial(rte->functions);
 
 				/*
-				 * Omit ROWS FROM() syntax for just one function, unless it
-				 * has both a coldeflist and WITH ORDINALITY. If it has both,
-				 * we must use ROWS FROM() syntax to avoid ambiguity about
-				 * whether the coldeflist includes the ordinality column.
+				 * 仅一个函数时省略 ROWS FROM() 语法，除非它
+				 * 同时有 coldeflist 与 WITH ORDINALITY。若两者
+				 * 都有，就必须用 ROWS FROM() 语法，以免对
+				 * coldeflist 是否包含序数列产生歧义。
 				 */
 				if (list_length(rte->functions) == 1 &&
 					(rtfunc1->funccolnames == NIL || !rte->funcordinality))
 				{
 					get_rule_expr_funccall(rtfunc1->funcexpr, context, true);
-					/* we'll print the coldeflist below, if it has one */
+					/* 若有 coldeflist 则在下方打印 */
 				}
 				else
 				{
@@ -11426,18 +11426,18 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 					ListCell   *lc;
 
 					/*
-					 * If all the function calls in the list are to unnest,
-					 * and none need a coldeflist, then collapse the list back
-					 * down to UNNEST(args).  (If we had more than one
-					 * built-in unnest function, this would get more
-					 * difficult.)
+					 * 若列表中的所有函数调用都是 unnest，
+					 * 且都不需要 coldeflist，则把列表折叠回
+					 * UNNEST(args)。（如果有多个内建
+					 * unnest 函数，事情会更麻烦。）
 					 *
-					 * XXX This is pretty ugly, since it makes not-terribly-
-					 * future-proof assumptions about what the parser would do
-					 * with the output; but the alternative is to emit our
-					 * nonstandard ROWS FROM() notation for what might have
-					 * been a perfectly spec-compliant multi-argument
-					 * UNNEST().
+					 *
+					 * XXX 这很丑：它对解析器会如何处理输出做了
+					 * 并不太面向未来的假设；但另一
+					 * 种选择是为本来可能完全符合标准的
+					 * 多实参 UNNEST() 输出我们非标准的
+					 * ROWS FROM() 记法。
+					 *
 					 */
 					all_unnest = true;
 					foreach(lc, rte->functions)
@@ -11483,7 +11483,7 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 							get_rule_expr_funccall(rtfunc->funcexpr, context, true);
 							if (rtfunc->funccolnames != NIL)
 							{
-								/* Reconstruct the column definition list */
+								/* 重建列定义列表 */
 								appendStringInfoString(buf, " AS ");
 								get_from_clause_coldeflist(rtfunc,
 														   NULL,
@@ -11493,7 +11493,7 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 						}
 						appendStringInfoChar(buf, ')');
 					}
-					/* prevent printing duplicate coldeflist below */
+					/* 防止下方重复打印 coldeflist */
 					rtfunc1 = NULL;
 				}
 				if (rte->funcordinality)
@@ -11503,7 +11503,7 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 				get_tablefunc(rte->tablefunc, context, true);
 				break;
 			case RTE_VALUES:
-				/* Values list RTE */
+				/* VALUES列表 RTE*/
 				appendStringInfoChar(buf, '(');
 				get_values_def(rte->values_lists, context);
 				appendStringInfoChar(buf, ')');
@@ -11516,22 +11516,22 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 				break;
 		}
 
-		/* Print the relation alias, if needed */
+		/* 如需要则打印关系别名 */
 		get_rte_alias(rte, varno, false, context);
 
-		/* Print the column definitions or aliases, if needed */
+		/* 需要时打印列定义或列别名 */
 		if (rtfunc1 && rtfunc1->funccolnames != NIL)
 		{
-			/* Reconstruct the columndef list, which is also the aliases */
+			/* 重建列定义列表（它同时也是别名） */
 			get_from_clause_coldeflist(rtfunc1, colinfo, context);
 		}
 		else
 		{
-			/* Else print column aliases as needed */
+			/* 否则按需打印列别名 */
 			get_column_alias_list(colinfo, context);
 		}
 
-		/* Tablesample clause must go after any alias */
+		/* Tablesample 子句必须在别名之后 */
 		if (rte->rtekind == RTE_RELATION && rte->tablesample)
 			get_tablesample_def(rte->tablesample, context);
 	}
@@ -11599,7 +11599,7 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 			bool		first = true;
 
 			appendStringInfoString(buf, " USING (");
-			/* Use the assigned names, not what's in usingClause */
+			/* 用已分配的名字，而非 usingClause 中的 */
 			foreach(lc, colinfo->usingNames)
 			{
 				char	   *colname = (char *) lfirst(lc);
@@ -11627,22 +11627,22 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 		}
 		else if (j->jointype != JOIN_INNER)
 		{
-			/* If we didn't say CROSS JOIN above, we must provide an ON */
+			/* 若上面没写 CROSS JOIN，就必须提供 ON */
 			appendStringInfoString(buf, " ON TRUE");
 		}
 
 		if (!PRETTY_PAREN(context) || j->alias != NULL)
 			appendStringInfoChar(buf, ')');
 
-		/* Yes, it's correct to put alias after the right paren ... */
+		/* 是的，把别名放在右括号之后是正确的 ... */
 		if (j->alias != NULL)
 		{
 			/*
-			 * Note that it's correct to emit an alias clause if and only if
-			 * there was one originally.  Otherwise we'd be converting a named
-			 * join to unnamed or vice versa, which creates semantic
-			 * subtleties we don't want.  However, we might print a different
-			 * alias name than was there originally.
+			 * 注意：当且仅当原来有别名子句时才该输出
+			 * 别名子句。否则会把具名连接换成匿名连接，
+			 * 或反之，这会带来不想要的语义微妙性。
+			 * 不过，我们打印出的别名可能与原先的不同。
+			 *
 			 */
 			appendStringInfo(buf, " %s",
 							 quote_identifier(get_rtable_name(j->rtindex,
@@ -11656,9 +11656,9 @@ get_from_clause_item(Node *jtnode, Query *query, deparse_context *context)
 }
 
 /*
- * get_rte_alias - print the relation's alias, if needed
+ * get_rte_alias - 需要时打印关系的别名
  *
- * If printed, the alias is preceded by a space, or by " AS " if use_as is true.
+ * 若打印，别名前面有一个空格；若 use_as 为真则是 " AS "。
  */
 static void
 get_rte_alias(RangeTblEntry *rte, int varno, bool use_as,
@@ -11671,20 +11671,20 @@ get_rte_alias(RangeTblEntry *rte, int varno, bool use_as,
 
 	if (rte->alias != NULL)
 	{
-		/* Always print alias if user provided one */
+		/* 若用户提供了别名则总是打印 */
 		printalias = true;
 	}
 	else if (colinfo->printaliases)
 	{
-		/* Always print alias if we need to print column aliases */
+		/* 若需要打印列别名则总是打印别名 */
 		printalias = true;
 	}
 	else if (rte->rtekind == RTE_RELATION)
 	{
 		/*
-		 * No need to print alias if it's same as relation name (this would
-		 * normally be the case, but not if set_rtable_names had to resolve a
-		 * conflict).
+		 * 若别名与关系名相同则无须打印（通常正是
+		 * 如此，但 set_rtable_names 须解决冲突时则不然）。
+		 *
 		 */
 		if (strcmp(refname, get_relation_name(rte->relid)) != 0)
 			printalias = true;
@@ -11692,10 +11692,10 @@ get_rte_alias(RangeTblEntry *rte, int varno, bool use_as,
 	else if (rte->rtekind == RTE_FUNCTION)
 	{
 		/*
-		 * For a function RTE, always print alias.  This covers possible
-		 * renaming of the function and/or instability of the FigureColname
-		 * rules for things that aren't simple functions.  Note we'd need to
-		 * force it anyway for the columndef list case.
+		 * 对函数 RTE 总是打印别名。这覆盖了函数
+		 * 被改名和/或 FigureColname 规则对非简单函数
+		 * 不稳定的情形。注意 columndef 列表情形反正也需要
+		 * 强制这一点。
 		 */
 		printalias = true;
 	}
@@ -11703,18 +11703,18 @@ get_rte_alias(RangeTblEntry *rte, int varno, bool use_as,
 			 rte->rtekind == RTE_VALUES)
 	{
 		/*
-		 * For a subquery, always print alias.  This makes the output
-		 * SQL-spec-compliant, even though we allow such aliases to be omitted
-		 * on input.
+		 * 对子查询总是打印别名，这使输出符合
+		 * SQL 标准，尽管我们允许输入时省略这类别名。
+		 *
 		 */
 		printalias = true;
 	}
 	else if (rte->rtekind == RTE_CTE)
 	{
 		/*
-		 * No need to print alias if it's same as CTE name (this would
-		 * normally be the case, but not if set_rtable_names had to resolve a
-		 * conflict).
+		 * 若别名与 CTE 名相同则无须打印（通常正是
+		 * 如此，但 set_rtable_names 须解决冲突时则不然）。
+		 *
 		 */
 		if (strcmp(refname, rte->ctename) != 0)
 			printalias = true;
@@ -11727,9 +11727,9 @@ get_rte_alias(RangeTblEntry *rte, int varno, bool use_as,
 }
 
 /*
- * get_column_alias_list - print column alias list for an RTE
+ * get_column_alias_list - 打印 RTE 的列别名列表
  *
- * Caller must already have printed the relation's alias name.
+ * 调用者必须已打印过关系的别名。
  */
 static void
 get_column_alias_list(deparse_columns *colinfo, deparse_context *context)
@@ -11738,7 +11738,7 @@ get_column_alias_list(deparse_columns *colinfo, deparse_context *context)
 	int			i;
 	bool		first = true;
 
-	/* Don't print aliases if not needed */
+	/* 不需要时不打印别名 */
 	if (!colinfo->printaliases)
 		return;
 
@@ -11760,16 +11760,16 @@ get_column_alias_list(deparse_columns *colinfo, deparse_context *context)
 }
 
 /*
- * get_from_clause_coldeflist - reproduce FROM clause coldeflist
+ * get_from_clause_coldeflist - 再现 FROM 子句 coldeflist
  *
- * When printing a top-level coldeflist (which is syntactically also the
- * relation's column alias list), use column names from colinfo.  But when
- * printing a coldeflist embedded inside ROWS FROM(), we prefer to use the
- * original coldeflist's names, which are available in rtfunc->funccolnames.
- * Pass NULL for colinfo to select the latter behavior.
+ * 打印顶层 coldeflist（它在语法上同时也是关系的
+ * 列别名列表）时，使用 colinfo 中的列名。而当打印
+ * 内嵌在 ROWS FROM() 中的 coldeflist 时，我们更愿使用
+ * 原始 coldeflist 的名字，它们可在 rtfunc->funccolnames 中找到。
+ * 传 NULL 给 colinfo 以选择后一种行为。
  *
- * The coldeflist is appended immediately (no space) to buf.  Caller is
- * responsible for ensuring that an alias or AS is present before it.
+ * coldeflist 会紧贴着（不加空格）追加到 buf。调用者
+ * 负责确保其前面已有别名或 AS。
  */
 static void
 get_from_clause_coldeflist(RangeTblFunction *rtfunc,
@@ -11801,7 +11801,7 @@ get_from_clause_coldeflist(RangeTblFunction *rtfunc,
 		else
 			attname = strVal(lfirst(l4));
 
-		Assert(attname);		/* shouldn't be any dropped columns here */
+		Assert(attname);		/* 此处不应有被删除的列 */
 
 		if (i > 0)
 			appendStringInfoString(buf, ", ");
@@ -11820,7 +11820,7 @@ get_from_clause_coldeflist(RangeTblFunction *rtfunc,
 }
 
 /*
- * get_tablesample_def			- print a TableSampleClause
+ * get_tablesample_def			- 打印 TableSampleClause
  */
 static void
 get_tablesample_def(TableSampleClause *tablesample, deparse_context *context)
@@ -11831,8 +11831,8 @@ get_tablesample_def(TableSampleClause *tablesample, deparse_context *context)
 	ListCell   *l;
 
 	/*
-	 * We should qualify the handler's function name if it wouldn't be
-	 * resolved by lookup in the current search path.
+	 * 若处理器的函数名在当前搜索路径中无法解析，
+	 * 就应给它加上模式限定。
 	 */
 	argtypes[0] = INTERNALOID;
 	appendStringInfo(buf, " TABLESAMPLE %s (",
@@ -11858,13 +11858,13 @@ get_tablesample_def(TableSampleClause *tablesample, deparse_context *context)
 }
 
 /*
- * get_opclass_name			- fetch name of an index operator class
+ * get_opclass_name			- 取得索引操作符类的名字
  *
- * The opclass name is appended (after a space) to buf.
+ * 操作符类名（前加空格）追加到 buf。
  *
- * Output is suppressed if the opclass is the default for the given
- * actual_datatype.  (If you don't want this behavior, just pass
- * InvalidOid for actual_datatype.)
+ * 若操作符类是给定 actual_datatype 的默认值，则
+ * 抑制输出。（若不想要这种行为，传 InvalidOid
+ * 作为 actual_datatype 即可。）
  */
 static void
 get_opclass_name(Oid opclass, Oid actual_datatype,
@@ -11883,7 +11883,7 @@ get_opclass_name(Oid opclass, Oid actual_datatype,
 	if (!OidIsValid(actual_datatype) ||
 		GetDefaultOpClass(actual_datatype, opcrec->opcmethod) != opclass)
 	{
-		/* Okay, we need the opclass name.  Do we need to qualify it? */
+		/* 好，需要操作符类名。要加模式限定吗？ */
 		opcname = NameStr(opcrec->opcname);
 		if (OpclassIsVisible(opclass))
 			appendStringInfo(buf, " %s", quote_identifier(opcname));
@@ -11900,9 +11900,9 @@ get_opclass_name(Oid opclass, Oid actual_datatype,
 
 /*
  * generate_opclass_name
- *		Compute the name to display for an opclass specified by OID
+ *		计算由 OID 指定的操作符类的显示名
  *
- * The result includes all necessary quoting and schema-prefixing.
+ * 结果包含所有必要的加引号与模式前缀。
  */
 char *
 generate_opclass_name(Oid opclass)
@@ -11912,19 +11912,19 @@ generate_opclass_name(Oid opclass)
 	initStringInfo(&buf);
 	get_opclass_name(opclass, InvalidOid, &buf);
 
-	return &buf.data[1];		/* get_opclass_name() prepends space */
+	return &buf.data[1];		/* get_opclass_name() 会前置空格*/
 }
 
 /*
- * processIndirection - take care of array and subfield assignment
+ * processIndirection - 处理数组与子字段赋值
  *
- * We strip any top-level FieldStore or assignment SubscriptingRef nodes that
- * appear in the input, printing them as decoration for the base column
- * name (which we assume the caller just printed).  We might also need to
- * strip CoerceToDomain nodes, but only ones that appear above assignment
- * nodes.
+ * 我们会剥掉输入中出现的任何顶层 FieldStore 或赋值用
+ * SubscriptingRef 节点，将其作为基本列名的装饰打印；
+ * （假定调用者刚打印过列名）。还可能需要剥掉
+ * CoerceToDomain 节点，但只剥位于赋值节点之上的那些。
  *
- * Returns the subexpression that's to be assigned.
+ *
+ * 返回将被赋值的子表达式。
  */
 static Node *
 processIndirection(Node *node, deparse_context *context)
@@ -11942,16 +11942,16 @@ processIndirection(Node *node, deparse_context *context)
 			Oid			typrelid;
 			char	   *fieldname;
 
-			/* lookup tuple type */
+			/* 查找元组类型*/
 			typrelid = get_typ_typrelid(fstore->resulttype);
 			if (!OidIsValid(typrelid))
 				elog(ERROR, "argument type %s of FieldStore is not a tuple type",
 					 format_type_be(fstore->resulttype));
 
 			/*
-			 * Print the field name.  There should only be one target field in
-			 * stored rules.  There could be more than that in executable
-			 * target lists, but this function cannot be used for that case.
+			 * 打印字段名。存储规则中目标字段应只有一个。
+			 * 可执行目标列表中可能有多个，但本函数不
+			 * 能用于那种情形。
 			 */
 			Assert(list_length(fstore->fieldnums) == 1);
 			fieldname = get_attname(typrelid,
@@ -11959,8 +11959,8 @@ processIndirection(Node *node, deparse_context *context)
 			appendStringInfo(buf, ".%s", quote_identifier(fieldname));
 
 			/*
-			 * We ignore arg since it should be an uninteresting reference to
-			 * the target column or subcolumn.
+			 * 我们忽略 arg，因为它应当是对目标列或子列的
+			 * 只是普通引用。
 			 */
 			node = (Node *) linitial(fstore->newvals);
 		}
@@ -11974,18 +11974,18 @@ processIndirection(Node *node, deparse_context *context)
 			printSubscripts(sbsref, context);
 
 			/*
-			 * We ignore refexpr since it should be an uninteresting reference
-			 * to the target column or subcolumn.
+			 * 我们忽略 refexpr，因为它应当是对目标列
+			 * 或子列的普通引用。
 			 */
 			node = (Node *) sbsref->refassgnexpr;
 		}
 		else if (IsA(node, CoerceToDomain))
 		{
 			cdomain = (CoerceToDomain *) node;
-			/* If it's an explicit domain coercion, we're done */
+			/* 若是显式域转换，就完成了 */
 			if (cdomain->coercionformat != COERCE_IMPLICIT_CAST)
 				break;
-			/* Tentatively descend past the CoerceToDomain */
+			/* 暂且下钻穿过 CoerceToDomain */
 			node = (Node *) cdomain->arg;
 		}
 		else
@@ -11993,10 +11993,10 @@ processIndirection(Node *node, deparse_context *context)
 	}
 
 	/*
-	 * If we descended past a CoerceToDomain whose argument turned out not to
-	 * be a FieldStore or array assignment, back up to the CoerceToDomain.
-	 * (This is not enough to be fully correct if there are nested implicit
-	 * CoerceToDomains, but such cases shouldn't ever occur.)
+	 * 如果我们下钻穿过了某个 CoerceToDomain，而其实参
+	 * 结果并不是 FieldStore 或数组赋值，则回退到该
+	 * CoerceToDomain。（若存在嵌套隐式 CoerceToDomain，
+	 * 还不够完全正确，但此类情形不应出现）
 	 */
 	if (cdomain && node == (Node *) cdomain->arg)
 		node = (Node *) cdomain;
@@ -12011,36 +12011,36 @@ printSubscripts(SubscriptingRef *sbsref, deparse_context *context)
 	ListCell   *lowlist_item;
 	ListCell   *uplist_item;
 
-	lowlist_item = list_head(sbsref->reflowerindexpr);	/* could be NULL */
+	lowlist_item = list_head(sbsref->reflowerindexpr);	/* 可能为 NULL*/
 	foreach(uplist_item, sbsref->refupperindexpr)
 	{
 		appendStringInfoChar(buf, '[');
 		if (lowlist_item)
 		{
-			/* If subexpression is NULL, get_rule_expr prints nothing */
+			/* 子表达式为 NULL，则 get_rule_expr 不打印 */
 			get_rule_expr((Node *) lfirst(lowlist_item), context, false);
 			appendStringInfoChar(buf, ':');
 			lowlist_item = lnext(sbsref->reflowerindexpr, lowlist_item);
 		}
-		/* If subexpression is NULL, get_rule_expr prints nothing */
+		/* 子表达式为 NULL，则 get_rule_expr 不打印 */
 		get_rule_expr((Node *) lfirst(uplist_item), context, false);
 		appendStringInfoChar(buf, ']');
 	}
 }
 
 /*
- * quote_identifier			- Quote an identifier only if needed
+ * quote_identifier			- 仅在需要时给标识符加引号
  *
- * When quotes are needed, we palloc the required space; slightly
- * space-wasteful but well worth it for notational simplicity.
+ * 需要引号时 palloc 所需空间；略有浪费，但为了
+ * 记法简洁还是值得的。
  */
 const char *
 quote_identifier(const char *ident)
 {
 	/*
-	 * Can avoid quoting if ident starts with a lowercase letter or underscore
-	 * and contains only lowercase letters, digits, and underscores, *and* is
-	 * not any SQL keyword.  Otherwise, supply quotes.
+	 * 如果标识符以小写字母或下划线开头，且只含小写字
+	 * 母、数字和下划线，*并且*不是任何 SQL 关键字，
+	 * 则可避免加引号；否则就加引号。
 	 */
 	int			nquotes = 0;
 	bool		safe;
@@ -12049,8 +12049,8 @@ quote_identifier(const char *ident)
 	char	   *optr;
 
 	/*
-	 * would like to use <ctype.h> macros here, but they might yield unwanted
-	 * locale-specific results...
+	 * 本来想在这里使用 <ctype.h> 宏，但它们可能产生不合
+	 * 意的结果...
 	 */
 	safe = ((ident[0] >= 'a' && ident[0] <= 'z') || ident[0] == '_');
 
@@ -12062,7 +12062,7 @@ quote_identifier(const char *ident)
 			(ch >= '0' && ch <= '9') ||
 			(ch == '_'))
 		{
-			/* okay */
+			/* 可 */
 		}
 		else
 		{
@@ -12078,12 +12078,12 @@ quote_identifier(const char *ident)
 	if (safe)
 	{
 		/*
-		 * Check for keyword.  We quote keywords except for unreserved ones.
-		 * (In some cases we could avoid quoting a col_name or type_func_name
-		 * keyword, but it seems much harder than it's worth to tell that.)
+		 * 检查关键字。关键字加引号，非保留字除外。
+		 * （某些情形下我们可以不对 col_name 或 type_func_name
+		 * 关键字免加引号，但分辨起来似乎得不偿失。）
 		 *
-		 * Note: ScanKeywordLookup() does case-insensitive comparison, but
-		 * that's fine, since we already know we have all-lower-case.
+		 * 注意：ScanKeywordLookup() 比较不分大小写，
+		 * 但这没关系，因为我们已知全是小写。
 		 */
 		int			kwnum = ScanKeywordLookup(ident, &ScanKeywords);
 
@@ -12092,7 +12092,7 @@ quote_identifier(const char *ident)
 	}
 
 	if (safe)
-		return ident;			/* no change needed */
+		return ident;			/* 无需改动 */
 
 	result = (char *) palloc(strlen(ident) + nquotes + 2 + 1);
 
@@ -12113,10 +12113,10 @@ quote_identifier(const char *ident)
 }
 
 /*
- * quote_qualified_identifier	- Quote a possibly-qualified identifier
+ * quote_qualified_identifier	- 给可能带限定的标识符加引号
  *
- * Return a name of the form qualifier.ident, or just ident if qualifier
- * is NULL, quoting each component if necessary.  The result is palloc'd.
+ * 返回 qualifier.ident 形式的名字；若限定符为
+ * NULL 则只返回 ident，按需加引号。结果经 palloc 分配。
  */
 char *
 quote_qualified_identifier(const char *qualifier,
@@ -12133,10 +12133,10 @@ quote_qualified_identifier(const char *qualifier,
 
 /*
  * get_relation_name
- *		Get the unqualified name of a relation specified by OID
+ *		取得 OID 指定关系的非限定名
  *
- * This differs from the underlying get_rel_name() function in that it will
- * throw error instead of silently returning NULL if the OID is bad.
+ * 它与底层 get_rel_name() 函数的差别在于：OID 无效时
+ * 它会抛错而不是静默返回 NULL。
  */
 static char *
 get_relation_name(Oid relid)
@@ -12150,13 +12150,13 @@ get_relation_name(Oid relid)
 
 /*
  * generate_relation_name
- *		Compute the name to display for a relation specified by OID
+ *		计算 OID 指定关系要显示的名字
  *
- * The result includes all necessary quoting and schema-prefixing.
+ * 结果包含所有必要的加引号与模式前缀。
  *
- * If namespaces isn't NIL, it must be a list of deparse_namespace nodes.
- * We will forcibly qualify the relation name if it equals any CTE name
- * visible in the namespace list.
+ * 若 namespaces 不是 NIL，则它必须是 deparse_namespace
+ * 节点列表。若关系名与列表中任一可见 CTE
+ * 同名，则强制限定该关系名。
  */
 static char *
 generate_relation_name(Oid relid, List *namespaces)
@@ -12175,7 +12175,7 @@ generate_relation_name(Oid relid, List *namespaces)
 	reltup = (Form_pg_class) GETSTRUCT(tp);
 	relname = NameStr(reltup->relname);
 
-	/* Check for conflicting CTE name */
+	/* 检查冲突的 CTE 名 */
 	need_qual = false;
 	foreach(nslist, namespaces)
 	{
@@ -12196,7 +12196,7 @@ generate_relation_name(Oid relid, List *namespaces)
 			break;
 	}
 
-	/* Otherwise, qualify the name if not visible in search path */
+	/* 否则若名字在搜索路径不可见则加模式限定 */
 	if (!need_qual)
 		need_qual = !RelationIsVisible(relid);
 
@@ -12214,9 +12214,9 @@ generate_relation_name(Oid relid, List *namespaces)
 
 /*
  * generate_qualified_relation_name
- *		Compute the name to display for a relation specified by OID
+ *		计算 OID 指定关系要显示的名字
  *
- * As above, but unconditionally schema-qualify the name.
+ * 同上，但无条件给名字加模式限定。
  */
 static char *
 generate_qualified_relation_name(Oid relid)
@@ -12247,20 +12247,20 @@ generate_qualified_relation_name(Oid relid)
 
 /*
  * generate_function_name
- *		Compute the name to display for a function specified by OID,
- *		given that it is being called with the specified actual arg names and
- *		types.  (Those matter because of ambiguous-function resolution rules.)
+ *		计算 OID 指定函数要显示的名字，该函数
+ *	以指定的实际实参名与类型来调用（这些之所以
+ *	重要，是因为有歧义函数的解析规则。）
  *
- * If we're dealing with a potentially variadic function (in practice, this
- * means a FuncExpr or Aggref, not some other way of calling a function), then
- * has_variadic must specify whether variadic arguments have been merged,
- * and *use_variadic_p will be set to indicate whether to print VARIADIC in
- * the output.  For non-FuncExpr cases, has_variadic should be false and
- * use_variadic_p can be NULL.
+ * 如果处理的是可能变参的函数（实践中，这意味
+ * 着是 FuncExpr 或 Aggref，而非其他调用函数的方式），
+ * 则 has_variadic 必须说明变参数是否已被合并，
+ * 且 *use_variadic_p 会被设置以指示是否在输出中打印
+ * VARIADIC。对非 FuncExpr 情形，has_variadic 应为
+ * false，且 use_variadic_p 可为 NULL。
  *
- * inGroupBy must be true if we're deparsing a GROUP BY clause.
+ * 反解析 GROUP BY 子句时 inGroupBy 必须为真。
  *
- * The result includes all necessary quoting and schema-prefixing.
+ * 结果包含所有必要的加引号与模式前缀。
  */
 static char *
 generate_function_name(Oid funcid, int nargs, List *argnames, Oid *argtypes,
@@ -12289,8 +12289,8 @@ generate_function_name(Oid funcid, int nargs, List *argnames, Oid *argtypes,
 	proname = NameStr(procform->proname);
 
 	/*
-	 * Due to parser hacks to avoid needing to reserve CUBE, we need to force
-	 * qualification of some function names within GROUP BY.
+	 * 由于解析器为避免保留 CUBE 而做的取巧处理，我们须
+	 * 强制限定 GROUP BY 内的某些函数名。
 	 */
 	if (inGroupBy)
 	{
@@ -12299,18 +12299,18 @@ generate_function_name(Oid funcid, int nargs, List *argnames, Oid *argtypes,
 	}
 
 	/*
-	 * Determine whether VARIADIC should be printed.  We must do this first
-	 * since it affects the lookup rules in func_get_detail().
+	 * 判断是否应打印 VARIADIC。必须先做这件事，因为它
+	 * 会影响 func_get_detail() 的查找规则。
 	 *
-	 * We always print VARIADIC if the function has a merged variadic-array
-	 * argument.  Note that this is always the case for functions taking a
-	 * VARIADIC argument type other than VARIADIC ANY.  If we omitted VARIADIC
-	 * and printed the array elements as separate arguments, the call could
-	 * match a newer non-VARIADIC function.
+	 * 若函数有已合并的变参数组实参，我们总是打印
+	 * VARIADIC。注意对于接受 VARIADIC ANY 之外变参
+	 * 类型的函数来说总是如此。如果我们省略 VARIADIC
+	 * 而把数组元素打印成独立实参，调用就可能匹配
+	 * 更新的非 VARIADIC 函数。
 	 */
 	if (use_variadic_p)
 	{
-		/* Parser should not have set funcvariadic unless fn is variadic */
+		/* 解析器不应在 fn 非变参时设置 funcvariadic */
 		Assert(!has_variadic || OidIsValid(procform->provariadic));
 		use_variadic = has_variadic;
 		*use_variadic_p = use_variadic;
@@ -12322,11 +12322,11 @@ generate_function_name(Oid funcid, int nargs, List *argnames, Oid *argtypes,
 	}
 
 	/*
-	 * The idea here is to schema-qualify only if the parser would fail to
-	 * resolve the correct function given the unqualified func name with the
-	 * specified argtypes and VARIADIC flag.  But if we already decided to
-	 * force qualification, then we can skip the lookup and pretend we didn't
-	 * find it.
+	 * 这里的思路是：仅当解析器以未限定名加给定
+	 * argtypes 与 VARIADIC 标志无法解析出正确函数时才
+	 * 做模式限定。但如果我们已决定强制限定，
+	 * 那就可以跳过查找并假装没找到它。
+	 *
 	 */
 	if (!force_qualify)
 		p_result = func_get_detail(list_make1(makeString(proname)),
@@ -12358,14 +12358,14 @@ generate_function_name(Oid funcid, int nargs, List *argnames, Oid *argtypes,
 
 /*
  * generate_operator_name
- *		Compute the name to display for an operator specified by OID,
- *		given that it is being called with the specified actual arg types.
- *		(Arg types matter because of ambiguous-operator resolution rules.
- *		Pass InvalidOid for unused arg of a unary operator.)
+ *		计算 OID 指定操作符要显示的名字，给定它
+ *		以指定的实际实参类型来调用。
+ *		（实参类型很重要，因为存在歧义操作符的解析
+ *		规则；一元操作符传 InvalidOid 即可。）
  *
- * The result includes all necessary quoting and schema-prefixing,
- * plus the OPERATOR() decoration needed to use a qualified operator name
- * in an expression.
+ * 结果包含所有必要的加引号与模式前缀，
+ * 外加在表达式中使用限定操作符名所需的
+ * OPERATOR() 装饰。
  */
 static char *
 generate_operator_name(Oid operid, Oid arg1, Oid arg2)
@@ -12386,9 +12386,9 @@ generate_operator_name(Oid operid, Oid arg1, Oid arg2)
 	oprname = NameStr(operform->oprname);
 
 	/*
-	 * The idea here is to schema-qualify only if the parser would fail to
-	 * resolve the correct operator given the unqualified op name with the
-	 * specified argtypes.
+	 * 这里的思路是：仅当解析器以未限定名加给定
+	 * argtypes 无法解析出正确的操作符时才做模式限定。
+	 *
 	 */
 	switch (operform->oprkind)
 	{
@@ -12402,7 +12402,7 @@ generate_operator_name(Oid operid, Oid arg1, Oid arg2)
 			break;
 		default:
 			elog(ERROR, "unrecognized oprkind: %d", operform->oprkind);
-			p_result = NULL;	/* keep compiler quiet */
+			p_result = NULL;	/* 让编译器安静 */
 			break;
 	}
 
@@ -12428,21 +12428,21 @@ generate_operator_name(Oid operid, Oid arg1, Oid arg2)
 }
 
 /*
- * generate_operator_clause --- generate a binary-operator WHERE clause
+ * generate_operator_clause --- 生成二元操作符 WHERE 子句
  *
- * This is used for internally-generated-and-executed SQL queries, where
- * precision is essential and readability is secondary.  The basic
- * requirement is to append "leftop op rightop" to buf, where leftop and
- * rightop are given as strings and are assumed to yield types leftoptype
- * and rightoptype; the operator is identified by OID.  The complexity
- * comes from needing to be sure that the parser will select the desired
- * operator when the query is parsed.  We always name the operator using
- * OPERATOR(schema.op) syntax, so as to avoid search-path uncertainties.
- * We have to emit casts too, if either input isn't already the input type
- * of the operator; else we are at the mercy of the parser's heuristics for
- * ambiguous-operator resolution.  The caller must ensure that leftop and
- * rightop are suitable arguments for a cast operation; it's best to insert
- * parentheses if they aren't just variables or parameters.
+ * 这用于内部生成并执行的 SQL 查询，这类查询中精确
+ * 性至关重要而可读性次要。基本要求是把
+ * "leftop op rightop" 追加到 buf，其中 leftop 与
+ * rightop 以字符串给出，并假定它们产生 leftoptype
+ * 与 rightoptype 类型；操作符由 OID 标识。复杂之处
+ * 在于必须确保解析器在解析查询时会选中想要的
+ * 操作符。我们总是用 OPERATOR(schema.op) 语法为操作符
+ * 命名，以避免搜索路径的不确定性。
+ * 若任一输入尚非该操作符的输入类型，就必须同时
+ * 输出强制转换，否则只能听凭解析器歧义操作符
+ * 解析启发式的摆布。调用者必须确保 leftop 与
+ * rightop 适合作为转换操作的实参；若它们不只是变量
+ * 或参数，最好加括号。
  */
 void
 generate_operator_clause(StringInfo buf,
@@ -12477,12 +12477,12 @@ generate_operator_clause(StringInfo buf,
 }
 
 /*
- * Add a cast specification to buf.  We spell out the type name the hard way,
- * intentionally not using format_type_be().  This is to avoid corner cases
- * for CHARACTER, BIT, and perhaps other types, where specifying the type
- * using SQL-standard syntax results in undesirable data truncation.  By
- * doing it this way we can be certain that the cast will have default (-1)
- * target typmod.
+ * 向 buf 追加一段转换说明。类型名我们特意用笨办法
+ * 拼写，而不使用 format_type_be()。这样做是为了避开
+ * 边角情形：对 CHARACTER、BIT 或许还有其他类型，用
+ * SQL 标准语法指定类型会导致不合意的数据截断。这样
+ * 一来可以确定该转换的目标 typmod 为默认值 (-1)。
+ *
  */
 static void
 add_cast_to(StringInfo buf, Oid typid)
@@ -12508,12 +12508,12 @@ add_cast_to(StringInfo buf, Oid typid)
 
 /*
  * generate_qualified_type_name
- *		Compute the name to display for a type specified by OID
+ *		计算 OID 指定类型要显示的名字
  *
- * This is different from format_type_be() in that we unconditionally
- * schema-qualify the name.  That also means no special syntax for
- * SQL-standard type names ... although in current usage, this should
- * only get used for domains, so such cases wouldn't occur anyway.
+ * 它与 format_type_be() 的不同在于我们无条件给名字
+ * 加模式限定。这也意味着对 SQL 标准类型名没有
+ * 特殊语法 ... 但按当前用法它只应被用于域，
+ * 所以这类情形反正也不会出现。
  */
 static char *
 generate_qualified_type_name(Oid typid)
@@ -12544,9 +12544,9 @@ generate_qualified_type_name(Oid typid)
 
 /*
  * generate_collation_name
- *		Compute the name to display for a collation specified by OID
+ *		计算由 OID 指定排序规则要显示的名字
  *
- * The result includes all necessary quoting and schema-prefixing.
+ * 结果包含所有必要的加引号与模式前缀。
  */
 char *
 generate_collation_name(Oid collid)
@@ -12576,9 +12576,9 @@ generate_collation_name(Oid collid)
 }
 
 /*
- * Given a C string, produce a TEXT datum.
+ * 由 C 字符串生成 TEXT datum。
  *
- * We assume that the input was palloc'd and may be freed.
+ * 假定输入经 palloc 分配，且可被释放。
  */
 static text *
 string_to_text(char *str)
@@ -12591,7 +12591,7 @@ string_to_text(char *str)
 }
 
 /*
- * Generate a C string representing a relation options from text[] datum.
+ * 从 text[] datum 生成表示关系选项的 C 字符串。
  */
 static void
 get_reloptions(StringInfo buf, Datum reloptions)
@@ -12611,8 +12611,8 @@ get_reloptions(StringInfo buf, Datum reloptions)
 		char	   *value;
 
 		/*
-		 * Each array element should have the form name=value.  If the "=" is
-		 * missing for some reason, treat it like an empty value.
+		 * 每个数组元素都应形如 name=value。若因某种原因
+		 * 缺少 "="，则把它当作空值处理。
 		 */
 		name = option;
 		separator = strchr(option, '=');
@@ -12629,12 +12629,12 @@ get_reloptions(StringInfo buf, Datum reloptions)
 		appendStringInfo(buf, "%s=", quote_identifier(name));
 
 		/*
-		 * In general we need to quote the value; but to avoid unnecessary
-		 * clutter, do not quote if it is an identifier that would not need
-		 * quoting.  (We could also allow numbers, but that is a bit trickier
-		 * than it looks --- for example, are leading zeroes significant?  We
-		 * don't want to assume very much here about what custom reloptions
-		 * might mean.)
+		 * 一般来说我们需要给值加引号；但为了避免不必
+		 * 要的杂乱，如果它是不需要加引号的标识符，
+		 * 就不加引号。（也可允许数字，但这比看上去
+		 * 更棘手 --- 例如，前导零有意义吗？我们不
+		 * 想在这里对自定义 reloptions 的含义做过多的
+		 * 假设。）
 		 */
 		if (quote_identifier(value) == value)
 			appendStringInfoString(buf, value);
@@ -12646,7 +12646,7 @@ get_reloptions(StringInfo buf, Datum reloptions)
 }
 
 /*
- * Generate a C string representing a relation's reloptions, or NULL if none.
+ * 生成表示关系 reloptions 的 C 字符串，没有则返回 NULL。
  */
 static char *
 flatten_reloptions(Oid relid)
@@ -12679,7 +12679,7 @@ flatten_reloptions(Oid relid)
 
 /*
  * get_range_partbound_string
- *		A C string representation of one range partition bound
+ *		一个范围分区边界的 C 字符串表示
  */
 char *
 get_range_partbound_string(List *bound_datums)

@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------------
  * gin_private.h
- *	  header file for postgres inverted index access method implementation.
+ *	  Postgres 倒排索引访问方法实现的头文件。
  *
  *	Copyright (c) 2006-2023, PostgreSQL Global Development Group
  *
@@ -20,13 +20,13 @@
 #include "storage/bufmgr.h"
 
 /*
- * Storage type for GIN's reloptions
+ * GIN 关系选项的存储类型
  */
 typedef struct GinOptions
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	bool		useFastUpdate;	/* use fast updates? */
-	int			pendingListCleanupSize; /* maximum size of pending list */
+	int32		vl_len_;		/* varlena 头(勿直接碰!) */
+	bool		useFastUpdate;	/* 用快速更新? */
+	int			pendingListCleanupSize; /* 挂起列表的最大尺寸 */
 } GinOptions;
 
 #define GIN_DEFAULT_USE_FASTUPDATE	true
@@ -44,46 +44,46 @@ typedef struct GinOptions
 	 gin_pending_list_limit)
 
 
-/* Macros for buffer lock/unlock operations */
+/* 缓冲区加锁/解锁操作的宏 */
 #define GIN_UNLOCK	BUFFER_LOCK_UNLOCK
 #define GIN_SHARE	BUFFER_LOCK_SHARE
 #define GIN_EXCLUSIVE  BUFFER_LOCK_EXCLUSIVE
 
 
 /*
- * GinState: working data structure describing the index being worked on
+ * GinState: 描述当前所处理索引的工作数据结构
  */
 typedef struct GinState
 {
 	Relation	index;
-	bool		oneCol;			/* true if single-column index */
+	bool		oneCol;			/* 若为单列索引则为真 */
 
 	/*
-	 * origTupdesc is the nominal tuple descriptor of the index, ie, the i'th
-	 * attribute shows the key type (not the input data type!) of the i'th
-	 * index column.  In a single-column index this describes the actual leaf
-	 * index tuples.  In a multi-column index, the actual leaf tuples contain
-	 * a smallint column number followed by a key datum of the appropriate
-	 * type for that column.  We set up tupdesc[i] to describe the actual
-	 * rowtype of the index tuples for the i'th column, ie, (int2, keytype).
-	 * Note that in any case, leaf tuples contain more data than is known to
-	 * the TupleDesc; see access/gin/README for details.
+	 * origTupdesc 是索引的名义元组描述符，即第 i 个
+	 * 属性给出第 i 个索引列键类型(非输入数据类型!)。
+	 * 在单列索引中它描述实际的叶子索引
+	 * 元组。在多列索引中，实际叶子元组含有
+	 * 一个 smallint 列号，后跟该列相应类型的
+	 * 键 datum。我们设 tupdesc[i] 以描述实际的
+	 * 第 i 列索引元组行类型，即 (int2, keytype)。
+	 * 注意无论何种情况，叶子元组都含有比
+	 * TupleDesc 所知更多；见 access/gin/README。
 	 */
 	TupleDesc	origTupdesc;
 	TupleDesc	tupdesc[INDEX_MAX_KEYS];
 
 	/*
-	 * Per-index-column opclass support functions
+	 * 每索引列的操作符类支持函数
 	 */
 	FmgrInfo	compareFn[INDEX_MAX_KEYS];
 	FmgrInfo	extractValueFn[INDEX_MAX_KEYS];
 	FmgrInfo	extractQueryFn[INDEX_MAX_KEYS];
 	FmgrInfo	consistentFn[INDEX_MAX_KEYS];
 	FmgrInfo	triConsistentFn[INDEX_MAX_KEYS];
-	FmgrInfo	comparePartialFn[INDEX_MAX_KEYS];	/* optional method */
-	/* canPartialMatch[i] is true if comparePartialFn[i] is valid */
+	FmgrInfo	comparePartialFn[INDEX_MAX_KEYS];	/* 可选方法 */
+	/* canPartialMatch[i] 在 comparePartialFn[i] 有效时为真 */
 	bool		canPartialMatch[INDEX_MAX_KEYS];
-	/* Collations to pass to the support functions */
+	/* 传给支持函数的排序规则 */
 	Oid			supportCollation[INDEX_MAX_KEYS];
 } GinState;
 
@@ -131,14 +131,14 @@ typedef struct GinBtreeStack
 	Buffer		buffer;
 	OffsetNumber off;
 	ItemPointerData iptr;
-	/* predictNumber contains predicted number of pages on current level */
+	/* predictNumber 含当前层上预测的页数 */
 	uint32		predictNumber;
 	struct GinBtreeStack *parent;
 } GinBtreeStack;
 
 typedef struct GinBtreeData *GinBtree;
 
-/* Return codes for GinBtreeData.beginPlaceToPage method */
+/* GinBtreeData.beginPlaceToPage 方法的返回码 */
 typedef enum
 {
 	GPTP_NO_WORK,
@@ -148,13 +148,13 @@ typedef enum
 
 typedef struct GinBtreeData
 {
-	/* search methods */
+	/* 搜索方法 */
 	BlockNumber (*findChildPage) (GinBtree, GinBtreeStack *);
 	BlockNumber (*getLeftMostChild) (GinBtree, Page);
 	bool		(*isMoveRight) (GinBtree, Page);
 	bool		(*findItem) (GinBtree, GinBtreeStack *);
 
-	/* insert methods */
+	/* 插入方法 */
 	OffsetNumber (*findChildPtr) (GinBtree, Page, BlockNumber, OffsetNumber);
 	GinPlaceToPageRC (*beginPlaceToPage) (GinBtree, Buffer, GinBtreeStack *, void *, BlockNumber, void **, Page *, Page *);
 	void		(*execPlaceToPage) (GinBtree, Buffer, GinBtreeStack *, void *, BlockNumber, void *);
@@ -165,29 +165,29 @@ typedef struct GinBtreeData
 
 	Relation	index;
 	BlockNumber rootBlkno;
-	GinState   *ginstate;		/* not valid in a data scan */
+	GinState   *ginstate;		/* 在数据扫描中无效 */
 	bool		fullScan;
 	bool		isBuild;
 
-	/* Search key for Entry tree */
+	/* 条目树的搜索键 */
 	OffsetNumber entryAttnum;
 	Datum		entryKey;
 	GinNullCategory entryCategory;
 
-	/* Search key for data tree (posting tree) */
+	/* 数据树(倒排树)的搜索键 */
 	ItemPointerData itemptr;
 } GinBtreeData;
 
-/* This represents a tuple to be inserted to entry tree. */
+/* 这表示将插入条目树的一个元组。 */
 typedef struct
 {
-	IndexTuple	entry;			/* tuple to insert */
-	bool		isDelete;		/* delete old tuple at same offset? */
+	IndexTuple	entry;			/* 待插入元组 */
+	bool		isDelete;		/* 删除同偏移处的旧元组? */
 } GinBtreeEntryInsertData;
 
 /*
- * This represents an itempointer, or many itempointers, to be inserted to
- * a data (posting tree) leaf page
+ * 这表示一个项指针，或多个项指针，将插入到
+ * 数据(倒排树)叶子页
  */
 typedef struct
 {
@@ -197,7 +197,7 @@ typedef struct
 } GinBtreeDataLeafInsertData;
 
 /*
- * For internal data (posting tree) pages, the insertion payload is a
+ * 对内部数据(倒排树)页，插入有效载荷是一个
  * PostingItem
  */
 
@@ -234,9 +234,9 @@ extern GinBtreeStack *ginScanBeginPostingTree(GinBtree btree, Relation index, Bl
 extern void ginDataFillRoot(GinBtree btree, Page root, BlockNumber lblkno, Page lpage, BlockNumber rblkno, Page rpage);
 
 /*
- * This is declared in ginvacuum.c, but is passed between ginVacuumItemPointers
- * and ginVacuumPostingTreeLeaf and as an opaque struct, so we need a forward
- * declaration for it.
+ * 这在 ginvacuum.c 中声明，但作为不透明结构在
+ * ginVacuumItemPointers 与 ginVacuumPostingTreeLeaf 间传递，故
+ * 需前向声明。
  */
 typedef struct GinVacuumState GinVacuumState;
 
@@ -246,19 +246,19 @@ extern void ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer,
 /* ginscan.c */
 
 /*
- * GinScanKeyData describes a single GIN index qualifier expression.
+ * GinScanKeyData 描述单个 GIN 索引限定表达式。
  *
- * From each qual expression, we extract one or more specific index search
- * conditions, which are represented by GinScanEntryData.  It's quite
- * possible for identical search conditions to be requested by more than
- * one qual expression, in which case we merge such conditions to have just
- * one unique GinScanEntry --- this is particularly important for efficiency
- * when dealing with full-index-scan entries.  So there can be multiple
- * GinScanKeyData.scanEntry pointers to the same GinScanEntryData.
+ * 自每个限定表达式提取一个或多个具体的索引搜索
+ * 条件，它们由 GinScanEntryData 表示。多个限定式
+ * 完全可能请求相同的搜索条件；此时我们合并这些
+ * 条件，使只有一个唯一的 GinScanEntry --- 这对处理
+ * 全索引扫描条目时的效率尤为重要。因此可以有多个
+ * GinScanKeyData.scanEntry 指针指向同一个
+ * GinScanEntryData。
  *
- * In each GinScanKeyData, nentries is the true number of entries, while
- * nuserentries is the number that extractQueryFn returned (which is what
- * we report to consistentFn).  The "user" entries must come first.
+ * 在每个 GinScanKeyData 中，nentries 是条目真实数目，而
+ * nuserentries 是 extractQueryFn 返回的数目(也就是我们
+ * 报告给 consistentFn 的)。"user" 条目必须在前。
  */
 typedef struct GinScanKeyData *GinScanKey;
 
@@ -266,28 +266,28 @@ typedef struct GinScanEntryData *GinScanEntry;
 
 typedef struct GinScanKeyData
 {
-	/* Real number of entries in scanEntry[] (always > 0) */
+	/* scanEntry[] 中条目的真实数目(恒 > 0) */
 	uint32		nentries;
-	/* Number of entries that extractQueryFn and consistentFn know about */
+	/* extractQueryFn 与 consistentFn 所知的条目数 */
 	uint32		nuserentries;
 
-	/* array of GinScanEntry pointers, one per extracted search condition */
+	/* GinScanEntry 指针数组，每个提取的搜索条件一个 */
 	GinScanEntry *scanEntry;
 
 	/*
-	 * At least one of the entries in requiredEntries must be present for a
-	 * tuple to match the overall qual.
+	 * requiredEntries 中至少有一个条目必须存在，元组才
+	 * 能匹配整体限定。
 	 *
-	 * additionalEntries contains entries that are needed by the consistent
-	 * function to decide if an item matches, but are not sufficient to
-	 * satisfy the qual without entries from requiredEntries.
+	 * additionalEntries 含 consistent 函数判定项是否匹配
+	 * 所需的条目，但若无 requiredEntries 中的条目则
+	 * 不足以单独满足限定。
 	 */
 	GinScanEntry *requiredEntries;
 	int			nrequired;
 	GinScanEntry *additionalEntries;
 	int			nadditional;
 
-	/* array of check flags, reported to consistentFn */
+	/* check 标志数组，报告给 consistentFn */
 	GinTernaryValue *entryRes;
 	bool		(*boolConsistentFn) (GinScanKey key);
 	GinTernaryValue (*triConsistentFn) (GinScanKey key);
@@ -295,9 +295,9 @@ typedef struct GinScanKeyData
 	FmgrInfo   *triConsistentFmgrInfo;
 	Oid			collation;
 
-	/* other data needed for calling consistentFn */
+	/* 调用 consistentFn 所需的其他数据 */
 	Datum		query;
-	/* NB: these three arrays have only nuserentries elements! */
+	/* NB: 这三个数组只有 nuserentries 个元素! */
 	Datum	   *queryValues;
 	GinNullCategory *queryCategories;
 	Pointer    *extra_data;
@@ -306,25 +306,25 @@ typedef struct GinScanKeyData
 	OffsetNumber attnum;
 
 	/*
-	 * An excludeOnly scan key is not able to enumerate all matching tuples.
-	 * That is, to be semantically correct on its own, it would need to have a
-	 * GIN_CAT_EMPTY_QUERY scanEntry, but it doesn't.  Such a key can still be
-	 * used to filter tuples returned by other scan keys, so we will get the
-	 * right answers as long as there's at least one non-excludeOnly scan key
-	 * for each index attribute considered by the search.  For efficiency
-	 * reasons we don't want to have unnecessary GIN_CAT_EMPTY_QUERY entries,
-	 * so we will convert an excludeOnly scan key to non-excludeOnly (by
-	 * adding a GIN_CAT_EMPTY_QUERY scanEntry) only if there are no other
-	 * non-excludeOnly scan keys.
+	 * excludeOnly 扫描键无法枚举全部匹配元组。
+	 * 也就是说，若要单独在语义上正确，它本应有一个
+	 * GIN_CAT_EMPTY_QUERY scanEntry，但它没有。此类键仍可
+	 * 用来过滤其他扫描键返回的元组，因此只要搜索所
+	 * 考虑的每个索引属性至少有一个非 excludeOnly 扫描键，
+	 * 我们就能得到正确结果。出于效率
+	 * 考虑，我们不想有多余的 GIN_CAT_EMPTY_QUERY 条目，
+	 * 故仅当无其他非 excludeOnly 扫描键时，才把
+	 * excludeOnly 键转成非 excludeOnly(加 GIN_CAT_EMPTY_QUERY
+	 * scanEntry)。
 	 */
 	bool		excludeOnly;
 
 	/*
-	 * Match status data.  curItem is the TID most recently tested (could be a
-	 * lossy-page pointer).  curItemMatches is true if it passes the
-	 * consistentFn test; if so, recheckCurItem is the recheck flag.
-	 * isFinished means that all the input entry streams are finished, so this
-	 * key cannot succeed for any later TIDs.
+	 * 匹配状态数据。curItem 是最近测试的 TID(可能是
+	 * 有损页指针)。若它通过 consistentFn 测试则
+	 * curItemMatches 为真；recheckCurItem 即 recheck 标志。
+	 * isFinished 表示全部输入条目流已结束，因此本
+	 * 键对更晚的TIDs均无法成功。
 	 */
 	ItemPointerData curItem;
 	bool		curItemMatches;
@@ -334,7 +334,7 @@ typedef struct GinScanKeyData
 
 typedef struct GinScanEntryData
 {
-	/* query key and other information from extractQueryFn */
+	/* 查询键及 extractQueryFn 的其他信息 */
 	Datum		queryKey;
 	GinNullCategory queryCategory;
 	bool		isPartialMatch;
@@ -343,18 +343,18 @@ typedef struct GinScanEntryData
 	int32		searchMode;
 	OffsetNumber attnum;
 
-	/* Current page in posting tree */
+	/* 倒排树中的当前页 */
 	Buffer		buffer;
 
-	/* current ItemPointer to heap */
+	/* 堆上当前 ItemPointer */
 	ItemPointerData curItem;
 
-	/* for a partial-match or full-scan query, we accumulate all TIDs here */
+	/* 对部分匹配或全扫描查询，我们在此累计全部 TIDs */
 	TIDBitmap  *matchBitmap;
 	TBMIterator *matchIterator;
 	TBMIterateResult *matchResult;
 
-	/* used for Posting list and one page in Posting tree */
+	/* 用于倒排列表及倒排树中的一页 */
 	ItemPointerData *list;
 	int			nlist;
 	OffsetNumber offset;
@@ -370,16 +370,16 @@ typedef struct GinScanOpaqueData
 	MemoryContext tempCtx;
 	GinState	ginstate;
 
-	GinScanKey	keys;			/* one per scan qualifier expr */
+	GinScanKey	keys;			/* 每个扫描限定式一个 */
 	uint32		nkeys;
 
-	GinScanEntry *entries;		/* one per index search condition */
+	GinScanEntry *entries;		/* 每个索引搜索条件一个 */
 	uint32		totalentries;
-	uint32		allocentries;	/* allocated length of entries[] */
+	uint32		allocentries;	/* entries[] 的已分配长度 */
 
-	MemoryContext keyCtx;		/* used to hold key and entry data */
+	MemoryContext keyCtx;		/* 用于存放键与条目数据 */
 
-	bool		isVoidRes;		/* true if query is unsatisfiable */
+	bool		isVoidRes;		/* 若查询不可满足则为真 */
 } GinScanOpaqueData;
 
 typedef GinScanOpaqueData *GinScanOpaque;
@@ -423,8 +423,8 @@ typedef struct GinEntryAccumulator
 	OffsetNumber attnum;
 	bool		shouldSort;
 	ItemPointerData *list;
-	uint32		maxcount;		/* allocated size of list[] */
-	uint32		count;			/* current number of list[] entries */
+	uint32		maxcount;		/* list[] 已分配大小 */
+	uint32		count;			/* list[] 当前条目数 */
 } GinEntryAccumulator;
 
 typedef struct
@@ -480,8 +480,8 @@ extern ItemPointer ginMergeItemPointers(ItemPointerData *a, uint32 na,
 										int *nmerged);
 
 /*
- * Merging the results of several gin scans compares item pointers a lot,
- * so we want this to be inlined.
+ * 合并多次 gin 扫描的结果会大量比较项指针，
+ * 故希望此函数内联。
  */
 static inline int
 ginCompareItemPointers(ItemPointer a, ItemPointer b)

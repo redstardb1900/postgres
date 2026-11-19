@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0442",
+  "title": "GIN 头文件注释翻译 — batch 0442",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "df128532af277a07104b2b4d419febe9628d3300",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/gin.h",
+      "kind": "c_comment",
+      "note": "GIN headers"
+    },
+    {
+      "pattern": "src/include/access/gin_private.h",
+      "kind": "c_comment",
+      "note": "GIN headers"
+    },
+    {
+      "pattern": "src/include/access/ginblock.h",
+      "kind": "c_comment",
+      "note": "GIN headers"
+    },
+    {
+      "pattern": "src/include/access/ginxlog.h",
+      "kind": "c_comment",
+      "note": "GIN headers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0442-gin-headers.json",
+      "kind": "manifest",
+      "note": "batch-0442"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/gin.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 19,
+      "translated": 13,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0442"
+    },
+    {
+      "path": "src/include/access/gin_private.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 107,
+      "translated": 88,
+      "preserved": 19,
+      "preserved_reasons": [
+        "横幅/路径/节名/PostingItem/INCLUDE KEEP"
+      ],
+      "note": "batch-0442"
+    },
+    {
+      "path": "src/include/access/ginblock.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 104,
+      "translated": 104,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0442"
+    },
+    {
+      "path": "src/include/access/ginxlog.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 74,
+      "translated": 66,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0442"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0442-gin-headers.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0442"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "batch-0442 GIN headers。术语对齐 gin/*.c：倒排列表/倒排树/挂起列表；cannot→无法。审后清偿：invalid→无效（非非法）；Backup Blk→备份块；halfen/W7。"
+}

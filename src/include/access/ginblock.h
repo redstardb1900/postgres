@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------------
  * ginblock.h
- *	  details of structures stored in GIN index blocks
+ *	  GIN 索引块内所存结构的细节
  *
  *	Copyright (c) 2006-2023, PostgreSQL Global Development Group
  *
@@ -17,23 +17,23 @@
 #include "storage/off.h"
 
 /*
- * Page opaque data in an inverted index page.
+ * 倒排索引页中的页不透明数据。
  *
- * Note: GIN does not include a page ID word as do the other index types.
- * This is OK because the opaque data is only 8 bytes and so can be reliably
- * distinguished by size.  Revisit this if the size ever increases.
- * Further note: as of 9.2, SP-GiST also uses 8-byte special space, as does
- * BRIN as of 9.5.  This is still OK, as long as GIN isn't using all of the
- * high-order bits in its flags word, because that way the flags word cannot
- * match the page IDs used by SP-GiST and BRIN.
+ * 注意: GIN 不像其他索引类型那样含页 ID 字。
+ * 这没问题，因不透明数据仅 8 字节，故能可靠地
+ * 按大小区分。若该大小增大则须再审视。
+ * 再注意: 自 9.2 起 SP-GiST 亦用 8 字节特殊空间，
+ * BRIN 自 9.5 起亦然。仍没问题，只要 GIN 未用尽其
+ * flags 字的高位，因如此 flags 字就无法
+ * 匹配 SP-GiST 与 BRIN 所用的页 ID。
  */
 typedef struct GinPageOpaqueData
 {
-	BlockNumber rightlink;		/* next page if any */
-	OffsetNumber maxoff;		/* number of PostingItems on GIN_DATA &
-								 * ~GIN_LEAF page. On GIN_LIST page, number of
-								 * heap tuples. */
-	uint16		flags;			/* see bit definitions below */
+	BlockNumber rightlink;		/* 下一页,若有 */
+	OffsetNumber maxoff;		/* PostingItems 数(GIN_DATA &
+								 * ~GIN_LEAF 页)。GIN_LIST 页上则为
+								 * 堆元组。*/
+	uint16		flags;			/* 见下方位定义 */
 } GinPageOpaqueData;
 
 typedef GinPageOpaqueData *GinPageOpaque;
@@ -43,39 +43,39 @@ typedef GinPageOpaqueData *GinPageOpaque;
 #define GIN_DELETED		  (1 << 2)
 #define GIN_META		  (1 << 3)
 #define GIN_LIST		  (1 << 4)
-#define GIN_LIST_FULLROW  (1 << 5)	/* makes sense only on GIN_LIST page */
-#define GIN_INCOMPLETE_SPLIT (1 << 6)	/* page was split, but parent not
-										 * updated */
+#define GIN_LIST_FULLROW  (1 << 5)	/* 仅对 GIN_LIST 页有意义 */
+#define GIN_INCOMPLETE_SPLIT (1 << 6)	/* 页已分裂,但父尚未
+										 * 更新*/
 #define GIN_COMPRESSED	  (1 << 7)
 
-/* Page numbers of fixed-location pages */
+/* 固定位置页的页号 */
 #define GIN_METAPAGE_BLKNO	(0)
 #define GIN_ROOT_BLKNO		(1)
 
 typedef struct GinMetaPageData
 {
 	/*
-	 * Pointers to head and tail of pending list, which consists of GIN_LIST
-	 * pages.  These store fast-inserted entries that haven't yet been moved
-	 * into the regular GIN structure.
+	 * 指向挂起列表头与尾的指针；该列表由 GIN_LIST
+	 * 页组成。存放尚未迁入常规 GIN 结构的快速插入
+	 * 条目。
 	 */
 	BlockNumber head;
 	BlockNumber tail;
 
 	/*
-	 * Free space in bytes in the pending list's tail page.
+	 * 挂起列表尾页中的空闲空间字节数。
 	 */
 	uint32		tailFreeSize;
 
 	/*
-	 * We store both number of pages and number of heap tuples that are in the
-	 * pending list.
+	 * 我们同时存放页数与堆元组数，二者皆在
+	 * 挂起列表
 	 */
 	BlockNumber nPendingPages;
 	int64		nPendingHeapTuples;
 
 	/*
-	 * Statistics for planner use (accurate as of last VACUUM)
+	 * 供规划器使用的统计（准至上次 VACUUM）
 	 */
 	BlockNumber nTotalPages;
 	BlockNumber nEntryPages;
@@ -83,19 +83,19 @@ typedef struct GinMetaPageData
 	int64		nEntries;
 
 	/*
-	 * GIN version number (ideally this should have been at the front, but too
-	 * late now.  Don't move it!)
+	 * GIN 版本号（理想上应放在最前，但现在已太
+	 * 晚。勿再移动！）
 	 *
-	 * Currently 2 (for indexes initialized in 9.4 or later)
+	 * 当前为 2（9.4 或更晚初始化的索引）
 	 *
-	 * Version 1 (indexes initialized in version 9.1, 9.2 or 9.3), is
-	 * compatible, but may contain uncompressed posting tree (leaf) pages and
-	 * posting lists. They will be converted to compressed format when
-	 * modified.
+	 * 版本 1（在 9.1、9.2 或 9.3 中初始化的索引）
+	 * 兼容，但可能含未压缩倒排树（叶）页与
+	 * 倒排列表。将在修改时转为压缩
+	 * 格式。
 	 *
-	 * Version 0 (indexes initialized in 9.0 or before) is compatible but may
-	 * be missing null entries, including both null keys and placeholders.
-	 * Reject full-index-scan attempts on such indexes.
+	 * 版本 0（9.0 或更早初始化的索引）兼容，但可能
+	 * 缺少空条目，包括空键与占位二者。
+	 * 拒绝对此类索引做完整索引扫描。
 	 */
 	int32		ginVersion;
 } GinMetaPageData;
@@ -106,7 +106,7 @@ typedef struct GinMetaPageData
 	((GinMetaPageData *) PageGetContents(p))
 
 /*
- * Macros for accessing a GIN index page's opaque data
+ * 访问 GIN 索引页不透明数据的宏
  */
 #define GinPageGetOpaque(page) ( (GinPageOpaque) PageGetSpecialPointer(page) )
 
@@ -130,16 +130,16 @@ typedef struct GinMetaPageData
 #define GinPageRightMost(page) ( GinPageGetOpaque(page)->rightlink == InvalidBlockNumber)
 
 /*
- * We should reclaim deleted page only once every transaction started before
- * its deletion is over.
+ * 仅当删除前已启动的每笔事务皆已结束后，才应
+ * 回收已删页。
  */
 #define GinPageGetDeleteXid(page) ( ((PageHeader) (page))->pd_prune_xid )
 #define GinPageSetDeleteXid(page, xid) ( ((PageHeader) (page))->pd_prune_xid = xid)
 extern bool GinPageIsRecyclable(Page page);
 
 /*
- * We use our own ItemPointerGet(BlockNumber|OffsetNumber)
- * to avoid Asserts, since sometimes the ip_posid isn't "valid"
+ * 我们自用 ItemPointerGet(BlockNumber|OffsetNumber)
+ * 以避免 Assert，因有时 ip_posid 并非"合法"
  */
 #define GinItemPointerGetBlockNumber(pointer) \
 	(ItemPointerGetBlockNumberNoCheck(pointer))
@@ -155,14 +155,14 @@ extern bool GinPageIsRecyclable(Page page);
 
 
 /*
- * Special-case item pointer values needed by the GIN search logic.
- *	MIN: sorts less than any valid item pointer
- *	MAX: sorts greater than any valid item pointer
- *	LOSSY PAGE: indicates a whole heap page, sorts after normal item
- *				pointers for that page
- * Note that these are all distinguishable from an "invalid" item pointer
- * (which is InvalidBlockNumber/0) as well as from all normal item
- * pointers (which have item numbers in the range 1..MaxHeapTuplesPerPage).
+ * GIN 搜索逻辑所需的特殊情形项指针值。
+ *	MIN: 排序小于任何合法项指针
+ *	MAX: 排序大于任何合法项指针
+ *	LOSSY PAGE: 表示整张堆页，排在该页普通项
+ *	指针之后
+ * 注意它们皆可与"无效"项指针区分开
+ * （即 InvalidBlockNumber/0），亦可与全部普通项
+ * 指针区分（项号范围为 1..MaxHeapTuplesPerPage）。
  */
 #define ItemPointerSetMin(p)  \
 	ItemPointerSet((p), (BlockNumber)0, (OffsetNumber)0)
@@ -178,11 +178,11 @@ extern bool GinPageIsRecyclable(Page page);
 	 GinItemPointerGetBlockNumber(p) != InvalidBlockNumber)
 
 /*
- * Posting item in a non-leaf posting-tree page
+ * 非叶倒排树页中的倒排项
  */
 typedef struct
 {
-	/* We use BlockIdData not BlockNumber to avoid padding space wastage */
+	/* 用 BlockIdData 而非 BlockNumber 以免填充浪费空间 */
 	BlockIdData child_blkno;
 	ItemPointerData key;
 } PostingItem;
@@ -194,26 +194,26 @@ typedef struct
 	BlockIdSet(&((pointer)->child_blkno), (blockNumber))
 
 /*
- * Category codes to distinguish placeholder nulls from ordinary NULL keys.
+ * 用于区分占位空值与普通 NULL 键的类别码。
  *
- * The first two code values were chosen to be compatible with the usual usage
- * of bool isNull flags.  However, casting between bool and GinNullCategory is
- * risky because of the possibility of different bit patterns and type sizes,
- * so it is no longer done.
+ * 前两个码值选成与 bool 型 isNull 标志的惯用用法
+ * 兼容。但在 bool 与 GinNullCategory 间强制转换有
+ * 风险，因位模式与类型大小可能不同，
+ * 故不再如此做。
  *
- * GIN_CAT_EMPTY_QUERY is never stored in the index; and notice that it is
- * chosen to sort before not after regular key values.
+ * GIN_CAT_EMPTY_QUERY 从不存入索引；并请注意它被
+ * 选成排在常规键值之前而非之后。
  */
 typedef signed char GinNullCategory;
 
-#define GIN_CAT_NORM_KEY		0	/* normal, non-null key value */
-#define GIN_CAT_NULL_KEY		1	/* null key value */
-#define GIN_CAT_EMPTY_ITEM		2	/* placeholder for zero-key item */
-#define GIN_CAT_NULL_ITEM		3	/* placeholder for null item */
-#define GIN_CAT_EMPTY_QUERY		(-1)	/* placeholder for full-scan query */
+#define GIN_CAT_NORM_KEY		0	/* 普通非空键值 */
+#define GIN_CAT_NULL_KEY		1	/* 空键值 */
+#define GIN_CAT_EMPTY_ITEM		2	/* 零键项的占位 */
+#define GIN_CAT_NULL_ITEM		3	/* 空项的占位 */
+#define GIN_CAT_EMPTY_QUERY		(-1)	/* 全扫描查询的占位 */
 
 /*
- * Access macros for null category byte in entry tuples
+ * 条目元组中空类别字节的访问宏
  */
 #define GinCategoryOffset(itup,ginstate) \
 	(IndexInfoFindDataOffset((itup)->t_info) + \
@@ -224,7 +224,7 @@ typedef signed char GinNullCategory;
 	(*((GinNullCategory *) ((char*)(itup) + GinCategoryOffset(itup,ginstate))) = (c))
 
 /*
- * Access macros for leaf-page entry tuples (see discussion in README)
+ * 叶页条目元组的访问宏（见 README 讨论）
  */
 #define GinGetNPosting(itup)	GinItemPointerGetOffsetNumber(&(itup)->t_tid)
 #define GinSetNPosting(itup,n)	ItemPointerSetOffsetNumber(&(itup)->t_tid,n)
@@ -240,11 +240,11 @@ typedef signed char GinNullCategory;
 #define GinItupIsCompressed(itup)	((GinItemPointerGetBlockNumber(&(itup)->t_tid) & GIN_ITUP_COMPRESSED) != 0)
 
 /*
- * Maximum size of an item on entry tree page. Make sure that we fit at least
- * three items on each page. (On regular B-tree indexes, we must fit at least
- * three items: two data items and the "high key". In GIN entry tree, we don't
- * currently store the high key explicitly, we just use the rightmost item on
- * the page, so it would actually be enough to fit two items.)
+ * 条目树页上一项的最大尺寸。确保每页至少放得下
+ * 三项。（在常规 B-tree 索引上，我们必须至少放得下
+ * 三项：两个数据项与"高键"。在 GIN 条目树中，我们
+ * 当前不显式存储高键，只用页上最右项，
+ * 故实际能放下两项即够。）
  */
 #define GinMaxItemSize \
 	Min(INDEX_SIZE_MASK, \
@@ -253,28 +253,28 @@ typedef signed char GinNullCategory;
 						MAXALIGN(sizeof(GinPageOpaqueData))) / 3)))
 
 /*
- * Access macros for non-leaf entry tuples
+ * 非叶条目元组的访问宏
  */
 #define GinGetDownlink(itup)	GinItemPointerGetBlockNumber(&(itup)->t_tid)
 #define GinSetDownlink(itup,blkno)	ItemPointerSet(&(itup)->t_tid, blkno, InvalidOffsetNumber)
 
 
 /*
- * Data (posting tree) pages
+ * 数据（倒排树）页
  *
- * Posting tree pages don't store regular tuples. Non-leaf pages contain
- * PostingItems, which are pairs of ItemPointers and child block numbers.
- * Leaf pages contain GinPostingLists and an uncompressed array of item
- * pointers.
+ * 倒排树页不存常规元组。非叶页含
+ * PostingItems，即 ItemPointers 与子块号的对。
+ * 叶页含 GinPostingLists 与未压缩的项
+ * 指针。
  *
- * In a leaf page, the compressed posting lists are stored after the regular
- * page header, one after each other. Although we don't store regular tuples,
- * pd_lower is used to indicate the end of the posting lists. After that, free
- * space follows.  This layout is compatible with the "standard" heap and
- * index page layout described in bufpage.h, so that we can e.g set buffer_std
- * when writing WAL records.
+ * 在叶页中，压缩倒排列表紧挨常规
+ * 页头之后相继存放。虽不存常规元组，
+ * 仍用 pd_lower 标示倒排列表末尾。其后是空闲
+ * 空间。此布局与 bufpage.h 所述"标准"堆与
+ * 索引页布局兼容，故例如可在写 WAL 记录时设
+ * buffer_std。
  *
- * In the special space is the GinPageOpaque struct.
+ * 特殊空间中是 GinPageOpaque 结构。
  */
 #define GinDataLeafPageGetPostingList(page) \
 	(GinPostingList *) ((PageGetContents(page) + MAXALIGN(sizeof(ItemPointerData))))
@@ -288,23 +288,23 @@ typedef signed char GinNullCategory;
 
 #define GinDataPageGetRightBound(page)	((ItemPointer) PageGetContents(page))
 /*
- * Pointer to the data portion of a posting tree page. For internal pages,
- * that's the beginning of the array of PostingItems. For compressed leaf
- * pages, the first compressed posting list. For uncompressed (pre-9.4) leaf
- * pages, it's the beginning of the ItemPointer array.
+ * 指向倒排树页数据部分的指针。对内部页，
+ * 即 PostingItems 数组之始。对压缩叶
+ * 页，是首个压缩倒排列表。对未压缩（9.4 前）叶
+ * 页，则是 ItemPointer 数组之始。
  */
 #define GinDataPageGetData(page)	\
 	(PageGetContents(page) + MAXALIGN(sizeof(ItemPointerData)))
-/* non-leaf pages contain PostingItems */
+/* 非叶页含 PostingItems */
 #define GinDataPageGetPostingItem(page, i)	\
 	((PostingItem *) (GinDataPageGetData(page) + ((i)-1) * sizeof(PostingItem)))
 
 /*
- * Note: there is no GinDataPageGetDataSize macro, because before version
- * 9.4, we didn't set pd_lower on data pages. There can be pages in the index
- * that were binary-upgraded from earlier versions and still have an invalid
- * pd_lower, so we cannot trust it in general. Compressed posting tree leaf
- * pages are new in 9.4, however, so we can trust them; see
+ * 注意: 无 GinDataPageGetDataSize 宏，因在版本
+ * 9.4 前我们未在数据页上设 pd_lower。索引中可能有
+ * 经二进制升级自更早版本、仍带无效
+ * pd_lower 的页，故一般无法信任它。压缩倒排树叶
+ * 页是 9.4 新出现的，故可信任；见
  * GinDataLeafPageGetPostingListSize.
  */
 #define GinDataPageSetDataSize(page, size) \
@@ -323,21 +323,21 @@ typedef signed char GinNullCategory;
 	 - MAXALIGN(sizeof(GinPageOpaqueData)))
 
 /*
- * List pages
+ * 列表页
  */
 #define GinListPageSize  \
 	( BLCKSZ - SizeOfPageHeaderData - MAXALIGN(sizeof(GinPageOpaqueData)) )
 
 /*
- * A compressed posting list.
+ * 压缩倒排列表。
  *
- * Note: This requires 2-byte alignment.
+ * 注意: 这需要 2 字节对齐。
  */
 typedef struct
 {
-	ItemPointerData first;		/* first item in this posting list (unpacked) */
-	uint16		nbytes;			/* number of bytes that follow */
-	unsigned char bytes[FLEXIBLE_ARRAY_MEMBER]; /* varbyte encoded items */
+	ItemPointerData first;		/* 本倒排列表首项（未打包） */
+	uint16		nbytes;			/* 后续字节数 */
+	unsigned char bytes[FLEXIBLE_ARRAY_MEMBER]; /* varbyte 编码的项 */
 } GinPostingList;
 
 #define SizeOfGinPostingList(plist) (offsetof(GinPostingList, bytes) + SHORTALIGN((plist)->nbytes) )

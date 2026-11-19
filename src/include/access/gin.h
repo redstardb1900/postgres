@@ -1,6 +1,6 @@
 /*--------------------------------------------------------------------------
  * gin.h
- *	  Public header file for Generalized Inverted Index access method.
+ *	  广义倒排索引访问方法的公开头文件。
  *
  *	Copyright (c) 2006-2023, PostgreSQL Global Development Group
  *
@@ -17,7 +17,7 @@
 
 
 /*
- * amproc indexes for inverted indexes.
+ * 倒排索引的 amproc 编号。
  */
 #define GIN_COMPARE_PROC			   1
 #define GIN_EXTRACTVALUE_PROC		   2
@@ -29,15 +29,15 @@
 #define GINNProcs					   7
 
 /*
- * searchMode settings for extractQueryFn.
+ * extractQueryFn 的 searchMode 设置。
  */
 #define GIN_SEARCH_MODE_DEFAULT			0
 #define GIN_SEARCH_MODE_INCLUDE_EMPTY	1
 #define GIN_SEARCH_MODE_ALL				2
-#define GIN_SEARCH_MODE_EVERYTHING		3	/* for internal use only */
+#define GIN_SEARCH_MODE_EVERYTHING		3	/* 仅供内部使用 */
 
 /*
- * GinStatsData represents stats data for planner use
+ * GinStatsData 表示规划器所用统计数据。
  */
 typedef struct GinStatsData
 {
@@ -50,20 +50,20 @@ typedef struct GinStatsData
 } GinStatsData;
 
 /*
- * A ternary value used by tri-consistent functions.
+ * 三值，供 tri-consistent 函数使用。
  *
- * This must be of the same size as a bool because some code will cast a
- * pointer to a bool to a pointer to a GinTernaryValue.
+ * 其大小必须与 bool 相同，因有些代码会把
+ * 指向 bool 的指针转为指向 GinTernaryValue。
  */
 typedef char GinTernaryValue;
 
 StaticAssertDecl(sizeof(GinTernaryValue) == sizeof(bool),
 				 "sizes of GinTernaryValue and bool are not equal");
 
-#define GIN_FALSE		0		/* item is not present / does not match */
-#define GIN_TRUE		1		/* item is present / matches */
-#define GIN_MAYBE		2		/* don't know if item is present / don't know
-								 * if matches */
+#define GIN_FALSE		0		/* 项不存在 / 不匹配 */
+#define GIN_TRUE		1		/* 项存在 / 匹配 */
+#define GIN_MAYBE		2		/* 不知项是否存在/不知其是否
+								 * 匹配*/
 
 static inline GinTernaryValue
 DatumGetGinTernaryValue(Datum X)
@@ -79,7 +79,7 @@ GinTernaryValueGetDatum(GinTernaryValue X)
 
 #define PG_RETURN_GIN_TERNARY_VALUE(x) return GinTernaryValueGetDatum(x)
 
-/* GUC parameters */
+/* GUC 参数 */
 extern PGDLLIMPORT int GinFuzzySearchLimit;
 extern PGDLLIMPORT int gin_pending_list_limit;
 

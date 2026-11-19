@@ -1006,7 +1006,7 @@ AlterOpFamilyAdd(AlterOpFamilyStmt *stmt, Oid amoid, Oid opfamilyoid,
 	               */
 	if (amroutine->amadjustmembers)
 		amroutine->amadjustmembers(opfamilyoid,
-								   InvalidOid,	/*无特定操作符类*/
+								   InvalidOid,	/* 无操作符类 */
 								   operators,
 								   procedures);
 

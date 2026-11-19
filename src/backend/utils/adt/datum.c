@@ -497,7 +497,7 @@ datumSerialize(Datum value, bool isnull, bool typByVal, int typLen,
 			memcpy(*start_address, tmp, header);
 			*start_address += header;
 
-			/*收尾。*/
+			/* 收尾 */
 			pfree(tmp);
 		}
 		else

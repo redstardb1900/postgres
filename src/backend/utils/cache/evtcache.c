@@ -152,7 +152,7 @@ BuildEventTriggerCache(void)
 		if (!HeapTupleIsValid(tup))
 			break;
 
-		/*禁用则跳过触发器。*/
+		/* 禁用则跳过触发器 */
 		form = (Form_pg_event_trigger) GETSTRUCT(tup);
 		if (form->evtenabled == TRIGGER_DISABLED)
 			continue;
@@ -175,13 +175,13 @@ BuildEventTriggerCache(void)
 		item->fnoid = form->evtfoid;
 		item->enabled = form->evtenabled;
 
-		/*解码并排序tags数组。*/
+		/* 解码并排序tags数组 */
 		evttags = heap_getattr(tup, Anum_pg_event_trigger_evttags,
 							   RelationGetDescr(rel), &evttags_isnull);
 		if (!evttags_isnull)
 			item->tagset = DecodeTextArrayToBitmapset(evttags);
 
-		/*加入缓存条目。*/
+		/* 加入缓存条目 */
 		entry = hash_search(cache, &event, HASH_ENTER, &found);
 		if (found)
 			entry->triggerlist = lappend(entry->triggerlist, item);
@@ -189,12 +189,12 @@ BuildEventTriggerCache(void)
 			entry->triggerlist = list_make1(item);
 	}
 
-	/*完成 pg_event_trigger 扫描。*/
+	/* 完成 pg_event_trigger 扫描 */
 	systable_endscan_ordered(scan);
 	index_close(irel, AccessShareLock);
 	relation_close(rel, AccessShareLock);
 
-	/*恢复先前的内存上下文。*/
+	/* 恢复先前内存上下文。 */
 	MemoryContextSwitchTo(oldcontext);
 
 	/* 安装新缓存。 */
@@ -264,6 +264,6 @@ InvalidateEventCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
 		EventTriggerCache = NULL;
 	}
 
-	/*标记缓存待重建。*/
+	/* 标记缓存待重建 */
 	EventTriggerCacheState = ETCS_NEEDS_REBUILD;
 }

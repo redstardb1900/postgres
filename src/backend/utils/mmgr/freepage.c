@@ -451,7 +451,7 @@ FreePageManagerDump(FreePageManager *fpm)
 						 fpm->singleton_first_page, fpm->singleton_npages);
 	}
 
-	/*转储btree回收链表。*/
+	/* 转储btree回收链表 */
 	recycle = relptr_access(base, fpm->btree_recycle);
 	if (recycle != NULL)
 	{
@@ -799,7 +799,7 @@ FreePageBtreeFindLeftSibling(char *base, FreePageBtree *btp)
 		++levels;
 	}
 
-	/*向左下降。*/
+	/* 向左下降 */
 	while (levels > 0)
 	{
 		Assert(p->hdr.magic == FREE_PAGE_INTERNAL_MAGIC);
@@ -844,7 +844,7 @@ FreePageBtreeFindRightSibling(char *base, FreePageBtree *btp)
 		++levels;
 	}
 
-	/*向左下降。*/
+	/* 向左下降 */
 	while (levels > 0)
 	{
 		Assert(p->hdr.magic == FREE_PAGE_INTERNAL_MAGIC);
@@ -1014,7 +1014,7 @@ FreePageBtreeRemovePage(FreePageManager *fpm, FreePageBtree *btp)
 		btp = parent;
 	}
 
-	/*找到并移除下行链接。*/
+	/* 找到并移除下行链接 */
 	first_page = FreePageBtreeFirstKey(btp);
 	if (parent->hdr.magic == FREE_PAGE_LEAF_MAGIC)
 	{

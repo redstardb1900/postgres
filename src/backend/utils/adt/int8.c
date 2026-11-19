@@ -1482,7 +1482,7 @@ generate_series_int8_support(PG_FUNCTION_ARGS)
 		/* 尝试估计将返回的行数 */
 		SupportRequestRows *req = (SupportRequestRows *) rawreq;
 
-		if (is_funcclause(req->node))	/*稳妥起见*/
+		if (is_funcclause(req->node))	/* 稳妥 */
 		{
 			List	   *args = ((FuncExpr *) req->node)->args;
 			Node	   *arg1,

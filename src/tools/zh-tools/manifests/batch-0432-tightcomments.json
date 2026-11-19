@@ -1,0 +1,178 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0432",
+ "title": "/*中文*/ 紧凑风格残债清偿批: 70 站勘测, 36 站清偿 (加两空格 + zh 微压缩腾字节) + tuplesortvariants L838 补任一方向; 34 站无等义压缩空间跳过入账",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f030df8d0ee36929a57be0aef20ede5e5eb184d0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/commands/opclasscmds.c",
+   "kind": "c_comment",
+   "note": "L1009 /*无特定操作符类*/→/* 无操作符类 */ (删限定语「特定」: amadjustmembers 第二参传 InvalidOid 即未给操作符类, 等义; 行级 44≤48B)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "note": "15 站清偿: 删虚词/冗余字 11 站 (L1023 删其/L177 L178 删为/L5063 删把/L5377 L5386 删保持/L6095 删的/L6763 L6829 L6885 L7088 删若) + 等义改写 3 站 (L2072 如果没有→无/L3884 没有→无/L7135 每个→各) + 标点半角化 1 站 (L125 ？→?, 布尔问号标记保留); 跳过 8 站披露: L86 换行限制/L3930 初始化新哈希项(「新」实义)/L1409 L1526 L2023 L2713 反解析(定款术语无短形)/L6815 L6871 反解析 targetlist(反解析+目标列表=7字21B, 加空格注释 27B>EN 24B, 无 6 字等义)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/datum.c",
+   "kind": "c_comment",
+   "note": "L500 /*收尾。*/→/* 收尾 */ (删句末句号, 标点非语义成分)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/int8.c",
+   "kind": "c_comment",
+   "note": "L1485 /*稳妥起见*/→/* 稳妥 */ (EN be paranoid 防御性检查语义保留); 跳过 2 站披露: L1324/L1359 范围检查 (4 字全实义无压缩空间)"
+  },
+  {
+   "pattern": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "note": "6 站清偿: 删句末句号 5 站 (L155/L178/L184/L192/L267) + 删「先前的」助词「的」1 站 (L197, 保留句号); 单行短注删句号同 dsa.c L210 既有先例"
+  },
+  {
+   "pattern": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "note": "3 站清偿: L3523 总是允许→均允许 (PGC_USERSET 分支一律允许等义)/L4649 删「文件」(宏名 PG_AUTOCONF_FILENAME 自含 FILENAME 语义)/L6371 添加→加; 跳过 8 站披露: L6301/L6379/L6448/L6467/L6512/L6533 变长数组 (4 字全实义) + L6615/L6619 好 (单字)"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/dsa.c",
+   "kind": "c_comment",
+   "note": "5 站删句末句号 (L1726/L757/L2055/L209/L213); 跳过 1 站披露: L210 下一跨度 (3 字全实义, 本身即无句号先例)"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/freepage.c",
+   "kind": "c_comment",
+   "note": "4 站删句末句号 (L1017/L454/L802/L847); 跳过 1 站披露: L462 转储空闲链表 (6 字全实义)"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplesortvariants.c",
+   "kind": "c_comment",
+   "note": "L838 0430 审查 N2 清偿: 以正向或反向获取下一个 Datum→以正向或反向任一方向获取下一个 Datum (补「任一方向」, 与 L744/L796 及 tuplestore.c L895 同 EN 译款逐字对齐; 行级 57≤60B 且块级过)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0432-tightcomments.json",
+   "kind": "manifest",
+   "note": "batch-0432 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0432 manifest entry (各数组 +1; 9 个触达文件均已在册故不重复追加) + parent_commit 由 5da6efd9089 更新为现 HEAD f030df8d0ee (0431-po 批未更新 cumulative, 判例 0429-p3 非纯追加特此披露)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/commands/opclasscmds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L1009 删「特定」加双空格; 只读审查 PASS 零 D → 审后清偿: C1 方案 A 落地 (ruleutils L124/L126 全角？→半角? 加空格统一, 与 L125 三兄弟站完全一致, 逐站现算 ≤EN; 审查行号偏 1 由断言守卫拦截重定位), N1 勘正 (句号脱落实测 15 站非自报 12 站, manifest 逐文件 note 原本正确), N2 措辞勘正 (dsa.c:210 系紧凑站形态不推广为 spaced 先例), N4 15 站标注「预算性句号脱落」入战役台账 (文件内风格混用为预算代价, 未来块级放行可回补), N3 ruleutils 5377/5386 删「保持」微歧义按 terse 惯例接受; 34 跳过站维持 (审查确认无更优压缩), ruleutils 6815/6871「目标列」形留未来裁决; 审后门禁复跑 rc=0×3; 审后 C1 增 2 站 (L124/L126), ruleutils 条目块数 15→17, verify changed 37→39 口径对齐"
+  },
+  {
+   "path": "src/backend/utils/adt/ruleutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "15 站清偿 (删虚词/冗余字 11 + 等义改写 3 + 标点半角化 1); 跳过 8 站见 allowed_paths 披露"
+  },
+  {
+   "path": "src/backend/utils/adt/datum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L500 删句号"
+  },
+  {
+   "path": "src/backend/utils/adt/int8.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L1485 稳妥起见→稳妥; L1324/1359 跳过"
+  },
+  {
+   "path": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "5 站删句号 + L197 删的"
+  },
+  {
+   "path": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L3523 均允许/L4649 删文件/L6371 加到末尾; 8 站跳过"
+  },
+  {
+   "path": "src/backend/utils/mmgr/dsa.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "5 站删句号; L210 跳过"
+  },
+  {
+   "path": "src/backend/utils/mmgr/freepage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "4 站删句号; L462 跳过"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplesortvariants.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L838 补任一方向 (0430 N2)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0432-tightcomments.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0432 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0432 manifest entry (各数组 +1) + parent_commit 更新披露"
+  }
+ ]
+}

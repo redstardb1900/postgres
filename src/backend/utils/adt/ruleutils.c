@@ -121,9 +121,9 @@ typedef struct
 	int			wrapColumn;		/* 最大行长度，-1 表示无限制*/
 	int			indentLevel;	/* 美化打印的当前缩进级别 */
 	bool		varprefix;		/* true 时打印 Var 的前缀 */
-	bool		colNamesVisible;	/* 是否关心输出列的名称？ */
-	bool		inGroupBy;		/*反解析 GROUP BY 子句？*/
-	bool		varInOrderBy;	/* 反解析 ORDER BY 简单 Var？*/
+	bool		colNamesVisible;	/* 是否关心输出列的名称? */
+	bool		inGroupBy;		/* 反解析 GROUP BY 子句? */
+	bool		varInOrderBy;	/* 反解析 ORDER BY 简单 Var? */
 	Bitmapset  *appendparents;	/* 若非空，则把这些 relid 的子 Var
 								 * 映射回父关系 */
 } deparse_context;
@@ -174,8 +174,8 @@ typedef struct
 	/* 其余字段仅在反解析 plan 树时使用： */
 	Plan	   *plan;			/* 当前表达式的直接父节点 */
 	List	   *ancestors;		/* plan 的祖先 */
-	Plan	   *outer_plan;		/*外部子节点，无则为 NULL*/
-	Plan	   *inner_plan;		/*内部子节点，无则为 NULL*/
+	Plan	   *outer_plan;		/* 外部子节点，无则 NULL */
+	Plan	   *inner_plan;		/* 内部子节点，无则 NULL */
 	List	   *outer_tlist;	/* OUTER_VAR Var 的参照 */
 	List	   *inner_tlist;	/* INNER_VAR Var 的参照 */
 	List	   *index_tlist;	/* INDEX_VAR Var 的参照 */
@@ -1020,7 +1020,7 @@ pg_get_triggerdef_worker(Oid trigid, bool pretty)
 	else
 		appendStringInfoString(&buf, "FOR EACH STATEMENT ");
 
-	/*若触发器有 WHEN 限定条件，则将其加上*/
+	/* 若触发器有 WHEN 限定条件，则加上 */
 	value = fastgetattr(ht_trig, Anum_pg_trigger_tgqual,
 						tgrel->rd_att, &isnull);
 	if (!isnull)
@@ -2069,7 +2069,7 @@ pg_get_partition_constraintdef(PG_FUNCTION_ARGS)
 
 	constr_expr = get_partition_qual_relid(relationId);
 
-	/*如果没有分区约束则快速返回*/
+	/* 无分区约束则快速返回 */
 	if (constr_expr == NULL)
 		PG_RETURN_NULL();
 
@@ -3881,7 +3881,7 @@ set_rtable_names(deparse_namespace *dpns, List *parent_namespaces,
 		}
 		else if (rte->rtekind == RTE_JOIN)
 		{
-			/*未命名连接没有 refname*/
+			/* 未命名连接无 refname */
 			refname = NULL;
 		}
 		else
@@ -5060,7 +5060,7 @@ push_child_plan(deparse_namespace *dpns, Plan *plan,
 	/* 保存状态供以后恢复 */
 	*save_dpns = *dpns;
 
-	/*把当前 plan 节点链入 ancestors 列表*/
+	/* 当前 plan 节点链入 ancestors 列表 */
 	dpns->ancestors = lcons(dpns->plan, dpns->ancestors);
 
 	/* 注意力转向所选子节点 */
@@ -5374,7 +5374,7 @@ make_viewdef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 
 	if (list_length(actions) != 1)
 	{
-		/*保持输出缓冲区为空并返回*/
+		/* 输出缓冲区为空并返回 */
 		return;
 	}
 
@@ -5383,7 +5383,7 @@ make_viewdef(StringInfo buf, HeapTuple ruletup, TupleDesc rulettc,
 	if (ev_type != '1' || !is_instead ||
 		strcmp(ev_qual, "<>") != 0 || query->commandType != CMD_SELECT)
 	{
-		/*保持输出缓冲区为空并返回*/
+		/* 输出缓冲区为空并返回 */
 		return;
 	}
 
@@ -6092,7 +6092,7 @@ get_target_list(List *targetList, deparse_context *context)
 				appendStringInfo(&targetbuf, " AS %s", quote_identifier(colname));
 		}
 
-		/*恢复上下文的输出缓冲区*/
+		/* 恢复上下文输出缓冲区 */
 		context->buf = buf;
 
 		/* 若启用则考虑换行 */
@@ -6760,7 +6760,7 @@ get_insert_query_def(Query *query, deparse_context *context)
 		appendStringInfoString(buf, "DEFAULT VALUES");
 	}
 
-	/*若有 ON CONFLICT 则添加*/
+	/* 有 ON CONFLICT 则添加 */
 	if (query->onConflict)
 	{
 		OnConflictExpr *confl = query->onConflict;
@@ -6826,7 +6826,7 @@ get_insert_query_def(Query *query, deparse_context *context)
 		}
 	}
 
-	/*若有 RETURNING 则添加*/
+	/* 有 RETURNING 则添加 */
 	if (query->returningList)
 	{
 		appendContextKeyword(context, " RETURNING",
@@ -6882,7 +6882,7 @@ get_update_query_def(Query *query, deparse_context *context)
 		get_rule_expr(query->jointree->quals, context, false);
 	}
 
-	/*若有 RETURNING 则添加*/
+	/* 有 RETURNING 则添加 */
 	if (query->returningList)
 	{
 		appendContextKeyword(context, " RETURNING",
@@ -7085,7 +7085,7 @@ get_delete_query_def(Query *query, deparse_context *context)
 		get_rule_expr(query->jointree->quals, context, false);
 	}
 
-	/*若有 RETURNING 则添加*/
+	/* 有 RETURNING 则添加 */
 	if (query->returningList)
 	{
 		appendContextKeyword(context, " RETURNING",
@@ -7132,7 +7132,7 @@ get_merge_query_def(Query *query, deparse_context *context)
 						 -PRETTYINDENT_STD, PRETTYINDENT_STD, 2);
 	get_rule_expr(query->jointree->quals, context, false);
 
-	/*打印每个 merge 动作*/
+	/* 打印各 merge 动作 */
 	foreach(lc, query->mergeActionList)
 	{
 		MergeAction *action = lfirst_node(MergeAction, lc);

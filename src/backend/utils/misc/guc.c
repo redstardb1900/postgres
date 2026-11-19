@@ -3520,7 +3520,7 @@ set_config_option_ext(const char *name, const char *value,
 			}
 			break;
 		case PGC_USERSET:
-			/*总是允许*/
+			/* 均允许 */
 			break;
 	}
 
@@ -4646,7 +4646,7 @@ AlterSystemSetConfigFile(AlterSystemStmt *altersysstmt)
 
 		if (stat(AutoConfFileName, &st) == 0)
 		{
-			/*打开旧文件 PG_AUTOCONF_FILENAME*/
+			/* 打开旧 PG_AUTOCONF_FILENAME */
 			FILE	   *infile;
 
 			infile = AllocateFile(AutoConfFileName, "r");
@@ -6368,7 +6368,7 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 		Assert(ARR_NDIM(array) == 1);
 		Assert(ARR_LBOUND(array)[0] == 1);
 
-		index = ARR_DIMS(array)[0] + 1; /*添加到末尾*/
+		index = ARR_DIMS(array)[0] + 1; /* 加到末尾 */
 
 		for (i = 1; i <= ARR_DIMS(array)[0]; i++)
 		{

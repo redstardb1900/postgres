@@ -206,11 +206,11 @@ typedef struct
 typedef struct
 {
 	dsa_pointer pool;			/* 所在池。 */
-	dsa_pointer prevspan;		/*前一跨度。*/
+	dsa_pointer prevspan;		/* 前一跨度 */
 	dsa_pointer nextspan;		/*下一跨度*/
 	dsa_pointer start;			/* 起始地址。 */
 	size_t		npages;			/* 跨度的页数。 */
-	uint16		size_class;		/*大小类。*/
+	uint16		size_class;		/* 大小类 */
 	uint16		ninitialized;	/* 曾分配过的对象数上限。 */
 	uint16		nallocatable;	/* 当前可分配的对象数。 */
 	uint16		firstfree;		/* 空闲列表首对象。 */
@@ -754,7 +754,7 @@ dsa_allocate_extended(dsa_area *area, size_t size, int flags)
 		start_pointer = DSA_MAKE_POINTER(get_segment_index(area, segment_map),
 										 first_page * FPM_PAGE_SIZE);
 
-		/*初始化跨度、页映射。*/
+		/* 初始化跨度、页映射 */
 		LWLockAcquire(DSA_SCLASS_LOCK(area, DSA_SCLASS_SPAN_LARGE),
 					  LW_EXCLUSIVE);
 		init_span(area, span_pointer, pool, start_pointer, npages,
@@ -1723,7 +1723,7 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 		span_pointer = start_pointer;
 	}
 
-	/*初始化跨度、页映射。*/
+	/* 初始化跨度、页映射 */
 	init_span(area, span_pointer, pool, start_pointer, npages, size_class);
 	for (i = 0; i < npages; ++i)
 		segment_map->pagemap[first_page + i] = span_pointer;
@@ -2052,7 +2052,7 @@ get_best_segment(dsa_area *area, size_t npages)
 		}
 	}
 
-	/*未找到。*/
+	/* 未找到 */
 	return NULL;
 }
 

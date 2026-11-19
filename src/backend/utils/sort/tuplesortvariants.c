@@ -835,7 +835,7 @@ tuplesort_getindextuple(Tuplesortstate *state, bool forward)
 }
 
 /*
- * 以正向或反向获取下一个 Datum。
+ * 以正向或反向任一方向获取下一个 Datum。
  * datum 用尽则返回 false。
  *
  * 若 Datum 是按引用传递类型，返回值是新 palloc 出来的、

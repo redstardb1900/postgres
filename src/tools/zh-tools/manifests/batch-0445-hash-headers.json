@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0445",
+  "title": "hash 头文件注释翻译 — batch 0445",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "38a68c3986e6d4506a77205159511a8377cb86c3",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/hash.h",
+      "kind": "c_comment",
+      "note": "hash headers"
+    },
+    {
+      "pattern": "src/include/access/hash_xlog.h",
+      "kind": "c_comment",
+      "note": "hash headers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0445-hash-headers.json",
+      "kind": "manifest",
+      "note": "batch-0445"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/hash.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 144,
+      "translated": 129,
+      "preserved": 15,
+      "preserved_reasons": [
+        "横幅/版权/路径/NOTES/源文件名/INCLUDE KEEP"
+      ],
+      "note": "batch-0445；审后清偿 allocated/无需加锁/死元组"
+    },
+    {
+      "path": "src/include/access/hash_xlog.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 101,
+      "translated": 92,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0445；审后清偿从索引页移除死元组"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0445-hash-headers.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0445"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "batch-0445 hash headers。术语对齐 hash/*.c：桶/溢出/位图页/元页；invalid→无效；cannot→无法；Backup Blk→备份块；standby→备库。审后清偿：allocated→已分配；无需加锁限定语；从索引页移除死元组。"
+}

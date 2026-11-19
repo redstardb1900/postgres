@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hash.h
- *	  header file for postgres hash access method implementation
+ *	  postgres hash 访问方法实现的头文件
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -10,7 +10,7 @@
  * src/include/access/hash.h
  *
  * NOTES
- *		modeled after Margo Seltzer's hash implementation for unix.
+ *		仿自 Margo Seltzer 的 unix hash 实现。
  *
  *-------------------------------------------------------------------------
  */
@@ -29,8 +29,8 @@
 #include "utils/relcache.h"
 
 /*
- * Mapping from hash bucket number to physical block number of bucket's
- * starting page.  Beware of multiple evaluations of argument!
+ * 由 hash 桶号映射到该桶起始页的物理块号。
+ * 当心参数被多次求值！
  */
 typedef uint32 Bucket;
 
@@ -40,15 +40,15 @@ typedef uint32 Bucket;
 		((BlockNumber) ((B) + ((B) ? (metap)->hashm_spares[_hash_spareindex((B)+1)-1] : 0)) + 1)
 
 /*
- * Special space for hash index pages.
+ * hash 索引页的特殊空间。
  *
- * hasho_flag's LH_PAGE_TYPE bits tell us which type of page we're looking at.
- * Additional bits in the flag word are used for more transient purposes.
+ * hasho_flag 的 LH_PAGE_TYPE 位告诉我们正看的页类型。
+ * 标志字中的其余位用于更短暂的用途。
  *
- * To test a page's type, do (hasho_flag & LH_PAGE_TYPE) == LH_xxx_PAGE.
- * However, we ensure that each used page type has a distinct bit so that
- * we can OR together page types for uses such as the allowable-page-types
- * argument of _hash_checkpage().
+ * 测试页类型：做 (hasho_flag & LH_PAGE_TYPE) == LH_xxx_PAGE。
+ * 不过我们保证每种已用页类型有一独立位，以便
+ * 可将页类型 OR 在一起，例如用作 _hash_checkpage() 的
+ * 可允许页类型参数。
  */
 #define LH_UNUSED_PAGE			(0)
 #define LH_OVERFLOW_PAGE		(1 << 0)
@@ -64,23 +64,23 @@ typedef uint32 Bucket;
 	(LH_OVERFLOW_PAGE | LH_BUCKET_PAGE | LH_BITMAP_PAGE | LH_META_PAGE)
 
 /*
- * In an overflow page, hasho_prevblkno stores the block number of the previous
- * page in the bucket chain; in a bucket page, hasho_prevblkno stores the
- * hashm_maxbucket value as of the last time the bucket was last split, or
- * else as of the time the bucket was created.  The latter convention is used
- * to determine whether a cached copy of the metapage is too stale to be used
- * without needing to lock or pin the metapage.
+ * 在溢出页中，hasho_prevblkno 存放桶链中上一页的块号；
+ * 在桶页中，hasho_prevblkno 存放该桶上次分裂时的
+ * hashm_maxbucket 值，或者
+ * 桶创建之时的该值。后一约定用来
+ * 判定元页的缓存副本是否过旧而不能使用
+ * (判定时无需对元页加锁或钉住)。
  *
- * hasho_nextblkno is always the block number of the next page in the
- * bucket chain, or InvalidBlockNumber if there are no more such pages.
+ * hasho_nextblkno 恒为桶链中下一页的块号，
+ * 若再无此类页则为 InvalidBlockNumber。
  */
 typedef struct HashPageOpaqueData
 {
-	BlockNumber hasho_prevblkno;	/* see above */
-	BlockNumber hasho_nextblkno;	/* see above */
-	Bucket		hasho_bucket;	/* bucket number this pg belongs to */
-	uint16		hasho_flag;		/* page type code + flag bits, see above */
-	uint16		hasho_page_id;	/* for identification of hash indexes */
+	BlockNumber hasho_prevblkno;	/* 见上文 */
+	BlockNumber hasho_nextblkno;	/* 见上文 */
+	Bucket		hasho_bucket;	/* 本页所属的桶号 */
+	uint16		hasho_flag;		/* 页类型码 + 标志位，见上文 */
+	uint16		hasho_page_id;	/* 用于识别 hash 索引 */
 } HashPageOpaqueData;
 
 typedef HashPageOpaqueData *HashPageOpaque;
@@ -93,38 +93,38 @@ typedef HashPageOpaqueData *HashPageOpaque;
 #define H_HAS_DEAD_TUPLES(opaque)		(((opaque)->hasho_flag & LH_PAGE_HAS_DEAD_TUPLES) != 0)
 
 /*
- * The page ID is for the convenience of pg_filedump and similar utilities,
- * which otherwise would have a hard time telling pages of different index
- * types apart.  It should be the last 2 bytes on the page.  This is more or
- * less "free" due to alignment considerations.
+ * 页 ID 是为方便 pg_filedump 及类似工具，
+ * 否则它们很难区分不同索引类型的
+ * 页。它应是页上最后 2 字节。这因对齐考
+ * 虑而或多或少是"免费"的。
  */
 #define HASHO_PAGE_ID		0xFF80
 
-typedef struct HashScanPosItem	/* what we remember about each match */
+typedef struct HashScanPosItem	/* 每次匹配所记住的内容 */
 {
-	ItemPointerData heapTid;	/* TID of referenced heap item */
-	OffsetNumber indexOffset;	/* index item's location within page */
+	ItemPointerData heapTid;	/* 所引用堆项的 TID */
+	OffsetNumber indexOffset;	/* 索引项在页内的位置 */
 } HashScanPosItem;
 
 typedef struct HashScanPosData
 {
-	Buffer		buf;			/* if valid, the buffer is pinned */
-	BlockNumber currPage;		/* current hash index page */
-	BlockNumber nextPage;		/* next overflow page */
-	BlockNumber prevPage;		/* prev overflow or bucket page */
+	Buffer		buf;			/* 若有效则缓冲区已钉住 */
+	BlockNumber currPage;		/* 当前 hash 索引页 */
+	BlockNumber nextPage;		/* 下一溢出页 */
+	BlockNumber prevPage;		/* 上一溢出页或桶页 */
 
 	/*
-	 * The items array is always ordered in index order (ie, increasing
-	 * indexoffset).  When scanning backwards it is convenient to fill the
-	 * array back-to-front, so we start at the last slot and fill downwards.
-	 * Hence we need both a first-valid-entry and a last-valid-entry counter.
-	 * itemIndex is a cursor showing which entry was last returned to caller.
+	 * items 数组恒按索引序排列（即 indexoffset
+	 * 递增）。反向扫描时便于自后向前填充，
+	 * 故从最后一个槽位起向下填。
+	 * 因此需要首个有效条目与末个有效条目两个计数。
+	 * itemIndex 是游标，标出上次返回给调用者的条目。
 	 */
-	int			firstItem;		/* first valid index in items[] */
-	int			lastItem;		/* last valid index in items[] */
-	int			itemIndex;		/* current index in items[] */
+	int			firstItem;		/* items[]首个有效下标 */
+	int			lastItem;		/* items[]末个有效下标 */
+	int			itemIndex;		/* items[]当前下标 */
 
-	HashScanPosItem items[MaxIndexTuplesPerPage];	/* MUST BE LAST */
+	HashScanPosItem items[MaxIndexTuplesPerPage];	/* 必须最后 */
 } HashScanPosData;
 
 #define HashScanPosIsPinned(scanpos) \
@@ -153,79 +153,79 @@ typedef struct HashScanPosData
 	} while (0)
 
 /*
- *	HashScanOpaqueData is private state for a hash index scan.
+ *	HashScanOpaqueData 是 hash 索引扫描的私有状态。
  */
 typedef struct HashScanOpaqueData
 {
-	/* Hash value of the scan key, ie, the hash key we seek */
+	/* 扫描键的 hash 值，即我们查找的 hash 键 */
 	uint32		hashso_sk_hash;
 
-	/* remember the buffer associated with primary bucket */
+	/* 记住与主桶关联的缓冲区 */
 	Buffer		hashso_bucket_buf;
 
 	/*
-	 * remember the buffer associated with primary bucket page of bucket being
-	 * split.  it is required during the scan of the bucket which is being
-	 * populated during split operation.
+	 * 记住与正被分裂之桶的主桶页关联的缓冲区。
+	 * 在扫描分裂操作期间正被填充的那个桶时
+	 * 需要它。
 	 */
 	Buffer		hashso_split_bucket_buf;
 
-	/* Whether scan starts on bucket being populated due to split */
+	/* 扫描是否始于因分裂而正被填充的桶 */
 	bool		hashso_buc_populated;
 
 	/*
-	 * Whether scanning bucket being split?  The value of this parameter is
-	 * referred only when hashso_buc_populated is true.
+	 * 是否正在扫描被分裂的桶？仅当 hashso_buc_populated
+	 * 为真时才参考此参数的值。
 	 */
 	bool		hashso_buc_split;
-	/* info about killed items if any (killedItems is NULL if never used) */
-	int		   *killedItems;	/* currPos.items indexes of killed items */
-	int			numKilled;		/* number of currently stored items */
+	/* 已杀项信息(killedItems未用则为NULL) */
+	int		   *killedItems;	/* currPos.items中已杀项下标 */
+	int			numKilled;		/* 当前已存项的数目 */
 
 	/*
-	 * Identify all the matching items on a page and save them in
+	 * 找出页上全部匹配项并保存到
 	 * HashScanPosData
 	 */
-	HashScanPosData currPos;	/* current position data */
+	HashScanPosData currPos;	/* 当前位置数据 */
 } HashScanOpaqueData;
 
 typedef HashScanOpaqueData *HashScanOpaque;
 
 /*
- * Definitions for metapage.
+ * 元页的定义。
  */
 
-#define HASH_METAPAGE	0		/* metapage is always block 0 */
+#define HASH_METAPAGE	0		/* 元页恒为块 0 */
 
 #define HASH_MAGIC		0x6440640
 #define HASH_VERSION	4
 
 /*
- * spares[] holds the number of overflow pages currently allocated at or
- * before a certain splitpoint. For example, if spares[3] = 7 then there are
- * 7 ovflpages before splitpoint 3 (compare BUCKET_TO_BLKNO macro).  The
- * value in spares[ovflpoint] increases as overflow pages are added at the
- * end of the index.  Once ovflpoint increases (ie, we have actually allocated
- * the bucket pages belonging to that splitpoint) the number of spares at the
- * prior splitpoint cannot change anymore.
+ * spares[]保存某分裂点及之前已分配的溢出页数。
+ * 例如若 spares[3] = 7，则分裂点 3 之前有
+ * 7 个溢出页（对照 BUCKET_TO_BLKNO 宏）。
+ * spares[ovflpoint] 的值随索引末尾添加溢出页而
+ * 增大。一旦 ovflpoint 增大（即我们已实际分配了
+ * 属于该分裂点的桶页），先前分裂点处的备用数便
+ * 无法再改变。
  *
- * ovflpages that have been recycled for reuse can be found by looking at
- * bitmaps that are stored within ovflpages dedicated for the purpose.
- * The blknos of these bitmap pages are kept in mapp[]; nmaps is the
- * number of currently existing bitmaps.
+ * 已回收待复用的溢出页，可通过查看
+ * 存放在专用于此目的的溢出页内的位图找到。
+ * 这些位图页的块号保存在 mapp[]；nmaps 是
+ * 当前已有位图的数目。
  *
- * The limitation on the size of spares[] comes from the fact that there's
- * no point in having more than 2^32 buckets with only uint32 hashcodes.
- * (Note: The value of HASH_MAX_SPLITPOINTS which is the size of spares[] is
- * adjusted in such a way to accommodate multi phased allocation of buckets
- * after HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE).
+ * spares[] 大小受限，是因为仅有 uint32 散列码时
+ * 拥有超过 2^32 个桶并无意义。
+ * （注：HASH_MAX_SPLITPOINTS 即 spares[] 的大小，
+ * 经调整以容纳 HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE
+ * 之后的多阶段桶分配。）
  *
- * There is no particular upper limit on the size of mapp[], other than
- * needing to fit into the metapage.  (With 8K block size, 1024 bitmaps
- * limit us to 256 GB of overflow space...).  For smaller block size we
- * can not use 1024 bitmaps as it will lead to the meta page data crossing
- * the block size boundary.  So we use BLCKSZ to determine the maximum number
- * of bitmaps.
+ * mapp[] 大小并无特定上限，除了
+ * 须能放入元页。（8K 块大小下，1024 个位图
+ * 把我们限在 256 GB 溢出空间…）。对更小块大小我们
+ * 无法使用 1024 个位图，否则元页数据会越过
+ * 块大小边界。故用 BLCKSZ 决定位图的最大
+ * 数目。
  */
 #define HASH_MAX_BITMAPS			Min(BLCKSZ / 8, 1024)
 
@@ -234,7 +234,7 @@ typedef HashScanOpaqueData *HashScanOpaque;
 #define HASH_SPLITPOINT_PHASE_MASK		(HASH_SPLITPOINT_PHASES_PER_GRP - 1)
 #define HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE	10
 
-/* defines max number of splitpoint phases a hash index can have */
+/* 定义 hash 索引可有的最大分裂点阶段数 */
 #define HASH_MAX_SPLITPOINT_GROUP	32
 #define HASH_MAX_SPLITPOINTS \
 	(((HASH_MAX_SPLITPOINT_GROUP - HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE) * \
@@ -243,33 +243,33 @@ typedef HashScanOpaqueData *HashScanOpaque;
 
 typedef struct HashMetaPageData
 {
-	uint32		hashm_magic;	/* magic no. for hash tables */
-	uint32		hashm_version;	/* version ID */
-	double		hashm_ntuples;	/* number of tuples stored in the table */
-	uint16		hashm_ffactor;	/* target fill factor (tuples/bucket) */
-	uint16		hashm_bsize;	/* index page size (bytes) */
-	uint16		hashm_bmsize;	/* bitmap array size (bytes) - must be a power
-								 * of 2 */
-	uint16		hashm_bmshift;	/* log2(bitmap array size in BITS) */
-	uint32		hashm_maxbucket;	/* ID of maximum bucket in use */
-	uint32		hashm_highmask; /* mask to modulo into entire table */
-	uint32		hashm_lowmask;	/* mask to modulo into lower half of table */
-	uint32		hashm_ovflpoint;	/* splitpoint from which ovflpage being
-									 * allocated */
-	uint32		hashm_firstfree;	/* lowest-number free ovflpage (bit#) */
-	uint32		hashm_nmaps;	/* number of bitmap pages */
-	RegProcedure hashm_procid;	/* hash function id from pg_proc */
-	uint32		hashm_spares[HASH_MAX_SPLITPOINTS]; /* spare pages before each
-													 * splitpoint */
-	BlockNumber hashm_mapp[HASH_MAX_BITMAPS];	/* blknos of ovfl bitmaps */
+	uint32		hashm_magic;	/* hash 表的魔数 */
+	uint32		hashm_version;	/* 版本 ID */
+	double		hashm_ntuples;	/* 表中存储的元组数 */
+	uint16		hashm_ffactor;	/* 目标填充因子（元组/桶） */
+	uint16		hashm_bsize;	/* 索引页大小(字节) */
+	uint16		hashm_bmsize;	/* 位图数组大小(字节)-须为
+								 * 2幂*/
+	uint16		hashm_bmshift;	/* log2(位图数组BITS) */
+	uint32		hashm_maxbucket;	/* 在用最大桶的 ID */
+	uint32		hashm_highmask; /* 对整表取模的掩码 */
+	uint32		hashm_lowmask;	/* 对表下半部取模的掩码 */
+	uint32		hashm_ovflpoint;	/* 正分配溢出页所自之分裂点
+									 * */
+	uint32		hashm_firstfree;	/* 最低号空闲溢页(bit#) */
+	uint32		hashm_nmaps;	/* 位图页数目 */
+	RegProcedure hashm_procid;	/* pg_proc中hash函数id */
+	uint32		hashm_spares[HASH_MAX_SPLITPOINTS]; /* 各分裂点前备用
+													 * 页*/
+	BlockNumber hashm_mapp[HASH_MAX_BITMAPS];	/* 溢出位图的块号 */
 } HashMetaPageData;
 
 typedef HashMetaPageData *HashMetaPage;
 
 typedef struct HashOptions
 {
-	int32		varlena_header_;	/* varlena header (do not touch directly!) */
-	int			fillfactor;		/* page fill factor in percent (0..100) */
+	int32		varlena_header_;	/* varlena 头（勿直接触碰！） */
+	int			fillfactor;		/* 页填充因子百分数(0..100) */
 } HashOptions;
 
 #define HashGetFillFactor(relation) \
@@ -282,7 +282,7 @@ typedef struct HashOptions
 	(BLCKSZ * HashGetFillFactor(relation) / 100)
 
 /*
- * Maximum size of a hash index item (it's okay to have only one per page)
+ * hash 索引项的最大尺寸（每页仅一项亦可）
  */
 #define HashMaxItemSize(page) \
 	MAXALIGN_DOWN(PageGetPageSize(page) - \
@@ -296,17 +296,17 @@ typedef struct HashOptions
 #define HASH_DEFAULT_FILLFACTOR		75
 
 /*
- * Constants
+ * 常量
  */
-#define BYTE_TO_BIT				3	/* 2^3 bits/byte */
+#define BYTE_TO_BIT				3	/* 2^3位/字节 */
 #define ALL_SET					((uint32) ~0)
 
 /*
- * Bitmap pages do not contain tuples.  They do contain the standard
- * page headers and trailers; however, everything in between is a
- * giant bit array.  The number of bits that fit on a page obviously
- * depends on the page size and the header/trailer overhead.  We require
- * the number of bits per page to be a power of 2.
+ * 位图页不含元组。它们确含标准的
+ * 页头与页尾；但二者之间全是一个
+ * 巨大位数组。一页能放下的位数显然
+ * 取决于页大小及头/尾开销。我们要求
+ * 每页位数须为 2 的幂。
  */
 #define BMPGSZ_BYTE(metap)		((metap)->hashm_bmsize)
 #define BMPGSZ_BIT(metap)		((metap)->hashm_bmsize << BYTE_TO_BIT)
@@ -324,33 +324,33 @@ typedef struct HashOptions
 	((HashMetaPage) PageGetContents(page))
 
 /*
- * The number of bits in an ovflpage bitmap word.
+ * 溢出页位图字中的位数。
  */
-#define BITS_PER_MAP	32		/* Number of bits in uint32 */
+#define BITS_PER_MAP	32		/* uint32 中的位数 */
 
-/* Given the address of the beginning of a bit map, clear/set the nth bit */
+/* 给定位图起始地址，清除/设置第 n 位 */
 #define CLRBIT(A, N)	((A)[(N)/BITS_PER_MAP] &= ~(1<<((N)%BITS_PER_MAP)))
 #define SETBIT(A, N)	((A)[(N)/BITS_PER_MAP] |= (1<<((N)%BITS_PER_MAP)))
 #define ISSET(A, N)		((A)[(N)/BITS_PER_MAP] & (1<<((N)%BITS_PER_MAP)))
 
 /*
- * page-level and high-level locking modes (see README)
+ * 页级与高层加锁模式（见 README）
  */
 #define HASH_READ		BUFFER_LOCK_SHARE
 #define HASH_WRITE		BUFFER_LOCK_EXCLUSIVE
 #define HASH_NOLOCK		(-1)
 
 /*
- * When a new operator class is declared, we require that the user supply
- * us with an amproc function for hashing a key of the new type, returning
- * a 32-bit hash value.  We call this the "standard" hash function.  We
- * also allow an optional "extended" hash function which accepts a salt and
- * returns a 64-bit hash value.  This is highly recommended but, for reasons
- * of backward compatibility, optional.
+ * 声明新操作符类时，我们要求用户向我们提供
+ * 一个 amproc 函数，用于散列新类型的键并返回
+ * 32 位 hash 值。我们称此为"标准" hash 函数。我们
+ * 也允许可选的"扩展" hash 函数，它接受盐并
+ * 返回 64 位 hash 值。强烈推荐，但出于向后
+ * 兼容原因，可选。
  *
- * When the salt is 0, the low 32 bits of the value returned by the extended
- * hash function should match the value that would have been returned by the
- * standard hash function.
+ * 当盐为 0 时，扩展 hash 函数返回值的低 32 位
+ * 应与标准 hash 函数本会返回的值
+ * 相符。
  */
 #define HASHSTANDARD_PROC		1
 #define HASHEXTENDED_PROC		2
@@ -358,7 +358,7 @@ typedef struct HashOptions
 #define HASHNProcs				3
 
 
-/* public routines */
+/* 公开例程 */
 
 extern IndexBuildResult *hashbuild(Relation heap, Relation index,
 								   struct IndexInfo *indexInfo);
@@ -387,7 +387,7 @@ extern void hashadjustmembers(Oid opfamilyoid,
 							  List *operators,
 							  List *functions);
 
-/* private routines */
+/* 私有例程 */
 
 /* hashinsert.c */
 extern void _hash_doinsert(Relation rel, IndexTuple itup, Relation heapRel,
@@ -446,7 +446,7 @@ extern bool _hash_next(IndexScanDesc scan, ScanDirection dir);
 extern bool _hash_first(IndexScanDesc scan, ScanDirection dir);
 
 /* hashsort.c */
-typedef struct HSpool HSpool;	/* opaque struct in hashsort.c */
+typedef struct HSpool HSpool;	/* hashsort.c不透明结构 */
 
 extern HSpool *_h_spoolinit(Relation heap, Relation index, uint32 num_buckets);
 extern void _h_spooldestroy(HSpool *hspool);

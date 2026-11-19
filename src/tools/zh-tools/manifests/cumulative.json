@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "0e1c495caad27085cb92c6cb287aee08cd252261",
+ "parent_commit": "5da6efd90896fa9d5bb1d515c696a05763adb5b2",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7401,6 +7401,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0430-sweep.json",
    "kind": "manifest",
    "note": "batch-0430 sweep 清债批 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0431-po.json",
+   "kind": "manifest",
+   "note": "batch-0431-po manifest"
   }
  ],
  "files": [
@@ -23993,6 +23998,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0430 sweep 清债批 manifest (四项战役级遗留债: 债1 ENR 瞬态→临时 1 站 + 债2 tuplesortvariants↔tuplestore 同 EN 4 行统一 + 债3 halfen 署名豁免 5 条落账 + 债4 /*中文*/ 加空格 23/93 站, 70 站行级预算超限跳过披露); 全部触达文件均已在册故只 +1 本 manifest (0428 拆批判例); parent_commit 由 87d5652bea4 更新为现 HEAD 0e1c495caad (0429-p3 判例, 非纯追加特此披露)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0431-po.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync 证据链本机重建 (WSL): 5 evidence/po JSON 重写 (结论不变), 26 zh_CN.po 零内容差异 (时间戳行已回滚保持旧文件, 方案B)"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

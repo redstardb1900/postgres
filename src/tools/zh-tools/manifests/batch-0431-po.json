@@ -1,0 +1,118 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0431-po",
+ "title": "po_sync 证据链本机重建 (WSL): 5 个 evidence/po JSON 重写, 26 zh_CN.po 零内容差异 — batch 0431-po",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5da6efd90896fa9d5bb1d515c696a05763adb5b2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/msgattrib_probe.json",
+   "kind": "tool",
+   "note": "po 证据本机重建 (机器迁移 Mac→WSL): msgattrib 探针复跑重写, 结论字段不变"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/po_check.json",
+   "kind": "tool",
+   "note": "po 证据本机重建: check 复跑重写, 26 组件结论不变 (active key sha/fuzzy/untranslated 全等)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/po_merge.json",
+   "kind": "tool",
+   "note": "po 证据本机重建: merge 管线复跑重写, 命令路径 Mac→WSL"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/po_sync_report.json",
+   "kind": "tool",
+   "note": "po 证据本机重建: report 复跑重写"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/pot_manifest.json",
+   "kind": "tool",
+   "note": "po 证据本机重建: 26 POT 归档新 manifest (archive_dir=/home/redstar/pg-builds/REL_16_11_pot-evidence), canonical/active_key hash 与旧机 26/26 全等"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0431-po.json",
+   "kind": "manifest",
+   "note": "batch-0431-po manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0431-po entry (本 manifest only; 5 个 evidence JSON 已在册)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/evidence/po/msgattrib_probe.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "机器迁移 Mac→WSL 证据重写; 结论字段不变"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_check.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "26 组件 check 复跑重写; 结论不变"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_merge.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "merge 复跑重写"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_sync_report.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "report 复跑重写"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/pot_manifest.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "26 POT 新归档 manifest; hash 与旧机全等"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0431-po.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0431-po manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0431-po entry (仅本 manifest; 5 evidence JSON 已在册); parent_commit 更新为 5da6efd9089 并披露"
+  }
+ ]
+}

@@ -11,10 +11,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpg.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpg.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/ecpg.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/ecpg.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -27,10 +27,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpg.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpg.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/ecpg.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/ecpg.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -41,8 +41,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/preproc/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/ecpg.pass2.po"
+      "/home/redstar/pg/postgres/src/interfaces/ecpg/preproc/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/ecpg.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -60,10 +60,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpg.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpg.po",
    "pgnls_po_sha256": "c241d4f9c7998419b856d30126aeb926c458344d6e1af62b4eea21c6ea836400",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot",
-   "pot_sha256": "89d4f9061096862309475db35aa1bac9a5944b20c09fd7ef61f434c7bdc70b53",
+   "pot_sha256": "56c27eee1efdde94e98fa8a44a150199f9bb9bba1f56f0389f9aafab3fc202d8",
    "result": {
     "active": 130,
     "entries_total": 131,
@@ -77,7 +77,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/interfaces/ecpg/preproc/po/zh_CN.po",
-   "target_sha256": "c4dd7addb87136ef51205c670c154365bd216ace9979a27aed1492b23d3c9547"
+   "target_sha256": "be6d9819daafe65e676650307a5cca6d92cac3d867a441954ec1e8efa7967270"
   },
   "ecpglib": {
    "catalog": "ecpglib",
@@ -90,10 +90,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpglib.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpglib.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/ecpglib.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/ecpglib.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -106,10 +106,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpglib.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpglib.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/ecpglib.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/ecpglib.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -120,8 +120,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/ecpglib/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/ecpglib.pass2.po"
+      "/home/redstar/pg/postgres/src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/ecpglib.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -139,10 +139,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpglib.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/ecpglib.po",
    "pgnls_po_sha256": "6c4b8d5bb724f64d05288bee303751f4bd7e470ac6cabfaeb6b159833c52139d",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot",
-   "pot_sha256": "1203b902066be7e65aa63c8500a340967bc48af647ee93b8470d9af3a12725dc",
+   "pot_sha256": "cdd50608cb802e76bbae8a4984079b9b326d09dfceecf88036631016e8f5e62d",
    "result": {
     "active": 32,
     "entries_total": 33,
@@ -156,7 +156,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/interfaces/ecpg/ecpglib/po/zh_CN.po",
-   "target_sha256": "7301c67d2e398c1361f19867dd8b69a63b3031c78c207f7d4c2d179f3887b83c"
+   "target_sha256": "07fdcf57576fef3396defb6786b3a704b0832d486fb297fa645425cd3a1af265"
   },
   "initdb": {
    "catalog": "initdb",
@@ -169,10 +169,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/initdb.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/initdb.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/initdb.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/initdb.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -185,10 +185,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/initdb.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/initdb.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/initdb.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/initdb.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -199,8 +199,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/initdb/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/initdb.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/initdb/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/initdb.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -218,10 +218,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/initdb.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/initdb.po",
    "pgnls_po_sha256": "3957d22fcd215108585d226880ab5d75ff4e41cd4072dda093a98102411b2a36",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot",
-   "pot_sha256": "d5f496f0c614ae713ee4757ebc1f592d31f2059d6f9d6108bddcde7e741f1743",
+   "pot_sha256": "a1960b2539be2a4ae6fd60a2d36041b8c4106d8d9ad1633e70f214a5d948a7e8",
    "result": {
     "active": 193,
     "entries_total": 194,
@@ -235,7 +235,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/initdb/po/zh_CN.po",
-   "target_sha256": "e1f1e161ff7af5c44696f54703c4dfc2ebdf5a8e70e769f4ede40d02f1d48017"
+   "target_sha256": "dd64cf70637268b4ad6fd20716bf168074848e49b239a7b7a726bb332dc5edf1"
   },
   "libpq": {
    "catalog": "libpq",
@@ -248,10 +248,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/libpq.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/libpq.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/libpq.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/libpq.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -264,10 +264,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/libpq.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/libpq.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/libpq.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/libpq.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -278,8 +278,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/libpq/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/libpq.pass2.po"
+      "/home/redstar/pg/postgres/src/interfaces/libpq/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/libpq.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -297,10 +297,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/libpq.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/libpq.po",
    "pgnls_po_sha256": "49ce097bf8900f359bc7bf6c2ee329b4cefa41985ac3c094dbdd7f3f1cf418c5",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot",
-   "pot_sha256": "864f85501503033a0e24f55bd6f47b08c04145dda4673ea488d8dccd3b979075",
+   "pot_sha256": "38d7c336efb971b9a2cd32b125ff4388b189b3d3845e4d9ee0916149d0e57f69",
    "result": {
     "active": 292,
     "entries_total": 293,
@@ -314,7 +314,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/interfaces/libpq/po/zh_CN.po",
-   "target_sha256": "d4be039a7bfc07b623adfcfd527c5307cae0b136833c18bd3d72de71afa2d648"
+   "target_sha256": "b0fbf719e5da233178af78a6d0ddeda9e74e52e6dd5dd39c3b0cc48b64bf3091"
   },
   "pg_amcheck": {
    "catalog": "pg_amcheck",
@@ -327,10 +327,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_amcheck.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_amcheck.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_amcheck.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_amcheck.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -343,10 +343,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_amcheck.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_amcheck.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_amcheck.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_amcheck.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -357,8 +357,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_amcheck/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_amcheck.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_amcheck/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_amcheck.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -376,10 +376,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_amcheck.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_amcheck.po",
    "pgnls_po_sha256": "2b0806fece3f3424ebd340b2750016e19048771d444e0d8db6b1fab4fc9396d2",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot",
-   "pot_sha256": "c00692f70037a6ab40b1365ea2685ee840db5fcc7b7e4ef9c33a46bd99e9639f",
+   "pot_sha256": "216ec22886b3461c5dd5c609a277352acf2a923c3d17c51d5ad8d30a13a6a95f",
    "result": {
     "active": 97,
     "entries_total": 98,
@@ -393,7 +393,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_amcheck/po/zh_CN.po",
-   "target_sha256": "b1d78bfe9e6d2c0cf1ddadedadb69f5364a496f65669a47f636c084ae80c05b3"
+   "target_sha256": "431fe3e53a724ad5ca9a95b2bd813cdb3b25c525e26a89d96b4853e681cb2528"
   },
   "pg_archivecleanup": {
    "catalog": "pg_archivecleanup",
@@ -406,10 +406,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_archivecleanup.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_archivecleanup.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_archivecleanup.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_archivecleanup.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -422,10 +422,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_archivecleanup.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_archivecleanup.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_archivecleanup.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_archivecleanup.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -436,8 +436,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_archivecleanup/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_archivecleanup.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_archivecleanup/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_archivecleanup.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -455,10 +455,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_archivecleanup.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_archivecleanup.po",
    "pgnls_po_sha256": "0e2c3b24c70cfd904c75d1827a3b3959935a465684aba340c5c93bd0e29a9261",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot",
-   "pot_sha256": "f30aeb86f1a258123f2f540eac58acd582971457d62c29fd7721c952f723d459",
+   "pot_sha256": "2062fce2e9aefc2e44bfaf019fa266c7267fe26a90c6be8008dbc6bdc382fbb0",
    "result": {
     "active": 27,
     "entries_total": 28,
@@ -472,7 +472,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_archivecleanup/po/zh_CN.po",
-   "target_sha256": "45a709d16a9500a3ba981f9ffd5641b1cd077c39e5a3a5674beee56cd27f3e0e"
+   "target_sha256": "622280690b5710209f52e47f194be7e8b1188f2d1798ecb808436223a7e22601"
   },
   "pg_basebackup": {
    "catalog": "pg_basebackup",
@@ -485,10 +485,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_basebackup.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_basebackup.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_basebackup.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_basebackup.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -501,10 +501,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_basebackup.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_basebackup.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_basebackup.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_basebackup.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -515,8 +515,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_basebackup/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_basebackup.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_basebackup/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_basebackup.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -534,10 +534,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_basebackup.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_basebackup.po",
    "pgnls_po_sha256": "9460d7e08a05eccf8520a1b2262a15d300fff626d6ee8b2120d3803e3cb2d590",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot",
-   "pot_sha256": "67a77123d1563c2689352b713eafda58702ee6538c9125cd29acff9fad82fd28",
+   "pot_sha256": "1fd146fdde3524ccab38ad3d168ae7f654a3806bc2363d12348132b775892e36",
    "result": {
     "active": 329,
     "entries_total": 330,
@@ -551,7 +551,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_basebackup/po/zh_CN.po",
-   "target_sha256": "ff0d4d5740e78048f5fe9c7c600e3805a04c7c1919d8af960884b2b826303b5c"
+   "target_sha256": "b7c18ff6490393a41a87311916b38bcfb8f5571674de0278c2752d1ab71212a7"
   },
   "pg_checksums": {
    "catalog": "pg_checksums",
@@ -564,10 +564,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_checksums.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_checksums.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_checksums.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_checksums.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -580,10 +580,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_checksums.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_checksums.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_checksums.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_checksums.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -594,8 +594,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_checksums/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_checksums.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_checksums/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_checksums.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -613,10 +613,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_checksums.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_checksums.po",
    "pgnls_po_sha256": "dee6936361b0e1b423ce7ca56261bad5c682479eb9e1708ae2afeaa0c39362b3",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot",
-   "pot_sha256": "268abee9c0e7a4cd677f10f3bd1dbfba8940caf69d3ede1e7e749192f9691da8",
+   "pot_sha256": "050601843a23bf7792bbdfd19768701454ed1cc27e59577a9143871eb9ffd3b1",
    "result": {
     "active": 59,
     "entries_total": 60,
@@ -630,7 +630,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_checksums/po/zh_CN.po",
-   "target_sha256": "6f0670b538dd8f615299e838a9a39da36645a324b5709397e5fa74991b033b01"
+   "target_sha256": "de34c2e9ac2b8d4050c4fc809928cbec1b085693658131a15030f922299fc896"
   },
   "pg_config": {
    "catalog": "pg_config",
@@ -643,10 +643,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_config.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_config.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_config.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_config.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -659,10 +659,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_config.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_config.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_config.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_config.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -673,8 +673,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_config/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_config.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_config/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_config.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -692,10 +692,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_config.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_config.po",
    "pgnls_po_sha256": "040d7ad002bbc6b7161165896a62df5777572ac05422ebf3528919ac81085d54",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot",
-   "pot_sha256": "bd42d76fabd411a6e1b6ddb4ceeddbd263f82a81066bb8ee3106f38c6d077916",
+   "pot_sha256": "1bd61db4d63b497cd36aca1470fafa1bfd97b1a6478a46f9e58f6d8190d6cd02",
    "result": {
     "active": 41,
     "entries_total": 42,
@@ -709,7 +709,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_config/po/zh_CN.po",
-   "target_sha256": "1e05bb76e2bffc5e1da29e67dd1d4f53a21a8e98878b7dba1f5a23eb8d6a293e"
+   "target_sha256": "358fc591ac4f256095b4afbb8acae396f3ef40ed364c8acadb5852ca11769350"
   },
   "pg_controldata": {
    "catalog": "pg_controldata",
@@ -722,10 +722,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_controldata.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_controldata.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_controldata.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_controldata.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -738,10 +738,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_controldata.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_controldata.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_controldata.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_controldata.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -752,8 +752,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_controldata/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_controldata.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_controldata/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_controldata.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -771,10 +771,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_controldata.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_controldata.po",
    "pgnls_po_sha256": "6f05cab58c1fedbb7590e9cfea1cffe7b3d8d90e4a39124e8983363be5bccec8",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot",
-   "pot_sha256": "4bad49f436348a4b6db90c21f628ee0f0ac1ab5762772847d8e650cb65af9806",
+   "pot_sha256": "5d5dcfd1629e41aacceb61112dc5c24a3d076a78295258c9a10fe8fd7f38fb46",
    "result": {
     "active": 92,
     "entries_total": 93,
@@ -788,7 +788,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_controldata/po/zh_CN.po",
-   "target_sha256": "1c10eb6bd30ec0ffd02dcba5c2f5bc1af2fa4495428127a381fb25ae1f83f3ab"
+   "target_sha256": "466f62d76ee364eaf26dfafa39ed7f80cad7c6b6c4afcb4d0cdb5576c273be7c"
   },
   "pg_ctl": {
    "catalog": "pg_ctl",
@@ -801,10 +801,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_ctl.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_ctl.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_ctl.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_ctl.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -817,10 +817,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_ctl.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_ctl.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_ctl.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_ctl.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -831,8 +831,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_ctl/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_ctl.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_ctl/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_ctl.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -850,10 +850,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_ctl.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_ctl.po",
    "pgnls_po_sha256": "bf98555ea20bec0e1b3f3098d48b58bc6ff12b30a83d19fa1f0e0a9428dbae9a",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot",
-   "pot_sha256": "4c3417ea2e1b3ad1392f7f19ee7226b7118fb2794b1f2e2ba286caed85c338d9",
+   "pot_sha256": "a11cf1b7e454d06e0330b1e6b2ec298bfaea1e0c6958e8d68a8542e3c4abe7ae",
    "result": {
     "active": 154,
     "entries_total": 155,
@@ -867,7 +867,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_ctl/po/zh_CN.po",
-   "target_sha256": "f4b6208643eac2190772a4a125bc56c683d0986dee590661e867f9efc82d153e"
+   "target_sha256": "fd1bdff45520748d499e1698e89d3b2ee29e8b5d897db7cdbef71453e6386a98"
   },
   "pg_dump": {
    "catalog": "pg_dump",
@@ -880,10 +880,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_dump.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_dump.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_dump.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_dump.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -897,11 +897,11 @@
       "--sort-by-file",
       "--lang=zh_CN",
       "-C",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_dump.po",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_dump.po",
+      "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/pg_dump.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_dump.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_dump.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_dump.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -912,8 +912,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_dump/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_dump.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_dump/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_dump.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -937,10 +937,10 @@
      "msgid": "found orphaned pg_auth_members entry for role %s"
     }
    ],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_dump.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_dump.po",
    "pgnls_po_sha256": "ddabbb0089e39ce128d13700589c27cfff11b09c3336814ca63efbb2a30a35a0",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot",
-   "pot_sha256": "8f17bcae5d43cd2f3f5a11371f336d634210a59492df7243558ce65e7158a331",
+   "pot_sha256": "6c6bd576adc153103d18b5bac4250311c8b25a27b6cc74c6ed40099e750ed601",
    "result": {
     "active": 529,
     "entries_total": 530,
@@ -954,7 +954,7 @@
    "supplement": "src/tools/zh-tools/po_supplement/pg_dump.po",
    "supplement_sha256": "77ae76badb3bec3f25309f885508cfefa3695c125f7b6cfc802589969e48a077",
    "target": "src/bin/pg_dump/po/zh_CN.po",
-   "target_sha256": "76b203eb81f94ec0c9ed616b6e4d91cef463a3ffc52d6b77a5577fd138a41246"
+   "target_sha256": "758bbd8ee8aa342d6e04014d5fb29558d9792839e7beb6346483f6bee4c09eca"
   },
   "pg_resetwal": {
    "catalog": "pg_resetwal",
@@ -967,10 +967,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_resetwal.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_resetwal.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_resetwal.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_resetwal.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -984,11 +984,11 @@
       "--sort-by-file",
       "--lang=zh_CN",
       "-C",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_resetwal.po",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_resetwal.po",
+      "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/pg_resetwal.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_resetwal.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_resetwal.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_resetwal.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -999,8 +999,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_resetwal.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_resetwal/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_resetwal.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1011,8 +1011,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po"
+      "/home/redstar/pg/postgres/src/bin/pg_resetwal/po/zh_CN.po",
+      "/home/redstar/pg/postgres/src/bin/pg_resetwal/po/zh_CN.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1049,10 +1049,10 @@
     }
    ],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_resetwal.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_resetwal.po",
    "pgnls_po_sha256": "d962cdf186f1ae1c62cca44ba42c74d2126e4c3c68db695c617e5b4019fabaf4",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot",
-   "pot_sha256": "61a179f0f555c7aec2a699b2492d17e29bf2fc59c88e05df1236777625b4f796",
+   "pot_sha256": "b98a885e9f1c67937902e33e590f03550b65a2a24ece64157acfedeadf7df0c2",
    "result": {
     "active": 116,
     "entries_total": 117,
@@ -1066,7 +1066,7 @@
    "supplement": "src/tools/zh-tools/po_supplement/pg_resetwal.po",
    "supplement_sha256": "6118bdab522ddd062835d279df62668a4e762520afb2578742016960332322c0",
    "target": "src/bin/pg_resetwal/po/zh_CN.po",
-   "target_sha256": "acd8af924dba283a773a0ead480af1fc953783cb0943b5f1c7cf920328354253"
+   "target_sha256": "67f1da20c50ae3a0f74ca58d2da429b6f87391e9b739b57d1645bf72faa42543"
   },
   "pg_rewind": {
    "catalog": "pg_rewind",
@@ -1079,10 +1079,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_rewind.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_rewind.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_rewind.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_rewind.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1095,10 +1095,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_rewind.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_rewind.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_rewind.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_rewind.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1109,8 +1109,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_rewind/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_rewind.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_rewind/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_rewind.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1128,10 +1128,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_rewind.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_rewind.po",
    "pgnls_po_sha256": "47b9b93d77e68f02428a8f2ffa1ba3331c324cc98762fd8a0a07464c45cb80fd",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot",
-   "pot_sha256": "2a8b099cbe29796d0f82f0a91c6791dfe921fc6b01b100161cf13051ed47e54a",
+   "pot_sha256": "fd3dd245d7fd955c6586e2d376510ff88d23dc96660a770c5c05c98f3709e9e4",
    "result": {
     "active": 186,
     "entries_total": 187,
@@ -1145,7 +1145,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_rewind/po/zh_CN.po",
-   "target_sha256": "830ff3fd34d829b56e9f1261de739fe133e8d2817bd58583bd2c6dd836a0bf6e"
+   "target_sha256": "339dd35dd8511af84972b25c1b706bbda607f77ff5100ebc038026e6ddf681e9"
   },
   "pg_test_fsync": {
    "catalog": "pg_test_fsync",
@@ -1158,10 +1158,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_fsync.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_fsync.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_test_fsync.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_test_fsync.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1174,10 +1174,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_fsync.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_fsync.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_test_fsync.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_test_fsync.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1188,8 +1188,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_fsync/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_test_fsync.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_test_fsync/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_test_fsync.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1207,10 +1207,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_fsync.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_fsync.po",
    "pgnls_po_sha256": "2e007b53f38917bf84abedf58bd53636e54bc89ccf3b674113fca1369f6e9906",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot",
-   "pot_sha256": "908739eb5ac45ec1d84e637ee6df6438856eee526640040dd9640239373da2e9",
+   "pot_sha256": "f5043a93826bcadb25c2d3ad5b6bb4effbc3f833c13d97e57598e0bf50917b16",
    "result": {
     "active": 35,
     "entries_total": 36,
@@ -1224,7 +1224,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_test_fsync/po/zh_CN.po",
-   "target_sha256": "819e7157e04d5dacd8c1def0d08d741c24e7ceabdac11ab665514fa88df41a3a"
+   "target_sha256": "f7bd798fc6fddae1b405239d0e573c5585adb509076acc6e75d4fcaea1930480"
   },
   "pg_test_timing": {
    "catalog": "pg_test_timing",
@@ -1237,10 +1237,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_timing.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_timing.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_test_timing.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_test_timing.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1254,11 +1254,11 @@
       "--sort-by-file",
       "--lang=zh_CN",
       "-C",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_test_timing.po",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_timing.po",
+      "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/pg_test_timing.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_timing.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_test_timing.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_test_timing.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1269,8 +1269,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_timing/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_test_timing.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_test_timing/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_test_timing.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1294,10 +1294,10 @@
     }
    ],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_timing.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_test_timing.po",
    "pgnls_po_sha256": "cb4297b8cb8f71fbc702aa8db9f5c853b4f88be0b28dfb68c36a9fd2ef3af38e",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot",
-   "pot_sha256": "ff95bb4474596de820010e54fe284724c1a3a46ac251ad11a5de86c786d1f9c8",
+   "pot_sha256": "828366241233160234e1010262bcbe70a0d65ff2e086c56e06496e90e4054044",
    "result": {
     "active": 13,
     "entries_total": 14,
@@ -1311,7 +1311,7 @@
    "supplement": "src/tools/zh-tools/po_supplement/pg_test_timing.po",
    "supplement_sha256": "33c43ac88d0ce31f01fcea656a433c4eb7bfde22006cde5565bd10eef44016db",
    "target": "src/bin/pg_test_timing/po/zh_CN.po",
-   "target_sha256": "97b0165c9d66ae5597f1f949338bc3fdfe19296bb85f996fab42106d4ae30103"
+   "target_sha256": "893a4d8238844294b1829dbc54e50e3b4666f91a4183cf8f661067c2403e3a34"
   },
   "pg_upgrade": {
    "catalog": "pg_upgrade",
@@ -1324,10 +1324,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_upgrade.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_upgrade.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_upgrade.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_upgrade.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1340,10 +1340,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_upgrade.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_upgrade.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_upgrade.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_upgrade.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1354,8 +1354,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_upgrade/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_upgrade.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_upgrade/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_upgrade.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1373,10 +1373,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_upgrade.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_upgrade.po",
    "pgnls_po_sha256": "32e5ebae5fbef7bc0f8de16dddefcb56942004100bace057602221c15cbb2028",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot",
-   "pot_sha256": "48eddb0ac83e0f3acf441c8a87ef08ee27801521b258396a3caab3c1b1f4dd90",
+   "pot_sha256": "45161c3c84328791a3982fb1cefb6eaf6a78c6bac1b5505575c48f431e8cc1bc",
    "result": {
     "active": 277,
     "entries_total": 278,
@@ -1390,7 +1390,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_upgrade/po/zh_CN.po",
-   "target_sha256": "20a19ffd0683674b1695f7d19dd54c3ec319acda9fb66f876996e5c6c12ce6c2"
+   "target_sha256": "e916f2df324722ff19ce844946522d52cc6f218e4223f18c4c649160d5da16a2"
   },
   "pg_verifybackup": {
    "catalog": "pg_verifybackup",
@@ -1403,10 +1403,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_verifybackup.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_verifybackup.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_verifybackup.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_verifybackup.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1419,10 +1419,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_verifybackup.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_verifybackup.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_verifybackup.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_verifybackup.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1433,8 +1433,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_verifybackup/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_verifybackup.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_verifybackup/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_verifybackup.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1452,10 +1452,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_verifybackup.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_verifybackup.po",
    "pgnls_po_sha256": "be032f597d153b90a203b5e636dc41f753af948a57bd50239ce0d984d13dc016",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot",
-   "pot_sha256": "506c27925f5655509411b125d5cc849d8ec644e7583ddc9a0739d36ed67ad292",
+   "pot_sha256": "49c6b777e538cb6adc16871e3c0e0089cb44c86d2db0f51ec975b5085180fc9c",
    "result": {
     "active": 104,
     "entries_total": 105,
@@ -1469,7 +1469,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_verifybackup/po/zh_CN.po",
-   "target_sha256": "7a607be8200843aec02b7c46125e2a2d4b79e8bcb7d61327d4568286184f158d"
+   "target_sha256": "19e0fc8fb9c65d0a2f2c8dfa1db7f684df4054842c910772d6e39ee2f78de071"
   },
   "pg_waldump": {
    "catalog": "pg_waldump",
@@ -1482,10 +1482,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_waldump.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_waldump.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_waldump.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_waldump.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1498,10 +1498,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_waldump.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_waldump.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_waldump.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pg_waldump.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1512,8 +1512,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_waldump/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pg_waldump.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/pg_waldump/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pg_waldump.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1531,10 +1531,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_waldump.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pg_waldump.po",
    "pgnls_po_sha256": "a91fd8bfbd5208c2e71852cc923be833c6b297b6db919ae9b66e87d1231ffe44",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot",
-   "pot_sha256": "3e8d33955816d8d103ce8c2483f01aec7d04b49d4f426055caac2da6eb366ce1",
+   "pot_sha256": "791a61cd51a185456d6000058acec52b6a27192a2962b614fdbcaf62279a69ef",
    "result": {
     "active": 100,
     "entries_total": 101,
@@ -1548,7 +1548,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/pg_waldump/po/zh_CN.po",
-   "target_sha256": "fd0aa8692bb494d64c3f89bdb88cd151aad365d1ae281aea47828e2481dc0218"
+   "target_sha256": "6a1185b0f0e905c6b280d9e5e24c61fbf9935feae0879ec72f003bb8594963ae"
   },
   "pgscripts": {
    "catalog": "pgscripts",
@@ -1561,10 +1561,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pgscripts.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pgscripts.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pgscripts.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pgscripts.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1577,10 +1577,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pgscripts.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pgscripts.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pgscripts.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pgscripts.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1591,8 +1591,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/scripts/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pgscripts.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/scripts/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pgscripts.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1610,10 +1610,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pgscripts.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pgscripts.po",
    "pgnls_po_sha256": "f16fb1cf32f9f65adda743fc54c2364f0efb29226f39d6c74310381db531aca4",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot",
-   "pot_sha256": "99d3ac3ab8e8a7933084ee63c5b40ee9a4f0536e5dd036570723bd6c8cf13889",
+   "pot_sha256": "bbf62d0cc11d4364ee4c83f21313efd7abd4db73f1845bc0618e92be97eb6250",
    "result": {
     "active": 231,
     "entries_total": 232,
@@ -1627,7 +1627,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/scripts/po/zh_CN.po",
-   "target_sha256": "6cecbd5a301fc2fe05d96a3062c757b90c68df5933e672437fbf5a4e67fce25e"
+   "target_sha256": "3493faa4b9693657e654380bd2c9aa00ae0f036bff3f9b5f54a531e54aa66f6f"
   },
   "plperl": {
    "catalog": "plperl",
@@ -1640,10 +1640,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plperl.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plperl.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/plperl.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/plperl.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1656,10 +1656,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plperl.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plperl.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/plperl.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/plperl.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1670,8 +1670,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plperl/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/plperl.pass2.po"
+      "/home/redstar/pg/postgres/src/pl/plperl/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/plperl.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1689,10 +1689,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plperl.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plperl.po",
    "pgnls_po_sha256": "e6ac6616097759b12461b62e68f8741d0881829321c3888b46b95e8461ec1052",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot",
-   "pot_sha256": "0e4025fd896416a58326f02626f0c01a69843fea2ccaa2bd6a8ce40881548e30",
+   "pot_sha256": "62cae9fe17c586204d2ca994fe29b960ef1d88fa7f732ce0253b7f0693d0d79a",
    "result": {
     "active": 42,
     "entries_total": 43,
@@ -1706,7 +1706,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/pl/plperl/po/zh_CN.po",
-   "target_sha256": "fcc7428a1b78e9290bc7589c04dcd08fc98e1c1c4efb42599ba29c2d33bb868d"
+   "target_sha256": "305636e741a10ad65e155edf9ea134f7f818d02fe815aa819d36a42d8780606e"
   },
   "plpgsql": {
    "catalog": "plpgsql",
@@ -1719,10 +1719,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpgsql.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpgsql.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/plpgsql.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/plpgsql.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1735,10 +1735,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpgsql.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpgsql.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/plpgsql.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/plpgsql.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1749,8 +1749,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpgsql/src/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/plpgsql.pass2.po"
+      "/home/redstar/pg/postgres/src/pl/plpgsql/src/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/plpgsql.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1768,10 +1768,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpgsql.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpgsql.po",
    "pgnls_po_sha256": "a2412c4b4ce65713c22bc69d8bfef845554b77d51433e9e8ed6c0ec9bebd1533",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot",
-   "pot_sha256": "8d2b164a15dd5b5c19360ecc6a5088fccd27b20a187287f1a016bb68ab57a8d3",
+   "pot_sha256": "d7b765caadb04f6e602b186ccda66a88e29465b30b27e076dfa826f467e3de47",
    "result": {
     "active": 171,
     "entries_total": 172,
@@ -1785,7 +1785,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/pl/plpgsql/src/po/zh_CN.po",
-   "target_sha256": "78686d4559b541934edcff719e28bb5c08439cd6d72c2b16655718441eb587b5"
+   "target_sha256": "66d9318770c0e87c774d4ede6ba3ad30dee480d2b1cef6a219ef96c76db01864"
   },
   "plpython": {
    "catalog": "plpython",
@@ -1798,10 +1798,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpython.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpython.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/plpython.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/plpython.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1814,10 +1814,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpython.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpython.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/plpython.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/plpython.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1828,8 +1828,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpython/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/plpython.pass2.po"
+      "/home/redstar/pg/postgres/src/pl/plpython/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/plpython.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1847,10 +1847,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpython.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/plpython.po",
    "pgnls_po_sha256": "5cb7db3e82bc371adcd590fbd915067381da7f48f723e4a6f1fc329fc3b8e870",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot",
-   "pot_sha256": "d0e3e6faf860dfa2a68f117f067206bc67f066ad3e6f7b3acf68285af15fc34a",
+   "pot_sha256": "4352bd24b7faa7c8ad6faeeb7e04f93ba297da123e21f379c24d0cd02a3170a4",
    "result": {
     "active": 86,
     "entries_total": 87,
@@ -1864,7 +1864,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/pl/plpython/po/zh_CN.po",
-   "target_sha256": "163208314f4f09db12d5d7c16d87ea1f3b83448b8c25b9c4bb2349556efc6da8"
+   "target_sha256": "05e5ab2dc7b05b11a62462e45ca173bf13024f099b4ef58cecc3b7482cd23e2e"
   },
   "pltcl": {
    "catalog": "pltcl",
@@ -1877,10 +1877,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pltcl.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pltcl.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pltcl.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/pltcl.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1893,10 +1893,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pltcl.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pltcl.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/pltcl.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/pltcl.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1907,8 +1907,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/tcl/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/pltcl.pass2.po"
+      "/home/redstar/pg/postgres/src/pl/tcl/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/pltcl.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1926,10 +1926,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pltcl.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/pltcl.po",
    "pgnls_po_sha256": "2299cbb6e6525f0b5035378358f9f32752f6c11385a6071004e05d616958dd5d",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot",
-   "pot_sha256": "aca1dab66349e71a3ee21a8a73b6681c440be8b5b7d0f8b4775a358e2f891278",
+   "pot_sha256": "ccdd477a8d191ec321adaa2ce449674dd813b2757459776be21b09af043d62ec",
    "result": {
     "active": 20,
     "entries_total": 21,
@@ -1943,7 +1943,7 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/pl/tcl/po/zh_CN.po",
-   "target_sha256": "2e5c1426602cec3ed66c3c20031a9dd1adf149bc5493468160886979e20101b0"
+   "target_sha256": "24ed13c3d08e5e3b010ff10aedc39214478bb7b885ea7022436097faa99dc16b"
   },
   "postgres": {
    "catalog": "postgres",
@@ -1956,10 +1956,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/postgres.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/postgres.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/postgres.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/postgres.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1973,11 +1973,11 @@
       "--sort-by-file",
       "--lang=zh_CN",
       "-C",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/postgres.po",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/postgres.po",
+      "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/postgres.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/postgres.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/postgres.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/postgres.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -1988,8 +1988,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/postgres.pass2.po"
+      "/home/redstar/pg/postgres/src/backend/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/postgres.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -2000,8 +2000,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po"
+      "/home/redstar/pg/postgres/src/backend/po/zh_CN.po",
+      "/home/redstar/pg/postgres/src/backend/po/zh_CN.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -2066,10 +2066,10 @@
     }
    ],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/postgres.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/postgres.po",
    "pgnls_po_sha256": "cacc2b8876a5cc8d59cbf28546cbff1c8f6a54d8c2dea97d948b331d8f40fbf4",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot",
-   "pot_sha256": "16453217fc375fe7c9b48a42f7de943259310953b6303a405e194aa09633796f",
+   "pot_sha256": "04e574cf664f7bda7a118790a05ee42e62e3dd21e395d01e9acf385041dacab9",
    "result": {
     "active": 5878,
     "entries_total": 5879,
@@ -2083,7 +2083,7 @@
    "supplement": "src/tools/zh-tools/po_supplement/postgres.po",
    "supplement_sha256": "b7d3e93fbf3fbd465a7c26b2313426a24d717634867aa3a46bffd875c8958f6c",
    "target": "src/backend/po/zh_CN.po",
-   "target_sha256": "90f4e034ea557117be3a47e4249fc2f705d35f3e6735b1f1bfd832c22c684349"
+   "target_sha256": "0b7ab0617ad3c96cb7923d86e649b8d65cd75d3dc5650f089ede5293fc593a47"
   },
   "psql": {
    "catalog": "psql",
@@ -2096,10 +2096,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/psql.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/psql.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/psql.pass1.po"
+      "/tmp/zh-po-merge.1rlej8oq/psql.pass1.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -2112,10 +2112,10 @@
       "--previous",
       "--sort-by-file",
       "--lang=zh_CN",
-      "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/psql.po",
+      "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/psql.po",
       "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot",
       "-o",
-      "/tmp/zh-po-merge.k4wo9l1w/psql.pass2.po"
+      "/tmp/zh-po-merge.1rlej8oq/psql.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -2126,8 +2126,8 @@
       "--no-obsolete",
       "--no-wrap",
       "-o",
-      "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/psql/po/zh_CN.po",
-      "/tmp/zh-po-merge.k4wo9l1w/psql.pass2.po"
+      "/home/redstar/pg/postgres/src/bin/psql/po/zh_CN.po",
+      "/tmp/zh-po-merge.1rlej8oq/psql.pass2.po"
      ],
      "rc": 0,
      "stderr": ""
@@ -2145,10 +2145,10 @@
    },
    "pass1_fuzzy_keys": [],
    "pass1_untranslated_keys": [],
-   "pgnls_po": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/psql.po",
+   "pgnls_po": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE/psql.po",
    "pgnls_po_sha256": "70f5aad5df184e711f373229ea610e6267dc5fe9e5299d6b4aed9f91c56bbf51",
    "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot",
-   "pot_sha256": "5377e17362e8f6b745ebe6f27dc33adb61651c8e00f0c22226f714977efff843",
+   "pot_sha256": "fc2b1f72fcb6b8ee0d162e17c0cc77fe51176345825ad4ec6ad885ee1eff211f",
    "result": {
     "active": 1342,
     "entries_total": 1343,
@@ -2162,17 +2162,17 @@
    "supplement": null,
    "supplement_sha256": null,
    "target": "src/bin/psql/po/zh_CN.po",
-   "target_sha256": "1927bcd9819e067b98f29a8a8806d54aef31ed0db88a500a1eadaac32213ad53"
+   "target_sha256": "dd1f21c7b06692d70038517aed5ca48151de62efec1c88c3a96a2892235f9111"
   }
  },
- "generated_utc": "2026-10-04T14:18:17Z",
+ "generated_utc": "2026-11-19T00:54:23Z",
  "pass": true,
- "pgnls": "/Users/niejinbo/work/code/pg/pgsty/pgnls",
- "pgnls_branch_dir": "/Users/niejinbo/work/code/pg/pgsty/pgnls/zh_CN/REL_16_STABLE",
+ "pgnls": "/home/redstar/pg/pgsty/pgnls",
+ "pgnls_branch_dir": "/home/redstar/pg/pgsty/pgnls/zh_CN/REL_16_STABLE",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "problems": [],
  "tool": "po_sync.py merge",
- "tools_version": "0.2.2",
+ "tools_version": "0.2.5",
  "versions": {
   "bison": "bison (GNU Bison) 3.8.2",
   "flex": "flex 2.6.4",

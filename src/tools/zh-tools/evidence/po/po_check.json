@@ -30,7 +30,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/preproc/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/interfaces/ecpg/preproc/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot"
     ],
     "rc": 0,
@@ -44,7 +44,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/preproc/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/interfaces/ecpg/preproc/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "130 translated messages."
@@ -105,7 +105,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/interfaces/ecpg/ecpglib/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot"
     ],
     "rc": 0,
@@ -119,7 +119,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/ecpglib/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/interfaces/ecpg/ecpglib/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "32 translated messages."
@@ -180,7 +180,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/initdb/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/initdb/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot"
     ],
     "rc": 0,
@@ -194,7 +194,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/initdb/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/initdb/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "193 translated messages."
@@ -255,7 +255,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/libpq/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/interfaces/libpq/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot"
     ],
     "rc": 0,
@@ -269,7 +269,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/libpq/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/interfaces/libpq/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "292 translated messages."
@@ -330,7 +330,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_amcheck/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_amcheck/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot"
     ],
     "rc": 0,
@@ -344,7 +344,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_amcheck/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_amcheck/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "97 translated messages."
@@ -405,7 +405,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_archivecleanup/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_archivecleanup/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot"
     ],
     "rc": 0,
@@ -419,7 +419,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_archivecleanup/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_archivecleanup/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "27 translated messages."
@@ -480,7 +480,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_basebackup/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_basebackup/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot"
     ],
     "rc": 0,
@@ -494,7 +494,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_basebackup/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_basebackup/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "329 translated messages."
@@ -555,7 +555,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_checksums/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_checksums/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot"
     ],
     "rc": 0,
@@ -569,7 +569,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_checksums/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_checksums/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "59 translated messages."
@@ -630,7 +630,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_config/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_config/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot"
     ],
     "rc": 0,
@@ -644,7 +644,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_config/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_config/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "41 translated messages."
@@ -705,7 +705,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_controldata/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_controldata/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot"
     ],
     "rc": 0,
@@ -719,7 +719,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_controldata/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_controldata/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "92 translated messages."
@@ -780,7 +780,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_ctl/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_ctl/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot"
     ],
     "rc": 0,
@@ -794,7 +794,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_ctl/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_ctl/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "154 translated messages."
@@ -855,7 +855,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_dump/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_dump/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot"
     ],
     "rc": 0,
@@ -869,7 +869,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_dump/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_dump/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "529 translated messages."
@@ -894,7 +894,7 @@
    "supplement": {
     "entries": 1,
     "mismatched": [],
-    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_dump.po",
+    "path": "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/pg_dump.po",
     "pending_marks_in_target": 0,
     "review_marks_in_target": 1,
     "sha256": "77ae76badb3bec3f25309f885508cfefa3695c125f7b6cfc802589969e48a077",
@@ -952,7 +952,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_resetwal/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot"
     ],
     "rc": 0,
@@ -966,7 +966,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_resetwal/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "116 translated messages."
@@ -991,7 +991,7 @@
    "supplement": {
     "entries": 2,
     "mismatched": [],
-    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_resetwal.po",
+    "path": "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/pg_resetwal.po",
     "pending_marks_in_target": 0,
     "review_marks_in_target": 2,
     "sha256": "6118bdab522ddd062835d279df62668a4e762520afb2578742016960332322c0",
@@ -1053,7 +1053,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_rewind/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_rewind/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot"
     ],
     "rc": 0,
@@ -1067,7 +1067,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_rewind/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_rewind/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "186 translated messages."
@@ -1128,7 +1128,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_fsync/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_test_fsync/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot"
     ],
     "rc": 0,
@@ -1142,7 +1142,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_fsync/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_test_fsync/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "35 translated messages."
@@ -1203,7 +1203,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_timing/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_test_timing/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot"
     ],
     "rc": 0,
@@ -1217,7 +1217,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_timing/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_test_timing/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "13 translated messages."
@@ -1242,7 +1242,7 @@
    "supplement": {
     "entries": 1,
     "mismatched": [],
-    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_test_timing.po",
+    "path": "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/pg_test_timing.po",
     "pending_marks_in_target": 0,
     "review_marks_in_target": 1,
     "sha256": "33c43ac88d0ce31f01fcea656a433c4eb7bfde22006cde5565bd10eef44016db",
@@ -1300,7 +1300,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_upgrade/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_upgrade/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot"
     ],
     "rc": 0,
@@ -1314,7 +1314,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_upgrade/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_upgrade/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "277 translated messages."
@@ -1375,7 +1375,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_verifybackup/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_verifybackup/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot"
     ],
     "rc": 0,
@@ -1389,7 +1389,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_verifybackup/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_verifybackup/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "104 translated messages."
@@ -1450,7 +1450,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_waldump/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/pg_waldump/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot"
     ],
     "rc": 0,
@@ -1464,7 +1464,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_waldump/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/pg_waldump/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "100 translated messages."
@@ -1525,7 +1525,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/scripts/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/scripts/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot"
     ],
     "rc": 0,
@@ -1539,7 +1539,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/scripts/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/scripts/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "231 translated messages."
@@ -1600,7 +1600,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plperl/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/pl/plperl/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot"
     ],
     "rc": 0,
@@ -1614,7 +1614,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plperl/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/pl/plperl/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "42 translated messages."
@@ -1675,7 +1675,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpgsql/src/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/pl/plpgsql/src/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot"
     ],
     "rc": 0,
@@ -1689,7 +1689,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpgsql/src/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/pl/plpgsql/src/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "171 translated messages."
@@ -1750,7 +1750,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpython/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/pl/plpython/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot"
     ],
     "rc": 0,
@@ -1764,7 +1764,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpython/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/pl/plpython/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "86 translated messages."
@@ -1825,7 +1825,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/tcl/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/pl/tcl/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot"
     ],
     "rc": 0,
@@ -1839,7 +1839,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/tcl/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/pl/tcl/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "20 translated messages."
@@ -1900,7 +1900,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/backend/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot"
     ],
     "rc": 0,
@@ -1914,7 +1914,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/backend/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "5878 translated messages."
@@ -1939,7 +1939,7 @@
    "supplement": {
     "entries": 7,
     "mismatched": [],
-    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/postgres.po",
+    "path": "/home/redstar/pg/postgres/src/tools/zh-tools/po_supplement/postgres.po",
     "pending_marks_in_target": 0,
     "review_marks_in_target": 7,
     "sha256": "b7d3e93fbf3fbd465a7c26b2313426a24d717634867aa3a46bffd875c8958f6c",
@@ -2021,7 +2021,7 @@
    "msgcmp": {
     "argv": [
      "msgcmp",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/psql/po/zh_CN.po",
+     "/home/redstar/pg/postgres/src/bin/psql/po/zh_CN.po",
      "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot"
     ],
     "rc": 0,
@@ -2035,7 +2035,7 @@
      "--statistics",
      "-o",
      "/dev/null",
-     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/psql/po/zh_CN.po"
+     "/home/redstar/pg/postgres/src/bin/psql/po/zh_CN.po"
     ],
     "rc": 0,
     "stderr": "1342 translated messages."
@@ -2067,12 +2067,12 @@
    }
   }
  },
- "generated_utc": "2026-10-04T14:18:20Z",
+ "generated_utc": "2026-11-19T00:55:48Z",
  "n_components": 26,
  "pass": true,
- "pot_manifest_generated_utc": "2026-10-04T13:46:19Z",
+ "pot_manifest_generated_utc": "2026-11-19T00:53:43Z",
  "tool": "po_sync.py check",
- "tools_version": "0.2.2",
+ "tools_version": "0.2.5",
  "totals": {
   "active": 10576,
   "fuzzy": 0,

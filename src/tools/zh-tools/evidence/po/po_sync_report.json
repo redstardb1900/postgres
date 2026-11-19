@@ -1376,8 +1376,8 @@
    "target": "src/bin/psql/po/zh_CN.po"
   }
  },
- "generated_utc": "2026-10-04T14:18:21Z",
- "pgnls": "/Users/niejinbo/work/code/pg/pgsty/pgnls",
+ "generated_utc": "2026-11-19T00:55:06Z",
+ "pgnls": "/home/redstar/pg/pgsty/pgnls",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "review_pending": [],
  "review_reviewed": [
@@ -1580,7 +1580,7 @@
   }
  ],
  "tool": "po_sync.py report",
- "tools_version": "0.2.2",
+ "tools_version": "0.2.5",
  "totals": {
   "added_vs_pgnls": 11,
   "base_entries": 9605,

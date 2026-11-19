@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * regc_pg_locale.c
- *	  ctype functions adapted to work on pg_wchar (a/k/a chr),
- *	  and functions to cache the results of wholesale ctype probing.
+ *	  适配到 pg_wchar（又名 chr）的 ctype 函数，
+ *	  以及缓存整批 ctype 探测结果的函数。
  *
- * This file is #included by regcomp.c; it's not meant to compile standalone.
+ * 本文件被 regcomp.c #include；不拟单独编译。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -64,12 +64,12 @@
 
 typedef enum
 {
-	PG_REGEX_LOCALE_C,			/* C locale (encoding independent) */
-	PG_REGEX_LOCALE_WIDE,		/* Use <wctype.h> functions */
-	PG_REGEX_LOCALE_1BYTE,		/* Use <ctype.h> functions */
-	PG_REGEX_LOCALE_WIDE_L,		/* Use locale_t <wctype.h> functions */
-	PG_REGEX_LOCALE_1BYTE_L,	/* Use locale_t <ctype.h> functions */
-	PG_REGEX_LOCALE_ICU			/* Use ICU uchar.h functions */
+	PG_REGEX_LOCALE_C,			/* C 区域设置(编码无关) */
+	PG_REGEX_LOCALE_WIDE,		/* 使用 <wctype.h> 函数 */
+	PG_REGEX_LOCALE_1BYTE,		/* 使用 <ctype.h> 函数 */
+	PG_REGEX_LOCALE_WIDE_L,		/* 使用 locale_t <wctype.h> 函数 */
+	PG_REGEX_LOCALE_1BYTE_L,	/* 使用 locale_t <ctype.h> 函数 */
+	PG_REGEX_LOCALE_ICU			/* 使用 ICU uchar.h 函数 */
 } PG_Locale_Strategy;
 
 static PG_Locale_Strategy pg_regex_strategy;
@@ -77,7 +77,7 @@ static pg_locale_t pg_regex_locale;
 static Oid	pg_regex_collation;
 
 /*
- * Hard-wired character properties for C locale
+ * C 区域设置的硬编码字符属性
  */
 #define PG_ISDIGIT	0x01
 #define PG_ISALPHA	0x02
@@ -222,11 +222,11 @@ static const unsigned char pg_char_properties[128] = {
 
 
 /*
- * pg_set_regex_collation: set collation for these functions to obey
+ * pg_set_regex_collation: 设定这些函数服从的排序规则
  *
- * This is called when beginning compilation or execution of a regexp.
- * Since there's no need for reentrancy of regexp operations, it's okay
- * to store the results in static variables.
+ * 在开始编译或执行正则表达式时调用。
+ * 因正则操作无需可重入，故可将
+ * 结果存入静态变量。
  */
 void
 pg_set_regex_collation(Oid collation)
@@ -234,8 +234,8 @@ pg_set_regex_collation(Oid collation)
 	if (!OidIsValid(collation))
 	{
 		/*
-		 * This typically means that the parser could not resolve a conflict
-		 * of implicit collations, so report it that way.
+		 * 这通常意味着解析器无法解决隐式
+		 * 排序规则冲突，故按该情形报告。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INDETERMINATE_COLLATION),
@@ -245,7 +245,7 @@ pg_set_regex_collation(Oid collation)
 
 	if (lc_ctype_is_c(collation))
 	{
-		/* C/POSIX collations use this path regardless of database encoding */
+		/* C/POSIX 排序规则走此路径，与数据库编码无关 */
 		pg_regex_strategy = PG_REGEX_LOCALE_C;
 		pg_regex_locale = 0;
 		pg_regex_collation = C_COLLATION_OID;
@@ -253,9 +253,9 @@ pg_set_regex_collation(Oid collation)
 	else
 	{
 		/*
-		 * NB: pg_newlocale_from_collation will fail if not HAVE_LOCALE_T; the
-		 * case of pg_regex_locale != 0 but not HAVE_LOCALE_T does not have to
-		 * be considered below.
+		 * NB: 无 HAVE_LOCALE_T 时 pg_newlocale_from_collation 会失败；
+		 * pg_regex_locale != 0 但无 HAVE_LOCALE_T 的情形
+		 * 不必再考虑。
 		 */
 		pg_regex_locale = pg_newlocale_from_collation(collation);
 
@@ -321,7 +321,7 @@ pg_wc_isdigit(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -357,7 +357,7 @@ pg_wc_isalpha(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -393,13 +393,13 @@ pg_wc_isalnum(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
 pg_wc_isword(pg_wchar c)
 {
-	/* We define word characters as alnum class plus underscore */
+	/* 我们将词字符定义为 alnum 类加下划线 */
 	if (c == CHR('_'))
 		return 1;
 	return pg_wc_isalnum(c);
@@ -438,7 +438,7 @@ pg_wc_isupper(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -474,7 +474,7 @@ pg_wc_islower(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -510,7 +510,7 @@ pg_wc_isgraph(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -546,7 +546,7 @@ pg_wc_isprint(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -582,7 +582,7 @@ pg_wc_ispunct(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static int
@@ -618,7 +618,7 @@ pg_wc_isspace(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static pg_wchar
@@ -631,14 +631,14 @@ pg_wc_toupper(pg_wchar c)
 				return pg_ascii_toupper((unsigned char) c);
 			return c;
 		case PG_REGEX_LOCALE_WIDE:
-			/* force C behavior for ASCII characters, per comments above */
+			/* 对 ASCII 字符强制 C 行为，见上文注释 */
 			if (c <= (pg_wchar) 127)
 				return pg_ascii_toupper((unsigned char) c);
 			if (sizeof(wchar_t) >= 4 || c <= (pg_wchar) 0xFFFF)
 				return towupper((wint_t) c);
 			/* FALL THRU */
 		case PG_REGEX_LOCALE_1BYTE:
-			/* force C behavior for ASCII characters, per comments above */
+			/* 对 ASCII 字符强制 C 行为，见上文注释 */
 			if (c <= (pg_wchar) 127)
 				return pg_ascii_toupper((unsigned char) c);
 			if (c <= (pg_wchar) UCHAR_MAX)
@@ -662,7 +662,7 @@ pg_wc_toupper(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 static pg_wchar
@@ -675,14 +675,14 @@ pg_wc_tolower(pg_wchar c)
 				return pg_ascii_tolower((unsigned char) c);
 			return c;
 		case PG_REGEX_LOCALE_WIDE:
-			/* force C behavior for ASCII characters, per comments above */
+			/* 对 ASCII 字符强制 C 行为，见上文注释 */
 			if (c <= (pg_wchar) 127)
 				return pg_ascii_tolower((unsigned char) c);
 			if (sizeof(wchar_t) >= 4 || c <= (pg_wchar) 0xFFFF)
 				return towlower((wint_t) c);
 			/* FALL THRU */
 		case PG_REGEX_LOCALE_1BYTE:
-			/* force C behavior for ASCII characters, per comments above */
+			/* 对 ASCII 字符强制 C 行为，见上文注释 */
 			if (c <= (pg_wchar) 127)
 				return pg_ascii_tolower((unsigned char) c);
 			if (c <= (pg_wchar) UCHAR_MAX)
@@ -706,7 +706,7 @@ pg_wc_tolower(pg_wchar c)
 #endif
 			break;
 	}
-	return 0;					/* can't get here, but keep compiler quiet */
+	return 0;					/* 无法到达此处，让编译器安静 */
 }
 
 
@@ -727,16 +727,16 @@ typedef int (*pg_wc_probefunc) (pg_wchar c);
 
 typedef struct pg_ctype_cache
 {
-	pg_wc_probefunc probefunc;	/* pg_wc_isalpha or a sibling */
-	Oid			collation;		/* collation this entry is for */
-	struct cvec cv;				/* cache entry contents */
-	struct pg_ctype_cache *next;	/* chain link */
+	pg_wc_probefunc probefunc;	/* pg_wc_isalpha 或其兄弟 */
+	Oid			collation;		/* 本条目所属排序规则 */
+	struct cvec cv;				/* 缓存条目内容 */
+	struct pg_ctype_cache *next;	/* 链指针 */
 } pg_ctype_cache;
 
 static pg_ctype_cache *pg_ctype_cache_list = NULL;
 
 /*
- * Add a chr or range to pcc->cv; return false if run out of memory
+ * 向 pcc->cv 加 chr 或范围；内存不足则返回 false
  */
 static bool
 store_match(pg_ctype_cache *pcc, pg_wchar chr1, int nchrs)
@@ -776,11 +776,11 @@ store_match(pg_ctype_cache *pcc, pg_wchar chr1, int nchrs)
 }
 
 /*
- * Given a probe function (e.g., pg_wc_isalpha) get a struct cvec for all
- * chrs satisfying the probe function.  The active collation is the one
- * previously set by pg_set_regex_collation.  Return NULL if out of memory.
+ * 给定探测函数（如 pg_wc_isalpha），为所有
+ * 满足该探测的 chr 取 struct cvec。活动排序规则是
+ * 先前由 pg_set_regex_collation 设定。内存不足返回 NULL。
  *
- * Note that the result must not be freed or modified by caller.
+ * 注意调用方不得释放或修改结果。
  */
 static struct cvec *
 pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
@@ -792,7 +792,7 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 	chr		   *newchrs;
 
 	/*
-	 * Do we already have the answer cached?
+	 * 答案是否已缓存？
 	 */
 	for (pcc = pg_ctype_cache_list; pcc != NULL; pcc = pcc->next)
 	{
@@ -802,7 +802,7 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 	}
 
 	/*
-	 * Nope, so initialize some workspace ...
+	 * 否，故初始化一些工作区 …
 	 */
 	pcc = (pg_ctype_cache *) malloc(sizeof(pg_ctype_cache));
 	if (pcc == NULL)
@@ -820,17 +820,17 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 	pcc->cv.cclasscode = cclasscode;
 
 	/*
-	 * Decide how many character codes we ought to look through.  In general
-	 * we don't go past MAX_SIMPLE_CHR; chr codes above that are handled at
-	 * runtime using the "high colormap" mechanism.  However, in C locale
-	 * there's no need to go further than 127, and if we only have a 1-byte
-	 * <ctype.h> API there's no need to go further than that can handle.
+	 * 决定应扫过多少字符码。一般我们
+	 * 不超过 MAX_SIMPLE_CHR；其上的 chr 码在运行时
+	 * 用 "高色图" 机制处理。不过在 C 区域设置下
+	 * 无需越过 127，且若仅有 1 字节
+	 * <ctype.h> API，则无需越过其能处理的范围。
 	 *
-	 * If it's not MAX_SIMPLE_CHR that's constraining the search, mark the
-	 * output cvec as not having any locale-dependent behavior, since there
-	 * will be no need to do any run-time locale checks.  (The #if's here
-	 * would always be true for production values of MAX_SIMPLE_CHR, but it's
-	 * useful to allow it to be small for testing purposes.)
+	 * 若约束搜索的并非 MAX_SIMPLE_CHR，则标记
+	 * 输出 cvec 无任何区域设置相关行为，因
+	 * 无需做任何运行时区域设置检查。（此处 #if
+	 * 对生产用 MAX_SIMPLE_CHR 值恒为真，但允许
+	 * 它取小值以便测试，很有用。）
 	 */
 	switch (pg_regex_strategy)
 	{
@@ -859,14 +859,14 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 			max_chr = (pg_wchar) MAX_SIMPLE_CHR;
 			break;
 		default:
-			max_chr = 0;		/* can't get here, but keep compiler quiet */
+			max_chr = 0;		/* 无法到达此处，让编译器安静 */
 			break;
 	}
 
 	/*
-	 * And scan 'em ...
+	 * 再扫描之…
 	 */
-	nmatches = 0;				/* number of consecutive matches */
+	nmatches = 0;				/* 连续匹配的个数 */
 
 	for (cur_chr = 0; cur_chr <= max_chr; cur_chr++)
 	{
@@ -885,7 +885,7 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 			goto out_of_memory;
 
 	/*
-	 * We might have allocated more memory than needed, if so free it
+	 * 或已多分配了内存，若然则释放
 	 */
 	if (pcc->cv.nchrs == 0)
 	{
@@ -919,7 +919,7 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 	}
 
 	/*
-	 * Success, link it into cache chain
+	 * 成功，链入缓存链
 	 */
 	pcc->next = pg_ctype_cache_list;
 	pg_ctype_cache_list = pcc;
@@ -927,7 +927,7 @@ pg_ctype_get_cache(pg_wc_probefunc probefunc, int cclasscode)
 	return &pcc->cv;
 
 	/*
-	 * Failure, clean up
+	 * 失败，清理
 	 */
 out_of_memory:
 	free(pcc->cv.chrs);

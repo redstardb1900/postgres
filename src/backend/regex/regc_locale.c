@@ -1,8 +1,8 @@
 /*
  * regc_locale.c --
  *
- *	This file contains locale-specific regexp routines.
- *	This file is #included by regcomp.c.
+ *	本文件含区域设置相关的正则例程。
+ *	本文件被 regcomp.c #include。
  *
  * Copyright (c) 1998 by Scriptics Corporation.
  *
@@ -50,7 +50,7 @@
  * src/backend/regex/regc_locale.c
  */
 
-/* ASCII character-name table */
+/* ASCII 字符名表 */
 
 static const struct cname
 {
@@ -350,8 +350,8 @@ static const struct cname
 };
 
 /*
- * The following array defines the valid character class names.
- * The entries must match enum char_classes in regguts.h.
+ * 以下数组定义合法的字符类名。
+ * 各项须与 regguts.h 中 enum char_classes 一致。
  */
 static const char *const classNames[NUM_CCLASSES + 1] = {
 	"alnum", "alpha", "ascii", "blank", "cntrl", "digit", "graph",
@@ -360,27 +360,27 @@ static const char *const classNames[NUM_CCLASSES + 1] = {
 };
 
 /*
- * We do not use the hard-wired Unicode classification tables that Tcl does.
- * This is because (a) we need to deal with other encodings besides Unicode,
- * and (b) we want to track the behavior of the libc locale routines as
- * closely as possible.  For example, it wouldn't be unreasonable for a
- * locale to not consider every Unicode letter as a letter.  So we build
- * character classification cvecs by asking libc, even for Unicode.
+ * 我们不用 Tcl 那种硬接线的 Unicode 分类表。
+ * 这是因为 (a) 我们还需处理 Unicode 以外的编码，
+ * 且 (b) 我们想尽量紧跟 libc 区域设置例程的
+ * 行为。例如，某区域设置不把每个 Unicode 字母
+ * 都当字母也不无理。故即便对 Unicode，我们也
+ * 靠询问 libc 来构建字符分类 cvec。
  */
 
 
 /*
- * element - map collating-element name to chr
+ * element - 将排序元素名映射为 chr
  */
 static chr
-element(struct vars *v,			/* context */
-		const chr *startp,		/* points to start of name */
-		const chr *endp)		/* points just past end of name */
+element(struct vars *v,			/* 语境 */
+		const chr *startp,		/* 指向名称起点 */
+		const chr *endp)		/* 指向刚过名末之处 */
 {
 	const struct cname *cn;
 	size_t		len;
 
-	/* generic:  one-chr names stand for themselves */
+	/* 通例：单 chr 名即表示自身 */
 	assert(startp < endp);
 	len = endp - startp;
 	if (len == 1)
@@ -388,31 +388,31 @@ element(struct vars *v,			/* context */
 
 	NOTE(REG_ULOCALE);
 
-	/* search table */
+	/* 搜索表 */
 	for (cn = cnames; cn->name != NULL; cn++)
 	{
 		if (strlen(cn->name) == len &&
 			pg_char_and_wchar_strncmp(cn->name, startp, len) == 0)
 		{
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 		}
 	}
 	if (cn->name != NULL)
 		return CHR(cn->code);
 
-	/* couldn't find it */
+	/* 找不到它 */
 	ERR(REG_ECOLLATE);
 	return 0;
 }
 
 /*
- * range - supply cvec for a range, including legality check
+ * range - 为范围提供 cvec，含合法性检查
  */
 static struct cvec *
-range(struct vars *v,			/* context */
-	  chr a,					/* range start */
-	  chr b,					/* range end, might equal a */
-	  int cases)				/* case-independent? */
+range(struct vars *v,			/* 语境 */
+	  chr a,					/* 范围始 */
+	  chr b,					/* 范围末，可等于 a */
+	  int cases)				/* 大小写无关? */
 {
 	int			nchrs;
 	struct cvec *cv;
@@ -426,7 +426,7 @@ range(struct vars *v,			/* context */
 	}
 
 	if (!cases)
-	{							/* easy version */
+	{							/* 简易版 */
 		cv = getcvec(v, 0, 1);
 		NOERRN();
 		addrange(cv, a, b);
@@ -434,14 +434,14 @@ range(struct vars *v,			/* context */
 	}
 
 	/*
-	 * When case-independent, it's hard to decide when cvec ranges are usable,
-	 * so for now at least, we won't try.  We use a range for the originally
-	 * specified chrs and then add on any case-equivalents that are outside
-	 * that range as individual chrs.
+	 * 大小写无关时，很难判断何时可用 cvec 范围，
+	 * 故至少目前我们不尝试。我们对原先指定的
+	 * chr 用一范围，再把该范围外的大小写等价者
+	 * 作为个别 chr 追加。
 	 *
-	 * To ensure sane behavior if someone specifies a very large range, limit
-	 * the allocation size to 100000 chrs (arbitrary) and check for overrun
-	 * inside the loop below.
+	 * 为确保有人指定极大范围时行为正常，将分配
+	 * 大小限制为 100000 个 chr（任意），并在下方
+	 * 循环内查overrun。
 	 */
 	nchrs = b - a + 1;
 	if (nchrs <= 0 || nchrs > 100000)
@@ -482,9 +482,9 @@ range(struct vars *v,			/* context */
 }
 
 /*
- * before - is chr x before chr y, for purposes of range legality?
+ * before - chr x 是否在 chr y 之前（范围合法性）？
  */
-static int						/* predicate */
+static int						/* 谓词 */
 before(chr x, chr y)
 {
 	if (x < y)
@@ -493,18 +493,18 @@ before(chr x, chr y)
 }
 
 /*
- * eclass - supply cvec for an equivalence class
- * Must include case counterparts on request.
+ * eclass - 为等价类提供 cvec
+ * 按请求须含大小写对应者。
  */
 static struct cvec *
-eclass(struct vars *v,			/* context */
-	   chr c,					/* Collating element representing the
-								 * equivalence class. */
-	   int cases)				/* all cases? */
+eclass(struct vars *v,			/* 语境 */
+	   chr c,					/* 代表该等价类的
+								 * 排序元素。*/
+	   int cases)				/* 大小写? */
 {
 	struct cvec *cv;
 
-	/* crude fake equivalence class for testing */
+	/* 供测试的粗糙伪等价类 */
 	if ((v->cflags & REG_FAKE) && c == 'x')
 	{
 		cv = getcvec(v, 4, 0);
@@ -518,7 +518,7 @@ eclass(struct vars *v,			/* context */
 		return cv;
 	}
 
-	/* otherwise, none */
+	/* 否则无 */
 	if (cases)
 		return allcases(v, c);
 	cv = getcvec(v, 1, 0);
@@ -528,21 +528,21 @@ eclass(struct vars *v,			/* context */
 }
 
 /*
- * lookupcclass - lookup a character class identified by name
+ * lookupcclass - 按名查找字符类
  *
- * On failure, sets an error code in *v; the result is then garbage.
+ * 失败时在 *v 中置错误码；结果随之为垃圾。
  */
 static enum char_classes
-lookupcclass(struct vars *v,	/* context (for returning errors) */
-			 const chr *startp, /* where the name starts */
-			 const chr *endp)	/* just past the end of the name */
+lookupcclass(struct vars *v,	/* 语境（返回错误） */
+			 const chr *startp, /* 名称起点 */
+			 const chr *endp)	/* 刚过名称末尾 */
 {
 	size_t		len;
 	const char *const *namePtr;
 	int			i;
 
 	/*
-	 * Map the name to the corresponding enumerated value.
+	 * 将名称映射到对应的枚举值。
 	 */
 	len = endp - startp;
 	for (namePtr = classNames, i = 0; *namePtr != NULL; namePtr++, i++)
@@ -557,23 +557,23 @@ lookupcclass(struct vars *v,	/* context (for returning errors) */
 }
 
 /*
- * cclasscvec - supply cvec for a character class
+ * cclasscvec - 为字符类提供 cvec
  *
- * Must include case counterparts if "cases" is true.
+ * 若 "cases" 为真则须含大小写对应者。
  *
- * The returned cvec might be either a transient cvec gotten from getcvec(),
- * or a permanently cached one from pg_ctype_get_cache().  This is okay
- * because callers are not supposed to explicitly free the result either way.
+ * 返回的 cvec 可能是 getcvec() 取得的暂态 cvec，
+ * 或 pg_ctype_get_cache() 的永久缓存者。均可，
+ * 因两种情形调用方都不应显式释放结果。
  */
 static struct cvec *
-cclasscvec(struct vars *v,		/* context */
-		   enum char_classes cclasscode,	/* class to build a cvec for */
-		   int cases)			/* case-independent? */
+cclasscvec(struct vars *v,		/* 语境 */
+		   enum char_classes cclasscode,	/* 要为其建 cvec 的类 */
+		   int cases)			/* 大小写无关? */
 {
 	struct cvec *cv = NULL;
 
 	/*
-	 * Remap lower and upper to alpha if the match is case insensitive.
+	 * 若大小写不敏感，将 lower/upper 重映射为 alpha。
 	 */
 
 	if (cases &&
@@ -582,13 +582,13 @@ cclasscvec(struct vars *v,		/* context */
 		cclasscode = CC_ALPHA;
 
 	/*
-	 * Now compute the character class contents.  For classes that are based
-	 * on the behavior of a <wctype.h> or <ctype.h> function, we use
-	 * pg_ctype_get_cache so that we can cache the results.  Other classes
-	 * have definitions that are hard-wired here, and for those we just
-	 * construct a transient cvec on the fly.
+	 * 现在计算字符类内容。对基于 <wctype.h> 或
+	 * <ctype.h> 函数行为的类，我们用
+	 * pg_ctype_get_cache 以便缓存结果。其他类
+	 * 在此硬接线定义，对那些我们只是
+	 * 当场构造暂态 cvec。
 	 *
-	 * NB: keep this code in sync with cclass_column_index(), below.
+	 * 须与下方 cclass_column_index() 保持同步。
 	 */
 
 	switch (cclasscode)
@@ -606,19 +606,19 @@ cclasscvec(struct vars *v,		/* context */
 			cv = pg_ctype_get_cache(pg_wc_isword, cclasscode);
 			break;
 		case CC_ASCII:
-			/* hard-wired meaning */
+			/* 硬接线含义 */
 			cv = getcvec(v, 0, 1);
 			if (cv)
 				addrange(cv, 0, 0x7f);
 			break;
 		case CC_BLANK:
-			/* hard-wired meaning */
+			/* 硬接线含义 */
 			cv = getcvec(v, 2, 0);
 			addchr(cv, '\t');
 			addchr(cv, ' ');
 			break;
 		case CC_CNTRL:
-			/* hard-wired meaning */
+			/* 硬接线含义 */
 			cv = getcvec(v, 0, 2);
 			addrange(cv, 0x0, 0x1f);
 			addrange(cv, 0x7f, 0x9f);
@@ -632,9 +632,9 @@ cclasscvec(struct vars *v,		/* context */
 		case CC_XDIGIT:
 
 			/*
-			 * It's not clear how to define this in non-western locales, and
-			 * even less clear that there's any particular use in trying. So
-			 * just hard-wire the meaning.
+			 * 非西方区域设置下如何定义这一点并不清楚，
+			 * 尝试是否有何用处就更不清楚。故
+			 * 就硬接线其含义。
 			 */
 			cv = getcvec(v, 0, 3);
 			if (cv)
@@ -658,26 +658,26 @@ cclasscvec(struct vars *v,		/* context */
 			break;
 	}
 
-	/* If cv is NULL now, the reason must be "out of memory" */
+	/* 若此时 cv 为 NULL，原因必是内存耗尽 */
 	if (cv == NULL)
 		ERR(REG_ESPACE);
 	return cv;
 }
 
 /*
- * cclass_column_index - get appropriate high colormap column index for chr
+ * cclass_column_index - 取 chr 适用的高色图列下标
  */
 static int
 cclass_column_index(struct colormap *cm, chr c)
 {
 	int			colnum = 0;
 
-	/* Shouldn't go through all these pushups for simple chrs */
+	/* 简单 chr 不必走这套周折 */
 	assert(c > MAX_SIMPLE_CHR);
 
 	/*
-	 * Note: we should not see requests to consider cclasses that are not
-	 * treated as locale-specific by cclasscvec(), above.
+	 * 注意：不应见到要求考虑未被上方
+	 * cclasscvec() 当作区域设置相关的 cclass。
 	 */
 	if (cm->classbits[CC_PRINT] && pg_wc_isprint(c))
 		colnum |= cm->classbits[CC_PRINT];
@@ -708,14 +708,14 @@ cclass_column_index(struct colormap *cm, chr c)
 }
 
 /*
- * allcases - supply cvec for all case counterparts of a chr (including itself)
+ * allcases - 为某 chr 的全部大小写对应者提供 cvec（含自身）
  *
- * This is a shortcut, preferably an efficient one, for simple characters;
- * messy cases are done via range().
+ * 这是对简单字符的捷径，最好要高效；
+ * 棘手情形走 range()。
  */
 static struct cvec *
-allcases(struct vars *v,		/* context */
-		 chr c)					/* character to get case equivs of */
+allcases(struct vars *v,		/* 语境 */
+		 chr c)					/* 取大小写等价的字符 */
 {
 	struct cvec *cv;
 	chr			lc,
@@ -732,31 +732,31 @@ allcases(struct vars *v,		/* context */
 }
 
 /*
- * cmp - chr-substring compare
+ * cmp - chr 子串比较
  *
- * Backrefs need this.  It should preferably be efficient.
- * Note that it does not need to report anything except equal/unequal.
- * Note also that the length is exact, and the comparison should not
- * stop at embedded NULs!
+ * 反向引用需要它。最好要高效。
+ * 注意只需报告相等/不等。
+ * 另请注意长度是精确的，比较不应
+ * 止于内嵌 NUL！
  */
-static int						/* 0 for equal, nonzero for unequal */
-cmp(const chr *x, const chr *y, /* strings to compare */
-	size_t len)					/* exact length of comparison */
+static int						/* 0 为相等，非零为不等 */
+cmp(const chr *x, const chr *y, /* 待比较字符串 */
+	size_t len)					/* 比较的精确长度 */
 {
 	return memcmp(VS(x), VS(y), len * sizeof(chr));
 }
 
 /*
- * casecmp - case-independent chr-substring compare
+ * casecmp - 大小写无关的 chr 子串比较
  *
- * REG_ICASE backrefs need this.  It should preferably be efficient.
- * Note that it does not need to report anything except equal/unequal.
- * Note also that the length is exact, and the comparison should not
- * stop at embedded NULs!
+ * REG_ICASE 反向引用需要它。最好要高效。
+ * 注意只需报告相等/不等。
+ * 另请注意长度是精确的，比较不应
+ * 止于内嵌 NUL！
  */
-static int						/* 0 for equal, nonzero for unequal */
-casecmp(const chr *x, const chr *y, /* strings to compare */
-		size_t len)				/* exact length of comparison */
+static int						/* 0 为相等，非零为不等 */
+casecmp(const chr *x, const chr *y, /* 待比较字符串 */
+		size_t len)				/* 比较的精确长度 */
 {
 	for (; len > 0; len--, x++, y++)
 	{

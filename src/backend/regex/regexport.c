@@ -1,18 +1,18 @@
 /*-------------------------------------------------------------------------
  *
  * regexport.c
- *	  Functions for exporting info about a regex's NFA
+ *	  导出正则之 NFA 信息的函数
  *
- * In this implementation, the NFA defines a necessary but not sufficient
- * condition for a string to match the regex: that is, there can be strings
- * that match the NFA but don't match the full regex, but not vice versa.
- * Thus, for example, it is okay for the functions below to treat lookaround
- * constraints as no-ops, since they merely constrain the string some more.
+ * 本实现中，NFA 定义串匹配该正则的必要但非充分
+ * 条件：即可有串匹配 NFA 却不匹配完整正则，
+ * 但反之不然。
+ * 因此例如，下列函数把环视约束
+ * 当作空操作即可，因其只是进一步约束该串。
  *
- * Notice that these functions return info into caller-provided arrays
- * rather than doing their own malloc's.  This simplifies the APIs by
- * eliminating a class of error conditions, and in the case of colors
- * allows the caller to decide how big is too big to bother with.
+ * 注意这些函数把信息写入调用方提供的数组
+ * 而非自行 malloc。这简化了 API，因
+ * 消除了一类错误条件，且就色而言
+ * 允许调用方自行决定多大才不值得理会。
  *
  *
  * Portions Copyright (c) 2013-2023, PostgreSQL Global Development Group
@@ -30,7 +30,7 @@
 
 
 /*
- * Get total number of NFA states.
+ * 取 NFA 状态总数。
  */
 int
 pg_reg_getnumstates(const regex_t *regex)
@@ -44,7 +44,7 @@ pg_reg_getnumstates(const regex_t *regex)
 }
 
 /*
- * Get initial state of NFA.
+ * 取 NFA 初始状态。
  */
 int
 pg_reg_getinitialstate(const regex_t *regex)
@@ -58,7 +58,7 @@ pg_reg_getinitialstate(const regex_t *regex)
 }
 
 /*
- * Get final state of NFA.
+ * 取 NFA 终结状态。
  */
 int
 pg_reg_getfinalstate(const regex_t *regex)
@@ -72,22 +72,22 @@ pg_reg_getfinalstate(const regex_t *regex)
 }
 
 /*
- * pg_reg_getnumoutarcs() and pg_reg_getoutarcs() mask the existence of LACON
- * arcs from the caller, treating any LACON as being automatically satisfied.
- * Since the output representation does not support arcs that consume no
- * character when traversed, we have to recursively traverse LACON arcs here,
- * and report whatever normal arcs are reachable by traversing LACON arcs.
- * Note that this wouldn't work if it were possible to reach the final state
- * via LACON traversal, but the regex library never builds NFAs that have
- * LACON arcs leading directly to the final state.  (This is because the
- * regex executor is designed to consume one character beyond the nominal
- * match end --- possibly an EOS indicator --- so there is always a set of
- * ordinary arcs leading to the final state.)
+ * pg_reg_getnumoutarcs() 与 pg_reg_getoutarcs() 对调用方掩盖 LACON
+ * 弧之存在，将任一 LACON 视为已自动满足。
+ * 因输出表示不支持遍历时不消费
+ * 字符的弧，故须在此递归遍历 LACON 弧，
+ * 并报告经 LACON 弧可达的一切普通弧。
+ * 注意：若可经 LACON 遍历到达终结状态则此法
+ * 行不通，但正则库从不构建带有
+ * 直通终结状态的 LACON 弧的 NFA。（因为
+ * 正则执行器设计为在名义匹配末后再消费
+ * 一个字符——可能是 EOS 指示——故总有一组
+ * 通向终结状态的普通弧。）
  *
- * traverse_lacons is a recursive subroutine used by both exported functions
- * to count and then emit the reachable regular arcs.  *arcs_count is
- * incremented by the number of reachable arcs, and as many as will fit in
- * arcs_len (possibly 0) are emitted into arcs[].
+ * traverse_lacons 是两导出函数共用的递归子程序，
+ * 用以计数并写出可达的普通弧。*arcs_count 按
+ * 可达弧数递增，并在 arcs_len 可容纳范围内
+ * （可为 0）把弧写入 arcs[]。
  */
 static void
 traverse_lacons(struct cnfa *cnfa, int st,
@@ -97,9 +97,9 @@ traverse_lacons(struct cnfa *cnfa, int st,
 	struct carc *ca;
 
 	/*
-	 * Since this function recurses, it could theoretically be driven to stack
-	 * overflow.  In practice, this is mostly useful to backstop against a
-	 * failure of the regex compiler to remove a loop of LACON arcs.
+	 * 因本函数递归，理论上可被逼至栈
+	 * 溢出。实践中，这主要用作防止
+	 * 正则编译器未消除 LACON 弧环的后盾。
 	 */
 	check_stack_depth();
 
@@ -107,7 +107,7 @@ traverse_lacons(struct cnfa *cnfa, int st,
 	{
 		if (ca->co < cnfa->ncolors)
 		{
-			/* Ordinary arc, so count and possibly emit it */
+			/* 普通弧，故计数并可能写出 */
 			int			ndx = (*arcs_count)++;
 
 			if (ndx < arcs_len)
@@ -118,8 +118,8 @@ traverse_lacons(struct cnfa *cnfa, int st,
 		}
 		else
 		{
-			/* LACON arc --- assume it's satisfied and recurse... */
-			/* ... but first, assert it doesn't lead directly to post state */
+			/* LACON 弧——假定已满足并递归…… */
+			/* 但先断言其不直接通向 post 状态 */
 			Assert(ca->to != cnfa->post);
 
 			traverse_lacons(cnfa, ca->to, arcs_count, arcs, arcs_len);
@@ -128,7 +128,7 @@ traverse_lacons(struct cnfa *cnfa, int st,
 }
 
 /*
- * Get number of outgoing NFA arcs of state number "st".
+ * 取状态号 "st" 的出 NFA 弧数。
  */
 int
 pg_reg_getnumoutarcs(const regex_t *regex, int st)
@@ -147,9 +147,9 @@ pg_reg_getnumoutarcs(const regex_t *regex, int st)
 }
 
 /*
- * Write array of outgoing NFA arcs of state number "st" into arcs[],
- * whose length arcs_len must be at least as long as indicated by
- * pg_reg_getnumoutarcs(), else not all arcs will be returned.
+ * 把状态号 "st" 的出 NFA 弧数组写入 arcs[]，
+ * 其长度 arcs_len 须至少达 pg_reg_getnumoutarcs()
+ * 所示，否则并非全部弧都会返回。
  */
 void
 pg_reg_getoutarcs(const regex_t *regex, int st,
@@ -168,7 +168,7 @@ pg_reg_getoutarcs(const regex_t *regex, int st,
 }
 
 /*
- * Get total number of colors.
+ * 取色的总数。
  */
 int
 pg_reg_getnumcolors(const regex_t *regex)
@@ -182,10 +182,10 @@ pg_reg_getnumcolors(const regex_t *regex)
 }
 
 /*
- * Check if color is beginning of line/string.
+ * 检查色是否为行/串之始。
  *
- * (We might at some point need to offer more refined handling of pseudocolors,
- * but this will do for now.)
+ * （日后或需对伪色提供更精细的处理，
+ * 但眼下够用。）
  */
 int
 pg_reg_colorisbegin(const regex_t *regex, int co)
@@ -202,7 +202,7 @@ pg_reg_colorisbegin(const regex_t *regex, int co)
 }
 
 /*
- * Check if color is end of line/string.
+ * 检查色是否为行/串之末。
  */
 int
 pg_reg_colorisend(const regex_t *regex, int co)
@@ -219,12 +219,12 @@ pg_reg_colorisend(const regex_t *regex, int co)
 }
 
 /*
- * Get number of member chrs of color number "co".
+ * 取色号 "co" 的成员 chr 数。
  *
- * Note: we return -1 if the color number is invalid, or if it is a special
- * color (WHITE, RAINBOW, or a pseudocolor), or if the number of members is
- * uncertain.
- * Callers should not try to extract the members if -1 is returned.
+ * 注意：返回 -1，若色号无效，或它是特殊
+ * 色（WHITE、彩虹 或伪色），或成员数
+ * 未定。
+ * 若返回 -1，调用方不应试图提取成员。
  */
 int
 pg_reg_getnumcharacters(const regex_t *regex, int co)
@@ -234,33 +234,33 @@ pg_reg_getnumcharacters(const regex_t *regex, int co)
 	assert(regex != NULL && regex->re_magic == REMAGIC);
 	cm = &((struct guts *) regex->re_guts)->cmap;
 
-	if (co <= 0 || co > cm->max)	/* <= 0 rejects WHITE and RAINBOW */
+	if (co <= 0 || co > cm->max)	/* <= 0 拒绝 WHITE 与 彩虹 */
 		return -1;
-	if (cm->cd[co].flags & PSEUDO)	/* also pseudocolors (BOS etc) */
+	if (cm->cd[co].flags & PSEUDO)	/* 亦拒伪色（BOS 等） */
 		return -1;
 
 	/*
-	 * If the color appears anywhere in the high colormap, treat its number of
-	 * members as uncertain.  In principle we could determine all the specific
-	 * chrs corresponding to each such entry, but it would be expensive
-	 * (particularly if character class tests are required) and it doesn't
-	 * seem worth it.
+	 * 若该色出现在高色图任何处，则视其成员
+	 * 数为不定。原则上可确定每项对应的全部
+	 * 具体 chr，但代价高昂
+	 * （尤其若需字符类测试），且
+	 * 不值得。
 	 */
 	if (cm->cd[co].nuchrs != 0)
 		return -1;
 
-	/* OK, return the known number of member chrs */
+	/* 好，返回已知的成员 chr 数 */
 	return cm->cd[co].nschrs;
 }
 
 /*
- * Write array of member chrs of color number "co" into chars[],
- * whose length chars_len must be at least as long as indicated by
- * pg_reg_getnumcharacters(), else not all chars will be returned.
+ * 把色号 "co" 的成员 chr 数组写入 chars[]，
+ * 其长度 chars_len 须至少达 pg_reg_getnumcharacters()
+ * 所示，否则并非全部字符都会返回。
  *
- * Fetching the members of WHITE, RAINBOW, or a pseudocolor is not supported.
+ * 不支持提取 WHITE、彩虹 或伪色的成员。
  *
- * Caution: this is a relatively expensive operation.
+ * 注意：这是相对昂贵的操作。
  */
 void
 pg_reg_getcharacters(const regex_t *regex, int co,
@@ -278,8 +278,8 @@ pg_reg_getcharacters(const regex_t *regex, int co,
 		return;
 
 	/*
-	 * We need only examine the low character map; there should not be any
-	 * matching entries in the high map.
+	 * 只需检查低字符映射；高映射中不应有
+	 * 匹配的项。
 	 */
 	for (c = CHR_MIN; c <= MAX_SIMPLE_CHR; c++)
 	{

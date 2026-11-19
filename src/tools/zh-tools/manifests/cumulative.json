@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "ea93f8eb5d7c291cd246dbb7ec61c0d41e3b74d7",
+ "parent_commit": "ae1833dfd2c4c8c799cddb5660141207e55e1858",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7476,6 +7476,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0439-regexec-color-dfa.json",
    "kind": "manifest",
    "note": "batch-0439 manifest"
+  },
+  {
+   "pattern": "src/backend/regex/regc_cvec.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regc_cvec.c"
+  },
+  {
+   "pattern": "src/backend/regex/regc_lex.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regc_lex.c"
+  },
+  {
+   "pattern": "src/backend/regex/regc_locale.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regc_locale.c"
+  },
+  {
+   "pattern": "src/backend/regex/regc_pg_locale.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regc_pg_locale.c"
+  },
+  {
+   "pattern": "src/backend/regex/regerror.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regerror.c"
+  },
+  {
+   "pattern": "src/backend/regex/regexport.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regexport.c"
+  },
+  {
+   "pattern": "src/backend/regex/regfree.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regfree.c"
+  },
+  {
+   "pattern": "src/backend/regex/regprefix.c",
+   "kind": "c_comment",
+   "note": "batch-0440 R4a regprefix.c"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0440-regex-rest-c.json",
+   "kind": "manifest",
+   "note": "batch-0440 manifest"
   }
  ],
  "files": [
@@ -24218,6 +24263,96 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0439 manifest; parent_commit→ea93f8eb5d7 更新披露"
+  },
+  {
+   "path": "src/backend/regex/regc_cvec.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 20,
+   "translated": 20,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regc_lex.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 112,
+   "translated": 110,
+   "preserved": 2,
+   "preserved_reasons": ["FALLTHROUGH", "trigraph ??? BREs (but why???)"],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regc_locale.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 57,
+   "translated": 57,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regc_pg_locale.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 195,
+   "translated": 43,
+   "preserved": 152,
+   "preserved_reasons": ["ASCII ctype 短标签/FALL THRU", "strategy 实现策略大块 KEEP", "ctype cache 大块 KEEP"],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regerror.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 21,
+   "preserved": 2,
+   "preserved_reasons": ["pgrminclude ignore / ARGSUSED"],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regexport.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 21,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regfree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/backend/regex/regprefix.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 26,
+   "preserved": 2,
+   "preserved_reasons": ["部分行/块保留 EN"],
+   "note": "batch-0440"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0440-regex-rest-c.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0440 manifest; parent_commit→ae1833dfd2c 更新披露"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

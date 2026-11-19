@@ -1,6 +1,6 @@
 /*
- * lexical analyzer
- * This file is #included by regcomp.c.
+ * 词法分析器
+ * 本文件被 regcomp.c #include。
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -32,7 +32,7 @@
  *
  */
 
-/* scanning macros (know about v) */
+/* 扫描宏（了解 v） */
 #define ATEOS()		(v->now >= v->stop)
 #define HAVE(n)		(v->stop - v->now >= (n))
 #define NEXT1(c)	(!ATEOS() && *v->now == CHR(c))
@@ -44,32 +44,32 @@
 #define SETV(c, n)	(v->nexttype = (c), v->nextvalue = (n))
 #define RET(c)		return (SET(c), 1)
 #define RETV(c, n)	return (SETV(c, n), 1)
-#define FAILW(e)	return (ERR(e), 0)	/* ERR does SET(EOS) */
+#define FAILW(e)	return (ERR(e), 0)	/* ERR 会 SET(EOS) */
 #define LASTTYPE(t) (v->lasttype == (t))
 
-/* lexical contexts */
-#define L_ERE	1				/* mainline ERE/ARE */
-#define L_BRE	2				/* mainline BRE */
+/* 词法上下文 */
+#define L_ERE	1				/* 主线 ERE/ARE */
+#define L_BRE	2				/* 主线 BRE */
 #define L_Q 3					/* REG_QUOTE */
-#define L_EBND	4				/* ERE/ARE bound */
-#define L_BBND	5				/* BRE bound */
-#define L_BRACK 6				/* brackets */
-#define L_CEL	7				/* collating element */
-#define L_ECL	8				/* equivalence class */
-#define L_CCL	9				/* character class */
+#define L_EBND	4				/* ERE/ARE 界 */
+#define L_BBND	5				/* BRE 界 */
+#define L_BRACK 6				/* 括号 */
+#define L_CEL	7				/* 对照元素 */
+#define L_ECL	8				/* 等价类 */
+#define L_CCL	9				/* 字符类 */
 #define INTOCON(c)	(v->lexcon = (c))
 #define INCON(con)	(v->lexcon == (con))
 
-/* construct pointer past end of chr array */
+/* 构造越过 chr 数组末尾的指针 */
 #define ENDOF(array)	((array) + sizeof(array)/sizeof(chr))
 
 /*
- * lexstart - set up lexical stuff, scan leading options
+ * lexstart - 设置词法相关，扫描前导选项
  */
 static void
 lexstart(struct vars *v)
 {
-	prefixes(v);				/* may turn on new type bits etc. */
+	prefixes(v);				/* 或会打开新类型位等。 */
 	NOERR();
 
 	if (v->cflags & REG_QUOTE)
@@ -88,51 +88,51 @@ lexstart(struct vars *v)
 		INTOCON(L_BRE);
 	}
 
-	v->nexttype = EMPTY;		/* remember we were at the start */
-	next(v);					/* set up the first token */
+	v->nexttype = EMPTY;		/* 记住我们曾在起始处 */
+	next(v);					/* 设置第一个记号 */
 }
 
 /*
- * prefixes - implement various special prefixes
+ * prefixes - 实现各种特殊前缀
  */
 static void
 prefixes(struct vars *v)
 {
-	/* literal string doesn't get any of this stuff */
+	/* 字面串得不到这些东西 */
 	if (v->cflags & REG_QUOTE)
 		return;
 
-	/* initial "***" gets special things */
+	/* 起始 "***" 有特殊处理 */
 	if (HAVE(4) && NEXT3('*', '*', '*'))
 		switch (*(v->now + 3))
 		{
-			case CHR('?'):		/* "***?" error, msg shows version */
+			case CHR('?'):		/* ***? 错误，消息含版本 */
 				ERR(REG_BADPAT);
-				return;			/* proceed no further */
+				return;			/* 不再继续 */
 				break;
-			case CHR('='):		/* "***=" shifts to literal string */
+			case CHR('='):		/* ***= 切到字面串 */
 				NOTE(REG_UNONPOSIX);
 				v->cflags |= REG_QUOTE;
 				v->cflags &= ~(REG_ADVANCED | REG_EXPANDED | REG_NEWLINE);
 				v->now += 4;
-				return;			/* and there can be no more prefixes */
+				return;			/* 且其后不能再有前缀 */
 				break;
-			case CHR(':'):		/* "***:" shifts to AREs */
+			case CHR(':'):		/* ***: 切到 ARE */
 				NOTE(REG_UNONPOSIX);
 				v->cflags |= REG_ADVANCED;
 				v->now += 4;
 				break;
-			default:			/* otherwise *** is just an error */
+			default:			/* 否则 *** 只是错误 */
 				ERR(REG_BADRPT);
 				return;
 				break;
 		}
 
-	/* BREs and EREs don't get embedded options */
+	/* BRE 与 ERE 无嵌入选项 */
 	if ((v->cflags & REG_ADVANCED) != REG_ADVANCED)
 		return;
 
-	/* embedded options (AREs only) */
+	/* 嵌入选项（仅 ARE） */
 	if (HAVE(3) && NEXT2('(', '?') && iscalpha(*(v->now + 2)))
 	{
 		NOTE(REG_UNONPOSIX);
@@ -143,39 +143,39 @@ prefixes(struct vars *v)
 				case CHR('b'):	/* BREs (but why???) */
 					v->cflags &= ~(REG_ADVANCED | REG_QUOTE);
 					break;
-				case CHR('c'):	/* case sensitive */
+				case CHR('c'):	/* 辨大小写 */
 					v->cflags &= ~REG_ICASE;
 					break;
-				case CHR('e'):	/* plain EREs */
+				case CHR('e'):	/* 普通 ERE */
 					v->cflags |= REG_EXTENDED;
 					v->cflags &= ~(REG_ADVF | REG_QUOTE);
 					break;
-				case CHR('i'):	/* case insensitive */
+				case CHR('i'):	/* 不辨大小写 */
 					v->cflags |= REG_ICASE;
 					break;
-				case CHR('m'):	/* Perloid synonym for n */
-				case CHR('n'):	/* \n affects ^ $ . [^ */
+				case CHR('m'):	/* 类 Perl 的 n 同义 */
+				case CHR('n'):	/* \n 影响 ^ $ . [^ */
 					v->cflags |= REG_NEWLINE;
 					break;
-				case CHR('p'):	/* ~Perl, \n affects . [^ */
+				case CHR('p'):	/* ~Perl，\n 影响 . [^ */
 					v->cflags |= REG_NLSTOP;
 					v->cflags &= ~REG_NLANCH;
 					break;
-				case CHR('q'):	/* literal string */
+				case CHR('q'):	/* 字面串 */
 					v->cflags |= REG_QUOTE;
 					v->cflags &= ~REG_ADVANCED;
 					break;
-				case CHR('s'):	/* single line, \n ordinary */
+				case CHR('s'):	/* 单行，\n 普通 */
 					v->cflags &= ~REG_NEWLINE;
 					break;
-				case CHR('t'):	/* tight syntax */
+				case CHR('t'):	/* 紧语法 */
 					v->cflags &= ~REG_EXPANDED;
 					break;
-				case CHR('w'):	/* weird, \n affects ^ $ only */
+				case CHR('w'):	/* 怪，\n 只影响 ^ $ */
 					v->cflags &= ~REG_NLSTOP;
 					v->cflags |= REG_NLANCH;
 					break;
-				case CHR('x'):	/* expanded syntax */
+				case CHR('x'):	/* 展开语法 */
 					v->cflags |= REG_EXPANDED;
 					break;
 				default:
@@ -194,30 +194,30 @@ prefixes(struct vars *v)
 }
 
 /*
- * next - get next token
+ * next - 取下记号
  */
-static int						/* 1 normal, 0 failure */
+static int						/* 1 正常，0 失败 */
 next(struct vars *v)
 {
 	chr			c;
 
-next_restart:					/* loop here after eating a comment */
+next_restart:					/* 吃掉注释后在此循环 */
 
-	/* errors yield an infinite sequence of failures */
+	/* 出错则产生无穷失败序列 */
 	if (ISERR())
-		return 0;				/* the error has set nexttype to EOS */
+		return 0;				/* 错误已将 nexttype 设为 EOS */
 
-	/* remember flavor of last token */
+	/* 记住上一记号的味道 */
 	v->lasttype = v->nexttype;
 
 	/* REG_BOSONLY */
 	if (v->nexttype == EMPTY && (v->cflags & REG_BOSONLY))
 	{
-		/* at start of a REG_BOSONLY RE */
-		RETV(SBEGIN, 0);		/* same as \A */
+		/* 在 REG_BOSONLY RE 起始 */
+		RETV(SBEGIN, 0);		/* 同 \A */
 	}
 
-	/* skip white space etc. if appropriate (not in literal or []) */
+	/* 适当时跳过空白等（不在字面或 [] 中） */
 	if (v->cflags & REG_EXPANDED)
 		switch (v->lexcon)
 		{
@@ -229,7 +229,7 @@ next_restart:					/* loop here after eating a comment */
 				break;
 		}
 
-	/* handle EOS, depending on context */
+	/* 按语境处理 EOS */
 	if (ATEOS())
 	{
 		switch (v->lexcon)
@@ -253,21 +253,21 @@ next_restart:					/* loop here after eating a comment */
 		assert(NOTREACHED);
 	}
 
-	/* okay, time to actually get a character */
+	/* 好，该真正取一个字符了 */
 	c = *v->now++;
 
-	/* deal with the easy contexts, punt EREs to code below */
+	/* 处理易语境，ERE 丢给下方代码 */
 	switch (v->lexcon)
 	{
-		case L_BRE:				/* punt BREs to separate function */
+		case L_BRE:				/* BRE 丢给独立函数 */
 			return brenext(v, c);
 			break;
-		case L_ERE:				/* see below */
+		case L_ERE:				/* 见下 */
 			break;
-		case L_Q:				/* literal strings are easy */
+		case L_Q:				/* 字面串很容易 */
 			RETV(PLAIN, c);
 			break;
-		case L_BBND:			/* bounds are fairly simple */
+		case L_BBND:			/* 界相当简单 */
 		case L_EBND:
 			switch (c)
 			{
@@ -286,7 +286,7 @@ next_restart:					/* loop here after eating a comment */
 				case CHR(','):
 					RET(',');
 					break;
-				case CHR('}'):	/* ERE bound ends with } */
+				case CHR('}'):	/* ERE 界以 } 结束 */
 					if (INCON(L_EBND))
 					{
 						INTOCON(L_ERE);
@@ -301,7 +301,7 @@ next_restart:					/* loop here after eating a comment */
 					else
 						FAILW(REG_BADBR);
 					break;
-				case CHR('\\'): /* BRE bound ends with \} */
+				case CHR('\\'): /* BRE 界以 \} 结束 */
 					if (INCON(L_BBND) && NEXT1('}'))
 					{
 						v->now++;
@@ -317,7 +317,7 @@ next_restart:					/* loop here after eating a comment */
 			}
 			assert(NOTREACHED);
 			break;
-		case L_BRACK:			/* brackets are not too hard */
+		case L_BRACK:			/* 括号不太难 */
 			switch (c)
 			{
 				case CHR(']'):
@@ -340,14 +340,14 @@ next_restart:					/* loop here after eating a comment */
 					if (!lexescape(v))
 						return 0;
 					switch (v->nexttype)
-					{			/* not all escapes okay here */
+					{			/* 非所有转义皆可 */
 						case PLAIN:
 						case CCLASSS:
 						case CCLASSC:
 							return 1;
 							break;
 					}
-					/* not one of the acceptable escapes */
+					/* 不是可接受的转义之一 */
 					FAILW(REG_EESCAPE);
 					break;
 				case CHR('-'):
@@ -363,7 +363,7 @@ next_restart:					/* loop here after eating a comment */
 					{
 						case CHR('.'):
 							INTOCON(L_CEL);
-							/* might or might not be locale-specific */
+							/* 或是或不是区域设置相关 */
 							RET(COLLEL);
 							break;
 						case CHR('='):
@@ -376,7 +376,7 @@ next_restart:					/* loop here after eating a comment */
 							NOTE(REG_ULOCALE);
 							RET(CCLASS);
 							break;
-						default:	/* oops */
+						default:	/* 糟 */
 							v->now--;
 							RETV(PLAIN, c);
 							break;
@@ -389,7 +389,7 @@ next_restart:					/* loop here after eating a comment */
 			}
 			assert(NOTREACHED);
 			break;
-		case L_CEL:				/* collating elements are easy */
+		case L_CEL:				/* 对照元素很容易 */
 			if (c == CHR('.') && NEXT1(']'))
 			{
 				v->now++;
@@ -399,7 +399,7 @@ next_restart:					/* loop here after eating a comment */
 			else
 				RETV(PLAIN, c);
 			break;
-		case L_ECL:				/* ditto equivalence classes */
+		case L_ECL:				/* 等价类同上 */
 			if (c == CHR('=') && NEXT1(']'))
 			{
 				v->now++;
@@ -409,7 +409,7 @@ next_restart:					/* loop here after eating a comment */
 			else
 				RETV(PLAIN, c);
 			break;
-		case L_CCL:				/* ditto character classes */
+		case L_CCL:				/* 字符类同上 */
 			if (c == CHR(':') && NEXT1(']'))
 			{
 				v->now++;
@@ -424,10 +424,10 @@ next_restart:					/* loop here after eating a comment */
 			break;
 	}
 
-	/* that got rid of everything except EREs and AREs */
+	/* 除 ERE 与 ARE 外都已处理掉 */
 	assert(INCON(L_ERE));
 
-	/* deal with EREs and AREs, except for backslashes */
+	/* 处理 ERE 与 ARE，反斜杠除外 */
 	switch (c)
 	{
 		case CHR('|'):
@@ -460,7 +460,7 @@ next_restart:					/* loop here after eating a comment */
 			}
 			RETV('?', 1);
 			break;
-		case CHR('{'):			/* bounds start or plain character */
+		case CHR('{'):			/* 界开始或普通字符 */
 			if (v->cflags & REG_EXPANDED)
 				skip(v);
 			if (ATEOS() || !iscdigit(*v->now))
@@ -477,7 +477,7 @@ next_restart:					/* loop here after eating a comment */
 			}
 			assert(NOTREACHED);
 			break;
-		case CHR('('):			/* parenthesis, or advanced extension */
+		case CHR('('):			/* 括号，或高级扩展 */
 			if ((v->cflags & REG_ADVF) && NEXT1('?'))
 			{
 				NOTE(REG_UNONPOSIX);
@@ -486,21 +486,21 @@ next_restart:					/* loop here after eating a comment */
 					FAILW(REG_BADRPT);
 				switch (*v->now++)
 				{
-					case CHR(':'):	/* non-capturing paren */
+					case CHR(':'):	/* 非捕获括号 */
 						RETV('(', 0);
 						break;
-					case CHR('#'):	/* comment */
+					case CHR('#'):	/* 注释 */
 						while (!ATEOS() && *v->now != CHR(')'))
 							v->now++;
 						if (!ATEOS())
 							v->now++;
 						assert(v->nexttype == v->lasttype);
 						goto next_restart;
-					case CHR('='):	/* positive lookahead */
+					case CHR('='):	/* 正前瞻 */
 						NOTE(REG_ULOOKAROUND);
 						RETV(LACON, LATYPE_AHEAD_POS);
 						break;
-					case CHR('!'):	/* negative lookahead */
+					case CHR('!'):	/* 负前瞻 */
 						NOTE(REG_ULOOKAROUND);
 						RETV(LACON, LATYPE_AHEAD_NEG);
 						break;
@@ -509,11 +509,11 @@ next_restart:					/* loop here after eating a comment */
 							FAILW(REG_BADRPT);
 						switch (*v->now++)
 						{
-							case CHR('='):	/* positive lookbehind */
+							case CHR('='):	/* 正后顾 */
 								NOTE(REG_ULOOKAROUND);
 								RETV(LACON, LATYPE_BEHIND_POS);
 								break;
-							case CHR('!'):	/* negative lookbehind */
+							case CHR('!'):	/* 负后顾 */
 								NOTE(REG_ULOOKAROUND);
 								RETV(LACON, LATYPE_BEHIND_NEG);
 								break;
@@ -536,7 +536,7 @@ next_restart:					/* loop here after eating a comment */
 				NOTE(REG_UUNSPEC);
 			RETV(')', c);
 			break;
-		case CHR('['):			/* easy except for [[:<:]] and [[:>:]] */
+		case CHR('['):			/* 易，除 [[:<:]] 与 [[:>:]] */
 			if (HAVE(6) && *(v->now + 0) == CHR('[') &&
 				*(v->now + 1) == CHR(':') &&
 				(*(v->now + 2) == CHR('<') ||
@@ -567,19 +567,19 @@ next_restart:					/* loop here after eating a comment */
 		case CHR('$'):
 			RET('$');
 			break;
-		case CHR('\\'):			/* mostly punt backslashes to code below */
+		case CHR('\\'):			/* 反斜杠多半丢给下方代码 */
 			if (ATEOS())
 				FAILW(REG_EESCAPE);
 			break;
-		default:				/* ordinary character */
+		default:				/* 普通字符 */
 			RETV(PLAIN, c);
 			break;
 	}
 
-	/* ERE/ARE backslash handling; backslash already eaten */
+	/* ERE/ARE 反斜杠处理；反斜杠已吃掉 */
 	assert(!ATEOS());
 	if (!(v->cflags & REG_ADVF))
-	{							/* only AREs have non-trivial escapes */
+	{							/* 仅 ARE 有非平凡转义 */
 		if (iscalnum(*v->now))
 		{
 			NOTE(REG_UBSALNUM);
@@ -591,11 +591,11 @@ next_restart:					/* loop here after eating a comment */
 }
 
 /*
- * lexescape - parse an ARE backslash escape (backslash already eaten)
+ * lexescape - 解析 ARE 反斜杠转义（反斜杠已吃掉）
  *
- * This is used for ARE backslashes both normally and inside bracket
- * expressions.  In the latter case, not all escape types are allowed,
- * but the caller must reject unwanted ones after we return.
+ * 用于 ARE 反斜杠：常态下与括号表达式内皆然。
+ * 后者并非所有转义类型皆允许，
+ * 但调用方须在我们返回后拒绝不想要的。
  */
 static int
 lexescape(struct vars *v)
@@ -614,7 +614,7 @@ lexescape(struct vars *v)
 	assert(!ATEOS());
 	c = *v->now++;
 
-	/* if it's not alphanumeric ASCII, treat it as a plain character */
+	/* 若非字母数字 ASCII，则当作普通字符 */
 	if (!('a' <= c && c <= 'z') &&
 		!('A' <= c && c <= 'Z') &&
 		!('0' <= c && c <= '9'))
@@ -704,7 +704,7 @@ lexescape(struct vars *v)
 			break;
 		case CHR('x'):
 			NOTE(REG_UUNPORT);
-			c = lexdigits(v, 16, 1, 255);	/* REs >255 long outside spec */
+			c = lexdigits(v, 16, 1, 255);	/* RE 长>255 超出规范 */
 			if (ISERR() || !CHR_IS_IN_RANGE(c))
 				FAILW(REG_EESCAPE);
 			RETV(PLAIN, c);
@@ -730,29 +730,29 @@ lexescape(struct vars *v)
 		case CHR('8'):
 		case CHR('9'):
 			save = v->now;
-			v->now--;			/* put first digit back */
-			c = lexdigits(v, 10, 1, 255);	/* REs >255 long outside spec */
+			v->now--;			/* 放回首位数字 */
+			c = lexdigits(v, 10, 1, 255);	/* RE 长>255 超出规范 */
 			if (ISERR())
 				FAILW(REG_EESCAPE);
-			/* ugly heuristic (first test is "exactly 1 digit?") */
+			/* 丑陋启发（首测是"恰 1 位?"） */
 			if (v->now == save || ((int) c > 0 && (int) c <= v->nsubexp))
 			{
 				NOTE(REG_UBACKREF);
 				RETV(BACKREF, c);
 			}
-			/* oops, doesn't look like it's a backref after all... */
+			/* 糟，毕竟不像是反向引用... */
 			v->now = save;
-			/* and fall through into octal number */
+			/* 并落入八进制数 */
 			/* FALLTHROUGH */
 		case CHR('0'):
 			NOTE(REG_UUNPORT);
-			v->now--;			/* put first digit back */
+			v->now--;			/* 放回首位数字 */
 			c = lexdigits(v, 8, 1, 3);
 			if (ISERR())
 				FAILW(REG_EESCAPE);
 			if (c > 0xff)
 			{
-				/* out of range, so we handled one digit too much */
+				/* 越界，故多处理了一位数字 */
 				v->now--;
 				c >>= 3;
 			}
@@ -761,8 +761,8 @@ lexescape(struct vars *v)
 		default:
 
 			/*
-			 * Throw an error for unrecognized ASCII alpha escape sequences,
-			 * which reserves them for future use if needed.
+			 * 对未识别的 ASCII 字母转义序列报错，
+			 * 以便需要时为其保留将来用途。
 			 */
 			FAILW(REG_EESCAPE);
 			break;
@@ -771,18 +771,18 @@ lexescape(struct vars *v)
 }
 
 /*
- * lexdigits - slurp up digits and return chr value
+ * lexdigits - 吞入数字并返回 chr 值
  *
- * This does not account for overflow; callers should range-check the result
- * if maxlen is large enough to make that possible.
+ * 不计溢出；若 maxlen 大到可能溢出，调用方应
+ * 对结果做范围检查。
  */
-static chr						/* chr value; errors signalled via ERR */
+static chr						/* chr 值；错误经 ERR 通报 */
 lexdigits(struct vars *v,
 		  int base,
 		  int minlen,
 		  int maxlen)
 {
-	uchr		n;				/* unsigned to avoid overflow misbehavior */
+	uchr		n;				/* 无符号，以免溢出行为失常 */
 	int			len;
 	chr			c;
 	int			d;
@@ -831,18 +831,18 @@ lexdigits(struct vars *v,
 				d = 15;
 				break;
 			default:
-				v->now--;		/* oops, not a digit at all */
+				v->now--;		/* 糟，根本不是数字 */
 				d = -1;
 				break;
 		}
 
 		if (d >= base)
-		{						/* not a plausible digit */
+		{						/* 不是像样的数字 */
 			v->now--;
 			d = -1;
 		}
 		if (d < 0)
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 		n = n * ub + (uchr) d;
 	}
 	if (len < minlen)
@@ -852,12 +852,12 @@ lexdigits(struct vars *v,
 }
 
 /*
- * brenext - get next BRE token
+ * brenext - 取下 BRE 记号
  *
- * This is much like EREs except for all the stupid backslashes and the
- * context-dependency of some things.
+ * 很像 ERE，只是反斜杠愚蠢且有些事有
+ * 语境依赖性。
  */
-static int						/* 1 normal, 0 failure */
+static int						/* 1 正常，0 失败 */
 brenext(struct vars *v,
 		chr c)
 {
@@ -916,7 +916,7 @@ brenext(struct vars *v,
 			RETV(PLAIN, c);
 			break;
 		case CHR('\\'):
-			break;				/* see below */
+			break;				/* 见下 */
 		default:
 			RETV(PLAIN, c);
 			break;
@@ -976,7 +976,7 @@ brenext(struct vars *v,
 }
 
 /*
- * skip - skip white space and comments in expanded form
+ * skip - 在展开形式中跳过空白与注释
  */
 static void
 skip(struct vars *v)
@@ -990,11 +990,11 @@ skip(struct vars *v)
 		while (!ATEOS() && iscspace(*v->now))
 			v->now++;
 		if (ATEOS() || *v->now != CHR('#'))
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 		assert(NEXT1('#'));
 		while (!ATEOS() && *v->now != CHR('\n'))
 			v->now++;
-		/* leave the newline to be picked up by the iscspace loop */
+		/* 把换行留给 iscspace 循环拾取 */
 	}
 
 	if (v->now != start)
@@ -1002,9 +1002,9 @@ skip(struct vars *v)
 }
 
 /*
- * newline - return the chr for a newline
+ * newline - 返回换行的 chr
  *
- * This helps confine use of CHR to this source file.
+ * 有助把 CHR 的使用限制在本源文件。
  */
 static chr
 newline(void)
@@ -1013,16 +1013,16 @@ newline(void)
 }
 
 /*
- * chrnamed - return the chr known by a given (chr string) name
+ * chrnamed - 返回已知（chr 串）名对应的 chr
  *
- * The code is a bit clumsy, but this routine gets only such specialized
- * use that it hardly matters.
+ * 代码略笨拙，但本例程用途如此专门，
+ * 几乎无关紧要。
  */
 static chr
 chrnamed(struct vars *v,
-		 const chr *startp,		/* start of name */
-		 const chr *endp,		/* just past end of name */
-		 chr lastresort)		/* what to return if name lookup fails */
+		 const chr *startp,		/* 名之始 */
+		 const chr *endp,		/* 刚过名之末 */
+		 chr lastresort)		/* 名查找失败时返回何值 */
 {
 	chr			c;
 	int			errsave;

@@ -1,5 +1,5 @@
 /*
- * regerror - error-code expansion
+ * regerror - 错误码展开
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -33,10 +33,10 @@
 
 #include "regex/regguts.h"
 
-/* unknown-error explanation */
+/* 未知错误说明 */
 static const char unk[] = "*** unknown regex error code 0x%x ***";
 
-/* struct to map among codes, code names, and explanations */
+/* 在码、码名与说明间映射的结构 */
 static const struct rerr
 {
 	int			code;
@@ -45,72 +45,72 @@ static const struct rerr
 }			rerrs[] =
 
 {
-	/* the actual table is built from regex.h */
+	/* 实际表由 regex.h 建成 */
 #include "regex/regerrs.h"		/* pgrminclude ignore */
 	{
 		-1, "", "oops"
-	},							/* explanation special-cased in code */
+	},							/* 说明在代码中特殊处理 */
 };
 
 /*
- * pg_regerror - the interface to error numbers
+ * pg_regerror - 错误号接口
  */
 /* ARGSUSED */
-size_t							/* actual space needed (including NUL) */
-pg_regerror(int errcode,		/* error code, or REG_ATOI or REG_ITOA */
-			const regex_t *preg,	/* associated regex_t (unused at present) */
-			char *errbuf,		/* result buffer (unless errbuf_size==0) */
-			size_t errbuf_size) /* available space in errbuf, can be 0 */
+size_t							/* 实际所需空间（含 NUL） */
+pg_regerror(int errcode,		/* 错误码或 REG_ATOI 或 REG_ITOA */
+			const regex_t *preg,	/* 关联的 regex_t（目前未用） */
+			char *errbuf,		/* 结果缓冲(除非 errbuf_size==0) */
+			size_t errbuf_size) /* errbuf 可用空间，可为 0 */
 {
 	const struct rerr *r;
 	const char *msg;
-	char		convbuf[sizeof(unk) + 50];	/* 50 = plenty for int */
+	char		convbuf[sizeof(unk) + 50];	/* 50 = 对 int 足够 */
 	size_t		len;
 	int			icode;
 
 	switch (errcode)
 	{
-		case REG_ATOI:			/* convert name to number */
+		case REG_ATOI:			/* 名称转数字 */
 			for (r = rerrs; r->code >= 0; r++)
 				if (strcmp(r->name, errbuf) == 0)
 					break;
-			sprintf(convbuf, "%d", r->code);	/* -1 for unknown */
+			sprintf(convbuf, "%d", r->code);	/* -1 为未知 */
 			msg = convbuf;
 			break;
-		case REG_ITOA:			/* convert number to name */
-			icode = atoi(errbuf);	/* not our problem if this fails */
+		case REG_ITOA:			/* 数字转名称 */
+			icode = atoi(errbuf);	/* 失败也非我们的问题 */
 			for (r = rerrs; r->code >= 0; r++)
 				if (r->code == icode)
 					break;
 			if (r->code >= 0)
 				msg = r->name;
 			else
-			{					/* unknown; tell him the number */
+			{					/* 未知；告知其号码 */
 				sprintf(convbuf, "REG_%u", (unsigned) icode);
 				msg = convbuf;
 			}
 			break;
-		default:				/* a real, normal error code */
+		default:				/* 真实的普通错误码 */
 			for (r = rerrs; r->code >= 0; r++)
 				if (r->code == errcode)
 					break;
 			if (r->code >= 0)
 				msg = r->explain;
 			else
-			{					/* unknown; say so */
+			{					/* 未知；直说 */
 				sprintf(convbuf, unk, errcode);
 				msg = convbuf;
 			}
 			break;
 	}
 
-	len = strlen(msg) + 1;		/* space needed, including NUL */
+	len = strlen(msg) + 1;		/* 所需空间，含 NUL */
 	if (errbuf_size > 0)
 	{
 		if (errbuf_size > len)
 			strcpy(errbuf, msg);
 		else
-		{						/* truncate to fit */
+		{						/* 截断以适配 */
 			memcpy(errbuf, msg, errbuf_size - 1);
 			errbuf[errbuf_size - 1] = '\0';
 		}

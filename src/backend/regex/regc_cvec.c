@@ -1,6 +1,6 @@
 /*
- * Utility functions for handling cvecs
- * This file is #included by regcomp.c.
+ * 处理 cvec 的工具函数
+ * 本文件被 regcomp.c #include。
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -33,17 +33,17 @@
  */
 
 /*
- * Notes:
- * Only (selected) functions in _this_ file should treat the chr arrays
- * of a cvec as non-constant.
+ * 注:
+ * 仅本文件中（选定的）函数应将 cvec 的 chr 数组
+ * 视为非常量。
  */
 
 /*
- * newcvec - allocate a new cvec
+ * newcvec - 分配一新 cvec
  */
 static struct cvec *
-newcvec(int nchrs,				/* to hold this many chrs... */
-		int nranges)			/* ... and this many ranges */
+newcvec(int nchrs,				/* 以容纳这么多 chr... */
+		int nranges)			/* 以及这么多范围 */
 {
 	size_t		nc = (size_t) nchrs + (size_t) nranges * 2;
 	size_t		n = sizeof(struct cvec) + nc * sizeof(chr);
@@ -59,8 +59,8 @@ newcvec(int nchrs,				/* to hold this many chrs... */
 }
 
 /*
- * clearcvec - clear a possibly-new cvec
- * Returns pointer as convenience.
+ * clearcvec - 清可能新建 cvec
+ * 返回指针以作便利。
  */
 static struct cvec *
 clearcvec(struct cvec *cv)
@@ -73,23 +73,23 @@ clearcvec(struct cvec *cv)
 }
 
 /*
- * addchr - add a chr to a cvec
+ * addchr - 向 cvec 加一 chr
  */
 static void
-addchr(struct cvec *cv,			/* character vector */
-	   chr c)					/* character to add */
+addchr(struct cvec *cv,			/* 字符向量 */
+	   chr c)					/* 待加字符 */
 {
 	assert(cv->nchrs < cv->chrspace);
 	cv->chrs[cv->nchrs++] = c;
 }
 
 /*
- * addrange - add a range to a cvec
+ * addrange - 向 cvec 加一范围
  */
 static void
-addrange(struct cvec *cv,		/* character vector */
-		 chr from,				/* first character of range */
-		 chr to)				/* last character of range */
+addrange(struct cvec *cv,		/* 字符向量 */
+		 chr from,				/* 范围首字符 */
+		 chr to)				/* 范围末字符 */
 {
 	assert(cv->nranges < cv->rangespace);
 	cv->ranges[cv->nranges * 2] = from;
@@ -98,27 +98,27 @@ addrange(struct cvec *cv,		/* character vector */
 }
 
 /*
- * getcvec - get a transient cvec, initialized to empty
+ * getcvec - 取一暂态 cvec，初始化为空
  *
- * The returned cvec is valid only until the next call of getcvec, which
- * typically will recycle the space.  Callers should *not* free the cvec
- * explicitly; it will be cleaned up when the struct vars is destroyed.
+ * 返回的 cvec 仅在下次调用 getcvec 前有效，该调用
+ * 通常会回收其空间。调用方切勿显式释放
+ * 该 cvec；它会在销毁 vars 时被清理。
  *
- * This is typically used while interpreting bracket expressions.  In that
- * usage the cvec is only needed momentarily until we build arcs from it,
- * so transientness is a convenient behavior.
+ * 这通常用于解释括号表达式。在该
+ * 用法中 cvec 仅需短暂保留至我们由其造弧，
+ * 故暂态性是便利的行为。
  */
 static struct cvec *
-getcvec(struct vars *v,			/* context */
-		int nchrs,				/* to hold this many chrs... */
-		int nranges)			/* ... and this many ranges */
+getcvec(struct vars *v,			/* 语境 */
+		int nchrs,				/* 以容纳这么多 chr... */
+		int nranges)			/* 以及这么多范围 */
 {
-	/* recycle existing transient cvec if large enough */
+	/* 若够大则回收既有暂态 cvec */
 	if (v->cv != NULL && nchrs <= v->cv->chrspace &&
 		nranges <= v->cv->rangespace)
 		return clearcvec(v->cv);
 
-	/* nope, make a new one */
+	/* 否，另造一个 */
 	if (v->cv != NULL)
 		freecvec(v->cv);
 	v->cv = newcvec(nchrs, nranges);
@@ -129,7 +129,7 @@ getcvec(struct vars *v,			/* context */
 }
 
 /*
- * freecvec - free a cvec
+ * freecvec - 释放 cvec
  */
 static void
 freecvec(struct cvec *cv)

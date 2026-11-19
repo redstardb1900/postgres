@@ -1,5 +1,5 @@
 /*
- * regfree - free an RE
+ * regfree - 释放 RE
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -30,20 +30,20 @@
  * src/backend/regex/regfree.c
  *
  *
- * You might think that this could be incorporated into regcomp.c, and
- * that would be a reasonable idea... except that this is a generic
- * function (with a generic name), applicable to all compiled REs
- * regardless of the size of their characters, whereas the stuff in
- * regcomp.c gets compiled once per character size.
+ * 你或许以为这可并入 regcomp.c，且
+ * 那会是合理想法……只是这是个通用
+ * 函数（带通用名），适用于一切已编译 RE
+ * 不论其字符大小，而 regcomp.c 中的
+ * 内容按字符大小各编译一次。
  */
 
 #include "regex/regguts.h"
 
 
 /*
- * pg_regfree - free an RE (generic function, punts to RE-specific function)
+ * pg_regfree - 释放 RE（通用函数，转交 RE 专用函数）
  *
- * Ignoring invocation with NULL is a convenience.
+ * 忽略对 NULL 的调用是种便利。
  */
 void
 pg_regfree(regex_t *re)

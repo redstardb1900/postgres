@@ -39,9 +39,9 @@ typedef enum					/* datum_to_json 的类型类别 */
 	JSONTYPE_TIMESTAMPTZ,
 	JSONTYPE_JSON,				/* JSON（含 JSONB） */
 	JSONTYPE_ARRAY,				/*数组*/
-	JSONTYPE_COMPOSITE,			/*复合*/
+	JSONTYPE_COMPOSITE,			/* 复合 */
 	JSONTYPE_CAST,				/* 具有到 JSON 的显式转换 */
-	JSONTYPE_OTHER				/*其余*/
+	JSONTYPE_OTHER				/* 其余 */
 } JsonTypeCategory;
 
 

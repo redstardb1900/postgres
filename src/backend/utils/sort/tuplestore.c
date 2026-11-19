@@ -1505,7 +1505,7 @@ writetup_heap(Tuplestorestate *state, void *tup)
 	char	   *tupbody = (char *) tuple + MINIMAL_TUPLE_DATA_OFFSET;
 	unsigned int tupbodylen = tuple->t_len - MINIMAL_TUPLE_DATA_OFFSET;
 
-	/* 磁盘上总占用： */
+	/* 磁盘总占用： */
 	unsigned int tuplen = tupbodylen + sizeof(int);
 
 	BufFileWrite(state->myfile, &tuplen, sizeof(tuplen));

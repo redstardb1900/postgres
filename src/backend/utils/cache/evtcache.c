@@ -147,7 +147,7 @@ BuildEventTriggerCache(void)
 		EventTriggerCacheEntry *entry;
 		bool		found;
 
-		/*取下元组。*/
+		/* 取下元组。 */
 		tup = systable_getnext_ordered(scan, ForwardScanDirection);
 		if (!HeapTupleIsValid(tup))
 			break;
@@ -157,7 +157,7 @@ BuildEventTriggerCache(void)
 		if (form->evtenabled == TRIGGER_DISABLED)
 			continue;
 
-		/*解码事件名。*/
+		/* 解码事件名。 */
 		evtevent = NameStr(form->evtevent);
 		if (strcmp(evtevent, "ddl_command_start") == 0)
 			event = EVT_DDLCommandStart;
@@ -197,7 +197,7 @@ BuildEventTriggerCache(void)
 	/*恢复先前的内存上下文。*/
 	MemoryContextSwitchTo(oldcontext);
 
-	/*安装新缓存。*/
+	/* 安装新缓存。 */
 	EventTriggerCache = cache;
 
 	/*

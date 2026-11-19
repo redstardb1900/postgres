@@ -205,17 +205,17 @@ typedef struct
  */
 typedef struct
 {
-	dsa_pointer pool;			/*所在池。*/
+	dsa_pointer pool;			/* 所在池。 */
 	dsa_pointer prevspan;		/*前一跨度。*/
 	dsa_pointer nextspan;		/*下一跨度*/
-	dsa_pointer start;			/*起始地址。*/
-	size_t		npages;			/*跨度的页数。*/
+	dsa_pointer start;			/* 起始地址。 */
+	size_t		npages;			/* 跨度的页数。 */
 	uint16		size_class;		/*大小类。*/
-	uint16		ninitialized;	/*曾分配过的对象数上限。*/
-	uint16		nallocatable;	/*当前可分配的对象数。*/
-	uint16		firstfree;		/*空闲列表首对象。*/
-	uint16		nmax;			/*可能对象数的上限。*/
-	uint16		fclass;			/*当前满度类。*/
+	uint16		ninitialized;	/* 曾分配过的对象数上限。 */
+	uint16		nallocatable;	/* 当前可分配的对象数。 */
+	uint16		firstfree;		/* 空闲列表首对象。 */
+	uint16		nmax;			/* 可能对象数的上限。 */
+	uint16		fclass;			/* 当前满度类。 */
 } dsa_area_span;
 
 /*
@@ -1292,7 +1292,7 @@ create_internal(void *place, size_t size,
 
 	/* 建立空闲页映射。 */
 	FreePageManagerInitialize(segment_map->fpm, segment_map->mapped_address);
-	/*若大小为 dsa_minimum_size() 则可有 0 个可用页*/
+	/* 若大小为 dsa_minimum_size() 则可有 0 个可用页 */
 
 	if (usable_pages > 0)
 		FreePageManagerPut(segment_map->fpm, metadata_bytes / FPM_PAGE_SIZE,
@@ -1594,7 +1594,7 @@ ensure_active_superblock(dsa_area *area, dsa_area_pool *pool,
 			tfclass = (nmax - span->nallocatable)
 				* (DSA_FULLNESS_CLASSES - 1) / nmax;
 
-			/*下一跨度。*/
+			/* 下一跨度。 */
 			if (DsaPointerIsValid(span->nextspan))
 				nextspan = (dsa_area_span *)
 					dsa_get_address(area, span->nextspan);
@@ -1951,7 +1951,7 @@ dsa_detach(dsa_area *area)
 	 * 太迟了，非错误路径有"泄漏"警告之险。
 	 */
 
-	/*释放后端本地区域对象。*/
+	/* 释放后端本地区域对象。 */
 	pfree(area);
 }
 

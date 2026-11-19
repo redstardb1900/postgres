@@ -6396,7 +6396,7 @@ GUCArrayAdd(ArrayType *array, const char *name, const char *value)
 		a = array_set(array, 1, &index,
 					  datum,
 					  false,
-					  -1 /*变长数组*/ ,
+					  -1 /* 变长数组 */ ,
 					  -1 /*TEXT的typlen*/ ,
 					  false /*TEXT的typbyval*/ ,
 					  TYPALIGN_INT /*TEXT的typalign*/ );

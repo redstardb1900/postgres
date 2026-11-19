@@ -1733,5 +1733,30 @@
   "path": "src/backend/utils/mmgr/portalmem.c",
   "pattern": "\\(query not available\\)",
   "reason": "PortalDefineQuery doc: suggested caller-supplied literal constant string \"(query not available)\" kept verbatim as an example literal; zh prose complete around it"
+ },
+ {
+  "path": "src/backend/utils/adt/cash.c",
+  "pattern": "Written by D'Arcy J\\.M\\. Cain",
+  "reason": "file-header authorship block (author/email/URL lines \"Written by D'Arcy J.M. Cain\"/\"darcy@druid.net\"/\"http://www.druid.net/darcy/\") kept verbatim above the zh prose description"
+ },
+ {
+  "path": "src/backend/utils/adt/like_match.c",
+  "pattern": "Originally written by Rich \\$alz",
+  "reason": "original-author attribution block (\"Originally written by Rich $alz, mirror!rs, ...\" + \"Rich $alz is now <rsalz@bbn.com>.\") kept verbatim; zh prose follows"
+ },
+ {
+  "path": "src/backend/utils/adt/timestamp.c",
+  "pattern": "timestamp_relop - is timestamp1 relop timestamp2",
+  "reason": "timestamp_relop banner formula skeleton \"is timestamp1 relop timestamp2\" + author date tag \"- thomas 2001-09-25\" kept verbatim (psql usage-skeleton precedent); zh prose complete around them"
+ },
+ {
+  "path": "src/backend/utils/adt/varlena.c",
+  "pattern": "Rewritten by Sapa, sapa@hq\\.icb\\.chel\\.su",
+  "reason": "textcat attribution block (\"Rewritten by Sapa, sapa@hq.icb.chel.su. 8-Jul-96.\" + \"Updated by Thomas, Thomas.Lockhart@jpl.nasa.gov 1997-07-10.\") kept verbatim; zh prose follows"
+ },
+ {
+  "path": "src/backend/utils/adt/varlena.c",
+  "pattern": "Tatsuo Ishii",
+  "reason": "text_substr changelog attribution lines (\"- thomas 1997-12-31\"/\"- Tatsuo Ishii 1998-4-21\"/\"- Thomas Lockhart 1998-12-10\"/\"- Joe Conway 2002-08-10\") kept verbatim between zh change descriptions"
  }
 ]

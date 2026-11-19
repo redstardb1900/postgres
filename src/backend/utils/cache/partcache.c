@@ -364,7 +364,7 @@ generate_partition_qual(Relation rel)
 	parentrelid = get_partition_parent(RelationGetRelid(rel), true);
 	parent = relation_open(parentrelid, AccessShareLock);
 
-	/*取 pg_class.relpartbound*/
+	/* 取 pg_class.relpartbound */
 	tuple = SearchSysCache1(RELOID, RelationGetRelid(rel));
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for relation %u",

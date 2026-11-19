@@ -328,7 +328,7 @@ isFutureCTE(ParseState *pstate, const char *refname)
 }
 
 /*
- * 在查询的瞬态命名关系命名空间中搜索与给定        
+ * 在查询的临时命名关系命名空间中搜索与给定        
  * 不带限定 refname 匹配的关系。
  */
 bool

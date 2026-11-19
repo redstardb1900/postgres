@@ -741,9 +741,9 @@ tuplesort_putdatum(Tuplesortstate *state, Datum val, bool isNull)
 }
 
 /*
- * 以正向或反向获取下一个元组。
- * 若成功，把元组放入槽位并返回 true；否则清槽并
- * 返回 false。
+ * 以正向或反向任一方向获取下一个元组。
+ * 若成功，把元组放入槽位并返回真；否则清空槽
+ * 位返回假。
  *
  * 缩略被使用时，调用者可选地拿回缩略值（在返回
  * 值为 true 时），可用它廉价避免原本需要的
@@ -793,7 +793,7 @@ tuplesort_gettupleslot(Tuplesortstate *state, bool forward, bool copy,
 }
 
 /*
- * 以正向或反向获取下一个元组。
+ * 以正向或反向任一方向获取下一个元组。
  * 若无更多元组则返回 NULL。返回的元组属于
  * tuplesort 内存上下文，不得由调用者释放。调用者
  * 勿依赖元组在进一步操纵 tuplesort 后仍有效。
@@ -999,7 +999,7 @@ writetup_heap(Tuplesortstate *state, LogicalTape *tape, SortTuple *stup)
 	char	   *tupbody = (char *) tuple + MINIMAL_TUPLE_DATA_OFFSET;
 	unsigned int tupbodylen = tuple->t_len - MINIMAL_TUPLE_DATA_OFFSET;
 
-	/* 总磁盘占用： */
+	/* 磁盘总占用： */
 	unsigned int tuplen = tupbodylen + sizeof(int);
 
 	LogicalTapeWrite(tape, &tuplen, sizeof(tuplen));

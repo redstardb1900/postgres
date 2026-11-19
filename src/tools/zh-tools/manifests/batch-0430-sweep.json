@@ -1,0 +1,214 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0430",
+ "title": "sweep 清债批四项: 债1 ENR ephemeral 统一 (瞬态→临时 1 站) + 债2 tuplesortvariants↔tuplestore 跨文件同 EN 统一 (4 行) + 债3 halfen 署名/静态段豁免 5 站落账 + 债4 行内 /*中文*/ 紧凑风格统一 (23/93 站, 70 站行级预算超限跳过披露)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0e1c495caad27085cb92c6cb287aee08cd252261",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/parser/parse_relation.c",
+   "kind": "c_comment",
+   "note": "债1 ENR 统一: scanNameSpaceForENR 块注释 L331 瞬态命名关系→临时命名关系 (定款: ENR 缩写保留 + 全称统一临时命名关系, parse_enr.c L4 先例; 禁瞬态; 其余 15 站瞬态均为 transient 槽/记录类型/失败语境非 ENR 不动)"
+  },
+  {
+   "pattern": "src/backend/utils/adt/json.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 2 站 (L42/L44); L41 /*数组*/ 行级预算超限跳过"
+  },
+  {
+   "pattern": "src/backend/utils/adt/varbit.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 2 站 (L607/L1707)"
+  },
+  {
+   "pattern": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 3 站 (L150/L160/L200); 其余 6 站超限跳过"
+  },
+  {
+   "pattern": "src/backend/utils/cache/partcache.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 1 站 (L367); L282 超限跳过"
+  },
+  {
+   "pattern": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 1 站 (L6399 变长数组); 其余 11 站超限跳过"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/dsa.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 11 站 (L208/211/212/214-218 字段尾注 + L1295/1597/1954 独立行); 其余 6 站超限跳过"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/freepage.c",
+   "kind": "c_comment",
+   "note": "债4 星注加空格 3 站 (L1342/1378/1606); 其余 5 站超限跳过"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplesortvariants.c",
+   "kind": "c_comment",
+   "note": "债2 跨文件同 EN 统一 4 行: L744/L796 'Fetch the next tuple in either forward or back direction.' 取 tuplestore.c L895 译款 以正向或反向任一方向获取下一个元组 (补回 either 任一方向); L745-746 'If successful, put tuple in slot and return true; else, clear the slot and return false.' 取 tuplestore.c L1067-1068 译款 返回真/假 并对齐断行 (返回 true/false → 返回真/假, 与 tuplestore.c 文件内 4 站真/假惯例一致; tuplesortvariants.c L839 返回 false 无跨文件同 EN 对站不在债内维持原状披露)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "债3 署名/版权/静态段豁免落账 5 条: cash.c 作者块 (D'Arcy J.M. Cain/email/URL), like_match.c 原作者块 (Rich $alz/rsalz@bbn.com), timestamp.c timestamp_relop 横幅公式骨架 + thomas 日期签 (psql usage-skeleton 判例), varlena.c textcat 署名块 (Sapa/Thomas), varlena.c text_substr 变更史署名行 (thomas/Tatsuo Ishii/Thomas Lockhart/John Conway); 只登记署名/版权/静态骨架类, 不动散文债"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0430-sweep.json",
+   "kind": "manifest",
+   "note": "batch-0430 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0430 manifest entry (各数组 +1; 全部触达文件均已在册) + parent_commit 由 87d5652bea4 更新为现 HEAD 0e1c495caad (0429-p3 判例, 非纯追加特此披露)"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplestore.c",
+   "kind": "c_comment",
+   "note": "债2 跨文件同 EN 对齐: L1508 磁盘上总占用→磁盘总占用 (与 tuplesortvariants L1002 统一定款, 等义变体: EN on-disk 语义保留于 磁盘, 预算 25B≤EN 行)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/parser/parse_relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债1: L331 瞬态命名关系→临时命名关系 (字节等长替换 2 字, EN 同站瞬态命名关系站全树唯一); N1 扩展: L1002 审查估算 ±3B 偏差再现 (EN 实 25B, 「磁盘上总占用」28B 超限) → 等义变体「磁盘总占用」并同步 tuplestore.c L1508 保持跨文件逐字一致 (tuplestore 纳入 allowed_paths 第 13 条, cumulative 该文件已在册)"
+  },
+  {
+   "path": "src/backend/utils/adt/json.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: L42 /*复合*/→/* 复合 */ L44 /*其余*/→/* 其余 */; L41 /*数组*/ 行级预算 32B>31B 跳过披露"
+  },
+  {
+   "path": "src/backend/utils/adt/varbit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: L607/L1707 星注加两空格"
+  },
+  {
+   "path": "src/backend/utils/cache/evtcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: L150/L160/L200 星注加空格; 其余 6 站行级预算超 1-2B 跳过披露 (L155/178/184/192/197/267)"
+  },
+  {
+   "path": "src/backend/utils/cache/partcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: L367 星注加空格; L282 超限 19B>17B 跳过"
+  },
+  {
+   "path": "src/backend/utils/misc/guc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: L6399 /*变长数组*/→/* 变长数组 */; 其余 11 站超限跳过"
+  },
+  {
+   "path": "src/backend/utils/mmgr/dsa.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: 11 站过行级预算全改 (L208/211/212/214/215/216/217/218 字段尾注 + L1295/1597/1954 独立行); 6 站超限跳过 (L209/210/213/757/1726/2055)"
+  },
+  {
+   "path": "src/backend/utils/mmgr/freepage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债4: L1342/1378/1606 星注加空格; 其余 5 站超限跳过 (L454/462/802/847/1017)"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplesortvariants.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债2: 2 块 4 行与 tuplestore.c 同 EN 同译 (0378 跨文件同 EN 必同译判例); 取更优译 = tuplestore 侧 (任一方向/真/假)"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 0,
+   "preserved": 5,
+   "preserved_reasons": [
+    "cash.c L1-17: file-header authorship block (Written by D'Arcy J.M. Cain / darcy@druid.net / http://www.druid.net/darcy/) kept verbatim above zh prose description",
+    "like_match.c L27-58: original-author attribution block (Originally written by Rich $alz, mirror!rs, Wed Nov 26 19:03:17 EST 1986 / Rich $alz is now <rsalz@bbn.com>.) kept verbatim; zh prose follows",
+    "timestamp.c L2118-2123: timestamp_relop banner formula skeleton (is timestamp1 relop timestamp2) + author date tag (- thomas 2001-09-25) kept verbatim (psql usage-skeleton precedent); zh prose complete around them",
+    "varlena.c L737-746: textcat attribution block (Rewritten by Sapa, sapa@hq.icb.chel.su. 8-Jul-96 / Updated by Thomas, Thomas.Lockhart@jpl.nasa.gov 1997-07-10) kept verbatim; zh prose follows",
+    "varlena.c L822-848: text_substr changelog attribution lines (- thomas 1997-12-31 / - Tatsuo Ishii 1998-4-21 / - Thomas Lockhart 1998-12-10 / - John Gray 2002-02-22) kept verbatim between zh change descriptions"
+   ],
+   "note": "债3: 台账 347→352 条纯追加 (25 行 0 删改); halfen 复扫 --git HEAD findings 344→339 恰降 5 与目标集全等; regex 系 HENRY SPENCER 版权行为 PUREEN 整块未译散文债 (默认扫描不报), 非本债范围不动"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0430-sweep.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0430 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0430 manifest entry (files/allowed_paths 各 +1) + parent_commit 复核更新为现 HEAD 0e1c495caad (0429-p3 判例)"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplestore.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "债2 跨文件对齐随改: L1508 单行标签 磁盘上总占用→磁盘总占用 (与 variants L1002 同款; 审后清偿 N1 扩展)"
+  }
+ ]
+}

@@ -604,7 +604,7 @@ varbit_out(PG_FUNCTION_ARGS)
 	r = result;
 	for (i = 0; i <= len - BITS_PER_BYTE; i += BITS_PER_BYTE, sp++)
 	{
-		/*打印整字节*/
+		/* 打印整字节 */
 		x = *sp;
 		for (k = 0; k < BITS_PER_BYTE; k++)
 		{
@@ -1704,7 +1704,7 @@ bitposition(PG_FUNCTION_ARGS)
 				i,
 				is;
 	bits8	   *s,				/* 子串内指针 */
-			   *p;				/*串内指针*/
+			   *p;				/* 串内指针 */
 	bits8		cmp,			/* 移位后待比子串字节 */
 				mask1,			/* 子串字节右移的掩码 */
 				mask2,			/* 子串字节左移的掩码 */

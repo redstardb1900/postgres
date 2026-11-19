@@ -1339,7 +1339,7 @@ FreePageManagerGetInternal(FreePageManager *fpm, Size npages, Size *first_page)
 	 */
 	for (f = Min(npages, FPM_NUM_FREELISTS) - 1; f < FPM_NUM_FREELISTS; ++f)
 	{
-		/*跳过空空闲链表*/
+		/* 跳过空空闲链表 */
 		if (relptr_is_null(fpm->freelist[f]))
 			continue;
 
@@ -1375,7 +1375,7 @@ FreePageManagerGetInternal(FreePageManager *fpm, Size npages, Size *first_page)
 	if (victim == NULL)
 		return false;
 
-	/*从空闲链表移除跨度*/
+	/* 从空闲链表移除跨度 */
 	Assert(victim->magic == FREE_PAGE_SPAN_LEADER_MAGIC);
 	prev = relptr_access(base, victim->prev);
 	next = relptr_access(base, victim->next);
@@ -1603,7 +1603,7 @@ FreePageManagerPutInternal(FreePageManager *fpm, Size first_page, Size npages,
 			remove_next = true;
 		}
 
-		/*把跨度放到正确空闲链表并记下大小。*/
+		/* 把跨度放到正确空闲链表并记下大小。 */
 		FreePagePopSpanLeader(fpm, prevkey->first_page);
 		FreePagePushSpanLeader(fpm, prevkey->first_page, prevkey->npages);
 		result = prevkey->npages;

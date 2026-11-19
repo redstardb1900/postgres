@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "df128532af277a07104b2b4d419febe9628d3300",
+ "parent_commit": "c829ec725b761c3d20080a4e7fa43dc2f5a64ec6",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7571,6 +7571,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0442-gin-headers.json",
    "kind": "manifest",
    "note": "batch-0442 manifest"
+  },
+  {
+   "pattern": "src/include/access/gist.h",
+   "kind": "c_comment",
+   "note": "batch-0443 GiST headers"
+  },
+  {
+   "pattern": "src/include/access/gist_private.h",
+   "kind": "c_comment",
+   "note": "batch-0443 GiST headers"
+  },
+  {
+   "pattern": "src/include/access/gistxlog.h",
+   "kind": "c_comment",
+   "note": "batch-0443 GiST headers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0443-gist-headers.json",
+   "kind": "manifest",
+   "note": "batch-0443 manifest"
   }
  ],
  "files": [
@@ -24503,6 +24523,46 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0442"
+  },
+  {
+   "path": "src/include/access/gist.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 91,
+   "translated": 84,
+   "preserved": 7,
+   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "note": "batch-0443"
+  },
+  {
+   "path": "src/include/access/gist_private.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 180,
+   "translated": 160,
+   "preserved": 20,
+   "preserved_reasons": ["横幅/版权/路径/节名/纯标识 KEEP"],
+   "note": "batch-0443"
+  },
+  {
+   "path": "src/include/access/gistxlog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 43,
+   "translated": 32,
+   "preserved": 11,
+   "preserved_reasons": ["横幅/路径/INCLUDE/TODELETE KEEP"],
+   "note": "batch-0443；审前清偿备库/LSNs/TODELETE"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0443-gist-headers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0443"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

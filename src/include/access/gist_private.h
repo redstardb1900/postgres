@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * gist_private.h
- *	  private declarations for GiST -- declarations related to the
- *	  internal implementation of GiST, not the public API
+ *	  GiST 的私有声明 -- 与内部实现相关的声明，
+ *	  而非公共 API
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -24,21 +24,21 @@
 #include "access/genam.h"
 
 /*
- * Maximum number of "halves" a page can be split into in one operation.
- * Typically a split produces 2 halves, but can be more if keys have very
- * different lengths, or when inserting multiple keys in one operation (as
- * when inserting downlinks to an internal node).  There is no theoretical
- * limit on this, but in practice if you get more than a handful page halves
- * in one split, there's something wrong with the opclass implementation.
- * GIST_MAX_SPLIT_PAGES is an arbitrary limit on that, used to size some
- * local arrays used during split.  Note that there is also a limit on the
- * number of buffers that can be held locked at a time, MAX_SIMUL_LWLOCKS,
- * so if you raise this higher than that limit, you'll just get a different
- * error.
+ * 一次操作中一页可被分裂成的"半页"最大数目。
+ * 通常一次分裂产生 2 个半页，但若键长度差异很大，
+ * 或一次操作插入多个键时（例如向内部节点插入
+ * 下行指针）可更多。理论上对此没有上限，但
+ * 实践中若一次分裂得到超过寥寥几个半页，
+ * 则操作符类实现很可能有问题。
+ * GIST_MAX_SPLIT_PAGES 是对此的任意上限，用于为
+ * 分裂期间的若干局部数组定大小。注意还有对同时
+ * 可持锁缓冲区数目的限制 MAX_SIMUL_LWLOCKS，
+ * 因此若把本值抬得高于该限制，只会得到另一种
+ * 错误
  */
 #define GIST_MAX_SPLIT_PAGES		75
 
-/* Buffer lock modes */
+/* 缓冲锁模式 */
 #define GIST_SHARE	BUFFER_LOCK_SHARE
 #define GIST_EXCLUSIVE	BUFFER_LOCK_EXCLUSIVE
 #define GIST_UNLOCK BUFFER_LOCK_UNLOCK
@@ -51,37 +51,37 @@ typedef struct
 } GISTNodeBufferPage;
 
 #define BUFFER_PAGE_DATA_OFFSET MAXALIGN(offsetof(GISTNodeBufferPage, tupledata))
-/* Returns free space in node buffer page */
+/* 返回节点缓冲页空闲空间 */
 #define PAGE_FREE_SPACE(nbp) (nbp->freespace)
-/* Checks if node buffer page is empty */
+/* 检查节点缓冲页是否为空 */
 #define PAGE_IS_EMPTY(nbp) (nbp->freespace == BLCKSZ - BUFFER_PAGE_DATA_OFFSET)
-/* Checks if node buffers page don't contain sufficient space for index tuple */
+/* 检查节点缓冲页是否没有足够空间容纳索引元组 */
 #define PAGE_NO_SPACE(nbp, itup) (PAGE_FREE_SPACE(nbp) < \
 										MAXALIGN(IndexTupleSize(itup)))
 
 /*
- * GISTSTATE: information needed for any GiST index operation
+ * GISTSTATE: 任何 GiST 索引操作所需的信息
  *
- * This struct retains call info for the index's opclass-specific support
- * functions (per index column), plus the index's tuple descriptor.
+ * 本结构保留索引操作符类专用支持函数的调用信息
+ * （按索引列），以及索引的元组描述符。
  *
- * scanCxt holds the GISTSTATE itself as well as any data that lives for the
- * lifetime of the index operation.  We pass this to the support functions
- * via fn_mcxt, so that they can store scan-lifespan data in it.  The
- * functions are invoked in tempCxt, which is typically short-lifespan
- * (that is, it's reset after each tuple).  However, tempCxt can be the same
- * as scanCxt if we're not bothering with per-tuple context resets.
+ * scanCxt 持有 GISTSTATE 本身以及存活于整个索引
+ * 操作寿命期的任何数据。我们经 fn_mcxt 把它传给
+ * 支持函数，以便它们可在其中存放扫描寿命数据。
+ * 函数在 tempCxt 中调用，该上下文通常是短寿命的
+ * （即每个元组之后复位）。不过若不做逐元组上下文
+ * 复位，tempCxt 也可与 scanCxt 相同。
  */
 typedef struct GISTSTATE
 {
-	MemoryContext scanCxt;		/* context for scan-lifespan data */
-	MemoryContext tempCxt;		/* short-term context for calling functions */
+	MemoryContext scanCxt;		/* 扫描寿命数据的上下文 */
+	MemoryContext tempCxt;		/* 调用函数用的短期上下文 */
 
-	TupleDesc	leafTupdesc;	/* index's tuple descriptor */
-	TupleDesc	nonLeafTupdesc; /* truncated tuple descriptor for non-leaf
-								 * pages */
-	TupleDesc	fetchTupdesc;	/* tuple descriptor for tuples returned in an
-								 * index-only scan */
+	TupleDesc	leafTupdesc;	/* 索引的元组描述符 */
+	TupleDesc	nonLeafTupdesc; /* 截断元组描述符,用于非叶子
+								 * 页*/
+	TupleDesc	fetchTupdesc;	/* 仅索引扫描所返回元组的
+								 * 元组描述符*/
 
 	FmgrInfo	consistentFn[INDEX_MAX_KEYS];
 	FmgrInfo	unionFn[INDEX_MAX_KEYS];
@@ -93,52 +93,52 @@ typedef struct GISTSTATE
 	FmgrInfo	distanceFn[INDEX_MAX_KEYS];
 	FmgrInfo	fetchFn[INDEX_MAX_KEYS];
 
-	/* Collations to pass to the support functions */
+	/* 传给支持函数的排序规则 */
 	Oid			supportCollation[INDEX_MAX_KEYS];
 } GISTSTATE;
 
 
 /*
- * During a GiST index search, we must maintain a queue of unvisited items,
- * which can be either individual heap tuples or whole index pages.  If it
- * is an ordered search, the unvisited items should be visited in distance
- * order.  Unvisited items at the same distance should be visited in
- * depth-first order, that is heap items first, then lower index pages, then
- * upper index pages; this rule avoids doing extra work during a search that
- * ends early due to LIMIT.
+ * 在 GiST 索引搜索期间，我们必须维护未访问项队列，
+ * 其可为单个堆元组或整页索引页。若是有序搜索，
+ * 未访问项应按距离次序访问。相同距离的未访问项
+ * 应按深度优先次序访问，即先堆项，再较低索引
+ * 页，然后较高索引页；该规则避免在因 LIMIT 而
+ * 提早结束的搜索中做多余
+ * 工作。
  *
- * To perform an ordered search, we use a pairing heap to manage the
- * distance-order queue.  In a non-ordered search (no order-by operators),
- * we use it to return heap tuples before unvisited index pages, to
- * ensure depth-first order, but all entries are otherwise considered
- * equal.
+ * 为执行有序搜索，我们用配对堆管理按距离排序
+ * 的队列。在非有序搜索中（无 order-by 操作符），
+ * 用它在未访问索引页前返回堆元组，以确保深度
+ * 优先次序，但其余方面所有条目都被视为
+ * 相等
  */
 
-/* Individual heap tuple to be visited */
+/* 待访问的单个堆元组 */
 typedef struct GISTSearchHeapItem
 {
 	ItemPointerData heapPtr;
-	bool		recheck;		/* T if quals must be rechecked */
-	bool		recheckDistances;	/* T if distances must be rechecked */
-	HeapTuple	recontup;		/* data reconstructed from the index, used in
-								 * index-only scans */
-	OffsetNumber offnum;		/* track offset in page to mark tuple as
+	bool		recheck;		/* 若限定须重检则为 T */
+	bool		recheckDistances;	/* 若距离须重检则为 T */
+	HeapTuple	recontup;		/* 从索引重构的数据，用于
+								 * 仅索引扫描*/
+	OffsetNumber offnum;		/* 跟踪页内偏移以将元组标为
 								 * LP_DEAD */
 } GISTSearchHeapItem;
 
-/* Unvisited item, either index page or heap tuple */
+/* 未访问项，或为索引页或为堆元组 */
 typedef struct GISTSearchItem
 {
 	pairingheap_node phNode;
-	BlockNumber blkno;			/* index page number, or InvalidBlockNumber */
+	BlockNumber blkno;			/* 索引页号，或 InvalidBlockNumber */
 	union
 	{
-		GistNSN		parentlsn;	/* parent page's LSN, if index page */
-		/* we must store parentlsn to detect whether a split occurred */
-		GISTSearchHeapItem heap;	/* heap info, if heap tuple */
+		GistNSN		parentlsn;	/* 父页的 LSN，若为索引页 */
+		/* 必须保存 parentlsn 以检测是否发生了分裂 */
+		GISTSearchHeapItem heap;	/* 堆信息,若堆元组 */
 	}			data;
 
-	/* numberOfOrderBys entries */
+	/* numberOfOrderBys 条目 */
 	IndexOrderByDistance distances[FLEXIBLE_ARRAY_MEMBER];
 } GISTSearchItem;
 
@@ -149,138 +149,138 @@ typedef struct GISTSearchItem
 	 sizeof(IndexOrderByDistance) * (n_distances))
 
 /*
- * GISTScanOpaqueData: private state for a scan of a GiST index
+ * GISTScanOpaqueData: GiST 索引扫描的私有状态
  */
 typedef struct GISTScanOpaqueData
 {
-	GISTSTATE  *giststate;		/* index information, see above */
-	Oid		   *orderByTypes;	/* datatypes of ORDER BY expressions */
+	GISTSTATE  *giststate;		/* 索引信息，见上文 */
+	Oid		   *orderByTypes;	/* ORDER BY 表达式的数据类型 */
 
-	pairingheap *queue;			/* queue of unvisited items */
-	MemoryContext queueCxt;		/* context holding the queue */
-	bool		qual_ok;		/* false if qual can never be satisfied */
-	bool		firstCall;		/* true until first gistgettuple call */
+	pairingheap *queue;			/* 未访问项的队列 */
+	MemoryContext queueCxt;		/* 持有队列的上下文 */
+	bool		qual_ok;		/* 若限定永无法满足则为假 */
+	bool		firstCall;		/* 首次 gistgettuple 前为真 */
 
-	/* pre-allocated workspace arrays */
-	IndexOrderByDistance *distances;	/* output area for gistindex_keytest */
+	/* 预分配的工作区数组 */
+	IndexOrderByDistance *distances;	/* gistindex_keytest 的输出区 */
 
-	/* info about killed items if any (killedItems is NULL if never used) */
-	OffsetNumber *killedItems;	/* offset numbers of killed items */
-	int			numKilled;		/* number of currently stored items */
-	BlockNumber curBlkno;		/* current number of block */
-	GistNSN		curPageLSN;		/* pos in the WAL stream when page was read */
+	/* 已杀项信息(有则;未用则 killedItems 为 NULL) */
+	OffsetNumber *killedItems;	/* 已杀项的偏移号 */
+	int			numKilled;		/* 当前已存项的数目 */
+	BlockNumber curBlkno;		/* 当前块号 */
+	GistNSN		curPageLSN;		/* 读页时在 WAL 流中的位置 */
 
-	/* In a non-ordered search, returnable heap items are stored here: */
+	/* 非有序搜索中，可返回的堆项存放于此： */
 	GISTSearchHeapItem pageData[BLCKSZ / sizeof(IndexTupleData)];
-	OffsetNumber nPageData;		/* number of valid items in array */
-	OffsetNumber curPageData;	/* next item to return */
-	MemoryContext pageDataCxt;	/* context holding the fetched tuples, for
-								 * index-only scans */
+	OffsetNumber nPageData;		/* 数组中有效项的数目 */
+	OffsetNumber curPageData;	/* 下一待返回项 */
+	MemoryContext pageDataCxt;	/* 持有取回元组的上下文,用于
+								 * 仅索引扫描*/
 } GISTScanOpaqueData;
 
 typedef GISTScanOpaqueData *GISTScanOpaque;
 
-/* despite the name, gistxlogPage is not part of any xlog record */
+/* 尽管名称如此，gistxlogPage 不属于任何 xlog 记录 */
 typedef struct gistxlogPage
 {
 	BlockNumber blkno;
-	int			num;			/* number of index tuples following */
+	int			num;			/* 其后索引元组的数目 */
 } gistxlogPage;
 
-/* SplitedPageLayout - gistSplit function result */
+/* SplitedPageLayout - gistSplit 函数的结果 */
 typedef struct SplitedPageLayout
 {
 	gistxlogPage block;
 	IndexTupleData *list;
 	int			lenlist;
-	IndexTuple	itup;			/* union key for page */
-	Page		page;			/* to operate */
-	Buffer		buffer;			/* to write after all proceed */
+	IndexTuple	itup;			/* 页的联合键 */
+	Page		page;			/* 供操作 */
+	Buffer		buffer;			/* 全部处理完后写入 */
 
 	struct SplitedPageLayout *next;
 } SplitedPageLayout;
 
 /*
- * GISTInsertStack used for locking buffers and transfer arguments during
- * insertion
+ * GISTInsertStack 用于在插入期间锁定缓冲区并传递
+ * 参数
  */
 typedef struct GISTInsertStack
 {
-	/* current page */
+	/* 当前页 */
 	BlockNumber blkno;
 	Buffer		buffer;
 	Page		page;
 
 	/*
-	 * log sequence number from page->lsn to recognize page update and compare
-	 * it with page's nsn to recognize page split
+	 * 取自 page->lsn 的日志序号，用于识别页更新，并与
+	 * 页的 nsn 比较以识别页分裂
 	 */
 	GistNSN		lsn;
 
 	/*
-	 * If set, we split the page while descending the tree to find an
-	 * insertion target. It means that we need to retry from the parent,
-	 * because the downlink of this page might no longer cover the new key.
+	 * 若置位，表示我们在沿树下行寻找插入目标时
+	 * 分裂了该页。意味着需要从父重试，因为
+	 * 该页的下行指针可能已不再覆盖新键。
 	 */
 	bool		retry_from_parent;
 
-	/* offset of the downlink in the parent page, that points to this page */
+	/* 父页中指向本页的下行指针偏移 */
 	OffsetNumber downlinkoffnum;
 
-	/* pointer to parent */
+	/* 指向父指针 */
 	struct GISTInsertStack *parent;
 } GISTInsertStack;
 
-/* Working state and results for multi-column split logic in gistsplit.c */
+/* gistsplit.c 中多列分裂逻辑的工作状态与结果 */
 typedef struct GistSplitVector
 {
-	GIST_SPLITVEC splitVector;	/* passed to/from user PickSplit method */
+	GIST_SPLITVEC splitVector;	/* 传入/传出用户 PickSplit 方法 */
 
-	Datum		spl_lattr[INDEX_MAX_KEYS];	/* Union of subkeys in
+	Datum		spl_lattr[INDEX_MAX_KEYS];	/* 子键联合,位于
 											 * splitVector.spl_left */
 	bool		spl_lisnull[INDEX_MAX_KEYS];
 
-	Datum		spl_rattr[INDEX_MAX_KEYS];	/* Union of subkeys in
+	Datum		spl_rattr[INDEX_MAX_KEYS];	/* 子键联合,位于
 											 * splitVector.spl_right */
 	bool		spl_risnull[INDEX_MAX_KEYS];
 
-	bool	   *spl_dontcare;	/* flags tuples which could go to either side
-								 * of the split for zero penalty */
+	bool	   *spl_dontcare;	/* 标记可零惩罚放到分裂任一侧之
+								 * 无所谓元组*/
 } GistSplitVector;
 
 typedef struct
 {
 	Relation	r;
 	Relation	heapRel;
-	Size		freespace;		/* free space to be left */
+	Size		freespace;		/* 须留的空闲空间 */
 	bool		is_build;
 
 	GISTInsertStack *stack;
 } GISTInsertState;
 
-/* root page of a gist index */
+/* gist 索引的根页 */
 #define GIST_ROOT_BLKNO				0
 
 /*
- * Before PostgreSQL 9.1, we used to rely on so-called "invalid tuples" on
- * inner pages to finish crash recovery of incomplete page splits. If a crash
- * happened in the middle of a page split, so that the downlink pointers were
- * not yet inserted, crash recovery inserted a special downlink pointer. The
- * semantics of an invalid tuple was that it if you encounter one in a scan,
- * it must always be followed, because we don't know if the tuples on the
- * child page match or not.
+ * PostgreSQL 9.1 前，我们曾依赖内部页上所谓"无效元组"
+ * 来完成未完成页分裂的崩溃恢复。若崩溃发生在页分裂
+ * 中途以致下行指针尚未插入，崩溃恢复会插入特殊的
+ * 下行指针。无效元组的语义是：扫描中若遇到
+ * 一个，则必须始终跟随，因为我们不知道子页上
+ * 的元组是否
+ * 匹配。
  *
- * We no longer create such invalid tuples, we now mark the left-half of such
- * an incomplete split with the F_FOLLOW_RIGHT flag instead, and finish the
- * split properly the next time we need to insert on that page. To retain
- * on-disk compatibility for the sake of pg_upgrade, we still store 0xffff as
- * the offset number of all inner tuples. If we encounter any invalid tuples
- * with 0xfffe during insertion, we throw an error, though scans still handle
- * them. You should only encounter invalid tuples if you pg_upgrade a pre-9.1
- * gist index which already has invalid tuples in it because of a crash. That
- * should be rare, and you are recommended to REINDEX anyway if you have any
- * invalid tuples in an index, so throwing an error is as far as we go with
- * supporting that.
+ * 我们不再创建此类无效元组，改为用 F_FOLLOW_RIGHT
+ * 标志标记此类未完成分裂的左半，并在下次需要向该页
+ * 插入时正确完成分裂。为保留盘上兼容性以利
+ * pg_upgrade，我们仍把所有内部元组的偏移号存为
+ * 0xffff。若在插入时遇到带 0xfffe 的任何无效元组，
+ * 我们抛错，不过扫描仍会处理它们。只有当你用
+ * pg_upgrade 升级一个因崩溃已含无效元组的 pre-9.1
+ * gist 索引时，才应遇到无效元组。那应很少见，且若
+ * 索引中有任何无效元组，仍建议 REINDEX，因此抛错已是
+ * 我们对此支持的
+ * 极限。
  */
 #define TUPLE_IS_VALID		0xffff
 #define TUPLE_IS_INVALID	0xfffe
@@ -292,95 +292,95 @@ typedef struct
 
 
 /*
- * A buffer attached to an internal node, used when building an index in
- * buffering mode.
+ * 附着于内部节点的缓冲区，用于在缓冲模式下
+ * 构建索引。
  */
 typedef struct
 {
-	BlockNumber nodeBlocknum;	/* index block # this buffer is for */
-	int32		blocksCount;	/* current # of blocks occupied by buffer */
+	BlockNumber nodeBlocknum;	/* 本缓冲对应的索引块号 */
+	int32		blocksCount;	/* 缓冲区当前占用的块数 */
 
-	BlockNumber pageBlocknum;	/* temporary file block # */
-	GISTNodeBufferPage *pageBuffer; /* in-memory buffer page */
+	BlockNumber pageBlocknum;	/* 临时文件块号 */
+	GISTNodeBufferPage *pageBuffer; /* 内存中的缓冲页 */
 
-	/* is this buffer queued for emptying? */
+	/* 此缓冲是否已排队待排空? */
 	bool		queuedForEmptying;
 
-	/* is this a temporary copy, not in the hash table? */
+	/* 这是否为不在哈希表中的临时副本？ */
 	bool		isTemp;
 
-	int			level;			/* 0 == leaf */
+	int			level;			/* 0==叶子 */
 } GISTNodeBuffer;
 
 /*
- * Does specified level have buffers? (Beware of multiple evaluation of
- * arguments.)
+ * 指定层是否有缓冲区?(当心参数被多次
+ * 求值.)
  */
 #define LEVEL_HAS_BUFFERS(nlevel, gfbb) \
 	((nlevel) != 0 && (nlevel) % (gfbb)->levelStep == 0 && \
 	 (nlevel) != (gfbb)->rootlevel)
 
-/* Is specified buffer at least half-filled (should be queued for emptying)? */
+/* 指定缓冲区是否至少半满（应排队等待排空）？ */
 #define BUFFER_HALF_FILLED(nodeBuffer, gfbb) \
 	((nodeBuffer)->blocksCount > (gfbb)->pagesPerBuffer / 2)
 
 /*
- * Is specified buffer full? Our buffers can actually grow indefinitely,
- * beyond the "maximum" size, so this just means whether the buffer has grown
- * beyond the nominal maximum size.
+ * 指定缓冲是否已满？缓冲实际可无限增长，
+ * 超出"最大"大小，故这只表示缓冲区是否已增长到
+ * 超过名义最大大小。
  */
 #define BUFFER_OVERFLOWED(nodeBuffer, gfbb) \
 	((nodeBuffer)->blocksCount > (gfbb)->pagesPerBuffer)
 
 /*
- * Data structure with general information about build buffers.
+ * 含构建缓冲区一般信息的数据结构。
  */
 typedef struct GISTBuildBuffers
 {
-	/* Persistent memory context for the buffers and metadata. */
+	/* 缓冲区与元数据的持久内存上下文。 */
 	MemoryContext context;
 
-	BufFile    *pfile;			/* Temporary file to store buffers in */
-	long		nFileBlocks;	/* Current size of the temporary file */
+	BufFile    *pfile;			/* 存放缓冲区的临时文件 */
+	long		nFileBlocks;	/* 临时文件的当前大小 */
 
 	/*
-	 * resizable array of free blocks.
+	 * 空闲块的可调数组。
 	 */
 	long	   *freeBlocks;
-	int			nFreeBlocks;	/* # of currently free blocks in the array */
-	int			freeBlocksLen;	/* current allocated length of the array */
+	int			nFreeBlocks;	/* 数组中当前空闲块数 */
+	int			freeBlocksLen;	/* 数组当前已分配长度 */
 
-	/* Hash for buffers by block number */
+	/* 按块号缓冲的哈希 */
 	HTAB	   *nodeBuffersTab;
 
-	/* List of buffers scheduled for emptying */
+	/* 已安排排空的缓冲区列表 */
 	List	   *bufferEmptyingQueue;
 
 	/*
-	 * Parameters to the buffering build algorithm. levelStep determines which
-	 * levels in the tree have buffers, and pagesPerBuffer determines how
-	 * large each buffer is.
+	 * 缓冲构建算法的参数。levelStep 决定树中哪些层
+	 * 有缓冲区，pagesPerBuffer 决定每个缓冲区有
+	 * 多大。
 	 */
 	int			levelStep;
 	int			pagesPerBuffer;
 
-	/* Array of lists of buffers on each level, for final emptying */
+	/* 每层缓冲区列表的数组，用于最终排空 */
 	List	  **buffersOnLevels;
 	int			buffersOnLevelsLen;
 
 	/*
-	 * Dynamically-sized array of buffers that currently have their last page
-	 * loaded in main memory.
+	 * 动态大小的缓冲区数组，其最后一页当前已装入
+	 * 主存。
 	 */
 	GISTNodeBuffer **loadedBuffers;
-	int			loadedBuffersCount; /* # of entries in loadedBuffers */
-	int			loadedBuffersLen;	/* allocated size of loadedBuffers */
+	int			loadedBuffersCount; /* loadedBuffers 中的条目数 */
+	int			loadedBuffersLen;	/* loadedBuffers 已分配大小 */
 
-	/* Level of the current root node (= height of the index tree - 1) */
+	/* 当前根节点的层（= 索引树高度 - 1） */
 	int			rootlevel;
 } GISTBuildBuffers;
 
-/* GiSTOptions->buffering_mode values */
+/* GiSTOptions->buffering_mode 取值 */
 typedef enum GistOptBufferingMode
 {
 	GIST_OPTION_BUFFERING_AUTO,
@@ -389,13 +389,13 @@ typedef enum GistOptBufferingMode
 } GistOptBufferingMode;
 
 /*
- * Storage type for GiST's reloptions
+ * GiST 关系选项的存储类型
  */
 typedef struct GiSTOptions
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int			fillfactor;		/* page fill factor in percent (0..100) */
-	GistOptBufferingMode buffering_mode;	/* buffering build mode */
+	int32		vl_len_;		/* varlena 头(勿直接碰!) */
+	int			fillfactor;		/* 页填充因子，百分比 (0..100) */
+	GistOptBufferingMode buffering_mode;	/* 缓冲构建模式 */
 } GiSTOptions;
 
 /* gist.c */
@@ -415,11 +415,11 @@ extern void gistdoinsert(Relation r,
 						 Relation heapRel,
 						 bool is_build);
 
-/* A List of these is returned from gistplacetopage() in *splitinfo */
+/* gistplacetopage() 在 *splitinfo 中返回这些的 List */
 typedef struct
 {
-	Buffer		buf;			/* the split page "half" */
-	IndexTuple	downlink;		/* downlink for this half. */
+	Buffer		buf;			/* 分裂页的"半页" */
+	IndexTuple	downlink;		/* 此半的下行指针. */
 } GISTPageSplitInfo;
 
 extern bool gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,

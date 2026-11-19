@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgist.h
- *	  Public header file for SP-GiST access method.
+ *	  SP-GiST 访问方法的公开头文件。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@
 #include "lib/stringinfo.h"
 
 
-/* SPGiST opclass support function numbers */
+/* SPGiST 操作符类支持函数编号 */
 #define SPGIST_CONFIG_PROC				1
 #define SPGIST_CHOOSE_PROC				2
 #define SPGIST_PICKSPLIT_PROC			3
@@ -31,161 +31,161 @@
 #define SPGISTNProc						7
 
 /*
- * Argument structs for spg_config method
+ * spg_config 方法的参数结构
  */
 typedef struct spgConfigIn
 {
-	Oid			attType;		/* Data type to be indexed */
+	Oid			attType;		/* 待索引数据类型 */
 } spgConfigIn;
 
 typedef struct spgConfigOut
 {
-	Oid			prefixType;		/* Data type of inner-tuple prefixes */
-	Oid			labelType;		/* Data type of inner-tuple node labels */
-	Oid			leafType;		/* Data type of leaf-tuple values */
-	bool		canReturnData;	/* Opclass can reconstruct original data */
-	bool		longValuesOK;	/* Opclass can cope with values > 1 page */
+	Oid			prefixType;		/* 内部元组前缀的数据类型 */
+	Oid			labelType;		/* 内部元组节点标签数据类型 */
+	Oid			leafType;		/* 叶子元组值的数据类型 */
+	bool		canReturnData;	/* 操作符类可重建原始数据 */
+	bool		longValuesOK;	/* 操作符类可处理 > 1 页之值 */
 } spgConfigOut;
 
 /*
- * Argument structs for spg_choose method
+ * spg_choose 方法的参数结构
  */
 typedef struct spgChooseIn
 {
-	Datum		datum;			/* original datum to be indexed */
-	Datum		leafDatum;		/* current datum to be stored at leaf */
-	int			level;			/* current level (counting from zero) */
+	Datum		datum;			/* 待索引的原始 datum */
+	Datum		leafDatum;		/* 当前将存于叶子的 datum */
+	int			level;			/* 当前层级（从零计） */
 
-	/* Data from current inner tuple */
-	bool		allTheSame;		/* tuple is marked all-the-same? */
-	bool		hasPrefix;		/* tuple has a prefix? */
-	Datum		prefixDatum;	/* if so, the prefix value */
-	int			nNodes;			/* number of nodes in the inner tuple */
-	Datum	   *nodeLabels;		/* node label values (NULL if none) */
+	/* 当前内部元组的数据 */
+	bool		allTheSame;		/* 元组标为 all-the-same？ */
+	bool		hasPrefix;		/* 元组有前缀？ */
+	Datum		prefixDatum;	/* 若有，则前缀值 */
+	int			nNodes;			/* 内部元组中的节点数 */
+	Datum	   *nodeLabels;		/* 节点标签值(无则为 NULL) */
 } spgChooseIn;
 
 typedef enum spgChooseResultType
 {
-	spgMatchNode = 1,			/* descend into existing node */
-	spgAddNode,					/* add a node to the inner tuple */
-	spgSplitTuple				/* split inner tuple (change its prefix) */
+	spgMatchNode = 1,			/* 下降到已有节点 */
+	spgAddNode,					/* 向内部元组添加节点 */
+	spgSplitTuple				/* 分裂内部元组（改其前缀） */
 } spgChooseResultType;
 
 typedef struct spgChooseOut
 {
-	spgChooseResultType resultType; /* action code, see above */
+	spgChooseResultType resultType; /* 动作码，见上文 */
 	union
 	{
-		struct					/* results for spgMatchNode */
+		struct					/* spgMatchNode 的结果 */
 		{
-			int			nodeN;	/* descend to this node (index from 0) */
-			int			levelAdd;	/* increment level by this much */
-			Datum		restDatum;	/* new leaf datum */
+			int			nodeN;	/* 下降到此节点（下标从 0） */
+			int			levelAdd;	/* 层级增加这么多 */
+			Datum		restDatum;	/* 新叶 datum */
 		}			matchNode;
-		struct					/* results for spgAddNode */
+		struct					/* spgAddNode 的结果 */
 		{
-			Datum		nodeLabel;	/* new node's label */
-			int			nodeN;	/* where to insert it (index from 0) */
+			Datum		nodeLabel;	/* 新节点标签 */
+			int			nodeN;	/* 插入位置（下标从 0） */
 		}			addNode;
-		struct					/* results for spgSplitTuple */
+		struct					/* spgSplitTuple 的结果 */
 		{
-			/* Info to form new upper-level inner tuple with one child tuple */
-			bool		prefixHasPrefix;	/* tuple should have a prefix? */
-			Datum		prefixPrefixDatum;	/* if so, its value */
-			int			prefixNNodes;	/* number of nodes */
-			Datum	   *prefixNodeLabels;	/* their labels (or NULL for no
-											 * labels) */
-			int			childNodeN; /* which node gets child tuple */
+			/* 构造含一个子元组的新上层内部元组的信息 */
+			bool		prefixHasPrefix;	/* 元组应有前缀？ */
+			Datum		prefixPrefixDatum;	/* 若有则其值 */
+			int			prefixNNodes;	/* 节点数 */
+			Datum	   *prefixNodeLabels;	/* 其标签(或 NULL 表示无
+											 * 标签)*/
+			int			childNodeN; /* 哪个节点获得子元组 */
 
-			/* Info to form new lower-level inner tuple with all old nodes */
-			bool		postfixHasPrefix;	/* tuple should have a prefix? */
-			Datum		postfixPrefixDatum; /* if so, its value */
+			/* 构造含全部旧节点的新下层内部元组的信息 */
+			bool		postfixHasPrefix;	/* 元组应有前缀？ */
+			Datum		postfixPrefixDatum; /* 若有则其值 */
 		}			splitTuple;
 	}			result;
 } spgChooseOut;
 
 /*
- * Argument structs for spg_picksplit method
+ * spg_picksplit 方法的参数结构
  */
 typedef struct spgPickSplitIn
 {
-	int			nTuples;		/* number of leaf tuples */
-	Datum	   *datums;			/* their datums (array of length nTuples) */
-	int			level;			/* current level (counting from zero) */
+	int			nTuples;		/* 叶子元组数目 */
+	Datum	   *datums;			/* 其 datums(长度 nTuples 的数组) */
+	int			level;			/* 当前层级（从零计） */
 } spgPickSplitIn;
 
 typedef struct spgPickSplitOut
 {
-	bool		hasPrefix;		/* new inner tuple should have a prefix? */
-	Datum		prefixDatum;	/* if so, its value */
+	bool		hasPrefix;		/* 新内部元组应有前缀？ */
+	Datum		prefixDatum;	/* 若有则其值 */
 
-	int			nNodes;			/* number of nodes for new inner tuple */
-	Datum	   *nodeLabels;		/* their labels (or NULL for no labels) */
+	int			nNodes;			/* 新内部元组的节点数 */
+	Datum	   *nodeLabels;		/* 其标签(或 NULL 表示无标签) */
 
-	int		   *mapTuplesToNodes;	/* node index for each leaf tuple */
-	Datum	   *leafTupleDatums;	/* datum to store in each new leaf tuple */
+	int		   *mapTuplesToNodes;	/* 各叶子元组节点下标 */
+	Datum	   *leafTupleDatums;	/* 存入每个新叶子元组的 datum */
 } spgPickSplitOut;
 
 /*
- * Argument structs for spg_inner_consistent method
+ * spg_inner_consistent 方法的参数结构
  */
 typedef struct spgInnerConsistentIn
 {
-	ScanKey		scankeys;		/* array of operators and comparison values */
-	ScanKey		orderbys;		/* array of ordering operators and comparison
-								 * values */
-	int			nkeys;			/* length of scankeys array */
-	int			norderbys;		/* length of orderbys array */
+	ScanKey		scankeys;		/* 操作符与比较值的数组 */
+	ScanKey		orderbys;		/* 排序操作符与比较值的
+								 * 数组*/
+	int			nkeys;			/* scankeys 数组长度 */
+	int			norderbys;		/* orderbys 数组长度 */
 
-	Datum		reconstructedValue; /* value reconstructed at parent */
-	void	   *traversalValue; /* opclass-specific traverse value */
-	MemoryContext traversalMemoryContext;	/* put new traverse values here */
-	int			level;			/* current level (counting from zero) */
-	bool		returnData;		/* original data must be returned? */
+	Datum		reconstructedValue; /* 在父级重建的值 */
+	void	   *traversalValue; /* 操作符类专用遍历值 */
+	MemoryContext traversalMemoryContext;	/* 新遍历值放此处 */
+	int			level;			/* 当前层级（从零计） */
+	bool		returnData;		/* 必须返回原始数据？ */
 
-	/* Data from current inner tuple */
-	bool		allTheSame;		/* tuple is marked all-the-same? */
-	bool		hasPrefix;		/* tuple has a prefix? */
-	Datum		prefixDatum;	/* if so, the prefix value */
-	int			nNodes;			/* number of nodes in the inner tuple */
-	Datum	   *nodeLabels;		/* node label values (NULL if none) */
+	/* 当前内部元组的数据 */
+	bool		allTheSame;		/* 元组标为 all-the-same？ */
+	bool		hasPrefix;		/* 元组有前缀？ */
+	Datum		prefixDatum;	/* 若有，则前缀值 */
+	int			nNodes;			/* 内部元组中的节点数 */
+	Datum	   *nodeLabels;		/* 节点标签值(无则为 NULL) */
 } spgInnerConsistentIn;
 
 typedef struct spgInnerConsistentOut
 {
-	int			nNodes;			/* number of child nodes to be visited */
-	int		   *nodeNumbers;	/* their indexes in the node array */
-	int		   *levelAdds;		/* increment level by this much for each */
-	Datum	   *reconstructedValues;	/* associated reconstructed values */
-	void	  **traversalValues;	/* opclass-specific traverse values */
-	double	  **distances;		/* associated distances */
+	int			nNodes;			/* 待访问的子节点数 */
+	int		   *nodeNumbers;	/* 其在节点数组中的下标 */
+	int		   *levelAdds;		/* 各自层级增加这么多 */
+	Datum	   *reconstructedValues;	/* 关联的重建值 */
+	void	  **traversalValues;	/* 操作符类专用遍历值 */
+	double	  **distances;		/* 关联的距离 */
 } spgInnerConsistentOut;
 
 /*
- * Argument structs for spg_leaf_consistent method
+ * spg_leaf_consistent 方法的参数结构
  */
 typedef struct spgLeafConsistentIn
 {
-	ScanKey		scankeys;		/* array of operators and comparison values */
-	ScanKey		orderbys;		/* array of ordering operators and comparison
-								 * values */
-	int			nkeys;			/* length of scankeys array */
-	int			norderbys;		/* length of orderbys array */
+	ScanKey		scankeys;		/* 操作符与比较值的数组 */
+	ScanKey		orderbys;		/* 排序操作符与比较值的
+								 * 数组*/
+	int			nkeys;			/* scankeys 数组长度 */
+	int			norderbys;		/* orderbys 数组长度 */
 
-	Datum		reconstructedValue; /* value reconstructed at parent */
-	void	   *traversalValue; /* opclass-specific traverse value */
-	int			level;			/* current level (counting from zero) */
-	bool		returnData;		/* original data must be returned? */
+	Datum		reconstructedValue; /* 在父级重建的值 */
+	void	   *traversalValue; /* 操作符类专用遍历值 */
+	int			level;			/* 当前层级（从零计） */
+	bool		returnData;		/* 必须返回原始数据？ */
 
-	Datum		leafDatum;		/* datum in leaf tuple */
+	Datum		leafDatum;		/* 叶元组内 datum */
 } spgLeafConsistentIn;
 
 typedef struct spgLeafConsistentOut
 {
-	Datum		leafValue;		/* reconstructed original data, if any */
-	bool		recheck;		/* set true if operator must be rechecked */
-	bool		recheckDistances;	/* set true if distances must be rechecked */
-	double	   *distances;		/* associated distances */
+	Datum		leafValue;		/* 重建的原始数据（若有） */
+	bool		recheck;		/* 若操作符须重检则为 T */
+	bool		recheckDistances;	/* 若距离须重检则为 T */
+	double	   *distances;		/* 关联的距离 */
 } spgLeafConsistentOut;
 
 

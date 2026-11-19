@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0444",
+  "title": "SP-GiST 头文件注释翻译 — batch 0444",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "99b7a8c1ad3041be48876c678252661b4b3b5366",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/spgist.h",
+      "kind": "c_comment",
+      "note": "SP-GiST headers"
+    },
+    {
+      "pattern": "src/include/access/spgist_private.h",
+      "kind": "c_comment",
+      "note": "SP-GiST headers"
+    },
+    {
+      "pattern": "src/include/access/spgxlog.h",
+      "kind": "c_comment",
+      "note": "SP-GiST headers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0444-spgist-headers.json",
+      "kind": "manifest",
+      "note": "batch-0444"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/spgist.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 101,
+      "translated": 89,
+      "preserved": 12,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0444"
+    },
+    {
+      "path": "src/include/access/spgist_private.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 216,
+      "translated": 206,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/节名/INCLUDE KEEP"
+      ],
+      "note": "batch-0444"
+    },
+    {
+      "path": "src/include/access/spgxlog.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 112,
+      "translated": 95,
+      "preserved": 17,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0444"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0444-spgist-headers.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0444"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "batch-0444 SP-GiST headers。术语对齐 spgist/*.c：下行链接/重定向/占位；invalid→无效；cannot→无法；Backup Blk→备份块；standby→备库。审后清偿：Asserts 宾语/空值元组页/初化目标页。"
+}

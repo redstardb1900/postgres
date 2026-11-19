@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0452",
+  "title": "itup/relscan 头文件注释翻译 — batch 0452",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9e563a5c6330fe27bd82d0ca9f1ced8b6053bb09",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/itup.h",
+      "kind": "c_comment",
+      "note": "itup"
+    },
+    {
+      "pattern": "src/include/access/relscan.h",
+      "kind": "c_comment",
+      "note": "relscan"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0452-itup-relscan.json",
+      "kind": "manifest",
+      "note": "batch-0452"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/itup.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 49,
+      "translated": 37,
+      "preserved": 12,
+      "preserved_reasons": [
+        "横幅/路径/虚线/标识 KEEP"
+      ],
+      "note": "batch-0452"
+    },
+    {
+      "path": "src/include/access/relscan.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 90,
+      "translated": 83,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0452"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0452-itup-relscan.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0452"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ]
+}

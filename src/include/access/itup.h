@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * itup.h
- *	  POSTGRES index tuple definitions.
+ *	  POSTGRES 索引元组定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,35 +20,35 @@
 #include "storage/itemptr.h"
 
 /*
- * Index tuple header structure
+ * 索引元组头结构
  *
- * All index tuples start with IndexTupleData.  If the HasNulls bit is set,
- * this is followed by an IndexAttributeBitMapData.  The index attribute
- * values follow, beginning at a MAXALIGN boundary.
+ * 所有索引元组以 IndexTupleData 开头。若设置 HasNulls 位，
+ * 其后紧跟 IndexAttributeBitMapData。索引属性值
+ * 自 MAXALIGN 边界起依次存放。
  *
- * Note that the space allocated for the bitmap does not vary with the number
- * of attributes; that is because we don't have room to store the number of
- * attributes in the header.  Given the MAXALIGN constraint there's no space
- * savings to be had anyway, for usual values of INDEX_MAX_KEYS.
+ * 注意，为位图分配的空间不随属性个数而变；
+ * 这是因为头部没有空间存放属性个数。
+ * 鉴于 MAXALIGN 约束，无论如何都没有可节省的空间，
+ * INDEX_MAX_KEYS 取常见值时亦然。
  */
 
 typedef struct IndexTupleData
 {
-	ItemPointerData t_tid;		/* reference TID to heap tuple */
+	ItemPointerData t_tid;		/* 指向堆元组的 TID */
 
 	/* ---------------
-	 * t_info is laid out in the following fashion:
+	 * t_info 布局如下：
 	 *
-	 * 15th (high) bit: has nulls
-	 * 14th bit: has var-width attributes
-	 * 13th bit: AM-defined meaning
-	 * 12-0 bit: size of tuple
+	 * 位15(高位)：有空值
+	 * 位14：含变长属性
+	 * 位13：AM 定义的含义
+	 * 位12-0：元组大小
 	 * ---------------
 	 */
 
-	unsigned short t_info;		/* various info about tuple */
+	unsigned short t_info;		/* 元组的各类信息 */
 
-} IndexTupleData;				/* MORE DATA FOLLOWS AT END OF STRUCT */
+} IndexTupleData;				/* 更多数据紧随结构体末尾 */
 
 typedef IndexTupleData *IndexTuple;
 
@@ -60,11 +60,11 @@ typedef struct IndexAttributeBitMapData
 typedef IndexAttributeBitMapData * IndexAttributeBitMap;
 
 /*
- * t_info manipulation macros
+ * t_info 操作宏
  */
 #define INDEX_SIZE_MASK 0x1FFF
-#define INDEX_AM_RESERVED_BIT 0x2000	/* reserved for index-AM specific
-										 * usage */
+#define INDEX_AM_RESERVED_BIT 0x2000	/* 预留给索引 AM 特定
+										 * 用途*/
 #define INDEX_VAR_MASK	0x4000
 #define INDEX_NULL_MASK 0x8000
 
@@ -73,7 +73,7 @@ typedef IndexAttributeBitMapData * IndexAttributeBitMap;
 #define IndexTupleHasVarwidths(itup) ((((IndexTuple) (itup))->t_info & INDEX_VAR_MASK))
 
 
-/* routines in indextuple.c */
+/* indextuple.c 内例程 */
 extern IndexTuple index_form_tuple(TupleDesc tupleDescriptor,
 								   Datum *values, bool *isnull);
 extern IndexTuple index_form_tuple_context(TupleDesc tupleDescriptor,
@@ -92,8 +92,8 @@ extern IndexTuple index_truncate_tuple(TupleDesc sourceDescriptor,
 
 
 /*
- * Takes an infomask as argument (primarily because this needs to be usable
- * at index_form_tuple time so enough space is allocated).
+ * 入参为 infomask(主要因为它须能在 index_form_tuple
+ * 时使用，以便分配足够的空间)。
  */
 static inline Size
 IndexInfoFindDataOffset(unsigned short t_info)
@@ -109,8 +109,8 @@ IndexInfoFindDataOffset(unsigned short t_info)
 /* ----------------
  *		index_getattr
  *
- *		This gets called many times, so we macro the cacheable and NULL
- *		lookups, and call nocache_index_getattr() for the rest.
+ *		此函数常被调用，故对可缓存属性与 NULL 的
+ *		查找用宏，其余调用 nocache_index_getattr()。
  *
  * ----------------
  */
@@ -148,20 +148,20 @@ index_getattr(IndexTuple tup, int attnum, TupleDesc tupleDesc, bool *isnull)
 #endif
 
 /*
- * MaxIndexTuplesPerPage is an upper bound on the number of tuples that can
- * fit on one index page.  An index tuple must have either data or a null
- * bitmap, so we can safely assume it's at least 1 byte bigger than a bare
- * IndexTupleData struct.  We arrive at the divisor because each tuple
- * must be maxaligned, and it must have an associated line pointer.
+ * MaxIndexTuplesPerPage 是单个索引页可容纳元组数的
+ * 上限。索引元组必须带有数据或空值位图，
+ * 故可放心假定，它比裸 IndexTupleData 结构体
+ * 至少大 1 字节。该除数的由来是：每个元组
+ * 必须按 MAXALIGN 对齐，且必须有关联的行指针。
  *
- * To be index-type-independent, this does not account for any special space
- * on the page, and is thus conservative.
+ * 为与索引类型无关，本值不计页面上的任何特殊空间，
+ * 因此偏保守。
  *
- * Note: in btree non-leaf pages, the first tuple has no key (it's implicitly
- * minus infinity), thus breaking the "at least 1 byte bigger" assumption.
- * On such a page, N tuples could take one MAXALIGN quantum less space than
- * estimated here, seemingly allowing one more tuple than estimated here.
- * But such a page always has at least MAXALIGN special space, so we're safe.
+ * 注意：btree 非叶页中，首个元组没有键(其隐含为
+ * 负无穷)，因而打破了"至少大 1 字节"这一假定。
+ * 在此类页面上，N 个元组所需空间可比估算值少一个
+ * MAXALIGN 单位，似乎可比估算值多容纳一个元组。
+ * 但此类页面始终至少有 MAXALIGN 的特殊空间，故无妨。
  */
 #define MaxIndexTuplesPerPage	\
 	((int) ((BLCKSZ - SizeOfPageHeaderData) / \

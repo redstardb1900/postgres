@@ -1,0 +1,76 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0433",
+ "title": "halfen 余债甄别批: 339 MIXED 全树逐站甄别 (288 站豁免落账 74 条 / 46 站真散文残留列账不动译文 / 5 站术语待裁决) + regex 系 PUREEN 勘测报告 (1250 块纯 EN 未译, 翻译/豁免建议)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "49bbab22587a080731414812155dd3ad9bdde5ca",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "债1 甄别落账: 339 MIXED 逐站甄别 (0421 geo_ops 记法/公式/ASCII 标签判例 + 0428-0429 各批甄别先例), 豁免 288 站以 74 条 pattern+reason 纯追加落账; 46 站真散文残留 (postinit 36 + pg_locale 5 + dfmgr 4 + ri_triggers 1) 与 5 站术语待裁决 (selfuncs semi join/merge join/posting list, relcache start/commit transaction, tuplestore temp file(s)) 不落账不动译文; 门禁 scan_halfen --git HEAD 339→51 恰降 288 且剩余站集与甄别 P/T 集全等"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0433-halfen-triage.json",
+   "kind": "manifest",
+   "note": "batch-0433 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0433 manifest entry (files/allowed_paths 各 +1; halfen_exemptions.json 0430 已在册不重复) + parent_commit f030df8d0ee→49bbab22587 更新披露 (0430 判例)"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 74,
+   "translated": 0,
+   "preserved": 74,
+   "preserved_reasons": [
+    "acl.c: 2 条 pattern (签名型参数表 name username/text tablename/text priv 等覆盖 84 站 has_*_privilege/pg_has_role_* 横幅 + aclmask 调用形状骨架 1 站); zh 散文完整",
+    "oracle_compat.c: 1 条 (语法: 签名行 text lower(text string) 等 15 站); zh 目的/散文完整",
+    "inet_cidr_ntop.c/inet_net_pton.c: 2 条 (函数横幅签名骨架 6 站); zh 散文完整",
+    "jsonfuncs.c: 4 条 (SQL 函数签名 7 站 + tpath[] 参数标签 + json null/sql null 类型名 + raw scalar 引号术语); zh 散文完整",
+    "jsonb_util.c: 2 条 (引号术语 \"raw scalar\" 5 站 + rhs datum 标识符); zh 散文完整",
+    "array_selfuncs.c/array_typanalyze.c/arrayfuncs.c/ascii.c: 7 条 (SQL 字面量/概率递推公式/论文引用/参数标签 typlen typbyval typalign 与 elmtype elmbyval 族/dataValue/generate_subscripts 签名/unsigned char 类型名)",
+    "cash.c/datetime.c/datum.c/dbsize.c/expandedrecord.c: 5 条 (类型名 text datum/int4 (int)/int8 (bigint); 引号字面量 early-late time; 格式模板 <weekday>.../mmm dd hhmmss; Factory 引号串; Postgres abstime; 返回元组记法; \"toasted\" 引号术语; (reltablespace, relfilenumber); 调用形状 expanded_record_set_tuple(erh, NULL, false, false))",
+    "float.c/formatting.c/geo_ops.c: 3 条 (引号类型 \"const char \"+[-Pi/2,Pi/2] 公式+volatile float8+Schubert/Gertz 论文引用; Open Group 标准机构名; geo_ops 代码骨架/relop 公式/外部格式引号串/linuxjournal URL 引用, 0421 判例)",
+    "int.c/int8.c/oid.c: 3 条 (标识符清单 inteq intne...; 引号格式 \"num num ...\"; val1 relop 记法)",
+    "jsonpath.c/like_support.c/lockfuncs.c/multirangetypes.c/name.c/network_selfuncs.c: 6 条 (recv/send 函数名; 引号字面量 foo/fop/foobar; isolationtester 工具名 3 站; SQL 调用示例; nameconcatoid 签名; inet btree 标识符+引号公式 lhs_value op column)",
+    "numeric.c: 1 条 8 分支 alternation (digits[] palloc/numeric typmod/wire 格式字段表/7bits digit weight 公式/log(Inf,Inf)/div[qi] mod/Karatsuba SqrtRem 伪代码/result dweight = log10 公式); 0428 三批同文件判例一致",
+    "pg_locale.c: 2 条 (setlocale/Visual Studio/Windows Vista 4 站 + 释放/检查 struct lconv 2 站; 拆窄 pattern 以免误伤 5 站散文残留); 全部现场 sed 回读证认",
+    "postinit.c: 2 条窄 pattern (额外的单位是给 autovacuum launcher 1 站 + 进程使用固定 ID 1 站); 特意避开 InitPostgres 横幅散文残留块 (该块含 autovacuum launcher 字样但属真散文债)",
+    "ps_status.c/ri_triggers.c/rowtypes.c: 3 条 (setproctitle 签名/Linux libc/Process Explorer; SQL 骨架 [ONLY] relname fk 2 站+leftop op rightop 引号模板+'no action' 引号关键字+'key blah...' 引号报错模板; 引号报错模板 improper binary)",
+    "ruleutils.c/selfuncs.c/tid.c/timestamp.c: 4 条 (bool pretty/if colno == 0/int16[] Datum/identify_join_columns()/inner tlist/physical tlist/leftop op rightop/text[] datum 8 站; float8 oprjoin SQL 声明骨架+Ioannidis 论文引用+var op var+atttype atttypmod+reg proc+include empty+Dell'Era 论文引用 7 站; unsigned long; text Datum/interval typmod/字段精度模板/relop 公式/at time zone 示例/justify day/centuries AD 公式 7 站)",
+    "tsgistidx.c/tsquery_gist.c/tsrank.c/tsvector_op.c/tsvector_parser.c/varbit.c/varchar.c/varlena.c/windowfuncs.c/xid8funcs.c/xml.c: 11 条 (contrib/tsearch2 opclass 2 站; pi^2/6 公式; haspos len word+setweight 签名+tsvector 'txt'; strval 参数标签; cast('1001' as bit)+bitlength 函数名; bpchar datum; Guide To The SQL 书目引用+text datum+null fldsep+string_agg 签名+initClosestMatch 用法代码块 7 站; lead() forward; int4 nxip 格式规格+setof xid8; libxml/<?target something?>/Document Node/const char *msg 签名/xml2 contrib 6 站)",
+    "relcache.c/typcache.c/tuplesort.c/tuplestore.c/tzparser.c/sampling.c/backend_status.c/pgstat*.c/elog.c: 11 条 (security_invoker 引号选项名 1 站, start/commit transaction 待裁决不落账; typmod, noError 调用形状; \"unsigned int\" 引号类型 2 站, temp file(s) 待裁决不落账; name zone/name offset dst 格式文法; Vitter 论文引用; autovacuum worker+引号状态名; Local data 段标签 (0421 判例); low level 引号术语; lwlock tranche/pgstat shmem 标识符; const char *fmt 引号签名+pre_format_elog_string 代码形状)"
+   ],
+   "note": "债1: 台账 352→426 条纯追加 74 条 (0 删改, git diff 370 insertions 0 deletions); 逐站甄别 339 站: 豁免类 288 (标识符/函数签名入文、公式/记法/伪代码、SQL 关键字与引号术语、ASCII 标签、psql/SQL usage 骨架、署名/引用文献)、真散文残留 46 站列账不动、术语待裁决 5 站列账不动; 门禁 scan_halfen --git HEAD 339→51 恰降 288, 剩余站集 (51) 与甄别 P/T 集全等 (程序化断言 + 全部豁免站注释体现场回读证认, P/T 站零误伤断言过); 甄别报告见 /home/redstar/pg/sweep-0433/selfcheck.md; 不动任何 .c/.h 译文; 只读审查 PASS 零 D (豁免误登记审计 21 条/30+ 站零误登记, 三层计数 771→339→51 闭合, 0369 口径 36=38-2 闭合, regex 勘测三文件独立复扫数字全等); N1 注文漏列 ri_triggers 1 已补正; 审查裁决建议 (下批执行): semi join→半连接 (46 vs 2 压倒性, 顺手统一 2 处旧译)、merge join→归并连接 (121 vs 17)、posting list 暂留 EN (GIN 域无先例留 glossary 挂账)、relcache start/commit→事务开始/提交、temp file(s)→临时文件; 工具坑判例: python3 -I 隐含 -E 忽略 PYTHONDONTWRITEBYTECODE 仍生 __pycache__, 工具调用须 -B (审查方实测复现)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0433-halfen-triage.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0433 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0433 manifest entry (files/allowed_paths 各 +1) + parent_commit f030df8d0ee→49bbab22587 更新披露 (0430 判例; halfen_exemptions.json 0430 已在册故 files/allowed_paths 只 +1+1)"
+  }
+ ]
+}

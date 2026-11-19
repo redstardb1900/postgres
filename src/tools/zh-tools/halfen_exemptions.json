@@ -1758,5 +1758,375 @@
   "path": "src/backend/utils/adt/varlena.c",
   "pattern": "Tatsuo Ishii",
   "reason": "text_substr changelog attribution lines (\"- thomas 1997-12-31\"/\"- Tatsuo Ishii 1998-4-21\"/\"- Thomas Lockhart 1998-12-10\"/\"- Joe Conway 2002-08-10\") kept verbatim between zh change descriptions"
+ },
+ {
+  "path": "src/backend/utils/adt/acl.c",
+  "pattern": "\\b(text|name|table|sequence|database|function|language|schema|server|tablespace|type|role|fdw|wrapper) (oid|username|usename|rolename|tablename|sequencename|databasename|functionname|languagename|schemaname|servername|tablespacename|typename|colname|priv)\\b",
+  "reason": "privilege-wrapper function banners (has_*_privilege_*/pg_has_role_*): signature-type parameter lists (\"name username, text tablename, text priv name\" etc.) kept EN inside fully zh-translated doc blocks; batch-0433 triage (identifier-in-prose precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/acl.c",
+  "pattern": "aclmask\\(acl, roleid",
+  "reason": "aclmask banner: call-shape skeleton \"if (aclmask(acl, roleid, ownerId, privs, ...))\" kept as code shape; zh prose complete (batch-0433, geo_ops 0421 code-shape precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/oracle_compat.c",
+  "pattern": "(text|bytea|int) (lower|upper|initcap|lpad|rpad|btrim|byteatrim|bytealtrim|byteartrim|ltrim|rtrim|translate|ascii|chr|repeat)\\(",
+  "reason": "oracle_compat per-function banners: \"syntax:\" signature lines (text lower(text string) etc.) kept EN as SQL signature skeletons; zh 目的/ prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/inet_cidr_ntop.c",
+  "pattern": "(pg_inet_cidr_ntop|inet_cidr_ntop_ipv[46])\\(",
+  "reason": "function-banner signature skeletons pg_inet_cidr_ntop(af, src, bits, dst, size) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/inet_net_pton.c",
+  "pattern": "(pg_inet_net_pton|inet_cidr_pton_ipv[46]|inet_net_pton_ipv[46])\\(",
+  "reason": "function-banner signature skeletons kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonfuncs.c",
+  "pattern": "SQL 函数 jsonb_",
+  "reason": "SQL function banners \"SQL 函数 jsonb_xxx(jsonb, text)\" etc.: SQL signature skeletons kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonfuncs.c",
+  "pattern": "tpath\\[\\]",
+  "reason": "get_worker banner: parameter list labels json/tpath[]/null_as_int kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonfuncs.c",
+  "pattern": "json null",
+  "reason": "single-line type-identity notes \"文本模式下 json null 即 sql null\": type names kept EN (identifier-in-prose; batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonfuncs.c",
+  "pattern": "raw scalar",
+  "reason": "quoted jsonb term \"raw scalar\" kept EN (quoted-term precedent); zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonb_util.c",
+  "pattern": "\\\"raw scalar\\\"",
+  "reason": "quoted jsonb pseudo-array term \"raw scalar\" kept EN at 5 sites (quoted-term precedent); zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonb_util.c",
+  "pattern": "rhs datum",
+  "reason": "identifier phrase \"rhs datum\" (parameter datum) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/array_selfuncs.c",
+  "pattern": "\\{anything, null\\}",
+  "reason": "quoted SQL literal '{anything, null}' inside query example \"column @> '{anything, null}'\"; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/array_selfuncs.c",
+  "pattern": "for i > 0",
+  "reason": "probability recurrence formula lines M[i,j] = ... (1 - p[i]) for i > 0 kept as math notation; zh derivation prose complete (batch-0433, formula precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/array_typanalyze.c",
+  "pattern": "frequency counts over data",
+  "reason": "paper citation \"Approximate frequency counts over data streams\" (Manku et al.) kept EN as reference title; zh prose complete (batch-0433, citation precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/arrayfuncs.c",
+  "pattern": "(typlen, typbyval|typbyval, typlen)",
+  "reason": "parameter-list labels (typlen, typbyval, typalign:) in banner input/output sections kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/arrayfuncs.c",
+  "pattern": "dataValue",
+  "reason": "quoted parameter \"dataValue\" in array_set_element banner kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/arrayfuncs.c",
+  "pattern": "elmbyval",
+  "reason": "parameter-list labels (elmtype, elmlen, elmbyval, elmalign:) in construct/deconstruct banners kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/arrayfuncs.c",
+  "pattern": "generate_subscripts\\(array",
+  "reason": "SQL signature skeleton generate_subscripts(array anyarray, dim int [, reverse bool]) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/ascii.c",
+  "pattern": "unsigned char",
+  "reason": "C type name \"unsigned char\" kept EN in single-line note; batch-0433 identifier-in-prose"
+ },
+ {
+  "path": "src/backend/utils/adt/cash.c",
+  "pattern": "(text datum|int4 \\(int\\)|int8 \\(bigint\\))",
+  "reason": "type-name notes (text datum / int4 (int) 转为 cash / int8 (bigint)): type names kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/datetime.c",
+  "pattern": "(\\\"early time\\\"|\\\"late time\\\"|<weekday>|mmm dd hhmmss|day mon hh:mm:ss yyyy|Postgres abstime|\\(name, abbrev,|Local time zone must be set)",
+  "reason": "datetime notation set: quoted literals \"-infinity\"/\"early time\"/\"late time\", format templates <weekday>.../mmm dd hhmmss/day mon hh:mm:ss yyyy, legacy type pair Postgres abstime, returns tuple (name, abbrev, utc_offset, is_dst), quoted IANA Factory abbreviation strings (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/datum.c",
+  "pattern": "(\\\"toasted\\\"|varlena datum|cstring datum)",
+  "reason": "quoted term \"toasted\" + datum type phrases (varlena datum/cstring datum) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/dbsize.c",
+  "pattern": "\\(reltablespace, relfilenumber\\)",
+  "reason": "identifier tuple (reltablespace, relfilenumber) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/expandedrecord.c",
+  "pattern": "expanded_record_set_tuple\\(erh, NULL, false, false\\)",
+  "reason": "call-shape example expanded_record_set_tuple(erh, NULL, false, false). kept as code; zh prose complete (batch-0433, code-shape precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/float.c",
+  "pattern": "(\\\"const char \\*\\\"|\\[-Pi/2, Pi/2\\]|\\[-Pi, Pi\\]|volatile float8|Schubert and Michael Gertz)",
+  "reason": "float set: quoted type \"const char *\" + quoted \"box\"/\"point\", range formulas [-Pi/2, Pi/2]/[-Pi, Pi], C type volatile float8, paper citation Schubert & Gertz Proceedings of the 30th Intl. Conf. on Very Large Data Bases (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/formatting.c",
+  "pattern": "Open Group",
+  "reason": "standards-body proper noun \"Open Group\" (XBD) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/geo_ops.c",
+  "pattern": "(Type2 \\*obj2|area\\(box1\\) relop|\\(closed, npts, xcoord|area\\(circle1\\) relop|linuxjournal\\.com/article/2197)",
+  "reason": "geo_ops notation set (0421 precedent): type-constructor/operator code skeleton, relop formula banners area(box1) relop area(box2), quoted external format \"(closed, npts, xcoord, ycoord,...\", linuxjournal URL citation (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/int.c",
+  "pattern": "(inteq, intne|\\\"num num)",
+  "reason": "I/O routine identifier list (inteq, intne, ...) + quoted format \"num num ...\" kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/int8.c",
+  "pattern": "val1 relop",
+  "reason": "relop formula banners \"64 位 val1 relop 32 位 val2？\": notation placeholder kept EN; batch-0433 formula-label precedent"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonpath.c",
+  "pattern": "jsonpath (recv|send)",
+  "reason": "function names jsonpath recv/send kept EN in banners; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/like_support.c",
+  "pattern": "\\\"foobar\\\"",
+  "reason": "quoted prefix example literals \"foo\"/\"fop\"/\"foobar\"; zh prose complete (batch-0433, quoted-literal precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/lockfuncs.c",
+  "pattern": "isolation ?tester",
+  "reason": "test-tool proper noun isolationtester (spelled isolation tester in one line) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/multirangetypes.c",
+  "pattern": "int4multirange\\(variadic",
+  "reason": "SQL call example `int4multirange(variadic '{}'::int4range[])` kept as code; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/name.c",
+  "pattern": "nameconcatoid\\(name, oid\\)",
+  "reason": "SQL signature skeleton nameconcatoid(name, oid) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/network_selfuncs.c",
+  "pattern": "(inet btree|\\\"lhs_value op column)",
+  "reason": "inet btree opclass identifier + quoted formula \"lhs_value op column\"; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/numeric.c",
+  "pattern": "(digits\\[\\] palloc|numeric typmod|ndigits, weight, sign, dscale|7bits digit weight|log\\(Inf, Inf\\)|div\\[qi\\] mod|coefficients a0,a1,a2,a3|result dweight = log10)",
+  "reason": "numeric notation set: digits[] palloc, numeric typmod, recv wire-format field list ndigits/weight/sign/dscale, base-100000 formula 0 + 7bits digit weight + 24 bits digit value, log(Inf, Inf) reduction, division loop identifiers div[qi] mod vardigits[0], Karatsuba SqrtRem pseudocode (coefficients a0,a1,a2,a3...), ln_dweight formula result dweight = log10(result) (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/oid.c",
+  "pattern": "\\\"num num",
+  "reason": "quoted format \"num num ...\" kept EN; zh prose complete (batch-0433, int.c same-family)"
+ },
+ {
+  "path": "src/backend/utils/adt/pg_locale.c",
+  "pattern": "(setlocale|Visual Studio|Windows Vista)",
+  "reason": "pg_locale identifier/proper-noun set: setlocale(category, value) code shape, Windows setlocale(), Visual Studio, Windows Vista kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/pg_locale.c",
+  "pattern": "(释放 struct lconv|检查 struct lconv)",
+  "reason": "C struct name struct lconv kept EN in free/check notes (identifier-in-prose); zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/init/postinit.c",
+  "pattern": "额外的单位是给 autovacuum launcher",
+  "reason": "single-line note: process-name proper noun autovacuum launcher kept EN; zh complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/init/postinit.c",
+  "pattern": "进程使用固定 ID",
+  "reason": "postinit banner: process-name autovacuum worker kept EN beside zh prose \"独立模式和 autovacuum worker 进程使用固定 ID\"; batch-0433"
+ },
+ {
+  "path": "src/backend/utils/misc/ps_status.c",
+  "pattern": "(setproctitle|Linux libc|Process Explorer)",
+  "reason": "ps_status set: setproctitle(_fast)(const char *, ...) signature skeletons, platform names Linux libc / musl, Win32 tool name Process Explorer kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/ri_triggers.c",
+  "pattern": "(\\[ONLY\\] relname fk|leftop op rightop|'no action'|key blah is not present)",
+  "reason": "ri_triggers set: generated-query SQL skeletons SELECT fk.keycols FROM [ONLY] relname fk..., quoted clause template \" sep leftop op rightop\", quoted FK action keywords 'no action'/'restrict', quoted error-message template 'key blah is not present in...' (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/rowtypes.c",
+  "pattern": "improper binary",
+  "reason": "quoted error-message template \"improper binary file format\" kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/ruleutils.c",
+  "pattern": "(\\\"bool pretty\\\"|if colno == 0|int16\\[\\] Datum|identify_join_columns\\(\\)|inner tlist|\\\"physical tlist\\\"|\\\"leftop op rightop\\\"|text\\[\\] datum)",
+  "reason": "ruleutils notation set: quoted option \"bool pretty\", pseudocode if colno == 0 / if colno > 0, type phrases int16[] Datum / text[] datum, function reference identify_join_columns(), identifiers inner tlist, quoted planner term \"physical tlist\", quoted clause template \"leftop op rightop\" (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/selfuncs.c",
+  "pattern": "(float8 oprjoin \\(internal|of errors in the size of join|var op var|atttype, atttypmod|reg proc|\\\"include empty\\\"|Expected distinct values when selecting)",
+  "reason": "selfuncs set: SQL declaration skeleton float8 oprjoin(internal, oid, ...), paper citation Ioannidis/Christodoulakis \"On the propagation of errors in the size of join results\", formula placeholders var op var / atttype, atttypmod, type name reg proc, quoted option \"include empty\", Dell'Era citation \"Expected distinct values when selecting from a bag without replacement\" (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/tid.c",
+  "pattern": "unsigned long",
+  "reason": "C type name unsigned long kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/timestamp.c",
+  "pattern": "(text Datum|interval typmod|interval leading field precision|interval1 relop interval2|at time zone|justify day|centuries AD)",
+  "reason": "timestamp set: type phrases text Datum / interval typmod, template <interval leading field precision>, relop formula is interval1 relop interval2, SQL example ...::timestamptz)) at time zone, identifier justify day, centuries AD/BC formula (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/tsgistidx.c",
+  "pattern": "tsearch2 opclass",
+  "reason": "compat identifier contrib/tsearch2 opclass kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/tsquery_gist.c",
+  "pattern": "tsearch2 opclass",
+  "reason": "compat identifier contrib/tsearch2 opclass kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/tsrank.c",
+  "pattern": "pi\\^2/6",
+  "reason": "ranking formula limit (sum(1/i^2),i=1,inf) = pi^2/6 kept as math notation; batch-0433 formula precedent"
+ },
+ {
+  "path": "src/backend/utils/adt/tsvector_op.c",
+  "pattern": "(haspos, len, word|lexemes|tsvector 'txt')",
+  "reason": "tsvector_op set: field list haspos/len/word, SQL signature setweight(tsin tsvector, char_weight \"char\", lexemes \"text\"[]), literal tsvector 'txt' example (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/tsvector_parser.c",
+  "pattern": "strval",
+  "reason": "output-parameter labels *strval/*lenval/*pos_ptr kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/varbit.c",
+  "pattern": "(cast\\('1001' as bit\\)|bitlength, bitoctetlength)",
+  "reason": "SQL example cast('1001' as bit) + function names bitlength/bitoctetlength kept EN (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/varchar.c",
+  "pattern": "bpchar datum",
+  "reason": "type phrase bpchar datum kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/varlena.c",
+  "pattern": "(Guide To The SQL|text datum|null fldsep|string_agg\\(value text|initClosestMatch)",
+  "reason": "varlena set: book citation \"A Guide To The SQL Standard\", type phrase text datum, parameter phrase null fldsep, SQL signature string_agg(value text, delimiter text), usage code block initClosestMatch/updateClosestMatch/getClosestMatch (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/windowfuncs.c",
+  "pattern": "lead\\(\\) forward",
+  "reason": "identifier phrase lead() forward / lag() kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/xid8funcs.c",
+  "pattern": "(int4 nxip|setof xid8)",
+  "reason": "binary format spec lines \"格式: int4 nxip, int8 xmin, int8 xmax, int8 xip[]\" + SQL signature 返回 setof xid8 kept EN; batch-0433"
+ },
+ {
+  "path": "src/backend/utils/adt/xml.c",
+  "pattern": "(libxml|<foo/>|Document Node|target something|const char \\*msg|xml2 contrib)",
+  "reason": "xml set: libxml identifiers, PI syntax example <?target something?>, literal xml '<foo/>', XQuery spec term Document Node, error-handler signature (void *ptr, const char *msg, ...), legacy module name xml2 contrib kept EN (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/cache/relcache.c",
+  "pattern": "security_invoker",
+  "reason": "quoted GUC-like option name \"security_invoker\" kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/cache/typcache.c",
+  "pattern": "typmod, noError",
+  "reason": "call-shape lookup_rowtype_tupdesc_noerror(getBaseType(type_id), typmod, noError) kept as code; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/sort/tuplesort.c",
+  "pattern": "\\\"unsigned int\\\"",
+  "reason": "quoted C type \"unsigned int\" in tape-format NOTES; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/sort/tuplestore.c",
+  "pattern": "\\\"unsigned int\\\"",
+  "reason": "quoted C type \"unsigned int\" in tape-format NOTES; zh prose complete (batch-0433, tuplesort same-family)"
+ },
+ {
+  "path": "src/backend/utils/misc/tzparser.c",
+  "pattern": "name\\s+(zone|offset)",
+  "reason": "timezone-abbreviation format grammar lines (name zone / name offset dst) kept as notation; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/misc/sampling.c",
+  "pattern": "Random sampling with",
+  "reason": "paper citation \"Random sampling with a reservoir\" (Vitter) kept EN as reference title; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/activity/backend_status.c",
+  "pattern": "(autovacuum worker|\\\"idle in transaction\\\")",
+  "reason": "process-name autovacuum worker + quoted session states \"active\"/\"idle in transaction\" kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/activity/pgstat.c",
+  "pattern": "Local data",
+  "reason": "EN section banner label \"Local data\" inside translated block (ASCII-label precedent 0421); batch-0433"
+ },
+ {
+  "path": "src/backend/utils/activity/pgstat_function.c",
+  "pattern": "low level",
+  "reason": "quoted term \"low level\" kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/activity/pgstat_slru.c",
+  "pattern": "lwlock tranche",
+  "reason": "identifier lwlock tranche (LWLock tranche name) kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/activity/pgstat_wal.c",
+  "pattern": "pgstat shmem",
+  "reason": "identifier pgstat shmem LWLock kept EN; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/rangetypes_gist.c",
+  "pattern": "(\\(-inf[,;] \\+inf\\)|sorting-based node splitting algorithm for R-tree)",
+  "reason": "range notation (-inf, +inf)/(-inf; +inf) + paper citation (Hellmuth et al.) \"new double sorting-based node splitting algorithm for R-tree\" kept EN; zh prose complete (batch-0433, 0421 formula/citation precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/rangetypes_selfuncs.c",
+  "pattern": "(var Op other|\\[length1, length2\\]|\\(number of bins\\))",
+  "reason": "selfuncs notation set: clause-shape placeholder var Op other, interval [length1, length2], formula-block label (number of bins); zh prose complete (batch-0433, formula precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/rangetypes_spgist.c",
+  "pattern": "is to the right",
+  "reason": "ASCII decision-table cells \"[500, ...) is to the right\" kept EN inside table layout; zh prose complete (batch-0433, ASCII-table precedent)"
+ },
+ {
+  "path": "src/backend/utils/error/elog.c",
+  "pattern": "(const char \\*fmt|pre_format_elog_string\\(errno)",
+  "reason": "elog set: quoted signatures \"const char *fmt, ...\" / *fmt_singular and calling-convention code line pre_format_elog_string(errno, domain), var = format_elog_string(...) kept as code; zh prose complete (batch-0433)"
  }
 ]

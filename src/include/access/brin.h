@@ -1,5 +1,5 @@
 /*
- * AM-callable functions for BRIN indexes
+ * AM 可调用的 BRIN 索引函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,18 +15,18 @@
 
 
 /*
- * Storage type for BRIN's reloptions
+ * BRIN 关系选项的存储类型
  */
 typedef struct BrinOptions
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/* varlena 头(勿直接碰!) */
 	BlockNumber pagesPerRange;
 	bool		autosummarize;
 } BrinOptions;
 
 
 /*
- * BrinStatsData represents stats data for planner use
+ * BrinStatsData 表示规划器所用统计数据。
  */
 typedef struct BrinStatsData
 {

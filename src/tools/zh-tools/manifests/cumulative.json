@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "f7fb6c65aaac63bfbb40e23bf9c82b40b68feeb9",
+ "parent_commit": "779e48a95ce129b0e1e5cf55a0643d4da5c2dff2",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7641,6 +7641,41 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0446-nbtree-headers.json",
    "kind": "manifest",
    "note": "batch-0446 manifest"
+  },
+  {
+   "pattern": "src/include/access/brin.h",
+   "kind": "c_comment",
+   "note": "batch-0447 BRIN headers"
+  },
+  {
+   "pattern": "src/include/access/brin_internal.h",
+   "kind": "c_comment",
+   "note": "batch-0447 BRIN headers"
+  },
+  {
+   "pattern": "src/include/access/brin_page.h",
+   "kind": "c_comment",
+   "note": "batch-0447 BRIN headers"
+  },
+  {
+   "pattern": "src/include/access/brin_revmap.h",
+   "kind": "c_comment",
+   "note": "batch-0447 BRIN headers"
+  },
+  {
+   "pattern": "src/include/access/brin_tuple.h",
+   "kind": "c_comment",
+   "note": "batch-0447 BRIN headers"
+  },
+  {
+   "pattern": "src/include/access/brin_xlog.h",
+   "kind": "c_comment",
+   "note": "batch-0447 BRIN headers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0447-brin-headers.json",
+   "kind": "manifest",
+   "note": "batch-0447 manifest"
   }
  ],
  "files": [
@@ -24713,6 +24748,76 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0446"
+  },
+  {
+   "path": "src/include/access/brin.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 4,
+   "preserved": 5,
+   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "note": "batch-0447"
+  },
+  {
+   "path": "src/include/access/brin_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 19,
+   "preserved": 9,
+   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "note": "batch-0447"
+  },
+  {
+   "path": "src/include/access/brin_page.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 20,
+   "preserved": 7,
+   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "note": "batch-0447"
+  },
+  {
+   "path": "src/include/access/brin_revmap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 2,
+   "preserved": 6,
+   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "note": "batch-0447"
+  },
+  {
+   "path": "src/include/access/brin_tuple.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 33,
+   "preserved": 8,
+   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "note": "batch-0447"
+  },
+  {
+   "path": "src/include/access/brin_xlog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 40,
+   "translated": 32,
+   "preserved": 8,
+   "preserved_reasons": ["横幅/路径/INCLUDE/紧预算 KEEP"],
+   "note": "batch-0447"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0447-brin-headers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0447"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

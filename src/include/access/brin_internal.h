@@ -1,6 +1,6 @@
 /*
  * brin_internal.h
- *		internal declarations for BRIN indexes
+ *		BRIN 索引的内部声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,54 +17,54 @@
 
 
 /*
- * A BrinDesc is a struct designed to enable decoding a BRIN tuple from the
- * on-disk format to an in-memory tuple and vice-versa.
+ * BrinDesc 结构是设计用于把 BRIN 元组从
+ * 磁盘格式解码为内存元组，反之亦然。
  */
 
-/* struct returned by "OpcInfo" amproc */
+/* "OpcInfo" amproc 所返回的结构 */
 typedef struct BrinOpcInfo
 {
-	/* Number of columns stored in an index column of this opclass */
+	/* 本操作符类索引列中存储的列数 */
 	uint16		oi_nstored;
 
-	/* Regular processing of NULLs in BrinValues? */
+	/* BrinValues 中常规处理 NULLs? */
 	bool		oi_regular_nulls;
 
-	/* Opaque pointer for the opclass' private use */
+	/* 操作符类私用的不透明指针 */
 	void	   *oi_opaque;
 
-	/* Type cache entries of the stored columns */
+	/* 所存列的类型缓存条目 */
 	TypeCacheEntry *oi_typcache[FLEXIBLE_ARRAY_MEMBER];
 } BrinOpcInfo;
 
-/* the size of a BrinOpcInfo for the given number of columns */
+/* 给定列数时 BrinOpcInfo 的大小 */
 #define SizeofBrinOpcInfo(ncols) \
 	(offsetof(BrinOpcInfo, oi_typcache) + sizeof(TypeCacheEntry *) * ncols)
 
 typedef struct BrinDesc
 {
-	/* Containing memory context */
+	/* 所属内存上下文 */
 	MemoryContext bd_context;
 
-	/* the index relation itself */
+	/* 索引关系本身 */
 	Relation	bd_index;
 
-	/* tuple descriptor of the index relation */
+	/* 索引关系的元组描述符 */
 	TupleDesc	bd_tupdesc;
 
-	/* cached copy for on-disk tuples; generated at first use */
+	/* 磁盘元组的缓存副本；首次使用时生成 */
 	TupleDesc	bd_disktdesc;
 
-	/* total number of Datum entries that are stored on-disk for all columns */
+	/* 全部列在磁盘上存储的 Datum 项总数 */
 	int			bd_totalstored;
 
-	/* per-column info; bd_tupdesc->natts entries long */
+	/* 每列信息；长为 bd_tupdesc->natts 项 */
 	BrinOpcInfo *bd_info[FLEXIBLE_ARRAY_MEMBER];
 } BrinDesc;
 
 /*
- * Globally-known function support numbers for BRIN indexes.  Individual
- * opclasses can define more function support numbers, which must fall into
+ * BRIN 索引的全局已知支持函数编号。各
+ * 操作符类可再定义更多支持函数编号，且须落入
  * BRIN_FIRST_OPTIONAL_PROCNUM .. BRIN_LAST_OPTIONAL_PROCNUM.
  */
 #define BRIN_PROCNUM_OPCINFO		1
@@ -72,8 +72,8 @@ typedef struct BrinDesc
 #define BRIN_PROCNUM_CONSISTENT		3
 #define BRIN_PROCNUM_UNION			4
 #define BRIN_MANDATORY_NPROCS		4
-#define BRIN_PROCNUM_OPTIONS 		5	/* optional */
-/* procedure numbers up to 10 are reserved for BRIN future expansion */
+#define BRIN_PROCNUM_OPTIONS 		5	/* 可选 */
+/* 过程编号至 10 为 BRIN 未来扩展保留 */
 #define BRIN_FIRST_OPTIONAL_PROCNUM 11
 #define BRIN_LAST_OPTIONAL_PROCNUM	15
 

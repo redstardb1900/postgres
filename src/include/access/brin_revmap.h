@@ -1,6 +1,6 @@
 /*
  * brin_revmap.h
- *		Prototypes for BRIN reverse range maps
+ *		BRIN 范围映射（反向）的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,7 +20,7 @@
 #include "utils/relcache.h"
 #include "utils/snapshot.h"
 
-/* struct definition lives in brin_revmap.c */
+/* 结构定义位于 brin_revmap.c */
 typedef struct BrinRevmap BrinRevmap;
 
 extern BrinRevmap *brinRevmapInitialize(Relation idxrel,

@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0437",
+ "title": "regex/regc_nfa.c 整文件注释翻译（410 块）— batch 0436 术语定款落地",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1916031118c4cdcc5393564ea00c5dfc8a08c330",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/regex/regc_nfa.c",
+   "kind": "c_comment",
+   "note": "R1: regc_nfa 独批"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0437-regc-nfa.json",
+   "kind": "manifest",
+   "note": "batch-0437 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0437; parent_commit 更新披露"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/regex/regc_nfa.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 410,
+   "translated": 405,
+   "preserved": 5,
+   "preserved_reasons": [
+    "NOT_USED/dup/REG_DEBUG 纯标签注释保留 EN（5 块）",
+    "文件头 Spencer 版权与许可证行经 legal_protected_segments 逐字节保留（嵌在已译头块内）"
+   ],
+   "note": "829 行 TRANS + 1 KEPT(NOT_USED); 主会话清偿 TL24/TL11/TL18 三处；审 FAIL 后统一同 EN 异译 14 组/24 站"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0437-regc-nfa.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0437 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0437; parent_commit→1916031118c4cdcc5393564ea00c5dfc8a08c330 披露"
+  }
+ ],
+ "notes": "batch-0437 R1 regc_nfa.c。术语沿用 0436：色/色图/弧/彩虹/子色/伪色；NFA/DFA/cNFA/LACON/cvec/WHITE 保留。四切片 spec 合并一次 apply。主会话门禁后清偿：L275 RAINBOW→彩虹(TL24)、L878 弯引号→ASCII(TL11)、L3476 补「色」(TL18，函数名内 colors 误触发)。verify 0 violations（W7_IDENT_LOST 警告若干，RAINBOW 宏让位给彩虹属定款）；term_lint 0 error；halfen 0。未 commit。"
+}

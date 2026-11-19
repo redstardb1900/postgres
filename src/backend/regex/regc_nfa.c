@@ -1,6 +1,6 @@
 /*
- * NFA utilities.
- * This file is #included by regcomp.c.
+ * NFA 工具。
+ * 本文件被 regcomp.c #include。
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -31,9 +31,9 @@
  * src/backend/regex/regc_nfa.c
  *
  *
- * One or two things that technically ought to be in here
- * are actually in color.c, thanks to some incestuous relationships in
- * the color chains.
+ * 有一两处按理本应在此的内容
+ * 实际在 color.c，归因于色链中若干纠缠
+ * 的关系。
  */
 
 #define NISERR()	VISERR(nfa->v)
@@ -41,12 +41,12 @@
 
 
 /*
- * newnfa - set up an NFA
+ * newnfa - 建立 NFA
  */
-static struct nfa *				/* the NFA, or NULL */
+static struct nfa *				/* 该 NFA 或 NULL */
 newnfa(struct vars *v,
 	   struct colormap *cm,
-	   struct nfa *parent)		/* NULL if primary NFA */
+	   struct nfa *parent)		/* 主 NFA 则为 NULL */
 {
 	struct nfa *nfa;
 
@@ -57,7 +57,7 @@ newnfa(struct vars *v,
 		return NULL;
 	}
 
-	/* Make the NFA minimally valid, so freenfa() will behave sanely */
+	/* 使 NFA 最低限度有效，以便 freenfa() 行为正常 */
 	nfa->states = NULL;
 	nfa->slast = NULL;
 	nfa->freestates = NULL;
@@ -73,12 +73,12 @@ newnfa(struct vars *v,
 	nfa->eos[0] = nfa->eos[1] = COLORLESS;
 	nfa->flags = 0;
 	nfa->minmatchall = nfa->maxmatchall = -1;
-	nfa->parent = parent;		/* Precedes newfstate so parent is valid. */
+	nfa->parent = parent;		/* 在 newfstate 前使 parent 有效。 */
 
-	/* Create required infrastructure */
-	nfa->post = newfstate(nfa, '@');	/* number 0 */
-	nfa->pre = newfstate(nfa, '>'); /* number 1 */
-	nfa->init = newstate(nfa);	/* may become invalid later */
+	/* 创建所需基础设施 */
+	nfa->post = newfstate(nfa, '@');	/* 编号 0 */
+	nfa->pre = newfstate(nfa, '>'); /* 编号 1 */
+	nfa->init = newstate(nfa);	/* 稍后可能失效 */
 	nfa->final = newstate(nfa);
 	if (ISERR())
 	{
@@ -101,7 +101,7 @@ newnfa(struct vars *v,
 }
 
 /*
- * freenfa - free an entire NFA
+ * freenfa - 释放整个 NFA
  */
 static void
 freenfa(struct nfa *nfa)
@@ -131,32 +131,32 @@ freenfa(struct nfa *nfa)
 }
 
 /*
- * newstate - allocate an NFA state, with zero flag value
+ * newstate - 分配 flag 为零的 NFA 状态
  */
-static struct state *			/* NULL on error */
+static struct state *			/* 出错则NULL */
 newstate(struct nfa *nfa)
 {
 	struct state *s;
 
 	/*
-	 * This is a handy place to check for operation cancel during regex
-	 * compilation, since no code path will go very long without making a new
-	 * state or arc.
+	 * 此处便于在正则编译期间检查操作取消，
+	 * 因无路径会很久不新建
+	 * 状态或弧
 	 */
 	INTERRUPT(nfa->v->re);
 
-	/* first, recycle anything that's on the freelist */
+	/* 先回收 freelist 上的任何项 */
 	if (nfa->freestates != NULL)
 	{
 		s = nfa->freestates;
 		nfa->freestates = s->next;
 	}
-	/* otherwise, is there anything left in the last statebatch? */
+	/* 否则，最后一个 statebatch 还有剩余吗？ */
 	else if (nfa->lastsb != NULL && nfa->lastsbused < nfa->lastsb->nstates)
 	{
 		s = &nfa->lastsb->s[nfa->lastsbused++];
 	}
-	/* otherwise, need to allocate a new statebatch */
+	/* 否则，需要分配新的 statebatch */
 	else
 	{
 		struct statebatch *newSb;
@@ -206,9 +206,9 @@ newstate(struct nfa *nfa)
 }
 
 /*
- * newfstate - allocate an NFA state with a specified flag value
+ * newfstate - 分配带指定 flag 值的 NFA 状态
  */
-static struct state *			/* NULL on error */
+static struct state *			/* 出错则NULL */
 newfstate(struct nfa *nfa, int flag)
 {
 	struct state *s;
@@ -220,7 +220,7 @@ newfstate(struct nfa *nfa, int flag)
 }
 
 /*
- * dropstate - delete a state's inarcs and outarcs and free it
+ * dropstate - 删除状态的 inarcs 与 outarcs 并释放
  */
 static void
 dropstate(struct nfa *nfa,
@@ -236,7 +236,7 @@ dropstate(struct nfa *nfa,
 }
 
 /*
- * freestate - free a state, which has no in-arcs or out-arcs
+ * freestate - 释放无入弧与出弧的状态
  */
 static void
 freestate(struct nfa *nfa,
@@ -262,20 +262,20 @@ freestate(struct nfa *nfa,
 		nfa->states = s->next;
 	}
 	s->prev = NULL;
-	s->next = nfa->freestates;	/* don't delete it, put it on the free list */
+	s->next = nfa->freestates;	/* 不删除，放入空闲链表 */
 	nfa->freestates = s;
 }
 
 /*
- * newarc - set up a new arc within an NFA
+ * newarc - 在 NFA 内建立新弧
  *
- * This function checks to make sure that no duplicate arcs are created.
- * In general we never want duplicates.
+ * 本函数确保不会创建重复弧。
+ * 通常我们从不希望有重复。
  *
- * However: in principle, a RAINBOW arc is redundant with any plain arc
- * (unless that arc is for a pseudocolor).  But we don't try to recognize
- * that redundancy, either here or in allied operations such as moveins().
- * The pseudocolor consideration makes that more costly than it seems worth.
+ * 但是：原则上，彩虹弧与任何普通弧均冗余，
+ * 除非该弧针对伪色；但我们不去识别
+ * 该冗余，无论此处还是 moveins() 等同类操作。
+ * 伪色因素使代价高于看似值得的程度。
  */
 static void
 newarc(struct nfa *nfa,
@@ -289,13 +289,13 @@ newarc(struct nfa *nfa,
 	assert(from != NULL && to != NULL);
 
 	/*
-	 * This is a handy place to check for operation cancel during regex
-	 * compilation, since no code path will go very long without making a new
-	 * state or arc.
+	 * 此处便于在正则编译期间检查操作取消，
+	 * 因无路径会很久不新建
+	 * 状态或弧
 	 */
 	INTERRUPT(nfa->v->re);
 
-	/* check for duplicate arc, using whichever chain is shorter */
+	/* 查重复弧，选用较短的那条链 */
 	if (from->nouts <= to->nins)
 	{
 		for (a = from->outs; a != NULL; a = a->outchain)
@@ -309,15 +309,15 @@ newarc(struct nfa *nfa,
 				return;
 	}
 
-	/* no dup, so create the arc */
+	/* 无重复故建弧 */
 	createarc(nfa, t, co, from, to);
 }
 
 /*
- * createarc - create a new arc within an NFA
+ * createarc - 在 NFA 内创建新弧
  *
- * This function must *only* be used after verifying that there is no existing
- * identical arc (same type/color/from/to).
+ * 本函数*仅*可在已确认不存在
+ * 相同弧(同type/色/from/to)后用。
  */
 static void
 createarc(struct nfa *nfa,
@@ -339,9 +339,9 @@ createarc(struct nfa *nfa,
 	a->from = from;
 
 	/*
-	 * Put the new arc on the beginning, not the end, of the chains; it's
-	 * simpler here, and freearc() is the same cost either way.  See also the
-	 * logic in moveins() and its cohorts, as well as fixempties().
+	 * 把新弧放在链首而非链尾；此处更
+	 * 简单，且 freearc() 代价相同。另见 
+	 * moveins() 及其同伴与 fixempties() 的逻辑。
 	 */
 	a->inchain = to->ins;
 	a->inchainRev = NULL;
@@ -362,25 +362,25 @@ createarc(struct nfa *nfa,
 }
 
 /*
- * allocarc - allocate a new arc within an NFA
+ * allocarc - 在 NFA 内分配新弧
  */
-static struct arc *				/* NULL for failure */
+static struct arc *				/* 失败则NULL */
 allocarc(struct nfa *nfa)
 {
 	struct arc *a;
 
-	/* first, recycle anything that's on the freelist */
+	/* 先回收 freelist 上的任何项 */
 	if (nfa->freearcs != NULL)
 	{
 		a = nfa->freearcs;
 		nfa->freearcs = a->freechain;
 	}
-	/* otherwise, is there anything left in the last arcbatch? */
+	/* 否则，最后一个 arcbatch 还有剩余吗？ */
 	else if (nfa->lastab != NULL && nfa->lastabused < nfa->lastab->narcs)
 	{
 		a = &nfa->lastab->a[nfa->lastabused++];
 	}
-	/* otherwise, need to allocate a new arcbatch */
+	/* 否则，需要分配新的 arcbatch */
 	else
 	{
 		struct arcbatch *newAb;
@@ -412,7 +412,7 @@ allocarc(struct nfa *nfa)
 }
 
 /*
- * freearc - free an arc
+ * freearc - 释放弧
  */
 static void
 freearc(struct nfa *nfa,
@@ -424,11 +424,11 @@ freearc(struct nfa *nfa,
 
 	assert(victim->type != 0);
 
-	/* take it off color chain if necessary */
+	/* 必要时从色链取下 */
 	if (COLORED(victim) && nfa->parent == NULL)
 		uncolorchain(nfa->cm, victim);
 
-	/* take it off source's out-chain */
+	/* 从源的出链取下 */
 	assert(from != NULL);
 	predecessor = victim->outchainRev;
 	if (predecessor == NULL)
@@ -448,7 +448,7 @@ freearc(struct nfa *nfa,
 	}
 	from->nouts--;
 
-	/* take it off target's in-chain */
+	/* 从目标的入链取下 */
 	assert(to != NULL);
 	predecessor = victim->inchainRev;
 	if (predecessor == NULL)
@@ -468,9 +468,9 @@ freearc(struct nfa *nfa,
 	}
 	to->nins--;
 
-	/* clean up and place on NFA's free list */
+	/* 清理并放入 NFA 空闲链表 */
 	victim->type = 0;
-	victim->from = NULL;		/* precautions... */
+	victim->from = NULL;		/* 防范… */
 	victim->to = NULL;
 	victim->inchain = NULL;
 	victim->inchainRev = NULL;
@@ -481,9 +481,9 @@ freearc(struct nfa *nfa,
 }
 
 /*
- * changearcsource - flip an arc to have a different from state
+ * changearcsource - 将弧改接到不同 from 状态
  *
- * Caller must have verified that there is no pre-existing duplicate arc.
+ * 调用方须已确认不存在预先的重复弧。
  */
 static void
 changearcsource(struct arc *a, struct state *newfrom)
@@ -493,7 +493,7 @@ changearcsource(struct arc *a, struct state *newfrom)
 
 	assert(oldfrom != newfrom);
 
-	/* take it off old source's out-chain */
+	/* 从旧源的出链取下 */
 	assert(oldfrom != NULL);
 	predecessor = a->outchainRev;
 	if (predecessor == NULL)
@@ -515,7 +515,7 @@ changearcsource(struct arc *a, struct state *newfrom)
 
 	a->from = newfrom;
 
-	/* prepend it to new source's out-chain */
+	/* 把它接到新源出链前端 */
 	a->outchain = newfrom->outs;
 	a->outchainRev = NULL;
 	if (newfrom->outs)
@@ -525,9 +525,9 @@ changearcsource(struct arc *a, struct state *newfrom)
 }
 
 /*
- * changearctarget - flip an arc to have a different to state
+ * changearctarget - 将弧改接到不同 to 状态
  *
- * Caller must have verified that there is no pre-existing duplicate arc.
+ * 调用方须已确认不存在预先的重复弧。
  */
 static void
 changearctarget(struct arc *a, struct state *newto)
@@ -537,7 +537,7 @@ changearctarget(struct arc *a, struct state *newto)
 
 	assert(oldto != newto);
 
-	/* take it off old target's in-chain */
+	/* 从旧目标的入链取下 */
 	assert(oldto != NULL);
 	predecessor = a->inchainRev;
 	if (predecessor == NULL)
@@ -559,7 +559,7 @@ changearctarget(struct arc *a, struct state *newto)
 
 	a->to = newto;
 
-	/* prepend it to new target's in-chain */
+	/* 把它接到新目标入链前端 */
 	a->inchain = newto->ins;
 	a->inchainRev = NULL;
 	if (newto->ins)
@@ -569,7 +569,7 @@ changearctarget(struct arc *a, struct state *newto)
 }
 
 /*
- * hasnonemptyout - Does state have a non-EMPTY out arc?
+ * hasnonemptyout - 状态有非 EMPTY 出弧吗？
  */
 static int
 hasnonemptyout(struct state *s)
@@ -585,8 +585,8 @@ hasnonemptyout(struct state *s)
 }
 
 /*
- * findarc - find arc, if any, from given source with given type and color
- * If there is more than one such arc, the result is random.
+ * findarc - 自给定源找指定 type 与色的弧（若有）
+ * 若有多条此类弧，结果是随机的。
  */
 static struct arc *
 findarc(struct state *s,
@@ -602,7 +602,7 @@ findarc(struct state *s,
 }
 
 /*
- * cparc - allocate a new arc within an NFA, copying details from old one
+ * cparc - 在 NFA 内分配新弧，从旧弧复制细节
  */
 static void
 cparc(struct nfa *nfa,
@@ -614,7 +614,7 @@ cparc(struct nfa *nfa,
 }
 
 /*
- * sortins - sort the in arcs of a state by from/color/type
+ * sortins - 按 from/色/type 排序状态的入弧
  */
 static void
 sortins(struct nfa *nfa,
@@ -626,8 +626,8 @@ sortins(struct nfa *nfa,
 	int			i;
 
 	if (n <= 1)
-		return;					/* nothing to do */
-	/* make an array of arc pointers ... */
+		return;					/* 无事可做 */
+	/* 制作弧指针数组并 */
 	sortarray = (struct arc **) MALLOC(n * sizeof(struct arc *));
 	if (sortarray == NULL)
 	{
@@ -638,10 +638,10 @@ sortins(struct nfa *nfa,
 	for (a = s->ins; a != NULL; a = a->inchain)
 		sortarray[i++] = a;
 	assert(i == n);
-	/* ... sort the array */
+	/* 排序该数组 */
 	qsort(sortarray, n, sizeof(struct arc *), sortins_cmp);
-	/* ... and rebuild arc list in order */
-	/* it seems worth special-casing first and last items to simplify loop */
+	/* 再按序重建弧表 */
+	/* 对首尾项做特例处理似乎值得，以简化循环 */
 	a = sortarray[0];
 	s->ins = a;
 	a->inchain = sortarray[1];
@@ -664,7 +664,7 @@ sortins_cmp(const void *a, const void *b)
 	const struct arc *aa = *((const struct arc *const *) a);
 	const struct arc *bb = *((const struct arc *const *) b);
 
-	/* we check the fields in the order they are most likely to be different */
+	/* 按最可能不同的次序检查各字段 */
 	if (aa->from->no < bb->from->no)
 		return -1;
 	if (aa->from->no > bb->from->no)
@@ -681,7 +681,7 @@ sortins_cmp(const void *a, const void *b)
 }
 
 /*
- * sortouts - sort the out arcs of a state by to/color/type
+ * sortouts - 按 to/色/type 排序状态的出弧
  */
 static void
 sortouts(struct nfa *nfa,
@@ -693,8 +693,8 @@ sortouts(struct nfa *nfa,
 	int			i;
 
 	if (n <= 1)
-		return;					/* nothing to do */
-	/* make an array of arc pointers ... */
+		return;					/* 无事可做 */
+	/* 制作弧指针数组并 */
 	sortarray = (struct arc **) MALLOC(n * sizeof(struct arc *));
 	if (sortarray == NULL)
 	{
@@ -705,10 +705,10 @@ sortouts(struct nfa *nfa,
 	for (a = s->outs; a != NULL; a = a->outchain)
 		sortarray[i++] = a;
 	assert(i == n);
-	/* ... sort the array */
+	/* 排序该数组 */
 	qsort(sortarray, n, sizeof(struct arc *), sortouts_cmp);
-	/* ... and rebuild arc list in order */
-	/* it seems worth special-casing first and last items to simplify loop */
+	/* 再按序重建弧表 */
+	/* 对首尾项做特例处理似乎值得，以简化循环 */
 	a = sortarray[0];
 	s->outs = a;
 	a->outchain = sortarray[1];
@@ -731,7 +731,7 @@ sortouts_cmp(const void *a, const void *b)
 	const struct arc *aa = *((const struct arc *const *) a);
 	const struct arc *bb = *((const struct arc *const *) b);
 
-	/* we check the fields in the order they are most likely to be different */
+	/* 按最可能不同的次序检查各字段 */
 	if (aa->to->no < bb->to->no)
 		return -1;
 	if (aa->to->no > bb->to->no)
@@ -748,31 +748,31 @@ sortouts_cmp(const void *a, const void *b)
 }
 
 /*
- * Common decision logic about whether to use arc-by-arc operations or
- * sort/merge.  If there's just a few source arcs we cannot recoup the
- * cost of sorting the destination arc list, no matter how large it is.
- * Otherwise, limit the number of arc-by-arc comparisons to about 1000
- * (a somewhat arbitrary choice, but the breakeven point would probably
- * be machine dependent anyway).
+ * 关于用逐弧操作还是排序/归并的
+ * 共同判定逻辑。源弧很少时，无论目标弧表多大
+ * 都收不回排序目标弧表的开销。
+ * 否则，把逐弧比较次数限到约 1000（
+ * 此值有些任意，但盈亏平衡点大概
+ * 本就随机器而异）。
  */
 #define BULK_ARC_OP_USE_SORT(nsrcarcs, ndestarcs) \
 	((nsrcarcs) < 4 ? 0 : ((nsrcarcs) > 32 || (ndestarcs) > 32))
 
 /*
- * moveins - move all in arcs of a state to another state
+ * moveins - 把一状态全部入弧移到另一状态
  *
- * You might think this could be done better by just updating the
- * existing arcs, and you would be right if it weren't for the need
- * for duplicate suppression, which makes it easier to just make new
- * ones to exploit the suppression built into newarc.
+ * 或许以为就地更新现有弧更好，
+ * 若非需要抑制重复，你是对的；
+ * 抑制重复使直接新建更省事，
+ * 以利用 newarc 内建的抑制。
  *
- * However, if we have a whole lot of arcs to deal with, retail duplicate
- * checks become too slow.  In that case we proceed by sorting and merging
- * the arc lists, and then we can indeed just update the arcs in-place.
+ * 但若要处理的弧极多，逐条查重
+ * 会太慢。那时我们改为排序并归并
+ * 弧表，然后确可就地更新这些弧。
  *
- * On the other hand, it's also true that this is frequently called with
- * a brand-new newState that has no existing in-arcs.  In that case,
- * de-duplication is unnecessary, so we can just blindly move all the arcs.
+ * 另一方面，也常带着
+ * 尚无既有入弧的全新 newState 调用。那时
+ * 不必去重，可盲目移动全部弧。
  */
 static void
 moveins(struct nfa *nfa,
@@ -783,7 +783,7 @@ moveins(struct nfa *nfa,
 
 	if (newState->nins == 0)
 	{
-		/* No need for de-duplication */
+		/* 无需去重 */
 		struct arc *a;
 
 		while ((a = oldState->ins) != NULL)
@@ -794,7 +794,7 @@ moveins(struct nfa *nfa,
 	}
 	else if (!BULK_ARC_OP_USE_SORT(oldState->nins, newState->nins))
 	{
-		/* With not too many arcs, just do them one at a time */
+		/* 弧不太多时，逐条处理即可 */
 		struct arc *a;
 
 		while ((a = oldState->ins) != NULL)
@@ -806,23 +806,23 @@ moveins(struct nfa *nfa,
 	else
 	{
 		/*
-		 * With many arcs, use a sort-merge approach.  Note changearctarget()
-		 * will put the arc onto the front of newState's chain, so it does not
-		 * break our walk through the sorted part of the chain.
+		 * 弧很多时用排序-归并。注意 changearctarget()
+		 * 会把弧接到 newState 链前端，故不
+		 * 打断我们对链上已排序部分的遍历。
 		 */
 		struct arc *oa;
 		struct arc *na;
 
 		/*
-		 * Because we bypass newarc() in this code path, we'd better include a
-		 * cancel check.
+		 * 本路径绕过 newarc()，最好纳入
+		 * 取消检查
 		 */
 		INTERRUPT(nfa->v->re);
 
 		sortins(nfa, oldState);
 		sortins(nfa, newState);
 		if (NISERR())
-			return;				/* might have failed to sort */
+			return;				/* 排序可能已失败 */
 		oa = oldState->ins;
 		na = newState->ins;
 		while (oa != NULL && na != NULL)
@@ -832,24 +832,24 @@ moveins(struct nfa *nfa,
 			switch (sortins_cmp(&oa, &na))
 			{
 				case -1:
-					/* newState does not have anything matching oa */
+					/* newState 无与 oa 匹配者 */
 					oa = oa->inchain;
 
 					/*
-					 * Rather than doing createarc+freearc, we can just unlink
-					 * and relink the existing arc struct.
+					 * 与其 createarc+freearc，不如直接拆链
+					 * 再挂回既有弧结构。
 					 */
 					changearctarget(a, newState);
 					break;
 				case 0:
-					/* match, advance in both lists */
+					/* 匹配，两表都前进 */
 					oa = oa->inchain;
 					na = na->inchain;
-					/* ... and drop duplicate arc from oldState */
+					/* 并丢掉 oldState 的重复弧 */
 					freearc(nfa, a);
 					break;
 				case +1:
-					/* advance only na; oa might have a match later */
+					/* 只推进 na；oa 稍后可能匹配 */
 					na = na->inchain;
 					break;
 				default:
@@ -858,7 +858,7 @@ moveins(struct nfa *nfa,
 		}
 		while (oa != NULL)
 		{
-			/* newState does not have anything matching oa */
+			/* newState 无与 oa 匹配者 */
 			struct arc *a = oa;
 
 			oa = oa->inchain;
@@ -871,12 +871,12 @@ moveins(struct nfa *nfa,
 }
 
 /*
- * copyins - copy in arcs of a state to another state
+ * copyins - 复制状态入弧到另一状态
  *
- * The comments for moveins() apply here as well.  However, in current
- * usage, this is *only* called with brand-new target states, so that
- * only the "no need for de-duplication" code path is ever reached.
- * We keep the rest #ifdef'd out in case it's needed in the future.
+ * moveins() 的注释此处同样适用。但按当前
+ * 用法，*仅*对全新目标状态调用，故
+ * 只会走到"无需去重"那条路径。
+ * 其余以 #ifdef 关掉，以备日后需要。
  */
 static void
 copyins(struct nfa *nfa,
@@ -884,20 +884,20 @@ copyins(struct nfa *nfa,
 		struct state *newState)
 {
 	assert(oldState != newState);
-	assert(newState->nins == 0);	/* see comment above */
+	assert(newState->nins == 0);	/* 见上方注释 */
 
 	if (newState->nins == 0)
 	{
-		/* No need for de-duplication */
+		/* 无需去重 */
 		struct arc *a;
 
 		for (a = oldState->ins; a != NULL; a = a->inchain)
 			createarc(nfa, a->type, a->co, a->from, newState);
 	}
-#ifdef NOT_USED					/* see comment above */
+#ifdef NOT_USED					/* 见上方注释 */
 	else if (!BULK_ARC_OP_USE_SORT(oldState->nins, newState->nins))
 	{
-		/* With not too many arcs, just do them one at a time */
+		/* 弧不太多时，逐条处理即可 */
 		struct arc *a;
 
 		for (a = oldState->ins; a != NULL; a = a->inchain)
@@ -906,23 +906,23 @@ copyins(struct nfa *nfa,
 	else
 	{
 		/*
-		 * With many arcs, use a sort-merge approach.  Note that createarc()
-		 * will put new arcs onto the front of newState's chain, so it does
-		 * not break our walk through the sorted part of the chain.
+		 * 弧很多时用排序-归并。注意 createarc()
+		 * 会把新弧接到 newState 链前端，故不
+		 * 打断我们对链上已排序部分的遍历。
 		 */
 		struct arc *oa;
 		struct arc *na;
 
 		/*
-		 * Because we bypass newarc() in this code path, we'd better include a
-		 * cancel check.
+		 * 本路径绕过 newarc()，最好纳入
+		 * 取消检查
 		 */
 		INTERRUPT(nfa->v->re);
 
 		sortins(nfa, oldState);
 		sortins(nfa, newState);
 		if (NISERR())
-			return;				/* might have failed to sort */
+			return;				/* 排序可能已失败 */
 		oa = oldState->ins;
 		na = newState->ins;
 		while (oa != NULL && na != NULL)
@@ -932,17 +932,17 @@ copyins(struct nfa *nfa,
 			switch (sortins_cmp(&oa, &na))
 			{
 				case -1:
-					/* newState does not have anything matching oa */
+					/* newState 无与 oa 匹配者 */
 					oa = oa->inchain;
 					createarc(nfa, a->type, a->co, a->from, newState);
 					break;
 				case 0:
-					/* match, advance in both lists */
+					/* 匹配，两表都前进 */
 					oa = oa->inchain;
 					na = na->inchain;
 					break;
 				case +1:
-					/* advance only na; oa might have a match later */
+					/* 只推进 na；oa 稍后可能匹配 */
 					na = na->inchain;
 					break;
 				default:
@@ -951,7 +951,7 @@ copyins(struct nfa *nfa,
 		}
 		while (oa != NULL)
 		{
-			/* newState does not have anything matching oa */
+			/* newState 无与 oa 匹配者 */
 			struct arc *a = oa;
 
 			oa = oa->inchain;
@@ -962,10 +962,10 @@ copyins(struct nfa *nfa,
 }
 
 /*
- * mergeins - merge a list of inarcs into a state
+ * mergeins - 把一组 inarcs 归并入一状态
  *
- * This is much like copyins, but the source arcs are listed in an array,
- * and are not guaranteed unique.  It's okay to clobber the array contents.
+ * 很像 copyins，但源弧列在数组中，
+ * 且不保证唯一。可以改写数组内容。
  */
 static void
 mergeins(struct nfa *nfa,
@@ -981,21 +981,21 @@ mergeins(struct nfa *nfa,
 		return;
 
 	/*
-	 * Because we bypass newarc() in this code path, we'd better include a
-	 * cancel check.
+	 * 本路径绕过 newarc()，最好纳入
+	 * 取消检查
 	 */
 	INTERRUPT(nfa->v->re);
 
-	/* Sort existing inarcs as well as proposed new ones */
+	/* 排序既有 inarcs 与拟新增者 */
 	sortins(nfa, s);
 	if (NISERR())
-		return;					/* might have failed to sort */
+		return;					/* 排序可能已失败 */
 
 	qsort(arcarray, arccount, sizeof(struct arc *), sortins_cmp);
 
 	/*
-	 * arcarray very likely includes dups, so we must eliminate them.  (This
-	 * could be folded into the next loop, but it's not worth the trouble.)
+	 * arcarray 很可能含重复，必须消除。（这
+	 * 本可并入下一循环，但不值得费事。）
 	 */
 	j = 0;
 	for (i = 1; i < arccount; i++)
@@ -1003,23 +1003,23 @@ mergeins(struct nfa *nfa,
 		switch (sortins_cmp(&arcarray[j], &arcarray[i]))
 		{
 			case -1:
-				/* non-dup */
+				/* 非dup */
 				arcarray[++j] = arcarray[i];
 				break;
 			case 0:
 				/* dup */
 				break;
 			default:
-				/* trouble */
+				/* 出错 */
 				assert(NOTREACHED);
 		}
 	}
 	arccount = j + 1;
 
 	/*
-	 * Now merge into s' inchain.  Note that createarc() will put new arcs
-	 * onto the front of s's chain, so it does not break our walk through the
-	 * sorted part of the chain.
+	 * 现归并入 s 的入链。注意 createarc() 会把
+	 * 新弧接到 s 链前端，故不打断我们对
+	 * 已排链段的遍历。
 	 */
 	i = 0;
 	na = s->ins;
@@ -1030,17 +1030,17 @@ mergeins(struct nfa *nfa,
 		switch (sortins_cmp(&a, &na))
 		{
 			case -1:
-				/* s does not have anything matching a */
+				/* s 无与 a 匹配者 */
 				createarc(nfa, a->type, a->co, a->from, s);
 				i++;
 				break;
 			case 0:
-				/* match, advance in both lists */
+				/* 匹配，两表都前进 */
 				i++;
 				na = na->inchain;
 				break;
 			case +1:
-				/* advance only na; array might have a match later */
+				/* 只推进 na；数组稍后可能匹配 */
 				na = na->inchain;
 				break;
 			default:
@@ -1049,7 +1049,7 @@ mergeins(struct nfa *nfa,
 	}
 	while (i < arccount)
 	{
-		/* s does not have anything matching a */
+		/* s 无与 a 匹配者 */
 		struct arc *a = arcarray[i];
 
 		createarc(nfa, a->type, a->co, a->from, s);
@@ -1058,9 +1058,9 @@ mergeins(struct nfa *nfa,
 }
 
 /*
- * moveouts - move all out arcs of a state to another state
+ * moveouts - 把一状态全部出弧移到另一状态
  *
- * See comments for moveins()
+ * 见 moveins() 注释
  */
 static void
 moveouts(struct nfa *nfa,
@@ -1071,7 +1071,7 @@ moveouts(struct nfa *nfa,
 
 	if (newState->nouts == 0)
 	{
-		/* No need for de-duplication */
+		/* 无需去重 */
 		struct arc *a;
 
 		while ((a = oldState->outs) != NULL)
@@ -1082,7 +1082,7 @@ moveouts(struct nfa *nfa,
 	}
 	else if (!BULK_ARC_OP_USE_SORT(oldState->nouts, newState->nouts))
 	{
-		/* With not too many arcs, just do them one at a time */
+		/* 弧不太多时，逐条处理即可 */
 		struct arc *a;
 
 		while ((a = oldState->outs) != NULL)
@@ -1094,23 +1094,23 @@ moveouts(struct nfa *nfa,
 	else
 	{
 		/*
-		 * With many arcs, use a sort-merge approach.  Note changearcsource()
-		 * will put the arc onto the front of newState's chain, so it does not
-		 * break our walk through the sorted part of the chain.
+		 * 弧很多时用排序归并。注意 changearcsource()
+		 * 会把该弧放到 newState 链首，因而不会
+		 * 打断我们对链上已排序部分的遍历。
 		 */
 		struct arc *oa;
 		struct arc *na;
 
 		/*
-		 * Because we bypass newarc() in this code path, we'd better include a
-		 * cancel check.
+		 * 本路径绕过 newarc()，最好纳入
+		 * 取消检查
 		 */
 		INTERRUPT(nfa->v->re);
 
 		sortouts(nfa, oldState);
 		sortouts(nfa, newState);
 		if (NISERR())
-			return;				/* might have failed to sort */
+			return;				/* 排序可能已失败 */
 		oa = oldState->outs;
 		na = newState->outs;
 		while (oa != NULL && na != NULL)
@@ -1120,24 +1120,24 @@ moveouts(struct nfa *nfa,
 			switch (sortouts_cmp(&oa, &na))
 			{
 				case -1:
-					/* newState does not have anything matching oa */
+					/* newState 无与 oa 匹配者 */
 					oa = oa->outchain;
 
 					/*
-					 * Rather than doing createarc+freearc, we can just unlink
-					 * and relink the existing arc struct.
+					 * 与其 createarc+freearc，不如直接拆链
+					 * 再挂回既有弧结构。
 					 */
 					changearcsource(a, newState);
 					break;
 				case 0:
-					/* match, advance in both lists */
+					/* 匹配，两表都前进 */
 					oa = oa->outchain;
 					na = na->outchain;
-					/* ... and drop duplicate arc from oldState */
+					/* 并丢掉 oldState 的重复弧 */
 					freearc(nfa, a);
 					break;
 				case +1:
-					/* advance only na; oa might have a match later */
+					/* 只推进 na；oa 稍后可能匹配 */
 					na = na->outchain;
 					break;
 				default:
@@ -1146,7 +1146,7 @@ moveouts(struct nfa *nfa,
 		}
 		while (oa != NULL)
 		{
-			/* newState does not have anything matching oa */
+			/* newState 无与 oa 匹配者 */
 			struct arc *a = oa;
 
 			oa = oa->outchain;
@@ -1159,9 +1159,9 @@ moveouts(struct nfa *nfa,
 }
 
 /*
- * copyouts - copy out arcs of a state to another state
+ * copyouts - 把一状态出弧复制到另一状态
  *
- * See comments for copyins()
+ * 见 copyins() 的注释
  */
 static void
 copyouts(struct nfa *nfa,
@@ -1169,20 +1169,20 @@ copyouts(struct nfa *nfa,
 		 struct state *newState)
 {
 	assert(oldState != newState);
-	assert(newState->nouts == 0);	/* see comment above */
+	assert(newState->nouts == 0);	/* 见上方注释 */
 
 	if (newState->nouts == 0)
 	{
-		/* No need for de-duplication */
+		/* 无需去重 */
 		struct arc *a;
 
 		for (a = oldState->outs; a != NULL; a = a->outchain)
 			createarc(nfa, a->type, a->co, newState, a->to);
 	}
-#ifdef NOT_USED					/* see comment above */
+#ifdef NOT_USED					/* 见上方注释 */
 	else if (!BULK_ARC_OP_USE_SORT(oldState->nouts, newState->nouts))
 	{
-		/* With not too many arcs, just do them one at a time */
+		/* 弧不太多时，逐条处理即可 */
 		struct arc *a;
 
 		for (a = oldState->outs; a != NULL; a = a->outchain)
@@ -1191,23 +1191,23 @@ copyouts(struct nfa *nfa,
 	else
 	{
 		/*
-		 * With many arcs, use a sort-merge approach.  Note that createarc()
-		 * will put new arcs onto the front of newState's chain, so it does
-		 * not break our walk through the sorted part of the chain.
+		 * 弧很多时用排序-归并。注意 createarc()
+		 * 会把新弧接到 newState 链前端，故不
+		 * 打断我们对链上已排序部分的遍历。
 		 */
 		struct arc *oa;
 		struct arc *na;
 
 		/*
-		 * Because we bypass newarc() in this code path, we'd better include a
-		 * cancel check.
+		 * 本路径绕过 newarc()，最好纳入
+		 * 取消检查
 		 */
 		INTERRUPT(nfa->v->re);
 
 		sortouts(nfa, oldState);
 		sortouts(nfa, newState);
 		if (NISERR())
-			return;				/* might have failed to sort */
+			return;				/* 排序可能已失败 */
 		oa = oldState->outs;
 		na = newState->outs;
 		while (oa != NULL && na != NULL)
@@ -1217,17 +1217,17 @@ copyouts(struct nfa *nfa,
 			switch (sortouts_cmp(&oa, &na))
 			{
 				case -1:
-					/* newState does not have anything matching oa */
+					/* newState 无与 oa 匹配者 */
 					oa = oa->outchain;
 					createarc(nfa, a->type, a->co, newState, a->to);
 					break;
 				case 0:
-					/* match, advance in both lists */
+					/* 匹配，两表都前进 */
 					oa = oa->outchain;
 					na = na->outchain;
 					break;
 				case +1:
-					/* advance only na; oa might have a match later */
+					/* 只推进 na；oa 稍后可能匹配 */
 					na = na->outchain;
 					break;
 				default:
@@ -1236,7 +1236,7 @@ copyouts(struct nfa *nfa,
 		}
 		while (oa != NULL)
 		{
-			/* newState does not have anything matching oa */
+			/* newState 无与 oa 匹配者 */
 			struct arc *a = oa;
 
 			oa = oa->outchain;
@@ -1247,10 +1247,10 @@ copyouts(struct nfa *nfa,
 }
 
 /*
- * cloneouts - copy out arcs of a state to another state pair, modifying type
+ * cloneouts - 把一状态出弧复制到另一状态对并改类型
  *
- * This is only used to convert PLAIN arcs to AHEAD/BEHIND arcs, which share
- * the same interpretation of "co".  It wouldn't be sensible with LACONs.
+ * 仅用于把 PLAIN 弧转为 AHEAD/BEHIND 弧，二者
+ * 对 "co" 释义相同；用于 LACON 则不合理。
  */
 static void
 cloneouts(struct nfa *nfa,
@@ -1272,33 +1272,33 @@ cloneouts(struct nfa *nfa,
 }
 
 /*
- * delsub - delete a sub-NFA, updating subre pointers if necessary
+ * delsub - 删除子 NFA，必要时更新 subre 指针
  *
- * This uses a recursive traversal of the sub-NFA, marking already-seen
- * states using their tmp pointer.
+ * 对子 NFA 做递归遍历，用其 tmp 指针标记
+ * 已见过的状态。
  */
 static void
 delsub(struct nfa *nfa,
-	   struct state *lp,		/* the sub-NFA goes from here... */
-	   struct state *rp)		/* ...to here, *not* inclusive */
+	   struct state *lp,		/* 子 NFA 由此开始... */
+	   struct state *rp)		/* 到此，*不含*终点 */
 {
 	assert(lp != rp);
 
-	rp->tmp = rp;				/* mark end */
+	rp->tmp = rp;				/* 标末 */
 
 	deltraverse(nfa, lp, lp);
 	if (NISERR())
-		return;					/* asserts might not hold after failure */
-	assert(lp->nouts == 0 && rp->nins == 0);	/* did the job */
-	assert(lp->no != FREESTATE && rp->no != FREESTATE); /* no more */
+		return;					/* 失败后断言未必成立 */
+	assert(lp->nouts == 0 && rp->nins == 0);	/* 已办妥 */
+	assert(lp->no != FREESTATE && rp->no != FREESTATE); /* 已无 */
 
-	rp->tmp = NULL;				/* unmark end */
-	lp->tmp = NULL;				/* and begin, marked by deltraverse */
+	rp->tmp = NULL;				/* 消末标 */
+	lp->tmp = NULL;				/* 及起点，deltraverse 所标 */
 }
 
 /*
- * deltraverse - the recursive heart of delsub
- * This routine's basic job is to destroy all out-arcs of the state.
+ * deltraverse - delsub 的递归核心
+ * 本例程基本职责是销毁该状态的全部出弧。
  */
 static void
 deltraverse(struct nfa *nfa,
@@ -1308,7 +1308,7 @@ deltraverse(struct nfa *nfa,
 	struct arc *a;
 	struct state *to;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -1316,18 +1316,18 @@ deltraverse(struct nfa *nfa,
 	}
 
 	if (s->nouts == 0)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 	if (s->tmp != NULL)
-		return;					/* already in progress */
+		return;					/* 已在进行中 */
 
-	s->tmp = s;					/* mark as in progress */
+	s->tmp = s;					/* 标为进行中 */
 
 	while ((a = s->outs) != NULL)
 	{
 		to = a->to;
 		deltraverse(nfa, leftend, to);
 		if (NISERR())
-			return;				/* asserts might not hold after failure */
+			return;				/* 失败后断言未必成立 */
 		assert(to->nouts == 0 || to->tmp != NULL);
 		freearc(nfa, a);
 		if (to->nins == 0 && to->tmp == NULL)
@@ -1337,26 +1337,26 @@ deltraverse(struct nfa *nfa,
 		}
 	}
 
-	assert(s->no != FREESTATE); /* we're still here */
-	assert(s == leftend || s->nins != 0);	/* and still reachable */
-	assert(s->nouts == 0);		/* but have no outarcs */
+	assert(s->no != FREESTATE); /* 我们仍在此 */
+	assert(s == leftend || s->nins != 0);	/* 且仍可达 */
+	assert(s->nouts == 0);		/* 但已无出弧 */
 
-	s->tmp = NULL;				/* we're done here */
+	s->tmp = NULL;				/* 此处已完成 */
 }
 
 /*
- * dupnfa - duplicate sub-NFA
+ * dupnfa - 复制子 NFA
  *
- * Another recursive traversal, this time using tmp to point to duplicates
- * as well as mark already-seen states.  (You knew there was a reason why
- * it's a state pointer, didn't you? :-))
+ * 又一次递归遍历；这次用 tmp 指向副本
+ * 并标记已见状态。（你早知它为何是
+ * 状态指针了吧？:-))
  */
 static void
 dupnfa(struct nfa *nfa,
-	   struct state *start,		/* duplicate of subNFA starting here */
-	   struct state *stop,		/* and stopping here */
-	   struct state *from,		/* stringing duplicate from here */
-	   struct state *to)		/* to here */
+	   struct state *start,		/* 在此起始的子 NFA 之副本 */
+	   struct state *stop,		/* 并在此结束 */
+	   struct state *from,		/* 把副本串接自此 */
+	   struct state *to)		/* 至此 */
 {
 	if (start == stop)
 	{
@@ -1366,23 +1366,23 @@ dupnfa(struct nfa *nfa,
 
 	stop->tmp = to;
 	duptraverse(nfa, start, from);
-	/* done, except for clearing out the tmp pointers */
+	/* 完成，只差清掉 tmp 指针 */
 
 	stop->tmp = NULL;
 	cleartraverse(nfa, start);
 }
 
 /*
- * duptraverse - recursive heart of dupnfa
+ * duptraverse - dupnfa 的递归核心
  */
 static void
 duptraverse(struct nfa *nfa,
 			struct state *s,
-			struct state *stmp) /* s's duplicate, or NULL */
+			struct state *stmp) /* s 的副本，或 NULL */
 {
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -1390,7 +1390,7 @@ duptraverse(struct nfa *nfa,
 	}
 
 	if (s->tmp != NULL)
-		return;					/* already done */
+		return;					/* 已完成 */
 
 	s->tmp = (stmp == NULL) ? newstate(nfa) : stmp;
 	if (s->tmp == NULL)
@@ -1410,29 +1410,29 @@ duptraverse(struct nfa *nfa,
 }
 
 /*
- * removeconstraints - remove any constraints in an NFA
+ * removeconstraints - 去掉 NFA 中任何约束
  *
- * Constraint arcs are replaced by empty arcs, essentially treating all
- * constraints as automatically satisfied.
+ * 约束弧换成空弧，实质视全部约束
+ * 为已自动满足。
  */
 static void
 removeconstraints(struct nfa *nfa,
-				  struct state *start,	/* process subNFA starting here */
-				  struct state *stop)	/* and stopping here */
+				  struct state *start,	/* 处理自此起的子 NFA */
+				  struct state *stop)	/* 并在此结束 */
 {
 	if (start == stop)
 		return;
 
 	stop->tmp = stop;
 	removetraverse(nfa, start);
-	/* done, except for clearing out the tmp pointers */
+	/* 完成，只差清掉 tmp 指针 */
 
 	stop->tmp = NULL;
 	cleartraverse(nfa, start);
 }
 
 /*
- * removetraverse - recursive heart of removeconstraints
+ * removetraverse - removeconstraints 的递归核心
  */
 static void
 removetraverse(struct nfa *nfa,
@@ -1441,7 +1441,7 @@ removetraverse(struct nfa *nfa,
 	struct arc *a;
 	struct arc *oa;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -1449,7 +1449,7 @@ removetraverse(struct nfa *nfa,
 	}
 
 	if (s->tmp != NULL)
-		return;					/* already done */
+		return;					/* 已完成 */
 
 	s->tmp = s;
 	for (a = s->outs; a != NULL && !NISERR(); a = oa)
@@ -1463,14 +1463,14 @@ removetraverse(struct nfa *nfa,
 			case PLAIN:
 			case EMPTY:
 			case CANTMATCH:
-				/* nothing to do */
+				/* 无事可做 */
 				break;
 			case AHEAD:
 			case BEHIND:
 			case '^':
 			case '$':
 			case LACON:
-				/* replace it */
+				/* 替换之 */
 				newarc(nfa, EMPTY, 0, s, a->to);
 				freearc(nfa, a);
 				break;
@@ -1482,7 +1482,7 @@ removetraverse(struct nfa *nfa,
 }
 
 /*
- * cleartraverse - recursive cleanup for algorithms that leave tmp ptrs set
+ * cleartraverse - 为留下 tmp 指针的算法做递归清理
  */
 static void
 cleartraverse(struct nfa *nfa,
@@ -1490,7 +1490,7 @@ cleartraverse(struct nfa *nfa,
 {
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -1506,55 +1506,55 @@ cleartraverse(struct nfa *nfa,
 }
 
 /*
- * single_color_transition - does getting from s1 to s2 cross one PLAIN arc?
+ * single_color_transition - 从 s1 到 s2 是否只跨一条 PLAIN 弧？
  *
- * If traversing from s1 to s2 requires a single PLAIN match (possibly of any
- * of a set of colors), return a state whose outarc list contains only PLAIN
- * arcs of those color(s).  Otherwise return NULL.
+ * 若从 s1 到 s2 只需一次 PLAIN 匹配（可为某
+ * 组色中任一），则返回出弧表仅含这些
+ * 色 PLAIN 弧之状态；否则返回 NULL。
  *
- * This is used before optimizing the NFA, so there may be EMPTY arcs, which
- * we should ignore; the possibility of an EMPTY is why the result state could
- * be different from s1.
+ * 在优化 NFA 前调用，故可能有 EMPTY 弧须
+ * 忽略；正因可能有 EMPTY，结果状态才可能
+ * 不同于 s1。
  *
- * It's worth troubling to handle multiple parallel PLAIN arcs here because a
- * bracket construct such as [abc] might yield either one or several parallel
- * PLAIN arcs depending on earlier atoms in the expression.  We'd rather that
- * that implementation detail not create user-visible performance differences.
+ * 值得处理多条并行 PLAIN 弧，因为
+ * 如 [abc] 这类括号构造可能产生一条或多条
+ * 并行 PLAIN 弧，取决于表达式中更早的原子。我们宁可
+ * 不让该实现细节造成用户可见的性能差异。
  */
 static struct state *
 single_color_transition(struct state *s1, struct state *s2)
 {
 	struct arc *a;
 
-	/* Ignore leading EMPTY arc, if any */
+	/* 忽略前导 EMPTY 弧(若有) */
 	if (s1->nouts == 1 && s1->outs->type == EMPTY)
 		s1 = s1->outs->to;
-	/* Likewise for any trailing EMPTY arc */
+	/* 对尾随 EMPTY 弧同样处理 */
 	if (s2->nins == 1 && s2->ins->type == EMPTY)
 		s2 = s2->ins->from;
-	/* Perhaps we could have a single-state loop in between, if so reject */
+	/* 中间或有单状态环，若有则拒绝 */
 	if (s1 == s2)
 		return NULL;
-	/* s1 must have at least one outarc... */
+	/* s1 至少须有一条出弧... */
 	if (s1->outs == NULL)
 		return NULL;
-	/* ... and they must all be PLAIN arcs to s2 */
+	/* 且须全是指向 s2 的 PLAIN 弧 */
 	for (a = s1->outs; a != NULL; a = a->outchain)
 	{
 		if (a->type != PLAIN || a->to != s2)
 			return NULL;
 	}
-	/* OK, return s1 as the possessor of the relevant outarcs */
+	/* 可返回 s1 作为相关出弧的持有者 */
 	return s1;
 }
 
 /*
- * specialcolors - fill in special colors for an NFA
+ * specialcolors - 为 NFA 填入特殊色
  */
 static void
 specialcolors(struct nfa *nfa)
 {
-	/* false colors for BOS, BOL, EOS, EOL */
+	/* BOS/BOL/EOS/EOL 的假色 */
 	if (nfa->parent == NULL)
 	{
 		nfa->bos[0] = pseudocolor(nfa->cm);
@@ -1576,23 +1576,23 @@ specialcolors(struct nfa *nfa)
 }
 
 /*
- * optimize - optimize an NFA
+ * optimize - 优化 NFA
  *
- * The main goal of this function is not so much "optimization" (though it
- * does try to get rid of useless NFA states) as reducing the NFA to a form
- * the regex executor can handle.  The executor, and indeed the cNFA format
- * that is its input, can only handle PLAIN and LACON arcs.  The output of
- * the regex parser also includes EMPTY (do-nothing) arcs, as well as
- * ^, $, AHEAD, and BEHIND constraint arcs, which we must get rid of here.
- * We first get rid of EMPTY arcs and then deal with the constraint arcs.
- * The hardest part of either job is to get rid of circular loops of the
- * target arc type.  We would have to do that in any case, though, as such a
- * loop would otherwise allow the executor to cycle through the loop endlessly
- * without making any progress in the input string.
+ * 本函数主旨与其说是"优化"（虽也
+ * 会去掉无用 NFA 状态）不如说是把 NFA 化简为
+ * 正则执行器能处理的形态。执行器及作为其
+ * 输入的 cNFA 格式，都只能处理 PLAIN 与 LACON 弧。
+ * 正则解析器输出还有 EMPTY（无操作）弧，以及
+ * ^、$、AHEAD 与 BEHIND 约束弧，此处必须除掉。
+ * 我们先去掉 EMPTY 弧，再处理约束弧。
+ * 两件事最难的都是除掉目标弧类型的环形回路。
+ * 不过无论如何都得做：否则这样的环会让
+ * 执行器在环中无限打转，却在输入串上
+ * 毫无进展。
  */
-static long						/* re_info bits */
+static long						/* re_info 位 */
 optimize(struct nfa *nfa,
-		 FILE *f)				/* for debug output; NULL none */
+		 FILE *f)				/* 调试输出；NULL 即无 */
 {
 #ifdef REG_DEBUG
 	int			verbose = (f != NULL) ? 1 : 0;
@@ -1600,45 +1600,45 @@ optimize(struct nfa *nfa,
 	if (verbose)
 		fprintf(f, "\ninitial cleanup:\n");
 #endif
-	/* If we have any CANTMATCH arcs, drop them; but this is uncommon */
+	/* 若有 CANTMATCH 弧则丢弃；但较少见 */
 	if (nfa->flags & HASCANTMATCH)
 	{
 		removecantmatch(nfa);
 		nfa->flags &= ~HASCANTMATCH;
 	}
-	cleanup(nfa);				/* may simplify situation */
+	cleanup(nfa);				/* 或可简化局面 */
 #ifdef REG_DEBUG
 	if (verbose)
 		dumpnfa(nfa, f);
 	if (verbose)
 		fprintf(f, "\nempties:\n");
 #endif
-	fixempties(nfa, f);			/* get rid of EMPTY arcs */
+	fixempties(nfa, f);			/* 去掉 EMPTY 弧 */
 #ifdef REG_DEBUG
 	if (verbose)
 		fprintf(f, "\nconstraints:\n");
 #endif
-	fixconstraintloops(nfa, f); /* get rid of constraint loops */
-	pullback(nfa, f);			/* pull back constraints backward */
-	pushfwd(nfa, f);			/* push fwd constraints forward */
+	fixconstraintloops(nfa, f); /* 去掉约束环 */
+	pullback(nfa, f);			/* 把约束向后拉 */
+	pushfwd(nfa, f);			/* 把约束向前推 */
 #ifdef REG_DEBUG
 	if (verbose)
 		fprintf(f, "\nfinal cleanup:\n");
 #endif
-	cleanup(nfa);				/* final tidying */
+	cleanup(nfa);				/* 最终整理 */
 #ifdef REG_DEBUG
 	if (verbose)
 		dumpnfa(nfa, f);
 #endif
-	return analyze(nfa);		/* and analysis */
+	return analyze(nfa);		/* 并分析 */
 }
 
 /*
- * pullback - pull back constraints backward to eliminate them
+ * pullback - 向后拉约束以消除之
  */
 static void
 pullback(struct nfa *nfa,
-		 FILE *f)				/* for debug output; NULL none */
+		 FILE *f)				/* 调试输出；NULL 即无 */
 {
 	struct state *s;
 	struct state *nexts;
@@ -1647,7 +1647,7 @@ pullback(struct nfa *nfa,
 	struct state *intermediates;
 	int			progress;
 
-	/* find and pull until there are no more */
+	/* 不断查找并拉直至没有 */
 	do
 	{
 		progress = 0;
@@ -1662,7 +1662,7 @@ pullback(struct nfa *nfa,
 					if (pull(nfa, a, &intermediates))
 						progress = 1;
 			}
-			/* clear tmp fields of intermediate states created here */
+			/* 清掉此处所建中间状态的 tmp 字段 */
 			while (intermediates != NULL)
 			{
 				struct state *ns = intermediates->tmp;
@@ -1670,7 +1670,7 @@ pullback(struct nfa *nfa,
 				intermediates->tmp = NULL;
 				intermediates = ns;
 			}
-			/* if s is now useless, get rid of it */
+			/* 若 s 现已无用则除掉 */
 			if ((s->nins == 0 || s->nouts == 0) && !s->flag)
 				dropstate(nfa, s);
 		}
@@ -1681,10 +1681,10 @@ pullback(struct nfa *nfa,
 		return;
 
 	/*
-	 * Any ^ constraints we were able to pull to the start state can now be
-	 * replaced by PLAIN arcs referencing the BOS or BOL colors.  There should
-	 * be no other ^ or BEHIND arcs left in the NFA, though we do not check
-	 * that here (compact() will fail if so).
+	 * 凡能拉到起始状态的 ^ 约束，现在都可
+	 * 换成引用 BOS 或 BOL 色的 PLAIN 弧。不应再
+	 * 有其他 ^ 或 BEHIND 弧留在 NFA 中，但此处
+	 * 不查（有则 compact() 失败）。
 	 */
 	for (a = nfa->pre->outs; a != NULL; a = nexta)
 	{
@@ -1699,22 +1699,22 @@ pullback(struct nfa *nfa,
 }
 
 /*
- * pull - pull a back constraint backward past its source state
+ * pull - 把后向约束向后拉过其源状态
  *
- * Returns 1 if successful (which it always is unless the source is the
- * start state or we have an internal error), 0 if nothing happened.
+ * 成功则返回 1（除非源是起始状态或有
+ * 内部错误），若无事发生则返回 0。
  *
- * A significant property of this function is that it deletes no pre-existing
- * states, and no outarcs of the constraint's from state other than the given
- * constraint arc.  This makes the loops in pullback() safe, at the cost that
- * we may leave useless states behind.  Therefore, we leave it to pullback()
- * to delete such states.
+ * 本函数的重要性质是：不删除任何既有
+ * 状态，也不删除该约束 from 状态上除给定
+ * 约束弧以外的出弧。这使 pullback() 中的循环
+ * 安全，代价是可能留下无用状态。故留给
+ * pullback() 去删。
  *
- * If the from state has multiple back-constraint outarcs, and/or multiple
- * compatible constraint inarcs, we only need to create one new intermediate
- * state per combination of predecessor and successor states.  *intermediates
- * points to a list of such intermediate states for this from state (chained
- * through their tmp fields).
+ * 若 from 有多条后向约束出弧，且/或多条
+ * 兼容约束入弧，则对每个前驱与后继状态
+ * 组合只需建一个新中间状态。*intermediates
+ * 指向该 from 的此类中间状态列表（经其
+ * tmp 字段相链）。
  */
 static int
 pull(struct nfa *nfa,
@@ -1727,27 +1727,27 @@ pull(struct nfa *nfa,
 	struct arc *nexta;
 	struct state *s;
 
-	assert(from != to);			/* should have gotten rid of this earlier */
-	if (from->flag)				/* can't pull back beyond start */
+	assert(from != to);			/* 本应更早除掉 */
+	if (from->flag)				/* 不能拉过起点 */
 		return 0;
 	if (from->nins == 0)
-	{							/* unreachable */
+	{							/* 不可达 */
 		freearc(nfa, con);
 		return 1;
 	}
 
 	/*
-	 * First, clone from state if necessary to avoid other outarcs.  This may
-	 * seem wasteful, but it simplifies the logic, and we'll get rid of the
-	 * clone state again at the bottom.
+	 * 首先，必要时克隆 from 以免有其他出弧。这或
+	 * 看似浪费，但可简化逻辑，且我们会在
+	 * 底端再去掉克隆状态。
 	 */
 	if (from->nouts > 1)
 	{
 		s = newstate(nfa);
 		if (NISERR())
 			return 0;
-		copyins(nfa, from, s);	/* duplicate inarcs */
-		cparc(nfa, con, s, to); /* move constraint arc */
+		copyins(nfa, from, s);	/* 复制入弧 */
+		cparc(nfa, con, s, to); /* 移动约束弧 */
 		freearc(nfa, con);
 		if (NISERR())
 			return 0;
@@ -1756,19 +1756,19 @@ pull(struct nfa *nfa,
 	}
 	assert(from->nouts == 1);
 
-	/* propagate the constraint into the from state's inarcs */
+	/* 把约束传播进 from 状态的入弧 */
 	for (a = from->ins; a != NULL && !NISERR(); a = nexta)
 	{
 		nexta = a->inchain;
 		switch (combine(nfa, con, a))
 		{
-			case INCOMPATIBLE:	/* destroy the arc */
+			case INCOMPATIBLE:	/* 销毁该弧 */
 				freearc(nfa, a);
 				break;
-			case SATISFIED:		/* no action needed */
+			case SATISFIED:		/* 无需动作 */
 				break;
-			case COMPATIBLE:	/* swap the two arcs, more or less */
-				/* need an intermediate state, but might have one already */
+			case COMPATIBLE:	/* 大体交换这两条弧 */
+				/* 需要中间状态，但或许已有 */
 				for (s = *intermediates; s != NULL; s = s->tmp)
 				{
 					assert(s->nins > 0 && s->nouts > 0);
@@ -1787,7 +1787,7 @@ pull(struct nfa *nfa,
 				cparc(nfa, a, s, to);
 				freearc(nfa, a);
 				break;
-			case REPLACEARC:	/* replace arc's color */
+			case REPLACEARC:	/* 替换弧的色 */
 				newarc(nfa, a->type, con->co, a->from, to);
 				freearc(nfa, a);
 				break;
@@ -1797,19 +1797,19 @@ pull(struct nfa *nfa,
 		}
 	}
 
-	/* remaining inarcs, if any, incorporate the constraint */
+	/* 若有剩余入弧，纳入该约束 */
 	moveins(nfa, from, to);
 	freearc(nfa, con);
-	/* from state is now useless, but we leave it to pullback() to clean up */
+	/* from 状态现已无用，留待 pullback() 清理 */
 	return 1;
 }
 
 /*
- * pushfwd - push forward constraints forward to eliminate them
+ * pushfwd - 把前向约束向前推以消除之
  */
 static void
 pushfwd(struct nfa *nfa,
-		FILE *f)				/* for debug output; NULL none */
+		FILE *f)				/* 调试输出；NULL 即无 */
 {
 	struct state *s;
 	struct state *nexts;
@@ -1818,7 +1818,7 @@ pushfwd(struct nfa *nfa,
 	struct state *intermediates;
 	int			progress;
 
-	/* find and push until there are no more */
+	/* 查找并前推直至没有更多 */
 	do
 	{
 		progress = 0;
@@ -1833,7 +1833,7 @@ pushfwd(struct nfa *nfa,
 					if (push(nfa, a, &intermediates))
 						progress = 1;
 			}
-			/* clear tmp fields of intermediate states created here */
+			/* 清掉此处所建中间状态的 tmp 字段 */
 			while (intermediates != NULL)
 			{
 				struct state *ns = intermediates->tmp;
@@ -1841,7 +1841,7 @@ pushfwd(struct nfa *nfa,
 				intermediates->tmp = NULL;
 				intermediates = ns;
 			}
-			/* if s is now useless, get rid of it */
+			/* 若 s 现已无用则除掉 */
 			if ((s->nins == 0 || s->nouts == 0) && !s->flag)
 				dropstate(nfa, s);
 		}
@@ -1852,10 +1852,10 @@ pushfwd(struct nfa *nfa,
 		return;
 
 	/*
-	 * Any $ constraints we were able to push to the post state can now be
-	 * replaced by PLAIN arcs referencing the EOS or EOL colors.  There should
-	 * be no other $ or AHEAD arcs left in the NFA, though we do not check
-	 * that here (compact() will fail if so).
+	 * 凡能推到 post 状态的 $ 约束，现可换成引用
+	 * EOS 或 EOL 色的 PLAIN 弧。NFA 中应不再有其
+	 * 它 $ 或 AHEAD 弧，不过此处不检查
+	 * （若有则 compact() 会失败）。
 	 */
 	for (a = nfa->post->ins; a != NULL; a = nexta)
 	{
@@ -1870,22 +1870,22 @@ pushfwd(struct nfa *nfa,
 }
 
 /*
- * push - push a forward constraint forward past its destination state
+ * push - 把前向约束推过其目的状态
  *
- * Returns 1 if successful (which it always is unless the destination is the
- * post state or we have an internal error), 0 if nothing happened.
+ * 成功返回 1（几乎总是；除非目的是
+ * post 状态或有内部错误），无事发生则返回 0。
  *
- * A significant property of this function is that it deletes no pre-existing
- * states, and no inarcs of the constraint's to state other than the given
- * constraint arc.  This makes the loops in pushfwd() safe, at the cost that
- * we may leave useless states behind.  Therefore, we leave it to pushfwd()
- * to delete such states.
+ * 本函数一重要性质是：不删除任何既有
+ * 状态，也不删除约束 to 状态上除给定
+ * 约束弧外的入弧。这使 pushfwd() 循环安全，代价是
+ * 可能留下无用状态。因此留给 pushfwd()
+ * 删除此类状态。
  *
- * If the to state has multiple forward-constraint inarcs, and/or multiple
- * compatible constraint outarcs, we only need to create one new intermediate
- * state per combination of predecessor and successor states.  *intermediates
- * points to a list of such intermediate states for this to state (chained
- * through their tmp fields).
+ * 若 to 状态有多条前向约束入弧，和/或多条
+ * 相容约束出弧，则对每对前驱与后继状态组合
+ * 只需创建一个新中间状态。*intermediates
+ * 指向该 to 状态的此类中间状态列表（经其
+ * tmp 字段串联）。
  */
 static int
 push(struct nfa *nfa,
@@ -1898,27 +1898,27 @@ push(struct nfa *nfa,
 	struct arc *nexta;
 	struct state *s;
 
-	assert(to != from);			/* should have gotten rid of this earlier */
-	if (to->flag)				/* can't push forward beyond end */
+	assert(to != from);			/* 本应更早除掉 */
+	if (to->flag)				/* 不能前推越过终点 */
 		return 0;
 	if (to->nouts == 0)
-	{							/* dead end */
+	{							/* 死路 */
 		freearc(nfa, con);
 		return 1;
 	}
 
 	/*
-	 * First, clone to state if necessary to avoid other inarcs.  This may
-	 * seem wasteful, but it simplifies the logic, and we'll get rid of the
-	 * clone state again at the bottom.
+	 * 首先必要时克隆 to 状态以避免其它入弧。这或
+	 * 看似浪费，但简化逻辑，且我们会在
+	 * 底部再弃克隆状态。
 	 */
 	if (to->nins > 1)
 	{
 		s = newstate(nfa);
 		if (NISERR())
 			return 0;
-		copyouts(nfa, to, s);	/* duplicate outarcs */
-		cparc(nfa, con, from, s);	/* move constraint arc */
+		copyouts(nfa, to, s);	/* 复制出弧 */
+		cparc(nfa, con, from, s);	/* 移动约束弧 */
 		freearc(nfa, con);
 		if (NISERR())
 			return 0;
@@ -1927,19 +1927,19 @@ push(struct nfa *nfa,
 	}
 	assert(to->nins == 1);
 
-	/* propagate the constraint into the to state's outarcs */
+	/* 把约束传播到 to 状态的出弧 */
 	for (a = to->outs; a != NULL && !NISERR(); a = nexta)
 	{
 		nexta = a->outchain;
 		switch (combine(nfa, con, a))
 		{
-			case INCOMPATIBLE:	/* destroy the arc */
+			case INCOMPATIBLE:	/* 销毁该弧 */
 				freearc(nfa, a);
 				break;
-			case SATISFIED:		/* no action needed */
+			case SATISFIED:		/* 无需动作 */
 				break;
-			case COMPATIBLE:	/* swap the two arcs, more or less */
-				/* need an intermediate state, but might have one already */
+			case COMPATIBLE:	/* 大体交换这两条弧 */
+				/* 需要中间状态，但或许已有 */
 				for (s = *intermediates; s != NULL; s = s->tmp)
 				{
 					assert(s->nins > 0 && s->nouts > 0);
@@ -1958,7 +1958,7 @@ push(struct nfa *nfa,
 				cparc(nfa, a, from, s);
 				freearc(nfa, a);
 				break;
-			case REPLACEARC:	/* replace arc's color */
+			case REPLACEARC:	/* 替换弧的色 */
 				newarc(nfa, a->type, con->co, from, a->to);
 				freearc(nfa, a);
 				break;
@@ -1968,20 +1968,20 @@ push(struct nfa *nfa,
 		}
 	}
 
-	/* remaining outarcs, if any, incorporate the constraint */
+	/* 若有剩余出弧，纳入该约束 */
 	moveouts(nfa, to, from);
 	freearc(nfa, con);
-	/* to state is now useless, but we leave it to pushfwd() to clean up */
+	/* to 状态现已无用，留待 pushfwd() 清理 */
 	return 1;
 }
 
 /*
- * combine - constraint lands on an arc, what happens?
+ * combine - 约束落到弧上会怎样？
  *
- * #def INCOMPATIBLE	1	// destroys arc
- * #def SATISFIED		2	// constraint satisfied
- * #def COMPATIBLE		3	// compatible but not satisfied yet
- * #def REPLACEARC		4	// replace arc's color with constraint color
+ * #def INCOMPATIBLE	1	// 销毁弧
+ * #def SATISFIED		2	// 约束已满足
+ * #def COMPATIBLE		3	// 相容但尚未满足
+ * #def REPLACEARC		4	// 用约束色替换弧的色
  */
 static int
 combine(struct nfa *nfa,
@@ -1992,65 +1992,65 @@ combine(struct nfa *nfa,
 
 	switch (CA(con->type, a->type))
 	{
-		case CA('^', PLAIN):	/* newlines are handled separately */
+		case CA('^', PLAIN):	/* 换行符另行处理 */
 		case CA('$', PLAIN):
 			return INCOMPATIBLE;
 			break;
-		case CA(AHEAD, PLAIN):	/* color constraints meet colors */
+		case CA(AHEAD, PLAIN):	/* 色约束与色相遇 */
 		case CA(BEHIND, PLAIN):
 			if (con->co == a->co)
 				return SATISFIED;
 			if (con->co == RAINBOW)
 			{
-				/* con is satisfied unless arc's color is a pseudocolor */
+				/* 除非弧色为伪色，否则 con 已满足 */
 				if (!(nfa->cm->cd[a->co].flags & PSEUDO))
 					return SATISFIED;
 			}
 			else if (a->co == RAINBOW)
 			{
-				/* con is incompatible if it's for a pseudocolor */
-				/* (this is hypothetical; we make no such constraints today) */
+				/* 若 con 针对伪色则不相容 */
+				/* （假设情形；现今不做此类约束） */
 				if (nfa->cm->cd[con->co].flags & PSEUDO)
 					return INCOMPATIBLE;
-				/* otherwise, constraint constrains arc to be only its color */
+				/* 否则约束把弧限定为其色 */
 				return REPLACEARC;
 			}
 			return INCOMPATIBLE;
 			break;
-		case CA('^', '^'):		/* collision, similar constraints */
+		case CA('^', '^'):		/* 碰撞，同类约束 */
 		case CA('$', '$'):
-			if (con->co == a->co)	/* true duplication */
+			if (con->co == a->co)	/* 真重复 */
 				return SATISFIED;
 			return INCOMPATIBLE;
 			break;
-		case CA(AHEAD, AHEAD):	/* collision, similar constraints */
+		case CA(AHEAD, AHEAD):	/* 碰撞，同类约束 */
 		case CA(BEHIND, BEHIND):
-			if (con->co == a->co)	/* true duplication */
+			if (con->co == a->co)	/* 真重复 */
 				return SATISFIED;
 			if (con->co == RAINBOW)
 			{
-				/* con is satisfied unless arc's color is a pseudocolor */
+				/* 除非弧色为伪色，否则 con 已满足 */
 				if (!(nfa->cm->cd[a->co].flags & PSEUDO))
 					return SATISFIED;
 			}
 			else if (a->co == RAINBOW)
 			{
-				/* con is incompatible if it's for a pseudocolor */
-				/* (this is hypothetical; we make no such constraints today) */
+				/* 若 con 针对伪色则不相容 */
+				/* （假设情形；现今不做此类约束） */
 				if (nfa->cm->cd[con->co].flags & PSEUDO)
 					return INCOMPATIBLE;
-				/* otherwise, constraint constrains arc to be only its color */
+				/* 否则约束把弧限定为其色 */
 				return REPLACEARC;
 			}
 			return INCOMPATIBLE;
 			break;
-		case CA('^', BEHIND):	/* collision, dissimilar constraints */
+		case CA('^', BEHIND):	/* 碰撞，异类约束 */
 		case CA(BEHIND, '^'):
 		case CA('$', AHEAD):
 		case CA(AHEAD, '$'):
 			return INCOMPATIBLE;
 			break;
-		case CA('^', '$'):		/* constraints passing each other */
+		case CA('^', '$'):		/* 约束彼此交错穿过 */
 		case CA('^', AHEAD):
 		case CA(BEHIND, '$'):
 		case CA(BEHIND, AHEAD):
@@ -2066,15 +2066,15 @@ combine(struct nfa *nfa,
 			break;
 	}
 	assert(NOTREACHED);
-	return INCOMPATIBLE;		/* for benefit of blind compilers */
+	return INCOMPATIBLE;		/* 为盲目编译器着想 */
 }
 
 /*
- * fixempties - get rid of EMPTY arcs
+ * fixempties - 去掉 EMPTY 弧
  */
 static void
 fixempties(struct nfa *nfa,
-		   FILE *f)				/* for debug output; NULL none */
+		   FILE *f)				/* 调试输出；NULL 即无 */
 {
 	struct state *s;
 	struct state *s2;
@@ -2089,9 +2089,9 @@ fixempties(struct nfa *nfa,
 	int			nskip;
 
 	/*
-	 * First, get rid of any states whose sole out-arc is an EMPTY, since
-	 * they're basically just aliases for their successor.  The parsing
-	 * algorithm creates enough of these that it's worth special-casing this.
+	 * 先去掉唯一出弧为 EMPTY 的状态，因其
+	 * 基本只是后继的别名。解析
+	 * 算法会产生很多，值得特判。
 	 */
 	for (s = nfa->states; s != NULL && !NISERR(); s = nexts)
 	{
@@ -2108,13 +2108,13 @@ fixempties(struct nfa *nfa,
 	}
 
 	/*
-	 * Similarly, get rid of any state with a single EMPTY in-arc, by folding
-	 * it into its predecessor.
+	 * 同理，去掉仅有一条 EMPTY 入弧的状态，并入
+	 * 其前驱。
 	 */
 	for (s = nfa->states; s != NULL && !NISERR(); s = nexts)
 	{
 		nexts = s->next;
-		/* while we're at it, ensure tmp fields are clear for next step */
+		/* 顺便确保下一步用的 tmp 字段已清空 */
 		assert(s->tmp == NULL);
 		if (s->flag || s->nins != 1)
 			continue;
@@ -2131,58 +2131,58 @@ fixempties(struct nfa *nfa,
 		return;
 
 	/*
-	 * For each remaining NFA state, find all other states from which it is
-	 * reachable by a chain of one or more EMPTY arcs.  Then generate new arcs
-	 * that eliminate the need for each such chain.
+	 * 对每个剩余 NFA 状态，找出所有能经一条或
+	 * 多条 EMPTY 弧链到达它的其它状态。再生成新弧
+	 * 以消除对每条此类链的依赖。
 	 *
-	 * We could replace a chain of EMPTY arcs that leads from a "from" state
-	 * to a "to" state either by pushing non-EMPTY arcs forward (linking
-	 * directly from "from"'s predecessors to "to") or by pulling them back
-	 * (linking directly from "from" to "to"'s successors).  We choose to
-	 * always do the former; this choice is somewhat arbitrary, but the
-	 * approach below requires that we uniformly do one or the other.
+	 * 替换从 "from" 到 "to" 的 EMPTY 弧链时，既可
+	 * 把非 EMPTY 弧前推（直接把 "from" 的前驱
+	 * 连到 "to"），也可后拉（直接把 "from" 连到
+	 * "to" 的后继）。我们总选前者；此选择
+	 * 有些任意，但下方做法要求我们一律
+	 * 只做其中一种。
 	 *
-	 * Suppose we have a chain of N successive EMPTY arcs (where N can easily
-	 * approach the size of the NFA).  All of the intermediate states must
-	 * have additional inarcs and outarcs, else they'd have been removed by
-	 * the steps above.  Assuming their inarcs are mostly not empties, we will
-	 * add O(N^2) arcs to the NFA, since a non-EMPTY inarc leading to any one
-	 * state in the chain must be duplicated to lead to all its successor
-	 * states as well.  So there is no hope of doing less than O(N^2) work;
-	 * however, we should endeavor to keep the big-O cost from being even
-	 * worse than that, which it can easily become without care.  In
-	 * particular, suppose we were to copy all S1's inarcs forward to S2, and
-	 * then also to S3, and then later we consider pushing S2's inarcs forward
-	 * to S3.  If we include the arcs already copied from S1 in that, we'd be
-	 * doing O(N^3) work.  (The duplicate-arc elimination built into newarc()
-	 * and its cohorts would get rid of the extra arcs, but not without cost.)
+	 * 设有 N 条连续 EMPTY 弧的链（N 很容易接近
+	 * NFA 规模）。所有中间状态必须另有
+	 * 入弧与出弧，否则早已被上面步骤去掉。
+	 * 假定其入弧大多非 EMPTY，我们将向 NFA 加入
+	 * O(N^2) 条弧，因为通向链中任一状态的非 EMPTY
+	 * 入弧都必须复制以通向其全部后继
+	 * 状态。因此工作量不可能低于 O(N^2)；
+	 * 但仍应尽量不让 big-O 代价变得更糟，
+	 * 稍不小心就很容易发生。具
+	 * 体地，若把 S1 的全部入弧前拷到 S2，再拷到
+	 * S3，之后又考虑把 S2 的入弧前推到
+	 * S3，若把已从 S1 拷来的弧也算进去，就会做
+	 * O(N^3) 的工作。（newarc() 及其同伴内建的
+	 * 去重会丢掉多余弧，但并非没有代价。）
 	 *
-	 * We can avoid this cost by treating only arcs that existed at the start
-	 * of this phase as candidates to be pushed forward.  To identify those,
-	 * we remember the first inarc each state had to start with.  We rely on
-	 * the fact that newarc() and friends put new arcs on the front of their
-	 * to-states' inchains, and that this phase never deletes arcs, so that
-	 * the original arcs must be the last arcs in their to-states' inchains.
+	 * 为避免此代价，只把本阶段开始时已存在的弧
+	 * 当作可前推候选。为识别它们，我们记下
+	 * 各状态起初的第一条入弧。我们依赖
+	 * newarc() 等把新弧插到其 to 状态入链
+	 * 前端，且本阶段从不删弧，因此
+	 * 原弧必在其 to 状态入链的末尾。
 	 *
-	 * So the process here is that, for each state in the NFA, we gather up
-	 * all non-EMPTY inarcs of states that can reach the target state via
-	 * EMPTY arcs.  We then sort, de-duplicate, and merge these arcs into the
-	 * target state's inchain.  (We can safely use sort-merge for this as long
-	 * as we update each state's original-arcs pointer after we add arcs to
-	 * it; the sort step of mergeins probably changed the order of the old
-	 * arcs.)
+	 * 于是此处流程是：对 NFA 中每个状态，收集所有
+	 * 能经 EMPTY 弧到达目标的状态的非 EMPTY
+	 * 入弧。再排序、去重，并合并进目标状态的
+	 * 入链。（只要在加弧后更新各状态的原弧
+	 * 指针，就可以安全用归并；mergeins 的排序
+	 * 步很可能已打乱了旧弧。）
 	 *
-	 * Another refinement worth making is that, because we only add non-EMPTY
-	 * arcs during this phase, and all added arcs have the same from-state as
-	 * the non-EMPTY arc they were cloned from, we know ahead of time that any
-	 * states having only EMPTY outarcs will be useless for lack of outarcs
-	 * after we drop the EMPTY arcs.  (They cannot gain non-EMPTY outarcs if
-	 * they had none to start with.)  So we need not bother to update the
-	 * inchains of such states at all.
+	 *
+	 * 另一值得做的细化是：因本阶段只加非 EMPTY
+	 * 弧，且所加弧的 from 与被克隆的非 EMPTY 弧
+	 * 相同，故可预先知道：仅有 EMPTY 出弧的
+	 * 状态在丢掉 EMPTY 弧后会因无出弧而无用。
+	 * （若起初没有非 EMPTY 出弧，就不可能再获得。）
+	 * 因此完全不必更新此类状态的
+	 * 入链。
 	 */
 
-	/* Remember the states' first original inarcs */
-	/* ... and while at it, count how many old inarcs there are altogether */
+	/* 记住各状态最初的第一条入弧 */
+	/* ……并顺便统计旧入弧总数 */
 	inarcsorig = (struct arc **) MALLOC(nfa->nstates * sizeof(struct arc *));
 	if (inarcsorig == NULL)
 	{
@@ -2197,10 +2197,10 @@ fixempties(struct nfa *nfa,
 	}
 
 	/*
-	 * Create a workspace for accumulating the inarcs to be added to the
-	 * current target state.  totalinarcs is probably a considerable
-	 * overestimate of the space needed, but the NFA is unlikely to be large
-	 * enough at this point to make it worth being smarter.
+	 * 创建工作区以累积将加入当前目标状态的
+	 * 入弧。totalinarcs 多半高估了所需
+	 * 空间，但此时 NFA 不太可能大到值得
+	 * 做得更精明。
 	 */
 	arcarray = (struct arc **) MALLOC(totalinarcs * sizeof(struct arc *));
 	if (arcarray == NULL)
@@ -2210,38 +2210,38 @@ fixempties(struct nfa *nfa,
 		return;
 	}
 
-	/* And iterate over the target states */
+	/* 再遍历各目标状态 */
 	for (s = nfa->states; s != NULL && !NISERR(); s = s->next)
 	{
-		/* Ignore target states without non-EMPTY outarcs, per note above */
+		/* 按上文，忽略无非 EMPTY 出弧的目标状态 */
 		if (!s->flag && !hasnonemptyout(s))
 			continue;
 
-		/* Find predecessor states and accumulate their original inarcs */
+		/* 找前驱状态并累积其原始入弧 */
 		arccount = 0;
 		for (s2 = emptyreachable(nfa, s, s, inarcsorig); s2 != s; s2 = nexts)
 		{
-			/* Add s2's original inarcs to arcarray[], but ignore empties */
+			/* 把 s2 的原始入弧加入 arcarray[]，忽略空弧 */
 			for (a = inarcsorig[s2->no]; a != NULL; a = a->inchain)
 			{
 				if (a->type != EMPTY)
 					arcarray[arccount++] = a;
 			}
 
-			/* Reset the tmp fields as we walk back */
+			/* 回走时复位 tmp 字段 */
 			nexts = s2->tmp;
 			s2->tmp = NULL;
 		}
 		s->tmp = NULL;
 		assert(arccount <= totalinarcs);
 
-		/* Remember how many original inarcs this state has */
+		/* 记住该状态有多少条原始入弧 */
 		prevnins = s->nins;
 
-		/* Add non-duplicate inarcs to target state */
+		/* 把非重复入弧加入目标状态 */
 		mergeins(nfa, s, arcarray, arccount);
 
-		/* Now we must update the state's inarcsorig pointer */
+		/* 现在必须更新该状态的 inarcsorig 指针 */
 		nskip = s->nins - prevnins;
 		a = s->ins;
 		while (nskip-- > 0)
@@ -2256,7 +2256,7 @@ fixempties(struct nfa *nfa,
 		return;
 
 	/*
-	 * Now remove all the EMPTY arcs, since we don't need them anymore.
+	 * 现已不需要，去掉全部 EMPTY 弧。
 	 */
 	for (s = nfa->states; s != NULL; s = s->next)
 	{
@@ -2269,9 +2269,9 @@ fixempties(struct nfa *nfa,
 	}
 
 	/*
-	 * And remove any states that have become useless.  (This cleanup is not
-	 * very thorough, and would be even less so if we tried to combine it with
-	 * the previous step; but cleanup() will take care of anything we miss.)
+	 * 再去掉已变得无用的状态。（此清理并不
+	 * 彻底；若与上一步合并会更不彻底；但
+	 * cleanup() 会处理我们漏掉的一切。）
 	 */
 	for (s = nfa->states; s != NULL; s = nexts)
 	{
@@ -2285,19 +2285,19 @@ fixempties(struct nfa *nfa,
 }
 
 /*
- * emptyreachable - recursively find all states that can reach s by EMPTY arcs
+ * emptyreachable - 递归找出能经 EMPTY 弧到达 s 的全部状态
  *
- * The return value is the last such state found.  Its tmp field links back
- * to the next-to-last such state, and so on back to s, so that all these
- * states can be located without searching the whole NFA.
+ * 返回值是找到的最后一个此类状态。其 tmp 回链到
+ * 倒数第二个，如此直到 s，从而无需搜索整个
+ * NFA 即可定位这些状态。
  *
- * Since this is only used in fixempties(), we pass in the inarcsorig[] array
- * maintained by that function.  This lets us skip over all new inarcs, which
- * are certainly not EMPTY arcs.
+ * 因仅用于 fixempties()，传入该函数维护的
+ * inarcsorig[] 数组。这让我们跳过全部新入弧，它们
+ * 肯定不是 EMPTY 弧。
  *
- * The maximum recursion depth here is equal to the length of the longest
- * loop-free chain of EMPTY arcs, which is surely no more than the size of
- * the NFA ... but that could still be enough to cause trouble.
+ * 此处最大递归深度等于最长无环 EMPTY 弧链
+ * 的长度，肯定不超过 NFA 规模……但那仍可能
+ * 足以惹麻烦。
  */
 static struct state *
 emptyreachable(struct nfa *nfa,
@@ -2307,7 +2307,7 @@ emptyreachable(struct nfa *nfa,
 {
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -2325,7 +2325,7 @@ emptyreachable(struct nfa *nfa,
 }
 
 /*
- * isconstraintarc - detect whether an arc is of a constraint type
+ * isconstraintarc - 检测弧是否为约束类型
  */
 static inline int
 isconstraintarc(struct arc *a)
@@ -2343,7 +2343,7 @@ isconstraintarc(struct arc *a)
 }
 
 /*
- * hasconstraintout - does state have a constraint out arc?
+ * hasconstraintout - 状态是否有约束出弧？
  */
 static int
 hasconstraintout(struct state *s)
@@ -2359,16 +2359,16 @@ hasconstraintout(struct state *s)
 }
 
 /*
- * fixconstraintloops - get rid of loops containing only constraint arcs
+ * fixconstraintloops - 去掉只含约束弧的环
  *
- * A loop of states that contains only constraint arcs is useless, since
- * passing around the loop represents no forward progress.  Moreover, it
- * would cause infinite looping in pullback/pushfwd, so we need to get rid
- * of such loops before doing that.
+ * 只含约束弧的状态环毫无用处，因为绕环
+ * 并不代表前进。而且它会让
+ * pullback/pushfwd 无限循环，故须在那之前
+ * 去掉此类环。
  */
 static void
 fixconstraintloops(struct nfa *nfa,
-				   FILE *f)		/* for debug output; NULL none */
+				   FILE *f)		/* 调试输出；NULL 即无 */
 {
 	struct state *s;
 	struct state *nexts;
@@ -2377,16 +2377,16 @@ fixconstraintloops(struct nfa *nfa,
 	int			hasconstraints;
 
 	/*
-	 * In the trivial case of a state that loops to itself, we can just drop
-	 * the constraint arc altogether.  This is worth special-casing because
-	 * such loops are far more common than loops containing multiple states.
-	 * While we're at it, note whether any constraint arcs survive.
+	 * 对状态自环这种平凡情形，可直接丢掉
+	 * 约束弧。值得特判，因为此类环远比
+	 * 含多状态的环常见。顺便记下是否还有
+	 * 约束弧幸存。
 	 */
 	hasconstraints = 0;
 	for (s = nfa->states; s != NULL && !NISERR(); s = nexts)
 	{
 		nexts = s->next;
-		/* while we're at it, ensure tmp fields are clear for next step */
+		/* 顺便确保下一步用的 tmp 字段已清空 */
 		assert(s->tmp == NULL);
 		for (a = s->outs; a != NULL && !NISERR(); a = nexta)
 		{
@@ -2399,21 +2399,21 @@ fixconstraintloops(struct nfa *nfa,
 					hasconstraints = 1;
 			}
 		}
-		/* If we removed all the outarcs, the state is useless. */
+		/* 若已去掉全部出弧，状态便无用。 */
 		if (s->nouts == 0 && !s->flag)
 			dropstate(nfa, s);
 	}
 
-	/* Nothing to do if no remaining constraint arcs */
+	/* 若无剩余约束弧则无事可做 */
 	if (NISERR() || !hasconstraints)
 		return;
 
 	/*
-	 * Starting from each remaining NFA state, search outwards for a
-	 * constraint loop.  If we find a loop, break the loop, then start the
-	 * search over.  (We could possibly retain some state from the first scan,
-	 * but it would complicate things greatly, and multi-state constraint
-	 * loops are rare enough that it's not worth optimizing the case.)
+	 * 从每个剩余 NFA 状态出发，向外搜索约束
+	 * 环。若找到则打破它，再重新开始搜索。
+	 * （或许能保留首次扫描的部分状态，但会大大
+	 * 复杂化，且多状态约束环很少见，不值得
+	 * 为此优化。）
 	 */
 restart:
 	for (s = nfa->states; s != NULL && !NISERR(); s = s->next)
@@ -2426,13 +2426,13 @@ restart:
 		return;
 
 	/*
-	 * Now remove any states that have become useless.  (This cleanup is not
-	 * very thorough, and would be even less so if we tried to combine it with
-	 * the previous step; but cleanup() will take care of anything we miss.)
+	 * 再去掉已变得无用的状态。（此清理并不
+	 * 彻底；若与上一步合并会更不彻底；但
+	 * cleanup() 会处理我们漏掉的一切。）
 	 *
-	 * Because findconstraintloop intentionally doesn't reset all tmp fields,
-	 * we have to clear them after it's done.  This is a convenient place to
-	 * do that, too.
+	 * 因 findconstraintloop 有意不复位全部 tmp，
+	 * 做完后必须清零。这里也方便
+	 * 一并做。
 	 */
 	for (s = nfa->states; s != NULL; s = nexts)
 	{
@@ -2447,44 +2447,44 @@ restart:
 }
 
 /*
- * findconstraintloop - recursively find a loop of constraint arcs
+ * findconstraintloop - 递归查找约束弧环
  *
- * If we find a loop, break it by calling breakconstraintloop(), then
- * return 1; otherwise return 0.
+ * 若找到环，调用 breakconstraintloop() 打破，然后
+ * 返回 1；否则返回 0。
  *
- * State tmp fields are guaranteed all NULL on a success return, because
- * breakconstraintloop does that.  After a failure return, any state that
- * is known not to be part of a loop is marked with s->tmp == s; this allows
- * us not to have to re-prove that fact on later calls.  (This convention is
- * workable because we already eliminated single-state loops.)
+ * 成功返回时状态 tmp 保证全为 NULL，因为
+ * breakconstraintloop 会清零。失败返回后，已知
+ * 不在环中的状态标为 s->tmp == s；这样稍后
+ * 调用不必再证明这一点。（此约定可行，
+ * 因为单状态环已被消除。）
  *
- * Note that the found loop doesn't necessarily include the first state we
- * are called on.  Any loop reachable from that state will do.
+ * 注意找到的环未必包含我们首次被调用的
+ * 状态。从该状态可达的任何环都行。
  *
- * The maximum recursion depth here is one more than the length of the longest
- * loop-free chain of constraint arcs, which is surely no more than the size
- * of the NFA ... but that could still be enough to cause trouble.
+ * 此处最大递归深度比最长无环约束弧链长度
+ * 多一，肯定不超过 NFA 规模……但那仍可能
+ * 足以惹麻烦。
  */
 static int
 findconstraintloop(struct nfa *nfa, struct state *s)
 {
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
-		return 1;				/* to exit as quickly as possible */
+		return 1;				/* 尽快退出 */
 	}
 
 	if (s->tmp != NULL)
 	{
-		/* Already proven uninteresting? */
+		/* 已证明无趣？ */
 		if (s->tmp == s)
 			return 0;
-		/* Found a loop involving s */
+		/* 找到含 s 的环 */
 		breakconstraintloop(nfa, s);
-		/* The tmp fields have been cleaned up by breakconstraintloop */
+		/* tmp 字段已由 breakconstraintloop 清理 */
 		return 1;
 	}
 	for (a = s->outs; a != NULL; a = a->outchain)
@@ -2501,58 +2501,58 @@ findconstraintloop(struct nfa *nfa, struct state *s)
 	}
 
 	/*
-	 * If we get here, no constraint loop exists leading out from s.  Mark it
-	 * with s->tmp == s so we need not rediscover that fact again later.
+	 * 若到此，则不存在从 s 出发的约束环。标为
+	 * s->tmp == s，以免稍后再次发现这一事实。
 	 */
 	s->tmp = s;
 	return 0;
 }
 
 /*
- * breakconstraintloop - break a loop of constraint arcs
+ * breakconstraintloop - 打破约束弧环
  *
- * sinitial is any one member state of the loop.  Each loop member's tmp
- * field links to its successor within the loop.  (Note that this function
- * will reset all the tmp fields to NULL.)
+ * sinitial 是环中任一成员状态。各成员的 tmp
+ * 字段链到环内后继。（注意本函数会把
+ * 全部 tmp 字段复位为 NULL。）
  *
- * We can break the loop by, for any one state S1 in the loop, cloning its
- * loop successor state S2 (and possibly following states), and then moving
- * all S1->S2 constraint arcs to point to the cloned S2.  The cloned S2 should
- * copy any non-constraint outarcs of S2.  Constraint outarcs should be
- * dropped if they point back to S1, else they need to be copied as arcs to
- * similarly cloned states S3, S4, etc.  In general, each cloned state copies
- * non-constraint outarcs, drops constraint outarcs that would lead to itself
- * or any earlier cloned state, and sends other constraint outarcs to newly
- * cloned states.  No cloned state will have any inarcs that aren't constraint
- * arcs or do not lead from S1 or earlier-cloned states.  It's okay to drop
- * constraint back-arcs since they would not take us to any state we've not
- * already been in; therefore, no new constraint loop is created.  In this way
- * we generate a modified NFA that can still represent every useful state
- * sequence, but not sequences that represent state loops with no consumption
- * of input data.  Note that the set of cloned states will certainly include
- * all of the loop member states other than S1, and it may also include
- * non-loop states that are reachable from S2 via constraint arcs.  This is
- * important because there is no guarantee that findconstraintloop found a
- * maximal loop (and searching for one would be NP-hard, so don't try).
- * Frequently the "non-loop states" are actually part of a larger loop that
- * we didn't notice, and indeed there may be several overlapping loops.
- * This technique ensures convergence in such cases, while considering only
- * the originally-found loop does not.
+ * 打破环的办法：对环中任一状态 S1，克隆其环
+ * 后继 S2（以及可能的后续状态），再把全部
+ * S1->S2 约束弧改指向克隆的 S2。克隆的 S2 应
+ * 复制 S2 的非约束出弧。指向回 S1 的约束出弧
+ * 应丢掉，否则需复制为通向同样克隆的
+ * S3、S4 等的弧。一般地，各克隆状态复制
+ * 非约束出弧，丢掉通向自身或更早克隆状态的
+ * 约束出弧，并把其它约束出弧送往新克隆
+ * 状态。克隆状态的入弧只会是约束弧，且只来自
+ * S1 或更早克隆的状态。丢掉约束回弧没
+ * 问题，因其不会带到尚未到过的状态；故
+ * 不会产生新约束环。这样我们得到仍能表示
+ * 每一有用状态序列的改写 NFA，但不表示
+ * 不消耗输入的状态环序列。注意克隆集合
+ * 必定包含除 S1 外的全部环成员，也可能包含
+ * 从 S2 经约束弧可达的非环状态。这很重要，
+ * 因为不保证 findconstraintloop 找到的是
+ * 极大环（搜索极大环是 NP 难的，别试）。
+ * 这些"非环状态"常常其实属于我们没注意的
+ * 更大环，且可能有多个重叠环。此技法在
+ * 此类情形保证收敛，而只考虑原先找到的
+ * 环则
+ * 不能。
  *
- * If there is only one S1->S2 constraint arc, then that constraint is
- * certainly satisfied when we enter any of the clone states.  This means that
- * in the common case where many of the constraint arcs are identically
- * labeled, we can merge together clone states linked by a similarly-labeled
- * constraint: if we can get to the first one we can certainly get to the
- * second, so there's no need to distinguish.  This greatly reduces the number
- * of new states needed, so we preferentially break the given loop at a state
- * pair where this is true.
+ * 若只有一条 S1->S2 约束弧，则进入任一克隆
+ * 状态时该约束必已满足。这意味着在许多约束
+ * 弧标签相同的常见情形下，可用同样标签的
+ * 约束把相链的克隆状态合并：若能到第一个就
+ * 必能到第二个，无需区分。这大大减少所需
+ * 新状态数，故我们优先在满足此条件的
+ * 状态对处打破给定
+ * 环。
  *
- * Furthermore, it's fairly common to find that a cloned successor state has
- * no outarcs, especially if we're a bit aggressive about removing unnecessary
- * outarcs.  If that happens, then there is simply not any interesting state
- * that can be reached through the predecessor's loop arcs, which means we can
- * break the loop just by removing those loop arcs, with no new states added.
+ * 此外，常会发现克隆后继状态没有任何出弧，
+ * 尤其当我们较积极地去掉不必要出弧时。若
+ * 如此，则经前驱的环弧根本到不了任何有趣
+ * 状态，这意味着只需去掉那些环弧即可打破
+ * 环，不必添加任何新状态。
  */
 static void
 breakconstraintloop(struct nfa *nfa, struct state *sinitial)
@@ -2567,17 +2567,17 @@ breakconstraintloop(struct nfa *nfa, struct state *sinitial)
 	struct arc *nexta;
 
 	/*
-	 * Start by identifying which loop step we want to break at.
-	 * Preferentially this is one with only one constraint arc.  (XXX are
-	 * there any other secondary heuristics we want to use here?)  Set refarc
-	 * to point to the selected lone constraint arc, if there is one.
+	 * 先确定要在环的哪一步打破。
+	 * 优先选只有一条约束弧的那步。（XXX 还有
+	 * 其它想用的次要启发式吗？）若有单独约束
+	 * 弧，令 refarc 指向它。
 	 */
 	refarc = NULL;
 	s = sinitial;
 	do
 	{
 		nexts = s->tmp;
-		assert(nexts != s);		/* should not see any one-element loops */
+		assert(nexts != s);		/* 不应见到单元素环 */
 		if (refarc == NULL)
 		{
 			int			narcs = 0;
@@ -2592,35 +2592,35 @@ breakconstraintloop(struct nfa *nfa, struct state *sinitial)
 			}
 			assert(narcs > 0);
 			if (narcs > 1)
-				refarc = NULL;	/* multiple constraint arcs here, no good */
+				refarc = NULL;	/* 此处有多条约束弧，不行 */
 		}
 		s = nexts;
 	} while (s != sinitial);
 
 	if (refarc)
 	{
-		/* break at the refarc */
+		/* refarc 处打破 */
 		shead = refarc->from;
 		stail = refarc->to;
 		assert(stail == shead->tmp);
 	}
 	else
 	{
-		/* for lack of a better idea, break after sinitial */
+		/* 不妨在 sinitial 之后打破 */
 		shead = sinitial;
 		stail = sinitial->tmp;
 	}
 
 	/*
-	 * Reset the tmp fields so that we can use them for local storage in
-	 * clonesuccessorstates.  (findconstraintloop won't mind, since it's just
-	 * going to abandon its search anyway.)
+	 * 复位 tmp 字段，以便在 clonesuccessorstates
+	 * 中作局部存储。（findconstraintloop 不介意，
+	 * 因为它反正要放弃搜索。）
 	 */
 	for (s = nfa->states; s != NULL; s = s->next)
 		s->tmp = NULL;
 
 	/*
-	 * Recursively build clone state(s) as needed.
+	 * 按需递归构建克隆状态。
 	 */
 	sclone = newstate(nfa);
 	if (sclone == NULL)
@@ -2636,9 +2636,9 @@ breakconstraintloop(struct nfa *nfa, struct state *sinitial)
 		return;
 
 	/*
-	 * It's possible that sclone has no outarcs at all, in which case it's
-	 * useless.  (We don't try extremely hard to get rid of useless states
-	 * here, but this is an easy and fairly common case.)
+	 * sclone 可能完全没有出弧，那样它就无用。
+	 * （此处不极力清除无用状态，但本情形简单
+	 * 且相当常见。）
 	 */
 	if (sclone->nouts == 0)
 	{
@@ -2647,8 +2647,8 @@ breakconstraintloop(struct nfa *nfa, struct state *sinitial)
 	}
 
 	/*
-	 * Move shead's constraint-loop arcs to point to sclone, or just drop them
-	 * if we discovered we don't need sclone.
+	 * 把 shead 的约束环弧改指向 sclone，若发现不需要
+	 * sclone 则直接丢掉。
 	 */
 	for (a = shead->outs; a != NULL; a = nexta)
 	{
@@ -2665,40 +2665,40 @@ breakconstraintloop(struct nfa *nfa, struct state *sinitial)
 }
 
 /*
- * clonesuccessorstates - create a tree of constraint-arc successor states
+ * clonesuccessorstates - 创建约束弧后继状态树
  *
- * ssource is the state to be cloned, and sclone is the state to copy its
- * outarcs into.  sclone's inarcs, if any, should already be set up.
+ * ssource 是待克隆状态，sclone 是承接其出弧的
+ * 状态。sclone 的入弧若有则应已设好。
  *
- * spredecessor is the original predecessor state that we are trying to build
- * successors for (it may not be the immediate predecessor of ssource).
- * refarc, if not NULL, is the original constraint arc that is known to have
- * been traversed out of spredecessor to reach the successor(s).
+ * spredecessor 是我们要为之构建后继的原前驱
+ * 状态（未必是 ssource 的直接前驱）。
+ * refarc 若非 NULL，是已知已从 spredecessor 走出
+ * 以到达后继的原约束弧。
  *
- * For each cloned successor state, we transiently create a "donemap" that is
- * a boolean array showing which source states we've already visited for this
- * clone state.  This prevents infinite recursion as well as useless repeat
- * visits to the same state subtree (which can add up fast, since typical NFAs
- * have multiple redundant arc pathways).  Each donemap is a char array
- * indexed by state number.  The donemaps are all of the same size "nstates",
- * which is nfa->nstates as of the start of the recursion.  This is enough to
- * have entries for all pre-existing states, but *not* entries for clone
- * states created during the recursion.  That's okay since we have no need to
- * mark those.
+ * 对每个克隆后继状态，我们临时创建 "donemap"，
+ * 即布尔数组，标明本克隆已访问过哪些源状态。
+ * 这防止无限递归以及无用的重复访问同一状态
+ * 子树（累积很快，因典型 NFA 有多条冗余弧
+ * 通路）。每个 donemap 是按状态号索引的
+ * char 数组。所有 donemap 大小同为 "nstates"，
+ * 即递归开始时的 nfa->nstates。这足以容纳
+ * 全部既有状态的项，但*没有*递归中创建的
+ * 克隆状态的项。没关系，因为我们无需
+ * 标之。
  *
- * curdonemap is NULL when recursing to a new sclone state, or sclone's
- * donemap when we are recursing without having created a new state (which we
- * do when we decide we can merge a successor state into the current clone
- * state).  outerdonemap is NULL at the top level and otherwise the parent
- * clone state's donemap.
+ * curdonemap 在递归到新 sclone 时为 NULL，或在
+ * 未建新状态而递归时为 sclone 的 donemap（当
+ * 我们决定把后继并入当前克隆状态时如此）。
+ * outerdonemap 在顶层为 NULL，否则为父
+ * 克隆的 donemap。
  *
- * The successor states we create and fill here form a strict tree structure,
- * with each state having exactly one predecessor, except that the toplevel
- * state has no inarcs as yet (breakconstraintloop will add its inarcs from
- * spredecessor after we're done).  Thus, we can examine sclone's inarcs back
- * to the root, plus refarc if any, to identify the set of constraints already
- * known valid at the current point.  This allows us to avoid generating extra
- * successor states.
+ * 此处创建并填充的后继状态形成严格树结构，
+ * 除顶层外每状态恰有一个前驱；顶层尚无
+ * 入弧（breakconstraintloop 会在我们做完后从
+ * spredecessor 加入）。因此可沿 sclone 入弧回
+ * 到根，再加上 refarc（若有），识别当前点已
+ * 知有效的约束集。这让我们避免生成多余
+ * 后继状态。
  */
 static void
 clonesuccessorstates(struct nfa *nfa,
@@ -2713,14 +2713,14 @@ clonesuccessorstates(struct nfa *nfa,
 	char	   *donemap;
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
 		return;
 	}
 
-	/* If this state hasn't already got a donemap, create one */
+	/* 若本状态尚无 donemap，则创建一个 */
 	donemap = curdonemap;
 	if (donemap == NULL)
 	{
@@ -2734,55 +2734,55 @@ clonesuccessorstates(struct nfa *nfa,
 		if (outerdonemap != NULL)
 		{
 			/*
-			 * Not at outermost recursion level, so copy the outer level's
-			 * donemap; this ensures that we see states in process of being
-			 * visited at outer levels, or already merged into predecessor
-			 * states, as ones we shouldn't traverse back to.
+			 * 非最外层递归，故复制外层的
+			 * donemap；这确保我们把外层正在访问、或已
+			 * 并入前驱状态的状态，视为不应再
+			 * 回访的。
 			 */
 			memcpy(donemap, outerdonemap, nstates * sizeof(char));
 		}
 		else
 		{
-			/* At outermost level, only spredecessor is off-limits */
+			/* 最外层仅 spredecessor 为禁区 */
 			memset(donemap, 0, nstates * sizeof(char));
 			assert(spredecessor->no < nstates);
 			donemap[spredecessor->no] = 1;
 		}
 	}
 
-	/* Mark ssource as visited in the donemap */
+	/* 标记 ssource 已访问 */
 	assert(ssource->no < nstates);
 	assert(donemap[ssource->no] == 0);
 	donemap[ssource->no] = 1;
 
 	/*
-	 * We proceed by first cloning all of ssource's outarcs, creating new
-	 * clone states as needed but not doing more with them than that.  Then in
-	 * a second pass, recurse to process the child clone states.  This allows
-	 * us to have only one child clone state per reachable source state, even
-	 * when there are multiple outarcs leading to the same state.  Also, when
-	 * we do visit a child state, its set of inarcs is known exactly, which
-	 * makes it safe to apply the constraint-is-already-checked optimization.
-	 * Also, this ensures that we've merged all the states we can into the
-	 * current clone before we recurse to any children, thus possibly saving
-	 * them from making extra images of those states.
+	 * 我们先克隆 ssource 的全部出弧，按需创建新
+	 * 克隆状态但暂不做更多。再在第二遍递归处理
+	 * 子克隆状态。这让每个可达源状态只有一个
+	 * 子克隆，即使有多条出弧通向同一状态。另
+	 * 外，访问子状态时其入弧集已知，从而可
+	 * 安全应用"约束已检查"优化。这也确保在
+	 * 递归到任何子节点前，已把能合并的都并入
+	 * 当前克隆，从而可能使它们免于再为那些状态
+	 * 制作额外
+	 * 映像。
 	 *
-	 * While this function runs, child clone states of the current state are
-	 * marked by setting their tmp fields to point to the original state they
-	 * were cloned from.  This makes it possible to detect multiple outarcs
-	 * leading to the same state, and also makes it easy to distinguish clone
-	 * states from original states (which will have tmp == NULL).
+	 * 本函数运行时，当前状态的子克隆用其 tmp
+	 * 指向所克隆的原状态来标记。这样可检测通向
+	 * 同一状态的多条出弧，也便于区分克隆状态与
+	 * 原状态（原状态的
+	 * tmp == NULL）。
 	 */
 	for (a = ssource->outs; a != NULL && !NISERR(); a = a->outchain)
 	{
 		struct state *sto = a->to;
 
 		/*
-		 * We do not consider cloning successor states that have no constraint
-		 * outarcs; just link to them as-is.  They cannot be part of a
-		 * constraint loop so there is no need to make copies.  In particular,
-		 * this rule keeps us from trying to clone the post state, which would
-		 * be a bad idea.
+		 * 我们不考虑克隆没有约束出弧的后继状态；
+		 * 直接按原样链接。它们不可能属于约束
+		 * 环，故无需复制。尤其是，此规则阻止我们
+		 * 去克隆 post 状态，那
+		 * 很糟糕。
 		 */
 		if (isconstraintarc(a) && hasconstraintout(sto))
 		{
@@ -2791,16 +2791,16 @@ clonesuccessorstates(struct nfa *nfa,
 			struct arc *a2;
 
 			/*
-			 * Back-link constraint arcs must not be followed.  Nor is there a
-			 * need to revisit states previously merged into this clone.
+			 * 反向约束弧不得跟随。也无需再访
+			 * 已并入本克隆的状态。
 			 */
 			assert(sto->no < nstates);
 			if (donemap[sto->no] != 0)
 				continue;
 
 			/*
-			 * Check whether we already have a child clone state for this
-			 * source state.
+			 * 检查是否已有此源状态的子
+			 * 克隆态。
 			 */
 			prevclone = NULL;
 			for (a2 = sclone->outs; a2 != NULL; a2 = a2->outchain)
@@ -2813,10 +2813,10 @@ clonesuccessorstates(struct nfa *nfa,
 			}
 
 			/*
-			 * If this arc is labeled the same as refarc, or the same as any
-			 * arc we must have traversed to get to sclone, then no additional
-			 * constraints need to be met to get to sto, so we should just
-			 * merge its outarcs into sclone.
+			 * 若此弧标签与 refarc 相同，或与到达 sclone
+			 * 必经的任一弧相同，则到达 sto 无需额外
+			 * 约束，故应直接把它的出弧
+			 * 并入 sclone。
 			 */
 			if (refarc && a->type == refarc->type && a->co == refarc->co)
 				canmerge = 1;
@@ -2839,15 +2839,15 @@ clonesuccessorstates(struct nfa *nfa,
 			if (canmerge)
 			{
 				/*
-				 * We can merge into sclone.  If we previously made a child
-				 * clone state, drop it; there's no need to visit it.  (This
-				 * can happen if ssource has multiple pathways to sto, and we
-				 * only just now found one that is provably a no-op.)
+				 * 可以并入 sclone。若先前建了子克隆状态，
+				 * 丢掉它；无需再访。（若 ssource 有多条
+				 * 通向 sto 的路径，而我们此刻才找到一条
+				 * 可证为无操作的路径，就会发生。）
 				 */
 				if (prevclone)
-					dropstate(nfa, prevclone);	/* kills our outarc, too */
+					dropstate(nfa, prevclone);	/* 连出弧一并杀 */
 
-				/* Recurse to merge sto's outarcs into sclone */
+				/* 递归把 sto 的出弧并入 sclone */
 				clonesuccessorstates(nfa,
 									 sto,
 									 sclone,
@@ -2856,21 +2856,21 @@ clonesuccessorstates(struct nfa *nfa,
 									 donemap,
 									 outerdonemap,
 									 nstates);
-				/* sto should now be marked as previously visited */
+				/* sto 现应已标为先前访问过 */
 				assert(NISERR() || donemap[sto->no] == 1);
 			}
 			else if (prevclone)
 			{
 				/*
-				 * We already have a clone state for this successor, so just
-				 * make another arc to it.
+				 * 对此后继已有克隆状态，故只需
+				 * 再向其连一条弧
 				 */
 				cparc(nfa, a, sclone, prevclone);
 			}
 			else
 			{
 				/*
-				 * We need to create a new successor clone state.
+				 * 需要创建新的后继克隆状态。
 				 */
 				struct state *stoclone;
 
@@ -2880,28 +2880,28 @@ clonesuccessorstates(struct nfa *nfa,
 					assert(NISERR());
 					break;
 				}
-				/* Mark it as to what it's a clone of */
+				/* 标明它克隆自何状态 */
 				stoclone->tmp = sto;
-				/* ... and add the outarc leading to it */
+				/* 并加上通向它的出弧 */
 				cparc(nfa, a, sclone, stoclone);
 			}
 		}
 		else
 		{
 			/*
-			 * Non-constraint outarcs just get copied to sclone, as do outarcs
-			 * leading to states with no constraint outarc.
+			 * 非约束出弧直接复制到 sclone，通向无
+			 * 约束出弧之状态的出弧亦然。
 			 */
 			cparc(nfa, a, sclone, sto);
 		}
 	}
 
 	/*
-	 * If we are at outer level for this clone state, recurse to all its child
-	 * clone states, clearing their tmp fields as we go.  (If we're not
-	 * outermost for sclone, leave this to be done by the outer call level.)
-	 * Note that if we have multiple outarcs leading to the same clone state,
-	 * it will only be recursed-to once.
+	 * 若处于此克隆状态的外层，则递归到其所有子
+	 * 克隆状态，并沿途清掉其 tmp 字段。（若非 
+	 * sclone 的最外层，则留给外层调用去做。）
+	 * 注意：若有多条出弧通向同一克隆状态，
+	 * 则只会递归进入一次。
 	 */
 	if (curdonemap == NULL)
 	{
@@ -2924,15 +2924,15 @@ clonesuccessorstates(struct nfa *nfa,
 			}
 		}
 
-		/* Don't forget to free sclone's donemap when done with it */
+		/* 用完后别忘了释放 sclone 的 donemap */
 		FREE(donemap);
 	}
 }
 
 /*
- * removecantmatch - remove CANTMATCH arcs, which are no longer useful
- * once we are done with the parsing phase.  (We need them only to
- * preserve connectedness of NFA subgraphs during parsing.)
+ * removecantmatch - 移除 CANTMATCH 弧，这些弧在
+ * 解析阶段结束后便不再有用。（需要它们只为
+ * 在解析期间保持 NFA 子图的连通性。）
  */
 static void
 removecantmatch(struct nfa *nfa)
@@ -2958,7 +2958,7 @@ removecantmatch(struct nfa *nfa)
 }
 
 /*
- * cleanup - clean up NFA after optimizations
+ * cleanup - 优化后清理 NFA
  */
 static void
 cleanup(struct nfa *nfa)
@@ -2970,8 +2970,8 @@ cleanup(struct nfa *nfa)
 	if (NISERR())
 		return;
 
-	/* clear out unreachable or dead-end states */
-	/* use pre to mark reachable, then post to mark can-reach-post */
+	/* 清除不可达或死端状态 */
+	/* 用 pre 标可达，再用 post 标可到 post 者 */
 	markreachable(nfa, nfa->pre, (struct state *) NULL, nfa->pre);
 	markcanreach(nfa, nfa->post, nfa->pre, nfa->post);
 	for (s = nfa->states; s != NULL && !NISERR(); s = nexts)
@@ -2983,9 +2983,9 @@ cleanup(struct nfa *nfa)
 	assert(NISERR() || nfa->post->nins == 0 || nfa->post->tmp == nfa->post);
 	cleartraverse(nfa, nfa->pre);
 	assert(NISERR() || nfa->post->nins == 0 || nfa->post->tmp == NULL);
-	/* the nins==0 (final unreachable) case will be caught later */
+	/* nins==0（最终不可达）情形稍后会抓住 */
 
-	/* renumber surviving states */
+	/* 幸存状态重编号 */
 	n = 0;
 	for (s = nfa->states; s != NULL; s = s->next)
 		s->no = n++;
@@ -2993,17 +2993,17 @@ cleanup(struct nfa *nfa)
 }
 
 /*
- * markreachable - recursive marking of reachable states
+ * markreachable - 递归标记可达状态
  */
 static void
 markreachable(struct nfa *nfa,
 			  struct state *s,
-			  struct state *okay,	/* consider only states with this mark */
-			  struct state *mark)	/* the value to mark with */
+			  struct state *okay,	/* 只考虑带此标记的状态 */
+			  struct state *mark)	/* 用于标记的值 */
 {
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -3019,17 +3019,17 @@ markreachable(struct nfa *nfa,
 }
 
 /*
- * markcanreach - recursive marking of states which can reach here
+ * markcanreach - 递归标记能抵达此处的状态
  */
 static void
 markcanreach(struct nfa *nfa,
 			 struct state *s,
-			 struct state *okay,	/* consider only states with this mark */
-			 struct state *mark)	/* the value to mark with */
+			 struct state *okay,	/* 只考虑带此标记的状态 */
+			 struct state *mark)	/* 用于标记的值 */
 {
 	struct arc *a;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被推至栈溢出 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 	{
 		NERR(REG_ETOOBIG);
@@ -3045,9 +3045,9 @@ markcanreach(struct nfa *nfa,
 }
 
 /*
- * analyze - ascertain potentially-useful facts about an optimized NFA
+ * analyze - 查明优化后 NFA 的潜在有用事实
  */
-static long						/* re_info bits to be ORed in */
+static long						/* 要并入的 re_info 位 */
 analyze(struct nfa *nfa)
 {
 	struct arc *a;
@@ -3056,14 +3056,14 @@ analyze(struct nfa *nfa)
 	if (NISERR())
 		return 0;
 
-	/* Detect whether NFA can't match anything */
+	/* 查 NFA 是否无法匹配任何内容 */
 	if (nfa->pre->outs == NULL)
 		return REG_UIMPOSSIBLE;
 
-	/* Detect whether NFA matches all strings (possibly with length bounds) */
+	/* 检测 NFA 是否匹配所有字符串（可带长度界） */
 	checkmatchall(nfa);
 
-	/* Detect whether NFA can possibly match a zero-length string */
+	/* 检测 NFA 是否可能匹配零长度字符串 */
 	for (a = nfa->pre->outs; a != NULL; a = a->outchain)
 		for (aa = a->to->outs; aa != NULL; aa = aa->outchain)
 			if (aa->to == nfa->post)
@@ -3072,26 +3072,26 @@ analyze(struct nfa *nfa)
 }
 
 /*
- * checkmatchall - does the NFA represent no more than a string length test?
+ * checkmatchall - 该 NFA 是否仅表示串长度检验？
  *
- * If so, set nfa->minmatchall and nfa->maxmatchall correctly (they are -1
- * to begin with) and set the MATCHALL bit in nfa->flags.
+ * 若是，正确置 nfa->minmatchall 与 nfa->maxmatchall（初值 -1）
+ * 并在 nfa->flags 中设置 MATCHALL 位。
  *
- * To succeed, we require all arcs to be PLAIN RAINBOW arcs, except for those
- * for pseudocolors (i.e., BOS/BOL/EOS/EOL).  We must be able to reach the
- * post state via RAINBOW arcs, and if there are any loops in the graph, they
- * must be loop-to-self arcs, ensuring that each loop iteration consumes
- * exactly one character.  (Longer loops are problematic because they create
- * non-consecutive possible match lengths; we have no good way to represent
- * that situation for lengths beyond the DUPINF limit.)
+ * 要成功，我们要求所有弧都是 PLAIN 彩虹弧，除了
+ * 伪色弧（即 BOS/BOL/EOS/EOL）。须能经彩虹弧抵达 
+ * post 状态；图中若有环，则它们必须是
+ * 自环弧，以确保每次环迭代都消耗
+ * 恰好一个字符。（更长环成问题，因其造成
+ * 非连续的可能匹配长度；我们没有好办法表示 
+ * DUPINF 限度以外的那种长度情形。）
  *
- * Pseudocolor arcs complicate things a little.  We know that they can only
- * appear as pre-state outarcs (for BOS/BOL) or post-state inarcs (for
- * EOS/EOL).  There, they must exactly replicate the parallel RAINBOW arcs,
- * e.g. if the pre state has one RAINBOW outarc to state 2, it must have BOS
- * and BOL outarcs to state 2, and no others.  Missing or extra pseudocolor
- * arcs can occur, meaning that the NFA involves some constraint on the
- * adjacent characters, which makes it not a matchall NFA.
+ * 伪色弧会使情况稍复杂。已知它们只能
+ * 作为 pre 状态出弧（BOS/BOL）或 post 状态入弧（
+ * EOS/EOL）。在那里它们必须精确复制并行的彩虹弧，
+ * 例如 pre 状态有一条到状态 2 的彩虹出弧，则必须有 BOS
+ * 与 BOL 出弧到状态 2，且别无其他。缺失或多余的伪色
+ * 弧可能出现，意味着 NFA 对相邻字符带有某种
+ * 约束，因而它不是 matchall NFA。
  */
 static void
 checkmatchall(struct nfa *nfa)
@@ -3101,21 +3101,21 @@ checkmatchall(struct nfa *nfa)
 	int			i;
 
 	/*
-	 * If there are too many states, don't bother trying to detect matchall.
-	 * This limit serves to bound the time and memory we could consume below.
-	 * Note that even if the graph is all-RAINBOW, if there are significantly
-	 * more than DUPINF states then it's likely that there are paths of length
-	 * more than DUPINF, which would force us to fail anyhow.  In practice,
-	 * plausible ways of writing a matchall regex with maximum finite path
-	 * length K tend not to have very many more than K states.
+	 * 若状态太多，就不必费心去检测 matchall。
+	 * 此限度用于约束下面可能消耗的时间与内存。
+	 * 注意：即便图全是彩虹弧，若状态数明显多于
+	 * DUPINF，则很可能存在长度超过 DUPINF 的路径，
+	 * 这反正会迫使我们失败。实践中，编写最大有限
+	 * 路径长度为 K 的 matchall 正则的合理写法，
+	 * 状态数往往不会比 K 多出很多。
 	 */
 	if (nfa->nstates > DUPINF * 2)
 		return;
 
 	/*
-	 * First, scan all the states to verify that only RAINBOW arcs appear,
-	 * plus pseudocolor arcs adjacent to the pre and post states.  This lets
-	 * us quickly eliminate most cases that aren't matchall NFAs.
+	 * 首先扫描所有状态，核实只出现彩虹弧，以及
+	 * 紧邻 pre/post 状态的伪色弧。这让我们能快速
+	 * 排除大多数并非 matchall 的 NFA。
 	 */
 	for (s = nfa->states; s != NULL; s = s->next)
 	{
@@ -3124,39 +3124,39 @@ checkmatchall(struct nfa *nfa)
 		for (a = s->outs; a != NULL; a = a->outchain)
 		{
 			if (a->type != PLAIN)
-				return;			/* any LACONs make it non-matchall */
+				return;			/* 有 LACON 即非 matchall */
 			if (a->co != RAINBOW)
 			{
 				if (nfa->cm->cd[a->co].flags & PSEUDO)
 				{
 					/*
-					 * Pseudocolor arc: verify it's in a valid place (this
-					 * seems quite unlikely to fail, but let's be sure).
+					 * 伪色弧：核实它处于合法位置（虽似
+					 * 很难失败，但还是确认一下）。
 					 */
 					if (s == nfa->pre &&
 						(a->co == nfa->bos[0] || a->co == nfa->bos[1]))
-						 /* okay BOS/BOL arc */ ;
+						 /* okay BOS/BOL 弧 */ ;
 					else if (a->to == nfa->post &&
 							 (a->co == nfa->eos[0] || a->co == nfa->eos[1]))
-						 /* okay EOS/EOL arc */ ;
+						 /* okay EOS/EOL 弧 */ ;
 					else
-						return; /* unexpected pseudocolor arc */
-					/* We'll check these arcs some more below. */
+						return; /* 意外的伪色弧 */
+					/* 下面还会再检查这些弧。 */
 				}
 				else
-					return;		/* any other color makes it non-matchall */
+					return;		/* 任何其它色都使其非 matchall */
 			}
 		}
-		/* Also, assert that the tmp fields are available for use. */
+		/* 还要断言 tmp 字段可供使用。 */
 		assert(s->tmp == NULL);
 	}
 
 	/*
-	 * The next cheapest check we can make is to verify that the BOS/BOL
-	 * outarcs of the pre state reach the same states as its RAINBOW outarcs.
-	 * If they don't, the NFA expresses some constraints on the character
-	 * before the matched string, making it non-matchall.  Likewise, the
-	 * EOS/EOL inarcs of the post state must match its RAINBOW inarcs.
+	 * 下一步最便宜的检查是核实 pre 状态的 BOS/BOL
+	 * 出弧与其彩虹出弧到达相同状态。
+	 * 若否，则 NFA 对匹配串之前的字符表达了某种
+	 * 约束，从而不是 matchall。同理，post 状态的
+	 * EOS/EOL 入弧必须与其彩虹入弧一致。
 	 */
 	if (!check_out_colors_match(nfa->pre, RAINBOW, nfa->bos[0]) ||
 		!check_out_colors_match(nfa->pre, RAINBOW, nfa->bos[1]) ||
@@ -3165,26 +3165,26 @@ checkmatchall(struct nfa *nfa)
 		return;
 
 	/*
-	 * Initialize an array of path-length arrays, in which
-	 * checkmatchall_recurse will return per-state results.  This lets us
-	 * memo-ize the recursive search and avoid exponential time consumption.
+	 * 初始化路径长度数组的数组，供
+	 * checkmatchall_recurse 返回每状态结果。这让我们
+	 * 能记忆化递归搜索，避免指数级耗时。
 	 */
 	haspaths = (bool **) MALLOC(nfa->nstates * sizeof(bool *));
 	if (haspaths == NULL)
-		return;					/* fail quietly */
+		return;					/* 静默失败 */
 	memset(haspaths, 0, nfa->nstates * sizeof(bool *));
 
 	/*
-	 * Recursively search the graph for all-RAINBOW paths to the "post" state,
-	 * starting at the "pre" state, and computing the lengths of the paths.
-	 * (Given the preceding checks, there should be at least one such path.
-	 * However we could get back a false result anyway, in case there are
-	 * multi-state loops, paths exceeding DUPINF+1 length, or non-algorithmic
-	 * failures such as ENOMEM.)
+	 * 递归搜索图中通向 "post" 状态的全彩虹路径，
+	 * 从 "pre" 状态出发，并计算这些路径的长度。
+	 * （鉴于前述检查，应至少有一条这样的路径。
+	 * 但仍可能得到假结果，若存在多状态环、
+	 * 长度超过 DUPINF+1 的路径，或非算法性
+	 * 失败如 ENOMEM。）
 	 */
 	if (checkmatchall_recurse(nfa, nfa->pre, haspaths))
 	{
-		/* The useful result is the path length array for the pre state */
+		/* 有用结果是 pre 状态的路径长度数组 */
 		bool	   *haspath = haspaths[nfa->pre->no];
 		int			minmatch,
 					maxmatch,
@@ -3193,18 +3193,18 @@ checkmatchall(struct nfa *nfa)
 		assert(haspath != NULL);
 
 		/*
-		 * haspath[] now represents the set of possible path lengths; but we
-		 * want to reduce that to a min and max value, because it doesn't seem
-		 * worth complicating regexec.c to deal with nonconsecutive possible
-		 * match lengths.  Find min and max of first run of lengths, then
-		 * verify there are no nonconsecutive lengths.
+		 * haspath[] 现表示可能的路径长度集合；但我们
+		 * 想把它收成最小与最大值，因为似乎不值得为
+		 * 处理非连续可能匹配长度而复杂化 regexec.c。
+		 * 先取第一段连续长度的最小与最大，再
+		 * 核实不存在非连续长度。
 		 */
 		for (minmatch = 0; minmatch <= DUPINF + 1; minmatch++)
 		{
 			if (haspath[minmatch])
 				break;
 		}
-		assert(minmatch <= DUPINF + 1); /* else checkmatchall_recurse lied */
+		assert(minmatch <= DUPINF + 1); /* 否则该函数撒了谎 */
 		for (maxmatch = minmatch; maxmatch < DUPINF + 1; maxmatch++)
 		{
 			if (!haspath[maxmatch + 1])
@@ -3214,7 +3214,7 @@ checkmatchall(struct nfa *nfa)
 		{
 			if (haspath[morematch])
 			{
-				haspath = NULL; /* fail, there are nonconsecutive lengths */
+				haspath = NULL; /* 失败，存在非连续长度 */
 				break;
 			}
 		}
@@ -3222,24 +3222,24 @@ checkmatchall(struct nfa *nfa)
 		if (haspath != NULL)
 		{
 			/*
-			 * Success, so record the info.  Here we have a fine point: the
-			 * path length from the pre state includes the pre-to-initial
-			 * transition, so it's one more than the actually matched string
-			 * length.  (We avoided counting the final-to-post transition
-			 * within checkmatchall_recurse, but not this one.)  This is why
-			 * checkmatchall_recurse allows one more level of path length than
-			 * might seem necessary.  This decrement also takes care of
-			 * converting checkmatchall_recurse's definition of "infinity" as
-			 * "DUPINF+1" to our normal representation as "DUPINF".
+			 * 成功，于是记录信息。此处有一细节：从 
+			 * pre 状态起算的路径长度含 pre 到 initial 的
+			 * 转移，故比实际匹配串长度多一。
+			 * （我们在 checkmatchall_recurse 内未计入 
+			 * final 到 post 的转移，但计入了这一步。）因此 
+			 * checkmatchall_recurse 允许多一层路径长度，看似
+			 * 超乎必要。此次减一也负责把 
+			 * checkmatchall_recurse 的 "无穷" 定义 
+			 * "DUPINF+1" 转为通常的 "DUPINF" 表示。
 			 */
-			assert(minmatch > 0);	/* else pre and post states were adjacent */
+			assert(minmatch > 0);	/* 否则 pre 与 post 状态相邻 */
 			nfa->minmatchall = minmatch - 1;
 			nfa->maxmatchall = maxmatch - 1;
 			nfa->flags |= MATCHALL;
 		}
 	}
 
-	/* Clean up */
+	/* 清理 */
 	for (i = 0; i < nfa->nstates; i++)
 	{
 		if (haspaths[i] != NULL)
@@ -3249,29 +3249,29 @@ checkmatchall(struct nfa *nfa)
 }
 
 /*
- * checkmatchall_recurse - recursive search for checkmatchall
+ * checkmatchall_recurse - 供 checkmatchall 的递归搜索
  *
- * s is the state to be examined in this recursion level.
- * haspaths[] is an array of per-state exit path length arrays.
+ * s 是本层递归要检查的状态。
+ * haspaths[] 是每状态出口路径长度数组的数组。
  *
- * We return true if the search was performed successfully, false if
- * we had to fail because of multi-state loops or other internal reasons.
- * (Because "dead" states that can't reach the post state have been
- * eliminated, and we already verified that only RAINBOW and matching
- * pseudocolor arcs exist, every state should have RAINBOW path(s) to
- * the post state.  Hence we take a false result from recursive calls
- * as meaning that we'd better fail altogether, not just that that
- * particular state can't reach the post state.)
+ * 搜索成功则返回 true；若因多状态环或其它
+ * 内部原因不得不失败则返回 false。
+ * （因无法抵达 post 的 "死" 状态已被消除，
+ * 且已核实只存在彩虹弧与匹配的
+ * 伪色弧，每个状态都应有通向 post 的彩虹
+ * 路径。故对递归调用得到 false 时，我们
+ * 视为最好整体失败，而非仅该
+ * 特定状态无法抵达 post 状态。）
  *
- * On success, we store a malloc'd result array in haspaths[s->no],
- * showing the possible path lengths from s to the post state.
- * Each state's haspath[] array is of length DUPINF+2.  The entries from
- * k = 0 to DUPINF are true if there is an all-RAINBOW path of length k
- * from this state to the string end.  haspath[DUPINF+1] is true if all
- * path lengths >= DUPINF+1 are possible.  (Situations that cannot be
- * represented under these rules cause failure.)
+ * 成功时，在 haspaths[s->no] 存入 malloc 的结果数组，
+ * 示出从 s 到 post 状态的可能路径长度。
+ * 每状态 haspath[] 长度为 DUPINF+2。下标 
+ * k=0 到 DUPINF 为真表示有长度为 k 的全彩虹路径
+ * 从此状态到串尾。haspath[DUPINF+1] 为真表示所有
+ * 长度 >= DUPINF+1 皆可能。（无法按这些规则
+ * 表示的情形会导致失败。）
  *
- * checkmatchall is responsible for eventually freeing the haspath[] arrays.
+ * 最终释放 haspath[] 数组由 checkmatchall 负责。
  */
 static bool
 checkmatchall_recurse(struct nfa *nfa, struct state *s, bool **haspaths)
@@ -3282,68 +3282,68 @@ checkmatchall_recurse(struct nfa *nfa, struct state *s, bool **haspaths)
 	struct arc *a;
 
 	/*
-	 * Since this is recursive, it could be driven to stack overflow.  But we
-	 * need not treat that as a hard failure; just deem the NFA non-matchall.
+	 * 由于本函数会递归，可能被驱动到栈溢出。但我们
+	 * 不必把它当作硬失败；只需认定 NFA 非 matchall。
 	 */
 	if (STACK_TOO_DEEP(nfa->v->re))
 		return false;
 
-	/* In case the search takes a long time, check for cancel */
+	/* 万一搜索耗时很长，检查是否取消 */
 	INTERRUPT(nfa->v->re);
 
-	/* Create a haspath array for this state */
+	/* 为本状态创建 haspath 数组 */
 	haspath = (bool *) MALLOC((DUPINF + 2) * sizeof(bool));
 	if (haspath == NULL)
-		return false;			/* again, treat as non-matchall */
+		return false;			/* 再视为非 matchall */
 	memset(haspath, 0, (DUPINF + 2) * sizeof(bool));
 
-	/* Mark this state as being visited */
+	/* 标记本状态正在被访问 */
 	assert(s->tmp == NULL);
 	s->tmp = s;
 
 	for (a = s->outs; a != NULL; a = a->outchain)
 	{
 		if (a->co != RAINBOW)
-			continue;			/* ignore pseudocolor arcs */
+			continue;			/* 忽略伪色弧 */
 		if (a->to == nfa->post)
 		{
-			/* We found an all-RAINBOW path to the post state */
+			/* 找到通向 post 状态的全彩虹路径 */
 			result = true;
 
 			/*
-			 * Mark this state as being zero steps away from the string end
-			 * (the transition to the post state isn't counted).
+			 * 将本状态标为距串尾零步（
+			 * 到 post 状态的转移不计入）。
 			 */
 			haspath[0] = true;
 		}
 		else if (a->to == s)
 		{
-			/* We found a cycle of length 1, which we'll deal with below. */
+			/* 发现长度为 1 的环，下面再处理。 */
 			foundloop = true;
 		}
 		else if (a->to->tmp != NULL)
 		{
-			/* It's busy, so we found a cycle of length > 1, so fail. */
+			/* 它正忙，故发现长度 > 1 的环，失败。 */
 			result = false;
 			break;
 		}
 		else
 		{
-			/* Consider paths forward through this to-state. */
+			/* 考虑经此 to 状态向前的路径。 */
 			bool	   *nexthaspath;
 			int			i;
 
-			/* If to-state was not already visited, recurse */
+			/* 若 to 状态尚未访问过，则递归 */
 			if (haspaths[a->to->no] == NULL)
 			{
 				result = checkmatchall_recurse(nfa, a->to, haspaths);
-				/* Fail if any recursive path fails */
+				/* 有递归路径失败则失败 */
 				if (!result)
 					break;
 			}
 			else
 			{
-				/* The previous visit must have found path(s) to the end */
+				/* 先前访问必已找到通向终点的路径 */
 				result = true;
 			}
 			assert(a->to->tmp == NULL);
@@ -3351,24 +3351,24 @@ checkmatchall_recurse(struct nfa *nfa, struct state *s, bool **haspaths)
 			assert(nexthaspath != NULL);
 
 			/*
-			 * Now, for every path of length i from a->to to the string end,
-			 * there is a path of length i + 1 from s to the string end.
+			 * 于是，对每条从 a->to 到串尾长度为 i 的路径，
+			 * 都有一条从 s 到串尾长度为 i+1 的路径。
 			 */
 			if (nexthaspath[DUPINF] != nexthaspath[DUPINF + 1])
 			{
 				/*
-				 * a->to has a path of length exactly DUPINF, but not longer;
-				 * or it has paths of all lengths > DUPINF but not one of
-				 * exactly that length.  In either case, we cannot represent
-				 * the possible path lengths from s correctly, so fail.
+				 * a->to 有长度恰为 DUPINF 的路径但无更长；
+				 * 或有所有长度 > DUPINF 的路径却没有
+				 * 恰好该长度的。无论哪种，我们都无法
+				 * 正确表示自 s 可能路径长度，故失败。
 				 */
 				result = false;
 				break;
 			}
-			/* Merge knowledge of these path lengths into what we have */
+			/* 把这些路径长度的知识并入已有结果 */
 			for (i = 0; i < DUPINF; i++)
 				haspath[i + 1] |= nexthaspath[i];
-			/* Infinity + 1 is still infinity */
+			/* 无穷加一仍是无穷 */
 			haspath[DUPINF + 1] |= nexthaspath[DUPINF + 1];
 		}
 	}
@@ -3376,10 +3376,10 @@ checkmatchall_recurse(struct nfa *nfa, struct state *s, bool **haspaths)
 	if (result && foundloop)
 	{
 		/*
-		 * If there is a length-1 loop at this state, then find the shortest
-		 * known path length to the end.  The loop means that every larger
-		 * path length is possible, too.  (It doesn't matter whether any of
-		 * the longer lengths were already known possible.)
+		 * 若本状态有长度为 1 的环，则找出到终点的最短
+		 * 已知路径长度。该环意味着每个更大的
+		 * 路径长度也都可能。（至于更长的长度是否
+		 * 本已知为可能，并不重要。）
 		 */
 		int			i;
 
@@ -3392,24 +3392,24 @@ checkmatchall_recurse(struct nfa *nfa, struct state *s, bool **haspaths)
 			haspath[i] = true;
 	}
 
-	/* Report out the completed path length map */
+	/* 报告完成的路径长度图 */
 	assert(s->no < nfa->nstates);
 	assert(haspaths[s->no] == NULL);
 	haspaths[s->no] = haspath;
 
-	/* Mark state no longer busy */
+	/* 标记状态不再忙碌 */
 	s->tmp = NULL;
 
 	return result;
 }
 
 /*
- * check_out_colors_match - subroutine for checkmatchall
+ * check_out_colors_match - checkmatchall 的子例程
  *
- * Check whether the set of states reachable from s by arcs of color co1
- * is equivalent to the set reachable by arcs of color co2.
- * checkmatchall already verified that all of the NFA's arcs are PLAIN,
- * so we need not examine arc types here.
+ * 检查从 s 经色 co1 的弧可达的状态集合
+ * 是否等价于经色 co2 的弧可达的集合。
+ * checkmatchall 已核实本 NFA 的弧全是 PLAIN，
+ * 故此处不必再查弧类型。
  */
 static bool
 check_out_colors_match(struct state *s, color co1, color co2)
@@ -3418,12 +3418,12 @@ check_out_colors_match(struct state *s, color co1, color co2)
 	struct arc *a;
 
 	/*
-	 * To do this in linear time, we assume that the NFA contains no duplicate
-	 * arcs.  Run through the out-arcs, marking states reachable by arcs of
-	 * color co1.  Run through again, un-marking states reachable by arcs of
-	 * color co2; if we see a not-marked state, we know this co2 arc is
-	 * unmatched.  Then run through again, checking for still-marked states,
-	 * and in any case leaving all the tmp fields reset to NULL.
+	 * 为在线性时间完成，假定 NFA 不含重复
+	 * 弧。遍历出弧，标记经色 co1 的弧可达的状态。
+	 * 再遍历一遍，取消经色 co2 可达状态的标记；
+	 * 若见到未标记状态，便知此 co2 弧
+	 * 无匹配。然后再遍历，检查仍带标记的状态，
+	 * 并无论如何把所有 tmp 字段复位为 NULL。
 	 */
 	for (a = s->outs; a != NULL; a = a->outchain)
 	{
@@ -3440,7 +3440,7 @@ check_out_colors_match(struct state *s, color co1, color co2)
 			if (a->to->tmp != NULL)
 				a->to->tmp = NULL;
 			else
-				result = false; /* unmatched co2 arc */
+				result = false; /* 未匹配 co2 弧 */
 		}
 	}
 	for (a = s->outs; a != NULL; a = a->outchain)
@@ -3449,7 +3449,7 @@ check_out_colors_match(struct state *s, color co1, color co2)
 		{
 			if (a->to->tmp != NULL)
 			{
-				result = false; /* unmatched co1 arc */
+				result = false; /* 未匹配 co1 弧 */
 				a->to->tmp = NULL;
 			}
 		}
@@ -3458,12 +3458,12 @@ check_out_colors_match(struct state *s, color co1, color co2)
 }
 
 /*
- * check_in_colors_match - subroutine for checkmatchall
+ * check_in_colors_match - checkmatchall 的子例程
  *
- * Check whether the set of states that can reach s by arcs of color co1
- * is equivalent to the set that can reach s by arcs of color co2.
- * checkmatchall already verified that all of the NFA's arcs are PLAIN,
- * so we need not examine arc types here.
+ * 检查经色 co1 的弧能抵达 s 的状态集合
+ * 是否等价于经色 co2 的弧能抵达 s 的集合。
+ * checkmatchall 已核实本 NFA 的弧全是 PLAIN，
+ * 故此处不必再查弧类型。
  */
 static bool
 check_in_colors_match(struct state *s, color co1, color co2)
@@ -3472,8 +3472,8 @@ check_in_colors_match(struct state *s, color co1, color co2)
 	struct arc *a;
 
 	/*
-	 * Identical algorithm to check_out_colors_match, except examine the
-	 * from-states of s' inarcs.
+	 * 算法与 check_out_colors_match 相同，只是改查
+	 * s 入弧 from 态之色
 	 */
 	for (a = s->ins; a != NULL; a = a->inchain)
 	{
@@ -3490,7 +3490,7 @@ check_in_colors_match(struct state *s, color co1, color co2)
 			if (a->from->tmp != NULL)
 				a->from->tmp = NULL;
 			else
-				result = false; /* unmatched co2 arc */
+				result = false; /* 未匹配 co2 弧 */
 		}
 	}
 	for (a = s->ins; a != NULL; a = a->inchain)
@@ -3499,7 +3499,7 @@ check_in_colors_match(struct state *s, color co1, color co2)
 		{
 			if (a->from->tmp != NULL)
 			{
-				result = false; /* unmatched co1 arc */
+				result = false; /* 未匹配 co1 弧 */
 				a->from->tmp = NULL;
 			}
 		}
@@ -3508,7 +3508,7 @@ check_in_colors_match(struct state *s, color co1, color co2)
 }
 
 /*
- * compact - construct the compact representation of an NFA
+ * compact - 构造 NFA 的紧凑表示
  */
 static void
 compact(struct nfa *nfa,
@@ -3528,7 +3528,7 @@ compact(struct nfa *nfa,
 	for (s = nfa->states; s != NULL; s = s->next)
 	{
 		nstates++;
-		narcs += s->nouts + 1;	/* need one extra for endmarker */
+		narcs += s->nouts + 1;	/* 需多一个作结束标记 */
 	}
 
 	cnfa->stflags = (char *) MALLOC(nstates * sizeof(char));
@@ -3592,14 +3592,14 @@ compact(struct nfa *nfa,
 	assert(ca == &cnfa->arcs[narcs]);
 	assert(cnfa->nstates != 0);
 
-	/* mark no-progress states */
+	/* 标记无进展状态 */
 	for (a = nfa->pre->outs; a != NULL; a = a->outchain)
 		cnfa->stflags[a->to->no] = CNFA_NOPROGRESS;
 	cnfa->stflags[nfa->pre->no] = CNFA_NOPROGRESS;
 }
 
 /*
- * carcsort - sort compacted-NFA arcs by color
+ * carcsort - 按色排序紧凑 NFA 弧
  */
 static void
 carcsort(struct carc *first, size_t n)
@@ -3622,17 +3622,17 @@ carc_cmp(const void *a, const void *b)
 		return -1;
 	if (aa->to > bb->to)
 		return +1;
-	/* This is unreached, since there should be no duplicate arcs now: */
+	/* 不会走到这里：此时不应再有重复弧： */
 	return 0;
 }
 
 /*
- * freecnfa - free a compacted NFA
+ * freecnfa - 释放紧凑 NFA
  */
 static void
 freecnfa(struct cnfa *cnfa)
 {
-	assert(!NULLCNFA(*cnfa));	/* not empty already */
+	assert(!NULLCNFA(*cnfa));	/* 不应已为空 */
 	FREE(cnfa->stflags);
 	FREE(cnfa->states);
 	FREE(cnfa->arcs);
@@ -3640,7 +3640,7 @@ freecnfa(struct cnfa *cnfa)
 }
 
 /*
- * dumpnfa - dump an NFA in human-readable form
+ * dumpnfa - 以人类可读形式转储 NFA
  */
 static void
 dumpnfa(struct nfa *nfa,
@@ -3686,10 +3686,10 @@ dumpnfa(struct nfa *nfa,
 #endif
 }
 
-#ifdef REG_DEBUG				/* subordinates of dumpnfa */
+#ifdef REG_DEBUG				/* dumpnfa 的下属例程 */
 
 /*
- * dumpstate - dump an NFA state in human-readable form
+ * dumpstate - 以人类可读形式转储 NFA 状态
  */
 static void
 dumpstate(struct state *s,
@@ -3715,7 +3715,7 @@ dumpstate(struct state *s,
 }
 
 /*
- * dumparcs - dump out-arcs in human-readable form
+ * dumparcs - 以人类可读形式转储出弧
  */
 static void
 dumparcs(struct state *s,
@@ -3724,7 +3724,7 @@ dumparcs(struct state *s,
 	int			pos;
 	struct arc *a;
 
-	/* printing oldest arcs first is usually clearer */
+	/* 通常先打印最旧的弧更清晰 */
 	a = s->outs;
 	assert(a != NULL);
 	while (a->outchain != NULL)
@@ -3747,7 +3747,7 @@ dumparcs(struct state *s,
 }
 
 /*
- * dumparc - dump one outarc in readable form, including prefixing tab
+ * dumparc - 转储一条出弧可读形式，含前缀制表符
  */
 static void
 dumparc(struct arc *a,
@@ -3797,9 +3797,9 @@ dumparc(struct arc *a,
 		fprintf(f, "?%d?", a->from->no);
 	for (aa = a->from->outs; aa != NULL; aa = aa->outchain)
 		if (aa == a)
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 	if (aa == NULL)
-		fprintf(f, "?!?");		/* missing from out-chain */
+		fprintf(f, "?!?");		/* 出链中缺失 */
 	fprintf(f, "->");
 	if (a->to == NULL)
 	{
@@ -3809,14 +3809,14 @@ dumparc(struct arc *a,
 	fprintf(f, "%d", a->to->no);
 	for (aa = a->to->ins; aa != NULL; aa = aa->inchain)
 		if (aa == a)
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 	if (aa == NULL)
-		fprintf(f, "?!?");		/* missing from in-chain */
+		fprintf(f, "?!?");		/* 入链中缺失 */
 }
 #endif							/* REG_DEBUG */
 
 /*
- * dumpcnfa - dump a compacted NFA in human-readable form
+ * dumpcnfa - 以人类可读形式转储紧凑 NFA
  */
 #ifdef REG_DEBUG
 static void
@@ -3851,10 +3851,10 @@ dumpcnfa(struct cnfa *cnfa,
 }
 #endif
 
-#ifdef REG_DEBUG				/* subordinates of dumpcnfa */
+#ifdef REG_DEBUG				/* dumpcnfa 的下属例程 */
 
 /*
- * dumpcstate - dump a compacted-NFA state in human-readable form
+ * dumpcstate - 以人类可读形式转储紧凑 NFA 状态
  */
 static void
 dumpcstate(int st,

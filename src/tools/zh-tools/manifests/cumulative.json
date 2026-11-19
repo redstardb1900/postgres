@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "ae1833dfd2c4c8c799cddb5660141207e55e1858",
+ "parent_commit": "b996f8b6d231d471f90c7b151f7ac6fefe72d1e1",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7521,6 +7521,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0440-regex-rest-c.json",
    "kind": "manifest",
    "note": "batch-0440 manifest"
+  },
+  {
+   "pattern": "src/include/regex/regcustom.h",
+   "kind": "c_comment",
+   "note": "batch-0441 R4b"
+  },
+  {
+   "pattern": "src/include/regex/regex.h",
+   "kind": "c_comment",
+   "note": "batch-0441 R4b"
+  },
+  {
+   "pattern": "src/include/regex/regexport.h",
+   "kind": "c_comment",
+   "note": "batch-0441 R4b"
+  },
+  {
+   "pattern": "src/include/regex/regguts.h",
+   "kind": "c_comment",
+   "note": "batch-0441 R4b"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0441-regex-headers.json",
+   "kind": "manifest",
+   "note": "batch-0441 manifest"
   }
  ],
  "files": [
@@ -24353,6 +24378,56 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0440 manifest; parent_commit→ae1833dfd2c 更新披露"
+  },
+  {
+   "path": "src/include/regex/regcustom.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": ["路径/公式 KEEP"],
+   "note": "batch-0441"
+  },
+  {
+   "path": "src/include/regex/regex.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 94,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0441"
+  },
+  {
+   "path": "src/include/regex/regexport.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 9,
+   "preserved": 1,
+   "preserved_reasons": ["横幅/Copyright/IDENTIFICATION KEEP"],
+   "note": "batch-0441"
+  },
+  {
+   "path": "src/include/regex/regguts.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 182,
+   "translated": 180,
+   "preserved": 2,
+   "preserved_reasons": ["路径/voids/misc KEEP"],
+   "note": "batch-0441；审前清偿色图/彩虹/cNFA/LACON/halfen"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0441-regex-headers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0441"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

@@ -28,13 +28,13 @@
  * src/include/regex/regcustom.h
  */
 
-/* headers if any */
+/* 头文件(有) */
 
 /*
- * It's against Postgres coding conventions to include postgres.h in a
- * header file, but we allow the violation here because the regexp library
- * files specifically intend this file to supply application-dependent
- * headers, and are careful to include this file before anything else.
+ * 按 Postgres 编码惯例，不宜在头文件中
+ * 包含 postgres.h，但此处容许违规，因正则库
+ * 文件特意指望本文件提供应用相关
+ * 头文件，并谨慎地在一切之前先包含本文件。
  */
 #include "postgres.h"
 
@@ -44,10 +44,10 @@
 
 #include "mb/pg_wchar.h"
 
-#include "miscadmin.h"			/* needed by rstacktoodeep */
+#include "miscadmin.h"			/* 供rstacktoodeep所需 */
 
 
-/* overrides for regguts.h definitions, if any */
+/* 对 regguts.h 定义的覆盖，若有 */
 #define FUNCPTR(name, args) (*name) args
 #define MALLOC(n)		palloc_extended((n), MCXT_ALLOC_NO_OOM)
 #define FREE(p)			pfree(VS(p))
@@ -55,43 +55,43 @@
 #define INTERRUPT(re)	CHECK_FOR_INTERRUPTS()
 #define assert(x)		Assert(x)
 
-/* internal character type and related */
-typedef pg_wchar chr;			/* the type itself */
-typedef unsigned uchr;			/* unsigned type that will hold a chr */
+/* 内部字符类型及相关 */
+typedef pg_wchar chr;			/* 类型本身 */
+typedef unsigned uchr;			/* 可容纳 chr 的无符号类型 */
 
-#define CHR(c)	((unsigned char) (c))	/* turn char literal into chr literal */
-#define DIGITVAL(c) ((c)-'0')	/* turn chr digit into its value */
-#define CHRBITS 32				/* bits in a chr; must not use sizeof */
-#define CHR_MIN 0x00000000		/* smallest and largest chr; the value */
-#define CHR_MAX 0x7ffffffe		/* CHR_MAX-CHR_MIN+1 must fit in an int, and
-								 * CHR_MAX+1 must fit in a chr variable */
+#define CHR(c)	((unsigned char) (c))	/* char 字面量转成 chr 字面量 */
+#define DIGITVAL(c) ((c)-'0')	/* 把 chr 数字转为数值 */
+#define CHRBITS 32				/* chr 中的位数；禁用 sizeof */
+#define CHR_MIN 0x00000000		/* 最小与最大 chr；其值 */
+#define CHR_MAX 0x7ffffffe		/* CHR_MAX-CHR_MIN+1 须装入 int，且
+								 * CHR_MAX+1 须装入 chr 变量*/
 
 /*
- * Check if a chr value is in range.  Ideally we'd just write this as
+ * 检查 chr 值是否在范围内。理想写法是
  *		((c) >= CHR_MIN && (c) <= CHR_MAX)
- * However, if chr is unsigned and CHR_MIN is zero, the first part of that
- * is a no-op, and certain overly-nannyish compilers give warnings about it.
- * So we leave that out here.  If you want to make chr signed and/or CHR_MIN
- * not zero, redefine this macro as above.  Callers should assume that the
- * macro may multiply evaluate its argument, even though it does not today.
+ * 然而，若 chr 无符号且 CHR_MIN 为零，则前半
+ * 是空操作，某些过分保姆式编译器会对它告警。
+ * 故此处略去。若欲使 chr 有符号且/或 CHR_MIN 
+ * 非零，则按上式重定义本宏。调用方应假定
+ * 该宏可能多次求值其参数，纵然今日并未如此。
  */
 #define CHR_IS_IN_RANGE(c)	((c) <= CHR_MAX)
 
 /*
- * MAX_SIMPLE_CHR is the cutoff between "simple" and "complicated" processing
- * in the color map logic.  It should usually be chosen high enough to ensure
- * that all common characters are <= MAX_SIMPLE_CHR.  However, very large
- * values will be counterproductive since they cause more regex setup time.
- * Also, small values can be helpful for testing the high-color-map logic
- * with plain old ASCII input.
+ * MAX_SIMPLE_CHR 是色图逻辑中"简单"与"复杂"
+ * 处理的分界。通常应选得足够高，以确保
+ * 常见字符皆 <= MAX_SIMPLE_CHR。但过大
+ * 的值适得其反，因其增加正则准备时间。
+ * 另，较小值有助于测试高色图逻辑，
+ * 用普通 ASCII 输入。
  */
-#define MAX_SIMPLE_CHR	0x7FF	/* suitable value for Unicode */
+#define MAX_SIMPLE_CHR	0x7FF	/* 适于 Unicode 的取值 */
 
-/* functions operating on chr */
+/* 作用于 chr 的函数 */
 #define iscalnum(x) pg_wc_isalnum(x)
 #define iscalpha(x) pg_wc_isalpha(x)
 #define iscdigit(x) pg_wc_isdigit(x)
 #define iscspace(x) pg_wc_isspace(x)
 
-/* and pick up the standard header */
+/* 并纳入标准头文件 */
 #include "regex.h"

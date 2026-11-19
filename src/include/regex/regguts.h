@@ -1,5 +1,5 @@
 /*
- * Internal interface definitions, etc., for the reg package
+ * reg 包的内部接口定义等
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -33,40 +33,40 @@
 
 
 /*
- * Environmental customization.  It should not (I hope) be necessary to
- * alter the file you are now reading -- regcustom.h should handle it all,
- * given care here and elsewhere.
+ * 环境定制。应当不必（我希望）去
+ * 改你正在读的本文件 -- regcustom.h 应能全部处理，
+ * 只要此处与他处留心。
  */
 #include "regcustom.h"
 
 
 
 /*
- * Things that regcustom.h might override.
+ * regcustom.h 可能覆盖之物。
  */
 
-/* assertions */
+/* 断言 */
 #ifndef assert
 #ifndef REG_DEBUG
-#define  NDEBUG					/* no assertions */
+#define  NDEBUG					/* 无断言 */
 #endif
 #include <assert.h>
 #endif
 
 /* voids */
 #ifndef DISCARD
-#define DISCARD void			/* for throwing values away */
+#define DISCARD void			/* 用于丢弃值 */
 #endif
 #ifndef VS
-#define VS(x)	((void *)(x))	/* cast something to generic ptr */
+#define VS(x)	((void *)(x))	/* 把某物转为通用指针 */
 #endif
 
-/* function-pointer declarator */
+/* 函数指针声明符 */
 #ifndef FUNCPTR
 #define FUNCPTR(name, args) (*(name)) args
 #endif
 
-/* memory allocation */
+/* 内存分配 */
 #ifndef MALLOC
 #define MALLOC(n)	malloc(n)
 #endif
@@ -77,14 +77,14 @@
 #define FREE(p)		free(VS(p))
 #endif
 
-/* interruption */
+/* 中断 */
 #ifndef INTERRUPT
 #define INTERRUPT(re)
 #endif
 
-/* want size of a char in bits, and max value in bounded quantifiers */
+/* 要 char 的位宽，以及有界量词中的最大值 */
 #ifndef _POSIX2_RE_DUP_MAX
-#define _POSIX2_RE_DUP_MAX	255 /* normally from <limits.h> */
+#define _POSIX2_RE_DUP_MAX	255 /* 通常来自 <limits.h> */
 #endif
 
 
@@ -98,24 +98,24 @@
 #define DUPMAX	_POSIX2_RE_DUP_MAX
 #define DUPINF	(DUPMAX+1)
 
-#define REMAGIC 0xfed7			/* magic number for main struct */
+#define REMAGIC 0xfed7			/* 主结构的魔数 */
 
-/* Type codes for lookaround constraints */
-#define LATYPE_AHEAD_POS	03	/* positive lookahead */
-#define LATYPE_AHEAD_NEG	02	/* negative lookahead */
-#define LATYPE_BEHIND_POS	01	/* positive lookbehind */
-#define LATYPE_BEHIND_NEG	00	/* negative lookbehind */
+/* 环视约束的类型码 */
+#define LATYPE_AHEAD_POS	03	/* 正前瞻 */
+#define LATYPE_AHEAD_NEG	02	/* 负前瞻 */
+#define LATYPE_BEHIND_POS	01	/* 正后顾 */
+#define LATYPE_BEHIND_NEG	00	/* 负后顾 */
 #define LATYPE_IS_POS(la)	((la) & 01)
 #define LATYPE_IS_AHEAD(la) ((la) & 02)
 
 
 /*
- * debugging facilities
+ * 调试设施
  */
 #ifdef REG_DEBUG
-/* FDEBUG does finite-state tracing */
+/* FDEBUG 做有限状态跟踪 */
 #define FDEBUG(arglist) { if (v->eflags&REG_FTRACE) printf arglist; }
-/* MDEBUG does higher-level tracing */
+/* MDEBUG 做更高层跟踪 */
 #define MDEBUG(arglist) { if (v->eflags&REG_MTRACE) printf arglist; }
 #else
 #define FDEBUG(arglist) {}
@@ -125,7 +125,7 @@
 
 
 /*
- * bitmap manipulation
+ * 位图操作
  */
 #define UBITS	(CHAR_BIT * sizeof(unsigned))
 #define BSET(uv, sn)	((uv)[(sn)/UBITS] |= (unsigned)1 << ((sn)%UBITS))
@@ -133,7 +133,7 @@
 
 
 /*
- * known character classes
+ * 已知字符类
  */
 enum char_classes
 {
@@ -145,290 +145,290 @@ enum char_classes
 
 
 /*
- * As soon as possible, we map chrs into equivalence classes -- "colors" --
- * which are of much more manageable number.
+ * 尽快将 chr 映射入等价类 -- "色" --
+ * 其数量远更易管理。
  *
- * To further reduce the number of arcs in NFAs and DFAs, we also have a
- * special RAINBOW "color" that can be assigned to an arc.  This is not a
- * real color, in that it has no entry in color maps.
+ * 为进一步减少 NFA 与 DFA 中的弧数，我们还有一
+ * 种可赋给弧的特殊彩虹 "色"。这并非真
+ * 正的色，因其在色图中无条目。
  */
-typedef short color;			/* colors of characters */
+typedef short color;			/* 字符之色 */
 
-#define MAX_COLOR	32767		/* max color (must fit in 'color' datatype) */
-#define COLORLESS	(-1)		/* impossible color */
-#define RAINBOW		(-2)		/* represents all colors except pseudocolors */
-#define WHITE		0			/* default color, parent of all others */
-/* Note: various places in the code know that WHITE is zero */
+#define MAX_COLOR	32767		/* 最大色(须装入 'color' 类型) */
+#define COLORLESS	(-1)		/* 不可能的色 */
+#define RAINBOW		(-2)		/* 表示除伪色外的全部色 */
+#define WHITE		0			/* 默认色，其余色之父 */
+/* 注意：代码多处知道 WHITE 为零 */
 
 
 /*
- * Per-color data structure for the compile-time color machinery
+ * 编译期色图机制的每色数据结构
  *
- * If "sub" is not NOSUB then it is the number of the color's current
- * subcolor, i.e. we are in process of dividing this color (character
- * equivalence class) into two colors.  See src/backend/regex/README for
- * discussion of subcolors.
+ * 若 "sub" 不是 NOSUB，则它是该色当前
+ * 子色编号，即我们正在把此色（字符
+ * 等价类）拆成两色。见 src/backend/regex/README 对
+ * 子色的讨论。
  *
- * Currently-unused colors have the FREECOL bit set and are linked into a
- * freelist using their "sub" fields, but only if their color numbers are
- * less than colormap.max.  Any array entries beyond "max" are just garbage.
+ * 当前未用的色置 FREECOL 位，并用其 "sub"
+ * 字段链入空闲表，但仅当其色号
+ * 小于色图.max。超出 "max" 的数组项只是垃圾。
  */
 struct colordesc
 {
-	int			nschrs;			/* number of simple chars of this color */
-	int			nuchrs;			/* number of upper map entries of this color */
-	color		sub;			/* open subcolor, if any; or free-chain ptr */
-#define  NOSUB	 COLORLESS		/* value of "sub" when no open subcolor */
-	struct arc *arcs;			/* chain of all arcs of this color */
-	chr			firstchr;		/* simple char first assigned to this color */
-	int			flags;			/* bitmask of the following flags: */
-#define  FREECOL 01				/* currently free */
-#define  PSEUDO  02				/* pseudocolor, no real chars */
-#define  COLMARK 04				/* temporary marker used in some functions */
+	int			nschrs;			/* 此色的简单字符数 */
+	int			nuchrs;			/* 此色的高位映射项数 */
+	color		sub;			/* 开放子色(若有);或空闲链指针 */
+#define  NOSUB	 COLORLESS		/* 无开放子色时 "sub" 的值 */
+	struct arc *arcs;			/* 此色全部弧之链 */
+	chr			firstchr;		/* 首次赋给此色的简单字符 */
+	int			flags;			/* 下列标志的位掩码： */
+#define  FREECOL 01				/* 当前空闲 */
+#define  PSEUDO  02				/* 伪色，无真实字符 */
+#define  COLMARK 04				/* 若干函数中用的临时标记 */
 };
 
 #define  UNUSEDCOLOR(cd) ((cd)->flags & FREECOL)
 
 /*
- * The color map itself
+ * 色图本身
  *
- * This struct holds both data used only at compile time, and the chr to
- * color mapping information, used at both compile and run time.  The latter
- * is the bulk of the space, so it's not really worth separating out the
- * compile-only portion.
+ * 本结构既含仅编译期用的数据，也含 chr 到
+ * 色的映射信息，编译期与运行期皆用。后者
+ * 占去大部分空间，故不值得再拆出
+ * 仅编译期部分。
  *
- * Ideally, the mapping data would just be an array of colors indexed by
- * chr codes; but for large character sets that's impractical.  Fortunately,
- * common characters have smaller codes, so we can use a simple array for chr
- * codes up to MAX_SIMPLE_CHR, and do something more complex for codes above
- * that, without much loss of performance.  The "something more complex" is a
- * 2-D array of color entries, where row indexes correspond to individual chrs
- * or chr ranges that have been mentioned in the regex (with row zero
- * representing all other chrs), and column indexes correspond to different
- * sets of locale-dependent character classes such as "isalpha".  The
- * classbits[k] entry is zero if we do not care about the k'th character class
- * in this regex, and otherwise it is the bit to be OR'd into the column index
- * if the character in question is a member of that class.  We find the color
- * of a high-valued chr by identifying which colormaprange it is in to get
- * the row index (use row zero if it's in none of them), identifying which of
- * the interesting cclasses it's in to get the column index, and then indexing
- * into the 2-D hicolormap array.
+ * 理想情况下，映射数据只是按 chr 码索引的色
+ * 数组；但对大字符集不现实。幸运的是，
+ * 常用字符码较小，故对不大于 MAX_SIMPLE_CHR 的
+ * chr 码可用简单数组，对更高的码则用更复杂
+ * 的做法，而性能损失不大。所谓 "更复杂" 是一
+ * 个二维色项数组，行下标对应个别 chr
+ * 或正则中曾提及的 chr 范围（第零行
+ * 表示其余全部 chr），列下标对应不同
+ * 的区域设置相关字符类集合，如 "isalpha"。
+ * 若我们不关心本正则的第 k 个字符类，则
+ * classbits[k] 为零；否则它是若该字符属于该类
+ * 时要 OR 进列下标的位。求高值 chr 的色时，
+ * 先判明它落在哪个 colormaprange 以得
+ * 行下标（皆不在则用第零行），再判明它属于
+ * 哪些相关 cclass 以得列下标，然后索引
+ * 二维 hicolormap 数组。
  *
- * The colormapranges are required to be nonempty, nonoverlapping, and to
- * appear in increasing chr-value order.
+ * colormapranges 须非空、不重叠，并按
+ * chr 值递增顺序出现。
  */
 
 typedef struct colormaprange
 {
-	chr			cmin;			/* range represents cmin..cmax inclusive */
+	chr			cmin;			/* 范围表示含端点的 cmin..cmax */
 	chr			cmax;
-	int			rownum;			/* row index in hicolormap array (>= 1) */
+	int			rownum;			/* hicolormap 行下标（>= 1） */
 } colormaprange;
 
 struct colormap
 {
 	int			magic;
 #define  CMMAGIC 0x876
-	struct vars *v;				/* for compile error reporting */
-	size_t		ncds;			/* allocated length of colordescs array */
-	size_t		max;			/* highest color number currently in use */
-	color		free;			/* beginning of free chain (if non-0) */
-	struct colordesc *cd;		/* pointer to array of colordescs */
+	struct vars *v;				/* 供编译错误报告 */
+	size_t		ncds;			/* colordescs 数组的已分配长度 */
+	size_t		max;			/* 当前在用的最高色号 */
+	color		free;			/* 空闲链起点（若非 0） */
+	struct colordesc *cd;		/* colordescs 数组指针 */
 #define  CDEND(cm)	 (&(cm)->cd[(cm)->max + 1])
 
-	/* mapping data for chrs <= MAX_SIMPLE_CHR: */
-	color	   *locolormap;		/* simple array indexed by chr code */
+	/* <=MAX_SIMPLE_CHR 的 chr 映射数据： */
+	color	   *locolormap;		/* 按 chr 码索引的简单数组 */
 
-	/* mapping data for chrs > MAX_SIMPLE_CHR: */
-	int			classbits[NUM_CCLASSES];	/* see comment above */
-	int			numcmranges;	/* number of colormapranges */
-	colormaprange *cmranges;	/* ranges of high chrs */
-	color	   *hicolormap;		/* 2-D array of color entries */
-	int			maxarrayrows;	/* number of array rows allocated */
-	int			hiarrayrows;	/* number of array rows in use */
-	int			hiarraycols;	/* number of array columns (2^N) */
+	/* >MAX_SIMPLE_CHR 的 chr 映射数据： */
+	int			classbits[NUM_CCLASSES];	/* 见上文注释 */
+	int			numcmranges;	/* colormapranges 的个数 */
+	colormaprange *cmranges;	/* 高 chr 的范围 */
+	color	   *hicolormap;		/* 色项的二维数组 */
+	int			maxarrayrows;	/* 已分配的数组行数 */
+	int			hiarrayrows;	/* 在用的数组行数 */
+	int			hiarraycols;	/* 数组列数（2^N） */
 
-	/* If we need up to NINLINECDS, we store them here to save a malloc */
+	/* 若至多 NINLINECDS 个，则存在此处以免 malloc */
 #define  NINLINECDS  ((size_t) 10)
 	struct colordesc cdspace[NINLINECDS];
 };
 
-/* fetch color for chr; beware of multiple evaluation of c argument */
+/* 取 chr 的色；当心 c 实参被多次求值 */
 #define GETCOLOR(cm, c) \
 	((c) <= MAX_SIMPLE_CHR ? (cm)->locolormap[(c) - CHR_MIN] : pg_reg_getcolor(cm, c))
 
 
 /*
- * Interface definitions for locale-interface functions in regc_locale.c.
+ * regc_locale.c 中区域设置接口函数的接口定义。
  */
 
 /*
- * Representation of a set of characters.  chrs[] represents individual
- * code points, ranges[] represents ranges in the form min..max inclusive.
+ * 字符集的表示。chrs[] 表示个别
+ * 码点，ranges[] 表示含端点的 min..max 范围。
  *
- * If the cvec represents a locale-specific character class, eg [[:alpha:]],
- * then the chrs[] and ranges[] arrays contain only members of that class
- * up to MAX_SIMPLE_CHR (inclusive).  cclasscode is set to regc_locale.c's
- * code for the class, rather than being -1 as it is in an ordinary cvec.
+ * 若 cvec 表示区域设置相关字符类，如 [[:alpha:]]，
+ * 则 chrs[] 与 ranges[] 数组仅含该类中
+ * 不大于 MAX_SIMPLE_CHR（含）的成员。cclasscode 设为
+ * regc_locale.c 对该类的码，而非普通 cvec 的 -1。
  *
- * Note that in cvecs gotten from newcvec() and intended to be freed by
- * freecvec(), both arrays of chrs are after the end of the struct, not
- * separately malloc'd; so chrspace and rangespace are effectively immutable.
+ * 注意：由 newcvec() 取得并拟由 freecvec()
+ * 释放的 cvec 中，两段 chr 数组都在结构体之后，并非
+ * 另行 malloc；故 chrspace 与 rangespace 实际不可变。
  */
 struct cvec
 {
-	int			nchrs;			/* number of chrs */
-	int			chrspace;		/* number of chrs allocated in chrs[] */
-	chr		   *chrs;			/* pointer to vector of chrs */
-	int			nranges;		/* number of ranges (chr pairs) */
-	int			rangespace;		/* number of ranges allocated in ranges[] */
-	chr		   *ranges;			/* pointer to vector of chr pairs */
-	int			cclasscode;		/* value of "enum classes", or -1 */
+	int			nchrs;			/* chr 个数 */
+	int			chrspace;		/* chrs[] 中已分配的 chr 数 */
+	chr		   *chrs;			/* chr 向量指针 */
+	int			nranges;		/* 范围数（chr 对） */
+	int			rangespace;		/* ranges[] 中已分配的范围数 */
+	chr		   *ranges;			/* 指向 chr 对向量的指针 */
+	int			cclasscode;		/* 字符类枚举值，或 -1 */
 };
 
 
 /*
- * definitions for NFA internal representation
+ * NFA 内部表示的定义
  */
 struct state;
 
 struct arc
 {
-	int			type;			/* 0 if free, else an NFA arc type code */
-	color		co;				/* color the arc matches (possibly RAINBOW) */
-	struct state *from;			/* where it's from */
-	struct state *to;			/* where it's to */
-	struct arc *outchain;		/* link in *from's outs chain or free chain */
-	struct arc *outchainRev;	/* back-link in *from's outs chain */
-#define  freechain	outchain	/* we do not maintain "freechainRev" */
-	struct arc *inchain;		/* link in *to's ins chain */
-	struct arc *inchainRev;		/* back-link in *to's ins chain */
-	/* these fields are not used when co == RAINBOW: */
-	struct arc *colorchain;		/* link in color's arc chain */
-	struct arc *colorchainRev;	/* back-link in color's arc chain */
+	int			type;			/* 0 空闲，否则 NFA 弧类型码 */
+	color		co;				/* 弧所匹配的色（可能是彩虹） */
+	struct state *from;			/* 来自何处 */
+	struct state *to;			/* 去往何处 */
+	struct arc *outchain;		/* *from 出链或空闲链中的链接 */
+	struct arc *outchainRev;	/* *from 出链中的反向链接 */
+#define  freechain	outchain	/* 我们不维护 "freechainRev" */
+	struct arc *inchain;		/* *to 入链中的链接 */
+	struct arc *inchainRev;		/* *to 入链中的反向链接 */
+	/* 当 co == 彩虹时不用这些字段： */
+	struct arc *colorchain;		/* 色的弧链中的链接 */
+	struct arc *colorchainRev;	/* 色的弧链中的反向链接 */
 };
 
 struct arcbatch
-{								/* for bulk allocation of arcs */
-	struct arcbatch *next;		/* chain link */
-	size_t		narcs;			/* number of arcs allocated in this arcbatch */
+{								/* 供弧的批量分配 */
+	struct arcbatch *next;		/* 链环节 */
+	size_t		narcs;			/* 本 arcbatch 中已分配的弧数 */
 	struct arc	a[FLEXIBLE_ARRAY_MEMBER];
 };
 #define  ARCBATCHSIZE(n)  ((n) * sizeof(struct arc) + offsetof(struct arcbatch, a))
-/* first batch will have FIRSTABSIZE arcs; then double it until MAXABSIZE */
+/* 首批有 FIRSTABSIZE 条弧；其后倍增直至 MAXABSIZE */
 #define  FIRSTABSIZE	64
 #define  MAXABSIZE		1024
 
 struct state
 {
-	int			no;				/* state number, zero and up; or FREESTATE */
+	int			no;				/* 状态号，从零起；或 FREESTATE */
 #define  FREESTATE	 (-1)
-	char		flag;			/* marks special states */
-	int			nins;			/* number of inarcs */
-	int			nouts;			/* number of outarcs */
-	struct arc *ins;			/* chain of inarcs */
-	struct arc *outs;			/* chain of outarcs */
-	struct state *tmp;			/* temporary for traversal algorithms */
-	struct state *next;			/* chain for traversing all live states */
-	/* the "next" field is also used to chain free states together */
-	struct state *prev;			/* back-link in chain of all live states */
+	char		flag;			/* 标记特殊状态 */
+	int			nins;			/* 入弧数 */
+	int			nouts;			/* 出弧数 */
+	struct arc *ins;			/* 入弧链 */
+	struct arc *outs;			/* 出弧链 */
+	struct state *tmp;			/* 遍历算法用的临时量 */
+	struct state *next;			/* 遍历全部存活状态的链 */
+	/* "next" 字段也用于把空闲状态串成链 */
+	struct state *prev;			/* 存活状态链中的反向链接 */
 };
 
 struct statebatch
-{								/* for bulk allocation of states */
-	struct statebatch *next;	/* chain link */
-	size_t		nstates;		/* number of states allocated in this batch */
+{								/* 供状态的批量分配 */
+	struct statebatch *next;	/* 链环节 */
+	size_t		nstates;		/* 本批中已分配的状态数 */
 	struct state s[FLEXIBLE_ARRAY_MEMBER];
 };
 #define  STATEBATCHSIZE(n)  ((n) * sizeof(struct state) + offsetof(struct statebatch, s))
-/* first batch will have FIRSTSBSIZE states; then double it until MAXSBSIZE */
+/* 首批有 FIRSTSBSIZE 个状态；其后倍增直至 MAXSBSIZE */
 #define  FIRSTSBSIZE	32
 #define  MAXSBSIZE		1024
 
 struct nfa
 {
-	struct state *pre;			/* pre-initial state */
-	struct state *init;			/* initial state */
-	struct state *final;		/* final state */
-	struct state *post;			/* post-final state */
-	int			nstates;		/* for numbering states */
-	struct state *states;		/* chain of live states */
-	struct state *slast;		/* tail of the chain */
-	struct state *freestates;	/* chain of free states */
-	struct arc *freearcs;		/* chain of free arcs */
-	struct statebatch *lastsb;	/* chain of statebatches */
-	struct arcbatch *lastab;	/* chain of arcbatches */
-	size_t		lastsbused;		/* number of states consumed from *lastsb */
-	size_t		lastabused;		/* number of arcs consumed from *lastab */
-	struct colormap *cm;		/* the color map */
-	color		bos[2];			/* colors, if any, assigned to BOS and BOL */
-	color		eos[2];			/* colors, if any, assigned to EOS and EOL */
-	int			flags;			/* flags to pass forward to cNFA */
-	int			minmatchall;	/* min number of chrs to match, if matchall */
-	int			maxmatchall;	/* max number of chrs to match, or DUPINF */
-	struct vars *v;				/* simplifies compile error reporting */
-	struct nfa *parent;			/* parent NFA, if any */
+	struct state *pre;			/* 预初始状态 */
+	struct state *init;			/* 初始状态 */
+	struct state *final;		/* 终态 */
+	struct state *post;			/* 后终结状态 */
+	int			nstates;		/* 供状态编号 */
+	struct state *states;		/* 存活状态链 */
+	struct state *slast;		/* 链的尾部 */
+	struct state *freestates;	/* 空闲状态链 */
+	struct arc *freearcs;		/* 空闲弧链 */
+	struct statebatch *lastsb;	/* statebatch 链 */
+	struct arcbatch *lastab;	/* arcbatch 链 */
+	size_t		lastsbused;		/* 从 *lastsb 已消耗的状态数 */
+	size_t		lastabused;		/* 从 *lastab 已消耗的弧数 */
+	struct colormap *cm;		/* 色图 */
+	color		bos[2];			/* 赋给 BOS 与 BOL 的色（若有） */
+	color		eos[2];			/* 赋给 EOS 与 EOL 的色（若有） */
+	int			flags;			/* 转交给 cNFA 的标志 */
+	int			minmatchall;	/* matchall 时最少匹配的 chr 数 */
+	int			maxmatchall;	/* 最多匹配的 chr 数，或 DUPINF */
+	struct vars *v;				/* 简化编译错误报告 */
+	struct nfa *parent;			/* 父 NFA，若有 */
 };
 
 
 
 /*
- * definitions for compacted NFA
+ * 压缩 cNFA 的定义
  *
- * The main space savings in a compacted NFA is from making the arcs as small
- * as possible.  We store only the transition color and next-state number for
- * each arc.  The list of out arcs for each state is an array beginning at
- * cnfa.states[statenumber], and terminated by a dummy carc struct with
+ * 压缩 cNFA 的主要空间节省来自把弧做得尽量
+ * 小。每条弧我们只存转移色与下一状态号。
+ * 各状态的出弧列表是自以下起的数组：
+ * cnfa.states[statenumber]，以哑 carc 结构终止，其中
  * co == COLORLESS.
  *
- * The non-dummy carc structs are of two types: plain arcs and LACON arcs.
- * Plain arcs just store the transition color number as "co".  LACON arcs
- * store the lookaround constraint number plus cnfa.ncolors as "co".  LACON
- * arcs can be distinguished from plain by testing for co >= cnfa.ncolors.
+ * 非哑 carc 结构有两类：普通弧与 LACON 弧。
+ * 普通弧只把转移色号存为 "co"。LACON 弧把
+ * 环视约束号加 cnfa.ncolors 存为 "co"。LACON
+ * 弧与普通弧可用 co >= cnfa.ncolors 区分。
  *
- * Note that in a plain arc, "co" can be RAINBOW; since that's negative,
- * it doesn't break the rule about how to recognize LACON arcs.
+ * 注意普通弧中 "co" 可为彩虹；因其为负，
+ * 并不破坏识别 LACON 弧的规则。
  *
- * We have special markings for "trivial" NFAs that can match any string
- * (possibly with limits on the number of characters therein).  In such a
- * case, flags & MATCHALL is set (and HASLACONS can't be set).  Then the
- * fields minmatchall and maxmatchall give the minimum and maximum numbers
- * of characters to match.  For example, ".*" produces minmatchall = 0
- * and maxmatchall = DUPINF, while ".+" produces minmatchall = 1 and
- * maxmatchall = DUPINF.
+ * 我们对可匹配任意串的 "平凡" NFA 有特殊标记（
+ * 可能限制其中字符数）。在此情况
+ * 下，flags & MATCHALL 置位（且 HASLACONS 无法置位）。
+ * 然后 minmatchall 与 maxmatchall 给出最少与最多
+ * 要匹配的字符数。例如 ".*" 产生 minmatchall = 0
+ * 且 maxmatchall = DUPINF，而 ".+" 产生 minmatchall = 1 且
+ * maxmatchall=DUPINF.
  */
 struct carc
 {
-	color		co;				/* COLORLESS is list terminator */
-	int			to;				/* next-state number */
+	color		co;				/* COLORLESS 为列表终止符 */
+	int			to;				/* 下一状态号 */
 };
 
 struct cnfa
 {
-	int			nstates;		/* number of states */
-	int			ncolors;		/* number of colors (max color in use + 1) */
-	int			flags;			/* bitmask of the following flags: */
-#define  HASLACONS	01			/* uses lookaround constraints */
-#define  MATCHALL	02			/* matches all strings of a range of lengths */
-#define  HASCANTMATCH 04		/* contains CANTMATCH arcs */
-	/* Note: HASCANTMATCH appears in nfa structs' flags, but never in cnfas */
-	int			pre;			/* setup state number */
-	int			post;			/* teardown state number */
-	color		bos[2];			/* colors, if any, assigned to BOS and BOL */
-	color		eos[2];			/* colors, if any, assigned to EOS and EOL */
-	char	   *stflags;		/* vector of per-state flags bytes */
-#define  CNFA_NOPROGRESS	01	/* flag bit for a no-progress state */
-	struct carc **states;		/* vector of pointers to outarc lists */
-	/* states[n] are pointers into a single malloc'd array of arcs */
-	struct carc *arcs;			/* the area for the lists */
-	/* these fields are used only in a MATCHALL NFA (else they're -1): */
-	int			minmatchall;	/* min number of chrs to match */
-	int			maxmatchall;	/* max number of chrs to match, or DUPINF */
+	int			nstates;		/* 状态数 */
+	int			ncolors;		/* 色数（在用最大色 + 1） */
+	int			flags;			/* 下列标志的位掩码： */
+#define  HASLACONS	01			/* 使用环视约束 */
+#define  MATCHALL	02			/* 匹配某长度范围内的全部串 */
+#define  HASCANTMATCH 04		/* 含 CANTMATCH 弧 */
+	/* 注意：HASCANTMATCH 见于 NFA 的 flags，从不在 cNFA */
+	int			pre;			/* setup 状态号 */
+	int			post;			/* teardown 状态号 */
+	color		bos[2];			/* 赋给 BOS 与 BOL 的色（若有） */
+	color		eos[2];			/* 赋给 EOS 与 EOL 的色（若有） */
+	char	   *stflags;		/* 每状态标志字节向量 */
+#define  CNFA_NOPROGRESS	01	/* 无进展状态的标志位 */
+	struct carc **states;		/* 出弧列表指针向量 */
+	/* states[n] 指向单一 malloc 的弧数组 */
+	struct carc *arcs;			/* 列表所用的区域 */
+	/* 这些字段仅用于 MATCHALL NFA（否则为 -1）： */
+	int			minmatchall;	/* 最少匹配的 chr 数 */
+	int			maxmatchall;	/* 最多匹配的 chr 数，或 DUPINF */
 };
 
 /*
- * When debugging, it's helpful if an un-filled CNFA is all-zeroes.
- * In production, though, we only require nstates to be zero.
+ * 调试时，未填充的 cNFA 若全为零会很有帮助。
+ * 而在生产中，我们只要求 nstates 为零。
  */
 #ifdef REG_DEBUG
 #define ZAPCNFA(cnfa)	memset(&(cnfa), 0, sizeof(cnfa))
@@ -438,14 +438,14 @@ struct cnfa
 #define NULLCNFA(cnfa)	((cnfa).nstates == 0)
 
 /*
- * This symbol limits the transient heap space used by the regex compiler,
- * and thereby also the maximum complexity of NFAs that we'll deal with.
- * Currently we only count NFA states and arcs against this; the other
- * transient data is generally not large enough to notice compared to those.
- * Note that we do not charge anything for the final output data structures
- * (the compacted NFA and the colormap).
- * The scaling here is based on an empirical measurement that very large
- * NFAs tend to have about 4 arcs/state.
+ * 本符号限制正则编译器所用的瞬态堆空间，
+ * 从而也限制我们处理的 NFA 最大复杂度。
+ * 目前只把 NFA 状态与弧计入此项；其余
+ * 瞬态数据通常相对它们不够大，不值一提。
+ * 注意我们对最终输出数据结构不收取任何
+ * 费用（压缩 NFA 与色图）。
+ * 此处的换算基于经验测定：非常大的
+ * NFA 大约有 4 弧/状态。
  */
 #ifndef REG_MAX_COMPILE_SPACE
 #define REG_MAX_COMPILE_SPACE  \
@@ -453,40 +453,40 @@ struct cnfa
 #endif
 
 /*
- * subexpression tree
+ * 子表达式树
  *
- * "op" is one of:
- *		'='  plain regex without interesting substructure (implemented as DFA)
- *		'b'  back-reference (has no substructure either)
- *		'('  no-op capture node: captures the match of its single child
- *		'.'  concatenation: matches a match for first child, then second child
- *		'|'  alternation: matches a match for any of its children
- *		'*'  iteration: matches some number of matches of its single child
+ * "op" 之一：
+ *		'='  无有趣子结构的普通正则（以 DFA 实现）
+ *		'b'  反向引用（亦无子结构）
+ *		'('  空操作捕获节点：捕获其唯一子节点的匹配
+ *		'.'  连接：先匹配第一子节点，再匹配第二子节点
+ *		'|'  择一：匹配任一子节点的匹配
+ *		'*'  迭代：匹配其唯一子节点若干次匹配
  *
- * An alternation node can have any number of children (but at least two),
- * linked through their sibling fields.
+ * 择一节点可有任意个子女（但至少两个），
+ * 经其 sibling 字段相连。
  *
- * A concatenation node must have exactly two children.  It might be useful
- * to support more, but that would complicate the executor.  Note that it is
- * the first child's greediness that determines the node's preference for
- * where to split a match.
+ * 连接节点必须恰有两个子女。支持更多或许有用，
+ * 但那会使执行器复杂化。注意是
+ * 第一子女的贪心性决定该节点对拆分
+ * 匹配处的偏好。
  *
- * Note: when a backref is directly quantified, we stick the min/max counts
- * into the backref rather than plastering an iteration node on top.  This is
- * for efficiency: there is no need to search for possible division points.
+ * 注意：当反向引用被直接量化时，我们把 min/max 计数
+ * 塞进反向引用，而非再盖一层迭代节点。这是
+ * 为效率：无需搜索可能的分割点。
  */
 struct subre
 {
-	char		op;				/* see type codes above */
+	char		op;				/* 见上文类型码 */
 	char		flags;
-#define  LONGER  01				/* prefers longer match */
-#define  SHORTER 02				/* prefers shorter match */
-#define  MIXED	 04				/* mixed preference below */
-#define  CAP	 010			/* capturing parens here or below */
-#define  BACKR	 020			/* back reference here or below */
-#define  BRUSE	 040			/* is referenced by a back reference */
-#define  INUSE	 0100			/* in use in final tree */
-#define  UPPROP  (MIXED|CAP|BACKR)	/* flags which should propagate up */
+#define  LONGER  01				/* 偏好更长匹配 */
+#define  SHORTER 02				/* 偏好更短匹配 */
+#define  MIXED	 04				/* 下方偏好混合 */
+#define  CAP	 010			/* 此处或下方有捕获括号 */
+#define  BACKR	 020			/* 此处或下方有反引 */
+#define  BRUSE	 040			/* 被某反向引用所引用 */
+#define  INUSE	 0100			/* 用于最终树 */
+#define  UPPROP  (MIXED|CAP|BACKR)	/* 应向上传播的标志 */
 #define  LMIX(f) ((f)<<2)		/* LONGER -> MIXED */
 #define  SMIX(f) ((f)<<1)		/* SHORTER -> MIXED */
 #define  UP(f)	 (((f)&UPPROP) | (LMIX(f) & SMIX(f) & MIXED))
@@ -494,25 +494,25 @@ struct subre
 #define  PREF(f)	 ((f)&(LONGER|SHORTER))
 #define  PREF2(f1, f2)	 ((PREF(f1) != 0) ? PREF(f1) : PREF(f2))
 #define  COMBINE(f1, f2) (UP((f1)|(f2)) | PREF2(f1, f2))
-	char		latype;			/* LATYPE code, if lookaround constraint */
-	int			id;				/* ID of subre (1..ntree-1) */
-	int			capno;			/* if capture node, subno to capture into */
-	int			backno;			/* if backref node, subno it refers to */
-	short		min;			/* min repetitions for iteration or backref */
-	short		max;			/* max repetitions for iteration or backref */
-	struct subre *child;		/* first child, if any (also freelist chain) */
-	struct subre *sibling;		/* next child of same parent, if any */
-	struct state *begin;		/* outarcs from here... */
-	struct state *end;			/* ...ending in inarcs here */
-	struct cnfa cnfa;			/* compacted NFA, if any */
-	struct subre *chain;		/* for bookkeeping and error cleanup */
+	char		latype;			/* 若为环视约束则为 LATYPE 码 */
+	int			id;				/* subre ID (1..ntree-1) */
+	int			capno;			/* 捕获节点则写入的 subno */
+	int			backno;			/* 反引节点则其所指 subno */
+	short		min;			/* 迭代或反向引用的最少重复 */
+	short		max;			/* 迭代或反向引用的最多重复 */
+	struct subre *child;		/* 第一子女(若有；亦空闲链) */
+	struct subre *sibling;		/* 同父的下一子女（若有） */
+	struct state *begin;		/* 此处起的出弧 */
+	struct state *end;			/* 止于此处的入弧 */
+	struct cnfa cnfa;			/* 压缩 NFA，若有 */
+	struct subre *chain;		/* 供簿记与错误清理 */
 };
 
 
 
 /*
- * table of function pointers for generic manipulation functions
- * A regex_t's re_fns points to one of these.
+ * 通用操作函数的函数指针表
+ * regex_t 的 re_fns 指向其中之一。
  */
 struct fns
 {
@@ -525,26 +525,26 @@ struct fns
 
 
 /*
- * the insides of a regex_t, hidden behind a void *
+ * regex_t 的内部，藏在 void * 之后
  */
 struct guts
 {
 	int			magic;
 #define  GUTSMAGIC	 0xfed9
-	int			cflags;			/* copy of compile flags */
-	long		info;			/* copy of re_info */
-	size_t		nsub;			/* copy of re_nsub */
+	int			cflags;			/* 编译标志的副本 */
+	long		info;			/* re_info 副本 */
+	size_t		nsub;			/* re_nsub 副本 */
 	struct subre *tree;
-	struct cnfa search;			/* for fast preliminary search */
-	int			ntree;			/* number of subre's, plus one */
+	struct cnfa search;			/* 供快速预搜索 */
+	int			ntree;			/* subre 的个数加一 */
 	struct colormap cmap;
 	int			FUNCPTR(compare, (const chr *, const chr *, size_t));
-	struct subre *lacons;		/* lookaround-constraint vector */
-	int			nlacons;		/* size of lacons[]; note that only slots
-								 * numbered 1 .. nlacons-1 are used */
+	struct subre *lacons;		/* 环视约束向量 */
+	int			nlacons;		/* LACON表lacons[]大小；注意只用
+								 * 编号 1 .. nlacons-1 的槽*/
 };
 
 
-/* prototypes for functions that are exported from regcomp.c to regexec.c */
+/* 从 regcomp.c 导出到 regexec.c 的函数原型 */
 extern void pg_set_regex_collation(Oid collation);
 extern color pg_reg_getcolor(struct colormap *cm, chr c);

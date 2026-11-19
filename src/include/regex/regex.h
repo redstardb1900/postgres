@@ -1,7 +1,7 @@
 #ifndef _PG_REGEX_H_
-#define _PG_REGEX_H_			/* never again */
+#define _PG_REGEX_H_			/* 勿再含 */
 /*
- * regular expressions
+ * 正则表达式
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -33,20 +33,20 @@
  */
 
 /*
- * This is an implementation of POSIX regex_t, so it clashes with the
- * system-provided <regex.h> header.  That header might be unintentionally
- * included already, so we force that to happen now on all systems to show that
- * we can cope and that we completely replace the system regex interfaces.
+ * 这是 POSIX regex_t 的一种实现，故会与
+ * 系统提供的 <regex.h> 头冲突。该头可能已被无意
+ * 包含，故我们现于所有系统上强制先包含它，以表明
+ * 我们能应对，且完全替换系统 regex 接口。
  *
- * Note that we avoided using _REGEX_H_ as an include guard, as that confuses
- * matters on BSD family systems including macOS that use the same include
- * guard.
+ * 注意我们避免用 _REGEX_H_ 作包含守卫，因那会搞乱
+ * 含 macOS 在内、用同一包含守卫的 BSD 族系统上的
+ * 事。
  */
 #ifndef _WIN32
 #include <regex.h>
 #endif
 
-/* Avoid redefinition errors due to the system header. */
+/* 避免因系统头文件导致重定义错误。 */
 #undef REG_UBACKREF
 #undef REG_ULOOKAROUND
 #undef REG_UBOUNDS
@@ -111,145 +111,145 @@
 #undef REG_EXACT
 
 /*
- * Add your own defines, if needed, here.
+ * 需要时在此加入自有定义。
  */
 #include "mb/pg_wchar.h"
 
 /*
- * interface types etc.
+ * 接口类型等。
  */
 
 /*
- * regoff_t has to be large enough to hold either off_t or ssize_t,
- * and must be signed; it's only a guess that long is suitable.
+ * regoff_t 须大到足以容纳 off_t 或 ssize_t，
+ * 且必须有符号；仅猜测 long 合适。
  */
 typedef long pg_regoff_t;
 
 /*
- * other interface types
+ * 其他接口类型
  */
 
-/* the biggie, a compiled RE (or rather, a front end to same) */
+/* 大家伙：已编译 RE（或者说其前端） */
 typedef struct
 {
-	int			re_magic;		/* magic number */
-	size_t		re_nsub;		/* number of subexpressions */
-	long		re_info;		/* bitmask of the following flags: */
-#define  REG_UBACKREF		000001	/* has back-reference (\n) */
-#define  REG_ULOOKAROUND	000002	/* has lookahead/lookbehind constraint */
-#define  REG_UBOUNDS		000004	/* has bounded quantifier ({m,n}) */
-#define  REG_UBRACES		000010	/* has { that doesn't begin a quantifier */
-#define  REG_UBSALNUM		000020	/* has backslash-alphanumeric in non-ARE */
-#define  REG_UPBOTCH		000040	/* has unmatched right paren in ERE (legal
-									 * per spec, but that was a mistake) */
-#define  REG_UBBS			000100	/* has backslash within bracket expr */
-#define  REG_UNONPOSIX		000200	/* has any construct that extends POSIX */
-#define  REG_UUNSPEC		000400	/* has any case disallowed by POSIX, e.g.
-									 * an empty branch */
-#define  REG_UUNPORT		001000	/* has numeric character code dependency */
-#define  REG_ULOCALE		002000	/* has locale dependency */
-#define  REG_UEMPTYMATCH	004000	/* can match a zero-length string */
-#define  REG_UIMPOSSIBLE	010000	/* provably cannot match anything */
-#define  REG_USHORTEST		020000	/* has non-greedy quantifier */
+	int			re_magic;		/* 幻数 */
+	size_t		re_nsub;		/* 子表达式个数 */
+	long		re_info;		/* 下列标志的位掩码： */
+#define  REG_UBACKREF		000001	/* 含反向引用(\n) */
+#define  REG_ULOOKAROUND	000002	/* 含前瞻/后顾约束 */
+#define  REG_UBOUNDS		000004	/* 含有界量词({m,n}) */
+#define  REG_UBRACES		000010	/* 含非量词起始的{ */
+#define  REG_UBSALNUM		000020	/* 非 ARE 中有反斜杠字母数字 */
+#define  REG_UPBOTCH		000040	/* ERE 有未匹配右括号(规范合法,
+									 * 但那是个失误)*/
+#define  REG_UBBS			000100	/* 方括号表达式内有反斜杠 */
+#define  REG_UNONPOSIX		000200	/* 含任何扩展 POSIX 的构造 */
+#define  REG_UUNSPEC		000400	/* 含 POSIX 禁止的情形，如
+									 * 空分支*/
+#define  REG_UUNPORT		001000	/* 有数值字符码依赖 */
+#define  REG_ULOCALE		002000	/* 有区域设置依赖 */
+#define  REG_UEMPTYMATCH	004000	/* 可匹配零长串 */
+#define  REG_UIMPOSSIBLE	010000	/* 可证无法匹配任何内容 */
+#define  REG_USHORTEST		020000	/* 含非贪婪量词 */
 	int			re_csize;		/* sizeof(character) */
-	char	   *re_endp;		/* backward compatibility kludge */
-	Oid			re_collation;	/* Collation that defines LC_CTYPE behavior */
-	/* the rest is opaque pointers to hidden innards */
-	char	   *re_guts;		/* `char *' is more portable than `void *' */
+	char	   *re_endp;		/* 向后兼容拼凑 */
+	Oid			re_collation;	/* 定义 LC_CTYPE 行为的排序规则 */
+	/* 其余为指向隐藏内部的不透明指针 */
+	char	   *re_guts;		/* `char *' 比 `void *' 更可移植 */
 	char	   *re_fns;
 } pg_regex_t;
 
-/* result reporting (may acquire more fields later) */
+/* 结果报告（日后或增字段） */
 typedef struct
 {
-	pg_regoff_t rm_so;			/* start of substring */
-	pg_regoff_t rm_eo;			/* end of substring */
+	pg_regoff_t rm_so;			/* 子串起点 */
+	pg_regoff_t rm_eo;			/* 子串终点 */
 } pg_regmatch_t;
 
-/* supplementary control and reporting */
+/* 补充控制与报告 */
 typedef struct
 {
-	pg_regmatch_t rm_extend;	/* see REG_EXPECT */
+	pg_regmatch_t rm_extend;	/* 见 REG_EXPECT */
 } rm_detail_t;
 
 
 
 /*
- * regex compilation flags
+ * 正则编译标志
  */
-#define REG_BASIC	000000		/* BREs (convenience) */
+#define REG_BASIC	000000		/* BREs(便利) */
 #define REG_EXTENDED	000001	/* EREs */
-#define REG_ADVF	000002		/* advanced features in EREs */
-#define REG_ADVANCED	000003	/* AREs (which are also EREs) */
-#define REG_QUOTE	000004		/* no special characters, none */
-#define REG_NOSPEC	REG_QUOTE	/* historical synonym */
-#define REG_ICASE	000010		/* ignore case */
-#define REG_NOSUB	000020		/* caller doesn't need subexpr match data */
-#define REG_EXPANDED	000040	/* expanded format, white space & comments */
-#define REG_NLSTOP	000100		/* \n doesn't match . or [^ ] */
-#define REG_NLANCH	000200		/* ^ matches after \n, $ before */
-#define REG_NEWLINE 000300		/* newlines are line terminators */
-#define REG_PEND	000400		/* ugh -- backward-compatibility hack */
-#define REG_EXPECT	001000		/* report details on partial/limited matches */
-#define REG_BOSONLY 002000		/* temporary kludge for BOS-only matches */
-#define REG_DUMP	004000		/* none of your business :-) */
-#define REG_FAKE	010000		/* none of your business :-) */
-#define REG_PROGRESS	020000	/* none of your business :-) */
+#define REG_ADVF	000002		/* ERE 中的高级特性 */
+#define REG_ADVANCED	000003	/* ARE（亦为 ERE） */
+#define REG_QUOTE	000004		/* 无特殊字符，皆无 */
+#define REG_NOSPEC	REG_QUOTE	/* 历史同义名 */
+#define REG_ICASE	000010		/* 忽略 case */
+#define REG_NOSUB	000020		/* 调用者不需子表达式匹配 data */
+#define REG_EXPANDED	000040	/* 展开格式，空白与注释 */
+#define REG_NLSTOP	000100		/* \n 不匹配 . 或 [^ ] */
+#define REG_NLANCH	000200		/* ^在\n后匹配,$在前 */
+#define REG_NEWLINE 000300		/* 换行是行终止符 */
+#define REG_PEND	000400		/* 呃——向后兼容黑招 */
+#define REG_EXPECT	001000		/* 报告部分/受限匹配的细节 */
+#define REG_BOSONLY 002000		/* 仅 BOS 匹配的临时拼凑 */
+#define REG_DUMP	004000		/* 不关你的事 :-) */
+#define REG_FAKE	010000		/* 不关你的事 :-) */
+#define REG_PROGRESS	020000	/* 不关你的事 :-) */
 
 
 
 /*
- * regex execution flags
+ * 正则执行标志
  */
-#define REG_NOTBOL	0001		/* BOS is not BOL */
-#define REG_NOTEOL	0002		/* EOS is not EOL */
-#define REG_STARTEND	0004	/* backward compatibility kludge */
-#define REG_FTRACE	0010		/* none of your business */
-#define REG_MTRACE	0020		/* none of your business */
-#define REG_SMALL	0040		/* none of your business */
+#define REG_NOTBOL	0001		/* BOS 非 BOL */
+#define REG_NOTEOL	0002		/* EOS 非 EOL */
+#define REG_STARTEND	0004	/* 向后兼容拼凑 */
+#define REG_FTRACE	0010		/* 不关你的事 */
+#define REG_MTRACE	0020		/* 不关你的事 */
+#define REG_SMALL	0040		/* 不关你的事 */
 
 
 /*
- * error reporting
- * Be careful if modifying the list of error codes -- the table used by
- * regerror() is generated automatically from this file!
+ * 错误报告
+ * 修改错误码列表须当心——regerror() 所用表
+ * 由本文件自动生成！
  */
-#define REG_OKAY	 0			/* no errors detected */
-#define REG_NOMATCH  1			/* failed to match */
-#define REG_BADPAT	 2			/* invalid regexp */
-#define REG_ECOLLATE	 3		/* invalid collating element */
-#define REG_ECTYPE	 4			/* invalid character class */
-#define REG_EESCAPE  5			/* invalid escape \ sequence */
-#define REG_ESUBREG  6			/* invalid backreference number */
-#define REG_EBRACK	 7			/* brackets [] not balanced */
-#define REG_EPAREN	 8			/* parentheses () not balanced */
-#define REG_EBRACE	 9			/* braces {} not balanced */
-#define REG_BADBR	10			/* invalid repetition count(s) */
-#define REG_ERANGE	11			/* invalid character range */
-#define REG_ESPACE	12			/* out of memory */
-#define REG_BADRPT	13			/* quantifier operand invalid */
-#define REG_ASSERT	15			/* "can't happen" -- you found a bug */
-#define REG_INVARG	16			/* invalid argument to regex function */
-#define REG_MIXED	17			/* character widths of regex and string differ */
-#define REG_BADOPT	18			/* invalid embedded option */
-#define REG_ETOOBIG 19			/* regular expression is too complex */
-#define REG_ECOLORS 20			/* too many colors */
-/* two specials for debugging and testing */
-#define REG_ATOI	101			/* convert error-code name to number */
-#define REG_ITOA	102			/* convert error-code number to name */
-/* non-error result codes for pg_regprefix */
-#define REG_PREFIX	(-1)		/* identified a common prefix */
-#define REG_EXACT	(-2)		/* identified an exact match */
+#define REG_OKAY	 0			/* 未检测到错误 */
+#define REG_NOMATCH  1			/* 匹配失败 */
+#define REG_BADPAT	 2			/* 无效正则 */
+#define REG_ECOLLATE	 3		/* 无效排序元素 */
+#define REG_ECTYPE	 4			/* 无效字符类 */
+#define REG_EESCAPE  5			/* 无效转义 \ 序列 */
+#define REG_ESUBREG  6			/* 无效反向引用号 */
+#define REG_EBRACK	 7			/* 方括号[]不平衡 */
+#define REG_EPAREN	 8			/* 圆括号()不平衡 */
+#define REG_EBRACE	 9			/* 花括号{}不平衡 */
+#define REG_BADBR	10			/* 无效重复计数 */
+#define REG_ERANGE	11			/* 无效字符范围 */
+#define REG_ESPACE	12			/* 内存不足 */
+#define REG_BADRPT	13			/* 量词操作数无效 */
+#define REG_ASSERT	15			/* 无法发生--你发现了 bug */
+#define REG_INVARG	16			/* 传给 regex 函数的参数无效 */
+#define REG_MIXED	17			/* 正则与串的字符宽度不同 */
+#define REG_BADOPT	18			/* 无效嵌入选项 */
+#define REG_ETOOBIG 19			/* 正则表达式过于复杂 */
+#define REG_ECOLORS 20			/* 色过多 */
+/* 调试与测试用的两个特殊码 */
+#define REG_ATOI	101			/* 错误码名转数字 */
+#define REG_ITOA	102			/* 错误码数字转名 */
+/* pg_regprefix 的非错误结果码 */
+#define REG_PREFIX	(-1)		/* 识别出公共前缀 */
+#define REG_EXACT	(-2)		/* 识别出精确匹配 */
 
 
-/* Redirect the standard typenames to our typenames. */
+/* 把标准类型名改向我们的类型名。 */
 #define regoff_t pg_regoff_t
 #define regex_t pg_regex_t
 #define regmatch_t pg_regmatch_t
 
 
 /*
- * the prototypes for exported functions
+ * 导出函数的原型
  */
 
 /* regcomp.c */

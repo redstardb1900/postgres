@@ -1,21 +1,21 @@
 /*-------------------------------------------------------------------------
  *
  * regexport.h
- *	  Declarations for exporting info about a regex's NFA (nondeterministic
- *	  finite automaton)
+ *	  导出正则之 NFA 信息的声明(非确定
+ *	  有限自动机)
  *
- * The functions declared here provide accessors to extract the NFA state
- * graph and color character sets of a successfully-compiled regex.
+ * 此处声明的函数提供访问器，用以提取 NFA 状态
+ * 图与已成功编译正则的色字符集。
  *
- * An NFA contains one or more states, numbered 0..N-1.  There is an initial
- * state, as well as a final state --- reaching the final state denotes
- * successful matching of an input string.  Each state except the final one
- * has some out-arcs that lead to successor states, each arc being labeled
- * with a color that represents one or more concrete character codes.
- * (The colors of a state's out-arcs need not be distinct, since this is an
- * NFA not a DFA.)	There are also "pseudocolors" representing start/end of
- * line and start/end of string.  Colors are numbered 0..C-1, but note that
- * color 0 is "white" (all unused characters) and can generally be ignored.
+ * NFA 含一个或多个状态，编号 0..N-1。有一初始
+ * 状态，以及一终结状态——到达终结状态表示
+ * 成功匹配输入串。除终结状态外，每个状态
+ * 有若干出弧通向后继状态，每条弧标以
+ * 一种色，代表一个或多个具体字符码。
+ * （一状态之出弧的色不必互异，因这是 
+ * NFA 而非 DFA。）	另有"伪色"表示行/串之
+ * 始与末。色编号为 0..C-1，但注意
+ * 色 0 是"WHITE"（一切未用字符），一般可忽略。
  *
  * Portions Copyright (c) 2013-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1998, 1999 Henry Spencer
@@ -30,19 +30,19 @@
 
 #include "regex/regex.h"
 
-/* These macros must match corresponding ones in regguts.h: */
-#define COLOR_WHITE		0		/* color for chars not appearing in regex */
-#define COLOR_RAINBOW	(-2)	/* represents all colors except pseudocolors */
+/* 这些宏须与 regguts.h 中对应者一致： */
+#define COLOR_WHITE		0		/* 未出现于正则中的字符之色 */
+#define COLOR_RAINBOW	(-2)	/* 表示除伪色外的全部色 */
 
-/* information about one arc of a regex's NFA */
+/* 关于正则 NFA 之一条弧的信息 */
 typedef struct
 {
-	int			co;				/* label (character-set color) of arc */
-	int			to;				/* next state number */
+	int			co;				/* 弧的标签（字符集色） */
+	int			to;				/* 下一状态号 */
 } regex_arc_t;
 
 
-/* Functions for gathering information about NFA states and arcs */
+/* 搜集 NFA 状态与弧之信息的函数 */
 extern int	pg_reg_getnumstates(const regex_t *regex);
 extern int	pg_reg_getinitialstate(const regex_t *regex);
 extern int	pg_reg_getfinalstate(const regex_t *regex);
@@ -50,7 +50,7 @@ extern int	pg_reg_getnumoutarcs(const regex_t *regex, int st);
 extern void pg_reg_getoutarcs(const regex_t *regex, int st,
 							  regex_arc_t *arcs, int arcs_len);
 
-/* Functions for gathering information about colors */
+/* 搜集色之信息的函数 */
 extern int	pg_reg_getnumcolors(const regex_t *regex);
 extern int	pg_reg_colorisbegin(const regex_t *regex, int co);
 extern int	pg_reg_colorisend(const regex_t *regex, int co);

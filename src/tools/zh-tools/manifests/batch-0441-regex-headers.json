@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0441",
+  "title": "regex R4b 头文件注释翻译 — batch 0441",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "b996f8b6d231d471f90c7b151f7ac6fefe72d1e1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/regex/regcustom.h",
+      "kind": "c_comment",
+      "note": "R4b"
+    },
+    {
+      "pattern": "src/include/regex/regex.h",
+      "kind": "c_comment",
+      "note": "R4b"
+    },
+    {
+      "pattern": "src/include/regex/regexport.h",
+      "kind": "c_comment",
+      "note": "R4b"
+    },
+    {
+      "pattern": "src/include/regex/regguts.h",
+      "kind": "c_comment",
+      "note": "R4b"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0441-regex-headers.json",
+      "kind": "manifest",
+      "note": "batch-0441"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/regex/regcustom.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 17,
+      "preserved": 1,
+      "preserved_reasons": [
+        "路径/公式 KEEP"
+      ],
+      "note": "batch-0441"
+    },
+    {
+      "path": "src/include/regex/regex.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 94,
+      "translated": 94,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0441"
+    },
+    {
+      "path": "src/include/regex/regexport.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 9,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/Copyright/IDENTIFICATION KEEP"
+      ],
+      "note": "batch-0441"
+    },
+    {
+      "path": "src/include/regex/regguts.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 182,
+      "translated": 180,
+      "preserved": 2,
+      "preserved_reasons": [
+        "路径/voids/misc KEEP"
+      ],
+      "note": "batch-0441；审前清偿色图/彩虹/cNFA/LACON/halfen"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0441-regex-headers.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0441"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "batch-0441 R4b headers。regerrs.h 仅路径 KEEP 无字节变化故不入账。清偿：同EN全部色；色图/彩虹/cNFA/NFA/LACON；enum classes halfen。"
+}

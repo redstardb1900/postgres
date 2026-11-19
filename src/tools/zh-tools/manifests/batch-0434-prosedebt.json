@@ -1,0 +1,163 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0434",
+ "title": "散文债清偿 51 站: postinit 半译块+桩行族重排消化+5 定款+整块 EN 漏译 15 站+补披露 — batch 0434",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "10680b37f94139c2949f46ad906ff2f4e6803d7b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/init/postinit.c",
+   "kind": "c_comment",
+   "note": "0369 遗留半译块 36 站重排消化+整块 EN 漏译 9 站清偿; batch-0434"
+  },
+  {
+   "pattern": "src/backend/utils/adt/pg_locale.c",
+   "kind": "c_comment",
+   "note": "桩行 5 站消化+redefine strftime 1 站; batch-0434"
+  },
+  {
+   "pattern": "src/backend/utils/adt/ri_triggers.c",
+   "kind": "c_comment",
+   "note": "桩行 1 站消化 (L2910); RI_*HashEntry 裸横幅 2 站合法保留; batch-0434"
+  },
+  {
+   "pattern": "src/backend/utils/adt/selfuncs.c",
+   "kind": "c_comment",
+   "note": "定款 4 站: 半连接 (含全树 semi 连接 2 处旧译统一)/归并连接/事务开始提交/临时文件; posting list 暂留 EN; Support routines 横幅+公式标签+GIN_SEARCH_MODE_ALL 合法保留; batch-0434"
+  },
+  {
+   "pattern": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "note": "start/commit transaction 定款 1 站; XXX 记法尾注合法保留; batch-0434"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "note": "桩行 4 站消化+结构体字段 EN 尾注族 6 站清偿 (含 plugins/ 缺失修复); batch-0434"
+  },
+  {
+   "pattern": "src/backend/utils/sort/tuplestore.c",
+   "kind": "c_comment",
+   "note": "temp file(s)→临时文件 1 站; batch-0434"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "纯追加 2 条 (posting list/autovacuum launcher|worker), 426→428; batch-0434"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0434-prosedebt.json",
+   "kind": "manifest",
+   "note": "batch-0434 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0434 entry (仅本 manifest; 触达文件全部已在册); parent_commit 更新披露"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/pg_locale.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "postinit.c 0369 遗留半译块 36 站重排消化 (188 行, 行数守恒) + 整块 EN 漏译 9 站清偿 (This should be set already/Fetch our pg_database/If we have no other source/Initialize portal manager/set default namespace/assign locale/autovacuum launcher is done/Later settings ×2); 行级超限 5 站块级放行 (0432 判例); 公式行句号脱落 1 站 (0432 判例); N4 恰预算句号脱落披露补齐 (L498/1125/1327 族, 0432 判例)"
+  },
+  {
+   "path": "src/backend/utils/adt/ri_triggers.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "散文债清偿; 见 batch note"
+  },
+  {
+   "path": "src/backend/utils/adt/selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "散文债清偿; 见 batch note; 审后 N2: L82/L2811 anti 连接→反连接 定款统一 (L82 同时 semi→半连接)"
+  },
+  {
+   "path": "src/backend/utils/cache/relcache.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "散文债清偿; 见 batch note"
+  },
+  {
+   "path": "src/backend/utils/fmgr/dfmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dfmgr 桩行 4 站消化 (L348/480/600/649, 0407 判例) + 结构体字段 EN 尾注族 6 站全部清偿 (hash key/List link/Device file/Inode number/Full pathname/ensures we never again 双行→「确保 win32 下绝不/依赖 */」) + 旧译丢 plugins/ 缺失修复"
+  },
+  {
+   "path": "src/backend/utils/init/postinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 45,
+   "translated": 45,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "散文债清偿; 见 batch note; 审后 D1 修复 (L496-497 重排重复残句重建, 48≤78/51≤64 按战役基线) + N3 L708 「独立 backend」补空格 (67≤71 基线) ; 恰预算句号脱落 2 站披露 (L498/1125, 0432 判例)"
+  },
+  {
+   "path": "src/backend/utils/sort/tuplestore.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "散文债清偿; 见 batch note"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "426→428 纯追加"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0434-prosedebt.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0434 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0434 entry"
+  }
+ ]
+}

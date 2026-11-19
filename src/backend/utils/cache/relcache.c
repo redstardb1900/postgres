@@ -3254,7 +3254,7 @@ AtEOXact_cleanup(Relation relation, bool isCommit)
 	 * 0，除非它被钉在缓存中。
 	 *
 	 * 引导模式下并非如此，故不检查——预期关系
-	 * 在 start/commit transaction 调用之间保持打开。
+	 * 在事务开始/提交调用之间保持打开。
 	 * （这看起来不对，但不值得修。）
 	 *
 	 * 注意：理想情况下此检查应施加于每个 relcache 条目

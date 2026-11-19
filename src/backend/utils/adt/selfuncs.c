@@ -79,7 +79,7 @@
  *
  * 常规内连接与外连接的连接选择率定义为关系的
  * 笛卡尔积中预计会对给定算子产生 TRUE 结果的部分
- * （0 到 1）。但对 semi 与 anti 连接而言，
+ * （0 到 1）。但对半连接与反连接而言，
  * 选择率定义为左侧关系的行中预计能在右侧找到匹配
  * （即至少有一行产生 TRUE 结果）的比例。
  *
@@ -2365,7 +2365,7 @@ eqjoinsel(PG_FUNCTION_ARGS)
 			}
 
 			/*
-			 * 我们绝不应把 semi 连接的输出估计得比具有
+			 * 我们绝不应把半连接的输出估计得比具有
 			 * 相同输入与连接条件的内连接更多的行；
 			 * 那显然不可能发生。前者的估计是 N1 * Ssemi，
 			 * 后者是 N1 * N2 * Sinner，所以我们可以钳制
@@ -2592,9 +2592,9 @@ eqjoinsel_inner(Oid opfuncoid, Oid collation,
 }
 
 /*
- * eqjoinsel_semi --- semi join 的 eqjoinsel
+ * eqjoinsel_semi --- 半连接 eqjoinsel
  *
- * （也用于 anti 连接，按约定估计方式相同。）调用者
+ * （也用于反连接，按约定估计方式相同。）调用者
  * 已确保 vardata1 是 LHS 变量。与
  * eqjoinsel_inner 不同，我们必须应对 opfuncoid 为 InvalidOid。
  */
@@ -2800,7 +2800,7 @@ neqjoinsel(PG_FUNCTION_ARGS)
 	if (jointype == JOIN_SEMI || jointype == JOIN_ANTI)
 	{
 		/*
-		 * 对 semi 连接而言，若 RHS 关系中有多于一个
+		 * 对半连接而言，若 RHS 关系中有多于一个
 		 * 不同值，那么每个非空 LHS 行都必须找到一行
 		 * 来连接，因为它只能等于其中之一。为了稳定
 		 * 性，我们假定总是有多于一个不同 RHS 值，
@@ -2808,7 +2808,7 @@ neqjoinsel(PG_FUNCTION_ARGS)
 		 * 和单一不同值 RHS（选择率 = 与该唯一 RHS 值
 		 * 相同的 LHS 行所占比例）设置特殊情形。
 		 *
-		 * 对 anti 连接而言，如果我们使用同样的"RHS
+		 * 对反连接而言，如果我们使用同样的"RHS
 		 * 关系中有多于一个不同键"假定，那么每个非
 		 * 空 LHS 行都必须被抑制。
 		 *
@@ -2899,9 +2899,9 @@ scalargejoinsel(PG_FUNCTION_ARGS)
 
 
 /*
- * mergejoinscansel			- merge join 扫描选择率。
+ * mergejoinscansel			- 归并连接扫描选择率。
  *
- * merge join 会在耗尽任一输入流时立即停止。
+ * 归并连接会在耗尽任一输入流时立即停止。
  * 因此，若我们能估计两个输入变量的范围，就
  * 能估计输入中实际会被读取的部分。这在使用
  * 索引扫描时对代价有相当大的影响。
@@ -2909,7 +2909,7 @@ scalargejoinsel(PG_FUNCTION_ARGS)
  * 此外，我们还能估计在找到第一对连接对之前
  * 每个输入必须读取多少，这会影响连接启动时间。
  *
- * 子句应当是已知可 merge join 的子句。opfamily、
+ * 子句应当是已知可归并连接的子句。opfamily、
  * strategy 与 nulls_first 指定所用的排序顺序。
  *
  * 输出为：

@@ -810,7 +810,7 @@ tuplestore_puttuple_common(Tuplestorestate *state, void *tuple)
 
 			/*
 			 * 不行；该切换到基于磁带的操作了。确保
-			 * temp file(s) 建在合适的临时表空间中。
+			 * 临时文件建在合适的临时表空间中。
 			 */
 			PrepareTempTablespaces();
 

@@ -89,13 +89,13 @@ static void process_settings(Oid databaseid, Oid roleid);
 /*
  * GetDatabaseTuple -- 获取某数据库的 pg_database 行
  *
- * 本函数在 backend 启动时尚无任何系统目录访问权时使用
- * 我们可以仅用 relcache.c 为 pg_database 创建的硬编码描述符
- * pg_database。较典型的情况下，relcache.c 能从共享 relcache 
- * 文件加载 pg_database 及其索引的描述符，因此可以
- * criticalSharedRelcachesBuilt 表明是否拿到了缓存的描述符。
- * cache file, and so we can do an indexscan.  criticalSharedRelcachesBuilt
- * tells whether we got the cached descriptors.
+ * 本函数用于 backend 启动时尚无法访问系统目录的场合。
+ * 最坏情形下，我们可以仅凭 relcache.c 为 pg_database
+ * 创建的硬编码描述符做顺序扫描。较典型情形下，
+ * relcache.c 能从共享 relcache 缓存文件加载 pg_database
+ * 及其索引的描述符，因此我们可以做索引扫描。
+ * criticalSharedRelcachesBuilt 表明我们是否拿到了缓存的
+ * 描述符。
  */
 static HeapTuple
 GetDatabaseTuple(const char *dbname)
@@ -189,7 +189,7 @@ GetDatabaseTupleByOid(Oid dboid)
 static void
 PerformAuthentication(Port *port)
 {
-	/* This should be set already, but let's make sure */
+	/* 本应已设置，但再确认一次 */
 	ClientAuthInProgress = true;	/* 限制日志消息的可见性 */
 
 	/*
@@ -201,9 +201,9 @@ PerformAuthentication(Port *port)
 #ifdef EXEC_BACKEND
 
 	/*
-	 * 所以如果不存在就创建它（不会存在）。稍后我们会
-	 * 再次删除它。
-	 * again later, in PostgresMain.
+	 * load_hba() 与 load_ident() 想在 PostmasterContext 之内
+	 * 工作，不存在就创建它（不会存在）。稍后我们会再
+	 * 在 PostgresMain 中删除。
 	 */
 	if (PostmasterContext == NULL)
 		PostmasterContext = AllocSetContextCreate(TopMemoryContext,
@@ -224,10 +224,10 @@ PerformAuthentication(Port *port)
 	if (!load_ident())
 	{
 		/*
-		 * 用户名映射的任何认证方法登录。load_ident() 已将错
-		 * 记录到日志中。
-		 * methods that need a user name mapping. load_ident() already logged
-		 * the details of error to the log.
+		 * 加载 IDENT 文件失败也可以继续，尽管这
+		 * 意味着无法用任何需要用户名映射的认证
+		 * 方法登录。load_ident() 已把错误详情记录到
+		 * 日志中。
 		 */
 	}
 #endif
@@ -243,7 +243,7 @@ PerformAuthentication(Port *port)
 	 * 现在执行认证交换。
 	 */
 	set_ps_display("authentication");
-	ClientAuthentication(port); /* might not return, if failure */
+	ClientAuthentication(port); /* 失败时可能不返回 */
 
 	/*
 	 * 认证完成。禁用超时，必要时记录日志。
@@ -320,7 +320,7 @@ CheckMyDatabase(const char *name, bool am_superuser, bool override_allow_connect
 	char	   *ctype;
 	char	   *iculocale;
 
-	/* Fetch our pg_database row normally, via syscache */
+	/* 正常经 syscache 取我们的 pg_database 行 */
 	tup = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(MyDatabaseId));
 	if (!HeapTupleIsValid(tup))
 		elog(ERROR, "cache lookup failed for database %u", MyDatabaseId);
@@ -369,16 +369,16 @@ CheckMyDatabase(const char *name, bool am_superuser, bool override_allow_connect
 					 errdetail("User does not have CONNECT privilege.")));
 
 		/*
-		 * 检查此数据库的连接上限。只对常规 backend 强制
-		 * 类型有各自的 PGPROC 池。
-		 * PGPROC pools.
+		 * 检查此数据库的连接上限。该限制只对常规
+		 * backend 强制执行，因为其他进程类型有各自的
+		 * PGPROC 池。
 		 *
-		 * PGPROC。如果两个 backend 几乎同时这么做，它们
-		 * 超限，而理想情况下应一个成功一个失败。把它做
-		 * 得不偿失；因此我们只在文档中说明连接上限是
-		 * ideally one should succeed and one fail.  Getting that to work
-		 * exactly seems more trouble than it is worth, however; instead we
-		 * just document that the connection limit is approximate.
+		 * 这里存在竞态条件 --- 我们先创建自己的 PGPROC
+		 * 再去检查其他 PGPROC。若两个 backend 几乎同时
+		 * 这么做，它们可能都认为自己超限，而理想
+		 * 情况应是一个成功一个失败。要把这做得
+		 * 完全正确似乎得不偿失；因此我们只在文档
+		 * 中说明连接上限只是近似值。
 		 */
 		if (dbform->datconnlimit >= 0 &&
 			AmRegularBackendProcess() &&
@@ -398,11 +398,11 @@ CheckMyDatabase(const char *name, bool am_superuser, bool override_allow_connect
 	/* 也将其记录为 GUC 内部选项 */
 	SetConfigOption("server_encoding", GetDatabaseEncodingName(),
 					PGC_INTERNAL, PGC_S_DYNAMIC_DEFAULT);
-	/* If we have no other source of client_encoding, use server encoding */
+	/* 若无其他 client_encoding 来源，则用服务器编码 */
 	SetConfigOption("client_encoding", GetDatabaseEncodingName(),
 					PGC_BACKEND, PGC_S_DYNAMIC_DEFAULT);
 
-	/* assign locale variables */
+	/* 赋值 locale 变量 */
 	datum = SysCacheGetAttrNotNull(DATABASEOID, tup, Anum_pg_database_datcollate);
 	collate = TextDatumGetCString(datum);
 	datum = SysCacheGetAttrNotNull(DATABASEOID, tup, Anum_pg_database_datctype);
@@ -447,16 +447,16 @@ CheckMyDatabase(const char *name, bool am_superuser, bool override_allow_connect
 	default_locale.provider = dbform->datlocprovider;
 
 	/*
-	 * 默认区域设置目前总是确定性的。非确定性区域设
-	 * 模式匹配，如果全局应用会破坏很多东西。
-	 * lot of things if applied globally.
+	 * 默认区域设置目前总是确定性的。非确定性区域
+	 * 设置目前不支持模式匹配，若全局应用会破坏
+	 * 很多东西。
 	 */
 	default_locale.deterministic = true;
 
 	/*
-	 * 检查排序规则版本。参见 pg_newlocal
-	 * 类似代码。注意这里任何情况下都只是警告而非错误
-	 * in any case, so that we don't prevent connecting.
+	 * 检查排序规则版本。参见
+	 * pg_newlocale_from_collation() 中的类似代码。注意这里
+	 * 任何情况下都只警告，不阻碍连接。
 	 */
 	datum = SysCacheGetAttr(DATABASEOID, tup, Anum_pg_database_datcollversion,
 							&isnull);
@@ -493,12 +493,12 @@ CheckMyDatabase(const char *name, bool am_superuser, bool override_allow_connect
 /*
  * pg_split_opts -- 拆分选项字符串并追加到 argv 数组
  *
- * 调用者负责确保 argv 数组足够大。本例程最多可添加的参
- * 为 (strlen(optstr) + 1) / 2。
- * (strlen(optstr) + 1) / 2.
+ * 调用者负责确保 argv 数组足够大。
+ * 本例程最多可添加的参数个数上限为
+ * (strlen(optstr) + 1) / 2
  *
- * Because some option values can contain spaces we allow escaping using
- * backslashes, with \\ representing a literal backslash.
+ * 因为某些选项值可能包含空格，我们允许用反斜杠
+ * 转义，\\ 表示一个字面反斜杠。
  */
 void
 pg_split_opts(char **argv, int *argcp, const char *optstr)
@@ -621,12 +621,12 @@ check_max_wal_senders(int *newval, void **extra, GucSource source)
 }
 
 /*
- * backend 的早期初始化（独立运行或在 postmaster 下）。甚至
- * 在 InitPostgres 之前发生。
+ * backend 的早期初始化（独立运行或在 postmaster 之下）。
+ * 甚至发生在 InitPostgres 之前。
  *
  * 这与 InitPostgres 分开是因为辅助进程也会调用它，例如
- * 写进程可能根本不会调用 InitPostgres。
- * InitPostgres at all.
+ * 后台写进程可能根本不会调用
+ * InitPostgres。
  */
 void
 BaseInit(void)
@@ -645,10 +645,10 @@ BaseInit(void)
 	InitFileAccess();
 
 	/*
-	 * 初始化统计报告。需要尽早执行，确保 pgstat 的关机
-	 * 所有可能产生统计的子系统的关机回调之后运行（
-	 * all subsystems that can produce stats (like e.g. transaction commits
-	 * can).
+	 * 初始化统计报告。这需要尽早执行，确保 pgstat
+	 * 的关机回调在所有可能产生统计的子系统的关机
+	 * 回调之后运行（例如事务提交这类子系统就属
+	 * 于此）。
 	 */
 	pgstat_initialize();
 
@@ -664,8 +664,8 @@ BaseInit(void)
 	InitTemporaryFileAccess();
 
 	/*
-	 * 初始化 WAL 记录构造的本地缓冲区，以防我们尝试插
-	 * try to insert XLOG.
+	 * 初始化 WAL 记录构造的本地缓冲区，以防我们哪天
+	 * 去插入 XLOG。
 	 */
 	InitXLogInsert();
 
@@ -682,39 +682,39 @@ BaseInit(void)
  *		初始化 POSTGRES
  *
  * 参数：
- *	in_dbname, dboid: 指定要连接的数据库，如下所述
- *	username, useroid: 指定要连接的角色，如下所述
- *	load_session_libraries: TRUE 则启用 [session|local]_preload_librarie
+ *	in_dbname, dboid: 指定要连接的数据库，见下文
+ *	username 和 useroid: 指定要连接的角色，见下文
+ *	load_session_libraries: TRUE 启用 [session|local]_preload_libraries
  *	override_allow_connections: TRUE 则无视 !datallowconn 连接
- *	out_dbname: 可选输出参数，见下；不用则传 NULL
+ *	out_dbname: 可选输出参数，见下文；不用则传 NULL
  *
- * 数据库可以按名称指定（in_dbname 参数）或按 OID 指定（dbo
- * 未用的参数分别传 NULL 或 InvalidOid。如果提供了 dboid，
- * 实际数据库名可通过 out_dbname 返回给调用者。如果 o
- * 非 NULL，必须指向 NAMEDATALEN 大小的缓冲区。
- * NULL, it must point to a buffer of size NAMEDATALEN.
+ * 数据库可用 in_dbname 参数按名称指定，或用 dboid 参数
+ * 按 OID 指定。未用的参数分别传 NULL 或 InvalidOid。
+ * 若提供了 dboid，实际数据库名可通过 out_dbname 返回
+ * 给调用者。若 out_dbname 非 NULL，它必须指向
+ * NAMEDATALEN 大小的缓冲区。
  *
- * （useroid 参数）。
- * or by OID using the useroid parameter.
+ * 同样，角色可用 username 参数按名称传入，或用
+ * useroid 参数按 OID 传入。
  *
- * autovacuum launcher 进程也不指定这些参数，因为它只需读到
- * pg_database 就够了；它不连接任何特定数据库。autovacuum
- * worker 指定数据库但不指定用户名；反过来，物理 walsender
- * 指定用户名但不指定数据库。
- * database but not a username; conversely, a physical walsender specifies
- * 按惯例，"交互式"会
+ * 引导模式下数据库与用户名参数为 NULL/InvalidOid。
+ * autovacuum launcher 进程也不指定这些参数，因为它只
+ * 进行到能读取 pg_database 的程度为止；它不连接任何
+ * 特定数据库。autovacuum worker 指定数据库但不指
+ * 定用户名；反过来，物理 walsender 指定用户名但不
+ * 指定数据库。
  *
- * 注意并行 worker 进程中不应为 true；那些进程有另
- * 来复制其领导者的已加载库集合。
- * background processes such as autovacuum.  Note in particular that it
- * 我们预期 InitProcess() 已被调用，因此已有 PGPROC 结
- * 但尚未完全填充。
+ * 按惯例，load_session_libraries 在"交互式"会话（含独
+ * 立 backend）中应传 true，而在 autovacuum 等后台进程
+ * 中应传 false。特别注意它在并行 worker 进程中不应
+ * 为 true；那些进程有另一套机制来复制其领导者的
+ * 已加载库集合。
+ *
+ * 我们预期 InitProcess() 已被调用，因此我们已有 PGPROC
+ * 结构……但尚未完全填充。
  *
  * 注意：
- * InitPostgres 函数中的调用顺序务必非常小心
- *
- * Note:
- *		Be very careful with the order of calls in the InitPostgres function.
+ *		务必小心 InitPostgres 函数中的调用顺序。
  * --------------------------------
  */
 void
@@ -773,10 +773,10 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	}
 
 	/*
-	 * 如果这是引导进程或独立 backend，就启动 XLOG 机制，并
-	 * 册在退出时关闭它。其他情况下，启动进程负责启
-	 * 检查点器负责关闭它。
-	 * XLOG machinery, and the checkpointer for closing it down.
+	 * 如果这是引导进程或独立 backend，就启动 XLOG
+	 * 机制，并注册在退出时关闭它。在其他情况下，
+	 * 由启动进程负责启动 XLOG 机制，由检查点器负
+	 * 责关闭它。
 	 */
 	if (!IsUnderPostmaster)
 	{
@@ -811,7 +811,7 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	InitCatalogCache();
 	InitPlanCache();
 
-	/* Initialize portal manager */
+	/* 初始化门户管理器 */
 	EnablePortalManager();
 
 	/* 初始化状态报告 */
@@ -824,17 +824,17 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	RelationCacheInitializePhase2();
 
 	/*
-	 * 设置进程退出回调做关机前清理。这是我们注册的第
-	 * before_shmem_exit 回调之一；因此这将是我们做的最后
-	 * 事之一，在缓冲区管理器等低级模块开始关闭之前
-	 * 在开始第一个事务之前就把它准备好 —— 如果初
-	 * 中失败（完全可能），我们需要 AbortTransaction 调
-	 * 
-	 * AbortTransaction call to clean up.
+	 * 设置进程退出回调做关机前清理。这是我们注册的
+	 * 最早的 before_shmem_exit 回调之一；因此这将是我们
+	 * 在缓冲区管理器等低级模块开始关闭之前所做的
+	 * 最后几件事之一。必须在开始第一个事务之前把
+	 * 它准备就绪。如果我们在初始化事务期间失败
+	 * （这完全可能），就需要 AbortTransaction 调用来清
+	 * 理。
 	 */
 	before_shmem_exit(ShutdownPostgres, 0);
 
-	/* The autovacuum launcher is done here */
+	/* autovacuum launcher 在此处完成 */
 	if (IsAutoVacuumLauncherProcess())
 	{
 		/* 在 PgBackendStatus 数组中报告此 backend */
@@ -844,16 +844,16 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	}
 
 	/*
-	 * 在首次访问数据库前在这里开始新事务并获取快
-	 * 没有用处，但我们关心其次级效果：设置 RecentGlob
-	 * 这对任何读取堆页面的东西都至关重要，因为 HOT 可能
-	 * 修剪它们，即使该进程并不试图修改任何元组。
-	 * to prune them even if the process doesn't attempt to modify any
-	 * FIXME: 
+	 * 在首次访问数据库前在此开始新事务并获取快
+	 * 照。快照本身并无用处，但我们关心它的次级
+	 * 效果：它会设置 RecentGlobalXmin（这对任何读取堆页
+	 * 面的东西都至关重要，因为 HOT 可能决定修剪它们，
+	 * 即使该进程并不试图修改任何
+	 * 元组）。
 	 *
-	 * 
-	 * not pushed/active does not reliably prevent HOT pruning (->xmin could
-	 * e.g. be cleared when cache invalidations are processed).
+	 * FIXME: 此注释不准确/代码有缺陷。未被推入/激活的快
+	 * 照并不能可靠地阻止 HOT 修剪（例如处理缓存失效时
+	 * ->xmin 就可能被清除）。
 	 */
 	if (!bootstrap)
 	{
@@ -863,9 +863,9 @@ InitPostgres(const char *in_dbname, Oid dboid,
 
 		/*
 		 * transaction_isolation 已被上面设为默认值。如果默
-		 * "serializable"且我们处于热备中，不改成更低级
-		 * 幸运的是，"read committed" 足够好了。
-		 * Fortunately, "read committed" is plenty good enough.
+		 * 认值是 "serializable"，且处于热备中，不改成
+		 * 更低级别就会失败。幸运的是，
+		 * "读已提交"就足够好了。
 		 */
 		XactIsoLevel = XACT_READ_COMMITTED;
 
@@ -932,14 +932,14 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	}
 
 	/*
-	 * 最后几个常规连接槽保留给超级用户和具有 pg_use_rese
-	 * connections 权限的角色。后台进程不适用这些限制，因
-	 * 都有自己的 PGPROC 槽池。
-	 * pools of PGPROC slots.
+	 * 最后几个常规连接槽保留给超级用户和具有
+	 * pg_use_reserved_connections 权限的角色。这些限制不
+	 * 适用于后台进程，因为它们都有各自的 PGPROC
+	 * 槽池。
 	 *
-	 * 空闲槽数是否严格小于保留连接限制。
-	 * so we must check whether the number of free slots is strictly less than
-	 * the reserved connection limits.
+	 * 注意：此时新 backend 已领取了 proc 结构，所以我们
+	 * 必须检查空闲槽的数量是否严格小于
+	 * 保留连接限制。
 	 */
 	if (AmRegularBackendProcess() && !am_superuser &&
 		(SuperuserReservedConnections + ReservedConnections) > 0 &&
@@ -972,10 +972,10 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	}
 
 	/*
-	 * 如果这是只支持物理复制的纯 walsender，我们不想连
-	 * 特定数据库。只需处理启动包中的选项来完成 back
-	 * 就完成了。
-	 * we're done.
+	 * 如果这是只支持物理复制的纯 walsender，我们不想
+	 * 连接任何特定数据库。只需处理启动包的选项
+	 * 来完成 backend 启动，到此就全部完成
+	 * 了。
 	 */
 	if (am_walsender && !am_db_walsender)
 	{
@@ -1001,10 +1001,10 @@ InitPostgres(const char *in_dbname, Oid dboid,
 
 	/*
 	 * 设置保存数据库 ID 和默认表空间的全局变量。注意我
-	 * 真正去碰数据库。
+	 * 们此刻还不会真正去碰这个数据库。
 	 *
-	 * 引导情形走捷径，否则须在 pg_database 中查找该数据库
-	 * the db's entry in pg_database.
+	 * 引导情形走捷径，否则我们必须查找该数据库在
+	 * pg_database 中的条目。
 	 */
 	if (bootstrap)
 	{
@@ -1027,10 +1027,10 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	else if (!OidIsValid(dboid))
 	{
 		/*
-		 * 如果这是不绑定任何特定数据库的后台 worker
-		 * 后续内容只在绑定到特定数据库时才有意义。返回
-		 * 先前开始的事务。
-		 * transaction we started before returning.
+		 * 如果这是未绑定特定数据库的后台 worker，
+		 * 我们现在就完成了。后续内容只在绑定到特定数
+		 * 据库时才有意义。但返回前需关闭先前开始的
+		 * 事务。
 		 */
 		if (!bootstrap)
 		{
@@ -1041,33 +1041,33 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	}
 
 	/*
-	 * 现在对我们试图连接的数据库加写者锁。如果该数据
-	 * DROP DATABASE 在运行，这会阻塞我们直到它完成（并提交
-	 * pg_database 的更新）。
-	 * pg_database).
+	 * 现在，对我们试图连接的数据库取写者锁。如果
+	 * 该数据库上正有 DROP DATABASE 在运行，这会阻塞
+	 * 我们直到它完成（并提交其对 pg_database 的更新）
+	 * 为止。
 	 *
-	 * 释放锁之前就会在 ProcArray 中宣告对该数据库的使用（
-	 * 正是下一件事）。此后任何尝试 DROP DATABASE 的人
-	 * 在数组中看到我们。顺序很重要，因为我们不想在拿
-	 * 自己在此数据库中；否则会与 CountOtherDBBackends() 形成
-	 * see us in the array once they have the lock.  Ordering is important for
-	 * 注意：这里用 RowExclusiveLock 是合理的，因为我们把
-	 * 该数据库的并发写者。如果有办法声明会话保证只读
-	 * 这类会话用 AccessShareLock，从
+	 * 注意该锁持有时间不长，只到本次启动事务结束
+	 * 为止。这没问题，因为我们会在释放锁之前在
+	 * ProcArray 中宣告我们对该数据库的使用（实际上，
+	 * 这正是接下来要做的事）。此点之后任何尝试 DROP
+	 * DATABASE 的人一旦拿到锁就会在数组中看到我们。
+	 * 这个顺序很重要，因为我们不想在拿到锁之前
+	 * 就宣告自己位于此数据库中；否则我们实际上会
+	 * 与 CountOtherDBBackends() 死锁。
 	 *
-	 * Note: use of RowExclusiveLock here is reasonable because we envision
-	 * our session as being a concurrent writer of the database.  If we had a
-	 * way of declaring a session as being guaranteed-read-only, we could use
-	 * AccessShareLock for such sessions and thereby not conflict against
-	 * CREATE DATABASE.
+	 * 注意：在这里使用 RowExclusiveLock 是合理的，因为
+	 * 我们预期本会话是该数据库的一个并发写者。如果
+	 * 我们有办法声明某会话保证只读，那么可以对此类
+	 * 会话使用 AccessShareLock，从而不与 CREATE DATABASE
+	 * 冲突。
 	 */
 	if (!bootstrap)
 		LockSharedObject(DatabaseRelationId, dboid, 0, RowExclusiveLock);
 
 	/*
-	 * 复查 pg_database 确认目标数据库没有消失。如果发生过
-	 * DROP DATABASE，这能确保我们干净地死掉而不造成混
-	 * cleanly without creating a mess.
+	 * 复查 pg_database 以确认目标数据库尚未消失。如果发
+	 * 生过并发的 DROP DATABASE，这能确保我们干净地死
+	 * 去而不留下一团糟。
 	 */
 	if (!bootstrap)
 	{
@@ -1109,43 +1109,43 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	}
 
 	/*
-	 * 复查之后我们确信已连接到数据库，因此可以设置 MyDa
-	 * thus can set MyDatabaseId.
+	 * 复查之后我们确信已连接到某个数据库，因此可以
+	 * 设置 MyDatabaseId。
 	 *
-	 * 设置 MyDatabaseId。例如没有此保证时，pgstat_update_dbstats(
-	 * 可能在 pgstat 关机回调中为刚被删除的数据库创建条
-	 * 迷惑 autovacuum 调度器等其他代码路径。
-	 * entries for databases that were just dropped in the pgstat shutdown
-	 * callback, which could confuse other code paths like the autovacuum
-	 * scheduler.
+	 * 重要的是，只有在确信目标数据库不再可能被并发
+	 * 删除或重命名之后才设置 MyDatabaseId。例如，若没有
+	 * 这一保证，pgstat_update_dbstats() 可能会在 pgstat 关机
+	 * 回调中为刚被删除的数据库创建条目，这可能使诸
+	 * 如 autovacuum 调度器等其他代码路径陷
+	 * 于混乱。
 	 */
 	MyDatabaseId = dboid;
 
 	/*
 	 * 现在可以在 PGPROC 条目上标记数据库 ID 了
 	 *
-	 * 我们假定这是原子存储因此无需加锁；实际上即使不
-	 * 正常工作。搜索 ProcArray 找此数据库 ID 的人应持有数
-	 * 因此不会与此存储并发执行。找另一数据库 ID 的进程
-	 * 读到部分更新的 databaseId 值而碰巧匹配；但只要这类
-	 * CountOtherDBBackends() 那样等待重试，下次一定能看到正确
-	 * a partially-updated databaseId value; but as long as all such searches
-	 * wait and retry, as in CountOtherDBBackends(), they will certainly see
-	 * the correct value on their next try.
+	 * 我们假定这是原子存储，因而无需加锁；实际上
+	 * 即使不是原子操作也能正常工作。任何在
+	 * ProcArray 中搜索此数据库 ID 的人都应持有数据库锁，
+	 * 因此不会与此存储并发执行。查找另一个数据
+	 * 库 ID 的进程理论上可能因读到部分更新的
+	 * databaseId 值而碰巧匹配；但只要所有这类搜索都像
+	 * CountOtherDBBackends() 那样等待并重试，它们下一次尝试
+	 * 时就必定能看到正确的值。
 	 */
 	MyProc->databaseId = MyDatabaseId;
 
 	/*
-	 * 读 pg_authid 和/或 pg_database 时建立了目录快照；但
-	 * MyDatabaseId 之前，我们不会响应非共享目录的传入 sinv
-	 * 所以不会意识到快照已失效。假定它已不好用了。
-	 * if the snapshot has been invalidated.  Assume it's no good anymore.
+	 * 读 pg_authid 或 pg_database 时建立了目录快照；但
+	 * 在 MyDatabaseId 就绪之前，我们不会响应非共享目录
+	 * 入 sinval 消息，因而不会察觉快照已失效。就当它
+	 * 已不能再用了。
 	 */
 	InvalidateCatalogSnapshot();
 
 	/*
-	 * 现在应该能安全访问数据库目录了。验证它存在且看
-	 * it's there and looks reasonable.
+	 * 现在应能安全访问数据库目录了。请验证
+	 * 它存在且看起来正常。
 	 */
 	fullpath = GetDatabasePath(MyDatabaseId, MyDatabaseTableSpace);
 
@@ -1176,8 +1176,8 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	/*
 	 * 现在可以对系统目录做真正的访问了。
 	 *
-	 * 加载系统目录的 relcache 条目。必须至少创建最小"
-	 * least the minimum set of "nailed-in" cache entries.
+	 * 加载系统目录的 relcache 条目。这必须至少创建最小
+	 * "钉入"缓存条目集合。
 	 */
 	RelationCacheInitializePhase3();
 
@@ -1185,18 +1185,18 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	initialize_acl();
 
 	/*
-	 * 重新读取我们数据库的 pg_database 行，检查权限并设置
-	 * 的 GUC 设置。要等所有数据库访问基础设施就绪后
-	 * 它要知道用户是否为超级用户，所以上面的步骤必须
-	 * user is a superuser, so the above stuff has to happen first.)
+	 * 重新读取本数据库的 pg_database 行，检查权限并设
+	 * 置数据库专属 GUC 设置。需等全部数据库访问基础
+	 * 施就绪之后才能这样做。（另外，它想知道用户是否
+	 * 是超级用户，所以上面那些步骤必须先行。）
 	 */
 	if (!bootstrap)
 		CheckMyDatabase(dbname, am_superuser, override_allow_connections);
 
 	/*
-	 * 现在处理启动包中传入的任何命令行开关和额外的 GU
-	 * 之前不能做，因为还不知道客户端是否为超级用户
-	 * because we didn't know if client is a superuser.
+	 * 现在处理启动包中传入的任何命令行开关和额外的
+	 * GUC 变量设置。之前不能这样做，因为还不知
+	 * 道客户端是否为超级用户。
 	 */
 	if (MyProcPort != NULL)
 		process_startup_options(MyProcPort, am_superuser);
@@ -1209,11 +1209,11 @@ InitPostgres(const char *in_dbname, Oid dboid,
 		pg_usleep(PostAuthDelay * 1000000L);
 
 	/*
-	 * 初始化选定了活动用户并获得正确 GUC 设置后才能
-	 * selected the active user and gotten the right GUC settings.
+	 * 初始化各种默认状态，要等选定活动用户并取得
+	 * 正确的 GUC 设置之后才能进行。
 	 */
 
-	/* set default namespace search path */
+	/* 设默认命名空间搜索路径 */
 	InitializeSearchPath();
 
 	/* 初始化客户端编码 */
@@ -1223,11 +1223,11 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	InitializeSession();
 
 	/*
-	 * 如果这是交互式会话，加载应在 backend 启动时预加
-	 * 它们由 GUC 决定，这要等 GUC 设置完成才能做，但我
-	 * 初始事务期间发生，以防需要做任何数据库访问的事
-	 * 
-	 * access needs to be done.
+	 * 如果这是交互式会话，加载应在 backend 启动时预
+	 * 先加载的库。由于它们由 GUC 决定，这要等 GUC 设置
+	 * 完成后才能进行，但我们希望它发生在初始事务
+	 * 期间，以防有任何需要数据库访问的事情需要
+	 * 处理。
 	 */
 	if (load_session_libraries)
 		process_session_preload_libraries();
@@ -1242,8 +1242,8 @@ InitPostgres(const char *in_dbname, Oid dboid,
 }
 
 /*
- * 处理启动包中传入的任何命令行开关和额外的 GUC 
- * settings passed in the startup packet.
+ * 处理启动包传入的任何命令行开关和额外 GUC
+ * 变量设置。
  */
 static void
 process_startup_options(Port *port, bool am_superuser)
@@ -1254,8 +1254,8 @@ process_startup_options(Port *port, bool am_superuser)
 	gucctx = am_superuser ? PGC_SU_BACKEND : PGC_BACKEND;
 
 	/*
-	 * 如果是常规 backend，先处理启动包中包含的命令行
-	 * startup packet, if we are in a regular backend.
+	 * 如果是常规 backend，先处理启动包所含的命令行
+	 * 开关。
 	 */
 	if (port->cmdline_options != NULL)
 	{
@@ -1285,8 +1285,8 @@ process_startup_options(Port *port, bool am_superuser)
 	}
 
 	/*
-	 * 处理启动包中传入的额外 GUC 变量设置。处理方式与
-	 * These are handled exactly like command-line variables.
+	 * 处理启动包中传入的任何额外 GUC 变量设置。它们的
+	 * 处理方式与命令行变量完全相同。
 	 */
 	gucopts = list_head(port->guc_options);
 	while (gucopts)
@@ -1307,8 +1307,8 @@ process_startup_options(Port *port, bool am_superuser)
 /*
  * 从 pg_db_role_setting 加载 GUC 设置
  *
- * 我们尝试数据库/角色组合的特定设置，以及该数据库
- * general for this database and for this user.
+ * 我们尝试数据库/角色组合的特定设置，以及此数据
+ * 库和此用户的一般设置。
  */
 static void
 process_settings(Oid databaseid, Oid roleid)
@@ -1324,7 +1324,7 @@ process_settings(Oid databaseid, Oid roleid)
 	/* 为效率在同一快照下读取所有设置 */
 	snapshot = RegisterSnapshot(GetCatalogSnapshot(DbRoleSettingRelationId));
 
-	/* Later settings are ignored if set earlier. */
+	/* 后面的设置若已设置过则被忽略 */
 	ApplySetting(snapshot, databaseid, roleid, relsetting, PGC_S_DATABASE_USER);
 	ApplySetting(snapshot, InvalidOid, roleid, relsetting, PGC_S_USER);
 	ApplySetting(snapshot, databaseid, InvalidOid, relsetting, PGC_S_DATABASE);
@@ -1335,14 +1335,14 @@ process_settings(Oid databaseid, Oid roleid)
 }
 
 /*
- * backend 关机回调。做我们确信在所有支持模块开始通
- * 关上大门之前发生的清理。
- * their own callbacks.
+ * backend 关机回调。做我们确信要在各支持模块
+ * 都借它们自己的回调把大门关上之前
+ * 必做的清理。
  *
- * 独立回调完成。我们不合并回调，因为即使用户级清
- * 希望这个回调发生。
- * callbacks because we still want this one to happen if the user-level
- * cleanup fails.
+ * 用户级清理（如临时关系移除和 UNLISTEN）通过单独的
+ * 回调执行，且先于本回调。我们不合并这些回调，
+ * 因为即使用户级清理失败，我们仍希望本回
+ * 调发生。
  */
 static void
 ShutdownPostgres(int code, Datum arg)
@@ -1351,8 +1351,8 @@ ShutdownPostgres(int code, Datum arg)
 	AbortOutOfAnyTransaction();
 
 	/*
-	 * 用户锁不由事务结束释放，所以务必显式释放。
-	 * them explicitly.
+	 * 用户锁不由事务结束释放，所以务必显式地释放
+	 * 它们。
 	 */
 	LockReleaseAll(USER_LOCKMETHOD, true);
 }

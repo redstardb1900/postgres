@@ -539,9 +539,9 @@ PGLC_localeconv(void)
 	 * 为所需编码，最后把收集到的数据存入
 	 * CurrentLocaleConv。这样即使在编码转换期间抛错
 	 * 或过程中任何地方内存耗尽也是安全的。struct lconv
-	 * 成员指向的数据都用 strdup 分配，以免过早
-	 * 的 elog(ERROR)，并允许使用单一清理例程。
-	 * using a single cleanup routine.
+	 * 成员指向的数据都用 strdup 分配，以免过早的
+	 * elog(ERROR)，并允许使用
+	 * 单一清理例程。
 	 */
 	memset(&worklconv, 0, sizeof(worklconv));
 
@@ -757,7 +757,7 @@ strftime_win32(char *dst, size_t dstlen,
 	return len;
 }
 
-/* redefine strftime() */
+/*重定义 strftime()*/
 #define strftime(a,b,c,d) strftime_win32(a,b,c,d)
 #endif							/* WIN32 */
 
@@ -813,8 +813,8 @@ cache_locale_time(void)
 	/*
 	 * 与 PGLC_localeconv() 一样，libc 区域设置为非默认
 	 * 值时绝不能抛错。因此，我们只在关键区段内调用
-	 * strftime()，然后再转换并保存其结果。
-	 * results afterwards.
+	 * strftime()，然后再转换并保存
+	 * 其结果。
 	 */
 
 	/* 保存 time 区域设置现行值 */
@@ -1457,8 +1457,8 @@ report_newlocale_failure(const char *localename)
 	 * Windows 对 _create_locale() 无有用错误指示，
 	 * 而 BSD 系平台似乎也认为无需设置 errno（尽管
 	 * POSIX 明确要求 newlocale 应这么做）。所以，若
-	 * errno 尚未设置，就假定要报告的是 ENOENT。
-	 * is what to report.
+	 * errno 尚未设置，就假定要报告的错误
+	 * 是 ENOENT。
 	 */
 	if (errno == 0)
 		errno = ENOENT;
@@ -1582,9 +1582,9 @@ pg_newlocale_from_collation(Oid collid)
 #else
 
 				/*
-				 * XXX _create_locale() API 似乎不支持，或许能
-				 * 可改为让 pg_locale_t 含两个独立字段
-				 * pg_locale_t to contain two separate fields.
+				 * XXX _create_locale() API 似乎不支持这一点。
+				 * 或许可以变通：改用含两个独立
+				 * 字段的 pg_locale_t。
 				 */
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1633,9 +1633,9 @@ pg_newlocale_from_collation(Oid collid)
 			if (!actual_versionstr)
 			{
 				/*
-				 * CREATE COLLATION 带版本而提供者不支持时，
-				 * 或有人手动在目录中制造混乱时发生。
-				 * manually creating a mess in the catalogs.
+				 * 在 CREATE COLLATION 中指定版本而提供者
+				 * 不支持版本功能时，或有人手动在目录里
+				 * 制造混乱时，就可能发生。
 				 */
 				ereport(ERROR,
 						(errmsg("collation \"%s\" has no actual version, but a version was recorded",

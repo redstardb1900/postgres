@@ -37,13 +37,13 @@
 #include "utils/hsearch.h"
 
 
-/* signature for PostgreSQL-specific library init function */
+/* PostgreSQL 专用库初始化函数的签名 */
 typedef void (*PG_init_t) (void);
 
 /* 汇聚变量的哈希表条目 */
 typedef struct
 {
-	char		varName[NAMEDATALEN];	/* hash key (must be first) */
+	char		varName[NAMEDATALEN];	/* 哈希键（须居首） */
 	void	   *varValue;
 } rendezvousHashEntry;
 
@@ -53,14 +53,14 @@ typedef struct
 
 typedef struct df_files
 {
-	struct df_files *next;		/* List link */
-	dev_t		device;			/* Device file is on */
-#ifndef WIN32					/* ensures we never again depend on this under
-								 * win32 */
-	ino_t		inode;			/* Inode number of file */
+	struct df_files *next;		/* 链表项 */
+	dev_t		device;			/* 所在设备 */
+#ifndef WIN32					/* 确保 win32 下绝不
+								 *依赖 */
+	ino_t		inode;			/* 文件的 inode 号 */
 #endif
-	void	   *handle;			/* a handle for pg_dl* functions */
-	char		filename[FLEXIBLE_ARRAY_MEMBER];	/* Full pathname of file */
+	void	   *handle;			/* pg_dl* 函数所用句柄 */
+	char		filename[FLEXIBLE_ARRAY_MEMBER];	/* 文件完整路径名 */
 } DynamicFileList;
 
 static DynamicFileList *file_list = NULL;
@@ -348,8 +348,8 @@ incompatible_module_error(const char *libname,
 	/*
 	 * 否则，详细说明哪些字段不一致。
 	 *
-	 * XXX 每当块中字段集变化时都必须调整此代码！
-	 * block change!
+	 * XXX 每当魔数块中的字段集一旦变化，都必须调整
+	 * 此代码！
 	 */
 	initStringInfo(&details);
 
@@ -478,9 +478,9 @@ expand_dynamic_library_name(const char *name)
 }
 
 /*
- * 检查受限的库名。必须以 "$libdir/" 开头，之后不得有
- * 目录分隔符（这足以阻止".."风格的攻击）。
- * sufficient to prevent ".." style attacks).
+ * 检查受限的库名。它必须以 "$libdir/plugins/" 开头，
+ * 且其后不得再有目录分隔符（足以阻止".."风
+ * 格的攻击）。
  */
 static void
 check_restricted_library_name(const char *name)
@@ -598,19 +598,19 @@ find_in_dynamic_libpath(const char *basename)
 
 
 /*
- * 查找（或创建）一个汇聚变量，供某个动态
- * 载库用来与另一个库会合。
+ * 查找（或创建）一个汇聚变量，供某个
+ * 动态加载库用来与另一个库会合。
  *
  * 首次对特定 varName 调用此函数时，会创建一个
  * "汇聚变量"。
  * 变量的值是一个 void 指针（初始设为 NULL）。
  * 后续以相同 varName 调用只返回现有变量的地址。
- * 汇聚变量一旦创建，其生命周期与进程相同。
- * for the life of the process.
+ * 汇聚变量一旦创建，便会一直存续到进
+ * 程结束为止。
  *
- * 动态加载的库可以用汇聚变量相互查找和共
- * 变量名和它将指向的数据上达成一致即可。
- * on the variable name and the data it will point to.
+ * 动态加载的库可用汇聚变量相互查找、
+ * 共享信息：只需在变量名与其将指向的数据
+ * 上达成一致即可。
  */
 void	  **
 find_rendezvous_variable(const char *varName)
@@ -647,8 +647,8 @@ find_rendezvous_variable(const char *varName)
 }
 
 /*
- * 估算序列化我们已加载的库列表所需的内存量。
- * we have loaded.
+ * 估算序列化我们已加载的库列表所需的空
+ * 间量。
  */
 Size
 EstimateLibraryStateSpace(void)

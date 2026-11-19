@@ -2910,8 +2910,8 @@ ri_AttributesEqual(Oid eq_opr, Oid typeid,
 /*
  * ri_HashCompareOp -
  *
- * 查看我们是否知道如何比较两值，若无则新建。
- * if not.
+ * 查看我们是否知道如何比较两值，若无则新建
+ * 哈希条目。
  */
 static RI_CompareHashEntry *
 ri_HashCompareOp(Oid eq_opr, Oid typeid)

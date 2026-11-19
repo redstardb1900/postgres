@@ -2128,5 +2128,15 @@
   "path": "src/backend/utils/error/elog.c",
   "pattern": "(const char \\*fmt|pre_format_elog_string\\(errno)",
   "reason": "elog set: quoted signatures \"const char *fmt, ...\" / *fmt_singular and calling-convention code line pre_format_elog_string(errno, domain), var = format_elog_string(...) kept as code; zh prose complete (batch-0433)"
+ },
+ {
+  "path": "src/backend/utils/adt/selfuncs.c",
+  "pattern": "posting list",
+  "reason": "GIN posting list term kept EN per batch-0433 ruling (no zh precedent in GIN domain; glossary backlog), batch-0434"
+ },
+ {
+  "path": "src/backend/utils/init/postinit.c",
+  "pattern": "(autovacuum launcher|autovacuum worker)",
+  "reason": "process proper nouns kept EN beside zh prose in InitPostgres banner (batch-0434; extends two earlier single-site postinit entries)"
  }
 ]

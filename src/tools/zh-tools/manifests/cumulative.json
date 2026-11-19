@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "779e48a95ce129b0e1e5cf55a0643d4da5c2dff2",
+ "parent_commit": "ef371e0b055b63304ffcb47fba75efcd76c95572",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7676,6 +7676,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0447-brin-headers.json",
    "kind": "manifest",
    "note": "batch-0447 manifest"
+  },
+  {
+   "pattern": "src/include/access/heapam.h",
+   "kind": "c_comment",
+   "note": "batch-0448 heap headers"
+  },
+  {
+   "pattern": "src/include/access/hio.h",
+   "kind": "c_comment",
+   "note": "batch-0448 heap headers"
+  },
+  {
+   "pattern": "src/include/access/htup.h",
+   "kind": "c_comment",
+   "note": "batch-0448 heap headers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0448-heap-headers.json",
+   "kind": "manifest",
+   "note": "batch-0448 manifest"
   }
  ],
  "files": [
@@ -24346,7 +24366,9 @@
    "segments_total": 410,
    "translated": 405,
    "preserved": 5,
-   "preserved_reasons": ["NOT_USED/dup/REG_DEBUG 纯标签注释保留 EN（5 块）"],
+   "preserved_reasons": [
+    "NOT_USED/dup/REG_DEBUG 纯标签注释保留 EN（5 块）"
+   ],
    "note": "batch-0437 R1"
   },
   {
@@ -24366,7 +24388,9 @@
    "segments_total": 339,
    "translated": 327,
    "preserved": 12,
-   "preserved_reasons": ["include banners/FALLTHROUGH/ASCII art/BOL/EOL/REG_DEBUG"],
+   "preserved_reasons": [
+    "include banners/FALLTHROUGH/ASCII art/BOL/EOL/REG_DEBUG"
+   ],
    "note": "batch-0438 R2"
   },
   {
@@ -24386,7 +24410,9 @@
    "segments_total": 212,
    "translated": 210,
    "preserved": 2,
-   "preserved_reasons": ["include banners"],
+   "preserved_reasons": [
+    "include banners"
+   ],
    "note": "batch-0439 R3"
   },
   {
@@ -24396,7 +24422,9 @@
    "segments_total": 126,
    "translated": 125,
    "preserved": 1,
-   "preserved_reasons": ["REG_DEBUG"],
+   "preserved_reasons": [
+    "REG_DEBUG"
+   ],
    "note": "batch-0439 R3"
   },
   {
@@ -24436,7 +24464,10 @@
    "segments_total": 112,
    "translated": 110,
    "preserved": 2,
-   "preserved_reasons": ["FALLTHROUGH", "trigraph ??? BREs (but why???)"],
+   "preserved_reasons": [
+    "FALLTHROUGH",
+    "trigraph ??? BREs (but why???)"
+   ],
    "note": "batch-0440"
   },
   {
@@ -24456,7 +24487,11 @@
    "segments_total": 195,
    "translated": 43,
    "preserved": 152,
-   "preserved_reasons": ["ASCII ctype 短标签/FALL THRU", "strategy 实现策略大块 KEEP", "ctype cache 大块 KEEP"],
+   "preserved_reasons": [
+    "ASCII ctype 短标签/FALL THRU",
+    "strategy 实现策略大块 KEEP",
+    "ctype cache 大块 KEEP"
+   ],
    "note": "batch-0440"
   },
   {
@@ -24466,7 +24501,9 @@
    "segments_total": 23,
    "translated": 21,
    "preserved": 2,
-   "preserved_reasons": ["pgrminclude ignore / ARGSUSED"],
+   "preserved_reasons": [
+    "pgrminclude ignore / ARGSUSED"
+   ],
    "note": "batch-0440"
   },
   {
@@ -24496,7 +24533,9 @@
    "segments_total": 28,
    "translated": 26,
    "preserved": 2,
-   "preserved_reasons": ["部分行/块保留 EN"],
+   "preserved_reasons": [
+    "部分行/块保留 EN"
+   ],
    "note": "batch-0440"
   },
   {
@@ -24516,7 +24555,9 @@
    "segments_total": 18,
    "translated": 17,
    "preserved": 1,
-   "preserved_reasons": ["路径/公式 KEEP"],
+   "preserved_reasons": [
+    "路径/公式 KEEP"
+   ],
    "note": "batch-0441"
   },
   {
@@ -24536,7 +24577,9 @@
    "segments_total": 10,
    "translated": 9,
    "preserved": 1,
-   "preserved_reasons": ["横幅/Copyright/IDENTIFICATION KEEP"],
+   "preserved_reasons": [
+    "横幅/Copyright/IDENTIFICATION KEEP"
+   ],
    "note": "batch-0441"
   },
   {
@@ -24546,7 +24589,9 @@
    "segments_total": 182,
    "translated": 180,
    "preserved": 2,
-   "preserved_reasons": ["路径/voids/misc KEEP"],
+   "preserved_reasons": [
+    "路径/voids/misc KEEP"
+   ],
    "note": "batch-0441；审前清偿色图/彩虹/cNFA/LACON/halfen"
   },
   {
@@ -24566,7 +24611,9 @@
    "segments_total": 19,
    "translated": 13,
    "preserved": 6,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0442"
   },
   {
@@ -24576,7 +24623,9 @@
    "segments_total": 107,
    "translated": 88,
    "preserved": 19,
-   "preserved_reasons": ["横幅/路径/节名/PostingItem/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/节名/PostingItem/INCLUDE KEEP"
+   ],
    "note": "batch-0442"
   },
   {
@@ -24596,7 +24645,9 @@
    "segments_total": 74,
    "translated": 66,
    "preserved": 8,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0442"
   },
   {
@@ -24616,7 +24667,9 @@
    "segments_total": 91,
    "translated": 84,
    "preserved": 7,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0443"
   },
   {
@@ -24626,7 +24679,9 @@
    "segments_total": 180,
    "translated": 160,
    "preserved": 20,
-   "preserved_reasons": ["横幅/版权/路径/节名/纯标识 KEEP"],
+   "preserved_reasons": [
+    "横幅/版权/路径/节名/纯标识 KEEP"
+   ],
    "note": "batch-0443"
   },
   {
@@ -24636,7 +24691,9 @@
    "segments_total": 43,
    "translated": 32,
    "preserved": 11,
-   "preserved_reasons": ["横幅/路径/INCLUDE/TODELETE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE/TODELETE KEEP"
+   ],
    "note": "batch-0443；审前清偿备库/LSNs/TODELETE"
   },
   {
@@ -24656,7 +24713,9 @@
    "segments_total": 101,
    "translated": 89,
    "preserved": 12,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0444"
   },
   {
@@ -24666,7 +24725,9 @@
    "segments_total": 216,
    "translated": 206,
    "preserved": 10,
-   "preserved_reasons": ["横幅/版权/路径/节名/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/版权/路径/节名/INCLUDE KEEP"
+   ],
    "note": "batch-0444"
   },
   {
@@ -24676,7 +24737,9 @@
    "segments_total": 112,
    "translated": 95,
    "preserved": 17,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0444"
   },
   {
@@ -24696,7 +24759,9 @@
    "segments_total": 144,
    "translated": 129,
    "preserved": 15,
-   "preserved_reasons": ["横幅/版权/路径/NOTES/源文件名/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/版权/路径/NOTES/源文件名/INCLUDE KEEP"
+   ],
    "note": "batch-0445"
   },
   {
@@ -24706,7 +24771,9 @@
    "segments_total": 101,
    "translated": 92,
    "preserved": 9,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0445"
   },
   {
@@ -24726,7 +24793,9 @@
    "segments_total": 501,
    "translated": 494,
    "preserved": 7,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0446"
   },
   {
@@ -24736,7 +24805,9 @@
    "segments_total": 200,
    "translated": 193,
    "preserved": 7,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0446"
   },
   {
@@ -24756,7 +24827,9 @@
    "segments_total": 9,
    "translated": 4,
    "preserved": 5,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0447"
   },
   {
@@ -24766,7 +24839,9 @@
    "segments_total": 28,
    "translated": 19,
    "preserved": 9,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0447"
   },
   {
@@ -24776,7 +24851,9 @@
    "segments_total": 27,
    "translated": 20,
    "preserved": 7,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0447"
   },
   {
@@ -24786,7 +24863,9 @@
    "segments_total": 8,
    "translated": 2,
    "preserved": 6,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0447"
   },
   {
@@ -24796,7 +24875,9 @@
    "segments_total": 41,
    "translated": 33,
    "preserved": 8,
-   "preserved_reasons": ["横幅/路径/INCLUDE KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
    "note": "batch-0447"
   },
   {
@@ -24806,7 +24887,9 @@
    "segments_total": 40,
    "translated": 32,
    "preserved": 8,
-   "preserved_reasons": ["横幅/路径/INCLUDE/紧预算 KEEP"],
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE/紧预算 KEEP"
+   ],
    "note": "batch-0447"
   },
   {
@@ -24818,6 +24901,53 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0447"
+  },
+  {
+   "path": "src/include/access/heapam.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 91,
+   "preserved": 13,
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP",
+    "超预算 in heap/ 注记 KEEP"
+   ],
+   "note": "batch-0448"
+  },
+  {
+   "path": "src/include/access/hio.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 16,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
+   "note": "batch-0448"
+  },
+  {
+   "path": "src/include/access/htup.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 32,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/INCLUDE KEEP"
+   ],
+   "note": "batch-0448"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0448-heap-headers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0448"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

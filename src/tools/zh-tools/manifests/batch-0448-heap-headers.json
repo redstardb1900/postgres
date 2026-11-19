@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0448",
+  "title": "heap 头文件注释翻译 — batch 0448",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "ef371e0b055b63304ffcb47fba75efcd76c95572",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/heapam.h",
+      "kind": "c_comment",
+      "note": "heap headers"
+    },
+    {
+      "pattern": "src/include/access/hio.h",
+      "kind": "c_comment",
+      "note": "heap headers"
+    },
+    {
+      "pattern": "src/include/access/htup.h",
+      "kind": "c_comment",
+      "note": "heap headers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0448-heap-headers.json",
+      "kind": "manifest",
+      "note": "batch-0448"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/heapam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 104,
+      "translated": 91,
+      "preserved": 13,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP",
+        "超预算 in heap/ 注记 KEEP"
+      ],
+      "note": "batch-0448"
+    },
+    {
+      "path": "src/include/access/hio.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 23,
+      "translated": 16,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0448"
+    },
+    {
+      "path": "src/include/access/htup.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 39,
+      "translated": 31,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP",
+        "SelfItemPointer KEEP"
+      ],
+      "note": "batch-0448"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0448-heap-headers.json",
+      "kind": "manifest",
+      "action": "add",
+      "note": "batch-0448",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "note": "append batch-0448",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    }
+  ]
+}

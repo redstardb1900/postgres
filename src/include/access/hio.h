@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hio.h
- *	  POSTGRES heap access method input/output definitions.
+ *	POSTGRES 堆访问方法的输入/输出定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,31 +19,31 @@
 #include "utils/relcache.h"
 
 /*
- * state for bulk inserts --- private to heapam.c and hio.c
+ * 批量插入状态 --- heapam.c 和 hio.c 私有
  *
- * If current_buf isn't InvalidBuffer, then we are holding an extra pin
- * on that buffer.
+ * 若 current_buf 非 InvalidBuffer，则我们持有该缓冲区的
+ * 额外钉住。
  *
- * "typedef struct BulkInsertStateData *BulkInsertState" is in heapam.h
+ * typedef（BulkInsertStateData *BulkInsertState）见 heapam.h
  */
 typedef struct BulkInsertStateData
 {
-	BufferAccessStrategy strategy;	/* our BULKWRITE strategy object */
-	Buffer		current_buf;	/* current insertion target page */
+	BufferAccessStrategy strategy;	/* 自用 BULKWRITE 策略对象 */
+	Buffer		current_buf;	/* 当前插入目标页 */
 
 	/*
-	 * State for bulk extensions.
+	 * 批量扩展的状态。
 	 *
-	 * last_free..next_free are further pages that were unused at the time of
-	 * the last extension. They might be in use by the time we use them
-	 * though, so rechecks are needed.
+	 * last_free..next_free 是上次扩展时未用的其他页面。
+	 * 它们到我们使用时可能已被占用，
+	 * 所以仍需重新检查。
 	 *
-	 * XXX: Eventually these should probably live in RelationData instead,
-	 * alongside targetblock.
+	 * XXX：这些最终大概应改放在 RelationData 中，
+	 * 紧邻 targetblock。
 	 *
-	 * already_extended_by is the number of pages that this bulk inserted
-	 * extended by. If we already extended by a significant number of pages,
-	 * we can be more aggressive about extending going forward.
+	 * already_extended_by 是本批量插入已扩展的页数。
+	 * 若我们已经扩展了大量页面，
+	 * 则今后扩展时我们可以更激进。
 	 */
 	BlockNumber next_free;
 	BlockNumber last_free;

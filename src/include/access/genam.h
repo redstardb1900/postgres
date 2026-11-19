@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * genam.h
- *	  POSTGRES generalized index access method definitions.
+ *	  POSTGRES 通用索引访问方法定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,103 +21,103 @@
 #include "utils/relcache.h"
 #include "utils/snapshot.h"
 
-/* We don't want this file to depend on execnodes.h. */
+/* 我们不希望本文件依赖 execnodes.h。 */
 struct IndexInfo;
 
 /*
- * Struct for statistics returned by ambuild
+ * ambuild 返回的统计信息结构体
  */
 typedef struct IndexBuildResult
 {
-	double		heap_tuples;	/* # of tuples seen in parent table */
-	double		index_tuples;	/* # of tuples inserted into index */
+	double		heap_tuples;	/* # 父表中所见元组数 */
+	double		index_tuples;	/* # 插入索引的元组数 */
 } IndexBuildResult;
 
 /*
- * Struct for input arguments passed to ambulkdelete and amvacuumcleanup
+ * 传给 ambulkdelete 与 amvacuumcleanup 的输入参数结构体
  *
- * num_heap_tuples is accurate only when estimated_count is false;
- * otherwise it's just an estimate (currently, the estimate is the
- * prior value of the relation's pg_class.reltuples field, so it could
- * even be -1).  It will always just be an estimate during ambulkdelete.
+ * 仅当 estimated_count 为 false，num_heap_tuples 才准确；
+ * 否则它只是估计值(当前该估计值取自关系
+ * pg_class.reltuples 字段的先前值，因此甚至
+ * 可能为 -1)。在 ambulkdelete 期间它始终只是估计值。
  */
 typedef struct IndexVacuumInfo
 {
-	Relation	index;			/* the index being vacuumed */
-	Relation	heaprel;		/* the heap relation the index belongs to */
-	bool		analyze_only;	/* ANALYZE (without any actual vacuum) */
-	bool		report_progress;	/* emit progress.h status reports */
-	bool		estimated_count;	/* num_heap_tuples is an estimate */
-	int			message_level;	/* ereport level for progress messages */
-	double		num_heap_tuples;	/* tuples remaining in heap */
-	BufferAccessStrategy strategy;	/* access strategy for reads */
+	Relation	index;			/* 被清理的索引 */
+	Relation	heaprel;		/* 该索引所属的堆关系 */
+	bool		analyze_only;	/* ANALYZE(无实际 vacuum) */
+	bool		report_progress;	/* 发出 progress.h 状态报告 */
+	bool		estimated_count;	/* num_heap_tuples 为估计值 */
+	int			message_level;	/* 进度消息的 ereport 级别 */
+	double		num_heap_tuples;	/* 堆中剩余的元组数 */
+	BufferAccessStrategy strategy;	/* 读取的访问策略 */
 } IndexVacuumInfo;
 
 /*
- * Struct for statistics returned by ambulkdelete and amvacuumcleanup
+ * ambulkdelete 与 amvacuumcleanup 返回的统计信息结构体
  *
- * This struct is normally allocated by the first ambulkdelete call and then
- * passed along through subsequent ones until amvacuumcleanup; however,
- * amvacuumcleanup must be prepared to allocate it in the case where no
- * ambulkdelete calls were made (because no tuples needed deletion).
- * Note that an index AM could choose to return a larger struct
- * of which this is just the first field; this provides a way for ambulkdelete
- * to communicate additional private data to amvacuumcleanup.
+ * 该结构体通常由首个 ambulkdelete 调用分配，并沿后续
+ * 调用一路传递至 amvacuumcleanup；但若未发生任何
+ * ambulkdelete 调用(因无元组需删除)，amvacuumcleanup
+ * 必须能自行分配它。
+ * 注意：索引访问方法可返回更大的结构体，
+ * 而本结构体只是其首个字段；借此 ambulkdelete 可
+ * 向 amvacuumcleanup 传递额外私有数据。
  *
- * Note: pages_newly_deleted is the number of pages in the index that were
- * deleted by the current vacuum operation.  pages_deleted and pages_free
- * refer to free space within the index file.
+ * 注意：pages_newly_deleted 是索引中被本次 vacuum 操作
+ * 删除的页数。pages_deleted 与 pages_free 指的是
+ * 索引文件内的空闲空间。
  *
- * Note: Some index AMs may compute num_index_tuples by reference to
- * num_heap_tuples, in which case they should copy the estimated_count field
- * from IndexVacuumInfo.
+ * 注意：某些索引访问方法可能参照 num_heap_tuples
+ * 计算 num_index_tuples，此时应复制 estimated_count 字段，取自
+ * IndexVacuumInfo。
  */
 typedef struct IndexBulkDeleteResult
 {
-	BlockNumber num_pages;		/* pages remaining in index */
-	bool		estimated_count;	/* num_index_tuples is an estimate */
-	double		num_index_tuples;	/* tuples remaining */
-	double		tuples_removed; /* # removed during vacuum operation */
-	BlockNumber pages_newly_deleted;	/* # pages marked deleted by us  */
-	BlockNumber pages_deleted;	/* # pages marked deleted (could be by us) */
-	BlockNumber pages_free;		/* # pages available for reuse */
+	BlockNumber num_pages;		/* 索引中剩余的页数 */
+	bool		estimated_count;	/* num_index_tuples 为估计值 */
+	double		num_index_tuples;	/* 剩余元组数 */
+	double		tuples_removed; /* # vacuum 操作期间移除数 */
+	BlockNumber pages_newly_deleted;	/* # 本次标记删除页数  */
+	BlockNumber pages_deleted;	/* # 标记删除页数(可能是本次) */
+	BlockNumber pages_free;		/* # 可供复用的页数 */
 } IndexBulkDeleteResult;
 
-/* Typedef for callback function to determine if a tuple is bulk-deletable */
+/* 判定元组是否可批量删除的回调函数类型定义 */
 typedef bool (*IndexBulkDeleteCallback) (ItemPointer itemptr, void *state);
 
-/* struct definitions appear in relscan.h */
+/* 结构体定义见 relscan.h */
 typedef struct IndexScanDescData *IndexScanDesc;
 typedef struct SysScanDescData *SysScanDesc;
 
 typedef struct ParallelIndexScanDescData *ParallelIndexScanDesc;
 
 /*
- * Enumeration specifying the type of uniqueness check to perform in
- * index_insert().
+ * 枚举，指定 index_insert() 中要执行的唯一性检查
+ * 类型。
  *
- * UNIQUE_CHECK_YES is the traditional Postgres immediate check, possibly
- * blocking to see if a conflicting transaction commits.
+ * UNIQUE_CHECK_YES 是 Postgres 传统的即时检查，可能会
+ * 为判断冲突事务是否提交而阻塞。
  *
- * For deferrable unique constraints, UNIQUE_CHECK_PARTIAL is specified at
- * insertion time.  The index AM should test if the tuple is unique, but
- * should not throw error, block, or prevent the insertion if the tuple
- * appears not to be unique.  We'll recheck later when it is time for the
- * constraint to be enforced.  The AM must return true if the tuple is
- * known unique, false if it is possibly non-unique.  In the "true" case
- * it is safe to omit the later recheck.
+ * 对可延迟唯一约束，插入时指定 UNIQUE_CHECK_PARTIAL。
+ * 索引访问方法应检测元组是否唯一，但元组看似
+ * 不唯一时，不得抛出错误、阻塞或阻止插入。
+ * 待约束需强制执行时，我们再重新检查。
+ * 访问方法在元组确知唯一时必须返回 true，
+ * 可能不唯一则返回 false。返回 true 时
+ * 可安全省略之后的复查。
  *
- * When it is time to recheck the deferred constraint, a pseudo-insertion
- * call is made with UNIQUE_CHECK_EXISTING.  The tuple is already in the
- * index in this case, so it should not be inserted again.  Rather, just
- * check for conflicting live tuples (possibly blocking).
+ * 复查延迟约束时，以 UNIQUE_CHECK_EXISTING 发起一次
+ * 伪插入调用。此时元组已在索引中，故不应再插入；
+ * 而只需检查是否存在冲突的活元组，这有可能
+ * 造成阻塞。
  */
 typedef enum IndexUniqueCheck
 {
-	UNIQUE_CHECK_NO,			/* Don't do any uniqueness checking */
-	UNIQUE_CHECK_YES,			/* Enforce uniqueness at insertion time */
-	UNIQUE_CHECK_PARTIAL,		/* Test uniqueness, but no error */
-	UNIQUE_CHECK_EXISTING		/* Check if existing tuple is unique */
+	UNIQUE_CHECK_NO,			/* 不做任何唯一性检查 */
+	UNIQUE_CHECK_YES,			/* 在插入时强制唯一性 */
+	UNIQUE_CHECK_PARTIAL,		/* 检测唯一性但不报错 */
+	UNIQUE_CHECK_EXISTING		/* 检查现有元组是否唯一 */
 } IndexUniqueCheck;
 
 
@@ -129,12 +129,12 @@ typedef struct IndexOrderByDistance
 } IndexOrderByDistance;
 
 /*
- * generalized index_ interface routines (in indexam.c)
+ * 通用 index_ 接口例程(位于 indexam.c)
  */
 
 /*
  * IndexScanIsValid
- *		True iff the index scan is valid.
+ *		索引扫描有效时才为真。
  */
 #define IndexScanIsValid(scan) PointerIsValid(scan)
 
@@ -199,7 +199,7 @@ extern bytea *index_opclass_options(Relation indrel, AttrNumber attnum,
 
 
 /*
- * index access method support routines (in genam.c)
+ * 索引访问方法支持例程(位于 genam.c)
  */
 extern IndexScanDesc RelationGetIndexScan(Relation indexRelation,
 										  int nkeys, int norderbys);
@@ -213,7 +213,7 @@ extern TransactionId index_compute_xid_horizon_for_tuples(Relation irel,
 														  int nitems);
 
 /*
- * heap-or-index access to system catalogs (in genam.c)
+ * 系统目录的堆或索引访问(位于 genam.c)
  */
 extern SysScanDesc systable_beginscan(Relation heapRelation,
 									  Oid indexId,

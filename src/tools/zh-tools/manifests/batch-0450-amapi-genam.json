@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0450",
+  "title": "amapi/genam 头文件注释翻译 — batch 0450",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "7a20b7245224e267303fe93b7632bb68b5e50eca",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/amapi.h",
+      "kind": "c_comment",
+      "note": "amapi"
+    },
+    {
+      "pattern": "src/include/access/genam.h",
+      "kind": "c_comment",
+      "note": "genam"
+    },
+    {
+      "pattern": "src/include/access/amvalidate.h",
+      "kind": "c_comment",
+      "note": "amvalidate"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0450-amapi-genam.json",
+      "kind": "manifest",
+      "note": "batch-0450"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/amapi.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 111,
+      "translated": 104,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP",
+        "lefttype/righttype 预算 KEEP"
+      ],
+      "note": "batch-0450"
+    },
+    {
+      "path": "src/include/access/genam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 73,
+      "translated": 64,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP",
+        "IndexScanIsValid KEEP",
+        "ORDER BY 英文句 KEEP"
+      ],
+      "note": "batch-0450"
+    },
+    {
+      "path": "src/include/access/amvalidate.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 13,
+      "translated": 6,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP",
+        "标识符自注释 KEEP"
+      ],
+      "note": "batch-0450"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0450-amapi-genam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0450"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ]
+}

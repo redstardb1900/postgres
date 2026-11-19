@@ -1,6 +1,6 @@
 /*
- * DFA routines
- * This file is #included by regexec.c.
+ * DFA 例程
+ * 本文件由 regexec.c #include。
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -33,17 +33,17 @@
  */
 
 /*
- * longest - longest-preferred matching engine
+ * longest - 最长优先匹配引擎
  *
- * On success, returns match endpoint address.  Returns NULL on no match.
- * Internal errors also return NULL, with v->err set.
+ * 成功时返回匹配终点地址。无匹配则返回 NULL。
+ * 内部错误亦返回 NULL，并置 v->err。
  */
 static chr *
 longest(struct vars *v,
 		struct dfa *d,
-		chr *start,				/* where the match should start */
-		chr *stop,				/* match must end at or before here */
-		int *hitstopp)			/* record whether hit v->stop, if non-NULL */
+		chr *start,				/* 匹配应起始之处 */
+		chr *stop,				/* 匹配须在此或之前结束 */
+		int *hitstopp)			/* 非 NULL 时记录是否触及 v->stop */
 {
 	chr		   *cp;
 	chr		   *realstop = (stop == v->stop) ? stop : stop + 1;
@@ -54,11 +54,11 @@ longest(struct vars *v,
 	int			i;
 	struct colormap *cm = d->cm;
 
-	/* prevent "uninitialized variable" warnings */
+	/* 防止"未初始化变量"警告 */
 	if (hitstopp != NULL)
 		*hitstopp = 0;
 
-	/* if this is a backref to a known string, just match against that */
+	/* 若此为指向已知串的反向引用，则只与之匹配 */
 	if (d->backno >= 0)
 	{
 		assert((size_t) d->backno < v->nmatch);
@@ -71,7 +71,7 @@ longest(struct vars *v,
 		}
 	}
 
-	/* fast path for matchall NFAs */
+	/* matchall NFA 快路径 */
 	if (d->cnfa->flags & MATCHALL)
 	{
 		size_t		nchr = stop - start;
@@ -94,13 +94,13 @@ longest(struct vars *v,
 		return stop;
 	}
 
-	/* initialize */
+	/* 初始化 */
 	css = initialize(v, d, start);
 	if (css == NULL)
 		return NULL;
 	cp = start;
 
-	/* startup */
+	/* 启动 */
 	FDEBUG(("+++ startup +++\n"));
 	if (cp == v->start)
 	{
@@ -118,9 +118,9 @@ longest(struct vars *v,
 	css->lastseen = cp;
 
 	/*
-	 * This is the main text-scanning loop.  It seems worth having two copies
-	 * to avoid the overhead of REG_FTRACE tests here, even in REG_DEBUG
-	 * builds, when you're not actively tracing.
+	 * 这是主文本扫描循环。值得备两份副本
+	 * 以免此处 REG_FTRACE 测试开销，即便在 REG_DEBUG
+	 * 构建中，于未主动跟踪时。
 	 */
 #ifdef REG_DEBUG
 	if (v->eflags & REG_FTRACE)
@@ -135,7 +135,7 @@ longest(struct vars *v,
 			{
 				ss = miss(v, d, css, co, cp + 1, start);
 				if (ss == NULL)
-					break;		/* NOTE BREAK OUT */
+					break;		/* 注意跳出 */
 			}
 			cp++;
 			ss->lastseen = cp;
@@ -153,7 +153,7 @@ longest(struct vars *v,
 			{
 				ss = miss(v, d, css, co, cp + 1, start);
 				if (ss == NULL)
-					break;		/* NOTE BREAK OUT */
+					break;		/* 注意跳出 */
 			}
 			cp++;
 			ss->lastseen = cp;
@@ -164,7 +164,7 @@ longest(struct vars *v,
 	if (ISERR())
 		return NULL;
 
-	/* shutdown */
+	/* 收尾 */
 	FDEBUG(("+++ shutdown at c%d +++\n", (int) (css - d->ssets)));
 	if (cp == v->stop && stop == v->stop)
 	{
@@ -175,39 +175,39 @@ longest(struct vars *v,
 		ss = miss(v, d, css, co, cp, start);
 		if (ISERR())
 			return NULL;
-		/* special case:  match ended at eol? */
+		/* 特例：匹配止于 eol？ */
 		if (ss != NULL && (ss->flags & POSTSTATE))
 			return cp;
 		else if (ss != NULL)
-			ss->lastseen = cp;	/* to be tidy */
+			ss->lastseen = cp;	/* 为整洁 */
 	}
 
-	/* find last match, if any */
+	/* 找最后匹配若有 */
 	post = d->lastpost;
 	for (ss = d->ssets, i = d->nssused; i > 0; ss++, i--)
 		if ((ss->flags & POSTSTATE) && post != ss->lastseen &&
 			(post == NULL || post < ss->lastseen))
 			post = ss->lastseen;
-	if (post != NULL)			/* found one */
+	if (post != NULL)			/* 找到了 */
 		return post - 1;
 
 	return NULL;
 }
 
 /*
- * shortest - shortest-preferred matching engine
+ * shortest - 最短优先匹配引擎
  *
- * On success, returns match endpoint address.  Returns NULL on no match.
- * Internal errors also return NULL, with v->err set.
+ * 成功时返回匹配终点地址。无匹配则返回 NULL。
+ * 内部错误亦返回 NULL，并置 v->err。
  */
 static chr *
 shortest(struct vars *v,
 		 struct dfa *d,
-		 chr *start,			/* where the match should start */
-		 chr *min,				/* match must end at or after here */
-		 chr *max,				/* match must end at or before here */
-		 chr **coldp,			/* store coldstart pointer here, if non-NULL */
-		 int *hitstopp)			/* record whether hit v->stop, if non-NULL */
+		 chr *start,			/* 匹配应起始之处 */
+		 chr *min,				/* 匹配须在此或之后结束 */
+		 chr *max,				/* 匹配须在此或之前结束 */
+		 chr **coldp,			/* 非 NULL 则在此存 coldstart 指针 */
+		 int *hitstopp)			/* 非 NULL 时记录是否触及 v->stop */
 {
 	chr		   *cp;
 	chr		   *realmin = (min == v->stop) ? min : min + 1;
@@ -217,13 +217,13 @@ shortest(struct vars *v,
 	struct sset *ss;
 	struct colormap *cm = d->cm;
 
-	/* prevent "uninitialized variable" warnings */
+	/* 防止"未初始化变量"警告 */
 	if (coldp != NULL)
 		*coldp = NULL;
 	if (hitstopp != NULL)
 		*hitstopp = 0;
 
-	/* if this is a backref to a known string, just match against that */
+	/* 若此为指向已知串的反向引用，则只与之匹配 */
 	if (d->backno >= 0)
 	{
 		assert((size_t) d->backno < v->nmatch);
@@ -232,12 +232,12 @@ shortest(struct vars *v,
 			cp = dfa_backref(v, d, start, min, max, true);
 			if (cp != NULL && coldp != NULL)
 				*coldp = start;
-			/* there is no case where we should set *hitstopp */
+			/* 无应置 *hitstopp 的情形 */
 			return cp;
 		}
 	}
 
-	/* fast path for matchall NFAs */
+	/* matchall NFA 快路径 */
 	if (d->cnfa->flags & MATCHALL)
 	{
 		size_t		nchr = min - start;
@@ -251,17 +251,17 @@ shortest(struct vars *v,
 			min = start + d->cnfa->minmatchall;
 		if (coldp != NULL)
 			*coldp = start;
-		/* there is no case where we should set *hitstopp */
+		/* 无应置 *hitstopp 的情形 */
 		return min;
 	}
 
-	/* initialize */
+	/* 初始化 */
 	css = initialize(v, d, start);
 	if (css == NULL)
 		return NULL;
 	cp = start;
 
-	/* startup */
+	/* 启动 */
 	FDEBUG(("--- startup ---\n"));
 	if (cp == v->start)
 	{
@@ -280,9 +280,9 @@ shortest(struct vars *v,
 	ss = css;
 
 	/*
-	 * This is the main text-scanning loop.  It seems worth having two copies
-	 * to avoid the overhead of REG_FTRACE tests here, even in REG_DEBUG
-	 * builds, when you're not actively tracing.
+	 * 这是主文本扫描循环。值得备两份副本
+	 * 以免此处 REG_FTRACE 测试开销，即便在 REG_DEBUG
+	 * 构建中，于未主动跟踪时。
 	 */
 #ifdef REG_DEBUG
 	if (v->eflags & REG_FTRACE)
@@ -297,13 +297,13 @@ shortest(struct vars *v,
 			{
 				ss = miss(v, d, css, co, cp + 1, start);
 				if (ss == NULL)
-					break;		/* NOTE BREAK OUT */
+					break;		/* 注意跳出 */
 			}
 			cp++;
 			ss->lastseen = cp;
 			css = ss;
 			if ((ss->flags & POSTSTATE) && cp >= realmin)
-				break;			/* NOTE BREAK OUT */
+				break;			/* 注意跳出 */
 		}
 	}
 	else
@@ -317,20 +317,20 @@ shortest(struct vars *v,
 			{
 				ss = miss(v, d, css, co, cp + 1, start);
 				if (ss == NULL)
-					break;		/* NOTE BREAK OUT */
+					break;		/* 注意跳出 */
 			}
 			cp++;
 			ss->lastseen = cp;
 			css = ss;
 			if ((ss->flags & POSTSTATE) && cp >= realmin)
-				break;			/* NOTE BREAK OUT */
+				break;			/* 注意跳出 */
 		}
 	}
 
 	if (ss == NULL)
 		return NULL;
 
-	if (coldp != NULL)			/* report last no-progress state set, if any */
+	if (coldp != NULL)			/* 报告最后无进展状态集，若有 */
 		*coldp = lastcold(v, d);
 
 	if ((ss->flags & POSTSTATE) && cp > min)
@@ -343,7 +343,7 @@ shortest(struct vars *v,
 		co = d->cnfa->eos[(v->eflags & REG_NOTEOL) ? 0 : 1];
 		FDEBUG(("color %ld\n", (long) co));
 		ss = miss(v, d, css, co, cp, start);
-		/* match might have ended at eol */
+		/* 匹配或已止于 eol */
 		if ((ss == NULL || !(ss->flags & POSTSTATE)) && hitstopp != NULL)
 			*hitstopp = 1;
 	}
@@ -355,24 +355,24 @@ shortest(struct vars *v,
 }
 
 /*
- * matchuntil - incremental matching engine
+ * matchuntil - 增量匹配引擎
  *
- * This is meant for use with a search-style NFA (that is, the pattern is
- * known to act as though it had a leading .*).  We determine whether a
- * match exists starting at v->start and ending at probe.  Multiple calls
- * require only O(N) time not O(N^2) so long as the probe values are
- * nondecreasing.  *lastcss and *lastcp must be initialized to NULL before
- * starting a series of calls.
+ * 供搜索型 NFA 使用（即该模式已知会
+ * 表现为带前导 .*）。判定是否存在自
+ * v->start 起、止于 probe 的匹配。多次调用
+ * 仅需 O(N) 而非 O(N^2)，只要各 probe 值
+ * 非递减。*lastcss 与 *lastcp 须先初始化为 NULL，
+ * 再开始一系列调用。
  *
- * Returns 1 if a match exists, 0 if not.
- * Internal errors also return 0, with v->err set.
+ * 有匹配返回 1，否则返回 0。
+ * 内部错误亦返回 0，并置 v->err。
  */
 static int
 matchuntil(struct vars *v,
 		   struct dfa *d,
-		   chr *probe,			/* we want to know if a match ends here */
-		   struct sset **lastcss,	/* state storage across calls */
-		   chr **lastcp)		/* state storage across calls */
+		   chr *probe,			/* 欲知匹配是否止于此 */
+		   struct sset **lastcss,	/* 跨调用的状态存储 */
+		   chr **lastcp)		/* 跨调用的状态存储 */
 {
 	chr		   *cp = *lastcp;
 	color		co;
@@ -380,19 +380,19 @@ matchuntil(struct vars *v,
 	struct sset *ss;
 	struct colormap *cm = d->cm;
 
-	/* fast path for matchall NFAs */
+	/* matchall NFA 快路径 */
 	if (d->cnfa->flags & MATCHALL)
 	{
 		size_t		nchr = probe - v->start;
 
 		if (nchr < d->cnfa->minmatchall)
 			return 0;
-		/* maxmatchall will always be infinity, cf. makesearch() */
+		/* maxmatchall 恒为无穷，参见 makesearch() */
 		assert(d->cnfa->maxmatchall == DUPINF);
 		return 1;
 	}
 
-	/* initialize and startup, or restart, if necessary */
+	/* 必要时初始化并启动，或重启 */
 	if (cp == NULL || cp > probe)
 	{
 		cp = v->start;
@@ -411,15 +411,15 @@ matchuntil(struct vars *v,
 	}
 	else if (css == NULL)
 	{
-		/* we previously found that no match is possible beyond *lastcp */
+		/* 先前已判明 *lastcp 之后不可能匹配 */
 		return 0;
 	}
 	ss = css;
 
 	/*
-	 * This is the main text-scanning loop.  It seems worth having two copies
-	 * to avoid the overhead of REG_FTRACE tests here, even in REG_DEBUG
-	 * builds, when you're not actively tracing.
+	 * 这是主文本扫描循环。值得备两份副本
+	 * 以免此处 REG_FTRACE 测试开销，即便在 REG_DEBUG
+	 * 构建中，于未主动跟踪时。
 	 */
 #ifdef REG_DEBUG
 	if (v->eflags & REG_FTRACE)
@@ -434,7 +434,7 @@ matchuntil(struct vars *v,
 			{
 				ss = miss(v, d, css, co, cp + 1, v->start);
 				if (ss == NULL)
-					break;		/* NOTE BREAK OUT */
+					break;		/* 注意跳出 */
 			}
 			cp++;
 			ss->lastseen = cp;
@@ -452,7 +452,7 @@ matchuntil(struct vars *v,
 			{
 				ss = miss(v, d, css, co, cp + 1, v->start);
 				if (ss == NULL)
-					break;		/* NOTE BREAK OUT */
+					break;		/* 注意跳出 */
 			}
 			cp++;
 			ss->lastseen = cp;
@@ -464,9 +464,9 @@ matchuntil(struct vars *v,
 	*lastcp = cp;
 
 	if (ss == NULL)
-		return 0;				/* impossible match, or internal error */
+		return 0;				/* 不可能匹配，或内部错误 */
 
-	/* We need to process one more chr, or the EOS symbol, to check match */
+	/* 还需再处理一个 chr，或 EOS 符号，以检查匹配 */
 	if (cp < v->stop)
 	{
 		FDEBUG((">>> at c%d >>>\n", (int) (css - d->ssets)));
@@ -491,23 +491,23 @@ matchuntil(struct vars *v,
 }
 
 /*
- * dfa_backref - find best match length for a known backref string
+ * dfa_backref - 为已知反向引用串求最佳DFA匹配长度
  *
- * When the backref's referent is already available, we can deliver an exact
- * answer with considerably less work than running the backref node's NFA.
+ * 当反向引用的参照已可用时，我们能以远少于运行
+ * 该反向引用节点 NFA 的工作量给出精确答案。
  *
- * Return match endpoint for longest or shortest valid repeated match,
- * or NULL if there is no valid match.
+ * 返回最长或最短有效重复匹配的终点，
+ * 或无有效匹配时返回 NULL。
  *
- * Should be in sync with cbrdissect(), although that has the different task
- * of checking a match to a predetermined section of the string.
+ * 应与 cbrdissect() 保持同步，虽其任务不同：
+ * 检查对串中预定区段的匹配。
  */
 static chr *
 dfa_backref(struct vars *v,
 			struct dfa *d,
-			chr *start,			/* where the match should start */
-			chr *min,			/* match must end at or after here */
-			chr *max,			/* match must end at or before here */
+			chr *start,			/* 匹配应起始之处 */
+			chr *min,			/* 匹配须在此或之后结束 */
+			chr *max,			/* 匹配须在此或之前结束 */
 			bool shortest)
 {
 	int			n = d->backno;
@@ -520,18 +520,18 @@ dfa_backref(struct vars *v,
 	chr		   *brstring;
 	chr		   *p;
 
-	/* get the backreferenced string (caller should have checked this) */
+	/* 取被反向引用的串（调用方应已检查） */
 	if (v->pmatch[n].rm_so == -1)
 		return NULL;
 	brstring = v->start + v->pmatch[n].rm_so;
 	brlen = v->pmatch[n].rm_eo - v->pmatch[n].rm_so;
 
-	/* special-case zero-length backreference to avoid divide by zero */
+	/* 特判零长反向引用以免除以零 */
 	if (brlen == 0)
 	{
 		/*
-		 * matches only a zero-length string, but any number of repetitions
-		 * can be considered to be present
+		 * 仅匹配零长串，但任意次重复
+		 * 都可视为存在
 		 */
 		if (min == start && backmin <= backmax)
 			return start;
@@ -539,8 +539,8 @@ dfa_backref(struct vars *v,
 	}
 
 	/*
-	 * convert min and max into numbers of possible repetitions of the backref
-	 * string, rounding appropriately
+	 * 把 min、max 换成反向引用串可能的重复次数，
+	 * 并适当取整
 	 */
 	if (min <= start)
 		minreps = 0;
@@ -548,7 +548,7 @@ dfa_backref(struct vars *v,
 		minreps = (min - start - 1) / brlen + 1;
 	maxreps = (max - start) / brlen;
 
-	/* apply bounds, then see if there is any allowed match length */
+	/* 应用边界，再看是否有允许的匹配长度 */
 	if (minreps < backmin)
 		minreps = backmin;
 	if (backmax != DUPINF && maxreps > backmax)
@@ -556,11 +556,11 @@ dfa_backref(struct vars *v,
 	if (maxreps < minreps)
 		return NULL;
 
-	/* quick exit if zero-repetitions match is valid and preferred */
+	/* 零次重复匹配有效且更优则速退 */
 	if (shortest && minreps == 0)
 		return start;
 
-	/* okay, compare the actual string contents */
+	/* 好，比较实际串内容 */
 	p = start;
 	numreps = 0;
 	while (numreps < maxreps)
@@ -579,9 +579,9 @@ dfa_backref(struct vars *v,
 }
 
 /*
- * lastcold - determine last point at which no progress had been made
+ * lastcold - 判定此前无进展的最后位置
  */
-static chr *					/* endpoint, or NULL */
+static chr *					/* 端点，或 NULL */
 lastcold(struct vars *v,
 		 struct dfa *d)
 {
@@ -599,15 +599,15 @@ lastcold(struct vars *v,
 }
 
 /*
- * newdfa - set up a fresh DFA
+ * newdfa - 建立全新 DFA
  *
- * Returns NULL (and sets v->err) on failure.
+ * 失败时返回 NULL（并置 v->err）。
  */
 static struct dfa *
 newdfa(struct vars *v,
 	   struct cnfa *cnfa,
 	   struct colormap *cm,
-	   struct smalldfa *sml)	/* preallocated space, may be NULL */
+	   struct smalldfa *sml)	/* 预分配空间，可为 NULL */
 {
 	struct dfa *d;
 	size_t		nss = cnfa->nstates * 2;
@@ -636,7 +636,7 @@ newdfa(struct vars *v,
 		d->outsarea = sml->outsarea;
 		d->incarea = sml->incarea;
 		d->ismalloced = ismalloced;
-		d->arraysmalloced = false;	/* not separately allocated, anyway */
+		d->arraysmalloced = false;	/* 反正非单独分配 */
 	}
 	else
 	{
@@ -656,7 +656,7 @@ newdfa(struct vars *v,
 											sizeof(struct arcp));
 		d->ismalloced = true;
 		d->arraysmalloced = true;
-		/* now freedfa() will behave sanely */
+		/* 此后 freedfa() 会正常表现 */
 		if (d->ssets == NULL || d->statesarea == NULL ||
 			d->outsarea == NULL || d->incarea == NULL)
 		{
@@ -676,16 +676,16 @@ newdfa(struct vars *v,
 	d->lastpost = NULL;
 	d->lastnopr = NULL;
 	d->search = d->ssets;
-	d->backno = -1;				/* may be set by caller */
+	d->backno = -1;				/* 调用方可设 */
 	d->backmin = d->backmax = 0;
 
-	/* initialization of sset fields is done as needed */
+	/* sset 字段按需初始化 */
 
 	return d;
 }
 
 /*
- * freedfa - free a DFA
+ * freedfa - 释放 DFA
  */
 static void
 freedfa(struct dfa *d)
@@ -707,9 +707,9 @@ freedfa(struct dfa *d)
 }
 
 /*
- * hash - construct a hash code for a bitvector
+ * hash - 为位向量构造散列码
  *
- * There are probably better ways, but they're more expensive.
+ * 或有更好办法，但更昂贵。
  */
 static unsigned
 hash(unsigned *uv,
@@ -725,7 +725,7 @@ hash(unsigned *uv,
 }
 
 /*
- * initialize - hand-craft a cache entry for startup, otherwise get ready
+ * initialize - 为启动手制缓存项，否则做好准备
  */
 static struct sset *
 initialize(struct vars *v,
@@ -735,11 +735,11 @@ initialize(struct vars *v,
 	struct sset *ss;
 	int			i;
 
-	/* is previous one still there? */
+	/* 前一项还在吗？ */
 	if (d->nssused > 0 && (d->ssets[0].flags & STARTER))
 		ss = &d->ssets[0];
 	else
-	{							/* no, must (re)build it */
+	{							/* 否，须(再)建之 */
 		ss = getvacant(v, d, start, start);
 		if (ss == NULL)
 			return NULL;
@@ -749,37 +749,37 @@ initialize(struct vars *v,
 		ss->hash = HASH(ss->states, d->wordsper);
 		assert(d->cnfa->pre != d->cnfa->post);
 		ss->flags = STARTER | LOCKED | NOPROGRESS;
-		/* lastseen dealt with below */
+		/* lastseen 在下方处理 */
 	}
 
 	for (i = 0; i < d->nssused; i++)
 		d->ssets[i].lastseen = NULL;
-	ss->lastseen = start;		/* maybe untrue, but harmless */
+	ss->lastseen = start;		/* 或非真，但无害 */
 	d->lastpost = NULL;
 	d->lastnopr = NULL;
 	return ss;
 }
 
 /*
- * miss - handle a stateset cache miss
+ * miss - 处理状态集缓存未中
  *
- * css is the current stateset, co is the color of the current input character,
- * cp points to the character after that (which is where we may need to test
- * LACONs).  start does not affect matching behavior but is needed for pickss'
- * heuristics about which stateset cache entry to replace.
+ * css 为当前状态集，co 为当前输入字符之色，
+ * cp 指向其后字符（即我们可能需在此测
+ * LACON）。start 不影响匹配行为，但供 pickss
+ * 之启发，以判定替换哪个状态集缓存项。
  *
- * Ordinarily, returns the address of the next stateset (the one that is
- * valid after consuming the input character).  Returns NULL if no valid
- * NFA states remain, ie we have a certain match failure.
- * Internal errors also return NULL, with v->err set.
+ * 通常返回下一状态集的地址（即消费该输入
+ * 字符后有效者）。若无有效 NFA 状态剩余则
+ * 返回 NULL，即已确定匹配失败。
+ * 内部错误亦返回 NULL，并置 v->err。
  */
 static struct sset *
 miss(struct vars *v,
 	 struct dfa *d,
 	 struct sset *css,
 	 color co,
-	 chr *cp,					/* next chr */
-	 chr *start)				/* where the attempt got started */
+	 chr *cp,					/* 次 chr */
+	 chr *start)				/* 尝试起始之处 */
 {
 	struct cnfa *cnfa = d->cnfa;
 	int			i;
@@ -793,7 +793,7 @@ miss(struct vars *v,
 	int			dolacons;
 	int			sawlacons;
 
-	/* for convenience, we can be called even if it might not be a miss */
+	/* 为方便，就算不是未命中也可调用 */
 	if (css->outs[co] != NULL)
 	{
 		FDEBUG(("hit\n"));
@@ -802,18 +802,18 @@ miss(struct vars *v,
 	FDEBUG(("miss\n"));
 
 	/*
-	 * Checking for operation cancel in the inner text search loop seems
-	 * unduly expensive.  As a compromise, check during cache misses.
+	 * 在内层文本搜索循环中检查操作取消似乎
+	 * 过于昂贵。折中办法是在缓存未命中时检查。
 	 */
 	INTERRUPT(v->re);
 
 	/*
-	 * What set of states would we end up in after consuming the co character?
-	 * We first consider PLAIN arcs that consume the character, and then look
-	 * to see what LACON arcs could be traversed after consuming it.
+	 * 消费 co 字符后会落入哪组状态？
+	 * 先考虑消费该字符的 PLAIN 弧，再看消费后
+	 * 有哪些 LACON 弧可穿越。
 	 */
 	for (i = 0; i < d->wordsper; i++)
-		d->work[i] = 0;			/* build new stateset bitmap in d->work */
+		d->work[i] = 0;			/* 在 d->work 中建新状态集位图 */
 	ispseudocolor = d->cm->cd[co].flags & PSEUDO;
 	ispost = 0;
 	noprogress = 1;
@@ -833,10 +833,10 @@ miss(struct vars *v,
 					FDEBUG(("%d -> %d\n", i, ca->to));
 				}
 	if (!gotstate)
-		return NULL;			/* character cannot reach any new state */
+		return NULL;			/* 字符无法抵达任何新状态 */
 	dolacons = (cnfa->flags & HASLACONS);
 	sawlacons = 0;
-	/* outer loop handles transitive closure of reachable-by-LACON states */
+	/* 外层循环处理经 LACON 可达状态的传递闭包 */
 	while (dolacons)
 	{
 		dolacons = 0;
@@ -845,15 +845,15 @@ miss(struct vars *v,
 				for (ca = cnfa->states[i]; ca->co != COLORLESS; ca++)
 				{
 					if (ca->co < cnfa->ncolors)
-						continue;	/* not a LACON arc */
+						continue;	/* 非 LACON 弧 */
 					if (ISBSET(d->work, ca->to))
-						continue;	/* arc would be a no-op anyway */
-					sawlacons = 1;	/* this LACON affects our result */
+						continue;	/* 弧本即空操作 */
+					sawlacons = 1;	/* 此 LACON 影响结果 */
 					if (!lacon(v, cnfa, cp, ca->co))
 					{
 						if (ISERR())
 							return NULL;
-						continue;	/* LACON arc cannot be traversed */
+						continue;	/* LACON 弧无法穿越 */
 					}
 					if (ISERR())
 						return NULL;
@@ -868,15 +868,15 @@ miss(struct vars *v,
 	}
 	h = HASH(d->work, d->wordsper);
 
-	/* Is this stateset already in the cache? */
+	/* 此状态集已在缓存中吗？ */
 	for (p = d->ssets, i = d->nssused; i > 0; p++, i--)
 		if (HIT(h, d->work, p, d->wordsper))
 		{
 			FDEBUG(("cached c%d\n", (int) (p - d->ssets)));
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 		}
 	if (i == 0)
-	{							/* nope, need a new cache entry */
+	{							/* 否，需要新缓存项 */
 		p = getvacant(v, d, cp, start);
 		if (p == NULL)
 			return NULL;
@@ -887,15 +887,15 @@ miss(struct vars *v,
 		p->flags = (ispost) ? POSTSTATE : 0;
 		if (noprogress)
 			p->flags |= NOPROGRESS;
-		/* lastseen to be dealt with by caller */
+		/* lastseen 由调用方处理 */
 	}
 
 	/*
-	 * Link new stateset to old, unless a LACON affected the result, in which
-	 * case we don't create the link.  That forces future transitions across
-	 * this same arc (same prior stateset and character color) to come through
-	 * miss() again, so that we can recheck the LACON(s), which might or might
-	 * not pass since context will be different.
+	 * 把新状态集链到旧的，除非某 LACON 影响了结果，
+	 * 此时不建链。这迫使今后经同一弧（同一先前
+	 * 状态集与字符色）的转移再走 miss()，以便
+	 * 重新检查 LACON（们），它们或通过或不通过，
+	 * 因上下文将不同。
 	 */
 	if (!sawlacons)
 	{
@@ -910,13 +910,13 @@ miss(struct vars *v,
 }
 
 /*
- * lacon - lookaround-constraint checker for miss()
+ * lacon - 供 miss() 的环视约束检查器
  */
-static int						/* predicate:  constraint satisfied? */
+static int						/* 谓词：约束已满足？ */
 lacon(struct vars *v,
-	  struct cnfa *pcnfa,		/* parent cnfa */
+	  struct cnfa *pcnfa,		/* 父 cNFA */
 	  chr *cp,
-	  color co)					/* "color" of the lookaround constraint */
+	  color co)					/* 环视约束之"色" */
 {
 	int			n;
 	struct subre *sub;
@@ -924,7 +924,7 @@ lacon(struct vars *v,
 	chr		   *end;
 	int			satisfied;
 
-	/* Since this is recursive, it could be driven to stack overflow */
+	/* 因递归，可能被逼到栈溢出 */
 	if (STACK_TOO_DEEP(v->re))
 	{
 		ERR(REG_ETOOBIG);
@@ -940,7 +940,7 @@ lacon(struct vars *v,
 		return 0;
 	if (LATYPE_IS_AHEAD(sub->latype))
 	{
-		/* used to use longest() here, but shortest() could be much cheaper */
+		/* 曾用 longest()，但 shortest() 可能便宜得多 */
 		end = shortest(v, d, cp, cp, v->stop,
 					   (chr **) NULL, (int *) NULL);
 		satisfied = LATYPE_IS_POS(sub->latype) ? (end != NULL) : (end == NULL);
@@ -948,12 +948,12 @@ lacon(struct vars *v,
 	else
 	{
 		/*
-		 * To avoid doing O(N^2) work when repeatedly testing a lookbehind
-		 * constraint in an N-character string, we use matchuntil() which can
-		 * cache the DFA state across calls.  We only need to restart if the
-		 * probe point decreases, which is not common.  The NFA we're using is
-		 * a search NFA, so it doesn't mind scanning over stuff before the
-		 * nominal match.
+		 * 为避免在 N 字符的串上反复测试后顾
+		 * 约束时做 O(N^2) 工作，我们用 matchuntil()，它可
+		 * 跨调用缓存 DFA 状态。仅当探测点回退时才需重
+		 * 启，这并不常见。所用 NFA 是搜索型 NFA，故不介意
+		 * 扫过名义匹配之前的
+		 * 内容。
 		 */
 		satisfied = matchuntil(v, d, cp, &v->lblastcss[n], &v->lblastcp[n]);
 		if (!LATYPE_IS_POS(sub->latype))
@@ -964,10 +964,10 @@ lacon(struct vars *v,
 }
 
 /*
- * getvacant - get a vacant state set
+ * getvacant - 取空闲状态集
  *
- * This routine clears out the inarcs and outarcs, but does not otherwise
- * clear the innards of the state set -- that's up to the caller.
+ * 本例程清掉入弧与出弧，但不另行
+ * 清理状态集内部——那由调用方负责。
  */
 static struct sset *
 getvacant(struct vars *v,
@@ -986,7 +986,7 @@ getvacant(struct vars *v,
 		return NULL;
 	assert(!(ss->flags & LOCKED));
 
-	/* clear out its inarcs, including self-referential ones */
+	/* 清其入弧，含自指者 */
 	ap = ss->ins;
 	while ((p = ap.ss) != NULL)
 	{
@@ -994,17 +994,17 @@ getvacant(struct vars *v,
 		FDEBUG(("zapping c%d's %ld outarc\n", (int) (p - d->ssets), (long) co));
 		p->outs[co] = NULL;
 		ap = p->inchain[co];
-		p->inchain[co].ss = NULL;	/* paranoia */
+		p->inchain[co].ss = NULL;	/* 偏执 */
 	}
 	ss->ins.ss = NULL;
 
-	/* take it off the inarc chains of the ssets reached by its outarcs */
+	/* 将其从出弧所达 sset 的入弧链上摘下 */
 	for (i = 0; i < d->ncolors; i++)
 	{
 		p = ss->outs[i];
-		assert(p != ss);		/* not self-referential */
+		assert(p != ss);		/* 非自指 */
 		if (p == NULL)
-			continue;			/* NOTE CONTINUE */
+			continue;			/* 注意继续 */
 		FDEBUG(("del outarc %d from c%d's in chn\n", i, (int) (p - d->ssets)));
 		if (p->ins.ss == ss && p->ins.co == i)
 			p->ins = ss->inchain[i];
@@ -1024,12 +1024,12 @@ getvacant(struct vars *v,
 		ss->inchain[i].ss = NULL;
 	}
 
-	/* if ss was a success state, may need to remember location */
+	/* 若 ss 曾是成功状态，或需记住位置 */
 	if ((ss->flags & POSTSTATE) && ss->lastseen != d->lastpost &&
 		(d->lastpost == NULL || d->lastpost < ss->lastseen))
 		d->lastpost = ss->lastseen;
 
-	/* likewise for a no-progress state */
+	/* 对无进展状态亦然 */
 	if ((ss->flags & NOPROGRESS) && ss->lastseen != d->lastnopr &&
 		(d->lastnopr == NULL || d->lastnopr < ss->lastseen))
 		d->lastnopr = ss->lastseen;
@@ -1038,7 +1038,7 @@ getvacant(struct vars *v,
 }
 
 /*
- * pickss - pick the next stateset to be used
+ * pickss - 挑选下一要用的状态集
  */
 static struct sset *
 pickss(struct vars *v,
@@ -1051,18 +1051,18 @@ pickss(struct vars *v,
 	struct sset *end;
 	chr		   *ancient;
 
-	/* shortcut for cases where cache isn't full */
+	/* 缓存未满时的捷径 */
 	if (d->nssused < d->nssets)
 	{
 		i = d->nssused;
 		d->nssused++;
 		ss = &d->ssets[i];
 		FDEBUG(("new c%d\n", i));
-		/* set up innards */
+		/* 设置内部 */
 		ss->states = &d->statesarea[i * d->wordsper];
 		ss->flags = 0;
 		ss->ins.ss = NULL;
-		ss->ins.co = WHITE;		/* give it some value */
+		ss->ins.co = WHITE;		/* 赋个值 */
 		ss->outs = &d->outsarea[i * d->ncolors];
 		ss->inchain = &d->incarea[i * d->ncolors];
 		for (i = 0; i < d->ncolors; i++)
@@ -1073,8 +1073,8 @@ pickss(struct vars *v,
 		return ss;
 	}
 
-	/* look for oldest, or old enough anyway */
-	if (cp - start > d->nssets * 2 / 3) /* oldest 33% are expendable */
+	/* 找最旧的，或至少够旧的 */
+	if (cp - start > d->nssets * 2 / 3) /* 最旧 33% 可丢弃 */
 		ancient = cp - d->nssets * 2 / 3;
 	else
 		ancient = start;
@@ -1095,7 +1095,7 @@ pickss(struct vars *v,
 			return ss;
 		}
 
-	/* nobody's old enough?!? -- something's really wrong */
+	/* 竟然没够旧的？！——事态严重不对 */
 	FDEBUG(("cannot find victim to replace!\n"));
 	ERR(REG_ASSERT);
 	return NULL;

@@ -1,5 +1,5 @@
 /*
- * re_*exec and friends - match REs
+ * re_*exec 诸例程 - 匹配 RE
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -35,106 +35,106 @@
 
 
 
-/* lazy-DFA representation */
+/* 惰性 DFA 表示 */
 struct arcp
-{								/* "pointer" to an outarc */
+{								/* 出弧的"指针" */
 	struct sset *ss;
 	color		co;
 };
 
 struct sset
-{								/* state set */
-	unsigned   *states;			/* pointer to bitvector */
-	unsigned	hash;			/* hash of bitvector */
+{								/* 状态集 */
+	unsigned   *states;			/* 位向量指针 */
+	unsigned	hash;			/* 位向量散列 */
 #define  HASH(bv, nw)	 (((nw) == 1) ? *(bv) : hash(bv, nw))
 #define  HIT(h,bv,ss,nw) ((ss)->hash == (h) && ((nw) == 1 || \
 		memcmp(VS(bv), VS((ss)->states), (nw)*sizeof(unsigned)) == 0))
 	int			flags;
-#define  STARTER	 01			/* the initial state set */
-#define  POSTSTATE	 02			/* includes the goal state */
-#define  LOCKED		 04			/* locked in cache */
-#define  NOPROGRESS  010		/* zero-progress state set */
-	struct arcp ins;			/* chain of inarcs pointing here */
-	chr		   *lastseen;		/* last entered on arrival here */
-	struct sset **outs;			/* outarc vector indexed by color */
-	struct arcp *inchain;		/* chain-pointer vector for outarcs */
+#define  STARTER	 01			/* 初始状态集 */
+#define  POSTSTATE	 02			/* 含目标状态 */
+#define  LOCKED		 04			/* 已锁入缓存 */
+#define  NOPROGRESS  010		/* 零进展状态集 */
+	struct arcp ins;			/* 指向此处的入弧链 */
+	chr		   *lastseen;		/* 抵此时最后进入位置 */
+	struct sset **outs;			/* 按色索引的出弧向量 */
+	struct arcp *inchain;		/* 出弧的链指针向量 */
 };
 
 struct dfa
 {
-	int			nssets;			/* size of cache */
-	int			nssused;		/* how many entries occupied yet */
-	int			nstates;		/* number of states */
-	int			ncolors;		/* length of outarc and inchain vectors */
-	int			wordsper;		/* length of state-set bitvectors */
-	struct sset *ssets;			/* state-set cache */
-	unsigned   *statesarea;		/* bitvector storage */
-	unsigned   *work;			/* pointer to work area within statesarea */
-	struct sset **outsarea;		/* outarc-vector storage */
-	struct arcp *incarea;		/* inchain storage */
+	int			nssets;			/* 缓存大小 */
+	int			nssused;		/* 已占用条目数 */
+	int			nstates;		/* 状态数 */
+	int			ncolors;		/* 出弧与 inchain 向量长度 */
+	int			wordsper;		/* 状态集位向量长度 */
+	struct sset *ssets;			/* 状态集缓存 */
+	unsigned   *statesarea;		/* 位向量存储 */
+	unsigned   *work;			/* statesarea 内工作区指针 */
+	struct sset **outsarea;		/* 出弧向量存储 */
+	struct arcp *incarea;		/* inchain 存储 */
 	struct cnfa *cnfa;
 	struct colormap *cm;
-	chr		   *lastpost;		/* location of last cache-flushed success */
-	chr		   *lastnopr;		/* location of last cache-flushed NOPROGRESS */
-	struct sset *search;		/* replacement-search-pointer memory */
-	int			backno;			/* if DFA for a backref, subno it refers to */
-	short		backmin;		/* min repetitions for backref */
-	short		backmax;		/* max repetitions for backref */
-	bool		ismalloced;		/* should this struct dfa be freed? */
-	bool		arraysmalloced; /* should its subsidiary arrays be freed? */
+	chr		   *lastpost;		/* 上次缓存冲刷成功的位置 */
+	chr		   *lastnopr;		/* 上次缓存冲刷 NOPROGRESS 的位置 */
+	struct sset *search;		/* 替换搜索指针的记忆 */
+	int			backno;			/* 若为反向引用 DFA，其所指 subno */
+	short		backmin;		/* 反向引用最小重复 */
+	short		backmax;		/* 反向引用最大重复 */
+	bool		ismalloced;		/* 是否应释放此 struct DFA？ */
+	bool		arraysmalloced; /* 是否应释放其附属数组？ */
 };
 
-#define WORK	1				/* number of work bitvectors needed */
+#define WORK	1				/* 所需工作位向量数 */
 
-/* setup for non-malloc allocation for small cases */
-#define FEWSTATES	20			/* must be less than UBITS */
+/* 小情形非 malloc 分配的设置 */
+#define FEWSTATES	20			/* 须小于 UBITS */
 #define FEWCOLORS	15
 struct smalldfa
 {
-	struct dfa	dfa;			/* must be first */
+	struct dfa	dfa;			/* 必须为首 */
 	struct sset ssets[FEWSTATES * 2];
 	unsigned	statesarea[FEWSTATES * 2 + WORK];
 	struct sset *outsarea[FEWSTATES * 2 * FEWCOLORS];
 	struct arcp incarea[FEWSTATES * 2 * FEWCOLORS];
 };
 
-#define DOMALLOC	((struct smalldfa *)NULL)	/* force malloc */
+#define DOMALLOC	((struct smalldfa *)NULL)	/* 须 malloc */
 
 
 
-/* internal variables, bundled for easy passing around */
+/* 内部变量，捆在一起便于传递 */
 struct vars
 {
 	regex_t    *re;
 	struct guts *g;
-	int			eflags;			/* copies of arguments */
+	int			eflags;			/* 参数副本 */
 	size_t		nmatch;
 	regmatch_t *pmatch;
 	rm_detail_t *details;
-	chr		   *start;			/* start of string */
-	chr		   *search_start;	/* search start of string */
-	chr		   *stop;			/* just past end of string */
-	int			err;			/* error code if any (0 none) */
-	struct dfa **subdfas;		/* per-tree-subre DFAs */
-	struct dfa **ladfas;		/* per-lacon-subre DFAs */
-	struct sset **lblastcss;	/* per-lacon-subre lookbehind restart data */
-	chr		  **lblastcp;		/* per-lacon-subre lookbehind restart data */
+	chr		   *start;			/* 字符串始 */
+	chr		   *search_start;	/* 串的搜索起点 */
+	chr		   *stop;			/* 刚过字符串末 */
+	int			err;			/* 错误码（无则0） */
+	struct dfa **subdfas;		/* 每树subre之DFA */
+	struct dfa **ladfas;		/* 每lacon-subre DFA */
+	struct sset **lblastcss;	/* 每 lacon-subre 的后顾重启数据 */
+	chr		  **lblastcp;		/* 每 lacon-subre 的后顾重启数据 */
 	struct smalldfa dfa1;
 	struct smalldfa dfa2;
 };
 
-#define VISERR(vv)	((vv)->err != 0)	/* have we seen an error yet? */
+#define VISERR(vv)	((vv)->err != 0)	/* 是否已见错误？ */
 #define ISERR() VISERR(v)
 #define VERR(vv,e)	((vv)->err = ((vv)->err ? (vv)->err : (e)))
-#define ERR(e)	VERR(v, e)		/* record an error */
-#define NOERR() {if (ISERR()) return v->err;}	/* if error seen, return it */
+#define ERR(e)	VERR(v, e)		/* 记录错误 */
+#define NOERR() {if (ISERR()) return v->err;}	/* 若已见错则返回之 */
 #define OFF(p)	((p) - v->start)
 #define LOFF(p) ((long)OFF(p))
 
 
 
 /*
- * forward declarations
+ * 前向声明
  */
 /* === regexec.c === */
 static struct dfa *getsubdfa(struct vars *v, struct subre *t);
@@ -179,7 +179,7 @@ static struct sset *pickss(struct vars *v, struct dfa *d, chr *cp,
 
 
 /*
- * pg_regexec - match regular expression
+ * pg_regexec - 匹配正则表达式
  */
 int
 pg_regexec(regex_t *re,
@@ -204,7 +204,7 @@ pg_regexec(regex_t *re,
 #define  LOCALDFAS	 40
 	struct dfa *subdfas[LOCALDFAS];
 
-	/* sanity checks */
+	/* 健全检查 */
 	if (re == NULL || string == NULL || re->re_magic != REMAGIC)
 		return REG_INVARG;
 	if (re->re_csize != sizeof(chr))
@@ -212,10 +212,10 @@ pg_regexec(regex_t *re,
 	if (search_start > len)
 		return REG_NOMATCH;
 
-	/* Initialize locale-dependent support */
+	/* 初始化区域设置相关支持 */
 	pg_set_regex_collation(re->re_collation);
 
-	/* setup */
+	/* init */
 	v->re = re;
 	v->g = (struct guts *) re->re_guts;
 	if ((v->g->cflags & REG_EXPECT) && details == NULL)
@@ -226,7 +226,7 @@ pg_regexec(regex_t *re,
 	v->eflags = flags;
 	if (backref && nmatch <= v->g->nsub)
 	{
-		/* need larger work area */
+		/* 需更大工作区 */
 		v->nmatch = v->g->nsub + 1;
 		if (v->nmatch <= LOCALMAT)
 			v->pmatch = mat;
@@ -238,12 +238,12 @@ pg_regexec(regex_t *re,
 	}
 	else
 	{
-		/* we can store results directly in caller's array */
+		/* 结果可直接存入调用方的数组 */
 		v->pmatch = pmatch;
-		/* ensure any extra entries in caller's array are filled with -1 */
+		/* 确保调用方数组的多余项填为 -1 */
 		if (nmatch > 0)
 			zapallsubs(pmatch, nmatch);
-		/* then forget about extra entries, to avoid useless work in find() */
+		/* 然后忘掉多余项，以免 find() 做无用功 */
 		if (nmatch > v->g->nsub + 1)
 			nmatch = v->g->nsub + 1;
 		v->nmatch = nmatch;
@@ -257,7 +257,7 @@ pg_regexec(regex_t *re,
 	v->ladfas = NULL;
 	v->lblastcss = NULL;
 	v->lblastcp = NULL;
-	/* below this point, "goto cleanup" will behave sanely */
+	/* 此后清理出口将行为正常 */
 
 	assert(v->g->ntree >= 0);
 	n = (size_t) v->g->ntree;
@@ -301,30 +301,30 @@ pg_regexec(regex_t *re,
 		}
 	}
 
-	/* do it */
+	/* run */
 	assert(v->g->tree != NULL);
 	if (backref)
 		st = cfind(v, &v->g->tree->cnfa, &v->g->cmap);
 	else
 		st = find(v, &v->g->tree->cnfa, &v->g->cmap);
 
-	/* on success, ensure caller's match vector is filled correctly */
+	/* 成功时确保调用方的匹配向量填正确 */
 	if (st == REG_OKAY && nmatch > 0)
 	{
 		if (v->pmatch != pmatch)
 		{
-			/* copy portion of match vector over from (larger) work area */
+			/* 从（更大）工作区拷贝匹配向量的片段 */
 			assert(nmatch <= v->nmatch);
 			memcpy(VS(pmatch), VS(v->pmatch), nmatch * sizeof(regmatch_t));
 		}
 		if (v->g->cflags & REG_NOSUB)
 		{
-			/* don't expose possibly-partial sub-match results to caller */
+			/* 勿向调用方暴露可能不完整的子匹配结果 */
 			zapallsubs(pmatch, nmatch);
 		}
 	}
 
-	/* clean up */
+	/* 清理 */
 cleanup:
 	if (v->pmatch != pmatch && v->pmatch != mat)
 		FREE(v->pmatch);
@@ -363,10 +363,10 @@ cleanup:
 }
 
 /*
- * getsubdfa - create or re-fetch the DFA for a tree subre node
+ * getsubdfa - 创建或重取树 subre 节点的 DFA
  *
- * We only need to create the DFA once per overall regex execution.
- * The DFA will be freed by the cleanup step in pg_regexec().
+ * 整体正则执行期间只需创建一次 DFA。
+ * 该 DFA 由 pg_regexec() 的清理步骤释放。
  */
 static struct dfa *
 getsubdfa(struct vars *v,
@@ -379,7 +379,7 @@ getsubdfa(struct vars *v,
 		d = newdfa(v, &t->cnfa, &v->g->cmap, DOMALLOC);
 		if (d == NULL)
 			return NULL;
-		/* set up additional info if this is a backref node */
+		/* 若是反向引用节点则设附加信息 */
 		if (t->op == 'b')
 		{
 			d->backno = t->backno;
@@ -392,9 +392,9 @@ getsubdfa(struct vars *v,
 }
 
 /*
- * getladfa - create or re-fetch the DFA for a LACON subre node
+ * getladfa - 创建或重取 LACON subre 节点的 DFA
  *
- * Same as above, but for LACONs.
+ * 同上，但针对 LACON。
  */
 static struct dfa *
 getladfa(struct vars *v,
@@ -407,13 +407,13 @@ getladfa(struct vars *v,
 		struct subre *sub = &v->g->lacons[n];
 
 		v->ladfas[n] = newdfa(v, &sub->cnfa, &v->g->cmap, DOMALLOC);
-		/* a LACON can't contain a backref, so nothing else to do */
+		/* LACON 无法含反向引用，故无他事 */
 	}
 	return v->ladfas[n];
 }
 
 /*
- * find - find a match for the main NFA (no-complications case)
+ * find - 为主 NFA 找匹配（无并发症情形）
  */
 static int
 find(struct vars *v,
@@ -425,12 +425,12 @@ find(struct vars *v,
 	chr		   *begin;
 	chr		   *end = NULL;
 	chr		   *cold;
-	chr		   *open;			/* open and close of range of possible starts */
+	chr		   *open;			/* 可能起点范围的开与闭 */
 	chr		   *close;
 	int			hitend;
 	int			shorter = (v->g->tree->flags & SHORTER) ? 1 : 0;
 
-	/* first, a shot with the search RE */
+	/* 先用搜索 RE 试一枪 */
 	s = newdfa(v, &v->g->search, cm, &v->dfa1);
 	if (s == NULL)
 		return v->err;
@@ -447,14 +447,14 @@ find(struct vars *v,
 			v->details->rm_extend.rm_so = OFF(cold);
 		else
 			v->details->rm_extend.rm_so = OFF(v->stop);
-		v->details->rm_extend.rm_eo = OFF(v->stop); /* unknown */
+		v->details->rm_extend.rm_eo = OFF(v->stop); /* 未知 */
 	}
-	if (close == NULL)			/* not found */
+	if (close == NULL)			/* 未找到 */
 		return REG_NOMATCH;
-	if (v->nmatch == 0)			/* found, don't need exact location */
+	if (v->nmatch == 0)			/* 已找到，无需精确位置 */
 		return REG_OKAY;
 
-	/* find starting point and match */
+	/* 找起点并匹配 */
 	assert(cold != NULL);
 	open = cold;
 	cold = NULL;
@@ -478,12 +478,12 @@ find(struct vars *v,
 		if (hitend && cold == NULL)
 			cold = begin;
 		if (end != NULL)
-			break;				/* NOTE BREAK OUT */
+			break;				/* 注意跳出 */
 	}
-	assert(end != NULL);		/* search RE succeeded so loop should */
+	assert(end != NULL);		/* 搜索 RE 已成功故循环应 */
 	freedfa(d);
 
-	/* and pin down details */
+	/* 并落实细节 */
 	assert(v->nmatch > 0);
 	v->pmatch[0].rm_so = OFF(begin);
 	v->pmatch[0].rm_eo = OFF(end);
@@ -493,17 +493,17 @@ find(struct vars *v,
 			v->details->rm_extend.rm_so = OFF(cold);
 		else
 			v->details->rm_extend.rm_so = OFF(v->stop);
-		v->details->rm_extend.rm_eo = OFF(v->stop); /* unknown */
+		v->details->rm_extend.rm_eo = OFF(v->stop); /* 未知 */
 	}
-	if (v->nmatch == 1)			/* no need for submatches */
+	if (v->nmatch == 1)			/* 无需子匹配 */
 		return REG_OKAY;
 
-	/* find submatches */
+	/* 找子匹配 */
 	return cdissect(v, v->g->tree, begin, end);
 }
 
 /*
- * cfind - find a match for the main NFA (with complications)
+ * cfind - 为主 NFA 找匹配（有并发症）
  */
 static int
 cfind(struct vars *v,
@@ -537,13 +537,13 @@ cfind(struct vars *v,
 			v->details->rm_extend.rm_so = OFF(cold);
 		else
 			v->details->rm_extend.rm_so = OFF(v->stop);
-		v->details->rm_extend.rm_eo = OFF(v->stop); /* unknown */
+		v->details->rm_extend.rm_eo = OFF(v->stop); /* 未知 */
 	}
 	return ret;
 }
 
 /*
- * cfindloop - the heart of cfind
+ * cfindloop - cfind 之心
  */
 static int
 cfindloop(struct vars *v,
@@ -551,12 +551,12 @@ cfindloop(struct vars *v,
 		  struct colormap *cm,
 		  struct dfa *d,
 		  struct dfa *s,
-		  chr **coldp)			/* where to put coldstart pointer */
+		  chr **coldp)			/* 存放 coldstart 指针之处 */
 {
 	chr		   *begin;
 	chr		   *end;
 	chr		   *cold;
-	chr		   *open;			/* open and close of range of possible starts */
+	chr		   *open;			/* 可能起点范围的开与闭 */
 	chr		   *close;
 	chr		   *estart;
 	chr		   *estop;
@@ -569,7 +569,7 @@ cfindloop(struct vars *v,
 	close = v->search_start;
 	do
 	{
-		/* Search with the search RE for match range at/beyond "close" */
+		/* 用搜索 RE 在 "close" 及之后找匹配范围 */
 		MDEBUG(("\ncsearch at %ld\n", LOFF(close)));
 		close = shortest(v, s, close, close, v->stop, &cold, (int *) NULL);
 		if (ISERR())
@@ -578,11 +578,11 @@ cfindloop(struct vars *v,
 			return v->err;
 		}
 		if (close == NULL)
-			break;				/* no more possible match anywhere */
+			break;				/* 再无任何可能匹配 */
 		assert(cold != NULL);
 		open = cold;
 		cold = NULL;
-		/* Search for matches starting between "open" and "close" inclusive */
+		/* 在 "open" 与 "close" 含端间搜索起点匹配 */
 		MDEBUG(("cbetween %ld and %ld\n", LOFF(open), LOFF(close)));
 		for (begin = open; begin <= close; begin++)
 		{
@@ -591,7 +591,7 @@ cfindloop(struct vars *v,
 			estop = v->stop;
 			for (;;)
 			{
-				/* Here we use the top node's detailed RE */
+				/* 此处我们用顶节点的详细 RE */
 				if (shorter)
 					end = shortest(v, d, begin, estart,
 								   estop, (chr **) NULL, &hitend);
@@ -606,9 +606,9 @@ cfindloop(struct vars *v,
 				if (hitend && cold == NULL)
 					cold = begin;
 				if (end == NULL)
-					break;		/* no match with this begin point, try next */
+					break;		/* 此起点无匹配，试下一 */
 				MDEBUG(("tentative end %ld\n", LOFF(end)));
-				/* Dissect the potential match to see if it really matches */
+				/* 剖析该潜在匹配以看是否真匹配 */
 				er = cdissect(v, v->g->tree, begin, end);
 				if (er == REG_OKAY)
 				{
@@ -626,26 +626,26 @@ cfindloop(struct vars *v,
 					*coldp = cold;
 					return er;
 				}
-				/* Try next longer/shorter match with same begin point */
+				/* 同起点试下一更长/更短匹配 */
 				if (shorter)
 				{
 					if (end == estop)
-						break;	/* no more, so try next begin point */
+						break;	/* 没有了，故试下一起点 */
 					estart = end + 1;
 				}
 				else
 				{
 					if (end == begin)
-						break;	/* no more, so try next begin point */
+						break;	/* 没有了，故试下一起点 */
 					estop = end - 1;
 				}
-			}					/* end loop over endpoint positions */
-		}						/* end loop over beginning positions */
+			}					/* 终点位置循环结束 */
+		}						/* 起点位置循环结束 */
 
 		/*
-		 * If we get here, there is no possible match starting at or before
-		 * "close", so consider matches beyond that.  We'll do a fresh search
-		 * with the search RE to find a new promising match range.
+		 * 若到此，则在 "close" 及之前无任何可能
+		 * 起点的匹配，故考虑其后之匹配。我们将用搜索
+		 * RE 做一次新搜索以找新的有望匹配范围。
 		 */
 		close++;
 	} while (close < v->stop);
@@ -655,9 +655,9 @@ cfindloop(struct vars *v,
 }
 
 /*
- * zapallsubs - initialize all subexpression matches to "no match"
+ * zapallsubs - 将全部子表达式匹配置为"无匹配"
  *
- * Note that p[0], the overall-match location, is not touched.
+ * 注意 p[0]（整体匹配位置）不被改动。
  */
 static void
 zapallsubs(regmatch_t *p,
@@ -673,7 +673,7 @@ zapallsubs(regmatch_t *p,
 }
 
 /*
- * zaptreesubs - initialize subexpressions within subtree to "no match"
+ * zaptreesubs - 将子树内子表达式初始化为"无匹配"
  */
 static void
 zaptreesubs(struct vars *v,
@@ -696,7 +696,7 @@ zaptreesubs(struct vars *v,
 }
 
 /*
- * subset - set subexpression match data for a successful subre
+ * subset - 为成功的 subre 设置子表达式匹配数据
  */
 static void
 subset(struct vars *v,
@@ -716,88 +716,88 @@ subset(struct vars *v,
 }
 
 /*
- * cdissect - check backrefs and determine subexpression matches
+ * cdissect - 检查反向引用并确定子表达式匹配
  *
- * cdissect recursively processes a subre tree to check matching of backrefs
- * and/or identify submatch boundaries for capture nodes.  The proposed match
- * runs from "begin" to "end" (not including "end"), and we are basically
- * "dissecting" it to see where the submatches are.
+ * cdissect 递归处理 subre 树以检查反向引用的匹配
+ * 和/或识别捕获节点的子匹配边界。提议的匹配
+ * 从 "begin" 到 "end"（不含 "end"），我们基本上是在
+ * 剖析它以查看子匹配在何处。
  *
- * Before calling any level of cdissect, the caller must have run the node's
- * DFA and found that the proposed substring satisfies the DFA.  (We make
- * the caller do that because in concatenation and iteration nodes, it's
- * much faster to check all the substrings against the child DFAs before we
- * recurse.)
+ * 在调用任一层 cdissect 前，调用方须已跑过该节点的
+ * DFA 并确认提议子串满足该 DFA。（我们让
+ * 调用方做此事，因在连接与迭代节点中，对
+ * 全部子串先用子 DFA 检查会快得多，然后再
+ * 递归.)
  *
- * A side-effect of a successful match is to save match locations for
- * capturing subexpressions in v->pmatch[].  This is a little bit tricky,
- * so we make the following rules:
- * 1. Before initial entry to cdissect, all match data must have been
- *    cleared (this is seen to by zapallsubs).
- * 2. Before any recursive entry to cdissect, the match data for that
- *    subexpression tree must be guaranteed clear (see zaptreesubs).
- * 3. When returning REG_OKAY, each level of cdissect will have saved
- *    any relevant match locations.
- * 4. When returning REG_NOMATCH, each level of cdissect will guarantee
- *    that its subexpression match locations are again clear.
- * 5. No guarantees are made for error cases (i.e., other result codes).
- * 6. When a level of cdissect abandons a successful sub-match, it will
- *    clear that subtree's match locations with zaptreesubs before trying
- *    any new DFA match or cdissect call for that subtree or any subtree
- *    to its right (that is, any subtree that could have a backref into the
- *    abandoned match).
- * This may seem overly complicated, but it's difficult to simplify it
- * because of the provision that match locations must be reset before
- * any fresh DFA match (a rule that is needed to make dfa_backref safe).
- * That means it won't work to just reset relevant match locations at the
- * start of each cdissect level.
+ * 成功匹配的副作用是把捕获子表达式的匹配
+ * 位置存入 v->pmatch[]。这有点棘手，
+ * 故我们订立如下规则：
+ * 1. 初次进入 cdissect 前，全部匹配数据须已
+ *    清零（由 zapallsubs 负责）。
+ * 2. 任何递归进入 cdissect 前，该子表达式
+ *    树的匹配数据须保证已清（见 zaptreesubs）。
+ * 3. 返回 REG_OKAY 时，每层 cdissect 将已保存
+ *    任何相关匹配位置。
+ * 4. 返回 REG_NOMATCH 时，每层 cdissect 将保证
+ *    其子表达式匹配位置再次清空。
+ * 5. 错误情形（即其他结果码）不做保证。
+ * 6. 当某层 cdissect 放弃一次成功的子匹配时，它会
+ *    在对该子树或其右侧任何子树尝试新的
+ *    DFA 匹配或 cdissect 调用前，用 zaptreesubs
+ *    清该子树匹配位置（即凡可能对已弃匹配有
+ * 反向引用）。
+ * 这看似过于复杂，但难以简化，因规定匹配
+ * 位置须在任何新的 DFA 匹配前重置（此规则
+ * 为使 dfa_backref 安全所必需）。这意味着
+ * 无法仅在每层 cdissect 开头重置相关匹配
+ * 位置。
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 cdissect(struct vars *v,
 		 struct subre *t,
-		 chr *begin,			/* beginning of relevant substring */
-		 chr *end)				/* end of same */
+		 chr *begin,			/* 相关子串之始 */
+		 chr *end)				/* 同段末 */
 {
 	int			er;
 
 	assert(t != NULL);
 	MDEBUG(("%d: cdissect %c %ld-%ld\n", t->id, t->op, LOFF(begin), LOFF(end)));
 
-	/* handy place to check for operation cancel */
+	/* 检查操作取消的便利处 */
 	INTERRUPT(v->re);
-	/* ... and stack overrun */
+	/* 以及栈溢出 */
 	if (STACK_TOO_DEEP(v->re))
 		return REG_ETOOBIG;
 
 	switch (t->op)
 	{
-		case '=':				/* terminal node */
+		case '=':				/* 终结节点 */
 			assert(t->child == NULL);
-			er = REG_OKAY;		/* no action, parent did the work */
+			er = REG_OKAY;		/* 无动作，父节点已做完 */
 			break;
-		case 'b':				/* back reference */
+		case 'b':				/* 反向引用 */
 			assert(t->child == NULL);
 			er = cbrdissect(v, t, begin, end);
 			break;
-		case '.':				/* concatenation */
+		case '.':				/* 连接 */
 			assert(t->child != NULL);
-			if (t->child->flags & SHORTER)	/* reverse scan */
+			if (t->child->flags & SHORTER)	/* 反向扫描 */
 				er = crevcondissect(v, t, begin, end);
 			else
 				er = ccondissect(v, t, begin, end);
 			break;
-		case '|':				/* alternation */
+		case '|':				/* 交替 */
 			assert(t->child != NULL);
 			er = caltdissect(v, t, begin, end);
 			break;
-		case '*':				/* iteration */
+		case '*':				/* 迭代 */
 			assert(t->child != NULL);
-			if (t->child->flags & SHORTER)	/* reverse scan */
+			if (t->child->flags & SHORTER)	/* 反向扫描 */
 				er = creviterdissect(v, t, begin, end);
 			else
 				er = citerdissect(v, t, begin, end);
 			break;
-		case '(':				/* no-op capture node */
+		case '(':				/* 空操作捕获点 */
 			assert(t->child != NULL);
 			er = cdissect(v, t->child, begin, end);
 			break;
@@ -807,14 +807,14 @@ cdissect(struct vars *v,
 	}
 
 	/*
-	 * We should never have a match failure unless backrefs lurk below;
-	 * otherwise, either caller failed to check the DFA, or there's some
-	 * inconsistency between the DFA and the node's innards.
+	 * 我们不应有匹配失败，除非下面潜伏反向引用；
+	 * 否则，要么调用方未检查 DFA，要么 DFA 与节点
+	 * 内部有某种不一致。
 	 */
 	assert(er != REG_NOMATCH || (t->flags & BACKR));
 
 	/*
-	 * If this node is marked as capturing, save successful match's location.
+	 * 若此节点标为捕获，则保存成功匹配的位置。
 	 */
 	if (t->capno > 0 && er == REG_OKAY)
 		subset(v, t, begin, end);
@@ -823,13 +823,13 @@ cdissect(struct vars *v,
 }
 
 /*
- * ccondissect - dissect match for concatenation node
+ * ccondissect - 剖析连接节点的匹配
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 ccondissect(struct vars *v,
 			struct subre *t,
-			chr *begin,			/* beginning of relevant substring */
-			chr *end)			/* end of same */
+			chr *begin,			/* 相关子串之始 */
+			chr *end)			/* 同段末 */
 {
 	struct subre *left = t->child;
 	struct subre *right = left->sibling;
@@ -850,17 +850,17 @@ ccondissect(struct vars *v,
 	NOERR();
 	MDEBUG(("%d: ccondissect %ld-%ld\n", t->id, LOFF(begin), LOFF(end)));
 
-	/* pick a tentative midpoint */
+	/* 试取暂定中点 */
 	mid = longest(v, d, begin, end, (int *) NULL);
 	NOERR();
 	if (mid == NULL)
 		return REG_NOMATCH;
 	MDEBUG(("%d: tentative midpoint %ld\n", t->id, LOFF(mid)));
 
-	/* iterate until satisfaction or failure */
+	/* 迭代至满足或失败 */
 	for (;;)
 	{
-		/* try this midpoint on for size */
+		/* 试此中点是否合用 */
 		if (longest(v, d2, mid, end, (int *) NULL) == end)
 		{
 			er = cdissect(v, left, begin, mid);
@@ -869,11 +869,11 @@ ccondissect(struct vars *v,
 				er = cdissect(v, right, mid, end);
 				if (er == REG_OKAY)
 				{
-					/* satisfaction */
+					/* 满足 */
 					MDEBUG(("%d: successful\n", t->id));
 					return REG_OKAY;
 				}
-				/* Reset left's matches (right should have done so itself) */
+				/* 重置左侧的匹配（右侧应已自理） */
 				zaptreesubs(v, left);
 			}
 			if (er != REG_NOMATCH)
@@ -881,10 +881,10 @@ ccondissect(struct vars *v,
 		}
 		NOERR();
 
-		/* that midpoint didn't work, find a new one */
+		/* 该中点不行，找新的 */
 		if (mid == begin)
 		{
-			/* all possibilities exhausted */
+			/* 所有可能已穷尽 */
 			MDEBUG(("%d: no midpoint\n", t->id));
 			return REG_NOMATCH;
 		}
@@ -892,25 +892,25 @@ ccondissect(struct vars *v,
 		NOERR();
 		if (mid == NULL)
 		{
-			/* failed to find a new one */
+			/* 未能找到新的 */
 			MDEBUG(("%d: failed midpoint\n", t->id));
 			return REG_NOMATCH;
 		}
 		MDEBUG(("%d: new midpoint %ld\n", t->id, LOFF(mid)));
 	}
 
-	/* can't get here */
+	/* 无法至此 */
 	return REG_ASSERT;
 }
 
 /*
- * crevcondissect - dissect match for concatenation node, shortest-first
+ * crevcondissect - 剖析连接节点匹配，最短优先
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 crevcondissect(struct vars *v,
 			   struct subre *t,
-			   chr *begin,		/* beginning of relevant substring */
-			   chr *end)		/* end of same */
+			   chr *begin,		/* 相关子串之始 */
+			   chr *end)		/* 同段末 */
 {
 	struct subre *left = t->child;
 	struct subre *right = left->sibling;
@@ -931,17 +931,17 @@ crevcondissect(struct vars *v,
 	NOERR();
 	MDEBUG(("%d: crevcondissect %ld-%ld\n", t->id, LOFF(begin), LOFF(end)));
 
-	/* pick a tentative midpoint */
+	/* 试取暂定中点 */
 	mid = shortest(v, d, begin, begin, end, (chr **) NULL, (int *) NULL);
 	NOERR();
 	if (mid == NULL)
 		return REG_NOMATCH;
 	MDEBUG(("%d: tentative midpoint %ld\n", t->id, LOFF(mid)));
 
-	/* iterate until satisfaction or failure */
+	/* 迭代至满足或失败 */
 	for (;;)
 	{
-		/* try this midpoint on for size */
+		/* 试此中点是否合用 */
 		if (longest(v, d2, mid, end, (int *) NULL) == end)
 		{
 			er = cdissect(v, left, begin, mid);
@@ -950,11 +950,11 @@ crevcondissect(struct vars *v,
 				er = cdissect(v, right, mid, end);
 				if (er == REG_OKAY)
 				{
-					/* satisfaction */
+					/* 满足 */
 					MDEBUG(("%d: successful\n", t->id));
 					return REG_OKAY;
 				}
-				/* Reset left's matches (right should have done so itself) */
+				/* 重置左侧的匹配（右侧应已自理） */
 				zaptreesubs(v, left);
 			}
 			if (er != REG_NOMATCH)
@@ -962,10 +962,10 @@ crevcondissect(struct vars *v,
 		}
 		NOERR();
 
-		/* that midpoint didn't work, find a new one */
+		/* 该中点不行，找新的 */
 		if (mid == end)
 		{
-			/* all possibilities exhausted */
+			/* 所有可能已穷尽 */
 			MDEBUG(("%d: no midpoint\n", t->id));
 			return REG_NOMATCH;
 		}
@@ -973,28 +973,28 @@ crevcondissect(struct vars *v,
 		NOERR();
 		if (mid == NULL)
 		{
-			/* failed to find a new one */
+			/* 未能找到新的 */
 			MDEBUG(("%d: failed midpoint\n", t->id));
 			return REG_NOMATCH;
 		}
 		MDEBUG(("%d: new midpoint %ld\n", t->id, LOFF(mid)));
 	}
 
-	/* can't get here */
+	/* 无法至此 */
 	return REG_ASSERT;
 }
 
 /*
- * cbrdissect - dissect match for backref node
+ * cbrdissect - 剖析反向引用节点匹配
  *
- * The backref match might already have been verified by dfa_backref(),
- * but we don't know that for sure so must check it here.
+ * 反向引用匹配或许已由 DFA 侧 dfa_backref() 验证，
+ * 但我们并不确定，故须在此再查。
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 cbrdissect(struct vars *v,
 		   struct subre *t,
-		   chr *begin,			/* beginning of relevant substring */
-		   chr *end)			/* end of same */
+		   chr *begin,			/* 相关子串之始 */
+		   chr *end)			/* 同段末 */
 {
 	int			n = t->backno;
 	size_t		numreps;
@@ -1013,18 +1013,18 @@ cbrdissect(struct vars *v,
 	MDEBUG(("%d: cbrdissect %d{%d-%d} %ld-%ld\n", t->id, n, min, max,
 			LOFF(begin), LOFF(end)));
 
-	/* get the backreferenced string */
+	/* 取被反向引用的串 */
 	if (v->pmatch[n].rm_so == -1)
 		return REG_NOMATCH;
 	brstring = v->start + v->pmatch[n].rm_so;
 	brlen = v->pmatch[n].rm_eo - v->pmatch[n].rm_so;
 
-	/* special cases for zero-length strings */
+	/* 零长串的特例 */
 	if (brlen == 0)
 	{
 		/*
-		 * matches only if target is zero length, but any number of
-		 * repetitions can be considered to be present
+		 * 仅当目标为零长才匹配，但任意次数的
+		 * 重复都可视为已出现
 		 */
 		if (begin == end && min <= max)
 		{
@@ -1035,7 +1035,7 @@ cbrdissect(struct vars *v,
 	}
 	if (begin == end)
 	{
-		/* matches only if zero repetitions are okay */
+		/* 仅当允许零次重复才匹配 */
 		if (min == 0)
 		{
 			MDEBUG(("%d: backref matched trivially\n", t->id));
@@ -1045,8 +1045,8 @@ cbrdissect(struct vars *v,
 	}
 
 	/*
-	 * check target length to see if it could possibly be an allowed number of
-	 * repetitions of brstring
+	 * 检查目标长度，看它是否可能是 brstring 允许的
+	 * 重复次数
 	 */
 	assert(end > begin);
 	tlen = end - begin;
@@ -1056,7 +1056,7 @@ cbrdissect(struct vars *v,
 	if (numreps < min || (numreps > max && max != DUPINF))
 		return REG_NOMATCH;
 
-	/* okay, compare the actual string contents */
+	/* 好，比较实际串内容 */
 	p = begin;
 	while (numreps-- > 0)
 	{
@@ -1070,13 +1070,13 @@ cbrdissect(struct vars *v,
 }
 
 /*
- * caltdissect - dissect match for alternation node
+ * caltdissect - 剖析交替节点的匹配
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 caltdissect(struct vars *v,
 			struct subre *t,
-			chr *begin,			/* beginning of relevant substring */
-			chr *end)			/* end of same */
+			chr *begin,			/* 相关子串之始 */
+			chr *end)			/* 同段末 */
 {
 	struct dfa *d;
 	int			er;
@@ -1084,7 +1084,7 @@ caltdissect(struct vars *v,
 	assert(t->op == '|');
 
 	t = t->child;
-	/* there should be at least 2 alternatives */
+	/* 应至少有 2 个备选 */
 	assert(t != NULL && t->sibling != NULL);
 
 	while (t != NULL)
@@ -1111,13 +1111,13 @@ caltdissect(struct vars *v,
 }
 
 /*
- * citerdissect - dissect match for iteration node
+ * citerdissect - 剖析迭代节点的匹配
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 citerdissect(struct vars *v,
 			 struct subre *t,
-			 chr *begin,		/* beginning of relevant substring */
-			 chr *end)			/* end of same */
+			 chr *begin,		/* 相关子串之始 */
+			 chr *end)			/* 同段末 */
 {
 	struct dfa *d;
 	chr		  **endpts;
@@ -1137,26 +1137,26 @@ citerdissect(struct vars *v,
 	MDEBUG(("%d: citerdissect %ld-%ld\n", t->id, LOFF(begin), LOFF(end)));
 
 	/*
-	 * For the moment, assume the minimum number of matches is 1.  If zero
-	 * matches are allowed, and the target string is empty, we are allowed to
-	 * match regardless of the contents of the iter node --- but we would
-	 * prefer to match once, so that capturing parens get set.  (An example of
-	 * the concern here is a pattern like "()*\1", which historically this
-	 * code has allowed to succeed.)  Therefore, we deal with the zero-matches
-	 * case at the bottom, after failing to find any other way to match.
+	 * 眼下假定最少匹配次数为 1。若允许零次
+	 * 匹配，且目标串为空，则不论 iter 节点内容
+	 * 无论如何都允许匹配——但更希望匹配一次，
+	 * 以便捕获括号被设置。（此处关切的例子是
+	 * 形如 "()*\1" 的模式，历史上本代码曾许其成功。）
+	 * 因此，我们在底部处理零次匹配情形，即在找
+	 * 不到其他匹配方式之后。
 	 */
 	min_matches = t->min;
 	if (min_matches <= 0)
 		min_matches = 1;
 
 	/*
-	 * We need workspace to track the endpoints of each sub-match.  Normally
-	 * we consider only nonzero-length sub-matches, so there can be at most
-	 * end-begin of them.  However, if min is larger than that, we will also
-	 * consider zero-length sub-matches in order to find enough matches.
+	 * 我们需要工作区来跟踪各子匹配的端点。通常
+	 * 只考虑非零长子匹配，故至多有 end-begin 个。
+	 * 然而，若 min 大于该值，我们也将考虑零长
+	 * 子匹配以便找到足够的匹配。
 	 *
-	 * For convenience, endpts[0] contains the "begin" pointer and we store
-	 * sub-match endpoints in endpts[1..max_matches].
+	 * 为方便，endpts[0] 含 "begin" 指针，子匹配
+	 * 端点存于 endpts[1..max_matches]。
 	 */
 	max_matches = end - begin;
 	if (max_matches > t->max && t->max != DUPINF)
@@ -1176,24 +1176,24 @@ citerdissect(struct vars *v,
 	}
 
 	/*
-	 * Our strategy is to first find a set of sub-match endpoints that are
-	 * valid according to the child node's DFA, and then recursively dissect
-	 * each sub-match to confirm validity.  If any validity check fails,
-	 * backtrack that sub-match and try again.  And, when we next try for a
-	 * validity check, we need not recheck any successfully verified
-	 * sub-matches that we didn't move the endpoints of.  nverified remembers
-	 * how many sub-matches are currently known okay.
+	 * 我们的策略是先找一组按子节点 DFA 判定为
+	 * 有效的子匹配端点，再递归剖析各子匹配以确认
+	 * 有效性。若任何有效性检查失败，则回溯该
+	 * 子匹配再试。并且，下次做有效性检查时，
+	 * 不必重查我们未移动端点的、已成功验证的
+	 * 子匹配。nverified 记住当前已知无误的
+	 * 子匹配个数。
 	 */
 
-	/* initialize to consider first sub-match */
+	/* 初始化以考虑第一个子匹配 */
 	nverified = 0;
 	k = 1;
 	limit = end;
 
-	/* iterate until satisfaction or failure */
+	/* 迭代至满足或失败 */
 	while (k > 0)
 	{
-		/* try to find an endpoint for the k'th sub-match */
+		/* 试为第 k 个子匹配找一端点 */
 		endpts[k] = longest(v, d, endpts[k - 1], limit, (int *) NULL);
 		if (ISERR())
 		{
@@ -1202,28 +1202,28 @@ citerdissect(struct vars *v,
 		}
 		if (endpts[k] == NULL)
 		{
-			/* no match possible, so see if we can shorten previous one */
+			/* 无匹配可能，故看能否缩短前一个 */
 			k--;
 			goto backtrack;
 		}
 		MDEBUG(("%d: working endpoint %d: %ld\n",
 				t->id, k, LOFF(endpts[k])));
 
-		/* k'th sub-match can no longer be considered verified */
+		/* 第 k 个子匹配不再可视为已验证 */
 		if (nverified >= k)
 			nverified = k - 1;
 
 		if (endpts[k] != end)
 		{
-			/* haven't reached end yet, try another iteration if allowed */
+			/* 尚未到末尾，若允许则再试一次迭代 */
 			if (k >= max_matches)
 			{
-				/* must try to shorten some previous match */
+				/* 须尝试缩短某个先前匹配 */
 				k--;
 				goto backtrack;
 			}
 
-			/* reject zero-length match unless necessary to achieve min */
+			/* 拒绝零长匹配，除非为实现 min 所必需 */
 			if (endpts[k] == endpts[k - 1] &&
 				(k >= min_matches || min_matches - k < end - endpts[k]))
 				goto backtrack;
@@ -1234,10 +1234,10 @@ citerdissect(struct vars *v,
 		}
 
 		/*
-		 * We've identified a way to divide the string into k sub-matches that
-		 * works so far as the child DFA can tell.  If k is an allowed number
-		 * of matches, start the slow part: recurse to verify each sub-match.
-		 * We always have k <= max_matches, needn't check that.
+		 * 我们已找到一种把串分成 k 个子匹配的方式，
+		 * 就子 DFA 所能判断而言可行。若 k 是允许的
+		 * 匹配次数，则开始慢部分：递归验证各子匹配。
+		 * 我们总有 k <= max_matches，无需检查。
 		 */
 		if (k < min_matches)
 			goto backtrack;
@@ -1246,7 +1246,7 @@ citerdissect(struct vars *v,
 
 		for (i = nverified + 1; i <= k; i++)
 		{
-			/* zap any match data from a non-last iteration */
+			/* 清除非末次迭代的任何匹配数据 */
 			zaptreesubs(v, t->child);
 			er = cdissect(v, t->child, endpts[i - 1], endpts[i]);
 			if (er == REG_OKAY)
@@ -1256,27 +1256,27 @@ citerdissect(struct vars *v,
 			}
 			if (er == REG_NOMATCH)
 				break;
-			/* oops, something failed */
+			/* 有东西失败了 */
 			FREE(endpts);
 			return er;
 		}
 
 		if (i > k)
 		{
-			/* satisfaction */
+			/* 满足 */
 			MDEBUG(("%d: successful\n", t->id));
 			FREE(endpts);
 			return REG_OKAY;
 		}
 
-		/* i'th match failed to verify, so backtrack it */
+		/* 第 i 次匹配验证失败，故回溯之 */
 		k = i;
 
 backtrack:
 
 		/*
-		 * Must consider shorter versions of the k'th sub-match.  However,
-		 * we'll only ask for a zero-length match if necessary.
+		 * 须考虑第 k 个子匹配的更短版本。然而，
+		 * 仅在必要时才要求零长匹配。
 		 */
 		while (k > 0)
 		{
@@ -1288,21 +1288,21 @@ backtrack:
 				if (limit > prev_end ||
 					(k < min_matches && min_matches - k >= end - prev_end))
 				{
-					/* break out of backtrack loop, continue the outer one */
+					/* 跳出回溯环，继续外层循环 */
 					break;
 				}
 			}
-			/* can't shorten k'th sub-match any more, consider previous one */
+			/* 无法再缩短第 k 个子匹配，考虑前一个 */
 			k--;
 		}
 	}
 
-	/* all possibilities exhausted */
+	/* 所有可能已穷尽 */
 	FREE(endpts);
 
 	/*
-	 * Now consider the possibility that we can match to a zero-length string
-	 * by using zero repetitions.
+	 * 现在考虑用零次重复匹配到零长串的
+	 * 可能性。
 	 */
 	if (t->min == 0 && begin == end)
 	{
@@ -1315,13 +1315,13 @@ backtrack:
 }
 
 /*
- * creviterdissect - dissect match for iteration node, shortest-first
+ * creviterdissect - 剖析迭代节点匹配，最短优先
  */
-static int						/* regexec return code */
+static int						/* regexec 返回码 */
 creviterdissect(struct vars *v,
 				struct subre *t,
-				chr *begin,		/* beginning of relevant substring */
-				chr *end)		/* end of same */
+				chr *begin,		/* 相关子串之始 */
+				chr *end)		/* 同段末 */
 {
 	struct dfa *d;
 	chr		  **endpts;
@@ -1341,9 +1341,9 @@ creviterdissect(struct vars *v,
 	MDEBUG(("%d: creviterdissect %ld-%ld\n", t->id, LOFF(begin), LOFF(end)));
 
 	/*
-	 * If zero matches are allowed, and target string is empty, just declare
-	 * victory.  OTOH, if target string isn't empty, zero matches can't work
-	 * so we pretend the min is 1.
+	 * 若允许零次匹配且目标串为空，则直接宣告
+	 * 胜利。反之，若目标串非空，零次匹配无法奏效，
+	 * 故佯装 min 为 1。
 	 */
 	min_matches = t->min;
 	if (min_matches <= 0)
@@ -1357,13 +1357,13 @@ creviterdissect(struct vars *v,
 	}
 
 	/*
-	 * We need workspace to track the endpoints of each sub-match.  Normally
-	 * we consider only nonzero-length sub-matches, so there can be at most
-	 * end-begin of them.  However, if min is larger than that, we will also
-	 * consider zero-length sub-matches in order to find enough matches.
+	 * 我们需要工作区来跟踪各子匹配的端点。通常
+	 * 只考虑非零长子匹配，故至多有 end-begin 个。
+	 * 然而，若 min 大于该值，我们也将考虑零长
+	 * 子匹配以便找到足够的匹配。
 	 *
-	 * For convenience, endpts[0] contains the "begin" pointer and we store
-	 * sub-match endpoints in endpts[1..max_matches].
+	 * 为方便，endpts[0] 含 "begin" 指针，子匹配
+	 * 端点存于 endpts[1..max_matches]。
 	 */
 	max_matches = end - begin;
 	if (max_matches > t->max && t->max != DUPINF)
@@ -1383,34 +1383,34 @@ creviterdissect(struct vars *v,
 	}
 
 	/*
-	 * Our strategy is to first find a set of sub-match endpoints that are
-	 * valid according to the child node's DFA, and then recursively dissect
-	 * each sub-match to confirm validity.  If any validity check fails,
-	 * backtrack that sub-match and try again.  And, when we next try for a
-	 * validity check, we need not recheck any successfully verified
-	 * sub-matches that we didn't move the endpoints of.  nverified remembers
-	 * how many sub-matches are currently known okay.
+	 * 我们的策略是先找一组按子节点 DFA 判定为
+	 * 有效的子匹配端点，再递归剖析各子匹配以确认
+	 * 有效性。若任何有效性检查失败，则回溯该
+	 * 子匹配再试。并且，下次做有效性检查时，
+	 * 不必重查我们未移动端点的、已成功验证的
+	 * 子匹配。nverified 记住当前已知无误的
+	 * 子匹配个数。
 	 */
 
-	/* initialize to consider first sub-match */
+	/* 初始化以考虑第一个子匹配 */
 	nverified = 0;
 	k = 1;
 	limit = begin;
 
-	/* iterate until satisfaction or failure */
+	/* 迭代至满足或失败 */
 	while (k > 0)
 	{
-		/* disallow zero-length match unless necessary to achieve min */
+		/* 禁止零长匹配，除非为实现 min 所必需 */
 		if (limit == endpts[k - 1] &&
 			limit != end &&
 			(k >= min_matches || min_matches - k < end - limit))
 			limit++;
 
-		/* if this is the last allowed sub-match, it must reach to the end */
+		/* 若这是最后一个允许的子匹配，它必须抵达末尾 */
 		if (k >= max_matches)
 			limit = end;
 
-		/* try to find an endpoint for the k'th sub-match */
+		/* 试为第 k 个子匹配找一端点 */
 		endpts[k] = shortest(v, d, endpts[k - 1], limit, end,
 							 (chr **) NULL, (int *) NULL);
 		if (ISERR())
@@ -1420,23 +1420,23 @@ creviterdissect(struct vars *v,
 		}
 		if (endpts[k] == NULL)
 		{
-			/* no match possible, so see if we can lengthen previous one */
+			/* 无匹配可能，故看能否加长前一个 */
 			k--;
 			goto backtrack;
 		}
 		MDEBUG(("%d: working endpoint %d: %ld\n",
 				t->id, k, LOFF(endpts[k])));
 
-		/* k'th sub-match can no longer be considered verified */
+		/* 第 k 个子匹配不再可视为已验证 */
 		if (nverified >= k)
 			nverified = k - 1;
 
 		if (endpts[k] != end)
 		{
-			/* haven't reached end yet, try another iteration if allowed */
+			/* 尚未到末尾，若允许则再试一次迭代 */
 			if (k >= max_matches)
 			{
-				/* must try to lengthen some previous match */
+				/* 须尝试加长某个先前匹配 */
 				k--;
 				goto backtrack;
 			}
@@ -1447,10 +1447,10 @@ creviterdissect(struct vars *v,
 		}
 
 		/*
-		 * We've identified a way to divide the string into k sub-matches that
-		 * works so far as the child DFA can tell.  If k is an allowed number
-		 * of matches, start the slow part: recurse to verify each sub-match.
-		 * We always have k <= max_matches, needn't check that.
+		 * 我们已找到一种把串分成 k 个子匹配的方式，
+		 * 就子 DFA 所能判断而言可行。若 k 是允许的
+		 * 匹配次数，则开始慢部分：递归验证各子匹配。
+		 * 我们总有 k <= max_matches，无需检查。
 		 */
 		if (k < min_matches)
 			goto backtrack;
@@ -1459,7 +1459,7 @@ creviterdissect(struct vars *v,
 
 		for (i = nverified + 1; i <= k; i++)
 		{
-			/* zap any match data from a non-last iteration */
+			/* 清除非末次迭代的任何匹配数据 */
 			zaptreesubs(v, t->child);
 			er = cdissect(v, t->child, endpts[i - 1], endpts[i]);
 			if (er == REG_OKAY)
@@ -1469,41 +1469,41 @@ creviterdissect(struct vars *v,
 			}
 			if (er == REG_NOMATCH)
 				break;
-			/* oops, something failed */
+			/* 有东西失败了 */
 			FREE(endpts);
 			return er;
 		}
 
 		if (i > k)
 		{
-			/* satisfaction */
+			/* 满足 */
 			MDEBUG(("%d: successful\n", t->id));
 			FREE(endpts);
 			return REG_OKAY;
 		}
 
-		/* i'th match failed to verify, so backtrack it */
+		/* 第 i 次匹配验证失败，故回溯之 */
 		k = i;
 
 backtrack:
 
 		/*
-		 * Must consider longer versions of the k'th sub-match.
+		 * 须考虑第 k 个子匹配的更长版本。
 		 */
 		while (k > 0)
 		{
 			if (endpts[k] < end)
 			{
 				limit = endpts[k] + 1;
-				/* break out of backtrack loop, continue the outer one */
+				/* 跳出回溯环，继续外层循环 */
 				break;
 			}
-			/* can't lengthen k'th sub-match any more, consider previous one */
+			/* 无法再加长第 k 个子匹配，考虑前一个 */
 			k--;
 		}
 	}
 
-	/* all possibilities exhausted */
+	/* 所有可能已穷尽 */
 	MDEBUG(("%d: failed\n", t->id));
 	FREE(endpts);
 	return REG_NOMATCH;

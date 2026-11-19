@@ -1,6 +1,6 @@
 /*
- * colorings of characters
- * This file is #included by regcomp.c.
+ * 字符之着色
+ * 本文件被 regcomp.c #include。
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -31,8 +31,8 @@
  * src/backend/regex/regc_color.c
  *
  *
- * Note that there are some incestuous relationships between this code and
- * NFA arc maintenance, which perhaps ought to be cleaned up sometime.
+ * 注意：本代码与 NFA 弧维护有若干纠缠
+ * 关系，或许某时该清理一下。
  */
 
 
@@ -43,7 +43,7 @@
 
 
 /*
- * initcm - set up new colormap
+ * initcm - 建立新色图
  */
 static void
 initcm(struct vars *v,
@@ -59,7 +59,7 @@ initcm(struct vars *v,
 	cm->max = 0;
 	cm->free = 0;
 
-	cd = cm->cd;				/* cm->cd[WHITE] */
+	cd = cm->cd;				/* 即 cd[WHITE] */
 	cd->nschrs = MAX_SIMPLE_CHR - CHR_MIN + 1;
 	cd->nuchrs = 1;
 	cd->sub = NOSUB;
@@ -72,19 +72,19 @@ initcm(struct vars *v,
 	if (cm->locolormap == NULL)
 	{
 		CERR(REG_ESPACE);
-		cm->cmranges = NULL;	/* prevent failure during freecm */
+		cm->cmranges = NULL;	/* 防 freecm 时失败 */
 		cm->hicolormap = NULL;
 		return;
 	}
-	/* this memset relies on WHITE being zero: */
+	/* 此 memset 依赖 WHITE 为零： */
 	memset(cm->locolormap, WHITE,
 		   (MAX_SIMPLE_CHR - CHR_MIN + 1) * sizeof(color));
 
 	memset(cm->classbits, 0, sizeof(cm->classbits));
 	cm->numcmranges = 0;
 	cm->cmranges = NULL;
-	cm->maxarrayrows = 4;		/* arbitrary initial allocation */
-	cm->hiarrayrows = 1;		/* but we have only one row/col initially */
+	cm->maxarrayrows = 4;		/* 任意初始分配 */
+	cm->hiarrayrows = 1;		/* 但起初只有一行/列 */
 	cm->hiarraycols = 1;
 	cm->hicolormap = (color *) MALLOC(cm->maxarrayrows * sizeof(color));
 	if (cm->hicolormap == NULL)
@@ -92,12 +92,12 @@ initcm(struct vars *v,
 		CERR(REG_ESPACE);
 		return;
 	}
-	/* initialize the "all other characters" row to WHITE */
+	/* 将"其余字符"行初始化为 WHITE */
 	cm->hicolormap[0] = WHITE;
 }
 
 /*
- * freecm - free dynamically-allocated things in a colormap
+ * freecm - 释放色图中动态分配之物
  */
 static void
 freecm(struct colormap *cm)
@@ -114,7 +114,7 @@ freecm(struct colormap *cm)
 }
 
 /*
- * pg_reg_getcolor - slow case of GETCOLOR()
+ * pg_reg_getcolor - GETCOLOR() 慢路径
  */
 color
 pg_reg_getcolor(struct colormap *cm, chr c)
@@ -124,14 +124,14 @@ pg_reg_getcolor(struct colormap *cm, chr c)
 				low,
 				high;
 
-	/* Should not be used for chrs in the locolormap */
+	/* 勿用于 locolormap 中的 chr */
 	assert(c > MAX_SIMPLE_CHR);
 
 	/*
-	 * Find which row it's in.  The colormapranges are in order, so we can use
-	 * binary search.
+	 * 找它所在行。colormapranges 有序，故可用
+	 * 二分查找
 	 */
-	rownum = 0;					/* if no match, use array row zero */
+	rownum = 0;					/* 无匹配则用数组第零行 */
 	low = 0;
 	high = cm->numcmranges;
 	while (low < high)
@@ -145,13 +145,13 @@ pg_reg_getcolor(struct colormap *cm, chr c)
 			low = middle + 1;
 		else
 		{
-			rownum = cmr->rownum;	/* found a match */
+			rownum = cmr->rownum;	/* 找到匹配 */
 			break;
 		}
 	}
 
 	/*
-	 * Find which column it's in --- this is all locale-dependent.
+	 * 找它所在列——这全是区域设置相关的。
 	 */
 	if (cm->hiarraycols > 1)
 	{
@@ -160,13 +160,13 @@ pg_reg_getcolor(struct colormap *cm, chr c)
 	}
 	else
 	{
-		/* fast path if no relevant cclasses */
+		/* 无相关 cclass 则走快路径 */
 		return cm->hicolormap[rownum];
 	}
 }
 
 /*
- * maxcolor - report largest color number in use
+ * maxcolor - 报告在用的最大色号
  */
 static color
 maxcolor(struct colormap *cm)
@@ -178,10 +178,10 @@ maxcolor(struct colormap *cm)
 }
 
 /*
- * newcolor - find a new color (must be assigned at once)
- * Beware:	may relocate the colordescs.
+ * newcolor - 找一新色（须立即赋用）
+ * 当心：或重定位colordescs。
  */
-static color					/* COLORLESS for error */
+static color					/* 出错则 COLORLESS */
 newcolor(struct colormap *cm)
 {
 	struct colordesc *cd;
@@ -206,13 +206,13 @@ newcolor(struct colormap *cm)
 	}
 	else
 	{
-		/* oops, must allocate more */
+		/* 糟糕，须再分配 */
 		struct colordesc *newCd;
 
 		if (cm->max == MAX_COLOR)
 		{
 			CERR(REG_ECOLORS);
-			return COLORLESS;	/* too many colors */
+			return COLORLESS;	/* 色过多 */
 		}
 
 		n = cm->ncds * 2;
@@ -244,14 +244,14 @@ newcolor(struct colormap *cm)
 	cd->nuchrs = 0;
 	cd->sub = NOSUB;
 	cd->arcs = NULL;
-	cd->firstchr = CHR_MIN;		/* in case never set otherwise */
+	cd->firstchr = CHR_MIN;		/* 以防从未另行设置 */
 	cd->flags = 0;
 
 	return (color) (cd - cm->cd);
 }
 
 /*
- * freecolor - free a color (must have no arcs or subcolor)
+ * freecolor - 释放一色（须无弧或子色）
  */
 static void
 freecolor(struct colormap *cm,
@@ -259,7 +259,7 @@ freecolor(struct colormap *cm,
 {
 	struct colordesc *cd = &cm->cd[co];
 	color		pco,
-				nco;			/* for freelist scan */
+				nco;			/* 供空闲扫描 */
 
 	assert(co >= 0);
 	if (co == WHITE)
@@ -286,7 +286,7 @@ freecolor(struct colormap *cm,
 			while (nco > 0)
 				if ((size_t) nco > cm->max)
 				{
-					/* take this one out of freelist */
+					/* 从空闲表取下此项 */
 					nco = cm->cd[nco].sub;
 					cm->cd[pco].sub = nco;
 				}
@@ -306,7 +306,7 @@ freecolor(struct colormap *cm,
 }
 
 /*
- * pseudocolor - allocate a false color, to be managed by other means
+ * pseudocolor - 分配一伪色，由他处管理
  */
 static color
 pseudocolor(struct colormap *cm)
@@ -319,7 +319,7 @@ pseudocolor(struct colormap *cm)
 		return COLORLESS;
 	cd = &cm->cd[co];
 	cd->nschrs = 0;
-	cd->nuchrs = 1;				/* pretend it is in the upper map */
+	cd->nuchrs = 1;				/* 假装它在高色图中 */
 	cd->sub = NOSUB;
 	cd->arcs = NULL;
 	cd->firstchr = CHR_MIN;
@@ -328,15 +328,15 @@ pseudocolor(struct colormap *cm)
 }
 
 /*
- * subcolor - allocate a new subcolor (if necessary) to this chr
+ * subcolor - 为此 chr 分配新子色（若需要）
  *
- * This works only for chrs that map into the low color map.
+ * 仅适用于映射入低色图的 chr。
  */
 static color
 subcolor(struct colormap *cm, chr c)
 {
-	color		co;				/* current color of c */
-	color		sco;			/* new subcolor */
+	color		co;				/* c 的当前色 */
+	color		sco;			/* 新子色 */
 
 	assert(c <= MAX_SIMPLE_CHR);
 
@@ -346,8 +346,8 @@ subcolor(struct colormap *cm, chr c)
 		return COLORLESS;
 	assert(sco != COLORLESS);
 
-	if (co == sco)				/* already in an open subcolor */
-		return co;				/* rest is redundant */
+	if (co == sco)				/* 已在开放子色中 */
+		return co;				/* 其余多余 */
 	cm->cd[co].nschrs--;
 	if (cm->cd[sco].nschrs == 0)
 		cm->cd[sco].firstchr = c;
@@ -357,16 +357,16 @@ subcolor(struct colormap *cm, chr c)
 }
 
 /*
- * subcolorhi - allocate a new subcolor (if necessary) to this colormap entry
+ * subcolorhi - 为此色图项分配新子色（若需要）
  *
- * This is the same processing as subcolor(), but for entries in the high
- * colormap, which do not necessarily correspond to exactly one chr code.
+ * 处理同 subcolor()，但面向高色图中的项，
+ * 它们未必对应恰好一个 chr 码。
  */
 static color
 subcolorhi(struct colormap *cm, color *pco)
 {
-	color		co;				/* current color of entry */
-	color		sco;			/* new subcolor */
+	color		co;				/* 项的当前色 */
+	color		sco;			/* 新子色 */
 
 	co = *pco;
 	sco = newsub(cm, co);
@@ -374,8 +374,8 @@ subcolorhi(struct colormap *cm, color *pco)
 		return COLORLESS;
 	assert(sco != COLORLESS);
 
-	if (co == sco)				/* already in an open subcolor */
-		return co;				/* rest is redundant */
+	if (co == sco)				/* 已在开放子色中 */
+		return co;				/* 其余多余 */
 	cm->cd[co].nuchrs--;
 	cm->cd[sco].nuchrs++;
 	*pco = sco;
@@ -383,28 +383,28 @@ subcolorhi(struct colormap *cm, color *pco)
 }
 
 /*
- * newsub - allocate a new subcolor (if necessary) for a color
+ * newsub - 为一色分配新子色（若需要）
  */
 static color
 newsub(struct colormap *cm,
 	   color co)
 {
-	color		sco;			/* new subcolor */
+	color		sco;			/* 新子色 */
 
 	sco = cm->cd[co].sub;
 	if (sco == NOSUB)
-	{							/* color has no open subcolor */
-		/* optimization: singly-referenced color need not be subcolored */
+	{							/* 色无开放子色 */
+		/* 优化：单引用色无需子色化 */
 		if ((cm->cd[co].nschrs + cm->cd[co].nuchrs) == 1)
 			return co;
-		sco = newcolor(cm);		/* must create subcolor */
+		sco = newcolor(cm);		/* 须创建子色 */
 		if (sco == COLORLESS)
 		{
 			assert(CISERR());
 			return COLORLESS;
 		}
 		cm->cd[co].sub = sco;
-		cm->cd[sco].sub = sco;	/* open subcolor points to self */
+		cm->cd[sco].sub = sco;	/* 开放子色指向自身 */
 	}
 	assert(sco != NOSUB);
 
@@ -412,9 +412,9 @@ newsub(struct colormap *cm,
 }
 
 /*
- * newhicolorrow - get a new row in the hicolormap, cloning it from oldrow
+ * newhicolorrow - 在 hicolormap 取新行，自 oldrow 克隆
  *
- * Returns array index of new row.  Note the array might move.
+ * 返回新行的数组下标。注意数组可能移动。
  */
 static int
 newhicolorrow(struct colormap *cm,
@@ -424,7 +424,7 @@ newhicolorrow(struct colormap *cm,
 	color	   *newrowptr;
 	int			i;
 
-	/* Assign a fresh array row index, enlarging storage if needed */
+	/* 分配新数组行下标，必要时扩大存储 */
 	if (newrow >= cm->maxarrayrows)
 	{
 		color	   *newarray;
@@ -447,13 +447,13 @@ newhicolorrow(struct colormap *cm,
 	}
 	cm->hiarrayrows++;
 
-	/* Copy old row data */
+	/* 复制旧行 */
 	newrowptr = &cm->hicolormap[newrow * cm->hiarraycols];
 	memcpy(newrowptr,
 		   &cm->hicolormap[oldrow * cm->hiarraycols],
 		   cm->hiarraycols * sizeof(color));
 
-	/* Increase color reference counts to reflect new colormap entries */
+	/* 增加色引用计数以反映新色图项 */
 	for (i = 0; i < cm->hiarraycols; i++)
 		cm->cd[newrowptr[i]].nuchrs++;
 
@@ -461,9 +461,9 @@ newhicolorrow(struct colormap *cm,
 }
 
 /*
- * newhicolorcols - create a new set of columns in the high colormap
+ * newhicolorcols - 在高色图中创建新的一组列
  *
- * Essentially, extends the 2-D array to the right with a copy of itself.
+ * 实质上将二维数组向右扩展并自拷一份。
  */
 static void
 newhicolorcols(struct colormap *cm)
@@ -487,8 +487,8 @@ newhicolorcols(struct colormap *cm)
 	}
 	cm->hicolormap = newarray;
 
-	/* Duplicate existing columns to the right, and increase ref counts */
-	/* Must work backwards in the array because we realloc'd in place */
+	/* 向右复制既有列，并增加引用计数 */
+	/* 须在数组中反向操作，因我们原地 realloc'd */
 	for (r = cm->hiarrayrows - 1; r >= 0; r--)
 	{
 		color	   *oldrowptr = &newarray[r * cm->hiarraycols];
@@ -508,15 +508,15 @@ newhicolorcols(struct colormap *cm)
 }
 
 /*
- * subcolorcvec - allocate new subcolors to cvec members, fill in arcs
+ * subcolorcvec - 为 cvec 成员分配新子色并填入弧
  *
- * For each chr "c" represented by the cvec, do the equivalent of
- * newarc(v->nfa, PLAIN, subcolor(v->cm, c), lp, rp);
+ * 对 cvec 所代表的每个 chr c，等价于在 NFA 上做
+ * 对应的 newarc 调用。
  *
- * Note that in typical cases, many of the subcolors are the same.
- * While newarc() would discard duplicate arc requests, we can save
- * some cycles by not calling it repetitively to begin with.  This is
- * mechanized with the "lastsubcolor" state variable.
+ * 注意典型情况下许多子色是相同的。
+ * 虽 newarc() 会丢弃重复弧请求，但我们可先省
+ * 些周期，一开始就不反复调用。这
+ * 靠 lastsubcolor 状态变量实现。
  */
 static void
 subcolorcvec(struct vars *v,
@@ -532,7 +532,7 @@ subcolorcvec(struct vars *v,
 	const chr  *p;
 	int			i;
 
-	/* ordinary characters */
+	/* 普通字符 */
 	for (p = cv->chrs, i = cv->nchrs; i > 0; p++, i--)
 	{
 		ch = *p;
@@ -540,14 +540,14 @@ subcolorcvec(struct vars *v,
 		NOERR();
 	}
 
-	/* and the ranges */
+	/* 以及范围 */
 	for (p = cv->ranges, i = cv->nranges; i > 0; p += 2, i--)
 	{
 		from = *p;
 		to = *(p + 1);
 		if (from <= MAX_SIMPLE_CHR)
 		{
-			/* deal with simple chars one at a time */
+			/* 一次处理一个简单字符 */
 			chr			lim = (to <= MAX_SIMPLE_CHR) ? to : MAX_SIMPLE_CHR;
 
 			while (from <= lim)
@@ -564,7 +564,7 @@ subcolorcvec(struct vars *v,
 				from++;
 			}
 		}
-		/* deal with any part of the range that's above MAX_SIMPLE_CHR */
+		/* 处理范围中高于 MAX_SIMPLE_CHR 的部分 */
 		if (from < to)
 			subcoloronerange(v, from, to, lp, rp, &lastsubcolor);
 		else if (from == to)
@@ -572,7 +572,7 @@ subcolorcvec(struct vars *v,
 		NOERR();
 	}
 
-	/* and deal with cclass if any */
+	/* 再处理cclass(若有) */
 	if (cv->cclasscode >= 0)
 	{
 		int			classbit;
@@ -580,14 +580,14 @@ subcolorcvec(struct vars *v,
 		int			r,
 					c;
 
-		/* Enlarge array if we don't have a column bit assignment for cclass */
+		/* 若无 cclass 的列位赋值则扩大数组 */
 		if (cm->classbits[cv->cclasscode] == 0)
 		{
 			cm->classbits[cv->cclasscode] = cm->hiarraycols;
 			newhicolorcols(cm);
 			NOERR();
 		}
-		/* Apply subcolorhi() and make arc for each entry in relevant cols */
+		/* 对相关列各项调 subcolorhi() 并造弧 */
 		classbit = cm->classbits[cv->cclasscode];
 		pco = cm->hicolormap;
 		for (r = 0; r < cm->hiarrayrows; r++)
@@ -599,7 +599,7 @@ subcolorcvec(struct vars *v,
 					color		sco = subcolorhi(cm, pco);
 
 					NOERR();
-					/* add the arc if needed */
+					/* 需要时加弧 */
 					if (sco != lastsubcolor)
 					{
 						newarc(v->nfa, PLAIN, sco, lp, rp);
@@ -614,11 +614,11 @@ subcolorcvec(struct vars *v,
 }
 
 /*
- * subcoloronechr - do subcolorcvec's work for a singleton chr
+ * subcoloronechr - 为单 chr 做 subcolorcvec 的工作
  *
- * We could just let subcoloronerange do this, but it's a bit more efficient
- * if we exploit the single-chr case.  Also, callers find it useful for this
- * to be able to handle both low and high chr codes.
+ * 本可交给 subcoloronerange，但利用
+ * 单 chr 情形会更高效。且调用方乐见其
+ * 能同时处理低与高 chr 码。
  */
 static void
 subcoloronechr(struct vars *v,
@@ -634,7 +634,7 @@ subcoloronechr(struct vars *v,
 	int			oldrangen;
 	int			newrow;
 
-	/* Easy case for low chr codes */
+	/* 低chr易处理情形 */
 	if (ch <= MAX_SIMPLE_CHR)
 	{
 		color		sco = subcolor(cm, ch);
@@ -649,8 +649,8 @@ subcoloronechr(struct vars *v,
 	}
 
 	/*
-	 * Potentially, we could need two more colormapranges than we have now, if
-	 * the given chr is in the middle of some existing range.
+	 * 潜在地，若给定 chr 落在某既有范围中间，
+	 * 我们可能比现有多需两个 colormapranges。
 	 */
 	newranges = (colormaprange *)
 		MALLOC((cm->numcmranges + 2) * sizeof(colormaprange));
@@ -661,7 +661,7 @@ subcoloronechr(struct vars *v,
 	}
 	numnewranges = 0;
 
-	/* Ranges before target are unchanged */
+	/* 目标之前的范围不变 */
 	for (oldrange = cm->cmranges, oldrangen = 0;
 		 oldrangen < cm->numcmranges;
 		 oldrange++, oldrangen++)
@@ -671,36 +671,36 @@ subcoloronechr(struct vars *v,
 		newranges[numnewranges++] = *oldrange;
 	}
 
-	/* Match target chr against current range */
+	/* 将目标 chr 与当前范围匹配 */
 	if (oldrangen >= cm->numcmranges || oldrange->cmin > ch)
 	{
-		/* chr does not belong to any existing range, make a new one */
+		/* chr 不属于任何既有范围，造一新范围 */
 		newranges[numnewranges].cmin = ch;
 		newranges[numnewranges].cmax = ch;
-		/* row state should be cloned from the "all others" row */
+		/* 行状态应从"其余字符"行克隆 */
 		newranges[numnewranges].rownum = newrow = newhicolorrow(cm, 0);
 		numnewranges++;
 	}
 	else if (oldrange->cmin == oldrange->cmax)
 	{
-		/* we have an existing singleton range matching the chr */
+		/* 已有匹配该 chr 的单点范围 */
 		newranges[numnewranges++] = *oldrange;
 		newrow = oldrange->rownum;
-		/* we've now fully processed this old range */
+		/* 现已完整处理完此旧范围 */
 		oldrange++, oldrangen++;
 	}
 	else
 	{
-		/* chr is a subset of this existing range, must split it */
+		/* chr 是此既有范围的子集，须拆分 */
 		if (ch > oldrange->cmin)
 		{
-			/* emit portion of old range before chr */
+			/* 放出旧范围在chr前部分 */
 			newranges[numnewranges].cmin = oldrange->cmin;
 			newranges[numnewranges].cmax = ch - 1;
 			newranges[numnewranges].rownum = oldrange->rownum;
 			numnewranges++;
 		}
-		/* emit chr as singleton range, initially cloning from range */
+		/* 将 chr 作单点范围放出，初自该范围克隆 */
 		newranges[numnewranges].cmin = ch;
 		newranges[numnewranges].cmax = ch;
 		newranges[numnewranges].rownum = newrow =
@@ -708,32 +708,32 @@ subcoloronechr(struct vars *v,
 		numnewranges++;
 		if (ch < oldrange->cmax)
 		{
-			/* emit portion of old range after chr */
+			/* 放出旧范围在chr后部分 */
 			newranges[numnewranges].cmin = ch + 1;
 			newranges[numnewranges].cmax = oldrange->cmax;
-			/* must clone the row if we are making two new ranges from old */
+			/* 若由旧范围造两个新范围则须克隆该行 */
 			newranges[numnewranges].rownum =
 				(ch > oldrange->cmin) ? newhicolorrow(cm, oldrange->rownum) :
 				oldrange->rownum;
 			numnewranges++;
 		}
-		/* we've now fully processed this old range */
+		/* 现已完整处理完此旧范围 */
 		oldrange++, oldrangen++;
 	}
 
-	/* Update colors in newrow and create arcs as needed */
+	/* 更新 newrow 中的色并按需造弧 */
 	subcoloronerow(v, newrow, lp, rp, lastsubcolor);
 
-	/* Ranges after target are unchanged */
+	/* 目标之后的范围不变 */
 	for (; oldrangen < cm->numcmranges; oldrange++, oldrangen++)
 	{
 		newranges[numnewranges++] = *oldrange;
 	}
 
-	/* Assert our original space estimate was adequate */
+	/* 断言原先空间估计足够 */
 	assert(numnewranges <= (cm->numcmranges + 2));
 
-	/* And finally, store back the updated list of ranges */
+	/* 最后，存回更新后的范围列表 */
 	if (cm->cmranges != NULL)
 		FREE(cm->cmranges);
 	cm->cmranges = newranges;
@@ -741,7 +741,7 @@ subcoloronechr(struct vars *v,
 }
 
 /*
- * subcoloronerange - do subcolorcvec's work for a high range
+ * subcoloronerange - 为高范围做 subcolorcvec 的工作
  */
 static void
 subcoloronerange(struct vars *v,
@@ -758,13 +758,13 @@ subcoloronerange(struct vars *v,
 	int			oldrangen;
 	int			newrow;
 
-	/* Caller should take care of non-high-range cases */
+	/* 非高范围情形应由调用方处理 */
 	assert(from > MAX_SIMPLE_CHR);
 	assert(from < to);
 
 	/*
-	 * Potentially, if we have N non-adjacent ranges, we could need as many as
-	 * 2N+1 result ranges (consider case where new range spans 'em all).
+	 * 潜在地，若有 N 个不相邻范围，我们最多可能
+	 * 需要 2N+1 个结果范围（新范围横跨全部时）。
 	 */
 	newranges = (colormaprange *)
 		MALLOC((cm->numcmranges * 2 + 1) * sizeof(colormaprange));
@@ -775,7 +775,7 @@ subcoloronerange(struct vars *v,
 	}
 	numnewranges = 0;
 
-	/* Ranges before target are unchanged */
+	/* 目标之前的范围不变 */
 	for (oldrange = cm->cmranges, oldrangen = 0;
 		 oldrangen < cm->numcmranges;
 		 oldrange++, oldrangen++)
@@ -786,45 +786,45 @@ subcoloronerange(struct vars *v,
 	}
 
 	/*
-	 * Deal with ranges that (partially) overlap the target.  As we process
-	 * each such range, increase "from" to remove the dealt-with characters
-	 * from the target range.
+	 * 处理与目标（部分）重叠的范围。每处理这样一个
+	 * 范围，就增大 "from"，从目标范围中去掉已
+	 * 处理的字符。
 	 */
 	while (oldrangen < cm->numcmranges && oldrange->cmin <= to)
 	{
 		if (from < oldrange->cmin)
 		{
-			/* Handle portion of new range that corresponds to no old range */
+			/* 处理新范围中无对应旧范围的部分 */
 			newranges[numnewranges].cmin = from;
 			newranges[numnewranges].cmax = oldrange->cmin - 1;
-			/* row state should be cloned from the "all others" row */
+			/* 行状态应从"其余字符"行克隆 */
 			newranges[numnewranges].rownum = newrow = newhicolorrow(cm, 0);
 			numnewranges++;
-			/* Update colors in newrow and create arcs as needed */
+			/* 更新 newrow 中的色并按需造弧 */
 			subcoloronerow(v, newrow, lp, rp, lastsubcolor);
-			/* We've now fully processed the part of new range before old */
+			/* 现已完整处理新范围在旧范围之前的部分 */
 			from = oldrange->cmin;
 		}
 
 		if (from <= oldrange->cmin && to >= oldrange->cmax)
 		{
-			/* old range is fully contained in new, process it in-place */
+			/* 旧范围完全包含于新范围，就地处理 */
 			newranges[numnewranges++] = *oldrange;
 			newrow = oldrange->rownum;
 			from = oldrange->cmax + 1;
 		}
 		else
 		{
-			/* some part of old range does not overlap new range */
+			/* 旧范围有部分不与新范围重叠 */
 			if (from > oldrange->cmin)
 			{
-				/* emit portion of old range before new range */
+				/* 放出旧范围在新范围之前的部分 */
 				newranges[numnewranges].cmin = oldrange->cmin;
 				newranges[numnewranges].cmax = from - 1;
 				newranges[numnewranges].rownum = oldrange->rownum;
 				numnewranges++;
 			}
-			/* emit common subrange, initially cloning from old range */
+			/* 放出公共子范围，初自旧范围克隆 */
 			newranges[numnewranges].cmin = from;
 			newranges[numnewranges].cmax =
 				(to < oldrange->cmax) ? to : oldrange->cmax;
@@ -833,10 +833,10 @@ subcoloronerange(struct vars *v,
 			numnewranges++;
 			if (to < oldrange->cmax)
 			{
-				/* emit portion of old range after new range */
+				/* 放出旧范围在新范围后部分 */
 				newranges[numnewranges].cmin = to + 1;
 				newranges[numnewranges].cmax = oldrange->cmax;
-				/* must clone the row if we are making two new ranges from old */
+				/* 若由旧范围造两个新范围则须克隆该行 */
 				newranges[numnewranges].rownum =
 					(from > oldrange->cmin) ? newhicolorrow(cm, oldrange->rownum) :
 					oldrange->rownum;
@@ -844,34 +844,34 @@ subcoloronerange(struct vars *v,
 			}
 			from = oldrange->cmax + 1;
 		}
-		/* Update colors in newrow and create arcs as needed */
+		/* 更新 newrow 中的色并按需造弧 */
 		subcoloronerow(v, newrow, lp, rp, lastsubcolor);
-		/* we've now fully processed this old range */
+		/* 现已完整处理完此旧范围 */
 		oldrange++, oldrangen++;
 	}
 
 	if (from <= to)
 	{
-		/* Handle portion of new range that corresponds to no old range */
+		/* 处理新范围中无对应旧范围的部分 */
 		newranges[numnewranges].cmin = from;
 		newranges[numnewranges].cmax = to;
-		/* row state should be cloned from the "all others" row */
+		/* 行状态应从"其余字符"行克隆 */
 		newranges[numnewranges].rownum = newrow = newhicolorrow(cm, 0);
 		numnewranges++;
-		/* Update colors in newrow and create arcs as needed */
+		/* 更新 newrow 中的色并按需造弧 */
 		subcoloronerow(v, newrow, lp, rp, lastsubcolor);
 	}
 
-	/* Ranges after target are unchanged */
+	/* 目标之后的范围不变 */
 	for (; oldrangen < cm->numcmranges; oldrange++, oldrangen++)
 	{
 		newranges[numnewranges++] = *oldrange;
 	}
 
-	/* Assert our original space estimate was adequate */
+	/* 断言原先空间估计足够 */
 	assert(numnewranges <= (cm->numcmranges * 2 + 1));
 
-	/* And finally, store back the updated list of ranges */
+	/* 最后，存回更新后的范围列表 */
 	if (cm->cmranges != NULL)
 		FREE(cm->cmranges);
 	cm->cmranges = newranges;
@@ -879,7 +879,7 @@ subcoloronerange(struct vars *v,
 }
 
 /*
- * subcoloronerow - do subcolorcvec's work for one new row in the high colormap
+ * subcoloronerow - 为高色图中一新行做 subcolorcvec 的工作
  */
 static void
 subcoloronerow(struct vars *v,
@@ -892,14 +892,14 @@ subcoloronerow(struct vars *v,
 	color	   *pco;
 	int			i;
 
-	/* Apply subcolorhi() and make arc for each entry in row */
+	/* 对行内各项调 subcolorhi() 并造弧 */
 	pco = &cm->hicolormap[rownum * cm->hiarraycols];
 	for (i = 0; i < cm->hiarraycols; pco++, i++)
 	{
 		color		sco = subcolorhi(cm, pco);
 
 		NOERR();
-		/* make the arc if needed */
+		/* 需要时造弧 */
 		if (sco != *lastsubcolor)
 		{
 			newarc(v->nfa, PLAIN, sco, lp, rp);
@@ -910,7 +910,7 @@ subcoloronerow(struct vars *v,
 }
 
 /*
- * okcolors - promote subcolors to full colors
+ * okcolors - 将子色提升为完整色
  */
 static void
 okcolors(struct nfa *nfa,
@@ -928,23 +928,23 @@ okcolors(struct nfa *nfa,
 		sco = cd->sub;
 		if (UNUSEDCOLOR(cd) || sco == NOSUB)
 		{
-			/* has no subcolor, no further action */
+			/* 无子色，无需再处理 */
 		}
 		else if (sco == co)
 		{
-			/* is subcolor, let parent deal with it */
+			/* 是子色，交由父色处理 */
 		}
 		else if (cd->nschrs == 0 && cd->nuchrs == 0)
 		{
 			/*
-			 * Parent is now empty, so just change all its arcs to the
-			 * subcolor, then free the parent.
+			 * 父色现已空，故仅将其全部弧改标为
+			 * 子色，然后释放父色。
 			 *
-			 * It is not obvious that simply relabeling the arcs like this is
-			 * OK; it appears to risk creating duplicate arcs.  We are
-			 * basically relying on the assumption that processing of a
-			 * bracket expression can't create arcs of both a color and its
-			 * subcolor between the bracket's endpoints.
+			 * 如此简单重标弧是否妥当并不显然；
+			 * 看似有造出重复弧之虞。我们基本
+			 * 依赖这一假定：处理括号表达式时，
+			 * 无法在括号两端之间同时造出某色
+			 * 及其子色的弧。
 			 */
 			cd->sub = NOSUB;
 			scd = &cm->cd[sco];
@@ -962,7 +962,7 @@ okcolors(struct nfa *nfa,
 		}
 		else
 		{
-			/* parent's arcs must gain parallel subcolor arcs */
+			/* 父色的弧须获得并行的子色弧 */
 			cd->sub = NOSUB;
 			scd = &cm->cd[sco];
 			assert(scd->nschrs > 0 || scd->nuchrs > 0);
@@ -978,7 +978,7 @@ okcolors(struct nfa *nfa,
 }
 
 /*
- * colorchain - add this arc to the color chain of its color
+ * colorchain - 将此弧加入其色的色链
  */
 static void
 colorchain(struct colormap *cm,
@@ -995,7 +995,7 @@ colorchain(struct colormap *cm,
 }
 
 /*
- * uncolorchain - delete this arc from the color chain of its color
+ * uncolorchain - 将此弧从其色的色链删除
  */
 static void
 uncolorchain(struct colormap *cm,
@@ -1017,21 +1017,21 @@ uncolorchain(struct colormap *cm,
 	}
 	if (a->colorchain != NULL)
 		a->colorchain->colorchainRev = aa;
-	a->colorchain = NULL;		/* paranoia */
+	a->colorchain = NULL;		/* 偏执 */
 	a->colorchainRev = NULL;
 }
 
 /*
- * rainbow - add arcs of all full colors (but one) between specified states
+ * rainbow - 在指定状态间加除一色外全部完整色的弧
  *
- * If there isn't an exception color, we now generate just a single arc
- * labeled RAINBOW, saving lots of arc-munging later on.
+ * 若无例外色，现只生成一条
+ * 标为彩虹的弧，省去日后大量弧折腾。
  */
 static void
 rainbow(struct nfa *nfa,
 		struct colormap *cm,
 		int type,
-		color but,				/* COLORLESS if no exceptions */
+		color but,				/* 无例外则为 COLORLESS */
 		struct state *from,
 		struct state *to)
 {
@@ -1045,7 +1045,7 @@ rainbow(struct nfa *nfa,
 		return;
 	}
 
-	/* Gotta do it the hard way.  Skip subcolors, pseudocolors, and "but" */
+	/* 只好硬做。跳过子色、伪色与 "but" */
 	for (cd = cm->cd, co = 0; cd < end && !CISERR(); cd++, co++)
 		if (!UNUSEDCOLOR(cd) && cd->sub != co && co != but &&
 			!(cd->flags & PSEUDO))
@@ -1053,12 +1053,12 @@ rainbow(struct nfa *nfa,
 }
 
 /*
- * colorcomplement - add arcs of complementary colors
+ * colorcomplement - 加互补色的弧
  *
- * We add arcs of all colors that are not pseudocolors and do not match
- * any of the "of" state's PLAIN outarcs.
+ * 我们加入所有非伪色、且不匹配 "of"
+ * 状态任一PLAIN出弧之色的弧。
  *
- * The calling sequence ought to be reconciled with cloneouts().
+ * 调用序列宜与 cloneouts() 协调。
  */
 static void
 colorcomplement(struct nfa *nfa,
@@ -1076,11 +1076,11 @@ colorcomplement(struct nfa *nfa,
 	assert(of != from);
 
 	/*
-	 * A RAINBOW arc matches all colors, making the complement empty.  But we
-	 * can't just return without making any arcs, because that would leave the
-	 * NFA disconnected which would break any future delsub().  Instead, make
-	 * a CANTMATCH arc.  Also set the HASCANTMATCH flag so we know we need to
-	 * clean that up at the start of NFA optimization.
+	 * 彩虹弧匹配全部色，使补集为空。但
+	 * 无法干脆不造弧就返回，否则会使 NFA
+	 * 断开，破坏日后任何 delsub()。改为造
+	 * 一条 CANTMATCH 弧。并置 HASCANTMATCH 标志，
+	 * 知须在 NFA 优化开头清理之。
 	 */
 	if (findarc(of, PLAIN, RAINBOW) != NULL)
 	{
@@ -1089,7 +1089,7 @@ colorcomplement(struct nfa *nfa,
 		return;
 	}
 
-	/* Otherwise, transiently mark the colors that appear in of's out-arcs */
+	/* 否则，暂时标记 "of" 出弧中出现的色 */
 	for (a = of->outs; a != NULL; a = a->outchain)
 	{
 		if (a->type == PLAIN)
@@ -1101,13 +1101,13 @@ colorcomplement(struct nfa *nfa,
 		}
 
 		/*
-		 * There's no syntax for re-complementing a color set, so we cannot
-		 * see CANTMATCH arcs here.
+		 * 没有再取补色集的语法，故此处无法
+		 * 见到 CANTMATCH 弧。
 		 */
 		assert(a->type != CANTMATCH);
 	}
 
-	/* Scan colors, clear transient marks, add arcs for unmarked colors */
+	/* 扫描各色，清暂记，为未标记色加弧 */
 	for (cd = cm->cd, co = 0; cd < end && !CISERR(); cd++, co++)
 	{
 		if (cd->flags & COLMARK)
@@ -1121,7 +1121,7 @@ colorcomplement(struct nfa *nfa,
 #ifdef REG_DEBUG
 
 /*
- * dumpcolors - debugging output
+ * dumpcolors - 调试输出
  */
 static void
 dumpcolors(struct colormap *cm,
@@ -1134,7 +1134,7 @@ dumpcolors(struct colormap *cm,
 
 	fprintf(f, "max %ld\n", (long) cm->max);
 	end = CDEND(cm);
-	for (cd = cm->cd + 1, co = 1; cd < end; cd++, co++) /* skip 0 */
+	for (cd = cm->cd + 1, co = 1; cd < end; cd++, co++) /* 跳0 */
 	{
 		if (!UNUSEDCOLOR(cd))
 		{
@@ -1145,7 +1145,7 @@ dumpcolors(struct colormap *cm,
 				fprintf(f, "#%2ld(%2d): ", (long) co, cd->nschrs + cd->nuchrs);
 
 			/*
-			 * Unfortunately, it's hard to do this next bit more efficiently.
+			 * 可惜，下一段很难做得更高效。
 			 */
 			for (c = CHR_MIN; c <= MAX_SIMPLE_CHR; c++)
 				if (GETCOLOR(cm, c) == co)
@@ -1153,7 +1153,7 @@ dumpcolors(struct colormap *cm,
 			fprintf(f, "\n");
 		}
 	}
-	/* dump the high colormap if it contains anything interesting */
+	/* 若高色图含任何有趣内容则转储之 */
 	if (cm->hiarrayrows > 1 || cm->hiarraycols > 1)
 	{
 		int			r,
@@ -1183,9 +1183,9 @@ dumpcolors(struct colormap *cm,
 }
 
 /*
- * dumpchr - print a chr
+ * dumpchr - 打印 chr
  *
- * Kind of char-centric but works well enough for debug use.
+ * 偏字符中心，但对调试够用。
  */
 static void
 dumpchr(chr c,

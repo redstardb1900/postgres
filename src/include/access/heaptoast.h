@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * heaptoast.h
- *	  Heap-specific definitions for external and compressed storage
- *	  of variable size attributes.
+ *	  变长属性的外部与压缩存储的
+ *	  堆专用定义。
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -18,7 +18,7 @@
 #include "utils/relcache.h"
 
 /*
- * Find the maximum size of a tuple if there are to be N tuples per page.
+ * 求每页容纳 N 个元组时单个元组的最大尺寸。
  */
 #define MaximumBytesPerTuple(tuplesPerPage) \
 	MAXALIGN_DOWN((BLCKSZ - \
@@ -26,22 +26,22 @@
 				  / (tuplesPerPage))
 
 /*
- * These symbols control toaster activation.  If a tuple is larger than
- * TOAST_TUPLE_THRESHOLD, we will try to toast it down to no more than
- * TOAST_TUPLE_TARGET bytes through compressing compressible fields and
- * moving EXTENDED and EXTERNAL data out-of-line.
+ * 这些符号控制 toaster 的激活。若元组大于
+ * TOAST_TUPLE_THRESHOLD，则尝试把它 toast 到不超过
+ * TOAST_TUPLE_TARGET 字节，做法是压缩可压缩字段，并
+ * 把 EXTENDED 和 EXTERNAL 数据外置。
  *
- * The numbers need not be the same, though they currently are.  It doesn't
- * make sense for TARGET to exceed THRESHOLD, but it could be useful to make
- * it be smaller.
+ * 两个数值不必相同，尽管目前相同。TARGET
+ * 超过 THRESHOLD 没有意义，但把它设得更小
+ * 也可取。
  *
- * Currently we choose both values to match the largest tuple size for which
- * TOAST_TUPLES_PER_PAGE tuples can fit on a heap page.
+ * 目前把两个值都取为最大元组尺寸，即堆页上可放下
+ * TOAST_TUPLES_PER_PAGE 个元组时的元组尺寸。
  *
- * XXX while these can be modified without initdb, some thought needs to be
- * given to needs_toast_table() in toasting.c before unleashing random
- * changes.  Also see LOBLKSIZE in large_object.h, which can *not* be
- * changed without initdb.
+ * XXX 这些值虽可不经 initdb 就修改，但在随意改动前，
+ * 需先斟酌 toasting.c 中的 needs_toast_table()。
+ * 另见 large_object.h 中的 LOBLKSIZE，它*必须*
+ * 经 initdb 才能改。
  */
 #define TOAST_TUPLES_PER_PAGE	4
 
@@ -50,34 +50,34 @@
 #define TOAST_TUPLE_TARGET		TOAST_TUPLE_THRESHOLD
 
 /*
- * The code will also consider moving MAIN data out-of-line, but only as a
- * last resort if the previous steps haven't reached the target tuple size.
- * In this phase we use a different target size, currently equal to the
- * largest tuple that will fit on a heap page.  This is reasonable since
- * the user has told us to keep the data in-line if at all possible.
+ * 代码还会考虑把 MAIN 数据外置，但仅作为
+ * 最后手段，即前面各步骤仍未达到目标元组尺寸时。
+ * 此阶段我们使用另一个目标尺寸，当前等于
+ * 能放入堆页的最大元组。这样合理，因为
+ * 用户已告知我们尽可能把数据保持在行内。
  */
 #define TOAST_TUPLES_PER_PAGE_MAIN	1
 
 #define TOAST_TUPLE_TARGET_MAIN MaximumBytesPerTuple(TOAST_TUPLES_PER_PAGE_MAIN)
 
 /*
- * If an index value is larger than TOAST_INDEX_TARGET, we will try to
- * compress it (we can't move it out-of-line, however).  Note that this
- * number is per-datum, not per-tuple, for simplicity in index_form_tuple().
+ * 若索引值大于 TOAST_INDEX_TARGET，我们会尝试
+ * 压缩它(但不能移到行外)。注意，为简化
+ * index_form_tuple()，此数值按每个 datum 而非每个元组计。
  */
 #define TOAST_INDEX_TARGET		(MaxHeapTupleSize / 16)
 
 /*
- * When we store an oversize datum externally, we divide it into chunks
- * containing at most TOAST_MAX_CHUNK_SIZE data bytes.  This number *must*
- * be small enough that the completed toast-table tuple (including the
- * ID and sequence fields and all overhead) will fit on a page.
- * The coding here sets the size on the theory that we want to fit
- * EXTERN_TUPLES_PER_PAGE tuples of maximum size onto a page.
+ * 当我们在外部存储超长 datum 时，把它切分成块，
+ * 每块至多含 TOAST_MAX_CHUNK_SIZE 个数据字节。该数*必须*
+ * 足够小，使完成的 toast 表元组(含
+ * ID 与序号字段及全部开销)能放进一页。
+ * 这里的代码按如下设想定尺寸：希望每页能放下
+ * EXTERN_TUPLES_PER_PAGE 个最大尺寸的元组。
  *
- * NB: Changing TOAST_MAX_CHUNK_SIZE requires an initdb.
+ * 注意：改动 TOAST_MAX_CHUNK_SIZE 需要 initdb。
  */
-#define EXTERN_TUPLES_PER_PAGE	4	/* tweak only this */
+#define EXTERN_TUPLES_PER_PAGE	4	/* 仅调整此值 */
 
 #define EXTERN_TUPLE_MAX_SIZE	MaximumBytesPerTuple(EXTERN_TUPLES_PER_PAGE)
 
@@ -91,7 +91,7 @@
 /* ----------
  * heap_toast_insert_or_update -
  *
- *	Called by heap_insert() and heap_update().
+ *	由 heap_insert()、heap_update() 调用
  * ----------
  */
 extern HeapTuple heap_toast_insert_or_update(Relation rel, HeapTuple newtup,
@@ -100,7 +100,7 @@ extern HeapTuple heap_toast_insert_or_update(Relation rel, HeapTuple newtup,
 /* ----------
  * heap_toast_delete -
  *
- *	Called by heap_delete().
+ *	由 heap_delete() 调用
  * ----------
  */
 extern void heap_toast_delete(Relation rel, HeapTuple oldtup,
@@ -109,8 +109,8 @@ extern void heap_toast_delete(Relation rel, HeapTuple oldtup,
 /* ----------
  * toast_flatten_tuple -
  *
- *	"Flatten" a tuple to contain no out-of-line toasted fields.
- *	(This does not eliminate compressed or short-header datums.)
+ *	把元组"展平"，使其不含行外已 TOAST 字段。
+ *	(这并不消除压缩的或短头的 datum。)
  * ----------
  */
 extern HeapTuple toast_flatten_tuple(HeapTuple tup, TupleDesc tupleDesc);
@@ -118,7 +118,7 @@ extern HeapTuple toast_flatten_tuple(HeapTuple tup, TupleDesc tupleDesc);
 /* ----------
  * toast_flatten_tuple_to_datum -
  *
- *	"Flatten" a tuple containing out-of-line toasted fields into a Datum.
+ *	把含行外已 TOAST 字段的元组"展平"成一个 Datum。
  * ----------
  */
 extern Datum toast_flatten_tuple_to_datum(HeapTupleHeader tup,
@@ -128,8 +128,8 @@ extern Datum toast_flatten_tuple_to_datum(HeapTupleHeader tup,
 /* ----------
  * toast_build_flattened_tuple -
  *
- *	Build a tuple containing no out-of-line toasted fields.
- *	(This does not eliminate compressed or short-header datums.)
+ *	构造一个不含行外已 TOAST 字段的元组。
+ *	(这并不消除压缩的或短头的 datum。)
  * ----------
  */
 extern HeapTuple toast_build_flattened_tuple(TupleDesc tupleDesc,
@@ -139,7 +139,7 @@ extern HeapTuple toast_build_flattened_tuple(TupleDesc tupleDesc,
 /* ----------
  * heap_fetch_toast_slice
  *
- *	Fetch a slice from a toast value stored in a heap table.
+ *	从堆表中存储的 TOAST 值取出一个切片。
  * ----------
  */
 extern void heap_fetch_toast_slice(Relation toastrel, Oid valueid,

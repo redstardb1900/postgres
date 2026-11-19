@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * detoast.h
- *	  Access to compressed and external varlena values.
+ *	  访问压缩及外部存储的 varlena 值。
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -13,11 +13,11 @@
 #define DETOAST_H
 
 /*
- * Macro to fetch the possibly-unaligned contents of an EXTERNAL datum
- * into a local "struct varatt_external" toast pointer.  This should be
- * just a memcpy, but some versions of gcc seem to produce broken code
- * that assumes the datum contents are aligned.  Introducing an explicit
- * intermediate "varattrib_1b_e *" variable seems to fix it.
+ * 把 EXTERNAL datum 中可能未对齐的内容取到局部的
+ * "struct varatt_external" toast 指针中。这本应只是
+ * 一次 memcpy，但部分 gcc 版本似乎生成错误代码，
+ * 其假定 datum 内容是对齐的。引入显式的中间变量
+ * "varattrib_1b_e *" 似乎就能修复。
  */
 #define VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr) \
 do { \
@@ -27,18 +27,18 @@ do { \
 	memcpy(&(toast_pointer), VARDATA_EXTERNAL(attre), sizeof(toast_pointer)); \
 } while (0)
 
-/* Size of an EXTERNAL datum that contains a standard TOAST pointer */
+/* 含标准 TOAST 指针的 EXTERNAL datum 的大小 */
 #define TOAST_POINTER_SIZE (VARHDRSZ_EXTERNAL + sizeof(varatt_external))
 
-/* Size of an EXTERNAL datum that contains an indirection pointer */
+/* 含间接指针的 EXTERNAL datum 的大小 */
 #define INDIRECT_POINTER_SIZE (VARHDRSZ_EXTERNAL + sizeof(varatt_indirect))
 
 /* ----------
  * detoast_external_attr() -
  *
- *		Fetches an external stored attribute from the toast
- *		relation. Does NOT decompress it, if stored external
- *		in compressed format.
+ *		从 toast 关系取回外部存储的属性。
+ *		不会解压它，即使它以压缩格式
+ *		外部存储。
  * ----------
  */
 extern struct varlena *detoast_external_attr(struct varlena *attr);
@@ -46,8 +46,8 @@ extern struct varlena *detoast_external_attr(struct varlena *attr);
 /* ----------
  * detoast_attr() -
  *
- *		Fully detoasts one attribute, fetching and/or decompressing
- *		it as needed.
+ *		完整还原一个属性，按需取回和/或
+ *		解压。
  * ----------
  */
 extern struct varlena *detoast_attr(struct varlena *attr);
@@ -55,8 +55,8 @@ extern struct varlena *detoast_attr(struct varlena *attr);
 /* ----------
  * detoast_attr_slice() -
  *
- *		Fetches only the specified portion of an attribute.
- *		(Handles all cases for attribute storage)
+ *		只取回属性的指定部分。
+ *		(处理属性存储的所有情形)
  * ----------
  */
 extern struct varlena *detoast_attr_slice(struct varlena *attr,
@@ -66,7 +66,7 @@ extern struct varlena *detoast_attr_slice(struct varlena *attr,
 /* ----------
  * toast_raw_datum_size -
  *
- *	Return the raw (detoasted) size of a varlena datum
+ *	返回 varlena 值的原始(还原后)大小
  * ----------
  */
 extern Size toast_raw_datum_size(Datum value);
@@ -74,7 +74,7 @@ extern Size toast_raw_datum_size(Datum value);
 /* ----------
  * toast_datum_size -
  *
- *	Return the storage size of a varlena datum
+ *	返回 varlena 值的存储大小
  * ----------
  */
 extern Size toast_datum_size(Datum value);

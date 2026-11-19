@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtxlog.h
- *	  header file for postgres btree xlog routines
+ *	  postgres btree xlog 例程头文件
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,32 +19,32 @@
 #include "storage/off.h"
 
 /*
- * XLOG records for btree operations
+ * btree 操作的 XLOG 记录
  *
- * XLOG allows to store some information in high 4 bits of log
- * record xl_info field
+ * XLOG 允许把部分信息存在日志高 4 位的
+ * xl_info 字段
  */
-#define XLOG_BTREE_INSERT_LEAF	0x00	/* add index tuple without split */
-#define XLOG_BTREE_INSERT_UPPER 0x10	/* same, on a non-leaf page */
-#define XLOG_BTREE_INSERT_META	0x20	/* same, plus update metapage */
-#define XLOG_BTREE_SPLIT_L		0x30	/* add index tuple with split */
-#define XLOG_BTREE_SPLIT_R		0x40	/* as above, new item on right */
-#define XLOG_BTREE_INSERT_POST	0x50	/* add index tuple with posting split */
-#define XLOG_BTREE_DEDUP		0x60	/* deduplicate tuples for a page */
-#define XLOG_BTREE_DELETE		0x70	/* delete leaf index tuples for a page */
-#define XLOG_BTREE_UNLINK_PAGE	0x80	/* delete a half-dead page */
-#define XLOG_BTREE_UNLINK_PAGE_META 0x90	/* same, and update metapage */
-#define XLOG_BTREE_NEWROOT		0xA0	/* new root page */
-#define XLOG_BTREE_MARK_PAGE_HALFDEAD 0xB0	/* mark a leaf as half-dead */
-#define XLOG_BTREE_VACUUM		0xC0	/* delete entries on a page during
-										 * vacuum */
-#define XLOG_BTREE_REUSE_PAGE	0xD0	/* old page is about to be reused from
-										 * FSM */
-#define XLOG_BTREE_META_CLEANUP	0xE0	/* update cleanup-related data in the
-										 * metapage */
+#define XLOG_BTREE_INSERT_LEAF	0x00	/* 无分裂添加索引元组 */
+#define XLOG_BTREE_INSERT_UPPER 0x10	/* 同上,在非叶页 */
+#define XLOG_BTREE_INSERT_META	0x20	/* 同上,并更新元页 */
+#define XLOG_BTREE_SPLIT_L		0x30	/* 带分裂加索引元组 */
+#define XLOG_BTREE_SPLIT_R		0x40	/* 同上,新项在右侧 */
+#define XLOG_BTREE_INSERT_POST	0x50	/* 带倒排分裂加索引元组 */
+#define XLOG_BTREE_DEDUP		0x60	/* 对一页去重元组 */
+#define XLOG_BTREE_DELETE		0x70	/* 删除一页的叶子索引元组 */
+#define XLOG_BTREE_UNLINK_PAGE	0x80	/* 删除半死页 */
+#define XLOG_BTREE_UNLINK_PAGE_META 0x90	/* 同上,并更新元页 */
+#define XLOG_BTREE_NEWROOT		0xA0	/* 新根页 */
+#define XLOG_BTREE_MARK_PAGE_HALFDEAD 0xB0	/* 把叶子标为半死 */
+#define XLOG_BTREE_VACUUM		0xC0	/* vacuum时删除页上的
+										 * 条目*/
+#define XLOG_BTREE_REUSE_PAGE	0xD0	/* 旧页即将自以下处重用:
+										 * FSM*/
+#define XLOG_BTREE_META_CLEANUP	0xE0	/* 更新清理相关数据,在
+										 * 元页*/
 
 /*
- * All that we need to regenerate the meta-data page
+ * 再生元数据页所需全部内容
  */
 typedef struct xl_btree_metadata
 {
@@ -58,23 +58,23 @@ typedef struct xl_btree_metadata
 } xl_btree_metadata;
 
 /*
- * This is what we need to know about simple (without split) insert.
+ * 关于简单(无分裂)插入需知这些。
  *
- * This data record is used for INSERT_LEAF, INSERT_UPPER, INSERT_META, and
- * INSERT_POST.  Note that INSERT_META and INSERT_UPPER implies it's not a
- * leaf page, while INSERT_POST and INSERT_LEAF imply that it must be a leaf
- * page.
+ * 本数据记录用于 INSERT_LEAF、INSERT_UPPER、INSERT_META 与
+ * INSERT_POST。注意 INSERT_META 与 INSERT_UPPER 意味着不是
+ * 叶子页，而 INSERT_POST 与 INSERT_LEAF 意味着必须是叶子
+ * 页.
  *
- * Backup Blk 0: original page
- * Backup Blk 1: child's left sibling, if INSERT_UPPER or INSERT_META
- * Backup Blk 2: xl_btree_metadata, if INSERT_META
+ * 备份块 0: 原页
+ * 备份块 1: 子页左兄弟,若 INSERT_UPPER 或 INSERT_META
+ * 备份块 2: xl_btree_metadata,若 INSERT_META
  *
- * Note: The new tuple is actually the "original" new item in the posting
- * list split insert case (i.e. the INSERT_POST case).  A split offset for
- * the posting list is logged before the original new item.  Recovery needs
- * both, since it must do an in-place update of the existing posting list
- * that was split as an extra step.  Also, recovery generates a "final"
- * newitem.  See _bt_swap_posting() for details on posting list splits.
+ * 注意: 新元组实为倒排列表分裂插入情形中的
+ * "原"新项(即 INSERT_POST 情形)。倒排列表的分裂
+ * 偏移记在原新项之前。恢复两者都要,因其须对已
+ * 分裂的现有倒排列表做原地更新作为额外步骤。另
+ * 外,恢复会生成"最终"newitem。倒排列表分裂细节
+ * 见 _bt_swap_posting()。
  */
 typedef struct xl_btree_insert
 {
@@ -87,85 +87,85 @@ typedef struct xl_btree_insert
 #define SizeOfBtreeInsert	(offsetof(xl_btree_insert, offnum) + sizeof(OffsetNumber))
 
 /*
- * On insert with split, we save all the items going into the right sibling
- * so that we can restore it completely from the log record.  This way takes
- * less xlog space than the normal approach, because if we did it standardly,
- * XLogInsert would almost always think the right page is new and store its
- * whole page image.  The left page, however, is handled in the normal
- * incremental-update fashion.
+ * 带分裂插入时,我们保存进入右兄弟的全部项,
+ * 以便能从日志记录完全恢复它。此法比常规做法
+ * 少占 xlog 空间,因若按标准做法,
+ * XLogInsert 几乎总会认为右页是新页并存储其
+ * 整页映像。左页则仍按正常
+ * 增量更新方式处理。
  *
- * Note: XLOG_BTREE_SPLIT_L and XLOG_BTREE_SPLIT_R share this data record.
- * There are two variants to indicate whether the inserted tuple went into the
- * left or right split page (and thus, whether the new item is stored or not).
- * We always log the left page high key because suffix truncation can generate
- * a new leaf high key using user-defined code.  This is also necessary on
- * internal pages, since the firstright item that the left page's high key was
- * based on will have been truncated to zero attributes in the right page (the
- * separator key is unavailable from the right page).
+ * 注意:XLOG_BTREE_SPLIT_L与XLOG_BTREE_SPLIT_R共用本数据记录。
+ * 有两种变体,标明插入的元组进了左还是右分裂页
+ * (从而是否存放了新项)。我们总是记录左页高键,
+ * 因为后缀截断可用用户定义代码生成新的叶子高
+ * 键。内部页也必须如此,因左页高键所依据的
+ * firstright 项在右页已被截成零属性(从右页
+ * 无法取得
+ * 分隔键)。
  *
- * Backup Blk 0: original page / new left page
+ * 备份块 0: 原页 / 新左页
  *
- * The left page's data portion contains the new item, if it's the _L variant.
- * _R variant split records generally do not have a newitem (_R variant leaf
- * page split records that must deal with a posting list split will include an
- * explicit newitem, though it is never used on the right page -- it is
- * actually an orignewitem needed to update existing posting list).  The new
- * high key of the left/original page appears last of all (and must always be
- * present).
+ * 左页数据部分含新项,若是 _L 变体。
+ * _R 变体分裂记录一般无 newitem(_R 变体叶子
+ * 页分裂记录若须处理倒排列表分裂会含显式
+ * newitem,但它从不用在右页——它实为更新现有
+ * 倒排列表所需的 orignewitem)。左/原页的新
+ * 高键总在最后出现(且必须始终出
+ * 现)。
  *
- * Page split records that need the REDO routine to deal with a posting list
- * split directly will have an explicit newitem, which is actually an
- * orignewitem (the newitem as it was before the posting list split, not
- * after).  A posting list split always has a newitem that comes immediately
- * after the posting list being split (which would have overlapped with
- * orignewitem prior to split).  Usually REDO must deal with posting list
- * splits with an _L variant page split record, and usually both the new
- * posting list and the final newitem go on the left page (the existing
- * posting list will be inserted instead of the old, and the final newitem
- * will be inserted next to that).  However, _R variant split records will
- * include an orignewitem when the split point for the page happens to have a
- * lastleft tuple that is also the posting list being split (leaving newitem
- * as the page split's firstright tuple).  The existence of this corner case
- * does not change the basic fact about newitem/orignewitem for the REDO
- * routine: it is always state used for the left page alone.  (This is why the
- * record's postingoff field isn't a reliable indicator of whether or not a
- * posting list split occurred during the page split; a non-zero value merely
- * indicates that the REDO routine must reconstruct a new posting list tuple
- * that is needed for the left page.)
+ * 需 REDO 例程直接处理倒排列表分裂的页分裂
+ * 记录会有显式 newitem,实为
+ * orignewitem(倒排列表分裂前而非之后的
+ * newitem)。倒排列表分裂时 newitem 总紧跟在
+ * 被分裂倒排列表之后(分裂前本会与
+ * orignewitem 重叠)。通常 REDO 用 _L 变体页
+ * 分裂记录处理倒排列表分裂,且通常新倒排
+ * 列表与最终 newitem 都在左页(用新倒排列表
+ * 替换旧的插入,最终 newitem 紧挨插入)。但
+ * _R 变体分裂记录会在页分裂点恰有
+ * lastleft 元组同时又是被分裂倒排列表时含
+ * orignewitem(使 newitem 成为页分裂的
+ * firstright 元组)。此边角情形的存在不改变
+ * REDO 例程对 newitem/orignewitem 的基本事实:
+ * 它始终只是左页所用状态。(因此记录的
+ * postingoff 字段并非是否在页分裂期间发生了
+ * 倒排列表分裂的可靠指示;非零仅表示 REDO
+ * 例程必须重建左页所需的新倒排列表
+ * 元组。)
  *
- * This posting list split handling is equivalent to the xl_btree_insert REDO
- * routine's INSERT_POST handling.  While the details are more complicated
- * here, the concept and goals are exactly the same.  See _bt_swap_posting()
- * for details on posting list splits.
+ * 此倒排列表分裂处理等价于 xl_btree_insert
+ * REDO 例程的 INSERT_POST 处理。此处细节更复杂,
+ * 但概念与目标完全相同。倒排列表分裂细节见
+ * _bt_swap_posting()。
  *
- * Backup Blk 1: new right page
+ * 备份块 1: 新右页
  *
- * The right page's data portion contains the right page's tuples in the form
- * used by _bt_restore_page.  This includes the new item, if it's the _R
- * variant.  The right page's tuples also include the right page's high key
- * with either variant (moved from the left/original page during the split),
- * unless the split happened to be of the rightmost page on its level, where
- * there is no high key for new right page.
+ * 右页数据部分含右页元组,格式由
+ * _bt_restore_page 使用。若是 _R 变体则含新项。
+ * 任一变体下右页元组也含右页高键(分裂时自
+ * 左/原页移来),除非分裂恰好发生在该层最右
+ * 页,此时新右页
+ * 无高键。
  *
- * Backup Blk 2: next block (orig page's rightlink), if any
- * Backup Blk 3: child's left sibling, if non-leaf split
+ * 备份块 2: 下一块(原页右链),若有
+ * 备份块 3: 子页左兄弟,若非叶分裂
  */
 typedef struct xl_btree_split
 {
-	uint32		level;			/* tree level of page being split */
-	OffsetNumber firstrightoff; /* first origpage item on rightpage */
-	OffsetNumber newitemoff;	/* new item's offset */
-	uint16		postingoff;		/* offset inside orig posting tuple */
+	uint32		level;			/* 被分裂页的树层级 */
+	OffsetNumber firstrightoff; /* 右页上首个原页项 */
+	OffsetNumber newitemoff;	/* 新项偏移 */
+	uint16		postingoff;		/* 原倒排元组内偏移 */
 } xl_btree_split;
 
 #define SizeOfBtreeSplit	(offsetof(xl_btree_split, postingoff) + sizeof(uint16))
 
 /*
- * When page is deduplicated, consecutive groups of tuples with equal keys are
- * merged together into posting list tuples.
+ * 页去重时,连续等键元组组被合并成
+ * 倒排列表元组。
  *
- * The WAL record represents a deduplication pass for a leaf page.  An array
- * of BTDedupInterval structs follows.
+ * WAL 记录表示一次叶子页去重遍历。随后是
+ * BTDedupInterval 结构数组。
  */
 typedef struct xl_btree_dedup
 {
@@ -177,48 +177,48 @@ typedef struct xl_btree_dedup
 #define SizeOfBtreeDedup 	(offsetof(xl_btree_dedup, nintervals) + sizeof(uint16))
 
 /*
- * This is what we need to know about page reuse within btree.  This record
- * only exists to generate a conflict point for Hot Standby.
+ * 关于 btree 内页重用需知这些。本记录
+ * 仅为热备生成冲突点而存在。
  *
- * Note that we must include a RelFileLocator in the record because we don't
- * actually register the buffer with the record.
+ * 注意必须在记录中含 RelFileLocator,因我们
+ * 实际未把缓冲区登记到记录。
  */
 typedef struct xl_btree_reuse_page
 {
 	RelFileLocator locator;
 	BlockNumber block;
 	FullTransactionId snapshotConflictHorizon;
-	bool		isCatalogRel;	/* to handle recovery conflict during logical
-								 * decoding on standby */
+	bool		isCatalogRel;	/* 处理备库上逻辑解码时的
+								 * 恢复冲突*/
 } xl_btree_reuse_page;
 
 #define SizeOfBtreeReusePage	(offsetof(xl_btree_reuse_page, isCatalogRel) + sizeof(bool))
 
 /*
- * xl_btree_vacuum and xl_btree_delete records describe deletion of index
- * tuples on a leaf page.  The former variant is used by VACUUM, while the
- * latter variant is used by the ad-hoc deletions that sometimes take place
- * when btinsert() is called.
+ * xl_btree_vacuum 与 xl_btree_delete 记录描述在
+ * 叶子页上删除索引元组。前一变体由 VACUUM 使用,
+ * 后一变体用于 btinsert() 被调用时有时发生的
+ * 临时删除。
  *
- * The records are very similar.  The only difference is that xl_btree_delete
- * have snapshotConflictHorizon/isCatalogRel fields for recovery conflicts.
- * (VACUUM operations can just rely on earlier conflicts generated during
- * pruning of the table whose TIDs the to-be-deleted index tuples point to.
- * There are also small differences between each REDO routine that we don't go
- * into here.)
+ * 两类记录很相似。唯一差别是 xl_btree_delete
+ * 有 snapshotConflictHorizon/isCatalogRel 字段供
+ * 恢复冲突。(VACUUM 操作可只依赖对表剪枝时更早
+ * 生成的冲突,那些表的 TIDs 正是待删索引元组所
+ * 指向的。各 REDO 例程还有小差异,此处不
+ * 展开。)
  *
- * xl_btree_vacuum and xl_btree_delete both represent deletion of any number
- * of index tuples on a single leaf page using page offset numbers.  Both also
- * support "updates" of index tuples, which is how deletes of a subset of TIDs
- * contained in an existing posting list tuple are implemented.
+ * xl_btree_vacuum 与 xl_btree_delete 都用页偏移号
+ * 表示在单张叶子页上删除任意数目的索引元组。两者
+ * 也支持索引元组的"更新",即删除现有倒排列表
+ * 元组所含 TID 子集的实现方式。
  *
- * Updated posting list tuples are represented using xl_btree_update metadata.
- * The REDO routines each use the xl_btree_update entries (plus each
- * corresponding original index tuple from the target leaf page) to generate
- * the final updated tuple.
+ * 更新后的倒排列表元组用 xl_btree_update 元数据表示。
+ * 各 REDO 例程用 xl_btree_update 条目(外加目标
+ * 叶子页上对应的原索引元组)生成最终
+ * 更新后的元组。
  *
- * Updates are only used when there will be some remaining TIDs left by the
- * REDO routine.  Otherwise the posting list tuple just gets deleted outright.
+ * 仅当 REDO 例程仍会留下一些 TID 时才用更新。
+ * 否则倒排列表元组就直接整项删除。
  */
 typedef struct xl_btree_vacuum
 {
@@ -241,8 +241,8 @@ typedef struct xl_btree_delete
 	TransactionId snapshotConflictHorizon;
 	uint16		ndeleted;
 	uint16		nupdated;
-	bool		isCatalogRel;	/* to handle recovery conflict during logical
-								 * decoding on standby */
+	bool		isCatalogRel;	/* 处理备库上逻辑解码时的
+								 * 恢复冲突*/
 
 	/*----
 	 * In payload of blk 0 :
@@ -256,10 +256,10 @@ typedef struct xl_btree_delete
 #define SizeOfBtreeDelete	(offsetof(xl_btree_delete, isCatalogRel) + sizeof(bool))
 
 /*
- * The offsets that appear in xl_btree_update metadata are offsets into the
- * original posting list from tuple, not page offset numbers.  These are
- * 0-based.  The page offset number for the original posting list tuple comes
- * from the main xl_btree_vacuum/xl_btree_delete record.
+ * xl_btree_update 元数据中的偏移是元组原倒排
+ * 列表内的偏移,不是页偏移号。它们是
+ * 从 0 起算。原倒排列表元组的页偏移号来自
+ * 主 xl_btree_vacuum/xl_btree_delete 记录。
  */
 typedef struct xl_btree_update
 {
@@ -271,59 +271,59 @@ typedef struct xl_btree_update
 #define SizeOfBtreeUpdate	(offsetof(xl_btree_update, ndeletedtids) + sizeof(uint16))
 
 /*
- * This is what we need to know about marking an empty subtree for deletion.
- * The target identifies the tuple removed from the parent page (note that we
- * remove this tuple's downlink and the *following* tuple's key).  Note that
- * the leaf page is empty, so we don't need to store its content --- it is
- * just reinitialized during recovery using the rest of the fields.
+ * 关于把空子树标为待删需知这些。
+ * target 标明父页中被移除的元组(注意我们
+ * 去掉该元组的下行链接及*随后*元组的键)。注意
+ * 叶子页为空,故不必存其内容——恢复时用其余
+ * 字段重新初始化即可。
  *
- * Backup Blk 0: leaf block
- * Backup Blk 1: top parent
+ * 备份块 0: 叶子块
+ * 备份块1:最顶父页
  */
 typedef struct xl_btree_mark_page_halfdead
 {
-	OffsetNumber poffset;		/* deleted tuple id in parent page */
+	OffsetNumber poffset;		/* 父页中已删元组 id */
 
-	/* information needed to recreate the leaf page: */
-	BlockNumber leafblk;		/* leaf block ultimately being deleted */
-	BlockNumber leftblk;		/* leaf block's left sibling, if any */
-	BlockNumber rightblk;		/* leaf block's right sibling */
-	BlockNumber topparent;		/* topmost internal page in the subtree */
+	/* 重建叶子页所需信息: */
+	BlockNumber leafblk;		/* 最终被删的叶子块 */
+	BlockNumber leftblk;		/* 叶子块左兄弟,若有 */
+	BlockNumber rightblk;		/* 叶子块右兄弟 */
+	BlockNumber topparent;		/* 子树中最顶内部页 */
 } xl_btree_mark_page_halfdead;
 
 #define SizeOfBtreeMarkPageHalfDead (offsetof(xl_btree_mark_page_halfdead, topparent) + sizeof(BlockNumber))
 
 /*
- * This is what we need to know about deletion of a btree page.  Note that we
- * only leave behind a small amount of bookkeeping information in deleted
- * pages (deleted pages must be kept around as tombstones for a while).  It is
- * convenient for the REDO routine to regenerate its target page from scratch.
- * This is why WAL record describes certain details that are actually directly
- * available from the target page.
+ * 关于删除 btree 页需知这些。注意我们在已删
+ * 页上只留下少量簿记信息(已删页须暂时作为
+ * 墓碑保留)。REDO 例程从零再生目标页较方便。
+ * 因此 WAL 记录描述了某些其实可直接从
+ * 目标页取得的
+ * 细节。
  *
- * Backup Blk 0: target block being deleted
- * Backup Blk 1: target block's left sibling, if any
- * Backup Blk 2: target block's right sibling
- * Backup Blk 3: leaf block (if different from target)
- * Backup Blk 4: metapage (if rightsib becomes new fast root)
+ * 备份块 0: 正被删除的目标块
+ * 备份块 1: 目标块左兄弟,若有
+ * 备份块 2: 目标块右兄弟
+ * 备份块 3: 叶子块(若异于目标)
+ * 备份块 4: 元页(若右兄弟成新快速根)
  */
 typedef struct xl_btree_unlink_page
 {
-	BlockNumber leftsib;		/* target block's left sibling, if any */
-	BlockNumber rightsib;		/* target block's right sibling */
-	uint32		level;			/* target block's level */
-	FullTransactionId safexid;	/* target block's BTPageSetDeleted() XID */
+	BlockNumber leftsib;		/* 目标块左兄弟,若有 */
+	BlockNumber rightsib;		/* 目标块右兄弟 */
+	uint32		level;			/* 目标块层级 */
+	FullTransactionId safexid;	/* 目标块 BTPageSetDeleted() XID */
 
 	/*
-	 * Information needed to recreate a half-dead leaf page with correct
-	 * topparent link.  The fields are only used when deletion operation's
-	 * target page is an internal page.  REDO routine creates half-dead page
-	 * from scratch to keep things simple (this is the same convenient
-	 * approach used for the target page itself).
+	 * 重建带正确 topparent 链接的半死叶子页
+	 * 所需信息。仅当删除操作的目标页是内部页时
+	 * 才用这些字段。REDO 例程从零创建半死页以
+	 * 保持简单(与目标页本身所用的同一便捷
+	 * 做法)。
 	 */
 	BlockNumber leafleftsib;
 	BlockNumber leafrightsib;
-	BlockNumber leaftopparent;	/* next child down in the subtree */
+	BlockNumber leaftopparent;	/* 子树中下一层子页 */
 
 	/* xl_btree_metadata FOLLOWS IF XLOG_BTREE_UNLINK_PAGE_META */
 } xl_btree_unlink_page;
@@ -331,27 +331,27 @@ typedef struct xl_btree_unlink_page
 #define SizeOfBtreeUnlinkPage	(offsetof(xl_btree_unlink_page, leaftopparent) + sizeof(BlockNumber))
 
 /*
- * New root log record.  There are zero tuples if this is to establish an
- * empty root, or two if it is the result of splitting an old root.
+ * 新根日志记录。若建立空根则元组数为零,
+ * 若是分裂旧根的结果则为两个。
  *
- * Note that although this implies rewriting the metadata page, we don't need
- * an xl_btree_metadata record --- the rootblk and level are sufficient.
+ * 注意虽这意味着改写元数据页,但我们不需要
+ * xl_btree_metadata 记录——rootblk 与 level 已够。
  *
- * Backup Blk 0: new root page (2 tuples as payload, if splitting old root)
- * Backup Blk 1: left child (if splitting an old root)
- * Backup Blk 2: metapage
+ * 备份块 0: 新根页(若分裂旧根则载荷 2 元组)
+ * 备份块 1: 左子页(若分裂旧根)
+ * 备份块 2: 元页
  */
 typedef struct xl_btree_newroot
 {
-	BlockNumber rootblk;		/* location of new root (redundant with blk 0) */
-	uint32		level;			/* its tree level */
+	BlockNumber rootblk;		/* 新根位置(与块 0 重复) */
+	uint32		level;			/* 其树层级 */
 } xl_btree_newroot;
 
 #define SizeOfBtreeNewroot	(offsetof(xl_btree_newroot, level) + sizeof(uint32))
 
 
 /*
- * prototypes for functions in nbtxlog.c
+ * nbtxlog.c 中函数的原型
  */
 extern void btree_redo(XLogReaderState *record);
 extern void btree_xlog_startup(void);
@@ -359,7 +359,7 @@ extern void btree_xlog_cleanup(void);
 extern void btree_mask(char *pagedata, BlockNumber blkno);
 
 /*
- * prototypes for functions in nbtdesc.c
+ * nbtdesc.c 中函数的原型
  */
 extern void btree_desc(StringInfo buf, XLogReaderState *record);
 extern const char *btree_identify(uint8 info);

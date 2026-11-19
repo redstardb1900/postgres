@@ -1,0 +1,58 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0435",
+ "title": "repo 根新增 AGENTS.md agent 工作流规则文件 — batch 0435",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0b2cdb7b6d0dfa32407063bf88ca04152670e013",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "repo 根 agent 规则文件 (Cursor 等自动加载): 工作流铁律/门禁命令/提交规范/审查闭环/下一战役指引; 项目交接配套 (HANDOVER-FINAL-20261119.md 在仓库外 /home/redstar/pg/)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0435-handover.json",
+   "kind": "manifest",
+   "note": "batch-0435 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0435 entry (仅本 manifest); parent_commit 更新披露"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "新文件: agent 自动加载规则; 纯文档无代码注释改动"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0435-handover.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0435 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0435 entry; parent_commit→0b2cdb7b6d0 披露"
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "10680b37f94139c2949f46ad906ff2f4e6803d7b",
+ "parent_commit": "0b2cdb7b6d0dfa32407063bf88ca04152670e013",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7421,6 +7421,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0434-prosedebt.json",
    "kind": "manifest",
    "note": "batch-0434 manifest"
+  },
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "repo 根 agent 规则文件; 项目交接配套"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0435-handover.json",
+   "kind": "manifest",
+   "note": "batch-0435 manifest"
   }
  ],
  "files": [
@@ -24053,6 +24063,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "散文债清偿 51 站: postinit 半译块+桩行族+5 定款+整块 EN 漏译 17 站; scan_halfen 全树 0 findings; 触达文件全部已在册"
+  },
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "repo 根 agent 规则文件; 项目交接配套"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0435-handover.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0435 manifest"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

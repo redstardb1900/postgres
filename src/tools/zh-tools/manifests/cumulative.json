@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "1916031118c4cdcc5393564ea00c5dfc8a08c330",
+ "parent_commit": "cdceb0f9e7135bd653f132d61dcfd323ba4408bf",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7446,6 +7446,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0437-regc-nfa.json",
    "kind": "manifest",
    "note": "batch-0437 manifest"
+  },
+  {
+   "pattern": "src/backend/regex/regcomp.c",
+   "kind": "c_comment",
+   "note": "batch-0438 R2 regcomp 整文件"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0438-regcomp.json",
+   "kind": "manifest",
+   "note": "batch-0438 manifest"
   }
  ],
  "files": [
@@ -24128,6 +24138,26 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0437 manifest; parent_commit 3166aefbc88→1916031118c 更新披露"
+  },
+  {
+   "path": "src/backend/regex/regcomp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 339,
+   "translated": 327,
+   "preserved": 12,
+   "preserved_reasons": ["include banners/FALLTHROUGH/ASCII art/BOL/EOL/REG_DEBUG"],
+   "note": "batch-0438 R2"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0438-regcomp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0438 manifest; parent_commit→cdceb0f9e71 更新披露"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

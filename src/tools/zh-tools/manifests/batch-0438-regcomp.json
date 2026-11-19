@@ -1,0 +1,64 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0438",
+ "title": "regex/regcomp.c 整文件注释翻译（339 块）— batch 0438",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cdceb0f9e7135bd653f132d61dcfd323ba4408bf",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/regex/regcomp.c",
+   "kind": "c_comment",
+   "note": "R2: regcomp 独批"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0438-regcomp.json",
+   "kind": "manifest",
+   "note": "batch-0438 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append batch-0438"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/regex/regcomp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 339,
+   "translated": 327,
+   "preserved": 12,
+   "preserved_reasons": [
+    "include 横幅 === regc_*.c === 保留 EN（7）",
+    "FALLTHROUGH 受保护（1）",
+    "ASCII 骨架图块整段保留 EN 避 halfen MIXED（1）",
+    "文件头 Spencer 版权/许可证行 legal_protected_segments（嵌在已译头块）"
+   ],
+   "note": "主会话清偿 TL25/TL28/TL24 与 halfen 3 处；同 EN 同译 0 分歧"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0438-regcomp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0438 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0438; parent_commit 更新披露"
+  }
+ ],
+ "notes": "batch-0438 R2 regcomp.c。术语沿用 0436。四切片合并 apply。清偿：nfa→NFA；lacons 旁注 LACON；RAINBOW→彩虹；ASCII 骨架块回退 EN；解析宏/hex halfen 压缩。verify 0 viol；term 0 error；halfen 0。"
+}

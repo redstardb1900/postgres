@@ -1,6 +1,6 @@
 /*
- * re_*comp and friends - compile REs
- * This file #includes several others (see the bottom).
+ * re_*comp 诸例程 - 编译 RE。
+ * 本文件 #include 若干其他文件（见底）。
  *
  * Copyright (c) 1998, 1999 Henry Spencer.  All rights reserved.
  *
@@ -35,7 +35,7 @@
 #include "regex/regguts.h"
 
 /*
- * forward declarations, up here so forward datatypes etc. are defined early
+ * 前向声明，放此处以便前向数据类型等尽早定义
  */
 /* === regcomp.c === */
 static void moresubs(struct vars *v, int wanted);
@@ -196,10 +196,10 @@ static void pushfwd(struct nfa *nfa, FILE *f);
 static int	push(struct nfa *nfa, struct arc *con,
 				 struct state **intermediates);
 
-#define INCOMPATIBLE	1		/* destroys arc */
-#define SATISFIED	2			/* constraint satisfied */
-#define COMPATIBLE	3			/* compatible but not satisfied yet */
-#define REPLACEARC	4			/* replace arc's color with constraint color */
+#define INCOMPATIBLE	1		/* 销毁该弧 */
+#define SATISFIED	2			/* 约束已满足 */
+#define COMPATIBLE	3			/* 相容但尚未满足 */
+#define REPLACEARC	4			/* 用约束色替换弧的色 */
 static int	combine(struct nfa *nfa, struct arc *con, struct arc *a);
 static void fixempties(struct nfa *nfa, FILE *f);
 static struct state *emptyreachable(struct nfa *nfa, struct state *s,
@@ -277,96 +277,96 @@ static int	cmp(const chr *x, const chr *y, size_t len);
 static int	casecmp(const chr *x, const chr *y, size_t len);
 
 
-/* internal variables, bundled for easy passing around */
+/* 内部变量，捆在一起便于传递 */
 struct vars
 {
 	regex_t    *re;
-	const chr  *now;			/* scan pointer into string */
-	const chr  *stop;			/* end of string */
-	int			err;			/* error code (0 if none) */
-	int			cflags;			/* copy of compile flags */
-	int			lasttype;		/* type of previous token */
-	int			nexttype;		/* type of next token */
-	chr			nextvalue;		/* value (if any) of next token */
-	int			lexcon;			/* lexical context type (see regc_lex.c) */
-	int			nsubexp;		/* subexpression count */
-	struct subre **subs;		/* subRE pointer vector */
-	size_t		nsubs;			/* length of vector */
-	struct subre *sub10[10];	/* initial vector, enough for most */
-	struct nfa *nfa;			/* the NFA */
-	struct colormap *cm;		/* character color map */
-	color		nlcolor;		/* color of newline */
-	struct state *wordchrs;		/* state in nfa holding word-char outarcs */
-	struct subre *tree;			/* subexpression tree */
-	struct subre *treechain;	/* all tree nodes allocated */
-	struct subre *treefree;		/* any free tree nodes */
-	int			ntree;			/* number of tree nodes, plus one */
-	struct cvec *cv;			/* interface cvec */
-	struct cvec *cv2;			/* utility cvec */
-	struct subre *lacons;		/* lookaround-constraint vector */
-	int			nlacons;		/* size of lacons[]; note that only slots
-								 * numbered 1 .. nlacons-1 are used */
-	size_t		spaceused;		/* approx. space used for compilation */
+	const chr  *now;			/* 串内扫描指针 */
+	const chr  *stop;			/* 字符串末 */
+	int			err;			/* 错误码（无则0） */
+	int			cflags;			/* 编译标志副本 */
+	int			lasttype;		/* 上一记号类型 */
+	int			nexttype;		/* 下一记号类型 */
+	chr			nextvalue;		/* 下一记号值（若有） */
+	int			lexcon;			/* 词法上下文类型(见 regc_lex.c) */
+	int			nsubexp;		/* 子表达式计数 */
+	struct subre **subs;		/* subRE 指针向量 */
+	size_t		nsubs;			/* 向量长度 */
+	struct subre *sub10[10];	/* 初始向量，多数够用 */
+	struct nfa *nfa;			/* 该 NFA */
+	struct colormap *cm;		/* 字符色图 */
+	color		nlcolor;		/* 换行符之色 */
+	struct state *wordchrs;		/* NFA 中持有词字符出弧的状态 */
+	struct subre *tree;			/* 子表达式树 */
+	struct subre *treechain;	/* 已分配全部树节点 */
+	struct subre *treefree;		/* 空闲树节点 */
+	int			ntree;			/* 树节点数加一 */
+	struct cvec *cv;			/* 接口 cvec */
+	struct cvec *cv2;			/* 工具 cvec */
+	struct subre *lacons;		/* 环视约束向量 */
+	int			nlacons;		/* lacons[](LACON)大小；注意仅
+								 * 编号1..nlacons-1的槽在用 */
+	size_t		spaceused;		/* 编译约占用的空间 */
 };
 
-/* parsing macros; most know that `v' is the struct vars pointer */
-#define NEXT()	(next(v))		/* advance by one token */
-#define SEE(t)	(v->nexttype == (t))	/* is next token this? */
-#define EAT(t)	(SEE(t) && next(v)) /* if next is this, swallow it */
-#define VISERR(vv)	((vv)->err != 0)	/* have we seen an error yet? */
+/* 解析宏；多数知 `v' 为 vars 结构指针 */
+#define NEXT()	(next(v))		/* 前进一个记号 */
+#define SEE(t)	(v->nexttype == (t))	/* 下一是此吗？ */
+#define EAT(t)	(SEE(t) && next(v)) /* 若下一是此则吞之 */
+#define VISERR(vv)	((vv)->err != 0)	/* 是否已见错误？ */
 #define ISERR() VISERR(v)
 #define VERR(vv,e)	((vv)->nexttype = EOS, \
 					 (vv)->err = ((vv)->err ? (vv)->err : (e)))
-#define ERR(e)	VERR(v, e)		/* record an error */
-#define NOERR() {if (ISERR()) return;}	/* if error seen, return */
-#define NOERRN()	{if (ISERR()) return NULL;} /* NOERR with retval */
-#define NOERRZ()	{if (ISERR()) return 0;}	/* NOERR with retval */
-#define INSIST(c, e) do { if (!(c)) ERR(e); } while (0) /* error if c false */
-#define NOTE(b) (v->re->re_info |= (b)) /* note visible condition */
+#define ERR(e)	VERR(v, e)		/* 记录错误 */
+#define NOERR() {if (ISERR()) return;}	/* 若已见错则返回 */
+#define NOERRN()	{if (ISERR()) return NULL;} /* NOERR+返回值 */
+#define NOERRZ()	{if (ISERR()) return 0;}	/* NOERR+返回值 */
+#define INSIST(c, e) do { if (!(c)) ERR(e); } while (0) /* c 假则报错 */
+#define NOTE(b) (v->re->re_info |= (b)) /* 记下可见条件 */
 #define EMPTYARC(x, y)	newarc(v->nfa, EMPTY, 0, x, y)
 
-/* token type codes, some also used as NFA arc types */
-#define EMPTY	'n'				/* no token present */
-#define EOS 'e'					/* end of string */
-#define PLAIN	'p'				/* ordinary character */
-#define DIGIT	'd'				/* digit (in bound) */
-#define BACKREF 'b'				/* back reference */
-#define COLLEL	'I'				/* start of [. */
-#define ECLASS	'E'				/* start of [= */
-#define CCLASS	'C'				/* start of [: */
-#define END 'X'					/* end of [. [= [: */
-#define CCLASSS	's'				/* char class shorthand escape */
-#define CCLASSC	'c'				/* complement char class shorthand escape */
-#define RANGE	'R'				/* - within [] which might be range delim. */
-#define LACON	'L'				/* lookaround constraint subRE */
-#define AHEAD	'a'				/* color-lookahead arc */
-#define BEHIND	'r'				/* color-lookbehind arc */
-#define WBDRY	'w'				/* word boundary constraint */
-#define NWBDRY	'W'				/* non-word-boundary constraint */
-#define CANTMATCH 'x'			/* arc that cannot match anything */
-#define SBEGIN	'A'				/* beginning of string (even if not BOL) */
-#define SEND	'Z'				/* end of string (even if not EOL) */
+/* 记号类型码，有的亦作 NFA 弧类型 */
+#define EMPTY	'n'				/* 当前无记号 */
+#define EOS 'e'					/* 字符串末 */
+#define PLAIN	'p'				/* 普通字符 */
+#define DIGIT	'd'				/* 界内数字 */
+#define BACKREF 'b'				/* 反向引用 */
+#define COLLEL	'I'				/* [. 之始 */
+#define ECLASS	'E'				/* [= 之始 */
+#define CCLASS	'C'				/* [: 之始 */
+#define END 'X'					/* [.[=[: 之末 */
+#define CCLASSS	's'				/* 字符类速记转义 */
+#define CCLASSC	'c'				/* 补字符类速记转义 */
+#define RANGE	'R'				/* [] 内可能作范围界的 - */
+#define LACON	'L'				/* 环视约束 subRE */
+#define AHEAD	'a'				/* 色前瞻弧 */
+#define BEHIND	'r'				/* 色后顾弧 */
+#define WBDRY	'w'				/* 词边界约束 */
+#define NWBDRY	'W'				/* 非词边界约束 */
+#define CANTMATCH 'x'			/* 无法匹配任何内容的弧 */
+#define SBEGIN	'A'				/* 字符串始（即使非 BOL） */
+#define SEND	'Z'				/* 字符串末（即使非 EOL） */
 
-/* is an arc colored, and hence should belong to a color chain? */
-/* the test on "co" eliminates RAINBOW arcs, which we don't bother to chain */
+/* 弧是否已着色，因而应属于某色链？ */
+/* 对 "co" 的检测排除彩虹弧，我们不费心将其入链 */
 #define COLORED(a) \
 	((a)->co >= 0 && \
 	 ((a)->type == PLAIN || (a)->type == AHEAD || (a)->type == BEHIND))
 
 
-/* static function list */
+/* 静态函数列表 */
 static const struct fns functions = {
-	rfree,						/* regfree insides */
-	rstacktoodeep				/* check for stack getting dangerously deep */
+	rfree,						/* regfree 内部 */
+	rstacktoodeep				/* 检查栈是否危险地过深 */
 };
 
 
 
 /*
- * pg_regcomp - compile regular expression
+ * pg_regcomp - 编译正则表达式
  *
- * Note: on failure, no resources remain allocated, so pg_regfree()
- * need not be applied to re.
+ * 注意：失败时不再占用资源，故 pg_regfree()
+ * 无需再作用于 re。
  */
 int
 pg_regcomp(regex_t *re,
@@ -389,7 +389,7 @@ pg_regcomp(regex_t *re,
 
 #define  CNOERR()	 { if (ISERR()) return freev(v, v->err); }
 
-	/* sanity checks */
+	/* 健全检查 */
 
 	if (re == NULL || string == NULL)
 		return REG_INVARG;
@@ -399,10 +399,10 @@ pg_regcomp(regex_t *re,
 	if (!(flags & REG_EXTENDED) && (flags & REG_ADVF))
 		return REG_INVARG;
 
-	/* Initialize locale-dependent support */
+	/* 初始化区域设置相关支持 */
 	pg_set_regex_collation(collation);
 
-	/* initial setup (after which freev() is callable) */
+	/* 初始设置（之后可调用 freev()） */
 	v->re = re;
 	v->now = string;
 	v->stop = v->now + len;
@@ -426,13 +426,13 @@ pg_regcomp(regex_t *re,
 	v->nlacons = 0;
 	v->spaceused = 0;
 	re->re_magic = REMAGIC;
-	re->re_info = 0;			/* bits get set during parse */
+	re->re_info = 0;			/* 解析期间置位各位 */
 	re->re_csize = sizeof(chr);
 	re->re_collation = collation;
 	re->re_guts = NULL;
 	re->re_fns = VS(&functions);
 
-	/* more complex setup, malloced things */
+	/* 更复杂的设置，须 malloc 者 */
 	re->re_guts = VS(MALLOC(sizeof(struct guts)));
 	if (re->re_guts == NULL)
 		return freev(v, REG_ESPACE);
@@ -445,26 +445,26 @@ pg_regcomp(regex_t *re,
 	ZAPCNFA(g->search);
 	v->nfa = newnfa(v, v->cm, (struct nfa *) NULL);
 	CNOERR();
-	/* set up a reasonably-sized transient cvec for getcvec usage */
+	/* 为 getcvec 建合理大小的暂态 cvec */
 	v->cv = newcvec(100, 20);
 	if (v->cv == NULL)
 		return freev(v, REG_ESPACE);
 
-	/* parsing */
-	lexstart(v);				/* also handles prefixes */
+	/* 解析 */
+	lexstart(v);				/* 也处理前缀 */
 	if ((v->cflags & REG_NLSTOP) || (v->cflags & REG_NLANCH))
 	{
-		/* assign newline a unique color */
+		/* 给换行符分配唯一色 */
 		v->nlcolor = subcolor(v->cm, newline());
 		okcolors(v->nfa, v->cm);
 	}
 	CNOERR();
 	v->tree = parse(v, EOS, PLAIN, v->nfa->init, v->nfa->final);
-	assert(SEE(EOS));			/* even if error; ISERR() => SEE(EOS) */
+	assert(SEE(EOS));			/* 即使出错；ISERR() => SEE(EOS) */
 	CNOERR();
 	assert(v->tree != NULL);
 
-	/* finish setup of nfa and its subre tree */
+	/* 完成 NFA 及其 subre 树设置 */
 	specialcolors(v->nfa);
 	CNOERR();
 #ifdef REG_DEBUG
@@ -488,7 +488,7 @@ pg_regcomp(regex_t *re,
 	}
 #endif
 
-	/* build compacted NFAs for tree and lacons */
+	/* 为树与 lacons(LACON) 建紧凑 NFA */
 	re->re_info |= nfatree(v, v->tree, debug);
 	CNOERR();
 	assert(v->nlacons == 0 || v->lacons != NULL);
@@ -501,19 +501,19 @@ pg_regcomp(regex_t *re,
 			fprintf(debug, "\n\n\n========= LA%d ==========\n", i);
 #endif
 
-		/* Prepend .* to pattern if it's a lookbehind LACON */
+		/* 若是后顾 LACON 则在模式前加 .* */
 		nfanode(v, lasub, !LATYPE_IS_AHEAD(lasub->latype), debug);
 	}
 	CNOERR();
 	if (v->tree->flags & SHORTER)
 		NOTE(REG_USHORTEST);
 
-	/* build compacted NFAs for tree, lacons, fast search */
+	/* 为树、lacons(LACON)、快搜建紧凑 NFA */
 #ifdef REG_DEBUG
 	if (debug != NULL)
 		fprintf(debug, "\n\n\n========= SEARCH ==========\n");
 #endif
-	/* can sacrifice main NFA now, so use it as work area */
+	/* 主 NFA 现可牺牲，故用作工作区 */
 	(DISCARD) optimize(v->nfa, debug);
 	CNOERR();
 	makesearch(v, v->nfa);
@@ -521,9 +521,9 @@ pg_regcomp(regex_t *re,
 	compact(v->nfa, &g->search);
 	CNOERR();
 
-	/* looks okay, package it up */
+	/* 无误，打包收工 */
 	re->re_nsub = v->nsubexp;
-	v->re = NULL;				/* freev no longer frees re */
+	v->re = NULL;				/* freev 不再释放 re */
 	g->magic = GUTSMAGIC;
 	g->cflags = v->cflags;
 	g->info = re->re_info;
@@ -549,11 +549,11 @@ pg_regcomp(regex_t *re,
 }
 
 /*
- * moresubs - enlarge subRE vector
+ * moresubs - 扩大 subRE 向量
  */
 static void
 moresubs(struct vars *v,
-		 int wanted)			/* want enough room for this one */
+		 int wanted)			/* 要为这一项留足空间 */
 {
 	struct subre **p;
 	size_t		n;
@@ -583,10 +583,10 @@ moresubs(struct vars *v,
 }
 
 /*
- * freev - free vars struct's substructures where necessary
+ * freev - 必要时释放 vars 结构的子结构
  *
- * Optionally does error-number setting, and always returns error code
- * (if any), to make error-handling code terser.
+ * 可选地设置错误号，并始终返回错误码
+ * 有则返回，使错误处理代码更简。
  */
 static int
 freev(struct vars *v,
@@ -608,14 +608,14 @@ freev(struct vars *v,
 		freecvec(v->cv2);
 	if (v->lacons != NULL)
 		freelacons(v->lacons, v->nlacons);
-	ERR(err);					/* nop if err==0 */
+	ERR(err);					/* err==0则nop */
 
 	return v->err;
 }
 
 /*
- * makesearch - turn an NFA into a search NFA (implicit prepend of .*?)
- * NFA must have been optimize()d already.
+ * makesearch - 把 NFA 变为搜索 NFA（隐式前置 .*?）
+ * NFA 须已先经 optimize()
  */
 static void
 makesearch(struct vars *v,
@@ -628,7 +628,7 @@ makesearch(struct vars *v,
 	struct state *s2;
 	struct state *slist;
 
-	/* no loops are needed if it's anchored */
+	/* 若已锚定则无需任何环 */
 	for (a = pre->outs; a != NULL; a = a->outchain)
 	{
 		assert(a->type == PLAIN);
@@ -637,31 +637,31 @@ makesearch(struct vars *v,
 	}
 	if (a != NULL)
 	{
-		/* add implicit .* in front */
+		/* 在前面加隐式 .* */
 		rainbow(nfa, v->cm, PLAIN, COLORLESS, pre, pre);
 
-		/* and ^* and \A* too -- not always necessary, but harmless */
+		/* 以及 ^* 与 \A*——未必总需要，但无害 */
 		newarc(nfa, PLAIN, nfa->bos[0], pre, pre);
 		newarc(nfa, PLAIN, nfa->bos[1], pre, pre);
 
 		/*
-		 * The pattern is still MATCHALL if it was before, but the max match
-		 * length is now infinity.
+		 * 若原先是 MATCHALL 则仍是，但最大匹配
+		 * 长度现为无穷。
 		 */
 		if (nfa->flags & MATCHALL)
 			nfa->maxmatchall = DUPINF;
 	}
 
 	/*
-	 * Now here's the subtle part.  Because many REs have no lookback
-	 * constraints, often knowing when you were in the pre state tells you
-	 * little; it's the next state(s) that are informative.  But some of them
-	 * may have other inarcs, i.e. it may be possible to make actual progress
-	 * and then return to one of them.  We must de-optimize such cases,
-	 * splitting each such state into progress and no-progress states.
+	 * 此处微妙。因许多 RE 没有后顾
+	 * 约束，常知身在 pre 态也几乎无信息；
+	 * 有信息的是下一状态。但其中有些
+	 * 可能另有入弧，即或可先真正推进
+	 * 再回到其中之一。对此须去优化，
+	 * 把每态拆成有推进与无推进两态。
 	 */
 
-	/* first, make a list of the states reachable from pre and elsewhere */
+	/* 先列出既从 pre 可达又从别处可达的状态 */
 	slist = NULL;
 	for (a = pre->outs; a != NULL; a = a->outchain)
 	{
@@ -673,10 +673,10 @@ makesearch(struct vars *v,
 		}
 
 		/*
-		 * We want to mark states as being in the list already by having non
-		 * NULL tmp fields, but we can't just store the old slist value in tmp
-		 * because that doesn't work for the first such state.  Instead, the
-		 * first list entry gets its own address in tmp.
+		 * 要用非 NULL 的 tmp 标出已在表中的状态，
+		 * 但无法把旧 slist 值直接存进 tmp，
+		 * 因对第一个这样的状态行不通。改为
+		 * 首个表项的 tmp 存其自身地址。
 		 */
 		if (b != NULL && s->tmp == NULL)
 		{
@@ -685,7 +685,7 @@ makesearch(struct vars *v,
 		}
 	}
 
-	/* do the splits */
+	/* 执行拆分 */
 	for (s = slist; s != NULL; s = s2)
 	{
 		s2 = newstate(nfa);
@@ -702,26 +702,26 @@ makesearch(struct vars *v,
 			}
 		}
 		s2 = (s->tmp != s) ? s->tmp : NULL;
-		s->tmp = NULL;			/* clean up while we're at it */
+		s->tmp = NULL;			/* 顺手一并清理 */
 	}
 }
 
 /*
- * parse - parse an RE
+ * parse - 解析 RE
  *
- * This is actually just the top level, which parses a bunch of branches
- * tied together with '|'.  If there's more than one, they appear in the
- * tree as the children of a '|' subre.
+ * 其实只是顶层：解析若干用 '|' 连起的
+ * 分支。若多于一条，它们在树中作为
+ * 一个 '|' subre 的子节点。
  */
 static struct subre *
 parse(struct vars *v,
-	  int stopper,				/* EOS or ')' */
-	  int type,					/* LACON (lookaround subRE) or PLAIN */
-	  struct state *init,		/* initial state */
-	  struct state *final)		/* final state */
+	  int stopper,				/* EOS或')' */
+	  int type,					/* LACON(环视subRE)或PLAIN */
+	  struct state *init,		/* 初始状态 */
+	  struct state *final)		/* 终态 */
 {
-	struct subre *branches;		/* top level */
-	struct subre *lastbranch;	/* latest branch */
+	struct subre *branches;		/* 顶层 */
+	struct subre *lastbranch;	/* 最近分支 */
 
 	assert(stopper == ')' || stopper == EOS);
 
@@ -729,9 +729,9 @@ parse(struct vars *v,
 	NOERRN();
 	lastbranch = NULL;
 	do
-	{							/* a branch */
+	{							/* 分支 */
 		struct subre *branch;
-		struct state *left;		/* scaffolding for branch */
+		struct state *left;		/* 分支用脚手架 */
 		struct state *right;
 
 		left = newstate(v->nfa);
@@ -757,15 +757,15 @@ parse(struct vars *v,
 		ERR(REG_EPAREN);
 	}
 
-	/* optimize out simple cases */
+	/* 优化掉简单情形 */
 	if (lastbranch == branches->child)
-	{							/* only one branch */
+	{							/* 仅一条分支 */
 		assert(lastbranch->sibling == NULL);
 		freesrnode(v, branches);
 		branches = lastbranch;
 	}
 	else if (!MESSY(branches->flags))
-	{							/* no interesting innards */
+	{							/* 无有趣内核 */
 		freesubreandsiblings(v, branches->child);
 		branches->child = NULL;
 		branches->op = '=';
@@ -775,45 +775,45 @@ parse(struct vars *v,
 }
 
 /*
- * parsebranch - parse one branch of an RE
+ * parsebranch - 解析 RE 的一条分支
  *
- * This mostly manages concatenation, working closely with parseqatom().
- * Concatenated things are bundled up as much as possible, with separate
- * '.' nodes introduced only when necessary due to substructure.
+ * 主要管拼接，并与 parseqatom() 紧密配合。
+ * 拼接物尽量打成一捆，仅当因有子结构而
+ * 必须时才另引入 '.' 节点。
  */
 static struct subre *
 parsebranch(struct vars *v,
-			int stopper,		/* EOS or ')' */
-			int type,			/* LACON (lookaround subRE) or PLAIN */
-			struct state *left, /* leftmost state */
-			struct state *right,	/* rightmost state */
-			int partial)		/* is this only part of a branch? */
+			int stopper,		/* EOS或')' */
+			int type,			/* LACON(环视subRE)或PLAIN */
+			struct state *left, /* 最左状态 */
+			struct state *right,	/* 最右状态 */
+			int partial)		/* 是否只是分支的部分？ */
 {
-	struct state *lp;			/* left end of current construct */
-	int			seencontent;	/* is there anything in this branch yet? */
+	struct state *lp;			/* 当前构造的左端 */
+	int			seencontent;	/* 本分支里是否已有内容？ */
 	struct subre *t;
 
 	lp = left;
 	seencontent = 0;
-	t = subre(v, '=', 0, left, right);	/* op '=' is tentative */
+	t = subre(v, '=', 0, left, right);	/* op '=' 暂定 */
 	NOERRN();
 	while (!SEE('|') && !SEE(stopper) && !SEE(EOS))
 	{
 		if (seencontent)
-		{						/* implicit concat operator */
+		{						/* 隐式拼接运算符 */
 			lp = newstate(v->nfa);
 			NOERRN();
 			moveins(v->nfa, right, lp);
 		}
 		seencontent = 1;
 
-		/* NB, recursion in parseqatom() may swallow rest of branch */
+		/* 注意：parseqatom() 递归或会吞掉余下分支 */
 		t = parseqatom(v, stopper, type, lp, right, t);
 		NOERRN();
 	}
 
 	if (!seencontent)
-	{							/* empty branch */
+	{							/* 空分支 */
 		if (!partial)
 			NOTE(REG_UUNSPEC);
 		assert(lp == left);
@@ -824,51 +824,51 @@ parsebranch(struct vars *v,
 }
 
 /*
- * parseqatom - parse one quantified atom or constraint of an RE
+ * parseqatom - 解析 RE 的量化原子或约束
  *
- * The bookkeeping near the end cooperates very closely with parsebranch();
- * in particular, it contains a recursion that can involve parsing the rest
- * of the branch, making this function's name somewhat inaccurate.
+ * 末段簿记与 parsebranch() 配合极紧；
+ * 尤其内含可继续解析余下分支的递归，
+ * 使本函数名略有名不副实。
  *
- * Usually, the return value is just "top", but in some cases where we
- * have parsed the rest of the branch, we may deem "top" redundant and
- * free it, returning some child subre instead.
+ * 通常返回值就是 "top"，但有时在已
+ * 解析完余下分支后，会视 "top" 为多余并
+ * 释放它，改返回某个子 subre。
  */
 static struct subre *
 parseqatom(struct vars *v,
-		   int stopper,			/* EOS or ')' */
-		   int type,			/* LACON (lookaround subRE) or PLAIN */
-		   struct state *lp,	/* left state to hang it on */
-		   struct state *rp,	/* right state to hang it on */
-		   struct subre *top)	/* subtree top */
+		   int stopper,			/* EOS或')' */
+		   int type,			/* LACON(环视subRE)或PLAIN */
+		   struct state *lp,	/* 挂接用的左状态 */
+		   struct state *rp,	/* 挂接用的右状态 */
+		   struct subre *top)	/* 子树顶 */
 {
-	struct state *s;			/* temporaries for new states */
+	struct state *s;			/* 新状态用的临时量 */
 	struct state *s2;
 
 #define  ARCV(t, val)	 newarc(v->nfa, t, val, lp, rp)
 	int			m,
 				n;
-	struct subre *atom;			/* atom's subtree */
+	struct subre *atom;			/* 原子子树 */
 	struct subre *t;
-	int			cap;			/* capturing parens? */
-	int			latype;			/* lookaround constraint type */
-	int			subno;			/* capturing-parens or backref number */
+	int			cap;			/* 捕获括号？ */
+	int			latype;			/* 环视约束类型 */
+	int			subno;			/* 捕获括号或反向引用编号 */
 	int			atomtype;
-	int			qprefer;		/* quantifier short/long preference */
+	int			qprefer;		/* 量词偏短/偏长偏好 */
 	int			f;
-	struct subre **atomp;		/* where the pointer to atom is */
+	struct subre **atomp;		/* atom 指针所在处 */
 
-	/* initial bookkeeping */
+	/* 初始簿记 */
 	atom = NULL;
-	assert(lp->nouts == 0);		/* must string new code */
-	assert(rp->nins == 0);		/* between lp and rp */
-	subno = 0;					/* just to shut lint up */
+	assert(lp->nouts == 0);		/* 须串接新代码 */
+	assert(rp->nins == 0);		/* 介于 lp 与 rp */
+	subno = 0;					/* 仅求安抚 lint */
 
-	/* an atom or constraint... */
+	/* 原子或约束…… */
 	atomtype = v->nexttype;
 	switch (atomtype)
 	{
-			/* first, constraints, which end by returning */
+			/* 先处理约束，它们以 return 结束 */
 		case '^':
 			ARCV('^', 1);
 			if (v->cflags & REG_NLANCH)
@@ -885,13 +885,13 @@ parseqatom(struct vars *v,
 			break;
 		case SBEGIN:
 			ARCV('^', 1);		/* BOL */
-			ARCV('^', 0);		/* or BOS */
+			ARCV('^', 0);		/* 或BOS */
 			NEXT();
 			return top;
 			break;
 		case SEND:
 			ARCV('$', 1);		/* EOL */
-			ARCV('$', 0);		/* or EOS */
+			ARCV('$', 0);		/* 或EOS */
 			NEXT();
 			return top;
 			break;
@@ -939,21 +939,21 @@ parseqatom(struct vars *v,
 			NEXT();
 			return top;
 			break;
-		case LACON:				/* lookaround constraint */
+		case LACON:				/* 环视约束 */
 			latype = v->nextvalue;
 			NEXT();
 			s = newstate(v->nfa);
 			s2 = newstate(v->nfa);
 			NOERRN();
 			t = parse(v, ')', LACON, s, s2);
-			freesubre(v, t);	/* internal structure irrelevant */
+			freesubre(v, t);	/* 内部结构无关紧要 */
 			NOERRN();
 			assert(SEE(')'));
 			NEXT();
 			processlacon(v, s, s2, latype, lp, rp);
 			return top;
 			break;
-			/* then errors, to get them out of the way */
+			/* 再处理错误，好先清出场 */
 		case '*':
 		case '+':
 		case '?':
@@ -965,16 +965,16 @@ parseqatom(struct vars *v,
 			ERR(REG_ASSERT);
 			return top;
 			break;
-			/* then plain characters, and minor variants on that theme */
-		case ')':				/* unbalanced paren */
+			/* 再是普通字符，及其轻微变体 */
+		case ')':				/* 括号不配 */
 			if ((v->cflags & REG_ADVANCED) != REG_EXTENDED)
 			{
 				ERR(REG_EPAREN);
 				return top;
 			}
-			/* legal in EREs due to specification botch */
+			/* 因规范疏漏，在 ERE 中合法 */
 			NOTE(REG_UPBOTCH);
-			/* fall through into case PLAIN */
+			/* 落入 case PLAIN */
 			/* FALLTHROUGH */
 		case PLAIN:
 			onechr(v, v->nextvalue, lp, rp);
@@ -997,7 +997,7 @@ parseqatom(struct vars *v,
 			break;
 		case CCLASSC:
 			charclasscomplement(v, (enum char_classes) v->nextvalue, lp, rp);
-			/* charclasscomplement() did okcolors() internally */
+			/* charclasscomplement() 内部已调 okcolors() */
 			NEXT();
 			break;
 		case '.':
@@ -1006,8 +1006,8 @@ parseqatom(struct vars *v,
 					lp, rp);
 			NEXT();
 			break;
-			/* and finally the ugly stuff */
-		case '(':				/* value flags as capturing or non */
+			/* 最后是难缠的部分 */
+		case '(':				/* value 标志捕获或非捕获 */
 			cap = (type == LACON) ? 0 : v->nextvalue;
 			if (cap)
 			{
@@ -1017,23 +1017,23 @@ parseqatom(struct vars *v,
 					moresubs(v, subno);
 			}
 			else
-				atomtype = PLAIN;	/* something that's not '(' */
+				atomtype = PLAIN;	/* 不是 '(' 的东西 */
 			NEXT();
 
 			/*
-			 * Make separate endpoint states to keep this sub-NFA distinct
-			 * from what surrounds it.  We need to be sure that when we
-			 * duplicate the sub-NFA for a backref, we get the right
-			 * states/arcs and no others.  In particular, letting a backref
-			 * duplicate the sub-NFA from lp to rp would be quite wrong,
-			 * because we may add quantification superstructure around this
-			 * atom below.  (Perhaps we could skip the extra states for
-			 * non-capturing parens, but it seems not worth the trouble.)
+			 * 另建端点状态，使此子 NFA 有别于
+			 * 周围部分。须确保为反向引用复制
+			 * 子 NFA 时只得到正确的状态/弧，
+			 * 别无其它。尤其，若让反向引用从
+			 * lp 到 rp 复制子 NFA 会大错特错，
+			 * 因下文或会在此原子外再加量化
+			 * 上层结构。或许非捕获括号可省
+			 * 这些额外状态，但似乎不值得费事。
 			 */
 			s = newstate(v->nfa);
 			s2 = newstate(v->nfa);
 			NOERRN();
-			/* We may not need these arcs, but keep things connected for now */
+			/* 这些弧未必需要，但暂保持连通 */
 			EMPTYARC(lp, s);
 			EMPTYARC(s2, rp);
 			NOERRN();
@@ -1045,13 +1045,13 @@ parseqatom(struct vars *v,
 			{
 				if (atom->capno == 0)
 				{
-					/* normal case: just mark the atom as capturing */
+					/* 常态：仅把该原子标为捕获 */
 					atom->flags |= CAP;
 					atom->capno = subno;
 				}
 				else
 				{
-					/* generate no-op wrapper node to handle "((x))" */
+					/* 生成无操作包装节点以处理 "((x))" */
 					t = subre(v, '(', atom->flags | CAP, s, s2);
 					NOERRN();
 					t->capno = subno;
@@ -1061,9 +1061,9 @@ parseqatom(struct vars *v,
 				assert(v->subs[subno] == NULL);
 				v->subs[subno] = atom;
 			}
-			/* postpone everything else pending possible {0} */
+			/* 推迟其余一切，以应对可能的 {0} */
 			break;
-		case BACKREF:			/* the Feature From The Black Lagoon */
+		case BACKREF:			/* 黑湖来客式特性 */
 			INSIST(type != LACON, REG_ESUBREG);
 			subno = v->nextvalue;
 			assert(subno > 0);
@@ -1075,12 +1075,12 @@ parseqatom(struct vars *v,
 			NOERRN();
 			atom->backno = subno;
 			v->subs[subno]->flags |= BRUSE;
-			EMPTYARC(lp, rp);	/* temporarily, so there's something */
+			EMPTYARC(lp, rp);	/* 临时的，好有个着落 */
 			NEXT();
 			break;
 	}
 
-	/* ...and an atom may be followed by a quantifier */
+	/* 以及原子后还可跟量词 */
 	switch (v->nexttype)
 	{
 		case '*':
@@ -1115,35 +1115,35 @@ parseqatom(struct vars *v,
 					ERR(REG_BADBR);
 					return top;
 				}
-				/* {m,n} exercises preference, even if it's {m,m} */
+				/* {m,n} 会动用偏好，即便是 {m,m} */
 				qprefer = (v->nextvalue) ? LONGER : SHORTER;
 			}
 			else
 			{
 				n = m;
-				/* {m} passes operand's preference through */
+				/* {m} 把操作数的偏好原样传出 */
 				qprefer = 0;
 			}
 			if (!SEE('}'))
-			{					/* catches errors too */
+			{					/* 也拦住错误 */
 				ERR(REG_BADBR);
 				return top;
 			}
 			NEXT();
 			break;
-		default:				/* no quantifier */
+		default:				/* 无量词 */
 			m = n = 1;
 			qprefer = 0;
 			break;
 	}
 
-	/* annoying special case:  {0} or {0,0} cancels everything */
+	/* 讨厌特判：{0} 或 {0,0} 取消一切 */
 	if (m == 0 && n == 0)
 	{
 		/*
-		 * If we had capturing subexpression(s) within the atom, we don't want
-		 * to destroy them, because it's legal (if useless) to back-ref them
-		 * later.  Hence, just unlink the atom from lp/rp and then ignore it.
+		 * 若原子内有捕获子表达式，我们不想
+		 * 毁掉它们，因对其反向引用合法（虽无用）。
+		 * 故只把原子从 lp/rp 解链，然后忽略。
 		 */
 		if (atom != NULL && (atom->flags & CAP))
 		{
@@ -1152,7 +1152,7 @@ parseqatom(struct vars *v,
 		}
 		else
 		{
-			/* Otherwise, we can clean up any subre infrastructure we made */
+			/* 否则可清掉我们建的任何 subre 设施 */
 			if (atom != NULL)
 				freesubre(v, atom);
 			delsub(v->nfa, lp, rp);
@@ -1161,7 +1161,7 @@ parseqatom(struct vars *v,
 		return top;
 	}
 
-	/* if not a messy case, avoid hard part */
+	/* 若非棘手情形，可避开难段 */
 	assert(!MESSY(top->flags));
 	f = top->flags | qprefer | ((atom != NULL) ? atom->flags : 0);
 	if (atomtype != '(' && atomtype != BACKREF && !MESSY(UP(f)))
@@ -1175,13 +1175,13 @@ parseqatom(struct vars *v,
 	}
 
 	/*
-	 * hard part:  something messy
+	 * 难段：有棘手之处
 	 *
-	 * That is, capturing parens, back reference, short/long clash, or an atom
-	 * with substructure containing one of those.
+	 * 即捕获括号、反向引用、短/长冲突，或原子
+	 * 的子结构含上述之一。
 	 */
 
-	/* now we'll need a subre for the contents even if they're boring */
+	/* 即使内容平淡，现也需为其建 subre */
 	if (atom == NULL)
 	{
 		atom = subre(v, '=', 0, lp, rp);
@@ -1189,11 +1189,11 @@ parseqatom(struct vars *v,
 	}
 
 	/*
-	 * For what follows, we need the atom to have its own begin/end states
-	 * that are distinct from lp/rp, so that we can wrap iteration structure
-	 * around it.  The parenthesized-atom case above already made suitable
-	 * states (and we don't want to modify a capturing subre, since it's
-	 * already recorded in v->subs[]).  Otherwise, we need more states.
+	 * 此后需要原子自有 begin/end 状态，
+	 * 且与 lp/rp 相异，以便在其外裹上迭代结构。
+	 * 上方括号原子情形已造出合用状态，
+	 * 且不想改捕获 subre，因其已记入
+	 * v->subs[]。否则还需更多状态。
 	 */
 	if (atom->begin == lp || atom->end == rp)
 	{
@@ -1207,8 +1207,8 @@ parseqatom(struct vars *v,
 	}
 	else
 	{
-		/* The atom's OK, but we must temporarily disconnect it from lp/rp */
-		/* (this removes the EMPTY arcs we made above) */
+		/* 原子没问题，但须暂时把它与 lp/rp 断开 */
+		/* 去掉上面造的 EMPTY 弧 */
 		delsub(v->nfa, lp, atom->begin);
 		delsub(v->nfa, atom->end, rp);
 	}
@@ -1230,72 +1230,72 @@ parseqatom(struct vars *v,
 	 * We make the s state here for both cases; s2 is made below if needed
 	 *----------
 	 */
-	s = newstate(v->nfa);		/* set up starting state */
+	s = newstate(v->nfa);		/* 建立起始状态 */
 	NOERRN();
 	EMPTYARC(lp, s);
 	NOERRN();
 
-	/* break remaining subRE into x{...} and what follows */
+	/* 把剩余 subRE 拆成 x{...} 与其后内容 */
 	t = subre(v, '.', COMBINE(qprefer, atom->flags), lp, rp);
 	NOERRN();
 	t->child = atom;
 	atomp = &t->child;
 
 	/*
-	 * Here we should recurse to fill t->child->sibling ... but we must
-	 * postpone that to the end.  One reason is that t->child may be replaced
-	 * below, and we don't want to worry about its sibling link.
+	 * 此处本应递归填 t->child->sibling ……但须
+	 * 推迟到末尾。一因 t->child 下方可能被替换，
+	 * 我们不想操心其 sibling 链。
 	 */
 
 	/*
-	 * Convert top node to a concatenation of the prefix (top->child, covering
-	 * whatever we parsed previously) and remaining (t).  Note that the prefix
-	 * could be empty, in which case this concatenation node is unnecessary.
-	 * To keep things simple, we operate in a general way for now, and get rid
-	 * of unnecessary subres below.
+	 * 把 top 节点改成前缀（top->child，涵盖此前已
+	 * 解析部分）与剩余 (t) 的拼接。注意前缀可能为空，
+	 * 此时该拼接节点并不必要。为保持简单，现先
+	 * 按通用方式操作，稍后去掉不必要的
+	 * subre。
 	 */
 	assert(top->op == '=' && top->child == NULL);
 	top->child = subre(v, '=', top->flags, top->begin, lp);
 	NOERRN();
 	top->op = '.';
 	top->child->sibling = t;
-	/* top->flags will get updated later */
+	/* top->flags 稍后会更新 */
 
-	/* if it's a backref, now is the time to replicate the subNFA */
+	/* 若是反向引用，现在该复制 subNFA 了 */
 	if (atomtype == BACKREF)
 	{
-		assert(atom->begin->nouts == 1);	/* just the EMPTY */
+		assert(atom->begin->nouts == 1);	/* 仅 EMPTY */
 		delsub(v->nfa, atom->begin, atom->end);
 		assert(v->subs[subno] != NULL);
 
 		/*
-		 * And here's why the recursion got postponed: it must wait until the
-		 * skeleton is filled in, because it may hit a backref that wants to
-		 * copy the filled-in skeleton.
+		 * 而这正是推迟递归的原因：须等骨架填好，
+		 * 因其可能碰到想复制已填好骨架的
+		 * 反向引用。
 		 */
 		dupnfa(v->nfa, v->subs[subno]->begin, v->subs[subno]->end,
 			   atom->begin, atom->end);
 		NOERRN();
 
-		/* The backref node's NFA should not enforce any constraints */
+		/* 反向引用节点的 NFA 不应施加任何约束 */
 		removeconstraints(v->nfa, atom->begin, atom->end);
 		NOERRN();
 	}
 
 	/*
-	 * It's quantifier time.  If the atom is just a backref, we'll let it deal
-	 * with quantifiers internally.
+	 * 轮到量词了。若原子只是反向引用，就让它自行
+	 * 内部处理量词。
 	 */
 	if (atomtype == BACKREF)
 	{
-		/* special case:  backrefs have internal quantifiers */
-		EMPTYARC(s, atom->begin);	/* empty prefix */
-		/* just stuff everything into atom */
+		/* 特判：反向引用有内部量词 */
+		EMPTYARC(s, atom->begin);	/* 空前缀 */
+		/* 把一切都塞进 atom */
 		repeat(v, atom->begin, atom->end, m, n);
 		atom->min = (short) m;
 		atom->max = (short) n;
 		atom->flags |= COMBINE(qprefer, atom->flags);
-		/* rest of branch can be strung starting from atom->end */
+		/* 分支其余可自 atom->end 起串接 */
 		s2 = atom->end;
 	}
 	else if (m == 1 && n == 1 &&
@@ -1303,54 +1303,54 @@ parseqatom(struct vars *v,
 			  (atom->flags & (LONGER | SHORTER | MIXED)) == 0 ||
 			  qprefer == (atom->flags & (LONGER | SHORTER | MIXED))))
 	{
-		/* no/vacuous quantifier:  done */
-		EMPTYARC(s, atom->begin);	/* empty prefix */
-		/* rest of branch can be strung starting from atom->end */
+		/* 无/空洞量词：完成 */
+		EMPTYARC(s, atom->begin);	/* 空前缀 */
+		/* 分支其余可自 atom->end 起串接 */
 		s2 = atom->end;
 	}
 	else if (!(atom->flags & (CAP | BACKR)))
 	{
 		/*
-		 * If there's no captures nor backrefs in the atom being repeated, we
-		 * don't really care where the submatches of the iteration are, so we
-		 * don't need an iteration node.  Make a plain DFA node instead.
+		 * 若被重复的原子内无捕获也无反向引用，我们
+		 * 并不真正关心迭代的子匹配落在何处，故不
+		 * 需要迭代节点。改做一个普通 DFA 节点。
 		 */
-		EMPTYARC(s, atom->begin);	/* empty prefix */
+		EMPTYARC(s, atom->begin);	/* 空前缀 */
 		repeat(v, atom->begin, atom->end, m, n);
 		f = COMBINE(qprefer, atom->flags);
 		t = subre(v, '=', f, atom->begin, atom->end);
 		NOERRN();
 		freesubre(v, atom);
 		*atomp = t;
-		/* rest of branch can be strung starting from t->end */
+		/* 分支其余可自 t->end 起串接 */
 		s2 = t->end;
 	}
 	else if (m > 0 && !(atom->flags & BACKR))
 	{
 		/*
-		 * If there's no backrefs involved, we can turn x{m,n} into
-		 * x{m-1,n-1}x, with capturing parens in only the second x.  This is
-		 * valid because we only care about capturing matches from the final
-		 * iteration of the quantifier.  It's a win because we can implement
-		 * the backref-free left side as a plain DFA node, since we don't
-		 * really care where its submatches are.
+		 * 若不涉及反向引用，可将 x{m,n} 变成 
+		 * x{m-1,n-1}x，且仅第二份 x 含捕获括号。这合
+		 * 法，因我们只关心量词最后一次迭代的捕获
+		 * 匹配。划算之处是：无反向引用的左侧可做成
+		 * 普通 DFA 节点，因我们并不真正关心其
+		 * 子匹配落在何处。
 		 */
 		dupnfa(v->nfa, atom->begin, atom->end, s, atom->begin);
 		assert(m >= 1 && m != DUPINF && n >= 1);
 		repeat(v, s, atom->begin, m - 1, (n == DUPINF) ? n : n - 1);
 		f = COMBINE(qprefer, atom->flags);
-		t = subre(v, '.', f, s, atom->end); /* prefix and atom */
+		t = subre(v, '.', f, s, atom->end); /* 前缀与原子 */
 		NOERRN();
 		t->child = subre(v, '=', PREF(f), s, atom->begin);
 		NOERRN();
 		t->child->sibling = atom;
 		*atomp = t;
-		/* rest of branch can be strung starting from atom->end */
+		/* 分支其余可自 atom->end 起串接 */
 		s2 = atom->end;
 	}
 	else
 	{
-		/* general case: need an iteration node */
+		/* 一般情形：需要迭代节点 */
 		s2 = newstate(v->nfa);
 		NOERRN();
 		moveouts(v->nfa, atom->end, s2);
@@ -1364,35 +1364,35 @@ parseqatom(struct vars *v,
 		t->max = (short) n;
 		t->child = atom;
 		*atomp = t;
-		/* rest of branch is to be strung from iteration's end state */
+		/* 分支其余要从迭代的结束状态串起 */
 	}
 
-	/* and finally, look after that postponed recursion */
+	/* 最后处理那次推迟的递归 */
 	t = top->child->sibling;
 	if (!(SEE('|') || SEE(stopper) || SEE(EOS)))
 	{
-		/* parse all the rest of the branch, and insert in t->child->sibling */
+		/* 解析分支其余全部，插入 t->child->sibling */
 		t->child->sibling = parsebranch(v, stopper, type, s2, rp, 1);
 		NOERRN();
 		assert(SEE('|') || SEE(stopper) || SEE(EOS));
 
-		/* here's the promised update of the flags */
+		/* 此处兑现承诺的 flags 更新 */
 		t->flags |= COMBINE(t->flags, t->child->sibling->flags);
 		top->flags |= COMBINE(top->flags, t->flags);
 
-		/* neither t nor top could be directly marked for capture as yet */
+		/* t 与 top 迄今都还不能直接标为捕获 */
 		assert(t->capno == 0);
 		assert(top->capno == 0);
 
 		/*
-		 * At this point both top and t are concatenation (op == '.') subres,
-		 * and we have top->child = prefix of branch, top->child->sibling = t,
-		 * t->child = messy atom (with quantification superstructure if
-		 * needed), t->child->sibling = rest of branch.
+		 * 此时 top 与 t 都是拼接（op == '.'）subre，
+		 * 且 top->child = 分支前缀，top->child->sibling = t，
+		 * t->child = 棘手原子（必要时带量词上层），
+		 * t->child->sibling = 分支其余。
 		 *
-		 * If the messy atom was the first thing in the branch, then
-		 * top->child is vacuous and we can get rid of one level of
-		 * concatenation.
+		 * 若棘手原子是分支中的第一项，则
+		 * top->child 为空洞，可去掉一层
+		 * 拼接。
 		 */
 		assert(top->child->op == '=');
 		if (top->child->begin == top->child->end)
@@ -1404,12 +1404,12 @@ parseqatom(struct vars *v,
 		}
 
 		/*
-		 * Otherwise, it's possible that t->child is not messy in itself, but
-		 * we considered it messy because its greediness conflicts with what
-		 * preceded it.  Then it could be that the combination of t->child and
-		 * the rest of the branch is also not messy, in which case we can get
-		 * rid of the child concatenation by merging t->child and the rest of
-		 * the branch into one plain DFA node.
+		 * 否则，t->child 本身可能并不棘手，只因
+		 * 其贪婪性与先前冲突，我们才视之为棘手。
+		 * 那时也可能 t->child 与分支其余的组合同样
+		 * 不棘手，此时可通过合并 t->child 与分支其余
+		 * 为一个普通 DFA 节点，去掉
+		 * 子拼接。
 		 */
 		else if (t->child->op == '=' &&
 				 t->child->sibling->op == '=' &&
@@ -1424,8 +1424,8 @@ parseqatom(struct vars *v,
 	else
 	{
 		/*
-		 * There's nothing left in the branch, so we don't need the second
-		 * concatenation node 't'.  Just link s2 straight to rp.
+		 * 分支已无剩余，故不需要第二个拼接
+		 * 节点 t。直接把 s2 连到 rp。
 		 */
 		EMPTYARC(s2, rp);
 		top->child->sibling = t->child;
@@ -1433,9 +1433,9 @@ parseqatom(struct vars *v,
 		freesrnode(v, t);
 
 		/*
-		 * Again, it could be that top->child is vacuous (if the messy atom
-		 * was in fact the only thing in the branch).  In that case we need no
-		 * concatenation at all; just replace top with top->child->sibling.
+		 * 同样，top->child 也可能为空洞（若棘手原子
+		 * 实际上是分支中唯一内容）。那时完全不需要
+		 * 拼接；只需用 top->child->sibling 替换 top。
 		 */
 		assert(top->child->op == '=');
 		if (top->child->begin == top->child->end)
@@ -1452,11 +1452,11 @@ parseqatom(struct vars *v,
 }
 
 /*
- * nonword - generate arcs for non-word-character ahead or behind
+ * nonword - 为前方或后方非单词字符生成弧
  */
 static void
 nonword(struct vars *v,
-		int dir,				/* AHEAD or BEHIND */
+		int dir,				/* AHEAD 或BEHIND */
 		struct state *lp,
 		struct state *rp)
 {
@@ -1466,29 +1466,29 @@ nonword(struct vars *v,
 	newarc(v->nfa, anchor, 1, lp, rp);
 	newarc(v->nfa, anchor, 0, lp, rp);
 	colorcomplement(v->nfa, v->cm, dir, v->wordchrs, lp, rp);
-	/* (no need for special attention to \n) */
+	/* 无需特殊照顾 \n */
 }
 
 /*
- * word - generate arcs for word character ahead or behind
+ * word - 为前方或后方单词字符生成弧
  */
 static void
 word(struct vars *v,
-	 int dir,					/* AHEAD or BEHIND */
+	 int dir,					/* AHEAD 或BEHIND */
 	 struct state *lp,
 	 struct state *rp)
 {
 	assert(dir == AHEAD || dir == BEHIND);
 	cloneouts(v->nfa, v->wordchrs, lp, rp, dir);
-	/* (no need for special attention to \n) */
+	/* 无需特殊照顾 \n */
 }
 
 /*
- * charclass - generate arcs for a character class
+ * charclass - 为字符类生成弧
  *
- * This is used for both atoms (\w and sibling escapes) and for elements
- * of bracket expressions.  The caller is responsible for calling okcolors()
- * at the end of processing the atom or bracket.
+ * 用于原子（\w 及同类转义）以及括号表达式
+ * 的元素。调用方负责在处理完原子或括号之
+ * 末调用 okcolors()。
  */
 static void
 charclass(struct vars *v,
@@ -1498,21 +1498,21 @@ charclass(struct vars *v,
 {
 	struct cvec *cv;
 
-	/* obtain possibly-cached cvec for char class */
+	/* 取可能已缓存的字符类 cvec */
 	NOTE(REG_ULOCALE);
 	cv = cclasscvec(v, cls, (v->cflags & REG_ICASE));
 	NOERR();
 
-	/* build the arcs; this may cause color splitting */
+	/* 建弧；这可能引起色分裂 */
 	subcolorcvec(v, cv, lp, rp);
 }
 
 /*
- * charclasscomplement - generate arcs for a complemented character class
+ * charclasscomplement - 为补集字符类生成弧
  *
- * This is used for both atoms (\W and sibling escapes) and for elements
- * of bracket expressions.  In bracket expressions, it is the caller's
- * responsibility that there not be any open subcolors when this is called.
+ * 用于原子（\W 及同类转义）以及括号表达式
+ * 的元素。在括号表达式中，调用方须保证调用
+ * 时不存在任何未关闭的子色。
  */
 static void
 charclasscomplement(struct vars *v,
@@ -1523,35 +1523,35 @@ charclasscomplement(struct vars *v,
 	struct state *cstate;
 	struct cvec *cv;
 
-	/* make dummy state to hang temporary arcs on */
+	/* 造哑状态以挂临时弧 */
 	cstate = newstate(v->nfa);
 	NOERR();
 
-	/* obtain possibly-cached cvec for char class */
+	/* 取可能已缓存的字符类 cvec */
 	NOTE(REG_ULOCALE);
 	cv = cclasscvec(v, cls, (v->cflags & REG_ICASE));
 	NOERR();
 
-	/* build arcs for char class; this may cause color splitting */
+	/* 为字符类建弧；这可能引起色分裂 */
 	subcolorcvec(v, cv, cstate, cstate);
 	NOERR();
 
-	/* clean up any subcolors in the arc set */
+	/* 清理弧集中的任何子色 */
 	okcolors(v->nfa, v->cm);
 	NOERR();
 
-	/* now build output arcs for the complement of the char class */
+	/* 现为字符类的补集建输出弧 */
 	colorcomplement(v->nfa, v->cm, PLAIN, cstate, lp, rp);
 	NOERR();
 
-	/* clean up dummy state */
+	/* 清理哑状态 */
 	dropstate(v->nfa, cstate);
 }
 
 /*
- * scannum - scan a number
+ * scannum - 扫描数
  */
-static int						/* value, <= DUPMAX */
+static int						/* 值，<= DUPMAX */
 scannum(struct vars *v)
 {
 	int			n = 0;
@@ -1570,17 +1570,17 @@ scannum(struct vars *v)
 }
 
 /*
- * repeat - replicate subNFA for quantifiers
+ * repeat - 为量词复制 subNFA 
  *
- * The sub-NFA strung from lp to rp is modified to represent m to n
- * repetitions of its initial contents.
+ * 从 lp 串到 rp 的子 NFA 被改成表示其初始内容
+ * 的 m 到 n 次重复。
  *
- * The duplication sequences used here are chosen carefully so that any
- * pointers starting out pointing into the subexpression end up pointing into
- * the last occurrence.  (Note that it may not be strung between the same
- * left and right end states, however!)  This used to be important for the
- * subRE tree, although the important bits are now handled by the in-line
- * code in parse(), and when this is called, it doesn't matter any more.
+ * 此处选用的复制序列经过精心选择，使任何起初
+ * 指向子表达式内部的指针最终都指向最后一次
+ * 出现。（但注意，未必仍串在同一左右端状态
+ * 之间！）这对 subRE 树曾经重要，尽管关键部分
+ * 现已由 parse() 内联代码处理；调用本函数时
+ * 已不再要紧。
  */
 static void
 repeat(struct vars *v,
@@ -1600,19 +1600,19 @@ repeat(struct vars *v,
 
 	switch (PAIR(rm, rn))
 	{
-		case PAIR(0, 0):		/* empty string */
+		case PAIR(0, 0):		/* 空串 */
 			delsub(v->nfa, lp, rp);
 			EMPTYARC(lp, rp);
 			break;
-		case PAIR(0, 1):		/* do as x| */
+		case PAIR(0, 1):		/* 做 x| */
 			EMPTYARC(lp, rp);
 			break;
-		case PAIR(0, SOME):		/* do as x{1,n}| */
+		case PAIR(0, SOME):		/* 做 x{1,n}| */
 			repeat(v, lp, rp, 1, n);
 			NOERR();
 			EMPTYARC(lp, rp);
 			break;
-		case PAIR(0, INF):		/* loop x around */
+		case PAIR(0, INF):		/* 将 x 绕环 */
 			s = newstate(v->nfa);
 			NOERR();
 			moveouts(v->nfa, lp, s);
@@ -1620,9 +1620,9 @@ repeat(struct vars *v,
 			EMPTYARC(lp, s);
 			EMPTYARC(s, rp);
 			break;
-		case PAIR(1, 1):		/* no action required */
+		case PAIR(1, 1):		/* 无需动作 */
 			break;
-		case PAIR(1, SOME):		/* do as x{0,n-1}x = (x{1,n-1}|)x */
+		case PAIR(1, SOME):		/* 做 x{0,n-1}x=(x{1,n-1}|)x */
 			s = newstate(v->nfa);
 			NOERR();
 			moveouts(v->nfa, lp, s);
@@ -1632,7 +1632,7 @@ repeat(struct vars *v,
 			NOERR();
 			EMPTYARC(lp, s);
 			break;
-		case PAIR(1, INF):		/* add loopback arc */
+		case PAIR(1, INF):		/* 加回环弧 */
 			s = newstate(v->nfa);
 			s2 = newstate(v->nfa);
 			NOERR();
@@ -1642,7 +1642,7 @@ repeat(struct vars *v,
 			EMPTYARC(s2, rp);
 			EMPTYARC(s2, s);
 			break;
-		case PAIR(SOME, SOME):	/* do as x{m-1,n-1}x */
+		case PAIR(SOME, SOME):	/* 做 x{m-1,n-1}x */
 			s = newstate(v->nfa);
 			NOERR();
 			moveouts(v->nfa, lp, s);
@@ -1650,7 +1650,7 @@ repeat(struct vars *v,
 			NOERR();
 			repeat(v, lp, s, m - 1, n - 1);
 			break;
-		case PAIR(SOME, INF):	/* do as x{m-1,}x */
+		case PAIR(SOME, INF):	/* 做 x{m-1,}x */
 			s = newstate(v->nfa);
 			NOERR();
 			moveouts(v->nfa, lp, s);
@@ -1665,9 +1665,9 @@ repeat(struct vars *v,
 }
 
 /*
- * bracket - handle non-complemented bracket expression
+ * bracket - 处理非补集括号表达式
  *
- * Also called from cbracket for complemented bracket expressions.
+ * 也被 cbracket 调用来处理补集括号表达式。
  */
 static void
 bracket(struct vars *v,
@@ -1675,10 +1675,10 @@ bracket(struct vars *v,
 		struct state *rp)
 {
 	/*
-	 * We can't process complemented char classes (e.g. \W) immediately while
-	 * scanning the bracket expression, else color bookkeeping gets confused.
-	 * Instead, remember whether we saw any in have_cclassc[], and process
-	 * them at the end.
+	 * 扫描括号表达式时无法立即处理补集字符类
+	 * 如 \W，否则色记账会乱。改为在
+	 * have_cclassc[] 中记下是否见过，并在
+	 * 末尾处理。
 	 */
 	bool		have_cclassc[NUM_CCLASSES];
 	bool		any_cclassc;
@@ -1692,11 +1692,11 @@ bracket(struct vars *v,
 		brackpart(v, lp, rp, have_cclassc);
 	assert(SEE(']') || ISERR());
 
-	/* close up open subcolors from the positive bracket elements */
+	/* 关闭正括号元素留下的未关闭子色 */
 	okcolors(v->nfa, v->cm);
 	NOERR();
 
-	/* now handle any complemented elements */
+	/* 现处理任何补集元素 */
 	any_cclassc = false;
 	for (i = 0; i < NUM_CCLASSES; i++)
 	{
@@ -1709,21 +1709,21 @@ bracket(struct vars *v,
 	}
 
 	/*
-	 * If we had any complemented elements, see if we can optimize the bracket
-	 * into a rainbow.  Since a complemented element is the only way a WHITE
-	 * arc could get into the result, there's no point in checking otherwise.
+	 * 若有任何补集元素，看能否把括号优化成
+	 * 彩虹。因补集元素是 WHITE 弧进入结果的
+	 * 唯一途径，否则不必检查。
 	 */
 	if (any_cclassc)
 		optimizebracket(v, lp, rp);
 }
 
 /*
- * cbracket - handle complemented bracket expression
+ * cbracket - 处理取补的括号表达式
  *
- * We do it by calling bracket() with dummy endpoints, and then complementing
- * the result.  The alternative would be to invoke rainbow(), and then delete
- * arcs as the b.e. is seen... but that gets messy, and is really quite
- * infeasible now that rainbow() just puts out one RAINBOW arc.
+ * 做法是用虚端点调用 bracket()，再对结果
+ * 取补。另一做法是调用彩虹 rainbow()，再随见到
+ * 括号表达式删弧……但那样会很乱，而且现已
+ * 不可行，因 rainbow() 只放出一条 RAINBOW 弧。
  */
 static void
 cbracket(struct vars *v,
@@ -1736,18 +1736,18 @@ cbracket(struct vars *v,
 	NOERR();
 	bracket(v, left, right);
 
-	/* in NLSTOP mode, ensure newline is not part of the result set */
+	/* NLSTOP 模式下确保换行不在结果集中 */
 	if (v->cflags & REG_NLSTOP)
 		newarc(v->nfa, PLAIN, v->nlcolor, left, right);
 	NOERR();
 
-	assert(lp->nouts == 0);		/* all outarcs will be ours */
+	assert(lp->nouts == 0);		/* 出弧皆属本方 */
 
 	/*
-	 * Easy part of complementing, and all there is to do since the MCCE code
-	 * was removed.  Note that the result of colorcomplement() cannot be a
-	 * rainbow, since we don't allow empty brackets; so there's no point in
-	 * calling optimizebracket() again.
+	 * 取补的容易部分，也是 MCCE 代码移除后
+	 * 仅需做的事。注意 colorcomplement() 的结果
+	 * 不可能是彩虹，因不允许空括号；故无需再
+	 * 调用 optimizebracket()。
 	 */
 	colorcomplement(v->nfa, v->cm, PLAIN, left, lp, rp);
 	NOERR();
@@ -1757,7 +1757,7 @@ cbracket(struct vars *v,
 }
 
 /*
- * brackpart - handle one item (or range) within a bracket expression
+ * brackpart - 处理括号表达式内一项（或范围）
  */
 static void
 brackpart(struct vars *v,
@@ -1772,17 +1772,17 @@ brackpart(struct vars *v,
 	const chr  *startp;
 	const chr  *endp;
 
-	/* parse something, get rid of special cases, take shortcuts */
+	/* 解析内容，去掉特例，走捷径 */
 	switch (v->nexttype)
 	{
-		case RANGE:				/* a-b-c or other botch */
+		case RANGE:				/* a-b-c 等拙作 */
 			ERR(REG_ERANGE);
 			return;
 			break;
 		case PLAIN:
 			startc = v->nextvalue;
 			NEXT();
-			/* shortcut for ordinary chr (not range) */
+			/* 普通字符捷径（非范围） */
 			if (!SEE(RANGE))
 			{
 				onechr(v, startc, lp, rp);
@@ -1826,7 +1826,7 @@ brackpart(struct vars *v,
 			return;
 			break;
 		case CCLASSC:
-			/* we cannot call charclasscomplement() immediately */
+			/* 无法立即调用 charclasscomplement() */
 			have_cclassc[v->nextvalue] = true;
 			NEXT();
 			return;
@@ -1866,8 +1866,8 @@ brackpart(struct vars *v,
 		endc = startc;
 
 	/*
-	 * Ranges are unportable.  Actually, standard C does guarantee that digits
-	 * are contiguous, but making that an exception is just too complicated.
+	 * 范围不可移植。其实标准 C 保证数字是连续的，
+	 * 但把这当例外会太过复杂。
 	 */
 	if (startc != endc)
 		NOTE(REG_UUNPORT);
@@ -1877,12 +1877,12 @@ brackpart(struct vars *v,
 }
 
 /*
- * scanplain - scan PLAIN contents of [. etc.
+ * scanplain - 扫 [. 等内 PLAIN 内容
  *
- * Certain bits of trickery in regc_lex.c know that this code does not try
- * to look past the final bracket of the [. etc.
+ * regc_lex.c 中若干巧技依赖本代码不会试图
+ * 窥视 [. 等最终括号之后。
  */
-static const chr *				/* just after end of sequence */
+static const chr *				/* 恰在序列结束之后 */
 scanplain(struct vars *v)
 {
 	const chr  *endp;
@@ -1904,8 +1904,8 @@ scanplain(struct vars *v)
 }
 
 /*
- * onechr - fill in arcs for a plain character, and possible case complements
- * This is mostly a shortcut for efficient handling of the common case.
+ * onechr - 为普通字符及可能的大小写补填弧
+ * 这主要是处理常见情形的高效捷径。
  */
 static void
 onechr(struct vars *v,
@@ -1921,17 +1921,17 @@ onechr(struct vars *v,
 		return;
 	}
 
-	/* rats, need general case anyway... */
+	/* 糟，还得走一般情形 */
 	subcolorcvec(v, allcases(v, c), lp, rp);
 }
 
 /*
- * optimizebracket - see if bracket expression can be converted to RAINBOW
+ * optimizebracket - 看括号表达式能否化为彩虹
  *
- * Cases such as "[\s\S]" can produce a set of arcs of all colors, which we
- * can replace by a single RAINBOW arc for efficiency.  (This might seem
- * like a silly way to write ".", but it's seemingly a common locution in
- * some other flavors of regex, so take the trouble to support it well.)
+ * 如 "[\s\S]" 可产生覆盖全体色的弧集，我们
+ * 可换成单条 RAINBOW 弧以提高效率。（这看来
+ * 像写 "." 的蠢办法，但在其它正则风味里似乎
+ * 是常见惯用写法，故仍费心予以妥善支持。）
  */
 static void
 optimizebracket(struct vars *v,
@@ -1944,21 +1944,21 @@ optimizebracket(struct vars *v,
 	bool		israinbow;
 
 	/*
-	 * Scan lp's out-arcs and transiently mark the mentioned colors.  We
-	 * expect that all of lp's out-arcs are plain, non-RAINBOW arcs to rp.
-	 * (Note: there shouldn't be any pseudocolors yet, but check anyway.)
+	 * 扫描 lp 的出弧并临时标记所涉色。我们
+	 * 预期 lp 的出弧全是通向 rp 的普通非彩虹弧。
+	 * 注：此时尚不应有伪色，但仍检查。
 	 */
 	for (a = lp->outs; a != NULL; a = a->outchain)
 	{
 		assert(a->type == PLAIN);
-		assert(a->co >= 0);		/* i.e. not RAINBOW */
+		assert(a->co >= 0);		/* 即非彩虹 */
 		assert(a->to == rp);
 		cd = &v->cm->cd[a->co];
 		assert(!UNUSEDCOLOR(cd) && !(cd->flags & PSEUDO));
 		cd->flags |= COLMARK;
 	}
 
-	/* Scan colors, clear transient marks, check for unmarked live colors */
+	/* 扫描各色，清临时标记，查未标记的活色 */
 	israinbow = true;
 	for (cd = v->cm->cd; cd < end; cd++)
 	{
@@ -1968,26 +1968,26 @@ optimizebracket(struct vars *v,
 			israinbow = false;
 	}
 
-	/* Can't do anything if not all colors have arcs */
+	/* 若并非所有色都有弧则无能为力 */
 	if (!israinbow)
 		return;
 
-	/* OK, drop existing arcs and replace with a rainbow */
+	/* 好，丢掉现有弧并换成一条彩虹 */
 	while ((a = lp->outs) != NULL)
 		freearc(v->nfa, a);
 	newarc(v->nfa, PLAIN, RAINBOW, lp, rp);
 }
 
 /*
- * wordchrs - set up word-chr list for word-boundary stuff, if needed
+ * wordchrs - 若需要则为词界准备词字符列表
  *
- * The list is kept as a bunch of circular arcs on an otherwise-unused state.
+ * 列表以一批环弧挂在一个另无他用的状态上。
  *
- * Note that this must not be called while we have any open subcolors,
- * else construction of the list would confuse color bookkeeping.
- * Hence, we can't currently apply a similar optimization in
- * charclass[complement](), as those need to be usable within bracket
- * expressions.
+ * 注意：存在任何未关闭子色时不可调用，
+ * 否则构造该列表会搅乱色簿记。
+ * 因此目前无法在 charclass[complement]()
+ * 中做类似优化，因那些须能用于括号
+ * 表达式。
  */
 static void
 wordchrs(struct vars *v)
@@ -1996,55 +1996,55 @@ wordchrs(struct vars *v)
 	struct cvec *cv;
 
 	if (v->wordchrs != NULL)
-		return;					/* done already */
+		return;					/* 业已完成 */
 
-	/* make dummy state to hang the cache arcs on */
+	/* 造虚状态以挂接缓存弧 */
 	cstate = newstate(v->nfa);
 	NOERR();
 
-	/* obtain possibly-cached cvec for \w characters */
+	/* 取得 \w 字符可能已缓存的 cvec */
 	NOTE(REG_ULOCALE);
 	cv = cclasscvec(v, CC_WORD, (v->cflags & REG_ICASE));
 	NOERR();
 
-	/* build the arcs; this may cause color splitting */
+	/* 建弧；这可能引起色分裂 */
 	subcolorcvec(v, cv, cstate, cstate);
 	NOERR();
 
-	/* close new open subcolors to ensure the cache entry is self-contained */
+	/* 关闭新开的子色，确保缓存项自洽 */
 	okcolors(v->nfa, v->cm);
 	NOERR();
 
-	/* success! save the cache pointer */
+	/* 成功！保存缓存指针 */
 	v->wordchrs = cstate;
 }
 
 /*
- * processlacon - generate the NFA representation of a LACON
+ * processlacon - 生成 LACON 的 NFA 表示
  *
- * In the general case this is just newlacon() + newarc(), but some cases
- * can be optimized.
+ * 一般情形只是 newlacon()+newarc()，但有些
+ * 可优化。
  */
 static void
 processlacon(struct vars *v,
-			 struct state *begin,	/* start of parsed LACON sub-re */
-			 struct state *end, /* end of parsed LACON sub-re */
+			 struct state *begin,	/* 已解析 LACON 子式起点 */
+			 struct state *end, /* 已解析 LACON 终点 */
 			 int latype,
-			 struct state *lp,	/* left state to hang it on */
-			 struct state *rp)	/* right state to hang it on */
+			 struct state *lp,	/* 挂接用的左状态 */
+			 struct state *rp)	/* 挂接用的右状态 */
 {
 	struct state *s1;
 	int			n;
 
 	/*
-	 * Check for lookaround RE consisting of a single plain color arc (or set
-	 * of arcs); this would typically be a simple chr or a bracket expression.
+	 * 检查环视 RE 是否仅由单条普通色弧（或一组
+	 * 弧）构成；典型为简单字符或括号表达式。
 	 */
 	s1 = single_color_transition(begin, end);
 	switch (latype)
 	{
 		case LATYPE_AHEAD_POS:
-			/* If lookahead RE is just colorset C, convert to AHEAD(C) */
+			/* 若前瞻 RE 恰为色集 C，则化为 AHEAD(C) */
 			if (s1 != NULL)
 			{
 				cloneouts(v->nfa, s1, lp, rp, AHEAD);
@@ -2052,7 +2052,7 @@ processlacon(struct vars *v,
 			}
 			break;
 		case LATYPE_AHEAD_NEG:
-			/* If lookahead RE is just colorset C, convert to AHEAD(^C)|$ */
+			/* 若前瞻 RE 恰为色集 C，则化为 AHEAD(^C)|$ */
 			if (s1 != NULL)
 			{
 				colorcomplement(v->nfa, v->cm, AHEAD, s1, lp, rp);
@@ -2062,7 +2062,7 @@ processlacon(struct vars *v,
 			}
 			break;
 		case LATYPE_BEHIND_POS:
-			/* If lookbehind RE is just colorset C, convert to BEHIND(C) */
+			/* 若后顾 RE 恰为色集 C，则化为 BEHIND(C) */
 			if (s1 != NULL)
 			{
 				cloneouts(v->nfa, s1, lp, rp, BEHIND);
@@ -2070,7 +2070,7 @@ processlacon(struct vars *v,
 			}
 			break;
 		case LATYPE_BEHIND_NEG:
-			/* If lookbehind RE is just colorset C, convert to BEHIND(^C)|^ */
+			/* 若后顾 RE 恰为色集 C，则化为 BEHIND(^C)|^ */
 			if (s1 != NULL)
 			{
 				colorcomplement(v->nfa, v->cm, BEHIND, s1, lp, rp);
@@ -2083,13 +2083,13 @@ processlacon(struct vars *v,
 			assert(NOTREACHED);
 	}
 
-	/* General case: we need a LACON subre and arc */
+	/* 一般情形：需要 LACON subre 与弧 */
 	n = newlacon(v, begin, end, latype);
 	newarc(v->nfa, LACON, n, lp, rp);
 }
 
 /*
- * subre - allocate a subre
+ * subre - 分配 subre
  */
 static struct subre *
 subre(struct vars *v,
@@ -2101,8 +2101,8 @@ subre(struct vars *v,
 	struct subre *ret = v->treefree;
 
 	/*
-	 * Checking for stack overflow here is sufficient to protect parse() and
-	 * its recursive subroutines.
+	 * 此处检查栈溢出足以保护 parse() 及其
+	 * 递归子例程。
 	 */
 	if (STACK_TOO_DEEP(v->re))
 	{
@@ -2129,7 +2129,7 @@ subre(struct vars *v,
 	ret->op = op;
 	ret->flags = flags;
 	ret->latype = (char) -1;
-	ret->id = 0;				/* will be assigned later */
+	ret->id = 0;				/* 稍后才会赋值 */
 	ret->capno = 0;
 	ret->backno = 0;
 	ret->min = ret->max = 1;
@@ -2143,13 +2143,13 @@ subre(struct vars *v,
 }
 
 /*
- * freesubre - free a subRE subtree
+ * freesubre - 释放 subRE 子树
  *
- * This frees child node(s) of the given subRE too,
- * but not its siblings.
+ * 同时释放该 subRE 的子节点，
+ * 但不含其兄弟。
  */
 static void
-freesubre(struct vars *v,		/* might be NULL */
+freesubre(struct vars *v,		/* 可为 NULL */
 		  struct subre *sr)
 {
 	if (sr == NULL)
@@ -2162,13 +2162,13 @@ freesubre(struct vars *v,		/* might be NULL */
 }
 
 /*
- * freesubreandsiblings - free a subRE subtree
+ * freesubreandsiblings - 释放 subRE 子树
  *
- * This frees child node(s) of the given subRE too,
- * as well as any following siblings.
+ * 同时释放该 subRE 的子节点，
+ * 以及其后的任何兄弟。
  */
 static void
-freesubreandsiblings(struct vars *v,	/* might be NULL */
+freesubreandsiblings(struct vars *v,	/* 可为 NULL */
 					 struct subre *sr)
 {
 	while (sr != NULL)
@@ -2181,10 +2181,10 @@ freesubreandsiblings(struct vars *v,	/* might be NULL */
 }
 
 /*
- * freesrnode - free one node in a subRE subtree
+ * freesrnode - 释放 subRE 子树中一节点
  */
 static void
-freesrnode(struct vars *v,		/* might be NULL */
+freesrnode(struct vars *v,		/* 可为 NULL */
 		   struct subre *sr)
 {
 	if (sr == NULL)
@@ -2192,13 +2192,13 @@ freesrnode(struct vars *v,		/* might be NULL */
 
 	if (!NULLCNFA(sr->cnfa))
 		freecnfa(&sr->cnfa);
-	sr->flags = 0;				/* in particular, not INUSE */
+	sr->flags = 0;				/* 尤其是，非 INUSE */
 	sr->child = sr->sibling = NULL;
 	sr->begin = sr->end = NULL;
 
 	if (v != NULL && v->treechain != NULL)
 	{
-		/* we're still parsing, maybe we can reuse the subre */
+		/* 仍在解析，或许能复用该 subre */
 		sr->child = v->treefree;
 		v->treefree = sr;
 	}
@@ -2207,12 +2207,12 @@ freesrnode(struct vars *v,		/* might be NULL */
 }
 
 /*
- * removecaptures - remove unnecessary capture subREs
+ * removecaptures - 去掉不必要的捕获 subRE
  *
- * If the caller said that it doesn't care about subexpression match data,
- * we may delete the "capture" markers on subREs that are not referenced
- * by any backrefs, and then simplify anything that's become non-messy.
- * Call this only if REG_NOSUB flag is set.
+ * 若调用方表示不关心子表达式匹配数据，
+ * 则可删去无反向引用指向的 subRE 上的
+ * 捕获标记，再简化已变得非杂乱者。
+ * 仅在置 REG_NOSUB 时调用。
  */
 static void
 removecaptures(struct vars *v,
@@ -2223,8 +2223,8 @@ removecaptures(struct vars *v,
 	assert(t != NULL);
 
 	/*
-	 * If this isn't itself a backref target, clear capno and tentatively
-	 * clear CAP flag.
+	 * 若本身不是反向引用目标，则清 capno 并暂且
+	 * 清除 CAP。
 	 */
 	if (!(t->flags & BRUSE))
 	{
@@ -2232,20 +2232,20 @@ removecaptures(struct vars *v,
 		t->flags &= ~CAP;
 	}
 
-	/* Now recurse to children */
+	/* 再递归到子节点 */
 	for (t2 = t->child; t2 != NULL; t2 = t2->sibling)
 	{
 		removecaptures(v, t2);
-		/* Propagate child CAP flag back up, if it's still set */
+		/* 若子节点 CAP 仍置位则向上回传 */
 		if (t2->flags & CAP)
 			t->flags |= CAP;
 	}
 
 	/*
-	 * If t now contains neither captures nor backrefs, there's no longer any
-	 * need to care where its sub-match boundaries are, so we can reduce it to
-	 * a simple DFA node.  (Note in particular that MIXED child greediness is
-	 * not a hindrance here, so we don't use the MESSY() macro.)
+	 * 若 t 现既无捕获也无反向引用，便不必再关心
+	 * 其子匹配边界在何处，因而可把它收成
+	 * 简单 DFA 节点。（尤须注意 MIXED 子贪婪性
+	 * 在此无妨，故不用 MESSY() 宏。）
 	 */
 	if ((t->flags & (CAP | BACKR)) == 0)
 	{
@@ -2258,11 +2258,11 @@ removecaptures(struct vars *v,
 }
 
 /*
- * numst - number tree nodes (assigning "id" indexes)
+ * numst - 给树节点编号（赋 "id" 下标）
  */
-static int						/* next number */
+static int						/* 下一号 */
 numst(struct subre *t,
-	  int start)				/* starting point for subtree numbers */
+	  int start)				/* 子树编号的起点 */
 {
 	int			i;
 	struct subre *t2;
@@ -2277,21 +2277,21 @@ numst(struct subre *t,
 }
 
 /*
- * markst - mark tree nodes as INUSE
+ * markst - 将树节点标为 INUSE
  *
- * Note: this is a great deal more subtle than it looks.  During initial
- * parsing of a regex, all subres are linked into the treechain list;
- * discarded ones are also linked into the treefree list for possible reuse.
- * After we are done creating all subres required for a regex, we run markst()
- * then cleanst(), which results in discarding all subres not reachable from
- * v->tree.  We then clear v->treechain, indicating that subres must be found
- * by descending from v->tree.  This changes the behavior of freesubre(): it
- * will henceforth FREE() unwanted subres rather than sticking them into the
- * treefree list.  (Doing that any earlier would result in dangling links in
- * the treechain list.)  This all means that freev() will clean up correctly
- * if invoked before or after markst()+cleanst(); but it would not work if
- * called partway through this state conversion, so we mustn't error out
- * in or between these two functions.
+ * 注意：这远比看起来微妙。在正则的初始
+ * 解析期间，全部 subre 都链入 treechain 表；
+ * 丢弃者也链入 treefree 表以供可能复用。
+ * 为正则建完所需全部 subre 后，先跑 markst()
+ * 再跑 cleanst()，结果丢弃一切自 v->tree
+ * 不可达的 subre。随后清 v->treechain，表示
+ * 须自 v->tree 下行查找 subre。这改变了
+ * freesubre() 的行为：此后对无用 subre 做 FREE()，
+ * 而不再放入 treefree 表。（若更早这么做会在
+ * treechain 表中留下悬空链。）这一切意味着
+ * freev() 在 markst()+cleanst() 前或后调用均可正确清理；但
+ * 若在此状态转换中途调用则不行，故不可于
+ * 此二函数内或之间报错。
  */
 static void
 markst(struct subre *t)
@@ -2306,7 +2306,7 @@ markst(struct subre *t)
 }
 
 /*
- * cleanst - free any tree nodes not marked INUSE
+ * cleanst - 释放未标 INUSE 的树节点
  */
 static void
 cleanst(struct vars *v)
@@ -2321,16 +2321,16 @@ cleanst(struct vars *v)
 			FREE(t);
 	}
 	v->treechain = NULL;
-	v->treefree = NULL;			/* just on general principles */
+	v->treefree = NULL;			/* 仅出于一般原则 */
 }
 
 /*
- * nfatree - turn a subRE subtree into a tree of compacted NFAs
+ * nfatree - 把 subRE 子树变成紧凑 NFA 树
  */
-static long						/* optimize results from top node */
+static long						/* 顶节点的优化结果 */
 nfatree(struct vars *v,
 		struct subre *t,
-		FILE *f)				/* for debug output */
+		FILE *f)				/* 供调试输出 */
 {
 	struct subre *t2;
 
@@ -2343,15 +2343,15 @@ nfatree(struct vars *v,
 }
 
 /*
- * nfanode - do one NFA for nfatree or lacons
+ * nfanode - 为 nfatree/LACON 做一 NFA
  *
- * If converttosearch is true, apply makesearch() to the NFA.
+ * converttosearch 为真时对 NFA 做 makesearch()。
  */
-static long						/* optimize results */
+static long						/* 优化结果 */
 nfanode(struct vars *v,
 		struct subre *t,
 		int converttosearch,
-		FILE *f)				/* for debug output */
+		FILE *f)				/* 供调试输出 */
 {
 	struct nfa *nfa;
 	long		ret = 0;
@@ -2385,9 +2385,9 @@ nfanode(struct vars *v,
 }
 
 /*
- * newlacon - allocate a lookaround-constraint subRE
+ * newlacon - 分配 LACON（环视约束）subRE
  */
-static int						/* lacon number */
+static int						/* LACON 编号 */
 newlacon(struct vars *v,
 		 struct state *begin,
 		 struct state *end,
@@ -2399,7 +2399,7 @@ newlacon(struct vars *v,
 
 	if (v->nlacons == 0)
 	{
-		n = 1;					/* skip 0th */
+		n = 1;					/* 跳过0 */
 		newlacons = (struct subre *) MALLOC(2 * sizeof(struct subre));
 	}
 	else
@@ -2424,7 +2424,7 @@ newlacon(struct vars *v,
 }
 
 /*
- * freelacons - free lookaround-constraint subRE vector
+ * freelacons - 释放 LACON（环视约束）向量
  */
 static void
 freelacons(struct subre *subs,
@@ -2434,14 +2434,14 @@ freelacons(struct subre *subs,
 	int			i;
 
 	assert(n > 0);
-	for (sub = subs + 1, i = n - 1; i > 0; sub++, i--)	/* no 0th */
+	for (sub = subs + 1, i = n - 1; i > 0; sub++, i--)	/* 无0 */
 		if (!NULLCNFA(sub->cnfa))
 			freecnfa(&sub->cnfa);
 	FREE(subs);
 }
 
 /*
- * rfree - free a whole RE (insides of regfree)
+ * rfree - 释放整个 RE（regfree 内部）
  */
 static void
 rfree(regex_t *re)
@@ -2451,7 +2451,7 @@ rfree(regex_t *re)
 	if (re == NULL || re->re_magic != REMAGIC)
 		return;
 
-	re->re_magic = 0;			/* invalidate RE */
+	re->re_magic = 0;			/* 使 RE 失效 */
 	g = (struct guts *) re->re_guts;
 	re->re_guts = NULL;
 	re->re_fns = NULL;
@@ -2470,14 +2470,14 @@ rfree(regex_t *re)
 }
 
 /*
- * rstacktoodeep - check for stack getting dangerously deep
+ * rstacktoodeep - 检查栈是否深得危险
  *
- * Return nonzero to fail the operation with error code REG_ETOOBIG,
- * zero to keep going
+ * 返回非零则以错误码 REG_ETOOBIG 使操作失败，
+ * 零则继续
  *
- * The current implementation is Postgres-specific.  If we ever get around
- * to splitting the regex code out as a standalone library, there will need
- * to be some API to let applications define a callback function for this.
+ * 当前实现专属于 Postgres。若有朝一日把
+ * 正则代码拆成独立库，将需要某种 API 让
+ * 应用程序为此定义回调函数。
  */
 static int
 rstacktoodeep(void)
@@ -2488,7 +2488,7 @@ rstacktoodeep(void)
 #ifdef REG_DEBUG
 
 /*
- * dump - dump an RE in human-readable form
+ * dump - 以人类可读形式转储 RE
  */
 static void
 dump(regex_t *re,
@@ -2551,12 +2551,12 @@ dump(regex_t *re,
 }
 
 /*
- * dumpst - dump a subRE tree
+ * dumpst - 转储 subRE 树
  */
 static void
 dumpst(struct subre *t,
 	   FILE *f,
-	   int nfapresent)			/* is the original NFA still around? */
+	   int nfapresent)			/* 原来的 NFA 是否还在？ */
 {
 	if (t == NULL)
 		fprintf(f, "null tree\n");
@@ -2566,12 +2566,12 @@ dumpst(struct subre *t,
 }
 
 /*
- * stdump - recursive guts of dumpst
+ * stdump - dumpst 的递归内核
  */
 static void
 stdump(struct subre *t,
 	   FILE *f,
-	   int nfapresent)			/* is the original NFA still around? */
+	   int nfapresent)			/* 原来的 NFA 是否还在？ */
 {
 	char		idbuf[50];
 	struct subre *t2;
@@ -2608,7 +2608,7 @@ stdump(struct subre *t,
 		fprintf(f, " %ld-%ld", (long) t->begin->no, (long) t->end->no);
 	if (t->child != NULL)
 		fprintf(f, " C:%s", stid(t->child, idbuf, sizeof(idbuf)));
-	/* printing second child isn't necessary, but it is often helpful */
+	/* 打印第二子节点非必需，但往往有帮助 */
 	if (t->child != NULL && t->child->sibling != NULL)
 		fprintf(f, " C2:%s", stid(t->child->sibling, idbuf, sizeof(idbuf)));
 	if (t->sibling != NULL)
@@ -2624,14 +2624,14 @@ stdump(struct subre *t,
 }
 
 /*
- * stid - identify a subtree node for dumping
+ * stid - 为转储标识一个子树节点
  */
-static const char *				/* points to buf or constant string */
+static const char *				/* 指向 buf 或常串 */
 stid(struct subre *t,
 	 char *buf,
 	 size_t bufsize)
 {
-	/* big enough for hex int or decimal t->id? */
+	/* 够装十六进制或十进制 id？ */
 	if (bufsize < sizeof(void *) * 2 + 3 || bufsize < sizeof(t->id) * 3 + 1)
 		return "unable";
 	if (t->id != 0)

@@ -166,6 +166,67 @@ class PairLinting(unittest.TestCase):
         self.assertEqual(ids(termlint.lint_pair(self.rules, "initialize the OperState flag", "初始化 OperState 标志",
                                                 path="src/backend/executor/x.c")), [])
 
+    def test_regex_glossary_rules(self):
+        # batch-0436: Spencer engine terms, regex paths only
+        rx = "src/backend/regex/regc_nfa.c"
+        hdr = "src/include/regex/regguts.h"
+        outside = "src/backend/utils/adt/regexp.c"
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "a new color", "新色", path=rx)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "a new color", "新颜色", path=rx)),
+                         ["TL17", "TL18"])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "a new color", "新等价类", path=rx)),
+                         ["TL18"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "the color map", "色图", path=hdr)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "the colormap", "颜色图", path=rx)),
+                         ["TL19"])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "open subcolor", "子颜色", path=rx)),
+                         ["TL21"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "pseudocolor", "伪色", path=rx)), [])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "add arcs", "加弧", path=rx)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "add arcs", "加边", path=rx)), ["TL23"])
+        # identifiers that merely contain the letters do not fire
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "struct carc outarcs", "结构 carc outarcs",
+                                                path=rx)), [])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "cNFA only", "只有 cNFA", path=rx)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "the cNFA", "紧凑 NFA", path=rx)),
+                         ["TL26"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "the NFA and DFA", "NFA 与 DFA", path=rx)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "the NFA", "非确定有限自动机", path=rx)),
+                         ["TL25"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "LACON arc", "LACON 弧", path=rx)), [])
+        self.assertEqual(sorted(errors(termlint.lint_pair(self.rules, "LACON arc", "前瞻约束", path=rx))),
+                         ["TL23", "TL28"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "transient cvec", "临时 cvec", path=rx)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "transient cvec", "临时字符向量", path=rx)),
+                         ["TL29"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "color WHITE", "色 WHITE", path=hdr)), [])
+        self.assertEqual(sorted(errors(termlint.lint_pair(self.rules, "color WHITE", "白色", path=rx))),
+                         ["TL18", "TL30"])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "skip whitespace", "跳过空白", path=rx)), [])
+        # regc_lex.c:220/979 and regex.h:188 say "white space", not the WHITE color
+        self.assertEqual(ids(termlint.lint_pair(
+            self.rules, "skip white space etc. if appropriate", "若合适则跳过空白等", path=rx)), [])
+        self.assertEqual(ids(termlint.lint_pair(
+            self.rules, "skip white space and comments in expanded form",
+            "扩展形式下跳过空白与注释", path=rx)), [])
+        self.assertEqual(ids(termlint.lint_pair(
+            self.rules, "expanded format, white space & comments",
+            "扩展格式，空白与注释", path=hdr)), [])
+        self.assertEqual(errors(termlint.lint_pair(
+            self.rules, 'color 0 is "white"', "色 0 是白色", path="src/include/regex/regexport.h")),
+                         ["TL30"])
+        self.assertEqual(sorted(errors(termlint.lint_pair(
+            self.rules, 'color 0 is "white"', "0 是白色", path="src/include/regex/regexport.h"))),
+                         ["TL18", "TL30"])
+        self.assertEqual(ids(termlint.lint_pair(
+            self.rules, 'color 0 is "white"', "色 0 是 WHITE", path="src/include/regex/regexport.h")), [])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "RAINBOW color", "彩虹色", path=rx)), [])
+        self.assertEqual(errors(termlint.lint_pair(self.rules, "rainbow arc", "rainbow 弧", path=rx)),
+                         ["TL24"])
+        # outside the regex tree the same English is unconstrained
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "a new color", "新颜色", path=outside)), [])
+        self.assertEqual(ids(termlint.lint_pair(self.rules, "the NFA", "非确定有限自动机", path=outside)), [])
+
     def test_allowlist(self):
         hits = termlint.lint_pair(self.rules, "a cluster of nodes", "多节点集群", path="src/x.c")
         self.assertEqual(ids(hits), ["TL01"])

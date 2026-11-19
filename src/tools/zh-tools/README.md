@@ -207,6 +207,11 @@ pgnls phrasebook 为单条 NLS 消息设计：`--po` 模式下为 `error`，注�
   「算子」，不译「操作符」（term_rules.json TL16，`path` 作用域 error，
   batch-0331 立 warning、batch-0332 清偿 28 段 backlog 后升 error）；
   其余目录仍译「操作符」，「运算符」全树禁用。
+- regex 引擎术语（batch-0436，仅 `src/backend/regex/` 与 `src/include/regex/`）：
+  color→色（禁颜色/白色/彩色充数）、colormap→色图、subcolor→子色、
+  pseudocolor→伪色、arc→弧、rainbow→彩虹；NFA/DFA/cNFA/LACON/cvec/WHITE
+  保留原文。见 term_rules.json TL17–TL30。regc_*.c 经 `#include` 拼进
+  同一编译单元，后续翻译批必须沿用这套，不得按文件另译。
 
 ## 首提交启动例外
 

@@ -1,0 +1,89 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0436",
+ "title": "regex 引擎术语定款（color/弧/彩虹与 NFA/DFA/LACON/cvec/WHITE 保留）— batch 0436",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3166aefbc88c36421462dcc5e32ead7950772cab",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/term_rules.json",
+   "kind": "tool",
+   "note": "TL17-TL30：仅 src/backend/regex 与 src/include/regex"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_term_lint.py",
+   "kind": "tool",
+   "note": "TL17-TL30 正反例与域外不触发"
+  },
+  {
+   "pattern": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "note": "工作流约定补 regex 定款一条"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0436-regex-glossary.json",
+   "kind": "manifest",
+   "note": "batch-0436 manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "只追加本 manifest；term_rules/README/测试已在册。parent_commit→3166aefbc88 披露"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/term_rules.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "新增 TL17-TL30，0 条注释改写"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_term_lint.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "test_regex_glossary_rules"
+  },
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "regex 定款工作流条目"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0436-regex-glossary.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0436 manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append batch-0436；parent_commit→3166aefbc88 披露"
+  }
+ ],
+ "notes": "batch-0436 glossary 预备批（不译注释）。Spencer regex 引擎术语一次定款，供随后 regc_nfa/regcomp/regexec 各批沿用。依据 src/backend/regex/README「Colors and colormapping」「Detailed semantics of an NFA」。定款：color→色（字符等价类，禁颜色）；colormap→色图；subcolor→子色；pseudocolor→伪色；arc→弧；rainbow/RAINBOW→彩虹；NFA、DFA、cNFA、LACON、cvec、WHITE 保留原文。WHITE 是默认色宏，含义是「其他」，不是视觉白。审查清偿：TL30 排除两词 white space（regc_lex.c:220/979、regex.h:188 的空白），一词 whitespace 同样不触发；regexport.h:18 的 color 0 is white 仍要求保留 WHITE、禁用白色。cvec 保留是因为「字符向量」12 字节放不进标识符短行。规则只在 src/backend/regex/** 与 src/include/regex/** 生效；term_lint 只检查已改注释，故本批对未译 regex 源文件 0 命中。未译 README 正文，未改任何 .c/.h。"
+}

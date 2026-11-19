@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0449",
+  "title": "heapam_xlog.h 注释翻译 — batch 0449",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e9d333c121d84972ef9c496d010747e2986d6fb9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/heapam_xlog.h",
+      "kind": "c_comment",
+      "note": "heapam_xlog"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0449-heapam-xlog.json",
+      "kind": "manifest",
+      "note": "batch-0449"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/heapam_xlog.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 123,
+      "translated": 116,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/INCLUDE KEEP"
+      ],
+      "note": "batch-0449"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0449-heapam-xlog.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0449"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ]
+}

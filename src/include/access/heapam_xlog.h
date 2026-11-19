@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * heapam_xlog.h
- *	  POSTGRES heap access XLOG definitions.
+ *	  POSTGRES 堆访问 XLOG 定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,10 +24,10 @@
 
 
 /*
- * WAL record definitions for heapam.c's WAL operations
+ * heapam.c WAL 操作的 WAL 记录定义
  *
- * XLOG allows to store some information in high 4 bits of log
- * record xl_info field.  We use 3 for opcode and one for init bit.
+ * XLOG 允许在日志记录 xl_info 字段高 4 位存放
+ * 一些信息。3 位用作操作码，1 位用作初始化位。
  */
 #define XLOG_HEAP_INSERT		0x00
 #define XLOG_HEAP_DELETE		0x10
@@ -40,15 +40,15 @@
 
 #define XLOG_HEAP_OPMASK		0x70
 /*
- * When we insert 1st item on new page in INSERT, UPDATE, HOT_UPDATE,
- * or MULTI_INSERT, we can (and we do) restore entire page in redo
+ * 在 INSERT、UPDATE、HOT_UPDATE 或 MULTI_INSERT 中向新页
+ * 插入首项时，我们可(也确实)在 redo 恢复整页。
  */
 #define XLOG_HEAP_INIT_PAGE		0x80
 /*
- * We ran out of opcodes, so heapam.c now has a second RmgrId.  These opcodes
- * are associated with RM_HEAP2_ID, but are not logically different from
- * the ones above associated with RM_HEAP_ID.  XLOG_HEAP_OPMASK applies to
- * these, too.
+ * 操作码已用完，故 heapam.c 现有第二个 RmgrId。这些操作码
+ * 与 RM_HEAP2_ID 关联，但逻辑上与上面关联 RM_HEAP_ID 的
+ * 那些并无不同。XLOG_HEAP_OPMASK 对它们也
+ * 适用。
  */
 #define XLOG_HEAP2_REWRITE		0x00
 #define XLOG_HEAP2_PRUNE		0x10
@@ -60,24 +60,24 @@
 #define XLOG_HEAP2_NEW_CID		0x70
 
 /*
- * xl_heap_insert/xl_heap_multi_insert flag values, 8 bits are available.
+ * xl_heap_insert/xl_heap_multi_insert 标志值，可用 8 位。
  */
-/* PD_ALL_VISIBLE was cleared */
+/* PD_ALL_VISIBLE 已清除 */
 #define XLH_INSERT_ALL_VISIBLE_CLEARED			(1<<0)
 #define XLH_INSERT_LAST_IN_MULTI				(1<<1)
 #define XLH_INSERT_IS_SPECULATIVE				(1<<2)
 #define XLH_INSERT_CONTAINS_NEW_TUPLE			(1<<3)
 #define XLH_INSERT_ON_TOAST_RELATION			(1<<4)
 
-/* all_frozen_set always implies all_visible_set */
+/* all_frozen_set 必然蕴含 all_visible_set */
 #define XLH_INSERT_ALL_FROZEN_SET				(1<<5)
 
 /*
- * xl_heap_update flag values, 8 bits are available.
+ * xl_heap_update 标志值，可用 8 位。
  */
-/* PD_ALL_VISIBLE was cleared */
+/* PD_ALL_VISIBLE 已清除 */
 #define XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED		(1<<0)
-/* PD_ALL_VISIBLE was cleared in the 2nd page */
+/* PD_ALL_VISIBLE 已在第二个页面清除 */
 #define XLH_UPDATE_NEW_ALL_VISIBLE_CLEARED		(1<<1)
 #define XLH_UPDATE_CONTAINS_OLD_TUPLE			(1<<2)
 #define XLH_UPDATE_CONTAINS_OLD_KEY				(1<<3)
@@ -85,45 +85,45 @@
 #define XLH_UPDATE_PREFIX_FROM_OLD				(1<<5)
 #define XLH_UPDATE_SUFFIX_FROM_OLD				(1<<6)
 
-/* convenience macro for checking whether any form of old tuple was logged */
+/* 用于检查是否记录了任何形式旧元组的便利宏 */
 #define XLH_UPDATE_CONTAINS_OLD						\
 	(XLH_UPDATE_CONTAINS_OLD_TUPLE | XLH_UPDATE_CONTAINS_OLD_KEY)
 
 /*
- * xl_heap_delete flag values, 8 bits are available.
+ * xl_heap_delete 标志值，可用 8 位。
  */
-/* PD_ALL_VISIBLE was cleared */
+/* PD_ALL_VISIBLE 已清除 */
 #define XLH_DELETE_ALL_VISIBLE_CLEARED			(1<<0)
 #define XLH_DELETE_CONTAINS_OLD_TUPLE			(1<<1)
 #define XLH_DELETE_CONTAINS_OLD_KEY				(1<<2)
 #define XLH_DELETE_IS_SUPER						(1<<3)
 #define XLH_DELETE_IS_PARTITION_MOVE			(1<<4)
 
-/* convenience macro for checking whether any form of old tuple was logged */
+/* 用于检查是否记录了任何形式旧元组的便利宏 */
 #define XLH_DELETE_CONTAINS_OLD						\
 	(XLH_DELETE_CONTAINS_OLD_TUPLE | XLH_DELETE_CONTAINS_OLD_KEY)
 
-/* This is what we need to know about delete */
+/* 这是我们需要了解的删除信息 */
 typedef struct xl_heap_delete
 {
-	TransactionId xmax;			/* xmax of the deleted tuple */
-	OffsetNumber offnum;		/* deleted tuple's offset */
-	uint8		infobits_set;	/* infomask bits */
+	TransactionId xmax;			/* 被删除元组的 xmax */
+	OffsetNumber offnum;		/* 被删元组偏移量 */
+	uint8		infobits_set;	/* infomask 位 */
 	uint8		flags;
 } xl_heap_delete;
 
 #define SizeOfHeapDelete	(offsetof(xl_heap_delete, flags) + sizeof(uint8))
 
 /*
- * xl_heap_truncate flag values, 8 bits are available.
+ * xl_heap_truncate 标志值，可用 8 位。
  */
 #define XLH_TRUNCATE_CASCADE					(1<<0)
 #define XLH_TRUNCATE_RESTART_SEQS				(1<<1)
 
 /*
- * For truncate we list all truncated relids in an array, followed by all
- * sequence relids that need to be restarted, if any.
- * All rels are always within the same database, so we just list dbid once.
+ * 对 truncate，我们把所有被截断的 relid 列为数组，后跟
+ * 需重启的所有序列 relid(如有)。
+ * 所有关系始终在同一数据库内，故只列一次 dbid。
  */
 typedef struct xl_heap_truncate
 {
@@ -136,10 +136,10 @@ typedef struct xl_heap_truncate
 #define SizeOfHeapTruncate	(offsetof(xl_heap_truncate, relids))
 
 /*
- * We don't store the whole fixed part (HeapTupleHeaderData) of an inserted
- * or updated tuple in WAL; we can save a few bytes by reconstructing the
- * fields that are available elsewhere in the WAL record, or perhaps just
- * plain needn't be reconstructed.  These are the fields we must store.
+ * 我们不在 WAL 中存储插入或更新元组的整个固定部分
+ * 即 HeapTupleHeaderData；重建 WAL 记录中别处已有的字段
+ * 可省几个字节，或者有些字段干脆无需重建。
+ * 以下是我们必须存储的字段。
  */
 typedef struct xl_heap_header
 {
@@ -150,27 +150,27 @@ typedef struct xl_heap_header
 
 #define SizeOfHeapHeader	(offsetof(xl_heap_header, t_hoff) + sizeof(uint8))
 
-/* This is what we need to know about insert */
+/* 这是我们需要了解的插入信息 */
 typedef struct xl_heap_insert
 {
-	OffsetNumber offnum;		/* inserted tuple's offset */
+	OffsetNumber offnum;		/* 被插元组偏移量 */
 	uint8		flags;
 
-	/* xl_heap_header & TUPLE DATA in backup block 0 */
+	/* 备份块0 含 xl_heap_header 与元组数据 */
 } xl_heap_insert;
 
 #define SizeOfHeapInsert	(offsetof(xl_heap_insert, flags) + sizeof(uint8))
 
 /*
- * This is what we need to know about a multi-insert.
+ * 这是需要了解的多元组插入信息。
  *
- * The main data of the record consists of this xl_heap_multi_insert header.
- * 'offsets' array is omitted if the whole page is reinitialized
+ * 记录的主数据由此 xl_heap_multi_insert 头构成。
+ * 若整页被重新初始化，则省略 'offsets' 数组
  * (XLOG_HEAP_INIT_PAGE).
  *
- * In block 0's data portion, there is an xl_multi_insert_tuple struct,
- * followed by the tuple data for each tuple. There is padding to align
- * each xl_multi_insert_tuple struct.
+ * 块 0 的数据部分中有一个 xl_multi_insert_tuple 结构，
+ * 其后是各元组的元组数据。另有填充，用于对齐各
+ * xl_multi_insert_tuple 结构。
  */
 typedef struct xl_heap_multi_insert
 {
@@ -183,111 +183,111 @@ typedef struct xl_heap_multi_insert
 
 typedef struct xl_multi_insert_tuple
 {
-	uint16		datalen;		/* size of tuple data that follows */
+	uint16		datalen;		/* 其后元组数据的大小 */
 	uint16		t_infomask2;
 	uint16		t_infomask;
 	uint8		t_hoff;
-	/* TUPLE DATA FOLLOWS AT END OF STRUCT */
+	/* 元组数据紧随结构末尾 */
 } xl_multi_insert_tuple;
 
 #define SizeOfMultiInsertTuple	(offsetof(xl_multi_insert_tuple, t_hoff) + sizeof(uint8))
 
 /*
- * This is what we need to know about update|hot_update
+ * 这是我们需要了解的 update|hot_update 信息
  *
- * Backup blk 0: new page
+ * 备份块 0：新页
  *
- * If XLH_UPDATE_PREFIX_FROM_OLD or XLH_UPDATE_SUFFIX_FROM_OLD flags are set,
- * the prefix and/or suffix come first, as one or two uint16s.
+ * 若设 XLH_UPDATE_PREFIX_FROM_OLD 或 XLH_UPDATE_SUFFIX_FROM_OLD 标志，
+ * 则前缀和/或后缀居先，为一个或两个 uint16。
  *
- * After that, xl_heap_header and new tuple data follow.  The new tuple
- * data doesn't include the prefix and suffix, which are copied from the
- * old tuple on replay.
+ * 其后是 xl_heap_header 和新元组数据。新元组
+ * 数据不含前缀和后缀，它们在重放时从
+ * 旧元组复制。
  *
- * If XLH_UPDATE_CONTAINS_NEW_TUPLE flag is given, the tuple data is
- * included even if a full-page image was taken.
+ * 若给定 XLH_UPDATE_CONTAINS_NEW_TUPLE 标志，则元组数据
+ * 即使取了整页映像也包含在内。
  *
- * Backup blk 1: old page, if different. (no data, just a reference to the blk)
+ * 备份块 1：旧页（若不同）。（无数据，仅引用该块）
  */
 typedef struct xl_heap_update
 {
-	TransactionId old_xmax;		/* xmax of the old tuple */
-	OffsetNumber old_offnum;	/* old tuple's offset */
-	uint8		old_infobits_set;	/* infomask bits to set on old tuple */
+	TransactionId old_xmax;		/* 旧元组的 xmax */
+	OffsetNumber old_offnum;	/* 旧元组偏移号 */
+	uint8		old_infobits_set;	/* 旧元组上待设 infomask 位 */
 	uint8		flags;
-	TransactionId new_xmax;		/* xmax of the new tuple */
-	OffsetNumber new_offnum;	/* new tuple's offset */
+	TransactionId new_xmax;		/* 新元组的 xmax */
+	OffsetNumber new_offnum;	/* 新元组偏移号 */
 
 	/*
-	 * If XLH_UPDATE_CONTAINS_OLD_TUPLE or XLH_UPDATE_CONTAINS_OLD_KEY flags
-	 * are set, xl_heap_header and tuple data for the old tuple follow.
+	 * 若设 XLH_UPDATE_CONTAINS_OLD_TUPLE 或 XLH_UPDATE_CONTAINS_OLD_KEY
+	 * 标志，其后是旧元组的 xl_heap_header 和元组数据。
 	 */
 } xl_heap_update;
 
 #define SizeOfHeapUpdate	(offsetof(xl_heap_update, new_offnum) + sizeof(OffsetNumber))
 
 /*
- * This is what we need to know about page pruning (both during VACUUM and
- * during opportunistic pruning)
+ * 这是需要了解的页面剪枝信息（含 VACUUM 期间和
+ * 机会性剪枝期间）
  *
- * The array of OffsetNumbers following the fixed part of the record contains:
- *	* for each redirected item: the item offset, then the offset redirected to
- *	* for each now-dead item: the item offset
- *	* for each now-unused item: the item offset
- * The total number of OffsetNumbers is therefore 2*nredirected+ndead+nunused.
- * Note that nunused is not explicitly stored, but may be found by reference
- * to the total record length.
+ * 记录固定部分之后的 OffsetNumber 数组包含：
+ *	* 每个重定向项：项偏移号，然后是重定向目标偏移号
+ *	* 每个现已死亡的项：项偏移号
+ *	* 每个现未使用的项：项偏移号
+ * 故 OffsetNumber 总数为 2*nredirected+ndead+nunused。
+ * 注意 nunused 并未显式存储，但可参照
+ * 记录总长度求得。
  *
- * Acquires a full cleanup lock.
+ * 获取完全清理锁。
  */
 typedef struct xl_heap_prune
 {
 	TransactionId snapshotConflictHorizon;
 	uint16		nredirected;
 	uint16		ndead;
-	bool		isCatalogRel;	/* to handle recovery conflict during logical
-								 * decoding on standby */
-	/* OFFSET NUMBERS are in the block reference 0 */
+	bool		isCatalogRel;	/* 用于处理备库上逻辑解码期间的
+								 * 恢复冲突*/
+	/* 偏移号位于块引用 0 中 */
 } xl_heap_prune;
 
 #define SizeOfHeapPrune (offsetof(xl_heap_prune, isCatalogRel) + sizeof(bool))
 
 /*
- * The vacuum page record is similar to the prune record, but can only mark
- * already LP_DEAD items LP_UNUSED (during VACUUM's second heap pass)
+ * 清理页记录与剪枝记录类似，但只能把已是 LP_DEAD
+ * 的项标记为 LP_UNUSED（在 VACUUM 第二遍堆扫描期间）
  *
- * Acquires an ordinary exclusive lock only.
+ * 只获取普通排他锁。
  */
 typedef struct xl_heap_vacuum
 {
 	uint16		nunused;
-	/* OFFSET NUMBERS are in the block reference 0 */
+	/* 偏移号位于块引用 0 中 */
 } xl_heap_vacuum;
 
 #define SizeOfHeapVacuum (offsetof(xl_heap_vacuum, nunused) + sizeof(uint16))
 
-/* flags for infobits_set */
+/* infobits_set 的标志 */
 #define XLHL_XMAX_IS_MULTI		0x01
 #define XLHL_XMAX_LOCK_ONLY		0x02
 #define XLHL_XMAX_EXCL_LOCK		0x04
 #define XLHL_XMAX_KEYSHR_LOCK	0x08
 #define XLHL_KEYS_UPDATED		0x10
 
-/* flag bits for xl_heap_lock / xl_heap_lock_updated's flag field */
+/* xl_heap_lock / xl_heap_lock_updated 标志字段的标志位 */
 #define XLH_LOCK_ALL_FROZEN_CLEARED		0x01
 
-/* This is what we need to know about lock */
+/* 这是我们需要了解的锁信息 */
 typedef struct xl_heap_lock
 {
-	TransactionId xmax;			/* might be a MultiXactId */
-	OffsetNumber offnum;		/* locked tuple's offset on page */
-	uint8		infobits_set;	/* infomask and infomask2 bits to set */
-	uint8		flags;			/* XLH_LOCK_* flag bits */
+	TransactionId xmax;			/* 可能是 MultiXactId */
+	OffsetNumber offnum;		/* 页上被锁元组偏移号 */
+	uint8		infobits_set;	/* 待设 infomask 和 infomask2 位 */
+	uint8		flags;			/* XLH_LOCK_* 标志位 */
 } xl_heap_lock;
 
 #define SizeOfHeapLock	(offsetof(xl_heap_lock, flags) + sizeof(uint8))
 
-/* This is what we need to know about locking an updated version of a row */
+/* 这是锁定某行已更新版本所需了解的信息 */
 typedef struct xl_heap_lock_updated
 {
 	TransactionId xmax;
@@ -298,27 +298,27 @@ typedef struct xl_heap_lock_updated
 
 #define SizeOfHeapLockUpdated	(offsetof(xl_heap_lock_updated, flags) + sizeof(uint8))
 
-/* This is what we need to know about confirmation of speculative insertion */
+/* 这是确认推测插入所需了解的信息 */
 typedef struct xl_heap_confirm
 {
-	OffsetNumber offnum;		/* confirmed tuple's offset on page */
+	OffsetNumber offnum;		/* 已确认元组的页内偏移 */
 } xl_heap_confirm;
 
 #define SizeOfHeapConfirm	(offsetof(xl_heap_confirm, offnum) + sizeof(OffsetNumber))
 
-/* This is what we need to know about in-place update */
+/* 这是原地更新所需了解的信息 */
 typedef struct xl_heap_inplace
 {
-	OffsetNumber offnum;		/* updated tuple's offset on page */
+	OffsetNumber offnum;		/* 已更新元组的页内偏移 */
 } xl_heap_inplace;
 
 #define SizeOfHeapInplace	(offsetof(xl_heap_inplace, offnum) + sizeof(OffsetNumber))
 
 /*
- * This struct represents a 'freeze plan', which describes how to freeze a
- * group of one or more heap tuples (appears in xl_heap_freeze_page record)
+ * 本结构表示'冻结计划'，描述如何冻结由一个或多个
+ * 堆元组组成的一组（见于 xl_heap_freeze_page 记录）
  */
-/* 0x01 was XLH_FREEZE_XMIN */
+/* 原0x01=XLH_FREEZE_XMIN */
 #define		XLH_FREEZE_XVAC		0x02
 #define		XLH_INVALID_XVAC	0x04
 
@@ -329,37 +329,37 @@ typedef struct xl_heap_freeze_plan
 	uint16		t_infomask;
 	uint8		frzflags;
 
-	/* Length of individual page offset numbers array for this plan */
+	/* 此计划对应的单个页偏移号数组的长度 */
 	uint16		ntuples;
 } xl_heap_freeze_plan;
 
 /*
- * This is what we need to know about a block being frozen during vacuum
+ * 这是 VACUUM 期间冻结某块所需了解的信息
  *
- * Backup block 0's data contains an array of xl_heap_freeze_plan structs
- * (with nplans elements), followed by one or more page offset number arrays.
- * Each such page offset number array corresponds to a single freeze plan
- * (REDO routine freezes corresponding heap tuples using freeze plan).
+ * 备份块 0 的数据含 xl_heap_freeze_plan 结构体数组，共
+ * nplans 个元素，其后接一个或多个页偏移号数组。
+ * 每个这样的页偏移号数组对应单个冻结计划，
+ * REDO 例程据该冻结计划冻结对应的堆元组。
  */
 typedef struct xl_heap_freeze_page
 {
 	TransactionId snapshotConflictHorizon;
 	uint16		nplans;
-	bool		isCatalogRel;	/* to handle recovery conflict during logical
-								 * decoding on standby */
+	bool		isCatalogRel;	/* 用于处理备库上逻辑解码期间的
+								 * 恢复冲突*/
 
 	/*
-	 * In payload of blk 0 : FREEZE PLANS and OFFSET NUMBER ARRAY
+	 * 块 0 的载荷中：冻结计划与偏移号数组
 	 */
 } xl_heap_freeze_page;
 
 #define SizeOfHeapFreezePage	(offsetof(xl_heap_freeze_page, isCatalogRel) + sizeof(bool))
 
 /*
- * This is what we need to know about setting a visibility map bit
+ * 这是设置可见性映射位所需了解的信息
  *
- * Backup blk 0: visibility map buffer
- * Backup blk 1: heap buffer
+ * 备份块0:可见性映射缓冲区
+ * 备份块1:堆缓冲区
  */
 typedef struct xl_heap_visible
 {
@@ -372,16 +372,16 @@ typedef struct xl_heap_visible
 typedef struct xl_heap_new_cid
 {
 	/*
-	 * store toplevel xid so we don't have to merge cids from different
-	 * transactions
+	 * 存储顶层 xid，这样就不必合并来自不同事务的
+	 * cid
 	 */
 	TransactionId top_xid;
 	CommandId	cmin;
 	CommandId	cmax;
-	CommandId	combocid;		/* just for debugging */
+	CommandId	combocid;		/* 仅用于调试 */
 
 	/*
-	 * Store the relfilelocator/ctid pair to facilitate lookups.
+	 * 存储 relfilelocator/ctid 对，以便于查找。
 	 */
 	RelFileLocator target_locator;
 	ItemPointerData target_tid;
@@ -389,15 +389,15 @@ typedef struct xl_heap_new_cid
 
 #define SizeOfHeapNewCid (offsetof(xl_heap_new_cid, target_tid) + sizeof(ItemPointerData))
 
-/* logical rewrite xlog record header */
+/* 逻辑重写 xlog 记录头 */
 typedef struct xl_heap_rewrite_mapping
 {
-	TransactionId mapped_xid;	/* xid that might need to see the row */
-	Oid			mapped_db;		/* DbOid or InvalidOid for shared rels */
-	Oid			mapped_rel;		/* Oid of the mapped relation */
-	off_t		offset;			/* How far have we written so far */
-	uint32		num_mappings;	/* Number of in-memory mappings */
-	XLogRecPtr	start_lsn;		/* Insert LSN at begin of rewrite */
+	TransactionId mapped_xid;	/* 可能需要看到该行的 xid */
+	Oid			mapped_db;		/* DbOid，共享关系为 InvalidOid */
+	Oid			mapped_rel;		/* 被映射关系的 Oid */
+	off_t		offset;			/* 目前已写入的位置 */
+	uint32		num_mappings;	/* 内存中的映射数量 */
+	XLogRecPtr	start_lsn;		/* 重写开始时的插入 LSN */
 } xl_heap_rewrite_mapping;
 
 extern void HeapTupleHeaderAdvanceConflictHorizon(HeapTupleHeader tuple,

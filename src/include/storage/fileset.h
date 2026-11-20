@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fileset.h
- *	  Management of named temporary files.
+ *	  具名临时文件的管理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,16 +17,16 @@
 #include "storage/fd.h"
 
 /*
- * A set of temporary files.
+ * 一组临时文件。
  */
 typedef struct FileSet
 {
-	pid_t		creator_pid;	/* PID of the creating process */
-	uint32		number;			/* per-PID identifier */
-	int			ntablespaces;	/* number of tablespaces to use */
-	Oid			tablespaces[8]; /* OIDs of tablespaces to use. Assumes that
-								 * it's rare that there more than temp
-								 * tablespaces. */
+	pid_t		creator_pid;	/* 创建进程的 PID */
+	uint32		number;			/* 每 PID 标识 */
+	int			ntablespaces;	/* 所用表空间数目 */
+	Oid			tablespaces[8]; /* 所用表空间的 OIDs。假定很少
+								 * 有比这更多的临时
+								 * 表空间。 */
 } FileSet;
 
 extern void FileSetInit(FileSet *fileset);

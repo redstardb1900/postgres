@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * indexfsm.h
- *	  POSTGRES free space map for quickly finding an unused page in index
+ *	  POSTGRES 索引空闲空间映射，便于快速查找未用页。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

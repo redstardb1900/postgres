@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sharedfileset.h
- *	  Shared temporary file management.
+ *	  共享临时文件管理。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,13 +21,13 @@
 #include "storage/spin.h"
 
 /*
- * A set of temporary files that can be shared by multiple backends.
+ * 一组可被多个后端共享的临时文件。
  */
 typedef struct SharedFileSet
 {
 	FileSet		fs;
-	slock_t		mutex;			/* mutex protecting the reference count */
-	int			refcnt;			/* number of attached backends */
+	slock_t		mutex;			/* 保护引用计数的互斥锁 */
+	int			refcnt;			/* 已附着的后端数目 */
 } SharedFileSet;
 
 extern void SharedFileSetInit(SharedFileSet *fileset, dsm_segment *seg);

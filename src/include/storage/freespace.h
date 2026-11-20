@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * freespace.h
- *	  POSTGRES free space map for quickly finding free space in relations
+ *	  POSTGRES 关系空闲空间映射，供快速查找空闲空间。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 #include "storage/relfilelocator.h"
 #include "utils/relcache.h"
 
-/* prototypes for public functions in freespace.c */
+/* freespace.c 中公开函数原型 */
 extern Size GetRecordedFreeSpace(Relation rel, BlockNumber heapBlk);
 extern BlockNumber GetPageWithFreeSpace(Relation rel, Size spaceNeeded);
 extern BlockNumber RecordAndGetPageWithFreeSpace(Relation rel,

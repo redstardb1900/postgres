@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * reinit.h
- *	  Reinitialization of unlogged relations
+ *	  未日志关系的重新初始化。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

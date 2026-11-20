@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * md.h
- *	  magnetic disk storage manager public interface declarations.
+ *	  磁盘存储管理器公共接口声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@
 #include "storage/smgr.h"
 #include "storage/sync.h"
 
-/* md storage manager functionality */
+/* md 存储管理器功能 */
 extern void mdinit(void);
 extern void mdopen(SMgrRelation reln);
 extern void mdclose(SMgrRelation reln, ForkNumber forknum);
@@ -46,7 +46,7 @@ extern void mdimmedsync(SMgrRelation reln, ForkNumber forknum);
 extern void ForgetDatabaseSyncRequests(Oid dbid);
 extern void DropRelationFiles(RelFileLocator *delrels, int ndelrels, bool isRedo);
 
-/* md sync callbacks */
+/* md 同步回调 */
 extern int	mdsyncfiletag(const FileTag *ftag, char *path);
 extern int	mdunlinkfiletag(const FileTag *ftag, char *path);
 extern bool mdfiletagmatches(const FileTag *ftag, const FileTag *candidate);

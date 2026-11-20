@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * block.h
- *	  POSTGRES disk block definitions.
+ *	  POSTGRES 磁盘块定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,16 +17,16 @@
 /*
  * BlockNumber:
  *
- * each data file (heap or index) is divided into postgres disk blocks
- * (which may be thought of as the unit of i/o -- a postgres buffer
- * contains exactly one disk block).  the blocks are numbered
- * sequentially, 0 to 0xFFFFFFFE.
+ * 每个数据文件（堆或索引）被分成 postgres 磁盘块（
+ * 可视为 I/O 单位——一个 postgres 缓冲区
+ * 恰好含一个磁盘块）。块按顺序编号，
+ * 从 0 到 0xFFFFFFFE。
  *
- * InvalidBlockNumber is the same thing as P_NEW in bufmgr.h.
+ * InvalidBlockNumber 与 bufmgr.h 中的 P_NEW 相同。
  *
- * the access methods, the buffer manager and the storage manager are
- * more or less the only pieces of code that should be accessing disk
- * blocks directly.
+ * 访问方法、缓冲区管理器和存储管理器
+ * 几乎是唯一应直接访问磁盘
+ * 块的代码。
  */
 typedef uint32 BlockNumber;
 
@@ -37,18 +37,18 @@ typedef uint32 BlockNumber;
 /*
  * BlockId:
  *
- * this is a storage type for BlockNumber.  in other words, this type
- * is used for on-disk structures (e.g., in HeapTupleData) whereas
- * BlockNumber is the type on which calculations are performed (e.g.,
- * in access method code).
+ * 这是 BlockNumber 的存储类型。换言之，本类型
+ * 用于磁盘上结构（如 HeapTupleData），而
+ * BlockNumber 是做计算的类型（如在
+ * 访问方法中）。
  *
- * there doesn't appear to be any reason to have separate types except
- * for the fact that BlockIds can be SHORTALIGN'd (and therefore any
- * structures that contains them, such as ItemPointerData, can also be
- * SHORTALIGN'd).  this is an important consideration for reducing the
- * space requirements of the line pointer (ItemIdData) array on each
- * page and the header of each heap or index tuple, so it doesn't seem
- * wise to change this without good reason.
+ * 分开两种类型似乎并无别的理由，只因
+ * BlockIds 可 SHORTALIGN（因而任何含它的
+ * 结构，如 ItemPointerData，也可
+ * SHORTALIGN）。这对减小每页行指针（
+ * ItemIdData）数组以及每个堆或索引元组头的
+ * 空间需求很重要，因此没有充分理由
+ * 似乎不宜改动。
  */
 typedef struct BlockIdData
 {
@@ -56,16 +56,16 @@ typedef struct BlockIdData
 	uint16		bi_lo;
 } BlockIdData;
 
-typedef BlockIdData *BlockId;	/* block identifier */
+typedef BlockIdData *BlockId;	/* 块标识 */
 
 /* ----------------
- *		support functions
+ *		支持函数
  * ----------------
  */
 
 /*
  * BlockNumberIsValid
- *		True iff blockNumber is valid.
+ *		blockNumber 有效则真。
  */
 static inline bool
 BlockNumberIsValid(BlockNumber blockNumber)
@@ -75,7 +75,7 @@ BlockNumberIsValid(BlockNumber blockNumber)
 
 /*
  * BlockIdSet
- *		Sets a block identifier to the specified value.
+ *		把块标识设为指定值。
  */
 static inline void
 BlockIdSet(BlockIdData *blockId, BlockNumber blockNumber)
@@ -86,7 +86,7 @@ BlockIdSet(BlockIdData *blockId, BlockNumber blockNumber)
 
 /*
  * BlockIdEquals
- *		Check for block number equality.
+ *		检查块号是否相等。
  */
 static inline bool
 BlockIdEquals(const BlockIdData *blockId1, const BlockIdData *blockId2)
@@ -97,7 +97,7 @@ BlockIdEquals(const BlockIdData *blockId1, const BlockIdData *blockId2)
 
 /*
  * BlockIdGetBlockNumber
- *		Retrieve the block number from a block identifier.
+ *		从块标识取出块号。
  */
 static inline BlockNumber
 BlockIdGetBlockNumber(const BlockIdData *blockId)

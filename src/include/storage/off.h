@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * off.h
- *	  POSTGRES disk "offset" definitions.
+ *	  POSTGRES 磁盘"偏移"定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,8 +18,8 @@
 /*
  * OffsetNumber:
  *
- * this is a 1-based index into the linp (ItemIdData) array in the
- * header of each disk page.
+ * 这是每页头中 linp（ItemIdData）数组的
+ * 从 1 起的下标。
  */
 typedef uint16 OffsetNumber;
 
@@ -28,13 +28,13 @@ typedef uint16 OffsetNumber;
 #define MaxOffsetNumber			((OffsetNumber) (BLCKSZ / sizeof(ItemIdData)))
 
 /* ----------------
- *		support macros
+ *		支持宏
  * ----------------
  */
 
 /*
  * OffsetNumberIsValid
- *		True iff the offset number is valid.
+ *		当且仅当偏移号有效为真。
  */
 #define OffsetNumberIsValid(offsetNumber) \
 	((bool) ((offsetNumber != InvalidOffsetNumber) && \
@@ -43,11 +43,11 @@ typedef uint16 OffsetNumber;
 /*
  * OffsetNumberNext
  * OffsetNumberPrev
- *		Increments/decrements the argument.  These macros look pointless
- *		but they help us disambiguate the different manipulations on
- *		OffsetNumbers (e.g., sometimes we subtract one from an
- *		OffsetNumber to move back, and sometimes we do so to form a
- *		real C array index).
+ *		把参数加一/减一。这些宏看似多余，
+ *		但有助于区分对 OffsetNumbers 的不同操作（
+ *		例如有时减一是为了后退，有时是为了
+ *		把 OffsetNumber 变成真正 C 数组
+ *		下标）。
  */
 #define OffsetNumberNext(offsetNumber) \
 	((OffsetNumber) (1 + (offsetNumber)))

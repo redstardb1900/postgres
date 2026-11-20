@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * item.h
- *	  POSTGRES disk item definitions.
+ *	  POSTGRES 磁盘项定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

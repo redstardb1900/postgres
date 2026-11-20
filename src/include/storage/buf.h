@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * buf.h
- *	  Basic buffer manager data types.
+ *	  缓冲管理器数据类型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -15,10 +15,10 @@
 #define BUF_H
 
 /*
- * Buffer identifiers.
+ * 缓冲区标识。
  *
- * Zero is invalid, positive is the index of a shared buffer (1..NBuffers),
- * negative is the index of a local buffer (-1 .. -NLocBuffer).
+ * 零为无效，正数为共享缓冲区下标（1..NBuffers），
+ * 负数为本地缓冲区下标（-1 .. -NLocBuffer）。
  */
 typedef int Buffer;
 
@@ -26,20 +26,20 @@ typedef int Buffer;
 
 /*
  * BufferIsInvalid
- *		True iff the buffer is invalid.
+ *		缓冲区无效则为真。
  */
 #define BufferIsInvalid(buffer) ((buffer) == InvalidBuffer)
 
 /*
  * BufferIsLocal
- *		True iff the buffer is local (not visible to other backends).
+ *		缓冲区为本地（其他后端不可见）则为真。
  */
 #define BufferIsLocal(buffer)	((buffer) < 0)
 
 /*
- * Buffer access strategy objects.
+ * 缓冲区访问策略对象。
  *
- * BufferAccessStrategyData is private to freelist.c
+ * BufferAccessStrategyData 为 freelist.c 私有
  */
 typedef struct BufferAccessStrategyData *BufferAccessStrategy;
 

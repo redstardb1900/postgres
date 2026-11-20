@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0462",
+  "title": "xlogutils/xlogrecovery/xlogprefetcher 头文件注释翻译 — batch 0462",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "0694f9def827b0218dac16f1ab31d734de820427",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/xlogutils.h",
+      "kind": "c_comment",
+      "note": "0462"
+    },
+    {
+      "pattern": "src/include/access/xlogrecovery.h",
+      "kind": "c_comment",
+      "note": "0462"
+    },
+    {
+      "pattern": "src/include/access/xlogprefetcher.h",
+      "kind": "c_comment",
+      "note": "0462"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0462-xlog-utils.json",
+      "kind": "manifest",
+      "note": "batch-0462"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/xlogutils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 33,
+      "translated": 29,
+      "preserved": 4,
+      "preserved_reasons": [
+        "横幅/路径/版权 KEEP"
+      ],
+      "note": "batch-0462"
+    },
+    {
+      "path": "src/include/access/xlogrecovery.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 40,
+      "translated": 35,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOGRECOVERY_H KEEP"
+      ],
+      "note": "batch-0462"
+    },
+    {
+      "path": "src/include/access/xlogprefetcher.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 2,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/路径/版权/IDENTIFICATION/GUCs KEEP"
+      ],
+      "note": "batch-0462"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0462-xlog-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0462"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "XLOG 工具/恢复/预取"
+}

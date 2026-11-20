@@ -1,7 +1,7 @@
 /*
  * xlogutils.h
  *
- * Utilities for replaying WAL records.
+ * 重放 WAL 记录的实用例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,34 +15,34 @@
 #include "storage/bufmgr.h"
 
 /*
- * Prior to 8.4, all activity during recovery was carried out by the startup
- * process. This local variable continues to be used in many parts of the
- * code to indicate actions taken by RecoveryManagers. Other processes that
- * potentially perform work during recovery should check RecoveryInProgress().
- * See XLogCtl notes in xlog.c.
+ * 8.4 以前，恢复期间的全部活动均由启动
+ * 进程执行。此局部变量仍在代码多处用来
+ * 标明 RecoveryManagers 所采取的动作。其他在
+ * 恢复期间可能执行工作的进程应检查 RecoveryInProgress()。
+ * 见 xlog.c中 XLogCtl 注。
  */
 extern PGDLLIMPORT bool InRecovery;
 
 /*
- * Like InRecovery, standbyState is only valid in the startup process.
- * In all other processes it will have the value STANDBY_DISABLED (so
- * InHotStandby will read as false).
+ * 与 InRecovery 一样，standbyState 仅在启动进程中有效。
+ * 在所有其他进程中其值为 STANDBY_DISABLED（因此 
+ * InHotStandby 读为 false）。
  *
- * In DISABLED state, we're performing crash recovery or hot standby was
- * disabled in postgresql.conf.
+ * DISABLED 状态下，我们正在做崩溃恢复，或热备已在
+ * postgresql.conf 中禁用。
  *
- * In INITIALIZED state, we've run InitRecoveryTransactionEnvironment, but
- * we haven't yet processed a RUNNING_XACTS or shutdown-checkpoint WAL record
- * to initialize our primary-transaction tracking system.
+ * INITIALIZED 状态下已运行 InitRecoveryTransactionEnvironment，但
+ * 尚未处理 RUNNING_XACTS 或关闭检查点 WAL 记录
+ * 以初始化我们的主库事务跟踪系统。
  *
- * When the transaction tracking is initialized, we enter the SNAPSHOT_PENDING
- * state. The tracked information might still be incomplete, so we can't allow
- * connections yet, but redo functions must update the in-memory state when
- * appropriate.
+ * 当事务跟踪已初始化，我们进入 SNAPSHOT_PENDING 状态。
+ * 所跟踪信息可能仍不完整，故尚无法允许
+ * 连接，但 redo 函数必须更新内存中状态，在
+ * 适当时。
  *
- * In SNAPSHOT_READY mode, we have full knowledge of transactions that are
- * (or were) running on the primary at the current WAL location. Snapshots
- * can be taken, and read-only queries can be run.
+ * 在 SNAPSHOT_READY 模式下，我们完全了解那些正（
+ * 或曾经）在主库上于当前 WAL 位置运行的事务。快照
+ * 可获取，且可运行只读查询。
  */
 typedef enum
 {
@@ -65,20 +65,20 @@ extern void XLogDropDatabase(Oid dbid);
 extern void XLogTruncateRelation(RelFileLocator rlocator, ForkNumber forkNum,
 								 BlockNumber nblocks);
 
-/* Result codes for XLogReadBufferForRedo[Extended] */
+/* XLogReadBufferForRedo[Extended] 的结果码 */
 typedef enum
 {
-	BLK_NEEDS_REDO,				/* changes from WAL record need to be applied */
-	BLK_DONE,					/* block is already up-to-date */
-	BLK_RESTORED,				/* block was restored from a full-page image */
-	BLK_NOTFOUND				/* block was not found (and hence does not
-								 * need to be replayed) */
+	BLK_NEEDS_REDO,				/* 需要应用来自该 WAL 记录的更改 */
+	BLK_DONE,					/* 该块已是最新 */
+	BLK_RESTORED,				/* 该块已从整页映像恢复 */
+	BLK_NOTFOUND				/* 未找到该块（因而无需
+								 * 被重放）*/
 } XLogRedoAction;
 
-/* Private data of the read_local_xlog_page_no_wait callback. */
+/* read_local_xlog_page_no_wait 回调的私有数据。 */
 typedef struct ReadLocalXLogPageNoWaitPrivate
 {
-	bool		end_of_wal;		/* true, when end of WAL is reached */
+	bool		end_of_wal;		/* true，当已到达 WAL末尾时 */
 } ReadLocalXLogPageNoWaitPrivate;
 
 extern XLogRedoAction XLogReadBufferForRedo(XLogReaderState *record,

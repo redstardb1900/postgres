@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xlogprefetcher.h
- *		Declarations for the recovery prefetching module.
+ *		恢复预取模块的声明。
  *
  * Portions Copyright (c) 2022-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,7 +20,7 @@
 /* GUCs */
 extern PGDLLIMPORT int recovery_prefetch;
 
-/* Possible values for recovery_prefetch */
+/* recovery_prefetch 的可能取值 */
 typedef enum
 {
 	RECOVERY_PREFETCH_OFF,

@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "dd90266b76e17bef6e0d56a7d1b1f57b14d77202",
+ "parent_commit": "0694f9def827b0218dac16f1ab31d734de820427",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7971,6 +7971,26 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0461-rmgr.json",
    "kind": "manifest",
    "note": "batch-0461"
+  },
+  {
+   "pattern": "src/include/access/xlogutils.h",
+   "kind": "c_comment",
+   "note": "0462"
+  },
+  {
+   "pattern": "src/include/access/xlogrecovery.h",
+   "kind": "c_comment",
+   "note": "0462"
+  },
+  {
+   "pattern": "src/include/access/xlogprefetcher.h",
+   "kind": "c_comment",
+   "note": "0462"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0462-xlog-utils.json",
+   "kind": "manifest",
+   "note": "batch-0462"
   }
  ],
  "files": [
@@ -25860,6 +25880,52 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0461"
+  },
+  {
+   "path": "src/include/access/xlogutils.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 33,
+   "translated": 29,
+   "preserved": 4,
+   "preserved_reasons": [
+    "横幅/路径/版权 KEEP"
+   ],
+   "note": "batch-0462"
+  },
+  {
+   "path": "src/include/access/xlogrecovery.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 40,
+   "translated": 35,
+   "preserved": 5,
+   "preserved_reasons": [
+    "横幅/路径/版权/XLOGRECOVERY_H KEEP"
+   ],
+   "note": "batch-0462"
+  },
+  {
+   "path": "src/include/access/xlogprefetcher.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 2,
+   "preserved": 8,
+   "preserved_reasons": [
+    "横幅/路径/版权/IDENTIFICATION/GUCs KEEP"
+   ],
+   "note": "batch-0462"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0462-xlog-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0462"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

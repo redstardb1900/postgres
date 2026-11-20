@@ -1,7 +1,7 @@
 /*
  * xlogrecovery.h
  *
- * Functions for WAL recovery and standby mode
+ * WAL 恢复与备库模式相关函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,8 +17,8 @@
 #include "utils/timestamp.h"
 
 /*
- * Recovery target type.
- * Only set during a Point in Time recovery, not when in standby mode.
+ * 恢复目标类型。
+ * 仅在时间点恢复期间设置，备库模式下不设置。
  */
 typedef enum
 {
@@ -31,7 +31,7 @@ typedef enum
 } RecoveryTargetType;
 
 /*
- * Recovery target TimeLine goal
+ * 恢复目标 TimeLine 目标
  */
 typedef enum
 {
@@ -40,15 +40,15 @@ typedef enum
 	RECOVERY_TARGET_TIMELINE_NUMERIC
 } RecoveryTargetTimeLineGoal;
 
-/* Recovery pause states */
+/* 恢复暂停状态 */
 typedef enum RecoveryPauseState
 {
-	RECOVERY_NOT_PAUSED,		/* pause not requested */
-	RECOVERY_PAUSE_REQUESTED,	/* pause requested, but not yet paused */
-	RECOVERY_PAUSED				/* recovery is paused */
+	RECOVERY_NOT_PAUSED,		/* 未请求暂停 */
+	RECOVERY_PAUSE_REQUESTED,	/* 已请求暂停，但尚未暂停 */
+	RECOVERY_PAUSED				/* 恢复已暂停 */
 } RecoveryPauseState;
 
-/* User-settable GUC parameters */
+/* 用户可设置的GUC 参数 */
 extern PGDLLIMPORT bool recoveryTargetInclusive;
 extern PGDLLIMPORT int recoveryTargetAction;
 extern PGDLLIMPORT int recovery_min_apply_delay;
@@ -58,7 +58,7 @@ extern PGDLLIMPORT char *recoveryRestoreCommand;
 extern PGDLLIMPORT char *recoveryEndCommand;
 extern PGDLLIMPORT char *archiveCleanupCommand;
 
-/* indirectly set via GUC system */
+/* 由 GUC 系统间接设定 */
 extern PGDLLIMPORT TransactionId recoveryTargetXid;
 extern PGDLLIMPORT char *recovery_target_time_string;
 extern PGDLLIMPORT TimestampTz recoveryTargetTime;
@@ -70,10 +70,10 @@ extern PGDLLIMPORT RecoveryTargetTimeLineGoal recoveryTargetTimeLineGoal;
 extern PGDLLIMPORT TimeLineID recoveryTargetTLIRequested;
 extern PGDLLIMPORT TimeLineID recoveryTargetTLI;
 
-/* Have we already reached a consistent database state? */
+/* 我们是否已达一致的数据库状态？ */
 extern PGDLLIMPORT bool reachedConsistency;
 
-/* Are we currently in standby mode? */
+/* 当前是否处于备库模式？ */
 extern PGDLLIMPORT bool StandbyMode;
 
 extern Size XLogRecoveryShmemSize(void);
@@ -85,47 +85,47 @@ extern void InitWalRecovery(ControlFileData *ControlFile,
 extern void PerformWalRecovery(void);
 
 /*
- * FinishWalRecovery() returns this.  It contains information about the point
- * where recovery ended, and why it ended.
+ * FinishWalRecovery() 返回此结构。其中含恢复结束
+ * 位置及结束原因的信息。
  */
 typedef struct
 {
 	/*
-	 * Information about the last valid or applied record, after which new WAL
-	 * can be appended.  'lastRec' is the position where the last record
-	 * starts, and 'endOfLog' is its end.  'lastPage' is a copy of the last
-	 * partial page that contains endOfLog (or NULL if endOfLog is exactly at
-	 * page boundary).  'lastPageBeginPtr' is the position where the last page
-	 * begins.
+	 * 关于末条有效或已应用记录的信息，新 WAL 可在
+	 * 其后追加。'lastRec' 是末条记录的起始位置，
+	 * 'endOfLog' 是其终点。'lastPage' 是最后部分
+	 * 页的副本，该页含 endOfLog（若 endOfLog 恰在
+	 * 页边界则为 NULL）。'lastPageBeginPtr' 是末页之
+	 * 始。
 	 *
-	 * endOfLogTLI is the TLI in the filename of the XLOG segment containing
-	 * the last applied record.  It could be different from lastRecTLI, if
-	 * there was a timeline switch in that segment, and we were reading the
-	 * old WAL from a segment belonging to a higher timeline.
+	 * endOfLogTLI 是含最后已应用记录的 XLOG 段文件名中的 
+	 * TLI。它可能不同于 lastRecTLI，若该段中有
+	 * 时间线切换，且我们当时正从属于更高时间
+	 * 线的段中读取旧 WAL。
 	 */
-	XLogRecPtr	lastRec;		/* start of last valid or applied record */
+	XLogRecPtr	lastRec;		/* 末条有效或已应用记录起 */
 	TimeLineID	lastRecTLI;
-	XLogRecPtr	endOfLog;		/* end of last valid or applied record */
+	XLogRecPtr	endOfLog;		/* 末条有效或已应用记录终 */
 	TimeLineID	endOfLogTLI;
 
-	XLogRecPtr	lastPageBeginPtr;	/* LSN of page that contains endOfLog */
-	char	   *lastPage;		/* copy of the last page, up to endOfLog */
+	XLogRecPtr	lastPageBeginPtr;	/* 含 endOfLog 的页之 LSN */
+	char	   *lastPage;		/* 最后一页副本，直至 endOfLog */
 
 	/*
-	 * abortedRecPtr is the start pointer of a broken record at end of WAL
-	 * when recovery completes; missingContrecPtr is the location of the first
-	 * contrecord that went missing.  See CreateOverwriteContrecordRecord for
-	 * details.
+	 * abortedRecPtr 是 WAL 结束处损坏记录的起始指针，
+	 * 在恢复完成时设置；missingContrecPtr 是第一个丢失的 
+	 * contrecord 的位置。见 CreateOverwriteContrecordRecord 之详
+	 * 情。
 	 */
 	XLogRecPtr	abortedRecPtr;
 	XLogRecPtr	missingContrecPtr;
 
-	/* short human-readable string describing why recovery ended */
+	/* 描述恢复为何结束的人类可读短串 */
 	char	   *recoveryStopReason;
 
 	/*
-	 * If standby or recovery signal file was found, these flags are set
-	 * accordingly.
+	 * 若存在 standby 或恢复信号文件，则这些标志相应
+	 * 地设置。
 	 */
 	bool		standby_signal_file_found;
 	bool		recovery_signal_file_found;

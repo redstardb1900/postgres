@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0471",
+  "title": "xlogreader.h 头文件注释翻译 — batch 0471",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "554162ae4df6f513a600350a5ff7ba53e1692d23",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/xlogreader.h",
+      "kind": "c_comment",
+      "note": "0471"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0471-xlogreader.json",
+      "kind": "manifest",
+      "note": "0471"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/xlogreader.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 170,
+      "translated": 154,
+      "preserved": 16,
+      "preserved_reasons": [
+        "横幅破折/文件名/版权/IDENTIFICATION/路径/NOTES/XLOGREADER_H/L100 return./L316 data. KEEP"
+      ],
+      "note": "batch-0471"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0471-xlogreader.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0471"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "通用 XLog 读取设施；整页映像；缺失的 contrecord；环形缓冲区；oversized"
+}

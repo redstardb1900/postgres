@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xlogreader.h
- *		Definitions for the generic XLog reading facility
+ *	通用 XLog 读取设施的定义
  *
  * Portions Copyright (c) 2013-2023, PostgreSQL Global Development Group
  *
@@ -9,26 +9,26 @@
  *		src/include/access/xlogreader.h
  *
  * NOTES
- *		See the definition of the XLogReaderState struct for instructions on
- *		how to use the XLogReader infrastructure.
+ *	XLogReader 基础设施的用法见 
+ *	XLogReaderState 结构体定义。
  *
- *		The basic idea is to allocate an XLogReaderState via
- *		XLogReaderAllocate(), position the reader to the first record with
- *		XLogBeginRead() or XLogFindNextRecord(), and call XLogReadRecord()
- *		until it returns NULL.
+ *	基本思路是经 
+ *	XLogReaderAllocate() 分配 XLogReaderState，定位首条，用 
+ *	XLogBeginRead() 或 XLogFindNextRecord() 并调用 XLogReadRecord()
+ *	 直至返回 NULL。
  *
- *		Callers supply a page_read callback if they want to call
- *		XLogReadRecord or XLogFindNextRecord; it can be passed in as NULL
- *		otherwise.  The WALRead function can be used as a helper to write
- *		page_read callbacks, but it is not mandatory; callers that use it,
- *		must supply segment_open callbacks.  The segment_close callback
- *		must always be supplied.
+ *	若要调用 XLogReadRecord 或 
+ *	XLogFindNextRecord，调用方须提供 page_read 回调；
+ *	否则可传入 NULL。WALRead 函数可用来辅助编写 
+ *	page_read 回调，但并非必须；使用它的调用方
+ *	必须提供 segment_open 回调。segment_close 
+ *	必须始终提供。
  *
- *		After reading a record with XLogReadRecord(), it's decomposed into
- *		the per-block and main data parts, and the parts can be accessed
- *		with the XLogRec* macros and functions. You can also decode a
- *		record that's already constructed in memory, without reading from
- *		disk, by calling the DecodeXLogRecord() function.
+ *	用 XLogReadRecord() 读到记录后，会分解为
+ *	按块部分与主数据部分，可通过 
+ *	XLogRec* 宏与函数访问。也可解码已在
+ *	内存中构造好的记录，无需读盘，调用 
+ *	DecodeXLogRecord() 即可。
  *-------------------------------------------------------------------------
  */
 #ifndef XLOGREADER_H
@@ -41,15 +41,15 @@
 #include "access/xlogrecord.h"
 #include "storage/buf.h"
 
-/* WALOpenSegment represents a WAL segment being read. */
+/* WALOpenSegment 表示正在读取的 WAL 段。 */
 typedef struct WALOpenSegment
 {
-	int			ws_file;		/* segment file descriptor */
-	XLogSegNo	ws_segno;		/* segment number */
-	TimeLineID	ws_tli;			/* timeline ID of the currently open file */
+	int			ws_file;		/* 段文件描述符 */
+	XLogSegNo	ws_segno;		/* 段号 */
+	TimeLineID	ws_tli;			/* 当前打开文件的时间线 ID */
 } WALOpenSegment;
 
-/* WALSegmentContext carries context information about WAL segments to read */
+/* WALSegmentContext 携带待读 WAL 段的上下文 */
 typedef struct WALSegmentContext
 {
 	char		ws_dir[MAXPGPATH];
@@ -58,7 +58,7 @@ typedef struct WALSegmentContext
 
 typedef struct XLogReaderState XLogReaderState;
 
-/* Function type definitions for various xlogreader interactions */
+/* xlogreader 各类交互的函数类型定义 */
 typedef int (*XLogPageReadCB) (XLogReaderState *xlogreader,
 							   XLogRecPtr targetPagePtr,
 							   int reqLen,
@@ -72,44 +72,44 @@ typedef void (*WALSegmentCloseCB) (XLogReaderState *xlogreader);
 typedef struct XLogReaderRoutine
 {
 	/*
-	 * Data input callback
+	 * 数据输入回调
 	 *
-	 * This callback shall read at least reqLen valid bytes of the xlog page
-	 * starting at targetPagePtr, and store them in readBuf.  The callback
-	 * shall return the number of bytes read (never more than XLOG_BLCKSZ), or
-	 * -1 on failure.  The callback shall sleep, if necessary, to wait for the
-	 * requested bytes to become available.  The callback will not be invoked
-	 * again for the same page unless more than the returned number of bytes
-	 * are needed.
+	 * 本回调应读取自 targetPagePtr 起的 xlog 页上
+	 * 至少 reqLen 个有效字节，存入 readBuf。回调
+	 * 应返回已读字节数（不超过 XLOG_BLCKSZ），失败则
+	 * 返回 -1。必要时回调应睡眠，以等待
+	 * 所请求字节变为可用。同一页上，除非需要的
+	 * 字节多于已返回数，否则不会再次
+	 * 调用。
 	 *
-	 * targetRecPtr is the position of the WAL record we're reading.  Usually
-	 * it is equal to targetPagePtr + reqLen, but sometimes xlogreader needs
-	 * to read and verify the page or segment header, before it reads the
-	 * actual WAL record it's interested in.  In that case, targetRecPtr can
-	 * be used to determine which timeline to read the page from.
+	 * targetRecPtr 是正在读取的 WAL 记录位置。通常
+	 * 等于 targetPagePtr + reqLen，但有时 xlogreader 需
+	 * 先读并校验页或段头，然后才读它真正
+	 * 关心的 WAL 记录。此时可用 targetRecPtr 
+	 * 判定应从哪条时间线读该页。
 	 *
-	 * The callback shall set ->seg.ws_tli to the TLI of the file the page was
-	 * read from.
+	 * 回调应将 ->seg.ws_tli 设为读到该页的文件的 
+	 * TLI。
 	 */
 	XLogPageReadCB page_read;
 
 	/*
-	 * Callback to open the specified WAL segment for reading.  ->seg.ws_file
-	 * shall be set to the file descriptor of the opened segment.  In case of
-	 * failure, an error shall be raised by the callback and it shall not
+	 * 打开指定 WAL 段以供读取的回调。->seg.ws_file 
+	 * 应设为已打开段的文件描述符。若失败，
+	 * 回调应报错并且不得返回。
 	 * return.
 	 *
-	 * "nextSegNo" is the number of the segment to be opened.
+	 * "nextSegNo" 是要打开的段号。
 	 *
-	 * "tli_p" is an input/output argument. WALRead() uses it to pass the
-	 * timeline in which the new segment should be found, but the callback can
-	 * use it to return the TLI that it actually opened.
+	 * "tli_p" 为输入/输出参数。WALRead() 用它传入
+	 * 应查找新段的时间线，但回调也可用它
+	 * 返回实际打开的 TLI。
 	 */
 	WALSegmentOpenCB segment_open;
 
 	/*
-	 * WAL segment close callback.  ->seg.ws_file shall be set to a negative
-	 * number.
+	 * WAL 段关闭回调。->seg.ws_file 应设为负
+	 * 数。
 	 */
 	WALSegmentCloseCB segment_close;
 } XLogReaderRoutine;
@@ -118,30 +118,30 @@ typedef struct XLogReaderRoutine
 
 typedef struct
 {
-	/* Is this block ref in use? */
+	/* 此块引用在用？ */
 	bool		in_use;
 
-	/* Identify the block this refers to */
+	/* 标识本引用所指的块 */
 	RelFileLocator rlocator;
 	ForkNumber	forknum;
 	BlockNumber blkno;
 
-	/* Prefetching workspace. */
+	/* 预取工作区。 */
 	Buffer		prefetch_buffer;
 
-	/* copy of the fork_flags field from the XLogRecordBlockHeader */
+	/* XLogRecordBlockHeader 中 fork_flags 字段的副本 */
 	uint8		flags;
 
-	/* Information on full-page image, if any */
-	bool		has_image;		/* has image, even for consistency checking */
-	bool		apply_image;	/* has image that should be restored */
+	/* 整页映像信息（若有） */
+	bool		has_image;		/* 有映像，即使仅作一致性检查 */
+	bool		apply_image;	/* 有应被还原的映像 */
 	char	   *bkp_image;
 	uint16		hole_offset;
 	uint16		hole_length;
 	uint16		bimg_len;
 	uint8		bimg_info;
 
-	/* Buffer holding the rmgr-specific data associated with this block */
+	/* 保存与本块相关的 rmgr 专用数据的缓冲区 */
 	bool		has_data;
 	char	   *data;
 	uint16		data_len;
@@ -149,177 +149,177 @@ typedef struct
 } DecodedBkpBlock;
 
 /*
- * The decoded contents of a record.  This occupies a contiguous region of
- * memory, with main_data and blocks[n].data pointing to memory after the
- * members declared here.
+ * 记录的已解码内容。占一段连续
+ * 内存，main_data 与 blocks[n].data 指向此处声明
+ * 成员后的内存。
  */
 typedef struct DecodedXLogRecord
 {
-	/* Private member used for resource management. */
-	size_t		size;			/* total size of decoded record */
-	bool		oversized;		/* outside the regular decode buffer? */
-	struct DecodedXLogRecord *next; /* decoded record queue link */
+	/* 用于资源管理的私有成员。 */
+	size_t		size;			/* 已解码记录总大小 */
+	bool		oversized;		/* 在常规解码缓冲区之外？ */
+	struct DecodedXLogRecord *next; /* 解码记录队列链接 */
 
-	/* Public members. */
-	XLogRecPtr	lsn;			/* location */
-	XLogRecPtr	next_lsn;		/* location of next record */
-	XLogRecord	header;			/* header */
+	/* 公有成员。 */
+	XLogRecPtr	lsn;			/* 位置 */
+	XLogRecPtr	next_lsn;		/* 下条记录的位置 */
+	XLogRecord	header;			/* 报头 */
 	RepOriginId record_origin;
-	TransactionId toplevel_xid; /* XID of top-level transaction */
-	char	   *main_data;		/* record's main data portion */
-	uint32		main_data_len;	/* main data portion's length */
-	int			max_block_id;	/* highest block_id in use (-1 if none) */
+	TransactionId toplevel_xid; /* 顶层事务的 XID */
+	char	   *main_data;		/* 记录的主数据部分 */
+	uint32		main_data_len;	/* 主数据部分的长度 */
+	int			max_block_id;	/* 在用最大 block_id(-1 即无) */
 	DecodedBkpBlock blocks[FLEXIBLE_ARRAY_MEMBER];
 } DecodedXLogRecord;
 
 struct XLogReaderState
 {
 	/*
-	 * Operational callbacks
+	 * 操作回调
 	 */
 	XLogReaderRoutine routine;
 
 	/* ----------------------------------------
-	 * Public parameters
+	 * 公有参数
 	 * ----------------------------------------
 	 */
 
 	/*
-	 * System identifier of the xlog files we're about to read.  Set to zero
-	 * (the default value) if unknown or unimportant.
+	 * 即将读取的 xlog 文件的系统标识符。未知或不重要时
+	 * 设为零（默认值）。
 	 */
 	uint64		system_identifier;
 
 	/*
-	 * Opaque data for callbacks to use.  Not used by XLogReader.
+	 * 供回调使用的不透明数据。XLogReader 不用。
 	 */
 	void	   *private_data;
 
 	/*
-	 * Start and end point of last record read.  EndRecPtr is also used as the
-	 * position to read next.  Calling XLogBeginRead() sets EndRecPtr to the
-	 * starting position and ReadRecPtr to invalid.
+	 * 上次所读记录的起止点。EndRecPtr 也用作
+	 * 下次读取位置。调用 XLogBeginRead() 会把 EndRecPtr 
+	 * 设为起点，ReadRecPtr 设为无效。
 	 *
-	 * Start and end point of last record returned by XLogReadRecord().  These
-	 * are also available as record->lsn and record->next_lsn.
+	 * XLogReadRecord() 上次返回记录的起止点。它们
+	 * 也可经 record->lsn 与 record->next_lsn 取得。
 	 */
-	XLogRecPtr	ReadRecPtr;		/* start of last record read */
-	XLogRecPtr	EndRecPtr;		/* end+1 of last record read */
+	XLogRecPtr	ReadRecPtr;		/* 上次所读记录起点 */
+	XLogRecPtr	EndRecPtr;		/* 上次所读记录 end+1 */
 
 	/*
-	 * Set at the end of recovery: the start point of a partial record at the
-	 * end of WAL (InvalidXLogRecPtr if there wasn't one), and the start
-	 * location of its first contrecord that went missing.
+	 * 恢复结束时设置：WAL 末尾那条不完整记录的
+	 * 起点（若无则为 InvalidXLogRecPtr），以及其
+	 * 第一条丢失的 contrecord 的起始位置。
 	 */
 	XLogRecPtr	abortedRecPtr;
 	XLogRecPtr	missingContrecPtr;
-	/* Set when XLP_FIRST_IS_OVERWRITE_CONTRECORD is found */
+	/* 发现 XLP_FIRST_IS_OVERWRITE_CONTRECORD 时设置 */
 	XLogRecPtr	overwrittenRecPtr;
 
 
 	/* ----------------------------------------
-	 * Decoded representation of current record
+	 * 当前记录的已解码表示
 	 *
-	 * Use XLogRecGet* functions to investigate the record; these fields
-	 * should not be accessed directly.
+	 * 用 XLogRecGet* 函数探查记录；这些字段
+	 * 不应直接访问。
 	 * ----------------------------------------
-	 * Start and end point of the last record read and decoded by
-	 * XLogReadRecordInternal().  NextRecPtr is also used as the position to
-	 * decode next.  Calling XLogBeginRead() sets NextRecPtr and EndRecPtr to
-	 * the requested starting position.
+	 * XLogReadRecordInternal() 上次读并解码的记录的
+	 * 起止点。NextRecPtr 也用作下次
+	 * 解码位置。调用 XLogBeginRead() 把 NextRecPtr 与 EndRecPtr 
+	 * 设为所请求起点。
 	 */
-	XLogRecPtr	DecodeRecPtr;	/* start of last record decoded */
-	XLogRecPtr	NextRecPtr;		/* end+1 of last record decoded */
-	XLogRecPtr	PrevRecPtr;		/* start of previous record decoded */
+	XLogRecPtr	DecodeRecPtr;	/* 上次解码记录的起点 */
+	XLogRecPtr	NextRecPtr;		/* 上次解码记录的 end+1 */
+	XLogRecPtr	PrevRecPtr;		/* 先前解码记录的起点 */
 
-	/* Last record returned by XLogReadRecord(). */
+	/* XLogReadRecord() 上次返回的记录。 */
 	DecodedXLogRecord *record;
 
 	/* ----------------------------------------
-	 * private/internal state
+	 * 私有/内部状态
 	 * ----------------------------------------
 	 */
 
 	/*
-	 * Buffer for decoded records.  This is a circular buffer, though
-	 * individual records can't be split in the middle, so some space is often
-	 * wasted at the end.  Oversized records that don't fit in this space are
-	 * allocated separately.
+	 * 已解码记录的缓冲区。这是环形缓冲区，但
+	 * 单条记录无法从中间切开，因此末尾常会
+	 * 浪费一些空间。装不进此处的 oversized 记录
+	 * 另行分配。
 	 */
 	char	   *decode_buffer;
 	size_t		decode_buffer_size;
-	bool		free_decode_buffer; /* need to free? */
-	char	   *decode_buffer_head; /* data is read from the head */
-	char	   *decode_buffer_tail; /* new data is written at the tail */
+	bool		free_decode_buffer; /* 需释放？ */
+	char	   *decode_buffer_head; /* 从头读取数据 */
+	char	   *decode_buffer_tail; /* 新数据写到尾部 */
 
 	/*
-	 * Queue of records that have been decoded.  This is a linked list that
-	 * usually consists of consecutive records in decode_buffer, but may also
-	 * contain oversized records allocated with palloc().
+	 * 已解码记录的队列。这是链表，通常由 
+	 * decode_buffer 中连续记录组成，但也可含
+	 * 用 palloc() 分配的 oversized 记录。
 	 */
-	DecodedXLogRecord *decode_queue_head;	/* oldest decoded record */
-	DecodedXLogRecord *decode_queue_tail;	/* newest decoded record */
+	DecodedXLogRecord *decode_queue_head;	/* 最旧已解码记录 */
+	DecodedXLogRecord *decode_queue_tail;	/* 最新已解码记录 */
 
 	/*
-	 * Buffer for currently read page (XLOG_BLCKSZ bytes, valid up to at least
-	 * readLen bytes)
+	 * 当前已读页缓冲区（XLOG_BLCKSZ 字节，有效至少 
+	 * readLen）
 	 */
 	char	   *readBuf;
 	uint32		readLen;
 
-	/* last read XLOG position for data currently in readBuf */
+	/* readBuf 中当前数据的上次读取 XLOG 位置 */
 	WALSegmentContext segcxt;
 	WALOpenSegment seg;
 	uint32		segoff;
 
 	/*
-	 * beginning of prior page read, and its TLI.  Doesn't necessarily
-	 * correspond to what's in readBuf; used for timeline sanity checks.
+	 * 上次所读页的起点及其 TLI。不一定对应 
+	 * readBuf 中的内容；用于时间线健全性检查。
 	 */
 	XLogRecPtr	latestPagePtr;
 	TimeLineID	latestPageTLI;
 
-	/* beginning of the WAL record being read. */
+	/* 正在读取的 WAL 记录的起点。 */
 	XLogRecPtr	currRecPtr;
-	/* timeline to read it from, 0 if a lookup is required */
+	/* 从该时间线读取，0 表示需要查找 */
 	TimeLineID	currTLI;
 
 	/*
-	 * Safe point to read to in currTLI if current TLI is historical
-	 * (tliSwitchPoint) or InvalidXLogRecPtr if on current timeline.
+	 * 当前 TLI 为历史时，currTLI 内可读到的安全点即
+	 *  tliSwitchPoint；当前时间线则为 InvalidXLogRecPtr。
 	 *
-	 * Actually set to the start of the segment containing the timeline switch
-	 * that ends currTLI's validity, not the LSN of the switch its self, since
-	 * we can't assume the old segment will be present.
+	 * 实际设为含结束 currTLI 有效期的时间线切换的
+	 * 那段起点，而非切换本身的 LSN，因为
+	 * 我们无法假定旧段仍存在。
 	 */
 	XLogRecPtr	currTLIValidUntil;
 
 	/*
-	 * If currTLI is not the most recent known timeline, the next timeline to
-	 * read from when currTLIValidUntil is reached.
+	 * 若 currTLI 不是最近已知时间线，到达 
+	 * currTLIValidUntil 后改读的时间线。
 	 */
 	TimeLineID	nextTLI;
 
 	/*
-	 * Buffer for current ReadRecord result (expandable), used when a record
-	 * crosses a page boundary.
+	 * 当前 ReadRecord 结果的缓冲区（可扩展），用于记录
+	 * 跨越页边界时。
 	 */
 	char	   *readRecordBuf;
 	uint32		readRecordBufSize;
 
-	/* Buffer to hold error message */
+	/* 错误消息缓冲区 */
 	char	   *errormsg_buf;
 	bool		errormsg_deferred;
 
 	/*
-	 * Flag to indicate to XLogPageReadCB that it should not block waiting for
+	 * 告知 XLogPageReadCB 等待数据时不应阻塞。
 	 * data.
 	 */
 	bool		nonblocking;
 };
 
 /*
- * Check if XLogNextRecord() has any more queued records or an error to return.
+ * 检查 XLogNextRecord() 是否还有排队记录或错误可返回。
  */
 static inline bool
 XLogReaderHasQueuedRecordOrError(XLogReaderState *state)
@@ -327,72 +327,72 @@ XLogReaderHasQueuedRecordOrError(XLogReaderState *state)
 	return (state->decode_queue_head != NULL) || state->errormsg_deferred;
 }
 
-/* Get a new XLogReader */
+/* 获取新 XLogReader */
 extern XLogReaderState *XLogReaderAllocate(int wal_segment_size,
 										   const char *waldir,
 										   XLogReaderRoutine *routine,
 										   void *private_data);
 
-/* Free an XLogReader */
+/* 释放 XLogReader */
 extern void XLogReaderFree(XLogReaderState *state);
 
-/* Optionally provide a circular decoding buffer to allow readahead. */
+/* 可选提供环形解码缓冲区以允许预读。 */
 extern void XLogReaderSetDecodeBuffer(XLogReaderState *state,
 									  void *buffer,
 									  size_t size);
 
-/* Position the XLogReader to given record */
+/* 把 XLogReader 定位到给定记录 */
 extern void XLogBeginRead(XLogReaderState *state, XLogRecPtr RecPtr);
 extern XLogRecPtr XLogFindNextRecord(XLogReaderState *state, XLogRecPtr RecPtr);
 
-/* Return values from XLogPageReadCB. */
+/* XLogPageReadCB 的返回值。 */
 typedef enum XLogPageReadResult
 {
-	XLREAD_SUCCESS = 0,			/* record is successfully read */
-	XLREAD_FAIL = -1,			/* failed during reading a record */
-	XLREAD_WOULDBLOCK = -2		/* nonblocking mode only, no data */
+	XLREAD_SUCCESS = 0,			/* 成功读到记录 */
+	XLREAD_FAIL = -1,			/* 读记录过程中失败 */
+	XLREAD_WOULDBLOCK = -2		/* 仅非阻塞模式，无数据 */
 } XLogPageReadResult;
 
-/* Read the next XLog record. Returns NULL on end-of-WAL or failure */
+/* 读下一条 XLog 记录。WAL 结束或失败时返回 NULL */
 extern struct XLogRecord *XLogReadRecord(XLogReaderState *state,
 										 char **errormsg);
 
-/* Consume the next record or error. */
+/* 消费下一条记录或错误。 */
 extern DecodedXLogRecord *XLogNextRecord(XLogReaderState *state,
 										 char **errormsg);
 
-/* Release the previously returned record, if necessary. */
+/* 必要时释放先前返回的记录。 */
 extern XLogRecPtr XLogReleasePreviousRecord(XLogReaderState *state);
 
-/* Try to read ahead, if there is data and space. */
+/* 若有数据与空间则尝试预读。 */
 extern DecodedXLogRecord *XLogReadAhead(XLogReaderState *state,
 										bool nonblocking);
 
-/* Validate a page */
+/* 校验一页 */
 extern bool XLogReaderValidatePageHeader(XLogReaderState *state,
 										 XLogRecPtr recptr, char *phdr);
 
-/* Forget error produced by XLogReaderValidatePageHeader(). */
+/* 忘记 XLogReaderValidatePageHeader() 产生的错误。 */
 extern void XLogReaderResetError(XLogReaderState *state);
 
 /*
- * Error information from WALRead that both backend and frontend caller can
- * process.  Currently only errors from pg_pread can be reported.
+ * WALRead 给出的、后端与前端调用方都能处理的
+ * 错误信息。目前仅能报告 pg_pread 的错误。
  */
 typedef struct WALReadError
 {
-	int			wre_errno;		/* errno set by the last pg_pread() */
-	int			wre_off;		/* Offset we tried to read from. */
-	int			wre_req;		/* Bytes requested to be read. */
-	int			wre_read;		/* Bytes read by the last read(). */
-	WALOpenSegment wre_seg;		/* Segment we tried to read from. */
+	int			wre_errno;		/* 上次 pg_pread() 的 errno */
+	int			wre_off;		/* 试图读取的偏移。 */
+	int			wre_req;		/* 请求读取的字节数。 */
+	int			wre_read;		/* 上次 read() 所读字节数 */
+	WALOpenSegment wre_seg;		/* 试图读取的段。 */
 } WALReadError;
 
 extern bool WALRead(XLogReaderState *state,
 					char *buf, XLogRecPtr startptr, Size count,
 					TimeLineID tli, WALReadError *errinfo);
 
-/* Functions for decoding an XLogRecord */
+/* 解码 XLogRecord 的函数 */
 
 extern size_t DecodeXLogRecordRequiredSpace(size_t xl_tot_len);
 extern bool DecodeXLogRecord(XLogReaderState *state,
@@ -402,8 +402,8 @@ extern bool DecodeXLogRecord(XLogReaderState *state,
 							 char **errormsg);
 
 /*
- * Macros that provide access to parts of the record most recently returned by
- * XLogReadRecord() or XLogNextRecord().
+ * 访问 XLogReadRecord() 或 XLogNextRecord() 最近返回
+ * 的记录各部分的宏。
  */
 #define XLogRecGetTotalLen(decoder) ((decoder)->record->header.xl_tot_len)
 #define XLogRecGetPrev(decoder) ((decoder)->record->header.xl_prev)

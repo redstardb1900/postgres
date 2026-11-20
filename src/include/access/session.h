@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * session.h
- *	  Encapsulation of user session.
+ *	  用户会话的封装。
  *
  * Copyright (c) 2017-2023, PostgreSQL Global Development Group
  *
@@ -14,20 +14,20 @@
 
 #include "lib/dshash.h"
 
-/* Avoid including typcache.h */
+/* 避免包含 typcache.h */
 struct SharedRecordTypmodRegistry;
 
 /*
- * A struct encapsulating some elements of a user's session.  For now this
- * manages state that applies to parallel query, but in principle it could
- * include other things that are currently global variables.
+ * 封装用户会话若干要素的结构体。目前它
+ * 管理适用于并行查询的状态，但原则上也可
+ * 纳入目前作为全局变量的其他内容。
  */
 typedef struct Session
 {
-	dsm_segment *segment;		/* The session-scoped DSM segment. */
-	dsa_area   *area;			/* The session-scoped DSA area. */
+	dsm_segment *segment;		/* 会话范围的 DSM 段。 */
+	dsa_area   *area;			/* 会话范围的 DSA 区。 */
 
-	/* State managed by typcache.c. */
+	/* typcache.c 所管状态。 */
 	struct SharedRecordTypmodRegistry *shared_typmod_registry;
 	dshash_table *shared_record_table;
 	dshash_table *shared_typmod_table;
@@ -38,7 +38,7 @@ extern dsm_handle GetSessionDsmHandle(void);
 extern void AttachSession(dsm_handle handle);
 extern void DetachSession(void);
 
-/* The current session, or NULL for none. */
+/* 当前会话，若无则为 NULL。 */
 extern PGDLLIMPORT Session *CurrentSession;
 
 #endif							/* SESSION_H */

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parallel.h
- *	  Infrastructure for launching parallel workers
+ *	  用于启动并行工作进程的基础设施
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -33,8 +33,8 @@ typedef struct ParallelContext
 {
 	dlist_node	node;
 	SubTransactionId subid;
-	int			nworkers;		/* Maximum number of workers to launch */
-	int			nworkers_to_launch; /* Actual number of workers to launch */
+	int			nworkers;		/* 待启动工作进程的最大数 */
+	int			nworkers_to_launch; /* 实际待启动的工作进程数 */
 	int			nworkers_launched;
 	char	   *library_name;
 	char	   *function_name;

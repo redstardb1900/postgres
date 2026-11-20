@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0465",
+  "title": "parallel/session/tsmapi 头文件注释翻译 — batch 0465",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "80f5eb5e0adbe9df0768753701e5fc7fddd47bcb",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/parallel.h",
+      "kind": "c_comment",
+      "note": "0465"
+    },
+    {
+      "pattern": "src/include/access/session.h",
+      "kind": "c_comment",
+      "note": "0465"
+    },
+    {
+      "pattern": "src/include/access/tsmapi.h",
+      "kind": "c_comment",
+      "note": "0465"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0465-parallel-session.json",
+      "kind": "manifest",
+      "note": "batch-0465"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/parallel.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 3,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/版权/PARALLEL_H KEEP"
+      ],
+      "note": "batch-0465"
+    },
+    {
+      "path": "src/include/access/session.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 9,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/SESSION_H KEEP"
+      ],
+      "note": "batch-0465"
+    },
+    {
+      "path": "src/include/access/tsmapi.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 22,
+      "translated": 17,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/TSMAPI_H KEEP"
+      ],
+      "note": "batch-0465"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0465-parallel-session.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0465"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "并行/会话/表采样"
+}

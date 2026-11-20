@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0468",
+  "title": "reloptions.h 审后清局部/结构体成员 — batch 0468",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "265914f1fca34b77fe05c4ca7eff2e2b139fad20",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/reloptions.h",
+      "kind": "c_comment",
+      "note": "0468-fix-0466"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0468-reloptions-fix.json",
+      "kind": "manifest",
+      "note": "0468"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/reloptions.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 43,
+      "translated": 36,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/版权/RELOPTIONS_H KEEP"
+      ],
+      "note": "0468 清局部/结构体成员"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0468-reloptions-fix.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0468"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "0466 审查 FAIL 清偿：local→局部；struct member→结构体成员"
+}

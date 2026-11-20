@@ -154,14 +154,14 @@ typedef struct
 	int			offset;			/* 结果结构体中字段偏移 */
 } relopt_parse_elt;
 
-/* 本地 reloption 定义 */
+/* 局部 reloption 定义 */
 typedef struct local_relopt
 {
 	relopt_gen *option;			/* 选项定义 */
 	int			offset;			/* bytea 结构中已解析值的偏移 */
 } local_relopt;
 
-/* 供 build_local_reloptions() 存放本地 reloption 数据的结构 */
+/* 供 build_local_reloptions() 存放局部 reloption 数据的结构 */
 typedef struct local_relopts
 {
 	List	   *options;		/* local_relopt 定义的列表 */
@@ -172,8 +172,8 @@ typedef struct local_relopts
 /*
  * 实用宏：选项一经解析即可取字符串 reloption 
  * 的值。得到指向字符串值本身的指针。"optstruct" 
- * 是 StdRdOptions 结构体或其等价物，"member" 是
- * 对应字符串选项的成员。
+ * 是 StdRdOptions 结构体或其等价物，"member" 是对应字符串
+ * 选项的结构体成员。
  */
 #define GET_STRING_RELOPTION(optstruct, member) \
 	((optstruct)->member == 0 ? NULL : \

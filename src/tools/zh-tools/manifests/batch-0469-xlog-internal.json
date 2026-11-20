@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0469",
+  "title": "xlog_internal.h 头文件注释翻译 — batch 0469",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "0b6eaf610cdea65774db7e1459ad5cdf810f13bd",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/xlog_internal.h",
+      "kind": "c_comment",
+      "note": "0469"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0469-xlog-internal.json",
+      "kind": "manifest",
+      "note": "0469"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/xlog_internal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 85,
+      "translated": 79,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOG_INTERNAL_H/rmgr.c KEEP"
+      ],
+      "note": "batch-0469"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0469-xlog-internal.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0469"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "XLOG 内部声明"
+}

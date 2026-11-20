@@ -1,15 +1,15 @@
 /*
  * xlog_internal.h
  *
- * PostgreSQL write-ahead log internal declarations
+ * PostgreSQL 预写式日志的内部声明
  *
- * NOTE: this file is intended to contain declarations useful for
- * manipulating the XLOG files directly, but it is not supposed to be
- * needed by rmgr routines (redo support for individual record types).
- * So the XLogRecord typedef and associated stuff appear in xlogrecord.h.
+ * 注意：本文件收录直接操纵 XLOG 文件所需的
+ * 声明，而不应被 rmgr 例程所需要（各记录类型的 
+ * redo 支持）。因此 XLogRecord 类型定义及
+ * 相关内容放在 xlogrecord.h。
  *
- * Note: This file must be includable in both frontend and backend contexts,
- * to allow stand-alone tools like pg_receivewal to deal with WAL files.
+ * 注意：本文件必须可在前端与后端上下文中包含，
+ * 以便 pg_receivewal 这类独立工具处理 WAL 文件。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,24 +29,24 @@
 
 
 /*
- * Each page of XLOG file has a header like this:
+ * XLOG 文件的每一页都有如下报头：
  */
-#define XLOG_PAGE_MAGIC 0xD113	/* can be used as WAL version indicator */
+#define XLOG_PAGE_MAGIC 0xD113	/* 可用作 WAL 版本指示 */
 
 typedef struct XLogPageHeaderData
 {
-	uint16		xlp_magic;		/* magic value for correctness checks */
-	uint16		xlp_info;		/* flag bits, see below */
-	TimeLineID	xlp_tli;		/* TimeLineID of first record on page */
-	XLogRecPtr	xlp_pageaddr;	/* XLOG address of this page */
+	uint16		xlp_magic;		/* 供正确性检查的魔数 */
+	uint16		xlp_info;		/* 标志位，见下 */
+	TimeLineID	xlp_tli;		/* 页上首条记录的 TimeLineID */
+	XLogRecPtr	xlp_pageaddr;	/* 本页的 XLOG 地址 */
 
 	/*
-	 * When there is not enough space on current page for whole record, we
-	 * continue on the next page.  xlp_rem_len is the number of bytes
-	 * remaining from a previous page; it tracks xl_tot_len in the initial
-	 * header.  Note that the continuation data isn't necessarily aligned.
+	 * 当前页空间不够放下整条记录时，我们
+	 * 在下一页继续。xlp_rem_len 是上一页剩余的
+	 * 字节数；它跟踪初始报头中的 xl_tot_len。
+	 * 注意续接数据未必对齐。
 	 */
-	uint32		xlp_rem_len;	/* total len of remaining data for record */
+	uint32		xlp_rem_len;	/* 记录剩余数据的总长度 */
 } XLogPageHeaderData;
 
 #define SizeOfXLogShortPHD	MAXALIGN(sizeof(XLogPageHeaderData))
@@ -54,44 +54,44 @@ typedef struct XLogPageHeaderData
 typedef XLogPageHeaderData *XLogPageHeader;
 
 /*
- * When the XLP_LONG_HEADER flag is set, we store additional fields in the
- * page header.  (This is ordinarily done just in the first page of an
- * XLOG file.)	The additional fields serve to identify the file accurately.
+ * 置了 XLP_LONG_HEADER 标志时，我们在页报头中存放
+ * 附加字段。（通常只在 XLOG 文件的第一页
+ * 这样做。）附加字段用于准确标识该文件。
  */
 typedef struct XLogLongPageHeaderData
 {
-	XLogPageHeaderData std;		/* standard header fields */
-	uint64		xlp_sysid;		/* system identifier from pg_control */
-	uint32		xlp_seg_size;	/* just as a cross-check */
-	uint32		xlp_xlog_blcksz;	/* just as a cross-check */
+	XLogPageHeaderData std;		/* 标准报头字段 */
+	uint64		xlp_sysid;		/* pg_control 中的系统标识符 */
+	uint32		xlp_seg_size;	/* 仅作交叉校验 */
+	uint32		xlp_xlog_blcksz;	/* 仅作交叉校验 */
 } XLogLongPageHeaderData;
 
 #define SizeOfXLogLongPHD	MAXALIGN(sizeof(XLogLongPageHeaderData))
 
 typedef XLogLongPageHeaderData *XLogLongPageHeader;
 
-/* When record crosses page boundary, set this flag in new page's header */
+/* 记录跨页时，在新页报头置此标志 */
 #define XLP_FIRST_IS_CONTRECORD		0x0001
-/* This flag indicates a "long" page header */
+/* 此标志表示 "长" 页报头 */
 #define XLP_LONG_HEADER				0x0002
-/* This flag indicates backup blocks starting in this page are optional */
+/* 此标志表示本页起始的备份块是可选的 */
 #define XLP_BKP_REMOVABLE			0x0004
-/* Replaces a missing contrecord; see CreateOverwriteContrecordRecord */
+/* 替换缺失的 contrecord；见 CreateOverwriteContrecordRecord */
 #define XLP_FIRST_IS_OVERWRITE_CONTRECORD 0x0008
-/* All defined flag bits in xlp_info (used for validity checking of header) */
+/* xlp_info 中所有已定义标志位（用于报头有效性检查） */
 #define XLP_ALL_FLAGS				0x000F
 
 #define XLogPageHeaderSize(hdr)		\
 	(((hdr)->xlp_info & XLP_LONG_HEADER) ? SizeOfXLogLongPHD : SizeOfXLogShortPHD)
 
-/* wal_segment_size can range from 1MB to 1GB */
+/* wal_segment_size 可为 1MB 到 1GB */
 #define WalSegMinSize 1024 * 1024
 #define WalSegMaxSize 1024 * 1024 * 1024
-/* default number of min and max wal segments */
+/* 最小与最大 wal 段的默认个数 */
 #define DEFAULT_MIN_WAL_SEGS 5
 #define DEFAULT_MAX_WAL_SEGS 64
 
-/* check that the given size is a valid wal_segment_size */
+/* 检查给定大小是否为合法 wal_segment_size */
 #define IsPowerOf2(x) (x > 0 && ((x) & ((x)-1)) == 0)
 #define IsValidWalSegSize(size) \
 	 (IsPowerOf2(size) && \
@@ -107,12 +107,12 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 	((xlogptr) & ((wal_segsz_bytes) - 1))
 
 /*
- * Compute a segment number from an XLogRecPtr.
+ * 从 XLogRecPtr 计算段号。
  *
- * For XLByteToSeg, do the computation at face value.  For XLByteToPrevSeg,
- * a boundary byte is taken to be in the previous segment.  This is suitable
- * for deciding which segment to write given a pointer to a record end,
- * for example.
+ * 对 XLByteToSeg，按字面计算。对 XLByteToPrevSeg，
+ * 边界字节算作属于前一段。这适合
+ * 在给定记录结束指针时决定写入哪一段，
+ * 例如。
  */
 #define XLByteToSeg(xlrp, logSegNo, wal_segsz_bytes) \
 	logSegNo = (xlrp) / (wal_segsz_bytes)
@@ -121,17 +121,17 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 	logSegNo = ((xlrp) - 1) / (wal_segsz_bytes)
 
 /*
- * Convert values of GUCs measured in megabytes to equiv. segment count.
- * Rounds down.
+ * 把以兆字节计的 GUCs 值换成等价段数。
+ * 下取整。
  */
 #define XLogMBVarToSegs(mbvar, wal_segsz_bytes) \
 	((mbvar) / ((wal_segsz_bytes) / (1024 * 1024)))
 
 /*
- * Is an XLogRecPtr within a particular XLOG segment?
+ * XLogRecPtr 是否落在某一 XLOG 段内？
  *
- * For XLByteInSeg, do the computation at face value.  For XLByteInPrevSeg,
- * a boundary byte is taken to be in the previous segment.
+ * 对 XLByteInSeg，按字面计算。对 XLByteInPrevSeg，
+ * 边界字节算作属于前一段。
  */
 #define XLByteInSeg(xlrp, logSegNo, wal_segsz_bytes) \
 	(((xlrp) / (wal_segsz_bytes)) == (logSegNo))
@@ -139,28 +139,28 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 #define XLByteInPrevSeg(xlrp, logSegNo, wal_segsz_bytes) \
 	((((xlrp) - 1) / (wal_segsz_bytes)) == (logSegNo))
 
-/* Check if an XLogRecPtr value is in a plausible range */
+/* 检查 XLogRecPtr 值是否在合理范围内 */
 #define XRecOffIsValid(xlrp) \
 		((xlrp) % XLOG_BLCKSZ >= SizeOfXLogShortPHD)
 
 /*
- * The XLog directory and control file (relative to $PGDATA)
+ * XLog 目录与控制文件（相对 $PGDATA）
  */
 #define XLOGDIR				"pg_wal"
 #define XLOG_CONTROL_FILE	"global/pg_control"
 
 /*
- * These macros encapsulate knowledge about the exact layout of XLog file
- * names, timeline history file names, and archive-status file names.
+ * 这些宏封装了 XLog 文件名、时间线历史文件名
+ * 和归档状态文件名的精确布局知识。
  */
 #define MAXFNAMELEN		64
 
-/* Length of XLog file name */
+/* XLog 文件名的长度 */
 #define XLOG_FNAME_LEN	   24
 
 /*
- * Generate a WAL segment file name.  Do not use this function in a helper
- * function allocating the result generated.
+ * 生成 WAL 段文件名。切勿在会分配其生成结果的
+ * 辅助函数中使用本函数。
  */
 static inline void
 XLogFileName(char *fname, TimeLineID tli, XLogSegNo logSegNo, int wal_segsz_bytes)
@@ -184,9 +184,9 @@ IsXLogFileName(const char *fname)
 }
 
 /*
- * XLOG segment with .partial suffix.  Used by pg_receivewal and at end of
- * archive recovery, when we want to archive a WAL segment but it might not
- * be complete yet.
+ * 带 .partial 后缀的 XLOG 段。供 pg_receivewal 及
+ * 归档恢复结束时使用，当我们想归档某 WAL 段但它可能
+ * 尚不完整。
  */
 static inline bool
 IsPartialXLogFileName(const char *fname)
@@ -267,8 +267,8 @@ BackupHistoryFilePath(char *path, TimeLineID tli, XLogSegNo logSegNo, XLogRecPtr
 }
 
 /*
- * Information logged when we detect a change in one of the parameters
- * important for Hot Standby.
+ * 检测到对热备重要的某一参数发生变化时
+ * 记录的信息。
  */
 typedef struct xl_parameter_change
 {
@@ -282,41 +282,41 @@ typedef struct xl_parameter_change
 	bool		track_commit_timestamp;
 } xl_parameter_change;
 
-/* logs restore point */
+/* 记录恢复点 */
 typedef struct xl_restore_point
 {
 	TimestampTz rp_time;
 	char		rp_name[MAXFNAMELEN];
 } xl_restore_point;
 
-/* Overwrite of prior contrecord */
+/* 覆盖先前的 contrecord */
 typedef struct xl_overwrite_contrecord
 {
 	XLogRecPtr	overwritten_lsn;
 	TimestampTz overwrite_time;
 } xl_overwrite_contrecord;
 
-/* End of recovery mark, when we don't do an END_OF_RECOVERY checkpoint */
+/* 恢复结束标记，当我们不做 END_OF_RECOVERY 检查点时 */
 typedef struct xl_end_of_recovery
 {
 	TimestampTz end_time;
-	TimeLineID	ThisTimeLineID; /* new TLI */
-	TimeLineID	PrevTimeLineID; /* previous TLI we forked off from */
+	TimeLineID	ThisTimeLineID; /* 新 TLI */
+	TimeLineID	PrevTimeLineID; /* 从中分叉出的先前 TLI */
 } xl_end_of_recovery;
 
 /*
- * The functions in xloginsert.c construct a chain of XLogRecData structs
- * to represent the final WAL record.
+ * xloginsert.c 中的函数构造一条 XLogRecData 结构体链，
+ * 以表示最终 WAL 记录。
  */
 typedef struct XLogRecData
 {
-	struct XLogRecData *next;	/* next struct in chain, or NULL */
-	char	   *data;			/* start of rmgr data to include */
-	uint32		len;			/* length of rmgr data to include */
+	struct XLogRecData *next;	/* 链中下一结构，或 NULL */
+	char	   *data;			/* 待纳入 rmgr 数据起点 */
+	uint32		len;			/* 待纳入的 rmgr 数据长度 */
 } XLogRecData;
 
 /*
- * Recovery target action.
+ * 恢复目标动作。
  */
 typedef enum
 {
@@ -329,21 +329,21 @@ struct LogicalDecodingContext;
 struct XLogRecordBuffer;
 
 /*
- * Method table for resource managers.
+ * 资源管理器的方法表。
  *
- * This struct must be kept in sync with the PG_RMGR definition in
+ * 本结构体必须与 PG_RMGR 定义保持同步，见
  * rmgr.c.
  *
- * rm_identify must return a name for the record based on xl_info (without
- * reference to the rmid). For example, XLOG_BTREE_VACUUM would be named
- * "VACUUM". rm_desc can then be called to obtain additional detail for the
- * record, if available (e.g. the last block).
+ * rm_identify 必须根据 xl_info 返回记录名（不引用 
+ * rmid）。例如 XLOG_BTREE_VACUUM 会名为 
+ * "VACUUM"。随后可调用 rm_desc 获取记录的额外细节（
+ * 若有，例如最后一块）。
  *
- * rm_mask takes as input a page modified by the resource manager and masks
- * out bits that shouldn't be flagged by wal_consistency_checking.
+ * rm_mask 以资源管理器修改过的页为输入，并掩掉
+ * 不应被 wal_consistency_checking 打标的位。
  *
- * RmgrTable[] is indexed by RmgrId values (see rmgrlist.h). If rm_name is
- * NULL, the corresponding RmgrTable entry is considered invalid.
+ * RmgrTable[] 以 RmgrId 值索引（见 rmgrlist.h）。若 rm_name 为 
+ * NULL，则对应 RmgrTable 条目视为无效。
  */
 typedef struct RmgrData
 {
@@ -381,7 +381,7 @@ GetRmgr(RmgrId rmid)
 #endif
 
 /*
- * Exported to support xlog switching from checkpointer
+ * 导出以支持从检查点进程切换 xlog
  */
 extern pg_time_t GetLastSegSwitchData(XLogRecPtr *lastSwitchLSN);
 extern XLogRecPtr RequestXLogSwitch(bool mark_unimportant);
@@ -393,8 +393,8 @@ extern void XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
 								   uint32 *fpi_len);
 
 /*
- * Exported for the functions in timeline.c and xlogarchive.c.  Only valid
- * in the startup process.
+ * 导出供 timeline.c 与 xlogarchive.c 中的函数使用。仅在
+ * 启动进程中有效
  */
 extern PGDLLIMPORT bool ArchiveRecoveryRequested;
 extern PGDLLIMPORT bool InArchiveRecovery;

@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * sinvaladt.h
- *	  POSTGRES shared cache invalidation data manager.
+ *	  POSTGRES 共享缓存失效数据管理器。
  *
- * The shared cache invalidation manager is responsible for transmitting
- * invalidation messages between backends.  Any message sent by any backend
- * must be delivered to all already-running backends before it can be
- * forgotten.  (If we run out of space, we instead deliver a "RESET"
- * message to backends that have fallen too far behind.)
+ * 共享缓存失效管理器负责在后端之间传递
+ * 失效消息。任一后端发出的任何消息必须在
+ * 可被遗忘前投递给所有已在运行的后端。
+ * （若空间耗尽，则改为向落后过多的后端投递
+ * "RESET" 消息。）
  *
- * The struct type SharedInvalidationMessage, defining the contents of
- * a single message, is defined in sinval.h.
+ * 定义单条消息内容的结构类型
+ * SharedInvalidationMessage 见 sinval.h。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,7 +26,7 @@
 #include "storage/sinval.h"
 
 /*
- * prototypes for functions in sinvaladt.c
+ * sinvaladt.c 中函数的原型
  */
 extern Size SInvalShmemSize(void);
 extern void CreateSharedInvalidationState(void);

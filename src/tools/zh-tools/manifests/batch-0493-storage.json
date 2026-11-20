@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0493",
+  "title": "include/storage sinval.h+sinvaladt.h — batch 0493",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "113dacb5985dada1d7f2ce3099797d78de620b05",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/sinval.h", "kind": "c_comment", "note": "0493"},
+    {"pattern": "src/include/storage/sinvaladt.h", "kind": "c_comment", "note": "0493"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0493-storage.json", "kind": "manifest", "note": "0493"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/sinval.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 65,
+      "translated": 58,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "共享缓存失效；必须；追赶；临时关系"
+    },
+    {
+      "path": "src/include/storage/sinvaladt.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 16,
+      "translated": 9,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "共享缓存失效；必须；RESET"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0493-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0493"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十五刀：sinval/sinvaladt；共享缓存失效/必须/追赶"
+}

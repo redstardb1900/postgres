@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sinval.h
- *	  POSTGRES shared cache invalidation communication definitions.
+ *	  POSTGRES 共享缓存失效通信定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,100 +19,100 @@
 #include "storage/relfilelocator.h"
 
 /*
- * We support several types of shared-invalidation messages:
- *	* invalidate a specific tuple in a specific catcache
- *	* invalidate all catcache entries from a given system catalog
- *	* invalidate a relcache entry for a specific logical relation
- *	* invalidate all relcache entries
- *	* invalidate an smgr cache entry for a specific physical relation
- *	* invalidate the mapped-relation mapping for a given database
- *	* invalidate any saved snapshot that might be used to scan a given relation
- * More types could be added if needed.  The message type is identified by
- * the first "int8" field of the message struct.  Zero or positive means a
- * specific-catcache inval message (and also serves as the catcache ID field).
- * Negative values identify the other message types, as per codes below.
+ * 我们支持若干种共享失效消息：
+ *	* 使某 catcache 中某元组失效
+ *	* 使某系统目录的全部 catcache 条目失效
+ *	* 使某逻辑关系的 relcache 条目失效
+ *	* 使全部 relcache 条目失效
+ *	* 使某物理关系的 smgr 缓存条目失效
+ *	* 使某数据库的映射关系映射失效
+ *	* 使可能用于扫描某关系的任何已保存快照失效
+ * 需要时可再增类型。消息类型由消息结构的
+ * 首个 "int8" 字段标识。零或正值表示
+ * 特定-catcache 失效消息（兼作 catcache ID 字段）。
+ * 负值标识其他消息类型，见下方代码。
  *
- * Catcache inval events are initially driven by detecting tuple inserts,
- * updates and deletions in system catalogs (see CacheInvalidateHeapTuple).
- * An update can generate two inval events, one for the old tuple and one for
- * the new, but this is reduced to one event if the tuple's hash key doesn't
- * change.  Note that the inval events themselves don't actually say whether
- * the tuple is being inserted or deleted.  Also, since we transmit only a
- * hash key, there is a small risk of unnecessary invalidations due to chance
- * matches of hash keys.
+ * Catcache 失效事件最初由检测系统目录中的元组插入、
+ * 更新与删除驱动（见 CacheInvalidateHeapTuple）。
+ * 一次更新可产生两个失效事件，分别针对旧元组与新
+ * 元组，但若元组哈希键未变则合并为一事件。
+ * 注意失效事件本身并不说明元组是在插入还是删除。
+ * 另因我们只传哈希键，存在因碰巧
+ * 哈希键相同而发生不必要失效的小
+ * 风险。
  *
- * Note that some system catalogs have multiple caches on them (with different
- * indexes).  On detecting a tuple invalidation in such a catalog, separate
- * catcache inval messages must be generated for each of its caches, since
- * the hash keys will generally be different.
+ * 注意有些系统目录上有多个缓存（索引不同）。
+ * 在此类目录中检测到元组失效时，必须为其每个
+ * 缓存分别生成 catcache 失效消息，因为
+ * 哈希键一般不同。
  *
- * Catcache, relcache, and snapshot invalidations are transactional, and so
- * are sent to other backends upon commit.  Internally to the generating
- * backend, they are also processed at CommandCounterIncrement so that later
- * commands in the same transaction see the new state.  The generating backend
- * also has to process them at abort, to flush out any cache state it's loaded
- * from no-longer-valid entries.
+ * Catcache、relcache 与快照失效是事务性的，故
+ * 在提交时发给其他后端。在产生方后端内部，
+ * 它们也在 CommandCounterIncrement 时处理，使同事务中
+ * 后续命令看到新状态。产生方后端在中止时也须
+ * 处理它们，以冲掉已从不再有效的条目加载的任何
+ * 缓存状态。
  *
- * smgr and relation mapping invalidations are non-transactional: they are
- * sent immediately when the underlying file change is made.
+ * smgr 与关系映射失效是非事务性的：在底层文件
+ * 变更做出时立即发送。
  */
 
 typedef struct
 {
-	int8		id;				/* cache ID --- must be first */
-	Oid			dbId;			/* database ID, or 0 if a shared relation */
-	uint32		hashValue;		/* hash value of key for this catcache */
+	int8		id;				/* 缓存 ID 须为首 */
+	Oid			dbId;			/* 数据库 ID，共享关系则为 0 */
+	uint32		hashValue;		/* 本 catcache 键的哈希值 */
 } SharedInvalCatcacheMsg;
 
 #define SHAREDINVALCATALOG_ID	(-1)
 
 typedef struct
 {
-	int8		id;				/* type field --- must be first */
-	Oid			dbId;			/* database ID, or 0 if a shared catalog */
-	Oid			catId;			/* ID of catalog whose contents are invalid */
+	int8		id;				/* 类型字段 须为首 */
+	Oid			dbId;			/* 数据库 ID，共享目录则为 0 */
+	Oid			catId;			/* 内容已无效的目录 ID */
 } SharedInvalCatalogMsg;
 
 #define SHAREDINVALRELCACHE_ID	(-2)
 
 typedef struct
 {
-	int8		id;				/* type field --- must be first */
-	Oid			dbId;			/* database ID, or 0 if a shared relation */
-	Oid			relId;			/* relation ID, or 0 if whole relcache */
+	int8		id;				/* 类型字段 须为首 */
+	Oid			dbId;			/* 数据库 ID，共享关系则为 0 */
+	Oid			relId;			/* 关系 ID，整表 relcache 为 0 */
 } SharedInvalRelcacheMsg;
 
 #define SHAREDINVALSMGR_ID		(-3)
 
 typedef struct
 {
-	/* note: field layout chosen to pack into 16 bytes */
-	int8		id;				/* type field --- must be first */
-	int8		backend_hi;		/* high bits of backend ID, if temprel */
-	uint16		backend_lo;		/* low bits of backend ID, if temprel */
-	RelFileLocator rlocator;	/* spcOid, dbOid, relNumber */
+	/* 注意：字段布局选为装入 16 字节 */
+	int8		id;				/* 类型字段 须为首 */
+	int8		backend_hi;		/* 临时关系时后端 ID 高位 */
+	uint16		backend_lo;		/* 临时关系时后端 ID 低位 */
+	RelFileLocator rlocator;	/* spcOid/dbOid/relNumber */
 } SharedInvalSmgrMsg;
 
 #define SHAREDINVALRELMAP_ID	(-4)
 
 typedef struct
 {
-	int8		id;				/* type field --- must be first */
-	Oid			dbId;			/* database ID, or 0 for shared catalogs */
+	int8		id;				/* 类型字段 须为首 */
+	Oid			dbId;			/* 数据库 ID，共享目录则为 0 */
 } SharedInvalRelmapMsg;
 
 #define SHAREDINVALSNAPSHOT_ID	(-5)
 
 typedef struct
 {
-	int8		id;				/* type field --- must be first */
-	Oid			dbId;			/* database ID, or 0 if a shared relation */
-	Oid			relId;			/* relation ID */
+	int8		id;				/* 类型字段 须为首 */
+	Oid			dbId;			/* 数据库 ID，共享关系则为 0 */
+	Oid			relId;			/* 关系 ID */
 } SharedInvalSnapshotMsg;
 
 typedef union
 {
-	int8		id;				/* type field --- must be first */
+	int8		id;				/* 类型字段 须为首 */
 	SharedInvalCatcacheMsg cc;
 	SharedInvalCatalogMsg cat;
 	SharedInvalRelcacheMsg rc;
@@ -122,7 +122,7 @@ typedef union
 } SharedInvalidationMessage;
 
 
-/* Counter of messages processed; don't worry about overflow. */
+/* 已处理消息计数；不必担心溢出。 */
 extern PGDLLIMPORT uint64 SharedInvalidMessageCounter;
 
 extern PGDLLIMPORT volatile sig_atomic_t catchupInterruptPending;
@@ -132,13 +132,13 @@ extern void SendSharedInvalidMessages(const SharedInvalidationMessage *msgs,
 extern void ReceiveSharedInvalidMessages(void (*invalFunction) (SharedInvalidationMessage *msg),
 										 void (*resetFunction) (void));
 
-/* signal handler for catchup events (PROCSIG_CATCHUP_INTERRUPT) */
+/* 追赶事件信号处理（PROCSIG_CATCHUP_INTERRUPT） */
 extern void HandleCatchupInterrupt(void);
 
 /*
- * enable/disable processing of catchup events directly from signal handler.
- * The enable routine first performs processing of any catchup events that
- * have occurred since the last disable.
+ * 直接从信号处理函数启用/禁用追赶事件处理。
+ * 启用例程先处理自上次禁用以来已发生的任何
+ * 追赶事件。
  */
 extern void ProcessCatchupInterrupt(void);
 

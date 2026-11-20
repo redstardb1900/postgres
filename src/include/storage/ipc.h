@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * ipc.h
- *	  POSTGRES inter-process communication definitions.
+ *	  POSTGRES 进程间通信相关定义。
  *
- * This file is misnamed, as it no longer has much of anything directly
- * to do with IPC.  The functionality here is concerned with managing
- * exit-time cleanup for either a postmaster or a backend.
+ * 本文件名已不太贴切：这里几乎不再有与 IPC 直接
+ * 相关的内容。此处功能关注的是为 postmaster 或
+ * backend 管理退出时的清理工作。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,26 +22,26 @@ typedef void (*pg_on_exit_callback) (int code, Datum arg);
 typedef void (*shmem_startup_hook_type) (void);
 
 /*----------
- * API for handling cleanup that must occur during either ereport(ERROR)
- * or ereport(FATAL) exits from a block of code.  (Typical examples are
- * undoing transient changes to shared-memory state.)
+ * 用于处理代码块因 ereport(ERROR) 或
+ * ereport(FATAL) 退出时必须发生的清理。（典型例子是
+ * 撤销对共享内存状态的短暂更改。）
  *
  *		PG_ENSURE_ERROR_CLEANUP(cleanup_function, arg);
  *		{
- *			... code that might throw ereport(ERROR) or ereport(FATAL) ...
+ *			... 可能抛出 ereport(ERROR) 或 ereport(FATAL) 代码 ...
  *		}
  *		PG_END_ENSURE_ERROR_CLEANUP(cleanup_function, arg);
  *
- * where the cleanup code is in a function declared per pg_on_exit_callback.
- * The Datum value "arg" can carry any information the cleanup function
+ * 其中清理代码在按 pg_on_exit_callback 声明的函数中。
+ * Datum 值 "arg" 可携带清理函数所需的任何信息。
  * needs.
  *
- * This construct ensures that cleanup_function() will be called during
- * either ERROR or FATAL exits.  It will not be called on successful
- * exit from the controlled code.  (If you want it to happen then too,
- * call the function yourself from just after the construct.)
+ * 该构造确保 cleanup_function() 会在 ERROR 或
+ * FATAL 退出时被调用。从受控代码成功退出时
+ * 不会调用它。（若成功退出时也要调用，
+ * 在构造结束后自行调用该函数即可。）
  *
- * Note: the macro arguments are multiply evaluated, so avoid side-effects.
+ * 注意：宏参数会被多次求值，故切勿有副作用。
  *----------
  */
 #define PG_ENSURE_ERROR_CLEANUP(cleanup_function, arg)	\

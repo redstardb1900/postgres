@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pmsignal.h
- *	  routines for signaling between the postmaster and its child processes
+ *	  postmaster 与其子进程之间的发信号例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,40 +25,40 @@
 #endif
 
 /*
- * Reasons for signaling the postmaster.  We can cope with simultaneous
- * signals for different reasons.  If the same reason is signaled multiple
- * times in quick succession, however, the postmaster is likely to observe
- * only one notification of it.  This is okay for the present uses.
+ * 向 postmaster 发信号的原因。我们能应对同时出现的
+ * 不同原因的信号。但若同一原因在短时间内被发信号
+ * 多次，postmaster 多半只会观察到一次通知。
+ * 对目前的用途这没问题。
  */
 typedef enum
 {
-	PMSIGNAL_RECOVERY_STARTED,	/* recovery has started */
-	PMSIGNAL_BEGIN_HOT_STANDBY, /* begin Hot Standby */
-	PMSIGNAL_ROTATE_LOGFILE,	/* send SIGUSR1 to syslogger to rotate logfile */
-	PMSIGNAL_START_AUTOVAC_LAUNCHER,	/* start an autovacuum launcher */
-	PMSIGNAL_START_AUTOVAC_WORKER,	/* start an autovacuum worker */
-	PMSIGNAL_BACKGROUND_WORKER_CHANGE,	/* background worker state change */
-	PMSIGNAL_START_WALRECEIVER, /* start a walreceiver */
-	PMSIGNAL_ADVANCE_STATE_MACHINE, /* advance postmaster's state machine */
+	PMSIGNAL_RECOVERY_STARTED,	/* 恢复已开始 */
+	PMSIGNAL_BEGIN_HOT_STANDBY, /* 开始热备 */
+	PMSIGNAL_ROTATE_LOGFILE,	/* 向 syslogger 发 SIGUSR1 以轮转日志 */
+	PMSIGNAL_START_AUTOVAC_LAUNCHER,	/* 启动自动清理 launcher */
+	PMSIGNAL_START_AUTOVAC_WORKER,	/* 启动自动清理 worker */
+	PMSIGNAL_BACKGROUND_WORKER_CHANGE,	/* 背景工作进程状态变化 */
+	PMSIGNAL_START_WALRECEIVER, /* 启动 walreceiver */
+	PMSIGNAL_ADVANCE_STATE_MACHINE, /* 推进 postmaster 的状态机 */
 
-	NUM_PMSIGNALS				/* Must be last value of enum! */
+	NUM_PMSIGNALS				/* 必须为枚举末项！ */
 } PMSignalReason;
 
 /*
- * Reasons why the postmaster would send SIGQUIT to its children.
+ * postmaster 向其子进程发送 SIGQUIT 的原因。
  */
 typedef enum
 {
-	PMQUIT_NOT_SENT = 0,		/* postmaster hasn't sent SIGQUIT */
-	PMQUIT_FOR_CRASH,			/* some other backend bought the farm */
-	PMQUIT_FOR_STOP				/* immediate stop was commanded */
+	PMQUIT_NOT_SENT = 0,		/* postmaster 未发送 SIGQUIT */
+	PMQUIT_FOR_CRASH,			/* 另有后端崩溃 */
+	PMQUIT_FOR_STOP				/* 接到立即停止命令 */
 } QuitSignalReason;
 
-/* PMSignalData is an opaque struct, details known only within pmsignal.c */
+/* PMSignalData 是不透明结构，细节仅 pmsignal.c 内可知 */
 typedef struct PMSignalData PMSignalData;
 
 /*
- * prototypes for functions in pmsignal.c
+ * pmsignal.c 中函数的原型
  */
 extern Size PMSignalShmemSize(void);
 extern void PMSignalShmemInit(void);
@@ -77,11 +77,11 @@ extern void PostmasterDeathSignalInit(void);
 
 
 /*
- * Do we have a way to ask for a signal on parent death?
+ * 是否有办法在父进程死亡时请求信号？
  *
- * If we do, pmsignal.c will set up a signal handler, that sets a flag when
- * the parent dies.  Checking the flag first makes PostmasterIsAlive() a lot
- * cheaper in usual case that the postmaster is alive.
+ * 若有，pmsignal.c 会设置信号处理函数，在父进程死亡时
+ * 置位标志。先检查该标志使 PostmasterIsAlive() 在
+ * postmaster 通常仍活着时开销小得多。
  */
 #if (defined(HAVE_SYS_PRCTL_H) && defined(PR_SET_PDEATHSIG)) || \
 	(defined(HAVE_SYS_PROCCTL_H) && defined(PROC_PDEATHSIG_CTL))

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0491",
+  "title": "include/storage ipc/pmsignal/procsignal — batch 0491",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "c6b6c435d83a11f8b30d2708d43383de2bfc786a",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/ipc.h", "kind": "c_comment", "note": "0491"},
+    {"pattern": "src/include/storage/pmsignal.h", "kind": "c_comment", "note": "0491"},
+    {"pattern": "src/include/storage/procsignal.h", "kind": "c_comment", "note": "0491"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0491-storage.json", "kind": "manifest", "note": "0491"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/ipc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 15,
+      "preserved": 16,
+      "preserved_reasons": ["横幅/文件名/版权/路径/----------/API 样例/needs./in *.c/#endif"],
+      "note": "同 ipc.c；必须；切勿；退出；共享内存"
+    },
+    {
+      "path": "src/include/storage/pmsignal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 24,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "同 pmsignal.c；必须；热备；不透明；置位"
+    },
+    {
+      "path": "src/include/storage/procsignal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 26,
+      "translated": 19,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "同 procsignal.c；必须；竞态；屏障；walsenders"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0491-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0491"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十三刀：ipc/pmsignal/procsignal；发信号/必须/切勿/竞态/热备"
+}

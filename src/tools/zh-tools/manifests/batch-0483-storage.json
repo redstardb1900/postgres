@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0483",
+  "title": "include/storage buf_internals.h 缓冲内部 — batch 0483",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "30ea7a4cd806aa6d9754e5fb98893c020d6e8c23",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/buf_internals.h", "kind": "c_comment", "note": "0483"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0483-storage.json", "kind": "manifest", "note": "0483"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/buf_internals.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 135,
+      "translated": 120,
+      "preserved": 15,
+      "preserved_reasons": ["横幅/版权/路径/in *.c 预算/原子写原型/#endif"],
+      "note": "钉住/未日志/时钟扫描/切勿/init fork"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0483-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0483"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第五刀：buf_internals.h；必须/无法/切勿；refcount/CAS/LRU/OR/AND 保留；时钟扫描/伪共享/哈希键"
+}

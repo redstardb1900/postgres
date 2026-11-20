@@ -1,8 +1,8 @@
 /*
  * xlogdefs.h
  *
- * Postgres write-ahead log manager record pointer and
- * timeline number definitions
+ * Postgres 预写式日志管理器的记录指针与
+ * 时间线编号定义
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,65 +12,65 @@
 #ifndef XLOG_DEFS_H
 #define XLOG_DEFS_H
 
-#include <fcntl.h>				/* need open() flags */
+#include <fcntl.h>				/* 需 open() 标志 */
 
 /*
- * Pointer to a location in the XLOG.  These pointers are 64 bits wide,
- * because we don't want them ever to overflow.
+ * 指向 XLOG 中某处的指针。这些指针宽 64 位，
+ * 因为我们不希望它们发生溢出。
  */
 typedef uint64 XLogRecPtr;
 
 /*
- * Zero is used indicate an invalid pointer. Bootstrap skips the first possible
- * WAL segment, initializing the first WAL page at WAL segment size, so no XLOG
- * record can begin at zero.
+ * 零用来表示无效指针。引导跳过第一个可能的
+ * WAL 段，在 WAL 段大小处初始化首个 WAL 页，故无 XLOG 
+ * 记录可始于零。
  */
 #define InvalidXLogRecPtr		0
 #define XLogRecPtrIsValid(r)	((r) != InvalidXLogRecPtr)
 #define XLogRecPtrIsInvalid(r)	((r) == InvalidXLogRecPtr)
 
 /*
- * First LSN to use for "fake" LSNs.
+ * 用于"伪造" LSNs 的首 LSN。
  *
- * Values smaller than this can be used for special per-AM purposes.
+ * 小于此值者可用于各 AM 的特殊用途。
  */
 #define FirstNormalUnloggedLSN	((XLogRecPtr) 1000)
 
 /*
- * Handy macro for printing XLogRecPtr in conventional format, e.g.,
+ * 以常规格式打印 XLogRecPtr 的便捷宏，例如，
  *
  * printf("%X/%X", LSN_FORMAT_ARGS(lsn));
  */
 #define LSN_FORMAT_ARGS(lsn) (AssertVariableIsOfTypeMacro((lsn), XLogRecPtr), (uint32) ((lsn) >> 32)), ((uint32) (lsn))
 
 /*
- * XLogSegNo - physical log file sequence number.
+ * XLogSegNo - 物理日志文件序号。
  */
 typedef uint64 XLogSegNo;
 
 /*
- * TimeLineID (TLI) - identifies different database histories to prevent
- * confusion after restoring a prior state of a database installation.
- * TLI does not change in a normal stop/restart of the database (including
- * crash-and-recover cases); but we must assign a new TLI after doing
- * a recovery to a prior state, a/k/a point-in-time recovery.  This makes
- * the new WAL logfile sequence we generate distinguishable from the
- * sequence that was generated in the previous incarnation.
+ * TimeLineID (TLI) - 标识不同数据库历史以防
+ * 在恢复数据库安装的先前状态后产生混淆。
+ * TLI 在数据库正常停机/重启时不变（包括
+ * 崩溃并恢复情形）；但我们必须在做完
+ * 恢复到先前状态（即时间点恢复）后赋新 TLI。这使
+ * 我们生成的新 WAL 日志文件序列可区别于
+ * 先前化身中所生成的序列。
  */
 typedef uint32 TimeLineID;
 
 /*
- * Replication origin id - this is located in this file to avoid having to
- * include origin.h in a bunch of xlog related places.
+ * 复制源 id - 放于此文件以免必须
+ * 在多处 xlog 相关位置包含 origin.h。
  */
 typedef uint16 RepOriginId;
 
 /*
- * This chunk of hackery attempts to determine which file sync methods
- * are available on the current platform, and to choose an appropriate
- * default method.
+ * 这段 hackery 试图判定哪些文件同步方法
+ * 在当前平台上可用，并选择合适的
+ * 默认方法。
  *
- * Note that we define our own O_DSYNC on Windows, but not O_SYNC.
+ * 注意：在 Windows 上自定 O_DSYNC，但不定 O_SYNC。
  */
 #if defined(PLATFORM_DEFAULT_SYNC_METHOD)
 #define DEFAULT_SYNC_METHOD		PLATFORM_DEFAULT_SYNC_METHOD

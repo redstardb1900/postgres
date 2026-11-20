@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "34d537f438fb03e4f3954621d991077a48a678ce",
+ "parent_commit": "3085c50a9eb009306e744ceafbc6ca3a599222a2",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [
@@ -7901,6 +7901,41 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0458-vis-valid.json",
    "kind": "manifest",
    "note": "batch-0458"
+  },
+  {
+   "pattern": "src/include/access/xlogdefs.h",
+   "kind": "c_comment",
+   "note": "0459"
+  },
+  {
+   "pattern": "src/include/access/xloginsert.h",
+   "kind": "c_comment",
+   "note": "0459"
+  },
+  {
+   "pattern": "src/include/access/xlogarchive.h",
+   "kind": "c_comment",
+   "note": "0459"
+  },
+  {
+   "pattern": "src/include/access/xlogbackup.h",
+   "kind": "c_comment",
+   "note": "0459"
+  },
+  {
+   "pattern": "src/include/access/xlogstats.h",
+   "kind": "c_comment",
+   "note": "0459"
+  },
+  {
+   "pattern": "src/include/access/timeline.h",
+   "kind": "c_comment",
+   "note": "0459"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0459-xlogdefs.json",
+   "kind": "manifest",
+   "note": "batch-0459"
   }
  ],
  "files": [
@@ -25628,6 +25663,88 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "batch-0458"
+  },
+  {
+   "path": "src/include/access/xlogdefs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 25,
+   "preserved": 6,
+   "preserved_reasons": [
+    "横幅/路径/版权/printf/XLOG_DEFS_H KEEP"
+   ],
+   "note": "batch-0459"
+  },
+  {
+   "path": "src/include/access/xloginsert.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 16,
+   "preserved": 5,
+   "preserved_reasons": [
+    "横幅/路径/版权/XLOGINSERT_H KEEP"
+   ],
+   "note": "batch-0459"
+  },
+  {
+   "path": "src/include/access/xlogarchive.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 1,
+   "preserved": 8,
+   "preserved_reasons": [
+    "横幅/路径/版权/XLOGARCHIVE_H KEEP"
+   ],
+   "note": "batch-0459"
+  },
+  {
+   "path": "src/include/access/xlogbackup.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 13,
+   "preserved": 8,
+   "preserved_reasons": [
+    "横幅/路径/版权/XLOGBACKUP_H KEEP"
+   ],
+   "note": "batch-0459"
+  },
+  {
+   "path": "src/include/access/xlogstats.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 1,
+   "preserved": 6,
+   "preserved_reasons": [
+    "横幅/路径/版权/XLOGSTATS_H KEEP"
+   ],
+   "note": "batch-0459"
+  },
+  {
+   "path": "src/include/access/timeline.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 9,
+   "preserved": 5,
+   "preserved_reasons": [
+    "横幅/路径/版权/TIMELINE_H KEEP"
+   ],
+   "note": "batch-0459"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0459-xlogdefs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "batch-0459"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

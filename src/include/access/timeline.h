@@ -1,7 +1,7 @@
 /*
  * timeline.h
  *
- * Functions for reading and writing timeline history files.
+ * 读写时间线历史文件的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,18 +15,18 @@
 #include "nodes/pg_list.h"
 
 /*
- * A list of these structs describes the timeline history of the server. Each
- * TimeLineHistoryEntry represents a piece of WAL belonging to the history,
- * from newest to oldest. All WAL locations between 'begin' and 'end' belong to
- * the timeline represented by the entry. Together the 'begin' and 'end'
- * pointers of all the entries form a contiguous line from beginning of time
- * to infinity.
+ * 这些结构的列表描述服务器的时间线历史。每个
+ * TimeLineHistoryEntry 表示属于该历史的一段 WAL，
+ * 从新到旧。'begin' 与 'end' 之间所有 WAL 位置属于
+ * 该条目所代表的时间线。所有条目的 'begin' 与 'end'
+ * 指针共同形成自时间起点的连续线
+ * 至无穷。
  */
 typedef struct
 {
 	TimeLineID	tli;
-	XLogRecPtr	begin;			/* inclusive */
-	XLogRecPtr	end;			/* exclusive, InvalidXLogRecPtr means infinity */
+	XLogRecPtr	begin;			/* 含端点 */
+	XLogRecPtr	end;			/* 不含端点，InvalidXLogRecPtr 表无穷 */
 } TimeLineHistoryEntry;
 
 extern List *readTimeLineHistory(TimeLineID targetTLI);

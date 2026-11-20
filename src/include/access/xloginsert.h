@@ -1,7 +1,7 @@
 /*
  * xloginsert.h
  *
- * Functions for generating WAL records
+ * 生成 WAL 记录的函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,26 +19,26 @@
 #include "utils/relcache.h"
 
 /*
- * The minimum size of the WAL construction working area. If you need to
- * register more than XLR_NORMAL_MAX_BLOCK_ID block references or have more
- * than XLR_NORMAL_RDATAS data chunks in a single WAL record, you must call
- * XLogEnsureRecordSpace() first to allocate more working memory.
+ * WAL 构造工作区的最小尺寸。若需
+ * 注册超过 XLR_NORMAL_MAX_BLOCK_ID 个块引用，或有超过
+ * XLR_NORMAL_RDATAS 个数据块于单条 WAL 记录，须先调用
+ * XLogEnsureRecordSpace() 以分配更多工作内存。
  */
 #define XLR_NORMAL_MAX_BLOCK_ID		4
 #define XLR_NORMAL_RDATAS			20
 
-/* flags for XLogRegisterBuffer */
-#define REGBUF_FORCE_IMAGE	0x01	/* force a full-page image */
-#define REGBUF_NO_IMAGE		0x02	/* don't take a full-page image */
-#define REGBUF_WILL_INIT	(0x04 | 0x02)	/* page will be re-initialized at
-											 * replay (implies NO_IMAGE) */
-#define REGBUF_STANDARD		0x08	/* page follows "standard" page layout,
-									 * (data between pd_lower and pd_upper
-									 * will be skipped) */
-#define REGBUF_KEEP_DATA	0x10	/* include data even if a full-page image
-									 * is taken */
+/* XLogRegisterBuffer 的标志 */
+#define REGBUF_FORCE_IMAGE	0x01	/* 强制整页映像 */
+#define REGBUF_NO_IMAGE		0x02	/* 不拍摄整页映像 */
+#define REGBUF_WILL_INIT	(0x04 | 0x02)	/* 页将在重放时重初始化
+											 * （隐含 NO_IMAGE）*/
+#define REGBUF_STANDARD		0x08	/* 页遵循标准页布局，
+									 * （pd_lower 与 pd_upper 间数据
+									 * 将被跳过）*/
+#define REGBUF_KEEP_DATA	0x10	/* 即使取了整页映像也
+									 * 含数据*/
 
-/* prototypes for public functions in xloginsert.c: */
+/* xloginsert.c 中公开函数的原型： */
 extern void XLogBeginInsert(void);
 extern void XLogSetRecordFlags(uint8 flags);
 extern XLogRecPtr XLogInsert(RmgrId rmid, uint8 info);

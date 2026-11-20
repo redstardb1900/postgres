@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xlogbackup.h
- *		Definitions for internals of base backups.
+ *		基础备份的内部定义。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,22 +17,22 @@
 #include "access/xlogdefs.h"
 #include "pgtime.h"
 
-/* Structure to hold backup state. */
+/* 保存备份状态的结构。 */
 typedef struct BackupState
 {
-	/* Fields saved at backup start */
-	/* Backup label name one extra byte for null-termination */
+	/* 备份开始时保存字段 */
+	/* 备份标签名另加一字节供空终止 */
 	char		name[MAXPGPATH + 1];
-	XLogRecPtr	startpoint;		/* backup start WAL location */
-	TimeLineID	starttli;		/* backup start TLI */
-	XLogRecPtr	checkpointloc;	/* last checkpoint location */
-	pg_time_t	starttime;		/* backup start time */
-	bool		started_in_recovery;	/* backup started in recovery? */
+	XLogRecPtr	startpoint;		/* 备份开始 WAL 位置 */
+	TimeLineID	starttli;		/* 备份开始 TLI */
+	XLogRecPtr	checkpointloc;	/* 最后检查点位置 */
+	pg_time_t	starttime;		/* 备份开始时 */
+	bool		started_in_recovery;	/* 备份在恢复中启动？ */
 
-	/* Fields saved at the end of backup */
-	XLogRecPtr	stoppoint;		/* backup stop WAL location */
-	TimeLineID	stoptli;		/* backup stop TLI */
-	pg_time_t	stoptime;		/* backup stop time */
+	/* 备份结束时保存的字段 */
+	XLogRecPtr	stoppoint;		/* 备份结束 WAL 位置 */
+	TimeLineID	stoptli;		/* 备份结束TLI */
+	pg_time_t	stoptime;		/* 备份结束时 */
 } BackupState;
 
 extern char *build_backup_content(BackupState *state,

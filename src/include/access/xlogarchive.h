@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------
  *
  * xlogarchive.h
- *		Prototypes for WAL archives in the backend
+ *		后端中 WAL 归档的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

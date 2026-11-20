@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0459",
+  "title": "xlogdefs/insert/archive/backup/stats/timeline 头文件注释翻译 — batch 0459",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "3085c50a9eb009306e744ceafbc6ca3a599222a2",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/xlogdefs.h",
+      "kind": "c_comment",
+      "note": "0459"
+    },
+    {
+      "pattern": "src/include/access/xloginsert.h",
+      "kind": "c_comment",
+      "note": "0459"
+    },
+    {
+      "pattern": "src/include/access/xlogarchive.h",
+      "kind": "c_comment",
+      "note": "0459"
+    },
+    {
+      "pattern": "src/include/access/xlogbackup.h",
+      "kind": "c_comment",
+      "note": "0459"
+    },
+    {
+      "pattern": "src/include/access/xlogstats.h",
+      "kind": "c_comment",
+      "note": "0459"
+    },
+    {
+      "pattern": "src/include/access/timeline.h",
+      "kind": "c_comment",
+      "note": "0459"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0459-xlogdefs.json",
+      "kind": "manifest",
+      "note": "batch-0459"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/xlogdefs.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 25,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/版权/printf/XLOG_DEFS_H KEEP"
+      ],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/include/access/xloginsert.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21,
+      "translated": 16,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOGINSERT_H KEEP"
+      ],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/include/access/xlogarchive.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 1,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOGARCHIVE_H KEEP"
+      ],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/include/access/xlogbackup.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21,
+      "translated": 13,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOGBACKUP_H KEEP"
+      ],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/include/access/xlogstats.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 1,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOGSTATS_H KEEP"
+      ],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/include/access/timeline.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 9,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/版权/TIMELINE_H KEEP"
+      ],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0459-xlogdefs.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0459"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "XLOG 定义/插入/归档/备份/统计/时间线；对齐既译 .c"
+}

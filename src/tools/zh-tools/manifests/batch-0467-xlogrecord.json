@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0467",
+  "title": "xlogrecord.h 头文件注释翻译 — batch 0467",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a6b597d5f7de214419c0a2108364e408d26f7d7c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/xlogrecord.h",
+      "kind": "c_comment",
+      "note": "0467"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0467-xlogrecord.json",
+      "kind": "manifest",
+      "note": "0467"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/xlogrecord.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 122,
+      "translated": 111,
+      "preserved": 11,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOGRECORD_H/布局图结构体名/xact id KEEP"
+      ],
+      "note": "batch-0467"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0467-xlogrecord.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0467"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "WAL 记录格式"
+}

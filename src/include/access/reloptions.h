@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * reloptions.h
- *	  Core support for relation and tablespace options (pg_class.reloptions
- *	  and pg_tablespace.spcoptions)
+ *	  关系与表空间选项的核心支持（pg_class.reloptions 与
+ *	  pg_tablespace.spcoptions）
  *
- * Note: the functions dealing with text-array reloptions values declare
- * them as Datum, not ArrayType *, to avoid needing to include array.h
- * into a lot of low-level code.
+ * 注意：处理文本数组 reloptions 值的函数将其声明
+ * 为 Datum，而非 ArrayType *，以免大量底层代码
+ * 需要包含 array.h。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,7 +25,7 @@
 #include "nodes/pg_list.h"
 #include "storage/lock.h"
 
-/* types supported by reloptions */
+/* reloptions 支持的类型 */
 typedef enum relopt_type
 {
 	RELOPT_TYPE_BOOL,
@@ -35,7 +35,7 @@ typedef enum relopt_type
 	RELOPT_TYPE_STRING
 } relopt_type;
 
-/* kinds supported by reloptions */
+/* reloptions 支持的种类 */
 typedef enum relopt_kind
 {
 	RELOPT_KIND_LOCAL = 0,
@@ -51,20 +51,20 @@ typedef enum relopt_kind
 	RELOPT_KIND_VIEW = (1 << 9),
 	RELOPT_KIND_BRIN = (1 << 10),
 	RELOPT_KIND_PARTITIONED = (1 << 11),
-	/* if you add a new kind, make sure you update "last_default" too */
+	/* 若新增种类，务必也更新 "last_default" */
 	RELOPT_KIND_LAST_DEFAULT = RELOPT_KIND_PARTITIONED,
-	/* some compilers treat enums as signed ints, so we can't use 1 << 31 */
+	/* 有的编译器视枚举为有符号 int，故无法用 1 << 31 */
 	RELOPT_KIND_MAX = (1 << 30)
 } relopt_kind;
 
-/* reloption namespaces allowed for heaps -- currently only TOAST */
+/* 堆所允许的 reloption 命名空间 -- 目前仅 TOAST */
 #define HEAP_RELOPT_NAMESPACES { "toast", NULL }
 
-/* generic struct to hold shared data */
+/* 存共享数据的通用结构体 */
 typedef struct relopt_gen
 {
-	const char *name;			/* must be first (used as list termination
-								 * marker) */
+	const char *name;			/* 须居首(用作列表终止
+								 * 标记) */
 	const char *desc;
 	bits32		kinds;
 	LOCKMODE	lockmode;
@@ -72,7 +72,7 @@ typedef struct relopt_gen
 	relopt_type type;
 } relopt_gen;
 
-/* holds a parsed value */
+/* 保存已解析值 */
 typedef struct relopt_value
 {
 	relopt_gen *gen;
@@ -83,11 +83,11 @@ typedef struct relopt_value
 		int			int_val;
 		double		real_val;
 		int			enum_val;
-		char	   *string_val; /* allocated separately */
+		char	   *string_val; /* 另行分配 */
 	}			values;
 } relopt_value;
 
-/* reloptions records for specific variable types */
+/* 特定变量类型的 reloptions 记录 */
 typedef struct relopt_bool
 {
 	relopt_gen	gen;
@@ -111,8 +111,8 @@ typedef struct relopt_real
 } relopt_real;
 
 /*
- * relopt_enum_elt_def -- One member of the array of acceptable values
- * of an enum reloption.
+ * relopt_enum_elt_def -- 枚举 reloption 可接受值数组的
+ * 一个成员。
  */
 typedef struct relopt_enum_elt_def
 {
@@ -126,14 +126,14 @@ typedef struct relopt_enum
 	relopt_enum_elt_def *members;
 	int			default_val;
 	const char *detailmsg;
-	/* null-terminated array of members */
+	/* 以 NUL 终止的成员数组 */
 } relopt_enum;
 
-/* validation routines for strings */
+/* 字符串的校验例程 */
 typedef void (*validate_string_relopt) (const char *value);
 typedef Size (*fill_string_relopt) (const char *value, void *ptr);
 
-/* validation routine for the whole option set */
+/* 整个选项集的校验例程 */
 typedef void (*relopts_validator) (void *parsed_options, relopt_value *vals, int nvals);
 
 typedef struct relopt_string
@@ -146,34 +146,34 @@ typedef struct relopt_string
 	char	   *default_val;
 } relopt_string;
 
-/* This is the table datatype for build_reloptions() */
+/* build_reloptions() 所用的表数据类型 */
 typedef struct
 {
-	const char *optname;		/* option's name */
-	relopt_type opttype;		/* option's datatype */
-	int			offset;			/* offset of field in result struct */
+	const char *optname;		/* 选项名 */
+	relopt_type opttype;		/* 选项类型 */
+	int			offset;			/* 结果结构体中字段偏移 */
 } relopt_parse_elt;
 
-/* Local reloption definition */
+/* 本地 reloption 定义 */
 typedef struct local_relopt
 {
-	relopt_gen *option;			/* option definition */
-	int			offset;			/* offset of parsed value in bytea structure */
+	relopt_gen *option;			/* 选项定义 */
+	int			offset;			/* bytea 结构中已解析值的偏移 */
 } local_relopt;
 
-/* Structure to hold local reloption data for build_local_reloptions() */
+/* 供 build_local_reloptions() 存放本地 reloption 数据的结构 */
 typedef struct local_relopts
 {
-	List	   *options;		/* list of local_relopt definitions */
-	List	   *validators;		/* list of relopts_validator callbacks */
-	Size		relopt_struct_size; /* size of parsed bytea structure */
+	List	   *options;		/* local_relopt 定义的列表 */
+	List	   *validators;		/* relopts_validator 回调的列表 */
+	Size		relopt_struct_size; /* 已解析 bytea 结构大小 */
 } local_relopts;
 
 /*
- * Utility macro to get a value for a string reloption once the options
- * are parsed.  This gets a pointer to the string value itself.  "optstruct"
- * is the StdRdOptions struct or equivalent, "member" is the struct member
- * corresponding to the string option.
+ * 实用宏：选项一经解析即可取字符串 reloption 
+ * 的值。得到指向字符串值本身的指针。"optstruct" 
+ * 是 StdRdOptions 结构体或其等价物，"member" 是
+ * 对应字符串选项的成员。
  */
 #define GET_STRING_RELOPTION(optstruct, member) \
 	((optstruct)->member == 0 ? NULL : \

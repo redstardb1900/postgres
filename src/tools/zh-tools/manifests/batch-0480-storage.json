@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0480",
+  "title": "include/storage 行指针与项指针 — batch 0480",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "6fdc5880f3ba55560289dc445e07abd28cfa5453",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/itemid.h", "kind": "c_comment", "note": "0480"},
+    {"pattern": "src/include/storage/itemptr.h", "kind": "c_comment", "note": "0480"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0480-storage.json", "kind": "manifest", "note": "0480"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/itemid.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 62,
+      "translated": 38,
+      "preserved": 24,
+      "preserved_reasons": ["横幅/文件名/版权/路径/横线/函数名/#endif"],
+      "note": "行指针/项标识"
+    },
+    {
+      "path": "src/include/storage/itemptr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 68,
+      "translated": 39,
+      "preserved": 29,
+      "preserved_reasons": ["横幅/文件名/版权/路径/横线/类型名/函数名/externs/#endif"],
+      "note": "项指针/推测插入令牌/切勿"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0480-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0480"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二刀：行指针/项标识/项指针/推测插入令牌/切勿；HOT 保留"
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * itemptr.h
- *	  POSTGRES disk item pointer definitions.
+ *	  POSTGRES 磁盘项指针定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,18 +20,18 @@
 /*
  * ItemPointer:
  *
- * This is a pointer to an item within a disk page of a known file
- * (for example, a cross-link from an index to its parent table).
- * ip_blkid tells us which block, ip_posid tells us which entry in
- * the linp (ItemIdData) array we want.
+ * 这是指向已知文件某磁盘页内一项的指针（
+ * 例如从索引到其父表的交叉链接）。
+ * ip_blkid 指明哪一块，ip_posid 指明 linp（
+ * ItemIdData）数组中要的项。
  *
- * Note: because there is an item pointer in each tuple header and index
- * tuple header on disk, it's very important not to waste space with
- * structure padding bytes.  The struct is designed to be six bytes long
- * (it contains three int16 fields) but a few compilers will pad it to
- * eight bytes unless coerced.  We apply appropriate persuasion where
- * possible.  If your compiler can't be made to play along, you'll waste
- * lots of space.
+ * 注意：因每个元组头和索引
+ * 元组头在磁盘上都有项指针，切勿浪费空间于
+ * 结构填充字节。本结构按设计为六字节长（
+ * 含三个 int16 字段），但少数编译器会将其
+ * 填充到八字节，除非加以约束。我们在能做的地方
+ * 施加适当劝说。若编译器不肯配合，就会浪费大量
+ * 空间。
  */
 typedef struct ItemPointerData
 {
@@ -39,7 +39,7 @@ typedef struct ItemPointerData
 	OffsetNumber ip_posid;
 }
 
-/* If compiler understands packed and aligned pragmas, use those */
+/* 若编译器理解 packed 与 aligned 的 pragmas，则用之 */
 #if defined(pg_attribute_packed) && defined(pg_attribute_aligned)
 			pg_attribute_packed()
 			pg_attribute_aligned(2)
@@ -49,35 +49,35 @@ ItemPointerData;
 typedef ItemPointerData *ItemPointer;
 
 /* ----------------
- *		special values used in heap tuples (t_ctid)
+ *		堆元组（t_ctid）所用特殊值
  * ----------------
  */
 
 /*
- * If a heap tuple holds a speculative insertion token rather than a real
- * TID, ip_posid is set to SpecTokenOffsetNumber, and the token is stored in
- * ip_blkid. SpecTokenOffsetNumber must be higher than MaxOffsetNumber, so
- * that it can be distinguished from a valid offset number in a regular item
- * pointer.
+ * 若堆元组持有推测插入令牌而非真正
+ * TID，ip_posid 设为 SpecTokenOffsetNumber，令牌存于
+ * ip_blkid。SpecTokenOffsetNumber 必须高于 MaxOffsetNumber，
+ * 以便与常规项指针中的有效偏移号区分
+ * 开。
  */
 #define SpecTokenOffsetNumber		0xfffe
 
 /*
- * When a tuple is moved to a different partition by UPDATE, the t_ctid of
- * the old tuple version is set to this magic value.
+ * 当 UPDATE 把元组移到不同分区时，旧元组
+ * 版本的 t_ctid 设为此魔法值。
  */
 #define MovedPartitionsOffsetNumber 0xfffd
 #define MovedPartitionsBlockNumber	InvalidBlockNumber
 
 
 /* ----------------
- *		support functions
+ *		支持函数
  * ----------------
  */
 
 /*
  * ItemPointerIsValid
- *		True iff the disk item pointer is not NULL.
+ *		磁盘项指针非 NULL 则为真。
  */
 static inline bool
 ItemPointerIsValid(const ItemPointerData *pointer)
@@ -87,7 +87,7 @@ ItemPointerIsValid(const ItemPointerData *pointer)
 
 /*
  * ItemPointerGetBlockNumberNoCheck
- *		Returns the block number of a disk item pointer.
+ *		返回磁盘项指针的块号。
  */
 static inline BlockNumber
 ItemPointerGetBlockNumberNoCheck(const ItemPointerData *pointer)
@@ -97,7 +97,7 @@ ItemPointerGetBlockNumberNoCheck(const ItemPointerData *pointer)
 
 /*
  * ItemPointerGetBlockNumber
- *		As above, but verifies that the item pointer looks valid.
+ *		同上，但验证项指针看起来有效。
  */
 static inline BlockNumber
 ItemPointerGetBlockNumber(const ItemPointerData *pointer)
@@ -108,7 +108,7 @@ ItemPointerGetBlockNumber(const ItemPointerData *pointer)
 
 /*
  * ItemPointerGetOffsetNumberNoCheck
- *		Returns the offset number of a disk item pointer.
+ *		返回磁盘项指针的偏移号。
  */
 static inline OffsetNumber
 ItemPointerGetOffsetNumberNoCheck(const ItemPointerData *pointer)
@@ -118,7 +118,7 @@ ItemPointerGetOffsetNumberNoCheck(const ItemPointerData *pointer)
 
 /*
  * ItemPointerGetOffsetNumber
- *		As above, but verifies that the item pointer looks valid.
+ *		同上，但验证项指针看起来有效。
  */
 static inline OffsetNumber
 ItemPointerGetOffsetNumber(const ItemPointerData *pointer)
@@ -129,7 +129,7 @@ ItemPointerGetOffsetNumber(const ItemPointerData *pointer)
 
 /*
  * ItemPointerSet
- *		Sets a disk item pointer to the specified block and offset.
+ *		把磁盘项指针设为指定块和偏移。
  */
 static inline void
 ItemPointerSet(ItemPointerData *pointer, BlockNumber blockNumber, OffsetNumber offNum)
@@ -141,7 +141,7 @@ ItemPointerSet(ItemPointerData *pointer, BlockNumber blockNumber, OffsetNumber o
 
 /*
  * ItemPointerSetBlockNumber
- *		Sets a disk item pointer to the specified block.
+ *		把磁盘项指针设为指定块。
  */
 static inline void
 ItemPointerSetBlockNumber(ItemPointerData *pointer, BlockNumber blockNumber)
@@ -152,7 +152,7 @@ ItemPointerSetBlockNumber(ItemPointerData *pointer, BlockNumber blockNumber)
 
 /*
  * ItemPointerSetOffsetNumber
- *		Sets a disk item pointer to the specified offset.
+ *		把磁盘项指针设为指定偏移。
  */
 static inline void
 ItemPointerSetOffsetNumber(ItemPointerData *pointer, OffsetNumber offsetNumber)
@@ -163,10 +163,10 @@ ItemPointerSetOffsetNumber(ItemPointerData *pointer, OffsetNumber offsetNumber)
 
 /*
  * ItemPointerCopy
- *		Copies the contents of one disk item pointer to another.
+ *		把一个磁盘项指针的内容复制到另一个。
  *
- * Should there ever be padding in an ItemPointer this would need to be handled
- * differently as it's used as hash key.
+ * 若 ItemPointer 中出现填充，则须另行处理，
+ * 因其用作哈希键。
  */
 static inline void
 ItemPointerCopy(const ItemPointerData *fromPointer, ItemPointerData *toPointer)
@@ -178,7 +178,7 @@ ItemPointerCopy(const ItemPointerData *fromPointer, ItemPointerData *toPointer)
 
 /*
  * ItemPointerSetInvalid
- *		Sets a disk item pointer to be invalid.
+ *		把磁盘项指针设为无效。
  */
 static inline void
 ItemPointerSetInvalid(ItemPointerData *pointer)
@@ -190,8 +190,8 @@ ItemPointerSetInvalid(ItemPointerData *pointer)
 
 /*
  * ItemPointerIndicatesMovedPartitions
- *		True iff the block number indicates the tuple has moved to another
- *		partition.
+ *		当且仅当块号表明元组已移到另一
+ *		分区。
  */
 static inline bool
 ItemPointerIndicatesMovedPartitions(const ItemPointerData *pointer)
@@ -203,8 +203,8 @@ ItemPointerIndicatesMovedPartitions(const ItemPointerData *pointer)
 
 /*
  * ItemPointerSetMovedPartitions
- *		Indicate that the item referenced by the itempointer has moved into a
- *		different partition.
+ *		表明 itempointer 所引用的项已移入
+ *		不同分区。
  */
 static inline void
 ItemPointerSetMovedPartitions(ItemPointerData *pointer)
@@ -223,7 +223,7 @@ extern void ItemPointerInc(ItemPointer pointer);
 extern void ItemPointerDec(ItemPointer pointer);
 
 /* ----------------
- *		Datum conversion functions
+ *		Datum 转换函数
  * ----------------
  */
 

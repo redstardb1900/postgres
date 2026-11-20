@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * itemid.h
- *	  Standard POSTGRES buffer page item identifier/line pointer definitions.
+ *	  标准 POSTGRES 缓冲页项标识/行指针定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -15,41 +15,41 @@
 #define ITEMID_H
 
 /*
- * A line pointer on a buffer page.  See buffer page definitions and comments
- * for an explanation of how line pointers are used.
+ * 缓冲区页上的行指针。见缓冲区页定义与注释
+ * 以了解行指针如何使用。
  *
- * In some cases a line pointer is "in use" but does not have any associated
- * storage on the page.  By convention, lp_len == 0 in every line pointer
- * that does not have storage, independently of its lp_flags state.
+ * 有时行指针虽"在用"但并无关联的
+ * 页上存储。按约定无存储的行指针 lp_len == 0，
+ * 与其 lp_flags 状态无关。
  */
 typedef struct ItemIdData
 {
-	unsigned	lp_off:15,		/* offset to tuple (from start of page) */
-				lp_flags:2,		/* state of line pointer, see below */
-				lp_len:15;		/* byte length of tuple */
+	unsigned	lp_off:15,		/* 至元组的偏移（自页首） */
+				lp_flags:2,		/* 行指针状态，见下 */
+				lp_len:15;		/* 元组字节长度 */
 } ItemIdData;
 
 typedef ItemIdData *ItemId;
 
 /*
- * lp_flags has these possible states.  An UNUSED line pointer is available
- * for immediate re-use, the other states are not.
+ * lp_flags 有以下可能状态。UNUSED 行指针可
+ * 立即重用，其他状态则否。
  */
-#define LP_UNUSED		0		/* unused (should always have lp_len=0) */
-#define LP_NORMAL		1		/* used (should always have lp_len>0) */
-#define LP_REDIRECT		2		/* HOT redirect (should have lp_len=0) */
-#define LP_DEAD			3		/* dead, may or may not have storage */
+#define LP_UNUSED		0		/* 未用（应总有 lp_len=0） */
+#define LP_NORMAL		1		/* 在用（应总有 lp_len>0） */
+#define LP_REDIRECT		2		/* HOT 重定向（应有 lp_len=0） */
+#define LP_DEAD			3		/* 已死，可有可无存储 */
 
 /*
- * Item offsets and lengths are represented by these types when
- * they're not actually stored in an ItemIdData.
+ * 项偏移与长度由这些类型表示，当其
+ * 未实际存放在 ItemIdData 中时。
  */
 typedef uint16 ItemOffset;
 typedef uint16 ItemLength;
 
 
 /* ----------------
- *		support macros
+ *		支持宏
  * ----------------
  */
 
@@ -73,57 +73,57 @@ typedef uint16 ItemLength;
 
 /*
  *		ItemIdGetRedirect
- * In a REDIRECT pointer, lp_off holds offset number for next line pointer
+ * REDIRECT 指针中，lp_off 存放下一行指针的偏移号
  */
 #define ItemIdGetRedirect(itemId) \
    ((itemId)->lp_off)
 
 /*
  * ItemIdIsValid
- *		True iff item identifier is valid.
- *		This is a pretty weak test, probably useful only in Asserts.
+ *		项标识有效则为真。
+ *		检测很弱，大概仅对 Asserts 有用。
  */
 #define ItemIdIsValid(itemId)	PointerIsValid(itemId)
 
 /*
  * ItemIdIsUsed
- *		True iff item identifier is in use.
+ *		项标识在用则为真。
  */
 #define ItemIdIsUsed(itemId) \
 	((itemId)->lp_flags != LP_UNUSED)
 
 /*
  * ItemIdIsNormal
- *		True iff item identifier is in state NORMAL.
+ *		当且仅当项标识处于 NORMAL 为真。
  */
 #define ItemIdIsNormal(itemId) \
 	((itemId)->lp_flags == LP_NORMAL)
 
 /*
  * ItemIdIsRedirected
- *		True iff item identifier is in state REDIRECT.
+ *		当且仅当项标识处于 REDIRECT 为真。
  */
 #define ItemIdIsRedirected(itemId) \
 	((itemId)->lp_flags == LP_REDIRECT)
 
 /*
  * ItemIdIsDead
- *		True iff item identifier is in state DEAD.
+ *		当且仅当项标识处于 DEAD 为真。
  */
 #define ItemIdIsDead(itemId) \
 	((itemId)->lp_flags == LP_DEAD)
 
 /*
  * ItemIdHasStorage
- *		True iff item identifier has associated storage.
+ *		当且仅当项标识有关联存储为真。
  */
 #define ItemIdHasStorage(itemId) \
 	((itemId)->lp_len != 0)
 
 /*
  * ItemIdSetUnused
- *		Set the item identifier to be UNUSED, with no storage.
- *		Beware of multiple evaluations of itemId!
+ *		把项标识设为 UNUSED，无存储。
+ *		当心 itemId 被多次求值！
  */
 #define ItemIdSetUnused(itemId) \
 ( \
@@ -134,8 +134,8 @@ typedef uint16 ItemLength;
 
 /*
  * ItemIdSetNormal
- *		Set the item identifier to be NORMAL, with the specified storage.
- *		Beware of multiple evaluations of itemId!
+ *		把项标识设为 NORMAL，带指定存储。
+ *		当心 itemId 被多次求值！
  */
 #define ItemIdSetNormal(itemId, off, len) \
 ( \
@@ -146,8 +146,8 @@ typedef uint16 ItemLength;
 
 /*
  * ItemIdSetRedirect
- *		Set the item identifier to be REDIRECT, with the specified link.
- *		Beware of multiple evaluations of itemId!
+ *		把项标识设为 REDIRECT，带指定链接。
+ *		当心 itemId 被多次求值！
  */
 #define ItemIdSetRedirect(itemId, link) \
 ( \
@@ -158,8 +158,8 @@ typedef uint16 ItemLength;
 
 /*
  * ItemIdSetDead
- *		Set the item identifier to be DEAD, with no storage.
- *		Beware of multiple evaluations of itemId!
+ *		把项标识设为 DEAD，无存储。
+ *		当心 itemId 被多次求值！
  */
 #define ItemIdSetDead(itemId) \
 ( \
@@ -170,11 +170,11 @@ typedef uint16 ItemLength;
 
 /*
  * ItemIdMarkDead
- *		Set the item identifier to be DEAD, keeping its existing storage.
+ *		把项标识设为 DEAD，保留其现有存储。
  *
- * Note: in indexes, this is used as if it were a hint-bit mechanism;
- * we trust that multiple processors can do this in parallel and get
- * the same result.
+ * 注意：在索引中，这被当作提示位机制来用；
+ * 我们相信多处理器可并行做此并得到
+ * 相同结果。
  */
 #define ItemIdMarkDead(itemId) \
 ( \

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0460",
+  "title": "transam.h 头文件注释翻译 — batch 0460",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d585d90764a16a6c25f385d83e392b73e2a398c4",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/transam.h",
+      "kind": "c_comment",
+      "note": "0460"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0460-transam.json",
+      "kind": "manifest",
+      "note": "batch-0460"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/transam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 113,
+      "translated": 94,
+      "preserved": 19,
+      "preserved_reasons": [
+        "横幅/路径/版权/节虚线/FRONTEND/TRANSAM_H KEEP"
+      ],
+      "note": "batch-0460"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0460-transam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0460"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "transam.h；回卷；标题不拷 transam.c；审前清 XIDs/OIDs"
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * transam.h
- *	  postgres transaction access method support code
+ *	  postgres 事务访问方法支持代码
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,14 +18,14 @@
 
 
 /* ----------------
- *		Special transaction ID values
+ *		特殊事务 ID 值
  *
- * BootstrapTransactionId is the XID for "bootstrap" operations, and
- * FrozenTransactionId is used for very old tuples.  Both should
- * always be considered valid.
+ * BootstrapTransactionId 是"引导"操作的 XID，而 
+ * FrozenTransactionId 用于非常旧的元组。二者应
+ * 始终视为有效。
  *
- * FirstNormalTransactionId is the first "normal" transaction id.
- * Note: if you need to change it, you must change pg_class.h as well.
+ * FirstNormalTransactionId 是首个"普通"事务 id。
+ * 注意：若需更改它，则必须同时改 pg_class.h。
  * ----------------
  */
 #define InvalidTransactionId		((TransactionId) 0)
@@ -35,7 +35,7 @@
 #define MaxTransactionId			((TransactionId) 0xFFFFFFFF)
 
 /* ----------------
- *		transaction ID manipulation macros
+ *		事务 ID 操纵宏
  * ----------------
  */
 #define TransactionIdIsValid(xid)		((xid) != InvalidTransactionId)
@@ -58,9 +58,9 @@
 #define FullTransactionIdIsNormal(x)	FullTransactionIdFollowsOrEquals(x, FirstNormalFullTransactionId)
 
 /*
- * A 64 bit value that contains an epoch and a TransactionId.  This is
- * wrapped in a struct to prevent implicit conversion to/from TransactionId.
- * Not all values represent valid normal XIDs.
+ * 含纪元与 TransactionId 的 64 位值。此值
+ * 包在结构体中，以防与 TransactionId 隐式互转。
+ * 并非所有值都表示有效普通XIDs。
  */
 typedef struct FullTransactionId
 {
@@ -87,7 +87,7 @@ FullTransactionIdFromU64(uint64 value)
 	return result;
 }
 
-/* advance a transaction ID variable, handling wraparound correctly */
+/* 推进事务 ID 变量，正确处理回卷 */
 #define TransactionIdAdvance(dest)	\
 	do { \
 		(dest)++; \
@@ -96,8 +96,8 @@ FullTransactionIdFromU64(uint64 value)
 	} while(0)
 
 /*
- * Retreat a FullTransactionId variable, stepping over xids that would appear
- * to be special only when viewed as 32bit XIDs.
+ * 回退 FullTransactionId 变量，跳过那些仅在视为 
+ * 32 位 XIDs 时才显得特殊的 xid。
  */
 static inline void
 FullTransactionIdRetreat(FullTransactionId *dest)
@@ -105,15 +105,15 @@ FullTransactionIdRetreat(FullTransactionId *dest)
 	dest->value--;
 
 	/*
-	 * In contrast to 32bit XIDs don't step over the "actual" special xids.
-	 * For 64bit xids these can't be reached as part of a wraparound as they
-	 * can in the 32bit case.
+	 * 与 32 位 XIDs 不同，不跳过"真正的"特殊 xid。
+	 * 对 64 位 xid，这些无法在回卷中触及，而它们
+	 * 在 32 位下可以。
 	 */
 	if (FullTransactionIdPrecedes(*dest, FirstNormalFullTransactionId))
 		return;
 
 	/*
-	 * But we do need to step over XIDs that'd appear special only for 32bit
+	 * 但我们确需跳过仅对 32 位显得特殊的 
 	 * XIDs.
 	 */
 	while (XidFromFullTransactionId(*dest) < FirstNormalTransactionId)
@@ -121,15 +121,15 @@ FullTransactionIdRetreat(FullTransactionId *dest)
 }
 
 /*
- * Advance a FullTransactionId variable, stepping over xids that would appear
- * to be special only when viewed as 32bit XIDs.
+ * 推进 FullTransactionId 变量，跳过那些仅在视为 
+ * 32 位 XIDs 时才显得特殊的 xid。
  */
 static inline void
 FullTransactionIdAdvance(FullTransactionId *dest)
 {
 	dest->value++;
 
-	/* see FullTransactionIdAdvance() */
+	/* 见 FullTransactionIdAdvance() */
 	if (FullTransactionIdPrecedes(*dest, FirstNormalFullTransactionId))
 		return;
 
@@ -137,59 +137,59 @@ FullTransactionIdAdvance(FullTransactionId *dest)
 		dest->value++;
 }
 
-/* back up a transaction ID variable, handling wraparound correctly */
+/* 回退事务 ID 变量，正确处理回卷 */
 #define TransactionIdRetreat(dest)	\
 	do { \
 		(dest)--; \
 	} while ((dest) < FirstNormalTransactionId)
 
-/* compare two XIDs already known to be normal; this is a macro for speed */
+/* 比较两个已知为普通的 XIDs；此宏为求速度 */
 #define NormalTransactionIdPrecedes(id1, id2) \
 	(AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
 	(int32) ((id1) - (id2)) < 0)
 
-/* compare two XIDs already known to be normal; this is a macro for speed */
+/* 比较两个已知为普通的 XIDs；此宏为求速度 */
 #define NormalTransactionIdFollows(id1, id2) \
 	(AssertMacro(TransactionIdIsNormal(id1) && TransactionIdIsNormal(id2)), \
 	(int32) ((id1) - (id2)) > 0)
 
 /* ----------
- *		Object ID (OID) zero is InvalidOid.
+ *		对象 ID (OID) 零为 InvalidOid.
  *
- *		OIDs 1-9999 are reserved for manual assignment (see .dat files in
- *		src/include/catalog/).  Of these, 8000-9999 are reserved for
- *		development purposes (such as in-progress patches and forks);
- *		they should not appear in released versions.
+ *		OIDs 1-9999 保留给手工指派 (见 .dat 文件于 
+ *		src/include/catalog/)。其中 8000-9999 保留给
+ *		开发用途（如进行中的补丁与分叉）；
+ *		它们不应出现在已发布版本中。
  *
- *		OIDs 10000-11999 are reserved for assignment by genbki.pl, for use
- *		when the .dat files in src/include/catalog/ do not specify an OID
- *		for a catalog entry that requires one.  Note that genbki.pl assigns
- *		these OIDs independently in each catalog, so they're not guaranteed
- *		to be globally unique.  Furthermore, the bootstrap backend and
- *		initdb's post-bootstrap processing can also assign OIDs in this range.
- *		The normal OID-generation logic takes care of any OID conflicts that
- *		might arise from that.
+ *		OIDs 10000-11999 保留给 genbki.pl 指派，在 
+ *		src/include/catalog/ 的 .dat 文件未给需 OID 的
+ *		目录项指定 OID 时用。注意 genbki.pl 在
+ *		各目录中独立指派这些 OID，故不保证其
+ *		全局唯一。此外，引导后端与 
+ *		initdb 的后引导处理也可在此范围指派 OID。
+ *		常规 OID 生成逻辑会处理由此可能产生的
+ *		任何 OID 冲突。
  *
- *		OIDs 12000-16383 are reserved for unpinned objects created by initdb's
- *		post-bootstrap processing.  initdb forces the OID generator up to
- *		12000 as soon as it's made the pinned objects it's responsible for.
+ *		OIDs 12000-16383 保留给 initdb 后引导处理所
+ *		创建的未钉住对象。initdb 一做好其负责的钉住
+ *		对象就把 OID 生成器强制升到 12000。
  *
- *		OIDs beginning at 16384 are assigned from the OID generator
- *		during normal multiuser operation.  (We force the generator up to
- *		16384 as soon as we are in normal operation.)
+ *		自 16384 起的 OID 由 OID 生成器在正常
+ *		多用户运行期间指派。（一进入正常运行我们即
+ *		把生成器强制升到 16384。）
  *
- * The choices of 8000, 10000 and 12000 are completely arbitrary, and can be
- * moved if we run low on OIDs in any category.  Changing the macros below,
- * and updating relevant documentation (see bki.sgml and RELEASE_CHANGES),
- * should be sufficient to do this.  Moving the 16384 boundary between
- * initdb-assigned OIDs and user-defined objects would be substantially
- * more painful, however, since some user-defined OIDs will appear in
- * on-disk data; such a change would probably break pg_upgrade.
+ * 8000、10000 和 12000 的选取完全任意，且可
+ * 在任一类 OID 不够用时改动。更改下列宏，
+ * 并更新相关文档 (见 bki.sgml 与 RELEASE_CHANGES)，
+ * 应即足以完成此事。移动 16384 这条介于 
+ * initdb 指派 OID 与用户定义对象之间的边界会
+ * 显著更痛，然而因部分用户定义 OID 会出现在
+ * 盘上数据中；此种更改大概会破坏 pg_upgrade。
  *
- * NOTE: if the OID generator wraps around, we skip over OIDs 0-16383
- * and resume with 16384.  This minimizes the odds of OID conflict, by not
- * reassigning OIDs that might have been assigned during initdb.  Critically,
- * it also ensures that no user-created object will be considered pinned.
+ * 注意：若 OID 生成器回卷，我们跳过 OIDs 0-16383 
+ * 并从 16384 继续。这把 OID 冲突几率压到最低，靠不
+ * 重派可能在 initdb 期间已派过的 OID。关键是，
+ * 这也确保用户创建对象皆不被视为钉住。
  * ----------
  */
 #define FirstGenbkiObjectId		10000
@@ -197,60 +197,60 @@ FullTransactionIdAdvance(FullTransactionId *dest)
 #define FirstNormalObjectId		16384
 
 /*
- * VariableCache is a data structure in shared memory that is used to track
- * OID and XID assignment state.  For largely historical reasons, there is
- * just one struct with different fields that are protected by different
+ * VariableCache 是共享内存中的数据结构，用于跟踪
+ * OID 与 XID 指派状态。主要出于历史原因，只有
+ * 一个结构体，其不同字段受保护于不同 
  * LWLocks.
  *
- * Note: xidWrapLimit and oldestXidDB are not "active" values, but are
- * used just to generate useful messages when xidWarnLimit or xidStopLimit
- * are exceeded.
+ * 注意：xidWrapLimit 与 oldestXidDB 并非"活跃"值，而
+ * 仅用于生成有用消息，当 xidWarnLimit 或 xidStopLimit 
+ * 超限时。
  */
 typedef struct VariableCacheData
 {
 	/*
-	 * These fields are protected by OidGenLock.
+	 * 这些字段受 OidGenLock 保护。
 	 */
-	Oid			nextOid;		/* next OID to assign */
-	uint32		oidCount;		/* OIDs available before must do XLOG work */
+	Oid			nextOid;		/* 下一待指派OID */
+	uint32		oidCount;		/* 须做 XLOG 工作前可用的 OIDs */
 
 	/*
-	 * These fields are protected by XidGenLock.
+	 * 这些字段受 XidGenLock 保护。
 	 */
-	FullTransactionId nextXid;	/* next XID to assign */
+	FullTransactionId nextXid;	/* 下一待指派XID */
 
-	TransactionId oldestXid;	/* cluster-wide minimum datfrozenxid */
-	TransactionId xidVacLimit;	/* start forcing autovacuums here */
-	TransactionId xidWarnLimit; /* start complaining here */
-	TransactionId xidStopLimit; /* refuse to advance nextXid beyond here */
-	TransactionId xidWrapLimit; /* where the world ends */
-	Oid			oldestXidDB;	/* database with minimum datfrozenxid */
+	TransactionId oldestXid;	/* 集簇范围最小 datfrozenxid */
+	TransactionId xidVacLimit;	/* 从此处起强制 autovacuum */
+	TransactionId xidWarnLimit; /* 从此开始抱怨 */
+	TransactionId xidStopLimit; /* 拒绝将 nextXid 推进超过此处 */
+	TransactionId xidWrapLimit; /* 世界尽头 */
+	Oid			oldestXidDB;	/* 最小 datfrozenxid 的数据库 */
 
 	/*
-	 * These fields are protected by CommitTsLock
+	 * 这些字段受 CommitTsLock 保护
 	 */
 	TransactionId oldestCommitTsXid;
 	TransactionId newestCommitTsXid;
 
 	/*
-	 * These fields are protected by ProcArrayLock.
+	 * 这些字段受 ProcArrayLock 保护。
 	 */
-	FullTransactionId latestCompletedXid;	/* newest full XID that has
-											 * committed or aborted */
+	FullTransactionId latestCompletedXid;	/* 最新提交或中止的
+											 * 完整 XID */
 
 	/*
-	 * Number of top-level transactions with xids (i.e. which may have
-	 * modified the database) that completed in some form since the start of
-	 * the server. This currently is solely used to check whether
-	 * GetSnapshotData() needs to recompute the contents of the snapshot, or
-	 * not. There are likely other users of this.  Always above 1.
+	 * 带 xid 的顶层事务数（即可能已
+	 * 修改数据库）且自服务器启动以来以某
+	 * 种形式完成者。目前仅用于检查 
+	 * GetSnapshotData() 是否需重算快照内容。
+	 * 此值可能还有其他使用者。恒大于 1。
 	 */
 	uint64		xactCompletionCount;
 
 	/*
-	 * These fields are protected by XactTruncationLock
+	 * 这些字段受 XactTruncationLock 保护
 	 */
-	TransactionId oldestClogXid;	/* oldest it's safe to look up in clog */
+	TransactionId oldestClogXid;	/* 可安全在 clog 查找的最老 */
 
 } VariableCacheData;
 
@@ -258,7 +258,7 @@ typedef VariableCacheData *VariableCache;
 
 
 /* ----------------
- *		extern declarations
+ *		外部声明
  * ----------------
  */
 
@@ -269,7 +269,7 @@ extern bool TransactionStartedDuringRecovery(void);
 extern PGDLLIMPORT VariableCache ShmemVariableCache;
 
 /*
- * prototypes for functions in transam/transam.c
+ * transam/transam.c 中函数的原型
  */
 extern bool TransactionIdDidCommit(TransactionId transactionId);
 extern bool TransactionIdDidAbort(TransactionId transactionId);
@@ -302,14 +302,14 @@ extern void AssertTransactionIdInAllowableRange(TransactionId xid);
 #endif
 
 /*
- * Some frontend programs include this header.  For compilers that emit static
- * inline functions even when they're unused, that leads to unsatisfied
- * external references; hence hide them with #ifndef FRONTEND.
+ * 某些前端程序包含本头文件。对即使未用也发出静态
+ * 内联函数的编译器，会导致未满足的
+ * 外部引用；故用 #ifndef FRONTEND 隐藏。
  */
 #ifndef FRONTEND
 
 /*
- * For callers that just need the XID part of the next transaction ID.
+ * 供只需下一事务 ID 的 XID 部分的调用方。
  */
 static inline TransactionId
 ReadNextTransactionId(void)
@@ -317,7 +317,7 @@ ReadNextTransactionId(void)
 	return XidFromFullTransactionId(ReadNextFullTransactionId());
 }
 
-/* return transaction ID backed up by amount, handling wraparound correctly */
+/* 返回按量回退的事务 ID，正确处理回卷 */
 static inline TransactionId
 TransactionIdRetreatedBy(TransactionId xid, uint32 amount)
 {
@@ -329,7 +329,7 @@ TransactionIdRetreatedBy(TransactionId xid, uint32 amount)
 	return xid;
 }
 
-/* return the older of the two IDs */
+/* 返回两个 ID 中较老者 */
 static inline TransactionId
 TransactionIdOlder(TransactionId a, TransactionId b)
 {
@@ -344,7 +344,7 @@ TransactionIdOlder(TransactionId a, TransactionId b)
 	return b;
 }
 
-/* return the older of the two IDs, assuming they're both normal */
+/* 返回两个 ID 中较老者，假定二者皆普通 */
 static inline TransactionId
 NormalTransactionIdOlder(TransactionId a, TransactionId b)
 {
@@ -355,7 +355,7 @@ NormalTransactionIdOlder(TransactionId a, TransactionId b)
 	return b;
 }
 
-/* return the newer of the two IDs */
+/* 返回两个 ID 中较新者 */
 static inline FullTransactionId
 FullTransactionIdNewer(FullTransactionId a, FullTransactionId b)
 {

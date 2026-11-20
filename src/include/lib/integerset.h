@@ -1,6 +1,6 @@
 /*
  * integerset.h
- *	  In-memory data structure to hold a large set of integers efficiently
+ *	  内存中高效保存大整数集合的数据结构
  *
  * Portions Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *

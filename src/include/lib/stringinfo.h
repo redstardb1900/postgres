@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * stringinfo.h
- *	  Declarations/definitions for "StringInfo" functions.
+ *	  "StringInfo" 函数的声明与定义。
  *
- * StringInfo provides an extensible string data type (currently limited to a
- * length of 1GB).  It can be used to buffer either ordinary C strings
- * (null-terminated text) or arbitrary binary data.  All storage is allocated
- * with palloc() (falling back to malloc in frontend code).
+ * StringInfo 提供一种可扩展字符串类型（当前上限
+ * 1GB）。可缓冲普通 C 字符串（空字节结尾文本）
+ * 或任意二进制数据。全部存储用 palloc() 分配
+ * （前端代码回退到 malloc）。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,18 +19,18 @@
 #define STRINGINFO_H
 
 /*-------------------------
- * StringInfoData holds information about an extensible string.
- *		data	is the current buffer for the string (allocated with palloc).
- *		len		is the current string length.  There is guaranteed to be
- *				a terminating '\0' at data[len], although this is not very
- *				useful when the string holds binary data rather than text.
- *		maxlen	is the allocated size in bytes of 'data', i.e. the maximum
- *				string size (including the terminating '\0' char) that we can
- *				currently store in 'data' without having to reallocate
- *				more space.  We must always have maxlen > len.
- *		cursor	is initialized to zero by makeStringInfo or initStringInfo,
- *				but is not otherwise touched by the stringinfo.c routines.
- *				Some routines use it to scan through a StringInfo.
+ * StringInfoData 保存可扩展字符串的信息。
+ *		data	当前字符串缓冲区（用 palloc 分配）。
+ *		len		当前字符串长度。保证 data[len] 处有
+ *				终止 '\0'，但字符串存二进制而非文本时
+ *				这一点不大有用。
+ *		maxlen	为 'data' 已分配字节数，即当前可存入
+ *				'data'、不必再分配即可容纳的最大字符串
+ *				大小（含终止 '\0'）。必须始终 
+ *				maxlen > len。
+ *		cursor	由 makeStringInfo 或 initStringInfo 置零，
+ *				stringinfo.c 例程此外不再改动。
+ *				有些例程用它扫描 StringInfo。
  *-------------------------
  */
 typedef struct StringInfoData
@@ -45,85 +45,85 @@ typedef StringInfoData *StringInfo;
 
 
 /*------------------------
- * There are two ways to create a StringInfo object initially:
+ * 最初有两种方式创建 StringInfo 对象：
  *
  * StringInfo stringptr = makeStringInfo();
- *		Both the StringInfoData and the data buffer are palloc'd.
+ *		StringInfoData 与数据缓冲区都用 palloc。
  *
  * StringInfoData string;
  * initStringInfo(&string);
- *		The data buffer is palloc'd but the StringInfoData is just local.
- *		This is the easiest approach for a StringInfo object that will
- *		only live as long as the current routine.
+ *		数据缓冲用 palloc，StringInfoData 只是局部变量。
+ *		若对象只活在当前例程期间，这是最省事的
+ *		做法。
  *
- * To destroy a StringInfo, pfree() the data buffer, and then pfree() the
- * StringInfoData if it was palloc'd.  There's no special support for this.
+ * 销毁 StringInfo 时先 pfree() 数据缓冲，再 pfree()
+ * palloc 出来的 StringInfoData。没有专门接口。
  *
- * NOTE: some routines build up a string using StringInfo, and then
- * release the StringInfoData but return the data string itself to their
- * caller.  At that point the data string looks like a plain palloc'd
- * string.
+ * 注意：有些例程用 StringInfo 拼出字符串，然后
+ * 释放 StringInfoData，却把数据字符串本身返回给
+ * 调用方。此时该数据串看起来就像普通 palloc 的
+ * 串。
  *-------------------------
  */
 
 /*------------------------
  * makeStringInfo
- * Create an empty 'StringInfoData' & return a pointer to it.
+ * 创建空的 'StringInfoData' 并返回其指针。
  */
 extern StringInfo makeStringInfo(void);
 
 /*------------------------
  * initStringInfo
- * Initialize a StringInfoData struct (with previously undefined contents)
- * to describe an empty string.
+ * 初始化内容未定义的 StringInfoData 结构，使其
+ * 描述空串。
  */
 extern void initStringInfo(StringInfo str);
 
 /*------------------------
  * resetStringInfo
- * Clears the current content of the StringInfo, if any. The
- * StringInfo remains valid.
+ * 若有内容则清除 StringInfo 当前内容。
+ * StringInfo 仍有效。
  */
 extern void resetStringInfo(StringInfo str);
 
 /*------------------------
  * appendStringInfo
- * Format text data under the control of fmt (an sprintf-style format string)
- * and append it to whatever is already in str.  More space is allocated
- * to str if necessary.  This is sort of like a combination of sprintf and
+ * 按 fmt（sprintf 风格格式串）格式化文本数据，
+ * 追加到 str 已有内容。必要时为 str 分配更多
+ * 空间。有点像 sprintf 与 
  * strcat.
  */
 extern void appendStringInfo(StringInfo str, const char *fmt,...) pg_attribute_printf(2, 3);
 
 /*------------------------
  * appendStringInfoVA
- * Attempt to format text data under the control of fmt (an sprintf-style
- * format string) and append it to whatever is already in str.  If successful
- * return zero; if not (because there's not enough space), return an estimate
- * of the space needed, without modifying str.  Typically the caller should
- * pass the return value to enlargeStringInfo() before trying again; see
- * appendStringInfo for standard usage pattern.
+ * 尝试按 fmt（sprintf 风格格式串）格式化文本
+ * 数据并追加到 str。成功返回零；若空间不足则
+ * 返回所需空间估计且不改 str。调用方通常应把
+ * 返回值交给 enlargeStringInfo() 后再试；见
+ * appendStringInfo 的标准
+ * 用法。
  */
 extern int	appendStringInfoVA(StringInfo str, const char *fmt, va_list args) pg_attribute_printf(2, 0);
 
 /*------------------------
  * appendStringInfoString
- * Append a null-terminated string to str.
- * Like appendStringInfo(str, "%s", s) but faster.
+ * 向 str 追加空终止字符串。
+ * 同 appendStringInfo(str, "%s", s) 但更快。
  */
 extern void appendStringInfoString(StringInfo str, const char *s);
 
 /*------------------------
  * appendStringInfoChar
- * Append a single byte to str.
- * Like appendStringInfo(str, "%c", ch) but much faster.
+ * 向 str 追加一字节。
+ * 同 appendStringInfo(str, "%c", ch) 但更快。
  */
 extern void appendStringInfoChar(StringInfo str, char ch);
 
 /*------------------------
  * appendStringInfoCharMacro
- * As above, but a macro for even more speed where it matters.
- * Caution: str argument will be evaluated multiple times.
+ * 同上，但是宏，速度要紧处更快。
+ * 注意：str 实参会被求值多次。
  */
 #define appendStringInfoCharMacro(str,ch) \
 	(((str)->len + 1 >= (str)->maxlen) ? \
@@ -132,29 +132,29 @@ extern void appendStringInfoChar(StringInfo str, char ch);
 
 /*------------------------
  * appendStringInfoSpaces
- * Append a given number of spaces to str.
+ * 向 str 追加给定个数的空格。
  */
 extern void appendStringInfoSpaces(StringInfo str, int count);
 
 /*------------------------
  * appendBinaryStringInfo
- * Append arbitrary binary data to a StringInfo, allocating more space
- * if necessary.
+ * 向 StringInfo 追加任意二进制数据，必要时
+ * 再分配。
  */
 extern void appendBinaryStringInfo(StringInfo str,
 								   const void *data, int datalen);
 
 /*------------------------
  * appendBinaryStringInfoNT
- * Append arbitrary binary data to a StringInfo, allocating more space
- * if necessary. Does not ensure a trailing null-byte exists.
+ * 向 StringInfo 追加任意二进制数据，必要时
+ * 分配更多空间。不保证存在尾随空字节。
  */
 extern void appendBinaryStringInfoNT(StringInfo str,
 									 const void *data, int datalen);
 
 /*------------------------
  * enlargeStringInfo
- * Make sure a StringInfo's buffer can hold at least 'needed' more bytes.
+ * 确保 StringInfo 缓冲还能再放下至少 'needed' 字节。
  */
 extern void enlargeStringInfo(StringInfo str, int needed);
 

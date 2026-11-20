@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0478",
+  "title": "include/lib 余部头文件注释翻译 — batch 0478",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8682bdcecc1fc72707e1689745c0b9671ce29fea",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/lib/bloomfilter.h",
+      "kind": "c_comment",
+      "note": "0478"
+    },
+    {
+      "pattern": "src/include/lib/integerset.h",
+      "kind": "c_comment",
+      "note": "0478"
+    },
+    {
+      "pattern": "src/include/lib/stringinfo.h",
+      "kind": "c_comment",
+      "note": "0478"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0478-lib.json",
+      "kind": "manifest",
+      "note": "0478"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/lib/bloomfilter.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 1,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/文件名/IDENTIFICATION/路径/#endif"
+      ],
+      "note": "batch-0478 省空间的集合成员测试"
+    },
+    {
+      "path": "src/include/lib/integerset.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 5,
+      "translated": 1,
+      "preserved": 4,
+      "preserved_reasons": [
+        "文件名/版权/路径/#endif"
+      ],
+      "note": "batch-0478 内存中高效保存大整数集合"
+    },
+    {
+      "path": "src/include/lib/stringinfo.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 93,
+      "translated": 54,
+      "preserved": 39,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径/函数名行/示例代码/#endif；L94 strcat. zmax=7"
+      ],
+      "note": "batch-0478 StringInfo 可扩展字符串"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0478-lib.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0478"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "include/lib 未译余部；knapsack.h 仅文件名 KEEP 未改；must→必须；palloc/sprintf 保留"
+}

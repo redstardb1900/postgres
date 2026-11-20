@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * bloomfilter.h
- *	  Space-efficient set membership testing
+ *	  省空间的集合成员测试
  *
  * Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *

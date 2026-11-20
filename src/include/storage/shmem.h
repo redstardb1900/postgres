@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * shmem.h
- *	  shared memory management structures
+ *	  共享内存管理结构。
  *
- * Historical note:
- * A long time ago, Postgres' shared memory region was allowed to be mapped
- * at a different address in each process, and shared memory "pointers" were
- * passed around as offsets relative to the start of the shared memory region.
- * That is no longer the case: each process must map the shared memory region
- * at the same address.  This means shared memory pointers can be passed
- * around directly between different processes.
+ * 历史说明：
+ * 很久以前，Postgres 共享内存区允许在各进程映射到
+ * 不同地址，共享内存"指针"以相对共享内存区起始的
+ * 偏移传递。如今已非如此：每个进程必须把共享内存
+ * 区映射到同一地址。这意味着共享内存指针可在
+ * 不同进程之间
+ * 直接传递。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -41,19 +41,19 @@ extern Size mul_size(Size s1, Size s2);
 /* ipci.c */
 extern void RequestAddinShmemSpace(Size size);
 
-/* size constants for the shmem index table */
- /* max size of data structure string name */
+/* shmem 索引表的大小常量 */
+ /* 数据结构字符串名最大长度 */
 #define SHMEM_INDEX_KEYSIZE		 (48)
- /* estimated size of the shmem index table (not a hard limit) */
+ /* shmem 索引表的估计大小（非硬限制） */
 #define SHMEM_INDEX_SIZE		 (64)
 
-/* this is a hash bucket in the shmem index table */
+/* 这是 shmem 索引表中的哈希桶 */
 typedef struct
 {
-	char		key[SHMEM_INDEX_KEYSIZE];	/* string name */
-	void	   *location;		/* location in shared mem */
-	Size		size;			/* # bytes requested for the structure */
-	Size		allocated_size; /* # bytes actually allocated */
+	char		key[SHMEM_INDEX_KEYSIZE];	/* 名称 */
+	void	   *location;		/* 共享内存位置 */
+	Size		size;			/* 为该结构请求的字节数 */
+	Size		allocated_size; /* 实际分配的字节数 */
 } ShmemIndexEnt;
 
 #endif							/* SHMEM_H */

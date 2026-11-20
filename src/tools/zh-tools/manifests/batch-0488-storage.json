@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0488",
+  "title": "include/storage pg_shmem/shmem/shm_toc/shm_mq — batch 0488",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "37c0c05a27d06a648efb36c4f1842d1f4f8faccc",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/pg_shmem.h", "kind": "c_comment", "note": "0488"},
+    {"pattern": "src/include/storage/shmem.h", "kind": "c_comment", "note": "0488"},
+    {"pattern": "src/include/storage/shm_toc.h", "kind": "c_comment", "note": "0488"},
+    {"pattern": "src/include/storage/shm_mq.h", "kind": "c_comment", "note": "0488"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0488-storage.json", "kind": "manifest", "note": "0488"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/pg_shmem.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 29,
+      "translated": 22,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "共享内存；必须；空闲空间；幻数；附着"
+    },
+    {
+      "path": "src/include/storage/shmem.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 16,
+      "preserved": 9,
+      "preserved_reasons": ["横幅/文件名/版权/路径/shmem.c/ipci.c/#endif"],
+      "note": "共享内存；必须；哈希桶"
+    },
+    {
+      "path": "src/include/storage/shm_toc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 22,
+      "translated": 14,
+      "preserved": 8,
+      "preserved_reasons": ["横幅/文件名/版权/路径/for add_size()/#endif"],
+      "note": "内容表；不透明类型；动态共享内存"
+    },
+    {
+      "path": "src/include/storage/shm_mq.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 27,
+      "translated": 20,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "单读者单写者；必须；后端局部；脱离/附着"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0488-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0488"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十刀：pg_shmem/shmem/shm_toc/shm_mq；共享内存/内容表/必须/后端局部"
+}

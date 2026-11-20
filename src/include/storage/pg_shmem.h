@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * pg_shmem.h
- *	  Platform-independent API for shared memory support.
+ *	  共享内存支持的平台无关 API。
  *
- * Every port is expected to support shared memory with approximately
- * SysV-ish semantics; in particular, a memory block is not anonymous
- * but has an ID, and we must be able to tell whether there are any
- * remaining processes attached to a block of a specified ID.
+ * 每个移植应支持语义大致类似 SysV 的共享内存；
+ * 尤其是内存块并非匿名而有 ID，且我们必须能判断
+ * 指定 ID 的块上是否还有
+ * 进程附着。
  *
- * To simplify life for the SysV implementation, the ID is assumed to
- * consist of two unsigned long values (these are key and ID in SysV
- * terms).  Other platforms may ignore the second value if they need
- * only one ID number.
+ * 为简化 SysV 实现，假定 ID 由两个 unsigned long
+ * 组成（SysV 术语中的 key 与 ID）。其他平台若只需
+ * 一个 ID 号，可忽略
+ * 第二个值。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,27 +26,27 @@
 
 #include "storage/dsm_impl.h"
 
-typedef struct PGShmemHeader	/* standard header for all Postgres shmem */
+typedef struct PGShmemHeader	/* 所有 Postgres 共享内存标准头 */
 {
-	int32		magic;			/* magic # to identify Postgres segments */
+	int32		magic;			/* 标识 Postgres 段的幻数 */
 #define PGShmemMagic  679834894
-	pid_t		creatorPID;		/* PID of creating process (set but unread) */
-	Size		totalsize;		/* total size of segment */
-	Size		freeoffset;		/* offset to first free space */
-	dsm_handle	dsm_control;	/* ID of dynamic shared memory control seg */
-	void	   *index;			/* pointer to ShmemIndex table */
-#ifndef WIN32					/* Windows doesn't have useful inode#s */
-	dev_t		device;			/* device data directory is on */
-	ino_t		inode;			/* inode number of data directory */
+	pid_t		creatorPID;		/* 创建进程的 PID（设置但未读） */
+	Size		totalsize;		/* 段的总大小 */
+	Size		freeoffset;		/* 空闲空间起始偏移 */
+	dsm_handle	dsm_control;	/* 动态共享内存控制段的 ID */
+	void	   *index;			/* ShmemIndex 表指针 */
+#ifndef WIN32					/* Windows 无有用的 inode#s */
+	dev_t		device;			/* 数据目录所在设备 */
+	ino_t		inode;			/* 数据目录的 inode 号 */
 #endif
 } PGShmemHeader;
 
-/* GUC variables */
+/* GUC 变量 */
 extern PGDLLIMPORT int shared_memory_type;
 extern PGDLLIMPORT int huge_pages;
 extern PGDLLIMPORT int huge_page_size;
 
-/* Possible values for huge_pages */
+/* huge_pages 的可能值 */
 typedef enum
 {
 	HUGE_PAGES_OFF,
@@ -54,7 +54,7 @@ typedef enum
 	HUGE_PAGES_TRY
 }			HugePagesType;
 
-/* Possible values for shared_memory_type */
+/* shared_memory_type 的可能值 */
 typedef enum
 {
 	SHMEM_TYPE_WINDOWS,

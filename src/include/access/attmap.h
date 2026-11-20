@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * attmap.h
- *	  Definitions for PostgreSQL attribute mappings
+ *	  PostgreSQL 属性映射的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,18 +18,18 @@
 #include "access/tupdesc.h"
 
 /*
- * Attribute mapping structure
+ * 属性映射结构
  *
- * This maps attribute numbers between a pair of relations, designated
- * 'input' and 'output' (most typically inheritance parent and child
- * relations), whose common columns may have different attribute numbers.
- * Such difference may arise due to the columns being ordered differently
- * in the two relations or the two relations having dropped columns at
- * different positions.
+ * 本结构在一对关系之间映射属性号，二者称为
+ * 'input' 与 'output'（最常见为继承父表与子
+ * 关系），其共有列可能具有不同的属性号。
+ * 此种差异可能因列在两关系中次序不同，
+ * 或两关系有已删除列位于
+ * 不同位置。
  *
- * 'maplen' is set to the number of attributes of the 'output' relation,
- * taking into account any of its dropped attributes, with the corresponding
- * elements of the 'attnums' array set to 0.
+ * 'maplen' 设为 'output' 关系的属性个数，
+ * 计入其任何已删除属性，并将对应的
+ * 'attnums' 数组元素设为 0。
  */
 typedef struct AttrMap
 {
@@ -40,7 +40,7 @@ typedef struct AttrMap
 extern AttrMap *make_attrmap(int maplen);
 extern void free_attrmap(AttrMap *map);
 
-/* Conversion routines to build mappings */
+/* 构建映射的转换例程 */
 extern AttrMap *build_attrmap_by_name(TupleDesc indesc,
 									  TupleDesc outdesc,
 									  bool missing_ok);

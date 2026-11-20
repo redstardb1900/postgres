@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * attnum.h
- *	  POSTGRES attribute number definitions.
+ *	  POSTGRES 属性号定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,7 +16,7 @@
 
 
 /*
- * user defined attribute numbers start at 1.   -ay 2/95
+ * 用户定义的属性号从 1 开始。   -ay 2/95
  */
 typedef int16 AttrNumber;
 
@@ -24,29 +24,29 @@ typedef int16 AttrNumber;
 #define MaxAttrNumber			32767
 
 /* ----------------
- *		support macros
+ *		辅助宏
  * ----------------
  */
 /*
  * AttributeNumberIsValid
- *		True iff the attribute number is valid.
+ *		属性号有效时才为真。
  */
 #define AttributeNumberIsValid(attributeNumber) \
 	((bool) ((attributeNumber) != InvalidAttrNumber))
 
 /*
  * AttrNumberIsForUserDefinedAttr
- *		True iff the attribute number corresponds to a user defined attribute.
+ *		属性号对应于用户定义属性时才为真。
  */
 #define AttrNumberIsForUserDefinedAttr(attributeNumber) \
 	((bool) ((attributeNumber) > 0))
 
 /*
  * AttrNumberGetAttrOffset
- *		Returns the attribute offset for an attribute number.
+ *		返回属性号对应的属性偏移。
  *
  * Note:
- *		Assumes the attribute number is for a user defined attribute.
+ *		假定该属性号用于用户定义属性。
  */
 #define AttrNumberGetAttrOffset(attNum) \
 ( \
@@ -56,7 +56,7 @@ typedef int16 AttrNumber;
 
 /*
  * AttrOffsetGetAttrNumber
- *		Returns the attribute number for an attribute offset.
+ *		返回属性偏移对应的属性号。
  */
 #define AttrOffsetGetAttrNumber(attributeOffset) \
 	 ((AttrNumber) (1 + (attributeOffset)))

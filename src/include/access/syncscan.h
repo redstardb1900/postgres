@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * syncscan.h
- *    POSTGRES synchronous scan support functions.
+ *    POSTGRES 同步扫描支持函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

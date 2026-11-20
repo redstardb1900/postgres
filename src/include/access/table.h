@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * table.h
- *	  Generic routines for table related code.
+ *	  与表相关代码的通用例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

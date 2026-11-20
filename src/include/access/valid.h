@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * valid.h
- *	  POSTGRES tuple qualification validity definitions.
+ *	  POSTGRES 元组限定有效性定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,7 +22,7 @@
 /*
  *		HeapKeyTest
  *
- *		Test a heap tuple to see if it satisfies a scan key.
+ *		测试堆元组是否满足扫描键。
  */
 static inline bool
 HeapKeyTest(HeapTuple tuple, TupleDesc tupdesc, int nkeys, ScanKey keys)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * visibilitymap.h
- *		visibility map interface
+ *		可见性映射接口
  *
  *
  * Portions Copyright (c) 2007-2023, PostgreSQL Global Development Group
@@ -20,7 +20,7 @@
 #include "storage/buf.h"
 #include "utils/relcache.h"
 
-/* Macros for visibilitymap test */
+/* 可见性映射测试宏 */
 #define VM_ALL_VISIBLE(r, b, v) \
 	((visibilitymap_get_status((r), (b), (v)) & VISIBILITYMAP_ALL_VISIBLE) != 0)
 #define VM_ALL_FROZEN(r, b, v) \

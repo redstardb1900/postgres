@@ -1,6 +1,6 @@
 /*
  * brin_pageops.h
- *		Prototypes for operating on BRIN pages.
+ *		操作 BRIN 页的原型。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tupconvert.h
- *	  Tuple conversion support.
+ *	  元组转换支持。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,12 +23,12 @@
 
 typedef struct TupleConversionMap
 {
-	TupleDesc	indesc;			/* tupdesc for source rowtype */
-	TupleDesc	outdesc;		/* tupdesc for result rowtype */
-	AttrMap    *attrMap;		/* indexes of input fields, or 0 for null */
-	Datum	   *invalues;		/* workspace for deconstructing source */
+	TupleDesc	indesc;			/* 源行类型的 tupdesc */
+	TupleDesc	outdesc;		/* 结果行类型的 tupdesc */
+	AttrMap    *attrMap;		/* 输入字段下标，或 0 表示 NULL */
+	Datum	   *invalues;		/* 用于拆解源的工作区 */
 	bool	   *inisnull;
-	Datum	   *outvalues;		/* workspace for constructing result */
+	Datum	   *outvalues;		/* 用于构造结果的工作区 */
 	bool	   *outisnull;
 } TupleConversionMap;
 

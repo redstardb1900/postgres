@@ -27,7 +27,7 @@ extern void debugStartup(DestReceiver *self, int operation,
 						 TupleDesc typeinfo);
 extern bool debugtup(TupleTableSlot *slot, DestReceiver *self);
 
-/* XXX these are really in executor/spi.c */
+/* XXX 这些其实在 executor/spi.c 中 */
 extern void spi_dest_startup(DestReceiver *self, int operation,
 							 TupleDesc typeinfo);
 extern bool spi_printtup(TupleTableSlot *slot, DestReceiver *self);

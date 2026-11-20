@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistscan.h
- *	  routines defined in access/gist/gistscan.c
+ *	  access/gist/gistscan.c 中定义的例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

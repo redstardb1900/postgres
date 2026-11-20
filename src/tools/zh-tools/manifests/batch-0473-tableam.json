@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0473",
+  "title": "tableam.h 第一刀注释翻译 — batch 0473",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "0a63b3c32cffc943cfa038c85ea4d238d34eba0d",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "note": "0473"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0473-tableam.json",
+      "kind": "manifest",
+      "note": "0473"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 831,
+      "translated": 148,
+      "preserved": 683,
+      "preserved_reasons": [
+        "横幅破折/文件名/版权/路径/NOTES/GUCs；L191 practice. 12B；B049+ 待后续批 KEEP"
+      ],
+      "note": "batch-0473 第一刀至 scan_begin"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0473-tableam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0473"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "表访问方法第一刀；自底向上索引删除；访问策略；逐页；无法获取锁"
+}

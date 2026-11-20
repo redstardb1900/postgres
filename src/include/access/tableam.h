@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tableam.h
- *	  POSTGRES table access method definitions.
+ *	POSTGRES 表访问方法定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -10,7 +10,7 @@
  * src/include/access/tableam.h
  *
  * NOTES
- *		See tableam.sgml for higher level documentation.
+ *	更高层文档见 tableam.sgml。
  *
  *-------------------------------------------------------------------------
  */
@@ -40,11 +40,11 @@ struct VacuumParams;
 struct ValidateIndexState;
 
 /*
- * Bitmask values for the flags argument to the scan_begin callback.
+ * scan_begin 回调 flags 参数的位掩码值。
  */
 typedef enum ScanOptions
 {
-	/* one of SO_TYPE_* may be specified */
+	/* 可指定其中一个 SO_TYPE_* */
 	SO_TYPE_SEQSCAN = 1 << 0,
 	SO_TYPE_BITMAPSCAN = 1 << 1,
 	SO_TYPE_SAMPLESCAN = 1 << 2,
@@ -52,96 +52,96 @@ typedef enum ScanOptions
 	SO_TYPE_TIDRANGESCAN = 1 << 4,
 	SO_TYPE_ANALYZE = 1 << 5,
 
-	/* several of SO_ALLOW_* may be specified */
-	/* allow or disallow use of access strategy */
+	/* 可指定若干 SO_ALLOW_* */
+	/* 允许或禁止使用访问策略 */
 	SO_ALLOW_STRAT = 1 << 6,
-	/* report location to syncscan logic? */
+	/* 向 syncscan 逻辑报告位置？ */
 	SO_ALLOW_SYNC = 1 << 7,
-	/* verify visibility page-at-a-time? */
+	/* 逐页校验可见性？ */
 	SO_ALLOW_PAGEMODE = 1 << 8,
 
-	/* unregister snapshot at scan end? */
+	/* 扫描结束时注销快照？ */
 	SO_TEMP_SNAPSHOT = 1 << 9
 } ScanOptions;
 
 /*
- * Result codes for table_{update,delete,lock_tuple}, and for visibility
- * routines inside table AMs.
+ * table_{update,delete,lock_tuple} 及表 AM 内可见性
+ * 例程的返回码。
  */
 typedef enum TM_Result
 {
 	/*
-	 * Signals that the action succeeded (i.e. update/delete performed, lock
-	 * was acquired)
+	 * 表示动作成功（即已执行更新/删除，锁
+	 * 已获取）
 	 */
 	TM_Ok,
 
-	/* The affected tuple wasn't visible to the relevant snapshot */
+	/* 受影响元组对相关快照不可见 */
 	TM_Invisible,
 
-	/* The affected tuple was already modified by the calling backend */
+	/* 受影响元组已被调用后端修改 */
 	TM_SelfModified,
 
 	/*
-	 * The affected tuple was updated by another transaction. This includes
-	 * the case where tuple was moved to another partition.
+	 * 受影响元组被另一事务更新。也包括
+	 * 元组被移到另一分区的情形。
 	 */
 	TM_Updated,
 
-	/* The affected tuple was deleted by another transaction */
+	/* 受影响元组被另一事务删除 */
 	TM_Deleted,
 
 	/*
-	 * The affected tuple is currently being modified by another session. This
-	 * will only be returned if table_(update/delete/lock_tuple) are
-	 * instructed not to wait.
+	 * 受影响元组正被另一会话修改。仅当 
+	 * table_(update/delete/lock_tuple) 被指示
+	 * 不等待时返回。
 	 */
 	TM_BeingModified,
 
-	/* lock couldn't be acquired, action skipped. Only used by lock_tuple */
+	/* 无法获取锁，跳过动作。仅 lock_tuple 使用 */
 	TM_WouldBlock
 } TM_Result;
 
 /*
- * Result codes for table_update(..., update_indexes*..).
- * Used to determine which indexes to update.
+ * table_update(..., update_indexes*..) 的返回码。
+ * 用来决定要更新哪些索引。
  */
 typedef enum TU_UpdateIndexes
 {
-	/* No indexed columns were updated (incl. TID addressing of tuple) */
+	/* 没有索引列被更新（含元组的 TID 寻址） */
 	TU_None,
 
-	/* A non-summarizing indexed column was updated, or the TID has changed */
+	/* 非汇总索引列被更新，或 TID 已变 */
 	TU_All,
 
-	/* Only summarized columns were updated, TID is unchanged */
+	/* 仅汇总列被更新，TID 未变 */
 	TU_Summarizing
 } TU_UpdateIndexes;
 
 /*
- * When table_tuple_update, table_tuple_delete, or table_tuple_lock fail
- * because the target tuple is already outdated, they fill in this struct to
- * provide information to the caller about what happened. When those functions
- * succeed, the contents of this struct should not be relied upon, except for
- * `traversed`, which may be set in both success and failure cases.
+ * 当 table_tuple_update、table_tuple_delete 或 table_tuple_lock 
+ * 因目标元组已经过时而失败时，会填入本结构以
+ * 向调用方说明发生了什么。这些函数成功时，
+ * 除 `traversed` 外不应依赖本结构内容；该字段
+ * 在成功与失败时都可能被设置。
  *
- * ctid is the target's ctid link: it is the same as the target's TID if the
- * target was deleted, or the location of the replacement tuple if the target
- * was updated.
+ * ctid 是目标的 ctid 链接：若目标已删除则等于其 TID；
+ * 若目标被更新则为替换元组的位置。
+ * 被更新。
  *
- * xmax is the outdating transaction's XID.  If the caller wants to visit the
- * replacement tuple, it must check that this matches before believing the
- * replacement is really a match.  This is InvalidTransactionId if the target
- * was !LP_NORMAL (expected only for a TID retrieved from syscache).
+ * xmax 是使之过时的事务的 XID。若调用方要访问
+ * 替换元组，必须先核对二者相符，才可相信
+ * 替换真是匹配。若目标为 !LP_NORMAL 则为 
+ * InvalidTransactionId（预期仅来自 syscache 的 TID）。
  *
- * cmax is the outdating command's CID, but only when the failure code is
- * TM_SelfModified (i.e., something in the current transaction outdated the
- * tuple); otherwise cmax is zero.  (We make this restriction because
- * HeapTupleHeaderGetCmax doesn't work for tuples outdated in other
- * transactions.)
+ * cmax 是使之过时的命令的 CID，但仅当失败码为 
+ * TM_SelfModified（即当前事务中有东西使该
+ * 元组过时）时有值；否则 cmax 为零。
+ * 因 HeapTupleHeaderGetCmax 对其他事务中过时元组
+ * 不起作用
  *
- * traversed indicates if an update chain was followed in order to try to lock
- * the target tuple.  (This may be set in both success and failure cases.)
+ * traversed 表示是否沿更新链查找以试图锁住
+ * 目标元组。（成功与失败时都可能设置。）
  */
 typedef struct TM_FailureData
 {
@@ -152,121 +152,121 @@ typedef struct TM_FailureData
 } TM_FailureData;
 
 /*
- * State used when calling table_index_delete_tuples().
+ * 调用 table_index_delete_tuples() 的状态。
  *
- * Represents the status of table tuples, referenced by table TID and taken by
- * index AM from index tuples.  State consists of high level parameters of the
- * deletion operation, plus two mutable palloc()'d arrays for information
- * about the status of individual table tuples.  These are conceptually one
- * single array.  Using two arrays keeps the TM_IndexDelete struct small,
- * which makes sorting the first array (the deltids array) fast.
+ * 表示表元组状态，由表 TID 引用，由索引 AM 从
+ * 索引元组取得。状态含删除操作的高层参数，外加
+ * 两个可变的 palloc() 数组，记录各个表元组的
+ * 状态。二者在概念上是一个数组。分成两个数组
+ * 可使 TM_IndexDelete 结构体保持小巧，从而
+ * 对第一个数组（deltids 数组）排序更快。
  *
- * Some index AM callers perform simple index tuple deletion (by specifying
- * bottomup = false), and include only known-dead deltids.  These known-dead
- * entries are all marked knowndeletable = true directly (typically these are
- * TIDs from LP_DEAD-marked index tuples), but that isn't strictly required.
+ * 有些索引 AM 调用方做简单索引元组删除（指定 
+ * bottomup = false），且只含已知死亡的 deltids。这些
+ * 已知死亡项都直接标 knowndeletable = true（通常是
+ * 来自标 LP_DEAD 的索引元组的 TIDs），但并非严格必须。
  *
- * Callers that specify bottomup = true are "bottom-up index deletion"
- * callers.  The considerations for the tableam are more subtle with these
- * callers because they ask the tableam to perform highly speculative work,
- * and might only expect the tableam to check a small fraction of all entries.
- * Caller is not allowed to specify knowndeletable = true for any entry
- * because everything is highly speculative.  Bottom-up caller provides
- * context and hints to tableam -- see comments below for details on how index
- * AMs and tableams should coordinate during bottom-up index deletion.
+ * 指定 bottomup = true 的调用方是"自底向上索引删除"
+ * 调用方。tableam 对这些调用方的考量更微妙，
+ * 因为它们请 tableam 做高度推测性的工作，且可能
+ * 只期望 tableam 检查全部条目中的一小部分。
+ * 不允许对任何条目指定 knowndeletable = true，
+ * 因为一切都高度推测。自底向上调用方会向 
+ * tableam 提供上下文与提示——索引 AM 与 tableam 如何在
+ * 自底向上索引删除中协调，详见下方注释。
  *
- * Simple index deletion callers may ask the tableam to perform speculative
- * work, too.  This is a little like bottom-up deletion, but not too much.
- * The tableam will only perform speculative work when it's practically free
- * to do so in passing for simple deletion caller (while always performing
- * whatever work is needed to enable knowndeletable/LP_DEAD index tuples to
- * be deleted within index AM).  This is the real reason why it's possible for
- * simple index deletion caller to specify knowndeletable = false up front
- * (this means "check if it's possible for me to delete corresponding index
- * tuple when it's cheap to do so in passing").  The index AM should only
- * include "extra" entries for index tuples whose TIDs point to a table block
- * that tableam is expected to have to visit anyway (in the event of a block
- * orientated tableam).  The tableam isn't strictly obligated to check these
- * "extra" TIDs, but a block-based AM should always manage to do so in
+ * 简单索引删除调用方也可能请 tableam 做推测性
+ * 工作。这有点像自底向上删除，但并不太像。
+ * tableam 仅在对简单删除调用方顺带几乎无代价时
+ * 才做推测性工作（同时始终完成为使
+ * knowndeletable/LP_DEAD 索引元组能在索引 AM 内
+ * 被删除所需的工作）。这才是简单索引删除调用方可在
+ * 一开始就把 knowndeletable = false 的真正原因（
+ * 意为"若顺带很便宜，就检查我能否删除对应索引
+ * 元组"）。索引 AM 应只为 TIDs 指向 tableam 反正
+ * 都得访问的表块的索引元组纳入"额外"条目（
+ * 面向块的 tableam 时）。tableam 并非严格必须检查这些
+ * "额外" TIDs，但基于块的 AM 实践中应总能
+ * 做到。
  * practice.
  *
- * The final contents of the deltids/status arrays are interesting to callers
- * that ask tableam to perform speculative work (i.e. when _any_ items have
- * knowndeletable set to false up front).  These index AM callers will
- * naturally need to consult final state to determine which index tuples are
- * in fact deletable.
+ * deltids/status 数组的最终内容，对请 tableam 做
+ * 推测性工作的调用方有意义（即事先有 _any_ 项
+ * knowndeletable 为 false）。这些索引 AM 调用方
+ * 自然需要查阅最终状态，以确定哪些索引元组
+ * 实际可删。
  *
- * The index AM can keep track of which index tuple relates to which deltid by
- * setting idxoffnum (and/or relying on each entry being uniquely identifiable
- * using tid), which is important when the final contents of the array will
- * need to be interpreted -- the array can shrink from initial size after
- * tableam processing and/or have entries in a new order (tableam may sort
- * deltids array for its own reasons).  Bottom-up callers may find that final
- * ndeltids is 0 on return from call to tableam, in which case no index tuple
- * deletions are possible.  Simple deletion callers can rely on any entries
- * they know to be deletable appearing in the final array as deletable.
+ * 索引 AM 可通过设置 idxoffnum（和/或依赖每项可用 
+ * tid 唯一标识）跟踪哪个索引元组对应哪个 deltid，
+ * 在需要解读数组最终内容时这很重要——数组在 
+ * tableam 处理后可能比初始更小，和/或条目顺序改变（
+ * tableam 可能因自身原因排序 deltids 数组）。
+ * 自底向上调用方可能发现 tableam 返回时 final 
+ * ndeltids 为 0，此时无法删除任何索引元组。
+ * 简单删除调用方可依赖其已知可删的条目在
+ * 最终数组中仍以可删形式出现。
  */
 typedef struct TM_IndexDelete
 {
-	ItemPointerData tid;		/* table TID from index tuple */
-	int16		id;				/* Offset into TM_IndexStatus array */
+	ItemPointerData tid;		/* 索引元组的表 TID */
+	int16		id;				/* TM_IndexStatus 中的偏移 */
 } TM_IndexDelete;
 
 typedef struct TM_IndexStatus
 {
-	OffsetNumber idxoffnum;		/* Index am page offset number */
-	bool		knowndeletable; /* Currently known to be deletable? */
+	OffsetNumber idxoffnum;		/* 索引 AM 页偏移号 */
+	bool		knowndeletable; /* 当前已知可删除？ */
 
-	/* Bottom-up index deletion specific fields follow */
-	bool		promising;		/* Promising (duplicate) index tuple? */
-	int16		freespace;		/* Space freed in index if deleted */
+	/* 以下为自底向上索引删除专用字段 */
+	bool		promising;		/* 有希望（重复）元组？ */
+	int16		freespace;		/* 删除则释放的索引空间 */
 } TM_IndexStatus;
 
 /*
- * Index AM/tableam coordination is central to the design of bottom-up index
- * deletion.  The index AM provides hints about where to look to the tableam
- * by marking some entries as "promising".  Index AM does this with duplicate
- * index tuples that are strongly suspected to be old versions left behind by
- * UPDATEs that did not logically modify indexed values.  Index AM may find it
- * helpful to only mark entries as promising when they're thought to have been
- * affected by such an UPDATE in the recent past.
+ * 索引 AM 与 tableam 的协调是自底向上索引删除
+ * 设计的核心。索引 AM 通过把某些条目标为
+ * "有希望"向 tableam 提示该往哪看。索引 AM 对强烈
+ * 怀疑是 UPDATEs 留下的旧版本、且该 UPDATE 并未
+ * 逻辑上修改被索引值的重复索引元组这样做。索引 AM 
+ * 可能觉得只把近期受此类 UPDATE 影响的条目标为
+ * 有希望更有帮助。
  *
- * Bottom-up index deletion casts a wide net at first, usually by including
- * all TIDs on a target index page.  It is up to the tableam to worry about
- * the cost of checking transaction status information.  The tableam is in
- * control, but needs careful guidance from the index AM.  Index AM requests
- * that bottomupfreespace target be met, while tableam measures progress
- * towards that goal by tallying the per-entry freespace value for known
- * deletable entries. (All !bottomup callers can just set these space related
- * fields to zero.)
+ * 自底向上索引删除起初撒大网，通常纳入目标
+ * 索引页上的全部 TIDs。检查事务状态信息的代价
+ * 由 tableam 操心。tableam 处于控制地位，但需要
+ * 索引 AM 的仔细引导。索引 AM 要求达到 
+ * bottomupfreespace 目标，而 tableam 通过累加已知
+ * 可删条目的每项 freespace 值来衡量进度。（
+ * 所有 !bottomup 调用方只需把这些空间相关字段
+ * 置零。）
  */
 typedef struct TM_IndexDeleteOp
 {
-	Relation	irel;			/* Target index relation */
-	BlockNumber iblknum;		/* Index block number (for error reports) */
-	bool		bottomup;		/* Bottom-up (not simple) deletion? */
-	int			bottomupfreespace;	/* Bottom-up space target */
+	Relation	irel;			/* 目标索引关系 */
+	BlockNumber iblknum;		/* 索引块号（用于错误报告） */
+	bool		bottomup;		/* 自底向上非简单删除？ */
+	int			bottomupfreespace;	/* bottomup 空间目标 */
 
-	/* Mutable per-TID information follows (index AM initializes entries) */
-	int			ndeltids;		/* Current # of deltids/status elements */
+	/* 以下为可变的每 TID 信息（索引 AM 初始化条目） */
+	int			ndeltids;		/* 当前 deltids/status 元素个数 */
 	TM_IndexDelete *deltids;
 	TM_IndexStatus *status;
 } TM_IndexDeleteOp;
 
-/* "options" flag bits for table_tuple_insert */
-/* TABLE_INSERT_SKIP_WAL was 0x0001; RelationNeedsWAL() now governs */
+/* table_tuple_insert 的 "options" 标志位 */
+/* TABLE_INSERT_SKIP_WAL 曾为 0x0001；RelationNeedsWAL() 管辖 */
 #define TABLE_INSERT_SKIP_FSM		0x0002
 #define TABLE_INSERT_FROZEN			0x0004
 #define TABLE_INSERT_NO_LOGICAL		0x0008
 
-/* flag bits for table_tuple_lock */
-/* Follow tuples whose update is in progress if lock modes don't conflict  */
+/* table_tuple_lock 的标志位 */
+/* 若锁模式不冲突则跟随正在更新中的元组  */
 #define TUPLE_LOCK_FLAG_LOCK_UPDATE_IN_PROGRESS	(1 << 0)
-/* Follow update chain and lock latest version of tuple */
+/* 跟随更新链并锁住元组的最新版本 */
 #define TUPLE_LOCK_FLAG_FIND_LAST_VERSION		(1 << 1)
 
 
-/* Typedef for callback function for table_index_build_scan */
+/* table_index_build_scan 回调函数的 typedef */
 typedef void (*IndexBuildCallback) (Relation index,
 									ItemPointer tid,
 									Datum *values,
@@ -275,53 +275,53 @@ typedef void (*IndexBuildCallback) (Relation index,
 									void *state);
 
 /*
- * API struct for a table AM.  Note this must be allocated in a
- * server-lifetime manner, typically as a static const struct, which then gets
- * returned by FormData_pg_am.amhandler.
+ * 表 AM 的 API 结构体。注意须按服务器生命周期
+ * 分配，通常做成静态常量结构体，再由 
+ * FormData_pg_am.amhandler 返回。
  *
- * In most cases it's not appropriate to call the callbacks directly, use the
- * table_* wrapper functions instead.
+ * 多数情况下不宜直接调回调，应改用 
+ * table_* 包装函数。
  *
- * GetTableAmRoutine() asserts that required callbacks are filled in, remember
- * to update when adding a callback.
+ * GetTableAmRoutine() 断言必填回调已填入，新增
+ * 回调时请记得更新。
  */
 typedef struct TableAmRoutine
 {
-	/* this must be set to T_TableAmRoutine */
+	/* 必须设为 T_TableAmRoutine */
 	NodeTag		type;
 
 
 	/* ------------------------------------------------------------------------
-	 * Slot related callbacks.
+	 * 槽相关回调。
 	 * ------------------------------------------------------------------------
 	 */
 
 	/*
-	 * Return slot implementation suitable for storing a tuple of this AM.
+	 * 返回适合存放本 AM 元组的槽实现。
 	 */
 	const TupleTableSlotOps *(*slot_callbacks) (Relation rel);
 
 
 	/* ------------------------------------------------------------------------
-	 * Table scan callbacks.
+	 * 表扫描回调。
 	 * ------------------------------------------------------------------------
 	 */
 
 	/*
-	 * Start a scan of `rel`.  The callback has to return a TableScanDesc,
-	 * which will typically be embedded in a larger, AM specific, struct.
+	 * 开始扫描 `rel`。回调必须返回 TableScanDesc，
+	 * 通常会嵌在更大的、AM 专用的结构体中。
 	 *
-	 * If nkeys != 0, the results need to be filtered by those scan keys.
+	 * 若 nkeys != 0，结果需按这些扫描键过滤。
 	 *
-	 * pscan, if not NULL, will have already been initialized with
-	 * parallelscan_initialize(), and has to be for the same relation. Will
-	 * only be set coming from table_beginscan_parallel().
+	 * pscan 若非 NULL，必已由 parallelscan_initialize() 
+	 * 初始化，且必须针对同一关系。仅来自 
+	 * table_beginscan_parallel() 时才会设置。
 	 *
-	 * `flags` is a bitmask indicating the type of scan (ScanOptions's
-	 * SO_TYPE_*, currently only one may be specified), options controlling
-	 * the scan's behaviour (ScanOptions's SO_ALLOW_*, several may be
-	 * specified, an AM may ignore unsupported ones) and whether the snapshot
-	 * needs to be deallocated at scan_end (ScanOptions's SO_TEMP_SNAPSHOT).
+	 * `flags` 是位掩码，表示扫描类型（ScanOptions 的 
+	 * SO_TYPE_*，目前只能指定一个）、控制扫描行为的
+	 * 选项（ScanOptions 的 SO_ALLOW_*，可指定若干，
+	 * AM 可忽略不支持的）以及快照是否须在 
+	 * scan_end 时释放（ScanOptions 的 SO_TEMP_SNAPSHOT）。
 	 */
 	TableScanDesc (*scan_begin) (Relation rel,
 								 Snapshot snapshot,

@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * bufmask.h
- *	  Definitions for buffer masking routines, used to mask certain bits
- *	  in a page which can be different when the WAL is generated
- *	  and when the WAL is applied. This is really the job of each
- *	  individual rmgr, but we make things easier by providing some
- *	  common routines to handle cases which occur in multiple rmgrs.
+ *	  缓冲区屏蔽例程的定义，用于屏蔽页中某些位，
+ *	  这些位在生成 WAL 时与应用 WAL 时
+ *	  可能不同。这本是各个 rmgr 的职责，但
+ *	  我们提供一些公共例程，以处理多个 
+ *	  rmgr 中会出现的情形。
  *
  * Portions Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -20,7 +20,7 @@
 #include "storage/block.h"
 #include "storage/bufmgr.h"
 
-/* Marker used to mask pages consistently */
+/* 用于一致地屏蔽页的标记 */
 #define MASK_MARKER		0
 
 extern void mask_page_lsn_and_checksum(Page page);

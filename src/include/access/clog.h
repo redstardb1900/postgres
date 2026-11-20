@@ -1,7 +1,7 @@
 /*
  * clog.h
  *
- * PostgreSQL transaction-commit-log manager
+ * PostgreSQL 事务提交日志管理器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,11 +16,11 @@
 #include "lib/stringinfo.h"
 
 /*
- * Possible transaction statuses --- note that all-zeroes is the initial
- * state.
+ * 可能的事务状态 --- 注意全零即为初始状
+ * 态.
  *
- * A "subcommitted" transaction is a committed subtransaction whose parent
- * hasn't committed or aborted yet.
+ * 所谓"子已提交"事务是已提交的子事务，其父
+ * 尚未提交或中止。
  */
 typedef int XidStatus;
 
@@ -52,7 +52,7 @@ extern void TruncateCLOG(TransactionId oldestXact, Oid oldestxid_datoid);
 
 extern int	clogsyncfiletag(const FileTag *ftag, char *path);
 
-/* XLOG stuff */
+/* XLOG杂项 */
 #define CLOG_ZEROPAGE		0x00
 #define CLOG_TRUNCATE		0x10
 

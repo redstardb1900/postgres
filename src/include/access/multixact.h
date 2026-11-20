@@ -1,7 +1,7 @@
 /*
  * multixact.h
  *
- * PostgreSQL multi-transaction-log manager
+ * PostgreSQL 多事务日志管理器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,8 +17,8 @@
 
 
 /*
- * The first two MultiXactId values are reserved to store the truncation Xid
- * and epoch of the first segment, so we start assigning multixact values from
+ * 前两个 MultiXactId 值保留用于存储截断 Xid
+ * 及首段的 epoch，故从下列值起分配 multixact
  * 2.
  */
 #define InvalidMultiXactId	((MultiXactId) 0)
@@ -29,14 +29,14 @@
 
 #define MaxMultiXactOffset	((MultiXactOffset) 0xFFFFFFFF)
 
-/* Number of SLRU buffers to use for multixact */
+/* 供 multixact 使用的 SLRU 缓冲区数 */
 #define NUM_MULTIXACTOFFSET_BUFFERS		8
 #define NUM_MULTIXACTMEMBER_BUFFERS		16
 
 /*
- * Possible multixact lock modes ("status").  The first four modes are for
- * tuple locks (FOR KEY SHARE, FOR SHARE, FOR NO KEY UPDATE, FOR UPDATE); the
- * next two are used for update and delete modes.
+ * 可能的 multixact 锁模式("status")。前四种模式用于
+ * 元组锁(FOR KEY SHARE, FOR SHARE, FOR NO KEY UPDATE, FOR UPDATE)；后
+ * 两种用于更新与删除模式。
  */
 typedef enum
 {
@@ -44,15 +44,15 @@ typedef enum
 	MultiXactStatusForShare = 0x01,
 	MultiXactStatusForNoKeyUpdate = 0x02,
 	MultiXactStatusForUpdate = 0x03,
-	/* an update that doesn't touch "key" columns */
+	/* 不触及"key"列的更新 */
 	MultiXactStatusNoKeyUpdate = 0x04,
-	/* other updates, and delete */
+	/* 其他更新，及删除 */
 	MultiXactStatusUpdate = 0x05
 } MultiXactStatus;
 
 #define MaxMultiXactStatus MultiXactStatusUpdate
 
-/* does a status value correspond to a tuple update? */
+/* status 值是否对应元组更新？ */
 #define ISUPDATE_from_mxstatus(status) \
 			((status) > MultiXactStatusForUpdate)
 
@@ -65,7 +65,7 @@ typedef struct MultiXactMember
 
 
 /* ----------------
- *		multixact-related XLOG entries
+ *		multixact 相关 XLOG 记录
  * ----------------
  */
 
@@ -76,9 +76,9 @@ typedef struct MultiXactMember
 
 typedef struct xl_multixact_create
 {
-	MultiXactId mid;			/* new MultiXact's ID */
-	MultiXactOffset moff;		/* its starting offset in members file */
-	int32		nmembers;		/* number of member XIDs */
+	MultiXactId mid;			/* 新 MultiXact的ID */
+	MultiXactOffset moff;		/* 其在 members 文件起始偏移 */
+	int32		nmembers;		/* 成员 XIDs 数 */
 	MultiXactMember members[FLEXIBLE_ARRAY_MEMBER];
 } xl_multixact_create;
 
@@ -88,11 +88,11 @@ typedef struct xl_multixact_truncate
 {
 	Oid			oldestMultiDB;
 
-	/* to-be-truncated range of multixact offsets */
-	MultiXactId startTruncOff;	/* just for completeness' sake */
+	/* 待截断的 multixact 偏移范围 */
+	MultiXactId startTruncOff;	/* 仅为完整起见 */
 	MultiXactId endTruncOff;
 
-	/* to-be-truncated range of multixact members */
+	/* 待截断的 multixact 成员范围 */
 	MultiXactOffset startTruncMemb;
 	MultiXactOffset endTruncMemb;
 } xl_multixact_truncate;

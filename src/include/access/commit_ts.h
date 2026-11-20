@@ -1,7 +1,7 @@
 /*
  * commit_ts.h
  *
- * PostgreSQL commit timestamp manager
+ * PostgreSQL 提交时间戳管理器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -43,7 +43,7 @@ extern void AdvanceOldestCommitTsXid(TransactionId oldestXact);
 
 extern int	committssyncfiletag(const FileTag *ftag, char *path);
 
-/* XLOG stuff */
+/* XLOG杂项 */
 #define COMMIT_TS_ZEROPAGE		0x00
 #define COMMIT_TS_TRUNCATE		0x10
 
@@ -52,7 +52,7 @@ typedef struct xl_commit_ts_set
 	TimestampTz timestamp;
 	RepOriginId nodeid;
 	TransactionId mainxid;
-	/* subxact Xids follow */
+	/* 后接子事务Xids */
 }			xl_commit_ts_set;
 
 #define SizeOfCommitTsSet	(offsetof(xl_commit_ts_set, mainxid) + \

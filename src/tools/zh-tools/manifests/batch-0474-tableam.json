@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0474",
+  "title": "tableam.h TableAmRoutine 余部注释翻译 — batch 0474",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "c3791f2e5c3e1944f3404184a8f905f752152471",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "note": "0474"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0474-tableam.json",
+      "kind": "manifest",
+      "note": "0474"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 831,
+      "translated": 205,
+      "preserved": 626,
+      "preserved_reasons": [
+        "0473 已译 B000–B048 KEEP；横幅破折；L376/L647/L664/L785/L792/L807 短续行；B100+ 待后续批 KEEP"
+      ],
+      "note": "batch-0474 第二刀 TableAmRoutine 余部 B049–B099"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0474-tableam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0474"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "表访问方法第二刀；并行表扫描；钉住；有损扫描；可见性映射；切勿持锁"
+}

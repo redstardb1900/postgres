@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * proclist_types.h
- *		doubly-linked lists of pgprocnos
+ *		pgprocno 的双向链表
  *
- * See proclist.h for functions that operate on these types.
+ * 操作这些类型的函数见 proclist.h。
  *
  * Portions Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -16,36 +16,36 @@
 #define PROCLIST_TYPES_H
 
 /*
- * A node in a doubly-linked list of processes.  The link fields contain
- * the 0-based PGPROC indexes of the next and previous process, or
- * INVALID_PGPROCNO in the next-link of the last node and the prev-link
- * of the first node.  A node that is currently not in any list
- * should have next == prev == 0; this is not a possible state for a node
- * that is in a list, because we disallow circularity.
+ * 进程双向链表中的节点。链接字段存放
+ * 下一与上一进程的从 0 计的 PGPROC 下标，或
+ * 在末节点的 next-link 与首节点的 prev-link 中为
+ * INVALID_PGPROCNO。当前不在任何链表中的节点
+ * 应有 next == prev == 0；这不是在链表中的节点
+ * 可能有的状态，因为我们禁止成环。
  */
 typedef struct proclist_node
 {
-	int			next;			/* pgprocno of the next PGPROC */
-	int			prev;			/* pgprocno of the prev PGPROC */
+	int			next;			/* 下一 PGPROC 的 pgprocno */
+	int			prev;			/* 上一 PGPROC 的 pgprocno */
 } proclist_node;
 
 /*
- * Header of a doubly-linked list of PGPROCs, identified by pgprocno.
- * An empty list is represented by head == tail == INVALID_PGPROCNO.
+ * 以 pgprocno 标识的 PGPROCs 双向链表表头。
+ * 空表表示为 head == tail == INVALID_PGPROCNO。
  */
 typedef struct proclist_head
 {
-	int			head;			/* pgprocno of the head PGPROC */
-	int			tail;			/* pgprocno of the tail PGPROC */
+	int			head;			/* 头 PGPROC 的 pgprocno */
+	int			tail;			/* 尾 PGPROC 的 pgprocno */
 } proclist_head;
 
 /*
- * List iterator allowing some modifications while iterating.
+ * 允许在迭代中做某些修改的链表迭代器。
  */
 typedef struct proclist_mutable_iter
 {
-	int			cur;			/* pgprocno of the current PGPROC */
-	int			next;			/* pgprocno of the next PGPROC */
+	int			cur;			/* 当前 PGPROC 的 pgprocno */
+	int			next;			/* 下一 PGPROC 的 pgprocno */
 } proclist_mutable_iter;
 
 #endif							/* PROCLIST_TYPES_H */

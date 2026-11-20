@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * proclist.h
- *		operations on doubly-linked lists of pgprocnos
+ *		pgprocno 双向链表上的操作
  *
- * The interface is similar to dlist from ilist.h, but uses pgprocno instead
- * of pointers.  This allows proclist_head to be mapped at different addresses
- * in different backends.
+ * 该接口类似 ilist.h 的 dlist，但用 pgprocno 而非
+ * 指针。这允许把 proclist_head 映射到不同地址，于
+ * 不同后端中。
  *
- * See proclist_types.h for the structs that these functions operate on.  They
- * are separated to break a header dependency cycle with proc.h.
+ * 这些函数所操作的结构见 proclist_types.h。分开是为
+ * 打破与 proc.h 的头文件依赖环。
  *
  * Portions Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -23,7 +23,7 @@
 #include "storage/proclist_types.h"
 
 /*
- * Initialize a proclist.
+ * 初始化 proclist。
  */
 static inline void
 proclist_init(proclist_head *list)
@@ -32,7 +32,7 @@ proclist_init(proclist_head *list)
 }
 
 /*
- * Is the list empty?
+ * 链表为空？
  */
 static inline bool
 proclist_is_empty(const proclist_head *list)
@@ -41,8 +41,8 @@ proclist_is_empty(const proclist_head *list)
 }
 
 /*
- * Get a pointer to a proclist_node inside a given PGPROC, given a procno and
- * the proclist_node field's offset within struct PGPROC.
+ * 给定 procno 及 proclist_node 字段在 PGPROC 结构内的
+ * 偏移，取得 PGPROC 内该节点的指针。
  */
 static inline proclist_node *
 proclist_node_get(int procno, size_t node_offset)
@@ -53,7 +53,7 @@ proclist_node_get(int procno, size_t node_offset)
 }
 
 /*
- * Insert a process at the beginning of a list.
+ * 把进程插入链表开头。
  */
 static inline void
 proclist_push_head_offset(proclist_head *list, int procno, size_t node_offset)
@@ -81,7 +81,7 @@ proclist_push_head_offset(proclist_head *list, int procno, size_t node_offset)
 }
 
 /*
- * Insert a process at the end of a list.
+ * 把进程插入链表末尾。
  */
 static inline void
 proclist_push_tail_offset(proclist_head *list, int procno, size_t node_offset)
@@ -109,7 +109,7 @@ proclist_push_tail_offset(proclist_head *list, int procno, size_t node_offset)
 }
 
 /*
- * Delete a process from a list --- it must be in the list!
+ * 从链表删除进程——它必须在链表中！
  */
 static inline void
 proclist_delete_offset(proclist_head *list, int procno, size_t node_offset)
@@ -138,9 +138,9 @@ proclist_delete_offset(proclist_head *list, int procno, size_t node_offset)
 }
 
 /*
- * Check if a process is currently in a list.  It must be known that the
- * process is not in any _other_ proclist that uses the same proclist_node,
- * so that the only possibilities are that it is in this list or none.
+ * 检查进程当前是否在某链表中。必须已知该
+ * 进程不在任何使用同一 proclist_node 的 _other_
+ * proclist 中，故只可能在本链表或都不在。
  */
 static inline bool
 proclist_contains_offset(const proclist_head *list, int procno,
@@ -148,17 +148,17 @@ proclist_contains_offset(const proclist_head *list, int procno,
 {
 	const proclist_node *node = proclist_node_get(procno, node_offset);
 
-	/* If it's not in any list, it's definitely not in this one. */
+	/* 若不在任何链表中，则肯定不在本链表。 */
 	if (node->prev == 0 && node->next == 0)
 		return false;
 
 	/*
-	 * It must, in fact, be in this list.  Ideally, in assert-enabled builds,
-	 * we'd verify that.  But since this function is typically used while
-	 * holding a spinlock, crawling the whole list is unacceptable.  However,
-	 * we can verify matters in O(1) time when the node is a list head or
-	 * tail, and that seems worth doing, since in practice that should often
-	 * be enough to catch mistakes.
+	 * 它必须在本链表中。理想地，在启用断言的构建里
+	 * 我们会验证这一点。但本函数通常在持有
+	 * 自旋锁时使用，遍历整条链表不可接受。不过，
+	 * 当节点是链表头或尾时，可在 O(1) 时间内校验，
+	 * 这值得做，因为实践中这往往
+	 * 足以抓住错误。
 	 */
 	Assert(node->prev != INVALID_PGPROCNO || list->head == procno);
 	Assert(node->next != INVALID_PGPROCNO || list->tail == procno);
@@ -167,7 +167,7 @@ proclist_contains_offset(const proclist_head *list, int procno,
 }
 
 /*
- * Remove and return the first process from a list (there must be one).
+ * 移除并返回链表的第一个进程（必须有一个）。
  */
 static inline PGPROC *
 proclist_pop_head_node_offset(proclist_head *list, size_t node_offset)
@@ -181,8 +181,8 @@ proclist_pop_head_node_offset(proclist_head *list, size_t node_offset)
 }
 
 /*
- * Helper macros to avoid repetition of offsetof(PGPROC, <member>).
- * 'link_member' is the name of a proclist_node member in PGPROC.
+ * 辅助宏，避免重复 offsetof(PGPROC, <member>)。
+ * 'link_member' 是 PGPROC 中 proclist_node 成员的名字。
  */
 #define proclist_delete(list, procno, link_member) \
 	proclist_delete_offset((list), (procno), offsetof(PGPROC, link_member))
@@ -196,12 +196,12 @@ proclist_pop_head_node_offset(proclist_head *list, size_t node_offset)
 	proclist_contains_offset((list), (procno), offsetof(PGPROC, link_member))
 
 /*
- * Iterate through the list pointed at by 'lhead', storing the current
- * position in 'iter'.  'link_member' is the name of a proclist_node member in
- * PGPROC.  Access the current position with iter.cur.
+ * 遍历 'lhead' 所指链表，把当前位置存入
+ * 'iter'。'link_member' 是 PGPROC 中某 proclist_node 成员的
+ * 名字。用 iter.cur 访问当前位置。
  *
- * The only list modification allowed while iterating is deleting the current
- * node with proclist_delete(list, iter.cur, node_offset).
+ * 迭代期间唯一允许的链表修改是删除当前节点，调用
+ * proclist_delete(list, iter.cur, node_offset)。
  */
 #define proclist_foreach_modify(iter, lhead, link_member)					\
 	for (AssertVariableIsOfTypeMacro(iter, proclist_mutable_iter),			\

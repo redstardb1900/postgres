@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lmgr.h
- *	  POSTGRES lock manager definitions.
+ *	  POSTGRES 锁管理器定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,7 +20,7 @@
 #include "utils/rel.h"
 
 
-/* XactLockTableWait operations */
+/* XactLockTableWait 操作 */
 typedef enum XLTW_Oper
 {
 	XLTW_None,
@@ -36,7 +36,7 @@ typedef enum XLTW_Oper
 
 extern void RelationInitLockInfo(Relation relation);
 
-/* Lock a relation */
+/* 锁住关系 */
 extern void LockRelationOid(Oid relid, LOCKMODE lockmode);
 extern void LockRelationId(LockRelId *relid, LOCKMODE lockmode);
 extern bool ConditionalLockRelationOid(Oid relid, LOCKMODE lockmode);
@@ -55,44 +55,44 @@ extern bool LockHasWaitersRelation(Relation relation, LOCKMODE lockmode);
 extern void LockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode);
 extern void UnlockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode);
 
-/* Lock a relation for extension */
+/* 为扩展而锁住关系 */
 extern void LockRelationForExtension(Relation relation, LOCKMODE lockmode);
 extern void UnlockRelationForExtension(Relation relation, LOCKMODE lockmode);
 extern bool ConditionalLockRelationForExtension(Relation relation,
 												LOCKMODE lockmode);
 extern int	RelationExtensionLockWaiterCount(Relation relation);
 
-/* Lock to recompute pg_database.datfrozenxid in the current database */
+/* 为在当前库重算 pg_database.datfrozenxid 而加锁 */
 extern void LockDatabaseFrozenIds(LOCKMODE lockmode);
 
-/* Lock a page (currently only used within indexes) */
+/* 锁住页（目前仅用于索引内） */
 extern void LockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode);
 extern bool ConditionalLockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode);
 extern void UnlockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode);
 
-/* Lock a tuple (see heap_lock_tuple before assuming you understand this) */
+/* 锁住元组（先看 heap_lock_tuple 再假定你懂） */
 extern void LockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode);
 extern bool ConditionalLockTuple(Relation relation, ItemPointer tid,
 								 LOCKMODE lockmode);
 extern void UnlockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode);
 
-/* Lock an XID (used to wait for a transaction to finish) */
+/* 锁住 XID（用于等待事务结束） */
 extern void XactLockTableInsert(TransactionId xid);
 extern void XactLockTableDelete(TransactionId xid);
 extern void XactLockTableWait(TransactionId xid, Relation rel,
 							  ItemPointer ctid, XLTW_Oper oper);
 extern bool ConditionalXactLockTableWait(TransactionId xid);
 
-/* Lock VXIDs, specified by conflicting locktags */
+/* 锁住 VXIDs，由冲突的 locktag 指定 */
 extern void WaitForLockers(LOCKTAG heaplocktag, LOCKMODE lockmode, bool progress);
 extern void WaitForLockersMultiple(List *locktags, LOCKMODE lockmode, bool progress);
 
-/* Lock an XID for tuple insertion (used to wait for an insertion to finish) */
+/* 为元组插入锁住 XID（用于等待插入完成） */
 extern uint32 SpeculativeInsertionLockAcquire(TransactionId xid);
 extern void SpeculativeInsertionLockRelease(TransactionId xid);
 extern void SpeculativeInsertionWait(TransactionId xid, uint32 token);
 
-/* Lock a general object (other than a relation) of the current database */
+/* 锁住当前库的一般对象（非关系） */
 extern void LockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 							   LOCKMODE lockmode);
 extern bool ConditionalLockDatabaseObject(Oid classid, Oid objid,
@@ -100,7 +100,7 @@ extern bool ConditionalLockDatabaseObject(Oid classid, Oid objid,
 extern void UnlockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 								 LOCKMODE lockmode);
 
-/* Lock a shared-across-databases object (other than a relation) */
+/* 锁住跨库共享对象（非关系） */
 extern void LockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 							 LOCKMODE lockmode);
 extern void UnlockSharedObject(Oid classid, Oid objid, uint16 objsubid,
@@ -116,7 +116,7 @@ extern void LockApplyTransactionForSession(Oid suboid, TransactionId xid, uint16
 extern void UnlockApplyTransactionForSession(Oid suboid, TransactionId xid, uint16 objid,
 											 LOCKMODE lockmode);
 
-/* Describe a locktag for error messages */
+/* 为错误消息描述 locktag */
 extern void DescribeLockTag(StringInfo buf, const LOCKTAG *tag);
 
 extern const char *GetLockNameFromTagType(uint16 locktag_type);

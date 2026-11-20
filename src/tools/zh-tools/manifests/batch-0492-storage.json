@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0492",
+  "title": "include/storage proclist/lmgr/sync — batch 0492",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "deff548171d61054f31559597a9a66c560478a29",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/proclist.h", "kind": "c_comment", "note": "0492"},
+    {"pattern": "src/include/storage/proclist_types.h", "kind": "c_comment", "note": "0492"},
+    {"pattern": "src/include/storage/lmgr.h", "kind": "c_comment", "note": "0492"},
+    {"pattern": "src/include/storage/sync.h", "kind": "c_comment", "note": "0492"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0492-storage.json", "kind": "manifest", "note": "0492"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/proclist.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 31,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/IDENTIFICATION/路径/#endif"],
+      "note": "双向链表；必须；自旋锁；_other_"
+    },
+    {
+      "path": "src/include/storage/proclist_types.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 24,
+      "translated": 17,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/IDENTIFICATION/路径/#endif"],
+      "note": "双向链表；PGPROCs"
+    },
+    {
+      "path": "src/include/storage/lmgr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 20,
+      "translated": 13,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "锁管理器；VXIDs；locktag"
+    },
+    {
+      "path": "src/include/storage/sync.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 22,
+      "translated": 15,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "必须；检查点；sync/unlink"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0492-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0492"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十四刀：proclist/lmgr/sync；双向链表/必须/自旋锁/检查点"
+}

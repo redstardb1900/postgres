@@ -876,32 +876,32 @@ typedef struct TableAmRoutine
 
 
 /* ----------------------------------------------------------------------------
- * Slot functions.
+ * 槽函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Returns slot callbacks suitable for holding tuples of the appropriate type
- * for the relation.  Works for tables, views, foreign tables and partitioned
- * tables.
+ * 返回适合存放该关系相应类型元组的槽回调，
+ * 适用于表、视图、外表和分区
+ * 表。
  */
 extern const TupleTableSlotOps *table_slot_callbacks(Relation relation);
 
 /*
- * Returns slot using the callbacks returned by table_slot_callbacks(), and
- * registers it on *reglist.
+ * 用 table_slot_callbacks() 返回的回调创建槽，并
+ * 登记到 *reglist。
  */
 extern TupleTableSlot *table_slot_create(Relation relation, List **reglist);
 
 
 /* ----------------------------------------------------------------------------
- * Table scan functions.
+ * 表扫描函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Start a scan of `rel`. Returned tuples pass a visibility test of
- * `snapshot`, and if nkeys != 0, the results are filtered by those scan keys.
+ * 开始扫描 `rel`。返回的元组须通过
+ * `snapshot` 可见性测试；nkeys != 0 则按扫描键过滤。
  */
 static inline TableScanDesc
 table_beginscan(Relation rel, Snapshot snapshot,
@@ -914,17 +914,17 @@ table_beginscan(Relation rel, Snapshot snapshot,
 }
 
 /*
- * Like table_beginscan(), but for scanning catalog. It'll automatically use a
- * snapshot appropriate for scanning catalog relations.
+ * 类似 table_beginscan()，但用于扫描目录。会自动使用
+ * 适合扫描目录关系的快照。
  */
 extern TableScanDesc table_beginscan_catalog(Relation relation, int nkeys,
 											 struct ScanKeyData *key);
 
 /*
- * Like table_beginscan(), but table_beginscan_strat() offers an extended API
- * that lets the caller control whether a nondefault buffer access strategy
- * can be used, and whether syncscan can be chosen (possibly resulting in the
- * scan not starting from block zero).  Both of these default to true with
+ * 类似 table_beginscan()，但 table_beginscan_strat() 提供扩展 API，
+ * 让调用方控制是否可用非默认缓冲区访问策略，
+ * 以及是否可选 syncscan（可能导致
+ * 扫描不从块 0 起）。二者在普通
  * plain table_beginscan.
  */
 static inline TableScanDesc
@@ -943,10 +943,10 @@ table_beginscan_strat(Relation rel, Snapshot snapshot,
 }
 
 /*
- * table_beginscan_bm is an alternative entry point for setting up a
- * TableScanDesc for a bitmap heap scan.  Although that scan technology is
- * really quite unlike a standard seqscan, there is just enough commonality to
- * make it worth using the same data structure.
+ * table_beginscan_bm 是建立位图堆扫描
+ * TableScanDesc 的另一入口。虽该扫描技术与
+ * 标准顺序扫描颇为不同，但共性仍足以
+ * 值得使用同一数据结构。
  */
 static inline TableScanDesc
 table_beginscan_bm(Relation rel, Snapshot snapshot,
@@ -958,11 +958,11 @@ table_beginscan_bm(Relation rel, Snapshot snapshot,
 }
 
 /*
- * table_beginscan_sampling is an alternative entry point for setting up a
- * TableScanDesc for a TABLESAMPLE scan.  As with bitmap scans, it's worth
- * using the same data structure although the behavior is rather different.
- * In addition to the options offered by table_beginscan_strat, this call
- * also allows control of whether page-mode visibility checking is used.
+ * table_beginscan_sampling 是建立 TABLESAMPLE 扫描
+ * TableScanDesc 的另一入口。与位图扫描一样，虽行为
+ * 相当不同，仍值得使用同一数据结构。
+ * 除 table_beginscan_strat 已有选项外，本调用
+ * 还可控制是否用逐页校验可见性。
  */
 static inline TableScanDesc
 table_beginscan_sampling(Relation rel, Snapshot snapshot,
@@ -983,9 +983,9 @@ table_beginscan_sampling(Relation rel, Snapshot snapshot,
 }
 
 /*
- * table_beginscan_tid is an alternative entry point for setting up a
- * TableScanDesc for a Tid scan. As with bitmap scans, it's worth using
- * the same data structure although the behavior is rather different.
+ * table_beginscan_tid 是建立 Tid 扫描
+ * TableScanDesc 的另一入口。与位图扫描一样，虽行为
+ * 相当不同，仍值得使用同一数据结构。
  */
 static inline TableScanDesc
 table_beginscan_tid(Relation rel, Snapshot snapshot)
@@ -996,9 +996,9 @@ table_beginscan_tid(Relation rel, Snapshot snapshot)
 }
 
 /*
- * table_beginscan_analyze is an alternative entry point for setting up a
- * TableScanDesc for an ANALYZE scan.  As with bitmap scans, it's worth using
- * the same data structure although the behavior is rather different.
+ * table_beginscan_analyze 是建立 ANALYZE 扫描
+ * TableScanDesc 的另一入口。与位图扫描一样，虽行为
+ * 相当不同，仍值得使用同一数据结构。
  */
 static inline TableScanDesc
 table_beginscan_analyze(Relation rel)
@@ -1009,7 +1009,7 @@ table_beginscan_analyze(Relation rel)
 }
 
 /*
- * End relation scan.
+ * 结束关系扫描
  */
 static inline void
 table_endscan(TableScanDesc scan)
@@ -1018,7 +1018,7 @@ table_endscan(TableScanDesc scan)
 }
 
 /*
- * Restart a relation scan.
+ * 重启关系扫描。
  */
 static inline void
 table_rescan(TableScanDesc scan,
@@ -1028,12 +1028,12 @@ table_rescan(TableScanDesc scan,
 }
 
 /*
- * Restart a relation scan after changing params.
+ * 在更改参数后重启关系扫描。
  *
- * This call allows changing the buffer strategy, syncscan, and pagemode
- * options before starting a fresh scan.  Note that although the actual use of
- * syncscan might change (effectively, enabling or disabling reporting), the
- * previously selected startblock will be kept.
+ * 本调用允许在开始新扫描前更改缓冲区策略、
+ * syncscan 与 pagemode 选项。注意实际是否使用
+ * syncscan 可能改变（即启用或禁止报告），但
+ * 先前选定的 startblock 会保留。
  */
 static inline void
 table_rescan_set_params(TableScanDesc scan, struct ScanKeyData *key,
@@ -1045,26 +1045,26 @@ table_rescan_set_params(TableScanDesc scan, struct ScanKeyData *key,
 }
 
 /*
- * Update snapshot used by the scan.
+ * 更新扫描所用快照。
  */
 extern void table_scan_update_snapshot(TableScanDesc scan, Snapshot snapshot);
 
 /*
- * Return next tuple from `scan`, store in slot.
+ * 从 `scan` 取下一元组，存入槽。
  */
 static inline bool
 table_scan_getnextslot(TableScanDesc sscan, ScanDirection direction, TupleTableSlot *slot)
 {
 	slot->tts_tableOid = RelationGetRelid(sscan->rs_rd);
 
-	/* We don't expect actual scans using NoMovementScanDirection */
+	/* 不预期实际扫描使用 NoMovementScanDirection */
 	Assert(direction == ForwardScanDirection ||
 		   direction == BackwardScanDirection);
 
 	/*
-	 * We don't expect direct calls to table_scan_getnextslot with valid
-	 * CheckXidAlive for catalog or regular tables.  See detailed comments in
-	 * xact.c where these variables are declared.
+	 * 不预期直接调用 table_scan_getnextslot 且带有效
+	 * CheckXidAlive 用于目录表或普通表。详见
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_scan_getnextslot call during logical decoding");
@@ -1073,13 +1073,13 @@ table_scan_getnextslot(TableScanDesc sscan, ScanDirection direction, TupleTableS
 }
 
 /* ----------------------------------------------------------------------------
- * TID Range scanning related functions.
+ * TID 范围扫描相关函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * table_beginscan_tidrange is the entry point for setting up a TableScanDesc
- * for a TID range scan.
+ * table_beginscan_tidrange 是建立 TableScanDesc 用于
+ * TID 范围扫描。
  */
 static inline TableScanDesc
 table_beginscan_tidrange(Relation rel, Snapshot snapshot,
@@ -1091,22 +1091,22 @@ table_beginscan_tidrange(Relation rel, Snapshot snapshot,
 
 	sscan = rel->rd_tableam->scan_begin(rel, snapshot, 0, NULL, NULL, flags);
 
-	/* Set the range of TIDs to scan */
+	/* 设置扫描 TIDs 范围 */
 	sscan->rs_rd->rd_tableam->scan_set_tidrange(sscan, mintid, maxtid);
 
 	return sscan;
 }
 
 /*
- * table_rescan_tidrange resets the scan position and sets the minimum and
- * maximum TID range to scan for a TableScanDesc created by
+ * table_rescan_tidrange 重置扫描位置并设置最小与最大
+ * TID 范围，用于由其创建的 TableScanDesc。
  * table_beginscan_tidrange.
  */
 static inline void
 table_rescan_tidrange(TableScanDesc sscan, ItemPointer mintid,
 					  ItemPointer maxtid)
 {
-	/* Ensure table_beginscan_tidrange() was used. */
+	/* 确保已用 table_beginscan_tidrange()。 */
 	Assert((sscan->rs_flags & SO_TYPE_TIDRANGESCAN) != 0);
 
 	sscan->rs_rd->rd_tableam->scan_rescan(sscan, NULL, false, false, false, false);
@@ -1114,18 +1114,18 @@ table_rescan_tidrange(TableScanDesc sscan, ItemPointer mintid,
 }
 
 /*
- * Fetch the next tuple from `sscan` for a TID range scan created by
- * table_beginscan_tidrange().  Stores the tuple in `slot` and returns true,
- * or returns false if no more tuples exist in the range.
+ * 从 `sscan` 取 TID 范围扫描的下一元组，该扫描由
+ * table_beginscan_tidrange() 创建。元组存入 `slot`，有则 true，
+ * 范围内无更多元组则返回 false。
  */
 static inline bool
 table_scan_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 								TupleTableSlot *slot)
 {
-	/* Ensure table_beginscan_tidrange() was used. */
+	/* 确保已用 table_beginscan_tidrange()。 */
 	Assert((sscan->rs_flags & SO_TYPE_TIDRANGESCAN) != 0);
 
-	/* We don't expect actual scans using NoMovementScanDirection */
+	/* 不预期实际扫描使用 NoMovementScanDirection */
 	Assert(direction == ForwardScanDirection ||
 		   direction == BackwardScanDirection);
 
@@ -1136,40 +1136,40 @@ table_scan_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 
 
 /* ----------------------------------------------------------------------------
- * Parallel table scan related functions.
+ * 并行表扫描相关函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Estimate the size of shared memory needed for a parallel scan of this
- * relation.
+ * 估算对本关系做并行扫描所需共享内存的
+ * 大小。
  */
 extern Size table_parallelscan_estimate(Relation rel, Snapshot snapshot);
 
 /*
- * Initialize ParallelTableScanDesc for a parallel scan of this
- * relation. `pscan` needs to be sized according to parallelscan_estimate()
- * for the same relation.  Call this just once in the leader process; then,
- * individual workers attach via table_beginscan_parallel.
+ * 为本关系并行扫描初始化 ParallelTableScanDesc。
+ * `pscan` 须按同一关系的 parallelscan_estimate() 定
+ * 大小。只在 leader 进程调用一次；随后
+ * 各 worker 经 table_beginscan_parallel 挂接。
  */
 extern void table_parallelscan_initialize(Relation rel,
 										  ParallelTableScanDesc pscan,
 										  Snapshot snapshot);
 
 /*
- * Begin a parallel scan. `pscan` needs to have been initialized with
- * table_parallelscan_initialize(), for the same relation. The initialization
- * does not need to have happened in this backend.
+ * 开始并行扫描。`pscan` 须已由
+ * table_parallelscan_initialize() 针对同一关系初始化。初始化
+ * 不必发生在本后端。
  *
- * Caller must hold a suitable lock on the relation.
+ * 调用方必须持有该关系上合适的锁。
  */
 extern TableScanDesc table_beginscan_parallel(Relation relation,
 											  ParallelTableScanDesc pscan);
 
 /*
- * Restart a parallel scan.  Call this in the leader process.  Caller is
- * responsible for making sure that all workers have finished the scan
- * beforehand.
+ * 重启并行扫描。在 leader 进程中调用。调用方
+ * 负责确保所有 worker 已事先结束
+ * 扫描。
  */
 static inline void
 table_parallelscan_reinitialize(Relation rel, ParallelTableScanDesc pscan)
@@ -1179,15 +1179,15 @@ table_parallelscan_reinitialize(Relation rel, ParallelTableScanDesc pscan)
 
 
 /* ----------------------------------------------------------------------------
- *  Index scan related functions.
+ * 索引扫描相关函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Prepare to fetch tuples from the relation, as needed when fetching tuples
- * for an index scan.
+ * 准备从关系取元组，供索引扫描
+ * 取元组时用。
  *
- * Tuples for an index scan can then be fetched via table_index_fetch_tuple().
+ * 之后即可经 table_index_fetch_tuple() 取索引扫描的元组。
  */
 static inline IndexFetchTableData *
 table_index_fetch_begin(Relation rel)
@@ -1196,8 +1196,8 @@ table_index_fetch_begin(Relation rel)
 }
 
 /*
- * Reset index fetch. Typically this will release cross index fetch resources
- * held in IndexFetchTableData.
+ * 重置索引取数。通常释放 IndexFetchTableData
+ * 中持有的资源。
  */
 static inline void
 table_index_fetch_reset(struct IndexFetchTableData *scan)
@@ -1206,7 +1206,7 @@ table_index_fetch_reset(struct IndexFetchTableData *scan)
 }
 
 /*
- * Release resources and deallocate index fetch.
+ * 释放资源并释放索引取数。
  */
 static inline void
 table_index_fetch_end(struct IndexFetchTableData *scan)
@@ -1215,28 +1215,28 @@ table_index_fetch_end(struct IndexFetchTableData *scan)
 }
 
 /*
- * Fetches, as part of an index scan, tuple at `tid` into `slot`, after doing
- * a visibility test according to `snapshot`. If a tuple was found and passed
- * the visibility test, returns true, false otherwise. Note that *tid may be
- * modified when we return true (see later remarks on multiple row versions
- * reachable via a single index entry).
+ * 作为索引扫描的一部分，把 `tid` 处元组取入 `slot`，先按
+ * `snapshot` 做可见性测试。若找到元组且通过
+ * 可见性测试则返 true，否则 false。注意返回 true 时
+ * *tid 可能被修改（见后文关于经单个索引项
+ * 可达多个行版本的说明）。
  *
- * *call_again needs to be false on the first call to table_index_fetch_tuple() for
- * a tid. If there potentially is another tuple matching the tid, *call_again
- * will be set to true, signaling that table_index_fetch_tuple() should be called
- * again for the same tid.
+ * 对某 tid 首次调用 table_index_fetch_tuple() 时 *call_again 须为
+ * false。若可能还有另一元组匹配该 tid，*call_again
+ * 会置 true，表明应对同一 tid
+ * 再调该函数。
  *
- * *all_dead, if all_dead is not NULL, will be set to true by
- * table_index_fetch_tuple() iff it is guaranteed that no backend needs to see
- * that tuple. Index AMs can use that to avoid returning that tid in future
+ * *all_dead 若 all_dead 非 NULL，则当且仅当保证
+ * 无后端需要看见该元组时，table_index_fetch_tuple() 置 true。
+ * 索引 AM 可免再返回该 tid 于后续
  * searches.
  *
- * The difference between this function and table_tuple_fetch_row_version()
- * is that this function returns the currently visible version of a row if
- * the AM supports storing multiple row versions reachable via a single index
- * entry (like heap's HOT). Whereas table_tuple_fetch_row_version() only
- * evaluates the tuple exactly at `tid`. Outside of index entry ->table tuple
- * lookups, table_tuple_fetch_row_version() is what's usually needed.
+ * 本函数与 table_tuple_fetch_row_version() 的差异在于：
+ * 若 AM 支持经单个索引项到达多个行版本
+ * （如堆的 HOT），本函数返回当前可见版本。
+ * 而 table_tuple_fetch_row_version() 只
+ * 评估恰好位于 `tid` 的元组。索引项到表元组
+ * 查找之外，通常需要 table_tuple_fetch_row_version()。
  */
 static inline bool
 table_index_fetch_tuple(struct IndexFetchTableData *scan,
@@ -1246,9 +1246,9 @@ table_index_fetch_tuple(struct IndexFetchTableData *scan,
 						bool *call_again, bool *all_dead)
 {
 	/*
-	 * We don't expect direct calls to table_index_fetch_tuple with valid
-	 * CheckXidAlive for catalog or regular tables.  See detailed comments in
-	 * xact.c where these variables are declared.
+	 * 不预期直接调用 table_index_fetch_tuple 且带有效
+	 * CheckXidAlive 用于目录表或普通表。详见
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_index_fetch_tuple call during logical decoding");
@@ -1259,10 +1259,10 @@ table_index_fetch_tuple(struct IndexFetchTableData *scan,
 }
 
 /*
- * This is a convenience wrapper around table_index_fetch_tuple() which
- * returns whether there are table tuple items corresponding to an index
- * entry.  This likely is only useful to verify if there's a conflict in a
- * unique index.
+ * 这是 table_index_fetch_tuple() 的便捷包装，返回
+ * 是否存在与某索引项对应的表元组。
+ * 多半只用于校验是否有冲突于
+ * 唯一索引
  */
 extern bool table_index_fetch_tuple_check(Relation rel,
 										  ItemPointer tid,

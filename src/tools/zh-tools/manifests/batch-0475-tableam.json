@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0475",
+  "title": "tableam.h 槽/扫描包装至索引取数 — batch 0475",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d4028fe6ed12b4b0b0f624dfc55da5085a80db57",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "note": "0475"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0475-tableam.json",
+      "kind": "manifest",
+      "note": "0475"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 831,
+      "translated": 101,
+      "preserved": 730,
+      "preserved_reasons": [
+        "0473–0474 已译 KEEP；横幅破折；L928/L1103/L1232 短续行；B138+ 待后续批 KEEP"
+      ],
+      "note": "batch-0475 第三刀 B100–B137 槽/扫描包装至索引取数"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0475-tableam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0475"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "表访问方法第三刀；槽函数/表扫描函数对齐 tableam.c；逐页校验可见性；访问策略"
+}

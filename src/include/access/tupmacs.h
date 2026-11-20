@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tupmacs.h
- *	  Tuple macros used by both index tuples and heap tuples.
+ *	  索引元组与堆元组共用的元组宏。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -14,13 +14,13 @@
 #ifndef TUPMACS_H
 #define TUPMACS_H
 
-#include "catalog/pg_type_d.h"	/* for TYPALIGN macros */
+#include "catalog/pg_type_d.h"	/* 供 TYPALIGN 宏用 */
 
 
 /*
- * Check a tuple's null bitmap to determine whether the attribute is null.
- * Note that a 0 in the null bitmap indicates a null, while 1 indicates
- * non-null.
+ * 检查元组的空值位图，以判定该属性是否为空。
+ * 注意空值位图中 0 表示空，而 1 表示
+ * 非空。
  */
 static inline bool
 att_isnull(int ATT, const bits8 *BITS)
@@ -30,23 +30,23 @@ att_isnull(int ATT, const bits8 *BITS)
 
 #ifndef FRONTEND
 /*
- * Given a Form_pg_attribute and a pointer into a tuple's data area,
- * return the correct value or pointer.
+ * 给定 Form_pg_attribute 与指向元组数据区的指针，
+ * 返回正确的值或指针。
  *
- * We return a Datum value in all cases.  If the attribute has "byval" false,
- * we return the same pointer into the tuple data area that we're passed.
- * Otherwise, we return the correct number of bytes fetched from the data
- * area and extended to Datum form.
+ * 所有情况均返回 Datum。若属性 "byval" 为假，
+ * 则返回传入的、指向元组数据区的同一指针。
+ * 否则返回从数据区取出的正确字节数，
+ * 并扩展为 Datum 形式。
  *
- * On machines where Datum is 8 bytes, we support fetching 8-byte byval
- * attributes; otherwise, only 1, 2, and 4-byte values are supported.
+ * 在 Datum 为 8 字节的机器上，支持取 8 字节按值
+ * 属性；否则仅支持 1、2、4 字节的值。
  *
- * Note that T must already be properly aligned for this to work correctly.
+ * 注意 T 必须已正确对齐，本操作才能正确工作。
  */
 #define fetchatt(A,T) fetch_att(T, (A)->attbyval, (A)->attlen)
 
 /*
- * Same, but work from byval/len parameters rather than Form_pg_attribute.
+ * 同上，但依据 byval/len 参数而非 Form_pg_attribute。
  */
 static inline Datum
 fetch_att(const void *T, bool attbyval, int attlen)
@@ -76,12 +76,12 @@ fetch_att(const void *T, bool attbyval, int attlen)
 #endif							/* FRONTEND */
 
 /*
- * att_align_datum aligns the given offset as needed for a datum of alignment
- * requirement attalign and typlen attlen.  attdatum is the Datum variable
- * we intend to pack into a tuple (it's only accessed if we are dealing with
- * a varlena type).  Note that this assumes the Datum will be stored as-is;
- * callers that are intending to convert non-short varlena datums to short
- * format have to account for that themselves.
+ * att_align_datum 按对齐要求 attalign 与 typlen
+ * attlen，对给定偏移做对齐。attdatum 是拟打入
+ * 元组的 Datum 变量（仅当处理变长类型时才
+ * 访问）。注意这假定 Datum 将按原样存储；
+ * 打算把非短变长值转为短格式的调用方，
+ * 须自行计入该差异。
  */
 #define att_align_datum(cur_offset, attalign, attlen, attdatum) \
 ( \
@@ -91,18 +91,18 @@ fetch_att(const void *T, bool attbyval, int attlen)
 )
 
 /*
- * att_align_pointer performs the same calculation as att_align_datum,
- * but is used when walking a tuple.  attptr is the current actual data
- * pointer; when accessing a varlena field we have to "peek" to see if we
- * are looking at a pad byte or the first byte of a 1-byte-header datum.
- * (A zero byte must be either a pad byte, or the first byte of a correctly
- * aligned 4-byte length word; in either case we can align safely.  A non-zero
- * byte must be either a 1-byte length word, or the first byte of a correctly
- * aligned 4-byte length word; in either case we need not align.)
+ * att_align_pointer 做与 att_align_datum 相同的
+ * 计算，但用于遍历元组。attptr 是当前实际数据
+ * 指针；访问变长字段时须"窥视"以判断所见是
+ * 填充字节，还是单字节头 datum 的首字节。
+ * （零字节必为填充字节，或已正确对齐的 4 字节
+ * 长度字之首字节；两种情形均可安全对齐。非零
+ * 字节必为单字节长度字，或已正确对齐的 4 字节
+ * 长度字之首字节；两种情形都无需对齐。）
  *
- * Note: some callers pass a "char *" pointer for cur_offset.  This is
- * a bit of a hack but should work all right as long as uintptr_t is the
- * correct width.
+ * 注意：有的调用方给 cur_offset 传入 "char *"
+ * 指针。这有点取巧，但只要 uintptr_t 宽度正确
+ * 即可。
  */
 #define att_align_pointer(cur_offset, attalign, attlen, attptr) \
 ( \
@@ -112,19 +112,19 @@ fetch_att(const void *T, bool attbyval, int attlen)
 )
 
 /*
- * att_align_nominal aligns the given offset as needed for a datum of alignment
- * requirement attalign, ignoring any consideration of packed varlena datums.
- * There are three main use cases for using this macro directly:
- *	* we know that the att in question is not varlena (attlen != -1);
- *	  in this case it is cheaper than the above macros and just as good.
- *	* we need to estimate alignment padding cost abstractly, ie without
- *	  reference to a real tuple.  We must assume the worst case that
- *	  all varlenas are aligned.
- *	* within arrays and multiranges, we unconditionally align varlenas (XXX this
- *	  should be revisited, probably).
+ * att_align_nominal 按对齐要求 attalign 对给定
+ * 偏移做对齐，不考虑已打包变长值的任何因素。
+ * 直接使用本宏主要有三种情形：
+ *	* 已知该属性不是变长（attlen != -1）；
+ *	  此时比上述宏更便宜，效果却一样好。
+ *	* 需要抽象地估算对齐填充代价，即不参照
+ *	  真实元组。必须按最坏情形假定所有
+ *	  变长值均已对齐。
+ *	* 在数组与多范围中，无条件对齐变长值（XXX 这
+ *	  大概应再审视）。
  *
- * The attalign cases are tested in what is hopefully something like their
- * frequency of occurrence.
+ * 按希望接近实际出现频率的次序，检测各
+ * attalign 情形。
  */
 #define att_align_nominal(cur_offset, attalign) \
 ( \
@@ -138,21 +138,21 @@ fetch_att(const void *T, bool attbyval, int attlen)
 )
 
 /*
- * att_addlength_datum increments the given offset by the space needed for
- * the given Datum variable.  attdatum is only accessed if we are dealing
- * with a variable-length attribute.
+ * att_addlength_datum 把给定偏移加上存放该
+ * Datum 变量所需空间。仅当处理变长属性时才
+ * 访问 attdatum。
  */
 #define att_addlength_datum(cur_offset, attlen, attdatum) \
 	att_addlength_pointer(cur_offset, attlen, DatumGetPointer(attdatum))
 
 /*
- * att_addlength_pointer performs the same calculation as att_addlength_datum,
- * but is used when walking a tuple --- attptr is the pointer to the field
- * within the tuple.
+ * att_addlength_pointer 做与 att_addlength_datum
+ * 相同的计算，但用于遍历元组。attptr 指向元组内
+ * 字段。
  *
- * Note: some callers pass a "char *" pointer for cur_offset.  This is
- * actually perfectly OK, but probably should be cleaned up along with
- * the same practice for att_align_pointer.
+ * 注意：有的调用方给 cur_offset 传入 "char *"
+ * 指针。这其实完全没问题，但大概应连同
+ * att_align_pointer 同样做法清理。
  */
 #define att_addlength_pointer(cur_offset, attlen, attptr) \
 ( \
@@ -173,11 +173,11 @@ fetch_att(const void *T, bool attbyval, int attlen)
 
 #ifndef FRONTEND
 /*
- * store_att_byval is a partial inverse of fetch_att: store a given Datum
- * value into a tuple data area at the specified address.  However, it only
- * handles the byval case, because in typical usage the caller needs to
- * distinguish by-val and by-ref cases anyway, and so a do-it-all function
- * wouldn't be convenient.
+ * store_att_byval 是 fetch_att 的部分逆操作：把
+ * 给定 Datum 值存入指定地址处的元组数据区。
+ * 但它只处理按值情形，因典型用法下调用方本就
+ * 须区分按值与按引用，故一揽子函数
+ * 反而不便。
  */
 static inline void
 store_att_byval(void *T, Datum newdatum, int attlen)

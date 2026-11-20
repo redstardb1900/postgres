@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * toast_internals.h
- *	  Internal definitions for the TOAST system.
+ *	  TOAST 系统的内部定义。
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -18,18 +18,18 @@
 #include "utils/snapshot.h"
 
 /*
- *	The information at the start of the compressed toast data.
+ *	压缩 toast 数据开头处的信息。
  */
 typedef struct toast_compress_header
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	uint32		tcinfo;			/* 2 bits for compression method and 30 bits
-								 * external size; see va_extinfo */
+	int32		vl_len_;		/* varlena 头（勿直接触碰！） */
+	uint32		tcinfo;			/* 2 位压缩方法与 30 位
+								 * 外部大小；见 va_extinfo */
 } toast_compress_header;
 
 /*
- * Utilities for manipulation of header information for compressed
- * toast entries.
+ * 用于操纵压缩 toast 项头信息的
+ * 实用宏。
  */
 #define TOAST_COMPRESS_EXTSIZE(ptr) \
 	(((toast_compress_header *) (ptr))->tcinfo & VARLENA_EXTSIZE_MASK)

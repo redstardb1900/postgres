@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0490",
+  "title": "include/storage latch.h — batch 0490",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "733439c43e7320108a779d620544f95792e5dfa3",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/latch.h", "kind": "c_comment", "note": "0490"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0490-storage.json", "kind": "manifest", "note": "0490"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/latch.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 92,
+      "translated": 71,
+      "preserved": 21,
+      "preserved_reasons": ["横幅/文件名/版权/路径/for 样例/#endif"],
+      "note": "锁存器；必须；切勿；竞态；置位/复位；套接字"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0490-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0490"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十二刀：latch.h；锁存器/必须/切勿/竞态；for 样例 KEEP"
+}

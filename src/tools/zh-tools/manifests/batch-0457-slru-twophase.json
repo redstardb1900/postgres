@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0457",
+  "title": "slru/subtrans/twophase/twophase_rmgr 头文件注释翻译 — batch 0457",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "522935b94083b1842ecd69c776b7f089bdf2aeb6",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/slru.h",
+      "kind": "c_comment",
+      "note": "0457"
+    },
+    {
+      "pattern": "src/include/access/subtrans.h",
+      "kind": "c_comment",
+      "note": "0457"
+    },
+    {
+      "pattern": "src/include/access/twophase.h",
+      "kind": "c_comment",
+      "note": "0457"
+    },
+    {
+      "pattern": "src/include/access/twophase_rmgr.h",
+      "kind": "c_comment",
+      "note": "0457"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0457-slru-twophase.json",
+      "kind": "manifest",
+      "note": "batch-0457"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/slru.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 63,
+      "translated": 52,
+      "preserved": 11,
+      "preserved_reasons": [
+        "横幅/路径/版权/小节虚线/代码示例/SLRU_H KEEP"
+      ],
+      "note": "batch-0457"
+    },
+    {
+      "path": "src/include/access/subtrans.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 2,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/版权/SUBTRANS_H KEEP"
+      ],
+      "note": "batch-0457"
+    },
+    {
+      "path": "src/include/access/twophase.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 4,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/版权/TWOPHASE_H KEEP"
+      ],
+      "note": "batch-0457"
+    },
+    {
+      "path": "src/include/access/twophase_rmgr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/版权/TWOPHASE_RMGR_H KEEP"
+      ],
+      "note": "batch-0457"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0457-slru-twophase.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0457"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "SLRU/子事务/两阶段；标题对齐既译 .c"
+}

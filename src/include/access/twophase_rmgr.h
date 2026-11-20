@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * twophase_rmgr.h
- *	  Two-phase-commit resource managers definition
+ *	  两阶段提交资源管理器定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@ typedef void (*TwoPhaseCallback) (TransactionId xid, uint16 info,
 typedef uint8 TwoPhaseRmgrId;
 
 /*
- * Built-in resource managers
+ * 内建资源管理器
  */
 #define TWOPHASE_RM_END_ID			0
 #define TWOPHASE_RM_LOCK_ID			1

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * slru.h
- *		Simple LRU buffering for transaction status logfiles
+ *		事务状态日志文件的简单 LRU 缓冲
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,47 +19,47 @@
 
 
 /*
- * Define SLRU segment size.  A page is the same BLCKSZ as is used everywhere
- * else in Postgres.  The segment size can be chosen somewhat arbitrarily;
- * we make it 32 pages by default, or 256Kb, i.e. 1M transactions for CLOG
- * or 64K transactions for SUBTRANS.
+ * 定义 SLRU 段大小。页所用 BLCKSZ 与 Postgres 各处
+ * 相同。段大小可较为任意地选取；
+ * 我们默认取 32 页，即 256Kb，亦即 CLOG 为 1M 事务
+ * 或 SUBTRANS 为 64K 事务。
  *
- * Note: because TransactionIds are 32 bits and wrap around at 0xFFFFFFFF,
- * page numbering also wraps around at 0xFFFFFFFF/xxxx_XACTS_PER_PAGE (where
- * xxxx is CLOG or SUBTRANS, respectively), and segment numbering at
- * 0xFFFFFFFF/xxxx_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT.  We need
- * take no explicit notice of that fact in slru.c, except when comparing
- * segment and page numbers in SimpleLruTruncate (see PagePrecedes()).
+ * 注意：由于 TransactionIds 为 32 位并在 0xFFFFFFFF 处回卷，
+ * 页编号亦在 0xFFFFFFFF/xxxx_XACTS_PER_PAGE 回卷（其中
+ * xxxx 分别为 CLOG 或 SUBTRANS），段编号则在
+ * 0xFFFFFFFF/xxxx_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT。我们
+ * 在 slru.c 中不必显式理会该事实，仅当比较
+ *  SimpleLruTruncate 段/页号时除外（见 PagePrecedes()）。
  */
 #define SLRU_PAGES_PER_SEGMENT	32
 
 /*
- * Page status codes.  Note that these do not include the "dirty" bit.
- * page_dirty can be true only in the VALID or WRITE_IN_PROGRESS states;
- * in the latter case it implies that the page has been re-dirtied since
- * the write started.
+ * 页状态码。注意这些不含"脏"位。
+ * page_dirty 仅在 VALID 或 WRITE_IN_PROGRESS 态可为真；
+ * 后者意味着自写出开始以来页又被
+ * 弄脏。
  */
 typedef enum
 {
-	SLRU_PAGE_EMPTY,			/* buffer is not in use */
-	SLRU_PAGE_READ_IN_PROGRESS, /* page is being read in */
-	SLRU_PAGE_VALID,			/* page is valid and not being written */
-	SLRU_PAGE_WRITE_IN_PROGRESS /* page is being written out */
+	SLRU_PAGE_EMPTY,			/* 缓冲区未使用 */
+	SLRU_PAGE_READ_IN_PROGRESS, /* 页正在读入 */
+	SLRU_PAGE_VALID,			/* 页有效且未在写出 */
+	SLRU_PAGE_WRITE_IN_PROGRESS /* 页正在写出 */
 } SlruPageStatus;
 
 /*
- * Shared-memory state
+ * 共享内存状态
  */
 typedef struct SlruSharedData
 {
 	LWLock	   *ControlLock;
 
-	/* Number of buffers managed by this SLRU structure */
+	/* 此 SLRU 结构管理的缓冲区数 */
 	int			num_slots;
 
 	/*
-	 * Arrays holding info for each buffer slot.  Page number is undefined
-	 * when status is EMPTY, as is page_lru_count.
+	 * 保存各缓冲区槽信息的数组。页号在状态为 EMPTY
+	 * 时未定义，page_lru_count 亦然.
 	 */
 	char	  **page_buffer;
 	SlruPageStatus *page_status;
@@ -69,69 +69,69 @@ typedef struct SlruSharedData
 	LWLockPadded *buffer_locks;
 
 	/*
-	 * Optional array of WAL flush LSNs associated with entries in the SLRU
-	 * pages.  If not zero/NULL, we must flush WAL before writing pages (true
-	 * for pg_xact, false for multixact, pg_subtrans, pg_notify).  group_lsn[]
-	 * has lsn_groups_per_page entries per buffer slot, each containing the
-	 * highest LSN known for a contiguous group of SLRU entries on that slot's
-	 * page.
+	 * 与 SLRU 页内表项关联的可选 WAL 刷写 LSNs
+	 * 数组。若非零/NULL，写页前必须先刷 WAL（
+	 * pg_xact 为真，multixact/pg_subtrans/pg_notify 为假）。
+	 * group_lsn[] 每缓冲区槽有 lsn_groups_per_page 项，
+	 * 每项为该槽页上一连续组 SLRU 表项的最高
+	 * LSN.
 	 */
 	XLogRecPtr *group_lsn;
 	int			lsn_groups_per_page;
 
 	/*----------
-	 * We mark a page "most recently used" by setting
+	 * 将页标为"最近使用"的方式是设置
 	 *		page_lru_count[slotno] = ++cur_lru_count;
-	 * The oldest page is therefore the one with the highest value of
+	 * 故最旧页即为下列差值最大者：
 	 *		cur_lru_count - page_lru_count[slotno]
-	 * The counts will eventually wrap around, but this calculation still
-	 * works as long as no page's age exceeds INT_MAX counts.
+	 * 计数终将回卷，但只要没有任何页的年龄
+	 * 超过 INT_MAX 次计数，此计算仍有效。
 	 *----------
 	 */
 	int			cur_lru_count;
 
 	/*
-	 * latest_page_number is the page number of the current end of the log;
-	 * this is not critical data, since we use it only to avoid swapping out
-	 * the latest page.
+	 * latest_page_number 是日志当前末端的页号；
+	 * 这不是关键数据，我们只用它来避免换出
+	 * 最新页.
 	 */
 	int			latest_page_number;
 
-	/* SLRU's index for statistics purposes (might not be unique) */
+	/* SLRU 的统计用索引（未必唯一） */
 	int			slru_stats_idx;
 } SlruSharedData;
 
 typedef SlruSharedData *SlruShared;
 
 /*
- * SlruCtlData is an unshared structure that points to the active information
- * in shared memory.
+ * SlruCtlData 是未共享结构，指向共享内存里
+ * 的活动信息.
  */
 typedef struct SlruCtlData
 {
 	SlruShared	shared;
 
 	/*
-	 * Which sync handler function to use when handing sync requests over to
-	 * the checkpointer.  SYNC_HANDLER_NONE to disable fsync (eg pg_notify).
+	 * 把同步请求交给 checkpointer 时使用哪个
+	 * 同步处理函数。SYNC_HANDLER_NONE 禁用 fsync(如 pg_notify)。
 	 */
 	SyncRequestHandler sync_handler;
 
 	/*
-	 * Decide whether a page is "older" for truncation and as a hint for
-	 * evicting pages in LRU order.  Return true if every entry of the first
-	 * argument is older than every entry of the second argument.  Note that
-	 * !PagePrecedes(a,b) && !PagePrecedes(b,a) need not imply a==b; it also
-	 * arises when some entries are older and some are not.  For SLRUs using
-	 * SimpleLruTruncate(), this must use modular arithmetic.  (For others,
-	 * the behavior of this callback has no functional implications.)  Use
-	 * SlruPagePrecedesUnitTests() in SLRUs meeting its criteria.
+	 * 判定页是否"更旧"，用于截断及作为按 LRU
+	 * 次序淘汰页的提示。若第一参数的每条表项都
+	 * 比第二参数的每条表项更旧则返回真。注意
+	 * !PagePrecedes(a,b) && !PagePrecedes(b,a) 未必意味 a==b；
+	 * 当部分表项更旧、部分不然时也会如此。对使用
+	 * SimpleLruTruncate() 的 SLRUs，必须用模算术。（对其余，
+	 * 此回调行为无功能影响。）在符合其条件的
+	 * SLRUs 中使用 SlruPagePrecedesUnitTests()。
 	 */
 	bool		(*PagePrecedes) (int, int);
 
 	/*
-	 * Dir is set during SimpleLruInit and does not change thereafter. Since
-	 * it's always the same, it doesn't need to be in shared memory.
+	 * Dir 在 SimpleLruInit 期间设定，此后不变。因
+	 * 其始终相同，无需放在共享内存中。
 	 */
 	char		Dir[64];
 } SlruCtlData;
@@ -165,7 +165,7 @@ extern void SlruDeleteSegment(SlruCtl ctl, int segno);
 
 extern int	SlruSyncFileTag(SlruCtl ctl, const FileTag *ftag, char *path);
 
-/* SlruScanDirectory public callbacks */
+/* SlruScanDirectory 的公开回调 */
 extern bool SlruScanDirCbReportPresence(SlruCtl ctl, char *filename,
 										int segpage, void *data);
 extern bool SlruScanDirCbDeleteAll(SlruCtl ctl, char *filename, int segpage,

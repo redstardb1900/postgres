@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * twophase.h
- *	  Two-phase-commit related declarations.
+ *	  两阶段提交相关声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,12 +20,12 @@
 #include "storage/lock.h"
 
 /*
- * GlobalTransactionData is defined in twophase.c; other places have no
- * business knowing the internal definition.
+ * GlobalTransactionData 定义于 twophase.c；别处无权
+ * 知晓其内部定义。
  */
 typedef struct GlobalTransactionData *GlobalTransaction;
 
-/* GUC variable */
+/* GUC 变量 */
 extern PGDLLIMPORT int max_prepared_xacts;
 
 extern Size TwoPhaseShmemSize(void);

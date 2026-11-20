@@ -1,7 +1,7 @@
 /*
  * subtrans.h
  *
- * PostgreSQL subtransaction-log manager
+ * PostgreSQL 子事务日志管理器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,7 +11,7 @@
 #ifndef SUBTRANS_H
 #define SUBTRANS_H
 
-/* Number of SLRU buffers to use for subtrans */
+/* 供 subtrans 使用的 SLRU 缓冲区数 */
 #define NUM_SUBTRANS_BUFFERS	32
 
 extern void SubTransSetParent(TransactionId xid, TransactionId parent);

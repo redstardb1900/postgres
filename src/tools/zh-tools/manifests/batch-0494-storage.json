@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0494",
+  "title": "include/storage smgr/standby/standbydefs — batch 0494",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "6a68ec6979d9379685a6f0341b87d2e09700ab5f",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/smgr.h", "kind": "c_comment", "note": "0494"},
+    {"pattern": "src/include/storage/standby.h", "kind": "c_comment", "note": "0494"},
+    {"pattern": "src/include/storage/standbydefs.h", "kind": "c_comment", "note": "0494"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0494-storage.json", "kind": "manifest", "note": "0494"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/smgr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 30,
+      "preserved": 8,
+      "preserved_reasons": ["横幅/文件名/版权/路径/descriptors.)/#endif"],
+      "note": "存储管理器；必须；切勿；SMgrRelations"
+    },
+    {
+      "path": "src/include/storage/standby.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 32,
+      "translated": 25,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "热备；子事务；StandbyRmgr"
+    },
+    {
+      "path": "src/include/storage/standbydefs.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 24,
+      "translated": 15,
+      "preserved": 9,
+      "preserved_reasons": ["横幅/文件名/版权/路径/MyDatabase*/#endif"],
+      "note": "热备；失效；同 standby 字段译"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0494-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0494"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十六刀：smgr/standby/standbydefs；存储管理器/热备/必须/切勿"
+}

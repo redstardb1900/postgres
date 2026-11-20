@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * smgr.h
- *	  storage manager switch public interface declarations.
+ *	  存储管理器开关的公共接口声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,56 +19,56 @@
 #include "storage/relfilelocator.h"
 
 /*
- * smgr.c maintains a table of SMgrRelation objects, which are essentially
- * cached file handles.  An SMgrRelation is created (if not already present)
- * by smgropen(), and destroyed by smgrclose().  Note that neither of these
- * operations imply I/O, they just create or destroy a hashtable entry.
- * (But smgrclose() may release associated resources, such as OS-level file
+ * smgr.c 维护一张 SMgrRelation 对象表，它们本质是
+ * 缓存的文件句柄。SMgrRelation 由 smgropen() 创建
+ * （若不存在），并由 smgrclose() 销毁。注意二者均
+ * 不意味着 I/O，只是创建或销毁哈希表条目。
+ * （但 smgrclose() 可能释放关联资源，如 OS 级文件
  * descriptors.)
  *
- * An SMgrRelation may have an "owner", which is just a pointer to it from
- * somewhere else; smgr.c will clear this pointer if the SMgrRelation is
- * closed.  We use this to avoid dangling pointers from relcache to smgr
- * without having to make the smgr explicitly aware of relcache.  There
- * can't be more than one "owner" pointer per SMgrRelation, but that's
- * all we need.
+ * SMgrRelation 可以有一个 "owner"，只是别处指向它的
+ * 指针；若 SMgrRelation 被关闭，smgr.c 会清空该指针。
+ * 我们用此避免 relcache 到 smgr 的悬空指针，而无需
+ * 让 smgr 显式知晓 relcache。每个 SMgrRelation 不能有
+ * 多于一个 "owner" 指针，但这就
+ * 够用了。
  *
- * SMgrRelations that do not have an "owner" are considered to be transient,
- * and are deleted at end of transaction.
+ * 没有 "owner" 的 SMgrRelations 视为短暂的，
+ * 并在事务结束时删除。
  */
 typedef struct SMgrRelationData
 {
-	/* rlocator is the hashtable lookup key, so it must be first! */
-	RelFileLocatorBackend smgr_rlocator;	/* relation physical identifier */
+	/* rlocator 是哈希表查找键，故必须为首！ */
+	RelFileLocatorBackend smgr_rlocator;	/* 关系物理标识 */
 
-	/* pointer to owning pointer, or NULL if none */
+	/* 指向拥有者指针，无则 NULL */
 	struct SMgrRelationData **smgr_owner;
 
 	/*
-	 * The following fields are reset to InvalidBlockNumber upon a cache flush
-	 * event, and hold the last known size for each fork.  This information is
-	 * currently only reliable during recovery, since there is no cache
-	 * invalidation for fork extension.
+	 * 下列字段在缓存刷写事件时复位为 InvalidBlockNumber，
+	 * 并保存各分支上次已知大小。此信息目前仅在
+	 * 恢复期间可靠，因为分支扩展没有缓存
+	 * 失效。
 	 */
-	BlockNumber smgr_targblock; /* current insertion target block */
-	BlockNumber smgr_cached_nblocks[MAX_FORKNUM + 1];	/* last known size */
+	BlockNumber smgr_targblock; /* 当前插入目标块 */
+	BlockNumber smgr_cached_nblocks[MAX_FORKNUM + 1];	/* 已知大小 */
 
-	/* additional public fields may someday exist here */
+	/* 将来此处或可有更多公共字段 */
 
 	/*
-	 * Fields below here are intended to be private to smgr.c and its
-	 * submodules.  Do not touch them from elsewhere.
+	 * 以下字段拟为 smgr.c 及其子模块私有。
+	 * 切勿从别处触碰。
 	 */
-	int			smgr_which;		/* storage manager selector */
+	int			smgr_which;		/* 存储管理器选择器 */
 
 	/*
-	 * for md.c; per-fork arrays of the number of open segments
-	 * (md_num_open_segs) and the segments themselves (md_seg_fds).
+	 * 供 md.c；每分支的已打开段数数组
+	 * (md_num_open_segs) 与段本身 (md_seg_fds)。
 	 */
 	int			md_num_open_segs[MAX_FORKNUM + 1];
 	struct _MdfdVec *md_seg_fds[MAX_FORKNUM + 1];
 
-	/* if unowned, list link in list of all unowned SMgrRelations */
+	/* 若无主，则链入全部无主 SMgrRelations */
 	dlist_node	node;
 } SMgrRelationData;
 

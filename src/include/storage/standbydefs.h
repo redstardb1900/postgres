@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * standbydefs.h
- *	   Frontend exposed definitions for hot standby mode.
+ *	   面向前端暴露的热备模式定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@
 #include "storage/lockdefs.h"
 #include "storage/sinval.h"
 
-/* Recovery handlers for the Standby Rmgr (RM_STANDBY_ID) */
+/* StandbyRmgr (RM_STANDBY_ID) 的恢复处理函数 */
 extern void standby_redo(XLogReaderState *record);
 extern void standby_desc(StringInfo buf, XLogReaderState *record);
 extern const char *standby_identify(uint8 info);
@@ -29,7 +29,7 @@ extern void standby_desc_invalidations(StringInfo buf,
 									   bool relcacheInitFileInval);
 
 /*
- * XLOG message types
+ * XLOG 消息类型
  */
 #define XLOG_STANDBY_LOCK			0x00
 #define XLOG_RUNNING_XACTS			0x10
@@ -37,35 +37,35 @@ extern void standby_desc_invalidations(StringInfo buf,
 
 typedef struct xl_standby_locks
 {
-	int			nlocks;			/* number of entries in locks array */
+	int			nlocks;			/* locks 数组中的条目数 */
 	xl_standby_lock locks[FLEXIBLE_ARRAY_MEMBER];
 } xl_standby_locks;
 
 /*
- * When we write running xact data to WAL, we use this structure.
+ * 把运行中事务数据写入 WAL 时用此结构。
  */
 typedef struct xl_running_xacts
 {
-	int			xcnt;			/* # of xact ids in xids[] */
-	int			subxcnt;		/* # of subxact ids in xids[] */
-	bool		subxid_overflow;	/* snapshot overflowed, subxids missing */
-	TransactionId nextXid;		/* xid from ShmemVariableCache->nextXid */
-	TransactionId oldestRunningXid; /* *not* oldestXmin */
-	TransactionId latestCompletedXid;	/* so we can set xmax */
+	int			xcnt;			/* xids[] 中 xid 数 */
+	int			subxcnt;		/* xids[] 中子事务数 */
+	bool		subxid_overflow;	/* 快照溢出，子事务未含 */
+	TransactionId nextXid;		/* ShmemVariableCache->nextXid 的 xid */
+	TransactionId oldestRunningXid; /* *非* oldestXmin */
+	TransactionId latestCompletedXid;	/* 以便设 xmax */
 
 	TransactionId xids[FLEXIBLE_ARRAY_MEMBER];
 } xl_running_xacts;
 
 /*
- * Invalidations for standby, currently only when transactions without an
- * assigned xid commit.
+ * 备库的失效消息，目前仅当事务无已分配
+ * xid 却提交时。
  */
 typedef struct xl_invalidations
 {
 	Oid			dbId;			/* MyDatabaseId */
 	Oid			tsId;			/* MyDatabaseTableSpace */
-	bool		relcacheInitFileInval;	/* invalidate relcache init files */
-	int			nmsgs;			/* number of shared inval msgs */
+	bool		relcacheInitFileInval;	/* 使 relcache-init 文件失效 */
+	int			nmsgs;			/* 共享失效消息个数 */
 	SharedInvalidationMessage msgs[FLEXIBLE_ARRAY_MEMBER];
 } xl_invalidations;
 

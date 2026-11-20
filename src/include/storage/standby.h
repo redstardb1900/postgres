@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * standby.h
- *	  Definitions for hot standby mode.
+ *	  热备模式的定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,7 +20,7 @@
 #include "storage/relfilelocator.h"
 #include "storage/standbydefs.h"
 
-/* User-settable GUC parameters */
+/* 用户可设的 GUC 参数 */
 extern PGDLLIMPORT int max_standby_archive_delay;
 extern PGDLLIMPORT int max_standby_streaming_delay;
 extern PGDLLIMPORT bool log_recovery_conflict_waits;
@@ -48,11 +48,11 @@ extern void LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
 								bool still_waiting);
 
 /*
- * Standby Rmgr (RM_STANDBY_ID)
+ * StandbyRmgr (RM_STANDBY_ID)
  *
- * Standby recovery manager exists to perform actions that are required
- * to make hot standby work. That includes logging AccessExclusiveLocks taken
- * by transactions and running-xacts snapshots.
+ * StandbyRmgr 用于执行热备所需的动作。
+ * 包括记录事务取得的 AccessExclusiveLocks，以及
+ * running-xacts 快照。
  */
 extern void StandbyAcquireAccessExclusiveLock(TransactionId xid, Oid dbOid, Oid relOid);
 extern void StandbyReleaseLockTree(TransactionId xid,
@@ -64,35 +64,35 @@ extern void StandbyReleaseOldLocks(TransactionId oldxid);
 
 
 /*
- * Declarations for GetRunningTransactionData(). Similar to Snapshots, but
- * not quite. This has nothing at all to do with visibility on this server,
- * so this is completely separate from snapmgr.c and snapmgr.h.
- * This data is important for creating the initial snapshot state on a
- * standby server. We need lots more information than a normal snapshot,
- * hence we use a specific data structure for our needs. This data
- * is written to WAL as a separate record immediately after each
- * checkpoint. That means that wherever we start a standby from we will
- * almost immediately see the data we need to begin executing queries.
+ * GetRunningTransactionData() 的声明。类似 Snapshots，但
+ * 不完全一样。这与本服务器上的可见性毫无关系，
+ * 故与 snapmgr.c 和 snapmgr.h 完全分离。
+ * 这些数据对在备库上创建初始快照状态很重要。
+ * 我们需要比普通快照更多的信息，故用专用
+ * 数据结构。这些数据在每次检查点后立即作为
+ * 独立记录写入 WAL。无论从何处启动备库，
+ * 几乎马上就能看到开始执行查询所需的
+ * 数据。
  */
 
 typedef enum
 {
-	SUBXIDS_IN_ARRAY,			/* xids array includes all running subxids */
-	SUBXIDS_MISSING,			/* snapshot overflowed, subxids are missing */
-	SUBXIDS_IN_SUBTRANS,		/* subxids are not included in 'xids', but
-								 * pg_subtrans is fully up-to-date */
+	SUBXIDS_IN_ARRAY,			/* xids 含全部运行中子事务 */
+	SUBXIDS_MISSING,			/* 快照溢出，子事务未含 */
+	SUBXIDS_IN_SUBTRANS,		/* 子事务未纳入 'xids'，但
+								 * pg_subtrans 已完全最新 */
 } subxids_array_status;
 
 typedef struct RunningTransactionsData
 {
-	int			xcnt;			/* # of xact ids in xids[] */
-	int			subxcnt;		/* # of subxact ids in xids[] */
+	int			xcnt;			/* xids[] 中 xid 数 */
+	int			subxcnt;		/* xids[] 中子事务数 */
 	subxids_array_status subxid_status;
-	TransactionId nextXid;		/* xid from ShmemVariableCache->nextXid */
-	TransactionId oldestRunningXid; /* *not* oldestXmin */
-	TransactionId latestCompletedXid;	/* so we can set xmax */
+	TransactionId nextXid;		/* ShmemVariableCache->nextXid 的 xid */
+	TransactionId oldestRunningXid; /* *非* oldestXmin */
+	TransactionId latestCompletedXid;	/* 以便设 xmax */
 
-	TransactionId *xids;		/* array of (sub)xids still running */
+	TransactionId *xids;		/* 仍在运行的 (子)xids 数组 */
 } RunningTransactionsData;
 
 typedef RunningTransactionsData *RunningTransactions;

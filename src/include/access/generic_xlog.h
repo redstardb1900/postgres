@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * generic_xlog.h
- *	  Generic xlog API definition.
+ *	  通用 WAL API 定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,21 +22,21 @@
 
 #define MAX_GENERIC_XLOG_PAGES	XLR_NORMAL_MAX_BLOCK_ID
 
-/* Flag bits for GenericXLogRegisterBuffer */
-#define GENERIC_XLOG_FULL_IMAGE 0x0001	/* write full-page image */
+/* GenericXLogRegisterBuffer 的标志位 */
+#define GENERIC_XLOG_FULL_IMAGE 0x0001	/* 写整页映像 */
 
-/* state of generic xlog record construction */
+/* 通用 WAL 记录构造的状态 */
 struct GenericXLogState;
 typedef struct GenericXLogState GenericXLogState;
 
-/* API for construction of generic xlog records */
+/* 通用 WAL 记录构造的 API */
 extern GenericXLogState *GenericXLogStart(Relation relation);
 extern Page GenericXLogRegisterBuffer(GenericXLogState *state, Buffer buffer,
 									  int flags);
 extern XLogRecPtr GenericXLogFinish(GenericXLogState *state);
 extern void GenericXLogAbort(GenericXLogState *state);
 
-/* functions defined for rmgr */
+/* 为 rmgr 定义的函数 */
 extern void generic_redo(XLogReaderState *record);
 extern const char *generic_identify(uint8 info);
 extern void generic_desc(StringInfo buf, XLogReaderState *record);

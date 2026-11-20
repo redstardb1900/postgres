@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------
  * rmgrlist.h
  *
- * The resource manager list is kept in its own source file for possible
- * use by automatic tools.  The exact representation of a rmgr is determined
- * by the PG_RMGR macro, which is not defined in this file; it can be
- * defined by the caller for special purposes.
+ * 资源管理器列表置于独立源文件，以备
+ * 自动工具使用。rmgr 的精确表示由 PG_RMGR 
+ * 宏决定，本文件未定义该宏；调用者可为
+ * 特殊用途自行定义。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,15 +13,15 @@
  *---------------------------------------------------------------------------
  */
 
-/* there is deliberately not an #ifndef RMGRLIST_H here */
+/* 此处故意没有 #ifndef RMGRLIST_H */
 
 /*
- * List of resource manager entries.  Note that order of entries defines the
- * numerical values of each rmgr's ID, which is stored in WAL records.  New
- * entries should be added at the end, to avoid changing IDs of existing
- * entries.
+ * 资源管理器条目列表。注意条目顺序定义各 
+ * rmgr 的 ID 数值，该值存于 WAL 记录中。新
+ * 条目应加在末尾，以免改变既有条目之 
+ * ID。
  *
- * Changes to this list possibly need an XLOG_PAGE_MAGIC bump.
+ * 更改本列表可能需要上调 XLOG_PAGE_MAGIC。
  */
 
 /* symbol name, textual name, redo, desc, identify, startup, cleanup, mask, decode */

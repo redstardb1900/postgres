@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lwlock.h
- *	  Lightweight lock manager
+ *	  轻量锁管理器
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,47 +23,47 @@
 
 struct PGPROC;
 
-/* what state of the wait process is a backend in */
+/* 后端等待进程处于何种状态 */
 typedef enum LWLockWaitState
 {
-	LW_WS_NOT_WAITING,			/* not currently waiting / woken up */
-	LW_WS_WAITING,				/* currently waiting */
-	LW_WS_PENDING_WAKEUP,		/* removed from waitlist, but not yet
-								 * signalled */
+	LW_WS_NOT_WAITING,			/* 当前未等待 / 已唤醒 */
+	LW_WS_WAITING,				/* 当前在等待 */
+	LW_WS_PENDING_WAKEUP,		/* 已移出等待链表，尚未发
+								 * 信号 */
 }			LWLockWaitState;
 
 /*
- * Code outside of lwlock.c should not manipulate the contents of this
- * structure directly, but we have to declare it here to allow LWLocks to be
- * incorporated into other data structures.
+ * lwlock.c 外的代码不应直接操纵本结构的
+ * 内容，但我们必须在此声明，以便 LWLocks 能被
+ * 嵌入其他数据结构。
  */
 typedef struct LWLock
 {
 	uint16		tranche;		/* tranche ID */
-	pg_atomic_uint32 state;		/* state of exclusive/nonexclusive lockers */
-	proclist_head waiters;		/* list of waiting PGPROCs */
+	pg_atomic_uint32 state;		/* 排他/非排他加锁者的状态 */
+	proclist_head waiters;		/* 等待 PGPROCs 链表 */
 #ifdef LOCK_DEBUG
-	pg_atomic_uint32 nwaiters;	/* number of waiters */
-	struct PGPROC *owner;		/* last exclusive owner of the lock */
+	pg_atomic_uint32 nwaiters;	/* 等待者数量 */
+	struct PGPROC *owner;		/* 锁的上次排他持有者 */
 #endif
 } LWLock;
 
 /*
- * In most cases, it's desirable to force each tranche of LWLocks to be aligned
- * on a cache line boundary and make the array stride a power of 2.  This saves
- * a few cycles in indexing, but more importantly ensures that individual
- * LWLocks don't cross cache line boundaries.  This reduces cache contention
- * problems, especially on AMD Opterons.  In some cases, it's useful to add
- * even more padding so that each LWLock takes up an entire cache line; this is
- * useful, for example, in the main LWLock array, where the overall number of
- * locks is small but some are heavily contended.
+ * 多数情况下，宜强制每组 LWLocks 的 tranche 对齐到
+ * 缓存行边界，且数组步长为 2 的幂。这能节省
+ * 索引的若干周期，更重要的是确保单个
+ * LWLocks 不跨越缓存行边界。这会减少缓存争用
+ * 问题，尤其在 AMD Opterons 上。有时宜再加
+ * 更多填充，使每个 LWLock 占满整条缓存行；例如
+ * 在主 LWLock 数组中有用，那里锁的总数
+ * 较少但有些争用很重。
  */
 #define LWLOCK_PADDED_SIZE	PG_CACHE_LINE_SIZE
 
 StaticAssertDecl(sizeof(LWLock) <= LWLOCK_PADDED_SIZE,
 				 "Miscalculated LWLock padding");
 
-/* LWLock, padded to a full cache line size */
+/* LWLock，填充到整条缓存行大小 */
 typedef union LWLockPadded
 {
 	LWLock		lock;
@@ -72,7 +72,7 @@ typedef union LWLockPadded
 
 extern PGDLLIMPORT LWLockPadded *MainLWLockArray;
 
-/* struct for storing named tranche information */
+/* 存放具名 tranche 信息的结构 */
 typedef struct NamedLWLockTranche
 {
 	int			trancheId;
@@ -82,27 +82,27 @@ typedef struct NamedLWLockTranche
 extern PGDLLIMPORT NamedLWLockTranche *NamedLWLockTrancheArray;
 extern PGDLLIMPORT int NamedLWLockTrancheRequests;
 
-/* Names for fixed lwlocks */
+/* 固定 lwlock 的名称 */
 #include "storage/lwlocknames.h"
 
 /*
- * It's a bit odd to declare NUM_BUFFER_PARTITIONS and NUM_LOCK_PARTITIONS
- * here, but we need them to figure out offsets within MainLWLockArray, and
- * having this file include lock.h or bufmgr.h would be backwards.
+ * 在此声明 NUM_BUFFER_PARTITIONS 与 NUM_LOCK_PARTITIONS
+ * 有点怪，但我们需要它们来算 MainLWLockArray 内偏移，且
+ * 本文件去包含 lock.h 或 bufmgr.h 会颠倒依赖。
  */
 
-/* Number of partitions of the shared buffer mapping hashtable */
+/* 共享缓冲区映射哈希表的分区数 */
 #define NUM_BUFFER_PARTITIONS  128
 
-/* Number of partitions the shared lock tables are divided into */
+/* 共享锁表划分成的分区数 */
 #define LOG2_NUM_LOCK_PARTITIONS  4
 #define NUM_LOCK_PARTITIONS  (1 << LOG2_NUM_LOCK_PARTITIONS)
 
-/* Number of partitions the shared predicate lock tables are divided into */
+/* 共享谓词锁表划分成的分区数 */
 #define LOG2_NUM_PREDICATELOCK_PARTITIONS  4
 #define NUM_PREDICATELOCK_PARTITIONS  (1 << LOG2_NUM_PREDICATELOCK_PARTITIONS)
 
-/* Offsets for various chunks of preallocated lwlocks. */
+/* 预分配 lwlock 各块的偏移。 */
 #define BUFFER_MAPPING_LWLOCK_OFFSET	NUM_INDIVIDUAL_LWLOCKS
 #define LOCK_MANAGER_LWLOCK_OFFSET		\
 	(BUFFER_MAPPING_LWLOCK_OFFSET + NUM_BUFFER_PARTITIONS)
@@ -115,9 +115,9 @@ typedef enum LWLockMode
 {
 	LW_EXCLUSIVE,
 	LW_SHARED,
-	LW_WAIT_UNTIL_FREE			/* A special mode used in PGPROC->lwWaitMode,
-								 * when waiting for lock to become free. Not
-								 * to be used as LWLockAcquire argument */
+	LW_WAIT_UNTIL_FREE			/* PGPROC->lwWaitMode 的特殊模式，
+								 * 在等待锁变为空闲时。切勿
+								 * 用作 LWLockAcquire 的参数 */
 } LWLockMode;
 
 
@@ -145,36 +145,36 @@ extern void InitLWLockAccess(void);
 extern const char *GetLWLockIdentifier(uint32 classId, uint16 eventId);
 
 /*
- * Extensions (or core code) can obtain an LWLocks by calling
- * RequestNamedLWLockTranche() during postmaster startup.  Subsequently,
- * call GetNamedLWLockTranche() to obtain a pointer to an array containing
- * the number of LWLocks requested.
+ * 扩展（或核心代码）可在 postmaster 启动期
+ * 间调用 RequestNamedLWLockTranche() 取得 LWLocks。随后
+ * 调用 GetNamedLWLockTranche() 取得指向数组的指针，其中含
+ * 所请求的 LWLock 数量。
  */
 extern void RequestNamedLWLockTranche(const char *tranche_name, int num_lwlocks);
 extern LWLockPadded *GetNamedLWLockTranche(const char *tranche_name);
 
 /*
- * There is another, more flexible method of obtaining lwlocks. First, call
- * LWLockNewTrancheId just once to obtain a tranche ID; this allocates from
- * a shared counter.  Next, each individual process using the tranche should
- * call LWLockRegisterTranche() to associate that tranche ID with a name.
- * Finally, LWLockInitialize should be called just once per lwlock, passing
- * the tranche ID as an argument.
+ * 另有更灵活的取得 lwlock 办法。先调用
+ * LWLockNewTrancheId 一次以取得 tranche ID；这从
+ * 共享计数器分配。随后，使用该 tranche 的每个进程应
+ * 调用 LWLockRegisterTranche() 把该 tranche ID 与名称关联。
+ * 最后，每个 lwlock 应恰好调用一次 LWLockInitialize，传入
+ * tranche ID 作为参数。
  *
- * It may seem strange that each process using the tranche must register it
- * separately, but dynamic shared memory segments aren't guaranteed to be
- * mapped at the same address in all coordinating backends, so storing the
- * registration in the main shared memory segment wouldn't work for that case.
+ * 每个使用该 tranche 的进程必须分别注册，看似奇怪，
+ * 但动态共享内存段不保证在所有协作后端中
+ * 映射到同一地址，故把注册信息存进主共享
+ * 内存段对该情形无效。
  */
 extern int	LWLockNewTrancheId(void);
 extern void LWLockRegisterTranche(int tranche_id, const char *tranche_name);
 extern void LWLockInitialize(LWLock *lock, int tranche_id);
 
 /*
- * Every tranche ID less than NUM_INDIVIDUAL_LWLOCKS is reserved; also,
- * we reserve additional tranche IDs for builtin tranches not included in
- * the set of individual LWLocks.  A call to LWLockNewTrancheId will never
- * return a value less than LWTRANCHE_FIRST_USER_DEFINED.
+ * 凡小于 NUM_INDIVIDUAL_LWLOCKS 的 tranche ID 均保留；另
+ * 为未列入单独 LWLocks 集合的内建 tranche 再保留
+ * tranche ID。调用 LWLockNewTrancheId 永远不会
+ * 返回小于 LWTRANCHE_FIRST_USER_DEFINED 的值。
  */
 typedef enum BuiltinTrancheIds
 {
@@ -211,9 +211,9 @@ typedef enum BuiltinTrancheIds
 }			BuiltinTrancheIds;
 
 /*
- * Prior to PostgreSQL 9.4, we used an enum type called LWLockId to refer
- * to LWLocks.  New code should instead use LWLock *.  However, for the
- * convenience of third-party code, we include the following typedef.
+ * PostgreSQL 9.4 之前，我们用名为 LWLockId 的枚举类型来指
+ * LWLocks。新代码应改用 LWLock *。但为方便
+ * 第三方代码，我们纳入以下 typedef。
  */
 typedef LWLock *LWLockId;
 

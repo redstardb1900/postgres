@@ -1,44 +1,44 @@
 /*-------------------------------------------------------------------------
  *
  * spin.h
- *	   Hardware-independent implementation of spinlocks.
+ *	   自旋锁的硬件无关实现。
  *
  *
- *	The hardware-independent interface to spinlocks is defined by the
- *	typedef "slock_t" and these macros:
+ *	自旋锁的硬件无关接口由
+ *	typedef "slock_t" 与这些宏：
  *
  *	void SpinLockInit(volatile slock_t *lock)
- *		Initialize a spinlock (to the unlocked state).
+ *		初始化自旋锁（至未锁定状态）。
  *
  *	void SpinLockAcquire(volatile slock_t *lock)
- *		Acquire a spinlock, waiting if necessary.
- *		Time out and abort() if unable to acquire the lock in a
- *		"reasonable" amount of time --- typically ~ 1 minute.
+ *		获取自旋锁，必要时等待。
+ *		若无法获取锁则超时并 abort()，时限为
+ *		"合理"时长 —— 通常约 1 分钟。
  *
  *	void SpinLockRelease(volatile slock_t *lock)
- *		Unlock a previously acquired lock.
+ *		解锁先前已获取的锁。
  *
  *	bool SpinLockFree(slock_t *lock)
- *		Tests if the lock is free. Returns true if free, false if locked.
- *		This does *not* change the state of the lock.
+ *		测试锁是否空闲。空闲则 true，已锁则 false。
+ *		这*不*改变锁的状态。
  *
- *	Callers must beware that the macro argument may be evaluated multiple
- *	times!
+ *	调用者必须注意宏参数可能被求值多
+ *	次！
  *
- *	Load and store operations in calling code are guaranteed not to be
- *	reordered with respect to these operations, because they include a
- *	compiler barrier.  (Before PostgreSQL 9.5, callers needed to use a
- *	volatile qualifier to access data protected by spinlocks.)
+ *	调用代码中的装入与存储操作保证不会相对
+ *	这些操作被重排，因为它们含有
+ *	编译器屏障。（PostgreSQL 9.5 之前，调用者需用
+ *	volatile 限定符访问自旋锁保护的数据。）
  *
- *	Keep in mind the coding rule that spinlocks must not be held for more
- *	than a few instructions.  In particular, we assume it is not possible
- *	for a CHECK_FOR_INTERRUPTS() to occur while holding a spinlock, and so
- *	it is not necessary to do HOLD/RESUME_INTERRUPTS() in these macros.
+ *	须记住编码规则：自旋锁切勿持有超过
+ *	少数几条指令。尤其假定持有自旋锁期间
+ *	不可能发生 CHECK_FOR_INTERRUPTS()，因而
+ *	这些宏中不必做 HOLD/RESUME_INTERRUPTS()。
  *
- *	These macros are implemented in terms of hardware-dependent macros
- *	supplied by s_lock.h.  There is not currently any extra functionality
- *	added by this header, but there has been in the past and may someday
- *	be again.
+ *	这些宏用 s_lock.h 提供的硬件相关宏来
+ *	实现。本头文件当前未加入额外功能，
+ *	但过去有过，将来某天可能
+ *	再有。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

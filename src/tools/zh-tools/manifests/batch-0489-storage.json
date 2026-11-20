@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0489",
+  "title": "include/storage lwlock.h+spin.h — batch 0489",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a8d7469b1ba771fb1129bc79eecb7b84df9c5a46",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/lwlock.h", "kind": "c_comment", "note": "0489"},
+    {"pattern": "src/include/storage/spin.h", "kind": "c_comment", "note": "0489"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0489-storage.json", "kind": "manifest", "note": "0489"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/lwlock.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 63,
+      "translated": 55,
+      "preserved": 8,
+      "preserved_reasons": ["横幅/文件名/版权/路径/tranche ID/#endif"],
+      "note": "轻量锁；缓存行；必须；切勿；谓词锁；LWLocks"
+    },
+    {
+      "path": "src/include/storage/spin.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 35,
+      "translated": 24,
+      "preserved": 11,
+      "preserved_reasons": ["横幅/文件名/版权/路径/API 签名/#endif"],
+      "note": "自旋锁；必须；切勿；无法；编译器屏障"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0489-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0489"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十一刀：lwlock.h+spin.h；轻量锁/自旋锁/缓存行/必须/切勿"
+}

@@ -1604,21 +1604,21 @@ table_finish_bulk_insert(Relation rel, int options)
 
 
 /* ------------------------------------------------------------------------
- * DDL related functionality.
+ * DDL 相关功能。
  * ------------------------------------------------------------------------
  */
 
 /*
- * Create storage for `rel` in `newrlocator`, with persistence set to
+ * 为 `rel` 在 `newrlocator` 创建存储，持久性设为 
  * `persistence`.
  *
- * This is used both during relation creation and various DDL operations to
- * create new rel storage that can be filled from scratch.  When creating
- * new storage for an existing relfilelocator, this should be called before the
- * relcache entry has been updated.
+ * 关系创建及各类 DDL 操作用本函数创建可从
+ * 零填充的新关系存储。为已有 relfilelocator
+ *  创建新存储时，应在 relcache 条目更新
+ * 之前调用。
  *
- * *freezeXid, *minmulti are set to the xid / multixact horizon for the table
- * that pg_class.{relfrozenxid, relminmxid} have to be set to.
+ * *freezeXid、*minmulti 设为该表 xid / multixact 
+ * 地平线，即 pg_class.{relfrozenxid, relminmxid}。
  */
 static inline void
 table_relation_set_new_filelocator(Relation rel,
@@ -1633,10 +1633,10 @@ table_relation_set_new_filelocator(Relation rel,
 }
 
 /*
- * Remove all table contents from `rel`, in a non-transactional manner.
- * Non-transactional meaning that there's no need to support rollbacks. This
- * commonly only is used to perform truncations for relation storage created in
- * the current transaction.
+ * 以非事务方式清除 `rel` 的全部表内容。
+ * 非事务指无须支持回滚。通常仅用于
+ * 截断当前事务中创建的
+ * 关系存储。
  */
 static inline void
 table_relation_nontransactional_truncate(Relation rel)
@@ -1645,10 +1645,10 @@ table_relation_nontransactional_truncate(Relation rel)
 }
 
 /*
- * Copy data from `rel` into the new relfilelocator `newrlocator`. The new
- * relfilelocator may not have storage associated before this function is
- * called. This is only supposed to be used for low level operations like
- * changing a relation's tablespace.
+ * 把 `rel` 的数据复制到新 relfilelocator 
+ * `newrlocator`。调用前新 relfilelocator 可尚未
+ * 关联存储。仅应用于改关系表空间
+ * 之类底层操作。
  */
 static inline void
 table_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
@@ -1657,25 +1657,25 @@ table_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
 }
 
 /*
- * Copy data from `OldTable` into `NewTable`, as part of a CLUSTER or VACUUM
+ * 把 `OldTable` 复制到 `NewTable`，属 CLUSTER 或 VACUUM 
  * FULL.
  *
- * Additional Input parameters:
- * - use_sort - if true, the table contents are sorted appropriate for
- *   `OldIndex`; if false and OldIndex is not InvalidOid, the data is copied
- *   in that index's order; if false and OldIndex is InvalidOid, no sorting is
- *   performed
- * - OldIndex - see use_sort
- * - OldestXmin - computed by vacuum_get_cutoffs(), even when
- *   not needed for the relation's AM
- * - *xid_cutoff - ditto
- * - *multi_cutoff - ditto
+ * 附加输入参数：
+ * - use_sort - 若为 true，表内容按适合 
+ * `OldIndex` 排序；若 false 且 OldIndex 非 InvalidOid
+ *  则按该索引序复制；false 且 InvalidOid 
+ * 不排序
+ * - OldIndex - 见 use_sort
+ * - OldestXmin - 由 vacuum_get_cutoffs() 计算，即使
+ * 对该关系 AM 尚不需要。
+ * - *xid_cutoff 同上
+ * - *multi_cutoff 同上
  *
- * Output parameters:
- * - *xid_cutoff - rel's new relfrozenxid value, may be invalid
- * - *multi_cutoff - rel's new relminmxid value, may be invalid
- * - *tups_vacuumed - stats, for logging, if appropriate for AM
- * - *tups_recently_dead - stats, for logging, if appropriate for AM
+ * 输出参数：
+ * - *xid_cutoff - 关系新 relfrozenxid，可为无效
+ * - *multi_cutoff - 关系新 relminmxid，可为无效
+ * - *tups_vacuumed - 统计，供日志，若 AM 适用
+ * - *tups_recently_dead - 统计，供日志，若 AM 适用
  */
 static inline void
 table_relation_copy_for_cluster(Relation OldTable, Relation NewTable,
@@ -1696,15 +1696,15 @@ table_relation_copy_for_cluster(Relation OldTable, Relation NewTable,
 }
 
 /*
- * Perform VACUUM on the relation. The VACUUM can be triggered by a user or by
- * autovacuum. The specific actions performed by the AM will depend heavily on
- * the individual AM.
+ * 响应关系上的 VACUUM 命令。VACUUM 可由用户
+ * 或 autovacuum 触发。AM 具体动作高度取决于
+ * 具体 AM。
  *
- * On entry a transaction needs to already been established, and the
- * table is locked with a ShareUpdateExclusive lock.
+ * 进入时事务已建立，关系已加上 
+ * ShareUpdateExclusive 锁。
  *
- * Note that neither VACUUM FULL (and CLUSTER), nor ANALYZE go through this
- * routine, even if (for ANALYZE) it is part of the same VACUUM command.
+ * 注意 VACUUM FULL（及 CLUSTER）与 ANALYZE 都不走
+ * 本例程，即使 ANALYZE 同属同一 VACUUM 命令。
  */
 static inline void
 table_relation_vacuum(Relation rel, struct VacuumParams *params,
@@ -1714,12 +1714,12 @@ table_relation_vacuum(Relation rel, struct VacuumParams *params,
 }
 
 /*
- * Prepare to analyze block `blockno` of `scan`. The scan needs to have been
- * started with table_beginscan_analyze().  Note that this routine might
- * acquire resources like locks that are held until
- * table_scan_analyze_next_tuple() returns false.
+ * 准备分析 `scan` 的块 `blockno`。扫描已由 
+ * table_beginscan_analyze() 启动。注意本例程可能
+ * 获取锁之类资源，持有到 
+ * table_scan_analyze_next_tuple() 返回 false
  *
- * Returns false if block is unsuitable for sampling, true otherwise.
+ * 块不适合抽样则返回 false，否则 true。
  */
 static inline bool
 table_scan_analyze_next_block(TableScanDesc scan, BlockNumber blockno,
@@ -1730,13 +1730,13 @@ table_scan_analyze_next_block(TableScanDesc scan, BlockNumber blockno,
 }
 
 /*
- * Iterate over tuples in the block selected with
- * table_scan_analyze_next_block() (which needs to have returned true, and
- * this routine may not have returned false for the same block before). If a
- * tuple that's suitable for sampling is found, true is returned and a tuple
- * is stored in `slot`.
+ * 迭代所选块中的元组，该块由 
+ * table_scan_analyze_next_block() 选出（须曾返回 
+ * true，且本例程尚未对同一块返回过 false）。若
+ * 找到适合抽样的元组，返回 true 并把元组
+ * 存入 `slot`。
  *
- * *liverows and *deadrows are incremented according to the encountered
+ * 按所遇元组递增 *liverows 与 *deadrows。
  * tuples.
  */
 static inline bool
@@ -1750,31 +1750,31 @@ table_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
 }
 
 /*
- * table_index_build_scan - scan the table to find tuples to be indexed
+ * table_index_build_scan - 扫描表以找待编入索引的元组
  *
- * This is called back from an access-method-specific index build procedure
- * after the AM has done whatever setup it needs.  The parent table relation
- * is scanned to find tuples that should be entered into the index.  Each
- * such tuple is passed to the AM's callback routine, which does the right
- * things to add it to the new index.  After we return, the AM's index
- * build procedure does whatever cleanup it needs.
+ * 由访问方法专用的索引构建过程在 AM 做完
+ * 所需设置后回调。扫描父表关系以找出应
+ * 进入索引的元组。每个这样的元组交给 AM 的
+ * 回调例程，由它把该元组加入新索引。返回后 
+ * AM 的索引构建过程再做所需
+ * 清理。
  *
- * The total count of live tuples is returned.  This is for updating pg_class
- * statistics.  (It's annoying not to be able to do that here, but we want to
- * merge that update with others; see index_update_stats.)  Note that the
- * index AM itself must keep track of the number of index tuples; we don't do
- * so here because the AM might reject some of the tuples for its own reasons,
- * such as being unable to store NULLs.
+ * 返回活元组总数，用于更新 pg_class 
+ * 统计。（讨厌不能在此更新，但我们想与其他
+ * 更新合并；见 index_update_stats。）注意索引 
+ * AM 必须自行跟踪索引元组数；我们不在此做，
+ * 因为 AM 可能因自身原因拒绝部分元组，例如
+ * 无法存储 NULLs。
  *
- * If 'progress', the PROGRESS_SCAN_BLOCKS_TOTAL counter is updated when
- * starting the scan, and PROGRESS_SCAN_BLOCKS_DONE is updated as we go along.
+ * 若 'progress'，开始扫描时更新 PROGRESS_SCAN_BLOCKS_TOTAL 
+ * 计数器，过程中更新 PROGRESS_SCAN_BLOCKS_DONE。
  *
- * A side effect is to set indexInfo->ii_BrokenHotChain to true if we detect
- * any potentially broken HOT chains.  Currently, we set this if there are any
- * RECENTLY_DEAD or DELETE_IN_PROGRESS entries in a HOT chain, without trying
- * very hard to detect whether they're really incompatible with the chain tip.
- * This only really makes sense for heap AM, it might need to be generalized
- * for other AMs later.
+ * 副作用：若检测到可能断裂的 HOT 链，则把 
+ * indexInfo->ii_BrokenHotChain 设为 true。当前若 HOT 
+ * 链中有 RECENTLY_DEAD 或 DELETE_IN_PROGRESS 项，并不
+ * 费力判定它们是否真与链尖不相容。
+ * 这其实只对堆 AM 有意义，日后或须推广到
+ * 其他 AM。
  */
 static inline double
 table_index_build_scan(Relation table_rel,
@@ -1800,14 +1800,14 @@ table_index_build_scan(Relation table_rel,
 }
 
 /*
- * As table_index_build_scan(), except that instead of scanning the complete
- * table, only the given number of blocks are scanned.  Scan to end-of-rel can
- * be signaled by passing InvalidBlockNumber as numblocks.  Note that
- * restricting the range to scan cannot be done when requesting syncscan.
+ * 类似 table_index_build_scan()，但只扫描给定
+ * 块数，而非整表。扫描至关系末尾可把 
+ * numblocks 设为 InvalidBlockNumber。注意请求 
+ * syncscan 时无法限制扫描范围。
  *
- * When "anyvisible" mode is requested, all tuples visible to any transaction
- * are indexed and counted as live, including those inserted or deleted by
- * transactions that are still in progress.
+ * 若请求 "anyvisible" 模式，则任何事务可见的元组
+ * 都编入索引并计为活元组，包括仍在进行中的
+ * 事务插入或删除的元组。
  */
 static inline double
 table_index_build_range_scan(Relation table_rel,
@@ -1836,9 +1836,9 @@ table_index_build_range_scan(Relation table_rel,
 }
 
 /*
- * table_index_validate_scan - second table scan for concurrent index build
+ * table_index_validate_scan - 并发建索引的第二次表扫描
  *
- * See validate_index() for an explanation.
+ * 解释见 validate_index()。
  */
 static inline void
 table_index_validate_scan(Relation table_rel,
@@ -1856,18 +1856,18 @@ table_index_validate_scan(Relation table_rel,
 
 
 /* ----------------------------------------------------------------------------
- * Miscellaneous functionality
+ * 杂项函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Return the current size of `rel` in bytes. If `forkNumber` is
- * InvalidForkNumber, return the relation's overall size, otherwise the size
- * for the indicated fork.
+ * 返回 `rel` 当前大小（字节）。若 `forkNumber` 为 
+ * InvalidForkNumber，返回关系总体大小，否则返回
+ * 所指分支大小。
  *
- * Note that the overall size might not be the equivalent of the sum of sizes
- * for the individual forks for some AMs, e.g. because the AMs storage does
- * not neatly map onto the builtin types of forks.
+ * 注意对某些 AM，总体大小未必等于各分支
+ * 大小之和，例如因其存储不能整齐映射到
+ * 内建分支类型。
  */
 static inline uint64
 table_relation_size(Relation rel, ForkNumber forkNumber)
@@ -1876,7 +1876,7 @@ table_relation_size(Relation rel, ForkNumber forkNumber)
 }
 
 /*
- * table_relation_needs_toast_table - does this relation need a toast table?
+ * table_relation_needs_toast_table - 该关系需要 TOAST 表吗？
  */
 static inline bool
 table_relation_needs_toast_table(Relation rel)
@@ -1885,8 +1885,8 @@ table_relation_needs_toast_table(Relation rel)
 }
 
 /*
- * Return the OID of the AM that should be used to implement the TOAST table
- * for this relation.
+ * 返回实现本关系 TOAST 表所应使用的 AM 的 
+ * OID。
  */
 static inline Oid
 table_relation_toast_am(Relation rel)
@@ -1895,27 +1895,27 @@ table_relation_toast_am(Relation rel)
 }
 
 /*
- * Fetch all or part of a TOAST value from a TOAST table.
+ * 从 TOAST 表取 TOAST 值的全部或部分。
  *
- * If this AM is never used to implement a TOAST table, then this callback
- * is not needed. But, if toasted values are ever stored in a table of this
- * type, then you will need this callback.
+ * 若本 AM 从不用于实现 TOAST 表，则不需要本
+ * 回调。但若本类型表中曾存放 toast 值，则
+ * 需要本回调。
  *
- * toastrel is the relation in which the toasted value is stored.
+ * toastrel 是存放 toast 值的关系。
  *
- * valueid identifies which toast value is to be fetched. For the heap,
- * this corresponds to the values stored in the chunk_id column.
+ * valueid 标识要取哪个 toast 值。对堆而言对应 
+ * chunk_id 列中存放的值。
  *
- * attrsize is the total size of the toast value to be fetched.
+ * attrsize 是要取的 toast 值总大小。
  *
- * sliceoffset is the offset within the toast value of the first byte that
- * should be fetched.
+ * sliceoffset 是 toast 值中应取出的第一字节
+ * 的偏移。
  *
- * slicelength is the number of bytes from the toast value that should be
+ * slicelength 是应从 toast 值取出的字节数。
  * fetched.
  *
- * result is caller-allocated space into which the fetched bytes should be
- * stored.
+ * result 是调用方分配的空间，取出的字节应
+ * 存入
  */
 static inline void
 table_relation_fetch_toast_slice(Relation toastrel, Oid valueid,
@@ -1930,13 +1930,13 @@ table_relation_fetch_toast_slice(Relation toastrel, Oid valueid,
 
 
 /* ----------------------------------------------------------------------------
- * Planner related functionality
+ * 规划器相关函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Estimate the current size of the relation, as an AM specific workhorse for
- * estimate_rel_size(). Look there for an explanation of the parameters.
+ * 估算关系当前大小，作为 estimate_rel_size() 
+ * 的 AM 专用实现。参数说明见该函数。
  */
 static inline void
 table_relation_estimate_size(Relation rel, int32 *attr_widths,
@@ -1949,27 +1949,27 @@ table_relation_estimate_size(Relation rel, int32 *attr_widths,
 
 
 /* ----------------------------------------------------------------------------
- * Executor related functionality
+ * 执行器相关函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Prepare to fetch / check / return tuples from `tbmres->blockno` as part of
- * a bitmap table scan. `scan` needs to have been started via
- * table_beginscan_bm(). Returns false if there are no tuples to be found on
- * the page, true otherwise.
+ * 准备从 `tbmres->blockno` 取/检查/返回元组，作为
+ * 位图表扫描之一。`scan` 须已由 
+ * table_beginscan_bm() 启动。页上无元组则返回 
+ * false，有则 true。
  *
- * Note, this is an optionally implemented function, therefore should only be
- * used after verifying the presence (at plan time or such).
+ * 注意：本函数为可选实现，因此仅应在
+ * 核实其存在后使用（如规划时）。
  */
 static inline bool
 table_scan_bitmap_next_block(TableScanDesc scan,
 							 struct TBMIterateResult *tbmres)
 {
 	/*
-	 * We don't expect direct calls to table_scan_bitmap_next_block with valid
-	 * CheckXidAlive for catalog or regular tables.  See detailed comments in
-	 * xact.c where these variables are declared.
+	 * 不预期直接调用 table_scan_bitmap_next_block 且带
+	 * 有效 CheckXidAlive 用于目录表或普通表。详见 
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_scan_bitmap_next_block call during logical decoding");
@@ -1979,12 +1979,12 @@ table_scan_bitmap_next_block(TableScanDesc scan,
 }
 
 /*
- * Fetch the next tuple of a bitmap table scan into `slot` and return true if
- * a visible tuple was found, false otherwise.
- * table_scan_bitmap_next_block() needs to previously have selected a
- * block (i.e. returned true), and no previous
- * table_scan_bitmap_next_tuple() for the same block may have
- * returned false.
+ * 把位图表扫描的下一元组取入 `slot`，若找到
+ * 可见元组则 true，否则 false。
+ * 须先前由 table_scan_bitmap_next_block() 选出
+ * 一块（即返回 true），且此前无 
+ * table_scan_bitmap_next_tuple() 对同一块
+ * 返回 false。
  */
 static inline bool
 table_scan_bitmap_next_tuple(TableScanDesc scan,
@@ -1992,9 +1992,9 @@ table_scan_bitmap_next_tuple(TableScanDesc scan,
 							 TupleTableSlot *slot)
 {
 	/*
-	 * We don't expect direct calls to table_scan_bitmap_next_tuple with valid
-	 * CheckXidAlive for catalog or regular tables.  See detailed comments in
-	 * xact.c where these variables are declared.
+	 * 不预期直接调用 table_scan_bitmap_next_tuple 且带
+	 * 有效 CheckXidAlive 用于目录表或普通表。详见 
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_scan_bitmap_next_tuple call during logical decoding");
@@ -2005,22 +2005,22 @@ table_scan_bitmap_next_tuple(TableScanDesc scan,
 }
 
 /*
- * Prepare to fetch tuples from the next block in a sample scan. Returns false
- * if the sample scan is finished, true otherwise. `scan` needs to have been
- * started via table_beginscan_sampling().
+ * 准备从抽样扫描的下一块取元组。若抽样扫描
+ * 已结束则返回 false，否则 true。`scan` 须已由 
+ * table_beginscan_sampling() 启动。
  *
- * This will call the TsmRoutine's NextSampleBlock() callback if necessary
- * (i.e. NextSampleBlock is not NULL), or perform a sequential scan over the
- * underlying relation.
+ * 必要时调用 TsmRoutine 的 NextSampleBlock() 
+ * 回调（若 NextSampleBlock 非 NULL），否则对底层关系做
+ * 顺序扫描。
  */
 static inline bool
 table_scan_sample_next_block(TableScanDesc scan,
 							 struct SampleScanState *scanstate)
 {
 	/*
-	 * We don't expect direct calls to table_scan_sample_next_block with valid
-	 * CheckXidAlive for catalog or regular tables.  See detailed comments in
-	 * xact.c where these variables are declared.
+	 * 不预期直接调用 table_scan_sample_next_block 且带
+	 * 有效 CheckXidAlive 用于目录表或普通表。详见 
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_scan_sample_next_block call during logical decoding");
@@ -2028,12 +2028,12 @@ table_scan_sample_next_block(TableScanDesc scan,
 }
 
 /*
- * Fetch the next sample tuple into `slot` and return true if a visible tuple
- * was found, false otherwise. table_scan_sample_next_block() needs to
- * previously have selected a block (i.e. returned true), and no previous
- * table_scan_sample_next_tuple() for the same block may have returned false.
+ * 把下一个抽样元组取入 `slot`，若找到可见元组
+ * 则返回 true，否则 false。须先前由 
+ * table_scan_sample_next_block() 选出一块（返回 
+ * true），同块上 table_scan_sample_next_tuple() 未返回 false。
  *
- * This will call the TsmRoutine's NextSampleTuple() callback.
+ * 这将调用 TsmRoutine 的 NextSampleTuple() 回调。
  */
 static inline bool
 table_scan_sample_next_tuple(TableScanDesc scan,
@@ -2041,9 +2041,9 @@ table_scan_sample_next_tuple(TableScanDesc scan,
 							 TupleTableSlot *slot)
 {
 	/*
-	 * We don't expect direct calls to table_scan_sample_next_tuple with valid
-	 * CheckXidAlive for catalog or regular tables.  See detailed comments in
-	 * xact.c where these variables are declared.
+	 * 不预期直接调用 table_scan_sample_next_tuple 且带
+	 * 有效 CheckXidAlive 用于目录表或普通表。详见 
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_scan_sample_next_tuple call during logical decoding");
@@ -2053,7 +2053,7 @@ table_scan_sample_next_tuple(TableScanDesc scan,
 
 
 /* ----------------------------------------------------------------------------
- * Functions to make modifications a bit simpler.
+ * 让修改稍简便些的函数。
  * ----------------------------------------------------------------------------
  */
 
@@ -2066,7 +2066,7 @@ extern void simple_table_tuple_update(Relation rel, ItemPointer otid,
 
 
 /* ----------------------------------------------------------------------------
- * Helper functions to implement parallel scans for block oriented AMs.
+ * 为面向块的表 AM 实现并行扫描的辅助函数。
  * ----------------------------------------------------------------------------
  */
 
@@ -2084,7 +2084,7 @@ extern void table_block_parallelscan_startblock_init(Relation rel,
 
 
 /* ----------------------------------------------------------------------------
- * Helper functions to implement relation sizing for block oriented AMs.
+ * 为面向块的表 AM 实现关系大小计算的辅助函数。
  * ----------------------------------------------------------------------------
  */
 
@@ -2098,7 +2098,7 @@ extern void table_block_relation_estimate_size(Relation rel,
 											   Size usable_bytes_per_page);
 
 /* ----------------------------------------------------------------------------
- * Functions in tableamapi.c
+ * tableamapi.c 中函数
  * ----------------------------------------------------------------------------
  */
 

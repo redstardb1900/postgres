@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0477",
+  "title": "tableam.h DDL/VACUUM 余部注释翻译 — batch 0477",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "b8092d71169eb0a03f343e6cbd1e3330dcae7621",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "note": "0477"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0477-tableam.json",
+      "kind": "manifest",
+      "note": "0477"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 831,
+      "translated": 146,
+      "preserved": 685,
+      "preserved_reasons": [
+        "0473–0476 已译 KEEP；横幅破折；L1613/L1661/L1740/L1915 短续行；L2108 TABLEAM_H"
+      ],
+      "note": "batch-0477 第五刀 B155–B186 DDL/VACUUM/ANALYZE/TOAST/规划执行余部"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0477-tableam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0477"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "表访问方法第五刀收束；DDL 相关功能/杂项函数对齐 0474；面向块并行扫描对齐 tableam.c；VACUUM FULL（及 CLUSTER）"
+}

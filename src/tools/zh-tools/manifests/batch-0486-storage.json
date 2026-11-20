@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0486",
+  "title": "include/storage dsm_impl.h+fd.h 动态共享内存原语与虚拟 FD — batch 0486",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9db1f7778d12efb6d1fa3a92941d9ab3c1a7992c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/dsm_impl.h", "kind": "c_comment", "note": "0486"},
+    {"pattern": "src/include/storage/fd.h", "kind": "c_comment", "note": "0486"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0486-storage.json", "kind": "manifest", "note": "0486"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/dsm_impl.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 20,
+      "translated": 12,
+      "preserved": 8,
+      "preserved_reasons": ["横幅/文件名/版权/路径/GUC./#endif"],
+      "note": "动态共享内存底层原语；哨兵；附着/脱离"
+    },
+    {
+      "path": "src/include/storage/fd.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 52,
+      "translated": 42,
+      "preserved": 10,
+      "preserved_reasons": ["横幅/文件名/版权/路径/calls:/PathNameOpenFile 样例/#endif"],
+      "note": "虚拟文件描述符；切勿/无法；内核 FD"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0486-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0486"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第八刀：dsm_impl.h+fd.h；必须/无法/切勿；崩溃恢复/哨兵/内核文件描述符"
+}

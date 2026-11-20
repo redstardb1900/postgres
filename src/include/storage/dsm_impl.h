@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dsm_impl.h
- *	  low-level dynamic shared memory primitives
+ *	  动态共享内存底层原语。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,15 +13,15 @@
 #ifndef DSM_IMPL_H
 #define DSM_IMPL_H
 
-/* Dynamic shared memory implementations. */
+/* 动态共享内存实现。 */
 #define DSM_IMPL_POSIX			1
 #define DSM_IMPL_SYSV			2
 #define DSM_IMPL_WINDOWS		3
 #define DSM_IMPL_MMAP			4
 
 /*
- * Determine which dynamic shared memory implementations will be supported
- * on this platform, and which one will be the default.
+ * 确定本平台将支持哪些动态共享内存实现，
+ * 以及以哪一个为默认。
  */
 #ifdef WIN32
 #define USE_DSM_WINDOWS
@@ -43,21 +43,21 @@ extern PGDLLIMPORT int dynamic_shared_memory_type;
 extern PGDLLIMPORT int min_dynamic_shared_memory;
 
 /*
- * Directory for on-disk state.
+ * 磁盘状态所用目录。
  *
- * This is used by all implementations for crash recovery and by the mmap
- * implementation for storage.
+ * 所有实现用于崩溃恢复，mmap 实现还
+ * 用于存储。
  */
 #define PG_DYNSHMEM_DIR					"pg_dynshmem"
 #define PG_DYNSHMEM_MMAP_FILE_PREFIX	"mmap."
 
-/* A "name" for a dynamic shared memory segment. */
+/* 动态共享内存段的"名称"。 */
 typedef uint32 dsm_handle;
 
-/* Sentinel value to use for invalid DSM handles. */
+/* 无效 DSM 句柄所用哨兵值。 */
 #define DSM_HANDLE_INVALID ((dsm_handle) 0)
 
-/* All the shared-memory operations we know about. */
+/* 我们所知的全部共享内存操作。 */
 typedef enum
 {
 	DSM_OP_CREATE,
@@ -66,12 +66,12 @@ typedef enum
 	DSM_OP_DESTROY
 } dsm_op;
 
-/* Create, attach to, detach from, resize, or destroy a segment. */
+/* 创建、附着、脱离、调整大小或销毁一段。 */
 extern bool dsm_impl_op(dsm_op op, dsm_handle handle, Size request_size,
 						void **impl_private, void **mapped_address, Size *mapped_size,
 						int elevel);
 
-/* Implementation-dependent actions required to keep segment until shutdown. */
+/* 关停前保持该段所需的实现相关动作。 */
 extern void dsm_impl_pin_segment(dsm_handle handle, void *impl_private,
 								 void **impl_private_pm_handle);
 extern void dsm_impl_unpin_segment(dsm_handle handle, void **impl_private);

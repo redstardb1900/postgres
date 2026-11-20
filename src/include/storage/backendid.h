@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * backendid.h
- *	  POSTGRES backend id communication definitions
+ *	  POSTGRES 后端 ID 通信定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,18 +18,18 @@
  *		-cim 8/17/90
  * ----------------
  */
-typedef int BackendId;			/* unique currently active backend identifier */
+typedef int BackendId;			/* 当前活动后端的唯一标识 */
 
 #define InvalidBackendId		(-1)
 
-extern PGDLLIMPORT BackendId MyBackendId;	/* backend id of this backend */
+extern PGDLLIMPORT BackendId MyBackendId;	/* 本后端的后端 ID */
 
-/* backend id of our parallel session leader, or InvalidBackendId if none */
+/* 并行会话领导者的后端 ID，若无则为 InvalidBackendId */
 extern PGDLLIMPORT BackendId ParallelLeaderBackendId;
 
 /*
- * The BackendId to use for our session's temp relations is normally our own,
- * but parallel workers should use their leader's ID.
+ * 本会话临时关系所用 BackendId 通常为我们自己的，
+ * 但并行工作进程应使用其领导者 ID。
  */
 #define BackendIdForTempRelations() \
 	(ParallelLeaderBackendId == InvalidBackendId ? MyBackendId : ParallelLeaderBackendId)

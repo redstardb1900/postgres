@@ -1,19 +1,19 @@
 /*-------------------------------------------------------------------------
  *
  * buffile.h
- *	  Management of large buffered temporary files.
+ *	  大型缓冲临时文件的管理。
  *
- * The BufFile routines provide a partial replacement for stdio atop
- * virtual file descriptors managed by fd.c.  Currently they only support
- * buffered access to a virtual file, without any of stdio's formatting
- * features.  That's enough for immediate needs, but the set of facilities
- * could be expanded if necessary.
+ * BufFile 例程提供 stdio 的部分替代，位于
+ * fd.c 所管虚拟文件描述符之上。目前仅支持
+ * 对虚拟文件的缓冲访问，不含 stdio 的格式化
+ * 功能。这已够眼前所需，但设施集
+ * 必要时可扩充。
  *
- * BufFile also supports working with temporary files that exceed the OS
- * file size limit and/or the largest offset representable in an int.
- * It might be better to split that out as a separately accessible module,
- * but currently we have no need for oversize temp files without buffered
- * access.
+ * BufFile 也支持处理超出 OS 文件大小限制及/或
+ * int 所能表示最大偏移的临时文件。
+ * 把这部分拆成可单独访问的模块或许更好，
+ * 但目前无需不带缓冲访问的超大临时
+ * 文件.
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,12 +28,12 @@
 
 #include "storage/fileset.h"
 
-/* BufFile is an opaque type whose details are not known outside buffile.c. */
+/* BufFile 是不透明类型，细节在 buffile.c 外不可知。 */
 
 typedef struct BufFile BufFile;
 
 /*
- * prototypes for functions in buffile.c
+ * buffile.c 中函数原型
  */
 
 extern BufFile *BufFileCreateTemp(bool interXact);

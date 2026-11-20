@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0484",
+  "title": "include/storage 小头 backendid/barrier/checksum/copydir/buffile — batch 0484",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d2222e207757e2a547e1e3d0c562333f0a628713",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/backendid.h", "kind": "c_comment", "note": "0484"},
+    {"pattern": "src/include/storage/barrier.h", "kind": "c_comment", "note": "0484"},
+    {"pattern": "src/include/storage/checksum.h", "kind": "c_comment", "note": "0484"},
+    {"pattern": "src/include/storage/copydir.h", "kind": "c_comment", "note": "0484"},
+    {"pattern": "src/include/storage/buffile.h", "kind": "c_comment", "note": "0484"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0484-storage.json", "kind": "manifest", "note": "0484"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/backendid.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 16,
+      "translated": 6,
+      "preserved": 10,
+      "preserved_reasons": ["横幅/文件名/版权/路径/-cim 日期/#endif"],
+      "note": "后端 ID；临时关系；并行工作进程"
+    },
+    {
+      "path": "src/include/storage/barrier.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 10,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "屏障/编译器屏障/内存屏障；参与者"
+    },
+    {
+      "path": "src/include/storage/checksum.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 3,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "校验和；必须对齐"
+    },
+    {
+      "path": "src/include/storage/copydir.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "复制目录"
+    },
+    {
+      "path": "src/include/storage/buffile.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 20,
+      "translated": 13,
+      "preserved": 7,
+      "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+      "note": "不透明类型；虚拟文件描述符；L16 文件. ASCII 句点"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0484-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0484"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第六刀：五个小头；必须/切勿未出现；后端 ID/校验和/屏障/不透明类型"
+}

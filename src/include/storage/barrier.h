@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * barrier.h
- *	  Barriers for synchronizing cooperating processes.
+ *	  用于同步协作进程的屏障。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -14,9 +14,9 @@
 #define BARRIER_H
 
 /*
- * For the header previously known as "barrier.h", please include
- * "port/atomics.h", which deals with atomics, compiler barriers and memory
- * barriers.
+ * 先前称为 "barrier.h" 的头请改含 "port/atomics.h"，
+ * 其中处理原子、编译器屏障与内存
+ * 屏障。
  */
 
 #include "storage/condition_variable.h"
@@ -25,12 +25,12 @@
 typedef struct Barrier
 {
 	slock_t		mutex;
-	int			phase;			/* phase counter */
-	int			participants;	/* the number of participants attached */
-	int			arrived;		/* the number of participants that have
-								 * arrived */
-	int			elected;		/* highest phase elected */
-	bool		static_party;	/* used only for assertions */
+	int			phase;			/* 阶段计数 */
+	int			participants;	/* 已附着的参与者数目 */
+	int			arrived;		/* 已到达的参与者
+								 * 数目 */
+	int			elected;		/* 已选最高阶段 */
+	bool		static_party;	/* 仅用于断言 */
 	ConditionVariable condition_variable;
 } Barrier;
 

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0481",
+  "title": "include/storage bufmgr.h 缓冲管理器 — batch 0481",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "837beddf42d6d04ab0acaad7d1891b84fee95986",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/bufmgr.h", "kind": "c_comment", "note": "0481"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0481-storage.json", "kind": "manifest", "note": "0481"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/bufmgr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 104,
+      "translated": 81,
+      "preserved": 23,
+      "preserved_reasons": ["横幅/文件名/版权/路径/VACUUM/in *.c 预算/函数名/Note:/#endif", "B3 L35-36 closer 仅 3B"],
+      "note": "钉住/访问排他锁/分支/本地缓冲区"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0481-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0481"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第三刀：bufmgr.h；钉住/切勿/当且仅当；B3 KEEP closer 3B；snapshot too old 保留 errmsg"
+}

@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * lockdefs.h
- *	   Frontend exposed parts of postgres' low level lock mechanism
+ *	   面向前端的 postgres 低层锁机制部分。
  *
- * The split between lockdefs.h and lock.h is not very principled. This file
- * contains definition that have to (indirectly) be available when included by
- * FRONTEND code.
+ * lockdefs.h 与 lock.h 的拆分不很原则。本文件含
+ * 被 FRONTEND 代码包含时必须（间接）可用的
+ * 定义。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,19 +18,19 @@
 #define LOCKDEFS_H_
 
 /*
- * LOCKMODE is an integer (1..N) indicating a lock type.  LOCKMASK is a bit
- * mask indicating a set of held or requested lock types (the bit 1<<mode
- * corresponds to a particular lock mode).
+ * LOCKMODE 是整数 (1..N)，表示锁类型。LOCKMASK 是位
+ * 掩码，表示一组已持有或已请求的锁类型（位 1<<mode
+ * 对应某一锁模式）。
  */
 typedef int LOCKMASK;
 typedef int LOCKMODE;
 
 /*
- * These are the valid values of type LOCKMODE for all the standard lock
- * methods (both DEFAULT and USER).
+ * 以下为所有标准锁方法（DEFAULT 与 USER）的
+ * 合法 LOCKMODE 值。
  */
 
-/* NoLock is not a lock mode, but a flag value meaning "don't get a lock" */
+/* NoLock 不是锁模式，而是表示"不取锁"的标志值 */
 #define NoLock					0
 
 #define AccessShareLock			1	/* SELECT */
@@ -45,17 +45,17 @@ typedef int LOCKMODE;
 #define AccessExclusiveLock		8	/* ALTER TABLE, DROP TABLE, VACUUM FULL,
 									 * and unqualified LOCK TABLE */
 
-#define MaxLockMode				8	/* highest standard lock mode */
+#define MaxLockMode				8	/* 最高标准锁模式 */
 
 /* See README.tuplock section "Locking to write inplace-updated tables" */
 #define InplaceUpdateTupleLock ExclusiveLock
 
-/* WAL representation of an AccessExclusiveLock on a table */
+/* WAL 中表上 AccessExclusiveLock 的表示 */
 typedef struct xl_standby_lock
 {
-	TransactionId xid;			/* xid of holder of AccessExclusiveLock */
-	Oid			dbOid;			/* DB containing table */
-	Oid			relOid;			/* OID of table */
+	TransactionId xid;			/* 持有 AccessExclusiveLock 的 xid */
+	Oid			dbOid;			/* 含该表的 DB */
+	Oid			relOid;			/* 表的 OID */
 } xl_standby_lock;
 
 #endif							/* LOCKDEFS_H_ */

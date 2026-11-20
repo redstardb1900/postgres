@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * pg_sema.h
- *	  Platform-independent API for semaphores.
+ *	  信号量的平台无关 API。
  *
- * PostgreSQL requires counting semaphores (the kind that keep track of
- * multiple unlock operations, and will allow an equal number of subsequent
- * lock operations before blocking).  The underlying implementation is
- * not the same on every platform.  This file defines the API that must
- * be provided by each port.
+ * PostgreSQL 需要计数信号量（跟踪多次 unlock，并允许
+ * 随后同等次数的 lock 操作才阻塞）。底层实现
+ * 并非各平台相同。本文件定义该 API，必须
+ * 由每个移植
+ * 提供。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,14 +21,14 @@
 #define PG_SEMA_H
 
 /*
- * struct PGSemaphoreData and pointer type PGSemaphore are the data structure
- * representing an individual semaphore.  The contents of PGSemaphoreData vary
- * across implementations and must never be touched by platform-independent
- * code; hence, PGSemaphoreData is declared as an opaque struct here.
+ * struct PGSemaphoreData 与指针类型 PGSemaphore 是表示
+ * 单个信号量的数据结构。PGSemaphoreData 内容随实现
+ * 而异，平台无关代码切勿触碰；故此处把
+ * PGSemaphoreData 声明为不透明结构。
  *
- * However, Windows is sufficiently unlike our other ports that it doesn't
- * seem worth insisting on ABI compatibility for Windows too.  Hence, on
- * that platform just define PGSemaphore as HANDLE.
+ * 然而 Windows 与其他移植差异够大，似乎不值得
+ * 对 Windows 也坚持 ABI 兼容。故在该平台上直接
+ * 把 PGSemaphore 定义为 HANDLE。
  */
 #ifndef USE_WIN32_SEMAPHORES
 typedef struct PGSemaphoreData *PGSemaphore;
@@ -37,25 +37,25 @@ typedef HANDLE PGSemaphore;
 #endif
 
 
-/* Report amount of shared memory needed */
+/* 报告所需共享内存量 */
 extern Size PGSemaphoreShmemSize(int maxSemas);
 
-/* Module initialization (called during postmaster start or shmem reinit) */
+/* 模块初始化（postmaster 启动或 shmem 重初始化时调用） */
 extern void PGReserveSemaphores(int maxSemas);
 
-/* Allocate a PGSemaphore structure with initial count 1 */
+/* 分配初始计数为 1 的 PGSemaphore 结构 */
 extern PGSemaphore PGSemaphoreCreate(void);
 
-/* Reset a previously-initialized PGSemaphore to have count 0 */
+/* 把先前已初始化的 PGSemaphore 复位为计数 0 */
 extern void PGSemaphoreReset(PGSemaphore sema);
 
-/* Lock a semaphore (decrement count), blocking if count would be < 0 */
+/* 锁信号量（递减计数），若计数将 < 0 则阻塞 */
 extern void PGSemaphoreLock(PGSemaphore sema);
 
-/* Unlock a semaphore (increment count) */
+/* 解锁信号量（递增计数） */
 extern void PGSemaphoreUnlock(PGSemaphore sema);
 
-/* Lock a semaphore only if able to do so without blocking */
+/* 仅当能不阻塞时才锁信号量 */
 extern bool PGSemaphoreTryLock(PGSemaphore sema);
 
 #endif							/* PG_SEMA_H */

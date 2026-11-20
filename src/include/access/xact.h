@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xact.h
- *	  postgres transaction system definitions
+ *	postgres 事务系统定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,15 +23,15 @@
 #include "storage/sinval.h"
 
 /*
- * Maximum size of Global Transaction ID (including '\0').
+ * 全局事务 ID 的最大长度（含 '\0'）。
  *
- * Note that the max value of GIDSIZE must fit in the uint16 gidlen,
- * specified in TwoPhaseFileHeader.
+ * 注意 GIDSIZE 最大值必须装得进 uint16 gidlen，
+ * 见 TwoPhaseFileHeader。
  */
 #define GIDSIZE 200
 
 /*
- * Xact isolation levels
+ * 事务隔离级别
  */
 #define XACT_READ_UNCOMMITTED	0
 #define XACT_READ_COMMITTED		1
@@ -42,86 +42,86 @@ extern PGDLLIMPORT int DefaultXactIsoLevel;
 extern PGDLLIMPORT int XactIsoLevel;
 
 /*
- * We implement three isolation levels internally.
- * The two stronger ones use one snapshot per database transaction;
- * the others use one snapshot per statement.
- * Serializable uses predicate locks in addition to snapshots.
- * These macros should be used to check which isolation level is selected.
+ * 内部实现三种隔离级别。
+ * 较强的两级每个数据库事务用一份快照；
+ * 其余每条语句一份快照。
+ * 可串行化除快照外还用谓词锁。
+ * 检查所选隔离级别应使用这些宏。
  */
 #define IsolationUsesXactSnapshot() (XactIsoLevel >= XACT_REPEATABLE_READ)
 #define IsolationIsSerializable() (XactIsoLevel == XACT_SERIALIZABLE)
 
-/* Xact read-only state */
+/* 事务只读状态 */
 extern PGDLLIMPORT bool DefaultXactReadOnly;
 extern PGDLLIMPORT bool XactReadOnly;
 
-/* flag for logging statements in this transaction */
+/* 本事务中记录语句的标志 */
 extern PGDLLIMPORT bool xact_is_sampled;
 
 /*
- * Xact is deferrable -- only meaningful (currently) for read only
- * SERIALIZABLE transactions
+ * 事务可延迟——目前仅对只读有意义：
+ * SERIALIZABLE 事务
  */
 extern PGDLLIMPORT bool DefaultXactDeferrable;
 extern PGDLLIMPORT bool XactDeferrable;
 
 typedef enum
 {
-	SYNCHRONOUS_COMMIT_OFF,		/* asynchronous commit */
-	SYNCHRONOUS_COMMIT_LOCAL_FLUSH, /* wait for local flush only */
-	SYNCHRONOUS_COMMIT_REMOTE_WRITE,	/* wait for local flush and remote
-										 * write */
-	SYNCHRONOUS_COMMIT_REMOTE_FLUSH,	/* wait for local and remote flush */
-	SYNCHRONOUS_COMMIT_REMOTE_APPLY /* wait for local and remote flush and
-									 * remote apply */
+	SYNCHRONOUS_COMMIT_OFF,		/* 异步提交 */
+	SYNCHRONOUS_COMMIT_LOCAL_FLUSH, /* 仅等待本地刷写 */
+	SYNCHRONOUS_COMMIT_REMOTE_WRITE,	/* 等待本地刷写与远程
+										 * 写 */
+	SYNCHRONOUS_COMMIT_REMOTE_FLUSH,	/* 等待本地与远程刷写 */
+	SYNCHRONOUS_COMMIT_REMOTE_APPLY /* 等待本地与远程刷写以及
+									 * 远程应用 */
 }			SyncCommitLevel;
 
-/* Define the default setting for synchronous_commit */
+/* 定义 synchronous_commit 的默认设置 */
 #define SYNCHRONOUS_COMMIT_ON	SYNCHRONOUS_COMMIT_REMOTE_FLUSH
 
-/* Synchronous commit level */
+/* 同步提交级别 */
 extern PGDLLIMPORT int synchronous_commit;
 
-/* used during logical streaming of a transaction */
+/* 事务逻辑流式传输期间使用 */
 extern PGDLLIMPORT TransactionId CheckXidAlive;
 extern PGDLLIMPORT bool bsysscan;
 
 /*
- * Miscellaneous flag bits to record events which occur on the top level
- * transaction. These flags are only persisted in MyXactFlags and are intended
- * so we remember to do certain things later in the transaction. This is
- * globally accessible, so can be set from anywhere in the code which requires
- * recording flags.
+ * 记录顶层事务上发生事件的杂项标志位。
+ * 这些标志仅持久化在 MyXactFlags 中，意在让我们
+ * 稍后在事务中记得做某些事。此变量全局可访问，
+ * 因此代码中任何需要记录标志的地方都可
+ * 设置。
  */
 extern PGDLLIMPORT int MyXactFlags;
 
 /*
- * XACT_FLAGS_ACCESSEDTEMPNAMESPACE - set when a temporary object is accessed.
- * We don't allow PREPARE TRANSACTION in that case.
+ * XACT_FLAGS_ACCESSEDTEMPNAMESPACE - 访问临时对象时置位。
+ * 该情况下不允许 PREPARE TRANSACTION。
  */
 #define XACT_FLAGS_ACCESSEDTEMPNAMESPACE		(1U << 0)
 
 /*
- * XACT_FLAGS_ACQUIREDACCESSEXCLUSIVELOCK - records whether the top level xact
- * logged any Access Exclusive Locks.
+ * XACT_FLAGS_ACQUIREDACCESSEXCLUSIVELOCK - 记录顶层事务是否
+ * 记过访问排他锁。
  */
 #define XACT_FLAGS_ACQUIREDACCESSEXCLUSIVELOCK	(1U << 1)
 
 /*
- * XACT_FLAGS_NEEDIMMEDIATECOMMIT - records whether the top level statement
- * is one that requires immediate commit, such as CREATE DATABASE.
+ * XACT_FLAGS_NEEDIMMEDIATECOMMIT - 记录顶层语句是否
+ * 需要立即提交，例如 CREATE DATABASE。
  */
 #define XACT_FLAGS_NEEDIMMEDIATECOMMIT			(1U << 2)
 
 /*
- * XACT_FLAGS_PIPELINING - set when we complete an extended-query-protocol
- * Execute message.  This is useful for detecting that an implicit transaction
- * block has been created via pipelining.
+ * XACT_FLAGS_PIPELINING - 完成扩展查询协议 Execute 
+ * 消息时置位。用于检测是否已通过流水线
+ * 创建了隐式事务块。
  */
 #define XACT_FLAGS_PIPELINING					(1U << 3)
 
 /*
- *	start- and end-of-transaction callbacks for dynamically loaded modules
+ *	动态加载模块的事务开始/结束回调
  */
 typedef enum
 {
@@ -148,7 +148,7 @@ typedef enum
 typedef void (*SubXactCallback) (SubXactEvent event, SubTransactionId mySubid,
 								 SubTransactionId parentSubid, void *arg);
 
-/* Data structure for Save/RestoreTransactionCharacteristics */
+/* Save/RestoreTransactionCharacteristics 的数据结构 */
 typedef struct SavedTransactionCharacteristics
 {
 	int			save_XactIsoLevel;
@@ -158,13 +158,13 @@ typedef struct SavedTransactionCharacteristics
 
 
 /* ----------------
- *		transaction-related XLOG entries
+ *	与事务相关的 XLOG 条目
  * ----------------
  */
 
 /*
- * XLOG allows to store some information in high 4 bits of log record xl_info
- * field. We use 3 for the opcode, and one about an optional flag variable.
+ * XLOG 允许把一些信息存在日志记录 xl_info 的高 4 位。
+ * 我们用 3 位作操作码，1 位表示可选标志变量。
  */
 #define XLOG_XACT_COMMIT			0x00
 #define XLOG_XACT_PREPARE			0x10
@@ -173,17 +173,17 @@ typedef struct SavedTransactionCharacteristics
 #define XLOG_XACT_ABORT_PREPARED	0x40
 #define XLOG_XACT_ASSIGNMENT		0x50
 #define XLOG_XACT_INVALIDATIONS		0x60
-/* free opcode 0x70 */
+/* 空闲 0x70 */
 
-/* mask for filtering opcodes out of xl_info */
+/* 从 xl_info 滤出操作码的掩码 */
 #define XLOG_XACT_OPMASK			0x70
 
-/* does this record have a 'xinfo' field or not */
+/* 本记录是否有 'xinfo' 字段 */
 #define XLOG_XACT_HAS_INFO			0x80
 
 /*
- * The following flags, stored in xinfo, determine which information is
- * contained in commit/abort records.
+ * 下列存于 xinfo 的标志决定提交/中止记录
+ * 包含哪些信息。
  */
 #define XACT_XINFO_HAS_DBINFO			(1U << 0)
 #define XACT_XINFO_HAS_SUBXACTS			(1U << 1)
@@ -196,18 +196,18 @@ typedef struct SavedTransactionCharacteristics
 #define XACT_XINFO_HAS_DROPPED_STATS	(1U << 8)
 
 /*
- * Also stored in xinfo, these indicating a variety of additional actions that
- * need to occur when emulating transaction effects during recovery.
+ * 同样存于 xinfo，表示恢复期间模拟事务效果时
+ * 还需执行的各种额外动作。
  *
- * They are named XactCompletion... to differentiate them from
- * EOXact... routines which run at the end of the original transaction
- * completion.
+ * 命名为 XactCompletion... 以区别于 
+ * EOXact... 例程（在原事务完成末尾）
+ * 运行。
  */
 #define XACT_COMPLETION_APPLY_FEEDBACK			(1U << 29)
 #define XACT_COMPLETION_UPDATE_RELCACHE_FILE	(1U << 30)
 #define XACT_COMPLETION_FORCE_SYNC_COMMIT		(1U << 31)
 
-/* Access macros for above flags */
+/* 上述标志的访问宏 */
 #define XactCompletionApplyFeedback(xinfo) \
 	((xinfo & XACT_COMPLETION_APPLY_FEEDBACK) != 0)
 #define XactCompletionRelcacheInitFileInval(xinfo) \
@@ -217,37 +217,37 @@ typedef struct SavedTransactionCharacteristics
 
 typedef struct xl_xact_assignment
 {
-	TransactionId xtop;			/* assigned XID's top-level XID */
-	int			nsubxacts;		/* number of subtransaction XIDs */
-	TransactionId xsub[FLEXIBLE_ARRAY_MEMBER];	/* assigned subxids */
+	TransactionId xtop;			/* 所赋 XID 的顶层 XID */
+	int			nsubxacts;		/* 子事务 XIDs 个数 */
+	TransactionId xsub[FLEXIBLE_ARRAY_MEMBER];	/* 已赋 subxids */
 } xl_xact_assignment;
 
 #define MinSizeOfXactAssignment offsetof(xl_xact_assignment, xsub)
 
 /*
- * Commit and abort records can contain a lot of information. But a large
- * portion of the records won't need all possible pieces of information. So we
- * only include what's needed.
+ * 提交与中止记录可含大量信息。但很大一部分
+ * 记录并不需要全部可能字段。因此我们
+ * 只包含所需内容。
  *
- * A minimal commit/abort record only consists of a xl_xact_commit/abort
- * struct. The presence of additional information is indicated by bits set in
- * 'xl_xact_xinfo->xinfo'. The presence of the xinfo field itself is signaled
- * by a set XLOG_XACT_HAS_INFO bit in the xl_info field.
+ * 最小提交/中止记录仅含 xl_xact_commit/abort 
+ * 结构体。附加信息是否存在由 'xl_xact_xinfo->xinfo'
+ * 中置位表明。xinfo 字段本身
+ * 由 xl_info 中 XLOG_XACT_HAS_INFO 置位表示。
  *
- * NB: All the individual data chunks should be sized to multiples of
- * sizeof(int) and only require int32 alignment. If they require bigger
- * alignment, they need to be copied upon reading.
+ * 注意：各数据块大小应为 sizeof(int) 的倍数，
+ * 且只需 int32 对齐。若需更大对齐，
+ * 读取时必须拷贝。
  */
 
-/* sub-records for commit/abort */
+/* 提交/中止的子记录 */
 
 typedef struct xl_xact_xinfo
 {
 	/*
-	 * Even though we right now only require two bytes of space in xinfo we
-	 * use four so following records don't have to care about alignment.
-	 * Commit records can be large, so copying large portions isn't
-	 * attractive.
+	 * 尽管 xinfo 目前只需两字节空间，我们仍用
+	 * 四字节，以免后续记录操心对齐。
+	 * 提交记录可能很大，拷贝大段并不
+	 * 划算。
 	 */
 	uint32		xinfo;
 } xl_xact_xinfo;
@@ -260,24 +260,24 @@ typedef struct xl_xact_dbinfo
 
 typedef struct xl_xact_subxacts
 {
-	int			nsubxacts;		/* number of subtransaction XIDs */
+	int			nsubxacts;		/* 子事务 XIDs 个数 */
 	TransactionId subxacts[FLEXIBLE_ARRAY_MEMBER];
 } xl_xact_subxacts;
 #define MinSizeOfXactSubxacts offsetof(xl_xact_subxacts, subxacts)
 
 typedef struct xl_xact_relfilelocators
 {
-	int			nrels;			/* number of relations */
+	int			nrels;			/* 关系个数 */
 	RelFileLocator xlocators[FLEXIBLE_ARRAY_MEMBER];
 } xl_xact_relfilelocators;
 #define MinSizeOfXactRelfileLocators offsetof(xl_xact_relfilelocators, xlocators)
 
 /*
- * A transactionally dropped statistics entry.
+ * 事务性删除的统计条目。
  *
- * Declared here rather than pgstat.h because pgstat.h can't be included from
- * frontend code, but the WAL format needs to be readable by frontend
- * programs.
+ * 声明于此而非 pgstat.h，因为前端代码无法包含 
+ * pgstat.h，但 WAL 格式需要能被前端程序
+ * 读取。
  */
 typedef struct xl_xact_stats_item
 {
@@ -295,7 +295,7 @@ typedef struct xl_xact_stats_items
 
 typedef struct xl_xact_invals
 {
-	int			nmsgs;			/* number of shared inval msgs */
+	int			nmsgs;			/* 共享失效消息个数 */
 	SharedInvalidationMessage msgs[FLEXIBLE_ARRAY_MEMBER];
 } xl_xact_invals;
 #define MinSizeOfXactInvals offsetof(xl_xact_invals, msgs)
@@ -313,60 +313,60 @@ typedef struct xl_xact_origin
 
 typedef struct xl_xact_commit
 {
-	TimestampTz xact_time;		/* time of commit */
+	TimestampTz xact_time;		/* 提交时间 */
 
-	/* xl_xact_xinfo follows if XLOG_XACT_HAS_INFO */
-	/* xl_xact_dbinfo follows if XINFO_HAS_DBINFO */
-	/* xl_xact_subxacts follows if XINFO_HAS_SUBXACT */
-	/* xl_xact_relfilelocators follows if XINFO_HAS_RELFILELOCATORS */
-	/* xl_xact_stats_items follows if XINFO_HAS_DROPPED_STATS */
-	/* xl_xact_invals follows if XINFO_HAS_INVALS */
-	/* xl_xact_twophase follows if XINFO_HAS_TWOPHASE */
-	/* twophase_gid follows if XINFO_HAS_GID. As a null-terminated string. */
-	/* xl_xact_origin follows if XINFO_HAS_ORIGIN, stored unaligned! */
+	/* xl_xact_xinfo 随 XLOG_XACT_HAS_INFO */
+	/* xl_xact_dbinfo 随 XINFO_HAS_DBINFO */
+	/* xl_xact_subxacts 随 XINFO_HAS_SUBXACT */
+	/* xl_xact_relfilelocators 随 XINFO_HAS_RELFILELOCATORS */
+	/* xl_xact_stats_items 随 XINFO_HAS_DROPPED_STATS */
+	/* xl_xact_invals 随 XINFO_HAS_INVALS */
+	/* xl_xact_twophase 随 XINFO_HAS_TWOPHASE */
+	/* twophase_gid 随 XINFO_HAS_GID，NUL 结尾串。 */
+	/* xl_xact_origin 随 XINFO_HAS_ORIGIN，未对齐！ */
 } xl_xact_commit;
 #define MinSizeOfXactCommit (offsetof(xl_xact_commit, xact_time) + sizeof(TimestampTz))
 
 typedef struct xl_xact_abort
 {
-	TimestampTz xact_time;		/* time of abort */
+	TimestampTz xact_time;		/* 中止时间 */
 
-	/* xl_xact_xinfo follows if XLOG_XACT_HAS_INFO */
-	/* xl_xact_dbinfo follows if XINFO_HAS_DBINFO */
-	/* xl_xact_subxacts follows if XINFO_HAS_SUBXACT */
-	/* xl_xact_relfilelocators follows if XINFO_HAS_RELFILELOCATORS */
-	/* xl_xact_stats_items follows if XINFO_HAS_DROPPED_STATS */
-	/* No invalidation messages needed. */
-	/* xl_xact_twophase follows if XINFO_HAS_TWOPHASE */
-	/* twophase_gid follows if XINFO_HAS_GID. As a null-terminated string. */
-	/* xl_xact_origin follows if XINFO_HAS_ORIGIN, stored unaligned! */
+	/* xl_xact_xinfo 随 XLOG_XACT_HAS_INFO */
+	/* xl_xact_dbinfo 随 XINFO_HAS_DBINFO */
+	/* xl_xact_subxacts 随 XINFO_HAS_SUBXACT */
+	/* xl_xact_relfilelocators 随 XINFO_HAS_RELFILELOCATORS */
+	/* xl_xact_stats_items 随 XINFO_HAS_DROPPED_STATS */
+	/* 不需要失效消息。 */
+	/* xl_xact_twophase 随 XINFO_HAS_TWOPHASE */
+	/* twophase_gid 随 XINFO_HAS_GID，NUL 结尾串。 */
+	/* xl_xact_origin 随 XINFO_HAS_ORIGIN，未对齐！ */
 } xl_xact_abort;
 #define MinSizeOfXactAbort sizeof(xl_xact_abort)
 
 typedef struct xl_xact_prepare
 {
-	uint32		magic;			/* format identifier */
-	uint32		total_len;		/* actual file length */
-	TransactionId xid;			/* original transaction XID */
-	Oid			database;		/* OID of database it was in */
-	TimestampTz prepared_at;	/* time of preparation */
-	Oid			owner;			/* user running the transaction */
-	int32		nsubxacts;		/* number of following subxact XIDs */
-	int32		ncommitrels;	/* number of delete-on-commit rels */
-	int32		nabortrels;		/* number of delete-on-abort rels */
-	int32		ncommitstats;	/* number of stats to drop on commit */
-	int32		nabortstats;	/* number of stats to drop on abort */
-	int32		ninvalmsgs;		/* number of cache invalidation messages */
-	bool		initfileinval;	/* does relcache init file need invalidation? */
-	uint16		gidlen;			/* length of the GID - GID follows the header */
-	XLogRecPtr	origin_lsn;		/* lsn of this record at origin node */
-	TimestampTz origin_timestamp;	/* time of prepare at origin node */
+	uint32		magic;			/* 格式标识符 */
+	uint32		total_len;		/* 实际文件长度 */
+	TransactionId xid;			/* 原事务 XID */
+	Oid			database;		/* 其所在数据库的 OID */
+	TimestampTz prepared_at;	/* 预备时间 */
+	Oid			owner;			/* 运行该事务的用户 */
+	int32		nsubxacts;		/* 随后子事务 XIDs 个数 */
+	int32		ncommitrels;	/* 提交时删除的关系数 */
+	int32		nabortrels;		/* 中止时删除的关系数 */
+	int32		ncommitstats;	/* 提交时要删的统计数 */
+	int32		nabortstats;	/* 中止时要删的统计数 */
+	int32		ninvalmsgs;		/* 缓存失效消息个数 */
+	bool		initfileinval;	/* relcache 初始化文件需要失效吗？ */
+	uint16		gidlen;			/* GID 长度——GID 跟在报头之后 */
+	XLogRecPtr	origin_lsn;		/* 源节点上本记录的 lsn */
+	TimestampTz origin_timestamp;	/* 源节点上的预备时间 */
 } xl_xact_prepare;
 
 /*
- * Commit/Abort records in the above form are a bit verbose to parse, so
- * there's a deconstructed versions generated by ParseCommit/AbortRecord() for
- * easier consumption.
+ * 上述形式的提交/中止记录解析起来较冗长，因此
+ * 有 ParseCommit/AbortRecord() 生成的拆解版本，便于
+ * 使用。
  */
 typedef struct xl_xact_parsed_commit
 {
@@ -388,12 +388,12 @@ typedef struct xl_xact_parsed_commit
 	int			nmsgs;
 	SharedInvalidationMessage *msgs;
 
-	TransactionId twophase_xid; /* only for 2PC */
-	char		twophase_gid[GIDSIZE];	/* only for 2PC */
-	int			nabortrels;		/* only for 2PC */
-	RelFileLocator *abortlocators;	/* only for 2PC */
-	int			nabortstats;	/* only for 2PC */
-	xl_xact_stats_item *abortstats; /* only for 2PC */
+	TransactionId twophase_xid; /* 仅 2PC */
+	char		twophase_gid[GIDSIZE];	/* 仅 2PC */
+	int			nabortrels;		/* 仅 2PC */
+	RelFileLocator *abortlocators;	/* 仅 2PC */
+	int			nabortstats;	/* 仅 2PC */
+	xl_xact_stats_item *abortstats; /* 仅 2PC */
 
 	XLogRecPtr	origin_lsn;
 	TimestampTz origin_timestamp;
@@ -418,8 +418,8 @@ typedef struct xl_xact_parsed_abort
 	int			nstats;
 	xl_xact_stats_item *stats;
 
-	TransactionId twophase_xid; /* only for 2PC */
-	char		twophase_gid[GIDSIZE];	/* only for 2PC */
+	TransactionId twophase_xid; /* 仅 2PC */
+	char		twophase_gid[GIDSIZE];	/* 仅 2PC */
 
 	XLogRecPtr	origin_lsn;
 	TimestampTz origin_timestamp;
@@ -427,7 +427,7 @@ typedef struct xl_xact_parsed_abort
 
 
 /* ----------------
- *		extern definitions
+ *	extern 声明
  * ----------------
  */
 extern bool IsTransactionState(void);
@@ -518,7 +518,7 @@ extern void xact_redo(XLogReaderState *record);
 extern void xact_desc(StringInfo buf, XLogReaderState *record);
 extern const char *xact_identify(uint8 info);
 
-/* also in xactdesc.c, so they can be shared between front/backend code */
+/* 也在 xactdesc.c，以便前后端代码共享 */
 extern void ParseCommitRecord(uint8 info, xl_xact_commit *xlrec, xl_xact_parsed_commit *parsed);
 extern void ParseAbortRecord(uint8 info, xl_xact_abort *xlrec, xl_xact_parsed_abort *parsed);
 extern void ParsePrepareRecord(uint8 info, xl_xact_prepare *xlrec, xl_xact_parsed_prepare *parsed);

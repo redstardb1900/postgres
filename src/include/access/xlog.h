@@ -1,7 +1,7 @@
 /*
  * xlog.h
  *
- * PostgreSQL write-ahead log manager
+ * PostgreSQL 预写日志管理器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,19 +18,19 @@
 #include "nodes/pg_list.h"
 
 
-/* Sync methods */
+/* 同步方法 */
 #define SYNC_METHOD_FSYNC		0
 #define SYNC_METHOD_FDATASYNC	1
-#define SYNC_METHOD_OPEN		2	/* for O_SYNC */
+#define SYNC_METHOD_OPEN		2	/* 供 O_SYNC */
 #define SYNC_METHOD_FSYNC_WRITETHROUGH	3
-#define SYNC_METHOD_OPEN_DSYNC	4	/* for O_DSYNC */
+#define SYNC_METHOD_OPEN_DSYNC	4	/* 供 O_DSYNC */
 extern PGDLLIMPORT int sync_method;
 
 extern PGDLLIMPORT XLogRecPtr ProcLastRecPtr;
 extern PGDLLIMPORT XLogRecPtr XactLastRecEnd;
 extern PGDLLIMPORT XLogRecPtr XactLastCommitEnd;
 
-/* these variables are GUC parameters related to XLOG */
+/* 这些变量是与 XLOG 相关的 GUC 参数 */
 extern PGDLLIMPORT int wal_segment_size;
 extern PGDLLIMPORT int min_wal_size_mb;
 extern PGDLLIMPORT int max_wal_size_mb;
@@ -54,16 +54,16 @@ extern PGDLLIMPORT int wal_decode_buffer_size;
 
 extern PGDLLIMPORT int CheckPointSegments;
 
-/* Archive modes */
+/* 归档模式 */
 typedef enum ArchiveMode
 {
-	ARCHIVE_MODE_OFF = 0,		/* disabled */
-	ARCHIVE_MODE_ON,			/* enabled while server is running normally */
-	ARCHIVE_MODE_ALWAYS			/* enabled always (even during recovery) */
+	ARCHIVE_MODE_OFF = 0,		/* 禁用 */
+	ARCHIVE_MODE_ON,			/* 服务器正常运行时启用 */
+	ARCHIVE_MODE_ALWAYS			/* 始终启用(即使在恢复期间) */
 } ArchiveMode;
 extern PGDLLIMPORT int XLogArchiveMode;
 
-/* WAL levels */
+/* WAL 级别 */
 typedef enum WalLevel
 {
 	WAL_LEVEL_MINIMAL = 0,
@@ -71,7 +71,7 @@ typedef enum WalLevel
 	WAL_LEVEL_LOGICAL
 } WalLevel;
 
-/* Compression algorithms for WAL */
+/* WAL 的压缩算法 */
 typedef enum WalCompression
 {
 	WAL_COMPRESSION_NONE = 0,
@@ -80,44 +80,44 @@ typedef enum WalCompression
 	WAL_COMPRESSION_ZSTD
 } WalCompression;
 
-/* Recovery states */
+/* 恢复状态 */
 typedef enum RecoveryState
 {
-	RECOVERY_STATE_CRASH = 0,	/* crash recovery */
-	RECOVERY_STATE_ARCHIVE,		/* archive recovery */
-	RECOVERY_STATE_DONE			/* currently in production */
+	RECOVERY_STATE_CRASH = 0,	/* 崩溃恢复 */
+	RECOVERY_STATE_ARCHIVE,		/* 归档恢复 */
+	RECOVERY_STATE_DONE			/* 当前处于生产中 */
 } RecoveryState;
 
 extern PGDLLIMPORT int wal_level;
 
-/* Is WAL archiving enabled (always or only while server is running normally)? */
+/* WAL 归档是否启用（始终，或仅在服务器正常运行时）？ */
 #define XLogArchivingActive() \
 	(AssertMacro(XLogArchiveMode == ARCHIVE_MODE_OFF || wal_level >= WAL_LEVEL_REPLICA), XLogArchiveMode > ARCHIVE_MODE_OFF)
-/* Is WAL archiving enabled always (even during recovery)? */
+/* WAL 归档是否始终启用(即使在恢复期间)？ */
 #define XLogArchivingAlways() \
 	(AssertMacro(XLogArchiveMode == ARCHIVE_MODE_OFF || wal_level >= WAL_LEVEL_REPLICA), XLogArchiveMode == ARCHIVE_MODE_ALWAYS)
 
 /*
- * Is WAL-logging necessary for archival or log-shipping, or can we skip
- * WAL-logging if we fsync() the data before committing instead?
+ * 归档或日志传送是否必须记 WAL，或能否在提交
+ * 前 fsync() 数据从而跳过记 WAL？
  */
 #define XLogIsNeeded() (wal_level >= WAL_LEVEL_REPLICA)
 
 /*
- * Is a full-page image needed for hint bit updates?
+ * 提示位更新是否需要整页映像？
  *
- * Normally, we don't WAL-log hint bit updates, but if checksums are enabled,
- * we have to protect them against torn page writes.  When you only set
- * individual bits on a page, it's still consistent no matter what combination
- * of the bits make it to disk, but the checksum wouldn't match.  Also WAL-log
- * them if forced by wal_log_hints=on.
+ * 通常我们不把提示位更新记入 WAL，但若启用了校验和，
+ * 必须防范撕裂页写入。当只设置页上的个别位时，
+ * 无论哪些位组合落到磁盘上都仍一致，但校验和会
+ * 对不上。若被 wal_log_hints=on 强制，也要把它们
+ * 记入 WAL。
  */
 #define XLogHintBitIsNeeded() (DataChecksumsEnabled() || wal_log_hints)
 
-/* Do we need to WAL-log information required only for Hot Standby and logical replication? */
+/* 是否需要把仅热备与逻辑复制所需的信息记入 WAL？ */
 #define XLogStandbyInfoActive() (wal_level >= WAL_LEVEL_REPLICA)
 
-/* Do we need to WAL-log information required only for logical replication? */
+/* 是否需要把仅逻辑复制所需的信息记入 WAL？ */
 #define XLogLogicalInfoActive() (wal_level >= WAL_LEVEL_LOGICAL)
 
 #ifdef WAL_DEBUG
@@ -125,69 +125,69 @@ extern PGDLLIMPORT bool XLOG_DEBUG;
 #endif
 
 /*
- * OR-able request flag bits for checkpoints.  The "cause" bits are used only
- * for logging purposes.  Note: the flags must be defined so that it's
- * sensible to OR together request flags arising from different requestors.
+ * 检查点可 OR 的请求标志位。"原因" 位仅用于
+ * 日志记录。注意：标志必须定义得可以合理地把
+ * 来自不同请求方的请求标志 OR 在一起。
  */
 
-/* These directly affect the behavior of CreateCheckPoint and subsidiaries */
-#define CHECKPOINT_IS_SHUTDOWN	0x0001	/* Checkpoint is for shutdown */
-#define CHECKPOINT_END_OF_RECOVERY	0x0002	/* Like shutdown checkpoint, but
-											 * issued at end of WAL recovery */
-#define CHECKPOINT_IMMEDIATE	0x0004	/* Do it without delays */
-#define CHECKPOINT_FORCE		0x0008	/* Force even if no activity */
-#define CHECKPOINT_FLUSH_ALL	0x0010	/* Flush all pages, including those
-										 * belonging to unlogged tables */
-/* These are important to RequestCheckpoint */
-#define CHECKPOINT_WAIT			0x0020	/* Wait for completion */
-#define CHECKPOINT_REQUESTED	0x0040	/* Checkpoint request has been made */
-/* These indicate the cause of a checkpoint request */
-#define CHECKPOINT_CAUSE_XLOG	0x0080	/* XLOG consumption */
-#define CHECKPOINT_CAUSE_TIME	0x0100	/* Elapsed time */
+/* 这些直接影响 CreateCheckPoint 及其附属的行为 */
+#define CHECKPOINT_IS_SHUTDOWN	0x0001	/* 关闭检查点 */
+#define CHECKPOINT_END_OF_RECOVERY	0x0002	/* 类似关闭检查点，但
+											 * 在 WAL 恢复结束时发出 */
+#define CHECKPOINT_IMMEDIATE	0x0004	/* 不加延迟 */
+#define CHECKPOINT_FORCE		0x0008	/* 即使无活动也强制 */
+#define CHECKPOINT_FLUSH_ALL	0x0010	/* 刷写所有页，包括属于
+										 * 未日志表的页 */
+/* 这些对 RequestCheckpoint 很重要 */
+#define CHECKPOINT_WAIT			0x0020	/* 等待完成 */
+#define CHECKPOINT_REQUESTED	0x0040	/* 已发出检查点请求 */
+/* 这些表示检查点请求的原因 */
+#define CHECKPOINT_CAUSE_XLOG	0x0080	/* XLOG 消耗 */
+#define CHECKPOINT_CAUSE_TIME	0x0100	/* 已过时间 */
 
 /*
- * Flag bits for the record being inserted, set using XLogSetRecordFlags().
+ * 正在插入的记录的标志位，用 XLogSetRecordFlags() 设置。
  */
-#define XLOG_INCLUDE_ORIGIN		0x01	/* include the replication origin */
-#define XLOG_MARK_UNIMPORTANT	0x02	/* record not important for durability */
+#define XLOG_INCLUDE_ORIGIN		0x01	/* 包含复制源 */
+#define XLOG_MARK_UNIMPORTANT	0x02	/* 记录对持久性不重要 */
 
 
-/* Checkpoint statistics */
+/* 检查点统计 */
 typedef struct CheckpointStatsData
 {
-	TimestampTz ckpt_start_t;	/* start of checkpoint */
-	TimestampTz ckpt_write_t;	/* start of flushing buffers */
-	TimestampTz ckpt_sync_t;	/* start of fsyncs */
-	TimestampTz ckpt_sync_end_t;	/* end of fsyncs */
-	TimestampTz ckpt_end_t;		/* end of checkpoint */
+	TimestampTz ckpt_start_t;	/* 检查点开始 */
+	TimestampTz ckpt_write_t;	/* 开始刷写缓冲区 */
+	TimestampTz ckpt_sync_t;	/* 开始 fsync */
+	TimestampTz ckpt_sync_end_t;	/* fsync 结束 */
+	TimestampTz ckpt_end_t;		/* 检查点结束 */
 
-	int			ckpt_bufs_written;	/* # of buffers written */
+	int			ckpt_bufs_written;	/* 已写缓冲区数 */
 
-	int			ckpt_segs_added;	/* # of new xlog segments created */
-	int			ckpt_segs_removed;	/* # of xlog segments deleted */
-	int			ckpt_segs_recycled; /* # of xlog segments recycled */
+	int			ckpt_segs_added;	/* 新创建的 xlog 段数 */
+	int			ckpt_segs_removed;	/* 已删 xlog 段数 */
+	int			ckpt_segs_recycled; /* 已回收 xlog 段数 */
 
-	int			ckpt_sync_rels; /* # of relations synced */
-	uint64		ckpt_longest_sync;	/* Longest sync for one relation */
-	uint64		ckpt_agg_sync_time; /* The sum of all the individual sync
-									 * times, which is not necessarily the
-									 * same as the total elapsed time for the
-									 * entire sync phase. */
+	int			ckpt_sync_rels; /* 已同步关系数 */
+	uint64		ckpt_longest_sync;	/* 单关系最长同步时间 */
+	uint64		ckpt_agg_sync_time; /* 各次单独同步
+									 * 时间之和，不一定等于
+									 * 整个同步阶段的
+									 * 总耗时。 */
 } CheckpointStatsData;
 
 extern PGDLLIMPORT CheckpointStatsData CheckpointStats;
 
 /*
- * GetWALAvailability return codes
+ * GetWALAvailability 的返回码
  */
 typedef enum WALAvailability
 {
-	WALAVAIL_INVALID_LSN,		/* parameter error */
-	WALAVAIL_RESERVED,			/* WAL segment is within max_wal_size */
-	WALAVAIL_EXTENDED,			/* WAL segment is reserved by a slot or
+	WALAVAIL_INVALID_LSN,		/* 参数错误 */
+	WALAVAIL_RESERVED,			/* WAL 段在 max_wal_size 以内 */
+	WALAVAIL_EXTENDED,			/* WAL 段由槽保留，或 
 								 * wal_keep_size */
-	WALAVAIL_UNRESERVED,		/* no longer reserved, but not removed yet */
-	WALAVAIL_REMOVED			/* WAL segment has been removed */
+	WALAVAIL_UNRESERVED,		/* 不再保留，但尚未移除 */
+	WALAVAIL_REMOVED			/* WAL 段已被移除 */
 } WALAvailability;
 
 struct XLogRecData;
@@ -249,7 +249,7 @@ extern XLogRecPtr GetLastImportantRecPtr(void);
 extern void SetWalWriterSleeping(bool sleeping);
 
 /*
- * Routines used by xlogrecovery.c to call back into xlog.c during recovery.
+ * 供 xlogrecovery.c 在恢复期间回调 xlog.c 的例程。
  */
 extern void RemoveNonParentXlogFiles(XLogRecPtr switchpoint, TimeLineID newTLI);
 extern bool XLogCheckpointNeeded(XLogSegNo new_segno);
@@ -261,18 +261,18 @@ extern void ResetInstallXLogFileSegmentActive(void);
 extern void XLogShutdownWalRcv(void);
 
 /*
- * Routines to start, stop, and get status of a base backup.
+ * 启动、停止与查询基础备份状态的例程。
  */
 
 /*
- * Session-level status of base backups
+ * 基础备份的会话级状态
  *
- * This is used in parallel with the shared memory status to control parallel
- * execution of base backup functions for a given session, be it a backend
- * dedicated to replication or a normal backend connected to a database. The
- * update of the session-level status happens at the same time as the shared
- * memory counters to keep a consistent global and local state of the backups
- * running.
+ * 与共享内存状态并行使用，以控制给定会话中
+ * 基础备份函数的并行执行，无论是专用于复制的
+ * 后端，还是连到数据库的普通后端。会话级状态
+ * 的更新与共享内存计数器同时发生，以保持
+ * 正在运行的备份之全局与局部状态
+ * 一致
  */
 typedef enum SessionBackupState
 {
@@ -288,7 +288,7 @@ extern void do_pg_abort_backup(int code, Datum arg);
 extern void register_persistent_abort_backup_handler(void);
 extern SessionBackupState get_backup_status(void);
 
-/* File path names (all relative to $PGDATA) */
+/* 文件路径名（均相对 $PGDATA） */
 #define RECOVERY_SIGNAL_FILE	"recovery.signal"
 #define STANDBY_SIGNAL_FILE		"standby.signal"
 #define BACKUP_LABEL_FILE		"backup_label"
@@ -297,7 +297,7 @@ extern SessionBackupState get_backup_status(void);
 #define TABLESPACE_MAP			"tablespace_map"
 #define TABLESPACE_MAP_OLD		"tablespace_map.old"
 
-/* files to signal promotion to primary */
+/* 升主信号文件 */
 #define PROMOTE_SIGNAL_FILE		"promote"
 
 #endif							/* XLOG_H */

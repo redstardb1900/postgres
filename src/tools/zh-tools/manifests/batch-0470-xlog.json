@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0470",
+  "title": "xlog.h 头文件注释翻译 — batch 0470",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2aa91296e9793242e4b9949fccea3985de9e951c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/xlog.h",
+      "kind": "c_comment",
+      "note": "0470"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0470-xlog.json",
+      "kind": "manifest",
+      "note": "0470"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/xlog.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 86,
+      "translated": 80,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/版权/XLOG_H/wal_keep_size KEEP"
+      ],
+      "note": "batch-0470"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0470-xlog.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0470"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "XLOG 管理器头文件；L4 去「式」；复制源；热备；整页映像"
+}

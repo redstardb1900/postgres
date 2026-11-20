@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0476",
+  "title": "tableam.h 元组包装注释翻译 — batch 0476",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "488b1262bf436418382d69173123e741b02a3288",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "note": "0476"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0476-tableam.json",
+      "kind": "manifest",
+      "note": "0476"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/tableam.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 831,
+      "translated": 153,
+      "preserved": 678,
+      "preserved_reasons": [
+        "0473–0475 已译 KEEP；横幅破折；L1310/L1330/L1452/L1558 短续行；B155+ 待后续批 KEEP"
+      ],
+      "note": "batch-0476 第四刀 B138–B154 元组包装（取数/插入/删除/更新/锁定）"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0476-tableam.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0476"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "表访问方法第四刀；推测性插入/热备/输入参数对齐 heapam.c；自底向上索引删除"
+}

@@ -1271,19 +1271,19 @@ extern bool table_index_fetch_tuple_check(Relation rel,
 
 
 /* ------------------------------------------------------------------------
- * Functions for non-modifying operations on individual tuples
+ * 对单个元组做非修改操作的函数
  * ------------------------------------------------------------------------
  */
 
 
 /*
- * Fetch tuple at `tid` into `slot`, after doing a visibility test according to
- * `snapshot`. If a tuple was found and passed the visibility test, returns
- * true, false otherwise.
+ * 把 `tid` 处元组取入 `slot`，先按
+ * `snapshot` 做可见性测试。若找到且通过则返回
+ * true，否则 false。
  *
- * See table_index_fetch_tuple's comment about what the difference between
- * these functions is. It is correct to use this function outside of index
- * entry->table tuple lookups.
+ * 二者差异见 table_index_fetch_tuple 的注释。
+ * 在索引项到表元组查找之外使用本函数是
+ * 正确的。
  */
 static inline bool
 table_tuple_fetch_row_version(Relation rel,
@@ -1292,9 +1292,9 @@ table_tuple_fetch_row_version(Relation rel,
 							  TupleTableSlot *slot)
 {
 	/*
-	 * We don't expect direct calls to table_tuple_fetch_row_version with
-	 * valid CheckXidAlive for catalog or regular tables.  See detailed
-	 * comments in xact.c where these variables are declared.
+	 * 不预期直接调用 table_tuple_fetch_row_version 且带
+	 * 有效 CheckXidAlive 用于目录表或普通表。详见
+	 * xact.c 中声明这些变量的注释。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected table_tuple_fetch_row_version call during logical decoding");
@@ -1303,13 +1303,13 @@ table_tuple_fetch_row_version(Relation rel,
 }
 
 /*
- * Verify that `tid` is a potentially valid tuple identifier. That doesn't
- * mean that the pointed to row needs to exist or be visible, but that
- * attempting to fetch the row (e.g. with table_tuple_get_latest_tid() or
- * table_tuple_fetch_row_version()) should not error out if called with that
+ * 验证 `tid` 是否为潜在有效的元组标识。并不表示
+ * 所指行必须存在或可见，而是以该 tid 去取行
+ * （例如 table_tuple_get_latest_tid() 或
+ * table_tuple_fetch_row_version()）不应报错。
  * tid.
  *
- * `scan` needs to have been started via table_beginscan().
+ * `scan` 须已由 table_beginscan() 启动。
  */
 static inline bool
 table_tuple_tid_valid(TableScanDesc scan, ItemPointer tid)
@@ -1318,19 +1318,19 @@ table_tuple_tid_valid(TableScanDesc scan, ItemPointer tid)
 }
 
 /*
- * Return the latest version of the tuple at `tid`, by updating `tid` to
- * point at the newest version.
+ * 返回 `tid` 处元组的最新版本，把 `tid` 更新为
+ * 指向最新版本。
  */
 extern void table_tuple_get_latest_tid(TableScanDesc scan, ItemPointer tid);
 
 /*
- * Return true iff tuple in slot satisfies the snapshot.
+ * 当且仅当槽中元组满足快照时返回 true。
  *
- * This assumes the slot's tuple is valid, and of the appropriate type for the
+ * 假定槽中元组有效，且类型适合该
  * AM.
  *
- * Some AMs might modify the data underlying the tuple as a side-effect. If so
- * they ought to mark the relevant buffer dirty.
+ * 有些 AM 可能作为副作用修改元组底层数据。若如此
+ * 则应把相关缓冲区标脏。
  */
 static inline bool
 table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
@@ -1340,18 +1340,18 @@ table_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
 }
 
 /*
- * Determine which index tuples are safe to delete based on their table TID.
+ * 根据表 TID 判定哪些索引元组可安全删除。
  *
- * Determines which entries from index AM caller's TM_IndexDeleteOp state
- * point to vacuumable table tuples.  Entries that are found by tableam to be
- * vacuumable are naturally safe for index AM to delete, and so get directly
- * marked as deletable.  See comments above TM_IndexDelete and comments above
- * TM_IndexDeleteOp for full details.
+ * 判定索引 AM 调用方 TM_IndexDeleteOp 状态中哪些条目
+ * 指向可清理的表元组。tableam 认定可清理的条目
+ * 自然可供索引 AM 删除，因而直接标为
+ * 可删。详见 TM_IndexDelete 与
+ * TM_IndexDeleteOp 上方注释。
  *
- * Returns a snapshotConflictHorizon transaction ID that caller places in
- * its index deletion WAL record.  This might be used during subsequent REDO
- * of the WAL record when in Hot Standby mode -- a recovery conflict for the
- * index deletion operation might be required on the standby.
+ * 返回 snapshotConflictHorizon 事务 ID，供调用方写入
+ * 其索引删除 WAL 记录。热备下随后 REDO 该记录时
+ * 可能用到——备库上该索引删除操作或许需要
+ * 一次恢复冲突。
  */
 static inline TransactionId
 table_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
@@ -1361,43 +1361,43 @@ table_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 
 
 /* ----------------------------------------------------------------------------
- *  Functions for manipulations of physical tuples.
+ * 物理元组操作函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Insert a tuple from a slot into table AM routine.
+ * 从表 AM 例程把槽中元组插入。
  *
- * The options bitmask allows the caller to specify options that may change the
- * behaviour of the AM. The AM will ignore options that it does not support.
+ * options 位掩码让调用方指定可能改变 AM 行为的选项。
+ * AM 会忽略其不支持的选项。
  *
- * If the TABLE_INSERT_SKIP_FSM option is specified, AMs are free to not reuse
- * free space in the relation. This can save some cycles when we know the
- * relation is new and doesn't contain useful amounts of free space.
- * TABLE_INSERT_SKIP_FSM is commonly passed directly to
- * RelationGetBufferForTuple. See that method for more information.
+ * 若指定 TABLE_INSERT_SKIP_FSM，AM 可不复用
+ * 关系中的空闲空间。在已知关系为新、没有
+ * 多少有用空闲空间时可省些周期。
+ * TABLE_INSERT_SKIP_FSM 通常直接传给
+ * RelationGetBufferForTuple。详见该方法。
  *
- * TABLE_INSERT_FROZEN should only be specified for inserts into
- * relation storage created during the current subtransaction and when
- * there are no prior snapshots or pre-existing portals open.
- * This causes rows to be frozen, which is an MVCC violation and
- * requires explicit options chosen by user.
+ * TABLE_INSERT_FROZEN 只应在插入到
+ * 当前子事务中创建的关系存储，且没有
+ * 先前快照或已打开的既有门户时指定。
+ * 这会使行被冻结，属 MVCC 违规，
+ * 须由用户显式选择选项。
  *
- * TABLE_INSERT_NO_LOGICAL force-disables the emitting of logical decoding
- * information for the tuple. This should solely be used during table rewrites
- * where RelationIsLogicallyLogged(relation) is not yet accurate for the new
- * relation.
+ * TABLE_INSERT_NO_LOGICAL 强制禁止为该元组发出逻辑解码
+ * 信息。仅应在表重写期间使用，此时
+ * 对新关系 RelationIsLogicallyLogged(relation) 尚不
+ * 准确。
  *
- * Note that most of these options will be applied when inserting into the
- * heap's TOAST table, too, if the tuple requires any out-of-line data.
+ * 注意：若元组需要任何行外数据，这些选项多数也会
+ * 应用到堆的 TOAST 表插入。
  *
- * The BulkInsertState object (if any; bistate can be NULL for default
- * behavior) is also just passed through to RelationGetBufferForTuple. If
- * `bistate` is provided, table_finish_bulk_insert() needs to be called.
+ * BulkInsertState 对象（若有；bistate 可为 NULL 表示默认
+ * 行为）也只是转交给 RelationGetBufferForTuple。若提供
+ * `bistate`，则须调用 table_finish_bulk_insert()。
  *
- * On return the slot's tts_tid and tts_tableOid are updated to reflect the
- * insertion. But note that any toasting of fields within the slot is NOT
- * reflected in the slots contents.
+ * 返回时槽的 tts_tid 与 tts_tableOid 会更新以反映
+ * 插入。但槽内字段的任何 toast 处理并不
+ * 反映到槽的内容中。
  */
 static inline void
 table_tuple_insert(Relation rel, TupleTableSlot *slot, CommandId cid,
@@ -1408,15 +1408,15 @@ table_tuple_insert(Relation rel, TupleTableSlot *slot, CommandId cid,
 }
 
 /*
- * Perform a "speculative insertion". These can be backed out afterwards
- * without aborting the whole transaction.  Other sessions can wait for the
- * speculative insertion to be confirmed, turning it into a regular tuple, or
- * aborted, as if it never existed.  Speculatively inserted tuples behave as
- * "value locks" of short duration, used to implement INSERT .. ON CONFLICT.
+ * 执行一次"推测性插入"。之后可撤销，
+ * 而不中止整个事务。其他会话可等待该
+ * 推测性插入被确认（变成普通元组），或
+ * 被中止，如同从未存在。推测性插入的元组充当
+ * 短时"值锁"，用来实现 INSERT .. ON CONFLICT。
  *
- * A transaction having performed a speculative insertion has to either abort,
- * or finish the speculative insertion with
- * table_tuple_complete_speculative(succeeded = ...).
+ * 已做推测性插入的事务必须要么中止，
+ * 要么用下式结束推测性插入：
+ * table_tuple_complete_speculative(...)。
  */
 static inline void
 table_tuple_insert_speculative(Relation rel, TupleTableSlot *slot,
@@ -1429,8 +1429,8 @@ table_tuple_insert_speculative(Relation rel, TupleTableSlot *slot,
 }
 
 /*
- * Complete "speculative insertion" started in the same transaction. If
- * succeeded is true, the tuple is fully inserted, if false, it's removed.
+ * 完成同一事务中开始的"推测性插入"。若
+ * succeeded 为 true 则元组完全插入，为 false 则移除。
  */
 static inline void
 table_tuple_complete_speculative(Relation rel, TupleTableSlot *slot,
@@ -1441,18 +1441,18 @@ table_tuple_complete_speculative(Relation rel, TupleTableSlot *slot,
 }
 
 /*
- * Insert multiple tuples into a table.
+ * 向表插入多个元组。
  *
- * This is like table_tuple_insert(), but inserts multiple tuples in one
- * operation. That's often faster than calling table_tuple_insert() in a loop,
- * because e.g. the AM can reduce WAL logging and page locking overhead.
+ * 类似 table_tuple_insert()，但一次操作插入多个元组。
+ * 往往比循环调用 table_tuple_insert() 更快，
+ * 因为 AM 可减少 WAL 记录与页锁开销。
  *
- * Except for taking `nslots` tuples as input, and an array of TupleTableSlots
- * in `slots`, the parameters for table_multi_insert() are the same as for
+ * 除了以 `nslots` 个元组及 `slots` 中 TupleTableSlots
+ *  数组为输入外，table_multi_insert() 参数同于
  * table_tuple_insert().
  *
- * Note: this leaks memory into the current memory context. You can create a
- * temporary context before calling this, if that's a problem.
+ * 注意：会向当前内存上下文泄漏内存。若这成问题，
+ * 可在调用前先建一个临时上下文。
  */
 static inline void
 table_multi_insert(Relation rel, TupleTableSlot **slots, int nslots,
@@ -1463,30 +1463,30 @@ table_multi_insert(Relation rel, TupleTableSlot **slots, int nslots,
 }
 
 /*
- * Delete a tuple.
+ * 删除元组。
  *
- * NB: do not call this directly unless prepared to deal with
- * concurrent-update conditions.  Use simple_table_tuple_delete instead.
+ * 注意：除非已准备好处理并发更新，否则
+ * 不要直接调用。应改用 simple_table_tuple_delete。
  *
- * Input parameters:
- *	relation - table to be modified (caller must hold suitable lock)
- *	tid - TID of tuple to be deleted
- *	cid - delete command ID (used for visibility test, and stored into
- *		cmax if successful)
- *	crosscheck - if not InvalidSnapshot, also check tuple against this
- *	wait - true if should wait for any conflicting update to commit/abort
- * Output parameters:
- *	tmfd - filled in failure cases (see below)
- *	changingPart - true iff the tuple is being moved to another partition
- *		table due to an update of the partition key. Otherwise, false.
+ * 输入参数：
+ *	relation - 要修改的表（调用方必须持有合适锁）
+ *	tid - 要删除的元组的 TID
+ *	cid - 删除命令 ID（用于可见性测试，并在
+ *	成功写入 cmax）
+ *	crosscheck - 若非 InvalidSnapshot，还对照此检查元组
+ *	wait - true 表示应等待冲突更新提交/中止
+ * 输出参数：
+ *	tmfd - 失败时填入（见下）
+ *	changingPart - 当且仅当元组因分区键更新移到另一分区
+ *	表时为 true。否则为 false。
  *
- * Normal, successful return value is TM_Ok, which means we did actually
- * delete it.  Failure return codes are TM_SelfModified, TM_Updated, and
- * TM_BeingModified (the last only possible if wait == false).
+ * 正常成功返回值为 TM_Ok，表示确实已
+ * 删除。失败码为 TM_SelfModified、TM_Updated 和
+ * TM_BeingModified（仅 wait == false 时可能）。
  *
- * In the failure cases, the routine fills *tmfd with the tuple's t_ctid,
- * t_xmax, and, if possible, t_cmax.  See comments for struct
- * TM_FailureData for additional info.
+ * 失败时本例程用该元组的 t_ctid、
+ * t_xmax 以及可能的 t_cmax 填好 *tmfd。详见结构
+ * TM_FailureData 的注释。
  */
 static inline TM_Result
 table_tuple_delete(Relation rel, ItemPointer tid, CommandId cid,
@@ -1499,38 +1499,38 @@ table_tuple_delete(Relation rel, ItemPointer tid, CommandId cid,
 }
 
 /*
- * Update a tuple.
+ * 更新元组。
  *
- * NB: do not call this directly unless you are prepared to deal with
- * concurrent-update conditions.  Use simple_table_tuple_update instead.
+ * 注意：除非已准备好处理并发更新，否则
+ * 不要直接调用。应改用 simple_table_tuple_update。
  *
- * Input parameters:
- *	relation - table to be modified (caller must hold suitable lock)
- *	otid - TID of old tuple to be replaced
- *	slot - newly constructed tuple data to store
- *	cid - update command ID (used for visibility test, and stored into
- *		cmax/cmin if successful)
- *	crosscheck - if not InvalidSnapshot, also check old tuple against this
- *	wait - true if should wait for any conflicting update to commit/abort
- * Output parameters:
- *	tmfd - filled in failure cases (see below)
- *	lockmode - filled with lock mode acquired on tuple
- *  update_indexes - in success cases this is set to true if new index entries
- *		are required for this tuple
+ * 输入参数：
+ *	relation - 要修改的表（调用方必须持有合适锁）
+ *	otid - 要替换的旧元组的 TID
+ *	slot - 新构造的待存元组数据
+ *	cid - 更新命令 ID（用于可见性测试，并在
+ *	成功写入 cmax/cmin）
+ *	crosscheck - 若非 InvalidSnapshot，还对照此检查旧元组
+ *	wait - true 表示应等待冲突更新提交/中止
+ * 输出参数：
+ *	tmfd - 失败时填入（见下）
+ *	lockmode - 填入在元组上获取的锁模式
+ *  update_indexes - 成功时若本元组需要新索引条目则
+ *	设为 true
  *
- * Normal, successful return value is TM_Ok, which means we did actually
- * update it.  Failure return codes are TM_SelfModified, TM_Updated, and
- * TM_BeingModified (the last only possible if wait == false).
+ * 正常成功返回值为 TM_Ok，表示确实已
+ * 更新。失败码为 TM_SelfModified、TM_Updated 和
+ * TM_BeingModified（仅 wait == false 时可能）。
  *
- * On success, the slot's tts_tid and tts_tableOid are updated to match the new
- * stored tuple; in particular, slot->tts_tid is set to the TID where the
- * new tuple was inserted, and its HEAP_ONLY_TUPLE flag is set iff a HOT
- * update was done.  However, any TOAST changes in the new tuple's
- * data are not reflected into *newtup.
+ * 成功时槽的 tts_tid 与 tts_tableOid 会更新以匹配新
+ * 存入的元组；特别地，slot->tts_tid 设为新元组
+ * 插入处的 TID，且当且仅当做了 HOT
+ * 更新时设置 HEAP_ONLY_TUPLE。但新元组数据中的
+ * TOAST 变化不反映到 *newtup。
  *
- * In the failure cases, the routine fills *tmfd with the tuple's t_ctid,
- * t_xmax, and, if possible, t_cmax.  See comments for struct TM_FailureData
- * for additional info.
+ * 失败时本例程用该元组的 t_ctid、
+ * t_xmax 以及可能的 t_cmax 填好 *tmfd。详见结构 TM_FailureData
+ *  的注释。
  */
 static inline TM_Result
 table_tuple_update(Relation rel, ItemPointer otid, TupleTableSlot *slot,
@@ -1545,39 +1545,39 @@ table_tuple_update(Relation rel, ItemPointer otid, TupleTableSlot *slot,
 }
 
 /*
- * Lock a tuple in the specified mode.
+ * 以指定模式锁定元组。
  *
- * Input parameters:
- *	relation: relation containing tuple (caller must hold suitable lock)
- *	tid: TID of tuple to lock (updated if an update chain was followed)
- *	snapshot: snapshot to use for visibility determinations
- *	cid: current command ID (used for visibility test, and stored into
- *		tuple's cmax if lock is successful)
- *	mode: lock mode desired
- *	wait_policy: what to do if tuple lock is not available
+ * 输入参数：
+ *	relation：含该元组的关系（调用方必须持有合适锁）
+ *	tid：要锁定的元组的 TID（若跟随更新链则会更新）
+ *	snapshot：用于判定可见性的快照
+ *	cid：当前命令 ID（用于可见性测试，成功则
+ *	写入元组的 cmax）
+ *	mode：所需锁模式
+ *	wait_policy：元组锁不可用时怎么做
  *	flags:
- *		If TUPLE_LOCK_FLAG_LOCK_UPDATE_IN_PROGRESS, follow the update chain to
- *		also lock descendant tuples if lock modes don't conflict.
- *		If TUPLE_LOCK_FLAG_FIND_LAST_VERSION, follow the update chain and lock
- *		latest version.
+ *	若 TUPLE_LOCK_FLAG_LOCK_UPDATE_IN_PROGRESS，跟随更新链，
+ *	锁模式不冲突时也锁住后代元组。
+ *	若 TUPLE_LOCK_FLAG_FIND_LAST_VERSION，跟随更新链并锁住
+ *	最新版本。
  *
- * Output parameters:
- *	*slot: contains the target tuple
- *	*tmfd: filled in failure cases (see below)
+ * 输出参数：
+ *	*slot：含目标元组
+ *	*tmfd：失败时填入（见下）
  *
- * Function result may be:
- *	TM_Ok: lock was successfully acquired
- *	TM_Invisible: lock failed because tuple was never visible to us
- *	TM_SelfModified: lock failed because tuple updated by self
- *	TM_Updated: lock failed because tuple updated by other xact
- *	TM_Deleted: lock failed because tuple deleted by other xact
- *	TM_WouldBlock: lock couldn't be acquired and wait_policy is skip
+ * 函数结果可为：
+ *	TM_Ok：已成功获取锁
+ *	TM_Invisible：失败，因元组对我们从未可见
+ *	TM_SelfModified：失败，因元组被自身更新
+ *	TM_Updated：失败，因元组被其他事务更新
+ *	TM_Deleted：失败，因元组被其他事务删除
+ *	TM_WouldBlock：无法获取锁且 wait_policy 为 skip
  *
- * In the failure cases other than TM_Invisible and TM_Deleted, the routine
- * fills *tmfd with the tuple's t_ctid, t_xmax, and, if possible, t_cmax.
- * Additionally, in both success and failure cases, tmfd->traversed is set if
- * an update chain was followed.  See comments for struct TM_FailureData for
- * additional info.
+ * 除 TM_Invisible 与 TM_Deleted 外的失败情形中，本例程
+ * 用该元组的 t_ctid、t_xmax 以及可能的 t_cmax 填好 *tmfd。
+ * 另外，成功与失败时若跟随了更新链，都会设置
+ * tmfd->traversed。详见结构 TM_FailureData 的注释，以了解
+ * 更多信息。
  */
 static inline TM_Result
 table_tuple_lock(Relation rel, ItemPointer tid, Snapshot snapshot,
@@ -1591,13 +1591,13 @@ table_tuple_lock(Relation rel, ItemPointer tid, Snapshot snapshot,
 }
 
 /*
- * Perform operations necessary to complete insertions made via
- * tuple_insert and multi_insert with a BulkInsertState specified.
+ * 完成经 tuple_insert 与 multi_insert 并指定
+ * BulkInsertState 的插入所需操作。
  */
 static inline void
 table_finish_bulk_insert(Relation rel, int options)
 {
-	/* optional callback */
+	/* 可选回调。 */
 	if (rel->rd_tableam && rel->rd_tableam->finish_bulk_insert)
 		rel->rd_tableam->finish_bulk_insert(rel, options);
 }

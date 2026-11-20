@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * bufpage.h
- *	  Standard POSTGRES buffer page definitions.
+ *	  标准 POSTGRES 缓冲页定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,14 +20,14 @@
 #include "storage/off.h"
 
 /*
- * A postgres disk page is an abstraction layered on top of a postgres
- * disk block (which is simply a unit of i/o, see block.h).
+ * postgres 磁盘页是叠在 postgres 磁盘块之上的抽象（
+ * 磁盘块只是 I/O 单位，见 block.h）。
  *
- * specifically, while a disk block can be unformatted, a postgres
- * disk page is always a slotted page of the form:
+ * 具体而言，磁盘块可以未格式化，而 postgres
+ * 磁盘页始终是如下形式的槽式页：
  *
  * +----------------+---------------------------------+
- * | PageHeaderData | linp1 linp2 linp3 ...           |
+ * | PageHeaderData | linp1/linp2/linp3 ...           |
  * +-----------+----+---------------------------------+
  * | ... linpN |									  |
  * +-----------+--------------------------------------+
@@ -37,64 +37,64 @@
  * +-------------+------------------------------------+
  * |			 | tupleN ...                         |
  * +-------------+------------------+-----------------+
- * |	   ... tuple3 tuple2 tuple1 | "special space" |
+ * |	   ... tuple3/tuple2/tuple1 | "特殊空间"  |
  * +--------------------------------+-----------------+
  *									^ pd_special
  *
- * a page is full when nothing can be added between pd_lower and
- * pd_upper.
+ * 当 pd_lower 与 pd_upper 间无法再添加时，页即
+ * 满。
  *
- * all blocks written out by an access method must be disk pages.
+ * 访问方法写出的所有块都必须是磁盘页。
  *
  * EXCEPTIONS:
  *
- * obviously, a page is not formatted before it is initialized by
- * a call to PageInit.
+ * 显然，页在由 PageInit 初始化之前尚未
+ * 格式化。
  *
  * NOTES:
  *
- * linp1..N form an ItemId (line pointer) array.  ItemPointers point
- * to a physical block number and a logical offset (line pointer
- * number) within that block/page.  Note that OffsetNumbers
- * conventionally start at 1, not 0.
+ * linp1..N 构成 ItemId（行指针）数组。ItemPointers 指向
+ * 物理块号及该块/页内的逻辑偏移（行指针
+ * 号）。注意 OffsetNumbers
+ * 按惯例从 1 起，而非 0。
  *
- * tuple1..N are added "backwards" on the page.  Since an ItemPointer
- * offset is used to access an ItemId entry rather than an actual
- * byte-offset position, tuples can be physically shuffled on a page
- * whenever the need arises.  This indirection also keeps crash recovery
- * relatively simple, because the low-level details of page space
- * management can be controlled by standard buffer page code during
- * logging, and during recovery.
+ * tuple1..N 在页上"反向"添加。由于 ItemPointer
+ * 偏移用于访问 ItemId 条目而非实际
+ * 字节偏移位置，元组可在需要时在页上
+ * 物理挪动。此间接也使崩溃恢复
+ * 相对简单，因为页空间管理的低层细节
+ * 可在记日志及恢复期间由标准缓冲页代码
+ * 控制。
  *
- * AM-generic per-page information is kept in PageHeaderData.
+ * AM 通用的每页信息保存在 PageHeaderData 中。
  *
- * AM-specific per-page data (if any) is kept in the area marked "special
- * space"; each AM has an "opaque" structure defined somewhere that is
- * stored as the page trailer.  an access method should always
- * initialize its pages with PageInit and then set its own opaque
- * fields.
+ * AM 特定的每页数据（若有）放在标为"特殊
+ * 空间"的区域；每个 AM 都有某处定义的"opaque"结构，
+ * 存为页尾。访问方法应始终
+ * 用 PageInit 初始化其页，再设置自己的 opaque
+ * 字段
  */
 
 typedef Pointer Page;
 
 
 /*
- * location (byte offset) within a page.
+ * 页内位置（字节偏移）。
  *
- * note that this is actually limited to 2^15 because we have limited
- * ItemIdData.lp_off and ItemIdData.lp_len to 15 bits (see itemid.h).
+ * 注意实际限于 2^15，因 ItemIdData.lp_off 与
+ * ItemIdData.lp_len 限制为 15 位（见 itemid.h）。
  */
 typedef uint16 LocationIndex;
 
 
 /*
- * For historical reasons, the 64-bit LSN value is stored as two 32-bit
- * values.
+ * 出于历史原因，64 位 LSN 存成两个 32 位
+ * 值。
  */
 typedef struct
 {
-	uint32		xlogid;			/* high bits */
-	uint32		xrecoff;		/* low bits */
+	uint32		xlogid;			/* 高位 */
+	uint32		xrecoff;		/* 低位 */
 } PageXLogRecPtr;
 
 static inline XLogRecPtr
@@ -107,115 +107,115 @@ PageXLogRecPtrGet(PageXLogRecPtr val)
 	((ptr).xlogid = (uint32) ((lsn) >> 32), (ptr).xrecoff = (uint32) (lsn))
 
 /*
- * disk page organization
+ * 磁盘页组织
  *
- * space management information generic to any page
+ * 对任何页通用的空间管理信息
  *
- *		pd_lsn		- identifies xlog record for last change to this page.
- *		pd_checksum - page checksum, if set.
- *		pd_flags	- flag bits.
- *		pd_lower	- offset to start of free space.
- *		pd_upper	- offset to end of free space.
- *		pd_special	- offset to start of special space.
- *		pd_pagesize_version - size in bytes and page layout version number.
- *		pd_prune_xid - oldest XID among potentially prunable tuples on page.
+ *		pd_lsn		- 标识本页上次更改的 xlog 记录。
+ *		pd_checksum - 页校验，若设。
+ *		pd_flags	- 标志位
+ *		pd_lower	- 空闲空间起始偏移。
+ *		pd_upper	- 空闲空间结束偏移。
+ *		pd_special	- 特殊空间起始偏移。
+ *		pd_pagesize_version - 字节大小与页布局版本号。
+ *		pd_prune_xid - 页上潜在可剪除元组中最旧 XID。
  *
- * The LSN is used by the buffer manager to enforce the basic rule of WAL:
- * "thou shalt write xlog before data".  A dirty buffer cannot be dumped
- * to disk until xlog has been flushed at least as far as the page's LSN.
+ * 缓冲管理器用 LSN 强制 WAL 的基本规则："
+ * 先写 xlog 再写数据"。脏缓冲区无法刷到
+ * 磁盘，直到 xlog 至少已刷到该页的 LSN。
  *
- * pd_checksum stores the page checksum, if it has been set for this page;
- * zero is a valid value for a checksum. If a checksum is not in use then
- * we leave the field unset. This will typically mean the field is zero
- * though non-zero values may also be present if databases have been
- * pg_upgraded from releases prior to 9.3, when the same byte offset was
- * used to store the current timelineid when the page was last updated.
- * Note that there is no indication on a page as to whether the checksum
- * is valid or not, a deliberate design choice which avoids the problem
- * of relying on the page contents to decide whether to verify it. Hence
- * there are no flag bits relating to checksums.
+ * pd_checksum 存储页校验和（若本页已设置）；
+ * 零也是合法校验和值。若未使用校验和，则
+ * 该字段保持未设置。这通常意味着字段为零，
+ * 不过若数据库从 9.3 之前版本经
+ * pg_upgraded 自 9.3 前，非零值可能出现，同一字节偏移
+ * 用于存放页上次更新时的当前 timelineid。
+ * 注意页上没有指示校验和是否
+ * 有效，这是有意的设计选择，以免
+ * 依赖页内容来决定是否校验。因此
+ * 没有与校验和相关的标志位。
  *
- * pd_prune_xid is a hint field that helps determine whether pruning will be
- * useful.  It is currently unused in index pages.
+ * pd_prune_xid 是提示字段，帮助判断剪除是否
+ * 有用。目前在索引页上未使用。
  *
- * The page version number and page size are packed together into a single
- * uint16 field.  This is for historical reasons: before PostgreSQL 7.3,
- * there was no concept of a page version number, and doing it this way
- * lets us pretend that pre-7.3 databases have page version number zero.
- * We constrain page sizes to be multiples of 256, leaving the low eight
- * bits available for a version number.
+ * 页版本号与页大小打包进单个
+ * uint16 字段。这是历史原因：PostgreSQL 7.3 之前
+ * 没有页版本号的概念，这样做可让我们
+ * 假装 pre-7.3 数据库的页版本号为零。
+ * 我们约束页大小为 256 的倍数，低八
+ * 位留给版本号。
  *
- * Minimum possible page size is perhaps 64B to fit page header, opaque space
- * and a minimal tuple; of course, in reality you want it much bigger, so
- * the constraint on pagesize mod 256 is not an important restriction.
- * On the high end, we can only support pages up to 32KB because lp_off/lp_len
- * are 15 bits.
+ * 最小可能页大小或为 64B，以放下页头、opaque 空间
+ * 和最小元组；当然实际希望大得多，故
+ * pagesize 模 256 的约束并非重要限制。
+ * 高端我们只能支持到 32KB 的页，因为 lp_off/lp_len
+ * 为 15 位
  */
 
 typedef struct PageHeaderData
 {
-	/* XXX LSN is member of *any* block, not only page-organized ones */
-	PageXLogRecPtr pd_lsn;		/* LSN: next byte after last byte of xlog
-								 * record for last change to this page */
-	uint16		pd_checksum;	/* checksum */
-	uint16		pd_flags;		/* flag bits, see below */
-	LocationIndex pd_lower;		/* offset to start of free space */
-	LocationIndex pd_upper;		/* offset to end of free space */
-	LocationIndex pd_special;	/* offset to start of special space */
+	/* XXX LSN 是*任何*块的成员，不限于按页组织者 */
+	PageXLogRecPtr pd_lsn;		/* LSN: 本页上次更改之 xlog 记录
+								 * 最后一字节后的下一字节 */
+	uint16		pd_checksum;	/* 校验 */
+	uint16		pd_flags;		/* 标志位，见下 */
+	LocationIndex pd_lower;		/* 空闲空间起始偏移 */
+	LocationIndex pd_upper;		/* 空闲空间结束偏移 */
+	LocationIndex pd_special;	/* 特殊空间起始偏移 */
 	uint16		pd_pagesize_version;
-	TransactionId pd_prune_xid; /* oldest prunable XID, or zero if none */
-	ItemIdData	pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* line pointer array */
+	TransactionId pd_prune_xid; /* 最旧可剪除 XID，若无为零 */
+	ItemIdData	pd_linp[FLEXIBLE_ARRAY_MEMBER]; /* 行指针数组 */
 } PageHeaderData;
 
 typedef PageHeaderData *PageHeader;
 
 /*
- * pd_flags contains the following flag bits.  Undefined bits are initialized
- * to zero and may be used in the future.
+ * pd_flags 含下列标志位。未定义位初始化为
+ * 零，将来可能使用。
  *
- * PD_HAS_FREE_LINES is set if there are any LP_UNUSED line pointers before
- * pd_lower.  This should be considered a hint rather than the truth, since
- * changes to it are not WAL-logged.
+ * 若 pd_lower 之前有任何 LP_UNUSED 行指针则设置
+ * PD_HAS_FREE_LINES。应视为提示而非真相，因其
+ * 更改不记 WAL。
  *
- * PD_PAGE_FULL is set if an UPDATE doesn't find enough free space in the
- * page for its new tuple version; this suggests that a prune is needed.
- * Again, this is just a hint.
+ * 若 UPDATE 在页中找不到足够空闲空间容纳其
+ * 新元组版本则设置 PD_PAGE_FULL；这暗示需要剪除。
+ * 同样只是提示。
  */
-#define PD_HAS_FREE_LINES	0x0001	/* are there any unused line pointers? */
-#define PD_PAGE_FULL		0x0002	/* not enough free space for new tuple? */
-#define PD_ALL_VISIBLE		0x0004	/* all tuples on page are visible to
-									 * everyone */
+#define PD_HAS_FREE_LINES	0x0001	/* 有未用行指针吗？ */
+#define PD_PAGE_FULL		0x0002	/* 空闲不够放新元组？ */
+#define PD_ALL_VISIBLE		0x0004	/* 页上所有元组对所有人
+									 * 可见 */
 
-#define PD_VALID_FLAG_BITS	0x0007	/* OR of all valid pd_flags bits */
+#define PD_VALID_FLAG_BITS	0x0007	/* 合法 pd_flags 位之 OR */
 
 /*
- * Page layout version number 0 is for pre-7.3 Postgres releases.
- * Releases 7.3 and 7.4 use 1, denoting a new HeapTupleHeader layout.
- * Release 8.0 uses 2; it changed the HeapTupleHeader layout again.
- * Release 8.1 uses 3; it redefined HeapTupleHeader infomask bits.
- * Release 8.3 uses 4; it changed the HeapTupleHeader layout again, and
- *		added the pd_flags field (by stealing some bits from pd_tli),
- *		as well as adding the pd_prune_xid field (which enlarges the header).
+ * 页布局版本号 0 用于 7.3 之前的 Postgres 发行。
+ * 7.3 与 7.4 用 1，表示新的 HeapTupleHeader 布局。
+ * 8.0 用 2；再次更改了 HeapTupleHeader 布局。
+ * 8.1 用 3；重定义了 HeapTupleHeader infomask 位。
+ * 8.3 用 4；再次更改 HeapTupleHeader 布局，并
+ *		加入 pd_flags 字段（从 pd_tli 偷了若干位），
+ *		以及 pd_prune_xid 字段（这会增大页头）。
  *
- * As of Release 9.3, the checksum version must also be considered when
- * handling pages.
+ * 自 9.3 起，处理页时还必须考虑
+ * 校验和版本
  */
 #define PG_PAGE_LAYOUT_VERSION		4
 #define PG_DATA_CHECKSUM_VERSION	1
 
 /* ----------------------------------------------------------------
- *						page support functions
+ *						页支持函数
  * ----------------------------------------------------------------
  */
 
 /*
- * line pointer(s) do not count as part of header
+ * 行指针 pointer 不计为页头的一部分
  */
 #define SizeOfPageHeaderData (offsetof(PageHeaderData, pd_linp))
 
 /*
  * PageIsEmpty
- *		returns true iff no itemid has been allocated on the page
+ *		当且仅当页上尚未分配 itemid 则为真
  */
 static inline bool
 PageIsEmpty(Page page)
@@ -225,7 +225,7 @@ PageIsEmpty(Page page)
 
 /*
  * PageIsNew
- *		returns true iff page has not been initialized (by PageInit)
+ *		当且仅当页尚未初始化（由 PageInit）则为真
  */
 static inline bool
 PageIsNew(Page page)
@@ -235,7 +235,7 @@ PageIsNew(Page page)
 
 /*
  * PageGetItemId
- *		Returns an item identifier of a page.
+ *		返回页的项标识。
  */
 static inline ItemId
 PageGetItemId(Page page, OffsetNumber offsetNumber)
@@ -245,11 +245,11 @@ PageGetItemId(Page page, OffsetNumber offsetNumber)
 
 /*
  * PageGetContents
- *		To be used in cases where the page does not contain line pointers.
+ *		用于页不含行指针的情形。
  *
- * Note: prior to 8.3 this was not guaranteed to yield a MAXALIGN'd result.
- * Now it is.  Beware of old code that might think the offset to the contents
- * is just SizeOfPageHeaderData rather than MAXALIGN(SizeOfPageHeaderData).
+ * 注意：8.3 之前不保证产生 MAXALIGN 对齐的结果。
+ * 现在保证。当心旧代码可能以为内容偏移
+ * 只是 SizeOfPageHeaderData 而非 MAXALIGN(SizeOfPageHeaderData)。
  */
 static inline char *
 PageGetContents(Page page)
@@ -258,17 +258,17 @@ PageGetContents(Page page)
 }
 
 /* ----------------
- *		functions to access page size info
+ *		访问页大小信息的函数
  * ----------------
  */
 
 /*
  * PageGetPageSize
- *		Returns the page size of a page.
+ *		返回页的大小。
  *
- * this can only be called on a formatted page (unlike
- * BufferGetPageSize, which can be called on an unformatted page).
- * however, it can be called on a page that is not stored in a buffer.
+ * 只能在已格式化的页上调用（不同于
+ * BufferGetPageSize，后者可在未格式化页上调用）。
+ * 但可以在未存于缓冲区的页上调用。
  */
 static inline Size
 PageGetPageSize(Page page)
@@ -278,7 +278,7 @@ PageGetPageSize(Page page)
 
 /*
  * PageGetPageLayoutVersion
- *		Returns the page layout version of a page.
+ *		返回页的页布局版本。
  */
 static inline uint8
 PageGetPageLayoutVersion(Page page)
@@ -288,10 +288,10 @@ PageGetPageLayoutVersion(Page page)
 
 /*
  * PageSetPageSizeAndVersion
- *		Sets the page size and page layout version number of a page.
+ *		设置页的页大小与页布局版本号。
  *
- * We could support setting these two values separately, but there's
- * no real need for it at the moment.
+ * 我们可以支持分开设置这两个值，但目前
+ * 并无实际需要。
  */
 static inline void
 PageSetPageSizeAndVersion(Page page, Size size, uint8 version)
@@ -303,12 +303,12 @@ PageSetPageSizeAndVersion(Page page, Size size, uint8 version)
 }
 
 /* ----------------
- *		page special data functions
+ *		页特殊数据函数
  * ----------------
  */
 /*
  * PageGetSpecialSize
- *		Returns size of special space on a page.
+ *		返回页上特殊空间的大小。
  */
 static inline uint16
 PageGetSpecialSize(Page page)
@@ -317,9 +317,9 @@ PageGetSpecialSize(Page page)
 }
 
 /*
- * Using assertions, validate that the page special pointer is OK.
+ * 用断言校验页特殊指针是否正常。
  *
- * This is intended to catch use of the pointer before page initialization.
+ * 旨在捕获页初始化之前使用该指针。
  */
 static inline void
 PageValidateSpecialPointer(Page page)
@@ -331,7 +331,7 @@ PageValidateSpecialPointer(Page page)
 
 /*
  * PageGetSpecialPointer
- *		Returns pointer to special space on a page.
+ *		返回指向页上特殊空间的指针。
  */
 static inline char *
 PageGetSpecialPointer(Page page)
@@ -342,11 +342,11 @@ PageGetSpecialPointer(Page page)
 
 /*
  * PageGetItem
- *		Retrieves an item on the given page.
+ *		取回给定页上的一项。
  *
  * Note:
- *		This does not change the status of any of the resources passed.
- *		The semantics may change in the future.
+ *		这不改变所传任何资源的状态。
+ *		语义将来可能改变。
  */
 static inline Item
 PageGetItem(Page page, ItemId itemId)
@@ -359,12 +359,12 @@ PageGetItem(Page page, ItemId itemId)
 
 /*
  * PageGetMaxOffsetNumber
- *		Returns the maximum offset number used by the given page.
- *		Since offset numbers are 1-based, this is also the number
- *		of items on the page.
+ *		返回给定页所用的最大偏移号。
+ *		因偏移号从 1 起，这也是页上的
+ *		项数。
  *
- *		NOTE: if the page is not initialized (pd_lower == 0), we must
- *		return zero to ensure sane behavior.
+ *		注意：若页未初始化（pd_lower == 0），必须
+ *		返回零以确保行为正常。
  */
 static inline OffsetNumber
 PageGetMaxOffsetNumber(Page page)
@@ -378,7 +378,7 @@ PageGetMaxOffsetNumber(Page page)
 }
 
 /*
- * Additional functions for access to page headers.
+ * 访问页头的附加函数。
  */
 static inline XLogRecPtr
 PageGetLSN(Page page)
@@ -440,7 +440,7 @@ PageClearAllVisible(Page page)
 }
 
 /*
- * These two require "access/transam.h", so left as macros.
+ * 这两项需要 "access/transam.h"，故留作宏。
  */
 #define PageSetPrunable(page, xid) \
 do { \
@@ -454,15 +454,15 @@ do { \
 
 
 /* ----------------------------------------------------------------
- *		extern declarations
+ *		外部声明
  * ----------------------------------------------------------------
  */
 
-/* flags for PageAddItemExtended() */
+/* PageAddItemExtended() 的标志 */
 #define PAI_OVERWRITE			(1 << 0)
 #define PAI_IS_HEAP				(1 << 1)
 
-/* flags for PageIsVerifiedExtended() */
+/* PageIsVerifiedExtended() 的标志 */
 #define PIV_LOG_WARNING			(1 << 0)
 #define PIV_REPORT_STAT			(1 << 1)
 
@@ -476,11 +476,11 @@ do { \
 						   PIV_LOG_WARNING | PIV_REPORT_STAT)
 
 /*
- * Check that BLCKSZ is a multiple of sizeof(size_t).  In
- * PageIsVerifiedExtended(), it is much faster to check if a page is
- * full of zeroes using the native word size.  Note that this assertion
- * is kept within a header to make sure that StaticAssertDecl() works
- * across various combinations of platforms and compilers.
+ * 检查 BLCKSZ 是否为 sizeof(size_t) 的倍数。在
+ * PageIsVerifiedExtended() 中，用本机字长检查页是否
+ * 全为零要快得多。注意把此断言
+ * 放在头文件中，以确保 StaticAssertDecl() 在
+ * 各种平台与编译器组合下可用。
  */
 StaticAssertDecl(BLCKSZ == ((BLCKSZ / sizeof(size_t)) * sizeof(size_t)),
 				 "BLCKSZ has to be a multiple of sizeof(size_t)");

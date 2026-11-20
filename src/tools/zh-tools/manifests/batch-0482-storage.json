@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0482",
+  "title": "include/storage bufpage.h 缓冲页 — batch 0482",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "87bb3a54125ce27f728d0055d662a5e39f4cba57",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {"pattern": "src/include/storage/bufpage.h", "kind": "c_comment", "note": "0482"},
+    {"pattern": "src/tools/zh-tools/manifests/batch-0482-storage.json", "kind": "manifest", "note": "0482"},
+    {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "append"}
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/bufpage.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 186,
+      "translated": 145,
+      "preserved": 41,
+      "preserved_reasons": ["横幅/版权/路径/ASCII 图/EXCEPTIONS:/NOTES:/横线/函数名/Note:/#endif"],
+      "note": "行指针/空闲空间/特殊空间/校验和/剪除"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0482-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0482"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第四刀：bufpage.h；ASCII 图 KEEP（linp/tuple 斜杠防 MIXED）；必须/无法；prune→剪除"
+}

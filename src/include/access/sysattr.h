@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sysattr.h
- *	  POSTGRES system attribute definitions.
+ *	  POSTGRES 系统属性定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,7 +16,7 @@
 
 
 /*
- * Attribute numbers for the system-defined attributes
+ * 用于系统定义的属性的属性号
  */
 #define SelfItemPointerAttributeNumber			(-1)
 #define MinTransactionIdAttributeNumber			(-2)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteheap.h
- *	  Declarations for heap rewrite support functions
+ *	  堆重写支持函数的声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994-5, Regents of the University of California
@@ -18,7 +18,7 @@
 #include "storage/relfilelocator.h"
 #include "utils/relcache.h"
 
-/* struct definition is private to rewriteheap.c */
+/* 结构定义私有于 rewriteheap.c */
 typedef struct RewriteStateData *RewriteState;
 
 extern RewriteState begin_heap_rewrite(Relation old_heap, Relation new_heap,
@@ -30,7 +30,7 @@ extern void rewrite_heap_tuple(RewriteState state, HeapTuple old_tuple,
 extern bool rewrite_heap_dead_tuple(RewriteState state, HeapTuple old_tuple);
 
 /*
- * On-Disk data format for an individual logical rewrite mapping.
+ * 单条逻辑重写映射的磁盘数据格式。
  */
 typedef struct LogicalRewriteMappingData
 {
@@ -41,14 +41,14 @@ typedef struct LogicalRewriteMappingData
 } LogicalRewriteMappingData;
 
 /* ---
- * The filename consists of the following, dash separated,
- * components:
- * 1) database oid or InvalidOid for shared relations
- * 2) the oid of the relation
- * 3) upper 32bit of the LSN at which a rewrite started
- * 4) lower 32bit of the LSN at which a rewrite started
- * 5) xid we are mapping for
- * 6) xid of the xact performing the mapping
+ * 文件名由下列以连字符分隔的成分
+ * 组成：
+ * 1) 数据库 oid，共享关系为 InvalidOid
+ * 2) 该关系的 oid
+ * 3) 重写开始时 LSN 的高 32 位
+ * 4) 重写开始时 LSN 的低 32 位
+ * 5) 为其做映射的 xid
+ * 6) 执行该映射的事务的 xid
  * ---
  */
 #define LOGICAL_REWRITE_FORMAT "map-%x-%x-%X_%X-%x-%x"

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * toast_compression.h
- *	  Functions for toast compression.
+ *	  TOAST 压缩函数。
  *
  * Copyright (c) 2021-2023, PostgreSQL Global Development Group
  *
@@ -14,25 +14,25 @@
 #define TOAST_COMPRESSION_H
 
 /*
- * GUC support.
+ * GUC 支持.
  *
- * default_toast_compression is an integer for purposes of the GUC machinery,
- * but the value is one of the char values defined below, as they appear in
- * pg_attribute.attcompression, e.g. TOAST_PGLZ_COMPRESSION.
+ * default_toast_compression 对 GUC 机制而言是整数，
+ * 但其值是下文所定义的 char 值之一，即出现在 
+ * pg_attribute.attcompression,如 TOAST_PGLZ_COMPRESSION。
  */
 extern PGDLLIMPORT int default_toast_compression;
 
 /*
- * Built-in compression method ID.  The toast compression header will store
- * this in the first 2 bits of the raw length.  These built-in compression
- * method IDs are directly mapped to the built-in compression methods.
+ * 内建压缩方法 ID。TOAST 压缩头会把
+ * 此项存入原始长度的前 2 位。这些内建压缩
+ * 方法 ID 直接映射到内建压缩方法。
  *
- * Don't use these values for anything other than understanding the meaning
- * of the raw bits from a varlena; in particular, if the goal is to identify
- * a compression method, use the constants TOAST_PGLZ_COMPRESSION, etc.
- * below. We might someday support more than 4 compression methods, but
- * we can never have more than 4 values in this enum, because there are
- * only 2 bits available in the places where this is stored.
+ * 勿把这些值用于理解 varlena 原始比特之含义以外的
+ * 任何用途；特别是，若目的是识别
+ * 压缩方法，则用常量 TOAST_PGLZ_COMPRESSION 等
+ * 下文。我们或将支持多于 4 种压缩方法，但
+ * 我们在此枚举中永远不能有超过 4 个值，因为
+ * 存放该值之处仅有 2 位可用。
  */
 typedef enum ToastCompressionId
 {
@@ -42,9 +42,9 @@ typedef enum ToastCompressionId
 } ToastCompressionId;
 
 /*
- * Built-in compression methods.  pg_attribute will store these in the
- * attcompression column.  In attcompression, InvalidCompressionMethod
- * denotes the default behavior.
+ * 内建压缩方法。pg_attribute 会把它们存入 
+ * attcompression 列；attcompression 中 InvalidCompressionMethod 
+ * 表示默认行为。
  */
 #define TOAST_PGLZ_COMPRESSION			'p'
 #define TOAST_LZ4_COMPRESSION			'l'
@@ -53,19 +53,19 @@ typedef enum ToastCompressionId
 #define CompressionMethodIsValid(cm)  ((cm) != InvalidCompressionMethod)
 
 
-/* pglz compression/decompression routines */
+/* pglz 压缩/解压例程 */
 extern struct varlena *pglz_compress_datum(const struct varlena *value);
 extern struct varlena *pglz_decompress_datum(const struct varlena *value);
 extern struct varlena *pglz_decompress_datum_slice(const struct varlena *value,
 												   int32 slicelength);
 
-/* lz4 compression/decompression routines */
+/* lz4 压缩/解压例程 */
 extern struct varlena *lz4_compress_datum(const struct varlena *value);
 extern struct varlena *lz4_decompress_datum(const struct varlena *value);
 extern struct varlena *lz4_decompress_datum_slice(const struct varlena *value,
 												  int32 slicelength);
 
-/* other stuff */
+/* 其他项 */
 extern ToastCompressionId toast_get_compression_id(struct varlena *attr);
 extern char CompressionNameToMethod(const char *compression);
 extern const char *GetCompressionMethodName(char method);

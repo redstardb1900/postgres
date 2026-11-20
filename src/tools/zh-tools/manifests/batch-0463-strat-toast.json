@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0463",
+  "title": "stratnum/toast_compression/rewriteheap/sysattr 头文件注释翻译 — batch 0463",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "5d12a8011df20170ad37cc46c0e253ca98ad69eb",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/access/stratnum.h",
+      "kind": "c_comment",
+      "note": "0463"
+    },
+    {
+      "pattern": "src/include/access/toast_compression.h",
+      "kind": "c_comment",
+      "note": "0463"
+    },
+    {
+      "pattern": "src/include/access/rewriteheap.h",
+      "kind": "c_comment",
+      "note": "0463"
+    },
+    {
+      "pattern": "src/include/access/sysattr.h",
+      "kind": "c_comment",
+      "note": "0463"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0463-strat-toast.json",
+      "kind": "manifest",
+      "note": "batch-0463"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/access/stratnum.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 47,
+      "translated": 40,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/版权/STRATNUM_H KEEP"
+      ],
+      "note": "batch-0463"
+    },
+    {
+      "path": "src/include/access/toast_compression.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 20,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/版权/TOAST_COMPRESSION_H KEEP"
+      ],
+      "note": "batch-0463"
+    },
+    {
+      "path": "src/include/access/rewriteheap.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 20,
+      "translated": 11,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/路径/版权/REWRITE_HEAP_H KEEP"
+      ],
+      "note": "batch-0463"
+    },
+    {
+      "path": "src/include/access/sysattr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/版权/SYSATTR_H KEEP"
+      ],
+      "note": "batch-0463"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0463-strat-toast.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "batch-0463"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "策略号/TOAST压缩/堆重写/系统属性"
+}

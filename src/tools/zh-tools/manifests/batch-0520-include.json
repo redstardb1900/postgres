@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0520",
+  "title": "include/pg_config_manual.h — batch 0520",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "77519cb1c3b3558bf1989758a20f2a7df5107742",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/pg_config_manual.h",
+      "kind": "c_comment",
+      "note": "0520"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0520-include.json",
+      "kind": "manifest",
+      "note": "0520"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/pg_config_manual.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 39,
+      "translated": 39,
+      "preserved": 0,
+      "preserved_reasons": [
+        "块内残行/横幅/#define KEEP 20 行"
+      ],
+      "note": "0520 APPLY T=171 K=20；posix_fadvise/Valgrind/SSL/inval 压缩"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0520-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "note": "0520",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "note": "append 0520",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": []
+    }
+  ]
+}

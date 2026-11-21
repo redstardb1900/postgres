@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tcopprot.h
- *	  prototypes for postgres.c.
+ *	  postgres.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,7 +22,7 @@
 #include "utils/queryenvironment.h"
 
 
-/* Required daylight between max_stack_depth and the kernel limit, in bytes */
+/* max_stack_depth 与内核限之间所需日照空隙，字节 */
 #define STACK_DEPTH_SLOP (512 * 1024L)
 
 extern PGDLLIMPORT CommandDest whereToSendOutput;
@@ -31,19 +31,19 @@ extern PGDLLIMPORT int max_stack_depth;
 extern PGDLLIMPORT int PostAuthDelay;
 extern PGDLLIMPORT int client_connection_check_interval;
 
-/* GUC-configurable parameters */
+/* GUC 可配置参数 */
 
 typedef enum
 {
-	LOGSTMT_NONE,				/* log no statements */
-	LOGSTMT_DDL,				/* log data definition statements */
-	LOGSTMT_MOD,				/* log modification statements, plus DDL */
-	LOGSTMT_ALL					/* log all statements */
+	LOGSTMT_NONE,				/* 不记录语句 */
+	LOGSTMT_DDL,				/* 记录数据定义语句 */
+	LOGSTMT_MOD,				/* 记录修改语句，外加 DDL */
+	LOGSTMT_ALL					/* 记录全部语句 */
 } LogStmtLevel;
 
 extern PGDLLIMPORT int log_statement;
 
-/* Flags for restrict_nonsystem_relation_kind value */
+/* restrict_nonsystem_relation_kind 值的标志 */
 #define RESTRICT_RELKIND_VIEW			0x01
 #define RESTRICT_RELKIND_FOREIGN_TABLE	0x02
 
@@ -76,8 +76,8 @@ extern void die(SIGNAL_ARGS);
 extern void quickdie(SIGNAL_ARGS) pg_attribute_noreturn();
 extern void StatementCancelHandler(SIGNAL_ARGS);
 extern void FloatExceptionHandler(SIGNAL_ARGS) pg_attribute_noreturn();
-extern void RecoveryConflictInterrupt(ProcSignalReason reason); /* called from SIGUSR1
-																 * handler */
+extern void RecoveryConflictInterrupt(ProcSignalReason reason); /* 由 SIGUSR1
+																 * 。 */
 extern void ProcessClientReadInterrupt(bool blocked);
 extern void ProcessClientWriteInterrupt(bool blocked);
 

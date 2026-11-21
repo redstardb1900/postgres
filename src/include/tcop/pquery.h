@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pquery.h
- *	  prototypes for pquery.c.
+ *	  pquery.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,7 +17,7 @@
 #include "nodes/parsenodes.h"
 #include "utils/portal.h"
 
-struct PlannedStmt;				/* avoid including plannodes.h here */
+struct PlannedStmt;				/* 避免在此包含 plannodes.h */
 
 
 extern PGDLLIMPORT Portal ActivePortal;

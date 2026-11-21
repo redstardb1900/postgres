@@ -1,12 +1,12 @@
 /*----------------------------------------------------------------------
  *
  * cmdtaglist.h
- *    Command tags
+ *    命令标签
  *
- * The command tag list is kept in its own source file for possible use
- * by automatic tools.  The exact representation of a command tag is
- * determined by the PG_CMDTAG macro, which is not defined in this file;
- * it can be defined by the caller for special purposes.
+ * 命令标签列表单独放源文件，以便自动工具可能
+ * 使用。命令标签的确切表示由本文件未定义的
+ * PG_CMDTAG 宏决定；调用者可为特殊目的定义它。
+ * 。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,14 +16,14 @@
  *----------------------------------------------------------------------
  */
 
-/* there is deliberately not an #ifndef CMDTAGLIST_H here */
+/* 故意没有 #ifndef CMDTAGLIST_H */
 
 /*
- * List of command tags.  The entries must be sorted alphabetically on their
- * textual name, so that we can bsearch on it; see GetCommandTagEnum().
+ * 命令标签列表。各项须按文本名按字母序排序，以便
+ * 可用 bsearch；见 GetCommandTagEnum()。
  */
 
-/* symbol name, textual name, event_trigger_ok, table_rewrite_ok, rowcount */
+/* 符号名、文本名、event_trigger_ok、table_rewrite_ok、rowcount */
 PG_CMDTAG(CMDTAG_UNKNOWN, "???", false, false, false)
 PG_CMDTAG(CMDTAG_ALTER_ACCESS_METHOD, "ALTER ACCESS METHOD", true, false, false)
 PG_CMDTAG(CMDTAG_ALTER_AGGREGATE, "ALTER AGGREGATE", true, false, false)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * cmdtag.h
- *	  Declarations for commandtag names and enumeration.
+ *	  命令标签名与枚举的声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,7 +13,7 @@
 #ifndef CMDTAG_H
 #define CMDTAG_H
 
-/* buffer size required for command completion tags */
+/* 命令完成标签所需缓冲区大小 */
 #define COMPLETION_TAG_BUFSIZE	64
 
 #define PG_CMDTAG(tag, name, evtrgok, rwrok, rowcnt) \

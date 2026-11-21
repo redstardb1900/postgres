@@ -19,7 +19,7 @@
 
 
 /*
- * Support for keeping track of collected commands.
+ * 跟踪已收集命令的支持。
  */
 typedef enum CollectedCommandType
 {
@@ -33,11 +33,11 @@ typedef enum CollectedCommandType
 } CollectedCommandType;
 
 /*
- * For ALTER TABLE commands, we keep a list of the subcommands therein.
+ * 对 ALTER TABLE 命令，我们保留其中的子命令列表。
  */
 typedef struct CollectedATSubcmd
 {
-	ObjectAddress address;		/* affected column, constraint, index, ... */
+	ObjectAddress address;		/* 受影响的列、约束、索引…… */
 	Node	   *parsetree;
 } CollectedATSubcmd;
 
@@ -50,14 +50,14 @@ typedef struct CollectedCommand
 
 	union
 	{
-		/* most commands */
+		/* 多数命令 */
 		struct
 		{
 			ObjectAddress address;
 			ObjectAddress secondaryObject;
 		}			simple;
 
-		/* ALTER TABLE, and internal uses thereof */
+		/* ALTER TABLE 及其内部用法 */
 		struct
 		{
 			Oid			objectId;
@@ -102,7 +102,7 @@ typedef struct CollectedCommand
 		}			defprivs;
 	}			d;
 
-	struct CollectedCommand *parent;	/* when nested */
+	struct CollectedCommand *parent;	/* 嵌套时 */
 } CollectedCommand;
 
 #endif							/* DEPARSE_UTILITY_H */

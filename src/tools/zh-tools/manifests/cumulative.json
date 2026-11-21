@@ -9456,6 +9456,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0525-include.json",
    "kind": "manifest",
    "note": "0525"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0526-include.json",
+   "kind": "manifest",
+   "note": "0526"
   }
  ],
  "files": [
@@ -30733,13 +30738,13 @@
    "path": "src/include/c.h",
    "kind": "c_comment",
    "action": "modify",
-   "segments_total": 26,
-   "translated": 26,
+   "segments_total": 61,
+   "translated": 61,
    "preserved": 0,
    "preserved_reasons": [
-    "多切片累计；本批 L413-669"
+    "多切片；宏样例/预处理 KEEP"
    ],
-   "note": "0524+0525；本批 T=55"
+   "note": "0524-0526 收官；本批 T=187 L670+"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0524-include.json",
@@ -30760,6 +30765,16 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0525"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0526-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0526"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

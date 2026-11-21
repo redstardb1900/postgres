@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0526",
+  "title": "include/c.h 切片余部 Section4-9 — batch 0526",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "dec9165385c10a1fb855995bceedbf396f8501be",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/c.h",
+      "kind": "c_comment",
+      "note": "0526"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0526-include.json",
+      "kind": "manifest",
+      "note": "0526"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/c.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 61,
+      "translated": 61,
+      "preserved": 0,
+      "preserved_reasons": [
+        "宏样例/预处理 KEEP"
+      ],
+      "note": "0526 T=187；L670+ 收官"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0526-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0526"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0526"
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * miscadmin.h
- *	  This file contains general postgres administration and initialization
- *	  stuff that used to be spread out between the following files:
- *		globals.h						global variables
- *		pdir.h							directory path crud
- *		pinit.h							postgres initialization
- *		pmod.h							processing modes
- *	  Over time, this has also become the preferred place for widely known
- *	  resource-limitation stuff, such as work_mem and check_stack_depth().
+ *	  一般 postgres 管理与初始化内容，
+ *	  原先分散在下列文件中：
+ *		globals.h						全局变量
+ *		pdir.h							目录路径相关
+ *		pinit.h							postgres 初始化
+ *		pmod.h							处理模式
+ *	  久而久之，这里也成了广为人知的
+ *	资源限制首选处，如 work_mem、check_stack_depth()。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,7 +16,7 @@
  * src/include/miscadmin.h
  *
  * NOTES
- *	  some of the information in this file should be moved to other files.
+ *	  本文件中某些信息应迁到其他文件。
  *
  *-------------------------------------------------------------------------
  */
@@ -33,55 +33,55 @@
 
 
 /*****************************************************************************
- *	  System interrupt and critical section handling
+ *	  系统中断与临界区处理
  *
- * There are two types of interrupts that a running backend needs to accept
- * without messing up its state: QueryCancel (SIGINT) and ProcDie (SIGTERM).
- * In both cases, we need to be able to clean up the current transaction
- * gracefully, so we can't respond to the interrupt instantaneously ---
- * there's no guarantee that internal data structures would be self-consistent
- * if the code is interrupted at an arbitrary instant.  Instead, the signal
- * handlers set flags that are checked periodically during execution.
+ * 运行中的后端须在不弄乱状态的前提下接受两类中断：
+ * QueryCancel (SIGINT) 与 ProcDie (SIGTERM)。
+ * 两种情况下都须能优雅清理当前事务，
+ * 故不能瞬时响应中断——
+ * 无法保证在任意瞬间打断时内部数据结构
+ * 自洽。取而代之，信号
+ * 处理程序设置标志，在执行中周期性检查。
  *
- * The CHECK_FOR_INTERRUPTS() macro is called at strategically located spots
- * where it is normally safe to accept a cancel or die interrupt.  In some
- * cases, we invoke CHECK_FOR_INTERRUPTS() inside low-level subroutines that
- * might sometimes be called in contexts that do *not* want to allow a cancel
- * or die interrupt.  The HOLD_INTERRUPTS() and RESUME_INTERRUPTS() macros
- * allow code to ensure that no cancel or die interrupt will be accepted,
- * even if CHECK_FOR_INTERRUPTS() gets called in a subroutine.  The interrupt
- * will be held off until CHECK_FOR_INTERRUPTS() is done outside any
- * HOLD_INTERRUPTS() ... RESUME_INTERRUPTS() section.
+ * CHECK_FOR_INTERRUPTS() 宏在策略性位置调用，
+ * 通常在那里可安全接受取消或死亡中断。有时
+ * 在低层子例程内调用 CHECK_FOR_INTERRUPTS()，而
+ * 那些上下文*不*希望允许取消
+ * 或死亡中断。HOLD_INTERRUPTS() 与 RESUME_INTERRUPTS() 宏
+ * 可确保即使子例程调用了 CHECK_FOR_INTERRUPTS()
+ * 也不接受取消或死亡中断。中断
+ * 将推迟到在任何 HOLD_INTERRUPTS()...
+ * RESUME_INTERRUPTS() 段之外做完检查。
  *
- * There is also a mechanism to prevent query cancel interrupts, while still
- * allowing die interrupts: HOLD_CANCEL_INTERRUPTS() and
+ * 另有机制可阻止查询取消中断，仍
+ * 允许死亡中断：HOLD_CANCEL_INTERRUPTS() 与
  * RESUME_CANCEL_INTERRUPTS().
  *
- * Note that ProcessInterrupts() has also acquired a number of tasks that
- * do not necessarily cause a query-cancel-or-die response.  Hence, it's
- * possible that it will just clear InterruptPending and return.
+ * 注意 ProcessInterrupts() 还承担若干未必
+ * 导致查询取消或死亡响应的任务。故
+ * 可能只是清除 InterruptPending 就返回。
  *
- * INTERRUPTS_PENDING_CONDITION() can be checked to see whether an
- * interrupt needs to be serviced, without trying to do so immediately.
- * Some callers are also interested in INTERRUPTS_CAN_BE_PROCESSED(),
- * which tells whether ProcessInterrupts is sure to clear the interrupt.
+ * 可用 INTERRUPTS_PENDING_CONDITION() 检查是否有
+ * 中断待服务，而不立即尝试服务。
+ * 有些调用方也关心 INTERRUPTS_CAN_BE_PROCESSED()，
+ * 它告知 ProcessInterrupts 是否必能清除该中断。
  *
- * Special mechanisms are used to let an interrupt be accepted when we are
- * waiting for a lock or when we are waiting for command input (but, of
- * course, only if the interrupt holdoff counter is zero).  See the
- * related code for details.
+ * 另有特殊机制使在等待锁或等待命令输入时
+ * 可接受中断（当然，仅当
+ * 中断推迟计数器为零时）。详见
+ * 相关代码。
  *
- * A lost connection is handled similarly, although the loss of connection
- * does not raise a signal, but is detected when we fail to write to the
- * socket. If there was a signal for a broken connection, we could make use of
- * it by setting ClientConnectionLost in the signal handler.
+ * 连接丢失的处理类似，尽管丢连接
+ * 不产生信号，而是在向套接字写
+ * 失败时检出。若有断连信号，可在
+ * 处理程序中设 ClientConnectionLost。
  *
- * A related, but conceptually distinct, mechanism is the "critical section"
- * mechanism.  A critical section not only holds off cancel/die interrupts,
- * but causes any ereport(ERROR) or ereport(FATAL) to become ereport(PANIC)
- * --- that is, a system-wide reset is forced.  Needless to say, only really
- * *critical* code should be marked as a critical section!	Currently, this
- * mechanism is only used for XLOG-related code.
+ * 另有概念上不同但相关的"临界区"
+ * 机制。临界区不仅推迟取消/死亡中断，
+ * 且使 ereport(ERROR) 或 ereport(FATAL) 变成 ereport(PANIC)
+ * ——即强制系统范围重置。不言而喻，只有真正
+ * *关键*的代码才应标为临界区！当前此
+ * 机制仅用于与 XLOG 相关的代码。
  *
  *****************************************************************************/
 
@@ -196,7 +196,7 @@ extern PGDLLIMPORT char postgres_exec_path[];
 #endif
 
 /*
- * done in storage/backendid.h for now.
+ * 暂在 storage/backendid.h。
  *
  * extern BackendId    MyBackendId;
  */
@@ -205,35 +205,35 @@ extern PGDLLIMPORT Oid MyDatabaseId;
 extern PGDLLIMPORT Oid MyDatabaseTableSpace;
 
 /*
- * Date/Time Configuration
+ * 日期/时间配置
  *
- * DateStyle defines the output formatting choice for date/time types:
- *	USE_POSTGRES_DATES specifies traditional Postgres format
- *	USE_ISO_DATES specifies ISO-compliant format
- *	USE_SQL_DATES specifies Oracle/Ingres-compliant format
- *	USE_GERMAN_DATES specifies German-style dd.mm/yyyy
+ * DateStyle 定义日期/时间类型的输出格式选择：
+ *	USE_POSTGRES_DATES 指定传统 Postgres 格式
+ *	USE_ISO_DATES 指定 ISO 兼容格式
+ *	USE_SQL_DATES 指定 Oracle/Ingres 兼容格式
+ *	USE_GERMAN_DATES 指定德式 dd.mm/yyyy
  *
- * DateOrder defines the field order to be assumed when reading an
- * ambiguous date (anything not in YYYY-MM-DD format, with a four-digit
- * year field first, is taken to be ambiguous):
- *	DATEORDER_YMD specifies field order yy-mm-dd
- *	DATEORDER_DMY specifies field order dd-mm-yy ("European" convention)
- *	DATEORDER_MDY specifies field order mm-dd-yy ("US" convention)
+ * DateOrder 定义读取歧义日期时假定的字段顺序
+ * （非 YYYY-MM-DD、且非四位
+ * 年字段在前）皆视为歧义）：
+ *	DATEORDER_YMD 指定字段序 yy-mm-dd
+ *	DATEORDER_DMY 指定字段序 dd-mm-yy（"欧洲"惯例）
+ *	DATEORDER_MDY 指定字段序 mm-dd-yy（"美国"惯例）
  *
- * In the Postgres and SQL DateStyles, DateOrder also selects output field
- * order: day comes before month in DMY style, else month comes before day.
+ * 在 Postgres 与 SQL DateStyles 下，DateOrder 也选择输出字段
+ * 顺序：DMY 风格日在月前，否则月在日前。
  *
- * The user-visible "DateStyle" run-time parameter subsumes both of these.
+ * 用户可见的 "DateStyle" 运行时参数涵盖上述两者。
  */
 
-/* valid DateStyle values */
+/*  合法 DateStyle 值  */
 #define USE_POSTGRES_DATES		0
 #define USE_ISO_DATES			1
 #define USE_SQL_DATES			2
 #define USE_GERMAN_DATES		3
 #define USE_XSD_DATES			4
 
-/* valid DateOrder values */
+/*  合法 DateOrder 值  */
 #define DATEORDER_YMD			0
 #define DATEORDER_DMY			1
 #define DATEORDER_MDY			2
@@ -243,10 +243,10 @@ extern PGDLLIMPORT int DateOrder;
 
 /*
  * IntervalStyles
- *	 INTSTYLE_POSTGRES			   Like Postgres < 8.4 when DateStyle = 'iso'
- *	 INTSTYLE_POSTGRES_VERBOSE	   Like Postgres < 8.4 when DateStyle != 'iso'
- *	 INTSTYLE_SQL_STANDARD		   SQL standard interval literals
- *	 INTSTYLE_ISO_8601			   ISO-8601-basic formatted intervals
+ *	 INTSTYLE_POSTGRES			   似 PG<8.4 且 DateStyle='iso'
+ *	 INTSTYLE_POSTGRES_VERBOSE	   似 PG<8.4 且 DateStyle!='iso'
+ *	 INTSTYLE_SQL_STANDARD		   SQL 标准区间字面量
+ *	 INTSTYLE_ISO_8601			   ISO-8601 基本格式区间
  */
 #define INTSTYLE_POSTGRES			0
 #define INTSTYLE_POSTGRES_VERBOSE	1
@@ -255,7 +255,7 @@ extern PGDLLIMPORT int DateOrder;
 
 extern PGDLLIMPORT int IntervalStyle;
 
-#define MAXTZLEN		10		/* max TZ name len, not counting tr. null */
+#define MAXTZLEN		10		/*  时区名最大长(不含空)  */
 
 extern PGDLLIMPORT bool enableFsync;
 extern PGDLLIMPORT bool allowSystemTableMods;
@@ -265,9 +265,9 @@ extern PGDLLIMPORT int maintenance_work_mem;
 extern PGDLLIMPORT int max_parallel_maintenance_workers;
 
 /*
- * Upper and lower hard limits for the buffer access strategy ring size
- * specified by the VacuumBufferUsageLimit GUC and BUFFER_USAGE_LIMIT option
- * to VACUUM and ANALYZE.
+ * VacuumBufferUsageLimit GUC 与 BUFFER_USAGE_LIMIT 选项所指定的
+ * 缓冲访问策略环大小的上下硬限制，
+ * 供 VACUUM/ANALYZE。
  */
 #define MIN_BAS_VAC_RING_SIZE_KB 128
 #define MAX_BAS_VAC_RING_SIZE_KB (16 * 1024 * 1024)
@@ -306,11 +306,11 @@ extern PGDLLIMPORT int trace_recovery_messages;
 extern int	trace_recovery(int trace_level);
 
 /*****************************************************************************
- *	  pdir.h --																 *
- *			POSTGRES directory path definitions.                             *
+ *	  pdir.h --
+ *			POSTGRES 目录路径定义。
  *****************************************************************************/
 
-/* flags to be OR'd to form sec_context */
+/*  组成 sec_context 的 OR 标志  */
 #define SECURITY_LOCAL_USERID_CHANGE	0x0001
 #define SECURITY_RESTRICTED_OPERATION	0x0002
 #define SECURITY_NOFORCE_RLS			0x0004
@@ -380,39 +380,39 @@ extern void InitializeSystemUser(const char *authn_id,
 extern const char *GetSystemUser(void);
 
 /* in utils/misc/superuser.c */
-extern bool superuser(void);	/* current user is superuser */
+extern bool superuser(void);	/*  当前为超级用户  */
 extern bool superuser_arg(Oid roleid);	/* given user is superuser */
 
 
 /*****************************************************************************
- *	  pmod.h --																 *
- *			POSTGRES processing mode definitions.                            *
+ *	  pmod.h --
+ *			POSTGRES 处理模式定义。
  *****************************************************************************/
 
 /*
- * Description:
- *		There are three processing modes in POSTGRES.  They are
- * BootstrapProcessing or "bootstrap," InitProcessing or
- * "initialization," and NormalProcessing or "normal."
+ * 说明：
+ *		POSTGRES 有三种处理模式。它们是
+ * BootstrapProcessing（"引导"）、InitProcessing（
+ * "初始化"）与 NormalProcessing（"正常"）。
  *
- * The first two processing modes are used during special times. When the
- * system state indicates bootstrap processing, transactions are all given
- * transaction id "one" and are consequently guaranteed to commit. This mode
- * is used during the initial generation of template databases.
+ * 前两种用于特殊时期。当系统
+ * 状态表明引导处理时，事务皆被赋予
+ * 事务号"一"，因而保证提交。此模式
+ * 用于模板库的初始生成。
  *
- * Initialization mode: used while starting a backend, until all normal
- * initialization is complete.  Some code behaves differently when executed
- * in this mode to enable system bootstrapping.
+ * 初始化模式：用于启动后端期间，直至所有正常
+ * 初始化完成。某些代码在此模式执行时
+ * 行为不同，以便系统引导。
  *
- * If a POSTGRES backend process is in normal mode, then all code may be
- * executed normally.
+ * 若 POSTGRES 后端进程处于正常模式，则所有代码可
+ * 正常执行。
  */
 
 typedef enum ProcessingMode
 {
-	BootstrapProcessing,		/* bootstrap creation of template database */
+	BootstrapProcessing,		/*  引导创建模板库  */
 	InitProcessing,				/* initializing system */
-	NormalProcessing			/* normal processing */
+	NormalProcessing			/*  正常处理  */
 } ProcessingMode;
 
 extern PGDLLIMPORT ProcessingMode Mode;
@@ -433,11 +433,11 @@ extern PGDLLIMPORT ProcessingMode Mode;
 
 
 /*
- * Auxiliary-process type identifiers.  These used to be in bootstrap.h
- * but it seems saner to have them here, with the ProcessingMode stuff.
- * The MyAuxProcType global is defined and set in auxprocess.c.
+ * 辅助进程类型标识符。原在 bootstrap.h，
+ * 但放在此处与 ProcessingMode 一起更合理。
+ * MyAuxProcType 全局在 auxprocess.c 中定义与设置。
  *
- * Make sure to list in the glossary any items you add here.
+ * 在此添加的项务必列入术语表。
  */
 
 typedef enum
@@ -464,8 +464,8 @@ extern PGDLLIMPORT AuxProcType MyAuxProcType;
 
 
 /*****************************************************************************
- *	  pinit.h --															 *
- *			POSTGRES initialization and cleanup definitions.                 *
+ *	  pinit.h --
+ *			POSTGRES 初始化与清理定义。
  *****************************************************************************/
 
 /* in utils/init/postinit.c */

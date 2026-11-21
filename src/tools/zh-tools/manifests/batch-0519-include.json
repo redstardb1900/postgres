@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0519",
+  "title": "include/miscadmin.h — batch 0519",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a83d1466b5c9c9ec7afc3c0d3522576b9251238d",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/miscadmin.h",
+      "kind": "c_comment",
+      "note": "0519"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0519-include.json",
+      "kind": "manifest",
+      "note": "0519"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/miscadmin.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 40,
+      "translated": 18,
+      "preserved": 22,
+      "preserved_reasons": [
+        "横幅/星线/位置注释 KEEP；预算残行"
+      ],
+      "note": "0519"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0519-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0519"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "miscadmin.h；中断/临界区/DateStyle/处理模式"
+}

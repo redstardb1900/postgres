@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_utilcmd.h
- *		parse analysis for utility commands
+ *		效用命令的解析分析
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,7 +16,7 @@
 
 #include "parser/parse_node.h"
 
-struct AttrMap;					/* avoid including attmap.h here */
+struct AttrMap;					/*  避免在此包含 attmap.h  */
 
 
 extern List *transformCreateStmt(CreateStmt *stmt, const char *queryString);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_relation.h
- *	  prototypes for parse_relation.c.
+ *	  parse_relation.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

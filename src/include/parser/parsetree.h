@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * parsetree.h
- *	  Routines to access various components and subcomponents of
- *	  parse trees.
+ *	  访问解析树各成分与子成分的
+ *	  例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,40 +19,40 @@
 
 
 /* ----------------
- *		range table operations
+ *		范围表操作
  * ----------------
  */
 
 /*
  *		rt_fetch
  *
- * NB: this will crash and burn if handed an out-of-range RT index
+ * 注意：若 RT 下标越界将直接崩溃
  */
 #define rt_fetch(rangetable_index, rangetable) \
 	((RangeTblEntry *) list_nth(rangetable, (rangetable_index)-1))
 
 /*
- * Given an RTE and an attribute number, return the appropriate
- * variable name or alias for that attribute of that RTE.
+ * 给定 RTE 与属性号，返回该 RTE
+ * 该属性的合适变量名或别名。
  */
 extern char *get_rte_attribute_name(RangeTblEntry *rte, AttrNumber attnum);
 
 /*
- * Check whether an attribute of an RTE has been dropped
+ * 检查 RTE 的某属性是否已被删除
  */
 extern bool get_rte_attribute_is_dropped(RangeTblEntry *rte,
 										 AttrNumber attnum);
 
 
 /* ----------------
- *		target list operations
+ *		目标列表操作
  * ----------------
  */
 
 extern TargetEntry *get_tle_by_resno(List *tlist, AttrNumber resno);
 
 /* ----------------
- *		FOR UPDATE/SHARE info
+ *		FOR UPDATE/SHARE
  * ----------------
  */
 

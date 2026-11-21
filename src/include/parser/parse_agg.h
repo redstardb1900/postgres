@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_agg.h
- *	  handle aggregates and window functions in parser
+ *	  解析器中处理聚集与窗口函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

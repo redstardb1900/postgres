@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_target.h
- *	  handle target lists
+ *	  处理目标列表
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

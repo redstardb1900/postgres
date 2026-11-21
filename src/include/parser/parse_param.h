@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_param.h
- *	  handle parameters in parser
+ *	  解析器中处理参数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

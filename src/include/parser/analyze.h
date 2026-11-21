@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * analyze.h
- *		parse analysis for optimizable statements
+ *		可优化语句的解析分析
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 #include "nodes/queryjumble.h"
 #include "parser/parse_node.h"
 
-/* Hook for plugins to get control at end of parse analysis */
+/*  插件在解析分析结束时取得控制的钩子  */
 typedef void (*post_parse_analyze_hook_type) (ParseState *pstate,
 											  Query *query,
 											  JumbleState *jstate);

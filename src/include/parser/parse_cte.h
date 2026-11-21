@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_cte.h
- *	  handle CTEs (common table expressions) in parser
+ *	  解析器中处理 CTEs（公用表表达式）
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

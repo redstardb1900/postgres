@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * scanner.h
- *		API for the core scanner (flex machine)
+ *		核心扫描器 API（flex 机器）
  *
- * The core scanner is also used by PL/pgSQL, so we provide a public API
- * for it.  However, the rest of the backend is only expected to use the
- * higher-level API provided by parser.h.
+ * 核心扫描器亦被 PL/pgSQL 使用，故提供公共 API。
+ * 但后端其余部分仅应使用
+ * parser.h 提供的高层 API。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,24 +22,24 @@
 #include "common/keywords.h"
 
 /*
- * The scanner returns extra data about scanned tokens in this union type.
- * Note that this is a subset of the fields used in YYSTYPE of the bison
- * parsers built atop the scanner.
+ * 扫描器经此联合类型返回所扫记号的额外数据。
+ * 注意这是建于扫描器之上的 bison
+ * YYSTYPE 字段子集。
  */
 typedef union core_YYSTYPE
 {
-	int			ival;			/* for integer literals */
-	char	   *str;			/* for identifiers and non-integer literals */
-	const char *keyword;		/* canonical spelling of keywords */
+	int			ival;			/*  整数字面量  */
+	char	   *str;			/*  标识符与非整数字面量  */
+	const char *keyword;		/*  关键字的规范拼写  */
 } core_YYSTYPE;
 
 /*
- * We track token locations in terms of byte offsets from the start of the
- * source string, not the column number/line number representation that
- * bison uses by default.  Also, to minimize overhead we track only one
- * location (usually the first token location) for each construct, not
- * the beginning and ending locations as bison does by default.  It's
- * therefore sufficient to make YYLTYPE an int.
+ * 我们以相对源串起始的字节偏移跟踪记号位置，
+ * 而非 bison 默认的列号/行号表示。
+ * 并且为减小开销，每个构造只跟踪一
+ * 处位置（通常是首个记号位置），而非
+ * bison 默认的起止位置。因此
+ * 令 YYLTYPE 为 int 即可。
  */
 #define YYLTYPE  int
 
@@ -58,69 +58,69 @@ typedef union core_YYSTYPE
  */
 
 /*
- * The YY_EXTRA data that a flex scanner allows us to pass around.
- * Private state needed by the core scanner goes here.  Note that the actual
- * yy_extra struct may be larger and have this as its first component, thus
- * allowing the calling parser to keep some fields of its own in YY_EXTRA.
+ * flex 扫描器允许我们传递的 YY_EXTRA 数据。
+ * 核心扫描器所需私有状态放此。注意实际
+ * yy_extra 结构可能更大并以本结构为首部，从而
+ * 允许调用方解析器在 YY_EXTRA 中保留自有字段。
  */
 typedef struct core_yy_extra_type
 {
 	/*
-	 * The string the scanner is physically scanning.  We keep this mainly so
-	 * that we can cheaply compute the offset of the current token (yytext).
+	 * 扫描器实际扫描的字符串。保留它主要是为了
+	 * 能廉价计算当前记号（yytext）的偏移。
 	 */
 	char	   *scanbuf;
 	Size		scanbuflen;
 
 	/*
-	 * The keyword list to use, and the associated grammar token codes.
+	 * 所用关键字表，及关联的文法记号码。
 	 */
 	const ScanKeywordList *keywordlist;
 	const uint16 *keyword_tokens;
 
 	/*
-	 * Scanner settings to use.  These are initialized from the corresponding
-	 * GUC variables by scanner_init().  Callers can modify them after
-	 * scanner_init() if they don't want the scanner's behavior to follow the
-	 * prevailing GUC settings.
+	 * 所用扫描器设置。由 scanner_init() 从相应
+	 * GUC 变量初始化。调用方可在
+	 * scanner_init() 之后修改，若不想让扫描器行为跟随
+	 * 当前 GUC 设置。
 	 */
 	int			backslash_quote;
 	bool		escape_string_warning;
 	bool		standard_conforming_strings;
 
 	/*
-	 * literalbuf is used to accumulate literal values when multiple rules are
-	 * needed to parse a single literal.  Call startlit() to reset buffer to
-	 * empty, addlit() to add text.  NOTE: the string in literalbuf is NOT
-	 * necessarily null-terminated, but there always IS room to add a trailing
-	 * null at offset literallen.  We store a null only when we need it.
+	 * literalbuf 用于多条规则才能解析单个字面量时
+	 * 累积字面值。调用 startlit() 清空缓冲，
+	 * addlit() 追加文本。注意：literalbuf 中的串未必
+	 * 以空字节结尾，但总有空间在
+	 * literallen 偏移处补尾空。仅在需要时才存空字节。
 	 */
-	char	   *literalbuf;		/* palloc'd expandable buffer */
-	int			literallen;		/* actual current string length */
-	int			literalalloc;	/* current allocated buffer size */
+	char	   *literalbuf;		/*  palloc'd 可扩展缓冲  */
+	int			literallen;		/*  当前实际串长  */
+	int			literalalloc;	/*  当前已分配缓冲大小  */
 
 	/*
-	 * Random assorted scanner state.
+	 * 杂项扫描器状态。
 	 */
-	int			state_before_str_stop;	/* start cond. before end quote */
-	int			xcdepth;		/* depth of nesting in slash-star comments */
-	char	   *dolqstart;		/* current $foo$ quote start string */
-	YYLTYPE		save_yylloc;	/* one-element stack for PUSH_YYLLOC() */
+	int			state_before_str_stop;	/*  引号前起始条件  */
+	int			xcdepth;		/*  斜杠星注释的嵌套深度  */
+	char	   *dolqstart;		/*  当前 $foo$ 引号起始串  */
+	YYLTYPE		save_yylloc;	/*  PUSH_YYLLOC() 的单元素栈  */
 
-	/* first part of UTF16 surrogate pair for Unicode escapes */
+	/*  Unicode 转义用 UTF16 代理对的前半  */
 	int32		utf16_first_part;
 
-	/* state variables for literal-lexing warnings */
+	/*  字面量词法警告的状态变量  */
 	bool		warn_on_first_escape;
 	bool		saw_non_ascii;
 } core_yy_extra_type;
 
 /*
- * The type of yyscanner is opaque outside scan.l.
+ * yyscanner 类型在 scan.l 外不透明。
  */
 typedef void *core_yyscan_t;
 
-/* Support for scanner_errposition_callback function */
+/*  scanner_errposition_callback 函数支持  */
 typedef struct ScannerCallbackState
 {
 	core_yyscan_t yyscanner;
@@ -129,10 +129,10 @@ typedef struct ScannerCallbackState
 } ScannerCallbackState;
 
 
-/* Constant data exported from parser/scan.l */
+/*  自 parser/scan.l 导出的常量数据  */
 extern PGDLLIMPORT const uint16 ScanKeywordTokens[];
 
-/* Entry points in parser/scan.l */
+/*  scan.l 入口点  */
 extern core_yyscan_t scanner_init(const char *str,
 								  core_yy_extra_type *yyext,
 								  const ScanKeywordList *keywordlist,

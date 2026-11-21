@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * scansup.h
- *	  scanner support routines used by the core lexer
+ *	  核心词法器所用的扫描器支持例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

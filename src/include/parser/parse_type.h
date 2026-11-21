@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_type.h
- *		handle type operations for parser
+ *		解析器中处理类型操作
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -55,7 +55,7 @@ extern TypeName *typeStringToTypeName(const char *str, Node *escontext);
 extern bool parseTypeString(const char *str, Oid *typeid_p, int32 *typmod_p,
 							Node *escontext);
 
-/* true if typeid is composite, or domain over composite, but not RECORD */
+/*  typeid 为复合（或复合上的域）且非 RECORD 时为真  */
 #define ISCOMPLEX(typeid) (typeOrDomainTypeRelid(typeid) != InvalidOid)
 
 #endif							/* PARSE_TYPE_H */

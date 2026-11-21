@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_clause.h
- *	  handle clauses in parser
+ *	  解析器中处理子句
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

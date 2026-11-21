@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_enr.h
- *		Internal definitions for parser
+ *		解析器内部定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

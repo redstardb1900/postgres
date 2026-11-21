@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_expr.h
- *	  handle expressions in parser
+ *	  解析器中处理表达式
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,7 +15,7 @@
 
 #include "parser/parse_node.h"
 
-/* GUC parameters */
+/*  GUC 参数  */
 extern PGDLLIMPORT bool Transform_null_equals;
 
 extern Node *transformExpr(ParseState *pstate, Node *expr, ParseExprKind exprKind);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_merge.h
- *		handle MERGE statement in parser
+ *		解析器中处理 MERGE 语句
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

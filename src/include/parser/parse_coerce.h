@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_coerce.h
- *	Routines for type coercion.
+ *	类型强制转换例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,17 +17,17 @@
 #include "parser/parse_node.h"
 
 
-/* Type categories (see TYPCATEGORY_xxx symbols in catalog/pg_type.h) */
+/*  类型类别（见 catalog/pg_type.h 中 TYPCATEGORY_xxx）  */
 typedef char TYPCATEGORY;
 
-/* Result codes for find_coercion_pathway */
+/*  find_coercion_pathway 的结果码  */
 typedef enum CoercionPathType
 {
-	COERCION_PATH_NONE,			/* failed to find any coercion pathway */
-	COERCION_PATH_FUNC,			/* apply the specified coercion function */
-	COERCION_PATH_RELABELTYPE,	/* binary-compatible cast, no function */
-	COERCION_PATH_ARRAYCOERCE,	/* need an ArrayCoerceExpr node */
-	COERCION_PATH_COERCEVIAIO	/* need a CoerceViaIO node */
+	COERCION_PATH_NONE,			/*  未找到任何强制路径  */
+	COERCION_PATH_FUNC,			/*  应用指定的强制函数  */
+	COERCION_PATH_RELABELTYPE,	/*  二进制兼容造型，无函数  */
+	COERCION_PATH_ARRAYCOERCE,	/*  需 ArrayCoerceExpr 节点  */
+	COERCION_PATH_COERCEVIAIO	/*  CoerceViaIO 节点  */
 } CoercionPathType;
 
 

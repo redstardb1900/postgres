@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * parse_collate.h
- *	Routines for assigning collation information.
+ *	指派排序规则信息的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

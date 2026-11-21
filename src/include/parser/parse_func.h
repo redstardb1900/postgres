@@ -18,16 +18,16 @@
 #include "parser/parse_node.h"
 
 
-/* Result codes for func_get_detail */
+/*  func_get_detail 的结果码  */
 typedef enum
 {
-	FUNCDETAIL_NOTFOUND,		/* no matching function */
-	FUNCDETAIL_MULTIPLE,		/* too many matching functions */
-	FUNCDETAIL_NORMAL,			/* found a matching regular function */
-	FUNCDETAIL_PROCEDURE,		/* found a matching procedure */
-	FUNCDETAIL_AGGREGATE,		/* found a matching aggregate function */
-	FUNCDETAIL_WINDOWFUNC,		/* found a matching window function */
-	FUNCDETAIL_COERCION			/* it's a type coercion request */
+	FUNCDETAIL_NOTFOUND,		/*  无匹配函数  */
+	FUNCDETAIL_MULTIPLE,		/*  匹配函数过多  */
+	FUNCDETAIL_NORMAL,			/*  找到匹配的普通函数  */
+	FUNCDETAIL_PROCEDURE,		/*  找到匹配的过程  */
+	FUNCDETAIL_AGGREGATE,		/*  找到匹配的聚集函数  */
+	FUNCDETAIL_WINDOWFUNC,		/*  找到匹配的窗口函数  */
+	FUNCDETAIL_COERCION			/*  这是类型强制请求  */
 } FuncDetailCode;
 
 

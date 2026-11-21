@@ -1,0 +1,384 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0515",
+  "title": "include/parser 小头 — batch 0515",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "4ad2e95c965e48ed2e75ddaeacb2b9c393e8c7e0",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/parser/analyze.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_agg.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_clause.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_coerce.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_collate.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_cte.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_enr.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_expr.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_func.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_merge.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_oper.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_param.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_relation.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_target.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_type.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parse_utilcmd.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parser.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/parsetree.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/scanner.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/include/parser/scansup.h",
+      "kind": "c_comment",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0515-include.json",
+      "kind": "manifest",
+      "note": "0515"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/parser/analyze.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_agg.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_clause.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_coerce.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 8,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_collate.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_cte.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_enr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_expr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_func.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 8,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_merge.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_oper.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 11,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_param.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_relation.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_target.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_type.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parse_utilcmd.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parser.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 6,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/parsetree.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 7,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/scanner.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 27,
+      "translated": 25,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/include/parser/scansup.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；%token 块 KEEP；预算残行"
+      ],
+      "note": "0515"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0515-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0515"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "parser 20 头（避 parse_node/kwlist）；scanner %token 块 KEEP"
+}

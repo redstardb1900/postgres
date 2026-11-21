@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * relpath.h
- *		Declarations for GetRelationPath() and friends
+ *		GetRelationPath() 及其友元的声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -14,13 +14,13 @@
 #define RELPATH_H
 
 /*
- *	'pgrminclude ignore' needed here because CppAsString2() does not throw
- *	an error if the symbol is not defined.
+ *	此处需 'pgrminclude ignore'，因 CppAsString2() 在
+ *	符号未定义时不报错。
  */
 #include "catalog/catversion.h" /* pgrminclude ignore */
 
 /*
- * RelFileNumber data type identifies the specific relation file name.
+ * RelFileNumber 类型标识具体关系文件名。
  */
 typedef Oid RelFileNumber;
 #define InvalidRelFileNumber		((RelFileNumber) InvalidOid)
@@ -28,21 +28,21 @@ typedef Oid RelFileNumber;
 				((bool) ((relnumber) != InvalidRelFileNumber))
 
 /*
- * Name of major-version-specific tablespace subdirectories
+ * 主版本相关表空间子目录名
  */
 #define TABLESPACE_VERSION_DIRECTORY	"PG_" PG_MAJORVERSION "_" \
 									CppAsString2(CATALOG_VERSION_NO)
 
-/* Characters to allow for an OID in a relation path */
-#define OIDCHARS		10		/* max chars printed by %u */
+/*  关系路径中 OID 预留字符数  */
+#define OIDCHARS		10		/* 略 */
 
 /*
- * Stuff for fork names.
+ * 分叉名相关。
  *
- * The physical storage of a relation consists of one or more forks.
- * The main fork is always created, but in addition to that there can be
- * additional forks for storing various metadata. ForkNumber is used when
- * we need to refer to a specific fork in a relation.
+ * 关系的物理存储由一个或多个分叉组成。
+ * 主分叉总是创建，此外可有存各类元数据的附加
+ * 分叉。需引用关系中特定分叉时用 ForkNumber。
+ * 略
  */
 typedef enum ForkNumber
 {
@@ -53,15 +53,15 @@ typedef enum ForkNumber
 	INIT_FORKNUM
 
 	/*
-	 * NOTE: if you add a new fork, change MAX_FORKNUM and possibly
-	 * FORKNAMECHARS below, and update the forkNames array in
-	 * src/common/relpath.c
+	 * 注意：若加新分叉，改 MAX_FORKNUM 并可能改
+	 * 下方 FORKNAMECHARS，并更新
+	 * 略
 	 */
 } ForkNumber;
 
 #define MAX_FORKNUM		INIT_FORKNUM
 
-#define FORKNAMECHARS	4		/* max chars for a fork name */
+#define FORKNAMECHARS	4		/* 略 */
 
 extern PGDLLIMPORT const char *const forkNames[];
 
@@ -69,7 +69,7 @@ extern ForkNumber forkname_to_number(const char *forkName);
 extern int	forkname_chars(const char *str, ForkNumber *fork);
 
 /*
- * Stuff for computing filesystem pathnames for relations.
+ * 计算关系文件系统路径名的内容。
  */
 extern char *GetDatabasePath(Oid dbOid, Oid spcOid);
 
@@ -77,20 +77,20 @@ extern char *GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
 							 int backendId, ForkNumber forkNumber);
 
 /*
- * Wrapper macros for GetRelationPath.  Beware of multiple
- * evaluation of the RelFileLocator or RelFileLocatorBackend argument!
+ * GetRelationPath 的包装宏。当心 RelFileLocator
+ * 或 RelFileLocatorBackend 参数被多次求值！
  */
 
-/* First argument is a RelFileLocator */
+/*  第一参数为 RelFileLocator  */
 #define relpathbackend(rlocator, backend, forknum) \
 	GetRelationPath((rlocator).dbOid, (rlocator).spcOid, (rlocator).relNumber, \
 					backend, forknum)
 
-/* First argument is a RelFileLocator */
+/*  第一参数为 RelFileLocator  */
 #define relpathperm(rlocator, forknum) \
 	relpathbackend(rlocator, InvalidBackendId, forknum)
 
-/* First argument is a RelFileLocatorBackend */
+/*  第一参数为 RelFileLocatorBackend  */
 #define relpath(rlocator, forknum) \
 	relpathbackend((rlocator).locator, (rlocator).backend, forknum)
 

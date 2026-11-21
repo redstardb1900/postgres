@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * scram-common.h
- *		Declarations for helper functions used for SCRAM authentication
+ *		SCRAM 认证所用辅助函数的声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,36 +16,36 @@
 #include "common/cryptohash.h"
 #include "common/sha2.h"
 
-/* Name of SCRAM mechanisms per IANA */
+/*  按 IANA 的 SCRAM 机制名  */
 #define SCRAM_SHA_256_NAME "SCRAM-SHA-256"
-#define SCRAM_SHA_256_PLUS_NAME "SCRAM-SHA-256-PLUS"	/* with channel binding */
+#define SCRAM_SHA_256_PLUS_NAME "SCRAM-SHA-256-PLUS"	/*  带信道绑定  */
 
-/* Length of SCRAM keys (client and server) */
+/* SCRAM 密钥长（客户/服务器） */
 #define SCRAM_SHA_256_KEY_LEN				PG_SHA256_DIGEST_LENGTH
 
 /*
- * Size of buffers used internally by SCRAM routines, that should be the
- * maximum of SCRAM_SHA_*_KEY_LEN among the hash methods supported.
+ * SCRAM 例程内部缓冲大小，应为所支持散列方法中
+ * SCRAM_SHA_*_KEY_LEN 的最大值。
  */
 #define SCRAM_MAX_KEY_LEN					SCRAM_SHA_256_KEY_LEN
 
 /*
- * Size of random nonce generated in the authentication exchange.  This
- * is in "raw" number of bytes, the actual nonces sent over the wire are
- * encoded using only ASCII-printable characters.
+ * 认证交换中生成的随机 nonce 大小。这是"原始"
+ * 字节数，线上实际发送的 nonce 仅用 ASCII 可打印
+ * 字符编码。
  */
 #define SCRAM_RAW_NONCE_LEN			18
 
 /*
- * Length of salt when generating new secrets, in bytes.  (It will be stored
- * and sent over the wire encoded in Base64.)  16 bytes is what the example in
- * RFC 7677 uses.
+ * 生成新秘密时盐的长度（字节）。（存盘与线上以
+ * Base64 编码发送。）16 字节是 RFC 7677 示例所用。
+ * 略
  */
 #define SCRAM_DEFAULT_SALT_LEN		16
 
 /*
- * Default number of iterations when generating secret.  Should be at least
- * 4096 per RFC 7677.
+ * 生成秘密时的默认迭代次数。按 RFC 7677 应至少
+ * 4096。
  */
 #define SCRAM_SHA_256_DEFAULT_ITERATIONS	4096
 

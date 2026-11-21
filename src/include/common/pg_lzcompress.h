@@ -1,7 +1,7 @@
 /* ----------
  * pg_lzcompress.h -
  *
- *	Definitions for the builtin LZ compressor
+ *	内置 LZ 压缩器的定义
  *
  * src/include/common/pg_lzcompress.h
  * ----------
@@ -14,8 +14,8 @@
 /* ----------
  * PGLZ_MAX_OUTPUT -
  *
- *		Macro to compute the buffer size required by pglz_compress().
- *		We allow 4 bytes for overrun before detecting compression failure.
+ *		计算 pglz_compress() 所需缓冲大小的宏。
+ *		检测压缩失败前允许 4 字节越界。
  * ----------
  */
 #define PGLZ_MAX_OUTPUT(_dlen)			((_dlen) + 4)
@@ -24,34 +24,34 @@
 /* ----------
  * PGLZ_Strategy -
  *
- *		Some values that control the compression algorithm.
+ *		控制压缩算法的一些值。
  *
- *		min_input_size		Minimum input data size to consider compression.
+ *		min_input_size		考虑压缩的最小输入大小。
  *
- *		max_input_size		Maximum input data size to consider compression.
+ *		max_input_size		考虑压缩的最大输入大小。
  *
- *		min_comp_rate		Minimum compression rate (0-99%) to require.
- *							Regardless of min_comp_rate, the output must be
- *							smaller than the input, else we don't store
- *							compressed.
+ *		min_comp_rate		要求的最小压缩率（0-99%）。
+ *							不论 min_comp_rate，输出必须
+ *							小于输入，否则不存压缩结果。
+ *	略
  *
- *		first_success_by	Abandon compression if we find no compressible
- *							data within the first this-many bytes.
+ *		first_success_by	若前这许多字节内找不到可压
+ *							数据则放弃压缩。
  *
- *		match_size_good		The initial GOOD match size when starting history
- *							lookup. When looking up the history to find a
- *							match that could be expressed as a tag, the
- *							algorithm does not always walk back entirely.
- *							A good match fast is usually better than the
- *							best possible one very late. For each iteration
- *							in the lookup, this value is lowered so the
- *							longer the lookup takes, the smaller matches
- *							are considered good.
+ *		match_size_good	开始历史查找时的初始 GOOD
+ *	略
+ *	略
+ *	略
+ *	略
+ *							视为好。
+ *	略
+ *	略
+ *	略
  *
- *		match_size_drop		The percentage by which match_size_good is lowered
- *							after each history check. Allowed values are
- *							0 (no change until end) to 100 (only check
- *							latest history entry at all).
+ *		match_size_drop	每轮历史检查后降低 match_size_good
+ *	略
+ *							100（只检查最新历史项）。
+ *	略
  * ----------
  */
 typedef struct PGLZ_Strategy
@@ -66,13 +66,13 @@ typedef struct PGLZ_Strategy
 
 
 /* ----------
- * The standard strategies
+ * 标准策略
  *
- *		PGLZ_strategy_default		Recommended default strategy for TOAST.
+ *		PGLZ_strategy_default		TOAST 推荐的默认策略。
  *
- *		PGLZ_strategy_always		Try to compress inputs of any length.
- *									Fallback to uncompressed storage only if
- *									output would be larger than input.
+ *		PGLZ_strategy_always		尝试压缩任意长度输入。
+ *									仅当输出会大于输入时才退回
+ *									未压缩存储。
  * ----------
  */
 extern PGDLLIMPORT const PGLZ_Strategy *const PGLZ_strategy_default;
@@ -80,7 +80,7 @@ extern PGDLLIMPORT const PGLZ_Strategy *const PGLZ_strategy_always;
 
 
 /* ----------
- * Global function declarations
+ * 全局函数声明
  * ----------
  */
 extern int32 pglz_compress(const char *source, int32 slen, char *dest,

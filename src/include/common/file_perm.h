@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * File and directory permission definitions
+ * 文件与目录权限定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,41 +16,41 @@
 #include <sys/stat.h>
 
 /*
- * Mode mask for data directory permissions that only allows the owner to
- * read/write directories and files.
+ * 仅允许属主读写目录与文件的数据目录权限
+ * 模式掩码。
  *
- * This is the default.
+ * 此为默认。
  */
 #define PG_MODE_MASK_OWNER		    (S_IRWXG | S_IRWXO)
 
 /*
- * Mode mask for data directory permissions that also allows group read/execute.
+ * 还允许组读/执行的数据目录权限模式掩码。
  */
 #define PG_MODE_MASK_GROUP			(S_IWGRP | S_IRWXO)
 
-/* Default mode for creating directories */
+/*  创建目录的默认模式  */
 #define PG_DIR_MODE_OWNER			S_IRWXU
 
-/* Mode for creating directories that allows group read/execute */
+/*  允许组读/执行的创建目录模式  */
 #define PG_DIR_MODE_GROUP			(S_IRWXU | S_IRGRP | S_IXGRP)
 
-/* Default mode for creating files */
+/*  创建文件的默认模式  */
 #define PG_FILE_MODE_OWNER		    (S_IRUSR | S_IWUSR)
 
-/* Mode for creating files that allows group read */
+/*  允许组读的创建文件模式  */
 #define PG_FILE_MODE_GROUP			(S_IRUSR | S_IWUSR | S_IRGRP)
 
-/* Modes for creating directories and files in the data directory */
+/*  在数据目录中创建目录与文件的模式  */
 extern PGDLLIMPORT int pg_dir_create_mode;
 extern PGDLLIMPORT int pg_file_create_mode;
 
-/* Mode mask to pass to umask() */
+/* umask() 用的模式掩码 */
 extern PGDLLIMPORT int pg_mode_mask;
 
-/* Set permissions and mask based on the provided mode */
+/*  按给定模式设置权限与掩码  */
 extern void SetDataDirectoryCreatePerm(int dataDirMode);
 
-/* Set permissions and mask based on the mode of the data directory */
+/*  按数据目录模式设置权限与掩码  */
 extern bool GetDataDirectoryCreatePerm(const char *dataDir);
 
 #endif							/* FILE_PERM_H */

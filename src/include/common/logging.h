@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------
- * Logging framework for frontend programs
+ * 前端程序的日志框架
  *
  * Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *
@@ -11,77 +11,77 @@
 #define COMMON_LOGGING_H
 
 /*
- * Log levels are informational only.  They do not affect program flow.
+ * 日志级别仅供信息，不影响程序流。
  */
 enum pg_log_level
 {
 	/*
-	 * Not initialized yet (not to be used as an actual message log level).
+	 * 尚未初始化（勿用作实际消息级别）。
 	 */
 	PG_LOG_NOTSET = 0,
 
 	/*
-	 * Low level messages that are normally off by default.
+	 * 通常默认关闭的低级消息。
 	 */
 	PG_LOG_DEBUG,
 
 	/*
-	 * Any program messages that go to stderr, shown by default.  (The
-	 * program's normal output should go to stdout and not use the logging
-	 * system.)
+	 * 略
+	 * 正常输出应走 stdout，不用日志系统。）
+	 * 略
 	 */
 	PG_LOG_INFO,
 
 	/*
-	 * Warnings and "almost" errors, depends on the program
+	 * 警告与"几乎"错误，依程序而定
 	 */
 	PG_LOG_WARNING,
 
 	/*
-	 * Errors
+	 * 错误
 	 */
 	PG_LOG_ERROR,
 
 	/*
-	 * Turn all logging off (not to be used as an actual message log level).
+	 * 关闭全部日志（勿用作实际消息级别）。
 	 */
 	PG_LOG_OFF,
 };
 
 /*
- * __pg_log_level is the minimum log level that will actually be shown.
+ * __pg_log_level 是实际会显示的最低日志级别。
  */
 extern enum pg_log_level __pg_log_level;
 
 /*
- * A log message can have several parts.  The primary message is required,
- * others are optional.  When emitting multiple parts, do so in the order of
- * this enum, for consistency.
+ * 日志消息可有多部分。主消息必需，其余可选。
+ * 发多部分时按本枚举顺序，以求一致。
+ * 略
  */
 enum pg_log_part
 {
 	/*
-	 * The primary message.  Try to keep it to one line; follow the backend's
-	 * style guideline for primary messages.
+	 * 主消息。尽量一行；遵循后端主消息风格指南。
+	 * 略
 	 */
 	PG_LOG_PRIMARY,
 
 	/*
-	 * Additional detail.  Follow the backend's style guideline for detail
-	 * messages.
+	 * 附加细节。遵循后端细节消息风格指南。
+	 * 略
 	 */
 	PG_LOG_DETAIL,
 
 	/*
-	 * Hint (not guaranteed correct) about how to fix the problem.  Follow the
-	 * backend's style guideline for hint messages.
+	 * 关于如何修复的提示（不保证正确）。遵循后端
+	 * 提示消息风格指南。
 	 */
 	PG_LOG_HINT,
 };
 
 /*
- * Kind of a hack to be able to produce the psql output exactly as required by
- * the regression tests.
+ * 小技巧：能按回归测试要求精确产出 psql 输出。
+ * 略
  */
 #define PG_LOG_FLAG_TERSE	1
 
@@ -100,8 +100,8 @@ void		pg_log_generic_v(enum pg_log_level level, enum pg_log_part part,
 			pg_attribute_printf(3, 0);
 
 /*
- * Preferred style is to use these macros to perform logging; don't call
- * pg_log_generic[_v] directly, except perhaps in error interface code.
+ * 首选用这些宏记日志；勿直接调 pg_log_generic[_v]，
+ * 除非在错误接口代码中。
  */
 #define pg_log_error(...) \
 	pg_log_generic(PG_LOG_ERROR, PG_LOG_PRIMARY, __VA_ARGS__)
@@ -146,7 +146,7 @@ void		pg_log_generic_v(enum pg_log_level level, enum pg_log_part part,
 	} while(0)
 
 /*
- * A common shortcut: pg_log_error() and immediately exit(1).
+ * 常用捷径：pg_log_error() 并立即 exit(1)。
  */
 #define pg_fatal(...) do { \
 		pg_log_generic(PG_LOG_ERROR, PG_LOG_PRIMARY, __VA_ARGS__); \

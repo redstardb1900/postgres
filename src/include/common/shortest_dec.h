@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------
  *
- * Ryu floating-point output.
+ * Ryu 浮点输出。
  *
  * Portions Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *
@@ -35,11 +35,11 @@
 #define SHORTEST_DEC_H
 
 /*----
- * The length of 25 comes from:
+ * 长度 25 来自：
  *
- * Case 1: -9.9999999999999999e-299  = 24 bytes, plus 1 for null
+ * 情形 1：-9.9999999999999999e-299 = 24 字节，加 1 空
  *
- * Case 2: -0.00099999999999999999   = 23 bytes, plus 1 for null
+ * 情形 2：-0.00099999999999999999 = 23 字节，加 1 空
  */
 #define DOUBLE_SHORTEST_DECIMAL_LEN 25
 
@@ -48,11 +48,11 @@ int			double_to_shortest_decimal_buf(double f, char *result);
 char	   *double_to_shortest_decimal(double f);
 
 /*
- * The length of 16 comes from:
+ * 长度 16 来自：
  *
- * Case 1: -9.99999999e+29  = 15 bytes, plus 1 for null
+ * 情形 1：-9.99999999e+29 = 15 字节，加 1 空
  *
- * Case 2: -0.000999999999  = 15 bytes, plus 1 for null
+ * 情形 2：-0.000999999999 = 15 字节，加 1 空
  */
 #define FLOAT_SHORTEST_DECIMAL_LEN 16
 

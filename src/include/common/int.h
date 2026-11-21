@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * int.h
- *	  Routines to perform integer math, while checking for overflows.
+ *	  做整数运算并检查溢出的例程。
  *
- * The routines in this file are intended to be well defined C, without
- * relying on compiler flags like -fwrapv.
+ * 本文件例程意在为良定义的 C，不依赖
+ * 如 -fwrapv 的编译器标志。
  *
- * To reduce the overhead of these routines try to use compiler intrinsics
- * where available. That's not that important for the 16, 32 bit cases, but
- * the 64 bit cases can be considerably faster with intrinsics. In case no
- * intrinsics are available 128 bit math is used where available.
+ * 为降低开销，尽量用编译器内建（若有）。
+ * 对 16/32 位不那么重要，但 64 位用内建可
+ * 明显更快。若无内建则在可用处用 128 位运算。
+ * 略
  *
  * Copyright (c) 2017-2023, PostgreSQL Global Development Group
  *
@@ -22,21 +22,21 @@
 
 
 /*---------
- * The following guidelines apply to all the routines:
- * - If a + b overflows, return true, otherwise store the result of a + b
- * into *result. The content of *result is implementation defined in case of
- * overflow.
- * - If a - b overflows, return true, otherwise store the result of a - b
- * into *result. The content of *result is implementation defined in case of
- * overflow.
- * - If a * b overflows, return true, otherwise store the result of a * b
- * into *result. The content of *result is implementation defined in case of
- * overflow.
+ * 下列准则适用于全部例程：
+ * - 若 a+b 溢出返回 true，否则把 a+b 结果存入
+ * *result。溢出时 *result 内容为实现定义。
+ * 略
+ * - 若 a-b 溢出返回 true，否则把 a-b 结果存入
+ * *result。溢出时 *result 内容为实现定义。
+ * 略
+ * - 若 a*b 溢出返回 true，否则把 a*b 结果存入
+ * *result。溢出时 *result 内容为实现定义。
+ * 略
  *---------
  */
 
 /*------------------------------------------------------------------------
- * Overflow routines for signed integers
+ * 有符号整数的溢出例程
  *------------------------------------------------------------------------
  */
 
@@ -53,7 +53,7 @@ pg_add_s16_overflow(int16 a, int16 b, int16 *result)
 
 	if (res > PG_INT16_MAX || res < PG_INT16_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int16) res;
@@ -71,7 +71,7 @@ pg_sub_s16_overflow(int16 a, int16 b, int16 *result)
 
 	if (res > PG_INT16_MAX || res < PG_INT16_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int16) res;
@@ -89,7 +89,7 @@ pg_mul_s16_overflow(int16 a, int16 b, int16 *result)
 
 	if (res > PG_INT16_MAX || res < PG_INT16_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int16) res;
@@ -110,7 +110,7 @@ pg_add_s32_overflow(int32 a, int32 b, int32 *result)
 
 	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int32) res;
@@ -128,7 +128,7 @@ pg_sub_s32_overflow(int32 a, int32 b, int32 *result)
 
 	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int32) res;
@@ -146,7 +146,7 @@ pg_mul_s32_overflow(int32 a, int32 b, int32 *result)
 
 	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int32) res;
@@ -167,7 +167,7 @@ pg_add_s64_overflow(int64 a, int64 b, int64 *result)
 
 	if (res > PG_INT64_MAX || res < PG_INT64_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int64) res;
@@ -176,7 +176,7 @@ pg_add_s64_overflow(int64 a, int64 b, int64 *result)
 	if ((a > 0 && b > 0 && a > PG_INT64_MAX - b) ||
 		(a < 0 && b < 0 && a < PG_INT64_MIN - b))
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = a + b;
@@ -194,20 +194,20 @@ pg_sub_s64_overflow(int64 a, int64 b, int64 *result)
 
 	if (res > PG_INT64_MAX || res < PG_INT64_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int64) res;
 	return false;
 #else
 	/*
-	 * Note: overflow is also possible when a == 0 and b < 0 (specifically,
-	 * when b == PG_INT64_MIN).
+	 * 注意：a==0 且 b<0 时也可能溢出（具体当
+	 * b==PG_INT64_MIN）。
 	 */
 	if ((a < 0 && b > 0 && a < PG_INT64_MIN + b) ||
 		(a >= 0 && b < 0 && a > PG_INT64_MAX + b))
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = a - b;
@@ -225,21 +225,21 @@ pg_mul_s64_overflow(int64 a, int64 b, int64 *result)
 
 	if (res > PG_INT64_MAX || res < PG_INT64_MIN)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (int64) res;
 	return false;
 #else
 	/*
-	 * Overflow can only happen if at least one value is outside the range
-	 * sqrt(min)..sqrt(max) so check that first as the division can be quite a
-	 * bit more expensive than the multiplication.
+	 * 仅当至少一值落在 sqrt(min)..sqrt(max) 外才可能
+	 * 溢出，故先检查；除法可比乘法贵不少。
+	 * 略
 	 *
-	 * Multiplying by 0 or 1 can't overflow of course and checking for 0
-	 * separately avoids any risk of dividing by 0.  Be careful about dividing
-	 * INT_MIN by -1 also, note reversing the a and b to ensure we're always
-	 * dividing it by a positive value.
+	 * 乘 0 或 1 当然不会溢出；单独检查 0 可避免
+	 * 除以 0。也当心 INT_MIN/-1；注意交换 a、b
+	 * 以确保总是除以正数。
+	 * 略
 	 *
 	 */
 	if ((a > PG_INT32_MAX || a < PG_INT32_MIN ||
@@ -250,7 +250,7 @@ pg_mul_s64_overflow(int64 a, int64 b, int64 *result)
 		 (a < 0 && b > 0 && a < PG_INT64_MIN / b) ||
 		 (a < 0 && b < 0 && a < PG_INT64_MAX / b)))
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = a * b;
@@ -259,7 +259,7 @@ pg_mul_s64_overflow(int64 a, int64 b, int64 *result)
 }
 
 /*------------------------------------------------------------------------
- * Overflow routines for unsigned integers
+ * 无符号整数的溢出例程
  *------------------------------------------------------------------------
  */
 
@@ -276,7 +276,7 @@ pg_add_u16_overflow(uint16 a, uint16 b, uint16 *result)
 
 	if (res < a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = res;
@@ -292,7 +292,7 @@ pg_sub_u16_overflow(uint16 a, uint16 b, uint16 *result)
 #else
 	if (b > a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = a - b;
@@ -310,7 +310,7 @@ pg_mul_u16_overflow(uint16 a, uint16 b, uint16 *result)
 
 	if (res > PG_UINT16_MAX)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (uint16) res;
@@ -331,7 +331,7 @@ pg_add_u32_overflow(uint32 a, uint32 b, uint32 *result)
 
 	if (res < a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = res;
@@ -347,7 +347,7 @@ pg_sub_u32_overflow(uint32 a, uint32 b, uint32 *result)
 #else
 	if (b > a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = a - b;
@@ -365,7 +365,7 @@ pg_mul_u32_overflow(uint32 a, uint32 b, uint32 *result)
 
 	if (res > PG_UINT32_MAX)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (uint32) res;
@@ -386,7 +386,7 @@ pg_add_u64_overflow(uint64 a, uint64 b, uint64 *result)
 
 	if (res < a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = res;
@@ -402,7 +402,7 @@ pg_sub_u64_overflow(uint64 a, uint64 b, uint64 *result)
 #else
 	if (b > a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = a - b;
@@ -420,7 +420,7 @@ pg_mul_u64_overflow(uint64 a, uint64 b, uint64 *result)
 
 	if (res > PG_UINT64_MAX)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = (uint64) res;
@@ -430,7 +430,7 @@ pg_mul_u64_overflow(uint64 a, uint64 b, uint64 *result)
 
 	if (a != 0 && b != res / a)
 	{
-		*result = 0x5EED;		/* to avoid spurious warnings */
+		*result = 0x5EED;		/*  避免伪警告  */
 		return true;
 	}
 	*result = res;

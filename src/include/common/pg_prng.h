@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Pseudo-Random Number Generator
+ * 伪随机数生成器
  *
  * Copyright (c) 2021-2023, PostgreSQL Global Development Group
  *
@@ -12,9 +12,9 @@
 #define PG_PRNG_H
 
 /*
- * State vector for PRNG generation.  Callers should treat this as an
- * opaque typedef, but we expose its definition to allow it to be
- * embedded in other structs.
+ * PRNG 生成的状态向量。调用者应视其为不透明
+ * typedef，但我们公开定义以便嵌在其他结构中。
+ * 略
  */
 typedef struct pg_prng_state
 {
@@ -23,8 +23,8 @@ typedef struct pg_prng_state
 } pg_prng_state;
 
 /*
- * Callers not needing local PRNG series may use this global state vector,
- * after initializing it with one of the pg_prng_...seed functions.
+ * 不需本地 PRNG 序列的调用者可用此全局状态，
+ * 用 pg_prng_...seed 之一初始化后即可。
  */
 extern PGDLLIMPORT pg_prng_state pg_global_prng_state;
 
@@ -33,15 +33,15 @@ extern void pg_prng_fseed(pg_prng_state *state, double fseed);
 extern bool pg_prng_seed_check(pg_prng_state *state);
 
 /*
- * Initialize the PRNG state from the pg_strong_random source,
- * taking care that we don't produce all-zeroes.  If this returns false,
- * caller should initialize the PRNG state from some other random seed,
- * using pg_prng_[f]seed.
+ * 从 pg_strong_random 源初始化 PRNG 状态，
+ * 并确保不全为零。若返回 false，调用者应以其他
+ * 随机种子初始化，用 pg_prng_[f]seed。
+ * 略
  *
- * We implement this as a macro, so that the pg_strong_random() call is
- * in the caller.  If it were in pg_prng.c, programs using pg_prng.c
- * but not needing strong seeding would nonetheless be forced to pull in
- * pg_strong_random.c and thence OpenSSL.
+ * 实现为宏，使 pg_strong_random() 调用在调用方。
+ * 若在 pg_prng.c，用 pg_prng 但不需强种子的程序
+ * 仍会被拉入 pg_strong_random.c 以至 OpenSSL。
+ * 略
  */
 #define pg_prng_strong_seed(state) \
 	(pg_strong_random((void *) (state), sizeof(pg_prng_state)) ? \

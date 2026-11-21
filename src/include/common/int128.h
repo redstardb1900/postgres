@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * int128.h
- *	  Roll-our-own 128-bit integer arithmetic.
+ *	  自研 128 位整数运算。
  *
- * We make use of the native int128 type if there is one, otherwise
- * implement things the hard way based on two int64 halves.
+ * 若有原生 int128 则用之，否则基于两个
+ * int64 半部硬实现。
  *
  * See src/tools/testint128.c for a simple test harness for this file.
  *
@@ -18,8 +18,8 @@
 #define INT128_H
 
 /*
- * For testing purposes, use of native int128 can be switched on/off by
- * predefining USE_NATIVE_INT128.
+ * 测试时可预定义 USE_NATIVE_INT128 开关原生
+ * int128。
  */
 #ifndef USE_NATIVE_INT128
 #ifdef HAVE_INT128
@@ -35,7 +35,7 @@
 typedef int128 INT128;
 
 /*
- * Add an unsigned int64 value into an INT128 variable.
+ * 把无符号 int64 加到 INT128 变量。
  */
 static inline void
 int128_add_uint64(INT128 *i128, uint64 v)
@@ -44,7 +44,7 @@ int128_add_uint64(INT128 *i128, uint64 v)
 }
 
 /*
- * Add a signed int64 value into an INT128 variable.
+ * 把有符号 int64 加到 INT128 变量。
  */
 static inline void
 int128_add_int64(INT128 *i128, int64 v)
@@ -53,10 +53,10 @@ int128_add_int64(INT128 *i128, int64 v)
 }
 
 /*
- * Add the 128-bit product of two int64 values into an INT128 variable.
+ * 把两个 int64 的 128 位积加到 INT128 变量。
  *
- * XXX with a stupid compiler, this could actually be less efficient than
- * the other implementation; maybe we should do it by hand always?
+ * XXX 笨编译器下可能比另一实现更慢；或许应
+ * 总是手写？
  */
 static inline void
 int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
@@ -65,7 +65,7 @@ int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 }
 
 /*
- * Compare two INT128 values, return -1, 0, or +1.
+ * 比较两 INT128，返回 -1、0 或 +1。
  */
 static inline int
 int128_compare(INT128 x, INT128 y)
@@ -78,7 +78,7 @@ int128_compare(INT128 x, INT128 y)
 }
 
 /*
- * Widen int64 to INT128.
+ * int64→INT128。
  */
 static inline INT128
 int64_to_int128(int64 v)
@@ -87,8 +87,8 @@ int64_to_int128(int64 v)
 }
 
 /*
- * Convert INT128 to int64 (losing any high-order bits).
- * This also works fine for casting down to uint64.
+ * INT128 转为 int64（丢掉高位）。
+ * 转 uint64 亦可。
  */
 static inline int64
 int128_to_int64(INT128 val)
@@ -99,34 +99,34 @@ int128_to_int64(INT128 val)
 #else							/* !USE_NATIVE_INT128 */
 
 /*
- * We lay out the INT128 structure with the same content and byte ordering
- * that a native int128 type would (probably) have.  This makes no difference
- * for ordinary use of INT128, but allows union'ing INT128 with int128 for
- * testing purposes.
+ * INT128 布局与原生 int128（大概）相同内容与
+ * 字节序。普通使用无差别，但可与 int128 联合
+ * 以便测试。
+ * 略
  */
 typedef struct
 {
 #ifdef WORDS_BIGENDIAN
-	int64		hi;				/* most significant 64 bits, including sign */
-	uint64		lo;				/* least significant 64 bits, without sign */
+	int64		hi;				/*  最高 64 位，含符号  */
+	uint64		lo;				/*  最低 64 位，无符号  */
 #else
-	uint64		lo;				/* least significant 64 bits, without sign */
-	int64		hi;				/* most significant 64 bits, including sign */
+	uint64		lo;				/*  最低 64 位，无符号  */
+	int64		hi;				/*  最高 64 位，含符号  */
 #endif
 } INT128;
 
 /*
- * Add an unsigned int64 value into an INT128 variable.
+ * 把无符号 int64 加到 INT128 变量。
  */
 static inline void
 int128_add_uint64(INT128 *i128, uint64 v)
 {
 	/*
-	 * First add the value to the .lo part, then check to see if a carry needs
-	 * to be propagated into the .hi part.  A carry is needed if both inputs
-	 * have high bits set, or if just one input has high bit set while the new
-	 * .lo part doesn't.  Remember that .lo part is unsigned; we cast to
-	 * signed here just as a cheap way to check the high bit.
+	 * 先加到 .lo，再看是否需向 .hi 进位。两输入皆
+	 * 高位置位，或仅一输入高位置位而新 .lo 未置，
+	 * 则需进位。.lo 无符号；这里转为有符号只为
+	 * 便宜地查高位。
+	 * 略
 	 */
 	uint64		oldlo = i128->lo;
 
@@ -137,16 +137,16 @@ int128_add_uint64(INT128 *i128, uint64 v)
 }
 
 /*
- * Add a signed int64 value into an INT128 variable.
+ * 把有符号 int64 加到 INT128 变量。
  */
 static inline void
 int128_add_int64(INT128 *i128, int64 v)
 {
 	/*
-	 * This is much like the above except that the carry logic differs for
-	 * negative v.  Ordinarily we'd need to subtract 1 from the .hi part
-	 * (corresponding to adding the sign-extended bits of v to it); but if
-	 * there is a carry out of the .lo part, that cancels and we do nothing.
+	 * 与上类似，但负 v 时进位逻辑不同。通常须从
+	 * .hi 减 1（对应把 v 符号扩展位加上）；若 .lo
+	 * 有进位则抵消，什么也不做。
+	 * 略
 	 */
 	uint64		oldlo = i128->lo;
 
@@ -164,26 +164,26 @@ int128_add_int64(INT128 *i128, int64 v)
 }
 
 /*
- * INT64_AU32 extracts the most significant 32 bits of int64 as int64, while
- * INT64_AL32 extracts the least significant 32 bits as uint64.
+ * INT64_AU32 取 int64 最高 32 位为 int64，
+ * INT64_AL32 取最低 32 位为 uint64。
  */
 #define INT64_AU32(i64) ((i64) >> 32)
 #define INT64_AL32(i64) ((i64) & UINT64CONST(0xFFFFFFFF))
 
 /*
- * Add the 128-bit product of two int64 values into an INT128 variable.
+ * 把两个 int64 的 128 位积加到 INT128 变量。
  */
 static inline void
 int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 {
-	/* INT64_AU32 must use arithmetic right shift */
+	/*  INT64_AU32 须用算术右移  */
 	StaticAssertDecl(((int64) -1 >> 1) == (int64) -1,
 					 "arithmetic right shift is needed");
 
 	/*----------
-	 * Form the 128-bit product x * y using 64-bit arithmetic.
-	 * Considering each 64-bit input as having 32-bit high and low parts,
-	 * we can compute
+	 * 用 64 位运算形成 128 位积 x*y。
+	 * 把各 64 位输入视为 32 位高/低部，可算：
+	 * 略
 	 *
 	 *	 x * y = ((x.hi << 32) + x.lo) * (((y.hi << 32) + y.lo)
 	 *		   = (x.hi * y.hi) << 64 +
@@ -191,14 +191,14 @@ int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 	 *			 (x.lo * y.hi) << 32 +
 	 *			 x.lo * y.lo
 	 *
-	 * Each individual product is of 32-bit terms so it won't overflow when
-	 * computed in 64-bit arithmetic.  Then we just have to shift it to the
-	 * correct position while adding into the 128-bit result.  We must also
-	 * keep in mind that the "lo" parts must be treated as unsigned.
+	 * 各积为 32 位项，64 位运算下不会溢出。再移位
+	 * 到正确位置加进 128 位结果。还须把 "lo" 部
+	 * 当作无符号。
+	 * 略
 	 *----------
 	 */
 
-	/* No need to work hard if product must be zero */
+	/*  积必为零则不必费力  */
 	if (x != 0 && y != 0)
 	{
 		int64		x_u32 = INT64_AU32(x);
@@ -207,10 +207,10 @@ int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 		uint64		y_l32 = INT64_AL32(y);
 		int64		tmp;
 
-		/* the first term */
+		/*  第一项  */
 		i128->hi += x_u32 * y_u32;
 
-		/* the second term: sign-extend it only if x is negative */
+		/*  第二项：仅当 x 为负时符号扩展  */
 		tmp = x_u32 * y_l32;
 		if (x < 0)
 			i128->hi += INT64_AU32(tmp);
@@ -218,7 +218,7 @@ int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 			i128->hi += ((uint64) tmp) >> 32;
 		int128_add_uint64(i128, ((uint64) INT64_AL32(tmp)) << 32);
 
-		/* the third term: sign-extend it only if y is negative */
+		/*  第三项：仅当 y 为负时符号扩展  */
 		tmp = x_l32 * y_u32;
 		if (y < 0)
 			i128->hi += INT64_AU32(tmp);
@@ -226,13 +226,13 @@ int128_add_int64_mul_int64(INT128 *i128, int64 x, int64 y)
 			i128->hi += ((uint64) tmp) >> 32;
 		int128_add_uint64(i128, ((uint64) INT64_AL32(tmp)) << 32);
 
-		/* the fourth term: always unsigned */
+		/*  第四项：总是无符号  */
 		int128_add_uint64(i128, x_l32 * y_l32);
 	}
 }
 
 /*
- * Compare two INT128 values, return -1, 0, or +1.
+ * 比较两 INT128，返回 -1、0 或 +1。
  */
 static inline int
 int128_compare(INT128 x, INT128 y)
@@ -249,7 +249,7 @@ int128_compare(INT128 x, INT128 y)
 }
 
 /*
- * Widen int64 to INT128.
+ * int64→INT128。
  */
 static inline INT128
 int64_to_int128(int64 v)
@@ -262,8 +262,8 @@ int64_to_int128(int64 v)
 }
 
 /*
- * Convert INT128 to int64 (losing any high-order bits).
- * This also works fine for casting down to uint64.
+ * INT128 转为 int64（丢掉高位）。
+ * 转 uint64 亦可。
  */
 static inline int64
 int128_to_int64(INT128 val)

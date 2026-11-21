@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonapi.h
- *	  Declarations for JSON API support.
+ *	  JSON API 支持的声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -54,22 +54,22 @@ typedef enum JsonParseErrorType
 	JSON_UNICODE_UNTRANSLATABLE,
 	JSON_UNICODE_HIGH_SURROGATE,
 	JSON_UNICODE_LOW_SURROGATE,
-	JSON_SEM_ACTION_FAILED		/* error should already be reported */
+	JSON_SEM_ACTION_FAILED		/*  错误应已报告  */
 } JsonParseErrorType;
 
 
 /*
- * All the fields in this structure should be treated as read-only.
+ * 本结构全部字段应视为只读。
  *
- * If strval is not null, then it should contain the de-escaped value
- * of the lexeme if it's a string. Otherwise most of these field names
- * should be self-explanatory.
+ * 若 strval 非空，则含字符串词元的去转义值。
+ * 否则多数字段名应自明。
+ * 略
  *
- * line_number and line_start are principally for use by the parser's
- * error reporting routines.
- * token_terminator and prev_token_terminator point to the character
- * AFTER the end of the token, i.e. where there would be a nul byte
- * if we were using nul-terminated strings.
+ * line_number 与 line_start 主要为解析器错误
+ * 报告例程所用。
+ * token_terminator 与 prev_token_terminator 指向 AFTER
+ * 词元结束后的字符，即若用空终止串则会有
+ * 空字节之处。
  */
 typedef struct JsonLexContext
 {
@@ -81,8 +81,8 @@ typedef struct JsonLexContext
 	char	   *prev_token_terminator;
 	JsonTokenType token_type;
 	int			lex_level;
-	int			line_number;	/* line number, starting from 1 */
-	char	   *line_start;		/* where that line starts within input */
+	int			line_number;	/*  行号，从 1 起  */
+	char	   *line_start;		/*  该行在输入中的起点  */
 	StringInfo	strval;
 } JsonLexContext;
 
@@ -93,21 +93,21 @@ typedef JsonParseErrorType (*json_scalar_action) (void *state, char *token, Json
 
 
 /*
- * Semantic Action structure for use in parsing json.
+ * 解析 JSON 时用的语义动作结构。
  *
- * Any of these actions can be NULL, in which case nothing is done at that
- * point, Likewise, semstate can be NULL. Using an all-NULL structure amounts
- * to doing a pure parse with no side-effects, and is therefore exactly
- * what the json input routines do.
+ * 任一动作可为 NULL，则该点什么也不做。
+ * semstate 也可为 NULL。全 NULL 结构等于纯解析
+ * 无副作用，正是 json 输入例程所为。
+ * 略
  *
- * The 'fname' and 'token' strings passed to these actions are palloc'd.
- * They are not free'd or used further by the parser, so the action function
- * is free to do what it wishes with them.
+ * 传给这些动作的 'fname' 与 'token' 串为 palloc。
+ * 解析器不再释放或使用，动作函数可自行处置。
+ * 略
  *
- * All action functions return JsonParseErrorType.  If the result isn't
- * JSON_SUCCESS, the parse is abandoned and that error code is returned.
- * If it is JSON_SEM_ACTION_FAILED, the action function is responsible
- * for having reported the error in some appropriate way.
+ * 全部动作函数返回 JsonParseErrorType。结果非
+ * JSON_SUCCESS 则放弃解析并返回该错误码。
+ * 若为 JSON_SEM_ACTION_FAILED，动作函数负责以
+ * 适当方式报告错误。
  */
 typedef struct JsonSemAction
 {
@@ -124,53 +124,53 @@ typedef struct JsonSemAction
 } JsonSemAction;
 
 /*
- * pg_parse_json will parse the string in the lex calling the
- * action functions in sem at the appropriate points. It is
- * up to them to keep what state they need in semstate. If they
- * need access to the state of the lexer, then its pointer
- * should be passed to them as a member of whatever semstate
- * points to. If the action pointers are NULL the parser
- * does nothing and just continues.
+ * pg_parse_json 解析 lex 中的串，在适当时点调用
+ * 略
+ * 若需访问词法器状态，应把其指针作为 semstate
+ * 略
+ * 也不做，只继续。
+ * 略
+ * 略
  */
 extern JsonParseErrorType pg_parse_json(JsonLexContext *lex,
 										JsonSemAction *sem);
 
-/* the null action object used for pure validation */
+/*  用于纯校验的空动作对象  */
 extern PGDLLIMPORT JsonSemAction nullSemAction;
 
 /*
- * json_count_array_elements performs a fast secondary parse to determine the
- * number of elements in passed array lex context. It should be called from an
- * array_start action.
+ * json_count_array_elements 做快速二次解析以确定
+ * 所传数组词法上下文中的元素个数。应自 array_start
+ * 动作调用。
  *
- * The return value indicates whether any error occurred, while the number
- * of elements is stored into *elements (but only if the return value is
- * JSON_SUCCESS).
+ * 返回值表示是否出错；元素个数写入 *elements
+ * （仅当返回 JSON_SUCCESS）。
+ * 略
  */
 extern JsonParseErrorType json_count_array_elements(JsonLexContext *lex,
 													int *elements);
 
 /*
- * constructor for JsonLexContext, with or without strval element.
- * If supplied, the strval element will contain a de-escaped version of
- * the lexeme. However, doing this imposes a performance penalty, so
- * it should be avoided if the de-escaped lexeme is not required.
+ * JsonLexContext 构造函数，可带或不带 strval。
+ * 若提供，strval 含词元的去转义版。但这有性能
+ * 代价，若不需要去转义词元应避免。
+ * 略
  */
 extern JsonLexContext *makeJsonLexContextCstringLen(char *json,
 													int len,
 													int encoding,
 													bool need_escapes);
 
-/* lex one token */
+/* 略 */
 extern JsonParseErrorType json_lex(JsonLexContext *lex);
 
-/* construct an error detail string for a json error */
+/*  为 json 错误构造错误细节串  */
 extern char *json_errdetail(JsonParseErrorType error, JsonLexContext *lex);
 
 /*
- * Utility function to check if a string is a valid JSON number.
+ * 检查串是否为合法 JSON 数的工具函数。
  *
- * str argument does not need to be nul-terminated.
+ * str 参数不必以空结尾。
  */
 extern bool IsValidJsonNumber(const char *str, int len);
 

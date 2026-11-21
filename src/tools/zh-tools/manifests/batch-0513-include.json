@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0513",
+  "title": "include/common 余部 — batch 0513",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "6c44d99e6c560f619c174f0f209e88a764977b8f",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/common/fe_memutils.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/file_perm.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/int.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/int128.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/jsonapi.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/logging.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/pg_lzcompress.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/pg_prng.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/relpath.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/scram-common.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/include/common/shortest_dec.h",
+      "kind": "c_comment",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0513-include.json",
+      "kind": "manifest",
+      "note": "0513"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/common/fe_memutils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 13,
+      "translated": 12,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/file_perm.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 11,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/int.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 35,
+      "translated": 34,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/int128.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 32,
+      "translated": 29,
+      "preserved": 3,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/jsonapi.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 13,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/logging.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 16,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/pg_lzcompress.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 6,
+      "translated": 5,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/pg_prng.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 5,
+      "translated": 4,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/relpath.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 16,
+      "translated": 14,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/scram-common.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 8,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/include/common/shortest_dec.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 3,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略；极短 ident KEEP"
+      ],
+      "note": "0513"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0513-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0513"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "common 余部 11 头（避大 unicode 表）；int/int128/jsonapi/logging/lz/prng/relpath/scram 等；MIXED/ident 清偿"
+}

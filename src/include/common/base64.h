@@ -1,7 +1,7 @@
 /*
  * base64.h
- *	  Encoding and decoding routines for base64 without whitespace
- *	  support.
+ *	  无空白支持的 base64 编解码例程
+ *	  。
  *
  * Portions Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -10,7 +10,7 @@
 #ifndef BASE64_H
 #define BASE64_H
 
-/* base 64 */
+/* 略 */
 extern int	pg_b64_encode(const char *src, int len, char *dst, int dstlen);
 extern int	pg_b64_decode(const char *src, int len, char *dst, int dstlen);
 extern int	pg_b64_enc_len(int srclen);

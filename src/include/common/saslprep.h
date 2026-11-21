@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * saslprep.h
- *	  SASLprep normalization, for SCRAM authentication
+ *	  用于 SCRAM 认证的 SASLprep 规范化
  *
- * These definitions are used by both frontend and backend code.
+ * 这些定义供前端与后端代码共用。
  *
  * Copyright (c) 2017-2023, PostgreSQL Global Development Group
  *
@@ -15,14 +15,14 @@
 #define SASLPREP_H
 
 /*
- * Return codes for pg_saslprep() function.
+ * pg_saslprep() 的返回码。
  */
 typedef enum
 {
 	SASLPREP_SUCCESS = 0,
-	SASLPREP_OOM = -1,			/* out of memory (only in frontend) */
-	SASLPREP_INVALID_UTF8 = -2, /* input is not a valid UTF-8 string */
-	SASLPREP_PROHIBITED = -3	/* output would contain prohibited characters */
+	SASLPREP_OOM = -1,			/*  内存不足（仅前端）  */
+	SASLPREP_INVALID_UTF8 = -2, /*  输入不是合法 UTF-8 串  */
+	SASLPREP_PROHIBITED = -3	/*  输出会含禁用字符  */
 } pg_saslprep_rc;
 
 extern pg_saslprep_rc pg_saslprep(const char *input, char **output);

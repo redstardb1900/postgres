@@ -1,6 +1,6 @@
 /*
  *	username.h
- *		lookup effective username
+ *		查找有效用户名
  *
  *	Copyright (c) 2003-2023, PostgreSQL Global Development Group
  *

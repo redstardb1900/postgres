@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sha2.h
- *	  Constants related to SHA224, 256, 384 AND 512.
+ *	  与 SHA224/256/384/512 相关的常量。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,7 +15,7 @@
 #ifndef _PG_SHA2_H_
 #define _PG_SHA2_H_
 
-/*** SHA224/256/384/512 Various Length Definitions ***********************/
+/*** SHA224/256/384/512 各长度定义 ***********************/
 #define PG_SHA224_BLOCK_LENGTH			64
 #define PG_SHA224_DIGEST_LENGTH			28
 #define PG_SHA224_DIGEST_STRING_LENGTH	(PG_SHA224_DIGEST_LENGTH * 2 + 1)

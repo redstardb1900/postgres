@@ -1,6 +1,6 @@
 /*
  * controldata_utils.h
- *		Common code for pg_controldata output
+ *		pg_controldata 输出的公共代码
  *
  *	Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *	Portions Copyright (c) 1994, Regents of the University of California

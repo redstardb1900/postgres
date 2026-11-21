@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hmac.h
- *	  Generic headers for HMAC
+ *	  HMAC 通用头
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,7 +17,7 @@
 
 #include "common/cryptohash.h"
 
-/* opaque context, private to each HMAC implementation */
+/*  不透明上下文，对各 HMAC 实现私有  */
 typedef struct pg_hmac_ctx pg_hmac_ctx;
 
 extern pg_hmac_ctx *pg_hmac_create(pg_cryptohash_type type);

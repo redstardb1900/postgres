@@ -1,6 +1,6 @@
 /*
  *	string.h
- *		string handling helpers
+ *		字符串处理辅助
  *
  *	Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *	Portions Copyright (c) 1994, Regents of the University of California
@@ -12,17 +12,17 @@
 
 #include <signal.h>
 
-struct StringInfoData;			/* avoid including stringinfo.h here */
+struct StringInfoData;			/*  避免在此包含 stringinfo.h  */
 
 typedef struct PromptInterruptContext
 {
-	/* To avoid including <setjmp.h> here, jmpbuf is declared "void *" */
-	void	   *jmpbuf;			/* existing longjmp buffer */
-	volatile sig_atomic_t *enabled; /* flag that enables longjmp-on-interrupt */
-	bool		canceled;		/* indicates whether cancellation occurred */
+	/*  为免在此含 <setjmp.h>，jmpbuf 声明为 "void *"  */
+	void	   *jmpbuf;			/* 略 */
+	volatile sig_atomic_t *enabled; /*  启用中断时 longjmp 的标志  */
+	bool		canceled;		/*  表示是否发生了取消  */
 } PromptInterruptContext;
 
-/* functions in src/common/string.c */
+/* 略 */
 extern bool pg_str_endswith(const char *str, const char *end);
 extern int	strtoint(const char *pg_restrict str, char **pg_restrict endptr,
 					 int base);
@@ -36,7 +36,7 @@ extern bool pg_get_line_buf(FILE *stream, struct StringInfoData *buf);
 extern bool pg_get_line_append(FILE *stream, struct StringInfoData *buf,
 							   PromptInterruptContext *prompt_ctx);
 
-/* functions in src/common/sprompt.c */
+/* 略 */
 extern char *simple_prompt(const char *prompt, bool echo);
 extern char *simple_prompt_extended(const char *prompt, bool echo,
 									PromptInterruptContext *prompt_ctx);

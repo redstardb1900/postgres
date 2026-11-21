@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Assorted utility functions to work on files.
+ * 处理文件的各类实用函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,7 +24,7 @@ typedef enum PGFileType
 	PGFILETYPE_LNK
 } PGFileType;
 
-struct iovec;					/* avoid including port/pg_iovec.h here */
+struct iovec;					/*  避免在此包含 port/pg_iovec.h  */
 
 #ifdef FRONTEND
 extern int	fsync_fname(const char *fname, bool isdir);

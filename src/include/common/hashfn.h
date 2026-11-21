@@ -1,5 +1,5 @@
 /*
- * Utilities for working with hash values.
+ * 处理散列值的工具。
  *
  * Portions Copyright (c) 2017-2023, PostgreSQL Global Development Group
  */
@@ -9,11 +9,11 @@
 
 
 /*
- * Rotate the high 32 bits and the low 32 bits separately.  The standard
- * hash function sometimes rotates the low 32 bits by one bit when
- * combining elements.  We want extended hash functions to be compatible with
- * that algorithm when the seed is 0, so we can't just do a normal rotation.
- * This works, though.
+ * 分别旋转高 32 位与低 32 位。标准散列函数有时在
+ * 略
+ * 种子为 0 时与该算法兼容，故不能只做普通旋转。
+ * 不过这样可行。
+ * 略
  */
 #define ROTATE_HIGH_AND_LOW_32BITS(v) \
 	((((v) << 1) & UINT64CONST(0xfffffffefffffffe)) | \
@@ -56,13 +56,13 @@ extern uint32 string_hash(const void *key, Size keysize);
 extern uint32 tag_hash(const void *key, Size keysize);
 extern uint32 uint32_hash(const void *key, Size keysize);
 
-#define oid_hash uint32_hash	/* Remove me eventually */
+#define oid_hash uint32_hash	/*  最终请删我  */
 
 /*
- * Combine two 32-bit hash values, resulting in another hash value, with
- * decent bit mixing.
+ * 合并两个 32 位散列值，得到另一散列值，并有
+ * 略
  *
- * Similar to boost's hash_combine().
+ * 类似 boost 的 hash_combine()。
  */
 static inline uint32
 hash_combine(uint32 a, uint32 b)
@@ -72,21 +72,21 @@ hash_combine(uint32 a, uint32 b)
 }
 
 /*
- * Combine two 64-bit hash values, resulting in another hash value, using the
- * same kind of technique as hash_combine().  Testing shows that this also
- * produces good bit mixing.
+ * 用与 hash_combine() 同类手法合并两个 64 位散列
+ * 值。测试表明这也能产生良好位混合。
+ * 略
  */
 static inline uint64
 hash_combine64(uint64 a, uint64 b)
 {
-	/* 0x49a0f4dd15e5a8e3 is 64bit random data */
+	/* 略 */
 	a ^= b + UINT64CONST(0x49a0f4dd15e5a8e3) + (a << 54) + (a >> 7);
 	return a;
 }
 
 /*
- * Simple inline murmur hash implementation hashing a 32 bit integer, for
- * performance.
+ * 散列 32 位整数的简单内联 murmur 实现，为性能。
+ * 略
  */
 static inline uint32
 murmurhash32(uint32 data)

@@ -3,8 +3,8 @@
 #include "common/unicode_norm.h"
 
 /*
- * Normalization quick check entry for codepoint.  We use a bit field
- * here to save space.
+ * 规范化快速检查项。用位域以省空间。
+ * 略
  */
 typedef struct
 {
@@ -12,10 +12,10 @@ typedef struct
 	signed int	quickcheck:4;	/* really UnicodeNormalizationQC */
 } pg_unicode_normprops;
 
-/* Typedef for hash function on quick check table */
+/*  快速检查表上散列函数的 typedef  */
 typedef int (*qc_hash_func) (const void *key);
 
-/* Information for quick check lookup with perfect hash function */
+/*  用完美散列做快速检查查找的信息  */
 typedef struct
 {
 	const pg_unicode_normprops *normprops;
@@ -1257,7 +1257,7 @@ static const pg_unicode_normprops UnicodeNormProps_NFC_QC[] = {
 	{0x2FA1D, UNICODE_NORM_QC_NO},
 };
 
-/* Perfect hash function for NFC_QC */
+/*  NFC_QC 的完美散列函数  */
 static int
 NFC_QC_hash_func(const void *key)
 {
@@ -1587,7 +1587,7 @@ NFC_QC_hash_func(const void *key)
 	return h[a % 2463] + h[b % 2463];
 }
 
-/* Hash lookup information for NFC_QC */
+/*  NFC_QC 的散列查找信息  */
 static const pg_unicode_norminfo UnicodeNormInfo_NFC_QC = {
 	UnicodeNormProps_NFC_QC,
 	NFC_QC_hash_func,
@@ -6636,7 +6636,7 @@ static const pg_unicode_normprops UnicodeNormProps_NFKC_QC[] = {
 	{0x2FA1D, UNICODE_NORM_QC_NO},
 };
 
-/* Perfect hash function for NFKC_QC */
+/*  NFKC_QC 的完美散列函数  */
 static int
 NFKC_QC_hash_func(const void *key)
 {
@@ -7918,7 +7918,7 @@ NFKC_QC_hash_func(const void *key)
 	return h[a % 10079] + h[b % 10079];
 }
 
-/* Hash lookup information for NFKC_QC */
+/*  NFKC_QC 的散列查找信息  */
 static const pg_unicode_norminfo UnicodeNormInfo_NFKC_QC = {
 	UnicodeNormProps_NFKC_QC,
 	NFKC_QC_hash_func,

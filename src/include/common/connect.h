@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Interfaces in support of FE/BE connections.
+ * 支持 FE/BE 连接的接口。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -14,13 +14,13 @@
 #define CONNECT_H
 
 /*
- * This SQL statement installs an always-secure search path, so malicious
- * users can't take control.  CREATE of an unqualified name will fail, because
- * this selects no creation schema.  This does not demote pg_temp, so it is
- * suitable where we control the entire FE/BE connection but not suitable in
- * SECURITY DEFINER functions.  This is portable to PostgreSQL 7.3, which
- * introduced schemas.  When connected to an older version from code that
- * might work with the old server, skip this.
+ * 本 SQL 安装始终安全的 search_path，使恶意用户
+ * 无法夺取控制。未限定名的 CREATE 会失败，因未
+ * 选创建模式。不降低 pg_temp，故适于我们控制整段
+ * FE/BE 连接之处，不适于 SECURITY DEFINER 函数。
+ * 可移植到引入模式的 PostgreSQL 7.3。从可能兼容
+ * 旧服务器的代码连到更旧版本时，跳过此项。
+ * 略
  */
 #define ALWAYS_SECURE_SEARCH_PATH_SQL \
 	"SELECT pg_catalog.set_config('search_path', '', false);"

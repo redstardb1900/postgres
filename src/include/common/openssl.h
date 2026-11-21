@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * openssl.h
- *	  OpenSSL supporting functionality shared between frontend and backend
+ *	  前后端共享的 OpenSSL 支持功能
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,13 +18,13 @@
 #include <openssl/ssl.h>
 
 /*
- * OpenSSL doesn't provide any very nice way to identify the min/max
- * protocol versions the library supports, so we fake it as best we can.
- * Note in particular that this doesn't account for restrictions that
- * might be specified in the installation's openssl.cnf.
+ * OpenSSL 未提供很好的方式标识库支持的协议
+ * 版本上下限，故尽力仿造。尤其未计入安装
+ * openssl.cnf 中可能规定的限制。
+ * 略
  *
- * We disable SSLv3 and older in library setup, so TLSv1 is the oldest
- * protocol version of interest.
+ * 库设置中禁用 SSLv3 及更旧，故感兴趣的最旧
+ * 协议版本为 TLSv1。
  */
 #define MIN_OPENSSL_TLS_VERSION  "TLSv1"
 

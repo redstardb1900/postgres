@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * unicode_norm.h
- *	  Routines for normalizing Unicode strings
+ *	  规范化 Unicode 字符串的例程
  *
- * These definitions are used by both frontend and backend code.
+ * 这些定义供前端与后端代码共用。
  *
  * Copyright (c) 2017-2023, PostgreSQL Global Development Group
  *
@@ -24,7 +24,7 @@ typedef enum
 	UNICODE_NFKD = 3,
 } UnicodeNormalizationForm;
 
-/* see UAX #15 */
+/* 略 */
 typedef enum
 {
 	UNICODE_NORM_QC_NO = 0,

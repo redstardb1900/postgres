@@ -1,6 +1,6 @@
 /*
  * config_info.h
- *		Common code for pg_config output
+ *		pg_config 输出的公共代码
  *
  *	Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *

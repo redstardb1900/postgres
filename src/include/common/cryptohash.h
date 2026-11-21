@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * cryptohash.h
- *	  Generic headers for cryptographic hash functions.
+ *	  密码散列函数的通用头。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,7 +15,7 @@
 #ifndef PG_CRYPTOHASH_H
 #define PG_CRYPTOHASH_H
 
-/* Context Structures for each hash function */
+/*  各散列函数的上下文结构  */
 typedef enum
 {
 	PG_MD5 = 0,
@@ -26,7 +26,7 @@ typedef enum
 	PG_SHA512
 } pg_cryptohash_type;
 
-/* opaque context, private to each cryptohash implementation */
+/*  不透明上下文，对各 cryptohash 实现私有  */
 typedef struct pg_cryptohash_ctx pg_cryptohash_ctx;
 
 extern pg_cryptohash_ctx *pg_cryptohash_create(pg_cryptohash_type type);

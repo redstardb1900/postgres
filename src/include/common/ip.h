@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * ip.h
- *	  Definitions for IPv6-aware network access.
+ *	  支持 IPv6 的网络访问定义。
  *
- * These definitions are used by both frontend and backend code.
+ * 这些定义供前端与后端代码共用。
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group
  *

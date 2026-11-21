@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * keywords.h
- *	  PostgreSQL's list of SQL keywords
+ *	略
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,7 +16,7 @@
 
 #include "common/kwlookup.h"
 
-/* Keyword categories --- should match lists in gram.y */
+/* 略 */
 #define UNRESERVED_KEYWORD		0
 #define COL_NAME_KEYWORD		1
 #define TYPE_FUNC_NAME_KEYWORD	2

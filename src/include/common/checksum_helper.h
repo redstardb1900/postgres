@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * checksum_helper.h
- *	  Compute a checksum of any of various types using common routines
+ *	  用公共例程计算多种类型的校验和
  *
  * Portions Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -19,12 +19,12 @@
 #include "port/pg_crc32c.h"
 
 /*
- * Supported checksum types. It's not necessarily the case that code using
- * these functions needs a cryptographically strong checksum; it may only
- * need to detect accidental modification. That's why we include CRC-32C: it's
- * much faster than any of the other algorithms. On the other hand, we omit
- * MD5 here because any new that does need a cryptographically strong checksum
- * should use something better.
+ * 支持的校验和类型。使用这些函数的代码未必需要
+ * 密码学强校验和；可能只需检测意外修改。故含
+ * CRC-32C：比其他算法快得多。另一方面省略 MD5，
+ * 因任何新需要密码学强校验和之处应选用更好的。
+ * 略
+ * 略
  */
 typedef enum pg_checksum_type
 {
@@ -37,7 +37,7 @@ typedef enum pg_checksum_type
 } pg_checksum_type;
 
 /*
- * This is just a union of all applicable context types.
+ * 这只是所有适用上下文类型的联合。
  */
 typedef union pg_checksum_raw_context
 {
@@ -46,8 +46,8 @@ typedef union pg_checksum_raw_context
 } pg_checksum_raw_context;
 
 /*
- * This structure provides a convenient way to pass the checksum type and the
- * checksum context around together.
+ * 本结构便于把校验和类型与上下文一起传递。
+ * 略
  */
 typedef struct pg_checksum_context
 {
@@ -56,8 +56,8 @@ typedef struct pg_checksum_context
 } pg_checksum_context;
 
 /*
- * This is the longest possible output for any checksum algorithm supported
- * by this file.
+ * 本文件所支持任一校验和算法的最长可能输出。
+ * 略
  */
 #define PG_CHECKSUM_MAX_LENGTH		PG_SHA512_DIGEST_LENGTH
 

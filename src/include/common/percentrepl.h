@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * percentrepl.h
- *	  Common routines to replace percent placeholders in strings
+ *	  替换串中百分号占位符的公共例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

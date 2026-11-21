@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * link-canary.h
- *	  Detect whether src/common functions came from frontend or backend.
+ *	  检测 src/common 函数来自前端还是后端。
  *
  * Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *

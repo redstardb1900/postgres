@@ -1,26 +1,26 @@
 /*-------------------------------------------------------------------------
  *
  * instr_time.h
- *	  portable high-precision interval timing
+ *	  可移植高精度区间计时
  *
- * This file provides an abstraction layer to hide portability issues in
- * interval timing.  On Unix we use clock_gettime(), and on Windows we use
- * QueryPerformanceCounter().  These macros also give some breathing room to
- * use other high-precision-timing APIs.
+ * 本文件提供抽象层，隐藏区间计时的
+ * 可移植问题。Unix 用 clock_gettime()，Windows 用
+ * QueryPerformanceCounter()。这些宏也为改用其他
+ * 高精度计时 API 留出余地。
  *
- * The basic data type is instr_time, which all callers should treat as an
- * opaque typedef.  instr_time can store either an absolute time (of
- * unspecified reference time) or an interval.  The operations provided
- * for it are:
+ * 基本数据类型为 instr_time，调用者应视其为
+ * 不透明 typedef。instr_time 可存绝对时间（参考点
+ * 未指定）或区间。为其提供的操作
+ * 有：
  *
- * INSTR_TIME_IS_ZERO(t)			is t equal to zero?
+ * INSTR_TIME_IS_ZERO(t)			t 是否为零？
  *
- * INSTR_TIME_SET_ZERO(t)			set t to zero (memset is acceptable too)
+ * INSTR_TIME_SET_ZERO(t)			将 t 置零（也可用 memset）
  *
- * INSTR_TIME_SET_CURRENT(t)		set t to current time
+ * INSTR_TIME_SET_CURRENT(t)		设 t 为当前时间
  *
- * INSTR_TIME_SET_CURRENT_LAZY(t)	set t to current time if t is zero,
- *									evaluates to whether t changed
+ * INSTR_TIME_SET_CURRENT_LAZY(t)	若 t 为零则取当前时间，
+ *									求值结果为 t 是否改变
  *
  * INSTR_TIME_ADD(x, y)				x += y
  *
@@ -28,23 +28,23 @@
  *
  * INSTR_TIME_ACCUM_DIFF(x, y, z)	x += (y - z)
  *
- * INSTR_TIME_GET_DOUBLE(t)			convert t to double (in seconds)
+ * INSTR_TIME_GET_DOUBLE(t)			将 t 转为 double（秒）
  *
- * INSTR_TIME_GET_MILLISEC(t)		convert t to double (in milliseconds)
+ * INSTR_TIME_GET_MILLISEC(t)		将 t 转为 double（毫秒）
  *
- * INSTR_TIME_GET_MICROSEC(t)		convert t to uint64 (in microseconds)
+ * INSTR_TIME_GET_MICROSEC(t)		将 t 转为 uint64（微秒）
  *
- * INSTR_TIME_GET_NANOSEC(t)		convert t to uint64 (in nanoseconds)
+ * INSTR_TIME_GET_NANOSEC(t)		将 t 转为 uint64（纳秒）
  *
- * Note that INSTR_TIME_SUBTRACT and INSTR_TIME_ACCUM_DIFF convert
- * absolute times to intervals.  The INSTR_TIME_GET_xxx operations are
- * only useful on intervals.
+ * 注意 INSTR_TIME_SUBTRACT 与 INSTR_TIME_ACCUM_DIFF 会把
+ * 绝对时间转为区间。INSTR_TIME_GET_xxx 操作
+ * 仅对区间有用。
  *
- * When summing multiple measurements, it's recommended to leave the
- * running sum in instr_time form (ie, use INSTR_TIME_ADD or
- * INSTR_TIME_ACCUM_DIFF) and convert to a result format only at the end.
+ * 累加多次测量时，建议将运行总和
+ * 保持为 instr_time 形式（即用 INSTR_TIME_ADD 或
+ * INSTR_TIME_ACCUM_DIFF），仅在最后转为结果格式。
  *
- * Beware of multiple evaluations of the macro arguments.
+ * 当心宏参数被多次求值。
  *
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
@@ -58,21 +58,21 @@
 
 
 /*
- * We store interval times as an int64 integer on all platforms, as int64 is
- * cheap to add/subtract, the most common operation for instr_time. The
- * acquisition of time and converting to specific units of time is platform
- * specific.
+ * 所有平台上将区间时间存为 int64，因 int64 的
+ * 加/减便宜，而这是 instr_time 最常见操作。取时
+ * 及换算到具体时间单位则依平台
+ * 而定。
  *
- * To avoid users of the API relying on the integer representation, we wrap
- * the 64bit integer in a struct.
+ * 为免 API 用户依赖整数表示，我们将
+ * 64 位整数包进结构。
  */
 typedef struct instr_time
 {
-	int64		ticks;			/* in platforms specific unit */
+	int64		ticks;			/*  以平台相关单位  */
 } instr_time;
 
 
-/* helpers macros used in platform specific code below */
+/*  下列平台相关代码所用的辅助宏  */
 
 #define NS_PER_S	INT64CONST(1000000000)
 #define NS_PER_MS	INT64CONST(1000000)
@@ -82,21 +82,21 @@ typedef struct instr_time
 #ifndef WIN32
 
 
-/* Use clock_gettime() */
+/*  clock_gettime  */
 
 #include <time.h>
 
 /*
- * The best clockid to use according to the POSIX spec is CLOCK_MONOTONIC,
- * since that will give reliable interval timing even in the face of changes
- * to the system clock.  However, POSIX doesn't require implementations to
- * provide anything except CLOCK_REALTIME, so fall back to that if we don't
- * find CLOCK_MONOTONIC.
+ * 按 POSIX 规范，最佳 clockid 是 CLOCK_MONOTONIC，
+ * 因其即使系统时钟改变也能给出可靠区间计时。
+ * 但 POSIX 不要求实现提供 CLOCK_MONOTONIC，
+ * 除 CLOCK_REALTIME 外皆可选，故找不到时回退到
+ * CLOCK_REALTIME。
  *
- * Also, some implementations have nonstandard clockids with better properties
- * than CLOCK_MONOTONIC.  In particular, as of macOS 10.12, Apple provides
- * CLOCK_MONOTONIC_RAW which is both faster to read and higher resolution than
- * their version of CLOCK_MONOTONIC.
+ * 另有些实现有性质更好的非标准 clockid。
+ * 尤其自 macOS 10.12 起，Apple 提供
+ * CLOCK_MONOTONIC_RAW，比其 CLOCK_MONOTONIC 读更快、
+ * 分辨率更高。
  */
 #if defined(__darwin__) && defined(CLOCK_MONOTONIC_RAW)
 #define PG_INSTR_CLOCK	CLOCK_MONOTONIC_RAW
@@ -106,7 +106,7 @@ typedef struct instr_time
 #define PG_INSTR_CLOCK	CLOCK_REALTIME
 #endif
 
-/* helper for INSTR_TIME_SET_CURRENT */
+/*  INSTR_TIME_SET_CURRENT 辅助  */
 static inline instr_time
 pg_clock_gettime_ns(void)
 {
@@ -129,9 +129,9 @@ pg_clock_gettime_ns(void)
 #else							/* WIN32 */
 
 
-/* Use QueryPerformanceCounter() */
+/*  QueryPerformanceCounter  */
 
-/* helper for INSTR_TIME_SET_CURRENT */
+/*  INSTR_TIME_SET_CURRENT 辅助  */
 static inline instr_time
 pg_query_performance_counter(void)
 {
@@ -163,7 +163,7 @@ GetTimerFrequency(void)
 
 
 /*
- * Common macros
+ * 公共宏
  */
 
 #define INSTR_TIME_IS_ZERO(t)	((t).ticks == 0)

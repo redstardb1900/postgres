@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0507",
+  "title": "include 小头 archive/bootstrap/libpq/statistics/portability/jit — batch 0507",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "f2ab1998650e31299259731227f4508eadbbd382",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/archive/archive_module.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/archive/shell_archive.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/bootstrap/bootstrap.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/libpq/be-gssapi-common.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/libpq/ifaddr.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/libpq/pqmq.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/statistics/extended_stats_internal.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/statistics/statistics.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/portability/instr_time.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/portability/mem.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/jit/jit.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/jit/llvmjit.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/jit/llvmjit_backport.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/include/jit/llvmjit_emit.h",
+      "kind": "c_comment",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0507-include.json",
+      "kind": "manifest",
+      "note": "0507"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/archive/archive_module.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 6,
+      "translated": 5,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/archive/shell_archive.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/bootstrap/bootstrap.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/libpq/be-gssapi-common.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 1,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/libpq/ifaddr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/libpq/pqmq.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/statistics/extended_stats_internal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 14,
+      "preserved": 3,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/statistics/statistics.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 41,
+      "translated": 40,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/portability/instr_time.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 13,
+      "translated": 10,
+      "preserved": 3,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/portability/mem.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 7,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/jit/jit.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 10,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/jit/llvmjit.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 16,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/jit/llvmjit_backport.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 2,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0507"
+    },
+    {
+      "path": "src/include/jit/llvmjit_emit.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 22,
+      "preserved": 3,
+      "preserved_reasons": [
+        "横幅/版权/路径/#endif；预算残行；受保护注释"
+      ],
+      "note": "0507"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0507-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0507"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "跳过 SectionMemoryManager.h（LLVM // 注释）；受保护 pg_attribute KEEP；区间计时避 interval"
+}

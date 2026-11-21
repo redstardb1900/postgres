@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * bootstrap.h
- *	  include file for the bootstrapping code
+ *	  引导代码的头文件
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,8 +18,8 @@
 
 
 /*
- * MAXATTR is the maximum number of attributes in a relation supported
- * at bootstrap time (i.e., the max possible in a system table).
+ * MAXATTR 为引导期关系所支持的最大属性数
+ * （即系统表可能的最大属性数）。
  */
 #define MAXATTR 40
 

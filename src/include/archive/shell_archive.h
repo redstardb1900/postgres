@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * shell_archive.h
- *		Exports for archiving via shell.
+ *		经 shell 归档的导出。
  *
  * Copyright (c) 2022-2023, PostgreSQL Global Development Group
  *
@@ -15,9 +15,9 @@
 #include "archive/archive_module.h"
 
 /*
- * Since the logic for archiving via a shell command is in the core server
- * and does not need to be loaded via a shared library, it has a special
- * initialization function.
+ * 经 shell 命令归档的逻辑在核心服务器内，
+ * 无需经共享库加载，故有特殊的
+ * 初始化函数。
  */
 extern const ArchiveModuleCallbacks *shell_archive_init(void);
 

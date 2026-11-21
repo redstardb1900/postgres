@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * archive_module.h
- *		Exports for archive modules.
+ *		归档模块的导出。
  *
  * Copyright (c) 2022-2023, PostgreSQL Global Development Group
  *
@@ -13,27 +13,27 @@
 #define _ARCHIVE_MODULE_H
 
 /*
- * The value of the archive_library GUC.
+ * GUC archive_library 的值。
  */
 extern PGDLLIMPORT char *XLogArchiveLibrary;
 
 typedef struct ArchiveModuleState
 {
 	/*
-	 * Private data pointer for use by an archive module.  This can be used to
-	 * store state for the module that will be passed to each of its
-	 * callbacks.
+	 * 归档模块可用的私有数据指针。可用于存放
+	 * 将传给其各回调的模块状态。
+	 * 。
 	 */
 	void	   *private_data;
 } ArchiveModuleState;
 
 /*
- * Archive module callbacks
+ * 归档模块回调
  *
- * These callback functions should be defined by archive libraries and returned
- * via _PG_archive_module_init().  ArchiveFileCB is the only required callback.
- * For more information about the purpose of each callback, refer to the
- * archive modules documentation.
+ * 这些回调应由归档库定义，并经
+ * _PG_archive_module_init() 返回。仅 ArchiveFileCB 必需。
+ * 各回调用途详见
+ * 归档模块文档。
  */
 typedef void (*ArchiveStartupCB) (ArchiveModuleState *state);
 typedef bool (*ArchiveCheckConfiguredCB) (ArchiveModuleState *state);
@@ -49,8 +49,8 @@ typedef struct ArchiveModuleCallbacks
 } ArchiveModuleCallbacks;
 
 /*
- * Type of the shared library symbol _PG_archive_module_init that is looked
- * up when loading an archive library.
+ * 加载归档库时查找的共享库符号
+ * _PG_archive_module_init 类型。
  */
 typedef const ArchiveModuleCallbacks *(*ArchiveModuleInit) (void);
 

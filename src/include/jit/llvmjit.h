@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * llvmjit.h
- *	  LLVM JIT provider.
+ *	  LLVM JIT。
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -12,8 +12,8 @@
 #define LLVMJIT_H
 
 /*
- * To avoid breaking cpluspluscheck, allow including the file even when LLVM
- * is not available.
+ * 为免破坏 cpluspluscheck，即使没有 LLVM
+ * 也允许。
  */
 #ifdef USE_LLVM
 
@@ -26,9 +26,9 @@
 
 
 /*
- * File needs to be includable by both C and C++ code, and include other
- * headers doing the same. Therefore wrap C portion in our own extern "C" if
- * in C++ mode.
+ * 本文件须可被 C 与 C++ 代码包含，且所含其他头
+ * 亦然。故在 C++ 模式下用自有 extern "C" 包裹
+ * C 部分。
  */
 #ifdef __cplusplus
 extern "C"
@@ -44,33 +44,33 @@ typedef struct LLVMJitContext
 {
 	JitContext	base;
 
-	/* number of modules created */
+	/*  已创建的模块数  */
 	size_t		module_generation;
 
 	/*
-	 * The LLVM Context used by this JIT context. An LLVM context is reused
-	 * across many compilations, but occasionally reset to prevent it using
-	 * too much memory due to more and more types accumulating.
+	 * 本 JIT 上下文所用的 LLVM Context。一个 LLVM 上下文可
+	 * 跨多次编译复用，但偶发重置以防因类型不断
+	 * 累积而占用过多内存。
 	 */
 	LLVMContextRef llvm_context;
 
-	/* current, "open for write", module */
+	/*  当前 "可写" 模块  */
 	LLVMModuleRef module;
 
-	/* is there any pending code that needs to be emitted */
+	/*  是否有待发出的代码  */
 	bool		compiled;
 
-	/* # of objects emitted, used to generate non-conflicting names */
+	/*  已发出对象数，用于生成不冲突的名字  */
 	int			counter;
 
-	/* list of handles for code emitted via Orc */
+	/*  经 Orc 发出代码的句柄列表  */
 	List	   *handles;
 } LLVMJitContext;
 
-/* llvm module containing information about types */
+/*  含类型信息的 llvm 模块  */
 extern PGDLLIMPORT LLVMModuleRef llvm_types_module;
 
-/* type and struct definitions */
+/*  类型与结构体定义  */
 extern PGDLLIMPORT LLVMTypeRef TypeParamBool;
 extern PGDLLIMPORT LLVMTypeRef TypePGFunction;
 extern PGDLLIMPORT LLVMTypeRef TypeSizeT;
@@ -124,7 +124,7 @@ extern void llvm_inline(LLVMModuleRef mod);
 
 /*
  ****************************************************************************
- * Code generation functions.
+ * 代码生成函数。
  ****************************************************************************
  */
 extern bool llvm_compile_expr(struct ExprState *state);
@@ -134,18 +134,18 @@ extern LLVMValueRef slot_compile_deform(struct LLVMJitContext *context, TupleDes
 
 /*
  ****************************************************************************
- * Extensions / Backward compatibility section of the LLVM C API
- * Error handling related functions.
+ * LLVM C API 的扩展/向后兼容部分
+ * 错误处理相关函数。
  ****************************************************************************
  */
 #if defined(HAVE_DECL_LLVMGETHOSTCPUNAME) && !HAVE_DECL_LLVMGETHOSTCPUNAME
-/** Get the host CPU as a string. The result needs to be disposed with
+/** 以字符串取得主机 CPU。结果须用
   LLVMDisposeMessage. */
 extern char *LLVMGetHostCPUName(void);
 #endif
 
 #if defined(HAVE_DECL_LLVMGETHOSTCPUFEATURES) && !HAVE_DECL_LLVMGETHOSTCPUFEATURES
-/** Get the host CPU features as a string. The result needs to be disposed
+/** 以字符串取得主机 CPU 特性。结果须用
   with LLVMDisposeMessage. */
 extern char *LLVMGetHostCPUFeatures(void);
 #endif
@@ -162,7 +162,7 @@ extern LLVMTypeRef LLVMGlobalGetValueType(LLVMValueRef g);
 #endif
 
 #ifdef __cplusplus
-} /* extern "C" */
+} /* 。 */
 #endif
 
 #endif							/* USE_LLVM */

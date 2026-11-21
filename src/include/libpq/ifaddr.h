@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ifaddr.h
- *	  IP netmask calculations, and enumerating network interfaces.
+ *	  IP 网络掩码计算，以及枚举网络接口。
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group
  *
@@ -12,7 +12,7 @@
 #ifndef IFADDR_H
 #define IFADDR_H
 
-#include "libpq/pqcomm.h"		/* pgrminclude ignore */
+#include "libpq/pqcomm.h"		/* 。 */
 
 typedef void (*PgIfAddrCallback) (struct sockaddr *addr,
 								  struct sockaddr *netmask,

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pqmq.h
- *	  Use the frontend/backend protocol for communication over a shm_mq
+ *	  经 shm_mq 用前后端协议通信
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * statistics.h
- *	  Extended statistics and selectivity estimation functions.
+ *	  扩展统计与选择率估计函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,82 +16,82 @@
 #include "commands/vacuum.h"
 #include "nodes/pathnodes.h"
 
-#define STATS_MAX_DIMENSIONS	8	/* max number of attributes */
+#define STATS_MAX_DIMENSIONS	8	/*  最大属性数  */
 
-/* Multivariate distinct coefficients */
-#define STATS_NDISTINCT_MAGIC		0xA352BFA4	/* struct identifier */
-#define STATS_NDISTINCT_TYPE_BASIC	1	/* struct version */
+/*  多变量 distinct 系数  */
+#define STATS_NDISTINCT_MAGIC		0xA352BFA4	/*  结构标识  */
+#define STATS_NDISTINCT_TYPE_BASIC	1	/*  结构版本  */
 
-/* MVNDistinctItem represents a single combination of columns */
+/*  MVNDistinctItem 表示列的单一组合  */
 typedef struct MVNDistinctItem
 {
-	double		ndistinct;		/* ndistinct value for this combination */
-	int			nattributes;	/* number of attributes */
-	AttrNumber *attributes;		/* attribute numbers */
+	double		ndistinct;		/*  该组合的 ndistinct 值  */
+	int			nattributes;	/*  属性个数  */
+	AttrNumber *attributes;		/*  属性号  */
 } MVNDistinctItem;
 
-/* A MVNDistinct object, comprising all possible combinations of columns */
+/*  含所有可能列组合的 MVNDistinct 对象  */
 typedef struct MVNDistinct
 {
-	uint32		magic;			/* magic constant marker */
-	uint32		type;			/* type of ndistinct (BASIC) */
-	uint32		nitems;			/* number of items in the statistic */
+	uint32		magic;			/*  魔数常量标记  */
+	uint32		type;			/*  ndistinct 类型(BASIC)  */
+	uint32		nitems;			/*  统计中的项数  */
 	MVNDistinctItem items[FLEXIBLE_ARRAY_MEMBER];
 } MVNDistinct;
 
-/* Multivariate functional dependencies */
-#define STATS_DEPS_MAGIC		0xB4549A2C	/* marks serialized bytea */
-#define STATS_DEPS_TYPE_BASIC	1	/* basic dependencies type */
+/*  多变量函数依赖  */
+#define STATS_DEPS_MAGIC		0xB4549A2C	/*  序列化标记  */
+#define STATS_DEPS_TYPE_BASIC	1	/*  基本依赖类型  */
 
 /*
- * Functional dependencies, tracking column-level relationships (values
- * in one column determine values in another one).
+ * 函数依赖，跟踪列级关系（一列的值
+ * 决定另一列的值）。
  */
 typedef struct MVDependency
 {
-	double		degree;			/* degree of validity (0-1) */
-	AttrNumber	nattributes;	/* number of attributes */
-	AttrNumber	attributes[FLEXIBLE_ARRAY_MEMBER];	/* attribute numbers */
+	double		degree;			/*  有效程度（0-1）  */
+	AttrNumber	nattributes;	/*  属性个数  */
+	AttrNumber	attributes[FLEXIBLE_ARRAY_MEMBER];	/*  属性号  */
 } MVDependency;
 
 typedef struct MVDependencies
 {
-	uint32		magic;			/* magic constant marker */
-	uint32		type;			/* type of MV Dependencies (BASIC) */
-	uint32		ndeps;			/* number of dependencies */
-	MVDependency *deps[FLEXIBLE_ARRAY_MEMBER];	/* dependencies */
+	uint32		magic;			/*  魔数常量标记  */
+	uint32		type;			/*  MV 依赖类型（BASIC）  */
+	uint32		ndeps;			/*  依赖个数  */
+	MVDependency *deps[FLEXIBLE_ARRAY_MEMBER];	/*  依赖  */
 } MVDependencies;
 
-/* used to flag stats serialized to bytea */
-#define STATS_MCV_MAGIC			0xE1A651C2	/* marks serialized bytea */
-#define STATS_MCV_TYPE_BASIC	1	/* basic MCV list type */
+/*  标记序列化统计  */
+#define STATS_MCV_MAGIC			0xE1A651C2	/*  序列化标记  */
+#define STATS_MCV_TYPE_BASIC	1	/*  基本 MCV 类型  */
 
-/* max items in MCV list (should be equal to max default_statistics_target) */
+/*  MCV 最大项数（=default_statistics_target 上限）  */
 #define STATS_MCVLIST_MAX_ITEMS        10000
 
 /*
- * Multivariate MCV (most-common value) lists
+ * 多变量 MCV（最常见值）列表
  *
- * A straightforward extension of MCV items - i.e. a list (array) of
- * combinations of attribute values, together with a frequency and null flags.
+ * MCV 项的直接扩展——即属性值组合的
+ * 列表（数组），附带频率与空值标志。
  */
 typedef struct MCVItem
 {
-	double		frequency;		/* frequency of this combination */
-	double		base_frequency; /* frequency if independent */
-	bool	   *isnull;			/* NULL flags */
-	Datum	   *values;			/* item values */
+	double		frequency;		/*  该组合的频率  */
+	double		base_frequency; /*  独立时的频率  */
+	bool	   *isnull;			/*  空标  */
+	Datum	   *values;			/*  项值  */
 } MCVItem;
 
-/* multivariate MCV list - essentially an array of MCV items */
+/*  多变量 MCV 列表——本质上是 MCV 项数组  */
 typedef struct MCVList
 {
-	uint32		magic;			/* magic constant marker */
-	uint32		type;			/* type of MCV list (BASIC) */
-	uint32		nitems;			/* number of MCV items in the array */
-	AttrNumber	ndimensions;	/* number of dimensions */
-	Oid			types[STATS_MAX_DIMENSIONS];	/* OIDs of data types */
-	MCVItem		items[FLEXIBLE_ARRAY_MEMBER];	/* array of MCV items */
+	uint32		magic;			/*  魔数常量标记  */
+	uint32		type;			/*  MCV 类型（BASIC）  */
+	uint32		nitems;			/*  数组中的 MCV 项数  */
+	AttrNumber	ndimensions;	/*  维数  */
+	Oid			types[STATS_MAX_DIMENSIONS];	/*  各类型 OIDs  */
+	MCVItem		items[FLEXIBLE_ARRAY_MEMBER];	/*  MCV 项数组  */
 } MCVList;
 
 extern MVNDistinct *statext_ndistinct_load(Oid mvoid, bool inh);

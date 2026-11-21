@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * extended_stats_internal.h
- *	  POSTGRES extended statistics internal declarations
+ *	  POSTGRES 扩展统计内部声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,32 +19,32 @@
 
 typedef struct
 {
-	Oid			eqopr;			/* '=' operator for datatype, if any */
-	Oid			eqfunc;			/* and associated function */
-	Oid			ltopr;			/* '<' operator for datatype, if any */
+	Oid			eqopr;			/*  '=' 运算符（若有）  */
+	Oid			eqfunc;			/*  及相关函数  */
+	Oid			ltopr;			/*  '<' 运算符（若有）  */
 } StdAnalyzeData;
 
 typedef struct
 {
-	Datum		value;			/* a data value */
-	int			tupno;			/* position index for tuple it came from */
+	Datum		value;			/*  数据值  */
+	int			tupno;			/*  该值来自元组的位置下标  */
 } ScalarItem;
 
-/* (de)serialization info */
+/*  序列化信息  */
 typedef struct DimensionInfo
 {
-	int			nvalues;		/* number of deduplicated values */
-	int			nbytes;			/* number of bytes (serialized) */
-	int			nbytes_aligned; /* size of deserialized data with alignment */
+	int			nvalues;		/*  去重后的值个数  */
+	int			nbytes;			/*  字节数（序列化）  */
+	int			nbytes_aligned; /*  含对齐的反序列化数据大小  */
 	int			typlen;			/* pg_type.typlen */
 	bool		typbyval;		/* pg_type.typbyval */
 } DimensionInfo;
 
-/* multi-sort */
+/*  多排  */
 typedef struct MultiSortSupportData
 {
-	int			ndims;			/* number of dimensions */
-	/* sort support data for each dimension: */
+	int			ndims;			/*  维数  */
+	/*  各维的排序支持数据：  */
 	SortSupportData ssup[FLEXIBLE_ARRAY_MEMBER];
 } MultiSortSupportData;
 
@@ -57,7 +57,7 @@ typedef struct SortItem
 	int			count;
 } SortItem;
 
-/* a unified representation of the data the statistics is built on */
+/*  构建统计所依据数据的统一表示  */
 typedef struct StatsBuildData
 {
 	int			numrows;

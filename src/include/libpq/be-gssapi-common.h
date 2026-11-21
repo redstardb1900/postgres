@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * be-gssapi-common.h
- *       Definitions for GSSAPI authentication and encryption handling
+ *       GSSAPI 认证与加密处理的定义
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * jit.h
- *	  Provider independent JIT infrastructure.
+ *	  与提供方无关的 JIT 设施。
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -15,7 +15,7 @@
 #include "utils/resowner.h"
 
 
-/* Flags determining what kind of JIT operations to perform */
+/*  决定执行何种 JIT 操作的标志  */
 #define PGJIT_NONE     0
 #define PGJIT_PERFORM  (1 << 0)
 #define PGJIT_OPT3     (1 << 1)
@@ -26,24 +26,24 @@
 
 typedef struct JitInstrumentation
 {
-	/* number of emitted functions */
+	/*  已发出的函数个数  */
 	size_t		created_functions;
 
-	/* accumulated time to generate code */
+	/*  生成代码累计耗时  */
 	instr_time	generation_counter;
 
-	/* accumulated time for inlining */
+	/*  内联累计耗时  */
 	instr_time	inlining_counter;
 
-	/* accumulated time for optimization */
+	/*  优化累计耗时  */
 	instr_time	optimization_counter;
 
-	/* accumulated time for code emission */
+	/*  代码发出累计耗时  */
 	instr_time	emission_counter;
 } JitInstrumentation;
 
 /*
- * DSM structure for accumulating jit instrumentation of all workers.
+ * 累计所有工作进程 JIT 插装的 DSM 结构。
  */
 typedef struct SharedJitInstrumentation
 {
@@ -53,7 +53,7 @@ typedef struct SharedJitInstrumentation
 
 typedef struct JitContext
 {
-	/* see PGJIT_* above */
+	/*  见 PGJIT_*  */
 	int			flags;
 
 	ResourceOwner resowner;
@@ -95,8 +95,8 @@ extern void jit_reset_after_error(void);
 extern void jit_release_context(JitContext *context);
 
 /*
- * Functions for attempting to JIT code. Callers must accept that these might
- * not be able to perform JIT (i.e. return false).
+ * 尝试 JIT 代码的函数。调用者须接受其可能
+ * 无法执行 JIT（即返回 false）。
  */
 extern bool jit_compile_expr(struct ExprState *state);
 extern void InstrJitAgg(JitInstrumentation *dst, JitInstrumentation *add);

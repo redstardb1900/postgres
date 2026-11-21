@@ -1,6 +1,6 @@
 /*
  * llvmjit_emit.h
- *	  Helpers to make emitting LLVM IR a bit more concise and pgindent proof.
+ *	  使发出 LLVM IR 更简洁且 pgindent 安全的辅助。
  *
  * Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *
@@ -10,8 +10,8 @@
 #define LLVMJIT_EMIT_H
 
 /*
- * To avoid breaking cpluspluscheck, allow including the file even when LLVM
- * is not available.
+ * 为免破坏 cpluspluscheck，即使没有 LLVM
+ * 也允许。
  */
 #ifdef USE_LLVM
 
@@ -22,7 +22,7 @@
 
 
 /*
- * Emit a non-LLVM pointer as an LLVM constant.
+ * 将非 LLVM 指针发出为 LLVM 常量。
  */
 static inline LLVMValueRef
 l_ptr_const(void *ptr, LLVMTypeRef type)
@@ -33,7 +33,7 @@ l_ptr_const(void *ptr, LLVMTypeRef type)
 }
 
 /*
- * Emit pointer.
+ * 发指针。
  */
 static inline LLVMTypeRef
 l_ptr(LLVMTypeRef t)
@@ -42,7 +42,7 @@ l_ptr(LLVMTypeRef t)
 }
 
 /*
- * Emit constant integer.
+ * 发出常量整数。
  */
 static inline LLVMValueRef
 l_int8_const(LLVMContextRef lc, int8 i)
@@ -51,7 +51,7 @@ l_int8_const(LLVMContextRef lc, int8 i)
 }
 
 /*
- * Emit constant integer.
+ * 发出常量整数。
  */
 static inline LLVMValueRef
 l_int16_const(LLVMContextRef lc, int16 i)
@@ -60,7 +60,7 @@ l_int16_const(LLVMContextRef lc, int16 i)
 }
 
 /*
- * Emit constant integer.
+ * 发出常量整数。
  */
 static inline LLVMValueRef
 l_int32_const(LLVMContextRef lc, int32 i)
@@ -69,7 +69,7 @@ l_int32_const(LLVMContextRef lc, int32 i)
 }
 
 /*
- * Emit constant integer.
+ * 发出常量整数。
  */
 static inline LLVMValueRef
 l_int64_const(LLVMContextRef lc, int64 i)
@@ -78,7 +78,7 @@ l_int64_const(LLVMContextRef lc, int64 i)
 }
 
 /*
- * Emit constant integer.
+ * 发出常量整数。
  */
 static inline LLVMValueRef
 l_sizet_const(size_t i)
@@ -87,7 +87,7 @@ l_sizet_const(size_t i)
 }
 
 /*
- * Emit constant boolean, as used for storage (e.g. global vars, structs).
+ * 发出常量布尔，用于存储（如全局变量、结构体）。
  */
 static inline LLVMValueRef
 l_sbool_const(bool i)
@@ -96,7 +96,7 @@ l_sbool_const(bool i)
 }
 
 /*
- * Emit constant boolean, as used for parameters (e.g. function parameters).
+ * 发出常量布尔，用于参数（如函数参数）。
  */
 static inline LLVMValueRef
 l_pbool_const(bool i)
@@ -145,7 +145,7 @@ l_call(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef fn, LLVMValueRef *args, int
 }
 
 /*
- * Load a pointer member idx from a struct.
+ * 从结构体加载指针成员 idx。
  */
 static inline LLVMValueRef
 l_load_struct_gep(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, int32 idx, const char *name)
@@ -157,7 +157,7 @@ l_load_struct_gep(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, int32 idx, co
 }
 
 /*
- * Load value of a pointer, after applying one index operation.
+ * 对指针做一次下标运算后加载其值。
  */
 static inline LLVMValueRef
 l_load_gep1(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, LLVMValueRef idx, const char *name)
@@ -169,8 +169,8 @@ l_load_gep1(LLVMBuilderRef b, LLVMTypeRef t, LLVMValueRef v, LLVMValueRef idx, c
 static inline LLVMBasicBlockRef l_bb_before_v(LLVMBasicBlockRef r, const char *fmt,...) pg_attribute_printf(2, 3);
 
 /*
- * Insert a new basic block, just before r, the name being determined by fmt
- * and arguments.
+ * 在 r 前插入新基本块，名称由 fmt
+ * 定名。
  */
 static inline LLVMBasicBlockRef
 l_bb_before_v(LLVMBasicBlockRef r, const char *fmt,...)
@@ -192,8 +192,8 @@ l_bb_before_v(LLVMBasicBlockRef r, const char *fmt,...)
 static inline LLVMBasicBlockRef l_bb_append_v(LLVMValueRef f, const char *fmt,...) pg_attribute_printf(2, 3);
 
 /*
- * Insert a new basic block after previous basic blocks, the name being
- * determined by fmt and arguments.
+ * 在既有基本块之后插入新基本块，名称由
+ * fmt 及参数决定。
  */
 static inline LLVMBasicBlockRef
 l_bb_append_v(LLVMValueRef f, const char *fmt,...)
@@ -212,7 +212,7 @@ l_bb_append_v(LLVMValueRef f, const char *fmt,...)
 }
 
 /*
- * Mark a callsite as readonly.
+ * 标调用为 readonly。
  */
 static inline void
 l_callsite_ro(LLVMValueRef f)
@@ -229,7 +229,7 @@ l_callsite_ro(LLVMValueRef f)
 }
 
 /*
- * Mark a callsite as alwaysinline.
+ * 标调用为 alwaysinline。
  */
 static inline void
 l_callsite_alwaysinline(LLVMValueRef f)
@@ -245,7 +245,7 @@ l_callsite_alwaysinline(LLVMValueRef f)
 }
 
 /*
- * Emit code to switch memory context.
+ * 发出切内存上下文代码。
  */
 static inline LLVMValueRef
 l_mcxt_switch(LLVMModuleRef mod, LLVMBuilderRef b, LLVMValueRef nc)
@@ -263,7 +263,7 @@ l_mcxt_switch(LLVMModuleRef mod, LLVMBuilderRef b, LLVMValueRef nc)
 }
 
 /*
- * Return pointer to the argno'th argument nullness.
+ *  第 argno 参空值性指针。 
  */
 static inline LLVMValueRef
 l_funcnullp(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)
@@ -289,7 +289,7 @@ l_funcnullp(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)
 }
 
 /*
- * Return pointer to the argno'th argument datum.
+ *  第 argno 参 datum 指针。 
  */
 static inline LLVMValueRef
 l_funcvaluep(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)
@@ -315,7 +315,7 @@ l_funcvaluep(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)
 }
 
 /*
- * Return argno'th argument nullness.
+ *  第 argno 参空值性。 
  */
 static inline LLVMValueRef
 l_funcnull(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)
@@ -324,7 +324,7 @@ l_funcnull(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)
 }
 
 /*
- * Return argno'th argument datum.
+ *  第 argno 参 datum。 
  */
 static inline LLVMValueRef
 l_funcvalue(LLVMBuilderRef b, LLVMValueRef v_fcinfo, size_t argno)

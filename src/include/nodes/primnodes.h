@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * primnodes.h
- *	  Definitions for "primitive" node types, those that are used in more
- *	  than one of the parse/plan/execute stages of the query pipeline.
- *	  Currently, these are mostly nodes for executable expressions
- *	  and join trees.
+ *	"原始"节点类型定义:在查询流水线的解析/计划/执行
+ *	阶段中不止一处使用那些。当前多为可执行表达式
+ *	与连接树的节点。
+ *	见上。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,27 +23,27 @@
 
 
 /* ----------------------------------------------------------------
- *						node definitions
+ *	节点定义
  * ----------------------------------------------------------------
  */
 
 /*
  * Alias -
- *	  specifies an alias for a range variable; the alias might also
- *	  specify renaming of columns within the table.
+ *	指定范围变量的别名;别名也可能指定表内列的
+ *	重命名。
  *
- * Note: colnames is a list of String nodes.  In Alias structs
- * associated with RTEs, there may be entries corresponding to dropped
- * columns; these are normally empty strings ("").  See parsenodes.h for info.
+ * 注:colnames 是 String 节点列表。与 RTE 关联 Alias
+ * 结构中可能有对应已删列项;通常为空串("").细节见
+ * parsenodes.h。
  */
 typedef struct Alias
 {
 	NodeTag		type;
 	char	   *aliasname;		/* aliased rel name (never qualified) */
-	List	   *colnames;		/* optional list of column aliases */
+	List	   *colnames;		/* 可选的列别名列表 */
 } Alias;
 
-/* What to do at commit time for temporary relations */
+/* 临时关系在提交时做什么 */
 typedef enum OnCommitAction
 {
 	ONCOMMIT_NOOP,				/* No ON COMMIT clause (do nothing) */
@@ -53,73 +53,73 @@ typedef enum OnCommitAction
 } OnCommitAction;
 
 /*
- * RangeVar - range variable, used in FROM clauses
+ * RangeVar - 范围变量,用于 FROM 子句
  *
- * Also used to represent table names in utility statements; there, the alias
- * field is not used, and inh tells whether to apply the operation
- * recursively to child tables.  In some contexts it is also useful to carry
- * a TEMP table indication here.
+ * 也用于表示 utility 语句中的表名;彼时不用 alias 字段,
+ * inh 为否递归作供子表.某些上下文中也便于在此
+ * 携带 TEMP 表指示。
+ * 见上。
  */
 typedef struct RangeVar
 {
 	NodeTag		type;
 
-	/* the catalog (database) name, or NULL */
+	/* 目录(数据库)名,或 NULL */
 	char	   *catalogname;
 
-	/* the schema name, or NULL */
+	/* 模式名,或 NULL */
 	char	   *schemaname;
 
-	/* the relation/sequence name */
+	/* 关系/序列名 */
 	char	   *relname;
 
-	/* expand rel by inheritance? recursively act on children? */
+	/* 按继承展开关系?递归作用于子? */
 	bool		inh;
 
 	/* see RELPERSISTENCE_* in pg_class.h */
 	char		relpersistence;
 
-	/* table alias & optional column aliases */
+	/* 表别名与可选列别名 */
 	Alias	   *alias;
 
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } RangeVar;
 
 /*
- * TableFunc - node for a table function, such as XMLTABLE.
+ * TableFunc - 表函数节点,如 XMLTABLE。
  *
- * Entries in the ns_names list are either String nodes containing
- * literal namespace names, or NULL pointers to represent DEFAULT.
+ * ns_names 列表中项或为含字面命名空间名的 String
+ * 节点,或为表示 DEFAULT 的 NULL 指针。
  */
 typedef struct TableFunc
 {
 	NodeTag		type;
-	/* list of namespace URI expressions */
+	/* 命名空间 URI 表达式列表 */
 	List	   *ns_uris pg_node_attr(query_jumble_ignore);
-	/* list of namespace names or NULL */
+	/* 命名空间名列表或 NULL */
 	List	   *ns_names pg_node_attr(query_jumble_ignore);
-	/* input document expression */
+	/* 输入文档表达式 */
 	Node	   *docexpr;
-	/* row filter expression */
+	/* 行过滤表达式 */
 	Node	   *rowexpr;
-	/* column names (list of String) */
+	/* 列名(String 列表) */
 	List	   *colnames pg_node_attr(query_jumble_ignore);
-	/* OID list of column type OIDs */
+	/* 列类型 OID 的 OID 列表 */
 	List	   *coltypes pg_node_attr(query_jumble_ignore);
-	/* integer list of column typmods */
+	/* 列 typmod 的整数列表 */
 	List	   *coltypmods pg_node_attr(query_jumble_ignore);
-	/* OID list of column collation OIDs */
+	/* 列排序规则 OID  OID 列表 */
 	List	   *colcollations pg_node_attr(query_jumble_ignore);
-	/* list of column filter expressions */
+	/* 列过滤表达式列表 */
 	List	   *colexprs;
-	/* list of column default expressions */
+	/* 列默认表达式列表 */
 	List	   *coldefexprs pg_node_attr(query_jumble_ignore);
-	/* nullability flag for each output column */
+	/* 各输出列的可空标志 */
 	Bitmapset  *notnulls pg_node_attr(query_jumble_ignore);
-	/* counts from 0; -1 if none specified */
+	/* 从 0 计;-1 表示未指定 */
 	int			ordinalitycol pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } TableFunc;
 
@@ -137,30 +137,30 @@ typedef struct IntoClause
 {
 	NodeTag		type;
 
-	RangeVar   *rel;			/* target relation name */
-	List	   *colNames;		/* column names to assign, or NIL */
-	char	   *accessMethod;	/* table access method */
-	List	   *options;		/* options from WITH clause */
-	OnCommitAction onCommit;	/* what do we do at COMMIT? */
-	char	   *tableSpaceName; /* table space to use, or NULL */
-	/* materialized view's SELECT query */
+	RangeVar   *rel;			/* 目标关系名 */
+	List	   *colNames;		/* 要赋的列名,或 NIL */
+	char	   *accessMethod;	/* 表访问方法 */
+	List	   *options;		/* WITH 子句中的选项 */
+	OnCommitAction onCommit;	/* COMMIT 时做什么? */
+	char	   *tableSpaceName; /* 要用的表空间,或 NULL */
+	/* 物化视图的 SELECT 查询 */
 	Node	   *viewQuery pg_node_attr(query_jumble_ignore);
 	bool		skipData;		/* true for WITH NO DATA */
 } IntoClause;
 
 
 /* ----------------------------------------------------------------
- *					node types for executable expressions
+ *	可执行表达式的节点类型
  * ----------------------------------------------------------------
  */
 
 /*
- * Expr - generic superclass for executable-expression nodes
+ * Expr - 可执行表达式节点的通用超类
  *
- * All node types that are used in executable expression trees should derive
- * from Expr (that is, have Expr as their first field).  Since Expr only
- * contains NodeTag, this is a formality, but it is an easy form of
- * documentation.  See also the ExprState node types in execnodes.h.
+ * 可执行表达式树中使用的所有节点类型都应派生自 Expr
+ * (即以 Expr 为第一字段)。因 Expr 仅含 NodeTag,这只是
+ * 形式,但是一种简便文档方式.另见 execnodes.h 中的
+ * ExprState 节点类型。
  */
 typedef struct Expr
 {
@@ -211,14 +211,14 @@ typedef struct Expr
  * in the planner and doesn't correspond to any simple relation column may
  * have varnosyn = varattnosyn = 0.
  */
-#define    INNER_VAR		(-1)	/* reference to inner subplan */
-#define    OUTER_VAR		(-2)	/* reference to outer subplan */
-#define    INDEX_VAR		(-3)	/* reference to index column */
-#define    ROWID_VAR		(-4)	/* row identity column during planning */
+#define    INNER_VAR		(-1)	/* 引用内子计划 */
+#define    OUTER_VAR		(-2)	/* 引用外子计划 */
+#define    INDEX_VAR		(-3)	/* 引用索引列 */
+#define    ROWID_VAR		(-4)	/* 规划期的行标识列 */
 
 #define IS_SPECIAL_VARNO(varno)		((int) (varno) < 0)
 
-/* Symbols for the indexes of the special RTE entries in rules */
+/* 规则中特殊 RTE 项下标的符号 */
 #define    PRS2_OLD_VARNO			1
 #define    PRS2_NEW_VARNO			2
 
@@ -227,76 +227,76 @@ typedef struct Var
 	Expr		xpr;
 
 	/*
-	 * index of this var's relation in the range table, or
-	 * INNER_VAR/OUTER_VAR/etc
+	 * 本 var 关系在范围表中的下标,或
+	 * INNER_VAR/OUTER_VAR/等
 	 */
 	int			varno;
 
 	/*
-	 * attribute number of this var, or zero for all attrs ("whole-row Var")
+	 * 本 var 的属性号,或零表示全部属性("整行 Var")
 	 */
 	AttrNumber	varattno;
 
-	/* pg_type OID for the type of this var */
+	/* 本 var 类型的 pg_type OID */
 	Oid			vartype pg_node_attr(query_jumble_ignore);
-	/* pg_attribute typmod value */
+	/* pg_attribute typmod 值 */
 	int32		vartypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			varcollid pg_node_attr(query_jumble_ignore);
 
 	/*
-	 * RT indexes of outer joins that can replace the Var's value with null.
-	 * We can omit varnullingrels in the query jumble, because it's fully
-	 * determined by varno/varlevelsup plus the Var's query location.
+	 * 可把 Var 值替换为空的外连接 RT 下标。
+	 * 查询混淆中可省略 varnullingrels,因其完全由
+	 * varno/varlevelsup 加 Var 的查询位置决定。
 	 */
 	Bitmapset  *varnullingrels pg_node_attr(query_jumble_ignore);
 
 	/*
-	 * for subquery variables referencing outer relations; 0 in a normal var,
-	 * >0 means N levels up
+	 * 引用外层关系的子查询变量;普通 var 为 0,
+	 * >0 为向上 N 层
 	 */
 	Index		varlevelsup;
 
 	/*
-	 * varnosyn/varattnosyn are ignored for equality, because Vars with
-	 * different syntactic identifiers are semantically the same as long as
-	 * their varno/varattno match.
+	 * 相等性比较忽略 varnosyn/varattnosyn,因只要
+	 * varno/varattno 匹配,不同语法标识符的 Vars 语义相同。
+	 * 见上。
 	 */
-	/* syntactic relation index (0 if unknown) */
+	/* 语法关系下标(未知则为 0) */
 	Index		varnosyn pg_node_attr(equal_ignore, query_jumble_ignore);
-	/* syntactic attribute number */
+	/* 语法属性号 */
 	AttrNumber	varattnosyn pg_node_attr(equal_ignore, query_jumble_ignore);
 
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } Var;
 
 /*
  * Const
  *
- * Note: for varlena data types, we make a rule that a Const node's value
- * must be in non-extended form (4-byte header, no compression or external
- * references).  This ensures that the Const node is self-contained and makes
- * it more likely that equal() will see logically identical values as equal.
+ * 注:对 varlena 数据类型,我们规定 Const 节点的值必须是
+ * 非扩展形式(4 字节头,无压缩或外部引用)。这确保 Const
+ * 自包含,并更可能让 equal() 把逻辑相同的值视为相等。
+ * 见上。
  *
- * Only the constant type OID is relevant for the query jumbling.
+ * 查询混淆仅关心常量类型 OID。
  */
 typedef struct Const
 {
 	pg_node_attr(custom_copy_equal, custom_read_write)
 
 	Expr		xpr;
-	/* pg_type OID of the constant's datatype */
+	/* 常量数据类型的 pg_type OID */
 	Oid			consttype;
-	/* typmod value, if any */
+	/* typmod 值(若有) */
 	int32		consttypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			constcollid pg_node_attr(query_jumble_ignore);
-	/* typlen of the constant's datatype */
+	/* 常量数据类型的 typlen */
 	int			constlen pg_node_attr(query_jumble_ignore);
-	/* the constant's value */
+	/* 常量的值 */
 	Datum		constvalue pg_node_attr(query_jumble_ignore);
-	/* whether the constant is null (if true, constvalue is undefined) */
+	/* 常量是否为空(真则 constvalue 未定义) */
 	bool		constisnull pg_node_attr(query_jumble_ignore);
 
 	/*
@@ -351,14 +351,14 @@ typedef enum ParamKind
 typedef struct Param
 {
 	Expr		xpr;
-	ParamKind	paramkind;		/* kind of parameter. See above */
-	int			paramid;		/* numeric ID for parameter */
-	Oid			paramtype;		/* pg_type OID of parameter's datatype */
-	/* typmod value, if known */
+	ParamKind	paramkind;		/* 参数种类。见上 */
+	int			paramid;		/* 参数的数值 ID */
+	Oid			paramtype;		/* 参数数据类型的 pg_type OID */
+	/* typmod 值(若已知) */
 	int32		paramtypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			paramcollid pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } Param;
 
@@ -418,70 +418,70 @@ typedef struct Aggref
 {
 	Expr		xpr;
 
-	/* pg_proc Oid of the aggregate */
+	/* 聚合的 pg_proc Oid */
 	Oid			aggfnoid;
 
-	/* type Oid of result of the aggregate */
+	/* 聚合结果的类型 Oid */
 	Oid			aggtype pg_node_attr(query_jumble_ignore);
 
-	/* OID of collation of result */
+	/* 结果排序规则的 OID */
 	Oid			aggcollid pg_node_attr(query_jumble_ignore);
 
-	/* OID of collation that function should use */
+	/* 函数应使用的排序规则 OID */
 	Oid			inputcollid pg_node_attr(query_jumble_ignore);
 
 	/*
-	 * type Oid of aggregate's transition value; ignored for equal since it
-	 * might not be set yet
+	 * 聚合转移值的类型 Oid;因可能尚未设置,equal 忽略
+	 * 见上。
 	 */
 	Oid			aggtranstype pg_node_attr(equal_ignore, query_jumble_ignore);
 
-	/* type Oids of direct and aggregated args */
+	/* 直接与被聚合参数的类型 Oid */
 	List	   *aggargtypes pg_node_attr(query_jumble_ignore);
 
-	/* direct arguments, if an ordered-set agg */
+	/* 直接参数(若为有序集聚合) */
 	List	   *aggdirectargs;
 
-	/* aggregated arguments and sort expressions */
+	/* 被聚合参数与排序表达式 */
 	List	   *args;
 
-	/* ORDER BY (list of SortGroupClause) */
+	/* ORDER BY(SortGroupClause 列表) */
 	List	   *aggorder;
 
-	/* DISTINCT (list of SortGroupClause) */
+	/* DISTINCT(SortGroupClause 列表) */
 	List	   *aggdistinct;
 
-	/* FILTER expression, if any */
+	/* FILTER 表达式(若有) */
 	Expr	   *aggfilter;
 
-	/* true if argument list was really '*' */
+	/* 若参数列表实际为 * 则为真 */
 	bool		aggstar pg_node_attr(query_jumble_ignore);
 
 	/*
-	 * true if variadic arguments have been combined into an array last
-	 * argument
+	 * 变长参数已合并为数组末参数则为真
+	 * 见上.
 	 */
 	bool		aggvariadic pg_node_attr(query_jumble_ignore);
 
-	/* aggregate kind (see pg_aggregate.h) */
+	/* 聚合种类(见 pg_aggregate.h) */
 	char		aggkind pg_node_attr(query_jumble_ignore);
 
-	/* aggregate input already sorted */
+	/* 聚合输入已排序 */
 	bool		aggpresorted pg_node_attr(equal_ignore, query_jumble_ignore);
 
-	/* > 0 if agg belongs to outer query */
+	/* 若聚合属于外查询则 >0 */
 	Index		agglevelsup pg_node_attr(query_jumble_ignore);
 
-	/* expected agg-splitting mode of parent Agg */
+	/* 父 Agg 的预期聚合拆分模式 */
 	AggSplit	aggsplit pg_node_attr(query_jumble_ignore);
 
-	/* unique ID within the Agg node */
+	/* Agg 节点内的唯一 ID */
 	int			aggno pg_node_attr(query_jumble_ignore);
 
-	/* unique ID of transition state in the Agg */
+	/* Agg 中转移状态的唯一 ID */
 	int			aggtransno pg_node_attr(query_jumble_ignore);
 
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } Aggref;
 
@@ -516,50 +516,50 @@ typedef struct GroupingFunc
 {
 	Expr		xpr;
 
-	/* arguments, not evaluated but kept for benefit of EXPLAIN etc. */
+	/* 参数,不求值但为 EXPLAIN 等保留 */
 	List	   *args pg_node_attr(query_jumble_ignore);
 
-	/* ressortgrouprefs of arguments */
+	/* 参数的 ressortgrouprefs */
 	List	   *refs pg_node_attr(equal_ignore);
 
-	/* actual column positions set by planner */
+	/* 规划器设置的实际列位置 */
 	List	   *cols pg_node_attr(equal_ignore, query_jumble_ignore);
 
 	/* same as Aggref.agglevelsup */
 	Index		agglevelsup;
 
-	/* token location */
+	/* 记号位置 */
 	int			location;
 } GroupingFunc;
 
 /*
  * WindowFunc
  *
- * Collation information is irrelevant for the query jumbling, as is the
- * internal state information of the node like "winstar" and "winagg".
+ * 排序规则信息与查询混淆无关,节点内部状态如 winstar
+ * 与 winagg 亦然。
  */
 typedef struct WindowFunc
 {
 	Expr		xpr;
-	/* pg_proc Oid of the function */
+	/* 函数的 pg_proc Oid */
 	Oid			winfnoid;
-	/* type Oid of result of the window function */
+	/* 窗口函数结果的类型 Oid */
 	Oid			wintype pg_node_attr(query_jumble_ignore);
-	/* OID of collation of result */
+	/* 结果排序规则的 OID */
 	Oid			wincollid pg_node_attr(query_jumble_ignore);
-	/* OID of collation that function should use */
+	/* 函数应使用的排序规则 OID */
 	Oid			inputcollid pg_node_attr(query_jumble_ignore);
-	/* arguments to the window function */
+	/* 窗口函数的参数 */
 	List	   *args;
-	/* FILTER expression, if any */
+	/* FILTER 表达式(若有) */
 	Expr	   *aggfilter;
-	/* index of associated WindowClause */
+	/* 关联 WindowClause 的下标 */
 	Index		winref;
-	/* true if argument list was really '*' */
+	/* 若参数列表实际为 * 则为真 */
 	bool		winstar pg_node_attr(query_jumble_ignore);
-	/* is function a simple aggregate? */
+	/* 函数是否为简单聚合? */
 	bool		winagg pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } WindowFunc;
 
@@ -606,42 +606,42 @@ typedef struct WindowFunc
 typedef struct SubscriptingRef
 {
 	Expr		xpr;
-	/* type of the container proper */
+	/* 容器本身的类型 */
 	Oid			refcontainertype pg_node_attr(query_jumble_ignore);
-	/* the container type's pg_type.typelem */
+	/* 容器类型的 pg_type.typelem */
 	Oid			refelemtype pg_node_attr(query_jumble_ignore);
-	/* type of the SubscriptingRef's result */
+	/* SubscriptingRef 结果的类型 */
 	Oid			refrestype pg_node_attr(query_jumble_ignore);
-	/* typmod of the result */
+	/* 结果的 typmod */
 	int32		reftypmod pg_node_attr(query_jumble_ignore);
-	/* collation of result, or InvalidOid if none */
+	/* 结果排序规则,无则为 InvalidOid */
 	Oid			refcollid pg_node_attr(query_jumble_ignore);
-	/* expressions that evaluate to upper container indexes */
+	/* 求值为容器上界下标的表达式 */
 	List	   *refupperindexpr;
 
 	/*
-	 * expressions that evaluate to lower container indexes, or NIL for single
-	 * container element.
+	 * 求值为容器下界下标表达式,或 NIL 表示单容器元素。
+	 * 见上。
 	 */
 	List	   *reflowerindexpr;
-	/* the expression that evaluates to a container value */
+	/* 求值为容器值的表达式 */
 	Expr	   *refexpr;
-	/* expression for the source value, or NULL if fetch */
+	/* 源值表达式,若为取则为 NULL */
 	Expr	   *refassgnexpr;
 } SubscriptingRef;
 
 /*
- * CoercionContext - distinguishes the allowed set of type casts
+ * CoercionContext - 区分允许的类型强制集合
  *
- * NB: ordering of the alternatives is significant; later (larger) values
- * allow more casts than earlier ones.
+ * 注:备选项次序有意义;较大值比较小值允许更多强制.
+ * 见上。
  */
 typedef enum CoercionContext
 {
-	COERCION_IMPLICIT,			/* coercion in context of expression */
-	COERCION_ASSIGNMENT,		/* coercion in context of assignment */
-	COERCION_PLPGSQL,			/* if no assignment cast, use CoerceViaIO */
-	COERCION_EXPLICIT			/* explicit cast operation */
+	COERCION_IMPLICIT,			/* 表达式上下文中的强制 */
+	COERCION_ASSIGNMENT,		/* 赋值上下文中的强制 */
+	COERCION_PLPGSQL,			/* 若无赋值强制则用 CoerceViaIO */
+	COERCION_EXPLICIT			/* 显式强制操作 */
 } CoercionContext;
 
 /*
@@ -658,10 +658,10 @@ typedef enum CoercionContext
  */
 typedef enum CoercionForm
 {
-	COERCE_EXPLICIT_CALL,		/* display as a function call */
-	COERCE_EXPLICIT_CAST,		/* display as an explicit cast */
-	COERCE_IMPLICIT_CAST,		/* implicit cast, so hide it */
-	COERCE_SQL_SYNTAX			/* display with SQL-mandated special syntax */
+	COERCE_EXPLICIT_CALL,		/* 显示为函数调用 */
+	COERCE_EXPLICIT_CAST,		/* 显示为显式强制 */
+	COERCE_IMPLICIT_CAST,		/* 隐式强制,故隐藏 */
+	COERCE_SQL_SYNTAX			/* 用 SQL 规定的特殊语法显示 */
 } CoercionForm;
 
 /*
@@ -673,27 +673,27 @@ typedef enum CoercionForm
 typedef struct FuncExpr
 {
 	Expr		xpr;
-	/* PG_PROC OID of the function */
+	/* 函数的 PG_PROC OID */
 	Oid			funcid;
-	/* PG_TYPE OID of result value */
+	/* 结果值的 PG_TYPE OID */
 	Oid			funcresulttype pg_node_attr(query_jumble_ignore);
-	/* true if function returns set */
+	/* 函数是否返回集合 */
 	bool		funcretset pg_node_attr(query_jumble_ignore);
 
 	/*
-	 * true if variadic arguments have been combined into an array last
-	 * argument
+	 * 变长参数已合并为数组末参数则为真
+	 * 见上.
 	 */
 	bool		funcvariadic pg_node_attr(query_jumble_ignore);
-	/* how to display this function call */
+	/* 如何显示此函数调用 */
 	CoercionForm funcformat pg_node_attr(query_jumble_ignore);
-	/* OID of collation of result */
+	/* 结果排序规则的 OID */
 	Oid			funccollid pg_node_attr(query_jumble_ignore);
-	/* OID of collation that function should use */
+	/* 函数应使用的排序规则 OID */
 	Oid			inputcollid pg_node_attr(query_jumble_ignore);
-	/* arguments to the function */
+	/* 函数的参数 */
 	List	   *args;
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } FuncExpr;
 
@@ -714,13 +714,13 @@ typedef struct FuncExpr
 typedef struct NamedArgExpr
 {
 	Expr		xpr;
-	/* the argument expression */
+	/* 参数表达式 */
 	Expr	   *arg;
-	/* the name */
+	/* 名称 */
 	char	   *name pg_node_attr(query_jumble_ignore);
-	/* argument's number in positional notation */
+	/* 位置记法中的参数编号 */
 	int			argnumber;
-	/* argument name location, or -1 if unknown */
+	/* 参数名位置,未知则为 -1 */
 	int			location;
 } NamedArgExpr;
 
@@ -741,28 +741,28 @@ typedef struct OpExpr
 {
 	Expr		xpr;
 
-	/* PG_OPERATOR OID of the operator */
+	/* 运算符的 PG_OPERATOR OID */
 	Oid			opno;
 
-	/* PG_PROC OID of underlying function */
+	/* 底层函数的 PG_PROC OID */
 	Oid			opfuncid pg_node_attr(equal_ignore_if_zero, query_jumble_ignore);
 
-	/* PG_TYPE OID of result value */
+	/* 结果值的 PG_TYPE OID */
 	Oid			opresulttype pg_node_attr(query_jumble_ignore);
 
-	/* true if operator returns set */
+	/* 运算符是否返回集合 */
 	bool		opretset pg_node_attr(query_jumble_ignore);
 
-	/* OID of collation of result */
+	/* 结果排序规则的 OID */
 	Oid			opcollid pg_node_attr(query_jumble_ignore);
 
-	/* OID of collation that operator should use */
+	/* 运算符应使用的排序规则 OID */
 	Oid			inputcollid pg_node_attr(query_jumble_ignore);
 
-	/* arguments to the operator (1 or 2) */
+	/* 运算符的参数(1 或 2 个) */
 	List	   *args;
 
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } OpExpr;
 
@@ -779,10 +779,10 @@ typedef struct OpExpr
 typedef OpExpr DistinctExpr;
 
 /*
- * NullIfExpr - a NULLIF expression
+ * NullIfExpr - NULLIF 表达式
  *
- * Like DistinctExpr, this is represented the same as an OpExpr referencing
- * the "=" operator for x and y.
+ * 与 DistinctExpr 类似,表示法与引用 x、y 的 "=" 运算符的
+ * OpExpr 相同。
  */
 typedef OpExpr NullIfExpr;
 
@@ -821,37 +821,37 @@ typedef struct ScalarArrayOpExpr
 {
 	Expr		xpr;
 
-	/* PG_OPERATOR OID of the operator */
+	/* 运算符的 PG_OPERATOR OID */
 	Oid			opno;
 
-	/* PG_PROC OID of comparison function */
+	/* 比较函数的 PG_PROC OID */
 	Oid			opfuncid pg_node_attr(equal_ignore_if_zero, query_jumble_ignore);
 
-	/* PG_PROC OID of hash func or InvalidOid */
+	/* 哈希函数 PG_PROC OID 或InvalidOid */
 	Oid			hashfuncid pg_node_attr(equal_ignore_if_zero, query_jumble_ignore);
 
-	/* PG_PROC OID of negator of opfuncid function or InvalidOid.  See above */
+	/* opfuncid 函数否定者的 PG_PROC OID 或 InvalidOid。见上 */
 	Oid			negfuncid pg_node_attr(equal_ignore_if_zero, query_jumble_ignore);
 
-	/* true for ANY, false for ALL */
+	/* ANY 为真,ALL 为假 */
 	bool		useOr;
 
-	/* OID of collation that operator should use */
+	/* 运算符应使用的排序规则 OID */
 	Oid			inputcollid pg_node_attr(query_jumble_ignore);
 
-	/* the scalar and array operands */
+	/* 标量与数组操作数 */
 	List	   *args;
 
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } ScalarArrayOpExpr;
 
 /*
- * BoolExpr - expression node for the basic Boolean operators AND, OR, NOT
+ * BoolExpr - 基本布尔运算符 AND、OR、NOT 的表达式节点
  *
- * Notice the arguments are given as a List.  For NOT, of course the list
- * must always have exactly one element.  For AND and OR, there can be two
- * or more arguments.
+ * 注意参数以 List 给出.对 NOT 列表当然恰有一个元素。
+ * 对 AND 与 OR 可有两个或更多参数。
+ * 见上。
  */
 typedef enum BoolExprType
 {
@@ -864,8 +864,8 @@ typedef struct BoolExpr
 
 	Expr		xpr;
 	BoolExprType boolop;
-	List	   *args;			/* arguments to this expression */
-	int			location;		/* token location, or -1 if unknown */
+	List	   *args;			/* 本表达式的参数 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } BoolExpr;
 
 /*
@@ -928,21 +928,21 @@ typedef enum SubLinkType
 	EXPR_SUBLINK,
 	MULTIEXPR_SUBLINK,
 	ARRAY_SUBLINK,
-	CTE_SUBLINK					/* for SubPlans only */
+	CTE_SUBLINK					/* 仅供 SubPlans */
 } SubLinkType;
 
 
 typedef struct SubLink
 {
 	Expr		xpr;
-	SubLinkType subLinkType;	/* see above */
+	SubLinkType subLinkType;	/* 见上 */
 	int			subLinkId;		/* ID (1..n); 0 if not MULTIEXPR */
-	Node	   *testexpr;		/* outer-query test for ALL/ANY/ROWCOMPARE */
-	/* originally specified operator name */
+	Node	   *testexpr;		/* ALL/ANY/ROWCOMPARE 的外查询测试 */
+	/* 原先指定的运算符名 */
 	List	   *operName pg_node_attr(query_jumble_ignore);
 	/* subselect as Query* or raw parsetree */
 	Node	   *subselect;
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } SubLink;
 
 /*
@@ -988,37 +988,37 @@ typedef struct SubPlan
 	pg_node_attr(no_query_jumble)
 
 	Expr		xpr;
-	/* Fields copied from original SubLink: */
-	SubLinkType subLinkType;	/* see above */
-	/* The combining operators, transformed to an executable expression: */
-	Node	   *testexpr;		/* OpExpr or RowCompareExpr expression tree */
-	List	   *paramIds;		/* IDs of Params embedded in the above */
-	/* Identification of the Plan tree to use: */
-	int			plan_id;		/* Index (from 1) in PlannedStmt.subplans */
-	/* Identification of the SubPlan for EXPLAIN and debugging purposes: */
-	char	   *plan_name;		/* A name assigned during planning */
-	/* Extra data useful for determining subplan's output type: */
-	Oid			firstColType;	/* Type of first column of subplan result */
-	int32		firstColTypmod; /* Typmod of first column of subplan result */
+	/* 自原 SubLink 拷贝的字段: */
+	SubLinkType subLinkType;	/* 见上 */
+	/* 组合运算符,已变为可执行表达式: */
+	Node	   *testexpr;		/* OpExpr 或 RowCompareExpr 表达式树 */
+	List	   *paramIds;		/* 嵌入上述的 Params 的 ID */
+	/* 要用的 Plan 树的标识: */
+	int			plan_id;		/* PlannedStmt.subplans 中下标(从 1) */
+	/* 供 EXPLAIN 与调试的 SubPlan 标识: */
+	char	   *plan_name;		/* 规划期赋的名称 */
+	/* 确定子计划输出类型的额外数据: */
+	Oid			firstColType;	/* 子计划结果第一列的类型 */
+	int32		firstColTypmod; /* 子计划结果第一列的 typmod */
 	Oid			firstColCollation;	/* Collation of first column of subplan
 									 * result */
-	/* Information about execution strategy: */
-	bool		useHashTable;	/* true to store subselect output in a hash
-								 * table (implies we are doing "IN") */
-	bool		unknownEqFalse; /* true if it's okay to return FALSE when the
-								 * spec result is UNKNOWN; this allows much
-								 * simpler handling of null values */
-	bool		parallel_safe;	/* is the subplan parallel-safe? */
-	/* Note: parallel_safe does not consider contents of testexpr or args */
-	/* Information for passing params into and out of the subselect: */
-	/* setParam and parParam are lists of integers (param IDs) */
+	/* 关于执行策略的信息: */
+	bool		useHashTable;	/* 真则把子选择输出存入哈希
+								 * 表(意指在做 "IN") */
+	bool		unknownEqFalse; /* 规范结果为 UNKNOWN 时返回 FALSE
+								 * 也可;这使空值处理简单得多
+								 * 见上。 */
+	bool		parallel_safe;	/* 子计划是否并行安全? */
+	/* 注:parallel_safe 不考虑 testexpr 或 args 的内容 */
+	/* 向子选择传入传出参数的信息: */
+	/* setParam 与 parParam 是整数列表(参数 ID) */
 	List	   *setParam;		/* initplan and MULTIEXPR subqueries have to
 								 * set these Params for parent plan */
-	List	   *parParam;		/* indices of input Params from parent plan */
+	List	   *parParam;		/* 来自父计划的输入 Params 下标 */
 	List	   *args;			/* exprs to pass as parParam values */
-	/* Estimated execution costs: */
+	/* 估计的执行代价: */
 	Cost		startup_cost;	/* one-time setup cost */
-	Cost		per_call_cost;	/* cost for each subplan evaluation */
+	Cost		per_call_cost;	/* 每次子计划求值的代价 */
 } SubPlan;
 
 /*
@@ -1037,7 +1037,7 @@ typedef struct AlternativeSubPlan
 	pg_node_attr(no_query_jumble)
 
 	Expr		xpr;
-	List	   *subplans;		/* SubPlan(s) with equivalent results */
+	List	   *subplans;		/* 结果等价的 SubPlan */
 } AlternativeSubPlan;
 
 /* ----------------

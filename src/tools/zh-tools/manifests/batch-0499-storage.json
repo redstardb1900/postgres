@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0499",
+  "title": "include/storage proc.h PROC_HDR 余部 — batch 0499",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "467a94a29ee071d09d0c61c00e2a40b4b6a128ac",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/proc.h",
+      "kind": "c_comment",
+      "note": "0499"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0499-storage.json",
+      "kind": "manifest",
+      "note": "0499"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/proc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 254,
+      "translated": 70,
+      "preserved": 184,
+      "preserved_reasons": [
+        "0498 已译首半；#endif"
+      ],
+      "note": "ProcGlobal；密排数组；镜像；缓存行；辅助进程；数据库集簇"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0499-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0499"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二十一刀：proc.h PROC_HDR 余部；proc.h 整文件完成"
+}

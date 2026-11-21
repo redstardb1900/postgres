@@ -303,106 +303,106 @@ struct PGPROC
 	dlist_node	lockGroupLink;	/* 我的成员链节（成员） */
 };
 
-/* NOTE: "typedef struct PGPROC PGPROC" appears in storage/lock.h. */
+/* 注意："typedef struct PGPROC PGPROC" 见 storage/lock.h。 */
 
 
 extern PGDLLIMPORT PGPROC *MyProc;
 
 /*
- * There is one ProcGlobal struct for the whole database cluster.
+ * 整个数据库集簇只有一个 ProcGlobal 结构。
  *
- * Adding/Removing an entry into the procarray requires holding *both*
- * ProcArrayLock and XidGenLock in exclusive mode (in that order). Both are
- * needed because the dense arrays (see below) are accessed from
- * GetNewTransactionId() and GetSnapshotData(), and we don't want to add
- * further contention by both using the same lock. Adding/Removing a procarray
- * entry is much less frequent.
+ * 向 procarray 添加/删除条目须*同时*以独占模式持有
+ *  ProcArrayLock 与 XidGenLock（按此顺序）。二者都要，
+ * 因为密排数组（见下）会被 GetNewTransactionId()
+ *  与 GetSnapshotData() 访问，我们不想让二者争用同一
+ * 把锁而加重争用。添加/删除条目要少见得
+ * 多。
  *
- * Some fields in PGPROC are mirrored into more densely packed arrays (e.g.
- * xids), with one entry for each backend. These arrays only contain entries
- * for PGPROCs that have been added to the shared array with ProcArrayAdd()
- * (in contrast to PGPROC array which has unused PGPROCs interspersed).
+ * PGPROC 中某些字段被镜像到更密排的数组（如
+ * xids），每个后端一项。这些数组只含已用
+ * ProcArrayAdd() 加入共享数组的 PGPROCs
+ * （对比 PGPROC 数组，其中未用 PGPROCs 穿插其间）。
  *
- * The dense arrays are indexed by PGPROC->pgxactoff. Any concurrent
- * ProcArrayAdd() / ProcArrayRemove() can lead to pgxactoff of a procarray
- * member to change.  Therefore it is only safe to use PGPROC->pgxactoff to
- * access the dense array while holding either ProcArrayLock or XidGenLock.
+ * 密排数组以 PGPROC->pgxactoff 为下标。任何并发的
+ *  ProcArrayAdd() / ProcArrayRemove() 都可能导致某
+ * procarray 成员的 pgxactoff 变化。因此仅在持有
+ *  ProcArrayLock 或 XidGenLock 时用 PGPROC->pgxactoff 
  *
- * As long as a PGPROC is in the procarray, the mirrored values need to be
- * maintained in both places in a coherent manner.
+ * 访问密排数组才安全。只要 PGPROC 仍在 procarray 中，
+ * 镜像值须在两处一致维护。
  *
- * The denser separate arrays are beneficial for three main reasons: First, to
- * allow for as tight loops accessing the data as possible. Second, to prevent
- * updates of frequently changing data (e.g. xmin) from invalidating
- * cachelines also containing less frequently changing data (e.g. xid,
- * statusFlags). Third to condense frequently accessed data into as few
- * cachelines as possible.
+ * 单独的更密数组有三大好处：第一，访问数据的循环可
+ * 尽量紧凑。第二，防止频繁变化的数据（如 xmin）更新
+ * 时使同缓存行上较少变化的数据（如 xid、
+ * statusFlags）失效。第三，把常访问数据压缩到
+ * 尽可能少的
+ * 缓存行中。
  *
- * There are two main reasons to have the data mirrored between these dense
- * arrays and PGPROC. First, as explained above, a PGPROC's array entries can
- * only be accessed with either ProcArrayLock or XidGenLock held, whereas the
- * PGPROC entries do not require that (obviously there may still be locking
- * requirements around the individual field, separate from the concerns
- * here). That is particularly important for a backend to efficiently checks
- * it own values, which it often can safely do without locking.  Second, the
- * PGPROC fields allow to avoid unnecessary accesses and modification to the
- * dense arrays. A backend's own PGPROC is more likely to be in a local cache,
- * whereas the cachelines for the dense array will be modified by other
- * backends (often removing it from the cache for other cores/sockets). At
- * commit/abort time a check of the PGPROC value can avoid accessing/dirtying
- * the corresponding array value.
+ * 在密排数组与 PGPROC 间做镜像有两主因。第一，
+ * 如上所述，PGPROC 的数组条目仅在持有 ProcArrayLock 或
+ * XidGenLock 时可访问，而 PGPROC 字段无此需要（当然个
+ * 别字段仍可能需要加锁）。这对后端高效
+ * 检查自身值很重要，往往可无锁进行。第二，
+ * PGPROC 字段可避免对密排数组不必要的访问与修改。
+ * 后端自己的 PGPROC 更可能在本地缓存中，而密排数组
+ * 的缓存行会被其他后端修改（常从其他核/插槽的
+ * 缓存中剔除）。提交/中止时检查 PGPROC 值可避免
+ * 访问或弄脏
+ * 对应的数组
+ * 值。
+ * 如上所述。
  *
- * Basically it makes sense to access the PGPROC variable when checking a
- * single backend's data, especially when already looking at the PGPROC for
- * other reasons already.  It makes sense to look at the "dense" arrays if we
- * need to look at many / most entries, because we then benefit from the
- * reduced indirection and better cross-process cache-ability.
+ * 检查单个后端数据时宜读 PGPROC，尤其已因
+ * 其他原因在看该 PGPROC 时。若需查看许多/大多数条目，
+ * 则宜看 "dense" 数组，因可减少间接寻址并改善
+ * 跨进程缓存性。
+ * 缓存友好。
  *
- * When entering a PGPROC for 2PC transactions with ProcArrayAdd(), the data
- * in the dense arrays is initialized from the PGPROC while it already holds
- * ProcArrayLock.
+ * 用 ProcArrayAdd() 为 2PC 事务放入 PGPROC 时，密排
+ * 数组数据在已持有 ProcArrayLock 时从该 PGPROC 
+ * 初始化。
  */
 typedef struct PROC_HDR
 {
-	/* Array of PGPROC structures (not including dummies for prepared txns) */
+	/* PGPROC 结构数组（不含预备事务虚设项） */
 	PGPROC	   *allProcs;
 
-	/* Array mirroring PGPROC.xid for each PGPROC currently in the procarray */
+	/* 镜像当前在 procarray 中各 PGPROC.xid 的数组 */
 	TransactionId *xids;
 
 	/*
-	 * Array mirroring PGPROC.subxidStatus for each PGPROC currently in the
-	 * procarray.
+	 * 镜像当前在 procarray 中各 PGPROC.subxidStatus 的
+	 * 数组。
 	 */
 	XidCacheStatus *subxidStates;
 
 	/*
-	 * Array mirroring PGPROC.statusFlags for each PGPROC currently in the
-	 * procarray.
+	 * 镜像当前在 procarray 中各 PGPROC.statusFlags 的
+	 * 数组。
 	 */
 	uint8	   *statusFlags;
 
-	/* Length of allProcs array */
+	/* allProcs 数组长度 */
 	uint32		allProcCount;
-	/* Head of list of free PGPROC structures */
+	/* 空闲 PGPROC 结构链表头 */
 	dlist_head	freeProcs;
-	/* Head of list of autovacuum's free PGPROC structures */
+	/* 自动清理空闲 PGPROC 结构链表头 */
 	dlist_head	autovacFreeProcs;
-	/* Head of list of bgworker free PGPROC structures */
+	/* bgworker 空闲 PGPROC 结构链表头 */
 	dlist_head	bgworkerFreeProcs;
-	/* Head of list of walsender free PGPROC structures */
+	/* walsender 空闲 PGPROC 结构链表头 */
 	dlist_head	walsenderFreeProcs;
-	/* First pgproc waiting for group XID clear */
+	/* 等待组 XID 清除的首个 pgproc */
 	pg_atomic_uint32 procArrayGroupFirst;
-	/* First pgproc waiting for group transaction status update */
+	/* 等待组事务状态更新的首个 pgproc */
 	pg_atomic_uint32 clogGroupFirst;
-	/* WALWriter process's latch */
+	/* WALWriter 的锁存器 */
 	Latch	   *walwriterLatch;
-	/* Checkpointer process's latch */
+	/* Checkpointer 的锁存器 */
 	Latch	   *checkpointerLatch;
-	/* Current shared estimate of appropriate spins_per_delay value */
+	/* 合适的 spins_per_delay 值的当前共享估计 */
 	int			spins_per_delay;
-	/* Buffer id of the buffer that Startup process waits for pin on, or -1 */
+	/* Startup 进程等待 pin 的缓冲 id，或 -1 */
 	int			startupBufferPinWaitBufId;
 } PROC_HDR;
 
@@ -410,20 +410,20 @@ extern PGDLLIMPORT PROC_HDR *ProcGlobal;
 
 extern PGDLLIMPORT PGPROC *PreparedXactProcs;
 
-/* Accessor for PGPROC given a pgprocno. */
+/* 由 pgprocno 取 PGPROC。 */
 #define GetPGProcByNumber(n) (&ProcGlobal->allProcs[(n)])
 
 /*
- * We set aside some extra PGPROC structures for auxiliary processes,
- * ie things that aren't full-fledged backends but need shmem access.
+ * 我们为辅助进程预留若干额外 PGPROC 结构，
+ * 即非完整后端但需访问共享内存者。
  *
- * Background writer, checkpointer, WAL writer and archiver run during normal
- * operation.  Startup process and WAL receiver also consume 2 slots, but WAL
- * writer is launched only after startup has exited, so we only need 5 slots.
+ * 后台写进程、检查点进程、WAL 写进程与归档进程在正常
+ * 运行时使用。Startup 与 WAL 接收进程也占 2 槽，但 WAL 
+ * 写进程仅在 startup 退出后启动，故只需 5 个槽。
  */
 #define NUM_AUXILIARY_PROCS		5
 
-/* configurable options */
+/* 可配置选项 */
 extern PGDLLIMPORT int DeadlockTimeout;
 extern PGDLLIMPORT int StatementTimeout;
 extern PGDLLIMPORT int LockTimeout;
@@ -433,7 +433,7 @@ extern PGDLLIMPORT bool log_lock_waits;
 
 
 /*
- * Function Prototypes
+ * 函数原型
  */
 extern int	ProcGlobalSemas(void);
 extern Size ProcGlobalShmemSize(void);

@@ -1,7 +1,7 @@
 /* ----------
  *	pgstat.h
  *
- *	Definitions for the PostgreSQL cumulative statistics system.
+ *	PostgreSQL 累计统计系统的定义。
  *
  *	Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -13,38 +13,38 @@
 
 #include "datatype/timestamp.h"
 #include "portability/instr_time.h"
-#include "postmaster/pgarch.h"	/* for MAX_XFN_CHARS */
-#include "utils/backend_progress.h" /* for backward compatibility */
-#include "utils/backend_status.h"	/* for backward compatibility */
+#include "postmaster/pgarch.h"	/* 供 MAX_XFN_CHARS */
+#include "utils/backend_progress.h" /* 为向后兼容 */
+#include "utils/backend_status.h"	/* 为向后兼容 */
 #include "utils/relcache.h"
-#include "utils/wait_event.h"	/* for backward compatibility */
+#include "utils/wait_event.h"	/* 为向后兼容 */
 
 
 /* ----------
- * Paths for the statistics files (relative to installation's $PGDATA).
+ * 统计文件路径（相对安装的 $PGDATA）。
  * ----------
  */
 #define PGSTAT_STAT_PERMANENT_DIRECTORY		"pg_stat"
 #define PGSTAT_STAT_PERMANENT_FILENAME		"pg_stat/pgstat.stat"
 #define PGSTAT_STAT_PERMANENT_TMPFILE		"pg_stat/pgstat.tmp"
 
-/* Default directory to store temporary statistics data in */
+/* 存放临时统计数据的默认目录 */
 #define PG_STAT_TMP_DIR		"pg_stat_tmp"
 
-/* The types of statistics entries */
+/* 统计条目的类型 */
 typedef enum PgStat_Kind
 {
-	/* use 0 for INVALID, to catch zero-initialized data */
+	/* 用 0 表 INVALID，以捕零初始化数据 */
 	PGSTAT_KIND_INVALID = 0,
 
-	/* stats for variable-numbered objects */
-	PGSTAT_KIND_DATABASE,		/* database-wide statistics */
-	PGSTAT_KIND_RELATION,		/* per-table statistics */
-	PGSTAT_KIND_FUNCTION,		/* per-function statistics */
-	PGSTAT_KIND_REPLSLOT,		/* per-slot statistics */
-	PGSTAT_KIND_SUBSCRIPTION,	/* per-subscription statistics */
+	/* 可变编号对象的统计 */
+	PGSTAT_KIND_DATABASE,		/* 数据库级统计 */
+	PGSTAT_KIND_RELATION,		/* 每表统计 */
+	PGSTAT_KIND_FUNCTION,		/* 每函数统计 */
+	PGSTAT_KIND_REPLSLOT,		/* 每槽统计 */
+	PGSTAT_KIND_SUBSCRIPTION,	/* 每订阅统计 */
 
-	/* stats for fixed-numbered objects */
+	/* 固定编号对象的统计 */
 	PGSTAT_KIND_ARCHIVER,
 	PGSTAT_KIND_BGWRITER,
 	PGSTAT_KIND_CHECKPOINTER,
@@ -57,7 +57,7 @@ typedef enum PgStat_Kind
 #define PGSTAT_KIND_LAST PGSTAT_KIND_WAL
 #define PGSTAT_NUM_KINDS (PGSTAT_KIND_LAST + 1)
 
-/* Values for track_functions GUC variable --- order is significant! */
+/* track_functions GUC 的取值——顺序有意义！ */
 typedef enum TrackFunctionsLevel
 {
 	TRACK_FUNC_OFF,
@@ -72,10 +72,10 @@ typedef enum PgStat_FetchConsistency
 	PGSTAT_FETCH_CONSISTENCY_SNAPSHOT,
 } PgStat_FetchConsistency;
 
-/* Values to track the cause of session termination */
+/* 跟踪会话终止原因的取值 */
 typedef enum SessionEndType
 {
-	DISCONNECT_NOT_YET,			/* still active */
+	DISCONNECT_NOT_YET,			/* 仍活动 */
 	DISCONNECT_NORMAL,
 	DISCONNECT_CLIENT_EOF,
 	DISCONNECT_FATAL,
@@ -83,25 +83,25 @@ typedef enum SessionEndType
 } SessionEndType;
 
 /* ----------
- * The data type used for counters.
+ * 计数器所用数据类型。
  * ----------
  */
 typedef int64 PgStat_Counter;
 
 
 /* ------------------------------------------------------------
- * Structures kept in backend local memory while accumulating counts
+ * 后端本地内存中累计计数时保留的结构
  * ------------------------------------------------------------
  */
 
 /* ----------
- * PgStat_FunctionCounts	The actual per-function counts kept by a backend
+ * PgStat_FunctionCounts	后端保留的每函数实际计数
  *
- * This struct should contain only actual event counters, because we memcmp
- * it against zeroes to detect whether there are any pending stats.
+ * 本结构应只含实际事件计数器，因我们用 memcmp
+ * 与零比较以检测是否有待刷统计。
  *
- * Note that the time counters are in instr_time format here.  We convert to
- * microseconds in PgStat_Counter format when flushing out pending statistics.
+ * 注意：时间计数器此处为 instr_time。刷出待刷统计时
+ * 再转为 PgStat_Counter 微秒格式。
  * ----------
  */
 typedef struct PgStat_FunctionCounts
@@ -112,23 +112,23 @@ typedef struct PgStat_FunctionCounts
 } PgStat_FunctionCounts;
 
 /*
- * Working state needed to accumulate per-function-call timing statistics.
+ * 累计每次函数调用计时统计所需的工作状态。
  */
 typedef struct PgStat_FunctionCallUsage
 {
-	/* Link to function's hashtable entry (must still be there at exit!) */
-	/* NULL means we are not tracking the current function call */
+	/* 链到函数哈希表项（退出时仍须在！） */
+	/* NULL 表示未跟踪当前函数调用 */
 	PgStat_FunctionCounts *fs;
-	/* Total time previously charged to function, as of function start */
+	/* 函数开始时已计入该函数的总时间 */
 	instr_time	save_f_total_time;
-	/* Backend-wide total time as of function start */
+	/* 函数开始时的后端范围总时间 */
 	instr_time	save_total;
-	/* system clock as of function start */
+	/* 函数开始时的系统时钟 */
 	instr_time	start;
 } PgStat_FunctionCallUsage;
 
 /* ----------
- * PgStat_BackendSubEntry	Non-flushed subscription stats.
+ * PgStat_BackendSubEntry	未刷出的订阅统计。
  * ----------
  */
 typedef struct PgStat_BackendSubEntry
@@ -138,23 +138,23 @@ typedef struct PgStat_BackendSubEntry
 } PgStat_BackendSubEntry;
 
 /* ----------
- * PgStat_TableCounts			The actual per-table counts kept by a backend
+ * PgStat_TableCounts			后端保留的每表实际计数
  *
- * This struct should contain only actual event counters, because we memcmp
- * it against zeroes to detect whether there are any stats updates to apply.
- * It is a component of PgStat_TableStatus (within-backend state).
+ * 本结构应只含实际事件计数器，因我们用 memcmp
+ * 与零比较以检测是否有统计更新要应用。
+ * 它是 PgStat_TableStatus（后端内状态）的组件。
  *
- * Note: for a table, tuples_returned is the number of tuples successfully
- * fetched by heap_getnext, while tuples_fetched is the number of tuples
- * successfully fetched by heap_fetch under the control of bitmap indexscans.
- * For an index, tuples_returned is the number of index entries returned by
- * the index AM, while tuples_fetched is the number of tuples successfully
- * fetched by heap_fetch under the control of simple indexscans for this index.
+ * 注意：对表，tuples_returned 是 heap_getnext 成功
+ * 取回的元组数，而 tuples_fetched 是位图索引扫描下
+ * heap_fetch 成功取回的元组数。
+ * 对索引，tuples_returned 是索引 AM 返回的索引项数，
+ * 而 tuples_fetched 是在本索引的简单索引扫描控制下
+ * heap_fetch 成功取回的元组数。
  *
- * tuples_inserted/updated/deleted/hot_updated/newpage_updated count attempted
- * actions, regardless of whether the transaction committed.  delta_live_tuples,
- * delta_dead_tuples, and changed_tuples are set depending on commit or abort.
- * Note that delta_live_tuples and delta_dead_tuples can be negative!
+ * tuples_inserted/updated/deleted/hot_updated/newpage_updated 计尝试的
+ * 动作，不论事务是否提交。delta_live_tuples、
+ * delta_dead_tuples 与 changed_tuples 则依提交或中止设定。
+ * 注意 delta_live_tuples 与 delta_dead_tuples 可为负！
  * ----------
  */
 typedef struct PgStat_TableCounts
@@ -180,58 +180,58 @@ typedef struct PgStat_TableCounts
 } PgStat_TableCounts;
 
 /* ----------
- * PgStat_TableStatus			Per-table status within a backend
+ * PgStat_TableStatus			后端内的每表状态
  *
- * Many of the event counters are nontransactional, ie, we count events
- * in committed and aborted transactions alike.  For these, we just count
- * directly in the PgStat_TableStatus.  However, delta_live_tuples,
- * delta_dead_tuples, and changed_tuples must be derived from event counts
- * with awareness of whether the transaction or subtransaction committed or
- * aborted.  Hence, we also keep a stack of per-(sub)transaction status
- * records for every table modified in the current transaction.  At commit
- * or abort, we propagate tuples_inserted/updated/deleted up to the
- * parent subtransaction level, or out to the parent PgStat_TableStatus,
- * as appropriate.
+ * 许多事件计数器是非事务性的，即提交与中止事务
+ * 中的事件一并计数。对这些，我们直接在
+ * PgStat_TableStatus 中计数。但 delta_live_tuples、
+ * delta_dead_tuples 与 changed_tuples 须由事件计数推导，
+ * 并知晓事务或子事务是提交还是
+ * 中止。故对当前事务中改过的每张表，还保留
+ * 每（子）事务状态记录栈。在提交
+ * 或中止时，把 tuples_inserted/updated/deleted 上推到
+ * 父级子事务层，或写出到父 PgStat_TableStatus，
+ * 视情形。
  * ----------
  */
 typedef struct PgStat_TableStatus
 {
-	Oid			id;				/* table's OID */
-	bool		shared;			/* is it a shared catalog? */
-	struct PgStat_TableXactStatus *trans;	/* lowest subxact's counts */
-	PgStat_TableCounts counts;	/* event counts to be sent */
-	Relation	relation;		/* rel that is using this entry */
+	Oid			id;				/* 表的 OID */
+	bool		shared;			/* 是否共享目录？ */
+	struct PgStat_TableXactStatus *trans;	/* 最低子事务计数 */
+	PgStat_TableCounts counts;	/* 待发送事件计数 */
+	Relation	relation;		/* 使用本条目的 rel */
 } PgStat_TableStatus;
 
 /* ----------
- * PgStat_TableXactStatus		Per-table, per-subtransaction status
+ * PgStat_TableXactStatus		每表、每子事务状态
  * ----------
  */
 typedef struct PgStat_TableXactStatus
 {
-	PgStat_Counter tuples_inserted; /* tuples inserted in (sub)xact */
-	PgStat_Counter tuples_updated;	/* tuples updated in (sub)xact */
-	PgStat_Counter tuples_deleted;	/* tuples deleted in (sub)xact */
-	bool		truncdropped;	/* relation truncated/dropped in this
-								 * (sub)xact */
-	/* tuples i/u/d prior to truncate/drop */
+	PgStat_Counter tuples_inserted; /* 子事务中插入的元组 */
+	PgStat_Counter tuples_updated;	/* 子事务中更新的元组 */
+	PgStat_Counter tuples_deleted;	/* 子事务中删除的元组 */
+	bool		truncdropped;	/* 关系于此截断/删除
+								 * 子事务 */
+	/* 截断/删除前的元组 i/u/d */
 	PgStat_Counter inserted_pre_truncdrop;
 	PgStat_Counter updated_pre_truncdrop;
 	PgStat_Counter deleted_pre_truncdrop;
-	int			nest_level;		/* subtransaction nest level */
-	/* links to other structs for same relation: */
-	struct PgStat_TableXactStatus *upper;	/* next higher subxact if any */
-	PgStat_TableStatus *parent; /* per-table status */
-	/* structs of same subxact level are linked here: */
-	struct PgStat_TableXactStatus *next;	/* next of same subxact */
+	int			nest_level;		/* 子事务嵌套层级 */
+	/* 链到同关系的其他结构： */
+	struct PgStat_TableXactStatus *upper;	/* 上一层子事务 */
+	PgStat_TableStatus *parent; /* 每表状态 */
+	/* 同子事务层的结构链在此： */
+	struct PgStat_TableXactStatus *next;	/* 同层下一个 */
 } PgStat_TableXactStatus;
 
 
 /* ------------------------------------------------------------
- * Data structures on disk and in shared memory follow
+ * 磁盘与共享内存上的数据结构如下
  *
- * PGSTAT_FILE_FORMAT_ID should be changed whenever any of these
- * data structures change.
+ * PGSTAT_FILE_FORMAT_ID 在下列变更时须改
+ * 数据结构变化。
  * ------------------------------------------------------------
  */
 
@@ -239,14 +239,14 @@ typedef struct PgStat_TableXactStatus
 
 typedef struct PgStat_ArchiverStats
 {
-	PgStat_Counter archived_count;	/* archival successes */
-	char		last_archived_wal[MAX_XFN_CHARS + 1];	/* last WAL file
-														 * archived */
-	TimestampTz last_archived_timestamp;	/* last archival success time */
-	PgStat_Counter failed_count;	/* failed archival attempts */
-	char		last_failed_wal[MAX_XFN_CHARS + 1]; /* WAL file involved in
-													 * last failure */
-	TimestampTz last_failed_timestamp;	/* last archival failure time */
+	PgStat_Counter archived_count;	/* 归档成功次数 */
+	char		last_archived_wal[MAX_XFN_CHARS + 1];	/* 末次 WAL
+														 * 归档 */
+	TimestampTz last_archived_timestamp;	/* 最近归档成功时间 */
+	PgStat_Counter failed_count;	/* 归档失败尝试次数 */
+	char		last_failed_wal[MAX_XFN_CHARS + 1]; /* 涉及的 WAL 文件
+													 * 最近失败 */
+	TimestampTz last_failed_timestamp;	/* 最近归档失败时间 */
 	TimestampTz stat_reset_timestamp;
 } PgStat_ArchiverStats;
 
@@ -262,7 +262,7 @@ typedef struct PgStat_CheckpointerStats
 {
 	PgStat_Counter timed_checkpoints;
 	PgStat_Counter requested_checkpoints;
-	PgStat_Counter checkpoint_write_time;	/* times in milliseconds */
+	PgStat_Counter checkpoint_write_time;	/* 时间以毫秒计 */
 	PgStat_Counter checkpoint_sync_time;
 	PgStat_Counter buf_written_checkpoints;
 	PgStat_Counter buf_written_backend;
@@ -271,7 +271,7 @@ typedef struct PgStat_CheckpointerStats
 
 
 /*
- * Types related to counting IO operations
+ * 与统计 IO 操作相关的类型
  */
 typedef enum IOObject
 {
@@ -341,7 +341,7 @@ typedef struct PgStat_StatDBEntry
 	PgStat_Counter deadlocks;
 	PgStat_Counter checksum_failures;
 	TimestampTz last_checksum_failure;
-	PgStat_Counter blk_read_time;	/* times in microseconds */
+	PgStat_Counter blk_read_time;	/* 时间以微秒计 */
 	PgStat_Counter blk_write_time;
 	PgStat_Counter sessions;
 	PgStat_Counter session_time;
@@ -358,7 +358,7 @@ typedef struct PgStat_StatFuncEntry
 {
 	PgStat_Counter numcalls;
 
-	PgStat_Counter total_time;	/* times in microseconds */
+	PgStat_Counter total_time;	/* 时间以微秒计 */
 	PgStat_Counter self_time;
 } PgStat_StatFuncEntry;
 
@@ -416,13 +416,13 @@ typedef struct PgStat_StatTabEntry
 	PgStat_Counter blocks_fetched;
 	PgStat_Counter blocks_hit;
 
-	TimestampTz last_vacuum_time;	/* user initiated vacuum */
+	TimestampTz last_vacuum_time;	/* 用户发起 vacuum */
 	PgStat_Counter vacuum_count;
-	TimestampTz last_autovacuum_time;	/* autovacuum initiated */
+	TimestampTz last_autovacuum_time;	/* autovacuum 发起 */
 	PgStat_Counter autovacuum_count;
-	TimestampTz last_analyze_time;	/* user initiated */
+	TimestampTz last_analyze_time;	/* 用户发起 */
 	PgStat_Counter analyze_count;
-	TimestampTz last_autoanalyze_time;	/* autovacuum initiated */
+	TimestampTz last_autoanalyze_time;	/* autovacuum 发起 */
 	PgStat_Counter autoanalyze_count;
 } PgStat_StatTabEntry;
 
@@ -440,10 +440,10 @@ typedef struct PgStat_WalStats
 } PgStat_WalStats;
 
 /*
- * This struct stores wal-related durations as instr_time, which makes it
- * cheaper and easier to accumulate them, by not requiring type
- * conversions. During stats flush instr_time will be converted into
- * microseconds.
+ * 本结构以 instr_time 存 wal 相关时长，便于
+ * 累加且更便宜，无需类型
+ * 转换。刷统计时再把 instr_time 转为
+ * 微秒。
  */
 typedef struct PgStat_PendingWalStats
 {
@@ -456,22 +456,22 @@ typedef struct PgStat_PendingWalStats
 
 
 /*
- * Functions in pgstat.c
+ * pgstat.c 中的函数
  */
 
-/* functions called from postmaster */
+/* 由 postmaster 调用的函数 */
 extern Size StatsShmemSize(void);
 extern void StatsShmemInit(void);
 
-/* Functions called during server startup / shutdown */
+/* 服务器启动/关闭时调用的函数 */
 extern void pgstat_restore_stats(void);
 extern void pgstat_discard_stats(void);
 extern void pgstat_before_server_shutdown(int code, Datum arg);
 
-/* Functions for backend initialization */
+/* 后端初始化用函数 */
 extern void pgstat_initialize(void);
 
-/* Functions called from backends */
+/* 由后端调用的函数 */
 extern long pgstat_report_stat(bool force);
 extern void pgstat_force_next_flush(void);
 
@@ -479,17 +479,17 @@ extern void pgstat_reset_counters(void);
 extern void pgstat_reset(PgStat_Kind kind, Oid dboid, Oid objoid);
 extern void pgstat_reset_of_kind(PgStat_Kind kind);
 
-/* stats accessors */
+/* 统计访问器 */
 extern void pgstat_clear_snapshot(void);
 extern TimestampTz pgstat_get_stat_snapshot_timestamp(bool *have_snapshot);
 
-/* helpers */
+/* 辅助 */
 extern PgStat_Kind pgstat_get_kind_from_str(char *kind_str);
 extern bool pgstat_have_entry(PgStat_Kind kind, Oid dboid, Oid objoid);
 
 
 /*
- * Functions in pgstat_archiver.c
+ * pgstat_archiver.c 中的函数
  */
 
 extern void pgstat_report_archiver(const char *xlog, bool failed);
@@ -497,7 +497,7 @@ extern PgStat_ArchiverStats *pgstat_fetch_stat_archiver(void);
 
 
 /*
- * Functions in pgstat_bgwriter.c
+ * pgstat_bgwriter.c 中的函数
  */
 
 extern void pgstat_report_bgwriter(void);
@@ -505,7 +505,7 @@ extern PgStat_BgWriterStats *pgstat_fetch_stat_bgwriter(void);
 
 
 /*
- * Functions in pgstat_checkpointer.c
+ * pgstat_checkpointer.c 中的函数
  */
 
 extern void pgstat_report_checkpointer(void);
@@ -513,7 +513,7 @@ extern PgStat_CheckpointerStats *pgstat_fetch_stat_checkpointer(void);
 
 
 /*
- * Functions in pgstat_io.c
+ * pgstat_io.c 中的函数
  */
 
 extern bool pgstat_bktype_io_stats_valid(PgStat_BktypeIO *backend_io,
@@ -536,7 +536,7 @@ extern bool pgstat_tracks_io_op(BackendType bktype, IOObject io_object,
 
 
 /*
- * Functions in pgstat_database.c
+ * pgstat_database.c 中的函数
  */
 
 extern void pgstat_drop_database(Oid databaseid);
@@ -560,7 +560,7 @@ extern PgStat_StatDBEntry *pgstat_fetch_stat_dbentry(Oid dboid);
 
 
 /*
- * Functions in pgstat_function.c
+ * pgstat_function.c 中的函数
  */
 
 extern void pgstat_create_function(Oid proid);
@@ -577,7 +577,7 @@ extern PgStat_FunctionCounts *find_funcstat_entry(Oid func_id);
 
 
 /*
- * Functions in pgstat_relation.c
+ * pgstat_relation.c 中的函数
  */
 
 extern void pgstat_create_relation(Relation rel);
@@ -595,15 +595,15 @@ extern void pgstat_report_analyze(Relation rel,
 								  bool resetcounter);
 
 /*
- * If stats are enabled, but pending data hasn't been prepared yet, call
- * pgstat_assoc_relation() to do so. See its comment for why this is done
- * separately from pgstat_init_relation().
+ * 若已开统计但待刷数据尚未准备，则调用
+ * pgstat_assoc_relation() 来准备。见其注释说明为何与
+ * pgstat_init_relation() 分开。
  */
 #define pgstat_should_count_relation(rel)                           \
 	(likely((rel)->pgstat_info != NULL) ? true :                    \
 	 ((rel)->pgstat_enabled ? pgstat_assoc_relation(rel), true : false))
 
-/* nontransactional event counts are simple enough to inline */
+/* 非事务事件计数足够简单，可内联 */
 
 #define pgstat_count_heap_scan(rel)									\
 	do {															\
@@ -659,7 +659,7 @@ extern PgStat_TableStatus *find_tabstat_entry(Oid rel_id);
 
 
 /*
- * Functions in pgstat_replslot.c
+ * pgstat_replslot.c 中的函数
  */
 
 extern void pgstat_reset_replslot(const char *name);
@@ -672,7 +672,7 @@ extern PgStat_StatReplSlotEntry *pgstat_fetch_replslot(NameData slotname);
 
 
 /*
- * Functions in pgstat_slru.c
+ * pgstat_slru.c 中的函数
  */
 
 extern void pgstat_reset_slru(const char *);
@@ -689,7 +689,7 @@ extern PgStat_SLRUStats *pgstat_fetch_slru(void);
 
 
 /*
- * Functions in pgstat_subscription.c
+ * pgstat_subscription.c 中的函数
  */
 
 extern void pgstat_report_subscription_error(Oid subid, bool is_apply_error);
@@ -699,7 +699,7 @@ extern PgStat_StatSubEntry *pgstat_fetch_stat_subscription(Oid subid);
 
 
 /*
- * Functions in pgstat_xact.c
+ * pgstat_xact.c 中的函数
  */
 
 extern void AtEOXact_PgStat(bool isCommit, bool parallel);
@@ -712,7 +712,7 @@ extern void pgstat_execute_transactional_drops(int ndrops, struct xl_xact_stats_
 
 
 /*
- * Functions in pgstat_wal.c
+ * pgstat_wal.c 中的函数
  */
 
 extern void pgstat_report_wal(bool force);
@@ -720,39 +720,39 @@ extern PgStat_WalStats *pgstat_fetch_stat_wal(void);
 
 
 /*
- * Variables in pgstat.c
+ * pgstat.c 中的变量
  */
 
-/* GUC parameters */
+/* GUC 参数 */
 extern PGDLLIMPORT bool pgstat_track_counts;
 extern PGDLLIMPORT int pgstat_track_functions;
 extern PGDLLIMPORT int pgstat_fetch_consistency;
 
 
 /*
- * Variables in pgstat_bgwriter.c
+ * pgstat_bgwriter.c 中的变量
  */
 
-/* updated directly by bgwriter and bufmgr */
+/* 由 bgwriter 与 bufmgr 直接更新 */
 extern PGDLLIMPORT PgStat_BgWriterStats PendingBgWriterStats;
 
 
 /*
- * Variables in pgstat_checkpointer.c
+ * pgstat_checkpointer.c 中的变量
  */
 
 /*
- * Checkpointer statistics counters are updated directly by checkpointer and
- * bufmgr.
+ * 检查点统计由检查点进程与 bufmgr 更新
+ *
  */
 extern PGDLLIMPORT PgStat_CheckpointerStats PendingCheckpointerStats;
 
 
 /*
- * Variables in pgstat_database.c
+ * pgstat_database.c 中的变量
  */
 
-/* Updated by pgstat_count_buffer_*_time macros */
+/* 由 pgstat_count_buffer_*_time 宏更新 */
 extern PGDLLIMPORT PgStat_Counter pgStatBlockReadTime;
 extern PGDLLIMPORT PgStat_Counter pgStatBlockWriteTime;
 
@@ -763,15 +763,15 @@ extern PGDLLIMPORT PgStat_Counter pgStatBlockWriteTime;
 extern PGDLLIMPORT PgStat_Counter pgStatActiveTime;
 extern PGDLLIMPORT PgStat_Counter pgStatTransactionIdleTime;
 
-/* updated by the traffic cop and in errfinish() */
+/* 由流量控制器与 errfinish() 更新 */
 extern PGDLLIMPORT SessionEndType pgStatSessionEndCause;
 
 
 /*
- * Variables in pgstat_wal.c
+ * pgstat_wal.c 中的变量
  */
 
-/* updated directly by backends and background processes */
+/* 由后端与后台进程直接更新 */
 extern PGDLLIMPORT PgStat_PendingWalStats PendingWalStats;
 
 

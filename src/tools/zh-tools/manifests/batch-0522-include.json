@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0522",
+  "title": "include/pgstat.h — batch 0522",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a1a09b4a5cb6f2217365d072a85a8ff44f4f3193",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/pgstat.h",
+      "kind": "c_comment",
+      "note": "0522"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0522-include.json",
+      "kind": "manifest",
+      "note": "0522"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/pgstat.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 96,
+      "translated": 96,
+      "preserved": 0,
+      "preserved_reasons": [
+        "横幅/路径/紧预算 EN KEEP 25 行"
+      ],
+      "note": "0522 T=134 K=25"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0522-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0522"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0522"
+    }
+  ]
+}

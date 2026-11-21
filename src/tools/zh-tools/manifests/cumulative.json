@@ -8991,6 +8991,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0510-include.json",
    "kind": "manifest",
    "note": "0510"
+  },
+  {
+   "pattern": "src/include/pg_getopt.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/pg_trace.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/pgtar.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/pgtime.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/postgres_ext.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/postgres_fe.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/snowball/header.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/include/windowapi.h",
+   "kind": "c_comment",
+   "note": "0511"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0511-include.json",
+   "kind": "manifest",
+   "note": "0511"
   }
  ],
  "files": [
@@ -29215,6 +29260,110 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0510"
+  },
+  {
+   "path": "src/include/pg_getopt.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 6,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/pg_trace.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 1,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/pgtar.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/pgtime.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/postgres_ext.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/postgres_fe.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/snowball/header.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 5,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/include/windowapi.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 3,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径；预算残行略"
+   ],
+   "note": "0511"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0511-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0511"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

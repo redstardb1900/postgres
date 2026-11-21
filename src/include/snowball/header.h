@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * header.h
- *		Replacement header file for Snowball stemmer modules
+ *		Snowball 词干模块的替换头文件
  *
- * The Snowball stemmer modules do #include "header.h", and think they
- * are including snowball/libstemmer/header.h.  We adjust the CPPFLAGS
- * so that this file is found instead, and thereby we can modify the
- * headers they see.  The main point here is to ensure that pg_config.h
- * is included before any system headers such as <stdio.h>; without that,
- * we have portability issues on some platforms due to variation in
- * largefile options across different modules in the backend.
+ * Snowball 词干模块会 #include "header.h"，并以为
+ * 包含的是 snowball/libstemmer/header.h。我们调整 CPPFLAGS
+ * 使找到本文件，从而可修改它们所见的头。
+ * 要点是确保 pg_config.h 在任何系统头（如 <stdio.h>）
+ * 之前被包含；否则因后端各模块 largefile 选项
+ * 不一致，某些平台会有可移植性问题。
+ * 略
  *
- * NOTE: this file should not be included into any non-snowball sources!
+ * 注意：非 snowball 源文件不应包含本文件！
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -23,13 +23,13 @@
 #define SNOWBALL_HEADR_H
 
 /*
- * It's against Postgres coding conventions to include postgres.h in a
- * header file, but we allow the violation here because the alternative is
- * to modify the machine-generated .c files provided by the Snowball project.
+ * 按 Postgres 编码约定，头文件中不应包含
+ * postgres.h，但此处允许违规，因替代方案是
+ * 修改 Snowball 项目提供的机器生成 .c 文件。
  */
 #include "postgres.h"
 
-/* Some platforms define MAXINT and/or MININT, causing conflicts */
+/*  有些平台定义 MAXINT/MININT，造成冲突  */
 #ifdef MAXINT
 #undef MAXINT
 #endif
@@ -37,12 +37,12 @@
 #undef MININT
 #endif
 
-/* Now we can include the original Snowball header.h */
+/* 现在可包含原版 Snowball 头文件。 */
 #include "snowball/libstemmer/header.h" /* pgrminclude ignore */
 
 /*
- * Redefine standard memory allocation interface to pgsql's one.
- * This allows us to control where the Snowball code allocates stuff.
+ * 将标准内存分配接口重定义为 pgsql 的。
+ * 这样可控制 Snowball 代码在何处分配。
  */
 #ifdef malloc
 #undef malloc

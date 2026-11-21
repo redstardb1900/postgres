@@ -1,7 +1,7 @@
 /* ----------
  *	pg_trace.h
  *
- *	Definitions for the PostgreSQL tracing framework
+ *	PostgreSQL 跟踪框架的定义
  *
  *	Copyright (c) 2006-2023, PostgreSQL Global Development Group
  *

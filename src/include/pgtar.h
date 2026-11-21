@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pgtar.h
- *	  Functions for manipulating tarfile datastructures (src/port/tar.c)
+ *	  操作 tar 文件数据结构的函数（src/port/tar.c）
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -32,9 +32,9 @@ extern void print_tar_number(char *s, int len, uint64 val);
 extern int	tarChecksum(char *header);
 
 /*
- * Compute the number of padding bytes required for an entry in a tar
- * archive. We must pad out to a multiple of TAR_BLOCK_SIZE. Since that's
- * a power of 2, we can use TYPEALIGN().
+ * 计算 tar 归档中一项所需的填充字节数。须填到
+ * TAR_BLOCK_SIZE 的倍数。因其为 2 的幂，可用
+ * TYPEALIGN()。
  */
 static inline size_t
 tarPaddingBytesRequired(size_t len)

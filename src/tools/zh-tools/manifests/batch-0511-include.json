@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0511",
+  "title": "include 根小头+snowball — batch 0511",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "0d2e582f8d029e3eeb0182b6480872b058478faf",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/pg_getopt.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/pg_trace.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/pgtar.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/pgtime.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/postgres_ext.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/postgres_fe.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/snowball/header.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/include/windowapi.h",
+      "kind": "c_comment",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0511-include.json",
+      "kind": "manifest",
+      "note": "0511"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/pg_getopt.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 6,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/pg_trace.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 1,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/pgtar.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 2,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/pgtime.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 10,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/postgres_ext.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 6,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/postgres_fe.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/snowball/header.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 5,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/include/windowapi.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 3,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0511"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0511-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0511"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "根小头八件（仅有译文触达）；banner-only 残留未入册"
+}

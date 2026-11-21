@@ -1,12 +1,12 @@
 /*
- * Postgres files that use getopt(3) always include this file.
- * We must cope with three different scenarios:
- * 1. We're using the platform's getopt(), and we should just import the
- *    appropriate declarations.
- * 2. The platform lacks getopt(), and we must declare everything.
- * 3. The platform has getopt(), but we're not using it because we don't
- *    like its behavior.  The declarations we make here must be compatible
- *    with both the platform's getopt() and our src/port/getopt.c.
+ * 使用 getopt(3) 的 Postgres 文件总包含本文件。
+ * 须应对三种情形：
+ * 1. 用平台 getopt()，只需导入
+ *    适当声明。
+ * 2. 平台无 getopt()，须自行全部声明。
+ * 3. 平台有 getopt()，但因不喜欢其行为而不用。
+ *    此处声明须同时兼容平台 getopt() 与
+ *    我们的 src/port/getopt.c。
  *
  * Portions Copyright (c) 1987, 1993, 1994
  * The Regents of the University of California.  All rights reserved.
@@ -18,18 +18,18 @@
 #ifndef PG_GETOPT_H
 #define PG_GETOPT_H
 
-/* POSIX says getopt() is provided by unistd.h */
+/*  POSIX 说 getopt() 由 unistd.h 提供  */
 #include <unistd.h>
 
-/* rely on the system's getopt.h if present */
+/*  若有则依赖系统的 getopt.h  */
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #endif
 
 /*
- * If we have <getopt.h>, assume it declares these variables, else do that
- * ourselves.  (We used to just declare them unconditionally, but Cygwin
- * doesn't like that.)
+ * 若有 <getopt.h>，假定它声明这些变量，否则自行
+ * 声明。（曾无条件声明，但 Cygwin
+ * 不喜欢。）
  */
 #ifndef HAVE_GETOPT_H
 
@@ -41,14 +41,14 @@ extern PGDLLIMPORT int optopt;
 #endif							/* HAVE_GETOPT_H */
 
 /*
- * Some platforms have optreset but fail to declare it in <getopt.h>, so cope.
- * Cygwin, however, doesn't like this either.
+ * 有些平台有 optreset 却未在 <getopt.h> 声明，须应付。
+ * 但 Cygwin 也不喜欢这样。
  */
 #if defined(HAVE_INT_OPTRESET) && !defined(__CYGWIN__)
 extern PGDLLIMPORT int optreset;
 #endif
 
-/* Provide getopt() declaration if the platform doesn't have it */
+/*  平台无 getopt() 时提供其声明  */
 #ifndef HAVE_GETOPT
 extern int	getopt(int nargc, char *const *nargv, const char *ostr);
 #endif

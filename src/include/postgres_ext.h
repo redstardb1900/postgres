@@ -2,18 +2,18 @@
  *
  * postgres_ext.h
  *
- *	   This file contains declarations of things that are visible everywhere
- *	in PostgreSQL *and* are visible to clients of frontend interface libraries.
- *	For example, the Oid type is part of the API of libpq and other libraries.
+ *	   本文件声明处处可见、且对 PostgreSQL 前端接口库客户
+ *	亦可见的事物。例如 Oid 类型是 libpq 及其他库
+ *	API 的一部分。
  *
- *	   Declarations which are specific to a particular interface should
- *	go in the header file for that interface (such as libpq-fe.h).  This
- *	file is only for fundamental Postgres declarations.
+ *	   特定接口专用的声明应放在该接口的头文件
+ *	中（如 libpq-fe.h）。本文件仅放基本的
+ *	Postgres 声明。
  *
- *	   User-written C functions don't count as "external to Postgres."
- *	Those function much as local modifications to the backend itself, and
- *	use header files that are otherwise internal to Postgres to interface
- *	with the backend.
+ *	   用户写的 C 函数不算"Postgres 外部"。
+ *	它们更像对后端本身的本地修改，并用本属
+ *	Postgres 内部的头文件与后端接口。
+ *	略
  *
  * src/include/postgres_ext.h
  *
@@ -26,7 +26,7 @@
 #include "pg_config_ext.h"
 
 /*
- * Object ID is a fundamental type in Postgres.
+ * 对象 ID 是 Postgres 的基本类型。
  */
 typedef unsigned int Oid;
 
@@ -37,19 +37,19 @@ typedef unsigned int Oid;
 #endif
 
 #define OID_MAX  UINT_MAX
-/* you will need to include <limits.h> to use the above #define */
+/*  使用上述 #define 须包含 <limits.h>  */
 
 #define atooid(x) ((Oid) strtoul((x), NULL, 10))
-/* the above needs <stdlib.h> */
+/*  上述需要 <stdlib.h>  */
 
 
-/* Define a signed 64-bit integer type for use in client API declarations. */
+/*  定义有符号 64 位整数类型供客户端 API 声明使用。  */
 typedef PG_INT64_TYPE pg_int64;
 
 /*
- * Identifiers of error message fields.  Kept here to keep common
- * between frontend and backend, and also to export them to libpq
- * applications.
+ * 略
+ * 共用，并向 libpq 应用导出。
+ * 略
  */
 #define PG_DIAG_SEVERITY		'S'
 #define PG_DIAG_SEVERITY_NONLOCALIZED 'V'

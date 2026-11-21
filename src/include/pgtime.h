@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pgtime.h
- *	  PostgreSQL internal timezone library
+ *	  PostgreSQL 内部时区库
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -15,21 +15,21 @@
 
 
 /*
- * The API of this library is generally similar to the corresponding
- * C library functions, except that we use pg_time_t which (we hope) is
- * 64 bits wide, and which is most definitely signed not unsigned.
+ * 本库 API 大体类似对应的 C 库函数，但我们用
+ * pg_time_t（希望是 64 位），且明确为有符号
+ * 而非无符号。
  */
 
 typedef int64 pg_time_t;
 
 /*
- * Data structure representing a broken-down timestamp.
+ * 表示分解时间戳的数据结构。
  *
- * CAUTION: the IANA timezone library (src/timezone/) follows the POSIX
- * convention that tm_mon counts from 0 and tm_year is relative to 1900.
- * However, Postgres' datetime functions generally treat tm_mon as counting
- * from 1 and tm_year as relative to 1 BC.  Be sure to make the appropriate
- * adjustments when moving from one code domain to the other.
+ * CAUTION：IANA 时区库（src/timezone/）遵循 POSIX
+ * 约定：tm_mon 从 0 计，tm_year 相对 1900。
+ * 而 Postgres 日期时间函数通常把 tm_mon 从 1
+ * 计、tm_year 相对公元前 1 年。跨代码域移动时
+ * 务必做相应调整。
  */
 struct pg_tm
 {
@@ -37,8 +37,8 @@ struct pg_tm
 	int			tm_min;
 	int			tm_hour;
 	int			tm_mday;
-	int			tm_mon;			/* see above */
-	int			tm_year;		/* see above */
+	int			tm_mon;			/* 略 */
+	int			tm_year;		/* 略 */
 	int			tm_wday;
 	int			tm_yday;
 	int			tm_isdst;
@@ -46,14 +46,14 @@ struct pg_tm
 	const char *tm_zone;
 };
 
-/* These structs are opaque outside the timezone library */
+/*  这些结构在时区库外不透明  */
 typedef struct pg_tz pg_tz;
 typedef struct pg_tzenum pg_tzenum;
 
-/* Maximum length of a timezone name (not including trailing null) */
+/*  时区名最大长度（不含结尾空字符）  */
 #define TZ_STRLEN_MAX 255
 
-/* these functions are in localtime.c */
+/*  这些函数在 localtime.c  */
 
 extern struct pg_tm *pg_localtime(const pg_time_t *timep, const pg_tz *tz);
 extern struct pg_tm *pg_gmtime(const pg_time_t *timep);
@@ -73,12 +73,12 @@ extern bool pg_get_timezone_offset(const pg_tz *tz, long int *gmtoff);
 extern const char *pg_get_timezone_name(pg_tz *tz);
 extern bool pg_tz_acceptable(pg_tz *tz);
 
-/* these functions are in strftime.c */
+/*  这些函数在 strftime.c  */
 
 extern size_t pg_strftime(char *s, size_t maxsize, const char *format,
 						  const struct pg_tm *t);
 
-/* these functions and variables are in pgtz.c */
+/*  这些函数与变量在 pgtz.c  */
 
 extern PGDLLIMPORT pg_tz *session_timezone;
 extern PGDLLIMPORT pg_tz *log_timezone;

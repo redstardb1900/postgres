@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * checksum_impl.h
- *	  Checksum implementation for data pages.
+ *	  数据页的校验和实现。
  *
- * This file exists for the benefit of external programs that may wish to
- * check Postgres page checksums.  They can #include this to get the code
- * referenced by storage/checksum.h.  (Note: you may need to redefine
- * Assert() as empty to compile this successfully externally.)
+ * 本文件供可能想检查 Postgres 页校验和的外部
+ * 程序使用。它们可 #include 本文件以取得 
+ * storage/checksum.h 所引用的代码。（注意：外部
+ * 编译时或须把 Assert() 重定义为空。）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,97 +17,97 @@
  */
 
 /*
- * The algorithm used to checksum pages is chosen for very fast calculation.
- * Workloads where the database working set fits into OS file cache but not
- * into shared buffers can read in pages at a very fast pace and the checksum
- * algorithm itself can become the largest bottleneck.
+ * 页校验和所用算法选来追求极快计算。
+ * 当数据库工作集能装进操作系统文件缓存却装不进
+ * 共享缓冲区时，可读页极快，校验和算法本身
+ * 可能成为最大瓶颈。
  *
- * The checksum algorithm itself is based on the FNV-1a hash (FNV is shorthand
- * for Fowler/Noll/Vo).  The primitive of a plain FNV-1a hash folds in data 1
- * byte at a time according to the formula:
+ * 校验和算法本身基于 FNV-1a 散列（FNV 是 
+ * Fowler/Noll/Vo 的缩写）。普通 FNV-1a 原语
+ * 按下列公式每次折入 1 字节：
  *
  *	   hash = (hash ^ value) * FNV_PRIME
  *
- * FNV-1a algorithm is described at http://www.isthe.com/chongo/tech/comp/fnv/
+ * FNV-1a 算法说明见 http://www.isthe.com/chongo/tech/comp/fnv/
  *
- * PostgreSQL doesn't use FNV-1a hash directly because it has bad mixing of
- * high bits - high order bits in input data only affect high order bits in
- * output data. To resolve this we xor in the value prior to multiplication
- * shifted right by 17 bits. The number 17 was chosen because it doesn't
- * have common denominator with set bit positions in FNV_PRIME and empirically
- * provides the fastest mixing for high order bits of final iterations quickly
- * avalanche into lower positions. For performance reasons we choose to combine
- * 4 bytes at a time. The actual hash formula used as the basis is:
+ * PostgreSQL 不直接用 FNV-1a 散列，因其高位混合差——
+ * 输入高位只影响输出高位。为解决此点，我们在乘法前
+ * 把值右移 17 位后再异或进去。选 17 是因为它与 
+ * FNV_PRIME 中置位位置无公因数，且经验上能为最终
+ * 迭代的高位提供最快混合，使其迅速雪崩到较低
+ * 位。出于性能，我们选择每次合并 
+ * 4 字节。实际作为基础的
+ * 散列公式是：
  *
  *	   hash = (hash ^ value) * FNV_PRIME ^ ((hash ^ value) >> 17)
  *
- * The main bottleneck in this calculation is the multiplication latency. To
- * hide the latency and to make use of SIMD parallelism multiple hash values
- * are calculated in parallel. The page is treated as a 32 column two
- * dimensional array of 32 bit values. Each column is aggregated separately
- * into a partial checksum. Each partial checksum uses a different initial
- * value (offset basis in FNV terminology). The initial values actually used
- * were chosen randomly, as the values themselves don't matter as much as that
- * they are different and don't match anything in real data. After initializing
- * partial checksums each value in the column is aggregated according to the
- * above formula. Finally two more iterations of the formula are performed with
- * value 0 to mix the bits of the last value added.
+ * 此计算的主要瓶颈是乘法延迟。为隐藏延迟并
+ * 利用 SIMD 并行，会并行计算多个散列值。页被
+ * 当作由 32 位值组成的 32 列二维数组。各列分别
+ * 聚合成部分校验和。每个部分校验和使用不同
+ * 初值（FNV 术语中的 offset basis）。实际所用
+ * 初值是随机选取的，因数值本身不如它们彼此
+ * 不同且不匹配真实数据来得重要。在初始化
+ * 部分校验和后，列中每个值都按上述公式聚合。
+ * 最后再用值 0 多执行两轮该公式，
+ * 以混合最后加入之值的
+ * 各位。
  *
- * The partial checksums are then folded together using xor to form a single
- * 32-bit checksum. The caller can safely reduce the value to 16 bits
- * using modulo 2^16-1. That will cause a very slight bias towards lower
- * values but this is not significant for the performance of the
- * checksum.
+ * 随后用异或把各部分校验和折叠成单个 
+ * 32 位校验和。调用方可安全地用模 2^16-1 
+ * 把值缩到 16 位。这会对较低值产生极轻微偏置，
+ * 但对校验和的性能并无显著
+ * 影响。
  *
- * The algorithm choice was based on what instructions are available in SIMD
- * instruction sets. This meant that a fast and good algorithm needed to use
- * multiplication as the main mixing operator. The simplest multiplication
- * based checksum primitive is the one used by FNV. The prime used is chosen
- * for good dispersion of values. It has no known simple patterns that result
- * in collisions. Test of 5-bit differentials of the primitive over 64bit keys
- * reveals no differentials with 3 or more values out of 100000 random keys
- * colliding. Avalanche test shows that only high order bits of the last word
- * have a bias. Tests of 1-4 uncorrelated bit errors, stray 0 and 0xFF bytes,
- * overwriting page from random position to end with 0 bytes, and overwriting
- * random segments of page with 0x00, 0xFF and random data all show optimal
- * 2e-16 false positive rate within margin of error.
+ * 算法选择基于 SIMD 指令集中有哪些指令可用。
+ * 这意味着又快又好的算法须以乘法为主要混合算子。
+ * 最简单的基于乘法的校验和原语即 FNV 所用者。
+ * 所选素数利于数值良好分散。尚无已知的简单模式会
+ * 导致冲突。对该原语在 64 位键上做 5 位差分测试，
+ * 在 100000 个随机键中未见有 3 个及以上值冲突的
+ * 差分。雪崩测试显示仅最后一词的高位有偏置。
+ * 对 1-4 个不相关位错误、散落的 0 与 0xFF 字节、
+ * 自随机位置起用 0 字节覆盖至页末、以及用 0x00、
+ * 0xFF 与随机数据覆盖页内随机段的测试，均显示
+ * 在误差范围内达到最优的 
+ * 2e-16 假阳性率。
  *
- * Vectorization of the algorithm requires 32bit x 32bit -> 32bit integer
- * multiplication instruction. As of 2013 the corresponding instruction is
- * available on x86 SSE4.1 extensions (pmulld) and ARM NEON (vmul.i32).
- * Vectorization requires a compiler to do the vectorization for us. For recent
- * GCC versions the flags -msse4.1 -funroll-loops -ftree-vectorize are enough
- * to achieve vectorization.
+ * 算法向量化需要 32bit×32bit→32bit 整数乘法指令。
+ * 截至 2013 年，对应指令在 x86 SSE4.1 扩展
+ * （pmulld）与 ARM NEON（vmul.i32）上可用。
+ * 向量化须由编译器完成。对较新的 GCC，标志 
+ * -msse4.1 与 -funroll-loops 与 -ftree-vectorize 即
+ * 足以实现向量化。
  *
- * The optimal amount of parallelism to use depends on CPU specific instruction
- * latency, SIMD instruction width, throughput and the amount of registers
- * available to hold intermediate state. Generally, more parallelism is better
- * up to the point that state doesn't fit in registers and extra load-store
- * instructions are needed to swap values in/out. The number chosen is a fixed
- * part of the algorithm because changing the parallelism changes the checksum
+ * 最优并行度取决于 CPU 特有的指令延迟、SIMD
+ * 指令宽度、吞吐量以及可保存中间状态的寄存器
+ * 数量。一般而言，并行度越高越好，直到状态装不进
+ * 寄存器而需要额外 load-store 指令来换入/换出。
+ * 所选数目是算法的固定部分，因改变并行度会改变
+ * 校验和结果。
  * result.
  *
- * The parallelism number 32 was chosen based on the fact that it is the
- * largest state that fits into architecturally visible x86 SSE registers while
- * leaving some free registers for intermediate values. For future processors
- * with 256bit vector registers this will leave some performance on the table.
- * When vectorization is not available it might be beneficial to restructure
- * the computation to calculate a subset of the columns at a time and perform
- * multiple passes to avoid register spilling. This optimization opportunity
- * is not used. Current coding also assumes that the compiler has the ability
- * to unroll the inner loop to avoid loop overhead and minimize register
- * spilling. For less sophisticated compilers it might be beneficial to
- * manually unroll the inner loop.
+ * 并行度取 32 是因为这是能装入架构可见的 
+ * x86 SSE 寄存器、并仍留出一些空闲寄存器给中间值的
+ * 最大状态。对将来带 256 位向量寄存器的处理器，
+ * 这会留下一些性能余量未用。当无法向量化时，
+ * 或许宜重构计算，每次只算一部分列并做多趟，
+ * 以避免寄存器溢出。此优化机会未使用。当前编码
+ * 还假定编译器能展开内层循环以去掉循环开销，
+ * 并尽量减少寄存器溢出。对较简陋的
+ * 编译器，或许宜
+ * 手动展开内层
+ * 循环。
  */
 
 #include "storage/bufpage.h"
 
-/* number of checksums to calculate in parallel */
+/* 并行计算的校验和个数 */
 #define N_SUMS 32
-/* prime multiplier of FNV-1a hash */
+/* FNV-1a 散列的素数乘数 */
 #define FNV_PRIME 16777619
 
-/* Use a union so that this code is valid under strict aliasing */
+/* 用联合体使本代码在严格别名规则下合法 */
 typedef union
 {
 	PageHeaderData phdr;
@@ -115,8 +115,8 @@ typedef union
 } PGChecksummablePage;
 
 /*
- * Base offsets to initialize each of the parallel FNV hashes into a
- * different initial state.
+ * 用于把各并行 FNV 散列初始化到不同初始
+ * 状态的基偏移。
  */
 static const uint32 checksumBaseOffsets[N_SUMS] = {
 	0x5B1F36E9, 0xB8525960, 0x02AB50AA, 0x1DE66D2A,
@@ -130,7 +130,7 @@ static const uint32 checksumBaseOffsets[N_SUMS] = {
 };
 
 /*
- * Calculate one round of the checksum.
+ * 计算一轮校验和。
  */
 #define CHECKSUM_COMP(checksum, value) \
 do { \
@@ -139,8 +139,8 @@ do { \
 } while (0)
 
 /*
- * Block checksum algorithm.  The page must be adequately aligned
- * (at least on 4-byte boundary).
+ * 块校验和算法。页必须充分对齐
+ * （至少 4 字节边界）。
  */
 static uint32
 pg_checksum_block(const PGChecksummablePage *page)
@@ -150,23 +150,23 @@ pg_checksum_block(const PGChecksummablePage *page)
 	uint32		i,
 				j;
 
-	/* ensure that the size is compatible with the algorithm */
+	/* 确保大小与算法兼容 */
 	Assert(sizeof(PGChecksummablePage) == BLCKSZ);
 
-	/* initialize partial checksums to their corresponding offsets */
+	/* 把各部分校验和初始化为对应偏移 */
 	memcpy(sums, checksumBaseOffsets, sizeof(checksumBaseOffsets));
 
-	/* main checksum calculation */
+	/* 主校验和计算 */
 	for (i = 0; i < (uint32) (BLCKSZ / (sizeof(uint32) * N_SUMS)); i++)
 		for (j = 0; j < N_SUMS; j++)
 			CHECKSUM_COMP(sums[j], page->data[i][j]);
 
-	/* finally add in two rounds of zeroes for additional mixing */
+	/* 最后再加两轮零值以进一步混合 */
 	for (i = 0; i < 2; i++)
 		for (j = 0; j < N_SUMS; j++)
 			CHECKSUM_COMP(sums[j], 0);
 
-	/* xor fold partial checksums together */
+	/* 用异或折叠各部分校验和 */
 	for (i = 0; i < N_SUMS; i++)
 		result ^= sums[i];
 
@@ -174,14 +174,14 @@ pg_checksum_block(const PGChecksummablePage *page)
 }
 
 /*
- * Compute the checksum for a Postgres page.
+ * 计算 Postgres 页的校验和。
  *
- * The page must be adequately aligned (at least on a 4-byte boundary).
- * Beware also that the checksum field of the page is transiently zeroed.
+ * 页必须充分对齐（至少在 4 字节边界上）。
+ * 还须注意页的校验和字段会短暂被置零。
  *
- * The checksum includes the block number (to detect the case where a page is
- * somehow moved to a different location), the page header (excluding the
- * checksum itself), and the page data.
+ * 校验和包含块号（以检测页被挪到别处的
+ * 情形）、页头（不含校验和本身）以及
+ * 页数据。
  */
 uint16
 pg_checksum_page(char *page, BlockNumber blkno)
@@ -190,26 +190,26 @@ pg_checksum_page(char *page, BlockNumber blkno)
 	uint16		save_checksum;
 	uint32		checksum;
 
-	/* We only calculate the checksum for properly-initialized pages */
+	/* 我们只为正确初始化的页计算校验和 */
 	Assert(!PageIsNew((Page) page));
 
 	/*
-	 * Save pd_checksum and temporarily set it to zero, so that the checksum
-	 * calculation isn't affected by the old checksum stored on the page.
-	 * Restore it after, because actually updating the checksum is NOT part of
-	 * the API of this function.
+	 * 保存 pd_checksum 并临时置零，以免校验和计算
+	 * 受页上旧校验和影响。之后再恢复，因为真正
+	 * 更新校验和并非本函数
+	 * API 的一部分。
 	 */
 	save_checksum = cpage->phdr.pd_checksum;
 	cpage->phdr.pd_checksum = 0;
 	checksum = pg_checksum_block(cpage);
 	cpage->phdr.pd_checksum = save_checksum;
 
-	/* Mix in the block number to detect transposed pages */
+	/* 混入块号以检测被转置的页 */
 	checksum ^= blkno;
 
 	/*
-	 * Reduce to a uint16 (to fit in the pd_checksum field) with an offset of
-	 * one. That avoids checksums of zero, which seems like a good idea.
+	 * 用偏移 1 缩成 uint16（以适合 pd_checksum 字段）。
+	 * 这样可避免校验和为零，似乎是个好主意。
 	 */
 	return (uint16) ((checksum % 65535) + 1);
 }

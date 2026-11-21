@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0497",
+  "title": "include/storage checksum_impl — batch 0497",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8ba288704efd0b3da86ab2a1955a2977d9a4fb05",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/checksum_impl.h",
+      "kind": "c_comment",
+      "note": "0497"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0497-storage.json",
+      "kind": "manifest",
+      "note": "0497"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/checksum_impl.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 108,
+      "translated": 99,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径；L29/L42 公式；L88 result. 10B"
+      ],
+      "note": "校验和；FNV-1a；SIMD；严格别名；pd_checksum"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0497-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0497"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十九刀：checksum_impl；校验和/FNV-1a/SIMD/公式 KEEP"
+}

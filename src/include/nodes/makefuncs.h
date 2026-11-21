@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * makefuncs.h
- *	  prototypes for the creator functions of various nodes
+ *	各类节点创建函数的原型
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

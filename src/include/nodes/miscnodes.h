@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * miscnodes.h
- *	  Definitions for hard-to-classify node types.
+ *	难归类节点类型的定义。
  *
- * Node types declared here are not part of parse trees, plan trees,
- * or execution state trees.  We only assign them NodeTag values because
- * IsA() tests provide a convenient way to disambiguate what kind of
- * structure is being passed through assorted APIs, such as function
- * "context" pointers.
+ * 此处声明的节点类型不属于解析树、计划树或
+ * 执行状态树。赋 NodeTag 只因 IsA() 测试便于在各类
+ * API（如函数 "context" 指针）中辨析所传结构
+ * 种类。
+ * 指针。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,31 +24,31 @@
 
 /*
  * ErrorSaveContext -
- *		function call context node for handling of "soft" errors
+ *	处理"软"错误的函数调用上下文节点
  *
- * A caller wishing to trap soft errors must initialize a struct like this
- * with all fields zero/NULL except for the NodeTag.  Optionally, set
- * details_wanted = true if more than the bare knowledge that a soft error
- * occurred is required.  The struct is then passed to a SQL-callable function
- * via the FunctionCallInfo.context field; or below the level of SQL calls,
- * it could be passed to a subroutine directly.
+ * 欲捕获软错误的调用方须初始化此类结构，除 NodeTag
+ * 外字段皆为零/NULL。若需要比"发生了软错误"更多
+ * 信息，可选用 details_wanted = true。随后经
+ * FunctionCallInfo.context 传给 SQL 可调用函数；或在
+ * SQL 调用层之下直接传给子程序。
+ * 直接传入。
  *
- * After calling code that might report an error this way, check
- * error_occurred to see if an error happened.  If so, and if details_wanted
- * is true, error_data has been filled with error details (stored in the
- * callee's memory context!).  FreeErrorData() can be called to release
- * error_data, although that step is typically not necessary if the called
- * code was run in a short-lived context.
+ * 调用可能以此方式报错代码后,检查 error_occurred
+ * 看是否出错。若出错且 details_wanted 为真，则
+ * error_data 已填入错误细节（存于被调方的
+ * 内存上下文！）。可调用 FreeErrorData() 释放
+ * error_data，若被调代码跑在短寿上下文中则通常
+ * 不必。
  */
 typedef struct ErrorSaveContext
 {
 	NodeTag		type;
-	bool		error_occurred; /* set to true if we detect a soft error */
-	bool		details_wanted; /* does caller want more info than that? */
-	ErrorData  *error_data;		/* details of error, if so */
+	bool		error_occurred; /* 若检测到软错误则置真 */
+	bool		details_wanted; /* 调用方是否要更多信息？ */
+	ErrorData  *error_data;		/* 若是,含错误细节 */
 } ErrorSaveContext;
 
-/* Often-useful macro for checking if a soft error was reported */
+/* 常用于检查是否报告了软错误的宏 */
 #define SOFT_ERROR_OCCURRED(escontext) \
 	((escontext) != NULL && IsA(escontext, ErrorSaveContext) && \
 	 ((ErrorSaveContext *) (escontext))->error_occurred)

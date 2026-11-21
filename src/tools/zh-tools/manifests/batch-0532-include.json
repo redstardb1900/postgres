@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0532",
+  "title": "include/nodes 14 小头 — batch 0532",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "bc47dc2f42fb30ee4af9010983b8b36f2020fedb",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/bitmapset.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/extensible.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/lockoptions.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/makefuncs.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/memnodes.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/miscnodes.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/multibitmapset.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/nodeFuncs.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/print.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/queryjumble.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/readfuncs.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/replnodes.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/tidbitmap.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/include/nodes/value.h",
+      "kind": "c_comment",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0532-include.json",
+      "kind": "manifest",
+      "note": "0532"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/bitmapset.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 36,
+      "translated": 31,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=31"
+    },
+    {
+      "path": "src/include/nodes/extensible.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 44,
+      "translated": 37,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=37"
+    },
+    {
+      "path": "src/include/nodes/lockoptions.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 26,
+      "translated": 21,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=21"
+    },
+    {
+      "path": "src/include/nodes/makefuncs.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=1"
+    },
+    {
+      "path": "src/include/nodes/memnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 49,
+      "translated": 40,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=40"
+    },
+    {
+      "path": "src/include/nodes/miscnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 24,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=24"
+    },
+    {
+      "path": "src/include/nodes/multibitmapset.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 12,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=12"
+    },
+    {
+      "path": "src/include/nodes/nodeFuncs.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 40,
+      "translated": 25,
+      "preserved": 15,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=25"
+    },
+    {
+      "path": "src/include/nodes/print.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=1"
+    },
+    {
+      "path": "src/include/nodes/queryjumble.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 24,
+      "translated": 16,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=16"
+    },
+    {
+      "path": "src/include/nodes/readfuncs.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 5,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=5"
+    },
+    {
+      "path": "src/include/nodes/replnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 29,
+      "translated": 8,
+      "preserved": 21,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=8"
+    },
+    {
+      "path": "src/include/nodes/tidbitmap.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 23,
+      "translated": 18,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=18"
+    },
+    {
+      "path": "src/include/nodes/value.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 19,
+      "translated": 6,
+      "preserved": 13,
+      "preserved_reasons": [
+        "横幅/路径/守卫/MIXED块 KEEP"
+      ],
+      "note": "0532 T=6"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0532-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0532"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0532"
+    }
+  ]
+}

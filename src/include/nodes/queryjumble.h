@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * queryjumble.h
- *	  Query normalization and fingerprinting.
+ *	查询规范化与指纹。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,40 +17,40 @@
 #include "nodes/parsenodes.h"
 
 /*
- * Struct for tracking locations/lengths of constants during normalization
+ * 规范化期间跟踪常量位置/长度的结构
  */
 typedef struct LocationLen
 {
-	int			location;		/* start offset in query text */
-	int			length;			/* length in bytes, or -1 to ignore */
+	int			location;		/* 查询文本起始偏移 */
+	int			length;			/* 字节长,-1 则忽略 */
 } LocationLen;
 
 /*
- * Working state for computing a query jumble and producing a normalized
- * query string
+ * 计算查询 jumble 并生成规范化查询串的
+ * 工作状态
  */
 typedef struct JumbleState
 {
-	/* Jumble of current query tree */
+	/* 当前查询树的 Jumble */
 	unsigned char *jumble;
 
-	/* Number of bytes used in jumble[] */
+	/* jumble[] 中已用字节数 */
 	Size		jumble_len;
 
-	/* Array of locations of constants that should be removed */
+	/* 应移除的常量位置数组 */
 	LocationLen *clocations;
 
-	/* Allocated length of clocations array */
+	/* clocations 数组的已分配长度 */
 	int			clocations_buf_size;
 
-	/* Current number of valid entries in clocations array */
+	/* clocations 数组中当前有效项数 */
 	int			clocations_count;
 
-	/* highest Param id we've seen, in order to start normalization correctly */
+	/* 所见最高 Param id，以便正确开始规范化 */
 	int			highest_extern_param_id;
 } JumbleState;
 
-/* Values for the compute_query_id GUC */
+/* compute_query_id GUC 的取值 */
 enum ComputeQueryIdType
 {
 	COMPUTE_QUERY_ID_OFF,
@@ -59,7 +59,7 @@ enum ComputeQueryIdType
 	COMPUTE_QUERY_ID_REGRESS
 };
 
-/* GUC parameters */
+/* GUC 参数 */
 extern PGDLLIMPORT int compute_query_id;
 
 
@@ -70,8 +70,8 @@ extern void EnableQueryId(void);
 extern PGDLLIMPORT bool query_id_enabled;
 
 /*
- * Returns whether query identifier computation has been enabled, either
- * directly in the GUC or by a module when the setting is 'auto'.
+ * 返回是否已启用查询标识计算：直接在 GUC 中，
+ * 或在设置为 auto 时由模块启用。
  */
 static inline bool
 IsQueryIdEnabled(void)

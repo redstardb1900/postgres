@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeFuncs.h
- *		Various general-purpose manipulations of Node trees
+ *	Node 树的各类通用操作
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,31 +15,31 @@
 
 #include "nodes/parsenodes.h"
 
-struct PlanState;				/* avoid including execnodes.h too */
+struct PlanState;				/* 避免也包含 execnodes.h */
 
 
-/* flags bits for query_tree_walker and query_tree_mutator */
-#define QTW_IGNORE_RT_SUBQUERIES	0x01	/* subqueries in rtable */
-#define QTW_IGNORE_CTE_SUBQUERIES	0x02	/* subqueries in cteList */
-#define QTW_IGNORE_RC_SUBQUERIES	0x03	/* both of above */
-#define QTW_IGNORE_JOINALIASES		0x04	/* JOIN alias var lists */
-#define QTW_IGNORE_RANGE_TABLE		0x08	/* skip rangetable entirely */
-#define QTW_EXAMINE_RTES_BEFORE		0x10	/* examine RTE nodes before their
-											 * contents */
-#define QTW_EXAMINE_RTES_AFTER		0x20	/* examine RTE nodes after their
-											 * contents */
-#define QTW_DONT_COPY_QUERY			0x40	/* do not copy top Query */
-#define QTW_EXAMINE_SORTGROUP		0x80	/* include SortGroupClause lists */
+/* query_tree_walker 与 query_tree_mutator 的标志位 */
+#define QTW_IGNORE_RT_SUBQUERIES	0x01	/* rtable 中子查询 */
+#define QTW_IGNORE_CTE_SUBQUERIES	0x02	/* cteList 中子查询 */
+#define QTW_IGNORE_RC_SUBQUERIES	0x03	/* 以上两者 */
+#define QTW_IGNORE_JOINALIASES		0x04	/* JOIN 别名 var 表 */
+#define QTW_IGNORE_RANGE_TABLE		0x08	/* 完全跳过范围表 */
+#define QTW_EXAMINE_RTES_BEFORE		0x10	/* 先于内容检查 RTE
+											 * 节点 */
+#define QTW_EXAMINE_RTES_AFTER		0x20	/* 后于内容检查 RTE
+											 * 节点 */
+#define QTW_DONT_COPY_QUERY			0x40	/* 不复制顶层 Query */
+#define QTW_EXAMINE_SORTGROUP		0x80	/* 包含 SortGroupClause 列表 */
 
-/* callback function for check_functions_in_node */
+/* check_functions_in_node 的回调 */
 typedef bool (*check_function_callback) (Oid func_id, void *context);
 
-/* callback functions for tree walkers */
+/* 树 walker 的回调函数 */
 typedef bool (*tree_walker_callback) (Node *node, void *context);
 typedef bool (*planstate_tree_walker_callback) (struct PlanState *planstate,
 												void *context);
 
-/* callback functions for tree mutators */
+/* 树 mutator 的回调函数 */
 typedef Node *(*tree_mutator_callback) (Node *node, void *context);
 
 
@@ -64,21 +64,21 @@ extern void fix_opfuncids(Node *node);
 extern void set_opfuncid(OpExpr *opexpr);
 extern void set_sa_opfuncid(ScalarArrayOpExpr *opexpr);
 
-/* Is clause a FuncExpr clause? */
+/* 子句是否为 FuncExpr？ */
 static inline bool
 is_funcclause(const void *clause)
 {
 	return clause != NULL && IsA(clause, FuncExpr);
 }
 
-/* Is clause an OpExpr clause? */
+/* 子句是否为 OpExpr？ */
 static inline bool
 is_opclause(const void *clause)
 {
 	return clause != NULL && IsA(clause, OpExpr);
 }
 
-/* Extract left arg of a binary opclause, or only arg of a unary opclause */
+/* 取二元 opclause 左参,或一元 opclause 的唯一参 */
 static inline Node *
 get_leftop(const void *clause)
 {
@@ -90,7 +90,7 @@ get_leftop(const void *clause)
 		return NULL;
 }
 
-/* Extract right arg of a binary opclause (NULL if it's a unary opclause) */
+/* 取二元 opclause 右参(一元则为 NULL) */
 static inline Node *
 get_rightop(const void *clause)
 {
@@ -102,7 +102,7 @@ get_rightop(const void *clause)
 		return NULL;
 }
 
-/* Is clause an AND clause? */
+/* 子句是否为 AND？ */
 static inline bool
 is_andclause(const void *clause)
 {
@@ -111,7 +111,7 @@ is_andclause(const void *clause)
 			((const BoolExpr *) clause)->boolop == AND_EXPR);
 }
 
-/* Is clause an OR clause? */
+/* 子句是否为 OR？ */
 static inline bool
 is_orclause(const void *clause)
 {
@@ -120,7 +120,7 @@ is_orclause(const void *clause)
 			((const BoolExpr *) clause)->boolop == OR_EXPR);
 }
 
-/* Is clause a NOT clause? */
+/* 子句是否为 NOT？ */
 static inline bool
 is_notclause(const void *clause)
 {
@@ -129,7 +129,7 @@ is_notclause(const void *clause)
 			((const BoolExpr *) clause)->boolop == NOT_EXPR);
 }
 
-/* Extract argument from a clause known to be a NOT clause */
+/* 从已知为 NOT 的子句取出参数 */
 static inline Expr *
 get_notclausearg(const void *notclause)
 {

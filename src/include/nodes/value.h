@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * value.h
- *	  interface for value nodes
+ *	value 节点的接口
  *
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group
@@ -17,12 +17,12 @@
 #include "nodes/nodes.h"
 
 /*
- * The node types Integer, Float, String, and BitString are used to represent
- * literals in the lexer and are also used to pass constants around in the
- * parser.  One difference between these node types and, say, a plain int or
- * char * is that the nodes can be put into a List.
+ * 节点类型 Integer、Float、String 与 BitString 用于在词法
+ * 分析器中表示字面量，也用于在解析器中传递常量。
+ * 这些节点类型与普通 int 或 char * 的一个差别是
+ * 节点可放入 List。
  *
- * (There used to be a Value node, which encompassed all these different node types.  Hence the name of this file.)
+ * 曾有涵盖所有这些类型的 Value 节点,故有此文件名。
  */
 
 typedef struct Integer

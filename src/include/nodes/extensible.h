@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * extensible.h
- *	  Definitions for extensible nodes and custom scans
+ *	可扩展节点与自定义扫描的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,44 +20,44 @@
 #include "nodes/pathnodes.h"
 #include "nodes/plannodes.h"
 
-/* maximum length of an extensible node identifier */
+/* 可扩展节点标识符的最大长度 */
 #define EXTNODENAME_MAX_LEN					64
 
 /*
- * An extensible node is a new type of node defined by an extension.  The
- * type is always T_ExtensibleNode, while the extnodename identifies the
- * specific type of node.  extnodename can be looked up to find the
- * ExtensibleNodeMethods for this node type.
+ * 可扩展节点是由扩展定义的新节点类型。类型恒为
+ * T_ExtensibleNode,而 extnodename 标识具体节点种类。
+ * 可查 extnodename 找到该节点类型的
+ * ExtensibleNodeMethods。
  */
 typedef struct ExtensibleNode
 {
 	pg_node_attr(custom_copy_equal, custom_read_write)
 
 	NodeTag		type;
-	const char *extnodename;	/* identifier of ExtensibleNodeMethods */
+	const char *extnodename;	/* ExtensibleNodeMethods 的标识符 */
 } ExtensibleNode;
 
 /*
- * node_size is the size of an extensible node of this type in bytes.
+ * node_size 是此类型可扩展节点的字节大小。
  *
- * nodeCopy is a function which performs a deep copy from oldnode to newnode.
- * It does not need to copy type or extnodename, which are copied by the
- * core system.
+ * nodeCopy 从 oldnode 深拷到 newnode。
+ * 不必拷 type 或 extnodename,由核心系统拷贝。
+ * 见上。
  *
- * nodeEqual is a function which performs a deep equality comparison between
- * a and b and returns true or false accordingly.  It does not need to compare
- * type or extnodename, which are compared by the core system.
+ * nodeEqual 对 a 与 b 做深相等比较并返回真假。
+ * 不必比较 type 或 extnodename,由核心系统比较。
+ * 见上。
  *
- * nodeOut is a serialization function for the node type.  It should use the
- * output conventions typical for outfuncs.c.  It does not need to output
- * type or extnodename; the core system handles those.
+ * nodeOut 是该节点类型的序列化函数。应遵循
+ * outfuncs.c 典型输出约定。不必输出 type 或
+ * extnodename；核心系统处理它们。
  *
- * nodeRead is a deserialization function for the node type.  It does not need
- * to read type or extnodename; the core system handles those.  It should fetch
- * the next token using pg_strtok() from the current input stream, and then
- * reconstruct the private fields according to the manner in readfuncs.c.
+ * nodeRead 是反序列化函数。不必读 type 或
+ * extnodename；核心系统处理。应用 pg_strtok()
+ * 从当前输入流取下一记号,再按 readfuncs.c 方式
+ * 重建私有字段。
  *
- * All callbacks are mandatory.
+ * 所有回调均为必需。
  */
 typedef struct ExtensibleNodeMethods
 {
@@ -77,23 +77,23 @@ extern const ExtensibleNodeMethods *GetExtensibleNodeMethods(const char *extnode
 															 bool missing_ok);
 
 /*
- * Flags for custom paths, indicating what capabilities the resulting scan
- * will have.  The flags fields of CustomPath and CustomScan nodes are
- * bitmasks of these flags.
+ * 自定义路径标志,表示结果扫描将具备的能力。
+ * CustomPath 与 CustomScan 节点的 flags 字段是这些
+ * 标志的位掩码。
  */
 #define CUSTOMPATH_SUPPORT_BACKWARD_SCAN	0x0001
 #define CUSTOMPATH_SUPPORT_MARK_RESTORE		0x0002
 #define CUSTOMPATH_SUPPORT_PROJECTION		0x0004
 
 /*
- * Custom path methods.  Mostly, we just need to know how to convert a
- * CustomPath to a plan.
+ * 自定义路径方法。大体只需知如何把 CustomPath
+ * 转为计划。
  */
 typedef struct CustomPathMethods
 {
 	const char *CustomName;
 
-	/* Convert Path to a Plan */
+	/* 把 Path 转为 Plan */
 	struct Plan *(*PlanCustomPath) (PlannerInfo *root,
 									RelOptInfo *rel,
 									struct CustomPath *best_path,
@@ -106,26 +106,26 @@ typedef struct CustomPathMethods
 }			CustomPathMethods;
 
 /*
- * Custom scan.  Here again, there's not much to do: we need to be able to
- * generate a ScanState corresponding to the scan.
+ * 自定义扫描。同样事不多:需能生成与扫描对应的
+ * ScanState。
  */
 typedef struct CustomScanMethods
 {
 	const char *CustomName;
 
-	/* Create execution state (CustomScanState) from a CustomScan plan node */
+	/* 从 CustomScan 计划节点创建执行状态 (CustomScanState) */
 	Node	   *(*CreateCustomScanState) (CustomScan *cscan);
 } CustomScanMethods;
 
 /*
- * Execution-time methods for a CustomScanState.  This is more complex than
- * what we need for a custom path or scan.
+ * CustomScanState 的执行期方法。比自定义路径或扫描
+ * 所需更复杂。
  */
 typedef struct CustomExecMethods
 {
 	const char *CustomName;
 
-	/* Required executor methods */
+	/* 必需的执行器方法 */
 	void		(*BeginCustomScan) (CustomScanState *node,
 									EState *estate,
 									int eflags);
@@ -133,11 +133,11 @@ typedef struct CustomExecMethods
 	void		(*EndCustomScan) (CustomScanState *node);
 	void		(*ReScanCustomScan) (CustomScanState *node);
 
-	/* Optional methods: needed if mark/restore is supported */
+	/* 可选方法:支持 mark/restore 时需要 */
 	void		(*MarkPosCustomScan) (CustomScanState *node);
 	void		(*RestrPosCustomScan) (CustomScanState *node);
 
-	/* Optional methods: needed if parallel execution is supported */
+	/* 可选方法:支持并行执行时需要 */
 	Size		(*EstimateDSMCustomScan) (CustomScanState *node,
 										  ParallelContext *pcxt);
 	void		(*InitializeDSMCustomScan) (CustomScanState *node,
@@ -151,7 +151,7 @@ typedef struct CustomExecMethods
 											   void *coordinate);
 	void		(*ShutdownCustomScan) (CustomScanState *node);
 
-	/* Optional: print additional information in EXPLAIN */
+	/* 可选:在 EXPLAIN 中打印附加信息 */
 	void		(*ExplainCustomScan) (CustomScanState *node,
 									  List *ancestors,
 									  ExplainState *es);

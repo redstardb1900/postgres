@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * readfuncs.h
- *	  header file for read.c and readfuncs.c. These functions are internal
- *	  to the stringToNode interface and should not be used by anyone else.
+ *	read.c 与 readfuncs.c 的头文件。这些函数仅供
+ *	stringToNode 接口内部使用，他人勿用。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,21 +17,21 @@
 #include "nodes/nodes.h"
 
 /*
- * variable in read.c that needs to be accessible to readfuncs.c
+ * read.c 中需供 readfuncs.c 访问的变量
  */
 #ifdef WRITE_READ_PARSE_PLAN_TREES
 extern PGDLLIMPORT bool restore_location_fields;
 #endif
 
 /*
- * prototypes for functions in read.c (the lisp token parser)
+ * read.c 中函数的原型（lisp 记号解析器）
  */
 extern const char *pg_strtok(int *length);
 extern char *debackslash(const char *token, int length);
 extern void *nodeRead(const char *token, int tok_len);
 
 /*
- * prototypes for functions in readfuncs.c
+ * readfuncs.c 中函数的原型
  */
 extern Node *parseNodeString(void);
 

@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * tidbitmap.h
- *	  PostgreSQL tuple-id (TID) bitmap package
+ *	PostgreSQL 元组标识 (TID) 位图包
  *
- * This module provides bitmap data structures that are spiritually
- * similar to Bitmapsets, but are specially adapted to store sets of
- * tuple identifiers (TIDs), or ItemPointers.  In particular, the division
- * of an ItemPointer into BlockNumber and OffsetNumber is catered for.
- * Also, since we wish to be able to store very large tuple sets in
- * memory with this data structure, we support "lossy" storage, in which
- * we no longer remember individual tuple offsets on a page but only the
- * fact that a particular page needs to be visited.
+ * 本模块提供在精神上类似 Bitmapset 的位图结构，
+ * 但专为存储元组标识 (TID) 即 ItemPointer 集合而改。
+ * 特别照顾 ItemPointer 划分为 BlockNumber 与
+ * OffsetNumber。又因希望能在内存中存很大的元组集，
+ * 支持"有损"存储:不再记住页上各元组偏移,只记
+ * 某页需要访问
+ * 这一
+ * 事实。
  *
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group
@@ -27,26 +27,26 @@
 
 
 /*
- * Actual bitmap representation is private to tidbitmap.c.  Callers can
- * do IsA(x, TIDBitmap) on it, but nothing else.
+ * 实际位图表示对 tidbitmap.c 私有。调用方可对其做
+ * IsA(x, TIDBitmap)，除此无他。
  */
 typedef struct TIDBitmap TIDBitmap;
 
-/* Likewise, TBMIterator is private */
+/* 同理,TBMIterator 也私有 */
 typedef struct TBMIterator TBMIterator;
 typedef struct TBMSharedIterator TBMSharedIterator;
 
-/* Result structure for tbm_iterate */
+/* tbm_iterate 的结果结构 */
 typedef struct TBMIterateResult
 {
-	BlockNumber blockno;		/* page number containing tuples */
-	int			ntuples;		/* -1 indicates lossy result */
-	bool		recheck;		/* should the tuples be rechecked? */
-	/* Note: recheck is always true if ntuples < 0 */
+	BlockNumber blockno;		/* 含元组的页号 */
+	int			ntuples;		/* -1 表示有损结果 */
+	bool		recheck;		/* 元组是否应重检？ */
+	/* 注意:ntuples < 0 则 recheck 恒真 */
 	OffsetNumber offsets[FLEXIBLE_ARRAY_MEMBER];
 } TBMIterateResult;
 
-/* function prototypes in nodes/tidbitmap.c */
+/* nodes/tidbitmap.c 中的函数原型 */
 
 extern TIDBitmap *tbm_create(long maxbytes, dsa_area *dsa);
 extern void tbm_free(TIDBitmap *tbm);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * replnodes.h
- *	  definitions for replication grammar parse nodes
+ *	复制语法解析节点的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,7 +25,7 @@ typedef enum ReplicationKind
 
 
 /* ----------------------
- *		IDENTIFY_SYSTEM command
+ *	IDENTIFY_SYSTEM 命令
  * ----------------------
  */
 typedef struct IdentifySystemCmd
@@ -35,7 +35,7 @@ typedef struct IdentifySystemCmd
 
 
 /* ----------------------
- *		BASE_BACKUP command
+ *	BASE_BACKUP 命令
  * ----------------------
  */
 typedef struct BaseBackupCmd
@@ -46,7 +46,7 @@ typedef struct BaseBackupCmd
 
 
 /* ----------------------
- *		CREATE_REPLICATION_SLOT command
+ *	CREATE_REPLICATION_SLOT 命令
  * ----------------------
  */
 typedef struct CreateReplicationSlotCmd
@@ -61,7 +61,7 @@ typedef struct CreateReplicationSlotCmd
 
 
 /* ----------------------
- *		DROP_REPLICATION_SLOT command
+ *	DROP_REPLICATION_SLOT 命令
  * ----------------------
  */
 typedef struct DropReplicationSlotCmd
@@ -73,7 +73,7 @@ typedef struct DropReplicationSlotCmd
 
 
 /* ----------------------
- *		START_REPLICATION command
+ *	START_REPLICATION 命令
  * ----------------------
  */
 typedef struct StartReplicationCmd
@@ -88,7 +88,7 @@ typedef struct StartReplicationCmd
 
 
 /* ----------------------
- *		READ_REPLICATION_SLOT command
+ *	READ_REPLICATION_SLOT 命令
  * ----------------------
  */
 typedef struct ReadReplicationSlotCmd
@@ -99,7 +99,7 @@ typedef struct ReadReplicationSlotCmd
 
 
 /* ----------------------
- *		TIMELINE_HISTORY command
+ *	TIMELINE_HISTORY 命令
  * ----------------------
  */
 typedef struct TimeLineHistoryCmd

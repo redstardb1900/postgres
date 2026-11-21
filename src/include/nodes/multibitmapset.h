@@ -1,21 +1,21 @@
 /*-------------------------------------------------------------------------
  *
  * multibitmapset.h
- *	  Lists of Bitmapsets
+ *	Bitmapset 的列表
  *
- * A multibitmapset is useful in situations where members of a set can
- * be identified by two small integers; for example, varno and varattno
- * of a group of Vars within a query.  The implementation is a List of
- * Bitmapsets, so that the empty set can be represented by NIL.  (But,
+ * 集合元可用两小整数标识时,multibitmapset 有用；
+ * 例如查询中一组 Var 的 varno 与 varattno。实现为
+ * Bitmapset 的 List，故空集可用 NIL 表示。（但与
+ * Bitmapset 一样，这不是唯一允许的表示。）
  * as with Bitmapsets, that's not the only allowed representation.)
- * The zero-based index of a List element is the first identifying value,
- * and the (also zero-based) index of a bit within that Bitmapset is
- * the second identifying value.  There is no expectation that the
- * Bitmapsets should all be the same size.
+ * List 元素的从零起下标是第一标识值，
+ * 该 Bitmapset 内位的（也从零起）下标是
+ * 第二标识值。不要求各
+ * Bitmapset 大小相同。
  *
- * The available operations on multibitmapsets are intended to parallel
- * those on bitmapsets, for example union and intersection.  So far only
- * a small fraction of that has been built out; we'll add more as needed.
+ * 对 multibitmapset 的可用操作意在与 bitmapset 并行，
+ * 例如并与交。目前只实现了一小部分；
+ * 需要时再加。
  *
  *
  * Copyright (c) 2022-2023, PostgreSQL Global Development Group

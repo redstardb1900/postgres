@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * print.h
- *	  definitions for nodes/print.c
+ *	nodes/print.c 的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

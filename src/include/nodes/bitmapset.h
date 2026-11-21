@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * bitmapset.h
- *	  PostgreSQL generic bitmap set package
+ *	PostgreSQL 通用位图集合包
  *
- * A bitmap set can represent any set of nonnegative integers, although
- * it is mainly intended for sets where the maximum value is not large,
- * say at most a few hundred.  By convention, we always represent the
- * empty set by a NULL pointer.
+ * 位图集可表示任意非负整数集,主要面向最大值不大
+ * （大约至多数百）的集合。按约定空集总是用
+ * NULL 指针
+ * 表示。
  *
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group
@@ -21,28 +21,28 @@
 #include "nodes/nodes.h"
 
 /*
- * Forward decl to save including pg_list.h
+ * 前向声明，以免包含 pg_list.h
  */
 struct List;
 
 /*
- * Data representation
+ * 数据表示
  *
- * Larger bitmap word sizes generally give better performance, so long as
- * they're not wider than the processor can handle efficiently.  We use
- * 64-bit words if pointers are that large, else 32-bit words.
+ * 更大位图字一般性能更好，只要不宽过处理器能高效
+ * 处理的宽度。指针够大则用 64 位字，否则用
+ * 32 位字。
  */
 #if SIZEOF_VOID_P >= 8
 
 #define BITS_PER_BITMAPWORD 64
-typedef uint64 bitmapword;		/* must be an unsigned type */
-typedef int64 signedbitmapword; /* must be the matching signed type */
+typedef uint64 bitmapword;		/* 须为无符号类型 */
+typedef int64 signedbitmapword; /* 须为匹配的有符号类型 */
 
 #else
 
 #define BITS_PER_BITMAPWORD 32
-typedef uint32 bitmapword;		/* must be an unsigned type */
-typedef int32 signedbitmapword; /* must be the matching signed type */
+typedef uint32 bitmapword;		/* 须为无符号类型 */
+typedef int32 signedbitmapword; /* 须为匹配的有符号类型 */
 
 #endif
 
@@ -51,31 +51,31 @@ typedef struct Bitmapset
 	pg_node_attr(custom_copy_equal, special_read_write, no_query_jumble)
 
 	NodeTag		type;
-	int			nwords;			/* number of words in array */
-	bitmapword	words[FLEXIBLE_ARRAY_MEMBER];	/* really [nwords] */
+	int			nwords;			/* 数组中的字数 */
+	bitmapword	words[FLEXIBLE_ARRAY_MEMBER];	/* 实为 [nwords] */
 } Bitmapset;
 
 
-/* result of bms_subset_compare */
+/* bms_subset_compare 的结果 */
 typedef enum
 {
-	BMS_EQUAL,					/* sets are equal */
-	BMS_SUBSET1,				/* first set is a subset of the second */
-	BMS_SUBSET2,				/* second set is a subset of the first */
-	BMS_DIFFERENT				/* neither set is a subset of the other */
+	BMS_EQUAL,					/* 两集相等 */
+	BMS_SUBSET1,				/* 第一集是第二集的子集 */
+	BMS_SUBSET2,				/* 第二集是第一集的子集 */
+	BMS_DIFFERENT				/* 互不为子集 */
 } BMS_Comparison;
 
-/* result of bms_membership */
+/* bms_membership 的结果 */
 typedef enum
 {
-	BMS_EMPTY_SET,				/* 0 members */
-	BMS_SINGLETON,				/* 1 member */
-	BMS_MULTIPLE				/* >1 member */
+	BMS_EMPTY_SET,				/* 0 成员 */
+	BMS_SINGLETON,				/* 1 成员 */
+	BMS_MULTIPLE				/* >1 成员 */
 } BMS_Membership;
 
 
 /*
- * function prototypes in nodes/bitmapset.c
+ * nodes/bitmapset.c 中的函数原型
  */
 
 extern Bitmapset *bms_copy(const Bitmapset *a);
@@ -98,13 +98,13 @@ extern int	bms_singleton_member(const Bitmapset *a);
 extern bool bms_get_singleton_member(const Bitmapset *a, int *member);
 extern int	bms_num_members(const Bitmapset *a);
 
-/* optimized tests when we don't need to know exact membership count: */
+/* 不需确切成员数时的优化测试: */
 extern BMS_Membership bms_membership(const Bitmapset *a);
 
-/* NULL is now the only allowed representation of an empty bitmapset */
+/* 现仅允许用 NULL 表示空 bitmapset */
 #define bms_is_empty(a)  ((a) == NULL)
 
-/* these routines recycle (modify or free) their non-const inputs: */
+/* 这些例程回收(修改或释放)其非常量输入: */
 
 extern Bitmapset *bms_add_member(Bitmapset *a, int x);
 extern Bitmapset *bms_del_member(Bitmapset *a, int x);
@@ -114,11 +114,11 @@ extern Bitmapset *bms_int_members(Bitmapset *a, const Bitmapset *b);
 extern Bitmapset *bms_del_members(Bitmapset *a, const Bitmapset *b);
 extern Bitmapset *bms_join(Bitmapset *a, Bitmapset *b);
 
-/* support for iterating through the integer elements of a set: */
+/* 支持遍历集合中的整数元素: */
 extern int	bms_next_member(const Bitmapset *a, int prevbit);
 extern int	bms_prev_member(const Bitmapset *a, int prevbit);
 
-/* support for hashtables using Bitmapsets as keys: */
+/* 支持以 Bitmapset 为键的哈希表: */
 extern uint32 bms_hash_value(const Bitmapset *a);
 extern uint32 bitmap_hash(const void *key, Size keysize);
 extern int	bitmap_match(const void *key1, const void *key2, Size keysize);

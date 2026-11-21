@@ -9791,6 +9791,81 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0531-include.json",
    "kind": "manifest",
    "note": "0531"
+  },
+  {
+   "pattern": "src/include/nodes/bitmapset.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/extensible.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/lockoptions.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/makefuncs.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/memnodes.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/miscnodes.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/multibitmapset.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/nodeFuncs.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/print.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/queryjumble.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/readfuncs.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/replnodes.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/tidbitmap.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/include/nodes/value.h",
+   "kind": "c_comment",
+   "note": "0532"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0532-include.json",
+   "kind": "manifest",
+   "note": "0532"
   }
  ],
  "files": [
@@ -31887,6 +31962,184 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0531"
+  },
+  {
+   "path": "src/include/nodes/bitmapset.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 36,
+   "translated": 31,
+   "preserved": 5,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=31"
+  },
+  {
+   "path": "src/include/nodes/extensible.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 37,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=37"
+  },
+  {
+   "path": "src/include/nodes/lockoptions.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 21,
+   "preserved": 5,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=21"
+  },
+  {
+   "path": "src/include/nodes/makefuncs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 1,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=1"
+  },
+  {
+   "path": "src/include/nodes/memnodes.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 49,
+   "translated": 40,
+   "preserved": 9,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=40"
+  },
+  {
+   "path": "src/include/nodes/miscnodes.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 24,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=24"
+  },
+  {
+   "path": "src/include/nodes/multibitmapset.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 12,
+   "preserved": 6,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=12"
+  },
+  {
+   "path": "src/include/nodes/nodeFuncs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 40,
+   "translated": 25,
+   "preserved": 15,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=25"
+  },
+  {
+   "path": "src/include/nodes/print.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 1,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=1"
+  },
+  {
+   "path": "src/include/nodes/queryjumble.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 16,
+   "preserved": 8,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=16"
+  },
+  {
+   "path": "src/include/nodes/readfuncs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 5,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=5"
+  },
+  {
+   "path": "src/include/nodes/replnodes.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 8,
+   "preserved": 21,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=8"
+  },
+  {
+   "path": "src/include/nodes/tidbitmap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 18,
+   "preserved": 5,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=18"
+  },
+  {
+   "path": "src/include/nodes/value.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 6,
+   "preserved": 13,
+   "preserved_reasons": [
+    "横幅/路径/守卫/MIXED块 KEEP"
+   ],
+   "note": "0532 T=6"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0532-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0532"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

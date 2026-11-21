@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0503",
+  "title": "include/storage s_lock.h — batch 0503",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "896eb4d19d3dd8c4d945663e9a67de7d3466bd09",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/s_lock.h",
+      "kind": "c_comment",
+      "note": "0503"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0503-storage.json",
+      "kind": "manifest",
+      "note": "0503"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/s_lock.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 82,
+      "translated": 40,
+      "preserved": 42,
+      "preserved_reasons": [
+        "横幅/版权/路径；平台标签；API 签名；URL；gcc asm 示例块 KEEP"
+      ],
+      "note": "自旋锁硬件相关；TAS；内存屏障；多体系结构"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0503-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0503"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二十五刀：s_lock.h 整文件；include/storage 头文件战役收尾"
+}

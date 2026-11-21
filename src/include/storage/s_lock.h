@@ -1,89 +1,89 @@
 /*-------------------------------------------------------------------------
  *
  * s_lock.h
- *	   Hardware-dependent implementation of spinlocks.
+ *	   自旋锁的硬件相关实现。
  *
- *	NOTE: none of the macros in this file are intended to be called directly.
- *	Call them through the hardware-independent macros in spin.h.
+ *	注意：本文件中的宏均不打算被直接调用。
+ *	请通过 spin.h 中的硬件无关宏调用它们。
  *
- *	The following hardware-dependent macros must be provided for each
- *	supported platform:
+ *	须为每个受支持平台提供下列硬件相关宏。
+ *	。
  *
  *	void S_INIT_LOCK(slock_t *lock)
- *		Initialize a spinlock (to the unlocked state).
+ *	初始化自旋锁（至未锁定状态）。
  *
  *	int S_LOCK(slock_t *lock)
- *		Acquire a spinlock, waiting if necessary.
- *		Time out and abort() if unable to acquire the lock in a
- *		"reasonable" amount of time --- typically ~ 1 minute.
- *		Should return number of "delays"; see s_lock.c
+ *	获取自旋锁，必要时等待。
+ *	若无法获取锁则超时并中止，时限为
+ *	"合理"时长 —— 通常约 1 分钟。
+ *	应返回"延迟"次数；见 s_lock.c
  *
  *	void S_UNLOCK(slock_t *lock)
- *		Unlock a previously acquired lock.
+ *	解锁先前已获取的锁。
  *
  *	bool S_LOCK_FREE(slock_t *lock)
- *		Tests if the lock is free. Returns true if free, false if locked.
- *		This does *not* change the state of the lock.
+ *	测试锁是否空闲。空闲则 true，已锁则 false。
+ *	这*不*改变锁的状态。
  *
  *	void SPIN_DELAY(void)
- *		Delay operation to occur inside spinlock wait loop.
+ *	在自旋锁等待循环内执行的延迟操作。
  *
- *	Note to implementors: there are default implementations for all these
- *	macros at the bottom of the file.  Check if your platform can use
- *	these or needs to override them.
+ *	致实现者：文件末尾有这些宏的默认实现。
+ *	请检查平台能否用它们，或须覆盖。
+ *	。
  *
- *  Usually, S_LOCK() is implemented in terms of even lower-level macros
- *	TAS() and TAS_SPIN():
+ * 通常 S_LOCK() 用更低层宏 TAS() 与
+ *	TAS_SPIN() 实现：
  *
  *	int TAS(slock_t *lock)
- *		Atomic test-and-set instruction.  Attempt to acquire the lock,
- *		but do *not* wait.	Returns 0 if successful, nonzero if unable
- *		to acquire the lock.
+ *	原子测试并设置指令。尝试获取锁，
+ *	但*不*等待。成功返回 0，无法获取则
+ *	返回非零。
  *
  *	int TAS_SPIN(slock_t *lock)
- *		Like TAS(), but this version is used when waiting for a lock
- *		previously found to be contended.  By default, this is the
- *		same as TAS(), but on some architectures it's better to poll a
- *		contended lock using an unlocked instruction and retry the
- *		atomic test-and-set only when it appears free.
+ *	类似 TAS()，但用于等待先前已发现
+ *	争用的锁。默认与 TAS() 相同，但在
+ *	某些体系结构上，用非锁定指令轮询
+ *	争用锁、仅在看起来空闲时再重试
+ *	原子测试并设置更佳。
  *
- *	TAS() and TAS_SPIN() are NOT part of the API, and should never be called
- *	directly.
+ *	TAS()/TAS_SPIN() 非 API 一部分，切勿直接调用。
+ *	。
  *
- *	CAUTION: on some platforms TAS() and/or TAS_SPIN() may sometimes report
- *	failure to acquire a lock even when the lock is not locked.  For example,
- *	on Alpha TAS() will "fail" if interrupted.  Therefore a retry loop must
- *	always be used, even if you are certain the lock is free.
+ *	CAUTION：某些平台上 TAS() 和/或 TAS_SPIN() 有时会
+ *	在锁未锁定时仍报告获取失败。例如，
+ *	在 Alpha 上若被中断 TAS() 会"失败"。故必须
+ *	总用重试循环，即使你确信锁空闲。
  *
- *	It is the responsibility of these macros to make sure that the compiler
- *	does not re-order accesses to shared memory to precede the actual lock
- *	acquisition, or follow the lock release.  Prior to PostgreSQL 9.5, this
- *	was the caller's responsibility, which meant that callers had to use
- *	volatile-qualified pointers to refer to both the spinlock itself and the
- *	shared data being accessed within the spinlocked critical section.  This
- *	was notationally awkward, easy to forget (and thus error-prone), and
- *	prevented some useful compiler optimizations.  For these reasons, we
- *	now require that the macros themselves prevent compiler re-ordering,
- *	so that the caller doesn't need to take special precautions.
+ *	这些宏有责任确保编译器不会把对共享内存
+ *	的访问重排到实际获取锁之前，或跟在
+ *	释放锁之后。PostgreSQL 9.5 之前，这是
+ *	调用者的责任，意味着调用者须用
+ *	volatile 限定指针引用自旋锁本身及自旋锁
+ *	临界区内访问的共享数据。这在记法上
+ *	别扭、易忘（因而易错），且妨碍
+ *	某些有用的编译器优化。因此我们现在需要
+ *	宏自身阻止编译器重排，使调用者无需
+ *	采取特殊预防措施。
  *
- *	On platforms with weak memory ordering, the TAS(), TAS_SPIN(), and
- *	S_UNLOCK() macros must further include hardware-level memory fence
- *	instructions to prevent similar re-ordering at the hardware level.
- *	TAS() and TAS_SPIN() must guarantee that loads and stores issued after
- *	the macro are not executed until the lock has been obtained.  Conversely,
- *	S_UNLOCK() must guarantee that loads and stores issued before the macro
- *	have been executed before the lock is released.
+ *	在弱内存序平台上，TAS()、TAS_SPIN() 与
+ *	S_UNLOCK() 还必须含硬件级内存屏障指令，
+ *	以防硬件层出现类似重排。
+ *	TAS() 与 TAS_SPIN() 必须保证宏之后发出的
+ *	装入与存储在获得锁之前不执行。反之，
+ *	S_UNLOCK() 必须保证宏之前发出的装入与
+ *	存储在释放锁之前已执行。
  *
- *	On most supported platforms, TAS() uses a tas() function written
- *	in assembly language to execute a hardware atomic-test-and-set
- *	instruction.  Equivalent OS-supplied mutex routines could be used too.
+ *	多数受支持平台上，TAS() 用汇编写成的
+ *	tas() 函数执行硬件原子测试并设置
+ *	指令。也可用等价的 OS 互斥例程。
  *
- *	If no system-specific TAS() is available (ie, HAVE_SPINLOCKS is not
- *	defined), then we fall back on an emulation that uses SysV semaphores
- *	(see spin.c).  This emulation will be MUCH MUCH slower than a proper TAS()
- *	implementation, because of the cost of a kernel call per lock or unlock.
- *	An old report is that Postgres spends around 40% of its time in semop(2)
- *	when using the SysV semaphore code.
+ *	若无系统专用 TAS()（即未定义
+ *	HAVE_SPINLOCKS），则回退到用 SysV 信号量
+ *	的仿真（见 spin.c）。比正确 TAS() 慢得多，
+ *	因每次加锁/解锁都有内核调用开销。
+ *	旧报告称使用 SysV 信号量代码时 Postgres
+ *	约 40% 时间花在 semop(2)。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -100,13 +100,13 @@
 #error "s_lock.h may not be included from frontend code"
 #endif
 
-#ifdef HAVE_SPINLOCKS	/* skip spinlocks if requested */
+#ifdef HAVE_SPINLOCKS	/* 若请求则跳过自旋锁 */
 
 #if defined(__GNUC__) || defined(__INTEL_COMPILER)
 /*************************************************************************
- * All the gcc inlines
- * Gcc consistently defines the CPU as __cpu__.
- * Other compilers use __cpu or __cpu__ so we test for both in those cases.
+ * 全部 gcc 内联
+ * Gcc 统一把 CPU 定义为 __cpu__。
+ * 其他编译器用 __cpu 或 __cpu__，那些情形两者都测。
  */
 
 /*----------
@@ -145,15 +145,15 @@ tas(volatile slock_t *lock)
 	slock_t		_res = 1;
 
 	/*
-	 * Use a non-locking test before asserting the bus lock.  Note that the
-	 * extra test appears to be a small loss on some x86 platforms and a small
-	 * win on others; it's by no means clear that we should keep it.
+	 * 在断言总线锁之前先做非锁定测试。注意该
+	 * 额外测试在某些 x86 平台上略亏、在另一些上
+	 * 略盈；远不清楚我们是否应保留它。
 	 *
-	 * When this was last tested, we didn't have separate TAS() and TAS_SPIN()
-	 * macros.  Nowadays it probably would be better to do a non-locking test
-	 * in TAS_SPIN() but not in TAS(), like on x86_64, but no-one's done the
-	 * testing to verify that.  Without some empirical evidence, better to
-	 * leave it alone.
+	 * 上次测试时我们还没有分开的 TAS() 与
+	 * TAS_SPIN() 宏。如今多半更好在 TAS_SPIN()
+	 * 中做非锁定测试而 TAS() 中不做，如 x86_64，
+	 * 但无人做测试验证。无实证前，最好
+	 * 保持不动。
 	 */
 	__asm__ __volatile__(
 		"	cmpb	$0,%1	\n"
@@ -173,27 +173,27 @@ static __inline__ void
 spin_delay(void)
 {
 	/*
-	 * This sequence is equivalent to the PAUSE instruction ("rep" is
-	 * ignored by old IA32 processors if the following instruction is
-	 * not a string operation); the IA-32 Architecture Software
-	 * Developer's Manual, Vol. 3, Section 7.7.2 describes why using
-	 * PAUSE in the inner loop of a spin lock is necessary for good
-	 * performance:
+	 * 此序列等价于 PAUSE 指令（若后续指令不是
+	 * 串操作，旧 IA32 处理器会忽略 "rep"）；
+	 * IA-32 体系结构软件开发者手册第 3 卷
+	 * 第 7.7.2 节说明为何在自旋锁内循环中使用
+	 * PAUSE 对良好性能是必要的：
+	 * 。
 	 *
-	 *     The PAUSE instruction improves the performance of IA-32
-	 *     processors supporting Hyper-Threading Technology when
-	 *     executing spin-wait loops and other routines where one
-	 *     thread is accessing a shared lock or semaphore in a tight
-	 *     polling loop. When executing a spin-wait loop, the
-	 *     processor can suffer a severe performance penalty when
-	 *     exiting the loop because it detects a possible memory order
-	 *     violation and flushes the core processor's pipeline. The
-	 *     PAUSE instruction provides a hint to the processor that the
-	 *     code sequence is a spin-wait loop. The processor uses this
-	 *     hint to avoid the memory order violation and prevent the
-	 *     pipeline flush. In addition, the PAUSE instruction
-	 *     de-pipelines the spin-wait loop to prevent it from
-	 *     consuming execution resources excessively.
+	 *     PAUSE 指令改善支持超线程技术的 IA-32
+	 *     处理器在执行自旋等待循环及其他例程
+	 *     （其中一线程在紧轮询循环中访问共享锁
+	 *     或信号量）时的性能。执行自旋等待循环
+	 *     时，处理器退出循环时可能遭受严重
+	 *     性能惩罚，因其检测到可能的内存序违例
+	 *     并冲刷核心处理器的流水线。PAUSE 指令
+	 *     向处理器提示该序列是自旋等待循环。
+	 *     处理器用此提示避免内存序违例并防止
+	 *     流水线冲刷。此外，PAUSE 指令还对自旋
+	 *     等待循环去流水线化，以防其过度消耗
+	 *     执行资源。
+	 *     。
+	 *     。
 	 */
 	__asm__ __volatile__(
 		" rep; nop			\n");
@@ -210,12 +210,12 @@ typedef unsigned char slock_t;
 #define TAS(lock) tas(lock)
 
 /*
- * On Intel EM64T, it's a win to use a non-locking test before the xchg proper,
- * but only when spinning.
+ * 在 Intel EM64T 上，xchg 之前先做非锁定测试有利，
+ * 但仅当自旋时。
  *
- * See also Implementing Scalable Atomic Locks for Multi-Core Intel(tm) EM64T
- * and IA32, by Michael Chynoweth and Mary R. Lee. As of this writing, it is
- * available at:
+ * 另见 Chynoweth 与 Lee 关于多核 Intel EM64T
+ * 与 IA32 可扩展原子锁的文章。撰写时
+ * 见于：
  * http://software.intel.com/en-us/articles/implementing-scalable-atomic-locks-for-multi-core-intel-em64t-and-ia32-architectures
  */
 #define TAS_SPIN(lock)    (*(lock) ? 1 : TAS(lock))
@@ -240,8 +240,8 @@ static __inline__ void
 spin_delay(void)
 {
 	/*
-	 * Adding a PAUSE in the spin delay loop is demonstrably a no-op on
-	 * Opteron, but it may be of some use on EM64T, so we keep it.
+	 * 在自旋延迟循环中加 PAUSE 在 Opteron 上可证为
+	 * 空操作，但在 EM64T 上或有用，故保留。
 	 */
 	__asm__ __volatile__(
 		" rep; nop			\n");
@@ -251,10 +251,10 @@ spin_delay(void)
 
 
 /*
- * On ARM and ARM64, we use __sync_lock_test_and_set(int *, int) if available.
+ * ARM/ARM64 上若可用则用 __sync_lock_test_and_set(int *, int)。
  *
- * We use the int-width variant of the builtin because it works on more chips
- * than other widths.
+ * 我们用内建的 int 宽变体，因其在更多芯片上
+ * 可用。
  */
 #if defined(__arm__) || defined(__arm) || defined(__aarch64__)
 #ifdef HAVE_GCC__SYNC_INT32_TAS
@@ -273,9 +273,9 @@ tas(volatile slock_t *lock)
 #define S_UNLOCK(lock) __sync_lock_release(lock)
 
 /*
- * Using an ISB instruction to delay in spinlock loops appears beneficial on
- * high-core-count ARM64 processors.  It seems mostly a wash for smaller gear,
- * and ISB doesn't exist at all on pre-v7 ARM chips.
+ * 在自旋锁循环中用 ISB 指令延迟，在高核心数
+ * ARM64 处理器上看来有益。对较小设备多半持平，
+ * 且 ISB 在 v7 前 ARM 上不存在。
  */
 #if defined(__aarch64__)
 
@@ -293,7 +293,7 @@ spin_delay(void)
 #endif	 /* __arm__ || __arm || __aarch64__ */
 
 
-/* S/390 and S/390x Linux (32- and 64-bit zSeries) */
+/* S/390 与 S/390x Linux（32/64 位 zSeries） */
 #if defined(__s390__) || defined(__s390x__)
 #define HAS_TEST_AND_SET
 
@@ -319,10 +319,10 @@ tas(volatile slock_t *lock)
 
 #if defined(__sparc__)		/* Sparc */
 /*
- * Solaris has always run sparc processors in TSO (total store) mode, but
- * linux didn't use to and the *BSDs still don't. So, be careful about
- * acquire/release semantics. The CPU will treat superfluous members as
- * NOPs, so it's just code space.
+ * Solaris 总在 TSO（总存储）模式跑 sparc 处理器，但
+ * linux 过去不是，*BSDs 至今仍不是。故获取/释放
+ * 语义须小心。CPU 会把多余成员当 NOPs，
+ * 故只占代码空间。
  */
 #define HAS_TEST_AND_SET
 
@@ -336,9 +336,9 @@ tas(volatile slock_t *lock)
 	slock_t		_res;
 
 	/*
-	 *	See comment in src/backend/port/tas/sunstudio_sparc.s for why this
-	 *	uses "ldstub", and that file uses "cas".  gcc currently generates
-	 *	sparcv7-targeted binaries, so "cas" use isn't possible.
+	 *	为何用 "ldstub" 见 src/backend/port/tas/sunstudio_sparc.s
+	 *	注释；该文件用 "cas"。gcc 当前生成
+	 *	sparcv7 目标二进制，故无法用 "cas"。
 	 */
 	__asm__ __volatile__(
 		"	ldstub	[%2], %0	\n"
@@ -347,16 +347,16 @@ tas(volatile slock_t *lock)
 :		"memory");
 #if defined(__sparcv7) || defined(__sparc_v7__)
 	/*
-	 * No stbar or membar available, luckily no actually produced hardware
-	 * requires a barrier.
+	 * 无 stbar 或 membar 可用，幸好实际硬件不需要
+	 * 屏障。
 	 */
 #elif defined(__sparcv8) || defined(__sparc_v8__)
-	/* stbar is available (and required for both PSO, RMO), membar isn't */
+	/* stbar 可用（PSO、RMO 都需要），membar 不可用 */
 	__asm__ __volatile__ ("stbar	 \n":::"memory");
 #else
 	/*
-	 * #LoadStore (RMO) | #LoadLoad (RMO) together are the appropriate acquire
-	 * barrier for sparcv8+ upwards.
+	 * #LoadStore (RMO) | #LoadLoad (RMO) 合为 sparcv8+
+	 * 向上的合适获取屏障
 	 */
 	__asm__ __volatile__ ("membar #LoadStore | #LoadLoad \n":::"memory");
 #endif
@@ -365,12 +365,12 @@ tas(volatile slock_t *lock)
 
 #if defined(__sparcv7) || defined(__sparc_v7__)
 /*
- * No stbar or membar available, luckily no actually produced hardware
- * requires a barrier.  We fall through to the default gcc definition of
- * S_UNLOCK in this case.
+ * 无 stbar 或 membar 可用，幸好实际硬件不需要
+ * 屏障。此时落到 gcc 默认的 S_UNLOCK
+ * 定义。
  */
 #elif defined(__sparcv8) || defined(__sparc_v8__)
-/* stbar is available (and required for both PSO, RMO), membar isn't */
+/* stbar 可用（PSO、RMO 都需要），membar 不可用 */
 #define S_UNLOCK(lock)	\
 do \
 { \
@@ -379,8 +379,8 @@ do \
 } while (0)
 #else
 /*
- * #LoadStore (RMO) | #StoreStore (RMO, PSO) together are the appropriate
- * release barrier for sparcv8+ upwards.
+ * #LoadStore (RMO) | #StoreStore (RMO, PSO) 合为
+ * sparcv8+ 向上合适释放屏障。
  */
 #define S_UNLOCK(lock)	\
 do \
@@ -401,25 +401,25 @@ typedef unsigned int slock_t;
 
 #define TAS(lock) tas(lock)
 
-/* On PPC, it's a win to use a non-locking test before the lwarx */
+/* PPC 上在 lwarx 前做非锁定测试有利 */
 #define TAS_SPIN(lock)	(*(lock) ? 1 : TAS(lock))
 
 /*
- * The second operand of addi can hold a constant zero or a register number,
- * hence constraint "=&b" to avoid allocating r0.  "b" stands for "address
- * base register"; most operands having this register-or-zero property are
- * address bases, e.g. the second operand of lwax.
+ * addi 第二操作数可持常量零或寄存器号，
+ * 故用约束 "=&b" 以避免分配 r0。"b" 表示
+ * "地址基址寄存器"；多数有此寄存器或零属性的
+ * 地址基址，如 lwax 第二操作数。
  *
- * NOTE: per the Enhanced PowerPC Architecture manual, v1.0 dated 7-May-2002,
- * an isync is a sufficient synchronization barrier after a lwarx/stwcx loop.
- * But if the spinlock is in ordinary memory, we can use lwsync instead for
- * better performance.
+ * 注意：据 Enhanced PowerPC Architecture 手册
+ * （v1.0，2002-05-07），lwarx/stwcx 循环后 isync
+ * 已够。但自旋锁在普通内存时可用 lwsync
+ * 以求更佳性能
  *
- * Ordinarily, we'd code the branches here using GNU-style local symbols, that
- * is "1f" referencing "1:" and so on.  But some people run gcc on AIX with
- * IBM's assembler as backend, and IBM's assembler doesn't do local symbols.
- * So hand-code the branch offsets; fortunately, all PPC instructions are
- * exactly 4 bytes each, so it's not too hard to count.
+ * 通常这里的分支会用 GNU 风格局部符号，即
+ * "1f" 引用 "1:" 等。但有人在 AIX 上用 gcc 且以
+ * IBM 汇编器为后端，而 IBM 汇编器不做局部符号。
+ * 故手写分支偏移；幸好全部 PPC 指令都恰为
+ * 4 字节，不难数。
  */
 static __inline__ int
 tas(volatile slock_t *lock)
@@ -446,8 +446,8 @@ tas(volatile slock_t *lock)
 }
 
 /*
- * PowerPC S_UNLOCK is almost standard but requires a "sync" instruction.
- * But we can use lwsync instead for better performance.
+ * PowerPC 的 S_UNLOCK 几乎标准，但需要 "sync"
+ * 指令。可用 lwsync 以更佳性能。
  */
 #define S_UNLOCK(lock)	\
 do \
@@ -467,17 +467,17 @@ typedef unsigned int slock_t;
 #define TAS(lock) tas(lock)
 
 /*
- * Original MIPS-I processors lacked the LL/SC instructions, but if we are
- * so unfortunate as to be running on one of those, we expect that the kernel
- * will handle the illegal-instruction traps and emulate them for us.  On
- * anything newer (and really, MIPS-I is extinct) LL/SC is the only sane
- * choice because any other synchronization method must involve a kernel
- * call.  Unfortunately, many toolchains still default to MIPS-I as the
- * codegen target; if the symbol __mips shows that that's the case, we
- * have to force the assembler to accept LL/SC.
+ * 原始 MIPS-I 处理器缺少 LL/SC 指令，但若不幸
+ * 跑在其上，我们期望内核对非法指令陷阱仿真。
+ * 在任何更新的机器上（MIPS-I 实已灭绝）LL/SC
+ * 是唯一合理选择，因任何其他同步方法都须
+ * 内核调用。不幸许多工具链仍默认以 MIPS-I 为
+ * 代码生成目标；若 __mips 显示如此，我们必须
+ * 代码生成目标；若 __mips 显示如此，我们须
+ * 强制汇编器接受 LL/SC。
  *
- * R10000 and up processors require a separate SYNC, which has the same
- * issues as LL/SC.
+ * R10000 及以上需单独 SYNC，与 LL/SC
+ * 同类问题。
  */
 #if __mips < 2
 #define MIPS_SET_MIPS2	"       .set mips2          \n"
@@ -510,7 +510,7 @@ tas(volatile slock_t *lock)
 	return _res;
 }
 
-/* MIPS S_UNLOCK is almost standard but requires a "sync" instruction */
+/* MIPS 的 S_UNLOCK 几乎标准，但需要 "sync" 指令 */
 #define S_UNLOCK(lock)	\
 do \
 { \
@@ -532,11 +532,11 @@ do \
 
 #if defined(__hppa) || defined(__hppa__)	/* HP PA-RISC */
 /*
- * HP's PA-RISC
+ * HP PA-RISC
  *
- * Because LDCWX requires a 16-byte-aligned address, we declare slock_t as a
- * 16-byte struct.  The active word in the struct is whichever has the aligned
- * address; the other three words just sit at -1.
+ * 因 LDCWX 需要 16 字节对齐地址，我们把 slock_t
+ * 声明为 16 字节结构。结构中活跃字为对齐的那
+ * 一个；另三字只坐在 -1。
  */
 #define HAS_TEST_AND_SET
 
@@ -554,19 +554,19 @@ tas(volatile slock_t *lock)
 	int			lockval;
 
 	/*
-	 * The LDCWX instruction atomically clears the target word and
-	 * returns the previous value.  Hence, if the instruction returns
-	 * 0, someone else has already acquired the lock before we tested
-	 * it (i.e., we have failed).
+	 * LDCWX 指令原子地清目标字并返回先前值。
+	 * 因此若指令返回 0，则在我们测试之前已有人
+	 * 取得锁（即我们失败）。
+	 * 。
 	 *
-	 * Notice that this means that we actually clear the word to set
-	 * the lock and set the word to clear the lock.  This is the
-	 * opposite behavior from the SPARC LDSTUB instruction.  For some
-	 * reason everything that H-P does is rather baroque...
+	 * 注意这意味着我们实际清字以加锁、置字以
+	 * 解锁。这与 SPARC LDSTUB 指令行为相反。
+	 * 不知为何 H-P 做的每件事都相当巴洛克……
+	 * 。
 	 *
-	 * For details about the LDCWX instruction, see the "Precision
-	 * Architecture and Instruction Reference Manual" (09740-90014 of June
-	 * 1987), p. 5-38.
+	 * LDCWX 细节见《精确体系结构与指令
+	 * 参考手册》（1987 年 6 月 09740-90014）
+	 * 第 5-38 页。
 	 */
 	__asm__ __volatile__(
 		"	ldcwx	0(0,%2),%0	\n"
@@ -597,11 +597,11 @@ tas(volatile slock_t *lock)
 
 
 /*
- * If we have no platform-specific knowledge, but we found that the compiler
- * provides __sync_lock_test_and_set(), use that.  Prefer the int-width
- * version over the char-width version if we have both, on the rather dubious
- * grounds that that's known to be more likely to work in the ARM ecosystem.
- * (But we dealt with ARM above.)
+ * 若无平台专用知识，但发现编译器提供
+ * __sync_lock_test_and_set()，则用之。若两者都有，
+ * 宁用 int 宽而非 char 宽版本，理由颇牵强：
+ * 已知在 ARM 生态中更可能管用。（ARM 已在
+ * 上文处理。）
  */
 #if !defined(HAS_TEST_AND_SET)
 
@@ -641,14 +641,14 @@ tas(volatile slock_t *lock)
 
 
 /*
- * Default implementation of S_UNLOCK() for gcc/icc.
+ * gcc/icc 的默认 S_UNLOCK() 实现。
  *
- * Note that this implementation is unsafe for any platform that can reorder
- * a memory access (either load or store) after a following store.  That
- * happens not to be possible on x86 and most legacy architectures (some are
- * single-processor!), but many modern systems have weaker memory ordering.
- * Those that do must define their own version of S_UNLOCK() rather than
- * relying on this one.
+ * 注意：对任何能把内存访问（装入或存储）重排到
+ * 随后存储之后的平台，此实现不安全。x86 与多数
+ * 遗留体系结构碰巧不会（有的是单处理器！），但
+ * 许多现代系统有更弱内存序。那些必须自定义
+ * S_UNLOCK()，勿依赖本实现。
+ * 。
  */
 #if !defined(S_UNLOCK)
 #define S_UNLOCK(lock)	\
@@ -660,11 +660,11 @@ tas(volatile slock_t *lock)
 
 /*
  * ---------------------------------------------------------------------
- * Platforms that use non-gcc inline assembly:
+ * 使用非 gcc 内联汇编的平台：
  * ---------------------------------------------------------------------
  */
 
-#if !defined(HAS_TEST_AND_SET)	/* We didn't trigger above, let's try here */
+#if !defined(HAS_TEST_AND_SET)	/* 上面未触发，试这里 */
 
 #if defined(_AIX)	/* AIX */
 /*
@@ -681,7 +681,7 @@ typedef int slock_t;
 #endif	 /* _AIX */
 
 
-/* These are in sunstudio_(sparc|x86).s */
+/* 在 sunstudio_(sparc|x86).s 中 */
 
 #if defined(__SUNPRO_C) && (defined(__i386) || defined(__x86_64__) || defined(__sparc__) || defined(__sparc))
 #define HAS_TEST_AND_SET
@@ -707,8 +707,8 @@ typedef LONG slock_t;
 
 #define SPIN_DELAY() spin_delay()
 
-/* If using Visual C++ on Win64, inline assembly is unavailable.
- * Use a _mm_pause intrinsic instead of rep nop.
+/* 若在 Win64 上用 Visual C++，内联汇编不可用。
+ * 用 _mm_pause 内建替代 rep nop。
  */
 #if defined(_WIN64)
 static __forceinline void
@@ -720,7 +720,7 @@ spin_delay(void)
 static __forceinline void
 spin_delay(void)
 {
-	/* See comment for gcc code. Same code, MASM syntax */
+	/* 见 gcc 注释。相同代码，MASM 语法 */
 	__asm rep nop;
 }
 #endif
@@ -737,7 +737,7 @@ spin_delay(void)
 #endif	/* !defined(HAS_TEST_AND_SET) */
 
 
-/* Blow up if we didn't have any way to do spinlocks */
+/* 若无任何自旋锁实现方式则炸开 */
 #ifndef HAS_TEST_AND_SET
 #error PostgreSQL does not have native spinlock support on this platform.  To continue the compilation, rerun configure using --disable-spinlocks.  However, performance will be poor.  Please report this to pgsql-bugs@lists.postgresql.org.
 #endif
@@ -747,9 +747,9 @@ spin_delay(void)
 
 
 /*
- * Fake spinlock implementation using semaphores --- slow and prone
- * to fall foul of kernel limits on number of semaphores, so don't use this
- * unless you must!  The subroutines appear in spin.c.
+ * 用信号量伪装的自旋锁实现 —— 又慢又易
+ * 触碰内核信号量数量限制，非不得已勿用！
+ * 子程序在 spin.c。
  */
 typedef int slock_t;
 
@@ -768,7 +768,7 @@ extern int	tas_sema(volatile slock_t *lock);
 
 
 /*
- * Default Definitions - override these above as needed.
+ * 默认定义 —— 按需在上方覆盖。
  */
 
 #if !defined(S_LOCK)
@@ -782,20 +782,20 @@ extern int	tas_sema(volatile slock_t *lock);
 
 #if !defined(S_UNLOCK)
 /*
- * Our default implementation of S_UNLOCK is essentially *(lock) = 0.  This
- * is unsafe if the platform can reorder a memory access (either load or
- * store) after a following store; platforms where this is possible must
- * define their own S_UNLOCK.  But CPU reordering is not the only concern:
- * if we simply defined S_UNLOCK() as an inline macro, the compiler might
- * reorder instructions from inside the critical section to occur after the
- * lock release.  Since the compiler probably can't know what the external
- * function s_unlock is doing, putting the same logic there should be adequate.
- * A sufficiently-smart globally optimizing compiler could break that
- * assumption, though, and the cost of a function call for every spinlock
- * release may hurt performance significantly, so we use this implementation
- * only for platforms where we don't know of a suitable intrinsic.  For the
- * most part, those are relatively obscure platform/compiler combinations to
- * which the PostgreSQL project does not have access.
+ * 默认 S_UNLOCK 本质是 *(lock) = 0。若平台能把
+ * 内存访问（装入或存储）重排到随后存储之后，
+ * 这不安全；可能如此的平台必须自定义
+ * S_UNLOCK。但 CPU 重排并非唯一顾虑：若把
+ * S_UNLOCK() 简单定义为内联宏，编译器可能把
+ * 临界区内指令重排到锁释放之后。因编译器
+ * 多半不知外部函数 s_unlock 在做什么，把相同
+ * 逻辑放那里应足够。
+ * 足够聪明的全局优化编译器或可打破该假定，
+ * 且每次自旋锁释放的函数调用可能显著损害
+ * 性能，故仅在不知合适内建的平台用本实现。
+ * 那些多半是较冷门的平台/编译器组合，
+ * PostgreSQL 项目无法接触。
+ * 。
  */
 #define USE_DEFAULT_S_UNLOCK
 extern void s_unlock(volatile slock_t *lock);
@@ -824,19 +824,19 @@ extern int	tas(volatile slock_t *lock);		/* in port/.../tas.s, or
 extern PGDLLIMPORT slock_t dummy_spinlock;
 
 /*
- * Platform-independent out-of-line support routines
+ * 平台无关的离线支持例程
  */
 extern int s_lock(volatile slock_t *lock, const char *file, int line, const char *func);
 
-/* Support for dynamic adjustment of spins_per_delay */
+/* 支持动态调整 spins_per_delay */
 #define DEFAULT_SPINS_PER_DELAY  100
 
 extern void set_spins_per_delay(int shared_spins_per_delay);
 extern int	update_spins_per_delay(int shared_spins_per_delay);
 
 /*
- * Support for spin delay which is useful in various places where
- * spinlock-like procedures take place.
+ * 支持自旋延迟，在各类类似自旋锁过程发生
+ * 处有用。
  */
 typedef struct
 {

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * params.h
- *	  Support for finding the values associated with Param nodes.
+ *	查找 Param 节点所关联值的支持。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -14,7 +14,7 @@
 #ifndef PARAMS_H
 #define PARAMS_H
 
-/* Forward declarations, to avoid including other headers */
+/* 前向声明,以免包含其他头文件 */
 struct Bitmapset;
 struct ExprState;
 struct Param;
@@ -22,77 +22,77 @@ struct ParseState;
 
 
 /*
- *	  ParamListInfo
+ *	ParamListInfo
  *
- *	  ParamListInfo structures are used to pass parameters into the executor
- *	  for parameterized plans.  We support two basic approaches to supplying
- *	  parameter values, the "static" way and the "dynamic" way.
+ *	ParamListInfo 结构用于把参数传入执行器
+ *	供参数化计划使用。支持两种基本供值方式,
+ *	即静态方式与动态方式。
  *
- *	  In the static approach, per-parameter data is stored in an array of
- *	  ParamExternData structs appended to the ParamListInfo struct.
- *	  Each entry in the array defines the value to be substituted for a
- *	  PARAM_EXTERN parameter.  The "paramid" of a PARAM_EXTERN Param
- *	  can range from 1 to numParams.
+ *	静态方式下,逐参数数据存放在一个
+ *	ParamExternData 数组中,附于 ParamListInfo 结构。
+ *	数组每项给出要代入的值,对应一个
+ *	PARAM_EXTERN 参数。其 paramid 取值
+ *	从 1 到 numParams。
  *
- *	  Although parameter numbers are normally consecutive, we allow
- *	  ptype == InvalidOid to signal an unused array entry.
+ *	参数号通常连续,但仍允许
+ *	ptype == InvalidOid 表示未用的数组项。
  *
- *	  pflags is a flags field.  Currently the only used bit is:
- *	  PARAM_FLAG_CONST signals the planner that it may treat this parameter
- *	  as a constant (i.e., generate a plan that works only for this value
- *	  of the parameter).
+ *	pflags 是标志字段。目前唯一使用的位是:
+ *	PARAM_FLAG_CONST 告知规划器可把该参数
+ *	当作常量(即只生成适用于该
+ *	参数值的计划)
  *
- *	  In the dynamic approach, all access to parameter values is done through
- *	  hook functions found in the ParamListInfo struct.  In this case,
- *	  the ParamExternData array is typically unused and not allocated;
- *	  but the legal range of paramid is still 1 to numParams.
+ *	动态方式下,对参数值的一切访问都经由
+ *	ParamListInfo 结构中的钩子函数。此时
+ *	ParamExternData 数组通常不用且不分配;
+ *	但 paramid 的合法范围仍是 1 到 numParams。
  *
- *	  Although the data structure is really an array, not a list, we keep
- *	  the old typedef name to avoid unnecessary code changes.
+ *	此结构其实是数组而非列表,仍保留
+ *	旧 typedef 名,以免无谓改动代码。
  *
- *	  There are 3 hook functions that can be associated with a ParamListInfo
- *	  structure:
+ *	有 3 个钩子函数可关联到 ParamListInfo
+ *	结构:
  *
- *	  If paramFetch isn't null, it is called to fetch the ParamExternData
- *	  for a particular param ID, rather than accessing the relevant element
- *	  of the ParamExternData array.  This supports the case where the array
- *	  isn't there at all, as well as cases where the data in the array
- *	  might be obsolete or lazily evaluated.  paramFetch must return the
- *	  address of a ParamExternData struct describing the specified param ID;
- *	  the convention above about ptype == InvalidOid signaling an invalid
- *	  param ID still applies.  The returned struct can either be placed in
- *	  the "workspace" supplied by the caller, or it can be in storage
- *	  controlled by the paramFetch hook if that's more convenient.
- *	  (In either case, the struct is not expected to be long-lived.)
- *	  If "speculative" is true, the paramFetch hook should not risk errors
- *	  in trying to fetch the parameter value, and should report an invalid
- *	  parameter instead.
+ *	若 paramFetch 非空,则调它取某 param ID 的
+ *	ParamExternData,而不访问相应元素
+ *	所在的 ParamExternData 数组。这也支持数组
+ *	根本不存在的情形,以及数组中数据
+ *	可能过时或惰性求值的情形。paramFetch 必须返回
+ *	描述该 param ID 的 ParamExternData 结构地址;
+ *	上文 ptype == InvalidOid 表示无效
+ *	param ID 的约定仍适用。返回的结构可放在
+ *	调用方提供的 workspace 中,或放在由
+ *	paramFetch 钩子控制的存储里,若那样更方便。
+ *	两种情形下该结构都不预期长期存活。
+ *	若 speculative 为真,paramFetch 钩子取参数值时
+ *	不应冒险出错,而应报告无效
+ *	参数。
  *
- *	  If paramCompile isn't null, then it controls what execExpr.c compiles
- *	  for PARAM_EXTERN Param nodes --- typically, this hook would emit a
- *	  EEOP_PARAM_CALLBACK step.  This allows unnecessary work to be
- *	  optimized away in compiled expressions.
+ *	若 paramCompile 非空,则它控制 execExpr.c 为
+ *	PARAM_EXTERN Param 节点编译什么;通常该钩子发出
+ *	EEOP_PARAM_CALLBACK 步。从而可把不必要工作
+ *	从已编译表达式中优化掉。
  *
- *	  If parserSetup isn't null, then it is called to re-instantiate the
- *	  original parsing hooks when a query needs to be re-parsed/planned.
- *	  This is especially useful if the types of parameters might change
- *	  from time to time, since it can replace the need to supply a fixed
- *	  list of parameter types to the parser.
+ *	若 parserSetup 非空,则调用它重建
+ *	原解析钩子,当查询需要重新解析或规划时。
+ *	参数类型若会不时变化,这尤其有用,
+ *	因为它可免去向解析器提供一份固定
+ *	参数类型列表的需要。
  *
- *	  Notice that the paramFetch and paramCompile hooks are actually passed
- *	  the ParamListInfo struct's address; they can therefore access all
- *	  three of the "arg" fields, and the distinction between paramFetchArg
- *	  and paramCompileArg is rather arbitrary.
+ *	注意 paramFetch 与 paramCompile 钩子实际收到的是
+ *	ParamListInfo 结构的地址;因此它们能访问全部
+ *	三个 arg 字段,而 paramFetchArg
+ *	与 paramCompileArg 之别颇随意。
  */
 
-#define PARAM_FLAG_CONST	0x0001	/* parameter is constant */
+#define PARAM_FLAG_CONST	0x0001	/* 参数是常量 */
 
 typedef struct ParamExternData
 {
-	Datum		value;			/* parameter value */
-	bool		isnull;			/* is it NULL? */
-	uint16		pflags;			/* flag bits, see above */
-	Oid			ptype;			/* parameter's datatype, or 0 */
+	Datum		value;			/* 参数值 */
+	bool		isnull;			/* 是否 NULL */
+	uint16		pflags;			/* 标志位,见上 */
+	Oid			ptype;			/* 参数数据类型,或 0 */
 } ParamExternData;
 
 typedef struct ParamListInfoData *ParamListInfo;
@@ -109,55 +109,55 @@ typedef void (*ParserSetupHook) (struct ParseState *pstate, void *arg);
 
 typedef struct ParamListInfoData
 {
-	ParamFetchHook paramFetch;	/* parameter fetch hook */
+	ParamFetchHook paramFetch;	/* 参数获取钩子 */
 	void	   *paramFetchArg;
-	ParamCompileHook paramCompile;	/* parameter compile hook */
+	ParamCompileHook paramCompile;	/* 参数编译钩子 */
 	void	   *paramCompileArg;
-	ParserSetupHook parserSetup;	/* parser setup hook */
+	ParserSetupHook parserSetup;	/* 解析器钩子 */
 	void	   *parserSetupArg;
-	char	   *paramValuesStr; /* params as a single string for errors */
-	int			numParams;		/* nominal/maximum # of Params represented */
+	char	   *paramValuesStr; /* 出错用的参数单字符串 */
+	int			numParams;		/* 表示的 Params 名义或最大个数 */
 
 	/*
-	 * params[] may be of length zero if paramFetch is supplied; otherwise it
-	 * must be of length numParams.
+	 * 若提供了 paramFetch,params[] 长度可为 0;否则它
+	 * 长度须为 numParams。
 	 */
 	ParamExternData params[FLEXIBLE_ARRAY_MEMBER];
 }			ParamListInfoData;
 
 
 /* ----------------
- *	  ParamExecData
+ *	ParamExecData
  *
- *	  ParamExecData entries are used for executor internal parameters
- *	  (that is, values being passed into or out of a sub-query).  The
- *	  paramid of a PARAM_EXEC Param is a (zero-based) index into an
- *	  array of ParamExecData records, which is referenced through
- *	  es_param_exec_vals or ecxt_param_exec_vals.
+ *	ParamExecData 项用于执行器内部参数
+ *	即传入或传出子查询的值。其
+ *	PARAM_EXEC Param 的 paramid 是从 0 起的下标,指向
+ *	一组 ParamExecData 记录,由下列引用:
+ *	es_param_exec_vals 或 ecxt_param_exec_vals
  *
- *	  If execPlan is not NULL, it points to a SubPlanState node that needs
- *	  to be executed to produce the value.  (This is done so that we can have
- *	  lazy evaluation of InitPlans: they aren't executed until/unless a
- *	  result value is needed.)	Otherwise the value is assumed to be valid
- *	  when needed.
+ *	若 execPlan 不是 NULL,它指向需执行的 SubPlanState 节点
+ *	以产生该值。这样做是为了能
+ *	对 InitPlans 惰性求值(它们直到
+ *	需要结果值才执行)。否则视为需要时
+ *	有效。
  * ----------------
  */
 
 typedef struct ParamExecData
 {
-	void	   *execPlan;		/* should be "SubPlanState *" */
+	void	   *execPlan;		/* 应为 SubPlanState * */
 	Datum		value;
 	bool		isnull;
 } ParamExecData;
 
-/* type of argument for ParamsErrorCallback */
+/* ParamsErrorCallback 的参数类型 */
 typedef struct ParamsErrorCbData
 {
 	const char *portalName;
 	ParamListInfo params;
 } ParamsErrorCbData;
 
-/* Functions found in src/backend/nodes/params.c */
+/* 函数位于 src/backend/nodes/params.c */
 extern ParamListInfo makeParamList(int numParams);
 extern ParamListInfo copyParamList(ParamListInfo from);
 extern Size EstimateParamListSpace(ParamListInfo paramLI);

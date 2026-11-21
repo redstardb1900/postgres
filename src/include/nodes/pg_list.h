@@ -1,32 +1,32 @@
 /*-------------------------------------------------------------------------
  *
  * pg_list.h
- *	  interface for PostgreSQL generic list package
+ *	PostgreSQL 通用列表包的接口
  *
- * Once upon a time, parts of Postgres were written in Lisp and used real
- * cons-cell lists for major data structures.  When that code was rewritten
- * in C, we initially had a faithful emulation of cons-cell lists, which
- * unsurprisingly was a performance bottleneck.  A couple of major rewrites
- * later, these data structures are actually simple expansible arrays;
- * but the "List" name and a lot of the notation survives.
+ * 曾几何时 Postgres 部分用 Lisp 写,主要数据结构用真
+ * cons 单元列表。改写为 C 后,起初忠实模拟 cons 列表,
+ * 不出所料成性能瓶颈。几经大改后,这些结构其实是
+ * 简单可扩展数组;但 "List" 之名与大量记法
+ * 仍保留。
+ * 见上。
  *
- * One important concession to the original implementation is that an empty
- * list is always represented by a null pointer (preferentially written NIL).
- * Non-empty lists have a header, which will not be relocated as long as the
- * list remains non-empty, and an expansible data array.
+ * 对原实现的重要让步是:空列表总用空指针表示
+ * (优先写作 NIL)。非空列表有一头部,只要列表保持非空
+ * 就不会被搬迁,另有可扩展
+ * 数据数组。
  *
- * We support four types of lists:
+ * 我们支持四种列表类型:
  *
- *	T_List: lists of pointers
- *		(in practice usually pointers to Nodes, but not always;
- *		declared as "void *" to minimize casting annoyances)
- *	T_IntList: lists of integers
- *	T_OidList: lists of Oids
- *	T_XidList: lists of TransactionIds
- *		(the XidList infrastructure is less complete than the other cases)
+ *	T_List: 指针列表
+ *		(实践中多为指向 Node 的指针,但并非总是;
+ *		声明为 "void *" 以减少强制转换麻烦)
+ *	T_IntList: 整数列表
+ *	T_OidList: Oid 列表
+ *	T_XidList: TransactionId 列表
+ *		(XidList 设施不如其他情形完备)
  *
- * (At the moment, ints, Oids, and XIDs are the same size, but they may not
- * always be so; be careful to use the appropriate list type for your data.)
+ * (目前 int、Oid 与 XID 同宽,但未必永远如此;
+ * 请按数据选用合适的列表类型。)
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -52,92 +52,92 @@ typedef union ListCell
 
 typedef struct List
 {
-	NodeTag		type;			/* T_List, T_IntList, T_OidList, or T_XidList */
-	int			length;			/* number of elements currently present */
-	int			max_length;		/* allocated length of elements[] */
-	ListCell   *elements;		/* re-allocatable array of cells */
-	/* We may allocate some cells along with the List header: */
+	NodeTag		type;			/* T_List/T_IntList/T_OidList/T_XidList */
+	int			length;			/* 当前元素个数 */
+	int			max_length;		/* elements[] 的已分配长度 */
+	ListCell   *elements;		/* 可再分配的单元数组 */
+	/* 可与 List 头一并分配若干单元: */
 	ListCell	initial_elements[FLEXIBLE_ARRAY_MEMBER];
-	/* If elements == initial_elements, it's not a separate allocation */
+	/* 若 elements == initial_elements,则非单独分配 */
 } List;
 
 /*
- * The *only* valid representation of an empty list is NIL; in other
- * words, a non-NIL list is guaranteed to have length >= 1.
+ * 空列表*唯一*合法表示是 NIL;换言之,
+ * 非 NIL 列表保证长度 >= 1。
  */
 #define NIL						((List *) NULL)
 
 /*
- * State structs for various looping macros below.
+ * 下列循环宏所用的状态结构。
  */
 typedef struct ForEachState
 {
-	const List *l;				/* list we're looping through */
-	int			i;				/* current element index */
+	const List *l;				/* 正在遍历的列表 */
+	int			i;				/* 当前元素下标 */
 } ForEachState;
 
 typedef struct ForBothState
 {
-	const List *l1;				/* lists we're looping through */
+	const List *l1;				/* 正在遍历的列表 */
 	const List *l2;
-	int			i;				/* common element index */
+	int			i;				/* 公共元素下标 */
 } ForBothState;
 
 typedef struct ForBothCellState
 {
-	const List *l1;				/* lists we're looping through */
+	const List *l1;				/* 正在遍历的列表 */
 	const List *l2;
-	int			i1;				/* current element indexes */
+	int			i1;				/* 当前元素下标 */
 	int			i2;
 } ForBothCellState;
 
 typedef struct ForThreeState
 {
-	const List *l1;				/* lists we're looping through */
+	const List *l1;				/* 正在遍历的列表 */
 	const List *l2;
 	const List *l3;
-	int			i;				/* common element index */
+	int			i;				/* 公共元素下标 */
 } ForThreeState;
 
 typedef struct ForFourState
 {
-	const List *l1;				/* lists we're looping through */
+	const List *l1;				/* 正在遍历的列表 */
 	const List *l2;
 	const List *l3;
 	const List *l4;
-	int			i;				/* common element index */
+	int			i;				/* 公共元素下标 */
 } ForFourState;
 
 typedef struct ForFiveState
 {
-	const List *l1;				/* lists we're looping through */
+	const List *l1;				/* 正在遍历的列表 */
 	const List *l2;
 	const List *l3;
 	const List *l4;
 	const List *l5;
-	int			i;				/* common element index */
+	int			i;				/* 公共元素下标 */
 } ForFiveState;
 
 /*
- * These routines are small enough, and used often enough, to justify being
- * inline.
+ * 这些例程够小且常用,值得做成
+ * 内联.
  */
 
-/* Fetch address of list's first cell; NULL if empty list */
+/* 取列表首单元地址;空列表则为 NULL */
 static inline ListCell *
 list_head(const List *l)
 {
 	return l ? &l->elements[0] : NULL;
 }
 
-/* Fetch address of list's last cell; NULL if empty list */
+/* 取列表末单元地址;空列表则为 NULL */
 static inline ListCell *
 list_tail(const List *l)
 {
 	return l ? &l->elements[l->length - 1] : NULL;
 }
 
-/* Fetch address of list's second cell, if it has one, else NULL */
+/* 取列表第二单元地址(若有),否则 NULL */
 static inline ListCell *
 list_second_cell(const List *l)
 {
@@ -147,7 +147,7 @@ list_second_cell(const List *l)
 		return NULL;
 }
 
-/* Fetch list's length */
+/* 取列表长度 */
 static inline int
 list_length(const List *l)
 {
@@ -155,19 +155,19 @@ list_length(const List *l)
 }
 
 /*
- * Macros to access the data values within List cells.
+ * 访问 List 单元内数据值的宏。
  *
- * Note that with the exception of the "xxx_node" macros, these are
- * lvalues and can be assigned to.
+ * 除 "xxx_node" 宏外,这些都是左值,
+ * 可赋值。
  *
- * NB: There is an unfortunate legacy from a previous incarnation of
- * the List API: the macro lfirst() was used to mean "the data in this
- * cons cell". To avoid changing every usage of lfirst(), that meaning
- * has been kept. As a result, lfirst() takes a ListCell and returns
- * the data it contains; to get the data in the first cell of a
- * List, use linitial(). Worse, lsecond() is more closely related to
- * linitial() than lfirst(): given a List, lsecond() returns the data
- * in the second list cell.
+ * 注意:List API 前身留下一桩不幸遗产:
+ * 宏 lfirst() 曾表示"此 cons 单元中的数据"。
+ * 为免改遍所有 lfirst() 用法,该含义保留。
+ * 故 lfirst() 接受 ListCell 并返回其中数据;
+ * 要取 List 首单元数据请用 linitial()。更糟的是
+ * lsecond() 更接近 linitial() 而非 lfirst():给定
+ * List,lsecond() 返回第二列表单元中的
+ * 数据。
  */
 #define lfirst(lc)				((lc)->ptr_value)
 #define lfirst_int(lc)			((lc)->int_value)
@@ -202,7 +202,7 @@ list_length(const List *l)
 #define llast_node(type,l)		castNode(type, llast(l))
 
 /*
- * Convenience macros for building fixed-length lists
+ * 构造定长列表的便利宏
  */
 #define list_make_ptr_cell(v)	((ListCell) {.ptr_value = (v)})
 #define list_make_int_cell(v)	((ListCell) {.int_value = (v)})
@@ -270,8 +270,8 @@ list_length(const List *l)
 					list_make_xid_cell(x5))
 
 /*
- * Locate the n'th cell (counting from 0) of the list.
- * It is an assertion failure if there is no such cell.
+ * 定位列表第 n 个单元(从 0 计)。
+ * 若无此单元则断言失败。
  */
 static inline ListCell *
 list_nth_cell(const List *list, int n)
@@ -282,7 +282,7 @@ list_nth_cell(const List *list, int n)
 }
 
 /*
- * Return the last cell in a non-NIL List.
+ * 返回非 NIL List 的末单元。
  */
 static inline ListCell *
 list_last_cell(const List *list)
@@ -292,8 +292,8 @@ list_last_cell(const List *list)
 }
 
 /*
- * Return the pointer value contained in the n'th element of the
- * specified list. (List elements begin at 0.)
+ * 返回指定列表第 n 个元素中的指针值。
+ * (列表元素从 0 起。)
  */
 static inline void *
 list_nth(const List *list, int n)
@@ -303,8 +303,8 @@ list_nth(const List *list, int n)
 }
 
 /*
- * Return the integer value contained in the n'th element of the
- * specified list.
+ * 返回指定列表第 n 个元素中的整数值。
+ * 见上。
  */
 static inline int
 list_nth_int(const List *list, int n)
@@ -327,7 +327,7 @@ list_nth_oid(const List *list, int n)
 #define list_nth_node(type,list,n)	castNode(type, list_nth(list, n))
 
 /*
- * Get the given ListCell's index (from 0) in the given List.
+ * 取给定 ListCell 在给定 List 中下标(从 0 起)。
  */
 static inline int
 list_cell_number(const List *l, const ListCell *c)
@@ -337,7 +337,7 @@ list_cell_number(const List *l, const ListCell *c)
 }
 
 /*
- * Get the address of the next cell after "c" within list "l", or NULL if none.
+ * 取列表 l 中单元 c 之后下一单元地址,无则 NULL。
  */
 static inline ListCell *
 lnext(const List *l, const ListCell *c)
@@ -352,23 +352,23 @@ lnext(const List *l, const ListCell *c)
 
 /*
  * foreach -
- *	  a convenience macro for looping through a list
+ *	  遍历列表的便利宏
  *
- * "cell" must be the name of a "ListCell *" variable; it's made to point
- * to each List element in turn.  "cell" will be NULL after normal exit from
- * the loop, but an early "break" will leave it pointing at the current
- * List element.
+ * "cell" 须为 "ListCell *" 变量名;会依次指向
+ * 每个 List 元素。正常退出循环后 cell 为 NULL,
+ * 但提前 break 会让它停在当前 List
+ * 元素上。
  *
- * Beware of changing the List object while the loop is iterating.
- * The current semantics are that we examine successive list indices in
- * each iteration, so that insertion or deletion of list elements could
- * cause elements to be re-visited or skipped unexpectedly.  Previous
- * implementations of foreach() behaved differently.  However, it's safe
- * to append elements to the List (or in general, insert them after the
- * current element); such new elements are guaranteed to be visited.
- * Also, the current element of the List can be deleted, if you use
- * foreach_delete_current() to do so.  BUT: either of these actions will
- * invalidate the "cell" pointer for the remainder of the current iteration.
+ * 迭代中途改动 List 对象须谨慎。
+ * 当前语义是每轮检查相继的列表下标,故插入或
+ * 删除元素可能导致元素被重访或意外跳过。
+ * 早先 foreach() 实现行为不同。但向 List
+ * 追加元素(或一般地插在当前元素之后)是安全的;
+ * 这些新元素保证会被访问。
+ * 也可用 foreach_delete_current() 删除当前元素。
+ * 但:这两种动作都会使本轮余下时间里
+ * "cell" 指针失效。
+ * 见上。
  */
 #define foreach(cell, lst)	\
 	for (ForEachState cell##__state = {(lst), 0}; \
@@ -380,12 +380,12 @@ lnext(const List *l, const ListCell *c)
 
 /*
  * foreach_delete_current -
- *	  delete the current list element from the List associated with a
- *	  surrounding foreach() loop, returning the new List pointer.
+ *	  从包围的 foreach() 循环关联的 List 中删除
+ *	  当前列表元素,返回新 List 指针。
  *
- * This is equivalent to list_delete_cell(), but it also adjusts the foreach
- * loop's state so that no list elements will be missed.  Do not delete
- * elements from an active foreach loop's list in any other way!
+ * 等价于 list_delete_cell(),但还会调整 foreach
+ * 循环状态以免漏元素。勿以其他方式从活动
+ * foreach 循环的列表中删元素!
  */
 #define foreach_delete_current(lst, cell)	\
 	(cell##__state.i--, \
@@ -393,23 +393,23 @@ lnext(const List *l, const ListCell *c)
 
 /*
  * foreach_current_index -
- *	  get the zero-based list index of a surrounding foreach() loop's
- *	  current element; pass the name of the "ListCell *" iterator variable.
+ *	  取包围的 foreach() 循环当前元素的从零下标;
+ *	  传入 "ListCell *" 迭代变量名。
  *
- * Beware of using this after foreach_delete_current(); the value will be
- * out of sync for the rest of the current loop iteration.  Anyway, since
- * you just deleted the current element, the value is pretty meaningless.
+ * 在 foreach_delete_current() 之后慎用;本轮余下
+ * 时间值会不同步。而且刚删了当前元素,
+ * 该值也几乎无意义。
  */
 #define foreach_current_index(cell)  (cell##__state.i)
 
 /*
  * for_each_from -
- *	  Like foreach(), but start from the N'th (zero-based) list element,
- *	  not necessarily the first one.
+ *	  类似 foreach(),但从第 N 个(从零计)列表元素
+ *	  开始,不必是第一个。
  *
- * It's okay for N to exceed the list length, but not for it to be negative.
+ * N 可超过列表长度,但不可为负。
  *
- * The caveats for foreach() apply equally here.
+ * foreach() 的注意事项同样适用。
  */
 #define for_each_from(cell, lst, N)	\
 	for (ForEachState cell##__state = for_each_from_setup(lst, N); \
@@ -430,10 +430,10 @@ for_each_from_setup(const List *lst, int N)
 
 /*
  * for_each_cell -
- *	  a convenience macro which loops through a list starting from a
- *	  specified cell
+ *	  从指定单元起遍历列表的便利宏
+ *	见上。
  *
- * The caveats for foreach() apply equally here.
+ * foreach() 的注意事项同样适用。
  */
 #define for_each_cell(cell, lst, initcell)	\
 	for (ForEachState cell##__state = for_each_cell_setup(lst, initcell); \
@@ -454,15 +454,15 @@ for_each_cell_setup(const List *lst, const ListCell *initcell)
 
 /*
  * forboth -
- *	  a convenience macro for advancing through two linked lists
- *	  simultaneously. This macro loops through both lists at the same
- *	  time, stopping when either list runs out of elements. Depending
- *	  on the requirements of the call site, it may also be wise to
- *	  assert that the lengths of the two lists are equal. (But, if they
- *	  are not, some callers rely on the ending cell values being separately
- *	  NULL or non-NULL as defined here; don't try to optimize that.)
+ *	  同时推进两个链表的便利宏。
+ *	  本宏同步遍历两列表,任一耗尽即停。
+ *	  视调用点要求,也可断言两列表长度相等。
+ *	  (但若不等,有些调用方依赖此处定义的结束
+ *	  单元值分别是 NULL 或非 NULL;勿试图优化。)
+ *	见上。
+ *	见上。
  *
- * The caveats for foreach() apply equally here.
+ * foreach() 的注意事项同样适用。
  */
 #define forboth(cell1, list1, cell2, list2)							\
 	for (ForBothState cell1##__state = {(list1), (list2), 0}; \
@@ -477,14 +477,14 @@ for_each_cell_setup(const List *lst, const ListCell *initcell)
 
 /*
  * for_both_cell -
- *	  a convenience macro which loops through two lists starting from the
- *	  specified cells of each. This macro loops through both lists at the same
- *	  time, stopping when either list runs out of elements.  Depending on the
- *	  requirements of the call site, it may also be wise to assert that the
- *	  lengths of the two lists are equal, and initcell1 and initcell2 are at
- *	  the same position in the respective lists.
+ *	  从各列表指定单元起同步遍历两列表的便利宏。
+ *	  任一列表耗尽即停。视调用点要求,也可断言
+ *	  两列表等长,且 initcell1 与 initcell2 在各自
+ *	  列表中处于相同位置。
+ *	见上。
+ *	见上。
  *
- * The caveats for foreach() apply equally here.
+ * foreach() 的注意事项同样适用。
  */
 #define for_both_cell(cell1, list1, initcell1, cell2, list2, initcell2)	\
 	for (ForBothCellState cell1##__state = \
@@ -507,7 +507,7 @@ for_both_cell_setup(const List *list1, const ListCell *initcell1,
 
 /*
  * forthree -
- *	  the same for three lists
+ *	  对三个列表同上
  */
 #define forthree(cell1, list1, cell2, list2, cell3, list3) \
 	for (ForThreeState cell1##__state = {(list1), (list2), (list3), 0}; \
@@ -519,7 +519,7 @@ for_both_cell_setup(const List *list1, const ListCell *initcell1,
 
 /*
  * forfour -
- *	  the same for four lists
+ *	  对四个列表同上
  */
 #define forfour(cell1, list1, cell2, list2, cell3, list3, cell4, list4) \
 	for (ForFourState cell1##__state = {(list1), (list2), (list3), (list4), 0}; \
@@ -532,7 +532,7 @@ for_both_cell_setup(const List *list1, const ListCell *initcell1,
 
 /*
  * forfive -
- *	  the same for five lists
+ *	  对五个列表同上
  */
 #define forfive(cell1, list1, cell2, list2, cell3, list3, cell4, list4, cell5, list5) \
 	for (ForFiveState cell1##__state = {(list1), (list2), (list3), (list4), (list5), 0}; \
@@ -545,7 +545,7 @@ for_both_cell_setup(const List *list1, const ListCell *initcell1,
 		  cell4 != NULL && cell5 != NULL); \
 		 cell1##__state.i++)
 
-/* Functions in src/backend/nodes/list.c */
+/* src/backend/nodes/list.c 中的函数 */
 
 extern List *list_make1_impl(NodeTag t, ListCell datum1);
 extern List *list_make2_impl(NodeTag t, ListCell datum1, ListCell datum2);
@@ -599,7 +599,7 @@ extern List *list_union_oid(const List *list1, const List *list2);
 extern List *list_intersection(const List *list1, const List *list2);
 extern List *list_intersection_int(const List *list1, const List *list2);
 
-/* currently, there's no need for list_intersection_ptr etc */
+/* 目前无需 list_intersection_ptr 等 */
 
 extern List *list_difference(const List *list1, const List *list2);
 extern List *list_difference_ptr(const List *list1, const List *list2);

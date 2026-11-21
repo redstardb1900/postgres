@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * subscripting.h
- *		API for generic type subscripting
+ *	通用类型下标运算的 API
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,7 +15,7 @@
 
 #include "nodes/primnodes.h"
 
-/* Forward declarations, to avoid including other headers */
+/* 前向声明,以免包含其他头文件 */
 struct ParseState;
 struct SubscriptingRefState;
 struct SubscriptExecSteps;
@@ -154,14 +154,14 @@ typedef void (*SubscriptExecSetup) (const SubscriptingRef *sbsref,
 									struct SubscriptingRefState *sbsrefstate,
 									struct SubscriptExecSteps *methods);
 
-/* Struct returned by the SQL-visible subscript handler function */
+/* SQL 可见下标处理函数返回的结构 */
 typedef struct SubscriptRoutines
 {
-	SubscriptTransform transform;	/* parse analysis function */
-	SubscriptExecSetup exec_setup;	/* expression compilation function */
-	bool		fetch_strict;	/* is fetch SubscriptRef strict? */
-	bool		fetch_leakproof;	/* is fetch SubscriptRef leakproof? */
-	bool		store_leakproof;	/* is assignment SubscriptRef leakproof? */
+	SubscriptTransform transform;	/* 解析分析函数 */
+	SubscriptExecSetup exec_setup;	/* 表达式编译函数 */
+	bool		fetch_strict;	/* 取下标是否严格? */
+	bool		fetch_leakproof;	/* 取下标是否防泄漏? */
+	bool		store_leakproof;	/* 赋值 SubscriptRef 是否防泄漏? */
 } SubscriptRoutines;
 
 #endif							/* SUBSCRIPTING_H */

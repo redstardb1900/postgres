@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup.h
- *	  Exports from replication/basebackup.c.
+ *	  自 basebackup.c 的导出。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -15,23 +15,23 @@
 #include "nodes/replnodes.h"
 
 /*
- * Minimum and maximum values of MAX_RATE option in BASE_BACKUP command.
+ * BASE_BACKUP 命令中 MAX_RATE 选项的最小与最大值。
  */
 #define MAX_RATE_LOWER	32
 #define MAX_RATE_UPPER	1048576
 
 /*
- * Information about a tablespace
+ * 表空间信息
  *
- * In some usages, "path" can be NULL to denote the PGDATA directory itself.
+ * 某些用法下 path 可为 NULL，表示 PGDATA 目录本身。
  */
 typedef struct
 {
-	char	   *oid;			/* tablespace's OID, as a decimal string */
-	char	   *path;			/* full path to tablespace's directory */
-	char	   *rpath;			/* relative path if it's within PGDATA, else
+	char	   *oid;			/*  表空间 OID，十进制字符串  */
+	char	   *path;			/*  表空间目录的完整路径  */
+	char	   *rpath;			/*  PGDATA 内为相对路径，否则
 								 * NULL */
-	int64		size;			/* total size as sent; -1 if not known */
+	int64		size;			/*  已发送总大小；未知 -1  */
 } tablespaceinfo;
 
 extern void SendBaseBackup(BaseBackupCmd *cmd);

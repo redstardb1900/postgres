@@ -15,84 +15,84 @@
 #include "parser/parse_node.h"
 #include "partitioning/partdefs.h"
 
-struct RelOptInfo;				/* avoid including pathnodes.h here */
+struct RelOptInfo;				/*  避免在此包含 pathnodes.h  */
 
 
 /*
- * PartitionBoundInfoData encapsulates a set of partition bounds. It is
- * usually associated with partitioned tables as part of its partition
- * descriptor, but may also be used to represent a virtual partitioned
- * table such as a partitioned joinrel within the planner.
+ * PartitionBoundInfoData 封装一组分区边界。通常
+ * 作为分区描述符的一部分关联到分区表，也可
+ * 表示规划器中的虚拟分区表，如分区
+ * 连接关系。
  *
- * A list partition datum that is known to be NULL is never put into the
- * datums array. Instead, it is tracked using the null_index field.
+ * 已知为 NULL 的列表分区 datum 从不放入
+ * datums 数组，而用 null_index 字段跟踪。
  *
- * In the case of range partitioning, ndatums will typically be far less than
- * 2 * nparts, because a partition's upper bound and the next partition's lower
- * bound are the same in most common cases, and we only store one of them (the
- * upper bound).  In case of hash partitioning, ndatums will be the same as the
- * number of partitions.
+ * 范围分区时 ndatums 通常远小于 2*nparts，因
+ * 一分区上界与下一分区下界在常见情形相同，
+ * 我们只存其一（上界）。散列分区时 ndatums
+ * 等于分区数。
+ * 。
  *
- * For range and list partitioned tables, datums is an array of datum-tuples
- * with key->partnatts datums each.  For hash partitioned tables, it is an array
- * of datum-tuples with 2 datums, modulus and remainder, corresponding to a
- * given partition.
+ * 对范围与列表分区表，datums 是每元组含
+ * key->partnatts 个 datum 的数组。对散列分区表，
+ * 是每元组 2 个 datum（模与余数）的数组，对应
+ * 给定分区。
  *
- * The datums in datums array are arranged in increasing order as defined by
- * functions qsort_partition_rbound_cmp(), qsort_partition_list_value_cmp() and
- * qsort_partition_hbound_cmp() for range, list and hash partitioned tables
- * respectively. For range and list partitions this simply means that the
- * datums in the datums array are arranged in increasing order as defined by
- * the partition key's operator classes and collations.
+ * datums 数组按递增序排列，分别由
+ * qsort_partition_rbound_cmp()、qsort_partition_list_value_cmp() 与
+ * qsort_partition_hbound_cmp() 为范围、列表与散列
+ * 分区表定义。对范围与列表分区，这简单意味着
+ * 按分区键运算符类与排序规则定义的递增序
+ * 排列。
  *
- * In the case of list partitioning, the indexes array stores one entry for
- * each datum-array entry, which is the index of the partition that accepts
- * rows matching that datum.  So nindexes == ndatums.
+ * 列表分区时，indexes 为每个 datum 数组项存一条
+ * 记录：接受匹配该 datum 之行的分区下标。故
+ * nindexes == ndatums。
  *
- * In the case of range partitioning, the indexes array stores one entry per
- * distinct range datum, which is the index of the partition for which that
- * datum is an upper bound (or -1 for a "gap" that has no partition).  It is
- * convenient to have an extra -1 entry representing values above the last
- * range datum, so nindexes == ndatums + 1.
+ * 范围分区时，indexes 为每个相异范围 datum 存
+ * 一条：该 datum 为其上界的分区下标（无分区的
+ * "间隙" 为 -1）。另有额外 -1 表示高于最后
+ * 范围 datum 的值，故 nindexes == ndatums + 1。
+ * 。
  *
- * In the case of hash partitioning, the number of entries in the indexes
- * array is the same as the greatest modulus amongst all partitions (which
- * is a multiple of all partition moduli), so nindexes == greatest modulus.
- * The indexes array is indexed according to the hash key's remainder modulo
- * the greatest modulus, and it contains either the partition index accepting
- * that remainder, or -1 if there is no partition for that remainder.
+ * 散列分区时，indexes 项数等于所有分区中最大
+ * 模（且为各分区模的倍数），故 nindexes 等于
+ * 最大模。indexes 按下标=散列键余数对最大模
+ * 取模索引，内容为接受该余数的分区下标，或
+ * 无对应分区时为 -1。
+ * 。
  *
- * For LIST partitioned tables, we track the partition indexes of partitions
- * which are possibly "interleaved" partitions.  A partition is considered
- * interleaved if it allows multiple values and there exists at least one
- * other partition which could contain a value that lies between those values.
- * For example, if a partition exists FOR VALUES IN(3,5) and another partition
- * exists FOR VALUES IN (4), then the IN(3,5) partition is an interleaved
- * partition.  The same is possible with DEFAULT partitions since they can
- * contain any value that does not belong in another partition.  This field
- * only serves as proof that a particular partition is not interleaved, not
- * proof that it is interleaved.  When we're uncertain, we marked the
- * partition as interleaved.  The interleaved_parts field is only ever set for
- * RELOPT_BASEREL and RELOPT_OTHER_MEMBER_REL, it is always left NULL for join
- * relations.
+ * 对 LIST 分区表，跟踪可能"交错"分区的分区
+ * 下标。若某分区允许多值且存在另一分区可含
+ * 介于其间的值，则视为交错。例如存在分区
+ * FOR VALUES IN(3,5) 与另一 FOR VALUES IN(4)，则
+ * IN(3,5) 分区为交错分区。DEFAULT 分区亦然，
+ * 因其可含不属于其他分区的任何值。本字段仅
+ * 证明某分区非交错，不能证明其交错；不确定时
+ * 标为交错。interleaved_parts 仅对
+ * RELOPT_BASEREL 与 RELOPT_OTHER_MEMBER_REL 设置，
+ * 连接关系上始终为 NULL。
+ * 。
+ * 。
+ * 。
  */
 typedef struct PartitionBoundInfoData
 {
-	PartitionStrategy strategy; /* hash, list or range? */
-	int			ndatums;		/* Length of the datums[] array */
+	PartitionStrategy strategy; /*  分区策略  */
+	int			ndatums;		/*  datums[] 数组长度  */
 	Datum	  **datums;
-	PartitionRangeDatumKind **kind; /* The kind of each range bound datum;
-									 * NULL for hash and list partitioned
-									 * tables */
-	Bitmapset  *interleaved_parts;	/* Partition indexes of partitions which
-									 * may be interleaved. See above. This is
-									 * only set for LIST partitioned tables */
-	int			nindexes;		/* Length of the indexes[] array */
-	int		   *indexes;		/* Partition indexes */
-	int			null_index;		/* Index of the null-accepting partition; -1
-								 * if there isn't one */
-	int			default_index;	/* Index of the default partition; -1 if there
-								 * isn't one */
+	PartitionRangeDatumKind **kind; /*  各范围边界 datum 的种类；
+									 * 散列与列表分区表为
+									 * NULL */
+	Bitmapset  *interleaved_parts;	/*  可能交错分区的分区下标。
+									 * 见上文。仅对 LIST
+									 * 分区表设置 */
+	int			nindexes;		/*  indexes[] 数组长度  */
+	int		   *indexes;		/*  分区下标  */
+	int			null_index;		/*  接受空值的分区下标；无则为
+								 * -1 */
+	int			default_index;	/*  默认分区下标；无则为
+								 * -1 */
 } PartitionBoundInfoData;
 
 #define partition_bound_accepts_nulls(bi) ((bi)->null_index != -1)

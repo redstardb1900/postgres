@@ -16,49 +16,49 @@
 #include "utils/relcache.h"
 
 /*
- * Information about partitions of a partitioned table.
+ * 分区表各分区的信息。
  *
- * For partitioned tables where detached partitions exist, we only cache
- * descriptors that include all partitions, including detached; when we're
- * requested a descriptor without the detached partitions, we create one
- * afresh each time.  (The reason for this is that the set of detached
- * partitions that are visible to each caller depends on the snapshot it has,
- * so it's pretty much impossible to evict a descriptor from cache at the
- * right time.)
+ * 存在已分离分区时，只缓存含全部（含已分离）
+ * 分区的描述符；请求不含已分离分区的描述符时
+ * 每次新建。原因是对各调用者可见的已分离分区
+ * 集合取决于其快照，很难在正确时机从缓存
+ * 驱逐描述符。
+ * 。
+ * 。
  */
 typedef struct PartitionDescData
 {
-	int			nparts;			/* Number of partitions */
-	bool		detached_exist; /* Are there any detached partitions? */
-	Oid		   *oids;			/* Array of 'nparts' elements containing
-								 * partition OIDs in order of their bounds */
-	bool	   *is_leaf;		/* Array of 'nparts' elements storing whether
-								 * the corresponding 'oids' element belongs to
-								 * a leaf partition or not */
-	PartitionBoundInfo boundinfo;	/* collection of partition bounds */
+	int			nparts;			/*  分区个数  */
+	bool		detached_exist; /*  是否有已分离分区？  */
+	Oid		   *oids;			/*  nparts 元数组，按边界
+								 * 顺序存放分区 OIDs */
+	bool	   *is_leaf;		/*  nparts 元数组，表示对应
+								 * 'oids' 元素是否属于叶分区
+								 * 。 */
+	PartitionBoundInfo boundinfo;	/*  分区边界集合  */
 
-	/* Caching fields to cache lookups in get_partition_for_tuple() */
+	/*  缓存 get_partition_for_tuple() 查找  */
 
 	/*
-	 * Index into the PartitionBoundInfo's datum array for the last found
-	 * partition or -1 if none.
+	 * 上次找到的分区在 PartitionBoundInfo 的 datum
+	 * 下标，无则 -1。
 	 */
 	int			last_found_datum_index;
 
 	/*
-	 * Partition index of the last found partition or -1 if none has been
-	 * found yet.
+	 * 上次找到的分区下标，尚未找到则为
+	 * -1。
 	 */
 	int			last_found_part_index;
 
 	/*
-	 * For LIST partitioning, this is the number of times in a row that the
-	 * datum we're looking for a partition for matches the datum in the
-	 * last_found_datum_index index of the boundinfo->datums array.  For RANGE
-	 * partitioning, this is the number of times in a row we've found that the
-	 * datum we're looking for a partition for falls into the range of the
-	 * partition corresponding to the last_found_datum_index index of the
-	 * boundinfo->datums array.
+	 * 对 LIST 分区，连续多少次待查 datum 命中
+	 * boundinfo->datums 中 last_found_datum_index
+	 * 处的 datum。对 RANGE 分区，连续多少次待查
+	 * datum 落入 last_found_datum_index 对应
+	 * boundinfo->datums 项所表分区的范围。
+	 * 。
+	 * 。
 	 */
 	int			last_found_count;
 } PartitionDescData;

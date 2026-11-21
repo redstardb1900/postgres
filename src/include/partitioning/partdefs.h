@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * partdefs.h
- *		Base definitions for partitioned table handling
+ *		分区表处理的基本定义
  *
  * Copyright (c) 2007-2023, PostgreSQL Global Development Group
  *

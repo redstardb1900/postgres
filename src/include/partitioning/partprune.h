@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * partprune.h
- *	  prototypes for partprune.c
+ *	  partprune.c 的原型
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,34 +17,34 @@
 #include "nodes/execnodes.h"
 #include "partitioning/partdefs.h"
 
-struct PlannerInfo;				/* avoid including pathnodes.h here */
+struct PlannerInfo;				/*  避免在此包含 pathnodes.h  */
 struct RelOptInfo;
 
 
 /*
  * PartitionPruneContext
- *		Stores information needed at runtime for pruning computations
- *		related to a single partitioned table.
+ *		保存运行时对单个分区表做裁剪计算
+ *		所需的信息。
  *
- * strategy			Partition strategy, e.g. LIST, RANGE, HASH.
- * partnatts		Number of columns in the partition key.
- * nparts			Number of partitions in this partitioned table.
- * boundinfo		Partition boundary info for the partitioned table.
- * partcollation	Array of partnatts elements, storing the collations of the
- *					partition key columns.
- * partsupfunc		Array of FmgrInfos for the comparison or hashing functions
- *					associated with the partition keys (partnatts elements).
- *					(This points into the partrel's partition key, typically.)
- * stepcmpfuncs		Array of FmgrInfos for the comparison or hashing function
- *					for each pruning step and partition key.
- * ppccontext		Memory context holding this PartitionPruneContext's
- *					subsidiary data, such as the FmgrInfos.
- * planstate		Points to the parent plan node's PlanState when called
- *					during execution; NULL when called from the planner.
- * exprcontext		ExprContext to use when evaluating pruning expressions
- * exprstates		Array of ExprStates, indexed as per PruneCxtStateIdx; one
- *					for each partition key in each pruning step.  Allocated if
- *					planstate is non-NULL, otherwise NULL.
+ * strategy			分区策略，如 LIST、RANGE、HASH。
+ * partnatts		分区键列数。
+ * nparts			本分区表的分区数。
+ * boundinfo		本分区表的分区边界信息。
+ * partcollation	含 partnatts 个元素的数组，存分区键
+ *					列排序规则。
+ * partsupfunc		分区键比较或散列函数的 FmgrInfos
+ *					数组（partnatts 个）。（通常指向
+ *					partrel 的分区键。）
+ * stepcmpfuncs		各裁剪步骤与分区键的比较或散列
+ *					函数 FmgrInfos 数组。
+ * ppccontext		保存本 PartitionPruneContext 的
+ *					附属数据（如各 FmgrInfos）。
+ * planstate		执行时指向父计划节点的 PlanState；
+ *					规划器调用时为 NULL。
+ * exprcontext		求值裁剪表达式时用的 ExprContext
+ * exprstates		按 PruneCxtStateIdx 索引的 ExprStates
+ *					数组；每个裁剪步骤的每个分区键一个。
+ *					有 planstate 时分配。
  */
 typedef struct PartitionPruneContext
 {
@@ -62,10 +62,10 @@ typedef struct PartitionPruneContext
 } PartitionPruneContext;
 
 /*
- * PruneCxtStateIdx() computes the correct index into the stepcmpfuncs[]
- * and exprstates[] arrays for step step_id and partition key column keyno.
- * (Note: there is code that assumes the entries for a given step are
- * sequential, so this is not chosen freely.)
+ * PruneCxtStateIdx() 计算步骤 step_id、分区键列
+ * keyno 在 stepcmpfuncs[] 与 exprstates[] 中的正确
+ * 下标。（有代码假定同一步的项连续，故不可
+ * 随意选取。）
  */
 #define PruneCxtStateIdx(partnatts, step_id, keyno) \
 	((partnatts) * (step_id) + (keyno))

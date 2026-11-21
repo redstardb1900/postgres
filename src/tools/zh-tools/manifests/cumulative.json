@@ -8831,6 +8831,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0507-include.json",
    "kind": "manifest",
    "note": "0507"
+  },
+  {
+   "pattern": "src/include/backup/backup_manifest.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/backup/basebackup.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/backup/basebackup_sink.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/backup/basebackup_target.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/partitioning/partbounds.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/partitioning/partdefs.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/partitioning/partdesc.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/include/partitioning/partprune.h",
+   "kind": "c_comment",
+   "note": "0508"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0508-include.json",
+   "kind": "manifest",
+   "note": "0508"
   }
  ],
  "files": [
@@ -28687,6 +28732,106 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0507"
+  },
+  {
+   "path": "src/include/backup/backup_manifest.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/backup/basebackup.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 7,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；预算残行"
+   ],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/backup/basebackup_sink.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/backup/basebackup_target.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/partitioning/partbounds.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 10,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；预算残行"
+   ],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/partitioning/partdefs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；预算残行"
+   ],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/partitioning/partdesc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 10,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；预算残行"
+   ],
+   "note": "0508"
+  },
+  {
+   "path": "src/include/partitioning/partprune.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 4,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；预算残行"
+   ],
+   "note": "0508"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0508-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0508"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

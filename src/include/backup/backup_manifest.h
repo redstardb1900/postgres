@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * backup_manifest.h
- *	  Routines for generating a backup manifest.
+ *	  生成备份清单的例程。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *

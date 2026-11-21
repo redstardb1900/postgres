@@ -1,21 +1,21 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_sink.h
- *	  API for filtering or sending to a final destination the archives
- *	  produced by the base backup process
+ *	  用于过滤或发往最终目的地的 API：基备
+ *	  份过程产生的归档
  *
- * Taking a base backup produces one archive per tablespace directory,
- * plus a backup manifest unless that feature has been disabled. The
- * goal of the backup process is to put those archives and that manifest
- * someplace, possibly after postprocessing them in some way. A 'bbsink'
- * is an object to which those archives, and the manifest if present,
- * can be sent.
+ * 做基备份会为每个表空间目录产生一个归档，
+ * 另加备份清单（除非已禁用该功能）。备份
+ * 过程的目标是把这些归档与清单放到某处，
+ * 可能先做某种后处理。bbsink 是可接收这些
+ * 归档以及（若有）清单的对象。
+ * 。
  *
- * In practice, there will be a chain of 'bbsink' objects rather than
- * just one, with callbacks being forwarded from one to the next,
- * possibly with modification. Each object is responsible for a
- * single task e.g. command progress reporting, throttling, or
- * communication with the client.
+ * 实践中往往是一串 bbsink 而非单个，回调
+ * 从前一个转发到下一个，可能带修改。每个
+ * 对象负责一项任务，如命令进度报告、限速
+ * 或与客户端通信。
+ * 。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -30,38 +30,38 @@
 #include "common/compression.h"
 #include "nodes/pg_list.h"
 
-/* Forward declarations. */
+/*  前向声明。  */
 struct bbsink;
 struct bbsink_ops;
 typedef struct bbsink bbsink;
 typedef struct bbsink_ops bbsink_ops;
 
 /*
- * Overall backup state shared by all bbsink objects for a backup.
+ * 一次备份中各 bbsink 共享的总体备份状态。
  *
- * Before calling bbstate_begin_backup, caller must initiate a bbsink_state
- * object which will last for the lifetime of the backup, and must thereafter
- * update it as required before each new call to a bbsink method. The bbsink
- * will retain a pointer to the state object and will consult it to understand
- * the progress of the backup.
+ * 调用 bbstate_begin_backup 前，调用者须创建
+ * 贯穿备份生命周期的 bbsink_state，并在每次
+ * 调用 bbsink 方法前按需更新。bbsink 会保留
+ * 对该状态对象的指针，并据此了解备份进度。
+ * 。
  *
- * 'tablespaces' is a list of tablespaceinfo objects. It must be set before
- * calling bbstate_begin_backup() and must not be modified thereafter.
+ * 'tablespaces' 是 tablespaceinfo 对象列表。须在
+ * 调用 bbstate_begin_backup() 前设置，之后不得改。
  *
- * 'tablespace_num' is the index of the current tablespace within the list
- * stored in 'tablespaces'.
+ * 'tablespace_num' 是当前表空间在 'tablespaces'
+ * 列表中的下标。
  *
- * 'bytes_done' is the number of bytes read so far from $PGDATA.
+ * 'bytes_done' 是迄今从 $PGDATA 读出的字节数。
  *
- * 'bytes_total' is the total number of bytes estimated to be present in
- * $PGDATA, if we have estimated this.
+ * 'bytes_total' 是对 $PGDATA 中估计总字节数，
+ * 若已做过估计。
  *
- * 'bytes_total_is_valid' is true if and only if a proper estimate has been
- * stored into 'bytes_total'.
+ * 'bytes_total_is_valid' 为真当且仅当已把正当
+ * 存入 'bytes_total'。
  *
- * 'startptr' and 'starttli' identify the point in the WAL stream at which
- * the backup began. They must be set before calling bbstate_begin_backup()
- * and must not be modified thereafter.
+ * 'startptr' 与 'starttli' 标识备份开始时的 WAL
+ * 流位置。须在调用 bbstate_begin_backup() 前设置，
+ * 之后不得修改。
  */
 typedef struct bbsink_state
 {
@@ -75,26 +75,26 @@ typedef struct bbsink_state
 } bbsink_state;
 
 /*
- * Common data for any type of basebackup sink.
+ * 基备份接收器的公共数据。
  *
- * 'bbs_ops' is the relevant callback table.
+ * 'bbs_ops' 是相关回调表。
  *
- * 'bbs_buffer' is the buffer into which data destined for the bbsink
- * should be stored. It must be a multiple of BLCKSZ.
+ * 'bbs_buffer' 是应写入发往 bbsink 之数据的缓冲。
+ * 长度须为 BLCKSZ 的倍数。
  *
- * 'bbs_buffer_length' is the allocated length of the buffer.
+ * 'bbs_buffer_length' 是缓冲的已分配长度。
  *
- * 'bbs_next' is a pointer to another bbsink to which this bbsink is
- * forwarding some or all operations.
+ * 'bbs_next' 指向本 bbsink 正把部分或全部操作
+ * 转发给的另一 bbsink。
  *
- * 'bbs_state' is a pointer to the bbsink_state object for this backup.
- * Every bbsink associated with this backup should point to the same
- * underlying state object.
+ * 'bbs_state' 指向本备份的 bbsink_state。
+ * 与本备份关联的每个 bbsink 应指向同一
+ * 底层状态对象。
  *
- * In general it is expected that the values of these fields are set when
- * a bbsink is created and that they do not change thereafter. It's OK
- * to modify the data to which bbs_buffer or bbs_state point, but no changes
- * should be made to the contents of this struct.
+ * 一般期望这些字段在创建 bbsink 时设定，
+ * 之后不再改变。可修改 bbs_buffer 或 bbs_state
+ * 指向的数据，但不得改本结构体内容。
+ * 。
  */
 struct bbsink
 {
@@ -106,71 +106,71 @@ struct bbsink
 };
 
 /*
- * Callbacks for a base backup sink.
+ * 基备份接收器的回调。
  *
- * All of these callbacks are required. If a particular callback just needs to
- * forward the call to sink->bbs_next, use bbsink_forward_<callback_name> as
- * the callback.
+ * 这些回调皆必需。若某回调只需转发到
+ * sink->bbs_next，可用 bbsink_forward_<callback_name>
+ * 作回调。
  *
- * Callers should always invoke these callbacks via the bbsink_* inline
- * functions rather than calling them directly.
+ * 调用者应始终经 bbsink_* 内联函数调用这些
+ * 回调，而非直接调用。
  */
 struct bbsink_ops
 {
 	/*
-	 * This callback is invoked just once, at the very start of the backup. It
-	 * must set bbs_buffer to point to a chunk of storage where at least
-	 * bbs_buffer_length bytes of data can be written.
+	 * 本回调仅在备份最开始调用一次。须将
+	 * bbs_buffer 设为至少可写 bbs_buffer_length
+	 * 字节的存储块。
 	 */
 	void		(*begin_backup) (bbsink *sink);
 
 	/*
-	 * For each archive transmitted to a bbsink, there will be one call to the
-	 * begin_archive() callback, some number of calls to the
-	 * archive_contents() callback, and then one call to the end_archive()
-	 * callback.
+	 * 发往 bbsink 的每个归档会调用一次
+	 * begin_archive()，若干次 archive_contents()，
+	 * 再一次 end_archive()。
+	 * 。
 	 *
-	 * Before invoking the archive_contents() callback, the caller should copy
-	 * a number of bytes equal to what will be passed as len into bbs_buffer,
-	 * but not more than bbs_buffer_length.
+	 * 调用 archive_contents() 前，调用者应把长度
+	 * 等于即将传入的 len、且不超过 bbs_buffer_length
+	 * 的字节拷入 bbs_buffer。
 	 *
-	 * It's generally good if the buffer is as full as possible before the
-	 * archive_contents() callback is invoked, but it's not worth expending
-	 * extra cycles to make sure it's absolutely 100% full.
+	 * 调用 archive_contents() 前尽量填满缓冲为佳，
+	 * 但不值得花额外周期确保绝对 100% 满。
+	 * 。
 	 */
 	void		(*begin_archive) (bbsink *sink, const char *archive_name);
 	void		(*archive_contents) (bbsink *sink, size_t len);
 	void		(*end_archive) (bbsink *sink);
 
 	/*
-	 * If a backup manifest is to be transmitted to a bbsink, there will be
-	 * one call to the begin_manifest() callback, some number of calls to the
-	 * manifest_contents() callback, and then one call to the end_manifest()
-	 * callback. These calls will occur after all archives are transmitted.
+	 * 若要把备份清单发给 bbsink，会调用一次
+	 * begin_manifest()、若干次 manifest_contents()，
+	 * 再一次 end_manifest()。这些调用发生在全部
+	 * 归档传完之后。
 	 *
-	 * The rules for invoking the manifest_contents() callback are the same as
-	 * for the archive_contents() callback above.
+	 * 调用 manifest_contents() 的规则与上文
+	 * archive_contents() 相同。
 	 */
 	void		(*begin_manifest) (bbsink *sink);
 	void		(*manifest_contents) (bbsink *sink, size_t len);
 	void		(*end_manifest) (bbsink *sink);
 
 	/*
-	 * This callback is invoked just once, after all archives and the manifest
-	 * have been sent.
+	 * 本回调仅在全部归档与清单都发出后调用一次。
+	 * 。
 	 */
 	void		(*end_backup) (bbsink *sink, XLogRecPtr endptr, TimeLineID endtli);
 
 	/*
-	 * If a backup is aborted by an error, this callback is invoked before the
-	 * bbsink object is destroyed, so that it can release any resources that
-	 * would not be released automatically. If no error occurs, this callback
-	 * is invoked after the end_backup callback.
+	 * 若备份因错误中止，在销毁 bbsink 前调用本
+	 * 回调，以便释放不会自动释放的资源。若无错，
+	 * 则在 end_backup 回调之后调用。
+	 * 。
 	 */
 	void		(*cleanup) (bbsink *sink);
 };
 
-/* Begin a backup. */
+/*  开始备份  */
 static inline void
 bbsink_begin_backup(bbsink *sink, bbsink_state *state, int buffer_length)
 {
@@ -186,7 +186,7 @@ bbsink_begin_backup(bbsink *sink, bbsink_state *state, int buffer_length)
 	Assert((sink->bbs_buffer_length % BLCKSZ) == 0);
 }
 
-/* Begin an archive. */
+/*  开始归档。  */
 static inline void
 bbsink_begin_archive(bbsink *sink, const char *archive_name)
 {
@@ -195,23 +195,23 @@ bbsink_begin_archive(bbsink *sink, const char *archive_name)
 	sink->bbs_ops->begin_archive(sink, archive_name);
 }
 
-/* Process some of the contents of an archive. */
+/*  处理归档的部分内容。  */
 static inline void
 bbsink_archive_contents(bbsink *sink, size_t len)
 {
 	Assert(sink != NULL);
 
 	/*
-	 * The caller should make a reasonable attempt to fill the buffer before
-	 * calling this function, so it shouldn't be completely empty. Nor should
-	 * it be filled beyond capacity.
+	 * 调用者应合理尝试填满缓冲再调本函数，故缓冲
+	 * 不应完全空，也不得超过容量。
+	 * 。
 	 */
 	Assert(len > 0 && len <= sink->bbs_buffer_length);
 
 	sink->bbs_ops->archive_contents(sink, len);
 }
 
-/* Finish an archive. */
+/*  结束归档。  */
 static inline void
 bbsink_end_archive(bbsink *sink)
 {
@@ -220,7 +220,7 @@ bbsink_end_archive(bbsink *sink)
 	sink->bbs_ops->end_archive(sink);
 }
 
-/* Begin the backup manifest. */
+/*  开始备份清单。  */
 static inline void
 bbsink_begin_manifest(bbsink *sink)
 {
@@ -229,19 +229,19 @@ bbsink_begin_manifest(bbsink *sink)
 	sink->bbs_ops->begin_manifest(sink);
 }
 
-/* Process some of the manifest contents. */
+/*  处理清单的部分内容。  */
 static inline void
 bbsink_manifest_contents(bbsink *sink, size_t len)
 {
 	Assert(sink != NULL);
 
-	/* See comments in bbsink_archive_contents. */
+	/*  见 bbsink_archive_contents 注释。  */
 	Assert(len > 0 && len <= sink->bbs_buffer_length);
 
 	sink->bbs_ops->manifest_contents(sink, len);
 }
 
-/* Finish the backup manifest. */
+/*  结束备份清单。  */
 static inline void
 bbsink_end_manifest(bbsink *sink)
 {
@@ -250,7 +250,7 @@ bbsink_end_manifest(bbsink *sink)
 	sink->bbs_ops->end_manifest(sink);
 }
 
-/* Finish a backup. */
+/* 。 */
 static inline void
 bbsink_end_backup(bbsink *sink, XLogRecPtr endptr, TimeLineID endtli)
 {
@@ -260,7 +260,7 @@ bbsink_end_backup(bbsink *sink, XLogRecPtr endptr, TimeLineID endtli)
 	sink->bbs_ops->end_backup(sink, endptr, endtli);
 }
 
-/* Release resources before destruction. */
+/*  销毁前释放资源。  */
 static inline void
 bbsink_cleanup(bbsink *sink)
 {
@@ -269,7 +269,7 @@ bbsink_cleanup(bbsink *sink)
 	sink->bbs_ops->cleanup(sink);
 }
 
-/* Forwarding callbacks. Use these to pass operations through to next sink. */
+/*  转发回调。用于把操作传到下一接收器。  */
 extern void bbsink_forward_begin_backup(bbsink *sink);
 extern void bbsink_forward_begin_archive(bbsink *sink,
 										 const char *archive_name);
@@ -282,7 +282,7 @@ extern void bbsink_forward_end_backup(bbsink *sink, XLogRecPtr endptr,
 									  TimeLineID endtli);
 extern void bbsink_forward_cleanup(bbsink *sink);
 
-/* Constructors for various types of sinks. */
+/*  各类接收器的构造函数。  */
 extern bbsink *bbsink_copystream_new(bool send_to_client);
 extern bbsink *bbsink_gzip_new(bbsink *next, pg_compress_specification *);
 extern bbsink *bbsink_lz4_new(bbsink *next, pg_compress_specification *);
@@ -291,7 +291,7 @@ extern bbsink *bbsink_progress_new(bbsink *next, bool estimate_backup_size);
 extern bbsink *bbsink_server_new(bbsink *next, char *pathname);
 extern bbsink *bbsink_throttle_new(bbsink *next, uint32 maxrate);
 
-/* Extra interface functions for progress reporting. */
+/*  进度报告的额外接口函数。  */
 extern void basebackup_progress_wait_checkpoint(void);
 extern void basebackup_progress_estimate_backup_size(void);
 extern void basebackup_progress_wait_wal_archive(bbsink_state *);

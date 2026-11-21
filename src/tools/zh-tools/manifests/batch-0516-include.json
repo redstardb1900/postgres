@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0516",
+  "title": "include/parser/parse_node.h — batch 0516",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "9f1987099b5c98af60105edca5fcf4ef21e56dd0",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/parser/parse_node.h",
+      "kind": "c_comment",
+      "note": "0516"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0516-include.json",
+      "kind": "manifest",
+      "note": "0516"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/parser/parse_node.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 90,
+      "translated": 84,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/版权/路径；短 SQL 关键字标签 KEEP；预算残行"
+      ],
+      "note": "0516"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0516-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0516"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "parse_node.h；ParseExprKind/ParseState/命名空间；MIXED resjunk_tlist 清偿"
+}

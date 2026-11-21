@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ts_utils.h
- *	  helper utilities for tsearch
+ *	  全文检索的辅助工具
  *
  * Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -17,15 +17,15 @@
 #include "tsearch/ts_type.h"
 
 /*
- * Common parse definitions for tsvector and tsquery
+ * tsvector 与 tsquery 的公共解析定义
  */
 
-/* tsvector parser support. */
+/*  tsvector 解析。  */
 
-struct TSVectorParseStateData;	/* opaque struct in tsvector_parser.c */
+struct TSVectorParseStateData;	/*  parser 中不透明结构  */
 typedef struct TSVectorParseStateData *TSVectorParseState;
 
-/* flag bits that can be passed to init_tsvector_parser: */
+/*  可传给 init_tsvector_parser 的标志位：  */
 #define P_TSV_OPR_IS_DELIM	(1 << 0)
 #define P_TSV_IS_TSQUERY	(1 << 1)
 #define P_TSV_IS_WEB		(1 << 2)
@@ -39,7 +39,7 @@ extern bool gettoken_tsvector(TSVectorParseState state,
 							  char **endptr);
 extern void close_tsvector_parser(TSVectorParseState state);
 
-/* phrase operator begins with '<' */
+/*  短语运算符以 '<' 开头  */
 #define ISOPERATOR(x) \
 	( pg_mblen(x) == 1 && ( *(x) == '!' ||	\
 							*(x) == '&' ||	\
@@ -49,18 +49,18 @@ extern void close_tsvector_parser(TSVectorParseState state);
 							*(x) == '<'		\
 						  ) )
 
-/* parse_tsquery */
+/* 。 */
 
-struct TSQueryParserStateData;	/* private in backend/utils/adt/tsquery.c */
+struct TSQueryParserStateData;	/*  tsquery.c 中私有  */
 typedef struct TSQueryParserStateData *TSQueryParserState;
 
 typedef void (*PushFunction) (Datum opaque, TSQueryParserState state,
 							  char *token, int tokenlen,
-							  int16 tokenweights,	/* bitmap as described in
-													 * QueryOperand struct */
+							  int16 tokenweights,	/*  QueryOperand 所述
+													 * 位图 */
 							  bool prefix);
 
-/* flag bits that can be passed to parse_tsquery: */
+/*  可传给 parse_tsquery 的标志位：  */
 #define P_TSQ_PLAIN		(1 << 0)
 #define P_TSQ_WEB		(1 << 1)
 
@@ -70,14 +70,14 @@ extern TSQuery parse_tsquery(char *buf,
 							 int flags,
 							 Node *escontext);
 
-/* Functions for use by PushFunction implementations */
+/*  供 PushFunction 实现使用的函数  */
 extern void pushValue(TSQueryParserState state,
 					  char *strval, int lenval, int16 weight, bool prefix);
 extern void pushStop(TSQueryParserState state);
 extern void pushOperator(TSQueryParserState state, int8 oper, int16 distance);
 
 /*
- * parse plain text and lexize words
+ * 解析纯文本并词元化
  */
 typedef struct
 {
@@ -88,13 +88,13 @@ typedef struct
 		uint16		pos;
 
 		/*
-		 * When apos array is used, apos[0] is the number of elements in the
-		 * array (excluding apos[0]), and alen is the allocated size of the
-		 * array.
+		 * 使用 apos 数组时，apos[0] 为数组元素个数
+		 * （不含 apos[0]），alen 为数组已分配
+		 * 。
 		 */
 		uint16	   *apos;
 	}			pos;
-	uint16		flags;			/* currently, only TSL_PREFIX */
+	uint16		flags;			/*  目前仅 TSL_PREFIX  */
 	char	   *word;
 	uint32		alen;
 } ParsedWord;
@@ -110,10 +110,10 @@ typedef struct
 extern void parsetext(Oid cfgId, ParsedText *prs, char *buf, int32 buflen);
 
 /*
- * headline framework, flow in common to generate:
- *	1 parse text with hlparsetext
- *	2 parser-specific function to find part
- *	3 generateHeadline to generate result text
+ * 标题框架，生成流程通常为：
+ *	。
+ *	2 解析器专用函数找片段
+ *	3 generateHeadline 生成结果文本
  */
 
 extern void hlparsetext(Oid cfgId, HeadlineParsedText *prs, TSQuery query,
@@ -121,83 +121,83 @@ extern void hlparsetext(Oid cfgId, HeadlineParsedText *prs, TSQuery query,
 extern text *generateHeadline(HeadlineParsedText *prs);
 
 /*
- * TSQuery execution support
+ * TSQuery 执行支持
  *
- * TS_execute() executes a tsquery against data that can be represented in
- * various forms.  The TSExecuteCallback callback function is called to check
- * whether a given primitive tsquery value is matched in the data.
+ * TS_execute() 对可多种形式表示的数据执行
+ * tsquery。调用 TSExecuteCallback 检查给定
+ * 原始 tsquery 值是否在数据中匹配。
  */
 
-/* TS_execute requires ternary logic to handle NOT with phrase matches */
+/*  TS_execute 需三值逻辑以处理带短语匹配的 NOT  */
 typedef enum
 {
-	TS_NO,						/* definitely no match */
-	TS_YES,						/* definitely does match */
-	TS_MAYBE					/* can't verify match for lack of pos data */
+	TS_NO,						/*  确定不匹配  */
+	TS_YES,						/*  确定匹配  */
+	TS_MAYBE					/*  缺位置数据无法验证匹配  */
 } TSTernaryValue;
 
 /*
- * struct ExecPhraseData is passed to a TSExecuteCallback function if we need
- * lexeme position data (because of a phrase-match operator in the tsquery).
- * The callback should fill in position data when it returns TS_YES (success).
- * If it cannot return position data, it should leave "data" unchanged and
- * return TS_MAYBE.  The caller of TS_execute() must then arrange for a later
- * recheck with position data available.
+ * 若因 tsquery 中短语匹配运算符而需要词元位置
+ * 数据，则向 TSExecuteCallback 传入 ExecPhraseData。
+ * 回调在返回 TS_YES（成功）时应填写位置数据。
+ * 若无法返回位置数据，应保持 data 不变并返回
+ * TS_MAYBE。TS_execute() 调用方须安排稍后在
+ * 有位置数据时重检。
  *
- * The reported lexeme positions must be sorted and unique.  Callers must only
- * consult the position bits of the pos array, ie, WEP_GETPOS(data->pos[i]).
- * This allows the returned "pos" to point directly to the WordEntryPos
- * portion of a tsvector value.  If "allocated" is true then the pos array
- * is palloc'd workspace and caller may free it when done.
+ * 报告的词元位置须已排序且唯一。调用方只应查阅
+ * pos 数组的位置位，即 WEP_GETPOS(data->pos[i])。
+ * 这样返回的 pos 可直接指向 tsvector 的
+ * WordEntryPos 部分。若 allocated 为真，则 pos
+ * 为 palloc 工作区，用毕可由调用方释放。
  *
- * "negate" means that the pos array contains positions where the query does
- * not match, rather than positions where it does.  "width" is positive when
- * the match is wider than one lexeme.  Neither of these fields normally need
- * to be touched by TSExecuteCallback functions; they are used for
- * phrase-search processing within TS_execute.
+ * "negate" 表示 pos 含查询不匹配的位置，而非
+ * 匹配位置。"width" 在匹配宽于一词元时为正。
+ * 这两字段通常无须 TSExecuteCallback 触碰；供
+ * TS_execute 内短语搜索处理使用。
+ * 。
  *
- * All fields of the ExecPhraseData struct are initially zeroed by caller.
+ * ExecPhraseData 各字段由调用方初值为零。
  */
 typedef struct ExecPhraseData
 {
-	int			npos;			/* number of positions reported */
-	bool		allocated;		/* pos points to palloc'd data? */
-	bool		negate;			/* positions are where query is NOT matched */
-	WordEntryPos *pos;			/* ordered, non-duplicate lexeme positions */
-	int			width;			/* width of match in lexemes, less 1 */
+	int			npos;			/*  报告的位置个数  */
+	bool		allocated;		/* 。 */
+	bool		negate;			/*  位置为查询不匹配处  */
+	WordEntryPos *pos;			/*  有序、无重复的词元位置  */
+	int			width;			/* 。 */
 } ExecPhraseData;
 
 /*
- * Signature for TSQuery lexeme check functions
+ * TSQuery 词元检查函数的签名
  *
- * arg: opaque value passed through from caller of TS_execute
- * val: lexeme to test for presence of
- * data: to be filled with lexeme positions; NULL if position data not needed
+ * arg：从 TS_execute 调用方透传的不透明值
+ * val：待测是否存在的词元
+ * data：填写词元位置；不需要位置数据时为 NULL
  *
- * Return TS_YES if lexeme is present in data, TS_MAYBE if it might be
- * present, TS_NO if it definitely is not present.  If data is not NULL,
- * it must be filled with lexeme positions if available.  If position data
- * is not available, leave *data as zeroes and return TS_MAYBE, never TS_YES.
+ * 若词元在数据中返回 TS_YES，可能在则 TS_MAYBE，
+ * 确定不在则 TS_NO。若 data 非 NULL，有位置数据时
+ * 须填写；无位置数据则保持 *data 为零并返回
+ * TS_MAYBE，切勿返回 TS_YES。
  */
 typedef TSTernaryValue (*TSExecuteCallback) (void *arg, QueryOperand *val,
 											 ExecPhraseData *data);
 
 /*
- * Flag bits for TS_execute
+ * TS_execute 的标志位
  */
 #define TS_EXEC_EMPTY			(0x00)
 /*
- * If TS_EXEC_SKIP_NOT is set, then NOT sub-expressions are automatically
- * evaluated to be true.  This was formerly the default behavior.  It's now
- * deprecated because it tends to give silly answers, but some applications
- * might still have a use for it.
+ * 若置 TS_EXEC_SKIP_NOT，则 NOT 子表达式自动
+ * 求值为真。此为旧默认行为，现已不推荐（常给出
+ * 愚蠢结果），但某些应用可能仍有用。
+ * 。
  */
 #define TS_EXEC_SKIP_NOT		(0x01)
 /*
- * If TS_EXEC_PHRASE_NO_POS is set, allow OP_PHRASE to be executed lossily
- * in the absence of position information: a true result indicates that the
- * phrase might be present.  Without this flag, OP_PHRASE always returns
- * false if lexeme position information is not available.
+ * 若置 TS_EXEC_PHRASE_NO_POS，允许在无位置信息时
+ * 有损执行 OP_PHRASE：真结果表示短语可能存在。
+ * 无此标志时，无词元位置信息则 OP_PHRASE 恒返回
+ * 假。
  */
 #define TS_EXEC_PHRASE_NO_POS	(0x02)
 
@@ -212,13 +212,13 @@ extern List *TS_execute_locations(QueryItem *curitem, void *arg,
 extern bool tsquery_requires_match(QueryItem *curitem);
 
 /*
- * to_ts* - text transformation to tsvector, tsquery
+ * to_ts* - 文本到 tsvector、tsquery 的变换
  */
 extern TSVector make_tsvector(ParsedText *prs);
 extern int32 tsCompareString(char *a, int lena, char *b, int lenb, bool prefix);
 
 /*
- * Possible strategy numbers for indexes
+ * 索引可能的策略号
  *	  TSearchStrategyNumber  - (tsvector|text) @@ tsquery
  *	  TSearchWithClassStrategyNumber  - tsvector @@@ tsquery
  */
@@ -226,7 +226,7 @@ extern int32 tsCompareString(char *a, int lena, char *b, int lenb, bool prefix);
 #define TSearchWithClassStrategyNumber	2
 
 /*
- * TSQuery Utilities
+ * TSQuery 工具
  */
 extern QueryItem *clean_NOT(QueryItem *ptr, int32 *len);
 extern TSQuery cleanup_tsquery_stopwords(TSQuery in, bool noisy);
@@ -241,7 +241,7 @@ typedef struct QTNode
 	struct QTNode **child;
 } QTNode;
 
-/* bits in QTNode.flags */
+/* 。 */
 #define QTN_NEEDFREE	0x01
 #define QTN_NOCHANGE	0x02
 #define QTN_WORDFREE	0x04

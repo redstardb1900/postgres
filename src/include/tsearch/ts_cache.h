@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ts_cache.h
- *	  Tsearch related object caches.
+ *	  全文检索对象缓存。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,8 +17,8 @@
 
 
 /*
- * All TS*CacheEntry structs must share this common header
- * (see InvalidateTSCacheCallBack)
+ * 所有 TS*CacheEntry 结构须共享此公共头
+ * (见 InvalidateTSCacheCallBack)
  */
 typedef struct TSAnyCacheEntry
 {
@@ -29,8 +29,8 @@ typedef struct TSAnyCacheEntry
 
 typedef struct TSParserCacheEntry
 {
-	/* prsId is the hash lookup key and MUST BE FIRST */
-	Oid			prsId;			/* OID of the parser */
+	/*  prsId 为散列键且必须为首  */
+	Oid			prsId;			/*  解析器 OID  */
 	bool		isvalid;
 
 	Oid			startOid;
@@ -40,7 +40,7 @@ typedef struct TSParserCacheEntry
 	Oid			lextypeOid;
 
 	/*
-	 * Pre-set-up fmgr call of most needed parser's methods
+	 * 最常用解析器方法的预置 fmgr 调用
 	 */
 	FmgrInfo	prsstart;
 	FmgrInfo	prstoken;
@@ -50,15 +50,15 @@ typedef struct TSParserCacheEntry
 
 typedef struct TSDictionaryCacheEntry
 {
-	/* dictId is the hash lookup key and MUST BE FIRST */
+	/*  dictId 为散列键且必须为首  */
 	Oid			dictId;
 	bool		isvalid;
 
-	/* most frequent fmgr call */
+	/*  最频 fmgr 调用  */
 	Oid			lexizeOid;
 	FmgrInfo	lexize;
 
-	MemoryContext dictCtx;		/* memory context to store private data */
+	MemoryContext dictCtx;		/* 。 */
 	void	   *dictData;
 } TSDictionaryCacheEntry;
 
@@ -70,7 +70,7 @@ typedef struct
 
 typedef struct
 {
-	/* cfgId is the hash lookup key and MUST BE FIRST */
+	/*  cfgId 为散列键且必须为首  */
 	Oid			cfgId;
 	bool		isvalid;
 
@@ -82,7 +82,7 @@ typedef struct
 
 
 /*
- * GUC variable for current configuration
+ * 当前配置的 GUC 变量
  */
 extern PGDLLIMPORT char *TSCurrentConfig;
 

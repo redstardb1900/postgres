@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0509",
+  "title": "include/tsearch — batch 0509",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "f2f149ab99dea28724062145598c682536e28a1c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/tsearch/dicts/regis.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/include/tsearch/dicts/spell.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/include/tsearch/ts_cache.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/include/tsearch/ts_locale.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/include/tsearch/ts_public.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/include/tsearch/ts_type.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/include/tsearch/ts_utils.h",
+      "kind": "c_comment",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0509-include.json",
+      "kind": "manifest",
+      "note": "0509"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/tsearch/dicts/regis.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 2,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0509"
+    },
+    {
+      "path": "src/include/tsearch/dicts/spell.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 37,
+      "translated": 37,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0509"
+    },
+    {
+      "path": "src/include/tsearch/ts_cache.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 10,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行；typedef 例 KEEP"
+      ],
+      "note": "0509"
+    },
+    {
+      "path": "src/include/tsearch/ts_locale.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 6,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行；typedef 例 KEEP"
+      ],
+      "note": "0509"
+    },
+    {
+      "path": "src/include/tsearch/ts_public.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 36,
+      "translated": 35,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行；typedef 例 KEEP"
+      ],
+      "note": "0509"
+    },
+    {
+      "path": "src/include/tsearch/ts_type.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 36,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行；typedef 例 KEEP"
+      ],
+      "note": "0509"
+    },
+    {
+      "path": "src/include/tsearch/ts_utils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 35,
+      "translated": 34,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行；typedef 例 KEEP"
+      ],
+      "note": "0509"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0509-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0509"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "全文检索七头；WordEntryPos typedef 例 KEEP；避 MIXED 散文串"
+}

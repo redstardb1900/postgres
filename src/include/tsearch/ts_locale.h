@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ts_locale.h
- *		locale compatibility layer for tsearch
+ *		全文检索的区域设置兼容层
  *
  * Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -20,21 +20,21 @@
 #include "mb/pg_wchar.h"
 #include "utils/pg_locale.h"
 
-/* working state for tsearch_readline (should be a local var in caller) */
+/*  tsearch_readline 的工作状态（应为调用方局部变量）  */
 typedef struct
 {
 	FILE	   *fp;
 	const char *filename;
 	int			lineno;
-	StringInfoData buf;			/* current input line, in UTF-8 */
-	char	   *curline;		/* current input line, in DB's encoding */
-	/* curline may be NULL, or equal to buf.data, or a palloc'd string */
+	StringInfoData buf;			/*  当前输入行，UTF-8  */
+	char	   *curline;		/*  当前输入行，数据库编码  */
+	/*  curline 可为 NULL、等于 buf.data，或 palloc 串  */
 	ErrorContextCallback cb;
 } tsearch_readline_state;
 
 #define TOUCHAR(x)	(*((const unsigned char *) (x)))
 
-/* The second argument of t_iseq() must be a plain ASCII character */
+/*  t_iseq() 第二参数须为普通 ASCII 字符  */
 #define t_iseq(x,c)		(TOUCHAR(x) == (unsigned char) (c))
 
 #define COPYCHAR(d,s)	memcpy(d, s, pg_mblen(s))

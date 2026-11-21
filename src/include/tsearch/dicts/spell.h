@@ -2,7 +2,7 @@
  *
  * spell.h
  *
- * Declarations for ISpell dictionary
+ * ISpell 词典的声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -19,8 +19,8 @@
 #include "tsearch/ts_public.h"
 
 /*
- * SPNode and SPNodeData are used to represent prefix tree (Trie) to store
- * a words list.
+ * SPNode/SPNodeData 表示存词表的前缀树
+ * （Trie）。
  */
 struct SPNode;
 
@@ -28,15 +28,15 @@ typedef struct
 {
 	uint32		val:8,
 				isword:1,
-	/* Stores compound flags listed below */
+	/*  存储下列复合标志  */
 				compoundflag:4,
-	/* Reference to an entry of the AffixData field */
+	/*  对 AffixData 字段某项的引用  */
 				affix:19;
 	struct SPNode *node;
 } SPNodeData;
 
 /*
- * Names of FF_ are correlated with Hunspell options in affix file
+ * FF_ 名称与词缀文件中 Hunspell 选项对应
  * https://hunspell.github.io/
  */
 #define FF_COMPOUNDONLY		0x01
@@ -56,23 +56,23 @@ typedef struct SPNode
 #define SPNHDRSZ	(offsetof(SPNode,data))
 
 /*
- * Represents an entry in a words list.
+ * 表示词表中的一项。
  */
 typedef struct spell_struct
 {
 	union
 	{
 		/*
-		 * flag is filled in by NIImportDictionary(). After
-		 * NISortDictionary(), d is used instead of flag.
+		 * flag 由 NIImportDictionary() 填充。经
+		 * NISortDictionary() 后改用 d 而非 flag。
 		 */
 		char	   *flag;
-		/* d is used in mkSPNode() */
+		/*  d 用于 mkSPNode()  */
 		struct
 		{
-			/* Reference to an entry of the AffixData field */
+			/*  对 AffixData 字段某项的引用  */
 			int			affix;
-			/* Length of the word */
+			/*  词长  */
 			int			len;
 		}			d;
 	}			p;
@@ -82,12 +82,12 @@ typedef struct spell_struct
 #define SPELLHDRSZ	(offsetof(SPELL, word))
 
 /*
- * Represents an entry in an affix list.
+ * 表示词缀列表中的一项。
  */
 typedef struct aff_struct
 {
 	char	   *flag;
-	/* FF_SUFFIX or FF_PREFIX */
+	/*  FF_SUFFIX/FF_PREFIX  */
 	uint32		type:1,
 				flagflags:7,
 				issimple:1,
@@ -98,9 +98,9 @@ typedef struct aff_struct
 	union
 	{
 		/*
-		 * Arrays of AFFIX are moved and sorted.  We'll use a pointer to
-		 * regex_t to keep this struct small, and avoid assuming that regex_t
-		 * is movable.
+		 * AFFIX 数组会被移动与排序。用 regex_t 指针
+		 * 保持本结构体小，并避免假定 regex_t
+		 * 可移。
 		 */
 		regex_t    *pregex;
 		Regis		regis;
@@ -108,22 +108,22 @@ typedef struct aff_struct
 } AFFIX;
 
 /*
- * affixes use dictionary flags too
+ * 词缀也使用词典标志
  */
 #define FF_COMPOUNDPERMITFLAG	0x10
 #define FF_COMPOUNDFORBIDFLAG	0x20
 #define FF_CROSSPRODUCT			0x40
 
 /*
- * Don't change the order of these. Initialization sorts by these,
- * and expects prefixes to come first after sorting.
+ * 勿改这些顺序。初始化按此排序，并期望
+ * 排序后前缀在前。
  */
 #define FF_SUFFIX				1
 #define FF_PREFIX				0
 
 /*
- * AffixNode and AffixNodeData are used to represent prefix tree (Trie) to store
- * an affix list.
+ * AffixNode/AffixNodeData 表示存词缀列表的
+ * （Trie）。
  */
 struct AffixNode;
 
@@ -152,29 +152,29 @@ typedef struct
 } CMPDAffix;
 
 /*
- * Type of encoding affix flags in Hunspell dictionaries
+ * Hunspell 词典中词缀标志的编码类型
  */
 typedef enum
 {
-	FM_CHAR,					/* one character (like ispell) */
-	FM_LONG,					/* two characters */
-	FM_NUM						/* number, >= 0 and < 65536 */
+	FM_CHAR,					/*  单字符（如 ispell）  */
+	FM_LONG,					/*  两字符  */
+	FM_NUM						/*  数字 >=0 且 <65536  */
 } FlagMode;
 
 /*
- * Structure to store Hunspell options. Flag representation depends on flag
- * type. These flags are about support of compound words.
+ * 存储 Hunspell 选项的结构。标志表示依赖标志
+ * 类型。这些标志关乎复合词支持。
  */
 typedef struct CompoundAffixFlag
 {
 	union
 	{
-		/* Flag name if flagMode is FM_CHAR or FM_LONG */
+		/* 。 */
 		char	   *s;
-		/* Flag name if flagMode is FM_NUM */
+		/* 。 */
 		uint32		i;
 	}			flag;
-	/* we don't have a bsearch_arg version, so, copy FlagMode */
+	/*  无 bsearch_arg 版，故复制 FlagMode  */
 	FlagMode	flagMode;
 	uint32		value;
 } CompoundAffixFlag;
@@ -191,7 +191,7 @@ typedef struct
 	AffixNode  *Prefix;
 
 	SPNode	   *Dictionary;
-	/* Array of sets of affixes */
+	/*  词缀集合数组  */
 	char	  **AffixData;
 	int			lenAffixData;
 	int			nAffixData;
@@ -203,30 +203,30 @@ typedef struct
 	FlagMode	flagMode;
 
 	/*
-	 * All follow fields are actually needed only for initialization
+	 * 下列字段实际仅初始化时需要
 	 */
 
-	/* Array of Hunspell options in affix file */
+	/*  词缀文件中 Hunspell 选项数组  */
 	CompoundAffixFlag *CompoundAffixFlags;
-	/* number of entries in CompoundAffixFlags array */
+	/*  CompoundAffixFlags 数组项数  */
 	int			nCompoundAffixFlag;
-	/* allocated length of CompoundAffixFlags array */
+	/*  CompoundAffixFlags 数组已分配长度  */
 	int			mCompoundAffixFlag;
 
 	/*
-	 * Remaining fields are only used during dictionary construction; they are
-	 * set up by NIStartBuild and cleared by NIFinishBuild.
+	 * 其余字段仅词典构建时使用；由
+	 * NIStartBuild 设置、NIFinishBuild 清除。
 	 */
-	MemoryContext buildCxt;		/* temp context for construction */
+	MemoryContext buildCxt;		/*  构建用临时上下文  */
 
-	/* Temporary array of all words in the dict file */
+	/*  词典文件中全部词的临时数组  */
 	SPELL	  **Spell;
-	int			nspell;			/* number of valid entries in Spell array */
-	int			mspell;			/* allocated length of Spell array */
+	int			nspell;			/*  Spell 数组中有效项数  */
+	int			mspell;			/*  Spell 数组已分配长度  */
 
-	/* These are used to allocate "compact" data without palloc overhead */
-	char	   *firstfree;		/* first free address (always maxaligned) */
-	size_t		avail;			/* free space remaining at firstfree */
+	/*  用于无 palloc 开销地分配"紧凑"数据  */
+	char	   *firstfree;		/* 。 */
+	size_t		avail;			/*  firstfree 处剩余空闲空间  */
 } IspellDict;
 
 extern TSLexeme *NINormalizeWord(IspellDict *Conf, char *word);

@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * ts_public.h
- *	  Public interface to various tsearch modules, such as
- *	  parsers and dictionaries.
+ *	  各全文检索模块（如解析器与词典）的
+ *	  公共接口。
  *
  * Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -16,11 +16,11 @@
 #include "tsearch/ts_type.h"
 
 /*
- * Parser's framework
+ * 解析器框架
  */
 
 /*
- * returning type for prslextype method of parser
+ * 解析器 prslextype 方法的返回类型
  */
 typedef struct
 {
@@ -30,72 +30,72 @@ typedef struct
 } LexDescr;
 
 /*
- * Interface to headline generator (tsparser's prsheadline function)
+ * 与标题生成器的接口（tsparser 的 prsheadline）
  *
- * HeadlineParsedText describes the text that is to be highlighted.
- * Some fields are passed from the core code to the prsheadline function,
- * while others are output from the prsheadline function.
+ * HeadlineParsedText 描述待高亮的文本。
+ * 部分字段由核心传给 prsheadline，其余由
+ * prsheadline 输出。
  *
- * The principal data is words[], an array of HeadlineWordEntry,
- * one entry per token, of length curwords.
- * The fields of HeadlineWordEntry are:
+ * 主要数据是 words[]：HeadlineWordEntry 数组，
+ * 每词元一项，长度为 curwords。
+ * HeadlineWordEntry 字段为：
  *
- * in, selected, replace, skip: these flags are initially zero
- * and may be set by the prsheadline function.  A consecutive group
- * of tokens marked "in" form a "fragment" to be output.
- * Such tokens may additionally be marked selected, replace, or skip
- * to modify how they are shown.  (If you set more than one of those
- * bits, you get an unspecified one of those behaviors.)
+ * in、selected、replace、skip：初值为零，
+ * 可由 prsheadline 置位。标为 "in" 的连续词元
+ * 构成待输出的"片段"。此类词元还可标
+ * selected、replace 或 skip 以调整显示。
+ * （若置多位，行为为其中未指定的一种。）
+ * 。
  *
- * type, len, pos, word: filled by core code to describe the token.
+ * type、len、pos、word：由核心填写以描述词元。
  *
- * item: if the token matches any operand of the tsquery of interest,
- * a pointer to such an operand.  (If there are multiple matching
- * operands, we generate extra copies of the HeadlineWordEntry to hold
- * all the pointers.  The extras are marked with repeated = 1 and should
- * be ignored except for checking the item pointer.)
+ * item：若词元匹配感兴趣 tsquery 的任一操作数，
+ * 则为指向该操作数的指针。（多匹配时生成
+ * 额外 HeadlineWordEntry 副本持有全部指针。
+ * 额外项标 repeated=1，除检查 item 指针外
+ * 应忽略。）
  */
 typedef struct
 {
-	uint32		selected:1,		/* token is to be highlighted */
-				in:1,			/* token is part of headline */
-				replace:1,		/* token is to be replaced with a space */
-				repeated:1,		/* duplicate entry to hold item pointer */
-				skip:1,			/* token is to be skipped (not output) */
-				unused:3,		/* available bits */
-				type:8,			/* parser's token category */
-				len:16;			/* length of token */
-	WordEntryPos pos;			/* position of token */
-	char	   *word;			/* text of token (not null-terminated) */
-	QueryOperand *item;			/* a matching query operand, or NULL if none */
+	uint32		selected:1,		/*  词元要高亮  */
+				in:1,			/*  词元属于标题  */
+				replace:1,		/*  词元要以空格替换  */
+				repeated:1,		/*  持 item 指针的重复项  */
+				skip:1,			/*  词元要跳过（不输出）  */
+				unused:3,		/*  可用位  */
+				type:8,			/*  解析器词元类别  */
+				len:16;			/*  词元长度  */
+	WordEntryPos pos;			/*  词元位置  */
+	char	   *word;			/*  词元文本（非空终止）  */
+	QueryOperand *item;			/*  匹配的查询操作数，或 NULL  */
 } HeadlineWordEntry;
 
 typedef struct
 {
-	/* Fields filled by core code before calling prsheadline function: */
+	/*  调用 prsheadline 前由核心填写的字段：  */
 	HeadlineWordEntry *words;
-	int32		lenwords;		/* allocated length of words[] */
-	int32		curwords;		/* current number of valid entries */
-	int32		vectorpos;		/* used by ts_parse.c in filling pos fields */
+	int32		lenwords;		/*  words[] 已分配长度  */
+	int32		curwords;		/*  当前有效项数  */
+	int32		vectorpos;		/*  ts_parse.c 填写 pos 字段时使用  */
 
-	/* The prsheadline function must fill these fields: */
-	/* Strings for marking selected tokens and separating fragments: */
-	char	   *startsel;		/* palloc'd strings */
+	/*  prsheadline 须填写这些字段：  */
+	/*  标记选中词元与分隔片段的字符串：  */
+	char	   *startsel;		/*  palloc 串  */
 	char	   *stopsel;
 	char	   *fragdelim;
-	int16		startsellen;	/* lengths of strings */
+	int16		startsellen;	/*  字符串长度  */
 	int16		stopsellen;
 	int16		fragdelimlen;
 } HeadlineParsedText;
 
 /*
- * Common useful things for tsearch subsystem
+ * 全文检索子系统常用事项
  */
 extern char *get_tsearch_config_filename(const char *basename,
 										 const char *extension);
 
 /*
- * Often useful stopword list management
+ * 常用停用词表管理
  */
 typedef struct
 {
@@ -108,52 +108,52 @@ extern void readstoplist(const char *fname, StopList *s,
 extern bool searchstoplist(StopList *s, char *key);
 
 /*
- * Interface with dictionaries
+ * 与词典的接口
  */
 
-/* return struct for any lexize function */
+/*  任意 lexize 函数的返回结构  */
 typedef struct
 {
 	/*----------
-	 * Number of current variant of split word.  For example the Norwegian
-	 * word 'fotballklubber' has two variants to split: ( fotball, klubb )
-	 * and ( fot, ball, klubb ). So, dictionary should return:
+	 * 当前切分变体编号。例如挪威语词
+	 * 'fotballklubber' 有两种切分：(fotball/klubb)
+	 * 与 (fot/ball/klubb)。故词典应返回：
 	 *
-	 * nvariant    lexeme
+	 * 变体号		词元
 	 *	   1	   fotball
 	 *	   1	   klubb
 	 *	   2	   fot
 	 *	   2	   ball
 	 *	   2	   klubb
 	 *
-	 * In general, a TSLexeme will be considered to belong to the same split
-	 * variant as the previous one if they have the same nvariant value.
-	 * The exact values don't matter, only changes from one lexeme to next.
+	 * 一般地，若 nvariant 与前一相同，则该
+	 * TSLexeme 视为属同一切分变体。
+	 * 确切取值无关，只看相邻词元间是否变化。
 	 *----------
 	 */
 	uint16		nvariant;
 
-	uint16		flags;			/* See flag bits below */
+	uint16		flags;			/*  见下方标志  */
 
-	char	   *lexeme;			/* C string */
+	char	   *lexeme;			/*  C 串  */
 } TSLexeme;
 
-/* Flag bits that can appear in TSLexeme.flags */
+/*  TSLexeme.flags 中的标志位  */
 #define TSL_ADDPOS		0x01
 #define TSL_PREFIX		0x02
 #define TSL_FILTER		0x04
 
 /*
- * Struct for supporting complex dictionaries like thesaurus.
- * 4th argument for dictlexize method is a pointer to this
+ * 支持复杂词典（如同义词库）的结构。
+ * dictlexize 方法的第 4 参数指向本结构
  */
 typedef struct
 {
-	bool		isend;			/* in: marks for lexize_info about text end is
-								 * reached */
-	bool		getnext;		/* out: dict wants next lexeme */
-	void	   *private_state;	/* internal dict state between calls with
-								 * getnext == true */
+	bool		isend;			/*  in：告知 lexize_info 文本末已
+								 * 到达 */
+	bool		getnext;		/* 。 */
+	void	   *private_state;	/*  getnext==true 时调用间的
+								 * 。 */
 } DictSubState;
 
 #endif							/* _PG_TS_PUBLIC_H_ */

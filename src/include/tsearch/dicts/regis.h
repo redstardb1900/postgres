@@ -2,7 +2,7 @@
  *
  * regis.h
  *
- * Declarations for fast regex subset, used by ISpell
+ * ISpell 所用快速正则子集的声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -43,7 +43,7 @@ extern bool RS_isRegis(const char *str);
 extern void RS_compile(Regis *r, bool issuffix, const char *str);
 extern void RS_free(Regis *r);
 
-/*returns true if matches */
+/*匹配则返回 true  */
 extern bool RS_execute(Regis *r, char *str);
 
 #endif

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * proc.h
- *	  per-process shared memory data structures
+ *	  每进程共享内存数据结构
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,25 +23,25 @@
 #include "storage/proclist_types.h"
 
 /*
- * Each backend advertises up to PGPROC_MAX_CACHED_SUBXIDS TransactionIds
- * for non-aborted subtransactions of its current top transaction.  These
- * have to be treated as running XIDs by other backends.
+ * 每个后端最多公布 PGPROC_MAX_CACHED_SUBXIDS 个 TransactionIds
+ * （当前顶层事务中未中止的子事务）。其他
+ * 后端必须把它们视为运行中的 XIDs。
  *
- * We also keep track of whether the cache overflowed (ie, the transaction has
- * generated at least one subtransaction that didn't fit in the cache).
- * If none of the caches have overflowed, we can assume that an XID that's not
- * listed anywhere in the PGPROC array is not a running transaction.  Else we
- * have to look at pg_subtrans.
+ * 我们还跟踪缓存是否已溢出（即该事务至少生成过一个
+ * 未装入缓存的子事务）。若皆未溢出，则可假定
+ * 未出现在任何 PGPROC 数组中的 XID 不是运行中事务。
+ * 否则必须查看 
+ * pg_subtrans。
  *
- * See src/test/isolation/specs/subxid-overflow.spec if you change this.
+ * 若改此值，见 src/test/isolation/specs/subxid-overflow.spec。
  */
-#define PGPROC_MAX_CACHED_SUBXIDS 64	/* XXX guessed-at value */
+#define PGPROC_MAX_CACHED_SUBXIDS 64	/* XXX 猜测值 */
 
 typedef struct XidCacheStatus
 {
-	/* number of cached subxids, never more than PGPROC_MAX_CACHED_SUBXIDS */
+	/* 已缓存 subxid 数，从不超过 PGPROC_MAX_CACHED_SUBXIDS */
 	uint8		count;
-	/* has PGPROC->subxids overflowed */
+	/* PGPROC->subxids 溢出? */
 	bool		overflowed;
 } XidCacheStatus;
 
@@ -51,76 +51,76 @@ struct XidCache
 };
 
 /*
- * Flags for PGPROC->statusFlags and PROC_HDR->statusFlags[]
+ * PGPROC->statusFlags 与 PROC_HDR->statusFlags[] 的标志
  */
-#define		PROC_IS_AUTOVACUUM	0x01	/* is it an autovac worker? */
-#define		PROC_IN_VACUUM		0x02	/* currently running lazy vacuum */
-#define		PROC_IN_SAFE_IC		0x04	/* currently running CREATE INDEX
-										 * CONCURRENTLY or REINDEX
-										 * CONCURRENTLY on non-expressional,
-										 * non-partial index */
-#define		PROC_VACUUM_FOR_WRAPAROUND	0x08	/* set by autovac only */
-#define		PROC_IN_LOGICAL_DECODING	0x10	/* currently doing logical
-												 * decoding outside xact */
-#define		PROC_AFFECTS_ALL_HORIZONS	0x20	/* this proc's xmin must be
-												 * included in vacuum horizons
-												 * in all databases */
+#define		PROC_IS_AUTOVACUUM	0x01	/* 自动清理工作者？ */
+#define		PROC_IN_VACUUM		0x02	/* 正在跑惰性 vacuum */
+#define		PROC_IN_SAFE_IC		0x04	/* 正在跑 CREATE INDEX 
+										 * CONCURRENTLY/REINDEX
+										 * CONCURRENTLY 于非表达式、
+										 * 非部分索引) */
+#define		PROC_VACUUM_FOR_WRAPAROUND	0x08	/* 仅 autovac 设置 */
+#define		PROC_IN_LOGICAL_DECODING	0x10	/* 正在事务外逻辑
+												 * 解码 */
+#define		PROC_AFFECTS_ALL_HORIZONS	0x20	/* 本进程 xmin 须计入
+												 * 所有库的 vacuum
+												 * 地平线 */
 
-/* flags reset at EOXact */
+/* EOXact 复位标志 */
 #define		PROC_VACUUM_STATE_MASK \
 	(PROC_IN_VACUUM | PROC_IN_SAFE_IC | PROC_VACUUM_FOR_WRAPAROUND)
 
 /*
- * Xmin-related flags. Make sure any flags that affect how the process' Xmin
- * value is interpreted by VACUUM are included here.
+ * 与 Xmin 相关的标志。凡影响 VACUUM 如何解释进程
+ * Xmin 值的标志都须列入此处。
  */
 #define		PROC_XMIN_FLAGS (PROC_IN_VACUUM | PROC_IN_SAFE_IC)
 
 /*
- * We allow a small number of "weak" relation locks (AccessShareLock,
- * RowShareLock, RowExclusiveLock) to be recorded in the PGPROC structure
- * rather than the main lock table.  This eases contention on the lock
- * manager LWLocks.  See storage/lmgr/README for additional details.
+ * 允许把少量"弱"关系锁（AccessShareLock、
+ * RowShareLock、RowExclusiveLock）记在 PGPROC 结构中
+ * 而非主锁表。这可减轻锁管理器
+ * LWLocks 上的争用。详见 storage/lmgr/README。
  */
 #define		FP_LOCK_SLOTS_PER_BACKEND 16
 
 /*
- * An invalid pgprocno.  Must be larger than the maximum number of PGPROC
- * structures we could possibly have.  See comments for MAX_BACKENDS.
+ * 无效的 pgprocno。必须大于我们可能拥有的
+ * PGPROC 结构最大数目。见 MAX_BACKENDS 注释。
  */
 #define INVALID_PGPROCNO		PG_INT32_MAX
 
 /*
- * Flags for PGPROC.delayChkptFlags
+ * PGPROC.delayChkptFlags 的标志
  *
- * These flags can be used to delay the start or completion of a checkpoint
- * for short periods. A flag is in effect if the corresponding bit is set in
- * the PGPROC of any backend.
+ * 这些标志可用于短暂延迟检查点的启动或完成。
+ * 若任后端 PGPROC 中对应位被置位，则该标志
+ * 生效。
  *
- * For our purposes here, a checkpoint has three phases: (1) determine the
- * location to which the redo pointer will be moved, (2) write all the
- * data durably to disk, and (3) WAL-log the checkpoint.
+ * 此处把检查点分为三阶段：(1) 确定 redo 指针将
+ * 移到的位置，(2) 把全部数据持久写到磁盘，
+ * (3) 把检查点记入 WAL。
  *
- * Setting DELAY_CHKPT_START prevents the system from moving from phase 1
- * to phase 2. This is useful when we are performing a WAL-logged modification
- * of data that will be flushed to disk in phase 2. By setting this flag
- * before writing WAL and clearing it after we've both written WAL and
- * performed the corresponding modification, we ensure that if the WAL record
- * is inserted prior to the new redo point, the corresponding data changes will
- * also be flushed to disk before the checkpoint can complete. (In the
- * extremely common case where the data being modified is in shared buffers
- * and we acquire an exclusive content lock on the relevant buffers before
- * writing WAL, this mechanism is not needed, because phase 2 will block
- * until we release the content lock and then flush the modified data to
+ * 置 DELAY_CHKPT_START 可阻止系统从阶段 1 进入
+ * 阶段 2。当我们正在做将在阶段 2 刷盘的、记入
+ *  WAL 的数据修改时很有用。在写 WAL 前置位，并在
+ * 既写完 WAL 又完成对应修改后清除，即可保证：若
+ * 该 WAL 记录插在新 redo 点之前，对应数据变更也
+ * 会在检查点完成前刷到磁盘。（极常见情形：待改
+ * 数据在共享缓冲区中，且写 WAL 前已对相关缓冲
+ * 取得独占内容锁，则无需此机制，因阶段 2 会阻塞
+ * 到我们释放内容锁并刷写修改后的数据到
+ * 磁盘为止。）
+ * 阻塞至刷盘完成。
  * disk.)
  *
- * Setting DELAY_CHKPT_COMPLETE prevents the system from moving from phase 2
- * to phase 3. This is useful if we are performing a WAL-logged operation that
- * might invalidate buffers, such as relation truncation. In this case, we need
- * to ensure that any buffers which were invalidated and thus not flushed by
- * the checkpoint are actually destroyed on disk. Replay can cope with a file
- * or block that doesn't exist, but not with a block that has the wrong
- * contents.
+ * 置 DELAY_CHKPT_COMPLETE 可阻止系统从阶段 2 进入
+ * 阶段 3。当我们正在做可能使缓冲失效的、记入 WAL 
+ * 的操作（如关系截断）时很有用。此时必须确保那些
+ * 已失效因而未被检查点刷写的缓冲，确实在磁盘上被
+ * 销毁。重放能应付文件或块不存在，但不能应付
+ * 具有错误内容的
+ * 块。
  */
 #define DELAY_CHKPT_START		(1<<0)
 #define DELAY_CHKPT_COMPLETE	(1<<1)
@@ -133,174 +133,174 @@ typedef enum
 } ProcWaitStatus;
 
 /*
- * Each backend has a PGPROC struct in shared memory.  There is also a list of
- * currently-unused PGPROC structs that will be reallocated to new backends.
+ * 每个后端在共享内存中有一个 PGPROC 结构。另有一张
+ * 当前未用的 PGPROC 结构链表，将再分配给新后端。
  *
- * links: list link for any list the PGPROC is in.  When waiting for a lock,
- * the PGPROC is linked into that lock's waitProcs queue.  A recycled PGPROC
- * is linked into ProcGlobal's freeProcs list.
+ * links：PGPROC 所在任意链表的链节。等待锁时，
+ * PGPROC 链入该锁的 waitProcs 队列。回收的 PGPROC
+ * 链入 ProcGlobal 的 freeProcs。
  *
- * Note: twophase.c also sets up a dummy PGPROC struct for each currently
- * prepared transaction.  These PGPROCs appear in the ProcArray data structure
- * so that the prepared transactions appear to be still running and are
- * correctly shown as holding locks.  A prepared transaction PGPROC can be
- * distinguished from a real one at need by the fact that it has pid == 0.
- * The semaphore and lock-activity fields in a prepared-xact PGPROC are unused,
- * but its myProcLocks[] lists are valid.
+ * 注意：twophase.c 也会为每个当前预备事务建立虚设
+ * PGPROC 结构。这些 PGPROCs 出现在 ProcArray 中，
+ * 使预备事务看似仍在运行并正确显示持锁。
+ * 必要时可用 pid == 0 把它与真正的 PGPROC 区分开。
+ * 预备事务 PGPROC 的信号量与锁活动字段闲置
+ * 不用，但其 myProcLocks[] 链表仍然
+ * 有效。
  *
- * We allow many fields of this struct to be accessed without locks, such as
- * delayChkptFlags and isBackgroundWorker. However, keep in mind that writing
- * mirrored ones (see below) requires holding ProcArrayLock or XidGenLock in
- * at least shared mode, so that pgxactoff does not change concurrently.
+ * 本结构许多字段允许无锁访问，如 delayChkptFlags
+ * 与 isBackgroundWorker。但须牢记：写镜像字段（见下）
+ * 至少要以共享模式持有 ProcArrayLock 或 XidGenLock，
+ * 以免 pgxactoff 并发变化。
  *
- * Mirrored fields:
+ * 镜像字段：
  *
- * Some fields in PGPROC (see "mirrored in ..." comment) are mirrored into an
- * element of more densely packed ProcGlobal arrays. These arrays are indexed
- * by PGPROC->pgxactoff. Both copies need to be maintained coherently.
+ * PGPROC 中某些字段（见 "镜像于 ..." 注释）被镜像到
+ * 更密排的 ProcGlobal 数组元素。这些数组以
+ * PGPROC->pgxactoff 为下标。两份拷贝须保持一致。
  *
- * NB: The pgxactoff indexed value can *never* be accessed without holding
+ * 注意：经 pgxactoff 索引的值*绝不可*在未持锁时
  * locks.
  *
- * See PROC_HDR for details.
+ * 详见 PROC_HDR。
  */
 struct PGPROC
 {
-	/* proc->links MUST BE FIRST IN STRUCT (see ProcSleep,ProcWakeup,etc) */
-	dlist_node	links;			/* list link if process is in a list */
-	dlist_head *procgloballist; /* procglobal list that owns this PGPROC */
+	/* proc->links MUST BE FIRST IN STRUCT (见 ProcSleep,ProcWakeup) */
+	dlist_node	links;			/* 在链表中时的链节 */
+	dlist_head *procgloballist; /* 拥有本 PGPROC 的链表 */
 
-	PGSemaphore sem;			/* ONE semaphore to sleep on */
+	PGSemaphore sem;			/* 睡眠用信号量 */
 	ProcWaitStatus waitStatus;
 
-	Latch		procLatch;		/* generic latch for process */
+	Latch		procLatch;		/* 进程通用锁存器 */
 
 
-	TransactionId xid;			/* id of top-level transaction currently being
-								 * executed by this proc, if running and XID
-								 * is assigned; else InvalidTransactionId.
-								 * mirrored in ProcGlobal->xids[pgxactoff] */
+	TransactionId xid;			/* 正在执行的顶层 xid（若运行且
+								 * 已分配 XID；否则为
+								 * InvalidTransactionId。
+								 * 镜像于 ProcGlobal->xids[pgxactoff] */
 
-	TransactionId xmin;			/* minimal running XID as it was when we were
-								 * starting our xact, excluding LAZY VACUUM:
-								 * vacuum must not remove tuples deleted by
-								 * xid >= xmin ! */
+	TransactionId xmin;			/* 启动事务所见最小运行 XID，
+								 * 不含 LAZY VACUUM：vacuum 切勿删除
+								 * 由 xid >= xmin 删除的
+								 * 元组！ */
 
-	LocalTransactionId lxid;	/* local id of top-level transaction currently
-								 * being executed by this proc, if running;
-								 * else InvalidLocalTransactionId */
-	int			pid;			/* Backend's process ID; 0 if prepared xact */
+	LocalTransactionId lxid;	/* 正在执行的顶层事务本地 ID（若
+								 * 运行；否则为
+								 * InvalidLocalTransactionId */
+	int			pid;			/* 后端进程 ID；预备事务则为 0 */
 
-	int			pgxactoff;		/* offset into various ProcGlobal->arrays with
-								 * data mirrored from this PGPROC */
+	int			pgxactoff;		/* 镜像数据在 ProcGlobal 数组中的
+								 * PGPROC 之数据的偏移 */
 
-	int			pgprocno;		/* Number of this PGPROC in
-								 * ProcGlobal->allProcs array. This is set
-								 * once by InitProcGlobal().
-								 * ProcGlobal->allProcs[n].pgprocno == n */
+	int			pgprocno;		/* 本 PGPROC 在
+								 * ProcGlobal->allProcs 之编号，由
+								 * InitProcGlobal()。
+								 * allProcs[n].pgprocno == n */
 
-	/* These fields are zero while a backend is still starting up: */
-	BackendId	backendId;		/* This backend's backend ID (if assigned) */
-	Oid			databaseId;		/* OID of database this backend is using */
-	Oid			roleId;			/* OID of role using this backend */
+	/* 后端仍在启动时这些字段为零： */
+	BackendId	backendId;		/* 本后端 backend ID（若已分配） */
+	Oid			databaseId;		/* 本后端正在使用的数据库 OID */
+	Oid			roleId;			/* 使用本后端的角色 OID */
 
-	Oid			tempNamespaceId;	/* OID of temp schema this backend is
-									 * using */
+	Oid			tempNamespaceId;	/* 本后端所用临时模式
+									 * OID */
 
-	bool		isBackgroundWorker; /* true if not a regular backend. */
+	bool		isBackgroundWorker; /* 若非普通后端则为真 */
 
 	/*
-	 * While in hot standby mode, shows that a conflict signal has been sent
-	 * for the current transaction. Set/cleared while holding ProcArrayLock,
-	 * though not required. Accessed without lock, if needed.
+	 * 热备模式下表示已为当前事务发送冲突信号。
+	 * 在持有 ProcArrayLock 时置位/清除（虽非必须）。
+	 * 需要时可无锁访问。
 	 */
 	bool		recoveryConflictPending;
 
-	/* Info about LWLock the process is currently waiting for, if any. */
-	uint8		lwWaiting;		/* see LWLockWaitState */
-	uint8		lwWaitMode;		/* lwlock mode being waited for */
-	proclist_node lwWaitLink;	/* position in LW lock wait list */
+	/* 进程当前等待的 LWLock 信息（若有） */
+	uint8		lwWaiting;		/* 见 LWLockWaitState */
+	uint8		lwWaitMode;		/* 等待中的 lwlock 模式 */
+	proclist_node lwWaitLink;	/* 轻量锁等待列表位置 */
 
-	/* Support for condition variables. */
-	proclist_node cvWaitLink;	/* position in CV wait list */
+	/* 条件变量支持。 */
+	proclist_node cvWaitLink;	/* CV 等待列表位置 */
 
-	/* Info about lock the process is currently waiting for, if any. */
-	/* waitLock and waitProcLock are NULL if not currently waiting. */
-	LOCK	   *waitLock;		/* Lock object we're sleeping on ... */
-	PROCLOCK   *waitProcLock;	/* Per-holder info for awaited lock */
-	LOCKMODE	waitLockMode;	/* type of lock we're waiting for */
-	LOCKMASK	heldLocks;		/* bitmask for lock types already held on this
-								 * lock object by this backend */
-	pg_atomic_uint64 waitStart; /* time at which wait for lock acquisition
-								 * started */
+	/* 进程当前等待的锁信息（若有） */
+	/* 未在等待时 waitLock 与 waitProcLock 为 NULL */
+	LOCK	   *waitLock;		/* 正在睡眠的锁对象…… */
+	PROCLOCK   *waitProcLock;	/* 所待锁的每持有者信息 */
+	LOCKMODE	waitLockMode;	/* 正在等待的锁类型 */
+	LOCKMASK	heldLocks;		/* 本后端在该锁对象上已持
+								 * 有的锁类型位掩码 */
+	pg_atomic_uint64 waitStart; /* 开始等待获取锁的
+								 * 时刻 */
 
-	int			delayChkptFlags;	/* for DELAY_CHKPT_* flags */
+	int			delayChkptFlags;	/* DELAY_CHKPT_* 标志 */
 
-	uint8		statusFlags;	/* this backend's status flags, see PROC_*
-								 * above. mirrored in
+	uint8		statusFlags;	/* 本后端状态标志，见 PROC_*。
+								 * 镜像于
 								 * ProcGlobal->statusFlags[pgxactoff] */
 
 	/*
-	 * Info to allow us to wait for synchronous replication, if needed.
-	 * waitLSN is InvalidXLogRecPtr if not waiting; set only by user backend.
-	 * syncRepState must not be touched except by owning process or WALSender.
-	 * syncRepLinks used only while holding SyncRepLock.
+	 * 供在需要时等待同步复制的信息。
+	 * 未等待时 waitLSN 为 InvalidXLogRecPtr；仅用户后端设置。
+	 * 除拥有进程或 WALSender 外切勿触碰 syncRepState。
+	 * 仅持 SyncRepLock 时用 syncRepLinks。
 	 */
-	XLogRecPtr	waitLSN;		/* waiting for this LSN or higher */
-	int			syncRepState;	/* wait state for sync rep */
-	dlist_node	syncRepLinks;	/* list link if process is in syncrep queue */
+	XLogRecPtr	waitLSN;		/* 正在等待该 LSN 或更高 */
+	int			syncRepState;	/* 同步复制等待态 */
+	dlist_node	syncRepLinks;	/* 若在 syncrep 队列中则为链节 */
 
 	/*
-	 * All PROCLOCK objects for locks held or awaited by this backend are
-	 * linked into one of these lists, according to the partition number of
-	 * their lock.
+	 * 本后端所持有或等待的全部 PROCLOCK，按所属锁
+	 * 的分区号链入下列某一
+	 * 链表。
 	 */
 	dlist_head	myProcLocks[NUM_LOCK_PARTITIONS];
 
-	XidCacheStatus subxidStatus;	/* mirrored with
+	XidCacheStatus subxidStatus;	/* 镜像于
 									 * ProcGlobal->subxidStates[i] */
-	struct XidCache subxids;	/* cache for subtransaction XIDs */
+	struct XidCache subxids;	/* 子事务 XIDs 缓存 */
 
-	/* Support for group XID clearing. */
-	/* true, if member of ProcArray group waiting for XID clear */
+	/* 组 XID 清除支持。 */
+	/* 若为等待 XID 清除的 ProcArray 组成员则为真 */
 	bool		procArrayGroupMember;
-	/* next ProcArray group member waiting for XID clear */
+	/* 下一个等待 XID 清除的 ProcArray 组成员 */
 	pg_atomic_uint32 procArrayGroupNext;
 
 	/*
-	 * latest transaction id among the transaction's main XID and
-	 * subtransactions
+	 * 事务主 XID 与子事务中最新的
+	 * 事务 ID
 	 */
 	TransactionId procArrayGroupMemberXid;
 
-	uint32		wait_event_info;	/* proc's wait information */
+	uint32		wait_event_info;	/* 进程等待信息 */
 
-	/* Support for group transaction status update. */
-	bool		clogGroupMember;	/* true, if member of clog group */
-	pg_atomic_uint32 clogGroupNext; /* next clog group member */
-	TransactionId clogGroupMemberXid;	/* transaction id of clog group member */
-	XidStatus	clogGroupMemberXidStatus;	/* transaction status of clog
-											 * group member */
-	int			clogGroupMemberPage;	/* clog page corresponding to
-										 * transaction id of clog group member */
-	XLogRecPtr	clogGroupMemberLsn; /* WAL location of commit record for clog
-									 * group member */
+	/* 组事务状态更新支持。 */
+	bool		clogGroupMember;	/* 若属 clog 组则为真 */
+	pg_atomic_uint32 clogGroupNext; /* 下一 clog 组成员 */
+	TransactionId clogGroupMemberXid;	/* clog 组成员的事务 ID */
+	XidStatus	clogGroupMemberXidStatus;	/* clog 组成员的事务
+											 * 状态 */
+	int			clogGroupMemberPage;	/* 对应组成员 xid 的
+										 * clog 页 */
+	XLogRecPtr	clogGroupMemberLsn; /* clog 组成员提交记录的
+									 * WAL 位置 */
 
-	/* Lock manager data, recording fast-path locks taken by this backend. */
-	LWLock		fpInfoLock;		/* protects per-backend fast-path state */
-	uint64		fpLockBits;		/* lock modes held for each fast-path slot */
-	Oid			fpRelId[FP_LOCK_SLOTS_PER_BACKEND]; /* slots for rel oids */
-	bool		fpVXIDLock;		/* are we holding a fast-path VXID lock? */
-	LocalTransactionId fpLocalTransactionId;	/* lxid for fast-path VXID
-												 * lock */
+	/* 锁管理器数据，记录本后端取得的快速路径锁。 */
+	LWLock		fpInfoLock;		/* 保护每后端快速路径状态 */
+	uint64		fpLockBits;		/* 各快速路径槽所持锁模式 */
+	Oid			fpRelId[FP_LOCK_SLOTS_PER_BACKEND]; /* 关系 OID 槽 */
+	bool		fpVXIDLock;		/* 是否持有快速路径 VXID 锁？ */
+	LocalTransactionId fpLocalTransactionId;	/* 快速路径 VXID 的
+												 * lxid */
 
 	/*
-	 * Support for lock groups.  Use LockHashPartitionLockByProc on the group
-	 * leader to get the LWLock protecting these fields.
+	 * 锁组支持。对组领导者使用 LockHashPartitionLockByProc
+	 * 以取得保护这些字段的 LWLock。
 	 */
-	PGPROC	   *lockGroupLeader;	/* lock group leader, if I'm a member */
-	dlist_head	lockGroupMembers;	/* list of members, if I'm a leader */
-	dlist_node	lockGroupLink;	/* my member link, if I'm a member */
+	PGPROC	   *lockGroupLeader;	/* 锁组领导（若我是成员） */
+	dlist_head	lockGroupMembers;	/* 成员列表（若为领导） */
+	dlist_node	lockGroupLink;	/* 我的成员链节（成员） */
 };
 
 /* NOTE: "typedef struct PGPROC PGPROC" appears in storage/lock.h. */

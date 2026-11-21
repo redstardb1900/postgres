@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0498",
+  "title": "include/storage proc.h 前半 — batch 0498",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8b54d48c6746bf9c4b12718121d5f89561c82019",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/proc.h",
+      "kind": "c_comment",
+      "note": "0498"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0498-storage.json",
+      "kind": "manifest",
+      "note": "0498"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/proc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 254,
+      "translated": 175,
+      "preserved": 79,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径；L115 disk.)；L163 locks.；L>=306 PROC_HDR 余部留 0499"
+      ],
+      "note": "每进程；子事务；检查点延迟；镜像；必须/切勿；热备"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0498-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0498"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二十刀：proc.h L<=303；PROC_HDR 余部见 0499"
+}

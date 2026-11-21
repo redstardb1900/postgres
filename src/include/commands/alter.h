@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * alter.h
- *	  prototypes for commands/alter.c
+ *	commands/alter.c 的原型
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

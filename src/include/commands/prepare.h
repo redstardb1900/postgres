@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * prepare.h
- *	  PREPARE, EXECUTE and DEALLOCATE commands, and prepared-stmt storage
+ *	PREPARE、EXECUTE、DEALLOCATE 命令与预备语句存储
  *
  *
  * Copyright (c) 2002-2023, PostgreSQL Global Development Group
@@ -18,23 +18,23 @@
 #include "utils/plancache.h"
 
 /*
- * The data structure representing a prepared statement.  This is now just
- * a thin veneer over a plancache entry --- the main addition is that of
- * a name.
+ * 表示预备语句的数据结构。现仅为 plancache
+ * 条目上的薄包装——主要增添是名字。
  *
- * Note: all subsidiary storage lives in the referenced plancache entry.
+ *
+ * 注意：一切附属存储住在所引用的 plancache 条目中。
  */
 typedef struct
 {
-	/* dynahash.c requires key to be first field */
+	/* dynahash.c 要求键为第一字段 */
 	char		stmt_name[NAMEDATALEN];
-	CachedPlanSource *plansource;	/* the actual cached plan */
-	bool		from_sql;		/* prepared via SQL, not FE/BE protocol? */
-	TimestampTz prepare_time;	/* the time when the stmt was prepared */
+	CachedPlanSource *plansource;	/* 实际缓存的计划 */
+	bool		from_sql;		/* 经 SQL 预备，非 FE/BE 协议？ */
+	TimestampTz prepare_time;	/* 语句被预备的时间 */
 } PreparedStatement;
 
 
-/* Utility statements PREPARE, EXECUTE, DEALLOCATE, EXPLAIN EXECUTE */
+/* 实用语句 PREPARE、EXECUTE、DEALLOCATE、EXPLAIN EXECUTE */
 extern void PrepareQuery(ParseState *pstate, PrepareStmt *stmt,
 						 int stmt_location, int stmt_len);
 extern void ExecuteQuery(ParseState *pstate,
@@ -46,7 +46,7 @@ extern void ExplainExecuteQuery(ExecuteStmt *execstmt, IntoClause *into,
 								ExplainState *es, const char *queryString,
 								ParamListInfo params, QueryEnvironment *queryEnv);
 
-/* Low-level access to stored prepared statements */
+/* 对已存预备语句的底层访问 */
 extern void StorePreparedStatement(const char *stmt_name,
 								   CachedPlanSource *plansource,
 								   bool from_sql);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tablecmds.h
- *	  prototypes for tablecmds.c.
+ *	tablecmds.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,7 +21,7 @@
 #include "storage/lock.h"
 #include "utils/relcache.h"
 
-struct AlterTableUtilityContext;	/* avoid including tcop/utility.h here */
+struct AlterTableUtilityContext;	/* 避免在此含 tcop/utility.h */
 
 
 extern ObjectAddress DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * event_trigger.h
- *	  Declarations for command trigger handling.
+ *	命令触发器处理的声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -24,16 +24,16 @@
 typedef struct EventTriggerData
 {
 	NodeTag		type;
-	const char *event;			/* event name */
-	Node	   *parsetree;		/* parse tree */
+	const char *event;			/* 事件名 */
+	Node	   *parsetree;		/* 解析树 */
 	CommandTag	tag;
 } EventTriggerData;
 
 /*
- * Reasons for relation rewrites.
+ * 关系重写的原因。
  *
- * pg_event_trigger_table_rewrite_reason() uses these values, so make sure to
- * update the documentation when changing this list.
+ * pg_event_trigger_table_rewrite_reason() 用这些值，改列表时
+ * 务必更新文档。
  */
 #define AT_REWRITE_ALTER_PERSISTENCE	0x01
 #define AT_REWRITE_DEFAULT_VAL			0x02
@@ -41,8 +41,8 @@ typedef struct EventTriggerData
 #define AT_REWRITE_ACCESS_METHOD		0x08
 
 /*
- * EventTriggerData is the node type that is passed as fmgr "context" info
- * when a function is called by the event trigger manager.
+ * EventTriggerData 是事件触发器管理器调用函数时传入的
+ * 节点类型（作 fmgr 上下文）。
  */
 #define CALLED_AS_EVENT_TRIGGER(fcinfo) \
 	((fcinfo)->context != NULL && IsA((fcinfo)->context, EventTriggerData))

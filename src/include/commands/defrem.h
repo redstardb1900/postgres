@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * defrem.h
- *	  POSTGRES define and remove utility definitions.
+ *	POSTGRES 定义与移除实用工具定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -144,7 +144,7 @@ extern Oid	get_table_am_oid(const char *amname, bool missing_ok);
 extern Oid	get_am_oid(const char *amname, bool missing_ok);
 extern char *get_am_name(Oid amOid);
 
-/* support routines in commands/define.c */
+/* commands/define.c 中的支持例程 */
 
 extern char *defGetString(DefElem *def);
 extern double defGetNumeric(DefElem *def);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * publicationcmds.h
- *	  prototypes for publicationcmds.c.
+ *	publicationcmds.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@
 #include "parser/parse_node.h"
 #include "utils/inval.h"
 
-/* Same as MAXNUMMESSAGES in sinvaladt.c */
+/* 同 sinvaladt.c 的 MAXNUMMESSAGES */
 #define MAX_RELCACHE_INVAL_MSGS 4096
 
 extern ObjectAddress CreatePublication(ParseState *pstate, CreatePublicationStmt *stmt);

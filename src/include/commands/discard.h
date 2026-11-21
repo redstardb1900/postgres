@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * discard.h
- *	  prototypes for discard.c.
+ *	discard.c 的原型。
  *
  *
  * Copyright (c) 1996-2023, PostgreSQL Global Development Group

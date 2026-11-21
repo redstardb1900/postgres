@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * proclang.h
- *	  prototypes for proclang.c.
+ *	proclang.c 的原型。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

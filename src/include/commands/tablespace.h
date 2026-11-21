@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tablespace.h
- *		Tablespace management commands (create/drop tablespace).
+ *	表空间管理命令（创建/删除表空间）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,14 +21,14 @@
 
 extern PGDLLIMPORT bool allow_in_place_tablespaces;
 
-/* XLOG stuff */
+/* XLOG */
 #define XLOG_TBLSPC_CREATE		0x00
 #define XLOG_TBLSPC_DROP		0x10
 
 typedef struct xl_tblspc_create_rec
 {
 	Oid			ts_id;
-	char		ts_path[FLEXIBLE_ARRAY_MEMBER]; /* null-terminated string */
+	char		ts_path[FLEXIBLE_ARRAY_MEMBER]; /* 空终止字符串 */
 } xl_tblspc_create_rec;
 
 typedef struct xl_tblspc_drop_rec
@@ -38,7 +38,7 @@ typedef struct xl_tblspc_drop_rec
 
 typedef struct TableSpaceOpts
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/* varlena 头（勿直接碰！） */
 	float8		random_page_cost;
 	float8		seq_page_cost;
 	int			effective_io_concurrency;

@@ -1,7 +1,7 @@
 /*
  * seclabel.h
  *
- * Prototypes for functions in commands/seclabel.c
+ * commands/seclabel.c 中函数的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,7 +12,7 @@
 #include "catalog/objectaddress.h"
 
 /*
- * Internal APIs
+ * 内部 API
  */
 extern char *GetSecurityLabel(const ObjectAddress *object,
 							  const char *provider);
@@ -22,7 +22,7 @@ extern void DeleteSecurityLabel(const ObjectAddress *object);
 extern void DeleteSharedSecurityLabel(Oid objectId, Oid classId);
 
 /*
- * Statement and ESP hook support
+ * 语句与 ESP 钩子支持
  */
 extern ObjectAddress ExecSecLabelStmt(SecLabelStmt *stmt);
 

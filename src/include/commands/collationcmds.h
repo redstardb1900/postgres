@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * collationcmds.h
- *	  prototypes for collationcmds.c.
+ *	collationcmds.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

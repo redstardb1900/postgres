@@ -1,0 +1,519 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0529",
+  "title": "include/commands 小头 — batch 0529",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "7e0ca5b66ca2d7137c42e1a62806080b20a0623c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/commands/alter.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/async.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/cluster.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/collationcmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/comment.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/conversioncmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/createas.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/dbcommands.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/dbcommands_xlog.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/defrem.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/discard.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/event_trigger.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/extension.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/lockcmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/matview.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/policy.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/portalcmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/prepare.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/proclang.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/publicationcmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/schemacmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/seclabel.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/sequence.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/subscriptioncmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/tablecmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/tablespace.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/typecmds.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/include/commands/user.h",
+      "kind": "c_comment",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0529-include.json",
+      "kind": "manifest",
+      "note": "0529"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/commands/alter.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/async.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 13,
+      "translated": 6,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=6"
+    },
+    {
+      "path": "src/include/commands/cluster.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 8,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=8"
+    },
+    {
+      "path": "src/include/commands/collationcmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/comment.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 8,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=8"
+    },
+    {
+      "path": "src/include/commands/conversioncmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/createas.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/dbcommands.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/dbcommands_xlog.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 8,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=8"
+    },
+    {
+      "path": "src/include/commands/defrem.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 19,
+      "translated": 12,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=12"
+    },
+    {
+      "path": "src/include/commands/discard.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 6,
+      "translated": 1,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/event_trigger.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 8,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=8"
+    },
+    {
+      "path": "src/include/commands/extension.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 8,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=8"
+    },
+    {
+      "path": "src/include/commands/lockcmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=2"
+    },
+    {
+      "path": "src/include/commands/matview.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/policy.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/portalcmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/prepare.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 16,
+      "translated": 11,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=11"
+    },
+    {
+      "path": "src/include/commands/proclang.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/publicationcmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=2"
+    },
+    {
+      "path": "src/include/commands/schemacmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/seclabel.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 3,
+      "preserved": 4,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=3"
+    },
+    {
+      "path": "src/include/commands/sequence.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 4,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=4"
+    },
+    {
+      "path": "src/include/commands/subscriptioncmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/tablecmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=2"
+    },
+    {
+      "path": "src/include/commands/tablespace.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 4,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=4"
+    },
+    {
+      "path": "src/include/commands/typecmds.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=1"
+    },
+    {
+      "path": "src/include/commands/user.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 4,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0529 T=4"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0529-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0529"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0529"
+    }
+  ]
+}

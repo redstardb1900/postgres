@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * cluster.h
- *	  header file for postgres cluster command stuff
+ *	postgres CLUSTER 命令相关头文件
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994-5, Regents of the University of California
@@ -19,16 +19,16 @@
 #include "utils/relcache.h"
 
 
-/* flag bits for ClusterParams->options */
-#define CLUOPT_VERBOSE 0x01		/* print progress info */
-#define CLUOPT_RECHECK 0x02		/* recheck relation state */
-#define CLUOPT_RECHECK_ISCLUSTERED 0x04 /* recheck relation state for
+/* ClusterParams->options 的标志位 */
+#define CLUOPT_VERBOSE 0x01		/* 打印进度信息 */
+#define CLUOPT_RECHECK 0x02		/* 复查关系状态 */
+#define CLUOPT_RECHECK_ISCLUSTERED 0x04 /* 复查关系状态以找
 										 * indisclustered */
 
-/* options for CLUSTER */
+/* CLUSTER 的选项 */
 typedef struct ClusterParams
 {
-	bits32		options;		/* bitmask of CLUOPT_* */
+	bits32		options;		/* CLUOPT_* 位掩码 */
 } ClusterParams;
 
 extern void cluster(ParseState *pstate, ClusterStmt *stmt, bool isTopLevel);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sequence.h
- *	  prototypes for sequence.c.
+ *	sequence.c 的原型。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,7 +32,7 @@ typedef struct FormData_pg_sequence_data
 typedef FormData_pg_sequence_data *Form_pg_sequence_data;
 
 /*
- * Columns of a sequence relation
+ * 序列关系的列
  */
 
 #define SEQ_COL_LASTVAL			1
@@ -42,13 +42,13 @@ typedef FormData_pg_sequence_data *Form_pg_sequence_data;
 #define SEQ_COL_FIRSTCOL		SEQ_COL_LASTVAL
 #define SEQ_COL_LASTCOL			SEQ_COL_CALLED
 
-/* XLOG stuff */
+/* XLOG */
 #define XLOG_SEQ_LOG			0x00
 
 typedef struct xl_seq_rec
 {
 	RelFileLocator locator;
-	/* SEQUENCE TUPLE DATA FOLLOWS AT THE END */
+	/* 序列元组数据接在末尾 */
 } xl_seq_rec;
 
 extern int64 nextval_internal(Oid relid, bool check_permissions);

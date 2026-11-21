@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * user.h
- *	  Commands for manipulating roles (formerly called users).
+ *	操纵角色（昔称用户）的命令。
  *
  *
  * src/include/commands/user.h
@@ -17,11 +17,11 @@
 #include "parser/parse_node.h"
 #include "utils/guc.h"
 
-/* GUCs */
-extern PGDLLIMPORT int Password_encryption; /* values from enum PasswordType */
+/* GUC */
+extern PGDLLIMPORT int Password_encryption; /* PasswordType 枚举的取值 */
 extern PGDLLIMPORT char *createrole_self_grant;
 
-/* Hook to check passwords in CreateRole() and AlterRole() */
+/* 在 CreateRole()/AlterRole() 中检查口令的钩子 */
 typedef void (*check_password_hook_type) (const char *username, const char *shadow_pass, PasswordType password_type, Datum validuntil_time, bool validuntil_null);
 
 extern PGDLLIMPORT check_password_hook_type check_password_hook;

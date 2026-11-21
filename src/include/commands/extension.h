@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * extension.h
- *		Extension management commands (create/drop extension).
+ *	扩展管理命令（创建/删除扩展）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,13 +19,13 @@
 
 
 /*
- * creating_extension is only true while running a CREATE EXTENSION or ALTER
- * EXTENSION UPDATE command.  It instructs recordDependencyOnCurrentExtension()
- * to register a dependency on the current pg_extension object for each SQL
- * object created by an extension script.  It also instructs performDeletion()
- * to remove such dependencies without following them, so that extension
- * scripts can drop member objects without having to explicitly dissociate
- * them from the extension first.
+ * 仅在跑 CREATE EXTENSION 或 ALTER
+ * EXTENSION UPDATE 时为真。指示 recordDependencyOnCurrentExtension()
+ * 为脚本所建各 SQL 对象登记对当前 pg_extension 的依赖。
+ * 亦指示 performDeletion()
+ * 去掉此类依赖且不跟随，以便扩展
+ * 脚本可删除成员对象而无须先显式
+ * 与扩展解除关联。
  */
 extern PGDLLIMPORT bool creating_extension;
 extern PGDLLIMPORT Oid CurrentExtensionObject;

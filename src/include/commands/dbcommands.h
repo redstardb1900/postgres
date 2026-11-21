@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dbcommands.h
- *		Database management commands (create/drop database).
+ *	数据库管理命令（创建/删除数据库）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

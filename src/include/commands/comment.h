@@ -5,7 +5,7 @@
  *
  * comment.h
  *
- * Prototypes for functions in commands/comment.c
+ * commands/comment.c 中函数的原型
  *
  * Copyright (c) 1999-2023, PostgreSQL Global Development Group
  *
@@ -19,14 +19,14 @@
 #include "nodes/parsenodes.h"
 
 /*------------------------------------------------------------------
- * Function Prototypes --
+ * 函数原型 --
  *
- * The following prototypes define the public functions of the comment
- * related routines.  CommentObject() implements the SQL "COMMENT ON"
- * command.  DeleteComments() deletes all comments for an object.
- * CreateComments creates (or deletes, if comment is NULL) a comment
- * for a specific key.  There are versions of these two methods for
- * both normal and shared objects.
+ * 下列原型定义注释相关例程的公共
+ * 函数。CommentObject() 实现 SQL "COMMENT ON"
+ * CreateComments 创建（comment 为 NULL 则删）注释
+ * 给特定键。两方法均有普通与共享对象
+ * 此二方法均有普通对象与共享对象
+ * 两套版本。
  *------------------------------------------------------------------
  */
 

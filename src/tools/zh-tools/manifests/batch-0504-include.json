@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0504",
+  "title": "include/datatype+foreign — batch 0504",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d79762705df65b7adf108566b784a1207d9ad33b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/datatype/timestamp.h",
+      "kind": "c_comment",
+      "note": "0504"
+    },
+    {
+      "pattern": "src/include/foreign/foreign.h",
+      "kind": "c_comment",
+      "note": "0504"
+    },
+    {
+      "pattern": "src/include/foreign/fdwapi.h",
+      "kind": "c_comment",
+      "note": "0504"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0504-include.json",
+      "kind": "manifest",
+      "note": "0504"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/datatype/timestamp.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 26,
+      "preserved": 12,
+      "preserved_reasons": [
+        "横幅/版权/路径；公式/等价 oneline；极短 closer KEEP"
+      ],
+      "note": "Timestamp/Interval；儒略日；无穷"
+    },
+    {
+      "path": "src/include/foreign/foreign.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 20,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/版权/路径；极短 trailing KEEP"
+      ],
+      "note": "FDW/服务器/用户映射"
+    },
+    {
+      "path": "src/include/foreign/fdwapi.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 19,
+      "translated": 18,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/路径/#endif"
+      ],
+      "note": "FdwRoutine 回调 API"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0504-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0504"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "include/storage 收官后首批：datatype+foreign；下一优先 postmaster/rewrite 小头或 include 根小文件"
+}

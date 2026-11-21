@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * timestamp.h
- *	  Timestamp and Interval typedefs and related macros.
+ *	  Timestamp 与 Interval 类型定义及相关宏。
  *
- * Note: this file must be includable in both frontend and backend contexts.
+ * 注意：本文件须可在前端与后端上下文中包含。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,112 +16,112 @@
 #define DATATYPE_TIMESTAMP_H
 
 /*
- * Timestamp represents absolute time.
+ * Timestamp 表示绝对时间。
  *
- * Interval represents delta time. Keep track of months (and years), days,
- * and hours/minutes/seconds separately since the elapsed time spanned is
- * unknown until instantiated relative to an absolute time.
+ * Interval 表示时间差。分别跟踪月（及年）、日
+ * 与时/分/秒，因相对绝对时间实例化前，所跨
+ * 流逝时间未知。
  *
- * Note that Postgres uses "time interval" to mean a bounded interval,
- * consisting of a beginning and ending time, not a time span - thomas 97/03/20
+ * 注意 Postgres 用"时间区间"指有界区间，含起止
+ * 时间，而非时间跨度 - thomas 97/03/20
  *
- * Timestamps, as well as the h/m/s fields of intervals, are stored as
- * int64 values with units of microseconds.  (Once upon a time they were
- * double values with units of seconds.)
+ * 时间戳以及 Interval 的时/分/秒字段存为
+ * 以微秒为单位的 int64。（曾几何时是以秒为
+ * 单位的 double。）
  *
- * TimeOffset and fsec_t are convenience typedefs for temporary variables.
- * Do not use fsec_t in values stored on-disk.
- * Also, fsec_t is only meant for *fractional* seconds; beware of overflow
- * if the value you need to store could be many seconds.
+ * TimeOffset 与 fsec_t 是临时变量的便利 typedef。
+ * 切勿在磁盘存储值中使用 fsec_t。
+ * 另，fsec_t 仅用于*小数*秒；若需存可能达
+ * 许多秒的值，当心溢出。
  */
 
 typedef int64 Timestamp;
 typedef int64 TimestampTz;
 typedef int64 TimeOffset;
-typedef int32 fsec_t;			/* fractional seconds (in microseconds) */
+typedef int32 fsec_t;			/* 小数秒（微秒） */
 
 
 /*
- * Storage format for type interval.
+ * Interval 类型的存储格式。
  */
 typedef struct
 {
-	TimeOffset	time;			/* all time units other than days, months and
+	TimeOffset	time;			/* 除日/月/年外全部
 								 * years */
-	int32		day;			/* days, after time for alignment */
-	int32		month;			/* months and years, after time for alignment */
+	int32		day;			/* 日，置于 time 后以对齐 */
+	int32		month;			/* 月与年，置于 time 后以对齐 */
 } Interval;
 
 /*
- * Data structure representing a broken-down interval.
+ * 表示分解后 Interval 的数据结构。
  *
- * For historical reasons, this is modeled on struct pg_tm for timestamps.
- * Unlike the situation for timestamps, there's no magic interpretation
- * needed for months or years: they're just zero or not.  Note that fields
- * can be negative; however, because of the divisions done while converting
- * from struct Interval, only tm_mday could be INT_MIN.  This is important
- * because we may need to negate the values in some code paths.
+ * 因历史原因，按时间戳的 pg_tm 建模。
+ * 与时间戳不同，月或年无魔法解释：只是零或
+ * 非零。注意字段可为负；但因从 Interval
+ * 转换时的除法，仅 tm_mday 可能为 INT_MIN。这很
+ * 重要，因某些代码路径可能需对其取负。
+ * 。
  */
 struct pg_itm
 {
 	int			tm_usec;
 	int			tm_sec;
 	int			tm_min;
-	int64		tm_hour;		/* needs to be wide */
+	int64		tm_hour;		/* 需要够宽 */
 	int			tm_mday;
 	int			tm_mon;
 	int			tm_year;
 };
 
 /*
- * Data structure for decoding intervals.  We could just use struct pg_itm,
- * but then the requirement for tm_usec to be 64 bits would propagate to
- * places where it's not really needed.  Also, omitting the fields that
- * aren't used during decoding seems like a good error-prevention measure.
+ * 解码 Interval 的数据结构。本可用 struct pg_itm，
+ * 但那样会把 tm_usec 须 64 位的要求传到并不真正
+ * 需要处。另，省略解码期间未用字段也是
+ * 良好的防错措施。
  */
 struct pg_itm_in
 {
-	int64		tm_usec;		/* needs to be wide */
+	int64		tm_usec;		/* 需要够宽 */
 	int			tm_mday;
 	int			tm_mon;
 	int			tm_year;
 };
 
 
-/* Limits on the "precision" option (typmod) for these data types */
+/* 这些数据类型"精度"选项（typmod）的限制 */
 #define MAX_TIMESTAMP_PRECISION 6
 #define MAX_INTERVAL_PRECISION 6
 
 /*
- *	Round off to MAX_TIMESTAMP_PRECISION decimal places.
- *	Note: this is also used for rounding off intervals.
+ *	舍入到 MAX_TIMESTAMP_PRECISION 位小数。
+ *	注意：这也用于 Interval 的舍入。
  */
 #define TS_PREC_INV 1000000.0
 #define TSROUND(j) (rint(((double) (j)) * TS_PREC_INV) / TS_PREC_INV)
 
 
 /*
- * Assorted constants for datetime-related calculations
+ * 日期时间相关计算的各种常量
  */
 
-#define DAYS_PER_YEAR	365.25	/* assumes leap year every four years */
+#define DAYS_PER_YEAR	365.25	/* 假定每四年一闰 */
 #define MONTHS_PER_YEAR 12
 /*
- *	DAYS_PER_MONTH is very imprecise.  The more accurate value is
- *	365.2425/12 = 30.436875, or '30 days 10:29:06'.  Right now we only
- *	return an integral number of days, but someday perhaps we should
- *	also return a 'time' value to be used as well.  ISO 8601 suggests
- *	30 days.
+ *	DAYS_PER_MONTH 很不精确。更准的值是
+ *	365.2425/12 = 30.436875，或'30 days 10:29:06'。现仅
+ *	返回整数日，但将来或许也应返回
+ *	'time' 值一并使用。ISO 8601 建议
+ *	30日。
  */
-#define DAYS_PER_MONTH	30		/* assumes exactly 30 days per month */
-#define HOURS_PER_DAY	24		/* assume no daylight savings time changes */
+#define DAYS_PER_MONTH	30		/* 假定每月恰 30 日 */
+#define HOURS_PER_DAY	24		/* 假定无夏令时变更 */
 
 /*
- *	This doesn't adjust for uneven daylight savings time intervals or leap
- *	seconds, and it crudely estimates leap years.  A more accurate value
- *	for days per years is 365.2422.
+ *	这不校正不均的夏令时区间或闰秒，且
+ *	粗略估计闰年。更准的每年日数是
+ *	365.2422。
  */
-#define SECS_PER_YEAR	(36525 * 864)	/* avoid floating-point computation */
+#define SECS_PER_YEAR	(36525 * 864)	/* 避免浮点计算 */
 #define SECS_PER_DAY	86400
 #define SECS_PER_HOUR	3600
 #define SECS_PER_MINUTE 60
@@ -133,24 +133,24 @@ struct pg_itm_in
 #define USECS_PER_SEC	INT64CONST(1000000)
 
 /*
- * We allow numeric timezone offsets up to 15:59:59 either way from Greenwich.
- * Currently, the record holders for wackiest offsets in actual use are zones
- * Asia/Manila, at -15:56:08 until 1844, and America/Metlakatla, at +15:13:42
- * until 1867.  If we were to reject such values we would fail to dump and
- * restore old timestamptz values with these zone settings.
+ * 允许相对格林威治东西最多 15:59:59 的数值时区偏移。
+ * 当前实际使用中最古怪偏移的纪录保持者是
+ * Asia/Manila（至 1844 为 -15:56:08）与 America/Metlakatla
+ * （至 1867 为 +15:13:42）。若拒绝此类值，将无法转储
+ * 并恢复带这些时区设置的旧 timestamptz。
  */
-#define MAX_TZDISP_HOUR		15	/* maximum allowed hour part */
+#define MAX_TZDISP_HOUR		15	/* 最大小时部分 */
 #define TZDISP_LIMIT		((MAX_TZDISP_HOUR + 1) * SECS_PER_HOUR)
 
 /*
- * We reserve the minimum and maximum integer values to represent
- * timestamp (or timestamptz) -infinity and +infinity.
+ * 保留整数最小/最大值以表示 timestamp
+ * （或 timestamptz）的 -infinity 与 +infinity。
  */
 #define TIMESTAMP_MINUS_INFINITY	PG_INT64_MIN
 #define TIMESTAMP_INFINITY	PG_INT64_MAX
 
 /*
- * Historically these alias for infinity have been used.
+ * 历史上曾用这些 infinity 别名。
  */
 #define DT_NOBEGIN		TIMESTAMP_MINUS_INFINITY
 #define DT_NOEND		TIMESTAMP_INFINITY
@@ -169,26 +169,26 @@ struct pg_itm_in
 
 
 /*
- * Julian date support.
+ * 儒略日支持。
  *
- * date2j() and j2date() nominally handle the Julian date range 0..INT_MAX,
- * or 4714-11-24 BC to 5874898-06-03 AD.  In practice, date2j() will work and
- * give correct negative Julian dates for dates before 4714-11-24 BC as well.
- * We rely on it to do so back to 4714-11-01 BC.  Allowing at least one day's
- * slop is necessary so that timestamp rotation doesn't produce dates that
- * would be rejected on input.  For example, '4714-11-24 00:00 GMT BC' is a
- * legal timestamptz value, but in zones east of Greenwich it would print as
- * sometime in the afternoon of 4714-11-23 BC; if we couldn't process such a
- * date we'd have a dump/reload failure.  So the idea is for IS_VALID_JULIAN
- * to accept a slightly wider range of dates than we really support, and
- * then we apply the exact checks in IS_VALID_DATE or IS_VALID_TIMESTAMP,
- * after timezone rotation if any.  To save a few cycles, we can make
- * IS_VALID_JULIAN check only to the month boundary, since its exact cutoffs
- * are not very critical in this scheme.
+ * date2j() 与 j2date() 名义上处理儒略日范围 0..INT_MAX，
+ * 即公元前 4714-11-24 至公元 5874898-06-03。实践中 date2j()
+ * 对更早日期也能工作并给出正确负儒略日。
+ * 我们依赖它回溯到公元前 4714-11-01。至少留一日
+ * 余量是必要的，以免时间戳时区旋转产生输入会
+ * 拒绝的日期。例如 '4714-11-24 00:00 GMT BC' 是合法
+ * timestamptz，但在格林威治以东时区会打印成
+ * 公元前 4714-11-23 下午某时；若无法处理该日期
+ * 就会转储/重载失败。故 IS_VALID_JULIAN 的想法是
+ * 接受略宽于实际支持的日期范围，然后在
+ * IS_VALID_DATE 或 IS_VALID_TIMESTAMP 中做精确检查
+ * （若有时区旋转则在其后）。为省几轮，
+ * IS_VALID_JULIAN 可只检查到月界，因其精确截止
+ * 在本方案中并不十分关键。
  *
- * It is correct that JULIAN_MINYEAR is -4713, not -4714; it is defined to
- * allow easy comparison to tm_year values, in which we follow the convention
- * that tm_year <= 0 represents abs(tm_year)+1 BC.
+ * JULIAN_MINYEAR 为 -4713 而非 -4714 是正确的；它定义为
+ * 便于与 tm_year 比较，其中我们遵循约定
+ * tm_year <= 0 表示 abs(tm_year)+1 BC。
  */
 
 #define JULIAN_MINYEAR (-4713)
@@ -209,16 +209,16 @@ struct pg_itm_in
 #define POSTGRES_EPOCH_JDATE	2451545 /* == date2j(2000, 1, 1) */
 
 /*
- * Range limits for dates and timestamps.
+ * 日期与时间戳的范围限制。
  *
- * We have traditionally allowed Julian day zero as a valid datetime value,
- * so that is the lower bound for both dates and timestamps.
+ * 传统上允许儒略日零为有效日期时间值，
+ * 故它是日期与时间戳的下界。
  *
- * The upper limit for dates is 5874897-12-31, which is a bit less than what
- * the Julian-date code can allow.  For timestamps, the upper limit is
- * 294276-12-31.  The int64 overflow limit would be a few days later; again,
- * leaving some slop avoids worries about corner-case overflow, and provides
- * a simpler user-visible definition.
+ * 日期上界是 5874897-12-31，略小于儒略日代码
+ * 所能允许。时间戳上界是
+ * 294276-12-31。int64 溢出限还要晚几天；同样，
+ * 留余量可免边角溢出之忧，并提供更简单的
+ * 用户可见定义。
  */
 
 /* First allowed date, and first disallowed date, in Julian-date form */

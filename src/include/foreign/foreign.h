@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * foreign.h
- *	  support for foreign-data wrappers, servers and user mappings.
+ *	  外部数据包装器、服务器与用户映射的支持。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,7 +16,7 @@
 #include "nodes/parsenodes.h"
 
 
-/* Helper for obtaining username for user mapping */
+/* 取得用户映射用户名的助手 */
 #define MappingUserName(userid) \
 	(OidIsValid(userid) ? GetUserNameFromId(userid, false) : "public")
 
@@ -24,43 +24,43 @@
 typedef struct ForeignDataWrapper
 {
 	Oid			fdwid;			/* FDW Oid */
-	Oid			owner;			/* FDW owner user Oid */
-	char	   *fdwname;		/* Name of the FDW */
-	Oid			fdwhandler;		/* Oid of handler function, or 0 */
-	Oid			fdwvalidator;	/* Oid of validator function, or 0 */
-	List	   *options;		/* fdwoptions as DefElem list */
+	Oid			owner;			/* FDW 属主 Oid */
+	char	   *fdwname;		/* FDW 名称 */
+	Oid			fdwhandler;		/* 处理器函数 Oid，或 0 */
+	Oid			fdwvalidator;	/* 验证器函数 Oid，或 0 */
+	List	   *options;		/* fdwoptions 的 DefElem 表 */
 } ForeignDataWrapper;
 
 typedef struct ForeignServer
 {
 	Oid			serverid;		/* server Oid */
-	Oid			fdwid;			/* foreign-data wrapper */
-	Oid			owner;			/* server owner user Oid */
-	char	   *servername;		/* name of the server */
+	Oid			fdwid;			/* FDW */
+	Oid			owner;			/* 服务器属主 Oid */
+	char	   *servername;		/* 服务器名称 */
 	char	   *servertype;		/* server type, optional */
-	char	   *serverversion;	/* server version, optional */
-	List	   *options;		/* srvoptions as DefElem list */
+	char	   *serverversion;	/* 服务器版本，可选 */
+	List	   *options;		/* srvoptions 的 DefElem 表 */
 } ForeignServer;
 
 typedef struct UserMapping
 {
-	Oid			umid;			/* Oid of user mapping */
+	Oid			umid;			/* 用户映射 Oid */
 	Oid			userid;			/* local user Oid */
 	Oid			serverid;		/* server Oid */
-	List	   *options;		/* useoptions as DefElem list */
+	List	   *options;		/* useoptions 的 DefElem 表 */
 } UserMapping;
 
 typedef struct ForeignTable
 {
-	Oid			relid;			/* relation Oid */
+	Oid			relid;			/* 关系 Oid */
 	Oid			serverid;		/* server Oid */
-	List	   *options;		/* ftoptions as DefElem list */
+	List	   *options;		/* ftoptions 的 DefElem 表 */
 } ForeignTable;
 
-/* Flags for GetForeignServerExtended */
+/* GetForeignServerExtended 的标志 */
 #define FSV_MISSING_OK	0x01
 
-/* Flags for GetForeignDataWrapperExtended */
+/* GetForeignDataWrapperExtended 的标志 */
 #define FDW_MISSING_OK	0x01
 
 

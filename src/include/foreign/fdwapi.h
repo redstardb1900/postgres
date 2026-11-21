@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fdwapi.h
- *	  API for foreign-data wrappers
+ *	  外部数据包装器的 API
  *
  * Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -16,12 +16,12 @@
 #include "nodes/execnodes.h"
 #include "nodes/pathnodes.h"
 
-/* To avoid including explain.h here, reference ExplainState thus: */
+/* 为免此处包含 explain.h，如此引用 ExplainState： */
 struct ExplainState;
 
 
 /*
- * Callback function signatures --- see fdwhandler.sgml for more info.
+ * 回调函数签名 —— 详见 fdwhandler.sgml。
  */
 
 typedef void (*GetForeignRelSize_function) (PlannerInfo *root,
@@ -192,20 +192,20 @@ typedef void (*ForeignAsyncConfigureWait_function) (AsyncRequest *areq);
 typedef void (*ForeignAsyncNotify_function) (AsyncRequest *areq);
 
 /*
- * FdwRoutine is the struct returned by a foreign-data wrapper's handler
- * function.  It provides pointers to the callback functions needed by the
- * planner and executor.
+ * FdwRoutine 是外部数据包装器处理器函数返回的
+ * 结构。它提供规划器与执行器所需回调函数的
+ * 指针。
  *
- * More function pointers are likely to be added in the future.  Therefore
- * it's recommended that the handler initialize the struct with
- * makeNode(FdwRoutine) so that all fields are set to NULL.  This will
- * ensure that no fields are accidentally left undefined.
+ * 将来可能增加更多函数指针。故建议处理器用
+ * makeNode(FdwRoutine) 初始化该结构，使全部字段
+ * 为 NULL。这将确保无字段意外未定义。
+ * 。
  */
 typedef struct FdwRoutine
 {
 	NodeTag		type;
 
-	/* Functions for scanning foreign tables */
+	/* 扫描外部表的函数 */
 	GetForeignRelSize_function GetForeignRelSize;
 	GetForeignPaths_function GetForeignPaths;
 	GetForeignPlan_function GetForeignPlan;
@@ -215,17 +215,17 @@ typedef struct FdwRoutine
 	EndForeignScan_function EndForeignScan;
 
 	/*
-	 * Remaining functions are optional.  Set the pointer to NULL for any that
-	 * are not provided.
+	 * 其余函数可选。未提供者指针置 NULL。
+	 * 。
 	 */
 
-	/* Functions for remote-join planning */
+	/* 远程连接规划的函数 */
 	GetForeignJoinPaths_function GetForeignJoinPaths;
 
-	/* Functions for remote upper-relation (post scan/join) planning */
+	/* 远程上层关系（扫描/连接后）规划的函数 */
 	GetForeignUpperPaths_function GetForeignUpperPaths;
 
-	/* Functions for updating foreign tables */
+	/* 更新外部表的函数 */
 	AddForeignUpdateTargets_function AddForeignUpdateTargets;
 	PlanForeignModify_function PlanForeignModify;
 	BeginForeignModify_function BeginForeignModify;
@@ -243,26 +243,26 @@ typedef struct FdwRoutine
 	IterateDirectModify_function IterateDirectModify;
 	EndDirectModify_function EndDirectModify;
 
-	/* Functions for SELECT FOR UPDATE/SHARE row locking */
+	/* SELECT FOR UPDATE/SHARE 行锁的函数 */
 	GetForeignRowMarkType_function GetForeignRowMarkType;
 	RefetchForeignRow_function RefetchForeignRow;
 	RecheckForeignScan_function RecheckForeignScan;
 
-	/* Support functions for EXPLAIN */
+	/* EXPLAIN 支持函数 */
 	ExplainForeignScan_function ExplainForeignScan;
 	ExplainForeignModify_function ExplainForeignModify;
 	ExplainDirectModify_function ExplainDirectModify;
 
-	/* Support functions for ANALYZE */
+	/* ANALYZE 支持函数 */
 	AnalyzeForeignTable_function AnalyzeForeignTable;
 
-	/* Support functions for IMPORT FOREIGN SCHEMA */
+	/* IMPORT FOREIGN SCHEMA 支持函数 */
 	ImportForeignSchema_function ImportForeignSchema;
 
-	/* Support functions for TRUNCATE */
+	/* TRUNCATE 支持函数 */
 	ExecForeignTruncate_function ExecForeignTruncate;
 
-	/* Support functions for parallelism under Gather node */
+	/* Gather 节点下并行的支持函数 */
 	IsForeignScanParallelSafe_function IsForeignScanParallelSafe;
 	EstimateDSMForeignScan_function EstimateDSMForeignScan;
 	InitializeDSMForeignScan_function InitializeDSMForeignScan;
@@ -270,10 +270,10 @@ typedef struct FdwRoutine
 	InitializeWorkerForeignScan_function InitializeWorkerForeignScan;
 	ShutdownForeignScan_function ShutdownForeignScan;
 
-	/* Support functions for path reparameterization. */
+	/* 路径重参数化的支持函数。 */
 	ReparameterizeForeignPathByChild_function ReparameterizeForeignPathByChild;
 
-	/* Support functions for asynchronous execution */
+	/* 异步执行的支持函数 */
 	IsForeignPathAsyncCapable_function IsForeignPathAsyncCapable;
 	ForeignAsyncRequest_function ForeignAsyncRequest;
 	ForeignAsyncConfigureWait_function ForeignAsyncConfigureWait;
@@ -281,7 +281,7 @@ typedef struct FdwRoutine
 } FdwRoutine;
 
 
-/* Functions in foreign/foreign.c */
+/* foreign/foreign.c 中的函数 */
 extern FdwRoutine *GetFdwRoutine(Oid fdwhandler);
 extern Oid	GetForeignServerIdByRelId(Oid relid);
 extern FdwRoutine *GetFdwRoutineByServerId(Oid serverid);

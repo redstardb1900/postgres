@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * plannodes.h
- *	  definitions for query plan nodes
+ *	查询计划节点的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,23 +25,23 @@
 
 
 /* ----------------------------------------------------------------
- *						node definitions
+ *	节点定义
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *		PlannedStmt node
+ *	PlannedStmt点
  *
- * The output of the planner is a Plan tree headed by a PlannedStmt node.
- * PlannedStmt holds the "one time" information needed by the executor.
+ * 规划器输出是以 PlannedStmt 为根的 Plan 树。
+ * PlannedStmt 保存执行器所需的"一次性"信息。
  *
- * For simplicity in APIs, we also wrap utility statements in PlannedStmt
- * nodes; in such cases, commandType == CMD_UTILITY, the statement itself
- * is in the utilityStmt field, and the rest of the struct is mostly dummy.
- * (We do use canSetTag, stmt_location, stmt_len, and possibly queryId.)
+ * 为简化 API,也用 PlannedStmt 包装 utility 语句;
+ * 此时 commandType == CMD_UTILITY,语句本身在
+ * utilityStmt 字段,结构其余部分多为占位。
+ * (仍用canSetTag,stmt_location,stmt_len,或queryId.)
  *
- * PlannedStmt, as well as all varieties of Plan, do not support equal(),
- * not because it's not sensible but because we currently have no need.
+ * PlannedStmt 及各类 Plan 都不支持 equal(),
+ * 并非不合理,只是目前无此需要。
  * ----------------
  */
 typedef struct PlannedStmt
@@ -52,69 +52,69 @@ typedef struct PlannedStmt
 
 	CmdType		commandType;	/* select|insert|update|delete|merge|utility */
 
-	uint64		queryId;		/* query identifier (copied from Query) */
+	uint64		queryId;		/* 查询标识符(自 Query 拷贝) */
 
-	bool		hasReturning;	/* is it insert|update|delete RETURNING? */
+	bool		hasReturning;	/* insert|update|delete RETURNING? */
 
-	bool		hasModifyingCTE;	/* has insert|update|delete in WITH? */
+	bool		hasModifyingCTE;	/* WITH含insert|update|delete? */
 
-	bool		canSetTag;		/* do I set the command result tag? */
+	bool		canSetTag;		/* 是否设置命令结果标签? */
 
-	bool		transientPlan;	/* redo plan when TransactionXmin changes? */
+	bool		transientPlan;	/* TransactionXmin变则重做计划? */
 
-	bool		dependsOnRole;	/* is plan specific to current role? */
+	bool		dependsOnRole;	/* 计划专属当前角色? */
 
-	bool		parallelModeNeeded; /* parallel mode required to execute? */
+	bool		parallelModeNeeded; /* 执行是否需要并行模式? */
 
-	int			jitFlags;		/* which forms of JIT should be performed */
+	int			jitFlags;		/* 应执行哪些形式的 JIT */
 
-	struct Plan *planTree;		/* tree of Plan nodes */
+	struct Plan *planTree;		/* Plan 节点树 */
 
-	List	   *rtable;			/* list of RangeTblEntry nodes */
+	List	   *rtable;			/* RangeTblEntry 节点列表 */
 
-	List	   *permInfos;		/* list of RTEPermissionInfo nodes for rtable
-								 * entries needing one */
+	List	   *permInfos;		/* rtable 所需 RTEPermissionInfo 节点
+								 * 列表 */
 
-	/* rtable indexes of target relations for INSERT/UPDATE/DELETE/MERGE */
-	List	   *resultRelations;	/* integer list of RT indexes, or NIL */
+	/* INSERT/UPDATE/DELETE/MERGE 目标关系的 rtable 下标 */
+	List	   *resultRelations;	/* RT 下标整数列表,或 NIL */
 
-	List	   *appendRelations;	/* list of AppendRelInfo nodes */
+	List	   *appendRelations;	/* AppendRelInfo 节点列表 */
 
-	List	   *subplans;		/* Plan trees for SubPlan expressions; note
-								 * that some could be NULL */
+	List	   *subplans;		/* SubPlan 表达式的 Plan 树;注意
+								 * 有些可为 NULL */
 
-	Bitmapset  *rewindPlanIDs;	/* indices of subplans that require REWIND */
+	Bitmapset  *rewindPlanIDs;	/* 需要 REWIND 的子计划下标 */
 
-	List	   *rowMarks;		/* a list of PlanRowMark's */
+	List	   *rowMarks;		/* PlanRowMark 列表 */
 
-	List	   *relationOids;	/* OIDs of relations the plan depends on */
+	List	   *relationOids;	/* 计划所依赖关系的 OID */
 
-	List	   *invalItems;		/* other dependencies, as PlanInvalItems */
+	List	   *invalItems;		/* 其他依赖,为 PlanInvalItems */
 
-	List	   *paramExecTypes; /* type OIDs for PARAM_EXEC Params */
+	List	   *paramExecTypes; /* PARAM_EXEC Params 的类型 OID */
 
-	Node	   *utilityStmt;	/* non-null if this is utility stmt */
+	Node	   *utilityStmt;	/* 非空则为本 utility 语句 */
 
-	/* statement location in source string (copied from Query) */
-	int			stmt_location;	/* start location, or -1 if unknown */
-	int			stmt_len;		/* length in bytes; 0 means "rest of string" */
+	/* 源串中的语句位置(自 Query 拷贝) */
+	int			stmt_location;	/* 起始位置,未知则为 -1 */
+	int			stmt_len;		/* 字节长度;0 表示"串的剩余" */
 } PlannedStmt;
 
-/* macro for fetching the Plan associated with a SubPlan node */
+/* 取与 SubPlan 节点关联的 Plan 的宏 */
 #define exec_subplan_get_plan(plannedstmt, subplan) \
 	((Plan *) list_nth((plannedstmt)->subplans, (subplan)->plan_id - 1))
 
 
 /* ----------------
- *		Plan node
+ *	Plan点
  *
- * All plan nodes "derive" from the Plan structure by having the
- * Plan structure as the first field.  This ensures that everything works
- * when nodes are cast to Plan's.  (node pointers are frequently cast to Plan*
- * when passed around generically in the executor)
+ * 所有计划点以Plan结构为第一字段从而"派生",
+ * 保证转成 Plan 时一切正常。(执行器中节点指针
+ * 常被泛型地转为 Plan*)
+ * 见上。
  *
- * We never actually instantiate any Plan nodes; this is just the common
- * abstract superclass for all Plan-type nodes.
+ * 我们从不真正实例化任何 Plan 节点;这只是所有
+ * Plan 型节点的公共抽象超类。
  * ----------------
  */
 typedef struct Plan
@@ -124,59 +124,59 @@ typedef struct Plan
 	NodeTag		type;
 
 	/*
-	 * estimated execution costs for plan (see costsize.c for more info)
+	 * 计划的估计执行代价(细节见 costsize.c)
 	 */
-	Cost		startup_cost;	/* cost expended before fetching any tuples */
-	Cost		total_cost;		/* total cost (assuming all tuples fetched) */
+	Cost		startup_cost;	/* 取任何元组前已花费的代价 */
+	Cost		total_cost;		/* 总代价(假定取完所有元组) */
 
 	/*
-	 * planner's estimate of result size of this plan step
+	 * 规划器对本计划步结果规模的估计
 	 */
-	Cardinality plan_rows;		/* number of rows plan is expected to emit */
-	int			plan_width;		/* average row width in bytes */
+	Cardinality plan_rows;		/* 计划预期发出的行数 */
+	int			plan_width;		/* 平均行宽(字节) */
 
 	/*
-	 * information needed for parallel query
+	 * 并行查询所需信息
 	 */
-	bool		parallel_aware; /* engage parallel-aware logic? */
-	bool		parallel_safe;	/* OK to use as part of parallel plan? */
+	bool		parallel_aware; /* 启用并行感知逻辑? */
+	bool		parallel_safe;	/* 可否作为并行计划一部分? */
 
 	/*
-	 * information needed for asynchronous execution
+	 * 异步执行所需信息
 	 */
-	bool		async_capable;	/* engage asynchronous-capable logic? */
+	bool		async_capable;	/* 启用异步能力逻辑? */
 
 	/*
-	 * Common structural data for all Plan types.
+	 * 所有 Plan 类型的公共结构数据。
 	 */
-	int			plan_node_id;	/* unique across entire final plan tree */
-	List	   *targetlist;		/* target list to be computed at this node */
-	List	   *qual;			/* implicitly-ANDed qual conditions */
-	struct Plan *lefttree;		/* input plan tree(s) */
+	int			plan_node_id;	/* 在整个最终计划树中唯一 */
+	List	   *targetlist;		/* 本节点要计算的目标列表 */
+	List	   *qual;			/* 隐式 AND 的限定条件 */
+	struct Plan *lefttree;		/* 输入计划树 */
 	struct Plan *righttree;
-	List	   *initPlan;		/* Init Plan nodes (un-correlated expr
-								 * subselects) */
+	List	   *initPlan;		/* InitPlan节点(非相关表达式
+								 * 子查询) */
 
 	/*
-	 * Information for management of parameter-change-driven rescanning
+	 * 参数变化驱动重扫的管理信息
 	 *
-	 * extParam includes the paramIDs of all external PARAM_EXEC params
-	 * affecting this plan node or its children.  setParam params from the
-	 * node's initPlans are not included, but their extParams are.
+	 * extParam 含影响本计划节点或其子节点的所有外部
+	 * PARAM_EXEC 的 paramID。节点 initPlans 的 setParam
+	 * 不含在内,但其 extParams 含在内。
 	 *
-	 * allParam includes all the extParam paramIDs, plus the IDs of local
-	 * params that affect the node (i.e., the setParams of its initplans).
-	 * These are _all_ the PARAM_EXEC params that affect this node.
+	 * allParam 含全部 extParam paramID,外加影响本节点的
+	 * 局部参数 ID(即其 initplans 的 setParams)。
+	 * 这些是影响本节点的_全部_ PARAM_EXEC 参数。
 	 */
 	Bitmapset  *extParam;
 	Bitmapset  *allParam;
 } Plan;
 
 /* ----------------
- *	these are defined to avoid confusion problems with "left"
- *	and "right" and "inner" and "outer".  The convention is that
- *	the "left" plan is the "outer" plan and the "right" plan is
- *	the inner plan, but these make the code more readable.
+ *	这些定义用以避免"left"/"right"与"inner"/"outer"
+ *	的混淆。约定 "left" 计划即 "outer" 计划,"right"
+ *	计划即 inner 计划,但这些宏使代码更易读。
+ *	见上。
  * ----------------
  */
 #define innerPlan(node)			(((Plan *)(node))->righttree)
@@ -184,14 +184,14 @@ typedef struct Plan
 
 
 /* ----------------
- *	 Result node -
- *		If no outer plan, evaluate a variable-free targetlist.
- *		If outer plan, return tuples from outer plan (after a level of
- *		projection as shown by targetlist).
+ *	Result点 -
+ *	无外计划时,求值无变量的目标列表。
+ *	有外计划时,返回外计划元组(按目标列表做一层
+ *	投影后)。
  *
- * If resconstantqual isn't NULL, it represents a one-time qualification
- * test (i.e., one that doesn't depend on any variables from the outer plan,
- * so needs to be evaluated only once).
+ * 若 resconstantqual 非 NULL,表示一次性限定测试
+ * (不依赖外计划任何变量,故只需求值一次)。
+ * 见上。
  * ----------------
  */
 typedef struct Result
@@ -201,9 +201,9 @@ typedef struct Result
 } Result;
 
 /* ----------------
- *	 ProjectSet node -
- *		Apply a projection that includes set-returning functions to the
- *		output tuples of the outer plan.
+ *	ProjectSet点 -
+ *	对外计划输出元组施加含集合返回函数的投影。
+ *	见上。
  * ----------------
  */
 typedef struct ProjectSet
@@ -212,144 +212,144 @@ typedef struct ProjectSet
 } ProjectSet;
 
 /* ----------------
- *	 ModifyTable node -
- *		Apply rows produced by outer plan to result table(s),
- *		by inserting, updating, or deleting.
+ *	ModifyTable点 -
+ *	把外计划产生的行作用于结果表,
+ *	进行插入、更新或删除。
  *
- * If the originally named target table is a partitioned table or inheritance
- * tree, both nominalRelation and rootRelation contain the RT index of the
- * partition root or appendrel RTE, which is not otherwise mentioned in the
- * plan.  Otherwise rootRelation is zero.  However, nominalRelation will
- * always be set, as it's the rel that EXPLAIN should claim is the
- * INSERT/UPDATE/DELETE/MERGE target.
+ * 若原命名目标表是分区表或继承树,nominalRelation
+ * 与 rootRelation 都含分区根或 appendrel RTE 的 RT
+ * 下标,该 RTE 在计划中不再另提。否则 rootRelation
+ * 为零。但 nominalRelation 总会设置,因 EXPLAIN 应
+ * 声称它是 INSERT/UPDATE/DELETE/MERGE 目标。
+ * 见上。
  *
- * Note that rowMarks and epqParam are presumed to be valid for all the
- * table(s); they can't contain any info that varies across tables.
+ * 注意 rowMarks 与 epqParam 被假定对所有表有效;
+ * 它们不能含跨表变化的信息。
  * ----------------
  */
 typedef struct ModifyTable
 {
 	Plan		plan;
-	CmdType		operation;		/* INSERT, UPDATE, DELETE, or MERGE */
-	bool		canSetTag;		/* do we set the command tag/es_processed? */
-	Index		nominalRelation;	/* Parent RT index for use of EXPLAIN */
-	Index		rootRelation;	/* Root RT index, if partitioned/inherited */
-	bool		partColsUpdated;	/* some part key in hierarchy updated? */
-	List	   *resultRelations;	/* integer list of RT indexes */
-	List	   *updateColnosLists;	/* per-target-table update_colnos lists */
-	List	   *withCheckOptionLists;	/* per-target-table WCO lists */
-	List	   *returningLists; /* per-target-table RETURNING tlists */
-	List	   *fdwPrivLists;	/* per-target-table FDW private data lists */
-	Bitmapset  *fdwDirectModifyPlans;	/* indices of FDW DM plans */
-	List	   *rowMarks;		/* PlanRowMarks (non-locking only) */
-	int			epqParam;		/* ID of Param for EvalPlanQual re-eval */
-	OnConflictAction onConflictAction;	/* ON CONFLICT action */
-	List	   *arbiterIndexes; /* List of ON CONFLICT arbiter index OIDs  */
-	List	   *onConflictSet;	/* INSERT ON CONFLICT DO UPDATE targetlist */
-	List	   *onConflictCols; /* target column numbers for onConflictSet */
-	Node	   *onConflictWhere;	/* WHERE for ON CONFLICT UPDATE */
-	Index		exclRelRTI;		/* RTI of the EXCLUDED pseudo relation */
-	List	   *exclRelTlist;	/* tlist of the EXCLUDED pseudo relation */
-	List	   *mergeActionLists;	/* per-target-table lists of actions for
-									 * MERGE */
+	CmdType		operation;		/* INSERT,UPDATE,DELETE或MERGE */
+	bool		canSetTag;		/* 是否设置命令标签/es_processed? */
+	Index		nominalRelation;	/* 供 EXPLAIN 使用的父 RT 下标 */
+	Index		rootRelation;	/* 分区/继承时的根 RT 下标 */
+	bool		partColsUpdated;	/* 层次中否更新了某分区键? */
+	List	   *resultRelations;	/* RT 下标整数列表 */
+	List	   *updateColnosLists;	/* 每目标表的 update_colnos 列表 */
+	List	   *withCheckOptionLists;	/* 每目标表的 WCO 列表 */
+	List	   *returningLists; /* 每目标表的 RETURNING tlist */
+	List	   *fdwPrivLists;	/* 每目标表的 FDW 私有数据列表 */
+	Bitmapset  *fdwDirectModifyPlans;	/* FDW DM 计划下标 */
+	List	   *rowMarks;		/* PlanRowMarks(仅非锁定) */
+	int			epqParam;		/* EvalPlanQual 重求值用 Param  ID */
+	OnConflictAction onConflictAction;	/* ON CONFLICT 动作 */
+	List	   *arbiterIndexes; /* ON CONFLICT 仲裁索引 OID 列表  */
+	List	   *onConflictSet;	/* INSERT ON CONFLICT DO UPDATE目标表 */
+	List	   *onConflictCols; /* onConflictSet 的目标列号 */
+	Node	   *onConflictWhere;	/* ON CONFLICT UPDATE 的 WHERE */
+	Index		exclRelRTI;		/* EXCLUDED 伪关系的 RTI */
+	List	   *exclRelTlist;	/* EXCLUDED 伪关系的 tlist */
+	List	   *mergeActionLists;	/* 每目标表的 MERGE 动作
+									 * 表 */
 } ModifyTable;
 
-struct PartitionPruneInfo;		/* forward reference to struct below */
+struct PartitionPruneInfo;		/* 对下方结构的前向引用 */
 
 /* ----------------
- *	 Append node -
- *		Generate the concatenation of the results of sub-plans.
+ *	Append点 -
+ *	生成各子计划结果的串联。
  * ----------------
  */
 typedef struct Append
 {
 	Plan		plan;
-	Bitmapset  *apprelids;		/* RTIs of appendrel(s) formed by this node */
+	Bitmapset  *apprelids;		/* 本节点形成的 appendrel 的 RTI */
 	List	   *appendplans;
-	int			nasyncplans;	/* # of asynchronous plans */
+	int			nasyncplans;	/* 异步计划数 */
 
 	/*
-	 * All 'appendplans' preceding this index are non-partial plans. All
-	 * 'appendplans' from this index onwards are partial plans.
+	 * 本下标之前的全部 appendplans 为非部分计划。自此
+	 * 下标起的 appendplans 为部分计划。
 	 */
 	int			first_partial_plan;
 
-	/* Info for run-time subplan pruning; NULL if we're not doing that */
+	/* 运行时子计划剪枝信息;不做则为 NULL */
 	struct PartitionPruneInfo *part_prune_info;
 } Append;
 
 /* ----------------
- *	 MergeAppend node -
- *		Merge the results of pre-sorted sub-plans to preserve the ordering.
+ *	MergeAppend点 -
+ *	合并预排序子计划的结果以保持次序。
  * ----------------
  */
 typedef struct MergeAppend
 {
 	Plan		plan;
 
-	/* RTIs of appendrel(s) formed by this node */
+	/* 本节点形成的 appendrel 的 RTI */
 	Bitmapset  *apprelids;
 
 	List	   *mergeplans;
 
-	/* these fields are just like the sort-key info in struct Sort: */
+	/* 这些字段恰如 Sort 结构中的排序键信息: */
 
-	/* number of sort-key columns */
+	/* 排序键列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *sortColIdx pg_node_attr(array_size(numCols));
 
-	/* OIDs of operators to sort them by */
+	/* 用以排序的运算符 OID */
 	Oid		   *sortOperators pg_node_attr(array_size(numCols));
 
-	/* OIDs of collations */
+	/* 排序规则 OID */
 	Oid		   *collations pg_node_attr(array_size(numCols));
 
-	/* NULLS FIRST/LAST directions */
+	/* NULLS FIRST/LAST 方向 */
 	bool	   *nullsFirst pg_node_attr(array_size(numCols));
 
-	/* Info for run-time subplan pruning; NULL if we're not doing that */
+	/* 运行时子计划剪枝信息;不做则为 NULL */
 	struct PartitionPruneInfo *part_prune_info;
 } MergeAppend;
 
 /* ----------------
- *	RecursiveUnion node -
- *		Generate a recursive union of two subplans.
+ *	RecursiveUnion点 -
+ *	生成两个子计划的递归并。
  *
- * The "outer" subplan is always the non-recursive term, and the "inner"
- * subplan is the recursive term.
+ * "outer" 子计划恒为非递归项,"inner" 子计划为
+ * 递归项。
  * ----------------
  */
 typedef struct RecursiveUnion
 {
 	Plan		plan;
 
-	/* ID of Param representing work table */
+	/* 表示工作表的 Param 的 ID */
 	int			wtParam;
 
-	/* Remaining fields are zero/null in UNION ALL case */
+	/* UNION ALL 时其余字段为零/空 */
 
-	/* number of columns to check for duplicate-ness */
+	/* 查重列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *dupColIdx pg_node_attr(array_size(numCols));
 
-	/* equality operators to compare with */
+	/* 用于比较的相等运算符 */
 	Oid		   *dupOperators pg_node_attr(array_size(numCols));
 	Oid		   *dupCollations pg_node_attr(array_size(numCols));
 
-	/* estimated number of groups in input */
+	/* 输入中估计的组数 */
 	long		numGroups;
 } RecursiveUnion;
 
 /* ----------------
- *	 BitmapAnd node -
- *		Generate the intersection of the results of sub-plans.
+ *	BitmapAnd点 -
+ *	生成各子计划结果的交。
  *
- * The subplans must be of types that yield tuple bitmaps.  The targetlist
- * and qual fields of the plan are unused and are always NIL.
+ * 子计划须产出元组位图。计划的 targetlist 与 qual
+ * 字段未用且恒为 NIL。
  * ----------------
  */
 typedef struct BitmapAnd
@@ -359,11 +359,11 @@ typedef struct BitmapAnd
 } BitmapAnd;
 
 /* ----------------
- *	 BitmapOr node -
- *		Generate the union of the results of sub-plans.
+ *	BitmapOr点 -
+ *	生成各子计划结果的并。
  *
- * The subplans must be of types that yield tuple bitmaps.  The targetlist
- * and qual fields of the plan are unused and are always NIL.
+ * 子计划须产出元组位图。计划的 targetlist 与 qual
+ * 字段未用且恒为 NIL。
  * ----------------
  */
 typedef struct BitmapOr
@@ -375,9 +375,9 @@ typedef struct BitmapOr
 
 /*
  * ==========
- * Scan nodes
+ * 扫描点
  *
- * Scan is an abstract type that all relation scan plan types inherit from.
+ * Scan 是所有关系扫描计划类型继承的抽象类型。
  * ==========
  */
 typedef struct Scan
@@ -385,11 +385,11 @@ typedef struct Scan
 	pg_node_attr(abstract)
 
 	Plan		plan;
-	Index		scanrelid;		/* relid is index into the range table */
+	Index		scanrelid;		/* relid 是范围表下标 */
 } Scan;
 
 /* ----------------
- *		sequential scan node
+ *	顺序扫描节点
  * ----------------
  */
 typedef struct SeqScan
@@ -398,193 +398,193 @@ typedef struct SeqScan
 } SeqScan;
 
 /* ----------------
- *		table sample scan node
+ *	表抽样扫描节点
  * ----------------
  */
 typedef struct SampleScan
 {
 	Scan		scan;
-	/* use struct pointer to avoid including parsenodes.h here */
+	/* 用结构指针以免在此包含 parsenodes.h */
 	struct TableSampleClause *tablesample;
 } SampleScan;
 
 /* ----------------
- *		index scan node
+ *	索引扫描点
  *
- * indexqualorig is an implicitly-ANDed list of index qual expressions, each
- * in the same form it appeared in the query WHERE condition.  Each should
- * be of the form (indexkey OP comparisonval) or (comparisonval OP indexkey).
- * The indexkey is a Var or expression referencing column(s) of the index's
- * base table.  The comparisonval might be any expression, but it won't use
- * any columns of the base table.  The expressions are ordered by index
- * column position (but items referencing the same index column can appear
- * in any order).  indexqualorig is used at runtime only if we have to recheck
- * a lossy indexqual.
+ * indexqualorig 是隐式 AND 的索引限定表达式列表,各
+ * 保持查询 WHERE 中的原形。每项形如 (indexkey OP
+ * comparisonval) 或 (comparisonval OP indexkey)。
+ * indexkey 是引用索引基表列的 Var 或表达式。
+ * comparisonval 可为任意表达式,但不使用基表任何列。
+ * 表达式按索引列位置排序(引用同一索引列项可任意
+ * 次序)。仅当须复核有损 indexqual 时运行期才用
+ * indexqualorig。
+ * 见上。
  *
- * indexqual has the same form, but the expressions have been commuted if
- * necessary to put the indexkeys on the left, and the indexkeys are replaced
- * by Var nodes identifying the index columns (their varno is INDEX_VAR and
- * their varattno is the index column number).
+ * indexqual 形式相同,但必要时已交换使索引键在左,
+ * 且索引键被标识索引列的 Var 替换(varno 为 INDEX_VAR,
+ * varattno 为索引列号)。
+ * 见上。
  *
- * indexorderbyorig is similarly the original form of any ORDER BY expressions
- * that are being implemented by the index, while indexorderby is modified to
- * have index column Vars on the left-hand side.  Here, multiple expressions
- * must appear in exactly the ORDER BY order, and this is not necessarily the
- * index column order.  Only the expressions are provided, not the auxiliary
- * sort-order information from the ORDER BY SortGroupClauses; it's assumed
- * that the sort ordering is fully determinable from the top-level operators.
- * indexorderbyorig is used at runtime to recheck the ordering, if the index
- * cannot calculate an accurate ordering.  It is also needed for EXPLAIN.
+ * indexorderbyorig 类似是由索引实现的 ORDER BY 表达式
+ * 原形,而 indexorderby 已改成左侧为索引列 Vars。此处
+ * 多表达式须严格按 ORDER BY 次序,未必是索引列次序。
+ * 只提供表达式,不含 ORDER BY SortGroupClauses 的辅助
+ * 排序信息;假定顶层运算符可完全确定排序。索引无法
+ * 算出精确次序时,运行期用 indexorderbyorig 复核次序;
+ * EXPLAIN 也需要它。
+ * 见上。
+ * 见上。
  *
- * indexorderbyops is a list of the OIDs of the operators used to sort the
- * ORDER BY expressions.  This is used together with indexorderbyorig to
- * recheck ordering at run time.  (Note that indexorderby, indexorderbyorig,
- * and indexorderbyops are used for amcanorderbyop cases, not amcanorder.)
+ * indexorderbyops 是排序 ORDER BY 表达式所用运算符的
+ * OID 列表。与 indexorderbyorig 一起用于运行时复核
+ * 次序。(注:indexorderby/indexorderbyorig/indexorderbyops
+ * 用于 amcanorderbyop 情形,非 amcanorder。)
  *
- * indexorderdir specifies the scan ordering, for indexscans on amcanorder
- * indexes (for other indexes it should be "don't care").
+ * indexorderdir 指定扫描方向,用于 amcanorder 索引
+ * (其他索引应为"无所谓")。
  * ----------------
  */
 typedef struct IndexScan
 {
 	Scan		scan;
-	Oid			indexid;		/* OID of index to scan */
-	List	   *indexqual;		/* list of index quals (usually OpExprs) */
-	List	   *indexqualorig;	/* the same in original form */
-	List	   *indexorderby;	/* list of index ORDER BY exprs */
-	List	   *indexorderbyorig;	/* the same in original form */
-	List	   *indexorderbyops;	/* OIDs of sort ops for ORDER BY exprs */
-	ScanDirection indexorderdir;	/* forward or backward or don't care */
+	Oid			indexid;		/* 待扫索引的 OID */
+	List	   *indexqual;		/* 索引限定列表(通常为 OpExprs) */
+	List	   *indexqualorig;	/* 原形相同内容 */
+	List	   *indexorderby;	/* 索引ORDER BY表达式表 */
+	List	   *indexorderbyorig;	/* 原形相同内容 */
+	List	   *indexorderbyops;	/* ORDER BY表达式排序运算符OID */
+	ScanDirection indexorderdir;	/* 向前、向后或无所谓 */
 } IndexScan;
 
 /* ----------------
- *		index-only scan node
+ *	仅索引扫描节点
  *
- * IndexOnlyScan is very similar to IndexScan, but it specifies an
- * index-only scan, in which the data comes from the index not the heap.
- * Because of this, *all* Vars in the plan node's targetlist, qual, and
- * index expressions reference index columns and have varno = INDEX_VAR.
+ * IndexOnlyScan 与 IndexScan 很相似,但指定仅索引扫描,
+ * 数据来自索引而非堆.因此计划节点目标列表、qual 与
+ * 索引表达式中*全部* Vars 引用索引列且 varno=INDEX_VAR.
+ * 见上。
  *
- * We could almost use indexqual directly against the index's output tuple
- * when rechecking lossy index operators, but that won't work for quals on
- * index columns that are not retrievable.  Hence, recheckqual is needed
- * for rechecks: it expresses the same condition as indexqual, but using
- * only index columns that are retrievable.  (We will not generate an
- * index-only scan if this is not possible.  An example is that if an
- * index has table column "x" in a retrievable index column "ind1", plus
- * an expression f(x) in a non-retrievable column "ind2", an indexable
- * query on f(x) will use "ind2" in indexqual and f(ind1) in recheckqual.
- * Without the "ind1" column, an index-only scan would be disallowed.)
+ * 复核有损索引运算符时几乎可直接对索引输出元组用
+ * indexqual,但对不可取回的索引列限定不行。故需
+ * recheckqual:与 indexqual 同条件,但只用可取回的索引
+ * 列.(若不可能则不生成仅索引扫描.例如索引在可取回
+ * 列 ind1 有表列 x,在不可取回列 ind2 有表达式 f(x),则
+ * 对 f(x) 可索引查询在 indexqual 用 ind2、在 recheckqual
+ * 用 f(ind1)。若无 ind1 列则禁止仅索引扫描。)
+ * 见上。
+ * 见上。
+ * 见上。
  *
- * We don't currently need a recheckable equivalent of indexorderby,
- * because we don't support lossy operators in index ORDER BY.
+ * 目前不需要可复核的 indexorderby 等价物,因不支持
+ * 索引 ORDER BY 中的有损运算符。
  *
- * To help EXPLAIN interpret the index Vars for display, we provide
- * indextlist, which represents the contents of the index as a targetlist
- * with one TLE per index column.  Vars appearing in this list reference
- * the base table, and this is the only field in the plan node that may
- * contain such Vars.  Also, for the convenience of setrefs.c, TLEs in
- * indextlist are marked as resjunk if they correspond to columns that
- * the index AM cannot reconstruct.
+ * 为帮 EXPLAIN 解释显示用的索引 Vars,提供 indextlist,
+ * 以目标列表表示索引内容,每索引列一个 TLE.此列表中
+ *  Vars 引用基表,且是计划节点中唯一可含此类 Vars 的
+ * 字段。另为 setrefs.c 方便,若对应索引 AM 无法重构列,
+ * indextlist 中的 TLE 标为 resjunk。
+ * 见上。
+ * 见上。
  * ----------------
  */
 typedef struct IndexOnlyScan
 {
 	Scan		scan;
-	Oid			indexid;		/* OID of index to scan */
-	List	   *indexqual;		/* list of index quals (usually OpExprs) */
-	List	   *recheckqual;	/* index quals in recheckable form */
-	List	   *indexorderby;	/* list of index ORDER BY exprs */
-	List	   *indextlist;		/* TargetEntry list describing index's cols */
-	ScanDirection indexorderdir;	/* forward or backward or don't care */
+	Oid			indexid;		/* 待扫索引的 OID */
+	List	   *indexqual;		/* 索引限定列表(通常为 OpExprs) */
+	List	   *recheckqual;	/* 可复核形式的索引限定 */
+	List	   *indexorderby;	/* 索引ORDER BY表达式表 */
+	List	   *indextlist;		/* 描述索引列的 TargetEntry 列表 */
+	ScanDirection indexorderdir;	/* 向前、向后或无所谓 */
 } IndexOnlyScan;
 
 /* ----------------
- *		bitmap index scan node
+ *	位图索引扫描点
  *
- * BitmapIndexScan delivers a bitmap of potential tuple locations;
- * it does not access the heap itself.  The bitmap is used by an
- * ancestor BitmapHeapScan node, possibly after passing through
- * intermediate BitmapAnd and/or BitmapOr nodes to combine it with
- * the results of other BitmapIndexScans.
+ * BitmapIndexScan 交付潜在元组位置位图;自身不访问
+ * 堆.位图由祖先 BitmapHeapScan 使用,可能先经中间
+ * BitmapAnd 和/或 BitmapOr 与其他 BitmapIndexScan 结果
+ * 合并。
+ * 见上。
  *
- * The fields have the same meanings as for IndexScan, except we don't
- * store a direction flag because direction is uninteresting.
+ * 各字段含义与 IndexScan 相同,只是不存方向标志,因
+ * 方向无关紧要。
  *
- * In a BitmapIndexScan plan node, the targetlist and qual fields are
- * not used and are always NIL.  The indexqualorig field is unused at
- * run time too, but is saved for the benefit of EXPLAIN.
+ * BitmapIndexScan 计划节点中 targetlist 与 qual 未用且
+ * 恒为 NIL。indexqualorig 运行期也不用,但为 EXPLAIN
+ * 保留。
  * ----------------
  */
 typedef struct BitmapIndexScan
 {
 	Scan		scan;
-	Oid			indexid;		/* OID of index to scan */
-	bool		isshared;		/* Create shared bitmap if set */
-	List	   *indexqual;		/* list of index quals (OpExprs) */
-	List	   *indexqualorig;	/* the same in original form */
+	Oid			indexid;		/* 待扫索引的 OID */
+	bool		isshared;		/* 置位则建共享位图 */
+	List	   *indexqual;		/* 索引限定列表(OpExprs) */
+	List	   *indexqualorig;	/* 原形相同内容 */
 } BitmapIndexScan;
 
 /* ----------------
- *		bitmap sequential scan node
+ *	位图顺序扫描节点
  *
- * This needs a copy of the qual conditions being used by the input index
- * scans because there are various cases where we need to recheck the quals;
- * for example, when the bitmap is lossy about the specific rows on a page
- * that meet the index condition.
+ * 需要输入索引扫描所用限定条件的副本,因多种情形须
+ * 复核限定;例如位图对页上满足索引条件具体行有损时。
+ * 见上。
+ * 见上。
  * ----------------
  */
 typedef struct BitmapHeapScan
 {
 	Scan		scan;
-	List	   *bitmapqualorig; /* index quals, in standard expr form */
+	List	   *bitmapqualorig; /* 标准表达式形式索引限定 */
 } BitmapHeapScan;
 
 /* ----------------
- *		tid scan node
+ *	tid扫描点
  *
- * tidquals is an implicitly OR'ed list of qual expressions of the form
- * "CTID = pseudoconstant", or "CTID = ANY(pseudoconstant_array)",
- * or a CurrentOfExpr for the relation.
+ * tidquals 是隐式 OR 的限定表达式列表,形如
+ * "CTID = 伪常量"、"CTID = ANY(伪常量数组)",
+ * 或该关系的 CurrentOfExpr。
  * ----------------
  */
 typedef struct TidScan
 {
 	Scan		scan;
-	List	   *tidquals;		/* qual(s) involving CTID = something */
+	List	   *tidquals;		/* 涉及 CTID = 某值的限定 */
 } TidScan;
 
 /* ----------------
- *		tid range scan node
+ *	tid 范围扫描点
  *
- * tidrangequals is an implicitly AND'ed list of qual expressions of the form
- * "CTID relop pseudoconstant", where relop is one of >,>=,<,<=.
+ * tidrangequals 是隐式 AND 的限定表达式列表,形如
+ * "CTID relop 伪常量",relop 为 >、>=、<、<= 之一。
  * ----------------
  */
 typedef struct TidRangeScan
 {
 	Scan		scan;
-	List	   *tidrangequals;	/* qual(s) involving CTID op something */
+	List	   *tidrangequals;	/* 涉及 CTID op 某值的限定 */
 } TidRangeScan;
 
 /* ----------------
- *		subquery scan node
+ *	子查询扫描点
  *
- * SubqueryScan is for scanning the output of a sub-query in the range table.
- * We often need an extra plan node above the sub-query's plan to perform
- * expression evaluations (which we can't push into the sub-query without
- * risking changing its semantics).  Although we are not scanning a physical
- * relation, we make this a descendant of Scan anyway for code-sharing
- * purposes.
+ * SubqueryScan 用于扫描范围表中子查询的输出。常需在
+ * 子查询计划之上再加一层计划节点做表达式求值(不能
+ * 贸然推进子查询以免改语义)。虽非扫描物理关系,仍
+ * 令其派生自 Scan 以便共享代码。
+ * 见上。
+ * 见上。
  *
- * SubqueryScanStatus caches the trivial_subqueryscan property of the node.
- * SUBQUERY_SCAN_UNKNOWN means not yet determined.  This is only used during
- * planning.
+ * SubqueryScanStatus 缓存节点的 trivial_subqueryscan
+ * 属性。SUBQUERY_SCAN_UNKNOWN 表示尚未判定。仅规划期
+ * 使用。
  *
- * Note: we store the sub-plan in the type-specific subplan field, not in
- * the generic lefttree field as you might expect.  This is because we do
- * not want plan-tree-traversal routines to recurse into the subplan without
- * knowing that they are changing Query contexts.
+ * 注意:子计划存在类型专用 subplan 字段,而非通用
+ * lefttree.因不希望计划树遍历例程在不知改 Query 上下文
+ * 的情况下递归进子计划。
+ * 见上。
  * ----------------
  */
 typedef enum SubqueryScanStatus
@@ -602,135 +602,135 @@ typedef struct SubqueryScan
 } SubqueryScan;
 
 /* ----------------
- *		FunctionScan node
+ *	FunctionScan 点
  * ----------------
  */
 typedef struct FunctionScan
 {
 	Scan		scan;
-	List	   *functions;		/* list of RangeTblFunction nodes */
+	List	   *functions;		/* RangeTblFunction 节点列表 */
 	bool		funcordinality; /* WITH ORDINALITY */
 } FunctionScan;
 
 /* ----------------
- *		ValuesScan node
+ *	ValuesScan 点
  * ----------------
  */
 typedef struct ValuesScan
 {
 	Scan		scan;
-	List	   *values_lists;	/* list of expression lists */
+	List	   *values_lists;	/* 表达式列表的列表 */
 } ValuesScan;
 
 /* ----------------
- *		TableFunc scan node
+ *	TableFunc 扫描点
  * ----------------
  */
 typedef struct TableFuncScan
 {
 	Scan		scan;
-	TableFunc  *tablefunc;		/* table function node */
+	TableFunc  *tablefunc;		/* 表函数节点 */
 } TableFuncScan;
 
 /* ----------------
- *		CteScan node
+ *	CteScan 点
  * ----------------
  */
 typedef struct CteScan
 {
 	Scan		scan;
-	int			ctePlanId;		/* ID of init SubPlan for CTE */
-	int			cteParam;		/* ID of Param representing CTE output */
+	int			ctePlanId;		/* CTE  init SubPlan 的 ID */
+	int			cteParam;		/* 表示 CTE 输出的 Param 的 ID */
 } CteScan;
 
 /* ----------------
- *		NamedTuplestoreScan node
+ *	NamedTuplestoreScan 点
  * ----------------
  */
 typedef struct NamedTuplestoreScan
 {
 	Scan		scan;
-	char	   *enrname;		/* Name given to Ephemeral Named Relation */
+	char	   *enrname;		/* 临时命名关系的给定名 */
 } NamedTuplestoreScan;
 
 /* ----------------
- *		WorkTableScan node
+ *	WorkTableScan 点
  * ----------------
  */
 typedef struct WorkTableScan
 {
 	Scan		scan;
-	int			wtParam;		/* ID of Param representing work table */
+	int			wtParam;		/* 表示工作表的 Param 的 ID */
 } WorkTableScan;
 
 /* ----------------
- *		ForeignScan node
+ *	ForeignScan 点
  *
- * fdw_exprs and fdw_private are both under the control of the foreign-data
- * wrapper, but fdw_exprs is presumed to contain expression trees and will
- * be post-processed accordingly by the planner; fdw_private won't be.
- * Note that everything in both lists must be copiable by copyObject().
- * One way to store an arbitrary blob of bytes is to represent it as a bytea
- * Const.  Usually, though, you'll be better off choosing a representation
- * that can be dumped usefully by nodeToString().
+ * fdw_exprs 与 fdw_private 都由外部数据包装器控制,但
+ * fdw_exprs 假定含表达式树并由规划器相应后处理;
+ * fdw_private 不会。两列表中一切须能被 copyObject()
+ * 拷贝。存任意字节块一种办法是表示为 bytea Const。
+ * 但通常更好选能被 nodeToString() 有用转储的表示。
+ * 见上。
+ * 见上。
  *
- * fdw_scan_tlist is a targetlist describing the contents of the scan tuple
- * returned by the FDW; it can be NIL if the scan tuple matches the declared
- * rowtype of the foreign table, which is the normal case for a simple foreign
- * table scan.  (If the plan node represents a foreign join, fdw_scan_tlist
- * is required since there is no rowtype available from the system catalogs.)
- * When fdw_scan_tlist is provided, Vars in the node's tlist and quals must
- * have varno INDEX_VAR, and their varattnos correspond to resnos in the
- * fdw_scan_tlist (which are also column numbers in the actual scan tuple).
- * fdw_scan_tlist is never actually executed; it just holds expression trees
- * describing what is in the scan tuple's columns.
+ * fdw_scan_tlist 是描述扫描元组内容的目标列表;若扫描
+ * 元组匹配外表声明行类型(简单外表扫描常态)可为 NIL。
+ * (若计划节点表示外部连接,则必须有 fdw_scan_tlist,因
+ * 系统目录无可用行类型。)提供 fdw_scan_tlist 时,节点
+ * tlist 与 quals 中的 Vars 须 varno=INDEX_VAR,且 varattnos
+ * 对应 fdw_scan_tlist 的 resnos(亦即实际扫描元组的列号)。
+ * fdw_scan_tlist 从不真正执行;只保存描述扫描元组各列
+ * 内容的表达式树。
+ * 见上。
+ * 见上。
  *
- * fdw_recheck_quals should contain any quals which the core system passed to
- * the FDW but which were not added to scan.plan.qual; that is, it should
- * contain the quals being checked remotely.  This is needed for correct
- * behavior during EvalPlanQual rechecks.
+ * fdw_recheck_quals 应含核心系统传给 FDW 但未加入
+ * scan.plan.qual 的限定,即远程检查的限定。EvalPlanQual
+ * 复核时行为正确需要它。
+ * 见上。
  *
- * When the plan node represents a foreign join, scan.scanrelid is zero and
- * fs_relids must be consulted to identify the join relation.  (fs_relids
- * is valid for simple scans as well, but will always match scan.scanrelid.)
- * fs_relids includes outer joins; fs_base_relids does not.
+ * 计划节点表示外部连接时 scan.scanrelid 为零,须查阅
+ * fs_relids 识别连接关系。(简单扫描时 fs_relids 也有效,
+ * 但总与 scan.scanrelid 一致。)fs_relids 含外连接;
+ * fs_base_relids 不含。
  *
- * If the FDW's PlanDirectModify() callback decides to repurpose a ForeignScan
- * node to perform the UPDATE or DELETE operation directly in the remote
- * server, it sets 'operation' and 'resultRelation' to identify the operation
- * type and target relation.  Note that these fields are only set if the
- * modification is performed *fully* remotely; otherwise, the modification is
- * driven by a local ModifyTable node and 'operation' is left to CMD_SELECT.
+ * 若 FDW 的 PlanDirectModify() 回调决定改用 ForeignScan
+ * 在远程服务器直接做 UPDATE/DELETE,则设置 operation 与
+ * resultRelation 标识操作类型与目标关系。仅当修改*完全*
+ * 在远程执行时才设置这些字段;否则由本地 ModifyTable
+ * 驱动修改,operation 留为 CMD_SELECT。
+ * 见上。
  * ----------------
  */
 typedef struct ForeignScan
 {
 	Scan		scan;
 	CmdType		operation;		/* SELECT/INSERT/UPDATE/DELETE */
-	Index		resultRelation; /* direct modification target's RT index */
-	Oid			checkAsUser;	/* user to perform the scan as; 0 means to
-								 * check as current user */
-	Oid			fs_server;		/* OID of foreign server */
-	List	   *fdw_exprs;		/* expressions that FDW may evaluate */
-	List	   *fdw_private;	/* private data for FDW */
-	List	   *fdw_scan_tlist; /* optional tlist describing scan tuple */
-	List	   *fdw_recheck_quals;	/* original quals not in scan.plan.qual */
-	Bitmapset  *fs_relids;		/* base+OJ RTIs generated by this scan */
-	Bitmapset  *fs_base_relids; /* base RTIs generated by this scan */
-	bool		fsSystemCol;	/* true if any "system column" is needed */
+	Index		resultRelation; /* 直接修改目标的 RT 下标 */
+	Oid			checkAsUser;	/* 以何用户执行扫描;0 表示
+								 * 按当前用户检查 */
+	Oid			fs_server;		/* 外部服务器 OID */
+	List	   *fdw_exprs;		/* FDW 可能求值的表达式 */
+	List	   *fdw_private;	/* FDW 的私有数据 */
+	List	   *fdw_scan_tlist; /* 描述扫描元组的可选 tlist */
+	List	   *fdw_recheck_quals;	/* 不在 scan.plan.qual 中原限定 */
+	Bitmapset  *fs_relids;		/* 本扫描生成的基表+OJ RTI */
+	Bitmapset  *fs_base_relids; /* 本扫描生成的基表 RTI */
+	bool		fsSystemCol;	/* 是否需要任何"系统列" */
 } ForeignScan;
 
 /* ----------------
- *	   CustomScan node
+ *	CustomScan 节点
  *
- * The comments for ForeignScan's fdw_exprs, fdw_private, fdw_scan_tlist,
- * and fs_relids fields apply equally to CustomScan's custom_exprs,
- * custom_private, custom_scan_tlist, and custom_relids fields.  The
- * convention of setting scan.scanrelid to zero for joins applies as well.
+ * ForeignScan 的 fdw_exprs、fdw_private、fdw_scan_tlist
+ * 与 fs_relids 字段的注释同样适用于 CustomScan 的
+ * custom_exprs、custom_private、custom_scan_tlist 与
+ * custom_relids。连接时 scan.scanrelid 置零的约定亦同。
  *
- * Note that since Plan trees can be copied, custom scan providers *must*
- * fit all plan data they need into those fields; embedding CustomScan in
- * a larger struct will not work.
+ * 注意因 Plan 树可拷贝,定制扫描提供者*须*把所需计划
+ * 数据都放进这些字段;把 CustomScan 嵌进更大结构不行。
+ * 见上。
  * ----------------
  */
 struct CustomScanMethods;
@@ -738,48 +738,48 @@ struct CustomScanMethods;
 typedef struct CustomScan
 {
 	Scan		scan;
-	uint32		flags;			/* mask of CUSTOMPATH_* flags, see
+	uint32		flags;			/* CUSTOMPATH_* 标志掩码,见
 								 * nodes/extensible.h */
-	List	   *custom_plans;	/* list of Plan nodes, if any */
-	List	   *custom_exprs;	/* expressions that custom code may evaluate */
-	List	   *custom_private; /* private data for custom code */
-	List	   *custom_scan_tlist;	/* optional tlist describing scan tuple */
-	Bitmapset  *custom_relids;	/* RTIs generated by this scan */
+	List	   *custom_plans;	/* Plan 节点列表(若有) */
+	List	   *custom_exprs;	/* 定制代码可能求值的表达式 */
+	List	   *custom_private; /* 定制代码的私有数据 */
+	List	   *custom_scan_tlist;	/* 描述扫描元组的可选 tlist */
+	Bitmapset  *custom_relids;	/* 本扫描生成的 RTI */
 
 	/*
-	 * NOTE: The method field of CustomScan is required to be a pointer to a
-	 * static table of callback functions.  So we don't copy the table itself,
-	 * just reference the original one.
+	 * 注意:CustomScan 的 method 字段须指向回调函数的静态
+	 * 表。故不拷贝该表本身,只引用原表。
+	 * 见上。
 	 */
 	const struct CustomScanMethods *methods;
 } CustomScan;
 
 /*
  * ==========
- * Join nodes
+ * 连接点
  * ==========
  */
 
 /* ----------------
- *		Join node
+ *	Join 点
  *
- * jointype:	rule for joining tuples from left and right subtrees
- * inner_unique each outer tuple can match to no more than one inner tuple
- * joinqual:	qual conditions that came from JOIN/ON or JOIN/USING
- *				(plan.qual contains conditions that came from WHERE)
+ * jointype: 左右子树元组的连接规则
+ * inner_unique: 每个外元组至多匹配一个内元组
+ * joinqual: 来自 JOIN/ON 或 JOIN/USING 的限定
+ *	(plan.qual 含来自 WHERE 的条件)
  *
- * When jointype is INNER, joinqual and plan.qual are semantically
- * interchangeable.  For OUTER jointypes, the two are *not* interchangeable;
- * only joinqual is used to determine whether a match has been found for
- * the purpose of deciding whether to generate null-extended tuples.
- * (But plan.qual is still applied before actually returning a tuple.)
- * For an outer join, only joinquals are allowed to be used as the merge
- * or hash condition of a merge or hash join.
+ * jointype 为 INNER 时,joinqual 与 plan.qual 语义可互换.
+ * OUTER 连接类型则*不可*互换;仅 joinqual 用于判定是否
+ * 找到匹配以决定否生成空扩展元组.(但返回元组前仍
+ * 应用 plan.qual。)外连接时,仅 joinquals 可用作归并或
+ * 哈希连接的归并/哈希条件。
+ * 见上。
+ * 见上。
  *
- * inner_unique is set if the joinquals are such that no more than one inner
- * tuple could match any given outer tuple.  This allows the executor to
- * skip searching for additional matches.  (This must be provable from just
- * the joinquals, ignoring plan.qual, due to where the executor tests it.)
+ * 若 joinquals 使得任一给定外元组至多匹配一个内元组,
+ * 则置 inner_unique。执行器可跳过继续搜索匹配。(须仅
+ * 由 joinquals 可证,忽略 plan.qual,因执行器在该处测试。)
+ * 见上。
  * ----------------
  */
 typedef struct Join
@@ -789,7 +789,7 @@ typedef struct Join
 	Plan		plan;
 	JoinType	jointype;
 	bool		inner_unique;
-	List	   *joinqual;		/* JOIN quals (in addition to plan.qual) */
+	List	   *joinqual;		/* JOIN 限定(附加于 plan.qual) */
 } Join;
 
 /* ----------------
@@ -806,7 +806,7 @@ typedef struct Join
 typedef struct NestLoop
 {
 	Join		join;
-	List	   *nestParams;		/* list of NestLoopParam nodes */
+	List	   *nestParams;		/* NestLoopParam 节点列表 */
 } NestLoop;
 
 typedef struct NestLoopParam
@@ -814,8 +814,8 @@ typedef struct NestLoopParam
 	pg_node_attr(no_equal, no_query_jumble)
 
 	NodeTag		type;
-	int			paramno;		/* number of the PARAM_EXEC Param to set */
-	Var		   *paramval;		/* outer-relation Var to assign to Param */
+	int			paramno;		/* 要设置的 PARAM_EXEC Param 编号 */
+	Var		   *paramval;		/* 赋给 Param 的外关系 Var */
 } NestLoopParam;
 
 /* ----------------
@@ -855,7 +855,7 @@ typedef struct MergeJoin
 } MergeJoin;
 
 /* ----------------
- *		hash join node
+ *	哈希连接点
  * ----------------
  */
 typedef struct HashJoin
@@ -866,14 +866,14 @@ typedef struct HashJoin
 	List	   *hashcollations;
 
 	/*
-	 * List of expressions to be hashed for tuples from the outer plan, to
-	 * perform lookups in the hashtable over the inner plan.
+	 * 对外计划元组做哈希表达式表,以便在内计划的哈希
+	 * 表中查找。
 	 */
 	List	   *hashkeys;
 } HashJoin;
 
 /* ----------------
- *		materialization node
+ *	物化节点
  * ----------------
  */
 typedef struct Material
@@ -882,40 +882,40 @@ typedef struct Material
 } Material;
 
 /* ----------------
- *		memoize node
+ *	memoize 点
  * ----------------
  */
 typedef struct Memoize
 {
 	Plan		plan;
 
-	/* size of the two arrays below */
+	/* 下列两个数组的大小 */
 	int			numKeys;
 
-	/* hash operators for each key */
+	/* 各键的哈希运算符 */
 	Oid		   *hashOperators pg_node_attr(array_size(numKeys));
 
-	/* collations for each key */
+	/* 各键的排序规则 */
 	Oid		   *collations pg_node_attr(array_size(numKeys));
 
-	/* cache keys in the form of exprs containing parameters */
+	/* 含参数的表达式形式的缓存键 */
 	List	   *param_exprs;
 
 	/*
-	 * true if the cache entry should be marked as complete after we store the
-	 * first tuple in it.
+	 * 存入第一个元组后是否应将缓存项标为完整。
+	 * 见上。
 	 */
 	bool		singlerow;
 
 	/*
-	 * true when cache key should be compared bit by bit, false when using
-	 * hash equality ops
+	 * 缓存键应按位比较则为真,用哈希相等运算则为假
+	 * 见上。
 	 */
 	bool		binary_mode;
 
 	/*
-	 * The maximum number of entries that the planner expects will fit in the
-	 * cache, or 0 if unknown
+	 * 规划器预期缓存可容纳的最大项数,未知则为 0
+	 * 见上。
 	 */
 	uint32		est_entries;
 
@@ -924,225 +924,225 @@ typedef struct Memoize
 } Memoize;
 
 /* ----------------
- *		sort node
+ *	排序点
  * ----------------
  */
 typedef struct Sort
 {
 	Plan		plan;
 
-	/* number of sort-key columns */
+	/* 排序键列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *sortColIdx pg_node_attr(array_size(numCols));
 
-	/* OIDs of operators to sort them by */
+	/* 用以排序的运算符 OID */
 	Oid		   *sortOperators pg_node_attr(array_size(numCols));
 
-	/* OIDs of collations */
+	/* 排序规则 OID */
 	Oid		   *collations pg_node_attr(array_size(numCols));
 
-	/* NULLS FIRST/LAST directions */
+	/* NULLS FIRST/LAST 方向 */
 	bool	   *nullsFirst pg_node_attr(array_size(numCols));
 } Sort;
 
 /* ----------------
- *		incremental sort node
+ *	增量排序节点
  * ----------------
  */
 typedef struct IncrementalSort
 {
 	Sort		sort;
-	int			nPresortedCols; /* number of presorted columns */
+	int			nPresortedCols; /* 已预排序的列数 */
 } IncrementalSort;
 
 /* ---------------
- *	 group node -
- *		Used for queries with GROUP BY (but no aggregates) specified.
- *		The input must be presorted according to the grouping columns.
+ *	group 点 -
+ *	用于指定了 GROUP BY(但无聚合)的查询。
+ *	输入须已按分组列预排序。
  * ---------------
  */
 typedef struct Group
 {
 	Plan		plan;
 
-	/* number of grouping columns */
+	/* 分组列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *grpColIdx pg_node_attr(array_size(numCols));
 
-	/* equality operators to compare with */
+	/* 用于比较的相等运算符 */
 	Oid		   *grpOperators pg_node_attr(array_size(numCols));
 	Oid		   *grpCollations pg_node_attr(array_size(numCols));
 } Group;
 
 /* ---------------
- *		aggregate node
+ *	聚合节点
  *
- * An Agg node implements plain or grouped aggregation.  For grouped
- * aggregation, we can work with presorted input or unsorted input;
- * the latter strategy uses an internal hashtable.
+ * Agg 点实现普通或分组聚合.分组聚合可处理预排序
+ * 或未排序输入;后者策略用内部哈希表。
+ * 见上。
  *
- * Notice the lack of any direct info about the aggregate functions to be
- * computed.  They are found by scanning the node's tlist and quals during
- * executor startup.  (It is possible that there are no aggregate functions;
- * this could happen if they get optimized away by constant-folding, or if
- * we are using the Agg node to implement hash-based grouping.)
+ * 注意没有关于待算聚合函数直接信息。执行器启动时
+ * 扫描节点 tlist 与 quals 找到它们。(可能没有聚合函数:
+ * 常量折叠优化掉,或用 Agg 节点实现基于哈希的分组。)
+ * 见上。
+ * 见上。
  * ---------------
  */
 typedef struct Agg
 {
 	Plan		plan;
 
-	/* basic strategy, see nodes.h */
+	/* 基本策略,见 nodes.h */
 	AggStrategy aggstrategy;
 
-	/* agg-splitting mode, see nodes.h */
+	/* 聚合拆分模式,见 nodes.h */
 	AggSplit	aggsplit;
 
-	/* number of grouping columns */
+	/* 分组列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *grpColIdx pg_node_attr(array_size(numCols));
 
-	/* equality operators to compare with */
+	/* 用于比较的相等运算符 */
 	Oid		   *grpOperators pg_node_attr(array_size(numCols));
 	Oid		   *grpCollations pg_node_attr(array_size(numCols));
 
-	/* estimated number of groups in input */
+	/* 输入中估计的组数 */
 	long		numGroups;
 
-	/* for pass-by-ref transition data */
+	/* 供按引用传递转移数据 */
 	uint64		transitionSpace;
 
-	/* IDs of Params used in Aggref inputs */
+	/* Aggref 输入所用 Params 的 ID */
 	Bitmapset  *aggParams;
 
-	/* Note: planner provides numGroups & aggParams only in HASHED/MIXED case */
+	/* 注:规划器仅在 HASHED/MIXED 时提供 numGroups 与 aggParams */
 
-	/* grouping sets to use */
+	/* 要使用分组集 */
 	List	   *groupingSets;
 
-	/* chained Agg/Sort nodes */
+	/* 链式 Agg/Sort 节点 */
 	List	   *chain;
 } Agg;
 
 /* ----------------
- *		window aggregate node
+ *	窗口聚合节点
  * ----------------
  */
 typedef struct WindowAgg
 {
 	Plan		plan;
 
-	/* ID referenced by window functions */
+	/* 窗口函数引用的 ID */
 	Index		winref;
 
-	/* number of columns in partition clause */
+	/* 分区子句中的列数 */
 	int			partNumCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *partColIdx pg_node_attr(array_size(partNumCols));
 
-	/* equality operators for partition columns */
+	/* 分区列的相等运算符 */
 	Oid		   *partOperators pg_node_attr(array_size(partNumCols));
 
-	/* collations for partition columns */
+	/* 分区列的排序规则 */
 	Oid		   *partCollations pg_node_attr(array_size(partNumCols));
 
-	/* number of columns in ordering clause */
+	/* 排序子句中的列数 */
 	int			ordNumCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *ordColIdx pg_node_attr(array_size(ordNumCols));
 
-	/* equality operators for ordering columns */
+	/* 排序列的相等运算符 */
 	Oid		   *ordOperators pg_node_attr(array_size(ordNumCols));
 
-	/* collations for ordering columns */
+	/* 排序列的排序规则 */
 	Oid		   *ordCollations pg_node_attr(array_size(ordNumCols));
 
-	/* frame_clause options, see WindowDef */
+	/* frame_clause 选项,见 WindowDef */
 	int			frameOptions;
 
-	/* expression for starting bound, if any */
+	/* 起始界表达式(若有) */
 	Node	   *startOffset;
 
-	/* expression for ending bound, if any */
+	/* 结束界表达式(若有) */
 	Node	   *endOffset;
 
-	/* qual to help short-circuit execution */
+	/* 帮助短路执行的限定 */
 	List	   *runCondition;
 
-	/* runCondition for display in EXPLAIN */
+	/* 供 EXPLAIN 显示的 runCondition */
 	List	   *runConditionOrig;
 
-	/* these fields are used with RANGE offset PRECEDING/FOLLOWING: */
+	/* 下列字段用于 RANGE offset PRECEDING/FOLLOWING: */
 
-	/* in_range function for startOffset */
+	/* startOffset 的 in_range 函数 */
 	Oid			startInRangeFunc;
 
-	/* in_range function for endOffset */
+	/* endOffset 的 in_range 函数 */
 	Oid			endInRangeFunc;
 
-	/* collation for in_range tests */
+	/* in_range 测试排序规则 */
 	Oid			inRangeColl;
 
-	/* use ASC sort order for in_range tests? */
+	/* in_range 测试用 ASC 排序? */
 	bool		inRangeAsc;
 
-	/* nulls sort first for in_range tests? */
+	/* in_range 测试空值排前? */
 	bool		inRangeNullsFirst;
 
 	/*
-	 * false for all apart from the WindowAgg that's closest to the root of
-	 * the plan
+	 * 除最靠近计划根的 WindowAgg 外皆为假
+	 * 见上.
 	 */
 	bool		topWindow;
 } WindowAgg;
 
 /* ----------------
- *		unique node
+ *	unique 点
  * ----------------
  */
 typedef struct Unique
 {
 	Plan		plan;
 
-	/* number of columns to check for uniqueness */
+	/* 查重列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *uniqColIdx pg_node_attr(array_size(numCols));
 
-	/* equality operators to compare with */
+	/* 用于比较的相等运算符 */
 	Oid		   *uniqOperators pg_node_attr(array_size(numCols));
 
-	/* collations for equality comparisons */
+	/* 相等比较的排序规则 */
 	Oid		   *uniqCollations pg_node_attr(array_size(numCols));
 } Unique;
 
 /* ------------
- *		gather node
+ *	gather 点
  *
- * Note: rescan_param is the ID of a PARAM_EXEC parameter slot.  That slot
- * will never actually contain a value, but the Gather node must flag it as
- * having changed whenever it is rescanned.  The child parallel-aware scan
- * nodes are marked as depending on that parameter, so that the rescan
- * machinery is aware that their output is likely to change across rescans.
- * In some cases we don't need a rescan Param, so rescan_param is set to -1.
+ * 注:rescan_param 是 PARAM_EXEC 参数槽的 ID。该槽从
+ * 不含值,但 Gather 节点重扫时必须标它已变。子并行感知
+ * 扫描点标为依赖该参数,使重扫机制知道其输出可能跨
+ * 重扫变化.有时不需要重扫 Param,则 rescan_param 为 -1。
+ * 见上。
+ * 见上。
  * ------------
  */
 typedef struct Gather
 {
 	Plan		plan;
-	int			num_workers;	/* planned number of worker processes */
-	int			rescan_param;	/* ID of Param that signals a rescan, or -1 */
-	bool		single_copy;	/* don't execute plan more than once */
-	bool		invisible;		/* suppress EXPLAIN display (for testing)? */
+	int			num_workers;	/* 计划的工作进程数 */
+	int			rescan_param;	/* 发信号重扫的 Param 的 ID,或 -1 */
+	bool		single_copy;	/* 计划勿执行超过一次 */
+	bool		invisible;		/* 抑制 EXPLAIN 显示(供测试)? */
 	Bitmapset  *initParam;		/* param id's of initplans which are referred
 								 * at gather or one of it's child node */
 } Gather;
@@ -1155,27 +1155,27 @@ typedef struct GatherMerge
 {
 	Plan		plan;
 
-	/* planned number of worker processes */
+	/* 计划的工作进程数 */
 	int			num_workers;
 
-	/* ID of Param that signals a rescan, or -1 */
+	/* 发信号重扫的 Param 的 ID,或 -1 */
 	int			rescan_param;
 
-	/* remaining fields are just like the sort-key info in struct Sort */
+	/* 其余字段恰如 Sort 结构中的排序键信息 */
 
-	/* number of sort-key columns */
+	/* 排序键列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *sortColIdx pg_node_attr(array_size(numCols));
 
-	/* OIDs of operators to sort them by */
+	/* 用以排序的运算符 OID */
 	Oid		   *sortOperators pg_node_attr(array_size(numCols));
 
-	/* OIDs of collations */
+	/* 排序规则 OID */
 	Oid		   *collations pg_node_attr(array_size(numCols));
 
-	/* NULLS FIRST/LAST directions */
+	/* NULLS FIRST/LAST 方向 */
 	bool	   *nullsFirst pg_node_attr(array_size(numCols));
 
 	/*
@@ -1186,11 +1186,11 @@ typedef struct GatherMerge
 } GatherMerge;
 
 /* ----------------
- *		hash build node
+ *	哈希构建点
  *
- * If the executor is supposed to try to apply skew join optimization, then
- * skewTable/skewColumn/skewInherit identify the outer relation's join key
- * column, from which the relevant MCV statistics can be fetched.
+ * 若执行器应尝试倾斜连接优化,则 skewTable/skewColumn/
+ * skewInherit 标识外关系连接键列,可从此取相关 MCV
+ * 统计。
  * ----------------
  */
 typedef struct Hash
@@ -1198,15 +1198,15 @@ typedef struct Hash
 	Plan		plan;
 
 	/*
-	 * List of expressions to be hashed for tuples from Hash's outer plan,
-	 * needed to put them into the hashtable.
+	 * 对 Hash 外计划元组做哈希表达式列表,以便放入哈希
+	 * 表。
 	 */
-	List	   *hashkeys;		/* hash keys for the hashjoin condition */
-	Oid			skewTable;		/* outer join key's table OID, or InvalidOid */
-	AttrNumber	skewColumn;		/* outer join key's column #, or zero */
-	bool		skewInherit;	/* is outer join rel an inheritance tree? */
-	/* all other info is in the parent HashJoin node */
-	Cardinality rows_total;		/* estimate total rows if parallel_aware */
+	List	   *hashkeys;		/* 哈希连接条件的哈希键 */
+	Oid			skewTable;		/* 外连接键的表 OID,或 InvalidOid */
+	AttrNumber	skewColumn;		/* 外连接键的列号,或零 */
+	bool		skewInherit;	/* 外连接关系是否为继承树? */
+	/* 其余信息在父 HashJoin 节点中 */
+	Cardinality rows_total;		/* 若 parallel_aware 则估计总行数 */
 } Hash;
 
 /* ----------------
@@ -1217,78 +1217,78 @@ typedef struct SetOp
 {
 	Plan		plan;
 
-	/* what to do, see nodes.h */
+	/* 做什么,见 nodes.h */
 	SetOpCmd	cmd;
 
-	/* how to do it, see nodes.h */
+	/* 怎么做,见 nodes.h */
 	SetOpStrategy strategy;
 
-	/* number of columns to check for duplicate-ness */
+	/* 查重列数 */
 	int			numCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *dupColIdx pg_node_attr(array_size(numCols));
 
-	/* equality operators to compare with */
+	/* 用于比较的相等运算符 */
 	Oid		   *dupOperators pg_node_attr(array_size(numCols));
 	Oid		   *dupCollations pg_node_attr(array_size(numCols));
 
-	/* where is the flag column, if any */
+	/* 标志列位置(若有) */
 	AttrNumber	flagColIdx;
 
-	/* flag value for first input relation */
+	/* 第一输入关系的标志值 */
 	int			firstFlag;
 
-	/* estimated number of groups in input */
+	/* 输入中估计的组数 */
 	long		numGroups;
 } SetOp;
 
 /* ----------------
- *		lock-rows node
+ *	锁行节点
  *
- * rowMarks identifies the rels to be locked by this node; it should be
- * a subset of the rowMarks listed in the top-level PlannedStmt.
- * epqParam is a Param that all scan nodes below this one must depend on.
- * It is used to force re-evaluation of the plan during EvalPlanQual.
+ * rowMarks 标识本节点要锁的关系;应是顶层 PlannedStmt
+ * 所列 rowMarks 子集。epqParam 其下所有扫描节点须
+ * 依赖的 Param,用于 EvalPlanQual 期间强制重求值计划。
+ * 见上。
  * ----------------
  */
 typedef struct LockRows
 {
 	Plan		plan;
-	List	   *rowMarks;		/* a list of PlanRowMark's */
-	int			epqParam;		/* ID of Param for EvalPlanQual re-eval */
+	List	   *rowMarks;		/* PlanRowMark 列表 */
+	int			epqParam;		/* EvalPlanQual 重求值用 Param  ID */
 } LockRows;
 
 /* ----------------
- *		limit node
+ *	limit 点
  *
- * Note: as of Postgres 8.2, the offset and count expressions are expected
- * to yield int8, rather than int4 as before.
+ * 注:自 Postgres 8.2 起,offset 与 count 表达式预期产出
+ * int8,而非先前的 int4。
  * ----------------
  */
 typedef struct Limit
 {
 	Plan		plan;
 
-	/* OFFSET parameter, or NULL if none */
+	/* OFFSET 参数,无则为 NULL */
 	Node	   *limitOffset;
 
-	/* COUNT parameter, or NULL if none */
+	/* COUNT 参数,无则为 NULL */
 	Node	   *limitCount;
 
 	/* limit type */
 	LimitOption limitOption;
 
-	/* number of columns to check for similarity  */
+	/* 查相似列数  */
 	int			uniqNumCols;
 
-	/* their indexes in the target list */
+	/* 它们在目标列表中下标 */
 	AttrNumber *uniqColIdx pg_node_attr(array_size(uniqNumCols));
 
-	/* equality operators to compare with */
+	/* 用于比较的相等运算符 */
 	Oid		   *uniqOperators pg_node_attr(array_size(uniqNumCols));
 
-	/* collations for equality comparisons */
+	/* 相等比较的排序规则 */
 	Oid		   *uniqCollations pg_node_attr(array_size(uniqNumCols));
 } Limit;
 
@@ -1325,12 +1325,12 @@ typedef struct Limit
  */
 typedef enum RowMarkType
 {
-	ROW_MARK_EXCLUSIVE,			/* obtain exclusive tuple lock */
-	ROW_MARK_NOKEYEXCLUSIVE,	/* obtain no-key exclusive tuple lock */
-	ROW_MARK_SHARE,				/* obtain shared tuple lock */
-	ROW_MARK_KEYSHARE,			/* obtain keyshare tuple lock */
-	ROW_MARK_REFERENCE,			/* just fetch the TID, don't lock it */
-	ROW_MARK_COPY				/* physically copy the row value */
+	ROW_MARK_EXCLUSIVE,			/* 取得排他元组锁 */
+	ROW_MARK_NOKEYEXCLUSIVE,	/* 取得无键排他元组锁 */
+	ROW_MARK_SHARE,				/* 取得共享元组锁 */
+	ROW_MARK_KEYSHARE,			/* 取得键共享元组锁 */
+	ROW_MARK_REFERENCE,			/* 只取 TID,不加锁 */
+	ROW_MARK_COPY				/* 物理拷贝行值 */
 } RowMarkType;
 
 #define RowMarkRequiresRowShareLock(marktype)  ((marktype) <= ROW_MARK_KEYSHARE)
@@ -1378,19 +1378,19 @@ typedef struct PlanRowMark
 	pg_node_attr(no_equal, no_query_jumble)
 
 	NodeTag		type;
-	Index		rti;			/* range table index of markable relation */
-	Index		prti;			/* range table index of parent relation */
-	Index		rowmarkId;		/* unique identifier for resjunk columns */
+	Index		rti;			/* 可标记关系的范围表下标 */
+	Index		prti;			/* 父关系的范围表下标 */
+	Index		rowmarkId;		/* resjunk 列的唯一标识符 */
 	RowMarkType markType;		/* see enum above */
-	int			allMarkTypes;	/* OR of (1<<markType) for all children */
-	LockClauseStrength strength;	/* LockingClause's strength, or LCS_NONE */
-	LockWaitPolicy waitPolicy;	/* NOWAIT and SKIP LOCKED options */
-	bool		isParent;		/* true if this is a "dummy" parent entry */
+	int			allMarkTypes;	/* 所有子 (1<<markType) 的 OR */
+	LockClauseStrength strength;	/* LockingClause 的强度,或 LCS_NONE */
+	LockWaitPolicy waitPolicy;	/* NOWAIT 与 SKIP LOCKED 选项 */
+	bool		isParent;		/* 若为"哑"父条目则为真 */
 } PlanRowMark;
 
 
 /*
- * Node types to represent partition pruning information.
+ * 表示分区剪枝信息的节点类型。
  */
 
 /*
@@ -1451,42 +1451,42 @@ typedef struct PartitionedRelPruneInfo
 
 	NodeTag		type;
 
-	/* RT index of partition rel for this level */
+	/* 本层分区关系的 RT 下标 */
 	Index		rtindex;
 
-	/* Indexes of all partitions which subplans or subparts are present for */
+	/* 存在子计划或子分区的所有分区下标 */
 	Bitmapset  *present_parts;
 
-	/* Length of the following arrays: */
+	/* 下列数组的长度: */
 	int			nparts;
 
-	/* subplan index by partition index, or -1 */
+	/* 按分区下标子计划下标,或 -1 */
 	int		   *subplan_map pg_node_attr(array_size(nparts));
 
-	/* subpart index by partition index, or -1 */
+	/* 按分区下标子分区下标,或 -1 */
 	int		   *subpart_map pg_node_attr(array_size(nparts));
 
-	/* relation OID by partition index, or 0 */
+	/* 按分区下标的关系 OID,或 0 */
 	Oid		   *relid_map pg_node_attr(array_size(nparts));
 
 	/*
-	 * initial_pruning_steps shows how to prune during executor startup (i.e.,
-	 * without use of any PARAM_EXEC Params); it is NIL if no startup pruning
-	 * is required.  exec_pruning_steps shows how to prune with PARAM_EXEC
-	 * Params; it is NIL if no per-scan pruning is required.
+	 * initial_pruning_steps 说明执行器启动时如何剪枝(即不使用
+	 * 任何 PARAM_EXEC Params);若不需启动剪枝则为 NIL。
+	 * exec_pruning_steps 说明如何用 PARAM_EXEC Params 剪枝;若
+	 * 不需每扫描剪枝则为 NIL。
 	 */
-	List	   *initial_pruning_steps;	/* List of PartitionPruneStep */
-	List	   *exec_pruning_steps; /* List of PartitionPruneStep */
+	List	   *initial_pruning_steps;	/* PartitionPruneStep 列表 */
+	List	   *exec_pruning_steps; /* PartitionPruneStep 列表 */
 
 	/* All PARAM_EXEC Param IDs in exec_pruning_steps */
 	Bitmapset  *execparamids;
 } PartitionedRelPruneInfo;
 
 /*
- * Abstract Node type for partition pruning steps (there are no concrete
- * Nodes of this type).
+ * 分区剪枝步骤抽象 Node 类型(无此类型的具体 Node)。
+ * 见上。
  *
- * step_id is the global identifier of the step within its pruning context.
+ * step_id 是步骤在其剪枝上下文中的全局标识符。
  */
 typedef struct PartitionPruneStep
 {
@@ -1534,10 +1534,10 @@ typedef struct PartitionPruneStepOp
 } PartitionPruneStepOp;
 
 /*
- * PartitionPruneStepCombine - Information to prune using a BoolExpr clause
+ * PartitionPruneStepCombine - 用 BoolExpr 子句剪枝的信息
  *
- * For BoolExpr clauses, we combine the set of partitions determined for each
- * of the argument clauses.
+ * 对 BoolExpr 子句,合并各参数子句所确定的分区集合。
+ * 见上。
  */
 typedef enum PartitionPruneCombineOp
 {
@@ -1568,8 +1568,8 @@ typedef struct PlanInvalItem
 	pg_node_attr(no_equal, no_query_jumble)
 
 	NodeTag		type;
-	int			cacheId;		/* a syscache ID, see utils/syscache.h */
-	uint32		hashValue;		/* hash value of object's cache lookup key */
+	int			cacheId;		/* syscache ID,见 utils/syscache.h */
+	uint32		hashValue;		/* 对象缓存查找键的哈希值 */
 } PlanInvalItem;
 
 /*

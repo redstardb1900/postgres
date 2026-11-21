@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0500",
+  "title": "include/storage lock.h 前半 — batch 0500",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "891150adefc4de23ecf68b5b83f6687e56f55b7a",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/lock.h",
+      "kind": "c_comment",
+      "note": "0500"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0500-storage.json",
+      "kind": "manifest",
+      "note": "0500"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/lock.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 247,
+      "translated": 105,
+      "preserved": 142,
+      "preserved_reasons": [
+        "横幅/版权/路径；L310/L313 极短；L>320 留 0501"
+      ],
+      "note": "低层锁；VirtualTransactionIDs；LOCKTAG；切勿"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0500-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0500"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二十二刀：lock.h L<=320；余部见 0501"
+}

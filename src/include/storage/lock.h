@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lock.h
- *	  POSTGRES low-level lock mechanism
+ *	  POSTGRES 低层锁机制
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,10 +25,10 @@
 #include "storage/shmem.h"
 #include "utils/timestamp.h"
 
-/* struct PGPROC is declared in proc.h, but must forward-reference it */
+/* struct PGPROC 在 proc.h 中声明，此处须前向引用 */
 typedef struct PGPROC PGPROC;
 
-/* GUC variables */
+/* GUC 变量 */
 extern PGDLLIMPORT int max_locks_per_xact;
 
 #ifdef LOCK_DEBUG
@@ -41,25 +41,25 @@ extern PGDLLIMPORT bool Debug_deadlocks;
 
 
 /*
- * Top-level transactions are identified by VirtualTransactionIDs comprising
- * PGPROC fields backendId and lxid.  For recovered prepared transactions, the
- * LocalTransactionId is an ordinary XID; LOCKTAG_VIRTUALTRANSACTION never
- * refers to that kind.  These are guaranteed unique over the short term, but
- * will be reused after a database restart or XID wraparound; hence they
- * should never be stored on disk.
+ * 顶层事务由 VirtualTransactionIDs 标识，含 PGPROC 的
+ * backendId 与 lxid。对已恢复的预备事务，
+ * LocalTransactionId 是普通 XID；LOCKTAG_VIRTUALTRANSACTION
+ * 从不论及那种。它们短期内唯一，但数据库重启或
+ * XID 回绕后会重用；故切勿
+ * 存到磁盘上。
  *
- * Note that struct VirtualTransactionId can not be assumed to be atomically
- * assignable as a whole.  However, type LocalTransactionId is assumed to
- * be atomically assignable, and the backend ID doesn't change often enough
- * to be a problem, so we can fetch or assign the two fields separately.
- * We deliberately refrain from using the struct within PGPROC, to prevent
- * coding errors from trying to use struct assignment with it; instead use
+ * 注意：不能假定整个 VirtualTransactionId 结构可原子
+ * 赋值。但假定 LocalTransactionId 可原子赋值，且
+ * backend ID 很少变化，不成问题，故可分别取/赋这两
+ * 个字段。我们刻意不在 PGPROC 内用该结构，以防编码
+ * 错误对其做结构体赋值；请改用
+ * 错误对其做结构体赋值；请改用
  * GET_VXID_FROM_PGPROC().
  */
 typedef struct
 {
-	BackendId	backendId;		/* backendId from PGPROC */
-	LocalTransactionId localTransactionId;	/* lxid from PGPROC */
+	BackendId	backendId;		/* PGPROC 的 backendId */
+	LocalTransactionId localTransactionId;	/* PGPROC 的 lxid */
 } VirtualTransactionId;
 
 #define InvalidLocalTransactionId		0
@@ -78,7 +78,7 @@ typedef struct
 	((vxid).backendId = (proc).backendId, \
 	 (vxid).localTransactionId = (proc).lxid)
 
-/* MAX_LOCKMODES cannot be larger than the # of bits in LOCKMASK */
+/* MAX_LOCKMODES 无法大于 LOCKMASK 的位数 */
 #define MAX_LOCKMODES		10
 
 #define LOCKBIT_ON(lockmode) (1 << (lockmode))
@@ -86,24 +86,24 @@ typedef struct
 
 
 /*
- * This data structure defines the locking semantics associated with a
- * "lock method".  The semantics specify the meaning of each lock mode
- * (by defining which lock modes it conflicts with).
- * All of this data is constant and is kept in const tables.
+ * 本数据结构定义与某一"锁方法"相关的加锁语义。
+ * 语义规定每种锁模式的含义（通过定义它与哪些
+ * 锁模式冲突）。
+ * 全部数据为常量，保存在 const 表中。
  *
- * numLockModes -- number of lock modes (READ,WRITE,etc) that
- *		are defined in this lock method.  Must be less than MAX_LOCKMODES.
+ * numLockModes -- 本锁方法定义的锁模式数
+ *		（READ、WRITE 等）。必须小于 MAX_LOCKMODES。
  *
- * conflictTab -- this is an array of bitmasks showing lock
- *		mode conflicts.  conflictTab[i] is a mask with the j-th bit
- *		turned on if lock modes i and j conflict.  Lock modes are
- *		numbered 1..numLockModes; conflictTab[0] is unused.
+ * conflictTab -- 锁模式冲突位掩码数组。
+ *		conflictTab[i] 第 j 位为模式 i 与 j 冲突。
+ *		锁模式编号为 1..numLockModes；
+ *		conflictTab[0] 不用。
  *
- * lockModeNames -- ID strings for debug printouts.
+ * lockModeNames -- 调试打印用 ID 串。
  *
- * trace_flag -- pointer to GUC trace flag for this lock method.  (The
- * GUC variable is not constant, but we use "const" here to denote that
- * it can't be changed through this reference.)
+ * trace_flag -- 指向本锁方法 GUC 跟踪标志的指针。
+ * （GUC 变量非常量，但此处用 const 表示不能通过本
+ * 引用去改它。）
  */
 typedef struct LockMethodData
 {
@@ -116,37 +116,37 @@ typedef struct LockMethodData
 typedef const LockMethodData *LockMethod;
 
 /*
- * Lock methods are identified by LOCKMETHODID.  (Despite the declaration as
- * uint16, we are constrained to 256 lockmethods by the layout of LOCKTAG.)
+ * 锁方法由 LOCKMETHODID 标识。（虽声明为 uint16，
+ * 但受 LOCKTAG 布局所限，锁方法至多 256 种。）
  */
 typedef uint16 LOCKMETHODID;
 
-/* These identify the known lock methods */
+/* 标识已知的锁方法 */
 #define DEFAULT_LOCKMETHOD	1
 #define USER_LOCKMETHOD		2
 
 /*
- * LOCKTAG is the key information needed to look up a LOCK item in the
- * lock hashtable.  A LOCKTAG value uniquely identifies a lockable object.
+ * LOCKTAG 是在锁散列表中查找 LOCK 项所需的键信息。
+ * 一个 LOCKTAG 值唯一标识一个可加锁对象。
  *
- * The LockTagType enum defines the different kinds of objects we can lock.
- * We can handle up to 256 different LockTagTypes.
+ * LockTagType 枚举定义我们能加锁的各类对象。
+ * 最多可处理 256 种 LockTagTypes。
  */
 typedef enum LockTagType
 {
-	LOCKTAG_RELATION,			/* whole relation */
-	LOCKTAG_RELATION_EXTEND,	/* the right to extend a relation */
+	LOCKTAG_RELATION,			/* 整个关系 */
+	LOCKTAG_RELATION_EXTEND,	/* 扩展关系的权利 */
 	LOCKTAG_DATABASE_FROZEN_IDS,	/* pg_database.datfrozenxid */
-	LOCKTAG_PAGE,				/* one page of a relation */
-	LOCKTAG_TUPLE,				/* one physical tuple */
-	LOCKTAG_TRANSACTION,		/* transaction (for waiting for xact done) */
-	LOCKTAG_VIRTUALTRANSACTION, /* virtual transaction (ditto) */
-	LOCKTAG_SPECULATIVE_TOKEN,	/* speculative insertion Xid and token */
-	LOCKTAG_OBJECT,				/* non-relation database object */
-	LOCKTAG_USERLOCK,			/* reserved for old contrib/userlock code */
-	LOCKTAG_ADVISORY,			/* advisory user locks */
-	LOCKTAG_APPLY_TRANSACTION	/* transaction being applied on a logical
-								 * replication subscriber */
+	LOCKTAG_PAGE,				/* 关系的一页 */
+	LOCKTAG_TUPLE,				/* 一个物理元组 */
+	LOCKTAG_TRANSACTION,		/* 事务（用于等待其完成） */
+	LOCKTAG_VIRTUALTRANSACTION, /* 虚拟事务（同上） */
+	LOCKTAG_SPECULATIVE_TOKEN,	/* 推测插入的 Xid 与 token */
+	LOCKTAG_OBJECT,				/* 非关系的数据库对象 */
+	LOCKTAG_USERLOCK,			/* 留给旧 contrib/userlock 代码 */
+	LOCKTAG_ADVISORY,			/* 咨询性用户锁 */
+	LOCKTAG_APPLY_TRANSACTION	/* 逻辑复制订阅端正在应用的
+								 * 事务 */
 } LockTagType;
 
 #define LOCKTAG_LAST_TYPE	LOCKTAG_APPLY_TRANSACTION
@@ -154,30 +154,30 @@ typedef enum LockTagType
 extern PGDLLIMPORT const char *const LockTagTypeNames[];
 
 /*
- * The LOCKTAG struct is defined with malice aforethought to fit into 16
- * bytes with no padding.  Note that this would need adjustment if we were
- * to widen Oid, BlockNumber, or TransactionId to more than 32 bits.
+ * LOCKTAG 结构刻意设计为无填充正好 16 字节。注意若
+ * 把 Oid、BlockNumber 或 TransactionId 加宽到超过 32 位，
+ * 则须调整。
  *
- * We include lockmethodid in the locktag so that a single hash table in
- * shared memory can store locks of different lockmethods.
+ * 把 lockmethodid 放入 locktag，以便共享内存中单张
+ * 散列表能存放不同锁方法的锁。
  */
 typedef struct LOCKTAG
 {
-	uint32		locktag_field1; /* a 32-bit ID field */
-	uint32		locktag_field2; /* a 32-bit ID field */
-	uint32		locktag_field3; /* a 32-bit ID field */
-	uint16		locktag_field4; /* a 16-bit ID field */
-	uint8		locktag_type;	/* see enum LockTagType */
-	uint8		locktag_lockmethodid;	/* lockmethod indicator */
+	uint32		locktag_field1; /* 32 位 ID 字段 */
+	uint32		locktag_field2; /* 32 位 ID 字段 */
+	uint32		locktag_field3; /* 32 位 ID 字段 */
+	uint16		locktag_field4; /* 16 位 ID 字段 */
+	uint8		locktag_type;	/* 见 LockTagType */
+	uint8		locktag_lockmethodid;	/* 锁方法指示符 */
 } LOCKTAG;
 
 /*
- * These macros define how we map logical IDs of lockable objects into
- * the physical fields of LOCKTAG.  Use these to set up LOCKTAG values,
- * rather than accessing the fields directly.  Note multiple eval of target!
+ * 下列宏定义如何把可加锁对象的逻辑 ID 映射到
+ * LOCKTAG 的物理字段。请用它们设置 LOCKTAG 值，
+ * 勿直接访问字段。注意 target 可能被多次求值！
  */
 
-/* ID info for a relation is DB OID + REL OID; DB OID = 0 if shared */
+/* 关系的 ID 信息为库 OID + 关系 OID；共享则库 OID=0 */
 #define SET_LOCKTAG_RELATION(locktag,dboid,reloid) \
 	((locktag).locktag_field1 = (dboid), \
 	 (locktag).locktag_field2 = (reloid), \
@@ -186,7 +186,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_type = LOCKTAG_RELATION, \
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
-/* same ID info as RELATION */
+/* 同 RELATION ID 信息 */
 #define SET_LOCKTAG_RELATION_EXTEND(locktag,dboid,reloid) \
 	((locktag).locktag_field1 = (dboid), \
 	 (locktag).locktag_field2 = (reloid), \
@@ -195,7 +195,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_type = LOCKTAG_RELATION_EXTEND, \
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
-/* ID info for frozen IDs is DB OID */
+/* 冻结 ID 信息为库 OID */
 #define SET_LOCKTAG_DATABASE_FROZEN_IDS(locktag,dboid) \
 	((locktag).locktag_field1 = (dboid), \
 	 (locktag).locktag_field2 = 0, \
@@ -204,7 +204,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_type = LOCKTAG_DATABASE_FROZEN_IDS, \
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
-/* ID info for a page is RELATION info + BlockNumber */
+/* 页的 ID 信息为 RELATION 信息 + BlockNumber */
 #define SET_LOCKTAG_PAGE(locktag,dboid,reloid,blocknum) \
 	((locktag).locktag_field1 = (dboid), \
 	 (locktag).locktag_field2 = (reloid), \
@@ -213,7 +213,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_type = LOCKTAG_PAGE, \
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
-/* ID info for a tuple is PAGE info + OffsetNumber */
+/* 元组 ID 为 PAGE 信息 + OffsetNumber */
 #define SET_LOCKTAG_TUPLE(locktag,dboid,reloid,blocknum,offnum) \
 	((locktag).locktag_field1 = (dboid), \
 	 (locktag).locktag_field2 = (reloid), \
@@ -222,7 +222,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_type = LOCKTAG_TUPLE, \
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
-/* ID info for a transaction is its TransactionId */
+/* 事务的 ID 信息为其 TransactionId */
 #define SET_LOCKTAG_TRANSACTION(locktag,xid) \
 	((locktag).locktag_field1 = (xid), \
 	 (locktag).locktag_field2 = 0, \
@@ -231,7 +231,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_type = LOCKTAG_TRANSACTION, \
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
-/* ID info for a virtual transaction is its VirtualTransactionId */
+/* 虚拟事务的 ID 信息为其 VirtualTransactionId */
 #define SET_LOCKTAG_VIRTUALTRANSACTION(locktag,vxid) \
 	((locktag).locktag_field1 = (vxid).backendId, \
 	 (locktag).locktag_field2 = (vxid).localTransactionId, \
@@ -241,8 +241,8 @@ typedef struct LOCKTAG
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
 /*
- * ID info for a speculative insert is TRANSACTION info +
- * its speculative insert counter.
+ * 推测插入的 ID 信息为 TRANSACTION 信息 +
+ * 其推测插入计数器。
  */
 #define SET_LOCKTAG_SPECULATIVE_INSERTION(locktag,xid,token) \
 	((locktag).locktag_field1 = (xid), \
@@ -253,11 +253,11 @@ typedef struct LOCKTAG
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
 /*
- * ID info for an object is DB OID + CLASS OID + OBJECT OID + SUBID
+ * 对象的 ID 信息为库 OID + CLASS OID + OBJECT OID + SUBID
  *
- * Note: object ID has same representation as in pg_depend and
- * pg_description, but notice that we are constraining SUBID to 16 bits.
- * Also, we use DB OID = 0 for shared objects such as tablespaces.
+ * 注意：对象 ID 表示法与 pg_depend 及
+ * pg_description 相同，但 SUBID 被限制为 16 位。
+ * 另，共享对象（如表空间）使用库 OID = 0。
  */
 #define SET_LOCKTAG_OBJECT(locktag,dboid,classoid,objoid,objsubid) \
 	((locktag).locktag_field1 = (dboid), \
@@ -276,7 +276,7 @@ typedef struct LOCKTAG
 	 (locktag).locktag_lockmethodid = USER_LOCKMETHOD)
 
 /*
- * ID info for a remote transaction on a logical replication subscriber is: DB
+ * 逻辑复制订阅端远程事务的 ID 信息为：库
  * OID + SUBSCRIPTION OID + TRANSACTION ID + OBJID
  */
 #define SET_LOCKTAG_APPLY_TRANSACTION(locktag,dboid,suboid,xid,objid) \
@@ -288,36 +288,36 @@ typedef struct LOCKTAG
 	 (locktag).locktag_lockmethodid = DEFAULT_LOCKMETHOD)
 
 /*
- * Per-locked-object lock information:
+ * 每被锁对象的锁信息：
  *
- * tag -- uniquely identifies the object being locked
- * grantMask -- bitmask for all lock types currently granted on this object.
- * waitMask -- bitmask for all lock types currently awaited on this object.
- * procLocks -- list of PROCLOCK objects for this lock.
- * waitProcs -- queue of processes waiting for this lock.
- * requested -- count of each lock type currently requested on the lock
- *		(includes requests already granted!!).
- * nRequested -- total requested locks of all types.
- * granted -- count of each lock type currently granted on the lock.
- * nGranted -- total granted locks of all types.
+ * tag -- 唯一标识被锁对象
+ * grantMask -- 本对象上当前已授予的全部锁类型位掩码。
+ * waitMask -- 本对象上当前等待的全部锁类型位掩码。
+ * procLocks -- 本锁的 PROCLOCK 对象链表。
+ * waitProcs -- 等待本锁的进程队列。
+ * requested -- 本锁上当前请求的各锁类型计数
+ *		（含已授予的请求！！）。
+ * nRequested -- 全部类型请求锁的总数。
+ * granted -- 本锁上当前已授予的各锁类型计数。
+ * nGranted -- 全部类型已授锁总数。
  *
- * Note: these counts count 1 for each backend.  Internally to a backend,
- * there may be multiple grabs on a particular lock, but this is not reflected
- * into shared memory.
+ * 注意：这些计数每个后端计 1。在后端内部，
+ * 同一锁上可能有多次抓取，但这不会反映到
+ * 共享内存中。
  */
 typedef struct LOCK
 {
 	/* hash key */
-	LOCKTAG		tag;			/* unique identifier of lockable object */
+	LOCKTAG		tag;			/* 可加锁对象的唯一标识 */
 
 	/* data */
-	LOCKMASK	grantMask;		/* bitmask for lock types already granted */
-	LOCKMASK	waitMask;		/* bitmask for lock types awaited */
-	dlist_head	procLocks;		/* list of PROCLOCK objects assoc. with lock */
-	dclist_head waitProcs;		/* list of PGPROC objects waiting on lock */
-	int			requested[MAX_LOCKMODES];	/* counts of requested locks */
-	int			nRequested;		/* total of requested[] array */
-	int			granted[MAX_LOCKMODES]; /* counts of granted locks */
+	LOCKMASK	grantMask;		/* 已授予锁类型的位掩码 */
+	LOCKMASK	waitMask;		/* 等待中锁类型的位掩码 */
+	dlist_head	procLocks;		/* 与本锁关联的 PROCLOCK 对象链表 */
+	dclist_head waitProcs;		/* 等待本锁的 PGPROC 对象链表 */
+	int			requested[MAX_LOCKMODES];	/* 各请求锁的计数 */
+	int			nRequested;		/* requested[] 数组合计 */
+	int			granted[MAX_LOCKMODES]; /* 已授锁计数 */
 	int			nGranted;		/* total of granted[] array */
 } LOCK;
 

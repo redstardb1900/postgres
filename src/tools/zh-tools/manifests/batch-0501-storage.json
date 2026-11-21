@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0501",
+  "title": "include/storage lock.h 余部 — batch 0501",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a0a7c2625345fe3bedd92e5118223559812be631",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/lock.h",
+      "kind": "c_comment",
+      "note": "0501"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0501-storage.json",
+      "kind": "manifest",
+      "note": "0501"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/lock.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 247,
+      "translated": 125,
+      "preserved": 122,
+      "preserved_reasons": [
+        "0500 已译前半 KEEP；tag/data；#endif；L439/L463/L516/L400 预算 KEEP"
+      ],
+      "note": "PROCLOCK；快速路径；死锁；backends/ResourceOwners"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0501-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0501"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二十三刀：lock.h L>320；整文件完成；余 predicate_internals/s_lock"
+}

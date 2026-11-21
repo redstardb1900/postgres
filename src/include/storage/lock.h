@@ -318,7 +318,7 @@ typedef struct LOCK
 	int			requested[MAX_LOCKMODES];	/* 各请求锁的计数 */
 	int			nRequested;		/* requested[] 数组合计 */
 	int			granted[MAX_LOCKMODES]; /* 已授锁计数 */
-	int			nGranted;		/* total of granted[] array */
+	int			nGranted;		/* granted[] 数组合计 */
 } LOCK;
 
 #define LOCK_LOCKMETHOD(lock) ((LOCKMETHODID) (lock).tag.locktag_lockmethodid)
@@ -326,118 +326,118 @@ typedef struct LOCK
 
 
 /*
- * We may have several different backends holding or awaiting locks
- * on the same lockable object.  We need to store some per-holder/waiter
- * information for each such holder (or would-be holder).  This is kept in
- * a PROCLOCK struct.
+ * 多 backends 可持有或等待同一可加锁对象上的锁。
+ * 我们需要为每个持有者（或潜在持有者）保存一些
+ * 每持有者/等待者信息。这些保存在
+ * PROCLOCK 中。
  *
- * PROCLOCKTAG is the key information needed to look up a PROCLOCK item in the
- * proclock hashtable.  A PROCLOCKTAG value uniquely identifies the combination
- * of a lockable object and a holder/waiter for that object.  (We can use
- * pointers here because the PROCLOCKTAG need only be unique for the lifespan
- * of the PROCLOCK, and it will never outlive the lock or the proc.)
+ * PROCLOCKTAG 是在 proclock 散列表中查找 PROCLOCK
+ * 项所需的键信息。一个 PROCLOCKTAG 值唯一标识
+ * 可加锁对象与其持有者/等待者的组合。（此处可用
+ * 指针，因 PROCLOCKTAG 只需在 PROCLOCK 存活期内唯一，
+ * 且绝不会长于该锁或该进程。）
  *
- * Internally to a backend, it is possible for the same lock to be held
- * for different purposes: the backend tracks transaction locks separately
- * from session locks.  However, this is not reflected in the shared-memory
- * state: we only track which backend(s) hold the lock.  This is OK since a
- * backend can never block itself.
+ * 在 backend 内，同一锁可能因不同目的持有：后端把
+ * 事务锁与会话锁分开跟踪。但这不反映到共享内存
+ * 状态：我们只跟踪哪些后端持有该锁。这没问题，因
+ * backend 永远无法
+ * 阻塞自己。
  *
- * The holdMask field shows the already-granted locks represented by this
- * proclock.  Note that there will be a proclock object, possibly with
- * zero holdMask, for any lock that the process is currently waiting on.
- * Otherwise, proclock objects whose holdMasks are zero are recycled
- * as soon as convenient.
+ * holdMask 字段显示本 proclock 所代表的已授予锁。
+ * 注意：进程当前等待的任何锁都会有一个 proclock
+ * 对象，其 holdMask 可能为零。否则 holdMask 为零的
+ * proclock 对象会在方便时
+ * 尽快回收。
  *
- * releaseMask is workspace for LockReleaseAll(): it shows the locks due
- * to be released during the current call.  This must only be examined or
- * set by the backend owning the PROCLOCK.
+ * releaseMask 是 LockReleaseAll() 的工作区：显示本次
+ * 调用中将释放的锁。仅拥有该 PROCLOCK 的后端可
+ * 检查或设置它。
  *
- * Each PROCLOCK object is linked into lists for both the associated LOCK
- * object and the owning PGPROC object.  Note that the PROCLOCK is entered
- * into these lists as soon as it is created, even if no lock has yet been
- * granted.  A PGPROC that is waiting for a lock to be granted will also be
- * linked into the lock's waitProcs queue.
+ * 每个 PROCLOCK 对象都链入关联 LOCK 对象与拥有者
+ * PGPROC 对象的链表。注意创建后即入链，即使尚未
+ * 授予任何锁。正在等待授予锁的 PGPROC 还会
+ * 链入该锁的
+ * waitProcs 队列。
  */
 typedef struct PROCLOCKTAG
 {
-	/* NB: we assume this struct contains no padding! */
-	LOCK	   *myLock;			/* link to per-lockable-object information */
-	PGPROC	   *myProc;			/* link to PGPROC of owning backend */
+	/* 注意：假定本结构无填充！ */
+	LOCK	   *myLock;			/* 指向每可加锁对象信息的链接 */
+	PGPROC	   *myProc;			/* 指向拥有后端 PGPROC 链接 */
 } PROCLOCKTAG;
 
 typedef struct PROCLOCK
 {
 	/* tag */
-	PROCLOCKTAG tag;			/* unique identifier of proclock object */
+	PROCLOCKTAG tag;			/* proclock 对象的唯一标识 */
 
 	/* data */
-	PGPROC	   *groupLeader;	/* proc's lock group leader, or proc itself */
-	LOCKMASK	holdMask;		/* bitmask for lock types currently held */
-	LOCKMASK	releaseMask;	/* bitmask for lock types to be released */
-	dlist_node	lockLink;		/* list link in LOCK's list of proclocks */
-	dlist_node	procLink;		/* list link in PGPROC's list of proclocks */
+	PGPROC	   *groupLeader;	/* 进程的锁组领导，或进程自身 */
+	LOCKMASK	holdMask;		/* 当前所持锁类型的位掩码 */
+	LOCKMASK	releaseMask;	/* 将释放锁类型的位掩码 */
+	dlist_node	lockLink;		/* LOCK 之 proclock 链表中的链节 */
+	dlist_node	procLink;		/* PGPROC 之 proclock 链表中的链节 */
 } PROCLOCK;
 
 #define PROCLOCK_LOCKMETHOD(proclock) \
 	LOCK_LOCKMETHOD(*((proclock).tag.myLock))
 
 /*
- * Each backend also maintains a local hash table with information about each
- * lock it is currently interested in.  In particular the local table counts
- * the number of times that lock has been acquired.  This allows multiple
- * requests for the same lock to be executed without additional accesses to
- * shared memory.  We also track the number of lock acquisitions per
- * ResourceOwner, so that we can release just those locks belonging to a
- * particular ResourceOwner.
+ * 每个后端还维护一张本地散列表，记录它当前关心的
+ * 每把锁的信息。特别是本地表会统计该锁被取得的
+ * 次数。这允许多次请求同一锁而无需额外访问共享
+ * 内存。我们还按 ResourceOwner 跟踪加锁次数，
+ * 以便只释放属于某一特定
+ * ResourceOwner
+ * 的锁。
  *
- * When holding a lock taken "normally", the lock and proclock fields always
- * point to the associated objects in shared memory.  However, if we acquired
- * the lock via the fast-path mechanism, the lock and proclock fields are set
- * to NULL, since there probably aren't any such objects in shared memory.
- * (If the lock later gets promoted to normal representation, we may eventually
- * update our locallock's lock/proclock fields after finding the shared
+ * 以"普通"方式持有锁时，lock 与 proclock 字段总指向
+ * 共享内存中的关联对象。但若经快速路径取得锁，则
+ * lock 与 proclock 置为 NULL，因共享内存中多半没有
+ * 此类对象。（若锁随后提升为普通表示，我们可能在
+ * 找到共享对象后最终更新 locallock 的
+ * lock/proclock 字段。）
  * objects.)
  *
- * Caution: a locallock object can be left over from a failed lock acquisition
- * attempt.  In this case its lock/proclock fields are untrustworthy, since
- * the shared lock object is neither held nor awaited, and hence is available
- * to be reclaimed.  If nLocks > 0 then these pointers must either be valid or
- * NULL, but when nLocks == 0 they should be considered garbage.
+ * 注意：失败的加锁尝试可能留下 locallock 对象。此时
+ * 其 lock/proclock 字段不可信，因共享锁对象既未持有
+ * 也未等待，故可被回收。若 nLocks > 0 则这些指针
+ * 必须要么有效要么为 NULL；但 nLocks == 0 时应
+ * 视为垃圾。
  */
 typedef struct LOCALLOCKTAG
 {
-	LOCKTAG		lock;			/* identifies the lockable object */
-	LOCKMODE	mode;			/* lock mode for this table entry */
+	LOCKTAG		lock;			/* 标识可加锁对象 */
+	LOCKMODE	mode;			/* 本表项的锁模式 */
 } LOCALLOCKTAG;
 
 typedef struct LOCALLOCKOWNER
 {
 	/*
-	 * Note: if owner is NULL then the lock is held on behalf of the session;
-	 * otherwise it is held on behalf of my current transaction.
+	 * 注意：若 owner 为 NULL 则锁为会话所持；
+	 * 否则为我当前事务所持。
 	 *
-	 * Must use a forward struct reference to avoid circularity.
+	 * 须用前向结构引用以免循环依赖。
 	 */
 	struct ResourceOwnerData *owner;
-	int64		nLocks;			/* # of times held by this owner */
+	int64		nLocks;			/* 本拥有者持有次数 */
 } LOCALLOCKOWNER;
 
 typedef struct LOCALLOCK
 {
 	/* tag */
-	LOCALLOCKTAG tag;			/* unique identifier of locallock entry */
+	LOCALLOCKTAG tag;			/* locallock 条目的唯一标识 */
 
 	/* data */
-	uint32		hashcode;		/* copy of LOCKTAG's hash value */
-	LOCK	   *lock;			/* associated LOCK object, if any */
-	PROCLOCK   *proclock;		/* associated PROCLOCK object, if any */
-	int64		nLocks;			/* total number of times lock is held */
-	int			numLockOwners;	/* # of relevant ResourceOwners */
-	int			maxLockOwners;	/* allocated size of array */
-	LOCALLOCKOWNER *lockOwners; /* dynamically resizable array */
+	uint32		hashcode;		/* LOCKTAG 散列值的副本 */
+	LOCK	   *lock;			/* 关联 LOCK 对象（若有） */
+	PROCLOCK   *proclock;		/* 关联 PROCLOCK 对象（若有） */
+	int64		nLocks;			/* 持有该锁的总次数 */
+	int			numLockOwners;	/* 相关 ResourceOwners 数 */
+	int			maxLockOwners;	/* 数组已分配大小 */
+	LOCALLOCKOWNER *lockOwners; /* 可动态调整大小数组 */
 	bool		holdsStrongLockCount;	/* bumped FastPathStrongRelationLocks */
-	bool		lockCleared;	/* we read all sinval msgs for lock */
+	bool		lockCleared;	/* 已读该锁全部 sinval 消息 */
 } LOCALLOCK;
 
 #define LOCALLOCK_LOCKMETHOD(llock) ((llock).tag.lock.locktag_lockmethodid)
@@ -445,82 +445,82 @@ typedef struct LOCALLOCK
 
 
 /*
- * These structures hold information passed from lmgr internals to the lock
- * listing user-level functions (in lockfuncs.c).
+ * 这些结构保存从 lmgr 内部传给列锁用户级函数
+ * （在 lockfuncs.c 中）的信息。
  */
 
 typedef struct LockInstanceData
 {
-	LOCKTAG		locktag;		/* tag for locked object */
-	LOCKMASK	holdMask;		/* locks held by this PGPROC */
-	LOCKMODE	waitLockMode;	/* lock awaited by this PGPROC, if any */
-	BackendId	backend;		/* backend ID of this PGPROC */
-	LocalTransactionId lxid;	/* local transaction ID of this PGPROC */
-	TimestampTz waitStart;		/* time at which this PGPROC started waiting
-								 * for lock */
-	int			pid;			/* pid of this PGPROC */
-	int			leaderPid;		/* pid of group leader; = pid if no group */
+	LOCKTAG		locktag;		/* 被锁对象的标签 */
+	LOCKMASK	holdMask;		/* 本 PGPROC 所持锁 */
+	LOCKMODE	waitLockMode;	/* 本 PGPROC 等待的锁（若有） */
+	BackendId	backend;		/* 本 PGPROC 的 backend ID */
+	LocalTransactionId lxid;	/* 本 PGPROC 的本地事务 ID */
+	TimestampTz waitStart;		/* 本 PGPROC 开始等待锁的
+								 * 时刻 */
+	int			pid;			/* 本 PGPROC 的 pid */
+	int			leaderPid;		/* 组领导 pid；无组则 = pid */
 	bool		fastpath;		/* taken via fastpath? */
 } LockInstanceData;
 
 typedef struct LockData
 {
-	int			nelements;		/* The length of the array */
-	LockInstanceData *locks;	/* Array of per-PROCLOCK information */
+	int			nelements;		/* 数组长度 */
+	LockInstanceData *locks;	/* 每 PROCLOCK 信息的数组 */
 } LockData;
 
 typedef struct BlockedProcData
 {
-	int			pid;			/* pid of a blocked PGPROC */
-	/* Per-PROCLOCK information about PROCLOCKs of the lock the pid awaits */
-	/* (these fields refer to indexes in BlockedProcsData.locks[]) */
-	int			first_lock;		/* index of first relevant LockInstanceData */
-	int			num_locks;		/* number of relevant LockInstanceDatas */
-	/* PIDs of PGPROCs that are ahead of "pid" in the lock's wait queue */
-	/* (these fields refer to indexes in BlockedProcsData.waiter_pids[]) */
-	int			first_waiter;	/* index of first preceding waiter */
-	int			num_waiters;	/* number of preceding waiters */
+	int			pid;			/* 被阻塞 PGPROC 的pid */
+	/* 该 pid 所等锁 PROCLOCKs 的每 PROCLOCK 信息 */
+	/* （这些字段引用 BlockedProcsData.locks[] 下标） */
+	int			first_lock;		/* 首个相关 LockInstanceData 的下标 */
+	int			num_locks;		/* 相关 LockInstanceDatas 个数 */
+	/* 在该锁等待队列中排在 "pid" 前面的 PGPROCs 的 PIDs */
+	/* （这些字段引用 BlockedProcsData.waiter_pids[] 下标） */
+	int			first_waiter;	/* 首个前序等待者的下标 */
+	int			num_waiters;	/* 前序等待者个数 */
 } BlockedProcData;
 
 typedef struct BlockedProcsData
 {
-	BlockedProcData *procs;		/* Array of per-blocked-proc information */
-	LockInstanceData *locks;	/* Array of per-PROCLOCK information */
-	int		   *waiter_pids;	/* Array of PIDs of other blocked PGPROCs */
-	int			nprocs;			/* # of valid entries in procs[] array */
-	int			maxprocs;		/* Allocated length of procs[] array */
-	int			nlocks;			/* # of valid entries in locks[] array */
-	int			maxlocks;		/* Allocated length of locks[] array */
-	int			npids;			/* # of valid entries in waiter_pids[] array */
-	int			maxpids;		/* Allocated length of waiter_pids[] array */
+	BlockedProcData *procs;		/* 每被阻塞进程信息的数组 */
+	LockInstanceData *locks;	/* 每 PROCLOCK 信息的数组 */
+	int		   *waiter_pids;	/* 其他被阻 PGPROCs 的 PIDs 数组 */
+	int			nprocs;			/* procs[] 中有效项数 */
+	int			maxprocs;		/* procs[] 已分配长度 */
+	int			nlocks;			/* locks[] 中有效项数 */
+	int			maxlocks;		/* locks[] 已分配长度 */
+	int			npids;			/* waiter_pids[] 中有效项数 */
+	int			maxpids;		/* waiter_pids[] 已分配长度 */
 } BlockedProcsData;
 
 
-/* Result codes for LockAcquire() */
+/* LockAcquire() 的结果码 */
 typedef enum
 {
-	LOCKACQUIRE_NOT_AVAIL,		/* lock not available, and dontWait=true */
-	LOCKACQUIRE_OK,				/* lock successfully acquired */
-	LOCKACQUIRE_ALREADY_HELD,	/* incremented count for lock already held */
-	LOCKACQUIRE_ALREADY_CLEAR	/* incremented count for lock already clear */
+	LOCKACQUIRE_NOT_AVAIL,		/* 锁不可用，且 dontWait=true */
+	LOCKACQUIRE_OK,				/* 成功取得锁 */
+	LOCKACQUIRE_ALREADY_HELD,	/* 对已持有的锁递增计数 */
+	LOCKACQUIRE_ALREADY_CLEAR	/* 对已清除的锁递增计数 */
 } LockAcquireResult;
 
-/* Deadlock states identified by DeadLockCheck() */
+/* DeadLockCheck() 识别的死锁状态 */
 typedef enum
 {
-	DS_NOT_YET_CHECKED,			/* no deadlock check has run yet */
-	DS_NO_DEADLOCK,				/* no deadlock detected */
-	DS_SOFT_DEADLOCK,			/* deadlock avoided by queue rearrangement */
-	DS_HARD_DEADLOCK,			/* deadlock, no way out but ERROR */
-	DS_BLOCKED_BY_AUTOVACUUM	/* no deadlock; queue blocked by autovacuum
+	DS_NOT_YET_CHECKED,			/* 尚未运行死锁检查 */
+	DS_NO_DEADLOCK,				/* 未检测到死锁 */
+	DS_SOFT_DEADLOCK,			/* 通过重排队列避免了死锁 */
+	DS_HARD_DEADLOCK,			/* 死锁，唯有 ERROR */
+	DS_BLOCKED_BY_AUTOVACUUM	/* 无死锁；队列被自动清理
 								 * worker */
 } DeadLockState;
 
 /*
- * The lockmgr's shared hash tables are partitioned to reduce contention.
- * To determine which partition a given locktag belongs to, compute the tag's
- * hash code with LockTagHashCode(), then apply one of these macros.
- * NB: NUM_LOCK_PARTITIONS must be a power of 2!
+ * lockmgr 的共享散列表分区以减轻争用。
+ * 要确定某 locktag 属于哪一分区，用 LockTagHashCode()
+ * 计算标签散列码，再套用下列宏之一。
+ * NUM_LOCK_PARTITIONS 须为 2 的幂！
  */
 #define LockHashPartition(hashcode) \
 	((hashcode) % NUM_LOCK_PARTITIONS)
@@ -531,19 +531,19 @@ typedef enum
 	(&MainLWLockArray[LOCK_MANAGER_LWLOCK_OFFSET + (i)].lock)
 
 /*
- * The deadlock detector needs to be able to access lockGroupLeader and
- * related fields in the PGPROC, so we arrange for those fields to be protected
- * by one of the lock hash partition locks.  Since the deadlock detector
- * acquires all such locks anyway, this makes it safe for it to access these
- * fields without doing anything extra.  To avoid contention as much as
- * possible, we map different PGPROCs to different partition locks.  The lock
- * used for a given lock group is determined by the group leader's pgprocno.
+ * 死锁检测器需要能访问 PGPROC 中的 lockGroupLeader
+ * 及相关字段，故安排由某把锁散列分区锁保护它们。
+ * 因死锁检测器反正会取得全部此类锁，故可安全访问
+ * 这些字段而无需额外动作。为尽量减少争用，我们把
+ * 不同 PGPROCs 映射到不同分区锁。给定锁组
+ * 所用的锁由组领导的
+ * pgprocno 决定。
  */
 #define LockHashPartitionLockByProc(leader_pgproc) \
 	LockHashPartitionLock((leader_pgproc)->pgprocno)
 
 /*
- * function prototypes
+ * 函数原型
  */
 extern void InitLocks(void);
 extern LockMethod GetLocksMethodTable(const LOCK *lock);
@@ -617,7 +617,7 @@ extern void DumpLocks(PGPROC *proc);
 extern void DumpAllLocks(void);
 #endif
 
-/* Lock a VXID (used to wait for a transaction to finish) */
+/* 锁住 VXID（用于等待事务结束） */
 extern void VirtualXactLockTableInsert(VirtualTransactionId vxid);
 extern void VirtualXactLockTableCleanup(void);
 extern bool VirtualXactLock(VirtualTransactionId vxid, bool wait);

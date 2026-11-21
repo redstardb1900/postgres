@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteSearchCycle.h
- *		Support for rewriting SEARCH and CYCLE clauses.
+ *		改写 SEARCH 与 CYCLE 子句的支持。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

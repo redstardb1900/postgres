@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * interrupt.h
- *	  Interrupt handling routines.
+ *	  中断处理例程。
  *
- * Responses to interrupts are fairly varied and many types of backends
- * have their own implementations, but we provide a few generic things
- * here to facilitate code reuse.
+ * 对中断的响应相当多样，多种后端有各自实现，
+ * 但此处提供一些通用设施以便代码复用。
+ * 以便代码复用。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

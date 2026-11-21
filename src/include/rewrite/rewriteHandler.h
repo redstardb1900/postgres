@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteHandler.h
- *		External interface to query rewriter.
+ *		查询改写器的外部接口。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * auxprocess.h
- *	  include file for functions related to auxiliary processes.
+ *	  与辅助进程相关函数的头文件。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

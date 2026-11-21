@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * syslogger.h
- *	  Exports from postmaster/syslogger.c.
+ *	  导出自 postmaster/syslogger.c。
  *
  * Copyright (c) 2004-2023, PostgreSQL Global Development Group
  *
@@ -16,38 +16,38 @@
 
 
 /*
- * Primitive protocol structure for writing to syslogger pipe(s).  The idea
- * here is to divide long messages into chunks that are not more than
- * PIPE_BUF bytes long, which according to POSIX spec must be written into
- * the pipe atomically.  The pipe reader then uses the protocol headers to
- * reassemble the parts of a message into a single string.  The reader can
- * also cope with non-protocol data coming down the pipe, though we cannot
- * guarantee long strings won't get split apart.
+ * 写入 syslogger 管道的原始协议结构。想法是把
+ * 长消息分成不超过 PIPE_BUF 字节的块；按 POSIX
+ * 规范，这些块必须原子写入管道。管道读者再用
+ * 协议头把消息各部分重组成单一字符串。读者也能
+ * 处理管道中的非协议数据，但无法保证长串不被
+ * 拆开。
+ * 。
  *
- * We use non-nul bytes in is_last to make the protocol a tiny bit
- * more robust against finding a false double nul byte prologue. But
- * we still might find it in the len and/or pid bytes unless we're careful.
+ * 在 is_last 中用非空字节，使协议对假双空字节
+ * 前导稍稳健。但若不小心，仍可能在 len 和/或
+ * pid 字节中找到假前导。
  */
 
 #ifdef PIPE_BUF
-/* Are there any systems with PIPE_BUF > 64K?  Unlikely, but ... */
+/* 有 PIPE_BUF > 64K 的系统吗？不太可能，但…… */
 #if PIPE_BUF > 65536
 #define PIPE_CHUNK_SIZE  65536
 #else
 #define PIPE_CHUNK_SIZE  ((int) PIPE_BUF)
 #endif
-#else							/* not defined */
-/* POSIX says the value of PIPE_BUF must be at least 512, so use that */
+#else							/* 未定义 */
+/* POSIX 说 PIPE_BUF 至少 512，故用该值 */
 #define PIPE_CHUNK_SIZE  512
 #endif
 
 typedef struct
 {
-	char		nuls[2];		/* always \0\0 */
-	uint16		len;			/* size of this chunk (counts data only) */
-	int32		pid;			/* writer's pid */
-	bits8		flags;			/* bitmask of PIPE_PROTO_* */
-	char		data[FLEXIBLE_ARRAY_MEMBER];	/* data payload starts here */
+	char		nuls[2];		/* 总是 \0\0 */
+	uint16		len;			/* 本块大小（只计数据） */
+	int32		pid;			/* 写者 pid */
+	bits8		flags;			/* PIPE_PROTO_* 位掩码 */
+	char		data[FLEXIBLE_ARRAY_MEMBER];	/* 数据载荷自此开始 */
 } PipeProtoHeader;
 
 typedef union
@@ -59,14 +59,14 @@ typedef union
 #define PIPE_HEADER_SIZE  offsetof(PipeProtoHeader, data)
 #define PIPE_MAX_PAYLOAD  ((int) (PIPE_CHUNK_SIZE - PIPE_HEADER_SIZE))
 
-/* flag bits for PipeProtoHeader->flags */
-#define PIPE_PROTO_IS_LAST	0x01	/* last chunk of message? */
-/* log destinations */
+/* PipeProtoHeader->flags 的标志位 */
+#define PIPE_PROTO_IS_LAST	0x01	/* 消息最后一块？ */
+/* 日志目的地 */
 #define PIPE_PROTO_DEST_STDERR	0x10
 #define PIPE_PROTO_DEST_CSVLOG	0x20
 #define PIPE_PROTO_DEST_JSONLOG	0x40
 
-/* GUC options */
+/* GUC 选项 */
 extern PGDLLIMPORT bool Logging_collector;
 extern PGDLLIMPORT int Log_RotationAge;
 extern PGDLLIMPORT int Log_RotationSize;
@@ -94,8 +94,8 @@ extern bool CheckLogrotateSignal(void);
 extern void RemoveLogrotateSignalFiles(void);
 
 /*
- * Name of files saving meta-data information about the log
- * files currently in use by the syslogger
+ * 保存 syslogger 当前使用的日志文件元数据
+ * 信息的文件名
  */
 #define LOG_METAINFO_DATAFILE  "current_logfiles"
 #define LOG_METAINFO_DATAFILE_TMP  LOG_METAINFO_DATAFILE ".tmp"

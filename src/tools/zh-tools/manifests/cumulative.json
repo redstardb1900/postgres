@@ -8606,6 +8606,111 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0504-include.json",
    "kind": "manifest",
    "note": "0504"
+  },
+  {
+   "pattern": "src/include/postmaster/autovacuum.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/auxprocess.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/bgworker.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/bgworker_internals.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/bgwriter.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/fork_process.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/interrupt.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/pgarch.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/postmaster.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/startup.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/syslogger.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/postmaster/walwriter.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/prs2lock.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rewriteDefine.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rewriteHandler.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rewriteManip.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rewriteRemove.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rewriteSearchCycle.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rewriteSupport.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/include/rewrite/rowsecurity.h",
+   "kind": "c_comment",
+   "note": "0505"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0505-include.json",
+   "kind": "manifest",
+   "note": "0505"
   }
  ],
  "files": [
@@ -27934,6 +28039,254 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0504"
+  },
+  {
+   "path": "src/include/postmaster/autovacuum.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 8,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/auxprocess.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/bgworker.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 22,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/bgworker_internals.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/bgwriter.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/fork_process.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/interrupt.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/pgarch.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/postmaster.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 5,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/startup.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/syslogger.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 15,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/postmaster/walwriter.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/prs2lock.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 3,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rewriteDefine.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 0,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rewriteHandler.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rewriteManip.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rewriteRemove.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 0,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rewriteSearchCycle.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rewriteSupport.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 1,
+   "preserved": 2,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/include/rewrite/rowsecurity.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "横幅/版权/路径/#endif；极短 KEEP"
+   ],
+   "note": "0505"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0505-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0505"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteManip.h
- *		Querytree manipulation subroutines for query rewriter.
+ *		查询改写器的查询树操作子程序。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,7 +16,7 @@
 
 #include "nodes/parsenodes.h"
 
-struct AttrMap;					/* avoid including attmap.h here */
+struct AttrMap;					/* 避免在此包含 attmap.h */
 
 
 typedef struct replace_rte_variables_context replace_rte_variables_context;
@@ -26,18 +26,18 @@ typedef Node *(*replace_rte_variables_callback) (Var *var,
 
 struct replace_rte_variables_context
 {
-	replace_rte_variables_callback callback;	/* callback function */
-	void	   *callback_arg;	/* context data for callback function */
-	int			target_varno;	/* RTE index to search for */
-	int			sublevels_up;	/* (current) nesting depth */
-	bool		inserted_sublink;	/* have we inserted a SubLink? */
+	replace_rte_variables_callback callback;	/* 回调函数 */
+	void	   *callback_arg;	/* 回调函数的上下文数据 */
+	int			target_varno;	/* 要搜索的 RTE 下标 */
+	int			sublevels_up;	/* 当前嵌套深度 */
+	bool		inserted_sublink;	/* 是否已插入 SubLink？ */
 };
 
 typedef enum ReplaceVarsNoMatchOption
 {
-	REPLACEVARS_REPORT_ERROR,	/* throw error if no match */
-	REPLACEVARS_CHANGE_VARNO,	/* change the Var's varno, nothing else */
-	REPLACEVARS_SUBSTITUTE_NULL /* replace with a NULL Const */
+	REPLACEVARS_REPORT_ERROR,	/* 无匹配则报错 */
+	REPLACEVARS_CHANGE_VARNO,	/* 只改 Var 的 varno，其余不动 */
+	REPLACEVARS_SUBSTITUTE_NULL /* 替换为 NULL Const */
 } ReplaceVarsNoMatchOption;
 
 

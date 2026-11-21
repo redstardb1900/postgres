@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * startup.h
- *	  Exports from postmaster/startup.c.
+ *	  导出自 postmaster/startup.c。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -13,7 +13,7 @@
 #define _STARTUP_H
 
 /*
- * Log the startup progress message if a timer has expired.
+ * 若定时器已到期则记录启动进度消息。
  */
 #define ereport_startup_progress(msg, ...) \
 	do { \

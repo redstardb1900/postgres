@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * autovacuum.h
- *	  header file for integrated autovacuum daemon
+ *	  集成自动清理守护进程的头文件
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,8 +17,8 @@
 #include "storage/block.h"
 
 /*
- * Other processes can request specific work from autovacuum, identified by
- * AutoVacuumWorkItem elements.
+ * 其他进程可向自动清理请求工作，由 AutoVacuumWorkItem
+ * 标识。
  */
 typedef enum
 {
@@ -26,7 +26,7 @@ typedef enum
 } AutoVacuumWorkItemType;
 
 
-/* GUC variables */
+/* GUC 变量 */
 extern PGDLLIMPORT bool autovacuum_start_daemon;
 extern PGDLLIMPORT int autovacuum_max_workers;
 extern PGDLLIMPORT int autovacuum_work_mem;
@@ -42,12 +42,12 @@ extern PGDLLIMPORT int autovacuum_multixact_freeze_max_age;
 extern PGDLLIMPORT double autovacuum_vac_cost_delay;
 extern PGDLLIMPORT int autovacuum_vac_cost_limit;
 
-/* autovacuum launcher PID, only valid when worker is shutting down */
+/* 自动清理启动器 PID，仅在工作进程关闭时有效 */
 extern PGDLLIMPORT int AutovacuumLauncherPid;
 
 extern PGDLLIMPORT int Log_autovacuum_min_duration;
 
-/* Status inquiry functions */
+/* 状态查询函数 */
 extern bool AutoVacuumingActive(void);
 extern bool IsAutoVacuumLauncherProcess(void);
 extern bool IsAutoVacuumWorkerProcess(void);
@@ -55,12 +55,12 @@ extern bool IsAutoVacuumWorkerProcess(void);
 #define IsAnyAutoVacuumProcess() \
 	(IsAutoVacuumLauncherProcess() || IsAutoVacuumWorkerProcess())
 
-/* Functions to start autovacuum process, called from postmaster */
+/* 启动自动清理进程的函数，由 postmaster 调用 */
 extern void autovac_init(void);
 extern int	StartAutoVacLauncher(void);
 extern int	StartAutoVacWorker(void);
 
-/* called from postmaster when a worker could not be forked */
+/* 工作进程无法 fork 时由 postmaster 调用 */
 extern void AutoVacWorkerFailed(void);
 
 #ifdef EXEC_BACKEND
@@ -73,7 +73,7 @@ extern void AutovacuumLauncherIAm(void);
 extern bool AutoVacuumRequestWork(AutoVacuumWorkItemType type,
 								  Oid relationId, BlockNumber blkno);
 
-/* shared memory stuff */
+/* 共享内存相关 */
 extern Size AutoVacuumShmemSize(void);
 extern void AutoVacuumShmemInit(void);
 

@@ -14,7 +14,7 @@
 #ifndef REWRITESUPPORT_H
 #define REWRITESUPPORT_H
 
-/* The ON SELECT rule of a view is always named this: */
+/* 视图的 ON SELECT 规则总命名为此： */
 #define ViewSelectRuleName	"_RETURN"
 
 extern bool IsDefinedRewriteRule(Oid owningRel, const char *ruleName);

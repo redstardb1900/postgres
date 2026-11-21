@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * postmaster.h
- *	  Exports from postmaster/postmaster.c.
+ *	  导出自 postmaster/postmaster.c。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,7 +13,7 @@
 #ifndef _POSTMASTER_H
 #define _POSTMASTER_H
 
-/* GUC options */
+/* GUC 选项 */
 extern PGDLLIMPORT bool EnableSSL;
 extern PGDLLIMPORT int SuperuserReservedConnections;
 extern PGDLLIMPORT int ReservedConnections;
@@ -40,11 +40,11 @@ extern PGDLLIMPORT HANDLE PostmasterHandle;
 extern PGDLLIMPORT int postmaster_alive_fds[2];
 
 /*
- * Constants that represent which of postmaster_alive_fds is held by
- * postmaster, and which is used in children to check for postmaster death.
+ * 表示 postmaster_alive_fds 中哪个由 postmaster
+ * 持有、哪个由子进程用来检查 postmaster 死亡的常量。
  */
-#define POSTMASTER_FD_WATCH		0	/* used in children to check for
-									 * postmaster death */
+#define POSTMASTER_FD_WATCH		0	/* 子进程用来检查
+									 * 死亡 */
 #define POSTMASTER_FD_OWN		1	/* kept open by postmaster only */
 #endif
 
@@ -67,14 +67,14 @@ extern void ShmemBackendArrayAllocation(void);
 #endif
 
 /*
- * Note: MAX_BACKENDS is limited to 2^18-1 because that's the width reserved
- * for buffer references in buf_internals.h.  This limitation could be lifted
- * by using a 64bit state; but it's unlikely to be worthwhile as 2^18-1
- * backends exceed currently realistic configurations. Even if that limitation
- * were removed, we still could not a) exceed 2^23-1 because inval.c stores
- * the backend ID as a 3-byte signed integer, b) INT_MAX/4 because some places
- * compute 4*MaxBackends without any overflow check.  This is rechecked in the
- * relevant GUC check hooks and in RegisterBackgroundWorker().
+ * 注意：MAX_BACKENDS 限于 2^18-1，因 buf_internals.h
+ * 为缓冲引用预留了该宽度。可用 64 位状态放宽，但
+ * 不太值得，因 2^18-1 个后端已超出当前现实配置。
+ * 即便去掉该限制，仍不能 a) 超过 2^23-1，因 inval.c
+ * 把后端 ID 存为 3 字节有符号整数；b) 超过 INT_MAX/4，
+ * 因有处无溢出检查地算 4*MaxBackends。相关 GUC 检查
+ * 钩子与 RegisterBackgroundWorker() 中会再核验。
+ * 。
  */
 #define MAX_BACKENDS	0x3FFFF
 

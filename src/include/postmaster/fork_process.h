@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fork_process.h
- *	  Exports from postmaster/fork_process.c.
+ *	  导出自 postmaster/fork_process.c。
  *
  * Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *

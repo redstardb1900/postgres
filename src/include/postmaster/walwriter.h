@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * walwriter.h
- *	  Exports from postmaster/walwriter.c.
+ *	  导出自 postmaster/walwriter.c。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -14,7 +14,7 @@
 
 #define DEFAULT_WAL_WRITER_FLUSH_AFTER ((1024 * 1024) / XLOG_BLCKSZ)
 
-/* GUC options */
+/* GUC 选项 */
 extern PGDLLIMPORT int WalWriterDelay;
 extern PGDLLIMPORT int WalWriterFlushAfter;
 

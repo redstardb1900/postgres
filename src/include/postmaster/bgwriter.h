@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * bgwriter.h
- *	  Exports from postmaster/bgwriter.c and postmaster/checkpointer.c.
+ *	  导出自 postmaster/bgwriter.c 与 postmaster/checkpointer.c。
  *
- * The bgwriter process used to handle checkpointing duties too.  Now
- * there is a separate process, but we did not bother to split this header.
+ * bgwriter 进程过去也负责检查点。现已有独立进程，
+ * 但我们未费心拆分本头文件。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -21,7 +21,7 @@
 #include "storage/sync.h"
 
 
-/* GUC options */
+/* GUC 选项 */
 extern PGDLLIMPORT int BgWriterDelay;
 extern PGDLLIMPORT int CheckPointTimeout;
 extern PGDLLIMPORT int CheckPointWarning;

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * prs2lock.h
- *	  data structures for POSTGRES Rule System II (rewrite rules only)
+ *	  POSTGRES 规则系统 II 的数据结构（仅改写规则）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,7 +18,7 @@
 
 /*
  * RewriteRule -
- *	  holds an info for a rewrite rule
+ *	  保存改写规则信息
  *
  */
 typedef struct RewriteRule
@@ -33,9 +33,9 @@ typedef struct RewriteRule
 
 /*
  * RuleLock -
- *	  all rules that apply to a particular relation. Even though we only
- *	  have the rewrite rule system left and these are not really "locks",
- *	  the name is kept for historical reasons.
+ *	  适用于某关系的全部规则。虽只剩改写规则系统，
+ *	  且这些并非真正的"锁"，名称因历史原因保留。
+ *	  名称因历史原因保留。
  */
 typedef struct RuleLock
 {

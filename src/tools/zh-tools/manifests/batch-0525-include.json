@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0525",
+  "title": "include/c.h 切片 Section2-3 — batch 0525",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "57b26f00712e1085b98ccaee96430ab73d192309",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/c.h",
+      "kind": "c_comment",
+      "note": "0525"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0525-include.json",
+      "kind": "manifest",
+      "note": "0525"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/c.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 26,
+      "translated": 26,
+      "preserved": 0,
+      "preserved_reasons": [
+        "切片他段+intN/节横幅 KEEP"
+      ],
+      "note": "0525 T=55 K=428；L413-669"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0525-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0525"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0525"
+    }
+  ]
+}

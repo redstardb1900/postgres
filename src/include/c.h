@@ -417,17 +417,17 @@ typedef void (*pg_funcptr_t) (void);
 
 /*
  * bool
- *		Boolean value, either true or false.
+ *	布尔值，为 true 或 false。
  *
- * We use stdbool.h if bool has size 1 after including it.  That's useful for
- * better compiler and debugger output and for compatibility with third-party
- * libraries.  But PostgreSQL currently cannot deal with bool of other sizes;
- * there are static assertions around the code to prevent that.
+ * 若含入后 bool 大小为 1，则用 stdbool.h。利于
+ * 更好的编译器与调试器输出，并与第三方
+ * 库兼容。但 PostgreSQL 目前无法处理其他大小的 bool；
+ * 代码中有静态断言防止之。
  *
- * For C++ compilers, we assume the compiler has a compatible built-in
- * definition of bool.
+ * 对 C++ 编译器，假定其有兼容的内建
+ * bool 定义。
  *
- * See also the version of this code in src/interfaces/ecpg/include/ecpglib.h.
+ * 亦见 src/interfaces/ecpg/include/ecpglib.h 中的对应代码。
  */
 
 #ifndef __cplusplus
@@ -453,16 +453,16 @@ typedef unsigned char bool;
 
 
 /* ----------------------------------------------------------------
- *				Section 3:	standard system types
+ *	第 3 节：	标准系统类型
  * ----------------------------------------------------------------
  */
 
 /*
  * Pointer
- *		Variable holding address of any memory resident object.
+ *	保存任一内存驻留对象地址的变量。
  *
- *		XXX Pointer arithmetic is done with this, so it can't be void *
- *		under "true" ANSI compilers.
+ *	XXX 用此做指针算术，故在"真" ANSI 编译器下
+ *	不能是 void *。
  */
 typedef char *Pointer;
 
@@ -473,9 +473,9 @@ typedef char *Pointer;
  *		frontend/backend protocol.
  */
 #ifndef HAVE_INT8
-typedef signed char int8;		/* == 8 bits */
-typedef signed short int16;		/* == 16 bits */
-typedef signed int int32;		/* == 32 bits */
+typedef signed char int8;		/* == 8 位 */
+typedef signed short int16;		/* == 16 位 */
+typedef signed int int32;		/* == 32 位 */
 #endif							/* not HAVE_INT8 */
 
 /*
@@ -485,24 +485,24 @@ typedef signed int int32;		/* == 32 bits */
  *		frontend/backend protocol.
  */
 #ifndef HAVE_UINT8
-typedef unsigned char uint8;	/* == 8 bits */
-typedef unsigned short uint16;	/* == 16 bits */
-typedef unsigned int uint32;	/* == 32 bits */
+typedef unsigned char uint8;	/* == 8 位 */
+typedef unsigned short uint16;	/* == 16 位 */
+typedef unsigned int uint32;	/* == 32 位 */
 #endif							/* not HAVE_UINT8 */
 
 /*
  * bitsN
- *		Unit of bitwise operation, AT LEAST N BITS IN SIZE.
+ *	按位运算单位，AT LEAST N BITS IN SIZE。
  */
-typedef uint8 bits8;			/* >= 8 bits */
-typedef uint16 bits16;			/* >= 16 bits */
-typedef uint32 bits32;			/* >= 32 bits */
+typedef uint8 bits8;			/* >= 8 位 */
+typedef uint16 bits16;			/* >= 16 位 */
+typedef uint32 bits32;			/* >= 32 位 */
 
 /*
- * 64-bit integers
+ * 64 位整数
  */
 #ifdef HAVE_LONG_INT_64
-/* Plain "long int" fits, use it */
+/* 普通 long 够用则用之 */
 
 #ifndef HAVE_INT64
 typedef long int int64;
@@ -528,17 +528,17 @@ typedef unsigned long long int uint64;
 #error must have a working 64-bit integer datatype
 #endif
 
-/* snprintf format strings to use for 64-bit integers */
+/* 64 位整数所用的 snprintf 格式串 */
 #define INT64_FORMAT "%" INT64_MODIFIER "d"
 #define UINT64_FORMAT "%" INT64_MODIFIER "u"
 
 /*
- * 128-bit signed and unsigned integers
- *		There currently is only limited support for such types.
- *		E.g. 128bit literals and snprintf are not supported; but math is.
- *		Also, because we exclude such types when choosing MAXIMUM_ALIGNOF,
- *		it must be possible to coerce the compiler to allocate them on no
- *		more than MAXALIGN boundaries.
+ * 128 位有符号与无符号整数
+ *	对此类类型目前仅有有限支持。
+ *	例如不支持 128 位字面量与 snprintf；但支持算术。
+ *	又因选择 MAXIMUM_ALIGNOF 时排除此类类型，
+ *	必须能迫使编译器将其分配在不超过
+ *	MAXALIGN 的边界上。
  */
 #if defined(PG_INT128_TYPE)
 #if defined(pg_attribute_aligned) || ALIGNOF_PG_INT128_TYPE <= MAXIMUM_ALIGNOF
@@ -560,8 +560,8 @@ typedef unsigned PG_INT128_TYPE uint128
 #endif
 
 /*
- * stdint.h limits aren't guaranteed to have compatible types with our fixed
- * width types. So just define our own.
+ * stdint.h 的限值不保证与我们的定宽类型类型兼容。
+ * 故自行定义。
  */
 #define PG_INT8_MIN		(-0x7F-1)
 #define PG_INT8_MAX		(0x7F)
@@ -577,38 +577,38 @@ typedef unsigned PG_INT128_TYPE uint128
 #define PG_UINT64_MAX	UINT64CONST(0xFFFFFFFFFFFFFFFF)
 
 /*
- * We now always use int64 timestamps, but keep this symbol defined for the
- * benefit of external code that might test it.
+ * 现总用 int64 时间戳，但保留本符号，便于
+ * 可能测试它的外部代码。
  */
 #define HAVE_INT64_TIMESTAMP
 
 /*
  * Size
- *		Size of any memory resident object, as returned by sizeof.
+ *	sizeof 返回的任一内存驻留对象的大小。
  */
 typedef size_t Size;
 
 /*
  * Index
- *		Index into any memory resident array.
+ *	内存驻留数组中的下标。
  *
  * Note:
- *		Indices are non negative.
+ *	下标非负。
  */
 typedef unsigned int Index;
 
 /*
  * Offset
- *		Offset into any memory resident array.
+ *	任一内存驻留数组中的偏移。
  *
  * Note:
- *		This differs from an Index in that an Index is always
- *		non negative, whereas Offset may be negative.
+ *	与 Index 的差别在于 Index 总是
+ *	非负，而 Offset 可为负。
  */
 typedef signed int Offset;
 
 /*
- * Common Postgres datatype names (as used in the catalogs)
+ * 常用 Postgres 数据类型名（目录中所用）
  */
 typedef float float4;
 typedef double float8;
@@ -627,8 +627,8 @@ typedef double float8;
 /* typedef Oid is in postgres_ext.h */
 
 /*
- * regproc is the type name used in the include/catalog headers, but
- * RegProcedure is the preferred name in C code.
+ * include/catalog 头中用类型名 regproc，但
+ * C 代码中更宜用 RegProcedure。
  */
 typedef Oid regproc;
 typedef regproc RegProcedure;
@@ -642,7 +642,7 @@ typedef uint32 SubTransactionId;
 #define InvalidSubTransactionId		((SubTransactionId) 0)
 #define TopSubTransactionId			((SubTransactionId) 1)
 
-/* MultiXactId must be equivalent to TransactionId, to fit in t_xmax */
+/* MultiXactId 须等价于 TransactionId，以装入 t_xmax */
 typedef TransactionId MultiXactId;
 
 typedef uint32 MultiXactOffset;
@@ -654,17 +654,17 @@ typedef uint32 CommandId;
 
 
 /* ----------------
- *		Variable-length datatypes all share the 'struct varlena' header.
+ *	变长类型皆共享 varlena 头。
  *
- * NOTE: for TOASTable types, this is an oversimplification, since the value
- * may be compressed or moved out-of-line.  However datatype-specific routines
- * are mostly content to deal with de-TOASTed values only, and of course
- * client-side routines should never see a TOASTed value.  But even in a
- * de-TOASTed value, beware of touching vl_len_ directly, as its
- * representation is no longer convenient.  It's recommended that code always
- * use macros VARDATA_ANY, VARSIZE_ANY, VARSIZE_ANY_EXHDR, VARDATA, VARSIZE,
- * and SET_VARSIZE instead of relying on direct mentions of the struct fields.
- * See postgres.h for details of the TOASTed form.
+ * 注意：对 TOASTable 类型，这是简化，因值可能
+ * 被压缩或移出线。但类型专用例程
+ * 多半只处理去 TOAST 的值，且客户端
+ * 例程当然不应看到 TOASTed 值。即便在
+ * 去 TOAST 值中，亦勿直接碰 vl_len_，因其
+ * 表示已不再方便。建议代码总是
+ * 用宏 VARDATA_ANY、VARSIZE_ANY、VARSIZE_ANY_EXHDR、VARDATA、VARSIZE
+ * 与 SET_VARSIZE，而不依赖直接提结构字段。
+ * TOAST 形态细节见 postgres.h。
  * ----------------
  */
 struct varlena

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodes.h
- *	  Definitions for tagged nodes.
+ *	带标签节点的定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -15,13 +15,13 @@
 #define NODES_H
 
 /*
- * The first field of every node is NodeTag. Each node created (with makeNode)
- * will have one of the following tags as the value of its first field.
+ * 每个节点的第一字段是 NodeTag。用 makeNode 创建的节点
+ * 其第一字段必为下列标签之一。
  *
- * Note that inserting or deleting node types changes the numbers of other
- * node types later in the list.  This is no problem during development, since
- * the node numbers are never stored on disk.  But don't do it in a released
- * branch, because that would represent an ABI break for extensions.
+ * 注插入或删除节点类型会改变列表后面其他节点类型
+ * 编号。开发期无妨,因节点号从不落盘。但勿在已发布
+ * 分支上这么做,那会对扩展造成 ABI
+ * 破坏。
  */
 typedef enum NodeTag
 {
@@ -31,99 +31,99 @@ typedef enum NodeTag
 } NodeTag;
 
 /*
- * pg_node_attr() - Used in node definitions to set extra information for
- * gen_node_support.pl
+ * pg_node_attr() - 在节点定义中为 gen_node_support.pl
+ * 设置额外信息
  *
- * Attributes can be attached to a node as a whole (place the attribute
- * specification on the first line after the struct's opening brace)
- * or to a specific field (place it at the end of that field's line).  The
- * argument is a comma-separated list of attributes.  Unrecognized attributes
- * cause an error.
+ * 属性可挂在整个节点上(写在结构开括号后的第一行)
+ * 或挂在特定字段上(写在该字段行末)。参数是
+ * 逗号分隔的属性列表。无法识别的属性会
+ * 报错。
+ * 见上。
  *
- * Valid node attributes:
+ * 合法的节点属性:
  *
- * - abstract: Abstract types are types that cannot be instantiated but that
- *   can be supertypes of other types.  We track their fields, so that
- *   subtypes can use them, but we don't emit a node tag, so you can't
- *   instantiate them.
+ * - abstract: 抽象类型不可实例化,但可作为其他类型的
+ *   超类型。我们跟踪其字段供子类型使用,但不发出
+ *   节点标签,故不能实例化它们。
+ * 见上。
  *
- * - custom_copy_equal: Has custom implementations in copyfuncs.c and
- *   equalfuncs.c.
+ * - custom_copy_equal: 在 copyfuncs.c 与 equalfuncs.c 中有
+ *   定制实现.
  *
- * - custom_read_write: Has custom implementations in outfuncs.c and
- *   readfuncs.c.
+ * - custom_read_write: 在 outfuncs.c 与 readfuncs.c 中有
+ * 定制实现.
  *
- * - custom_query_jumble: Has custom implementation in queryjumblefuncs.c.
+ * - custom_query_jumble: 在 queryjumblefuncs.c 中有定制实现。
  *
- * - no_copy: Does not support copyObject() at all.
+ * - no_copy: 完全不支持 copyObject()。
  *
- * - no_equal: Does not support equal() at all.
+ * - no_equal: 完全不支持 equal()。
  *
- * - no_copy_equal: Shorthand for both no_copy and no_equal.
+ * - no_copy_equal: no_copy 与 no_equal 的简写。
  *
- * - no_query_jumble: Does not support JumbleQuery() at all.
+ * - no_query_jumble: 完全不支持 JumbleQuery()。
  *
- * - no_read: Does not support nodeRead() at all.
+ * - no_read: 完全不支持 nodeRead()。
  *
- * - nodetag_only: Does not support copyObject(), equal(), jumbleQuery()
- *   outNode() or nodeRead().
+ * - nodetag_only: 不支持 copyObject()、equal()、jumbleQuery()、
+ * outNode()/nodeRead().
  *
- * - special_read_write: Has special treatment in outNode() and nodeRead().
+ * - special_read_write: 在 outNode() 与 nodeRead() 中有特殊处理。
  *
- * - nodetag_number(VALUE): assign the specified nodetag number instead of
- *   an auto-generated number.  Typically this would only be used in stable
- *   branches, to give a newly-added node type a number without breaking ABI
- *   by changing the numbers of existing node types.
+ * - nodetag_number(VALUE): 指定 nodetag 编号而非自动生成。
+ *   通常仅用于稳定分支,给新节点类型编号且不因改变
+ *   既有节点类型编号而破坏 ABI。
+ * 见上。
  *
- * Node types can be supertypes of other types whether or not they are marked
- * abstract: if a node struct appears as the first field of another struct
- * type, then it is the supertype of that type.  The no_copy, no_equal,
- * no_query_jumble and no_read node attributes are automatically inherited
- * from the supertype.  (Notice that nodetag_only does not inherit, so it's
- * not quite equivalent to a combination of other attributes.)
+ * 无论是否标 abstract,节点类型都可作其他类型的超类型:
+ * 若某节点结构作为另一结构类型第一字段出现,则它是
+ * 该类型的超类型。no_copy、no_equal、no_query_jumble 与
+ * no_read 属性自动从超类型继承。(注意 nodetag_only
+ * 不继承,故不完全等价于其他属性的组合。)
+ * 见上。
  *
- * Valid node field attributes:
+ * 合法的节点字段属性:
  *
- * - array_size(OTHERFIELD): This field is a dynamically allocated array with
- *   size indicated by the mentioned other field.  The other field is either a
- *   scalar or a list, in which case the length of the list is used.
+ * - array_size(OTHERFIELD): 本字段是动态分配数组,大小由
+ *   所述另一字段指示。另一字段是标量或列表,
+ *   后者则用列表长度。
  *
- * - copy_as(VALUE): In copyObject(), replace the field's value with VALUE.
+ * - copy_as(VALUE): 在 copyObject() 中用 VALUE 替换字段值。
  *
- * - copy_as_scalar: In copyObject(), copy the field as a scalar value
- *   (e.g. a pointer) even if it is a node-type pointer.
+ * - copy_as_scalar: 在 copyObject() 中把字段当标量拷贝
+ *   (如指针),即使它是节点类型指针。
  *
- * - equal_as_scalar: In equal(), compare the field as a scalar value
- *   even if it is a node-type pointer.
+ * - equal_as_scalar: 在 equal() 中把字段当标量比较,
+ *   即使它是节点类型指针。
  *
- * - equal_ignore: Ignore the field for equality.
+ * - equal_ignore: 相等时忽略字段.
  *
- * - equal_ignore_if_zero: Ignore the field for equality if it is zero.
- *   (Otherwise, compare normally.)
+ * - equal_ignore_if_zero: 字段为零时忽略相等性比较。
+ *   (否则正常比较。)
  *
- * - query_jumble_ignore: Ignore the field for the query jumbling.  Note
- *   that typmod and collation information are usually irrelevant for the
- *   query jumbling.
+ * - query_jumble_ignore: 查询混淆时忽略该字段。注意
+ *   typmod 与排序规则信息通常与查询混淆
+ *   无关。
  *
- * - query_jumble_location: Mark the field as a location to track.  This is
- *   only allowed for integer fields that include "location" in their name.
+ * - query_jumble_location: 标为要跟踪的位置字段。仅允许
+ *   名称含 location 的整型字段。
  *
- * - read_as(VALUE): In nodeRead(), replace the field's value with VALUE.
+ * - read_as(VALUE): 在 nodeRead() 中用 VALUE 替换字段值。
  *
- * - read_write_ignore: Ignore the field for read/write.  This is only allowed
- *   if the node type is marked no_read or read_as() is also specified.
+ * - read_write_ignore: 读写时忽略该字段。仅当节点类型
+ *   标了 no_read 或同时指定了 read_as() 时允许。
  *
  * - write_only_relids, write_only_nondefault_pathtarget, write_only_req_outer:
- *   Special handling for Path struct; see there.
+ *   Path 结构的特殊处理;见该处。
  *
  */
 #define pg_node_attr(...)
 
 /*
- * The first field of a node of any type is guaranteed to be the NodeTag.
- * Hence the type of any node can be gotten by casting it to Node. Declaring
- * a variable to be of Node * (instead of void *) can also facilitate
- * debugging.
+ * 任意类型节点的第一字段保证是 NodeTag。
+ * 故可通过转成 Node 取得任意节点的类型。把变量声明为
+ * Node *(而非 void *) 也便于调试。
+ * 见上。
  */
 typedef struct Node
 {
@@ -134,21 +134,21 @@ typedef struct Node
 
 /*
  * newNode -
- *	  create a new node of the specified size and tag the node with the
- *	  specified tag.
+ *	  按指定大小创建新节点并用指定标签
+ *	标记该节点.
  *
- * !WARNING!: Avoid using newNode directly. You should be using the
- *	  macro makeNode.  eg. to create a Query node, use makeNode(Query)
+ * !警告!: 勿直接用 newNode。应使用宏 makeNode。
+ *	  例如创建 Query 节点用 makeNode(Query)
  *
- * Note: the size argument should always be a compile-time constant, so the
- * apparent risk of multiple evaluation doesn't matter in practice.
+ * 注意: size 参数应恒为编译期常量,以便
+ * 多重求值的表面风险在实践中无妨。
  */
 #ifdef __GNUC__
 
-/* With GCC, we can use a compound statement within an expression */
+/* 用 GCC 时可在表达式中使用复合语句 */
 #define newNode(size, tag) \
 ({	Node   *_result; \
-	AssertMacro((size) >= sizeof(Node));		/* need the tag, at least */ \
+	AssertMacro((size) >= sizeof(Node));		/* 至少需要标签 */ \
 	_result = (Node *) palloc0fast(size); \
 	_result->type = (tag); \
 	_result; \
@@ -156,16 +156,16 @@ typedef struct Node
 #else
 
 /*
- *	There is no way to dereference the palloc'ed pointer to assign the
- *	tag, and also return the pointer itself, so we need a holder variable.
- *	Fortunately, this macro isn't recursive so we just define
- *	a global variable for this purpose.
+ *	无法解引用 palloc 所得指针既赋值标签又返回指针
+ *	本身,故需要一个持有变量。
+ *	幸好此宏不递归,我们只为此定义一个
+ *	全局变量。
  */
 extern PGDLLIMPORT Node *newNodeMacroHolder;
 
 #define newNode(size, tag) \
 ( \
-	AssertMacro((size) >= sizeof(Node)),		/* need the tag, at least */ \
+	AssertMacro((size) >= sizeof(Node)),		/* 至少需要标签 */ \
 	newNodeMacroHolder = (Node *) palloc0fast(size), \
 	newNodeMacroHolder->type = (tag), \
 	newNodeMacroHolder \
@@ -199,15 +199,15 @@ castNodeImpl(NodeTag type, void *ptr)
 
 
 /* ----------------------------------------------------------------
- *					  extern declarations follow
+ *	随后为外部声明
  * ----------------------------------------------------------------
  */
 
 /*
  * nodes/{outfuncs.c,print.c}
  */
-struct Bitmapset;				/* not to include bitmapset.h here */
-struct StringInfoData;			/* not to include stringinfo.h here */
+struct Bitmapset;				/* 此处不包含 bitmapset.h */
+struct StringInfoData;			/* 此处不包含 stringinfo.h */
 
 extern void outNode(struct StringInfoData *str, const void *obj);
 extern void outToken(struct StringInfoData *str, const char *s);
@@ -237,7 +237,7 @@ extern int16 *readAttrNumberCols(int numCols);
  */
 extern void *copyObjectImpl(const void *from);
 
-/* cast result back to argument type, if supported by compiler */
+/* 若编译器支持,把结果转回实参类型 */
 #ifdef HAVE_TYPEOF
 #define copyObject(obj) ((typeof(obj)) copyObjectImpl(obj))
 #else
@@ -251,24 +251,24 @@ extern bool equal(const void *a, const void *b);
 
 
 /*
- * Typedefs for identifying qualifier selectivities and plan costs as such.
- * These are just plain "double"s, but declaring a variable as Selectivity
- * or Cost makes the intent more obvious.
+ * 用于标识限定词选择率与计划代价的类型定义。
+ * 其实就是普通 double,但把变量声明为 Selectivity
+ * 或 Cost 可使意图更明显。
  *
- * These could have gone into plannodes.h or some such, but many files
- * depend on them...
+ * 本可放进 plannodes.h 之类,但许多文件依赖它们...
+ * 见上。
  */
-typedef double Selectivity;		/* fraction of tuples a qualifier will pass */
-typedef double Cost;			/* execution cost (in page-access units) */
-typedef double Cardinality;		/* (estimated) number of rows or other integer
-								 * count */
+typedef double Selectivity;		/* 限定词将放过的元组比例 */
+typedef double Cost;			/* 执行代价(以页访问为单位) */
+typedef double Cardinality;		/* (估计)行数或其他整数
+								 * 数 */
 
 
 /*
  * CmdType -
- *	  enums for type of operation represented by a Query or PlannedStmt
+ *	  Query 或 PlannedStmt 所表示操作类型的枚举
  *
- * This is needed in both parsenodes.h and plannodes.h, so put it here...
+ * pathnodes.h 与 plannodes.h 都需要,故放此处...
  */
 typedef enum CmdType
 {
@@ -278,72 +278,72 @@ typedef enum CmdType
 	CMD_INSERT,					/* insert stmt */
 	CMD_DELETE,					/* delete stmt */
 	CMD_MERGE,					/* merge stmt */
-	CMD_UTILITY,				/* cmds like create, destroy, copy, vacuum,
-								 * etc. */
-	CMD_NOTHING					/* dummy command for instead nothing rules
-								 * with qual */
+	CMD_UTILITY,				/* create/destroy/copy/vacuum等命令,
+								 * 等 */
+	CMD_NOTHING					/* 带qual的空操作规则之
+								 * 哑命令 */
 } CmdType;
 
 
 /*
  * JoinType -
- *	  enums for types of relation joins
+ *	  关系连接类型的枚举
  *
- * JoinType determines the exact semantics of joining two relations using
- * a matching qualification.  For example, it tells what to do with a tuple
- * that has no match in the other relation.
+ * JoinType 决定用匹配限定连接两关系时的精确语义。
+ * 例如说明对在另一关系中无匹配的元组做何处理。
+ * 见上。
  *
- * This is needed in both parsenodes.h and plannodes.h, so put it here...
+ * pathnodes.h 与 plannodes.h 都需要,故放此处...
  */
 typedef enum JoinType
 {
 	/*
-	 * The canonical kinds of joins according to the SQL JOIN syntax. Only
-	 * these codes can appear in parser output (e.g., JoinExpr nodes).
+	 * 按 SQL JOIN 语法的规范连接种类。解析器输出中只能
+	 * 出现这些码(如 JoinExpr 节点)。
 	 */
-	JOIN_INNER,					/* matching tuple pairs only */
-	JOIN_LEFT,					/* pairs + unmatched LHS tuples */
-	JOIN_FULL,					/* pairs + unmatched LHS + unmatched RHS */
-	JOIN_RIGHT,					/* pairs + unmatched RHS tuples */
+	JOIN_INNER,					/* 仅匹配的元组对 */
+	JOIN_LEFT,					/* 匹配对+未匹配LHS元组 */
+	JOIN_FULL,					/* 匹配对+未匹配LHS+未匹配RHS */
+	JOIN_RIGHT,					/* 匹配对+未匹配RHS元组 */
 
 	/*
-	 * Semijoins and anti-semijoins (as defined in relational theory) do not
-	 * appear in the SQL JOIN syntax, but there are standard idioms for
-	 * representing them (e.g., using EXISTS).  The planner recognizes these
-	 * cases and converts them to joins.  So the planner and executor must
-	 * support these codes.  NOTE: in JOIN_SEMI output, it is unspecified
-	 * which matching RHS row is joined to.  In JOIN_ANTI output, the row is
-	 * guaranteed to be null-extended.
+	 * 半连接与反半连接(按关系理论定义)不出现在 SQL JOIN
+	 * 语法中,但有标准惯用法为它们(如 EXISTS).规划器
+	 * 识别这些情形并转为连接。故规划器与执行器必须
+	 * 支持这些码。注意: JOIN_SEMI 输出中未指定与哪行
+	 * 匹配的 RHS 行连接。JOIN_ANTI 输出中该行保证
+	 * 被空扩展。
+	 * 见上。
 	 */
-	JOIN_SEMI,					/* 1 copy of each LHS row that has match(es) */
-	JOIN_ANTI,					/* 1 copy of each LHS row that has no match */
-	JOIN_RIGHT_ANTI,			/* 1 copy of each RHS row that has no match */
+	JOIN_SEMI,					/* 每有匹配的 LHS 行各 1 份 */
+	JOIN_ANTI,					/* 每无匹配的 LHS 行各 1 份 */
+	JOIN_RIGHT_ANTI,			/* 每无匹配的 RHS 行各 1 份 */
 
 	/*
-	 * These codes are used internally in the planner, but are not supported
-	 * by the executor (nor, indeed, by most of the planner).
+	 * 这些码供规划器内部使用,执行器不支持
+	 * (规划器大部分也不支持)。
 	 */
-	JOIN_UNIQUE_OUTER,			/* LHS path must be made unique */
-	JOIN_UNIQUE_INNER			/* RHS path must be made unique */
+	JOIN_UNIQUE_OUTER,			/* LHS 路径必须做成唯一 */
+	JOIN_UNIQUE_INNER			/* RHS 路径必须做成唯一 */
 
 	/*
-	 * We might need additional join types someday.
+	 * 将来可能需要更多连接类型。
 	 */
 } JoinType;
 
 /*
- * OUTER joins are those for which pushed-down quals must behave differently
- * from the join's own quals.  This is in fact everything except INNER and
- * SEMI joins.  However, this macro must also exclude the JOIN_UNIQUE symbols
- * since those are temporary proxies for what will eventually be an INNER
+ * 外连接是那些下推限定须与连接自身限定行为不同的
+ * 连接。实际上除 INNER 与 SEMI 外皆是。但本宏也须
+ * 排除 JOIN_UNIQUE 符号,因其是最终将成为 INNER
+ * 连接的临时代理。
  * join.
  *
- * Note: semijoins are a hybrid case, but we choose to treat them as not
- * being outer joins.  This is okay principally because the SQL syntax makes
- * it impossible to have a pushed-down qual that refers to the inner relation
- * of a semijoin; so there is no strong need to distinguish join quals from
- * pushed-down quals.  This is convenient because for almost all purposes,
- * quals attached to a semijoin can be treated the same as innerjoin quals.
+ * 注意: 半连接是混合情形,我们选择不视其为外连接。
+ * 之所以可行,主要因 SQL 语法使下推限定无法引用
+ * 半连接的内关系;故无需强分连接限定与下推限定。
+ * 这很方便,因对几乎所有目的,挂在半连接上的限定
+ * 都可与内连接限定同样处理。
+ * 见上。
  */
 #define IS_OUTER_JOIN(jointype) \
 	(((1 << (jointype)) & \
@@ -355,53 +355,53 @@ typedef enum JoinType
 
 /*
  * AggStrategy -
- *	  overall execution strategies for Agg plan nodes
+ *	  Agg 计划节点的总体执行策略
  *
- * This is needed in both pathnodes.h and plannodes.h, so put it here...
+ * pathnodes.h 与 plannodes.h 都需要,故放此处...
  */
 typedef enum AggStrategy
 {
-	AGG_PLAIN,					/* simple agg across all input rows */
-	AGG_SORTED,					/* grouped agg, input must be sorted */
-	AGG_HASHED,					/* grouped agg, use internal hashtable */
-	AGG_MIXED					/* grouped agg, hash and sort both used */
+	AGG_PLAIN,					/* 跨全部输入行简单聚合 */
+	AGG_SORTED,					/* 分组聚合,输入须已排序 */
+	AGG_HASHED,					/* 分组聚合,用内部哈希表 */
+	AGG_MIXED					/* 分组聚合,哈希与排序都用 */
 } AggStrategy;
 
 /*
  * AggSplit -
- *	  splitting (partial aggregation) modes for Agg plan nodes
+ *	  Agg 计划节点的拆分(部分聚合)模式
  *
- * This is needed in both pathnodes.h and plannodes.h, so put it here...
+ * pathnodes.h 与 plannodes.h 都需要,故放此处...
  */
 
-/* Primitive options supported by nodeAgg.c: */
-#define AGGSPLITOP_COMBINE		0x01	/* substitute combinefn for transfn */
-#define AGGSPLITOP_SKIPFINAL	0x02	/* skip finalfn, return state as-is */
-#define AGGSPLITOP_SERIALIZE	0x04	/* apply serialfn to output */
-#define AGGSPLITOP_DESERIALIZE	0x08	/* apply deserialfn to input */
+/* nodeAgg.c 支持的原始选项: */
+#define AGGSPLITOP_COMBINE		0x01	/* 用 combinefn 替代 transfn */
+#define AGGSPLITOP_SKIPFINAL	0x02	/* 跳过finalfn,原样返回状态 */
+#define AGGSPLITOP_SERIALIZE	0x04	/* 对输出应用 serialfn */
+#define AGGSPLITOP_DESERIALIZE	0x08	/* 对输入应用deserialfn */
 
-/* Supported operating modes (i.e., useful combinations of these options): */
+/* 支持的运行模式(即这些选项的有用组合): */
 typedef enum AggSplit
 {
-	/* Basic, non-split aggregation: */
+	/* 基本、非拆分聚合: */
 	AGGSPLIT_SIMPLE = 0,
-	/* Initial phase of partial aggregation, with serialization: */
+	/* 部分聚合初始阶段,带序列化: */
 	AGGSPLIT_INITIAL_SERIAL = AGGSPLITOP_SKIPFINAL | AGGSPLITOP_SERIALIZE,
-	/* Final phase of partial aggregation, with deserialization: */
+	/* 部分聚合最终阶段,带反序列化: */
 	AGGSPLIT_FINAL_DESERIAL = AGGSPLITOP_COMBINE | AGGSPLITOP_DESERIALIZE
 } AggSplit;
 
-/* Test whether an AggSplit value selects each primitive option: */
+/* 测试 AggSplit 值是否选择各原始选项: */
 #define DO_AGGSPLIT_COMBINE(as)		(((as) & AGGSPLITOP_COMBINE) != 0)
 #define DO_AGGSPLIT_SKIPFINAL(as)	(((as) & AGGSPLITOP_SKIPFINAL) != 0)
 #define DO_AGGSPLIT_SERIALIZE(as)	(((as) & AGGSPLITOP_SERIALIZE) != 0)
 #define DO_AGGSPLIT_DESERIALIZE(as) (((as) & AGGSPLITOP_DESERIALIZE) != 0)
 
 /*
- * SetOpCmd and SetOpStrategy -
- *	  overall semantics and execution strategies for SetOp plan nodes
+ * SetOpCmd 与 SetOpStrategy -
+ *	  SetOp 计划节点的总体语义与执行策略
  *
- * This is needed in both pathnodes.h and plannodes.h, so put it here...
+ * pathnodes.h 与 plannodes.h 都需要,故放此处...
  */
 typedef enum SetOpCmd
 {
@@ -413,34 +413,34 @@ typedef enum SetOpCmd
 
 typedef enum SetOpStrategy
 {
-	SETOP_SORTED,				/* input must be sorted */
-	SETOP_HASHED				/* use internal hashtable */
+	SETOP_SORTED,				/* 输入须已排序 */
+	SETOP_HASHED				/* 用内部哈希表 */
 } SetOpStrategy;
 
 /*
  * OnConflictAction -
- *	  "ON CONFLICT" clause type of query
+ *	  查询 "ON CONFLICT" 子句类型
  *
- * This is needed in both parsenodes.h and plannodes.h, so put it here...
+ * parsenodes.h 与 plannodes.h 都需要,故放此处...
  */
 typedef enum OnConflictAction
 {
-	ONCONFLICT_NONE,			/* No "ON CONFLICT" clause */
+	ONCONFLICT_NONE,			/* 无ON CONFLICT子句 */
 	ONCONFLICT_NOTHING,			/* ON CONFLICT ... DO NOTHING */
 	ONCONFLICT_UPDATE			/* ON CONFLICT ... DO UPDATE */
 } OnConflictAction;
 
 /*
  * LimitOption -
- *	LIMIT option of query
+ *	查询 LIMIT 选项
  *
- * This is needed in both parsenodes.h and plannodes.h, so put it here...
+ * parsenodes.h 与 plannodes.h 都需要,故放此处...
  */
 typedef enum LimitOption
 {
 	LIMIT_OPTION_COUNT,			/* FETCH FIRST... ONLY */
 	LIMIT_OPTION_WITH_TIES,		/* FETCH FIRST... WITH TIES */
-	LIMIT_OPTION_DEFAULT,		/* No limit present */
+	LIMIT_OPTION_DEFAULT,		/* 无线索限制 */
 } LimitOption;
 
 #endif							/* NODES_H */

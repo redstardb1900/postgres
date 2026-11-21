@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * large_object.h
- *	  Declarations for PostgreSQL large objects.  POSTGRES 4.2 supported
- *	  zillions of large objects (internal, external, jaquith, inversion).
- *	  Now we only support inversion.
+ *	  PostgreSQL 大对象声明。POSTGRES 4.2 曾支持
+ *	  海量大对象（internal、external、jaquith、inversion）。
+ *	  现仅支持 inversion。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,70 +19,70 @@
 
 
 /*----------
- * Data about a currently-open large object.
+ * 当前已打开大对象的数据。
  *
- * id is the logical OID of the large object
- * snapshot is the snapshot to use for read/write operations
- * subid is the subtransaction that opened the desc (or currently owns it)
- * offset is the current seek offset within the LO
- * flags contains some flag bits
+ * id 是大对象的逻辑 OID
+ * snapshot 是读/写操作所用的快照
+ * subid 是打开该描述符的子事务（或当前拥有者）
+ * offset 是 LO 内当前 seek 偏移
+ * flags 含若干标志位
  *
- * NOTE: as of v11, permission checks are made when the large object is
- * opened; therefore IFS_RDLOCK/IFS_WRLOCK indicate that read or write mode
- * has been requested *and* the corresponding permission has been checked.
+ * 注意：自 v11 起，权限检查在打开大对象时进行；
+ * 故 IFS_RDLOCK/IFS_WRLOCK 表示请求了读或写模式
+ * *且*已检查对应权限。
  *
- * NOTE: before 7.1, we also had to store references to the separate table
- * and index of a specific large object.  Now they all live in pg_largeobject
- * and are accessed via a common relation descriptor.
+ * 注意：7.1 以前还须保存指向各大对象独立表与
+ * 索引的引用。现均存于 pg_largeobject，经共用
+ * 关系描述符访问。
  *----------
  */
 typedef struct LargeObjectDesc
 {
-	Oid			id;				/* LO's identifier */
-	Snapshot	snapshot;		/* snapshot to use */
-	SubTransactionId subid;		/* owning subtransaction ID */
-	uint64		offset;			/* current seek pointer */
-	int			flags;			/* see flag bits below */
+	Oid			id;				/* LO 标识符 */
+	Snapshot	snapshot;		/* 所用快照 */
+	SubTransactionId subid;		/* 拥有子事务 ID */
+	uint64		offset;			/* 当前 seek 指针 */
+	int			flags;			/* 见下方标志位 */
 
-/* bits in flags: */
-#define IFS_RDLOCK		(1 << 0)	/* LO was opened for reading */
-#define IFS_WRLOCK		(1 << 1)	/* LO was opened for writing */
+/* flags 位： */
+#define IFS_RDLOCK		(1 << 0)	/* LO 已为读而打开 */
+#define IFS_WRLOCK		(1 << 1)	/* LO 已为写而打开 */
 
 } LargeObjectDesc;
 
 
 /*
- * Each "page" (tuple) of a large object can hold this much data
+ * 大对象每个"页"（元组）可容纳这么多数据
  *
- * We could set this as high as BLCKSZ less some overhead, but it seems
- * better to make it a smaller value, so that not as much space is used
- * up when a page-tuple is updated.  Note that the value is deliberately
- * chosen large enough to trigger the tuple toaster, so that we will
- * attempt to compress page tuples in-line.  (But they won't be moved off
- * unless the user creates a toast-table for pg_largeobject...)
+ * 本可设为 BLCKSZ 减去若干开销，但似乎更宜
+ * 取较小值，以免更新页元组时占用过多空间。
+ * 注意：该值有意取大到足以触发元组 toaster，
+ * 以便我们尝试就地压缩页元组。（但除非
+ * 用户为 pg_largeobject 建 toast 表，否则不会
+ * 被移出页外……）
  *
- * Also, it seems to be a smart move to make the page size be a power of 2,
- * since clients will often be written to send data in power-of-2 blocks.
- * This avoids unnecessary tuple updates caused by partial-page writes.
+ * 另，把页大小定为 2 的幂也很明智，因客户端常按 
+ * 2 的幂块发送数据。这可避免因部分页写入
+ * 引起的不必要元组更新。
  *
- * NB: Changing LOBLKSIZE requires an initdb.
+ * 注意：改 LOBLKSIZE 须 initdb。
  */
 #define LOBLKSIZE		(BLCKSZ / 4)
 
 /*
- * Maximum length in bytes for a large object.  To make this larger, we'd
- * have to widen pg_largeobject.pageno as well as various internal variables.
+ * 大对象的最大字节长度。要加大须同时加宽 
+ * pg_largeobject.pageno 以及若干内部变量。
  */
 #define MAX_LARGE_OBJECT_SIZE	((int64) INT_MAX * LOBLKSIZE)
 
 
 /*
- * GUC: backwards-compatibility flag to suppress LO permission checks
+ * GUC：抑制大对象权限检查的向后兼容标志
  */
 extern PGDLLIMPORT bool lo_compat_privileges;
 
 /*
- * Function definitions...
+ * 函数定义……
  */
 
 /* inversion stuff in inv_api.c */

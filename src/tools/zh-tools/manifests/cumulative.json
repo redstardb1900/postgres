@@ -8496,6 +8496,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0494-storage.json",
    "kind": "manifest",
    "note": "0494"
+  },
+  {
+   "pattern": "src/include/storage/large_object.h",
+   "kind": "c_comment",
+   "note": "0495"
+  },
+  {
+   "pattern": "src/include/storage/fsm_internals.h",
+   "kind": "c_comment",
+   "note": "0495"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0495-storage.json",
+   "kind": "manifest",
+   "note": "0495"
   }
  ],
  "files": [
@@ -26875,7 +26890,9 @@
    "segments_total": 41,
    "translated": 26,
    "preserved": 15,
-   "preserved_reasons": ["横幅/文件名/版权/路径/类型名/函数名/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/类型名/函数名/#endif"
+   ],
    "note": "0479"
   },
   {
@@ -26885,7 +26902,9 @@
    "segments_total": 17,
    "translated": 8,
    "preserved": 9,
-   "preserved_reasons": ["横幅/文件名/版权/路径/宏名/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/宏名/#endif"
+   ],
    "note": "0479"
   },
   {
@@ -26895,7 +26914,9 @@
    "segments_total": 8,
    "translated": 1,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0479"
   },
   {
@@ -26905,7 +26926,9 @@
    "segments_total": 23,
    "translated": 10,
    "preserved": 13,
-   "preserved_reasons": ["横幅/文件名/版权/路径/类型名/宏名/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/类型名/宏名/#endif"
+   ],
    "note": "0479"
   },
   {
@@ -26915,7 +26938,9 @@
    "segments_total": 50,
    "translated": 41,
    "preserved": 9,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif；L28/L60 短行"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif；L28/L60 短行"
+   ],
    "note": "0479"
   },
   {
@@ -26935,7 +26960,9 @@
    "segments_total": 62,
    "translated": 38,
    "preserved": 24,
-   "preserved_reasons": ["横幅/文件名/版权/路径/横线/函数名/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/横线/函数名/#endif"
+   ],
    "note": "0480"
   },
   {
@@ -26945,7 +26972,9 @@
    "segments_total": 68,
    "translated": 39,
    "preserved": 29,
-   "preserved_reasons": ["横幅/文件名/版权/路径/横线/类型名/函数名/externs/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/横线/类型名/函数名/externs/#endif"
+   ],
    "note": "0480"
   },
   {
@@ -26965,7 +26994,10 @@
    "segments_total": 104,
    "translated": 81,
    "preserved": 23,
-   "preserved_reasons": ["横幅/文件名/版权/路径/VACUUM/in *.c 预算/函数名/Note:/#endif", "B3 L35-36 closer 仅 3B"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/VACUUM/in *.c 预算/函数名/Note:/#endif",
+    "B3 L35-36 closer 仅 3B"
+   ],
    "note": "0481"
   },
   {
@@ -26985,7 +27017,9 @@
    "segments_total": 186,
    "translated": 145,
    "preserved": 41,
-   "preserved_reasons": ["横幅/版权/路径/ASCII 图/EXCEPTIONS:/NOTES:/横线/函数名/Note:/#endif"],
+   "preserved_reasons": [
+    "横幅/版权/路径/ASCII 图/EXCEPTIONS:/NOTES:/横线/函数名/Note:/#endif"
+   ],
    "note": "0482"
   },
   {
@@ -27005,7 +27039,9 @@
    "segments_total": 135,
    "translated": 120,
    "preserved": 15,
-   "preserved_reasons": ["横幅/版权/路径/in *.c 预算/原子写原型/#endif"],
+   "preserved_reasons": [
+    "横幅/版权/路径/in *.c 预算/原子写原型/#endif"
+   ],
    "note": "0483"
   },
   {
@@ -27025,7 +27061,9 @@
    "segments_total": 16,
    "translated": 6,
    "preserved": 10,
-   "preserved_reasons": ["横幅/文件名/版权/路径/-cim 日期/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/-cim 日期/#endif"
+   ],
    "note": "0484"
   },
   {
@@ -27035,7 +27073,9 @@
    "segments_total": 17,
    "translated": 10,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0484"
   },
   {
@@ -27045,7 +27085,9 @@
    "segments_total": 10,
    "translated": 3,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0484"
   },
   {
@@ -27055,7 +27097,9 @@
    "segments_total": 8,
    "translated": 1,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0484"
   },
   {
@@ -27065,7 +27109,9 @@
    "segments_total": 20,
    "translated": 13,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0484"
   },
   {
@@ -27085,7 +27131,9 @@
    "segments_total": 14,
    "translated": 8,
    "preserved": 6,
-   "preserved_reasons": ["横幅/文件名/版权/路径"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径"
+   ],
    "note": "0485"
   },
   {
@@ -27095,7 +27143,9 @@
    "segments_total": 14,
    "translated": 7,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0485"
   },
   {
@@ -27105,7 +27155,9 @@
    "segments_total": 10,
    "translated": 3,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0485"
   },
   {
@@ -27115,7 +27167,9 @@
    "segments_total": 9,
    "translated": 2,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0485"
   },
   {
@@ -27125,7 +27179,9 @@
    "segments_total": 8,
    "translated": 1,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0485"
   },
   {
@@ -27135,7 +27191,9 @@
    "segments_total": 8,
    "translated": 1,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0485"
   },
   {
@@ -27145,7 +27203,9 @@
    "segments_total": 10,
    "translated": 4,
    "preserved": 6,
-   "preserved_reasons": ["横幅/文件名/版权/路径"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径"
+   ],
    "note": "0485"
   },
   {
@@ -27165,7 +27225,9 @@
    "segments_total": 20,
    "translated": 12,
    "preserved": 8,
-   "preserved_reasons": ["横幅/文件名/版权/路径/GUC./#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/GUC./#endif"
+   ],
    "note": "0486"
   },
   {
@@ -27175,7 +27237,9 @@
    "segments_total": 52,
    "translated": 42,
    "preserved": 10,
-   "preserved_reasons": ["横幅/文件名/版权/路径/calls:/PathNameOpenFile 样例/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/calls:/PathNameOpenFile 样例/#endif"
+   ],
    "note": "0486"
   },
   {
@@ -27195,7 +27259,9 @@
    "segments_total": 32,
    "translated": 25,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0487"
   },
   {
@@ -27205,7 +27271,9 @@
    "segments_total": 34,
    "translated": 15,
    "preserved": 19,
-   "preserved_reasons": ["横幅/文件名/版权/路径/SQL 锁注解/README.tuplock 节名/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/SQL 锁注解/README.tuplock 节名/#endif"
+   ],
    "note": "0487"
   },
   {
@@ -27215,7 +27283,9 @@
    "segments_total": 27,
    "translated": 20,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0487"
   },
   {
@@ -27235,7 +27305,9 @@
    "segments_total": 29,
    "translated": 22,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0488"
   },
   {
@@ -27245,7 +27317,9 @@
    "segments_total": 25,
    "translated": 16,
    "preserved": 9,
-   "preserved_reasons": ["横幅/文件名/版权/路径/shmem.c/ipci.c/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/shmem.c/ipci.c/#endif"
+   ],
    "note": "0488"
   },
   {
@@ -27255,7 +27329,9 @@
    "segments_total": 22,
    "translated": 14,
    "preserved": 8,
-   "preserved_reasons": ["横幅/文件名/版权/路径/for add_size()/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/for add_size()/#endif"
+   ],
    "note": "0488"
   },
   {
@@ -27265,7 +27341,9 @@
    "segments_total": 27,
    "translated": 20,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0488"
   },
   {
@@ -27285,7 +27363,9 @@
    "segments_total": 63,
    "translated": 55,
    "preserved": 8,
-   "preserved_reasons": ["横幅/文件名/版权/路径/tranche ID/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/tranche ID/#endif"
+   ],
    "note": "0489"
   },
   {
@@ -27295,7 +27375,9 @@
    "segments_total": 35,
    "translated": 24,
    "preserved": 11,
-   "preserved_reasons": ["横幅/文件名/版权/路径/API 签名/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/API 签名/#endif"
+   ],
    "note": "0489"
   },
   {
@@ -27315,7 +27397,9 @@
    "segments_total": 92,
    "translated": 71,
    "preserved": 21,
-   "preserved_reasons": ["横幅/文件名/版权/路径/for 样例/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/for 样例/#endif"
+   ],
    "note": "0490"
   },
   {
@@ -27335,7 +27419,9 @@
    "segments_total": 31,
    "translated": 15,
    "preserved": 16,
-   "preserved_reasons": ["横幅/文件名/版权/路径/----------/API 样例/needs./in *.c/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/----------/API 样例/needs./in *.c/#endif"
+   ],
    "note": "0491"
   },
   {
@@ -27345,7 +27431,9 @@
    "segments_total": 31,
    "translated": 24,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0491"
   },
   {
@@ -27355,7 +27443,9 @@
    "segments_total": 26,
    "translated": 19,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0491"
   },
   {
@@ -27375,7 +27465,9 @@
    "segments_total": 38,
    "translated": 31,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/IDENTIFICATION/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/IDENTIFICATION/路径/#endif"
+   ],
    "note": "0492"
   },
   {
@@ -27385,7 +27477,9 @@
    "segments_total": 24,
    "translated": 17,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/IDENTIFICATION/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/IDENTIFICATION/路径/#endif"
+   ],
    "note": "0492"
   },
   {
@@ -27395,7 +27489,9 @@
    "segments_total": 20,
    "translated": 13,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0492"
   },
   {
@@ -27405,7 +27501,9 @@
    "segments_total": 22,
    "translated": 15,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0492"
   },
   {
@@ -27425,7 +27523,9 @@
    "segments_total": 65,
    "translated": 58,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0493"
   },
   {
@@ -27435,7 +27535,9 @@
    "segments_total": 16,
    "translated": 9,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0493"
   },
   {
@@ -27455,7 +27557,9 @@
    "segments_total": 38,
    "translated": 30,
    "preserved": 8,
-   "preserved_reasons": ["横幅/文件名/版权/路径/descriptors.)/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/descriptors.)/#endif"
+   ],
    "note": "0494"
   },
   {
@@ -27465,7 +27569,9 @@
    "segments_total": 32,
    "translated": 25,
    "preserved": 7,
-   "preserved_reasons": ["横幅/文件名/版权/路径/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif"
+   ],
    "note": "0494"
   },
   {
@@ -27475,7 +27581,9 @@
    "segments_total": 24,
    "translated": 15,
    "preserved": 9,
-   "preserved_reasons": ["横幅/文件名/版权/路径/MyDatabase*/#endif"],
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/MyDatabase*/#endif"
+   ],
    "note": "0494"
   },
   {
@@ -27487,6 +27595,40 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0494"
+  },
+  {
+   "path": "src/include/storage/large_object.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 48,
+   "translated": 38,
+   "preserved": 10,
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif；L88 inv_api.c 文件定位"
+   ],
+   "note": "0495"
+  },
+  {
+   "path": "src/include/storage/fsm_internals.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 17,
+   "preserved": 8,
+   "preserved_reasons": [
+    "横幅/文件名/版权/路径/#endif；L22 details. 11B"
+   ],
+   "note": "0495"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0495-storage.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0495"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

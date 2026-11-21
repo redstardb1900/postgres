@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fsm_internals.h
- *	  internal functions for free space map
+ *	  空闲空间映射的内部函数
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,26 +18,26 @@
 #include "storage/bufpage.h"
 
 /*
- * Structure of a FSM page. See src/backend/storage/freespace/README for
+ * FSM 页结构。详见 src/backend/storage/freespace/README
  * details.
  */
 typedef struct
 {
 	/*
-	 * fsm_search_avail() tries to spread the load of multiple backends by
-	 * returning different pages to different backends in a round-robin
-	 * fashion. fp_next_slot points to the next slot to be returned (assuming
-	 * there's enough space on it for the request). It's defined as an int,
-	 * because it's updated without an exclusive lock. uint16 would be more
-	 * appropriate, but int is more likely to be atomically
-	 * fetchable/storable.
+	 * fsm_search_avail() 试图用轮转方式把负载分散到
+	 * 多个后端：向不同后端返回不同页。
+	 * fp_next_slot 指向下次要返回的槽（假定其上
+	 * 有足够空间满足请求）。定义为 int，因为会在
+	 * 无独占锁下更新。uint16 更合适，但 int 更
+	 * 易于原子
+	 * 取/存。
 	 */
 	int			fp_next_slot;
 
 	/*
-	 * fp_nodes contains the binary tree, stored in array. The first
-	 * NonLeafNodesPerPage elements are upper nodes, and the following
-	 * LeafNodesPerPage elements are leaf nodes. Unused nodes are zero.
+	 * fp_nodes 含以数组存放的二叉树。前 
+	 * NonLeafNodesPerPage 个是上层结点，随后 
+	 * LeafNodesPerPage 个是叶结点。未用结点为零。
 	 */
 	uint8		fp_nodes[FLEXIBLE_ARRAY_MEMBER];
 } FSMPageData;
@@ -45,8 +45,8 @@ typedef struct
 typedef FSMPageData *FSMPage;
 
 /*
- * Number of non-leaf and leaf nodes, and nodes in total, on an FSM page.
- * These definitions are internal to fsmpage.c.
+ * FSM 页上非叶结点、叶结点及结点总数。
+ * 这些定义仅供 fsmpage.c 内部使用。
  */
 #define NodesPerPage (BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - \
 					  offsetof(FSMPageData, fp_nodes))
@@ -55,12 +55,12 @@ typedef FSMPageData *FSMPage;
 #define LeafNodesPerPage (NodesPerPage - NonLeafNodesPerPage)
 
 /*
- * Number of FSM "slots" on a FSM page. This is what should be used
- * outside fsmpage.c.
+ * FSM 页上的 FSM "槽" 数。应在 fsmpage.c 
+ * 之外使用。
  */
 #define SlotsPerFSMPage LeafNodesPerPage
 
-/* Prototypes for functions in fsmpage.c */
+/* fsmpage.c 中函数原型 */
 extern int	fsm_search_avail(Buffer buf, uint8 minvalue, bool advancenext,
 							 bool exclusive_lock_held);
 extern uint8 fsm_get_avail(Page page, int slot);

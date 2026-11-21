@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0495",
+  "title": "include/storage large_object+fsm_internals — batch 0495",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "5c1299316c3855706f69b53393cbdc10e0f78dfa",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/large_object.h",
+      "kind": "c_comment",
+      "note": "0495"
+    },
+    {
+      "pattern": "src/include/storage/fsm_internals.h",
+      "kind": "c_comment",
+      "note": "0495"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0495-storage.json",
+      "kind": "manifest",
+      "note": "0495"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/large_object.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 48,
+      "translated": 38,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径/#endif；L88 inv_api.c 文件定位"
+      ],
+      "note": "大对象；子事务；权限检查；向后兼容；seek/LO/toaster"
+    },
+    {
+      "path": "src/include/storage/fsm_internals.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 17,
+      "preserved": 8,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径/#endif；L22 details. 11B"
+      ],
+      "note": "空闲空间映射；轮转；独占锁；非叶/叶结点"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0495-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0495"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十七刀：large_object/fsm_internals；大对象/空闲空间映射/轮转/独占锁"
+}

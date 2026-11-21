@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0531",
+  "title": "include/commands/vacuum.h — batch 0531",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "7e0524e54de0b9fdeaa67b39f5b634c7bebeedae",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/commands/vacuum.h",
+      "kind": "c_comment",
+      "note": "0531"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0531-include.json",
+      "kind": "manifest",
+      "note": "0531"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/commands/vacuum.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 156,
+      "translated": 144,
+      "preserved": 12,
+      "preserved_reasons": [
+        "横幅/路径/守卫/VacuumParams头注 KEEP"
+      ],
+      "note": "0531 T=144"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0531-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0531"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0531"
+    }
+  ]
+}

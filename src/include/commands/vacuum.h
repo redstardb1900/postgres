@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * vacuum.h
- *	  header file for postgres vacuum cleaner and statistics analyzer
+ *	postgres 清理器与统计信息分析器的头文件
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,80 +26,80 @@
 #include "utils/relcache.h"
 
 /*
- * Flags for amparallelvacuumoptions to control the participation of bulkdelete
- * and vacuumcleanup in parallel vacuum.
+ * amparallelvacuumoptions 标志,控制 bulkdelete 与
+ * vacuumcleanup 参与并行 vacuum。
  */
 
 /*
- * Both bulkdelete and vacuumcleanup are disabled by default.  This will be
- * used by IndexAM's that don't want to or cannot participate in parallel
- * vacuum.  For example, if an index AM doesn't have a way to communicate the
- * index statistics allocated by the first ambulkdelete call to the subsequent
- * ones until amvacuumcleanup, the index AM cannot participate in parallel
+ * 默认禁用 bulkdelete 与 vacuumcleanup。供不想或
+ * 不能参与并行 vacuum 的 IndexAM 使用。例如，若索引
+ * AM 无法把首次 ambulkdelete 调用分配的索引统计
+ * 传递给后续调用直至 amvacuumcleanup，则该索引 AM
+ * 不能参与并行
  * vacuum.
  */
 #define VACUUM_OPTION_NO_PARALLEL			0
 
 /*
- * bulkdelete can be performed in parallel.  This option can be used by
- * index AMs that need to scan indexes to delete tuples.
+ * 可并行执行 bulkdelete。供需要扫描索引以删除
+ * 元组的索引 AM 使用。
  */
 #define VACUUM_OPTION_PARALLEL_BULKDEL		(1 << 0)
 
 /*
- * vacuumcleanup can be performed in parallel if bulkdelete is not performed
- * yet.  This will be used by IndexAM's that can scan the index if the
- * bulkdelete is not performed.
+ * 若尚未执行 bulkdelete，则可并行执行 vacuumcleanup。
+ * 供能在未执行 bulkdelete 时扫描索引的
+ * IndexAM 使用。
  */
 #define VACUUM_OPTION_PARALLEL_COND_CLEANUP	(1 << 1)
 
 /*
- * vacuumcleanup can be performed in parallel even if bulkdelete has already
- * processed the index.  This will be used by IndexAM's that scan the index
- * during the cleanup phase of index irrespective of whether the index is
- * already scanned or not during bulkdelete phase.
+ * 即使 bulkdelete 已处理过该索引，也可并行执行
+ * vacuumcleanup。供在索引清理阶段扫描索引、
+ * 无论 bulkdelete 阶段是否已扫描过该索引的
+ * IndexAM 使用。
  */
 #define VACUUM_OPTION_PARALLEL_CLEANUP		(1 << 2)
 
-/* value for checking vacuum flags */
+/* 用于检查 vacuum 标志值 */
 #define VACUUM_OPTION_MAX_VALID_VALUE		((1 << 3) - 1)
 
-/* Abstract type for parallel vacuum state */
+/* 并行 vacuum 状态的抽象类型 */
 typedef struct ParallelVacuumState ParallelVacuumState;
 
 /*----------
- * ANALYZE builds one of these structs for each attribute (column) that is
- * to be analyzed.  The struct and subsidiary data are in anl_context,
- * so they live until the end of the ANALYZE operation.
+ * ANALYZE 为每个待分析属性（列）构建本结构之一。
+ * 结构及附属数据位于 anl_context，
+ * 故存活至 ANALYZE 操作结束。
  *
- * The type-specific typanalyze function is passed a pointer to this struct
- * and must return true to continue analysis, false to skip analysis of this
- * column.  In the true case it must set the compute_stats and minrows fields,
- * and can optionally set extra_data to pass additional info to compute_stats.
- * minrows is its request for the minimum number of sample rows to be gathered
- * (but note this request might not be honored, eg if there are fewer rows
- * than that in the table).
+ * 类型相关的 typanalyze 函数收到指向本结构的指针，
+ * 须返回 true 以继续分析，或 false 以跳过本列。
+ * 返回 true 时须设置 compute_stats 与 minrows 字段，
+ * 并可选用 extra_data 向 compute_stats 传附加信息。
+ * minrows 是它请求的最少采样行数
+ * （注意该请求未必兑现，例如表中行数
+ * 少于此数时）。
  *
- * The compute_stats routine will be called after sample rows have been
- * gathered.  Aside from this struct, it is passed:
- *		fetchfunc: a function for accessing the column values from the
- *				   sample rows
- *		samplerows: the number of sample tuples
- *		totalrows: estimated total number of rows in relation
- * The fetchfunc may be called with rownum running from 0 to samplerows-1.
- * It returns a Datum and an isNull flag.
+ * 采样行收集完毕后将调用 compute_stats
+ * 例程。除本结构外还传入：
+ *		fetchfunc: 从采样行访问列值的函数
+ *				   (采样行)
+ *		samplerows: 采样元组数
+ *		totalrows: 关系估计总行数
+ * fetchfunc 的 rownum 可从 0 跑到 samplerows-1。
+ * 它返回 Datum 与 isNull 标志。
  *
- * compute_stats should set stats_valid true if it is able to compute
- * any useful statistics.  If it does, the remainder of the struct holds
- * the information to be stored in a pg_statistic row for the column.  Be
- * careful to allocate any pointed-to data in anl_context, which will NOT
- * be CurrentMemoryContext when compute_stats is called.
+ * 若能算出有用统计，compute_stats 应置 stats_valid
+ * 为真。若如此，结构余部保存将写入该列
+ * pg_statistic 行的信息。务必在 anl_context 中
+ * 分配所有指针指向的数据；调用 compute_stats 时
+ * 它不是 CurrentMemoryContext。
  *
- * Note: all comparisons done for statistical purposes should use the
- * underlying column's collation (attcollation), except in situations
- * where a noncollatable container type contains a collatable type;
- * in that case use the type's default collation.  Be sure to record
- * the appropriate collation in stacoll.
+ * 注意：凡统计用途的比较均应使用底层列的
+ * 排序规则（attcollation），除非不可排序容器类型
+ * 内含可排序类型；此时用该类型默认排序规则。
+ * 务必把合适的排序规则记入
+ * stacoll。
  *----------
  */
 typedef struct VacAttrStats *VacAttrStatsP;
@@ -115,39 +115,39 @@ typedef void (*AnalyzeAttrComputeStatsFunc) (VacAttrStatsP stats,
 typedef struct VacAttrStats
 {
 	/*
-	 * These fields are set up by the main ANALYZE code before invoking the
-	 * type-specific typanalyze function.
+	 * 这些字段由主 ANALYZE 代码在调用类型相关
+	 * typanalyze 函数前设置。
 	 *
-	 * Note: do not assume that the data being analyzed has the same datatype
-	 * shown in attr, ie do not trust attr->atttypid, attlen, etc.  This is
-	 * because some index opclasses store a different type than the underlying
-	 * column/expression.  Instead use attrtypid, attrtypmod, and attrtype for
-	 * information about the datatype being fed to the typanalyze function.
-	 * Likewise, use attrcollid not attr->attcollation.
+	 * 注意：勿假定被分析数据与 attr 所示类型相同，
+	 * 即勿信任 attr->atttypid、attlen 等。因为有些
+	 * 索引操作类存储的类型异于底层列/表达式。
+	 * 应改用 attrtypid、attrtypmod 与 attrtype 了解
+	 * 喂给 typanalyze 函数的数据类型。
+	 * 同理用 attrcollid 而非 attr->attcollation.
 	 */
-	Form_pg_attribute attr;		/* copy of pg_attribute row for column */
-	Oid			attrtypid;		/* type of data being analyzed */
-	int32		attrtypmod;		/* typmod of data being analyzed */
-	Form_pg_type attrtype;		/* copy of pg_type row for attrtypid */
-	Oid			attrcollid;		/* collation of data being analyzed */
-	MemoryContext anl_context;	/* where to save long-lived data */
+	Form_pg_attribute attr;		/* 列的 pg_attribute 行副本 */
+	Oid			attrtypid;		/* 被分析数据的类型 */
+	int32		attrtypmod;		/* 被分析数据的 typmod */
+	Form_pg_type attrtype;		/* attrtypid 的 pg_type 行副本 */
+	Oid			attrcollid;		/* 被分析数据的排序规则 */
+	MemoryContext anl_context;	/* 长寿数据的保存处 */
 
 	/*
-	 * These fields must be filled in by the typanalyze routine, unless it
-	 * returns false.
+	 * 这些字段须由 typanalyze 例程填写，除非它
+	 * 返回 false.
 	 */
-	AnalyzeAttrComputeStatsFunc compute_stats;	/* function pointer */
-	int			minrows;		/* Minimum # of rows wanted for stats */
-	void	   *extra_data;		/* for extra type-specific data */
+	AnalyzeAttrComputeStatsFunc compute_stats;	/* 函数指针 */
+	int			minrows;		/* 统计所需最少行数 */
+	void	   *extra_data;		/* 额外类型相关数据 */
 
 	/*
-	 * These fields are to be filled in by the compute_stats routine. (They
-	 * are initialized to zero when the struct is created.)
+	 * 这些字段由 compute_stats 例程填写。（结构
+	 * 创建时初始化为零。）
 	 */
 	bool		stats_valid;
-	float4		stanullfrac;	/* fraction of entries that are NULL */
-	int32		stawidth;		/* average width of column values */
-	float4		stadistinct;	/* # distinct values */
+	float4		stanullfrac;	/* 为 NULL 的项所占比例 */
+	int32		stawidth;		/* 列值平均宽度 */
+	float4		stadistinct;	/* 不同值个数 */
 	int16		stakind[STATISTIC_NUM_SLOTS];
 	Oid			staop[STATISTIC_NUM_SLOTS];
 	Oid			stacoll[STATISTIC_NUM_SLOTS];
@@ -157,10 +157,10 @@ typedef struct VacAttrStats
 	Datum	   *stavalues[STATISTIC_NUM_SLOTS];
 
 	/*
-	 * These fields describe the stavalues[n] element types. They will be
-	 * initialized to match attrtypid, but a custom typanalyze function might
-	 * want to store an array of something other than the analyzed column's
-	 * elements. It should then overwrite these fields.
+	 * 这些字段描述 stavalues[n] 元素类型。将初始化
+	 * 为与 attrtypid 匹配，但定制 typanalyze 函数可能
+	 * 想存非被分析列元素的数组，
+	 * 此时应覆盖这些字段。
 	 */
 	Oid			statypid[STATISTIC_NUM_SLOTS];
 	int16		statyplen[STATISTIC_NUM_SLOTS];
@@ -168,37 +168,37 @@ typedef struct VacAttrStats
 	char		statypalign[STATISTIC_NUM_SLOTS];
 
 	/*
-	 * These fields are private to the main ANALYZE code and should not be
-	 * looked at by type-specific functions.
+	 * 这些字段属主 ANALYZE 代码私有，类型相关函数
+	 * 不应查看。
 	 */
-	int			tupattnum;		/* attribute number within tuples */
-	HeapTuple  *rows;			/* access info for std fetch function */
+	int			tupattnum;		/* 元组内属性号 */
+	HeapTuple  *rows;			/* 标准取函数的访问信息 */
 	TupleDesc	tupDesc;
-	Datum	   *exprvals;		/* access info for index fetch function */
+	Datum	   *exprvals;		/* 索引取函数的访问信息 */
 	bool	   *exprnulls;
 	int			rowstride;
 } VacAttrStats;
 
-/* flag bits for VacuumParams->options */
-#define VACOPT_VACUUM 0x01		/* do VACUUM */
-#define VACOPT_ANALYZE 0x02		/* do ANALYZE */
-#define VACOPT_VERBOSE 0x04		/* output INFO instrumentation messages */
-#define VACOPT_FREEZE 0x08		/* FREEZE option */
-#define VACOPT_FULL 0x10		/* FULL (non-concurrent) vacuum */
-#define VACOPT_SKIP_LOCKED 0x20 /* skip if cannot get lock */
-#define VACOPT_PROCESS_MAIN 0x40	/* process main relation */
-#define VACOPT_PROCESS_TOAST 0x80	/* process the TOAST table, if any */
-#define VACOPT_DISABLE_PAGE_SKIPPING 0x100	/* don't skip any pages */
-#define VACOPT_SKIP_DATABASE_STATS 0x200	/* skip vac_update_datfrozenxid() */
-#define VACOPT_ONLY_DATABASE_STATS 0x400	/* only vac_update_datfrozenxid() */
+/* VacuumParams->options 的标志位 */
+#define VACOPT_VACUUM 0x01		/* VACUUM */
+#define VACOPT_ANALYZE 0x02		/* ANALYZE */
+#define VACOPT_VERBOSE 0x04		/* 输出 INFO 检测消息 */
+#define VACOPT_FREEZE 0x08		/* FREEZE 选项 */
+#define VACOPT_FULL 0x10		/* FULL（非并发）vacuum */
+#define VACOPT_SKIP_LOCKED 0x20 /* 无法获锁则跳过 */
+#define VACOPT_PROCESS_MAIN 0x40	/* 处理主关系 */
+#define VACOPT_PROCESS_TOAST 0x80	/* 若有则处理 TOAST 表 */
+#define VACOPT_DISABLE_PAGE_SKIPPING 0x100	/* 不跳过任何页 */
+#define VACOPT_SKIP_DATABASE_STATS 0x200	/* 跳过 datfrozenxid 更新 */
+#define VACOPT_ONLY_DATABASE_STATS 0x400	/* 仅 vac_update_datfrozenxid() */
 
 /*
- * Values used by index_cleanup and truncate params.
+ * index_cleanup 与 truncate 参数所用值。
  *
- * VACOPTVALUE_UNSPECIFIED is used as an initial placeholder when VACUUM
- * command has no explicit value.  When that happens the final usable value
- * comes from the corresponding reloption (though the reloption default is
- * usually used).
+ * VACUUM 命令无显式值时，VACOPTVALUE_UNSPECIFIED
+ * 用作初始占位。此时最终可用值来自对应
+ * reloption（通常用 reloption
+ * 默认值)。
  */
 typedef enum VacOptValue
 {
@@ -219,84 +219,84 @@ typedef enum VacOptValue
  */
 typedef struct VacuumParams
 {
-	bits32		options;		/* bitmask of VACOPT_* */
-	int			freeze_min_age; /* min freeze age, -1 to use default */
-	int			freeze_table_age;	/* age at which to scan whole table */
-	int			multixact_freeze_min_age;	/* min multixact freeze age, -1 to
-											 * use default */
-	int			multixact_freeze_table_age; /* multixact age at which to scan
-											 * whole table */
-	bool		is_wraparound;	/* force a for-wraparound vacuum */
-	int			log_min_duration;	/* minimum execution threshold in ms at
-									 * which autovacuum is logged, -1 to use
-									 * default */
-	VacOptValue index_cleanup;	/* Do index vacuum and cleanup */
-	VacOptValue truncate;		/* Truncate empty pages at the end */
+	bits32		options;		/* VACOPT_* 位掩码 */
+	int			freeze_min_age; /* 最小冻结年龄，-1 用默认 */
+	int			freeze_table_age;	/* 扫描整表的年龄阈值 */
+	int			multixact_freeze_min_age;	/* mxact 最小冻结年龄,-1 用
+											 * 默认 */
+	int			multixact_freeze_table_age; /* 扫描整表的 multixact
+											 * 年龄 */
+	bool		is_wraparound;	/* 强制环绕式 vacuum */
+	int			log_min_duration;	/* 自动清理记日志阈值(ms),
+									 * -1 表示用
+									 * 默认 */
+	VacOptValue index_cleanup;	/* 做索引 vacuum 与清理 */
+	VacOptValue truncate;		/* 末尾截断空页 */
 
 	/*
-	 * The number of parallel vacuum workers.  0 by default which means choose
-	 * based on the number of indexes.  -1 indicates parallel vacuum is
-	 * disabled.
+	 * 并行 vacuum 工作进程数。默认 0 表示按索引数
+	 * 选择。-1 表示禁用并行
+	 * vacuum。
 	 */
 	int			nworkers;
 } VacuumParams;
 
 /*
- * VacuumCutoffs is immutable state that describes the cutoffs used by VACUUM.
- * Established at the beginning of each VACUUM operation.
+ * VacuumCutoffs 是描述 VACUUM 所用截断点的不可变状态。
+ * 在每次 VACUUM 操作开始时确立。
  */
 struct VacuumCutoffs
 {
 	/*
-	 * Existing pg_class fields at start of VACUUM
+	 * VACUUM 开始时已有的 pg_class 字段
 	 */
 	TransactionId relfrozenxid;
 	MultiXactId relminmxid;
 
 	/*
-	 * OldestXmin is the Xid below which tuples deleted by any xact (that
-	 * committed) should be considered DEAD, not just RECENTLY_DEAD.
+	 * OldestXmin 是 Xid 下界：任何已提交事务删除的元组
+	 * 低于此值应视为 DEAD，而非仅 RECENTLY_DEAD。
 	 *
-	 * OldestMxact is the Mxid below which MultiXacts are definitely not seen
-	 * as visible by any running transaction.
+	 * OldestMxact 是 Mxid 下界:低于此的 MultiXact
+	 * 必不被运行中事务视为可见.
 	 *
-	 * OldestXmin and OldestMxact are also the most recent values that can
-	 * ever be passed to vac_update_relstats() as frozenxid and minmulti
-	 * arguments at the end of VACUUM.  These same values should be passed
-	 * when it turns out that VACUUM will leave no unfrozen XIDs/MXIDs behind
-	 * in the table.
+	 * OldestXmin 与 OldestMxact 也是 VACUUM 结束时能传给
+	 * vac_update_relstats() 作为 frozenxid 与 minmulti
+	 * 参数的最新值。当 VACUUM 将不留下未冻结
+	 * XID/MXID 时，也应传入这些
+	 * 值。
 	 */
 	TransactionId OldestXmin;
 	MultiXactId OldestMxact;
 
 	/*
-	 * FreezeLimit is the Xid below which all Xids are definitely frozen or
-	 * removed in pages VACUUM scans and cleanup locks.
+	 * FreezeLimit 是 Xid 下界：VACUUM 扫描并持清理锁页中，
+	 * 低于此值的 Xid 必已冻结或移除。
 	 *
-	 * MultiXactCutoff is the value below which all MultiXactIds are
-	 * definitely removed from Xmax in pages VACUUM scans and cleanup locks.
+	 * MultiXactCutoff 是下界:VACUUM 扫描并持清理锁页中,
+	 * 低于此的 MultiXactIds 必已从 Xmax 移除。
 	 */
 	TransactionId FreezeLimit;
 	MultiXactId MultiXactCutoff;
 };
 
 /*
- * VacDeadItems stores TIDs whose index tuples are deleted by index vacuuming.
+ * VacDeadItems 保存索引清理删除其索引元组的 TIDs。
  */
 typedef struct VacDeadItems
 {
-	int			max_items;		/* # slots allocated in array */
-	int			num_items;		/* current # of entries */
+	int			max_items;		/* 数组中已分配槽数 */
+	int			num_items;		/* 当前项数 */
 
-	/* Sorted array of TIDs to delete from indexes */
+	/* 要从索引删除的 TIDs 已排序数组 */
 	ItemPointerData items[FLEXIBLE_ARRAY_MEMBER];
 } VacDeadItems;
 
 #define MAXDEADITEMS(avail_mem) \
 	(((avail_mem) - offsetof(VacDeadItems, items)) / sizeof(ItemPointerData))
 
-/* GUC parameters */
-extern PGDLLIMPORT int default_statistics_target;	/* PGDLLIMPORT for PostGIS */
+/* GUC 参数 */
+extern PGDLLIMPORT int default_statistics_target;	/* PostGIS 用 PGDLLIMPORT */
 extern PGDLLIMPORT int vacuum_freeze_min_age;
 extern PGDLLIMPORT int vacuum_freeze_table_age;
 extern PGDLLIMPORT int vacuum_multixact_freeze_min_age;
@@ -304,7 +304,7 @@ extern PGDLLIMPORT int vacuum_multixact_freeze_table_age;
 extern PGDLLIMPORT int vacuum_failsafe_age;
 extern PGDLLIMPORT int vacuum_multixact_failsafe_age;
 
-/* Variables for cost-based parallel vacuum */
+/* 基于代价的并行 vacuum 变量 */
 extern PGDLLIMPORT pg_atomic_uint32 *VacuumSharedCostBalance;
 extern PGDLLIMPORT pg_atomic_uint32 *VacuumActiveNWorkers;
 extern PGDLLIMPORT int VacuumCostBalanceLocal;
@@ -313,7 +313,7 @@ extern PGDLLIMPORT bool VacuumFailsafeActive;
 extern PGDLLIMPORT double vacuum_cost_delay;
 extern PGDLLIMPORT int vacuum_cost_limit;
 
-/* in commands/vacuum.c */
+/* commands/vacuum.c */
 extern void ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel);
 extern void vacuum(List *relations, VacuumParams *params,
 				   BufferAccessStrategy bstrategy, MemoryContext vac_context,
@@ -352,11 +352,11 @@ extern IndexBulkDeleteResult *vac_cleanup_one_index(IndexVacuumInfo *ivinfo,
 													IndexBulkDeleteResult *istat);
 extern Size vac_max_items_to_alloc_size(int max_items);
 
-/* In postmaster/autovacuum.c */
+/* postmaster/autovacuum.c */
 extern void AutoVacuumUpdateCostLimit(void);
 extern void VacuumUpdateCosts(void);
 
-/* in commands/vacuumparallel.c */
+/* commands/vacuumparallel.c */
 extern ParallelVacuumState *parallel_vacuum_init(Relation rel, Relation *indrels,
 												 int nindexes, int nrequested_workers,
 												 int max_items, int elevel,
@@ -372,13 +372,13 @@ extern void parallel_vacuum_cleanup_all_indexes(ParallelVacuumState *pvs,
 												bool estimated_count);
 extern void parallel_vacuum_main(dsm_segment *seg, shm_toc *toc);
 
-/* in commands/analyze.c */
+/* commands/analyze.c */
 extern void analyze_rel(Oid relid, RangeVar *relation,
 						VacuumParams *params, List *va_cols, bool in_outer_xact,
 						BufferAccessStrategy bstrategy);
 extern bool std_typanalyze(VacAttrStats *stats);
 
-/* in utils/misc/sampling.c --- duplicate of declarations in utils/sampling.h */
+/* 见 utils/misc/sampling.c —— 与 utils/sampling.h 声明重复 */
 extern double anl_random_fract(void);
 extern double anl_init_selection_state(int n);
 extern double anl_get_next_S(double t, int n, double *stateptr);

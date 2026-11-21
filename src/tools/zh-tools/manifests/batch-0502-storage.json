@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0502",
+  "title": "include/storage predicate_internals.h — batch 0502",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "5514e8d1d8e929b566a04e7e53c77c836b011db8",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/predicate_internals.h",
+      "kind": "c_comment",
+      "note": "0502"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0502-storage.json",
+      "kind": "manifest",
+      "note": "0502"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/predicate_internals.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 81,
+      "translated": 72,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/版权/路径；hash key/data；#endif；极短 ident 行 KEEP"
+      ],
+      "note": "谓词加锁内部；SERIALIZABLEXACT；SSI；读写冲突"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0502-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0502"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第二十四刀：predicate_internals.h 整文件；余 s_lock.h"
+}

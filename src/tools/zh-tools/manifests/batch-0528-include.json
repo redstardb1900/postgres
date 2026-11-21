@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0528",
+  "title": "include/optimizer 四大头 — batch 0528",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "0f954a2638320d82c92a3459e1d86080c6c87aa7",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/optimizer/optimizer.h",
+      "kind": "c_comment",
+      "note": "0528"
+    },
+    {
+      "pattern": "src/include/optimizer/paths.h",
+      "kind": "c_comment",
+      "note": "0528"
+    },
+    {
+      "pattern": "src/include/optimizer/pathnode.h",
+      "kind": "c_comment",
+      "note": "0528"
+    },
+    {
+      "pattern": "src/include/optimizer/cost.h",
+      "kind": "c_comment",
+      "note": "0528"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0528-include.json",
+      "kind": "manifest",
+      "note": "0528"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/optimizer/optimizer.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 43,
+      "translated": 34,
+      "preserved": 9,
+      "preserved_reasons": [
+        "横幅/路径/节标题/残行 KEEP"
+      ],
+      "note": "0528 T=34 K=9"
+    },
+    {
+      "path": "src/include/optimizer/paths.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 28,
+      "translated": 14,
+      "preserved": 14,
+      "preserved_reasons": [
+        "横幅/路径/节标题/残行 KEEP"
+      ],
+      "note": "0528 T=14 K=14"
+    },
+    {
+      "path": "src/include/optimizer/pathnode.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 3,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/节标题/残行 KEEP"
+      ],
+      "note": "0528 T=3 K=7"
+    },
+    {
+      "path": "src/include/optimizer/cost.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 19,
+      "translated": 12,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/节标题/残行 KEEP"
+      ],
+      "note": "0528 T=12 K=7"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0528-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0528"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0528"
+    }
+  ]
+}

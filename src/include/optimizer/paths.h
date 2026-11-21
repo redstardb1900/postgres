@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * paths.h
- *	  prototypes for various files in optimizer/path
+ *	optimizer/path 下各文件的原型
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,14 +25,14 @@ extern PGDLLIMPORT int geqo_threshold;
 extern PGDLLIMPORT int min_parallel_table_scan_size;
 extern PGDLLIMPORT int min_parallel_index_scan_size;
 
-/* Hook for plugins to get control in set_rel_pathlist() */
+/* 插件在 set_rel_pathlist() 取得控制的钩子 */
 typedef void (*set_rel_pathlist_hook_type) (PlannerInfo *root,
 											RelOptInfo *rel,
 											Index rti,
 											RangeTblEntry *rte);
 extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
 
-/* Hook for plugins to get control in add_paths_to_joinrel() */
+/* 插件在 add_paths_to_joinrel() 取得控制的钩子 */
 typedef void (*set_join_pathlist_hook_type) (PlannerInfo *root,
 											 RelOptInfo *joinrel,
 											 RelOptInfo *outerrel,
@@ -41,7 +41,7 @@ typedef void (*set_join_pathlist_hook_type) (PlannerInfo *root,
 											 JoinPathExtraData *extra);
 extern PGDLLIMPORT set_join_pathlist_hook_type set_join_pathlist_hook;
 
-/* Hook for plugins to replace standard_join_search() */
+/* 插件替换 standard_join_search() 的钩子 */
 typedef RelOptInfo *(*join_search_hook_type) (PlannerInfo *root,
 											  int levels_needed,
 											  List *initial_rels);
@@ -69,7 +69,7 @@ extern void debug_print_rel(PlannerInfo *root, RelOptInfo *rel);
 
 /*
  * indxpath.c
- *	  routines to generate index paths
+ *	生成索引路径的例程
  */
 extern void create_index_paths(PlannerInfo *root, RelOptInfo *rel);
 extern bool relation_has_unique_index_for(PlannerInfo *root, RelOptInfo *rel,
@@ -84,13 +84,13 @@ extern void check_index_predicates(PlannerInfo *root, RelOptInfo *rel);
 
 /*
  * tidpath.h
- *	  routines to generate tid paths
+ *	生成 tid 路径的例程
  */
 extern void create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel);
 
 /*
  * joinpath.c
- *	   routines to create join paths
+ *	创建连接路径的例程
  */
 extern void add_paths_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
 								 RelOptInfo *outerrel, RelOptInfo *innerrel,
@@ -99,7 +99,7 @@ extern void add_paths_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
 
 /*
  * joinrels.c
- *	  routines to determine which relations to join
+ *	决定连接哪些关系的例程
  */
 extern void join_search_one_level(PlannerInfo *root, int level);
 extern RelOptInfo *make_join_rel(PlannerInfo *root,
@@ -115,7 +115,7 @@ extern void mark_dummy_rel(RelOptInfo *rel);
 
 /*
  * equivclass.c
- *	  routines for managing EquivalenceClasses
+ *	管理 EquivalenceClasses 的例程
  */
 typedef bool (*ec_matches_callback_type) (PlannerInfo *root,
 										  RelOptInfo *rel,
@@ -192,14 +192,14 @@ extern bool is_redundant_with_indexclauses(RestrictInfo *rinfo,
 
 /*
  * pathkeys.c
- *	  utilities for matching and building path keys
+ *	匹配与构建路径键的工具
  */
 typedef enum
 {
-	PATHKEYS_EQUAL,				/* pathkeys are identical */
-	PATHKEYS_BETTER1,			/* pathkey 1 is a superset of pathkey 2 */
-	PATHKEYS_BETTER2,			/* vice versa */
-	PATHKEYS_DIFFERENT			/* neither pathkey includes the other */
+	PATHKEYS_EQUAL,				/* 路径键相同 */
+	PATHKEYS_BETTER1,			/* 路径键 1 是路径键 2 的超集 */
+	PATHKEYS_BETTER2,			/* 反之 */
+	PATHKEYS_DIFFERENT			/* 两路径键互不包含 */
 } PathKeysComparison;
 
 extern PathKeysComparison compare_pathkeys(List *keys1, List *keys2);

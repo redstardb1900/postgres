@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pathnode.h
- *	  prototypes for pathnode.c, relnode.c.
+ *	pathnode.c、relnode.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@
 
 
 /*
- * prototypes for pathnode.c
+ * pathnode.c 的原型
  */
 extern int	compare_path_costs(Path *path1, Path *path2,
 							   CostSelector criterion);
@@ -297,7 +297,7 @@ extern Path *reparameterize_path_by_child(PlannerInfo *root, Path *path,
 										  RelOptInfo *child_rel);
 
 /*
- * prototypes for relnode.c
+ * relnode.c 的原型
  */
 extern void setup_simple_rel_arrays(PlannerInfo *root);
 extern void expand_planner_arrays(PlannerInfo *root, int add_size);

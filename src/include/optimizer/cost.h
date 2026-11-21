@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * cost.h
- *	  prototypes for costsize.c and clausesel.c.
+ *	costsize.c 与 clausesel.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,9 +18,9 @@
 #include "nodes/plannodes.h"
 
 
-/* defaults for costsize.c's Cost parameters */
-/* NB: cost-estimation code should use the variables, not these constants! */
-/* If you change these, update backend/utils/misc/postgresql.conf.sample */
+/* costsize.c 代价参数的默认值 */
+/* NB：代价估计代码应使用变量，勿用这些常量！ */
+/* 若更改这些，请更新 backend/utils/misc/postgresql.conf.sample */
 #define DEFAULT_SEQ_PAGE_COST  1.0
 #define DEFAULT_RANDOM_PAGE_COST  4.0
 #define DEFAULT_CPU_TUPLE_COST	0.01
@@ -29,24 +29,24 @@
 #define DEFAULT_PARALLEL_TUPLE_COST 0.1
 #define DEFAULT_PARALLEL_SETUP_COST  1000.0
 
-/* defaults for non-Cost parameters */
+/* 非 Cost 参数的默认值 */
 #define DEFAULT_RECURSIVE_WORKTABLE_FACTOR  10.0
-#define DEFAULT_EFFECTIVE_CACHE_SIZE  524288	/* measured in pages */
+#define DEFAULT_EFFECTIVE_CACHE_SIZE  524288	/* 以页计 */
 
 typedef enum
 {
-	CONSTRAINT_EXCLUSION_OFF,	/* do not use c_e */
-	CONSTRAINT_EXCLUSION_ON,	/* apply c_e to all rels */
-	CONSTRAINT_EXCLUSION_PARTITION	/* apply c_e to otherrels only */
+	CONSTRAINT_EXCLUSION_OFF,	/* 不用 c_e */
+	CONSTRAINT_EXCLUSION_ON,	/* 对全部 rel 用 c_e */
+	CONSTRAINT_EXCLUSION_PARTITION	/* 仅对 otherrels 应用 c_e */
 }			ConstraintExclusionType;
 
 
 /*
- * prototypes for costsize.c
- *	  routines to compute costs and sizes
+ * costsize.c 的原型
+ *	计算代价与大小的例程
  */
 
-/* parameter variables and flags (see also optimizer.h) */
+/* 参数变量与标志（亦见 optimizer.h） */
 extern PGDLLIMPORT Cost disable_cost;
 extern PGDLLIMPORT int max_parallel_workers_per_gather;
 extern PGDLLIMPORT bool enable_seqscan;

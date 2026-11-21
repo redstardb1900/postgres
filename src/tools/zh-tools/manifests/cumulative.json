@@ -9581,6 +9581,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0527-include.json",
    "kind": "manifest",
    "note": "0527"
+  },
+  {
+   "pattern": "src/include/optimizer/optimizer.h",
+   "kind": "c_comment",
+   "note": "0528"
+  },
+  {
+   "pattern": "src/include/optimizer/paths.h",
+   "kind": "c_comment",
+   "note": "0528"
+  },
+  {
+   "pattern": "src/include/optimizer/pathnode.h",
+   "kind": "c_comment",
+   "note": "0528"
+  },
+  {
+   "pattern": "src/include/optimizer/cost.h",
+   "kind": "c_comment",
+   "note": "0528"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0528-include.json",
+   "kind": "manifest",
+   "note": "0528"
   }
  ],
  "files": [
@@ -31181,6 +31206,64 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0527"
+  },
+  {
+   "path": "src/include/optimizer/optimizer.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 43,
+   "translated": 34,
+   "preserved": 9,
+   "preserved_reasons": [
+    "横幅/路径/节标题/残行 KEEP"
+   ],
+   "note": "0528 T=34 K=9"
+  },
+  {
+   "path": "src/include/optimizer/paths.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 14,
+   "preserved": 14,
+   "preserved_reasons": [
+    "横幅/路径/节标题/残行 KEEP"
+   ],
+   "note": "0528 T=14 K=14"
+  },
+  {
+   "path": "src/include/optimizer/pathnode.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 3,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/节标题/残行 KEEP"
+   ],
+   "note": "0528 T=3 K=7"
+  },
+  {
+   "path": "src/include/optimizer/cost.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 12,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/节标题/残行 KEEP"
+   ],
+   "note": "0528 T=12 K=7"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0528-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0528"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

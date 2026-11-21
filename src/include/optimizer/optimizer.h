@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * optimizer.h
- *	  External API for the Postgres planner.
+ *	Postgres 规划器的外部 API。
  *
- * This header is meant to define everything that the core planner
- * exposes for use by non-planner modules.
+ * 本头意在定义核心规划器向非规划器模块
+ * 暴露以供使用的一切。
  *
- * Note that there are files outside src/backend/optimizer/ that are
- * considered planner modules, because they're too much in bed with
- * planner operations to be treated otherwise.  FDW planning code is an
- * example.  For the most part, however, code outside the core planner
- * should not need to include any optimizer/ header except this one.
+ * 注意 src/backend/optimizer/ 之外亦有文件被视为
+ * 规划器模块，因其与规划器操作缠得太紧，
+ * 难以另当别论。FDW 规划代码即为一例。
+ * 但大体上，核心规划器之外的代码
+ * 除本头外不必包含任何 optimizer/ 头。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -25,17 +25,17 @@
 #include "nodes/parsenodes.h"
 
 /*
- * We don't want to include nodes/pathnodes.h here, because non-planner
- * code should generally treat PlannerInfo as an opaque typedef.
- * But we'd like such code to use that typedef name, so define the
- * typedef either here or in pathnodes.h, whichever is read first.
+ * 不想在此含 nodes/pathnodes.h，因非规划器
+ * 代码一般应将 PlannerInfo 视为不透明 typedef。
+ * 但希望此类代码用该 typedef 名，故在
+ * 此处或 pathnodes.h（先读到者）定义之。
  */
 #ifndef HAVE_PLANNERINFO_TYPEDEF
 typedef struct PlannerInfo PlannerInfo;
 #define HAVE_PLANNERINFO_TYPEDEF 1
 #endif
 
-/* Likewise for IndexOptInfo and SpecialJoinInfo. */
+/* IndexOptInfo 与 SpecialJoinInfo 同理。 */
 #ifndef HAVE_INDEXOPTINFO_TYPEDEF
 typedef struct IndexOptInfo IndexOptInfo;
 #define HAVE_INDEXOPTINFO_TYPEDEF 1
@@ -45,13 +45,13 @@ typedef struct SpecialJoinInfo SpecialJoinInfo;
 #define HAVE_SPECIALJOININFO_TYPEDEF 1
 #endif
 
-/* It also seems best not to include plannodes.h, params.h, or htup.h here */
+/* 亦最好不在此含 plannodes.h、params.h 或 htup.h */
 struct PlannedStmt;
 struct ParamListInfoData;
 struct HeapTupleData;
 
 
-/* in path/clausesel.c: */
+/* path/clausesel.c： */
 
 extern Selectivity clause_selectivity(PlannerInfo *root,
 									  Node *clause,
@@ -76,9 +76,9 @@ extern Selectivity clauselist_selectivity_ext(PlannerInfo *root,
 											  SpecialJoinInfo *sjinfo,
 											  bool use_extended_stats);
 
-/* in path/costsize.c: */
+/* path/costsize.c： */
 
-/* widely used cost parameters */
+/* 广泛使用的代价参数 */
 extern PGDLLIMPORT double seq_page_cost;
 extern PGDLLIMPORT double random_page_cost;
 extern PGDLLIMPORT double cpu_tuple_cost;
@@ -92,14 +92,14 @@ extern PGDLLIMPORT int effective_cache_size;
 extern double clamp_row_est(double nrows);
 extern long clamp_cardinality_to_long(Cardinality x);
 
-/* in path/indxpath.c: */
+/* path/indxpath.c： */
 
 extern bool is_pseudo_constant_for_index(PlannerInfo *root, Node *expr,
 										 IndexOptInfo *index);
 
-/* in plan/planner.c: */
+/* plan/planner.c： */
 
-/* possible values for debug_parallel_query */
+/* debug_parallel_query 的可能取值 */
 typedef enum
 {
 	DEBUG_PARALLEL_OFF,
@@ -107,7 +107,7 @@ typedef enum
 	DEBUG_PARALLEL_REGRESS
 }			DebugParallelMode;
 
-/* GUC parameters */
+/* GUC 参数 */
 extern PGDLLIMPORT int debug_parallel_query;
 extern PGDLLIMPORT bool parallel_leader_participation;
 
@@ -123,19 +123,19 @@ extern Expr *expression_planner_with_deps(Expr *expr,
 extern bool plan_cluster_use_sort(Oid tableOid, Oid indexOid);
 extern int	plan_create_index_workers(Oid tableOid, Oid indexOid);
 
-/* in plan/setrefs.c: */
+/* plan/setrefs.c： */
 
 extern void extract_query_dependencies(Node *query,
 									   List **relationOids,
 									   List **invalItems,
 									   bool *hasRowSecurity);
 
-/* in prep/prepqual.c: */
+/* prep/prepqual.c： */
 
 extern Node *negate_clause(Node *node);
 extern Expr *canonicalize_qual(Expr *qual, bool is_check);
 
-/* in util/clauses.c: */
+/* util/clauses.c： */
 
 extern bool contain_mutable_functions(Node *clause);
 extern bool contain_mutable_functions_after_planning(Expr *expr);
@@ -156,14 +156,14 @@ extern List *expand_function_arguments(List *args, bool include_out_arguments,
 									   Oid result_type,
 									   struct HeapTupleData *func_tuple);
 
-/* in util/predtest.c: */
+/* util/predtest.c： */
 
 extern bool predicate_implied_by(List *predicate_list, List *clause_list,
 								 bool weak);
 extern bool predicate_refuted_by(List *predicate_list, List *clause_list,
 								 bool weak);
 
-/* in util/tlist.c: */
+/* util/tlist.c： */
 
 extern int	count_nonjunk_tlist_entries(List *tlist);
 extern TargetEntry *get_sortgroupref_tle(Index sortref,
@@ -179,17 +179,17 @@ extern SortGroupClause *get_sortgroupref_clause(Index sortref,
 extern SortGroupClause *get_sortgroupref_clause_noerr(Index sortref,
 													  List *clauses);
 
-/* in util/var.c: */
+/* util/var.c： */
 
-/* Bits that can be OR'd into the flags argument of pull_var_clause() */
-#define PVC_INCLUDE_AGGREGATES	0x0001	/* include Aggrefs in output list */
-#define PVC_RECURSE_AGGREGATES	0x0002	/* recurse into Aggref arguments */
-#define PVC_INCLUDE_WINDOWFUNCS 0x0004	/* include WindowFuncs in output list */
-#define PVC_RECURSE_WINDOWFUNCS 0x0008	/* recurse into WindowFunc arguments */
+/* 可 OR 进 pull_var_clause() flags 参数的位 */
+#define PVC_INCLUDE_AGGREGATES	0x0001	/* 在输出列表中含 Aggrefs */
+#define PVC_RECURSE_AGGREGATES	0x0002	/* 递归进入 Aggref 参数 */
+#define PVC_INCLUDE_WINDOWFUNCS 0x0004	/* 在输出列表中含 WindowFuncs */
+#define PVC_RECURSE_WINDOWFUNCS 0x0008	/* 递归进入 WindowFunc 参数 */
 #define PVC_INCLUDE_PLACEHOLDERS	0x0010	/* include PlaceHolderVars in
 											 * output list */
-#define PVC_RECURSE_PLACEHOLDERS	0x0020	/* recurse into PlaceHolderVar
-											 * arguments */
+#define PVC_RECURSE_PLACEHOLDERS	0x0020	/* 递归进入 PlaceHolderVar
+											 * 参数 */
 
 extern Bitmapset *pull_varnos(PlannerInfo *root, Node *node);
 extern Bitmapset *pull_varnos_of_level(PlannerInfo *root, Node *node, int levelsup);

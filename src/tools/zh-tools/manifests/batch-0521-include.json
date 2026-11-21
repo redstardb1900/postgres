@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0521",
+  "title": "include/port.h — batch 0521",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "84d975fda880920cdb4421089f34c3446723f09a",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/port.h",
+      "kind": "c_comment",
+      "note": "0521"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0521-include.json",
+      "kind": "manifest",
+      "note": "0521"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/port.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 43,
+      "translated": 43,
+      "preserved": 0,
+      "preserved_reasons": [
+        "横幅/路径/预处理条件 KEEP 25 行"
+      ],
+      "note": "0521 T=97 K=25"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0521-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0521"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0521"
+    }
+  ]
+}

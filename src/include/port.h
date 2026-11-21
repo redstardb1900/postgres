@@ -16,15 +16,15 @@
 #include <ctype.h>
 
 /*
- * Windows has enough specialized port stuff that we push most of it off
- * into another file.
- * Note: Some CYGWIN includes might #define WIN32.
+ * Windows 专用移植代码足够多，故把大部分
+ * 另文件。
+ * 注意：某些 CYGWIN 头或 #define WIN32。
  */
 #if defined(WIN32) && !defined(__CYGWIN__)
 #include "port/win32_port.h"
 #endif
 
-/* socket has a different definition on WIN32 */
+/* socket 在 WIN32 上有不同定义 */
 #ifndef WIN32
 typedef int pgsocket;
 
@@ -35,16 +35,16 @@ typedef SOCKET pgsocket;
 #define PGINVALID_SOCKET INVALID_SOCKET
 #endif
 
-/* if platform lacks socklen_t, we assume this will work */
+/* 若平台无 socklen_t，假定这样可用 */
 #ifndef HAVE_SOCKLEN_T
 typedef unsigned int socklen_t;
 #endif
 
-/* non-blocking */
+/* 非阻塞 */
 extern bool pg_set_noblock(pgsocket sock);
 extern bool pg_set_block(pgsocket sock);
 
-/* Portable path handling for Unix/Win32 (in path.c) */
+/* Unix/Win32 可移植路径处理（path.c） */
 
 extern bool has_drive_prefix(const char *path);
 extern char *first_dir_separator(const char *filename);
@@ -86,7 +86,7 @@ extern void pgfnames_cleanup(char **filenames);
 )
 
 #define IS_WINDOWS_DIR_SEP(ch)	((ch) == '/' || (ch) == '\\')
-/* See path_is_relative_and_below_cwd() for how we handle 'E:abc'. */
+/* 见 path_is_relative_and_below_cwd() 如何处理 'E:abc'。 */
 #define is_windows_absolute_path(filename) \
 ( \
 	IS_WINDOWS_DIR_SEP((filename)[0]) || \
@@ -97,7 +97,7 @@ extern void pgfnames_cleanup(char **filenames);
 /*
  *	is_absolute_path and IS_DIR_SEP
  *
- *	By using macros here we avoid needing to include path.c in libpq.
+ *	此处用宏可避免在 libpq 中编入 path.c。
  */
 #ifndef WIN32
 #define IS_DIR_SEP(ch) IS_NONWINDOWS_DIR_SEP(ch)
@@ -108,16 +108,16 @@ extern void pgfnames_cleanup(char **filenames);
 #endif
 
 /*
- * This macro provides a centralized list of all errnos that identify
- * hard failure of a previously-established network connection.
- * The macro is intended to be used in a switch statement, in the form
- * "case ALL_CONNECTION_FAILURE_ERRNOS:".
+ * 本宏集中列出标识"先前已建立的网络连接
+ * 硬失败"的全部 errno。
+ * 拟用于 switch，形式为
+ * case ALL_CONNECTION_FAILURE_ERRNOS:。
  *
- * Note: this groups EPIPE and ECONNRESET, which we take to indicate a
- * probable server crash, with other errors that indicate loss of network
- * connectivity without proving much about the server's state.  Places that
- * are actually reporting errors typically single out EPIPE and ECONNRESET,
- * while allowing the network failures to be reported generically.
+ * 注意：把 EPIPE 与 ECONNRESET 归为一组，视为
+ * 服务器可能崩溃，连同其他表明网络
+ * 连通性丢失、但对服务器状态证明不多的错误。实际
+ * 报告错误处通常单独挑出 EPIPE 与 ECONNRESET，
+ * 而让网络失败走通用报告。
  */
 #define ALL_CONNECTION_FAILURE_ERRNOS \
 	EPIPE: \
@@ -130,21 +130,21 @@ extern void pgfnames_cleanup(char **filenames);
 	case ENETUNREACH: \
 	case ETIMEDOUT
 
-/* Portable locale initialization (in exec.c) */
+/* 可移植 locale 初始化（exec.c） */
 extern void set_pglocale_pgservice(const char *argv0, const char *app);
 
-/* Portable way to find and execute binaries (in exec.c) */
+/* 可移植查找并执行二进制（exec.c） */
 extern int	validate_exec(const char *path);
 extern int	find_my_exec(const char *argv0, char *retpath);
 extern int	find_other_exec(const char *argv0, const char *target,
 							const char *versionstr, char *retpath);
 extern char *pipe_read_line(char *cmd, char *line, int maxsize);
 
-/* Doesn't belong here, but this is used with find_other_exec(), so... */
+/* 本不属此，但与 find_other_exec() 同用，故… */
 #define PG_BACKEND_VERSIONSTR "postgres (PostgreSQL) " PG_VERSION "\n"
 
 #ifdef EXEC_BACKEND
-/* Disable ASLR before exec, for developer builds only (in exec.c) */
+/* exec 前禁用 ASLR，仅开发者构建（exec.c） */
 extern int	pg_disable_aslr(void);
 #endif
 
@@ -161,10 +161,10 @@ extern int	pg_disable_aslr(void);
 #define DEVNULL "/dev/null"
 #endif
 
-/* Portable delay handling */
+/* 可移植延时处理 */
 extern void pg_usleep(long microsec);
 
-/* Portable SQL-like case-independent comparisons and conversions */
+/* 可移植 SQL 式大小写无关比较与转换 */
 extern int	pg_strcasecmp(const char *s1, const char *s2);
 extern int	pg_strncasecmp(const char *s1, const char *s2, size_t n);
 extern unsigned char pg_toupper(unsigned char ch);
@@ -173,16 +173,16 @@ extern unsigned char pg_ascii_toupper(unsigned char ch);
 extern unsigned char pg_ascii_tolower(unsigned char ch);
 
 /*
- * Beginning in v12, we always replace snprintf() and friends with our own
- * implementation.  This symbol is no longer consulted by the core code,
- * but keep it defined anyway in case any extensions are looking at it.
+ * 自 v12 起总以自有实现替换 snprintf() 等。
+ * 核心代码不再查阅此符号，
+ * 但仍定义，以防扩展在查看。
  */
 #define USE_REPL_SNPRINTF 1
 
 /*
- * Versions of libintl >= 0.13 try to replace printf() and friends with
- * macros to their own versions that understand the %$ format.  We do the
- * same, so disable their macros, if they exist.
+ * libintl >= 0.13 会尝试用宏替换 printf() 等
+ * 为自有、理解 %$ 格式的版本。我们亦然，
+ * 故若存在则禁用其宏。
  */
 #ifdef vsnprintf
 #undef vsnprintf
@@ -220,20 +220,20 @@ extern int	pg_printf(const char *fmt,...) pg_attribute_printf(1, 2);
 
 #ifndef WIN32
 /*
- * We add a pg_ prefix as a warning that the Windows implementations have the
- * non-standard side-effect of changing the current file position.
+ * 加 pg_ 前缀以警示：Windows 实现有
+ * 非标准副作用——改变当前文件位置。
  */
 #define pg_pread pread
 #define pg_pwrite pwrite
 #endif
 
 /*
- * We use __VA_ARGS__ for printf to prevent replacing references to
- * the "printf" format archetype in format() attribute declarations.
- * That unfortunately means that taking a function pointer to printf
- * will not do what we'd wish.  (If you need to do that, you must name
- * pg_printf explicitly.)  For printf's sibling functions, use
- * parameterless macros so that function pointers will work unsurprisingly.
+ * 对 printf 用 __VA_ARGS__，以免替换
+ * format() 属性声明中的 "printf" 格式原型。
+ * 可惜这使取 printf 函数指针
+ * 达不到期望。（若需要，须显式写
+ * pg_printf。）对 printf 兄弟函数，用
+ * 无参宏，使函数指针行为不意外。
  */
 #define vsnprintf		pg_vsnprintf
 #define snprintf		pg_snprintf
@@ -244,24 +244,24 @@ extern int	pg_printf(const char *fmt,...) pg_attribute_printf(1, 2);
 #define vprintf			pg_vprintf
 #define printf(...)		pg_printf(__VA_ARGS__)
 
-/* This is also provided by snprintf.c */
+/* snprintf.c 亦提供 */
 extern int	pg_strfromd(char *str, size_t count, int precision, double value);
 
-/* Replace strerror() with our own, somewhat more robust wrapper */
+/* 用更稳健的自有包装替换 strerror() */
 extern char *pg_strerror(int errnum);
 #define strerror pg_strerror
 
-/* Likewise for strerror_r(); note we prefer the GNU API for that */
+/* strerror_r() 同理；优先 GNU API */
 extern char *pg_strerror_r(int errnum, char *buf, size_t buflen);
 #define strerror_r pg_strerror_r
-#define PG_STRERROR_R_BUFLEN 256	/* Recommended buffer size for strerror_r */
+#define PG_STRERROR_R_BUFLEN 256	/* strerror_r 推荐缓冲大小 */
 
-/* Wrap strsignal(), or provide our own version if necessary */
+/* 包装 strsignal()，必要时提供自有版 */
 extern const char *pg_strsignal(int signum);
 
 extern int	pclose_check(FILE *stream);
 
-/* Global variable holding time zone information. */
+/* 保存时区信息的全局变量。 */
 #if defined(WIN32) || defined(__CYGWIN__)
 #define TIMEZONE_GLOBAL _timezone
 #define TZNAME_GLOBAL _tzname
@@ -272,12 +272,12 @@ extern int	pclose_check(FILE *stream);
 
 #if defined(WIN32) || defined(__CYGWIN__)
 /*
- *	Win32 doesn't have reliable rename/unlink during concurrent access.
+ *	Win32 在并发访问时 rename/unlink 不可靠。
  */
 extern int	pgrename(const char *from, const char *to);
 extern int	pgunlink(const char *path);
 
-/* Include this first so later includes don't see these defines */
+/* 先含此，以免后续头看到这些 define */
 #ifdef _MSC_VER
 #include <io.h>
 #endif
@@ -287,13 +287,13 @@ extern int	pgunlink(const char *path);
 #endif							/* defined(WIN32) || defined(__CYGWIN__) */
 
 /*
- *	Win32 also doesn't have symlinks, but we can emulate them with
- *	junction points on newer Win32 versions.
+ *	Win32 亦无符号链接，但可用较新
+ *	Win32 的联接点模拟。
  *
- *	Cygwin has its own symlinks which work on Win95/98/ME where
- *	junction points don't, so use those instead.  We have no way of
- *	knowing what type of system Cygwin binaries will be run on.
- *		Note: Some CYGWIN includes might #define WIN32.
+ *	Cygwin 自有符号链接可在 Win95/98/ME 上工作，
+ *	而联接点不能，故改用那些。无法
+ *	预知 Cygwin 二进制会跑在何种系统。
+ *	注意：CYGWIN 头或会 #define WIN32。
  */
 #if defined(WIN32) && !defined(__CYGWIN__)
 extern int	pgsymlink(const char *oldpath, const char *newpath);
@@ -308,24 +308,24 @@ extern bool rmtree(const char *path, bool rmtopdir);
 #if defined(WIN32) && !defined(__CYGWIN__)
 
 /*
- * We want the 64-bit variant of lseek().
+ * 要 lseek() 的 64 位变体。
  *
- * For Visual Studio, this must be after <io.h> to avoid messing up its
- * lseek() and _lseeki64() function declarations.
+ * 对 Visual Studio，须在 <io.h> 之后，以免搅乱其
+ * lseek() 与 _lseeki64() 声明。
  *
- * For MinGW there is already a macro, so we have to undefine it (depending on
- * _FILE_OFFSET_BITS, it may point at its own lseek64, but we don't want to
- * count on that being set).
+ * MinGW 已有宏，故须先取消定义（视
+ * _FILE_OFFSET_BITS 而定，可能指向自有 lseek64，但我们不
+ * 依赖其已设置）。
  */
 #undef lseek
 #define lseek(a,b,c) _lseeki64((a),(b),(c))
 
 /*
- * We want the 64-bit variant of chsize().  It sets errno and also returns it,
- * so convert non-zero result to -1 to match POSIX.
+ * 要 chsize() 的 64 位变体。它设 errno 并返回之，
+ * 故把非零结果转为 -1 以合 POSIX。
  *
- * Prevent MinGW from declaring functions, and undefine its macro before we
- * define our own.
+ * 阻止 MinGW 声明函数，并在定义自有前
+ * 取消其宏。
  */
 #ifndef _MSC_VER
 #define FTRUNCATE_DEFINED
@@ -335,8 +335,8 @@ extern bool rmtree(const char *path, bool rmtopdir);
 #define ftruncate(a,b) (_chsize_s((a),(b)) == 0 ? 0 : -1)
 
 /*
- * open() and fopen() replacements to allow deletion of open files and
- * passing of other special options.
+ * open()/fopen() 替换，以允许删除打开文件及
+ * 传入其他特殊选项。
  */
 #define		O_DIRECT	0x80000000
 extern HANDLE pgwin32_open_handle(const char *, int, bool);
@@ -346,9 +346,9 @@ extern FILE *pgwin32_fopen(const char *, const char *);
 #define		fopen(a,b) pgwin32_fopen(a,b)
 
 /*
- * Mingw-w64 headers #define popen and pclose to _popen and _pclose.  We want
- * to use our popen wrapper, rather than plain _popen, so override that.  For
- * consistency, use our version of pclose, too.
+ * Mingw-w64 头将 popen、pclose 映到 _popen 与 _pclose。我们要
+ * 用自有 popen 包装而非纯 _popen，故覆盖之。为
+ * 一致，pclose 亦用自有版。
  */
 #ifdef popen
 #undef popen
@@ -358,8 +358,8 @@ extern FILE *pgwin32_fopen(const char *, const char *);
 #endif
 
 /*
- * system() and popen() replacements to enclose the command in an extra
- * pair of quotes.
+ * system()/popen() 替换，给命令再套一对
+ * 引号。
  */
 extern int	pgwin32_system(const char *command);
 extern FILE *pgwin32_popen(const char *command, const char *type);
@@ -371,19 +371,19 @@ extern FILE *pgwin32_popen(const char *command, const char *type);
 #else							/* !WIN32 */
 
 /*
- *	Win32 requires a special close for sockets and pipes, while on Unix
- *	close() does them all.
+ *	Win32 对套接字与管道需特殊 close，Unix 上
+ *	close() 全管。
  */
 #define closesocket close
 #endif							/* WIN32 */
 
 /*
- * On Windows, setvbuf() does not support _IOLBF mode, and interprets that
- * as _IOFBF.  To add insult to injury, setvbuf(file, NULL, _IOFBF, 0)
- * crashes outright if "parameter validation" is enabled.  Therefore, in
- * places where we'd like to select line-buffered mode, we fall back to
- * unbuffered mode instead on Windows.  Always use PG_IOLBF not _IOLBF
- * directly in order to implement this behavior.
+ * Windows 上 setvbuf() 不支持 _IOLBF，且把其解作
+ * _IOFBF。雪上加霜，若开"参数校验"，
+ * setvbuf(file, NULL, _IOFBF, 0) 会直接崩溃。故在
+ * 想选行缓冲处，Windows 上回退为
+ * 无缓冲。务必用 PG_IOLBF 而非直接
+ * _IOLBF，以实现此行为。
  */
 #ifndef WIN32
 #define PG_IOLBF	_IOLBF
@@ -392,32 +392,32 @@ extern FILE *pgwin32_popen(const char *command, const char *type);
 #endif
 
 /*
- * Default "extern" declarations or macro substitutes for library routines.
- * When necessary, these routines are provided by files in src/port/.
+ * 库例程的默认 extern 声明或宏替代。
+ * 必要时由 src/port/ 文件提供。
  */
 
-/* Type to use with fseeko/ftello */
-#ifndef WIN32					/* WIN32 is handled in port/win32_port.h */
+/* fseeko/ftello 所用类型 */
+#ifndef WIN32					/* WIN32 在 port/win32_port.h 处理 */
 #define pgoff_t off_t
 #endif
 
 #ifndef HAVE_GETPEEREID
-/* On Windows, Perl might have incompatible definitions of uid_t and gid_t. */
+/* Windows 上 Perl 可能有不兼容的 uid_t/gid_t 定义。 */
 #ifndef PLPERL_HAVE_UID_GID
 extern int	getpeereid(int sock, uid_t *uid, gid_t *gid);
 #endif
 #endif
 
 /*
- * Glibc doesn't use the builtin for clang due to a *gcc* bug in a version
- * newer than the gcc compatibility clang claims to have. This would cause a
- * *lot* of superfluous function calls, therefore revert when using clang. In
- * C++ there's issues with libc++ (not libstdc++), so disable as well.
+ * 因 *gcc* 某版 bug（比 clang 自称的 gcc 兼容
+ * 更新），Glibc 对 clang 不用内建。这会导致
+ * 大量多余函数调用，故在 clang 下还原。C++
+ * 中 libc++（非 libstdc++）亦有问题，一并禁用。
  */
 #if defined(__clang__) && !defined(__cplusplus)
-/* needs to be separate to not confuse other compilers */
+/* 须分开，以免迷惑其他编译器 */
 #if __has_builtin(__builtin_isinf)
-/* need to include before, to avoid getting overwritten */
+/* 须先包含，以免被覆盖 */
 #include <math.h>
 #undef isinf
 #define isinf __builtin_isinf
@@ -501,8 +501,8 @@ extern void pg_strong_random_init(void);
 extern bool pg_strong_random(void *buf, size_t len);
 
 /*
- * pg_backend_random used to be a wrapper for pg_strong_random before
- * Postgres 12 for the backend code.
+ * Postgres 12 前，后端曾用 pg_backend_random
+ * 包装 pg_strong_random。
  */
 #define pg_backend_random pg_strong_random
 
@@ -529,14 +529,14 @@ extern bool wait_result_is_any_signal(int exit_status, bool include_command_not_
 extern int	wait_result_to_exit_code(int exit_status);
 
 /*
- * Interfaces that we assume all Unix system have.  We retain individual macros
- * for better documentation.
+ * 假定一切 Unix 皆有的接口。保留各宏
+ * 以便更好文档化。
  *
- * For symlink-related functions, there is often no need to test these macros,
- * because we provided basic support on Windows that can work with absolute
- * paths to directories.  Code that wants to test for complete symlink support
- * (including relative paths and non-directories) should be conditional on
- * HAVE_READLINK or HAVE_SYMLINK.
+ * 对符号链接相关函数，常无须测这些宏，
+ * 因我们在 Windows 上提供了可处理绝对
+ * 目录路径的基本支持。要测完整符号链接支持
+ * （含相对路径与非目录）应条件于
+ * HAVE_READLINK/HAVE_SYMLINK。
  */
 #ifndef WIN32
 #define HAVE_GETRLIMIT 1

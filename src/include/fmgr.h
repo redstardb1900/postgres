@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * fmgr.h
- *	  Definitions for the Postgres function manager and function-call
- *	  interface.
+ *	Postgres 函数管理器与函数调用接口的
+ *	定义。
  *
- * This file must be included by all Postgres modules that either define
- * or call fmgr-callable functions.
+ * 凡定义或调用 fmgr 可调函数的 Postgres 模块
+ * 皆须包含本文件。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,21 +18,21 @@
 #ifndef FMGR_H
 #define FMGR_H
 
-/* We don't want to include primnodes.h here, so make some stub references */
+/* 不想在此含 primnodes.h，故做若干桩引用 */
 typedef struct Node *fmNodePtr;
 typedef struct Aggref *fmAggrefPtr;
 
-/* Likewise, avoid including execnodes.h here */
+/* 同理，避免在此含 execnodes.h */
 typedef void (*fmExprContextCallbackFunction) (Datum arg);
 
-/* Likewise, avoid including stringinfo.h here */
+/* 同理，避免在此含 stringinfo.h */
 typedef struct StringInfoData *fmStringInfo;
 
 
 /*
- * All functions that can be called directly by fmgr must have this signature.
- * (Other functions can be called by using a handler that does have this
- * signature.)
+ * 凡可被 fmgr 直接调用的函数须有此签名。
+ * （其他函数可通过具有此签名的处理程序
+ * 调用。
  */
 
 typedef struct FunctionCallInfoBaseData *FunctionCallInfo;
@@ -40,103 +40,103 @@ typedef struct FunctionCallInfoBaseData *FunctionCallInfo;
 typedef Datum (*PGFunction) (FunctionCallInfo fcinfo);
 
 /*
- * This struct holds the system-catalog information that must be looked up
- * before a function can be called through fmgr.  If the same function is
- * to be called multiple times, the lookup need be done only once and the
- * info struct saved for re-use.
+ * 本结构保存经 fmgr 调用函数前必须查找的
+ * 系统目录信息。若同一函数将被
+ * 多次调用，查找只需做一次，并把
+ * 信息结构保存复用。
  *
- * Note that fn_expr really is parse-time-determined information about the
- * arguments, rather than about the function itself.  But it's convenient to
- * store it here rather than in FunctionCallInfoBaseData, where it might more
- * logically belong.
+ * 注意 fn_expr 实为解析期确定的关于实参的
+ * 信息，而非关于函数本身。但放在此处
+ * 比放在 FunctionCallInfoBaseData 更方便，虽后者
+ * 更合适。
  *
- * fn_extra is available for use by the called function; all other fields
- * should be treated as read-only after the struct is created.
+ * fn_extra 供被调函数使用；其余字段在结构
+ * 创建后应视为只读。
  */
 typedef struct FmgrInfo
 {
-	PGFunction	fn_addr;		/* pointer to function or handler to be called */
-	Oid			fn_oid;			/* OID of function (NOT of handler, if any) */
-	short		fn_nargs;		/* number of input args (0..FUNC_MAX_ARGS) */
-	bool		fn_strict;		/* function is "strict" (NULL in => NULL out) */
-	bool		fn_retset;		/* function returns a set */
-	unsigned char fn_stats;		/* collect stats if track_functions > this */
-	void	   *fn_extra;		/* extra space for use by handler */
-	MemoryContext fn_mcxt;		/* memory context to store fn_extra in */
-	fmNodePtr	fn_expr;		/* expression parse tree for call, or NULL */
+	PGFunction	fn_addr;		/* 待调函数或处理程序的指针 */
+	Oid			fn_oid;			/* 函数 OID（非处理程序，若有） */
+	short		fn_nargs;		/* 输入参数个数(0..FUNC_MAX_ARGS) */
+	bool		fn_strict;		/* 函数"严格"（NULL 入 => NULL 出） */
+	bool		fn_retset;		/* 函数返回集合 */
+	unsigned char fn_stats;		/* track_functions > 此则收集统计 */
+	void	   *fn_extra;		/* 处理程序可用额外空间 */
+	MemoryContext fn_mcxt;		/* 存放 fn_extra 的内存上下文 */
+	fmNodePtr	fn_expr;		/* 调用的表达式解析树，或 NULL */
 } FmgrInfo;
 
 /*
- * This struct is the data actually passed to an fmgr-called function.
+ * 本结构是实际传给 fmgr 所调函数的数据。
  *
- * The called function is expected to set isnull, and possibly resultinfo or
- * fields in whatever resultinfo points to.  It should not change any other
- * fields.  (In particular, scribbling on the argument arrays is a bad idea,
- * since some callers assume they can re-call with the same arguments.)
+ * 被调函数应设置 isnull，并可能设置 resultinfo 或
+ * resultinfo 所指对象中的字段。不应改其他
+ * 字段。（尤其勿涂改参数数组，
+ * 因有些调用方假定可用相同参数再调。）
  *
- * Note that enough space for arguments needs to be provided, either by using
- * SizeForFunctionCallInfo() in dynamic allocations, or by using
- * LOCAL_FCINFO() for on-stack allocations.
+ * 注意须为参数提供足够空间，可用
+ * SizeForFunctionCallInfo() 做动态分配，或用
+ * LOCAL_FCINFO() 做栈上分配。
  *
- * This struct is named *BaseData, rather than *Data, to break pre v12 code
- * that allocated FunctionCallInfoData itself, as it'd often silently break
- * old code due to no space for arguments being provided.
+ * 本结构名 *BaseData 而非 *Data，以打断 v12 前自行
+ * 分配 FunctionCallInfoData 的代码——常因未为参数
+ * 留空间而静默破坏旧代码。
  */
 typedef struct FunctionCallInfoBaseData
 {
-	FmgrInfo   *flinfo;			/* ptr to lookup info used for this call */
-	fmNodePtr	context;		/* pass info about context of call */
-	fmNodePtr	resultinfo;		/* pass or return extra info about result */
-	Oid			fncollation;	/* collation for function to use */
+	FmgrInfo   *flinfo;			/* 本次调用所用查找信息指针 */
+	fmNodePtr	context;		/* 传入调用上下文信息 */
+	fmNodePtr	resultinfo;		/* 传入或返回结果的额外信息 */
+	Oid			fncollation;	/* 函数所用排序规则 */
 #define FIELDNO_FUNCTIONCALLINFODATA_ISNULL 4
-	bool		isnull;			/* function must set true if result is NULL */
-	short		nargs;			/* # arguments actually passed */
+	bool		isnull;			/* 若结果为 NULL，函数须置 true */
+	short		nargs;			/* 实际传入的参数个数 */
 #define FIELDNO_FUNCTIONCALLINFODATA_ARGS 6
 	NullableDatum args[FLEXIBLE_ARRAY_MEMBER];
 } FunctionCallInfoBaseData;
 
 /*
- * Space needed for a FunctionCallInfoBaseData struct with sufficient space
- * for `nargs` arguments.
+ * FunctionCallInfoBaseData 所需空间，并留足 `nargs` 参数
+ * 空间。
  */
 #define SizeForFunctionCallInfo(nargs) \
 	(offsetof(FunctionCallInfoBaseData, args) + \
 	 sizeof(NullableDatum) * (nargs))
 
 /*
- * This macro ensures that `name` points to a stack-allocated
- * FunctionCallInfoBaseData struct with sufficient space for `nargs` arguments.
+ * 本宏保证 `name` 指向栈分配的
+ * FunctionCallInfoBaseData，且有足够空间容纳 `nargs` 个参数。
  */
 #define LOCAL_FCINFO(name, nargs) \
-	/* use union with FunctionCallInfoBaseData to guarantee alignment */ \
+	/* 与 FunctionCallInfoBaseData 的联合以保证对齐 */ \
 	union \
 	{ \
 		FunctionCallInfoBaseData fcinfo; \
-		/* ensure enough space for nargs args is available */ \
+		/* 确保有足够空间容纳 nargs 个参数 */ \
 		char fcinfo_data[SizeForFunctionCallInfo(nargs)]; \
 	} name##data; \
 	FunctionCallInfo name = &name##data.fcinfo
 
 /*
- * This routine fills a FmgrInfo struct, given the OID
- * of the function to be called.
+ * 给定待调函数 OID，填充 FmgrInfo
+ * 结构。
  */
 extern void fmgr_info(Oid functionId, FmgrInfo *finfo);
 
 /*
- * Same, when the FmgrInfo struct is in a memory context longer-lived than
- * CurrentMemoryContext.  The specified context will be set as fn_mcxt
- * and used to hold all subsidiary data of finfo.
+ * 同上，当 FmgrInfo 处于比 CurrentMemoryContext
+ * 更长寿的内存上下文时。指定上下文将设为 fn_mcxt
+ * 并用于保存 finfo 的一切附属数据。
  */
 extern void fmgr_info_cxt(Oid functionId, FmgrInfo *finfo,
 						  MemoryContext mcxt);
 
-/* Convenience macro for setting the fn_expr field */
+/* 设置 fn_expr 字段的便利宏 */
 #define fmgr_info_set_expr(expr, finfo) \
 	((finfo)->fn_expr = (expr))
 
 /*
- * Copy an FmgrInfo struct
+ * 复制 FmgrInfo 结构
  */
 extern void fmgr_info_copy(FmgrInfo *dstinfo, FmgrInfo *srcinfo,
 						   MemoryContext destcxt);
@@ -144,8 +144,8 @@ extern void fmgr_info_copy(FmgrInfo *dstinfo, FmgrInfo *srcinfo,
 extern void fmgr_symbol(Oid functionId, char **mod, char **fn);
 
 /*
- * This macro initializes all the fields of a FunctionCallInfoBaseData except
- * for the args[] array.
+ * 本宏初始化 FunctionCallInfoBaseData 除 args[] 外的
+ * 全部字段。
  */
 #define InitFunctionCallInfoData(Fcinfo, Flinfo, Nargs, Collation, Context, Resultinfo) \
 	do { \
@@ -158,24 +158,24 @@ extern void fmgr_symbol(Oid functionId, char **mod, char **fn);
 	} while (0)
 
 /*
- * This macro invokes a function given a filled-in FunctionCallInfoBaseData
- * struct.  The macro result is the returned Datum --- but note that
- * caller must still check fcinfo->isnull!	Also, if function is strict,
- * it is caller's responsibility to verify that no null arguments are present
- * before calling.
+ * 给定已填好的 FunctionCallInfoBaseData，本宏调用函数。
+ * 宏结果为返回的 Datum——但注意
+ * 调用方仍须检查 fcinfo->isnull！若函数为严格，
+ * 验证无空参亦是调用方责任，
+ * 再调用。
  *
- * Some code performs multiple calls without redoing InitFunctionCallInfoData,
- * possibly altering the argument values.  This is okay, but be sure to reset
- * the fcinfo->isnull flag before each call, since callees are permitted to
- * assume that starts out false.
+ * 有些代码多次调用而不重做 InitFunctionCallInfoData，
+ * 或改参数值。可以，但每次调用前务必复位
+ * fcinfo->isnull，因被调方可假定
+ * 其初值为 false。
  */
 #define FunctionCallInvoke(fcinfo)	((* (fcinfo)->flinfo->fn_addr) (fcinfo))
 
 
 /*-------------------------------------------------------------------------
- *		Support macros to ease writing fmgr-compatible functions
+ *	便于编写 fmgr 兼容函数的支持宏
  *
- * A C-coded fmgr-compatible function should be declared as
+ * C 编写的 fmgr 兼容函数应声明为
  *
  *		Datum
  *		function_name(PG_FUNCTION_ARGS)
@@ -183,53 +183,53 @@ extern void fmgr_symbol(Oid functionId, char **mod, char **fn);
  *			...
  *		}
  *
- * It should access its arguments using appropriate PG_GETARG_xxx macros
- * and should return its result using PG_RETURN_xxx.
+ * 应使用适当的 PG_GETARG_xxx 宏取参，
+ * 并用 PG_RETURN_xxx 返回结果。
  *
  *-------------------------------------------------------------------------
  */
 
-/* Standard parameter list for fmgr-compatible functions */
+/* fmgr 兼容函数的标准参数表 */
 #define PG_FUNCTION_ARGS	FunctionCallInfo fcinfo
 
 /*
- * Get collation function should use.
+ * 取函数应用的排序规则。
  */
 #define PG_GET_COLLATION()	(fcinfo->fncollation)
 
 /*
- * Get number of arguments passed to function.
+ * 取得传给函数的参数个数。
  */
 #define PG_NARGS() (fcinfo->nargs)
 
 /*
- * If function is not marked "proisstrict" in pg_proc, it must check for
- * null arguments using this macro.  Do not try to GETARG a null argument!
+ * 若函数在 pg_proc 中未标 "proisstrict"，须用本宏
+ * 检查空参。勿对空参做 GETARG！
  */
 #define PG_ARGISNULL(n)  (fcinfo->args[n].isnull)
 
 /*
- * Support for fetching detoasted copies of toastable datatypes (all of
- * which are varlena types).  pg_detoast_datum() gives you either the input
- * datum (if not toasted) or a detoasted copy allocated with palloc().
- * pg_detoast_datum_copy() always gives you a palloc'd copy --- use it
- * if you need a modifiable copy of the input.  Caller is expected to have
- * checked for null inputs first, if necessary.
+ * 取可 toast 类型（皆 varlena）去 toast 副本的支持。
+ * pg_detoast_datum() 返回输入 datum（若未 toast）或
+ * 用 palloc() 分配的去 toast 副本。
+ * pg_detoast_datum_copy() 总返回 palloc 副本——若需
+ * 可修改的输入副本则用之。调用方应已先
+ * 在必要时检查过空输入。
  *
- * pg_detoast_datum_packed() will return packed (1-byte header) datums
- * unmodified.  It will still expand an externally toasted or compressed datum.
- * The resulting datum can be accessed using VARSIZE_ANY() and VARDATA_ANY()
- * (beware of multiple evaluations in those macros!)
+ * pg_detoast_datum_packed() 原样返回 1 字节头 datum。
+ * 仍会展开外部 toast 或压缩的 datum。
+ * 结果可用 VARSIZE_ANY() 与 VARDATA_ANY() 访问
+ * （当心这些宏中的多次求值！）
  *
- * In consumers oblivious to data alignment, call PG_DETOAST_DATUM_PACKED(),
- * VARDATA_ANY(), VARSIZE_ANY() and VARSIZE_ANY_EXHDR().  Elsewhere, call
- * PG_DETOAST_DATUM(), VARDATA() and VARSIZE().  Directly fetching an int16,
- * int32 or wider field in the struct representing the datum layout requires
- * aligned data.  memcpy() is alignment-oblivious, as are most operations on
- * datatypes, such as text, whose layout struct contains only char fields.
+ * 对对齐不敏感的消费者，调用 PG_DETOAST_DATUM_PACKED()、
+ * VARDATA_ANY()、VARSIZE_ANY() 与 VARSIZE_ANY_EXHDR()。他处调用
+ * PG_DETOAST_DATUM()、VARDATA()、VARSIZE()。直接取布局中的
+ * int16、int32 或更宽字段需要
+ * 对齐数据。memcpy() 对对齐不敏感，多数仅含 char 字段的
+ * 数据类型（如 text）上的操作亦然。
  *
- * Note: it'd be nice if these could be macros, but I see no way to do that
- * without evaluating the arguments multiple times, which is NOT acceptable.
+ * 注意：做成宏更好，但未见不重复求值参数的做法，
+ * 而重复求值不可接受。
  */
 extern struct varlena *pg_detoast_datum(struct varlena *datum);
 extern struct varlena *pg_detoast_datum_copy(struct varlena *datum);
@@ -244,18 +244,18 @@ extern struct varlena *pg_detoast_datum_packed(struct varlena *datum);
 #define PG_DETOAST_DATUM_SLICE(datum,f,c) \
 		pg_detoast_datum_slice((struct varlena *) DatumGetPointer(datum), \
 		(int32) (f), (int32) (c))
-/* WARNING -- unaligned pointer */
+/* WARNING -- 未对齐指针 */
 #define PG_DETOAST_DATUM_PACKED(datum) \
 	pg_detoast_datum_packed((struct varlena *) DatumGetPointer(datum))
 
 /*
- * Support for cleaning up detoasted copies of inputs.  This must only
- * be used for pass-by-ref datatypes, and normally would only be used
- * for toastable types.  If the given pointer is different from the
- * original argument, assume it's a palloc'd detoasted copy, and pfree it.
- * NOTE: most functions on toastable types do not have to worry about this,
- * but we currently require that support functions for indexes not leak
- * memory.
+ * 清理输入去 toast 副本的支持。仅可用于
+ * 按引用传递的数据类型，通常仅用于
+ * 可 toast 类型。若给定指针不同于
+ * 原参数，则视为 palloc 的去 toast 副本并 pfree。
+ * 注意：多数可 toast 类型上的函数无须关心此，
+ * 但目前要求索引支持函数不泄漏
+ * 内存
  */
 #define PG_FREE_IF_COPY(ptr,n) \
 	do { \
@@ -263,7 +263,7 @@ extern struct varlena *pg_detoast_datum_packed(struct varlena *datum);
 			pfree(ptr); \
 	} while (0)
 
-/* Macros for fetching arguments of standard types */
+/* 取标准类型参数的宏 */
 
 #define PG_GETARG_DATUM(n)	 (fcinfo->args[n].value)
 #define PG_GETARG_INT32(n)	 DatumGetInt32(PG_GETARG_DATUM(n))
@@ -277,56 +277,56 @@ extern struct varlena *pg_detoast_datum_packed(struct varlena *datum);
 #define PG_GETARG_CSTRING(n) DatumGetCString(PG_GETARG_DATUM(n))
 #define PG_GETARG_NAME(n)	 DatumGetName(PG_GETARG_DATUM(n))
 #define PG_GETARG_TRANSACTIONID(n)	DatumGetTransactionId(PG_GETARG_DATUM(n))
-/* these macros hide the pass-by-reference-ness of the datatype: */
+/* 这些宏隐藏数据类型是否按引用传递： */
 #define PG_GETARG_FLOAT4(n)  DatumGetFloat4(PG_GETARG_DATUM(n))
 #define PG_GETARG_FLOAT8(n)  DatumGetFloat8(PG_GETARG_DATUM(n))
 #define PG_GETARG_INT64(n)	 DatumGetInt64(PG_GETARG_DATUM(n))
-/* use this if you want the raw, possibly-toasted input datum: */
+/* 若要原始、可能仍 toast 的输入 datum 用此： */
 #define PG_GETARG_RAW_VARLENA_P(n)	((struct varlena *) PG_GETARG_POINTER(n))
-/* use this if you want the input datum de-toasted: */
+/* 若要去 toast 的输入 datum 用此： */
 #define PG_GETARG_VARLENA_P(n) PG_DETOAST_DATUM(PG_GETARG_DATUM(n))
-/* and this if you can handle 1-byte-header datums: */
+/* 若能处理 1 字节头 datum 用此： */
 #define PG_GETARG_VARLENA_PP(n) PG_DETOAST_DATUM_PACKED(PG_GETARG_DATUM(n))
-/* DatumGetFoo macros for varlena types will typically look like this: */
+/* varlena 类型的 DatumGetFoo 宏通常形如： */
 #define DatumGetByteaPP(X)			((bytea *) PG_DETOAST_DATUM_PACKED(X))
 #define DatumGetTextPP(X)			((text *) PG_DETOAST_DATUM_PACKED(X))
 #define DatumGetBpCharPP(X)			((BpChar *) PG_DETOAST_DATUM_PACKED(X))
 #define DatumGetVarCharPP(X)		((VarChar *) PG_DETOAST_DATUM_PACKED(X))
 #define DatumGetHeapTupleHeader(X)	((HeapTupleHeader) PG_DETOAST_DATUM(X))
-/* And we also offer variants that return an OK-to-write copy */
+/* 亦提供返回可写副本的变体 */
 #define DatumGetByteaPCopy(X)		((bytea *) PG_DETOAST_DATUM_COPY(X))
 #define DatumGetTextPCopy(X)		((text *) PG_DETOAST_DATUM_COPY(X))
 #define DatumGetBpCharPCopy(X)		((BpChar *) PG_DETOAST_DATUM_COPY(X))
 #define DatumGetVarCharPCopy(X)		((VarChar *) PG_DETOAST_DATUM_COPY(X))
 #define DatumGetHeapTupleHeaderCopy(X)	((HeapTupleHeader) PG_DETOAST_DATUM_COPY(X))
-/* Variants which return n bytes starting at pos. m */
+/* 返回自位置 m 起 n 字节的变体 */
 #define DatumGetByteaPSlice(X,m,n)	((bytea *) PG_DETOAST_DATUM_SLICE(X,m,n))
 #define DatumGetTextPSlice(X,m,n)	((text *) PG_DETOAST_DATUM_SLICE(X,m,n))
 #define DatumGetBpCharPSlice(X,m,n) ((BpChar *) PG_DETOAST_DATUM_SLICE(X,m,n))
 #define DatumGetVarCharPSlice(X,m,n) ((VarChar *) PG_DETOAST_DATUM_SLICE(X,m,n))
-/* GETARG macros for varlena types will typically look like this: */
+/* varlena 类型的 GETARG 宏通常形如： */
 #define PG_GETARG_BYTEA_PP(n)		DatumGetByteaPP(PG_GETARG_DATUM(n))
 #define PG_GETARG_TEXT_PP(n)		DatumGetTextPP(PG_GETARG_DATUM(n))
 #define PG_GETARG_BPCHAR_PP(n)		DatumGetBpCharPP(PG_GETARG_DATUM(n))
 #define PG_GETARG_VARCHAR_PP(n)		DatumGetVarCharPP(PG_GETARG_DATUM(n))
 #define PG_GETARG_HEAPTUPLEHEADER(n)	DatumGetHeapTupleHeader(PG_GETARG_DATUM(n))
-/* And we also offer variants that return an OK-to-write copy */
+/* 亦提供返回可写副本的变体 */
 #define PG_GETARG_BYTEA_P_COPY(n)	DatumGetByteaPCopy(PG_GETARG_DATUM(n))
 #define PG_GETARG_TEXT_P_COPY(n)	DatumGetTextPCopy(PG_GETARG_DATUM(n))
 #define PG_GETARG_BPCHAR_P_COPY(n)	DatumGetBpCharPCopy(PG_GETARG_DATUM(n))
 #define PG_GETARG_VARCHAR_P_COPY(n) DatumGetVarCharPCopy(PG_GETARG_DATUM(n))
 #define PG_GETARG_HEAPTUPLEHEADER_COPY(n)	DatumGetHeapTupleHeaderCopy(PG_GETARG_DATUM(n))
-/* And a b-byte slice from position a -also OK to write */
+/* 自位置 a 起 b 字节切片——亦可写 */
 #define PG_GETARG_BYTEA_P_SLICE(n,a,b) DatumGetByteaPSlice(PG_GETARG_DATUM(n),a,b)
 #define PG_GETARG_TEXT_P_SLICE(n,a,b)  DatumGetTextPSlice(PG_GETARG_DATUM(n),a,b)
 #define PG_GETARG_BPCHAR_P_SLICE(n,a,b) DatumGetBpCharPSlice(PG_GETARG_DATUM(n),a,b)
 #define PG_GETARG_VARCHAR_P_SLICE(n,a,b) DatumGetVarCharPSlice(PG_GETARG_DATUM(n),a,b)
 /*
- * Obsolescent variants that guarantee INT alignment for the return value.
- * Few operations on these particular types need alignment, mainly operations
- * that cast the VARDATA pointer to a type like int16[].  Most code should use
- * the ...PP(X) counterpart.  Nonetheless, these appear frequently in code
- * predating the PostgreSQL 8.3 introduction of the ...PP(X) variants.
+ * 保证返回值 INT 对齐的过时变体。
+ * 对这些类型，很少操作需要对齐，主要是把
+ * VARDATA 指针转为 int16[] 一类。多数代码应使用
+ * ...PP(X) 对应物。不过它们仍常出现在
+ * PostgreSQL 8.3 引入 ...PP(X) 之前的代码中。
  */
 #define DatumGetByteaP(X)			((bytea *) PG_DETOAST_DATUM(X))
 #define DatumGetTextP(X)			((text *) PG_DETOAST_DATUM(X))
@@ -337,18 +337,18 @@ extern struct varlena *pg_detoast_datum_packed(struct varlena *datum);
 #define PG_GETARG_BPCHAR_P(n)		DatumGetBpCharP(PG_GETARG_DATUM(n))
 #define PG_GETARG_VARCHAR_P(n)		DatumGetVarCharP(PG_GETARG_DATUM(n))
 
-/* To access options from opclass support functions use this: */
+/* 自操作类支持函数取选项用此： */
 #define PG_HAS_OPCLASS_OPTIONS()	has_fn_opclass_options(fcinfo->flinfo)
 #define PG_GET_OPCLASS_OPTIONS()	get_fn_opclass_options(fcinfo->flinfo)
 
-/* To return a NULL do this: */
+/* 要返回 NULL 则做： */
 #define PG_RETURN_NULL()  \
 	do { fcinfo->isnull = true; return (Datum) 0; } while (0)
 
-/* A few internal functions return void (which is not the same as NULL!) */
+/* 少数内部函数返回 void（与 NULL 不同！） */
 #define PG_RETURN_VOID()	 return (Datum) 0
 
-/* Macros for returning results of standard types */
+/* 返回标准类型结果的宏 */
 
 #define PG_RETURN_DATUM(x)	 return (x)
 #define PG_RETURN_INT32(x)	 return Int32GetDatum(x)
@@ -362,12 +362,12 @@ extern struct varlena *pg_detoast_datum_packed(struct varlena *datum);
 #define PG_RETURN_CSTRING(x) return CStringGetDatum(x)
 #define PG_RETURN_NAME(x)	 return NameGetDatum(x)
 #define PG_RETURN_TRANSACTIONID(x)	return TransactionIdGetDatum(x)
-/* these macros hide the pass-by-reference-ness of the datatype: */
+/* 这些宏隐藏数据类型是否按引用传递： */
 #define PG_RETURN_FLOAT4(x)  return Float4GetDatum(x)
 #define PG_RETURN_FLOAT8(x)  return Float8GetDatum(x)
 #define PG_RETURN_INT64(x)	 return Int64GetDatum(x)
 #define PG_RETURN_UINT64(x)  return UInt64GetDatum(x)
-/* RETURN macros for other pass-by-ref types will typically look like this: */
+/* 其他按引用类型的 RETURN 宏通常形如： */
 #define PG_RETURN_BYTEA_P(x)   PG_RETURN_POINTER(x)
 #define PG_RETURN_TEXT_P(x)    PG_RETURN_POINTER(x)
 #define PG_RETURN_BPCHAR_P(x)  PG_RETURN_POINTER(x)
@@ -376,41 +376,41 @@ extern struct varlena *pg_detoast_datum_packed(struct varlena *datum);
 
 
 /*-------------------------------------------------------------------------
- *		Support for detecting call convention of dynamically-loaded functions
+ *	检测动态加载函数调用约定的支持
  *
- * Dynamically loaded functions currently can only use the version-1 ("new
- * style") calling convention.  Version-0 ("old style") is not supported
- * anymore.  Version 1 is the call convention defined in this header file, and
- * must be accompanied by the macro call
+ * 动态加载函数目前仅能用版本 1（"新
+ * 风格"）调用约定。版本 0（"旧风格"）已不再
+ * 支持。版本 1 即本头文件定义的约定，且
+ * 必须伴随宏调用
  *
  *		PG_FUNCTION_INFO_V1(function_name);
  *
- * Note that internal functions do not need this decoration since they are
- * assumed to be version-1.
+ * 注意内部函数无须此装饰，因其被假定为
+ * 版本 1。
  *
  *-------------------------------------------------------------------------
  */
 
 typedef struct
 {
-	int			api_version;	/* specifies call convention version number */
-	/* More fields may be added later, for version numbers > 1. */
+	int			api_version;	/* 指明调用约定版本号 */
+	/* 以后可为版本号 > 1 增加更多字段。 */
 } Pg_finfo_record;
 
-/* Expected signature of an info function */
+/* 信息函数的期望签名 */
 typedef const Pg_finfo_record *(*PGFInfoFunction) (void);
 
 /*
- *	Macro to build an info function associated with the given function name.
+ *	为给定函数名构建关联信息函数的宏。
  *
- *	As a convenience, also provide an "extern" declaration for the given
- *	function name, so that writers of C functions need not write that too.
+ *	为方便，亦为给定函数名提供 "extern" 声明，
+ *	使 C 函数作者不必再写一遍。
  *
- *	On Windows, the function and info function must be exported.  Our normal
- *	build processes take care of that via .DEF files or --export-all-symbols.
- *	Module authors using a different build process might need to manually
- *	declare the function PGDLLEXPORT.  We do that automatically here for the
- *	info function, since authors shouldn't need to be explicitly aware of it.
+ *	在 Windows 上，函数与信息函数必须导出。正常
+ *	构建过程经 .DEF 或 --export-all-symbols 处理。
+ *	使用其他构建过程的模块作者可能须手动
+ *	声明函数为 PGDLLEXPORT。此处自动为信息函数
+ *	声明，因作者不必显式知晓。
  */
 #define PG_FUNCTION_INFO_V1(funcname) \
 extern PGDLLEXPORT Datum funcname(PG_FUNCTION_ARGS); \
@@ -425,54 +425,54 @@ extern int no_such_variable
 
 
 /*
- * Declare _PG_init/_PG_fini centrally. Historically each shared library had
- * its own declaration; but now that we want to mark these PGDLLEXPORT, using
- * central declarations avoids each extension having to add that.  Any
- * existing declarations in extensions will continue to work if fmgr.h is
- * included before them, otherwise compilation for Windows will fail.
+ * 集中声明 _PG_init/_PG_fini。历史上各共享库各自
+ * 声明；现欲标 PGDLLEXPORT，用集中声明可避免
+ * 每个扩展再加。扩展中既有声明若在
+ * 其后包含 fmgr.h 仍可用，否则 Windows 编译会
+ * 失败。
  */
 extern PGDLLEXPORT void _PG_init(void);
 extern PGDLLEXPORT void _PG_fini(void);
 
 
 /*-------------------------------------------------------------------------
- *		Support for verifying backend compatibility of loaded modules
+ *	核验已加载模块与后端兼容性的支持
  *
- * We require dynamically-loaded modules to include the macro call
+ * 要求动态加载模块包含宏调用
  *		PG_MODULE_MAGIC;
- * so that we can check for obvious incompatibility, such as being compiled
- * for a different major PostgreSQL version.
+ * 以便检查明显不兼容，如为不同
+ * 主版本 PostgreSQL 编译。
  *
- * To compile with versions of PostgreSQL that do not support this,
- * you may put an #ifdef/#endif test around it.  Note that in a multiple-
- * source-file module, the macro call should only appear once.
+ * 若要在不支持此功能的 PostgreSQL 版本上编译，
+ * 可用 #ifdef/#endif 包住。注意在多源文件
+ * 模块中，宏调用应只出现一次。
  *
- * The specific items included in the magic block are intended to be ones that
- * are custom-configurable and especially likely to break dynamically loaded
- * modules if they were compiled with other values.  Also, the length field
- * can be used to detect definition changes.
+ * 魔法块所含具体项拟为可定制配置、且若用其他值
+ * 编译则尤其易破坏动态加载
+ * 模块者。另外，长度字段
+ * 可用于检测定义变更。
  *
- * Note: we compare magic blocks with memcmp(), so there had better not be
- * any alignment pad bytes in them.
+ * 注意：我们用 memcmp() 比较魔法块，故其中不应有
+ * 任何对齐填充字节。
  *
- * Note: when changing the contents of magic blocks, be sure to adjust the
- * incompatible_module_error() function in dfmgr.c.
+ * 注意：更改魔法块内容时，务必调整
+ * dfmgr.c 中的 incompatible_module_error()。
  *-------------------------------------------------------------------------
  */
 
-/* Definition of the magic block structure */
+/* 魔法块结构的定义 */
 typedef struct
 {
-	int			len;			/* sizeof(this struct) */
-	int			version;		/* PostgreSQL major version */
+	int			len;			/* sizeof(本结构) */
+	int			version;		/* PostgreSQL 主版本 */
 	int			funcmaxargs;	/* FUNC_MAX_ARGS */
 	int			indexmaxkeys;	/* INDEX_MAX_KEYS */
 	int			namedatalen;	/* NAMEDATALEN */
 	int			float8byval;	/* FLOAT8PASSBYVAL */
-	char		abi_extra[32];	/* see pg_config_manual.h */
+	char		abi_extra[32];	/* 见 pg_config_manual.h */
 } Pg_magic_struct;
 
-/* The actual data block contents */
+/* 实际数据块内容 */
 #define PG_MODULE_MAGIC_DATA \
 { \
 	sizeof(Pg_magic_struct), \
@@ -488,8 +488,8 @@ StaticAssertDecl(sizeof(FMGR_ABI_EXTRA) <= sizeof(((Pg_magic_struct *) 0)->abi_e
 				 "FMGR_ABI_EXTRA too long");
 
 /*
- * Declare the module magic function.  It needs to be a function as the dlsym
- * in the backend is only guaranteed to work on functions, not data
+ * 声明模块魔法函数。须为函数，因后端
+ * dlsym 仅保证对函数有效，对数据不保证
  */
 typedef const Pg_magic_struct *(*PGModuleMagicFunction) (void);
 
@@ -508,14 +508,14 @@ extern int no_such_variable
 
 
 /*-------------------------------------------------------------------------
- *		Support routines and macros for callers of fmgr-compatible functions
+ *	调用 fmgr 兼容函数的调用方支持例程与宏
  *-------------------------------------------------------------------------
  */
 
-/* These are for invocation of a specifically named function with a
- * directly-computed parameter list.  Note that neither arguments nor result
- * are allowed to be NULL.  Also, the function cannot be one that needs to
- * look at FmgrInfo, since there won't be any.
+/* 用于以直接计算的参数表调用具名函数。
+ * 注意参数与结果皆不得为 NULL。函数亦不能是
+ * 需要查看 FmgrInfo 者，因不会有
+ * FmgrInfo。
  */
 extern Datum DirectFunctionCall1Coll(PGFunction func, Oid collation,
 									 Datum arg1);
@@ -549,21 +549,21 @@ extern Datum DirectFunctionCall9Coll(PGFunction func, Oid collation,
 									 Datum arg9);
 
 /*
- * These functions work like the DirectFunctionCall functions except that
- * they use the flinfo parameter to initialise the fcinfo for the call.
- * It's recommended that the callee only use the fn_extra and fn_mcxt
- * fields, as other fields will typically describe the calling function
- * not the callee.  Conversely, the calling function should not have
- * used fn_extra, unless its use is known to be compatible with the callee's.
+ * 这些函数类似 DirectFunctionCall，但用
+ * flinfo 参数初始化调用的 fcinfo。
+ * 建议被调方仅用 fn_extra 与 fn_mcxt
+ * 字段，因其他字段通常描述调用方而非
+ * 被调方。反之，调用方不应已使用
+ * fn_extra，除非其用法已知与被调方兼容。
  */
 extern Datum CallerFInfoFunctionCall1(PGFunction func, FmgrInfo *flinfo,
 									  Oid collation, Datum arg1);
 extern Datum CallerFInfoFunctionCall2(PGFunction func, FmgrInfo *flinfo,
 									  Oid collation, Datum arg1, Datum arg2);
 
-/* These are for invocation of a previously-looked-up function with a
- * directly-computed parameter list.  Note that neither arguments nor result
- * are allowed to be NULL.
+/* 用于以直接计算的参数表调用先前已查找的函数。
+ * 注意参数与结果皆不得为
+ * NULL。
  */
 extern Datum FunctionCall0Coll(FmgrInfo *flinfo, Oid collation);
 extern Datum FunctionCall1Coll(FmgrInfo *flinfo, Oid collation,
@@ -597,11 +597,11 @@ extern Datum FunctionCall9Coll(FmgrInfo *flinfo, Oid collation,
 							   Datum arg6, Datum arg7, Datum arg8,
 							   Datum arg9);
 
-/* These are for invocation of a function identified by OID with a
- * directly-computed parameter list.  Note that neither arguments nor result
- * are allowed to be NULL.  These are essentially fmgr_info() followed by
- * FunctionCallN().  If the same function is to be invoked repeatedly, do the
- * fmgr_info() once and then use FunctionCallN().
+/* 用于以直接计算的参数表按 OID 标识调用函数。
+ * 注意参数与结果皆不得为 NULL。实质是
+ * fmgr_info() 后接 FunctionCallN()。若同函数将反复调用，则
+ * 做一次 fmgr_info() 再使用
+ * FunctionCallN()。
  */
 extern Datum OidFunctionCall0Coll(Oid functionId, Oid collation);
 extern Datum OidFunctionCall1Coll(Oid functionId, Oid collation,
@@ -635,9 +635,9 @@ extern Datum OidFunctionCall9Coll(Oid functionId, Oid collation,
 								  Datum arg6, Datum arg7, Datum arg8,
 								  Datum arg9);
 
-/* These macros allow the collation argument to be omitted (with a default of
- * InvalidOid, ie, no collation).  They exist mostly for backwards
- * compatibility of source code.
+/* 这些宏允许省略排序规则参数（默认为
+ * InvalidOid，即无排序规则）。主要为源码
+ * 向后兼容而存在。
  */
 #define DirectFunctionCall1(func, arg1) \
 	DirectFunctionCall1Coll(func, InvalidOid, arg1)
@@ -697,7 +697,7 @@ extern Datum OidFunctionCall9Coll(Oid functionId, Oid collation,
 	OidFunctionCall9Coll(functionId, InvalidOid, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 
 
-/* Special cases for convenient invocation of datatype I/O functions. */
+/* 便于调用数据类型 I/O 函数的特例。 */
 extern Datum InputFunctionCall(FmgrInfo *flinfo, char *str,
 							   Oid typioparam, int32 typmod);
 extern bool InputFunctionCallSafe(FmgrInfo *flinfo, char *str,
@@ -721,7 +721,7 @@ extern bytea *OidSendFunctionCall(Oid functionId, Datum val);
 
 
 /*
- * Routines in fmgr.c
+ * fmgr.c 例程
  */
 extern const Pg_finfo_record *fetch_finfo_record(void *filehandle, const char *funcname);
 extern Oid	fmgr_internal_function(const char *proname);
@@ -737,7 +737,7 @@ extern void set_fn_opclass_options(FmgrInfo *flinfo, bytea *options);
 extern bool CheckFunctionValidatorAccess(Oid validatorOid, Oid functionOid);
 
 /*
- * Routines in dfmgr.c
+ * dfmgr.c 例程
  */
 extern PGDLLIMPORT char *Dynamic_library_path;
 
@@ -751,15 +751,15 @@ extern void SerializeLibraryState(Size maxsize, char *start_address);
 extern void RestoreLibraryState(char *start_address);
 
 /*
- * Support for aggregate functions
+ * 聚合函数支持
  *
- * These are actually in executor/nodeAgg.c, but we declare them here since
- * the whole point is for callers to not be overly friendly with nodeAgg.
+ * 实际在 executor/nodeAgg.c，但声明于此，因
+ * 要点是让调用方不必与 nodeAgg 过分亲近。
  */
 
-/* AggCheckCallContext can return one of the following codes, or 0: */
-#define AGG_CONTEXT_AGGREGATE	1	/* regular aggregate */
-#define AGG_CONTEXT_WINDOW		2	/* window function */
+/* AggCheckCallContext 可返回下列代码之一，或 0： */
+#define AGG_CONTEXT_AGGREGATE	1	/* 普通聚合 */
+#define AGG_CONTEXT_WINDOW		2	/* 窗口函数 */
 
 extern int	AggCheckCallContext(FunctionCallInfo fcinfo,
 								MemoryContext *aggcontext);
@@ -771,13 +771,13 @@ extern void AggRegisterCallback(FunctionCallInfo fcinfo,
 								Datum arg);
 
 /*
- * We allow plugin modules to hook function entry/exit.  This is intended
- * as support for loadable security policy modules, which may want to
- * perform additional privilege checks on function entry or exit, or to do
- * other internal bookkeeping.  To make this possible, such modules must be
- * able not only to support normal function entry and exit, but also to trap
- * the case where we bail out due to an error; and they must also be able to
- * prevent inlining.
+ * 允许插件模块钩住函数进入/退出。意在
+ * 支持可加载安全策略模块，它们可能想在
+ * 函数进入或退出时做额外特权检查，或做
+ * 其他内部簿记。为此，此类模块不仅须能
+ * 支持正常进入与退出，还须能捕获
+ * 因错误退出的情形；且须能
+ * 阻止内联。
  */
 typedef enum FmgrHookEventType
 {

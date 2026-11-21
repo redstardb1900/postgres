@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0523",
+  "title": "include/fmgr.h — batch 0523",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "1c60d7d4efd82cf1f2f4deeae8c3552fb5838569",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/fmgr.h",
+      "kind": "c_comment",
+      "note": "0523"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0523-include.json",
+      "kind": "manifest",
+      "note": "0523"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/fmgr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 85,
+      "translated": 85,
+      "preserved": 0,
+      "preserved_reasons": [
+        "横幅/路径/代码样例 KEEP 26 行"
+      ],
+      "note": "0523 T=210 K=26"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0523-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0523"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0523"
+    }
+  ]
+}

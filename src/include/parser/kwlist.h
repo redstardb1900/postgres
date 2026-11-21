@@ -2,10 +2,10 @@
  *
  * kwlist.h
  *
- * The keyword lists are kept in their own source files for use by
- * automatic tools.  The exact representation of a keyword is determined
- * by the PG_KEYWORD macro, which is not defined in this file; it can
- * be defined by the caller for special purposes.
+ * 关键字列表单独放在源文件中，供
+ * 自动工具使用。关键字的确切表示由
+ * PG_KEYWORD 宏决定，本文件不定义它；调用方
+ * 可为特殊目的自行定义。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,15 +16,15 @@
  *-------------------------------------------------------------------------
  */
 
-/* there is deliberately not an #ifndef KWLIST_H here */
+/*  故意不加 #ifndef KWLIST_H  */
 
 /*
- * List of keyword (name, token-value, category, bare-label-status) entries.
+ * 关键字（名、记号值、类别、裸标签状态）条目列表。
  *
- * Note: gen_keywordlist.pl requires the entries to appear in ASCII order.
+ * 注意：gen_keywordlist.pl 要求条目按 ASCII 序出现。
  */
 
-/* name, value, category, is-bare-label */
+/*  名/值/类别/裸标签  */
 PG_KEYWORD("abort", ABORT_P, UNRESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("absent", ABSENT, UNRESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("absolute", ABSOLUTE_P, UNRESERVED_KEYWORD, BARE_LABEL)
@@ -38,7 +38,7 @@ PG_KEYWORD("all", ALL, RESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("also", ALSO, UNRESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("alter", ALTER, UNRESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("always", ALWAYS, UNRESERVED_KEYWORD, BARE_LABEL)
-PG_KEYWORD("analyse", ANALYSE, RESERVED_KEYWORD, BARE_LABEL)		/* British spelling */
+PG_KEYWORD("analyse", ANALYSE, RESERVED_KEYWORD, BARE_LABEL)		/*  英式拼写  */
 PG_KEYWORD("analyze", ANALYZE, RESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("and", AND, RESERVED_KEYWORD, BARE_LABEL)
 PG_KEYWORD("any", ANY, RESERVED_KEYWORD, BARE_LABEL)

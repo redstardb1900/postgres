@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * varatt.h
- *	  variable-length datatypes (TOAST support)
+ *	  变长数据类型（TOAST 支持）
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,47 +16,47 @@
 #define VARATT_H
 
 /*
- * struct varatt_external is a traditional "TOAST pointer", that is, the
- * information needed to fetch a Datum stored out-of-line in a TOAST table.
- * The data is compressed if and only if the external size stored in
- * va_extinfo is less than va_rawsize - VARHDRSZ.
+ * struct varatt_external 是传统 "TOAST 指针"，即
+ * 从 TOAST 表离线取 Datum 所需信息。
+ * 当且仅当 va_extinfo 所存外部大小
+ * 小于 va_rawsize-VARHDRSZ 则已压缩。
  *
- * This struct must not contain any padding, because we sometimes compare
- * these pointers using memcmp.
+ * 此结构不得含填充，因有时用 memcmp
+ * 比较这些指针。
  *
- * Note that this information is stored unaligned within actual tuples, so
- * you need to memcpy from the tuple into a local struct variable before
- * you can look at these fields!  (The reason we use memcmp is to avoid
- * having to do that just to detect equality of two TOAST pointers...)
+ * 注意此信息在实际元组中未对齐存放，故
+ * 须先 memcpy 到局部结构变量再
+ * 查看字段！（用 memcmp 是为避免
+ * 仅为检测两 TOAST 指针相等而做复制…）
  */
 typedef struct varatt_external
 {
-	int32		va_rawsize;		/* Original data size (includes header) */
-	uint32		va_extinfo;		/* External saved size (without header) and
-								 * compression method */
-	Oid			va_valueid;		/* Unique ID of value within TOAST table */
-	Oid			va_toastrelid;	/* RelID of TOAST table containing it */
+	int32		va_rawsize;		/*  原始数据大小（含头）  */
+	uint32		va_extinfo;		/*  外部保存大小（不含头）与
+								 * 压缩方法  */
+	Oid			va_valueid;		/*  TOAST 表内值的唯一 ID  */
+	Oid			va_toastrelid;	/*  含该值的 TOAST 表 RelID  */
 }			varatt_external;
 
 /*
- * These macros define the "saved size" portion of va_extinfo.  Its remaining
- * two high-order bits identify the compression method.
+ * 这些宏定义 va_extinfo 的"保存大小"部分。其余
+ * 两个高位标识压缩方法。
  */
 #define VARLENA_EXTSIZE_BITS	30
 #define VARLENA_EXTSIZE_MASK	((1U << VARLENA_EXTSIZE_BITS) - 1)
 
 /*
- * struct varatt_indirect is a "TOAST pointer" representing an out-of-line
- * Datum that's stored in memory, not in an external toast relation.
- * The creator of such a Datum is entirely responsible that the referenced
- * storage survives for as long as referencing pointer Datums can exist.
+ * struct varatt_indirect 是表示内存中离线
+ * Datum 的 "TOAST 指针"，不在外部 toast 关系。
+ * 其创建者须确保被引用
+ * 存储存活期不短于引用指针 Datum。
  *
- * Note that just as for struct varatt_external, this struct is stored
- * unaligned within any containing tuple.
+ * 注意与 struct varatt_external 一样，本结构在
+ * 所含元组内未对齐存放。
  */
 typedef struct varatt_indirect
 {
-	struct varlena *pointer;	/* Pointer to in-memory varlena */
+	struct varlena *pointer;	/*  内存中 varlena 指针  */
 }			varatt_indirect;
 
 /*
@@ -77,9 +77,9 @@ typedef struct varatt_expanded
 } varatt_expanded;
 
 /*
- * Type tag for the various sorts of "TOAST pointer" datums.  The peculiar
- * value for VARTAG_ONDISK comes from a requirement for on-disk compatibility
- * with a previous notion that the tag field was the pointer datum's length.
+ * 各类 "TOAST 指针" Datum 的类型标签。VARTAG_ONDISK
+ * 的奇异值来自与旧观念的磁盘兼容要求：
+ * 曾认为标签字段是指针 Datum 的长度。
  */
 typedef enum vartag_external
 {
@@ -89,7 +89,7 @@ typedef enum vartag_external
 	VARTAG_ONDISK = 18
 } vartag_external;
 
-/* this test relies on the specific tag values above */
+/*  此测试依赖上述具体标签值  */
 #define VARTAG_IS_EXPANDED(tag) \
 	(((tag) & ~1) == VARTAG_EXPANDED_RO)
 
@@ -100,42 +100,42 @@ typedef enum vartag_external
 	 (AssertMacro(false), 0))
 
 /*
- * These structs describe the header of a varlena object that may have been
- * TOASTed.  Generally, don't reference these structs directly, but use the
- * macros below.
+ * 这些结构描述可能已 TOASTed 的 varlena
+ * 对象的头。一般勿直接引用，而用
+ * 下列宏。
  *
- * We use separate structs for the aligned and unaligned cases because the
- * compiler might otherwise think it could generate code that assumes
- * alignment while touching fields of a 1-byte-header varlena.
+ * 对齐与未对齐情形用不同结构，以免
+ * 编译器以为可生成假定
+ * 对齐的代码去碰 1 字节头 varlena 的字段。
  */
 typedef union
 {
-	struct						/* Normal varlena (4-byte length) */
+	struct						/*  普通 varlena(4字节长)  */
 	{
 		uint32		va_header;
 		char		va_data[FLEXIBLE_ARRAY_MEMBER];
 	}			va_4byte;
-	struct						/* Compressed-in-line format */
+	struct						/*  行内压缩格式  */
 	{
 		uint32		va_header;
-		uint32		va_tcinfo;	/* Original data size (excludes header) and
-								 * compression method; see va_extinfo */
-		char		va_data[FLEXIBLE_ARRAY_MEMBER]; /* Compressed data */
+		uint32		va_tcinfo;	/*  原始数据大小（不含头）与
+								 * 压缩方法；见 va_extinfo  */
+		char		va_data[FLEXIBLE_ARRAY_MEMBER]; /*  压缩数据  */
 	}			va_compressed;
 } varattrib_4b;
 
 typedef struct
 {
 	uint8		va_header;
-	char		va_data[FLEXIBLE_ARRAY_MEMBER]; /* Data begins here */
+	char		va_data[FLEXIBLE_ARRAY_MEMBER]; /*  数据开始  */
 } varattrib_1b;
 
-/* TOAST pointers are a subset of varattrib_1b with an identifying tag byte */
+/*  TOAST 指针是带标识标签字节的 varattrib_1b 子集  */
 typedef struct
 {
-	uint8		va_header;		/* Always 0x80 or 0x01 */
-	uint8		va_tag;			/* Type of datum */
-	char		va_data[FLEXIBLE_ARRAY_MEMBER]; /* Type-specific data */
+	uint8		va_header;		/*  总是 0x80/0x01  */
+	uint8		va_tag;			/*  Datum 类型 */
+	char		va_data[FLEXIBLE_ARRAY_MEMBER]; /*  类型数据  */
 } varattrib_1b_e;
 
 /*
@@ -165,12 +165,12 @@ typedef struct
  */
 
 /*
- * Endian-dependent macros.  These are considered internal --- use the
- * external macros below instead of using these directly.
+ * 依赖字节序的宏。视为内部——请用
+ * 下列外部宏，勿直接用这些。
  *
- * Note: IS_1B is true for external toast records but VARSIZE_1B will return 0
- * for such records. Hence you should usually check for IS_EXTERNAL before
- * checking for IS_1B.
+ * 注意：IS_1B 对外部 toast 记录为真，但 VARSIZE_1B 对其
+ * 返回 0。故通常应先查 IS_EXTERNAL 再
+ * 查 IS_1B。
  */
 
 #ifdef WORDS_BIGENDIAN
@@ -188,7 +188,7 @@ typedef struct
 #define VARATT_NOT_PAD_BYTE(PTR) \
 	(*((uint8 *) (PTR)) != 0)
 
-/* VARSIZE_4B() should only be used on known-aligned data */
+/*  VARSIZE_4B() 仅用于已知对齐的数据  */
 #define VARSIZE_4B(PTR) \
 	(((varattrib_4b *) (PTR))->va_4byte.va_header & 0x3FFFFFFF)
 #define VARSIZE_1B(PTR) \
@@ -221,7 +221,7 @@ typedef struct
 #define VARATT_NOT_PAD_BYTE(PTR) \
 	(*((uint8 *) (PTR)) != 0)
 
-/* VARSIZE_4B() should only be used on known-aligned data */
+/*  VARSIZE_4B() 仅用于已知对齐的数据  */
 #define VARSIZE_4B(PTR) \
 	((((varattrib_4b *) (PTR))->va_4byte.va_header >> 2) & 0x3FFFFFFF)
 #define VARSIZE_1B(PTR) \
@@ -247,7 +247,7 @@ typedef struct
 #define VARDATA_1B_E(PTR)	(((varattrib_1b_e *) (PTR))->va_data)
 
 /*
- * Externally visible TOAST macros begin here.
+ * 对外可见的 TOAST 宏自此开始。
  */
 
 #define VARHDRSZ_EXTERNAL		offsetof(varattrib_1b_e, va_data)
@@ -262,18 +262,18 @@ typedef struct
 	(VARSIZE(PTR) - VARHDRSZ + VARHDRSZ_SHORT)
 
 /*
- * In consumers oblivious to data alignment, call PG_DETOAST_DATUM_PACKED(),
- * VARDATA_ANY(), VARSIZE_ANY() and VARSIZE_ANY_EXHDR().  Elsewhere, call
- * PG_DETOAST_DATUM(), VARDATA() and VARSIZE().  Directly fetching an int16,
- * int32 or wider field in the struct representing the datum layout requires
- * aligned data.  memcpy() is alignment-oblivious, as are most operations on
- * datatypes, such as text, whose layout struct contains only char fields.
+ * 对数据对齐无感的消费者，调用 PG_DETOAST_DATUM_PACKED()、
+ * VARDATA_ANY()、VARSIZE_ANY() 与 VARSIZE_ANY_EXHDR()。别处调用
+ * PG_DETOAST_DATUM()、VARDATA() 与 VARSIZE()。在表示 Datum
+ * 布局的结构中直接取 int16、int32 或更宽字段需要
+ * 对齐数据。memcpy() 对对齐无感，多数对仅含
+ * char 字段的布局结构（如 text）的操作亦然。
  *
- * Code assembling a new datum should call VARDATA() and SET_VARSIZE().
- * (Datums begin life untoasted.)
+ * 组装新 Datum 应调用 VARDATA() 与 SET_VARSIZE()。
+ * (Datum 诞生未 toast。)
  *
- * Other macros here should usually be used only by tuple assembly/disassembly
- * code and code that specifically wants to work with still-toasted Datums.
+ * 此处其他宏通常仅应由元组组装/拆解
+ * 代码及特需处理仍 toast 的 Datum 的代码使用。
  */
 #define VARDATA(PTR)						VARDATA_4B(PTR)
 #define VARSIZE(PTR)						VARSIZE_4B(PTR)
@@ -313,24 +313,24 @@ typedef struct
 	 (VARATT_IS_1B(PTR) ? VARSIZE_1B(PTR) : \
 	  VARSIZE_4B(PTR)))
 
-/* Size of a varlena data, excluding header */
+/*  varlena 数据大小，不含头  */
 #define VARSIZE_ANY_EXHDR(PTR) \
 	(VARATT_IS_1B_E(PTR) ? VARSIZE_EXTERNAL(PTR)-VARHDRSZ_EXTERNAL : \
 	 (VARATT_IS_1B(PTR) ? VARSIZE_1B(PTR)-VARHDRSZ_SHORT : \
 	  VARSIZE_4B(PTR)-VARHDRSZ))
 
-/* caution: this will not work on an external or compressed-in-line Datum */
-/* caution: this will return a possibly unaligned pointer */
+/*  注意：对外部或行内压缩 Datum 无效  */
+/*  注意：可能返回未对齐指针  */
 #define VARDATA_ANY(PTR) \
 	 (VARATT_IS_1B(PTR) ? VARDATA_1B(PTR) : VARDATA_4B(PTR))
 
-/* Decompressed size and compression method of a compressed-in-line Datum */
+/*  行内压缩 Datum 的解压大小与压缩方法  */
 #define VARDATA_COMPRESSED_GET_EXTSIZE(PTR) \
 	(((varattrib_4b *) (PTR))->va_compressed.va_tcinfo & VARLENA_EXTSIZE_MASK)
 #define VARDATA_COMPRESSED_GET_COMPRESS_METHOD(PTR) \
 	(((varattrib_4b *) (PTR))->va_compressed.va_tcinfo >> VARLENA_EXTSIZE_BITS)
 
-/* Same for external Datums; but note argument is a struct varatt_external */
+/*  外部 Datum 同理；但参数为 struct varatt_external  */
 #define VARATT_EXTERNAL_GET_EXTSIZE(toast_pointer) \
 	((toast_pointer).va_extinfo & VARLENA_EXTSIZE_MASK)
 #define VARATT_EXTERNAL_GET_COMPRESS_METHOD(toast_pointer) \
@@ -345,11 +345,11 @@ typedef struct
 	} while (0)
 
 /*
- * Testing whether an externally-stored value is compressed now requires
- * comparing size stored in va_extinfo (the actual length of the external data)
- * to rawsize (the original uncompressed datum's size).  The latter includes
- * VARHDRSZ overhead, the former doesn't.  We never use compression unless it
- * actually saves space, so we expect either equality or less-than.
+ * 测试外部存储值是否压缩现需比较
+ * va_extinfo 所存大小（外部数据实际长度）
+ * 与 rawsize（原始未压缩 Datum 大小）。后者含
+ * VARHDRSZ 开销，前者不含。从不使用不能
+ * 真正省空间的压缩，故期望相等或更小。
  */
 #define VARATT_EXTERNAL_IS_COMPRESSED(toast_pointer) \
 	(VARATT_EXTERNAL_GET_EXTSIZE(toast_pointer) < \

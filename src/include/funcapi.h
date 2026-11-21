@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * funcapi.h
- *	  Definitions for functions which return composite type and/or sets
- *	  or work on VARIADIC inputs.
+ *	  返回复合类型和/或集合的函数定义，
+ *	 或处理 VARIADIC。
  *
- * This file must be included by all Postgres modules that either define
- * or call FUNCAPI-callable functions or macros.
+ * 凡定义或调用 FUNCAPI 可调函数/宏的
+ * Postgres 模块皆须包含本文件。
  *
  *
  * Copyright (c) 2002-2023, PostgreSQL Global Development Group
@@ -23,133 +23,133 @@
 #include "fmgr.h"
 
 /*-------------------------------------------------------------------------
- *	Support to ease writing Functions returning composite types
+ *	便于编写返回复合类型的函数
  *-------------------------------------------------------------------------
  *
- * This struct holds arrays of individual attribute information
- * needed to create a tuple from raw C strings. It also requires
- * a copy of the TupleDesc. The information carried here
- * is derived from the TupleDesc, but it is stored here to
- * avoid redundant cpu cycles on each call to an SRF.
+ * 此结构保存从原始 C 串创建元组所需的
+ * 各属性信息数组。亦需
+ * TupleDesc 副本。此处信息
+ * 源自 TupleDesc，但存此以免
+ * SRF 每次调用重复消耗 CPU。
  */
 typedef struct AttInMetadata
 {
-	/* full TupleDesc */
+	/*  TupleDesc  */
 	TupleDesc	tupdesc;
 
-	/* array of attribute type input function finfo */
+	/*  属性类型输入函数 finfo 数组  */
 	FmgrInfo   *attinfuncs;
 
-	/* array of attribute type i/o parameter OIDs */
+	/*  属性类型 i/o 参数 OIDs 数组  */
 	Oid		   *attioparams;
 
-	/* array of attribute typmod */
+	/*  属性 typmod 数组  */
 	int32	   *atttypmods;
 } AttInMetadata;
 
 /*-------------------------------------------------------------------------
- *		Support struct to ease writing Set Returning Functions (SRFs)
+ *		便于编写返回集合函数 (SRFs) 的支持结构
  *-------------------------------------------------------------------------
  *
- * This struct holds function context for Set Returning Functions.
- * Use fn_extra to hold a pointer to it across calls
+ * 此结构保存返回集合函数的函数上下文。
+ * 用 fn_extra 跨调用保存其指针
  */
 typedef struct FuncCallContext
 {
 	/*
-	 * Number of times we've been called before
+	 * 此前已被调用的次数
 	 *
-	 * call_cntr is initialized to 0 for you by SRF_FIRSTCALL_INIT(), and
-	 * incremented for you every time SRF_RETURN_NEXT() is called.
+	 * call_cntr 由 SRF_FIRSTCALL_INIT() 初始化为 0，并在
+	 * 每次 SRF_RETURN_NEXT() 时为你递增。
 	 */
 	uint64		call_cntr;
 
 	/*
-	 * OPTIONAL maximum number of calls
+	 * OPTIONAL 最大调用次数
 	 *
-	 * max_calls is here for convenience only and setting it is optional. If
-	 * not set, you must provide alternative means to know when the function
-	 * is done.
+	 * max_calls 仅为方便，设置可选。若
+	 * 未设，须另有办法知道函数
+	 * 略
 	 */
 	uint64		max_calls;
 
 	/*
-	 * OPTIONAL pointer to miscellaneous user-provided context information
+	 * OPTIONAL 指向用户杂项上下文的指针
 	 *
-	 * user_fctx is for use as a pointer to your own struct to retain
-	 * arbitrary context information between calls of your function.
+	 * user_fctx 用作指向自有结构的指针，以在
+	 * 函数调用间保留任意上下文信息。
 	 */
 	void	   *user_fctx;
 
 	/*
-	 * OPTIONAL pointer to struct containing attribute type input metadata
+	 * OPTIONAL 指向属性类型输入元数据
 	 *
-	 * attinmeta is for use when returning tuples (i.e. composite data types)
-	 * and is not used when returning base data types. It is only needed if
-	 * you intend to use BuildTupleFromCStrings() to create the return tuple.
+	 * attinmeta 用于返回元组（即复合类型），
+	 * 返回基类型时不用。仅当你
+	 * 打算用 BuildTupleFromCStrings() 创建返回元组时才需。
 	 */
 	AttInMetadata *attinmeta;
 
 	/*
-	 * memory context used for structures that must live for multiple calls
+	 * 用于须跨多次调用存活的结构的内存上下文
 	 *
-	 * multi_call_memory_ctx is set by SRF_FIRSTCALL_INIT() for you, and used
-	 * by SRF_RETURN_DONE() for cleanup. It is the most appropriate memory
-	 * context for any memory that is to be reused across multiple calls of
-	 * the SRF.
+	 * multi_call_memory_ctx 由 SRF_FIRSTCALL_INIT() 设置，并由
+	 * SRF_RETURN_DONE() 清理。最适合存放
+	 * 将在 SRF 多次调用间复用的
+	 * 略
 	 */
 	MemoryContext multi_call_memory_ctx;
 
 	/*
-	 * OPTIONAL pointer to struct containing tuple description
+	 * OPTIONAL 指向元组描述结构的指针
 	 *
-	 * tuple_desc is for use when returning tuples (i.e. composite data types)
-	 * and is only needed if you are going to build the tuples with
-	 * heap_form_tuple() rather than with BuildTupleFromCStrings(). Note that
-	 * the TupleDesc pointer stored here should usually have been run through
-	 * BlessTupleDesc() first.
+	 * tuple_desc 用于返回元组（即复合类型），
+	 * 仅当你用 heap_form_tuple() 而非
+	 * BuildTupleFromCStrings() 建元组时才需。注意
+	 * 此处存的 TupleDesc 指针通常应先经
+	 * BlessTupleDesc()。
 	 */
 	TupleDesc	tuple_desc;
 
 } FuncCallContext;
 
 /*----------
- *	Support to ease writing functions returning composite types
+ *	便于编写返回复合类型的函数
  *
- * External declarations:
+ * 外部声明：
  * get_call_result_type:
- *		Given a function's call info record, determine the kind of datatype
- *		it is supposed to return.  If resultTypeId isn't NULL, *resultTypeId
- *		receives the actual datatype OID (this is mainly useful for scalar
- *		result types).  If resultTupleDesc isn't NULL, *resultTupleDesc
- *		receives a pointer to a TupleDesc when the result is of a composite
- *		type, or NULL when it's a scalar result or the rowtype could not be
- *		determined.  NB: the tupledesc should be copied if it is to be
- *		accessed over a long period.
+ *		给定函数调用信息记录，判定应返回的
+ *		数据类型种类。若 resultTypeId 非 NULL，*resultTypeId
+ *		收到实际数据类型 OID（对标量结果
+ *		类型有用）。若 resultTupleDesc 非 NULL，
+ *		在结果为复合类型时收到 TupleDesc
+ *		指针；标量或无法确定行类型时为
+ *		NULL。注意：若需长期访问，应复制
+ *		tupledesc。
  * get_expr_result_type:
- *		Given an expression node, return the same info as for
- *		get_call_result_type.  Note: the cases in which rowtypes cannot be
- *		determined are different from the cases for get_call_result_type.
+ *		给定表达式节点，返回与
+ *		get_call_result_type。注意：无法确定行类型的
+ *		情形与 get_call_result_type 不同。
  * get_func_result_type:
- *		Given only a function's OID, return the same info as for
- *		get_call_result_type.  Note: the cases in which rowtypes cannot be
- *		determined are different from the cases for get_call_result_type.
- *		Do *not* use this if you can use one of the others.
+ *		仅给定函数 OID，返回与
+ *		get_call_result_type。注意：无法确定行类型的
+ *		情形与 get_call_result_type 不同。
+ *		若能用另两者则*勿*用此。
  *
- * See also get_expr_result_tupdesc(), which is a convenient wrapper around
- * get_expr_result_type() for use when the caller only cares about
- * determinable-rowtype cases.
+ * 另见 get_expr_result_tupdesc()，它是
+ * get_expr_result_type() 的便捷包装，供调用方只关心
+ * 可确定行类型情形。
  *----------
  */
 
-/* Type categories for get_call_result_type and siblings */
+/*  get_call_result_type 及其兄弟的类型类别  */
 typedef enum TypeFuncClass
 {
-	TYPEFUNC_SCALAR,			/* scalar result type */
-	TYPEFUNC_COMPOSITE,			/* determinable rowtype result */
-	TYPEFUNC_COMPOSITE_DOMAIN,	/* domain over determinable rowtype result */
-	TYPEFUNC_RECORD,			/* indeterminate rowtype result */
-	TYPEFUNC_OTHER				/* bogus type, eg pseudotype */
+	TYPEFUNC_SCALAR,			/*  标量结果  */
+	TYPEFUNC_COMPOSITE,			/*  可确定行类型结果  */
+	TYPEFUNC_COMPOSITE_DOMAIN,	/*  可确定行类型上的域结果  */
+	TYPEFUNC_RECORD,			/*  不确定行类型结果  */
+	TYPEFUNC_OTHER				/*  虚假/伪类型  */
 } TypeFuncClass;
 
 extern TypeFuncClass get_call_result_type(FunctionCallInfo fcinfo,
@@ -232,7 +232,7 @@ HeapTupleGetDatum(const HeapTupleData *tuple)
 	return HeapTupleHeaderGetDatum(tuple->t_data);
 }
 
-/* obsolete version of above */
+/*  上述的过时版本  */
 #define TupleGetDatum(_slot, _tuple)	HeapTupleGetDatum(_tuple)
 
 
@@ -292,9 +292,9 @@ HeapTupleGetDatum(const HeapTupleData *tuple)
 
 /* from funcapi.c */
 
-/* flag bits for InitMaterializedSRF() */
-#define MAT_SRF_USE_EXPECTED_DESC	0x01	/* use expectedDesc as tupdesc. */
-#define MAT_SRF_BLESS				0x02	/* "Bless" a tuple descriptor with
+/*  InitMaterializedSRF 标志  */
+#define MAT_SRF_USE_EXPECTED_DESC	0x01	/*  expectedDesc 作 tupdesc  */
+#define MAT_SRF_BLESS				0x02	/*  用 BlessTupleDesc() "祝福"
 											 * BlessTupleDesc(). */
 extern void InitMaterializedSRF(FunctionCallInfo fcinfo, bits32 flags);
 
@@ -336,22 +336,22 @@ extern void end_MultiFuncCall(PG_FUNCTION_ARGS, FuncCallContext *funcctx);
 	} while (0)
 
 /*----------
- *	Support to ease writing of functions dealing with VARIADIC inputs
+ *	便于编写处理 VARIADIC 输入的函数
  *----------
  *
- * This function extracts a set of argument values, types and NULL markers
- * for a given input function. This returns a set of data:
- * - **values includes the set of Datum values extracted.
- * - **types the data type OID for each element.
- * - **nulls tracks if an element is NULL.
+ * 提取给定输入函数的参数值、类型与 NULL 标记。
+ * 返回一组数据：
+ * - **values 含所提取的 Datum 值集。
+ * - **types 各元素的数据类型 OID。
+ * - **nulls 跟踪元素是否为 NULL。
  *
- * variadic_start indicates the argument number where the VARIADIC argument
+ * variadic_start 指出 VARIADIC 参数起始的
  * starts.
- * convert_unknown set to true will enforce the conversion of arguments
- * with unknown data type to text.
+ * convert_unknown 为真时将强制把未知
+ * 类型参数转为 text。
  *
- * The return result is the number of elements stored, or -1 in the case of
- * "VARIADIC NULL".
+ * 返回结果为所存元素个数；若为
+ * 则为 -1。
  */
 extern int	extract_variadic_args(FunctionCallInfo fcinfo, int variadic_start,
 								  bool convert_unknown, Datum **args,

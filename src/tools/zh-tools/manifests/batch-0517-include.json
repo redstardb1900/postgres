@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0517",
+  "title": "include funcapi/varatt/kwlist — batch 0517",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "89adae574125545cf4f1eb02fcabdb5615f3aaa9",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/funcapi.h",
+      "kind": "c_comment",
+      "note": "0517"
+    },
+    {
+      "pattern": "src/include/parser/kwlist.h",
+      "kind": "c_comment",
+      "note": "0517"
+    },
+    {
+      "pattern": "src/include/varatt.h",
+      "kind": "c_comment",
+      "note": "0517"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0517-include.json",
+      "kind": "manifest",
+      "note": "0517"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/funcapi.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 100,
+      "translated": 86,
+      "preserved": 14,
+      "preserved_reasons": [
+        "横幅/版权/路径；API签名与SRF示例 KEEP；位布局 ASCII KEEP"
+      ],
+      "note": "0517"
+    },
+    {
+      "path": "src/include/parser/kwlist.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 9,
+      "preserved": 3,
+      "preserved_reasons": [
+        "横幅/版权/路径；API签名与SRF示例 KEEP；位布局 ASCII KEEP"
+      ],
+      "note": "0517"
+    },
+    {
+      "path": "src/include/varatt.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 90,
+      "translated": 73,
+      "preserved": 17,
+      "preserved_reasons": [
+        "横幅/版权/路径；API签名与SRF示例 KEEP；位布局 ASCII KEEP"
+      ],
+      "note": "0517"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0517-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0517"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "funcapi.h+varatt.h+kwlist.h；SRF/API 示例与 TOAST 位布局 KEEP"
+}

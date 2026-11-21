@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * geqo_recombination.h
- *	  prototypes for recombination in the genetic query optimizer
+ *	遗传查询优化器中重组的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,7 +19,7 @@
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* -- parts of this are adapted from D. Whitley's Genitor algorithm -- */
+/* -- 部分改编自 D. Whitley 的 Genitor 算法 -- */
 
 #ifndef GEQO_RECOMBINATION_H
 #define GEQO_RECOMBINATION_H
@@ -30,11 +30,11 @@
 extern void init_tour(PlannerInfo *root, Gene *tour, int num_gene);
 
 
-/* edge recombination crossover [ERX] */
+/* 边重组交叉 [ERX] */
 
 typedef struct Edge
 {
-	Gene		edge_list[4];	/* list of edges */
+	Gene		edge_list[4];	/* 边列表 */
 	int			total_edges;
 	int			unused_edges;
 } Edge;
@@ -49,10 +49,10 @@ extern int	gimme_tour(PlannerInfo *root, Edge *edge_table, Gene *new_gene,
 					   int num_gene);
 
 
-/* partially matched crossover [PMX] */
+/* 部分匹配交叉 [PMX] */
 
-#define DAD 1					/* indicator for gene from dad */
-#define MOM 0					/* indicator for gene from mom */
+#define DAD 1					/* 来自父方基因的指示 */
+#define MOM 0					/* 来自母方基因的指示 */
 
 extern void pmx(PlannerInfo *root,
 				Gene *tour1, Gene *tour2,
@@ -70,19 +70,19 @@ typedef struct City
 extern City * alloc_city_table(PlannerInfo *root, int num_gene);
 extern void free_city_table(PlannerInfo *root, City * city_table);
 
-/* cycle crossover [CX] */
+/* 循环交叉 [CX] */
 extern int	cx(PlannerInfo *root, Gene *tour1, Gene *tour2,
 			   Gene *offspring, int num_gene, City * city_table);
 
-/* position crossover [PX] */
+/* 位置交叉 [PX] */
 extern void px(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
 			   int num_gene, City * city_table);
 
-/* order crossover [OX1] according to Davis */
+/* 按 Davis 的顺序交叉 [OX1] */
 extern void ox1(PlannerInfo *root, Gene *mom, Gene *dad, Gene *offspring,
 				int num_gene, City * city_table);
 
-/* order crossover [OX2] according to Syswerda */
+/* 按 Syswerda 的顺序交叉 [OX2] */
 extern void ox2(PlannerInfo *root, Gene *mom, Gene *dad, Gene *offspring,
 				int num_gene, City * city_table);
 

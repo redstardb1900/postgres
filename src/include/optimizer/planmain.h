@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * planmain.h
- *	  prototypes for various files in optimizer/plan
+ *	optimizer/plan 下各文件的原型
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,26 +17,26 @@
 #include "nodes/pathnodes.h"
 #include "nodes/plannodes.h"
 
-/* GUC parameters */
+/* GUC 参数 */
 #define DEFAULT_CURSOR_TUPLE_FRACTION 0.1
 extern PGDLLIMPORT double cursor_tuple_fraction;
 
-/* query_planner callback to compute query_pathkeys */
+/* 计算 query_pathkeys 的 query_planner 回调 */
 typedef void (*query_pathkeys_callback) (PlannerInfo *root, void *extra);
 
 /*
- * prototypes for plan/planmain.c
+ * plan/planmain.c 的原型
  */
 extern RelOptInfo *query_planner(PlannerInfo *root,
 								 query_pathkeys_callback qp_callback, void *qp_extra);
 
 /*
- * prototypes for plan/planagg.c
+ * plan/planagg.c 的原型
  */
 extern void preprocess_minmax_aggregates(PlannerInfo *root);
 
 /*
- * prototypes for plan/createplan.c
+ * plan/createplan.c 的原型
  */
 extern Plan *create_plan(PlannerInfo *root, Path *best_path);
 extern ForeignScan *make_foreignscan(List *qptlist, List *qpqual,
@@ -49,7 +49,7 @@ extern Plan *materialize_finished_plan(Plan *subplan);
 extern bool is_projection_capable_path(Path *path);
 extern bool is_projection_capable_plan(Plan *plan);
 
-/* External use of these functions is deprecated: */
+/* 外部使用这些函数已弃用： */
 extern Sort *make_sort_from_sortclauses(List *sortcls, Plan *lefttree);
 extern Agg *make_agg(List *tlist, List *qual,
 					 AggStrategy aggstrategy, AggSplit aggsplit,
@@ -62,7 +62,7 @@ extern Limit *make_limit(Plan *lefttree, Node *limitOffset, Node *limitCount,
 						 Oid *uniqCollations);
 
 /*
- * prototypes for plan/initsplan.c
+ * plan/initsplan.c 的原型
  */
 extern PGDLLIMPORT int from_collapse_limit;
 extern PGDLLIMPORT int join_collapse_limit;
@@ -95,7 +95,7 @@ extern RestrictInfo *build_implied_join_equality(PlannerInfo *root,
 extern void match_foreign_keys_to_quals(PlannerInfo *root);
 
 /*
- * prototypes for plan/analyzejoins.c
+ * plan/analyzejoins.c 的原型
  */
 extern List *remove_useless_joins(PlannerInfo *root, List *joinlist);
 extern void reduce_unique_semijoins(PlannerInfo *root);
@@ -106,7 +106,7 @@ extern bool innerrel_is_unique(PlannerInfo *root,
 							   JoinType jointype, List *restrictlist, bool force_cache);
 
 /*
- * prototypes for plan/setrefs.c
+ * plan/setrefs.c 的原型
  */
 extern Plan *set_plan_references(PlannerInfo *root, Plan *plan);
 extern bool trivial_subqueryscan(SubqueryScan *plan);

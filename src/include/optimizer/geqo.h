@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * geqo.h
- *	  prototypes for various files in optimizer/geqo
+ *	optimizer/geqo 下各文件的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,12 +27,12 @@
 #include "optimizer/geqo_gene.h"
 
 
-/* GEQO debug flag */
+/* GEQO 调试 */
 /*
  #define GEQO_DEBUG
  */
 
-/* choose one recombination mechanism here */
+/* 在此选择一种重组机制 */
 /*
  #define ERX
  #define PMX
@@ -45,20 +45,20 @@
 
 
 /*
- * Configuration options
+ * 配置选项
  *
- * If you change these, update backend/utils/misc/postgresql.conf.sample
+ * 若更改这些，请更新 backend/utils/misc/postgresql.conf.sample
  */
-extern PGDLLIMPORT int Geqo_effort; /* 1 .. 10, knob for adjustment of
-									 * defaults */
+extern PGDLLIMPORT int Geqo_effort; /* 1 .. 10，用于调节
+									 * 默认 */
 
 #define DEFAULT_GEQO_EFFORT 5
 #define MIN_GEQO_EFFORT 1
 #define MAX_GEQO_EFFORT 10
 
-extern PGDLLIMPORT int Geqo_pool_size;	/* 2 .. inf, or 0 to use default */
+extern PGDLLIMPORT int Geqo_pool_size;	/* 2 .. inf，或 0 用默认 */
 
-extern PGDLLIMPORT int Geqo_generations;	/* 1 .. inf, or 0 to use default */
+extern PGDLLIMPORT int Geqo_generations;	/* 1 .. inf，或 0 用默认 */
 
 extern PGDLLIMPORT double Geqo_selection_bias;
 
@@ -70,20 +70,20 @@ extern PGDLLIMPORT double Geqo_seed;	/* 0 .. 1 */
 
 
 /*
- * Private state for a GEQO run --- accessible via root->join_search_private
+ * GEQO 运行私有状态——经 root->join_search_private 访问
  */
 typedef struct
 {
-	List	   *initial_rels;	/* the base relations we are joining */
-	pg_prng_state random_state; /* PRNG state */
+	List	   *initial_rels;	/* 正在连接的基关系 */
+	pg_prng_state random_state; /* PRNG 态 */
 } GeqoPrivateData;
 
 
-/* routines in geqo_main.c */
+/* geqo_main.c 例程 */
 extern RelOptInfo *geqo(PlannerInfo *root,
 						int number_of_rels, List *initial_rels);
 
-/* routines in geqo_eval.c */
+/* geqo_eval.c 例程 */
 extern Cost geqo_eval(PlannerInfo *root, Gene *tour, int num_gene);
 extern RelOptInfo *gimme_tree(PlannerInfo *root, Gene *tour, int num_gene);
 

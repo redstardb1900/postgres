@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * geqo_misc.h
- *	  prototypes for printout routines in optimizer/geqo
+ *	optimizer/geqo 中打印例程的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

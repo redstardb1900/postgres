@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tlist.h
- *	  prototypes for tlist.c.
+ *	tlist.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -49,7 +49,7 @@ extern void split_pathtarget_at_srfs(PlannerInfo *root,
 									 PathTarget *target, PathTarget *input_target,
 									 List **targets, List **targets_contain_srfs);
 
-/* Convenience macro to get a PathTarget with valid cost/width fields */
+/* 取得带有效 cost/width 的 PathTarget 的便利宏 */
 #define create_pathtarget(root, tlist) \
 	set_pathtarget_cost_width(root, make_pathtarget_from_tlist(tlist))
 

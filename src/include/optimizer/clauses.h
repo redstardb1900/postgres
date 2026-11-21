@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * clauses.h
- *	  prototypes for clauses.c.
+ *	clauses.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,9 +18,9 @@
 
 typedef struct
 {
-	int			numWindowFuncs; /* total number of WindowFuncs found */
-	Index		maxWinRef;		/* windowFuncs[] is indexed 0 .. maxWinRef */
-	List	  **windowFuncs;	/* lists of WindowFuncs for each winref */
+	int			numWindowFuncs; /* 找到的 WindowFuncs 总数 */
+	Index		maxWinRef;		/* windowFuncs[] 下标 0 .. maxWinRef */
+	List	  **windowFuncs;	/* 每个 winref 的 WindowFuncs 列表 */
 } WindowFuncLists;
 
 extern bool contain_agg_clause(Node *clause);

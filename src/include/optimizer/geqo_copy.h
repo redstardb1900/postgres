@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * geqo_copy.h
- *	  prototypes for copy functions in optimizer/geqo
+ *	optimizer/geqo 中复制函数的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

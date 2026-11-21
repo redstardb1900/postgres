@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * joininfo.h
- *	  prototypes for joininfo.c.
+ *	joininfo.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

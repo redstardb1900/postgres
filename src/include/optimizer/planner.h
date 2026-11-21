@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * planner.h
- *	  prototypes for planner.c.
+ *	planner.c 的原型。
  *
- * Note that the primary entry points for planner.c are declared in
- * optimizer/optimizer.h, because they're intended to be called from
- * non-planner code.  Declarations here are meant for use by other
- * planner modules.
+ * 注意 planner.c 主入口声明于
+ * optimizer/optimizer.h，因其拟由非规划器
+ * 代码调用。此处声明供其他规划器模块
+ *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,14 +22,14 @@
 #include "nodes/plannodes.h"
 
 
-/* Hook for plugins to get control in planner() */
+/* 插件在 planner() 取得控制的钩子 */
 typedef PlannedStmt *(*planner_hook_type) (Query *parse,
 										   const char *query_string,
 										   int cursorOptions,
 										   ParamListInfo boundParams);
 extern PGDLLIMPORT planner_hook_type planner_hook;
 
-/* Hook for plugins to get control when grouping_planner() plans upper rels */
+/* grouping_planner() 规划上层关系时插件取得控制的钩子 */
 typedef void (*create_upper_paths_hook_type) (PlannerInfo *root,
 											  UpperRelationKind stage,
 											  RelOptInfo *input_rel,

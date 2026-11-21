@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * restrictinfo.h
- *	  prototypes for restrictinfo.c.
+ *	restrictinfo.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,7 +17,7 @@
 #include "nodes/pathnodes.h"
 
 
-/* Convenience macro for the common case of a valid-everywhere qual */
+/* 处处有效限定条件的常用便利宏 */
 #define make_simple_restrictinfo(root, clause)  \
 	make_restrictinfo(root, clause, true, false, false, false, 0, \
 		NULL, NULL, NULL)

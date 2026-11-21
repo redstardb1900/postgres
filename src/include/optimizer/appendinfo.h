@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * appendinfo.h
- *	  Routines for mapping expressions between append rel parent(s) and
- *	  children
+ *	在 append 关系父与子之间映射表达式的
+ *	例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

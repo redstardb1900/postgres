@@ -1,0 +1,434 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0527",
+  "title": "include/optimizer 小头 23 文件 — batch 0527",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8e4f7ad1aebb285137a6487672cb47c0d46bb4ce",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/optimizer/appendinfo.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/clauses.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_copy.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_gene.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_misc.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_mutation.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_pool.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_random.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_recombination.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/geqo_selection.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/inherit.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/joininfo.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/orclauses.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/paramassign.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/placeholder.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/plancat.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/planmain.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/planner.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/prep.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/restrictinfo.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/subselect.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/include/optimizer/tlist.h",
+      "kind": "c_comment",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0527-include.json",
+      "kind": "manifest",
+      "note": "0527"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/optimizer/appendinfo.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=2 K=7"
+    },
+    {
+      "path": "src/include/optimizer/clauses.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 4,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=4 K=7"
+    },
+    {
+      "path": "src/include/optimizer/geqo.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 15,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=15 K=10"
+    },
+    {
+      "path": "src/include/optimizer/geqo_copy.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 1,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=10"
+    },
+    {
+      "path": "src/include/optimizer/geqo_gene.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 1,
+      "preserved": 11,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=11"
+    },
+    {
+      "path": "src/include/optimizer/geqo_misc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 1,
+      "preserved": 11,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=11"
+    },
+    {
+      "path": "src/include/optimizer/geqo_mutation.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 1,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=10"
+    },
+    {
+      "path": "src/include/optimizer/geqo_pool.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 1,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=10"
+    },
+    {
+      "path": "src/include/optimizer/geqo_random.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 4,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=4 K=10"
+    },
+    {
+      "path": "src/include/optimizer/geqo_recombination.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21,
+      "translated": 11,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=11 K=10"
+    },
+    {
+      "path": "src/include/optimizer/geqo_selection.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 1,
+      "preserved": 10,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=10"
+    },
+    {
+      "path": "src/include/optimizer/inherit.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=7"
+    },
+    {
+      "path": "src/include/optimizer/joininfo.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=7"
+    },
+    {
+      "path": "src/include/optimizer/orclauses.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=7"
+    },
+    {
+      "path": "src/include/optimizer/paramassign.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=7"
+    },
+    {
+      "path": "src/include/optimizer/placeholder.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=7"
+    },
+    {
+      "path": "src/include/optimizer/plancat.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=2 K=7"
+    },
+    {
+      "path": "src/include/optimizer/planmain.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 10,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=10 K=7"
+    },
+    {
+      "path": "src/include/optimizer/planner.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 7,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=7 K=7"
+    },
+    {
+      "path": "src/include/optimizer/prep.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 12,
+      "translated": 5,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=5 K=7"
+    },
+    {
+      "path": "src/include/optimizer/restrictinfo.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=2 K=7"
+    },
+    {
+      "path": "src/include/optimizer/subselect.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=1 K=7"
+    },
+    {
+      "path": "src/include/optimizer/tlist.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 2,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/版权/路径/贡献者/守卫 KEEP"
+      ],
+      "note": "0527 T=2 K=7"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0527-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0527"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0527"
+    }
+  ]
+}

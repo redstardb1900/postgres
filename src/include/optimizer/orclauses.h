@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * orclauses.h
- *	  prototypes for orclauses.c.
+ *	orclauses.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

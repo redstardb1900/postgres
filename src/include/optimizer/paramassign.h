@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * paramassign.h
- *		Functions for assigning PARAM_EXEC slots during planning.
+ *	规划期间分配 PARAM_EXEC 槽的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

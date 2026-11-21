@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * geqo_mutation.h
- *	  prototypes for mutation functions in optimizer/geqo
+ *	optimizer/geqo 中变异函数的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * plancat.h
- *	  prototypes for plancat.c.
+ *	plancat.c 的原型。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,7 +17,7 @@
 #include "nodes/pathnodes.h"
 #include "utils/relcache.h"
 
-/* Hook for plugins to get control in get_relation_info() */
+/* 插件在 get_relation_info() 取得控制的钩子 */
 typedef void (*get_relation_info_hook_type) (PlannerInfo *root,
 											 Oid relationObjectId,
 											 bool inhparent,

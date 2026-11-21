@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0524",
+  "title": "include/c.h 切片 Section0-1 — batch 0524",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "e45549d6f0c8324b1d97c556080437cb2b4c5bc3",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/c.h",
+      "kind": "c_comment",
+      "note": "0524"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0524-include.json",
+      "kind": "manifest",
+      "note": "0524"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/c.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 31,
+      "preserved": 0,
+      "preserved_reasons": [
+        "切片余部+R5/TOC/URL KEEP"
+      ],
+      "note": "0524 T=95 K=388；L1-407"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0524-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0524"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0524"
+    }
+  ]
+}

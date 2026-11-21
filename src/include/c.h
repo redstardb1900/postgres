@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * c.h
- *	  Fundamental C definitions.  This is included by every .c file in
- *	  PostgreSQL (via either postgres.h or postgres_fe.h, as appropriate).
+ *	基本 C 定义。PostgreSQL 中每个 .c 文件皆经
+ *	postgres.h 或 postgres_fe.h（视情形）包含本文件。
  *
- *	  Note that the definitions here are not intended to be exposed to clients
- *	  of the frontend interface libraries --- so we don't worry much about
- *	  polluting the namespace with lots of stuff...
+ *	注意此处定义无意暴露给前端接口库的
+ *	客户端——故不太担心用大量内容
+ *	污染命名空间…
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -48,14 +48,14 @@
 
 #include "postgres_ext.h"
 
-/* Must undef pg_config_ext.h symbols before including pg_config.h */
+/* 含 pg_config.h 前须先 undef pg_config_ext.h 符号 */
 #undef PG_INT64_TYPE
 
 #include "pg_config.h"
-#include "pg_config_manual.h"	/* must be after pg_config.h */
-#include "pg_config_os.h"		/* must be before any system header files */
+#include "pg_config_manual.h"	/* 须在 pg_config.h 之后 */
+#include "pg_config_os.h"		/* 须在任何系统头文件之前 */
 
-/* System header files that should be available everywhere in Postgres */
+/* Postgres 各处皆应可用的系统头文件 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,7 +68,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #if defined(WIN32) || defined(__CYGWIN__)
-#include <fcntl.h>				/* ensure O_BINARY is available */
+#include <fcntl.h>				/* 确保 O_BINARY 可用 */
 #endif
 #include <locale.h>
 #ifdef ENABLE_NLS
@@ -77,16 +77,16 @@
 
 
 /* ----------------------------------------------------------------
- *				Section 1: compiler characteristics
+ *	第 1 节：编译器特性
  *
- * type prefixes (const, signed, volatile, inline) are handled in pg_config.h.
+ * 类型前缀(const/signed/volatile/inline)在 pg_config.h 中处理。
  * ----------------------------------------------------------------
  */
 
 /*
- * Disable "inline" if PG_FORCE_DISABLE_INLINE is defined.
- * This is used to work around compiler bugs and might also be useful for
- * investigatory purposes.
+ * 若定义 PG_FORCE_DISABLE_INLINE 则禁用 "inline"。
+ * 用于绕过编译器缺陷，亦可能有助于
+ * 调查目的。
  */
 #ifdef PG_FORCE_DISABLE_INLINE
 #undef inline
@@ -94,7 +94,7 @@
 #endif
 
 /*
- * Attribute macros
+ * 属性宏
  *
  * GCC: https://gcc.gnu.org/onlinedocs/gcc/Function-Attributes.html
  * GCC: https://gcc.gnu.org/onlinedocs/gcc/Type-Attributes.html
@@ -105,15 +105,15 @@
  */
 
 /*
- * For compilers which don't support __has_attribute, we just define
- * __has_attribute(x) to 0 so that we can define macros for various
- * __attribute__s more easily below.
+ * 对不支持 __has_attribute 的编译器，我们仅把
+ * __has_attribute(x) 定义为 0，以便下文更易定义各种
+ * __attribute__s 宏。
  */
 #ifndef __has_attribute
 #define __has_attribute(attribute) 0
 #endif
 
-/* only GCC supports the unused attribute */
+/* 仅 GCC 支持 unused 属性 */
 #ifdef __GNUC__
 #define pg_attribute_unused() __attribute__((unused))
 #else
@@ -121,10 +121,10 @@
 #endif
 
 /*
- * pg_nodiscard means the compiler should warn if the result of a function
- * call is ignored.  The name "nodiscard" is chosen in alignment with
- * (possibly future) C and C++ standards.  For maximum compatibility, use it
- * as a function declaration specifier, so it goes before the return type.
+ * pg_nodiscard 表示若忽略函数调用结果，编译器应警告。
+ * 名 "nodiscard" 与（可能将来的）C/C++ 标准对齐。
+ * 为最大兼容，用作函数声明说明符，放在
+ * 返回类型之前。
  */
 #ifdef __GNUC__
 #define pg_nodiscard __attribute__((warn_unused_result))
@@ -133,10 +133,10 @@
 #endif
 
 /*
- * Place this macro before functions that should be allowed to make misaligned
- * accesses.  Think twice before using it on non-x86-specific code!
- * Testing can be done with "-fsanitize=alignment -fsanitize-trap=alignment"
- * on clang, or "-fsanitize=alignment -fno-sanitize-recover=alignment" on gcc.
+ * 放在允许不对齐访问的函数之前。
+ * 在非 x86 专用代码上使用前请三思！
+ * 可用 clang 对齐 sanitize 选项测试，
+ * 或 gcc 对齐 sanitize 选项。
  */
 #if __clang_major__ >= 7 || __GNUC__ >= 8
 #define pg_attribute_no_sanitize_alignment() __attribute__((no_sanitize("alignment")))
@@ -156,9 +156,9 @@
 #endif
 
 /*
- * Append PG_USED_FOR_ASSERTS_ONLY to definitions of variables that are only
- * used in assert-enabled builds, to avoid compiler warnings about unused
- * variables in assert-disabled builds.
+ * 仅在启用断言的构建中使用的变量定义后追加
+ * PG_USED_FOR_ASSERTS_ONLY，以免在禁用断言的构建中
+ * 出现未使用变量警告。
  */
 #ifdef USE_ASSERT_CHECKING
 #define PG_USED_FOR_ASSERTS_ONLY
@@ -166,7 +166,7 @@
 #define PG_USED_FOR_ASSERTS_ONLY pg_attribute_unused()
 #endif
 
-/* GCC and XLC support format attributes */
+/* GCC 与 XLC 支持 format 属性 */
 #if defined(__GNUC__) || defined(__IBMC__)
 #define pg_attribute_format_arg(a) __attribute__((format_arg(a)))
 #define pg_attribute_printf(f,a) __attribute__((format(PG_PRINTF_ATTRIBUTE, f, a)))
@@ -175,7 +175,7 @@
 #define pg_attribute_printf(f,a)
 #endif
 
-/* GCC, Sunpro and XLC support aligned, packed and noreturn */
+/* GCC、Sunpro、XLC 支持 aligned、packed、noreturn */
 #if defined(__GNUC__) || defined(__SUNPRO_C) || defined(__IBMC__)
 #define pg_attribute_aligned(a) __attribute__((aligned(a)))
 #define pg_attribute_noreturn() __attribute__((noreturn))
@@ -194,9 +194,9 @@
 #define pg_attribute_noreturn()
 #else
 /*
- * NB: aligned and packed are not given default definitions because they
- * affect code functionality; they *must* be implemented by the compiler
- * if they are to be used.
+ * NB：aligned 与 packed 不给默认定义，因其影响
+ * 代码功能；要用则*必须*由编译器
+ * 实现。
  */
 #define pg_attribute_noreturn()
 #endif
@@ -208,13 +208,13 @@
  * debug builds.
  */
 #if (defined(__GNUC__) && __GNUC__ > 3 && defined(__OPTIMIZE__)) || defined(__SUNPRO_C) || defined(__IBMC__)
-/* GCC > 3, Sunpro and XLC support always_inline via __attribute__ */
+/* GCC > 3、Sunpro 与 XLC 经 __attribute__ 支持 always_inline */
 #define pg_attribute_always_inline __attribute__((always_inline)) inline
 #elif defined(_MSC_VER)
-/* MSVC has a special keyword for this */
+/* MSVC 有专用关键字 */
 #define pg_attribute_always_inline __forceinline
 #else
-/* Otherwise, the best we can do is to say "inline" */
+/* 否则最多只能说 "inline" */
 #define pg_attribute_always_inline inline
 #endif
 
@@ -224,10 +224,10 @@
  * for proper cost attribution.  Note that unlike the pg_attribute_XXX macros
  * above, this should be placed before the function's return type and name.
  */
-/* GCC, Sunpro and XLC support noinline via __attribute__ */
+/* GCC、Sunpro 与 XLC 经 __attribute__ 支持 noinline */
 #if (defined(__GNUC__) && __GNUC__ > 2) || defined(__SUNPRO_C) || defined(__IBMC__)
 #define pg_noinline __attribute__((noinline))
-/* msvc via declspec */
+/* msvc 经 declspec */
 #elif defined(_MSC_VER)
 #define pg_noinline __declspec(noinline)
 #else
@@ -250,8 +250,8 @@
 
 #else
 /*
- * Marking certain functions as "hot" or "cold" can be useful to assist the
- * compiler in arranging the assembly code in a more efficient way.
+ * 将某些函数标为 "hot" 或 "cold" 有助于编译器把
+ * 汇编排得更高效。
  */
 #if __has_attribute (cold)
 #define pg_attribute_cold __attribute__((cold))
@@ -268,9 +268,9 @@
 #endif							/* defined(__MINGW64__) && __GNUC__ == 8 &&
 								 * __GNUC_MINOR__ == 1 */
 /*
- * Mark a point as unreachable in a portable fashion.  This should preferably
- * be something that the compiler understands, to aid code generation.
- * In assert-enabled builds, we prefer abort() for debugging reasons.
+ * 以可移植方式标出不可达点。最好是编译器能
+ * 理解的东西，以助代码生成。
+ * 启用断言的构建中，为调试更愿用 abort()。
  */
 #if defined(HAVE__BUILTIN_UNREACHABLE) && !defined(USE_ASSERT_CHECKING)
 #define pg_unreachable() __builtin_unreachable()
@@ -281,11 +281,11 @@
 #endif
 
 /*
- * Hints to the compiler about the likelihood of a branch. Both likely() and
- * unlikely() return the boolean value of the contained expression.
+ * 向编译器提示分支可能性。likely() 与
+ * unlikely() 皆返回所含表达式的布尔值。
  *
- * These should only be used sparingly, in very hot code paths. It's very easy
- * to mis-estimate likelihoods.
+ * 仅应在极热路径上少用。很容易
+ * 误估可能性。
  */
 #if __GNUC__ >= 3
 #define likely(x)	__builtin_expect((x) != 0, 1)
@@ -297,15 +297,15 @@
 
 /*
  * CppAsString
- *		Convert the argument to a string, using the C preprocessor.
+ *	用 C 预处理器把参数转为字符串。
  * CppAsString2
- *		Convert the argument to a string, after one round of macro expansion.
+ *	宏展开一轮后再把参数转为字符串。
  * CppConcat
- *		Concatenate two arguments together, using the C preprocessor.
+ *	用 C 预处理器拼接两个参数。
  *
- * Note: There used to be support here for pre-ANSI C compilers that didn't
- * support # and ##.  Nowadays, these macros are just for clarity and/or
- * backward compatibility with existing PostgreSQL code.
+ * 注意：昔日曾支持无 # 与 ## 的前 ANSI C 编译器。
+ * 如今这些宏仅为清晰及/或与既有
+ * PostgreSQL 代码向后兼容。
  */
 #define CppAsString(identifier) #identifier
 #define CppAsString2(x)			CppAsString(x)
@@ -313,22 +313,22 @@
 
 /*
  * VA_ARGS_NARGS
- *		Returns the number of macro arguments it is passed.
+ *	返回传入的宏参数个数。
  *
- * An empty argument still counts as an argument, so effectively, this is
- * "one more than the number of commas in the argument list".
+ * 空参数仍计为一个，故实际是
+ * "参数表中逗号数加一"。
  *
- * This works for up to 63 arguments.  Internally, VA_ARGS_NARGS_() is passed
- * 64+N arguments, and the C99 standard only requires macros to allow up to
- * 127 arguments, so we can't portably go higher.  The implementation is
- * pretty trivial: VA_ARGS_NARGS_() returns its 64th argument, and we set up
- * the call so that that is the appropriate one of the list of constants.
- * This idea is due to Laurent Deniau.
+ * 最多支持 63 个参数。内部向 VA_ARGS_NARGS_() 传入
+ * 64+N 个参数，而 C99 仅要求宏最多允许
+ * 127 个，故无法可移植地再高。实现很
+ * 简单：VA_ARGS_NARGS_() 返回其第 64 个参数，我们安排
+ * 调用使该位恰为常数表中合适的一项。
+ * 此主意出自 Laurent Deniau。
  *
- * MSVC has an implementation of __VA_ARGS__ that doesn't conform to the
- * standard unless you use the /Zc:preprocessor compiler flag, but that
- * isn't available before Visual Studio 2019.  For now, use a different
- * definition that also works on older compilers.
+ * MSVC 的 __VA_ARGS__ 实现不合标准，除非用
+ * /Zc:preprocessor 开关，但 VS 2019 前
+ * 不可用。暂用另一套在旧编译器上
+ * 亦可用的定义。
  */
 #ifdef _MSC_VER
 #define EXPAND(args) args
@@ -365,45 +365,45 @@
 	(N)
 
 /*
- * Generic function pointer.  This can be used in the rare cases where it's
- * necessary to cast a function pointer to a seemingly incompatible function
- * pointer type while avoiding gcc's -Wcast-function-type warnings.
+ * 通用函数指针。罕见情形下须把函数指针转为看似
+ * 不兼容的函数指针类型，并避开 gcc 的
+ * -Wcast-function-type 警告时可用。
  */
 typedef void (*pg_funcptr_t) (void);
 
 /*
- * We require C99, hence the compiler should understand flexible array
- * members.  However, for documentation purposes we still consider it to be
- * project style to write "field[FLEXIBLE_ARRAY_MEMBER]" not just "field[]".
- * When computing the size of such an object, use "offsetof(struct s, f)"
- * for portability.  Don't use "offsetof(struct s, f[0])", as this doesn't
- * work with MSVC and with C++ compilers.
+ * 我们要求 C99，故编译器应理解柔性数组成员。
+ * 但为文档目的，项目风格仍写
+ * "field[FLEXIBLE_ARRAY_MEMBER]" 而非仅 "field[]"。
+ * 计算此类对象大小时，为可移植性用
+ * "offsetof(struct s, f)"。勿用 "offsetof(struct s, f[0])"，因
+ * MSVC 与 C++ 编译器上不可用。
  */
-#define FLEXIBLE_ARRAY_MEMBER	/* empty */
+#define FLEXIBLE_ARRAY_MEMBER	/* 空 */
 
 /*
- * Does the compiler support #pragma GCC system_header? We optionally use it
- * to avoid warnings that we can't fix (e.g. in the perl headers).
+ * 编译器是否支持 #pragma GCC system_header？我们可选地用它
+ * 避免无法修复的警告（如 perl 头中）。
  * See https://gcc.gnu.org/onlinedocs/cpp/System-Headers.html
  *
- * Headers for which we do not want to show compiler warnings can,
- * conditionally, use #pragma GCC system_header to avoid warnings. Obviously
- * this should only be used for external headers over which we do not have
- * control.
- *
- * Support for the pragma is tested here, instead of during configure, as gcc
- * also warns about the pragma being used in a .c file. It's surprisingly hard
- * to get autoconf to use .h as the file-ending. Looks like gcc has
- * implemented the pragma since the 2000, so this test should suffice.
+ * 不想显示编译器警告的头可有条件地
+ * 用 #pragma GCC system_header 避免警告。显然
+ * 仅应用于我们无法控制的外部头。
  *
  *
- * Alternatively, we could add the include paths for problematic headers with
- * -isystem, but that is a larger hammer and is harder to search for.
+ * 此处测试 pragma 支持，而非在 configure 中，因 gcc
+ * 亦会对 .c 文件中使用该 pragma 发出警告。让 autoconf
+ * 用 .h 作文件后缀出奇地难。gcc 自
+ * 约 2000 年起即实现该 pragma，故本测试应够。
  *
- * A more granular alternative would be to use #pragma GCC diagnostic
- * push/ignored/pop, but gcc warns about unknown warnings being ignored, so
- * every to-be-ignored-temporarily compiler warning would require its own
- * pg_config.h symbol and #ifdef.
+ *
+ * 或者，可用 -isystem 加入有问题头的包含路径，
+ * 但那是更大的锤子，也更难搜索。
+ *
+ * 更细粒度可用 #pragma GCC diagnostic
+ * push/ignored/pop，但 gcc 会对忽略未知警告再警告，故
+ * 每个临时忽略的警告都需自有 pg_config.h
+ * 符号与 #ifdef。
  */
 #ifdef __GNUC__
 #define HAVE_PRAGMA_GCC_SYSTEM_HEADER	1

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_wchar.h
- *	  multibyte-character support
+ *	  多字节字符支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -9,10 +9,10 @@
  * src/include/mb/pg_wchar.h
  *
  *	NOTES
- *		This is used both by the backend and by frontends, but should not be
- *		included by libpq client programs.  In particular, a libpq client
- *		should not assume that the encoding IDs used by the version of libpq
- *		it's linked to match up with the IDs declared here.
+ *		后端与前端皆用，但不应被
+ *		libpq 客户端程序包含。尤其 libpq 客户端
+ *		不应假定其所链 libpq 版本使用的编码 ID
+ *		与此处声明的 ID 一致。
  *
  *-------------------------------------------------------------------------
  */
@@ -20,111 +20,111 @@
 #define PG_WCHAR_H
 
 /*
- * The pg_wchar type
+ * pg_wchar 类型
  */
 typedef unsigned int pg_wchar;
 
 /*
- * Maximum byte length of multibyte characters in any backend encoding
+ * 任意后端编码中多字节字符的最大字节长度
  */
 #define MAX_MULTIBYTE_CHAR_LEN	4
 
 /*
- * various definitions for EUC
+ * EUC 的若干定义
  */
-#define SS2 0x8e				/* single shift 2 (JIS0201) */
-#define SS3 0x8f				/* single shift 3 (JIS0212) */
+#define SS2 0x8e				/*  单移 2 (JIS0201)  */
+#define SS3 0x8f				/*  单移 3 (JIS0212)  */
 
 /*
- * SJIS validation macros
+ * SJIS 校验宏
  */
 #define ISSJISHEAD(c) (((c) >= 0x81 && (c) <= 0x9f) || ((c) >= 0xe0 && (c) <= 0xfc))
 #define ISSJISTAIL(c) (((c) >= 0x40 && (c) <= 0x7e) || ((c) >= 0x80 && (c) <= 0xfc))
 
 /*----------------------------------------------------
- * MULE Internal Encoding (MIC)
+ * MULE 内部编码 (MIC)
  *
- * This encoding follows the design used within XEmacs; it is meant to
- * subsume many externally-defined character sets.  Each character includes
- * identification of the character set it belongs to, so the encoding is
- * general but somewhat bulky.
+ * 此编码沿用 XEmacs 内部设计；意在
+ * 涵盖多种外部定义的字符集。每个字符含
+ * 所属字符集标识，故编码通
+ * 用但略显臃肿。
  *
- * Currently PostgreSQL supports 5 types of MULE character sets:
+ * 当前 PostgreSQL 支持 5 类 MULE 字符集：
  *
- * 1) 1-byte ASCII characters.  Each byte is below 0x80.
+ * 1) 1 字节 ASCII。每字节低于 0x80。
  *
- * 2) "Official" single byte charsets such as ISO-8859-1 (Latin1).
- *	  Each MULE character consists of 2 bytes: LC1 + C1, where LC1 is
- *	  an identifier for the charset (in the range 0x81 to 0x8d) and C1
- *	  is the character code (in the range 0xa0 to 0xff).
+ * 2) "正式"单字节字符集，如 ISO-8859-1 (Latin1)。
+ *	  每个 MULE 字符 2 字节：LC1 + C1，其中 LC1 是
+ *	  字符集标识（范围 0x81–0x8d），C1
+ *	  为字符码（范围 0xa0–0xff）。
  *
- * 3) "Private" single byte charsets such as SISHENG.  Each MULE
- *	  character consists of 3 bytes: LCPRV1 + LC12 + C1, where LCPRV1
- *	  is a private-charset flag, LC12 is an identifier for the charset,
- *	  and C1 is the character code (in the range 0xa0 to 0xff).
- *	  LCPRV1 is either 0x9a (if LC12 is in the range 0xa0 to 0xdf)
- *	  or 0x9b (if LC12 is in the range 0xe0 to 0xef).
+ * 3) "私有"单字节字符集，如 SISHENG。每个 MULE
+ *	  字符 3 字节：LCPRV1 + LC12 + C1，其中 LCPRV1
+ *	  为私有字符集标志，LC12 为字符集标识，
+ *	  C1 为字符码（范围 0xa0–0xff）。
+ *	  LCPRV1 为 0x9a（若 LC12 在 0xa0–0xdf）
+ *	  或 0x9b（若 LC12 在 0xe0–0xef）。
  *
- * 4) "Official" multibyte charsets such as JIS X0208.  Each MULE
- *	  character consists of 3 bytes: LC2 + C1 + C2, where LC2 is
- *	  an identifier for the charset (in the range 0x90 to 0x99) and C1
- *	  and C2 form the character code (each in the range 0xa0 to 0xff).
+ * 4) "正式"多字节字符集，如 JIS X0208。每个 MULE
+ *	  字符 3 字节：LC2 + C1 + C2，其中 LC2 是
+ *	  字符集标识（范围 0x90–0x99），C1
+ *	  与 C2 组成字符码（各在 0xa0–0xff）。
  *
- * 5) "Private" multibyte charsets such as CNS 11643-1992 Plane 3.
- *	  Each MULE character consists of 4 bytes: LCPRV2 + LC22 + C1 + C2,
- *	  where LCPRV2 is a private-charset flag, LC22 is an identifier for
- *	  the charset, and C1 and C2 form the character code (each in the range
- *	  0xa0 to 0xff).  LCPRV2 is either 0x9c (if LC22 is in the range 0xf0
- *	  to 0xf4) or 0x9d (if LC22 is in the range 0xf5 to 0xfe).
+ * 5) "私有"多字节字符集，如 CNS 11643-1992 平面 3。
+ *	  每个 MULE 字符 4 字节：LCPRV2 + LC22 + C1 + C2，
+ *	  其中 LCPRV2 为私有字符集标志，LC22 为
+ *	  字符集标识，C1 与 C2 组成字符码（各在
+ *	  0xa0–0xff）。LCPRV2 为 0x9c（若 LC22 在 0xf0
+ *	  –0xf4）或 0x9d（若 LC22 在 0xf5–0xfe）。
  *
- * "Official" encodings are those that have been assigned code numbers by
- * the XEmacs project; "private" encodings have Postgres-specific charset
- * identifiers.
+ * "正式"编码指已由 XEmacs 项目分配代号者；
+ * "私有"编码则使用 Postgres 特有的字符集
+ * 标识符。
  *
- * See the "XEmacs Internals Manual", available at http://www.xemacs.org,
- * for more details.  Note that for historical reasons, Postgres'
- * private-charset flag values do not match what XEmacs says they should be,
- * so this isn't really exactly MULE (not that private charsets would be
- * interoperable anyway).
+ * 详见 "XEmacs Internals Manual"（http://www.xemacs.org），
+ * 更多细节。历史原因下 Postgres 的
+ * 私有字符集标志值与 XEmacs 规定并不一致，
+ * 故并非严格 MULE（私有字符集本也
+ * 难互通）。
  *
- * Note that XEmacs's implementation is different from what emacs does.
- * We follow emacs's implementation, rather than XEmacs's.
+ * 注意 XEmacs 实现与 emacs 不同。
+ * 我们跟从 emacs 实现，而非 XEmacs。
  *----------------------------------------------------
  */
 
 /*
- * Charset identifiers (also called "leading bytes" in the MULE documentation)
+ * 字符集标识（MULE 文档亦称 "leading bytes"）
  */
 
 /*
- * Charset IDs for official single byte encodings (0x81-0x8e)
+ * 正式单字节编码的字符集 ID（0x81–0x8e）
  */
 #define LC_ISO8859_1		0x81	/* ISO8859 Latin 1 */
 #define LC_ISO8859_2		0x82	/* ISO8859 Latin 2 */
 #define LC_ISO8859_3		0x83	/* ISO8859 Latin 3 */
 #define LC_ISO8859_4		0x84	/* ISO8859 Latin 4 */
-#define LC_TIS620			0x85	/* Thai (not supported yet) */
-#define LC_ISO8859_7		0x86	/* Greek (not supported yet) */
-#define LC_ISO8859_6		0x87	/* Arabic (not supported yet) */
-#define LC_ISO8859_8		0x88	/* Hebrew (not supported yet) */
-#define LC_JISX0201K		0x89	/* Japanese 1 byte kana */
-#define LC_JISX0201R		0x8a	/* Japanese 1 byte Roman */
-/* Note that 0x8b seems to be unused as of Emacs 20.7.
- * However, there might be a chance that 0x8b could be used
- * in later versions of Emacs.
+#define LC_TIS620			0x85	/*  泰文(未支持)  */
+#define LC_ISO8859_7		0x86	/*  希腊文(未支持)  */
+#define LC_ISO8859_6		0x87	/*  阿拉伯文(未支持)  */
+#define LC_ISO8859_8		0x88	/*  希伯来文(未支持)  */
+#define LC_JISX0201K		0x89	/*  日文假名  */
+#define LC_JISX0201R		0x8a	/*  日文罗马字  */
+/*  注意 0x8b 于 Emacs 20.7 似未用。
+ * 但日后 Emacs 版本仍可能
+ * 使用 0x8b。
  */
 #define LC_KOI8_R			0x8b	/* Cyrillic KOI8-R */
 #define LC_ISO8859_5		0x8c	/* ISO8859 Cyrillic */
 #define LC_ISO8859_9		0x8d	/* ISO8859 Latin 5 (not supported yet) */
 #define LC_ISO8859_15		0x8e	/* ISO8859 Latin 15 (not supported yet) */
-/* #define CONTROL_1		0x8f	control characters (unused) */
+/*  #define CONTROL_1		0x8f	控制符(未用)  */
 
-/* Is a leading byte for "official" single byte encodings? */
+/*  是否"正式"单字节编码引导字节？  */
 #define IS_LC1(c)	((unsigned char)(c) >= 0x81 && (unsigned char)(c) <= 0x8d)
 
 /*
- * Charset IDs for official multibyte encodings (0x90-0x99)
- * 0x9a-0x9d are free. 0x9e and 0x9f are reserved.
+ * 正式多字节编码的字符集 ID（0x90–0x99）
+ * 0x9a–0x9d 空闲。0x9e 与 0x9f 保留。
  */
 #define LC_JISX0208_1978	0x90	/* Japanese Kanji, old JIS (not supported) */
 #define LC_GB2312_80		0x91	/* Chinese */
@@ -133,19 +133,19 @@ typedef unsigned int pg_wchar;
 #define LC_JISX0212			0x94	/* Japanese Kanji (JIS X 0212) */
 #define LC_CNS11643_1		0x95	/* CNS 11643-1992 Plane 1 */
 #define LC_CNS11643_2		0x96	/* CNS 11643-1992 Plane 2 */
-#define LC_JISX0213_1		0x97	/* Japanese Kanji (JIS X 0213 Plane 1)
-									 * (not supported) */
-#define LC_BIG5_1			0x98	/* Plane 1 Chinese traditional (not
-									 * supported) */
-#define LC_BIG5_2			0x99	/* Plane 1 Chinese traditional (not
-									 * supported) */
+#define LC_JISX0213_1		0x97	/*  日文汉字 (JIS X 0213 平面1)
+									 * (未支持)  */
+#define LC_BIG5_1			0x98	/*  平面1繁体中文（不
+									 * 支持）  */
+#define LC_BIG5_2			0x99	/*  平面1繁体中文（不
+									 * 支持）  */
 
-/* Is a leading byte for "official" multibyte encodings? */
+/*  是否"正式"多字节编码引导字节？  */
 #define IS_LC2(c)	((unsigned char)(c) >= 0x90 && (unsigned char)(c) <= 0x99)
 
 /*
- * Postgres-specific prefix bytes for "private" single byte encodings
- * (According to the MULE docs, we should be using 0x9e for this)
+ * Postgres 私有单字节编码的前缀字节
+ * （按 MULE 文档本应使用 0x9e）
  */
 #define LCPRV1_A		0x9a
 #define LCPRV1_B		0x9b
@@ -156,8 +156,8 @@ typedef unsigned int pg_wchar;
 	((unsigned char)(c) >= 0xe0 && (unsigned char)(c) <= 0xef)
 
 /*
- * Postgres-specific prefix bytes for "private" multibyte encodings
- * (According to the MULE docs, we should be using 0x9f for this)
+ * Postgres 私有多字节编码的前缀字节
+ * （按 MULE 文档本应使用 0x9f）
  */
 #define LCPRV2_A		0x9c
 #define LCPRV2_B		0x9d
@@ -168,72 +168,72 @@ typedef unsigned int pg_wchar;
 	((unsigned char)(c) >= 0xf5 && (unsigned char)(c) <= 0xfe)
 
 /*
- * Charset IDs for private single byte encodings (0xa0-0xef)
+ * 私有单字节编码的字符集 ID（0xa0–0xef）
  */
-#define LC_SISHENG			0xa0	/* Chinese SiSheng characters for
-									 * PinYin/ZhuYin (not supported) */
-#define LC_IPA				0xa1	/* IPA (International Phonetic
-									 * Association) (not supported) */
-#define LC_VISCII_LOWER		0xa2	/* Vietnamese VISCII1.1 lower-case (not
-									 * supported) */
-#define LC_VISCII_UPPER		0xa3	/* Vietnamese VISCII1.1 upper-case (not
-									 * supported) */
-#define LC_ARABIC_DIGIT		0xa4	/* Arabic digit (not supported) */
-#define LC_ARABIC_1_COLUMN	0xa5	/* Arabic 1-column (not supported) */
-#define LC_ASCII_RIGHT_TO_LEFT	0xa6	/* ASCII (left half of ISO8859-1) with
-										 * right-to-left direction (not
-										 * supported) */
-#define LC_LAO				0xa7	/* Lao characters (ISO10646 0E80..0EDF)
-									 * (not supported) */
-#define LC_ARABIC_2_COLUMN	0xa8	/* Arabic 1-column (not supported) */
+#define LC_SISHENG			0xa0	/*  中文 SiSheng 字符供
+									 * PinYin/ZhuYin（不支持）  */
+#define LC_IPA				0xa1	/*  IPA（国际音标
+									 * 协会）（不支持）  */
+#define LC_VISCII_LOWER		0xa2	/*  越南文 VISCII1.1 小写（不
+									 * 支持）  */
+#define LC_VISCII_UPPER		0xa3	/*  越南文 VISCII1.1 大写（不
+									 * 支持）  */
+#define LC_ARABIC_DIGIT		0xa4	/*  阿拉伯数字(未支持)  */
+#define LC_ARABIC_1_COLUMN	0xa5	/*  阿拉伯文1列(未支持)  */
+#define LC_ASCII_RIGHT_TO_LEFT	0xa6	/*  ASCII（ISO8859-1 左半）带
+										 * 从右到左方向（不
+										 * 支持）  */
+#define LC_LAO				0xa7	/*  老挝字符 (ISO10646 0E80..0EDF)
+									 * (未支持)  */
+#define LC_ARABIC_2_COLUMN	0xa8	/*  阿拉伯文1列(未支持)  */
 
 /*
- * Charset IDs for private multibyte encodings (0xf0-0xff)
+ * 私有多字节编码的字符集 ID（0xf0–0xff）
  */
-#define LC_INDIAN_1_COLUMN	0xf0	/* Indian charset for 1-column width
-									 * glyphs (not supported) */
-#define LC_TIBETAN_1_COLUMN 0xf1	/* Tibetan 1-column width glyphs (not
-									 * supported) */
-#define LC_UNICODE_SUBSET_2 0xf2	/* Unicode characters of the range
-									 * U+2500..U+33FF. (not supported) */
-#define LC_UNICODE_SUBSET_3 0xf3	/* Unicode characters of the range
-									 * U+E000..U+FFFF. (not supported) */
-#define LC_UNICODE_SUBSET	0xf4	/* Unicode characters of the range
-									 * U+0100..U+24FF. (not supported) */
-#define LC_ETHIOPIC			0xf5	/* Ethiopic characters (not supported) */
+#define LC_INDIAN_1_COLUMN	0xf0	/*  印度文1列宽字形
+									 * 字符集(未支持)  */
+#define LC_TIBETAN_1_COLUMN 0xf1	/*  藏文1列宽字形（不
+									 * 支持）  */
+#define LC_UNICODE_SUBSET_2 0xf2	/*  Unicode 字符范围
+									 * U+2500..U+33FF.(未支持)  */
+#define LC_UNICODE_SUBSET_3 0xf3	/*  Unicode 字符范围
+									 * U+E000..U+FFFF.(未支持)  */
+#define LC_UNICODE_SUBSET	0xf4	/*  Unicode 字符范围
+									 * U+0100..U+24FF.(未支持)  */
+#define LC_ETHIOPIC			0xf5	/*  埃塞俄比亚字符(未支持)  */
 #define LC_CNS11643_3		0xf6	/* CNS 11643-1992 Plane 3 */
 #define LC_CNS11643_4		0xf7	/* CNS 11643-1992 Plane 4 */
 #define LC_CNS11643_5		0xf8	/* CNS 11643-1992 Plane 5 */
 #define LC_CNS11643_6		0xf9	/* CNS 11643-1992 Plane 6 */
 #define LC_CNS11643_7		0xfa	/* CNS 11643-1992 Plane 7 */
-#define LC_INDIAN_2_COLUMN	0xfb	/* Indian charset for 2-column width
-									 * glyphs (not supported) */
-#define LC_TIBETAN			0xfc	/* Tibetan (not supported) */
+#define LC_INDIAN_2_COLUMN	0xfb	/*  印度文2列宽字形
+									 * 字符集(未支持)  */
+#define LC_TIBETAN			0xfc	/*  藏文（不支持）  */
 /* #define FREE				0xfd	free (unused) */
 /* #define FREE				0xfe	free (unused) */
 /* #define FREE				0xff	free (unused) */
 
 /*----------------------------------------------------
- * end of MULE stuff
+ * MULE 相关结束
  *----------------------------------------------------
  */
 
 /*
- * PostgreSQL encoding identifiers
+ * PostgreSQL 编码标识符
  *
- * WARNING: the order of this enum must be same as order of entries
- *			in the pg_enc2name_tbl[] array (in src/common/encnames.c), and
- *			in the pg_wchar_table[] array (in src/common/wchar.c)!
+ * WARNING：此枚举顺序必须与
+ *			pg_enc2name_tbl[]（src/common/encnames.c）及
+ *			pg_wchar_table[](src/common/wchar.c)顺序一致！
  *
- *			If you add some encoding don't forget to check
- *			PG_ENCODING_BE_LAST macro.
+ *			若新增编码，勿忘检查
+ *			PG_ENCODING_BE_LAST 宏。
  *
- * PG_SQL_ASCII is default encoding and must be = 0.
+ * PG_SQL_ASCII 为默认编码且必须 = 0。
  *
- * XXX	We must avoid renumbering any backend encoding until libpq's major
- * version number is increased beyond 5; it turns out that the backend
- * encoding IDs are effectively part of libpq's ABI as far as 8.2 initdb and
- * psql are concerned.
+ * XXX	libpq 主版本>5 前勿重编号任何后端
+ * 编码；事实表明后端
+ * 编码 ID 对 8.2 initdb 与
+ * psql 即 ABI。
  */
 typedef enum pg_enc
 {
@@ -272,9 +272,9 @@ typedef enum pg_enc
 	PG_WIN1255,					/* windows-1255 */
 	PG_WIN1257,					/* windows-1257 */
 	PG_KOI8U,					/* KOI8-U */
-	/* PG_ENCODING_BE_LAST points to the above entry */
+	/*  PG_ENCODING_BE_LAST 指向上述项  */
 
-	/* followings are for client encoding only */
+	/*  以下仅用于客户端编码  */
 	PG_SJIS,					/* Shift JIS (Windows-932) */
 	PG_BIG5,					/* Big5 (Windows-950) */
 	PG_GBK,						/* GBK (Windows-936) */
@@ -289,8 +289,8 @@ typedef enum pg_enc
 #define PG_ENCODING_BE_LAST PG_KOI8U
 
 /*
- * Please use these tests before access to pg_enc2name_tbl[]
- * or to other places...
+ * 访问 pg_enc2name_tbl[] 或其他处之前
+ * 请先用这些测试
  */
 #define PG_VALID_BE_ENCODING(_enc) \
 		((_enc) >= 0 && (_enc) <= PG_ENCODING_BE_LAST)
@@ -301,51 +301,51 @@ typedef enum pg_enc
 #define PG_VALID_ENCODING(_enc) \
 		((_enc) >= 0 && (_enc) < _PG_LAST_ENCODING_)
 
-/* On FE are possible all encodings */
+/*  前端可使用全部编码  */
 #define PG_VALID_FE_ENCODING(_enc)	PG_VALID_ENCODING(_enc)
 
 /*
- * When converting strings between different encodings, we assume that space
- * for converted result is 4-to-1 growth in the worst case.  The rate for
- * currently supported encoding pairs are within 3 (SJIS JIS X0201 half width
- * kana -> UTF8 is the worst case).  So "4" should be enough for the moment.
+ * 在不同编码间转换字符串时，假定转换结果
+ * 最坏按4倍预留。当前已支持
+ * 编码对膨胀率≤3（SJIS JIS X0201 半角
+ * 假名→UTF8 最坏）。故暂定"4"足够。
  *
- * Note that this is not the same as the maximum character width in any
- * particular encoding.
+ * 注意这与任一具体编码中的最大字符
+ * 宽度不同。
  */
 #define MAX_CONVERSION_GROWTH  4
 
 /*
- * Maximum byte length of a string that's required in any encoding to convert
- * at least one character to any other encoding.  In other words, if you feed
- * MAX_CONVERSION_INPUT_LENGTH bytes to any encoding conversion function, it
- * is guaranteed to be able to convert something without needing more input
- * (assuming the input is valid).
+ * 为至少转换一个字符到任意其他编码，所需输入串的
+ * 最大字节长度。换言之，若向任意编码转换函数喂入
+ * MAX_CONVERSION_INPUT_LENGTH 字节，则保证
+ * 无需更多输入即可转换出某些内容
+ * （假定输入合法）。
  *
- * Currently, the maximum case is the conversion UTF8 -> SJIS JIS X0201 half
- * width kana, where a pair of UTF-8 characters is converted into a single
- * SHIFT_JIS_2004 character (the reverse of the worst case for
- * MAX_CONVERSION_GROWTH).  It needs 6 bytes of input.  In theory, a
- * user-defined conversion function might have more complicated cases, although
- * for the reverse mapping you would probably also need to bump up
- * MAX_CONVERSION_GROWTH.  But there is no need to be stingy here, so make it
- * generous.
+ * 当前最坏为 UTF8→SJIS JIS X0201 半角
+ * 假名：一对 UTF-8 字符转为单个
+ * SHIFT_JIS_2004 字符（恰为
+ * MAX_CONVERSION_GROWTH 之逆）。需6字节输入。理论上
+ * 用户定义转换可能更复杂，尽管
+ * 逆向映射恐怕还得抬高
+ * MAX_CONVERSION_GROWTH。此处不必抠门，故取
+ * 从宽。
  */
 #define MAX_CONVERSION_INPUT_LENGTH	16
 
 /*
- * Maximum byte length of the string equivalent to any one Unicode code point,
- * in any backend encoding.  The current value assumes that a 4-byte UTF-8
- * character might expand by MAX_CONVERSION_GROWTH, which is a huge
- * overestimate.  But in current usage we don't allocate large multiples of
- * this, so there's little point in being stingy.
+ * 任一 Unicode 码点在任一后端编码下的等价串最大
+ * 字节长。当前值假定4字节 UTF-8
+ * 字符按 MAX_CONVERSION_GROWTH 膨胀，属严重
+ * 高估。但现用法不会大量倍乘此值，
+ * 抠门意义不大。
  */
 #define MAX_UNICODE_EQUIVALENT_STRING	16
 
 /*
- * Table for mapping an encoding number to official encoding name and
- * possibly other subsidiary data.  Be careful to check encoding number
- * before accessing a table entry!
+ * 将编码编号映射到正式编码名及
+ * 可能的附属数据的表。访问表项前务必
+ * 先检查编码编号！
  *
  * if (PG_VALID_ENCODING(encoding))
  *		pg_enc2name_tbl[ encoding ];
@@ -355,14 +355,14 @@ typedef struct pg_enc2name
 	const char *name;
 	pg_enc		encoding;
 #ifdef WIN32
-	unsigned	codepage;		/* codepage for WIN32 */
+	unsigned	codepage;		/*  WIN32 代码页  */
 #endif
 } pg_enc2name;
 
 extern PGDLLIMPORT const pg_enc2name pg_enc2name_tbl[];
 
 /*
- * Encoding names for gettext
+ * gettext 用的编码名
  */
 typedef struct pg_enc2gettext
 {
@@ -373,7 +373,7 @@ typedef struct pg_enc2gettext
 extern PGDLLIMPORT const pg_enc2gettext pg_enc2gettext_tbl[];
 
 /*
- * pg_wchar stuff
+ * pg_wchar
  */
 typedef int (*mb2wchar_with_len_converter) (const unsigned char *from,
 											pg_wchar *to,
@@ -395,104 +395,104 @@ typedef int (*mbstr_verifier) (const unsigned char *mbstr, int len);
 
 typedef struct
 {
-	mb2wchar_with_len_converter mb2wchar_with_len;	/* convert a multibyte
-													 * string to a wchar */
-	wchar2mb_with_len_converter wchar2mb_with_len;	/* convert a wchar string
-													 * to a multibyte */
-	mblen_converter mblen;		/* get byte length of a char */
-	mbdisplaylen_converter dsplen;	/* get display width of a char */
-	mbchar_verifier mbverifychar;	/* verify multibyte character */
-	mbstr_verifier mbverifystr; /* verify multibyte string */
-	int			maxmblen;		/* max bytes for a char in this encoding */
+	mb2wchar_with_len_converter mb2wchar_with_len;	/*  将多字节
+													 * 串转为 wchar  */
+	wchar2mb_with_len_converter wchar2mb_with_len;	/*  将 wchar 串
+													 * 转多字节  */
+	mblen_converter mblen;		/*  取字符字节长度  */
+	mbdisplaylen_converter dsplen;	/*  取字符显示宽度  */
+	mbchar_verifier mbverifychar;	/*  校验多字节字符  */
+	mbstr_verifier mbverifystr; /*  校验多字节串  */
+	int			maxmblen;		/*  此编码下字符最大字节数  */
 } pg_wchar_tbl;
 
 extern PGDLLIMPORT const pg_wchar_tbl pg_wchar_table[];
 
 /*
- * Data structures for conversions between UTF-8 and other encodings
- * (UtfToLocal() and LocalToUtf()).  In these data structures, characters of
- * either encoding are represented by uint32 words; hence we can only support
- * characters up to 4 bytes long.  For example, the byte sequence 0xC2 0x89
- * would be represented by 0x0000C289, and 0xE8 0xA2 0xB4 by 0x00E8A2B4.
+ * UTF-8 与其他编码互转的数据结构
+ * （UtfToLocal 等）。其中任一编码的字符
+ * 皆用四字节整型字表示；故仅支持最长
+ * 4字节字符。例如字节序列 C2 89
+ * 表示为 0x0000C289，三字节例 0x00E8A2B4。
  *
- * There are three possible ways a character can be mapped:
+ * 字符映射有三种可能方式：
  *
- * 1. Using a radix tree, from source to destination code.
- * 2. Using a sorted array of source -> destination code pairs. This
- *	  method is used for "combining" characters. There are so few of
- *	  them that building a radix tree would be wasteful.
- * 3. Using a conversion function.
+ * 1. 用基数树，从源码点到目标码点。
+ * 2. 用已排序的源→目标码点对数组。此
+ *	  法用于"组合"字符。数量极少，
+ *	  建基数树浪费。
+ * 3. 用转换函数。
  */
 
 /*
- * Radix tree for character conversion.
+ * 字符转换用的基数树。
  *
- * Logically, this is actually four different radix trees, for 1-byte,
- * 2-byte, 3-byte and 4-byte inputs. The 1-byte tree is a simple lookup
- * table from source to target code. The 2-byte tree consists of two levels:
- * one lookup table for the first byte, where the value in the lookup table
- * points to a lookup table for the second byte. And so on.
+ * 逻辑上实为四棵基数树，分别对应1、
+ * 2、3、4字节输入。1字节树是简单的源→目标
+ * 查找表。2字节树有两层：
+ * 第一字节的查找表，表中值指向
+ * 第二字节的查找表。以此类推。
  *
- * Physically, all the trees are stored in one big array, in 'chars16' or
- * 'chars32', depending on the maximum value that needs to be represented. For
- * each level in each tree, we also store lower and upper bound of allowed
- * values - values outside those bounds are considered invalid, and are left
- * out of the tables.
+ * 物理上所有树存于一个大数组，在 chars16 或
+ * chars32 中，视所需表示的最大值而定。对
+ * 每棵树每一层，还存允许值的上下界
+ * ——界外视为非法，且不
+ * 列入表中。
  *
- * In the intermediate levels of the trees, the values stored are offsets
- * into the chars[16|32] array.
+ * 在树的中间层，所存值为
+ * chars[16|32] 内偏移。
  *
- * In the beginning of the chars[16|32] array, there is always a number of
- * zeros, so that you safely follow an index from an intermediate table
- * without explicitly checking for a zero. Following a zero any number of
- * times will always bring you to the dummy, all-zeros table in the
- * beginning. This helps to shave some cycles when looking up values.
+ * chars[16|32] 数组开头总有若干
+ * 零，故可安全跟随中间表的索引
+ * 而无需显式检查零。跟随任意次零
+ * 总会落到开头的哑元全零表。
+ * 这有助于查找时节省若干周期。
  */
 typedef struct
 {
 	/*
-	 * Array containing all the values. Only one of chars16 or chars32 is
-	 * used, depending on how wide the values we need to represent are.
+	 * 容纳全部值的数组。chars16 与 chars32 仅
+	 * 用其一，取决于需表示的值有多宽。
 	 */
 	const uint16 *chars16;
 	const uint32 *chars32;
 
-	/* Radix tree for 1-byte inputs */
-	uint32		b1root;			/* offset of table in the chars[16|32] array */
-	uint8		b1_lower;		/* min allowed value for a single byte input */
-	uint8		b1_upper;		/* max allowed value for a single byte input */
+	/*  1字节输入的基数树  */
+	uint32		b1root;			/*  chars[16|32] 中表的偏移  */
+	uint8		b1_lower;		/*  单字节输入允许的最小值  */
+	uint8		b1_upper;		/*  单字节输入允许的最大值  */
 
-	/* Radix tree for 2-byte inputs */
-	uint32		b2root;			/* offset of 1st byte's table */
-	uint8		b2_1_lower;		/* min/max allowed value for 1st input byte */
+	/*  2字节输入的基数树  */
+	uint32		b2root;			/*  第1字节表的偏移  */
+	uint8		b2_1_lower;		/*  第1输入字节允许最小/最大  */
 	uint8		b2_1_upper;
-	uint8		b2_2_lower;		/* min/max allowed value for 2nd input byte */
+	uint8		b2_2_lower;		/*  第2输入字节允许最小/最大  */
 	uint8		b2_2_upper;
 
-	/* Radix tree for 3-byte inputs */
-	uint32		b3root;			/* offset of 1st byte's table */
-	uint8		b3_1_lower;		/* min/max allowed value for 1st input byte */
+	/*  3字节输入的基数树  */
+	uint32		b3root;			/*  第1字节表的偏移  */
+	uint8		b3_1_lower;		/*  第1输入字节允许最小/最大  */
 	uint8		b3_1_upper;
-	uint8		b3_2_lower;		/* min/max allowed value for 2nd input byte */
+	uint8		b3_2_lower;		/*  第2输入字节允许最小/最大  */
 	uint8		b3_2_upper;
-	uint8		b3_3_lower;		/* min/max allowed value for 3rd input byte */
+	uint8		b3_3_lower;		/*  第3输入字节允许最小/最大  */
 	uint8		b3_3_upper;
 
-	/* Radix tree for 4-byte inputs */
-	uint32		b4root;			/* offset of 1st byte's table */
-	uint8		b4_1_lower;		/* min/max allowed value for 1st input byte */
+	/*  4字节输入的基数树  */
+	uint32		b4root;			/*  第1字节表的偏移  */
+	uint8		b4_1_lower;		/*  第1输入字节允许最小/最大  */
 	uint8		b4_1_upper;
-	uint8		b4_2_lower;		/* min/max allowed value for 2nd input byte */
+	uint8		b4_2_lower;		/*  第2输入字节允许最小/最大  */
 	uint8		b4_2_upper;
-	uint8		b4_3_lower;		/* min/max allowed value for 3rd input byte */
+	uint8		b4_3_lower;		/*  第3输入字节允许最小/最大  */
 	uint8		b4_3_upper;
-	uint8		b4_4_lower;		/* min/max allowed value for 4th input byte */
+	uint8		b4_4_lower;		/*  第4输入字节允许最小/最大  */
 	uint8		b4_4_upper;
 
 } pg_mb_radix_tree;
 
 /*
- * UTF-8 to local code conversion map (for combined characters)
+ * UTF-8 到本地码转换映射（组合字符）
  */
 typedef struct
 {
@@ -502,7 +502,7 @@ typedef struct
 } pg_utf_to_local_combined;
 
 /*
- * local code to UTF-8 conversion map (for combined characters)
+ * 本地码到 UTF-8 转换映射（组合字符）
  */
 typedef struct
 {
@@ -512,17 +512,17 @@ typedef struct
 } pg_local_to_utf_combined;
 
 /*
- * callback function for algorithmic encoding conversions (in either direction)
+ * 算法型编码转换的回调（双向）
  *
- * if function returns zero, it does not know how to convert the code
+ * 若函数返回零，表示不知如何转换该码
  */
 typedef uint32 (*utf_local_conversion_func) (uint32 code);
 
 /*
- * Support macro for encoding conversion functions to validate their
- * arguments.  (This could be made more compact if we included fmgr.h
- * here, but we don't want to do that because this header file is also
- * used by frontends.)
+ * 供编码转换函数校验其
+ * 参数的支持宏。（若含 fmgr.h 可更紧凑，
+ * 但本头亦被前端使用，故不愿
+ * 在此包含。）
  */
 #define CHECK_ENCODING_CONVERSION_ARGS(srcencoding,destencoding) \
 	check_encoding_conversion_args(PG_GETARG_INT32(0), \
@@ -533,7 +533,7 @@ typedef uint32 (*utf_local_conversion_func) (uint32 code);
 
 
 /*
- * Some handy functions for Unicode-specific tests.
+ * 若干 Unicode 专用测试的便捷函数。
  */
 static inline bool
 is_valid_unicode_codepoint(pg_wchar c)
@@ -561,17 +561,17 @@ surrogate_pair_to_codepoint(pg_wchar first, pg_wchar second)
 
 
 /*
- * These functions are considered part of libpq's exported API and
- * are also declared in libpq-fe.h.
+ * 这些函数视为 libpq 导出 API 的一部分，
+ * 亦在 libpq-fe.h 中声明。
  */
 extern int	pg_char_to_encoding(const char *name);
 extern const char *pg_encoding_to_char(int encoding);
 extern int	pg_valid_server_encoding_id(int encoding);
 
 /*
- * These functions are available to frontend code that links with libpgcommon
- * (in addition to the ones just above).  The constant tables declared
- * earlier in this file are also available from libpgcommon.
+ * 链接 libpgcommon 的前端亦可使用这些函数
+ * （另含刚述各项）。本文件先前声明的
+ * 常量表亦可从 libpgcommon 取得。
  */
 extern void pg_encoding_set_invalid(int encoding, char *dst);
 extern int	pg_encoding_mblen(int encoding, const char *mbstr);
@@ -594,7 +594,7 @@ extern int	pg_utf_mblen(const unsigned char *s);
 extern int	pg_mule_mblen(const unsigned char *s);
 
 /*
- * The remaining functions are backend-only.
+ * 其余函数仅限后端。
  */
 extern int	pg_mb2wchar(const char *from, pg_wchar *to);
 extern int	pg_mb2wchar_with_len(const char *from, pg_wchar *to, int len);

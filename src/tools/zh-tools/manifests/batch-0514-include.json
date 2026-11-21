@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0514",
+  "title": "include/mb — batch 0514",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "eac3beb726da8a15042ac66604c1a1ea9b69a769",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/mb/pg_wchar.h",
+      "kind": "c_comment",
+      "note": "0514"
+    },
+    {
+      "pattern": "src/include/mb/stringinfo_mb.h",
+      "kind": "c_comment",
+      "note": "0514"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0514-include.json",
+      "kind": "manifest",
+      "note": "0514"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/mb/pg_wchar.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 100,
+      "translated": 95,
+      "preserved": 5,
+      "preserved_reasons": [
+        "横幅/版权/路径；编码名标签 KEEP；预算残行"
+      ],
+      "note": "0514"
+    },
+    {
+      "path": "src/include/mb/stringinfo_mb.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；编码名标签 KEEP；预算残行"
+      ],
+      "note": "0514"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0514-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0514"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "mb/pg_wchar.h+stringinfo_mb.h；编码/MULE/基数树；MIXED 十六进制散文清偿"
+}

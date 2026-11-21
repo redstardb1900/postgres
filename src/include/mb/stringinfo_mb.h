@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * stringinfo_mb.h
- *	  multibyte support for StringInfo
+ *	  StringInfo 多字节支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,7 +16,7 @@
 #include "lib/stringinfo.h"
 
 /*
- * Multibyte-aware StringInfo support function.
+ * StringInfo 多字节支持函数。
  */
 extern void appendStringInfoStringQuoted(StringInfo str,
 										 const char *s, int maxlen);

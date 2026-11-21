@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * psqlscan.h
- *	  lexical scanner for SQL commands
+ *	  SQL 命令的词法扫描器
  *
- * This lexer used to be part of psql, and that heritage is reflected in
- * the file name as well as function and typedef names, though it can now
- * be used by other frontend programs as well.  It's also possible to extend
- * this lexer with a compatible add-on lexer to handle program-specific
- * backslash commands.
+ * 本词法器原属 psql，该渊源仍反映在文件名与
+ * 函数/typedef 名中，现也可被其他前端程序使用。
+ * 还可用兼容的附加词法器扩展，以处理程序专用
+ * 反斜杠命令。
+ * 略
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,19 +23,19 @@
 #include "pqexpbuffer.h"
 
 
-/* Abstract type for lexer's internal state */
+/*  词法器内部状态的抽象类型  */
 typedef struct PsqlScanStateData *PsqlScanState;
 
-/* Termination states for psql_scan() */
+/*  psql_scan() 的终止状态  */
 typedef enum
 {
-	PSCAN_SEMICOLON,			/* found command-ending semicolon */
-	PSCAN_BACKSLASH,			/* found backslash command */
-	PSCAN_INCOMPLETE,			/* end of line, SQL statement incomplete */
-	PSCAN_EOL					/* end of line, SQL possibly complete */
+	PSCAN_SEMICOLON,			/*  找到结束命令的分号  */
+	PSCAN_BACKSLASH,			/*  找到反斜杠命令  */
+	PSCAN_INCOMPLETE,			/*  行末，SQL 语句未完成  */
+	PSCAN_EOL					/*  行末，SQL 可能已完成  */
 } PsqlScanResult;
 
-/* Prompt type returned by psql_scan() */
+/*  psql_scan() 返回的提示类型  */
 typedef enum _promptStatus
 {
 	PROMPT_READY,
@@ -48,20 +48,20 @@ typedef enum _promptStatus
 	PROMPT_COPY
 } promptStatus_t;
 
-/* Quoting request types for get_variable() callback */
+/*  get_variable() 回调的引号请求类型  */
 typedef enum
 {
-	PQUOTE_PLAIN,				/* just return the actual value */
-	PQUOTE_SQL_LITERAL,			/* add quotes to make a valid SQL literal */
-	PQUOTE_SQL_IDENT,			/* quote if needed to make a SQL identifier */
-	PQUOTE_SHELL_ARG			/* quote if needed to be safe in a shell cmd */
+	PQUOTE_PLAIN,				/*  只返回实际值  */
+	PQUOTE_SQL_LITERAL,			/*  加引号使成合法 SQL 字面量  */
+	PQUOTE_SQL_IDENT,			/*  若需则加引号使成 SQL 标识符  */
+	PQUOTE_SHELL_ARG			/* 略 */
 } PsqlScanQuoteType;
 
-/* Callback functions to be used by the lexer */
+/*  词法器所用的回调函数  */
 typedef struct PsqlScanCallbacks
 {
-	/* Fetch value of a variable, as a free'able string; NULL if unknown */
-	/* This pointer can be NULL if no variable substitution is wanted */
+	/*  取变量值，为可 free 的串；未知则为 NULL  */
+	/*  本指针可为 NULL（若不需要变量替换）  */
 	char	   *(*get_variable) (const char *varname, PsqlScanQuoteType quote,
 								 void *passthrough);
 } PsqlScanCallbacks;

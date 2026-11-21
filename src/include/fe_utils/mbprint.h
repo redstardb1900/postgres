@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Multibyte character printing support for frontend code
+ * 前端代码的多字节字符打印支持
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

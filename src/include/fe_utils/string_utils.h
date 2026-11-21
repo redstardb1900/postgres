@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
- * String-processing utility routines for frontend code
+ * 前端代码的字符串处理实用例程
  *
- * Utility functions that interpret backend output or quote strings for
- * assorted contexts.
+ * 解释后端输出或为多种上下文加引号的
+ * 实用函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,11 +19,11 @@
 #include "libpq-fe.h"
 #include "pqexpbuffer.h"
 
-/* Global variables controlling behavior of fmtId() and fmtQualifiedId() */
+/*  控制 fmtId()/fmtQualifiedId() 行为的全局变量  */
 extern PGDLLIMPORT int quote_all_identifiers;
 extern PQExpBuffer (*getLocalPQExpBuffer) (void);
 
-/* Functions */
+/*  函数  */
 extern const char *fmtId(const char *rawid);
 extern const char *fmtIdEnc(const char *rawid, int encoding);
 extern const char *fmtQualifiedId(const char *schema, const char *id);

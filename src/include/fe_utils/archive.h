@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * archive.h
- *	  Routines to access WAL archives from frontend
+ *	  前端访问 WAL 归档的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

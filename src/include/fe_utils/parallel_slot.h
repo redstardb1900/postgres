@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  *	parallel_slot.h
- *		Parallel support for bin/scripts/
+ *		bin/scripts/ 的并行支持
  *
  *	Copyright (c) 2003-2023, PostgreSQL Global Development Group
  *
@@ -20,14 +20,14 @@ typedef bool (*ParallelSlotResultHandler) (PGresult *res, PGconn *conn,
 
 typedef struct ParallelSlot
 {
-	PGconn	   *connection;		/* One connection */
-	bool		inUse;			/* Is the slot being used? */
+	PGconn	   *connection;		/*  一个连接  */
+	bool		inUse;			/*  槽是否在用？  */
 
 	/*
-	 * Prior to issuing a command or query on 'connection', a handler callback
-	 * function may optionally be registered to be invoked to process the
-	 * results, and context information may optionally be registered for use
-	 * by the handler.  If unset, these fields should be NULL.
+	 * 对 'connection' 发命令或查询前，可选用处理结果的
+	 * 处理回调，并可注册供处理器使用的上下文。
+	 * 若未设置，这些字段应为 NULL。
+	 * 略
 	 */
 	ParallelSlotResultHandler handler;
 	void	   *handler_context;

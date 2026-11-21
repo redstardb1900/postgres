@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Command line option processing facilities for frontend code
+ * 前端代码的命令行选项处理设施
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

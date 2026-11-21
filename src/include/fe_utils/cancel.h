@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Query cancellation support for frontend code
+ * 前端代码的查询取消支持
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,8 +24,8 @@ extern void SetCancelConn(PGconn *conn);
 extern void ResetCancelConn(void);
 
 /*
- * A callback can be optionally set up to be called at cancellation
- * time.
+ * 可选用回调在取消时调用。
+ * 略
  */
 extern void setup_cancel_handler(void (*query_cancel_callback) (void));
 

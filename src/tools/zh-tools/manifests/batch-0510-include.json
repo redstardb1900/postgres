@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0510",
+  "title": "include/fe_utils — batch 0510",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2664bd58f65b08db50faa792ee76e65861d5338f",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/fe_utils/archive.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/cancel.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/conditional.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/connect_utils.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/mbprint.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/option_utils.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/parallel_slot.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/print.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/psqlscan.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/psqlscan_int.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/query_utils.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/recovery_gen.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/simple_list.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/include/fe_utils/string_utils.h",
+      "kind": "c_comment",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0510-include.json",
+      "kind": "manifest",
+      "note": "0510"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/fe_utils/archive.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/cancel.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/conditional.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 13,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/connect_utils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 6,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/mbprint.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/option_utils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/parallel_slot.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 5,
+      "translated": 4,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/print.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 81,
+      "translated": 79,
+      "preserved": 2,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/psqlscan.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 16,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/psqlscan_int.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 33,
+      "translated": 32,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/query_utils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 1,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/recovery_gen.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 2,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/simple_list.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 3,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/include/fe_utils/string_utils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 3,
+      "preserved": 1,
+      "preserved_reasons": [
+        "横幅/版权/路径；预算残行略"
+      ],
+      "note": "0510"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0510-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0510"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "前端工具十四头；print/psqlscan 为主；残行略；保留 $COLUMNS/Init"
+}

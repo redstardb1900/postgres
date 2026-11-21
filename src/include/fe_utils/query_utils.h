@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Facilities for frontend code to query a databases.
+ * 前端向数据库发查询的设施。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

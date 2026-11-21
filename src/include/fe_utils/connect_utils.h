@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Facilities for frontend code to connect to and disconnect from databases.
+ * 前端连接/断开数据库的设施。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -21,17 +21,17 @@ enum trivalue
 	TRI_YES
 };
 
-/* Parameters needed by connectDatabase/connectMaintenanceDatabase */
+/*  connectDatabase/connectMaintenanceDatabase 所需参数  */
 typedef struct _connParams
 {
-	/* These fields record the actual command line parameters */
-	const char *dbname;			/* this may be a connstring! */
+	/*  这些字段记录实际命令行参数  */
+	const char *dbname;			/* 略 */
 	const char *pghost;
 	const char *pgport;
 	const char *pguser;
 	enum trivalue prompt_password;
-	/* If not NULL, this overrides the dbname obtained from command line */
-	/* (but *only* the DB name, not anything else in the connstring) */
+	/*  非 NULL 时覆盖命令行得到的库名  */
+	/*  （*仅*库名，不含连接串中其他内容）  */
 	const char *override_dbname;
 } ConnParams;
 

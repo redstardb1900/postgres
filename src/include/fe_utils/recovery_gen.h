@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Generator for recovery configuration
+ * 恢复配置生成器
  *
  * Portions Copyright (c) 2011-2023, PostgreSQL Global Development Group
  *
@@ -15,8 +15,8 @@
 #include "pqexpbuffer.h"
 
 /*
- * recovery configuration is part of postgresql.conf in version 12 and up, and
- * in recovery.conf before that.
+ * 恢复配置在 12 及以上属于 postgresql.conf，
+ * 此前在 recovery.conf。
  */
 #define MINIMUM_VERSION_FOR_RECOVERY_GUC 120000
 

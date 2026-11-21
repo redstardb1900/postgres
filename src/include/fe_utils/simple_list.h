@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
- * Simple list facilities for frontend code
+ * 前端代码的简单列表设施
  *
- * Data structures for simple lists of OIDs, strings, and pointers.  The
- * support for these is very primitive compared to the backend's List
- * facilities, but it's all we need in, eg, pg_dump.
+ * OIDs、字符串与指针的简单列表数据结构。相对
+ * 后端 List 设施非常原始，但如 pg_dump 所需
+ * 已够用。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -32,9 +32,9 @@ typedef struct SimpleOidList
 typedef struct SimpleStringListCell
 {
 	struct SimpleStringListCell *next;
-	bool		touched;		/* true, when this string was searched and
-								 * touched */
-	char		val[FLEXIBLE_ARRAY_MEMBER]; /* null-terminated string here */
+	bool		touched;		/*  真：此串已被搜索并
+								 * 触及 */
+	char		val[FLEXIBLE_ARRAY_MEMBER]; /* 略 */
 } SimpleStringListCell;
 
 typedef struct SimpleStringList

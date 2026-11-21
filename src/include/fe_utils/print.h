@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * Query-result printing support for frontend code
+ * 前端代码的查询结果打印支持
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 #include "libpq-fe.h"
 
 
-/* This is not a particularly great place for this ... */
+/*  放这里不算特别合适……  */
 #ifndef __CYGWIN__
 #define DEFAULT_PAGER "more"
 #else
@@ -27,7 +27,7 @@
 
 enum printFormat
 {
-	PRINT_NOTHING = 0,			/* to make sure someone initializes this */
+	PRINT_NOTHING = 0,			/*  确保有人初始化此项  */
 	PRINT_ALIGNED,
 	PRINT_ASCIIDOC,
 	PRINT_CSV,
@@ -37,63 +37,63 @@ enum printFormat
 	PRINT_TROFF_MS,
 	PRINT_UNALIGNED,
 	PRINT_WRAPPED
-	/* add your favourite output format here ... */
+	/* 略 */
 };
 
 typedef struct printTextLineFormat
 {
-	/* Line drawing characters to be used in various contexts */
-	const char *hrule;			/* horizontal line character */
-	const char *leftvrule;		/* left vertical line (+horizontal) */
-	const char *midvrule;		/* intra-column vertical line (+horizontal) */
-	const char *rightvrule;		/* right vertical line (+horizontal) */
+	/*  各上下文所用的线绘字符  */
+	const char *hrule;			/*  水平线字符  */
+	const char *leftvrule;		/*  左竖线（+水平）  */
+	const char *midvrule;		/*  列间竖线（+水平）  */
+	const char *rightvrule;		/*  右竖线（+水平）  */
 } printTextLineFormat;
 
 typedef enum printTextRule
 {
-	/* Additional context for selecting line drawing characters */
-	PRINT_RULE_TOP,				/* top horizontal line */
-	PRINT_RULE_MIDDLE,			/* intra-data horizontal line */
-	PRINT_RULE_BOTTOM,			/* bottom horizontal line */
-	PRINT_RULE_DATA				/* data line (hrule is unused here) */
+	/*  选择线绘字符的附加上下文  */
+	PRINT_RULE_TOP,				/*  顶水平线  */
+	PRINT_RULE_MIDDLE,			/*  数据内水平线  */
+	PRINT_RULE_BOTTOM,			/*  底水平线  */
+	PRINT_RULE_DATA				/* 略 */
 } printTextRule;
 
 typedef enum printTextLineWrap
 {
-	/* Line wrapping conditions */
-	PRINT_LINE_WRAP_NONE,		/* No wrapping */
-	PRINT_LINE_WRAP_WRAP,		/* Wraparound due to overlength line */
-	PRINT_LINE_WRAP_NEWLINE		/* Newline in data */
+	/*  换行条件  */
+	PRINT_LINE_WRAP_NONE,		/*  不换行  */
+	PRINT_LINE_WRAP_WRAP,		/*  因行过长而回绕  */
+	PRINT_LINE_WRAP_NEWLINE		/* 略 */
 } printTextLineWrap;
 
 typedef enum printXheaderWidthType
 {
-	/* Expanded header line width variants */
-	PRINT_XHEADER_FULL,			/* do not truncate header line (this is the
-								 * default) */
-	PRINT_XHEADER_COLUMN,		/* only print header line above the first
-								 * column */
-	PRINT_XHEADER_PAGE,			/* header line must not be longer than
-								 * terminal width */
-	PRINT_XHEADER_EXACT_WIDTH,	/* explicitly specified width */
+	/*  展开表头行宽变体  */
+	PRINT_XHEADER_FULL,			/*  不截断表头行（此为
+								 * 默认 */
+	PRINT_XHEADER_COLUMN,		/*  仅在第一列上方打印
+								 * 首列 */
+	PRINT_XHEADER_PAGE,			/*  表头行不得长于
+								 * 终端宽度 */
+	PRINT_XHEADER_EXACT_WIDTH,	/*  显式指定宽度  */
 } printXheaderWidthType;
 
 typedef struct printTextFormat
 {
-	/* A complete line style */
-	const char *name;			/* for display purposes */
-	printTextLineFormat lrule[4];	/* indexed by enum printTextRule */
-	const char *midvrule_nl;	/* vertical line for continue after newline */
-	const char *midvrule_wrap;	/* vertical line for wrapped data */
-	const char *midvrule_blank; /* vertical line for blank data */
-	const char *header_nl_left; /* left mark after newline */
-	const char *header_nl_right;	/* right mark for newline */
-	const char *nl_left;		/* left mark after newline */
-	const char *nl_right;		/* right mark for newline */
-	const char *wrap_left;		/* left mark after wrapped data */
-	const char *wrap_right;		/* right mark for wrapped data */
-	bool		wrap_right_border;	/* use right-hand border for wrap marks
-									 * when border=0? */
+	/*  完整线样式  */
+	const char *name;			/*  供显示用  */
+	printTextLineFormat lrule[4];	/* 略 */
+	const char *midvrule_nl;	/*  换行后续的竖线  */
+	const char *midvrule_wrap;	/*  回绕数据的竖线  */
+	const char *midvrule_blank; /*  空白数据的竖线  */
+	const char *header_nl_left; /*  换行后的左标记  */
+	const char *header_nl_right;	/*  换行的右标记  */
+	const char *nl_left;		/*  换行后的左标记  */
+	const char *nl_right;		/*  换行的右标记  */
+	const char *wrap_left;		/* 略 */
+	const char *wrap_right;		/*  回绕数据的右标记  */
+	bool		wrap_right_border;	/* 略
+									 * 右边框？ */
 } printTextFormat;
 
 typedef enum unicode_linestyle
@@ -110,45 +110,45 @@ struct separator
 
 typedef struct printTableOpt
 {
-	enum printFormat format;	/* see enum above */
-	unsigned short int expanded;	/* expanded/vertical output (if supported
-									 * by output format); 0=no, 1=yes, 2=auto */
-	printXheaderWidthType expanded_header_width_type;	/* width type for header
-														 * line in expanded mode */
-	int			expanded_header_exact_width;	/* explicit width for header
-												 * line in expanded mode */
-	unsigned short int border;	/* Print a border around the table. 0=none,
-								 * 1=dividing lines, 2=full */
-	unsigned short int pager;	/* use pager for output (if to stdout and
-								 * stdout is a tty) 0=off 1=on 2=always */
-	int			pager_min_lines;	/* don't use pager unless there are at
-									 * least this many lines */
-	bool		tuples_only;	/* don't output headers, row counts, etc. */
-	bool		start_table;	/* print start decoration, eg <table> */
-	bool		stop_table;		/* print stop decoration, eg </table> */
-	bool		default_footer; /* allow "(xx rows)" default footer */
-	unsigned long prior_records;	/* start offset for record counters */
-	const printTextFormat *line_style;	/* line style (NULL for default) */
-	struct separator fieldSep;	/* field separator for unaligned text mode */
-	struct separator recordSep; /* record separator for unaligned text mode */
-	char		csvFieldSep[2]; /* field separator for csv format */
-	bool		numericLocale;	/* locale-aware numeric units separator and
-								 * decimal marker */
-	char	   *tableAttr;		/* attributes for HTML <table ...> */
-	int			encoding;		/* character encoding */
-	int			env_columns;	/* $COLUMNS on psql start, 0 is unset */
-	int			columns;		/* target width for wrapped format */
+	enum printFormat format;	/* 略 */
+	unsigned short int expanded;	/*  展开/垂直输出（若输出格式
+									 * 支持）；0=否,1=是,2=自动 */
+	printXheaderWidthType expanded_header_width_type;	/* 略
+														 * 行宽类型 */
+	int			expanded_header_exact_width;	/*  展开模式下表头
+												 * 行显式宽 */
+	unsigned short int border;	/*  打印表边框。0=无,
+								 * 1=分隔线,2=完整 */
+	unsigned short int pager;	/* 略
+								 * 为 tty） */
+	int			pager_min_lines;	/*  除非至少有这么多行，
+									 * 至少这么多行 */
+	bool		tuples_only;	/*  不输出表头、行数等  */
+	bool		start_table;	/*  打印起始装饰，如 <table>  */
+	bool		stop_table;		/* 略 */
+	bool		default_footer; /* 略 */
+	unsigned long prior_records;	/*  记录计数器起始偏移  */
+	const printTextFormat *line_style;	/* 略 */
+	struct separator fieldSep;	/* 略 */
+	struct separator recordSep; /* 略 */
+	char		csvFieldSep[2]; /*  csv 格式的字段分隔符  */
+	bool		numericLocale;	/*  区域感知的数值千分位与
+								 * 小数标记 */
+	char	   *tableAttr;		/*  HTML <table ...> 的属性  */
+	int			encoding;		/*  字符编码  */
+	int			env_columns;	/*  $COLUMNS，0 未设  */
+	int			columns;		/*  回绕格式的目标宽度  */
 	unicode_linestyle unicode_border_linestyle;
 	unicode_linestyle unicode_column_linestyle;
 	unicode_linestyle unicode_header_linestyle;
 } printTableOpt;
 
 /*
- * Table footers are implemented as a singly-linked list.
+ * 表页脚实现为单链表。
  *
- * This is so that you don't need to know the number of footers in order to
- * initialise the printTableContent struct, which is very convenient when
- * preparing complex footers (as in describeOneTableDetails).
+ * 这样初始化 printTableContent 时不必知道页脚
+ * 个数，准备复杂页脚时很方便
+ * （如 describeOneTableDetails）。
  */
 typedef struct printTableFooter
 {
@@ -157,39 +157,39 @@ typedef struct printTableFooter
 } printTableFooter;
 
 /*
- * The table content struct holds all the information which will be displayed
- * by printTable().
+ * 表内容结构保存 printTable() 将显示的全部
+ * 信息。
  */
 typedef struct printTableContent
 {
 	const printTableOpt *opt;
 	const char *title;			/* May be NULL */
-	int			ncolumns;		/* Specified in Init() */
-	int			nrows;			/* Specified in Init() */
-	const char **headers;		/* NULL-terminated array of header strings */
-	const char **header;		/* Pointer to the last added header */
-	const char **cells;			/* NULL-terminated array of cell content
-								 * strings */
-	const char **cell;			/* Pointer to the last added cell */
-	long		cellsadded;		/* Number of cells added this far */
-	bool	   *cellmustfree;	/* true for cells that need to be free()d */
-	printTableFooter *footers;	/* Pointer to the first footer */
-	printTableFooter *footer;	/* Pointer to the last added footer */
-	char	   *aligns;			/* Array of alignment specifiers; 'l' or 'r',
-								 * one per column */
-	char	   *align;			/* Pointer to the last added alignment */
+	int			ncolumns;		/*  Init() 中指定  */
+	int			nrows;			/*  Init() 中指定  */
+	const char **headers;		/*  以空结尾的表头串数组  */
+	const char **header;		/*  指向最后添加的表头  */
+	const char **cells;			/*  以空结尾的单元格内容
+								 * 串 */
+	const char **cell;			/* 略 */
+	long		cellsadded;		/* 略 */
+	bool	   *cellmustfree;	/*  需 free() 的单元格为真  */
+	printTableFooter *footers;	/*  指向第一个页脚  */
+	printTableFooter *footer;	/*  指向最后添加的页脚  */
+	char	   *aligns;			/*  对齐说明符数组；'l' 或 'r'，
+								 * 每列一个 */
+	char	   *align;			/*  指向最后添加的对齐  */
 } printTableContent;
 
 typedef struct printQueryOpt
 {
-	printTableOpt topt;			/* the options above */
-	char	   *nullPrint;		/* how to print null entities */
-	char	   *title;			/* override title */
-	char	  **footers;		/* override footer (default is "(xx rows)") */
-	bool		translate_header;	/* do gettext on column headers */
-	const bool *translate_columns;	/* translate_columns[i-1] => do gettext on
-									 * col i */
-	int			n_translate_columns;	/* length of translate_columns[] */
+	printTableOpt topt;			/*  上方选项  */
+	char	   *nullPrint;		/*  如何打印空实体  */
+	char	   *title;			/*  覆盖标题  */
+	char	  **footers;		/*  覆盖页脚（默认 "(xx rows)"）  */
+	bool		translate_header;	/*  对列表头做 gettext  */
+	const bool *translate_columns;	/*  translate_columns[i-1] => 对列 i
+									 * 列 i */
+	int			n_translate_columns;	/*  translate_columns[] 长度  */
 } printQueryOpt;
 
 
@@ -197,8 +197,8 @@ extern PGDLLIMPORT volatile sig_atomic_t cancel_pressed;
 
 extern PGDLLIMPORT const printTextFormat pg_asciiformat;
 extern PGDLLIMPORT const printTextFormat pg_asciiformat_old;
-extern PGDLLIMPORT printTextFormat pg_utf8format;	/* ideally would be const,
-													 * but... */
+extern PGDLLIMPORT printTextFormat pg_utf8format;	/*  理想应为 const，
+													 * 但是 */
 
 
 extern void disable_sigpipe_trap(void);

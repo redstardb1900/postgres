@@ -1,18 +1,18 @@
 /*-------------------------------------------------------------------------
- * A stack of automaton states to handle nested conditionals.
+ * 处理嵌套条件的自动机状态栈。
  *
- * This file describes a stack of automaton states which
- * allow a manage nested conditionals.
+ * 本文件描述自动机状态栈，用于管理
+ * 嵌套条件。
  *
- * It is used by:
- * - "psql" interpreter for handling \if ... \endif
- * - "pgbench" interpreter for handling \if ... \endif
- * - "pgbench" syntax checker to test for proper nesting
+ * 用于：
+ * - "psql" 解释器处理 \if ... \endif
+ * - "pgbench" 解释器处理 \if ... \endif
+ * - "pgbench" 语法检查器测试嵌套是否正确
  *
- * The stack holds the state of enclosing conditionals (are we in
- * a true branch? in a false branch? have we already encountered
- * a true branch?) so that the interpreter knows whether to execute
- * code and whether to evaluate conditions.
+ * 略
+ * 是否已遇过真分支？），以便解释器知道是否
+ * 执行代码以及是否求值条件。
+ * 略
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -24,43 +24,43 @@
 #define CONDITIONAL_H
 
 /*
- * Possible states of a single level of \if block.
+ * 单层 \if 块的可能状态。
  */
 typedef enum ifState
 {
-	IFSTATE_NONE = 0,			/* not currently in an \if block */
-	IFSTATE_TRUE,				/* currently in an \if or \elif that is true
-								 * and all parent branches (if any) are true */
-	IFSTATE_FALSE,				/* currently in an \if or \elif that is false
-								 * but no true branch has yet been seen, and
-								 * all parent branches (if any) are true */
-	IFSTATE_IGNORED,			/* currently in an \elif that follows a true
-								 * branch, or the whole \if is a child of a
-								 * false parent branch */
-	IFSTATE_ELSE_TRUE,			/* currently in an \else that is true and all
-								 * parent branches (if any) are true */
-	IFSTATE_ELSE_FALSE			/* currently in an \else that is false or
-								 * ignored */
+	IFSTATE_NONE = 0,			/*  当前不在 \if 块中  */
+	IFSTATE_TRUE,				/*  当前在为真的 \if 或 \elif 中，
+								 * 且所有父分支（若有）为真 */
+	IFSTATE_FALSE,				/*  当前在为假的 \if 或 \elif 中，
+								 * 但尚未见真分支，且
+								 * 所有父分支（若有）为真 */
+	IFSTATE_IGNORED,			/*  当前在真分支之后的 \elif 中，
+								 * 或整个 \if 是假父分支的
+								 * 子分支 */
+	IFSTATE_ELSE_TRUE,			/*  当前在为真的 \else 中，且所有
+								 * 父分支（若有）为真 */
+	IFSTATE_ELSE_FALSE			/*  当前在为假或被忽略的
+								 * 略 */
 } ifState;
 
 /*
- * The state of nested \ifs is stored in a stack.
+ * 嵌套 \if 的状态存在栈中。
  *
- * query_len is used to determine what accumulated text to throw away at the
- * end of an inactive branch.  (We could, perhaps, teach the lexer to not add
- * stuff to the query buffer in the first place when inside an inactive branch;
- * but that would be very invasive.)  We also need to save and restore the
- * lexer's parenthesis nesting depth when throwing away text.  (We don't need
- * to save and restore any of its other state, such as comment nesting depth,
- * because a backslash command could never appear inside a comment or SQL
- * literal.)
+ * query_len 用于决定在非活动分支末丢弃多少
+ * 已累积文本。（也可教词法器在非活动分支内
+ * 起初就不往查询缓冲加内容；但改动会很大。）
+ * 丢弃文本时还须保存并恢复词法器的括号嵌套
+ * 深度。（其他状态如注释嵌套深度不必保存，
+ * 因反斜杠命令绝不会出现在注释或 SQL
+ * 字面量中。）
+ * 略
  */
 typedef struct IfStackElem
 {
-	ifState		if_state;		/* current state, see enum above */
-	int			query_len;		/* length of query_buf at last branch start */
-	int			paren_depth;	/* parenthesis depth at last branch start */
-	struct IfStackElem *next;	/* next surrounding \if, if any */
+	ifState		if_state;		/* 略 */
+	int			query_len;		/*  上次分支起点处 query_buf 长度  */
+	int			paren_depth;	/*  上次分支起点处括号深度  */
+	struct IfStackElem *next;	/* 略 */
 } IfStackElem;
 
 typedef struct ConditionalStackData

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * procarray.h
- *	  POSTGRES process array definitions.
+ *	  POSTGRES 进程数组定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

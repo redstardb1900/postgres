@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0496",
+  "title": "include/storage predicate+procarray — batch 0496",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "cdc35aa54aa5213a398821e1f817d02a8c4c7809",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/storage/predicate.h",
+      "kind": "c_comment",
+      "note": "0496"
+    },
+    {
+      "pattern": "src/include/storage/procarray.h",
+      "kind": "c_comment",
+      "note": "0496"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0496-storage.json",
+      "kind": "manifest",
+      "note": "0496"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/storage/predicate.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 20,
+      "translated": 13,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径/#endif"
+      ],
+      "note": "谓词加锁；内务处理；两阶段提交；并行查询"
+    },
+    {
+      "path": "src/include/storage/procarray.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 8,
+      "translated": 1,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/文件名/版权/路径/#endif"
+      ],
+      "note": "进程数组"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0496-storage.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0496"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append"
+    }
+  ],
+  "notes": "storage 第十八刀：predicate/procarray；谓词加锁/进程数组"
+}

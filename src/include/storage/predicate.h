@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * predicate.h
- *	  POSTGRES public predicate locking definitions.
+ *	  POSTGRES 谓词加锁公共定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,36 +20,36 @@
 
 
 /*
- * GUC variables
+ * GUC 变量
  */
 extern PGDLLIMPORT int max_predicate_locks_per_xact;
 extern PGDLLIMPORT int max_predicate_locks_per_relation;
 extern PGDLLIMPORT int max_predicate_locks_per_page;
 
 
-/* Number of SLRU buffers to use for Serial SLRU */
+/* Serial SLRU 所用 SLRU 缓冲区数 */
 #define NUM_SERIAL_BUFFERS		16
 
 /*
- * A handle used for sharing SERIALIZABLEXACT objects between the participants
- * in a parallel query.
+ * 用于在并行查询参与者之间共享 SERIALIZABLEXACT
+ * 对象的句柄。
  */
 typedef void *SerializableXactHandle;
 
 /*
- * function prototypes
+ * 函数原型
  */
 
-/* housekeeping for shared memory predicate lock structures */
+/* 共享内存谓词锁结构的内务处理 */
 extern void InitPredicateLocks(void);
 extern Size PredicateLockShmemSize(void);
 
 extern void CheckPointPredicate(void);
 
-/* predicate lock reporting */
+/* 谓词锁报告 */
 extern bool PageIsPredicateLocked(Relation relation, BlockNumber blkno);
 
-/* predicate lock maintenance */
+/* 谓词锁维护 */
 extern Snapshot GetSerializableTransactionSnapshot(Snapshot snapshot);
 extern void SetSerializableTransactionSnapshot(Snapshot snapshot,
 											   VirtualTransactionId *sourcevxid,
@@ -64,23 +64,23 @@ extern void PredicateLockPageCombine(Relation relation, BlockNumber oldblkno, Bl
 extern void TransferPredicateLocksToHeapRelation(Relation relation);
 extern void ReleasePredicateLocks(bool isCommit, bool isReadOnlySafe);
 
-/* conflict detection (may also trigger rollback) */
+/* 冲突检测（也可能触发回滚） */
 extern bool CheckForSerializableConflictOutNeeded(Relation relation, Snapshot snapshot);
 extern void CheckForSerializableConflictOut(Relation relation, TransactionId xid, Snapshot snapshot);
 extern void CheckForSerializableConflictIn(Relation relation, ItemPointer tid, BlockNumber blkno);
 extern void CheckTableForSerializableConflictIn(Relation relation);
 
-/* final rollback checking */
+/* 最终回滚检查 */
 extern void PreCommit_CheckForSerializationFailure(void);
 
-/* two-phase commit support */
+/* 两阶段提交支持 */
 extern void AtPrepare_PredicateLocks(void);
 extern void PostPrepare_PredicateLocks(TransactionId xid);
 extern void PredicateLockTwoPhaseFinish(TransactionId xid, bool isCommit);
 extern void predicatelock_twophase_recover(TransactionId xid, uint16 info,
 										   void *recdata, uint32 len);
 
-/* parallel query support */
+/* 并行查询支持 */
 extern SerializableXactHandle ShareSerializableXact(void);
 extern void AttachSerializableXact(SerializableXactHandle handle);
 

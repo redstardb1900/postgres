@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * trigger.h
- *	  Declarations for trigger handling.
+ *	触发器处理相关声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,8 +19,8 @@
 #include "nodes/parsenodes.h"
 
 /*
- * TriggerData is the node type that is passed as fmgr "context" info
- * when a function is called by the trigger manager.
+ * TriggerData 是触发器管理器调用函数时作为
+ * 函数管理器上下文传入的节点类型。
  */
 
 #define CALLED_AS_TRIGGER(fcinfo) \
@@ -44,22 +44,22 @@ typedef struct TriggerData
 } TriggerData;
 
 /*
- * The state for capturing old and new tuples into transition tables for a
- * single ModifyTable node (or other operation source, e.g. copyfrom.c).
+ * 为单个 ModifyTable 节点（或其他操作源，如
+ * copyfrom.c）把新旧元组捕获进转换表的状态。
  *
- * This is per-caller to avoid conflicts in setting
- * tcs_original_insert_tuple.  Note, however, that the pointed-to
- * private data may be shared across multiple callers.
+ * 按调用方分开，以免设置
+ * tcs_original_insert_tuple 时冲突。但注意所指向的
+ * 私有数据可跨多个调用方共享。
  */
-struct AfterTriggersTableData;	/* private in trigger.c */
+struct AfterTriggersTableData;	/* trigger.c 私有 */
 
 typedef struct TransitionCaptureState
 {
 	/*
-	 * Is there at least one trigger specifying each transition relation on
-	 * the relation explicitly named in the DML statement or COPY command?
-	 * Note: in current usage, these flags could be part of the private state,
-	 * but it seems possibly useful to let callers see them.
+	 * 在 DML 语句或 COPY 命令显式命名的关系上，是否至少
+	 * 有一个触发器指定了各转换关系？
+	 * 注意：按当前用法这些标志本可放在私有状态中，
+	 * 但让调用方可见似乎有用。
 	 */
 	bool		tcs_delete_old_table;
 	bool		tcs_update_old_table;
@@ -67,27 +67,27 @@ typedef struct TransitionCaptureState
 	bool		tcs_insert_new_table;
 
 	/*
-	 * For INSERT and COPY, it would be wasteful to convert tuples from child
-	 * format to parent format after they have already been converted in the
-	 * opposite direction during routing.  In that case we bypass conversion
-	 * and allow the inserting code (copyfrom.c and nodeModifyTable.c) to
-	 * provide a slot containing the original tuple directly.
+	 * 对 INSERT 与 COPY，子格式元组在路由中已按相反方向
+	 * 转换后再转回父格式会很浪费。此时绕过转换，
+	 * 允许插入代码（copyfrom.c 与 nodeModifyTable.c）
+	 * 直接提供含原始元组的
+	 * 槽。
 	 */
 	TupleTableSlot *tcs_original_insert_tuple;
 
 	/*
-	 * Private data including the tuplestore(s) into which to insert tuples.
+	 * 私有数据，含待插入元组的 tuplestore。
 	 */
 	struct AfterTriggersTableData *tcs_private;
 } TransitionCaptureState;
 
 /*
- * TriggerEvent bit flags
+ * TriggerEvent 位标志
  *
- * Note that we assume different event types (INSERT/DELETE/UPDATE/TRUNCATE)
- * can't be OR'd together in a single TriggerEvent.  This is unlike the
- * situation for pg_trigger rows, so pg_trigger.tgtype uses a different
- * representation!
+ * 假定不同事件类型（INSERT/DELETE/UPDATE/TRUNCATE）
+ * 不能在单个 TriggerEvent 中按位或。这与
+ * pg_trigger 行不同，故 pg_trigger.tgtype 使用另一
+ * 表示法！
  */
 #define TRIGGER_EVENT_INSERT			0x00000000
 #define TRIGGER_EVENT_DELETE			0x00000001
@@ -102,7 +102,7 @@ typedef struct TransitionCaptureState
 #define TRIGGER_EVENT_INSTEAD			0x00000010
 #define TRIGGER_EVENT_TIMINGMASK		0x00000018
 
-/* More TriggerEvent flags, used only within trigger.c */
+/* 更多 TriggerEvent 标志(仅 trigger.c) */
 
 #define AFTER_TRIGGER_DEFERRABLE		0x00000020
 #define AFTER_TRIGGER_INITDEFERRED		0x00000040
@@ -135,7 +135,7 @@ typedef struct TransitionCaptureState
 	(((event) & TRIGGER_EVENT_TIMINGMASK) == TRIGGER_EVENT_INSTEAD)
 
 /*
- * Definitions for replication role based firing.
+ * 基于复制角色的触发定义。
  */
 #define SESSION_REPLICATION_ROLE_ORIGIN		0
 #define SESSION_REPLICATION_ROLE_REPLICA	1
@@ -143,8 +143,8 @@ typedef struct TransitionCaptureState
 extern PGDLLIMPORT int SessionReplicationRole;
 
 /*
- * States at which a trigger can be fired. These are the
- * possible values for pg_trigger.tgenabled.
+ * 触发器可被激发的状态。这些是
+ * pg_trigger.tgenabled 的可能值。
  */
 #define TRIGGER_FIRES_ON_ORIGIN				'O'
 #define TRIGGER_FIRES_ALWAYS				'A'
@@ -267,7 +267,7 @@ extern bool AfterTriggerPendingOnRel(Oid relid);
 
 
 /*
- * in utils/adt/ri_triggers.c
+ * utils/adt/ri_triggers.c
  */
 extern bool RI_FKey_pk_upd_check_required(Trigger *trigger, Relation pk_rel,
 										  TupleTableSlot *oldslot, TupleTableSlot *newslot);
@@ -278,10 +278,10 @@ extern bool RI_Initial_Check(Trigger *trigger,
 extern void RI_PartitionRemove_Check(Trigger *trigger, Relation fk_rel,
 									 Relation pk_rel);
 
-/* result values for RI_FKey_trigger_type: */
-#define RI_TRIGGER_PK	1		/* is a trigger on the PK relation */
-#define RI_TRIGGER_FK	2		/* is a trigger on the FK relation */
-#define RI_TRIGGER_NONE 0		/* is not an RI trigger function */
+/* RI_FKey_trigger_type 的返回值： */
+#define RI_TRIGGER_PK	1		/* 是 PK 关系上的触发器 */
+#define RI_TRIGGER_FK	2		/* 是 FK 关系上的触发器 */
+#define RI_TRIGGER_NONE 0		/* 不是 RI 触发器函数 */
 
 extern int	RI_FKey_trigger_type(Oid tgfoid);
 

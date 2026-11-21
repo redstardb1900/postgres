@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * explain.h
- *	  prototypes for explain.c
+ *	explain.c 的原型
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994-5, Regents of the University of California
@@ -27,42 +27,42 @@ typedef enum ExplainFormat
 
 typedef struct ExplainWorkersState
 {
-	int			num_workers;	/* # of worker processes the plan used */
-	bool	   *worker_inited;	/* per-worker state-initialized flags */
-	StringInfoData *worker_str; /* per-worker transient output buffers */
-	int		   *worker_state_save;	/* per-worker grouping state save areas */
-	StringInfo	prev_str;		/* saved output buffer while redirecting */
+	int			num_workers;	/* 计划所用工作进程数 */
+	bool	   *worker_inited;	/* 每工人已初始化标志 */
+	StringInfoData *worker_str; /* 每工作进程临时输出缓冲 */
+	int		   *worker_state_save;	/* 每工作进程分组状态保存区 */
+	StringInfo	prev_str;		/* 重定向时保存的输出缓冲 */
 } ExplainWorkersState;
 
 typedef struct ExplainState
 {
-	StringInfo	str;			/* output buffer */
-	/* options */
-	bool		verbose;		/* be verbose */
-	bool		analyze;		/* print actual times */
-	bool		costs;			/* print estimated costs */
-	bool		buffers;		/* print buffer usage */
-	bool		wal;			/* print WAL usage */
-	bool		timing;			/* print detailed node timing */
-	bool		summary;		/* print total planning and execution timing */
-	bool		settings;		/* print modified settings */
-	bool		generic;		/* generate a generic plan */
-	ExplainFormat format;		/* output format */
-	/* state for output formatting --- not reset for each new plan tree */
-	int			indent;			/* current indentation level */
-	List	   *grouping_stack; /* format-specific grouping state */
-	/* state related to the current plan tree (filled by ExplainPrintPlan) */
-	PlannedStmt *pstmt;			/* top of plan */
-	List	   *rtable;			/* range table */
-	List	   *rtable_names;	/* alias names for RTEs */
-	List	   *deparse_cxt;	/* context list for deparsing expressions */
-	Bitmapset  *printed_subplans;	/* ids of SubPlans we've printed */
-	bool		hide_workers;	/* set if we find an invisible Gather */
-	/* state related to the current plan node */
-	ExplainWorkersState *workers_state; /* needed if parallel plan */
+	StringInfo	str;			/* 输出缓冲 */
+	/* 选项 */
+	bool		verbose;		/* 详尽 */
+	bool		analyze;		/* 打印实际耗时 */
+	bool		costs;			/* 打印估计代价 */
+	bool		buffers;		/* 打印缓冲用量 */
+	bool		wal;			/* 打印 WAL */
+	bool		timing;			/* 打印详细节点计时 */
+	bool		summary;		/* 打印总规划与执行计时 */
+	bool		settings;		/* 打印已修改设置 */
+	bool		generic;		/* 生成通用计划 */
+	ExplainFormat format;		/* 输出格式 */
+	/* 输出格式化状态——不随每棵新计划树复位 */
+	int			indent;			/* 当前缩进级别 */
+	List	   *grouping_stack; /* 格式相关分组状态 */
+	/* 与当前计划树相关的状态（由 ExplainPrintPlan 填充） */
+	PlannedStmt *pstmt;			/* 计划顶 */
+	List	   *rtable;			/* 范围表 */
+	List	   *rtable_names;	/* RTEs 别名 */
+	List	   *deparse_cxt;	/* 反解析表达式的上下文列表 */
+	Bitmapset  *printed_subplans;	/* 已打印 SubPlans 的 id */
+	bool		hide_workers;	/* 发现不可见 Gather 则置位 */
+	/* 与当前计划节点相关的状态 */
+	ExplainWorkersState *workers_state; /* 并行计划时需要 */
 } ExplainState;
 
-/* Hook for plugins to get control in ExplainOneQuery() */
+/* 插件在 ExplainOneQuery() 中获得控制的钩子 */
 typedef void (*ExplainOneQuery_hook_type) (Query *query,
 										   int cursorOptions,
 										   IntoClause *into,
@@ -72,7 +72,7 @@ typedef void (*ExplainOneQuery_hook_type) (Query *query,
 										   QueryEnvironment *queryEnv);
 extern PGDLLIMPORT ExplainOneQuery_hook_type ExplainOneQuery_hook;
 
-/* Hook for plugins to get control in explain_get_index_name() */
+/* 插件在 explain_get_index_name() 中获得控制的钩子 */
 typedef const char *(*explain_get_index_name_hook_type) (Oid indexId);
 extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
 

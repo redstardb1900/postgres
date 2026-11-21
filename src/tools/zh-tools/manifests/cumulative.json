@@ -9751,6 +9751,36 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0529-include.json",
    "kind": "manifest",
    "note": "0529"
+  },
+  {
+   "pattern": "src/include/commands/copy.h",
+   "kind": "c_comment",
+   "note": "0530"
+  },
+  {
+   "pattern": "src/include/commands/copyfrom_internal.h",
+   "kind": "c_comment",
+   "note": "0530"
+  },
+  {
+   "pattern": "src/include/commands/explain.h",
+   "kind": "c_comment",
+   "note": "0530"
+  },
+  {
+   "pattern": "src/include/commands/progress.h",
+   "kind": "c_comment",
+   "note": "0530"
+  },
+  {
+   "pattern": "src/include/commands/trigger.h",
+   "kind": "c_comment",
+   "note": "0530"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0530-include.json",
+   "kind": "manifest",
+   "note": "0530"
   }
  ],
  "files": [
@@ -31755,6 +31785,76 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0529"
+  },
+  {
+   "path": "src/include/commands/copy.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 32,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫 KEEP"
+   ],
+   "note": "0530 T=32"
+  },
+  {
+   "path": "src/include/commands/copyfrom_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 98,
+   "translated": 91,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫 KEEP"
+   ],
+   "note": "0530 T=91"
+  },
+  {
+   "path": "src/include/commands/explain.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 32,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫 KEEP"
+   ],
+   "note": "0530 T=32"
+  },
+  {
+   "path": "src/include/commands/progress.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 28,
+   "preserved": 6,
+   "preserved_reasons": [
+    "横幅/路径/守卫 KEEP"
+   ],
+   "note": "0530 T=28"
+  },
+  {
+   "path": "src/include/commands/trigger.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 40,
+   "translated": 33,
+   "preserved": 7,
+   "preserved_reasons": [
+    "横幅/路径/守卫 KEEP"
+   ],
+   "note": "0530 T=33"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0530-include.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0530"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

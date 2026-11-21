@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * copy.h
- *	  Definitions for using the POSTGRES copy command.
+ *	POSTGRES COPY 命令所用定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,8 +20,8 @@
 #include "tcop/dest.h"
 
 /*
- * Represents whether a header line should be present, and whether it must
- * match the actual names (which implies "true").
+ * 表示是否应有表头行，以及表头是否必须
+ * 与实际列名匹配（意味着为真）。
  */
 typedef enum CopyHeaderChoice
 {
@@ -31,39 +31,39 @@ typedef enum CopyHeaderChoice
 } CopyHeaderChoice;
 
 /*
- * A struct to hold COPY options, in a parsed form. All of these are related
- * to formatting, except for 'freeze', which doesn't really belong here, but
- * it's expedient to parse it along with all the other options.
+ * 保存已解析 COPY 选项的结构。除 freeze 外均与
+ * 格式相关；freeze 本不属此，但与其他选项
+ * 一并解析较方便。
  */
 typedef struct CopyFormatOptions
 {
-	/* parameters from the COPY command */
-	int			file_encoding;	/* file or remote side's character encoding,
-								 * -1 if not specified */
-	bool		binary;			/* binary format? */
-	bool		freeze;			/* freeze rows on loading? */
-	bool		csv_mode;		/* Comma Separated Value format? */
-	CopyHeaderChoice header_line;	/* header line? */
-	char	   *null_print;		/* NULL marker string (server encoding!) */
-	int			null_print_len; /* length of same */
-	char	   *null_print_client;	/* same converted to file encoding */
-	char	   *default_print;	/* DEFAULT marker string */
-	int			default_print_len;	/* length of same */
-	char	   *delim;			/* column delimiter (must be 1 byte) */
-	char	   *quote;			/* CSV quote char (must be 1 byte) */
-	char	   *escape;			/* CSV escape char (must be 1 byte) */
-	List	   *force_quote;	/* list of column names */
+	/* 来自 COPY 命令的参数 */
+	int			file_encoding;	/* 文件或远端的字符编码，
+								 * -1 表示未指定 */
+	bool		binary;			/* 二进制？ */
+	bool		freeze;			/* 装载时冻结行？ */
+	bool		csv_mode;		/* 逗号分隔值格式？ */
+	CopyHeaderChoice header_line;	/* 表头行？ */
+	char	   *null_print;		/* NULL 标串(服务器编码!) */
+	int			null_print_len; /* 同上长度 */
+	char	   *null_print_client;	/* 已转文件编码的同上 */
+	char	   *default_print;	/* DEFAULT 标记串 */
+	int			default_print_len;	/* 同上长度 */
+	char	   *delim;			/* 列分隔符（须为 1 字节） */
+	char	   *quote;			/* CSV 引号（1 字节） */
+	char	   *escape;			/* CSV 转义（1 字节） */
+	List	   *force_quote;	/* 列名列表 */
 	bool		force_quote_all;	/* FORCE_QUOTE *? */
-	bool	   *force_quote_flags;	/* per-column CSV FQ flags */
-	List	   *force_notnull;	/* list of column names */
-	bool	   *force_notnull_flags;	/* per-column CSV FNN flags */
-	List	   *force_null;		/* list of column names */
-	bool	   *force_null_flags;	/* per-column CSV FN flags */
-	bool		convert_selectively;	/* do selective binary conversion? */
-	List	   *convert_select; /* list of column names (can be NIL) */
+	bool	   *force_quote_flags;	/* 每列 CSV FQ 标志 */
+	List	   *force_notnull;	/* 列名列表 */
+	bool	   *force_notnull_flags;	/* 每列 CSV FNN 标志 */
+	List	   *force_null;		/* 列名列表 */
+	bool	   *force_null_flags;	/* 每列 CSV FN 标志 */
+	bool		convert_selectively;	/* 做选择性二进制转换？ */
+	List	   *convert_select; /* 列名列表（可为 NIL） */
 } CopyFormatOptions;
 
-/* These are private in commands/copy[from|to].c */
+/* 在 commands/copy[from|to].c 中私有 */
 typedef struct CopyFromStateData *CopyFromState;
 typedef struct CopyToStateData *CopyToState;
 
@@ -90,7 +90,7 @@ extern uint64 CopyFrom(CopyFromState cstate);
 extern DestReceiver *CreateCopyDestReceiver(void);
 
 /*
- * internal prototypes
+ * 内部原型
  */
 extern CopyToState BeginCopyTo(ParseState *pstate, Relation rel, RawStmt *raw_query,
 							   Oid queryRelId, const char *filename, bool is_program,

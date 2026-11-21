@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * progress.h
- *	  Constants used with the progress reporting facilities defined in
- *	  backend_status.h.  These are possibly interesting to extensions, so we
- *	  expose them via this header file.  Note that if you update these
- *	  constants, you probably also need to update the views based on them
- *	  in system_views.sql.
+ *	与 backend_status.h 中进度报告设施配合使用的常量。
+ *	扩展可能感兴趣，故经此头文件
+ *	对外公开。注意若更新这些
+ *	常量，大概也需更新基于它们的视图
+ *	system_views.sql。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,7 +17,7 @@
 #ifndef PROGRESS_H
 #define PROGRESS_H
 
-/* Progress parameters for (lazy) vacuum */
+/* （惰性）vacuum 的进度参数 */
 #define PROGRESS_VACUUM_PHASE					0
 #define PROGRESS_VACUUM_TOTAL_HEAP_BLKS			1
 #define PROGRESS_VACUUM_HEAP_BLKS_SCANNED		2
@@ -26,7 +26,7 @@
 #define PROGRESS_VACUUM_MAX_DEAD_TUPLES			5
 #define PROGRESS_VACUUM_NUM_DEAD_TUPLES			6
 
-/* Phases of vacuum (as advertised via PROGRESS_VACUUM_PHASE) */
+/* vacuum 阶段（经 PROGRESS_VACUUM_PHASE 公布） */
 #define PROGRESS_VACUUM_PHASE_SCAN_HEAP			1
 #define PROGRESS_VACUUM_PHASE_VACUUM_INDEX		2
 #define PROGRESS_VACUUM_PHASE_VACUUM_HEAP		3
@@ -34,7 +34,7 @@
 #define PROGRESS_VACUUM_PHASE_TRUNCATE			5
 #define PROGRESS_VACUUM_PHASE_FINAL_CLEANUP		6
 
-/* Progress parameters for analyze */
+/* analyze 的进度参数 */
 #define PROGRESS_ANALYZE_PHASE						0
 #define PROGRESS_ANALYZE_BLOCKS_TOTAL				1
 #define PROGRESS_ANALYZE_BLOCKS_DONE				2
@@ -44,14 +44,14 @@
 #define PROGRESS_ANALYZE_CHILD_TABLES_DONE			6
 #define PROGRESS_ANALYZE_CURRENT_CHILD_TABLE_RELID	7
 
-/* Phases of analyze (as advertised via PROGRESS_ANALYZE_PHASE) */
+/* analyze 阶段（经 PROGRESS_ANALYZE_PHASE 公布） */
 #define PROGRESS_ANALYZE_PHASE_ACQUIRE_SAMPLE_ROWS		1
 #define PROGRESS_ANALYZE_PHASE_ACQUIRE_SAMPLE_ROWS_INH	2
 #define PROGRESS_ANALYZE_PHASE_COMPUTE_STATS			3
 #define PROGRESS_ANALYZE_PHASE_COMPUTE_EXT_STATS		4
 #define PROGRESS_ANALYZE_PHASE_FINALIZE_ANALYZE			5
 
-/* Progress parameters for cluster */
+/* cluster 的进度参数 */
 #define PROGRESS_CLUSTER_COMMAND				0
 #define PROGRESS_CLUSTER_PHASE					1
 #define PROGRESS_CLUSTER_INDEX_RELID			2
@@ -61,7 +61,7 @@
 #define PROGRESS_CLUSTER_HEAP_BLKS_SCANNED		6
 #define PROGRESS_CLUSTER_INDEX_REBUILD_COUNT	7
 
-/* Phases of cluster (as advertised via PROGRESS_CLUSTER_PHASE) */
+/* cluster 阶段（经 PROGRESS_CLUSTER_PHASE 公布） */
 #define PROGRESS_CLUSTER_PHASE_SEQ_SCAN_HEAP	1
 #define PROGRESS_CLUSTER_PHASE_INDEX_SCAN_HEAP	2
 #define PROGRESS_CLUSTER_PHASE_SORT_TUPLES		3
@@ -70,24 +70,24 @@
 #define PROGRESS_CLUSTER_PHASE_REBUILD_INDEX	6
 #define PROGRESS_CLUSTER_PHASE_FINAL_CLEANUP	7
 
-/* Commands of PROGRESS_CLUSTER */
+/* PROGRESS_CLUSTER 的命令 */
 #define PROGRESS_CLUSTER_COMMAND_CLUSTER		1
 #define PROGRESS_CLUSTER_COMMAND_VACUUM_FULL	2
 
-/* Progress parameters for CREATE INDEX */
-/* 3, 4 and 5 reserved for "waitfor" metrics */
+/* CREATE INDEX 的进度参数 */
+/* 3、4、5 预留给 waitfor 度量 */
 #define PROGRESS_CREATEIDX_COMMAND				0
 #define PROGRESS_CREATEIDX_INDEX_OID			6
 #define PROGRESS_CREATEIDX_ACCESS_METHOD_OID	8
-#define PROGRESS_CREATEIDX_PHASE				9	/* AM-agnostic phase # */
-#define PROGRESS_CREATEIDX_SUBPHASE				10	/* phase # filled by AM */
+#define PROGRESS_CREATEIDX_PHASE				9	/* AM 无关阶段号 */
+#define PROGRESS_CREATEIDX_SUBPHASE				10	/* AM 所填阶段号 */
 #define PROGRESS_CREATEIDX_TUPLES_TOTAL			11
 #define PROGRESS_CREATEIDX_TUPLES_DONE			12
 #define PROGRESS_CREATEIDX_PARTITIONS_TOTAL		13
 #define PROGRESS_CREATEIDX_PARTITIONS_DONE		14
-/* 15 and 16 reserved for "block number" metrics */
+/* 15、16 预留给块号度量 */
 
-/* Phases of CREATE INDEX (as advertised via PROGRESS_CREATEIDX_PHASE) */
+/* CREATE INDEX 阶段（经 PROGRESS_CREATEIDX_PHASE 公布） */
 #define PROGRESS_CREATEIDX_PHASE_WAIT_1			1
 #define PROGRESS_CREATEIDX_PHASE_BUILD			2
 #define PROGRESS_CREATEIDX_PHASE_WAIT_2			3
@@ -99,41 +99,41 @@
 #define PROGRESS_CREATEIDX_PHASE_WAIT_5			9
 
 /*
- * Subphases of CREATE INDEX, for index_build.
+ * CREATE INDEX 子阶段（index_build）。
  */
 #define PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE	1
-/* Additional phases are defined by each AM */
+/* 各 AM 可定义更多阶段 */
 
-/* Commands of PROGRESS_CREATEIDX */
+/* PROGRESS_CREATEIDX 的命令 */
 #define PROGRESS_CREATEIDX_COMMAND_CREATE			1
 #define PROGRESS_CREATEIDX_COMMAND_CREATE_CONCURRENTLY	2
 #define PROGRESS_CREATEIDX_COMMAND_REINDEX		3
 #define PROGRESS_CREATEIDX_COMMAND_REINDEX_CONCURRENTLY	4
 
-/* Lock holder wait counts */
+/* 锁等待者计数 */
 #define PROGRESS_WAITFOR_TOTAL					3
 #define PROGRESS_WAITFOR_DONE					4
 #define PROGRESS_WAITFOR_CURRENT_PID			5
 
-/* Block numbers in a generic relation scan */
+/* 通用关系扫描中的块号 */
 #define PROGRESS_SCAN_BLOCKS_TOTAL				15
 #define PROGRESS_SCAN_BLOCKS_DONE				16
 
-/* Progress parameters for pg_basebackup */
+/* pg_basebackup 的进度参数 */
 #define PROGRESS_BASEBACKUP_PHASE				0
 #define PROGRESS_BASEBACKUP_BACKUP_TOTAL			1
 #define PROGRESS_BASEBACKUP_BACKUP_STREAMED			2
 #define PROGRESS_BASEBACKUP_TBLSPC_TOTAL			3
 #define PROGRESS_BASEBACKUP_TBLSPC_STREAMED			4
 
-/* Phases of pg_basebackup (as advertised via PROGRESS_BASEBACKUP_PHASE) */
+/* pg_basebackup 阶段（经 PROGRESS_BASEBACKUP_PHASE 公布） */
 #define PROGRESS_BASEBACKUP_PHASE_WAIT_CHECKPOINT		1
 #define PROGRESS_BASEBACKUP_PHASE_ESTIMATE_BACKUP_SIZE		2
 #define PROGRESS_BASEBACKUP_PHASE_STREAM_BACKUP			3
 #define PROGRESS_BASEBACKUP_PHASE_WAIT_WAL_ARCHIVE		4
 #define PROGRESS_BASEBACKUP_PHASE_TRANSFER_WAL			5
 
-/* Progress parameters for PROGRESS_COPY */
+/* PROGRESS_COPY 的进度参数 */
 #define PROGRESS_COPY_BYTES_PROCESSED 0
 #define PROGRESS_COPY_BYTES_TOTAL 1
 #define PROGRESS_COPY_TUPLES_PROCESSED 2
@@ -141,11 +141,11 @@
 #define PROGRESS_COPY_COMMAND 4
 #define PROGRESS_COPY_TYPE 5
 
-/* Commands of COPY (as advertised via PROGRESS_COPY_COMMAND) */
+/* COPY 命令（经 PROGRESS_COPY_COMMAND 公布） */
 #define PROGRESS_COPY_COMMAND_FROM 1
 #define PROGRESS_COPY_COMMAND_TO 2
 
-/* Types of COPY commands (as advertised via PROGRESS_COPY_TYPE) */
+/* COPY 命令类型（经 PROGRESS_COPY_TYPE 公布） */
 #define PROGRESS_COPY_TYPE_FILE 1
 #define PROGRESS_COPY_TYPE_PROGRAM 2
 #define PROGRESS_COPY_TYPE_PIPE 3

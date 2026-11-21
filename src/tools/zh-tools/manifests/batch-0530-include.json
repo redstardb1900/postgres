@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0530",
+  "title": "include/commands 中大头 explain/copy/progress/copyfrom/trigger — batch 0530",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "318bef038ca17f94eda49cab8fb5ad9b4916eb61",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/commands/copy.h",
+      "kind": "c_comment",
+      "note": "0530"
+    },
+    {
+      "pattern": "src/include/commands/copyfrom_internal.h",
+      "kind": "c_comment",
+      "note": "0530"
+    },
+    {
+      "pattern": "src/include/commands/explain.h",
+      "kind": "c_comment",
+      "note": "0530"
+    },
+    {
+      "pattern": "src/include/commands/progress.h",
+      "kind": "c_comment",
+      "note": "0530"
+    },
+    {
+      "pattern": "src/include/commands/trigger.h",
+      "kind": "c_comment",
+      "note": "0530"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0530-include.json",
+      "kind": "manifest",
+      "note": "0530"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/commands/copy.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 39,
+      "translated": 32,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0530 T=32"
+    },
+    {
+      "path": "src/include/commands/copyfrom_internal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 98,
+      "translated": 91,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0530 T=91"
+    },
+    {
+      "path": "src/include/commands/explain.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 39,
+      "translated": 32,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0530 T=32"
+    },
+    {
+      "path": "src/include/commands/progress.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 34,
+      "translated": 28,
+      "preserved": 6,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0530 T=28"
+    },
+    {
+      "path": "src/include/commands/trigger.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 40,
+      "translated": 33,
+      "preserved": 7,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP"
+      ],
+      "note": "0530 T=33"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0530-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0530"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0530"
+    }
+  ]
+}

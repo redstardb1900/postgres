@@ -1052,34 +1052,34 @@ typedef struct RelOptInfo
 
 /*
  * IndexOptInfo
- *		Per-index information for planning/optimization
+ *		规划/优化用的每索引信息
  *
- *		indexkeys[], indexcollations[] each have ncolumns entries.
- *		opfamily[], and opcintype[]	each have nkeycolumns entries. They do
- *		not contain any information about included attributes.
+ *		indexkeys[]、indexcollations[] 各有 ncolumns 项。
+ *		opfamily[] 与 opcintype[] 各有 nkeycolumns 项。它们
+ *		不含任何关于 included 属性的信息。
  *
- *		sortopfamily[], reverse_sort[], and nulls_first[] have
- *		nkeycolumns entries, if the index is ordered; but if it is unordered,
- *		those pointers are NULL.
+ *		sortopfamily[]、reverse_sort[] 与 nulls_first[] 在
+ *		有序索引时有 nkeycolumns 项；若无序则那些指针为
+ *		NULL。
  *
- *		Zeroes in the indexkeys[] array indicate index columns that are
- *		expressions; there is one element in indexprs for each such column.
+ *		indexkeys[] 中的 0 表示该索引列是表达式；每有一
+ *		这样的列，indexprs 中就有一项。
  *
- *		For an ordered index, reverse_sort[] and nulls_first[] describe the
- *		sort ordering of a forward indexscan; we can also consider a backward
- *		indexscan, which will generate the reverse ordering.
+ *		对有序索引，reverse_sort[] 与 nulls_first[] 描述正向
+ *		索引扫描的排序；也可考虑反向索引扫描，它产生
+ *		相反次序。
  *
- *		The indexprs and indpred expressions have been run through
- *		prepqual.c and eval_const_expressions() for ease of matching to
- *		WHERE clauses. indpred is in implicit-AND form.
+ *		indexprs 与 indpred 表达式已通过 prepqual.c 与
+ *		eval_const_expressions()，便于与 WHERE 子句匹配。
+ *		indpred 为隐式 AND 形式。
  *
- *		indextlist is a TargetEntry list representing the index columns.
- *		It provides an equivalent base-relation Var for each simple column,
- *		and links to the matching indexprs element for each expression column.
+ *		indextlist 是表示索引列的 TargetEntry 列表。
+ *		为每个简单列提供等价基关系 Var，并为每个表达式
+ *		列链到匹配的 indexprs 元素。
  *
- *		While most of these fields are filled when the IndexOptInfo is created
- *		(by plancat.c), indrestrictinfo and predOK are set later, in
- *		check_index_predicates().
+ *		这些字段大多在创建 IndexOptInfo 时（由 plancat.c）
+ *		填好；indrestrictinfo 与 predOK 稍后在
+ *		check_index_predicates()
  */
 #ifndef HAVE_INDEXOPTINFO_TYPEDEF
 typedef struct IndexOptInfo IndexOptInfo;
@@ -1276,28 +1276,28 @@ typedef struct StatisticExtInfo
 /*
  * JoinDomains
  *
- * A "join domain" defines the scope of applicability of deductions made via
- * the EquivalenceClass mechanism.  Roughly speaking, a join domain is a set
- * of base+OJ relations that are inner-joined together.  More precisely, it is
- * the set of relations at which equalities deduced from an EquivalenceClass
- * can be enforced or should be expected to hold.  The topmost JoinDomain
- * covers the whole query (so its jd_relids should equal all_query_rels).
- * An outer join creates a new JoinDomain that includes all base+OJ relids
- * within its nullable side, but (by convention) not the OJ's own relid.
- * A FULL join creates two new JoinDomains, one for each side.
+ * "连接域" 定义经 EquivalenceClass 机制所得推论的
+ * 适用范围。粗略说，连接域是一组内连接在一起的
+ * 基表+外连接关系。更精确地说，它是从某
+ * EquivalenceClass 导出的相等性可被强制或应期望成立
+ * 的那些关系集合。最顶层 JoinDomain 覆盖整个查询
+ * （故其 jd_relids 应等于 all_query_rels）。
+ * 外连接会新建 JoinDomain，包含其可空侧的全部
+ * 基表+外连接 relids，但（按约定）不含该外连接自身
+ * relid。FULL 连接为两侧各建新 JoinDomain。
  *
- * Notice that a rel that is below outer join(s) will thus appear to belong
- * to multiple join domains.  However, any of its Vars that appear in
- * EquivalenceClasses belonging to higher join domains will have nullingrel
- * bits preventing them from being evaluated at the rel's scan level, so that
- * we will not be able to derive enforceable-at-the-rel-scan-level clauses
- * from such ECs.  We define the join domain relid sets this way so that
- * domains can be said to be "higher" or "lower" when one domain relid set
- * includes another.
+ * 注意位于外连接之下的关系会因此看似属于多个
+ * 连接域。但其出现在更高连接域所属
+ * EquivalenceClasses 中的 Vars 会带有 nullingrel 位，
+ * 阻止在该关系扫描层求值，从而无法从这类 EC 导出
+ * 可在关系扫描层强制的子句。我们如此定义连接域
+ * relid 集合，以便当一个域的 relid 集包含另一个时
+ * 可称域为 "更高" 或 "更低"。
+ * （见上。）
  *
- * The JoinDomains for a query are computed in deconstruct_jointree.
- * We do not copy JoinDomain structs once made, so they can be compared
- * for equality by simple pointer equality.
+ * 查询的 JoinDomains 在 deconstruct_jointree 中计算。
+ * JoinDomain 结构一经做成不再复制，故可用简单指针
+ * 相等来比较。
  */
 typedef struct JoinDomain
 {

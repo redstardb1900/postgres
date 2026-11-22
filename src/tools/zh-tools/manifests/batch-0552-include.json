@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0552",
+  "title": "include/nodes IndexOptInfo + JoinDomains — batch 0552",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "a07ca0a4ee641196107fcc3cfba2d1b0a23b35e7",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "note": "0552"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0552-include.json",
+      "kind": "manifest",
+      "note": "0552"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1775,
+      "translated": 43,
+      "preserved": 1732,
+      "preserved_reasons": [
+        "横幅/长叙述 KEEP EN（RelOptInfo/RestrictInfo/RowMark 等）"
+      ],
+      "note": "0552 T=43"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0552-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0552"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0552"
+    }
+  ]
+}

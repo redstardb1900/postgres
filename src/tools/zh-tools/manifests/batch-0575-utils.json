@@ -1,0 +1,61 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0575",
+    "title": "include/utils array — batch 0575",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "216a5dad9eec2e4b7bb0a775cee73630ccde86c1",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/array.h",
+            "kind": "c_comment",
+            "note": "0575"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0575-utils.json",
+            "kind": "manifest",
+            "note": "0575"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/array.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 156,
+            "translated": 58,
+            "preserved": 98,
+            "preserved_reasons": [
+                "版权/横幅 KEEP；数组布局/展开数组长文整块 KEEP EN"
+            ],
+            "note": "0575 T=58"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0575-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0575"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0575"
+        }
+    ],
+    "notes": "短注已译；布局/展开数组长文整块 KEEP EN"
+}

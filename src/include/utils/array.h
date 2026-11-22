@@ -64,20 +64,20 @@
 #include "fmgr.h"
 #include "utils/expandeddatum.h"
 
-/* avoid including execnodes.h here */
+/*  避免在此包含 execnodes.h  */
 struct ExprState;
 struct ExprContext;
 
 
 /*
- * Maximum number of array subscripts (arbitrary limit)
+ * 数组下标最大个数（任意上限）
  */
 #define MAXDIM 6
 
 /*
- * Maximum number of elements in an array.  We limit this to at most about a
- * quarter billion elements, so that it's not necessary to check for overflow
- * in quite so many places --- for instance when palloc'ing Datum arrays.
+ * 数组中元素的最大个数。限制在约两亿五千万以内，
+ * 以免多处不必检查溢出——例如为 Datum 数组
+ * palloc 时。
  */
 #define MaxArraySize ((Size) (MaxAllocSize / sizeof(Datum)))
 
@@ -91,9 +91,9 @@ struct ExprContext;
  */
 typedef struct ArrayType
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int			ndim;			/* # of dimensions */
-	int32		dataoffset;		/* offset to data, or 0 if no bitmap */
+	int32		vl_len_;		/*  varlena 头（勿直接碰！）  */
+	int			ndim;			/*  维数  */
+	int32		dataoffset;		/*  数据偏移,无位图则为 0  */
 	Oid			elemtype;		/* element type OID */
 } ArrayType;
 
@@ -110,24 +110,24 @@ typedef struct ArrayType
  * this situation.  Once we start modifying array elements, new pass-by-ref
  * elements are separately palloc'd within the memory context.
  */
-#define EA_MAGIC 689375833		/* ID for debugging crosschecks */
+#define EA_MAGIC 689375833		/*  调试交叉核对用 ID  */
 
 typedef struct ExpandedArrayHeader
 {
-	/* Standard header for expanded objects */
+	/*  展开对象的标准头  */
 	ExpandedObjectHeader hdr;
 
-	/* Magic value identifying an expanded array (for debugging only) */
+	/*  标识展开数组的魔数（仅调试）  */
 	int			ea_magic;
 
-	/* Dimensionality info (always valid) */
-	int			ndims;			/* # of dimensions */
-	int		   *dims;			/* array dimensions */
-	int		   *lbound;			/* index lower bounds for each dimension */
+	/*  维数信息（始终有效）  */
+	int			ndims;			/*  维数  */
+	int		   *dims;			/*  各维长度  */
+	int		   *lbound;			/*  各维下标下界  */
 
 	/* Element type info (always valid) */
 	Oid			element_type;	/* element type OID */
-	int16		typlen;			/* needed info about element datatype */
+	int16		typlen;			/*  元素数据类型所需信息  */
 	bool		typbyval;
 	char		typalign;
 
@@ -143,15 +143,15 @@ typedef struct ExpandedArrayHeader
 	 * Even when dvalues is valid, dnulls can be NULL if there are no null
 	 * elements.
 	 */
-	Datum	   *dvalues;		/* array of Datums */
-	bool	   *dnulls;			/* array of is-null flags for Datums */
-	int			dvalueslen;		/* allocated length of above arrays */
-	int			nelems;			/* number of valid entries in above arrays */
+	Datum	   *dvalues;		/*  Datum 数组  */
+	bool	   *dnulls;			/*  Datum 的空值标志数组  */
+	int			dvalueslen;		/*  上述数组的已分配长度  */
+	int			nelems;			/*  上述数组中的有效项数  */
 
 	/*
-	 * flat_size is the current space requirement for the flat equivalent of
-	 * the expanded array, if known; otherwise it's 0.  We store this to make
-	 * consecutive calls of get_flat_size cheap.
+	 * flat_size 是展开数组扁平等价物的当前空间需求
+	 * (若已知)；否则为 0。存此以使连续调用
+	 * get_flat_size 廉价。
 	 */
 	Size		flat_size;
 
@@ -163,8 +163,8 @@ typedef struct ExpandedArrayHeader
 	 * representation rather than being pointers to separately palloc'd data.
 	 */
 	ArrayType  *fvalue;			/* must be a fully detoasted array */
-	char	   *fstartptr;		/* start of its data area */
-	char	   *fendptr;		/* end+1 of its data area */
+	char	   *fstartptr;		/*  其数据区起始  */
+	char	   *fendptr;		/*  其数据区结束+1  */
 } ExpandedArrayHeader;
 
 /*
@@ -181,16 +181,16 @@ typedef union AnyArrayType
 } AnyArrayType;
 
 /*
- * working state for accumArrayResult() and friends
- * note that the input must be scalars (legal array elements)
+ * accumArrayResult() 及同伴的工作状态
+ * 注意输入必须是标量（合法数组元素）
  */
 typedef struct ArrayBuildState
 {
-	MemoryContext mcontext;		/* where all the temp stuff is kept */
-	Datum	   *dvalues;		/* array of accumulated Datums */
-	bool	   *dnulls;			/* array of is-null flags for Datums */
-	int			alen;			/* allocated length of above arrays */
-	int			nelems;			/* number of valid entries in above arrays */
+	MemoryContext mcontext;		/*  全部临时物所在之处  */
+	Datum	   *dvalues;		/*  已累积 Datum 的数组  */
+	bool	   *dnulls;			/*  Datum 的空值标志数组  */
+	int			alen;			/*  上述数组的已分配长度  */
+	int			nelems;			/*  上述数组中的有效项数  */
 	Oid			element_type;	/* data type of the Datums */
 	int16		typlen;			/* needed info about datatype */
 	bool		typbyval;
@@ -199,39 +199,39 @@ typedef struct ArrayBuildState
 } ArrayBuildState;
 
 /*
- * working state for accumArrayResultArr() and friends
- * note that the input must be arrays, and the same array type is returned
+ * accumArrayResultArr() 及同伴的工作状态
+ * 注意输入必须是数组，并返回相同数组类型
  */
 typedef struct ArrayBuildStateArr
 {
-	MemoryContext mcontext;		/* where all the temp stuff is kept */
+	MemoryContext mcontext;		/*  全部临时物所在之处  */
 	char	   *data;			/* accumulated data */
-	bits8	   *nullbitmap;		/* bitmap of is-null flags, or NULL if none */
+	bits8	   *nullbitmap;		/*  空值标志位图，无则为 NULL  */
 	int			abytes;			/* allocated length of "data" */
-	int			nbytes;			/* number of bytes used so far */
-	int			aitems;			/* allocated length of bitmap (in elements) */
-	int			nitems;			/* total number of elements in result */
-	int			ndims;			/* current dimensions of result */
+	int			nbytes;			/*  已用字节数  */
+	int			aitems;			/*  位图已分配长度(以元素计)  */
+	int			nitems;			/*  结果中元素总数  */
+	int			ndims;			/*  结果当前维数  */
 	int			dims[MAXDIM];
 	int			lbs[MAXDIM];
 	Oid			array_type;		/* data type of the arrays */
-	Oid			element_type;	/* data type of the array elements */
+	Oid			element_type;	/*  数组元素的数据类型  */
 	bool		private_cxt;	/* use private memory context */
 } ArrayBuildStateArr;
 
 /*
- * working state for accumArrayResultAny() and friends
- * these functions handle both cases
+ * accumArrayResultAny() 及同伴的工作状态
+ * 这些函数处理两种情形
  */
 typedef struct ArrayBuildStateAny
 {
-	/* Exactly one of these is not NULL: */
+	/*  以下恰有一个非 NULL：  */
 	ArrayBuildState *scalarstate;
 	ArrayBuildStateArr *arraystate;
 } ArrayBuildStateAny;
 
 /*
- * structure to cache type metadata needed for array manipulation
+ * 缓存数组操作所需类型元数据的结构
  */
 typedef struct ArrayMetaState
 {
@@ -246,7 +246,7 @@ typedef struct ArrayMetaState
 } ArrayMetaState;
 
 /*
- * private state needed by array_map (here because caller must provide it)
+ * array_map 所需私有状态（因调用方须提供）
  */
 typedef struct ArrayMapState
 {
@@ -254,23 +254,23 @@ typedef struct ArrayMapState
 	ArrayMetaState ret_extra;
 } ArrayMapState;
 
-/* ArrayIteratorData is private in arrayfuncs.c */
+/*  ArrayIteratorData 为 arrayfuncs.c 私有  */
 typedef struct ArrayIteratorData *ArrayIterator;
 
-/* fmgr macros for regular varlena array objects */
+/*  普通 varlena 数组对象的 fmgr 宏  */
 #define DatumGetArrayTypeP(X)		  ((ArrayType *) PG_DETOAST_DATUM(X))
 #define DatumGetArrayTypePCopy(X)	  ((ArrayType *) PG_DETOAST_DATUM_COPY(X))
 #define PG_GETARG_ARRAYTYPE_P(n)	  DatumGetArrayTypeP(PG_GETARG_DATUM(n))
 #define PG_GETARG_ARRAYTYPE_P_COPY(n) DatumGetArrayTypePCopy(PG_GETARG_DATUM(n))
 #define PG_RETURN_ARRAYTYPE_P(x)	  PG_RETURN_POINTER(x)
 
-/* fmgr macros for expanded array objects */
+/*  展开数组对象的 fmgr 宏  */
 #define PG_GETARG_EXPANDED_ARRAY(n)  DatumGetExpandedArray(PG_GETARG_DATUM(n))
 #define PG_GETARG_EXPANDED_ARRAYX(n, metacache) \
 	DatumGetExpandedArrayX(PG_GETARG_DATUM(n), metacache)
 #define PG_RETURN_EXPANDED_ARRAY(x)  PG_RETURN_DATUM(EOHPGetRWDatum(&(x)->hdr))
 
-/* fmgr macros for AnyArrayType (ie, get either varlena or expanded form) */
+/*  AnyArrayType 的 fmgr 宏（取 varlena 或展开形式）  */
 #define PG_GETARG_ANY_ARRAY_P(n)	DatumGetAnyArrayP(PG_GETARG_DATUM(n))
 
 /*
@@ -304,8 +304,8 @@ typedef struct ArrayIteratorData *ArrayIterator;
 		 : (bits8 *) NULL)
 
 /*
- * The total array header size (in bytes) for an array with the specified
- * number of dimensions and total number of items.
+ * 具有指定维数与总项数的数组的总头大小（字节）。
+ * 见上。
  */
 #define ARR_OVERHEAD_NONULLS(ndims) \
 		MAXALIGN(sizeof(ArrayType) + 2 * sizeof(int) * (ndims))
@@ -317,13 +317,13 @@ typedef struct ArrayIteratorData *ArrayIterator;
 		(ARR_HASNULL(a) ? (a)->dataoffset : ARR_OVERHEAD_NONULLS(ARR_NDIM(a)))
 
 /*
- * Returns a pointer to the actual array data.
+ * 返回指向实际数组数据的指针。
  */
 #define ARR_DATA_PTR(a) \
 		(((char *) (a)) + ARR_DATA_OFFSET(a))
 
 /*
- * Macros for working with AnyArrayType inputs.  Beware multiple references!
+ * 处理 AnyArrayType 输入的宏。当心多次求值！
  */
 #define AARR_NDIM(a) \
 	(VARATT_IS_EXPANDED_HEADER(a) ? \
@@ -344,12 +344,12 @@ typedef struct ArrayIteratorData *ArrayIterator;
 
 
 /*
- * GUC parameter
+ * GUC 参数
  */
 extern PGDLLIMPORT bool Array_nulls;
 
 /*
- * prototypes for functions defined in arrayfuncs.c
+ * arrayfuncs.c 中定义的函数原型
  */
 extern void CopyArrayEls(ArrayType *array,
 						 Datum *values,
@@ -451,7 +451,7 @@ extern bool array_iterate(ArrayIterator iterator, Datum *value, bool *isnull);
 extern void array_free_iterator(ArrayIterator iterator);
 
 /*
- * prototypes for functions defined in arrayutils.c
+ * arrayutils.c 中定义的函数原型
  */
 
 extern int	ArrayGetOffset(int n, const int *dim, const int *lb, const int *indx);
@@ -469,7 +469,7 @@ extern int	mda_next_tuple(int n, int *curr, const int *span);
 extern int32 *ArrayGetIntegerTypmods(ArrayType *arr, int *n);
 
 /*
- * prototypes for functions defined in array_expanded.c
+ * array_expanded.c 中定义的函数原型
  */
 extern Datum expand_array(Datum arraydatum, MemoryContext parentcontext,
 						  ArrayMetaState *metacache);

@@ -19,29 +19,29 @@
 #ifndef GENBKI_H
 #define GENBKI_H
 
-/* Introduces a catalog's structure definition */
+/*  引入系统目录的结构定义  */
 #define CATALOG(name,oid,oidmacro)	typedef struct CppConcat(FormData_,name)
 
-/* Options that may appear after CATALOG (on the same line) */
+/*  可出现在 CATALOG 之后的选项(同行)  */
 #define BKI_BOOTSTRAP
 #define BKI_SHARED_RELATION
 #define BKI_ROWTYPE_OID(oid,oidmacro)
 #define BKI_SCHEMA_MACRO
 
-/* Options that may appear after an attribute (on the same line) */
+/*  可出现在属性之后的选项(同行)  */
 #define BKI_FORCE_NULL
 #define BKI_FORCE_NOT_NULL
-/* Specifies a default value for a catalog field */
+/*  指定目录字段的默认值  */
 #define BKI_DEFAULT(value)
-/* Specifies a default value for auto-generated array types */
+/*  指定自动生成数组类型的默认值  */
 #define BKI_ARRAY_DEFAULT(value)
 /*
- * Indicates that the attribute contains OIDs referencing the named catalog;
- * can be applied to columns of oid, regproc, oid[], or oidvector type.
- * genbki.pl uses this to know how to perform name lookups in the initial
- * data (if any), and it also feeds into regression-test validity checks.
- * The _OPT suffix indicates that values can be zero instead of
- * a valid OID reference.
+ * 表示该属性含引用具名目录的 OIDs;
+ * 可用于 oid、regproc、oid[] 或 oidvector 列。
+ * genbki.pl 借此知如何在初始数据(若有)中做
+ * 名称查找,并供回归测试有效性检查。
+ * _OPT 后缀表示值可为零而非
+ * 有效 OID 引用。
  */
 #define BKI_LOOKUP(catalog)
 #define BKI_LOOKUP_OPT(catalog)
@@ -120,23 +120,23 @@
 #define DECLARE_ARRAY_FOREIGN_KEY(cols,reftbl,refcols) extern int no_such_variable
 #define DECLARE_ARRAY_FOREIGN_KEY_OPT(cols,reftbl,refcols) extern int no_such_variable
 
-/* The following are never defined; they are here only for documentation. */
+/*  以下永不定义;仅供文档。  */
 
 /*
- * Variable-length catalog fields (except possibly the first not nullable one)
- * should not be visible in C structures, so they are made invisible by #ifdefs
- * of an undefined symbol.  See also the BOOTCOL_NULL_AUTO code in bootstrap.c
- * for how this is handled.
+ * 变长目录字段(除可能的首个非空者外)不应在 C
+ * 结构中可见,故用未定义符号的 #ifdef 隐藏。另见
+ * bootstrap.c 中 BOOTCOL_NULL_AUTO 代码了解
+ * 处理方式。
  */
 #undef CATALOG_VARLEN
 
 /*
- * There is code in some catalog headers that needs to be visible to clients,
- * but we don't want clients to include the full header because of safety
- * issues with other code in the header.  To handle that, surround code that
- * should be visible to clients with "#ifdef EXPOSE_TO_CLIENT_CODE".  That
- * instructs genbki.pl to copy the section when generating the corresponding
- * "_d" header, which can be included by both client and backend code.
+ * 某些目录头中有需对客户端可见的代码,
+ * 但不想因头中其他代码的安全问题让客户
+ * 端包含完整头。为此,将对客户端可见的代码
+ * 用 "#ifdef EXPOSE_TO_CLIENT_CODE" 包围。这指示
+ * genbki.pl 在生成对应 "_d" 头时复制该段,该头
+ * 可被客户端与后端代码共同包含。
  */
 #undef EXPOSE_TO_CLIENT_CODE
 

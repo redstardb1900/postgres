@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0601",
+ "title": "include/catalog genbki+catversion 短注 — batch 0601",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c85c9aba18c7ac9476b50e653e1bdc9df6e486ac",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/genbki.h",
+   "kind": "c_comment",
+   "note": "0601"
+  },
+  {
+   "pattern": "src/include/catalog/catversion.h",
+   "kind": "c_comment",
+   "note": "0601"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0601-catalog.json",
+   "kind": "manifest",
+   "note": "0601"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/genbki.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；DECLARE_*/catversion 长文 KEEP EN。"
+   ],
+   "note": "0601"
+  },
+  {
+   "path": "src/include/catalog/catversion.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；DECLARE_*/catversion 长文 KEEP EN。"
+   ],
+   "note": "0601"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0601-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0601"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0601"
+  }
+ ],
+ "notes": "genbki 短注+LOOKUP/VARLEN/EXPOSE 中块已译；DECLARE_* 长文 KEEP；catversion 长文 KEEP、YYYYMMDDN 说明已译"
+}

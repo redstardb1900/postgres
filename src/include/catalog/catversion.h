@@ -49,11 +49,11 @@
 #define CATVERSION_H
 
 /*
- * We could use anything we wanted for version numbers, but I recommend
- * following the "YYYYMMDDN" style often used for DNS zone serial numbers.
- * YYYYMMDD are the date of the change, and N is the number of the change
- * on that day.  (Hopefully we'll never commit ten independent sets of
- * catalog changes on the same day...)
+ * 版本号可用任意约定,但建议遵循 DNS 区序列常
+ * 用的 "YYYYMMDDN" 风格。YYYYMMDD 为变更日期,
+ * N 为当日变更序号。(希望我们从不会在同一天
+ * 提交十组独立的
+ * 目录变更...)
  */
 
 /*							yyyymmddN */

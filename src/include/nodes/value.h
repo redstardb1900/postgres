@@ -34,15 +34,15 @@ typedef struct Integer
 } Integer;
 
 /*
- * Float is internally represented as string.  Using T_Float as the node type
- * simply indicates that the contents of the string look like a valid numeric
- * literal.  The value might end up being converted to NUMERIC, so we can't
- * store it internally as a C double, since that could lose precision.  Since
- * these nodes are generally only used in the parsing process, not for runtime
- * data, it's better to use the more general representation.
+ * Float 内部以字符串表示。用 T_Float 作节点类型
+ * 仅表明字符串内容看起来像合法数值字面量。
+ * 该值最终或转为 NUMERIC，故不能
+ * 内部存为 C double，否则可能丢精度。因
+ * 这些节点通常仅用于解析过程，非运行时
+ * 数据，宜用更通用表示。
  *
- * Note that an integer-looking string will get lexed as T_Float if the value
- * is too large to fit in an 'int'.
+ * 注意：形似整数的串若过大放不进 int，
+ * 则词法识别为 T_Float。
  */
 typedef struct Float
 {

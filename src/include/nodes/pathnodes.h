@@ -864,7 +864,7 @@ typedef struct RelOptInfo
 	/*
 	 * 每关系规划器控制标志
 	 */
-	/* keep cheap-startup-cost paths? */
+	/* 保留廉价启动路径? */
 	bool		consider_startup;
 	/* 同上,对参数化路径? */
 	bool		consider_param_startup;
@@ -909,9 +909,9 @@ typedef struct RelOptInfo
 	AttrNumber	min_attr;
 	/* 关系最大 attrno */
 	AttrNumber	max_attr;
-	/* array indexed [min_attr .. max_attr] */
+	/* 数组下标 [min_attr .. max_attr] */
 	Relids	   *attr_needed pg_node_attr(read_write_ignore);
-	/* array indexed [min_attr .. max_attr] */
+	/* 数组下标 [min_attr .. max_attr] */
 	int32	   *attr_widths pg_node_attr(read_write_ignore);
 	/* 可使本基关系变空的外连接 relid */
 	Relids		nulling_relids;
@@ -929,8 +929,8 @@ typedef struct RelOptInfo
 	double		allvisfrac;
 	/* PlannerInfo 的 eq_classes 列表中提及本关系的 EC 下标 */
 	Bitmapset  *eclass_indexes;
-	PlannerInfo *subroot;		/* if subquery */
-	List	   *subplan_params; /* if subquery */
+	PlannerInfo *subroot;		/* 子查询 */
+	List	   *subplan_params; /* 子查询 */
 	/* 想要的并行工作者数 */
 	int			rel_parallel_workers;
 	/* 表 AM 支持的可选特性位掩码 */
@@ -964,7 +964,7 @@ typedef struct RelOptInfo
 	List	   *baserestrictinfo;
 	/* 求值上述内容的代价 */
 	QualCost	baserestrictcost;
-	/* min security_level found in baserestrictinfo */
+	/* baserestrictinfo 中最低 security_level */
 	Index		baserestrict_min_security;
 	/* 涉及本关系的连接子句的 RestrictInfo 结构 */
 	List	   *joininfo;
@@ -1384,8 +1384,8 @@ typedef struct EquivalenceClass
 } EquivalenceClass;
 
 /*
- * If an EC contains a constant, any PathKey depending on it must be
- * redundant, since there's only one possible value of the key.
+ * 若 EC 含常量，则依赖它的 PathKey 必为
+ * 冗余，因该键只有一种可能取值。
  */
 #define EC_MUST_BE_REDUNDANT(eclass)  \
 	((eclass)->ec_has_const)
@@ -1454,14 +1454,14 @@ typedef struct PathKey
 	/* 被排序的值 */
 	EquivalenceClass *pk_eclass pg_node_attr(copy_as_scalar, equal_as_scalar);
 	Oid			pk_opfamily;	/* 定义排序的 btree 运算符族 */
-	int			pk_strategy;	/* sort direction (ASC or DESC) */
+	int			pk_strategy;	/* 排序方向(ASC/DESC) */
 	bool		pk_nulls_first; /* 空值是否排在普通值之前? */
 } PathKey;
 
 /*
- * VolatileFunctionStatus -- allows nodes to cache their
- * contain_volatile_functions properties. VOLATILITY_UNKNOWN means not yet
- * determined.
+ * VolatileFunctionStatus——允许节点缓存其
+ * contain_volatile_functions。VOLATILITY_UNKNOWN 表示尚未
+ * 确定。
  */
 typedef enum VolatileFunctionStatus
 {
@@ -1596,26 +1596,26 @@ typedef struct Path
 	NodeTag		pathtype;
 
 	/*
-	 * the relation this path can build
+	 * 本路径可构建的关系
 	 *
-	 * We do NOT print the parent, else we'd be in infinite recursion.  We can
-	 * print the parent's relids for identification purposes, though.
+	 * 不打印 parent，否则无限递归。但可
+	 * 打印 parent 的 relids 以便识别。
 	 */
 	RelOptInfo *parent pg_node_attr(write_only_relids);
 
 	/*
-	 * list of Vars/Exprs, cost, width
+	 * Vars/Exprs、代价与宽度
 	 *
-	 * We print the pathtarget only if it's not the default one for the rel.
+	 * 仅当 pathtarget 非该 rel 默认目标时才打印。
 	 */
 	PathTarget *pathtarget pg_node_attr(write_only_nondefault_pathtarget);
 
 	/*
-	 * parameterization info, or NULL if none
+	 * 参数化信息，无则 NULL
 	 *
-	 * We do not print the whole of param_info, since it's printed via
-	 * RelOptInfo; it's sufficient and less cluttering to print just the
-	 * required outer relids.
+	 * 不打印完整 param_info，因其已通过
+	 * RelOptInfo 打印；只打印所需外层 relids
+	 * 即可，更简洁。
 	 */
 	ParamPathInfo *param_info pg_node_attr(write_only_req_outer);
 
@@ -1756,10 +1756,10 @@ typedef struct BitmapHeapPath
 } BitmapHeapPath;
 
 /*
- * BitmapAndPath represents a BitmapAnd plan node; it can only appear as
- * part of the substructure of a BitmapHeapPath.  The Path structure is
- * a bit more heavyweight than we really need for this, but for simplicity
- * we make it a derivative of Path anyway.
+ * BitmapAndPath 表示 BitmapAnd 计划节点；只能作
+ * BitmapHeapPath 子结构一部分。Path 结构对此
+ * 略偏重，但为简单起见仍令其
+ * 派生自 Path。
  */
 typedef struct BitmapAndPath
 {
@@ -1769,10 +1769,10 @@ typedef struct BitmapAndPath
 } BitmapAndPath;
 
 /*
- * BitmapOrPath represents a BitmapOr plan node; it can only appear as
- * part of the substructure of a BitmapHeapPath.  The Path structure is
- * a bit more heavyweight than we really need for this, but for simplicity
- * we make it a derivative of Path anyway.
+ * BitmapOrPath 表示 BitmapOr 计划节点；只能作
+ * BitmapHeapPath 子结构一部分。Path 结构对此
+ * 略偏重，但为简单起见仍令其
+ * 派生自 Path。
  */
 typedef struct BitmapOrPath
 {
@@ -1782,11 +1782,11 @@ typedef struct BitmapOrPath
 } BitmapOrPath;
 
 /*
- * TidPath represents a scan by TID
+ * TidPath 表示按 TID 扫描
  *
- * tidquals is an implicitly OR'ed list of qual expressions of the form
- * "CTID = pseudoconstant", or "CTID = ANY(pseudoconstant_array)",
- * or a CurrentOfExpr for the relation.
+ * tidquals 是隐式 OR 的限定表达式列表，形如
+ * "CTID = 伪常量"，或 "CTID = ANY(伪常量数组)"，
+ * 或该关系上的 CurrentOfExpr。
  */
 typedef struct TidPath
 {
@@ -1795,10 +1795,10 @@ typedef struct TidPath
 } TidPath;
 
 /*
- * TidRangePath represents a scan by a contiguous range of TIDs
+ * TidRangePath 表示按连续 TIDs 范围扫描
  *
- * tidrangequals is an implicitly AND'ed list of qual expressions of the form
- * "CTID relop pseudoconstant", where relop is one of >,>=,<,<=.
+ * tidrangequals 是隐式 AND 的限定表达式列表，形如
+ * "CTID relop 伪常量"，relop 为 >、>=、<、<= 之一。
  */
 typedef struct TidRangePath
 {
@@ -1807,12 +1807,12 @@ typedef struct TidRangePath
 } TidRangePath;
 
 /*
- * SubqueryScanPath represents a scan of an unflattened subquery-in-FROM
+ * SubqueryScanPath 表示扫描未展平的 FROM 子查询
  *
- * Note that the subpath comes from a different planning domain; for example
- * RTE indexes within it mean something different from those known to the
- * SubqueryScanPath.  path.parent->subroot is the planning context needed to
- * interpret the subpath.
+ * 注意 subpath 来自不同规划域；例如其中
+ * RTE 下标含义与 SubqueryScanPath 所知不同。
+ * path.parent->subroot 是解释 subpath 所需的
+ * 规划上下文。
  */
 typedef struct SubqueryScanPath
 {
@@ -1821,14 +1821,14 @@ typedef struct SubqueryScanPath
 } SubqueryScanPath;
 
 /*
- * ForeignPath represents a potential scan of a foreign table, foreign join
- * or foreign upper-relation.
+ * ForeignPath 表示外表、外部连接或外部
+ * 上层关系的扫描。
  *
- * fdw_private stores FDW private data about the scan.  While fdw_private is
- * not actually touched by the core code during normal operations, it's
- * generally a good idea to use a representation that can be dumped by
- * nodeToString(), so that you can examine the structure during debugging
- * with tools like pprint().
+ * fdw_private 存放 FDW 私有扫描数据。核心代码
+ * 正常运行时并不触碰它，但通常宜采用
+ * 可被 nodeToString() 转储的表示，以便调试时
+ * 用 pprint() 等工具查看结构。
+ * 之类工具。
  */
 typedef struct ForeignPath
 {
@@ -1899,16 +1899,16 @@ typedef struct AppendPath
 	(IsA((p), AppendPath) && ((AppendPath *) (p))->subpaths == NIL)
 
 /*
- * A relation that's been proven empty will have one path that is dummy
- * (but might have projection paths on top).  For historical reasons,
- * this is provided as a macro that wraps is_dummy_rel().
+ * 已证空的关系会有一条 dummy 路径
+ * （其上或有投影路径）。因历史原因，
+ * 以包装 is_dummy_rel() 的宏提供。
  */
 #define IS_DUMMY_REL(r) is_dummy_rel(r)
 extern bool is_dummy_rel(RelOptInfo *rel);
 
 /*
- * MergeAppendPath represents a MergeAppend plan, ie, the merging of sorted
- * results from several member plans to produce similarly-sorted output.
+ * MergeAppendPath 表示 MergeAppend 计划，即将若干
+ * 成员计划的已排序结果归并为同样有序的输出。
  */
 typedef struct MergeAppendPath
 {
@@ -1918,11 +1918,11 @@ typedef struct MergeAppendPath
 } MergeAppendPath;
 
 /*
- * GroupResultPath represents use of a Result plan node to compute the
- * output of a degenerate GROUP BY case, wherein we know we should produce
- * exactly one row, which might then be filtered by a HAVING qual.
+ * GroupResultPath 表示用 Result 计划节点计算
+ * 退化 GROUP BY：已知应产出恰好一行，
+ * 随后或可由 HAVING 限定过滤。
  *
- * Note that quals is a list of bare clauses, not RestrictInfos.
+ * 注意 quals 是裸子句列表，非 RestrictInfos。
  */
 typedef struct GroupResultPath
 {
@@ -1931,10 +1931,10 @@ typedef struct GroupResultPath
 } GroupResultPath;
 
 /*
- * MaterialPath represents use of a Material plan node, i.e., caching of
- * the output of its subpath.  This is used when the subpath is expensive
- * and needs to be scanned repeatedly, or when we need mark/restore ability
- * and the subpath doesn't have it.
+ * MaterialPath 表示使用 Material 计划节点，即
+ * 缓存其子路径输出。用于子路径昂贵且需
+ * 反复扫描，或需要 mark/restore 能力而
+ * 子路径不具备时。
  */
 typedef struct MaterialPath
 {
@@ -1943,9 +1943,9 @@ typedef struct MaterialPath
 } MaterialPath;
 
 /*
- * MemoizePath represents a Memoize plan node, i.e., a cache that caches
- * tuples from parameterized paths to save the underlying node from having to
- * be rescanned for parameter values which are already cached.
+ * MemoizePath 表示 Memoize 计划节点，即缓存
+ * 参数化路径的元组，以免底层节点对已缓存的
+ * 参数值再次扫描。
  */
 typedef struct MemoizePath
 {
@@ -1953,14 +1953,14 @@ typedef struct MemoizePath
 	Path	   *subpath;		/* 缓存元组的 outerpath */
 	List	   *hash_operators; /* 缓存键的哈希相等运算符 OID */
 	List	   *param_exprs;	/* 作为缓存键的表达式 */
-	bool		singlerow;		/* true if the cache entry is to be marked as
-								 * complete after caching the first record. */
-	bool		binary_mode;	/* true when cache key should be compared bit
-								 * by bit, false when using hash equality ops */
+	bool		singlerow;		/* 缓存首条后即将该项标为
+								 * complete，则为 true。 */
+	bool		binary_mode;	/* 为 true 时缓存键按位比较，
+								 * 为 false 时用哈希相等操作符。 */
 	Cardinality calls;			/* 期望的重扫次数 */
-	uint32		est_entries;	/* The maximum number of entries that the
-								 * planner expects will fit in the cache, or 0
-								 * if unknown */
+	uint32		est_entries;	/* 规划器预期缓存最大
+								 * 条目数，未知则为
+								 * 0 */
 } MemoizePath;
 
 /*
@@ -1992,9 +1992,9 @@ typedef struct UniquePath
 } UniquePath;
 
 /*
- * GatherPath runs several copies of a plan in parallel and collects the
- * results.  The parallel leader may also execute the plan, unless the
- * single_copy flag is set.
+ * GatherPath 并行运行若干计划副本并收集
+ * 结果。除非设置 single_copy，并行领导者
+ * 也可执行该计划。
  */
 typedef struct GatherPath
 {
@@ -2005,8 +2005,8 @@ typedef struct GatherPath
 } GatherPath;
 
 /*
- * GatherMergePath runs several copies of a plan in parallel and collects
- * the results, preserving their common sort order.
+ * GatherMergePath 并行运行若干计划副本并收集
+ * 结果，同时保持其共同排序顺序。
  */
 typedef struct GatherMergePath
 {
@@ -2017,7 +2017,7 @@ typedef struct GatherMergePath
 
 
 /*
- * All join-type paths share these fields.
+ * 各连接类型路径共享这些字段
  */
 
 typedef struct JoinPath
@@ -2028,23 +2028,23 @@ typedef struct JoinPath
 
 	JoinType	jointype;
 
-	bool		inner_unique;	/* each outer tuple provably matches no more
-								 * than one inner tuple */
+	bool		inner_unique;	/* 每个外表元组可证明至多匹配
+								 * 一个内表元组 */
 
 	Path	   *outerjoinpath;	/* 连接外层的路径 */
 	Path	   *innerjoinpath;	/* 连接内层的路径 */
 
-	List	   *joinrestrictinfo;	/* RestrictInfos to apply to join */
+	List	   *joinrestrictinfo;	/* 用于连接的 RestrictInfos */
 
 	/*
-	 * See the notes for RelOptInfo and ParamPathInfo to understand why
-	 * joinrestrictinfo is needed in JoinPath, and can't be merged into the
-	 * parent RelOptInfo.
+	 * 参见 RelOptInfo 与 ParamPathInfo 的说明，以理解
+	 * 为何 JoinPath 需要 joinrestrictinfo，且不能并入
+	 * 父 RelOptInfo。
 	 */
 } JoinPath;
 
 /*
- * A nested-loop path needs no special fields.
+ * 嵌套循环路径无需特殊字段。
  */
 
 typedef struct NestPath
@@ -2098,12 +2098,12 @@ typedef struct MergePath
 } MergePath;
 
 /*
- * A hashjoin path has these fields.
+ * 哈希连接路径有这些字段
  *
- * The remarks above for mergeclauses apply for hashclauses as well.
+ * 上文关于 mergeclauses 的说明同样适用于 hashclauses。
  *
- * Hashjoin does not care what order its inputs appear in, so we have
- * no need for sortkeys.
+ * 哈希连接不关心输入顺序，故无需
+ * sortkeys。
  */
 
 typedef struct HashPath
@@ -2136,9 +2136,9 @@ typedef struct ProjectionPath
 } ProjectionPath;
 
 /*
- * ProjectSetPath represents evaluation of a targetlist that includes
- * set-returning function(s), which will need to be implemented by a
- * ProjectSet plan node.
+ * ProjectSetPath 表示求值含集合返回函数的
+ * 目标列表，需由 ProjectSet 计划节点
+ * 实现。
  */
 typedef struct ProjectSetPath
 {
@@ -2147,12 +2147,12 @@ typedef struct ProjectSetPath
 } ProjectSetPath;
 
 /*
- * SortPath represents an explicit sort step
+ * SortPath 表示显式排序步骤
  *
- * The sort keys are, by definition, the same as path.pathkeys.
+ * 排序键按定义与 path.pathkeys 相同。
  *
- * Note: the Sort plan node cannot project, so path.pathtarget must be the
- * same as the input's pathtarget.
+ * 注意：Sort 计划节点不能投影，故 path.pathtarget 须与
+ * 输入的 pathtarget 相同。
  */
 typedef struct SortPath
 {
@@ -2161,10 +2161,10 @@ typedef struct SortPath
 } SortPath;
 
 /*
- * IncrementalSortPath represents an incremental sort step
+ * IncrementalSortPath 表示增量排序步骤
  *
- * This is like a regular sort, except some leading key columns are assumed
- * to be ordered already.
+ * 类似普通排序，但假定若干前导键列
+ * 已经有序。
  */
 typedef struct IncrementalSortPath
 {
@@ -2221,7 +2221,7 @@ typedef struct AggPath
 } AggPath;
 
 /*
- * Various annotations used for grouping sets in the planner.
+ * 规划器中分组集所用的各种注解。
  */
 
 typedef struct GroupingSetData
@@ -2247,7 +2247,7 @@ typedef struct RollupData
 } RollupData;
 
 /*
- * GroupingSetsPath represents a GROUPING SETS aggregation
+ * GroupingSetsPath 表示 GROUPING SETS 聚集
  */
 
 typedef struct GroupingSetsPath
@@ -2261,7 +2261,7 @@ typedef struct GroupingSetsPath
 } GroupingSetsPath;
 
 /*
- * MinMaxAggPath represents computation of MIN/MAX aggregates from indexes
+ * MinMaxAggPath 表示用索引计算 MIN/MAX 聚集
  */
 typedef struct MinMaxAggPath
 {
@@ -2271,7 +2271,7 @@ typedef struct MinMaxAggPath
 } MinMaxAggPath;
 
 /*
- * WindowAggPath represents generic computation of window functions
+ * WindowAggPath 表示窗口函数的通用计算
  */
 typedef struct WindowAggPath
 {
@@ -2284,7 +2284,7 @@ typedef struct WindowAggPath
 } WindowAggPath;
 
 /*
- * SetOpPath represents a set-operation, that is INTERSECT or EXCEPT
+ * SetOpPath 表示集合运算（INTERSECT/EXCEPT）
  */
 typedef struct SetOpPath
 {
@@ -2299,7 +2299,7 @@ typedef struct SetOpPath
 } SetOpPath;
 
 /*
- * RecursiveUnionPath represents a recursive UNION node
+ * RecursiveUnionPath 表示递归 UNION 节点
  */
 typedef struct RecursiveUnionPath
 {
@@ -2312,7 +2312,7 @@ typedef struct RecursiveUnionPath
 } RecursiveUnionPath;
 
 /*
- * LockRowsPath represents acquiring row locks for SELECT FOR UPDATE/SHARE
+ * LockRowsPath 表示 SELECT FOR UPDATE/SHARE 行锁
  */
 typedef struct LockRowsPath
 {
@@ -2350,7 +2350,7 @@ typedef struct ModifyTablePath
 } ModifyTablePath;
 
 /*
- * LimitPath represents applying LIMIT/OFFSET restrictions
+ * LimitPath 表示施加 LIMIT/OFFSET 限制
  */
 typedef struct LimitPath
 {

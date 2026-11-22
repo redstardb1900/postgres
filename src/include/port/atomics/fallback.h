@@ -12,7 +12,7 @@
  *-------------------------------------------------------------------------
  */
 
-/* intentionally no include guards, should only be included by atomics.h */
+/*  故意无头文件卫士,仅应由 atomics.h 包含  */
 #ifndef INSIDE_ATOMICS_H
 #	error "should be included via atomics.h"
 #endif
@@ -92,7 +92,7 @@ typedef struct pg_atomic_flag
 #define PG_HAVE_ATOMIC_U32_SUPPORT
 typedef struct pg_atomic_uint32
 {
-	/* Check pg_atomic_flag's definition above for an explanation */
+	/*  解释见上方 pg_atomic_flag 的定义  */
 #if defined(__hppa) || defined(__hppa__)	/* HP PA-RISC */
 	int			sema[4];
 #else
@@ -110,7 +110,7 @@ typedef struct pg_atomic_uint32
 #define PG_HAVE_ATOMIC_U64_SUPPORT
 typedef struct pg_atomic_uint64
 {
-	/* Check pg_atomic_flag's definition above for an explanation */
+	/*  解释见上方 pg_atomic_flag 的定义  */
 #if defined(__hppa) || defined(__hppa__)	/* HP PA-RISC */
 	int			sema[4];
 #else

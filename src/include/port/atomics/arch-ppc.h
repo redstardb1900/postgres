@@ -31,7 +31,7 @@ typedef struct pg_atomic_uint32
 	volatile uint32 value;
 } pg_atomic_uint32;
 
-/* 64bit atomics are only supported in 64bit mode */
+/*  64 位原子仅在 64 位模式支持  */
 #if SIZEOF_VOID_P >= 8
 #define PG_HAVE_ATOMIC_U64_SUPPORT
 typedef struct pg_atomic_uint64
@@ -92,9 +92,9 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 			"	sync				\n"
 			"	lwarx   %0,0,%5,1	\n"
 			"	cmpwi   %0,%3		\n"
-			"	bne     $+12		\n"		/* branch to lwsync */
+			"	bne     $+12		\n"		/* 分支到 lwsync */
 			"	stwcx.  %4,0,%5		\n"
-			"	bne     $-16		\n"		/* branch to lwarx */
+			"	bne     $-16		\n"		/* 分支到 lwarx */
 			"	lwsync				\n"
 			"	mfcr    %1          \n"
 :			"=&r"(found), "=r"(condition_register), "+m"(ptr->value)
@@ -106,9 +106,9 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 			"	sync				\n"
 			"	lwarx   %0,0,%5,1	\n"
 			"	cmpw    %0,%3		\n"
-			"	bne     $+12		\n"		/* branch to lwsync */
+			"	bne     $+12		\n"		/* 分支到 lwsync */
 			"	stwcx.  %4,0,%5		\n"
-			"	bne     $-16		\n"		/* branch to lwarx */
+			"	bne     $-16		\n"		/* 分支到 lwarx */
 			"	lwsync				\n"
 			"	mfcr    %1          \n"
 :			"=&r"(found), "=r"(condition_register), "+m"(ptr->value)
@@ -122,9 +122,9 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 }
 
 /*
- * This mirrors gcc __sync_fetch_and_add().
+ * 这镜像 gcc __sync_fetch_and_add()。
  *
- * Like tas(), use constraint "=&b" to avoid allocating r0.
+ * 同 tas(),用约束 "=&b" 避免分配 r0。
  */
 #define PG_HAVE_ATOMIC_FETCH_ADD_U32
 static inline uint32
@@ -141,7 +141,7 @@ pg_atomic_fetch_add_u32_impl(volatile pg_atomic_uint32 *ptr, int32 add_)
 			"	lwarx   %1,0,%4,1	\n"
 			"	addi    %0,%1,%3	\n"
 			"	stwcx.  %0,0,%4		\n"
-			"	bne     $-12		\n"		/* branch to lwarx */
+			"	bne     $-12		\n"		/* 分支到 lwarx */
 			"	lwsync				\n"
 :			"=&r"(_t), "=&b"(res), "+m"(ptr->value)
 :			"i"(add_), "r"(&ptr->value)
@@ -153,7 +153,7 @@ pg_atomic_fetch_add_u32_impl(volatile pg_atomic_uint32 *ptr, int32 add_)
 			"	lwarx   %1,0,%4,1	\n"
 			"	add     %0,%1,%3	\n"
 			"	stwcx.  %0,0,%4		\n"
-			"	bne     $-12		\n"		/* branch to lwarx */
+			"	bne     $-12		\n"		/* 分支到 lwarx */
 			"	lwsync				\n"
 :			"=&r"(_t), "=&r"(res), "+m"(ptr->value)
 :			"r"(add_), "r"(&ptr->value)
@@ -182,9 +182,9 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 			"	sync				\n"
 			"	ldarx   %0,0,%5,1	\n"
 			"	cmpdi   %0,%3		\n"
-			"	bne     $+12		\n"		/* branch to lwsync */
+			"	bne     $+12		\n"		/* 分支到 lwsync */
 			"	stdcx.  %4,0,%5		\n"
-			"	bne     $-16		\n"		/* branch to ldarx */
+			"	bne     $-16		\n"		/* 分支到 ldarx */
 			"	lwsync				\n"
 			"	mfcr    %1          \n"
 :			"=&r"(found), "=r"(condition_register), "+m"(ptr->value)
@@ -196,9 +196,9 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 			"	sync				\n"
 			"	ldarx   %0,0,%5,1	\n"
 			"	cmpd    %0,%3		\n"
-			"	bne     $+12		\n"		/* branch to lwsync */
+			"	bne     $+12		\n"		/* 分支到 lwsync */
 			"	stdcx.  %4,0,%5		\n"
-			"	bne     $-16		\n"		/* branch to ldarx */
+			"	bne     $-16		\n"		/* 分支到 ldarx */
 			"	lwsync				\n"
 			"	mfcr    %1          \n"
 :			"=&r"(found), "=r"(condition_register), "+m"(ptr->value)
@@ -227,7 +227,7 @@ pg_atomic_fetch_add_u64_impl(volatile pg_atomic_uint64 *ptr, int64 add_)
 			"	ldarx   %1,0,%4,1	\n"
 			"	addi    %0,%1,%3	\n"
 			"	stdcx.  %0,0,%4		\n"
-			"	bne     $-12		\n"		/* branch to ldarx */
+			"	bne     $-12		\n"		/* 分支到 ldarx */
 			"	lwsync				\n"
 :			"=&r"(_t), "=&b"(res), "+m"(ptr->value)
 :			"i"(add_), "r"(&ptr->value)
@@ -239,7 +239,7 @@ pg_atomic_fetch_add_u64_impl(volatile pg_atomic_uint64 *ptr, int64 add_)
 			"	ldarx   %1,0,%4,1	\n"
 			"	add     %0,%1,%3	\n"
 			"	stdcx.  %0,0,%4		\n"
-			"	bne     $-12		\n"		/* branch to ldarx */
+			"	bne     $-12		\n"		/* 分支到 ldarx */
 			"	lwsync				\n"
 :			"=&r"(_t), "=&r"(res), "+m"(ptr->value)
 :			"r"(add_), "r"(&ptr->value)
@@ -250,5 +250,5 @@ pg_atomic_fetch_add_u64_impl(volatile pg_atomic_uint64 *ptr, int64 add_)
 
 #endif /* PG_HAVE_ATOMIC_U64_SUPPORT */
 
-/* per architecture manual doubleword accesses have single copy atomicity */
+/*  按架构手册双字访问具有单副本原子性  */
 #define PG_HAVE_8BYTE_SINGLE_COPY_ATOMICITY

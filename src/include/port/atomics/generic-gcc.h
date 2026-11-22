@@ -19,13 +19,13 @@
  *-------------------------------------------------------------------------
  */
 
-/* intentionally no include guards, should only be included by atomics.h */
+/*  故意无头文件卫士,仅应由 atomics.h 包含  */
 #ifndef INSIDE_ATOMICS_H
 #error "should be included via atomics.h"
 #endif
 
 /*
- * An empty asm block should be a sufficient compiler barrier.
+ * 空 asm 块应足以作编译器屏障。
  */
 #define pg_compiler_barrier_impl()	__asm__ __volatile__("" ::: "memory")
 
@@ -43,7 +43,7 @@
 #endif /* !defined(pg_memory_barrier_impl) */
 
 #if !defined(pg_read_barrier_impl) && defined(HAVE_GCC__ATOMIC_INT32_CAS)
-/* acquire semantics include read barrier semantics */
+/*  获取语义含读屏障语义  */
 #		define pg_read_barrier_impl() do \
 { \
 	pg_compiler_barrier_impl(); \
@@ -52,7 +52,7 @@
 #endif
 
 #if !defined(pg_write_barrier_impl) && defined(HAVE_GCC__ATOMIC_INT32_CAS)
-/* release semantics include write barrier semantics */
+/*  释放语义含写屏障语义  */
 #		define pg_write_barrier_impl() do \
 { \
 	pg_compiler_barrier_impl(); \
@@ -63,7 +63,7 @@
 
 #ifdef HAVE_ATOMICS
 
-/* generic gcc based atomic flag implementation */
+/*  基于 gcc 的通用原子标志实现  */
 #if !defined(PG_HAVE_ATOMIC_FLAG_SUPPORT) \
 	&& (defined(HAVE_GCC__SYNC_INT32_TAS) || defined(HAVE_GCC__SYNC_CHAR_TAS))
 
@@ -84,7 +84,7 @@ typedef struct pg_atomic_flag
 
 #endif /* !ATOMIC_FLAG_SUPPORT && SYNC_INT32_TAS */
 
-/* generic gcc based atomic uint32 implementation */
+/*  基于 gcc 的通用原子 uint32 实现  */
 #if !defined(PG_HAVE_ATOMIC_U32_SUPPORT) \
 	&& (defined(HAVE_GCC__ATOMIC_INT32_CAS) || defined(HAVE_GCC__SYNC_INT32_CAS))
 
@@ -96,7 +96,7 @@ typedef struct pg_atomic_uint32
 
 #endif /* defined(HAVE_GCC__ATOMIC_INT32_CAS) || defined(HAVE_GCC__SYNC_INT32_CAS) */
 
-/* generic gcc based atomic uint64 implementation */
+/*  基于 gcc 的通用原子 uint64 实现  */
 #if !defined(PG_HAVE_ATOMIC_U64_SUPPORT) \
 	&& !defined(PG_DISABLE_64_BIT_ATOMICS) \
 	&& (defined(HAVE_GCC__ATOMIC_INT64_CAS) || defined(HAVE_GCC__SYNC_INT64_CAS))
@@ -119,8 +119,8 @@ typedef struct pg_atomic_uint64
 static inline bool
 pg_atomic_test_set_flag_impl(volatile pg_atomic_flag *ptr)
 {
-	/* NB: only an acquire barrier, not a full one */
-	/* some platform only support a 1 here */
+	/*  注意:仅为获取屏障,非完整屏障  */
+	/*  有的平台此处仅支持 1  */
 	return __sync_lock_test_and_set(&ptr->value, 1) == 0;
 }
 #endif
@@ -156,14 +156,14 @@ pg_atomic_init_flag_impl(volatile pg_atomic_flag *ptr)
 
 #endif /* defined(PG_HAVE_ATOMIC_FLAG_SUPPORT) */
 
-/* prefer __atomic, it has a better API */
+/*  优先 __atomic,API 更好  */
 #if !defined(PG_HAVE_ATOMIC_COMPARE_EXCHANGE_U32) && defined(HAVE_GCC__ATOMIC_INT32_CAS)
 #define PG_HAVE_ATOMIC_COMPARE_EXCHANGE_U32
 static inline bool
 pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 									uint32 *expected, uint32 newval)
 {
-	/* FIXME: we can probably use a lower consistency model */
+	/*  FIXME:或许可用更低一致性模型  */
 	return __atomic_compare_exchange_n(&ptr->value, expected, newval, false,
 									   __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 }
@@ -184,7 +184,7 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 }
 #endif
 
-/* if we have 32-bit __sync_val_compare_and_swap, assume we have these too: */
+/*  若有 32 位 __sync_val_compare_and_swap,假定也有这些:  */
 
 #if !defined(PG_HAVE_ATOMIC_FETCH_ADD_U32) && defined(HAVE_GCC__SYNC_INT32_CAS)
 #define PG_HAVE_ATOMIC_FETCH_ADD_U32
@@ -251,7 +251,7 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 }
 #endif
 
-/* if we have 64-bit __sync_val_compare_and_swap, assume we have these too: */
+/*  若有 64 位 __sync_val_compare_and_swap,假定也有这些:  */
 
 #if !defined(PG_HAVE_ATOMIC_FETCH_ADD_U64) && defined(HAVE_GCC__SYNC_INT64_CAS)
 #define PG_HAVE_ATOMIC_FETCH_ADD_U64

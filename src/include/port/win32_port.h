@@ -17,8 +17,8 @@
 #define PG_WIN32_PORT_H
 
 /*
- * Always build with SSPI support. Keep it as a #define in case
- * we want a switch to disable it sometime in the future.
+ * 始终带 SSPI 支持构建。保留为 #define 以便
+ * 将来某处想关掉它。
  */
 #define ENABLE_SSPI 1
 
@@ -28,8 +28,8 @@
 #undef ERROR
 
 /*
- * VS2013 and later issue warnings about using the old Winsock API,
- * which we don't really want to hear about.
+ * VS2013 及以后对使用旧 Winsock API 发出警告,
+ * 我们其实不想听到。
  */
 #ifdef _MSC_VER
 #define _WINSOCK_DEPRECATED_NO_WARNINGS

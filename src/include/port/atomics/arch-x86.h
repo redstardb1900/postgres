@@ -66,14 +66,14 @@ typedef struct pg_atomic_uint32
 } pg_atomic_uint32;
 
 /*
- * It's too complicated to write inline asm for 64bit types on 32bit and the
- * 486 can't do it anyway.
+ * 在 32 位上为 64 位类型写内联 asm 太复杂,且
+ * 486 反正也做不到.
  */
 #ifdef __x86_64__
 #define PG_HAVE_ATOMIC_U64_SUPPORT
 typedef struct pg_atomic_uint64
 {
-	/* alignment guaranteed due to being on a 64bit platform */
+	/*  因在 64 位平台上故对齐有保证  */
 	volatile uint64 value;
 } pg_atomic_uint64;
 #endif	/* __x86_64__ */
@@ -125,7 +125,7 @@ pg_spin_delay_impl(void)
 static __forceinline void
 pg_spin_delay_impl(void)
 {
-	/* See comment for gcc code. Same code, MASM syntax */
+	/* 见 gcc 代码注释。相同代码,MASM 语法 */
 	__asm rep nop;
 }
 #endif
@@ -156,8 +156,8 @@ static inline void
 pg_atomic_clear_flag_impl(volatile pg_atomic_flag *ptr)
 {
 	/*
-	 * On a TSO architecture like x86 it's sufficient to use a compiler
-	 * barrier to achieve release semantics.
+	 * 在 x86 一类 TSO 架构上,用编译器屏障
+	 * 即足以实现释放语义。
 	 */
 	__asm__ __volatile__("" ::: "memory");
 	ptr->value = 0;
@@ -171,8 +171,8 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 	char	ret;
 
 	/*
-	 * Perform cmpxchg and use the zero flag which it implicitly sets when
-	 * equal to measure the success.
+	 * 执行 cmpxchg 并用其相等时隐式置位的零标志
+	 * 来衡量是否成功。
 	 */
 	__asm__ __volatile__(
 		"	lock				\n"
@@ -208,8 +208,8 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 	char	ret;
 
 	/*
-	 * Perform cmpxchg and use the zero flag which it implicitly sets when
-	 * equal to measure the success.
+	 * 执行 cmpxchg 并用其相等时隐式置位的零标志
+	 * 来衡量是否成功。
 	 */
 	__asm__ __volatile__(
 		"	lock				\n"
@@ -240,13 +240,13 @@ pg_atomic_fetch_add_u64_impl(volatile pg_atomic_uint64 *ptr, int64 add_)
 #endif /* defined(__GNUC__) || defined(__INTEL_COMPILER) */
 
 /*
- * 8 byte reads / writes have single-copy atomicity on 32 bit x86 platforms
- * since at least the 586. As well as on all x86-64 cpus.
+ * 32 位 x86 上 8 字节读/写具有单副本原子性
+ * 至少自 586 起。所有 x86-64 CPU 亦然。
  */
 #if defined(__i568__) || defined(__i668__) || /* gcc i586+ */  \
 	(defined(_M_IX86) && _M_IX86 >= 500) || /* msvc i586+ */ \
 	defined(__x86_64__) || defined(__x86_64) || defined(_M_X64) /* gcc, sunpro, msvc */
 #define PG_HAVE_8BYTE_SINGLE_COPY_ATOMICITY
-#endif /* 8 byte single-copy atomicity */
+#endif /*  8 字节单副本原子性  */
 
 #endif /* HAVE_ATOMICS */

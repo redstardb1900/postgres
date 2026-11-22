@@ -1,0 +1,146 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0597",
+ "title": "include/port atomics 后端+win32_port — batch 0597",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cf07be6c7612400cd40daf7319958f4004d6fb4b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/port/atomics/generic.h",
+   "kind": "c_comment",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/include/port/atomics/generic-gcc.h",
+   "kind": "c_comment",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/include/port/atomics/arch-x86.h",
+   "kind": "c_comment",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/include/port/atomics/arch-ppc.h",
+   "kind": "c_comment",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/include/port/atomics/fallback.h",
+   "kind": "c_comment",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/include/port/win32_port.h",
+   "kind": "c_comment",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0597-port.json",
+   "kind": "manifest",
+   "note": "0597"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/port/atomics/generic.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；asm/宏/长文 KEEP EN。"
+   ],
+   "note": "0597"
+  },
+  {
+   "path": "src/include/port/atomics/generic-gcc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；asm/宏/长文 KEEP EN。"
+   ],
+   "note": "0597"
+  },
+  {
+   "path": "src/include/port/atomics/arch-x86.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；asm/宏/长文 KEEP EN。"
+   ],
+   "note": "0597"
+  },
+  {
+   "path": "src/include/port/atomics/arch-ppc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；asm/宏/长文 KEEP EN。"
+   ],
+   "note": "0597"
+  },
+  {
+   "path": "src/include/port/atomics/fallback.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；asm/宏/长文 KEEP EN。"
+   ],
+   "note": "0597"
+  },
+  {
+   "path": "src/include/port/win32_port.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；asm/宏/长文 KEEP EN。"
+   ],
+   "note": "0597"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0597-port.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0597"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0597"
+  }
+ ],
+ "notes": "atomics 短注已译；asm/宏/长文 KEEP；win32_port 仅译短注，余 KEEP"
+}

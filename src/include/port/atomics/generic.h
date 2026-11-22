@@ -12,14 +12,14 @@
  *-------------------------------------------------------------------------
  */
 
-/* intentionally no include guards, should only be included by atomics.h */
+/*  故意无头文件卫士,仅应由 atomics.h 包含  */
 #ifndef INSIDE_ATOMICS_H
 #	error "should be included via atomics.h"
 #endif
 
 /*
- * If read or write barriers are undefined, we upgrade them to full memory
- * barriers.
+ * 若读写屏障未定义,则升级为完整内存
+ * 屏障。
  */
 #if !defined(pg_read_barrier_impl)
 #	define pg_read_barrier_impl pg_memory_barrier_impl
@@ -34,7 +34,7 @@
 #endif
 
 
-/* provide fallback */
+/*  提供回退  */
 #if !defined(PG_HAVE_ATOMIC_FLAG_SUPPORT) && defined(PG_HAVE_ATOMIC_U32_SUPPORT)
 #define PG_HAVE_ATOMIC_FLAG_SUPPORT
 typedef pg_atomic_uint32 pg_atomic_flag;
@@ -68,7 +68,7 @@ pg_atomic_unlocked_write_u32_impl(volatile pg_atomic_uint32 *ptr, uint32 val)
 #endif
 
 /*
- * provide fallback for test_and_set using atomic_exchange if available
+ * 若可用则用 atomic_exchange 为 test_and_set 提供回退
  */
 #if !defined(PG_HAVE_ATOMIC_TEST_SET_FLAG) && defined(PG_HAVE_ATOMIC_EXCHANGE_U32)
 
@@ -98,7 +98,7 @@ pg_atomic_unlocked_test_flag_impl(volatile pg_atomic_flag *ptr)
 static inline void
 pg_atomic_clear_flag_impl(volatile pg_atomic_flag *ptr)
 {
-	/* XXX: release semantics suffice? */
+	/* XXX: 释放语义是否足够? */
 	pg_memory_barrier_impl();
 	pg_atomic_write_u32_impl(ptr, 0);
 }
@@ -141,7 +141,7 @@ pg_atomic_clear_flag_impl(volatile pg_atomic_flag *ptr)
 	 * to circularity if flags are used to implement spinlocks.
 	 */
 #ifndef PG_HAVE_MEMORY_BARRIER_EMULATION
-	/* XXX: release semantics suffice? */
+	/* XXX: 释放语义是否足够? */
 	pg_memory_barrier_impl();
 	pg_atomic_write_u32_impl(ptr, 0);
 #else
@@ -170,7 +170,7 @@ static inline uint32
 pg_atomic_exchange_u32_impl(volatile pg_atomic_uint32 *ptr, uint32 xchg_)
 {
 	uint32 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u32_impl(ptr, &old, xchg_))
 		/* skip */;
 	return old;
@@ -183,7 +183,7 @@ static inline uint32
 pg_atomic_fetch_add_u32_impl(volatile pg_atomic_uint32 *ptr, int32 add_)
 {
 	uint32 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u32_impl(ptr, &old, old + add_))
 		/* skip */;
 	return old;
@@ -205,7 +205,7 @@ static inline uint32
 pg_atomic_fetch_and_u32_impl(volatile pg_atomic_uint32 *ptr, uint32 and_)
 {
 	uint32 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u32_impl(ptr, &old, old & and_))
 		/* skip */;
 	return old;
@@ -218,7 +218,7 @@ static inline uint32
 pg_atomic_fetch_or_u32_impl(volatile pg_atomic_uint32 *ptr, uint32 or_)
 {
 	uint32 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u32_impl(ptr, &old, old | or_))
 		/* skip */;
 	return old;
@@ -249,7 +249,7 @@ static inline uint64
 pg_atomic_exchange_u64_impl(volatile pg_atomic_uint64 *ptr, uint64 xchg_)
 {
 	uint64 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u64_impl(ptr, &old, xchg_))
 		/* skip */;
 	return old;
@@ -280,8 +280,8 @@ static inline void
 pg_atomic_write_u64_impl(volatile pg_atomic_uint64 *ptr, uint64 val)
 {
 	/*
-	 * 64 bit writes aren't safe on all platforms. In the generic
-	 * implementation implement them as an atomic exchange.
+	 * 64 位写并非在所有平台安全。通用
+	 * 实现中将其实现为原子交换。
 	 */
 	pg_atomic_exchange_u64_impl(ptr, val);
 }
@@ -299,7 +299,7 @@ static inline uint64
 pg_atomic_read_u64_impl(volatile pg_atomic_uint64 *ptr)
 {
 	/*
-	 * On this platform aligned 64-bit reads are guaranteed to be atomic.
+	 * 本平台对齐的 64 位读保证原子。
 	 */
 	AssertPointerAlignment(ptr, 8);
 	return ptr->value;
@@ -340,7 +340,7 @@ static inline uint64
 pg_atomic_fetch_add_u64_impl(volatile pg_atomic_uint64 *ptr, int64 add_)
 {
 	uint64 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u64_impl(ptr, &old, old + add_))
 		/* skip */;
 	return old;
@@ -362,7 +362,7 @@ static inline uint64
 pg_atomic_fetch_and_u64_impl(volatile pg_atomic_uint64 *ptr, uint64 and_)
 {
 	uint64 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u64_impl(ptr, &old, old & and_))
 		/* skip */;
 	return old;
@@ -375,7 +375,7 @@ static inline uint64
 pg_atomic_fetch_or_u64_impl(volatile pg_atomic_uint64 *ptr, uint64 or_)
 {
 	uint64 old;
-	old = ptr->value;			/* ok if read is not atomic */
+	old = ptr->value;			/*  读非原子亦可  */
 	while (!pg_atomic_compare_exchange_u64_impl(ptr, &old, old | or_))
 		/* skip */;
 	return old;

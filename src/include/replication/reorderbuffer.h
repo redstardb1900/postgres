@@ -17,27 +17,27 @@
 #include "utils/snapshot.h"
 #include "utils/timestamp.h"
 
-/* GUC variables */
+/*  GUC 变量  */
 extern PGDLLIMPORT int logical_decoding_work_mem;
 extern PGDLLIMPORT int debug_logical_replication_streaming;
 
-/* possible values for debug_logical_replication_streaming */
+/*  debug_logical_replication_streaming 的可能取值  */
 typedef enum
 {
 	DEBUG_LOGICAL_REP_STREAMING_BUFFERED,
 	DEBUG_LOGICAL_REP_STREAMING_IMMEDIATE
 }			DebugLogicalRepStreamingMode;
 
-/* an individual tuple, stored in one chunk of memory */
+/*  单个元组,存于一块内存  */
 typedef struct ReorderBufferTupleBuf
 {
-	/* position in preallocated list */
+	/*  预分配列表中的位置  */
 	slist_node	node;
 
-	/* tuple header, the interesting bit for users of logical decoding */
+	/*  元组头,逻辑解码用户关心的部分  */
 	HeapTupleData tuple;
 
-	/* pre-allocated size of tuple buffer, different from tuple size */
+	/*  元组缓冲预分配大小,不同于元组大小  */
 	Size		alloc_tuple_size;
 
 	/* actual tuple data follows */
@@ -76,7 +76,7 @@ typedef enum ReorderBufferChangeType
 	REORDER_BUFFER_CHANGE_TRUNCATE
 } ReorderBufferChangeType;
 
-/* forward declaration */
+/*  前向声明  */
 struct ReorderBufferTXN;
 
 /*
@@ -90,10 +90,10 @@ typedef struct ReorderBufferChange
 {
 	XLogRecPtr	lsn;
 
-	/* The type of change. */
+	/*  变更类型。  */
 	ReorderBufferChangeType action;
 
-	/* Transaction this change belongs to. */
+	/*  本变更所属事务。  */
 	struct ReorderBufferTXN *txn;
 
 	RepOriginId origin_id;
@@ -107,10 +107,10 @@ typedef struct ReorderBufferChange
 		/* Old, new tuples when action == *_INSERT|UPDATE|DELETE */
 		struct
 		{
-			/* relation that has been changed */
+			/*  已变更的关系  */
 			RelFileLocator rlocator;
 
-			/* no previously reassembled toast chunks are necessary anymore */
+			/*  此前重组的 toast 块已不再需要  */
 			bool		clear_toast_afterwards;
 
 			/* valid for DELETE || UPDATE */
@@ -131,7 +131,7 @@ typedef struct ReorderBufferChange
 			Oid		   *relids;
 		}			truncate;
 
-		/* Message with arbitrary data. */
+		/*  任意数据的消息。  */
 		struct
 		{
 			char	   *prefix;
@@ -139,7 +139,7 @@ typedef struct ReorderBufferChange
 			char	   *message;
 		}			msg;
 
-		/* New snapshot, set when action == *_INTERNAL_SNAPSHOT */
+		/*  新快照,当 action == *_INTERNAL_SNAPSHOT 时设  */
 		Snapshot	snapshot;
 
 		/*
@@ -161,11 +161,11 @@ typedef struct ReorderBufferChange
 			CommandId	combocid;
 		}			tuplecid;
 
-		/* Invalidation. */
+		/*  失效。  */
 		struct
 		{
-			uint32		ninvalidations; /* Number of messages */
-			SharedInvalidationMessage *invalidations;	/* invalidation message */
+			uint32		ninvalidations; /*  消息数  */
+			SharedInvalidationMessage *invalidations;	/*  失效消息  */
 		}			inval;
 	}			data;
 
@@ -188,37 +188,37 @@ typedef struct ReorderBufferChange
 #define RBTXN_HAS_STREAMABLE_CHANGE		0x0100
 #define RBTXN_DISTR_INVAL_OVERFLOWED	0x0200
 
-/* Does the transaction have catalog changes? */
+/*  事务是否有目录变更?  */
 #define rbtxn_has_catalog_changes(txn) \
 ( \
 	 ((txn)->txn_flags & RBTXN_HAS_CATALOG_CHANGES) != 0 \
 )
 
-/* Is the transaction known as a subxact? */
+/*  事务是否已知为子事务?  */
 #define rbtxn_is_known_subxact(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_IS_SUBXACT) != 0 \
 )
 
-/* Has this transaction been spilled to disk? */
+/*  本事务是否已溢写到磁盘?  */
 #define rbtxn_is_serialized(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_IS_SERIALIZED) != 0 \
 )
 
-/* Has this transaction ever been spilled to disk? */
+/*  本事务是否曾溢写到磁盘?  */
 #define rbtxn_is_serialized_clear(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_IS_SERIALIZED_CLEAR) != 0 \
 )
 
-/* Has this transaction contains partial changes? */
+/*  本事务是否含部分变更?  */
 #define rbtxn_has_partial_change(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_HAS_PARTIAL_CHANGE) != 0 \
 )
 
-/* Does this transaction contain streamable changes? */
+/*  本事务是否含可流式变更?  */
 #define rbtxn_has_streamable_change(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_HAS_STREAMABLE_CHANGE) != 0 \
@@ -238,37 +238,37 @@ typedef struct ReorderBufferChange
 	((txn)->txn_flags & RBTXN_IS_STREAMED) != 0 \
 )
 
-/* Has this transaction been prepared? */
+/*  本事务是否已预备?  */
 #define rbtxn_prepared(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_PREPARE) != 0 \
 )
 
-/* prepare for this transaction skipped? */
+/*  是否跳过了本事务的预备?  */
 #define rbtxn_skip_prepared(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_SKIPPED_PREPARE) != 0 \
 )
 
-/* Is the array of distributed inval messages overflowed? */
+/*  分布式失效消息数组是否溢出?  */
 #define rbtxn_distr_inval_overflowed(txn) \
 ( \
 	((txn)->txn_flags & RBTXN_DISTR_INVAL_OVERFLOWED) != 0 \
 )
 
-/* Is this a top-level transaction? */
+/*  是否为顶层事务?  */
 #define rbtxn_is_toptxn(txn) \
 ( \
 	(txn)->toptxn == NULL \
 )
 
-/* Is this a subtransaction? */
+/*  是否为子事务?  */
 #define rbtxn_is_subtxn(txn) \
 ( \
 	(txn)->toptxn != NULL \
 )
 
-/* Get the top-level transaction of this (sub)transaction. */
+/*  取本(子)事务的顶层事务。  */
 #define rbtxn_get_toptxn(txn) \
 ( \
 	rbtxn_is_subtxn(txn) ? (txn)->toptxn : (txn) \
@@ -276,13 +276,13 @@ typedef struct ReorderBufferChange
 
 typedef struct ReorderBufferTXN
 {
-	/* See above */
+	/*  见上  */
 	bits32		txn_flags;
 
-	/* The transaction's transaction id, can be a toplevel or sub xid. */
+	/*  事务的 xid,可为顶层或子 xid。  */
 	TransactionId xid;
 
-	/* Xid of top-level transaction, if known */
+	/*  顶层事务 xid(若已知)  */
 	TransactionId toplevel_xid;
 
 	/*
@@ -316,11 +316,11 @@ typedef struct ReorderBufferTXN
 	XLogRecPtr	final_lsn;
 
 	/*
-	 * LSN pointing to the end of the commit record + 1.
+	 * 指向提交记录末尾 + 1 的 LSN。
 	 */
 	XLogRecPtr	end_lsn;
 
-	/* Toplevel transaction for this subxact (NULL for top-level). */
+	/*  本子事务的顶层事务(顶层则为 NULL)。  */
 	struct ReorderBufferTXN *toptxn;
 
 	/*
@@ -330,7 +330,7 @@ typedef struct ReorderBufferTXN
 	 */
 	XLogRecPtr	restart_decoding_lsn;
 
-	/* origin of the change that caused this transaction */
+	/*  导致本事务的变更之源  */
 	RepOriginId origin_id;
 	XLogRecPtr	origin_lsn;
 
@@ -389,7 +389,7 @@ typedef struct ReorderBufferTXN
 	uint64		ntuplecids;
 
 	/*
-	 * On-demand built hash for looking up the above values.
+	 * 按需构建的哈希,用于查找上述值。
 	 */
 	HTAB	   *tuplecid_hash;
 
@@ -423,7 +423,7 @@ typedef struct ReorderBufferTXN
 	dlist_node	node;
 
 	/*
-	 * A node in the list of catalog modifying transactions
+	 * 目录修改事务列表中的节点
 	 */
 	dlist_node	catchange_node;
 
@@ -432,14 +432,14 @@ typedef struct ReorderBufferTXN
 	 */
 	Size		size;
 
-	/* Size of top-transaction including sub-transactions. */
+	/*  含全部子事务的顶层事务大小。  */
 	Size		total_size;
 
-	/* If we have detected concurrent abort then ignore future changes. */
+	/*  若已检测到并发中止则忽略后续变更。  */
 	bool		concurrent_abort;
 
 	/*
-	 * Private data pointer of the output plugin.
+	 * 输出插件的私有数据指针。
 	 */
 	void	   *output_plugin_private;
 
@@ -453,29 +453,29 @@ typedef struct ReorderBufferTXN
 /* so we can define the callbacks used inside struct ReorderBuffer itself */
 typedef struct ReorderBuffer ReorderBuffer;
 
-/* change callback signature */
+/*  变更回调签名  */
 typedef void (*ReorderBufferApplyChangeCB) (ReorderBuffer *rb,
 											ReorderBufferTXN *txn,
 											Relation relation,
 											ReorderBufferChange *change);
 
-/* truncate callback signature */
+/*  截断回调签名  */
 typedef void (*ReorderBufferApplyTruncateCB) (ReorderBuffer *rb,
 											  ReorderBufferTXN *txn,
 											  int nrelations,
 											  Relation relations[],
 											  ReorderBufferChange *change);
 
-/* begin callback signature */
+/*  开始回调签名  */
 typedef void (*ReorderBufferBeginCB) (ReorderBuffer *rb,
 									  ReorderBufferTXN *txn);
 
-/* commit callback signature */
+/*  提交回调签名  */
 typedef void (*ReorderBufferCommitCB) (ReorderBuffer *rb,
 									   ReorderBufferTXN *txn,
 									   XLogRecPtr commit_lsn);
 
-/* message callback signature */
+/*  消息回调签名  */
 typedef void (*ReorderBufferMessageCB) (ReorderBuffer *rb,
 										ReorderBufferTXN *txn,
 										XLogRecPtr message_lsn,
@@ -483,64 +483,64 @@ typedef void (*ReorderBufferMessageCB) (ReorderBuffer *rb,
 										const char *prefix, Size sz,
 										const char *message);
 
-/* begin prepare callback signature */
+/*  开始预备回调签名  */
 typedef void (*ReorderBufferBeginPrepareCB) (ReorderBuffer *rb,
 											 ReorderBufferTXN *txn);
 
-/* prepare callback signature */
+/*  预备回调签名  */
 typedef void (*ReorderBufferPrepareCB) (ReorderBuffer *rb,
 										ReorderBufferTXN *txn,
 										XLogRecPtr prepare_lsn);
 
-/* commit prepared callback signature */
+/*  提交已预备回调签名  */
 typedef void (*ReorderBufferCommitPreparedCB) (ReorderBuffer *rb,
 											   ReorderBufferTXN *txn,
 											   XLogRecPtr commit_lsn);
 
-/* rollback  prepared callback signature */
+/*  回滚已预备回调签名  */
 typedef void (*ReorderBufferRollbackPreparedCB) (ReorderBuffer *rb,
 												 ReorderBufferTXN *txn,
 												 XLogRecPtr prepare_end_lsn,
 												 TimestampTz prepare_time);
 
-/* start streaming transaction callback signature */
+/*  开始流式事务回调签名  */
 typedef void (*ReorderBufferStreamStartCB) (
 											ReorderBuffer *rb,
 											ReorderBufferTXN *txn,
 											XLogRecPtr first_lsn);
 
-/* stop streaming transaction callback signature */
+/*  停止流式事务回调签名  */
 typedef void (*ReorderBufferStreamStopCB) (
 										   ReorderBuffer *rb,
 										   ReorderBufferTXN *txn,
 										   XLogRecPtr last_lsn);
 
-/* discard streamed transaction callback signature */
+/*  丢弃已流式事务回调签名  */
 typedef void (*ReorderBufferStreamAbortCB) (
 											ReorderBuffer *rb,
 											ReorderBufferTXN *txn,
 											XLogRecPtr abort_lsn);
 
-/* prepare streamed transaction callback signature */
+/*  预备已流式事务回调签名  */
 typedef void (*ReorderBufferStreamPrepareCB) (
 											  ReorderBuffer *rb,
 											  ReorderBufferTXN *txn,
 											  XLogRecPtr prepare_lsn);
 
-/* commit streamed transaction callback signature */
+/*  提交已流式事务回调签名  */
 typedef void (*ReorderBufferStreamCommitCB) (
 											 ReorderBuffer *rb,
 											 ReorderBufferTXN *txn,
 											 XLogRecPtr commit_lsn);
 
-/* stream change callback signature */
+/*  流式变更回调签名  */
 typedef void (*ReorderBufferStreamChangeCB) (
 											 ReorderBuffer *rb,
 											 ReorderBufferTXN *txn,
 											 Relation relation,
 											 ReorderBufferChange *change);
 
-/* stream message callback signature */
+/*  流式消息回调签名  */
 typedef void (*ReorderBufferStreamMessageCB) (
 											  ReorderBuffer *rb,
 											  ReorderBufferTXN *txn,
@@ -549,7 +549,7 @@ typedef void (*ReorderBufferStreamMessageCB) (
 											  const char *prefix, Size sz,
 											  const char *message);
 
-/* stream truncate callback signature */
+/*  流式截断回调签名  */
 typedef void (*ReorderBufferStreamTruncateCB) (
 											   ReorderBuffer *rb,
 											   ReorderBufferTXN *txn,
@@ -557,7 +557,7 @@ typedef void (*ReorderBufferStreamTruncateCB) (
 											   Relation relations[],
 											   ReorderBufferChange *change);
 
-/* update progress txn callback signature */
+/*  更新事务进度回调签名  */
 typedef void (*ReorderBufferUpdateProgressTxnCB) (
 												  ReorderBuffer *rb,
 												  ReorderBufferTXN *txn,
@@ -566,7 +566,7 @@ typedef void (*ReorderBufferUpdateProgressTxnCB) (
 struct ReorderBuffer
 {
 	/*
-	 * xid => ReorderBufferTXN lookup table
+	 * xid => ReorderBufferTXN 查找表
 	 */
 	HTAB	   *by_txn;
 
@@ -598,7 +598,7 @@ struct ReorderBuffer
 	ReorderBufferTXN *by_txn_last_txn;
 
 	/*
-	 * Callbacks to be called when a transactions commits.
+	 * 事务提交时调用的回调。
 	 */
 	ReorderBufferBeginCB begin;
 	ReorderBufferApplyChangeCB apply_change;
@@ -615,7 +615,7 @@ struct ReorderBuffer
 	ReorderBufferRollbackPreparedCB rollback_prepared;
 
 	/*
-	 * Callbacks to be called when streaming a transaction.
+	 * 流式事务时调用的回调。
 	 */
 	ReorderBufferStreamStartCB stream_start;
 	ReorderBufferStreamStopCB stream_stop;
@@ -633,7 +633,7 @@ struct ReorderBuffer
 	ReorderBufferUpdateProgressTxnCB update_progress_txn;
 
 	/*
-	 * Pointer that will be passed untouched to the callbacks.
+	 * 原样传给回调的指针。
 	 */
 	void	   *private_data;
 
@@ -643,12 +643,12 @@ struct ReorderBuffer
 	bool		output_rewrites;
 
 	/*
-	 * Private memory context.
+	 * 私有内存上下文.
 	 */
 	MemoryContext context;
 
 	/*
-	 * Memory contexts for specific types objects
+	 * 特定类型对象的内存上下文
 	 */
 	MemoryContext change_context;
 	MemoryContext txn_context;
@@ -656,11 +656,11 @@ struct ReorderBuffer
 
 	XLogRecPtr	current_restart_decoding_lsn;
 
-	/* buffer for disk<->memory conversions */
+	/*  磁盘<->内存转换缓冲  */
 	char	   *outbuf;
 	Size		outbufsize;
 
-	/* memory accounting */
+	/*  内存记账  */
 	Size		size;
 
 	/*
@@ -670,21 +670,21 @@ struct ReorderBuffer
 	 * two different counters. For spilling, the transaction counter includes
 	 * both toplevel transactions and subtransactions.
 	 */
-	int64		spillTxns;		/* number of transactions spilled to disk */
-	int64		spillCount;		/* spill-to-disk invocation counter */
-	int64		spillBytes;		/* amount of data spilled to disk */
+	int64		spillTxns;		/*  溢写到磁盘的事务数  */
+	int64		spillCount;		/*  溢写磁盘调用计数  */
+	int64		spillBytes;		/*  溢写到磁盘的数据量  */
 
-	/* Statistics about transactions streamed to the decoding output plugin */
-	int64		streamTxns;		/* number of transactions streamed */
-	int64		streamCount;	/* streaming invocation counter */
-	int64		streamBytes;	/* amount of data decoded */
+	/*  流式到解码输出插件的事务统计  */
+	int64		streamTxns;		/*  已流式事务数  */
+	int64		streamCount;	/*  流式调用计数  */
+	int64		streamBytes;	/*  已解码数据量  */
 
 	/*
 	 * Statistics about all the transactions sent to the decoding output
 	 * plugin
 	 */
-	int64		totalTxns;		/* total number of transactions sent */
-	int64		totalBytes;		/* total amount of data decoded */
+	int64		totalTxns;		/*  已发送事务总数  */
+	int64		totalBytes;		/*  已解码数据总量  */
 };
 
 

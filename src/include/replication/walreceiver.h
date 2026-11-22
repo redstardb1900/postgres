@@ -26,36 +26,36 @@
 #include "storage/spin.h"
 #include "utils/tuplestore.h"
 
-/* user-settable parameters */
+/*  用户可设参数  */
 extern PGDLLIMPORT int wal_receiver_status_interval;
 extern PGDLLIMPORT int wal_receiver_timeout;
 extern PGDLLIMPORT bool hot_standby_feedback;
 
 /*
- * MAXCONNINFO: maximum size of a connection string.
+ * MAXCONNINFO: 连接串最大长度。
  *
- * XXX: Should this move to pg_config_manual.h?
+ * XXX: 是否应移到 pg_config_manual.h?
  */
 #define MAXCONNINFO		1024
 
-/* Can we allow the standby to accept replication connection from another standby? */
+/*  能否允许备库接受来自另一备库的复制连接?  */
 #define AllowCascadeReplication() (EnableHotStandby && max_wal_senders > 0)
 
 /*
- * Values for WalRcv->walRcvState.
+ * WalRcv->walRcvState 的取值.
  */
 typedef enum
 {
-	WALRCV_STOPPED,				/* stopped and mustn't start up again */
+	WALRCV_STOPPED,				/*  已停且不得再启动  */
 	WALRCV_STARTING,			/* launched, but the process hasn't
 								 * initialized yet */
 	WALRCV_STREAMING,			/* walreceiver is streaming */
-	WALRCV_WAITING,				/* stopped streaming, waiting for orders */
+	WALRCV_WAITING,				/*  已停流,等待指令  */
 	WALRCV_RESTARTING,			/* asked to restart streaming */
-	WALRCV_STOPPING				/* requested to stop, but still running */
+	WALRCV_STOPPING				/*  被要求停止,但仍在运行  */
 } WalRcvState;
 
-/* Shared memory area for management of walreceiver process */
+/*  管理 walreceiver 进程的共享内存区  */
 typedef struct
 {
 	/*
@@ -96,13 +96,13 @@ typedef struct
 	XLogRecPtr	latestChunkStart;
 
 	/*
-	 * Time of send and receive of any message received.
+	 * 任一已收消息的发送与接收时间。
 	 */
 	TimestampTz lastMsgSendTime;
 	TimestampTz lastMsgReceiptTime;
 
 	/*
-	 * Latest reported end of WAL on the sender
+	 * 发送端报告的最新 WAL 终点
 	 */
 	XLogRecPtr	latestWalEnd;
 	TimestampTz latestWalEndTime;
@@ -132,7 +132,7 @@ typedef struct
 	 */
 	bool		is_temp_slot;
 
-	/* set true once conninfo is ready to display (obfuscated pwds etc) */
+	/*  conninfo 可显示(口令已混淆等)后置真  */
 	bool		ready_to_display;
 
 	/*
@@ -144,7 +144,7 @@ typedef struct
 	 */
 	Latch	   *latch;
 
-	slock_t		mutex;			/* locks shared variables shown above */
+	slock_t		mutex;			/*  锁定上方所示共享变量  */
 
 	/*
 	 * Like flushedUpto, but advanced after writing and before flushing,
@@ -166,25 +166,25 @@ extern PGDLLIMPORT WalRcvData *WalRcv;
 
 typedef struct
 {
-	bool		logical;		/* True if this is logical replication stream,
-								 * false if physical stream.  */
-	char	   *slotname;		/* Name of the replication slot or NULL. */
-	XLogRecPtr	startpoint;		/* LSN of starting point. */
+	bool		logical;		/*  若为逻辑复制流则为真,
+								 * 物理流则为假。  */
+	char	   *slotname;		/*  复制槽名,或 NULL。  */
+	XLogRecPtr	startpoint;		/*  起点 LSN。  */
 
 	union
 	{
 		struct
 		{
-			TimeLineID	startpointTLI;	/* Starting timeline */
+			TimeLineID	startpointTLI;	/*  起始时间线  */
 		}			physical;
 		struct
 		{
-			uint32		proto_version;	/* Logical protocol version */
-			List	   *publication_names;	/* String list of publications */
-			bool		binary; /* Ask publisher to use binary */
-			char	   *streaming_str;	/* Streaming of large transactions */
-			bool		twophase;	/* Streaming of two-phase transactions at
-									 * prepare time */
+			uint32		proto_version;	/*  逻辑协议版本  */
+			List	   *publication_names;	/*  发布列表字符串  */
+			bool		binary; /*  请发布端用二进制  */
+			char	   *streaming_str;	/*  大事务流式传输  */
+			bool		twophase;	/*  两阶段事务流式传输于
+									 * 预备时  */
 			char	   *origin; /* Only publish data originating from the
 								 * specified origin */
 		}			logical;
@@ -195,20 +195,20 @@ struct WalReceiverConn;
 typedef struct WalReceiverConn WalReceiverConn;
 
 /*
- * Status of walreceiver query execution.
+ * walreceiver 查询执行状态。
  *
- * We only define statuses that are currently used.
+ * 仅定义当前使用的状态。
  */
 typedef enum
 {
-	WALRCV_ERROR,				/* There was error when executing the query. */
-	WALRCV_OK_COMMAND,			/* Query executed utility or replication
-								 * command. */
-	WALRCV_OK_TUPLES,			/* Query returned tuples. */
+	WALRCV_ERROR,				/*  执行查询时出错。  */
+	WALRCV_OK_COMMAND,			/*  查询执行了效用或复制
+								 * 命令.  */
+	WALRCV_OK_TUPLES,			/* 查询返回了元组. */
 	WALRCV_OK_COPY_IN,			/* Query started COPY FROM. */
 	WALRCV_OK_COPY_OUT,			/* Query started COPY TO. */
-	WALRCV_OK_COPY_BOTH			/* Query started COPY BOTH replication
-								 * protocol. */
+	WALRCV_OK_COPY_BOTH			/*  查询启动了 COPY BOTH 复制
+								 *  协议.  */
 } WalRcvExecStatus;
 
 /*
@@ -456,12 +456,12 @@ walrcv_clear_result(WalRcvExecResult *walres)
 	pfree(walres);
 }
 
-/* prototypes for functions in walreceiver.c */
+/*  walreceiver.c 中函数原型  */
 extern void WalReceiverMain(void) pg_attribute_noreturn();
 extern void ProcessWalRcvInterrupts(void);
 extern void WalRcvForceReply(void);
 
-/* prototypes for functions in walreceiverfuncs.c */
+/*  walreceiverfuncs.c 中函数原型  */
 extern Size WalRcvShmemSize(void);
 extern void WalRcvShmemInit(void);
 extern void ShutdownWalRcv(void);

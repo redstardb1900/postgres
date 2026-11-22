@@ -13,10 +13,10 @@
 #define CAPACITY(p)    ((int *)(p))[-2]
 
 struct among
-{   int s_size;     /* number of chars in string */
-    const symbol * s;       /* search string */
-    int substring_i;/* index to longest matching substring */
-    int result;     /* result of the lookup */
+{   int s_size;     /*  串内字符数  */
+    const symbol * s;       /*  搜索串  */
+    int substring_i;/*  最长匹配子串下标  */
+    int result;     /*  查找结果  */
     int (* function)(struct SN_env *);
 };
 

@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0602",
+ "title": "include/snowball libstemmer among 短注 — batch 0602",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5f76efb00cc78c7ac43d3f88203cd0407796a275",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/snowball/libstemmer/header.h",
+   "kind": "c_comment",
+   "note": "0602"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0602-snowball.json",
+   "kind": "manifest",
+   "note": "0602"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/snowball/libstemmer/header.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "among 字段短注"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0602-snowball.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0602"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0602"
+  }
+ ],
+ "notes": "libstemmer/header.h among 字段短注已译；stem_*.h Generated 行 KEEP；header.h 已在 0511"
+}

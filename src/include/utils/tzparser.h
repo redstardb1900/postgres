@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tzparser.h
- *	  Timezone offset file parsing definitions.
+ *	  时区偏移文件解析定义。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,19 +16,19 @@
 #include "utils/datetime.h"
 
 /*
- * The result of parsing a timezone configuration file is an array of
- * these structs, in order by abbrev.  We export this because datetime.c
- * needs it.
+ * 解析时区配置文件的结果是按 abbrev 排序的这些
+ * 结构的数组。导出因 datetime.c 需要。
+ * 见上。
  */
 typedef struct tzEntry
 {
-	/* the actual data */
-	char	   *abbrev;			/* TZ abbreviation (downcased) */
-	char	   *zone;			/* zone name if dynamic abbrev, else NULL */
-	/* for a dynamic abbreviation, offset/is_dst are not used */
-	int			offset;			/* offset in seconds from UTC */
-	bool		is_dst;			/* true if a DST abbreviation */
-	/* source information (for error messages) */
+	/* 实际数据 */
+	char	   *abbrev;			/* 时区缩写（已小写） */
+	char	   *zone;			/* 动态缩写则为区名，否则 NULL */
+	/* 对动态缩写，不用 offset/is_dst */
+	int			offset;			/* 相对 UTC 的偏移秒数 */
+	bool		is_dst;			/* 若为 DST 缩写则为真 */
+	/* 来源信息（供错误消息） */
 	int			lineno;
 	const char *filename;
 } tzEntry;

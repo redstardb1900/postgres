@@ -16,17 +16,17 @@
 #include "nodes/pg_list.h"
 
 /*
- * The information about one Grant/Revoke statement, in internal format: object
- * and grantees names have been turned into Oids, the privilege list is an
- * AclMode bitmask.  If 'privileges' is ACL_NO_RIGHTS (the 0 value) and
- * all_privs is true, 'privileges' will be internally set to the right kind of
- * ACL_ALL_RIGHTS_*, depending on the object type (NB - this will modify the
- * InternalGrant struct!)
+ * 一条 Grant/Revoke 语句的信息，内部格式：对象
+ * 与被授予者名已转为 Oid，特权列表为 AclMode
+ * 位掩码。若 privileges 为 ACL_NO_RIGHTS（0）且
+ * all_privs 为真，则内部设为合适的
+ * ACL_ALL_RIGHTS_*（依对象类型；注意会改
+ * InternalGrant！）
  *
- * Note: 'all_privs' and 'privileges' represent object-level privileges only.
- * There might also be column-level privilege specifications, which are
- * represented in col_privs (this is a list of untransformed AccessPriv nodes).
- * Column privileges are only valid for objtype OBJECT_TABLE.
+ * 注意：all_privs 与 privileges 仅表示对象级特权。
+ * 还可能有列级特权规格，在 col_privs 中表示（未
+ * 变换的 AccessPriv 节点列表）。列特权仅对
+ * objtype OBJECT_TABLE 有效。
  */
 typedef struct
 {

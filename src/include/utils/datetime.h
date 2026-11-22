@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * datetime.h
- *	  Definitions for date/time support code.
- *	  The support code is shared with other date data types,
- *	   including date, and time.
+ *	  日期/时间支持代码的定义。
+ *	  支持代码与其他日期数据类型共享，
+ *	   包括 date 与 time。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,17 +18,17 @@
 
 #include "utils/timestamp.h"
 
-/* this struct is declared in utils/tzparser.h: */
+/* 此结构在 utils/tzparser.h 中声明： */
 struct tzEntry;
 
 
 /* ----------------------------------------------------------------
- *				time types + support macros
+ *				time 类型 + 支持宏
  *
- * String definitions for standard time quantities.
+ * 标准时间量的字符串定义。
  *
- * These strings are the defaults used to form output time strings.
- * Other alternative forms are hardcoded into token tables in datetime.c.
+ * 这些字符串是形成输出时间串的默认值。
+ * 其他备选形式硬编码在 datetime.c 的词元表中。
  * ----------------------------------------------------------------
  */
 
@@ -62,10 +62,10 @@ struct tzEntry;
 #define DTIMEZONE		"timezone"
 
 /*
- * Fundamental time field definitions for parsing.
+ * 用于解析的基本时间字段定义。
  *
- *	Meridian:  am, pm, or 24-hour style.
- *	Millennium: ad, bc
+ *	子午线: am、pm 或 24 时制。
+ *	千禧：ad、bc
  */
 
 #define AM		0
@@ -76,15 +76,15 @@ struct tzEntry;
 #define BC		1
 
 /*
- * Field types for time decoding.
+ * 时间解码的字段类型。
  *
- * Can't have more of these than there are bits in an unsigned int
- * since these are turned into bit masks during parsing and decoding.
+ * 不得超过 unsigned 的位数，
+ * 因解析解码时会转为位掩码。
  *
- * Furthermore, the values for YEAR, MONTH, DAY, HOUR, MINUTE, SECOND
- * must be in the range 0..14 so that the associated bitmasks can fit
- * into the left half of an INTERVAL's typmod value.  Since those bits
- * are stored in typmods, you can't change them without initdb!
+ * 此外 YEAR、MONTH、DAY、HOUR、MINUTE、SECOND
+ * 的值须在 0..14，以便相关位掩码能放入
+ * INTERVAL typmod 值的左半。这些位存于 typmod，
+ * 更改须 initdb！
  */
 
 #define RESERV	0
@@ -92,9 +92,9 @@ struct tzEntry;
 #define YEAR	2
 #define DAY		3
 #define JULIAN	4
-#define TZ		5				/* fixed-offset timezone abbreviation */
-#define DTZ		6				/* fixed-offset timezone abbrev, DST */
-#define DYNTZ	7				/* dynamic timezone abbreviation */
+#define TZ		5				/* 固定偏移时区缩写 */
+#define DTZ		6				/* 固定偏移时区缩写，DST */
+#define DYNTZ	7				/* 动态时区缩写 */
 #define IGNORE_DTF	8
 #define AMPM	9
 #define HOUR	10
@@ -106,36 +106,36 @@ struct tzEntry;
 #define DOW		16
 #define UNITS	17
 #define ADBC	18
-/* these are only for relative dates */
+/* 这些仅用于相对日期 */
 #define AGO		19
 #define ABS_BEFORE		20
 #define ABS_AFTER		21
-/* generic fields to help with parsing */
+/* 辅助解析的通用字段 */
 #define ISODATE 22
 #define ISOTIME 23
-/* these are only for parsing intervals */
+/* 这些仅用于解析区间 */
 #define WEEK		24
 #define DECADE		25
 #define CENTURY		26
 #define MILLENNIUM	27
-/* hack for parsing two-word timezone specs "MET DST" etc */
-#define DTZMOD	28				/* "DST" as a separate word */
+/* 解析双词时区规格 "MET DST" 等的技巧 */
+#define DTZMOD	28				/* "DST" 作为单独词 */
 /* reserved for unrecognized string values */
 #define UNKNOWN_FIELD	31
 
 /*
- * Token field definitions for time parsing and decoding.
+ * 时间解析与解码的词元字段定义。
  *
- * Some field type codes (see above) use these as the "value" in datetktbl[].
- * These are also used for bit masks in DecodeDateTime and friends
- *	so actually restrict them to within [0,31] for now.
+ * 某些字段类型码（见上）在 datetktbl 中用这些作 "value"
+ * DecodeDateTime 等也用它们作位掩码，故暂限在
+ *	[0,31] 内。
  * - thomas 97/06/19
- * Not all of these fields are used for masks in DecodeDateTime
- *	so allow some larger than 31. - thomas 1997-11-17
+ * 并非所有这些字段都用于 DecodeDateTime 掩码，
+ *	故允许部分大于 31。- thomas 1997-11-17
  *
- * Caution: there are undocumented assumptions in the code that most of these
- * values are not equal to IGNORE_DTF nor RESERV.  Be very careful when
- * renumbering values in either of these apparently-independent lists :-(
+ * 注意：代码中有未文档化假定，多数这些值不等于
+ * IGNORE_DTF 或 RESERV。重编号任一侧看似独立的
+ * 列表时务必小心 :-(
  */
 
 #define DTK_NUMBER		0
@@ -181,58 +181,58 @@ struct tzEntry;
 
 
 /*
- * Bit mask definitions for time parsing.
+ * 时间解析的位掩码定义。
  */
 
 #define DTK_M(t)		(0x01 << (t))
 
-/* Convenience: a second, plus any fractional component */
+/* 便利：一秒，加任何小数分量 */
 #define DTK_ALL_SECS_M	(DTK_M(SECOND) | DTK_M(MILLISECOND) | DTK_M(MICROSECOND))
 #define DTK_DATE_M		(DTK_M(YEAR) | DTK_M(MONTH) | DTK_M(DAY))
 #define DTK_TIME_M		(DTK_M(HOUR) | DTK_M(MINUTE) | DTK_ALL_SECS_M)
 
 /*
- * Working buffer size for input and output of interval, timestamp, etc.
- * Inputs that need more working space will be rejected early.  Longer outputs
- * will overrun buffers, so this must suffice for all possible output.  As of
- * this writing, interval_out() needs the most space at ~90 bytes.
+ * interval、timestamp 等输入输出的工作缓冲区大小。
+ * 需更多工作空间的输入将早拒。更长输出会冲出缓冲，
+ * 故须足以覆盖所有可能输出。撰写时 interval_out()
+ * 需最多空间，约 90 字节。
  */
 #define MAXDATELEN		128
-/* maximum possible number of fields in a date string */
+/* 日期串中可能的最大字段数 */
 #define MAXDATEFIELDS	25
-/* only this many chars are stored in datetktbl */
+/* datetktbl 中只存这么多字符 */
 #define TOKMAXLEN		10
 
-/* keep this struct small; it gets used a lot */
+/* 保持此结构小；用得很多 */
 typedef struct
 {
-	char		token[TOKMAXLEN + 1];	/* always NUL-terminated */
-	char		type;			/* see field type codes above */
-	int32		value;			/* meaning depends on type */
+	char		token[TOKMAXLEN + 1];	/* 总是以 NUL 结尾 */
+	char		type;			/* 见上方字段类型码 */
+	int32		value;			/* 含义取决于类型 */
 } datetkn;
 
-/* one of its uses is in tables of time zone abbreviations */
+/* 用途之一是时区缩写表 */
 typedef struct TimeZoneAbbrevTable
 {
-	Size		tblsize;		/* size in bytes of TimeZoneAbbrevTable */
-	int			numabbrevs;		/* number of entries in abbrevs[] array */
+	Size		tblsize;		/* TimeZoneAbbrevTable 的字节大小 */
+	int			numabbrevs;		/* abbrevs[] 数组中的条目数 */
 	datetkn		abbrevs[FLEXIBLE_ARRAY_MEMBER];
-	/* DynamicZoneAbbrev(s) may follow the abbrevs[] array */
+	/* DynamicZoneAbbrev 可跟在 abbrevs[] 数组后 */
 } TimeZoneAbbrevTable;
 
-/* auxiliary data for a dynamic time zone abbreviation (non-fixed-offset) */
+/* 动态时区缩写的辅助数据（非固定偏移） */
 typedef struct DynamicZoneAbbrev
 {
-	pg_tz	   *tz;				/* NULL if not yet looked up */
-	char		zone[FLEXIBLE_ARRAY_MEMBER];	/* NUL-terminated zone name */
+	pg_tz	   *tz;				/* 尚未查找则为 NULL */
+	char		zone[FLEXIBLE_ARRAY_MEMBER];	/* NUL 结尾的时区名 */
 } DynamicZoneAbbrev;
 
 
 /* FMODULO()
- * Macro to replace modf(), which is broken on some platforms.
- * t = input and remainder
- * q = integer part
- * u = divisor
+ * 替代某些平台上有问题的 modf() 的宏。
+ * t = 输入与余数
+ * q = 整数部分
+ * u = 除数
  */
 #define FMODULO(t,q,u) \
 do { \
@@ -241,9 +241,9 @@ do { \
 } while(0)
 
 /* TMODULO()
- * Like FMODULO(), but work on the timestamp datatype (now always int64).
- * We assume that int64 follows the C99 semantics for division (negative
- * quotients truncate towards zero).
+ * 类似 FMODULO()，但作用于 timestamp（现恒 int64）。
+ * 假定 int64 遵循 C99 除法语义（负商向零截断）。
+ * 见上。
  */
 #define TMODULO(t,q,u) \
 do { \
@@ -252,36 +252,36 @@ do { \
 } while(0)
 
 /*
- * Date/time validation
- * Include check for leap year.
+ * 日期/时间校验
+ * 含闰年检查。
  */
 
-extern PGDLLIMPORT const char *const months[];	/* months (3-char
-												 * abbreviations) */
-extern PGDLLIMPORT const char *const days[];	/* days (full names) */
+extern PGDLLIMPORT const char *const months[];	/* 月份(3字
+												 * 缩写） */
+extern PGDLLIMPORT const char *const days[];	/* 日（全名） */
 extern PGDLLIMPORT const int day_tab[2][13];
 
 /*
- * These are the rules for the Gregorian calendar, which was adopted in 1582.
- * However, we use this calculation for all prior years as well because the
- * SQL standard specifies use of the Gregorian calendar.  This prevents the
- * date 1500-02-29 from being stored, even though it is valid in the Julian
- * calendar.
+ * 这些是格里高利历规则（1582 年采用）。但我们
+ * 对更早年份也用此计算，因 SQL 标准规定用格里
+ * 高利历。这使 1500-02-29 无法存储，尽管在儒略
+ * 历中有效。
+ * 见上。
  */
 #define isleap(y) (((y) % 4) == 0 && (((y) % 100) != 0 || ((y) % 400) == 0))
 
 
 /*
- * Datetime input parsing routines (ParseDateTime, DecodeDateTime, etc)
- * return zero or a positive value on success.  On failure, they return
- * one of these negative code values.  DateTimeParseError may be used to
- * produce a suitable error report.  For some of these codes,
- * DateTimeParseError requires additional information, which is carried
- * in struct DateTimeErrorExtra.
+ * 日期时间输入解析例程(ParseDateTime、DecodeDateTime 等)
+ * 成功时返回零或正值。失败时返回下列负码之一。
+ * 可用 DateTimeParseError 产生合适错误报告。对某些
+ * 码，DateTimeParseError 还需额外信息，由结构
+ * DateTimeErrorExtra 携带。
+ * 见上。
  */
 #define DTERR_BAD_FORMAT		(-1)
 #define DTERR_FIELD_OVERFLOW	(-2)
-#define DTERR_MD_FIELD_OVERFLOW (-3)	/* triggers hint about DateStyle */
+#define DTERR_MD_FIELD_OVERFLOW (-3)	/* 触发 DateStyle 相关提示 */
 #define DTERR_INTERVAL_OVERFLOW (-4)
 #define DTERR_TZDISP_OVERFLOW	(-5)
 #define DTERR_BAD_TIMEZONE		(-6)
@@ -289,13 +289,13 @@ extern PGDLLIMPORT const int day_tab[2][13];
 
 typedef struct DateTimeErrorExtra
 {
-	/* Needed for DTERR_BAD_TIMEZONE and DTERR_BAD_ZONE_ABBREV: */
-	const char *dtee_timezone;	/* incorrect time zone name */
-	/* Needed for DTERR_BAD_ZONE_ABBREV: */
-	const char *dtee_abbrev;	/* relevant time zone abbreviation */
+	/* DTERR_BAD_TIMEZONE 与 DTERR_BAD_ZONE_ABBREV 所需： */
+	const char *dtee_timezone;	/* 不正确的时区名 */
+	/* DTERR_BAD_ZONE_ABBREV 所需： */
+	const char *dtee_abbrev;	/* 相关时区缩写 */
 } DateTimeErrorExtra;
 
-/* Result codes for DecodeTimezoneName() */
+/* DecodeTimezoneName() 的结果码 */
 #define TZNAME_FIXED_OFFSET	0
 #define TZNAME_DYNTZ		1
 #define TZNAME_ZONE			2

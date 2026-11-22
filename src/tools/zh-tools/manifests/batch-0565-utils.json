@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0565",
+  "title": "include/utils datetime/date/timestamp/tzparser/sampling/… — batch 0565",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "70f1e7d951b9343d4ea9fd3de8298a5439697fe0",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/datetime.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/include/utils/date.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/include/utils/timestamp.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/include/utils/tzparser.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/include/utils/sampling.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/include/utils/aclchk_internal.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/include/utils/memdebug.h",
+      "kind": "c_comment",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0565-utils.json",
+      "kind": "manifest",
+      "note": "0565"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/datetime.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 96,
+      "translated": 87,
+      "preserved": 9,
+      "preserved_reasons": [
+        "版权/横幅 KEEP；L123 unrecognized KEEP EN；超预算等义压缩"
+      ],
+      "note": "0565 T=87"
+    },
+    {
+      "path": "src/include/utils/date.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 9,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0565 T=9"
+    },
+    {
+      "path": "src/include/utils/timestamp.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 11,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0565 T=11"
+    },
+    {
+      "path": "src/include/utils/tzparser.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 12,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0565 T=12"
+    },
+    {
+      "path": "src/include/utils/sampling.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 21,
+      "translated": 15,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0565 T=15"
+    },
+    {
+      "path": "src/include/utils/aclchk_internal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 17,
+      "translated": 11,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0565 T=11"
+    },
+    {
+      "path": "src/include/utils/memdebug.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 14,
+      "translated": 5,
+      "preserved": 9,
+      "preserved_reasons": [
+        "版权/横幅 KEEP；#ifdef 标签尾注 KEEP EN"
+      ],
+      "note": "0565 T=5"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0565-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0565"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0565"
+    }
+  ],
+  "notes": "时间/采样/aclchk/memdebug；部分 KEEP EN"
+}

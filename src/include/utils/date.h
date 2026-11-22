@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * date.h
- *	  Definitions for the SQL "date" and "time" types.
+ *	  SQL "date" 与 "time" 类型的定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,12 +26,12 @@ typedef int64 TimeADT;
 
 typedef struct
 {
-	TimeADT		time;			/* all time units other than months and years */
-	int32		zone;			/* numeric time zone, in seconds */
+	TimeADT		time;			/* 除月与年外的所有时间单位 */
+	int32		zone;			/* 数值时区，以秒计 */
 } TimeTzADT;
 
 /*
- * Infinity and minus infinity must be the max and min values of DateADT.
+ * 正无穷与负无穷须为 DateADT 的最大与最小值。
  */
 #define DATEVAL_NOBEGIN		((DateADT) PG_INT32_MIN)
 #define DATEVAL_NOEND		((DateADT) PG_INT32_MAX)
@@ -45,10 +45,10 @@ typedef struct
 #define MAX_TIME_PRECISION 6
 
 /*
- * Functions for fmgr-callable functions.
+ * fmgr 可调用函数用的函数。
  *
- * For TimeADT, we make use of the same support routines as for int64.
- * Therefore TimeADT is pass-by-reference if and only if int64 is!
+ * 对 TimeADT，我们复用与 int64 相同的支持例程。
+ * 故 TimeADT 按引用传递当且仅当 int64 亦然！
  */
 static inline DateADT
 DatumGetDateADT(Datum X)

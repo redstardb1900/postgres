@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * memdebug.h
- *	  Memory debugging support.
+ *	  内存调试支持。
  *
- * Currently, this file either wraps <valgrind/memcheck.h> or substitutes
- * empty definitions for Valgrind client request macros we use.
+ * 当前，本文件要么包装 <valgrind/memcheck.h>，要么
+ * 为我们所用的 Valgrind 请求宏提供空定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -34,7 +34,7 @@
 
 #ifdef CLOBBER_FREED_MEMORY
 
-/* Wipe freed memory for debugging purposes */
+/* 为调试清除已释放内存 */
 static inline void
 wipe_mem(void *ptr, size_t size)
 {

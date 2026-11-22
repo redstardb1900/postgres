@@ -10301,6 +10301,46 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0564-utils.json",
    "kind": "manifest",
    "note": "0564"
+  },
+  {
+   "pattern": "src/include/utils/datetime.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/include/utils/date.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/include/utils/timestamp.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/include/utils/tzparser.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/include/utils/sampling.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/include/utils/aclchk_internal.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/include/utils/memdebug.h",
+   "kind": "c_comment",
+   "note": "0565"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0565-utils.json",
+   "kind": "manifest",
+   "note": "0565"
   }
  ],
  "files": [
@@ -33563,6 +33603,100 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0564"
+  },
+  {
+   "path": "src/include/utils/datetime.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 87,
+   "preserved": 9,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；L123 unrecognized KEEP EN；超预算等义压缩"
+   ],
+   "note": "0565 T=87"
+  },
+  {
+   "path": "src/include/utils/date.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 9,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；超预算等义压缩"
+   ],
+   "note": "0565 T=9"
+  },
+  {
+   "path": "src/include/utils/timestamp.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 11,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；超预算等义压缩"
+   ],
+   "note": "0565 T=11"
+  },
+  {
+   "path": "src/include/utils/tzparser.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 12,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；超预算等义压缩"
+   ],
+   "note": "0565 T=12"
+  },
+  {
+   "path": "src/include/utils/sampling.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 15,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；超预算等义压缩"
+   ],
+   "note": "0565 T=15"
+  },
+  {
+   "path": "src/include/utils/aclchk_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 11,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；超预算等义压缩"
+   ],
+   "note": "0565 T=11"
+  },
+  {
+   "path": "src/include/utils/memdebug.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 5,
+   "preserved": 9,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；#ifdef 标签尾注 KEEP EN"
+   ],
+   "note": "0565 T=5"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0565-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0565"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

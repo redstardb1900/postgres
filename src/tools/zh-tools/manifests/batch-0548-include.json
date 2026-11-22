@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0548",
+  "title": "include/nodes pathnodes.h BitmapHeap/PathKeys/ParamPath/行标识 — batch 0548",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "61c59033cae7a933701725203a8ee4f6e33ba720",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "note": "0548"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0548-include.json",
+      "kind": "manifest",
+      "note": "0548"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1775,
+      "translated": 55,
+      "preserved": 1720,
+      "preserved_reasons": [
+        "横幅/长叙述 KEEP",
+        "rinfo_serial/SemiAnti KEEP EN 防 MIXED"
+      ],
+      "note": "0548 T=55"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0548-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0548"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0548"
+    }
+  ]
+}

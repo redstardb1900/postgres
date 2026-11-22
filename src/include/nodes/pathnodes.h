@@ -1431,19 +1431,19 @@ typedef struct EquivalenceMember
 /*
  * PathKeys
  *
- * The sort ordering of a path is represented by a list of PathKey nodes.
- * An empty list implies no known ordering.  Otherwise the first item
- * represents the primary sort key, the second the first secondary sort key,
- * etc.  The value being sorted is represented by linking to an
- * EquivalenceClass containing that value and including pk_opfamily among its
- * ec_opfamilies.  The EquivalenceClass tells which collation to use, too.
- * This is a convenient method because it makes it trivial to detect
- * equivalent and closely-related orderings. (See optimizer/README for more
- * information.)
+ * 路径的排序用 PathKey 节点列表表示。
+ * 空列表表示未知序。否则第一项是主排序键，
+ * 第二项是第一个次排序键，依此类推。被排序的
+ * 值通过链接到含该值且其 ec_opfamilies 含
+ * pk_opfamily 的 EquivalenceClass 表示。
+ * EquivalenceClass 也告知使用何种排序规则。
+ * 此法便于检测等价及密切相关的排序。（详见
+ * optimizer/README。）
+ * （见上）
  *
- * Note: pk_strategy is either BTLessStrategyNumber (for ASC) or
- * BTGreaterStrategyNumber (for DESC).  We assume that all ordering-capable
- * index types will use btree-compatible strategy numbers.
+ * 注意：pk_strategy 为 BTLessStrategyNumber（升序）
+ * 或 BTGreaterStrategyNumber（降序）。假定凡能排序的
+ * 索引类型都用与 btree 兼容的策略号。
  */
 typedef struct PathKey
 {
@@ -1523,22 +1523,22 @@ typedef struct PathTarget
 /*
  * ParamPathInfo
  *
- * All parameterized paths for a given relation with given required outer rels
- * link to a single ParamPathInfo, which stores common information such as
- * the estimated rowcount for this parameterization.  We do this partly to
- * avoid recalculations, but mostly to ensure that the estimated rowcount
- * is in fact the same for every such path.
+ * 给定关系在给定所需外层 rels 下的全部参数化
+ * 路径链到同一个 ParamPathInfo，存放公共信息
+ * 如该参数化下的估计行数。部分是为免重复计算，
+ * 但更主要是确保每条此类路径的估计行数
+ * 实际上相同。
  *
- * Note: ppi_clauses is only used in ParamPathInfos for base relation paths;
- * in join cases it's NIL because the set of relevant clauses varies depending
- * on how the join is formed.  The relevant clauses will appear in each
- * parameterized join path's joinrestrictinfo list, instead.  ParamPathInfos
- * for append relations don't bother with this, either.
+ * 注意：ppi_clauses 仅用于基关系路径的
+ * ParamPathInfos；连接情形为 NIL，因相关子句集
+ * 随连接构成而变。相关子句会出现在各参数化
+ * 连接路径的 joinrestrictinfo 列表中。追加
+ * 关系的 ParamPathInfos 也不维护此项。
  *
- * ppi_serials is the set of rinfo_serial numbers for quals that are enforced
- * by this path.  As with ppi_clauses, it's only maintained for baserels.
- * (We could construct it on-the-fly from ppi_clauses, but it seems better
- * to materialize a copy.)
+ * ppi_serials 是本路径所强制执行的限定的
+ * rinfo_serial 集合。与 ppi_clauses 一样仅对基表维护。
+ * （也可从 ppi_clauses 现场构造，但物化一份
+ * 似更好。）
  */
 typedef struct ParamPathInfo
 {
@@ -1733,21 +1733,21 @@ typedef struct IndexClause
 } IndexClause;
 
 /*
- * BitmapHeapPath represents one or more indexscans that generate TID bitmaps
- * instead of directly accessing the heap, followed by AND/OR combinations
- * to produce a single bitmap, followed by a heap scan that uses the bitmap.
- * Note that the output is always considered unordered, since it will come
- * out in physical heap order no matter what the underlying indexes did.
+ * BitmapHeapPath 表示一个或多个生成 TID 位图的
+ * 索引扫描（非直接访问堆），再经 AND/OR 组合
+ * 得到单一位图，随后用该位图做堆扫描。
+ * 注意输出总视为无序，因无论底层索引如何，
+ * 结果都按物理堆序出来。
  *
- * The individual indexscans are represented by IndexPath nodes, and any
- * logic on top of them is represented by a tree of BitmapAndPath and
- * BitmapOrPath nodes.  Notice that we can use the same IndexPath node both
- * to represent a regular (or index-only) index scan plan, and as the child
- * of a BitmapHeapPath that represents scanning the same index using a
- * BitmapIndexScan.  The startup_cost and total_cost figures of an IndexPath
- * always represent the costs to use it as a regular (or index-only)
- * IndexScan.  The costs of a BitmapIndexScan can be computed using the
- * IndexPath's indextotalcost and indexselectivity.
+ * 各索引扫描由 IndexPath 节点表示，其上逻辑
+ * 由 BitmapAndPath 与 BitmapOrPath 的树表示。
+ * 注意同一 IndexPath 既可表示普通（或仅索引）
+ * 索引扫描计划，也可作为 BitmapHeapPath 的子
+ * 节点表示用 BitmapIndexScan 扫同一索引。
+ * IndexPath 的 startup_cost 与 total_cost 始终
+ * 表示把它当作普通（或仅索引）IndexScan 的
+ * 代价。BitmapIndexScan 的代价可用 IndexPath 的
+ * indextotalcost 与 indexselectivity 算。
  */
 typedef struct BitmapHeapPath
 {
@@ -2965,22 +2965,22 @@ typedef struct AppendRelInfo
 } AppendRelInfo;
 
 /*
- * Information about a row-identity "resjunk" column in UPDATE/DELETE/MERGE.
+ * UPDATE/DELETE/MERGE 中行标识 "resjunk" 列的信息。
  *
- * In partitioned UPDATE/DELETE/MERGE it's important for child partitions to
- * share row-identity columns whenever possible, so as not to chew up too many
- * targetlist columns.  We use these structs to track which identity columns
- * have been requested.  In the finished plan, each of these will give rise
- * to one resjunk entry in the targetlist of the ModifyTable's subplan node.
+ * 在分区 UPDATE/DELETE/MERGE 中，子分区应尽量
+ * 共享行标识列，以免吃掉过多目标列表列。用
+ * 这些结构跟踪已请求哪些标识列。成品计划中
+ * 每一项都会在 ModifyTable 子计划节点的目标
+ * 列表中产生一个 resjunk 项。
  *
- * All the Vars stored in RowIdentityVarInfos must have varno ROWID_VAR, for
- * convenience of detecting duplicate requests.  We'll replace that, in the
- * final plan, with the varno of the generating rel.
+ * RowIdentityVarInfos 中存的全部 Vars 必须
+ * varno 为 ROWID_VAR，便于检测重复请求。最终
+ * 计划里会换成生成关系的 varno。
  *
- * Outside this list, a Var with varno ROWID_VAR and varattno k is a reference
- * to the k-th element of the row_identity_vars list (k counting from 1).
- * We add such a reference to root->processed_tlist when creating the entry,
- * and it propagates into the plan tree from there.
+ * 在此列表外，varno 为 ROWID_VAR 且 varattno 为 k
+ * 的 Var 引用 row_identity_vars 的第 k 项（k 从 1 计）。
+ * 创建该项时会把此引用加到 root->processed_tlist，
+ * 再由此传播进计划树。
  */
 typedef struct RowIdentityVarInfo
 {

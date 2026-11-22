@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0549",
+  "title": "include/nodes Path/IndexPath/MergePath + NestLoop/MergeJoin — batch 0549",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2b31dc7b24f3b39089b01949fe75ea7e55d26f6b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "note": "0549"
+    },
+    {
+      "pattern": "src/include/nodes/plannodes.h",
+      "kind": "c_comment",
+      "note": "0549"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0549-include.json",
+      "kind": "manifest",
+      "note": "0549"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1775,
+      "translated": 76,
+      "preserved": 1699,
+      "preserved_reasons": [
+        "横幅/长叙述 KEEP EN"
+      ],
+      "note": "0549 Path/IndexPath/MergePath T=76"
+    },
+    {
+      "path": "src/include/nodes/plannodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 797,
+      "translated": 14,
+      "preserved": 783,
+      "preserved_reasons": [
+        "RowMark/PartitionPrune/关键字 KEEP EN"
+      ],
+      "note": "0549 NestLoop/MergeJoin T=14"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0549-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0549"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0549"
+    }
+  ]
+}

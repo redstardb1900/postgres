@@ -1554,37 +1554,37 @@ typedef struct ParamPathInfo
 
 
 /*
- * Type "Path" is used as-is for sequential-scan paths, as well as some other
- * simple plan types that we don't need any extra information in the path for.
- * For other path types it is the first component of a larger struct.
+ * 类型 "Path" 原样用于顺序扫描路径，以及一些
+ * 无需在路径中存放额外信息的简单计划类型。
+ * 对其它路径类型，它是更大结构的首个成分。
  *
- * "pathtype" is the NodeTag of the Plan node we could build from this Path.
- * It is partially redundant with the Path's NodeTag, but allows us to use
- * the same Path type for multiple Plan types when there is no need to
- * distinguish the Plan type during path processing.
+ * "pathtype" 是可由本 Path 构建的 Plan 节点的 NodeTag。
+ * 它与 Path 的 NodeTag 部分冗余，但允许在路径处理
+ * 期间不必区分 Plan 类型时，用同一 Path 类型对应
+ * 多种 Plan 类型。
  *
- * "parent" identifies the relation this Path scans, and "pathtarget"
- * describes the precise set of output columns the Path would compute.
- * In simple cases all Paths for a given rel share the same targetlist,
- * which we represent by having path->pathtarget equal to parent->reltarget.
+ * "parent" 标识本 Path 扫描的关系，"pathtarget"
+ * 描述本 Path 将计算的精确输出列集合。简单情形下
+ * 同一 rel 的全部 Paths 共享同一目标列表，表现为
+ * path->pathtarget 等于 parent->reltarget。
  *
- * "param_info", if not NULL, links to a ParamPathInfo that identifies outer
- * relation(s) that provide parameter values to each scan of this path.
- * That means this path can only be joined to those rels by means of nestloop
- * joins with this path on the inside.  Also note that a parameterized path
- * is responsible for testing all "movable" joinclauses involving this rel
- * and the specified outer rel(s).
+ * "param_info" 非空时链到 ParamPathInfo，标识为每次
+ * 扫描本路径提供参数值的外层关系。意即本路径
+ * 只能作为巢循环内侧与那些关系连接。另请注意参数化
+ * 路径负责测试涉及本关系与指定外层关系的全部
+ * "可移动" 连接子句。
+ * （含指定外层关系。）
  *
- * "rows" is the same as parent->rows in simple paths, but in parameterized
- * paths and UniquePaths it can be less than parent->rows, reflecting the
- * fact that we've filtered by extra join conditions or removed duplicates.
+ * "rows" 在简单路径中与 parent->rows 相同，但在
+ * 参数化路径与 UniquePaths 中可小于 parent->rows，
+ * 反映已按额外连接条件过滤或去掉了重复。
  *
- * "pathkeys" is a List of PathKey nodes (see above), describing the sort
- * ordering of the path's output rows.
+ * "pathkeys" 是 PathKey 节点列表（见上），描述路径
+ * 输出行的排序。
  *
- * We do not support copying Path trees, mainly because the circular linkages
- * between RelOptInfo and Path nodes can't be handled easily in a simple
- * depth-first traversal.  We also don't have read support at the moment.
+ * 我们不支持复制 Path 树，主要因 RelOptInfo 与 Path
+ * 之间的环状链接难以在简单深度优先遍历中处理。
+ * 目前也没有读支持。
  */
 typedef struct Path
 {
@@ -1640,38 +1640,38 @@ typedef struct Path
 	((path)->param_info ? (path)->param_info->ppi_req_outer : (Relids) NULL)
 
 /*----------
- * IndexPath represents an index scan over a single index.
+ * IndexPath 表示对单个索引的索引扫描。
  *
- * This struct is used for both regular indexscans and index-only scans;
- * path.pathtype is T_IndexScan or T_IndexOnlyScan to show which is meant.
+ * 本结构用于普通索引扫描与仅索引扫描；
+ * path.pathtype 为 T_IndexScan 或 T_IndexOnlyScan 以示区分。
  *
- * 'indexinfo' is the index to be scanned.
+ * "indexinfo" 是要扫描的索引。
  *
- * 'indexclauses' is a list of IndexClause nodes, each representing one
- * index-checkable restriction, with implicit AND semantics across the list.
- * An empty list implies a full index scan.
+ * "indexclauses" 是 IndexClause 节点列表，每项表示一条
+ * 可检查索引的限制，列表间隐式 AND。
+ * 空列表意味着全索引扫描。
  *
- * 'indexorderbys', if not NIL, is a list of ORDER BY expressions that have
- * been found to be usable as ordering operators for an amcanorderbyop index.
- * The list must match the path's pathkeys, ie, one expression per pathkey
- * in the same order.  These are not RestrictInfos, just bare expressions,
- * since they generally won't yield booleans.  It's guaranteed that each
- * expression has the index key on the left side of the operator.
+ * "indexorderbys" 非 NIL 时，是已发现可用作
+ * amcanorderbyop 索引排序操作符的 ORDER BY 表达式列表。
+ * 该列表须与路径的 pathkeys 匹配，即按相同次序
+ * 每个 pathkey 对应一个表达式。它们不是 RestrictInfos，
+ * 只是裸表达式，因通常不产生布尔值。保证每个
+ * 表达式在操作符左侧有索引键。
  *
- * 'indexorderbycols' is an integer list of index column numbers (zero-based)
- * of the same length as 'indexorderbys', showing which index column each
- * ORDER BY expression is meant to be used with.  (There is no restriction
- * on which index column each ORDER BY can be used with.)
+ * "indexorderbycols" 是与 indexorderbys 等长的
+ * 零基索引列号整数列表，标明每个 ORDER BY 表达式
+ * 对应哪一索引列。（对可用哪一列并无限制。）
+ * （无列选择限制。）
  *
- * 'indexscandir' is one of:
- *		ForwardScanDirection: forward scan of an index
- *		BackwardScanDirection: backward scan of an ordered index
- * Unordered indexes will always have an indexscandir of ForwardScanDirection.
+ * indexscandir 如下：
+ *		ForwardScanDirection：索引正向扫描
+ *		BackwardScanDirection：有序索引反向扫描
+ * 无序索引的 indexscandir 恒为 ForwardScanDirection。
  *
- * 'indextotalcost' and 'indexselectivity' are saved in the IndexPath so that
- * we need not recompute them when considering using the same index in a
- * bitmap index/heap scan (see BitmapHeapPath).  The costs of the IndexPath
- * itself represent the costs of an IndexScan or IndexOnlyScan plan type.
+ * "indextotalcost" 与 "indexselectivity" 保存在 IndexPath
+ * 中，以便考虑在位图索引/堆扫描中使用同一索引时
+ * 不必重算（见 BitmapHeapPath）。IndexPath 自身代价
+ * 表示 IndexScan 或 IndexOnlyScan 计划类型的代价。
  *----------
  */
 typedef struct IndexPath
@@ -2053,38 +2053,38 @@ typedef struct NestPath
 } NestPath;
 
 /*
- * A mergejoin path has these fields.
+ * 归并连接路径有这些字段
  *
- * Unlike other path types, a MergePath node doesn't represent just a single
- * run-time plan node: it can represent up to four.  Aside from the MergeJoin
- * node itself, there can be a Sort node for the outer input, a Sort node
- * for the inner input, and/or a Material node for the inner input.  We could
- * represent these nodes by separate path nodes, but considering how many
- * different merge paths are investigated during a complex join problem,
- * it seems better to avoid unnecessary palloc overhead.
+ * 与其它路径类型不同，MergePath 节点不单表示一个
+ * 运行时计划节点：最多可表示四个。除 MergeJoin 节点
+ * 本身外，还可有外表输入的 Sort、内表输入的 Sort，
+ * 及/或内表输入的 Material。本可用独立路径节点表示，
+ * 但复杂连接会考查大量归并路径，似不宜增加
+ * 不必要的 palloc 开销。
+ * （故合并表示。）
  *
- * path_mergeclauses lists the clauses (in the form of RestrictInfos)
- * that will be used in the merge.
+ * path_mergeclauses 列出将用于归并的子句（形式为
+ * RestrictInfos）。
  *
- * Note that the mergeclauses are a subset of the parent relation's
- * restriction-clause list.  Any join clauses that are not mergejoinable
- * appear only in the parent's restrict list, and must be checked by a
- * qpqual at execution time.
+ * 注意 mergeclauses 是父关系限制子句列表的子集。
+ * 不可归并连接的连接子句只出现在父的 restrict 表，
+ * 执行时须由 qpqual 检查。
+ * （执行期检查。）
  *
- * outersortkeys (resp. innersortkeys) is NIL if the outer path
- * (resp. inner path) is already ordered appropriately for the
- * mergejoin.  If it is not NIL then it is a PathKeys list describing
- * the ordering that must be created by an explicit Sort node.
+ * outersortkeys（innersortkeys）为 NIL 表示外（内）
+ * 路径已按归并所需排好序。非 NIL 时则是须由
+ * 显式 Sort 节点创建的排序（PathKeys 列表）。
+ * （描述须创建的排序。）
  *
- * skip_mark_restore is true if the executor need not do mark/restore calls.
- * Mark/restore overhead is usually required, but can be skipped if we know
- * that the executor need find only one match per outer tuple, and that the
- * mergeclauses are sufficient to identify a match.  In such cases the
- * executor can immediately advance the outer relation after processing a
- * match, and therefore it need never back up the inner relation.
+ * skip_mark_restore 为真表示执行器不必做标记恢复调用。
+ * 通常需要标记恢复开销，但若已知每个外表元组只需
+ * 找到一个匹配，且 mergeclauses 足以标识匹配，则可
+ * 跳过。此时执行器处理完匹配后可立即推进外表，
+ * 因而永不必回退内表。
+ * （不必回退内表。）
  *
- * materialize_inner is true if a Material node should be placed atop the
- * inner input.  This may appear with or without an inner Sort step.
+ * materialize_inner 为真表示应在内输入之上放置
+ * Material 节点。可与内 Sort 同时或单独出现。
  */
 
 typedef struct MergePath

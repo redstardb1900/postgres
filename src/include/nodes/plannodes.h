@@ -793,14 +793,14 @@ typedef struct Join
 } Join;
 
 /* ----------------
- *		nest loop join node
+ *	嵌套循环结点
  *
- * The nestParams list identifies any executor Params that must be passed
- * into execution of the inner subplan carrying values from the current row
- * of the outer subplan.  Currently we restrict these values to be simple
- * Vars, but perhaps someday that'd be worth relaxing.  (Note: during plan
- * creation, the paramval can actually be a PlaceHolderVar expression; but it
- * must be a Var with varno OUTER_VAR by the time it gets to the executor.)
+ * nestParams 列表标出须传入内子计划执行的
+ * 执行器参数，其值来自外表子计划当前行。当前
+ * 限为简单 Vars，将来或可放宽。（注意：建计划时
+ * paramval 实际可为 PlaceHolderVar 表达式；但到
+ * 达执行器时必须是 varno 为 OUTER_VAR 的
+ * Var。）
  * ----------------
  */
 typedef struct NestLoop
@@ -819,14 +819,14 @@ typedef struct NestLoopParam
 } NestLoopParam;
 
 /* ----------------
- *		merge join node
+ *	归并连接
  *
- * The expected ordering of each mergeable column is described by a btree
- * opfamily OID, a collation OID, a direction (BTLessStrategyNumber or
- * BTGreaterStrategyNumber) and a nulls-first flag.  Note that the two sides
- * of each mergeclause may be of different datatypes, but they are ordered the
- * same way according to the common opfamily and collation.  The operator in
- * each mergeclause must be an equality operator of the indicated opfamily.
+ * 每个可归并列的期望排序由某 btree操作符族的
+ * OID、排序规则 OID、方向（BTLessStrategyNumber 或
+ * BTGreaterStrategyNumber）及空值优先标志描述。注意
+ * 每个 mergeclause 两侧类型可不同，但按公共
+ * 操作符族与排序规则以相同方式排序。各 mergeclause
+ * 中的操作符须为该操作符族的相等操作符。
  * ----------------
  */
 typedef struct MergeJoin

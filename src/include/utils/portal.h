@@ -1,39 +1,39 @@
 /*-------------------------------------------------------------------------
  *
  * portal.h
- *	  POSTGRES portal definitions.
+ *	  POSTGRES 门户定义。
  *
- * A portal is an abstraction which represents the execution state of
- * a running or runnable query.  Portals support both SQL-level CURSORs
- * and protocol-level portals.
+ * 门户是抽象，表示正在运行或可运行查询的执行状
+ * 态。门户既支持 SQL 级 CURSORs，也支持协议级门户。
+ * 见上。
  *
- * Scrolling (nonsequential access) and suspension of execution are allowed
- * only for portals that contain a single SELECT-type query.  We do not want
- * to let the client suspend an update-type query partway through!	Because
- * the query rewriter does not allow arbitrary ON SELECT rewrite rules,
- * only queries that were originally update-type could produce multiple
- * plan trees; so the restriction to a single query is not a problem
- * in practice.
+ * 滚动（非顺序访问）与挂起执行仅允许含单个 SELECT
+ * 类查询的门户。我们不希望客户端中途挂起更新类查
+ * 询！因查询重写器不允许任意 ON SELECT 重写规则，
+ * 只有原本为更新类的查询才可能产生多计划树；故
+ * 限制为单查询在实践中不成问题。
+ * 见上。
+ * 见上。
  *
- * For SQL cursors, we support three kinds of scroll behavior:
+ * 对 SQL 游标，我们支持三种滚动行为：
  *
- * (1) Neither NO SCROLL nor SCROLL was specified: to remain backward
- *	   compatible, we allow backward fetches here, unless it would
- *	   impose additional runtime overhead to do so.
+ * (1) 既未指定 NO SCROLL 也未指定 SCROLL：为保持
+ *	   向后兼容，此处允许向后取数，除非会带来
+ *	   额外运行时开销。
  *
- * (2) NO SCROLL was specified: don't allow any backward fetches.
+ * (2) 指定了 NO SCROLL：不允许任何向后取数。
  *
- * (3) SCROLL was specified: allow all kinds of backward fetches, even
- *	   if we need to take a performance hit to do so.  (The planner sticks
- *	   a Materialize node atop the query plan if needed.)
+ * (3) 指定了 SCROLL：允许各种向后取数，即使需付出
+ *	   性能代价。（规划器必要时会在计划顶加
+ *	   Materialize 节点。）
  *
- * Case #1 is converted to #2 or #3 by looking at the query itself and
- * determining if scrollability can be supported without additional
- * overhead.
+ * 情形 #1 通过查看查询本身并判定能否无额外开销地
+ * 支持滚动，转换为 #2 或 #3。
+ * 见上。
  *
- * Protocol-level portals have no nonsequential-fetch API and so the
- * distinction doesn't matter for them.  They are always initialized
- * to look like NO SCROLL cursors.
+ * 协议级门户无非顺序取数 API，故区分对其无关。
+ * 它们总是初始化为看起来像 NO SCROLL 游标。
+ * 见上。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -53,38 +53,38 @@
 #include "utils/resowner.h"
 
 /*
- * We have several execution strategies for Portals, depending on what
- * query or queries are to be executed.  (Note: in all cases, a Portal
- * executes just a single source-SQL query, and thus produces just a
- * single result from the user's viewpoint.  However, the rule rewriter
- * may expand the single source query to zero or many actual queries.)
+ * 按要执行的查询，门户有几种执行策略。（注意：
+ * 各情形下门户只执行单条源 SQL，因而从用户视角
+ * 只产生一个结果。但规则重写器可能把该源查询
+ * 展开为零或多条实际查询。）
+ * 见上。
  *
- * PORTAL_ONE_SELECT: the portal contains one single SELECT query.  We run
- * the Executor incrementally as results are demanded.  This strategy also
- * supports holdable cursors (the Executor results can be dumped into a
- * tuplestore for access after transaction completion).
+ * PORTAL_ONE_SELECT：门户含单个 SELECT。我们按需
+ * 增量运行执行器。此策略也支持可保持游标（执行器
+ * 结果可倾入 tuplestore，供事务结束后访问）。
+ * 见上。
  *
- * PORTAL_ONE_RETURNING: the portal contains a single INSERT/UPDATE/DELETE
- * query with a RETURNING clause (plus possibly auxiliary queries added by
- * rule rewriting).  On first execution, we run the portal to completion
- * and dump the primary query's results into the portal tuplestore; the
- * results are then returned to the client as demanded.  (We can't support
- * suspension of the query partway through, because the AFTER TRIGGER code
- * can't cope, and also because we don't want to risk failing to execute
- * all the auxiliary queries.)
+ * PORTAL_ONE_RETURNING：门户含带 RETURNING 的单个
+ * INSERT/UPDATE/DELETE（加规则重写可能加的辅助查询）。
+ * 首次执行时跑完门户，把主查询结果倾入门户
+ * tuplestore；再按需返回给客户端。（勿支持中途
+ * 挂起，因 AFTER TRIGGER 代码应付不了，也不愿冒
+ * 未执行全部辅助查询的风险。）
+ * 见上。
+ * 见上。
  *
- * PORTAL_ONE_MOD_WITH: the portal contains one single SELECT query, but
- * it has data-modifying CTEs.  This is currently treated the same as the
- * PORTAL_ONE_RETURNING case because of the possibility of needing to fire
- * triggers.  It may act more like PORTAL_ONE_SELECT in future.
+ * PORTAL_ONE_MOD_WITH：门户含单个 SELECT，但有改
+ * 数据的 CTEs。因可能需触发器，当前与
+ * PORTAL_ONE_RETURNING 同样处理。将来或更像
+ * PORTAL_ONE_SELECT。
  *
- * PORTAL_UTIL_SELECT: the portal contains a utility statement that returns
- * a SELECT-like result (for example, EXPLAIN or SHOW).  On first execution,
- * we run the statement and dump its results into the portal tuplestore;
- * the results are then returned to the client as demanded.
+ * PORTAL_UTIL_SELECT：门户含返回类 SELECT 结果的
+ * 实用语句（如 EXPLAIN 或 SHOW）。首次执行时跑该
+ * 语句并把结果倾入门户 tuplestore；再按需返回给
+ * 客户端。
  *
- * PORTAL_MULTI_QUERY: all other cases.  Here, we do not support partial
- * execution: the portal's queries will be run to completion on first call.
+ * PORTAL_MULTI_QUERY：其余情形。此处不支持部分执
+ * 行：门户查询将在首次调用时跑完。
  */
 typedef enum PortalStrategy
 {
@@ -96,123 +96,123 @@ typedef enum PortalStrategy
 } PortalStrategy;
 
 /*
- * A portal is always in one of these states.  It is possible to transit
- * from ACTIVE back to READY if the query is not run to completion;
- * otherwise we never back up in status.
+ * 门户总处于下列状态之一。若查询未跑完，可从
+ * ACTIVE 回到 READY；否则状态从不回退。
+ * 见上。
  */
 typedef enum PortalStatus
 {
-	PORTAL_NEW,					/* freshly created */
-	PORTAL_DEFINED,				/* PortalDefineQuery done */
-	PORTAL_READY,				/* PortalStart complete, can run it */
-	PORTAL_ACTIVE,				/* portal is running (can't delete it) */
-	PORTAL_DONE,				/* portal is finished (don't re-run it) */
-	PORTAL_FAILED				/* portal got error (can't re-run it) */
+	PORTAL_NEW,					/* 刚创建 */
+	PORTAL_DEFINED,				/* DefineQuery 完成 */
+	PORTAL_READY,				/* PortalStart 完成，可运行 */
+	PORTAL_ACTIVE,				/* 门户正在运行（勿删除） */
+	PORTAL_DONE,				/* 门户已结束（勿再运行） */
+	PORTAL_FAILED				/* 门户出错（勿再运行） */
 } PortalStatus;
 
 typedef struct PortalData *Portal;
 
 typedef struct PortalData
 {
-	/* Bookkeeping data */
-	const char *name;			/* portal's name */
-	const char *prepStmtName;	/* source prepared statement (NULL if none) */
-	MemoryContext portalContext;	/* subsidiary memory for portal */
-	ResourceOwner resowner;		/* resources owned by portal */
-	void		(*cleanup) (Portal portal); /* cleanup hook */
+	/* 簿记数据 */
+	const char *name;			/* 门户名 */
+	const char *prepStmtName;	/* 源预备语句（无则为 NULL） */
+	MemoryContext portalContext;	/* 门户的附属内存 */
+	ResourceOwner resowner;		/* 门户拥有的资源 */
+	void		(*cleanup) (Portal portal); /* 清理钩子 */
 
 	/*
-	 * State data for remembering which subtransaction(s) the portal was
-	 * created or used in.  If the portal is held over from a previous
-	 * transaction, both subxids are InvalidSubTransactionId.  Otherwise,
-	 * createSubid is the creating subxact and activeSubid is the last subxact
-	 * in which we ran the portal.
+	 * 记住门户创建或使用于哪些 subtransaction 的
+	 * 状态数据。若门户从上笔事务保持过来，两
+	 * InvalidSubTransactionId。否则 createSubid 为创
+	 * 建子事务，activeSubid 为最近运行该门户的子事务。
+	 * 见上。
 	 */
-	SubTransactionId createSubid;	/* the creating subxact */
-	SubTransactionId activeSubid;	/* the last subxact with activity */
-	int			createLevel;	/* creating subxact's nesting level */
+	SubTransactionId createSubid;	/* 创建子事务 */
+	SubTransactionId activeSubid;	/* 最近有活动的子事务 */
+	int			createLevel;	/* 创建子事务的嵌套层级 */
 
-	/* The query or queries the portal will execute */
-	const char *sourceText;		/* text of query (as of 8.4, never NULL) */
-	CommandTag	commandTag;		/* command tag for original query */
-	QueryCompletion qc;			/* command completion data for executed query */
-	List	   *stmts;			/* list of PlannedStmts */
-	CachedPlan *cplan;			/* CachedPlan, if stmts are from one */
+	/* 门户将执行的查询 */
+	const char *sourceText;		/* 查询文本（自 8.4 起非 NULL） */
+	CommandTag	commandTag;		/* 原查询的命令标签 */
+	QueryCompletion qc;			/* 已执行查询的命令完成数据 */
+	List	   *stmts;			/* PlannedStmts 列表 */
+	CachedPlan *cplan;			/* CachedPlan(stmts 来自其一) */
 
-	ParamListInfo portalParams; /* params to pass to query */
-	QueryEnvironment *queryEnv; /* environment for query */
+	ParamListInfo portalParams; /* 传给查询的参数 */
+	QueryEnvironment *queryEnv; /* 查询环境 */
 
-	/* Features/options */
-	PortalStrategy strategy;	/* see above */
-	int			cursorOptions;	/* DECLARE CURSOR option bits */
-	bool		run_once;		/* unused */
+	/* 特性/选项 */
+	PortalStrategy strategy;	/* 见上 */
+	int			cursorOptions;	/* DECLARE CURSOR 选项位 */
+	bool		run_once;		/* 未用 */
 
-	/* Status data */
-	PortalStatus status;		/* see above */
-	bool		portalPinned;	/* a pinned portal can't be dropped */
-	bool		autoHeld;		/* was automatically converted from pinned to
-								 * held (see HoldPinnedPortals()) */
+	/* 状态 */
+	PortalStatus status;		/* 见上 */
+	bool		portalPinned;	/* 钉住的门户勿丢弃 */
+	bool		autoHeld;		/* 曾自动从钉住转为保持
+								 * 见 HoldPinnedPortals() */
 
-	/* If not NULL, Executor is active; call ExecutorEnd eventually: */
-	QueryDesc  *queryDesc;		/* info needed for executor invocation */
+	/* 若非 NULL，执行器活跃；最终须调 ExecutorEnd： */
+	QueryDesc  *queryDesc;		/* 调用执行器所需信息 */
 
-	/* If portal returns tuples, this is their tupdesc: */
-	TupleDesc	tupDesc;		/* descriptor for result tuples */
-	/* and these are the format codes to use for the columns: */
-	int16	   *formats;		/* a format code for each column */
+	/* 若门户返回元组，这是其 tupdesc： */
+	TupleDesc	tupDesc;		/* 结果元组的描述符 */
+	/* 以及各列要用的格式码： */
+	int16	   *formats;		/* 每列一个格式码 */
 
 	/*
-	 * Outermost ActiveSnapshot for execution of the portal's queries.  For
-	 * all but a few utility commands, we require such a snapshot to exist.
-	 * This ensures that TOAST references in query results can be detoasted,
-	 * and helps to reduce thrashing of the process's exposed xmin.
+	 * 执行门户查询时最外层 ActiveSnapshot。除少数
+	 * 实用命令外，我们需要存在该快照。这确保结果中
+	 * 的 TOAST 引用可 detoast，并有助于减少进程暴露
+	 * xmin 的抖动。
 	 */
-	Snapshot	portalSnapshot; /* active snapshot, or NULL if none */
+	Snapshot	portalSnapshot; /* 活动快照，无则为 NULL */
 
 	/*
-	 * Where we store tuples for a held cursor or a PORTAL_ONE_RETURNING,
-	 * PORTAL_ONE_MOD_WITH, or PORTAL_UTIL_SELECT query.  (A cursor held past
-	 * the end of its transaction no longer has any active executor state.)
+	 * 对保持游标或 PORTAL_ONE_RETURNING、
+	 * PORTAL_ONE_MOD_WITH、PORTAL_UTIL_SELECT 存放
+	 * 元组处。（跨事务保持游标无活跃执行器状态。）
 	 */
-	Tuplestorestate *holdStore; /* store for holdable cursors */
-	MemoryContext holdContext;	/* memory containing holdStore */
+	Tuplestorestate *holdStore; /* 可保持游标的存储 */
+	MemoryContext holdContext;	/* 含 holdStore 的内存 */
 
 	/*
-	 * Snapshot under which tuples in the holdStore were read.  We must keep a
-	 * reference to this snapshot if there is any possibility that the tuples
-	 * contain TOAST references, because releasing the snapshot could allow
-	 * recently-dead rows to be vacuumed away, along with any toast data
-	 * belonging to them.  In the case of a held cursor, we avoid needing to
-	 * keep such a snapshot by forcibly detoasting the data.
+	 * 读取 holdStore 中元组时所用快照。若元组可能含
+	 * TOAST 引用，必须保持对该快照的引用，因释放快照
+	 * 可能让刚死行被 vacuum，连同其 toast 数据。对保
+	 * 持游标，我们强制 detoast 以免需保持该快照。
+	 * 见上。
+	 * 见上。
 	 */
-	Snapshot	holdSnapshot;	/* registered snapshot, or NULL if none */
+	Snapshot	holdSnapshot;	/* 已注册快照，无则为 NULL */
 
 	/*
-	 * atStart, atEnd and portalPos indicate the current cursor position.
-	 * portalPos is zero before the first row, N after fetching N'th row of
-	 * query.  After we run off the end, portalPos = # of rows in query, and
-	 * atEnd is true.  Note that atStart implies portalPos == 0, but not the
-	 * reverse: we might have backed up only as far as the first row, not to
-	 * the start.  Also note that various code inspects atStart and atEnd, but
-	 * only the portal movement routines should touch portalPos.
+	 * atStart、atEnd 与 portalPos 指示当前游标位置。
+	 * portalPos 在首行前为零，取到第 N 行后为 N。跑过
+	 * 末尾后 portalPos 等于查询行数，且 atEnd 为真。注意
+	 * atStart 蕴含 portalPos == 0，反之不然：可能只回退
+	 * 到首行而非起点。另注意各处代码会检查 atStart 与
+	 * atEnd，但只有门户移动例程应触碰 portalPos。
+	 * 见上。
 	 */
 	bool		atStart;
 	bool		atEnd;
 	uint64		portalPos;
 
-	/* Presentation data, primarily used by the pg_cursors system view */
-	TimestampTz creation_time;	/* time at which this portal was defined */
-	bool		visible;		/* include this portal in pg_cursors? */
+	/* 展示数据，主要由 pg_cursors 系统视图使用 */
+	TimestampTz creation_time;	/* 定义此门户的时间 */
+	bool		visible;		/* 是否列入 pg_cursors？ */
 }			PortalData;
 
 /*
  * PortalIsValid
- *		True iff portal is valid.
+ *		门户有效则为真。
  */
 #define PortalIsValid(p) PointerIsValid(p)
 
 
-/* Prototypes for functions in utils/mmgr/portalmem.c */
+/* utils/mmgr/portalmem.c 中函数的原型 */
 extern void EnablePortalManager(void);
 extern bool PreCommit_Portals(bool isPrepare);
 extern void AtAbort_Portals(void);

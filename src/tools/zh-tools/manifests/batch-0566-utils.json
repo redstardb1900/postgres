@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0566",
+  "title": "include/utils portal — batch 0566",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "5faea534a78f08ceba9e125fe8f0760b5169b59d",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/portal.h",
+      "kind": "c_comment",
+      "note": "0566"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0566-utils.json",
+      "kind": "manifest",
+      "note": "0566"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/portal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 135,
+      "translated": 129,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0566 T=129"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0566-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0566"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0566"
+    }
+  ],
+  "notes": "portal=门户；超预算等义压缩"
+}

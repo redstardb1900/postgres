@@ -3,7 +3,7 @@
  "batch_id": "cumulative",
  "title": "cumulative scope since REL_16_11 (all batches; regenerated 2026-11-11 at batch-0348)",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "parent_commit": "034f5df96599c2ef48978d3f0e6433489380ab6c",
+ "parent_commit": "07dfdaf7d8ff26dc13221c65ee991bb87b26d314",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
  "require_file_entries": true,
  "allowed_paths": [

@@ -64,33 +64,33 @@
  */
 #define EXEC_FLAG_EXPLAIN_ONLY		0x0001	/* EXPLAIN, no ANALYZE */
 #define EXEC_FLAG_EXPLAIN_GENERIC	0x0002	/* EXPLAIN (GENERIC_PLAN) */
-#define EXEC_FLAG_REWIND			0x0004	/* need efficient rescan */
-#define EXEC_FLAG_BACKWARD			0x0008	/* need backward scan */
+#define EXEC_FLAG_REWIND			0x0004	/*  需要高效重扫  */
+#define EXEC_FLAG_BACKWARD			0x0008	/*  需反向扫描  */
 #define EXEC_FLAG_MARK				0x0010	/* need mark/restore */
 #define EXEC_FLAG_SKIP_TRIGGERS		0x0020	/* skip AfterTrigger setup */
 #define EXEC_FLAG_WITH_NO_DATA		0x0040	/* REFRESH ... WITH NO DATA */
 
 
-/* Hook for plugins to get control in ExecutorStart() */
+/*  ExecutorStart() 插件钩子  */
 typedef void (*ExecutorStart_hook_type) (QueryDesc *queryDesc, int eflags);
 extern PGDLLIMPORT ExecutorStart_hook_type ExecutorStart_hook;
 
-/* Hook for plugins to get control in ExecutorRun() */
+/*  ExecutorRun() 插件钩子  */
 typedef void (*ExecutorRun_hook_type) (QueryDesc *queryDesc,
 									   ScanDirection direction,
 									   uint64 count,
 									   bool execute_once);
 extern PGDLLIMPORT ExecutorRun_hook_type ExecutorRun_hook;
 
-/* Hook for plugins to get control in ExecutorFinish() */
+/*  ExecutorFinish() 插件钩子  */
 typedef void (*ExecutorFinish_hook_type) (QueryDesc *queryDesc);
 extern PGDLLIMPORT ExecutorFinish_hook_type ExecutorFinish_hook;
 
-/* Hook for plugins to get control in ExecutorEnd() */
+/*  ExecutorEnd() 插件钩子  */
 typedef void (*ExecutorEnd_hook_type) (QueryDesc *queryDesc);
 extern PGDLLIMPORT ExecutorEnd_hook_type ExecutorEnd_hook;
 
-/* Hook for plugins to get control in ExecCheckPermissions() */
+/*  ExecCheckPermissions() 插件钩子  */
 typedef bool (*ExecutorCheckPerms_hook_type) (List *rangeTable,
 											  List *rtePermInfos,
 											  bool ereport_on_violation);
@@ -98,9 +98,9 @@ extern PGDLLIMPORT ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook;
 
 
 /*
- * prototypes from functions in execAmi.c
+ * execAmi.c 中函数的原型
  */
-struct Path;					/* avoid including pathnodes.h here */
+struct Path;					/*  避免在此含 pathnodes.h  */
 
 extern void ExecReScan(PlanState *node);
 extern void ExecMarkPos(PlanState *node);
@@ -110,7 +110,7 @@ extern bool ExecSupportsBackwardScan(Plan *node);
 extern bool ExecMaterializesOutput(NodeTag plantype);
 
 /*
- * prototypes from functions in execCurrent.c
+ * execCurrent.c 中函数的原型
  */
 extern bool execCurrentOf(CurrentOfExpr *cexpr,
 						  ExprContext *econtext,
@@ -118,7 +118,7 @@ extern bool execCurrentOf(CurrentOfExpr *cexpr,
 						  ItemPointer current_tid);
 
 /*
- * prototypes from functions in execGrouping.c
+ * execGrouping.c 中函数的原型
  */
 extern ExprState *execTuplesMatchPrepare(TupleDesc desc,
 										 int numCols,
@@ -164,7 +164,7 @@ extern TupleHashEntry FindTupleHashEntry(TupleHashTable hashtable,
 extern void ResetTupleHashTable(TupleHashTable hashtable);
 
 /*
- * prototypes from functions in execJunk.c
+ * execJunk.c 中函数的原型
  */
 extern JunkFilter *ExecInitJunkFilter(List *targetList,
 									  TupleTableSlot *slot);
@@ -195,7 +195,7 @@ ExecGetJunkAttribute(TupleTableSlot *slot, AttrNumber attno, bool *isNull)
 #endif
 
 /*
- * prototypes from functions in execMain.c
+ * execMain.c 中函数的原型
  */
 extern void ExecutorStart(QueryDesc *queryDesc, int eflags);
 extern void standard_ExecutorStart(QueryDesc *queryDesc, int eflags);
@@ -251,7 +251,7 @@ extern void EvalPlanQualBegin(EPQState *epqstate);
 extern void EvalPlanQualEnd(EPQState *epqstate);
 
 /*
- * functions in execProcnode.c
+ * execProcnode.c 中的函数
  */
 extern PlanState *ExecInitNode(Plan *node, EState *estate, int eflags);
 extern void ExecSetExecProcNode(PlanState *node, ExecProcNodeMtd function);
@@ -271,15 +271,15 @@ extern void ExecSetTupleBound(int64 tuples_needed, PlanState *child_node);
 static inline TupleTableSlot *
 ExecProcNode(PlanState *node)
 {
-	if (node->chgParam != NULL) /* something changed? */
-		ExecReScan(node);		/* let ReScan handle this */
+	if (node->chgParam != NULL) /*  有变化?  */
+		ExecReScan(node);		/*  让 ReScan 处理  */
 
 	return node->ExecProcNode(node);
 }
 #endif
 
 /*
- * prototypes from functions in execExpr.c
+ * execExpr.c 中函数的原型
  */
 extern ExprState *ExecInitExpr(Expr *node, PlanState *parent);
 extern ExprState *ExecInitExprWithParams(Expr *node, ParamListInfo ext_params);
@@ -389,7 +389,7 @@ ExecProject(ProjectionInfo *projInfo)
 	 */
 	ExecClearTuple(slot);
 
-	/* Run the expression, discarding scalar result from the last column. */
+	/*  运行表达式,丢弃最后一列的标量结果。  */
 	(void) ExecEvalExprSwitchContext(state, econtext, &isnull);
 
 	/*
@@ -418,16 +418,16 @@ ExecQual(ExprState *state, ExprContext *econtext)
 	Datum		ret;
 	bool		isnull;
 
-	/* short-circuit (here and in ExecInitQual) for empty restriction list */
+	/*  空限制列表短路(此处与 ExecInitQual)  */
 	if (state == NULL)
 		return true;
 
-	/* verify that expression was compiled using ExecInitQual */
+	/*  验证表达式用 ExecInitQual 编译  */
 	Assert(state->flags & EEO_FLAG_IS_QUAL);
 
 	ret = ExecEvalExprSwitchContext(state, econtext, &isnull);
 
-	/* EEOP_QUAL should never return NULL */
+	/*  EEOP_QUAL 不应返回 NULL  */
 	Assert(!isnull);
 
 	return DatumGetBool(ret);
@@ -444,7 +444,7 @@ ExecQualAndReset(ExprState *state, ExprContext *econtext)
 {
 	bool		ret = ExecQual(state, econtext);
 
-	/* inline ResetExprContext, to avoid ordering issue in this file */
+	/*  内联 ResetExprContext,避免本文件排序问题  */
 	MemoryContextReset(econtext->ecxt_per_tuple_memory);
 	return ret;
 }
@@ -453,7 +453,7 @@ ExecQualAndReset(ExprState *state, ExprContext *econtext)
 extern bool ExecCheck(ExprState *state, ExprContext *econtext);
 
 /*
- * prototypes from functions in execSRF.c
+ * execSRF.c 中函数的原型
  */
 extern SetExprState *ExecInitTableFunctionResult(Expr *expr,
 												 ExprContext *econtext, PlanState *parent);
@@ -471,7 +471,7 @@ extern Datum ExecMakeFunctionResultSet(SetExprState *fcache,
 									   ExprDoneCond *isDone);
 
 /*
- * prototypes from functions in execScan.c
+ * execScan.c 中函数的原型
  */
 typedef TupleTableSlot *(*ExecScanAccessMtd) (ScanState *node);
 typedef bool (*ExecScanRecheckMtd) (ScanState *node, TupleTableSlot *slot);
@@ -483,7 +483,7 @@ extern void ExecAssignScanProjectionInfoWithVarno(ScanState *node, int varno);
 extern void ExecScanReScan(ScanState *node);
 
 /*
- * prototypes from functions in execTuples.c
+ * execTuples.c 中函数的原型
  */
 extern void ExecInitResultTypeTL(PlanState *planstate);
 extern void ExecInitResultSlot(PlanState *planstate,
@@ -518,9 +518,9 @@ extern void do_text_output_multiline(TupOutputState *tstate, const char *txt);
 extern void end_tup_output(TupOutputState *tstate);
 
 /*
- * Write a single line of text given as a C string.
+ * 写入以 C 串给出的单行文本。
  *
- * Should only be used with a single-TEXT-attribute tupdesc.
+ * 仅应与单 TEXT 属性 tupdesc 一起使用。
  */
 #define do_text_output_oneline(tstate, str_to_emit) \
 	do { \
@@ -534,7 +534,7 @@ extern void end_tup_output(TupOutputState *tstate);
 
 
 /*
- * prototypes from functions in execUtils.c
+ * execUtils.c 中函数的原型
  */
 extern EState *CreateExecutorState(void);
 extern void FreeExecutorState(EState *estate);
@@ -549,7 +549,7 @@ extern void ReScanExprContext(ExprContext *econtext);
 
 extern ExprContext *MakePerTupleExprContext(EState *estate);
 
-/* Get an EState's per-output-tuple exprcontext, making it if first use */
+/*  取 EState 的每输出元组 exprcontext,首次使用时创建  */
 #define GetPerTupleExprContext(estate) \
 	((estate)->es_per_tuple_exprcontext ? \
 	 (estate)->es_per_tuple_exprcontext : \
@@ -558,7 +558,7 @@ extern ExprContext *MakePerTupleExprContext(EState *estate);
 #define GetPerTupleMemoryContext(estate) \
 	(GetPerTupleExprContext(estate)->ecxt_per_tuple_memory)
 
-/* Reset an EState's per-output-tuple exprcontext, if one's been created */
+/*  重置 EState 的每输出元组 exprcontext,若已创建  */
 #define ResetPerTupleExprContext(estate) \
 	do { \
 		if ((estate)->es_per_tuple_exprcontext) \
@@ -627,7 +627,7 @@ extern Bitmapset *ExecGetExtraUpdatedCols(ResultRelInfo *relinfo, EState *estate
 extern Bitmapset *ExecGetAllUpdatedCols(ResultRelInfo *relinfo, EState *estate);
 
 /*
- * prototypes from functions in execIndexing.c
+ * execIndexing.c 中函数的原型
  */
 extern void ExecOpenIndices(ResultRelInfo *resultRelInfo, bool speculative);
 extern void ExecCloseIndices(ResultRelInfo *resultRelInfo);
@@ -648,7 +648,7 @@ extern void check_exclusion_constraint(Relation heap, Relation index,
 									   EState *estate, bool newIndex);
 
 /*
- * prototypes from functions in execReplication.c
+ * execReplication.c 中函数的原型
  */
 extern bool RelationFindReplTupleByIndex(Relation rel, Oid idxoid,
 										 LockTupleMode lockmode,
@@ -671,7 +671,7 @@ extern void CheckSubscriptionRelkind(char relkind, const char *nspname,
 									 const char *relname);
 
 /*
- * prototypes from functions in nodeModifyTable.c
+ * nodeModifyTable.c 中函数的原型
  */
 extern TupleTableSlot *ExecGetUpdateNewTuple(ResultRelInfo *relinfo,
 											 TupleTableSlot *planSlot,

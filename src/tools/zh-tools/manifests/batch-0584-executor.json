@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0584",
+ "title": "include/executor executor.h — batch 0584",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "262122e310571727d2c13836c4ba66b643584fa8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/executor/executor.h",
+   "kind": "c_comment",
+   "note": "0584"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0584-executor.json",
+   "kind": "manifest",
+   "note": "0584"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/executor/executor.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 115,
+   "translated": 33,
+   "preserved": 82,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；eflags/ExecEvalExpr/ExecProject/ExecQual 长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0584 T=33"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0584-executor.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0584"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0584"
+  }
+ ],
+ "notes": "短注/钩子/分段标题已译；eflags 与表达式宏长文 KEEP EN"
+}

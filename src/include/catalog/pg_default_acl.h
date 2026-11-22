@@ -34,11 +34,11 @@ CATALOG(pg_default_acl,826,DefaultAclRelationId)
 													 * ACL */
 	Oid			defaclnamespace BKI_LOOKUP_OPT(pg_namespace);	/* OID of namespace, or
 																 * 0 for all */
-	char		defaclobjtype;	/* see DEFACLOBJ_xxx constants below */
+	char		defaclobjtype;	/*  见下方 DEFACLOBJ_xxx 常量  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	aclitem		defaclacl[1] BKI_FORCE_NOT_NULL;	/* permissions to add at
-													 * CREATE time */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	aclitem		defaclacl[1] BKI_FORCE_NOT_NULL;	/*  创建时追加的
+													 * 权限  */
 #endif
 } FormData_pg_default_acl;
 
@@ -62,8 +62,8 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_default_acl_oid_index, 828, DefaultAclOidIndexId, o
  * defaclobjtype column.
  */
 #define DEFACLOBJ_RELATION		'r' /* table, view */
-#define DEFACLOBJ_SEQUENCE		'S' /* sequence */
-#define DEFACLOBJ_FUNCTION		'f' /* function */
+#define DEFACLOBJ_SEQUENCE		'S' /*  序列  */
+#define DEFACLOBJ_FUNCTION		'f' /*  函数  */
 #define DEFACLOBJ_TYPE			'T' /* type */
 #define DEFACLOBJ_NAMESPACE		'n' /* namespace */
 

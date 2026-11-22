@@ -31,11 +31,11 @@ CATALOG(pg_attrdef,2604,AttrDefaultRelationId)
 {
 	Oid			oid;			/* oid */
 
-	Oid			adrelid BKI_LOOKUP(pg_class);	/* OID of table containing
-												 * attribute */
-	int16		adnum;			/* attnum of attribute */
+	Oid			adrelid BKI_LOOKUP(pg_class);	/*  含下列项的表 OID
+												 * 属性  */
+	int16		adnum;			/*  属性的 attnum  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	pg_node_tree adbin BKI_FORCE_NOT_NULL;	/* nodeToString representation of
 											 * default */
 #endif

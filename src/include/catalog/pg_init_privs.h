@@ -45,13 +45,13 @@
  */
 CATALOG(pg_init_privs,3394,InitPrivsRelationId)
 {
-	Oid			objoid;			/* OID of object itself */
-	Oid			classoid BKI_LOOKUP(pg_class);	/* OID of table containing
-												 * object */
-	int32		objsubid;		/* column number, or 0 if not used */
+	Oid			objoid;			/*  对象自身 OID  */
+	Oid			classoid BKI_LOOKUP(pg_class);	/*  含下列项的表 OID
+												 * 对象 */
+	int32		objsubid;		/*  列号,未用则为 0  */
 	char		privtype;		/* from initdb or extension? */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	aclitem		initprivs[1] BKI_FORCE_NOT_NULL;	/* initial privs on object */
 #endif
 } FormData_pg_init_privs;

@@ -51,7 +51,7 @@ CATALOG(pg_language,2612,LanguageRelationId)
 	/* Optional validation function */
 	Oid			lanvalidator BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_proc);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	/* Access privileges */
 	aclitem		lanacl[1] BKI_DEFAULT(_null_);
 #endif

@@ -53,7 +53,7 @@ CATALOG(pg_opclass,2616,OperatorClassRelationId)
 	/* index access method opclass is for */
 	Oid			opcmethod BKI_LOOKUP(pg_am);
 
-	/* name of this opclass */
+	/*  本算子类名  */
 	NameData	opcname;
 
 	/* namespace of this opclass */

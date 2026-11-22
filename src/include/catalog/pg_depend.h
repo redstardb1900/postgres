@@ -42,20 +42,20 @@
 CATALOG(pg_depend,2608,DependRelationId)
 {
 	/*
-	 * Identification of the dependent (referencing) object.
+	 * 从属(引用方)对象的标识。
 	 */
-	Oid			classid BKI_LOOKUP(pg_class);	/* OID of table containing
-												 * object */
-	Oid			objid;			/* OID of object itself */
-	int32		objsubid;		/* column number, or 0 if not used */
+	Oid			classid BKI_LOOKUP(pg_class);	/*  含下列项的表 OID
+												 * 对象 */
+	Oid			objid;			/*  对象自身 OID  */
+	int32		objsubid;		/*  列号,未用则为 0  */
 
 	/*
-	 * Identification of the independent (referenced) object.
+	 * 独立(被引用方)对象的标识。
 	 */
-	Oid			refclassid BKI_LOOKUP(pg_class);	/* OID of table containing
-													 * object */
-	Oid			refobjid;		/* OID of object itself */
-	int32		refobjsubid;	/* column number, or 0 if not used */
+	Oid			refclassid BKI_LOOKUP(pg_class);	/*  含下列项的表 OID
+													 * 对象 */
+	Oid			refobjid;		/*  对象自身 OID  */
+	int32		refobjsubid;	/*  列号,未用则为 0  */
 
 	/*
 	 * Precise semantics of the relationship are specified by the deptype

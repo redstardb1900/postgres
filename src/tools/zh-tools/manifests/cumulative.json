@@ -10931,6 +10931,91 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0589-catalog.json",
    "kind": "manifest",
    "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_am.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_amproc.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_attrdef.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_authid.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_conversion.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_db_role_setting.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_default_acl.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_depend.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_description.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_enum.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_extension.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_init_privs.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_language.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_namespace.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_opclass.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/include/catalog/pg_opfamily.h",
+   "kind": "c_comment",
+   "note": "0590"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0590-catalog.json",
+   "kind": "manifest",
+   "note": "0590"
   }
  ],
  "files": [
@@ -35655,6 +35740,208 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_am.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_amproc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_attrdef.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_authid.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_conversion.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_db_role_setting.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_default_acl.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_depend.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_description.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_enum.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_extension.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_init_privs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_language.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_namespace.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_opclass.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/include/catalog/pg_opfamily.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；cpp typedef 块 KEEP EN；OID 字面保留；超预算/长文 KEEP。"
+   ],
+   "note": "0590"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0590-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0590"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

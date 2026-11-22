@@ -39,7 +39,7 @@ CATALOG(pg_namespace,2615,NamespaceRelationId)
 	NameData	nspname;
 	Oid			nspowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	aclitem		nspacl[1];
 #endif
 } FormData_pg_namespace;

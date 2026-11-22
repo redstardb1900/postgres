@@ -29,18 +29,18 @@
 CATALOG(pg_extension,3079,ExtensionRelationId)
 {
 	Oid			oid;			/* oid */
-	NameData	extname;		/* extension name */
-	Oid			extowner BKI_LOOKUP(pg_authid); /* extension owner */
+	NameData	extname;		/*  扩展名  */
+	Oid			extowner BKI_LOOKUP(pg_authid); /* 扩展所有者 */
 	Oid			extnamespace BKI_LOOKUP(pg_namespace);	/* namespace of
 														 * contained objects */
 	bool		extrelocatable; /* if true, allow ALTER EXTENSION SET SCHEMA */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* extversion may never be null, but the others can be. */
-	text		extversion BKI_FORCE_NOT_NULL;	/* extension version name */
-	Oid			extconfig[1] BKI_LOOKUP(pg_class);	/* dumpable configuration
-													 * tables */
-	text		extcondition[1];	/* WHERE clauses for config tables */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/*  extversion 永不可为 null,其余可为。  */
+	text		extversion BKI_FORCE_NOT_NULL;	/*  扩展版本名  */
+	Oid			extconfig[1] BKI_LOOKUP(pg_class);	/*  可转储的配置
+													 * 表  */
+	text		extcondition[1];	/*  配置表的 WHERE 子句  */
 #endif
 } FormData_pg_extension;
 

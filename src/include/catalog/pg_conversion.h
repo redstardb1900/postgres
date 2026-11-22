@@ -31,25 +31,25 @@ CATALOG(pg_conversion,2607,ConversionRelationId)
 	/* oid */
 	Oid			oid;
 
-	/* name of the conversion */
+	/*  转换名  */
 	NameData	conname;
 
-	/* namespace that the conversion belongs to */
+	/*  转换所属命名空间  */
 	Oid			connamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
-	/* owner of the conversion */
+	/*  转换所有者  */
 	Oid			conowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-	/* FOR encoding id */
+	/*  FOR 编码 id  */
 	int32		conforencoding BKI_LOOKUP(encoding);
 
-	/* TO encoding id */
+	/*  TO 编码 id  */
 	int32		contoencoding BKI_LOOKUP(encoding);
 
-	/* OID of the conversion proc */
+	/*  转换过程 OID  */
 	regproc		conproc BKI_LOOKUP(pg_proc);
 
-	/* true if this is a default conversion */
+	/*  若为默认转换则为真  */
 	bool		condefault BKI_DEFAULT(t);
 } FormData_pg_conversion;
 

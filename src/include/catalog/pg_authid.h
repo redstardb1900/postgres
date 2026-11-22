@@ -31,20 +31,20 @@
 CATALOG(pg_authid,1260,AuthIdRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID(2842,AuthIdRelation_Rowtype_Id) BKI_SCHEMA_MACRO
 {
 	Oid			oid;			/* oid */
-	NameData	rolname;		/* name of role */
+	NameData	rolname;		/*  角色名  */
 	bool		rolsuper;		/* read this field via superuser() only! */
-	bool		rolinherit;		/* inherit privileges from other roles? */
+	bool		rolinherit;		/*  是否从其他角色继承特权?  */
 	bool		rolcreaterole;	/* allowed to create more roles? */
-	bool		rolcreatedb;	/* allowed to create databases? */
+	bool		rolcreatedb;	/* 是否允许创建数据库? */
 	bool		rolcanlogin;	/* allowed to log in as session user? */
-	bool		rolreplication; /* role used for streaming replication */
-	bool		rolbypassrls;	/* bypasses row-level security? */
+	bool		rolreplication; /*  用于流复制的角色  */
+	bool		rolbypassrls;	/*  是否绕过行级安全?  */
 	int32		rolconnlimit;	/* max connections allowed (-1=no limit) */
 
-	/* remaining fields may be null; use heap_getattr to read them! */
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		rolpassword;	/* password, if any */
-	timestamptz rolvaliduntil;	/* password expiration time, if any */
+	/*  其余字段可为 null;用 heap_getattr 读取!  */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		rolpassword;	/*  口令(若有)  */
+	timestamptz rolvaliduntil;	/*  口令过期时间(若有)  */
 #endif
 } FormData_pg_authid;
 

@@ -44,19 +44,19 @@ CATALOG(pg_amproc,2603,AccessMethodProcedureRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* the index opfamily this entry is for */
+	/*  本条目所属的索引算子族  */
 	Oid			amprocfamily BKI_LOOKUP(pg_opfamily);
 
-	/* procedure's left input data type */
+	/*  过程左输入数据类型  */
 	Oid			amproclefttype BKI_LOOKUP(pg_type);
 
-	/* procedure's right input data type */
+	/*  过程右输入数据类型  */
 	Oid			amprocrighttype BKI_LOOKUP(pg_type);
 
-	/* support procedure index */
+	/*  支持过程下标  */
 	int16		amprocnum;
 
-	/* OID of the proc */
+	/*  过程 OID  */
 	regproc		amproc BKI_LOOKUP(pg_proc);
 } FormData_pg_amproc;
 

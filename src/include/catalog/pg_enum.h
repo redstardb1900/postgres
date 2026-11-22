@@ -31,9 +31,9 @@
 CATALOG(pg_enum,3501,EnumRelationId)
 {
 	Oid			oid;			/* oid */
-	Oid			enumtypid BKI_LOOKUP(pg_type);	/* OID of owning enum type */
-	float4		enumsortorder;	/* sort position of this enum value */
-	NameData	enumlabel;		/* text representation of enum value */
+	Oid			enumtypid BKI_LOOKUP(pg_type);	/* 所属枚举类型 OID */
+	float4		enumsortorder;	/*  本枚举值的排序位置  */
+	NameData	enumlabel;		/*  枚举值的文本表示  */
 } FormData_pg_enum;
 
 /* ----------------
@@ -48,7 +48,7 @@ DECLARE_UNIQUE_INDEX(pg_enum_typid_label_index, 3503, EnumTypIdLabelIndexId, on 
 DECLARE_UNIQUE_INDEX(pg_enum_typid_sortorder_index, 3534, EnumTypIdSortOrderIndexId, on pg_enum using btree(enumtypid oid_ops, enumsortorder float4_ops));
 
 /*
- * prototypes for functions in pg_enum.c
+ * pg_enum.c 中函数原型
  */
 extern void EnumValuesCreate(Oid enumTypeOid, List *vals);
 extern void EnumValuesDelete(Oid enumTypeOid);

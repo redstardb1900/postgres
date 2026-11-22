@@ -30,13 +30,13 @@ CATALOG(pg_am,2601,AccessMethodRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* access method name */
+	/*  访问方法名  */
 	NameData	amname;
 
-	/* handler function */
+	/*  处理函数  */
 	regproc		amhandler BKI_LOOKUP(pg_proc);
 
-	/* see AMTYPE_xxx constants below */
+	/*  见下方 AMTYPE_xxx 常量  */
 	char		amtype;
 } FormData_pg_am;
 
@@ -53,10 +53,10 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_am_oid_index, 2652, AmOidIndexId, on pg_am using bt
 #ifdef EXPOSE_TO_CLIENT_CODE
 
 /*
- * Allowed values for amtype
+ * amtype 的允许取值
  */
-#define AMTYPE_INDEX					'i' /* index access method */
-#define AMTYPE_TABLE					't' /* table access method */
+#define AMTYPE_INDEX					'i' /* 索引访问方法 */
+#define AMTYPE_TABLE					't' /*  表访问方法  */
 
 #endif							/* EXPOSE_TO_CLIENT_CODE */
 

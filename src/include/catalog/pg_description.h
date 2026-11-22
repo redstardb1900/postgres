@@ -47,12 +47,12 @@
  */
 CATALOG(pg_description,2609,DescriptionRelationId)
 {
-	Oid			objoid;			/* OID of object itself */
-	Oid			classoid;		/* OID of table containing object */
-	int32		objsubid;		/* column number, or 0 if not used */
+	Oid			objoid;			/*  对象自身 OID  */
+	Oid			classoid;		/*  含对象的表 OID  */
+	int32		objsubid;		/*  列号,未用则为 0  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		description BKI_FORCE_NOT_NULL; /* description of object */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		description BKI_FORCE_NOT_NULL; /*  对象描述  */
 #endif
 } FormData_pg_description;
 
@@ -67,7 +67,7 @@ DECLARE_TOAST(pg_description, 2834, 2835);
 
 DECLARE_UNIQUE_INDEX_PKEY(pg_description_o_c_o_index, 2675, DescriptionObjIndexId, on pg_description using btree(objoid oid_ops, classoid oid_ops, objsubid int4_ops));
 
-/* We do not use BKI_LOOKUP here because it causes problems for genbki.pl */
+/*  此处不用 BKI_LOOKUP,因其会给 genbki.pl 带来问题  */
 DECLARE_FOREIGN_KEY((classoid), pg_class, (oid));
 
 #endif							/* PG_DESCRIPTION_H */

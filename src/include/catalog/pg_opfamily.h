@@ -33,7 +33,7 @@ CATALOG(pg_opfamily,2753,OperatorFamilyRelationId)
 	/* index access method opfamily is for */
 	Oid			opfmethod BKI_LOOKUP(pg_am);
 
-	/* name of this opfamily */
+	/*  本算子族名  */
 	NameData	opfname;
 
 	/* namespace of this opfamily */

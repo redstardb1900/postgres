@@ -1687,38 +1687,38 @@ typedef struct IndexPath
 } IndexPath;
 
 /*
- * Each IndexClause references a RestrictInfo node from the query's WHERE
- * or JOIN conditions, and shows how that restriction can be applied to
- * the particular index.  We support both indexclauses that are directly
- * usable by the index machinery, which are typically of the form
- * "indexcol OP pseudoconstant", and those from which an indexable qual
- * can be derived.  The simplest such transformation is that a clause
- * of the form "pseudoconstant OP indexcol" can be commuted to produce an
- * indexable qual (the index machinery expects the indexcol to be on the
- * left always).  Another example is that we might be able to extract an
- * indexable range condition from a LIKE condition, as in "x LIKE 'foo%bar'"
- * giving rise to "x >= 'foo' AND x < 'fop'".  Derivation of such lossy
- * conditions is done by a planner support function attached to the
- * indexclause's top-level function or operator.
+ * 每个 IndexClause 引用查询 WHERE 或 JOIN 条件中的
+ * 一个 RestrictInfo，并说明该限制如何应用到
+ * 特定索引。既支持可被索引机制直接使用的
+ * indexclause（典型形如
+ * "indexcol OP 伪常量"），也支持可从中导出可索引
+ * 限定者。最简单变换是把
+ * "伪常量 OP indexcol" 交换为可索引限定（索引机制
+ * 总期望 indexcol 在左侧）。另一例是可从 LIKE
+ * 条件抽出可索引范围条件，如
+ * "x LIKE 'foo%bar'" 导出 "x >= 'foo' AND x < 'fop'"。
+ * 此类有损条件的导出由挂在 indexclause 顶层
+ * 函数或操作符上的规划器支持函数完成。
+ * （由支持函数完成。）
  *
- * indexquals is a list of RestrictInfos for the directly-usable index
- * conditions associated with this IndexClause.  In the simplest case
- * it's a one-element list whose member is iclause->rinfo.  Otherwise,
- * it contains one or more directly-usable indexqual conditions extracted
- * from the given clause.  The 'lossy' flag indicates whether the
- * indexquals are semantically equivalent to the original clause, or
- * represent a weaker condition.
+ * indexquals 是与本 IndexClause 关联的可直接使用
+ * 索引条件的 RestrictInfos 列表。最简单情形下
+ * 是单元素列表，成员为 iclause->rinfo。否则含从
+ * 给定子句抽出的一个或多个可直接使用的
+ * indexqual 条件。lossy 标志表示 indexquals 与原
+ * 子句语义等价，抑或只是更弱的条件。
+ * （等价或更弱。）
  *
- * Normally, indexcol is the index of the single index column the clause
- * works on, and indexcols is NIL.  But if the clause is a RowCompareExpr,
- * indexcol is the index of the leading column, and indexcols is a list of
- * all the affected columns.  (Note that indexcols matches up with the
- * columns of the actual indexable RowCompareExpr in indexquals, which
- * might be different from the original in rinfo.)
+ * 通常 indexcol 是子句作用的单一索引列下标，
+ * indexcols 为 NIL。但若子句是 RowCompareExpr，
+ * indexcol 是前导列下标，indexcols 是全部受影响
+ * 列的列表。（注意 indexcols 与 indexquals 中实际
+ * 可索引 RowCompareExpr 的列对应，可能与 rinfo
+ * 中的原式不同。）
  *
- * An IndexPath's IndexClause list is required to be ordered by index
- * column, i.e. the indexcol values must form a nondecreasing sequence.
- * (The order of multiple clauses for the same index column is unspecified.)
+ * IndexPath 的 IndexClause 列表须按索引列排序，
+ * 即 indexcol 值须形成非递减序列。
+ * （同列多条子句次序未指定。）
  */
 typedef struct IndexClause
 {
@@ -1838,25 +1838,25 @@ typedef struct ForeignPath
 } ForeignPath;
 
 /*
- * CustomPath represents a table scan or a table join done by some out-of-core
- * extension.
+ * CustomPath 表示由某核外扩展完成的表扫描或表
+ * 连接。
  *
- * We provide a set of hooks here - which the provider must take care to set
- * up correctly - to allow extensions to supply their own methods of scanning
- * a relation or joing relations.  For example, a provider might provide GPU
- * acceleration, a cache-based scan, or some other kind of logic we haven't
- * dreamed up yet.
+ * 此处提供一组钩子——提供者必须正确设置——
+ * 以便扩展自备扫描或连接方法。例如可提供 GPU
+ * 加速、基于缓存的扫描，或其它尚未想到的逻辑。
+ * （扩展可自定义。）
+ * （见上。）
  *
- * CustomPaths can be injected into the planning process for a base or join
- * relation by set_rel_pathlist_hook or set_join_pathlist_hook functions,
- * respectively.
+ * 可通过 set_rel_pathlist_hook 或
+ * set_join_pathlist_hook 把 CustomPaths 注入基/连接
+ * 之规划。
  *
- * Core code must avoid assuming that the CustomPath is only as large as
- * the structure declared here; providers are allowed to make it the first
- * element in a larger structure.  (Since the planner never copies Paths,
- * this doesn't add any complication.)  However, for consistency with the
- * FDW case, we provide a "custom_private" field in CustomPath; providers
- * may prefer to use that rather than define another struct type.
+ * 核心切勿假定 CustomPath 仅有此处声明的大小；
+ * 允许提供者把它作为更大结构的首元素。（规划器
+ * 从不复制 Paths，故无额外复杂。）但为与 FDW 情形
+ * 一致，CustomPath 提供 custom_private 字段；提供者
+ * 或更愿用它而非另定义结构类型。
+ * （可用该私有字段。）
  */
 
 struct CustomPathMethods;
@@ -2698,35 +2698,35 @@ typedef struct MergeScanSelCache
 } MergeScanSelCache;
 
 /*
- * Placeholder node for an expression to be evaluated below the top level
- * of a plan tree.  This is used during planning to represent the contained
- * expression.  At the end of the planning process it is replaced by either
- * the contained expression or a Var referring to a lower-level evaluation of
- * the contained expression.  Generally the evaluation occurs below an outer
- * join, and Var references above the outer join might thereby yield NULL
- * instead of the expression value.
+ * 计划树顶层之下待求值表达式的占位节点。
+ * 规划期间用来表示所含表达式。规划结束时替换为
+ * 所含表达式本身，或引用下层已求值结果的 Var。
+ * 求值一般发生在外连接之下，故外连接之上的 Var
+ * 引用可能因此得到 NULL 而非表达式值。
+ * （外连接之上的引用。）
+ * （或得 NULL。）
  *
- * phrels and phlevelsup correspond to the varno/varlevelsup fields of a
- * plain Var, except that phrels has to be a relid set since the evaluation
- * level of a PlaceHolderVar might be a join rather than a base relation.
- * Likewise, phnullingrels corresponds to varnullingrels.
+ * phrels 与 phlevelsup 对应普通 Var 的 varno/
+ * varlevelsup，但 phrels 须为 relid 集合，因
+ * PlaceHolderVar 的求值层可能是连接而非基关系。
+ * 同理 phnullingrels 对应 varnullingrels。
  *
- * Although the planner treats this as an expression node type, it is not
- * recognized by the parser or executor, so we declare it here rather than
- * in primnodes.h.
+ * 虽规划器视其为表达式节点类型，但解析器与
+ * 执行器不识别，故声明于此而非 primnodes.h。
+ * （见上。）
  *
- * We intentionally do not compare phexpr.  Two PlaceHolderVars with the
- * same ID and levelsup should be considered equal even if the contained
- * expressions have managed to mutate to different states.  This will
- * happen during final plan construction when there are nested PHVs, since
- * the inner PHV will get replaced by a Param in some copies of the outer
- * PHV.  Another way in which it can happen is that initplan sublinks
- * could get replaced by differently-numbered Params when sublink folding
- * is done.  (The end result of such a situation would be some
- * unreferenced initplans, which is annoying but not really a problem.)
- * On the same reasoning, there is no need to examine phrels.  But we do
- * need to compare phnullingrels, as that represents effects that are
- * external to the original value of the PHV.
+ * 我们有意不比较 phexpr。同 ID 与 levelsup 的两个
+ * PlaceHolderVars 应视为相等，即便所含表达式已突变
+ * 到不同状态。嵌套 PHVs 在最终建计划时会发生：
+ * 内层 PHV 在外层 PHV 的某些副本中会被换成
+ * Param。另一途径是 initplan 子链接在折叠时被换成
+ * 不同编号的 Params。（最终可能留下未引用的
+ * initplans，烦人但并非真问题。）同理无需检查
+ * phrels。但须比较 phnullingrels，因其表示
+ * 相对 PHV 原值的外部效应。
+ * （同理不必查 phrels。）
+ * 但须比较 phnullingrels，因其表示
+ * 相对原值的外部效应。
  */
 
 typedef struct PlaceHolderVar
@@ -2876,33 +2876,33 @@ typedef struct OuterJoinClauseInfo
 } OuterJoinClauseInfo;
 
 /*
- * Append-relation info.
+ * 追加关系信息。
  *
- * When we expand an inheritable table or a UNION-ALL subselect into an
- * "append relation" (essentially, a list of child RTEs), we build an
- * AppendRelInfo for each child RTE.  The list of AppendRelInfos indicates
- * which child RTEs must be included when expanding the parent, and each node
- * carries information needed to translate between columns of the parent and
- * columns of the child.
+ * 当把可继承表或 UNION-ALL 子查询展开为
+ * "追加关系"（本质是子 RTE 列表）时，为每个子
+ * 各建 AppendRelInfo。AppendRelInfos 列表标明展开父时
+ * 须含哪些子 RTEs，且每节点携带父/子列翻译
+ * 所需的信息。
+ * （列翻译。）
  *
- * These structs are kept in the PlannerInfo node's append_rel_list, with
- * append_rel_array[] providing a convenient lookup method for the struct
- * associated with a particular child relid (there can be only one, though
- * parent rels may have many entries in append_rel_list).
+ * 这些结构保存在 PlannerInfo 的 append_rel_list，
+ * append_rel_array[] 便于按子 relid 查找（每个子
+ * 至多一个，但父可在 append_rel_list 有多项）。
+ * （父可有多项。）
  *
- * Note: after completion of the planner prep phase, any given RTE is an
- * append parent having entries in append_rel_list if and only if its
- * "inh" flag is set.  We clear "inh" for plain tables that turn out not
- * to have inheritance children, and (in an abuse of the original meaning
- * of the flag) we set "inh" for subquery RTEs that turn out to be
- * flattenable UNION ALL queries.  This lets us avoid useless searches
- * of append_rel_list.
+ * 注意：规划预备阶段完成后，某 RTE 是在
+ * append_rel_list 有项的追加父，当且仅当其 inh
+ * 标志置位。对实际无继承子的普通表我们清 inh，并
+ * （滥用原意）对可展平的 UNION ALL 子查询 RTE 置
+ * inh。如此可避免无用的 append_rel_list 搜索。
+ * （避免无用搜索。）
+ * （见上。）
  *
- * Note: the data structure assumes that append-rel members are single
- * baserels.  This is OK for inheritance, but it prevents us from pulling
- * up a UNION ALL member subquery if it contains a join.  While that could
- * be fixed with a more complex data structure, at present there's not much
- * point because no improvement in the plan could result.
+ * 注意：数据结构假定追加成员是单个基表。对继承
+ * 没问题，但会阻止上拉含连接的 UNION ALL 成员
+ * 子查询。虽可用更复杂结构修复，但目前意义不大，
+ * 因计划不会因此改善。
+ * （无计划收益。）
  */
 
 typedef struct AppendRelInfo

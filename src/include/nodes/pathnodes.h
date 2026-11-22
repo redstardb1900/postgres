@@ -1864,7 +1864,7 @@ struct CustomPathMethods;
 typedef struct CustomPath
 {
 	Path		path;
-	uint32		flags;			/* mask of CUSTOMPATH_* flags, see
+	uint32		flags;			/* CUSTOMPATH_* 标志掩码，见
 								 * nodes/extensible.h */
 	List	   *custom_paths;	/* 子 Path 节点列表(若有) */
 	List	   *custom_private;
@@ -1872,19 +1872,19 @@ typedef struct CustomPath
 } CustomPath;
 
 /*
- * AppendPath represents an Append plan, ie, successive execution of
- * several member plans.
+ * AppendPath 表示 Append 计划，即相继执行
+ * 若干成员计划。
  *
- * For partial Append, 'subpaths' contains non-partial subpaths followed by
- * partial subpaths.
+ * 对部分 Append，subpaths 先非部分再跟
+ * 部分路径。
  *
- * Note: it is possible for "subpaths" to contain only one, or even no,
- * elements.  These cases are optimized during create_append_plan.
- * In particular, an AppendPath with no subpaths is a "dummy" path that
- * is created to represent the case that a relation is provably empty.
- * (This is a convenient representation because it means that when we build
- * an appendrel and find that all its children have been excluded, no extra
- * action is needed to recognize the relation as dummy.)
+ * 注意："subpaths" 可以只含一个元素，甚至为空。
+ * 这些情况在 create_append_plan 中优化。
+ * 特别地，无子路径的 AppendPath 是 "dummy" 路径，
+ * 用来表示关系已被证明为空。
+ * （此表示很方便：构建 appendrel 时若发现
+ * 全部子项均被排除，无需额外动作即可
+ * 将该关系识别为 dummy。）
  */
 typedef struct AppendPath
 {
@@ -1964,16 +1964,16 @@ typedef struct MemoizePath
 } MemoizePath;
 
 /*
- * UniquePath represents elimination of distinct rows from the output of
- * its subpath.
+ * UniquePath 表示消除子路径输出中的
+ * 重复行。
  *
- * This can represent significantly different plans: either hash-based or
- * sort-based implementation, or a no-op if the input path can be proven
- * distinct already.  The decision is sufficiently localized that it's not
- * worth having separate Path node types.  (Note: in the no-op case, we could
- * eliminate the UniquePath node entirely and just return the subpath; but
- * it's convenient to have a UniquePath in the path tree to signal upper-level
- * routines that the input is known distinct.)
+ * 可表示差异很大的计划：基于哈希或基于
+ * 排序的实现，或在输入路径已可证明互异时
+ * 为 no-op。决策足够局部，不值得另设
+ * Path 节点类型。（注意：no-op 时可整棵去掉
+ * UniquePath 只返回子路径；但在路径树中保留
+ * UniquePath 便于向上层例程表明输入
+ * 已知互异。）
  */
 typedef enum UniquePathMethod
 {
@@ -2115,18 +2115,18 @@ typedef struct HashPath
 } HashPath;
 
 /*
- * ProjectionPath represents a projection (that is, targetlist computation)
+ * ProjectionPath 表示投影（即目标列表计算）
  *
- * Nominally, this path node represents using a Result plan node to do a
- * projection step.  However, if the input plan node supports projection,
- * we can just modify its output targetlist to do the required calculations
- * directly, and not need a Result.  In some places in the planner we can just
- * jam the desired PathTarget into the input path node (and adjust its cost
- * accordingly), so we don't need a ProjectionPath.  But in other places
- * it's necessary to not modify the input path node, so we need a separate
- * ProjectionPath node, which is marked dummy to indicate that we intend to
- * assign the work to the input plan node.  The estimated cost for the
- * ProjectionPath node will account for whether a Result will be used or not.
+ * 名义上本路径节点表示用 Result 计划节点做
+ * 投影步。但若输入计划节点支持投影，
+ * 可直接改其输出目标列表完成所需计算，
+ * 而无需 Result。规划器有处可直接把目标
+ * PathTarget 塞进输入路径节点（并相应调整
+ * 代价），故不需要 ProjectionPath。但别处
+ * 不能改动输入路径节点，则需单独的
+ * ProjectionPath，并标为 dummy 表示打算把
+ * 工作交给输入计划节点。ProjectionPath 的
+ * 估计代价会计入是否实际使用 Result。
  */
 typedef struct ProjectionPath
 {
@@ -2173,12 +2173,12 @@ typedef struct IncrementalSortPath
 } IncrementalSortPath;
 
 /*
- * GroupPath represents grouping (of presorted input)
+ * GroupPath 表示分组（输入已预排序）
  *
- * groupClause represents the columns to be grouped on; the input path
- * must be at least that well sorted.
+ * groupClause 表示要分组的列；输入路径
+ * 至少须按此排序。
  *
- * We can also apply a qual to the grouped rows (equivalent of HAVING)
+ * 也可对分组后行施加限定（等价于 HAVING）
  */
 typedef struct GroupPath
 {
@@ -2189,10 +2189,10 @@ typedef struct GroupPath
 } GroupPath;
 
 /*
- * UpperUniquePath represents adjacent-duplicate removal (in presorted input)
+ * UpperUniquePath 表示相邻重复消除（输入已预排序）
  *
- * The columns to be compared are the first numkeys columns of the path's
- * pathkeys.  The input is presumed already sorted that way.
+ * 比较的列是路径 pathkeys 的前 numkeys 列。
+ * 假定输入已按该方式排好序。
  */
 typedef struct UpperUniquePath
 {
@@ -2202,11 +2202,11 @@ typedef struct UpperUniquePath
 } UpperUniquePath;
 
 /*
- * AggPath represents generic computation of aggregate functions
+ * AggPath 表示聚集函数的通用计算
  *
- * This may involve plain grouping (but not grouping sets), using either
- * sorted or hashed grouping; for the AGG_SORTED case, the input must be
- * appropriately presorted.
+ * 可涉及普通分组（不含分组集），用排序或
+ * 哈希分组；AGG_SORTED 时输入必须
+ * 已适当预排序。
  */
 typedef struct AggPath
 {
@@ -2279,8 +2279,8 @@ typedef struct WindowAggPath
 	Path	   *subpath;		/* 表示输入源的路径 */
 	WindowClause *winclause;	/* 将使用的 WindowClause */
 	List	   *qual;			/* 下层 WindowAgg 的 runcondition */
-	bool		topwindow;		/* false for all apart from the WindowAgg
-								 * that's closest to the root of the plan */
+	bool		topwindow;		/* 除最靠近计划树根的
+								 * WindowAgg 外均为 false */
 } WindowAggPath;
 
 /*
@@ -2323,11 +2323,11 @@ typedef struct LockRowsPath
 } LockRowsPath;
 
 /*
- * ModifyTablePath represents performing INSERT/UPDATE/DELETE/MERGE
+ * ModifyTablePath 表示执行 INSERT/UPDATE/DELETE/MERGE
  *
- * We represent most things that will be in the ModifyTable plan node
- * literally, except we have a child Path not Plan.  But analysis of the
- * OnConflictExpr is deferred to createplan.c, as is collection of FDW data.
+ * ModifyTable 计划节点中多数内容按字面表示，
+ * 但子节点是 Path 而非 Plan。OnConflictExpr
+ * 分析与 FDW 数据收集推迟到 createplan.c。
  */
 typedef struct ModifyTablePath
 {
@@ -2558,15 +2558,15 @@ typedef struct RestrictInfo
 	Relids		outer_relids;
 
 	/*
-	 * Relids in the left/right side of the clause.  These fields are set for
-	 * any binary opclause.
+	 * 子句左/右侧的 Relids。对任意二元
+	 * opclause 设置。
 	 */
 	Relids		left_relids pg_node_attr(equal_ignore);
 	Relids		right_relids pg_node_attr(equal_ignore);
 
 	/*
-	 * Modified clause with RestrictInfos.  This field is NULL unless clause
-	 * is an OR clause.
+	 * 带 RestrictInfos 的改写子句。仅当为
+	 * OR 时非 NULL
 	 */
 	Expr	   *orclause pg_node_attr(equal_ignore);
 
@@ -2590,8 +2590,8 @@ typedef struct RestrictInfo
 	int			rinfo_serial;
 
 	/*
-	 * Generating EquivalenceClass.  This field is NULL unless clause is
-	 * potentially redundant.
+	 * 生成用 EquivalenceClass。仅当子句可能
+	 * 冗余时非 NULL。
 	 */
 	EquivalenceClass *parent_ec pg_node_attr(copy_as_scalar, equal_ignore, read_write_ignore);
 
@@ -2608,8 +2608,8 @@ typedef struct RestrictInfo
 	Selectivity outer_selec pg_node_attr(equal_ignore);
 
 	/*
-	 * opfamilies containing clause operator; valid if clause is
-	 * mergejoinable, else NIL
+	 * 含子句操作符的 opfamilies；可归并连接时
+	 * 有效，否则 NIL
 	 */
 	List	   *mergeopfamilies pg_node_attr(equal_ignore);
 
@@ -2627,15 +2627,15 @@ typedef struct RestrictInfo
 	EquivalenceMember *right_em pg_node_attr(copy_as_scalar, equal_ignore);
 
 	/*
-	 * List of MergeScanSelCache structs.  Those aren't Nodes, so hard to
-	 * copy; instead replace with NIL.  That has the effect that copying will
-	 * just reset the cache.  Likewise, can't compare or print them.
+	 * MergeScanSelCache 结构列表。它们不是 Node，难
+	 * 复制；改为用 NIL 替换。复制效果是重置缓存。
+	 * 同样无法比较或打印它们。
 	 */
 	List	   *scansel_cache pg_node_attr(copy_as(NIL), equal_ignore, read_write_ignore);
 
 	/*
-	 * transient workspace for use while considering a specific join path; T =
-	 * outer var on left, F = on right
+	 * 考虑特定连接路径时的临时工作区；T=
+	 * 外表变量在左，F=在右
 	 */
 	bool		outer_is_left pg_node_attr(equal_ignore);
 
@@ -2663,25 +2663,25 @@ typedef struct RestrictInfo
 } RestrictInfo;
 
 /*
- * This macro embodies the correct way to test whether a RestrictInfo is
- * "pushed down" to a given outer join, that is, should be treated as a filter
- * clause rather than a join clause at that outer join.  This is certainly so
- * if is_pushed_down is true; but examining that is not sufficient anymore,
- * because outer-join clauses will get pushed down to lower outer joins when
- * we generate a path for the lower outer join that is parameterized by the
- * LHS of the upper one.  We can detect such a clause by noting that its
- * required_relids exceed the scope of the join.
+ * 本宏给出判定 RestrictInfo 是否被
+ * "下推"到给定外连接的正确方法，即在该处应作
+ * 过滤子句而非连接子句。若 is_pushed_down
+ * 为真则必如此；但仅看它已不够，因为生成被
+ * 上层 LHS 参数化的下层外连接路径时，外连接
+ * 子句会被下推到更低外连接。可通过其
+ * required_relids 超出该连接作用域
+ * 来识别此类子句。
  */
 #define RINFO_IS_PUSHED_DOWN(rinfo, joinrelids) \
 	((rinfo)->is_pushed_down || \
 	 !bms_is_subset((rinfo)->required_relids, joinrelids))
 
 /*
- * Since mergejoinscansel() is a relatively expensive function, and would
- * otherwise be invoked many times while planning a large join tree,
- * we go out of our way to cache its results.  Each mergejoinable
- * RestrictInfo carries a list of the specific sort orderings that have
- * been considered for use with it, and the resulting selectivities.
+ * 因 mergejoinscansel() 相对昂贵，且在规划
+ * 大型连接树时会被多次调用，我们特意
+ * 缓存其结果。每个可归并连接的
+ * RestrictInfo 携带已考虑过的具体排序及
+ * 相应选择率列表。
  */
 typedef struct MergeScanSelCache
 {
@@ -2861,10 +2861,10 @@ struct SpecialJoinInfo
 };
 
 /*
- * Transient outer-join clause info.
+ * 临时外连接子句信息。
  *
- * We set aside every outer join ON clause that looks mergejoinable,
- * and process it specially at the end of qual distribution.
+ * 凡看起来可归并连接的外连接 ON 子句均搁置，
+ * 在限定分发末尾特殊处理。
  */
 typedef struct OuterJoinClauseInfo
 {
@@ -2912,54 +2912,54 @@ typedef struct AppendRelInfo
 	NodeTag		type;
 
 	/*
-	 * These fields uniquely identify this append relationship.  There can be
-	 * (in fact, always should be) multiple AppendRelInfos for the same
-	 * parent_relid, but never more than one per child_relid, since a given
-	 * RTE cannot be a child of more than one append parent.
+	 * 这些字段唯一标识本 append 关系。同一
+	 * parent_relid 可有(应有)多个 AppendRelInfos，
+	 * 但每个 child_relid 至多一个，因给定 RTE
+	 * 不能是多个 append 父的子项。
 	 */
 	Index		parent_relid;	/* 追加父关系的 RT 下标 */
 	Index		child_relid;	/* 追加子关系的 RT 下标 */
 
 	/*
-	 * For an inheritance appendrel, the parent and child are both regular
-	 * relations, and we store their rowtype OIDs here for use in translating
-	 * whole-row Vars.  For a UNION-ALL appendrel, the parent and child are
-	 * both subqueries with no named rowtype, and we store InvalidOid here.
+	 * 对继承 appendrel，父与子均为普通关系，
+	 * 在此存行类型 OIDs，用于翻译整行 Vars。
+	 * 对 UNION-ALL appendrel，父与子均为无命名
+	 * 行类型的子查询，此处存 InvalidOid。
 	 */
 	Oid			parent_reltype; /* 父复合类型的 OID */
 	Oid			child_reltype;	/* 子复合类型的 OID */
 
 	/*
-	 * The N'th element of this list is a Var or expression representing the
-	 * child column corresponding to the N'th column of the parent. This is
-	 * used to translate Vars referencing the parent rel into references to
-	 * the child.  A list element is NULL if it corresponds to a dropped
-	 * column of the parent (this is only possible for inheritance cases, not
-	 * UNION ALL).  The list elements are always simple Vars for inheritance
-	 * cases, but can be arbitrary expressions in UNION ALL cases.
+	 * 本列表第 N 元是表示对应于父第 N 列的
+	 * 子列的 Var 或表达式。用于把引用父
+	 * 关系的 Vars 译为对子的引用。对应父已
+	 * 删除列时该元素为 NULL（仅继承可能，非
+	 * UNION ALL）。继承情况下元素恒为简单 Vars，
+	 * 但在 UNION ALL 情况下可为任意
+	 * 表达式。
 	 *
-	 * Notice we only store entries for user columns (attno > 0).  Whole-row
-	 * Vars are special-cased, and system columns (attno < 0) need no special
-	 * translation since their attnos are the same for all tables.
+	 * 注意仅存用户列（attno > 0）。整行 Vars
+	 * 特殊处理；系统列（attno < 0）无需特殊翻译，
+	 * 因其 attno 对所有表相同。
 	 *
-	 * Caution: the Vars have varlevelsup = 0.  Be careful to adjust as needed
-	 * when copying into a subquery.
+	 * 当心：这些 Vars 的 varlevelsup = 0。复制到
+	 * 子查询时须调整。
 	 */
 	List	   *translated_vars;	/* 子项 Vars 中的表达式 */
 
 	/*
-	 * This array simplifies translations in the reverse direction, from
-	 * child's column numbers to parent's.  The entry at [ccolno - 1] is the
-	 * 1-based parent column number for child column ccolno, or zero if that
-	 * child column is dropped or doesn't exist in the parent.
+	 * 本数组简化反向翻译：由子列号到父列号。
+	 * [ccolno - 1] 处是子列 ccolno 对应的
+	 * 以 1 为基的父列号；若该子列已删或不在父中
+	 * 则为零。
 	 */
 	int			num_child_cols; /* 数组长度 */
 	AttrNumber *parent_colnos pg_node_attr(array_size(num_child_cols));
 
 	/*
-	 * We store the parent table's OID here for inheritance, or InvalidOid for
-	 * UNION ALL.  This is only needed to help in generating error messages if
-	 * an attempt is made to reference a dropped parent column.
+	 * 继承时存父表 OID，UNION ALL 时存 InvalidOid。
+	 * 仅用于在试图引用已删除父列时生成
+	 * 错误消息。
 	 */
 	Oid			parent_reloid;	/* 父关系的 OID */
 } AppendRelInfo;
@@ -3030,8 +3030,8 @@ typedef struct PlaceHolderInfo
 	Index		phid;
 
 	/*
-	 * copy of PlaceHolderVar tree (should be redundant for comparison, could
-	 * be ignored)
+	 * PlaceHolderVar 树副本（比较时应冗余，可
+	 * 忽略）
 	 */
 	PlaceHolderVar *ph_var;
 
@@ -3049,9 +3049,9 @@ typedef struct PlaceHolderInfo
 } PlaceHolderInfo;
 
 /*
- * This struct describes one potentially index-optimizable MIN/MAX aggregate
- * function.  MinMaxAggPath contains a list of these, and if we accept that
- * path, the list is stored into root->minmax_aggs for use during setrefs.c.
+ * 描述一个可能用索引优化的 MIN/MAX 聚集
+ * 函数。MinMaxAggPath 含其列表；若采纳该路径，
+ * 列表存入 root->minmax_aggs 供 setrefs.c 使用。
  */
 typedef struct MinMaxAggInfo
 {
@@ -3069,8 +3069,8 @@ typedef struct MinMaxAggInfo
 	Expr	   *target;
 
 	/*
-	 * modified "root" for planning the subquery; not printed, too large, not
-	 * interesting enough
+	 * 规划子查询用的改写 "root"；不打印，太大且
+	 * 不够有趣
 	 */
 	PlannerInfo *subroot pg_node_attr(read_write_ignore);
 
@@ -3164,17 +3164,17 @@ typedef struct SemiAntiJoinFactors
 } SemiAntiJoinFactors;
 
 /*
- * Struct for extra information passed to subroutines of add_paths_to_joinrel
+ * 传给 add_paths_to_joinrel 子例程的额外信息结构
  *
- * restrictlist contains all of the RestrictInfo nodes for restriction
- *		clauses that apply to this join
- * mergeclause_list is a list of RestrictInfo nodes for available
- *		mergejoin clauses in this join
- * inner_unique is true if each outer tuple provably matches no more
- *		than one inner tuple
- * sjinfo is extra info about special joins for selectivity estimation
- * semifactors is as shown above (only valid for SEMI/ANTI/inner_unique joins)
- * param_source_rels are OK targets for parameterization of result paths
+ * restrictlist 含适用于本连接的全部
+ *		限制子句 RestrictInfo
+ * mergeclause_list 是本连接可用归并连接
+ *		子句的 RestrictInfo 列表
+ * inner_unique 为真表示每个外表元组可证明
+ *		至多一内元组
+ * sjinfo 是特殊连接的额外信息，用于选择率估计
+ * semifactors 如上（仅 SEMI/ANTI/inner_unique 连接有效）
+ * param_source_rels 是结果路径参数化的合法目标
  */
 typedef struct JoinPathExtraData
 {
@@ -3187,34 +3187,34 @@ typedef struct JoinPathExtraData
 } JoinPathExtraData;
 
 /*
- * Various flags indicating what kinds of grouping are possible.
+ * 指示可能有哪些分组方式的各种标志。
  *
- * GROUPING_CAN_USE_SORT should be set if it's possible to perform
- * sort-based implementations of grouping.  When grouping sets are in use,
- * this will be true if sorting is potentially usable for any of the grouping
- * sets, even if it's not usable for all of them.
+ * 若可能做基于排序的分组实现，应置
+ * GROUPING_CAN_USE_SORT。使用分组集时，只要
+ * 任一分组集可能用排序（即便并非全部），
+ * 即置为真。
  *
- * GROUPING_CAN_USE_HASH should be set if it's possible to perform
- * hash-based implementations of grouping.
+ * 若可能做基于哈希的分组实现，应置
+ * GROUPING_CAN_USE_HASH。
  *
- * GROUPING_CAN_PARTIAL_AGG should be set if the aggregation is of a type
- * for which we support partial aggregation (not, for example, grouping sets).
- * It says nothing about parallel-safety or the availability of suitable paths.
+ * 若聚集类型支持部分聚集（例如分组集不支持），
+ * 应置 GROUPING_CAN_PARTIAL_AGG。
+ * 不涉及并行安全或是否已有合适路径。
  */
 #define GROUPING_CAN_USE_SORT       0x0001
 #define GROUPING_CAN_USE_HASH       0x0002
 #define GROUPING_CAN_PARTIAL_AGG	0x0004
 
 /*
- * What kind of partitionwise aggregation is in use?
+ * 正在使用何种分区级聚集？
  *
- * PARTITIONWISE_AGGREGATE_NONE: Not used.
+ * PARTITIONWISE_AGGREGATE_NONE: 未用。
  *
- * PARTITIONWISE_AGGREGATE_FULL: Aggregate each partition separately, and
- * append the results.
+ * PARTITIONWISE_AGGREGATE_FULL：各分区分别聚集，
+ * 再追加结果。
  *
- * PARTITIONWISE_AGGREGATE_PARTIAL: Partially aggregate each partition
- * separately, append the results, and then finalize aggregation.
+ * PARTITIONWISE_AGGREGATE_PARTIAL：各分区分别部分
+ * 聚集，追加结果后再做最终聚集。
  */
 typedef enum
 {
@@ -3224,17 +3224,17 @@ typedef enum
 } PartitionwiseAggregateType;
 
 /*
- * Struct for extra information passed to subroutines of create_grouping_paths
+ * 传给 create_grouping_paths 子例程的额外信息结构
  *
- * flags indicating what kinds of grouping are possible.
- * partial_costs_set is true if the agg_partial_costs and agg_final_costs
- * 		have been initialized.
- * agg_partial_costs gives partial aggregation costs.
- * agg_final_costs gives finalization costs.
- * target_parallel_safe is true if target is parallel safe.
- * havingQual gives list of quals to be applied after aggregation.
- * targetList gives list of columns to be projected.
- * patype is the type of partitionwise aggregation that is being performed.
+ * 指示可能有哪些分组方式的标志。
+ * partial_costs_set：agg_partial/final_costs 已初始化，
+ * 		则为真。
+ * agg_partial_costs 给出部分聚集代价。
+ * agg_final_costs 给出最终化代价。
+ * target 并行安全则 target_parallel_safe 真。
+ * havingQual 是聚集后施加的限定列表。
+ * targetList 是要投影的列列表。
+ * patype 是正在执行的分区级聚集类型。
  */
 typedef struct
 {
@@ -3252,14 +3252,14 @@ typedef struct
 } GroupPathExtraData;
 
 /*
- * Struct for extra information passed to subroutines of grouping_planner
+ * 传给 grouping_planner 子例程的额外信息结构
  *
- * limit_needed is true if we actually need a Limit plan node.
- * limit_tuples is an estimated bound on the number of output tuples,
- *		or -1 if no LIMIT or couldn't estimate.
- * count_est and offset_est are the estimated values of the LIMIT and OFFSET
- * 		expressions computed by preprocess_limit() (see comments for
- * 		preprocess_limit() for more information).
+ * 若确需 Limit 计划节点则 limit_needed 为真。
+ * limit_tuples 是输出元组数的估计上界，
+ *		无 LIMIT 或无法估计时为 -1。
+ * count_est 与 offset_est 是 preprocess_limit()
+ * 		算出的 LIMIT/OFFSET 表达式估计值（详见
+ * 		preprocess_limit() 注释）。
  */
 typedef struct
 {
@@ -3270,16 +3270,16 @@ typedef struct
 } FinalPathExtraData;
 
 /*
- * For speed reasons, cost estimation for join paths is performed in two
- * phases: the first phase tries to quickly derive a lower bound for the
- * join cost, and then we check if that's sufficient to reject the path.
- * If not, we come back for a more refined cost estimate.  The first phase
- * fills a JoinCostWorkspace struct with its preliminary cost estimates
- * and possibly additional intermediate values.  The second phase takes
- * these values as inputs to avoid repeating work.
+ * 为求速度，连接路径代价估计分两阶段：
+ * 第一阶段快速推出连接代价下界，再检查
+ * 是否足以拒绝该路径。若不能，再回来做
+ * 更精细估计。第一阶段把初步代价估计
+ * 及可能的中间值填入 JoinCostWorkspace；
+ * 第二阶段取这些值为输入以免重复劳动。
+ * （第二阶段复用中间结果。）
  *
- * (Ideally we'd declare this in cost.h, but it's also needed in pathnode.h,
- * so seems best to put it here.)
+ * （理想应声明在 cost.h，但 pathnode.h 也需要，
+ * 故放此处似更妥。）
  */
 typedef struct JoinCostWorkspace
 {
@@ -3307,9 +3307,9 @@ typedef struct JoinCostWorkspace
 } JoinCostWorkspace;
 
 /*
- * AggInfo holds information about an aggregate that needs to be computed.
- * Multiple Aggrefs in a query can refer to the same AggInfo by having the
- * same 'aggno' value, so that the aggregate is computed only once.
+ * AggInfo 保存需要计算的一个聚集的信息。
+ * 查询中多个 Aggref 可通过相同 'aggno'
+ * 引用同一 AggInfo，使该聚集只算一次。
  */
 typedef struct AggInfo
 {
@@ -3318,10 +3318,10 @@ typedef struct AggInfo
 	NodeTag		type;
 
 	/*
-	 * List of Aggref exprs that this state value is for.
+	 * 本状态值所对应的 Aggref 表达式列表。
 	 *
-	 * There will always be at least one, but there can be multiple identical
-	 * Aggref's sharing the same per-agg.
+	 * 至少有一个；也可有多个相同 Aggref
+	 * 共享同一 per-agg。
 	 */
 	List	   *aggrefs;
 
@@ -3329,8 +3329,8 @@ typedef struct AggInfo
 	int			transno;
 
 	/*
-	 * "shareable" is false if this agg cannot share state values with other
-	 * aggregates because the final function is read-write.
+	 * 若该聚集因最终函数可读写而不能与其它
+	 * 聚集共享状态值，则 shareable 为假。
 	 */
 	bool		shareable;
 
@@ -3339,11 +3339,11 @@ typedef struct AggInfo
 } AggInfo;
 
 /*
- * AggTransInfo holds information about transition state that is used by one
- * or more aggregates in the query.  Multiple aggregates can share the same
- * transition state, if they have the same inputs and the same transition
- * function.  Aggrefs that share the same transition info have the same
- * 'aggtransno' value.
+ * AggTransInfo 保存查询中一个或多个聚集所用
+ * 转移状态的信息。若输入与转移函数相同，
+ * 多个聚集可共享同一转移状态。共享同一
+ * 转移信息的 Aggref 具有相同
+ * 'aggtransno'。
  */
 typedef struct AggTransInfo
 {

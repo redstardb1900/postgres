@@ -37,8 +37,8 @@ typedef struct Tuplesortstate Tuplesortstate;
 typedef struct Sharedsort Sharedsort;
 
 /*
- * Tuplesort parallel coordination state, allocated by each participant in
- * local memory.  Participant caller initializes everything.  See usage notes
+ * 元组排序并行协调状态,由各参与方在本地内存分配.
+ * 参与方调用者初始化全部字段。用法说明见下。
  * below.
  */
 typedef struct SortCoordinateData
@@ -47,13 +47,13 @@ typedef struct SortCoordinateData
 	bool		isWorker;
 
 	/*
-	 * Leader-process-passed number of participants known launched (workers
-	 * set this to -1).  Includes state within leader needed for it to
-	 * participate as a worker, if any.
+	 * 领导者传入的已知已启动参与方数目（工作者置为
+	 * -1）。含领导者自身作为工作者参与所需状态
+	 * (若有)。
 	 */
 	int			nParticipants;
 
-	/* Private opaque state (points to shared memory) */
+	/*  私有不透明状态(指向共享内存)  */
 	Sharedsort *sharedsort;
 }			SortCoordinateData;
 
@@ -88,20 +88,20 @@ typedef enum
 	SORT_SPACE_TYPE_MEMORY
 } TuplesortSpaceType;
 
-/* Bitwise option flags for tuple sorts */
+/*  元组排序的按位选项标志  */
 #define TUPLESORT_NONE					0
 
-/* specifies whether non-sequential access to the sort result is required */
+/*  指定是否需要对排序结果非顺序访问  */
 #define	TUPLESORT_RANDOMACCESS			(1 << 0)
 
-/* specifies if the tuplesort is able to support bounded sorts */
+/*  指定该元组排序能否支持有界排序  */
 #define TUPLESORT_ALLOWBOUNDED			(1 << 1)
 
 typedef struct TuplesortInstrumentation
 {
 	TuplesortMethod sortMethod; /* sort algorithm used */
 	TuplesortSpaceType spaceType;	/* type of space spaceUsed represents */
-	int64		spaceUsed;		/* space consumption, in kB */
+	int64		spaceUsed;		/*  空间消耗,单位 kB  */
 } TuplesortInstrumentation;
 
 /*
@@ -135,19 +135,19 @@ typedef struct TuplesortInstrumentation
  */
 typedef struct
 {
-	void	   *tuple;			/* the tuple itself */
-	Datum		datum1;			/* value of first key column */
+	void	   *tuple;			/*  元组本身  */
+	Datum		datum1;			/*  第一键列的值  */
 	bool		isnull1;		/* is first key column NULL? */
-	int			srctape;		/* source tape number */
+	int			srctape;		/*  源磁带号  */
 } SortTuple;
 
 typedef int (*SortTupleComparator) (const SortTuple *a, const SortTuple *b,
 									Tuplesortstate *state);
 
 /*
- * The public part of a Tuple sort operation state.  This data structure
- * contains the definition of sort-variant-specific interface methods and
- * the part of Tuple sort operation state required by their implementations.
+ * 元组排序操作状态的公开部分。本结构含排序变体
+ * 专用接口方法的定义，及其实现所需的状态部分。
+ * 见上。
  */
 typedef struct
 {
@@ -163,15 +163,15 @@ typedef struct
 	SortTupleComparator comparetup;
 
 	/*
-	 * Alter datum1 representation in the SortTuple's array back from the
-	 * abbreviated key to the first column value.
+	 * 把 SortTuple 数组中的 datum1 表示从缩写键改回
+	 * 第一列值。
 	 */
 	void		(*removeabbrev) (Tuplesortstate *state, SortTuple *stups,
 								 int count);
 
 	/*
-	 * Function to write a stored tuple onto tape.  The representation of the
-	 * tuple on tape need not be the same as it is in memory.
+	 * 把已存元组写到磁带的函数。磁带上的表示不必与
+	 * 内存中相同。
 	 */
 	void		(*writetup) (Tuplesortstate *state, LogicalTape *tape,
 							 SortTuple *stup);
@@ -194,26 +194,26 @@ typedef struct
 	void		(*freestate) (Tuplesortstate *state);
 
 	/*
-	 * The subsequent fields are used in the implementations of the functions
+	 * 后续字段供上述函数的实现使用。
 	 * above.
 	 */
-	MemoryContext maincontext;	/* memory context for tuple sort metadata that
-								 * persists across multiple batches */
+	MemoryContext maincontext;	/*  跨多批持久的元组排序元数据之
+								 * 内存上下文  */
 	MemoryContext sortcontext;	/* memory context holding most sort data */
 	MemoryContext tuplecontext; /* sub-context of sortcontext for tuple data */
 
 	/*
-	 * Whether SortTuple's datum1 and isnull1 members are maintained by the
-	 * above routines.  If not, some sort specializations are disabled.
+	 * 上述例程是否维护 SortTuple 的 datum1 与 isnull1。
+	 * 若否，部分排序特化被禁用。
 	 */
 	bool		haveDatum1;
 
 	/*
-	 * The sortKeys variable is used by every case other than the hash index
-	 * case; it is set by tuplesort_begin_xxx.  tupDesc is only used by the
-	 * MinimalTuple and CLUSTER routines, though.
+	 * 除哈希索引案外均用 sortKeys；由 tuplesort_begin_xxx
+	 * 设定。tupDesc 仅 MinimalTuple 与 CLUSTER 例程用。
+	 * 见上。
 	 */
-	int			nKeys;			/* number of columns in sort key */
+	int			nKeys;			/*  排序键列数  */
 	SortSupport sortKeys;		/* array of length nKeys */
 
 	/*
@@ -230,7 +230,7 @@ typedef struct
 
 	bool		tuples;			/* Can SortTuple.tuple ever be set? */
 
-	void	   *arg;			/* Specific information for the sort variant */
+	void	   *arg;			/*  排序变体的特定信息  */
 } TuplesortPublic;
 
 /* Sort parallel code from state for sort__start probes */
@@ -240,7 +240,7 @@ typedef struct
 
 #define TuplesortstateGetPublic(state) ((TuplesortPublic *) state)
 
-/* When using this macro, beware of double evaluation of len */
+/*  使用本宏时当心对 len 的双重求值  */
 #define LogicalTapeReadExact(tape, ptr, len) \
 	do { \
 		if (LogicalTapeRead(tape, ptr, len) != (size_t) (len)) \

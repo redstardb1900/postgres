@@ -1,0 +1,61 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0576",
+    "title": "include/utils tuplesort — batch 0576",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "c56808e2c61de4fc3226dc9bb229f821e23ec655",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/tuplesort.h",
+            "kind": "c_comment",
+            "note": "0576"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0576-utils.json",
+            "kind": "manifest",
+            "note": "0576"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/tuplesort.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 205,
+            "translated": 31,
+            "preserved": 174,
+            "preserved_reasons": [
+                "版权/横幅 KEEP；SortTuple/并行 API 长文整块 KEEP EN"
+            ],
+            "note": "0576 T=31"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0576-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0576"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0576"
+        }
+    ],
+    "notes": "短注已译；SortTuple/并行 API 长文整块 KEEP EN"
+}

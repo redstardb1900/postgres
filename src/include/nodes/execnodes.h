@@ -1458,109 +1458,109 @@ typedef struct BitmapOrState
  */
 
 /* ----------------
- *	 ScanState information
+ *	ScanState 信息
  *
- *		ScanState extends PlanState for node types that represent
- *		scans of an underlying relation.  It can also be used for nodes
- *		that scan the output of an underlying plan node --- in that case,
- *		only ScanTupleSlot is actually useful, and it refers to the tuple
- *		retrieved from the subplan.
+ *	ScanState 扩展 PlanState,用于表示
+ *	对底层关系做扫描的节点类型。也可用于
+ *	扫描底层计划节点输出的节点 --- 此时仅
+ *	ScanTupleSlot 实际有用,它指向自子计划
+ *	取回的元组。
  *
- *		currentRelation    relation being scanned (NULL if none)
- *		currentScanDesc    current scan descriptor for scan (NULL if none)
- *		ScanTupleSlot	   pointer to slot in tuple table holding scan tuple
+ *	currentRelation 正在扫描的关系(无则为 NULL)
+ *	currentScanDesc 当前扫描的扫描描述符(无则为 NULL)
+ *	ScanTupleSlot 元组表中保存扫描元组的槽指针
  * ----------------
  */
 typedef struct ScanState
 {
-	PlanState	ps;				/* its first field is NodeTag */
+	PlanState	ps;				/* 其首字段为 NodeTag */
 	Relation	ss_currentRelation;
 	struct TableScanDescData *ss_currentScanDesc;
 	TupleTableSlot *ss_ScanTupleSlot;
 } ScanState;
 
 /* ----------------
- *	 SeqScanState information
+ *	SeqScanState 信息
  * ----------------
  */
 typedef struct SeqScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	Size		pscan_len;		/* size of parallel heap scan descriptor */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	Size		pscan_len;		/* 并行堆扫描描述符的大小 */
 } SeqScanState;
 
 /* ----------------
- *	 SampleScanState information
+ *	SampleScanState 信息
  * ----------------
  */
 typedef struct SampleScanState
 {
 	ScanState	ss;
-	List	   *args;			/* expr states for TABLESAMPLE params */
-	ExprState  *repeatable;		/* expr state for REPEATABLE expr */
-	/* use struct pointer to avoid including tsmapi.h here */
-	struct TsmRoutine *tsmroutine;	/* descriptor for tablesample method */
-	void	   *tsm_state;		/* tablesample method can keep state here */
-	bool		use_bulkread;	/* use bulkread buffer access strategy? */
-	bool		use_pagemode;	/* use page-at-a-time visibility checking? */
-	bool		begun;			/* false means need to call BeginSampleScan */
-	uint32		seed;			/* random seed */
-	int64		donetuples;		/* number of tuples already returned */
-	bool		haveblock;		/* has a block for sampling been determined */
-	bool		done;			/* exhausted all tuples? */
+	List	   *args;			/* TABLESAMPLE 参数表达式状态 */
+	ExprState  *repeatable;		/* REPEATABLE 表达式的状态 */
+	/* 用结构指针以免在此包含 tsmapi.h */
+	struct TsmRoutine *tsmroutine;	/* tablesample 方法的描述符 */
+	void	   *tsm_state;		/* tablesample 方法可存状态于此 */
+	bool		use_bulkread;	/* 用 bulkread 缓冲访问策略? */
+	bool		use_pagemode;	/* 是否逐页做可见性检查? */
+	bool		begun;			/* false 表示需调用 BeginSampleScan */
+	uint32		seed;			/* 随机种 */
+	int64		donetuples;		/* 已返回的元组数 */
+	bool		haveblock;		/* 是否已确定用于采样的块 */
+	bool		done;			/* 耗尽全部元组? */
 } SampleScanState;
 
 /*
- * These structs store information about index quals that don't have simple
- * constant right-hand sides.  See comments for ExecIndexBuildScanKeys()
- * for discussion.
+ * 这些结构保存关于无简单常量右值的
+ * 索引限定信息。详见 ExecIndexBuildScanKeys() 的
+ * 注释。
  */
 typedef struct
 {
-	struct ScanKeyData *scan_key;	/* scankey to put value into */
-	ExprState  *key_expr;		/* expr to evaluate to get value */
-	bool		key_toastable;	/* is expr's result a toastable datatype? */
+	struct ScanKeyData *scan_key;	/* 要填入值的 scankey */
+	ExprState  *key_expr;		/* 求值得值的表达式 */
+	bool		key_toastable;	/* expr 结果是否可 TOAST? */
 } IndexRuntimeKeyInfo;
 
 typedef struct
 {
-	struct ScanKeyData *scan_key;	/* scankey to put value into */
-	ExprState  *array_expr;		/* expr to evaluate to get array value */
-	int			next_elem;		/* next array element to use */
-	int			num_elems;		/* number of elems in current array value */
-	Datum	   *elem_values;	/* array of num_elems Datums */
-	bool	   *elem_nulls;		/* array of num_elems is-null flags */
+	struct ScanKeyData *scan_key;	/* 要填入值的 scankey */
+	ExprState  *array_expr;		/* 求值得数组值的表达式 */
+	int			next_elem;		/* 下一要用数组元素 */
+	int			num_elems;		/* 当前数组值中的元素数 */
+	Datum	   *elem_values;	/* num_elems Datum 数组 */
+	bool	   *elem_nulls;		/* num_elems 个空标志数组 */
 } IndexArrayKeyInfo;
 
 /* ----------------
- *	 IndexScanState information
+ *	IndexScanState 信息
  *
- *		indexqualorig	   execution state for indexqualorig expressions
- *		indexorderbyorig   execution state for indexorderbyorig expressions
- *		ScanKeys		   Skey structures for index quals
- *		NumScanKeys		   number of ScanKeys
- *		OrderByKeys		   Skey structures for index ordering operators
- *		NumOrderByKeys	   number of OrderByKeys
- *		RuntimeKeys		   info about Skeys that must be evaluated at runtime
- *		NumRuntimeKeys	   number of RuntimeKeys
- *		RuntimeKeysReady   true if runtime Skeys have been computed
- *		RuntimeContext	   expr context for evaling runtime Skeys
- *		RelationDesc	   index relation descriptor
- *		ScanDesc		   index scan descriptor
+ *	indexqualorig 表达式的执行状态
+ *	indexorderbyorig 表达式的执行状态
+ *	ScanKeys 索引限定的 Skey 结构
+ *	NumScanKeys ScanKeys 数
+ *	OrderByKeys 索引排序运算符的 Skey 结构
+ *	NumOrderByKeys OrderByKeys 数
+ *	RuntimeKeys 须在运行时求值的 Skey 信息
+ *	NumRuntimeKeys RuntimeKeys 数
+ *	RuntimeKeysReady 运行时 Skey 已算好则为真
+ *	RuntimeContext 求值运行时 Skey 的表达式上下文
+ *	RelationDesc 索引关系描述符
+ *	ScanDesc 索引扫描描述符
  *
- *		ReorderQueue	   tuples that need reordering due to re-check
- *		ReachedEnd		   have we fetched all tuples from index already?
- *		OrderByValues	   values of ORDER BY exprs of last fetched tuple
- *		OrderByNulls	   null flags for OrderByValues
- *		SortSupport		   for reordering ORDER BY exprs
- *		OrderByTypByVals   is the datatype of order by expression pass-by-value?
- *		OrderByTypLens	   typlens of the datatypes of order by expressions
- *		PscanLen		   size of parallel index scan descriptor
+ *	ReorderQueue 因重检而需重排的元组
+ *	ReachedEnd 是否已取尽索引中全部元组?
+ *	OrderByValues 上次取到元组的 ORDER BY 表达式值
+ *	OrderByNulls OrderByValues 的空标志
+ *	SortSupport 供重排 ORDER BY 表达式
+ *	OrderByTypByVals ORDER BY 表达式的数据类型是否传值?
+ *	OrderByTypLens ORDER BY 表达式数据类型的 typlen
+ *	PscanLen 并行索引扫描描述符的大小
  * ----------------
  */
 typedef struct IndexScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	ExprState  *indexqualorig;
 	List	   *indexorderbyorig;
 	struct ScanKeyData *iss_ScanKeys;
@@ -1574,7 +1574,7 @@ typedef struct IndexScanState
 	Relation	iss_RelationDesc;
 	struct IndexScanDescData *iss_ScanDesc;
 
-	/* These are needed for re-checking ORDER BY expr ordering */
+	/* 这些用于重检 ORDER BY 表达式排序 */
 	pairingheap *iss_ReorderQueue;
 	bool		iss_ReachedEnd;
 	Datum	   *iss_OrderByValues;
@@ -1586,29 +1586,29 @@ typedef struct IndexScanState
 } IndexScanState;
 
 /* ----------------
- *	 IndexOnlyScanState information
+ *	IndexOnlyScanState 信息
  *
- *		recheckqual		   execution state for recheckqual expressions
- *		ScanKeys		   Skey structures for index quals
- *		NumScanKeys		   number of ScanKeys
- *		OrderByKeys		   Skey structures for index ordering operators
- *		NumOrderByKeys	   number of OrderByKeys
- *		RuntimeKeys		   info about Skeys that must be evaluated at runtime
- *		NumRuntimeKeys	   number of RuntimeKeys
- *		RuntimeKeysReady   true if runtime Skeys have been computed
- *		RuntimeContext	   expr context for evaling runtime Skeys
- *		RelationDesc	   index relation descriptor
- *		ScanDesc		   index scan descriptor
- *		TableSlot		   slot for holding tuples fetched from the table
- *		VMBuffer		   buffer in use for visibility map testing, if any
- *		PscanLen		   size of parallel index-only scan descriptor
- *		NameCStringAttNums attnums of name typed columns to pad to NAMEDATALEN
- *		NameCStringCount   number of elements in the NameCStringAttNums array
+ *	recheckqual 表达式的执行状态
+ *	ScanKeys 索引限定的 Skey 结构
+ *	NumScanKeys ScanKeys 数
+ *	OrderByKeys 索引排序运算符的 Skey 结构
+ *	NumOrderByKeys OrderByKeys 数
+ *	RuntimeKeys 须在运行时求值的 Skey 信息
+ *	NumRuntimeKeys RuntimeKeys 数
+ *	RuntimeKeysReady 运行时 Skey 已算好则为真
+ *	RuntimeContext 求值运行时 Skey 的表达式上下文
+ *	RelationDesc 索引关系描述符
+ *	ScanDesc 索引扫描描述符
+ *	TableSlot 保存从表取回的元组的槽
+ *	VMBuffer 可见性映射测试所用缓冲(若有)
+ *	PscanLen 并行仅索引扫描描述符的大小
+ *	NameCStringAttNums 须填至 NAMEDATALEN 的 name 类型列 attnum
+ *	NameCStringCount NameCStringAttNums 数组中的元素数
  * ----------------
  */
 typedef struct IndexOnlyScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	ExprState  *recheckqual;
 	struct ScanKeyData *ioss_ScanKeys;
 	int			ioss_NumScanKeys;
@@ -1628,24 +1628,24 @@ typedef struct IndexOnlyScanState
 } IndexOnlyScanState;
 
 /* ----------------
- *	 BitmapIndexScanState information
+ *	BitmapIndexScanState 信息
  *
- *		result			   bitmap to return output into, or NULL
- *		ScanKeys		   Skey structures for index quals
- *		NumScanKeys		   number of ScanKeys
- *		RuntimeKeys		   info about Skeys that must be evaluated at runtime
- *		NumRuntimeKeys	   number of RuntimeKeys
- *		ArrayKeys		   info about Skeys that come from ScalarArrayOpExprs
- *		NumArrayKeys	   number of ArrayKeys
- *		RuntimeKeysReady   true if runtime Skeys have been computed
- *		RuntimeContext	   expr context for evaling runtime Skeys
- *		RelationDesc	   index relation descriptor
- *		ScanDesc		   index scan descriptor
+ *	result 输出位图写入处,或为 NULL
+ *	ScanKeys 索引限定的 Skey 结构
+ *	NumScanKeys ScanKeys 数
+ *	RuntimeKeys 须在运行时求值的 Skey 信息
+ *	NumRuntimeKeys RuntimeKeys 数
+ *	ArrayKeys 源自 ScalarArrayOpExprs 的 Skey 信息
+ *	NumArrayKeys ArrayKeys 数
+ *	RuntimeKeysReady 运行时 Skey 已算好则为真
+ *	RuntimeContext 求值运行时 Skey 的表达式上下文
+ *	RelationDesc 索引关系描述符
+ *	ScanDesc 索引扫描描述符
  * ----------------
  */
 typedef struct BitmapIndexScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	TIDBitmap  *biss_result;
 	struct ScanKeyData *biss_ScanKeys;
 	int			biss_NumScanKeys;
@@ -1660,16 +1660,16 @@ typedef struct BitmapIndexScanState
 } BitmapIndexScanState;
 
 /* ----------------
- *	 SharedBitmapState information
+ *	SharedBitmapState 信息
  *
- *		BM_INITIAL		TIDBitmap creation is not yet started, so first worker
- *						to see this state will set the state to BM_INPROGRESS
- *						and that process will be responsible for creating
- *						TIDBitmap.
- *		BM_INPROGRESS	TIDBitmap creation is in progress; workers need to
- *						sleep until it's finished.
- *		BM_FINISHED		TIDBitmap creation is done, so now all workers can
- *						proceed to iterate over TIDBitmap.
+ *	BM_INITIAL TIDBitmap 创建尚未开始,故首个工作者
+ *	见到本状态时会把状态设为 BM_INPROGRESS
+ *	且该进程将负责创建
+ *	TIDBitmap。
+ *	BM_INPROGRESS TIDBitmap 正在创建;工作者须
+ *	睡眠直至完成。
+ *	BM_FINISHED TIDBitmap 已创建完,故全部工作者现可
+ *	继续迭代 TIDBitmap。
  * ----------------
  */
 typedef enum
@@ -1680,16 +1680,16 @@ typedef enum
 } SharedBitmapState;
 
 /* ----------------
- *	 ParallelBitmapHeapState information
- *		tbmiterator				iterator for scanning current pages
- *		prefetch_iterator		iterator for prefetching ahead of current page
- *		mutex					mutual exclusion for the prefetching variable
- *								and state
- *		prefetch_pages			# pages prefetch iterator is ahead of current
- *		prefetch_target			current target prefetch distance
- *		state					current state of the TIDBitmap
- *		cv						conditional wait variable
- *		phs_snapshot_data		snapshot data shared to workers
+ *	ParallelBitmapHeapState 信息
+ *	tbmiterator 扫描当前页的迭代器
+ *	prefetch_iterator 超前于当前页做预取的迭代器
+ *	mutex 对预取变量
+ *	与状态
+ *	prefetch_pages 预取迭代器超前于当前的页数
+ *	prefetch_target 当前目标预取距离
+ *	state TIDBitmap 的当前状态
+ *	cv 条件等待变量
+ *	phs_snapshot_data 共享给工作者的快照数据
  * ----------------
  */
 typedef struct ParallelBitmapHeapState
@@ -1705,32 +1705,32 @@ typedef struct ParallelBitmapHeapState
 } ParallelBitmapHeapState;
 
 /* ----------------
- *	 BitmapHeapScanState information
+ *	BitmapHeapScanState 信息
  *
- *		bitmapqualorig	   execution state for bitmapqualorig expressions
- *		tbm				   bitmap obtained from child index scan(s)
- *		tbmiterator		   iterator for scanning current pages
- *		tbmres			   current-page data
- *		can_skip_fetch	   can we potentially skip tuple fetches in this scan?
- *		return_empty_tuples number of empty tuples to return
- *		vmbuffer		   buffer for visibility-map lookups
- *		pvmbuffer		   ditto, for prefetched pages
- *		exact_pages		   total number of exact pages retrieved
- *		lossy_pages		   total number of lossy pages retrieved
- *		prefetch_iterator  iterator for prefetching ahead of current page
- *		prefetch_pages	   # pages prefetch iterator is ahead of current
- *		prefetch_target    current target prefetch distance
- *		prefetch_maximum   maximum value for prefetch_target
- *		pscan_len		   size of the shared memory for parallel bitmap
- *		initialized		   is node is ready to iterate
- *		shared_tbmiterator	   shared iterator
- *		shared_prefetch_iterator shared iterator for prefetching
- *		pstate			   shared state for parallel bitmap scan
+ *	bitmapqualorig 表达式的执行状态
+ *	tbm 自子索引扫描得到的位图
+ *	tbmiterator 扫描当前页的迭代器
+ *	tbmres 当前页数据
+ *	can_skip_fetch 本扫描是否可能跳过元组取回?
+ *	return_empty_tuples 要返回的空元组数
+ *	vmbuffer 可见性映射查找用缓冲
+ *	pvmbuffer 同上,供预取页
+ *	exact_pages 取回的精确页总数
+ *	lossy_pages 取回的损耗页总数
+ *	prefetch_iterator 超前于当前页做预取的迭代器
+ *	prefetch_pages 预取迭代器超前于当前的页数
+ *	prefetch_target 当前目标预取距离
+ *	prefetch_maximum prefetch_target 的最大值
+ *	pscan_len 并行位图共享内存的大小
+ *	initialized 节点是否已就绪可迭代
+ *	shared_tbmiterator 共享迭代器
+ *	shared_prefetch_iterator 预取用共享迭代器
+ *	pstate 并行位图扫描的共享状态
  * ----------------
  */
 typedef struct BitmapHeapScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	ExprState  *bitmapqualorig;
 	TIDBitmap  *tbm;
 	TBMIterator *tbmiterator;
@@ -1753,19 +1753,19 @@ typedef struct BitmapHeapScanState
 } BitmapHeapScanState;
 
 /* ----------------
- *	 TidScanState information
+ *	TidScanState 信息
  *
- *		tidexprs	   list of TidExpr structs (see nodeTidscan.c)
- *		isCurrentOf    scan has a CurrentOfExpr qual
- *		NumTids		   number of tids in this scan
- *		TidPtr		   index of currently fetched tid
- *		TidList		   evaluated item pointers (array of size NumTids)
- *		htup		   currently-fetched tuple, if any
+ *	tidexprs TidExpr 结构列表(见 nodeTidscan.c)
+ *	isCurrentOf 扫描含 CurrentOfExpr 限定
+ *	NumTids 本扫描中的 tid 数
+ *	TidPtr 当前已取 tid 的下标
+ *	TidList 已求值的项指针(大小为 NumTids 的数组)
+ *	htup 当前已取元组(若有)
  * ----------------
  */
 typedef struct TidScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	List	   *tss_tidexprs;
 	bool		tss_isCurrentOf;
 	int			tss_NumTids;
@@ -1775,17 +1775,17 @@ typedef struct TidScanState
 } TidScanState;
 
 /* ----------------
- *	 TidRangeScanState information
+ *	TidRangeScanState 信息
  *
- *		trss_tidexprs		list of TidOpExpr structs (see nodeTidrangescan.c)
- *		trss_mintid			the lowest TID in the scan range
- *		trss_maxtid			the highest TID in the scan range
- *		trss_inScan			is a scan currently in progress?
+ *	trss_tidexprs TidOpExpr 结构列表(见 nodeTidrangescan.c)
+ *	trss_mintid 扫描范围内最低 TID
+ *	trss_maxtid 扫描范围内最高 TID
+ *	trss_inScan 扫描是否正在进行?
  * ----------------
  */
 typedef struct TidRangeScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	List	   *trss_tidexprs;
 	ItemPointerData trss_mintid;
 	ItemPointerData trss_maxtid;
@@ -1793,75 +1793,75 @@ typedef struct TidRangeScanState
 } TidRangeScanState;
 
 /* ----------------
- *	 SubqueryScanState information
+ *	SubqueryScanState 信息
  *
- *		SubqueryScanState is used for scanning a sub-query in the range table.
- *		ScanTupleSlot references the current output tuple of the sub-query.
+ *	SubqueryScanState 用于扫描范围表中的子查询。
+ *	ScanTupleSlot 引用子查询的当前输出元组。
  * ----------------
  */
 typedef struct SubqueryScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	PlanState  *subplan;
 } SubqueryScanState;
 
 /* ----------------
- *	 FunctionScanState information
+ *	FunctionScanState 信息
  *
- *		Function nodes are used to scan the results of a
- *		function appearing in FROM (typically a function returning set).
+ *	Function 节点用于扫描出现在 FROM 中的
+ *	函数结果(通常为返回集合的函数)。
  *
- *		eflags				node's capability flags
- *		ordinality			is this scan WITH ORDINALITY?
- *		simple				true if we have 1 function and no ordinality
- *		ordinal				current ordinal column value
- *		nfuncs				number of functions being executed
- *		funcstates			per-function execution states (private in
- *							nodeFunctionscan.c)
- *		argcontext			memory context to evaluate function arguments in
+ *	eflags 节点的能力标志
+ *	ordinality 本扫描是否 WITH ORDINALITY?
+ *	simple 仅 1 个函数且无 ordinality 则为真
+ *	ordinal 当前序数列的值
+ *	nfuncs 正在执行的函数数
+ *	funcstates 每函数的执行状态(私有于
+ *	nodeFunctionscan.c)
+ *	argcontext 求值函数参数所用的内存上下文
  * ----------------
  */
 struct FunctionScanPerFuncState;
 
 typedef struct FunctionScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	int			eflags;
 	bool		ordinality;
 	bool		simple;
 	int64		ordinal;
 	int			nfuncs;
-	struct FunctionScanPerFuncState *funcstates;	/* array of length nfuncs */
+	struct FunctionScanPerFuncState *funcstates;	/* nfuncs 长的数组 */
 	MemoryContext argcontext;
 } FunctionScanState;
 
 /* ----------------
- *	 ValuesScanState information
+ *	ValuesScanState 信息
  *
- *		ValuesScan nodes are used to scan the results of a VALUES list
+ *	ValuesScan 节点用于扫描 VALUES 列表的结果
  *
- *		rowcontext			per-expression-list context
- *		exprlists			array of expression lists being evaluated
- *		exprstatelists		array of expression state lists, for SubPlans only
- *		array_len			size of above arrays
- *		curr_idx			current array index (0-based)
+ *	rowcontext 每表达式列表的上下文
+ *	exprlists 正在求值的表达式列表数组
+ *	exprstatelists 表达式状态列表数组,仅供 SubPlan
+ *	array_len 上述数组的大小
+ *	curr_idx 当前数组下标(从 0 起)
  *
- *	Note: ss.ps.ps_ExprContext is used to evaluate any qual or projection
- *	expressions attached to the node.  We create a second ExprContext,
- *	rowcontext, in which to build the executor expression state for each
- *	Values sublist.  Resetting this context lets us get rid of expression
- *	state for each row, avoiding major memory leakage over a long values list.
- *	However, that doesn't work for sublists containing SubPlans, because a
- *	SubPlan has to be connected up to the outer plan tree to work properly.
- *	Therefore, for only those sublists containing SubPlans, we do expression
- *	state construction at executor start, and store those pointers in
- *	exprstatelists[].  NULL entries in that array correspond to simple
- *	subexpressions that are handled as described above.
+ *	注: ss.ps.ps_ExprContext 供求值挂到节点的限定或投影
+ *	表达式。另建第二个 ExprContext,
+ *	即 rowcontext,在其中为每个 Values 子列表构建执行器
+ *	表达式状态。重置该上下文可丢弃每行的表达式
+ *	状态,避免长 VALUES 列表造成大量内存泄漏。
+ *	但对含 SubPlan 的子列表不行,因为 SubPlan 须
+ *	接到外层计划树才能正常工作。
+ *	故仅对含 SubPlan 的子列表,在执行器启动时做
+ *	表达式状态构建,并把那些指针存入
+ *	exprstatelists[]。该数组中 NULL 项对应按上文
+ *	所述处理的简单子表达式。
  * ----------------
  */
 typedef struct ValuesScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	ExprContext *rowcontext;
 	List	  **exprlists;
 	List	  **exprstatelists;
@@ -1870,113 +1870,113 @@ typedef struct ValuesScanState
 } ValuesScanState;
 
 /* ----------------
- *		TableFuncScanState node
+ *	TableFuncScanState
  *
- * Used in table-expression functions like XMLTABLE.
+ * 用于 XMLTABLE 等表表达式函数。
  * ----------------
  */
 typedef struct TableFuncScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	ExprState  *docexpr;		/* state for document expression */
-	ExprState  *rowexpr;		/* state for row-generating expression */
-	List	   *colexprs;		/* state for column-generating expression */
-	List	   *coldefexprs;	/* state for column default expressions */
-	List	   *ns_names;		/* same as TableFunc.ns_names */
-	List	   *ns_uris;		/* list of states of namespace URI exprs */
-	Bitmapset  *notnulls;		/* nullability flag for each output column */
-	void	   *opaque;			/* table builder private space */
-	const struct TableFuncRoutine *routine; /* table builder methods */
-	FmgrInfo   *in_functions;	/* input function for each column */
-	Oid		   *typioparams;	/* typioparam for each column */
-	int64		ordinal;		/* row number to be output next */
-	MemoryContext perTableCxt;	/* per-table context */
-	Tuplestorestate *tupstore;	/* output tuple store */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	ExprState  *docexpr;		/* 文档表达式的状态 */
+	ExprState  *rowexpr;		/* 行生成表达式的状态 */
+	List	   *colexprs;		/* 列生成表达式的状态 */
+	List	   *coldefexprs;	/* 列默认表达式的状态 */
+	List	   *ns_names;		/* 同 TableFunc.ns_names */
+	List	   *ns_uris;		/* 名字空间 URI 表达式状态表 */
+	Bitmapset  *notnulls;		/* 每输出列的可空标志 */
+	void	   *opaque;			/* 表构建器私有空间 */
+	const struct TableFuncRoutine *routine; /* 表构建器方法 */
+	FmgrInfo   *in_functions;	/* 每列的输入函数 */
+	Oid		   *typioparams;	/* 每列的 typioparam */
+	int64		ordinal;		/* 下一个要输出的行号 */
+	MemoryContext perTableCxt;	/* 每表上下文 */
+	Tuplestorestate *tupstore;	/* 输出元组存储 */
 } TableFuncScanState;
 
 /* ----------------
- *	 CteScanState information
+ *	CteScanState 信息
  *
- *		CteScan nodes are used to scan a CommonTableExpr query.
+ *	CteScan 节点用于扫描 CommonTableExpr 查询。
  *
- * Multiple CteScan nodes can read out from the same CTE query.  We use
- * a tuplestore to hold rows that have been read from the CTE query but
- * not yet consumed by all readers.
+ * 多个 CteScan 节点可读同一 CTE 查询。我们用
+ * tuplestore 保存已从 CTE 查询读出但尚未被全部
+ * 读者消费的行。
  * ----------------
  */
 typedef struct CteScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	int			eflags;			/* capability flags to pass to tuplestore */
-	int			readptr;		/* index of my tuplestore read pointer */
-	PlanState  *cteplanstate;	/* PlanState for the CTE query itself */
-	/* Link to the "leader" CteScanState (possibly this same node) */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	int			eflags;			/* 传给 tuplestore 的能力标志 */
+	int			readptr;		/* 我的 tuplestore 读指针下标 */
+	PlanState  *cteplanstate;	/* CTE 查询本身的 PlanState */
+	/* 链到"领导者" CteScanState(可能就是本节点) */
 	struct CteScanState *leader;
-	/* The remaining fields are only valid in the "leader" CteScanState */
-	Tuplestorestate *cte_table; /* rows already read from the CTE query */
-	bool		eof_cte;		/* reached end of CTE query? */
+	/* 其余字段仅在"领导者" CteScanState 中有效 */
+	Tuplestorestate *cte_table; /* 已从 CTE 查询读出的行 */
+	bool		eof_cte;		/* 已到 CTE 查询末尾? */
 } CteScanState;
 
 /* ----------------
- *	 NamedTuplestoreScanState information
+ *	NamedTuplestoreScanState 信息
  *
- *		NamedTuplestoreScan nodes are used to scan a Tuplestore created and
- *		named prior to execution of the query.  An example is a transition
- *		table for an AFTER trigger.
+ *	NamedTuplestoreScan 节点用于扫描在查询执行前已
+ *	创建并命名的 Tuplestore。例如 AFTER 触发器的
+ *	过渡表。
  *
- * Multiple NamedTuplestoreScan nodes can read out from the same Tuplestore.
+ * 多个 NamedTuplestoreScan 节点可读同一 Tuplestore。
  * ----------------
  */
 typedef struct NamedTuplestoreScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	int			readptr;		/* index of my tuplestore read pointer */
-	TupleDesc	tupdesc;		/* format of the tuples in the tuplestore */
-	Tuplestorestate *relation;	/* the rows */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	int			readptr;		/* 我的 tuplestore 读指针下标 */
+	TupleDesc	tupdesc;		/* tuplestore 中元组的格式 */
+	Tuplestorestate *relation;	/* 诸行 */
 } NamedTuplestoreScanState;
 
 /* ----------------
- *	 WorkTableScanState information
+ *	WorkTableScanState 信息
  *
- *		WorkTableScan nodes are used to scan the work table created by
- *		a RecursiveUnion node.  We locate the RecursiveUnion node
- *		during executor startup.
+ *	WorkTableScan 节点用于扫描 RecursiveUnion 节点
+ *	创建的工作表。我们在执行器启动时定位
+ *	RecursiveUnion 节点。
  * ----------------
  */
 typedef struct WorkTableScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 	RecursiveUnionState *rustate;
 } WorkTableScanState;
 
 /* ----------------
- *	 ForeignScanState information
+ *	ForeignScanState 信息
  *
- *		ForeignScan nodes are used to scan foreign-data tables.
+ *	ForeignScan 节点用于扫描外表。
  * ----------------
  */
 typedef struct ForeignScanState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	ExprState  *fdw_recheck_quals;	/* original quals not in ss.ps.qual */
-	Size		pscan_len;		/* size of parallel coordination information */
-	ResultRelInfo *resultRelInfo;	/* result rel info, if UPDATE or DELETE */
-	/* use struct pointer to avoid including fdwapi.h here */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	ExprState  *fdw_recheck_quals;	/* 不在 ss.ps.qual 的原限定 */
+	Size		pscan_len;		/* 并行协调信息的大小 */
+	ResultRelInfo *resultRelInfo;	/* 结果关系信息(UPDATE/DELETE) */
+	/* 用结构指针以免在此包含 fdwapi.h */
 	struct FdwRoutine *fdwroutine;
-	void	   *fdw_state;		/* foreign-data wrapper can keep state here */
+	void	   *fdw_state;		/* 外表包装器可在此保存状态 */
 } ForeignScanState;
 
 /* ----------------
- *	 CustomScanState information
+ *	CustomScanState 信息
  *
- *		CustomScan nodes are used to execute custom code within executor.
+ *	CustomScan 节点用于在执行器内跑定制代码。
  *
- * Core code must avoid assuming that the CustomScanState is only as large as
- * the structure declared here; providers are allowed to make it the first
- * element in a larger structure, and typically would need to do so.  The
- * struct is actually allocated by the CreateCustomScanState method associated
- * with the plan node.  Any additional fields can be initialized there, or in
- * the BeginCustomScan method.
+ * 核心代码切勿假定 CustomScanState 仅有此处声明
+ * 的结构那么大;提供者可把它作为更大结构的首元素,
+ * 通常也需要如此。该结构实际由计划节点关联的
+ * CreateCustomScanState 方法分配。额外字段可在
+ * 那里或在 BeginCustomScan 方法中初始化。
+ * 见上。
  * ----------------
  */
 struct CustomExecMethods;
@@ -1984,80 +1984,80 @@ struct CustomExecMethods;
 typedef struct CustomScanState
 {
 	ScanState	ss;
-	uint32		flags;			/* mask of CUSTOMPATH_* flags, see
+	uint32		flags;			/* CUSTOMPATH_* 标志掩码,见
 								 * nodes/extensible.h */
-	List	   *custom_ps;		/* list of child PlanState nodes, if any */
-	Size		pscan_len;		/* size of parallel coordination information */
+	List	   *custom_ps;		/* 子 PlanState 节点列表(若有) */
+	Size		pscan_len;		/* 并行协调信息的大小 */
 	const struct CustomExecMethods *methods;
 	const struct TupleTableSlotOps *slotOps;
 } CustomScanState;
 
 /* ----------------------------------------------------------------
- *				 Join State Information
+ *	连接状态信息
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *	 JoinState information
+ *	JoinState 信息
  *
- *		Superclass for state nodes of join plans.
+ *	连接计划状态节点的超类。
  * ----------------
  */
 typedef struct JoinState
 {
 	PlanState	ps;
 	JoinType	jointype;
-	bool		single_match;	/* True if we should skip to next outer tuple
-								 * after finding one inner match */
-	ExprState  *joinqual;		/* JOIN quals (in addition to ps.qual) */
+	bool		single_match;	/* 找到一个内层匹配后是否应跳到
+								 * 下一个外层元组 */
+	ExprState  *joinqual;		/* JOIN 限定(附加于 ps.qual) */
 } JoinState;
 
 /* ----------------
- *	 NestLoopState information
+ *	NestLoopState 信息
  *
- *		NeedNewOuter	   true if need new outer tuple on next call
- *		MatchedOuter	   true if found a join match for current outer tuple
- *		NullInnerTupleSlot prepared null tuple for left outer joins
+ *	NeedNewOuter	   下次调用需新外层元组则为真
+ *	MatchedOuter	   当前外层元组已找到连接匹配则为真
+ *	NullInnerTupleSlot 左外连接用的预置空元组
  * ----------------
  */
 typedef struct NestLoopState
 {
-	JoinState	js;				/* its first field is NodeTag */
+	JoinState	js;				/* 其首字段为 NodeTag */
 	bool		nl_NeedNewOuter;
 	bool		nl_MatchedOuter;
 	TupleTableSlot *nl_NullInnerTupleSlot;
 } NestLoopState;
 
 /* ----------------
- *	 MergeJoinState information
+ *	MergeJoinState 信息
  *
- *		NumClauses		   number of mergejoinable join clauses
- *		Clauses			   info for each mergejoinable clause
- *		JoinState		   current state of ExecMergeJoin state machine
- *		SkipMarkRestore    true if we may skip Mark and Restore operations
- *		ExtraMarks		   true to issue extra Mark operations on inner scan
- *		ConstFalseJoin	   true if we have a constant-false joinqual
- *		FillOuter		   true if should emit unjoined outer tuples anyway
- *		FillInner		   true if should emit unjoined inner tuples anyway
- *		MatchedOuter	   true if found a join match for current outer tuple
- *		MatchedInner	   true if found a join match for current inner tuple
- *		OuterTupleSlot	   slot in tuple table for cur outer tuple
- *		InnerTupleSlot	   slot in tuple table for cur inner tuple
- *		MarkedTupleSlot    slot in tuple table for marked tuple
- *		NullOuterTupleSlot prepared null tuple for right outer joins
- *		NullInnerTupleSlot prepared null tuple for left outer joins
- *		OuterEContext	   workspace for computing outer tuple's join values
- *		InnerEContext	   workspace for computing inner tuple's join values
+ *	NumClauses		   可归并连接子句数
+ *	Clauses			   每个可归并子句的信息
+ *	JoinState		   ExecMergeJoin 状态机当前状态
+ *	SkipMarkRestore    可否跳过 Mark 与 Restore 操作
+ *	ExtraMarks		   是否对内层扫描发额外 Mark
+ *	ConstFalseJoin	   连接限定为常量假则为真
+ *	FillOuter		   是否仍发出未连接的外层元组
+ *	FillInner		   是否仍发出未连接的内层元组
+ *	MatchedOuter	   当前外层元组已找到连接匹配则为真
+ *	MatchedInner	   当前内层元组已找到连接匹配则为真
+ *	OuterTupleSlot	   元组表中当前外层元组的槽
+ *	InnerTupleSlot	   元组表中当前内层元组的槽
+ *	MarkedTupleSlot    元组表中已标记元组的槽
+ *	NullOuterTupleSlot 右外连接用的预置空元组
+ *	NullInnerTupleSlot 左外连接用的预置空元组
+ *	OuterEContext	   计算外层元组连接值的工作区
+ *	InnerEContext	   计算内层元组连接值的工作区
  * ----------------
  */
-/* private in nodeMergejoin.c: */
+/* 私有于 nodeMergejoin.c: */
 typedef struct MergeJoinClauseData *MergeJoinClause;
 
 typedef struct MergeJoinState
 {
-	JoinState	js;				/* its first field is NodeTag */
+	JoinState	js;				/* 其首字段为 NodeTag */
 	int			mj_NumClauses;
-	MergeJoinClause mj_Clauses; /* array of length mj_NumClauses */
+	MergeJoinClause mj_Clauses; /* mj_NumClauses 长的数组 */
 	int			mj_JoinState;
 	bool		mj_SkipMarkRestore;
 	bool		mj_ExtraMarks;
@@ -2076,42 +2076,42 @@ typedef struct MergeJoinState
 } MergeJoinState;
 
 /* ----------------
- *	 HashJoinState information
+ *	HashJoinState 信息
  *
- *		hashclauses				original form of the hashjoin condition
- *		hj_OuterHashKeys		the outer hash keys in the hashjoin condition
- *		hj_HashOperators		the join operators in the hashjoin condition
- *		hj_HashTable			hash table for the hashjoin
- *								(NULL if table not built yet)
- *		hj_CurHashValue			hash value for current outer tuple
- *		hj_CurBucketNo			regular bucket# for current outer tuple
- *		hj_CurSkewBucketNo		skew bucket# for current outer tuple
- *		hj_CurTuple				last inner tuple matched to current outer
- *								tuple, or NULL if starting search
- *								(hj_CurXXX variables are undefined if
- *								OuterTupleSlot is empty!)
- *		hj_OuterTupleSlot		tuple slot for outer tuples
- *		hj_HashTupleSlot		tuple slot for inner (hashed) tuples
- *		hj_NullOuterTupleSlot	prepared null tuple for right/right-anti/full
- *								outer joins
- *		hj_NullInnerTupleSlot	prepared null tuple for left/full outer joins
- *		hj_FirstOuterTupleSlot	first tuple retrieved from outer plan
- *		hj_JoinState			current state of ExecHashJoin state machine
- *		hj_MatchedOuter			true if found a join match for current outer
- *		hj_OuterNotEmpty		true if outer relation known not empty
+ *	hashclauses				哈希连接条件的原形式
+ *	hj_OuterHashKeys		哈希连接条件中的外层哈希键
+ *	hj_HashOperators		哈希连接条件中的连接运算符
+ *	hj_HashTable			哈希连接的哈希表
+ *							(尚未建表则为 NULL)
+ *	hj_CurHashValue			当前外层元组的哈希值
+ *	hj_CurBucketNo			当前外层元组的常规桶号
+ *	hj_CurSkewBucketNo		当前外层元组的偏斜桶号
+ *	hj_CurTuple				与当前外层匹配的上一内层元组
+ *							(开始搜索则为 NULL)
+ *	(若 OuterTupleSlot 为空则
+ *	hj_CurXXX 未定义!)
+ *	hj_OuterTupleSlot		外层元组的元组槽
+ *	hj_HashTupleSlot		内层(已哈希)元组的元组槽
+ *	hj_NullOuterTupleSlot	右/右反/全外连接用的预置空
+ *							元组
+ *	hj_NullInnerTupleSlot	左/全外连接用的预置空元组
+ *	hj_FirstOuterTupleSlot	从外层计划取回的首个元组
+ *	hj_JoinState			ExecHashJoin 状态机当前状态
+ *	hj_MatchedOuter			当前外层已找到连接匹配则为真
+ *	hj_OuterNotEmpty		外层关系已知非空则为真
  * ----------------
  */
 
-/* these structs are defined in executor/hashjoin.h: */
+/* 这些结构定义于 executor/hashjoin.h: */
 typedef struct HashJoinTupleData *HashJoinTuple;
 typedef struct HashJoinTableData *HashJoinTable;
 
 typedef struct HashJoinState
 {
-	JoinState	js;				/* its first field is NodeTag */
+	JoinState	js;				/* 其首字段为 NodeTag */
 	ExprState  *hashclauses;
-	List	   *hj_OuterHashKeys;	/* list of ExprState nodes */
-	List	   *hj_HashOperators;	/* list of operator OIDs */
+	List	   *hj_OuterHashKeys;	/* ExprState 节点列表 */
+	List	   *hj_HashOperators;	/* 运算符 OID 列表 */
 	List	   *hj_Collations;
 	HashJoinTable hj_HashTable;
 	uint32		hj_CurHashValue;
@@ -2130,24 +2130,24 @@ typedef struct HashJoinState
 
 
 /* ----------------------------------------------------------------
- *				 Materialization State Information
+ *	物化状态信息
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *	 MaterialState information
+ *	MaterialState 信息
  *
- *		materialize nodes are used to materialize the results
- *		of a subplan into a temporary file.
+ *	物化节点用于把子计划结果物化到
+ *	临时文件中。
  *
- *		ss.ss_ScanTupleSlot refers to output of underlying plan.
+ *	ss.ss_ScanTupleSlot 引用底层计划的输出。
  * ----------------
  */
 typedef struct MaterialState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	int			eflags;			/* capability flags to pass to tuplestore */
-	bool		eof_underlying; /* reached end of underlying plan? */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	int			eflags;			/* 传给 tuplestore 的能力标志 */
+	bool		eof_underlying; /* 是否已到底层计划末尾? */
 	Tuplestorestate *tuplestorestate;
 } MaterialState;
 
@@ -2157,21 +2157,21 @@ struct MemoizeKey;
 
 typedef struct MemoizeInstrumentation
 {
-	uint64		cache_hits;		/* number of rescans where we've found the
-								 * scan parameter values to be cached */
-	uint64		cache_misses;	/* number of rescans where we've not found the
-								 * scan parameter values to be cached. */
-	uint64		cache_evictions;	/* number of cache entries removed due to
-									 * the need to free memory */
-	uint64		cache_overflows;	/* number of times we've had to bypass the
-									 * cache when filling it due to not being
-									 * able to free enough space to store the
-									 * current scan's tuples. */
-	uint64		mem_peak;		/* peak memory usage in bytes */
+	uint64		cache_hits;		/* 找到扫描参数值可缓存的
+								 * 重扫次数 */
+	uint64		cache_misses;	/* 未找到扫描参数值可缓存的
+								 * 重扫次数。 */
+	uint64		cache_evictions;	/* 因需释放内存而移除的
+									 * 缓存项数 */
+	uint64		cache_overflows;	/* 因无法腾出足够空间存放当前
+									 * 扫描元组而在填充缓存时
+									 * 不得不绕过缓存的
+									 * 次数。 */
+	uint64		mem_peak;		/* 峰值内存用量(字节) */
 } MemoizeInstrumentation;
 
 /* ----------------
- *	 Shared memory container for per-worker memoize information
+ *	每工作者 memoize 信息的共享内存容器
  * ----------------
  */
 typedef struct SharedMemoizeInfo
@@ -2181,22 +2181,22 @@ typedef struct SharedMemoizeInfo
 } SharedMemoizeInfo;
 
 /* ----------------
- *	 MemoizeState information
+ *	MemoizeState 信息
  *
- *		memoize nodes are used to cache recent and commonly seen results from
- *		a parameterized scan.
+ *	memoize 节点用于缓存参数化扫描最近且常见的
+ *	结果。
  * ----------------
  */
 typedef struct MemoizeState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	int			mstatus;		/* value of ExecMemoize state machine */
-	int			nkeys;			/* number of cache keys */
-	struct memoize_hash *hashtable; /* hash table for cache entries */
-	TupleDesc	hashkeydesc;	/* tuple descriptor for cache keys */
-	TupleTableSlot *tableslot;	/* min tuple slot for existing cache entries */
-	TupleTableSlot *probeslot;	/* virtual slot used for hash lookups */
-	ExprState  *cache_eq_expr;	/* Compare exec params to hash key */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	int			mstatus;		/* ExecMemoize 状态机的值 */
+	int			nkeys;			/* 缓存键个数 */
+	struct memoize_hash *hashtable; /* 缓存项的哈希表 */
+	TupleDesc	hashkeydesc;	/* 缓存键的元组描述符 */
+	TupleTableSlot *tableslot;	/* 已有缓存项的最小元组槽 */
+	TupleTableSlot *probeslot;	/* 供哈希查找的虚拟槽 */
+	ExprState  *cache_eq_expr;	/* 比较执行参数与哈希键 */
 	ExprState **param_exprs;	/* exprs containing the parameters to this
 								 * node */
 	FmgrInfo   *hashfunctions;	/* lookup data for hash funcs nkeys in size */
@@ -2222,21 +2222,21 @@ typedef struct MemoizeState
 } MemoizeState;
 
 /* ----------------
- *	 When performing sorting by multiple keys, it's possible that the input
- *	 dataset is already sorted on a prefix of those keys. We call these
- *	 "presorted keys".
- *	 PresortedKeyData represents information about one such key.
+ *	按多键排序时,输入数据集可能已按这些键的
+ *	前缀排好序。我们称这些为
+ *	"预排序键"。
+ *	PresortedKeyData 表示关于这样一个键的信息。
  * ----------------
  */
 typedef struct PresortedKeyData
 {
-	FmgrInfo	flinfo;			/* comparison function info */
-	FunctionCallInfo fcinfo;	/* comparison function call info */
-	OffsetNumber attno;			/* attribute number in tuple */
+	FmgrInfo	flinfo;			/* 比较函数信息 */
+	FunctionCallInfo fcinfo;	/* 比较函数调用信息 */
+	OffsetNumber attno;			/* 元组中的属性号 */
 } PresortedKeyData;
 
 /* ----------------
- *	 Shared memory container for per-worker sort information
+ *	每工作者排序信息的共享内存容器
  * ----------------
  */
 typedef struct SharedSortInfo
@@ -2246,26 +2246,26 @@ typedef struct SharedSortInfo
 } SharedSortInfo;
 
 /* ----------------
- *	 SortState information
+ *	SortState 信息
  * ----------------
  */
 typedef struct SortState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	bool		randomAccess;	/* need random access to sort output? */
-	bool		bounded;		/* is the result set bounded? */
-	int64		bound;			/* if bounded, how many tuples are needed */
-	bool		sort_Done;		/* sort completed yet? */
-	bool		bounded_Done;	/* value of bounded we did the sort with */
-	int64		bound_Done;		/* value of bound we did the sort with */
-	void	   *tuplesortstate; /* private state of tuplesort.c */
-	bool		am_worker;		/* are we a worker? */
-	bool		datumSort;		/* Datum sort instead of tuple sort? */
-	SharedSortInfo *shared_info;	/* one entry per worker */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	bool		randomAccess;	/* 需对排序输出随机访问? */
+	bool		bounded;		/* 结果集是否有界? */
+	int64		bound;			/* 若有界,需要多少元组 */
+	bool		sort_Done;		/* 排序已完成? */
+	bool		bounded_Done;	/* 做排序时用的 bounded 值 */
+	int64		bound_Done;		/* 做排序时用的 bound 值 */
+	void	   *tuplesortstate; /* tuplesort.c 的私有状态 */
+	bool		am_worker;		/* 是工作者? */
+	bool		datumSort;		/* Datum 排序而非元组排序? */
+	SharedSortInfo *shared_info;	/* 每工作者一项 */
 } SortState;
 
 /* ----------------
- *	 Instrumentation information for IncrementalSort
+ *	IncrementalSort 的插桩信息
  * ----------------
  */
 typedef struct IncrementalSortGroupInfo
@@ -2275,7 +2275,7 @@ typedef struct IncrementalSortGroupInfo
 	int64		totalDiskSpaceUsed;
 	int64		maxMemorySpaceUsed;
 	int64		totalMemorySpaceUsed;
-	bits32		sortMethods;	/* bitmask of TuplesortMethod */
+	bits32		sortMethods;	/* TuplesortMethod 位掩码 */
 } IncrementalSortGroupInfo;
 
 typedef struct IncrementalSortInfo
@@ -2285,7 +2285,7 @@ typedef struct IncrementalSortInfo
 } IncrementalSortInfo;
 
 /* ----------------
- *	 Shared memory container for per-worker incremental sort information
+ *	每工作者增量排序信息的共享内存容器
  * ----------------
  */
 typedef struct SharedIncrementalSortInfo
@@ -2295,7 +2295,7 @@ typedef struct SharedIncrementalSortInfo
 } SharedIncrementalSortInfo;
 
 /* ----------------
- *	 IncrementalSortState information
+ *	IncrementalSortState 信息
  * ----------------
  */
 typedef enum
@@ -2308,51 +2308,51 @@ typedef enum
 
 typedef struct IncrementalSortState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	bool		bounded;		/* is the result set bounded? */
-	int64		bound;			/* if bounded, how many tuples are needed */
-	bool		outerNodeDone;	/* finished fetching tuples from outer node */
-	int64		bound_Done;		/* value of bound we did the sort with */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	bool		bounded;		/* 结果集是否有界? */
+	int64		bound;			/* 若有界,需要多少元组 */
+	bool		outerNodeDone;	/* 是否已从外层节点取完元组 */
+	int64		bound_Done;		/* 做排序时用的 bound 值 */
 	IncrementalSortExecutionStatus execution_status;
 	int64		n_fullsort_remaining;
-	Tuplesortstate *fullsort_state; /* private state of tuplesort.c */
-	Tuplesortstate *prefixsort_state;	/* private state of tuplesort.c */
-	/* the keys by which the input path is already sorted */
+	Tuplesortstate *fullsort_state; /* tuplesort.c 的私有状态 */
+	Tuplesortstate *prefixsort_state;	/* tuplesort.c 的私有状态 */
+	/* 输入路径已按之排序的键 */
 	PresortedKeyData *presorted_keys;
 
 	IncrementalSortInfo incsort_info;
 
-	/* slot for pivot tuple defining values of presorted keys within group */
+	/* 组内预排序键取值所依的枢轴元组槽 */
 	TupleTableSlot *group_pivot;
 	TupleTableSlot *transfer_tuple;
-	bool		am_worker;		/* are we a worker? */
-	SharedIncrementalSortInfo *shared_info; /* one entry per worker */
+	bool		am_worker;		/* 是工作者? */
+	SharedIncrementalSortInfo *shared_info; /* 每工作者一项 */
 } IncrementalSortState;
 
 /* ---------------------
- *	GroupState information
+ *	GroupState 信息
  * ---------------------
  */
 typedef struct GroupState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	ExprState  *eqfunction;		/* equality function */
-	bool		grp_done;		/* indicates completion of Group scan */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	ExprState  *eqfunction;		/* 相等函数 */
+	bool		grp_done;		/* 指示 Group 扫描完成 */
 } GroupState;
 
 /* ---------------------
- *	per-worker aggregate information
+ *	每工作者聚合信息
  * ---------------------
  */
 typedef struct AggregateInstrumentation
 {
-	Size		hash_mem_peak;	/* peak hash table memory usage */
-	uint64		hash_disk_used; /* kB of disk space used */
-	int			hash_batches_used;	/* batches used during entire execution */
+	Size		hash_mem_peak;	/* 哈希表峰值内存用量 */
+	uint64		hash_disk_used; /* 磁盘用量(kB) */
+	int			hash_batches_used;	/* 整个执行期间用过的批次数 */
 } AggregateInstrumentation;
 
 /* ----------------
- *	 Shared memory container for per-worker aggregate information
+ *	每工作者聚合信息的共享内存容器
  * ----------------
  */
 typedef struct SharedAggInfo
@@ -2362,18 +2362,18 @@ typedef struct SharedAggInfo
 } SharedAggInfo;
 
 /* ---------------------
- *	AggState information
+ *	AggState 信息
  *
- *	ss.ss_ScanTupleSlot refers to output of underlying plan.
+ *	ss.ss_ScanTupleSlot 引用底层计划的输出。
  *
- *	Note: ss.ps.ps_ExprContext contains ecxt_aggvalues and
- *	ecxt_aggnulls arrays, which hold the computed agg values for the current
- *	input group during evaluation of an Agg node's output tuple(s).  We
- *	create a second ExprContext, tmpcontext, in which to evaluate input
- *	expressions and run the aggregate transition functions.
+ *	注: ss.ps.ps_ExprContext 含 ecxt_aggvalues 与
+ *	ecxt_aggnulls 数组,在求值 Agg 节点输出元组期间
+ *	保存当前输入组的已计算聚合值。我们另建第二
+ *	ExprContext tmpcontext,用于求值输入表达式并运行
+ *	聚合转移函数。
  * ---------------------
  */
-/* these structs are private in nodeAgg.c: */
+/* 这些结构私有于 nodeAgg.c: */
 typedef struct AggStatePerAggData *AggStatePerAgg;
 typedef struct AggStatePerTransData *AggStatePerTrans;
 typedef struct AggStatePerGroupData *AggStatePerGroup;
@@ -2382,169 +2382,169 @@ typedef struct AggStatePerHashData *AggStatePerHash;
 
 typedef struct AggState
 {
-	ScanState	ss;				/* its first field is NodeTag */
-	List	   *aggs;			/* all Aggref nodes in targetlist & quals */
-	int			numaggs;		/* length of list (could be zero!) */
-	int			numtrans;		/* number of pertrans items */
-	AggStrategy aggstrategy;	/* strategy mode */
-	AggSplit	aggsplit;		/* agg-splitting mode, see nodes.h */
-	AggStatePerPhase phase;		/* pointer to current phase data */
-	int			numphases;		/* number of phases (including phase 0) */
-	int			current_phase;	/* current phase number */
-	AggStatePerAgg peragg;		/* per-Aggref information */
-	AggStatePerTrans pertrans;	/* per-Trans state information */
-	ExprContext *hashcontext;	/* econtexts for long-lived data (hashtable) */
-	ExprContext **aggcontexts;	/* econtexts for long-lived data (per GS) */
-	ExprContext *tmpcontext;	/* econtext for input expressions */
+	ScanState	ss;				/* 其首字段为 NodeTag */
+	List	   *aggs;			/* tlist 与限定中全部 Aggref */
+	int			numaggs;		/* 列表长度(可为零!) */
+	int			numtrans;		/* pertrans 项个数 */
+	AggStrategy aggstrategy;	/* 策略模式 */
+	AggSplit	aggsplit;		/* 聚合拆分模式,见 nodes.h */
+	AggStatePerPhase phase;		/* 指向当前阶段数据 */
+	int			numphases;		/* 阶段数(含阶段 0) */
+	int			current_phase;	/* 当前阶段号 */
+	AggStatePerAgg peragg;		/* 每 Aggref 信息 */
+	AggStatePerTrans pertrans;	/* 每 Trans 状态信息 */
+	ExprContext *hashcontext;	/* 长寿命数据的 econtext(哈希表) */
+	ExprContext **aggcontexts;	/* 长寿命数据的 econtext(每 GS) */
+	ExprContext *tmpcontext;	/* 输入表达式的 econtext */
 #define FIELDNO_AGGSTATE_CURAGGCONTEXT 14
-	ExprContext *curaggcontext; /* currently active aggcontext */
-	AggStatePerAgg curperagg;	/* currently active aggregate, if any */
+	ExprContext *curaggcontext; /* 当前活动的 aggcontext */
+	AggStatePerAgg curperagg;	/* 当前活动的聚合(若有) */
 #define FIELDNO_AGGSTATE_CURPERTRANS 16
-	AggStatePerTrans curpertrans;	/* currently active trans state, if any */
-	bool		input_done;		/* indicates end of input */
-	bool		agg_done;		/* indicates completion of Agg scan */
-	int			projected_set;	/* The last projected grouping set */
+	AggStatePerTrans curpertrans;	/* 当前活动的转移状态(若有) */
+	bool		input_done;		/* 指示输入结束 */
+	bool		agg_done;		/* 指示 Agg 扫描完成 */
+	int			projected_set;	/* 上次投影的分组集 */
 #define FIELDNO_AGGSTATE_CURRENT_SET 20
-	int			current_set;	/* The current grouping set being evaluated */
-	Bitmapset  *grouped_cols;	/* grouped cols in current projection */
-	List	   *all_grouped_cols;	/* list of all grouped cols in DESC order */
-	Bitmapset  *colnos_needed;	/* all columns needed from the outer plan */
-	int			max_colno_needed;	/* highest colno needed from outer plan */
-	bool		all_cols_needed;	/* are all cols from outer plan needed? */
-	/* These fields are for grouping set phase data */
-	int			maxsets;		/* The max number of sets in any phase */
-	AggStatePerPhase phases;	/* array of all phases */
-	Tuplesortstate *sort_in;	/* sorted input to phases > 1 */
-	Tuplesortstate *sort_out;	/* input is copied here for next phase */
-	TupleTableSlot *sort_slot;	/* slot for sort results */
-	/* these fields are used in AGG_PLAIN and AGG_SORTED modes: */
-	AggStatePerGroup *pergroups;	/* grouping set indexed array of per-group
-									 * pointers */
-	HeapTuple	grp_firstTuple; /* copy of first tuple of current group */
-	/* these fields are used in AGG_HASHED and AGG_MIXED modes: */
-	bool		table_filled;	/* hash table filled yet? */
+	int			current_set;	/* 正在求值的当前分组集 */
+	Bitmapset  *grouped_cols;	/* 当前投影中的分组列 */
+	List	   *all_grouped_cols;	/* 全部已分组列的列表(降序) */
+	Bitmapset  *colnos_needed;	/* 外层计划所需的全部列 */
+	int			max_colno_needed;	/* 外层计划所需的最高列号 */
+	bool		all_cols_needed;	/* 是否需外层计划全部列? */
+	/* 这些字段供分组集阶段数据 */
+	int			maxsets;		/* 任一阶段中的最大集合数 */
+	AggStatePerPhase phases;	/* 全部阶段数组 */
+	Tuplesortstate *sort_in;	/* 阶段>1 已排序输入 */
+	Tuplesortstate *sort_out;	/* 输入复制到此供下一阶段 */
+	TupleTableSlot *sort_slot;	/* 排序结果的槽 */
+	/* 下列字段用于 AGG_PLAIN 与 AGG_SORTED 模式: */
+	AggStatePerGroup *pergroups;	/* 按分组集索引的每组
+									 * 指针 */
+	HeapTuple	grp_firstTuple; /* 当前组首个元组的拷贝 */
+	/* 下列字段用于 AGG_HASHED 与 AGG_MIXED 模式: */
+	bool		table_filled;	/* 哈希表已填满? */
 	int			num_hashes;
-	MemoryContext hash_metacxt; /* memory for hash table itself */
-	struct LogicalTapeSet *hash_tapeset;	/* tape set for hash spill tapes */
-	struct HashAggSpill *hash_spills;	/* HashAggSpill for each grouping set,
-										 * exists only during first pass */
-	TupleTableSlot *hash_spill_rslot;	/* for reading spill files */
-	TupleTableSlot *hash_spill_wslot;	/* for writing spill files */
-	List	   *hash_batches;	/* hash batches remaining to be processed */
-	bool		hash_ever_spilled;	/* ever spilled during this execution? */
-	bool		hash_spill_mode;	/* we hit a limit during the current batch
-									 * and we must not create new groups */
-	Size		hash_mem_limit; /* limit before spilling hash table */
-	uint64		hash_ngroups_limit; /* limit before spilling hash table */
-	int			hash_planned_partitions;	/* number of partitions planned
-											 * for first pass */
-	double		hashentrysize;	/* estimate revised during execution */
-	Size		hash_mem_peak;	/* peak hash table memory usage */
+	MemoryContext hash_metacxt; /* 哈希表本身的内存 */
+	struct LogicalTapeSet *hash_tapeset;	/* 哈希溢出用的磁带集 */
+	struct HashAggSpill *hash_spills;	/* 每个分组集的 HashAggSpill,
+										 * 仅在第一遍存在 */
+	TupleTableSlot *hash_spill_rslot;	/* 供读溢出文件 */
+	TupleTableSlot *hash_spill_wslot;	/* 供写溢出文件 */
+	List	   *hash_batches;	/* 尚待处理的哈希批次数 */
+	bool		hash_ever_spilled;	/* 本次执行是否曾溢出? */
+	bool		hash_spill_mode;	/* 当前批次碰到了限制且
+									 * 不得再创建新组 */
+	Size		hash_mem_limit; /* 溢出哈希表前的限额 */
+	uint64		hash_ngroups_limit; /* 溢出哈希表前的限额 */
+	int			hash_planned_partitions;	/* 第一遍计划的
+											 * 分区数 */
+	double		hashentrysize;	/* 执行期间修订的估计 */
+	Size		hash_mem_peak;	/* 哈希表峰值内存用量 */
 	uint64		hash_ngroups_current;	/* number of groups currently in
 										 * memory in all hash tables */
-	uint64		hash_disk_used; /* kB of disk space used */
-	int			hash_batches_used;	/* batches used during entire execution */
+	uint64		hash_disk_used; /* 磁盘用量(kB) */
+	int			hash_batches_used;	/* 整个执行期间用过的批次数 */
 
-	AggStatePerHash perhash;	/* array of per-hashtable data */
-	AggStatePerGroup *hash_pergroup;	/* grouping set indexed array of
-										 * per-group pointers */
+	AggStatePerHash perhash;	/* 每哈希表数据的数组 */
+	AggStatePerGroup *hash_pergroup;	/* 按分组集索引的
+										 * 每组指针数组 */
 
-	/* support for evaluation of agg input expressions: */
+	/* 支持求值聚合输入表达式: */
 #define FIELDNO_AGGSTATE_ALL_PERGROUPS 53
-	AggStatePerGroup *all_pergroups;	/* array of first ->pergroups, than
+	AggStatePerGroup *all_pergroups;	/* 先是 ->pergroups,再是
 										 * ->hash_pergroup */
-	ProjectionInfo *combinedproj;	/* projection machinery */
-	SharedAggInfo *shared_info; /* one entry per worker */
+	ProjectionInfo *combinedproj;	/* 投影机制 */
+	SharedAggInfo *shared_info; /* 每工作者一项 */
 } AggState;
 
 /* ----------------
- *	WindowAggState information
+ *	WindowAggState 信息
  * ----------------
  */
-/* these structs are private in nodeWindowAgg.c: */
+/* 这些结构私有于 nodeWindowAgg.c: */
 typedef struct WindowStatePerFuncData *WindowStatePerFunc;
 typedef struct WindowStatePerAggData *WindowStatePerAgg;
 
 /*
- * WindowAggStatus -- Used to track the status of WindowAggState
+ * WindowAggStatus -- 用于跟踪 WindowAggState 的状态
  */
 typedef enum WindowAggStatus
 {
-	WINDOWAGG_DONE,				/* No more processing to do */
-	WINDOWAGG_RUN,				/* Normal processing of window funcs */
-	WINDOWAGG_PASSTHROUGH,		/* Don't eval window funcs */
-	WINDOWAGG_PASSTHROUGH_STRICT	/* Pass-through plus don't store new
-									 * tuples during spool */
+	WINDOWAGG_DONE,				/* 无更多处理要做 */
+	WINDOWAGG_RUN,				/* 窗口函数的正常处理 */
+	WINDOWAGG_PASSTHROUGH,		/* 不求值窗口函数 */
+	WINDOWAGG_PASSTHROUGH_STRICT	/* 直通且在 spool 期间不存
+									 * 新元组 */
 } WindowAggStatus;
 
 typedef struct WindowAggState
 {
-	ScanState	ss;				/* its first field is NodeTag */
+	ScanState	ss;				/* 其首字段为 NodeTag */
 
-	/* these fields are filled in by ExecInitExpr: */
-	List	   *funcs;			/* all WindowFunc nodes in targetlist */
-	int			numfuncs;		/* total number of window functions */
-	int			numaggs;		/* number that are plain aggregates */
+	/* 下列字段由 ExecInitExpr 填写: */
+	List	   *funcs;			/* tlist 中全部 WindowFunc */
+	int			numfuncs;		/* 窗口函数总数 */
+	int			numaggs;		/* 其中普通聚合的个数 */
 
-	WindowStatePerFunc perfunc; /* per-window-function information */
-	WindowStatePerAgg peragg;	/* per-plain-aggregate information */
-	ExprState  *partEqfunction; /* equality funcs for partition columns */
-	ExprState  *ordEqfunction;	/* equality funcs for ordering columns */
-	Tuplestorestate *buffer;	/* stores rows of current partition */
-	int			current_ptr;	/* read pointer # for current row */
-	int			framehead_ptr;	/* read pointer # for frame head, if used */
-	int			frametail_ptr;	/* read pointer # for frame tail, if used */
-	int			grouptail_ptr;	/* read pointer # for group tail, if used */
-	int64		spooled_rows;	/* total # of rows in buffer */
-	int64		currentpos;		/* position of current row in partition */
-	int64		frameheadpos;	/* current frame head position */
-	int64		frametailpos;	/* current frame tail position (frame end+1) */
-	/* use struct pointer to avoid including windowapi.h here */
-	struct WindowObjectData *agg_winobj;	/* winobj for aggregate fetches */
-	int64		aggregatedbase; /* start row for current aggregates */
-	int64		aggregatedupto; /* rows before this one are aggregated */
-	WindowAggStatus status;		/* run status of WindowAggState */
+	WindowStatePerFunc perfunc; /* 每窗口函数信息 */
+	WindowStatePerAgg peragg;	/* 每普通聚合信息 */
+	ExprState  *partEqfunction; /* 分区列的相等函数 */
+	ExprState  *ordEqfunction;	/* 排序列的相等函数 */
+	Tuplestorestate *buffer;	/* 存放当前分区的行 */
+	int			current_ptr;	/* 当前行的读指针号 */
+	int			framehead_ptr;	/* 帧头读指针号(若用) */
+	int			frametail_ptr;	/* 帧尾读指针号(若用) */
+	int			grouptail_ptr;	/* 组尾读指针号(若用) */
+	int64		spooled_rows;	/* 缓冲区中的总行数 */
+	int64		currentpos;		/* 当前行在分区中的位置 */
+	int64		frameheadpos;	/* 当前帧头位置 */
+	int64		frametailpos;	/* 当前帧尾位置(帧末+1) */
+	/* 用结构指针以免在此包含 windowapi.h */
+	struct WindowObjectData *agg_winobj;	/* 供聚合取数的 winobj */
+	int64		aggregatedbase; /* 当前聚合的起始行 */
+	int64		aggregatedupto; /* 此行之前的行已聚合 */
+	WindowAggStatus status;		/* WindowAggState 运行状态 */
 
-	int			frameOptions;	/* frame_clause options, see WindowDef */
-	ExprState  *startOffset;	/* expression for starting bound offset */
-	ExprState  *endOffset;		/* expression for ending bound offset */
-	Datum		startOffsetValue;	/* result of startOffset evaluation */
-	Datum		endOffsetValue; /* result of endOffset evaluation */
+	int			frameOptions;	/* frame_clause 选项,见 WindowDef */
+	ExprState  *startOffset;	/* 起始边界偏移的表达式 */
+	ExprState  *endOffset;		/* 结束边界偏移的表达式 */
+	Datum		startOffsetValue;	/* startOffset 求值结果 */
+	Datum		endOffsetValue; /* endOffset 求值结果 */
 
-	/* these fields are used with RANGE offset PRECEDING/FOLLOWING: */
-	FmgrInfo	startInRangeFunc;	/* in_range function for startOffset */
-	FmgrInfo	endInRangeFunc; /* in_range function for endOffset */
-	Oid			inRangeColl;	/* collation for in_range tests */
-	bool		inRangeAsc;		/* use ASC sort order for in_range tests? */
-	bool		inRangeNullsFirst;	/* nulls sort first for in_range tests? */
+	/* 下列字段用于 RANGE 偏移 PRECEDING/FOLLOWING: */
+	FmgrInfo	startInRangeFunc;	/* startOffset 的 in_range 函数 */
+	FmgrInfo	endInRangeFunc; /* endOffset 的 in_range 函数 */
+	Oid			inRangeColl;	/* in_range 测试排序规则 */
+	bool		inRangeAsc;		/* in_range 测试用升序? */
+	bool		inRangeNullsFirst;	/* in_range 测试空值排前? */
 
-	/* these fields are used in GROUPS mode: */
-	int64		currentgroup;	/* peer group # of current row in partition */
-	int64		frameheadgroup; /* peer group # of frame head row */
-	int64		frametailgroup; /* peer group # of frame tail row */
-	int64		groupheadpos;	/* current row's peer group head position */
-	int64		grouptailpos;	/* " " " " tail position (group end+1) */
+	/* 下列字段用于 GROUPS 模式: */
+	int64		currentgroup;	/* 当前行在分区中的对等组号 */
+	int64		frameheadgroup; /* 帧头行的对等组号 */
+	int64		frametailgroup; /* 帧尾行的对等组号 */
+	int64		groupheadpos;	/* 当前行对等组的头位置 */
+	int64		grouptailpos;	/* 同上尾位置(组末+1) */
 
-	MemoryContext partcontext;	/* context for partition-lifespan data */
-	MemoryContext aggcontext;	/* shared context for aggregate working data */
-	MemoryContext curaggcontext;	/* current aggregate's working data */
-	ExprContext *tmpcontext;	/* short-term evaluation context */
+	MemoryContext partcontext;	/* 分区寿命数据的上下文 */
+	MemoryContext aggcontext;	/* 聚合工作数据的共享上下文 */
+	MemoryContext curaggcontext;	/* 当前聚合的工作数据 */
+	ExprContext *tmpcontext;	/* 短期求值上下文 */
 
-	ExprState  *runcondition;	/* Condition which must remain true otherwise
-								 * execution of the WindowAgg will finish or
-								 * go into pass-through mode.  NULL when there
-								 * is no such condition. */
+	ExprState  *runcondition;	/* 必须保持为真的条件,否则
+								 * WindowAgg 执行将结束或
+								 * 进入直通模式。无此条件时为
+								 * NULL。 */
 
 	bool		use_pass_through;	/* When false, stop execution when
 									 * runcondition is no longer true.  Else
 									 * just stop evaluating window funcs. */
-	bool		top_window;		/* true if this is the top-most WindowAgg or
-								 * the only WindowAgg in this query level */
-	bool		all_first;		/* true if the scan is starting */
-	bool		partition_spooled;	/* true if all tuples in current partition
-									 * have been spooled into tuplestore */
-	bool		more_partitions;	/* true if there's more partitions after
-									 * this one */
+	bool		top_window;		/* 这是最顶层 WindowAgg 或本查询级
+								 * 唯一 WindowAgg 则为真 */
+	bool		all_first;		/* 扫描正在启动则为真 */
+	bool		partition_spooled;	/* 当前分区全部元组已 spool 进
+									 * tuplestore 则为真 */
+	bool		more_partitions;	/* 本分区之后还有分区则为
+									 * 真 */
 	bool		framehead_valid;	/* true if frameheadpos is known up to
 									 * date for current row */
 	bool		frametail_valid;	/* true if frametailpos is known up to
@@ -2552,104 +2552,104 @@ typedef struct WindowAggState
 	bool		grouptail_valid;	/* true if grouptailpos is known up to
 									 * date for current row */
 
-	TupleTableSlot *first_part_slot;	/* first tuple of current or next
-										 * partition */
-	TupleTableSlot *framehead_slot; /* first tuple of current frame */
-	TupleTableSlot *frametail_slot; /* first tuple after current frame */
+	TupleTableSlot *first_part_slot;	/* 当前或下一分区的
+										 * 首元组 */
+	TupleTableSlot *framehead_slot; /* 当前帧的首个元组 */
+	TupleTableSlot *frametail_slot; /* 当前帧之后的首个元组 */
 
-	/* temporary slots for tuples fetched back from tuplestore */
+	/* 从 tuplestore 取回元组的临时槽 */
 	TupleTableSlot *agg_row_slot;
 	TupleTableSlot *temp_slot_1;
 	TupleTableSlot *temp_slot_2;
 } WindowAggState;
 
 /* ----------------
- *	 UniqueState information
+ *	UniqueState 信息
  *
- *		Unique nodes are used "on top of" sort nodes to discard
- *		duplicate tuples returned from the sort phase.  Basically
- *		all it does is compare the current tuple from the subplan
- *		with the previously fetched tuple (stored in its result slot).
- *		If the two are identical in all interesting fields, then
- *		we just fetch another tuple from the sort and try again.
+ *	Unique 节点用在排序节点"之上"以丢弃
+ *	排序阶段返回的重复元组。基本上它只是
+ *	把子计划当前元组与先前取回的元组
+ *	(存在其结果槽中)比较。
+ *	若两者在全部相关字段上相同,则再从
+ *	排序取下一个元组并重试。
  * ----------------
  */
 typedef struct UniqueState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	ExprState  *eqfunction;		/* tuple equality qual */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	ExprState  *eqfunction;		/* 元组相等限定 */
 } UniqueState;
 
 /* ----------------
- * GatherState information
+ * GatherState 信息
  *
- *		Gather nodes launch 1 or more parallel workers, run a subplan
- *		in those workers, and collect the results.
+ *	Gather 节点启动 1 个或多个并行工作者,在那些
+ *	工作者中跑子计划并收集结果。
  * ----------------
  */
 typedef struct GatherState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	bool		initialized;	/* workers launched? */
-	bool		need_to_scan_locally;	/* need to read from local plan? */
-	int64		tuples_needed;	/* tuple bound, see ExecSetTupleBound */
-	/* these fields are set up once: */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	bool		initialized;	/* 工作者启动? */
+	bool		need_to_scan_locally;	/* 需从本地计划读取? */
+	int64		tuples_needed;	/* 元组界限,见 ExecSetTupleBound */
+	/* 下列字段只设置一次: */
 	TupleTableSlot *funnel_slot;
 	struct ParallelExecutorInfo *pei;
-	/* all remaining fields are reinitialized during a rescan: */
-	int			nworkers_launched;	/* original number of workers */
-	int			nreaders;		/* number of still-active workers */
-	int			nextreader;		/* next one to try to read from */
-	struct TupleQueueReader **reader;	/* array with nreaders active entries */
+	/* 其余字段在重扫时全部重新初始化: */
+	int			nworkers_launched;	/* 原工作者数 */
+	int			nreaders;		/* 仍活动的工作者数 */
+	int			nextreader;		/* 下一个尝试读取的 */
+	struct TupleQueueReader **reader;	/* 有 nreaders 个活动项的数组 */
 } GatherState;
 
 /* ----------------
- * GatherMergeState information
+ * GatherMergeState 信息
  *
- *		Gather merge nodes launch 1 or more parallel workers, run a
- *		subplan which produces sorted output in each worker, and then
- *		merge the results into a single sorted stream.
+ *	GatherMerge 节点启动 1 个或多个并行工作者,在
+ *	每工作者中跑产生已排序输出的子计划,然后把
+ *	结果归并成单一已排序流。
  * ----------------
  */
-struct GMReaderTupleBuffer;		/* private in nodeGatherMerge.c */
+struct GMReaderTupleBuffer;		/* 私有于 nodeGatherMerge.c */
 
 typedef struct GatherMergeState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	bool		initialized;	/* workers launched? */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	bool		initialized;	/* 工作者启动? */
 	bool		gm_initialized; /* gather_merge_init() done? */
-	bool		need_to_scan_locally;	/* need to read from local plan? */
-	int64		tuples_needed;	/* tuple bound, see ExecSetTupleBound */
-	/* these fields are set up once: */
-	TupleDesc	tupDesc;		/* descriptor for subplan result tuples */
-	int			gm_nkeys;		/* number of sort columns */
-	SortSupport gm_sortkeys;	/* array of length gm_nkeys */
+	bool		need_to_scan_locally;	/* 需从本地计划读取? */
+	int64		tuples_needed;	/* 元组界限,见 ExecSetTupleBound */
+	/* 下列字段只设置一次: */
+	TupleDesc	tupDesc;		/* 子计划结果元组的描述符 */
+	int			gm_nkeys;		/* 排序列数 */
+	SortSupport gm_sortkeys;	/* gm_nkeys 长的数组 */
 	struct ParallelExecutorInfo *pei;
-	/* all remaining fields are reinitialized during a rescan */
-	/* (but the arrays are not reallocated, just cleared) */
-	int			nworkers_launched;	/* original number of workers */
-	int			nreaders;		/* number of active workers */
-	TupleTableSlot **gm_slots;	/* array with nreaders+1 entries */
-	struct TupleQueueReader **reader;	/* array with nreaders active entries */
-	struct GMReaderTupleBuffer *gm_tuple_buffers;	/* nreaders tuple buffers */
-	struct binaryheap *gm_heap; /* binary heap of slot indices */
+	/* 其余字段在重扫时全部重新初始化 */
+	/* (但数组不重新分配,只清空) */
+	int			nworkers_launched;	/* 原工作者数 */
+	int			nreaders;		/* 活动工作者数 */
+	TupleTableSlot **gm_slots;	/* 有 nreaders+1 项的数组 */
+	struct TupleQueueReader **reader;	/* 有 nreaders 个活动项的数组 */
+	struct GMReaderTupleBuffer *gm_tuple_buffers;	/* nreaders 元组缓冲 */
+	struct binaryheap *gm_heap; /* 槽下标的二叉堆 */
 } GatherMergeState;
 
 /* ----------------
- *	 Values displayed by EXPLAIN ANALYZE
+ *	EXPLAIN ANALYZE 显示的值
  * ----------------
  */
 typedef struct HashInstrumentation
 {
-	int			nbuckets;		/* number of buckets at end of execution */
-	int			nbuckets_original;	/* planned number of buckets */
-	int			nbatch;			/* number of batches at end of execution */
-	int			nbatch_original;	/* planned number of batches */
-	Size		space_peak;		/* peak memory usage in bytes */
+	int			nbuckets;		/* 执行结束时的桶数 */
+	int			nbuckets_original;	/* 计划的桶数 */
+	int			nbatch;			/* 执行结束时的批次数 */
+	int			nbatch_original;	/* 计划的批次数 */
+	Size		space_peak;		/* 峰值内存用量(字节) */
 } HashInstrumentation;
 
 /* ----------------
- *	 Shared memory container for per-worker hash information
+ *	每工作者哈希信息的共享内存容器
  * ----------------
  */
 typedef struct SharedHashInfo
@@ -2659,116 +2659,116 @@ typedef struct SharedHashInfo
 } SharedHashInfo;
 
 /* ----------------
- *	 HashState information
+ *	HashState 信息
  * ----------------
  */
 typedef struct HashState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	HashJoinTable hashtable;	/* hash table for the hashjoin */
-	List	   *hashkeys;		/* list of ExprState nodes */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	HashJoinTable hashtable;	/* hashjoin 的哈希表 */
+	List	   *hashkeys;		/* ExprState 节点列表 */
 
 	/*
-	 * In a parallelized hash join, the leader retains a pointer to the
-	 * shared-memory stats area in its shared_info field, and then copies the
-	 * shared-memory info back to local storage before DSM shutdown.  The
-	 * shared_info field remains NULL in workers, or in non-parallel joins.
+	 * 在并行化哈希连接中,领导者在 shared_info 字段中
+	 * 保留共享内存统计区指针,并在 DSM 关闭前把共享
+	 * 内存信息拷回本地存储。工作者或非并行连接中
+	 * shared_info 字段保持为 NULL。
 	 */
 	SharedHashInfo *shared_info;
 
 	/*
-	 * If we are collecting hash stats, this points to an initially-zeroed
-	 * collection area, which could be either local storage or in shared
-	 * memory; either way it's for just one process.
+	 * 若在收集哈希统计,这指向初始为零的收集区,
+	 * 可以是本地存储或共享内存;无论哪种都只供
+	 * 一个进程使用。
 	 */
 	HashInstrumentation *hinstrument;
 
-	/* Parallel hash state. */
+	/* 并行哈希状态 */
 	struct ParallelHashJoinState *parallel_state;
 } HashState;
 
 /* ----------------
- *	 SetOpState information
+ *	SetOpState 信息
  *
- *		Even in "sorted" mode, SetOp nodes are more complex than a simple
- *		Unique, since we have to count how many duplicates to return.  But
- *		we also support hashing, so this is really more like a cut-down
- *		form of Agg.
+ *	即使在"已排序"模式下,SetOp 节点也比简单 Unique
+ *	更复杂,因为须统计要返回多少重复。但我们也支持
+ *	哈希,故这其实更像是 Agg 的精简
+ *	形式。
  * ----------------
  */
-/* this struct is private in nodeSetOp.c: */
+/* 本结构私有于 nodeSetOp.c: */
 typedef struct SetOpStatePerGroupData *SetOpStatePerGroup;
 
 typedef struct SetOpState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	ExprState  *eqfunction;		/* equality comparator */
-	Oid		   *eqfuncoids;		/* per-grouping-field equality fns */
-	FmgrInfo   *hashfunctions;	/* per-grouping-field hash fns */
-	bool		setop_done;		/* indicates completion of output scan */
-	long		numOutput;		/* number of dups left to output */
-	/* these fields are used in SETOP_SORTED mode: */
-	SetOpStatePerGroup pergroup;	/* per-group working state */
-	HeapTuple	grp_firstTuple; /* copy of first tuple of current group */
-	/* these fields are used in SETOP_HASHED mode: */
-	TupleHashTable hashtable;	/* hash table with one entry per group */
-	MemoryContext tableContext; /* memory context containing hash table */
-	bool		table_filled;	/* hash table filled yet? */
-	TupleHashIterator hashiter; /* for iterating through hash table */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	ExprState  *eqfunction;		/* 相等比较器 */
+	Oid		   *eqfuncoids;		/* 每分组字段的相等函数 */
+	FmgrInfo   *hashfunctions;	/* 每分组字段哈希函数 */
+	bool		setop_done;		/* 指示输出扫描完成 */
+	long		numOutput;		/* 尚待输出的重复数 */
+	/* 下列字段用于 SETOP_SORTED 模式: */
+	SetOpStatePerGroup pergroup;	/* 每组工作状态 */
+	HeapTuple	grp_firstTuple; /* 当前组首个元组的拷贝 */
+	/* 下列字段用于 SETOP_HASHED 模式: */
+	TupleHashTable hashtable;	/* 每组一项的哈希表 */
+	MemoryContext tableContext; /* 含哈希表的内存上下文 */
+	bool		table_filled;	/* 哈希表已填满? */
+	TupleHashIterator hashiter; /* 供遍历哈希表 */
 } SetOpState;
 
 /* ----------------
- *	 LockRowsState information
+ *	LockRowsState 信息
  *
- *		LockRows nodes are used to enforce FOR [KEY] UPDATE/SHARE locking.
+ *	LockRows 节点用于强制 FOR [KEY] UPDATE/SHARE 加锁。
  * ----------------
  */
 typedef struct LockRowsState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	List	   *lr_arowMarks;	/* List of ExecAuxRowMarks */
-	EPQState	lr_epqstate;	/* for evaluating EvalPlanQual rechecks */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	List	   *lr_arowMarks;	/* ExecAuxRowMarks 列表 */
+	EPQState	lr_epqstate;	/* 供求值 EvalPlanQual 重检 */
 } LockRowsState;
 
 /* ----------------
- *	 LimitState information
+ *	LimitState 信息
  *
- *		Limit nodes are used to enforce LIMIT/OFFSET clauses.
- *		They just select the desired subrange of their subplan's output.
+ *	Limit 节点用于强制 LIMIT/OFFSET 子句。
+ *	它们只选取子计划输出中所需的子范围。
  *
- * offset is the number of initial tuples to skip (0 does nothing).
- * count is the number of tuples to return after skipping the offset tuples.
- * If no limit count was specified, count is undefined and noCount is true.
- * When lstate == LIMIT_INITIAL, offset/count/noCount haven't been set yet.
+ * offset 是要跳过的初始元组数(0 无操作)。
+ * count 是跳过 offset 个元组后要返回的元组数。
+ * 若未指定限量,count 未定义且 noCount 为真。
+ * 当 lstate == LIMIT_INITIAL 时,offset/count/noCount 尚未设置。
  * ----------------
  */
 typedef enum
 {
-	LIMIT_INITIAL,				/* initial state for LIMIT node */
-	LIMIT_RESCAN,				/* rescan after recomputing parameters */
-	LIMIT_EMPTY,				/* there are no returnable rows */
-	LIMIT_INWINDOW,				/* have returned a row in the window */
-	LIMIT_WINDOWEND_TIES,		/* have returned a tied row */
-	LIMIT_SUBPLANEOF,			/* at EOF of subplan (within window) */
-	LIMIT_WINDOWEND,			/* stepped off end of window */
-	LIMIT_WINDOWSTART			/* stepped off beginning of window */
+	LIMIT_INITIAL,				/* LIMIT 节点的初始状态 */
+	LIMIT_RESCAN,				/* 重算参数后重扫 */
+	LIMIT_EMPTY,				/* 没有可返回的行 */
+	LIMIT_INWINDOW,				/* 窗口内已返回过一行 */
+	LIMIT_WINDOWEND_TIES,		/* 已返回过并列行 */
+	LIMIT_SUBPLANEOF,			/* 子计划已到 EOF(窗口内) */
+	LIMIT_WINDOWEND,			/* 已走出窗口末端 */
+	LIMIT_WINDOWSTART			/* 已走出窗口开端 */
 } LimitStateCond;
 
 typedef struct LimitState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	ExprState  *limitOffset;	/* OFFSET parameter, or NULL if none */
-	ExprState  *limitCount;		/* COUNT parameter, or NULL if none */
-	LimitOption limitOption;	/* limit specification type */
-	int64		offset;			/* current OFFSET value */
-	int64		count;			/* current COUNT, if any */
-	bool		noCount;		/* if true, ignore count */
-	LimitStateCond lstate;		/* state machine status, as above */
-	int64		position;		/* 1-based index of last tuple returned */
-	TupleTableSlot *subSlot;	/* tuple last obtained from subplan */
-	ExprState  *eqfunction;		/* tuple equality qual in case of WITH TIES
-								 * option */
-	TupleTableSlot *last_slot;	/* slot for evaluation of ties */
+	PlanState	ps;				/* 其首字段为 NodeTag */
+	ExprState  *limitOffset;	/* OFFSET 参数,无则为 NULL */
+	ExprState  *limitCount;		/* COUNT 参数,无则为 NULL */
+	LimitOption limitOption;	/* 限量规格类型 */
+	int64		offset;			/* 当前 OFFSET 值 */
+	int64		count;			/* 当前 COUNT(若有) */
+	bool		noCount;		/* 为真则忽略 count */
+	LimitStateCond lstate;		/* 状态机状态,见上 */
+	int64		position;		/* 上次返回元组的 1 基下标 */
+	TupleTableSlot *subSlot;	/* 上次取自子计划的元组 */
+	ExprState  *eqfunction;		/* WITH TIES 选项时的元组相等
+								 * 限定 */
+	TupleTableSlot *last_slot;	/* 求值并列的槽 */
 } LimitState;
 
 #endif							/* EXECNODES_H */

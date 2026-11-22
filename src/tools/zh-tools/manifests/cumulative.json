@@ -10171,6 +10171,61 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0559-utils.json",
    "kind": "manifest",
    "note": "0559"
+  },
+  {
+   "pattern": "src/include/utils/lsyscache.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/syscache.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/relcache.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/resowner_private.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/builtins.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/numeric.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/arrayaccess.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/pg_locale.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/rangetypes.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/multirangetypes.h",
+   "kind": "c_comment",
+   "note": "0560"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0560-utils.json",
+   "kind": "manifest",
+   "note": "0560"
   }
  ],
  "files": [
@@ -33131,6 +33186,136 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0559"
+  },
+  {
+   "path": "src/include/utils/lsyscache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 26,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；尾注等义压缩"
+   ],
+   "note": "0560 T=26"
+  },
+  {
+   "path": "src/include/utils/syscache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 17,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP"
+   ],
+   "note": "0560 T=17"
+  },
+  {
+   "path": "src/include/utils/relcache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 18,
+   "preserved": 8,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP"
+   ],
+   "note": "0560 T=18"
+  },
+  {
+   "path": "src/include/utils/resowner_private.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 16,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP"
+   ],
+   "note": "0560 T=16"
+  },
+  {
+   "path": "src/include/utils/builtins.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 26,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；尾注等义压缩"
+   ],
+   "note": "0560 T=26"
+  },
+  {
+   "path": "src/include/utils/numeric.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 18,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；标度叙述压缩"
+   ],
+   "note": "0560 T=18"
+  },
+  {
+   "path": "src/include/utils/arrayaccess.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 20,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；迭代 API 叙述压缩"
+   ],
+   "note": "0560 T=20"
+  },
+  {
+   "path": "src/include/utils/pg_locale.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 14,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；ICU URL 块 KEEP EN"
+   ],
+   "note": "0560 T=14"
+  },
+  {
+   "path": "src/include/utils/rangetypes.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 36,
+   "translated": 30,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；尾注等义压缩"
+   ],
+   "note": "0560 T=30"
+  },
+  {
+   "path": "src/include/utils/multirangetypes.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 17,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；尾注等义压缩"
+   ],
+   "note": "0560 T=17"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0560-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0560"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

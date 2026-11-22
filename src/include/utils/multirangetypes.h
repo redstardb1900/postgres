@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * multirangetypes.h
- *	  Declarations for Postgres multirange types.
+ *	  Postgres 多重范围类型的声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,30 +19,30 @@
 
 
 /*
- * Multiranges are varlena objects, so must meet the varlena convention that
- * the first int32 of the object contains the total object size in bytes.
- * Be sure to use VARSIZE() and SET_VARSIZE() to access it, though!
+ * 多重范围是 varlena 对象，须遵守 varlena 约定：
+ * 对象首个 int32 含总字节大小。访问时务必用
+ * VARSIZE() 与 SET_VARSIZE()！
  */
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	Oid			multirangetypid;	/* multirange type's own OID */
-	uint32		rangeCount;		/* the number of ranges */
+	int32		vl_len_;		/* varlena 头（勿直接触碰！） */
+	Oid			multirangetypid;	/* 多重范围类型的 OID */
+	uint32		rangeCount;		/* 范围个数 */
 
 	/*
-	 * Following the count are the range objects themselves, as ShortRangeType
-	 * structs. Note that ranges are varlena too, depending on whether they
-	 * have lower/upper bounds and because even their base types can be
-	 * varlena. So we can't really index into this list.
+	 * 计数之后是范围对象本身，为 ShortRangeType
+	 * 结构。注意范围也是 varlena，取决于是否有上/
+	 * 下界，且其基类型甚至也可是 varlena。故无法
+	 * 真正索引进此列表。
 	 */
 } MultirangeType;
 
-/* Use these macros in preference to accessing these fields directly */
+/* 优先用这些宏，勿直接访问这些字段 */
 #define MultirangeTypeGetOid(mr)	((mr)->multirangetypid)
 #define MultirangeIsEmpty(mr)  ((mr)->rangeCount == 0)
 
 /*
- * fmgr functions for multirange type objects
+ * 多重范围类型对象的 fmgr 函数
  */
 static inline MultirangeType *
 DatumGetMultirangeTypeP(Datum X)
@@ -67,10 +67,10 @@ MultirangeTypePGetDatum(const MultirangeType *X)
 #define PG_RETURN_MULTIRANGE_P(x)		return MultirangeTypePGetDatum(x)
 
 /*
- * prototypes for functions defined in multirangetypes.c
+ * multirangetypes.c 中函数的原型
  */
 
-/* internal versions of the above */
+/* 上述的内部版本 */
 extern bool multirange_eq_internal(TypeCacheEntry *rangetyp,
 								   const MultirangeType *mr1,
 								   const MultirangeType *mr2);
@@ -126,7 +126,7 @@ extern MultirangeType *multirange_intersect_internal(Oid mltrngtypoid,
 													 int32 range_count2,
 													 RangeType **ranges2);
 
-/* assorted support functions */
+/* 各类支持函数 */
 extern TypeCacheEntry *multirange_get_typcache(FunctionCallInfo fcinfo,
 											   Oid mltrngtypid);
 extern void multirange_deserialize(TypeCacheEntry *rangetyp,

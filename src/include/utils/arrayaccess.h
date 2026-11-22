@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * arrayaccess.h
- *	  Declarations for element-by-element access to Postgres arrays.
+ *	  逐元素访问 Postgres 数组的声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,29 +19,29 @@
 
 
 /*
- * Functions for iterating through elements of a flat or expanded array.
- * These require a state struct "array_iter iter".
+ * 遍历扁平或扩展数组元素的函数。需要状态结构
+ * "array_iter iter"。
  *
- * Use "array_iter_setup(&iter, arrayptr);" to prepare to iterate, and
- * "datumvar = array_iter_next(&iter, &isnullvar, index, ...);" to fetch
- * the next element into datumvar/isnullvar.
- * "index" must be the zero-origin element number; we make caller provide
- * this since caller is generally counting the elements anyway.  Despite
- * that, these functions can only fetch elements sequentially.
+ * 用 array_iter_setup(&iter, arrayptr) 准备，并用
+ * array_iter_next(...) 取下一元素到
+ * datumvar/isnullvar。
+ * "index" 须为零基元素号；由调用方提供，因调用方
+ * 通常本就在计数。尽管如此，这些函数只能顺序取元
+ * 素。
  */
 
 typedef struct array_iter
 {
-	/* datumptr being NULL or not tells if we have flat or expanded array */
+	/* datumptr 是否为 NULL 表明是扁平还是扩展数组 */
 
-	/* Fields used when we have an expanded array */
-	Datum	   *datumptr;		/* Pointer to Datum array */
-	bool	   *isnullptr;		/* Pointer to isnull array */
+	/* 有扩展数组时使用的字段 */
+	Datum	   *datumptr;		/* 指向 Datum 数组 */
+	bool	   *isnullptr;		/* 指向 isnull 数组 */
 
-	/* Fields used when we have a flat array */
-	char	   *dataptr;		/* Current spot in the data area */
-	bits8	   *bitmapptr;		/* Current byte of the nulls bitmap, or NULL */
-	int			bitmask;		/* mask for current bit in nulls bitmap */
+	/* 有扁平数组时使用的字段 */
+	char	   *dataptr;		/* 数据区中的当前位置 */
+	bits8	   *bitmapptr;		/* 空值位图当前字节，或 NULL */
+	int			bitmask;		/* 空值位图中当前位的掩码 */
 } array_iter;
 
 
@@ -54,13 +54,13 @@ array_iter_setup(array_iter *it, AnyArrayType *a)
 		{
 			it->datumptr = a->xpn.dvalues;
 			it->isnullptr = a->xpn.dnulls;
-			/* we must fill all fields to prevent compiler warnings */
+			/* 须填满所有字段以防编译器警告 */
 			it->dataptr = NULL;
 			it->bitmapptr = NULL;
 		}
 		else
 		{
-			/* Work with flat array embedded in the expanded datum */
+			/* 处理嵌在扩展 datum 中的扁平数组 */
 			it->datumptr = NULL;
 			it->isnullptr = NULL;
 			it->dataptr = ARR_DATA_PTR(a->xpn.fvalue);

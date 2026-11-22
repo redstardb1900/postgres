@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * resowner_private.h
- *	  POSTGRES resource owner private definitions.
+ *	  POSTGRES 资源所有者私有定义。
  *
- * See utils/resowner/README for more info.
+ * 详见 utils/resowner/README。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,21 +25,21 @@
 #include "utils/snapshot.h"
 
 
-/* support for buffer refcount management */
+/* 缓冲区引用计数管理支持 */
 extern void ResourceOwnerEnlargeBuffers(ResourceOwner owner);
 extern void ResourceOwnerRememberBuffer(ResourceOwner owner, Buffer buffer);
 extern void ResourceOwnerForgetBuffer(ResourceOwner owner, Buffer buffer);
 
-/* support for IO-in-progress management */
+/* 进行中 IO 管理支持 */
 extern void ResourceOwnerEnlargeBufferIOs(ResourceOwner owner);
 extern void ResourceOwnerRememberBufferIO(ResourceOwner owner, Buffer buffer);
 extern void ResourceOwnerForgetBufferIO(ResourceOwner owner, Buffer buffer);
 
-/* support for local lock management */
+/* 本地锁管理支持 */
 extern void ResourceOwnerRememberLock(ResourceOwner owner, LOCALLOCK *locallock);
 extern void ResourceOwnerForgetLock(ResourceOwner owner, LOCALLOCK *locallock);
 
-/* support for catcache refcount management */
+/* catcache 引用计数管理支持 */
 extern void ResourceOwnerEnlargeCatCacheRefs(ResourceOwner owner);
 extern void ResourceOwnerRememberCatCacheRef(ResourceOwner owner,
 											 HeapTuple tuple);
@@ -51,63 +51,63 @@ extern void ResourceOwnerRememberCatCacheListRef(ResourceOwner owner,
 extern void ResourceOwnerForgetCatCacheListRef(ResourceOwner owner,
 											   CatCList *list);
 
-/* support for relcache refcount management */
+/* relcache 引用计数管理支持 */
 extern void ResourceOwnerEnlargeRelationRefs(ResourceOwner owner);
 extern void ResourceOwnerRememberRelationRef(ResourceOwner owner,
 											 Relation rel);
 extern void ResourceOwnerForgetRelationRef(ResourceOwner owner,
 										   Relation rel);
 
-/* support for plancache refcount management */
+/* plancache 引用计数管理支持 */
 extern void ResourceOwnerEnlargePlanCacheRefs(ResourceOwner owner);
 extern void ResourceOwnerRememberPlanCacheRef(ResourceOwner owner,
 											  CachedPlan *plan);
 extern void ResourceOwnerForgetPlanCacheRef(ResourceOwner owner,
 											CachedPlan *plan);
 
-/* support for tupledesc refcount management */
+/* tupledesc 引用计数管理支持 */
 extern void ResourceOwnerEnlargeTupleDescs(ResourceOwner owner);
 extern void ResourceOwnerRememberTupleDesc(ResourceOwner owner,
 										   TupleDesc tupdesc);
 extern void ResourceOwnerForgetTupleDesc(ResourceOwner owner,
 										 TupleDesc tupdesc);
 
-/* support for snapshot refcount management */
+/* snapshot 引用计数管理支持 */
 extern void ResourceOwnerEnlargeSnapshots(ResourceOwner owner);
 extern void ResourceOwnerRememberSnapshot(ResourceOwner owner,
 										  Snapshot snapshot);
 extern void ResourceOwnerForgetSnapshot(ResourceOwner owner,
 										Snapshot snapshot);
 
-/* support for temporary file management */
+/* 临时文件管理支持 */
 extern void ResourceOwnerEnlargeFiles(ResourceOwner owner);
 extern void ResourceOwnerRememberFile(ResourceOwner owner,
 									  File file);
 extern void ResourceOwnerForgetFile(ResourceOwner owner,
 									File file);
 
-/* support for dynamic shared memory management */
+/* 动态共享内存管理支持 */
 extern void ResourceOwnerEnlargeDSMs(ResourceOwner owner);
 extern void ResourceOwnerRememberDSM(ResourceOwner owner,
 									 dsm_segment *);
 extern void ResourceOwnerForgetDSM(ResourceOwner owner,
 								   dsm_segment *);
 
-/* support for JITContext management */
+/* JITContext 管理支持 */
 extern void ResourceOwnerEnlargeJIT(ResourceOwner owner);
 extern void ResourceOwnerRememberJIT(ResourceOwner owner,
 									 Datum handle);
 extern void ResourceOwnerForgetJIT(ResourceOwner owner,
 								   Datum handle);
 
-/* support for cryptohash context management */
+/* cryptohash 上下文管理支持 */
 extern void ResourceOwnerEnlargeCryptoHash(ResourceOwner owner);
 extern void ResourceOwnerRememberCryptoHash(ResourceOwner owner,
 											Datum handle);
 extern void ResourceOwnerForgetCryptoHash(ResourceOwner owner,
 										  Datum handle);
 
-/* support for HMAC context management */
+/* HMAC 上下文管理支持 */
 extern void ResourceOwnerEnlargeHMAC(ResourceOwner owner);
 extern void ResourceOwnerRememberHMAC(ResourceOwner owner,
 									  Datum handle);

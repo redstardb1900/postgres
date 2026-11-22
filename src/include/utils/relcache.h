@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * relcache.h
- *	  Relation descriptor cache definitions.
+ *	  关系描述符缓存定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -20,28 +20,28 @@
 
 
 /*
- * Name of relcache init file(s), used to speed up backend startup
+ * relcache 初始化 file 名，用于加速后端启动
  */
 #define RELCACHE_INIT_FILENAME	"pg_internal.init"
 
 typedef struct RelationData *Relation;
 
 /* ----------------
- *		RelationPtr is used in the executor to support index scans
- *		where we have to keep track of several index relations in an
- *		array.  -cim 9/10/89
+ *		RelationPtr 在执行器中用于支持索引扫描，
+ *		此时须在数组中跟踪若干索引关系。-cim 9/10/89
+ *		见上。
  * ----------------
  */
 typedef Relation *RelationPtr;
 
 /*
- * Routines to open (lookup) and close a relcache entry
+ * 打开（查找）与关闭 relcache 条目的例程
  */
 extern Relation RelationIdGetRelation(Oid relationId);
 extern void RelationClose(Relation relation);
 
 /*
- * Routines to compute/retrieve additional cached information
+ * 计算/检索额外缓存信息的例程
  */
 extern List *RelationGetFKeyList(Relation relation);
 extern List *RelationGetIndexList(Relation relation);
@@ -55,7 +55,7 @@ extern Datum *RelationGetIndexRawAttOptions(Relation indexrel);
 extern bytea **RelationGetIndexAttOptions(Relation relation, bool copy);
 
 /*
- * Which set of columns to return by RelationGetIndexAttrBitmap.
+ * RelationGetIndexAttrBitmap 返回哪组列。
  */
 typedef enum IndexAttrBitmapKind
 {
@@ -78,7 +78,7 @@ extern void RelationGetExclusionInfo(Relation indexRelation,
 
 extern void RelationInitIndexAccessInfo(Relation relation);
 
-/* caller must include pg_publication.h */
+/* 调用方须包含 pg_publication.h */
 struct PublicationDesc;
 extern void RelationBuildPublicationDesc(Relation relation,
 										 struct PublicationDesc *pubdesc);
@@ -86,7 +86,7 @@ extern void RelationBuildPublicationDesc(Relation relation,
 extern void RelationInitTableAccessMethod(Relation relation);
 
 /*
- * Routines to support ereport() reports of relation-related errors
+ * 支持 ereport() 报告关系相关错误的例程
  */
 extern int	errtable(Relation rel);
 extern int	errtablecol(Relation rel, int attnum);
@@ -94,14 +94,14 @@ extern int	errtablecolname(Relation rel, const char *colname);
 extern int	errtableconstraint(Relation rel, const char *conname);
 
 /*
- * Routines for backend startup
+ * 后端启动例程
  */
 extern void RelationCacheInitialize(void);
 extern void RelationCacheInitializePhase2(void);
 extern void RelationCacheInitializePhase3(void);
 
 /*
- * Routine to create a relcache entry for an about-to-be-created relation
+ * 为即将创建的关系建立 relcache 条目的例程
  */
 extern Relation RelationBuildLocalRelation(const char *relname,
 										   Oid relnamespace,
@@ -116,13 +116,13 @@ extern Relation RelationBuildLocalRelation(const char *relname,
 										   char relkind);
 
 /*
- * Routines to manage assignment of new relfilenumber to a relation
+ * 管理给关系分配新 relfilenumber 的例程
  */
 extern void RelationSetNewRelfilenumber(Relation relation, char persistence);
 extern void RelationAssumeNewRelfilelocator(Relation relation);
 
 /*
- * Routines for flushing/rebuilding relcache entries in various scenarios
+ * 在各种场景下刷新/重建 relcache 条目的例程
  */
 extern void RelationForgetRelation(Oid rid);
 
@@ -142,17 +142,17 @@ extern void AtEOSubXact_RelationCache(bool isCommit, SubTransactionId mySubid,
 									  SubTransactionId parentSubid);
 
 /*
- * Routines to help manage rebuilding of relcache init files
+ * 协助管理重建 relcache 初始化文件的例程
  */
 extern bool RelationIdIsInInitFile(Oid relationId);
 extern void RelationCacheInitFilePreInvalidate(void);
 extern void RelationCacheInitFilePostInvalidate(void);
 extern void RelationCacheInitFileRemove(void);
 
-/* should be used only by relcache.c and catcache.c */
+/* 仅应由 relcache.c 与 catcache.c 使用 */
 extern PGDLLIMPORT bool criticalRelcachesBuilt;
 
-/* should be used only by relcache.c and postinit.c */
+/* 仅应由 relcache.c 与 postinit.c 使用 */
 extern PGDLLIMPORT bool criticalSharedRelcachesBuilt;
 
 #endif							/* RELCACHE_H */

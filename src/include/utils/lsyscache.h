@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lsyscache.h
- *	  Convenience routines for common queries in the system catalog cache.
+ *	  系统目录缓存中常见查询的便捷例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,19 +17,19 @@
 #include "access/htup.h"
 #include "nodes/pg_list.h"
 
-/* avoid including subscripting.h here */
+/* 避免在此包含 subscripting.h */
 struct SubscriptRoutines;
 
-/* Result list element for get_op_btree_interpretation */
+/* get_op_btree_interpretation 的结果列表元素 */
 typedef struct OpBtreeInterpretation
 {
-	Oid			opfamily_id;	/* btree opfamily containing operator */
-	int			strategy;		/* its strategy number */
-	Oid			oplefttype;		/* declared left input datatype */
-	Oid			oprighttype;	/* declared right input datatype */
+	Oid			opfamily_id;	/* 含运算符的 btree 族 */
+	int			strategy;		/* 其策略号 */
+	Oid			oplefttype;		/* 声明的左输入类型 */
+	Oid			oprighttype;	/* 声明的右输入类型 */
 } OpBtreeInterpretation;
 
-/* I/O function selector for get_type_io_data */
+/* get_type_io_data 的 I/O 函数选择器 */
 typedef enum IOFuncSelector
 {
 	IOFunc_input,
@@ -38,30 +38,30 @@ typedef enum IOFuncSelector
 	IOFunc_send
 } IOFuncSelector;
 
-/* Flag bits for get_attstatsslot */
+/* get_attstatsslot 的标志位 */
 #define ATTSTATSSLOT_VALUES		0x01
 #define ATTSTATSSLOT_NUMBERS	0x02
 
-/* Result struct for get_attstatsslot */
+/* get_attstatsslot 的结果结构 */
 typedef struct AttStatsSlot
 {
-	/* Always filled: */
-	Oid			staop;			/* Actual staop for the found slot */
-	Oid			stacoll;		/* Actual collation for the found slot */
-	/* Filled if ATTSTATSSLOT_VALUES is specified: */
-	Oid			valuetype;		/* Actual datatype of the values */
-	Datum	   *values;			/* slot's "values" array, or NULL if none */
-	int			nvalues;		/* length of values[], or 0 */
-	/* Filled if ATTSTATSSLOT_NUMBERS is specified: */
-	float4	   *numbers;		/* slot's "numbers" array, or NULL if none */
-	int			nnumbers;		/* length of numbers[], or 0 */
+	/* 总是填充: */
+	Oid			staop;			/* 找到槽的实际 staop */
+	Oid			stacoll;		/* 找到槽的实际 collation */
+	/* 若指定 ATTSTATSSLOT_VALUES 则填充： */
+	Oid			valuetype;		/* 值的实际数据类型 */
+	Datum	   *values;			/* 槽 "values" 数组，无则 NULL */
+	int			nvalues;		/* values[] 长度，或 0 */
+	/* 若指定 ATTSTATSSLOT_NUMBERS 则填充： */
+	float4	   *numbers;		/* 槽 "numbers" 数组，无则 NULL */
+	int			nnumbers;		/* numbers[] 长度，或 0 */
 
-	/* Remaining fields are private to get_attstatsslot/free_attstatsslot */
-	void	   *values_arr;		/* palloc'd values array, if any */
-	void	   *numbers_arr;	/* palloc'd numbers array, if any */
+	/* 其余字段为 get_attstatsslot/free_attstatsslot 私有 */
+	void	   *values_arr;		/* palloc 的 values 数组 */
+	void	   *numbers_arr;	/* palloc 的 numbers 数组 */
 } AttStatsSlot;
 
-/* Hook for plugins to get control in get_attavgwidth() */
+/* 插件在 get_attavgwidth() 中取得控制的钩子 */
 typedef int32 (*get_attavgwidth_hook_type) (Oid relid, AttrNumber attnum);
 extern PGDLLIMPORT get_attavgwidth_hook_type get_attavgwidth_hook;
 
@@ -204,7 +204,7 @@ extern Oid	get_subscription_oid(const char *subname, bool missing_ok);
 extern char *get_subscription_name(Oid subid, bool missing_ok);
 
 #define type_is_array(typid)  (get_element_type(typid) != InvalidOid)
-/* type_is_array_domain accepts both plain arrays and domains over arrays */
+/* type_is_array_domain 接受普通数组与数组上的域 */
 #define type_is_array_domain(typid)  (get_base_element_type(typid) != InvalidOid)
 
 #define TypeIsToastable(typid)	(get_typstorage(typid) != TYPSTORAGE_PLAIN)

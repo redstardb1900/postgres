@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * builtins.h
- *	  Declarations for operations on built-in types.
+ *	  内建类型操作的声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 #include "nodes/nodes.h"
 #include "utils/fmgrprotos.h"
 
-/* Sign + the most decimal digits an 8-byte number could have */
+/* 符号 + 8 字节数可能有的最多十进制位数 */
 #define MAXINT8LEN 20
 
 /* bool.c */
@@ -85,7 +85,7 @@ extern void generate_operator_clause(fmStringInfo buf,
 /* varchar.c */
 extern int	bpchartruelen(char *s, int len);
 
-/* popular functions from varlena.c */
+/* varlena.c 中的常用函数 */
 extern text *cstring_to_text(const char *s);
 extern text *cstring_to_text_with_len(const char *s, int len);
 extern char *text_to_cstring(const text *t);
@@ -117,11 +117,11 @@ extern Datum numeric_float8_no_overflow(PG_FUNCTION_ARGS);
 
 /* format_type.c */
 
-/* Control flags for format_type_extended */
-#define FORMAT_TYPE_TYPEMOD_GIVEN	0x01	/* typemod defined by caller */
-#define FORMAT_TYPE_ALLOW_INVALID	0x02	/* allow invalid types */
-#define FORMAT_TYPE_FORCE_QUALIFY	0x04	/* force qualification of type */
-#define FORMAT_TYPE_INVALID_AS_NULL	0x08	/* NULL if undefined */
+/* format_type_extended 的控制标志 */
+#define FORMAT_TYPE_TYPEMOD_GIVEN	0x01	/* 调用方定义 typemod */
+#define FORMAT_TYPE_ALLOW_INVALID	0x02	/* 允许无效类型 */
+#define FORMAT_TYPE_FORCE_QUALIFY	0x04	/* 强制类型限定 */
+#define FORMAT_TYPE_INVALID_AS_NULL	0x08	/* 未定义则 NULL */
 extern char *format_type_extended(Oid type_oid, int32 typemod, bits16 flags);
 
 extern char *format_type_be(Oid type_oid);

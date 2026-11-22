@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * numeric.h
- *	  Definitions for the exact numeric data type of Postgres
+ *	  Postgres 精确数值数据类型的定义
  *
- * Original coding 1998, Jan Wieck.  Heavily revised 2003, Tom Lane.
+ * 最初编码 1998，Jan Wieck。2003 由 Tom Lane 大幅修订。
  *
  * Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -17,16 +17,16 @@
 #include "fmgr.h"
 
 /*
- * Limits on the precision and scale specifiable in a NUMERIC typmod.  The
- * precision is strictly positive, but the scale may be positive or negative.
- * A negative scale implies rounding before the decimal point.
+ * NUMERIC typmod 中可指定的精度与标度上限。精度
+ * 须严格为正，标度可为正或负。负标度意味在小数点
+ * 前舍入。
  *
- * Note that the minimum display scale defined below is zero --- we always
- * display all digits before the decimal point, even when the scale is
- * negative.
+ * 注意下方最小显示标度为零——即使标度为负，
+ * 我们也总显示小数点前的全部数字。
+ * 见上。
  *
- * Note that the implementation limits on the precision and display scale of a
- * numeric value are much larger --- beware of what you use these for!
+ * 注意数值的精度与显示标度的实现上限要大得多——
+ * 使用这些常量时当心！
  */
 #define NUMERIC_MAX_PRECISION		1000
 
@@ -34,7 +34,7 @@
 #define NUMERIC_MAX_SCALE			1000
 
 /*
- * Internal limits on the scales chosen for calculation results
+ * 为计算结果所选标度的内部限制
  */
 #define NUMERIC_MAX_DISPLAY_SCALE	NUMERIC_MAX_PRECISION
 #define NUMERIC_MIN_DISPLAY_SCALE	0
@@ -42,18 +42,18 @@
 #define NUMERIC_MAX_RESULT_SCALE	(NUMERIC_MAX_PRECISION * 2)
 
 /*
- * For inherently inexact calculations such as division and square root,
- * we try to get at least this many significant digits; the idea is to
- * deliver a result no worse than float8 would.
+ * 对除法与平方根等固有不精确计算，我们尽量至少
+ * 得到这么多有效数字；意图是结果不差于 float8。
+ * 见上。
  */
 #define NUMERIC_MIN_SIG_DIGITS		16
 
-/* The actual contents of Numeric are private to numeric.c */
+/* Numeric 的实际内容对 numeric.c 私有 */
 struct NumericData;
 typedef struct NumericData *Numeric;
 
 /*
- * fmgr interface macros
+ * fmgr 接口宏
  */
 
 static inline Numeric
@@ -79,7 +79,7 @@ NumericGetDatum(Numeric X)
 #define PG_RETURN_NUMERIC(x)	  return NumericGetDatum(x)
 
 /*
- * Utility functions in numeric.c
+ * numeric.c 中的实用函数
  */
 extern bool numeric_is_nan(Numeric num);
 extern bool numeric_is_inf(Numeric num);

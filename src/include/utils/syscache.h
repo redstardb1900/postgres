@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * syscache.h
- *	  System catalog cache definitions.
+ *	  系统目录缓存定义。
  *
- * See also lsyscache.h, which provides convenience routines for
- * common cache-lookup operations.
+ * 另见 lsyscache.h，它为常见缓存查找操作提供
+ * 便捷例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,15 +18,15 @@
 
 #include "access/attnum.h"
 #include "access/htup.h"
-/* we intentionally do not include utils/catcache.h here */
+/* 有意不在此包含 utils/catcache.h */
 
 /*
- *		SysCache identifiers.
+ *		SysCache 标识符。
  *
- *		The order of these identifiers must match the order
- *		of the entries in the array cacheinfo[] in syscache.c.
- *		Keep them in alphabetical order (renumbering only costs a
- *		backend rebuild).
+ *		这些标识符的次序须与 syscache.c 中
+ *		cacheinfo[] 数组条目次序一致。
+ *		保持字母序（重编号只费一次后端重建）。
+ *		见上。
  */
 
 enum SysCacheIdentifier
@@ -125,8 +125,8 @@ extern HeapTuple SearchSysCache(int cacheId,
 								Datum key1, Datum key2, Datum key3, Datum key4);
 
 /*
- * The use of argument specific numbers is encouraged. They're faster, and
- * insulates the caller from changes in the maximum number of keys.
+ * 鼓励使用按参数个数特化的编号。它们更快，且
+ * 使调用方免受最大键数变化的影响。
  */
 extern HeapTuple SearchSysCache1(int cacheId,
 								 Datum key1);
@@ -142,7 +142,7 @@ extern void ReleaseSysCache(HeapTuple tuple);
 extern HeapTuple SearchSysCacheLocked1(int cacheId,
 									   Datum key1);
 
-/* convenience routines */
+/* 便捷例程 */
 extern HeapTuple SearchSysCacheCopy(int cacheId,
 									Datum key1, Datum key2, Datum key3, Datum key4);
 extern HeapTuple SearchSysCacheLockedCopy1(int cacheId,
@@ -168,7 +168,7 @@ extern Datum SysCacheGetAttrNotNull(int cacheId, HeapTuple tup,
 extern uint32 GetSysCacheHashValue(int cacheId,
 								   Datum key1, Datum key2, Datum key3, Datum key4);
 
-/* list-search interface.  Users of this must import catcache.h too */
+/* 列表搜索接口。使用者还须引入 catcache.h */
 struct catclist;
 extern struct catclist *SearchSysCacheList(int cacheId, int nkeys,
 										   Datum key1, Datum key2, Datum key3);
@@ -180,9 +180,9 @@ extern bool RelationHasSysCache(Oid relid);
 extern bool RelationSupportsSysCache(Oid relid);
 
 /*
- * The use of the macros below rather than direct calls to the corresponding
- * functions is encouraged, as it insulates the caller from changes in the
- * maximum number of keys.
+ * 鼓励用下列宏而非直接调用对应函数，可使调用
+ * 方免受最大键数变化的影响。
+ * 见上。
  */
 #define SearchSysCacheCopy1(cacheId, key1) \
 	SearchSysCacheCopy(cacheId, key1, 0, 0, 0)

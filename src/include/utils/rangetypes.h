@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rangetypes.h
- *	  Declarations for Postgres range types.
+ *	  Postgres 范围类型的声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,32 +18,32 @@
 
 
 /*
- * Ranges are varlena objects, so must meet the varlena convention that
- * the first int32 of the object contains the total object size in bytes.
- * Be sure to use VARSIZE() and SET_VARSIZE() to access it, though!
+ * 范围是 varlena 对象，须遵守 varlena 约定：对象
+ * 首个 int32 含总字节大小。访问时务必用 VARSIZE()
+ * 与 SET_VARSIZE()！
  */
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	Oid			rangetypid;		/* range type's own OID */
-	/* Following the OID are zero to two bound values, then a flags byte */
+	int32		vl_len_;		/* varlena 头（勿直接触碰！） */
+	Oid			rangetypid;		/* 范围类型的 OID */
+	/* OID 之后是零到两个边界值，再跟标志字节 */
 } RangeType;
 
 #define RANGE_EMPTY_LITERAL "empty"
 
-/* Use this macro in preference to fetching rangetypid field directly */
+/* 优先用本宏，勿直接取 rangetypid 字段 */
 #define RangeTypeGetOid(r)	((r)->rangetypid)
 
-/* A range's flags byte contains these bits: */
-#define RANGE_EMPTY			0x01	/* range is empty */
-#define RANGE_LB_INC		0x02	/* lower bound is inclusive */
-#define RANGE_UB_INC		0x04	/* upper bound is inclusive */
-#define RANGE_LB_INF		0x08	/* lower bound is -infinity */
-#define RANGE_UB_INF		0x10	/* upper bound is +infinity */
-#define RANGE_LB_NULL		0x20	/* lower bound is null (NOT USED) */
-#define RANGE_UB_NULL		0x40	/* upper bound is null (NOT USED) */
-#define RANGE_CONTAIN_EMPTY 0x80	/* marks a GiST internal-page entry whose
-									 * subtree contains some empty ranges */
+/* 范围的标志字节含这些位： */
+#define RANGE_EMPTY			0x01	/* 范围为空 */
+#define RANGE_LB_INC		0x02	/* 下界含端点 */
+#define RANGE_UB_INC		0x04	/* 上界含端点 */
+#define RANGE_LB_INF		0x08	/* 下界为 -infinity */
+#define RANGE_UB_INF		0x10	/* 上界为 +infinity */
+#define RANGE_LB_NULL		0x20	/* 下界为 null（未用） */
+#define RANGE_UB_NULL		0x40	/* 上界为 null（未用） */
+#define RANGE_CONTAIN_EMPTY 0x80	/* 标记其子树含某些空范围的
+									 * GiST 内页条目 */
 
 #define RANGE_HAS_LBOUND(flags) (!((flags) & (RANGE_EMPTY | \
 											  RANGE_LB_NULL | \
@@ -58,17 +58,17 @@ typedef struct
 	((range_get_flags(r) & (RANGE_EMPTY | RANGE_CONTAIN_EMPTY)) != 0)
 
 
-/* Internal representation of either bound of a range (not what's on disk) */
+/* 范围任一侧边界的内部表示（非盘上格式） */
 typedef struct
 {
-	Datum		val;			/* the bound value, if any */
-	bool		infinite;		/* bound is +/- infinity */
-	bool		inclusive;		/* bound is inclusive (vs exclusive) */
-	bool		lower;			/* this is the lower (vs upper) bound */
+	Datum		val;			/* 边界值（若有） */
+	bool		infinite;		/* 边界为 ±infinity */
+	bool		inclusive;		/* 边界含端点（相对开） */
+	bool		lower;			/* 这是下界（相对上界） */
 } RangeBound;
 
 /*
- * fmgr functions for range type objects
+ * 范围类型对象的 fmgr 函数
  */
 static inline RangeType *
 DatumGetRangeTypeP(Datum X)
@@ -92,8 +92,8 @@ RangeTypePGetDatum(const RangeType *X)
 #define PG_GETARG_RANGE_P_COPY(n)	DatumGetRangeTypePCopy(PG_GETARG_DATUM(n))
 #define PG_RETURN_RANGE_P(x)		return RangeTypePGetDatum(x)
 
-/* Operator strategy numbers used in the GiST and SP-GiST range opclasses */
-/* Numbers are chosen to match up operator names with existing usages */
+/* GiST 与 SP-GiST 范围操作符类所用的策略号 */
+/* 编号选为与既有用法中的运算符名对应 */
 #define RANGESTRAT_BEFORE				RTLeftStrategyNumber
 #define RANGESTRAT_OVERLEFT				RTOverLeftStrategyNumber
 #define RANGESTRAT_OVERLAPS				RTOverlapStrategyNumber
@@ -106,12 +106,12 @@ RangeTypePGetDatum(const RangeType *X)
 #define RANGESTRAT_EQ					RTEqualStrategyNumber
 
 /*
- * prototypes for functions defined in rangetypes.c
+ * rangetypes.c 中函数的原型
  */
 
 extern bool range_contains_elem_internal(TypeCacheEntry *typcache, const RangeType *r, Datum val);
 
-/* internal versions of the above */
+/* 上述的内部版本 */
 extern bool range_eq_internal(TypeCacheEntry *typcache, const RangeType *r1,
 							  const RangeType *r2);
 extern bool range_ne_internal(TypeCacheEntry *typcache, const RangeType *r1,
@@ -139,7 +139,7 @@ extern RangeType *range_minus_internal(TypeCacheEntry *typcache, RangeType *r1,
 extern RangeType *range_intersect_internal(TypeCacheEntry *typcache, const RangeType *r1,
 										   const RangeType *r2);
 
-/* assorted support functions */
+/* 各类支持函数 */
 extern TypeCacheEntry *range_get_typcache(FunctionCallInfo fcinfo,
 										  Oid rngtypid);
 extern RangeType *range_serialize(TypeCacheEntry *typcache, RangeBound *lower,

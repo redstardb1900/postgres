@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------
  *
- * PostgreSQL locale utilities
+ * PostgreSQL 区域工具
  *
  * src/include/utils/pg_locale.h
  *
@@ -16,7 +16,7 @@
 #include <xlocale.h>
 #endif
 #ifdef USE_ICU
-/* only include the C APIs, to avoid errors in cpluspluscheck */
+/* 仅含 C APIs，以免 cpluspluscheck 报错 */
 #undef U_SHOW_CPLUSPLUS_API
 #define U_SHOW_CPLUSPLUS_API 0
 #undef U_SHOW_CPLUSPLUS_HEADER_API
@@ -37,23 +37,23 @@
 #endif
 #endif
 
-/* use for libc locale names */
+/* 用于 libc 区域名 */
 #define LOCALE_NAME_BUFLEN 128
 
-/* GUC settings */
+/* GUC 设置 */
 extern PGDLLIMPORT char *locale_messages;
 extern PGDLLIMPORT char *locale_monetary;
 extern PGDLLIMPORT char *locale_numeric;
 extern PGDLLIMPORT char *locale_time;
 extern PGDLLIMPORT int icu_validation_level;
 
-/* lc_time localization cache */
+/* lc_time 本地化缓存 */
 extern PGDLLIMPORT char *localized_abbrev_days[];
 extern PGDLLIMPORT char *localized_full_days[];
 extern PGDLLIMPORT char *localized_abbrev_months[];
 extern PGDLLIMPORT char *localized_full_months[];
 
-/* is the databases's LC_CTYPE the C locale? */
+/* 数据库的 LC_CTYPE 是 C 区域吗？ */
 extern PGDLLIMPORT bool database_ctype_is_c;
 
 extern bool check_locale(int category, const char *locale, char **canonname);
@@ -63,8 +63,8 @@ extern bool lc_collate_is_c(Oid collation);
 extern bool lc_ctype_is_c(Oid collation);
 
 /*
- * Return the POSIX lconv struct (contains number/money formatting
- * information) with locale information for all categories.
+ * 返回含所有类别区域信息的 POSIX lconv 结构，
+ * 含数字/货币格式信息。
  */
 extern struct lconv *PGLC_localeconv(void);
 
@@ -72,10 +72,10 @@ extern void cache_locale_time(void);
 
 
 /*
- * We define our own wrapper around locale_t so we can keep the same
- * function signatures for all builds, while not having to create a
- * fake version of the standard type locale_t in the global namespace.
- * pg_locale_t is occasionally checked for truth, so make it a pointer.
+ * 我们定义自己的 locale_t 包装，以便所有构建保持
+ * 相同函数签名，而不必在全局命名空间造假
+ * locale_t。pg_locale_t 偶尔作真值检查，故做成
+ * 指针。
  */
 struct pg_locale_struct
 {
@@ -93,7 +93,7 @@ struct pg_locale_struct
 			UCollator  *ucol;
 		}			icu;
 #endif
-		int			dummy;		/* in case we have neither LOCALE_T nor ICU */
+		int			dummy;		/* 以防既无 LOCALE_T 也无 ICU */
 	}			info;
 };
 
@@ -131,7 +131,7 @@ extern int32_t icu_to_uchar(UChar **buff_uchar, const char *buff, size_t nbytes)
 extern int32_t icu_from_uchar(char **result, const UChar *buff_uchar, int32_t len_uchar);
 #endif
 
-/* These functions convert from/to libc's wchar_t, *not* pg_wchar_t */
+/* 这些函数在 libc 的 wchar_t（非 pg_wchar_t）间转换 */
 extern size_t wchar2char(char *to, const wchar_t *from, size_t tolen,
 						 pg_locale_t locale);
 extern size_t char2wchar(wchar_t *to, size_t tolen,

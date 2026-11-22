@@ -1295,33 +1295,33 @@ typedef struct Limit
 
 /*
  * RowMarkType -
- *	  enums for types of row-marking operations
+ *		  行标记操作类型枚举
  *
- * The first four of these values represent different lock strengths that
- * we can take on tuples according to SELECT FOR [KEY] UPDATE/SHARE requests.
- * We support these on regular tables, as well as on foreign tables whose FDWs
- * report support for late locking.  For other foreign tables, any locking
- * that might be done for such requests must happen during the initial row
- * fetch; their FDWs provide no mechanism for going back to lock a row later.
- * This means that the semantics will be a bit different than for a local
- * table; in particular we are likely to lock more rows than would be locked
- * locally, since remote rows will be locked even if they then fail
- * locally-checked restriction or join quals.  However, the prospect of
- * doing a separate remote query to lock each selected row is usually pretty
- * unappealing, so early locking remains a credible design choice for FDWs.
+ * 前四值表示按 SELECT FOR [KEY] UPDATE/SHARE
+ * 请求可对元组施加的不同锁强度。正规表以及
+ * 声明支持迟锁的外表均支持。对其他外表，此
+ * 类请求若需加锁，必须在初次取行时完成；其
+ * FDWs 不提供事后再回去锁住一行的机制。这
+ * 意味着语义会与本地表略有不同：尤其我们常
+ * 会锁到比本地更多的行，因为远程行即便随后
+ * 未通过本地检查的限制或连接限定也会被锁。
+ * 然而为每个选中行另发一次远程查询去加锁通
+ * 常相当不划算，因此早锁对 FDWs 而言仍是合
+ * 理的设计选择。
+ * 见上。
  *
- * When doing UPDATE/DELETE/MERGE/SELECT FOR UPDATE/SHARE, we have to uniquely
- * identify all the source rows, not only those from the target relations, so
- * that we can perform EvalPlanQual rechecking at need.  For plain tables we
- * can just fetch the TID, much as for a target relation; this case is
- * represented by ROW_MARK_REFERENCE.  Otherwise (for example for VALUES or
- * FUNCTION scans) we have to copy the whole row value.  ROW_MARK_COPY is
- * pretty inefficient, since most of the time we'll never need the data; but
- * fortunately the overhead is usually not performance-critical in practice.
- * By default we use ROW_MARK_COPY for foreign tables, but if the FDW has
- * a concept of rowid it can request to use ROW_MARK_REFERENCE instead.
- * (Again, this probably doesn't make sense if a physical remote fetch is
- * needed, but for FDWs that map to local storage it might be credible.)
+ * 做 UPDATE/DELETE/MERGE/SELECT FOR UPDATE/SHARE
+ * 时，须唯一标识全部源行，不仅目标关系上的，
+ * 以便在需要时做 EvalPlanQual 重检。对普通表
+ * 只需取 TID，与目标关系类似；此情形由
+ * ROW_MARK_REFERENCE 表示。否则（例如 VALUES
+ * 或 FUNCTION 扫描）须拷贝整行值。ROW_MARK_COPY
+ * 相当低效，因多数时候根本用不到这些数据；但
+ * 开销在实践中通常并非性能关键。默认对外表用
+ * ROW_MARK_COPY，但若 FDW 有 rowid 概念，可
+ * 请求改用 ROW_MARK_REFERENCE。（同样，若需
+ * 物理远程再取则多半无意义，但对映射到本地
+ * 存储的 FDW 或许可行。）
  */
 typedef enum RowMarkType
 {
@@ -1337,41 +1337,41 @@ typedef enum RowMarkType
 
 /*
  * PlanRowMark -
- *	   plan-time representation of FOR [KEY] UPDATE/SHARE clauses
+ *		   FOR [KEY] UPDATE/SHARE 子句的规划期表示
  *
- * When doing UPDATE/DELETE/MERGE/SELECT FOR UPDATE/SHARE, we create a separate
- * PlanRowMark node for each non-target relation in the query.  Relations that
- * are not specified as FOR UPDATE/SHARE are marked ROW_MARK_REFERENCE (if
- * regular tables or supported foreign tables) or ROW_MARK_COPY (if not).
+ * 做 UPDATE/DELETE/MERGE/SELECT FOR UPDATE/SHARE 时，
+ * 为查询中每个非目标关系建一个 PlanRowMark 节点。
+ * 未指定 FOR UPDATE/SHARE 的关系：正规表或受支持
+ * 外表用 ROW_MARK_REFERENCE，否则用 ROW_MARK_COPY。
  *
- * Initially all PlanRowMarks have rti == prti and isParent == false.
- * When the planner discovers that a relation is the root of an inheritance
- * tree, it sets isParent true, and adds an additional PlanRowMark to the
- * list for each child relation (including the target rel itself in its role
- * as a child, if it is not a partitioned table).  Any non-leaf partitioned
- * child relations will also have entries with isParent = true.  The child
- * entries have rti == child rel's RT index and prti == top parent's RT index,
- * and can therefore be recognized as children by the fact that prti != rti.
- * The parent's allMarkTypes field gets the OR of (1<<markType) across all
- * its children (this definition allows children to use different markTypes).
+ * 起初所有 PlanRowMarks 均 rti == prti 且
+ * isParent == false。当规划器发现某关系是继承
+ * 树根时，置 isParent 为真，并为每个子关系向
+ * 列表追加 PlanRowMark（含目标关系自身作为子
+ * 角色的条目，若其非分区表）。任何非叶分区子
+ * 关系也会有 isParent = true 的条目。子条目的
+ * rti == 子关系 RT 下标且 prti == 顶层父 RT 下标，
+ * 故可由 prti != rti 识别为子。父的 allMarkTypes
+ * 字段取各子 (1<<markType) 的按位或（如此允许
+ * 子使用不同的 markType）。
  *
- * The planner also adds resjunk output columns to the plan that carry
- * information sufficient to identify the locked or fetched rows.  When
- * markType != ROW_MARK_COPY, these columns are named
- *		tableoid%u			OID of table
- *		ctid%u				TID of row
- * The tableoid column is only present for an inheritance hierarchy.
- * When markType == ROW_MARK_COPY, there is instead a single column named
- *		wholerow%u			whole-row value of relation
- * (An inheritance hierarchy could have all three resjunk output columns,
- * if some children use a different markType than others.)
- * In all three cases, %u represents the rowmark ID number (rowmarkId).
- * This number is unique within a plan tree, except that child relation
- * entries copy their parent's rowmarkId.  (Assigning unique numbers
- * means we needn't renumber rowmarkIds when flattening subqueries, which
- * would require finding and renaming the resjunk columns as well.)
- * Note this means that all tables in an inheritance hierarchy share the
- * same resjunk column names.
+ * 规划器还向计划添加足以标识已锁或已取行的
+ * resjunk 输出列。当 markType != ROW_MARK_COPY
+ * 时，这些列命名为
+ *		tableoid%u		表 OID
+ *		ctid%u			行 TID
+ * tableoid 列仅出现在继承层次中。
+ * 当 markType == ROW_MARK_COPY 时，改为单列
+ *		wholerow%u		关系整行值
+ * 若部分子使用不同 markType，继承层次可同时
+ * 有全部三种 resjunk 输出列。三种情形下 %u
+ * 均表示行标记 ID（rowmarkId）。该号在计划
+ * 树内唯一，但子关系条目复制其父的
+ * rowmarkId。赋唯一号使展平子查询时不必重
+ * 编号 rowmarkId，否则还须查找并重命名
+ * resjunk 列。注意这意味着继承层次中的所有
+ * 表共享相同的
+ * resjunk 列名。
  */
 typedef struct PlanRowMark
 {
@@ -1394,30 +1394,30 @@ typedef struct PlanRowMark
  */
 
 /*
- * PartitionPruneInfo - Details required to allow the executor to prune
- * partitions.
+ * PartitionPruneInfo - 供执行器剪枝分区所需
+ * 细节。
  *
- * Here we store mapping details to allow translation of a partitioned table's
- * index as returned by the partition pruning code into subplan indexes for
- * plan types which support arbitrary numbers of subplans, such as Append.
- * We also store various details to tell the executor when it should be
- * performing partition pruning.
+ * 此处存放映射细节，以便把分区剪枝代码返回的
+ * 分区表下标翻译成支持任意子计划数的计划类型
+ * 如 Append 所用的子计划下标。也存放各类细节，
+ * 告知执行器何时应
+ * 执行分区剪枝。
  *
- * Each PartitionedRelPruneInfo describes the partitioning rules for a single
- * partitioned table (a/k/a level of partitioning).  Since a partitioning
- * hierarchy could contain multiple levels, we represent it by a List of
- * PartitionedRelPruneInfos, where the first entry represents the topmost
- * partitioned table and additional entries represent non-leaf child
- * partitions, ordered such that parents appear before their children.
- * Then, since an Append-type node could have multiple partitioning
- * hierarchies among its children, we have an unordered List of those Lists.
+ * 每个 PartitionedRelPruneInfo 描述单个分区表
+ * 即一层分区的分区规则。因分区层次可含多层，
+ * 我们用 PartitionedRelPruneInfos 列表表示，
+ * 首项为最顶层分区表，后续项为非叶子分区，
+ * 且父在子之前。又因 Append 类节点的子中可
+ * 有多个分区层次，再以这些列表的无序列表来
+ * 容纳。
+ * 见上。
  *
- * prune_infos			List of Lists containing PartitionedRelPruneInfo nodes,
- *						one sublist per run-time-prunable partition hierarchy
- *						appearing in the parent plan node's subplans.
- * other_subplans		Indexes of any subplans that are not accounted for
- *						by any of the PartitionedRelPruneInfo nodes in
- *						"prune_infos".  These subplans must not be pruned.
+ * prune_infos			含 PartitionedRelPruneInfo 的 List
+ *						的 List；父计划子计划中每个可运行
+ *						时剪枝的分区层次各一子列表。
+ * other_subplans		未被任何 PartitionedRelPruneInfo
+ *						在 "prune_infos" 中计入的子计划
+ *						下标。这些子计划不得剪枝。
  */
 typedef struct PartitionPruneInfo
 {
@@ -1497,31 +1497,31 @@ typedef struct PartitionPruneStep
 } PartitionPruneStep;
 
 /*
- * PartitionPruneStepOp - Information to prune using a set of mutually ANDed
- *							OpExpr clauses
+ * PartitionPruneStepOp - 用互相 ANDed 的一组
+ *							OpExpr 子句
  *
- * This contains information extracted from up to partnatts OpExpr clauses,
- * where partnatts is the number of partition key columns.  'opstrategy' is the
- * strategy of the operator in the clause matched to the last partition key.
- * 'exprs' contains expressions which comprise the lookup key to be passed to
- * the partition bound search function.  'cmpfns' contains the OIDs of
- * comparison functions used to compare aforementioned expressions with
- * partition bounds.  Both 'exprs' and 'cmpfns' contain the same number of
- * items, up to partnatts items.
+ * 此含从至多 partnatts 个 OpExpr 子句抽出的
+ * 信息，partnatts 为分区键列数。"opstrategy"
+ * 是与最后分区键匹配的子句中运算符的策略。
+ * "exprs" 含组成查找键、传给分区边界搜索函数
+ * 的表达式。"cmpfns" 含用于将上述表达式与
+ * 分区边界比较的函数 OIDs。二者项数相同，
+ * 至多 partnatts 项。
+ * 见上。
  *
- * Once we find the offset of a partition bound using the lookup key, we
- * determine which partitions to include in the result based on the value of
- * 'opstrategy'.  For example, if it were equality, we'd return just the
- * partition that would contain that key or a set of partitions if the key
- * didn't consist of all partitioning columns.  For non-equality strategies,
- * we'd need to include other partitions as appropriate.
+ * 一旦用查找键找到分区边界偏移，就按
+ * "opstrategy" 的值决定结果中包含哪些分区。
+ * 例如若为相等，则只返回会含该键的那个分区，
+ * 或在键未含全部分区列时返回一组分区。对非
+ * 相等策略，还需按情形纳入其他分区。
+ * 见上。
  *
- * 'nullkeys' is the set containing the offset of the partition keys (0 to
- * partnatts - 1) that were matched to an IS NULL clause.  This is only
- * considered for hash partitioning as we need to pass which keys are null
- * to the hash partition bound search function.  It is never possible to
- * have an expression be present in 'exprs' for a given partition key and
- * the corresponding bit set in 'nullkeys'.
+ * "nullkeys" 是匹配到 IS NULL 子句的分区键
+ * 偏移（0 到 partnatts - 1）的集合。仅哈希
+ * 分区考虑它，因须把哪些键为 null 传给哈希
+ * 分区边界搜索函数。同一分区键不可能既在
+ * "exprs" 中有表达式，又在 "nullkeys" 中
+ * 置对应位。
  */
 typedef struct PartitionPruneStepOp
 {

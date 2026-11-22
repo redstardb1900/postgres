@@ -1,45 +1,45 @@
 /*-------------------------------------------------------------------------
  *
  * sortsupport.h
- *	  Framework for accelerated sorting.
+ *	  加速排序的框架。
  *
- * Traditionally, PostgreSQL has implemented sorting by repeatedly invoking
- * an SQL-callable comparison function "cmp(x, y) returns int" on pairs of
- * values to be compared, where the comparison function is the BTORDER_PROC
- * pg_amproc support function of the appropriate btree index opclass.
+ * 传统上 PostgreSQL 通过对待比较值对反复调用 SQL
+ * 可调用比较函数 "cmp(x, y) returns int" 来排序，该
+ * 函数是相应 btree 索引 opclass 的 BTORDER_PROC
+ * pg_amproc 支持函数。
  *
- * This file defines alternative APIs that allow sorting to be performed with
- * reduced overhead.  To support lower-overhead sorting, a btree opclass may
- * provide a BTSORTSUPPORT_PROC pg_amproc entry, which must take a single
- * argument of type internal and return void.  The argument is actually a
- * pointer to a SortSupportData struct, which is defined below.
+ * 本文件定义可降低开销的替代 API。为支持低开销排
+ * 序，btree 操作符类可提供 BTSORTSUPPORT_PROC
+ * pg_amproc 条目，须接受单个 internal 参数并返回
+ * void。该参数实际是指向下方 SortSupportData 结构
+ * 的指针。
  *
- * If provided, the BTSORTSUPPORT function will be called during sort setup,
- * and it must initialize the provided struct with pointers to function(s)
- * that can be called to perform sorting.  This API is defined to allow
- * multiple acceleration mechanisms to be supported, but no opclass is
- * required to provide all of them.  The BTSORTSUPPORT function should
- * simply not set any function pointers for mechanisms it doesn't support.
- * Opclasses that provide BTSORTSUPPORT and don't provide a comparator
- * function will have a shim set up by sort support automatically.  However,
- * opclasses that support the optional additional abbreviated key capability
- * must always provide an authoritative comparator used to tie-break
- * inconclusive abbreviated comparisons and also used when aborting
- * abbreviation.  Furthermore, a converter and abort/costing function must be
- * provided.
+ * 若提供，BTSORTSUPPORT 会在排序设置时调用，且必须
+ * 用可执行排序的函数指针初始化所给结构。本 API
+ * 允许支持多种加速机制，但 opclass 不必全部提供。
+ * BTSORTSUPPORT 对不支持的机制可不设函数指针。
+ * 提供 BTSORTSUPPORT 但不提供比较器的 opclass 会
+ * 由排序支持自动设 shim。但支持可选缩写键能力
+ * 的 opclass 必须始终提供权威比较器，用于平局判定
+ * 不确定的缩写比较，并在中止缩写时使用。此外必须
+ * 提供转换器与中止/代价函数。
+ * 见上。
+ * 见上。
+ * 见上。
+ * 见上。
  *
- * All sort support functions will be passed the address of the
- * SortSupportData struct when called, so they can use it to store
- * additional private data as needed.  In particular, for collation-aware
- * datatypes, the ssup_collation field is set before calling BTSORTSUPPORT
- * and is available to all support functions.  Additional opclass-dependent
- * data can be stored using the ssup_extra field.  Any such data
- * should be allocated in the ssup_cxt memory context.
+ * 所有排序支持函数被调用时都会传入
+ * SortSupportData 地址，以便按需存额外私有数据。
+ * 尤其对 collation 敏感类型，调用 BTSORTSUPPORT 前
+ * 会设好 ssup_collation，且对所有支持函数可用。额外
+ * opclass 相关数据可用 ssup_extra 存放，应分配在
+ * ssup_cxt 内存上下文中。
+ * 见上。
  *
- * Note: since pg_amproc functions are indexed by (lefttype, righttype)
- * it is possible to associate a BTSORTSUPPORT function with a cross-type
- * comparison.  This could sensibly be used to provide a fast comparator
- * function for such cases, but probably not any other acceleration method.
+ * 注意：因 pg_amproc 按 (lefttype, righttype) 索引，
+ * 可将 BTSORTSUPPORT 与跨类型比较关联。这可合理用于
+ * 为此类情形提供快速比较器，但大概不适合其他加速
+ * 方法。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -60,141 +60,141 @@ typedef struct SortSupportData *SortSupport;
 typedef struct SortSupportData
 {
 	/*
-	 * These fields are initialized before calling the BTSORTSUPPORT function
-	 * and should not be changed later.
+	 * 这些字段在调用 BTSORTSUPPORT 前初始化，之后不应
+	 * 再改。
 	 */
-	MemoryContext ssup_cxt;		/* Context containing sort info */
-	Oid			ssup_collation; /* Collation to use, or InvalidOid */
+	MemoryContext ssup_cxt;		/* 含排序信息的上下文 */
+	Oid			ssup_collation; /* collation，或 InvalidOid */
 
 	/*
-	 * Additional sorting parameters; but unlike ssup_collation, these can be
-	 * changed after BTSORTSUPPORT is called, so don't use them in selecting
-	 * sort support functions.
+	 * 额外排序参数；但与 ssup_collation 不同，这些可在
+	 * 调用 BTSORTSUPPORT 后更改，故勿用其选择排序
+	 * 支持函数。
 	 */
-	bool		ssup_reverse;	/* descending-order sort? */
-	bool		ssup_nulls_first;	/* sort nulls first? */
+	bool		ssup_reverse;	/* 降序排序？ */
+	bool		ssup_nulls_first;	/* 空值排前？ */
 
 	/*
-	 * These fields are workspace for callers, and should not be touched by
-	 * opclass-specific functions.
+	 * 这些字段是调用方工作区，opclass 函数勿触碰。
+	 * 见上。
 	 */
-	AttrNumber	ssup_attno;		/* column number to sort */
+	AttrNumber	ssup_attno;		/* 要排序的列号 */
 
 	/*
-	 * ssup_extra is zeroed before calling the BTSORTSUPPORT function, and is
-	 * not touched subsequently by callers.
+	 * ssup_extra 在调用 BTSORTSUPPORT 前清零，之后调用
+	 * 方不再触碰。
 	 */
-	void	   *ssup_extra;		/* Workspace for opclass functions */
+	void	   *ssup_extra;		/* opclass 函数的工作区 */
 
 	/*
-	 * Function pointers are zeroed before calling the BTSORTSUPPORT function,
-	 * and must be set by it for any acceleration methods it wants to supply.
-	 * The comparator pointer must be set, others are optional.
+	 * 函数指针在调用 BTSORTSUPPORT 前清零，由其设置想
+	 * 提供的加速方法。比较器指针必须设置，其余可选。
+	 * 见上。
 	 */
 
 	/*
-	 * Comparator function has the same API as the traditional btree
-	 * comparison function, ie, return <0, 0, or >0 according as x is less
-	 * than, equal to, or greater than y.  Note that x and y are guaranteed
-	 * not null, and there is no way to return null either.
+	 * 比较器 API 与传统 btree 比较函数相同，即按 x
+	 * 小于、等于或大于 y 返回 <0、0 或 >0。注意 x、y
+	 * 保证非空，也无法返回空。
+	 * 见上。
 	 *
-	 * This may be either the authoritative comparator, or the abbreviated
-	 * comparator.  Core code may switch this over the initial preference of
-	 * an opclass support function despite originally indicating abbreviation
-	 * was applicable, by assigning the authoritative comparator back.
+	 * 可以是权威或缩写比较器。尽管 opclass 支持函数
+	 * 最初表明适用缩写，核心仍可改回权威比较器。
+	 * 见上。
+	 * 见上。
 	 */
 	int			(*comparator) (Datum x, Datum y, SortSupport ssup);
 
 	/*
-	 * "Abbreviated key" infrastructure follows.
+	 * 以下为"缩写键"基础设施。
 	 *
-	 * All callbacks must be set by sortsupport opclasses that make use of
-	 * this optional additional infrastructure (unless for whatever reasons
-	 * the opclass doesn't proceed with abbreviation, in which case
-	 * abbrev_converter must not be set).
+	 * 使用此可选附加设施的操作符类须设置全部
+	 * 回调（除非因故不进行缩写，此时勿设置
+	 * abbrev_converter）。
+	 * 见上。
 	 *
-	 * This allows opclass authors to supply a conversion routine, used to
-	 * create an alternative representation of the underlying type (an
-	 * "abbreviated key").  This representation must be pass-by-value and
-	 * typically will use some ad-hoc format that only the opclass has
-	 * knowledge of.  An alternative comparator, used only with this
-	 * alternative representation must also be provided (which is assigned to
-	 * "comparator").  This representation is a simple approximation of the
-	 * original Datum.  It must be possible to compare datums of this
-	 * representation with each other using the supplied alternative
-	 * comparator, and have any non-zero return value be a reliable proxy for
-	 * what a proper comparison would indicate. Returning zero from the
-	 * alternative comparator does not indicate equality, as with a
-	 * conventional support routine 1, though -- it indicates that it wasn't
-	 * possible to determine how the two abbreviated values compared.  A
-	 * proper comparison, using "abbrev_full_comparator"/
-	 * ApplySortAbbrevFullComparator() is therefore required.  In many cases
-	 * this results in most or all comparisons only using the cheap
-	 * alternative comparison func, which is typically implemented as code
-	 * that compiles to just a few CPU instructions.  CPU cache miss penalties
-	 * are expensive; to get good overall performance, sort infrastructure
-	 * must heavily weigh cache performance.
+	 * 这允许 opclass 作者提供转换例程，用以创建
+	 * 底层类型替代表示（"缩写键"）。须按值传递，
+	 * 通常用仅 opclass 知晓的专用格式。还必须提供
+	 * 仅用于此替代表示的备选比较器（赋给
+	 * "comparator"）。此表示是原 Datum 的简单近似。
+	 * 须能用备选比较器互比，且非零返回值须可靠代理
+	 * 正式比较结果。返回零并不像传统支持例程 1 那
+	 * 样表示相等——而表示无法判定两缩写值如何
+	 * 比较。因此须用 "abbrev_full_comparator"/
+	 * ApplySortAbbrevFullComparator() 做正式比较。
+	 * 许多情况下多数比较只用廉价备选函数，通常
+	 * 为仅几条 CPU 指令。缓存未命中代价高；要获
+	 * 良好性能，排序基础设施必须重权缓存表现。
+	 * 见上。
+	 * 见上。
+	 * 见上。
+	 * 见上。
+	 * 见上。
+	 * 见上。
+	 * 见上。
+	 * 见上。
 	 *
-	 * Opclass authors must consider the final cardinality of abbreviated keys
-	 * when devising an encoding scheme.  It's possible for a strategy to work
-	 * better than an alternative strategy with one usage pattern, while the
-	 * reverse might be true for another usage pattern.  All of these factors
-	 * must be considered.
+	 * opclass 作者设计编码方案时须考虑缩写键最终基数。某
+	 * 策略在一种用法下可能优于另一策略，而另一种用法
+	 * 下则相反。所有这些因素都必须考虑。
+	 * 见上。
+	 * 见上。
 	 */
 
 	/*
-	 * "abbreviate" concerns whether or not the abbreviated key optimization
-	 * is applicable in principle (that is, the sortsupport routine needs to
-	 * know if its dealing with a key where an abbreviated representation can
-	 * usefully be packed together.  Conventionally, this is the leading
-	 * attribute key).  Note, however, that in order to determine that
-	 * abbreviation is not in play, the core code always checks whether or not
-	 * the opclass has set abbrev_converter.  This is a one way, one time
-	 * message to the opclass.
+	 * "abbreviate" 关乎缩写键优化原则上是否适用（即
+	 * sortsupport 例程须知是否在处理能有益地打包缩写表
+	 * 示的键。按惯例这是前导属性键）。但注意核心代码
+	 * 总是通过检查 opclass 是否设置了 abbrev_converter
+	 * 来判定缩写是否启用。这是对 opclass 的单向一次
+	 * 消息。
+	 * 见上。
+	 * 见上。
 	 */
 	bool		abbreviate;
 
 	/*
-	 * Converter to abbreviated format, from original representation.  Core
-	 * code uses this callback to convert from a pass-by-reference "original"
-	 * Datum to a pass-by-value abbreviated key Datum.  Note that original is
-	 * guaranteed NOT NULL, because it doesn't make sense to factor NULLness
-	 * into ad-hoc cost model.
+	 * 从原始表示到缩写格式的转换器。核心用此回调把
+	 * 按引用"原始" Datum 转为按值缩写键 Datum。注意
+	 * original 保证非 NULL，因把 NULLness 计入专用代价
+	 * 模型无意义。
+	 * 见上。
 	 *
-	 * abbrev_converter is tested to see if abbreviation is in play.  Core
-	 * code may set it to NULL to indicate abbreviation should not be used
-	 * (which is something sortsupport routines need not concern themselves
-	 * with). However, sortsupport routines must not set it when it is
-	 * immediately established that abbreviation should not proceed (e.g., for
-	 * !abbreviate calls, or due to platform-specific impediments to using
-	 * abbreviation).
+	 * 用 abbrev_converter 检测是否启用缩写。核心可将其置
+	 * NULL 表示不应使用缩写（例程不必关心）。但若
+	 * 立即确定不应缩写（例如 !abbreviate 调用，或
+	 * 平台阻碍），例程勿设置它。
+	 * 见上。
+	 * 见上。
+	 * 见上。
 	 */
 	Datum		(*abbrev_converter) (Datum original, SortSupport ssup);
 
 	/*
-	 * abbrev_abort callback allows clients to verify that the current
-	 * strategy is working out, using a sortsupport routine defined ad-hoc
-	 * cost model. If there is a lot of duplicate abbreviated keys in
-	 * practice, it's useful to be able to abandon the strategy before paying
-	 * too high a cost in conversion (perhaps certain opclass-specific
-	 * adaptations are useful too).
+	 * abbrev_abort 回调让客户用专用代价模型验证
+	 * 当前策略是否奏效。若实践中缩写键大量重复，
+	 * 宜在转换代价过高前放弃（或许某些 opclass
+	 * 专用适配也有用）。
+	 * 见上。
+	 * 见上。
 	 */
 	bool		(*abbrev_abort) (int memtupcount, SortSupport ssup);
 
 	/*
-	 * Full, authoritative comparator for key that an abbreviated
-	 * representation was generated for, used when an abbreviated comparison
-	 * was inconclusive (by calling ApplySortAbbrevFullComparator()), or used
-	 * to replace "comparator" when core system ultimately decides against
-	 * abbreviation.
+	 * 为其生成缩写表示之键的权威比较器，在
+	 * 缩写比较不确定时调用
+	 * ApplySortAbbrevFullComparator()，或在核心最终
+	 * 反对缩写时用来替换 "comparator"。
+	 * 见上。
 	 */
 	int			(*abbrev_full_comparator) (Datum x, Datum y, SortSupport ssup);
 } SortSupportData;
 
 
 /*
- * Apply a sort comparator function and return a 3-way comparison result.
- * This takes care of handling reverse-sort and NULLs-ordering properly.
+ * 应用排序比较器并返回三路比较结果。
+ * 负责正确处理逆序与 NULLs 次序。
  */
 static inline int
 ApplySortComparator(Datum datum1, bool isNull1,
@@ -333,9 +333,9 @@ ApplyInt32SortComparator(Datum datum1, bool isNull1,
 }
 
 /*
- * Apply a sort comparator function and return a 3-way comparison using full,
- * authoritative comparator.  This takes care of handling reverse-sort and
- * NULLs-ordering properly.
+ * 应用排序比较器并用完整权威比较器返回三路比较。
+ * 负责正确处理逆序与 NULLs 次序。
+ * 见上。
  */
 static inline int
 ApplySortAbbrevFullComparator(Datum datum1, bool isNull1,
@@ -371,9 +371,9 @@ ApplySortAbbrevFullComparator(Datum datum1, bool isNull1,
 }
 
 /*
- * Datum comparison functions that we have specialized sort routines for.
- * Datatypes that install these as their comparator or abbreviated comparator
- * are eligible for faster sorting.
+ * 我们有专用排序例程的 Datum 比较函数。
+ * 将其设为比较器或缩写比较器的数据类型有资格获得
+ * 更快排序。
  */
 extern int	ssup_datum_unsigned_cmp(Datum x, Datum y, SortSupport ssup);
 #if SIZEOF_DATUM >= 8
@@ -381,7 +381,7 @@ extern int	ssup_datum_signed_cmp(Datum x, Datum y, SortSupport ssup);
 #endif
 extern int	ssup_datum_int32_cmp(Datum x, Datum y, SortSupport ssup);
 
-/* Other functions in utils/sort/sortsupport.c */
+/* utils/sort/sortsupport.c 中的其他函数 */
 extern void PrepareSortSupportComparisonShim(Oid cmpFunc, SortSupport ssup);
 extern void PrepareSortSupportFromOrderingOp(Oid orderingOp, SortSupport ssup);
 extern void PrepareSortSupportFromIndexRel(Relation indexRel, int16 strategy,

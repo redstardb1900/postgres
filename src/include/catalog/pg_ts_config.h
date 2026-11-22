@@ -32,7 +32,7 @@ CATALOG(pg_ts_config,3602,TSConfigRelationId)
 	/* oid */
 	Oid			oid;
 
-	/* name of configuration */
+	/*  配置名  */
 	NameData	cfgname;
 
 	/* name space */
@@ -41,7 +41,7 @@ CATALOG(pg_ts_config,3602,TSConfigRelationId)
 	/* owner */
 	Oid			cfgowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-	/* OID of parser */
+	/* 解析器 OID */
 	Oid			cfgparser BKI_LOOKUP(pg_ts_parser);
 } FormData_pg_ts_config;
 

@@ -29,16 +29,16 @@
  */
 CATALOG(pg_ts_config_map,3603,TSConfigMapRelationId)
 {
-	/* OID of configuration owning this entry */
+	/*  拥有本条目的配置 OID  */
 	Oid			mapcfg BKI_LOOKUP(pg_ts_config);
 
 	/* token type from parser */
 	int32		maptokentype;
 
-	/* order in which to consult dictionaries */
+	/*  查阅词典的次序  */
 	int32		mapseqno;
 
-	/* dictionary to consult */
+	/*  要查阅的词典  */
 	Oid			mapdict BKI_LOOKUP(pg_ts_dict);
 } FormData_pg_ts_config_map;
 

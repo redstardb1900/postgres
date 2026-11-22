@@ -31,11 +31,11 @@ CATALOG(pg_parameter_acl,6243,ParameterAclRelationId) BKI_SHARED_RELATION
 {
 	Oid			oid;			/* oid */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* name of parameter */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/*  参数名  */
 	text		parname BKI_FORCE_NOT_NULL;
 
-	/* access permissions */
+	/*  访问权限  */
 	aclitem		paracl[1] BKI_DEFAULT(_null_);
 #endif
 } FormData_pg_parameter_acl;

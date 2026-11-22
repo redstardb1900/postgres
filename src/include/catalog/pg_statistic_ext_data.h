@@ -30,16 +30,16 @@
  */
 CATALOG(pg_statistic_ext_data,3429,StatisticExtDataRelationId)
 {
-	Oid			stxoid BKI_LOOKUP(pg_statistic_ext);	/* statistics object
-														 * this data is for */
-	bool		stxdinherit;	/* true if inheritance children are included */
+	Oid			stxoid BKI_LOOKUP(pg_statistic_ext);	/*  统计对象
+														 * 本数据所属  */
+	bool		stxdinherit;	/*  含继承子表则为真  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 
-	pg_ndistinct stxdndistinct; /* ndistinct coefficients (serialized) */
-	pg_dependencies stxddependencies;	/* dependencies (serialized) */
+	pg_ndistinct stxdndistinct; /*  ndistinct 系数(已序列化)  */
+	pg_dependencies stxddependencies;	/*  依赖(已序列化)  */
 	pg_mcv_list stxdmcv;		/* MCV (serialized) */
-	pg_statistic stxdexpr[1];	/* stats for expressions */
+	pg_statistic stxdexpr[1];	/*  表达式统计  */
 
 #endif
 

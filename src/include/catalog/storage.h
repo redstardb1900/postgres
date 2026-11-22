@@ -19,7 +19,7 @@
 #include "storage/smgr.h"
 #include "utils/relcache.h"
 
-/* GUC variables */
+/*  GUC 变量  */
 extern PGDLLIMPORT int wal_skip_threshold;
 
 extern SMgrRelation RelationCreateStorage(RelFileLocator rlocator,
@@ -37,8 +37,8 @@ extern void SerializePendingSyncs(Size maxSize, char *startAddress);
 extern void RestorePendingSyncs(char *startAddress);
 
 /*
- * These functions used to be in storage/smgr/smgr.c, which explains the
- * naming
+ * 这些函数曾在 storage/smgr/smgr.c,故命名
+ * 如此
  */
 extern void smgrDoPendingDeletes(bool isCommit);
 extern void smgrDoPendingSyncs(bool isCommit, bool isParallelWorker);

@@ -30,16 +30,16 @@ CATALOG(pg_ts_template,3764,TSTemplateRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* template name */
+	/*  模板名  */
 	NameData	tmplname;
 
 	/* name space */
 	Oid			tmplnamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
-	/* initialization method of dict (may be 0) */
+	/*  词典初始化方法(可为 0)  */
 	regproc		tmplinit BKI_LOOKUP_OPT(pg_proc);
 
-	/* base method of dictionary */
+	/*  词典的基础方法  */
 	regproc		tmpllexize BKI_LOOKUP(pg_proc);
 } FormData_pg_ts_template;
 

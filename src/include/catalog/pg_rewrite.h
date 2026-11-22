@@ -38,7 +38,7 @@ CATALOG(pg_rewrite,2618,RewriteRelationId)
 	char		ev_enabled;
 	bool		is_instead;
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	pg_node_tree ev_qual BKI_FORCE_NOT_NULL;
 	pg_node_tree ev_action BKI_FORCE_NOT_NULL;
 #endif

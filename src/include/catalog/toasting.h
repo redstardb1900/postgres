@@ -17,7 +17,7 @@
 #include "storage/lock.h"
 
 /*
- * toasting.c prototypes
+ * toasting.c 原型
  */
 extern void NewRelationCreateToastTable(Oid relOid, Datum reloptions);
 extern void NewHeapCreateToastTable(Oid relOid, Datum reloptions,

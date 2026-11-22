@@ -30,7 +30,7 @@ CATALOG(pg_ts_parser,3601,TSParserRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* parser's name */
+	/* 解析器名 */
 	NameData	prsname;
 
 	/* name space */
@@ -42,13 +42,13 @@ CATALOG(pg_ts_parser,3601,TSParserRelationId)
 	/* return next token */
 	regproc		prstoken BKI_LOOKUP(pg_proc);
 
-	/* finalize parsing session */
+	/*  结束解析会话  */
 	regproc		prsend BKI_LOOKUP(pg_proc);
 
-	/* return data for headline creation */
+	/* 返回用于创建标题的数据 */
 	regproc		prsheadline BKI_LOOKUP_OPT(pg_proc);
 
-	/* return descriptions of lexeme's types */
+	/*  返回词素类型描述  */
 	regproc		prslextype BKI_LOOKUP(pg_proc);
 } FormData_pg_ts_parser;
 

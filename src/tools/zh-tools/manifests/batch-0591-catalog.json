@@ -1,0 +1,231 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0591",
+ "title": "include/catalog ts/storage 小头×11 — batch 0591",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "509e3cdf107f3e1f90c8d2dd2c4d8d490d116af6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/toasting.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_ts_config_map.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/storage.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_ts_template.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_ts_config.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_rewrite.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_ts_dict.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/storage_xlog.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_parameter_acl.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_statistic_ext_data.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_ts_parser.h",
+   "kind": "c_comment",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0591-catalog.json",
+   "kind": "manifest",
+   "note": "0591"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/toasting.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_ts_config_map.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/storage.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_ts_template.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_ts_config.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_rewrite.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_ts_dict.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/storage_xlog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_parameter_acl.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_statistic_ext_data.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_ts_parser.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文 KEEP EN。"
+   ],
+   "note": "0591"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0591-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0591"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0591"
+  }
+ ],
+ "notes": "短字段注已译；横幅/长文 KEEP"
+}

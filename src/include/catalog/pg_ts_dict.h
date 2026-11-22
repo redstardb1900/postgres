@@ -31,7 +31,7 @@ CATALOG(pg_ts_dict,3600,TSDictionaryRelationId)
 	/* oid */
 	Oid			oid;
 
-	/* dictionary name */
+	/*  词典名  */
 	NameData	dictname;
 
 	/* name space */
@@ -40,11 +40,11 @@ CATALOG(pg_ts_dict,3600,TSDictionaryRelationId)
 	/* owner */
 	Oid			dictowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-	/* dictionary's template */
+	/*  词典的模板  */
 	Oid			dicttemplate BKI_LOOKUP(pg_ts_template);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* options passed to dict_init() */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/* 传给 dict_init() 的选项 */
 	text		dictinitoption;
 #endif
 } FormData_pg_ts_dict;

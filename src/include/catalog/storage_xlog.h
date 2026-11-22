@@ -26,7 +26,7 @@
  * actions is handled by xact.c, because it is part of transaction commit.
  */
 
-/* XLOG gives us high 4 bits */
+/*  XLOG 占用高 4 位  */
 #define XLOG_SMGR_CREATE	0x10
 #define XLOG_SMGR_TRUNCATE	0x20
 
@@ -36,7 +36,7 @@ typedef struct xl_smgr_create
 	ForkNumber	forkNum;
 } xl_smgr_create;
 
-/* flags for xl_smgr_truncate */
+/* xl_smgr_truncate 的标志 */
 #define SMGR_TRUNCATE_HEAP		0x0001
 #define SMGR_TRUNCATE_VM		0x0002
 #define SMGR_TRUNCATE_FSM		0x0004

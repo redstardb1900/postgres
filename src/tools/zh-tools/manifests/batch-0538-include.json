@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0538",
+  "title": "include/nodes execnodes.h part1 (L<1457) — batch 0538",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8e5eb614d61b1710d2aeefe16d470227ac6ebd5b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/execnodes.h",
+      "kind": "c_comment",
+      "note": "0538"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0538-include.json",
+      "kind": "manifest",
+      "note": "0538"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/execnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1520,
+      "translated": 519,
+      "preserved": 1001,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP",
+        "L>=1457 留 0539",
+        "预算紧/AUTOKEEP/MIXED KEEP EN"
+      ],
+      "note": "0538 T=519"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0538-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0538"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0538"
+    }
+  ]
+}

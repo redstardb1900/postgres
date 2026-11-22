@@ -48,41 +48,41 @@
 #include "utils/tuplesort.h"
 #include "utils/tuplestore.h"
 
-struct PlanState;				/* forward references in this file */
+struct PlanState;				/* 本文件中的前向引用 */
 struct ParallelHashJoinState;
 struct ExecRowMark;
 struct ExprState;
 struct ExprContext;
-struct RangeTblEntry;			/* avoid including parsenodes.h here */
-struct ExprEvalStep;			/* avoid including execExpr.h everywhere */
+struct RangeTblEntry;			/* 避免在此包含 parsenodes.h */
+struct ExprEvalStep;			/* 避免处处包含 execExpr.h */
 struct CopyMultiInsertBuffer;
 struct LogicalTapeSet;
 
 
 /* ----------------
- *		ExprState node
+ *	ExprState 点
  *
- * ExprState represents the evaluation state for a whole expression tree.
- * It contains instructions (in ->steps) to evaluate the expression.
+ * ExprState 表示整棵表达式树的求值状态。
+ * 含求值表达式的指令(在 ->steps 中)。
  * ----------------
  */
 typedef Datum (*ExprStateEvalFunc) (struct ExprState *expression,
 									struct ExprContext *econtext,
 									bool *isNull);
 
-/* Bits in ExprState->flags (see also execExpr.h for private flag bits): */
-/* expression is for use with ExecQual() */
+/* ExprState->flags 中的位(私有标志位另见 execExpr.h): */
+/* 表达式供 ExecQual() 使用 */
 #define EEO_FLAG_IS_QUAL					(1 << 0)
 
 typedef struct ExprState
 {
 	NodeTag		type;
 
-	uint8		flags;			/* bitmask of EEO_FLAG_* bits, see above */
+	uint8		flags;			/* EEO_FLAG_* 位掩码,见上 */
 
 	/*
-	 * Storage for result value of a scalar expression, or for individual
-	 * column results within expressions built by ExecBuildProjectionInfo().
+	 * 标量表达式结果值的存储,或 ExecBuildProjectionInfo()
+	 * 所建表达式中各列结果的存储。
 	 */
 #define FIELDNO_EXPRSTATE_RESNULL 2
 	bool		resnull;
@@ -90,13 +90,13 @@ typedef struct ExprState
 	Datum		resvalue;
 
 	/*
-	 * If projecting a tuple result, this slot holds the result; else NULL.
+	 * 若投影元组结果,本槽保存结果;否则为 NULL。
 	 */
 #define FIELDNO_EXPRSTATE_RESULTSLOT 4
 	TupleTableSlot *resultslot;
 
 	/*
-	 * Instructions to compute expression's return value.
+	 * 计算表达式返回值的指令。
 	 */
 	struct ExprEvalStep *steps;
 
@@ -106,23 +106,23 @@ typedef struct ExprState
 	 */
 	ExprStateEvalFunc evalfunc;
 
-	/* original expression tree, for debugging only */
+	/* 原表达式树,仅供调试 */
 	Expr	   *expr;
 
-	/* private state for an evalfunc */
+	/* evalfunc 的私有状态 */
 	void	   *evalfunc_private;
 
 	/*
-	 * XXX: following fields only needed during "compilation" (ExecInitExpr);
-	 * could be thrown away afterwards.
+	 * XXX: 下列字段仅在"编译"(ExecInitExpr)期间需要;
+	 * 之后可丢弃。
 	 */
 
-	int			steps_len;		/* number of steps currently */
-	int			steps_alloc;	/* allocated length of steps array */
+	int			steps_len;		/* 当前步骤数 */
+	int			steps_alloc;	/* steps 数组已分配长度 */
 
 #define FIELDNO_EXPRSTATE_PARENT 11
-	struct PlanState *parent;	/* parent PlanState node, if any */
-	ParamListInfo ext_params;	/* for compiling PARAM_EXTERN nodes */
+	struct PlanState *parent;	/* 父 PlanState 节点(若有) */
+	ParamListInfo ext_params;	/* 供编译 PARAM_EXTERN 节点 */
 
 	Datum	   *innermost_caseval;
 	bool	   *innermost_casenull;
@@ -133,62 +133,62 @@ typedef struct ExprState
 
 
 /* ----------------
- *	  IndexInfo information
+ *	IndexInfo 信息
  *
- *		this struct holds the information needed to construct new index
- *		entries for a particular index.  Used for both index_build and
- *		retail creation of index entries.
+ *	本结构保存为特定索引构造新索引项所需信息。
+ *	用于 index_build 与零售式创建索引项。
+ *	见上。
  *
- *		NumIndexAttrs		total number of columns in this index
- *		NumIndexKeyAttrs	number of key columns in index
- *		IndexAttrNumbers	underlying-rel attribute numbers used as keys
- *							(zeroes indicate expressions). It also contains
- * 							info about included columns.
- *		Expressions			expr trees for expression entries, or NIL if none
- *		ExpressionsState	exec state for expressions, or NIL if none
- *		Predicate			partial-index predicate, or NIL if none
- *		PredicateState		exec state for predicate, or NIL if none
- *		ExclusionOps		Per-column exclusion operators, or NULL if none
- *		ExclusionProcs		Underlying function OIDs for ExclusionOps
- *		ExclusionStrats		Opclass strategy numbers for ExclusionOps
- *		UniqueOps			These are like Exclusion*, but for unique indexes
- *		UniqueProcs
- *		UniqueStrats
- *		OpclassOptions		opclass-specific options, or NULL if none
- *		Unique				is it a unique index?
- *		NullsNotDistinct	is NULLS NOT DISTINCT?
- *		ReadyForInserts		is it valid for inserts?
- *		CheckedUnchanged	IndexUnchanged status determined yet?
- *		IndexUnchanged		aminsert hint, cached for retail inserts
- *		Concurrent			are we doing a concurrent index build?
- *		BrokenHotChain		did we detect any broken HOT chains?
- *		Summarizing			is it a summarizing index?
- *		ParallelWorkers		# of workers requested (excludes leader)
- *		Am					Oid of index AM
- *		AmCache				private cache area for index AM
- *		Context				memory context holding this IndexInfo
+ *	NumIndexAttrs 本索引总列数
+ *	NumIndexKeyAttrs 索引键列数
+ *	IndexAttrNumbers 用作键的底层关系属性号
+ *	(零表示表达式)。也含
+ * 关于 INCLUDE 列的信息。
+ *	Expressions 表达式项的表达式树,无则为 NIL
+ *	ExpressionsState 表达式的执行状态,无则为 NIL
+ *	Predicate 部分索引谓词,无则为 NIL
+ *	PredicateState 谓词的执行状态,无则为 NIL
+ *	ExclusionOps 逐列排他运算符,无则为 NULL
+ *	ExclusionProcs ExclusionOps 的底层函数 OID
+ *	ExclusionStrats ExclusionOps 的 opclass 策略号
+ *	UniqueOps 类似 Exclusion*,但用于唯一索引
+ *	UniqueProcs
+ *	UniqueStrats
+ *	OpclassOptions opclass 专用选项,无则为 NULL
+ *	Unique 是否唯一索引?
+ *	NullsNotDistinct 否 NULLS NOT DISTINCT?
+ *	ReadyForInserts 是否对插入有效?
+ *	CheckedUnchanged IndexUnchanged 状态已判定?
+ *	IndexUnchanged aminsert 提示,为零售插入缓存
+ *	Concurrent 是否在做并发索引构建?
+ *	BrokenHotChain 是否检测到断裂的 HOT 链?
+ *	Summarizing 是否汇总索引?
+ *	ParallelWorkers 请求的工作者数(不含领导者)
+ *	Am 索引 AM 的 Oid
+ *	AmCache 索引 AM 的私有缓存区
+ *	Context 持有本 IndexInfo 的内存上下文
  *
- * ii_Concurrent, ii_BrokenHotChain, and ii_ParallelWorkers are used only
- * during index build; they're conventionally zeroed otherwise.
+ * ii_Concurrent、ii_BrokenHotChain 与 ii_ParallelWorkers
+ * 仅在索引构建时使用;其他情况按惯例清零。
  * ----------------
  */
 typedef struct IndexInfo
 {
 	NodeTag		type;
-	int			ii_NumIndexAttrs;	/* total number of columns in index */
-	int			ii_NumIndexKeyAttrs;	/* number of key columns in index */
+	int			ii_NumIndexAttrs;	/* 索引总列数 */
+	int			ii_NumIndexKeyAttrs;	/* 索引键列数 */
 	AttrNumber	ii_IndexAttrNumbers[INDEX_MAX_KEYS];
-	List	   *ii_Expressions; /* list of Expr */
-	List	   *ii_ExpressionsState;	/* list of ExprState */
-	List	   *ii_Predicate;	/* list of Expr */
+	List	   *ii_Expressions; /* Expr 列表 */
+	List	   *ii_ExpressionsState;	/* ExprState 列表 */
+	List	   *ii_Predicate;	/* Expr 列表 */
 	ExprState  *ii_PredicateState;
-	Oid		   *ii_ExclusionOps;	/* array with one entry per column */
-	Oid		   *ii_ExclusionProcs;	/* array with one entry per column */
-	uint16	   *ii_ExclusionStrats; /* array with one entry per column */
-	Oid		   *ii_UniqueOps;	/* array with one entry per column */
-	Oid		   *ii_UniqueProcs; /* array with one entry per column */
-	uint16	   *ii_UniqueStrats;	/* array with one entry per column */
-	Datum	   *ii_OpclassOptions;	/* array with one entry per column */
+	Oid		   *ii_ExclusionOps;	/* 每列一项的数组 */
+	Oid		   *ii_ExclusionProcs;	/* 每列一项的数组 */
+	uint16	   *ii_ExclusionStrats; /* 每列一项的数组 */
+	Oid		   *ii_UniqueOps;	/* 每列一项的数组 */
+	Oid		   *ii_UniqueProcs; /* 每列一项的数组 */
+	uint16	   *ii_UniqueStrats;	/* 每列一项的数组 */
+	Datum	   *ii_OpclassOptions;	/* 每列一项的数组 */
 	bool		ii_Unique;
 	bool		ii_NullsNotDistinct;
 	bool		ii_ReadyForInserts;
@@ -204,9 +204,9 @@ typedef struct IndexInfo
 } IndexInfo;
 
 /* ----------------
- *	  ExprContext_CB
+ *	ExprContext_CB
  *
- *		List of callbacks to be called at ExprContext shutdown.
+ *	ExprContext 关闭时要调用的回调列表。
  * ----------------
  */
 typedef void (*ExprContextCallbackFunction) (Datum arg);
@@ -245,7 +245,7 @@ typedef struct ExprContext
 {
 	NodeTag		type;
 
-	/* Tuples that Var nodes in expression may refer to */
+	/* 表达式中 Var 节点可能引用的元组 */
 #define FIELDNO_EXPRCONTEXT_SCANTUPLE 1
 	TupleTableSlot *ecxt_scantuple;
 #define FIELDNO_EXPRCONTEXT_INNERTUPLE 2
@@ -253,39 +253,39 @@ typedef struct ExprContext
 #define FIELDNO_EXPRCONTEXT_OUTERTUPLE 3
 	TupleTableSlot *ecxt_outertuple;
 
-	/* Memory contexts for expression evaluation --- see notes above */
+	/* 表达式求值的内存上下文 — 见上方注释 */
 	MemoryContext ecxt_per_query_memory;
 	MemoryContext ecxt_per_tuple_memory;
 
-	/* Values to substitute for Param nodes in expression */
-	ParamExecData *ecxt_param_exec_vals;	/* for PARAM_EXEC params */
-	ParamListInfo ecxt_param_list_info; /* for other param types */
+	/* 替换表达式中 Param 节点的值 */
+	ParamExecData *ecxt_param_exec_vals;	/* 供 PARAM_EXEC 参数 */
+	ParamListInfo ecxt_param_list_info; /* 供其他参数类型 */
 
 	/*
-	 * Values to substitute for Aggref nodes in the expressions of an Agg
-	 * node, or for WindowFunc nodes within a WindowAgg node.
+	 * 替换 Agg 节点表达式中 Aggref 节点的值,或 WindowAgg
+	 * 节点中 WindowFunc 节点的值。
 	 */
 #define FIELDNO_EXPRCONTEXT_AGGVALUES 8
-	Datum	   *ecxt_aggvalues; /* precomputed values for aggs/windowfuncs */
+	Datum	   *ecxt_aggvalues; /* 聚合/窗口函数的预计算值 */
 #define FIELDNO_EXPRCONTEXT_AGGNULLS 9
-	bool	   *ecxt_aggnulls;	/* null flags for aggs/windowfuncs */
+	bool	   *ecxt_aggnulls;	/* 聚合/窗口函数的空标志 */
 
-	/* Value to substitute for CaseTestExpr nodes in expression */
+	/* 替换表达式中 CaseTestExpr 节点的值 */
 #define FIELDNO_EXPRCONTEXT_CASEDATUM 10
 	Datum		caseValue_datum;
 #define FIELDNO_EXPRCONTEXT_CASENULL 11
 	bool		caseValue_isNull;
 
-	/* Value to substitute for CoerceToDomainValue nodes in expression */
+	/* 替换表达式中 CoerceToDomainValue 节点的值 */
 #define FIELDNO_EXPRCONTEXT_DOMAINDATUM 12
 	Datum		domainValue_datum;
 #define FIELDNO_EXPRCONTEXT_DOMAINNULL 13
 	bool		domainValue_isNull;
 
-	/* Link to containing EState (NULL if a standalone ExprContext) */
+	/* 链到含有的 EState(独立 ExprContext 则为 NULL) */
 	struct EState *ecxt_estate;
 
-	/* Functions to call back when ExprContext is shut down or rescanned */
+	/* ExprContext 关闭或重扫时要回调的函数 */
 	ExprContext_CB *ecxt_callbacks;
 } ExprContext;
 
@@ -295,21 +295,21 @@ typedef struct ExprContext
  */
 typedef enum
 {
-	ExprSingleResult,			/* expression does not return a set */
-	ExprMultipleResult,			/* this result is an element of a set */
-	ExprEndResult				/* there are no more elements in the set */
+	ExprSingleResult,			/* 表达式不返回集合 */
+	ExprMultipleResult,			/* 本结果是集合的一个元素 */
+	ExprEndResult				/* 集合中不再有元素 */
 } ExprDoneCond;
 
 /*
- * Return modes for functions returning sets.  Note values must be chosen
- * as separate bits so that a bitmask can be formed to indicate supported
- * modes.  SFRM_Materialize_Random and SFRM_Materialize_Preferred are
- * auxiliary flags about SFRM_Materialize mode, rather than separate modes.
+ * 返回集合函数的返回模式.注值须选为独立位以便形成
+ * 位掩码指示支持的模式。SFRM_Materialize_Random 与
+ * SFRM_Materialize_Preferred 是关于 SFRM_Materialize 模式的
+ * 辅助标志,而非独立模式。
  */
 typedef enum
 {
-	SFRM_ValuePerCall = 0x01,	/* one value returned per call */
-	SFRM_Materialize = 0x02,	/* result set instantiated in Tuplestore */
+	SFRM_ValuePerCall = 0x01,	/* 每次调用返回一个值 */
+	SFRM_Materialize = 0x02,	/* 结果集实例化于 Tuplestore */
 	SFRM_Materialize_Random = 0x04, /* Tuplestore needs randomAccess */
 	SFRM_Materialize_Preferred = 0x08	/* caller prefers Tuplestore */
 } SetFunctionReturnMode;
@@ -323,39 +323,39 @@ typedef enum
 typedef struct ReturnSetInfo
 {
 	NodeTag		type;
-	/* values set by caller: */
-	ExprContext *econtext;		/* context function is being called in */
-	TupleDesc	expectedDesc;	/* tuple descriptor expected by caller */
+	/* 调用者设置值: */
+	ExprContext *econtext;		/* 函数被调用所处的上下文 */
+	TupleDesc	expectedDesc;	/* 调用者期望的元组描述符 */
 	int			allowedModes;	/* bitmask: return modes caller can handle */
-	/* result status from function (but pre-initialized by caller): */
-	SetFunctionReturnMode returnMode;	/* actual return mode */
-	ExprDoneCond isDone;		/* status for ValuePerCall mode */
-	/* fields filled by function in Materialize return mode: */
-	Tuplestorestate *setResult; /* holds the complete returned tuple set */
-	TupleDesc	setDesc;		/* actual descriptor for returned tuples */
+	/* 函数的结果状态(但由调用者预初始化): */
+	SetFunctionReturnMode returnMode;	/* 实际返回模式 */
+	ExprDoneCond isDone;		/* ValuePerCall 模式的状态 */
+	/* Materialize 返回模式下函数填写的字段: */
+	Tuplestorestate *setResult; /* 持有完整返回元组集 */
+	TupleDesc	setDesc;		/* 返回元组的实际描述符 */
 } ReturnSetInfo;
 
 /* ----------------
- *		ProjectionInfo node information
+ *	ProjectionInfo 节点信息
  *
- *		This is all the information needed to perform projections ---
- *		that is, form new tuples by evaluation of targetlist expressions.
- *		Nodes which need to do projections create one of these.
+ *	这是执行投影所需的全部信息 —
+ *	即通过求值目标列表表达式形成新元组。
+ *	需要做投影的节点创建一个。
  *
- *		The target tuple slot is kept in ProjectionInfo->pi_state.resultslot.
- *		ExecProject() evaluates the tlist, forms a tuple, and stores it
- *		in the given slot.  Note that the result will be a "virtual" tuple
- *		unless ExecMaterializeSlot() is then called to force it to be
- *		converted to a physical tuple.  The slot must have a tupledesc
- *		that matches the output of the tlist!
+ *	目标元组槽保存在 ProjectionInfo->pi_state.resultslot。
+ *	ExecProject() 求值 tlist、形成元组并存入给定槽.注
+ *	除非随后调用 ExecMaterializeSlot() 强制转为物理元组,
+ *	结果将是"虚拟"元组.该槽 tupledesc 必须匹配 tlist
+ *	的输出!
+ *	见上。
  * ----------------
  */
 typedef struct ProjectionInfo
 {
 	NodeTag		type;
-	/* instructions to evaluate projection */
+	/* 求值投影的指令 */
 	ExprState	pi_state;
-	/* expression context in which to evaluate expression */
+	/* 求值表达式所用的表达式上下文 */
 	ExprContext *pi_exprContext;
 } ProjectionInfo;
 
@@ -395,324 +395,324 @@ typedef struct JunkFilter
 /*
  * OnConflictSetState
  *
- * Executor state of an ON CONFLICT DO UPDATE operation.
+ * ON CONFLICT DO UPDATE 操作的执行器状态。
  */
 typedef struct OnConflictSetState
 {
 	NodeTag		type;
 
-	TupleTableSlot *oc_Existing;	/* slot to store existing target tuple in */
-	TupleTableSlot *oc_ProjSlot;	/* CONFLICT ... SET ... projection target */
-	ProjectionInfo *oc_ProjInfo;	/* for ON CONFLICT DO UPDATE SET */
-	ExprState  *oc_WhereClause; /* state for the WHERE clause */
+	TupleTableSlot *oc_Existing;	/* 存已有目标元组的槽 */
+	TupleTableSlot *oc_ProjSlot;	/* CONFLICT ... SET ... 投影目标 */
+	ProjectionInfo *oc_ProjInfo;	/* 供 ON CONFLICT DO UPDATE SET */
+	ExprState  *oc_WhereClause; /* WHERE 子句的状态 */
 } OnConflictSetState;
 
 /* ----------------
- *	 MergeActionState information
+ *	MergeActionState 信息
  *
- *	Executor state for a MERGE action.
+ *	MERGE 动作的执行器状态。
  * ----------------
  */
 typedef struct MergeActionState
 {
 	NodeTag		type;
 
-	MergeAction *mas_action;	/* associated MergeAction node */
-	ProjectionInfo *mas_proj;	/* projection of the action's targetlist for
-								 * this rel */
-	ExprState  *mas_whenqual;	/* WHEN [NOT] MATCHED AND conditions */
+	MergeAction *mas_action;	/* 关联 MergeAction 节点 */
+	ProjectionInfo *mas_proj;	/* 本关系上动作目标列表的
+								 * 投影 */
+	ExprState  *mas_whenqual;	/* WHEN [NOT] MATCHED AND 条件 */
 } MergeActionState;
 
 /*
  * ResultRelInfo
  *
- * Whenever we update an existing relation, we have to update indexes on the
- * relation, and perhaps also fire triggers.  ResultRelInfo holds all the
- * information needed about a result relation, including indexes.
+ * 每当更新已有关系时,须更新其上的索引,或许还要触发
+ * 触发器。ResultRelInfo 保存关于结果关系全部所需信息,
+ * 包括索引。
  *
- * Normally, a ResultRelInfo refers to a table that is in the query's range
- * table; then ri_RangeTableIndex is the RT index and ri_RelationDesc is
- * just a copy of the relevant es_relations[] entry.  However, in some
- * situations we create ResultRelInfos for relations that are not in the
- * range table, namely for targets of tuple routing in a partitioned table,
- * and when firing triggers in tables other than the target tables (See
- * ExecGetTriggerResultRel).  In these situations, ri_RangeTableIndex is 0
- * and ri_RelationDesc is a separately-opened relcache pointer that needs to
- * be separately closed.
+ * 通常 ResultRelInfo 引用查询范围表中的表;则
+ * ri_RangeTableIndex 是 RT 下标,ri_RelationDesc 只是相关
+ * es_relations[] 项拷贝.但有些情形我为不在范围表中的
+ * 关系创建 ResultRelInfo,即分区表元组路由目标,以及在
+ * 非目标表上激发触发器时(见 ExecGetTriggerResultRel)。
+ * 这些情形 ri_RangeTableIndex 为 0,ri_RelationDesc 是需
+ * 单独关闭的单独打开的 relcache 指针。
+ * 见上。
+ * 见上。
  */
 typedef struct ResultRelInfo
 {
 	NodeTag		type;
 
-	/* result relation's range table index, or 0 if not in range table */
+	/* 结果关系的范围表下标,若不在范围表中则为 0 */
 	Index		ri_RangeTableIndex;
 
-	/* relation descriptor for result relation */
+	/* 结果关系的关系描述符 */
 	Relation	ri_RelationDesc;
 
-	/* # of indices existing on result relation */
+	/* 结果关系上现有索引数 */
 	int			ri_NumIndices;
 
-	/* array of relation descriptors for indices */
+	/* 索引的关系描述符数组 */
 	RelationPtr ri_IndexRelationDescs;
 
-	/* array of key/attr info for indices */
+	/* 索引的键/属性信息数组 */
 	IndexInfo **ri_IndexRelationInfo;
 
 	/*
-	 * For UPDATE/DELETE result relations, the attribute number of the row
-	 * identity junk attribute in the source plan's output tuples
+	 * 对 UPDATE/DELETE 结果关系,源计划输出元组中行标识
+	 * junk 属性的属性号
 	 */
 	AttrNumber	ri_RowIdAttNo;
 
-	/* For UPDATE, attnums of generated columns to be computed */
+	/* 对 UPDATE,要计算的生成列的 attnums */
 	Bitmapset  *ri_extraUpdatedCols;
 
-	/* Projection to generate new tuple in an INSERT/UPDATE */
+	/* INSERT/UPDATE 中生成新元组的投影 */
 	ProjectionInfo *ri_projectNew;
-	/* Slot to hold that tuple */
+	/* 保存该元组的槽 */
 	TupleTableSlot *ri_newTupleSlot;
-	/* Slot to hold the old tuple being updated */
+	/* 保存正被更新的旧元组的槽 */
 	TupleTableSlot *ri_oldTupleSlot;
-	/* Have the projection and the slots above been initialized? */
+	/* 上方投影与槽是否已初始化? */
 	bool		ri_projectNewInfoValid;
 
-	/* updates do LockTuple() before oldtup read; see README.tuplock */
+	/* 更新在读旧元组前做 LockTuple();见 README.tuplock */
 	bool		ri_needLockTagTuple;
 
-	/* triggers to be fired, if any */
+	/* 要激发触发器(若有) */
 	TriggerDesc *ri_TrigDesc;
 
-	/* cached lookup info for trigger functions */
+	/* 触发器函数的缓存查找信息 */
 	FmgrInfo   *ri_TrigFunctions;
 
 	/* array of trigger WHEN expr states */
 	ExprState **ri_TrigWhenExprs;
 
-	/* optional runtime measurements for triggers */
+	/* 触发器的可选运行时度量 */
 	Instrumentation *ri_TrigInstrument;
 
-	/* On-demand created slots for triggers / returning processing */
-	TupleTableSlot *ri_ReturningSlot;	/* for trigger output tuples */
-	TupleTableSlot *ri_TrigOldSlot; /* for a trigger's old tuple */
-	TupleTableSlot *ri_TrigNewSlot; /* for a trigger's new tuple */
+	/* 为触发器/RETURNING 处理按需创建的槽 */
+	TupleTableSlot *ri_ReturningSlot;	/* 供触发器输出元组 */
+	TupleTableSlot *ri_TrigOldSlot; /* 供触发器的旧元组 */
+	TupleTableSlot *ri_TrigNewSlot; /* 供触发器的新元组 */
 
-	/* FDW callback functions, if foreign table */
+	/* FDW 回调函数(若为外表) */
 	struct FdwRoutine *ri_FdwRoutine;
 
-	/* available to save private state of FDW */
+	/* 可供保存 FDW 私有状态 */
 	void	   *ri_FdwState;
 
-	/* true when modifying foreign table directly */
+	/* 直接修改外表时为真 */
 	bool		ri_usesFdwDirectModify;
 
-	/* batch insert stuff */
-	int			ri_NumSlots;	/* number of slots in the array */
-	int			ri_NumSlotsInitialized; /* number of initialized slots */
-	int			ri_BatchSize;	/* max slots inserted in a single batch */
-	TupleTableSlot **ri_Slots;	/* input tuples for batch insert */
+	/* 批量插入相关 */
+	int			ri_NumSlots;	/* 数组中的槽数 */
+	int			ri_NumSlotsInitialized; /* 已初始化的槽数 */
+	int			ri_BatchSize;	/* 单批插入的最大槽数 */
+	TupleTableSlot **ri_Slots;	/* 批量插入的输入元组 */
 	TupleTableSlot **ri_PlanSlots;
 
-	/* list of WithCheckOption's to be checked */
+	/* 要检查的 WithCheckOption 列表 */
 	List	   *ri_WithCheckOptions;
 
-	/* list of WithCheckOption expr states */
+	/* WithCheckOption 表达式状态表 */
 	List	   *ri_WithCheckOptionExprs;
 
-	/* array of constraint-checking expr states */
+	/* 约束检查表达式状态数组 */
 	ExprState **ri_ConstraintExprs;
 
-	/* arrays of stored generated columns expr states, for INSERT and UPDATE */
+	/* INSERT 与 UPDATE 的存储生成列表达式状态数组 */
 	ExprState **ri_GeneratedExprsI;
 	ExprState **ri_GeneratedExprsU;
 
-	/* number of stored generated columns we need to compute */
+	/* 需要计算的存储生成列数 */
 	int			ri_NumGeneratedNeededI;
 	int			ri_NumGeneratedNeededU;
 
-	/* list of RETURNING expressions */
+	/* RETURNING 表达式列表 */
 	List	   *ri_returningList;
 
-	/* for computing a RETURNING list */
+	/* 用于计算 RETURNING 列表 */
 	ProjectionInfo *ri_projectReturning;
 
-	/* list of arbiter indexes to use to check conflicts */
+	/* 用于检查冲突的仲裁索引列表 */
 	List	   *ri_onConflictArbiterIndexes;
 
-	/* ON CONFLICT evaluation state */
+	/* ON CONFLICT 求值状态 */
 	OnConflictSetState *ri_onConflict;
 
-	/* for MERGE, lists of MergeActionState */
+	/* 对 MERGE,MergeActionState 列表 */
 	List	   *ri_matchedMergeAction;
 	List	   *ri_notMatchedMergeAction;
 
-	/* partition check expression state (NULL if not set up yet) */
+	/* 分区检查表达式状态(尚未建立则为 NULL) */
 	ExprState  *ri_PartitionCheckExpr;
 
 	/*
-	 * Map to convert child result relation tuples to the format of the table
-	 * actually mentioned in the query (called "root").  Computed only if
-	 * needed.  A NULL map value indicates that no conversion is needed, so we
-	 * must have a separate flag to show if the map has been computed.
+	 * 把子结果关系元组转为查询中实际提到的表("根")格式
+	 * 映射.仅在需要时计算。NULL 映射值为无需转换,故
+	 * 须有单独标志显示映射是否已计算。
+	 * 见上。
 	 */
 	TupleConversionMap *ri_ChildToRootMap;
 	bool		ri_ChildToRootMapValid;
 
 	/*
-	 * As above, but in the other direction.
+	 * 同上,但方向相反。
 	 */
 	TupleConversionMap *ri_RootToChildMap;
 	bool		ri_RootToChildMapValid;
 
 	/*
-	 * Other information needed by child result relations
+	 * 子结果关系所需的其他信息
 	 *
-	 * ri_RootResultRelInfo gives the target relation mentioned in the query.
-	 * Used as the root for tuple routing and/or transition capture.
+	 * ri_RootResultRelInfo 给出查询中提到的目标关系。
+	 * 用作元组路由和/或转移捕获的根。
 	 *
-	 * ri_PartitionTupleSlot is non-NULL if the relation is a partition to
-	 * route tuples into and ri_RootToChildMap conversion is needed.
+	 * 若关系是要路由元组进入分区且需要 ri_RootToChildMap
+	 * 转换,则 ri_PartitionTupleSlot 非 NULL。
 	 */
 	struct ResultRelInfo *ri_RootResultRelInfo;
 	TupleTableSlot *ri_PartitionTupleSlot;
 
-	/* for use by copyfrom.c when performing multi-inserts */
+	/* 供 copyfrom.c 做多插入时使用 */
 	struct CopyMultiInsertBuffer *ri_CopyMultiInsertBuffer;
 
 	/*
-	 * Used when a leaf partition is involved in a cross-partition update of
-	 * one of its ancestors; see ExecCrossPartitionUpdateForeignKey().
+	 * 当叶子分区参与其某祖先的跨分区更新时使用;
+	 * 见 ExecCrossPartitionUpdateForeignKey()。
 	 */
 	List	   *ri_ancestorResultRels;
 } ResultRelInfo;
 
 /* ----------------
- *	  AsyncRequest
+ *	AsyncRequest
  *
- * State for an asynchronous tuple request.
+ * 异步元组请求的状态。
  * ----------------
  */
 typedef struct AsyncRequest
 {
-	struct PlanState *requestor;	/* Node that wants a tuple */
-	struct PlanState *requestee;	/* Node from which a tuple is wanted */
-	int			request_index;	/* Scratch space for requestor */
-	bool		callback_pending;	/* Callback is needed */
-	bool		request_complete;	/* Request complete, result valid */
+	struct PlanState *requestor;	/* 想要元组的节点 */
+	struct PlanState *requestee;	/* 要从其取元组的节点 */
+	int			request_index;	/* 请求者的暂存空间 */
+	bool		callback_pending;	/* 需要回调 */
+	bool		request_complete;	/* 请求完成,结果有效 */
 	TupleTableSlot *result;		/* Result (NULL or an empty slot if no more
 								 * tuples) */
 } AsyncRequest;
 
 /* ----------------
- *	  EState information
+ *	EState 信息
  *
- * Working state for an Executor invocation
+ * 一次执行器调用的工作状态
  * ----------------
  */
 typedef struct EState
 {
 	NodeTag		type;
 
-	/* Basic state for all query types: */
-	ScanDirection es_direction; /* current scan direction */
+	/* 所有查询类型基本状态: */
+	ScanDirection es_direction; /* 当前扫描方向 */
 	Snapshot	es_snapshot;	/* time qual to use */
-	Snapshot	es_crosscheck_snapshot; /* crosscheck time qual for RI */
-	List	   *es_range_table; /* List of RangeTblEntry */
-	Index		es_range_table_size;	/* size of the range table arrays */
+	Snapshot	es_crosscheck_snapshot; /* RI 交叉检查时间限定 */
+	List	   *es_range_table; /* RangeTblEntry 列表 */
+	Index		es_range_table_size;	/* 范围表数组的大小 */
 	Relation   *es_relations;	/* Array of per-range-table-entry Relation
 								 * pointers, or NULL if not yet opened */
-	struct ExecRowMark **es_rowmarks;	/* Array of per-range-table-entry
-										 * ExecRowMarks, or NULL if none */
-	List	   *es_rteperminfos;	/* List of RTEPermissionInfo */
-	PlannedStmt *es_plannedstmt;	/* link to top of plan tree */
-	const char *es_sourceText;	/* Source text from QueryDesc */
+	struct ExecRowMark **es_rowmarks;	/* 每范围表项的
+										 * ExecRowMarks,无则为 NULL */
+	List	   *es_rteperminfos;	/* RTEPermissionInfo 列表 */
+	PlannedStmt *es_plannedstmt;	/* 链到计划树顶 */
+	const char *es_sourceText;	/* 来自 QueryDesc 源文本 */
 
-	JunkFilter *es_junkFilter;	/* top-level junk filter, if any */
+	JunkFilter *es_junkFilter;	/* 顶层 junk 过滤器(若有) */
 
-	/* If query can insert/delete tuples, the command ID to mark them with */
+	/* 若查询可插入/删除元组,用于标记它们的命令 ID */
 	CommandId	es_output_cid;
 
-	/* Info about target table(s) for insert/update/delete queries: */
-	ResultRelInfo **es_result_relations;	/* Array of per-range-table-entry
-											 * ResultRelInfo pointers, or NULL
-											 * if not a target table */
-	List	   *es_opened_result_relations; /* List of non-NULL entries in
-											 * es_result_relations in no
-											 * specific order */
+	/* 插入/更新/删除查询的目标表信息: */
+	ResultRelInfo **es_result_relations;	/* 每范围表项的
+											 * ResultRelInfo 指针,若非
+											 * 目标表则为 NULL */
+	List	   *es_opened_result_relations; /* es_result_relations 中
+											 * 非 NULL 项的列表,无
+											 * 特定次序 */
 
-	PartitionDirectory es_partition_directory;	/* for PartitionDesc lookup */
+	PartitionDirectory es_partition_directory;	/* 供 PartitionDesc 查找 */
 
 	/*
-	 * The following list contains ResultRelInfos created by the tuple routing
-	 * code for partitions that aren't found in the es_result_relations array.
+	 * 下列列表含元组路由代码为 es_result_relations 数组中
+	 * 找不到的分区创建的 ResultRelInfo。
 	 */
 	List	   *es_tuple_routing_result_relations;
 
-	/* Stuff used for firing triggers: */
-	List	   *es_trig_target_relations;	/* trigger-only ResultRelInfos */
+	/* 激发触发器所用: */
+	List	   *es_trig_target_relations;	/* 仅触发器 ResultRelInfos */
 
-	/* Parameter info: */
-	ParamListInfo es_param_list_info;	/* values of external params */
-	ParamExecData *es_param_exec_vals;	/* values of internal params */
+	/* 参数信息: */
+	ParamListInfo es_param_list_info;	/* 外部参数的值 */
+	ParamExecData *es_param_exec_vals;	/* 内部参数的值 */
 
-	QueryEnvironment *es_queryEnv;	/* query environment */
+	QueryEnvironment *es_queryEnv;	/* 查询环境 */
 
-	/* Other working state: */
-	MemoryContext es_query_cxt; /* per-query context in which EState lives */
+	/* 其他工作状态: */
+	MemoryContext es_query_cxt; /* EState 所在的每查询上下文 */
 
-	List	   *es_tupleTable;	/* List of TupleTableSlots */
+	List	   *es_tupleTable;	/* TupleTableSlots 列表 */
 
 	uint64		es_processed;	/* # of tuples processed during one
 								 * ExecutorRun() call. */
-	uint64		es_total_processed; /* total # of tuples aggregated across all
-									 * ExecutorRun() calls. */
+	uint64		es_total_processed; /* 跨所有 ExecutorRun() 调用
+									 * 累计总元组数. */
 
-	int			es_top_eflags;	/* eflags passed to ExecutorStart */
-	int			es_instrument;	/* OR of InstrumentOption flags */
-	bool		es_finished;	/* true when ExecutorFinish is done */
+	int			es_top_eflags;	/* 传给 ExecutorStart  eflags */
+	int			es_instrument;	/* InstrumentOption 标志 OR */
+	bool		es_finished;	/* ExecutorFinish 完成则为真 */
 
-	List	   *es_exprcontexts;	/* List of ExprContexts within EState */
+	List	   *es_exprcontexts;	/* EState 内的 ExprContexts 列表 */
 
-	List	   *es_subplanstates;	/* List of PlanState for SubPlans */
+	List	   *es_subplanstates;	/* SubPlans 的 PlanState 列表 */
 
-	List	   *es_auxmodifytables; /* List of secondary ModifyTableStates */
+	List	   *es_auxmodifytables; /* 次要 ModifyTableStates 列表 */
 
 	/*
-	 * this ExprContext is for per-output-tuple operations, such as constraint
-	 * checks and index-value computations.  It will be reset for each output
-	 * tuple.  Note that it will be created only if needed.
+	 * 本 ExprContext 供每输出元组操作,如约束检查与索引值
+	 * 计算。每个输出元组会重置。注:仅在需要时创建。
+	 * 见上。
 	 */
 	ExprContext *es_per_tuple_exprcontext;
 
 	/*
-	 * If not NULL, this is an EPQState's EState. This is a field in EState
-	 * both to allow EvalPlanQual aware executor nodes to detect that they
-	 * need to perform EPQ related work, and to provide necessary information
-	 * to do so.
+	 * 若非 NULL,这是 EPQState 的 EState。作为 EState 字段是为
+	 * 让 EvalPlanQual 感知的执行器节点能检测需做 EPQ 相关
+	 * 工作,并提供必要信息。
+	 * 见上。
 	 */
 	struct EPQState *es_epq_active;
 
-	bool		es_use_parallel_mode;	/* can we use parallel workers? */
+	bool		es_use_parallel_mode;	/* 能否用并行工作者? */
 
-	/* The per-query shared memory area to use for parallel execution. */
+	/* 并行执行要用的每查询共享内存区。 */
 	struct dsa_area *es_query_dsa;
 
 	/*
-	 * JIT information. es_jit_flags indicates whether JIT should be performed
-	 * and with which options.  es_jit is created on-demand when JITing is
-	 * performed.
+	 * JIT 信息。es_jit_flags 指示是否应做 JIT 及选项。
+	 * es_jit 在真正做 JIT 时按需创建。
+	 * 见上。
 	 *
-	 * es_jit_worker_instr is the combined, on demand allocated,
-	 * instrumentation from all workers. The leader's instrumentation is kept
-	 * separate, and is combined on demand by ExplainPrintJITSummary().
+	 * es_jit_worker_instr 是所有工作者按需分配合并
+	 * 插桩。领导者的插桩单独保存,由 ExplainPrintJITSummary()
+	 * 按需合并。
 	 */
 	int			es_jit_flags;
 	struct JitContext *es_jit;
 	struct JitInstrumentation *es_jit_worker_instr;
 
 	/*
-	 * Lists of ResultRelInfos for foreign tables on which batch-inserts are
-	 * to be executed and owning ModifyTableStates, stored in the same order.
+	 * 要对之执行批量插入外表的 ResultRelInfo 表,以及拥有
+	 * 的 ModifyTableStates,按相同次序存放。
 	 */
 	List	   *es_insert_pending_result_relations;
 	List	   *es_insert_pending_modifytables;
@@ -740,51 +740,51 @@ typedef struct EState
  */
 typedef struct ExecRowMark
 {
-	Relation	relation;		/* opened and suitably locked relation */
-	Oid			relid;			/* its OID (or InvalidOid, if subquery) */
-	Index		rti;			/* its range table index */
-	Index		prti;			/* parent range table index, if child */
-	Index		rowmarkId;		/* unique identifier for resjunk columns */
+	Relation	relation;		/* 已打开并适当加锁的关系 */
+	Oid			relid;			/* 其 OID(子查询则为 InvalidOid) */
+	Index		rti;			/* 其范围表下标 */
+	Index		prti;			/* 父范围表下标(若为子) */
+	Index		rowmarkId;		/* resjunk 列的唯一标识符 */
 	RowMarkType markType;		/* see enum in nodes/plannodes.h */
-	LockClauseStrength strength;	/* LockingClause's strength, or LCS_NONE */
-	LockWaitPolicy waitPolicy;	/* NOWAIT and SKIP LOCKED */
-	bool		ermActive;		/* is this mark relevant for current tuple? */
-	ItemPointerData curCtid;	/* ctid of currently locked tuple, if any */
-	void	   *ermExtra;		/* available for use by relation source node */
+	LockClauseStrength strength;	/* LockingClause 的强度,或 LCS_NONE */
+	LockWaitPolicy waitPolicy;	/* NOWAIT 与 SKIP LOCKED */
+	bool		ermActive;		/* 本标记对当前元组是否相关? */
+	ItemPointerData curCtid;	/* 当前锁定元组的 ctid(若有) */
+	void	   *ermExtra;		/* 可供关系源节点使用 */
 } ExecRowMark;
 
 /*
  * ExecAuxRowMark -
- *	   additional runtime representation of FOR [KEY] UPDATE/SHARE clauses
+ *	FOR [KEY] UPDATE/SHARE 子句的额外运行时表示
  *
- * Each LockRows and ModifyTable node keeps a list of the rowmarks it needs to
- * deal with.  In addition to a pointer to the related entry in es_rowmarks,
- * this struct carries the column number(s) of the resjunk columns associated
- * with the rowmark (see comments for PlanRowMark for more detail).
+ * 每个 LockRows 与 ModifyTable 节点保持其需处理的 rowmarks
+ * 列表。除指向 es_rowmarks 相关项指针外,本结构还携带与
+ * rowmark 关联的 resjunk 列号(细节见 PlanRowMark 注释)。
+ * 见上。
  */
 typedef struct ExecAuxRowMark
 {
-	ExecRowMark *rowmark;		/* related entry in es_rowmarks */
+	ExecRowMark *rowmark;		/* es_rowmarks 中的相关项 */
 	AttrNumber	ctidAttNo;		/* resno of ctid junk attribute, if any */
 	AttrNumber	toidAttNo;		/* resno of tableoid junk attribute, if any */
-	AttrNumber	wholeAttNo;		/* resno of whole-row junk attribute, if any */
+	AttrNumber	wholeAttNo;		/* 整行 junk 属性的 resno(若有) */
 } ExecAuxRowMark;
 
 
 /* ----------------------------------------------------------------
- *				 Tuple Hash Tables
+ *	元组哈希表
  *
- * All-in-memory tuple hash tables are used for a number of purposes.
+ * 全内存元组哈希表用于多种目的。
  *
- * Note: tab_hash_funcs are for the key datatype(s) stored in the table,
- * and tab_eq_funcs are non-cross-type equality operators for those types.
- * Normally these are the only functions used, but FindTupleHashEntry()
- * supports searching a hashtable using cross-data-type hashing.  For that,
- * the caller must supply hash functions for the LHS datatype as well as
- * the cross-type equality operators to use.  in_hash_funcs and cur_eq_func
- * are set to point to the caller's function arrays while doing such a search.
- * During LookupTupleHashEntry(), they point to tab_hash_funcs and
- * tab_eq_func respectively.
+ * 注:tab_hash_funcs 用于表中存储的键数据类型,
+ * tab_eq_funcs 是这些类型的非跨类型相等运算符。
+ * 通常只用这些函数,但 FindTupleHashEntry() 支持用跨类型
+ * 哈希搜索哈希表。为此调用者须提供 LHS 数据类型哈希
+ * 函数以及要用的跨类型相等运算符。做此类搜索时
+ * in_hash_funcs 与 cur_eq_func 指向调用者的函数数组。
+ * LookupTupleHashEntry() 期间它们分别指向 tab_hash_funcs
+ * 与 tab_eq_func。
+ * 见上。
  * ----------------------------------------------------------------
  */
 typedef struct TupleHashEntryData *TupleHashEntry;
@@ -792,13 +792,13 @@ typedef struct TupleHashTableData *TupleHashTable;
 
 typedef struct TupleHashEntryData
 {
-	MinimalTuple firstTuple;	/* copy of first tuple in this group */
+	MinimalTuple firstTuple;	/* 本组中第一个元组的拷贝 */
 	void	   *additional;		/* user data */
 	uint32		status;			/* hash status */
 	uint32		hash;			/* hash value (cached) */
 } TupleHashEntryData;
 
-/* define parameters necessary to generate the tuple hash table interface */
+/* 定义生成元组哈希表接口所需的参数 */
 #define SH_PREFIX tuplehash
 #define SH_ELEMENT_TYPE TupleHashEntryData
 #define SH_KEY_TYPE MinimalTuple
@@ -808,30 +808,30 @@ typedef struct TupleHashEntryData
 
 typedef struct TupleHashTableData
 {
-	tuplehash_hash *hashtab;	/* underlying hash table */
-	int			numCols;		/* number of columns in lookup key */
-	AttrNumber *keyColIdx;		/* attr numbers of key columns */
-	FmgrInfo   *tab_hash_funcs; /* hash functions for table datatype(s) */
-	ExprState  *tab_eq_func;	/* comparator for table datatype(s) */
-	Oid		   *tab_collations; /* collations for hash and comparison */
-	MemoryContext tablecxt;		/* memory context containing table */
-	MemoryContext tempcxt;		/* context for function evaluations */
-	Size		entrysize;		/* actual size to make each hash entry */
-	TupleTableSlot *tableslot;	/* slot for referencing table entries */
-	/* The following fields are set transiently for each table search: */
-	TupleTableSlot *inputslot;	/* current input tuple's slot */
-	FmgrInfo   *in_hash_funcs;	/* hash functions for input datatype(s) */
-	ExprState  *cur_eq_func;	/* comparator for input vs. table */
-	uint32		hash_iv;		/* hash-function IV */
-	ExprContext *exprcontext;	/* expression context */
+	tuplehash_hash *hashtab;	/* 底层哈希表 */
+	int			numCols;		/* 查找键中的列数 */
+	AttrNumber *keyColIdx;		/* 键列的属性号 */
+	FmgrInfo   *tab_hash_funcs; /* 表数据类型的哈希函数 */
+	ExprState  *tab_eq_func;	/* 表数据类型的比较器 */
+	Oid		   *tab_collations; /* 哈希与比较的排序规则 */
+	MemoryContext tablecxt;		/* 含表的内存上下文 */
+	MemoryContext tempcxt;		/* 函数求值的上下文 */
+	Size		entrysize;		/* 使每个哈希项的实际大小 */
+	TupleTableSlot *tableslot;	/* 引用表项的槽 */
+	/* 下列字段为每次表搜索临时设置: */
+	TupleTableSlot *inputslot;	/* 当前输入元组的槽 */
+	FmgrInfo   *in_hash_funcs;	/* 输入数据类型的哈希函数 */
+	ExprState  *cur_eq_func;	/* 输入相对表的比较器 */
+	uint32		hash_iv;		/* 哈希函数 IV */
+	ExprContext *exprcontext;	/* 表达式上下文 */
 }			TupleHashTableData;
 
 typedef tuplehash_iterator TupleHashIterator;
 
 /*
- * Use InitTupleHashIterator/TermTupleHashIterator for a read/write scan.
- * Use ResetTupleHashIterator if the table can be frozen (in this case no
- * explicit scan termination is needed).
+ * 用 InitTupleHashIterator/TermTupleHashIterator 做读写扫描。
+ * 若表可冻结则用 ResetTupleHashIterator(此情形无需显式
+ * 扫描终止)。
  */
 #define InitTupleHashIterator(htable, iter) \
 	tuplehash_start_iterate(htable->hashtab, iter)
@@ -844,57 +844,57 @@ typedef tuplehash_iterator TupleHashIterator;
 
 
 /* ----------------------------------------------------------------
- *				 Expression State Nodes
+ *	表达式状态节点
  *
- * Formerly, there was a separate executor expression state node corresponding
- * to each node in a planned expression tree.  That's no longer the case; for
- * common expression node types, all the execution info is embedded into
- * step(s) in a single ExprState node.  But we still have a few executor state
- * node types for selected expression node types, mostly those in which info
- * has to be shared with other parts of the execution state tree.
+ * 从前,计划表达式树中每个点都有对应单独执行器表达式
+ * 状态点。现已不然;对常见表达式节点类型,全部执行信息
+ * 嵌入单个 ExprState 节点步骤中.但仍有少数执行器状态
+ * 节点类型用于选定表达式节点类型,主要是信息须与执行
+ * 状态树其他部分共享的那些。
+ * 见上。
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *		WindowFuncExprState node
+ *	WindowFuncExprState 点
  * ----------------
  */
 typedef struct WindowFuncExprState
 {
 	NodeTag		type;
-	WindowFunc *wfunc;			/* expression plan node */
-	List	   *args;			/* ExprStates for argument expressions */
-	ExprState  *aggfilter;		/* FILTER expression */
-	int			wfuncno;		/* ID number for wfunc within its plan node */
+	WindowFunc *wfunc;			/* 表达式计划点 */
+	List	   *args;			/* 参数表达式的 ExprStates */
+	ExprState  *aggfilter;		/* FILTER 表达式 */
+	int			wfuncno;		/* wfunc 在其计划节点内的 ID 号 */
 } WindowFuncExprState;
 
 
 /* ----------------
- *		SetExprState node
+ *	SetExprState 点
  *
- * State for evaluating a potentially set-returning expression (like FuncExpr
- * or OpExpr).  In some cases, like some of the expressions in ROWS FROM(...)
- * the expression might not be a SRF, but nonetheless it uses the same
- * machinery as SRFs; it will be treated as a SRF returning a single row.
+ * 求值可能返回集合的表达式(如 FuncExpr 或 OpExpr)的状态。
+ * 某些情形如 ROWS FROM(...) 中部分表达式可能不是 SRF,但仍
+ * 用同一机制;将视为返回单行的 SRF。
+ * 见上。
  * ----------------
  */
 typedef struct SetExprState
 {
 	NodeTag		type;
-	Expr	   *expr;			/* expression plan node */
-	List	   *args;			/* ExprStates for argument expressions */
+	Expr	   *expr;			/* 表达式计划点 */
+	List	   *args;			/* 参数表达式的 ExprStates */
 
 	/*
-	 * In ROWS FROM, functions can be inlined, removing the FuncExpr normally
-	 * inside.  In such a case this is the compiled expression (which cannot
-	 * return a set), which'll be evaluated using regular ExecEvalExpr().
+	 * 在 ROWS FROM 中,函数可被内联,去掉通常在内的 FuncExpr。
+	 * 此情形这是已编译表达式(不能返回集合),用常规
+	 * ExecEvalExpr() 求值。
 	 */
 	ExprState  *elidedFuncState;
 
 	/*
-	 * Function manager's lookup info for the target function.  If func.fn_oid
-	 * is InvalidOid, we haven't initialized it yet (nor any of the following
-	 * fields, except funcReturnsSet).
+	 * 目标函数的函数管理器查找信息。若 func.fn_oid 为
+	 * InvalidOid,则尚未初始化它(也未初始化下列字段,除
+	 * funcReturnsSet 外)。
 	 */
 	FmgrInfo	func;
 
@@ -911,11 +911,11 @@ typedef struct SetExprState
 	 * output.  If so, it's stored here.
 	 */
 	TupleDesc	funcResultDesc;
-	bool		funcReturnsTuple;	/* valid when funcResultDesc isn't NULL */
+	bool		funcReturnsTuple;	/* funcResultDesc 非 NULL 时有效 */
 
 	/*
-	 * Remember whether the function is declared to return a set.  This is set
-	 * by ExecInitExpr, and is valid even before the FmgrInfo is set up.
+	 * 记住函数是否声明返回集合。由 ExecInitExpr 设置,即使
+	 * FmgrInfo 尚未建立也有效。
 	 */
 	bool		funcReturnsSet;
 
@@ -929,65 +929,65 @@ typedef struct SetExprState
 	bool		setArgsValid;
 
 	/*
-	 * Flag to remember whether we have registered a shutdown callback for
-	 * this SetExprState.  We do so only if funcResultStore or setArgsValid
-	 * has been set at least once (since all the callback is for is to release
-	 * the tuplestore or clear setArgsValid).
+	 * 记住是否已为本 SetExprState 注册关闭回调。仅当
+	 * funcResultStore 或 setArgsValid 至少设过一次才注册(因
+	 * 回调只为释放 tuplestore 或清除 setArgsValid)。
+	 * 见上。
 	 */
-	bool		shutdown_reg;	/* a shutdown callback is registered */
+	bool		shutdown_reg;	/* 已注册关闭回调 */
 
 	/*
-	 * Call parameter structure for the function.  This has been initialized
-	 * (by InitFunctionCallInfoData) if func.fn_oid is valid.  It also saves
-	 * argument values between calls, when setArgsValid is true.
+	 * 函数的调用参数结构。若 func.fn_oid 有效则已初始化
+	 * (由 InitFunctionCallInfoData)。setArgsValid 为真时也在
+	 * 调用间保存参数值。
 	 */
 	FunctionCallInfo fcinfo;
 } SetExprState;
 
 /* ----------------
- *		SubPlanState node
+ *	SubPlanState 点
  * ----------------
  */
 typedef struct SubPlanState
 {
 	NodeTag		type;
-	SubPlan    *subplan;		/* expression plan node */
-	struct PlanState *planstate;	/* subselect plan's state tree */
-	struct PlanState *parent;	/* parent plan node's state tree */
-	ExprState  *testexpr;		/* state of combining expression */
-	List	   *args;			/* states of argument expression(s) */
-	HeapTuple	curTuple;		/* copy of most recent tuple from subplan */
-	Datum		curArray;		/* most recent array from ARRAY() subplan */
-	/* these are used when hashing the subselect's output: */
-	TupleDesc	descRight;		/* subselect desc after projection */
-	ProjectionInfo *projLeft;	/* for projecting lefthand exprs */
-	ProjectionInfo *projRight;	/* for projecting subselect output */
-	TupleHashTable hashtable;	/* hash table for no-nulls subselect rows */
-	TupleHashTable hashnulls;	/* hash table for rows with null(s) */
-	bool		havehashrows;	/* true if hashtable is not empty */
-	bool		havenullrows;	/* true if hashnulls is not empty */
-	MemoryContext hashtablecxt; /* memory context containing hash tables */
-	MemoryContext hashtempcxt;	/* temp memory context for hash tables */
-	ExprContext *innerecontext; /* econtext for computing inner tuples */
-	int			numCols;		/* number of columns being hashed */
-	/* each of the remaining fields is an array of length numCols: */
-	AttrNumber *keyColIdx;		/* control data for hash tables */
-	Oid		   *tab_eq_funcoids;	/* equality func oids for table
-									 * datatype(s) */
-	Oid		   *tab_collations; /* collations for hash and comparison */
-	FmgrInfo   *tab_hash_funcs; /* hash functions for table datatype(s) */
-	FmgrInfo   *tab_eq_funcs;	/* equality functions for table datatype(s) */
-	FmgrInfo   *lhs_hash_funcs; /* hash functions for lefthand datatype(s) */
-	FmgrInfo   *cur_eq_funcs;	/* equality functions for LHS vs. table */
-	ExprState  *cur_eq_comp;	/* equality comparator for LHS vs. table */
+	SubPlan    *subplan;		/* 表达式计划点 */
+	struct PlanState *planstate;	/* 子选择计划的状态树 */
+	struct PlanState *parent;	/* 父计划节点的状态树 */
+	ExprState  *testexpr;		/* 组合表达式的状态 */
+	List	   *args;			/* 参数表达式的状态 */
+	HeapTuple	curTuple;		/* 来自子计划最近元组的拷贝 */
+	Datum		curArray;		/* 来自 ARRAY() 子计划最近数组 */
+	/* 对子选择输出做哈希时使用这些: */
+	TupleDesc	descRight;		/* 投影后的子选择描述符 */
+	ProjectionInfo *projLeft;	/* 供投影左侧表达式 */
+	ProjectionInfo *projRight;	/* 供投影子选择输出 */
+	TupleHashTable hashtable;	/* 无空子选择行的哈希表 */
+	TupleHashTable hashnulls;	/* 含空值行的哈希表 */
+	bool		havehashrows;	/* 哈希表非空则为真 */
+	bool		havenullrows;	/* hashnulls 非空则为真 */
+	MemoryContext hashtablecxt; /* 含哈希表的内存上下文 */
+	MemoryContext hashtempcxt;	/* 哈希表的临时内存上下文 */
+	ExprContext *innerecontext; /* 计算内元组的 econtext */
+	int			numCols;		/* 正被哈希的列数 */
+	/* 其余字段各为长度 numCols 的数组: */
+	AttrNumber *keyColIdx;		/* 哈希表的控制数据 */
+	Oid		   *tab_eq_funcoids;	/* 表数据类型的相等
+									 * 函数 oid */
+	Oid		   *tab_collations; /* 哈希与比较的排序规则 */
+	FmgrInfo   *tab_hash_funcs; /* 表数据类型的哈希函数 */
+	FmgrInfo   *tab_eq_funcs;	/* 表数据类型的相等函数 */
+	FmgrInfo   *lhs_hash_funcs; /* 左侧数据类型的哈希函数 */
+	FmgrInfo   *cur_eq_funcs;	/* LHS 相对表的相等函数 */
+	ExprState  *cur_eq_comp;	/* LHS 相对表的相等比较器 */
 } SubPlanState;
 
 /*
- * DomainConstraintState - one item to check during CoerceToDomain
+ * DomainConstraintState - CoerceToDomain 期间要检查的一项
  *
- * Note: we consider this to be part of an ExprState tree, so we give it
- * a name following the xxxState convention.  But there's no directly
- * associated plan-tree node.
+ * 注:我们视其为 ExprState 树的一部分,故按 xxxState 约定
+ * 命名。但没有直接关联的计划树节点。
+ * 见上。
  */
 typedef enum DomainConstraintType
 {
@@ -998,10 +998,10 @@ typedef enum DomainConstraintType
 typedef struct DomainConstraintState
 {
 	NodeTag		type;
-	DomainConstraintType constrainttype;	/* constraint type */
-	char	   *name;			/* name of constraint (for error msgs) */
-	Expr	   *check_expr;		/* for CHECK, a boolean expression */
-	ExprState  *check_exprstate;	/* check_expr's eval state, or NULL */
+	DomainConstraintType constrainttype;	/* 约束类型 */
+	char	   *name;			/* 约束名(供错误消息) */
+	Expr	   *check_expr;		/* 对 CHECK,布尔表达式 */
+	ExprState  *check_exprstate;	/* check_expr 求值状态,或 NULL */
 } DomainConstraintState;
 
 
@@ -1014,20 +1014,20 @@ typedef struct DomainConstraintState
  */
 
 /* ----------------
- *	 ExecProcNodeMtd
+ *	ExecProcNodeMtd
  *
- * This is the method called by ExecProcNode to return the next tuple
- * from an executor node.  It returns NULL, or an empty TupleTableSlot,
- * if no more tuples are available.
+ * 这 ExecProcNode 调用以从执行器点返回下一元组方法.
+ * 若无更多元组则返回 NULL 或空 TupleTableSlot。
+ * 见上。
  * ----------------
  */
 typedef TupleTableSlot *(*ExecProcNodeMtd) (struct PlanState *pstate);
 
 /* ----------------
- *		PlanState node
+ *	PlanState 点
  *
- * We never actually instantiate any PlanState nodes; this is just the common
- * abstract superclass for all PlanState-type nodes.
+ * 我们从不真正实例化任何 PlanState 节点;这只是所有
+ * PlanState 型节点的公共抽象超类。
  * ----------------
  */
 typedef struct PlanState
@@ -1036,20 +1036,20 @@ typedef struct PlanState
 
 	NodeTag		type;
 
-	Plan	   *plan;			/* associated Plan node */
+	Plan	   *plan;			/* 关联 Plan 节点 */
 
-	EState	   *state;			/* at execution time, states of individual
-								 * nodes point to one EState for the whole
-								 * top-level plan */
+	EState	   *state;			/* 执行时,各节点状态指向
+								 * 整个顶层计划的一个
+								 * EState */
 
-	ExecProcNodeMtd ExecProcNode;	/* function to return next tuple */
-	ExecProcNodeMtd ExecProcNodeReal;	/* actual function, if above is a
-										 * wrapper */
+	ExecProcNodeMtd ExecProcNode;	/* 返回下一元组的函数 */
+	ExecProcNodeMtd ExecProcNodeReal;	/* 若上方是包装则为实际
+										 * 函数 */
 
-	Instrumentation *instrument;	/* Optional runtime stats for this node */
-	WorkerInstrumentation *worker_instrument;	/* per-worker instrumentation */
+	Instrumentation *instrument;	/* 本节点的可选运行时统计 */
+	WorkerInstrumentation *worker_instrument;	/* 每工作者插桩 */
 
-	/* Per-worker JIT instrumentation */
+	/* 每工作者 JIT 插桩 */
 	struct SharedJitInstrumentation *worker_jit_instrument;
 
 	/*
@@ -1057,26 +1057,26 @@ typedef struct PlanState
 	 * state trees parallel links in the associated plan tree (except for the
 	 * subPlan list, which does not exist in the plan tree).
 	 */
-	ExprState  *qual;			/* boolean qual condition */
-	struct PlanState *lefttree; /* input plan tree(s) */
+	ExprState  *qual;			/* 布尔限定条件 */
+	struct PlanState *lefttree; /* 输入计划树 */
 	struct PlanState *righttree;
 
-	List	   *initPlan;		/* Init SubPlanState nodes (un-correlated expr
-								 * subselects) */
-	List	   *subPlan;		/* SubPlanState nodes in my expressions */
+	List	   *initPlan;		/* Init SubPlanState 节点(非相关表达式
+								 * 子查询) */
+	List	   *subPlan;		/* 我表达式中的 SubPlanState 点 */
 
 	/*
-	 * State for management of parameter-change-driven rescanning
+	 * 参数变化驱动重扫的管理状态
 	 */
-	Bitmapset  *chgParam;		/* set of IDs of changed Params */
+	Bitmapset  *chgParam;		/* 已变 Params 的 ID 集合 */
 
 	/*
-	 * Other run-time state needed by most if not all node types.
+	 * 多数(若非全部)点类型所需其他运行时状态.
 	 */
-	TupleDesc	ps_ResultTupleDesc; /* node's return type */
-	TupleTableSlot *ps_ResultTupleSlot; /* slot for my result tuples */
-	ExprContext *ps_ExprContext;	/* node's expression-evaluation context */
-	ProjectionInfo *ps_ProjInfo;	/* info for doing tuple projection */
+	TupleDesc	ps_ResultTupleDesc; /* 节点返回类型 */
+	TupleTableSlot *ps_ResultTupleSlot; /* 我的结果元组的槽 */
+	ExprContext *ps_ExprContext;	/* 节点的表达式求值上下文 */
+	ProjectionInfo *ps_ProjInfo;	/* 做元组投影的信息 */
 
 	bool		async_capable;	/* true if node is async-capable */
 
@@ -1134,7 +1134,7 @@ typedef struct PlanState
 #define innerPlanState(node)		(((PlanState *)(node))->righttree)
 #define outerPlanState(node)		(((PlanState *)(node))->lefttree)
 
-/* Macros for inline access to certain instrumentation counters */
+/* 内联访问某些插桩计数器的宏 */
 #define InstrCountTuples2(node, delta) \
 	do { \
 		if (((PlanState *)(node))->instrument) \
@@ -1171,18 +1171,18 @@ typedef struct PlanState
  */
 typedef struct EPQState
 {
-	/* These are initialized by EvalPlanQualInit() and do not change later: */
-	EState	   *parentestate;	/* main query's EState */
-	int			epqParam;		/* ID of Param to force scan node re-eval */
-	List	   *resultRelations;	/* integer list of RT indexes, or NIL */
+	/* 由 EvalPlanQualInit() 初始化且之后不变: */
+	EState	   *parentestate;	/* 主查询的 EState */
+	int			epqParam;		/* 强制扫描点重求值 Param 的 ID */
+	List	   *resultRelations;	/* RT 下标整数列表,或 NIL */
 
 	/*
-	 * relsubs_slot[scanrelid - 1] holds the EPQ test tuple to be returned by
-	 * the scan node for the scanrelid'th RT index, in place of performing an
-	 * actual table scan.  Callers should use EvalPlanQualSlot() to fetch
-	 * these slots.
+	 * relsubs_slot[scanrelid-1] 保存扫描节点为第 scanrelid 个
+	 * RT 下标返回 EPQ 测试元组,以代替实际表扫描.调用者应
+	 * 用 EvalPlanQualSlot() 取这些槽。
+	 * 见上。
 	 */
-	List	   *tuple_table;	/* tuple table for relsubs_slot */
+	List	   *tuple_table;	/* relsubs_slot 的元组表 */
 	TupleTableSlot **relsubs_slot;
 
 	/*
@@ -1190,8 +1190,8 @@ typedef struct EPQState
 	 * EvalPlanQualSetPlan():
 	 */
 
-	Plan	   *plan;			/* plan tree to be executed */
-	List	   *arowMarks;		/* ExecAuxRowMarks (non-locking only) */
+	Plan	   *plan;			/* 要执行的计划树 */
+	List	   *arowMarks;		/* ExecAuxRowMarks(仅非锁定) */
 
 
 	/*
@@ -1202,13 +1202,13 @@ typedef struct EPQState
 	TupleTableSlot *origslot;
 
 
-	/* Initialized or reset by EvalPlanQualBegin(): */
+	/* 由 EvalPlanQualBegin() 初始化或重置: */
 
-	EState	   *recheckestate;	/* EState for EPQ execution, see above */
+	EState	   *recheckestate;	/* EPQ 执行的 EState,见上 */
 
 	/*
-	 * Rowmarks that can be fetched on-demand using
-	 * EvalPlanQualFetchRowMark(), indexed by scanrelid - 1. Only non-locking
+	 * 可用 EvalPlanQualFetchRowMark() 按需取
+	 * rowmarks,以 scanrelid-1 索引。仅非锁定
 	 * rowmarks.
 	 */
 	ExecAuxRowMark **relsubs_rowmark;
@@ -1229,57 +1229,57 @@ typedef struct EPQState
 	 */
 	bool	   *relsubs_blocked;
 
-	PlanState  *recheckplanstate;	/* EPQ specific exec nodes, for ->plan */
+	PlanState  *recheckplanstate;	/* 供 ->plan  EPQ 专用执行节点 */
 } EPQState;
 
 
 /* ----------------
- *	 ResultState information
+ *	ResultState 信息
  * ----------------
  */
 typedef struct ResultState
 {
-	PlanState	ps;				/* its first field is NodeTag */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
 	ExprState  *resconstantqual;
 	bool		rs_done;		/* are we done? */
-	bool		rs_checkqual;	/* do we need to check the qual? */
+	bool		rs_checkqual;	/* 是否需要检查限定? */
 } ResultState;
 
 /* ----------------
- *	 ProjectSetState information
+ *	ProjectSetState 信息
  *
- * Note: at least one of the "elems" will be a SetExprState; the rest are
- * regular ExprStates.
+ * 注:至少有一个 elems 将是 SetExprState;其余是常规
+ * ExprStates。
  * ----------------
  */
 typedef struct ProjectSetState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	Node	  **elems;			/* array of expression states */
-	ExprDoneCond *elemdone;		/* array of per-SRF is-done states */
-	int			nelems;			/* length of elemdone[] array */
-	bool		pending_srf_tuples; /* still evaluating srfs in tlist? */
-	MemoryContext argcontext;	/* context for SRF arguments */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
+	Node	  **elems;			/* 表达式状态数组 */
+	ExprDoneCond *elemdone;		/* 每 SRF 的完成状态数组 */
+	int			nelems;			/* elemdone[] 数组的长度 */
+	bool		pending_srf_tuples; /* 仍在求值 tlist 中的 srfs? */
+	MemoryContext argcontext;	/* SRF 参数的上下文 */
 } ProjectSetState;
 
 
-/* flags for mt_merge_subcommands */
+/* mt_merge_subcommands 的标志 */
 #define MERGE_INSERT	0x01
 #define MERGE_UPDATE	0x02
 #define MERGE_DELETE	0x04
 
 /* ----------------
- *	 ModifyTableState information
+ *	ModifyTableState 信息
  * ----------------
  */
 typedef struct ModifyTableState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	CmdType		operation;		/* INSERT, UPDATE, DELETE, or MERGE */
-	bool		canSetTag;		/* do we set the command tag/es_processed? */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
+	CmdType		operation;		/* INSERT,UPDATE、DELETE 或MERGE */
+	bool		canSetTag;		/* 是否设置命令标签/es_processed? */
 	bool		mt_done;		/* are we done? */
-	int			mt_nrels;		/* number of entries in resultRelInfo[] */
-	ResultRelInfo *resultRelInfo;	/* info about target relation(s) */
+	int			mt_nrels;		/* resultRelInfo[] 中的项数 */
+	ResultRelInfo *resultRelInfo;	/* 关于目标关系的信息 */
 
 	/*
 	 * Target relation mentioned in the original statement, used to fire
@@ -1289,8 +1289,8 @@ typedef struct ModifyTableState
 	 */
 	ResultRelInfo *rootResultRelInfo;
 
-	EPQState	mt_epqstate;	/* for evaluating EvalPlanQual rechecks */
-	bool		fireBSTriggers; /* do we need to fire stmt triggers? */
+	EPQState	mt_epqstate;	/* 供求值 EvalPlanQual 复核 */
+	bool		fireBSTriggers; /* 否需要激发语句触发器? */
 
 	/*
 	 * These fields are used for inherited UPDATE and DELETE, to track which
@@ -1299,44 +1299,44 @@ typedef struct ModifyTableState
 	 * resultRelInfo[] indexes; otherwise mt_resultOidHash is NULL.
 	 */
 	int			mt_resultOidAttno;	/* resno of "tableoid" junk attr */
-	Oid			mt_lastResultOid;	/* last-seen value of tableoid */
-	int			mt_lastResultIndex; /* corresponding index in resultRelInfo[] */
-	HTAB	   *mt_resultOidHash;	/* optional hash table to speed lookups */
+	Oid			mt_lastResultOid;	/* tableoid 的最近所见值 */
+	int			mt_lastResultIndex; /* resultRelInfo[] 中的对应下标 */
+	HTAB	   *mt_resultOidHash;	/* 加速查找的可选哈希表 */
 
 	/*
-	 * Slot for storing tuples in the root partitioned table's rowtype during
-	 * an UPDATE of a partitioned table.
+	 * 分区表 UPDATE 期间以根分区表行类型存元组的槽。
+	 * 见上。
 	 */
 	TupleTableSlot *mt_root_tuple_slot;
 
-	/* Tuple-routing support info */
+	/* 元组路由支持信息 */
 	struct PartitionTupleRouting *mt_partition_tuple_routing;
 
-	/* controls transition table population for specified operation */
+	/* 控制指定操作的转移表填充 */
 	struct TransitionCaptureState *mt_transition_capture;
 
-	/* controls transition table population for INSERT...ON CONFLICT UPDATE */
+	/* 控制 INSERT...ON CONFLICT UPDATE 的转移表填充 */
 	struct TransitionCaptureState *mt_oc_transition_capture;
 
-	/* Flags showing which subcommands are present INS/UPD/DEL/DO NOTHING */
+	/* 显示存在哪些子命令 INS/UPD/DEL/DO NOTHING 的标志 */
 	int			mt_merge_subcommands;
 
-	/* tuple counters for MERGE */
+	/* MERGE 的元组计数器 */
 	double		mt_merge_inserted;
 	double		mt_merge_updated;
 	double		mt_merge_deleted;
 } ModifyTableState;
 
 /* ----------------
- *	 AppendState information
+ *	AppendState 信息
  *
- *		nplans				how many plans are in the array
- *		whichplan			which synchronous plan is being executed (0 .. n-1)
- *							or a special negative value. See nodeAppend.c.
- *		prune_state			details required to allow partitions to be
- *							eliminated from the scan, or NULL if not possible.
- *		valid_subplans		for runtime pruning, valid synchronous appendplans
- *							indexes to scan.
+ *	nplans 数组中有多少计划
+ *	whichplan 正在执行哪个同步计划(0..n-1)
+ *	或特殊负值。见 nodeAppend.c。
+ *	prune_state 允许从扫描中消除分区所需细节,
+ *	不可能则为 NULL。
+ *	valid_subplans 运行时剪枝时,有效同步 appendplans
+ *	要扫描的下标。
  * ----------------
  */
 
@@ -1348,112 +1348,112 @@ struct PartitionPruneState;
 
 struct AppendState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	PlanState **appendplans;	/* array of PlanStates for my inputs */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
+	PlanState **appendplans;	/* 我的输入的 PlanStates 数组 */
 	int			as_nplans;
 	int			as_whichplan;
-	bool		as_begun;		/* false means need to initialize */
-	Bitmapset  *as_asyncplans;	/* asynchronous plans indexes */
-	int			as_nasyncplans; /* # of asynchronous plans */
-	AsyncRequest **as_asyncrequests;	/* array of AsyncRequests */
-	TupleTableSlot **as_asyncresults;	/* unreturned results of async plans */
-	int			as_nasyncresults;	/* # of valid entries in as_asyncresults */
-	bool		as_syncdone;	/* true if all synchronous plans done in
-								 * asynchronous mode, else false */
-	int			as_nasyncremain;	/* # of remaining asynchronous plans */
-	Bitmapset  *as_needrequest; /* asynchronous plans needing a new request */
+	bool		as_begun;		/* 假表示需要初始化 */
+	Bitmapset  *as_asyncplans;	/* 异步计划下标 */
+	int			as_nasyncplans; /* 异步计划数 */
+	AsyncRequest **as_asyncrequests;	/* AsyncRequests 数组 */
+	TupleTableSlot **as_asyncresults;	/* 异步计划未返回的结果 */
+	int			as_nasyncresults;	/* as_asyncresults 中有效项数 */
+	bool		as_syncdone;	/* 异步模式下全部同步计划
+								 * 已完成则为真,否则假 */
+	int			as_nasyncremain;	/* 剩余异步计划数 */
+	Bitmapset  *as_needrequest; /* 需要新请求的异步计划 */
 	struct WaitEventSet *as_eventset;	/* WaitEventSet used to configure file
 										 * descriptor wait events */
-	int			as_first_partial_plan;	/* Index of 'appendplans' containing
-										 * the first partial plan */
-	ParallelAppendState *as_pstate; /* parallel coordination info */
-	Size		pstate_len;		/* size of parallel coordination info */
+	int			as_first_partial_plan;	/* 含第一个部分计划的
+										 * 'appendplans' 下标 */
+	ParallelAppendState *as_pstate; /* 并行协调信息 */
+	Size		pstate_len;		/* 并行协调信息的大小 */
 	struct PartitionPruneState *as_prune_state;
 	bool		as_valid_subplans_identified;	/* is as_valid_subplans valid? */
 	Bitmapset  *as_valid_subplans;
-	Bitmapset  *as_valid_asyncplans;	/* valid asynchronous plans indexes */
+	Bitmapset  *as_valid_asyncplans;	/* 有效异步计划下标 */
 	bool		(*choose_next_subplan) (AppendState *);
 };
 
 /* ----------------
- *	 MergeAppendState information
+ *	MergeAppendState 信息
  *
- *		nplans			how many plans are in the array
- *		nkeys			number of sort key columns
- *		sortkeys		sort keys in SortSupport representation
- *		slots			current output tuple of each subplan
- *		heap			heap of active tuples
- *		initialized		true if we have fetched first tuple from each subplan
- *		prune_state		details required to allow partitions to be
- *						eliminated from the scan, or NULL if not possible.
- *		valid_subplans	for runtime pruning, valid mergeplans indexes to
- *						scan.
+ *	nplans 数组中有多少计划
+ *	nkeys 排序键列数
+ *	sortkeys SortSupport 表示的排序键
+ *	slots 各子计划当前输出元组
+ *	heap 活动元组的堆
+ *	initialized 是否已从各子计划取过第一元组
+ *	prune_state 允许从扫描中消除分区所需细节,
+ *	不可能则为 NULL。
+ *	valid_subplans 运行时剪枝时,有效 mergeplans 要扫描
+ *	下标。
  * ----------------
  */
 typedef struct MergeAppendState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	PlanState **mergeplans;		/* array of PlanStates for my inputs */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
+	PlanState **mergeplans;		/* 我的输入的 PlanStates 数组 */
 	int			ms_nplans;
 	int			ms_nkeys;
-	SortSupport ms_sortkeys;	/* array of length ms_nkeys */
-	TupleTableSlot **ms_slots;	/* array of length ms_nplans */
-	struct binaryheap *ms_heap; /* binary heap of slot indices */
+	SortSupport ms_sortkeys;	/* 长度 ms_nkeys 数组 */
+	TupleTableSlot **ms_slots;	/* 长度 ms_nplans 数组 */
+	struct binaryheap *ms_heap; /* 槽下标的二叉堆 */
 	bool		ms_initialized; /* are subplans started? */
 	struct PartitionPruneState *ms_prune_state;
 	Bitmapset  *ms_valid_subplans;
 } MergeAppendState;
 
 /* ----------------
- *	 RecursiveUnionState information
+ *	RecursiveUnionState 信息
  *
- *		RecursiveUnionState is used for performing a recursive union.
+ *	RecursiveUnionState 用于执行递归并。
  *
- *		recursing			T when we're done scanning the non-recursive term
- *		intermediate_empty	T if intermediate_table is currently empty
- *		working_table		working table (to be scanned by recursive term)
- *		intermediate_table	current recursive output (next generation of WT)
+ *	recursing 已扫完非递归项则为 T
+ *	intermediate_empty intermediate_table 当前为空则为 T
+ *	working_table 工作表(由递归项扫描)
+ *	intermediate_table 当前递归输出(WT 的下一代)
  * ----------------
  */
 typedef struct RecursiveUnionState
 {
-	PlanState	ps;				/* its first field is NodeTag */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
 	bool		recursing;
 	bool		intermediate_empty;
 	Tuplestorestate *working_table;
 	Tuplestorestate *intermediate_table;
-	/* Remaining fields are unused in UNION ALL case */
-	Oid		   *eqfuncoids;		/* per-grouping-field equality fns */
-	FmgrInfo   *hashfunctions;	/* per-grouping-field hash fns */
-	MemoryContext tempContext;	/* short-term context for comparisons */
-	TupleHashTable hashtable;	/* hash table for tuples already seen */
-	MemoryContext tableContext; /* memory context containing hash table */
+	/* UNION ALL 时其余字段未用 */
+	Oid		   *eqfuncoids;		/* 每分组字段的相等函数 */
+	FmgrInfo   *hashfunctions;	/* 每分组字段哈希函数 */
+	MemoryContext tempContext;	/* 比较用的短期上下文 */
+	TupleHashTable hashtable;	/* 已见元组的哈希表 */
+	MemoryContext tableContext; /* 含哈希表的内存上下文 */
 } RecursiveUnionState;
 
 /* ----------------
- *	 BitmapAndState information
+ *	BitmapAndState 信息
  * ----------------
  */
 typedef struct BitmapAndState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	PlanState **bitmapplans;	/* array of PlanStates for my inputs */
-	int			nplans;			/* number of input plans */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
+	PlanState **bitmapplans;	/* 我的输入的 PlanStates 数组 */
+	int			nplans;			/* 输入计划数 */
 } BitmapAndState;
 
 /* ----------------
- *	 BitmapOrState information
+ *	BitmapOrState 信息
  * ----------------
  */
 typedef struct BitmapOrState
 {
-	PlanState	ps;				/* its first field is NodeTag */
-	PlanState **bitmapplans;	/* array of PlanStates for my inputs */
-	int			nplans;			/* number of input plans */
+	PlanState	ps;				/* 其第一字段是 NodeTag */
+	PlanState **bitmapplans;	/* 我的输入的 PlanStates 数组 */
+	int			nplans;			/* 输入计划数 */
 } BitmapOrState;
 
 /* ----------------------------------------------------------------
- *				 Scan State Information
+ *	扫描状态信息
  * ----------------------------------------------------------------
  */
 

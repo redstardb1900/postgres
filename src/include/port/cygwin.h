@@ -15,9 +15,9 @@
 #endif
 
 /*
- * Cygwin has a strtof() which is literally just (float)strtod(), which means
- * we get misrounding _and_ silent over/underflow. Using our wrapper doesn't
- * fix the misrounding but does fix the error checks, which cuts down on the
- * number of test variant files needed.
+ * Cygwin 的 strtof() 字面就是 (float)strtod(),因而会
+ * 误舍入 _and_ 静默上/下溢。用我们的包装不能
+ * 修误舍入但能修错误检查,从而减少所需
+ * 测试变体文件数量。
  */
 #define HAVE_BUGGY_STRTOF 1

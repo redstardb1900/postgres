@@ -13,5 +13,5 @@
  *-------------------------------------------------------------------------
  */
 
-/* HPPA doesn't do either read or write reordering */
+/*  HPPA 不做读或写重排  */
 #define pg_memory_barrier_impl()		pg_compiler_barrier_impl()

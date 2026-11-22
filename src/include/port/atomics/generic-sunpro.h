@@ -26,9 +26,9 @@
 
 #ifndef pg_memory_barrier_impl
 /*
- * Despite the name this is actually a full barrier. Expanding to mfence/
- * membar #StoreStore | #LoadStore | #StoreLoad | #LoadLoad on x86/sparc
- * respectively.
+ * 尽管名称如此,实为完整屏障。展开为 mfence/
+ * membar #StoreStore|#LoadStore|#StoreLoad|#LoadLoad(x86/
+ * sparc)。
  */
 #	define pg_memory_barrier_impl()		__machine_rw_barrier()
 #endif
@@ -41,7 +41,7 @@
 
 #endif /* HAVE_MBARRIER_H */
 
-/* Older versions of the compiler don't have atomic.h... */
+/*  较旧编译器没有 atomic.h...  */
 #ifdef HAVE_ATOMIC_H
 
 #include <atomic.h>
@@ -56,10 +56,10 @@ typedef struct pg_atomic_uint32
 typedef struct pg_atomic_uint64
 {
 	/*
-	 * Syntax to enforce variable alignment should be supported by versions
-	 * supporting atomic.h, but it's hard to find accurate documentation. If
-	 * it proves to be a problem, we'll have to add more version checks for 64
-	 * bit support.
+	 * 强制变量对齐语法应为支持 atomic.h 的版本所
+	 * 支持,但难找准确文档。若成问题,须为 64
+	 * 位支持加更多版本
+	 * 检查。
 	 */
 	volatile uint64 value pg_attribute_aligned(8);
 } pg_atomic_uint64;

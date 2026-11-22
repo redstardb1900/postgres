@@ -1,17 +1,17 @@
 /* src/include/port/win32.h */
 
 /*
- * We always rely on the WIN32 macro being set by our build system,
- * but _WIN32 is the compiler pre-defined macro. So make sure we define
- * WIN32 whenever _WIN32 is set, to facilitate standalone building.
+ * 我们总依赖构建系统设置 WIN32 宏,
+ * 但 _WIN32 才是编译器预定义宏。故在 _WIN32
+ * 已设时确保定义 WIN32,以便独立构建。
  */
 #if defined(_WIN32) && !defined(WIN32)
 #define WIN32
 #endif
 
 /*
- * Make sure _WIN32_WINNT has the minimum required value.
- * Leave a higher value in place.  The minimum requirement is Windows 10.
+ * 确保 _WIN32_WINNT 具有最低要求值。
+ * 保留更高值。最低要求为 Windows 10。
  */
 #ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
@@ -20,9 +20,9 @@
 #define _WIN32_WINNT 0x0A00
 
 /*
- * We need to prevent <crtdefs.h> from defining a symbol conflicting with
- * our errcode() function.  Since it's likely to get included by standard
- * system headers, pre-emptively include it now.
+ * 需防止 <crtdefs.h> 定义与我们 errcode() 冲突的
+ * 符号。因其可能被标准系统头包含,故
+ * 现抢先包含。
  */
 #if defined(_MSC_VER) || defined(HAVE_CRTDEFS_H)
 #define errcode __msvc_errcode
@@ -31,7 +31,7 @@
 #endif
 
 /*
- * defines for dynamic linking on Win32 platform
+ * Win32 平台动态链接相关定义
  */
 
 /*

@@ -1,0 +1,231 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0599",
+ "title": "include/port OS 平台头+atomics 尾 — batch 0599",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1ae7484f2c8ca1b5d176d735c9bf7fb798d2f38e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/port/aix.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/cygwin.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/darwin.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/freebsd.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/linux.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/solaris.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/win32.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/atomics/arch-arm.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/atomics/arch-hppa.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/atomics/generic-msvc.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/include/port/atomics/generic-sunpro.h",
+   "kind": "c_comment",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0599-port.json",
+   "kind": "manifest",
+   "note": "0599"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/port/aix.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/cygwin.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/darwin.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/freebsd.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/linux.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/solaris.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/win32.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/atomics/arch-arm.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/atomics/arch-hppa.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/atomics/generic-msvc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/include/port/atomics/generic-sunpro.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长文(EIDRM/dllimport 等) KEEP EN；netbsd/openbsd/win32ntdll/win32 stub 未触达。"
+   ],
+   "note": "0599"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0599-port.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0599"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0599"
+  }
+ ],
+ "notes": "OS 平台短注已译；linux EIDRM/dllimport·dllexport 长文 KEEP；atomics 尾短注已译；横幅 KEEP；win32 stub/netbsd/openbsd/win32ntdll 留后"
+}

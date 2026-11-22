@@ -1,9 +1,9 @@
 /* src/include/port/solaris.h */
 
 /*
- * Sort this out for all operating systems some time.  The __xxx
- * symbols are defined on both GCC and Solaris CC, although GCC
- * doesn't document them.  The __xxx__ symbols are only on GCC.
+ * 日后再对所有操作系统理清。__xxx
+ * 符号在 GCC 与 Solaris CC 上都有定义,尽管 GCC
+ * 未文档化。__xxx__ 符号仅在 GCC 上。
  */
 #if defined(__i386) && !defined(__i386__)
 #define __i386__
@@ -26,10 +26,10 @@
 #endif
 
 /*
- * On original Solaris, PAM conversation procs lack a "const" in their
- * declaration; but recent OpenIndiana versions put it there by default.
- * The least messy way to deal with this is to define _PAM_LEGACY_NONCONST,
- * which causes OpenIndiana to declare pam_conv per the Solaris tradition,
- * and also use that symbol to control omitting the "const" in our own code.
+ * 原版 Solaris 上 PAM 对话过程声明缺 "const";
+ * 但近版 OpenIndiana 默认加上。最省事的办法是
+ * 定义 _PAM_LEGACY_NONCONST,使 OpenIndiana 按 Solaris
+ * 传统声明 pam_conv,并用该符号控制我们代码中
+ * 省略 "const"。
  */
 #define _PAM_LEGACY_NONCONST 1

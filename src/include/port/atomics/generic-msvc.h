@@ -18,7 +18,7 @@
  */
 #include <intrin.h>
 
-/* intentionally no include guards, should only be included by atomics.h */
+/*  故意无头文件卫士,仅应由 atomics.h 包含  */
 #ifndef INSIDE_ATOMICS_H
 #error "should be included via atomics.h"
 #endif
@@ -66,10 +66,10 @@ pg_atomic_fetch_add_u32_impl(volatile pg_atomic_uint32 *ptr, int32 add_)
 }
 
 /*
- * The non-intrinsics versions are only available in vista upwards, so use the
- * intrinsic version. Only supported on >486, but we require XP as a minimum
- * baseline, which doesn't support the 486, so we don't need to add checks for
- * that case.
+ * 非 intrinsic 版本仅 Vista 起可用,故用
+ * intrinsic 版。仅支持 >486,但最低基线为 XP,
+ * XP 不支持 486,故无需再为该情形加
+ * 检查。
  */
 #pragma intrinsic(_InterlockedCompareExchange64)
 
@@ -86,7 +86,7 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 	return ret;
 }
 
-/* Only implemented on 64bit builds */
+/*  仅在 64 位构建上实现  */
 #ifdef _WIN64
 #pragma intrinsic(_InterlockedExchangeAdd64)
 

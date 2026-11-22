@@ -1499,23 +1499,23 @@ typedef struct PathTarget
 
 	NodeTag		type;
 
-	/* list of expressions to be computed */
+	/* 要求值的表达式列表 */
 	List	   *exprs;
 
-	/* corresponding sort/group refnos, or 0 */
+	/* 对应的 sort/group refno,或 0 */
 	Index	   *sortgrouprefs pg_node_attr(array_size(exprs));
 
-	/* cost of evaluating the expressions */
+	/* 求值这些表达式的代价 */
 	QualCost	cost;
 
-	/* estimated avg width of result tuples */
+	/* 结果元组的估计平均宽度 */
 	int			width;
 
-	/* indicates if exprs contain any volatile functions */
+	/* exprs 是否含易变函数 */
 	VolatileFunctionStatus has_volatile_expr;
 } PathTarget;
 
-/* Convenience macro to get a sort/group refno from a PathTarget */
+/* 从 PathTarget 取排序/分组 refno 的方便宏 */
 #define get_pathtarget_sortgroupref(target, colno) \
 	((target)->sortgrouprefs ? (target)->sortgrouprefs[colno] : (Index) 0)
 
@@ -1546,10 +1546,10 @@ typedef struct ParamPathInfo
 
 	NodeTag		type;
 
-	Relids		ppi_req_outer;	/* rels supplying parameters used by path */
-	Cardinality ppi_rows;		/* estimated number of result tuples */
-	List	   *ppi_clauses;	/* join clauses available from outer rels */
-	Bitmapset  *ppi_serials;	/* set of rinfo_serial for enforced quals */
+	Relids		ppi_req_outer;	/* 向路径提供参数的关系 */
+	Cardinality ppi_rows;		/* 估计的结果元组数 */
+	List	   *ppi_clauses;	/* 可从外层关系得到连接子句 */
+	Bitmapset  *ppi_serials;	/* 已强制限定的 rinfo_serial 集合 */
 } ParamPathInfo;
 
 
@@ -1592,7 +1592,7 @@ typedef struct Path
 
 	NodeTag		type;
 
-	/* tag identifying scan/join method */
+	/* 标识扫描/连接方法标签 */
 	NodeTag		pathtype;
 
 	/*
@@ -1619,23 +1619,23 @@ typedef struct Path
 	 */
 	ParamPathInfo *param_info pg_node_attr(write_only_req_outer);
 
-	/* engage parallel-aware logic? */
+	/* 启用并行感知逻辑? */
 	bool		parallel_aware;
-	/* OK to use as part of parallel plan? */
+	/* 可否用作并行计划一部分? */
 	bool		parallel_safe;
-	/* desired # of workers; 0 = not parallel */
+	/* 期望工作者数;0=非并行 */
 	int			parallel_workers;
 
-	/* estimated size/costs for path (see costsize.c for more info) */
-	Cardinality rows;			/* estimated number of result tuples */
-	Cost		startup_cost;	/* cost expended before fetching any tuples */
-	Cost		total_cost;		/* total cost (assuming all tuples fetched) */
+	/* 路径的估计大小/代价(详见 costsize.c) */
+	Cardinality rows;			/* 估计的结果元组数 */
+	Cost		startup_cost;	/* 取任何元组前已花的代价 */
+	Cost		total_cost;		/* 总代价(假定取完全部元组) */
 
-	/* sort ordering of path's output; a List of PathKey nodes; see above */
+	/* 路径输出的排序;PathKey 节点列表;见上 */
 	List	   *pathkeys;
 } Path;
 
-/* Macro for extracting a path's parameterization relids; beware double eval */
+/* 提取路径参数化 relids 的宏;当心双重求值 */
 #define PATH_REQ_OUTER(path)  \
 	((path)->param_info ? (path)->param_info->ppi_req_outer : (Relids) NULL)
 
@@ -1725,11 +1725,11 @@ typedef struct IndexClause
 	pg_node_attr(no_copy_equal, no_read, no_query_jumble)
 
 	NodeTag		type;
-	struct RestrictInfo *rinfo; /* original restriction or join clause */
-	List	   *indexquals;		/* indexqual(s) derived from it */
-	bool		lossy;			/* are indexquals a lossy version of clause? */
-	AttrNumber	indexcol;		/* index column the clause uses (zero-based) */
-	List	   *indexcols;		/* multiple index columns, if RowCompare */
+	struct RestrictInfo *rinfo; /* 原限定或连接子句 */
+	List	   *indexquals;		/* 由其派生的 indexqual */
+	bool		lossy;			/* indexqual 是否为子句的有损版本? */
+	AttrNumber	indexcol;		/* 子句所用的索引列(从零起) */
+	List	   *indexcols;		/* 多索引列(若为 RowCompare) */
 } IndexClause;
 
 /*
@@ -1752,7 +1752,7 @@ typedef struct IndexClause
 typedef struct BitmapHeapPath
 {
 	Path		path;
-	Path	   *bitmapqual;		/* IndexPath, BitmapAndPath, BitmapOrPath */
+	Path	   *bitmapqual;		/* IndexPath/BitmapAnd/OrPath */
 } BitmapHeapPath;
 
 /*
@@ -1764,7 +1764,7 @@ typedef struct BitmapHeapPath
 typedef struct BitmapAndPath
 {
 	Path		path;
-	List	   *bitmapquals;	/* IndexPaths and BitmapOrPaths */
+	List	   *bitmapquals;	/* IndexPath 与 BitmapOrPath */
 	Selectivity bitmapselectivity;
 } BitmapAndPath;
 
@@ -1777,7 +1777,7 @@ typedef struct BitmapAndPath
 typedef struct BitmapOrPath
 {
 	Path		path;
-	List	   *bitmapquals;	/* IndexPaths and BitmapAndPaths */
+	List	   *bitmapquals;	/* IndexPath 与 BitmapAndPath */
 	Selectivity bitmapselectivity;
 } BitmapOrPath;
 
@@ -1791,7 +1791,7 @@ typedef struct BitmapOrPath
 typedef struct TidPath
 {
 	Path		path;
-	List	   *tidquals;		/* qual(s) involving CTID = something */
+	List	   *tidquals;		/* 涉及 CTID = 某值的限定 */
 } TidPath;
 
 /*
@@ -1817,7 +1817,7 @@ typedef struct TidRangePath
 typedef struct SubqueryScanPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing subquery execution */
+	Path	   *subpath;		/* 表示子查询执行的路径 */
 } SubqueryScanPath;
 
 /*
@@ -1866,7 +1866,7 @@ typedef struct CustomPath
 	Path		path;
 	uint32		flags;			/* mask of CUSTOMPATH_* flags, see
 								 * nodes/extensible.h */
-	List	   *custom_paths;	/* list of child Path nodes, if any */
+	List	   *custom_paths;	/* 子 Path 节点列表(若有) */
 	List	   *custom_private;
 	const struct CustomPathMethods *methods;
 } CustomPath;
@@ -1889,10 +1889,10 @@ typedef struct CustomPath
 typedef struct AppendPath
 {
 	Path		path;
-	List	   *subpaths;		/* list of component Paths */
-	/* Index of first partial path in subpaths; list_length(subpaths) if none */
+	List	   *subpaths;		/* 成分 Path 列表 */
+	/* subpaths 中首个部分路径下标;无则为 list_length(subpaths) */
 	int			first_partial_path;
-	Cardinality limit_tuples;	/* hard limit on output tuples, or -1 */
+	Cardinality limit_tuples;	/* 输出元组硬上限,或 -1 */
 } AppendPath;
 
 #define IS_DUMMY_APPEND(p) \
@@ -1913,8 +1913,8 @@ extern bool is_dummy_rel(RelOptInfo *rel);
 typedef struct MergeAppendPath
 {
 	Path		path;
-	List	   *subpaths;		/* list of component Paths */
-	Cardinality limit_tuples;	/* hard limit on output tuples, or -1 */
+	List	   *subpaths;		/* 成分 Path 列表 */
+	Cardinality limit_tuples;	/* 输出元组硬上限,或 -1 */
 } MergeAppendPath;
 
 /*
@@ -1950,14 +1950,14 @@ typedef struct MaterialPath
 typedef struct MemoizePath
 {
 	Path		path;
-	Path	   *subpath;		/* outerpath to cache tuples from */
-	List	   *hash_operators; /* OIDs of hash equality ops for cache keys */
-	List	   *param_exprs;	/* expressions that are cache keys */
+	Path	   *subpath;		/* 缓存元组的 outerpath */
+	List	   *hash_operators; /* 缓存键的哈希相等运算符 OID */
+	List	   *param_exprs;	/* 作为缓存键的表达式 */
 	bool		singlerow;		/* true if the cache entry is to be marked as
 								 * complete after caching the first record. */
 	bool		binary_mode;	/* true when cache key should be compared bit
 								 * by bit, false when using hash equality ops */
-	Cardinality calls;			/* expected number of rescans */
+	Cardinality calls;			/* 期望的重扫次数 */
 	uint32		est_entries;	/* The maximum number of entries that the
 								 * planner expects will fit in the cache, or 0
 								 * if unknown */
@@ -1977,9 +1977,9 @@ typedef struct MemoizePath
  */
 typedef enum UniquePathMethod
 {
-	UNIQUE_PATH_NOOP,			/* input is known unique already */
-	UNIQUE_PATH_HASH,			/* use hashing */
-	UNIQUE_PATH_SORT			/* use sorting */
+	UNIQUE_PATH_NOOP,			/* 输入已知已唯一 */
+	UNIQUE_PATH_HASH,			/* 用哈希 */
+	UNIQUE_PATH_SORT			/* 用排序 */
 } UniquePathMethod;
 
 typedef struct UniquePath
@@ -1987,8 +1987,8 @@ typedef struct UniquePath
 	Path		path;
 	Path	   *subpath;
 	UniquePathMethod umethod;
-	List	   *in_operators;	/* equality operators of the IN clause */
-	List	   *uniq_exprs;		/* expressions to be made unique */
+	List	   *in_operators;	/* IN 子句的相等运算符 */
+	List	   *uniq_exprs;		/* 要做成唯一的表达式 */
 } UniquePath;
 
 /*
@@ -1999,9 +1999,9 @@ typedef struct UniquePath
 typedef struct GatherPath
 {
 	Path		path;
-	Path	   *subpath;		/* path for each worker */
-	bool		single_copy;	/* don't execute path more than once */
-	int			num_workers;	/* number of workers sought to help */
+	Path	   *subpath;		/* 每工作者路径 */
+	bool		single_copy;	/* 路径不要执行超过一次 */
+	int			num_workers;	/* 寻求帮助的工作者数 */
 } GatherPath;
 
 /*
@@ -2011,8 +2011,8 @@ typedef struct GatherPath
 typedef struct GatherMergePath
 {
 	Path		path;
-	Path	   *subpath;		/* path for each worker */
-	int			num_workers;	/* number of workers sought to help */
+	Path	   *subpath;		/* 每工作者路径 */
+	int			num_workers;	/* 寻求帮助的工作者数 */
 } GatherMergePath;
 
 
@@ -2031,8 +2031,8 @@ typedef struct JoinPath
 	bool		inner_unique;	/* each outer tuple provably matches no more
 								 * than one inner tuple */
 
-	Path	   *outerjoinpath;	/* path for the outer side of the join */
-	Path	   *innerjoinpath;	/* path for the inner side of the join */
+	Path	   *outerjoinpath;	/* 连接外层的路径 */
+	Path	   *innerjoinpath;	/* 连接内层的路径 */
 
 	List	   *joinrestrictinfo;	/* RestrictInfos to apply to join */
 
@@ -2090,11 +2090,11 @@ typedef struct NestPath
 typedef struct MergePath
 {
 	JoinPath	jpath;
-	List	   *path_mergeclauses;	/* join clauses to be used for merge */
-	List	   *outersortkeys;	/* keys for explicit sort, if any */
-	List	   *innersortkeys;	/* keys for explicit sort, if any */
-	bool		skip_mark_restore;	/* can executor skip mark/restore? */
-	bool		materialize_inner;	/* add Materialize to inner? */
+	List	   *path_mergeclauses;	/* 用于归并的连接子句 */
+	List	   *outersortkeys;	/* 显式排序的键(若有) */
+	List	   *innersortkeys;	/* 显式排序的键(若有) */
+	bool		skip_mark_restore;	/* 可跳过 mark/restore? */
+	bool		materialize_inner;	/* 给内层加 Materialize? */
 } MergePath;
 
 /*
@@ -2109,9 +2109,9 @@ typedef struct MergePath
 typedef struct HashPath
 {
 	JoinPath	jpath;
-	List	   *path_hashclauses;	/* join clauses used for hashing */
-	int			num_batches;	/* number of batches expected */
-	Cardinality inner_rows_total;	/* total inner rows expected */
+	List	   *path_hashclauses;	/* 用于哈希的连接子句 */
+	int			num_batches;	/* 期望的批次数 */
+	Cardinality inner_rows_total;	/* 期望的内层总行数 */
 } HashPath;
 
 /*
@@ -2131,8 +2131,8 @@ typedef struct HashPath
 typedef struct ProjectionPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	bool		dummypp;		/* true if no separate Result is needed */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	bool		dummypp;		/* 无需单独 Result 则为真 */
 } ProjectionPath;
 
 /*
@@ -2143,7 +2143,7 @@ typedef struct ProjectionPath
 typedef struct ProjectSetPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
+	Path	   *subpath;		/* 表示输入源的路径 */
 } ProjectSetPath;
 
 /*
@@ -2157,7 +2157,7 @@ typedef struct ProjectSetPath
 typedef struct SortPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
+	Path	   *subpath;		/* 表示输入源的路径 */
 } SortPath;
 
 /*
@@ -2169,7 +2169,7 @@ typedef struct SortPath
 typedef struct IncrementalSortPath
 {
 	SortPath	spath;
-	int			nPresortedCols; /* number of presorted columns */
+	int			nPresortedCols; /* 预排序列数 */
 } IncrementalSortPath;
 
 /*
@@ -2183,9 +2183,9 @@ typedef struct IncrementalSortPath
 typedef struct GroupPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	List	   *groupClause;	/* a list of SortGroupClause's */
-	List	   *qual;			/* quals (HAVING quals), if any */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	List	   *groupClause;	/* SortGroupClause 列表 */
+	List	   *qual;			/* 限定(HAVING)(若有) */
 } GroupPath;
 
 /*
@@ -2197,8 +2197,8 @@ typedef struct GroupPath
 typedef struct UpperUniquePath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	int			numkeys;		/* number of pathkey columns to compare */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	int			numkeys;		/* 要比较的 pathkey 列数 */
 } UpperUniquePath;
 
 /*
@@ -2211,13 +2211,13 @@ typedef struct UpperUniquePath
 typedef struct AggPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	AggStrategy aggstrategy;	/* basic strategy, see nodes.h */
-	AggSplit	aggsplit;		/* agg-splitting mode, see nodes.h */
-	Cardinality numGroups;		/* estimated number of groups in input */
-	uint64		transitionSpace;	/* for pass-by-ref transition data */
-	List	   *groupClause;	/* a list of SortGroupClause's */
-	List	   *qual;			/* quals (HAVING quals), if any */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	AggStrategy aggstrategy;	/* 基本策略,见 nodes.h */
+	AggSplit	aggsplit;		/* 聚合拆分模式,见 nodes.h */
+	Cardinality numGroups;		/* 输入中估计的组数 */
+	uint64		transitionSpace;	/* 供传引用转移数据 */
+	List	   *groupClause;	/* SortGroupClause 列表 */
+	List	   *qual;			/* 限定(HAVING)(若有) */
 } AggPath;
 
 /*
@@ -2229,8 +2229,8 @@ typedef struct GroupingSetData
 	pg_node_attr(no_copy_equal, no_read, no_query_jumble)
 
 	NodeTag		type;
-	List	   *set;			/* grouping set as list of sortgrouprefs */
-	Cardinality numGroups;		/* est. number of result groups */
+	List	   *set;			/* 分组集,为 sortgroupref 列表 */
+	Cardinality numGroups;		/* 估计的结果组数 */
 } GroupingSetData;
 
 typedef struct RollupData
@@ -2238,12 +2238,12 @@ typedef struct RollupData
 	pg_node_attr(no_copy_equal, no_read, no_query_jumble)
 
 	NodeTag		type;
-	List	   *groupClause;	/* applicable subset of parse->groupClause */
-	List	   *gsets;			/* lists of integer indexes into groupClause */
-	List	   *gsets_data;		/* list of GroupingSetData */
-	Cardinality numGroups;		/* est. number of result groups */
-	bool		hashable;		/* can be hashed */
-	bool		is_hashed;		/* to be implemented as a hashagg */
+	List	   *groupClause;	/* parse->groupClause 的适用子集 */
+	List	   *gsets;			/* 指向 groupClause 的整数下标列表 */
+	List	   *gsets_data;		/* GroupingSetData 列表 */
+	Cardinality numGroups;		/* 估计的结果组数 */
+	bool		hashable;		/* 可哈希 */
+	bool		is_hashed;		/* 要以 hashagg 实现 */
 } RollupData;
 
 /*
@@ -2253,11 +2253,11 @@ typedef struct RollupData
 typedef struct GroupingSetsPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	AggStrategy aggstrategy;	/* basic strategy */
-	List	   *rollups;		/* list of RollupData */
-	List	   *qual;			/* quals (HAVING quals), if any */
-	uint64		transitionSpace;	/* for pass-by-ref transition data */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	AggStrategy aggstrategy;	/* 基本策略 */
+	List	   *rollups;		/* RollupData 列表 */
+	List	   *qual;			/* 限定(HAVING)(若有) */
+	uint64		transitionSpace;	/* 供传引用转移数据 */
 } GroupingSetsPath;
 
 /*
@@ -2266,8 +2266,8 @@ typedef struct GroupingSetsPath
 typedef struct MinMaxAggPath
 {
 	Path		path;
-	List	   *mmaggregates;	/* list of MinMaxAggInfo */
-	List	   *quals;			/* HAVING quals, if any */
+	List	   *mmaggregates;	/* MinMaxAggInfo 列表 */
+	List	   *quals;			/* HAVING 限定,若有 */
 } MinMaxAggPath;
 
 /*
@@ -2276,9 +2276,9 @@ typedef struct MinMaxAggPath
 typedef struct WindowAggPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	WindowClause *winclause;	/* WindowClause we'll be using */
-	List	   *qual;			/* lower-level WindowAgg runconditions */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	WindowClause *winclause;	/* 将使用的 WindowClause */
+	List	   *qual;			/* 下层 WindowAgg 的 runcondition */
 	bool		topwindow;		/* false for all apart from the WindowAgg
 								 * that's closest to the root of the plan */
 } WindowAggPath;
@@ -2289,13 +2289,13 @@ typedef struct WindowAggPath
 typedef struct SetOpPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	SetOpCmd	cmd;			/* what to do, see nodes.h */
-	SetOpStrategy strategy;		/* how to do it, see nodes.h */
-	List	   *distinctList;	/* SortGroupClauses identifying target cols */
-	AttrNumber	flagColIdx;		/* where is the flag column, if any */
-	int			firstFlag;		/* flag value for first input relation */
-	Cardinality numGroups;		/* estimated number of groups in input */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	SetOpCmd	cmd;			/* 做什么,见 nodes.h */
+	SetOpStrategy strategy;		/* 怎么做,见 nodes.h */
+	List	   *distinctList;	/* 标识目标列的 SortGroupClause */
+	AttrNumber	flagColIdx;		/* 标志列在何处(若有) */
+	int			firstFlag;		/* 第一个输入关系的标志值 */
+	Cardinality numGroups;		/* 输入中估计的组数 */
 } SetOpPath;
 
 /*
@@ -2304,11 +2304,11 @@ typedef struct SetOpPath
 typedef struct RecursiveUnionPath
 {
 	Path		path;
-	Path	   *leftpath;		/* paths representing input sources */
+	Path	   *leftpath;		/* 表示输入源的路径 */
 	Path	   *rightpath;
-	List	   *distinctList;	/* SortGroupClauses identifying target cols */
-	int			wtParam;		/* ID of Param representing work table */
-	Cardinality numGroups;		/* estimated number of groups in input */
+	List	   *distinctList;	/* 标识目标列的 SortGroupClause */
+	int			wtParam;		/* 表示工作表的 Param ID */
+	Cardinality numGroups;		/* 输入中估计的组数 */
 } RecursiveUnionPath;
 
 /*
@@ -2317,9 +2317,9 @@ typedef struct RecursiveUnionPath
 typedef struct LockRowsPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	List	   *rowMarks;		/* a list of PlanRowMark's */
-	int			epqParam;		/* ID of Param for EvalPlanQual re-eval */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	List	   *rowMarks;		/* PlanRowMark 列表 */
+	int			epqParam;		/* EvalPlanQual 重求值的 Param ID */
 } LockRowsPath;
 
 /*
@@ -2332,20 +2332,20 @@ typedef struct LockRowsPath
 typedef struct ModifyTablePath
 {
 	Path		path;
-	Path	   *subpath;		/* Path producing source data */
-	CmdType		operation;		/* INSERT, UPDATE, DELETE, or MERGE */
-	bool		canSetTag;		/* do we set the command tag/es_processed? */
-	Index		nominalRelation;	/* Parent RT index for use of EXPLAIN */
-	Index		rootRelation;	/* Root RT index, if partitioned/inherited */
-	bool		partColsUpdated;	/* some part key in hierarchy updated? */
-	List	   *resultRelations;	/* integer list of RT indexes */
-	List	   *updateColnosLists;	/* per-target-table update_colnos lists */
-	List	   *withCheckOptionLists;	/* per-target-table WCO lists */
-	List	   *returningLists; /* per-target-table RETURNING tlists */
-	List	   *rowMarks;		/* PlanRowMarks (non-locking only) */
-	OnConflictExpr *onconflict; /* ON CONFLICT clause, or NULL */
-	int			epqParam;		/* ID of Param for EvalPlanQual re-eval */
-	List	   *mergeActionLists;	/* per-target-table lists of actions for
+	Path	   *subpath;		/* 产生源数据的 Path */
+	CmdType		operation;		/* INSERT/UPDATE/DELETE/MERGE */
+	bool		canSetTag;		/* 是否设置命令标签/es_processed? */
+	Index		nominalRelation;	/* 供 EXPLAIN 用的父 RT 下标 */
+	Index		rootRelation;	/* 根 RT 下标(若分区/继承) */
+	bool		partColsUpdated;	/* 层次中有部分键被更新? */
+	List	   *resultRelations;	/* RT 下标的整数列表 */
+	List	   *updateColnosLists;	/* 每目标表的 update_colnos 列表 */
+	List	   *withCheckOptionLists;	/* 每目标表的 WCO 列表 */
+	List	   *returningLists; /* 每目标表的 RETURNING tlist */
+	List	   *rowMarks;		/* PlanRowMark(仅非加锁) */
+	OnConflictExpr *onconflict; /* ON CONFLICT 子句,或 NULL */
+	int			epqParam;		/* EvalPlanQual 重求值的 Param ID */
+	List	   *mergeActionLists;	/* 每目标表的动作列表,供
 									 * MERGE */
 } ModifyTablePath;
 
@@ -2355,10 +2355,10 @@ typedef struct ModifyTablePath
 typedef struct LimitPath
 {
 	Path		path;
-	Path	   *subpath;		/* path representing input source */
-	Node	   *limitOffset;	/* OFFSET parameter, or NULL if none */
-	Node	   *limitCount;		/* COUNT parameter, or NULL if none */
-	LimitOption limitOption;	/* FETCH FIRST with ties or exact number */
+	Path	   *subpath;		/* 表示输入源的路径 */
+	Node	   *limitOffset;	/* OFFSET 参数,无则为 NULL */
+	Node	   *limitCount;		/* COUNT 参数,无则为 NULL */
+	LimitOption limitOption;	/* FETCH FIRST 带并列或精确个数 */
 } LimitPath;
 
 
@@ -2517,44 +2517,44 @@ typedef struct RestrictInfo
 
 	NodeTag		type;
 
-	/* the represented clause of WHERE or JOIN */
+	/* 所表示的 WHERE 或 JOIN 子句 */
 	Expr	   *clause;
 
-	/* true if clause was pushed down in level */
+	/* 子句在本层被下推则为真 */
 	bool		is_pushed_down;
 
-	/* see comment above */
+	/* 见上方注释 */
 	bool		can_join pg_node_attr(equal_ignore);
 
-	/* see comment above */
+	/* 见上方注释 */
 	bool		pseudoconstant pg_node_attr(equal_ignore);
 
-	/* see comment above */
+	/* 见上方注释 */
 	bool		has_clone;
 	bool		is_clone;
 
-	/* true if known to contain no leaked Vars */
+	/* 已知不含泄漏的 Var 则为真 */
 	bool		leakproof pg_node_attr(equal_ignore);
 
-	/* indicates if clause contains any volatile functions */
+	/* 子句是否含易变函数 */
 	VolatileFunctionStatus has_volatile pg_node_attr(equal_ignore);
 
-	/* see comment above */
+	/* 见上方注释 */
 	Index		security_level;
 
-	/* number of base rels in clause_relids */
+	/* clause_relids 中的基关系数 */
 	int			num_base_rels pg_node_attr(equal_ignore);
 
-	/* The relids (varnos+varnullingrels) actually referenced in the clause: */
+	/* 子句中实际引用的 relids(varnos+varnullingrels): */
 	Relids		clause_relids pg_node_attr(equal_ignore);
 
-	/* The set of relids required to evaluate the clause: */
+	/* 求值该子句所需的 relid 集合: */
 	Relids		required_relids;
 
-	/* Relids above which we cannot evaluate the clause (see comment above) */
+	/* 之上无法求值该子句的 Relids(见上方注释) */
 	Relids		incompatible_relids;
 
-	/* If an outer-join clause, the outer-side relations, else NULL: */
+	/* 若为外连接子句则为外层关系,否则 NULL: */
 	Relids		outer_relids;
 
 	/*
@@ -2599,12 +2599,12 @@ typedef struct RestrictInfo
 	 * cache space for cost and selectivity
 	 */
 
-	/* eval cost of clause; -1 if not yet set */
+	/* 子句求值代价;-1 为尚未设置 */
 	QualCost	eval_cost pg_node_attr(equal_ignore);
 
-	/* selectivity for "normal" (JOIN_INNER) semantics; -1 if not yet set */
+	/* "普通"(JOIN_INNER)语义的选择率;-1 尚未设置 */
 	Selectivity norm_selec pg_node_attr(equal_ignore);
-	/* selectivity for outer join semantics; -1 if not yet set */
+	/* 外连接语义的选择率;-1 尚未设置 */
 	Selectivity outer_selec pg_node_attr(equal_ignore);
 
 	/*
@@ -2617,13 +2617,13 @@ typedef struct RestrictInfo
 	 * cache space for mergeclause processing; NULL if not yet set
 	 */
 
-	/* EquivalenceClass containing lefthand */
+	/* 含左侧的 EquivalenceClass */
 	EquivalenceClass *left_ec pg_node_attr(copy_as_scalar, equal_ignore, read_write_ignore);
-	/* EquivalenceClass containing righthand */
+	/* 含右侧的 EquivalenceClass */
 	EquivalenceClass *right_ec pg_node_attr(copy_as_scalar, equal_ignore, read_write_ignore);
-	/* EquivalenceMember for lefthand */
+	/* 左侧的 EquivalenceMember */
 	EquivalenceMember *left_em pg_node_attr(copy_as_scalar, equal_ignore);
-	/* EquivalenceMember for righthand */
+	/* 右侧的 EquivalenceMember */
 	EquivalenceMember *right_em pg_node_attr(copy_as_scalar, equal_ignore);
 
 	/*
@@ -2640,7 +2640,7 @@ typedef struct RestrictInfo
 	bool		outer_is_left pg_node_attr(equal_ignore);
 
 	/*
-	 * copy of clause operator; valid if clause is hashjoinable, else
+	 * 子句运算符拷贝;可哈希连接则有效,否则
 	 * InvalidOid
 	 */
 	Oid			hashjoinoperator pg_node_attr(equal_ignore);
@@ -2648,16 +2648,16 @@ typedef struct RestrictInfo
 	/*
 	 * cache space for hashclause processing; -1 if not yet set
 	 */
-	/* avg bucketsize of left side */
+	/* 左侧平均桶大小 */
 	Selectivity left_bucketsize pg_node_attr(equal_ignore);
-	/* avg bucketsize of right side */
+	/* 右侧平均桶大小 */
 	Selectivity right_bucketsize pg_node_attr(equal_ignore);
-	/* left side's most common val's freq */
+	/* 左侧最常见值的频率 */
 	Selectivity left_mcvfreq pg_node_attr(equal_ignore);
-	/* right side's most common val's freq */
+	/* 右侧最常见值的频率 */
 	Selectivity right_mcvfreq pg_node_attr(equal_ignore);
 
-	/* hash equality operators used for memoize nodes, else InvalidOid */
+	/* memoize 节点用的哈希相等运算符,否则 InvalidOid */
 	Oid			left_hasheqoperator pg_node_attr(equal_ignore);
 	Oid			right_hasheqoperator pg_node_attr(equal_ignore);
 } RestrictInfo;
@@ -2685,16 +2685,16 @@ typedef struct RestrictInfo
  */
 typedef struct MergeScanSelCache
 {
-	/* Ordering details (cache lookup key) */
-	Oid			opfamily;		/* btree opfamily defining the ordering */
-	Oid			collation;		/* collation for the ordering */
-	int			strategy;		/* sort direction (ASC or DESC) */
-	bool		nulls_first;	/* do NULLs come before normal values? */
+	/* 排序细节(缓存查找键) */
+	Oid			opfamily;		/* 定义排序的 btree 运算符族 */
+	Oid			collation;		/* 排序用的排序规则 */
+	int			strategy;		/* 排序方向(ASC 或 DESC) */
+	bool		nulls_first;	/* 空值是否排在普通值之前? */
 	/* Results */
-	Selectivity leftstartsel;	/* first-join fraction for clause left side */
-	Selectivity leftendsel;		/* last-join fraction for clause left side */
-	Selectivity rightstartsel;	/* first-join fraction for clause right side */
-	Selectivity rightendsel;	/* last-join fraction for clause right side */
+	Selectivity leftstartsel;	/* 子句左侧的首连接分数 */
+	Selectivity leftendsel;		/* 子句左侧的末连接分数 */
+	Selectivity rightstartsel;	/* 子句右侧的首连接分数 */
+	Selectivity rightendsel;	/* 子句右侧的末连接分数 */
 } MergeScanSelCache;
 
 /*
@@ -2735,19 +2735,19 @@ typedef struct PlaceHolderVar
 
 	Expr		xpr;
 
-	/* the represented expression */
+	/* 所表示的表达式 */
 	Expr	   *phexpr pg_node_attr(equal_ignore);
 
-	/* base+OJ relids syntactically within expr src */
+	/* 语法上在表达式源内的基+OJ relid */
 	Relids		phrels pg_node_attr(equal_ignore);
 
-	/* RT indexes of outer joins that can null PHV's value */
+	/* 可使 PHV 值变空的外连接 RT 下标 */
 	Relids		phnullingrels;
 
-	/* ID for PHV (unique within planner run) */
+	/* PHV 的 ID(规划器运行内唯一) */
 	Index		phid;
 
-	/* > 0 if PHV belongs to outer query */
+	/* >0 表示 PHV 属于外层查询 */
 	Index		phlevelsup;
 } PlaceHolderVar;
 
@@ -2842,22 +2842,22 @@ struct SpecialJoinInfo
 	pg_node_attr(no_read, no_query_jumble)
 
 	NodeTag		type;
-	Relids		min_lefthand;	/* base+OJ relids in minimum LHS for join */
-	Relids		min_righthand;	/* base+OJ relids in minimum RHS for join */
-	Relids		syn_lefthand;	/* base+OJ relids syntactically within LHS */
-	Relids		syn_righthand;	/* base+OJ relids syntactically within RHS */
-	JoinType	jointype;		/* always INNER, LEFT, FULL, SEMI, or ANTI */
-	Index		ojrelid;		/* outer join's RT index; 0 if none */
-	Relids		commute_above_l;	/* commuting OJs above this one, if LHS */
-	Relids		commute_above_r;	/* commuting OJs above this one, if RHS */
-	Relids		commute_below_l;	/* commuting OJs in this one's LHS */
-	Relids		commute_below_r;	/* commuting OJs in this one's RHS */
-	bool		lhs_strict;		/* joinclause is strict for some LHS rel */
-	/* Remaining fields are set only for JOIN_SEMI jointype: */
-	bool		semi_can_btree; /* true if semi_operators are all btree */
-	bool		semi_can_hash;	/* true if semi_operators are all hash */
-	List	   *semi_operators; /* OIDs of equality join operators */
-	List	   *semi_rhs_exprs; /* righthand-side expressions of these ops */
+	Relids		min_lefthand;	/* 连接最小 LHS 中的基+OJ relid */
+	Relids		min_righthand;	/* 连接最小 RHS 中的基+OJ relid */
+	Relids		syn_lefthand;	/* 语法上在 LHS 内的基+OJ relid */
+	Relids		syn_righthand;	/* 语法上在 RHS 内的基+OJ relid */
+	JoinType	jointype;		/* 恒为 INNER/LEFT/FULL/SEMI/ANTI */
+	Index		ojrelid;		/* 外连接 RT 下标;无则为 0 */
+	Relids		commute_above_l;	/* 其上可交换的 OJ(若在 LHS) */
+	Relids		commute_above_r;	/* 其上可交换的 OJ(若在 RHS) */
+	Relids		commute_below_l;	/* 本连接 LHS 中可交换 OJ */
+	Relids		commute_below_r;	/* 本连接 RHS 中可交换 OJ */
+	bool		lhs_strict;		/* 连接子句对某 LHS 关系严格 */
+	/* 其余字段仅对 JOIN_SEMI 连接类型设置: */
+	bool		semi_can_btree; /* semi_operators 全为 btree 则真 */
+	bool		semi_can_hash;	/* semi_operators 全为哈希则真 */
+	List	   *semi_operators; /* 相等连接运算符的 OID */
+	List	   *semi_rhs_exprs; /* 这些运算符的右侧表达式 */
 };
 
 /*
@@ -2871,8 +2871,8 @@ typedef struct OuterJoinClauseInfo
 	pg_node_attr(no_copy_equal, no_read, no_query_jumble)
 
 	NodeTag		type;
-	RestrictInfo *rinfo;		/* a mergejoinable outer-join clause */
-	SpecialJoinInfo *sjinfo;	/* the outer join's SpecialJoinInfo */
+	RestrictInfo *rinfo;		/* 可归并的外连接子句 */
+	SpecialJoinInfo *sjinfo;	/* 该外连接的 SpecialJoinInfo */
 } OuterJoinClauseInfo;
 
 /*
@@ -2917,8 +2917,8 @@ typedef struct AppendRelInfo
 	 * parent_relid, but never more than one per child_relid, since a given
 	 * RTE cannot be a child of more than one append parent.
 	 */
-	Index		parent_relid;	/* RT index of append parent rel */
-	Index		child_relid;	/* RT index of append child rel */
+	Index		parent_relid;	/* 追加父关系的 RT 下标 */
+	Index		child_relid;	/* 追加子关系的 RT 下标 */
 
 	/*
 	 * For an inheritance appendrel, the parent and child are both regular
@@ -2926,8 +2926,8 @@ typedef struct AppendRelInfo
 	 * whole-row Vars.  For a UNION-ALL appendrel, the parent and child are
 	 * both subqueries with no named rowtype, and we store InvalidOid here.
 	 */
-	Oid			parent_reltype; /* OID of parent's composite type */
-	Oid			child_reltype;	/* OID of child's composite type */
+	Oid			parent_reltype; /* 父复合类型的 OID */
+	Oid			child_reltype;	/* 子复合类型的 OID */
 
 	/*
 	 * The N'th element of this list is a Var or expression representing the
@@ -2945,7 +2945,7 @@ typedef struct AppendRelInfo
 	 * Caution: the Vars have varlevelsup = 0.  Be careful to adjust as needed
 	 * when copying into a subquery.
 	 */
-	List	   *translated_vars;	/* Expressions in the child's Vars */
+	List	   *translated_vars;	/* 子项 Vars 中的表达式 */
 
 	/*
 	 * This array simplifies translations in the reverse direction, from
@@ -2953,7 +2953,7 @@ typedef struct AppendRelInfo
 	 * 1-based parent column number for child column ccolno, or zero if that
 	 * child column is dropped or doesn't exist in the parent.
 	 */
-	int			num_child_cols; /* length of array */
+	int			num_child_cols; /* 数组长度 */
 	AttrNumber *parent_colnos pg_node_attr(array_size(num_child_cols));
 
 	/*
@@ -2961,7 +2961,7 @@ typedef struct AppendRelInfo
 	 * UNION ALL.  This is only needed to help in generating error messages if
 	 * an attempt is made to reference a dropped parent column.
 	 */
-	Oid			parent_reloid;	/* OID of parent relation */
+	Oid			parent_reloid;	/* 父关系的 OID */
 } AppendRelInfo;
 
 /*
@@ -2988,10 +2988,10 @@ typedef struct RowIdentityVarInfo
 
 	NodeTag		type;
 
-	Var		   *rowidvar;		/* Var to be evaluated (but varno=ROWID_VAR) */
-	int32		rowidwidth;		/* estimated average width */
-	char	   *rowidname;		/* name of the resjunk column */
-	Relids		rowidrels;		/* RTE indexes of target rels using this */
+	Var		   *rowidvar;		/* 要求值的 Var(但 varno=ROWID_VAR) */
+	int32		rowidwidth;		/* 估计的平均宽度 */
+	char	   *rowidname;		/* resjunk 列名 */
+	Relids		rowidrels;		/* 使用本列目标关系 RTE 下标 */
 } RowIdentityVarInfo;
 
 /*
@@ -3026,7 +3026,7 @@ typedef struct PlaceHolderInfo
 
 	NodeTag		type;
 
-	/* ID for PH (unique within planner run) */
+	/* PH 的 ID(规划器运行内唯一) */
 	Index		phid;
 
 	/*
@@ -3035,16 +3035,16 @@ typedef struct PlaceHolderInfo
 	 */
 	PlaceHolderVar *ph_var;
 
-	/* lowest level we can evaluate value at */
+	/* 可求值该值的最低层 */
 	Relids		ph_eval_at;
 
-	/* relids of contained lateral refs, if any */
+	/* 所含侧向引用的 relid(若有) */
 	Relids		ph_lateral;
 
-	/* highest level the value is needed at */
+	/* 需要该值的最高层 */
 	Relids		ph_needed;
 
-	/* estimated attribute width */
+	/* 估计的属性宽度 */
 	int32		ph_width;
 } PlaceHolderInfo;
 
@@ -3059,13 +3059,13 @@ typedef struct MinMaxAggInfo
 
 	NodeTag		type;
 
-	/* pg_proc Oid of the aggregate */
+	/* 聚合的 pg_proc Oid */
 	Oid			aggfnoid;
 
-	/* Oid of its sort operator */
+	/* 其排序运算符 Oid */
 	Oid			aggsortop;
 
-	/* expression we are aggregating on */
+	/* 正在聚合的表达式 */
 	Expr	   *target;
 
 	/*
@@ -3074,13 +3074,13 @@ typedef struct MinMaxAggInfo
 	 */
 	PlannerInfo *subroot pg_node_attr(read_write_ignore);
 
-	/* access path for subquery */
+	/* 子查询的访问路径 */
 	Path	   *path;
 
-	/* estimated cost to fetch first row */
+	/* 取首行的估计代价 */
 	Cost		pathcost;
 
-	/* param for subplan's output */
+	/* 子计划输出的 param */
 	Param	   *param;
 } MinMaxAggInfo;
 
@@ -3137,8 +3137,8 @@ typedef struct PlannerParamItem
 
 	NodeTag		type;
 
-	Node	   *item;			/* the Var, PlaceHolderVar, or Aggref */
-	int			paramId;		/* its assigned PARAM_EXEC slot number */
+	Node	   *item;			/* 该 Var、PHV 或 Aggref */
+	int			paramId;		/* 其分配的 PARAM_EXEC 槽号 */
 } PlannerParamItem;
 
 /*
@@ -3238,13 +3238,13 @@ typedef enum
  */
 typedef struct
 {
-	/* Data which remains constant once set. */
+	/* 一经设置即保持常量数据。 */
 	int			flags;
 	bool		partial_costs_set;
 	AggClauseCosts agg_partial_costs;
 	AggClauseCosts agg_final_costs;
 
-	/* Data which may differ across partitions. */
+	/* 跨分区可能不同的数据。 */
 	bool		target_parallel_safe;
 	Node	   *havingQual;
 	List	   *targetList;
@@ -3283,24 +3283,24 @@ typedef struct
  */
 typedef struct JoinCostWorkspace
 {
-	/* Preliminary cost estimates --- must not be larger than final ones! */
-	Cost		startup_cost;	/* cost expended before fetching any tuples */
-	Cost		total_cost;		/* total cost (assuming all tuples fetched) */
+	/* 初步代价估计——不得大于最终值! */
+	Cost		startup_cost;	/* 取任何元组前已花的代价 */
+	Cost		total_cost;		/* 总代价(假定取完全部元组) */
 
-	/* Fields below here should be treated as private to costsize.c */
-	Cost		run_cost;		/* non-startup cost components */
+	/* 以下字段应视为 costsize.c 私有 */
+	Cost		run_cost;		/* 非启动代价分量 */
 
-	/* private for cost_nestloop code */
-	Cost		inner_run_cost; /* also used by cost_mergejoin code */
+	/* cost_nestloop 代码私有 */
+	Cost		inner_run_cost; /* 也被 cost_mergejoin 使用 */
 	Cost		inner_rescan_run_cost;
 
-	/* private for cost_mergejoin code */
+	/* cost_mergejoin 代码私有 */
 	Cardinality outer_rows;
 	Cardinality inner_rows;
 	Cardinality outer_skip_rows;
 	Cardinality inner_skip_rows;
 
-	/* private for cost_hashjoin code */
+	/* cost_hashjoin 代码私有 */
 	int			numbuckets;
 	int			numbatches;
 	Cardinality inner_rows_total;
@@ -3325,7 +3325,7 @@ typedef struct AggInfo
 	 */
 	List	   *aggrefs;
 
-	/* Transition state number for this aggregate */
+	/* 本聚合的转移状态号 */
 	int			transno;
 
 	/*
@@ -3334,7 +3334,7 @@ typedef struct AggInfo
 	 */
 	bool		shareable;
 
-	/* Oid of the final function, or InvalidOid if none */
+	/* 最终函数的 Oid,无则为 InvalidOid */
 	Oid			finalfn_oid;
 } AggInfo;
 
@@ -3351,34 +3351,34 @@ typedef struct AggTransInfo
 
 	NodeTag		type;
 
-	/* Inputs for this transition state */
+	/* 本转移状态的输入 */
 	List	   *args;
 	Expr	   *aggfilter;
 
-	/* Oid of the state transition function */
+	/* 状态转移函数的 Oid */
 	Oid			transfn_oid;
 
-	/* Oid of the serialization function, or InvalidOid if none */
+	/* 序列化函数的 Oid,无则为 InvalidOid */
 	Oid			serialfn_oid;
 
-	/* Oid of the deserialization function, or InvalidOid if none */
+	/* 反序列化函数的 Oid,无则为 InvalidOid */
 	Oid			deserialfn_oid;
 
-	/* Oid of the combine function, or InvalidOid if none */
+	/* 合并函数的 Oid,无则为 InvalidOid */
 	Oid			combinefn_oid;
 
-	/* Oid of state value's datatype */
+	/* 状态值数据类型的 Oid */
 	Oid			aggtranstype;
 
-	/* Additional data about transtype */
+	/* 关于 transtype 额外数据 */
 	int32		aggtranstypmod;
 	int			transtypeLen;
 	bool		transtypeByVal;
 
-	/* Space-consumption estimate */
+	/* 空间消耗估计 */
 	int32		aggtransspace;
 
-	/* Initial value from pg_aggregate entry */
+	/* 来自 pg_aggregate 项的初值 */
 	Datum		initValue pg_node_attr(read_write_ignore);
 	bool		initValueIsNull;
 } AggTransInfo;

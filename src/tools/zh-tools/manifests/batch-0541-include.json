@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0541",
+  "title": "include/nodes pathnodes.h part2 (L>=1474) — batch 0541",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8535fe38b328c0b40c0017934b083335701f2b14",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "note": "0541"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0541-include.json",
+      "kind": "manifest",
+      "note": "0541"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1775,
+      "translated": 234,
+      "preserved": 1541,
+      "preserved_reasons": [
+        "横幅/L<1474 KEEP",
+        "Path/RestrictInfo 等长叙述 KEEP EN",
+        "预算紧"
+      ],
+      "note": "0541 T=234 trailing-focused"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0541-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0541"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0541"
+    }
+  ]
+}

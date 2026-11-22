@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0557",
+  "title": "include/utils timeout/ascii/datum/rls/resowner/queryenvironment/snapmgr — batch 0557",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "32960dd9ab247f3fe145b9a718c991d57aac7f32",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/timeout.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/include/utils/ascii.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/include/utils/datum.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/include/utils/rls.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/include/utils/resowner.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/include/utils/queryenvironment.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/include/utils/snapmgr.h",
+      "kind": "c_comment",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0557-utils.json",
+      "kind": "manifest",
+      "note": "0557"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/timeout.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 19,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0557 T=19"
+    },
+    {
+      "path": "src/include/utils/ascii.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 23,
+      "translated": 18,
+      "preserved": 5,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0557 T=18"
+    },
+    {
+      "path": "src/include/utils/datum.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 28,
+      "translated": 22,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0557 T=22"
+    },
+    {
+      "path": "src/include/utils/rls.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 21,
+      "preserved": 4,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0557 T=21"
+    },
+    {
+      "path": "src/include/utils/resowner.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 18,
+      "preserved": 7,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0557 T=18"
+    },
+    {
+      "path": "src/include/utils/queryenvironment.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 28,
+      "translated": 22,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0557 T=22"
+    },
+    {
+      "path": "src/include/utils/snapmgr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 32,
+      "translated": 19,
+      "preserved": 13,
+      "preserved_reasons": [
+        "版权/横幅；snapshot too old 映射 KEEP EN 防 MIXED"
+      ],
+      "note": "0557 T=19"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0557-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0557"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0557"
+    }
+  ]
+}

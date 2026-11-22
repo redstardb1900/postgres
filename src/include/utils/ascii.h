@@ -16,10 +16,10 @@
 extern void ascii_safe_strlcpy(char *dest, const char *src, size_t destsiz);
 
 /*
- * Verify a chunk of bytes for valid ASCII.
+ * 校验一块字节是否合法 ASCII。
  *
- * Returns false if the input contains any zero bytes or bytes with the
- * high-bit set. Input len must be a multiple of the chunk size (8 or 16).
+ * 若输入含任何零字节或高位被置位的字节则返回
+ * false。输入长度须为块大小（8 或 16）的倍数。
  */
 static inline bool
 is_valid_ascii(const unsigned char *s, int len)
@@ -37,43 +37,43 @@ is_valid_ascii(const unsigned char *s, int len)
 	{
 		vector8_load(&chunk, s);
 
-		/* Capture any zero bytes in this chunk. */
+		/* 捕获本块中的任何零字节。 */
 #ifdef USE_NO_SIMD
 
 		/*
-		 * First, add 0x7f to each byte. This sets the high bit in each byte,
-		 * unless it was a zero. If any resulting high bits are zero, the
-		 * corresponding high bits in the zero accumulator will be cleared.
+		 * 首先给每字节加 0x7f。这会置起每字节高位，
+		 * 除非原值为零。若结果中任何高位为零，则零
+		 * 累加器中对应高位会被清掉。
 		 *
-		 * If none of the bytes in the chunk had the high bit set, the max
-		 * value each byte can have after the addition is 0x7f + 0x7f = 0xfe,
-		 * and we don't need to worry about carrying over to the next byte. If
-		 * any input bytes did have the high bit set, it doesn't matter
-		 * because we check for those separately.
+		 * 若块中没有任何字节高位被置，则加法后每字节
+		 * 最大值可为 0x7f + 0x7f = 0xfe，不必担心进位
+		 * 到下一字节。若有输入字节高位被置，则无所谓，
+		 * 因为我们会另行检查那些字节。
+		 * 见上。
 		 */
 		zero_cum &= (chunk + vector8_broadcast(0x7F));
 #else
 
 		/*
-		 * Set all bits in each lane of the highbit accumulator where input
-		 * bytes are zero.
+		 * 在高位累加器各通道中，对输入字节为零的位置
+		 * 置满位。
 		 */
 		highbit_cum = vector8_or(highbit_cum,
 								 vector8_eq(chunk, vector8_broadcast(0)));
 #endif
 
-		/* Capture all set bits in this chunk. */
+		/* 捕获本块中所有置位。 */
 		highbit_cum = vector8_or(highbit_cum, chunk);
 
 		s += sizeof(chunk);
 	}
 
-	/* Check if any high bits in the high bit accumulator got set. */
+	/* 检查高位累加器中是否有任何高位被置。 */
 	if (vector8_is_highbit_set(highbit_cum))
 		return false;
 
 #ifdef USE_NO_SIMD
-	/* Check if any high bits in the zero accumulator got cleared. */
+	/* 检查零累加器中是否有任何高位被清。 */
 	if (zero_cum != vector8_broadcast(0x80))
 		return false;
 #endif

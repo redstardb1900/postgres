@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * snapmgr.h
- *	  POSTGRES snapshot manager
+ *	  POSTGRES 快照管理器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,8 +32,8 @@
 #define OLD_SNAPSHOT_TIME_MAP_ENTRIES (old_snapshot_threshold + OLD_SNAPSHOT_PADDING_ENTRIES)
 
 /*
- * Common definition of relation properties that allow early pruning/vacuuming
- * when old_snapshot_threshold >= 0.
+ * 允许提前裁剪/vacuum 的关系属性通用定义，当
+ * old_snapshot_threshold >= 0。
  */
 #define RelationAllowsEarlyPruning(rel) \
 ( \
@@ -43,7 +43,7 @@
 
 #define EarlyPruningEnabled(rel) (old_snapshot_threshold >= 0 && RelationAllowsEarlyPruning(rel))
 
-/* GUC variables */
+/* GUC 变量 */
 extern PGDLLIMPORT int old_snapshot_threshold;
 
 
@@ -58,7 +58,7 @@ extern PGDLLIMPORT bool FirstSnapshotSet;
 extern PGDLLIMPORT TransactionId TransactionXmin;
 extern PGDLLIMPORT TransactionId RecentXmin;
 
-/* Variables representing various special snapshot semantics */
+/* 表示各种特殊快照语义的变量 */
 extern PGDLLIMPORT SnapshotData SnapshotSelfData;
 extern PGDLLIMPORT SnapshotData SnapshotAnyData;
 extern PGDLLIMPORT SnapshotData CatalogSnapshotData;
@@ -67,32 +67,32 @@ extern PGDLLIMPORT SnapshotData CatalogSnapshotData;
 #define SnapshotAny			(&SnapshotAnyData)
 
 /*
- * We don't provide a static SnapshotDirty variable because it would be
- * non-reentrant.  Instead, users of that snapshot type should declare a
- * local variable of type SnapshotData, and initialize it with this macro.
+ * 不提供静态 SnapshotDirty 变量，因其不可重入。
+ * 该快照类型的用户应声明 SnapshotData 局部变量，
+ * 并用本宏初始化。
  */
 #define InitDirtySnapshot(snapshotdata)  \
 	((snapshotdata).snapshot_type = SNAPSHOT_DIRTY)
 
 /*
- * Similarly, some initialization is required for a NonVacuumable snapshot.
- * The caller must supply the visibility cutoff state to use (c.f.
- * GlobalVisTestFor()).
+ * NonVacuumable 快照同样需初始化。调用方须提供
+ * 要用的可见性截止状态（参见 GlobalVisTestFor()
+ * ）。
  */
 #define InitNonVacuumableSnapshot(snapshotdata, vistestp)  \
 	((snapshotdata).snapshot_type = SNAPSHOT_NON_VACUUMABLE, \
 	 (snapshotdata).vistest = (vistestp))
 
 /*
- * Similarly, some initialization is required for SnapshotToast.  We need
- * to set lsn and whenTaken correctly to support snapshot_too_old.
+ * SnapshotToast 同样需要一些初始化。须正确设置
+ * lsn 与 whenTaken 以支持 snapshot_too_old。
  */
 #define InitToastSnapshot(snapshotdata, l, w)  \
 	((snapshotdata).snapshot_type = SNAPSHOT_TOAST, \
 	 (snapshotdata).lsn = (l),					\
 	 (snapshotdata).whenTaken = (w))
 
-/* This macro encodes the knowledge of which snapshots are MVCC-safe */
+/* 本宏编码哪些快照是 MVCC 安全的知识 */
 #define IsMVCCSnapshot(snapshot)  \
 	((snapshot)->snapshot_type == SNAPSHOT_MVCC || \
 	 (snapshot)->snapshot_type == SNAPSHOT_HISTORIC_MVCC)
@@ -149,8 +149,8 @@ extern void MaintainOldSnapshotTimeMapping(TimestampTz whenTaken,
 extern char *ExportSnapshot(Snapshot snapshot);
 
 /*
- * These live in procarray.c because they're intimately linked to the
- * procarray contents, but thematically they better fit into snapmgr.h.
+ * 这些住在 procarray.c，因其与 procarray 内容紧
+ * 密相关，但主题上更适合放在 snapmgr.h。
  */
 typedef struct GlobalVisState GlobalVisState;
 extern GlobalVisState *GlobalVisTestFor(Relation rel);
@@ -162,11 +162,11 @@ extern bool GlobalVisCheckRemovableXid(Relation rel, TransactionId xid);
 extern bool GlobalVisCheckRemovableFullXid(Relation rel, FullTransactionId fxid);
 
 /*
- * Utility functions for implementing visibility routines in table AMs.
+ * 供表 AM 实现可见性例程的工具函数。
  */
 extern bool XidInMVCCSnapshot(TransactionId xid, Snapshot snapshot);
 
-/* Support for catalog timetravel for logical decoding */
+/* 逻辑解码的目录时间旅行支持 */
 struct HTAB;
 extern struct HTAB *HistoricSnapshotGetTupleCids(void);
 extern void SetupHistoricSnapshot(Snapshot historic_snapshot, struct HTAB *tuplecids);

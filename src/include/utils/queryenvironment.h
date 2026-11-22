@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * queryenvironment.h
- *	  Access to functions to mutate the query environment and retrieve the
- *	  actual data related to entries (if any).
+ *	  变更查询环境并检索条目相关实际数据（若有）
+ *	  的函数入口。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,47 +19,47 @@
 
 typedef enum EphemeralNameRelationType
 {
-	ENR_NAMED_TUPLESTORE		/* named tuplestore relation; e.g., deltas */
+	ENR_NAMED_TUPLESTORE		/* 具名 tuplestore 关系；如 deltas */
 } EphemeralNameRelationType;
 
 /*
- * Some ephemeral named relations must match some relation (e.g., trigger
- * transition tables), so to properly handle cached plans and DDL, we should
- * carry the OID of that relation.  In other cases an ENR might be independent
- * of any relation which is stored in the system catalogs, so we need to be
- * able to directly store the TupleDesc.  We never need both.
+ * 某些短暂具名关系必须匹配某关系（如触发器
+ * 转移表），为正确处理缓存计划与 DDL，应携带
+ * 该关系 OID。其他情况下 ENR 可能独立于系统
+ * 目录中的任何关系，故需能直接存放 TupleDesc。
+ * 两者从不同时需要。
  */
 typedef struct EphemeralNamedRelationMetadataData
 {
-	char	   *name;			/* name used to identify the relation */
+	char	   *name;			/* 用于标识关系的名称 */
 
-	/* only one of the next two fields should be used */
-	Oid			reliddesc;		/* oid of relation to get tupdesc */
-	TupleDesc	tupdesc;		/* description of result rows */
+	/* 下列两字段只用其一 */
+	Oid			reliddesc;		/* 取 tupdesc 的关系 oid */
+	TupleDesc	tupdesc;		/* 结果行的描述 */
 
-	EphemeralNameRelationType enrtype;	/* to identify type of relation */
-	double		enrtuples;		/* estimated number of tuples */
+	EphemeralNameRelationType enrtype;	/* 标识关系类型 */
+	double		enrtuples;		/* 估计元组数 */
 } EphemeralNamedRelationMetadataData;
 
 typedef EphemeralNamedRelationMetadataData *EphemeralNamedRelationMetadata;
 
 /*
- * Ephemeral Named Relation data; used for parsing named relations not in the
- * catalog, like transition tables in AFTER triggers.
+ * 短暂具名关系数据；用于解析目录中没有的具名
+ * 关系，如 AFTER 触发器中的转移表。
  */
 typedef struct EphemeralNamedRelationData
 {
 	EphemeralNamedRelationMetadataData md;
-	void	   *reldata;		/* structure for execution-time access to data */
+	void	   *reldata;		/* 执行期访问数据的结构 */
 } EphemeralNamedRelationData;
 
 typedef EphemeralNamedRelationData *EphemeralNamedRelation;
 
 /*
- * This is an opaque structure outside of queryenvironment.c itself.  The
- * intention is to be able to change the implementation or add new context
- * features without needing to change existing code for use of existing
- * features.
+ * 在 queryenvironment.c 之外这是不透明结构。意
+ * 图是能改实现或加新上下文特性，而不必改现有
+ * 特性的既有用法代码。
+ * 见上。
  */
 typedef struct QueryEnvironment QueryEnvironment;
 

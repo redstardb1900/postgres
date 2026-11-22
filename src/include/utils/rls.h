@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * rls.h
- *	  Header file for Row Level Security (RLS) utility commands to be used
- *	  with the rowsecurity feature.
+ *	  与 rowsecurity 功能一起使用的行级安全（RLS）
+ *	  实用命令头文件。
  *
  * Copyright (c) 2007-2023, PostgreSQL Global Development Group
  *
@@ -13,30 +13,30 @@
 #ifndef RLS_H
 #define RLS_H
 
-/* GUC variable */
+/* GUC 变量 */
 extern PGDLLIMPORT bool row_security;
 
 /*
- * Used by callers of check_enable_rls.
+ * 供 check_enable_rls 调用方用。
  *
- * RLS could be completely disabled on the tables involved in the query,
- * which is the simple case, or it may depend on the current environment
- * (the role which is running the query or the value of the row_security
- * GUC), or it might be simply enabled as usual.
+ * 查询所涉表上 RLS 可能完全关闭（简单情形），
+ * 也可能依赖当前环境（运行查询的角色或
+ * row_security GUC 的值），或只是照常启用。
+ * 见上。
  *
- * If RLS isn't on the table involved then RLS_NONE is returned to indicate
- * that we don't need to worry about invalidating the query plan for RLS
- * reasons.  If RLS is on the table, but we are bypassing it for now, then
- * we return RLS_NONE_ENV to indicate that, if the environment changes,
- * we need to invalidate and replan.  Finally, if RLS should be turned on
- * for the query, then we return RLS_ENABLED, which means we also need to
- * invalidate if the environment changes.
+ * 若相关表未开 RLS，则返回 RLS_NONE，表示不必
+ * 担心因 RLS 而使查询计划失效。若表开了 RLS 但
+ * 我们暂时绕过，则返回 RLS_NONE_ENV，表示环境
+ * 一变就需失效并重规划。最后，若查询应打开 RLS，
+ * 则返回 RLS_ENABLED，同样表示环境变化时需失效。
+ * 见上。
+ * 见上。
  *
- * Note that RLS_ENABLED will also be returned if noError is true
- * (indicating that the caller simply want to know if RLS should be applied
- * for this user but doesn't want an error thrown if it is; this is used
- * by other error cases where we're just trying to decide if data from the
- * table should be passed back to the user or not).
+ * 若 noError 为 true（表示调用方只想知道对此用户
+ * 是否应应用 RLS，但不希望因此抛错；用于其他错误
+ * 路径，只是决定是否把表中数据回传给用户），也会
+ * 返回 RLS_ENABLED。
+ * 见上。
  */
 enum CheckEnableRlsResult
 {

@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * memutils.h
- *	  This file contains declarations for memory allocation utility
- *	  functions.  These are functions that are not quite widely used
- *	  enough to justify going in utils/palloc.h, but are still part
- *	  of the API of the memory management subsystem.
+ *	  本文件含内存分配实用函数的声明。这些函数
+ *	  尚不足以广泛到放进 utils/palloc.h，但仍属
+ *	  内存管理子系统 API 的一部分。
+ *	见上。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -22,26 +22,26 @@
 
 /*
  * MaxAllocSize, MaxAllocHugeSize
- *		Quasi-arbitrary limits on size of allocations.
+ *		分配大小的准任意上限。
  *
- * Note:
- *		There is no guarantee that smaller allocations will succeed, but
- *		larger requests will be summarily denied.
+ * 注:
+ *		不保证更小的分配一定成功，但更大的请求会
+ *		被直接拒绝。
  *
- * palloc() enforces MaxAllocSize, chosen to correspond to the limiting size
- * of varlena objects under TOAST.  See VARSIZE_4B() and related macros in
- * postgres.h.  Many datatypes assume that any allocatable size can be
- * represented in a varlena header.  This limit also permits a caller to use
- * an "int" variable for an index into or length of an allocation.  Callers
- * careful to avoid these hazards can access the higher limit with
- * MemoryContextAllocHuge().  Both limits permit code to assume that it may
- * compute twice an allocation's size without overflow.
+ * palloc() 强制 MaxAllocSize，选为与 TOAST 下
+ * varlena 对象的限制大小对应。见 postgres.h 中
+ * VARSIZE_4B() 及相关宏。许多数据类型假定任何
+ * 可分配大小都能用 varlena 头表示。该限制也使
+ * 调用方可用 int 变量做分配下标或长度。小心避开
+ * 这些风险的调用方可用 MemoryContextAllocHuge()
+ * 访问更高上限。两上限都允许代码假定可把分配
+ * 大小加倍而无溢出。
  */
-#define MaxAllocSize	((Size) 0x3fffffff) /* 1 gigabyte - 1 */
+#define MaxAllocSize	((Size) 0x3fffffff) /* 1 GB - 1 */
 
 #define AllocSizeIsValid(size)	((Size) (size) <= MaxAllocSize)
 
-/* Must be less than SIZE_MAX */
+/* 必须小于 SIZE_MAX */
 #define MaxAllocHugeSize	(SIZE_MAX / 2)
 
 #define InvalidAllocSize	SIZE_MAX
@@ -50,10 +50,10 @@
 
 
 /*
- * Standard top-level memory contexts.
+ * 标准顶层内存上下文。
  *
- * Only TopMemoryContext and ErrorContext are initialized by
- * MemoryContextInit() itself.
+ * 仅 TopMemoryContext/ErrorContext 由 MemoryContextInit()
+ * 自身初始化。
  */
 extern PGDLLIMPORT MemoryContext TopMemoryContext;
 extern PGDLLIMPORT MemoryContext ErrorContext;
@@ -63,15 +63,15 @@ extern PGDLLIMPORT MemoryContext MessageContext;
 extern PGDLLIMPORT MemoryContext TopTransactionContext;
 extern PGDLLIMPORT MemoryContext CurTransactionContext;
 
-/* This is a transient link to the active portal's memory context: */
+/* 到活动 portal 内存上下文的瞬时链接： */
 extern PGDLLIMPORT MemoryContext PortalContext;
 
-/* Backwards compatibility macro */
+/* 向后兼容宏 */
 #define MemoryContextResetAndDeleteChildren(ctx) MemoryContextReset(ctx)
 
 
 /*
- * Memory-context-type-independent functions in mcxt.c
+ * mcxt.c 中与内存上下文类型无关的函数
  */
 extern void MemoryContextInit(void);
 extern void MemoryContextReset(MemoryContext context);
@@ -97,7 +97,7 @@ extern void MemoryContextAllowInCriticalSection(MemoryContext context,
 extern void MemoryContextCheck(MemoryContext context);
 #endif
 
-/* Handy macro for copying and assigning context ID ... but note double eval */
+/* 拷贝并赋值上下文 ID 的便捷宏……但注意双重求值 */
 #define MemoryContextCopyAndSetIdentifier(cxt, id) \
 	MemoryContextSetIdentifier(cxt, MemoryContextStrdup(cxt, id))
 
@@ -105,7 +105,7 @@ extern void HandleLogMemoryContextInterrupt(void);
 extern void ProcessLogMemoryContextInterrupt(void);
 
 /*
- * Memory-context-type-specific functions
+ * 特定内存上下文类型的函数
  */
 
 /* aset.c */
@@ -116,9 +116,9 @@ extern MemoryContext AllocSetContextCreateInternal(MemoryContext parent,
 												   Size maxBlockSize);
 
 /*
- * This wrapper macro exists to check for non-constant strings used as context
- * names; that's no longer supported.  (Use MemoryContextSetIdentifier if you
- * want to provide a variable identifier.)
+ * 此包装宏用于检查把非常量字符串用作上下文名；
+ * 那已不再支持。（若要提供可变标识符，用
+ * MemoryContextSetIdentifier。）
  */
 #ifdef HAVE__BUILTIN_CONSTANT_P
 #define AllocSetContextCreate(parent, name, ...) \
@@ -144,8 +144,8 @@ extern MemoryContext GenerationContextCreate(MemoryContext parent,
 											 Size maxBlockSize);
 
 /*
- * Recommended default alloc parameters, suitable for "ordinary" contexts
- * that might hold quite a lot of data.
+ * 推荐的默认分配参数，适于可能容纳较多数据的
+ * "普通"上下文。
  */
 #define ALLOCSET_DEFAULT_MINSIZE   0
 #define ALLOCSET_DEFAULT_INITSIZE  (8 * 1024)
@@ -154,8 +154,8 @@ extern MemoryContext GenerationContextCreate(MemoryContext parent,
 	ALLOCSET_DEFAULT_MINSIZE, ALLOCSET_DEFAULT_INITSIZE, ALLOCSET_DEFAULT_MAXSIZE
 
 /*
- * Recommended alloc parameters for "small" contexts that are never expected
- * to contain much data (for example, a context to contain a query plan).
+ * 推荐给从不预期含很多数据的"小"上下文的分配
+ * 参数（例如容纳查询计划的上下文）。
  */
 #define ALLOCSET_SMALL_MINSIZE	 0
 #define ALLOCSET_SMALL_INITSIZE  (1 * 1024)
@@ -164,18 +164,18 @@ extern MemoryContext GenerationContextCreate(MemoryContext parent,
 	ALLOCSET_SMALL_MINSIZE, ALLOCSET_SMALL_INITSIZE, ALLOCSET_SMALL_MAXSIZE
 
 /*
- * Recommended alloc parameters for contexts that should start out small,
- * but might sometimes grow big.
+ * 推荐给应从小开始、但有时可能变大的上下文的
+ * 分配参数。
  */
 #define ALLOCSET_START_SMALL_SIZES \
 	ALLOCSET_SMALL_MINSIZE, ALLOCSET_SMALL_INITSIZE, ALLOCSET_DEFAULT_MAXSIZE
 
 
 /*
- * Threshold above which a request in an AllocSet context is certain to be
- * allocated separately (and thereby have constant allocation overhead).
- * Few callers should be interested in this, but tuplesort/tuplestore need
- * to know it.
+ * AllocSet 上下文中，请求必定单独分配（从而有
+ * 恒定分配开销）的阈值。很少调用方关心，但
+ * tuplesort/tuplestore 需要知道。
+ * 见上。
  */
 #define ALLOCSET_SEPARATE_THRESHOLD  8192
 

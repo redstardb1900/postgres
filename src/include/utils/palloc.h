@@ -1,21 +1,21 @@
 /*-------------------------------------------------------------------------
  *
  * palloc.h
- *	  POSTGRES memory allocator definitions.
+ *	  POSTGRES 内存分配器定义。
  *
- * This file contains the basic memory allocation interface that is
- * needed by almost every backend module.  It is included directly by
- * postgres.h, so the definitions here are automatically available
- * everywhere.  Keep it lean!
+ * 本文件含几乎每个后端模块所需的基本内存分配
+ * 接口。由 postgres.h 直接包含，故此处定义处处
+ * 可用。保持精简！
+ * 见上。
  *
- * Memory allocation occurs within "contexts".  Every chunk obtained from
- * palloc()/MemoryContextAlloc() is allocated within a specific context.
- * The entire contents of a context can be freed easily and quickly by
- * resetting or deleting the context --- this is both faster and less
- * prone to memory-leakage bugs than releasing chunks individually.
- * We organize contexts into context trees to allow fine-grain control
- * over chunk lifetime while preserving the certainty that we will free
- * everything that should be freed.  See utils/mmgr/README for more info.
+ * 内存分配发生在"上下文"内。从 palloc()/
+ * MemoryContextAlloc() 取得的每块都分配在特定
+ * 上下文中。重置或删除上下文即可轻松快速释放其
+ * 全部内容——比逐块释放更快，也更不易泄漏。
+ * 见上。
+ * 我们把上下文组织成树，以便精细控制块寿命，
+ * 同时仍能确保应释放的都会被释放。详见
+ * utils/mmgr/README。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -29,44 +29,44 @@
 #define PALLOC_H
 
 /*
- * Type MemoryContextData is declared in nodes/memnodes.h.  Most users
- * of memory allocation should just treat it as an abstract type, so we
- * do not provide the struct contents here.
+ * 类型 MemoryContextData 在 nodes/memnodes.h 中
+ * 声明。多数内存分配用户只需把它当作抽象类型，
+ * 故此处不提供结构内容。
  */
 typedef struct MemoryContextData *MemoryContext;
 
 /*
- * A memory context can have callback functions registered on it.  Any such
- * function will be called once just before the context is next reset or
- * deleted.  The MemoryContextCallback struct describing such a callback
- * typically would be allocated within the context itself, thereby avoiding
- * any need to manage it explicitly (the reset/delete action will free it).
+ * 内存上下文可注册回调函数。任一此类函数会在
+ * 上下文下次重置或删除前恰好调用一次。描述该
+ * 回调的 MemoryContextCallback 结构通常就分配
+ * 在上下文自身内，从而无需显式管理（重置/删除
+ * 动作会释放它）。
  */
 typedef void (*MemoryContextCallbackFunction) (void *arg);
 
 typedef struct MemoryContextCallback
 {
-	MemoryContextCallbackFunction func; /* function to call */
-	void	   *arg;			/* argument to pass it */
-	struct MemoryContextCallback *next; /* next in list of callbacks */
+	MemoryContextCallbackFunction func; /* 待调函数 */
+	void	   *arg;			/* 传给它的参数 */
+	struct MemoryContextCallback *next; /* 回调列表下一项 */
 } MemoryContextCallback;
 
 /*
- * CurrentMemoryContext is the default allocation context for palloc().
- * Avoid accessing it directly!  Instead, use MemoryContextSwitchTo()
- * to change the setting.
+ * CurrentMemoryContext 是 palloc() 的默认分配
+ * 上下文。避免直接访问！改用 MemoryContextSwitchTo()
+ * 来更改设置。
  */
 extern PGDLLIMPORT MemoryContext CurrentMemoryContext;
 
 /*
- * Flags for MemoryContextAllocExtended.
+ * MemoryContextAllocExtended 标志。
  */
-#define MCXT_ALLOC_HUGE			0x01	/* allow huge allocation (> 1 GB) */
-#define MCXT_ALLOC_NO_OOM		0x02	/* no failure if out-of-memory */
-#define MCXT_ALLOC_ZERO			0x04	/* zero allocated memory */
+#define MCXT_ALLOC_HUGE			0x01	/* 允许巨大分配（> 1 GB） */
+#define MCXT_ALLOC_NO_OOM		0x02	/* 内存不足时不失败 */
+#define MCXT_ALLOC_ZERO			0x04	/* 清零已分配内存 */
 
 /*
- * Fundamental memory-allocation operations (more are in utils/memutils.h)
+ * 基本内存分配操作（更多见 utils/memutils.h）
  */
 extern void *MemoryContextAlloc(MemoryContext context, Size size);
 extern void *MemoryContextAllocZero(MemoryContext context, Size size);
@@ -87,50 +87,50 @@ extern pg_nodiscard void *repalloc0(void *pointer, Size oldsize, Size size);
 extern void pfree(void *pointer);
 
 /*
- * Variants with easier notation and more type safety
+ * 更易写、类型更安全的变体
  */
 
 /*
- * Allocate space for one object of type "type"
+ * 为类型 "type" 的一个对象分配空间
  */
 #define palloc_object(type) ((type *) palloc(sizeof(type)))
 #define palloc0_object(type) ((type *) palloc0(sizeof(type)))
 
 /*
- * Allocate space for "count" objects of type "type"
+ * 为 count 个类型 type 的对象分配空间
  */
 #define palloc_array(type, count) ((type *) palloc(sizeof(type) * (count)))
 #define palloc0_array(type, count) ((type *) palloc0(sizeof(type) * (count)))
 
 /*
- * Change size of allocation pointed to by "pointer" to have space for "count"
- * objects of type "type"
+ * 把 pointer 所指分配改为能容纳 count 个
+ * 类型 type 的对象
  */
 #define repalloc_array(pointer, type, count) ((type *) repalloc(pointer, sizeof(type) * (count)))
 #define repalloc0_array(pointer, type, oldcount, count) ((type *) repalloc0(pointer, sizeof(type) * (oldcount), sizeof(type) * (count)))
 
 /*
- * The result of palloc() is always word-aligned, so we can skip testing
- * alignment of the pointer when deciding which MemSet variant to use.
- * Note that this variant does not offer any advantage, and should not be
- * used, unless its "sz" argument is a compile-time constant; therefore, the
- * issue that it evaluates the argument multiple times isn't a problem in
- * practice.
+ * palloc() 结果总是字对齐的，故决定用哪个 MemSet
+ * 变体时可不测指针对齐。注意本变体无优势，除非
+ * "sz" 参数是编译期常量，否则不应使用；因此它
+ * 多次求值参数在实践中不是问题。
+ * 见上。
+ * 见上。
  */
 #define palloc0fast(sz) \
 	( MemSetTest(0, sz) ? \
 		MemoryContextAllocZeroAligned(CurrentMemoryContext, sz) : \
 		MemoryContextAllocZero(CurrentMemoryContext, sz) )
 
-/* Higher-limit allocators. */
+/* 更高上限分配器。 */
 extern void *MemoryContextAllocHuge(MemoryContext context, Size size);
 extern pg_nodiscard void *repalloc_huge(void *pointer, Size size);
 
 /*
- * Although this header file is nominally backend-only, certain frontend
- * programs like pg_controldata include it via postgres.h.  For some compilers
- * it's necessary to hide the inline definition of MemoryContextSwitchTo in
- * this scenario; hence the #ifndef FRONTEND.
+ * 虽本头名义上仅后端用，但某些前端程序如
+ * pg_controldata 会经 postgres.h 包含它。对某些
+ * 编译器须在此场景隐藏 MemoryContextSwitchTo 的
+ * 内联定义；故有 #ifndef FRONTEND。
  */
 
 #ifndef FRONTEND
@@ -144,13 +144,13 @@ MemoryContextSwitchTo(MemoryContext context)
 }
 #endif							/* FRONTEND */
 
-/* Registration of memory context reset/delete callbacks */
+/* 内存上下文重置/删除回调的注册 */
 extern void MemoryContextRegisterResetCallback(MemoryContext context,
 											   MemoryContextCallback *cb);
 
 /*
- * These are like standard strdup() except the copied string is
- * allocated in a context, not with malloc().
+ * 类似标准 strdup()，但拷贝串分配在上下文
+ * 中，而非用 malloc()。
  */
 extern char *MemoryContextStrdup(MemoryContext context, const char *string);
 extern char *pstrdup(const char *in);
@@ -158,7 +158,7 @@ extern char *pnstrdup(const char *in, Size len);
 
 extern char *pchomp(const char *in);
 
-/* sprintf into a palloc'd buffer --- these are in psprintf.c */
+/* sprintf 到 palloc 缓冲区——这些在 psprintf.c */
 extern char *psprintf(const char *fmt,...) pg_attribute_printf(1, 2);
 extern size_t pvsnprintf(char *buf, size_t len, const char *fmt, va_list args) pg_attribute_printf(3, 0);
 

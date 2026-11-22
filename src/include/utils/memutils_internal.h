@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * memutils_internal.h
- *	  This file contains declarations for memory allocation utility
- *	  functions for internal use.
+ *	  供内部使用的内存分配实用函数声明。
+ *	见上。
  *
  *
  * Portions Copyright (c) 2022-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 
 #include "utils/memutils.h"
 
-/* These functions implement the MemoryContext API for AllocSet context. */
+/* 这些函数为 AllocSet 上下文实现 MemoryContext API。 */
 extern void *AllocSetAlloc(MemoryContext context, Size size);
 extern void AllocSetFree(void *pointer);
 extern void *AllocSetRealloc(void *pointer, Size size);
@@ -35,7 +35,7 @@ extern void AllocSetStats(MemoryContext context,
 extern void AllocSetCheck(MemoryContext context);
 #endif
 
-/* These functions implement the MemoryContext API for Generation context. */
+/* 这些函数为 Generation 上下文实现 MemoryContext API。 */
 extern void *GenerationAlloc(MemoryContext context, Size size);
 extern void GenerationFree(void *pointer);
 extern void *GenerationRealloc(void *pointer, Size size);
@@ -53,7 +53,7 @@ extern void GenerationCheck(MemoryContext context);
 #endif
 
 
-/* These functions implement the MemoryContext API for Slab context. */
+/* 这些函数为 Slab 上下文实现 MemoryContext API。 */
 extern void *SlabAlloc(MemoryContext context, Size size);
 extern void SlabFree(void *pointer);
 extern void *SlabRealloc(void *pointer, Size size);
@@ -71,8 +71,8 @@ extern void SlabCheck(MemoryContext context);
 #endif
 
 /*
- * These functions support the implementation of palloc_aligned() and are not
- * part of a fully-fledged MemoryContext type.
+ * 这些函数支持 palloc_aligned() 的实现，并非完整
+ * MemoryContext 类型的一部分。
  */
 extern void AlignedAllocFree(void *pointer);
 extern void *AlignedAllocRealloc(void *pointer, Size size);
@@ -80,52 +80,52 @@ extern MemoryContext AlignedAllocGetChunkContext(void *pointer);
 extern Size AlignedAllocGetChunkSpace(void *pointer);
 
 /*
- * How many extra bytes do we need to request in order to ensure that we can
- * align a pointer to 'alignto'.  Since palloc'd pointers are already aligned
- * to MAXIMUM_ALIGNOF we can subtract that amount.  We also need to make sure
- * there is enough space for the redirection MemoryChunk.
+ * 为确保能把指针对齐到 alignto，额外需请求多少
+ * 字节。因 palloc 指针已按 MAXIMUM_ALIGNOF 对齐，
+ * 可减去该量。还须确保有足够空间放重定向
+ * MemoryChunk。
  */
 #define PallocAlignedExtraBytes(alignto) \
 	((alignto) + (sizeof(MemoryChunk) - MAXIMUM_ALIGNOF))
 
 /*
  * MemoryContextMethodID
- *		A unique identifier for each MemoryContext implementation which
- *		indicates the index into the mcxt_methods[] array. See mcxt.c.
+ *		每种 MemoryContext 实现的唯一标识，表示
+ *		mcxt_methods[] 数组下标。见 mcxt.c。
  *
- * For robust error detection, ensure that MemoryContextMethodID has a value
- * for each possible bit-pattern of MEMORY_CONTEXT_METHODID_MASK, and make
- * dummy entries for unused IDs in the mcxt_methods[] array.  We also try
- * to avoid using bit-patterns as valid IDs if they are likely to occur in
- * garbage data, or if they could falsely match on chunks that are really from
- * malloc not palloc.  (We can't tell that for most malloc implementations,
- * but it happens that glibc stores flag bits in the same place where we put
- * the MemoryContextMethodID, so the possible values are predictable for it.)
+ * 为稳健检错，确保 MemoryContextMethodID 对
+ * MEMORY_CONTEXT_METHODID_MASK 的每种可能位模式
+ * 都有值，并在 mcxt_methods[] 中为未用 ID 做哑项。
+ * 我们也尽量避免把垃圾数据中常见、或会误匹配
+ * malloc 而非 palloc 块的位模式用作有效 ID。
+ * （多数 malloc 实现无法区分，但 glibc 恰把标志
+ * 位存在我们放 MemoryContextMethodID 的同一位置，
+ * 故对其可预测可能值。）
  */
 typedef enum MemoryContextMethodID
 {
-	MCTX_UNUSED1_ID,			/* 000 occurs in never-used memory */
+	MCTX_UNUSED1_ID,			/* 000 见于从未用过的内存 */
 	MCTX_UNUSED2_ID,			/* glibc malloc'd chunks usually match 001 */
 	MCTX_UNUSED3_ID,			/* glibc malloc'd chunks > 128kB match 010 */
 	MCTX_ASET_ID,
 	MCTX_GENERATION_ID,
 	MCTX_SLAB_ID,
 	MCTX_ALIGNED_REDIRECT_ID,
-	MCTX_UNUSED4_ID				/* 111 occurs in wipe_mem'd memory */
+	MCTX_UNUSED4_ID				/* 111 见于 wipe_mem 内存 */
 } MemoryContextMethodID;
 
 /*
- * The number of bits that 8-byte memory chunk headers can use to encode the
- * MemoryContextMethodID.
+ * 8 字节内存块头可用来编码 MemoryContextMethodID
+ * 的位数。
  */
 #define MEMORY_CONTEXT_METHODID_BITS 3
 #define MEMORY_CONTEXT_METHODID_MASK \
 	((((uint64) 1) << MEMORY_CONTEXT_METHODID_BITS) - 1)
 
 /*
- * This routine handles the context-type-independent part of memory
- * context creation.  It's intended to be called from context-type-
- * specific creation routines, and noplace else.
+ * 本例程处理内存上下文创建中与类型无关部分。
+ * 意在由特定类型的创建例程调用，别处勿用。
+ * 见上。
  */
 extern void MemoryContextCreate(MemoryContext node,
 								NodeTag tag,

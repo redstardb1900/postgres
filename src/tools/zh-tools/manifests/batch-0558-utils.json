@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0558",
+  "title": "include/utils palloc/memutils/memutils_internal — batch 0558",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "750718673701fad9e74f50f630bbabaeca4375e5",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/palloc.h",
+      "kind": "c_comment",
+      "note": "0558"
+    },
+    {
+      "pattern": "src/include/utils/memutils.h",
+      "kind": "c_comment",
+      "note": "0558"
+    },
+    {
+      "pattern": "src/include/utils/memutils_internal.h",
+      "kind": "c_comment",
+      "note": "0558"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0558-utils.json",
+      "kind": "manifest",
+      "note": "0558"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/palloc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 60,
+      "translated": 54,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0558 T=54"
+    },
+    {
+      "path": "src/include/utils/memutils.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 50,
+      "translated": 44,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0558 T=44"
+    },
+    {
+      "path": "src/include/utils/memutils_internal.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 38,
+      "translated": 30,
+      "preserved": 8,
+      "preserved_reasons": [
+        "版权/横幅；glibc malloc 尾注 KEEP EN 防 MIXED"
+      ],
+      "note": "0558 T=30"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0558-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0558"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0558"
+    }
+  ]
+}

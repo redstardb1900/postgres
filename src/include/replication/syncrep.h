@@ -41,15 +41,15 @@
  */
 typedef struct SyncRepStandbyData
 {
-	/* Copies of relevant fields from WalSnd shared-memory struct */
+	/*  自 WalSnd 共享内存结构复制的相关字段  */
 	pid_t		pid;
 	XLogRecPtr	write;
 	XLogRecPtr	flush;
 	XLogRecPtr	apply;
 	int			sync_standby_priority;
-	/* Index of this walsender in the WalSnd shared-memory array */
+	/*  本 walsender 在 WalSnd 共享内存数组中的下标  */
 	int			walsnd_index;
-	/* This flag indicates whether this struct is about our own process */
+	/*  此结构是否关于本进程  */
 	bool		is_me;
 } SyncRepStandbyData;
 
@@ -62,22 +62,22 @@ typedef struct SyncRepStandbyData
  */
 typedef struct SyncRepConfigData
 {
-	int			config_size;	/* total size of this struct, in bytes */
-	int			num_sync;		/* number of sync standbys that we need to
-								 * wait for */
-	uint8		syncrep_method; /* method to choose sync standbys */
-	int			nmembers;		/* number of members in the following list */
-	/* member_names contains nmembers consecutive nul-terminated C strings */
+	int			config_size;	/*  本结构总大小,字节  */
+	int			num_sync;		/*  需等待的同步备机
+								 * 个数  */
+	uint8		syncrep_method; /*  选择同步备机的方法  */
+	int			nmembers;		/*  下列列表中的成员数  */
+	/*  member_names 含 nmembers 个连续空终止 C 串  */
 	char		member_names[FLEXIBLE_ARRAY_MEMBER];
 } SyncRepConfigData;
 
 extern PGDLLIMPORT SyncRepConfigData *SyncRepConfig;
 
-/* communication variables for parsing synchronous_standby_names GUC */
+/*  解析 synchronous_standby_names GUC 的通信变量  */
 extern PGDLLIMPORT SyncRepConfigData *syncrep_parse_result;
 extern PGDLLIMPORT char *syncrep_parse_error_msg;
 
-/* user-settable parameters for synchronous replication */
+/*  同步复制的用户可设参数  */
 extern PGDLLIMPORT char *SyncRepStandbyNames;
 
 /* called by user backend */

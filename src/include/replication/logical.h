@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * logical.h
- *	   PostgreSQL logical decoding coordination
+ *	   PostgreSQL 逻辑解码协调
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -35,10 +35,10 @@ typedef struct LogicalDecodingContext
 	/* memory context this is all allocated in */
 	MemoryContext context;
 
-	/* The associated replication slot */
+	/*  关联的复制槽  */
 	ReplicationSlot *slot;
 
-	/* infrastructure pieces for decoding */
+	/*  解码基础设施组件  */
 	XLogReaderState *reader;
 	struct ReorderBuffer *reorder;
 	struct SnapBuild *snapshot_builder;
@@ -54,12 +54,12 @@ typedef struct LogicalDecodingContext
 	OutputPluginOptions options;
 
 	/*
-	 * User specified options
+	 * 用户指定的选项
 	 */
 	List	   *output_plugin_options;
 
 	/*
-	 * User-Provided callback for writing/streaming out data.
+	 * 用户提供的写出/流出数据回调。
 	 */
 	LogicalOutputPluginWriterPrepareWrite prepare_write;
 	LogicalOutputPluginWriterWrite write;
@@ -71,22 +71,22 @@ typedef struct LogicalDecodingContext
 	StringInfo	out;
 
 	/*
-	 * Private data pointer of the output plugin.
+	 * 输出插件的私有数据指针。
 	 */
 	void	   *output_plugin_private;
 
 	/*
-	 * Private data pointer for the data writer.
+	 * 数据写出器的私有数据指针。
 	 */
 	void	   *output_writer_private;
 
 	/*
-	 * Does the output plugin support streaming, and is it enabled?
+	 * 输出插件是否支持流式且已启用?
 	 */
 	bool		streaming;
 
 	/*
-	 * Does the output plugin support two-phase decoding, and is it enabled?
+	 * 输出插件是否支持两阶段解码且已启用?
 	 */
 	bool		twophase;
 
@@ -101,13 +101,13 @@ typedef struct LogicalDecodingContext
 	bool		twophase_opt_given;
 
 	/*
-	 * State for writing output.
+	 * 写出状态。
 	 */
 	bool		accept_writes;
 	bool		prepared_write;
 	XLogRecPtr	write_location;
 	TransactionId write_xid;
-	/* Are we processing the end LSN of a transaction? */
+	/*  是否正在处理事务的结束 LSN?  */
 	bool		end_xact;
 
 	/*

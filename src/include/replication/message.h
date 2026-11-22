@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * message.h
- *	   Exports from replication/logical/message.c
+ *	   自 replication/logical/message.c 导出
  *
  * Copyright (c) 2013-2023, PostgreSQL Global Development Group
  *
@@ -15,15 +15,15 @@
 #include "access/xlogreader.h"
 
 /*
- * Generic logical decoding message wal record.
+ * 通用逻辑解码消息 wal 记录。
  */
 typedef struct xl_logical_message
 {
 	Oid			dbId;			/* database Oid emitted from */
-	bool		transactional;	/* is message transactional? */
-	Size		prefix_size;	/* length of prefix */
-	Size		message_size;	/* size of the message */
-	/* payload, including null-terminated prefix of length prefix_size */
+	bool		transactional;	/*  消息是否事务性?  */
+	Size		prefix_size;	/*  前缀长度  */
+	Size		message_size;	/*  消息大小  */
+	/*  载荷,含长度为 prefix_size 的空终止前缀  */
 	char		message[FLEXIBLE_ARRAY_MEMBER];
 } xl_logical_message;
 

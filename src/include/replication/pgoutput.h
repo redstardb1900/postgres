@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pgoutput.h
- *		Logical Replication output plugin
+ *		逻辑复制输出插件
  *
  * Copyright (c) 2015-2023, PostgreSQL Global Development Group
  *

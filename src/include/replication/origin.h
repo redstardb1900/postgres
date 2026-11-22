@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * origin.h
- *	   Exports from replication/logical/origin.c
+ *	   自 replication/logical/origin.c 导出
  *
  * Copyright (c) 2013-2023, PostgreSQL Global Development Group
  *
@@ -37,14 +37,14 @@ extern PGDLLIMPORT RepOriginId replorigin_session_origin;
 extern PGDLLIMPORT XLogRecPtr replorigin_session_origin_lsn;
 extern PGDLLIMPORT TimestampTz replorigin_session_origin_timestamp;
 
-/* API for querying & manipulating replication origins */
+/*  查询与操纵复制源的 API  */
 extern RepOriginId replorigin_by_name(const char *roname, bool missing_ok);
 extern RepOriginId replorigin_create(const char *roname);
 extern void replorigin_drop_by_name(const char *name, bool missing_ok, bool nowait);
 extern bool replorigin_by_oid(RepOriginId roident, bool missing_ok,
 							  char **roname);
 
-/* API for querying & manipulating replication progress tracking */
+/*  查询与操纵复制进度跟踪的 API  */
 extern void replorigin_advance(RepOriginId node,
 							   XLogRecPtr remote_commit,
 							   XLogRecPtr local_commit,
@@ -57,7 +57,7 @@ extern void replorigin_session_setup(RepOriginId node, int acquired_by);
 extern void replorigin_session_reset(void);
 extern XLogRecPtr replorigin_session_get_progress(bool flush);
 
-/* Checkpoint/Startup integration */
+/*  检查点/启动集成  */
 extern void CheckPointReplicationOrigin(void);
 extern void StartupReplicationOrigin(void);
 
@@ -66,7 +66,7 @@ extern void replorigin_redo(XLogReaderState *record);
 extern void replorigin_desc(StringInfo buf, XLogReaderState *record);
 extern const char *replorigin_identify(uint8 info);
 
-/* shared memory allocation */
+/*  共享内存分配  */
 extern Size ReplicationOriginShmemSize(void);
 extern void ReplicationOriginShmemInit(void);
 

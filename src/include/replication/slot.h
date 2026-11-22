@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * slot.h
- *	   Replication slot management.
+ *	   复制槽管理。
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -44,11 +44,11 @@ typedef enum ReplicationSlotPersistency
 typedef enum ReplicationSlotInvalidationCause
 {
 	RS_INVAL_NONE,
-	/* required WAL has been removed */
+	/*  所需 WAL 已被移除  */
 	RS_INVAL_WAL_REMOVED,
-	/* required rows have been removed */
+	/*  所需行已被移除  */
 	RS_INVAL_HORIZON,
-	/* wal_level insufficient for slot */
+	/*  wal_level 对槽不足  */
 	RS_INVAL_WAL_LEVEL,
 } ReplicationSlotInvalidationCause;
 
@@ -57,10 +57,10 @@ typedef enum ReplicationSlotInvalidationCause
  */
 typedef struct ReplicationSlotPersistentData
 {
-	/* The slot's identifier */
+	/*  槽的标识符  */
 	NameData	name;
 
-	/* database the slot is active on */
+	/*  槽所活跃的数据库  */
 	Oid			database;
 
 	/*
@@ -84,10 +84,10 @@ typedef struct ReplicationSlotPersistentData
 	 */
 	TransactionId catalog_xmin;
 
-	/* oldest LSN that might be required by this replication slot */
+	/*  本复制槽可能需要的最旧 LSN  */
 	XLogRecPtr	restart_lsn;
 
-	/* RS_INVAL_NONE if valid, or the reason for having been invalidated */
+	/*  有效则为 RS_INVAL_NONE,否则为失效原因  */
 	ReplicationSlotInvalidationCause invalidated;
 
 	/*
@@ -105,11 +105,11 @@ typedef struct ReplicationSlotPersistentData
 	XLogRecPtr	two_phase_at;
 
 	/*
-	 * Allow decoding of prepared transactions?
+	 *  是否允许解码已准备事务?
 	 */
 	bool		two_phase;
 
-	/* plugin name */
+	/*  插件名  */
 	NameData	plugin;
 } ReplicationSlotPersistentData;
 
@@ -131,16 +131,16 @@ typedef struct ReplicationSlotPersistentData
  */
 typedef struct ReplicationSlot
 {
-	/* lock, on same cacheline as effective_xmin */
+	/*  锁,与 effective_xmin 同缓存行  */
 	slock_t		mutex;
 
 	/* is this slot defined */
 	bool		in_use;
 
-	/* Who is streaming out changes for this slot? 0 in unused slots. */
+	/*  谁在流出本槽变更?未用槽为 0。  */
 	pid_t		active_pid;
 
-	/* any outstanding modifications? */
+	/*  有未落盘的修改?  */
 	bool		just_dirtied;
 	bool		dirty;
 
@@ -161,13 +161,13 @@ typedef struct ReplicationSlot
 	/* data surviving shutdowns and crashes */
 	ReplicationSlotPersistentData data;
 
-	/* is somebody performing io on this slot? */
+	/*  是否有人在对本槽做 io?  */
 	LWLock		io_in_progress_lock;
 
-	/* Condition variable signaled when active_pid changes */
+	/*  active_pid 变化时发信号的条件变量  */
 	ConditionVariable active_cv;
 
-	/* all the remaining data is only used for logical slots */
+	/*  其余数据仅用于逻辑槽  */
 
 	/*
 	 * When the client has confirmed flushes >= candidate_xmin_lsn we can
@@ -196,7 +196,7 @@ typedef struct ReplicationSlotCtlData
 } ReplicationSlotCtlData;
 
 /*
- * Pointers to shared memory
+ * 共享内存指针
  */
 extern PGDLLIMPORT ReplicationSlotCtlData *ReplicationSlotCtl;
 extern PGDLLIMPORT ReplicationSlot *MyReplicationSlot;
@@ -204,11 +204,11 @@ extern PGDLLIMPORT ReplicationSlot *MyReplicationSlot;
 /* GUCs */
 extern PGDLLIMPORT int max_replication_slots;
 
-/* shmem initialization functions */
+/*  共享内存初始化函数  */
 extern Size ReplicationSlotsShmemSize(void);
 extern void ReplicationSlotsShmemInit(void);
 
-/* management of individual slots */
+/*  单个槽的管理  */
 extern void ReplicationSlotCreate(const char *name, bool db_specific,
 								  ReplicationSlotPersistency persistency,
 								  bool two_phase);
@@ -221,7 +221,7 @@ extern void ReplicationSlotCleanup(void);
 extern void ReplicationSlotSave(void);
 extern void ReplicationSlotMarkDirty(void);
 
-/* misc stuff */
+/*  杂项  */
 extern void ReplicationSlotInitialize(void);
 extern bool ReplicationSlotValidateName(const char *name, int elevel);
 extern bool ReplicationSlotValidateNameInternal(const char *name,

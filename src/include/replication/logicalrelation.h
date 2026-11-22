@@ -28,11 +28,11 @@ typedef struct LogicalRepRelMapEntry
 	bool		localrelvalid;
 
 	/* Mapping to local relation. */
-	Oid			localreloid;	/* local relation id */
-	Relation	localrel;		/* relcache entry (NULL when closed) */
-	AttrMap    *attrmap;		/* map of local attributes to remote ones */
+	Oid			localreloid;	/*  本地关系 id  */
+	Relation	localrel;		/*  relcache 项(关闭时为 NULL)  */
+	AttrMap    *attrmap;		/*  本地属性到远端的映射  */
 	bool		updatable;		/* Can apply updates/deletes? */
-	Oid			localindexoid;	/* which index to use, or InvalidOid if none */
+	Oid			localindexoid;	/*  使用哪个索引,无则 InvalidOid  */
 
 	/* Sync state. */
 	char		state;

@@ -1,0 +1,231 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0586",
+ "title": "include/replication 小中头×11 — batch 0586",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "635429df8434d423891d77e834168dbc7d471717",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/replication/logical.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/logicalproto.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/logicalrelation.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/message.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/origin.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/output_plugin.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/pgoutput.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/slot.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/snapbuild.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/syncrep.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/include/replication/walsender.h",
+   "kind": "c_comment",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0586-replication.json",
+   "kind": "manifest",
+   "note": "0586"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/replication/logical.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/logicalproto.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/logicalrelation.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/message.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/origin.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/output_plugin.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/pgoutput.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/slot.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/snapbuild.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/syncrep.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/include/replication/walsender.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；协议/回调/槽生命周期长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0586"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0586-replication.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0586"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0586"
+  }
+ ],
+ "notes": "短注已译；reorderbuffer/walreceiver 留后；协议/回调/槽长文 KEEP EN"
+}

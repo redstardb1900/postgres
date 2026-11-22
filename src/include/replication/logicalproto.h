@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * logicalproto.h
- *		logical replication protocol
+ *		逻辑复制协议
  *
  * Copyright (c) 2015-2023, PostgreSQL Global Development Group
  *
@@ -83,16 +83,16 @@ typedef enum LogicalRepMsgType
  */
 typedef struct LogicalRepTupleData
 {
-	/* Array of StringInfos, one per column; some may be unused */
+	/*  每列一个 StringInfo 的数组;有些可能未用  */
 	StringInfoData *colvalues;
-	/* Array of markers for null/unchanged/text/binary, one per column */
+	/*  每列空/未变/文本/二进制标记的数组  */
 	char	   *colstatus;
 	/* Length of above arrays */
 	int			ncols;
 } LogicalRepTupleData;
 
-/* Possible values for LogicalRepTupleData.colstatus[colnum] */
-/* These values are also used in the on-the-wire protocol */
+/*  LogicalRepTupleData.colstatus[colnum] 的可能取值  */
+/*  这些值也用于线上协议  */
 #define LOGICALREP_COLUMN_NULL		'n'
 #define LOGICALREP_COLUMN_UNCHANGED	'u'
 #define LOGICALREP_COLUMN_TEXT		't'
@@ -100,30 +100,30 @@ typedef struct LogicalRepTupleData
 
 typedef uint32 LogicalRepRelId;
 
-/* Relation information */
+/*  关系信息  */
 typedef struct LogicalRepRelation
 {
-	/* Info coming from the remote side. */
-	LogicalRepRelId remoteid;	/* unique id of the relation */
-	char	   *nspname;		/* schema name */
-	char	   *relname;		/* relation name */
-	int			natts;			/* number of columns */
-	char	  **attnames;		/* column names */
-	Oid		   *atttyps;		/* column types */
-	char		replident;		/* replica identity */
-	char		relkind;		/* remote relation kind */
-	Bitmapset  *attkeys;		/* Bitmap of key columns */
+	/*  来自远端的信息。  */
+	LogicalRepRelId remoteid;	/*  关系的唯一 id  */
+	char	   *nspname;		/*  模式名  */
+	char	   *relname;		/*  关系名  */
+	int			natts;			/*  列数  */
+	char	  **attnames;		/*  列名  */
+	Oid		   *atttyps;		/*  列类型  */
+	char		replident;		/*  副本标识  */
+	char		relkind;		/*  远端关系种类  */
+	Bitmapset  *attkeys;		/*  键列位图  */
 } LogicalRepRelation;
 
 /* Type mapping info */
 typedef struct LogicalRepTyp
 {
-	Oid			remoteid;		/* unique id of the remote type */
-	char	   *nspname;		/* schema name of remote type */
-	char	   *typname;		/* name of the remote type */
+	Oid			remoteid;		/*  远端类型的唯一 id  */
+	char	   *nspname;		/*  远端类型的模式名  */
+	char	   *typname;		/*  远端类型名  */
 } LogicalRepTyp;
 
-/* Transaction info */
+/*  事务信息  */
 typedef struct LogicalRepBeginData
 {
 	XLogRecPtr	final_lsn;

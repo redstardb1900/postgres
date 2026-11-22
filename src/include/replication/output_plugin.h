@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * output_plugin.h
- *	   PostgreSQL Logical Decode Plugin Interface
+ *	   PostgreSQL 逻辑解码插件接口
  *
  * Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *
@@ -21,7 +21,7 @@ typedef enum OutputPluginOutputType
 } OutputPluginOutputType;
 
 /*
- * Options set by the output plugin, in the startup callback.
+ * 启动回调中由输出插件设置的选项。
  */
 typedef struct OutputPluginOptions
 {
@@ -211,7 +211,7 @@ typedef void (*LogicalDecodeStreamTruncateCB) (struct LogicalDecodingContext *ct
 											   ReorderBufferChange *change);
 
 /*
- * Output plugin callbacks
+ * 输出插件回调
  */
 typedef struct OutputPluginCallbacks
 {
@@ -224,14 +224,14 @@ typedef struct OutputPluginCallbacks
 	LogicalDecodeFilterByOriginCB filter_by_origin_cb;
 	LogicalDecodeShutdownCB shutdown_cb;
 
-	/* streaming of changes at prepare time */
+	/*  在准备时流式传输变更  */
 	LogicalDecodeFilterPrepareCB filter_prepare_cb;
 	LogicalDecodeBeginPrepareCB begin_prepare_cb;
 	LogicalDecodePrepareCB prepare_cb;
 	LogicalDecodeCommitPreparedCB commit_prepared_cb;
 	LogicalDecodeRollbackPreparedCB rollback_prepared_cb;
 
-	/* streaming of changes */
+	/*  流式传输变更  */
 	LogicalDecodeStreamStartCB stream_start_cb;
 	LogicalDecodeStreamStopCB stream_stop_cb;
 	LogicalDecodeStreamAbortCB stream_abort_cb;

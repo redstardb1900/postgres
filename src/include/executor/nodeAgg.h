@@ -30,8 +30,8 @@
 typedef struct AggStatePerTransData
 {
 	/*
-	 * These values are set up during ExecInitAgg() and do not change
-	 * thereafter:
+	 * 这些值在 ExecInitAgg() 期间建立且此后
+	 * 不改:
 	 */
 
 	/*
@@ -44,12 +44,12 @@ typedef struct AggStatePerTransData
 	Aggref	   *aggref;
 
 	/*
-	 * Is this state value actually being shared by more than one Aggref?
+	 * 此状态值是否确实被多个 Aggref 共享?
 	 */
 	bool		aggshared;
 
 	/*
-	 * True for ORDER BY and DISTINCT Aggrefs that are not aggpresorted.
+	 * 对非 aggpresorted 的 ORDER BY 与 DISTINCT Aggref 为真.
 	 */
 	bool		aggsortrequired;
 
@@ -67,16 +67,16 @@ typedef struct AggStatePerTransData
 	 */
 	int			numTransInputs;
 
-	/* Oid of the state transition or combine function */
+	/*  状态转换或合并函数的 Oid  */
 	Oid			transfn_oid;
 
-	/* Oid of the serialization function or InvalidOid */
+	/*  序列化函数的 Oid,或 InvalidOid  */
 	Oid			serialfn_oid;
 
-	/* Oid of the deserialization function or InvalidOid */
+	/*  反序列化函数的 Oid,或 InvalidOid  */
 	Oid			deserialfn_oid;
 
-	/* Oid of state value's datatype */
+	/*  状态值类型的 Oid  */
 	Oid			aggtranstype;
 
 	/*
@@ -85,23 +85,23 @@ typedef struct AggStatePerTransData
 	 */
 	FmgrInfo	transfn;
 
-	/* fmgr lookup data for serialization function */
+	/*  序列化函数的 fmgr 查找数据  */
 	FmgrInfo	serialfn;
 
-	/* fmgr lookup data for deserialization function */
+	/*  反序列化函数的 fmgr 查找数据  */
 	FmgrInfo	deserialfn;
 
-	/* Input collation derived for aggregate */
+	/*  聚合导出的输入排序规则  */
 	Oid			aggCollation;
 
-	/* number of sorting columns */
+	/*  排序列数  */
 	int			numSortCols;
 
-	/* number of sorting columns to consider in DISTINCT comparisons */
-	/* (this is either zero or the same as numSortCols) */
+	/*  DISTINCT 比较中要考虑的排序列数  */
+	/*  (为零或等于 numSortCols)  */
 	int			numDistinctCols;
 
-	/* deconstructed sorting information (arrays of length numSortCols) */
+	/*  解构后的排序信息(长度为 numSortCols 的数组)  */
 	AttrNumber *sortColIdx;
 	Oid		   *sortOperators;
 	Oid		   *sortCollations;
@@ -116,7 +116,7 @@ typedef struct AggStatePerTransData
 	ExprState  *equalfnMulti;
 
 	/*
-	 * initial value from pg_aggregate entry
+	 * 来自 pg_aggregate 项的初值
 	 */
 	Datum		initValue;
 	bool		initValueIsNull;
@@ -139,11 +139,11 @@ typedef struct AggStatePerTransData
 	 * FILTER or ORDER BY/DISTINCT processing.
 	 */
 	TupleTableSlot *sortslot;	/* current input tuple */
-	TupleTableSlot *uniqslot;	/* used for multi-column DISTINCT */
-	TupleDesc	sortdesc;		/* descriptor of input tuples */
-	Datum		lastdatum;		/* used for single-column DISTINCT */
-	bool		lastisnull;		/* used for single-column DISTINCT */
-	bool		haslast;		/* got a last value for DISTINCT check */
+	TupleTableSlot *uniqslot;	/*  用于多列 DISTINCT  */
+	TupleDesc	sortdesc;		/*  输入元组的描述符  */
+	Datum		lastdatum;		/*  用于单列 DISTINCT  */
+	bool		lastisnull;		/*  用于单列 DISTINCT  */
+	bool		haslast;		/*  已有 DISTINCT 上次值  */
 
 	/*
 	 * These values are working state that is initialized at the start of an
@@ -159,7 +159,7 @@ typedef struct AggStatePerTransData
 	 * We need a separate tuplesort for each grouping set.
 	 */
 
-	Tuplesortstate **sortstates;	/* sort objects, if DISTINCT or ORDER BY */
+	Tuplesortstate **sortstates;	/*  排序对象,若 DISTINCT/ORDER BY  */
 
 	/*
 	 * This field is a pre-initialized FunctionCallInfo struct used for
@@ -169,7 +169,7 @@ typedef struct AggStatePerTransData
 	 */
 	FunctionCallInfo transfn_fcinfo;
 
-	/* Likewise for serialization and deserialization functions */
+	/*  序列化与反序列化函数同理  */
 	FunctionCallInfo serialfn_fcinfo;
 
 	FunctionCallInfo deserialfn_fcinfo;
@@ -194,10 +194,10 @@ typedef struct AggStatePerAggData
 	 */
 	Aggref	   *aggref;
 
-	/* index to the state value which this agg should use */
+	/*  本聚合应使用的状态值下标  */
 	int			transno;
 
-	/* Optional Oid of final function (may be InvalidOid) */
+	/*  终结函数的可选 Oid(可为 InvalidOid)  */
 	Oid			finalfn_oid;
 
 	/*
@@ -214,7 +214,7 @@ typedef struct AggStatePerAggData
 	 */
 	int			numFinalArgs;
 
-	/* ExprStates for any direct-argument expressions */
+	/*  任何直接参数表达式的 ExprStates  */
 	List	   *aggdirectargs;
 
 	/*
@@ -250,7 +250,7 @@ typedef struct AggStatePerAggData
 typedef struct AggStatePerGroupData
 {
 #define FIELDNO_AGGSTATEPERGROUPDATA_TRANSVALUE 0
-	Datum		transValue;		/* current transition value */
+	Datum		transValue;		/*  当前转换值  */
 #define FIELDNO_AGGSTATEPERGROUPDATA_TRANSVALUEISNULL 1
 	bool		transValueIsNull;
 
@@ -279,16 +279,16 @@ typedef struct AggStatePerGroupData
  */
 typedef struct AggStatePerPhaseData
 {
-	AggStrategy aggstrategy;	/* strategy for this phase */
-	int			numsets;		/* number of grouping sets (or 0) */
-	int		   *gset_lengths;	/* lengths of grouping sets */
-	Bitmapset **grouped_cols;	/* column groupings for rollup */
-	ExprState **eqfunctions;	/* expression returning equality, indexed by
-								 * nr of cols to compare */
+	AggStrategy aggstrategy;	/*  本阶段的策略  */
+	int			numsets;		/*  分组集个数(或 0)  */
+	int		   *gset_lengths;	/*  分组集长度  */
+	Bitmapset **grouped_cols;	/*  rollup 的列分组  */
+	ExprState **eqfunctions;	/*  返回相等性的表达式,按下标
+								 * 列数下标  */
 	Agg		   *aggnode;		/* Agg node for phase data */
-	Sort	   *sortnode;		/* Sort node for input ordering for phase */
+	Sort	   *sortnode;		/*  阶段输入排序的 Sort 节点  */
 
-	ExprState  *evaltrans;		/* evaluation of transition functions  */
+	ExprState  *evaltrans;		/*  转换函数的求值    */
 
 	/*----------
 	 * Cached variants of the compiled expression.
@@ -308,17 +308,17 @@ typedef struct AggStatePerPhaseData
  */
 typedef struct AggStatePerHashData
 {
-	TupleHashTable hashtable;	/* hash table with one entry per group */
-	TupleHashIterator hashiter; /* for iterating through hash table */
-	TupleTableSlot *hashslot;	/* slot for loading hash table */
+	TupleHashTable hashtable;	/*  每组一项的哈希表  */
+	TupleHashIterator hashiter; /*  用于遍历哈希表  */
+	TupleTableSlot *hashslot;	/*  装入哈希表的槽  */
 	FmgrInfo   *hashfunctions;	/* per-grouping-field hash fns */
-	Oid		   *eqfuncoids;		/* per-grouping-field equality fns */
-	int			numCols;		/* number of hash key columns */
-	int			numhashGrpCols; /* number of columns in hash table */
-	int			largestGrpColIdx;	/* largest col required for hashing */
-	AttrNumber *hashGrpColIdxInput; /* hash col indices in input slot */
-	AttrNumber *hashGrpColIdxHash;	/* indices in hash table tuples */
-	Agg		   *aggnode;		/* original Agg node, for numGroups etc. */
+	Oid		   *eqfuncoids;		/*  每分组字段相等函数  */
+	int			numCols;		/*  哈希键列数  */
+	int			numhashGrpCols; /*  哈希表中的列数  */
+	int			largestGrpColIdx;	/*  哈希所需的最大列  */
+	AttrNumber *hashGrpColIdxInput; /*  输入槽哈希列下标  */
+	AttrNumber *hashGrpColIdxHash;	/*  哈希表元组下标  */
+	Agg		   *aggnode;		/*  原始 Agg 节点,供 numGroups 等  */
 }			AggStatePerHashData;
 
 
@@ -332,7 +332,7 @@ extern void hash_agg_set_limits(double hashentrysize, double input_groups,
 								int used_bits, Size *mem_limit,
 								uint64 *ngroups_limit, int *num_partitions);
 
-/* parallel instrumentation support */
+/*  并行插桩支持  */
 extern void ExecAggEstimate(AggState *node, ParallelContext *pcxt);
 extern void ExecAggInitializeDSM(AggState *node, ParallelContext *pcxt);
 extern void ExecAggInitializeWorker(AggState *node, ParallelWorkerContext *pwcxt);

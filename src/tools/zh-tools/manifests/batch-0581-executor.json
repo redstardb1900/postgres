@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0581",
+ "title": "include/executor nodeAgg — batch 0581",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "96929fbab5c10c903de10e37d8bee7423b88f9bb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/executor/nodeAgg.h",
+   "kind": "c_comment",
+   "note": "0581"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0581-executor.json",
+   "kind": "manifest",
+   "note": "0581"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/executor/nodeAgg.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 149,
+   "translated": 46,
+   "preserved": 103,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；PerTrans/PerAgg/PerGroup/PerPhase/PerHash 长文整块 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0581 T=46"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0581-executor.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0581"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0581"
+  }
+ ],
+ "notes": "短注/字段已译；Per* 结构长文 KEEP EN"
+}

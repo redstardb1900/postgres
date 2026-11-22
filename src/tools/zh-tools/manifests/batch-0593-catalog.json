@@ -1,0 +1,180 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0593",
+ "title": "include/catalog amop/cast/operator 等×8 — batch 0593",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "6712fb59a7df282ced23a7a5349a336f17fcdedf",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/pg_amop.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_cast.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_operator.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_database.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_trigger.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_publication.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_subscription.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/include/catalog/pg_aggregate.h",
+   "kind": "c_comment",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0593-catalog.json",
+   "kind": "manifest",
+   "note": "0593"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/pg_amop.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_cast.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_operator.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_database.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_trigger.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_publication.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_subscription.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/include/catalog/pg_aggregate.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0593"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0593-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0593"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0593"
+  }
+ ],
+ "notes": "短字段注已译；typedef/横幅 KEEP；大头 attribute/class/type 留后"
+}

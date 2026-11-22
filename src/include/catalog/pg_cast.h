@@ -33,16 +33,16 @@ CATALOG(pg_cast,2605,CastRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* source datatype for cast */
+	/* 转换的源数据类型 */
 	Oid			castsource BKI_LOOKUP(pg_type);
 
-	/* destination datatype for cast */
+	/*  转换的目标数据类型  */
 	Oid			casttarget BKI_LOOKUP(pg_type);
 
-	/* cast function; 0 = binary coercible */
+	/*  转换函数;0=二进制可强制  */
 	Oid			castfunc BKI_LOOKUP_OPT(pg_proc);
 
-	/* contexts in which cast can be used */
+	/*  可使用转换的上下文  */
 	char		castcontext;
 
 	/* cast method */
@@ -73,8 +73,8 @@ DECLARE_UNIQUE_INDEX(pg_cast_source_target_index, 2661, CastSourceTargetIndexId,
 typedef enum CoercionCodes
 {
 	COERCION_CODE_IMPLICIT = 'i',	/* coercion in context of expression */
-	COERCION_CODE_ASSIGNMENT = 'a', /* coercion in context of assignment */
-	COERCION_CODE_EXPLICIT = 'e'	/* explicit cast operation */
+	COERCION_CODE_ASSIGNMENT = 'a', /* 赋值上下文中的强制转换 */
+	COERCION_CODE_EXPLICIT = 'e'	/*  显式转换操作  */
 } CoercionCodes;
 
 /*
@@ -84,9 +84,9 @@ typedef enum CoercionCodes
  */
 typedef enum CoercionMethod
 {
-	COERCION_METHOD_FUNCTION = 'f', /* use a function */
-	COERCION_METHOD_BINARY = 'b',	/* types are binary-compatible */
-	COERCION_METHOD_INOUT = 'i' /* use input/output functions */
+	COERCION_METHOD_FUNCTION = 'f', /*  使用函数  */
+	COERCION_METHOD_BINARY = 'b',	/*  类型二进制兼容  */
+	COERCION_METHOD_INOUT = 'i' /* 使用输入/输出函数 */
 } CoercionMethod;
 
 #endif							/* EXPOSE_TO_CLIENT_CODE */

@@ -34,41 +34,41 @@
 CATALOG(pg_trigger,2620,TriggerRelationId)
 {
 	Oid			oid;			/* oid */
-	Oid			tgrelid BKI_LOOKUP(pg_class);	/* relation trigger is
-												 * attached to */
+	Oid			tgrelid BKI_LOOKUP(pg_class);	/*  触发器所附
+												 * 关系  */
 	Oid			tgparentid BKI_LOOKUP_OPT(pg_trigger);	/* OID of parent
 														 * trigger, if any */
-	NameData	tgname;			/* trigger's name */
-	Oid			tgfoid BKI_LOOKUP(pg_proc); /* OID of function to be called */
+	NameData	tgname;			/*  触发器名  */
+	Oid			tgfoid BKI_LOOKUP(pg_proc); /*  待调用函数的 OID  */
 	int16		tgtype;			/* BEFORE/AFTER/INSTEAD, UPDATE/DELETE/INSERT,
-								 * ROW/STATEMENT; see below */
+								 * ROW/STATEMENT;见下  */
 	char		tgenabled;		/* trigger's firing configuration WRT
 								 * session_replication_role */
-	bool		tgisinternal;	/* trigger is system-generated */
-	Oid			tgconstrrelid BKI_LOOKUP_OPT(pg_class); /* constraint's FROM
-														 * table, if any */
+	bool		tgisinternal;	/*  触发器由系统生成  */
+	Oid			tgconstrrelid BKI_LOOKUP_OPT(pg_class); /*  约束的 FROM
+														 * 表(若有)  */
 	Oid			tgconstrindid BKI_LOOKUP_OPT(pg_class); /* constraint's
 														 * supporting index, if
 														 * any */
 	Oid			tgconstraint BKI_LOOKUP_OPT(pg_constraint); /* associated
 															 * pg_constraint entry,
 															 * if any */
-	bool		tgdeferrable;	/* constraint trigger is deferrable */
-	bool		tginitdeferred; /* constraint trigger is deferred initially */
-	int16		tgnargs;		/* # of extra arguments in tgargs */
+	bool		tgdeferrable;	/*  约束触发器可延迟  */
+	bool		tginitdeferred; /*  约束触发器初始为延迟  */
+	int16		tgnargs;		/*  tgargs 中额外参数个数  */
 
 	/*
-	 * Variable-length fields start here, but we allow direct access to
-	 * tgattr. Note: tgattr and tgargs must not be null.
+	 * 变长字段自此开始,但允许直接访问
+	 * tgattr。注:tgattr 与 tgargs 不可为 null。
 	 */
 	int2vector	tgattr BKI_FORCE_NOT_NULL;	/* column numbers, if trigger is
 											 * on columns */
 
 #ifdef CATALOG_VARLEN
 	bytea		tgargs BKI_FORCE_NOT_NULL;	/* first\000second\000tgnargs\000 */
-	pg_node_tree tgqual;		/* WHEN expression, or NULL if none */
-	NameData	tgoldtable;		/* old transition table, or NULL if none */
-	NameData	tgnewtable;		/* new transition table, or NULL if none */
+	pg_node_tree tgqual;		/*  WHEN 表达式,无则为 NULL  */
+	NameData	tgoldtable;		/*  旧转换表,无则为 NULL  */
+	NameData	tgnewtable;		/*  新转换表,无则为 NULL  */
 #endif
 } FormData_pg_trigger;
 
@@ -89,7 +89,7 @@ DECLARE_ARRAY_FOREIGN_KEY((tgrelid, tgattr), pg_attribute, (attrelid, attnum));
 
 #ifdef EXPOSE_TO_CLIENT_CODE
 
-/* Bits within tgtype */
+/*  tgtype 内的位  */
 #define TRIGGER_TYPE_ROW				(1 << 0)
 #define TRIGGER_TYPE_BEFORE				(1 << 1)
 #define TRIGGER_TYPE_INSERT				(1 << 2)
@@ -101,7 +101,7 @@ DECLARE_ARRAY_FOREIGN_KEY((tgrelid, tgattr), pg_attribute, (attrelid, attnum));
 #define TRIGGER_TYPE_LEVEL_MASK			(TRIGGER_TYPE_ROW)
 #define TRIGGER_TYPE_STATEMENT			0
 
-/* Note bits within TRIGGER_TYPE_TIMING_MASK aren't adjacent */
+/*  注意 TRIGGER_TYPE_TIMING_MASK 内各位不相邻  */
 #define TRIGGER_TYPE_TIMING_MASK \
 	(TRIGGER_TYPE_BEFORE | TRIGGER_TYPE_INSTEAD)
 #define TRIGGER_TYPE_AFTER				0
@@ -109,7 +109,7 @@ DECLARE_ARRAY_FOREIGN_KEY((tgrelid, tgattr), pg_attribute, (attrelid, attnum));
 #define TRIGGER_TYPE_EVENT_MASK \
 	(TRIGGER_TYPE_INSERT | TRIGGER_TYPE_DELETE | TRIGGER_TYPE_UPDATE | TRIGGER_TYPE_TRUNCATE)
 
-/* Macros for manipulating tgtype */
+/*  操作 tgtype 的宏  */
 #define TRIGGER_CLEAR_TYPE(type)		((type) = 0)
 
 #define TRIGGER_SETT_ROW(type)			((type) |= TRIGGER_TYPE_ROW)

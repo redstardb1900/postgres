@@ -32,10 +32,10 @@ CATALOG(pg_operator,2617,OperatorRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* name of operator */
+	/*  算子名  */
 	NameData	oprname;
 
-	/* OID of namespace containing this oper */
+	/*  含本算子的命名空间 OID  */
 	Oid			oprnamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
 	/* operator owner */
@@ -44,34 +44,34 @@ CATALOG(pg_operator,2617,OperatorRelationId)
 	/* 'l' for prefix or 'b' for infix */
 	char		oprkind BKI_DEFAULT(b);
 
-	/* can be used in merge join? */
+	/* 可否用于归并连接? */
 	bool		oprcanmerge BKI_DEFAULT(f);
 
-	/* can be used in hash join? */
+	/* 可否用于哈希连接? */
 	bool		oprcanhash BKI_DEFAULT(f);
 
-	/* left arg type, or 0 if prefix operator */
+	/*  左参数类型,前缀算子则为 0  */
 	Oid			oprleft BKI_LOOKUP_OPT(pg_type);
 
 	/* right arg type */
 	Oid			oprright BKI_LOOKUP(pg_type);
 
-	/* result datatype; can be 0 in a "shell" operator */
+	/*  结果数据类型;壳算子可为 0  */
 	Oid			oprresult BKI_LOOKUP_OPT(pg_type);
 
-	/* OID of commutator oper, or 0 if none */
+	/*  交换算子 OID,无则为 0  */
 	Oid			oprcom BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_operator);
 
-	/* OID of negator oper, or 0 if none */
+	/*  否定算子 OID,无则为 0  */
 	Oid			oprnegate BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_operator);
 
-	/* OID of underlying function; can be 0 in a "shell" operator */
+	/*  底层函数 OID;壳算子可为 0  */
 	regproc		oprcode BKI_LOOKUP_OPT(pg_proc);
 
-	/* OID of restriction estimator, or 0 */
+	/*  限制估算器 OID,或 0  */
 	regproc		oprrest BKI_DEFAULT(-) BKI_LOOKUP_OPT(pg_proc);
 
-	/* OID of join estimator, or 0 */
+	/*  连接估算器 OID,或 0  */
 	regproc		oprjoin BKI_DEFAULT(-) BKI_LOOKUP_OPT(pg_proc);
 } FormData_pg_operator;
 

@@ -91,7 +91,7 @@ CATALOG(pg_aggregate,2600,AggregateRelationId)
 	/* estimated size of moving-agg state (0 for default est) */
 	int32		aggmtransspace BKI_DEFAULT(0);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 
 	/* initial value for transition state (can be NULL) */
 	text		agginitval BKI_DEFAULT(_null_);

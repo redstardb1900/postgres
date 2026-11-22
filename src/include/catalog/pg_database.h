@@ -31,27 +31,27 @@ CATALOG(pg_database,1262,DatabaseRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID
 	/* oid */
 	Oid			oid;
 
-	/* database name */
+	/* 数据库名 */
 	NameData	datname;
 
 	/* owner of database */
 	Oid			datdba BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-	/* character encoding */
+	/*  字符编码  */
 	int32		encoding;
 
-	/* locale provider, see pg_collation.collprovider */
+	/* 区域提供者,见 pg_collation.collprovider */
 	char		datlocprovider;
 
-	/* allowed as CREATE DATABASE template? */
+	/* 可否用作 CREATE DATABASE 模板? */
 	bool		datistemplate;
 
-	/* new connections allowed? */
+	/*  是否允许新连接?  */
 	bool		datallowconn;
 
 	/*
-	 * Max connections allowed. Negative values have special meaning, see
-	 * DATCONNLIMIT_* defines below.
+	 * 允许的最大连接数。负值有特殊含义,见
+	 * 下方 DATCONNLIMIT_* 定义.
 	 */
 	int32		datconnlimit;
 
@@ -61,26 +61,26 @@ CATALOG(pg_database,1262,DatabaseRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID
 	/* all multixacts in the DB are >= this */
 	TransactionId datminmxid;
 
-	/* default table space for this DB */
+	/*  本库的默认表空间  */
 	Oid			dattablespace BKI_LOOKUP(pg_tablespace);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* LC_COLLATE setting */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/* LC_COLLATE 设置 */
 	text		datcollate BKI_FORCE_NOT_NULL;
 
-	/* LC_CTYPE setting */
+	/* LC_CTYPE 设置 */
 	text		datctype BKI_FORCE_NOT_NULL;
 
 	/* ICU locale ID */
 	text		daticulocale;
 
-	/* ICU collation rules */
+	/*  ICU 排序规则  */
 	text		daticurules;
 
-	/* provider-dependent version of collation data */
+	/*  依赖提供者的排序规则数据版本  */
 	text		datcollversion BKI_DEFAULT(_null_);
 
-	/* access permissions */
+	/*  访问权限  */
 	aclitem		datacl[1];
 #endif
 } FormData_pg_database;
@@ -107,7 +107,7 @@ DECLARE_OID_DEFINING_MACRO(Template0DbOid, 4);
 DECLARE_OID_DEFINING_MACRO(PostgresDbOid, 5);
 
 /*
- * Special values for pg_database.datconnlimit. Normal values are >= 0.
+ * pg_database.datconnlimit 特殊值。正常值 >= 0。
  */
 #define		  DATCONNLIMIT_UNLIMITED	-1	/* no limit */
 

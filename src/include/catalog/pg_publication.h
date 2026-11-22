@@ -30,29 +30,29 @@ CATALOG(pg_publication,6104,PublicationRelationId)
 {
 	Oid			oid;			/* oid */
 
-	NameData	pubname;		/* name of the publication */
+	NameData	pubname;		/*  发布名  */
 
-	Oid			pubowner BKI_LOOKUP(pg_authid); /* publication owner */
+	Oid			pubowner BKI_LOOKUP(pg_authid); /*  发布所有者  */
 
 	/*
-	 * indicates that this is special publication which should encompass all
-	 * tables in the database (except for the unlogged and temp ones)
+	 * 表示这是应涵盖库中全部表的特殊发布
+	 * (不含 unlogged 与临时表)
 	 */
 	bool		puballtables;
 
-	/* true if inserts are published */
+	/*  发布插入则为真  */
 	bool		pubinsert;
 
-	/* true if updates are published */
+	/*  发布更新则为真  */
 	bool		pubupdate;
 
-	/* true if deletes are published */
+	/*  发布删除则为真  */
 	bool		pubdelete;
 
-	/* true if truncates are published */
+	/*  发布截断则为真  */
 	bool		pubtruncate;
 
-	/* true if partition changes are published using root schema */
+	/*  分区变更用根模式发布则为真  */
 	bool		pubviaroot;
 } FormData_pg_publication;
 
@@ -87,8 +87,8 @@ typedef struct PublicationDesc
 	bool		rf_valid_for_delete;
 
 	/*
-	 * true if the columns are part of the replica identity or the publication
-	 * actions do not include UPDATE or DELETE.
+	 * 列属复制标识或发布动作不含 UPDATE/DELETE
+	 * 时则为真。
 	 */
 	bool		cols_valid_for_update;
 	bool		cols_valid_for_delete;

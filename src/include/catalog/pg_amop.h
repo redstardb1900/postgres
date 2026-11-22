@@ -55,28 +55,28 @@ CATALOG(pg_amop,2602,AccessMethodOperatorRelationId)
 {
 	Oid			oid;			/* oid */
 
-	/* the index opfamily this entry is for */
+	/*  本条目所属的索引算子族  */
 	Oid			amopfamily BKI_LOOKUP(pg_opfamily);
 
-	/* operator's left input data type */
+	/*  算子左输入数据类型  */
 	Oid			amoplefttype BKI_LOOKUP(pg_type);
 
-	/* operator's right input data type */
+	/*  算子右输入数据类型  */
 	Oid			amoprighttype BKI_LOOKUP(pg_type);
 
-	/* operator strategy number */
+	/*  算子策略号  */
 	int16		amopstrategy;
 
 	/* is operator for 's'earch or 'o'rdering? */
 	char		amoppurpose BKI_DEFAULT(s);
 
-	/* the operator's pg_operator OID */
+	/*  算子的 pg_operator OID  */
 	Oid			amopopr BKI_LOOKUP(pg_operator);
 
-	/* the index access method this entry is for */
+	/*  本条目所属的索引访问方法  */
 	Oid			amopmethod BKI_LOOKUP(pg_am);
 
-	/* ordering opfamily OID, or 0 if search op */
+	/* 排序算子族 OID,搜索算子则为 0 */
 	Oid			amopsortfamily BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_opfamily);
 } FormData_pg_amop;
 
@@ -93,9 +93,9 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_amop_oid_index, 2756, AccessMethodOperatorOidIndexI
 
 #ifdef EXPOSE_TO_CLIENT_CODE
 
-/* allowed values of amoppurpose: */
-#define AMOP_SEARCH		's'		/* operator is for search */
-#define AMOP_ORDER		'o'		/* operator is for ordering */
+/*  amoppurpose 的允许取值:  */
+#define AMOP_SEARCH		's'		/*  算子用于搜索  */
+#define AMOP_ORDER		'o'		/*  算子用于排序  */
 
 #endif							/* EXPOSE_TO_CLIENT_CODE */
 

@@ -67,46 +67,46 @@ CATALOG(pg_subscription,6100,SubscriptionRelationId) BKI_SHARED_RELATION BKI_ROW
 	Oid			subdbid BKI_LOOKUP(pg_database);	/* Database the
 													 * subscription is in. */
 
-	XLogRecPtr	subskiplsn;		/* All changes finished at this LSN are
-								 * skipped */
+	XLogRecPtr	subskiplsn;		/*  在此 LSN 完成的全部变更均
+								 * 跳过  */
 
-	NameData	subname;		/* Name of the subscription */
+	NameData	subname;		/*  订阅名  */
 
-	Oid			subowner BKI_LOOKUP(pg_authid); /* Owner of the subscription */
+	Oid			subowner BKI_LOOKUP(pg_authid); /*  订阅所有者  */
 
 	bool		subenabled;		/* True if the subscription is enabled (the
 								 * worker should be running) */
 
-	bool		subbinary;		/* True if the subscription wants the
-								 * publisher to send data in binary */
+	bool		subbinary;		/*  订阅希望发布端以二进制
+								 * 发送数据则为真  */
 
-	char		substream;		/* Stream in-progress transactions. See
-								 * LOGICALREP_STREAM_xxx constants. */
+	char		substream;		/* 流式传输进行中的事务。见
+								 * LOGICALREP_STREAM_xxx 常量。  */
 
-	char		subtwophasestate;	/* Stream two-phase transactions */
+	char		subtwophasestate;	/*  流式传输两阶段事务  */
 
-	bool		subdisableonerr;	/* True if a worker error should cause the
-									 * subscription to be disabled */
+	bool		subdisableonerr;	/*  工作进程出错是否应导致
+									 * 禁用订阅  */
 
-	bool		subpasswordrequired;	/* Must connection use a password? */
+	bool		subpasswordrequired;	/* 连接是否必须使用口令? */
 
 	bool		subrunasowner;	/* True if replication should execute as the
 								 * subscription owner */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* Connection string to the publisher */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/*  到发布端的连接串  */
 	text		subconninfo BKI_FORCE_NOT_NULL;
 
-	/* Slot name on publisher */
+	/*  发布端槽名  */
 	NameData	subslotname BKI_FORCE_NULL;
 
-	/* Synchronous commit setting for worker */
+	/*  工作进程的同步提交设置  */
 	text		subsynccommit BKI_FORCE_NOT_NULL;
 
-	/* List of publications subscribed to */
+	/*  已订阅的发布列表  */
 	text		subpublications[1] BKI_FORCE_NOT_NULL;
 
-	/* Only publish data originating from the specified origin */
+	/*  仅发布源自指定源的数据  */
 	text		suborigin BKI_DEFAULT(LOGICALREP_ORIGIN_ANY);
 #endif
 } FormData_pg_subscription;
@@ -120,27 +120,27 @@ DECLARE_UNIQUE_INDEX(pg_subscription_subname_index, 6115, SubscriptionNameIndexI
 
 typedef struct Subscription
 {
-	Oid			oid;			/* Oid of the subscription */
+	Oid			oid;			/*  订阅 Oid  */
 	Oid			dbid;			/* Oid of the database which subscription is
 								 * in */
-	XLogRecPtr	skiplsn;		/* All changes finished at this LSN are
-								 * skipped */
-	char	   *name;			/* Name of the subscription */
-	Oid			owner;			/* Oid of the subscription owner */
-	bool		enabled;		/* Indicates if the subscription is enabled */
+	XLogRecPtr	skiplsn;		/*  在此 LSN 完成的全部变更均
+								 * 跳过  */
+	char	   *name;			/*  订阅名  */
+	Oid			owner;			/*  订阅所有者 Oid  */
+	bool		enabled;		/*  指示订阅是否启用  */
 	bool		binary;			/* Indicates if the subscription wants data in
 								 * binary format */
-	char		stream;			/* Allow streaming in-progress transactions.
-								 * See LOGICALREP_STREAM_xxx constants. */
+	char		stream;			/*  允许流式传输进行中的事务。
+								 * 见 LOGICALREP_STREAM_xxx 常量。  */
 	char		twophasestate;	/* Allow streaming two-phase transactions */
 	bool		disableonerr;	/* Indicates if the subscription should be
 								 * automatically disabled if a worker error
 								 * occurs */
-	bool		passwordrequired;	/* Must connection use a password? */
+	bool		passwordrequired;	/* 连接是否必须使用口令? */
 	bool		runasowner;		/* Run replication as subscription owner */
-	char	   *conninfo;		/* Connection string to the publisher */
+	char	   *conninfo;		/*  到发布端的连接串  */
 	char	   *slotname;		/* Name of the replication slot */
-	char	   *synccommit;		/* Synchronous commit setting for worker */
+	char	   *synccommit;		/*  工作进程的同步提交设置  */
 	List	   *publications;	/* List of publication names to subscribe to */
 	char	   *origin;			/* Only publish data originating from the
 								 * specified origin */

@@ -48,12 +48,12 @@
  * PgStatShared_Common as the first element.
  */
 
-/* struct for shared statistics hash entry key. */
+/*  共享统计哈希项键的结构.  */
 typedef struct PgStat_HashKey
 {
-	PgStat_Kind kind;			/* statistics entry kind */
-	Oid			dboid;			/* database ID. InvalidOid for shared objects. */
-	Oid			objoid;			/* object ID, either table or function. */
+	PgStat_Kind kind;			/*  统计项种类  */
+	Oid			dboid;			/*  数据库 ID.共享对象为 InvalidOid.  */
+	Oid			objoid;			/*  对象 ID,表或函数.  */
 } PgStat_HashKey;
 
 /*
@@ -115,12 +115,12 @@ typedef struct PgStatShared_HashEntry
 } PgStatShared_HashEntry;
 
 /*
- * Common header struct for PgStatShared_*.
+ *  PgStatShared_* 的公共头结构.
  */
 typedef struct PgStatShared_Common
 {
-	uint32		magic;			/* just a validity cross-check */
-	/* lock protecting stats contents (i.e. data following the header) */
+	uint32		magic;			/*  仅有效性交叉检查  */
+	/*  保护统计内容(即头后数据)的锁  */
 	LWLock		lock;
 } PgStatShared_Common;
 
@@ -159,7 +159,7 @@ typedef struct PgStat_EntryRef
 	 * stats.
 	 */
 	void	   *pending;
-	dlist_node	pending_node;	/* membership in pgStatPending list */
+	dlist_node	pending_node;	/*  属 pgStatPending 链表  */
 } PgStat_EntryRef;
 
 
@@ -170,9 +170,9 @@ typedef struct PgStat_EntryRef
  */
 typedef struct PgStat_SubXactStatus
 {
-	int			nest_level;		/* subtransaction nest level */
+	int			nest_level;		/*  子事务嵌套级别  */
 
-	struct PgStat_SubXactStatus *prev;	/* higher-level subxact if any */
+	struct PgStat_SubXactStatus *prev;	/*  上层子事务(若有)  */
 
 	/*
 	 * Statistics for transactionally dropped objects need to be
@@ -191,12 +191,12 @@ typedef struct PgStat_SubXactStatus
 	 * designed on the assumption that subxacts won't usually modify very many
 	 * tables.
 	 */
-	PgStat_TableXactStatus *first;	/* head of list for this subxact */
+	PgStat_TableXactStatus *first;	/*  本子事务链表头  */
 } PgStat_SubXactStatus;
 
 
 /*
- * Metadata for a specific kind of statistics.
+ *  特定统计种类的元数据.
  */
 typedef struct PgStat_KindInfo
 {
@@ -248,33 +248,33 @@ typedef struct PgStat_KindInfo
 	bool		(*flush_pending_cb) (PgStat_EntryRef *sr, bool nowait);
 
 	/*
-	 * For variable-numbered stats: delete pending stats. Optional.
+	 *  可变编号统计:删除待刷统计.可选.
 	 */
 	void		(*delete_pending_cb) (PgStat_EntryRef *sr);
 
 	/*
-	 * For variable-numbered stats: reset the reset timestamp. Optional.
+	 *  可变编号统计:重置 reset 时间戳.可选.
 	 */
 	void		(*reset_timestamp_cb) (PgStatShared_Common *header, TimestampTz ts);
 
 	/*
-	 * For variable-numbered stats with named_on_disk. Optional.
+	 *  可变编号、带 named_on_disk 的统计.可选.
 	 */
 	void		(*to_serialized_name) (const PgStat_HashKey *key,
 									   const PgStatShared_Common *header, NameData *name);
 	bool		(*from_serialized_name) (const NameData *name, PgStat_HashKey *key);
 
 	/*
-	 * For fixed-numbered statistics: Reset All.
+	 *  固定编号统计:全部重置.
 	 */
 	void		(*reset_all_cb) (TimestampTz ts);
 
 	/*
-	 * For fixed-numbered statistics: Build snapshot for entry
+	 *  固定编号统计:为项构建快照
 	 */
 	void		(*snapshot_cb) (void);
 
-	/* name of the kind of stats */
+	/*  统计种类名  */
 	const char *const name;
 } PgStat_KindInfo;
 
@@ -295,7 +295,7 @@ static const char *const slru_names[] = {
 	"Serial",
 	"Subtrans",
 	"Xact",
-	"other"						/* has to be last */
+	"other"						/*  必须最后  */
 };
 
 #define SLRU_NUM_ELEMENTS	lengthof(slru_names)
@@ -323,7 +323,7 @@ static const char *const slru_names[] = {
 
 typedef struct PgStatShared_Archiver
 {
-	/* lock protects ->reset_offset as well as stats->stat_reset_timestamp */
+	/*  锁保护 ->reset_offset 以及 stats->stat_reset_timestamp  */
 	LWLock		lock;
 	uint32		changecount;
 	PgStat_ArchiverStats stats;
@@ -332,7 +332,7 @@ typedef struct PgStatShared_Archiver
 
 typedef struct PgStatShared_BgWriter
 {
-	/* lock protects ->reset_offset as well as stats->stat_reset_timestamp */
+	/*  锁保护 ->reset_offset 以及 stats->stat_reset_timestamp  */
 	LWLock		lock;
 	uint32		changecount;
 	PgStat_BgWriterStats stats;
@@ -341,14 +341,14 @@ typedef struct PgStatShared_BgWriter
 
 typedef struct PgStatShared_Checkpointer
 {
-	/* lock protects ->reset_offset as well as stats->stat_reset_timestamp */
+	/*  锁保护 ->reset_offset 以及 stats->stat_reset_timestamp  */
 	LWLock		lock;
 	uint32		changecount;
 	PgStat_CheckpointerStats stats;
 	PgStat_CheckpointerStats reset_offset;
 } PgStatShared_Checkpointer;
 
-/* Shared-memory ready PgStat_IO */
+/*  共享内存 PgStat_IO  */
 typedef struct PgStatShared_IO
 {
 	/*
@@ -361,14 +361,14 @@ typedef struct PgStatShared_IO
 
 typedef struct PgStatShared_SLRU
 {
-	/* lock protects ->stats */
+	/*  锁保护 ->stats  */
 	LWLock		lock;
 	PgStat_SLRUStats stats[SLRU_NUM_ELEMENTS];
 } PgStatShared_SLRU;
 
 typedef struct PgStatShared_Wal
 {
-	/* lock protects ->stats */
+	/*  锁保护 ->stats  */
 	LWLock		lock;
 	PgStat_WalStats stats;
 } PgStatShared_Wal;
@@ -431,7 +431,7 @@ typedef struct PgStat_ShmemControl
 	 */
 	dshash_table_handle hash_handle;	/* shared dbstat hash */
 
-	/* Has the stats system already been shut down? Just a debugging check. */
+	/*  统计系统是否已关闭?仅调试检查.  */
 	bool		is_shutdown;
 
 	/*
@@ -444,7 +444,7 @@ typedef struct PgStat_ShmemControl
 	pg_atomic_uint64 gc_request_count;
 
 	/*
-	 * Stats data for fixed-numbered objects.
+	 *  固定编号对象的统计数据.
 	 */
 	PgStatShared_Archiver archiver;
 	PgStatShared_BgWriter bgwriter;
@@ -456,13 +456,13 @@ typedef struct PgStat_ShmemControl
 
 
 /*
- * Cached statistics snapshot
+ *  缓存的统计快照
  */
 typedef struct PgStat_Snapshot
 {
 	PgStat_FetchConsistency mode;
 
-	/* time at which snapshot was taken */
+	/*  拍摄快照的时刻  */
 	TimestampTz snapshot_timestamp;
 
 	bool		fixed_valid[PGSTAT_NUM_KINDS];
@@ -479,14 +479,14 @@ typedef struct PgStat_Snapshot
 
 	PgStat_WalStats wal;
 
-	/* to free snapshot in bulk */
+	/*  批量释放快照  */
 	MemoryContext context;
 	struct pgstat_snapshot_hash *stats;
 } PgStat_Snapshot;
 
 
 /*
- * Collection of backend-local stats state.
+ *  后端本地统计状态集合.
  */
 typedef struct PgStat_LocalState
 {
@@ -494,13 +494,13 @@ typedef struct PgStat_LocalState
 	dsa_area   *dsa;
 	dshash_table *shared_hash;
 
-	/* the current statistics snapshot */
+	/*  当前统计快照  */
 	PgStat_Snapshot snapshot;
 } PgStat_LocalState;
 
 
 /*
- * Inline functions defined further below.
+ *  下文定义的内联函数.
  */
 
 static inline void pgstat_begin_changecount_write(uint32 *cc);
@@ -518,7 +518,7 @@ static inline void *pgstat_get_entry_data(PgStat_Kind kind, PgStatShared_Common 
 
 
 /*
- * Functions in pgstat.c
+ *  pgstat.c中的函数
  */
 
 extern const PgStat_KindInfo *pgstat_get_kind_info(PgStat_Kind kind);
@@ -538,7 +538,7 @@ extern void pgstat_snapshot_fixed(PgStat_Kind kind);
 
 
 /*
- * Functions in pgstat_archiver.c
+ *  pgstat_archiver.c中的函数
  */
 
 extern void pgstat_archiver_reset_all_cb(TimestampTz ts);
@@ -546,7 +546,7 @@ extern void pgstat_archiver_snapshot_cb(void);
 
 
 /*
- * Functions in pgstat_bgwriter.c
+ *  pgstat_bgwriter.c中的函数
  */
 
 extern void pgstat_bgwriter_reset_all_cb(TimestampTz ts);
@@ -554,7 +554,7 @@ extern void pgstat_bgwriter_snapshot_cb(void);
 
 
 /*
- * Functions in pgstat_checkpointer.c
+ *  pgstat_checkpointer.c中的函数
  */
 
 extern void pgstat_checkpointer_reset_all_cb(TimestampTz ts);
@@ -562,7 +562,7 @@ extern void pgstat_checkpointer_snapshot_cb(void);
 
 
 /*
- * Functions in pgstat_database.c
+ *  pgstat_database.c中的函数
  */
 
 extern void pgstat_report_disconnect(Oid dboid);
@@ -576,14 +576,14 @@ extern void pgstat_database_reset_timestamp_cb(PgStatShared_Common *header, Time
 
 
 /*
- * Functions in pgstat_function.c
+ *  pgstat_function.c中的函数
  */
 
 extern bool pgstat_function_flush_cb(PgStat_EntryRef *entry_ref, bool nowait);
 
 
 /*
- * Functions in pgstat_io.c
+ *  pgstat_io.c中的函数
  */
 
 extern bool pgstat_flush_io(bool nowait);
@@ -592,7 +592,7 @@ extern void pgstat_io_snapshot_cb(void);
 
 
 /*
- * Functions in pgstat_relation.c
+ *  pgstat_relation.c中的函数
  */
 
 extern void AtEOXact_PgStat_Relations(PgStat_SubXactStatus *xact_state, bool isCommit);
@@ -605,7 +605,7 @@ extern void pgstat_relation_delete_pending_cb(PgStat_EntryRef *entry_ref);
 
 
 /*
- * Functions in pgstat_replslot.c
+ *  pgstat_replslot.c中的函数
  */
 
 extern void pgstat_replslot_reset_timestamp_cb(PgStatShared_Common *header, TimestampTz ts);
@@ -614,7 +614,7 @@ extern bool pgstat_replslot_from_serialized_name_cb(const NameData *name, PgStat
 
 
 /*
- * Functions in pgstat_shmem.c
+ *  pgstat_shmem.c中的函数
  */
 
 extern void pgstat_attach_shmem(void);
@@ -641,7 +641,7 @@ extern PgStatShared_Common *pgstat_init_entry(PgStat_Kind kind,
 
 
 /*
- * Functions in pgstat_slru.c
+ *  pgstat_slru.c中的函数
  */
 
 extern bool pgstat_slru_flush(bool nowait);
@@ -650,7 +650,7 @@ extern void pgstat_slru_snapshot_cb(void);
 
 
 /*
- * Functions in pgstat_wal.c
+ *  pgstat_wal.c中的函数
  */
 
 extern bool pgstat_flush_wal(bool nowait);
@@ -662,7 +662,7 @@ extern void pgstat_wal_snapshot_cb(void);
 
 
 /*
- * Functions in pgstat_subscription.c
+ *  pgstat_subscription.c中的函数
  */
 
 extern bool pgstat_subscription_flush_cb(PgStat_EntryRef *entry_ref, bool nowait);
@@ -670,7 +670,7 @@ extern void pgstat_subscription_reset_timestamp_cb(PgStatShared_Common *header, 
 
 
 /*
- * Functions in pgstat_xact.c
+ *  pgstat_xact.c中的函数
  */
 
 extern PgStat_SubXactStatus *pgstat_get_xact_stack_level(int nest_level);
@@ -679,28 +679,28 @@ extern void pgstat_create_transactional(PgStat_Kind kind, Oid dboid, Oid objoid)
 
 
 /*
- * Variables in pgstat.c
+ *  pgstat.c中的变量
  */
 
 extern PGDLLIMPORT PgStat_LocalState pgStatLocal;
 
 
 /*
- * Variables in pgstat_io.c
+ *  pgstat_io.c中的变量
  */
 
 extern PGDLLIMPORT bool have_iostats;
 
 
 /*
- * Variables in pgstat_slru.c
+ *  pgstat_slru.c中的变量
  */
 
 extern PGDLLIMPORT bool have_slrustats;
 
 
 /*
- * Implementation of inline functions declared above.
+ *  上文声明的内联函数实现.
  */
 
 /*
@@ -743,7 +743,7 @@ pgstat_begin_changecount_read(uint32 *cc)
 }
 
 /*
- * Returns true if the read succeeded, false if it needs to be repeated.
+ *  读成功返回真,需重试返回假.
  */
 static inline bool
 pgstat_end_changecount_read(uint32 *cc, uint32 before_cc)
@@ -754,11 +754,11 @@ pgstat_end_changecount_read(uint32 *cc, uint32 before_cc)
 
 	after_cc = *cc;
 
-	/* was a write in progress when we started? */
+	/*  开始读时是否有写在进行?  */
 	if (before_cc & 1)
 		return false;
 
-	/* did writes start and complete while we read? */
+	/*  读期间是否有写开始并完成?  */
 	return before_cc == after_cc;
 }
 
@@ -784,7 +784,7 @@ pgstat_copy_changecounted_stats(void *dst, void *src, size_t len,
 	while (!pgstat_end_changecount_read(cc, cc_before));
 }
 
-/* helpers for dshash / simplehash hashtables */
+/*  dshash / simplehash 哈希表辅助  */
 static inline int
 pgstat_cmp_hash_key(const void *a, const void *b, size_t size, void *arg)
 {
@@ -818,7 +818,7 @@ pgstat_get_entry_len(PgStat_Kind kind)
 }
 
 /*
- * Returns a pointer to the data portion of a shared memory stats entry.
+ *  返回共享内存统计项数据部分的指针.
  */
 static inline void *
 pgstat_get_entry_data(PgStat_Kind kind, PgStatShared_Common *entry)

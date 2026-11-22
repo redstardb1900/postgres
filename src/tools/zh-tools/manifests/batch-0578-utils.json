@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0578",
+ "title": "include/utils pgstat_internal — batch 0578",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "50af64a063ba21c18989030a906b67973620b61f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/utils/pgstat_internal.h",
+   "kind": "c_comment",
+   "note": "0578"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0578-utils.json",
+   "kind": "manifest",
+   "note": "0578"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/utils/pgstat_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 205,
+   "translated": 56,
+   "preserved": 149,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；共享哈希/refcount/changecount/KindInfo 长文整块 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0578 T=56"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0578-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0578"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0578"
+  }
+ ],
+ "notes": "短注/字段/分段标题已译；共享哈希与 KindInfo 长文 KEEP EN"
+}

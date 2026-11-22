@@ -1473,25 +1473,25 @@ typedef enum VolatileFunctionStatus
 /*
  * PathTarget
  *
- * This struct contains what we need to know during planning about the
- * targetlist (output columns) that a Path will compute.  Each RelOptInfo
- * includes a default PathTarget, which its individual Paths may simply
- * reference.  However, in some cases a Path may compute outputs different
- * from other Paths, and in that case we make a custom PathTarget for it.
- * For example, an indexscan might return index expressions that would
- * otherwise need to be explicitly calculated.  (Note also that "upper"
- * relations generally don't have useful default PathTargets.)
+ * 本结构存放规划期间关于 Path 将计算的目标列表
+ * （输出列）所需知道的信息。每个 RelOptInfo 含默认
+ * PathTarget，其各 Path 可直接引用。但有时某 Path
+ * 的输出与其它 Paths 不同，这时为其做定制
+ * PathTarget。例如索引扫描可能返回本需显式计算的
+ * 索引表达式。（另请注意上层关系通常没有有用的
+ * 默认 PathTargets。）
+ * （上层常无默认目标。）
  *
- * exprs contains bare expressions; they do not have TargetEntry nodes on top,
- * though those will appear in finished Plans.
+ * exprs 含裸表达式；其上没有 TargetEntry 节点，
+ * 虽成品 Plans 中会出现。
  *
- * sortgrouprefs[] is an array of the same length as exprs, containing the
- * corresponding sort/group refnos, or zeroes for expressions not referenced
- * by sort/group clauses.  If sortgrouprefs is NULL (which it generally is in
- * RelOptInfo.reltarget targets; only upper-level Paths contain this info),
- * we have not identified sort/group columns in this tlist.  This allows us to
- * deal with sort/group refnos when needed with less expense than including
- * TargetEntry nodes in the exprs list.
+ * sortgrouprefs[] 是与 exprs 等长的数组，存放对应
+ * 排序/分组引用号；未被引用的表达式为 0。
+ * 若 sortgrouprefs 为 NULL（RelOptInfo.reltarget 目标
+ * 一般如此；仅上层 Paths 含此信息），则尚未在本
+ * tlist 中识别排序/分组列。这使我们能在需要时以低于
+ * 在 exprs 列表中放入 TargetEntry 的代价处理
+ * 排序/分组引用号。
  */
 typedef struct PathTarget
 {
@@ -2995,29 +2995,29 @@ typedef struct RowIdentityVarInfo
 } RowIdentityVarInfo;
 
 /*
- * For each distinct placeholder expression generated during planning, we
- * store a PlaceHolderInfo node in the PlannerInfo node's placeholder_list.
- * This stores info that is needed centrally rather than in each copy of the
- * PlaceHolderVar.  The phid fields identify which PlaceHolderInfo goes with
- * each PlaceHolderVar.  Note that phid is unique throughout a planner run,
- * not just within a query level --- this is so that we need not reassign ID's
- * when pulling a subquery into its parent.
+ * 规划期间生成的每个互异占位表达式，都在
+ * PlannerInfo 的 placeholder_list 中存一个
+ * PlaceHolderInfo 节点。存放需集中保存而非放在每份
+ * PlaceHolderVar 副本中的信息。phid 字段标识哪个
+ * PlaceHolderInfo 对应哪个 PlaceHolderVar。注意 phid
+ * 在整个规划运行中唯一，而非仅在一个查询层内——如此
+ * 上拉子查询时不必重编号。
  *
- * The idea is to evaluate the expression at (only) the ph_eval_at join level,
- * then allow it to bubble up like a Var until the ph_needed join level.
- * ph_needed has the same definition as attr_needed for a regular Var.
+ * 思路是仅在 ph_eval_at 连接层求值该表达式，再像
+ * Var 一样向上冒泡直到 ph_needed 连接层。
+ * ph_needed 的定义与普通 Var 的 attr_needed 相同。
  *
- * The PlaceHolderVar's expression might contain LATERAL references to vars
- * coming from outside its syntactic scope.  If so, those rels are *not*
- * included in ph_eval_at, but they are recorded in ph_lateral.
+ * PlaceHolderVar 的表达式或含来自句法作用域外的
+ * LATERAL 变量引用。若如此，那些 rels 不计入
+ * ph_eval_at，但记入 ph_lateral。
  *
- * Notice that when ph_eval_at is a join rather than a single baserel, the
- * PlaceHolderInfo may create constraints on join order: the ph_eval_at join
- * has to be formed below any outer joins that should null the PlaceHolderVar.
+ * 注意当 ph_eval_at 是连接而非单个基表时，
+ * PlaceHolderInfo 可能约束连接次序：ph_eval_at 连接
+ * 须形成于任何应使该 PlaceHolderVar 变空的外连接之下。
  *
- * We create a PlaceHolderInfo only after determining that the PlaceHolderVar
- * is actually referenced in the plan tree, so that unreferenced placeholders
- * don't result in unnecessary constraints on join order.
+ * 仅在确定 PlaceHolderVar 确被计划树引用后才创建
+ * PlaceHolderInfo，以免未引用的占位造成不必要的
+ * 连接次序约束。
  */
 
 typedef struct PlaceHolderInfo
@@ -3085,51 +3085,51 @@ typedef struct MinMaxAggInfo
 } MinMaxAggInfo;
 
 /*
- * At runtime, PARAM_EXEC slots are used to pass values around from one plan
- * node to another.  They can be used to pass values down into subqueries (for
- * outer references in subqueries), or up out of subqueries (for the results
- * of a subplan), or from a NestLoop plan node into its inner relation (when
- * the inner scan is parameterized with values from the outer relation).
- * The planner is responsible for assigning nonconflicting PARAM_EXEC IDs to
- * the PARAM_EXEC Params it generates.
+ * 运行时用 PARAM_EXEC 槽在计划节点间传递值。可用于
+ * 向下传入子查询（子查询中的外层引用），或从子查询
+ * 向上传出（子计划结果），或从 NestLoop 节点传入其
+ * 内关系（当内扫描用外表值参数化时）。规划器负责为
+ * 所生成的 PARAM_EXEC 参数分配不冲突的编号。
+ * （分配不冲突的 PARAM_EXEC 编号。）
+ * （见上。）
  *
- * Outer references are managed via root->plan_params, which is a list of
- * PlannerParamItems.  While planning a subquery, each parent query level's
- * plan_params contains the values required from it by the current subquery.
- * During create_plan(), we use plan_params to track values that must be
- * passed from outer to inner sides of NestLoop plan nodes.
+ * 外层引用经 root->plan_params 管理，那是
+ * PlannerParamItems 列表。规划子查询时，各父查询层的
+ * plan_params 含当前子查询所需来自该层的值。
+ * create_plan() 期间用 plan_params 跟踪须从 NestLoop
+ * 外侧重入内侧的值。
  *
- * The item a PlannerParamItem represents can be one of three kinds:
+ * PlannerParamItem 所表示的项可为下列三种之一：
  *
- * A Var: the slot represents a variable of this level that must be passed
- * down because subqueries have outer references to it, or must be passed
- * from a NestLoop node to its inner scan.  The varlevelsup value in the Var
- * will always be zero.
+ * Var：该槽表示本层必须下传的变量（因子系统查询有
+ * 外层引用），或须从 NestLoop 节点传给其内扫描。
+ * Var 中的 varlevelsup 恒为 0。
+ * （恒为 0。）
  *
- * A PlaceHolderVar: this works much like the Var case, except that the
- * entry is a PlaceHolderVar node with a contained expression.  The PHV
- * will have phlevelsup = 0, and the contained expression is adjusted
- * to match in level.
+ * PlaceHolderVar：与 Var 情形类似，但表项是带所含
+ * 表达式的 PlaceHolderVar 节点。PHV 的 phlevelsup 为 0，
+ * 所含表达式按层次对齐调整。
+ * （已对齐。）
  *
- * An Aggref (with an expression tree representing its argument): the slot
- * represents an aggregate expression that is an outer reference for some
- * subquery.  The Aggref itself has agglevelsup = 0, and its argument tree
- * is adjusted to match in level.
+ * Aggref（带参数表达式树）：该槽表示某子查询的
+ * 外层引用聚集表达式。Aggref 自身 agglevelsup 为 0，
+ * 其参数树按层次对齐调整。
+ * （参数树已对齐。）
  *
- * Note: we detect duplicate Var and PlaceHolderVar parameters and coalesce
- * them into one slot, but we do not bother to do that for Aggrefs.
- * The scope of duplicate-elimination only extends across the set of
- * parameters passed from one query level into a single subquery, or for
- * nestloop parameters across the set of nestloop parameters used in a single
- * query level.  So there is no possibility of a PARAM_EXEC slot being used
- * for conflicting purposes.
+ * 注意：我们检测重复的 Var 与 PlaceHolderVar 参数并合并
+ * 到同一槽，但对 Aggrefs 不做此事。
+ * 去重仅覆盖从一层传入单个子查询的参数集，
+ * 或单查询层内所用的巢循环参数集。
+ * 故 PARAM_EXEC 槽不可能被用于冲突目的。
+ * （槽不会冲突使用。）
+ * （见上。）
  *
- * In addition, PARAM_EXEC slots are assigned for Params representing outputs
- * from subplans (values that are setParam items for those subplans).  These
- * IDs need not be tracked via PlannerParamItems, since we do not need any
- * duplicate-elimination nor later processing of the represented expressions.
- * Instead, we just record the assignment of the slot number by appending to
- * root->glob->paramExecTypes.
+ * 此外，还为表示子计划输出的 Params（那些子计划的
+ * setParam 项）分配 PARAM_EXEC 槽。这些编号不必经
+ * PlannerParamItems 跟踪，因无需去重或事后处理所表示
+ * 的表达式。只需把槽号分配追加到
+ * root->glob->paramExecTypes 来记录。
+ * （记入该数组。）
  */
 typedef struct PlannerParamItem
 {

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0551",
+  "title": "include/nodes PathTarget/PlaceHolderInfo/PARAM_EXEC — batch 0551",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "489beb29f6bae9d38bc167b01db37497e264c2e5",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "note": "0551"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0551-include.json",
+      "kind": "manifest",
+      "note": "0551"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/pathnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1775,
+      "translated": 75,
+      "preserved": 1700,
+      "preserved_reasons": [
+        "横幅/长叙述 KEEP EN（RelOptInfo/IndexOptInfo/RowMark 等）"
+      ],
+      "note": "0551 T=75"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0551-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0551"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0551"
+    }
+  ]
+}

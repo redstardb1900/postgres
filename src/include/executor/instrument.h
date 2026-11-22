@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * instrument.h
- *	  definitions for run-time statistics collection
+ *	  运行时统计收集的定义
  *
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
@@ -23,20 +23,20 @@
  */
 typedef struct BufferUsage
 {
-	int64		shared_blks_hit;	/* # of shared buffer hits */
-	int64		shared_blks_read;	/* # of shared disk blocks read */
-	int64		shared_blks_dirtied;	/* # of shared blocks dirtied */
-	int64		shared_blks_written;	/* # of shared disk blocks written */
+	int64		shared_blks_hit;	/*  共享缓冲命中数  */
+	int64		shared_blks_read;	/*  共享磁盘块读数  */
+	int64		shared_blks_dirtied;	/*  共享块弄脏数  */
+	int64		shared_blks_written;	/*  共享磁盘块写数  */
 	int64		local_blks_hit; /* # of local buffer hits */
-	int64		local_blks_read;	/* # of local disk blocks read */
-	int64		local_blks_dirtied; /* # of local blocks dirtied */
-	int64		local_blks_written; /* # of local disk blocks written */
-	int64		temp_blks_read; /* # of temp blocks read */
-	int64		temp_blks_written;	/* # of temp blocks written */
-	instr_time	blk_read_time;	/* time spent reading blocks */
-	instr_time	blk_write_time; /* time spent writing blocks */
-	instr_time	temp_blk_read_time; /* time spent reading temp blocks */
-	instr_time	temp_blk_write_time;	/* time spent writing temp blocks */
+	int64		local_blks_read;	/*  本地磁盘块读数  */
+	int64		local_blks_dirtied; /*  本地块弄脏数  */
+	int64		local_blks_written; /*  本地磁盘块写数  */
+	int64		temp_blks_read; /*  临时块读数  */
+	int64		temp_blks_written;	/*  临时块写数  */
+	instr_time	blk_read_time;	/*  读块花费的时间  */
+	instr_time	blk_write_time; /*  写块花费的时间  */
+	instr_time	temp_blk_read_time; /*  读临时块花费的时间  */
+	instr_time	temp_blk_write_time;	/*  写临时块花费的时间  */
 } BufferUsage;
 
 /*
@@ -48,12 +48,12 @@ typedef struct BufferUsage
  */
 typedef struct WalUsage
 {
-	int64		wal_records;	/* # of WAL records produced */
-	int64		wal_fpi;		/* # of WAL full page images produced */
-	uint64		wal_bytes;		/* size of WAL records produced */
+	int64		wal_records;	/*  产生的 WAL 记录数  */
+	int64		wal_fpi;		/*  产生的 WAL 整页映像数  */
+	uint64		wal_bytes;		/*  产生的 WAL 记录大小  */
 } WalUsage;
 
-/* Flag bits included in InstrAlloc's instrument_options bitmask */
+/*  InstrAlloc 的 instrument_options 位掩码中的标志位  */
 typedef enum InstrumentOption
 {
 	INSTRUMENT_TIMER = 1 << 0,	/* needs timer (and row counts) */
@@ -72,27 +72,27 @@ typedef struct Instrumentation
 	bool		async_mode;		/* true if node is in async mode */
 	/* Info about current plan cycle: */
 	bool		running;		/* true if we've completed first tuple */
-	instr_time	starttime;		/* start time of current iteration of node */
-	instr_time	counter;		/* accumulated runtime for this node */
+	instr_time	starttime;		/*  节点当前迭代的开始时间  */
+	instr_time	counter;		/*  本节点累计运行时间  */
 	double		firsttuple;		/* time for first tuple of this cycle */
-	double		tuplecount;		/* # of tuples emitted so far this cycle */
+	double		tuplecount;		/*  本周期迄今发出的元组数  */
 	BufferUsage bufusage_start; /* buffer usage at start */
 	WalUsage	walusage_start; /* WAL usage at start */
-	/* Accumulated statistics across all completed cycles: */
-	double		startup;		/* total startup time (in seconds) */
-	double		total;			/* total time (in seconds) */
+	/*  所有已完成周期的累计统计:  */
+	double		startup;		/*  总启动时间(秒)  */
+	double		total;			/*  总时间(秒)  */
 	double		ntuples;		/* total tuples produced */
-	double		ntuples2;		/* secondary node-specific tuple counter */
-	double		nloops;			/* # of run cycles for this node */
+	double		ntuples2;		/*  节点专用次要元组计数器  */
+	double		nloops;			/*  本节点运行周期数  */
 	double		nfiltered1;		/* # of tuples removed by scanqual or joinqual */
 	double		nfiltered2;		/* # of tuples removed by "other" quals */
-	BufferUsage bufusage;		/* total buffer usage */
+	BufferUsage bufusage;		/*  总缓冲用量  */
 	WalUsage	walusage;		/* total WAL usage */
 } Instrumentation;
 
 typedef struct WorkerInstrumentation
 {
-	int			num_workers;	/* # of structures that follow */
+	int			num_workers;	/*  后续结构数  */
 	Instrumentation instrument[FLEXIBLE_ARRAY_MEMBER];
 } WorkerInstrumentation;
 

@@ -23,7 +23,7 @@ extern void ExecSortMarkPos(SortState *node);
 extern void ExecSortRestrPos(SortState *node);
 extern void ExecReScanSort(SortState *node);
 
-/* parallel instrumentation support */
+/*  并行插桩支持  */
 extern void ExecSortEstimate(SortState *node, ParallelContext *pcxt);
 extern void ExecSortInitializeDSM(SortState *node, ParallelContext *pcxt);
 extern void ExecSortInitializeWorker(SortState *node, ParallelWorkerContext *pwcxt);

@@ -23,18 +23,18 @@ typedef struct SharedExecutorInstrumentation SharedExecutorInstrumentation;
 
 typedef struct ParallelExecutorInfo
 {
-	PlanState  *planstate;		/* plan subtree we're running in parallel */
+	PlanState  *planstate;		/*  我们并行运行的计划子树  */
 	ParallelContext *pcxt;		/* parallel context we're using */
-	BufferUsage *buffer_usage;	/* points to bufusage area in DSM */
+	BufferUsage *buffer_usage;	/*  指向 DSM 中 bufusage 区  */
 	WalUsage   *wal_usage;		/* walusage area in DSM */
-	SharedExecutorInstrumentation *instrumentation; /* optional */
-	struct SharedJitInstrumentation *jit_instrumentation;	/* optional */
-	dsa_area   *area;			/* points to DSA area in DSM */
-	dsa_pointer param_exec;		/* serialized PARAM_EXEC parameters */
+	SharedExecutorInstrumentation *instrumentation; /*  可选  */
+	struct SharedJitInstrumentation *jit_instrumentation;	/*  可选  */
+	dsa_area   *area;			/*  指向 DSM 中 DSA 区  */
+	dsa_pointer param_exec;		/*  序列化的 PARAM_EXEC 参数  */
 	bool		finished;		/* set true by ExecParallelFinish */
-	/* These two arrays have pcxt->nworkers_launched entries: */
+	/*  这两个数组有 pcxt->nworkers_launched 项:  */
 	shm_mq_handle **tqueue;		/* tuple queues for worker output */
-	struct TupleQueueReader **reader;	/* tuple reader/writer support */
+	struct TupleQueueReader **reader;	/*  元组读/写支持  */
 } ParallelExecutorInfo;
 
 extern ParallelExecutorInfo *ExecInitParallelPlan(PlanState *planstate,

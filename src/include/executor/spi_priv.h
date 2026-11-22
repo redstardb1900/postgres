@@ -21,26 +21,26 @@
 
 typedef struct
 {
-	/* current results */
+	/*  当前结果  */
 	uint64		processed;		/* by Executor */
-	SPITupleTable *tuptable;	/* tuptable currently being built */
+	SPITupleTable *tuptable;	/*  正在构建的 tuptable  */
 
-	/* subtransaction in which current Executor call was started */
+	/*  当前 Executor 调用启动时所在子事务  */
 	SubTransactionId execSubid;
 
-	/* resources of this execution context */
+	/*  本执行上下文的资源  */
 	slist_head	tuptables;		/* list of all live SPITupleTables */
-	MemoryContext procCxt;		/* procedure context */
+	MemoryContext procCxt;		/*  过程上下文  */
 	MemoryContext execCxt;		/* executor context */
 	MemoryContext savedcxt;		/* context of SPI_connect's caller */
-	SubTransactionId connectSubid;	/* ID of connecting subtransaction */
-	QueryEnvironment *queryEnv; /* query environment setup for SPI level */
+	SubTransactionId connectSubid;	/*  连接子事务的 ID  */
+	QueryEnvironment *queryEnv; /*  为本 SPI 级设置的查询环境  */
 
-	/* transaction management support */
-	bool		atomic;			/* atomic execution context, does not allow
-								 * transactions */
-	bool		internal_xact;	/* SPI-managed transaction boundary, skip
-								 * cleanup */
+	/*  事务管理支持  */
+	bool		atomic;			/*  原子执行上下文,不允许
+								 * 事务  */
+	bool		internal_xact;	/*  SPI 管理的事务边界,跳过
+								 * 清理  */
 
 	/* saved values of API global variables for previous nesting level */
 	uint64		outer_processed;
@@ -89,16 +89,16 @@ typedef struct
  */
 typedef struct _SPI_plan
 {
-	int			magic;			/* should equal _SPI_PLAN_MAGIC */
+	int			magic;			/*  应等于 _SPI_PLAN_MAGIC  */
 	bool		saved;			/* saved or unsaved plan? */
 	bool		oneshot;		/* one-shot plan? */
 	List	   *plancache_list; /* one CachedPlanSource per parsetree */
-	MemoryContext plancxt;		/* Context containing _SPI_plan and data */
+	MemoryContext plancxt;		/*  含 _SPI_plan 与数据的上下文  */
 	RawParseMode parse_mode;	/* raw_parser() mode */
-	int			cursor_options; /* Cursor options used for planning */
-	int			nargs;			/* number of plan arguments */
+	int			cursor_options; /*  规划时使用的游标选项  */
+	int			nargs;			/*  计划参数个数  */
 	Oid		   *argtypes;		/* Argument types (NULL if nargs is 0) */
-	ParserSetupHook parserSetup;	/* alternative parameter spec method */
+	ParserSetupHook parserSetup;	/*  替代参数规格方法  */
 	void	   *parserSetupArg;
 } _SPI_plan;
 

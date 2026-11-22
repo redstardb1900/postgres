@@ -18,7 +18,7 @@
 #include "nodes/plannodes.h"
 #include "partitioning/partprune.h"
 
-/* See execPartition.c for the definitions. */
+/*  定义见 execPartition.c。  */
 typedef struct PartitionDispatchData *PartitionDispatch;
 typedef struct PartitionTupleRouting PartitionTupleRouting;
 
@@ -77,7 +77,7 @@ typedef struct PartitionedRelPruningData
  */
 typedef struct PartitionPruningData
 {
-	int			num_partrelprunedata;	/* number of array entries */
+	int			num_partrelprunedata;	/*  数组项数  */
 	PartitionedRelPruningData partrelprunedata[FLEXIBLE_ARRAY_MEMBER];
 } PartitionPruningData;
 

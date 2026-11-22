@@ -21,19 +21,19 @@
 
 typedef struct SPITupleTable
 {
-	/* Public members */
+	/*  公共成员  */
 	TupleDesc	tupdesc;		/* tuple descriptor */
-	HeapTuple  *vals;			/* array of tuples */
-	uint64		numvals;		/* number of valid tuples */
+	HeapTuple  *vals;			/*  元组数组  */
+	uint64		numvals;		/*  有效元组数  */
 
-	/* Private members, not intended for external callers */
-	uint64		alloced;		/* allocated length of vals array */
-	MemoryContext tuptabcxt;	/* memory context of result table */
-	slist_node	next;			/* link for internal bookkeeping */
-	SubTransactionId subid;		/* subxact in which tuptable was created */
+	/*  私有成员,不供外部调用者使用  */
+	uint64		alloced;		/*  vals 数组已分配长度  */
+	MemoryContext tuptabcxt;	/*  结果表的内存上下文  */
+	slist_node	next;			/*  内部记账链接  */
+	SubTransactionId subid;		/*  创建 tuptable 的子事务  */
 } SPITupleTable;
 
-/* Optional arguments for SPI_prepare_extended */
+/*  SPI_prepare_extended 的可选参数  */
 typedef struct SPIPrepareOptions
 {
 	ParserSetupHook parserSetup;
@@ -42,7 +42,7 @@ typedef struct SPIPrepareOptions
 	int			cursorOptions;
 } SPIPrepareOptions;
 
-/* Optional arguments for SPI_execute[_plan]_extended */
+/*  SPI_execute[_plan]_extended 的可选参数  */
 typedef struct SPIExecuteOptions
 {
 	ParamListInfo params;
@@ -54,7 +54,7 @@ typedef struct SPIExecuteOptions
 	ResourceOwner owner;
 } SPIExecuteOptions;
 
-/* Optional arguments for SPI_cursor_parse_open */
+/*  SPI_cursor_parse_open 的可选参数  */
 typedef struct SPIParseOpenOptions
 {
 	ParamListInfo params;
@@ -100,7 +100,7 @@ typedef struct _SPI_plan *SPIPlanPtr;
 
 #define SPI_OPT_NONATOMIC		(1 << 0)
 
-/* These used to be functions, now just no-ops for backwards compatibility */
+/*  这些曾是函数,现仅为向后兼容的空操作  */
 #define SPI_push()	((void) 0)
 #define SPI_pop()	((void) 0)
 #define SPI_push_conditional()	false

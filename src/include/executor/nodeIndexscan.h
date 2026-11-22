@@ -30,7 +30,7 @@ extern void ExecIndexScanInitializeWorker(IndexScanState *node,
 										  ParallelWorkerContext *pwcxt);
 
 /*
- * These routines are exported to share code with nodeIndexonlyscan.c and
+ * 这些例程导出以便与 nodeIndexonlyscan.c 及
  * nodeBitmapIndexscan.c
  */
 extern void ExecIndexBuildScanKeys(PlanState *planstate, Relation index,

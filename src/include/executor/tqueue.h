@@ -20,10 +20,10 @@
 /* Opaque struct, only known inside tqueue.c. */
 typedef struct TupleQueueReader TupleQueueReader;
 
-/* Use this to send tuples to a shm_mq. */
+/*  用此向 shm_mq 发送元组。  */
 extern DestReceiver *CreateTupleQueueDestReceiver(shm_mq_handle *handle);
 
-/* Use these to receive tuples from a shm_mq. */
+/*  用这些从 shm_mq 接收元组。  */
 extern TupleQueueReader *CreateTupleQueueReader(shm_mq_handle *handle);
 extern void DestroyTupleQueueReader(TupleQueueReader *reader);
 extern MinimalTuple TupleQueueReaderNext(TupleQueueReader *reader,

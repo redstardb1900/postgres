@@ -16,7 +16,7 @@
 #include "nodes/execnodes.h"
 
 /*
- * General executor code
+ * 通用执行器代码
  */
 extern CustomScanState *ExecInitCustomScan(CustomScan *cscan,
 										   EState *estate, int eflags);
@@ -27,7 +27,7 @@ extern void ExecCustomMarkPos(CustomScanState *node);
 extern void ExecCustomRestrPos(CustomScanState *node);
 
 /*
- * Parallel execution support
+ * 并行执行支持
  */
 extern void ExecCustomScanEstimate(CustomScanState *node,
 								   ParallelContext *pcxt);

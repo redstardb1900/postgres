@@ -13,7 +13,7 @@
 #ifndef _TABLEFUNC_H
 #define _TABLEFUNC_H
 
-/* Forward-declare this to avoid including execnodes.h here */
+/*  前向声明以免此处含 execnodes.h  */
 struct TableFuncScanState;
 
 /*

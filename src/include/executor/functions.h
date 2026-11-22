@@ -24,12 +24,12 @@
  */
 typedef struct SQLFunctionParseInfo
 {
-	char	   *fname;			/* function's name */
-	int			nargs;			/* number of input arguments */
-	Oid		   *argtypes;		/* resolved types of input arguments */
-	char	  **argnames;		/* names of input arguments; NULL if none */
-	/* Note that argnames[i] can be NULL, if some args are unnamed */
-	Oid			collation;		/* function's input collation, if known */
+	char	   *fname;			/*  函数名  */
+	int			nargs;			/*  输入参数个数  */
+	Oid		   *argtypes;		/*  已解析的输入参数类型  */
+	char	  **argnames;		/*  输入参数名;无则 NULL  */
+	/*  注意 argnames[i] 可为 NULL,若某些参数无名  */
+	Oid			collation;		/*  函数输入排序规则,若已知  */
 } SQLFunctionParseInfo;
 
 typedef SQLFunctionParseInfo *SQLFunctionParseInfoPtr;

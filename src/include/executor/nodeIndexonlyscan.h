@@ -23,7 +23,7 @@ extern void ExecIndexOnlyMarkPos(IndexOnlyScanState *node);
 extern void ExecIndexOnlyRestrPos(IndexOnlyScanState *node);
 extern void ExecReScanIndexOnlyScan(IndexOnlyScanState *node);
 
-/* Support functions for parallel index-only scans */
+/*  并行仅索引扫描的支持函数  */
 extern void ExecIndexOnlyScanEstimate(IndexOnlyScanState *node,
 									  ParallelContext *pcxt);
 extern void ExecIndexOnlyScanInitializeDSM(IndexOnlyScanState *node,

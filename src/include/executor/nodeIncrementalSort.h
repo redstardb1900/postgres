@@ -19,7 +19,7 @@ extern IncrementalSortState *ExecInitIncrementalSort(IncrementalSort *node, ESta
 extern void ExecEndIncrementalSort(IncrementalSortState *node);
 extern void ExecReScanIncrementalSort(IncrementalSortState *node);
 
-/* parallel instrumentation support */
+/*  并行插桩支持  */
 extern void ExecIncrementalSortEstimate(IncrementalSortState *node, ParallelContext *pcxt);
 extern void ExecIncrementalSortInitializeDSM(IncrementalSortState *node, ParallelContext *pcxt);
 extern void ExecIncrementalSortInitializeWorker(IncrementalSortState *node, ParallelWorkerContext *pwcxt);

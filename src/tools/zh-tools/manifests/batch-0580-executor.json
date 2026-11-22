@@ -1,0 +1,316 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0580",
+ "title": "include/executor 小中头 — batch 0580",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8b765eb6ac4dd3f3aa3b6172bb8c5cb725a9f132",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/executor/execParallel.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/execPartition.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/execdebug.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/execdesc.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/functions.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/instrument.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/nodeCustom.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/nodeIncrementalSort.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/nodeIndexonlyscan.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/nodeIndexscan.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/nodeSeqscan.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/nodeSort.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/spi.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/spi_priv.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/tablefunc.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/include/executor/tqueue.h",
+   "kind": "c_comment",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0580-executor.json",
+   "kind": "manifest",
+   "note": "0580"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/executor/execParallel.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/execPartition.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/execdebug.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/execdesc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/functions.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/instrument.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/nodeCustom.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/nodeIncrementalSort.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/nodeIndexonlyscan.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/nodeIndexscan.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/nodeSeqscan.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/nodeSort.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/spi.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/spi_priv.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/tablefunc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/include/executor/tqueue.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；分区裁剪/插桩/SPI计划/TableFunc/调试宏长文 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0580"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0580-executor.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0580"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0580"
+  }
+ ],
+ "notes": "16 文件短注已译；大头 execExpr/hashjoin/tuptable/nodeAgg/executor 留后批；长文 KEEP EN"
+}

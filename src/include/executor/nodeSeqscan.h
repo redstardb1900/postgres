@@ -21,7 +21,7 @@ extern SeqScanState *ExecInitSeqScan(SeqScan *node, EState *estate, int eflags);
 extern void ExecEndSeqScan(SeqScanState *node);
 extern void ExecReScanSeqScan(SeqScanState *node);
 
-/* parallel scan support */
+/*  并行扫描支持  */
 extern void ExecSeqScanEstimate(SeqScanState *node, ParallelContext *pcxt);
 extern void ExecSeqScanInitializeDSM(SeqScanState *node, ParallelContext *pcxt);
 extern void ExecSeqScanReInitializeDSM(SeqScanState *node, ParallelContext *pcxt);

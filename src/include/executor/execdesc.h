@@ -32,26 +32,26 @@
  */
 typedef struct QueryDesc
 {
-	/* These fields are provided by CreateQueryDesc */
-	CmdType		operation;		/* CMD_SELECT, CMD_UPDATE, etc. */
-	PlannedStmt *plannedstmt;	/* planner's output (could be utility, too) */
-	const char *sourceText;		/* source text of the query */
-	Snapshot	snapshot;		/* snapshot to use for query */
+	/*  这些字段由 CreateQueryDesc 提供  */
+	CmdType		operation;		/*  CMD_SELECT, CMD_UPDATE 等  */
+	PlannedStmt *plannedstmt;	/*  规划器输出(也可以是 utility)  */
+	const char *sourceText;		/*  查询的源文本  */
+	Snapshot	snapshot;		/*  查询使用的快照  */
 	Snapshot	crosscheck_snapshot;	/* crosscheck for RI update/delete */
-	DestReceiver *dest;			/* the destination for tuple output */
-	ParamListInfo params;		/* param values being passed in */
-	QueryEnvironment *queryEnv; /* query environment passed in */
+	DestReceiver *dest;			/*  元组输出目的地  */
+	ParamListInfo params;		/*  传入的参数值  */
+	QueryEnvironment *queryEnv; /*  传入的查询环境  */
 	int			instrument_options; /* OR of InstrumentOption flags */
 
 	/* These fields are set by ExecutorStart */
-	TupleDesc	tupDesc;		/* descriptor for result tuples */
-	EState	   *estate;			/* executor's query-wide state */
-	PlanState  *planstate;		/* tree of per-plan-node state */
+	TupleDesc	tupDesc;		/*  结果元组的描述符  */
+	EState	   *estate;			/*  执行器查询级状态  */
+	PlanState  *planstate;		/*  每计划节点状态树  */
 
 	/* This field is set by ExecutePlan */
-	bool		already_executed;	/* true if previously executed */
+	bool		already_executed;	/*  先前已执行则为真  */
 
-	/* This is always set NULL by the core system, but plugins can change it */
+	/*  核心系统总置 NULL,但插件可改  */
 	struct Instrumentation *totaltime;	/* total time spent in ExecutorRun */
 } QueryDesc;
 

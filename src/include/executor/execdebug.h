@@ -79,7 +79,7 @@
 #endif							/* EXEC_NESTLOOPDEBUG */
 
 /* ----------------
- *		sort node debugging defines
+ *		sort 节点调试定义
  * ----------------
  */
 #ifdef EXEC_SORTDEBUG

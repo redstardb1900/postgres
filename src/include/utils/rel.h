@@ -31,14 +31,14 @@
 
 
 /*
- * LockRelId and LockInfo really belong to lmgr.h, but it's more convenient
- * to declare them here so we can have a LockInfoData field in a Relation.
+ * LockRelId 与 LockInfo 本属 lmgr.h，但在此声明更方便，
+ * 以便 Relation 中可有 LockInfoData 字段。
  */
 
 typedef struct LockRelId
 {
-	Oid			relId;			/* a relation identifier */
-	Oid			dbId;			/* a database identifier */
+	Oid			relId;			/*  关系标识符  */
+	Oid			dbId;			/*  数据库标识符  */
 } LockRelId;
 
 typedef struct LockInfoData
@@ -49,21 +49,21 @@ typedef struct LockInfoData
 typedef LockInfoData *LockInfo;
 
 /*
- * Here are the contents of a relation cache entry.
+ * 以下是关系缓存项的内容。
  */
 
 typedef struct RelationData
 {
-	RelFileLocator rd_locator;	/* relation physical identifier */
+	RelFileLocator rd_locator;	/*  关系物理标识符  */
 	SMgrRelation rd_smgr;		/* cached file handle, or NULL */
-	int			rd_refcnt;		/* reference count */
-	BackendId	rd_backend;		/* owning backend id, if temporary relation */
-	bool		rd_islocaltemp; /* rel is a temp rel of this session */
-	bool		rd_isnailed;	/* rel is nailed in cache */
-	bool		rd_isvalid;		/* relcache entry is valid */
-	bool		rd_indexvalid;	/* is rd_indexlist valid? (also rd_pkindex and
+	int			rd_refcnt;		/*  引用计数  */
+	BackendId	rd_backend;		/*  所属后端 id,若为临时关系  */
+	bool		rd_islocaltemp; /*  本会话的临时关系  */
+	bool		rd_isnailed;	/*  钉在缓存中  */
+	bool		rd_isvalid;		/*  relcache 项有效  */
+	bool		rd_indexvalid;	/*  rd_indexlist 有效?(还有 rd_pkindex 与
 								 * rd_replidindex) */
-	bool		rd_statvalid;	/* is rd_statlist valid? */
+	bool		rd_statvalid;	/*  rd_statlist 有效?  */
 
 	/*----------
 	 * rd_createSubid is the ID of the highest subtransaction the rel has
@@ -100,7 +100,7 @@ typedef struct RelationData
 	 * the rel has survived into.  In entries visible outside relcache.c, this
 	 * is always zero.
 	 */
-	SubTransactionId rd_createSubid;	/* rel was created in current xact */
+	SubTransactionId rd_createSubid;	/*  关系在当前事务创建  */
 	SubTransactionId rd_newRelfilelocatorSubid; /* highest subxact changing
 												 * rd_locator to current value */
 	SubTransactionId rd_firstRelfilelocatorSubid;	/* highest subxact
@@ -109,30 +109,30 @@ typedef struct RelationData
 	SubTransactionId rd_droppedSubid;	/* dropped with another Subid set */
 
 	Form_pg_class rd_rel;		/* RELATION tuple */
-	TupleDesc	rd_att;			/* tuple descriptor */
-	Oid			rd_id;			/* relation's object id */
-	LockInfoData rd_lockInfo;	/* lock mgr's info for locking relation */
-	RuleLock   *rd_rules;		/* rewrite rules */
-	MemoryContext rd_rulescxt;	/* private memory cxt for rd_rules, if any */
-	TriggerDesc *trigdesc;		/* Trigger info, or NULL if rel has none */
-	/* use "struct" here to avoid needing to include rowsecurity.h: */
-	struct RowSecurityDesc *rd_rsdesc;	/* row security policies, or NULL */
+	TupleDesc	rd_att;			/*  元组描述符 */
+	Oid			rd_id;			/*  关系的对象 id  */
+	LockInfoData rd_lockInfo;	/*  锁管理器锁定关系的信息  */
+	RuleLock   *rd_rules;		/*  改写规则 */
+	MemoryContext rd_rulescxt;	/*  rd_rules 私有内存上下文,若有  */
+	TriggerDesc *trigdesc;		/*  触发器信息,无则 NULL  */
+	/*  用 "struct" 以免需含 rowsecurity.h:  */
+	struct RowSecurityDesc *rd_rsdesc;	/*  行安全策略,或 NULL  */
 
 	/* data managed by RelationGetFKeyList: */
-	List	   *rd_fkeylist;	/* list of ForeignKeyCacheInfo (see below) */
-	bool		rd_fkeyvalid;	/* true if list has been computed */
+	List	   *rd_fkeylist;	/*  ForeignKeyCacheInfo 列表(见下)  */
+	bool		rd_fkeyvalid;	/*  列表已计算则为真  */
 
 	/* data managed by RelationGetPartitionKey: */
-	PartitionKey rd_partkey;	/* partition key, or NULL */
-	MemoryContext rd_partkeycxt;	/* private context for rd_partkey, if any */
+	PartitionKey rd_partkey;	/*  分区键,或 NULL  */
+	MemoryContext rd_partkeycxt;	/*  rd_partkey 的私有上下文,若有  */
 
 	/* data managed by RelationGetPartitionDesc: */
-	PartitionDesc rd_partdesc;	/* partition descriptor, or NULL */
-	MemoryContext rd_pdcxt;		/* private context for rd_partdesc, if any */
+	PartitionDesc rd_partdesc;	/*  分区描述符,或 NULL  */
+	MemoryContext rd_pdcxt;		/*  rd_partdesc 的私有上下文,若有  */
 
-	/* Same as above, for partdescs that omit detached partitions */
+	/*  同上,但用于省略已分离分区的 partdesc  */
 	PartitionDesc rd_partdesc_nodetached;	/* partdesc w/o detached parts */
-	MemoryContext rd_pddcxt;	/* for rd_partdesc_nodetached, if any */
+	MemoryContext rd_pddcxt;	/*  供 rd_partdesc_nodetached 用  */
 
 	/*
 	 * pg_inherits.xmin of the partition that was excluded in
@@ -144,27 +144,27 @@ typedef struct RelationData
 	TransactionId rd_partdesc_nodetached_xmin;
 
 	/* data managed by RelationGetPartitionQual: */
-	List	   *rd_partcheck;	/* partition CHECK quals */
-	bool		rd_partcheckvalid;	/* true if list has been computed */
+	List	   *rd_partcheck;	/*  分区 CHECK 限定  */
+	bool		rd_partcheckvalid;	/*  列表已计算则为真  */
 	MemoryContext rd_partcheckcxt;	/* private cxt for rd_partcheck, if any */
 
 	/* data managed by RelationGetIndexList: */
-	List	   *rd_indexlist;	/* list of OIDs of indexes on relation */
-	Oid			rd_pkindex;		/* OID of primary key, if any */
-	Oid			rd_replidindex; /* OID of replica identity index, if any */
+	List	   *rd_indexlist;	/*  关系上索引的 OIDs 列表  */
+	Oid			rd_pkindex;		/*  主键 OID,若有  */
+	Oid			rd_replidindex; /*  副本标识索引 OID,若有  */
 
 	/* data managed by RelationGetStatExtList: */
-	List	   *rd_statlist;	/* list of OIDs of extended stats */
+	List	   *rd_statlist;	/*  扩展统计 OIDs 列表  */
 
 	/* data managed by RelationGetIndexAttrBitmap: */
-	bool		rd_attrsvalid;	/* are bitmaps of attrs valid? */
-	Bitmapset  *rd_keyattr;		/* cols that can be ref'd by foreign keys */
-	Bitmapset  *rd_pkattr;		/* cols included in primary key */
-	Bitmapset  *rd_idattr;		/* included in replica identity index */
-	Bitmapset  *rd_hotblockingattr; /* cols blocking HOT update */
-	Bitmapset  *rd_summarizedattr;	/* cols indexed by summarizing indexes */
+	bool		rd_attrsvalid;	/*  属性位图有效?  */
+	Bitmapset  *rd_keyattr;		/*  可被外键引用的列  */
+	Bitmapset  *rd_pkattr;		/*  包含在主键中的列  */
+	Bitmapset  *rd_idattr;		/*  包含在副本标识索引中  */
+	Bitmapset  *rd_hotblockingattr; /*  阻塞 HOT 更新的列 */
+	Bitmapset  *rd_summarizedattr;	/*  由汇总索引索引的列  */
 
-	PublicationDesc *rd_pubdesc;	/* publication descriptor, or NULL */
+	PublicationDesc *rd_pubdesc;	/*  发布描述符,或 NULL  */
 
 	/*
 	 * rd_options is set whenever rd_rel is loaded into the relcache entry.
@@ -180,16 +180,16 @@ typedef struct RelationData
 	 * its lookup requires syscache access, but during relcache bootstrap we
 	 * need to be able to initialize rd_tableam without syscache lookups.
 	 */
-	Oid			rd_amhandler;	/* OID of index AM's handler function */
+	Oid			rd_amhandler;	/*  索引 AM 处理函数的 OID  */
 
 	/*
-	 * Table access method.
+	 * 表访问方法。
 	 */
 	const struct TableAmRoutine *rd_tableam;
 
-	/* These are non-NULL only for an index relation: */
-	Form_pg_index rd_index;		/* pg_index tuple describing this index */
-	/* use "struct" here to avoid needing to include htup.h: */
+	/*  这些仅对索引关系非 NULL:  */
+	Form_pg_index rd_index;		/*  描述本索引的 pg_index 元组  */
+	/*  用 "struct" 以免需含 htup.h:  */
 	struct HeapTupleData *rd_indextuple;	/* all of pg_index tuple */
 
 	/*
@@ -201,18 +201,18 @@ typedef struct RelationData
 	 * identifier given that restriction.
 	 */
 	MemoryContext rd_indexcxt;	/* private memory cxt for this stuff */
-	/* use "struct" here to avoid needing to include amapi.h: */
+	/*  用 "struct" 以免需含 amapi.h:  */
 	struct IndexAmRoutine *rd_indam;	/* index AM's API struct */
-	Oid		   *rd_opfamily;	/* OIDs of op families for each index col */
-	Oid		   *rd_opcintype;	/* OIDs of opclass declared input data types */
-	RegProcedure *rd_support;	/* OIDs of support procedures */
-	struct FmgrInfo *rd_supportinfo;	/* lookup info for support procedures */
-	int16	   *rd_indoption;	/* per-column AM-specific flags */
-	List	   *rd_indexprs;	/* index expression trees, if any */
-	List	   *rd_indpred;		/* index predicate tree, if any */
-	Oid		   *rd_exclops;		/* OIDs of exclusion operators, if any */
-	Oid		   *rd_exclprocs;	/* OIDs of exclusion ops' procs, if any */
-	uint16	   *rd_exclstrats;	/* exclusion ops' strategy numbers, if any */
+	Oid		   *rd_opfamily;	/*  各索引列操作符族 OIDs  */
+	Oid		   *rd_opcintype;	/*  opclass 声明输入类型 OIDs  */
+	RegProcedure *rd_support;	/*  支持过程的 OIDs  */
+	struct FmgrInfo *rd_supportinfo;	/*  支持过程的查找信息  */
+	int16	   *rd_indoption;	/*  每列 AM 专用标志  */
+	List	   *rd_indexprs;	/*  索引表达式树,若有  */
+	List	   *rd_indpred;		/*  索引谓词树,若有  */
+	Oid		   *rd_exclops;		/*  排他操作符 OIDs,若有  */
+	Oid		   *rd_exclprocs;	/*  排他操作符过程 OIDs,若有  */
+	uint16	   *rd_exclstrats;	/*  排他操作符策略号,若有  */
 	Oid		   *rd_indcollation;	/* OIDs of index collations */
 	bytea	  **rd_opcoptions;	/* parsed opclass-specific options */
 
@@ -225,7 +225,7 @@ typedef struct RelationData
 	 * relation.  A relcache reset will include freeing that chunk and setting
 	 * rd_amcache = NULL.
 	 */
-	void	   *rd_amcache;		/* available for use by index/table AM */
+	void	   *rd_amcache;		/*  供索引/表 AM 使用  */
 
 	/*
 	 * foreign-table support
@@ -235,8 +235,8 @@ typedef struct RelationData
 	 * reset.
 	 */
 
-	/* use "struct" here to avoid needing to include fdwapi.h: */
-	struct FdwRoutine *rd_fdwroutine;	/* cached function pointers, or NULL */
+	/*  用 "struct" 以免需含 fdwapi.h:  */
+	struct FdwRoutine *rd_fdwroutine;	/*  缓存的函数指针,或 NULL  */
 
 	/*
 	 * Hack for CLUSTER, rewriting ALTER TABLE, etc: when writing a new
@@ -247,11 +247,11 @@ typedef struct RelationData
 	 * version of the main heap, not the toast table itself.)  This also
 	 * causes toast_save_datum() to try to preserve toast value OIDs.
 	 */
-	Oid			rd_toastoid;	/* Real TOAST table's OID, or InvalidOid */
+	Oid			rd_toastoid;	/*  真实 TOAST 表 OID,或 InvalidOid  */
 
-	bool		pgstat_enabled; /* should relation stats be counted */
-	/* use "struct" here to avoid needing to include pgstat.h: */
-	struct PgStat_TableStatus *pgstat_info; /* statistics collection area */
+	bool		pgstat_enabled; /*  是否应统计关系统计  */
+	/*  用 "struct" 以免需含 pgstat.h:  */
+	struct PgStat_TableStatus *pgstat_info; /*  统计收集区  */
 } RelationData;
 
 
@@ -274,21 +274,21 @@ typedef struct ForeignKeyCacheInfo
 	pg_node_attr(no_equal, no_read, no_query_jumble)
 
 	NodeTag		type;
-	/* oid of the constraint itself */
+	/*  约束自身的 oid  */
 	Oid			conoid;
-	/* relation constrained by the foreign key */
+	/*  受外键约束的关系  */
 	Oid			conrelid;
-	/* relation referenced by the foreign key */
+	/*  外键引用的关系  */
 	Oid			confrelid;
-	/* number of columns in the foreign key */
+	/*  外键中的列数  */
 	int			nkeys;
 
 	/*
-	 * these arrays each have nkeys valid entries:
+	 * 这些数组各有 nkeys 个有效项:
 	 */
-	/* cols in referencing table */
+	/*  引用表中的列  */
 	AttrNumber	conkey[INDEX_MAX_KEYS] pg_node_attr(array_size(nkeys));
-	/* cols in referenced table */
+	/*  被引用表中的列  */
 	AttrNumber	confkey[INDEX_MAX_KEYS] pg_node_attr(array_size(nkeys));
 	/* PK = FK operator OIDs */
 	Oid			conpfeqop[INDEX_MAX_KEYS] pg_node_attr(array_size(nkeys));
@@ -324,7 +324,7 @@ typedef struct AutoVacOpts
 	float8		analyze_scale_factor;
 } AutoVacOpts;
 
-/* StdRdOptions->vacuum_index_cleanup values */
+/*  StdRdOptions->vacuum_index_cleanup 值  */
 typedef enum StdRdOptIndexCleanup
 {
 	STDRD_OPTION_VACUUM_INDEX_CLEANUP_AUTO = 0,
@@ -334,14 +334,14 @@ typedef enum StdRdOptIndexCleanup
 
 typedef struct StdRdOptions
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int			fillfactor;		/* page fill factor in percent (0..100) */
-	int			toast_tuple_target; /* target for tuple toasting */
-	AutoVacOpts autovacuum;		/* autovacuum-related options */
-	bool		user_catalog_table; /* use as an additional catalog relation */
-	int			parallel_workers;	/* max number of parallel workers */
-	StdRdOptIndexCleanup vacuum_index_cleanup;	/* controls index vacuuming */
-	bool		vacuum_truncate;	/* enables vacuum to truncate a relation */
+	int32		vl_len_;		/*  varlena 头(勿直接触碰!)  */
+	int			fillfactor;		/*  页填充因子百分比(0..100)  */
+	int			toast_tuple_target; /*  元组 toast 目标  */
+	AutoVacOpts autovacuum;		/*  autovacuum 相关选项  */
+	bool		user_catalog_table; /*  用作附加目录关系  */
+	int			parallel_workers;	/*  最大并行工作进程数  */
+	StdRdOptIndexCleanup vacuum_index_cleanup;	/*  控制索引清理  */
+	bool		vacuum_truncate;	/*  允许 vacuum 截断关系  */
 } StdRdOptions;
 
 #define HEAP_MIN_FILLFACTOR			10
@@ -397,7 +397,7 @@ typedef struct StdRdOptions
 	((relation)->rd_options ? \
 	 ((StdRdOptions *) (relation)->rd_options)->parallel_workers : (defaultpw))
 
-/* ViewOptions->check_option values */
+/*  ViewOptions->check_option 值  */
 typedef enum ViewOptCheckOption
 {
 	VIEW_OPTION_CHECK_OPTION_NOT_SET,
@@ -411,7 +411,7 @@ typedef enum ViewOptCheckOption
  */
 typedef struct ViewOptions
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/*  varlena 头(勿直接触碰!)  */
 	bool		security_barrier;
 	bool		security_invoker;
 	ViewOptCheckOption check_option;
@@ -586,7 +586,7 @@ RelationCloseSmgr(Relation relation)
 	if (relation->rd_smgr != NULL)
 		smgrclose(relation->rd_smgr);
 
-	/* smgrclose should unhook from owner pointer */
+	/*  smgrclose 应从所有者指针脱钩  */
 	Assert(relation->rd_smgr == NULL);
 }
 #endif							/* !FRONTEND */
@@ -705,7 +705,7 @@ RelationCloseSmgr(Relation relation)
 	 (relation)->rd_rel->relkind != RELKIND_FOREIGN_TABLE &&	\
 	 !IsCatalogRelation(relation))
 
-/* routines in utils/cache/relcache.c */
+/*  utils/cache/relcache.c 的例程  */
 extern void RelationIncrementReferenceCount(Relation rel);
 extern void RelationDecrementReferenceCount(Relation rel);
 

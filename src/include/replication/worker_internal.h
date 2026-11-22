@@ -29,28 +29,28 @@
 
 typedef struct LogicalRepWorker
 {
-	/* Time at which this worker was launched. */
+	/*  本工作进程启动时刻。  */
 	TimestampTz launch_time;
 
-	/* Indicates if this slot is used or free. */
+	/*  指示本槽已用或空闲。  */
 	bool		in_use;
 
-	/* Increased every time the slot is taken by new worker. */
+	/*  槽被新工作进程占用时递增。  */
 	uint16		generation;
 
-	/* Pointer to proc array. NULL if not running. */
+	/*  指向进程数组.未运行则为 NULL.  */
 	PGPROC	   *proc;
 
-	/* Database id to connect to. */
+	/* 要连接的数据库 id. */
 	Oid			dbid;
 
-	/* User to use for connection (will be same as owner of subscription). */
+	/*  连接所用用户(与订阅所有者相同)。  */
 	Oid			userid;
 
-	/* Subscription id for the worker. */
+	/* 本工作进程的订阅 id。 */
 	Oid			subid;
 
-	/* Used for initial table synchronization. */
+	/*  用于初始表同步。  */
 	Oid			relid;
 	char		relstate;
 	XLogRecPtr	relstate_lsn;
@@ -68,12 +68,12 @@ typedef struct LogicalRepWorker
 	FileSet    *stream_fileset;
 
 	/*
-	 * PID of leader apply worker if this slot is used for a parallel apply
-	 * worker, InvalidPid otherwise.
+	 * 若本槽用于并行应用则为主应用工作进程 PID,
+	 * 否则为 InvalidPid。
 	 */
 	pid_t		leader_pid;
 
-	/* Indicates whether apply can be performed in parallel. */
+	/*  指示是否可并行执行应用。  */
 	bool		parallel_apply;
 
 	/* Stats. */
@@ -142,7 +142,7 @@ typedef struct ParallelApplyWorkerShared
 	 */
 	ParallelTransState xact_state;
 
-	/* Information from the corresponding LogicalRepWorker slot. */
+	/*  来自对应 LogicalRepWorker 槽的信息。  */
 	uint16		logicalrep_worker_generation;
 	int			logicalrep_worker_slot_no;
 
@@ -173,7 +173,7 @@ typedef struct ParallelApplyWorkerShared
 } ParallelApplyWorkerShared;
 
 /*
- * Information which is used to manage the parallel apply worker.
+ * 用于管理并行应用工作进程的信息。
  */
 typedef struct ParallelApplyWorkerInfo
 {
@@ -199,15 +199,15 @@ typedef struct ParallelApplyWorkerInfo
 	bool		serialize_changes;
 
 	/*
-	 * True if the worker is being used to process a parallel apply
-	 * transaction. False indicates this worker is available for re-use.
+	 * 若工作进程正用于处理并行应用
+	 * 事务则为真。假表示可复用。
 	 */
 	bool		in_use;
 
 	ParallelApplyWorkerShared *shared;
 } ParallelApplyWorkerInfo;
 
-/* Main memory context for apply worker. Permanent during worker lifetime. */
+/*  应用工作进程主内存上下文.工作进程存活期间常驻.  */
 extern PGDLLIMPORT MemoryContext ApplyContext;
 
 extern PGDLLIMPORT MemoryContext ApplyMessageContext;
@@ -216,10 +216,10 @@ extern PGDLLIMPORT ErrorContextCallback *apply_error_context_stack;
 
 extern PGDLLIMPORT ParallelApplyWorkerShared *MyParallelShared;
 
-/* libpqreceiver connection */
+/*  libpqreceiver 连接  */
 extern PGDLLIMPORT struct WalReceiverConn *LogRepWorkerWalRcvConn;
 
-/* Worker and subscription objects. */
+/*  工作进程与订阅对象。  */
 extern PGDLLIMPORT Subscription *MySubscription;
 extern PGDLLIMPORT LogicalRepWorker *MyLogicalRepWorker;
 
@@ -255,7 +255,7 @@ extern void invalidate_syncing_table_states(Datum arg, int cacheid,
 extern void stream_start_internal(TransactionId xid, bool first_segment);
 extern void stream_stop_internal(TransactionId xid);
 
-/* Common streaming function to apply all the spooled messages */
+/*  应用全部假脱机消息的公共流式函数  */
 extern void apply_spooled_messages(FileSet *stream_fileset, TransactionId xid,
 								   XLogRecPtr lsn);
 
@@ -269,11 +269,11 @@ extern void InitializeApplyWorker(void);
 
 extern void store_flush_position(XLogRecPtr remote_lsn, XLogRecPtr local_lsn);
 
-/* Function for apply error callback */
+/*  应用错误回调函数  */
 extern void apply_error_callback(void *arg);
 extern void set_apply_error_context_origin(char *originname);
 
-/* Parallel apply worker setup and interactions */
+/*  并行应用工作进程的设置与交互  */
 extern void pa_allocate_worker(TransactionId xid);
 extern ParallelApplyWorkerInfo *pa_find_worker(TransactionId xid);
 extern void pa_detach_all_error_mq(void);

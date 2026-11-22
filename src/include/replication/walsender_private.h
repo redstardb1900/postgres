@@ -44,7 +44,7 @@ typedef struct WalSnd
 	pid_t		pid;			/* this walsender's PID, or 0 if not active */
 
 	WalSndState state;			/* this walsender's state */
-	XLogRecPtr	sentPtr;		/* WAL has been sent up to this point */
+	XLogRecPtr	sentPtr;		/*  WAL 已发送至此点  */
 	bool		needreload;		/* does currently-open file need to be
 								 * reloaded? */
 
@@ -57,7 +57,7 @@ typedef struct WalSnd
 	XLogRecPtr	flush;
 	XLogRecPtr	apply;
 
-	/* Measured lag times, or -1 for unknown/none. */
+	/*  测得延迟,未知/无则为 -1。  */
 	TimeOffset	writeLag;
 	TimeOffset	flushLag;
 	TimeOffset	applyLag;
@@ -68,7 +68,7 @@ typedef struct WalSnd
 	 */
 	int			sync_standby_priority;
 
-	/* Protects shared variables in this structure. */
+	/*  保护本结构中的共享变量。  */
 	slock_t		mutex;
 
 	/*
@@ -78,7 +78,7 @@ typedef struct WalSnd
 	Latch	   *latch;
 
 	/*
-	 * Timestamp of the last message received from standby.
+	 * 自备库收到的最后消息时间戳。
 	 */
 	TimestampTz replyTime;
 
@@ -87,7 +87,7 @@ typedef struct WalSnd
 
 extern PGDLLIMPORT WalSnd *MyWalSnd;
 
-/* There is one WalSndCtl struct for the whole database cluster */
+/*  整个数据库集簇共用一个 WalSndCtl 结构  */
 typedef struct
 {
 	/*
@@ -109,7 +109,7 @@ typedef struct
 	 */
 	bits8		sync_standbys_status;
 
-	/* used as a registry of physical / logical walsenders to wake */
+	/*  用作待唤醒物理/逻辑 walsender 的登记表  */
 	ConditionVariable wal_flush_cv;
 	ConditionVariable wal_replay_cv;
 

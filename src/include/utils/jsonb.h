@@ -16,7 +16,7 @@
 #include "utils/array.h"
 #include "utils/numeric.h"
 
-/* Tokens used when sequentially processing a jsonb value */
+/*  顺序处理 jsonb 值时所用的词元  */
 typedef enum
 {
 	WJB_DONE,
@@ -29,7 +29,7 @@ typedef enum
 	WJB_END_OBJECT
 } JsonbIteratorToken;
 
-/* Strategy numbers for GIN index opclasses */
+/*  GIN 索引操作类的策略编号  */
 #define JsonbContainsStrategyNumber		7
 #define JsonbExistsStrategyNumber		9
 #define JsonbExistsAnyStrategyNumber	10
@@ -59,13 +59,13 @@ typedef enum
  * matches against the heap tuple; currently, this costs nothing because we
  * must always recheck for other reasons.
  */
-#define JGINFLAG_KEY	0x01	/* key (or string array element) */
-#define JGINFLAG_NULL	0x02	/* null value */
-#define JGINFLAG_BOOL	0x03	/* boolean value */
-#define JGINFLAG_NUM	0x04	/* numeric value */
-#define JGINFLAG_STR	0x05	/* string value (if not an array element) */
-#define JGINFLAG_HASHED 0x10	/* OR'd into flag if value was hashed */
-#define JGIN_MAXLENGTH	125		/* max length of text part before hashing */
+#define JGINFLAG_KEY	0x01	/*  键或字符串数组元素  */
+#define JGINFLAG_NULL	0x02	/*  空值  */
+#define JGINFLAG_BOOL	0x03	/*  布尔值  */
+#define JGINFLAG_NUM	0x04	/*  数值  */
+#define JGINFLAG_STR	0x05	/*  字符串值（若非数组元素）  */
+#define JGINFLAG_HASHED 0x10	/*  若值已哈希则 OR 进标志  */
+#define JGIN_MAXLENGTH	125		/*  哈希前文本部分最大长度  */
 
 typedef struct JsonbPair JsonbPair;
 typedef struct JsonbValue JsonbValue;
@@ -139,7 +139,7 @@ typedef uint32 JEntry;
 #define JENTRY_TYPEMASK			0x70000000
 #define JENTRY_HAS_OFF			0x80000000
 
-/* values stored in the type bits */
+/*  类型位中存放的值  */
 #define JENTRY_ISSTRING			0x00000000
 #define JENTRY_ISNUMERIC		0x10000000
 #define JENTRY_ISBOOL_FALSE		0x20000000
@@ -147,7 +147,7 @@ typedef uint32 JEntry;
 #define JENTRY_ISNULL			0x40000000
 #define JENTRY_ISCONTAINER		0x50000000	/* array or object */
 
-/* Access macros.  Note possible multiple evaluations */
+/*  访问宏。注意可能多次求值  */
 #define JBE_OFFLENFLD(je_)		((je_) & JENTRY_OFFLENMASK)
 #define JBE_HAS_OFF(je_)		(((je_) & JENTRY_HAS_OFF) != 0)
 #define JBE_ISSTRING(je_)		(((je_) & JENTRY_TYPEMASK) == JENTRY_ISSTRING)
@@ -158,7 +158,7 @@ typedef uint32 JEntry;
 #define JBE_ISBOOL_FALSE(je_)	(((je_) & JENTRY_TYPEMASK) == JENTRY_ISBOOL_FALSE)
 #define JBE_ISBOOL(je_)			(JBE_ISBOOL_TRUE(je_) || JBE_ISBOOL_FALSE(je_))
 
-/* Macro for advancing an offset variable to the next JEntry */
+/*  把偏移变量推进到下一 JEntry 的宏  */
 #define JBE_ADVANCE_OFFSET(offset, je) \
 	do { \
 		JEntry	je_ = (je); \
@@ -189,33 +189,33 @@ typedef uint32 JEntry;
  */
 typedef struct JsonbContainer
 {
-	uint32		header;			/* number of elements or key/value pairs, and
+	uint32		header;			/*  元素或键/值对数，以及
 								 * flags */
 	JEntry		children[FLEXIBLE_ARRAY_MEMBER];
 
-	/* the data for each child node follows. */
+	/*  各子节点的数据紧随其后.  */
 } JsonbContainer;
 
-/* flags for the header-field in JsonbContainer */
-#define JB_CMASK				0x0FFFFFFF	/* mask for count field */
+/*  JsonbContainer 头字段的标志  */
+#define JB_CMASK				0x0FFFFFFF	/*  计数字段掩码  */
 #define JB_FSCALAR				0x10000000	/* flag bits */
 #define JB_FOBJECT				0x20000000
 #define JB_FARRAY				0x40000000
 
-/* convenience macros for accessing a JsonbContainer struct */
+/*  访问 JsonbContainer 结构体的便利宏  */
 #define JsonContainerSize(jc)		((jc)->header & JB_CMASK)
 #define JsonContainerIsScalar(jc)	(((jc)->header & JB_FSCALAR) != 0)
 #define JsonContainerIsObject(jc)	(((jc)->header & JB_FOBJECT) != 0)
 #define JsonContainerIsArray(jc)	(((jc)->header & JB_FARRAY) != 0)
 
-/* The top-level on-disk format for a jsonb datum. */
+/*  jsonb 的顶层磁盘格式。  */
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/*  varlena 头（勿直接碰！）  */
 	JsonbContainer root;
 } Jsonb;
 
-/* convenience macros for accessing the root container in a Jsonb datum */
+/*  访问 Jsonb 根容器的便利宏  */
 #define JB_ROOT_COUNT(jbp_)		(*(uint32 *) VARDATA(jbp_) & JB_CMASK)
 #define JB_ROOT_IS_SCALAR(jbp_) ((*(uint32 *) VARDATA(jbp_) & JB_FSCALAR) != 0)
 #define JB_ROOT_IS_OBJECT(jbp_) ((*(uint32 *) VARDATA(jbp_) & JB_FOBJECT) != 0)
@@ -229,17 +229,17 @@ enum jbvType
 	jbvString,
 	jbvNumeric,
 	jbvBool,
-	/* Composite types */
+	/*  复合类型  */
 	jbvArray = 0x10,
 	jbvObject,
-	/* Binary (i.e. struct Jsonb) jbvArray/jbvObject */
+	/*  二进制 Jsonb 的 jbvArray/jbvObject  */
 	jbvBinary,
 
 	/*
-	 * Virtual types.
+	 * 虚拟类型.
 	 *
-	 * These types are used only for in-memory JSON processing and serialized
-	 * into JSON strings when outputted to json/jsonb.
+	 * 这些类型仅用于内存中 JSON 处理，输出到
+	 * json/jsonb 时序列化为 JSON 字符串。
 	 */
 	jbvDatetime = 0x20,
 };
@@ -252,7 +252,7 @@ enum jbvType
  */
 struct JsonbValue
 {
-	enum jbvType type;			/* Influences sort order */
+	enum jbvType type;			/*  影响排序顺序  */
 
 	union
 	{
@@ -261,35 +261,35 @@ struct JsonbValue
 		struct
 		{
 			int			len;
-			char	   *val;	/* Not necessarily null-terminated */
+			char	   *val;	/*  不一定空字符结尾  */
 		}			string;		/* String primitive type */
 
 		struct
 		{
 			int			nElems;
 			JsonbValue *elems;
-			bool		rawScalar;	/* Top-level "raw scalar" array? */
-		}			array;		/* Array container type */
+			bool		rawScalar;	/*  顶层"裸标量"数组？  */
+		}			array;		/*  数组容器类型  */
 
 		struct
 		{
-			int			nPairs; /* 1 pair, 2 elements */
+			int			nPairs; /*  1 对，2 元素  */
 			JsonbPair  *pairs;
-		}			object;		/* Associative container type */
+		}			object;		/*  关联容器类型  */
 
 		struct
 		{
 			int			len;
 			JsonbContainer *data;
-		}			binary;		/* Array or object, in on-disk format */
+		}			binary;		/*  数组或对象，磁盘格式  */
 
 		struct
 		{
 			Datum		value;
 			Oid			typid;
 			int32		typmod;
-			int			tz;		/* Numeric time zone, in seconds, for
-								 * TimestampTz data type */
+			int			tz;		/*  数值时区，单位秒，用于
+								 * TimestampTz 类型  */
 		}			datetime;
 	}			val;
 };
@@ -315,14 +315,14 @@ struct JsonbPair
 	uint32		order;			/* Pair's index in original sequence */
 };
 
-/* Conversion state used when parsing Jsonb from text, or for type coercion */
+/*  从文本解析 Jsonb 或做类型强制时的转换状态  */
 typedef struct JsonbParseState
 {
 	JsonbValue	contVal;
 	Size		size;
 	struct JsonbParseState *next;
-	bool		unique_keys;	/* Check object key uniqueness */
-	bool		skip_nulls;		/* Skip null object fields */
+	bool		unique_keys;	/*  检查对象键唯一性  */
+	bool		skip_nulls;		/*  跳过空对象字段  */
 } JsonbParseState;
 
 /*
@@ -340,19 +340,19 @@ typedef enum
 
 typedef struct JsonbIterator
 {
-	/* Container being iterated */
+	/*  正在迭代的容器  */
 	JsonbContainer *container;
-	uint32		nElems;			/* Number of elements in children array (will
-								 * be nPairs for objects) */
-	bool		isScalar;		/* Pseudo-array scalar value? */
-	JEntry	   *children;		/* JEntrys for child nodes */
-	/* Data proper.  This points to the beginning of the variable-length data */
+	uint32		nElems;			/*  children 数组元素个数(对象则为
+								 * nPairs）  */
+	bool		isScalar;		/*  伪数组标量值？  */
+	JEntry	   *children;		/*  子节点的 JEntrys  */
+	/*  数据本体。指向变长数据的起始  */
 	char	   *dataProper;
 
-	/* Current item in buffer (up to nElems) */
+	/*  缓冲区当前项(至多 nElems)  */
 	int			curIndex;
 
-	/* Data offset corresponding to current item */
+	/*  对应当前项的数据偏移  */
 	uint32		curDataOffset;
 
 	/*
@@ -369,7 +369,7 @@ typedef struct JsonbIterator
 } JsonbIterator;
 
 
-/* Convenience macros */
+/*  便利宏  */
 static inline Jsonb *
 DatumGetJsonbP(Datum d)
 {
@@ -392,7 +392,7 @@ JsonbPGetDatum(const Jsonb *p)
 #define PG_GETARG_JSONB_P_COPY(x)	DatumGetJsonbPCopy(PG_GETARG_DATUM(x))
 #define PG_RETURN_JSONB_P(x)	PG_RETURN_POINTER(x)
 
-/* Support functions */
+/*  支持函数  */
 extern uint32 getJsonbOffset(const JsonbContainer *jc, int index);
 extern uint32 getJsonbLength(const JsonbContainer *jc, int index);
 extern int	compareJsonbContainers(JsonbContainer *a, JsonbContainer *b);
@@ -417,7 +417,7 @@ extern void JsonbHashScalarValue(const JsonbValue *scalarVal, uint32 *hash);
 extern void JsonbHashScalarValueExtended(const JsonbValue *scalarVal,
 										 uint64 *hash, uint64 seed);
 
-/* jsonb.c support functions */
+/*  jsonb.c 支持函数  */
 extern char *JsonbToCString(StringInfo out, JsonbContainer *in,
 							int estimated_len);
 extern char *JsonbToCStringIndent(StringInfo out, JsonbContainer *in,

@@ -91,11 +91,11 @@
  *----------
  */
 
-/* true = slot is empty */
+/*  真 = 槽为空  */
 #define			TTS_FLAG_EMPTY			(1 << 1)
 #define TTS_EMPTY(slot)	(((slot)->tts_flags & TTS_FLAG_EMPTY) != 0)
 
-/* should pfree tuple "owned" by the slot? */
+/*  应 pfree 槽"拥有"的元组?  */
 #define			TTS_FLAG_SHOULDFREE		(1 << 2)
 #define TTS_SHOULDFREE(slot) (((slot)->tts_flags & TTS_FLAG_SHOULDFREE) != 0)
 
@@ -110,36 +110,36 @@
 struct TupleTableSlotOps;
 typedef struct TupleTableSlotOps TupleTableSlotOps;
 
-/* base tuple table slot type */
+/*  基元组表槽类型  */
 typedef struct TupleTableSlot
 {
 	NodeTag		type;
 #define FIELDNO_TUPLETABLESLOT_FLAGS 1
-	uint16		tts_flags;		/* Boolean states */
+	uint16		tts_flags;		/*  布尔状态  */
 #define FIELDNO_TUPLETABLESLOT_NVALID 2
-	AttrNumber	tts_nvalid;		/* # of valid values in tts_values */
-	const TupleTableSlotOps *const tts_ops; /* implementation of slot */
+	AttrNumber	tts_nvalid;		/*  tts_values 中有效值个数  */
+	const TupleTableSlotOps *const tts_ops; /*  槽的实现  */
 #define FIELDNO_TUPLETABLESLOT_TUPLEDESCRIPTOR 4
-	TupleDesc	tts_tupleDescriptor;	/* slot's tuple descriptor */
+	TupleDesc	tts_tupleDescriptor;	/*  槽的元组描述符  */
 #define FIELDNO_TUPLETABLESLOT_VALUES 5
-	Datum	   *tts_values;		/* current per-attribute values */
+	Datum	   *tts_values;		/*  当前每属性值  */
 #define FIELDNO_TUPLETABLESLOT_ISNULL 6
-	bool	   *tts_isnull;		/* current per-attribute isnull flags */
-	MemoryContext tts_mcxt;		/* slot itself is in this context */
+	bool	   *tts_isnull;		/*  当前每属性 isnull 标志  */
+	MemoryContext tts_mcxt;		/*  槽自身在此上下文中  */
 	ItemPointerData tts_tid;	/* stored tuple's tid */
-	Oid			tts_tableOid;	/* table oid of tuple */
+	Oid			tts_tableOid;	/*  元组的表 oid  */
 } TupleTableSlot;
 
-/* routines for a TupleTableSlot implementation */
+/*  TupleTableSlot 实现的例程  */
 struct TupleTableSlotOps
 {
-	/* Minimum size of the slot */
+	/*  槽的最小大小  */
 	size_t		base_slot_size;
 
-	/* Initialization. */
+	/*  初始化。  */
 	void		(*init) (TupleTableSlot *slot);
 
-	/* Destruction. */
+	/*  销毁。  */
 	void		(*release) (TupleTableSlot *slot);
 
 	/*
@@ -231,7 +231,7 @@ extern PGDLLIMPORT const TupleTableSlotOps TTSOpsBufferHeapTuple;
 
 
 /*
- * Tuple table slot implementations.
+ * 元组表槽实现。
  */
 
 typedef struct VirtualTupleTableSlot
@@ -240,7 +240,7 @@ typedef struct VirtualTupleTableSlot
 
 	TupleTableSlot base;
 
-	char	   *data;			/* data for materialized slots */
+	char	   *data;			/*  物化槽的数据  */
 } VirtualTupleTableSlot;
 
 typedef struct HeapTupleTableSlot
@@ -250,10 +250,10 @@ typedef struct HeapTupleTableSlot
 	TupleTableSlot base;
 
 #define FIELDNO_HEAPTUPLETABLESLOT_TUPLE 1
-	HeapTuple	tuple;			/* physical tuple */
+	HeapTuple	tuple;			/*  物理元组  */
 #define FIELDNO_HEAPTUPLETABLESLOT_OFF 2
 	uint32		off;			/* saved state for slot_deform_heap_tuple */
-	HeapTupleData tupdata;		/* optional workspace for storing tuple */
+	HeapTupleData tupdata;		/*  存元组的可选工作区  */
 } HeapTupleTableSlot;
 
 /* heap tuple residing in a buffer */
@@ -269,7 +269,7 @@ typedef struct BufferHeapTupleTableSlot
 	 * reference to that buffer.  (TTS_FLAG_SHOULDFREE should not be set in
 	 * such a case, since presumably base.tuple is pointing into the buffer.)
 	 */
-	Buffer		buffer;			/* tuple's buffer, or InvalidBuffer */
+	Buffer		buffer;			/*  元组缓冲,或 InvalidBuffer  */
 } BufferHeapTupleTableSlot;
 
 typedef struct MinimalTupleTableSlot
@@ -287,8 +287,8 @@ typedef struct MinimalTupleTableSlot
 	 */
 #define FIELDNO_MINIMALTUPLETABLESLOT_TUPLE 1
 	HeapTuple	tuple;			/* tuple wrapper */
-	MinimalTuple mintuple;		/* minimal tuple, or NULL if none */
-	HeapTupleData minhdr;		/* workspace for minimal-tuple-only case */
+	MinimalTuple mintuple;		/*  最小元组,无则 NULL  */
+	HeapTupleData minhdr;		/*  仅最小元组情形的工作区  */
 #define FIELDNO_MINIMALTUPLETABLESLOT_OFF 4
 	uint32		off;			/* saved state for slot_deform_heap_tuple */
 } MinimalTupleTableSlot;
@@ -421,12 +421,12 @@ slot_getsysattr(TupleTableSlot *slot, int attnum, bool *isnull)
 		return PointerGetDatum(&slot->tts_tid);
 	}
 
-	/* Fetch the system attribute from the underlying tuple. */
+	/*  从底层元组取系统属性。  */
 	return slot->tts_ops->getsysattr(slot, attnum, isnull);
 }
 
 /*
- * ExecClearTuple - clear the slot's contents
+ * ExecClearTuple - 清空槽内容
  */
 static inline TupleTableSlot *
 ExecClearTuple(TupleTableSlot *slot)

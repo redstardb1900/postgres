@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0544",
+  "title": "include/nodes parsenodes.h part2 residual trails — batch 0544",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "034f5df96599c2ef48978d3f0e6433489380ab6c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/parsenodes.h",
+      "kind": "c_comment",
+      "note": "0544"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0544-include.json",
+      "kind": "manifest",
+      "note": "0544"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/parsenodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2089,
+      "translated": 372,
+      "preserved": 1717,
+      "preserved_reasons": [
+        "横幅/L<1207 KEEP",
+        "长叙述 KEEP EN"
+      ],
+      "note": "0544 residual trails T=372"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0544-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0544"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0544"
+    }
+  ]
+}

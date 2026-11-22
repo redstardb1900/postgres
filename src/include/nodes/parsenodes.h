@@ -1734,7 +1734,7 @@ typedef struct JsonKeyValue
 {
 	NodeTag		type;
 	Expr	   *key;			/* 键表达式 */
-	JsonValueExpr *value;		/* JSON value expression */
+	JsonValueExpr *value;		/* JSON 值表达式 */
 } JsonKeyValue;
 
 /*
@@ -1744,7 +1744,7 @@ typedef struct JsonKeyValue
 typedef struct JsonObjectConstructor
 {
 	NodeTag		type;
-	List	   *exprs;			/* list of JsonKeyValue pairs */
+	List	   *exprs;			/* JsonKeyValue 对列表 */
 	JsonOutput *output;			/* RETURNING 子句(若指定)  */
 	bool		absent_on_null; /* 跳过 NULL 值? */
 	bool		unique;			/* 检查键唯一性? */
@@ -1758,7 +1758,7 @@ typedef struct JsonObjectConstructor
 typedef struct JsonArrayConstructor
 {
 	NodeTag		type;
-	List	   *exprs;			/* list of JsonValueExpr elements */
+	List	   *exprs;			/* JsonValueExpr 元素列表 */
 	JsonOutput *output;			/* RETURNING 子句(若指定)  */
 	bool		absent_on_null; /* 跳过 NULL 元素? */
 	int			location;		/* 记号位置,未知则为 -1 */
@@ -1773,7 +1773,7 @@ typedef struct JsonArrayQueryConstructor
 	NodeTag		type;
 	Node	   *query;			/* subquery */
 	JsonOutput *output;			/* RETURNING 子句(若指定)  */
-	JsonFormat *format;			/* FORMAT clause for subquery, if specified */
+	JsonFormat *format;			/* 子查询的 FORMAT 子句(若指定) */
 	bool		absent_on_null; /* 跳过 NULL 元素? */
 	int			location;		/* 记号位置,未知则为 -1 */
 } JsonArrayQueryConstructor;
@@ -1786,10 +1786,10 @@ typedef struct JsonArrayQueryConstructor
 typedef struct JsonAggConstructor
 {
 	NodeTag		type;
-	JsonOutput *output;			/* RETURNING clause, if any */
-	Node	   *agg_filter;		/* FILTER clause, if any */
-	List	   *agg_order;		/* ORDER BY clause, if any */
-	struct WindowDef *over;		/* OVER clause, if any */
+	JsonOutput *output;			/* RETURNING 子句(若有) */
+	Node	   *agg_filter;		/* FILTER 子句(若有) */
+	List	   *agg_order;		/* ORDER BY 子句(若有) */
+	struct WindowDef *over;		/* OVER 子句(若有) */
 	int			location;		/* 记号位置,未知则为 -1 */
 } JsonAggConstructor;
 
@@ -1801,7 +1801,7 @@ typedef struct JsonObjectAgg
 {
 	NodeTag		type;
 	JsonAggConstructor *constructor;	/* 公共字段 */
-	JsonKeyValue *arg;			/* object key-value pair */
+	JsonKeyValue *arg;			/* 对象键值对 */
 	bool		absent_on_null; /* 跳过 NULL 值? */
 	bool		unique;			/* 检查键唯一性? */
 } JsonObjectAgg;
@@ -1814,7 +1814,7 @@ typedef struct JsonArrayAgg
 {
 	NodeTag		type;
 	JsonAggConstructor *constructor;	/* 公共字段 */
-	JsonValueExpr *arg;			/* array element expression */
+	JsonValueExpr *arg;			/* 数组元素表达式 */
 	bool		absent_on_null; /* 跳过 NULL 元素? */
 } JsonArrayAgg;
 
@@ -1844,7 +1844,7 @@ typedef struct RawStmt
 
 	NodeTag		type;
 	Node	   *stmt;			/* raw parse tree */
-	int			stmt_location;	/* start location, or -1 if unknown */
+	int			stmt_location;	/* 起始位置,未知则为 -1 */
 	int			stmt_len;		/* length in bytes; 0 means "rest of string" */
 } RawStmt;
 
@@ -1864,9 +1864,9 @@ typedef struct InsertStmt
 {
 	NodeTag		type;
 	RangeVar   *relation;		/* 要插入的关系 */
-	List	   *cols;			/* optional: names of the target columns */
-	Node	   *selectStmt;		/* the source SELECT/VALUES, or NULL */
-	OnConflictClause *onConflictClause; /* ON CONFLICT clause */
+	List	   *cols;			/* 可选:目标列名 */
+	Node	   *selectStmt;		/* 源 SELECT/VALUES,或 NULL */
+	OnConflictClause *onConflictClause; /* ON CONFLICT 子句 */
 	List	   *returningList;	/* 要返回的表达式列表 */
 	WithClause *withClause;		/* WITH 子句 */
 	OverridingKind override;	/* OVERRIDING 子句 */
@@ -1879,8 +1879,8 @@ typedef struct InsertStmt
 typedef struct DeleteStmt
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* relation to delete from */
-	List	   *usingClause;	/* optional using clause for more tables */
+	RangeVar   *relation;		/* 要从中删除关系 */
+	List	   *usingClause;	/* 可选 USING 子句以含更多表 */
 	Node	   *whereClause;	/* 限定条件 */
 	List	   *returningList;	/* 要返回的表达式列表 */
 	WithClause *withClause;		/* WITH 子句 */
@@ -1893,10 +1893,10 @@ typedef struct DeleteStmt
 typedef struct UpdateStmt
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* relation to update */
+	RangeVar   *relation;		/* 要更新的关系 */
 	List	   *targetList;		/* 目标列表(ResTarget) */
 	Node	   *whereClause;	/* 限定条件 */
-	List	   *fromClause;		/* optional from clause for more tables */
+	List	   *fromClause;		/* 可选 FROM 子句以含更多表 */
 	List	   *returningList;	/* 要返回的表达式列表 */
 	WithClause *withClause;		/* WITH 子句 */
 } UpdateStmt;
@@ -1908,10 +1908,10 @@ typedef struct UpdateStmt
 typedef struct MergeStmt
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* target relation to merge into */
-	Node	   *sourceRelation; /* source relation */
-	Node	   *joinCondition;	/* join condition between source and target */
-	List	   *mergeWhenClauses;	/* list of MergeWhenClause(es) */
+	RangeVar   *relation;		/* 要 MERGE 进的目标关系 */
+	Node	   *sourceRelation; /* 源关系 */
+	Node	   *joinCondition;	/* 源与目标间的连接条件 */
+	List	   *mergeWhenClauses;	/* MergeWhenClause 列表 */
 	WithClause *withClause;		/* WITH 子句 */
 } MergeStmt;
 
@@ -1945,13 +1945,13 @@ typedef struct SelectStmt
 	 */
 	List	   *distinctClause; /* NULL, list of DISTINCT ON exprs, or
 								 * lcons(NIL,NIL) for all (SELECT DISTINCT) */
-	IntoClause *intoClause;		/* target for SELECT INTO */
+	IntoClause *intoClause;		/* SELECT INTO 的目标 */
 	List	   *targetList;		/* 目标列表(ResTarget) */
-	List	   *fromClause;		/* the FROM clause */
-	Node	   *whereClause;	/* WHERE qualification */
-	List	   *groupClause;	/* GROUP BY clauses */
-	bool		groupDistinct;	/* Is this GROUP BY DISTINCT? */
-	Node	   *havingClause;	/* HAVING conditional-expression */
+	List	   *fromClause;		/* FROM 子句 */
+	Node	   *whereClause;	/* WHERE 限定 */
+	List	   *groupClause;	/* GROUP BY 子句 */
+	bool		groupDistinct;	/* 为 GROUP BY DISTINCT? */
+	Node	   *havingClause;	/* HAVING 条件表达式 */
 	List	   *windowClause;	/* WINDOW window_name AS (...), ... */
 
 	/*
@@ -1962,17 +1962,17 @@ typedef struct SelectStmt
 	 * node), regardless of the context of the VALUES list. It's up to parse
 	 * analysis to reject that where not valid.
 	 */
-	List	   *valuesLists;	/* untransformed list of expression lists */
+	List	   *valuesLists;	/* 未变换的表达式列表之列表 */
 
 	/*
 	 * These fields are used in both "leaf" SelectStmts and upper-level
 	 * SelectStmts.
 	 */
-	List	   *sortClause;		/* sort clause (a list of SortBy's) */
-	Node	   *limitOffset;	/* # of result tuples to skip */
-	Node	   *limitCount;		/* # of result tuples to return */
+	List	   *sortClause;		/* 排序子句(SortBy 列表) */
+	Node	   *limitOffset;	/* 要跳过结果元组数 */
+	Node	   *limitCount;		/* 要返回的结果元组数 */
 	LimitOption limitOption;	/* limit type */
-	List	   *lockingClause;	/* FOR UPDATE (list of LockingClause's) */
+	List	   *lockingClause;	/* FOR UPDATE (LockingClause 列表) */
 	WithClause *withClause;		/* WITH 子句 */
 
 	/*
@@ -2014,16 +2014,16 @@ typedef struct SetOperationStmt
 	Node	   *rarg;			/* right child */
 	/* 最终在此添加 CORRESPONDING 规格字段 */
 
-	/* Fields derived during parse analysis (irrelevant for query jumbling): */
+	/* 解析分析期间派生的字段(与查询混淆无关): */
 	/* 输出列类型 OID 的 OID 列表 */
 	List	   *colTypes pg_node_attr(query_jumble_ignore);
 	/* 输出列 typmod 的整数列表 */
 	List	   *colTypmods pg_node_attr(query_jumble_ignore);
-	/* OID list of output column collation OIDs */
+	/* 输出列排序规则 OID 的 OID 列表 */
 	List	   *colCollations pg_node_attr(query_jumble_ignore);
-	/* a list of SortGroupClause's */
+	/* SortGroupClause 列表 */
 	List	   *groupClauses pg_node_attr(query_jumble_ignore);
-	/* groupClauses is NIL if UNION ALL, but must be set otherwise */
+	/* UNION ALL 时 groupClauses 为 NIL,否则必须设置 */
 } SetOperationStmt;
 
 
@@ -2048,11 +2048,11 @@ typedef struct PLAssignStmt
 {
 	NodeTag		type;
 
-	char	   *name;			/* initial column name */
-	List	   *indirection;	/* subscripts and field names, if any */
-	int			nnames;			/* number of names to use in ColumnRef */
-	SelectStmt *val;			/* the PL/pgSQL expression to assign */
-	int			location;		/* name's token location, or -1 if unknown */
+	char	   *name;			/* 初始列名 */
+	List	   *indirection;	/* 下标与字段名(若有) */
+	int			nnames;			/* ColumnRef 中要用的名字数 */
+	SelectStmt *val;			/* 要赋的 PL/pgSQL 表达式 */
+	int			location;		/* 名字的记号位置,未知则为 -1 */
 } PLAssignStmt;
 
 
@@ -2082,7 +2082,7 @@ typedef enum ObjectType
 	OBJECT_AGGREGATE,
 	OBJECT_AMOP,
 	OBJECT_AMPROC,
-	OBJECT_ATTRIBUTE,			/* type's attribute, when distinct from column */
+	OBJECT_ATTRIBUTE,			/* 类型属性(与列不同时) */
 	OBJECT_CAST,
 	OBJECT_COLUMN,
 	OBJECT_COLLATION,
@@ -2143,16 +2143,16 @@ typedef enum ObjectType
 typedef struct CreateSchemaStmt
 {
 	NodeTag		type;
-	char	   *schemaname;		/* the name of the schema to create */
-	RoleSpec   *authrole;		/* the owner of the created schema */
-	List	   *schemaElts;		/* schema components (list of parsenodes) */
-	bool		if_not_exists;	/* just do nothing if schema already exists? */
+	char	   *schemaname;		/* 要创建的模式名 */
+	RoleSpec   *authrole;		/* 所创模式的所有者 */
+	List	   *schemaElts;		/* 模式组件(parsenode 列表) */
+	bool		if_not_exists;	/* 模式已存在则什么都不做? */
 } CreateSchemaStmt;
 
 typedef enum DropBehavior
 {
-	DROP_RESTRICT,				/* drop fails if any dependent objects */
-	DROP_CASCADE				/* remove dependent objects too */
+	DROP_RESTRICT,				/* 有依赖对象则删除失败 */
+	DROP_CASCADE				/* 也删除依赖对象 */
 } DropBehavior;
 
 /* ----------------------
@@ -2162,41 +2162,41 @@ typedef enum DropBehavior
 typedef struct AlterTableStmt
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* table to work on */
-	List	   *cmds;			/* list of subcommands */
-	ObjectType	objtype;		/* type of object */
-	bool		missing_ok;		/* skip error if table missing */
+	RangeVar   *relation;		/* 要操作的表 */
+	List	   *cmds;			/* 子命令列表 */
+	ObjectType	objtype;		/* 对象类型 */
+	bool		missing_ok;		/* 表缺失时跳过错误 */
 } AlterTableStmt;
 
 typedef enum AlterTableType
 {
-	AT_AddColumn,				/* add column */
-	AT_AddColumnToView,			/* implicitly via CREATE OR REPLACE VIEW */
-	AT_ColumnDefault,			/* alter column default */
-	AT_CookedColumnDefault,		/* add a pre-cooked column default */
-	AT_DropNotNull,				/* alter column drop not null */
-	AT_SetNotNull,				/* alter column set not null */
-	AT_DropExpression,			/* alter column drop expression */
-	AT_CheckNotNull,			/* check column is already marked not null */
-	AT_SetStatistics,			/* alter column set statistics */
-	AT_SetOptions,				/* alter column set ( options ) */
-	AT_ResetOptions,			/* alter column reset ( options ) */
-	AT_SetStorage,				/* alter column set storage */
-	AT_SetCompression,			/* alter column set compression */
-	AT_DropColumn,				/* drop column */
-	AT_AddIndex,				/* add index */
+	AT_AddColumn,				/* 加列 */
+	AT_AddColumnToView,			/* 隐式经 CREATE OR REPLACE VIEW */
+	AT_ColumnDefault,			/* 改列默认值 */
+	AT_CookedColumnDefault,		/* 加预烹的列默认值 */
+	AT_DropNotNull,				/* 改列去掉 not-null */
+	AT_SetNotNull,				/* 改列设为 not-null */
+	AT_DropExpression,			/* 改列去掉表达式 */
+	AT_CheckNotNull,			/* 检查列是否已标 not-null */
+	AT_SetStatistics,			/* 改列设置统计 */
+	AT_SetOptions,				/* 改列 SET (选项) */
+	AT_ResetOptions,			/* 改列 RESET (选项) */
+	AT_SetStorage,				/* 改列设置存储 */
+	AT_SetCompression,			/* 改列设置压缩 */
+	AT_DropColumn,				/* 删列 */
+	AT_AddIndex,				/* 加索引 */
 	AT_ReAddIndex,				/* commands/tablecmds.c 内部 */
-	AT_AddConstraint,			/* add constraint */
+	AT_AddConstraint,			/* 加约束 */
 	AT_ReAddConstraint,			/* commands/tablecmds.c 内部 */
 	AT_ReAddDomainConstraint,	/* commands/tablecmds.c 内部 */
-	AT_AlterConstraint,			/* alter constraint */
-	AT_ValidateConstraint,		/* validate constraint */
-	AT_AddIndexConstraint,		/* add constraint using existing index */
-	AT_DropConstraint,			/* drop constraint */
+	AT_AlterConstraint,			/* 改约束 */
+	AT_ValidateConstraint,		/* 验证约束 */
+	AT_AddIndexConstraint,		/* 用已有索引加约束 */
+	AT_DropConstraint,			/* 删约束 */
 	AT_ReAddComment,			/* commands/tablecmds.c 内部 */
-	AT_AlterColumnType,			/* alter column type */
-	AT_AlterColumnGenericOptions,	/* alter column OPTIONS (...) */
-	AT_ChangeOwner,				/* change owner */
+	AT_AlterColumnType,			/* 改列类型 */
+	AT_AlterColumnGenericOptions,	/* 改列 OPTIONS (...) */
+	AT_ChangeOwner,				/* 改所有者 */
 	AT_ClusterOn,				/* CLUSTER ON */
 	AT_DropCluster,				/* SET WITHOUT CLUSTER */
 	AT_SetLogged,				/* SET LOGGED */
@@ -2206,7 +2206,7 @@ typedef enum AlterTableType
 	AT_SetTableSpace,			/* SET TABLESPACE */
 	AT_SetRelOptions,			/* SET (...) -- AM specific parameters */
 	AT_ResetRelOptions,			/* RESET (...) -- AM specific parameters */
-	AT_ReplaceRelOptions,		/* replace reloption list in its entirety */
+	AT_ReplaceRelOptions,		/* 整体替换 reloption 列表 */
 	AT_EnableTrig,				/* ENABLE TRIGGER name */
 	AT_EnableAlwaysTrig,		/* ENABLE ALWAYS TRIGGER name */
 	AT_EnableReplicaTrig,		/* ENABLE REPLICA TRIGGER name */
@@ -2245,10 +2245,10 @@ typedef struct ReplicaIdentityStmt
 	char	   *name;
 } ReplicaIdentityStmt;
 
-typedef struct AlterTableCmd	/* one subcommand of an ALTER TABLE */
+typedef struct AlterTableCmd	/* ALTER TABLE 的一个子命令 */
 {
 	NodeTag		type;
-	AlterTableType subtype;		/* Type of table alteration to apply */
+	AlterTableType subtype;		/* 要应用的表变更类型 */
 	char	   *name;			/* column, constraint, or trigger to act on,
 								 * or tablespace */
 	int16		num;			/* attribute number for columns referenced by
@@ -2258,7 +2258,7 @@ typedef struct AlterTableCmd	/* one subcommand of an ALTER TABLE */
 								 * constraint, or parent table */
 	DropBehavior behavior;		/* DROP 情形 RESTRICT 或 CASCADE */
 	bool		missing_ok;		/* 缺失时跳过错误? */
-	bool		recurse;		/* exec-time recursion */
+	bool		recurse;		/* 执行时递归 */
 } AlterTableCmd;
 
 
@@ -2291,9 +2291,9 @@ typedef struct AlterDomainStmt
 								 *	X = drop constraint
 								 *------------
 								 */
-	List	   *typeName;		/* domain to work on */
-	char	   *name;			/* column or constraint name to act on */
-	Node	   *def;			/* definition of default or constraint */
+	List	   *typeName;		/* 要操作的域 */
+	char	   *name;			/* 要作用的列或约束名 */
+	Node	   *def;			/* 默认值或约束的定义 */
 	DropBehavior behavior;		/* DROP 情形 RESTRICT 或 CASCADE */
 	bool		missing_ok;		/* 缺失时跳过错误? */
 } AlterDomainStmt;
@@ -2305,8 +2305,8 @@ typedef struct AlterDomainStmt
  */
 typedef enum GrantTargetType
 {
-	ACL_TARGET_OBJECT,			/* grant on specific named object(s) */
-	ACL_TARGET_ALL_IN_SCHEMA,	/* grant on all objects in given schema(s) */
+	ACL_TARGET_OBJECT,			/* 对特定命名对象授权 */
+	ACL_TARGET_ALL_IN_SCHEMA,	/* 对给定模式中全部对象授权 */
 	ACL_TARGET_DEFAULTS			/* ALTER DEFAULT PRIVILEGES */
 } GrantTargetType;
 
@@ -2314,14 +2314,14 @@ typedef struct GrantStmt
 {
 	NodeTag		type;
 	bool		is_grant;		/* 真=GRANT,假=REVOKE */
-	GrantTargetType targtype;	/* type of the grant target */
-	ObjectType	objtype;		/* kind of object being operated on */
+	GrantTargetType targtype;	/* 授权目标的类型 */
+	ObjectType	objtype;		/* 被操作对象的种类 */
 	List	   *objects;		/* list of RangeVar nodes, ObjectWithArgs
 								 * nodes, or plain names (as String values) */
-	List	   *privileges;		/* list of AccessPriv nodes */
-	/* privileges == NIL denotes ALL PRIVILEGES */
-	List	   *grantees;		/* list of RoleSpec nodes */
-	bool		grant_option;	/* grant or revoke grant option */
+	List	   *privileges;		/* AccessPriv 节点列表 */
+	/* privileges==NIL 表示 ALL PRIVILEGES */
+	List	   *grantees;		/* RoleSpec 节点列表 */
+	bool		grant_option;	/* 授予或收回 GRANT OPTION */
 	RoleSpec   *grantor;
 	DropBehavior behavior;		/* 删除行为(供 REVOKE) */
 } GrantStmt;
@@ -2346,10 +2346,10 @@ typedef struct GrantStmt
 typedef struct ObjectWithArgs
 {
 	NodeTag		type;
-	List	   *objname;		/* qualified name of function/operator */
-	List	   *objargs;		/* list of Typename nodes (input args only) */
-	List	   *objfuncargs;	/* list of FunctionParameter nodes */
-	bool		args_unspecified;	/* argument list was omitted? */
+	List	   *objname;		/* 函数/运算符的限定名 */
+	List	   *objargs;		/* Typename 节点列表(仅输入参数) */
+	List	   *objfuncargs;	/* FunctionParameter 节点列表 */
+	bool		args_unspecified;	/* 省略了参数列表? */
 } ObjectWithArgs;
 
 /*
@@ -2362,7 +2362,7 @@ typedef struct ObjectWithArgs
 typedef struct AccessPriv
 {
 	NodeTag		type;
-	char	   *priv_name;		/* string name of privilege */
+	char	   *priv_name;		/* 特权的字符串名 */
 	List	   *cols;			/* String 列表 */
 } AccessPriv;
 
@@ -2378,11 +2378,11 @@ typedef struct AccessPriv
 typedef struct GrantRoleStmt
 {
 	NodeTag		type;
-	List	   *granted_roles;	/* list of roles to be granted/revoked */
-	List	   *grantee_roles;	/* list of member roles to add/delete */
+	List	   *granted_roles;	/* 要授予/收回的角色列表 */
+	List	   *grantee_roles;	/* 要添加/删除成员角色列表 */
 	bool		is_grant;		/* 真=GRANT,假=REVOKE */
-	List	   *opt;			/* options e.g. WITH GRANT OPTION */
-	RoleSpec   *grantor;		/* set grantor to other than current role */
+	List	   *opt;			/* 选项,如 WITH GRANT OPTION */
+	RoleSpec   *grantor;		/* 将授予者设为非当前角色 */
 	DropBehavior behavior;		/* 删除行为(供 REVOKE) */
 } GrantRoleStmt;
 
@@ -2394,7 +2394,7 @@ typedef struct AlterDefaultPrivilegesStmt
 {
 	NodeTag		type;
 	List	   *options;		/* DefElem 列表 */
-	GrantStmt  *action;			/* GRANT/REVOKE action (with objects=NIL) */
+	GrantStmt  *action;			/* GRANT/REVOKE 动作(objects=NIL) */
 } AlterDefaultPrivilegesStmt;
 
 /* ----------------------
@@ -2408,16 +2408,16 @@ typedef struct AlterDefaultPrivilegesStmt
 typedef struct CopyStmt
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* the relation to copy */
+	RangeVar   *relation;		/* 要拷贝的关系 */
 	Node	   *query;			/* the query (SELECT or DML statement with
 								 * RETURNING) to copy, as a raw parse tree */
 	List	   *attlist;		/* List of column names (as Strings), or NIL
 								 * for all columns */
 	bool		is_from;		/* TO or FROM */
-	bool		is_program;		/* is 'filename' a program to popen? */
-	char	   *filename;		/* filename, or NULL for STDIN/STDOUT */
+	bool		is_program;		/* 'filename' 为要 popen 程序? */
+	char	   *filename;		/* 文件名,STDIN/STDOUT 则为 NULL */
 	List	   *options;		/* DefElem 节点列表 */
-	Node	   *whereClause;	/* WHERE condition (or NULL) */
+	Node	   *whereClause;	/* WHERE 条件(或 NULL) */
 } CopyStmt;
 
 /* ----------------------
@@ -2432,7 +2432,7 @@ typedef enum VariableSetKind
 	VAR_SET_VALUE,				/* SET var = value */
 	VAR_SET_DEFAULT,			/* SET var TO DEFAULT */
 	VAR_SET_CURRENT,			/* SET var FROM CURRENT */
-	VAR_SET_MULTI,				/* special case for SET TRANSACTION ... */
+	VAR_SET_MULTI,				/* SET TRANSACTION ... 的特例 */
 	VAR_RESET,					/* RESET var */
 	VAR_RESET_ALL				/* RESET ALL */
 } VariableSetKind;
@@ -2441,8 +2441,8 @@ typedef struct VariableSetStmt
 {
 	NodeTag		type;
 	VariableSetKind kind;
-	char	   *name;			/* variable to be set */
-	List	   *args;			/* List of A_Const nodes */
+	char	   *name;			/* 要设置的变量 */
+	List	   *args;			/* A_Const 节点列表 */
 	bool		is_local;		/* SET LOCAL? */
 } VariableSetStmt;
 
@@ -2470,18 +2470,18 @@ typedef struct VariableShowStmt
 typedef struct CreateStmt
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* relation to create */
-	List	   *tableElts;		/* column definitions (list of ColumnDef) */
+	RangeVar   *relation;		/* 要创建的关系 */
+	List	   *tableElts;		/* 列定义(ColumnDef 列表) */
 	List	   *inhRelations;	/* relations to inherit from (list of
 								 * RangeVar) */
-	PartitionBoundSpec *partbound;	/* FOR VALUES clause */
-	PartitionSpec *partspec;	/* PARTITION BY clause */
+	PartitionBoundSpec *partbound;	/* FOR VALUES 子句 */
+	PartitionSpec *partspec;	/* PARTITION BY 子句 */
 	TypeName   *ofTypename;		/* OF typename */
 	List	   *constraints;	/* 约束(Constraint 节点列表) */
 	List	   *options;		/* 来自 WITH 子句选项 */
-	OnCommitAction oncommit;	/* what do we do at COMMIT? */
-	char	   *tablespacename; /* table space to use, or NULL */
-	char	   *accessMethod;	/* table access method */
+	OnCommitAction oncommit;	/* COMMIT 时做什么? */
+	char	   *tablespacename; /* 要用的表空间,或 NULL */
+	char	   *accessMethod;	/* 表访问方法 */
 	bool		if_not_exists;	/* 已存在则什么都不做? */
 } CreateStmt;
 
@@ -2516,7 +2516,7 @@ typedef struct CreateStmt
  * ----------
  */
 
-typedef enum ConstrType			/* types of constraints */
+typedef enum ConstrType			/* 约束类型 */
 {
 	CONSTR_NULL,				/* not standard SQL, but a lot of people
 								 * expect it */
@@ -2529,20 +2529,20 @@ typedef enum ConstrType			/* types of constraints */
 	CONSTR_UNIQUE,
 	CONSTR_EXCLUSION,
 	CONSTR_FOREIGN,
-	CONSTR_ATTR_DEFERRABLE,		/* attributes for previous constraint node */
+	CONSTR_ATTR_DEFERRABLE,		/* 上一约束节点的属性 */
 	CONSTR_ATTR_NOT_DEFERRABLE,
 	CONSTR_ATTR_DEFERRED,
 	CONSTR_ATTR_IMMEDIATE
 } ConstrType;
 
-/* Foreign key action codes */
+/* 外键动作代码 */
 #define FKCONSTR_ACTION_NOACTION	'a'
 #define FKCONSTR_ACTION_RESTRICT	'r'
 #define FKCONSTR_ACTION_CASCADE		'c'
 #define FKCONSTR_ACTION_SETNULL		'n'
 #define FKCONSTR_ACTION_SETDEFAULT	'd'
 
-/* Foreign key matchtype codes */
+/* 外键匹配类型代码 */
 #define FKCONSTR_MATCH_FULL			'f'
 #define FKCONSTR_MATCH_PARTIAL		'p'
 #define FKCONSTR_MATCH_SIMPLE		's'
@@ -2554,53 +2554,53 @@ typedef struct Constraint
 	NodeTag		type;
 	ConstrType	contype;		/* 见上 */
 
-	/* Fields used for most/all constraint types: */
+	/* 多数/全部约束类型使用的字段: */
 	char	   *conname;		/* 约束名,未命名则为 NULL */
 	bool		deferrable;		/* DEFERRABLE? */
 	bool		initdeferred;	/* INITIALLY DEFERRED? */
 	int			location;		/* 记号位置,未知则为 -1 */
 
-	/* Fields used for constraints with expressions (CHECK and DEFAULT): */
-	bool		is_no_inherit;	/* is constraint non-inheritable? */
-	Node	   *raw_expr;		/* expr, as untransformed parse tree */
-	char	   *cooked_expr;	/* expr, as nodeToString representation */
+	/* 带表达式约束(CHECK 与 DEFAULT)使用的字段: */
+	bool		is_no_inherit;	/* 约束是否不可继承? */
+	Node	   *raw_expr;		/* 表达式,未变换的解析树 */
+	char	   *cooked_expr;	/* 表达式,nodeToString 表示 */
 	char		generated_when; /* ALWAYS or BY DEFAULT */
 
-	/* Fields used for unique constraints (UNIQUE and PRIMARY KEY): */
+	/* 唯一约束(UNIQUE 与 PRIMARY KEY)使用的字段: */
 	bool		nulls_not_distinct; /* UNIQUE 约束的空值处理 */
 	List	   *keys;			/* String nodes naming referenced key
 								 * column(s) */
 	List	   *including;		/* String nodes naming referenced nonkey
 								 * column(s) */
 
-	/* Fields used for EXCLUSION constraints: */
-	List	   *exclusions;		/* list of (IndexElem, operator name) pairs */
+	/* 排他约束使用的字段: */
+	List	   *exclusions;		/* (IndexElem, 运算符名)对列表 */
 
-	/* Fields used for index constraints (UNIQUE, PRIMARY KEY, EXCLUSION): */
+	/* 索引约束(UNIQUE/PRIMARY KEY/EXCLUSION)使用的字段: */
 	List	   *options;		/* 来自 WITH 子句选项 */
-	char	   *indexname;		/* existing index to use; otherwise NULL */
-	char	   *indexspace;		/* index tablespace; NULL for default */
+	char	   *indexname;		/* 要用的已有索引;否则 NULL */
+	char	   *indexspace;		/* 索引表空间;NULL 表示默认 */
 	bool		reset_default_tblspc;	/* reset default_tablespace prior to
 										 * creating the index */
-	/* These could be, but currently are not, used for UNIQUE/PKEY: */
-	char	   *access_method;	/* index access method; NULL for default */
-	Node	   *where_clause;	/* partial index predicate */
+	/* 这些本可用于 UNIQUE/PKEY,但当前未用: */
+	char	   *access_method;	/* 索引访问方法;NULL 表示默认 */
+	Node	   *where_clause;	/* 部分索引谓词 */
 
-	/* Fields used for FOREIGN KEY constraints: */
-	RangeVar   *pktable;		/* Primary key table */
-	List	   *fk_attrs;		/* Attributes of foreign key */
-	List	   *pk_attrs;		/* Corresponding attrs in PK table */
+	/* 外键约束使用的字段: */
+	RangeVar   *pktable;		/* 主键表 */
+	List	   *fk_attrs;		/* 外键属性 */
+	List	   *pk_attrs;		/* 主键表中对应属性 */
 	char		fk_matchtype;	/* FULL, PARTIAL, SIMPLE */
-	char		fk_upd_action;	/* ON UPDATE action */
-	char		fk_del_action;	/* ON DELETE action */
+	char		fk_upd_action;	/* ON UPDATE 动作 */
+	char		fk_del_action;	/* ON DELETE 动作 */
 	List	   *fk_del_set_cols;	/* ON DELETE SET NULL/DEFAULT (col1, col2) */
-	List	   *old_conpfeqop;	/* pg_constraint.conpfeqop of my former self */
+	List	   *old_conpfeqop;	/* 先前自身的 pg_constraint.conpfeqop */
 	Oid			old_pktable_oid;	/* pg_constraint.confrelid of my former
 									 * self */
 
-	/* Fields used for constraints that allow a NOT VALID specification */
-	bool		skip_validation;	/* skip validation of existing rows? */
-	bool		initially_valid;	/* mark the new constraint as valid? */
+	/* 允许 NOT VALID 规格的约束使用的字段 */
+	bool		skip_validation;	/* 跳过对已有行的验证? */
+	bool		initially_valid;	/* 将新约束标为有效? */
 } Constraint;
 
 /* ----------------------
@@ -2637,7 +2637,7 @@ typedef struct AlterTableMoveAllStmt
 	NodeTag		type;
 	char	   *orig_tablespacename;
 	ObjectType	objtype;		/* Object type to move */
-	List	   *roles;			/* List of roles to move objects of */
+	List	   *roles;			/* 要移动其对象角色列表 */
 	char	   *new_tablespacename;
 	bool		nowait;
 } AlterTableMoveAllStmt;
@@ -2655,7 +2655,7 @@ typedef struct CreateExtensionStmt
 	List	   *options;		/* DefElem 节点列表 */
 } CreateExtensionStmt;
 
-/* Only used for ALTER EXTENSION UPDATE; later might need an action field */
+/* 仅用于 ALTER EXTENSION UPDATE;日后或需动作字段 */
 typedef struct AlterExtensionStmt
 {
 	NodeTag		type;
@@ -2666,8 +2666,8 @@ typedef struct AlterExtensionStmt
 typedef struct AlterExtensionContentsStmt
 {
 	NodeTag		type;
-	char	   *extname;		/* Extension's name */
-	int			action;			/* +1 = add object, -1 = drop object */
+	char	   *extname;		/* 扩展名 */
+	int			action;			/* +1=加对象,-1=删对象 */
 	ObjectType	objtype;		/* 对象类型 */
 	Node	   *object;			/* 对象的限定名 */
 } AlterExtensionContentsStmt;
@@ -2702,9 +2702,9 @@ typedef struct CreateForeignServerStmt
 {
 	NodeTag		type;
 	char	   *servername;		/* server name */
-	char	   *servertype;		/* optional server type */
+	char	   *servertype;		/* 服务器类型 */
 	char	   *version;		/* 可选服务器版本 */
-	char	   *fdwname;		/* FDW name */
+	char	   *fdwname;		/* FDW 名 */
 	bool		if_not_exists;	/* 已存在则什么都不做? */
 	List	   *options;		/* 服务器的通用选项 */
 } CreateForeignServerStmt;
@@ -2715,7 +2715,7 @@ typedef struct AlterForeignServerStmt
 	char	   *servername;		/* server name */
 	char	   *version;		/* 可选服务器版本 */
 	List	   *options;		/* 服务器的通用选项 */
-	bool		has_version;	/* version specified */
+	bool		has_version;	/* 指定了版本 */
 } AlterForeignServerStmt;
 
 /* ----------------------
@@ -2757,7 +2757,7 @@ typedef struct DropUserMappingStmt
 	NodeTag		type;
 	RoleSpec   *user;			/* user role */
 	char	   *servername;		/* server name */
-	bool		missing_ok;		/* ignore missing mappings */
+	bool		missing_ok;		/* 忽略缺失映射 */
 } DropUserMappingStmt;
 
 /* ----------------------
@@ -2767,20 +2767,20 @@ typedef struct DropUserMappingStmt
 
 typedef enum ImportForeignSchemaType
 {
-	FDW_IMPORT_SCHEMA_ALL,		/* all relations wanted */
-	FDW_IMPORT_SCHEMA_LIMIT_TO, /* include only listed tables in import */
-	FDW_IMPORT_SCHEMA_EXCEPT	/* exclude listed tables from import */
+	FDW_IMPORT_SCHEMA_ALL,		/* 需要全部关系 */
+	FDW_IMPORT_SCHEMA_LIMIT_TO, /* 导入仅含列出的表 */
+	FDW_IMPORT_SCHEMA_EXCEPT	/* 从导入排除列出的表 */
 } ImportForeignSchemaType;
 
 typedef struct ImportForeignSchemaStmt
 {
 	NodeTag		type;
 	char	   *server_name;	/* FDW server name */
-	char	   *remote_schema;	/* remote schema name to query */
-	char	   *local_schema;	/* local schema to create objects in */
-	ImportForeignSchemaType list_type;	/* type of table list */
-	List	   *table_list;		/* List of RangeVar */
-	List	   *options;		/* list of options to pass to FDW */
+	char	   *remote_schema;	/* 要查询的远程模式名 */
+	char	   *local_schema;	/* 在其中创建对象本地模式 */
+	ImportForeignSchemaType list_type;	/* 表列表类型 */
+	List	   *table_list;		/* RangeVar 列表 */
+	List	   *options;		/* 传给 FDW 的选项列表 */
 } ImportForeignSchemaStmt;
 
 /*----------------------
@@ -2792,8 +2792,8 @@ typedef struct CreatePolicyStmt
 	NodeTag		type;
 	char	   *policy_name;	/* 策略名 */
 	RangeVar   *table;			/* 策略适用的表名 */
-	char	   *cmd_name;		/* the command name the policy applies to */
-	bool		permissive;		/* restrictive or permissive policy */
+	char	   *cmd_name;		/* 策略适用的命令名 */
+	bool		permissive;		/* 限制性或许可性策略 */
 	List	   *roles;			/* 与策略关联的角色 */
 	Node	   *qual;			/* 策略条件 */
 	Node	   *with_check;		/* 策略的 WITH CHECK 条件。 */
@@ -2820,9 +2820,9 @@ typedef struct AlterPolicyStmt
 typedef struct CreateAmStmt
 {
 	NodeTag		type;
-	char	   *amname;			/* access method name */
-	List	   *handler_name;	/* handler function name */
-	char		amtype;			/* type of access method */
+	char	   *amname;			/* 访问方法名 */
+	List	   *handler_name;	/* 处理函数名 */
+	char		amtype;			/* 访问方法类型 */
 } CreateAmStmt;
 
 /* ----------------------
@@ -2832,22 +2832,22 @@ typedef struct CreateAmStmt
 typedef struct CreateTrigStmt
 {
 	NodeTag		type;
-	bool		replace;		/* replace trigger if already exists */
-	bool		isconstraint;	/* This is a constraint trigger */
+	bool		replace;		/* 已存在则替换触发器 */
+	bool		isconstraint;	/* 这是约束触发器 */
 	char	   *trigname;		/* 触发器名 */
-	RangeVar   *relation;		/* relation trigger is on */
+	RangeVar   *relation;		/* 触发器所在关系 */
 	List	   *funcname;		/* 要调用函数的限定名 */
-	List	   *args;			/* list of String or NIL */
+	List	   *args;			/* String 列表或 NIL */
 	bool		row;			/* ROW/STATEMENT */
-	/* timing uses the TRIGGER_TYPE bits defined in catalog/pg_trigger.h */
+	/* 时机使用 catalog/pg_trigger.h 中定义的 TRIGGER_TYPE 位 */
 	int16		timing;			/* BEFORE, AFTER, or INSTEAD */
-	/* events uses the TRIGGER_TYPE bits defined in catalog/pg_trigger.h */
-	int16		events;			/* "OR" of INSERT/UPDATE/DELETE/TRUNCATE */
-	List	   *columns;		/* column names, or NIL for all columns */
-	Node	   *whenClause;		/* qual expression, or NULL if none */
-	/* explicitly named transition data */
-	List	   *transitionRels; /* TriggerTransition nodes, or NIL if none */
-	/* The remaining fields are only used for constraint triggers */
+	/* 事件使用 catalog/pg_trigger.h 中定义的 TRIGGER_TYPE 位 */
+	int16		events;			/* INSERT/UPDATE/DELETE/TRUNCATE 的 OR */
+	List	   *columns;		/* 列名,全部列则为 NIL */
+	Node	   *whenClause;		/* 限定表达式,无则为 NULL */
+	/* 显式命名的过渡数据 */
+	List	   *transitionRels; /* TriggerTransition 节点,无则为 NIL */
+	/* 其余字段仅用于约束触发器 */
 	bool		deferrable;		/* [NOT] DEFERRABLE */
 	bool		initdeferred;	/* INITIALLY {DEFERRED|IMMEDIATE} */
 	RangeVar   *constrrel;		/* opposite relation, if RI trigger */
@@ -2861,8 +2861,8 @@ typedef struct CreateEventTrigStmt
 {
 	NodeTag		type;
 	char	   *trigname;		/* 触发器名 */
-	char	   *eventname;		/* event's identifier */
-	List	   *whenclause;		/* list of DefElems indicating filtering */
+	char	   *eventname;		/* 事件标识符 */
+	List	   *whenclause;		/* 指示过滤的 DefElem 列表 */
 	List	   *funcname;		/* 要调用函数的限定名 */
 } CreateEventTrigStmt;
 
@@ -2886,11 +2886,11 @@ typedef struct CreatePLangStmt
 {
 	NodeTag		type;
 	bool		replace;		/* T => 已存在则替换 */
-	char	   *plname;			/* PL name */
-	List	   *plhandler;		/* PL call handler function (qual. name) */
-	List	   *plinline;		/* optional inline function (qual. name) */
-	List	   *plvalidator;	/* optional validator function (qual. name) */
-	bool		pltrusted;		/* PL is trusted */
+	char	   *plname;			/* PL 名 */
+	List	   *plhandler;		/* PL 调用处理函数(限定名) */
+	List	   *plinline;		/* 可选内联函数(限定名) */
+	List	   *plvalidator;	/* 可选验证函数(限定名) */
+	bool		pltrusted;		/* PL 受信任 */
 } CreatePLangStmt;
 
 /* ----------------------
@@ -2913,7 +2913,7 @@ typedef struct CreateRoleStmt
 {
 	NodeTag		type;
 	RoleStmtType stmt_type;		/* ROLE/USER/GROUP */
-	char	   *role;			/* role name */
+	char	   *role;			/* 角色名 */
 	List	   *options;		/* DefElem 节点列表 */
 } CreateRoleStmt;
 
@@ -2922,21 +2922,21 @@ typedef struct AlterRoleStmt
 	NodeTag		type;
 	RoleSpec   *role;			/* role */
 	List	   *options;		/* DefElem 节点列表 */
-	int			action;			/* +1 = add members, -1 = drop members */
+	int			action;			/* +1=加成员,-1=删成员 */
 } AlterRoleStmt;
 
 typedef struct AlterRoleSetStmt
 {
 	NodeTag		type;
 	RoleSpec   *role;			/* role */
-	char	   *database;		/* database name, or NULL */
+	char	   *database;		/* 数据库名,或 NULL */
 	VariableSetStmt *setstmt;	/* SET 或 RESET 子命令 */
 } AlterRoleSetStmt;
 
 typedef struct DropRoleStmt
 {
 	NodeTag		type;
-	List	   *roles;			/* List of roles to remove */
+	List	   *roles;			/* 要移除角色列表 */
 	bool		missing_ok;		/* 角色缺失时跳过错误? */
 } DropRoleStmt;
 
@@ -2948,9 +2948,9 @@ typedef struct DropRoleStmt
 typedef struct CreateSeqStmt
 {
 	NodeTag		type;
-	RangeVar   *sequence;		/* the sequence to create */
+	RangeVar   *sequence;		/* 要创建的序列 */
 	List	   *options;
-	Oid			ownerId;		/* ID of owner, or InvalidOid for default */
+	Oid			ownerId;		/* 所有者 ID,默认则为 InvalidOid */
 	bool		for_identity;
 	bool		if_not_exists;	/* 已存在则什么都不做? */
 } CreateSeqStmt;
@@ -2958,7 +2958,7 @@ typedef struct CreateSeqStmt
 typedef struct AlterSeqStmt
 {
 	NodeTag		type;
-	RangeVar   *sequence;		/* the sequence to alter */
+	RangeVar   *sequence;		/* 要更改的序列 */
 	List	   *options;
 	bool		for_identity;
 	bool		missing_ok;		/* 角色缺失时跳过错误? */
@@ -2972,12 +2972,12 @@ typedef struct DefineStmt
 {
 	NodeTag		type;
 	ObjectType	kind;			/* aggregate, operator, type */
-	bool		oldstyle;		/* hack to signal old CREATE AGG syntax */
+	bool		oldstyle;		/* 供表示旧 CREATE AGG 语法技巧 */
 	List	   *defnames;		/* 限定名(String 列表) */
-	List	   *args;			/* a list of TypeName (if needed) */
+	List	   *args;			/* TypeName 列表(若需要) */
 	List	   *definition;		/* DefElem 列表 */
 	bool		if_not_exists;	/* 已存在则什么都不做? */
-	bool		replace;		/* replace if already exists? */
+	bool		replace;		/* 已存在则替换? */
 } DefineStmt;
 
 /* ----------------------
@@ -2988,8 +2988,8 @@ typedef struct CreateDomainStmt
 {
 	NodeTag		type;
 	List	   *domainname;		/* 限定名(String 列表) */
-	TypeName   *typeName;		/* the base type */
-	CollateClause *collClause;	/* untransformed COLLATE spec, if any */
+	TypeName   *typeName;		/* 基类型 */
+	CollateClause *collClause;	/* 未变换 COLLATE 规格(若有) */
 	List	   *constraints;	/* 约束(Constraint 节点列表) */
 } CreateDomainStmt;
 
@@ -3001,11 +3001,11 @@ typedef struct CreateOpClassStmt
 {
 	NodeTag		type;
 	List	   *opclassname;	/* 限定名(String 列表) */
-	List	   *opfamilyname;	/* qualified name (ditto); NIL if omitted */
+	List	   *opfamilyname;	/* 限定名(同上);省略则为 NIL */
 	char	   *amname;			/* name of index AM opclass is for */
-	TypeName   *datatype;		/* datatype of indexed column */
+	TypeName   *datatype;		/* 被索引列数据类型 */
 	List	   *items;			/* CreateOpClassItem 节点列表 */
-	bool		isDefault;		/* Should be marked as default for type? */
+	bool		isDefault;		/* 应标为该类型的默认? */
 } CreateOpClassStmt;
 
 #define OPCLASS_ITEM_OPERATOR		1
@@ -3015,13 +3015,13 @@ typedef struct CreateOpClassStmt
 typedef struct CreateOpClassItem
 {
 	NodeTag		type;
-	int			itemtype;		/* see codes above */
-	ObjectWithArgs *name;		/* operator or function name and args */
-	int			number;			/* strategy num or support proc num */
-	List	   *order_family;	/* only used for ordering operators */
+	int			itemtype;		/* 见上方代码 */
+	ObjectWithArgs *name;		/* 运算符或函数名与参数 */
+	int			number;			/* 策略号或支持过程号 */
+	List	   *order_family;	/* 仅用于排序运算符 */
 	List	   *class_args;		/* amproclefttype/amprocrighttype or
 								 * amoplefttype/amoprighttype */
-	/* fields used for a storagetype item: */
+	/* storagetype 项使用的字段: */
 	TypeName   *storedtype;		/* datatype stored in index */
 } CreateOpClassItem;
 
@@ -3057,11 +3057,11 @@ typedef struct AlterOpFamilyStmt
 typedef struct DropStmt
 {
 	NodeTag		type;
-	List	   *objects;		/* list of names */
+	List	   *objects;		/* 名字列表 */
 	ObjectType	removeType;		/* object type */
 	DropBehavior behavior;		/* RESTRICT 或 CASCADE 行为 */
-	bool		missing_ok;		/* skip error if object is missing? */
-	bool		concurrent;		/* drop index concurrently? */
+	bool		missing_ok;		/* 对象缺失时跳过错误? */
+	bool		concurrent;		/* 并发删除索引? */
 } DropStmt;
 
 /* ----------------------
@@ -3071,8 +3071,8 @@ typedef struct DropStmt
 typedef struct TruncateStmt
 {
 	NodeTag		type;
-	List	   *relations;		/* relations (RangeVars) to be truncated */
-	bool		restart_seqs;	/* restart owned sequences? */
+	List	   *relations;		/* 要截断的关系(RangeVar) */
+	bool		restart_seqs;	/* 重启所拥有序列? */
 	DropBehavior behavior;		/* RESTRICT 或 CASCADE 行为 */
 } TruncateStmt;
 
@@ -3085,7 +3085,7 @@ typedef struct CommentStmt
 	NodeTag		type;
 	ObjectType	objtype;		/* 对象类型 */
 	Node	   *object;			/* 对象的限定名 */
-	char	   *comment;		/* Comment to insert, or NULL to remove */
+	char	   *comment;		/* 要插入的注释,NULL 表示移除 */
 } CommentStmt;
 
 /* ----------------------
@@ -3098,7 +3098,7 @@ typedef struct SecLabelStmt
 	ObjectType	objtype;		/* 对象类型 */
 	Node	   *object;			/* 对象的限定名 */
 	char	   *provider;		/* Label provider (or NULL) */
-	char	   *label;			/* New security label to be assigned */
+	char	   *label;			/* 要赋的新安全标签 */
 } SecLabelStmt;
 
 /* ----------------------
@@ -3110,22 +3110,22 @@ typedef struct SecLabelStmt
  * ----------------------
  */
 #define CURSOR_OPT_BINARY		0x0001	/* BINARY */
-#define CURSOR_OPT_SCROLL		0x0002	/* SCROLL explicitly given */
+#define CURSOR_OPT_SCROLL		0x0002	/* 显式给出了 SCROLL */
 #define CURSOR_OPT_NO_SCROLL	0x0004	/* NO SCROLL explicitly given */
 #define CURSOR_OPT_INSENSITIVE	0x0008	/* INSENSITIVE */
 #define CURSOR_OPT_ASENSITIVE	0x0010	/* ASENSITIVE */
 #define CURSOR_OPT_HOLD			0x0020	/* WITH HOLD */
-/* these planner-control flags do not correspond to any SQL grammar: */
+/* 这些规划器控制标志不对应任何 SQL 语法: */
 #define CURSOR_OPT_FAST_PLAN	0x0100	/* prefer fast-start plan */
-#define CURSOR_OPT_GENERIC_PLAN 0x0200	/* force use of generic plan */
-#define CURSOR_OPT_CUSTOM_PLAN	0x0400	/* force use of custom plan */
+#define CURSOR_OPT_GENERIC_PLAN 0x0200	/* 强制用通用计划 */
+#define CURSOR_OPT_CUSTOM_PLAN	0x0400	/* 强制用定制计划 */
 #define CURSOR_OPT_PARALLEL_OK	0x0800	/* parallel mode OK */
 
 typedef struct DeclareCursorStmt
 {
 	NodeTag		type;
 	char	   *portalname;		/* 门户(游标)名 */
-	int			options;		/* bitmask of options (see above) */
+	int			options;		/* 选项位掩码(见上) */
 	Node	   *query;			/* 查询(见上方注释) */
 } DeclareCursorStmt;
 
@@ -3146,10 +3146,10 @@ typedef struct ClosePortalStmt
  */
 typedef enum FetchDirection
 {
-	/* for these, howMany is how many rows to fetch; FETCH_ALL means ALL */
+	/* 对这些,howMany 为要取行数;FETCH_ALL 表示 ALL */
 	FETCH_FORWARD,
 	FETCH_BACKWARD,
-	/* for these, howMany indicates a position; only one row is fetched */
+	/* 对这些,howMany 表示位置;只取一行 */
 	FETCH_ABSOLUTE,
 	FETCH_RELATIVE
 } FetchDirection;
@@ -3160,8 +3160,8 @@ typedef struct FetchStmt
 {
 	NodeTag		type;
 	FetchDirection direction;	/* 见上 */
-	long		howMany;		/* number of rows, or position argument */
-	char	   *portalname;		/* name of portal (cursor) */
+	long		howMany;		/* 行数,或位置参数 */
+	char	   *portalname;		/* 门户(游标)名 */
 	bool		ismove;			/* true if MOVE */
 } FetchStmt;
 
@@ -3931,7 +3931,7 @@ typedef enum AlterTSConfigType
 typedef struct AlterTSConfigurationStmt
 {
 	NodeTag		type;
-	AlterTSConfigType kind;		/* ALTER_TSCONFIG_ADD_MAPPING, etc */
+	AlterTSConfigType kind;		/* ALTER_TSCONFIG_ADD_MAPPING 等 */
 	List	   *cfgname;		/* 限定名(String 列表) */
 
 	/*
@@ -3939,18 +3939,18 @@ typedef struct AlterTSConfigurationStmt
 	 * NIL, but tokentype isn't, DROP MAPPING was specified.
 	 */
 	List	   *tokentype;		/* String 列表 */
-	List	   *dicts;			/* list of list of String */
-	bool		override;		/* if true - remove old variant */
-	bool		replace;		/* if true - replace dictionary by another */
-	bool		missing_ok;		/* for DROP - skip error if missing? */
+	List	   *dicts;			/* String 列表之列表 */
+	bool		override;		/* 为真则移除旧变体 */
+	bool		replace;		/* 为真则用另一词典替换 */
+	bool		missing_ok;		/* DROP 时缺失则跳过错误? */
 } AlterTSConfigurationStmt;
 
 typedef struct PublicationTable
 {
 	NodeTag		type;
-	RangeVar   *relation;		/* relation to be published */
+	RangeVar   *relation;		/* 要发布的关系 */
 	Node	   *whereClause;	/* 限定条件 */
-	List	   *columns;		/* List of columns in a publication table */
+	List	   *columns;		/* 发布表中的列列表 */
 } PublicationTable;
 
 /*
@@ -3959,16 +3959,16 @@ typedef struct PublicationTable
 typedef enum PublicationObjSpecType
 {
 	PUBLICATIONOBJ_TABLE,		/* A table */
-	PUBLICATIONOBJ_TABLES_IN_SCHEMA,	/* All tables in schema */
+	PUBLICATIONOBJ_TABLES_IN_SCHEMA,	/* 模式中全部表 */
 	PUBLICATIONOBJ_TABLES_IN_CUR_SCHEMA,	/* All tables in first element of
 											 * search_path */
-	PUBLICATIONOBJ_CONTINUATION /* Continuation of previous type */
+	PUBLICATIONOBJ_CONTINUATION /* 上一类型的延续 */
 } PublicationObjSpecType;
 
 typedef struct PublicationObjSpec
 {
 	NodeTag		type;
-	PublicationObjSpecType pubobjtype;	/* type of this publication object */
+	PublicationObjSpecType pubobjtype;	/* 本发布对象的类型 */
 	char	   *name;
 	PublicationTable *pubtable;
 	int			location;		/* 记号位置,未知则为 -1 */
@@ -3985,9 +3985,9 @@ typedef struct CreatePublicationStmt
 
 typedef enum AlterPublicationAction
 {
-	AP_AddObjects,				/* add objects to publication */
-	AP_DropObjects,				/* remove objects from publication */
-	AP_SetObjects				/* set list of objects */
+	AP_AddObjects,				/* 向发布添加对象 */
+	AP_DropObjects,				/* 从发布移除对象 */
+	AP_SetObjects				/* 设置对象列表 */
 } AlterPublicationAction;
 
 typedef struct AlterPublicationStmt
@@ -3995,7 +3995,7 @@ typedef struct AlterPublicationStmt
 	NodeTag		type;
 	char	   *pubname;		/* 发布名 */
 
-	/* parameters used for ALTER PUBLICATION ... WITH */
+	/* ALTER PUBLICATION ... WITH 所用参数 */
 	List	   *options;		/* DefElem 节点列表 */
 
 	/*
@@ -4032,7 +4032,7 @@ typedef enum AlterSubscriptionType
 typedef struct AlterSubscriptionStmt
 {
 	NodeTag		type;
-	AlterSubscriptionType kind; /* ALTER_SUBSCRIPTION_OPTIONS, etc */
+	AlterSubscriptionType kind; /* ALTER_SUBSCRIPTION_OPTIONS 等 */
 	char	   *subname;		/* 订阅名 */
 	char	   *conninfo;		/* 到发布者的连接串 */
 	List	   *publication;	/* 要订阅的一个或多个发布 */
@@ -4043,7 +4043,7 @@ typedef struct DropSubscriptionStmt
 {
 	NodeTag		type;
 	char	   *subname;		/* 订阅名 */
-	bool		missing_ok;		/* Skip error if missing? */
+	bool		missing_ok;		/* 缺失时跳过错误? */
 	DropBehavior behavior;		/* RESTRICT 或 CASCADE 行为 */
 } DropSubscriptionStmt;
 

@@ -18,7 +18,7 @@
 
 /*
  * 始终带 SSPI 支持构建。保留为 #define 以便
- * 将来某处想关掉它。
+ * 将来某时想关掉它。
  */
 #define ENABLE_SSPI 1
 

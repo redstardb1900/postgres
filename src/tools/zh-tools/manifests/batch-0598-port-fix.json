@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0598",
+ "title": "include/port win32_port 审查清偿 — batch 0598",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1b5887d48d31001f655964299fb2efdedac47742",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/port/win32_port.h",
+   "kind": "c_comment",
+   "note": "0598 review-fix"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0598-port-fix.json",
+   "kind": "manifest",
+   "note": "0598"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/port/win32_port.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L21 sometime→某时（时/地限定语）"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0598-port-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0598"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0598 manifest only"
+  }
+ ],
+ "notes": "0597 审查 FAIL 清偿：win32_port.h:21 sometime in the future 误译「某处」→「某时」；预算 30B≤EN 57B。"
+}

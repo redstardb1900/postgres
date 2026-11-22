@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0567",
+  "title": "include/utils snapshot — batch 0567",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d274da0ea5100208d39b31a4dc4e215d7a89f66e",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/snapshot.h",
+      "kind": "c_comment",
+      "note": "0567"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0567-utils.json",
+      "kind": "manifest",
+      "note": "0567"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/snapshot.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 120,
+      "translated": 108,
+      "preserved": 12,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩"
+      ],
+      "note": "0567 T=108"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0567-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0567"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0567"
+    }
+  ],
+  "notes": "超预算等义压缩；_not_ KEEP EN"
+}

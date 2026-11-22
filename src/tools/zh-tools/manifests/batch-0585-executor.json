@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0585",
+ "title": "include/executor execExpr — batch 0585",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ecb92ba5ec430228b86e368087a88ca74625cabb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/executor/execExpr.h",
+   "kind": "c_comment",
+   "note": "0585"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0585-executor.json",
+   "kind": "manifest",
+   "note": "0585"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/executor/execExpr.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 255,
+   "translated": 151,
+   "preserved": 104,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；复合缓存/AND/DEFORM/步骤布局/严格检查长文 KEEP EN；for EEOP_* 标签 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0585 T=151"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0585-executor.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0585"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0585"
+  }
+ ],
+ "notes": "短注/字段已译；EEOP 标签与长文 KEEP EN"
+}

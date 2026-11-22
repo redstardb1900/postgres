@@ -17,30 +17,30 @@
 #include "executor/nodeAgg.h"
 #include "nodes/execnodes.h"
 
-/* forward references to avoid circularity */
+/*  前向引用以避免循环  */
 struct ExprEvalStep;
 struct SubscriptingRefState;
 struct ScalarArrayOpExprHashTable;
 struct JsonConstructorExprState;
 
-/* Bits in ExprState->flags (see also execnodes.h for public flag bits): */
-/* expression's interpreter has been initialized */
+/*  ExprState->flags 中的位(公共标志亦见 execnodes.h):  */
+/*  表达式解释器已初始化  */
 #define EEO_FLAG_INTERPRETER_INITIALIZED	(1 << 1)
-/* jump-threading is in use */
+/*  使用跳转穿线  */
 #define EEO_FLAG_DIRECT_THREADED			(1 << 2)
 
-/* Typical API for out-of-line evaluation subroutines */
+/*  线外求值子程序的典型 API  */
 typedef void (*ExecEvalSubroutine) (ExprState *state,
 									struct ExprEvalStep *op,
 									ExprContext *econtext);
 
-/* API for out-of-line evaluation subroutines returning bool */
+/*  返回 bool 的线外求值子程序 API  */
 typedef bool (*ExecEvalBoolSubroutine) (ExprState *state,
 										struct ExprEvalStep *op,
 										ExprContext *econtext);
 
-/* ExprEvalSteps that cache a composite type's tupdesc need one of these */
-/* (it fits in-line in some step types, otherwise allocate out-of-line) */
+/*  缓存复合类型 tupdesc 的步骤需其一  */
+/*  (可内联于某些步骤,否则线外分配)  */
 typedef struct ExprEvalRowtypeCache
 {
 	/*
@@ -50,7 +50,7 @@ typedef struct ExprEvalRowtypeCache
 	 * if space were not at a premium.)  Initial state is cacheptr == NULL.
 	 */
 	void	   *cacheptr;
-	uint64		tupdesc_id;		/* last-seen tupdesc identifier, or 0 */
+	uint64		tupdesc_id;		/*  上次 tupdesc 标识,或 0  */
 } ExprEvalRowtypeCache;
 
 /*
@@ -64,25 +64,25 @@ typedef struct ExprEvalRowtypeCache
  */
 typedef enum ExprEvalOp
 {
-	/* entire expression has been evaluated completely, return */
+	/*  整个表达式已求值完毕,返回  */
 	EEOP_DONE,
 
-	/* apply slot_getsomeattrs on corresponding tuple slot */
+	/*  对相应元组槽应用 slot_getsomeattrs  */
 	EEOP_INNER_FETCHSOME,
 	EEOP_OUTER_FETCHSOME,
 	EEOP_SCAN_FETCHSOME,
 
-	/* compute non-system Var value */
+	/*  计算非系统 Var 值  */
 	EEOP_INNER_VAR,
 	EEOP_OUTER_VAR,
 	EEOP_SCAN_VAR,
 
-	/* compute system Var value */
+	/*  计算系统 Var 值  */
 	EEOP_INNER_SYSVAR,
 	EEOP_OUTER_SYSVAR,
 	EEOP_SCAN_SYSVAR,
 
-	/* compute wholerow Var */
+	/*  计算整行 Var  */
 	EEOP_WHOLEROW,
 
 	/*
@@ -94,12 +94,12 @@ typedef enum ExprEvalOp
 	EEOP_ASSIGN_OUTER_VAR,
 	EEOP_ASSIGN_SCAN_VAR,
 
-	/* assign ExprState's resvalue/resnull to a column of its resultslot */
+	/*  把 resvalue/resnull 赋给 resultslot 一列  */
 	EEOP_ASSIGN_TMP,
-	/* ditto, applying MakeExpandedObjectReadOnly() */
+	/*  同上,并 MakeExpandedObjectReadOnly()  */
 	EEOP_ASSIGN_TMP_MAKE_RO,
 
-	/* evaluate Const value */
+	/*  求值 Const 值  */
 	EEOP_CONST,
 
 	/*
@@ -122,51 +122,51 @@ typedef enum ExprEvalOp
 	EEOP_BOOL_AND_STEP,
 	EEOP_BOOL_AND_STEP_LAST,
 
-	/* similarly for boolean OR expression */
+	/*  布尔 OR 表达式同理  */
 	EEOP_BOOL_OR_STEP_FIRST,
 	EEOP_BOOL_OR_STEP,
 	EEOP_BOOL_OR_STEP_LAST,
 
-	/* evaluate boolean NOT expression */
+	/*  求值布尔 NOT 表达式  */
 	EEOP_BOOL_NOT_STEP,
 
-	/* simplified version of BOOL_AND_STEP for use by ExecQual() */
+	/*  ExecQual() 用的 BOOL_AND_STEP 简化版  */
 	EEOP_QUAL,
 
-	/* unconditional jump to another step */
+	/*  无条件跳到另一步  */
 	EEOP_JUMP,
 
-	/* conditional jumps based on current result value */
+	/*  基于当前结果值的条件跳转  */
 	EEOP_JUMP_IF_NULL,
 	EEOP_JUMP_IF_NOT_NULL,
 	EEOP_JUMP_IF_NOT_TRUE,
 
-	/* perform NULL tests for scalar values */
+	/*  对标量值做 NULL 测试  */
 	EEOP_NULLTEST_ISNULL,
 	EEOP_NULLTEST_ISNOTNULL,
 
-	/* perform NULL tests for row values */
+	/*  对行值做 NULL 测试  */
 	EEOP_NULLTEST_ROWISNULL,
 	EEOP_NULLTEST_ROWISNOTNULL,
 
-	/* evaluate a BooleanTest expression */
+	/*  求值 BooleanTest 表达式  */
 	EEOP_BOOLTEST_IS_TRUE,
 	EEOP_BOOLTEST_IS_NOT_TRUE,
 	EEOP_BOOLTEST_IS_FALSE,
 	EEOP_BOOLTEST_IS_NOT_FALSE,
 
-	/* evaluate PARAM_EXEC/EXTERN parameters */
+	/*  求值 PARAM_EXEC/EXTERN 参数  */
 	EEOP_PARAM_EXEC,
 	EEOP_PARAM_EXTERN,
 	EEOP_PARAM_CALLBACK,
 
-	/* return CaseTestExpr value */
+	/*  返回 CaseTestExpr 值  */
 	EEOP_CASE_TESTVAL,
 
-	/* apply MakeExpandedObjectReadOnly() to target value */
+	/*  对目标应用 MakeExpandedObjectReadOnly()  */
 	EEOP_MAKE_READONLY,
 
-	/* evaluate assorted special-purpose expression types */
+	/*  求值各类专用表达式类型  */
 	EEOP_IOCOERCE,
 	EEOP_DISTINCT,
 	EEOP_NOT_DISTINCT,
@@ -184,13 +184,13 @@ typedef enum ExprEvalOp
 	 */
 	EEOP_ROWCOMPARE_STEP,
 
-	/* evaluate boolean value based on previous ROWCOMPARE_STEP operations */
+	/*  基于先前 ROWCOMPARE_STEP 求布尔值  */
 	EEOP_ROWCOMPARE_FINAL,
 
-	/* evaluate GREATEST() or LEAST() */
+	/*  求值 GREATEST/LEAST  */
 	EEOP_MINMAX,
 
-	/* evaluate FieldSelect expression */
+	/*  求值 FieldSelect 表达式  */
 	EEOP_FIELDSELECT,
 
 	/*
@@ -206,7 +206,7 @@ typedef enum ExprEvalOp
 	 */
 	EEOP_FIELDSTORE_FORM,
 
-	/* Process container subscripts; possibly short-circuit result to NULL */
+	/*  处理容器下标;可能短路为 NULL  */
 	EEOP_SBSREF_SUBSCRIPTS,
 
 	/*
@@ -216,22 +216,22 @@ typedef enum ExprEvalOp
 	 */
 	EEOP_SBSREF_OLD,
 
-	/* compute new value for SubscriptingRef assignment expression */
+	/*  计算 SubscriptingRef 赋值的新值  */
 	EEOP_SBSREF_ASSIGN,
 
-	/* compute element/slice for SubscriptingRef fetch expression */
+	/*  计算 SubscriptingRef 取数的元素/切片  */
 	EEOP_SBSREF_FETCH,
 
-	/* evaluate value for CoerceToDomainValue */
+	/*  求值 CoerceToDomainValue 的值  */
 	EEOP_DOMAIN_TESTVAL,
 
-	/* evaluate a domain's NOT NULL constraint */
+	/*  求值域的 NOT NULL 约束  */
 	EEOP_DOMAIN_NOTNULL,
 
-	/* evaluate a single domain CHECK constraint */
+	/*  求值单个域 CHECK 约束  */
 	EEOP_DOMAIN_CHECK,
 
-	/* evaluate assorted special-purpose expression types */
+	/*  求值各类专用表达式类型  */
 	EEOP_CONVERT_ROWTYPE,
 	EEOP_SCALARARRAYOP,
 	EEOP_HASHED_SCALARARRAYOP,
@@ -243,7 +243,7 @@ typedef enum ExprEvalOp
 	EEOP_WINDOW_FUNC,
 	EEOP_SUBPLAN,
 
-	/* aggregation related nodes */
+	/*  聚合相关节点  */
 	EEOP_AGG_STRICT_DESERIALIZE,
 	EEOP_AGG_DESERIALIZE,
 	EEOP_AGG_STRICT_INPUT_CHECK_ARGS,
@@ -260,7 +260,7 @@ typedef enum ExprEvalOp
 	EEOP_AGG_ORDERED_TRANS_DATUM,
 	EEOP_AGG_ORDERED_TRANS_TUPLE,
 
-	/* non-existent operation, used e.g. to check array lengths */
+	/*  不存在的操作,如检查数组长度  */
 	EEOP_LAST
 } ExprEvalOp;
 
@@ -274,7 +274,7 @@ typedef struct ExprEvalStep
 	 */
 	intptr_t	opcode;
 
-	/* where to store the result of this step */
+	/*  存放本步结果的位置  */
 	Datum	   *resvalue;
 	bool	   *resnull;
 
@@ -289,55 +289,55 @@ typedef struct ExprEvalStep
 		/* for EEOP_INNER/OUTER/SCAN_FETCHSOME */
 		struct
 		{
-			/* attribute number up to which to fetch (inclusive) */
+			/*  取到的属性号上界(含)  */
 			int			last_var;
-			/* will the type of slot be the same for every invocation */
+			/*  槽类型每次调用是否相同  */
 			bool		fixed;
-			/* tuple descriptor, if known */
+			/*  元组描述符,若已知 */
 			TupleDesc	known_desc;
-			/* type of slot, can only be relied upon if fixed is set */
+			/*  槽类型,仅 fixed 置位时可信  */
 			const TupleTableSlotOps *kind;
 		}			fetch;
 
 		/* for EEOP_INNER/OUTER/SCAN_[SYS]VAR[_FIRST] */
 		struct
 		{
-			/* attnum is attr number - 1 for regular VAR ... */
-			/* but it's just the normal (negative) attr number for SYSVAR */
+			/*  普通 VAR 的 attnum 为属性号减 1 ...  */
+			/*  但对 SYSVAR 就是正常(负)属性号  */
 			int			attnum;
-			Oid			vartype;	/* type OID of variable */
+			Oid			vartype;	/*  变量类型 OID  */
 		}			var;
 
 		/* for EEOP_WHOLEROW */
 		struct
 		{
-			Var		   *var;	/* original Var node in plan tree */
-			bool		first;	/* first time through, need to initialize? */
-			bool		slow;	/* need runtime check for nulls? */
-			TupleDesc	tupdesc;	/* descriptor for resulting tuples */
-			JunkFilter *junkFilter; /* JunkFilter to remove resjunk cols */
+			Var		   *var;	/*  计划树中的原始 Var  */
+			bool		first;	/*  首次通过,需初始化?  */
+			bool		slow;	/*  需运行时空值检查?  */
+			TupleDesc	tupdesc;	/*  结果元组的描述符  */
+			JunkFilter *junkFilter; /*  去 resjunk 列的 JunkFilter  */
 		}			wholerow;
 
 		/* for EEOP_ASSIGN_*_VAR */
 		struct
 		{
-			/* target index in ExprState->resultslot->tts_values/nulls */
+			/*  resultslot->tts_values/nulls 目标下标  */
 			int			resultnum;
-			/* source attribute number - 1 */
+			/*  源属性号减 1  */
 			int			attnum;
 		}			assign_var;
 
 		/* for EEOP_ASSIGN_TMP[_MAKE_RO] */
 		struct
 		{
-			/* target index in ExprState->resultslot->tts_values/nulls */
+			/*  resultslot->tts_values/nulls 目标下标  */
 			int			resultnum;
 		}			assign_tmp;
 
 		/* for EEOP_CONST */
 		struct
 		{
-			/* constant's value */
+			/*  常量的值  */
 			Datum		value;
 			bool		isnull;
 		}			constval;
@@ -345,77 +345,77 @@ typedef struct ExprEvalStep
 		/* for EEOP_FUNCEXPR_* / NULLIF / DISTINCT */
 		struct
 		{
-			FmgrInfo   *finfo;	/* function's lookup data */
-			FunctionCallInfo fcinfo_data;	/* arguments etc */
-			/* faster to access without additional indirection: */
-			PGFunction	fn_addr;	/* actual call address */
-			int			nargs;	/* number of arguments */
-			bool		make_ro;	/* make arg0 R/O (used only for NULLIF) */
+			FmgrInfo   *finfo;	/*  函数查找数据  */
+			FunctionCallInfo fcinfo_data;	/*  参数等  */
+			/*  无额外间接访问更快:  */
+			PGFunction	fn_addr;	/*  实际调用地址 */
+			int			nargs;	/*  参数个数  */
+			bool		make_ro;	/*  使 arg0 只读(仅 NULLIF)  */
 		}			func;
 
 		/* for EEOP_BOOL_*_STEP */
 		struct
 		{
 			bool	   *anynull;	/* track if any input was NULL */
-			int			jumpdone;	/* jump here if result determined */
+			int			jumpdone;	/*  结果已定时跳到此处  */
 		}			boolexpr;
 
 		/* for EEOP_QUAL */
 		struct
 		{
-			int			jumpdone;	/* jump here on false or null */
+			int			jumpdone;	/*  假或空时跳到此处  */
 		}			qualexpr;
 
 		/* for EEOP_JUMP[_CONDITION] */
 		struct
 		{
-			int			jumpdone;	/* target instruction's index */
+			int			jumpdone;	/*  目标指令的下标  */
 		}			jump;
 
 		/* for EEOP_NULLTEST_ROWIS[NOT]NULL */
 		struct
 		{
-			/* cached descriptor for composite type - filled at runtime */
+			/*  复合类型缓存描述符 - 运行时填  */
 			ExprEvalRowtypeCache rowcache;
 		}			nulltest_row;
 
 		/* for EEOP_PARAM_EXEC/EXTERN */
 		struct
 		{
-			int			paramid;	/* numeric ID for parameter */
-			Oid			paramtype;	/* OID of parameter's datatype */
+			int			paramid;	/*  参数的数字 ID  */
+			Oid			paramtype;	/*  参数数据类型 OID  */
 		}			param;
 
 		/* for EEOP_PARAM_CALLBACK */
 		struct
 		{
-			ExecEvalSubroutine paramfunc;	/* add-on evaluation subroutine */
-			void	   *paramarg;	/* private data for same */
-			int			paramid;	/* numeric ID for parameter */
-			Oid			paramtype;	/* OID of parameter's datatype */
+			ExecEvalSubroutine paramfunc;	/*  附加求值子程序  */
+			void	   *paramarg;	/*  同上私有数据  */
+			int			paramid;	/*  参数数字 ID  */
+			Oid			paramtype;	/*  参数数据类型 OID  */
 		}			cparam;
 
 		/* for EEOP_CASE_TESTVAL/DOMAIN_TESTVAL */
 		struct
 		{
-			Datum	   *value;	/* value to return */
+			Datum	   *value;	/*  返回值  */
 			bool	   *isnull;
 		}			casetest;
 
 		/* for EEOP_MAKE_READONLY */
 		struct
 		{
-			Datum	   *value;	/* value to coerce to read-only */
+			Datum	   *value;	/*  要强制为只读的值  */
 			bool	   *isnull;
 		}			make_readonly;
 
 		/* for EEOP_IOCOERCE */
 		struct
 		{
-			/* lookup and call info for source type's output function */
+			/*  源类型输出函数的查找与调用信息  */
 			FmgrInfo   *finfo_out;
 			FunctionCallInfo fcinfo_data_out;
-			/* lookup and call info for result type's input function */
+			/*  结果类型输入函数的查找与调用信息  */
 			FmgrInfo   *finfo_in;
 			FunctionCallInfo fcinfo_data_in;
 		}			iocoerce;
@@ -436,13 +436,13 @@ typedef struct ExprEvalStep
 		/* for EEOP_ARRAYEXPR */
 		struct
 		{
-			Datum	   *elemvalues; /* element values get stored here */
+			Datum	   *elemvalues; /*  元素值存于此  */
 			bool	   *elemnulls;
-			int			nelems; /* length of the above arrays */
+			int			nelems; /*  上述数组的长度  */
 			Oid			elemtype;	/* array element type */
-			int16		elemlength; /* typlen of the array element type */
-			bool		elembyval;	/* is the element type pass-by-value? */
-			char		elemalign;	/* typalign of the element type */
+			int16		elemlength; /*  数组元素类型的 typlen  */
+			bool		elembyval;	/*  元素类型是否按值传递?  */
+			char		elemalign;	/*  元素类型的 typalign  */
 			bool		multidims;	/* is array expression multi-D? */
 		}			arrayexpr;
 
@@ -450,15 +450,15 @@ typedef struct ExprEvalStep
 		struct
 		{
 			ExprState  *elemexprstate;	/* null if no per-element work */
-			Oid			resultelemtype; /* element type of result array */
-			struct ArrayMapState *amstate;	/* workspace for array_map */
+			Oid			resultelemtype; /*  结果数组的元素类型 */
+			struct ArrayMapState *amstate;	/*  array_map 的工作区 */
 		}			arraycoerce;
 
 		/* for EEOP_ROW */
 		struct
 		{
-			TupleDesc	tupdesc;	/* descriptor for result tuples */
-			/* workspace for the values constituting the row: */
+			TupleDesc	tupdesc;	/*  结果元组的描述符  */
+			/*  构成行的值的工作区:  */
 			Datum	   *elemvalues;
 			bool	   *elemnulls;
 		}			row;
@@ -466,13 +466,13 @@ typedef struct ExprEvalStep
 		/* for EEOP_ROWCOMPARE_STEP */
 		struct
 		{
-			/* lookup and call data for column comparison function */
+			/*  列比较函数的查找与调用数据  */
 			FmgrInfo   *finfo;
 			FunctionCallInfo fcinfo_data;
 			PGFunction	fn_addr;
-			/* target for comparison resulting in NULL */
+			/*  比较得 NULL 时的跳转目标  */
 			int			jumpnull;
-			/* target for comparison yielding inequality */
+			/*  比较得不等时的跳转目标  */
 			int			jumpdone;
 		}			rowcompare_step;
 
@@ -485,13 +485,13 @@ typedef struct ExprEvalStep
 		/* for EEOP_MINMAX */
 		struct
 		{
-			/* workspace for argument values */
+			/*  参数值的工作区  */
 			Datum	   *values;
 			bool	   *nulls;
 			int			nelems;
-			/* is it GREATEST or LEAST? */
+			/*  GREATEST 还是 LEAST?  */
 			MinMaxOp	op;
-			/* lookup and call data for comparison function */
+			/*  比较函数的查找与调用数据  */
 			FmgrInfo   *finfo;
 			FunctionCallInfo fcinfo_data;
 		}			minmax;
@@ -499,23 +499,23 @@ typedef struct ExprEvalStep
 		/* for EEOP_FIELDSELECT */
 		struct
 		{
-			AttrNumber	fieldnum;	/* field number to extract */
+			AttrNumber	fieldnum;	/*  要提取的字段号  */
 			Oid			resulttype; /* field's type */
-			/* cached descriptor for composite type - filled at runtime */
+			/*  复合类型缓存描述符 - 运行时填  */
 			ExprEvalRowtypeCache rowcache;
 		}			fieldselect;
 
 		/* for EEOP_FIELDSTORE_DEFORM / FIELDSTORE_FORM */
 		struct
 		{
-			/* original expression node */
+			/*  原始表达式节点  */
 			FieldStore *fstore;
 
-			/* cached descriptor for composite type - filled at runtime */
-			/* note that a DEFORM and FORM pair share the same cache */
+			/*  复合类型缓存描述符 - 运行时填  */
+			/*  DEFORM 与 FORM 对共享同一缓存  */
 			ExprEvalRowtypeCache *rowcache;
 
-			/* workspace for column values */
+			/*  列值的工作区  */
 			Datum	   *values;
 			bool	   *nulls;
 			int			ncolumns;
@@ -524,77 +524,77 @@ typedef struct ExprEvalStep
 		/* for EEOP_SBSREF_SUBSCRIPTS */
 		struct
 		{
-			ExecEvalBoolSubroutine subscriptfunc;	/* evaluation subroutine */
-			/* too big to have inline */
+			ExecEvalBoolSubroutine subscriptfunc;	/*  求值子程序  */
+			/*  太大无法内联  */
 			struct SubscriptingRefState *state;
-			int			jumpdone;	/* jump here on null */
+			int			jumpdone;	/*  空则跳此处  */
 		}			sbsref_subscript;
 
 		/* for EEOP_SBSREF_OLD / ASSIGN / FETCH */
 		struct
 		{
-			ExecEvalSubroutine subscriptfunc;	/* evaluation subroutine */
-			/* too big to have inline */
+			ExecEvalSubroutine subscriptfunc;	/*  求值子程序  */
+			/*  太大无法内联  */
 			struct SubscriptingRefState *state;
 		}			sbsref;
 
 		/* for EEOP_DOMAIN_NOTNULL / DOMAIN_CHECK */
 		struct
 		{
-			/* name of constraint */
+			/*  约束名  */
 			char	   *constraintname;
-			/* where the result of a CHECK constraint will be stored */
+			/*  CHECK 约束结果存放处  */
 			Datum	   *checkvalue;
 			bool	   *checknull;
-			/* OID of domain type */
+			/*  域类型的 OID  */
 			Oid			resulttype;
 		}			domaincheck;
 
 		/* for EEOP_CONVERT_ROWTYPE */
 		struct
 		{
-			Oid			inputtype;	/* input composite type */
-			Oid			outputtype; /* output composite type */
-			/* these three fields are filled at runtime: */
-			ExprEvalRowtypeCache *incache;	/* cache for input type */
-			ExprEvalRowtypeCache *outcache; /* cache for output type */
-			TupleConversionMap *map;	/* column mapping */
+			Oid			inputtype;	/*  输入复合类型  */
+			Oid			outputtype; /*  输出复合类型  */
+			/*  这三个字段在运行时填充:  */
+			ExprEvalRowtypeCache *incache;	/*  输入类型缓存  */
+			ExprEvalRowtypeCache *outcache; /*  输出类型缓存  */
+			TupleConversionMap *map;	/*  列映射  */
 		}			convert_rowtype;
 
 		/* for EEOP_SCALARARRAYOP */
 		struct
 		{
-			/* element_type/typlen/typbyval/typalign are filled at runtime */
-			Oid			element_type;	/* InvalidOid if not yet filled */
-			bool		useOr;	/* use OR or AND semantics? */
-			int16		typlen; /* array element type storage info */
+			/*  element_type/typlen/typbyval/typalign 运行时填  */
+			Oid			element_type;	/*  未填则为 InvalidOid  */
+			bool		useOr;	/*  OR 还是 AND 语义?  */
+			int16		typlen; /*  数组元素类型存储信息 */
 			bool		typbyval;
 			char		typalign;
-			FmgrInfo   *finfo;	/* function's lookup data */
-			FunctionCallInfo fcinfo_data;	/* arguments etc */
-			/* faster to access without additional indirection: */
-			PGFunction	fn_addr;	/* actual call address */
+			FmgrInfo   *finfo;	/*  函数查找数据  */
+			FunctionCallInfo fcinfo_data;	/*  参数等  */
+			/*  无额外间接访问更快:  */
+			PGFunction	fn_addr;	/*  实际调用地址 */
 		}			scalararrayop;
 
 		/* for EEOP_HASHED_SCALARARRAYOP */
 		struct
 		{
 			bool		has_nulls;
-			bool		inclause;	/* true for IN and false for NOT IN */
+			bool		inclause;	/*  IN 为真,NOT IN 为假  */
 			struct ScalarArrayOpExprHashTable *elements_tab;
-			FmgrInfo   *finfo;	/* function's lookup data */
-			FunctionCallInfo fcinfo_data;	/* arguments etc */
+			FmgrInfo   *finfo;	/*  函数查找数据  */
+			FunctionCallInfo fcinfo_data;	/*  参数等  */
 			ScalarArrayOpExpr *saop;
 		}			hashedscalararrayop;
 
 		/* for EEOP_XMLEXPR */
 		struct
 		{
-			XmlExpr    *xexpr;	/* original expression node */
-			/* workspace for evaluating named args, if any */
+			XmlExpr    *xexpr;	/*  原始表达式节点  */
+			/*  命名参数求值工作区,若有  */
 			Datum	   *named_argvalue;
 			bool	   *named_argnull;
-			/* workspace for evaluating unnamed args, if any */
+			/*  未命名参数求值工作区,若有  */
 			Datum	   *argvalue;
 			bool	   *argnull;
 		}			xmlexpr;
@@ -614,20 +614,20 @@ typedef struct ExprEvalStep
 		/* for EEOP_GROUPING_FUNC */
 		struct
 		{
-			List	   *clauses;	/* integer list of column numbers */
+			List	   *clauses;	/*  列号的整数列表  */
 		}			grouping_func;
 
 		/* for EEOP_WINDOW_FUNC */
 		struct
 		{
-			/* out-of-line state, modified by nodeWindowAgg.c */
+			/*  线外状态,由 nodeWindowAgg.c 修改  */
 			WindowFuncExprState *wfstate;
 		}			window_func;
 
 		/* for EEOP_SUBPLAN */
 		struct
 		{
-			/* out-of-line state, created by nodeSubplan.c */
+			/*  线外状态,由 nodeSubplan.c 创建  */
 			SubPlanState *sstate;
 		}			subplan;
 
@@ -687,58 +687,58 @@ typedef struct ExprEvalStep
 		/* for EEOP_IS_JSON */
 		struct
 		{
-			JsonIsPredicate *pred;	/* original expression node */
+			JsonIsPredicate *pred;	/*  原始表达式节点  */
 		}			is_json;
 
 	}			d;
 } ExprEvalStep;
 
-/* Enforce the size rule given in the comment above */
+/*  强制遵守上文注释中的大小规则  */
 StaticAssertDecl(sizeof(ExprEvalStep) <= 64,
 				 "size of ExprEvalStep exceeds 64 bytes");
 
 
-/* Non-inline data for container operations */
+/*  容器操作的非内联数据  */
 typedef struct SubscriptingRefState
 {
-	bool		isassignment;	/* is it assignment, or just fetch? */
+	bool		isassignment;	/*  是赋值还是仅取数?  */
 
-	/* workspace for type-specific subscripting code */
+	/*  类型专用下标代码的工作区  */
 	void	   *workspace;
 
-	/* numupper and upperprovided[] are filled at expression compile time */
-	/* at runtime, subscripts are computed in upperindex[]/upperindexnull[] */
+	/*  numupper 与 upperprovided[] 编译时填  */
+	/*  运行时下标在 upperindex[]/upperindexnull[]  */
 	int			numupper;
-	bool	   *upperprovided;	/* indicates if this position is supplied */
+	bool	   *upperprovided;	/*  指示此位置是否已提供  */
 	Datum	   *upperindex;
 	bool	   *upperindexnull;
 
-	/* similarly for lower indexes, if any */
+	/*  下界下标同理,若有  */
 	int			numlower;
 	bool	   *lowerprovided;
 	Datum	   *lowerindex;
 	bool	   *lowerindexnull;
 
-	/* for assignment, new value to assign is evaluated into here */
+	/*  赋值时新值求值到此处  */
 	Datum		replacevalue;
 	bool		replacenull;
 
-	/* if we have a nested assignment, sbs_fetch_old puts old value here */
+	/*  嵌套赋值时 sbs_fetch_old 放旧值于此  */
 	Datum		prevvalue;
 	bool		prevnull;
 } SubscriptingRefState;
 
-/* Execution step methods used for SubscriptingRef */
+/*  SubscriptingRef 使用的执行步方法  */
 typedef struct SubscriptExecSteps
 {
-	/* See nodes/subscripting.h for more detail about these */
-	ExecEvalBoolSubroutine sbs_check_subscripts;	/* process subscripts */
-	ExecEvalSubroutine sbs_fetch;	/* fetch an element */
-	ExecEvalSubroutine sbs_assign;	/* assign to an element */
-	ExecEvalSubroutine sbs_fetch_old;	/* fetch old value for assignment */
+	/*  更多细节见 nodes/subscripting.h  */
+	ExecEvalBoolSubroutine sbs_check_subscripts;	/*  处理下标  */
+	ExecEvalSubroutine sbs_fetch;	/*  取一元素  */
+	ExecEvalSubroutine sbs_assign;	/*  赋给一元素  */
+	ExecEvalSubroutine sbs_fetch_old;	/*  为赋值取旧值  */
 } SubscriptExecSteps;
 
-/* EEOP_JSON_CONSTRUCTOR state, too big to inline */
+/*  JSON_CONSTRUCTOR 状态,太大无法内联  */
 typedef struct JsonConstructorExprState
 {
 	JsonConstructorExpr *constructor;
@@ -749,15 +749,15 @@ typedef struct JsonConstructorExprState
 	{
 		int			category;
 		Oid			outfuncid;
-	}		   *arg_type_cache; /* cache for datum_to_json[b]() */
+	}		   *arg_type_cache; /*  datum_to_json[b]() 缓存  */
 	int			nargs;
 } JsonConstructorExprState;
 
 
-/* functions in execExpr.c */
+/*  execExpr.c 中函数  */
 extern void ExprEvalPushStep(ExprState *es, const ExprEvalStep *s);
 
-/* functions in execExprInterp.c */
+/*  execExprInterp.c 中函数  */
 extern void ExecReadyInterpretedExpr(ExprState *state);
 extern ExprEvalOp ExecEvalStepOp(ExprState *state, ExprEvalStep *op);
 

@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * plancache.h
- *	  Plan cache definitions.
+ *	  计划缓存定义。
  *
- * See plancache.c for comments.
+ * 注释见 plancache.c。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,10 +23,10 @@
 #include "utils/resowner.h"
 
 
-/* Forward declaration, to avoid including parsenodes.h here */
+/*  前向声明，避免在此包含 parsenodes.h  */
 struct RawStmt;
 
-/* possible values for plan_cache_mode */
+/*  plan_cache_mode 的可能取值  */
 typedef enum
 {
 	PLAN_CACHE_MODE_AUTO,
@@ -34,7 +34,7 @@ typedef enum
 	PLAN_CACHE_MODE_FORCE_CUSTOM_PLAN
 }			PlanCacheMode;
 
-/* GUC parameter */
+/*  GUC 参数  */
 extern PGDLLIMPORT int plan_cache_mode;
 
 #define CACHEDPLANSOURCE_MAGIC		195726186
@@ -42,146 +42,146 @@ extern PGDLLIMPORT int plan_cache_mode;
 #define CACHEDEXPR_MAGIC			838275847
 
 /*
- * CachedPlanSource (which might better have been called CachedQuery)
- * represents a SQL query that we expect to use multiple times.  It stores
- * the query source text, the raw parse tree, and the analyzed-and-rewritten
- * query tree, as well as adjunct data.  Cache invalidation can happen as a
- * result of DDL affecting objects used by the query.  In that case we discard
- * the analyzed-and-rewritten query tree, and rebuild it when next needed.
+ * CachedPlanSource（或许更宜称 CachedQuery）表示我们
+ * 预期会多次使用的 SQL 查询。它存储查询源文本、原始
+ * 解析树，以及分析并重写后的查询树及相关附属数据。
+ * 若 DDL 影响查询所用对象，可触发缓存失效。那时我们
+ * 丢弃分析并重写后的查询树，下次需要时再重建。
+ * 见上。
  *
- * An actual execution plan, represented by CachedPlan, is derived from the
- * CachedPlanSource when we need to execute the query.  The plan could be
- * either generic (usable with any set of plan parameters) or custom (for a
- * specific set of parameters).  plancache.c contains the logic that decides
- * which way to do it for any particular execution.  If we are using a generic
- * cached plan then it is meant to be re-used across multiple executions, so
- * callers must always treat CachedPlans as read-only.
+ * 实际执行计划由 CachedPlan 表示，在需要执行查询时自
+ * CachedPlanSource 导出。计划可以是通用的（适用于任意
+ * 计划参数集）或定制的（针对特定参数集）。plancache.c
+ * 含有对每次执行选择何种方式的逻辑。若使用通用缓存
+ * 计划，则意在跨多次执行复用，故调用方须始终把
+ * CachedPlan 视为只读。
+ * 见上。
  *
- * Once successfully built and "saved", CachedPlanSources typically live
- * for the life of the backend, although they can be dropped explicitly.
- * CachedPlans are reference-counted and go away automatically when the last
- * reference is dropped.  A CachedPlan can outlive the CachedPlanSource it
- * was created from.
+ * 一旦成功构建并"保存"，CachedPlanSources 通常贯穿
+ * 后端生命周期，虽也可显式删除。CachedPlans 按引用
+ * 计数，最后一处引用释放后自动消失。CachedPlan 可以
+ * 比创建它的 CachedPlanSource 活得更久。
+ * 见上。
  *
- * An "unsaved" CachedPlanSource can be used for generating plans, but it
- * lives in transient storage and will not be updated in response to sinval
- * events.
+ * 未保存的 CachedPlanSource 可用于生成计划，但住在
+ * 临时存储中，不会因共享失效事件而更新。
+ * 见上.
  *
- * CachedPlans made from saved CachedPlanSources are likewise in permanent
- * storage, so to avoid memory leaks, the reference-counted references to them
- * must be held in permanent data structures or ResourceOwners.  CachedPlans
- * made from unsaved CachedPlanSources are in children of the caller's
- * memory context, so references to them should not be longer-lived than
- * that context.  (Reference counting is somewhat pro forma in that case,
- * though it may be useful if the CachedPlan can be discarded early.)
+ * 由已保存 CachedPlanSource 做出的 CachedPlan 同样在永久
+ * 存储中，故为免泄漏，对其的引用计数引用须保存在永久
+ * 数据结构或 ResourceOwners 中。由未保存源做出的
+ * CachedPlan 住在调用方内存上下文之子中，对其
+ * 引用不应长于该上下文。（那种情况下引用计数有些
+ * 形式化，但若可提早丢弃 CachedPlan 仍有用。）
+ * 见上。
  *
- * A CachedPlanSource has two associated memory contexts: one that holds the
- * struct itself, the query source text and the raw parse tree, and another
- * context that holds the rewritten query tree and associated data.  This
- * allows the query tree to be discarded easily when it is invalidated.
+ * CachedPlanSource 有两个关联内存上下文：一个存放结构体
+ * 本身、查询源文本与原始解析树；另一个存放重写后的
+ * 查询树及相关数据。便于失效时丢弃查询树。
+ * 见上。
  *
- * Some callers wish to use the CachedPlan API even with one-shot queries
- * that have no reason to be saved at all.  We therefore support a "oneshot"
- * variant that does no data copying or invalidation checking.  In this case
- * there are no separate memory contexts: the CachedPlanSource struct and
- * all subsidiary data live in the caller's CurrentMemoryContext, and there
- * is no way to free memory short of clearing that entire context.  A oneshot
- * plan is always treated as unsaved.
+ * 有些调用方即使对无保存必要的一次性查询也想用
+ * CachedPlan API。故支持不做数据拷贝或失效检查的
+ * 一次性变体。此时无独立内存上下文：CachedPlanSource
+ * 结构体及全部附属数据住在调用方 CurrentMemoryContext，
+ * 除清空整个上下文外无法单独释放内存。一次性计划
+ * 一律视为未保存。
+ * 见上。
  *
- * Note: the string referenced by commandTag is not subsidiary storage;
- * it is assumed to be a compile-time-constant string.  As with portals,
- * commandTag shall be NULL if and only if the original query string (before
- * rewriting) was an empty string.
+ * 注：commandTag 所引串非附属存储；假定为编译期常量
+ * 串。与门户同，当且仅当原始查询串(重写前)为空
+ * 串时 commandTag 为 NULL。
+ * 见上。
  */
 typedef struct CachedPlanSource
 {
-	int			magic;			/* should equal CACHEDPLANSOURCE_MAGIC */
-	struct RawStmt *raw_parse_tree; /* output of raw_parser(), or NULL */
-	const char *query_string;	/* source text of query */
-	CommandTag	commandTag;		/* 'nuff said */
-	Oid		   *param_types;	/* array of parameter type OIDs, or NULL */
-	int			num_params;		/* length of param_types array */
-	ParserSetupHook parserSetup;	/* alternative parameter spec method */
+	int			magic;			/*  应等于 CACHEDPLANSOURCE_MAGIC  */
+	struct RawStmt *raw_parse_tree; /*  raw_parser() 输出或 NULL  */
+	const char *query_string;	/*  查询源文本  */
+	CommandTag	commandTag;		/*  略  */
+	Oid		   *param_types;	/*  参数类型 OIDs 数组，或 NULL  */
+	int			num_params;		/*  param_types 数组长度  */
+	ParserSetupHook parserSetup;	/*  另一种参数规格方法  */
 	void	   *parserSetupArg;
-	int			cursor_options; /* cursor options used for planning */
-	bool		fixed_result;	/* disallow change in result tupdesc? */
-	TupleDesc	resultDesc;		/* result type; NULL = doesn't return tuples */
-	MemoryContext context;		/* memory context holding all above */
-	/* These fields describe the current analyzed-and-rewritten query tree: */
-	List	   *query_list;		/* list of Query nodes, or NIL if not valid */
-	List	   *relationOids;	/* OIDs of relations the queries depend on */
-	List	   *invalItems;		/* other dependencies, as PlanInvalItems */
-	struct OverrideSearchPath *search_path; /* search_path used for parsing
-											 * and planning */
+	int			cursor_options; /*  规划所用游标选项  */
+	bool		fixed_result;	/*  禁止结果 tupdesc 变更？  */
+	TupleDesc	resultDesc;		/*  结果类型；NULL=不返回元组  */
+	MemoryContext context;		/*  容纳以上各项的上下文  */
+	/*  下列字段描述当前分析并重写后的查询树：  */
+	List	   *query_list;		/*  Query 节点列表，无效则为 NIL  */
+	List	   *relationOids;	/*  查询所依赖关系的 OIDs  */
+	List	   *invalItems;		/*  其他依赖，作 PlanInvalItems  */
+	struct OverrideSearchPath *search_path; /*  解析与规划所用的
+											 * search_path  */
 	MemoryContext query_context;	/* context holding the above, or NULL */
-	Oid			rewriteRoleId;	/* Role ID we did rewriting for */
-	bool		rewriteRowSecurity; /* row_security used during rewrite */
-	bool		dependsOnRLS;	/* is rewritten query specific to the above? */
-	/* If we have a generic plan, this is a reference-counted link to it: */
-	struct CachedPlan *gplan;	/* generic plan, or NULL if not valid */
-	/* Some state flags: */
-	bool		is_oneshot;		/* is it a "oneshot" plan? */
-	bool		is_complete;	/* has CompleteCachedPlan been done? */
-	bool		is_saved;		/* has CachedPlanSource been "saved"? */
-	bool		is_valid;		/* is the query_list currently valid? */
-	int			generation;		/* increments each time we create a plan */
-	/* If CachedPlanSource has been saved, it is a member of a global list */
-	dlist_node	node;			/* list link, if is_saved */
-	/* State kept to help decide whether to use custom or generic plans: */
-	double		generic_cost;	/* cost of generic plan, or -1 if not known */
-	double		total_custom_cost;	/* total cost of custom plans so far */
-	int64		num_custom_plans;	/* # of custom plans included in total */
-	int64		num_generic_plans;	/* # of generic plans */
+	Oid			rewriteRoleId;	/*  为之重写的角色 ID  */
+	bool		rewriteRowSecurity; /*  重写所用 row_security  */
+	bool		dependsOnRLS;	/*  重写查询是否专属于上述？  */
+	/*  若有通用计划，这是指向它的引用计数链接：  */
+	struct CachedPlan *gplan;	/*  通用计划，无效则为 NULL  */
+	/*  状态标志：  */
+	bool		is_oneshot;		/*  一次性计划？  */
+	bool		is_complete;	/*  已做完 CompleteCachedPlan？  */
+	bool		is_saved;		/*  CachedPlanSource 已"保存"？  */
+	bool		is_valid;		/*  query_list 当前是否有效？  */
+	int			generation;		/*  每次创建计划时递增  */
+	/*  若已保存，则 CachedPlanSource 是全局列表成员  */
+	dlist_node	node;			/*  链，若 is_saved  */
+	/*  用于决定用定制还是通用计划的状态：  */
+	double		generic_cost;	/*  通用计划代价，未知则为 -1  */
+	double		total_custom_cost;	/*  迄今定制计划代价合计  */
+	int64		num_custom_plans;	/*  计入合计的定制计划数  */
+	int64		num_generic_plans;	/*  通用计划数  */
 } CachedPlanSource;
 
 /*
- * CachedPlan represents an execution plan derived from a CachedPlanSource.
- * The reference count includes both the link from the parent CachedPlanSource
- * (if any), and any active plan executions, so the plan can be discarded
- * exactly when refcount goes to zero.  Both the struct itself and the
- * subsidiary data live in the context denoted by the context field.
- * This makes it easy to free a no-longer-needed cached plan.  (However,
- * if is_oneshot is true, the context does not belong solely to the CachedPlan
- * so no freeing is possible.)
+ * CachedPlan 表示自 CachedPlanSource 导出的执行计划。
+ * 引用计数含来自父 CachedPlanSource 的链接（若有）以及
+ * 任何活动计划执行，故恰好在 refcount 归零时可丢弃。
+ * 结构体本身与附属数据都住在 context 字段所指的
+ * 上下文中，便于释放不再需要的缓存计划。(但若
+ * is_oneshot 为真，该上下文并非专属 CachedPlan，
+ * 故无法释放。）
+ * 见上。
  */
 typedef struct CachedPlan
 {
-	int			magic;			/* should equal CACHEDPLAN_MAGIC */
-	List	   *stmt_list;		/* list of PlannedStmts */
-	bool		is_oneshot;		/* is it a "oneshot" plan? */
-	bool		is_saved;		/* is CachedPlan in a long-lived context? */
-	bool		is_valid;		/* is the stmt_list currently valid? */
-	Oid			planRoleId;		/* Role ID the plan was created for */
-	bool		dependsOnRole;	/* is plan specific to that role? */
-	TransactionId saved_xmin;	/* if valid, replan when TransactionXmin
-								 * changes from this value */
-	int			generation;		/* parent's generation number for this plan */
-	int			refcount;		/* count of live references to this struct */
-	MemoryContext context;		/* context containing this CachedPlan */
+	int			magic;			/*  应等于 CACHEDPLAN_MAGIC  */
+	List	   *stmt_list;		/*  PlannedStmts 表  */
+	bool		is_oneshot;		/*  一次性计划？  */
+	bool		is_saved;		/*  CachedPlan 在长寿上下文中？  */
+	bool		is_valid;		/*  stmt_list 当前是否有效？  */
+	Oid			planRoleId;		/*  创建计划的角色 ID  */
+	bool		dependsOnRole;	/*  计划专属于该角色？  */
+	TransactionId saved_xmin;	/*  若有效，当 TransactionXmin
+								 * 变化则重规划  */
+	int			generation;		/*  本计划对应的父代世代号  */
+	int			refcount;		/*  本结构存活引用计数  */
+	MemoryContext context;		/*  容纳本 CachedPlan 的上下文 */
 } CachedPlan;
 
 /*
- * CachedExpression is a low-overhead mechanism for caching the planned form
- * of standalone scalar expressions.  While such expressions are not usually
- * subject to cache invalidation events, that can happen, for example because
- * of replacement of a SQL function that was inlined into the expression.
- * The plancache takes care of storing the expression tree and marking it
- * invalid if a cache invalidation occurs, but the caller must notice the
- * !is_valid status and discard the obsolete expression without reusing it.
- * We do not store the original parse tree, only the planned expression;
- * this is an optimization based on the assumption that we usually will not
- * need to replan for the life of the session.
+ * CachedExpression 是缓存独立标量表达式已规划形式的
+ * 低开销机制。此类表达式通常不受缓存失效事件影响，
+ * 但也可能发生，例如因替换了被内联进表达式的 SQL
+ * 函数。plancache 负责存储表达式树并在失效时标为
+ * 无效，但调用方须察觉 !is_valid 并丢弃旧表达式而不
+ * 再复用。我们不存原始解析树，只存已规划表达式；
+ * 这是基于通常在会话期内不必重规划的优化假定。
+ * 见上。
+ * 见上。
+ * 见上。
  */
 typedef struct CachedExpression
 {
-	int			magic;			/* should equal CACHEDEXPR_MAGIC */
-	Node	   *expr;			/* planned form of expression */
-	bool		is_valid;		/* is the expression still valid? */
-	/* remaining fields should be treated as private to plancache.c: */
-	List	   *relationOids;	/* OIDs of relations the expr depends on */
-	List	   *invalItems;		/* other dependencies, as PlanInvalItems */
-	MemoryContext context;		/* context containing this CachedExpression */
-	dlist_node	node;			/* link in global list of CachedExpressions */
+	int			magic;			/*  应等于 CACHEDEXPR_MAGIC  */
+	Node	   *expr;			/*  表达式已规划形式  */
+	bool		is_valid;		/*  表达式是否仍有效？  */
+	/*  其余字段应视为 plancache.c 私有：  */
+	List	   *relationOids;	/*  表达式所依赖关系的 OIDs  */
+	List	   *invalItems;		/*  其他依赖，作 PlanInvalItems  */
+	MemoryContext context;		/*  容纳本 CachedExpression 的上下文 */
+	dlist_node	node;			/*  全局 CachedExpressions 列表链接  */
 } CachedExpression;
 
 

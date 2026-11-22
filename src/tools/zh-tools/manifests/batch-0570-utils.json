@@ -1,0 +1,61 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0570",
+    "title": "include/utils plancache — batch 0570",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "826232f09f569595d5ce1b767ccb85b8e615872c",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/plancache.h",
+            "kind": "c_comment",
+            "note": "0570"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0570-utils.json",
+            "kind": "manifest",
+            "note": "0570"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/plancache.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 129,
+            "translated": 121,
+            "preserved": 8,
+            "preserved_reasons": [
+                "版权/横幅/头卫 KEEP；L116 超预算 KEEP EN"
+            ],
+            "note": "0570 T=121"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0570-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0570"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0570"
+        }
+    ],
+    "notes": "超预算等义压缩；oneshot→一次性；L116 KEEP EN；引号 ASCII"
+}

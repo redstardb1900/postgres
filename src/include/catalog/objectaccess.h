@@ -56,7 +56,7 @@ typedef enum ObjectAccessType
 } ObjectAccessType;
 
 /*
- * Arguments of OAT_POST_CREATE event
+ * OAT_POST_CREATE 事件参数
  */
 typedef struct
 {
@@ -69,7 +69,7 @@ typedef struct
 } ObjectAccessPostCreate;
 
 /*
- * Arguments of OAT_DROP event
+ * OAT_DROP 事件参数
  */
 typedef struct
 {
@@ -81,7 +81,7 @@ typedef struct
 } ObjectAccessDrop;
 
 /*
- * Arguments of OAT_POST_ALTER event
+ * OAT_POST_ALTER 事件参数
  */
 typedef struct
 {
@@ -103,13 +103,13 @@ typedef struct
 } ObjectAccessPostAlter;
 
 /*
- * Arguments of OAT_NAMESPACE_SEARCH
+ * OAT_NAMESPACE_SEARCH 的参数
  */
 typedef struct
 {
 	/*
-	 * If true, hook should report an error when permission to search this
-	 * schema is denied.
+	 * 为真时,若无权搜索此模式
+	 * 钩子应报错.
 	 */
 	bool		ereport_on_violation;
 
@@ -123,7 +123,7 @@ typedef struct
 	bool		result;
 } ObjectAccessNamespaceSearch;
 
-/* Plugin provides a hook function matching one or both of these signatures. */
+/*  插件提供匹配下列签名之一或二者的钩子函数。  */
 typedef void (*object_access_hook_type) (ObjectAccessType access,
 										 Oid classId,
 										 Oid objectId,
@@ -136,12 +136,12 @@ typedef void (*object_access_hook_type_str) (ObjectAccessType access,
 											 int subId,
 											 void *arg);
 
-/* Plugin sets this variable to a suitable hook function. */
+/*  插件将本变量设为合适的钩子函数。  */
 extern PGDLLIMPORT object_access_hook_type object_access_hook;
 extern PGDLLIMPORT object_access_hook_type_str object_access_hook_str;
 
 
-/* Core code uses these functions to call the hook (see macros below). */
+/*  核心代码用这些函数调用钩子(见下方宏)。  */
 extern void RunObjectPostCreateHook(Oid classId, Oid objectId, int subId,
 									bool is_internal);
 extern void RunObjectDropHook(Oid classId, Oid objectId, int subId,
@@ -152,7 +152,7 @@ extern void RunObjectPostAlterHook(Oid classId, Oid objectId, int subId,
 extern bool RunNamespaceSearchHook(Oid objectId, bool ereport_on_violation);
 extern void RunFunctionExecuteHook(Oid objectId);
 
-/* String versions */
+/* 字符串版本 */
 extern void RunObjectPostCreateHookStr(Oid classId, const char *objectName, int subId,
 									   bool is_internal);
 extern void RunObjectDropHookStr(Oid classId, const char *objectName, int subId,

@@ -45,13 +45,13 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	 * single relation or domain.  This is enforced by a unique index on
 	 * conrelid + contypid + conname.
 	 */
-	NameData	conname;		/* name of this constraint */
+	NameData	conname;		/*  本约束名  */
 	Oid			connamespace BKI_LOOKUP(pg_namespace);	/* OID of namespace
 														 * containing constraint */
-	char		contype;		/* constraint type; see codes below */
-	bool		condeferrable;	/* deferrable constraint? */
-	bool		condeferred;	/* deferred by default? */
-	bool		convalidated;	/* constraint has been validated? */
+	char		contype;		/*  约束类型;见下方代码  */
+	bool		condeferrable;	/* 是否可延迟约束? */
+	bool		condeferred;	/* 是否默认延迟? */
+	bool		convalidated;	/*  约束是否已校验?  */
 
 	/*
 	 * conrelid and conkey are only meaningful if the constraint applies to a
@@ -68,8 +68,8 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	 * For SQL-style global ASSERTIONs, both conrelid and contypid would be
 	 * zero. This is not presently supported, however.
 	 */
-	Oid			contypid BKI_LOOKUP_OPT(pg_type);	/* domain this constraint
-													 * constrains */
+	Oid			contypid BKI_LOOKUP_OPT(pg_type);	/*  本约束约束的
+													 * 域  */
 
 	/*
 	 * conindid links to the index supporting the constraint, if any;
@@ -79,8 +79,8 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	 * columns).  Notice that the index is on conrelid in the first case but
 	 * confrelid in the second.
 	 */
-	Oid			conindid BKI_LOOKUP_OPT(pg_class);	/* index supporting this
-													 * constraint */
+	Oid			conindid BKI_LOOKUP_OPT(pg_class);	/*  支撑本约束的
+													 * 索引  */
 
 	/*
 	 * If this constraint is on a partition inherited from a partitioned
@@ -92,22 +92,22 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	 * These fields, plus confkey, are only meaningful for a foreign-key
 	 * constraint.  Otherwise confrelid is 0 and the char fields are spaces.
 	 */
-	Oid			confrelid BKI_LOOKUP_OPT(pg_class); /* relation referenced by
-													 * foreign key */
-	char		confupdtype;	/* foreign key's ON UPDATE action */
-	char		confdeltype;	/* foreign key's ON DELETE action */
-	char		confmatchtype;	/* foreign key's match type */
+	Oid			confrelid BKI_LOOKUP_OPT(pg_class); /*  外键引用的
+													 * 关系  */
+	char		confupdtype;	/*  外键的 ON UPDATE 动作  */
+	char		confdeltype;	/*  外键的 ON DELETE 动作  */
+	char		confmatchtype;	/*  外键的匹配类型  */
 
-	/* Has a local definition (hence, do not drop when coninhcount is 0) */
+	/*  有本地定义(故 coninhcount 为 0 时不删除)  */
 	bool		conislocal;
 
-	/* Number of times inherited from direct parent relation(s) */
+	/*  从直接父关系继承的次数  */
 	int16		coninhcount;
 
-	/* Has a local definition and cannot be inherited */
+	/*  有本地定义且不可继承  */
 	bool		connoinherit;
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 
 	/*
 	 * Columns of conrelid that the constraint applies to, if known (this is
@@ -178,7 +178,7 @@ DECLARE_ARRAY_FOREIGN_KEY((confrelid, confkey), pg_attribute, (attrelid, attnum)
 
 #ifdef EXPOSE_TO_CLIENT_CODE
 
-/* Valid values for contype */
+/* contype 的有效取值 */
 #define CONSTRAINT_CHECK			'c'
 #define CONSTRAINT_FOREIGN			'f'
 #define CONSTRAINT_PRIMARY			'p'
@@ -195,13 +195,13 @@ DECLARE_ARRAY_FOREIGN_KEY((confrelid, confkey), pg_attribute, (attrelid, attnum)
 #endif							/* EXPOSE_TO_CLIENT_CODE */
 
 /*
- * Identify constraint type for lookup purposes
+ * 标识约束类型以便查找
  */
 typedef enum ConstraintCategory
 {
 	CONSTRAINT_RELATION,
 	CONSTRAINT_DOMAIN,
-	CONSTRAINT_ASSERTION		/* for future expansion */
+	CONSTRAINT_ASSERTION		/*  供将来扩展  */
 } ConstraintCategory;
 
 

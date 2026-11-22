@@ -20,7 +20,7 @@
 
 #define DEFAULT_INDEX_TYPE	"btree"
 
-/* Action code for index_set_state_flags */
+/*  index_set_state_flags 的动作码  */
 typedef enum
 {
 	INDEX_CREATE_SET_READY,
@@ -29,25 +29,25 @@ typedef enum
 	INDEX_DROP_SET_DEAD
 } IndexStateFlagsAction;
 
-/* options for REINDEX */
+/*  REINDEX 选项  */
 typedef struct ReindexParams
 {
-	bits32		options;		/* bitmask of REINDEXOPT_* */
+	bits32		options;		/* REINDEXOPT_* 位掩码 */
 	Oid			tablespaceOid;	/* New tablespace to move indexes to.
 								 * InvalidOid to do nothing. */
 } ReindexParams;
 
-/* flag bits for ReindexParams->flags */
-#define REINDEXOPT_VERBOSE		0x01	/* print progress info */
-#define REINDEXOPT_REPORT_PROGRESS 0x02 /* report pgstat progress */
-#define REINDEXOPT_MISSING_OK 	0x04	/* skip missing relations */
-#define REINDEXOPT_CONCURRENTLY	0x08	/* concurrent mode */
+/* ReindexParams->flags 的标志位 */
+#define REINDEXOPT_VERBOSE		0x01	/* 打印进度信息 */
+#define REINDEXOPT_REPORT_PROGRESS 0x02 /*  报告 pgstat 进度  */
+#define REINDEXOPT_MISSING_OK 	0x04	/*  跳过缺失关系  */
+#define REINDEXOPT_CONCURRENTLY	0x08	/*  并发模式  */
 
-/* state info for validate_index bulkdelete callback */
+/*  validate_index bulkdelete 回调的状态信息  */
 typedef struct ValidateIndexState
 {
-	Tuplesortstate *tuplesort;	/* for sorting the index TIDs */
-	/* statistics (for debug purposes only): */
+	Tuplesortstate *tuplesort;	/*  用于排序索引 TID  */
+	/*  统计(仅调试用):  */
 	double		htups,
 				itups,
 				tups_inserted;
@@ -151,7 +151,7 @@ extern Oid	IndexGetRelation(Oid indexId, bool missing_ok);
 extern void reindex_index(Oid indexId, bool skip_constraint_checks,
 						  char persistence, ReindexParams *params);
 
-/* Flag bits for reindex_relation(): */
+/* reindex_relation() 的标志位: */
 #define REINDEX_REL_PROCESS_TOAST			0x01
 #define REINDEX_REL_SUPPRESS_INDEX_USE		0x02
 #define REINDEX_REL_CHECK_CONSTRAINTS		0x04
@@ -200,7 +200,7 @@ itemptr_encode(ItemPointer itemptr)
 }
 
 /*
- * itemptr_decode - Decode int64/int8 representation back to ItemPointer
+ * itemptr_decode - 将 int64/int8 表示解码回 ItemPointer
  */
 static inline void
 itemptr_decode(ItemPointer itemptr, int64 encoded)

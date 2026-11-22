@@ -28,24 +28,24 @@
 typedef struct _FuncCandidateList
 {
 	struct _FuncCandidateList *next;
-	int			pathpos;		/* for internal use of namespace lookup */
-	Oid			oid;			/* the function or operator's OID */
-	int			nominalnargs;	/* either pronargs or length(proallargtypes) */
-	int			nargs;			/* number of arg types returned */
-	int			nvargs;			/* number of args to become variadic array */
-	int			ndargs;			/* number of defaulted args */
-	int		   *argnumbers;		/* args' positional indexes, if named call */
+	int			pathpos;		/*  供命名空间查找内部使用  */
+	Oid			oid;			/*  函数或算子的 OID  */
+	int			nominalnargs;	/*  pronargs 或 length(proallargtypes)  */
+	int			nargs;			/*  返回的参数类型数  */
+	int			nvargs;			/* 将成为可变参数数组的参数数 */
+	int			ndargs;			/* 带默认值的参数数 */
+	int		   *argnumbers;		/*  命名调用时参数位置下标  */
 	Oid			args[FLEXIBLE_ARRAY_MEMBER];	/* arg types */
 }		   *FuncCandidateList;
 
 /*
- * Result of checkTempNamespaceStatus
+ * checkTempNamespaceStatus 的结果
  */
 typedef enum TempNamespaceStatus
 {
-	TEMP_NAMESPACE_NOT_TEMP,	/* nonexistent, or non-temp namespace */
-	TEMP_NAMESPACE_IDLE,		/* exists, belongs to no active session */
-	TEMP_NAMESPACE_IN_USE		/* belongs to some active session */
+	TEMP_NAMESPACE_NOT_TEMP,	/* 不存在,或非临时命名空间 */
+	TEMP_NAMESPACE_IDLE,		/*  存在,不属于任何活跃会话  */
+	TEMP_NAMESPACE_IN_USE		/*  属于某活跃会话  */
 } TempNamespaceStatus;
 
 /*
@@ -57,20 +57,20 @@ typedef enum TempNamespaceStatus
  */
 typedef struct OverrideSearchPath
 {
-	List	   *schemas;		/* OIDs of explicitly named schemas */
-	bool		addCatalog;		/* implicitly prepend pg_catalog? */
-	bool		addTemp;		/* implicitly prepend temp schema? */
-	uint64		generation;		/* for quick detection of equality to active */
+	List	   *schemas;		/*  显式命名模式的 OID  */
+	bool		addCatalog;		/* 是否隐式前置 pg_catalog? */
+	bool		addTemp;		/* 是否隐式前置临时模式? */
+	uint64		generation;		/*  便于快速检测与活跃路径相等  */
 } OverrideSearchPath;
 
 /*
- * Option flag bits for RangeVarGetRelidExtended().
+ * RangeVarGetRelidExtended() 的选项标志位。
  */
 typedef enum RVROption
 {
-	RVR_MISSING_OK = 1 << 0,	/* don't error if relation doesn't exist */
-	RVR_NOWAIT = 1 << 1,		/* error if relation cannot be locked */
-	RVR_SKIP_LOCKED = 1 << 2	/* skip if relation cannot be locked */
+	RVR_MISSING_OK = 1 << 0,	/*  关系不存在时不报错  */
+	RVR_NOWAIT = 1 << 1,		/*  关系无法加锁则报错  */
+	RVR_SKIP_LOCKED = 1 << 2	/*  关系无法加锁则跳过  */
 } RVROption;
 
 typedef void (*RangeVarGetRelidCallback) (const RangeVar *relation, Oid relId,
@@ -175,13 +175,13 @@ extern Oid	get_conversion_oid(List *conname, bool missing_ok);
 extern Oid	FindDefaultConversionProc(int32 for_encoding, int32 to_encoding);
 
 
-/* initialization & transaction cleanup code */
+/*  初始化与事务清理代码  */
 extern void InitializeSearchPath(void);
 extern void AtEOXact_Namespace(bool isCommit, bool parallel);
 extern void AtEOSubXact_Namespace(bool isCommit, SubTransactionId mySubid,
 								  SubTransactionId parentSubid);
 
-/* stuff for search_path GUC variable */
+/*  search_path GUC 变量相关  */
 extern PGDLLIMPORT char *namespace_search_path;
 
 extern List *fetch_search_path(bool includeImplicit);

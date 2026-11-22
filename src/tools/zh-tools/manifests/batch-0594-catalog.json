@@ -1,0 +1,180 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0594",
+ "title": "include/catalog 大头×8 — batch 0594",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e63da1960b703c2105230f2892ec8a4cc7fa845a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/heap.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/namespace.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/index.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/objectaccess.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/dependency.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/pg_control.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/pg_constraint.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/include/catalog/pg_class.h",
+   "kind": "c_comment",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0594-catalog.json",
+   "kind": "manifest",
+   "note": "0594"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/heap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/namespace.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/index.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/objectaccess.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/dependency.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/pg_control.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/pg_constraint.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/include/catalog/pg_class.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；OCLASS 标签/长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0594"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0594-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0594"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0594"
+  }
+ ],
+ "notes": "短字段注已译；OCLASS/长文 KEEP；attribute/type/proc/statistic 留后"
+}

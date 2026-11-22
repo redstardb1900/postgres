@@ -34,57 +34,57 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	/* oid */
 	Oid			oid;
 
-	/* class name */
+	/*  类名  */
 	NameData	relname;
 
-	/* OID of namespace containing this class */
+	/*  含本类的命名空间 OID  */
 	Oid			relnamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
-	/* OID of entry in pg_type for relation's implicit row type, if any */
+	/*  关系隐式行类型在 pg_type 中的条目 OID(若有)  */
 	Oid			reltype BKI_LOOKUP_OPT(pg_type);
 
-	/* OID of entry in pg_type for underlying composite type, if any */
+	/*  底层复合类型在 pg_type 中的条目 OID(若有)  */
 	Oid			reloftype BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_type);
 
 	/* class owner */
 	Oid			relowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-	/* access method; 0 if not a table / index */
+	/*  访问方法;非表/索引则为 0  */
 	Oid			relam BKI_DEFAULT(heap) BKI_LOOKUP_OPT(pg_am);
 
-	/* identifier of physical storage file */
-	/* relfilenode == 0 means it is a "mapped" relation, see relmapper.c */
+	/*  物理存储文件标识符  */
+	/*  relfilenode == 0 表示"映射"关系,见 relmapper.c  */
 	Oid			relfilenode BKI_DEFAULT(0);
 
-	/* identifier of table space for relation (0 means default for database) */
+	/*  关系表空间标识符(0 表示库默认)  */
 	Oid			reltablespace BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_tablespace);
 
-	/* # of blocks (not always up-to-date) */
+	/*  块数(不一定最新)  */
 	int32		relpages BKI_DEFAULT(0);
 
-	/* # of tuples (not always up-to-date; -1 means "unknown") */
+	/*  元组数(不一定最新;-1="未知")  */
 	float4		reltuples BKI_DEFAULT(-1);
 
-	/* # of all-visible blocks (not always up-to-date) */
+	/*  全可见块数(不一定最新)  */
 	int32		relallvisible BKI_DEFAULT(0);
 
-	/* OID of toast table; 0 if none */
+	/*  toast 表 OID;无则为 0  */
 	Oid			reltoastrelid BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_class);
 
 	/* T if has (or has had) any indexes */
 	bool		relhasindex BKI_DEFAULT(f);
 
-	/* T if shared across databases */
+	/*  跨数据库共享则为 T  */
 	bool		relisshared BKI_DEFAULT(f);
 
-	/* see RELPERSISTENCE_xxx constants below */
+	/*  见下方 RELPERSISTENCE_xxx 常量  */
 	char		relpersistence BKI_DEFAULT(p);
 
-	/* see RELKIND_xxx constants below */
+	/*  见下方 RELKIND_xxx 常量  */
 	char		relkind BKI_DEFAULT(r);
 
-	/* number of user attributes */
-	int16		relnatts BKI_DEFAULT(0);	/* genbki.pl will fill this in */
+	/*  用户属性数  */
+	int16		relnatts BKI_DEFAULT(0);	/*  由 genbki.pl 填入  */
 
 	/*
 	 * Class pg_attribute must contain exactly "relnatts" user attributes
@@ -92,56 +92,56 @@ CATALOG(pg_class,1259,RelationRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(83,Relat
 	 * contain entries with negative attnums for system attributes.
 	 */
 
-	/* # of CHECK constraints for class */
+	/*  类的 CHECK 约束数  */
 	int16		relchecks BKI_DEFAULT(0);
 
-	/* has (or has had) any rules */
+	/* 有(或曾有)任何规则 */
 	bool		relhasrules BKI_DEFAULT(f);
 
-	/* has (or has had) any TRIGGERs */
+	/* 有(或曾有)任何 TRIGGER */
 	bool		relhastriggers BKI_DEFAULT(f);
 
-	/* has (or has had) child tables or indexes */
+	/*  有(或曾有)子表或索引  */
 	bool		relhassubclass BKI_DEFAULT(f);
 
-	/* row security is enabled or not */
+	/*  行级安全是否启用  */
 	bool		relrowsecurity BKI_DEFAULT(f);
 
-	/* row security forced for owners or not */
+	/* 是否对所有者强制行级安全 */
 	bool		relforcerowsecurity BKI_DEFAULT(f);
 
 	/* matview currently holds query results */
 	bool		relispopulated BKI_DEFAULT(t);
 
-	/* see REPLICA_IDENTITY_xxx constants */
+	/*  见 REPLICA_IDENTITY_xxx 常量  */
 	char		relreplident BKI_DEFAULT(n);
 
-	/* is relation a partition? */
+	/*  关系是否为分区?  */
 	bool		relispartition BKI_DEFAULT(f);
 
-	/* link to original rel during table rewrite; otherwise 0 */
+	/*  表改写期间链到原关系;否则为 0  */
 	Oid			relrewrite BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_class);
 
 	/* all Xids < this are frozen in this rel */
 	TransactionId relfrozenxid BKI_DEFAULT(3);	/* FirstNormalTransactionId */
 
-	/* all multixacts in this rel are >= this; it is really a MultiXactId */
+	/*  本关系中所有多事务均 >= 此值;实为 MultiXactId  */
 	TransactionId relminmxid BKI_DEFAULT(1);	/* FirstMultiXactId */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* NOTE: These fields are not present in a relcache entry's rd_rel field. */
-	/* access permissions */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/*  注:这些字段不在 relcache 条目的 rd_rel 中。  */
+	/*  访问权限  */
 	aclitem		relacl[1] BKI_DEFAULT(_null_);
 
-	/* access-method-specific options */
+	/*  访问方法专用选项  */
 	text		reloptions[1] BKI_DEFAULT(_null_);
 
-	/* partition bound node tree */
+	/*  分区边界节点树  */
 	pg_node_tree relpartbound BKI_DEFAULT(_null_);
 #endif
 } FormData_pg_class;
 
-/* Size of fixed part of pg_class tuples, not counting var-length fields */
+/*  pg_class 元组固定部分大小,不计变长字段  */
 #define CLASS_TUPLE_SIZE \
 	 (offsetof(FormData_pg_class,relminmxid) + sizeof(TransactionId))
 
@@ -158,26 +158,26 @@ DECLARE_INDEX(pg_class_tblspc_relfilenode_index, 3455, ClassTblspcRelfilenodeInd
 
 #ifdef EXPOSE_TO_CLIENT_CODE
 
-#define		  RELKIND_RELATION		  'r'	/* ordinary table */
-#define		  RELKIND_INDEX			  'i'	/* secondary index */
-#define		  RELKIND_SEQUENCE		  'S'	/* sequence object */
-#define		  RELKIND_TOASTVALUE	  't'	/* for out-of-line values */
+#define		  RELKIND_RELATION		  'r'	/*  普通表  */
+#define		  RELKIND_INDEX			  'i'	/*  二级索引  */
+#define		  RELKIND_SEQUENCE		  'S'	/*  序列对象  */
+#define		  RELKIND_TOASTVALUE	  't'	/*  用于行外值  */
 #define		  RELKIND_VIEW			  'v'	/* view */
-#define		  RELKIND_MATVIEW		  'm'	/* materialized view */
-#define		  RELKIND_COMPOSITE_TYPE  'c'	/* composite type */
-#define		  RELKIND_FOREIGN_TABLE   'f'	/* foreign table */
-#define		  RELKIND_PARTITIONED_TABLE 'p' /* partitioned table */
-#define		  RELKIND_PARTITIONED_INDEX 'I' /* partitioned index */
+#define		  RELKIND_MATVIEW		  'm'	/*  物化视图  */
+#define		  RELKIND_COMPOSITE_TYPE  'c'	/*  复合类型  */
+#define		  RELKIND_FOREIGN_TABLE   'f'	/*  外部表  */
+#define		  RELKIND_PARTITIONED_TABLE 'p' /*  分区表  */
+#define		  RELKIND_PARTITIONED_INDEX 'I' /*  分区索引  */
 
-#define		  RELPERSISTENCE_PERMANENT	'p' /* regular table */
-#define		  RELPERSISTENCE_UNLOGGED	'u' /* unlogged permanent table */
-#define		  RELPERSISTENCE_TEMP		't' /* temporary table */
+#define		  RELPERSISTENCE_PERMANENT	'p' /*  常规表  */
+#define		  RELPERSISTENCE_UNLOGGED	'u' /* 不记日志的永久表 */
+#define		  RELPERSISTENCE_TEMP		't' /*  临时表  */
 
-/* default selection for replica identity (primary key or nothing) */
+/*  复制标识默认选择(主键或无)  */
 #define		  REPLICA_IDENTITY_DEFAULT	'd'
-/* no replica identity is logged for this relation */
+/*  本关系不记录复制标识  */
 #define		  REPLICA_IDENTITY_NOTHING	'n'
-/* all columns are logged as replica identity */
+/*  所有列均作为复制标识记录  */
 #define		  REPLICA_IDENTITY_FULL		'f'
 /*
  * an explicitly chosen candidate key's columns are used as replica identity.

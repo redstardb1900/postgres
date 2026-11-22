@@ -21,10 +21,10 @@
 #include "port/pg_crc32c.h"
 
 
-/* Version identifier for this pg_control format */
+/*  本 pg_control 格式的版本标识  */
 #define PG_CONTROL_VERSION	1300
 
-/* Nonce key length, see below */
+/*  Nonce 密钥长度,见下  */
 #define MOCK_AUTH_NONCE_LEN		32
 
 /*
@@ -36,23 +36,23 @@ typedef struct CheckPoint
 {
 	XLogRecPtr	redo;			/* next RecPtr available when we began to
 								 * create CheckPoint (i.e. REDO start point) */
-	TimeLineID	ThisTimeLineID; /* current TLI */
+	TimeLineID	ThisTimeLineID; /* 当前 TLI */
 	TimeLineID	PrevTimeLineID; /* previous TLI, if this record begins a new
 								 * timeline (equals ThisTimeLineID otherwise) */
-	bool		fullPageWrites; /* current full_page_writes */
-	FullTransactionId nextXid;	/* next free transaction ID */
+	bool		fullPageWrites; /* 当前 full_page_writes */
+	FullTransactionId nextXid;	/*  下一可用事务 ID  */
 	Oid			nextOid;		/* next free OID */
 	MultiXactId nextMulti;		/* next free MultiXactId */
 	MultiXactOffset nextMultiOffset;	/* next free MultiXact offset */
-	TransactionId oldestXid;	/* cluster-wide minimum datfrozenxid */
+	TransactionId oldestXid;	/*  集簇范围最小 datfrozenxid  */
 	Oid			oldestXidDB;	/* database with minimum datfrozenxid */
-	MultiXactId oldestMulti;	/* cluster-wide minimum datminmxid */
+	MultiXactId oldestMulti;	/*  集簇范围最小 datminmxid  */
 	Oid			oldestMultiDB;	/* database with minimum datminmxid */
-	pg_time_t	time;			/* time stamp of checkpoint */
-	TransactionId oldestCommitTsXid;	/* oldest Xid with valid commit
-										 * timestamp */
-	TransactionId newestCommitTsXid;	/* newest Xid with valid commit
-										 * timestamp */
+	pg_time_t	time;			/*  检查点时间戳  */
+	TransactionId oldestCommitTsXid;	/* 有有效提交的最旧 Xid
+										 * 时间戳 */
+	TransactionId newestCommitTsXid;	/* 有有效提交的最新 Xid
+										 * 时间戳 */
 
 	/*
 	 * Oldest XID still running. This is only needed to initialize hot standby
@@ -76,7 +76,7 @@ typedef struct CheckPoint
 #define XLOG_END_OF_RECOVERY			0x90
 #define XLOG_FPI_FOR_HINT				0xA0
 #define XLOG_FPI						0xB0
-/* 0xC0 is used in Postgres 9.5-11 */
+/*  Postgres 9.5-11 使用 0xC0  */
 #define XLOG_OVERWRITE_CONTRECORD		0xD0
 
 
@@ -121,18 +121,18 @@ typedef struct ControlFileData
 	 * version cues for the WAL log.
 	 */
 	uint32		pg_control_version; /* PG_CONTROL_VERSION */
-	uint32		catalog_version_no; /* see catversion.h */
+	uint32		catalog_version_no; /* 见 catversion.h */
 
 	/*
-	 * System status data
+	 * 系统状态数据
 	 */
 	DBState		state;			/* see enum above */
-	pg_time_t	time;			/* time stamp of last pg_control update */
-	XLogRecPtr	checkPoint;		/* last check point record ptr */
+	pg_time_t	time;			/* 上次 pg_control 更新的时间戳 */
+	XLogRecPtr	checkPoint;		/* 最近检查点记录指针 */
 
-	CheckPoint	checkPointCopy; /* copy of last check point record */
+	CheckPoint	checkPointCopy; /* 最近检查点记录的副本 */
 
-	XLogRecPtr	unloggedLSN;	/* current fake LSN value, for unlogged rels */
+	XLogRecPtr	unloggedLSN;	/*  当前假 LSN,用于不记日志关系  */
 
 	/*
 	 * These two values determine the minimum point we must recover up to
@@ -194,29 +194,29 @@ typedef struct ControlFileData
 	 * Testing just one double value is not a very bulletproof test for
 	 * floating-point compatibility, but it will catch most cases.
 	 */
-	uint32		maxAlign;		/* alignment requirement for tuples */
-	double		floatFormat;	/* constant 1234567.0 */
+	uint32		maxAlign;		/*  元组对齐要求  */
+	double		floatFormat;	/*  常量 1234567.0  */
 #define FLOATFORMAT_VALUE	1234567.0
 
 	/*
 	 * This data is used to make sure that configuration of this database is
 	 * compatible with the backend executable.
 	 */
-	uint32		blcksz;			/* data block size for this DB */
-	uint32		relseg_size;	/* blocks per segment of large relation */
+	uint32		blcksz;			/*  本库数据块大小  */
+	uint32		relseg_size;	/*  大关系每段块数  */
 
-	uint32		xlog_blcksz;	/* block size within WAL files */
-	uint32		xlog_seg_size;	/* size of each WAL segment */
+	uint32		xlog_blcksz;	/*  WAL 文件内块大小  */
+	uint32		xlog_seg_size;	/*  每个 WAL 段大小  */
 
-	uint32		nameDataLen;	/* catalog name field width */
-	uint32		indexMaxKeys;	/* max number of columns in an index */
+	uint32		nameDataLen;	/*  目录名字段宽度  */
+	uint32		indexMaxKeys;	/*  索引最大列数  */
 
-	uint32		toast_max_chunk_size;	/* chunk size in TOAST tables */
-	uint32		loblksize;		/* chunk size in pg_largeobject */
+	uint32		toast_max_chunk_size;	/*  TOAST 表块大小  */
+	uint32		loblksize;		/*  pg_largeobject 块大小  */
 
-	bool		float8ByVal;	/* float8, int8, etc pass-by-value? */
+	bool		float8ByVal;	/*  float8、int8 等是否传值?  */
 
-	/* Are data pages protected by checksums? Zero if no checksum version */
+	/*  数据页是否受校验和保护?无校验和版本则为零  */
 	uint32		data_checksum_version;
 
 	/*

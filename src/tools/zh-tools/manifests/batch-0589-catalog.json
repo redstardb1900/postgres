@@ -1,0 +1,316 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0589",
+ "title": "include/catalog 小头×16 — batch 0589",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b66d2a1a2fff06aacfda59cddf0435f3c2c1905a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/indexing.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/partition.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_auth_members.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_event_trigger.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_foreign_data_wrapper.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_foreign_server.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_foreign_table.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_largeobject.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_largeobject_metadata.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_policy.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_publication_namespace.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_publication_rel.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_seclabel.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_shseclabel.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_tablespace.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/include/catalog/pg_user_mapping.h",
+   "kind": "c_comment",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0589-catalog.json",
+   "kind": "manifest",
+   "note": "0589"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/indexing.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/partition.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_auth_members.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_event_trigger.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_foreign_data_wrapper.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_foreign_server.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_foreign_table.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_largeobject.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_largeobject_metadata.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_policy.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_publication_namespace.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_publication_rel.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_seclabel.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_shseclabel.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_tablespace.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/include/catalog/pg_user_mapping.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；CATALOG 宏旁长注/标识符行 KEEP EN；超预算 KEEP。"
+   ],
+   "note": "0589"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0589-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0589"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0589"
+  }
+ ],
+ "notes": "短字段注已译；变长字段自此开始等同译；横幅/长文 KEEP"
+}

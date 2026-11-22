@@ -27,13 +27,13 @@
  */
 CATALOG(pg_shseclabel,3592,SharedSecLabelRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID(4066,SharedSecLabelRelation_Rowtype_Id) BKI_SCHEMA_MACRO
 {
-	Oid			objoid;			/* OID of the shared object itself */
-	Oid			classoid BKI_LOOKUP(pg_class);	/* OID of table containing the
-												 * shared object */
+	Oid			objoid;			/*  共享对象自身 OID  */
+	Oid			classoid BKI_LOOKUP(pg_class);	/*  含该对象的表的 OID
+												 * 共享对象  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		provider BKI_FORCE_NOT_NULL;	/* name of label provider */
-	text		label BKI_FORCE_NOT_NULL;	/* security label of the object */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		provider BKI_FORCE_NOT_NULL;	/*  标签提供者名  */
+	text		label BKI_FORCE_NOT_NULL;	/*  对象的安全标签  */
 #endif
 } FormData_pg_shseclabel;
 

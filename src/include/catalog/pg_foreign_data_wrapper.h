@@ -29,17 +29,17 @@
 CATALOG(pg_foreign_data_wrapper,2328,ForeignDataWrapperRelationId)
 {
 	Oid			oid;			/* oid */
-	NameData	fdwname;		/* foreign-data wrapper name */
+	NameData	fdwname;		/* 外部数据包装器名 */
 	Oid			fdwowner BKI_LOOKUP(pg_authid); /* FDW owner */
-	Oid			fdwhandler BKI_LOOKUP_OPT(pg_proc); /* handler function, or 0
-													 * if none */
+	Oid			fdwhandler BKI_LOOKUP_OPT(pg_proc); /*  处理函数,或 0
+													 * 若无  */
 	Oid			fdwvalidator BKI_LOOKUP_OPT(pg_proc);	/* option validation
 														 * function, or 0 if
 														 * none */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	aclitem		fdwacl[1];		/* access permissions */
-	text		fdwoptions[1];	/* FDW options */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	aclitem		fdwacl[1];		/*  访问权限  */
+	text		fdwoptions[1];	/* FDW 选项 */
 #endif
 } FormData_pg_foreign_data_wrapper;
 

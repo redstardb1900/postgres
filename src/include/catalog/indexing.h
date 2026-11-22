@@ -33,7 +33,7 @@ typedef struct ResultRelInfo *CatalogIndexState;
 #define MAX_CATALOG_MULTI_INSERT_BYTES 65535
 
 /*
- * indexing.c prototypes
+ * indexing.c 原型
  */
 extern CatalogIndexState CatalogOpenIndexes(Relation heapRel);
 extern void CatalogCloseIndexes(CatalogIndexState indstate);

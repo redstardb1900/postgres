@@ -34,8 +34,8 @@ CATALOG(pg_largeobject_metadata,2995,LargeObjectMetadataRelationId)
 	Oid			lomowner BKI_LOOKUP(pg_authid); /* OID of the largeobject
 												 * owner */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	aclitem		lomacl[1];		/* access permissions */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	aclitem		lomacl[1];		/*  访问权限  */
 #endif
 } FormData_pg_largeobject_metadata;
 

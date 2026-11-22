@@ -28,15 +28,15 @@
 CATALOG(pg_foreign_server,1417,ForeignServerRelationId)
 {
 	Oid			oid;			/* oid */
-	NameData	srvname;		/* foreign server name */
+	NameData	srvname;		/* 外部服务器名 */
 	Oid			srvowner BKI_LOOKUP(pg_authid); /* server owner */
 	Oid			srvfdw BKI_LOOKUP(pg_foreign_data_wrapper); /* server FDW */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	text		srvtype;
 	text		srvversion;
-	aclitem		srvacl[1];		/* access permissions */
-	text		srvoptions[1];	/* FDW-specific options */
+	aclitem		srvacl[1];		/*  访问权限  */
+	text		srvoptions[1];	/*  FDW 专用选项  */
 #endif
 } FormData_pg_foreign_server;
 

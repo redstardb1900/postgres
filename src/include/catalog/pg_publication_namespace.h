@@ -30,8 +30,8 @@
 CATALOG(pg_publication_namespace,6237,PublicationNamespaceRelationId)
 {
 	Oid			oid;			/* oid */
-	Oid			pnpubid BKI_LOOKUP(pg_publication); /* Oid of the publication */
-	Oid			pnnspid BKI_LOOKUP(pg_namespace);	/* Oid of the schema */
+	Oid			pnpubid BKI_LOOKUP(pg_publication); /*  发布的 Oid  */
+	Oid			pnnspid BKI_LOOKUP(pg_namespace);	/*  模式 Oid  */
 } FormData_pg_publication_namespace;
 
 /* ----------------

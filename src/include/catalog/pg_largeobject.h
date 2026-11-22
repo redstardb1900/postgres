@@ -28,13 +28,13 @@
  */
 CATALOG(pg_largeobject,2613,LargeObjectRelationId)
 {
-	Oid			loid BKI_LOOKUP(pg_largeobject_metadata);	/* Identifier of large
-															 * object */
-	int32		pageno;			/* Page number (starting from 0) */
+	Oid			loid BKI_LOOKUP(pg_largeobject_metadata);	/*  大对象标识符
+															 * 对象 */
+	int32		pageno;			/*  页号(从 0 起)  */
 
-	/* data has variable length, but we allow direct access; see inv_api.c */
-	bytea		data BKI_FORCE_NOT_NULL;	/* Data for page (may be
-											 * zero-length) */
+	/*  数据为变长,但允许直接访问;见 inv_api.c  */
+	bytea		data BKI_FORCE_NOT_NULL;	/*  页数据(可为
+											 * 零长)  */
 } FormData_pg_largeobject;
 
 /* ----------------

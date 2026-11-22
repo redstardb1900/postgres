@@ -34,8 +34,8 @@ CATALOG(pg_tablespace,1213,TableSpaceRelationId) BKI_SHARED_RELATION
 	/* owner of tablespace */
 	Oid			spcowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	aclitem		spcacl[1];		/* access permissions */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	aclitem		spcacl[1];		/*  访问权限  */
 	text		spcoptions[1];	/* per-tablespace options */
 #endif
 } FormData_pg_tablespace;

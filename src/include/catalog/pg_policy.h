@@ -29,14 +29,14 @@
 CATALOG(pg_policy,3256,PolicyRelationId)
 {
 	Oid			oid;			/* oid */
-	NameData	polname;		/* Policy name. */
-	Oid			polrelid BKI_LOOKUP(pg_class);	/* Oid of the relation with
-												 * policy. */
+	NameData	polname;		/* 策略名。 */
+	Oid			polrelid BKI_LOOKUP(pg_class);	/*  带策略的关系的
+												 * Oid。  */
 	char		polcmd;			/* One of ACL_*_CHR, or '*' for all */
-	bool		polpermissive;	/* restrictive or permissive policy */
+	bool		polpermissive;	/*  限制性或宽松策略  */
 
 #ifdef CATALOG_VARLEN
-	/* Roles to which the policy is applied; zero means PUBLIC */
+	/*  策略适用角色;0 表示 PUBLIC  */
 	Oid			polroles[1] BKI_LOOKUP_OPT(pg_authid) BKI_FORCE_NOT_NULL;
 	pg_node_tree polqual;		/* Policy quals. */
 	pg_node_tree polwithcheck;	/* WITH CHECK quals. */

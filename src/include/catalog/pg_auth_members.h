@@ -30,12 +30,12 @@
 CATALOG(pg_auth_members,1261,AuthMemRelationId) BKI_SHARED_RELATION BKI_ROWTYPE_OID(2843,AuthMemRelation_Rowtype_Id) BKI_SCHEMA_MACRO
 {
 	Oid			oid;			/* oid */
-	Oid			roleid BKI_LOOKUP(pg_authid);	/* ID of a role */
-	Oid			member BKI_LOOKUP(pg_authid);	/* ID of a member of that role */
-	Oid			grantor BKI_LOOKUP(pg_authid);	/* who granted the membership */
+	Oid			roleid BKI_LOOKUP(pg_authid);	/*  角色 ID  */
+	Oid			member BKI_LOOKUP(pg_authid);	/*  该角色成员的 ID  */
+	Oid			grantor BKI_LOOKUP(pg_authid);	/*  授予成员资格者  */
 	bool		admin_option;	/* granted with admin option? */
-	bool		inherit_option; /* exercise privileges without SET ROLE? */
-	bool		set_option;		/* use SET ROLE to the target role? */
+	bool		inherit_option; /*  不经 SET ROLE 行使特权?  */
+	bool		set_option;		/* 可否 SET ROLE 到目标角色? */
 } FormData_pg_auth_members;
 
 /* ----------------

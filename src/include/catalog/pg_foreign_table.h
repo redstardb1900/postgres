@@ -27,11 +27,11 @@
  */
 CATALOG(pg_foreign_table,3118,ForeignTableRelationId)
 {
-	Oid			ftrelid BKI_LOOKUP(pg_class);	/* OID of foreign table */
-	Oid			ftserver BKI_LOOKUP(pg_foreign_server); /* OID of foreign server */
+	Oid			ftrelid BKI_LOOKUP(pg_class);	/*  外部表 OID  */
+	Oid			ftserver BKI_LOOKUP(pg_foreign_server); /*  外部服务器 OID  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		ftoptions[1];	/* FDW-specific options */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		ftoptions[1];	/*  FDW 专用选项  */
 #endif
 } FormData_pg_foreign_table;
 

@@ -29,12 +29,12 @@
 CATALOG(pg_publication_rel,6106,PublicationRelRelationId)
 {
 	Oid			oid;			/* oid */
-	Oid			prpubid BKI_LOOKUP(pg_publication); /* Oid of the publication */
-	Oid			prrelid BKI_LOOKUP(pg_class);	/* Oid of the relation */
+	Oid			prpubid BKI_LOOKUP(pg_publication); /*  发布的 Oid  */
+	Oid			prrelid BKI_LOOKUP(pg_class);	/*  关系 Oid  */
 
-#ifdef	CATALOG_VARLEN			/* variable-length fields start here */
-	pg_node_tree prqual;		/* qualifications */
-	int2vector	prattrs;		/* columns to replicate */
+#ifdef	CATALOG_VARLEN			/*  变长字段自此开始  */
+	pg_node_tree prqual;		/*  限定条件  */
+	int2vector	prattrs;		/*  要复制的列  */
 #endif
 } FormData_pg_publication_rel;
 

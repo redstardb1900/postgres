@@ -16,7 +16,7 @@
 #include "partitioning/partdefs.h"
 #include "utils/relcache.h"
 
-/* Seed for the extended hash function */
+/*  扩展哈希函数的种子  */
 #define HASH_PARTITION_SEED UINT64CONST(0x7A5B22367996DCFD)
 
 extern Oid	get_partition_parent(Oid relid, bool even_if_detached);

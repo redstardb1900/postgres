@@ -27,14 +27,14 @@
  */
 CATALOG(pg_seclabel,3596,SecLabelRelationId)
 {
-	Oid			objoid;			/* OID of the object itself */
-	Oid			classoid BKI_LOOKUP(pg_class);	/* OID of table containing the
-												 * object */
-	int32		objsubid;		/* column number, or 0 if not used */
+	Oid			objoid;			/*  对象自身 OID  */
+	Oid			classoid BKI_LOOKUP(pg_class);	/*  含该对象的表的 OID
+												 * 对象 */
+	int32		objsubid;		/*  列号,未用则为 0  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		provider BKI_FORCE_NOT_NULL;	/* name of label provider */
-	text		label BKI_FORCE_NOT_NULL;	/* security label of the object */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		provider BKI_FORCE_NOT_NULL;	/*  标签提供者名  */
+	text		label BKI_FORCE_NOT_NULL;	/*  对象的安全标签  */
 #endif
 } FormData_pg_seclabel;
 

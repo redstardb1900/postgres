@@ -35,7 +35,7 @@ CATALOG(pg_user_mapping,1418,UserMappingRelationId)
 	Oid			umserver BKI_LOOKUP(pg_foreign_server); /* server of this
 														 * mapping */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	text		umoptions[1];	/* user mapping options */
 #endif
 } FormData_pg_user_mapping;

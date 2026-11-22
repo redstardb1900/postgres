@@ -29,16 +29,16 @@
 CATALOG(pg_event_trigger,3466,EventTriggerRelationId)
 {
 	Oid			oid;			/* oid */
-	NameData	evtname;		/* trigger's name */
-	NameData	evtevent;		/* trigger's event */
+	NameData	evtname;		/*  触发器名  */
+	NameData	evtevent;		/* 触发器事件 */
 	Oid			evtowner BKI_LOOKUP(pg_authid); /* trigger's owner */
-	Oid			evtfoid BKI_LOOKUP(pg_proc);	/* OID of function to be
-												 * called */
+	Oid			evtfoid BKI_LOOKUP(pg_proc);	/*  待调用函数的
+												 * OID  */
 	char		evtenabled;		/* trigger's firing configuration WRT
 								 * session_replication_role */
 
 #ifdef CATALOG_VARLEN
-	text		evttags[1];		/* command TAGs this event trigger targets */
+	text		evttags[1];		/*  本事件触发器针对的命令 TAG  */
 #endif
 } FormData_pg_event_trigger;
 

@@ -19,13 +19,13 @@
 #include "utils/relcache.h"
 
 /*
- * An ObjectAddress represents a database object of any type.
+ * ObjectAddress 表示任意类型的数据库对象。
  */
 typedef struct ObjectAddress
 {
 	Oid			classId;		/* Class Id from pg_class */
-	Oid			objectId;		/* OID of the object */
-	int32		objectSubId;	/* Subitem within object (eg column), or 0 */
+	Oid			objectId;		/*  对象 OID  */
+	int32		objectSubId;	/*  对象内子项(如列),或 0  */
 } ObjectAddress;
 
 extern PGDLLIMPORT const ObjectAddress InvalidObjectAddress;

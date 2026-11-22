@@ -30,15 +30,15 @@
  */
 CATALOG(pg_subscription_rel,6102,SubscriptionRelRelationId)
 {
-	Oid			srsubid BKI_LOOKUP(pg_subscription);	/* Oid of subscription */
-	Oid			srrelid BKI_LOOKUP(pg_class);	/* Oid of relation */
-	char		srsubstate;		/* state of the relation in subscription */
+	Oid			srsubid BKI_LOOKUP(pg_subscription);	/*  订阅 Oid  */
+	Oid			srrelid BKI_LOOKUP(pg_class);	/*  关系 Oid  */
+	char		srsubstate;		/*  关系在订阅中的状态  */
 
 	/*
 	 * Although srsublsn is a fixed-width type, it is allowed to be NULL, so
 	 * we prevent direct C code access to it just as for a varlena field.
 	 */
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 
 	XLogRecPtr	srsublsn BKI_FORCE_NULL;	/* remote LSN of the state change
 											 * used for synchronization
@@ -57,19 +57,19 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_subscription_rel_srrelid_srsubid_index, 6117, Subsc
  *		substate constants
  * ----------------
  */
-#define SUBREL_STATE_INIT		'i' /* initializing (sublsn NULL) */
-#define SUBREL_STATE_DATASYNC	'd' /* data is being synchronized (sublsn
+#define SUBREL_STATE_INIT		'i' /* 初始化中(sublsn NULL) */
+#define SUBREL_STATE_DATASYNC	'd' /*  正在同步数据(sublsn
 									 * NULL) */
-#define SUBREL_STATE_FINISHEDCOPY 'f'	/* tablesync copy phase is completed
+#define SUBREL_STATE_FINISHEDCOPY 'f'	/*  表同步复制阶段已完成
 										 * (sublsn NULL) */
-#define SUBREL_STATE_SYNCDONE	's' /* synchronization finished in front of
-									 * apply (sublsn set) */
+#define SUBREL_STATE_SYNCDONE	's' /*  同步已在应用之前完成
+									 * (sublsn 已设)  */
 #define SUBREL_STATE_READY		'r' /* ready (sublsn set) */
 
-/* These are never stored in the catalog, we only use them for IPC. */
-#define SUBREL_STATE_UNKNOWN	'\0'	/* unknown state */
-#define SUBREL_STATE_SYNCWAIT	'w' /* waiting for sync */
-#define SUBREL_STATE_CATCHUP	'c' /* catching up with apply */
+/*  从不存入目录,仅用于 IPC。  */
+#define SUBREL_STATE_UNKNOWN	'\0'	/* 未知状态 */
+#define SUBREL_STATE_SYNCWAIT	'w' /*  等待同步  */
+#define SUBREL_STATE_CATCHUP	'c' /*  追赶应用  */
 
 #endif							/* EXPOSE_TO_CLIENT_CODE */
 

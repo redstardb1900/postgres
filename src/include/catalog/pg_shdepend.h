@@ -38,25 +38,25 @@
 CATALOG(pg_shdepend,1214,SharedDependRelationId) BKI_SHARED_RELATION
 {
 	/*
-	 * Identification of the dependent (referencing) object.
+	 * 从属(引用方)对象的标识。
 	 *
-	 * Note that dbid can be zero to denote a shared object.
+	 * 注意 dbid 可为零表示共享对象。
 	 */
 	Oid			dbid BKI_LOOKUP_OPT(pg_database);	/* OID of database
 													 * containing object */
-	Oid			classid BKI_LOOKUP(pg_class);	/* OID of table containing
-												 * object */
-	Oid			objid;			/* OID of object itself */
-	int32		objsubid;		/* column number, or 0 if not used */
+	Oid			classid BKI_LOOKUP(pg_class);	/*  含下列项的表 OID
+												 * 对象 */
+	Oid			objid;			/*  对象自身 OID  */
+	int32		objsubid;		/*  列号,未用则为 0  */
 
 	/*
 	 * Identification of the independent (referenced) object.  This is always
 	 * a shared object, so we need no database ID field.  We don't bother with
 	 * a sub-object ID either.
 	 */
-	Oid			refclassid BKI_LOOKUP(pg_class);	/* OID of table containing
-													 * object */
-	Oid			refobjid;		/* OID of object itself */
+	Oid			refclassid BKI_LOOKUP(pg_class);	/*  含下列项的表 OID
+													 * 对象 */
+	Oid			refobjid;		/*  对象自身 OID  */
 
 	/*
 	 * Precise semantics of the relationship are specified by the deptype

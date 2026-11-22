@@ -37,26 +37,26 @@ CATALOG(pg_statistic_ext,3381,StatisticExtRelationId)
 	Oid			stxrelid BKI_LOOKUP(pg_class);	/* relation containing
 												 * attributes */
 
-	/* These two fields form the unique key for the entry: */
-	NameData	stxname;		/* statistics object name */
+	/*  这两字段构成本条目的唯一键:  */
+	NameData	stxname;		/*  统计对象名  */
 	Oid			stxnamespace BKI_LOOKUP(pg_namespace);	/* OID of statistics
 														 * object's namespace */
 
-	Oid			stxowner BKI_LOOKUP(pg_authid); /* statistics object's owner */
-	int32		stxstattarget BKI_DEFAULT(-1);	/* statistics target */
+	Oid			stxowner BKI_LOOKUP(pg_authid); /*  统计对象所有者  */
+	int32		stxstattarget BKI_DEFAULT(-1);	/*  统计目标  */
 
 	/*
-	 * variable-length fields start here, but we allow direct access to
+	 * 变长字段自此开始,但允许直接访问
 	 * stxkeys
 	 */
-	int2vector	stxkeys BKI_FORCE_NOT_NULL; /* array of column keys */
+	int2vector	stxkeys BKI_FORCE_NOT_NULL; /*  列键数组  */
 
 #ifdef CATALOG_VARLEN
 	char		stxkind[1] BKI_FORCE_NOT_NULL;	/* statistics kinds requested
 												 * to build */
-	pg_node_tree stxexprs;		/* A list of expression trees for stats
-								 * attributes that are not simple column
-								 * references. */
+	pg_node_tree stxexprs;		/*  统计用表达式树列表,
+								 * 对应非简单列引用的
+								 * 属性。  */
 #endif
 
 } FormData_pg_statistic_ext;

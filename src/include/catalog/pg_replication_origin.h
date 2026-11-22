@@ -41,14 +41,14 @@ CATALOG(pg_replication_origin,6000,ReplicationOriginRelationId) BKI_SHARED_RELAT
 	Oid			roident;
 
 	/*
-	 * Variable-length fields start here, but we allow direct access to
+	 * 变长字段自此开始,但允许直接访问
 	 * roname.
 	 */
 
-	/* external, free-format, name */
+	/*  外部自由格式名  */
 	text		roname BKI_FORCE_NOT_NULL;
 
-#ifdef CATALOG_VARLEN			/* further variable-length fields */
+#ifdef CATALOG_VARLEN			/*  后续变长字段  */
 #endif
 } FormData_pg_replication_origin;
 

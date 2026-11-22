@@ -11076,6 +11076,61 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0591-catalog.json",
    "kind": "manifest",
    "note": "0591"
+  },
+  {
+   "pattern": "src/include/catalog/pg_replication_origin.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_shdescription.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_range.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_partitioned_table.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_shdepend.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_statistic_ext.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_index.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/objectaddress.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_subscription_rel.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/include/catalog/pg_collation.h",
+   "kind": "c_comment",
+   "note": "0592"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0592-catalog.json",
+   "kind": "manifest",
+   "note": "0592"
   }
  ],
  "files": [
@@ -36144,6 +36199,136 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0591"
+  },
+  {
+   "path": "src/include/catalog/pg_replication_origin.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_shdescription.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_range.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_partitioned_table.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_shdepend.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_statistic_ext.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_index.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/objectaddress.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_subscription_rel.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/include/catalog/pg_collation.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅/typedef 块 KEEP；长文 KEEP EN；OID 字面保留。"
+   ],
+   "note": "0592"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0592-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0592"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

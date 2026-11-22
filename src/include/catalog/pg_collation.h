@@ -31,17 +31,17 @@ CATALOG(pg_collation,3456,CollationRelationId)
 	Oid			oid;			/* oid */
 	NameData	collname;		/* collation name */
 
-	/* OID of namespace containing this collation */
+	/*  含本排序规则的命名空间 OID  */
 	Oid			collnamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
 	/* owner of collation */
 	Oid			collowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
-	char		collprovider;	/* see constants below */
+	char		collprovider;	/*  见下方常量  */
 	bool		collisdeterministic BKI_DEFAULT(t);
-	int32		collencoding;	/* encoding for this collation; -1 = "all" */
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		collcollate BKI_DEFAULT(_null_);	/* LC_COLLATE setting */
-	text		collctype BKI_DEFAULT(_null_);	/* LC_CTYPE setting */
+	int32		collencoding;	/*  本排序规则的编码;-1="all"  */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		collcollate BKI_DEFAULT(_null_);	/* LC_COLLATE 设置 */
+	text		collctype BKI_DEFAULT(_null_);	/* LC_CTYPE 设置 */
 	text		colliculocale BKI_DEFAULT(_null_);	/* ICU locale ID */
 	text		collicurules BKI_DEFAULT(_null_);	/* ICU collation rules */
 	text		collversion BKI_DEFAULT(_null_);	/* provider-dependent

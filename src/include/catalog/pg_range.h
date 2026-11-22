@@ -28,13 +28,13 @@
  */
 CATALOG(pg_range,3541,RangeRelationId)
 {
-	/* OID of owning range type */
+	/*  所属范围类型 OID  */
 	Oid			rngtypid BKI_LOOKUP(pg_type);
 
-	/* OID of range's element type (subtype) */
+	/*  范围元素类型(子类型) OID  */
 	Oid			rngsubtype BKI_LOOKUP(pg_type);
 
-	/* OID of the range's multirange type */
+	/*  范围的多范围类型 OID  */
 	Oid			rngmultitypid BKI_LOOKUP(pg_type);
 
 	/* collation for this range type, or 0 */
@@ -43,10 +43,10 @@ CATALOG(pg_range,3541,RangeRelationId)
 	/* subtype's btree opclass */
 	Oid			rngsubopc BKI_LOOKUP(pg_opclass);
 
-	/* canonicalize range, or 0 */
+	/*  规范化范围,或 0  */
 	regproc		rngcanonical BKI_LOOKUP_OPT(pg_proc);
 
-	/* subtype difference as a float8, or 0 */
+	/*  子类型差值为 float8,或 0  */
 	regproc		rngsubdiff BKI_LOOKUP_OPT(pg_proc);
 } FormData_pg_range;
 
@@ -61,7 +61,7 @@ DECLARE_UNIQUE_INDEX_PKEY(pg_range_rngtypid_index, 3542, RangeTypidIndexId, on p
 DECLARE_UNIQUE_INDEX(pg_range_rngmultitypid_index, 2228, RangeMultirangeTypidIndexId, on pg_range using btree(rngmultitypid oid_ops));
 
 /*
- * prototypes for functions in pg_range.c
+ * pg_range.c 中函数原型
  */
 
 extern void RangeCreate(Oid rangeTypeOid, Oid rangeSubType, Oid rangeCollation,

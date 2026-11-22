@@ -40,11 +40,11 @@
  */
 CATALOG(pg_shdescription,2396,SharedDescriptionRelationId) BKI_SHARED_RELATION
 {
-	Oid			objoid;			/* OID of object itself */
-	Oid			classoid;		/* OID of table containing object */
+	Oid			objoid;			/*  对象自身 OID  */
+	Oid			classoid;		/*  含对象的表 OID  */
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	text		description BKI_FORCE_NOT_NULL; /* description of object */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	text		description BKI_FORCE_NOT_NULL; /*  对象描述  */
 #endif
 } FormData_pg_shdescription;
 
@@ -59,7 +59,7 @@ DECLARE_TOAST_WITH_MACRO(pg_shdescription, 2846, 2847, PgShdescriptionToastTable
 
 DECLARE_UNIQUE_INDEX_PKEY(pg_shdescription_o_c_index, 2397, SharedDescriptionObjIndexId, on pg_shdescription using btree(objoid oid_ops, classoid oid_ops));
 
-/* We do not use BKI_LOOKUP here because it causes problems for genbki.pl */
+/*  此处不用 BKI_LOOKUP,因其会给 genbki.pl 带来问题  */
 DECLARE_FOREIGN_KEY((classoid), pg_class, (oid));
 
 #endif							/* PG_SHDESCRIPTION_H */

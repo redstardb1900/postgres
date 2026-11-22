@@ -37,23 +37,23 @@ typedef enum OverridingKind
 	OVERRIDING_SYSTEM_VALUE
 } OverridingKind;
 
-/* Possible sources of a Query */
+/* Query 的可能来源 */
 typedef enum QuerySource
 {
-	QSRC_ORIGINAL,				/* original parsetree (explicit query) */
-	QSRC_PARSER,				/* added by parse analysis (now unused) */
-	QSRC_INSTEAD_RULE,			/* added by unconditional INSTEAD rule */
-	QSRC_QUAL_INSTEAD_RULE,		/* added by conditional INSTEAD rule */
-	QSRC_NON_INSTEAD_RULE		/* added by non-INSTEAD rule */
+	QSRC_ORIGINAL,				/* 原解析树(显式查询) */
+	QSRC_PARSER,				/* 由解析分析加入(现已不用) */
+	QSRC_INSTEAD_RULE,			/* 由无条件 INSTEAD 规则加入 */
+	QSRC_QUAL_INSTEAD_RULE,		/* 由条件 INSTEAD 规则加入 */
+	QSRC_NON_INSTEAD_RULE		/* 由非 INSTEAD 规则加 */
 } QuerySource;
 
-/* Sort ordering options for ORDER BY and CREATE INDEX */
+/* ORDER BY 与 CREATE INDEX 的排序选项 */
 typedef enum SortByDir
 {
 	SORTBY_DEFAULT,
 	SORTBY_ASC,
 	SORTBY_DESC,
-	SORTBY_USING				/* not allowed in CREATE INDEX ... */
+	SORTBY_USING				/* CREATE INDEX ... 中不允许 */
 } SortByDir;
 
 typedef enum SortByNulls
@@ -63,7 +63,7 @@ typedef enum SortByNulls
 	SORTBY_NULLS_LAST
 } SortByNulls;
 
-/* Options for [ ALL | DISTINCT ] */
+/* [ ALL | DISTINCT ] 的选项 */
 typedef enum SetQuantifier
 {
 	SET_QUANTIFIER_DEFAULT,
@@ -78,25 +78,25 @@ typedef enum SetQuantifier
  *
  * Caution: changing these codes breaks stored ACLs, hence forces initdb.
  */
-typedef uint64 AclMode;			/* a bitmask of privilege bits */
+typedef uint64 AclMode;			/* 特权位的位掩码 */
 
-#define ACL_INSERT		(1<<0)	/* for relations */
+#define ACL_INSERT		(1<<0)	/* 供关系 */
 #define ACL_SELECT		(1<<1)
 #define ACL_UPDATE		(1<<2)
 #define ACL_DELETE		(1<<3)
 #define ACL_TRUNCATE	(1<<4)
 #define ACL_REFERENCES	(1<<5)
 #define ACL_TRIGGER		(1<<6)
-#define ACL_EXECUTE		(1<<7)	/* for functions */
-#define ACL_USAGE		(1<<8)	/* for various object types */
-#define ACL_CREATE		(1<<9)	/* for namespaces and databases */
-#define ACL_CREATE_TEMP (1<<10) /* for databases */
-#define ACL_CONNECT		(1<<11) /* for databases */
-#define ACL_SET			(1<<12) /* for configuration parameters */
-#define ACL_ALTER_SYSTEM (1<<13)	/* for configuration parameters */
-#define N_ACL_RIGHTS	14		/* 1 plus the last 1<<x */
+#define ACL_EXECUTE		(1<<7)	/* 供函数 */
+#define ACL_USAGE		(1<<8)	/* 供各类对象 */
+#define ACL_CREATE		(1<<9)	/* 供名字空间与数据库 */
+#define ACL_CREATE_TEMP (1<<10) /* 供数据库 */
+#define ACL_CONNECT		(1<<11) /* 供数据库 */
+#define ACL_SET			(1<<12) /* 供配置参数 */
+#define ACL_ALTER_SYSTEM (1<<13)	/* 供配置参数 */
+#define N_ACL_RIGHTS	14		/* 1 加最后 1<<x */
 #define ACL_NO_RIGHTS	0
-/* Currently, SELECT ... FOR [KEY] UPDATE/SHARE requires UPDATE privileges */
+/* 当前 SELECT ... FOR [KEY] UPDATE/SHARE 需要 UPDATE 特权 */
 #define ACL_SELECT_FOR_UPDATE	ACL_UPDATE
 
 
@@ -126,7 +126,7 @@ typedef struct Query
 
 	CmdType		commandType;	/* select|insert|update|delete|merge|utility */
 
-	/* where did I come from? */
+	/* 我从哪里来? */
 	QuerySource querySource pg_node_attr(query_jumble_ignore);
 
 	/*
@@ -136,10 +136,10 @@ typedef struct Query
 	 */
 	uint64		queryId pg_node_attr(equal_ignore, query_jumble_ignore, read_write_ignore, read_as(0));
 
-	/* do I set the command result tag? */
+	/* 是否设置命令结果标签? */
 	bool		canSetTag pg_node_attr(query_jumble_ignore);
 
-	Node	   *utilityStmt;	/* non-null if commandType == CMD_UTILITY */
+	Node	   *utilityStmt;	/* commandType == CMD_UTILITY 时非空 */
 
 	/*
 	 * rtable index of target relation for INSERT/UPDATE/DELETE/MERGE; 0 for
@@ -148,30 +148,30 @@ typedef struct Query
 	 */
 	int			resultRelation pg_node_attr(query_jumble_ignore);
 
-	/* has aggregates in tlist or havingQual */
+	/* tlist 或 havingQual 中有聚合 */
 	bool		hasAggs pg_node_attr(query_jumble_ignore);
-	/* has window functions in tlist */
+	/* tlist 中有窗口函数 */
 	bool		hasWindowFuncs pg_node_attr(query_jumble_ignore);
-	/* has set-returning functions in tlist */
+	/* tlist 中有返回集合的函数 */
 	bool		hasTargetSRFs pg_node_attr(query_jumble_ignore);
-	/* has subquery SubLink */
+	/* 有子查询 SubLink */
 	bool		hasSubLinks pg_node_attr(query_jumble_ignore);
-	/* distinctClause is from DISTINCT ON */
+	/* distinctClause 来自 DISTINCT ON */
 	bool		hasDistinctOn pg_node_attr(query_jumble_ignore);
-	/* WITH RECURSIVE was specified */
+	/* 指定了 WITH RECURSIVE */
 	bool		hasRecursive pg_node_attr(query_jumble_ignore);
-	/* has INSERT/UPDATE/DELETE in WITH */
+	/* WITH 中有 INSERT/UPDATE/DELETE */
 	bool		hasModifyingCTE pg_node_attr(query_jumble_ignore);
-	/* FOR [KEY] UPDATE/SHARE was specified */
+	/* 指定了 FOR [KEY] UPDATE/SHARE */
 	bool		hasForUpdate pg_node_attr(query_jumble_ignore);
-	/* rewriter has applied some RLS policy */
+	/* 重写器已应用某些 RLS 策略 */
 	bool		hasRowSecurity pg_node_attr(query_jumble_ignore);
-	/* is a RETURN statement */
+	/* 是 RETURN 语句 */
 	bool		isReturn pg_node_attr(query_jumble_ignore);
 
-	List	   *cteList;		/* WITH list (of CommonTableExpr's) */
+	List	   *cteList;		/* WITH 列表(CommonTableExpr) */
 
-	List	   *rtable;			/* list of range table entries */
+	List	   *rtable;			/* 范围表项列表 */
 
 	/*
 	 * list of RTEPermissionInfo nodes for the rtable entries having
@@ -181,37 +181,37 @@ typedef struct Query
 	FromExpr   *jointree;		/* table join tree (FROM and WHERE clauses);
 								 * also USING clause for MERGE */
 
-	List	   *mergeActionList;	/* list of actions for MERGE (only) */
-	/* whether to use outer join */
+	List	   *mergeActionList;	/* MERGE 的动作列表(仅) */
+	/* 是否用外连接 */
 	bool		mergeUseOuterJoin pg_node_attr(query_jumble_ignore);
 
-	List	   *targetList;		/* target list (of TargetEntry) */
+	List	   *targetList;		/* 目标列表(TargetEntry) */
 
-	/* OVERRIDING clause */
+	/* OVERRIDING 子句 */
 	OverridingKind override pg_node_attr(query_jumble_ignore);
 
 	OnConflictExpr *onConflict; /* ON CONFLICT DO [NOTHING | UPDATE] */
 
-	List	   *returningList;	/* return-values list (of TargetEntry) */
+	List	   *returningList;	/* 返回值列表(TargetEntry) */
 
-	List	   *groupClause;	/* a list of SortGroupClause's */
-	bool		groupDistinct;	/* is the group by clause distinct? */
+	List	   *groupClause;	/* SortGroupClause 列表 */
+	bool		groupDistinct;	/* GROUP BY 子句是否 DISTINCT? */
 
-	List	   *groupingSets;	/* a list of GroupingSet's if present */
+	List	   *groupingSets;	/* GroupingSet 列表(若有) */
 
-	Node	   *havingQual;		/* qualifications applied to groups */
+	Node	   *havingQual;		/* 应用于组的限定 */
 
-	List	   *windowClause;	/* a list of WindowClause's */
+	List	   *windowClause;	/* WindowClause 列表 */
 
-	List	   *distinctClause; /* a list of SortGroupClause's */
+	List	   *distinctClause; /* SortGroupClause 列表 */
 
-	List	   *sortClause;		/* a list of SortGroupClause's */
+	List	   *sortClause;		/* SortGroupClause 列表 */
 
-	Node	   *limitOffset;	/* # of result tuples to skip (int8 expr) */
-	Node	   *limitCount;		/* # of result tuples to return (int8 expr) */
+	Node	   *limitOffset;	/* 要跳过的结果元组数(int8 expr) */
+	Node	   *limitCount;		/* 要返回结果元组数(int8 表达式) */
 	LimitOption limitOption;	/* limit type */
 
-	List	   *rowMarks;		/* a list of RowMarkClause's */
+	List	   *rowMarks;		/* RowMarkClause 列表 */
 
 	Node	   *setOperations;	/* set-operation tree if this is top level of
 								 * a UNION/INTERSECT/EXCEPT query */
@@ -222,7 +222,7 @@ typedef struct Query
 	 */
 	List	   *constraintDeps pg_node_attr(query_jumble_ignore);
 
-	/* a list of WithCheckOption's (added during rewrite) */
+	/* WithCheckOption 列表(重写时加入) */
 	List	   *withCheckOptions pg_node_attr(query_jumble_ignore);
 
 	/*
@@ -231,9 +231,9 @@ typedef struct Query
 	 * Queries, not in sub-queries.  When not set, they might both be zero, or
 	 * both be -1 meaning "unknown".
 	 */
-	/* start location, or -1 if unknown */
+	/* 起始位置,未知则为 -1 */
 	int			stmt_location;
-	/* length in bytes; 0 means "rest of string" */
+	/* 字节长度;0 为"字符串余下部分" */
 	int			stmt_len pg_node_attr(query_jumble_ignore);
 } Query;
 
@@ -262,14 +262,14 @@ typedef struct Query
 typedef struct TypeName
 {
 	NodeTag		type;
-	List	   *names;			/* qualified name (list of String nodes) */
-	Oid			typeOid;		/* type identified by OID */
+	List	   *names;			/* 限定名(String 节点列表) */
+	Oid			typeOid;		/* 由 OID 标识类型 */
 	bool		setof;			/* is a set? */
-	bool		pct_type;		/* %TYPE specified? */
-	List	   *typmods;		/* type modifier expression(s) */
-	int32		typemod;		/* prespecified type modifier */
-	List	   *arrayBounds;	/* array bounds */
-	int			location;		/* token location, or -1 if unknown */
+	bool		pct_type;		/* 指定了 %TYPE? */
+	List	   *typmods;		/* 类型修饰符表达式 */
+	int32		typemod;		/* 预指定类型修饰符 */
+	List	   *arrayBounds;	/* 数组边界 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } TypeName;
 
 /*
@@ -288,8 +288,8 @@ typedef struct TypeName
 typedef struct ColumnRef
 {
 	NodeTag		type;
-	List	   *fields;			/* field names (String nodes) or A_Star */
-	int			location;		/* token location, or -1 if unknown */
+	List	   *fields;			/* 字段名(String 节点)或 A_Star */
+	int			location;		/* 记号位置,未知则为 -1 */
 } ColumnRef;
 
 /*
@@ -298,8 +298,8 @@ typedef struct ColumnRef
 typedef struct ParamRef
 {
 	NodeTag		type;
-	int			number;			/* the number of the parameter */
-	int			location;		/* token location, or -1 if unknown */
+	int			number;			/* 参数编号 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } ParamRef;
 
 /*
@@ -307,20 +307,20 @@ typedef struct ParamRef
  */
 typedef enum A_Expr_Kind
 {
-	AEXPR_OP,					/* normal operator */
-	AEXPR_OP_ANY,				/* scalar op ANY (array) */
-	AEXPR_OP_ALL,				/* scalar op ALL (array) */
-	AEXPR_DISTINCT,				/* IS DISTINCT FROM - name must be "=" */
-	AEXPR_NOT_DISTINCT,			/* IS NOT DISTINCT FROM - name must be "=" */
-	AEXPR_NULLIF,				/* NULLIF - name must be "=" */
-	AEXPR_IN,					/* [NOT] IN - name must be "=" or "<>" */
-	AEXPR_LIKE,					/* [NOT] LIKE - name must be "~~" or "!~~" */
-	AEXPR_ILIKE,				/* [NOT] ILIKE - name must be "~~*" or "!~~*" */
-	AEXPR_SIMILAR,				/* [NOT] SIMILAR - name must be "~" or "!~" */
-	AEXPR_BETWEEN,				/* name must be "BETWEEN" */
-	AEXPR_NOT_BETWEEN,			/* name must be "NOT BETWEEN" */
-	AEXPR_BETWEEN_SYM,			/* name must be "BETWEEN SYMMETRIC" */
-	AEXPR_NOT_BETWEEN_SYM		/* name must be "NOT BETWEEN SYMMETRIC" */
+	AEXPR_OP,					/* 普通运算符 */
+	AEXPR_OP_ANY,				/* 标量 op ANY(数组) */
+	AEXPR_OP_ALL,				/* 标量 op ALL(数组) */
+	AEXPR_DISTINCT,				/* IS DISTINCT FROM - 名须为 "=" */
+	AEXPR_NOT_DISTINCT,			/* IS NOT DISTINCT FROM - 名须为 "=" */
+	AEXPR_NULLIF,				/* NULLIF - 名须为 "=" */
+	AEXPR_IN,					/* [NOT] IN - 名须为 "=" 或 "<>" */
+	AEXPR_LIKE,					/* [NOT] LIKE - 名须为 "~~" 或 "!~~" */
+	AEXPR_ILIKE,				/* [NOT] ILIKE - 名须为 "~~*" 或 "!~~*" */
+	AEXPR_SIMILAR,				/* [NOT] SIMILAR - 名须为 "~" 或 "!~" */
+	AEXPR_BETWEEN,				/* 名须为 "BETWEEN" */
+	AEXPR_NOT_BETWEEN,			/* 名须为 "NOT BETWEEN" */
+	AEXPR_BETWEEN_SYM,			/* 名须为 "BETWEEN SYMMETRIC" */
+	AEXPR_NOT_BETWEEN_SYM		/* 名须为 "NOT BETWEEN SYMMETRIC" */
 } A_Expr_Kind;
 
 typedef struct A_Expr
@@ -328,11 +328,11 @@ typedef struct A_Expr
 	pg_node_attr(custom_read_write)
 
 	NodeTag		type;
-	A_Expr_Kind kind;			/* see above */
-	List	   *name;			/* possibly-qualified name of operator */
-	Node	   *lexpr;			/* left argument, or NULL if none */
-	Node	   *rexpr;			/* right argument, or NULL if none */
-	int			location;		/* token location, or -1 if unknown */
+	A_Expr_Kind kind;			/* 见上 */
+	List	   *name;			/* 运算符的可能限定名 */
+	Node	   *lexpr;			/* 左操作数,无则为 NULL */
+	Node	   *rexpr;			/* 右操作数,无则为 NULL */
+	int			location;		/* 记号位置,未知则为 -1 */
 } A_Expr;
 
 /*
@@ -357,8 +357,8 @@ typedef struct A_Const
 
 	NodeTag		type;
 	union ValUnion val;
-	bool		isnull;			/* SQL NULL constant */
-	int			location;		/* token location, or -1 if unknown */
+	bool		isnull;			/* SQL NULL 常量 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } A_Const;
 
 /*
@@ -367,9 +367,9 @@ typedef struct A_Const
 typedef struct TypeCast
 {
 	NodeTag		type;
-	Node	   *arg;			/* the expression being casted */
-	TypeName   *typeName;		/* the target type */
-	int			location;		/* token location, or -1 if unknown */
+	Node	   *arg;			/* 被造型的表达式 */
+	TypeName   *typeName;		/* 目标类型 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } TypeCast;
 
 /*
@@ -378,9 +378,9 @@ typedef struct TypeCast
 typedef struct CollateClause
 {
 	NodeTag		type;
-	Node	   *arg;			/* input expression */
-	List	   *collname;		/* possibly-qualified collation name */
-	int			location;		/* token location, or -1 if unknown */
+	Node	   *arg;			/* 输入表达式 */
+	List	   *collname;		/* 可能限定的排序规则名 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } CollateClause;
 
 /*
@@ -388,19 +388,19 @@ typedef struct CollateClause
  */
 typedef enum RoleSpecType
 {
-	ROLESPEC_CSTRING,			/* role name is stored as a C string */
-	ROLESPEC_CURRENT_ROLE,		/* role spec is CURRENT_ROLE */
-	ROLESPEC_CURRENT_USER,		/* role spec is CURRENT_USER */
-	ROLESPEC_SESSION_USER,		/* role spec is SESSION_USER */
-	ROLESPEC_PUBLIC				/* role name is "public" */
+	ROLESPEC_CSTRING,			/* 角色名存为 C 字符串 */
+	ROLESPEC_CURRENT_ROLE,		/* rolespec 为 CURRENT_ROLE */
+	ROLESPEC_CURRENT_USER,		/* rolespec 为 CURRENT_USER */
+	ROLESPEC_SESSION_USER,		/* rolespec 为 SESSION_USER */
+	ROLESPEC_PUBLIC				/* 角色名为 "public" */
 } RoleSpecType;
 
 typedef struct RoleSpec
 {
 	NodeTag		type;
-	RoleSpecType roletype;		/* Type of this rolespec */
-	char	   *rolename;		/* filled only for ROLESPEC_CSTRING */
-	int			location;		/* token location, or -1 if unknown */
+	RoleSpecType roletype;		/* 本 rolespec 类型 */
+	char	   *rolename;		/* 仅对 ROLESPEC_CSTRING 填写 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } RoleSpec;
 
 /*
@@ -420,17 +420,17 @@ typedef struct RoleSpec
 typedef struct FuncCall
 {
 	NodeTag		type;
-	List	   *funcname;		/* qualified name of function */
-	List	   *args;			/* the arguments (list of exprs) */
-	List	   *agg_order;		/* ORDER BY (list of SortBy) */
-	Node	   *agg_filter;		/* FILTER clause, if any */
-	struct WindowDef *over;		/* OVER clause, if any */
-	bool		agg_within_group;	/* ORDER BY appeared in WITHIN GROUP */
-	bool		agg_star;		/* argument was really '*' */
-	bool		agg_distinct;	/* arguments were labeled DISTINCT */
-	bool		func_variadic;	/* last argument was labeled VARIADIC */
-	CoercionForm funcformat;	/* how to display this node */
-	int			location;		/* token location, or -1 if unknown */
+	List	   *funcname;		/* 函数的限定名 */
+	List	   *args;			/* 参数(表达式列表) */
+	List	   *agg_order;		/* ORDER BY (SortBy 列表) */
+	Node	   *agg_filter;		/* FILTER 子句(若有) */
+	struct WindowDef *over;		/* OVER 子句(若有) */
+	bool		agg_within_group;	/* ORDER BY 出现在 WITHIN GROUP */
+	bool		agg_star;		/* 参数实际为 "*" */
+	bool		agg_distinct;	/* 参数标了 DISTINCT */
+	bool		func_variadic;	/* 末参数标了 VARIADIC */
+	CoercionForm funcformat;	/* 如何显示本节点 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } FuncCall;
 
 /*
@@ -453,9 +453,9 @@ typedef struct A_Star
 typedef struct A_Indices
 {
 	NodeTag		type;
-	bool		is_slice;		/* true if slice (i.e., colon present) */
-	Node	   *lidx;			/* slice lower bound, if any */
-	Node	   *uidx;			/* subscript, or slice upper bound if any */
+	bool		is_slice;		/* 是切片(即有冒号)则为真 */
+	Node	   *lidx;			/* 切片下界(若有) */
+	Node	   *uidx;			/* 下标,或切片上界(若有) */
 } A_Indices;
 
 /*
@@ -476,8 +476,8 @@ typedef struct A_Indices
 typedef struct A_Indirection
 {
 	NodeTag		type;
-	Node	   *arg;			/* the thing being selected from */
-	List	   *indirection;	/* subscripts and/or field names and/or * */
+	Node	   *arg;			/* 被选择的对象 */
+	List	   *indirection;	/* 下标和/或字段名和/或 * */
 } A_Indirection;
 
 /*
@@ -486,8 +486,8 @@ typedef struct A_Indirection
 typedef struct A_ArrayExpr
 {
 	NodeTag		type;
-	List	   *elements;		/* array element expressions */
-	int			location;		/* token location, or -1 if unknown */
+	List	   *elements;		/* 数组元素表达式 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } A_ArrayExpr;
 
 /*
@@ -511,10 +511,10 @@ typedef struct A_ArrayExpr
 typedef struct ResTarget
 {
 	NodeTag		type;
-	char	   *name;			/* column name or NULL */
-	List	   *indirection;	/* subscripts, field names, and '*', or NIL */
-	Node	   *val;			/* the value expression to compute or assign */
-	int			location;		/* token location, or -1 if unknown */
+	char	   *name;			/* 列名或 NULL */
+	List	   *indirection;	/* 下标、字段名与 "*",或 NIL */
+	Node	   *val;			/* 要求值或赋值的值表达式 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } ResTarget;
 
 /*
@@ -529,9 +529,9 @@ typedef struct ResTarget
 typedef struct MultiAssignRef
 {
 	NodeTag		type;
-	Node	   *source;			/* the row-valued expression */
-	int			colno;			/* column number for this target (1..n) */
-	int			ncolumns;		/* number of targets in the construct */
+	Node	   *source;			/* 行值表达式 */
+	int			colno;			/* 本目标的列号(1..n) */
+	int			ncolumns;		/* 构造中的目标数 */
 } MultiAssignRef;
 
 /*
@@ -540,11 +540,11 @@ typedef struct MultiAssignRef
 typedef struct SortBy
 {
 	NodeTag		type;
-	Node	   *node;			/* expression to sort on */
-	SortByDir	sortby_dir;		/* ASC/DESC/USING/default */
+	Node	   *node;			/* 排序所依表达式 */
+	SortByDir	sortby_dir;		/* ASC/DESC/USING/默认 */
 	SortByNulls sortby_nulls;	/* NULLS FIRST/LAST */
-	List	   *useOp;			/* name of op to use, if SORTBY_USING */
-	int			location;		/* operator location, or -1 if none/unknown */
+	List	   *useOp;			/* SORTBY_USING 时要用运算符名 */
+	int			location;		/* 运算符位置,无/未知则为 -1 */
 } SortBy;
 
 /*
@@ -559,13 +559,13 @@ typedef struct WindowDef
 {
 	NodeTag		type;
 	char	   *name;			/* window's own name */
-	char	   *refname;		/* referenced window name, if any */
-	List	   *partitionClause;	/* PARTITION BY expression list */
-	List	   *orderClause;	/* ORDER BY (list of SortBy) */
-	int			frameOptions;	/* frame_clause options, see below */
-	Node	   *startOffset;	/* expression for starting bound, if any */
-	Node	   *endOffset;		/* expression for ending bound, if any */
-	int			location;		/* parse location, or -1 if none/unknown */
+	char	   *refname;		/* 引用的窗口名(若有) */
+	List	   *partitionClause;	/* PARTITION BY 表达式列表 */
+	List	   *orderClause;	/* ORDER BY (SortBy 列表) */
+	int			frameOptions;	/* frame_clause 选项,见下 */
+	Node	   *startOffset;	/* 起始边界表达式(若有) */
+	Node	   *endOffset;		/* 结束边界表达式(若有) */
+	int			location;		/* 解析位置,无/未知则为 -1 */
 } WindowDef;
 
 /*
@@ -575,22 +575,22 @@ typedef struct WindowDef
  * The START_foo and END_foo options must come in pairs of adjacent bits for
  * the convenience of gram.y, even though some of them are useless/invalid.
  */
-#define FRAMEOPTION_NONDEFAULT					0x00001 /* any specified? */
-#define FRAMEOPTION_RANGE						0x00002 /* RANGE behavior */
-#define FRAMEOPTION_ROWS						0x00004 /* ROWS behavior */
-#define FRAMEOPTION_GROUPS						0x00008 /* GROUPS behavior */
-#define FRAMEOPTION_BETWEEN						0x00010 /* BETWEEN given? */
-#define FRAMEOPTION_START_UNBOUNDED_PRECEDING	0x00020 /* start is U. P. */
-#define FRAMEOPTION_END_UNBOUNDED_PRECEDING		0x00040 /* (disallowed) */
-#define FRAMEOPTION_START_UNBOUNDED_FOLLOWING	0x00080 /* (disallowed) */
-#define FRAMEOPTION_END_UNBOUNDED_FOLLOWING		0x00100 /* end is U. F. */
-#define FRAMEOPTION_START_CURRENT_ROW			0x00200 /* start is C. R. */
-#define FRAMEOPTION_END_CURRENT_ROW				0x00400 /* end is C. R. */
-#define FRAMEOPTION_START_OFFSET_PRECEDING		0x00800 /* start is O. P. */
-#define FRAMEOPTION_END_OFFSET_PRECEDING		0x01000 /* end is O. P. */
-#define FRAMEOPTION_START_OFFSET_FOLLOWING		0x02000 /* start is O. F. */
-#define FRAMEOPTION_END_OFFSET_FOLLOWING		0x04000 /* end is O. F. */
-#define FRAMEOPTION_EXCLUDE_CURRENT_ROW			0x08000 /* omit C.R. */
+#define FRAMEOPTION_NONDEFAULT					0x00001 /* 有指定? */
+#define FRAMEOPTION_RANGE						0x00002 /* RANGE 行为 */
+#define FRAMEOPTION_ROWS						0x00004 /* ROWS 行为 */
+#define FRAMEOPTION_GROUPS						0x00008 /* GROUPS 行为 */
+#define FRAMEOPTION_BETWEEN						0x00010 /* 有 BETWEEN? */
+#define FRAMEOPTION_START_UNBOUNDED_PRECEDING	0x00020 /* 起点为 UP */
+#define FRAMEOPTION_END_UNBOUNDED_PRECEDING		0x00040 /* (不允许) */
+#define FRAMEOPTION_START_UNBOUNDED_FOLLOWING	0x00080 /* (不允许) */
+#define FRAMEOPTION_END_UNBOUNDED_FOLLOWING		0x00100 /* 终点为 UF */
+#define FRAMEOPTION_START_CURRENT_ROW			0x00200 /* 起点为 CR */
+#define FRAMEOPTION_END_CURRENT_ROW				0x00400 /* 终点为 CR */
+#define FRAMEOPTION_START_OFFSET_PRECEDING		0x00800 /* 起点为 OP */
+#define FRAMEOPTION_END_OFFSET_PRECEDING		0x01000 /* 终点为 OP */
+#define FRAMEOPTION_START_OFFSET_FOLLOWING		0x02000 /* 起点为 OF */
+#define FRAMEOPTION_END_OFFSET_FOLLOWING		0x04000 /* 终点为 OF */
+#define FRAMEOPTION_EXCLUDE_CURRENT_ROW			0x08000 /* 省略 CR */
 #define FRAMEOPTION_EXCLUDE_GROUP				0x10000 /* omit C.R. & peers */
 #define FRAMEOPTION_EXCLUDE_TIES				0x20000 /* omit C.R.'s peers */
 
@@ -612,9 +612,9 @@ typedef struct WindowDef
 typedef struct RangeSubselect
 {
 	NodeTag		type;
-	bool		lateral;		/* does it have LATERAL prefix? */
-	Node	   *subquery;		/* the untransformed sub-select clause */
-	Alias	   *alias;			/* table alias & optional column aliases */
+	bool		lateral;		/* 是否有 LATERAL 前缀? */
+	Node	   *subquery;		/* 未变换的子 select 子句 */
+	Alias	   *alias;			/* 表别名与可选列别名 */
 } RangeSubselect;
 
 /*
@@ -634,11 +634,11 @@ typedef struct RangeSubselect
 typedef struct RangeFunction
 {
 	NodeTag		type;
-	bool		lateral;		/* does it have LATERAL prefix? */
-	bool		ordinality;		/* does it have WITH ORDINALITY suffix? */
-	bool		is_rowsfrom;	/* is result of ROWS FROM() syntax? */
-	List	   *functions;		/* per-function information, see above */
-	Alias	   *alias;			/* table alias & optional column aliases */
+	bool		lateral;		/* 是否有 LATERAL 前缀? */
+	bool		ordinality;		/* 是否有 WITH ORDINALITY 后缀? */
+	bool		is_rowsfrom;	/* 为 ROWS FROM() 语法结果? */
+	List	   *functions;		/* 每函数信息,见上 */
+	Alias	   *alias;			/* 表别名与可选列别名 */
 	List	   *coldeflist;		/* list of ColumnDef nodes to describe result
 								 * of function returning RECORD */
 } RangeFunction;
@@ -649,13 +649,13 @@ typedef struct RangeFunction
 typedef struct RangeTableFunc
 {
 	NodeTag		type;
-	bool		lateral;		/* does it have LATERAL prefix? */
-	Node	   *docexpr;		/* document expression */
-	Node	   *rowexpr;		/* row generator expression */
-	List	   *namespaces;		/* list of namespaces as ResTarget */
-	List	   *columns;		/* list of RangeTableFuncCol */
-	Alias	   *alias;			/* table alias & optional column aliases */
-	int			location;		/* token location, or -1 if unknown */
+	bool		lateral;		/* 是否有 LATERAL 前缀? */
+	Node	   *docexpr;		/* 文档表达式 */
+	Node	   *rowexpr;		/* 行生成器表达式 */
+	List	   *namespaces;		/* 名字空间列表(ResTarget) */
+	List	   *columns;		/* RangeTableFuncCol 列表 */
+	Alias	   *alias;			/* 表别名与可选列别名 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } RangeTableFunc;
 
 /*
@@ -667,13 +667,13 @@ typedef struct RangeTableFunc
 typedef struct RangeTableFuncCol
 {
 	NodeTag		type;
-	char	   *colname;		/* name of generated column */
-	TypeName   *typeName;		/* type of generated column */
-	bool		for_ordinality; /* does it have FOR ORDINALITY? */
-	bool		is_not_null;	/* does it have NOT NULL? */
-	Node	   *colexpr;		/* column filter expression */
-	Node	   *coldefexpr;		/* column default value expression */
-	int			location;		/* token location, or -1 if unknown */
+	char	   *colname;		/* 生成列的名字 */
+	TypeName   *typeName;		/* 生成列的类型 */
+	bool		for_ordinality; /* 是否有 FOR ORDINALITY? */
+	bool		is_not_null;	/* 是否有 NOT NULL? */
+	Node	   *colexpr;		/* 列过滤表达式 */
+	Node	   *coldefexpr;		/* 列默认值表达式 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } RangeTableFuncCol;
 
 /*
@@ -689,11 +689,11 @@ typedef struct RangeTableFuncCol
 typedef struct RangeTableSample
 {
 	NodeTag		type;
-	Node	   *relation;		/* relation to be sampled */
-	List	   *method;			/* sampling method name (possibly qualified) */
-	List	   *args;			/* argument(s) for sampling method */
-	Node	   *repeatable;		/* REPEATABLE expression, or NULL if none */
-	int			location;		/* method name location, or -1 if unknown */
+	Node	   *relation;		/* 要采样的关系 */
+	List	   *method;			/* 采样方法名(可能限定) */
+	List	   *args;			/* 采样方法的参数 */
+	Node	   *repeatable;		/* REPEATABLE 表达式,无则为 NULL */
+	int			location;		/* 方法名位置,未知则为 -1 */
 } RangeTableSample;
 
 /*
@@ -717,26 +717,26 @@ typedef struct RangeTableSample
 typedef struct ColumnDef
 {
 	NodeTag		type;
-	char	   *colname;		/* name of column */
-	TypeName   *typeName;		/* type of column */
-	char	   *compression;	/* compression method for column */
-	int			inhcount;		/* number of times column is inherited */
-	bool		is_local;		/* column has local (non-inherited) def'n */
-	bool		is_not_null;	/* NOT NULL constraint specified? */
-	bool		is_from_type;	/* column definition came from table type */
-	char		storage;		/* attstorage setting, or 0 for default */
-	char	   *storage_name;	/* attstorage setting name or NULL for default */
-	Node	   *raw_default;	/* default value (untransformed parse tree) */
-	Node	   *cooked_default; /* default value (transformed expr tree) */
-	char		identity;		/* attidentity setting */
+	char	   *colname;		/* 列名 */
+	TypeName   *typeName;		/* 列类型 */
+	char	   *compression;	/* 列的压缩方法 */
+	int			inhcount;		/* 列被继承的次数 */
+	bool		is_local;		/* 列有本地(非继承)定义 */
+	bool		is_not_null;	/* 指定了 NOT NULL 约束? */
+	bool		is_from_type;	/* 列定义来自表类型 */
+	char		storage;		/* attstorage 设置,0 为默认 */
+	char	   *storage_name;	/* attstorage 设置名,NULL 为默认 */
+	Node	   *raw_default;	/* 默认值(未变换解析树) */
+	Node	   *cooked_default; /* 默认值(已变换表达式树) */
+	char		identity;		/* attidentity 设置 */
 	RangeVar   *identitySequence;	/* to store identity sequence name for
 									 * ALTER TABLE ... ADD COLUMN */
-	char		generated;		/* attgenerated setting */
-	CollateClause *collClause;	/* untransformed COLLATE spec, if any */
-	Oid			collOid;		/* collation OID (InvalidOid if not set) */
-	List	   *constraints;	/* other constraints on column */
-	List	   *fdwoptions;		/* per-column FDW options */
-	int			location;		/* parse location, or -1 if none/unknown */
+	char		generated;		/* attgenerated 设置 */
+	CollateClause *collClause;	/* 未变换 COLLATE 规格(若有) */
+	Oid			collOid;		/* 排序规则 OID(未设=InvalidOid) */
+	List	   *constraints;	/* 列上的其他约束 */
+	List	   *fdwoptions;		/* 每列 FDW 选项 */
+	int			location;		/* 解析位置,无/未知则为 -1 */
 } ColumnDef;
 
 /*
@@ -746,8 +746,8 @@ typedef struct TableLikeClause
 {
 	NodeTag		type;
 	RangeVar   *relation;
-	bits32		options;		/* OR of TableLikeOption flags */
-	Oid			relationOid;	/* If table has been looked up, its OID */
+	bits32		options;		/* TableLikeOption 标志 OR */
+	Oid			relationOid;	/* 若表已查找,为其 OID */
 } TableLikeClause;
 
 typedef enum TableLikeOption
@@ -774,14 +774,14 @@ typedef enum TableLikeOption
 typedef struct IndexElem
 {
 	NodeTag		type;
-	char	   *name;			/* name of attribute to index, or NULL */
+	char	   *name;			/* 要建索引的属性名,或 NULL */
 	Node	   *expr;			/* expression to index, or NULL */
-	char	   *indexcolname;	/* name for index column; NULL = default */
-	List	   *collation;		/* name of collation; NIL = default */
-	List	   *opclass;		/* name of desired opclass; NIL = default */
-	List	   *opclassopts;	/* opclass-specific options, or NIL */
-	SortByDir	ordering;		/* ASC/DESC/default */
-	SortByNulls nulls_ordering; /* FIRST/LAST/default */
+	char	   *indexcolname;	/* 索引列名;NULL=默认 */
+	List	   *collation;		/* 排序规则名;NIL=默认 */
+	List	   *opclass;		/* 期望的 opclass 名;NIL=默认 */
+	List	   *opclassopts;	/* opclass 专用选项,或 NIL */
+	SortByDir	ordering;		/* ASC/DESC/默认 */
+	SortByNulls nulls_ordering; /* FIRST/LAST/默认 */
 } IndexElem;
 
 /*
@@ -796,7 +796,7 @@ typedef struct IndexElem
  */
 typedef enum DefElemAction
 {
-	DEFELEM_UNSPEC,				/* no action given */
+	DEFELEM_UNSPEC,				/* 未给出动作 */
 	DEFELEM_SET,
 	DEFELEM_ADD,
 	DEFELEM_DROP
@@ -805,12 +805,12 @@ typedef enum DefElemAction
 typedef struct DefElem
 {
 	NodeTag		type;
-	char	   *defnamespace;	/* NULL if unqualified name */
+	char	   *defnamespace;	/* 非限定名则为 NULL */
 	char	   *defname;
 	Node	   *arg;			/* typically Integer, Float, String, or
 								 * TypeName */
-	DefElemAction defaction;	/* unspecified action, or SET/ADD/DROP */
-	int			location;		/* token location, or -1 if unknown */
+	DefElemAction defaction;	/* 未指定动作,或 SET/ADD/DROP */
+	int			location;		/* 记号位置,未知则为 -1 */
 } DefElem;
 
 /*
@@ -825,9 +825,9 @@ typedef struct DefElem
 typedef struct LockingClause
 {
 	NodeTag		type;
-	List	   *lockedRels;		/* FOR [KEY] UPDATE/SHARE relations */
+	List	   *lockedRels;		/* FOR [KEY] UPDATE/SHARE 关系 */
 	LockClauseStrength strength;
-	LockWaitPolicy waitPolicy;	/* NOWAIT and SKIP LOCKED */
+	LockWaitPolicy waitPolicy;	/* NOWAIT 与 SKIP LOCKED */
 } LockingClause;
 
 /*
@@ -836,14 +836,14 @@ typedef struct LockingClause
 typedef struct XmlSerialize
 {
 	NodeTag		type;
-	XmlOptionType xmloption;	/* DOCUMENT or CONTENT */
+	XmlOptionType xmloption;	/* DOCUMENT/CONTENT */
 	Node	   *expr;
 	TypeName   *typeName;
 	bool		indent;			/* [NO] INDENT */
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } XmlSerialize;
 
-/* Partitioning related definitions */
+/* 分区相关定义 */
 
 /*
  * PartitionElem - parse-time representation of a single partition key
@@ -854,11 +854,11 @@ typedef struct XmlSerialize
 typedef struct PartitionElem
 {
 	NodeTag		type;
-	char	   *name;			/* name of column to partition on, or NULL */
-	Node	   *expr;			/* expression to partition on, or NULL */
-	List	   *collation;		/* name of collation; NIL = default */
-	List	   *opclass;		/* name of desired opclass; NIL = default */
-	int			location;		/* token location, or -1 if unknown */
+	char	   *name;			/* 要分区的列名,或 NULL */
+	Node	   *expr;			/* 要分区的表达式,或 NULL */
+	List	   *collation;		/* 排序规则名;NIL=默认 */
+	List	   *opclass;		/* 期望的 opclass 名;NIL=默认 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } PartitionElem;
 
 typedef enum PartitionStrategy
@@ -877,8 +877,8 @@ typedef struct PartitionSpec
 {
 	NodeTag		type;
 	PartitionStrategy strategy;
-	List	   *partParams;		/* List of PartitionElems */
-	int			location;		/* token location, or -1 if unknown */
+	List	   *partParams;		/* PartitionElem 列表 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } PartitionSpec;
 
 /*
@@ -891,21 +891,21 @@ struct PartitionBoundSpec
 {
 	NodeTag		type;
 
-	char		strategy;		/* see PARTITION_STRATEGY codes above */
-	bool		is_default;		/* is it a default partition bound? */
+	char		strategy;		/* 见上 PARTITION_STRATEGY 码 */
+	bool		is_default;		/* 是否为默认分区边界? */
 
-	/* Partitioning info for HASH strategy: */
+	/* HASH 策略的分区信息: */
 	int			modulus;
 	int			remainder;
 
-	/* Partitioning info for LIST strategy: */
-	List	   *listdatums;		/* List of Consts (or A_Consts in raw tree) */
+	/* LIST 策略的分区信息: */
+	List	   *listdatums;		/* Const 列表(或原树中的 A_Const) */
 
-	/* Partitioning info for RANGE strategy: */
-	List	   *lowerdatums;	/* List of PartitionRangeDatums */
-	List	   *upperdatums;	/* List of PartitionRangeDatums */
+	/* RANGE 策略的分区信息: */
+	List	   *lowerdatums;	/* PartitionRangeDatum 列表 */
+	List	   *upperdatums;	/* PartitionRangeDatum 列表 */
 
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 };
 
 /*
@@ -915,9 +915,9 @@ struct PartitionBoundSpec
  */
 typedef enum PartitionRangeDatumKind
 {
-	PARTITION_RANGE_DATUM_MINVALUE = -1,	/* less than any other value */
-	PARTITION_RANGE_DATUM_VALUE = 0,	/* a specific (bounded) value */
-	PARTITION_RANGE_DATUM_MAXVALUE = 1	/* greater than any other value */
+	PARTITION_RANGE_DATUM_MINVALUE = -1,	/* 小于任何其他值 */
+	PARTITION_RANGE_DATUM_VALUE = 0,	/* 特定(有界)值 */
+	PARTITION_RANGE_DATUM_MAXVALUE = 1	/* 大于任何其他值 */
 } PartitionRangeDatumKind;
 
 typedef struct PartitionRangeDatum
@@ -928,7 +928,7 @@ typedef struct PartitionRangeDatum
 	Node	   *value;			/* Const (or A_Const in raw tree), if kind is
 								 * PARTITION_RANGE_DATUM_VALUE, else NULL */
 
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } PartitionRangeDatum;
 
 /*
@@ -937,8 +937,8 @@ typedef struct PartitionRangeDatum
 typedef struct PartitionCmd
 {
 	NodeTag		type;
-	RangeVar   *name;			/* name of partition to attach/detach */
-	PartitionBoundSpec *bound;	/* FOR VALUES, if attaching */
+	RangeVar   *name;			/* 要挂接/拆卸的分区名 */
+	PartitionBoundSpec *bound;	/* FOR VALUES(挂接时) */
 	bool		concurrent;
 } PartitionCmd;
 
@@ -1010,14 +1010,14 @@ typedef struct PartitionCmd
  */
 typedef enum RTEKind
 {
-	RTE_RELATION,				/* ordinary relation reference */
+	RTE_RELATION,				/* 普通关系引用 */
 	RTE_SUBQUERY,				/* subquery in FROM */
 	RTE_JOIN,					/* join */
-	RTE_FUNCTION,				/* function in FROM */
-	RTE_TABLEFUNC,				/* TableFunc(.., column list) */
+	RTE_FUNCTION,				/* FROM 中函数 */
+	RTE_TABLEFUNC,				/* TableFunc(.., 列列表) */
 	RTE_VALUES,					/* VALUES (<exprlist>), (<exprlist>), ... */
-	RTE_CTE,					/* common table expr (WITH list element) */
-	RTE_NAMEDTUPLESTORE,		/* tuplestore, e.g. for AFTER triggers */
+	RTE_CTE,					/* 公共表表达式(WITH 列表元素) */
+	RTE_NAMEDTUPLESTORE,		/* tuplestore,如供 AFTER 触发器 */
 	RTE_RESULT					/* RTE represents an empty FROM clause; such
 								 * RTEs are added by the planner, they're not
 								 * present during parsing or rewriting */
@@ -1029,7 +1029,7 @@ typedef struct RangeTblEntry
 
 	NodeTag		type;
 
-	RTEKind		rtekind;		/* see above */
+	RTEKind		rtekind;		/* 见上 */
 
 	/*
 	 * XXX the fields applicable to only some rte kinds should be merged into
@@ -1068,16 +1068,16 @@ typedef struct RangeTblEntry
 	 * relation.  This allows plans referencing AFTER trigger transition
 	 * tables to be invalidated if the underlying table is altered.
 	 */
-	Oid			relid;			/* OID of the relation */
-	char		relkind;		/* relation kind (see pg_class.relkind) */
-	int			rellockmode;	/* lock level that query requires on the rel */
-	struct TableSampleClause *tablesample;	/* sampling info, or NULL */
+	Oid			relid;			/* 关系的 OID */
+	char		relkind;		/* 关系种类(见 pg_class.relkind) */
+	int			rellockmode;	/* 查询对该关系要求的锁级别 */
+	struct TableSampleClause *tablesample;	/* 采样信息,或 NULL */
 	Index		perminfoindex;
 
 	/*
 	 * Fields valid for a subquery RTE (else NULL):
 	 */
-	Query	   *subquery;		/* the sub-query */
+	Query	   *subquery;		/* 子查询 */
 	bool		security_barrier;	/* is from security_barrier view? */
 
 	/*
@@ -1123,11 +1123,11 @@ typedef struct RangeTblEntry
 	 * merged columns could not be dropped); this is not accounted for in
 	 * joinleftcols/joinrighttcols.
 	 */
-	JoinType	jointype;		/* type of join */
-	int			joinmergedcols; /* number of merged (JOIN USING) columns */
-	List	   *joinaliasvars;	/* list of alias-var expansions */
-	List	   *joinleftcols;	/* left-side input column numbers */
-	List	   *joinrightcols;	/* right-side input column numbers */
+	JoinType	jointype;		/* 连接类型 */
+	int			joinmergedcols; /* 已合并(JOIN USING)列数 */
+	List	   *joinaliasvars;	/* 别名-var 展开列表 */
+	List	   *joinleftcols;	/* 左侧输入列号 */
+	List	   *joinrightcols;	/* 右侧输入列号 */
 
 	/*
 	 * join_using_alias is an alias clause attached directly to JOIN/USING. It
@@ -1144,8 +1144,8 @@ typedef struct RangeTblEntry
 	 * implicit, and must be accounted for "by hand" in places such as
 	 * expandRTE().
 	 */
-	List	   *functions;		/* list of RangeTblFunction nodes */
-	bool		funcordinality; /* is this called WITH ORDINALITY? */
+	List	   *functions;		/* RangeTblFunction 节点列表 */
+	bool		funcordinality; /* 以 WITH ORDINALITY 调用? */
 
 	/*
 	 * Fields valid for a TableFunc RTE (else NULL):
@@ -1155,14 +1155,14 @@ typedef struct RangeTblEntry
 	/*
 	 * Fields valid for a values RTE (else NIL):
 	 */
-	List	   *values_lists;	/* list of expression lists */
+	List	   *values_lists;	/* 表达式列表的列表 */
 
 	/*
 	 * Fields valid for a CTE RTE (else NULL/zero):
 	 */
-	char	   *ctename;		/* name of the WITH list item */
-	Index		ctelevelsup;	/* number of query levels up */
-	bool		self_reference; /* is this a recursive self-reference? */
+	char	   *ctename;		/* WITH 列表项的名字 */
+	Index		ctelevelsup;	/* 向上查询层数 */
+	bool		self_reference; /* 是否为递归自引用? */
 
 	/*
 	 * Fields valid for CTE, VALUES, ENR, and TableFunc RTEs (else NIL):
@@ -1182,25 +1182,25 @@ typedef struct RangeTblEntry
 	 * all three lists (as well as an empty-string entry in eref).  Testing
 	 * for zero coltype is the standard way to detect a dropped column.
 	 */
-	List	   *coltypes;		/* OID list of column type OIDs */
-	List	   *coltypmods;		/* integer list of column typmods */
-	List	   *colcollations;	/* OID list of column collation OIDs */
+	List	   *coltypes;		/* 列类型 OID 的 OID 列表 */
+	List	   *coltypmods;		/* 列 typmod 的整数列表 */
+	List	   *colcollations;	/* 列排序规则 OID  OID 列表 */
 
 	/*
 	 * Fields valid for ENR RTEs (else NULL/zero):
 	 */
-	char	   *enrname;		/* name of ephemeral named relation */
-	Cardinality enrtuples;		/* estimated or actual from caller */
+	char	   *enrname;		/* 短暂命名关系的名字 */
+	Cardinality enrtuples;		/* 估计或调用者实际值 */
 
 	/*
 	 * Fields valid in all RTEs:
 	 */
-	Alias	   *alias;			/* user-written alias clause, if any */
-	Alias	   *eref;			/* expanded reference names */
-	bool		lateral;		/* subquery, function, or values is LATERAL? */
-	bool		inh;			/* inheritance requested? */
-	bool		inFromCl;		/* present in FROM clause? */
-	List	   *securityQuals;	/* security barrier quals to apply, if any */
+	Alias	   *alias;			/* 用户书写别名子句(若有) */
+	Alias	   *eref;			/* 展开的引用名 */
+	bool		lateral;		/* 子查询/函数/values 是否 LATERAL? */
+	bool		inh;			/* 是否请求继承? */
+	bool		inFromCl;		/* 出现在 FROM 子句? */
+	List	   *securityQuals;	/* 要应用的安全屏障限定(若有) */
 } RangeTblEntry;
 
 /*

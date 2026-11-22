@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0542",
+  "title": "include/nodes parsenodes.h part1 (L<1207) — batch 0542",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "70c8b7d20a8a457640ea0fa2d48fc974bb26fdbe",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/parsenodes.h",
+      "kind": "c_comment",
+      "note": "0542"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0542-include.json",
+      "kind": "manifest",
+      "note": "0542"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/parsenodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2089,
+      "translated": 274,
+      "preserved": 1815,
+      "preserved_reasons": [
+        "横幅/L>=1207 KEEP",
+        "长叙述 KEEP EN",
+        "预算紧"
+      ],
+      "note": "0542 T=274"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0542-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0542"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0542"
+    }
+  ]
+}

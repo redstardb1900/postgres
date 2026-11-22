@@ -1210,7 +1210,7 @@ typedef struct Hash
 } Hash;
 
 /* ----------------
- *		setop node
+ *	setop节点
  * ----------------
  */
 typedef struct SetOp
@@ -1276,7 +1276,7 @@ typedef struct Limit
 	/* COUNT 参数,无则为 NULL */
 	Node	   *limitCount;
 
-	/* limit type */
+	/* 限制类 */
 	LimitOption limitOption;
 
 	/* 查相似列数  */
@@ -1381,7 +1381,7 @@ typedef struct PlanRowMark
 	Index		rti;			/* 可标记关系的范围表下标 */
 	Index		prti;			/* 父关系的范围表下标 */
 	Index		rowmarkId;		/* resjunk 列的唯一标识符 */
-	RowMarkType markType;		/* see enum above */
+	RowMarkType markType;		/* 见上枚举 */
 	int			allMarkTypes;	/* 所有子 (1<<markType) 的 OR */
 	LockClauseStrength strength;	/* LockingClause 的强度,或 LCS_NONE */
 	LockWaitPolicy waitPolicy;	/* NOWAIT 与 SKIP LOCKED 选项 */
@@ -1429,21 +1429,21 @@ typedef struct PartitionPruneInfo
 } PartitionPruneInfo;
 
 /*
- * PartitionedRelPruneInfo - Details required to allow the executor to prune
- * partitions for a single partitioned table.
+ * PartitionedRelPruneInfo - 执行器裁剪单个
+ * 分区表各分区所需的细节。
  *
- * subplan_map[] and subpart_map[] are indexed by partition index of the
- * partitioned table referenced by 'rtindex', the partition index being the
- * order that the partitions are defined in the table's PartitionDesc.  For a
- * leaf partition p, subplan_map[p] contains the zero-based index of the
- * partition's subplan in the parent plan's subplan list; it is -1 if the
- * partition is non-leaf or has been pruned.  For a non-leaf partition p,
- * subpart_map[p] contains the zero-based index of that sub-partition's
- * PartitionedRelPruneInfo in the hierarchy's PartitionedRelPruneInfo list;
- * it is -1 if the partition is a leaf or has been pruned.  Note that subplan
- * indexes, as stored in 'subplan_map', are global across the parent plan
- * node, but partition indexes are valid only within a particular hierarchy.
- * relid_map[p] contains the partition's OID, or 0 if the partition was pruned.
+ * subplan_map[] 与 subpart_map[] 以 rtindex 所指
+ * 分区表的分区下标索引，该下标即分区在表
+ * PartitionDesc 中的定义次序。对叶分区 p，
+ * subplan_map[p] 是该分区子计划在父计划子计划
+ * 列表中的零基下标；非叶或已裁剪则为 -1。对
+ * 非叶分区 p，subpart_map[p] 是该子分区的
+ * PartitionedRelPruneInfo 在层级列表中的零基
+ * 下标；叶或已裁剪则为 -1。注意 subplan_map
+ * 中存的子计划下标在父计划节点内全局有效，
+ * 但分区下标仅在特定层级内有效。
+ * relid_map[p] 含分区的 OID，若分区已裁剪
+ * 则为 0。
  */
 typedef struct PartitionedRelPruneInfo
 {
@@ -1478,7 +1478,7 @@ typedef struct PartitionedRelPruneInfo
 	List	   *initial_pruning_steps;	/* PartitionPruneStep 列表 */
 	List	   *exec_pruning_steps; /* PartitionPruneStep 列表 */
 
-	/* All PARAM_EXEC Param IDs in exec_pruning_steps */
+	/* exec_pruning_steps 中全部 PARAM_EXEC-ID */
 	Bitmapset  *execparamids;
 } PartitionedRelPruneInfo;
 
@@ -1555,13 +1555,13 @@ typedef struct PartitionPruneStepCombine
 
 
 /*
- * Plan invalidation info
+ * 计划失效信息
  *
- * We track the objects on which a PlannedStmt depends in two ways:
- * relations are recorded as a simple list of OIDs, and everything else
- * is represented as a list of PlanInvalItems.  A PlanInvalItem is designed
- * to be used with the syscache invalidation mechanism, so it identifies a
- * system catalog entry by cache ID and hash value.
+ * 以两种方式跟踪 PlannedStmt 所依赖的对象：
+ * 关系记为简单 OIDs 列表，其余一切用
+ * PlanInvalItems 列表表示。PlanInvalItem 设计为
+ * 配合 syscache 失效机制，故以缓存 ID 与哈希值
+ * 标识系统目录项。
  */
 typedef struct PlanInvalItem
 {
@@ -1575,11 +1575,11 @@ typedef struct PlanInvalItem
 /*
  * MonotonicFunction
  *
- * Allows the planner to track monotonic properties of functions.  A function
- * is monotonically increasing if a subsequent call cannot yield a lower value
- * than the previous call.  A monotonically decreasing function cannot yield a
- * higher value on subsequent calls, and a function which is both must return
- * the same value on each call.
+ * 供规划器跟踪函数的单调性质。若后续调用
+ * 不可能得到比前次更低的值，则函数单调递增。
+ * 单调递减函数后续调用不可能得到更高值；
+ * 若二者皆是，则每次调用必须返回
+ * 相同值。
  */
 typedef enum MonotonicFunction
 {

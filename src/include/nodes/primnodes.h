@@ -1052,44 +1052,44 @@ typedef struct AlternativeSubPlan
 typedef struct FieldSelect
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
-	AttrNumber	fieldnum;		/* attribute number of field to extract */
-	/* type of the field (result type of this node) */
+	Expr	   *arg;			/* 输入表达式 */
+	AttrNumber	fieldnum;		/* 要提取的字段属性号 */
+	/* 字段类型(本节点的结果类型) */
 	Oid			resulttype pg_node_attr(query_jumble_ignore);
 	/* output typmod (usually -1) */
 	int32		resulttypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation of the field */
+	/* 字段排序规则的 OID */
 	Oid			resultcollid pg_node_attr(query_jumble_ignore);
 } FieldSelect;
 
 /* ----------------
  * FieldStore
  *
- * FieldStore represents the operation of modifying one field in a tuple
- * value, yielding a new tuple value (the input is not touched!).  Like
- * the assign case of SubscriptingRef, this is used to implement UPDATE of a
- * portion of a column.
+ * FieldStore 为修改元组值中一个字段,产出新元组值操作
+ * (不改动输入!).类似 SubscriptingRef 赋值情形,用于实现
+ * 对列的一部分做 UPDATE。
+ * 见上。
  *
- * resulttype is always a named composite type (not a domain).  To update
- * a composite domain value, apply CoerceToDomain to the FieldStore.
+ * resulttype 恒为命名复合类型(非域).要更新复合域值,对
+ * FieldStore 应用 CoerceToDomain。
  *
- * A single FieldStore can actually represent updates of several different
- * fields.  The parser only generates FieldStores with single-element lists,
- * but the planner will collapse multiple updates of the same base column
- * into one FieldStore.
+ * 单个 FieldStore 实际可表示对多个不同字段更新.解析器
+ * 只生成单元素列表 FieldStore,但规划器会把对同一基列的
+ * 多次更新折叠为一个 FieldStore。
+ * 见上。
  * ----------------
  */
 
 typedef struct FieldStore
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input tuple value */
-	List	   *newvals;		/* new value(s) for field(s) */
-	/* integer list of field attnums */
+	Expr	   *arg;			/* 输入元组值 */
+	List	   *newvals;		/* 字段的新值 */
+	/* 字段 attnums 整数列表 */
 	List	   *fieldnums pg_node_attr(query_jumble_ignore);
-	/* type of result (same as type of arg) */
+	/* 结果类型(与 arg 类型相同) */
 	Oid			resulttype pg_node_attr(query_jumble_ignore);
-	/* Like RowExpr, we deliberately omit a typmod and collation here */
+	/* 与 RowExpr 一样,故意省略 typmod 与排序规则 */
 } FieldStore;
 
 /* ----------------
@@ -1108,37 +1108,37 @@ typedef struct FieldStore
 typedef struct RelabelType
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
-	Oid			resulttype;		/* output type of coercion expression */
+	Expr	   *arg;			/* 输入表达式 */
+	Oid			resulttype;		/* 强制表达式的输出类型 */
 	/* output typmod (usually -1) */
 	int32		resulttypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			resultcollid pg_node_attr(query_jumble_ignore);
-	/* how to display this node */
+	/* 如何显示本节点 */
 	CoercionForm relabelformat pg_node_attr(query_jumble_ignore);
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } RelabelType;
 
 /* ----------------
  * CoerceViaIO
  *
- * CoerceViaIO represents a type coercion between two types whose textual
- * representations are compatible, implemented by invoking the source type's
- * typoutput function then the destination type's typinput function.
+ * CoerceViaIO 表示文本表示兼容两类型间的强制,通过调用
+ * 源类型的 typoutput 再调用目标类型的 typinput 实现。
+ * 见上。
  * ----------------
  */
 
 typedef struct CoerceViaIO
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
-	Oid			resulttype;		/* output type of coercion */
-	/* output typmod is not stored, but is presumed -1 */
-	/* OID of collation, or InvalidOid if none */
+	Expr	   *arg;			/* 输入表达式 */
+	Oid			resulttype;		/* 强制的输出类型 */
+	/* 不存输出 typmod,假定为 -1 */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			resultcollid pg_node_attr(query_jumble_ignore);
-	/* how to display this node */
+	/* 如何显示本节点 */
 	CoercionForm coerceformat pg_node_attr(query_jumble_ignore);
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } CoerceViaIO;
 
 /* ----------------
@@ -1157,16 +1157,16 @@ typedef struct CoerceViaIO
 typedef struct ArrayCoerceExpr
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression (yields an array) */
-	Expr	   *elemexpr;		/* expression representing per-element work */
-	Oid			resulttype;		/* output type of coercion (an array type) */
-	/* output typmod (also element typmod) */
+	Expr	   *arg;			/* 输入表达式(产出数组) */
+	Expr	   *elemexpr;		/* 表示逐元素工作的表达式 */
+	Oid			resulttype;		/* 强制的输出类型(数组类型) */
+	/* 输出 typmod(亦即元素 typmod) */
 	int32		resulttypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			resultcollid pg_node_attr(query_jumble_ignore);
-	/* how to display this node */
+	/* 如何显示本节点 */
 	CoercionForm coerceformat pg_node_attr(query_jumble_ignore);
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } ArrayCoerceExpr;
 
 /* ----------------
@@ -1185,12 +1185,12 @@ typedef struct ArrayCoerceExpr
 typedef struct ConvertRowtypeExpr
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
-	Oid			resulttype;		/* output type (always a composite type) */
-	/* Like RowExpr, we deliberately omit a typmod and collation here */
-	/* how to display this node */
+	Expr	   *arg;			/* 输入表达式 */
+	Oid			resulttype;		/* 输出类型(恒为复合类型) */
+	/* 与 RowExpr 一样,故意省略 typmod 与排序规则 */
+	/* 如何显示本节点 */
 	CoercionForm convertformat pg_node_attr(query_jumble_ignore);
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } ConvertRowtypeExpr;
 
 /*----------
@@ -1203,9 +1203,9 @@ typedef struct ConvertRowtypeExpr
 typedef struct CollateExpr
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
+	Expr	   *arg;			/* 输入表达式 */
 	Oid			collOid;		/* collation's OID */
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } CollateExpr;
 
 /*----------
@@ -1233,25 +1233,25 @@ typedef struct CollateExpr
 typedef struct CaseExpr
 {
 	Expr		xpr;
-	/* type of expression result */
+	/* 表达式结果的类型 */
 	Oid			casetype pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			casecollid pg_node_attr(query_jumble_ignore);
-	Expr	   *arg;			/* implicit equality comparison argument */
-	List	   *args;			/* the arguments (list of WHEN clauses) */
-	Expr	   *defresult;		/* the default result (ELSE clause) */
-	int			location;		/* token location, or -1 if unknown */
+	Expr	   *arg;			/* 隐式相等比较参数 */
+	List	   *args;			/* 参数(WHEN 子句列表) */
+	Expr	   *defresult;		/* 默认结果(ELSE 子句) */
+	int			location;		/* 记号位置,未知则为 -1 */
 } CaseExpr;
 
 /*
- * CaseWhen - one arm of a CASE expression
+ * CaseWhen - CASE 表达式的一支
  */
 typedef struct CaseWhen
 {
 	Expr		xpr;
-	Expr	   *expr;			/* condition expression */
-	Expr	   *result;			/* substitution result */
-	int			location;		/* token location, or -1 if unknown */
+	Expr	   *expr;			/* 条件表达式 */
+	Expr	   *result;			/* 替换结果 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } CaseWhen;
 
 /*
@@ -1279,35 +1279,35 @@ typedef struct CaseWhen
 typedef struct CaseTestExpr
 {
 	Expr		xpr;
-	Oid			typeId;			/* type for substituted value */
-	/* typemod for substituted value */
+	Oid			typeId;			/* 替换值的类型 */
+	/* 替换值的 typemod */
 	int32		typeMod pg_node_attr(query_jumble_ignore);
-	/* collation for the substituted value */
+	/* 替换值的排序规则 */
 	Oid			collation pg_node_attr(query_jumble_ignore);
 } CaseTestExpr;
 
 /*
- * ArrayExpr - an ARRAY[] expression
+ * ArrayExpr - ARRAY[] 表达式
  *
- * Note: if multidims is false, the constituent expressions all yield the
- * scalar type identified by element_typeid.  If multidims is true, the
- * constituent expressions all yield arrays of element_typeid (ie, the same
- * type as array_typeid); at runtime we must check for compatible subscripts.
+ * 注:若 multidims 为假,组成表达式都产出 element_typeid
+ * 标识标量类型.若为真,组成表达式都产出 element_typeid
+ * 的数组(即与 array_typeid 相同);运行时须检查下标兼容。
+ * 见上。
  */
 typedef struct ArrayExpr
 {
 	Expr		xpr;
-	/* type of expression result */
+	/* 表达式结果的类型 */
 	Oid			array_typeid pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			array_collid pg_node_attr(query_jumble_ignore);
-	/* common type of array elements */
+	/* 数组元素的公共类型 */
 	Oid			element_typeid pg_node_attr(query_jumble_ignore);
-	/* the array elements or sub-arrays */
+	/* 数组元素或子数组 */
 	List	   *elements;
-	/* true if elements are sub-arrays */
+	/* 元素为子数组则为真 */
 	bool		multidims pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } ArrayExpr;
 
@@ -1335,9 +1335,9 @@ typedef struct ArrayExpr
 typedef struct RowExpr
 {
 	Expr		xpr;
-	List	   *args;			/* the fields */
+	List	   *args;			/* 字段 */
 
-	/* RECORDOID or a composite type's ID */
+	/* RECORDOID 或复合类型的 ID */
 	Oid			row_typeid pg_node_attr(query_jumble_ignore);
 
 	/*
@@ -1353,13 +1353,13 @@ typedef struct RowExpr
 	 * necessarily composite, and composite types never have a collation.
 	 */
 
-	/* how to display this node */
+	/* 如何显示本节点 */
 	CoercionForm row_format pg_node_attr(query_jumble_ignore);
 
-	/* list of String, or NIL */
+	/* String 列表,或 NIL */
 	List	   *colnames pg_node_attr(query_jumble_ignore);
 
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } RowExpr;
 
 /*
@@ -1378,13 +1378,13 @@ typedef struct RowExpr
  */
 typedef enum RowCompareType
 {
-	/* Values of this enum are chosen to match btree strategy numbers */
+	/* 本枚举值选为匹配 btree 策略号 */
 	ROWCOMPARE_LT = 1,			/* BTLessStrategyNumber */
 	ROWCOMPARE_LE = 2,			/* BTLessEqualStrategyNumber */
 	ROWCOMPARE_EQ = 3,			/* BTEqualStrategyNumber */
 	ROWCOMPARE_GE = 4,			/* BTGreaterEqualStrategyNumber */
 	ROWCOMPARE_GT = 5,			/* BTGreaterStrategyNumber */
-	ROWCOMPARE_NE = 6			/* no such btree strategy */
+	ROWCOMPARE_NE = 6			/* 无此 btree 策略 */
 } RowCompareType;
 
 typedef struct RowCompareExpr
@@ -1393,36 +1393,36 @@ typedef struct RowCompareExpr
 
 	/* LT LE GE or GT, never EQ or NE */
 	RowCompareType rctype;
-	/* OID list of pairwise comparison ops */
+	/* 成对比较运算符的 OID 列表 */
 	List	   *opnos pg_node_attr(query_jumble_ignore);
-	/* OID list of containing operator families */
+	/* 含操作符族的 OID 列表 */
 	List	   *opfamilies pg_node_attr(query_jumble_ignore);
-	/* OID list of collations for comparisons */
+	/* 比较用排序规则的 OID 列表 */
 	List	   *inputcollids pg_node_attr(query_jumble_ignore);
-	/* the left-hand input arguments */
+	/* 左侧输入参数 */
 	List	   *largs;
-	/* the right-hand input arguments */
+	/* 右侧输入参数 */
 	List	   *rargs;
 } RowCompareExpr;
 
 /*
- * CoalesceExpr - a COALESCE expression
+ * CoalesceExpr - COALESCE 表达式
  */
 typedef struct CoalesceExpr
 {
 	Expr		xpr;
-	/* type of expression result */
+	/* 表达式结果的类型 */
 	Oid			coalescetype pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			coalescecollid pg_node_attr(query_jumble_ignore);
-	/* the arguments */
+	/* 参数 */
 	List	   *args;
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } CoalesceExpr;
 
 /*
- * MinMaxExpr - a GREATEST or LEAST function
+ * MinMaxExpr - GREATEST 或 LEAST 函数
  */
 typedef enum MinMaxOp
 {
@@ -1433,17 +1433,17 @@ typedef enum MinMaxOp
 typedef struct MinMaxExpr
 {
 	Expr		xpr;
-	/* common type of arguments and result */
+	/* 参数与结果的公共类型 */
 	Oid			minmaxtype pg_node_attr(query_jumble_ignore);
-	/* OID of collation of result */
+	/* 结果排序规则的 OID */
 	Oid			minmaxcollid pg_node_attr(query_jumble_ignore);
-	/* OID of collation that function should use */
+	/* 函数应使用的排序规则 OID */
 	Oid			inputcollid pg_node_attr(query_jumble_ignore);
-	/* function to execute */
+	/* 要执行的函数 */
 	MinMaxOp	op;
-	/* the arguments */
+	/* 参数 */
 	List	   *args;
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } MinMaxExpr;
 
@@ -1480,7 +1480,7 @@ typedef enum SQLValueFunctionOp
 typedef struct SQLValueFunction
 {
 	Expr		xpr;
-	SQLValueFunctionOp op;		/* which function this is */
+	SQLValueFunctionOp op;		/* 这是哪个函数 */
 
 	/*
 	 * Result type/typmod.  Type is fully determined by "op", so no need to
@@ -1488,7 +1488,7 @@ typedef struct SQLValueFunction
 	 */
 	Oid			type pg_node_attr(query_jumble_ignore);
 	int32		typmod;
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } SQLValueFunction;
 
 /*
@@ -1523,34 +1523,34 @@ typedef enum XmlOptionType
 typedef struct XmlExpr
 {
 	Expr		xpr;
-	/* xml function ID */
+	/* xml 函数 ID */
 	XmlExprOp	op;
-	/* name in xml(NAME foo ...) syntaxes */
+	/* xml(NAME foo ...) 语法中的名 */
 	char	   *name pg_node_attr(query_jumble_ignore);
-	/* non-XML expressions for xml_attributes */
+	/* xml_attributes 的非 XML 表达式 */
 	List	   *named_args;
-	/* parallel list of String values */
+	/* 并行的 String 值列表 */
 	List	   *arg_names pg_node_attr(query_jumble_ignore);
-	/* list of expressions */
+	/* 表达式列表 */
 	List	   *args;
-	/* DOCUMENT or CONTENT */
+	/* DOCUMENT 或CONTENT */
 	XmlOptionType xmloption pg_node_attr(query_jumble_ignore);
-	/* INDENT option for XMLSERIALIZE */
+	/* XMLSERIALIZE 的 INDENT 选项 */
 	bool		indent;
-	/* target type/typmod for XMLSERIALIZE */
+	/* XMLSERIALIZE 的目标类型/typmod */
 	Oid			type pg_node_attr(query_jumble_ignore);
 	int32		typmod pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } XmlExpr;
 
 /*
  * JsonEncoding -
- *		representation of JSON ENCODING clause
+ *	JSON ENCODING 子句的表示
  */
 typedef enum JsonEncoding
 {
-	JS_ENC_DEFAULT,				/* unspecified */
+	JS_ENC_DEFAULT,				/* 未指定 */
 	JS_ENC_UTF8,
 	JS_ENC_UTF16,
 	JS_ENC_UTF32,
@@ -1558,58 +1558,58 @@ typedef enum JsonEncoding
 
 /*
  * JsonFormatType -
- *		enumeration of JSON formats used in JSON FORMAT clause
+ *	JSON FORMAT 子句所用 JSON 格式的枚举
  */
 typedef enum JsonFormatType
 {
-	JS_FORMAT_DEFAULT,			/* unspecified */
+	JS_FORMAT_DEFAULT,			/* 未指定 */
 	JS_FORMAT_JSON,				/* FORMAT JSON [ENCODING ...] */
-	JS_FORMAT_JSONB				/* implicit internal format for RETURNING
+	JS_FORMAT_JSONB				/* RETURNING 的隐式内部格式
 								 * jsonb */
 } JsonFormatType;
 
 /*
  * JsonFormat -
- *		representation of JSON FORMAT clause
+ *	JSON FORMAT 子句的表示
  */
 typedef struct JsonFormat
 {
 	NodeTag		type;
 	JsonFormatType format_type; /* format type */
-	JsonEncoding encoding;		/* JSON encoding */
-	int			location;		/* token location, or -1 if unknown */
+	JsonEncoding encoding;		/* JSON 编码 */
+	int			location;		/* 记号位置,未知则为 -1 */
 } JsonFormat;
 
 /*
  * JsonReturning -
- *		transformed representation of JSON RETURNING clause
+ *	JSON RETURNING 子句的变换表示
  */
 typedef struct JsonReturning
 {
 	NodeTag		type;
-	JsonFormat *format;			/* output JSON format */
+	JsonFormat *format;			/* 输出 JSON 格式 */
 	Oid			typid;			/* target type Oid */
 	int32		typmod;			/* target type modifier */
 } JsonReturning;
 
 /*
  * JsonValueExpr -
- *		representation of JSON value expression (expr [FORMAT JsonFormat])
+ *	JSON 值表达式的表示(expr [FORMAT JsonFormat])
  *
- * raw_expr is the user-specified value, while formatted_expr is the value
- * obtained by coercing raw_expr to the type required by either the FORMAT
- * clause or an enclosing node's RETURNING clause.
+ * raw_expr 是用户指定的值,formatted_expr 是通过强制
+ * raw_expr 到 FORMAT 子句或包围节点 RETURNING 子句所需
+ * 类型而得的值。
  *
- * When deparsing a JsonValueExpr, get_rule_expr() prints raw_expr. However,
- * during the evaluation of a JsonValueExpr, the value of formatted_expr
- * takes precedence over that of raw_expr.
+ * 反解析 JsonValueExpr 时,get_rule_expr() 打印 raw_expr。
+ * 但求值时 formatted_expr 的值优先于 raw_expr。
+ * 见上。
  */
 typedef struct JsonValueExpr
 {
 	NodeTag		type;
-	Expr	   *raw_expr;		/* user-specified expression */
-	Expr	   *formatted_expr; /* coerced formatted expression */
-	JsonFormat *format;			/* FORMAT clause, if specified */
+	Expr	   *raw_expr;		/* 用户指定的表达式 */
+	Expr	   *formatted_expr; /* 强制后格式化表达式 */
+	JsonFormat *format;			/* FORMAT 子句(若指定) */
 } JsonValueExpr;
 
 typedef enum JsonConstructorType
@@ -1622,24 +1622,24 @@ typedef enum JsonConstructorType
 
 /*
  * JsonConstructorExpr -
- *		wrapper over FuncExpr/Aggref/WindowFunc for SQL/JSON constructors
+ *	SQL/JSON 构造器上 FuncExpr/Aggref/WindowFunc 的包装
  */
 typedef struct JsonConstructorExpr
 {
 	Expr		xpr;
-	JsonConstructorType type;	/* constructor type */
+	JsonConstructorType type;	/* 构造器类型 */
 	List	   *args;
-	Expr	   *func;			/* underlying json[b]_xxx() function call */
-	Expr	   *coercion;		/* coercion to RETURNING type */
-	JsonReturning *returning;	/* RETURNING clause */
+	Expr	   *func;			/* 底层 json[b]_xxx() 函数调用 */
+	Expr	   *coercion;		/* 强制到 RETURNING 类型 */
+	JsonReturning *returning;	/* RETURNING 子句 */
 	bool		absent_on_null; /* ABSENT ON NULL? */
-	bool		unique;			/* WITH UNIQUE KEYS? (JSON_OBJECT[AGG] only) */
+	bool		unique;			/* WITH UNIQUE KEYS?(仅 JSON_OBJECT[AGG]) */
 	int			location;
 } JsonConstructorExpr;
 
 /*
  * JsonValueType -
- *		representation of JSON item type in IS JSON predicate
+ *	IS JSON 谓词中 JSON 项类型的表示
  */
 typedef enum JsonValueType
 {
@@ -1651,34 +1651,34 @@ typedef enum JsonValueType
 
 /*
  * JsonIsPredicate -
- *		representation of IS JSON predicate
+ *	IS JSON 谓词的表示
  */
 typedef struct JsonIsPredicate
 {
 	NodeTag		type;
-	Node	   *expr;			/* subject expression */
-	JsonFormat *format;			/* FORMAT clause, if specified */
-	JsonValueType item_type;	/* JSON item type */
-	bool		unique_keys;	/* check key uniqueness? */
-	int			location;		/* token location, or -1 if unknown */
+	Node	   *expr;			/* 主体表达式 */
+	JsonFormat *format;			/* FORMAT 子句(若指定) */
+	JsonValueType item_type;	/* JSON 项类型 */
+	bool		unique_keys;	/* 检查键唯一性? */
+	int			location;		/* 记号位置,未知则为 -1 */
 } JsonIsPredicate;
 
 /* ----------------
  * NullTest
  *
- * NullTest represents the operation of testing a value for NULLness.
- * The appropriate test is performed and returned as a boolean Datum.
+ * NullTest 表示测试值是否为 NULL 的操作。
+ * 执行适当测试并作为布尔 Datum 返回。
  *
- * When argisrow is false, this simply represents a test for the null value.
+ * argisrow 为假时,这只是对空值的测试。
  *
- * When argisrow is true, the input expression must yield a rowtype, and
- * the node implements "row IS [NOT] NULL" per the SQL standard.  This
- * includes checking individual fields for NULLness when the row datum
- * itself isn't NULL.
+ * argisrow 为真时,输入表达式须产出行类型,节点按 SQL
+ * 标准实现 "row IS [NOT] NULL"。这包括在行 Datum 本身
+ * 非 NULL 时检查各字段是否为空。
+ * 见上。
  *
- * NOTE: the combination of a rowtype input and argisrow==false does NOT
- * correspond to the SQL notation "row IS [NOT] NULL"; instead, this case
- * represents the SQL notation "row IS [NOT] DISTINCT FROM NULL".
+ * 注:行类型输入且 argisrow==false 的组合并不对应 SQL
+ * 记法 "row IS [NOT] NULL";而是表示 "row IS [NOT]
+ * DISTINCT FROM NULL"。
  * ----------------
  */
 
@@ -1690,20 +1690,20 @@ typedef enum NullTestType
 typedef struct NullTest
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
+	Expr	   *arg;			/* 输入表达式 */
 	NullTestType nulltesttype;	/* IS NULL, IS NOT NULL */
-	/* T to perform field-by-field null checks */
+	/* T 表示逐字段空检查 */
 	bool		argisrow pg_node_attr(query_jumble_ignore);
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } NullTest;
 
 /*
  * BooleanTest
  *
- * BooleanTest represents the operation of determining whether a boolean
- * is TRUE, FALSE, or UNKNOWN (ie, NULL).  All six meaningful combinations
- * are supported.  Note that a NULL input does *not* cause a NULL result.
- * The appropriate test is performed and returned as a boolean Datum.
+ * BooleanTest 表示判定布尔是 TRUE、FALSE 还是 UNKNOWN
+ * (即 NULL)的操作。支持全部六种有意义组合。注:NULL
+ * 输入*不*导致 NULL 结果.执行适当测试并作为布尔 Datum
+ * 返回。
  */
 
 typedef enum BoolTestType
@@ -1714,9 +1714,9 @@ typedef enum BoolTestType
 typedef struct BooleanTest
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
+	Expr	   *arg;			/* 输入表达式 */
 	BoolTestType booltesttype;	/* test type */
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } BooleanTest;
 
 /*
@@ -1731,15 +1731,15 @@ typedef struct BooleanTest
 typedef struct CoerceToDomain
 {
 	Expr		xpr;
-	Expr	   *arg;			/* input expression */
-	Oid			resulttype;		/* domain type ID (result type) */
-	/* output typmod (currently always -1) */
+	Expr	   *arg;			/* 输入表达式 */
+	Oid			resulttype;		/* 域类型 ID(结果类型) */
+	/* 输出 typmod(当前恒为 -1) */
 	int32		resulttypmod pg_node_attr(query_jumble_ignore);
-	/* OID of collation, or InvalidOid if none */
+	/* 排序规则 OID,无则为 InvalidOid */
 	Oid			resultcollid pg_node_attr(query_jumble_ignore);
-	/* how to display this node */
+	/* 如何显示本节点 */
 	CoercionForm coercionformat pg_node_attr(query_jumble_ignore);
-	int			location;		/* token location, or -1 if unknown */
+	int			location;		/* 记号位置,未知则为 -1 */
 } CoerceToDomain;
 
 /*
@@ -1754,13 +1754,13 @@ typedef struct CoerceToDomain
 typedef struct CoerceToDomainValue
 {
 	Expr		xpr;
-	/* type for substituted value */
+	/* 替换值的类型 */
 	Oid			typeId;
-	/* typemod for substituted value */
+	/* 替换值的 typemod */
 	int32		typeMod pg_node_attr(query_jumble_ignore);
-	/* collation for the substituted value */
+	/* 替换值的排序规则 */
 	Oid			collation pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } CoerceToDomainValue;
 
@@ -1774,43 +1774,43 @@ typedef struct CoerceToDomainValue
 typedef struct SetToDefault
 {
 	Expr		xpr;
-	/* type for substituted value */
+	/* 替换值的类型 */
 	Oid			typeId;
-	/* typemod for substituted value */
+	/* 替换值的 typemod */
 	int32		typeMod pg_node_attr(query_jumble_ignore);
-	/* collation for the substituted value */
+	/* 替换值的排序规则 */
 	Oid			collation pg_node_attr(query_jumble_ignore);
-	/* token location, or -1 if unknown */
+	/* 记号位置,未知则为 -1 */
 	int			location;
 } SetToDefault;
 
 /*
- * Node representing [WHERE] CURRENT OF cursor_name
+ * 表示 [WHERE] CURRENT OF cursor_name 的节点
  *
- * CURRENT OF is a bit like a Var, in that it carries the rangetable index
- * of the target relation being constrained; this aids placing the expression
- * correctly during planning.  We can assume however that its "levelsup" is
- * always zero, due to the syntactic constraints on where it can appear.
- * Also, cvarno will always be a true RT index, never INNER_VAR etc.
+ * CURRENT OF 有点像 Var,携带被约束目标关系的范围表下标;
+ * 这有助于规划期正确放置表达式.但可假定其 levelsup 恒为
+ * 零,因语法限制了其可出现位置。另 cvarno 总是真正的 RT
+ * 下标,从不为 INNER_VAR 等。
+ * 见上。
  *
- * The referenced cursor can be represented either as a hardwired string
- * or as a reference to a run-time parameter of type REFCURSOR.  The latter
- * case is for the convenience of plpgsql.
+ * 被引用游标可为为硬编码串,或类型为 REFCURSOR 运行时
+ * 参数引用。后者为 plpgsql 方便。
+ * 见上。
  */
 typedef struct CurrentOfExpr
 {
 	Expr		xpr;
-	Index		cvarno;			/* RT index of target relation */
-	char	   *cursor_name;	/* name of referenced cursor, or NULL */
-	int			cursor_param;	/* refcursor parameter number, or 0 */
+	Index		cvarno;			/* 目标关系的 RT 下标 */
+	char	   *cursor_name;	/* 被引用游标名,或 NULL */
+	int			cursor_param;	/* refcursor 参数号,或 0 */
 } CurrentOfExpr;
 
 /*
- * NextValueExpr - get next value from sequence
+ * NextValueExpr - 从序列取下一值
  *
- * This has the same effect as calling the nextval() function, but it does not
- * check permissions on the sequence.  This is used for identity columns,
- * where the sequence is an implicit dependency without its own permissions.
+ * 效果与调用 nextval() 相同,但不检查序列上的权限。用于
+ * 身份列,彼时序列是无自身权限的隐式依赖。
+ * 见上。
  */
 typedef struct NextValueExpr
 {
@@ -1820,18 +1820,18 @@ typedef struct NextValueExpr
 } NextValueExpr;
 
 /*
- * InferenceElem - an element of a unique index inference specification
+ * InferenceElem - 唯一索引推断规约的一个元素
  *
- * This mostly matches the structure of IndexElems, but having a dedicated
- * primnode allows for a clean separation between the use of index parameters
- * by utility commands, and this node.
+ * 大体匹配 IndexElems 的结构,但专用 primnode 使 utility
+ * 命令对索引参数的使用与本节点干净分离。
+ * 见上。
  */
 typedef struct InferenceElem
 {
 	Expr		xpr;
-	Node	   *expr;			/* expression to infer from, or NULL */
-	Oid			infercollid;	/* OID of collation, or InvalidOid */
-	Oid			inferopclass;	/* OID of att opclass, or InvalidOid */
+	Node	   *expr;			/* 要从中推断表达式,或 NULL */
+	Oid			infercollid;	/* 排序规则 OID,或 InvalidOid */
+	Oid			inferopclass;	/* 属性 opclass  OID,或InvalidOid */
 } InferenceElem;
 
 /*--------------------
@@ -1892,19 +1892,19 @@ typedef struct InferenceElem
 typedef struct TargetEntry
 {
 	Expr		xpr;
-	/* expression to evaluate */
+	/* 要求值的表达式 */
 	Expr	   *expr;
-	/* attribute number (see notes above) */
+	/* 属性号(见上方注释) */
 	AttrNumber	resno;
-	/* name of the column (could be NULL) */
+	/* 列名(可为 NULL) */
 	char	   *resname pg_node_attr(query_jumble_ignore);
-	/* nonzero if referenced by a sort/group clause */
+	/* 被排序/分组子句引用则为非零 */
 	Index		ressortgroupref;
-	/* OID of column's source table */
+	/* 列源表的 OID */
 	Oid			resorigtbl pg_node_attr(query_jumble_ignore);
-	/* column's number in source table */
+	/* 列在源表中的编号 */
 	AttrNumber	resorigcol pg_node_attr(query_jumble_ignore);
-	/* set to true to eliminate the attribute from final target list */
+	/* 置真以从最终目标列表消除该属性 */
 	bool		resjunk pg_node_attr(query_jumble_ignore);
 } TargetEntry;
 
@@ -1983,19 +1983,19 @@ typedef struct RangeTblRef
 typedef struct JoinExpr
 {
 	NodeTag		type;
-	JoinType	jointype;		/* type of join */
-	bool		isNatural;		/* Natural join? Will need to shape table */
-	Node	   *larg;			/* left subtree */
-	Node	   *rarg;			/* right subtree */
-	/* USING clause, if any (list of String) */
+	JoinType	jointype;		/* 连接类型 */
+	bool		isNatural;		/* 自然连接?将需整形表 */
+	Node	   *larg;			/* 左子树 */
+	Node	   *rarg;			/* 右子树 */
+	/* USING 子句(若有,String 列表) */
 	List	   *usingClause pg_node_attr(query_jumble_ignore);
-	/* alias attached to USING clause, if any */
+	/* 附着于 USING 子句别名(若有) */
 	Alias	   *join_using_alias pg_node_attr(query_jumble_ignore);
-	/* qualifiers on join, if any */
+	/* 连接上的限定(若有) */
 	Node	   *quals;
-	/* user-written alias clause, if any */
+	/* 用户写的别名子句(若有) */
 	Alias	   *alias pg_node_attr(query_jumble_ignore);
-	/* RT index assigned for join, or 0 */
+	/* 为连接分配 RT 下标,或 0 */
 	int			rtindex;
 } JoinExpr;
 
@@ -2011,35 +2011,35 @@ typedef struct JoinExpr
 typedef struct FromExpr
 {
 	NodeTag		type;
-	List	   *fromlist;		/* List of join subtrees */
-	Node	   *quals;			/* qualifiers on join, if any */
+	List	   *fromlist;		/* 连接子树列表 */
+	Node	   *quals;			/* 连接上的限定(若有) */
 } FromExpr;
 
 /*----------
- * OnConflictExpr - represents an ON CONFLICT DO ... expression
+ * OnConflictExpr - 表示 ON CONFLICT DO ... 表达式
  *
- * The optimizer requires a list of inference elements, and optionally a WHERE
- * clause to infer a unique index.  The unique index (or, occasionally,
- * indexes) inferred are used to arbitrate whether or not the alternative ON
- * CONFLICT path is taken.
+ * 优化器需要推断元素列表,以及可选 WHERE 子句以推断唯一
+ * 索引。推断出唯一索引(或偶尔多个)供仲裁否走替代
+ * ON CONFLICT 路径。
+ * 见上。
  *----------
  */
 typedef struct OnConflictExpr
 {
 	NodeTag		type;
-	OnConflictAction action;	/* DO NOTHING or UPDATE? */
+	OnConflictAction action;	/* DO NOTHING 或UPDATE? */
 
 	/* Arbiter */
-	List	   *arbiterElems;	/* unique index arbiter list (of
-								 * InferenceElem's) */
+	List	   *arbiterElems;	/* 唯一索引仲裁者表(为
+								 * InferenceElem) */
 	Node	   *arbiterWhere;	/* unique index arbiter WHERE clause */
-	Oid			constraint;		/* pg_constraint OID for arbiter */
+	Oid			constraint;		/* 仲裁者 pg_constraint OID */
 
 	/* ON CONFLICT UPDATE */
-	List	   *onConflictSet;	/* List of ON CONFLICT SET TargetEntrys */
-	Node	   *onConflictWhere;	/* qualifiers to restrict UPDATE to */
-	int			exclRelIndex;	/* RT index of 'excluded' relation */
-	List	   *exclRelTlist;	/* tlist of the EXCLUDED pseudo relation */
+	List	   *onConflictSet;	/* ON CONFLICT SET TargetEntrys 列表 */
+	Node	   *onConflictWhere;	/* 限制 UPDATE 的限定 */
+	int			exclRelIndex;	/* excluded 关系的 RT 下标 */
+	List	   *exclRelTlist;	/* EXCLUDED 伪关系的 tlist */
 } OnConflictExpr;
 
 #endif							/* PRIMNODES_H */

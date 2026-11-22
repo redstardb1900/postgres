@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0537",
+  "title": "include/nodes primnodes.h part2 (L>=1043) — batch 0537",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "118ba27831f678c5adeac302553e3b24eb85db48",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/nodes/primnodes.h",
+      "kind": "c_comment",
+      "note": "0537"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0537-include.json",
+      "kind": "manifest",
+      "note": "0537"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/nodes/primnodes.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1077,
+      "translated": 260,
+      "preserved": 817,
+      "preserved_reasons": [
+        "横幅/路径/守卫 KEEP",
+        "L<1043 已由 0536 译",
+        "预算紧/AUTOKEEP 块 KEEP EN"
+      ],
+      "note": "0537 T=260"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0537-include.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0537"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0537"
+    }
+  ]
+}

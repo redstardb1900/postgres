@@ -1,30 +1,30 @@
 /*
  * pg_crc.h
  *
- * PostgreSQL CRC support
+ * PostgreSQL CRC 支持
  *
- * See Ross Williams' excellent introduction
- * A PAINLESS GUIDE TO CRC ERROR DETECTION ALGORITHMS, available from
- * http://ross.net/crc/ or several other net sites.
+ * 参见 Ross Williams 的精彩导论
+ * A PAINLESS GUIDE TO CRC ERROR DETECTION ALGORITHMS，见
+ * http://ross.net/crc/ 或其他若干网站。
  *
- * We have three slightly different variants of a 32-bit CRC calculation:
- * CRC-32C (Castagnoli polynomial), CRC-32 (Ethernet polynomial), and a legacy
- * CRC-32 version that uses the lookup table in a funny way. They all consist
- * of four macros:
+ * 我们有三种略有不同的 32 位 CRC 计算变体：
+ * CRC-32C（Castagnoli 多项式）、CRC-32（以太网多项式），以及
+ * 一种以奇特方式使用查找表的遗留 CRC-32。
+ * 共四个宏：
  *
  * INIT_<variant>(crc)
- *		Initialize a CRC accumulator
+ *		初始化 CRC 累加器
  *
  * COMP_<variant>(crc, data, len)
- *		Accumulate some (more) bytes into a CRC
+ *		把若干(更多)字节累加进 CRC
  *
  * FIN_<variant>(crc)
- *		Finish a CRC calculation
+ *		结束一次 CRC 计算
  *
  * EQ_<variant>(c1, c2)
- *		Check for equality of two CRCs.
+ *		检查两 CRCs 是否相等。
  *
- * The CRC-32C variant is in port/pg_crc32c.h.
+ * CRC-32C 变体在 port/pg_crc32c.h。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -37,11 +37,11 @@
 typedef uint32 pg_crc32;
 
 /*
- * CRC-32, the same used e.g. in Ethernet.
+ * CRC-32，与以太网等所用相同。
  *
- * This is currently only used in ltree and hstore contrib modules. It uses
- * the same lookup table as the legacy algorithm below. New code should
- * use the Castagnoli version instead.
+ * 目前仅用于 ltree 与 hstore 贡献模块。它使用
+ * 与下方遗留算法相同的查找表。新代码应改用
+ * Castagnoli 版本。
  */
 #define INIT_TRADITIONAL_CRC32(crc) ((crc) = 0xFFFFFFFF)
 #define FIN_TRADITIONAL_CRC32(crc)	((crc) ^= 0xFFFFFFFF)
@@ -49,7 +49,7 @@ typedef uint32 pg_crc32;
 	COMP_CRC32_NORMAL_TABLE(crc, data, len, pg_crc32_table)
 #define EQ_TRADITIONAL_CRC32(c1, c2) ((c1) == (c2))
 
-/* Sarwate's algorithm, for use with a "normal" lookup table */
+/* Sarwate 算法，配合"正常"查找表使用 */
 #define COMP_CRC32_NORMAL_TABLE(crc, data, len, table)			  \
 do {															  \
 	const unsigned char *__data = (const unsigned char *) (data); \
@@ -63,17 +63,17 @@ do {															  \
 } while (0)
 
 /*
- * The CRC algorithm used for WAL et al in pre-9.5 versions.
+ * 9.5 之前版本中 WAL 等所用的 CRC 算法。
  *
- * This closely resembles the normal CRC-32 algorithm, but is subtly
- * different. Using Williams' terms, we use the "normal" table, but with
- * "reflected" code. That's bogus, but it was like that for years before
- * anyone noticed. It does not correspond to any polynomial in a normal CRC
- * algorithm, so it's not clear what the error-detection properties of this
- * algorithm actually are.
+ * 它酷似普通 CRC-32，但有细微差别。用 Williams
+ * 的术语，我们用"正常"表，却配以"反射"代码。
+ * 这是错的，但多年无人察觉。它不对应普通 CRC
+ * 算法中的任何多项式，故该算法的检错性质并不
+ * 清楚。见上。
+ * 见上
  *
- * We still need to carry this around because it is used in a few on-disk
- * structures that need to be pg_upgradeable. It should not be used in new
+ * 仍须保留，因其用于若干需 pg_upgradeable 的
+ * 磁盘结构。新代码不应使用。
  * code.
  */
 #define INIT_LEGACY_CRC32(crc) ((crc) = 0xFFFFFFFF)
@@ -83,8 +83,8 @@ do {															  \
 #define EQ_LEGACY_CRC32(c1, c2) ((c1) == (c2))
 
 /*
- * Sarwate's algorithm, for use with a "reflected" lookup table (but in the
- * legacy algorithm, we actually use it on a "normal" table, see above)
+ * Sarwate 算法，配合"反射"查找表（但在遗留
+ * 算法中我们实际用在"正常"表上，见上）
  */
 #define COMP_CRC32_REFLECTED_TABLE(crc, data, len, table) \
 do {															  \
@@ -99,8 +99,8 @@ do {															  \
 } while (0)
 
 /*
- * Constant table for the CRC-32 polynomials. The same table is used by both
- * the normal and traditional variants.
+ * CRC-32 多项式常量表。正常与传统变体共用
+ * 同一张表。
  */
 extern PGDLLIMPORT const uint32 pg_crc32_table[256];
 

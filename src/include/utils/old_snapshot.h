@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * old_snapshot.h
- *		Data structures for 'snapshot too old'
+ *			"snapshot too old" 的数据结构
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,22 +19,22 @@
 #include "storage/s_lock.h"
 
 /*
- * Structure for dealing with old_snapshot_threshold implementation.
+ * 处理 old_snapshot_threshold 实现的结构
  */
 typedef struct OldSnapshotControlData
 {
 	/*
-	 * Variables for old snapshot handling are shared among processes and are
-	 * only allowed to move forward.
+	 * 旧快照处理变量在进程间共享，阈值
+	 * 只允许向前推进。
 	 */
-	slock_t		mutex_current;	/* protect current_timestamp */
-	TimestampTz current_timestamp;	/* latest snapshot timestamp */
-	slock_t		mutex_latest_xmin;	/* protect latest_xmin and next_map_update */
-	TransactionId latest_xmin;	/* latest snapshot xmin */
-	TimestampTz next_map_update;	/* latest snapshot valid up to */
-	slock_t		mutex_threshold;	/* protect threshold fields */
-	TimestampTz threshold_timestamp;	/* earlier snapshot is old */
-	TransactionId threshold_xid;	/* earlier xid may be gone */
+	slock_t		mutex_current;	/* 保护 current_timestamp */
+	TimestampTz current_timestamp;	/* 最新快照时间戳 */
+	slock_t		mutex_latest_xmin;	/* 保护 latest_xmin 与 next_map_update */
+	TransactionId latest_xmin;	/* 最新快照 xmin */
+	TimestampTz next_map_update;	/* 最新快照有效至 */
+	slock_t		mutex_threshold;	/* 保护阈值字段 */
+	TimestampTz threshold_timestamp;	/* 更早快照已过旧 */
+	TransactionId threshold_xid;	/* 更早 xid 或已消失 */
 
 	/*
 	 * Keep one xid per minute for old snapshot error handling.
@@ -64,9 +64,9 @@ typedef struct OldSnapshotControlData
 	 *
 	 * Persistence is not needed.
 	 */
-	int			head_offset;	/* subscript of oldest tracked time */
-	TimestampTz head_timestamp; /* time corresponding to head xid */
-	int			count_used;		/* how many slots are in use */
+	int			head_offset;	/* 最旧跟踪时间的下标 */
+	TimestampTz head_timestamp; /* 对应头 xid 的时间 */
+	int			count_used;		/* 已用槽数 */
 	TransactionId xid_by_minute[FLEXIBLE_ARRAY_MEMBER];
 } OldSnapshotControlData;
 

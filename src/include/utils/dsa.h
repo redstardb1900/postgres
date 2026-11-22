@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dsa.h
- *	  Dynamic shared memory areas.
+ *	  动态共享内存区。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,23 +17,23 @@
 #include "port/atomics.h"
 #include "storage/dsm.h"
 
-/* The opaque type used for an area. */
+/* 表示区域的不透明类型。 */
 struct dsa_area;
 typedef struct dsa_area dsa_area;
 
 /*
- * If this system only uses a 32-bit value for size_t, then use the 32-bit
- * implementation of DSA.  This limits the amount of DSA that can be created
- * to something significantly less than the entire 4GB address space because
- * the DSA pointer must encode both a segment identifier and an offset, but
- * that shouldn't be a significant limitation in practice.
+ * 若本系统 size_t 仅用 32 位值，则用 32 位 DSA
+ * 实现。这会把可创建的 DSA 量限制为远小于整个
+ * 4GB 地址空间，因为 DSA 指针须编码段标识与
+ * 偏移，但实践中这不应是显著限制。
+ * 见上。
  *
- * If this system doesn't support atomic operations on 64-bit values, then
- * we fall back to 32-bit dsa_pointer for lack of other options.
+ * 若本系统不支持 64 位原子操作，则因别无他法
+ * 退回 32 位 dsa_pointer。
  *
- * For testing purposes, USE_SMALL_DSA_POINTER can be defined to force the use
- * of 32-bit dsa_pointer even on systems capable of supporting a 64-bit
- * dsa_pointer.
+ * 为测试可定义 USE_SMALL_DSA_POINTER，强制在本
+ * 可支持 64 位 dsa_pointer 的系统上也用 32 位
+ * 指针。
  */
 #if SIZEOF_SIZE_T == 4 || !defined(PG_HAVE_ATOMIC_U64_SUPPORT) || \
 	defined(USE_SMALL_DSA_POINTER)
@@ -43,11 +43,11 @@ typedef struct dsa_area dsa_area;
 #endif
 
 /*
- * The type of 'relative pointers' to memory allocated by a dynamic shared
- * area.  dsa_pointer values can be shared with other processes, but must be
- * converted to backend-local pointers before they can be dereferenced.  See
- * dsa_get_address.  Also, an atomic version and appropriately sized atomic
- * operations.
+ * 动态共享区所分配内存的"相对指针"类型。
+ * dsa_pointer 值可与其他进程共享，但解引用前须
+ * 转为后端本地指针。见 dsa_get_address。另有原子
+ * 版本与相应宽度的原子操作。
+ * 见上。
  */
 #if SIZEOF_DSA_POINTER == 4
 typedef uint32 dsa_pointer;
@@ -69,37 +69,37 @@ typedef pg_atomic_uint64 dsa_pointer_atomic;
 #define DSA_POINTER_FORMAT "%016" INT64_MODIFIER "x"
 #endif
 
-/* Flags for dsa_allocate_extended. */
-#define DSA_ALLOC_HUGE		0x01	/* allow huge allocation (> 1 GB) */
-#define DSA_ALLOC_NO_OOM	0x02	/* no failure if out-of-memory */
-#define DSA_ALLOC_ZERO		0x04	/* zero allocated memory */
+/* dsa_allocate_extended 标志。 */
+#define DSA_ALLOC_HUGE		0x01	/* 允许巨大分配（> 1 GB） */
+#define DSA_ALLOC_NO_OOM	0x02	/* 内存不足时不失败 */
+#define DSA_ALLOC_ZERO		0x04	/* 清零已分配内存 */
 
-/* A sentinel value for dsa_pointer used to indicate failure to allocate. */
+/* 表示分配失败的 dsa_pointer 哨兵值。 */
 #define InvalidDsaPointer ((dsa_pointer) 0)
 
-/* Check if a dsa_pointer value is valid. */
+/* 检查 dsa_pointer 值是否有效。 */
 #define DsaPointerIsValid(x) ((x) != InvalidDsaPointer)
 
-/* Allocate uninitialized memory with error on out-of-memory. */
+/* 分配未初始化内存，内存不足时报错。 */
 #define dsa_allocate(area, size) \
 	dsa_allocate_extended(area, size, 0)
 
-/* Allocate zero-initialized memory with error on out-of-memory. */
+/* 分配零初始化内存，内存不足时报错。 */
 #define dsa_allocate0(area, size) \
 	dsa_allocate_extended(area, size, DSA_ALLOC_ZERO)
 
 /*
- * The type used for dsa_area handles.  dsa_handle values can be shared with
- * other processes, so that they can attach to them.  This provides a way to
- * share allocated storage with other processes.
+ * dsa_area 句柄类型。dsa_handle 值可与其他进程
+ * 共享以便它们附着。这提供了与其他进程共享已
+ * 分配存储的途径。
  *
- * The handle for a dsa_area is currently implemented as the dsm_handle
- * for the first DSM segment backing this dynamic storage area, but client
- * code shouldn't assume that is true.
+ * dsa_area 的句柄目前实现为支撑该动态存储区的
+ * 首个 DSM 段的 dsm_handle，但客户代码不应假定
+ * 如此。
  */
 typedef dsm_handle dsa_handle;
 
-/* Sentinel value to use for invalid dsa_handles. */
+/* 无效 dsa_handles 所用的哨兵值。 */
 #define DSA_HANDLE_INVALID ((dsa_handle) DSM_HANDLE_INVALID)
 
 

@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * tuplestore.h
- *	  Generalized routines for temporary tuple storage.
+ *	  临时元组存储的通用例程。
  *
- * This module handles temporary storage of tuples for purposes such
- * as Materialize nodes, hashjoin batch files, etc.  It is essentially
- * a dumbed-down version of tuplesort.c; it does no sorting of tuples
- * but can only store and regurgitate a sequence of tuples.  However,
- * because no sort is required, it is allowed to start reading the sequence
- * before it has all been written.  This is particularly useful for cursors,
- * because it allows random access within the already-scanned portion of
- * a query without having to process the underlying scan to completion.
- * Also, it is possible to support multiple independent read pointers.
+ * 本模块处理诸如 Materialize 节点、hashjoin 批
+ * 文件等用途的临时元组存储。本质是 tuplesort.c
+ * 的简化版；不对元组排序，只能存取并回吐序列。
+ * 但因无需排序，允许在写完前就开始读。这对游标
+ * 尤其有用，可在已扫描部分内随机访问而无需把
+ * 底层扫描跑完。也支持多个独立读指针。
+ * 见上。
+ * 见上。
+ * 见上。
  *
- * A temporary file is used to handle the data if it exceeds the
- * space limit specified by the caller.
+ * 若数据超出调用方指定空间限制，则使用临时
+ * 文件。
  *
- * Beginning in Postgres 8.2, what is stored is just MinimalTuples;
- * callers cannot expect valid system columns in regurgitated tuples.
- * Also, we have changed the API to return tuples in TupleTableSlots,
- * so that there is a check to prevent attempted access to system columns.
+ * 自 Postgres 8.2 起，存储的只是 MinimalTuples；
+ * 调用方不能指望回吐元组含有效系统列。API 也改
+ * 为在 TupleTableSlots 中返回元组，以防访问系统
+ * 列。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -34,14 +34,14 @@
 #include "executor/tuptable.h"
 
 
-/* Tuplestorestate is an opaque type whose details are not known outside
+/* Tuplestorestate 是不透明类型，细节见
  * tuplestore.c.
  */
 typedef struct Tuplestorestate Tuplestorestate;
 
 /*
- * Currently we only need to store MinimalTuples, but it would be easy
- * to support the same behavior for IndexTuples and/or bare Datums.
+ * 目前只需存 MinimalTuples，但很容易扩展到对
+ * IndexTuples 和/或裸 Datum 支持相同行为。
  */
 
 extern Tuplestorestate *tuplestore_begin_heap(bool randomAccess,
@@ -56,7 +56,7 @@ extern void tuplestore_puttuple(Tuplestorestate *state, HeapTuple tuple);
 extern void tuplestore_putvalues(Tuplestorestate *state, TupleDesc tdesc,
 								 Datum *values, bool *isnull);
 
-/* Backwards compatibility macro */
+/* 向后兼容宏 */
 #define tuplestore_donestoring(state)	((void) 0)
 
 extern int	tuplestore_alloc_read_pointer(Tuplestorestate *state, int eflags);

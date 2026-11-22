@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0556",
+  "title": "include/utils pg_crc/logtape/tuplestore/dsa/old_snapshot — batch 0556",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "39eb3c9ec8ec3e0d0e122d4221fb929e64e8202d",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/pg_crc.h",
+      "kind": "c_comment",
+      "note": "0556"
+    },
+    {
+      "pattern": "src/include/utils/logtape.h",
+      "kind": "c_comment",
+      "note": "0556"
+    },
+    {
+      "pattern": "src/include/utils/tuplestore.h",
+      "kind": "c_comment",
+      "note": "0556"
+    },
+    {
+      "pattern": "src/include/utils/dsa.h",
+      "kind": "c_comment",
+      "note": "0556"
+    },
+    {
+      "pattern": "src/include/utils/old_snapshot.h",
+      "kind": "c_comment",
+      "note": "0556"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0556-utils.json",
+      "kind": "manifest",
+      "note": "0556"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/pg_crc.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 41,
+      "translated": 36,
+      "preserved": 5,
+      "preserved_reasons": [
+        "版权/头卫 KEEP"
+      ],
+      "note": "0556 T=36"
+    },
+    {
+      "path": "src/include/utils/logtape.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 29,
+      "translated": 6,
+      "preserved": 23,
+      "preserved_reasons": [
+        "并行磁带长叙述 KEEP EN"
+      ],
+      "note": "0556 T=6"
+    },
+    {
+      "path": "src/include/utils/tuplestore.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 28,
+      "translated": 21,
+      "preserved": 7,
+      "preserved_reasons": [
+        "版权/头卫；L38 KEEP"
+      ],
+      "note": "0556 T=21"
+    },
+    {
+      "path": "src/include/utils/dsa.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 40,
+      "translated": 33,
+      "preserved": 7,
+      "preserved_reasons": [
+        "版权/头卫 KEEP"
+      ],
+      "note": "0556 T=33"
+    },
+    {
+      "path": "src/include/utils/old_snapshot.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 44,
+      "translated": 16,
+      "preserved": 28,
+      "preserved_reasons": [
+        "环形缓冲长叙述 KEEP EN"
+      ],
+      "note": "0556 T=16"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0556-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0556"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0556"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * logtape.h
- *	  Management of "logical tapes" within temporary files.
+ *	  临时文件内"逻辑磁带"的管理。
  *
- * See logtape.c for explanations.
+ * 说明见 logtape.c。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,8 +19,8 @@
 #include "storage/sharedfileset.h"
 
 /*
- * LogicalTapeSet and LogicalTape are opaque types whose details are not
- * known outside logtape.c.
+ * LogicalTapeSet 与 LogicalTape 为不透明类型，细节
+ * 对外不可见。
  */
 typedef struct LogicalTapeSet LogicalTapeSet;
 typedef struct LogicalTape LogicalTape;
@@ -55,7 +55,7 @@ typedef struct TapeShare
 } TapeShare;
 
 /*
- * prototypes for functions in logtape.c
+ * logtape.c 中函数的原型
  */
 
 extern LogicalTapeSet *LogicalTapeSetCreate(bool preallocate,

@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0559",
+  "title": "include/utils float/inet/wait_event/geo_decls — batch 0559",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "91f210df4265beac93f428c7aa48f9791bf7e845",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/float.h",
+      "kind": "c_comment",
+      "note": "0559"
+    },
+    {
+      "pattern": "src/include/utils/inet.h",
+      "kind": "c_comment",
+      "note": "0559"
+    },
+    {
+      "pattern": "src/include/utils/wait_event.h",
+      "kind": "c_comment",
+      "note": "0559"
+    },
+    {
+      "pattern": "src/include/utils/geo_decls.h",
+      "kind": "c_comment",
+      "note": "0559"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0559-utils.json",
+      "kind": "manifest",
+      "note": "0559"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/float.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 46,
+      "translated": 39,
+      "preserved": 7,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0559 T=39"
+    },
+    {
+      "path": "src/include/utils/inet.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 45,
+      "translated": 39,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0559 T=39"
+    },
+    {
+      "path": "src/include/utils/wait_event.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 56,
+      "translated": 36,
+      "preserved": 20,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0559 T=36"
+    },
+    {
+      "path": "src/include/utils/geo_decls.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 54,
+      "translated": 32,
+      "preserved": 22,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0559 T=32"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0559-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0559"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0559"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * inet.h
- *	  Declarations for operations on INET datatypes.
+ *	  INET 数据类型操作的声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -17,56 +17,56 @@
 #include "fmgr.h"
 
 /*
- *	This is the internal storage format for IP addresses
- *	(both INET and CIDR datatypes):
+ *	IP 地址内部存储格式
+ *	(INET 与 CIDR)：
  */
 typedef struct
 {
-	unsigned char family;		/* PGSQL_AF_INET or PGSQL_AF_INET6 */
-	unsigned char bits;			/* number of bits in netmask */
-	unsigned char ipaddr[16];	/* up to 128 bits of address */
+	unsigned char family;		/* PGSQL_AF_INET/PGSQL_AF_INET6 */
+	unsigned char bits;			/*  网络掩码位数  */
+	unsigned char ipaddr[16];	/*  最多 128 位地址  */
 } inet_struct;
 
 /*
- * We use these values for the "family" field.
+ * family 字段使用这些值。
  *
- * Referencing all of the non-AF_INET types to AF_INET lets us work on
- * machines which did not have the appropriate address family (like
- * inet6 addresses when AF_INET6 wasn't present) but didn't cause a
- * dump/reload requirement.  Pre-7.4 databases used AF_INET for the family
- * type on disk.
+ * 把所有非 AF_INET 类型引用到 AF_INET，使我们能
+ * 在没有相应地址族的机器上工作（如尚无 AF_INET6
+ * 时的 inet6），且不引起转储/重载。7.4 前库在盘
+ * 上用 AF_INET 作族类型。
+ * 见上。
  */
 #define PGSQL_AF_INET	(AF_INET + 0)
 #define PGSQL_AF_INET6	(AF_INET + 1)
 
 /*
- * Both INET and CIDR addresses are represented within Postgres as varlena
- * objects, ie, there is a varlena header in front of the struct type
- * depicted above.  This struct depicts what we actually have in memory
- * in "uncompressed" cases.  Note that since the maximum data size is only
- * 18 bytes, INET/CIDR will invariably be stored into tuples using the
- * 1-byte-header varlena format.  However, we have to be prepared to cope
- * with the 4-byte-header format too, because various code may helpfully
- * try to "decompress" 1-byte-header datums.
+ * INET 与 CIDR 在 Postgres 内都表示为 varlena
+ * 对象，即上述结构前有 varlena 头。本结构描绘
+ * "未压缩"情形下内存中的实际内容。注意最大数据
+ * 仅 18 字节，故 INET/CIDR 几乎总用 1 字节头
+ * varlena 存入元组。但仍须能应付 4 字节头格式，
+ * 因各类代码可能好心"解压" 1 字节头 datum。
+ * 见上。
+ * 见上。
  */
 typedef struct
 {
-	char		vl_len_[4];		/* Do not touch this field directly! */
+	char		vl_len_[4];		/*  勿直接触碰此字段！  */
 	inet_struct inet_data;
 } inet;
 
 /*
- *	Access macros.  We use VARDATA_ANY so that we can process short-header
- *	varlena values without detoasting them.  This requires a trick:
- *	VARDATA_ANY assumes the varlena header is already filled in, which is
- *	not the case when constructing a new value (until SET_INET_VARSIZE is
- *	called, which we typically can't do till the end).  Therefore, we
- *	always initialize the newly-allocated value to zeroes (using palloc0).
- *	A zero length word will look like the not-1-byte case to VARDATA_ANY,
- *	and so we correctly construct an uncompressed value.
+ *	访问宏。用 VARDATA_ANY 以便不 detoast 即可处理
+ *	短头 varlena。这需要技巧：VARDATA_ANY 假定头已
+ *	填好，而构造新值时并非如此（直到调用
+ *	SET_INET_VARSIZE，通常只能在末尾做）。因此我们
+ *	总用 palloc0 把新分配值清零。零长度字对
+ *	VARDATA_ANY 看起来像非 1 字节情形，从而正确构
+ *	造未压缩值。
+ *	见上。
  *
- *	Note that ip_addrsize(), ip_maxbits(), and SET_INET_VARSIZE() require
- *	the family field to be set correctly.
+ *	注意 ip_addrsize()、ip_maxbits() 与 SET_INET_VARSIZE()
+ *	要求 family 已正确设置。
  */
 #define ip_family(inetptr) \
 	(((inet_struct *) VARDATA_ANY(inetptr))->family)
@@ -89,7 +89,7 @@ typedef struct
 
 
 /*
- *	This is the internal storage format for MAC addresses:
+ *	这是 MAC 地址的内部存储格式：
  */
 typedef struct macaddr
 {
@@ -102,7 +102,7 @@ typedef struct macaddr
 } macaddr;
 
 /*
- *	This is the internal storage format for MAC8 addresses:
+ *	这是 MAC8 地址的内部存储格式：
  */
 typedef struct macaddr8
 {
@@ -117,7 +117,7 @@ typedef struct macaddr8
 } macaddr8;
 
 /*
- * fmgr interface macros
+ * fmgr 接口宏
  */
 static inline inet *
 DatumGetInetPP(Datum X)
@@ -134,7 +134,7 @@ InetPGetDatum(const inet *X)
 #define PG_GETARG_INET_PP(n) DatumGetInetPP(PG_GETARG_DATUM(n))
 #define PG_RETURN_INET_P(x) return InetPGetDatum(x)
 
-/* obsolescent variants */
+/*  过时变体  */
 static inline inet *
 DatumGetInetP(Datum X)
 {
@@ -142,7 +142,7 @@ DatumGetInetP(Datum X)
 }
 #define PG_GETARG_INET_P(n) DatumGetInetP(PG_GETARG_DATUM(n))
 
-/* macaddr is a fixed-length pass-by-reference datatype */
+/*  macaddr 是定长按引用传递的数据类型  */
 static inline macaddr *
 DatumGetMacaddrP(Datum X)
 {
@@ -158,7 +158,7 @@ MacaddrPGetDatum(const macaddr *X)
 #define PG_GETARG_MACADDR_P(n) DatumGetMacaddrP(PG_GETARG_DATUM(n))
 #define PG_RETURN_MACADDR_P(x) return MacaddrPGetDatum(x)
 
-/* macaddr8 is a fixed-length pass-by-reference datatype */
+/*  macaddr8 是定长按引用传递的数据类型  */
 static inline macaddr8 *
 DatumGetMacaddr8P(Datum X)
 {
@@ -175,7 +175,7 @@ Macaddr8PGetDatum(const macaddr8 *X)
 #define PG_RETURN_MACADDR8_P(x) return Macaddr8PGetDatum(x)
 
 /*
- * Support functions in network.c
+ * network.c 中的支持函数
  */
 extern inet *cidr_set_masklen_internal(const inet *src, int bits);
 extern int	bitncmp(const unsigned char *l, const unsigned char *r, int n);

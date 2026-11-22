@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * wait_event.h
- *	  Definitions related to wait event reporting
+ *	  等待事件报告相关定义
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -12,7 +12,7 @@
 
 
 /* ----------
- * Wait Classes
+ * 等待类别
  * ----------
  */
 #define PG_WAIT_LWLOCK				0x01000000U
@@ -26,11 +26,11 @@
 #define PG_WAIT_IO					0x0A000000U
 
 /* ----------
- * Wait Events - Activity
+ * 等待事件-Activity
  *
- * Use this category when a process is waiting because it has no work to do,
- * unless the "Client" or "Timeout" category describes the situation better.
- * Typically, this should only be used for background processes.
+ * 进程因无事可做而等待时用此类，除非 "Client" 或
+ * "Timeout" 更能描述情形。通常仅用于后台进程。
+ * 见上。
  * ----------
  */
 typedef enum
@@ -51,11 +51,11 @@ typedef enum
 } WaitEventActivity;
 
 /* ----------
- * Wait Events - Client
+ * 等待事件-Client
  *
- * Use this category when a process is waiting to send data to or receive data
- * from the frontend process to which it is connected.  This is never used for
- * a background process, which has no client connection.
+ * 进程等待向所连前端发送或从前端接收数据时用此类。
+ * 后台进程无客户连接，从不用此类。
+ * 见上。
  * ----------
  */
 typedef enum
@@ -71,10 +71,10 @@ typedef enum
 } WaitEventClient;
 
 /* ----------
- * Wait Events - IPC
+ * 等待事件-IPC
  *
- * Use this category when a process cannot complete the work it is doing because
- * it is waiting for a notification from another process.
+ * 进程因等待另一进程通知而无法完成当前工作时用
+ * 此类。
  * ----------
  */
 typedef enum
@@ -135,9 +135,9 @@ typedef enum
 } WaitEventIPC;
 
 /* ----------
- * Wait Events - Timeout
+ * 等待事件-Timeout
  *
- * Use this category when a process is waiting for a timeout to expire.
+ * 进程等待超时到期时用此类。
  * ----------
  */
 typedef enum
@@ -154,9 +154,9 @@ typedef enum
 } WaitEventTimeout;
 
 /* ----------
- * Wait Events - IO
+ * 等待事件-IO
  *
- * Use this category when a process is waiting for a IO.
+ * 进程等待 IO 时用此类。
  * ----------
  */
 typedef enum
@@ -252,28 +252,28 @@ extern PGDLLIMPORT uint32 *my_wait_event_info;
 /* ----------
  * pgstat_report_wait_start() -
  *
- *	Called from places where server process needs to wait.  This is called
- *	to report wait event information.  The wait information is stored
- *	as 4-bytes where first byte represents the wait event class (type of
- *	wait, for different types of wait, refer WaitClass) and the next
- *	3-bytes represent the actual wait event.  Currently 2-bytes are used
- *	for wait event which is sufficient for current usage, 1-byte is
- *	reserved for future usage.
+ *	在服务器进程需等待之处调用，用于报告等待事件
+ *	信息。等待信息存为 4 字节：首字节为等待事件
+ *	类（等待类型，见 WaitClass），后 3 字节为实际
+ *	等待事件。目前用 2 字节表示等待事件已够用，
+ *	1 字节留给将来。
+ *	见上。
+ *	见上。
  *
- *	Historically we used to make this reporting conditional on
- *	pgstat_track_activities, but the check for that seems to add more cost
- *	than it saves.
+ *	历史上此报告曾依赖 pgstat_track_activities，
+ *	但该检查的开销似乎高于省下的。
+ *	见上。
  *
- *	my_wait_event_info initially points to local memory, making it safe to
- *	call this before MyProc has been initialized.
+ *	my_wait_event_info 最初指向本地内存，故在
+ *	MyProc 初始化前调用也安全。
  * ----------
  */
 static inline void
 pgstat_report_wait_start(uint32 wait_event_info)
 {
 	/*
-	 * Since this is a four-byte field which is always read and written as
-	 * four-bytes, updates are atomic.
+	 * 因这是总按四字节读写的四字节字段，更新是原子
+	 * 的。
 	 */
 	*(volatile uint32 *) my_wait_event_info = wait_event_info;
 }
@@ -281,13 +281,13 @@ pgstat_report_wait_start(uint32 wait_event_info)
 /* ----------
  * pgstat_report_wait_end() -
  *
- *	Called to report end of a wait.
+ *	调用来报告等待结束。
  * ----------
  */
 static inline void
 pgstat_report_wait_end(void)
 {
-	/* see pgstat_report_wait_start() */
+	/* 见 pgstat_report_wait_start() */
 	*(volatile uint32 *) my_wait_event_info = 0;
 }
 

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * float.h
- *	  Definitions for the built-in floating-point types
+ *	  内建浮点类型的定义
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,15 +17,15 @@
 
 #include <math.h>
 
-/* X/Open (XSI) requires <math.h> to provide M_PI, but core POSIX does not */
+/*  X/Open (XSI) 要求 <math.h> 提供 M_PI，但核心 POSIX 不要求  */
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-/* Radians per degree, a.k.a. PI / 180 */
+/*  每度弧度数，即 PI / 180  */
 #define RADIANS_PER_DEGREE 0.0174532925199432957692
 
-/* Visual C++ etc lacks NAN, and won't accept 0.0/0.0. */
+/*  Visual C++ 等缺 NAN，且不接受 0.0/0.0。  */
 #if defined(WIN32) && !defined(NAN)
 static const uint32 nan[2] = {0xffffffff, 0x7fffffff};
 
@@ -35,7 +35,7 @@ static const uint32 nan[2] = {0xffffffff, 0x7fffffff};
 extern PGDLLIMPORT int extra_float_digits;
 
 /*
- * Utility functions in float.c
+ * float.c 中的实用函数
  */
 extern void float_overflow_error(void) pg_attribute_noreturn();
 extern void float_underflow_error(void) pg_attribute_noreturn();
@@ -52,20 +52,20 @@ extern int	float4_cmp_internal(float4 a, float4 b);
 extern int	float8_cmp_internal(float8 a, float8 b);
 
 /*
- * Routines to provide reasonably platform-independent handling of
- * infinity and NaN
+ * 提供相对平台无关的无穷与 NaN 处理例程
+ * 见上。
  *
- * We assume that isinf() and isnan() are available and work per spec.
- * (On some platforms, we have to supply our own; see src/port.)  However,
- * generating an Infinity or NaN in the first place is less well standardized;
- * pre-C99 systems tend not to have C99's INFINITY and NaN macros.  We
- * centralize our workarounds for this here.
+ * 假定 isinf() 与 isnan() 可用且按规范工作。
+ * （某些平台须自备；见 src/port。）但首先生成
+ * Infinity 或 NaN 的标准化较差；C99 前系统往往
+ * 没有 C99 的 INFINITY 与 NaN 宏。变通集中于此。
+ * 见上。
  */
 
 /*
- * The funny placements of the two #pragmas is necessary because of a
- * long lived bug in the Microsoft compilers.
- * See http://support.microsoft.com/kb/120968/en-us for details
+ * 两处 #pragma 的奇特放置是因微软编译器的长期
+ * 缺陷。详见
+ * http://support.microsoft.com/kb/120968/en-us
  */
 #ifdef _MSC_VER
 #pragma warning(disable:4756)
@@ -74,7 +74,7 @@ static inline float4
 get_float4_infinity(void)
 {
 #ifdef INFINITY
-	/* C99 standard way */
+	/*  C99 标准法  */
 	return (float4) INFINITY;
 #else
 #ifdef _MSC_VER
@@ -82,9 +82,9 @@ get_float4_infinity(void)
 #endif
 
 	/*
-	 * On some platforms, HUGE_VAL is an infinity, elsewhere it's just the
-	 * largest normal float8.  We assume forcing an overflow will get us a
-	 * true infinity.
+	 * 某些平台上 HUGE_VAL 是无穷，别处只是最大正规
+	 * float8。假定强制溢出可得真正无穷。
+	 * 见上。
 	 */
 	return (float4) (HUGE_VAL * HUGE_VAL);
 #endif
@@ -94,14 +94,14 @@ static inline float8
 get_float8_infinity(void)
 {
 #ifdef INFINITY
-	/* C99 standard way */
+	/*  C99 标准法  */
 	return (float8) INFINITY;
 #else
 
 	/*
-	 * On some platforms, HUGE_VAL is an infinity, elsewhere it's just the
-	 * largest normal float8.  We assume forcing an overflow will get us a
-	 * true infinity.
+	 * 某些平台上 HUGE_VAL 是无穷，别处只是最大正规
+	 * float8。假定强制溢出可得真正无穷。
+	 * 见上。
 	 */
 	return (float8) (HUGE_VAL * HUGE_VAL);
 #endif
@@ -111,10 +111,10 @@ static inline float4
 get_float4_nan(void)
 {
 #ifdef NAN
-	/* C99 standard way */
+	/*  C99 标准法  */
 	return (float4) NAN;
 #else
-	/* Assume we can get a NAN via zero divide */
+	/*  假定可通过零除得到 NAN  */
 	return (float4) (0.0 / 0.0);
 #endif
 }
@@ -122,24 +122,24 @@ get_float4_nan(void)
 static inline float8
 get_float8_nan(void)
 {
-	/* (float8) NAN doesn't work on some NetBSD/MIPS releases */
+	/*  (float8) NAN 在某些 NetBSD/MIPS 上不工作  */
 #if defined(NAN) && !(defined(__NetBSD__) && defined(__mips__))
-	/* C99 standard way */
+	/*  C99 标准法  */
 	return (float8) NAN;
 #else
-	/* Assume we can get a NaN via zero divide */
+	/*  假定可通过零除得到 NaN  */
 	return (float8) (0.0 / 0.0);
 #endif
 }
 
 /*
- * Floating-point arithmetic with overflow/underflow reported as errors
+ * 把溢出/下溢报告为错误的浮点运算
  *
- * There isn't any way to check for underflow of addition/subtraction
- * because numbers near the underflow value have already been rounded to
- * the point where we can't detect that the two values were originally
- * different, e.g. on x86, '1e-45'::float4 == '2e-45'::float4 ==
- * 1.4013e-45.
+ * 无法检查加/减的下溢，因为接近下溢值的数已
+ * 被舍入到无法检测两值原先不同，例如在 x86 上
+ * '1e-45'::float4 == '2e-45'::float4 ==
+ * 1.4013e-45。
+ * 见上。
  */
 
 static inline float4
@@ -251,11 +251,11 @@ float8_div(const float8 val1, const float8 val2)
 }
 
 /*
- * Routines for NaN-aware comparisons
+ * 感知 NaN 的比较例程
  *
- * We consider all NaNs to be equal and larger than any non-NaN. This is
- * somewhat arbitrary; the important thing is to have a consistent sort
- * order.
+ * 我们认为所有 NaNs 相等且大于任何非 NaN。这略任意,
+ * 重要的是有一致的排序。
+ * 见上
  */
 
 static inline bool

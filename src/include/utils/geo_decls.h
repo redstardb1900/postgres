@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- * geo_decls.h - Declarations for various 2D constructs.
+ * geo_decls.h - 各种 2D 构造的声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -8,10 +8,10 @@
  *
  * src/include/utils/geo_decls.h
  *
- *	  XXX These routines were not written by a numerical analyst.
+ *	  XXX 这些例程并非数值分析师所写。
  *
- *	  XXX I have made some attempt to flesh out the operators
- *		and data types. There are still some more to do. - tgl 97/04/19
+ *	  XXX 我已尽量充实运算符与数据类型。还有
+ *		一些要做。- tgl 97/04/19
  *
  *-------------------------------------------------------------------------
  */
@@ -23,19 +23,19 @@
 #include "fmgr.h"
 
 /*--------------------------------------------------------------------
- * Useful floating point utilities and constants.
+ * 有用的浮点工具与常量。
  *--------------------------------------------------------------------
  *
- * "Fuzzy" floating-point comparisons: values within EPSILON of each other
- * are considered equal.  Beware of normal reasoning about the behavior of
- * these comparisons, since for example FPeq does not behave transitively.
+ * "模糊"浮点比较：彼此相差在 EPSILON 内视为相等。
+ * 慎用对此类比较的常规定理，例如 FPeq 不满足传递
+ * 性。
  *
- * Note that these functions are not NaN-aware and will give FALSE for
- * any case involving NaN inputs.
+ * 注意这些函数不知 NaN，凡含 NaN 输入均给 FALSE。
+ * 见上。
  *
- * Also note that these will give sane answers for infinite inputs,
- * where it's important to avoid computing Inf minus Inf; we do so
- * by eliminating equality cases before subtracting.
+ * 对无穷输入也会给出合理答案；关键是避免算
+ * Inf 减 Inf，做法是先排除相等情形再相减。
+ * 见上。
  */
 
 #define EPSILON					1.0E-06
@@ -101,7 +101,7 @@ typedef struct
 
 
 /*---------------------------------------------------------------------
- * LSEG - A straight line, specified by endpoints.
+ * LSEG - 由端点指定的直线段。
  *-------------------------------------------------------------------*/
 typedef struct
 {
@@ -110,20 +110,20 @@ typedef struct
 
 
 /*---------------------------------------------------------------------
- * PATH - Specified by vertex points.
+ * PATH - 由顶点指定。
  *-------------------------------------------------------------------*/
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/*  varlena 头（勿直接触碰！）  */
 	int32		npts;
-	int32		closed;			/* is this a closed polygon? */
-	int32		dummy;			/* padding to make it double align */
+	int32		closed;			/* 是否闭合多边形? */
+	int32		dummy;			/*  填充以使 double 对齐  */
 	Point		p[FLEXIBLE_ARRAY_MEMBER];
 } PATH;
 
 
 /*---------------------------------------------------------------------
- * LINE - Specified by its general equation (Ax+By+C=0).
+ * LINE - 由其一般方程 (Ax+By+C=0) 指定。
  *-------------------------------------------------------------------*/
 typedef struct
 {
@@ -134,30 +134,30 @@ typedef struct
 
 
 /*---------------------------------------------------------------------
- * BOX	- Specified by two corner points, which are
- *		 sorted to save calculation time later.
+ * BOX - 由两角点指定，并已排序
+ *	以省后续计算。
  *-------------------------------------------------------------------*/
 typedef struct
 {
 	Point		high,
-				low;			/* corner POINTs */
+				low;			/* 角点 POINTs */
 } BOX;
 
 /*---------------------------------------------------------------------
- * POLYGON - Specified by an array of doubles defining the points,
- *		keeping the number of points and the bounding box for
- *		speed purposes.
+ * POLYGON - 由定义各点的 double 数组指定，并保
+ *		留点数与包围盒以加速。
+ *	见上。
  *-------------------------------------------------------------------*/
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
+	int32		vl_len_;		/*  varlena 头（勿直接触碰！）  */
 	int32		npts;
 	BOX			boundbox;
 	Point		p[FLEXIBLE_ARRAY_MEMBER];
 } POLYGON;
 
 /*---------------------------------------------------------------------
- * CIRCLE - Specified by a center point and radius.
+ * CIRCLE - 由中心点与半径指定。
  *-------------------------------------------------------------------*/
 typedef struct
 {
@@ -166,10 +166,10 @@ typedef struct
 } CIRCLE;
 
 /*
- * fmgr interface functions
+ * fmgr 接口函数
  *
- * Path and Polygon are toastable varlena types, the others are just
- * fixed-size pass-by-reference types.
+ * Path 与 Polygon 是可 toast 的 varlena 类型，其余
+ * 只是定长按引用类型。
  */
 
 static inline Point *
@@ -277,7 +277,7 @@ CirclePGetDatum(const CIRCLE *X)
 
 
 /*
- * in geo_ops.c
+ * geo_ops.c
  */
 
 extern float8 pg_hypot(float8 x, float8 y);

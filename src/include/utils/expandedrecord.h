@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * expandedrecord.h
- *	  Declarations for composite expanded objects.
+ *	  复合扩展对象的声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,125 +20,125 @@
 
 
 /*
- * An expanded record is contained within a private memory context (as
- * all expanded objects must be) and has a control structure as below.
+ * 扩展记录含于私有内存上下文中（所有扩展对象
+ * 都必须如此），并有如下控制结构。
  *
- * The expanded record might contain a regular "flat" tuple if that was the
- * original input and we've not modified it.  Otherwise, the contents are
- * represented by Datum/isnull arrays plus type information.  We could also
- * have both forms, if we've deconstructed the original tuple for access
- * purposes but not yet changed it.  For pass-by-reference field types, the
- * Datums would point into the flat tuple in this situation.  Once we start
- * modifying tuple fields, new pass-by-ref fields are separately palloc'd
- * within the memory context.
+ * 若原始输入是常规"扁平"元组且尚未修改，扩展
+ * 记录可含该元组。否则内容由 Datum/isnull 数组
+ * 加类型信息表示。若为访问而拆解原元组但尚未
+ * 改动，也可两种形式兼有。对按引用字段，此时
+ * Datum 指向扁平元组内。一旦开始改字段，新的
+ * 按引用字段在内存上下文中单独 palloc。
+ * 见上。
+ * 见上。
  *
- * It's possible to build an expanded record that references a "flat" tuple
- * stored externally, if the caller can guarantee that that tuple will not
- * change for the lifetime of the expanded record.  (This frammish is mainly
- * meant to avoid unnecessary data copying in trigger functions.)
+ * 也可构建引用外部所存"扁平"元组的扩展记录，
+ * 若调用方保证该元组在其寿命内不变。（主要为
+ * 免去触发器函数中不必要的数据拷贝。）
+ * 见上。
  */
-#define ER_MAGIC 1384727874		/* ID for debugging crosschecks */
+#define ER_MAGIC 1384727874		/* 调试交叉检查用的 ID */
 
 typedef struct ExpandedRecordHeader
 {
-	/* Standard header for expanded objects */
+	/* 扩展对象的标准头 */
 	ExpandedObjectHeader hdr;
 
-	/* Magic value identifying an expanded record (for debugging only) */
+	/* 标识扩展记录的魔数（仅供调试） */
 	int			er_magic;
 
-	/* Assorted flag bits */
+	/* 各类标志位 */
 	int			flags;
-#define ER_FLAG_FVALUE_VALID	0x0001	/* fvalue is up to date? */
-#define ER_FLAG_FVALUE_ALLOCED	0x0002	/* fvalue is local storage? */
-#define ER_FLAG_DVALUES_VALID	0x0004	/* dvalues/dnulls are up to date? */
-#define ER_FLAG_DVALUES_ALLOCED	0x0008	/* any field values local storage? */
-#define ER_FLAG_HAVE_EXTERNAL	0x0010	/* any field values are external? */
-#define ER_FLAG_TUPDESC_ALLOCED	0x0020	/* tupdesc is local storage? */
-#define ER_FLAG_IS_DOMAIN		0x0040	/* er_decltypeid is domain? */
-#define ER_FLAG_IS_DUMMY		0x0080	/* this header is dummy (see below) */
-/* flag bits that are not to be cleared when replacing tuple data: */
+#define ER_FLAG_FVALUE_VALID	0x0001	/* fvalue 最新？ */
+#define ER_FLAG_FVALUE_ALLOCED	0x0002	/* fvalue 本地存储？ */
+#define ER_FLAG_DVALUES_VALID	0x0004	/* dvalues/dnulls 是否最新？ */
+#define ER_FLAG_DVALUES_ALLOCED	0x0008	/* 有字段值在本地存储？ */
+#define ER_FLAG_HAVE_EXTERNAL	0x0010	/* 有字段值为 external？ */
+#define ER_FLAG_TUPDESC_ALLOCED	0x0020	/* tupdesc 本地存储？ */
+#define ER_FLAG_IS_DOMAIN		0x0040	/* er_decltypeid 为域？ */
+#define ER_FLAG_IS_DUMMY		0x0080	/* 此头为 dummy（见下） */
+/* 替换元组数据时不得清除的标志位： */
 #define ER_FLAGS_NON_DATA \
 	(ER_FLAG_TUPDESC_ALLOCED | ER_FLAG_IS_DOMAIN | ER_FLAG_IS_DUMMY)
 
-	/* Declared type of the record variable (could be a domain type) */
+	/* 记录变量的声明类型（可为域类型） */
 	Oid			er_decltypeid;
 
 	/*
-	 * Actual composite type/typmod; never a domain (if ER_FLAG_IS_DOMAIN,
-	 * these identify the composite base type).  These will match
-	 * er_tupdesc->tdtypeid/tdtypmod, as well as the header fields of
-	 * composite datums made from or stored in this expanded record.
+	 * 实际复合类型/typmod；从不为域（若 ER_FLAG_IS_DOMAIN，
+	 * 则标识复合基类型）。将匹配 er_tupdesc 的
+	 * tdtypeid/tdtypmod，以及本扩展记录制成或所存
+	 * 复合 datum 的头字段。
 	 */
-	Oid			er_typeid;		/* type OID of the composite type */
-	int32		er_typmod;		/* typmod of the composite type */
+	Oid			er_typeid;		/* 复合类型的类型 OID */
+	int32		er_typmod;		/* 复合类型的 typmod */
 
 	/*
-	 * Tuple descriptor, if we have one, else NULL.  This may point to a
-	 * reference-counted tupdesc originally belonging to the typcache, in
-	 * which case we use a memory context reset callback to release the
-	 * refcount.  It can also be locally allocated in this object's private
-	 * context (in which case ER_FLAG_TUPDESC_ALLOCED is set).
+	 * 若有元组描述符则在此，否则 NULL。可指向原属
+	 * typcache 的引用计数 tupdesc，此时用上下文复位
+	 * 回调释放引用计数。也可在本对象私有上下文中
+	 * 本地分配（此时设 ER_FLAG_TUPDESC_ALLOCED）。
+	 * 见上。
 	 */
 	TupleDesc	er_tupdesc;
 
 	/*
-	 * Unique-within-process identifier for the tupdesc (see typcache.h). This
-	 * field will never be equal to INVALID_TUPLEDESC_IDENTIFIER.
+	 * 进程内唯一的 tupdesc 标识（见 typcache.h）。此字段
+	 * 从不等于 INVALID_TUPLEDESC_IDENTIFIER。
 	 */
 	uint64		er_tupdesc_id;
 
 	/*
-	 * If we have a Datum-array representation of the record, it's kept here;
-	 * else ER_FLAG_DVALUES_VALID is not set, and dvalues/dnulls may be NULL
-	 * if they've not yet been allocated.  If allocated, the dvalues and
-	 * dnulls arrays are palloc'd within the object private context, and are
-	 * of length matching er_tupdesc->natts.  For pass-by-ref field types,
-	 * dvalues entries might point either into the fstartptr..fendptr area, or
-	 * to separately palloc'd chunks.
+	 * 若有记录的 Datum 数组表示则保存在此；否则未
+	 * 设 ER_FLAG_DVALUES_VALID，且若尚未分配则 dvalues/
+	 * dnulls 可为 NULL。若已分配，则在私有上下文中
+	 * palloc，长度匹配 er_tupdesc->natts。对按引用
+	 * 字段，dvalues 可能指向 fstartptr..fendptr 区，
+	 * 或指向单独 palloc 的块。
+	 * 见上。
 	 */
-	Datum	   *dvalues;		/* array of Datums */
-	bool	   *dnulls;			/* array of is-null flags for Datums */
-	int			nfields;		/* length of above arrays */
+	Datum	   *dvalues;		/* Datum 数组 */
+	bool	   *dnulls;			/* Datum 的空值标志数组 */
+	int			nfields;		/* 上述数组长度 */
 
 	/*
-	 * flat_size is the current space requirement for the flat equivalent of
-	 * the expanded record, if known; otherwise it's 0.  We store this to make
-	 * consecutive calls of get_flat_size cheap.  If flat_size is not 0, the
-	 * component values data_len, hoff, and hasnull must be valid too.
+	 * flat_size 为扩展记录扁平等价物当前空间
+	 * 需求(若已知)；否则为 0。存它使连续调用
+	 * get_flat_size 便宜。若非 0，则 data_len、hoff、
+	 * hasnull 也须有效。
 	 */
 	Size		flat_size;
 
-	Size		data_len;		/* data len within flat_size */
-	int			hoff;			/* header offset */
-	bool		hasnull;		/* null bitmap needed? */
+	Size		data_len;		/* flat_size 内数据长 */
+	int			hoff;			/* 头偏移 */
+	bool		hasnull;		/* 需空值位图？ */
 
 	/*
-	 * fvalue points to the flat representation if we have one, else it is
-	 * NULL.  If the flat representation is valid (up to date) then
-	 * ER_FLAG_FVALUE_VALID is set.  Even if we've outdated the flat
-	 * representation due to changes of user fields, it can still be used to
-	 * fetch system column values.  If we have a flat representation then
-	 * fstartptr/fendptr point to the start and end+1 of its data area; this
-	 * is so that we can tell which Datum pointers point into the flat
-	 * representation rather than being pointers to separately palloc'd data.
+	 * 若有扁平表示则 fvalue 指向它，否则 NULL。若
+	 * 扁平表示有效则设 FVALUE_VALID。即使因用户
+	 * 字段变更而过时，仍可用于取系统列值。若有
+	 * 扁平表示，则 fstartptr/fendptr 指向其数据区
+	 * 起止+1；以便区分指向扁平内的 Datum 与单独
+	 * palloc 的数据。
+	 * 见上。
+	 * 见上。
 	 */
-	HeapTuple	fvalue;			/* might or might not be private storage */
-	char	   *fstartptr;		/* start of its data area */
-	char	   *fendptr;		/* end+1 of its data area */
+	HeapTuple	fvalue;			/* 可能是也可能不是私有存储 */
+	char	   *fstartptr;		/* 其数据区起点 */
+	char	   *fendptr;		/* 其数据区终点+1 */
 
-	/* Some operations on the expanded record need a short-lived context */
-	MemoryContext er_short_term_cxt;	/* short-term memory context */
+	/* 某些对扩展记录的操作需要短命上下文 */
+	MemoryContext er_short_term_cxt;	/* 短期内存上下文 */
 
-	/* Working state for domain checking, used if ER_FLAG_IS_DOMAIN is set */
-	struct ExpandedRecordHeader *er_dummy_header;	/* dummy record header */
-	void	   *er_domaininfo;	/* cache space for domain_check() */
+	/* 域检查工作状态，ER_FLAG_IS_DOMAIN 时使用 */
+	struct ExpandedRecordHeader *er_dummy_header;	/* 哑记录头 */
+	void	   *er_domaininfo;	/* domain_check() 的缓存空间 */
 
-	/* Callback info (it's active if er_mcb.arg is not NULL) */
+	/* 回调信息（er_mcb.arg 非 NULL 时激活） */
 	MemoryContextCallback er_mcb;
 } ExpandedRecordHeader;
 
-/* fmgr functions and macros for expanded record objects */
+/* 扩展记录对象的 fmgr 函数与宏 */
 static inline Datum
 ExpandedRecordGetDatum(const ExpandedRecordHeader *erh)
 {
@@ -154,27 +154,27 @@ ExpandedRecordGetRODatum(const ExpandedRecordHeader *erh)
 #define PG_GETARG_EXPANDED_RECORD(n)  DatumGetExpandedRecord(PG_GETARG_DATUM(n))
 #define PG_RETURN_EXPANDED_RECORD(x)  PG_RETURN_DATUM(ExpandedRecordGetDatum(x))
 
-/* assorted other macros */
+/* 其他各类宏 */
 #define ExpandedRecordIsEmpty(erh) \
 	(((erh)->flags & (ER_FLAG_DVALUES_VALID | ER_FLAG_FVALUE_VALID)) == 0)
 #define ExpandedRecordIsDomain(erh) \
 	(((erh)->flags & ER_FLAG_IS_DOMAIN) != 0)
 
-/* this can substitute for TransferExpandedObject() when we already have erh */
+/* 已有 eoh 时此可替代 TransferExpandedObject() */
 #define TransferExpandedRecord(erh, cxt) \
 	MemoryContextSetParent((erh)->hdr.eoh_context, cxt)
 
-/* information returned by expanded_record_lookup_field() */
+/* expanded_record_lookup_field() 返回的信息 */
 typedef struct ExpandedRecordFieldInfo
 {
-	int			fnumber;		/* field's attr number in record */
-	Oid			ftypeid;		/* field's type/typmod info */
+	int			fnumber;		/* 记录中字段属性号 */
+	Oid			ftypeid;		/* 字段类型/typmod */
 	int32		ftypmod;
-	Oid			fcollation;		/* field's collation if any */
+	Oid			fcollation;		/* 字段 collation */
 } ExpandedRecordFieldInfo;
 
 /*
- * prototypes for functions defined in expandedrecord.c
+ * expandedrecord.c 中所定义函数的原型
  */
 extern ExpandedRecordHeader *make_expanded_record_from_typeid(Oid type_id, int32 typmod,
 															  MemoryContext parentcontext);
@@ -204,16 +204,16 @@ extern void expanded_record_set_fields(ExpandedRecordHeader *erh,
 									   const Datum *newValues, const bool *isnulls,
 									   bool expand_external);
 
-/* outside code should never call expanded_record_set_field_internal as such */
+/* 外部代码切勿直接调用 expanded_record_set_field_internal */
 #define expanded_record_set_field(erh, fnumber, newValue, isnull, expand_external) \
 	expanded_record_set_field_internal(erh, fnumber, newValue, isnull, expand_external, true)
 
 /*
- * Inline-able fast cases.  The expanded_record_fetch_xxx functions above
- * handle the general cases.
+ * 可内联的快路径。上面的 expanded_record_fetch_xxx
+ * 处理一般情形。
  */
 
-/* Get the tupdesc for the expanded record's actual type */
+/* 获取扩展记录实际类型的 tupdesc */
 static inline TupleDesc
 expanded_record_get_tupdesc(ExpandedRecordHeader *erh)
 {
@@ -223,7 +223,7 @@ expanded_record_get_tupdesc(ExpandedRecordHeader *erh)
 		return expanded_record_fetch_tupdesc(erh);
 }
 
-/* Get value of record field */
+/* 获取记录字段的值 */
 static inline Datum
 expanded_record_get_field(ExpandedRecordHeader *erh, int fnumber,
 						  bool *isnull)

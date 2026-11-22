@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0563",
+  "title": "include/utils expandeddatum/expandedrecord — batch 0563",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2b4c2d7801fb39b4e19501eb7597a645c04cd16a",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/expandeddatum.h",
+      "kind": "c_comment",
+      "note": "0563"
+    },
+    {
+      "pattern": "src/include/utils/expandedrecord.h",
+      "kind": "c_comment",
+      "note": "0563"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0563-utils.json",
+      "kind": "manifest",
+      "note": "0563"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/expandeddatum.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 80,
+      "translated": 74,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩/重分配"
+      ],
+      "note": "0563 T=74"
+    },
+    {
+      "path": "src/include/utils/expandedrecord.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 96,
+      "translated": 90,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP；超预算等义压缩/重分配"
+      ],
+      "note": "0563 T=90"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0563-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0563"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0563"
+    }
+  ],
+  "notes": "扩展对象头；超预算等义压缩/重分配"
+}

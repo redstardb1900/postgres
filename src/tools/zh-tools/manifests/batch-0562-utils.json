@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0562",
+  "title": "include/utils catcache/selfuncs — batch 0562",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "d8a4f7468c92a8a4a8fac842b51f2323a39daa42",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/catcache.h",
+      "kind": "c_comment",
+      "note": "0562"
+    },
+    {
+      "pattern": "src/include/utils/selfuncs.h",
+      "kind": "c_comment",
+      "note": "0562"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0562-utils.json",
+      "kind": "manifest",
+      "note": "0562"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/catcache.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 111,
+      "translated": 101,
+      "preserved": 10,
+      "preserved_reasons": [
+        "版权/横幅 KEEP；struct 一览 KEEP EN 避 MIXED"
+      ],
+      "note": "0562 T=101"
+    },
+    {
+      "path": "src/include/utils/selfuncs.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 69,
+      "translated": 62,
+      "preserved": 7,
+      "preserved_reasons": [
+        "版权/横幅 KEEP；L93 free 尾注 KEEP EN 避 MIXED"
+      ],
+      "note": "0562 T=62"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0562-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0562"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0562"
+    }
+  ],
+  "notes": "struct 一览/free 尾注 KEEP EN 避 MIXED"
+}

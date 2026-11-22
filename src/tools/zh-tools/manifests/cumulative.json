@@ -10226,6 +10226,41 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0560-utils.json",
    "kind": "manifest",
    "note": "0560"
+  },
+  {
+   "pattern": "src/include/utils/partcache.h",
+   "kind": "c_comment",
+   "note": "0561"
+  },
+  {
+   "pattern": "src/include/utils/fmgrtab.h",
+   "kind": "c_comment",
+   "note": "0561"
+  },
+  {
+   "pattern": "src/include/utils/reltrigger.h",
+   "kind": "c_comment",
+   "note": "0561"
+  },
+  {
+   "pattern": "src/include/utils/typcache.h",
+   "kind": "c_comment",
+   "note": "0561"
+  },
+  {
+   "pattern": "src/include/utils/acl.h",
+   "kind": "c_comment",
+   "note": "0561"
+  },
+  {
+   "pattern": "src/include/utils/jsonpath.h",
+   "kind": "c_comment",
+   "note": "0561"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0561-utils.json",
+   "kind": "manifest",
+   "note": "0561"
   }
  ],
  "files": [
@@ -33316,6 +33351,88 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0560"
+  },
+  {
+   "path": "src/include/utils/partcache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 15,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP"
+   ],
+   "note": "0561 T=15"
+  },
+  {
+   "path": "src/include/utils/fmgrtab.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 15,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP"
+   ],
+   "note": "0561 T=15"
+  },
+  {
+   "path": "src/include/utils/reltrigger.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 12,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP"
+   ],
+   "note": "0561 T=12"
+  },
+  {
+   "path": "src/include/utils/typcache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 75,
+   "translated": 65,
+   "preserved": 10,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；L57-60 opclass 尾注 KEEP EN 避 MIXED"
+   ],
+   "note": "0561 T=65"
+  },
+  {
+   "path": "src/include/utils/acl.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 64,
+   "translated": 58,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；NOTES 等义压缩"
+   ],
+   "note": "0561 T=58"
+  },
+  {
+   "path": "src/include/utils/jsonpath.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 81,
+   "translated": 77,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权/横幅/头卫 KEEP；运算符尾注等义压缩"
+   ],
+   "note": "0561 T=77"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0561-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0561"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

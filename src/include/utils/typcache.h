@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * typcache.h
- *	  Type cache definitions.
+ *	  类型缓存定义。
  *
- * The type cache exists to speed lookup of certain information about data
- * types that is not directly available from a type's pg_type row.
+ * 类型缓存用于加速查找数据类型的某些信息，这些
+ * 信息无法直接从类型的 pg_type 行获得。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,20 +22,20 @@
 #include "utils/dsa.h"
 
 
-/* DomainConstraintCache is an opaque struct known only within typcache.c */
+/* DomainConstraintCache 是仅 typcache.c 内可知的不透明结构。 */
 typedef struct DomainConstraintCache DomainConstraintCache;
 
-/* TypeCacheEnumData is an opaque struct known only within typcache.c */
+/* TypeCacheEnumData 是仅 typcache.c 内可知的不透明结构 */
 struct TypeCacheEnumData;
 
 typedef struct TypeCacheEntry
 {
-	/* typeId is the hash lookup key and MUST BE FIRST */
-	Oid			type_id;		/* OID of the data type */
+	/* typeId 是哈希查找键且 MUST BE FIRST */
+	Oid			type_id;		/* 数据类型的 OID */
 
-	uint32		type_id_hash;	/* hashed value of the OID */
+	uint32		type_id_hash;	/* OID 的哈希值 */
 
-	/* some subsidiary information copied from the pg_type row */
+	/* 自 pg_type 行复制的若干附属信息 */
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
@@ -47,30 +47,30 @@ typedef struct TypeCacheEntry
 	Oid			typcollation;
 
 	/*
-	 * Information obtained from opfamily entries
+	 * 自 opfamily 条目获得的信息
 	 *
-	 * These will be InvalidOid if no match could be found, or if the
-	 * information hasn't yet been requested.  Also note that for array and
-	 * composite types, typcache.c checks that the contained types are
-	 * comparable or hashable before allowing eq_opr etc to become set.
+	 * 若找不到匹配或尚未请求该信息，则为
+	 * InvalidOid。另注意对数组与复合类型，
+	 * typcache.c 在允许 eq_opr 等被设置前，会检查
+	 * 所含类型是否可比较或可哈希。
 	 */
 	Oid			btree_opf;		/* the default btree opclass' family */
 	Oid			btree_opintype; /* the default btree opclass' opcintype */
 	Oid			hash_opf;		/* the default hash opclass' family */
 	Oid			hash_opintype;	/* the default hash opclass' opcintype */
-	Oid			eq_opr;			/* the equality operator */
-	Oid			lt_opr;			/* the less-than operator */
-	Oid			gt_opr;			/* the greater-than operator */
-	Oid			cmp_proc;		/* the btree comparison function */
-	Oid			hash_proc;		/* the hash calculation function */
-	Oid			hash_extended_proc; /* the extended hash calculation function */
+	Oid			eq_opr;			/* 相等运算符 */
+	Oid			lt_opr;			/* 小于运算符 */
+	Oid			gt_opr;			/* 大于运算符 */
+	Oid			cmp_proc;		/* btree 比较函数 */
+	Oid			hash_proc;		/* 哈希计算函数 */
+	Oid			hash_extended_proc; /* 扩展哈希计算函数 */
 
 	/*
-	 * Pre-set-up fmgr call info for the equality operator, the btree
-	 * comparison function, and the hash calculation function.  These are kept
-	 * in the type cache to avoid problems with memory leaks in repeated calls
-	 * to functions such as array_eq, array_cmp, hash_array.  There is not
-	 * currently a need to maintain call info for the lt_opr or gt_opr.
+	 * 为相等运算符、btree 比较函数与哈希计算函数
+	 * 预先设好的 fmgr 调用信息。保存在类型缓存中，
+	 * 以免 array_eq、array_cmp、hash_array 等反复调用时
+	 * 内存泄漏。当前无需为 lt_opr 或 gt_opr 维护
+	 * 调用信息。
 	 */
 	FmgrInfo	eq_opr_finfo;
 	FmgrInfo	cmp_proc_finfo;
@@ -78,61 +78,61 @@ typedef struct TypeCacheEntry
 	FmgrInfo	hash_extended_proc_finfo;
 
 	/*
-	 * Tuple descriptor if it's a composite type (row type).  NULL if not
-	 * composite or information hasn't yet been requested.  (NOTE: this is a
-	 * reference-counted tupledesc.)
+	 * 若为复合类型（行类型）则为元组描述符，否则或
+	 * 尚未请求则为 NULL。（注意：这是引用计数的
+	 * tupledesc。）
 	 *
-	 * To simplify caching dependent info, tupDesc_identifier is an identifier
-	 * for this tupledesc that is unique for the life of the process, and
-	 * changes anytime the tupledesc does.  Zero if not yet determined.
+	 * 为简化缓存依赖信息，tupDesc_identifier 是该
+	 * tupledesc 在进程生命周期内唯一的标识，且在
+	 * tupledesc 变化时改变。尚未确定则为零。
 	 */
 	TupleDesc	tupDesc;
 	uint64		tupDesc_identifier;
 
 	/*
-	 * Fields computed when TYPECACHE_RANGE_INFO is requested.  Zeroes if not
-	 * a range type or information hasn't yet been requested.  Note that
-	 * rng_cmp_proc_finfo could be different from the element type's default
-	 * btree comparison function.
+	 * 请求 TYPECACHE_RANGE_INFO 时计算的字段。非范围
+	 * 类型或尚未请求则为零。注意 rng_cmp_proc_finfo
+	 * 可能与元素类型的默认 btree 比较函数不同。
+	 * 见上。
 	 */
-	struct TypeCacheEntry *rngelemtype; /* range's element type */
-	Oid			rng_collation;	/* collation for comparisons, if any */
-	FmgrInfo	rng_cmp_proc_finfo; /* comparison function */
-	FmgrInfo	rng_canonical_finfo;	/* canonicalization function, if any */
-	FmgrInfo	rng_subdiff_finfo;	/* difference function, if any */
+	struct TypeCacheEntry *rngelemtype; /* 范围元素类型 */
+	Oid			rng_collation;	/* 比较用 collation（若有） */
+	FmgrInfo	rng_cmp_proc_finfo; /* 比较函数 */
+	FmgrInfo	rng_canonical_finfo;	/* 规范化函数（若有） */
+	FmgrInfo	rng_subdiff_finfo;	/* 差值函数（若有） */
 
 	/*
-	 * Fields computed when TYPECACHE_MULTIRANGE_INFO is required.
+	 * 请求 TYPECACHE_MULTIRANGE_INFO 时计算的字段。
 	 */
-	struct TypeCacheEntry *rngtype; /* multirange's range underlying type */
+	struct TypeCacheEntry *rngtype; /* 多重范围的底层范围类型 */
 
 	/*
-	 * Domain's base type and typmod if it's a domain type.  Zeroes if not
-	 * domain, or if information hasn't been requested.
+	 * 若为域类型则为域的基类型与 typmod。非域或
+	 * 尚未请求则为零。
 	 */
 	Oid			domainBaseType;
 	int32		domainBaseTypmod;
 
 	/*
-	 * Domain constraint data if it's a domain type.  NULL if not domain, or
-	 * if domain has no constraints, or if information hasn't been requested.
+	 * 若为域类型则为域约束数据。非域、无约束或
+	 * 尚未请求则为 NULL。
 	 */
 	DomainConstraintCache *domainData;
 
-	/* Private data, for internal use of typcache.c only */
-	int			flags;			/* flags about what we've computed */
+	/* 私有数据，仅供 typcache.c 内部使用 */
+	int			flags;			/* 关于已计算内容的标志 */
 
 	/*
-	 * Private information about an enum type.  NULL if not enum or
-	 * information hasn't been requested.
+	 * 枚举类型的私有信息。非枚举或尚未请求则为
+	 * NULL。
 	 */
 	struct TypeCacheEnumData *enumData;
 
-	/* We also maintain a list of all known domain-type cache entries */
+	/* 还维护所有已知域类型缓存条目的列表 */
 	struct TypeCacheEntry *nextDomain;
 } TypeCacheEntry;
 
-/* Bit flags to indicate which fields a given caller needs to have set */
+/* 位标志，表明调用方需要哪些字段被设置 */
 #define TYPECACHE_EQ_OPR			0x00001
 #define TYPECACHE_LT_OPR			0x00002
 #define TYPECACHE_GT_OPR			0x00004
@@ -151,25 +151,25 @@ typedef struct TypeCacheEntry
 #define TYPECACHE_HASH_EXTENDED_PROC_FINFO	0x08000
 #define TYPECACHE_MULTIRANGE_INFO			0x10000
 
-/* This value will not equal any valid tupledesc identifier, nor 0 */
+/* 此值不等于任何有效 tupledesc 标识，也不为 0 */
 #define INVALID_TUPLEDESC_IDENTIFIER ((uint64) 1)
 
 /*
- * Callers wishing to maintain a long-lived reference to a domain's constraint
- * set must store it in one of these.  Use InitDomainConstraintRef() and
- * UpdateDomainConstraintRef() to manage it.  Note: DomainConstraintState is
- * considered an executable expression type, so it's defined in execnodes.h.
+ * 欲长期持有域约束集引用的调用方须存于此。用
+ * InitDomainConstraintRef() 与 UpdateDomainConstraintRef()
+ * 管理。注意：DomainConstraintState 视为可执行表达式
+ * 类型，故定义在 execnodes.h。
  */
 typedef struct DomainConstraintRef
 {
-	List	   *constraints;	/* list of DomainConstraintState nodes */
-	MemoryContext refctx;		/* context holding DomainConstraintRef */
-	TypeCacheEntry *tcache;		/* typcache entry for domain type */
-	bool		need_exprstate; /* does caller need check_exprstate? */
+	List	   *constraints;	/* DomainConstraintState 节点列表 */
+	MemoryContext refctx;		/* 持有 DomainConstraintRef */
+	TypeCacheEntry *tcache;		/* 域类型的 typcache 条目 */
+	bool		need_exprstate; /* 需 check_exprstate？ */
 
-	/* Management data --- treat these fields as private to typcache.c */
-	DomainConstraintCache *dcc; /* current constraints, or NULL if none */
-	MemoryContextCallback callback; /* used to release refcount when done */
+	/* 管理数据 --- 将这些字段视为 typcache.c 私有 */
+	DomainConstraintCache *dcc; /* 当前约束，无则为 NULL */
+	MemoryContextCallback callback; /* 完成后用于释放引用计数 */
 } DomainConstraintRef;
 
 typedef struct SharedRecordTypmodRegistry SharedRecordTypmodRegistry;

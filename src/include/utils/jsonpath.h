@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonpath.h
- *	Definitions for jsonpath datatype
+ *	jsonpath 数据类型的定义
  *
  * Copyright (c) 2019-2023, PostgreSQL Global Development Group
  *
@@ -20,8 +20,8 @@
 
 typedef struct
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	uint32		header;			/* version and flags (see below) */
+	int32		vl_len_;		/* varlena 头（勿直接触碰！） */
+	uint32		header;			/* 版本与标志（见下） */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } JsonPath;
 
@@ -48,18 +48,18 @@ DatumGetJsonPathPCopy(Datum d)
 #define jspIsScalar(type) ((type) >= jpiNull && (type) <= jpiBool)
 
 /*
- * All node's type of jsonpath expression
+ * jsonpath 表达式的节点类型
  */
 typedef enum JsonPathItemType
 {
-	jpiNull = jbvNull,			/* NULL literal */
-	jpiString = jbvString,		/* string literal */
-	jpiNumeric = jbvNumeric,	/* numeric literal */
-	jpiBool = jbvBool,			/* boolean literal: TRUE or FALSE */
-	jpiAnd,						/* predicate && predicate */
-	jpiOr,						/* predicate || predicate */
-	jpiNot,						/* ! predicate */
-	jpiIsUnknown,				/* (predicate) IS UNKNOWN */
+	jpiNull = jbvNull,			/* NULL 字面 */
+	jpiString = jbvString,		/* string 字面 */
+	jpiNumeric = jbvNumeric,	/* 数值字面量 */
+	jpiBool = jbvBool,			/* 布尔字面：TRUE/FALSE */
+	jpiAnd,						/* 谓词 && 谓词 */
+	jpiOr,						/* 谓词 || 谓词 */
+	jpiNot,						/* ! 谓词 */
+	jpiIsUnknown,				/* (谓词) IS UNKNOWN */
 	jpiEqual,					/* expr == expr */
 	jpiNotEqual,				/* expr != expr */
 	jpiLess,					/* expr < expr */
@@ -75,69 +75,69 @@ typedef enum JsonPathItemType
 	jpiMinus,					/* - expr */
 	jpiAnyArray,				/* [*] */
 	jpiAnyKey,					/* .* */
-	jpiIndexArray,				/* [subscript, ...] */
+	jpiIndexArray,				/* [下标, ...] */
 	jpiAny,						/* .** */
 	jpiKey,						/* .key */
 	jpiCurrent,					/* @ */
 	jpiRoot,					/* $ */
 	jpiVariable,				/* $variable */
-	jpiFilter,					/* ? (predicate) */
-	jpiExists,					/* EXISTS (expr) predicate */
-	jpiType,					/* .type() item method */
-	jpiSize,					/* .size() item method */
-	jpiAbs,						/* .abs() item method */
-	jpiFloor,					/* .floor() item method */
-	jpiCeiling,					/* .ceiling() item method */
-	jpiDouble,					/* .double() item method */
-	jpiDatetime,				/* .datetime() item method */
-	jpiKeyValue,				/* .keyvalue() item method */
-	jpiSubscript,				/* array subscript: 'expr' or 'expr TO expr' */
-	jpiLast,					/* LAST array subscript */
-	jpiStartsWith,				/* STARTS WITH predicate */
-	jpiLikeRegex,				/* LIKE_REGEX predicate */
+	jpiFilter,					/* ? (谓词) */
+	jpiExists,					/* EXISTS (expr) 谓词 */
+	jpiType,					/* .type() 项方法 */
+	jpiSize,					/* .size() 项方法 */
+	jpiAbs,						/* .abs() 项方法 */
+	jpiFloor,					/* .floor() 项方法 */
+	jpiCeiling,					/* .ceiling() 项方法 */
+	jpiDouble,					/* .double() 项方法 */
+	jpiDatetime,				/* .datetime() 项方法 */
+	jpiKeyValue,				/* .keyvalue() 项方法 */
+	jpiSubscript,				/* 数组下标：'expr' 或 'expr TO expr' */
+	jpiLast,					/* LAST 数组下标 */
+	jpiStartsWith,				/* STARTS WITH 谓词 */
+	jpiLikeRegex,				/* LIKE_REGEX 谓词 */
 } JsonPathItemType;
 
-/* XQuery regex mode flags for LIKE_REGEX predicate */
-#define JSP_REGEX_ICASE		0x01	/* i flag, case insensitive */
-#define JSP_REGEX_DOTALL	0x02	/* s flag, dot matches newline */
-#define JSP_REGEX_MLINE		0x04	/* m flag, ^/$ match at newlines */
-#define JSP_REGEX_WSPACE	0x08	/* x flag, ignore whitespace in pattern */
-#define JSP_REGEX_QUOTE		0x10	/* q flag, no special characters */
+/* LIKE_REGEX 谓词的 XQuery 正则模式标志 */
+#define JSP_REGEX_ICASE		0x01	/* i：忽略大小写 */
+#define JSP_REGEX_DOTALL	0x02	/* s 标志，点匹配换行 */
+#define JSP_REGEX_MLINE		0x04	/* m：^/$ 匹配换行 */
+#define JSP_REGEX_WSPACE	0x08	/* x 标志，忽略模式中空白 */
+#define JSP_REGEX_QUOTE		0x10	/* q 标志，无特殊字符 */
 
 /*
- * Support functions to parse/construct binary value.
- * Unlike many other representation of expression the first/main
- * node is not an operation but left operand of expression. That
- * allows to implement cheap follow-path descending in jsonb
- * structure and then execute operator with right operand
+ * 解析/构造二进制值的支持函数。
+ * 与许多其他表达式表示不同，首个/主节点
+ * 不是运算而是表达式的左操作数。这样可在
+ * jsonb 中廉价沿路径下行，再对右操作数
+ * 执行运算符。
  */
 
 typedef struct JsonPathItem
 {
 	JsonPathItemType type;
 
-	/* position form base to next node */
+	/* 基址到下一节点的位置 */
 	int32		nextPos;
 
 	/*
-	 * pointer into JsonPath value to current node, all positions of current
-	 * are relative to this base
+	 * 指向 JsonPath 值中当前节点的指针，当前节点的
+	 * 位置均相对此基址
 	 */
 	char	   *base;
 
 	union
 	{
-		/* classic operator with two operands: and, or etc */
+		/* 经典双操作数运算符：and、or 等 */
 		struct
 		{
 			int32		left;
 			int32		right;
 		}			args;
 
-		/* any unary operation */
+		/* 任意一元运算 */
 		int32		arg;
 
-		/* storage for jpiIndexArray: indexes of array */
+		/* jpiIndexArray 的存储：数组下标 */
 		struct
 		{
 			int32		nelems;
@@ -148,7 +148,7 @@ typedef struct JsonPathItem
 			}		   *elems;
 		}			array;
 
-		/* jpiAny: levels */
+		/* jpiAny 层级 */
 		struct
 		{
 			uint32		first;
@@ -157,8 +157,8 @@ typedef struct JsonPathItem
 
 		struct
 		{
-			char	   *data;	/* for bool, numeric and string/key */
-			int32		datalen;	/* filled only for string/key */
+			char	   *data;	/* 用于 bool/numeric/string/key */
+			int32		datalen;	/* 仅 string/key 时填充 */
 		}			value;
 
 		struct
@@ -188,7 +188,7 @@ extern bool jspGetArraySubscript(JsonPathItem *v, JsonPathItem *from,
 extern const char *jspOperationName(JsonPathItemType type);
 
 /*
- * Parsing support data structures.
+ * 解析支持数据结构。
  */
 
 typedef struct JsonPathParseItem JsonPathParseItem;
@@ -196,22 +196,22 @@ typedef struct JsonPathParseItem JsonPathParseItem;
 struct JsonPathParseItem
 {
 	JsonPathItemType type;
-	JsonPathParseItem *next;	/* next in path */
+	JsonPathParseItem *next;	/* 下一项 */
 
 	union
 	{
 
-		/* classic operator with two operands: and, or etc */
+		/* 经典双操作数运算符：and、or 等 */
 		struct
 		{
 			JsonPathParseItem *left;
 			JsonPathParseItem *right;
 		}			args;
 
-		/* any unary operation */
+		/* 任意一元运算 */
 		JsonPathParseItem *arg;
 
-		/* storage for jpiIndexArray: indexes of array */
+		/* jpiIndexArray 的存储：数组下标 */
 		struct
 		{
 			int			nelems;
@@ -222,7 +222,7 @@ struct JsonPathParseItem
 			}		   *elems;
 		}			array;
 
-		/* jpiAny: levels */
+		/* jpiAny 层级 */
 		struct
 		{
 			uint32		first;
@@ -232,18 +232,18 @@ struct JsonPathParseItem
 		struct
 		{
 			JsonPathParseItem *expr;
-			char	   *pattern;	/* could not be not null-terminated */
+			char	   *pattern;	/* 可能非以空字符结尾 */
 			uint32		patternlen;
 			uint32		flags;
 		}			like_regex;
 
-		/* scalars */
+		/* 标量 */
 		Numeric numeric;
 		bool		boolean;
 		struct
 		{
 			uint32		len;
-			char	   *val;	/* could not be not null-terminated */
+			char	   *val;	/* 可能非以空字符结尾 */
 		}			string;
 	}			value;
 };

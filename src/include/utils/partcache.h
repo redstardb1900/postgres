@@ -20,25 +20,25 @@
 #include "utils/relcache.h"
 
 /*
- * Information about the partition key of a relation
+ * 关系分区键的信息
  */
 typedef struct PartitionKeyData
 {
-	PartitionStrategy strategy; /* partitioning strategy */
-	int16		partnatts;		/* number of columns in the partition key */
-	AttrNumber *partattrs;		/* attribute numbers of columns in the
-								 * partition key or 0 if it's an expr */
-	List	   *partexprs;		/* list of expressions in the partitioning
-								 * key, one for each zero-valued partattrs */
+	PartitionStrategy strategy; /* 分区策略 */
+	int16		partnatts;		/* 分区键中的列数 */
+	AttrNumber *partattrs;		/* 分区键中列的属性号，
+								 * 表达式则为 0 */
+	List	   *partexprs;		/* 分区键中的表达式列表，
+								 * 每个零值 partattrs 一项 */
 
-	Oid		   *partopfamily;	/* OIDs of operator families */
-	Oid		   *partopcintype;	/* OIDs of opclass declared input data types */
-	FmgrInfo   *partsupfunc;	/* lookup info for support funcs */
+	Oid		   *partopfamily;	/* 操作符族的 OIDs */
+	Oid		   *partopcintype;	/* opclass 声明输入数据类型的 OIDs */
+	FmgrInfo   *partsupfunc;	/* 支持函数的查找信息 */
 
-	/* Partitioning collation per attribute */
+	/* 每属性的分区 collation */
 	Oid		   *partcollation;
 
-	/* Type information per attribute */
+	/* 每属性的类型信息 */
 	Oid		   *parttypid;
 	int32	   *parttypmod;
 	int16	   *parttyplen;
@@ -53,7 +53,7 @@ extern List *RelationGetPartitionQual(Relation rel);
 extern Expr *get_partition_qual_relid(Oid relid);
 
 /*
- * PartitionKey inquiry functions
+ * PartitionKey 查询函数
  */
 static inline int
 get_partition_strategy(PartitionKey key)
@@ -74,7 +74,7 @@ get_partition_exprs(PartitionKey key)
 }
 
 /*
- * PartitionKey inquiry functions - one column
+ * PartitionKey 查询函数 - 单列
  */
 static inline int16
 get_partition_col_attnum(PartitionKey key, int col)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * reltrigger.h
- *	  POSTGRES relation trigger definitions.
+ *	  POSTGRES 关系触发器定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,14 +16,14 @@
 
 
 /*
- * These struct really belongs to trigger.h, but we put it separately so that
- * it can be cleanly included in rel.h and other places.
+ * 这些结构本属 trigger.h，但单独放置以便
+ * 能干净地被 rel.h 及其他处包含。
  */
 
 typedef struct Trigger
 {
-	Oid			tgoid;			/* OID of trigger (pg_trigger row) */
-	/* Remaining fields are copied from pg_trigger, see pg_trigger.h */
+	Oid			tgoid;			/* 触发器 OID（pg_trigger） */
+	/* 其余字段自 pg_trigger 复制，见 pg_trigger.h */
 	char	   *tgname;
 	Oid			tgfoid;
 	int16		tgtype;
@@ -46,12 +46,12 @@ typedef struct Trigger
 
 typedef struct TriggerDesc
 {
-	Trigger    *triggers;		/* array of Trigger structs */
-	int			numtriggers;	/* number of array entries */
+	Trigger    *triggers;		/* Trigger 结构数组 */
+	int			numtriggers;	/* 数组条目数 */
 
 	/*
-	 * These flags indicate whether the array contains at least one of each
-	 * type of trigger.  We use these to skip searching the array if not.
+	 * 这些标志表明数组是否至少含一类触发器。
+	 * 用于在没有时跳过搜索数组。
 	 */
 	bool		trig_insert_before_row;
 	bool		trig_insert_after_row;
@@ -68,10 +68,10 @@ typedef struct TriggerDesc
 	bool		trig_delete_instead_row;
 	bool		trig_delete_before_statement;
 	bool		trig_delete_after_statement;
-	/* there are no row-level truncate triggers */
+	/* 没有行级 truncate 触发器 */
 	bool		trig_truncate_before_statement;
 	bool		trig_truncate_after_statement;
-	/* Is there at least one trigger specifying each transition relation? */
+	/* 是否至少有一个触发器指定了各转移关系？ */
 	bool		trig_insert_new_table;
 	bool		trig_update_old_table;
 	bool		trig_update_new_table;

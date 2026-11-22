@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * acl.h
- *	  Definition of (and support for) access control list data structures.
+ *	  访问控制列表数据结构的定义（及支持）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -9,24 +9,24 @@
  *
  * src/include/utils/acl.h
  *
- * NOTES
- *	  An ACL array is simply an array of AclItems, representing the union
- *	  of the privileges represented by the individual items.  A zero-length
- *	  array represents "no privileges".
+ * 注
+ *	  ACL 数组即 AclItem 数组，表示各条目所代表
+ *	  特权的并集。零长度数组表示"无特权"。
+ *	  见上。
  *
- *	  The order of items in the array is important as client utilities (in
- *	  particular, pg_dump, though possibly other clients) expect to be able
- *	  to issue GRANTs in the ordering of the items in the array.  The reason
- *	  this matters is that GRANTs WITH GRANT OPTION must be before any GRANTs
- *	  which depend on it.  This happens naturally in the backend during
- *	  operations as we update ACLs in-place, new items are appended, and
- *	  existing entries are only removed if there's no dependency on them (no
- *	  GRANT can been based on it, or, if there was, those GRANTs are also
- *	  removed).
+ *	  数组中条目次序很重要，因客户端工具（尤其
+ *	  pg_dump，也可能有其他客户端）期望能按数组
+ *	  条目次序发出 GRANT。原因是带 GRANT OPTION 的
+ *	  GRANT 必须排在依赖它的 GRANT 之前。后端更新
+ *	  ACL 时就地追加新项，且仅在无依赖时才删除
+ *	  既有条目（其上不能再有 GRANT；若有则那些
+ *	  GRANT 一并删除）。
+ *	  见上。
+ *	  见上。
  *
- *	  For backward-compatibility purposes we have to allow null ACL entries
- *	  in system catalogs.  A null ACL will be treated as meaning "default
- *	  protection" (i.e., whatever acldefault() returns).
+ *	  为向后兼容，系统目录须允许空 ACL 条目。空
+ *	  ACL 视为"默认保护"（即 acldefault() 的返回
+ *	  值）。
  *-------------------------------------------------------------------------
  */
 #ifndef ACL_H
@@ -39,29 +39,29 @@
 
 
 /*
- * typedef AclMode is declared in parsenodes.h, also the individual privilege
- * bit meanings are defined there
+ * typedef AclMode 在 parsenodes.h 声明，各特权位
+ * 含义也在那里定义
  */
 
-#define ACL_ID_PUBLIC	0		/* placeholder for id in a PUBLIC acl item */
+#define ACL_ID_PUBLIC	0		/* PUBLIC acl 条目中 id 的占位 */
 
 /*
  * AclItem
  *
- * Note: must be same size on all platforms, because the size is hardcoded
- * in the pg_type.h entry for aclitem.
+ * 注意：各平台须同大小，因 pg_type.h 中 aclitem
+ * 条目硬编码了该大小。
  */
 typedef struct AclItem
 {
-	Oid			ai_grantee;		/* ID that this item grants privs to */
-	Oid			ai_grantor;		/* grantor of privs */
-	AclMode		ai_privs;		/* privilege bits */
+	Oid			ai_grantee;		/* 本条目授予特权的目标 ID */
+	Oid			ai_grantor;		/* 特权授予者 */
+	AclMode		ai_privs;		/* 特权位 */
 } AclItem;
 
 /*
- * The upper 32 bits of the ai_privs field of an AclItem are the grant option
- * bits, and the lower 32 bits are the actual privileges.  We use "rights"
- * to mean the combined grant option and privilege bits fields.
+ * AclItem 的 ai_privs 字段高 32 位是授予选项位，
+ * 低 32 位是实际特权。我们用"rights"表示授予选项
+ * 与特权位字段的组合。
  */
 #define ACLITEM_GET_PRIVS(item)    ((item).ai_privs & 0xFFFFFFFF)
 #define ACLITEM_GET_GOPTIONS(item) (((item).ai_privs >> 32) & 0xFFFFFFFF)
@@ -88,20 +88,20 @@ typedef struct AclItem
 #define ACLITEM_ALL_GOPTION_BITS	((AclMode) 0xFFFFFFFF << 32)
 
 /*
- * Definitions for convenient access to Acl (array of AclItem).
- * These are standard PostgreSQL arrays, but are restricted to have one
- * dimension and no nulls.  We also ignore the lower bound when reading,
- * and set it to one when writing.
+ * 便于访问 Acl（AclItem 数组）的定义。
+ * 这些是标准 PostgreSQL 数组，但限制为一维且无
+ * 空值。读时忽略下界，写时设为 1。
+ * 见上。
  *
- * CAUTION: as of PostgreSQL 7.1, these arrays are toastable (just like all
- * other array types).  Therefore, be careful to detoast them with the
- * macros provided, unless you know for certain that a particular array
- * can't have been toasted.
+ * 注意：自 PostgreSQL 7.1 起这些数组可 toast（与
+ * 其他数组类型一样）。故请用所提供宏 detoast，
+ * 除非确定某数组不可能已被 toast。
+ * 见上。
  */
 
 
 /*
- * Acl			a one-dimensional array of AclItem
+ * Acl		一维 AclItem 数组
  */
 typedef struct ArrayType Acl;
 
@@ -111,7 +111,7 @@ typedef struct ArrayType Acl;
 #define ACL_SIZE(ACL)			ARR_SIZE(ACL)
 
 /*
- * fmgr macros for these types
+ * 这些类型的 fmgr 宏
  */
 #define DatumGetAclItemP(X)		   ((AclItem *) DatumGetPointer(X))
 #define PG_GETARG_ACLITEM_P(n)	   DatumGetAclItemP(PG_GETARG_DATUM(n))
@@ -124,21 +124,21 @@ typedef struct ArrayType Acl;
 #define PG_RETURN_ACL_P(x)		   PG_RETURN_POINTER(x)
 
 /*
- * ACL modification opcodes for aclupdate
+ * aclupdate 的 ACL 修改操作码
  */
 #define ACL_MODECHG_ADD			1
 #define ACL_MODECHG_DEL			2
 #define ACL_MODECHG_EQL			3
 
 /*
- * External representations of the privilege bits --- aclitemin/aclitemout
- * represent each possible privilege bit with a distinct 1-character code
+ * 特权位的外部表示 --- aclitemin/aclitemout
+ * 用互不相同的单字符代码表示每个可能的特权位
  */
-#define ACL_INSERT_CHR			'a' /* formerly known as "append" */
-#define ACL_SELECT_CHR			'r' /* formerly known as "read" */
-#define ACL_UPDATE_CHR			'w' /* formerly known as "write" */
+#define ACL_INSERT_CHR			'a' /* 旧称 "append" */
+#define ACL_SELECT_CHR			'r' /* 旧称 "read" */
+#define ACL_UPDATE_CHR			'w' /* 旧称 "write" */
 #define ACL_DELETE_CHR			'd'
-#define ACL_TRUNCATE_CHR		'D' /* super-delete, as it were */
+#define ACL_TRUNCATE_CHR		'D' /* 可谓超级删除 */
 #define ACL_REFERENCES_CHR		'x'
 #define ACL_TRIGGER_CHR			't'
 #define ACL_EXECUTE_CHR			'X'
@@ -149,11 +149,11 @@ typedef struct ArrayType Acl;
 #define ACL_SET_CHR				's'
 #define ACL_ALTER_SYSTEM_CHR	'A'
 
-/* string holding all privilege code chars, in order by bitmask position */
+/* 按位掩码次序容纳全部特权代码字符的字符串 */
 #define ACL_ALL_RIGHTS_STR	"arwdDxtXUCTcsA"
 
 /*
- * Bitmasks defining "all rights" for each supported object type
+ * 定义各支持对象类型的"全部权利"位掩码
  */
 #define ACL_ALL_RIGHTS_COLUMN		(ACL_INSERT|ACL_SELECT|ACL_UPDATE|ACL_REFERENCES)
 #define ACL_ALL_RIGHTS_RELATION		(ACL_INSERT|ACL_SELECT|ACL_UPDATE|ACL_DELETE|ACL_TRUNCATE|ACL_REFERENCES|ACL_TRIGGER)
@@ -169,14 +169,14 @@ typedef struct ArrayType Acl;
 #define ACL_ALL_RIGHTS_TABLESPACE	(ACL_CREATE)
 #define ACL_ALL_RIGHTS_TYPE			(ACL_USAGE)
 
-/* operation codes for pg_*_aclmask */
+/* pg_*_aclmask 的操作码 */
 typedef enum
 {
-	ACLMASK_ALL,				/* normal case: compute all bits */
-	ACLMASK_ANY					/* return when result is known nonzero */
+	ACLMASK_ALL,				/* 普通：计算全部位 */
+	ACLMASK_ANY					/* 结果已知非零时返回 */
 } AclMaskHow;
 
-/* result codes for pg_*_aclcheck */
+/* pg_*_aclcheck 的结果码 */
 typedef enum
 {
 	ACLCHECK_OK = 0,
@@ -186,7 +186,7 @@ typedef enum
 
 
 /*
- * routines used internally
+ * 内部使用的例程
  */
 extern Acl *acldefault(ObjectType objtype, Oid ownerId);
 extern Acl *get_user_default_acl(ObjectType objtype, Oid ownerId,
@@ -229,7 +229,7 @@ extern void select_best_grantor(Oid roleId, AclMode privileges,
 extern void initialize_acl(void);
 
 /*
- * prototypes for functions in aclchk.c
+ * aclchk.c 中函数的原型
  */
 extern void ExecuteGrantStmt(GrantStmt *stmt);
 extern void ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *stmt);
@@ -239,10 +239,10 @@ extern void RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid);
 extern AclMode pg_class_aclmask(Oid table_oid, Oid roleid,
 								AclMode mask, AclMaskHow how);
 
-/* generic function */
+/* 通用函数 */
 extern AclResult object_aclcheck(Oid classid, Oid objectid, Oid roleid, AclMode mode);
 
-/* special cases */
+/* 特殊情形 */
 extern AclResult pg_attribute_aclcheck(Oid table_oid, AttrNumber attnum,
 									   Oid roleid, AclMode mode);
 extern AclResult pg_attribute_aclcheck_ext(Oid table_oid, AttrNumber attnum,
@@ -270,7 +270,7 @@ extern void recordExtObjInitPriv(Oid objoid, Oid classoid);
 extern void removeExtObjInitPriv(Oid objoid, Oid classoid);
 
 
-/* ownercheck routines just return true (owner) or false (not) */
+/* ownercheck 仅返 true(所有者)/false */
 extern bool object_ownercheck(Oid classid, Oid objectid, Oid roleid);
 extern bool has_createrole_privilege(Oid roleid);
 extern bool has_bypassrls_privilege(Oid roleid);

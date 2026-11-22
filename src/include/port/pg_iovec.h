@@ -20,7 +20,7 @@
 
 #else
 
-/* Define our own POSIX-compatible iovec struct. */
+/* 定义自有的 POSIX 兼容 iovec 结构。 */
 struct iovec
 {
 	void	   *iov_base;
@@ -38,12 +38,12 @@ struct iovec
 #define IOV_MAX 16
 #endif
 
-/* Define a reasonable maximum that is safe to use on the stack. */
+/*  定义可安全用于栈上的合理上限。  */
 #define PG_IOV_MAX Min(IOV_MAX, 32)
 
 /*
- * Note that pg_preadv and pg_pwritev have a pg_ prefix as a warning that the
- * Windows implementations have the side-effect of changing the file position.
+ * 注意 pg_preadv/pg_pwritev 带 pg_ 前缀,以警示
+ * Windows 实现有改变文件位置的副作用。
  */
 
 #if HAVE_DECL_PREADV

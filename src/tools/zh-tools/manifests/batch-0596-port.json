@@ -1,0 +1,180 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0596",
+ "title": "include/port 实质头×8 — batch 0596",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7d1fee43b039cd9c9780d088eb4f6a3f970ae245",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/port/pg_bitutils.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/pg_lfind.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/pg_bswap.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/pg_crc32c.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/pg_iovec.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/pg_pthread.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/simd.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/include/port/atomics.h",
+   "kind": "c_comment",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0596-port.json",
+   "kind": "manifest",
+   "note": "0596"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/port/pg_bitutils.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/pg_lfind.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/pg_bswap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/pg_crc32c.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/pg_iovec.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/pg_pthread.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/simd.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/include/port/atomics.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；宏/长文 KEEP EN。"
+   ],
+   "note": "0596"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0596-port.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0596"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0596"
+  }
+ ],
+ "notes": "短注已译；atomics 架构长文/宏 KEEP；win32 小 stub 留后"
+}

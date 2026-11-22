@@ -96,8 +96,8 @@
 #include "port/atomics/generic-sunpro.h"
 #else
 /*
- * Unsupported compiler, we'll likely use slower fallbacks... At least
- * compiler barriers should really be provided.
+ * 不支持的编译器,可能用较慢回退...至少
+ * 应真正提供编译器屏障。
  */
 #endif
 
@@ -110,8 +110,8 @@
 #include "port/atomics/fallback.h"
 
 /*
- * Provide additional operations using supported infrastructure. These are
- * expected to be efficient if the underlying atomic operations are efficient.
+ * 用已支持基础设施提供附加操作。若底层
+ * 原子操作高效则这些也应高效。
  */
 #include "port/atomics/generic.h"
 
@@ -154,14 +154,14 @@
 #define pg_write_barrier()	pg_write_barrier_impl()
 
 /*
- * Spinloop delay - Allow CPU to relax in busy loops
+ * 自旋延迟 - 允许 CPU 在忙循环中放松
  */
 #define pg_spin_delay() pg_spin_delay_impl()
 
 /*
- * pg_atomic_init_flag - initialize atomic flag.
+ * pg_atomic_init_flag - 初始化原子标志.
  *
- * No barrier semantics.
+ * 无屏障语义。
  */
 static inline void
 pg_atomic_init_flag(volatile pg_atomic_flag *ptr)

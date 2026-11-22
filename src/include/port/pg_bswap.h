@@ -22,12 +22,12 @@
 
 
 /*
- * In all supported versions msvc provides _byteswap_* functions in stdlib.h,
- * already included by c.h.
+ * 所有支持的 msvc 版本均在 stdlib.h 提供 _byteswap_* 函数,
+ * c.h 已包含。
  */
 
 
-/* implementation of uint16 pg_bswap16(uint16) */
+/*  uint16 pg_bswap16(uint16) 的实现  */
 #if defined(HAVE__BUILTIN_BSWAP16)
 
 #define pg_bswap16(x) __builtin_bswap16(x)
@@ -49,7 +49,7 @@ pg_bswap16(uint16 x)
 #endif							/* HAVE__BUILTIN_BSWAP16 */
 
 
-/* implementation of uint32 pg_bswap32(uint32) */
+/*  uint32 pg_bswap32(uint32) 的实现  */
 #if defined(HAVE__BUILTIN_BSWAP32)
 
 #define pg_bswap32(x) __builtin_bswap32(x)
@@ -73,7 +73,7 @@ pg_bswap32(uint32 x)
 #endif							/* HAVE__BUILTIN_BSWAP32 */
 
 
-/* implementation of uint64 pg_bswap64(uint64) */
+/*  uint64 pg_bswap64(uint64) 的实现  */
 #if defined(HAVE__BUILTIN_BSWAP64)
 
 #define pg_bswap64(x) __builtin_bswap64(x)
@@ -102,8 +102,8 @@ pg_bswap64(uint64 x)
 
 
 /*
- * Portable and fast equivalents for ntohs, ntohl, htons, htonl,
- * additionally extended to 64 bits.
+ * ntohs/ntohl/htons/htonl 的可移植快速等价物,
+ * 并扩展到 64 位。
  */
 #ifdef WORDS_BIGENDIAN
 

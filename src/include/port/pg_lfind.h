@@ -27,7 +27,7 @@ pg_lfind8(uint8 key, uint8 *base, uint32 nelem)
 {
 	uint32		i;
 
-	/* round down to multiple of vector length */
+	/*  向下取整到向量长度的倍数  */
 	uint32		tail_idx = nelem & ~(sizeof(Vector8) - 1);
 	Vector8		chunk;
 
@@ -38,7 +38,7 @@ pg_lfind8(uint8 key, uint8 *base, uint32 nelem)
 			return true;
 	}
 
-	/* Process the remaining elements one at a time. */
+	/*  逐个处理剩余元素。  */
 	for (; i < nelem; i++)
 	{
 		if (key == base[i])
@@ -59,7 +59,7 @@ pg_lfind8_le(uint8 key, uint8 *base, uint32 nelem)
 {
 	uint32		i;
 
-	/* round down to multiple of vector length */
+	/*  向下取整到向量长度的倍数  */
 	uint32		tail_idx = nelem & ~(sizeof(Vector8) - 1);
 	Vector8		chunk;
 
@@ -70,7 +70,7 @@ pg_lfind8_le(uint8 key, uint8 *base, uint32 nelem)
 			return true;
 	}
 
-	/* Process the remaining elements one at a time. */
+	/*  逐个处理剩余元素。  */
 	for (; i < nelem; i++)
 	{
 		if (base[i] <= key)
@@ -102,13 +102,13 @@ pg_lfind32(uint32 key, uint32 *base, uint32 nelem)
 	const uint32 nelem_per_vector = sizeof(Vector32) / sizeof(uint32);
 	const uint32 nelem_per_iteration = 4 * nelem_per_vector;
 
-	/* round down to multiple of elements per iteration */
+	/*  向下取整到每次迭代元素数的倍数  */
 	const uint32 tail_idx = nelem & ~(nelem_per_iteration - 1);
 
 #if defined(USE_ASSERT_CHECKING)
 	bool		assert_result = false;
 
-	/* pre-compute the result for assert checking */
+	/*  预计算断言检查用的结果  */
 	for (i = 0; i < nelem; i++)
 	{
 		if (key == base[i])
@@ -133,24 +133,24 @@ pg_lfind32(uint32 key, uint32 *base, uint32 nelem)
 					tmp2,
 					result;
 
-		/* load the next block into 4 registers */
+		/*  将下一块载入 4 个寄存器  */
 		vector32_load(&vals1, &base[i]);
 		vector32_load(&vals2, &base[i + nelem_per_vector]);
 		vector32_load(&vals3, &base[i + nelem_per_vector * 2]);
 		vector32_load(&vals4, &base[i + nelem_per_vector * 3]);
 
-		/* compare each value to the key */
+		/*  将每个值与 key 比较  */
 		result1 = vector32_eq(keys, vals1);
 		result2 = vector32_eq(keys, vals2);
 		result3 = vector32_eq(keys, vals3);
 		result4 = vector32_eq(keys, vals4);
 
-		/* combine the results into a single variable */
+		/*  将结果合并到单一变量  */
 		tmp1 = vector32_or(result1, result2);
 		tmp2 = vector32_or(result3, result4);
 		result = vector32_or(tmp1, tmp2);
 
-		/* see if there was a match */
+		/*  查看是否有匹配  */
 		if (vector32_is_highbit_set(result))
 		{
 			Assert(assert_result == true);
@@ -159,7 +159,7 @@ pg_lfind32(uint32 key, uint32 *base, uint32 nelem)
 	}
 #endif							/* ! USE_NO_SIMD */
 
-	/* Process the remaining elements one at a time. */
+	/*  逐个处理剩余元素。  */
 	for (; i < nelem; i++)
 	{
 		if (key == base[i])

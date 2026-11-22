@@ -192,7 +192,7 @@ pg_nextpower2_32(uint32 num)
 	 * between num and num-1.
 	 */
 	if ((num & (num - 1)) == 0)
-		return num;				/* already power 2 */
+		return num;				/* 已是 2 的幂 */
 
 	return ((uint32) 1) << (pg_leftmost_one_pos32(num) + 1);
 }
@@ -215,7 +215,7 @@ pg_nextpower2_64(uint64 num)
 	 * between num and num-1.
 	 */
 	if ((num & (num - 1)) == 0)
-		return num;				/* already power 2 */
+		return num;				/* 已是 2 的幂 */
 
 	return ((uint64) 1) << (pg_leftmost_one_pos64(num) + 1);
 }
@@ -295,22 +295,22 @@ pg_ceil_log2_64(uint64 num)
 #endif
 
 #ifdef TRY_POPCNT_FAST
-/* Attempt to use the POPCNT instruction, but perform a runtime check first */
+/*  尝试用 POPCNT 指令,但先做运行时检查  */
 extern int	(*pg_popcount32) (uint32 word);
 extern int	(*pg_popcount64) (uint64 word);
 
 #else
-/* Use a portable implementation -- no need for a function pointer. */
+/*  使用可移植实现 -- 无需函数指针。  */
 extern int	pg_popcount32(uint32 word);
 extern int	pg_popcount64(uint64 word);
 
 #endif							/* TRY_POPCNT_FAST */
 
-/* Count the number of one-bits in a byte array */
+/*  统计字节数组中的 1 位数  */
 extern uint64 pg_popcount(const char *buf, int bytes);
 
 /*
- * Rotate the bits of "word" to the right/left by n bits.
+ * 将 "word" 的位向右/左旋转 n 位。
  */
 static inline uint32
 pg_rotate_right32(uint32 word, int n)
@@ -324,7 +324,7 @@ pg_rotate_left32(uint32 word, int n)
 	return (word << n) | (word >> (32 - n));
 }
 
-/* size_t variants of the above, as required */
+/*  上述的 size_t 变体(按需)  */
 
 #if SIZEOF_SIZE_T == 4
 #define pg_leftmost_one_pos_size_t pg_leftmost_one_pos32

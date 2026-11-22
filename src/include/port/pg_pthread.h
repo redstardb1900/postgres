@@ -23,9 +23,9 @@
 
 typedef struct pg_pthread_barrier
 {
-	bool		sense;			/* we only need a one bit phase */
-	int			count;			/* number of threads expected */
-	int			arrived;		/* number of threads that have arrived */
+	bool		sense;			/*  我们只需一位相位  */
+	int			count;			/*  预期的线程数  */
+	int			arrived;		/*  已到达的线程数  */
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
 } pthread_barrier_t;

@@ -60,19 +60,19 @@ typedef uint32x4_t Vector32;
 typedef uint64 Vector8;
 #endif
 
-/* load/store operations */
+/*  加载/存储操作  */
 static inline void vector8_load(Vector8 *v, const uint8 *s);
 #ifndef USE_NO_SIMD
 static inline void vector32_load(Vector32 *v, const uint32 *s);
 #endif
 
-/* assignment operations */
+/*  赋值操作  */
 static inline Vector8 vector8_broadcast(const uint8 c);
 #ifndef USE_NO_SIMD
 static inline Vector32 vector32_broadcast(const uint32 c);
 #endif
 
-/* element-wise comparisons to a scalar */
+/*  与标量的逐元素比较  */
 static inline bool vector8_has(const Vector8 v, const uint8 c);
 static inline bool vector8_has_zero(const Vector8 v);
 static inline bool vector8_has_le(const Vector8 v, const uint8 c);
@@ -81,7 +81,7 @@ static inline bool vector8_is_highbit_set(const Vector8 v);
 static inline bool vector32_is_highbit_set(const Vector32 v);
 #endif
 
-/* arithmetic operations */
+/*  算术操作  */
 static inline Vector8 vector8_or(const Vector8 v1, const Vector8 v2);
 #ifndef USE_NO_SIMD
 static inline Vector32 vector32_or(const Vector32 v1, const Vector32 v2);
@@ -100,7 +100,7 @@ static inline Vector32 vector32_eq(const Vector32 v1, const Vector32 v2);
 #endif
 
 /*
- * Load a chunk of memory into the given vector.
+ * 将一块内存载入给定向量。
  */
 static inline void
 vector8_load(Vector8 *v, const uint8 *s)
@@ -127,7 +127,7 @@ vector32_load(Vector32 *v, const uint32 *s)
 #endif							/* ! USE_NO_SIMD */
 
 /*
- * Create a vector with all elements set to the same value.
+ * 创建所有元素设为相同值的向量。
  */
 static inline Vector8
 vector8_broadcast(const uint8 c)
@@ -154,14 +154,14 @@ vector32_broadcast(const uint32 c)
 #endif							/* ! USE_NO_SIMD */
 
 /*
- * Return true if any elements in the vector are equal to the given scalar.
+ * 向量中任一元素等于给定标量则返回真。
  */
 static inline bool
 vector8_has(const Vector8 v, const uint8 c)
 {
 	bool		result;
 
-	/* pre-compute the result for assert checking */
+	/*  预计算断言检查用的结果  */
 #ifdef USE_ASSERT_CHECKING
 	bool		assert_result = false;
 
@@ -176,7 +176,7 @@ vector8_has(const Vector8 v, const uint8 c)
 #endif							/* USE_ASSERT_CHECKING */
 
 #if defined(USE_NO_SIMD)
-	/* any bytes in v equal to c will evaluate to zero via XOR */
+	/*  v 中等于 c 的字节经 XOR 后为 0  */
 	result = vector8_has_zero(v ^ vector8_broadcast(c));
 #else
 	result = vector8_is_highbit_set(vector8_eq(v, vector8_broadcast(c)));
@@ -187,15 +187,15 @@ vector8_has(const Vector8 v, const uint8 c)
 }
 
 /*
- * Convenience function equivalent to vector8_has(v, 0)
+ * 等价于 vector8_has(v, 0) 的便捷函数
  */
 static inline bool
 vector8_has_zero(const Vector8 v)
 {
 #if defined(USE_NO_SIMD)
 	/*
-	 * We cannot call vector8_has() here, because that would lead to a
-	 * circular definition.
+	 * 此处无法调用 vector8_has(),因其会导致
+	 * 循环定义。
 	 */
 	return vector8_has_le(v, 0);
 #else
@@ -212,7 +212,7 @@ vector8_has_le(const Vector8 v, const uint8 c)
 {
 	bool		result = false;
 
-	/* pre-compute the result for assert checking */
+	/*  预计算断言检查用的结果  */
 #ifdef USE_ASSERT_CHECKING
 	bool		assert_result = false;
 
@@ -238,7 +238,7 @@ vector8_has_le(const Vector8 v, const uint8 c)
 		result = (v - vector8_broadcast(c + 1)) & ~v & vector8_broadcast(0x80);
 	else
 	{
-		/* one byte at a time */
+		/* 一次一个字节 */
 		for (Size i = 0; i < sizeof(Vector8); i++)
 		{
 			if (((const uint8 *) &v)[i] <= c)
@@ -263,7 +263,7 @@ vector8_has_le(const Vector8 v, const uint8 c)
 }
 
 /*
- * Return true if the high bit of any element is set
+ * 任一元素高位已置则返回真
  */
 static inline bool
 vector8_is_highbit_set(const Vector8 v)
@@ -300,7 +300,7 @@ vector32_is_highbit_set(const Vector32 v)
 #endif							/* ! USE_NO_SIMD */
 
 /*
- * Return the bitwise OR of the inputs
+ * 返回输入的按位或
  */
 static inline Vector8
 vector8_or(const Vector8 v1, const Vector8 v2)

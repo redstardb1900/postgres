@@ -37,12 +37,12 @@
 
 typedef uint32 pg_crc32c;
 
-/* The INIT and EQ macros are the same for all implementations. */
+/*  INIT 与 EQ 宏对所有实现相同。  */
 #define INIT_CRC32C(crc) ((crc) = 0xFFFFFFFF)
 #define EQ_CRC32C(c1, c2) ((c1) == (c2))
 
 #if defined(USE_SSE42_CRC32C)
-/* Use Intel SSE4.2 instructions. */
+/* 使用 Intel SSE4.2 指令。 */
 #define COMP_CRC32C(crc, data, len) \
 	((crc) = pg_comp_crc32c_sse42((crc), (data), (len)))
 #define FIN_CRC32C(crc) ((crc) ^= 0xFFFFFFFF)
@@ -50,7 +50,7 @@ typedef uint32 pg_crc32c;
 extern pg_crc32c pg_comp_crc32c_sse42(pg_crc32c crc, const void *data, size_t len);
 
 #elif defined(USE_ARMV8_CRC32C)
-/* Use ARMv8 CRC Extension instructions. */
+/*  使用 ARMv8 CRC 扩展指令。  */
 
 #define COMP_CRC32C(crc, data, len)							\
 	((crc) = pg_comp_crc32c_armv8((crc), (data), (len)))
@@ -61,8 +61,8 @@ extern pg_crc32c pg_comp_crc32c_armv8(pg_crc32c crc, const void *data, size_t le
 #elif defined(USE_SSE42_CRC32C_WITH_RUNTIME_CHECK) || defined(USE_ARMV8_CRC32C_WITH_RUNTIME_CHECK)
 
 /*
- * Use Intel SSE 4.2 or ARMv8 instructions, but perform a runtime check first
- * to check that they are available.
+ * 使用 Intel SSE 4.2 或 ARMv8 指令,但先做运行时检查
+ * 以确认其可用。
  */
 #define COMP_CRC32C(crc, data, len) \
 	((crc) = pg_comp_crc32c((crc), (data), (len)))

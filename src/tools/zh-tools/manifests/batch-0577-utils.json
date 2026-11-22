@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0577",
+ "title": "include/utils elog — batch 0577",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3b0506a680f7f97f2b9d67e8fc648f0d1b6bada3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/utils/elog.h",
+   "kind": "c_comment",
+   "note": "0577"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0577-utils.json",
+   "kind": "manifest",
+   "note": "0577"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/utils/elog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 232,
+   "translated": 80,
+   "preserved": 152,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；ereport/elog/errsave/PG_TRY/errcontext/pg_attribute API 长文整块 KEEP EN；超预算等义压缩。"
+   ],
+   "note": "0577 T=80"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0577-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0577"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0577"
+  }
+ ],
+ "notes": "短注/级别/ErrorData 字段已译；ereport/elog/errsave/PG_TRY 长文 KEEP EN"
+}

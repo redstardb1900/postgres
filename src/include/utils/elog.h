@@ -18,52 +18,52 @@
 
 #include "lib/stringinfo.h"
 
-/* We cannot include nodes.h yet, so forward-declare struct Node */
+/*  尚无法含 nodes.h，故前向声明结构体 Node  */
 struct Node;
 
 
-/* Error level codes */
-#define DEBUG5		10			/* Debugging messages, in categories of
-								 * decreasing detail. */
+/*  错误级代码  */
+#define DEBUG5		10			/*  调试消息，按细节递减的
+								 * 类别。  */
 #define DEBUG4		11
 #define DEBUG3		12
 #define DEBUG2		13
-#define DEBUG1		14			/* used by GUC debug_* variables */
-#define LOG			15			/* Server operational messages; sent only to
-								 * server log by default. */
-#define LOG_SERVER_ONLY 16		/* Same as LOG for server reporting, but never
-								 * sent to client. */
-#define COMMERROR	LOG_SERVER_ONLY /* Client communication problems; same as
-									 * LOG for server reporting, but never
-									 * sent to client. */
-#define INFO		17			/* Messages specifically requested by user (eg
-								 * VACUUM VERBOSE output); always sent to
-								 * client regardless of client_min_messages,
-								 * but by default not sent to server log. */
-#define NOTICE		18			/* Helpful messages to users about query
-								 * operation; sent to client and not to server
-								 * log by default. */
-#define WARNING		19			/* Warnings.  NOTICE is for expected messages
-								 * like implicit sequence creation by SERIAL.
-								 * WARNING is for unexpected messages. */
-#define PGWARNING	19			/* Must equal WARNING; see NOTE below. */
-#define WARNING_CLIENT_ONLY	20	/* Warnings to be sent to client as usual, but
-								 * never to the server log. */
-#define ERROR		21			/* user error - abort transaction; return to
-								 * known state */
-#define PGERROR		21			/* Must equal ERROR; see NOTE below. */
-#define FATAL		22			/* fatal error - abort process */
-#define PANIC		23			/* take down the other backends with me */
+#define DEBUG1		14			/*  供 GUC debug_* 变量用  */
+#define LOG			15			/*  服务器运行消息；默认仅发到
+								 * 服务器日志。  */
+#define LOG_SERVER_ONLY 16		/*  服务器报告同 LOG，但永不
+								 * 发给客户.  */
+#define COMMERROR	LOG_SERVER_ONLY /*  客户通信问题；服务器同
+									 * LOG，但永不
+									 * 发给客户.  */
+#define INFO		17			/*  用户明确请求的消息(如
+								 * VACUUM VERBOSE 输出)；总发给
+								 * 客户端，不论 client_min_messages，
+								 * 但默认不发服务器日志。  */
+#define NOTICE		18			/*  查询操作的有助用户消息；
+								 * 默认发给客户端、不发服务器
+								 * 日志。  */
+#define WARNING		19			/*  警告。NOTICE 用于预期消息，
+								 * 如 SERIAL 隐式建序列。
+								 * WARNING 用于意外消息。  */
+#define PGWARNING	19			/*  须等于 WARNING；见下 NOTE.  */
+#define WARNING_CLIENT_ONLY	20	/*  照常发给客户端的警告，但
+								 *  永不发服日志。  */
+#define ERROR		21			/*  用户错误 - 中止事务；返回到
+								 * 已知态  */
+#define PGERROR		21			/*  须等于 ERROR；见下 NOTE.  */
+#define FATAL		22			/*  致命错 - 中止进程  */
+#define PANIC		23			/*  连带搞垮其他后端  */
 
 /*
- * NOTE: the alternate names PGWARNING and PGERROR are useful for dealing
- * with third-party headers that make other definitions of WARNING and/or
- * ERROR.  One can, for example, re-define ERROR as PGERROR after including
- * such a header.
+ * 注：备用名 PGWARNING 与 PGERROR 便于处理把 WARNING
+ * 和/或 ERROR 另作定义的第三方头。例如包含此类头后
+ * 可将 ERROR 重定义为 PGERROR。
+ * 见上。
  */
 
 
-/* macros for representing SQLSTATE strings compactly */
+/*  紧凑表示 SQLSTATE 串的宏  */
 #define PGSIXBIT(ch)	(((ch) - '0') & 0x3F)
 #define PGUNSIXBIT(val) (((val) & 0x3F) + '0')
 
@@ -71,11 +71,11 @@ struct Node;
 	(PGSIXBIT(ch1) + (PGSIXBIT(ch2) << 6) + (PGSIXBIT(ch3) << 12) + \
 	 (PGSIXBIT(ch4) << 18) + (PGSIXBIT(ch5) << 24))
 
-/* These macros depend on the fact that '0' becomes a zero in PGSIXBIT */
+/*  这些宏依赖 '0' 在 PGSIXBIT 中变为零  */
 #define ERRCODE_TO_CATEGORY(ec)  ((ec) & ((1 << 12) - 1))
 #define ERRCODE_IS_CATEGORY(ec)  (((ec) & ~((1 << 12) - 1)) == 0)
 
-/* SQLSTATE codes for errors are defined in a separate file */
+/*  错误的 SQLSTATE 码在单独文件中定义  */
 #include "utils/errcodes.h"
 
 /*
@@ -297,13 +297,13 @@ extern void errsave_finish(struct Node *context,
 						   const char *funcname);
 
 
-/* Support for constructing error strings separately from ereport() calls */
+/*  支持在 ereport() 调用外单独构造错误串  */
 
 extern void pre_format_elog_string(int errnumber, const char *domain);
 extern char *format_elog_string(const char *fmt,...) pg_attribute_printf(1, 2);
 
 
-/* Support for attaching context information to error reports */
+/*  支持把上下文信息附到错误报告  */
 
 typedef struct ErrorContextCallback
 {
@@ -430,7 +430,7 @@ extern PGDLLIMPORT ErrorContextCallback *error_context_stack;
 extern PGDLLIMPORT sigjmp_buf *PG_exception_stack;
 
 
-/* Stuff that error handlers might want to use */
+/*  错误处理器可能想用的东西  */
 
 /*
  * ErrorData holds the data accumulated during any one ereport() cycle.
@@ -440,35 +440,35 @@ extern PGDLLIMPORT sigjmp_buf *PG_exception_stack;
  */
 typedef struct ErrorData
 {
-	int			elevel;			/* error level */
-	bool		output_to_server;	/* will report to server log? */
-	bool		output_to_client;	/* will report to client? */
-	bool		hide_stmt;		/* true to prevent STATEMENT: inclusion */
-	bool		hide_ctx;		/* true to prevent CONTEXT: inclusion */
-	const char *filename;		/* __FILE__ of ereport() call */
-	int			lineno;			/* __LINE__ of ereport() call */
-	const char *funcname;		/* __func__ of ereport() call */
-	const char *domain;			/* message domain */
-	const char *context_domain; /* message domain for context message */
+	int			elevel;			/*  错误级  */
+	bool		output_to_server;	/*  报服务器日志？  */
+	bool		output_to_client;	/*  报客户端？  */
+	bool		hide_stmt;		/*  为真则不包含 STATEMENT:  */
+	bool		hide_ctx;		/*  为真则不包含 CONTEXT:  */
+	const char *filename;		/*  ereport 处 __FILE__  */
+	int			lineno;			/*  ereport 处 __LINE__  */
+	const char *funcname;		/*  ereport 处 __func__  */
+	const char *domain;			/*  消息域  */
+	const char *context_domain; /*  上下文消息的消息域  */
 	int			sqlerrcode;		/* encoded ERRSTATE */
-	char	   *message;		/* primary error message (translated) */
-	char	   *detail;			/* detail error message */
-	char	   *detail_log;		/* detail error message for server log only */
-	char	   *hint;			/* hint message */
-	char	   *context;		/* context message */
-	char	   *backtrace;		/* backtrace */
-	const char *message_id;		/* primary message's id (original string) */
-	char	   *schema_name;	/* name of schema */
-	char	   *table_name;		/* name of table */
-	char	   *column_name;	/* name of column */
-	char	   *datatype_name;	/* name of datatype */
-	char	   *constraint_name;	/* name of constraint */
-	int			cursorpos;		/* cursor index into query string */
-	int			internalpos;	/* cursor index into internalquery */
-	char	   *internalquery;	/* text of internally-generated query */
+	char	   *message;		/*  主错误消息(已翻译)  */
+	char	   *detail;			/*  详细错误消息  */
+	char	   *detail_log;		/*  仅服务器日志的详细消息  */
+	char	   *hint;			/*  提示  */
+	char	   *context;		/*  上下文  */
+	char	   *backtrace;		/*  回溯  */
+	const char *message_id;		/*  主消息的 id(原始串)  */
+	char	   *schema_name;	/*  模式名  */
+	char	   *table_name;		/*  表名  */
+	char	   *column_name;	/*  列名  */
+	char	   *datatype_name;	/*  类型名  */
+	char	   *constraint_name;	/*  约束名  */
+	int			cursorpos;		/*  查询串中的游标下标  */
+	int			internalpos;	/*  internalquery 中游标下标  */
+	char	   *internalquery;	/*  内部生成查询的文本  */
 	int			saved_errno;	/* errno at entry */
 
-	/* context containing associated non-constant strings */
+	/*  容纳相关非常量串的上下文  */
 	struct MemoryContextData *assoc_context;
 } ErrorData;
 
@@ -482,18 +482,18 @@ extern void pg_re_throw(void) pg_attribute_noreturn();
 
 extern char *GetErrorContextStack(void);
 
-/* Hook for intercepting messages before they are sent to the server log */
+/*  消息发到服务器日志前的拦截钩子  */
 typedef void (*emit_log_hook_type) (ErrorData *edata);
 extern PGDLLIMPORT emit_log_hook_type emit_log_hook;
 
 
-/* GUC-configurable parameters */
+/*  GUC 可配置参数  */
 
 typedef enum
 {
-	PGERROR_TERSE,				/* single-line error messages */
-	PGERROR_DEFAULT,			/* recommended style */
-	PGERROR_VERBOSE				/* all the facts, ma'am */
+	PGERROR_TERSE,				/*  单行错误消息  */
+	PGERROR_DEFAULT,			/*  推荐风格  */
+	PGERROR_VERBOSE				/*  全部事实  */
 }			PGErrorVerbosity;
 
 extern PGDLLIMPORT int Log_error_verbosity;
@@ -503,21 +503,21 @@ extern PGDLLIMPORT char *Log_destination_string;
 extern PGDLLIMPORT bool syslog_sequence_numbers;
 extern PGDLLIMPORT bool syslog_split_messages;
 
-/* Log destination bitmap */
+/*  日志目的地图  */
 #define LOG_DESTINATION_STDERR	 1
 #define LOG_DESTINATION_SYSLOG	 2
 #define LOG_DESTINATION_EVENTLOG 4
 #define LOG_DESTINATION_CSVLOG	 8
 #define LOG_DESTINATION_JSONLOG	16
 
-/* Other exported functions */
+/*  其他导出函数  */
 extern void log_status_format(StringInfo buf, const char *format,
 							  ErrorData *edata);
 extern void DebugFileOpen(void);
 extern char *unpack_sql_state(int sql_state);
 extern bool in_error_recursion_trouble(void);
 
-/* Common functions shared across destinations */
+/*  跨目的地共享的公共函数  */
 extern void reset_formatted_start_time(void);
 extern char *get_formatted_start_time(void);
 extern char *get_formatted_log_time(void);
@@ -526,21 +526,21 @@ extern bool check_log_of_query(ErrorData *edata);
 extern const char *error_severity(int elevel);
 extern void write_pipe_chunks(char *data, int len, int dest);
 
-/* Destination-specific functions */
+/*  目的地专用函数  */
 extern void write_csvlog(ErrorData *edata);
 extern void write_jsonlog(ErrorData *edata);
 
 /*
- * Write errors to stderr (or by equal means when stderr is
- * not available). Used before ereport/elog can be used
- * safely (memory context, GUC load etc)
+ * 把错误写到 stderr(或不可用时等效手段)。
+ * 在 ereport/elog 可安全使用前使用
+ * (内存上下文、GUC 加载等)
  */
 extern void write_stderr(const char *fmt,...) pg_attribute_printf(1, 2);
 extern void vwrite_stderr(const char *fmt, va_list ap) pg_attribute_printf(1, 0);
 
 /*
- * Write a message to STDERR using only async-signal-safe functions.  This can
- * be used to safely emit a message from a signal handler.
+ * 仅用异步信号安全函数向 STDERR 写消息。可用于从
+ * 信号处理程序安全地发出消息。
  */
 extern void write_stderr_signal_safe(const char *fmt);
 

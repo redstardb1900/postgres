@@ -1,0 +1,61 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0571",
+    "title": "include/utils guc_tables — batch 0571",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "e706d2f61b90bf8cfffb0829abcb5af27c95e592",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/guc_tables.h",
+            "kind": "c_comment",
+            "note": "0571"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0571-utils.json",
+            "kind": "manifest",
+            "note": "0571"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/guc_tables.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 108,
+            "translated": 99,
+            "preserved": 9,
+            "preserved_reasons": [
+                "版权/横幅/头卫 KEEP；部分超预算/closer KEEP EN"
+            ],
+            "note": "0571 T=99"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0571-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0571"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0571"
+        }
+    ],
+    "notes": "超预算等义压缩；部分 closer KEEP EN"
+}

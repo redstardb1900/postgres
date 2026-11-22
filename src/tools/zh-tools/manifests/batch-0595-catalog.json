@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0595",
+ "title": "include/catalog proc/attribute/statistic/type — batch 0595",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8ed98b66fadd2bdefb27d1ff91c65043f8905abb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/pg_proc.h",
+   "kind": "c_comment",
+   "note": "0595"
+  },
+  {
+   "pattern": "src/include/catalog/pg_attribute.h",
+   "kind": "c_comment",
+   "note": "0595"
+  },
+  {
+   "pattern": "src/include/catalog/pg_statistic.h",
+   "kind": "c_comment",
+   "note": "0595"
+  },
+  {
+   "pattern": "src/include/catalog/pg_type.h",
+   "kind": "c_comment",
+   "note": "0595"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0595-catalog.json",
+   "kind": "manifest",
+   "note": "0595"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/pg_proc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长叙述/统计槽 KEEP EN；R5 pg_attribute_* KEEP；OID 字面保留。"
+   ],
+   "note": "0595"
+  },
+  {
+   "path": "src/include/catalog/pg_attribute.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长叙述/统计槽 KEEP EN；R5 pg_attribute_* KEEP；OID 字面保留。"
+   ],
+   "note": "0595"
+  },
+  {
+   "path": "src/include/catalog/pg_statistic.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长叙述/统计槽 KEEP EN；R5 pg_attribute_* KEEP；OID 字面保留。"
+   ],
+   "note": "0595"
+  },
+  {
+   "path": "src/include/catalog/pg_type.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/横幅 KEEP；长叙述/统计槽 KEEP EN；R5 pg_attribute_* KEEP；OID 字面保留。"
+   ],
+   "note": "0595"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0595-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0595"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0595"
+  }
+ ],
+ "notes": "短字段注已译；长叙述 KEEP；catalog 实质大头收官"
+}

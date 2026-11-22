@@ -37,10 +37,10 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 {
 	Oid			oid;			/* oid */
 
-	/* type name */
+	/* 类型名 */
 	NameData	typname;
 
-	/* OID of namespace containing this type */
+	/*  含本类型的命名空间 OID  */
 	Oid			typnamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
 	/* type owner */
@@ -81,10 +81,10 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * identified by the TYPCATEGORY macros below.
 	 */
 
-	/* arbitrary type classification */
+	/*  任意类型分类  */
 	char		typcategory BKI_ARRAY_DEFAULT(A);
 
-	/* is type "preferred" within its category? */
+	/* 在其类别内是否为"首选"类型? */
 	bool		typispreferred BKI_DEFAULT(f) BKI_ARRAY_DEFAULT(f);
 
 	/*
@@ -94,10 +94,10 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 */
 	bool		typisdefined BKI_DEFAULT(t);
 
-	/* delimiter for arrays of this type */
+	/*  本类型数组的分隔符  */
 	char		typdelim BKI_DEFAULT(',');
 
-	/* associated pg_class OID if a composite type, else 0 */
+	/*  复合类型则关联 pg_class OID,否则 0  */
 	Oid			typrelid BKI_DEFAULT(0) BKI_ARRAY_DEFAULT(0) BKI_LOOKUP_OPT(pg_class);
 
 	/*
@@ -129,22 +129,22 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 * I/O conversion procedures for the datatype.
 	 */
 
-	/* text format (required) */
+	/*  文本格式(必需)  */
 	regproc		typinput BKI_ARRAY_DEFAULT(array_in) BKI_LOOKUP(pg_proc);
 	regproc		typoutput BKI_ARRAY_DEFAULT(array_out) BKI_LOOKUP(pg_proc);
 
-	/* binary format (optional) */
+	/* 二进制格式(可选) */
 	regproc		typreceive BKI_ARRAY_DEFAULT(array_recv) BKI_LOOKUP_OPT(pg_proc);
 	regproc		typsend BKI_ARRAY_DEFAULT(array_send) BKI_LOOKUP_OPT(pg_proc);
 
 	/*
-	 * I/O functions for optional type modifiers.
+	 * 可选类型修饰符的 I/O 函数。
 	 */
 	regproc		typmodin BKI_DEFAULT(-) BKI_LOOKUP_OPT(pg_proc);
 	regproc		typmodout BKI_DEFAULT(-) BKI_LOOKUP_OPT(pg_proc);
 
 	/*
-	 * Custom ANALYZE procedure for the datatype (0 selects the default).
+	 * 数据类型的自定义 ANALYZE 过程(0 选默认)。
 	 */
 	regproc		typanalyze BKI_DEFAULT(-) BKI_ARRAY_DEFAULT(array_typanalyze) BKI_LOOKUP_OPT(pg_proc);
 
@@ -227,7 +227,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	 */
 	Oid			typcollation BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_collation);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 
 	/*
 	 * If typdefaultbin is not NULL, it is the nodeToString representation of
@@ -247,7 +247,7 @@ CATALOG(pg_type,1247,TypeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(71,TypeRelati
 	text		typdefault BKI_DEFAULT(_null_) BKI_ARRAY_DEFAULT(_null_);
 
 	/*
-	 * Access permissions
+	 * 访问权限
 	 */
 	aclitem		typacl[1] BKI_DEFAULT(_null_);
 #endif
@@ -268,43 +268,43 @@ DECLARE_UNIQUE_INDEX(pg_type_typname_nsp_index, 2704, TypeNameNspIndexId, on pg_
 #ifdef EXPOSE_TO_CLIENT_CODE
 
 /*
- * macros for values of poor-mans-enumerated-type columns
+ * 简陋枚举类型列取值的宏
  */
-#define  TYPTYPE_BASE		'b' /* base type (ordinary scalar type) */
-#define  TYPTYPE_COMPOSITE	'c' /* composite (e.g., table's rowtype) */
-#define  TYPTYPE_DOMAIN		'd' /* domain over another type */
-#define  TYPTYPE_ENUM		'e' /* enumerated type */
-#define  TYPTYPE_MULTIRANGE	'm' /* multirange type */
-#define  TYPTYPE_PSEUDO		'p' /* pseudo-type */
+#define  TYPTYPE_BASE		'b' /*  基类型(普通标量类型)  */
+#define  TYPTYPE_COMPOSITE	'c' /*  复合(如表的行类型)  */
+#define  TYPTYPE_DOMAIN		'd' /*  另一类型上的域  */
+#define  TYPTYPE_ENUM		'e' /*  枚举类型  */
+#define  TYPTYPE_MULTIRANGE	'm' /* 多范围类型 */
+#define  TYPTYPE_PSEUDO		'p' /*  伪类型  */
 #define  TYPTYPE_RANGE		'r' /* range type */
 
-#define  TYPCATEGORY_INVALID	'\0'	/* not an allowed category */
+#define  TYPCATEGORY_INVALID	'\0'	/*  非允许的类别  */
 #define  TYPCATEGORY_ARRAY		'A'
 #define  TYPCATEGORY_BOOLEAN	'B'
 #define  TYPCATEGORY_COMPOSITE	'C'
 #define  TYPCATEGORY_DATETIME	'D'
 #define  TYPCATEGORY_ENUM		'E'
 #define  TYPCATEGORY_GEOMETRIC	'G'
-#define  TYPCATEGORY_NETWORK	'I' /* think INET */
+#define  TYPCATEGORY_NETWORK	'I' /*  如 INET  */
 #define  TYPCATEGORY_NUMERIC	'N'
 #define  TYPCATEGORY_PSEUDOTYPE 'P'
 #define  TYPCATEGORY_RANGE		'R'
 #define  TYPCATEGORY_STRING		'S'
 #define  TYPCATEGORY_TIMESPAN	'T'
 #define  TYPCATEGORY_USER		'U'
-#define  TYPCATEGORY_BITSTRING	'V' /* er ... "varbit"? */
+#define  TYPCATEGORY_BITSTRING	'V' /* 呃..."varbit"? */
 #define  TYPCATEGORY_UNKNOWN	'X'
 #define  TYPCATEGORY_INTERNAL	'Z'
 
-#define  TYPALIGN_CHAR			'c' /* char alignment (i.e. unaligned) */
-#define  TYPALIGN_SHORT			's' /* short alignment (typically 2 bytes) */
-#define  TYPALIGN_INT			'i' /* int alignment (typically 4 bytes) */
-#define  TYPALIGN_DOUBLE		'd' /* double alignment (often 8 bytes) */
+#define  TYPALIGN_CHAR			'c' /*  char 对齐(即不对齐)  */
+#define  TYPALIGN_SHORT			's' /*  short 对齐(通常 2 字节)  */
+#define  TYPALIGN_INT			'i' /*  int 对齐(通常 4 字节)  */
+#define  TYPALIGN_DOUBLE		'd' /*  double 对齐(常为 8 字节)  */
 
-#define  TYPSTORAGE_PLAIN		'p' /* type not prepared for toasting */
-#define  TYPSTORAGE_EXTERNAL	'e' /* toastable, don't try to compress */
-#define  TYPSTORAGE_EXTENDED	'x' /* fully toastable */
-#define  TYPSTORAGE_MAIN		'm' /* like 'x' but try to store inline */
+#define  TYPSTORAGE_PLAIN		'p' /*  类型未准备好 toast  */
+#define  TYPSTORAGE_EXTERNAL	'e' /*  可 toast,勿尝试压缩  */
+#define  TYPSTORAGE_EXTENDED	'x' /* 完全可 toast */
+#define  TYPSTORAGE_MAIN		'm' /* 类似 'x' 但尽量内联存储 */
 
 /* Is a type OID a polymorphic pseudotype?	(Beware of multiple evaluation) */
 #define IsPolymorphicType(typid)  \
@@ -333,8 +333,8 @@ DECLARE_UNIQUE_INDEX(pg_type_typname_nsp_index, 2704, TypeNameNspIndexId, on pg_
 	 (typeForm)->typsubscript == F_ARRAY_SUBSCRIPT_HANDLER)
 
 /*
- * Backwards compatibility for ancient random spellings of pg_type OID macros.
- * Don't use these names in new code.
+ * pg_type OID 宏古代拼写的向后兼容。
+ * 新代码勿用这些名称。
  */
 #define CASHOID	MONEYOID
 #define LSNOID	PG_LSNOID

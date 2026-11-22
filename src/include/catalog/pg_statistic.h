@@ -28,13 +28,13 @@
  */
 CATALOG(pg_statistic,2619,StatisticRelationId)
 {
-	/* These fields form the unique key for the entry: */
-	Oid			starelid BKI_LOOKUP(pg_class);	/* relation containing
-												 * attribute */
-	int16		staattnum;		/* attribute (column) stats are for */
-	bool		stainherit;		/* true if inheritance children are included */
+	/*  这两字段构成本条目的唯一键:  */
+	Oid			starelid BKI_LOOKUP(pg_class);	/*  含下列
+												 * 属性  */
+	int16		staattnum;		/* 为其收集统计的属性(列) */
+	bool		stainherit;		/*  含继承子表则为真  */
 
-	/* the fraction of the column's entries that are NULL: */
+	/*  列中为 NULL 的项所占比例:  */
 	float4		stanullfrac;
 
 	/*
@@ -103,7 +103,7 @@ CATALOG(pg_statistic,2619,StatisticRelationId)
 	Oid			stacoll4 BKI_LOOKUP_OPT(pg_collation);
 	Oid			stacoll5 BKI_LOOKUP_OPT(pg_collation);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
 	float4		stanumbers1[1];
 	float4		stanumbers2[1];
 	float4		stanumbers3[1];

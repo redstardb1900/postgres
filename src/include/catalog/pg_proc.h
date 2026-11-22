@@ -31,67 +31,67 @@ CATALOG(pg_proc,1255,ProcedureRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(81,Proce
 {
 	Oid			oid;			/* oid */
 
-	/* procedure name */
+	/*  过程名  */
 	NameData	proname;
 
-	/* OID of namespace containing this proc */
+	/*  含本过程的命名空间 OID  */
 	Oid			pronamespace BKI_DEFAULT(pg_catalog) BKI_LOOKUP(pg_namespace);
 
-	/* procedure owner */
+	/* 过程所有者 */
 	Oid			proowner BKI_DEFAULT(POSTGRES) BKI_LOOKUP(pg_authid);
 
-	/* OID of pg_language entry */
+	/*  pg_language 条目 OID  */
 	Oid			prolang BKI_DEFAULT(internal) BKI_LOOKUP(pg_language);
 
-	/* estimated execution cost */
+	/*  估计执行代价  */
 	float4		procost BKI_DEFAULT(1);
 
-	/* estimated # of rows out (if proretset) */
+	/*  估计输出行数(若 proretset)  */
 	float4		prorows BKI_DEFAULT(0);
 
-	/* element type of variadic array, or 0 if not variadic */
+	/*  可变参数数组元素类型,非可变则为 0  */
 	Oid			provariadic BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_type);
 
-	/* planner support function for this function, or 0 if none */
+	/*  本函数的规划器支持函数,无则为 0  */
 	regproc		prosupport BKI_DEFAULT(0) BKI_LOOKUP_OPT(pg_proc);
 
-	/* see PROKIND_ categories below */
+	/*  见下方 PROKIND_ 类别  */
 	char		prokind BKI_DEFAULT(f);
 
-	/* security definer */
+	/* 安全定义者 */
 	bool		prosecdef BKI_DEFAULT(f);
 
-	/* is it a leak-proof function? */
+	/*  是否为防泄漏函数?  */
 	bool		proleakproof BKI_DEFAULT(f);
 
-	/* strict with respect to NULLs? */
+	/*  对 NULL 是否严格?  */
 	bool		proisstrict BKI_DEFAULT(t);
 
 	/* returns a set? */
 	bool		proretset BKI_DEFAULT(f);
 
-	/* see PROVOLATILE_ categories below */
+	/*  见下方 PROVOLATILE_ 类别  */
 	char		provolatile BKI_DEFAULT(i);
 
-	/* see PROPARALLEL_ categories below */
+	/*  见下方 PROPARALLEL_ 类别  */
 	char		proparallel BKI_DEFAULT(s);
 
-	/* number of arguments */
-	/* Note: need not be given in pg_proc.dat; genbki.pl will compute it */
+	/*  参数个数  */
+	/*  注:不必在 pg_proc.dat 中给出;由 genbki.pl 计算  */
 	int16		pronargs;
 
-	/* number of arguments with defaults */
+	/*  带默认值的参数个数  */
 	int16		pronargdefaults BKI_DEFAULT(0);
 
-	/* OID of result type */
+	/*  结果类型 OID  */
 	Oid			prorettype BKI_LOOKUP(pg_type);
 
 	/*
-	 * variable-length fields start here, but we allow direct access to
+	 * 变长字段自此开始,但允许直接访问
 	 * proargtypes
 	 */
 
-	/* parameter types (excludes OUT params) */
+	/*  参数类型(不含 OUT 参数)  */
 	oidvector	proargtypes BKI_LOOKUP(pg_type) BKI_FORCE_NOT_NULL;
 
 #ifdef CATALOG_VARLEN
@@ -99,31 +99,31 @@ CATALOG(pg_proc,1255,ProcedureRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(81,Proce
 	/* all param types (NULL if IN only) */
 	Oid			proallargtypes[1] BKI_DEFAULT(_null_) BKI_LOOKUP(pg_type);
 
-	/* parameter modes (NULL if IN only) */
+	/* 参数模式(仅 IN 则为 NULL) */
 	char		proargmodes[1] BKI_DEFAULT(_null_);
 
-	/* parameter names (NULL if no names) */
+	/*  参数名(无名则为 NULL)  */
 	text		proargnames[1] BKI_DEFAULT(_null_);
 
-	/* list of expression trees for argument defaults (NULL if none) */
+	/*  参数默认值表达式树列表(无则为 NULL)  */
 	pg_node_tree proargdefaults BKI_DEFAULT(_null_);
 
-	/* types for which to apply transforms */
+	/*  对其应用变换的类型  */
 	Oid			protrftypes[1] BKI_DEFAULT(_null_) BKI_LOOKUP(pg_type);
 
-	/* procedure source text */
+	/*  过程源文本  */
 	text		prosrc BKI_FORCE_NOT_NULL;
 
-	/* secondary procedure info (can be NULL) */
+	/*  次要过程信息(可为 NULL)  */
 	text		probin BKI_DEFAULT(_null_);
 
-	/* pre-parsed SQL function body */
+	/*  预解析的 SQL 函数体  */
 	pg_node_tree prosqlbody BKI_DEFAULT(_null_);
 
-	/* procedure-local GUC settings */
+	/*  过程局部 GUC 设置  */
 	text		proconfig[1] BKI_DEFAULT(_null_);
 
-	/* access permissions */
+	/*  访问权限  */
 	aclitem		proacl[1] BKI_DEFAULT(_null_);
 #endif
 } FormData_pg_proc;
@@ -143,7 +143,7 @@ DECLARE_UNIQUE_INDEX(pg_proc_proname_args_nsp_index, 2691, ProcedureNameArgsNspI
 #ifdef EXPOSE_TO_CLIENT_CODE
 
 /*
- * Symbolic values for prokind column
+ * prokind 列的符号值
  */
 #define PROKIND_FUNCTION 'f'
 #define PROKIND_AGGREGATE 'a'
@@ -158,8 +158,8 @@ DECLARE_UNIQUE_INDEX(pg_proc_proname_args_nsp_index, 2691, ProcedureNameArgsNspI
  * must be labeled volatile to ensure they will not get optimized away,
  * even if the actual return value is not changeable.
  */
-#define PROVOLATILE_IMMUTABLE	'i' /* never changes for given input */
-#define PROVOLATILE_STABLE		's' /* does not change within a scan */
+#define PROVOLATILE_IMMUTABLE	'i' /*  给定输入永不改变  */
+#define PROVOLATILE_STABLE		's' /*  单次扫描内不变  */
 #define PROVOLATILE_VOLATILE	'v' /* can change even within a scan */
 
 /*
@@ -169,7 +169,7 @@ DECLARE_UNIQUE_INDEX(pg_proc_proname_args_nsp_index, 2691, ProcedureNameArgsNspI
  */
 #define PROPARALLEL_SAFE		's' /* can run in worker or leader */
 #define PROPARALLEL_RESTRICTED	'r' /* can run in parallel leader only */
-#define PROPARALLEL_UNSAFE		'u' /* banned while in parallel mode */
+#define PROPARALLEL_UNSAFE		'u' /*  并行模式下禁止  */
 
 /*
  * Symbolic values for proargmodes column.  Note that these must agree with

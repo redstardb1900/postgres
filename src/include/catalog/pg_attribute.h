@@ -38,7 +38,7 @@ CATALOG(pg_attribute,1249,AttributeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(75,
 {
 	Oid			attrelid BKI_LOOKUP(pg_class);	/* OID of relation containing
 												 * this attribute */
-	NameData	attname;		/* name of attribute */
+	NameData	attname;		/*  属性名  */
 
 	/*
 	 * atttypid is the OID of the instance in Catalog Class pg_type that
@@ -126,22 +126,22 @@ CATALOG(pg_attribute,1249,AttributeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(75,
 	 */
 	char		attcompression BKI_DEFAULT('\0');
 
-	/* This flag represents the "NOT NULL" constraint */
+	/*  本标志表示 "NOT NULL" 约束  */
 	bool		attnotnull;
 
-	/* Has DEFAULT value or not */
+	/*  是否有 DEFAULT 值  */
 	bool		atthasdef BKI_DEFAULT(f);
 
-	/* Has a missing value or not */
+	/*  是否有缺失值  */
 	bool		atthasmissing BKI_DEFAULT(f);
 
-	/* One of the ATTRIBUTE_IDENTITY_* constants below, or '\0' */
+	/*  下方 ATTRIBUTE_IDENTITY_* 常量之一,或 '\0'  */
 	char		attidentity BKI_DEFAULT('\0');
 
-	/* One of the ATTRIBUTE_GENERATED_* constants below, or '\0' */
+	/*  下方 ATTRIBUTE_GENERATED_* 常量之一,或 '\0'  */
 	char		attgenerated BKI_DEFAULT('\0');
 
-	/* Is dropped (ie, logically invisible) or not */
+	/*  是否已丢弃(即逻辑上不可见)  */
 	bool		attisdropped BKI_DEFAULT(f);
 
 	/*
@@ -155,7 +155,7 @@ CATALOG(pg_attribute,1249,AttributeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(75,
 	 */
 	bool		attislocal BKI_DEFAULT(t);
 
-	/* Number of times inherited from direct parent relation(s) */
+	/*  从直接父关系继承的次数  */
 	int16		attinhcount BKI_DEFAULT(0);
 
 	/*
@@ -169,19 +169,19 @@ CATALOG(pg_attribute,1249,AttributeRelationId) BKI_BOOTSTRAP BKI_ROWTYPE_OID(75,
 	 */
 	int16		attstattarget BKI_DEFAULT(-1);
 
-	/* attribute's collation, if any */
+	/* 属性的排序规则(若有) */
 	Oid			attcollation BKI_LOOKUP_OPT(pg_collation);
 
-#ifdef CATALOG_VARLEN			/* variable-length fields start here */
-	/* NOTE: The following fields are not present in tuple descriptors. */
+#ifdef CATALOG_VARLEN			/*  变长字段自此开始  */
+	/*  注:下列字段不在元组描述符中。  */
 
-	/* Column-level access permissions */
+	/*  列级访问权限  */
 	aclitem		attacl[1] BKI_DEFAULT(_null_);
 
-	/* Column-level options */
+	/*  列级选项  */
 	text		attoptions[1] BKI_DEFAULT(_null_);
 
-	/* Column-level FDW options */
+	/*  列级 FDW 选项  */
 	text		attfdwoptions[1] BKI_DEFAULT(_null_);
 
 	/*

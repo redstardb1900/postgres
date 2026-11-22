@@ -10551,6 +10551,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0572-utils.json",
    "kind": "manifest",
    "note": "0572"
+  },
+  {
+   "pattern": "src/include/utils/guc.h",
+   "kind": "c_comment",
+   "note": "0573"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0573-utils.json",
+   "kind": "manifest",
+   "note": "0573"
   }
  ],
  "files": [
@@ -34397,6 +34407,28 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0572"
+  },
+  {
+   "path": "src/include/utils/guc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 123,
+   "translated": 49,
+   "preserved": 74,
+   "preserved_reasons": [
+    "版权/横幅/作者 KEEP；PGC 时机/GucSource/ConfigVariable 长文整块 KEEP EN；部分超预算尾注 KEEP EN"
+   ],
+   "note": "0573 T=49"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0573-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0573"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

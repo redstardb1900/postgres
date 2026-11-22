@@ -17,8 +17,8 @@
 #include "utils/array.h"
 
 
-/* upper limit for GUC variables measured in kilobytes of memory */
-/* note that various places assume the byte size fits in a "long" variable */
+/*  GUC 变量以千字节内存计量时的上限  */
+/*  注意多处假定字节大小能放入 long 变量  */
 #if SIZEOF_SIZE_T > 4 && SIZEOF_LONG > 4
 #define MAX_KILOBYTES	INT_MAX
 #else
@@ -26,9 +26,9 @@
 #endif
 
 /*
- * Automatic configuration file name for ALTER SYSTEM.
- * This file will be used to store values of configuration parameters
- * set by ALTER SYSTEM command.
+ * ALTER SYSTEM 的自动配置文件名。
+ * 该文件用于存储由 ALTER SYSTEM 命令设定的
+ * 配置参数值。
  */
 #define PG_AUTOCONF_FILENAME		"postgresql.auto.conf"
 
@@ -107,18 +107,18 @@ typedef enum
 typedef enum
 {
 	PGC_S_DEFAULT,				/* hard-wired default ("boot_val") */
-	PGC_S_DYNAMIC_DEFAULT,		/* default computed during initialization */
-	PGC_S_ENV_VAR,				/* postmaster environment variable */
+	PGC_S_DYNAMIC_DEFAULT,		/*  初始化期间计算的默认值  */
+	PGC_S_ENV_VAR,				/*  postmaster 环境变量  */
 	PGC_S_FILE,					/* postgresql.conf */
-	PGC_S_ARGV,					/* postmaster command line */
-	PGC_S_GLOBAL,				/* global in-database setting */
-	PGC_S_DATABASE,				/* per-database setting */
+	PGC_S_ARGV,					/*  postmaster 命令行  */
+	PGC_S_GLOBAL,				/*  库内全局设定  */
+	PGC_S_DATABASE,				/*  每库设定  */
 	PGC_S_USER,					/* per-user setting */
-	PGC_S_DATABASE_USER,		/* per-user-and-database setting */
-	PGC_S_CLIENT,				/* from client connection request */
-	PGC_S_OVERRIDE,				/* special case to forcibly set default */
-	PGC_S_INTERACTIVE,			/* dividing line for error reporting */
-	PGC_S_TEST,					/* test per-database or per-user setting */
+	PGC_S_DATABASE_USER,		/*  每用户且每库设定  */
+	PGC_S_CLIENT,				/*  来自客户端连接请求  */
+	PGC_S_OVERRIDE,				/*  强制设为默认的特例  */
+	PGC_S_INTERACTIVE,			/*  错误报告的分界线  */
+	PGC_S_TEST,					/*  测试每库或每用户设定  */
 	PGC_S_SESSION				/* SET command */
 } GucSource;
 
@@ -160,9 +160,9 @@ extern void FreeConfigVariables(ConfigVariable *list);
 extern char *DeescapeQuotedString(const char *s);
 
 /*
- * The possible values of an enum variable are specified by an array of
- * name-value pairs.  The "hidden" flag means the value is accepted but
- * won't be displayed when guc.c is asked for a list of acceptable values.
+ * 枚举变量的可能取值由名-值对数组指定。
+ * hidden 标志表示接受该值，但在 guc.c 被要求列出
+ * 可接受值时不显示。
  */
 struct config_enum_entry
 {
@@ -172,7 +172,7 @@ struct config_enum_entry
 };
 
 /*
- * Signatures for per-variable check/assign/show hook functions
+ * 各变量 check/assign/show 钩子函数的签名
  */
 typedef bool (*GucBoolCheckHook) (bool *newval, void **extra, GucSource source);
 typedef bool (*GucIntCheckHook) (int *newval, void **extra, GucSource source);
@@ -189,56 +189,56 @@ typedef void (*GucEnumAssignHook) (int newval, void *extra);
 typedef const char *(*GucShowHook) (void);
 
 /*
- * Miscellaneous
+ * 杂项
  */
 typedef enum
 {
-	/* Types of set_config_option actions */
-	GUC_ACTION_SET,				/* regular SET command */
+	/*  set_config_option 动作类型  */
+	GUC_ACTION_SET,				/*  普通 SET 命令  */
 	GUC_ACTION_LOCAL,			/* SET LOCAL command */
-	GUC_ACTION_SAVE				/* function SET option, or temp assignment */
+	GUC_ACTION_SAVE				/*  函数 SET 选项，或临时赋值  */
 } GucAction;
 
 #define GUC_QUALIFIER_SEPARATOR '.'
 
 /*
- * Bit values in "flags" of a GUC variable.  Note that these don't appear
- * on disk, so we can reassign their values freely.
+ * GUC 变量 "flags" 中的位值。注意它们不落盘，
+ * 故可自由改赋值。
  */
 #define GUC_LIST_INPUT		   0x000001 /* input can be list format */
-#define GUC_LIST_QUOTE		   0x000002 /* double-quote list elements */
-#define GUC_NO_SHOW_ALL		   0x000004 /* exclude from SHOW ALL */
-#define GUC_NO_RESET		   0x000008 /* disallow RESET and SAVE */
-#define GUC_NO_RESET_ALL	   0x000010 /* exclude from RESET ALL */
-#define GUC_EXPLAIN			   0x000020 /* include in EXPLAIN */
+#define GUC_LIST_QUOTE		   0x000002 /*  列表元素加双引号  */
+#define GUC_NO_SHOW_ALL		   0x000004 /*  排除出 SHOW ALL  */
+#define GUC_NO_RESET		   0x000008 /*  禁止 RESET 与 SAVE  */
+#define GUC_NO_RESET_ALL	   0x000010 /*  排除出 RESET ALL  */
+#define GUC_EXPLAIN			   0x000020 /*  纳入 EXPLAIN  */
 #define GUC_REPORT			   0x000040 /* auto-report changes to client */
 #define GUC_NOT_IN_SAMPLE	   0x000080 /* not in postgresql.conf.sample */
 #define GUC_DISALLOW_IN_FILE   0x000100 /* can't set in postgresql.conf */
-#define GUC_CUSTOM_PLACEHOLDER 0x000200 /* placeholder for custom variable */
+#define GUC_CUSTOM_PLACEHOLDER 0x000200 /*  自定义变量的占位符  */
 #define GUC_SUPERUSER_ONLY	   0x000400 /* show only to superusers */
 #define GUC_IS_NAME			   0x000800 /* limit string to NAMEDATALEN-1 */
-#define GUC_NOT_WHILE_SEC_REST 0x001000 /* can't set if security restricted */
+#define GUC_NOT_WHILE_SEC_REST 0x001000 /*  安全受限时不能设定  */
 #define GUC_DISALLOW_IN_AUTO_FILE \
 							   0x002000 /* can't set in PG_AUTOCONF_FILENAME */
-#define GUC_RUNTIME_COMPUTED   0x004000 /* delay processing in 'postgres -C' */
+#define GUC_RUNTIME_COMPUTED   0x004000 /*  延迟在 postgres -C 中处理  */
 #define GUC_ALLOW_IN_PARALLEL  0x008000 /* allow setting in parallel mode */
 
-#define GUC_UNIT_KB			 0x01000000 /* value is in kilobytes */
-#define GUC_UNIT_BLOCKS		 0x02000000 /* value is in blocks */
-#define GUC_UNIT_XBLOCKS	 0x03000000 /* value is in xlog blocks */
-#define GUC_UNIT_MB			 0x04000000 /* value is in megabytes */
-#define GUC_UNIT_BYTE		 0x05000000 /* value is in bytes */
-#define GUC_UNIT_MEMORY		 0x0F000000 /* mask for size-related units */
+#define GUC_UNIT_KB			 0x01000000 /*  值以千字节计  */
+#define GUC_UNIT_BLOCKS		 0x02000000 /*  值以块计  */
+#define GUC_UNIT_XBLOCKS	 0x03000000 /*  值以 xlog 块计  */
+#define GUC_UNIT_MB			 0x04000000 /*  值以兆字节计  */
+#define GUC_UNIT_BYTE		 0x05000000 /*  值以字节计  */
+#define GUC_UNIT_MEMORY		 0x0F000000 /*  大小相关单位掩码  */
 
-#define GUC_UNIT_MS			 0x10000000 /* value is in milliseconds */
-#define GUC_UNIT_S			 0x20000000 /* value is in seconds */
-#define GUC_UNIT_MIN		 0x30000000 /* value is in minutes */
-#define GUC_UNIT_TIME		 0x70000000 /* mask for time-related units */
+#define GUC_UNIT_MS			 0x10000000 /*  值以毫秒计  */
+#define GUC_UNIT_S			 0x20000000 /*  值以秒计  */
+#define GUC_UNIT_MIN		 0x30000000 /*  值以分钟计  */
+#define GUC_UNIT_TIME		 0x70000000 /*  时间相关单位掩码  */
 
 #define GUC_UNIT			 (GUC_UNIT_MEMORY | GUC_UNIT_TIME)
 
 
-/* GUC vars that are actually defined in guc_tables.c, rather than elsewhere */
+/*  实际定义在 guc_tables.c 而非别处的 GUC 变量  */
 extern PGDLLIMPORT bool Debug_print_plan;
 extern PGDLLIMPORT bool Debug_print_parse;
 extern PGDLLIMPORT bool Debug_print_rewritten;
@@ -288,7 +288,7 @@ extern PGDLLIMPORT bool trace_sort;
 #endif
 
 /*
- * Functions exported by guc.c
+ * guc.c 导出的函数
  */
 extern void SetConfigOption(const char *name, const char *value,
 							GucContext context, GucSource source);
@@ -355,7 +355,7 @@ extern void DefineCustomEnumVariable(const char *name,
 
 extern void MarkGUCPrefixReserved(const char *className);
 
-/* old name for MarkGUCPrefixReserved, for backwards compatibility: */
+/*  MarkGUCPrefixReserved 旧名，为向后兼容：  */
 #define EmitWarningsOnPlaceholders(className) MarkGUCPrefixReserved(className)
 
 extern const char *GetConfigOption(const char *name, bool missing_ok,
@@ -408,19 +408,19 @@ extern void write_nondefault_variables(GucContext context);
 extern void read_nondefault_variables(void);
 #endif
 
-/* GUC serialization */
+/*  GUC 序列化  */
 extern Size EstimateGUCStateSpace(void);
 extern void SerializeGUCState(Size maxsize, char *start_address);
 extern void RestoreGUCState(void *gucstate);
 
-/* Functions exported by guc_funcs.c */
+/*  guc_funcs.c 导出的函数  */
 extern void ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel);
 extern char *ExtractSetVariableArgs(VariableSetStmt *stmt);
 extern void SetPGVariable(const char *name, List *args, bool is_local);
 extern void GetPGVariable(const char *name, DestReceiver *dest);
 extern TupleDesc GetPGVariableResultDesc(const char *name);
 
-/* Support for messages reported from GUC check hooks */
+/*  GUC check 钩子所报消息的支持  */
 
 extern PGDLLIMPORT char *GUC_check_errmsg_string;
 extern PGDLLIMPORT char *GUC_check_errdetail_string;

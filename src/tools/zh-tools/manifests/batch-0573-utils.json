@@ -1,0 +1,61 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0573",
+    "title": "include/utils guc — batch 0573",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "51724e82103f9bf94b4afff8e1528e3e8e0257a6",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/guc.h",
+            "kind": "c_comment",
+            "note": "0573"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0573-utils.json",
+            "kind": "manifest",
+            "note": "0573"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/guc.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 123,
+            "translated": 49,
+            "preserved": 74,
+            "preserved_reasons": [
+                "版权/横幅/作者 KEEP；PGC 时机/GucSource/ConfigVariable 长文整块 KEEP EN；部分超预算尾注 KEEP EN"
+            ],
+            "note": "0573 T=49"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0573-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0573"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0573"
+        }
+    ],
+    "notes": "短注/flags 已译；PGC 时机与 GucSource 长文整块 KEEP EN"
+}

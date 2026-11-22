@@ -5,8 +5,8 @@
 #define WIN32_SYS_UN_H
 
 /*
- * Windows defines this structure in <afunix.h>, but not all tool chains have
- * the header yet, so we define it here for now.
+ * Windows 在 <afunix.h> 定义此结构,但并非所有工具链
+ * 都已有该头,故暂在此定义。
  */
 struct sockaddr_un
 {

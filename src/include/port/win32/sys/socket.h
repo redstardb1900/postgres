@@ -5,11 +5,11 @@
 #define WIN32_SYS_SOCKET_H
 
 /*
- * Unfortunately, <wingdi.h> of VC++ also defines ERROR.
- * To avoid the conflict, we include <windows.h> here and undefine ERROR
- * immediately.
+ * 不巧 VC++ 的 <wingdi.h> 也定义了 ERROR。
+ * 为免冲突,在此含 <windows.h> 并立刻取消定义
+ * ERROR。
  *
- * Note: Don't include <wingdi.h> directly.  It causes compile errors.
+ * 注意:勿直接含 <wingdi.h>。会导致编译错误。
  */
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -18,14 +18,14 @@
 #undef ERROR
 #undef small
 
-/* Restore old ERROR value */
+/*  恢复旧 ERROR 值  */
 #ifdef PGERROR
 #define ERROR PGERROR
 #endif
 
 /*
- * We don't use the Windows gai_strerror[A] function because it is not
- * thread-safe.  We define our own in src/port/win32gai_strerror.c.
+ * 不用 Windows gai_strerror[A],因其非线程安全。
+ * 我们在 src/port/win32gai_strerror.c 自行定义。
  */
 #undef gai_strerror
 

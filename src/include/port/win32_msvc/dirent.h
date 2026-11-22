@@ -1,5 +1,5 @@
 /*
- * Headers for port/dirent.c, win32 native implementation of dirent functions
+ * port/dirent.c 头文件,dirent 的 win32 原生实现
  *
  * src/include/port/win32_msvc/dirent.h
  */
@@ -21,7 +21,7 @@ DIR		   *opendir(const char *);
 struct dirent *readdir(DIR *);
 int			closedir(DIR *);
 
-/* File types for 'd_type'.  */
+/*  d_type 文件类型。  */
 #define DT_UNKNOWN		0
 #define DT_FIFO		1
 #define DT_CHR			2

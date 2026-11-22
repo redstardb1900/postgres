@@ -1,0 +1,78 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0569",
+    "title": "include/utils guc_hooks+memutils_memorychunk — batch 0569",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "1e12ff2fd5bcf08040a04f9cc5252312656402c9",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/guc_hooks.h",
+            "kind": "c_comment",
+            "note": "0569"
+        },
+        {
+            "pattern": "src/include/utils/memutils_memorychunk.h",
+            "kind": "c_comment",
+            "note": "0569"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0569-utils.json",
+            "kind": "manifest",
+            "note": "0569"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/guc_hooks.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 13,
+            "translated": 7,
+            "preserved": 6,
+            "preserved_reasons": [
+                "版权/横幅/头卫 KEEP；局部宏名行 KEEP EN"
+            ],
+            "note": "0569 T=7"
+        },
+        {
+            "path": "src/include/utils/memutils_memorychunk.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 96,
+            "translated": 88,
+            "preserved": 8,
+            "preserved_reasons": [
+                "版权/横幅/头卫 KEEP；局部宏名行 KEEP EN"
+            ],
+            "note": "0569 T=88"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0569-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0569"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0569"
+        }
+    ],
+    "notes": "超预算等义压缩；L29 宏名 KEEP EN；引号 ASCII"
+}

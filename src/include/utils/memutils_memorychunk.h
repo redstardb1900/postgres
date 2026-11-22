@@ -1,68 +1,68 @@
 /*-------------------------------------------------------------------------
  *
  * memutils_memorychunk.h
- *	  Here we define a struct named MemoryChunk which implementations of
- *	  MemoryContexts may use as a header for chunks of memory they allocate.
+ *	  在此定义结构体 MemoryChunk，供 MemoryContext
+ *	  实现用作其所分配内存块的头。
  *
- * MemoryChunk provides a lightweight header that a MemoryContext can use to
- * store a reference back to the block which the given chunk is allocated on
- * and also an additional 30-bits to store another value such as the size of
- * the allocated chunk.
+ * MemoryChunk 是轻量头，MemoryContext 可用它保存
+ * 回指该块所在 block 的引用，另有 30 位存放
+ * 其他值，例如所分配块的大小。
+ * 见上。
  *
- * Although MemoryChunks are used by each of our MemoryContexts, future
- * implementations may choose to implement their own method for storing chunk
- * headers.  The only requirement is that the header ends with an 8-byte value
- * which the least significant 3-bits of are set to the MemoryContextMethodID
- * of the given context.
+ * 虽各 MemoryContexts 都用 MemoryChunks，未来实现
+ * 也可自定块头方案。唯一要求是头以 8 字节值
+ * 结尾，且其最低 3 位设为该上下文的
+ * MemoryContextMethodID。
+ * 见上。
  *
- * By default, a MemoryChunk is 8 bytes in size, however, when
- * MEMORY_CONTEXT_CHECKING is defined the header becomes 16 bytes in size due
- * to the additional requested_size field.  The MemoryContext may use this
- * field for whatever they wish, but it is intended to be used for additional
- * checks which are only done in MEMORY_CONTEXT_CHECKING builds.
+ * 默认 MemoryChunk 为 8 字节；但当定义了
+ * MEMORY_CONTEXT_CHECKING 时因额外 requested_size
+ * 字段变为 16 字节。MemoryContext 可随意使用该
+ * 字段，但意在用于仅在 MEMORY_CONTEXT_CHECKING
+ * 构建中做的额外检查。
  *
- * The MemoryChunk contains a uint64 field named 'hdrmask'.  This field is
- * used to encode 4 separate pieces of information.  Starting with the least
- * significant bits of 'hdrmask', the bit space is reserved as follows:
+ * MemoryChunk 含名为 'hdrmask' 的 uint64 字段。该
+ * 字段编码 4 段信息。自 'hdrmask' 最低有效位起，
+ * 位空间保留如下：
  *
- * 1.	3-bits to indicate the MemoryContextMethodID as defined by
+ * 1.	3 位表示 MemoryContextMethodID，由
  *		MEMORY_CONTEXT_METHODID_MASK
- * 2.	1-bit to denote an "external" chunk (see below)
- * 3.	30-bits reserved for the MemoryContext to use for anything it
- *		requires.  Most MemoryContext likely want to store the size of the
- *		chunk here.
- * 4.	30-bits for the number of bytes that must be subtracted from the chunk
- *		to obtain the address of the block that the chunk is stored on.
+ * 2.	1 位表示"外部"块（见下）
+ * 3.	30 位留给 MemoryContext 任意使用。多数
+ *		MemoryContext 想在此存放块大小。
+ *		见上。
+ * 4.	30 位：须从块地址减去多少字节才得到
+ *		存放该块的 block 地址。
  *
- * In some cases, for example when memory allocations become large, it's
- * possible fields 3 and 4 above are not large enough to store the values
- * required for the chunk.  In this case, the MemoryContext can choose to mark
- * the chunk as "external" by calling the MemoryChunkSetHdrMaskExternal()
- * function.  When this is done, fields 3 and 4 are unavailable for use by the
- * MemoryContext and it's up to the MemoryContext itself to devise its own
- * method for getting the reference to the block.
+ * 有时（例如分配变大）上面字段 3、4 不够存
+ * 该块所需之值。此时 MemoryContext 可调用
+ * MemoryChunkSetHdrMaskExternal() 将块标为
+ * 外部。之后字段 3、4 不可再供
+ * MemoryContext 使用，须由其自定取得
+ * block 引用的方法。
+ * 见上。
  *
- * Interface:
+ * 接口：
  *
  * MemoryChunkSetHdrMask:
- *		Used to set up a non-external MemoryChunk.
+ *		用于设置非外部 MemoryChunk。
  *
  * MemoryChunkSetHdrMaskExternal:
- *		Used to set up an externally managed MemoryChunk.
+ *		用于设置外部管理的 MemoryChunk。
  *
  * MemoryChunkIsExternal:
- *		Determine if the given MemoryChunk is externally managed, i.e.
- *		MemoryChunkSetHdrMaskExternal() was called on the chunk.
+ *		判断给定 MemoryChunk 是否外部管理，即
+ *		是否对其调用过 MemoryChunkSetHdrMaskExternal()。
  *
  * MemoryChunkGetValue:
- *		For non-external chunks, return the stored 30-bit value as it was set
- *		in the call to MemoryChunkSetHdrMask().
+ *		对非外部块，返回调用 MemoryChunkSetHdrMask()
+ *		时所存的 30 位值。
  *
  * MemoryChunkGetBlock:
- *		For non-external chunks, return a pointer to the block as it was set
- *		in the call to MemoryChunkSetHdrMask().
+ *		对非外部块，返回调用 MemoryChunkSetHdrMask()
+ *		时所存的 block 指针。
  *
- * Also exports:
+ * 亦导出：
  *		MEMORYCHUNK_MAX_VALUE
  *		MEMORYCHUNK_MAX_BLOCKOFFSET
  *		PointerGetMemoryChunk
@@ -82,26 +82,26 @@
 #include "utils/memutils_internal.h"
 
  /*
-  * The maximum allowed value that MemoryContexts can store in the value
-  * field.  Must be 1 less than a power of 2.
+  * MemoryContexts 可在 value 字段存放的最大允许值。
+  * 须为 2 的幂减 1。
   */
 #define MEMORYCHUNK_MAX_VALUE			UINT64CONST(0x3FFFFFFF)
 
 /*
- * The maximum distance in bytes that a MemoryChunk can be offset from the
- * block that is storing the chunk.  Must be 1 less than a power of 2.
+ * MemoryChunk 相对存放它的 block 的最大字节偏移。
+ * 须为 2 的幂减 1。
  */
 #define MEMORYCHUNK_MAX_BLOCKOFFSET		UINT64CONST(0x3FFFFFFF)
 
-/* define the least significant base-0 bit of each portion of the hdrmask */
+/*  定义 hdrmask 各段的最低有效基 0 位  */
 #define MEMORYCHUNK_EXTERNAL_BASEBIT	MEMORY_CONTEXT_METHODID_BITS
 #define MEMORYCHUNK_VALUE_BASEBIT		(MEMORYCHUNK_EXTERNAL_BASEBIT + 1)
 #define MEMORYCHUNK_BLOCKOFFSET_BASEBIT	(MEMORYCHUNK_VALUE_BASEBIT + 30)
 
 /*
- * A magic number for storing in the free bits of an external chunk.  This
- * must mask out the bits used for storing the MemoryContextMethodID and the
- * external bit.
+ * 存入外部块空闲位的魔数。须屏蔽用于存放
+ * MemoryContextMethodID 与外部位的那些位。
+ * 见上。
  */
 #define MEMORYCHUNK_MAGIC		(UINT64CONST(0xB1A8DB858EB6EFBA) >> \
 								 MEMORYCHUNK_VALUE_BASEBIT << \
@@ -113,42 +113,42 @@ typedef struct MemoryChunk
 	Size		requested_size;
 #endif
 
-	/* bitfield for storing details about the chunk */
-	uint64		hdrmask;		/* must be last */
+	/*  存放块细节的位域  */
+	uint64		hdrmask;		/*  须居末  */
 } MemoryChunk;
 
-/* Get the MemoryChunk from the pointer */
+/*  由指针取得 MemoryChunk  */
 #define PointerGetMemoryChunk(p) \
 	((MemoryChunk *) ((char *) (p) - sizeof(MemoryChunk)))
-/* Get the pointer from the MemoryChunk */
+/*  由 MemoryChunk 取得指针  */
 #define MemoryChunkGetPointer(c) \
 	((void *) ((char *) (c) + sizeof(MemoryChunk)))
 
-/* private macros for making the inline functions below more simple */
+/*  私有宏，使下方内联函数更简洁  */
 #define HdrMaskIsExternal(hdrmask) \
 	((hdrmask) & (((uint64) 1) << MEMORYCHUNK_EXTERNAL_BASEBIT))
 #define HdrMaskGetValue(hdrmask) \
 	(((hdrmask) >> MEMORYCHUNK_VALUE_BASEBIT) & MEMORYCHUNK_MAX_VALUE)
 
 /*
- * We should have used up all the bits here, so the compiler is likely to
- * optimize out the & MEMORYCHUNK_MAX_BLOCKOFFSET.
+ * 此处应已用尽全部位，故编译器多半会优化掉
+ * & MEMORYCHUNK_MAX_BLOCKOFFSET。
  */
 #define HdrMaskBlockOffset(hdrmask) \
 	(((hdrmask) >> MEMORYCHUNK_BLOCKOFFSET_BASEBIT) & MEMORYCHUNK_MAX_BLOCKOFFSET)
 
-/* For external chunks only, check the magic number matches */
+/*  仅外部块：检查魔数是否匹配  */
 #define HdrMaskCheckMagic(hdrmask) \
 	(MEMORYCHUNK_MAGIC == \
 	 ((hdrmask) >> MEMORYCHUNK_VALUE_BASEBIT << MEMORYCHUNK_VALUE_BASEBIT))
 /*
  * MemoryChunkSetHdrMask
- *		Store the given 'block', 'chunk_size' and 'methodid' in the given
+ *		把给定 block、chunk_size 与 methodid 存入
  *		MemoryChunk.
  *
- * The number of bytes between 'block' and 'chunk' must be <=
+ * block 与 chunk 间的字节数必须 <=
  * MEMORYCHUNK_MAX_BLOCKOFFSET.
- * 'value' must be <= MEMORYCHUNK_MAX_VALUE.
+ * value 必须 <= MEMORYCHUNK_MAX_VALUE。
  */
 static inline void
 MemoryChunkSetHdrMask(MemoryChunk *chunk, void *block,
@@ -168,8 +168,8 @@ MemoryChunkSetHdrMask(MemoryChunk *chunk, void *block,
 
 /*
  * MemoryChunkSetHdrMaskExternal
- *		Set 'chunk' as an externally managed chunk.  Here we only record the
- *		MemoryContextMethodID and set the external chunk bit.
+ *		将 chunk 标为外部管理块。此处只记录
+ *		MemoryContextMethodID 并置外部块位。
  */
 static inline void
 MemoryChunkSetHdrMaskExternal(MemoryChunk *chunk,
@@ -183,14 +183,14 @@ MemoryChunkSetHdrMaskExternal(MemoryChunk *chunk,
 
 /*
  * MemoryChunkIsExternal
- *		Return true if 'chunk' is marked as external.
+ *		若 chunk 标为外部则返回 true。
  */
 static inline bool
 MemoryChunkIsExternal(MemoryChunk *chunk)
 {
 	/*
-	 * External chunks should always store MEMORYCHUNK_MAGIC in the upper
-	 * portion of the hdrmask, check that nothing has stomped on that.
+	 * 外部块应始终在 hdrmask 高位存放
+	 * MEMORYCHUNK_MAGIC，检查未被踩踏。
 	 */
 	Assert(!HdrMaskIsExternal(chunk->hdrmask) ||
 		   HdrMaskCheckMagic(chunk->hdrmask));
@@ -200,8 +200,8 @@ MemoryChunkIsExternal(MemoryChunk *chunk)
 
 /*
  * MemoryChunkGetValue
- *		For non-external chunks, returns the value field as it was set in
- *		MemoryChunkSetHdrMask.
+ *		对非外部块，返回 MemoryChunkSetHdrMask
+ *		所设 value 字段。
  */
 static inline Size
 MemoryChunkGetValue(MemoryChunk *chunk)
@@ -213,8 +213,8 @@ MemoryChunkGetValue(MemoryChunk *chunk)
 
 /*
  * MemoryChunkGetBlock
- *		For non-external chunks, returns the pointer to the block as was set
- *		in MemoryChunkSetHdrMask.
+ *		对非外部块，返回 MemoryChunkSetHdrMask
+ *		所设 block 指针。
  */
 static inline void *
 MemoryChunkGetBlock(MemoryChunk *chunk)
@@ -224,7 +224,7 @@ MemoryChunkGetBlock(MemoryChunk *chunk)
 	return (void *) ((char *) chunk - HdrMaskBlockOffset(chunk->hdrmask));
 }
 
-/* cleanup all internal definitions */
+/*  清理全部内部定义  */
 #undef MEMORYCHUNK_EXTERNAL_BASEBIT
 #undef MEMORYCHUNK_VALUE_BASEBIT
 #undef MEMORYCHUNK_BLOCKOFFSET_BASEBIT

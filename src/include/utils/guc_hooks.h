@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * guc_hooks.h
- *		Declarations of per-variable callback functions used by GUC.
+ *		GUC 所用各变量回调函数的声明。
  *
- * These functions are scattered throughout the system, but we
- * declare them all here to avoid having to propagate guc.h into
- * a lot of unrelated header files.
+ * 这些函数散落于系统各处，但我们在此统一
+ * 声明，以免把 guc.h 传播进大量无关头文件。
+ * 见上。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -19,10 +19,10 @@
 #include "utils/guc.h"
 
 /*
- * See guc.h for the typedefs that these hook functions should match
- * (GucBoolCheckHook and so on).
+ * 这些钩子应匹配的 typedef 见 guc.h
+ * (GucBoolCheckHook 等)。
  *
- * Please keep the declarations in order by GUC variable name.
+ * 请按 GUC 变量名顺序保持声明排列。
  */
 
 extern bool check_application_name(char **newval, void **extra,

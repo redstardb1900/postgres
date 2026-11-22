@@ -468,7 +468,7 @@ struct PlannerInfo
 	/* MinMaxAggInfo 列表 */
 	List	   *minmax_aggs;
 
-	/* context holding PlannerInfo */
+	/* PlannerInfo 的上下文 */
 	MemoryContext planner_cxt pg_node_attr(read_write_ignore);
 
 	/* 查询中全部非哑表的页数 */
@@ -903,7 +903,7 @@ typedef struct RelOptInfo
 	Index		relid;
 	/* 所含表空间 */
 	Oid			reltablespace;
-	/* RELATION, SUBQUERY, FUNCTION, etc */
+	/* RELATION, SUBQUERY, FUNCTION 等 */
 	RTEKind		rtekind;
 	/* 关系最小 attrno(常 <0) */
 	AttrNumber	min_attr;
@@ -1752,7 +1752,7 @@ typedef struct IndexClause
 typedef struct BitmapHeapPath
 {
 	Path		path;
-	Path	   *bitmapqual;		/* IndexPath/BitmapAnd/OrPath */
+	Path	   *bitmapqual;		/* IndexPath, BitmapAndPath, BitmapOrPath */
 } BitmapHeapPath;
 
 /*
@@ -2333,7 +2333,7 @@ typedef struct ModifyTablePath
 {
 	Path		path;
 	Path	   *subpath;		/* 产生源数据的 Path */
-	CmdType		operation;		/* INSERT/UPDATE/DELETE/MERGE */
+	CmdType		operation;		/* INSERT, UPDATE, DELETE, or MERGE */
 	bool		canSetTag;		/* 是否设置命令标签/es_processed? */
 	Index		nominalRelation;	/* 供 EXPLAIN 用的父 RT 下标 */
 	Index		rootRelation;	/* 根 RT 下标(若分区/继承) */
@@ -2596,7 +2596,7 @@ typedef struct RestrictInfo
 	EquivalenceClass *parent_ec pg_node_attr(copy_as_scalar, equal_ignore, read_write_ignore);
 
 	/*
-	 * cache space for cost and selectivity
+	 * 代价与选择率的缓存空间
 	 */
 
 	/* 子句求值代价;-1 为尚未设置 */
@@ -2614,7 +2614,7 @@ typedef struct RestrictInfo
 	List	   *mergeopfamilies pg_node_attr(equal_ignore);
 
 	/*
-	 * cache space for mergeclause processing; NULL if not yet set
+	 * mergeclause 处理缓存；尚未设置则为 NULL
 	 */
 
 	/* 含左侧的 EquivalenceClass */
@@ -2646,7 +2646,7 @@ typedef struct RestrictInfo
 	Oid			hashjoinoperator pg_node_attr(equal_ignore);
 
 	/*
-	 * cache space for hashclause processing; -1 if not yet set
+	 * hashclause 处理缓存；尚未设置则为 -1
 	 */
 	/* 左侧平均桶大小 */
 	Selectivity left_bucketsize pg_node_attr(equal_ignore);

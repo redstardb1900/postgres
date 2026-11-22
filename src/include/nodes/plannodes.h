@@ -54,7 +54,7 @@ typedef struct PlannedStmt
 
 	uint64		queryId;		/* 查询标识符(自 Query 拷贝) */
 
-	bool		hasReturning;	/* insert|update|delete RETURNING? */
+	bool		hasReturning;	/* 写操作带 RETURNING? */
 
 	bool		hasModifyingCTE;	/* WITH含insert|update|delete? */
 
@@ -833,24 +833,24 @@ typedef struct MergeJoin
 {
 	Join		join;
 
-	/* Can we skip mark/restore calls? */
+	/* 可跳过 mark/restore 调用? */
 	bool		skip_mark_restore;
 
-	/* mergeclauses as expression trees */
+	/* mergeclauses 作表达式树 */
 	List	   *mergeclauses;
 
-	/* these are arrays, but have the same length as the mergeclauses list: */
+	/* 这些是数组，长度与 mergeclauses 列表相同： */
 
-	/* per-clause OIDs of btree opfamilies */
+	/* 每子句 btree 操作符族 OIDs */
 	Oid		   *mergeFamilies pg_node_attr(array_size(mergeclauses));
 
-	/* per-clause OIDs of collations */
+	/* 每子句 collation OIDs */
 	Oid		   *mergeCollations pg_node_attr(array_size(mergeclauses));
 
-	/* per-clause ordering (ASC or DESC) */
+	/* 每子句排序 (ASC 或 DESC) */
 	int		   *mergeStrategies pg_node_attr(array_size(mergeclauses));
 
-	/* per-clause nulls ordering */
+	/* 每子句 nulls 次序 */
 	bool	   *mergeNullsFirst pg_node_attr(array_size(mergeclauses));
 } MergeJoin;
 
@@ -919,7 +919,7 @@ typedef struct Memoize
 	 */
 	uint32		est_entries;
 
-	/* paramids from param_exprs */
+	/* param_exprs 的 paramids */
 	Bitmapset  *keyparamids;
 } Memoize;
 

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * freepage.h
- *	  Management of page-organized free memory.
+ *	  按页组织的空闲内存管理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,34 +17,34 @@
 #include "storage/lwlock.h"
 #include "utils/relptr.h"
 
-/* Forward declarations. */
+/* 前向声明。 */
 typedef struct FreePageSpanLeader FreePageSpanLeader;
 typedef struct FreePageBtree FreePageBtree;
 typedef struct FreePageManager FreePageManager;
 
 /*
- * PostgreSQL normally uses 8kB pages for most things, but many common
- * architecture/operating system pairings use a 4kB page size for memory
- * allocation, so we do that here also.
+ * PostgreSQL 多数场合用 8kB 页，但许多常见
+ * 体系结构/操作系统组合的内存分配页大小为
+ * 4kB，故此处也用 4kB。
  */
 #define FPM_PAGE_SIZE			4096
 
 /*
- * Each freelist except for the last contains only spans of one particular
- * size.  Everything larger goes on the last one.  In some sense this seems
- * like a waste since most allocations are in a few common sizes, but it
- * means that small allocations can simply pop the head of the relevant list
- * without needing to worry about whether the object we find there is of
- * precisely the correct size (because we know it must be).
+ * 除最后一个外，每个空闲列表只含特定大小的
+ * 跨度。更大的都进最后一个。看似浪费，因为
+ * 多数分配是几种常见大小，但这使小分配只需
+ * 弹出相应列表头，而不必担心找到的对象是否
+ * 恰好是正确大小（我们知道必定是）。
+ * 见上。
  */
 #define FPM_NUM_FREELISTS		129
 
-/* Define relative pointer types. */
+/* 定义相对指针类型。 */
 relptr_declare(FreePageBtree, RelptrFreePageBtree);
 relptr_declare(FreePageManager, RelptrFreePageManager);
 relptr_declare(FreePageSpanLeader, RelptrFreePageSpanLeader);
 
-/* Everything we need in order to manage free pages (see freepage.c) */
+/* 管理空闲页所需的一切（见 freepage.c） */
 struct FreePageManager
 {
 	RelptrFreePageManager self;
@@ -58,37 +58,37 @@ struct FreePageManager
 	bool		contiguous_pages_dirty;
 	RelptrFreePageSpanLeader freelist[FPM_NUM_FREELISTS];
 #ifdef FPM_EXTRA_ASSERTS
-	/* For debugging only, pages put minus pages gotten. */
+	/* 仅供调试：put 的页数减 get 的页数。 */
 	Size		free_pages;
 #endif
 };
 
-/* Macros to convert between page numbers (expressed as Size) and pointers. */
+/* 在页号（以 Size 表示）与指针之间转换的宏。 */
 #define fpm_page_to_pointer(base, page) \
 	(AssertVariableIsOfTypeMacro(page, Size), \
 	 (base) + FPM_PAGE_SIZE * (page))
 #define fpm_pointer_to_page(base, ptr)		\
 	(((Size) (((char *) (ptr)) - (base))) / FPM_PAGE_SIZE)
 
-/* Macro to convert an allocation size to a number of pages. */
+/* 把分配大小转换为页数的宏。 */
 #define fpm_size_to_pages(sz) \
 	(((sz) + FPM_PAGE_SIZE - 1) / FPM_PAGE_SIZE)
 
-/* Macros to check alignment of absolute and relative pointers. */
+/* 检查绝对与相对指针对齐的宏。 */
 #define fpm_pointer_is_page_aligned(base, ptr)		\
 	(((Size) (((char *) (ptr)) - (base))) % FPM_PAGE_SIZE == 0)
 #define fpm_relptr_is_page_aligned(base, relptr)		\
 	(relptr_offset(relptr) % FPM_PAGE_SIZE == 0)
 
-/* Macro to find base address of the segment containing a FreePageManager. */
+/* 求含某 FreePageManager 的段基址的宏。 */
 #define fpm_segment_base(fpm)	\
 	(((char *) fpm) - relptr_offset(fpm->self))
 
-/* Macro to access a FreePageManager's largest consecutive run of pages. */
+/* 访问 FreePageManager 最大连续页游程的宏。 */
 #define fpm_largest(fpm) \
 	(fpm->contiguous_pages)
 
-/* Functions to manipulate the free page map. */
+/* 操纵空闲页映射的函数。 */
 extern void FreePageManagerInitialize(FreePageManager *fpm, char *base);
 extern bool FreePageManagerGet(FreePageManager *fpm, Size npages,
 							   Size *first_page);

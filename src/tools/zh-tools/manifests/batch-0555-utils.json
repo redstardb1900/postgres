@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "batch_id": "batch-0555",
+  "title": "include/utils hsearch/relptr/freepage/pidfile/varbit — batch 0555",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "6d435c5d59447635060cbebc9eb06b49636485e5",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/include/utils/hsearch.h",
+      "kind": "c_comment",
+      "note": "0555"
+    },
+    {
+      "pattern": "src/include/utils/relptr.h",
+      "kind": "c_comment",
+      "note": "0555"
+    },
+    {
+      "pattern": "src/include/utils/freepage.h",
+      "kind": "c_comment",
+      "note": "0555"
+    },
+    {
+      "pattern": "src/include/utils/pidfile.h",
+      "kind": "c_comment",
+      "note": "0555"
+    },
+    {
+      "pattern": "src/include/utils/varbit.h",
+      "kind": "c_comment",
+      "note": "0555"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0555-utils.json",
+      "kind": "manifest",
+      "note": "0555"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "note": "append"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/include/utils/hsearch.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 71,
+      "translated": 65,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0555 T=65"
+    },
+    {
+      "path": "src/include/utils/relptr.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 27,
+      "translated": 16,
+      "preserved": 11,
+      "preserved_reasons": [
+        "版权/横幅/头卫；pgindent 示例 KEEP EN 防 MIXED"
+      ],
+      "note": "0555 T=16"
+    },
+    {
+      "path": "src/include/utils/freepage.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 27,
+      "translated": 21,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫 KEEP"
+      ],
+      "note": "0555 T=21"
+    },
+    {
+      "path": "src/include/utils/pidfile.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 6,
+      "preserved": 25,
+      "preserved_reasons": [
+        "锁文件格式长说明 KEEP EN；状态尾注已译"
+      ],
+      "note": "0555 T=6"
+    },
+    {
+      "path": "src/include/utils/varbit.h",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 30,
+      "translated": 24,
+      "preserved": 6,
+      "preserved_reasons": [
+        "版权/横幅/头卫；closer first KEEP"
+      ],
+      "note": "0555 T=24"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0555-utils.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "0555"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "append 0555"
+    }
+  ]
+}

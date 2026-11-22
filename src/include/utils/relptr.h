@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * relptr.h
- *	  This file contains basic declarations for relative pointers.
+ *	  相对指针的基本声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,16 +15,16 @@
 #define RELPTR_H
 
 /*
- * Relative pointers are intended to be used when storing an address that may
- * be relative either to the base of the process's address space or some
- * dynamic shared memory segment mapped therein.
+ * 相对指针用于存放可能相对于进程地址空间基址
+ * 或映射于其中的某动态共享内存段的地址。
+ * 见上。
  *
- * The idea here is that you declare a relative pointer as relptr(type)
- * and then use relptr_access to dereference it and relptr_store to change
- * it.  The use of a union here is a hack, because what's stored in the
- * relptr is always a Size, never an actual pointer.  But including a pointer
- * in the union allows us to use stupid macro tricks to provide some measure
- * of type-safety.
+ * 用法是把相对指针声明为 relptr(type)，再用
+ * relptr_access 解引用、用 relptr_store 修改。
+ * 此处用联合是权宜之计，因为 relptr 中存的
+ * 始终是 Size，从不是真正指针。但联合中含指针
+ * 使我们能用拙劣宏技巧提供某种类型安全。
+ * 见上。
  */
 #define relptr(type)	 union { type *relptr_type; Size relptr_off; }
 
@@ -45,8 +45,8 @@
 		(base) + (rp).relptr_off - 1))
 #else
 /*
- * If we don't have __builtin_types_compatible_p, assume we might not have
- * __typeof__ either.
+ * 若无 __builtin_types_compatible_p，假定也可能无
+ * __typeof__。
  */
 #define relptr_access(base, rp) \
 	(AssertVariableIsOfTypeMacro(base, char *), \
@@ -59,7 +59,7 @@
 #define relptr_offset(rp) \
 	((rp).relptr_off - 1)
 
-/* We use this inline to avoid double eval of "val" in relptr_store */
+/* 用此内联以免 relptr_store 中对 "val" 双重求值 */
 static inline Size
 relptr_store_eval(char *base, char *val)
 {
@@ -79,8 +79,8 @@ relptr_store_eval(char *base, char *val)
 	 (rp).relptr_off = relptr_store_eval((base), (char *) (val)))
 #else
 /*
- * If we don't have __builtin_types_compatible_p, assume we might not have
- * __typeof__ either.
+ * 若无 __builtin_types_compatible_p，假定也可能无
+ * __typeof__。
  */
 #define relptr_store(base, rp, val) \
 	(AssertVariableIsOfTypeMacro(base, char *), \

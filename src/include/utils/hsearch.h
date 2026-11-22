@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hsearch.h
- *	  exported definitions for utils/hash/dynahash.c; see notes therein
+ *	  utils/hash/dynahash.c 的导出定义；详见其中说明
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -16,98 +16,98 @@
 
 
 /*
- * Hash functions must have this signature.
+ * 哈希函数必须具有此签名。
  */
 typedef uint32 (*HashValueFunc) (const void *key, Size keysize);
 
 /*
- * Key comparison functions must have this signature.  Comparison functions
- * return zero for match, nonzero for no match.  (The comparison function
- * definition is designed to allow memcmp() and strncmp() to be used directly
- * as key comparison functions.)
+ * 键比较函数必须具有此签名。比较函数匹配时返回
+ * 零，不匹配返回非零。（该定义旨在允许直接把
+ * memcmp() 与 strncmp() 用作键比较函数。）
+ * 见上。
  */
 typedef int (*HashCompareFunc) (const void *key1, const void *key2,
 								Size keysize);
 
 /*
- * Key copying functions must have this signature.  The return value is not
- * used.  (The definition is set up to allow memcpy() and strlcpy() to be
- * used directly.)
+ * 键拷贝函数必须具有此签名。返回值未使用。
+ * 该定义旨在允许直接使用 memcpy() 与
+ * strlcpy()。
  */
 typedef void *(*HashCopyFunc) (void *dest, const void *src, Size keysize);
 
 /*
- * Space allocation function for a hashtable --- designed to match malloc().
- * Note: there is no free function API; can't destroy a hashtable unless you
- * use the default allocator.
+ * 哈希表空间分配函数——设计为匹配 malloc()。
+ * 注意：无释放函数 API；除非用默认分配器，
+ * 无法销毁哈希表。
  */
 typedef void *(*HashAllocFunc) (Size request);
 
 /*
- * HASHELEMENT is the private part of a hashtable entry.  The caller's data
- * follows the HASHELEMENT structure (on a MAXALIGN'd boundary).  The hash key
- * is expected to be at the start of the caller's hash entry data structure.
+ * HASHELEMENT 是哈希表条目的私有部分。调用方
+ * 数据跟在 HASHELEMENT 之后（MAXALIGN 对齐）。
+ * 哈希键应位于调用方哈希条目数据结构的起始处。
  */
 typedef struct HASHELEMENT
 {
-	struct HASHELEMENT *link;	/* link to next entry in same bucket */
-	uint32		hashvalue;		/* hash function result for this entry */
+	struct HASHELEMENT *link;	/* 同桶下一条目的链接 */
+	uint32		hashvalue;		/* 本条目的哈希函数结果 */
 } HASHELEMENT;
 
-/* Hash table header struct is an opaque type known only within dynahash.c */
+/* 哈希表头结构是仅在 dynahash.c 内可知的不透明类型 */
 typedef struct HASHHDR HASHHDR;
 
-/* Hash table control struct is an opaque type known only within dynahash.c */
+/* 哈希表控制结构是仅在 dynahash.c 内可知的不透明类型 */
 typedef struct HTAB HTAB;
 
-/* Parameter data structure for hash_create */
-/* Only those fields indicated by hash_flags need be set */
+/* hash_create 的参数数据结构 */
+/* 仅需设置 hash_flags 所指示的那些字段 */
 typedef struct HASHCTL
 {
-	/* Used if HASH_PARTITION flag is set: */
-	long		num_partitions; /* # partitions (must be power of 2) */
-	/* Used if HASH_SEGMENT flag is set: */
-	long		ssize;			/* segment size */
-	/* Used if HASH_DIRSIZE flag is set: */
-	long		dsize;			/* (initial) directory size */
-	long		max_dsize;		/* limit to dsize if dir size is limited */
-	/* Used if HASH_ELEM flag is set (which is now required): */
-	Size		keysize;		/* hash key length in bytes */
-	Size		entrysize;		/* total user element size in bytes */
-	/* Used if HASH_FUNCTION flag is set: */
-	HashValueFunc hash;			/* hash function */
-	/* Used if HASH_COMPARE flag is set: */
-	HashCompareFunc match;		/* key comparison function */
-	/* Used if HASH_KEYCOPY flag is set: */
-	HashCopyFunc keycopy;		/* key copying function */
-	/* Used if HASH_ALLOC flag is set: */
-	HashAllocFunc alloc;		/* memory allocator */
-	/* Used if HASH_CONTEXT flag is set: */
-	MemoryContext hcxt;			/* memory context to use for allocations */
-	/* Used if HASH_SHARED_MEM flag is set: */
-	HASHHDR    *hctl;			/* location of header in shared mem */
+	/* HASH_PARTITION 置位时用： */
+	long		num_partitions; /* 分区数（须为 2 的幂） */
+	/* HASH_SEGMENT 置位时用： */
+	long		ssize;			/* 段大小 */
+	/* HASH_DIRSIZE 置位时用： */
+	long		dsize;			/* 初始目录大小 */
+	long		max_dsize;		/* 目录大小受限时限制 dsize */
+	/* HASH_ELEM 置位时用（现已必需）： */
+	Size		keysize;		/* 哈希键长（字节） */
+	Size		entrysize;		/* 用户元素总大小(字节) */
+	/* HASH_FUNCTION 置位时用： */
+	HashValueFunc hash;			/* 哈希函数 */
+	/* HASH_COMPARE 置位时用： */
+	HashCompareFunc match;		/* 键比较函数 */
+	/* HASH_KEYCOPY 置位时用： */
+	HashCopyFunc keycopy;		/* 键拷贝函数 */
+	/* HASH_ALLOC 置位时用： */
+	HashAllocFunc alloc;		/* 内存分配器 */
+	/* HASH_CONTEXT 置位时用： */
+	MemoryContext hcxt;			/* 用于分配的内存上下文 */
+	/* HASH_SHARED_MEM 置位时用： */
+	HASHHDR    *hctl;			/* 共享内存中头的位置 */
 } HASHCTL;
 
-/* Flag bits for hash_create; most indicate which parameters are supplied */
-#define HASH_PARTITION	0x0001	/* Hashtable is used w/partitioned locking */
-#define HASH_SEGMENT	0x0002	/* Set segment size */
-#define HASH_DIRSIZE	0x0004	/* Set directory size (initial and max) */
-#define HASH_ELEM		0x0008	/* Set keysize and entrysize (now required!) */
-#define HASH_STRINGS	0x0010	/* Select support functions for string keys */
-#define HASH_BLOBS		0x0020	/* Select support functions for binary keys */
-#define HASH_FUNCTION	0x0040	/* Set user defined hash function */
-#define HASH_COMPARE	0x0080	/* Set user defined comparison function */
-#define HASH_KEYCOPY	0x0100	/* Set user defined key-copying function */
-#define HASH_ALLOC		0x0200	/* Set memory allocator */
-#define HASH_CONTEXT	0x0400	/* Set memory allocation context */
-#define HASH_SHARED_MEM 0x0800	/* Hashtable is in shared memory */
-#define HASH_ATTACH		0x1000	/* Do not initialize hctl */
-#define HASH_FIXED_SIZE 0x2000	/* Initial size is a hard limit */
+/* hash_create 标志位；多数表示提供了哪些参数 */
+#define HASH_PARTITION	0x0001	/* 哈希表配合分区锁使用 */
+#define HASH_SEGMENT	0x0002	/* 设置段大小 */
+#define HASH_DIRSIZE	0x0004	/* 设目录大小（初值与上限） */
+#define HASH_ELEM		0x0008	/* 设 keysize/entrysize（现必需！） */
+#define HASH_STRINGS	0x0010	/* 选用字符串键支持函数 */
+#define HASH_BLOBS		0x0020	/* 选用二进制键支持函数 */
+#define HASH_FUNCTION	0x0040	/* 设置用户定义哈希函数 */
+#define HASH_COMPARE	0x0080	/* 设置用户定义比较函数 */
+#define HASH_KEYCOPY	0x0100	/* 设置用户定义键拷贝函数 */
+#define HASH_ALLOC		0x0200	/* 设内存分配器 */
+#define HASH_CONTEXT	0x0400	/* 设内存分配上下文 */
+#define HASH_SHARED_MEM 0x0800	/* 哈希表位于共享内存 */
+#define HASH_ATTACH		0x1000	/* 不初始化 hctl */
+#define HASH_FIXED_SIZE 0x2000	/* 初始大小为硬限制 */
 
-/* max_dsize value to indicate expansible directory */
+/* 表示可扩展目录的 max_dsize 值 */
 #define NO_MAX_DSIZE			(-1)
 
-/* hash_search operations */
+/* hash_search 操作 */
 typedef enum
 {
 	HASH_FIND,
@@ -116,16 +116,16 @@ typedef enum
 	HASH_ENTER_NULL
 } HASHACTION;
 
-/* hash_seq status (should be considered an opaque type by callers) */
+/* hash_seq 状态（调用方应视为不透明类型） */
 typedef struct
 {
 	HTAB	   *hashp;
-	uint32		curBucket;		/* index of current bucket */
-	HASHELEMENT *curEntry;		/* current entry in bucket */
+	uint32		curBucket;		/* 当前桶下标 */
+	HASHELEMENT *curEntry;		/* 桶中当前条目 */
 } HASH_SEQ_STATUS;
 
 /*
- * prototypes for functions in dynahash.c
+ * dynahash.c 中函数的原型
  */
 extern HTAB *hash_create(const char *tabname, long nelem,
 						 const HASHCTL *info, int flags);

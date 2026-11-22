@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pidfile.h
- *	  Declarations describing the data directory lock file (postmaster.pid)
+ *	  数据目录锁文件（postmaster.pid）相关声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -48,9 +48,9 @@
  * must be the same length, per comments for AddToDataDirLockFile().
  * We pad with spaces as needed to make that true.
  */
-#define PM_STATUS_STARTING		"starting"	/* still starting up */
-#define PM_STATUS_STOPPING		"stopping"	/* in shutdown sequence */
-#define PM_STATUS_READY			"ready   "	/* ready for connections */
-#define PM_STATUS_STANDBY		"standby "	/* up, won't accept connections */
+#define PM_STATUS_STARTING		"starting"	/* 仍在启动中 */
+#define PM_STATUS_STOPPING		"stopping"	/* 正在关闭中 */
+#define PM_STATUS_READY			"ready   "	/* 就绪可接受连接 */
+#define PM_STATUS_STANDBY		"standby "	/* 已起来但不接受连接 */
 
 #endif							/* UTILS_PIDFILE_H */

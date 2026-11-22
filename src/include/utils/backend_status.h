@@ -1,6 +1,6 @@
 /* ----------
  * backend_status.h
- *	  Definitions related to backend status reporting
+ *	  与后端状态报告相关的定义
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -18,7 +18,7 @@
 
 
 /* ----------
- * Backend states
+ * 后端状态
  * ----------
  */
 typedef enum BackendState
@@ -34,21 +34,21 @@ typedef enum BackendState
 
 
 /* ----------
- * Shared-memory data structures
+ * 共享内存数据结构
  * ----------
  */
 
 /*
  * PgBackendSSLStatus
  *
- * For each backend, we keep the SSL status in a separate struct, that
- * is only filled in if SSL is enabled.
+ * 对每个后端，我们把 SSL 状态放在单独结构体中，
+ * 仅在启用 SSL 时填充。
  *
- * All char arrays must be null-terminated.
+ * 所有 char 数组必须空字符结尾.
  */
 typedef struct PgBackendSSLStatus
 {
-	/* Information about SSL connection */
+	/*  关于 SSL 连接的信息  */
 	int			ssl_bits;
 	char		ssl_version[NAMEDATALEN];
 	char		ssl_cipher[NAMEDATALEN];
@@ -66,18 +66,18 @@ typedef struct PgBackendSSLStatus
 /*
  * PgBackendGSSStatus
  *
- * For each backend, we keep the GSS status in a separate struct, that
- * is only filled in if GSS is enabled.
+ * 对每个后端，我们把 GSS 状态放在单独结构体中，
+ * 仅在启用 GSS 时填充。
  *
- * All char arrays must be null-terminated.
+ * 所有 char 数组必须空字符结尾.
  */
 typedef struct PgBackendGSSStatus
 {
-	/* Information about GSSAPI connection */
-	char		gss_princ[NAMEDATALEN]; /* GSSAPI Principal used to auth */
-	bool		gss_auth;		/* If GSSAPI authentication was used */
-	bool		gss_enc;		/* If encryption is being used */
-	bool		gss_delegation; /* If credentials delegated */
+	/*  关于 GSSAPI 连接的信息  */
+	char		gss_princ[NAMEDATALEN]; /*  认证用 GSSAPI 主体  */
+	bool		gss_auth;		/*  若使用了 GSSAPI 认证  */
+	bool		gss_enc;		/*  若正在使用加密  */
+	bool		gss_delegation; /*  若委托了凭证  */
 
 } PgBackendGSSStatus;
 
@@ -114,36 +114,36 @@ typedef struct PgBackendStatus
 	 */
 	int			st_changecount;
 
-	/* The entry is valid iff st_procpid > 0, unused if st_procpid == 0 */
+	/*  条目在 st_procpid > 0 时有效，== 0 时未用  */
 	int			st_procpid;
 
-	/* Type of backends */
+	/*  后端类型  */
 	BackendType st_backendType;
 
-	/* Times when current backend, transaction, and activity started */
+	/*  当前后端、事务与活动开始的时刻  */
 	TimestampTz st_proc_start_timestamp;
 	TimestampTz st_xact_start_timestamp;
 	TimestampTz st_activity_start_timestamp;
 	TimestampTz st_state_start_timestamp;
 
-	/* Database OID, owning user's OID, connection client address */
+	/*  数据库 OID、属主用户 OID、连接客户端地址  */
 	Oid			st_databaseid;
 	Oid			st_userid;
 	SockAddr	st_clientaddr;
-	char	   *st_clienthostname;	/* MUST be null-terminated */
+	char	   *st_clienthostname;	/*  必须空字符结尾  */
 
-	/* Information about SSL connection */
+	/*  关于 SSL 连接的信息  */
 	bool		st_ssl;
 	PgBackendSSLStatus *st_sslstatus;
 
-	/* Information about GSSAPI connection */
+	/*  关于 GSSAPI 连接的信息  */
 	bool		st_gss;
 	PgBackendGSSStatus *st_gssstatus;
 
-	/* current state */
+	/*  当前状态 */
 	BackendState st_state;
 
-	/* application name; MUST be null-terminated */
+	/*  应用名；必须空字符结尾  */
 	char	   *st_appname;
 
 	/*
@@ -168,7 +168,7 @@ typedef struct PgBackendStatus
 	Oid			st_progress_command_target;
 	int64		st_progress_param[PGSTAT_NUM_PROGRESS_PARAM];
 
-	/* query identifier, optionally computed using post_parse_analyze_hook */
+	/*  查询标识，可选用 post_parse_analyze_hook 计算  */
 	uint64		st_query_id;
 } PgBackendStatus;
 
@@ -237,22 +237,22 @@ typedef struct PgBackendStatus
 /* ----------
  * LocalPgBackendStatus
  *
- * When we build the backend status array, we use LocalPgBackendStatus to be
- * able to add new values to the struct when needed without adding new fields
- * to the shared memory. It contains the backend status as a first member.
+ * 构建后端状态数组时用 LocalPgBackendStatus，以便在需
+ * 时向结构体加新值而无须给共享内存加新字段。其后端
+ * 状态作为第一个成员。
  * ----------
  */
 typedef struct LocalPgBackendStatus
 {
 	/*
-	 * Local version of the backend status entry.
+	 * 后端状态条目的本地版本。
 	 */
 	PgBackendStatus backendStatus;
 
 	/*
-	 * The backend ID.  For auxiliary processes, this will be set to a value
-	 * greater than MaxBackends (since auxiliary processes do not have proper
-	 * backend IDs).
+	 * 后端 ID。对辅助进程，该值会大于 MaxBackends（因辅助
+	 * 进程没有正规后端 ID）。
+	 * 见上。
 	 */
 	BackendId	backend_id;
 
@@ -269,20 +269,20 @@ typedef struct LocalPgBackendStatus
 	TransactionId backend_xmin;
 
 	/*
-	 * Number of cached subtransactions in the current session.
+	 * 当前会话中已缓存子事务的个数。
 	 */
 	int			backend_subxact_count;
 
 	/*
-	 * The number of subtransactions in the current session which exceeded the
-	 * cached subtransaction limit.
+	 * 当前会话中超出缓存子事务上限的
+	 * 子事务个数。
 	 */
 	bool		backend_subxact_overflowed;
 } LocalPgBackendStatus;
 
 
 /* ----------
- * GUC parameters
+ * GUC 参数
  * ----------
  */
 extern PGDLLIMPORT bool pgstat_track_activities;
@@ -290,14 +290,14 @@ extern PGDLLIMPORT int pgstat_track_activity_query_size;
 
 
 /* ----------
- * Other global variables
+ * 其他全局变量
  * ----------
  */
 extern PGDLLIMPORT PgBackendStatus *MyBEEntry;
 
 
 /* ----------
- * Functions called from postmaster
+ * 由 postmaster 调用的函数
  * ----------
  */
 extern Size BackendStatusShmemSize(void);
@@ -305,17 +305,17 @@ extern void CreateSharedBackendStatus(void);
 
 
 /* ----------
- * Functions called from backends
+ * 由后端调用的函数
  * ----------
  */
 
-/* Initialization functions */
+/*  初始化函数  */
 extern void pgstat_beinit(void);
 extern void pgstat_bestart(void);
 
 extern void pgstat_clear_backend_activity_snapshot(void);
 
-/* Activity reporting functions */
+/*  活动报告函数  */
 extern void pgstat_report_activity(BackendState state, const char *cmd_str);
 extern void pgstat_report_query_id(uint64 query_id, bool force);
 extern void pgstat_report_tempfile(size_t filesize);

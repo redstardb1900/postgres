@@ -1,0 +1,61 @@
+{
+    "schema_version": 1,
+    "batch_id": "batch-0572",
+    "title": "include/utils backend_status — batch 0572",
+    "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+    "parent_commit": "72857e9cb7ceae9446c7247fde480bc4eedf9a3c",
+    "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+    "require_file_entries": true,
+    "allowed_paths": [
+        {
+            "pattern": "src/include/utils/backend_status.h",
+            "kind": "c_comment",
+            "note": "0572"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/batch-0572-utils.json",
+            "kind": "manifest",
+            "note": "0572"
+        },
+        {
+            "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "note": "append"
+        }
+    ],
+    "files": [
+        {
+            "path": "src/include/utils/backend_status.h",
+            "kind": "c_comment",
+            "action": "modify",
+            "segments_total": 130,
+            "translated": 44,
+            "preserved": 86,
+            "preserved_reasons": [
+                "版权/横幅/头卫 KEEP；changecount/进度/写屏障等长文整块 KEEP EN"
+            ],
+            "note": "0572 T=44"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/batch-0572-utils.json",
+            "kind": "manifest",
+            "action": "add",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "0572"
+        },
+        {
+            "path": "src/tools/zh-tools/manifests/cumulative.json",
+            "kind": "manifest",
+            "action": "modify",
+            "segments_total": 0,
+            "translated": 0,
+            "preserved": 0,
+            "preserved_reasons": [],
+            "note": "append 0572"
+        }
+    ],
+    "notes": "短注已译；长协议/进度/屏障叙述整块 KEEP EN 避 MIXED"
+}

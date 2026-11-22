@@ -10361,6 +10361,151 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0567-utils.json",
    "kind": "manifest",
    "note": "0567"
+  },
+  {
+   "pattern": "src/include/utils/attoptcache.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/backend_progress.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/bytea.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/cash.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/combocid.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/conffiles.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/dynahash.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/evtcache.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/formatting.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/help_config.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/index_selfuncs.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/inval.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/json.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/jsonfuncs.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/pg_lsn.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/pg_rusage.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/ps_status.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/regproc.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/relfilenumbermap.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/relmapper.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/ruleutils.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/sharedtuplestore.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/spccache.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/usercontext.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/uuid.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/varlena.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/xid8.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/include/utils/xml.h",
+   "kind": "c_comment",
+   "note": "0568"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0568-utils.json",
+   "kind": "manifest",
+   "note": "0568"
   }
  ],
  "files": [
@@ -33761,6 +33906,352 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0567"
+  },
+  {
+   "path": "src/include/utils/attoptcache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 3,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=3"
+  },
+  {
+   "path": "src/include/utils/backend_progress.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 5,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=5"
+  },
+  {
+   "path": "src/include/utils/bytea.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 2,
+   "preserved": 8,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=2"
+  },
+  {
+   "path": "src/include/utils/cash.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 1,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/combocid.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 4,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=4"
+  },
+  {
+   "path": "src/include/utils/conffiles.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 2,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=2"
+  },
+  {
+   "path": "src/include/utils/dynahash.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 1,
+   "preserved": 8,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/evtcache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 3,
+   "preserved": 9,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=3"
+  },
+  {
+   "path": "src/include/utils/formatting.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 2,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=2"
+  },
+  {
+   "path": "src/include/utils/help_config.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 1,
+   "preserved": 5,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/index_selfuncs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 6,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=6"
+  },
+  {
+   "path": "src/include/utils/inval.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 1,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/json.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 2,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=2"
+  },
+  {
+   "path": "src/include/utils/jsonfuncs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 9,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=9"
+  },
+  {
+   "path": "src/include/utils/pg_lsn.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 2,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=2"
+  },
+  {
+   "path": "src/include/utils/pg_rusage.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 2,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=2"
+  },
+  {
+   "path": "src/include/utils/ps_status.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 5,
+   "preserved": 5,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=5"
+  },
+  {
+   "path": "src/include/utils/regproc.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 7,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=7"
+  },
+  {
+   "path": "src/include/utils/relfilenumbermap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 1,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/relmapper.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 5,
+   "preserved": 9,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=5"
+  },
+  {
+   "path": "src/include/utils/ruleutils.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 4,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=4"
+  },
+  {
+   "path": "src/include/utils/sharedtuplestore.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 3,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=3"
+  },
+  {
+   "path": "src/include/utils/spccache.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 1,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/usercontext.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 4,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=4"
+  },
+  {
+   "path": "src/include/utils/uuid.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 5,
+   "preserved": 5,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=5"
+  },
+  {
+   "path": "src/include/utils/varlena.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 1,
+   "preserved": 6,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/xid8.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 1,
+   "preserved": 5,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=1"
+  },
+  {
+   "path": "src/include/utils/xml.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 8,
+   "preserved": 7,
+   "preserved_reasons": [
+    "版权/横幅/头卫/作者 KEEP；局部超预算或避 MIXED KEEP EN"
+   ],
+   "note": "0568 T=8"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0568-utils.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0568"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * evtcache.h
- *	  Special-purpose cache for event trigger data.
+ *	  事件触发器数据的专用缓存。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,9 +27,9 @@ typedef enum
 
 typedef struct
 {
-	Oid			fnoid;			/* function to be called */
+	Oid			fnoid;			/*  要调用的函数  */
 	char		enabled;		/* as SESSION_REPLICATION_ROLE_* */
-	Bitmapset  *tagset;			/* command tags, or NULL if empty */
+	Bitmapset  *tagset;			/*  命令标签；空则 NULL  */
 } EventTriggerCacheItem;
 
 extern List *EventCacheLookup(EventTriggerEvent event);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xml.h
- *	  Declarations for XML data type support.
+ *	  XML 数据类型支持声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -38,13 +38,13 @@ typedef enum
 
 typedef enum
 {
-	PG_XML_STRICTNESS_LEGACY,	/* ignore errors unless function result
-								 * indicates error condition */
-	PG_XML_STRICTNESS_WELLFORMED,	/* ignore non-parser messages */
-	PG_XML_STRICTNESS_ALL		/* report all notices/warnings/errors */
+	PG_XML_STRICTNESS_LEGACY,	/*  忽略错误，除非函数结果
+								 * 表明出错条件  */
+	PG_XML_STRICTNESS_WELLFORMED,	/*  忽略非解析器消息  */
+	PG_XML_STRICTNESS_ALL		/*  报告全部通知/警告/错误  */
 } PgXmlStrictness;
 
-/* struct PgXmlErrorContext is private to xml.c */
+/*  PgXmlErrorContext 为 xml.c 私有  */
 typedef struct PgXmlErrorContext PgXmlErrorContext;
 
 static inline xmltype *
@@ -85,9 +85,9 @@ extern char *map_sql_identifier_to_xml_name(const char *ident, bool fully_escape
 extern char *map_xml_name_to_sql_identifier(const char *name);
 extern char *map_sql_value_to_xml_value(Datum value, Oid type, bool xml_escape_strings);
 
-extern PGDLLIMPORT int xmlbinary;	/* XmlBinaryType, but int for guc enum */
+extern PGDLLIMPORT int xmlbinary;	/*  XmlBinaryType，guc 枚举用 int  */
 
-extern PGDLLIMPORT int xmloption;	/* XmlOptionType, but int for guc enum */
+extern PGDLLIMPORT int xmloption;	/*  XmlOptionType，guc 枚举用 int  */
 
 extern PGDLLIMPORT const TableFuncRoutine XmlTableRoutine;
 

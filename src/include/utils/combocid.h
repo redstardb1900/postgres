@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * combocid.h
- *	  Combo command ID support routines
+ *	  组合命令 ID 支持例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -15,9 +15,9 @@
 #define COMBOCID_H
 
 /*
- * HeapTupleHeaderGetCmin and HeapTupleHeaderGetCmax function prototypes
- * are in access/htup.h, because that's where the macro definitions that
- * those functions replaced used to be.
+ * HeapTupleHeaderGetCmin 与 HeapTupleHeaderGetCmax 的函数原型
+ * 在 access/htup.h，因被其取代的宏定义原先就在
+ * 那里。
  */
 
 extern void AtEOXact_ComboCid(void);

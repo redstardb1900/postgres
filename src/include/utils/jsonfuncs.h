@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonfuncs.h
- *	  Functions to process JSON data types.
+ *	  处理 JSON 数据类型的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,8 +18,8 @@
 #include "utils/jsonb.h"
 
 /*
- * Flag types for iterate_json(b)_values to specify what elements from a
- * json(b) document we want to iterate.
+ * iterate_json(b)_values 的标志类型，用以指定要从
+ * json(b) 文档迭代哪些元素。
  */
 typedef enum JsonToIndex
 {
@@ -30,27 +30,27 @@ typedef enum JsonToIndex
 	jtiAll = jtiKey | jtiString | jtiNumeric | jtiBool
 } JsonToIndex;
 
-/* an action that will be applied to each value in iterate_json(b)_values functions */
+/*  将作用于 iterate_json(b)_values 中每个值的动作  */
 typedef void (*JsonIterateStringValuesAction) (void *state, char *elem_value, int elem_len);
 
-/* an action that will be applied to each value in transform_json(b)_values functions */
+/*  将作用于 transform_json(b)_values 中每个值的动作  */
 typedef text *(*JsonTransformStringValuesAction) (void *state, char *elem_value, int elem_len);
 
-/* build a JsonLexContext from a text datum */
+/*  自文本构建 JsonLexContext  */
 extern JsonLexContext *makeJsonLexContext(text *json, bool need_escapes);
 
-/* try to parse json, and errsave(escontext) on failure */
+/*  尝试解析 json，失败则 errsave(escontext)  */
 extern bool pg_parse_json_or_errsave(JsonLexContext *lex, JsonSemAction *sem,
 									 struct Node *escontext);
 
 #define pg_parse_json_or_ereport(lex, sem) \
 	(void) pg_parse_json_or_errsave(lex, sem, NULL)
 
-/* save an error during json lexing or parsing */
+/*  保存 json 词法/解析错误  */
 extern void json_errsave_error(JsonParseErrorType error, JsonLexContext *lex,
 							   struct Node *escontext);
 
-/* get first JSON token */
+/*  取首 JSON 词元  */
 extern JsonTokenType json_get_first_token(text *json, bool throw_error);
 
 extern uint32 parse_jsonb_index_flags(Jsonb *jb);

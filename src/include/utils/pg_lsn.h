@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * pg_lsn.h
- *		Declarations for operations on log sequence numbers (LSNs) of
- *		PostgreSQL.
+ *		对日志序列号（LSNs）相关运算的
+ *		声明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

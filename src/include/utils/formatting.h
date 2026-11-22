@@ -6,8 +6,8 @@
  *
  *	 Portions Copyright (c) 1999-2023, PostgreSQL Global Development Group
  *
- *	 The PostgreSQL routines for a DateTime/int/float/numeric formatting,
- *	 inspired by the Oracle TO_CHAR() / TO_DATE() / TO_NUMBER() routines.
+ *	 PostgreSQL 的 DateTime/整型/浮点/数值格式化例程，
+ *	 受 Oracle 的 TO_CHAR/TO_DATE/TO_NUMBER 例程启发。
  *
  *	 Karel Zak
  *

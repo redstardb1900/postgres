@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * index_selfuncs.h
- *	  Index cost estimation functions for standard index access methods.
+ *	  标准索引访问方法的索引代价估计函数。
  *
  *
- * Note: this is split out of selfuncs.h mainly to avoid importing all of the
- * planner's data structures into the non-planner parts of the index AMs.
- * If you make it depend on anything besides access/amapi.h, that's likely
- * a mistake.
+ * 注意：自 selfuncs.h 拆出，主要为避免把规划器的全部
+ * 数据结构引入索引 AM 的非规划器部分。
+ * 若再依赖 access/amapi.h 以外之物，多半是
+ * 弄错。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -21,7 +21,7 @@
 
 #include "access/amapi.h"
 
-/* Functions in selfuncs.c */
+/*  selfuncs.c 中函数  */
 extern void brincostestimate(struct PlannerInfo *root,
 							 struct IndexPath *path,
 							 double loop_count,

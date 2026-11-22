@@ -1,10 +1,10 @@
 /* ----------
  * backend_progress.h
- *	  Command progress reporting definition.
+ *	  命令进度报告定义。
  *
- * Note that this file provides the infrastructure for storing a single
- * backend's command progress counters, without ascribing meaning to the
- * individual fields. See commands/progress.h and system_views.sql for that.
+ * 注意：本文件提供存储单个后端命令进度计数器的
+ * 基础设施，不为各字段赋予含义。含义见
+ * commands/progress.h 与 system_views.sql。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -16,7 +16,7 @@
 
 
 /* ----------
- * Command type for progress reporting purposes
+ * 用于进度报告的命令类型
  * ----------
  */
 typedef enum ProgressCommandType

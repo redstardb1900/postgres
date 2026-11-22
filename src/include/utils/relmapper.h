@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * relmapper.h
- *	  Catalog-to-filenumber mapping
+ *	  目录到文件号的映射
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 #include "lib/stringinfo.h"
 
 /* ----------------
- *		relmap-related XLOG entries
+ *		relmap 相关 XLOG 记录
  * ----------------
  */
 
@@ -26,9 +26,9 @@
 
 typedef struct xl_relmap_update
 {
-	Oid			dbid;			/* database ID, or 0 for shared map */
-	Oid			tsid;			/* database's tablespace, or pg_global */
-	int32		nbytes;			/* size of relmap data */
+	Oid			dbid;			/*  库 ID，共享映射为 0  */
+	Oid			tsid;			/*  库的表空间，或 pg_global  */
+	int32		nbytes;			/*  relmap 数据长  */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } xl_relmap_update;
 

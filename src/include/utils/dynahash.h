@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dynahash.h
- *	  POSTGRES dynahash.h file definitions
+ *	  POSTGRES dynahash.h 文件定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

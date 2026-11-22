@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ruleutils.h
- *		Declarations for ruleutils.c
+ *		ruleutils.c 的声明
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -17,12 +17,12 @@
 #include "nodes/parsenodes.h"
 #include "nodes/pg_list.h"
 
-struct Plan;					/* avoid including plannodes.h here */
+struct Plan;					/*  避免在此包含 plannodes.h  */
 struct PlannedStmt;
 
-/* Flags for pg_get_indexdef_columns_extended() */
+/*  pg_get_indexdef_columns_extended 标志  */
 #define RULE_INDEXDEF_PRETTY		0x01
-#define RULE_INDEXDEF_KEYS_ONLY		0x02	/* ignore included attributes */
+#define RULE_INDEXDEF_KEYS_ONLY		0x02	/*  忽略 INCLUDE 属性  */
 
 extern char *pg_get_indexdef_string(Oid indexrelid);
 extern char *pg_get_indexdef_columns(Oid indexrelid, bool pretty);

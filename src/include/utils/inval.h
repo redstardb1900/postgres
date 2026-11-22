@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * inval.h
- *	  POSTGRES cache invalidation dispatcher definitions.
+ *	  POSTGRES 缓存失效分发器定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

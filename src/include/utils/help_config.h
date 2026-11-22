@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * help_config.h
- *		Interface to the --help-config option of main.c
+ *		main.c 的 --help-config 选项接口
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *

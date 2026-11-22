@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * varlena.h
- *	  Functions for the variable-length built-in types.
+ *	  变长内建类型的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

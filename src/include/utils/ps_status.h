@@ -2,7 +2,7 @@
  *
  * ps_status.h
  *
- * Declarations for backend/utils/misc/ps_status.c
+ * backend/utils/misc/ps_status.c 的声明
  *
  * src/include/utils/ps_status.h
  *
@@ -12,7 +12,7 @@
 #ifndef PS_STATUS_H
 #define PS_STATUS_H
 
-/* disabled on Windows as the performance overhead can be significant */
+/*  Windows 上禁用，因性能开销可能很大  */
 #ifdef WIN32
 #define DEFAULT_UPDATE_PROCESS_TITLE false
 #else
@@ -33,8 +33,8 @@ extern void set_ps_display_with_len(const char *activity, size_t len);
 
 /*
  * set_ps_display
- *		inlined to allow strlen to be evaluated during compilation when
- *		passing string constants.
+ *		内联以便在传入字符串常量时于编译期
+ *		求值 strlen。
  */
 static inline void
 set_ps_display(const char *activity)

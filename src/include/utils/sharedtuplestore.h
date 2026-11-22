@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sharedtuplestore.h
- *	  Simple mechanism for sharing tuples between backends.
+ *	  在后端间共享元组的简易机制。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -24,8 +24,8 @@ struct SharedTuplestoreAccessor;
 typedef struct SharedTuplestoreAccessor SharedTuplestoreAccessor;
 
 /*
- * A flag indicating that the tuplestore will only be scanned once, so backing
- * files can be unlinked early.
+ * 标志：该元组存储只会扫描一次，故后备
+ * 文件可提早 unlink。
  */
 #define SHARED_TUPLESTORE_SINGLE_PASS 0x01
 

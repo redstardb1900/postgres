@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * usercontext.h
- *	  Convenience functions for running code as a different database user.
+ *	  以便以另一数据库用户身份运行代码的便利函数。
  *
  *-------------------------------------------------------------------------
  */
@@ -9,8 +9,8 @@
 #define USERCONTEXT_H
 
 /*
- * When temporarily changing to run as a different user, this structure
- * holds the details needed to restore the original state.
+ * 临时改为以另一用户运行时，本结构保存
+ * 恢复原状态所需的细节。
  */
 typedef struct UserContext
 {
@@ -19,7 +19,7 @@ typedef struct UserContext
 	int			save_nestlevel;
 } UserContext;
 
-/* Function prototypes. */
+/*  函数原型。  */
 extern void SwitchToUntrustedUser(Oid userid, UserContext *context);
 extern void RestoreUserContext(UserContext *context);
 

@@ -16,7 +16,7 @@
 
 typedef int64 Cash;
 
-/* Cash is pass-by-reference if and only if int64 is */
+/*  Cash 仅当 int64 按引用传递时亦然  */
 static inline Cash
 DatumGetCash(Datum X)
 {

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_rusage.h
- *	  header file for resource usage measurement support routines
+ *	  资源用量测量支持例程的头文件
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,7 +18,7 @@
 #include <sys/time.h>
 
 
-/* State structure for pg_rusage_init/pg_rusage_show */
+/*  pg_rusage_init/pg_rusage_show 的状态结构  */
 typedef struct PGRUsage
 {
 	struct timeval tv;

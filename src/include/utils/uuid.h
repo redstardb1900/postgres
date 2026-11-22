@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * uuid.h
- *	  Header file for the "uuid" ADT. In C, we use the name pg_uuid_t,
- *	  to avoid conflicts with any uuid_t type that might be defined by
- *	  the system headers.
+ *	  uuid ADT 头文件。在 C 中用名 pg_uuid_t，
+ *	  以免与系统头中可能定义的 uuid_t 类型冲突。
+ *	  见上。
  *
  * Copyright (c) 2007-2023, PostgreSQL Global Development Group
  *
@@ -14,7 +14,7 @@
 #ifndef UUID_H
 #define UUID_H
 
-/* uuid size in bytes */
+/*  uuid 字节数  */
 #define UUID_LEN 16
 
 typedef struct pg_uuid_t
@@ -22,7 +22,7 @@ typedef struct pg_uuid_t
 	unsigned char data[UUID_LEN];
 } pg_uuid_t;
 
-/* fmgr interface macros */
+/*  fmgr 接口宏  */
 static inline Datum
 UUIDPGetDatum(const pg_uuid_t *X)
 {

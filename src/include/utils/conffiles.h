@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------
  * conffiles.h
  *
- * Utilities related to configuration files.
+ * 与配置文件相关的实用工具。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,7 +13,7 @@
 #ifndef CONFFILES_H
 #define CONFFILES_H
 
-/* recursion nesting depth for configuration files */
+/*  配置文件的递归嵌套深度  */
 #define CONF_FILE_START_DEPTH	0
 #define CONF_FILE_MAX_DEPTH		10
 

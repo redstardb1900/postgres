@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xid8.h
- *	  Header file for the "xid8" ADT.
+ *	  xid8 ADT 的头文件。
  *
  * Copyright (c) 2020-2023, PostgreSQL Global Development Group
  *

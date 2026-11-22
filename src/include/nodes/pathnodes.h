@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * pathnodes.h
- *	  Definitions for planner's internal data structures, especially Paths.
+ *	规划器内部数据结构的定义,尤其是 Paths。
  *
- * We don't support copying RelOptInfo, IndexOptInfo, or Path nodes.
- * There are some subsidiary structs that are useful to copy, though.
+ * 不支持拷贝 RelOptInfo、IndexOptInfo 或 Path 节点。
+ * 不过有些附属结构仍值得拷贝。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -25,13 +25,13 @@
 
 /*
  * Relids
- *		Set of relation identifiers (indexes into the rangetable).
+ *	关系标识符集合(范围表下标)。
  */
 typedef Bitmapset *Relids;
 
 /*
- * When looking for a "cheapest path", this enum specifies whether we want
- * cheapest startup cost or cheapest total cost.
+ * 寻找"最廉价路径"时,本枚举指定我们要的是
+ * 最低启动代价或最低总代价。
  */
 typedef enum CostSelector
 {
@@ -39,57 +39,57 @@ typedef enum CostSelector
 } CostSelector;
 
 /*
- * The cost estimate produced by cost_qual_eval() includes both a one-time
- * (startup) cost, and a per-tuple cost.
+ * cost_qual_eval() 给出的代价估计同时含一次性
+ * (启动)代价与每元组代价。
  */
 typedef struct QualCost
 {
-	Cost		startup;		/* one-time cost */
-	Cost		per_tuple;		/* per-evaluation cost */
+	Cost		startup;		/* 一次代价 */
+	Cost		per_tuple;		/* 每次求值代价 */
 } QualCost;
 
 /*
- * Costing aggregate function execution requires these statistics about
- * the aggregates to be executed by a given Agg node.  Note that the costs
- * include the execution costs of the aggregates' argument expressions as
- * well as the aggregate functions themselves.  Also, the fields must be
- * defined so that initializing the struct to zeroes with memset is correct.
+ * 估计聚合函数执行代价需要关于将由给定
+ * Agg 节点执行的聚合的这些统计。注意代价
+ * 包含聚合实参表达式的执行代价,以及
+ * 聚合函数本身。此外,字段必须如此定义,
+ * 使得用 memset 把结构初始化为零是正确的。
  */
 typedef struct AggClauseCosts
 {
-	QualCost	transCost;		/* total per-input-row execution costs */
-	QualCost	finalCost;		/* total per-aggregated-row costs */
-	Size		transitionSpace;	/* space for pass-by-ref transition data */
+	QualCost	transCost;		/* 每输入行总执行代价 */
+	QualCost	finalCost;		/* 每聚合行总代价 */
+	Size		transitionSpace;	/* 传引用转移数据所需空间 */
 } AggClauseCosts;
 
 /*
- * This enum identifies the different types of "upper" (post-scan/join)
- * relations that we might deal with during planning.
+ * 本枚举标识规划期间可能处理的各类"上层"
+ * (扫描/连接之后)关系。
  */
 typedef enum UpperRelationKind
 {
-	UPPERREL_SETOP,				/* result of UNION/INTERSECT/EXCEPT, if any */
-	UPPERREL_PARTIAL_GROUP_AGG, /* result of partial grouping/aggregation, if
-								 * any */
-	UPPERREL_GROUP_AGG,			/* result of grouping/aggregation, if any */
-	UPPERREL_WINDOW,			/* result of window functions, if any */
-	UPPERREL_PARTIAL_DISTINCT,	/* result of partial "SELECT DISTINCT", if any */
-	UPPERREL_DISTINCT,			/* result of "SELECT DISTINCT", if any */
-	UPPERREL_ORDERED,			/* result of ORDER BY, if any */
-	UPPERREL_FINAL				/* result of any remaining top-level actions */
-	/* NB: UPPERREL_FINAL must be last enum entry; it's used to size arrays */
+	UPPERREL_SETOP,				/* UNION/INTERSECT/EXCEPT 的结果(若有) */
+	UPPERREL_PARTIAL_GROUP_AGG, /* 部分分组/聚合的结果,若
+								 * 有 */
+	UPPERREL_GROUP_AGG,			/* 分组/聚合的结果(若有) */
+	UPPERREL_WINDOW,			/* 窗口函数的结果(若有) */
+	UPPERREL_PARTIAL_DISTINCT,	/* 部分 SELECT DISTINCT 的结果(若有) */
+	UPPERREL_DISTINCT,			/* SELECT DISTINCT 的结果(若有) */
+	UPPERREL_ORDERED,			/* ORDER BY 的结果(若有) */
+	UPPERREL_FINAL				/* 其余顶层动作的结果 */
+	/* 注: UPPERREL_FINAL 须为末项;用于确定数组大小 */
 } UpperRelationKind;
 
 /*----------
  * PlannerGlobal
- *		Global information for planning/optimization
+ *	规划/优化的全局信息
  *
- * PlannerGlobal holds state for an entire planner invocation; this state
- * is shared across all levels of sub-Queries that exist in the command being
- * planned.
+ * PlannerGlobal 保存整次规划器调用的状态;此状态
+ * 在正被规划的命令中所有层级的子 Query 之间
+ * 共享.
  *
- * Not all fields are printed.  (In some cases, there is no print support for
- * the field type; in others, doing so would lead to infinite recursion.)
+ * 并非所有字段都会打印。(有时该字段类型无打印支持;
+ * 有时打印会导致无限递归。)
  *----------
  */
 typedef struct PlannerGlobal
@@ -98,90 +98,90 @@ typedef struct PlannerGlobal
 
 	NodeTag		type;
 
-	/* Param values provided to planner() */
+	/* 提供给 planner() 的 Param 值 */
 	ParamListInfo boundParams pg_node_attr(read_write_ignore);
 
-	/* Plans for SubPlan nodes */
+	/* SubPlan 节点的计划 */
 	List	   *subplans;
 
-	/* PlannerInfos for SubPlan nodes */
+	/* SubPlan 节点的 PlannerInfo */
 	List	   *subroots pg_node_attr(read_write_ignore);
 
-	/* indices of subplans that require REWIND */
+	/* 需要 REWIND 的子计划下标 */
 	Bitmapset  *rewindPlanIDs;
 
-	/* "flat" rangetable for executor */
+	/* 执行器用的扁平范围表 */
 	List	   *finalrtable;
 
-	/* "flat" list of RTEPermissionInfos */
+	/* RTEPermissionInfo 扁平列表 */
 	List	   *finalrteperminfos;
 
-	/* "flat" list of PlanRowMarks */
+	/* PlanRowMark 扁平列表 */
 	List	   *finalrowmarks;
 
-	/* "flat" list of integer RT indexes */
+	/* 整数 RT 下标的扁平列表 */
 	List	   *resultRelations;
 
-	/* "flat" list of AppendRelInfos */
+	/* AppendRelInfo 扁平列表 */
 	List	   *appendRelations;
 
-	/* OIDs of relations the plan depends on */
+	/* 计划所依赖关系的 OID */
 	List	   *relationOids;
 
-	/* other dependencies, as PlanInvalItems */
+	/* 其他依赖,以 PlanInvalItem 形式 */
 	List	   *invalItems;
 
-	/* type OIDs for PARAM_EXEC Params */
+	/* PARAM_EXEC Param 的类型 OID */
 	List	   *paramExecTypes;
 
-	/* highest PlaceHolderVar ID assigned */
+	/* 已赋最高 PlaceHolderVar ID */
 	Index		lastPHId;
 
-	/* highest PlanRowMark ID assigned */
+	/* 已赋最高 PlanRowMark ID */
 	Index		lastRowMarkId;
 
-	/* highest plan node ID assigned */
+	/* 已赋最高计划节点 ID */
 	int			lastPlanNodeId;
 
-	/* redo plan when TransactionXmin changes? */
+	/* TransactionXmin 变化时重做计划? */
 	bool		transientPlan;
 
-	/* is plan specific to current role? */
+	/* 计划是否专属当前角色? */
 	bool		dependsOnRole;
 
-	/* parallel mode potentially OK? */
+	/* 并行模式潜在可用? */
 	bool		parallelModeOK;
 
-	/* parallel mode actually required? */
+	/* 实际需要并行模式? */
 	bool		parallelModeNeeded;
 
-	/* worst PROPARALLEL hazard level */
+	/* 最差 PROPARALLEL 危害级 */
 	char		maxParallelHazard;
 
-	/* partition descriptors */
+	/* 分区描述符 */
 	PartitionDirectory partition_directory pg_node_attr(read_write_ignore);
 } PlannerGlobal;
 
-/* macro for fetching the Plan associated with a SubPlan node */
+/* 取与 SubPlan 节点关联的 Plan 的宏 */
 #define planner_subplan_get_plan(root, subplan) \
 	((Plan *) list_nth((root)->glob->subplans, (subplan)->plan_id - 1))
 
 
 /*----------
  * PlannerInfo
- *		Per-query information for planning/optimization
+ *	规划/优化的每查询信息
  *
- * This struct is conventionally called "root" in all the planner routines.
- * It holds links to all of the planner's working state, in addition to the
- * original Query.  Note that at present the planner extensively modifies
- * the passed-in Query data structure; someday that should stop.
+ * 本结构在全部规划器例程中习惯称为 "root"。
+ * 它保存规划器全部工作状态的链接,以及
+ * 原始 Query。注意当前规划器会大量修改
+ * 传入的 Query 数据结构;将来应停止这样做。
  *
- * For reasons explained in optimizer/optimizer.h, we define the typedef
- * either here or in that header, whichever is read first.
+ * 出于 optimizer/optimizer.h 中所述原因,typedef
+ * 在此处或该头中定义,以先读到的为准。
  *
- * Not all fields are printed.  (In some cases, there is no print support for
- * the field type; in others, doing so would lead to infinite recursion or
- * bloat dump output more than seems useful.)
+ * 并非所有字段都会打印。(有时该字段类型无打印支持;
+ * 有时打印会导致无限递归或
+ * 倾印输出臃肿得不值得。)
  *----------
  */
 #ifndef HAVE_PLANNERINFO_TYPEDEF
@@ -195,394 +195,394 @@ struct PlannerInfo
 
 	NodeTag		type;
 
-	/* the Query being planned */
+	/* 正在规划的 Query */
 	Query	   *parse;
 
-	/* global info for current planner run */
+	/* 当前规划器运行全局信息 */
 	PlannerGlobal *glob;
 
-	/* 1 at the outermost Query */
+	/* 最外层 Query 为 1 */
 	Index		query_level;
 
-	/* NULL at outermost Query */
+	/* 最外层为 NULL */
 	PlannerInfo *parent_root pg_node_attr(read_write_ignore);
 
 	/*
-	 * plan_params contains the expressions that this query level needs to
-	 * make available to a lower query level that is currently being planned.
-	 * outer_params contains the paramIds of PARAM_EXEC Params that outer
-	 * query levels will make available to this query level.
+	 * plan_params 含本查询层需提供给
+	 * 当前正在规划的下层查询的表达式。
+	 * outer_params 含外层查询将提供给本层的
+	 * PARAM_EXEC Param 的 paramId。
 	 */
-	/* list of PlannerParamItems, see below */
+	/* PlannerParamItem 列表,见下 */
 	List	   *plan_params;
 	Bitmapset  *outer_params;
 
 	/*
-	 * simple_rel_array holds pointers to "base rels" and "other rels" (see
-	 * comments for RelOptInfo for more info).  It is indexed by rangetable
-	 * index (so entry 0 is always wasted).  Entries can be NULL when an RTE
-	 * does not correspond to a base relation, such as a join RTE or an
-	 * unreferenced view RTE; or if the RelOptInfo hasn't been made yet.
+	 * simple_rel_array 保存"基关系"与"其他关系"指针(详见
+	 * RelOptInfo 注释)。按下标索引到范围表
+	 * (故项 0 总是浪费的)。当 RTE 不对应基关系时可
+	 * 为 NULL,例如连接 RTE 或未引用的视图 RTE;
+	 * 或尚未创建 RelOptInfo 时。
 	 */
 	struct RelOptInfo **simple_rel_array pg_node_attr(array_size(simple_rel_array_size));
-	/* allocated size of array */
+	/* 数组已分配大小 */
 	int			simple_rel_array_size;
 
 	/*
-	 * simple_rte_array is the same length as simple_rel_array and holds
-	 * pointers to the associated rangetable entries.  Using this is a shade
-	 * faster than using rt_fetch(), mostly due to fewer indirections.  (Not
-	 * printed because it'd be redundant with parse->rtable.)
+	 * simple_rte_array 与 simple_rel_array 等长,保存
+	 * 指向关联范围表项的指针。用它比 rt_fetch()
+	 * 稍快,主要因间接层次更少。(不打印,因与
+	 * parse->rtable 重复。)
 	 */
 	RangeTblEntry **simple_rte_array pg_node_attr(read_write_ignore);
 
 	/*
-	 * append_rel_array is the same length as the above arrays, and holds
-	 * pointers to the corresponding AppendRelInfo entry indexed by
-	 * child_relid, or NULL if the rel is not an appendrel child.  The array
-	 * itself is not allocated if append_rel_list is empty.  (Not printed
-	 * because it'd be redundant with append_rel_list.)
+	 * append_rel_array 与上述数组等长,保存按
+	 * child_relid 索引的对应 AppendRelInfo 指针,
+	 * 若该关系不是 appendrel 子项则为 NULL。若
+	 * append_rel_list 为空则不分配本数组。(不打印,
+	 * 因与 append_rel_list 重复。)
 	 */
 	struct AppendRelInfo **append_rel_array pg_node_attr(read_write_ignore);
 
 	/*
-	 * all_baserels is a Relids set of all base relids (but not joins or
-	 * "other" rels) in the query.  This is computed in deconstruct_jointree.
+	 * all_baserels 是查询中全部基 relid 的 Relids 集合(不含
+	 * 连接或"其他"关系)。在 deconstruct_jointree 中计算。
 	 */
 	Relids		all_baserels;
 
 	/*
-	 * outer_join_rels is a Relids set of all outer-join relids in the query.
-	 * This is computed in deconstruct_jointree.
+	 * outer_join_rels 是查询中全部外连接 relid 的 Relids 集合。
+	 * 在 deconstruct_jointree 中计算。
 	 */
 	Relids		outer_join_rels;
 
 	/*
-	 * all_query_rels is a Relids set of all base relids and outer join relids
-	 * (but not "other" relids) in the query.  This is the Relids identifier
-	 * of the final join we need to form.  This is computed in
+	 * all_query_rels 是全部基 relid 与外连接 relid 的 Relids
+	 * 集合(不含"其他" relid)。这是最终须形成的连接的
+	 * Relids 标识。在
 	 * deconstruct_jointree.
 	 */
 	Relids		all_query_rels;
 
 	/*
-	 * join_rel_list is a list of all join-relation RelOptInfos we have
-	 * considered in this planning run.  For small problems we just scan the
-	 * list to do lookups, but when there are many join relations we build a
-	 * hash table for faster lookups.  The hash table is present and valid
-	 * when join_rel_hash is not NULL.  Note that we still maintain the list
-	 * even when using the hash table for lookups; this simplifies life for
+	 * join_rel_list 是本规划运行中已考虑的全部
+	 * 连接关系 RelOptInfo 的列表。小问题只扫列表
+	 * 查找;连接关系很多时则建哈希表加速查找。
+	 * 当 join_rel_hash 非 NULL 时哈希表存在且有效。
+	 * 注意即使使用哈希表查找仍维护该列表;这简化了
+	 * 面向
 	 * GEQO.
 	 */
 	List	   *join_rel_list;
 	struct HTAB *join_rel_hash pg_node_attr(read_write_ignore);
 
 	/*
-	 * When doing a dynamic-programming-style join search, join_rel_level[k]
-	 * is a list of all join-relation RelOptInfos of level k, and
-	 * join_cur_level is the current level.  New join-relation RelOptInfos are
-	 * automatically added to the join_rel_level[join_cur_level] list.
-	 * join_rel_level is NULL if not in use.
+	 * 做动态规划式连接搜索时,join_rel_level[k]
+	 * 是级别 k 的全部连接关系 RelOptInfo 列表,而
+	 * join_cur_level 是当前级别。新的连接关系 RelOptInfo
+	 * 会自动加入 join_rel_level[join_cur_level] 列表。
+	 * 未用时 join_rel_level 为 NULL。
 	 *
-	 * Note: we've already printed all baserel and joinrel RelOptInfos above,
-	 * so we don't dump join_rel_level or other lists of RelOptInfos.
+	 * 注:上方已打印全部基关系与连接关系 RelOptInfo,
+	 * 故不倾印 join_rel_level 或其他 RelOptInfo 列表。
 	 */
-	/* lists of join-relation RelOptInfos */
+	/* 连接关系 RelOptInfo 的列表 */
 	List	  **join_rel_level pg_node_attr(read_write_ignore);
-	/* index of list being extended */
+	/* 正在扩展的列表下标 */
 	int			join_cur_level;
 
-	/* init SubPlans for query */
+	/* 查询的 init SubPlan */
 	List	   *init_plans;
 
 	/*
-	 * per-CTE-item list of subplan IDs (or -1 if no subplan was made for that
+	 * 每 CTE 项的子计划 ID 列表(未建子计划则为 -1,对该
 	 * CTE)
 	 */
 	List	   *cte_plan_ids;
 
-	/* List of Lists of Params for MULTIEXPR subquery outputs */
+	/* MULTIEXPR 子查询输出的 Params 的列表之列表 */
 	List	   *multiexpr_params;
 
-	/* list of JoinDomains used in the query (higher ones first) */
+	/* 查询中所用 JoinDomain 列表(高层在前) */
 	List	   *join_domains;
 
-	/* list of active EquivalenceClasses */
+	/* 活动 EquivalenceClass 列表 */
 	List	   *eq_classes;
 
-	/* set true once ECs are canonical */
+	/* EC 规范化后置真 */
 	bool		ec_merging_done;
 
-	/* list of "canonical" PathKeys */
+	/* 规范 PathKeys 列表 */
 	List	   *canon_pathkeys;
 
 	/*
-	 * list of OuterJoinClauseInfos for mergejoinable outer join clauses
-	 * w/nonnullable var on left
+	 * 可归并外连接子句的 OuterJoinClauseInfo 列表
+	 * 左侧为非空 var
 	 */
 	List	   *left_join_clauses;
 
 	/*
-	 * list of OuterJoinClauseInfos for mergejoinable outer join clauses
-	 * w/nonnullable var on right
+	 * 可归并外连接子句的 OuterJoinClauseInfo 列表
+	 * 右侧为非空 var
 	 */
 	List	   *right_join_clauses;
 
 	/*
-	 * list of OuterJoinClauseInfos for mergejoinable full join clauses
+	 * 可归并全连接子句的 OuterJoinClauseInfo 列表
 	 */
 	List	   *full_join_clauses;
 
-	/* list of SpecialJoinInfos */
+	/* SpecialJoinInfo 列表 */
 	List	   *join_info_list;
 
-	/* counter for assigning RestrictInfo serial numbers */
+	/* 分配 RestrictInfo 序列号的计数器 */
 	int			last_rinfo_serial;
 
 	/*
-	 * all_result_relids is empty for SELECT, otherwise it contains at least
-	 * parse->resultRelation.  For UPDATE/DELETE/MERGE across an inheritance
-	 * or partitioning tree, the result rel's child relids are added.  When
-	 * using multi-level partitioning, intermediate partitioned rels are
-	 * included. leaf_result_relids is similar except that only actual result
-	 * tables, not partitioned tables, are included in it.
+	 * SELECT 时 all_result_relids 为空,否则至少含
+	 * parse->resultRelation。跨继承或分区树的
+	 * UPDATE/DELETE/MERGE 会加入结果关系的子 relid。
+	 * 多层分区时,中间分区关系也会
+	 * 列入。leaf_result_relids 类似,但只含真正结果表,
+	 * 不含分区表。
 	 */
-	/* set of all result relids */
+	/* 全部结果 relid 集 */
 	Relids		all_result_relids;
-	/* set of all leaf relids */
+	/* 全部叶子 relid 集 */
 	Relids		leaf_result_relids;
 
 	/*
-	 * list of AppendRelInfos
+	 * AppendRelInfo 列表
 	 *
-	 * Note: for AppendRelInfos describing partitions of a partitioned table,
-	 * we guarantee that partitions that come earlier in the partitioned
-	 * table's PartitionDesc will appear earlier in append_rel_list.
+	 * 注:对描述分区表之分区的 AppendRelInfo,
+	 * 我们保证 PartitionDesc 中靠前的分区在
+	 * append_rel_list 中也靠前出现。
 	 */
 	List	   *append_rel_list;
 
-	/* list of RowIdentityVarInfos */
+	/* RowIdentityVarInfo 列表 */
 	List	   *row_identity_vars;
 
-	/* list of PlanRowMarks */
+	/* PlanRowMark 列表 */
 	List	   *rowMarks;
 
-	/* list of PlaceHolderInfos */
+	/* PlaceHolderInfo 列表 */
 	List	   *placeholder_list;
 
-	/* array of PlaceHolderInfos indexed by phid */
+	/* 按 phid 索引的 PlaceHolderInfo 数组 */
 	struct PlaceHolderInfo **placeholder_array pg_node_attr(read_write_ignore, array_size(placeholder_array_size));
-	/* allocated size of array */
+	/* 数组已分配大小 */
 	int			placeholder_array_size pg_node_attr(read_write_ignore);
 
-	/* list of ForeignKeyOptInfos */
+	/* ForeignKeyOptInfo 列表 */
 	List	   *fkey_list;
 
-	/* desired pathkeys for query_planner() */
+	/* query_planner() 所需 pathkeys */
 	List	   *query_pathkeys;
 
-	/* groupClause pathkeys, if any */
+	/* groupClause pathkeys(若有) */
 	List	   *group_pathkeys;
 
 	/*
-	 * The number of elements in the group_pathkeys list which belong to the
-	 * GROUP BY clause.  Additional ones belong to ORDER BY / DISTINCT
-	 * aggregates.
+	 * group_pathkeys 列表中属于 GROUP BY 子句的
+	 * 元素个数。其余属于 ORDER BY / DISTINCT
+	 * 聚合。
 	 */
 	int			num_groupby_pathkeys;
 
-	/* pathkeys of bottom window, if any */
+	/* 底层窗口的 pathkeys(若有) */
 	List	   *window_pathkeys;
-	/* distinctClause pathkeys, if any */
+	/* distinctClause pathkeys(若有) */
 	List	   *distinct_pathkeys;
-	/* sortClause pathkeys, if any */
+	/* sortClause pathkeys(若有) */
 	List	   *sort_pathkeys;
 
-	/* Canonicalised partition schemes used in the query. */
+	/* 查询中所用的规范化分区方案。 */
 	List	   *part_schemes pg_node_attr(read_write_ignore);
 
-	/* RelOptInfos we are now trying to join */
+	/* 当前试图连接的 RelOptInfo */
 	List	   *initial_rels pg_node_attr(read_write_ignore);
 
 	/*
-	 * Upper-rel RelOptInfos. Use fetch_upper_rel() to get any particular
-	 * upper rel.
+	 * 上层关系 RelOptInfo。用 fetch_upper_rel() 取特定
+	 * 上层rel
 	 */
 	List	   *upper_rels[UPPERREL_FINAL + 1] pg_node_attr(read_write_ignore);
 
-	/* Result tlists chosen by grouping_planner for upper-stage processing */
+	/* grouping_planner 为上层处理所选的结果 tlist */
 	struct PathTarget *upper_targets[UPPERREL_FINAL + 1] pg_node_attr(read_write_ignore);
 
 	/*
-	 * The fully-processed groupClause is kept here.  It differs from
-	 * parse->groupClause in that we remove any items that we can prove
-	 * redundant, so that only the columns named here actually need to be
-	 * compared to determine grouping.  Note that it's possible for *all* the
-	 * items to be proven redundant, implying that there is only one group
-	 * containing all the query's rows.  Hence, if you want to check whether
-	 * GROUP BY was specified, test for nonempty parse->groupClause, not for
-	 * nonempty processed_groupClause.
+	 * 完整处理后的 groupClause 保存在此。它与
+	 * parse->groupClause 的差异是我们去掉可证明
+	 * 冗余的项,因而此处点名的列才真正需要比较
+	 * 以判定分组。注意可能*全部*项都被证明冗余,
+	 * 意味着只有一个组,包含查询全部行。故若要
+	 * 检查是否指定了 GROUP BY,应测 parse->groupClause
+	 * 是否非空,而非测
+	 * processed_groupClause 非空。
 	 *
-	 * Currently, when grouping sets are specified we do not attempt to
-	 * optimize the groupClause, so that processed_groupClause will be
-	 * identical to parse->groupClause.
+	 * 当前若指定了分组集,则不尝试优化
+	 * groupClause,故 processed_groupClause 将与
+	 * parse->groupClause 相同。
 	 */
 	List	   *processed_groupClause;
 
 	/*
-	 * The fully-processed distinctClause is kept here.  It differs from
-	 * parse->distinctClause in that we remove any items that we can prove
-	 * redundant, so that only the columns named here actually need to be
-	 * compared to determine uniqueness.  Note that it's possible for *all*
-	 * the items to be proven redundant, implying that there should be only
-	 * one output row.  Hence, if you want to check whether DISTINCT was
-	 * specified, test for nonempty parse->distinctClause, not for nonempty
+	 * 完整处理后的 distinctClause 保存在此。它与
+	 * parse->distinctClause 的差异是我们去掉可证明
+	 * 冗余的项,因而此处点名的列才真正需要比较
+	 * 以判定唯一性。注意可能*全部*项都被证明冗余,
+	 * 意味着应只有一行输出。故若要检查是否指定了
+	 * DISTINCT,应测 parse->distinctClause 是否非空,
+	 * 而非测非空的
 	 * processed_distinctClause.
 	 */
 	List	   *processed_distinctClause;
 
 	/*
-	 * The fully-processed targetlist is kept here.  It differs from
-	 * parse->targetList in that (for INSERT) it's been reordered to match the
-	 * target table, and defaults have been filled in.  Also, additional
-	 * resjunk targets may be present.  preprocess_targetlist() does most of
-	 * that work, but note that more resjunk targets can get added during
-	 * appendrel expansion.  (Hence, upper_targets mustn't get set up till
-	 * after that.)
+	 * 完整处理后的目标列表保存在此。它与
+	 * parse->targetList 的差异是(对 INSERT)已重排以匹配
+	 * 目标表,并填好缺省值。此外还可能有额外
+	 * resjunk 目标。preprocess_targetlist() 完成大部分
+	 * 工作,但注意 appendrel 展开期间还可再加
+	 * resjunk 目标。(故 upper_targets 须等到
+	 * 其后。)
 	 */
 	List	   *processed_tlist;
 
 	/*
-	 * For UPDATE, this list contains the target table's attribute numbers to
-	 * which the first N entries of processed_tlist are to be assigned.  (Any
-	 * additional entries in processed_tlist must be resjunk.)  DO NOT use the
-	 * resnos in processed_tlist to identify the UPDATE target columns.
+	 * 对 UPDATE,本列表含目标表属性号,processed_tlist
+	 * 前 N 项将赋给它们。(processed_tlist 中任何额外
+	 * 项必须是 resjunk。)不要用 processed_tlist 中的
+	 * resno 来识别 UPDATE 目标列。
 	 */
 	List	   *update_colnos;
 
 	/*
-	 * Fields filled during create_plan() for use in setrefs.c
+	 * create_plan() 填写、供 setrefs.c 用的字段
 	 */
-	/* for GroupingFunc fixup (can't print: array length not known here) */
+	/* 供 GroupingFunc 修补(不能打印:此处不知数组长度) */
 	AttrNumber *grouping_map pg_node_attr(read_write_ignore);
-	/* List of MinMaxAggInfos */
+	/* MinMaxAggInfo 列表 */
 	List	   *minmax_aggs;
 
 	/* context holding PlannerInfo */
 	MemoryContext planner_cxt pg_node_attr(read_write_ignore);
 
-	/* # of pages in all non-dummy tables of query */
+	/* 查询中全部非哑表的页数 */
 	Cardinality total_table_pages;
 
-	/* tuple_fraction passed to query_planner */
+	/* 交给 query_planner  tuple_fraction */
 	Selectivity tuple_fraction;
-	/* limit_tuples passed to query_planner */
+	/* 交给 query_planner  limit_tuples */
 	Cardinality limit_tuples;
 
 	/*
-	 * Minimum security_level for quals. Note: qual_security_level is zero if
-	 * there are no securityQuals.
+	 * 限定的最小 security_level。注:无 securityQuals 时
+	 * qual_security_level 为0.
 	 */
 	Index		qual_security_level;
 
-	/* true if any RTEs are RTE_JOIN kind */
+	/* 有 RTE 属 RTE_JOIN 类则为真 */
 	bool		hasJoinRTEs;
-	/* true if any RTEs are marked LATERAL */
+	/* 若有 RTE 标为 LATERAL 则为真 */
 	bool		hasLateralRTEs;
-	/* true if havingQual was non-null */
+	/* 若 havingQual 非空则为真 */
 	bool		hasHavingQual;
-	/* true if any RestrictInfo has pseudoconstant = true */
+	/* 有 RestrictInfo 的 pseudoconstant=真则为真 */
 	bool		hasPseudoConstantQuals;
-	/* true if we've made any of those */
+	/* 已做其中任一种则为真 */
 	bool		hasAlternativeSubPlans;
-	/* true once we're no longer allowed to add PlaceHolderInfos */
+	/* 一旦不再允许添加 PlaceHolderInfo 则为真 */
 	bool		placeholdersFrozen;
-	/* true if planning a recursive WITH item */
+	/* 若在规划递归 WITH 项则为真 */
 	bool		hasRecursion;
 
 	/*
-	 * Information about aggregates. Filled by preprocess_aggrefs().
+	 * 关于聚合的信息。由 preprocess_aggrefs() 填写。
 	 */
-	/* AggInfo structs */
+	/* AggInfo 结构 */
 	List	   *agginfos;
-	/* AggTransInfo structs */
+	/* AggTransInfo 结构 */
 	List	   *aggtransinfos;
-	/* number of aggs with DISTINCT/ORDER BY/WITHIN GROUP */
+	/* 带 DISTINCT/ORDER BY/WITHIN GROUP 的聚合数 */
 	int			numOrderedAggs;
-	/* does any agg not support partial mode? */
+	/* 是否有聚合不支持部分模式? */
 	bool		hasNonPartialAggs;
-	/* is any partial agg non-serializable? */
+	/* 有部分聚合不可序列化? */
 	bool		hasNonSerialAggs;
 
 	/*
-	 * These fields are used only when hasRecursion is true:
+	 * 下列字段仅在 hasRecursion 为真时使用:
 	 */
-	/* PARAM_EXEC ID for the work table */
+	/* 工作表的 PARAM_EXEC ID */
 	int			wt_param_id;
-	/* a path for non-recursive term */
+	/* 非递归项的路径 */
 	struct Path *non_recursive_path;
 
 	/*
-	 * These fields are workspace for createplan.c
+	 * 下列字段是 createplan.c 的工作区
 	 */
-	/* outer rels above current node */
+	/* 当前节点之上的外层 */
 	Relids		curOuterRels;
-	/* not-yet-assigned NestLoopParams */
+	/* 尚未赋值的 NestLoopParam */
 	List	   *curOuterParams;
 
 	/*
-	 * These fields are workspace for setrefs.c.  Each is an array
-	 * corresponding to glob->subplans.  (We could probably teach
-	 * gen_node_support.pl how to determine the array length, but it doesn't
-	 * seem worth the trouble, so just mark them read_write_ignore.)
+	 * 下列字段是 setrefs.c 的工作区。各为与
+	 * glob->subplans 对应的数组。(或许可让
+	 * gen_node_support.pl 判定数组长度,但似乎不值
+	 * 那麻烦,故仅标为 read_write_ignore。)
 	 */
 	bool	   *isAltSubplan pg_node_attr(read_write_ignore);
 	bool	   *isUsedSubplan pg_node_attr(read_write_ignore);
 
-	/* optional private data for join_search_hook, e.g., GEQO */
+	/* join_search_hook 的可选私有数据,如 GEQO */
 	void	   *join_search_private pg_node_attr(read_write_ignore);
 
-	/* Does this query modify any partition key columns? */
+	/* 本查询是否修改任何分区键列? */
 	bool		partColsUpdated;
 };
 
 
 /*
- * In places where it's known that simple_rte_array[] must have been prepared
- * already, we just index into it to fetch RTEs.  In code that might be
- * executed before or after entering query_planner(), use this macro.
+ * 在已知 simple_rte_array[] 必已准备好的地方,
+ * 我们直接下标取 RTE。在可能于进入
+ * query_planner() 之前或之后执行的代码中用本宏。
  */
 #define planner_rt_fetch(rti, root) \
 	((root)->simple_rte_array ? (root)->simple_rte_array[rti] : \
 	 rt_fetch(rti, (root)->parse->rtable))
 
 /*
- * If multiple relations are partitioned the same way, all such partitions
- * will have a pointer to the same PartitionScheme.  A list of PartitionScheme
- * objects is attached to the PlannerInfo.  By design, the partition scheme
- * incorporates only the general properties of the partition method (LIST vs.
- * RANGE, number of partitioning columns and the type information for each)
- * and not the specific bounds.
+ * 若多个关系按相同方式分区,所有这些分区
+ * 将指向同一 PartitionScheme。PartitionScheme 对象
+ * 列表挂在 PlannerInfo 上。按设计,分区方案只纳入
+ * 分区方法的一般属性(LIST 对
+ * RANGE、分区列数及各列的类型信息)
+ * 而不含具体边界。
  *
- * We store the opclass-declared input data types instead of the partition key
- * datatypes since the former rather than the latter are used to compare
- * partition bounds. Since partition key data types and the opclass declared
- * input data types are expected to be binary compatible (per ResolveOpClass),
- * both of those should have same byval and length properties.
+ * 我们存储 opclass 声明的输入数据类型,而非分区键
+ * 数据类型,因比较分区边界时用的是前者而非后者。
+ * 因分区键数据类型与 opclass 所声明的
+ * 输入数据类型预期二进制兼容(按 ResolveOpClass),
+ * 故两者应有相同的 byval 与长度属性。
  */
 typedef struct PartitionSchemeData
 {
-	char		strategy;		/* partition strategy */
-	int16		partnatts;		/* number of partition attributes */
-	Oid		   *partopfamily;	/* OIDs of operator families */
-	Oid		   *partopcintype;	/* OIDs of opclass declared input data types */
-	Oid		   *partcollation;	/* OIDs of partitioning collations */
+	char		strategy;		/* 分区策略 */
+	int16		partnatts;		/* 分区属性个数 */
+	Oid		   *partopfamily;	/* 运算符族 OID */
+	Oid		   *partopcintype;	/* opclass 声明的输入数据类型 OID */
+	Oid		   *partcollation;	/* 分区排序规则 OID */
 
-	/* Cached information about partition key data types. */
+	/* 关于分区键数据类型的缓存信息。 */
 	int16	   *parttyplen;
 	bool	   *parttypbyval;
 
-	/* Cached information about partition comparison functions. */
+	/* 关于分区比较函数的缓存信息。 */
 	struct FmgrInfo *partsupfunc;
 }			PartitionSchemeData;
 
@@ -804,7 +804,7 @@ typedef struct PartitionSchemeData *PartitionScheme;
  *----------
  */
 
-/* Bitmask of flags supported by table AMs */
+/* 表 AM 支持的标志位掩码 */
 #define AMFLAG_HAS_TID_RANGE (1 << 0)
 
 typedef enum RelOptKind
@@ -818,24 +818,24 @@ typedef enum RelOptKind
 } RelOptKind;
 
 /*
- * Is the given relation a simple relation i.e a base or "other" member
- * relation?
+ * 给定关系是否为简单关系,即基关系或"其他"成员
+ * 关系?
  */
 #define IS_SIMPLE_REL(rel) \
 	((rel)->reloptkind == RELOPT_BASEREL || \
 	 (rel)->reloptkind == RELOPT_OTHER_MEMBER_REL)
 
-/* Is the given relation a join relation? */
+/* 给定关系是否为连接关系? */
 #define IS_JOIN_REL(rel)	\
 	((rel)->reloptkind == RELOPT_JOINREL || \
 	 (rel)->reloptkind == RELOPT_OTHER_JOINREL)
 
-/* Is the given relation an upper relation? */
+/* 给定关系是否为上层关系? */
 #define IS_UPPER_REL(rel)	\
 	((rel)->reloptkind == RELOPT_UPPER_REL || \
 	 (rel)->reloptkind == RELOPT_OTHER_UPPER_REL)
 
-/* Is the given relation an "other" relation? */
+/* 给定关系是否为"其他"关系? */
 #define IS_OTHER_REL(rel) \
 	((rel)->reloptkind == RELOPT_OTHER_MEMBER_REL || \
 	 (rel)->reloptkind == RELOPT_OTHER_JOINREL || \
@@ -850,201 +850,201 @@ typedef struct RelOptInfo
 	RelOptKind	reloptkind;
 
 	/*
-	 * all relations included in this RelOptInfo; set of base + OJ relids
-	 * (rangetable indexes)
+	 * 本 RelOptInfo 包含的全部关系;基关系 + OJ relid 集合
+	 * (范围表下标)
 	 */
 	Relids		relids;
 
 	/*
-	 * size estimates generated by planner
+	 * 规划器生成的大小估计
 	 */
-	/* estimated number of result tuples */
+	/* 估计的结果元组数 */
 	Cardinality rows;
 
 	/*
-	 * per-relation planner control flags
+	 * 每关系规划器控制标志
 	 */
 	/* keep cheap-startup-cost paths? */
 	bool		consider_startup;
-	/* ditto, for parameterized paths? */
+	/* 同上,对参数化路径? */
 	bool		consider_param_startup;
-	/* consider parallel paths? */
+	/* 考虑并行路径? */
 	bool		consider_parallel;
 
 	/*
-	 * default result targetlist for Paths scanning this relation; list of
-	 * Vars/Exprs, cost, width
+	 * 扫描本关系 Path 的默认结果目标列表;Var/Expr 列表、
+	 * 代价、宽度
 	 */
 	struct PathTarget *reltarget;
 
 	/*
-	 * materialization information
+	 * 物化信息
 	 */
-	List	   *pathlist;		/* Path structures */
-	List	   *ppilist;		/* ParamPathInfos used in pathlist */
-	List	   *partial_pathlist;	/* partial Paths */
+	List	   *pathlist;		/* Path 结构 */
+	List	   *ppilist;		/* pathlist 中用 ParamPathInfo */
+	List	   *partial_pathlist;	/* 部分 Path */
 	struct Path *cheapest_startup_path;
 	struct Path *cheapest_total_path;
 	struct Path *cheapest_unique_path;
 	List	   *cheapest_parameterized_paths;
 
 	/*
-	 * parameterization information needed for both base rels and join rels
-	 * (see also lateral_vars and lateral_referencers)
+	 * 基关系与连接关系都需要的参数化信息
+	 * (另见 lateral_vars 与 lateral_referencers)
 	 */
-	/* rels directly laterally referenced */
+	/* 直接侧向引用的关系 */
 	Relids		direct_lateral_relids;
-	/* minimum parameterization of rel */
+	/* 关系的最小参数化 */
 	Relids		lateral_relids;
 
 	/*
-	 * information about a base rel (not set for join rels!)
+	 * 关于基关系的信息(不为连接关系设置!)
 	 */
 	Index		relid;
-	/* containing tablespace */
+	/* 所含表空间 */
 	Oid			reltablespace;
 	/* RELATION, SUBQUERY, FUNCTION, etc */
 	RTEKind		rtekind;
-	/* smallest attrno of rel (often <0) */
+	/* 关系最小 attrno(常 <0) */
 	AttrNumber	min_attr;
-	/* largest attrno of rel */
+	/* 关系最大 attrno */
 	AttrNumber	max_attr;
 	/* array indexed [min_attr .. max_attr] */
 	Relids	   *attr_needed pg_node_attr(read_write_ignore);
 	/* array indexed [min_attr .. max_attr] */
 	int32	   *attr_widths pg_node_attr(read_write_ignore);
-	/* relids of outer joins that can null this baserel */
+	/* 可使本基关系变空的外连接 relid */
 	Relids		nulling_relids;
-	/* LATERAL Vars and PHVs referenced by rel */
+	/* 关系引用的 LATERAL Var 与 PHV */
 	List	   *lateral_vars;
-	/* rels that reference this baserel laterally */
+	/* 侧向引用本基关系的关系 */
 	Relids		lateral_referencers;
-	/* list of IndexOptInfo */
+	/* IndexOptInfo 列表 */
 	List	   *indexlist;
-	/* list of StatisticExtInfo */
+	/* StatisticExtInfo 列表 */
 	List	   *statlist;
-	/* size estimates derived from pg_class */
+	/* 源自 pg_class 的大小估计 */
 	BlockNumber pages;
 	Cardinality tuples;
 	double		allvisfrac;
-	/* indexes in PlannerInfo's eq_classes list of ECs that mention this rel */
+	/* PlannerInfo 的 eq_classes 列表中提及本关系的 EC 下标 */
 	Bitmapset  *eclass_indexes;
 	PlannerInfo *subroot;		/* if subquery */
 	List	   *subplan_params; /* if subquery */
-	/* wanted number of parallel workers */
+	/* 想要的并行工作者数 */
 	int			rel_parallel_workers;
-	/* Bitmask of optional features supported by the table AM */
+	/* 表 AM 支持的可选特性位掩码 */
 	uint32		amflags;
 
 	/*
-	 * Information about foreign tables and foreign joins
+	 * 关于外表与外连接的信息
 	 */
-	/* identifies server for the table or join */
+	/* 标识表或连接的服务器 */
 	Oid			serverid;
-	/* identifies user to check access as; 0 means to check as current user */
+	/* 标识要检查访问的用户;0 表示按当前用户检查 */
 	Oid			userid;
-	/* join is only valid for current user */
+	/* 连接仅对当前用户有效 */
 	bool		useridiscurrent;
-	/* use "struct FdwRoutine" to avoid including fdwapi.h here */
+	/* 用 "struct FdwRoutine" 以免在此包含 fdwapi.h */
 	struct FdwRoutine *fdwroutine pg_node_attr(read_write_ignore);
 	void	   *fdw_private pg_node_attr(read_write_ignore);
 
 	/*
-	 * cache space for remembering if we have proven this relation unique
+	 * 缓存空间,记住是否已证明本关系唯一
 	 */
-	/* known unique for these other relid set(s) */
+	/* 对这些其他 relid 集合已知唯一 */
 	List	   *unique_for_rels;
-	/* known not unique for these set(s) */
+	/* 对这些集合已知不唯一 */
 	List	   *non_unique_for_rels;
 
 	/*
-	 * used by various scans and joins:
+	 * 供各种扫描与连接使用:
 	 */
-	/* RestrictInfo structures (if base rel) */
+	/* RestrictInfo 结构(若为基关系) */
 	List	   *baserestrictinfo;
-	/* cost of evaluating the above */
+	/* 求值上述内容的代价 */
 	QualCost	baserestrictcost;
 	/* min security_level found in baserestrictinfo */
 	Index		baserestrict_min_security;
-	/* RestrictInfo structures for join clauses involving this rel */
+	/* 涉及本关系的连接子句的 RestrictInfo 结构 */
 	List	   *joininfo;
-	/* T means joininfo is incomplete */
+	/* T 表示 joininfo 不完整 */
 	bool		has_eclass_joins;
 
 	/*
-	 * used by partitionwise joins:
+	 * 供分区智能连接使用:
 	 */
-	/* consider partitionwise join paths? (if partitioned rel) */
+	/* 考虑分区智能连接路径?(若为已分区关系) */
 	bool		consider_partitionwise_join;
 
 	/*
-	 * inheritance links, if this is an otherrel (otherwise NULL):
+	 * 继承链接,若这是其他关系(否则为 NULL):
 	 */
-	/* Immediate parent relation (dumping it would be too verbose) */
+	/* 直接父关系(转储会太冗长) */
 	struct RelOptInfo *parent pg_node_attr(read_write_ignore);
-	/* Topmost parent relation (dumping it would be too verbose) */
+	/* 最顶层父关系(转储会太冗长) */
 	struct RelOptInfo *top_parent pg_node_attr(read_write_ignore);
-	/* Relids of topmost parent (redundant, but handy) */
+	/* 最顶层父的 Relids(冗余但方便) */
 	Relids		top_parent_relids;
 
 	/*
-	 * used for partitioned relations:
+	 * 供已分区关系使用:
 	 */
-	/* Partitioning scheme */
+	/* 分区方案 */
 	PartitionScheme part_scheme pg_node_attr(read_write_ignore);
 
 	/*
-	 * Number of partitions; -1 if not yet set; in case of a join relation 0
-	 * means it's considered unpartitioned
+	 * 分区数;-1 为尚未设置;连接关系时 0 表示视为未分区
+	 * 见上。
 	 */
 	int			nparts;
-	/* Partition bounds */
+	/* 分区边界 */
 	struct PartitionBoundInfoData *boundinfo pg_node_attr(read_write_ignore);
-	/* True if partition bounds were created by partition_bounds_merge() */
+	/* 分区边界由 partition_bounds_merge() 创建则为真 */
 	bool		partbounds_merged;
-	/* Partition constraint, if not the root */
+	/* 分区约束(非根时) */
 	List	   *partition_qual;
 
 	/*
-	 * Array of RelOptInfos of partitions, stored in the same order as bounds
-	 * (don't print, too bulky and duplicative)
+	 * 分区 RelOptInfo 数组,与边界同序存放
+	 * (不打印,太臃肿且重复)
 	 */
 	struct RelOptInfo **part_rels pg_node_attr(read_write_ignore);
 
 	/*
-	 * Bitmap with members acting as indexes into the part_rels[] array to
-	 * indicate which partitions survived partition pruning.
+	 * 成员作为 part_rels[] 数组下标的位图,指示哪些分区
+	 * 在分区裁剪后存活。
 	 */
 	Bitmapset  *live_parts;
-	/* Relids set of all partition relids */
+	/* 全部分区的 Relids 集合 */
 	Relids		all_partrels;
 
 	/*
-	 * These arrays are of length partkey->partnatts, which we don't have at
-	 * hand, so don't try to print
+	 * 这些数组长度为 partkey->partnatts,此处没有该值,
+	 * 故不尝试打印
 	 */
 
-	/* Non-nullable partition key expressions */
+	/* 非空分区键表达式 */
 	List	  **partexprs pg_node_attr(read_write_ignore);
-	/* Nullable partition key expressions */
+	/* 可空分区键表达式 */
 	List	  **nullable_partexprs pg_node_attr(read_write_ignore);
 } RelOptInfo;
 
 /*
- * Is given relation partitioned?
+ * 给定关系是否已分区?
  *
- * It's not enough to test whether rel->part_scheme is set, because it might
- * be that the basic partitioning properties of the input relations matched
- * but the partition bounds did not.  Also, if we are able to prove a rel
- * dummy (empty), we should henceforth treat it as unpartitioned.
+ * 仅测 rel->part_scheme 是否设置不够,因为可能输入关系
+ * 基本分区属性匹配但分区边界不匹配。另外,若能证明
+ * 关系为哑(空),此后应视其为未分区。
+ * 见上。
  */
 #define IS_PARTITIONED_REL(rel) \
 	((rel)->part_scheme && (rel)->boundinfo && (rel)->nparts > 0 && \
 	 (rel)->part_rels && !IS_DUMMY_REL(rel))
 
 /*
- * Convenience macro to make sure that a partitioned relation has all the
- * required members set.
+ * 方便宏,确保已分区关系已设置全部所需成员。
+ * 见上。
  */
 #define REL_HAS_ALL_PART_PROPS(rel)	\
 	((rel)->part_scheme && (rel)->boundinfo && (rel)->nparts > 0 && \
@@ -1086,7 +1086,7 @@ typedef struct IndexOptInfo IndexOptInfo;
 #define HAVE_INDEXOPTINFO_TYPEDEF 1
 #endif
 
-struct IndexPath;				/* forward declaration */
+struct IndexPath;				/* 前向声明 */
 
 struct IndexOptInfo
 {
@@ -1094,109 +1094,109 @@ struct IndexOptInfo
 
 	NodeTag		type;
 
-	/* OID of the index relation */
+	/* 索引关系的 OID */
 	Oid			indexoid;
-	/* tablespace of index (not table) */
+	/* 索引的表空间(非表) */
 	Oid			reltablespace;
-	/* back-link to index's table; don't print, else infinite recursion */
+	/* 链回索引所属表;不打印,否则无限递归 */
 	RelOptInfo *rel pg_node_attr(read_write_ignore);
 
 	/*
-	 * index-size statistics (from pg_class and elsewhere)
+	 * 索引大小统计(来自 pg_class 及其他)
 	 */
-	/* number of disk pages in index */
+	/* 索引磁盘页数 */
 	BlockNumber pages;
-	/* number of index tuples in index */
+	/* 索引中的索引元组数 */
 	Cardinality tuples;
-	/* index tree height, or -1 if unknown */
+	/* 索引树高度,未知则为 -1 */
 	int			tree_height;
 
 	/*
-	 * index descriptor information
+	 * 索引描述符信息
 	 */
-	/* number of columns in index */
+	/* 索引列数 */
 	int			ncolumns;
-	/* number of key columns in index */
+	/* 索引键列数 */
 	int			nkeycolumns;
 
 	/*
-	 * table column numbers of index's columns (both key and included
-	 * columns), or 0 for expression columns
+	 * 索引列对应表列号(键列与 INCLUDE 列),表达式列
+	 * 则为 0
 	 */
 	int		   *indexkeys pg_node_attr(array_size(ncolumns));
-	/* OIDs of collations of index columns */
+	/* 索引列排序规则 OIDs */
 	Oid		   *indexcollations pg_node_attr(array_size(nkeycolumns));
-	/* OIDs of operator families for columns */
+	/* 列的运算符族 OIDs */
 	Oid		   *opfamily pg_node_attr(array_size(nkeycolumns));
-	/* OIDs of opclass declared input data types */
+	/* opclass 声明的输入数据类型 OID */
 	Oid		   *opcintype pg_node_attr(array_size(nkeycolumns));
-	/* OIDs of btree opfamilies, if orderable.  NULL if partitioned index */
+	/* 可排序时为 btree 运算符族 OID。分区索引则为 NULL */
 	Oid		   *sortopfamily pg_node_attr(array_size(nkeycolumns));
-	/* is sort order descending? or NULL if partitioned index */
+	/* 排序是否降序?分区索引则为 NULL */
 	bool	   *reverse_sort pg_node_attr(array_size(nkeycolumns));
-	/* do NULLs come first in the sort order? or NULL if partitioned index */
+	/* 空值是否排在前面?分区索引则为 NULL */
 	bool	   *nulls_first pg_node_attr(array_size(nkeycolumns));
-	/* opclass-specific options for columns */
+	/* 列的 opclass 专用选项 */
 	bytea	  **opclassoptions pg_node_attr(read_write_ignore);
-	/* which index cols can be returned in an index-only scan? */
+	/* 哪些索引列可在仅索引扫描中返回? */
 	bool	   *canreturn pg_node_attr(array_size(ncolumns));
-	/* OID of the access method (in pg_am) */
+	/* 访问方法 OID(在 pg_am 中) */
 	Oid			relam;
 
 	/*
-	 * expressions for non-simple index columns; redundant to print since we
-	 * print indextlist
+	 * 非简单索引列的表达式;打印冗余因我们打印
+	 * indextlist
 	 */
 	List	   *indexprs pg_node_attr(read_write_ignore);
-	/* predicate if a partial index, else NIL */
+	/* 部分索引的谓词,否则为 NIL */
 	List	   *indpred;
 
-	/* targetlist representing index columns */
+	/* 表示索引列的目标列表 */
 	List	   *indextlist;
 
 	/*
-	 * parent relation's baserestrictinfo list, less any conditions implied by
-	 * the index's predicate (unless it's a target rel, see comments in
-	 * check_index_predicates())
+	 * 父关系的 baserestrictinfo 列表,去掉索引谓词蕴含的
+	 * 条件(除非是目标关系,见 check_index_predicates()
+	 * 注释)
 	 */
 	List	   *indrestrictinfo;
 
-	/* true if index predicate matches query */
+	/* 索引谓词匹配查询则为真 */
 	bool		predOK;
-	/* true if a unique index */
+	/* 唯一索引则为真 */
 	bool		unique;
-	/* is uniqueness enforced immediately? */
+	/* 唯一性是否立即强制? */
 	bool		immediate;
-	/* true if index doesn't really exist */
+	/* 索引实际不存在则为真 */
 	bool		hypothetical;
 
 	/*
-	 * Remaining fields are copied from the index AM's API struct
-	 * (IndexAmRoutine).  These fields are not set for partitioned indexes.
+	 * 其余字段从索引 AM 的 API 结构
+	 * (IndexAmRoutine) 拷贝。分区索引不设置这些字段。
 	 */
 	bool		amcanorderbyop;
 	bool		amoptionalkey;
 	bool		amsearcharray;
 	bool		amsearchnulls;
-	/* does AM have amgettuple interface? */
+	/* AM 是否有 amgettuple 接口? */
 	bool		amhasgettuple;
-	/* does AM have amgetbitmap interface? */
+	/* AM 是否有 amgetbitmap 接口? */
 	bool		amhasgetbitmap;
 	bool		amcanparallel;
-	/* does AM have ammarkpos interface? */
+	/* AM 是否有 ammarkpos 接口? */
 	bool		amcanmarkpos;
-	/* AM's cost estimator */
-	/* Rather than include amapi.h here, we declare amcostestimate like this */
+	/* AM 代价估计器 */
+	/* 与其在此包含 amapi.h,我们这样声明 amcostestimate */
 	void		(*amcostestimate) (struct PlannerInfo *, struct IndexPath *, double, Cost *, Cost *, Selectivity *, double *, double *) pg_node_attr(read_write_ignore);
 };
 
 /*
  * ForeignKeyOptInfo
- *		Per-foreign-key information for planning/optimization
+ *	规划/优化的每外键信息
  *
- * The per-FK-column arrays can be fixed-size because we allow at most
- * INDEX_MAX_KEYS columns in a foreign key constraint.  Each array has
- * nkeys valid entries.
+ * 每 FK 列数组可用固定大小,因外键约束最多允许
+ * INDEX_MAX_KEYS 列。每个数组有 nkeys 个有效项。
+ * 见上。
  */
 typedef struct ForeignKeyOptInfo
 {
@@ -1205,48 +1205,48 @@ typedef struct ForeignKeyOptInfo
 	NodeTag		type;
 
 	/*
-	 * Basic data about the foreign key (fetched from catalogs):
+	 * 关于外键的基本数据(取自目录):
 	 */
 
-	/* RT index of the referencing table */
+	/* 引用表的 RT 下标 */
 	Index		con_relid;
-	/* RT index of the referenced table */
+	/* 被引用表的 RT 下标 */
 	Index		ref_relid;
-	/* number of columns in the foreign key */
+	/* 外键中的列数 */
 	int			nkeys;
-	/* cols in referencing table */
+	/* 引用表中的列 */
 	AttrNumber	conkey[INDEX_MAX_KEYS] pg_node_attr(array_size(nkeys));
-	/* cols in referenced table */
+	/* 被引用表中的列 */
 	AttrNumber	confkey[INDEX_MAX_KEYS] pg_node_attr(array_size(nkeys));
-	/* PK = FK operator OIDs */
+	/* PK = FK 运算符 OID */
 	Oid			conpfeqop[INDEX_MAX_KEYS] pg_node_attr(array_size(nkeys));
 
 	/*
-	 * Derived info about whether FK's equality conditions match the query:
+	 * 关于 FK 相等条件是否匹配查询的派生信息:
 	 */
 
-	/* # of FK cols matched by ECs */
+	/* 被 EC 匹配的 FK 列数 */
 	int			nmatched_ec;
-	/* # of these ECs that are ec_has_const */
+	/* 其中 ec_has_const 的 EC 数 */
 	int			nconst_ec;
-	/* # of FK cols matched by non-EC rinfos */
+	/* 被非 EC rinfo 匹配的 FK 列数 */
 	int			nmatched_rcols;
-	/* total # of non-EC rinfos matched to FK */
+	/* 匹配到 FK 的非 EC rinfo 总数 */
 	int			nmatched_ri;
-	/* Pointer to eclass matching each column's condition, if there is one */
+	/* 匹配每列条件的 eclass 指针(若有) */
 	struct EquivalenceClass *eclass[INDEX_MAX_KEYS];
-	/* Pointer to eclass member for the referencing Var, if there is one */
+	/* 引用 Var 的 eclass 成员指针(若有) */
 	struct EquivalenceMember *fk_eclass_member[INDEX_MAX_KEYS];
-	/* List of non-EC RestrictInfos matching each column's condition */
+	/* 匹配每列条件的非 EC RestrictInfo 列表 */
 	List	   *rinfos[INDEX_MAX_KEYS];
 } ForeignKeyOptInfo;
 
 /*
  * StatisticExtInfo
- *		Information about extended statistics for planning/optimization
+ *	规划/优化用的扩展统计信息
  *
- * Each pg_statistic_ext row is represented by one or more nodes of this
- * type, or even zero if ANALYZE has not computed them.
+ * 每行 pg_statistic_ext 由本类型的一个或多个节点表示,
+ * ANALYZE 尚未计算时甚至可为零个。
  */
 typedef struct StatisticExtInfo
 {
@@ -1254,22 +1254,22 @@ typedef struct StatisticExtInfo
 
 	NodeTag		type;
 
-	/* OID of the statistics row */
+	/* 统计行的 OID */
 	Oid			statOid;
 
-	/* includes child relations */
+	/* 包含子关系 */
 	bool		inherit;
 
-	/* back-link to statistic's table; don't print, else infinite recursion */
+	/* 链回统计所属表;不打印,否则无限递归 */
 	RelOptInfo *rel pg_node_attr(read_write_ignore);
 
-	/* statistics kind of this entry */
+	/* 本项的统计种类 */
 	char		kind;
 
-	/* attnums of the columns covered */
+	/* 所覆盖列的 attnum */
 	Bitmapset  *keys;
 
-	/* expressions */
+	/* 表达式 */
 	List	   *exprs;
 } StatisticExtInfo;
 
@@ -1305,7 +1305,7 @@ typedef struct JoinDomain
 
 	NodeTag		type;
 
-	Relids		jd_relids;		/* all relids contained within the domain */
+	Relids		jd_relids;		/* 域内包含的全部 relid */
 } JoinDomain;
 
 /*
@@ -1367,20 +1367,20 @@ typedef struct EquivalenceClass
 
 	NodeTag		type;
 
-	List	   *ec_opfamilies;	/* btree operator family OIDs */
-	Oid			ec_collation;	/* collation, if datatypes are collatable */
-	List	   *ec_members;		/* list of EquivalenceMembers */
-	List	   *ec_sources;		/* list of generating RestrictInfos */
-	List	   *ec_derives;		/* list of derived RestrictInfos */
-	Relids		ec_relids;		/* all relids appearing in ec_members, except
-								 * for child members (see below) */
-	bool		ec_has_const;	/* any pseudoconstants in ec_members? */
-	bool		ec_has_volatile;	/* the (sole) member is a volatile expr */
-	bool		ec_broken;		/* failed to generate needed clauses? */
-	Index		ec_sortref;		/* originating sortclause label, or 0 */
-	Index		ec_min_security;	/* minimum security_level in ec_sources */
-	Index		ec_max_security;	/* maximum security_level in ec_sources */
-	struct EquivalenceClass *ec_merged; /* set if merged into another EC */
+	List	   *ec_opfamilies;	/* btree 运算符族 OID */
+	Oid			ec_collation;	/* 排序规则(若数据类型可排序) */
+	List	   *ec_members;		/* EquivalenceMember 列表 */
+	List	   *ec_sources;		/* 生成用 RestrictInfo 列表 */
+	List	   *ec_derives;		/* 派生 RestrictInfo 列表 */
+	Relids		ec_relids;		/* ec_members 中出现的全部 relid,不含
+								 * 子成员(见下) */
+	bool		ec_has_const;	/* ec_members 中有伪常量? */
+	bool		ec_has_volatile;	/* (唯一)成员是易变表达式 */
+	bool		ec_broken;		/* 未能生成所需子句? */
+	Index		ec_sortref;		/* 源排序子句标签,或 0 */
+	Index		ec_min_security;	/* ec_sources 中最小 security_level */
+	Index		ec_max_security;	/* ec_sources 中最大 security_level */
+	struct EquivalenceClass *ec_merged; /* 已并入另一 EC 则设置 */
 } EquivalenceClass;
 
 /*
@@ -1391,26 +1391,26 @@ typedef struct EquivalenceClass
 	((eclass)->ec_has_const)
 
 /*
- * EquivalenceMember - one member expression of an EquivalenceClass
+ * EquivalenceMember - EquivalenceClass 的一个成员表达式
  *
- * em_is_child signifies that this element was built by transposing a member
- * for an appendrel parent relation to represent the corresponding expression
- * for an appendrel child.  These members are used for determining the
- * pathkeys of scans on the child relation and for explicitly sorting the
- * child when necessary to build a MergeAppend path for the whole appendrel
- * tree.  An em_is_child member has no impact on the properties of the EC as a
- * whole; in particular the EC's ec_relids field does NOT include the child
- * relation.  An em_is_child member should never be marked em_is_const nor
- * cause ec_has_const or ec_has_volatile to be set, either.  Thus, em_is_child
- * members are not really full-fledged members of the EC, but just reflections
- * or doppelgangers of real members.  Most operations on EquivalenceClasses
- * should ignore em_is_child members, and those that don't should test
- * em_relids to make sure they only consider relevant members.
+ * em_is_child 表示本元素由转置追加关系父关系的成员而建,
+ * 以表示追加关系子项对应表达式.这些成员用于确定子关
+ * 系扫描 pathkey,并在需要时显式排序子项以构建整个
+ * 追加关系树的 MergeAppend 路径。em_is_child 成员不影响
+ * EC 整体属性;尤其 EC 的 ec_relids 字段不含子关系。
+ * em_is_child 成员也绝不应标 em_is_const,或导致设置
+ * ec_has_const 或 ec_has_volatile。因此 em_is_child 成员
+ * 并非真正完整的 EC 成员,而只是真实成员的映像。对
+ * EquivalenceClass 的多数操作应忽略 em_is_child 成员,
+ * 不忽略的应测 em_relids 以确保只考虑相关成员。
+ * 见上。
+ * 见上。
+ * 见上。
  *
- * em_datatype is usually the same as exprType(em_expr), but can be
- * different when dealing with a binary-compatible opfamily; in particular
- * anyarray_ops would never work without this.  Use em_datatype when
- * looking up a specific btree operator to work with this expression.
+ * em_datatype 通常与exprType(em_expr) 相同,但处理二进制
+ * 兼容 opfamily 时可能不同;尤其 anyarray_ops 离开它无法
+ * 工作。查找与本表达式配合具体 btree 运算符时用
+ * em_datatype。
  */
 typedef struct EquivalenceMember
 {
@@ -1418,13 +1418,13 @@ typedef struct EquivalenceMember
 
 	NodeTag		type;
 
-	Expr	   *em_expr;		/* the expression represented */
-	Relids		em_relids;		/* all relids appearing in em_expr */
-	bool		em_is_const;	/* expression is pseudoconstant? */
-	bool		em_is_child;	/* derived version for a child relation? */
-	Oid			em_datatype;	/* the "nominal type" used by the opfamily */
-	JoinDomain *em_jdomain;		/* join domain containing the source clause */
-	/* if em_is_child is true, this links to corresponding EM for top parent */
+	Expr	   *em_expr;		/* 所表示的表达式 */
+	Relids		em_relids;		/* em_expr 中出现全部 relid */
+	bool		em_is_const;	/* 表达式是伪常量? */
+	bool		em_is_child;	/* 子关系的派生版本? */
+	Oid			em_datatype;	/* opfamily 使用的"名义类型" */
+	JoinDomain *em_jdomain;		/* 含源子句的连接域 */
+	/* 若 em_is_child 为真,链到顶层父的对应 EM */
 	struct EquivalenceMember *em_parent pg_node_attr(read_write_ignore);
 } EquivalenceMember;
 
@@ -1451,11 +1451,11 @@ typedef struct PathKey
 
 	NodeTag		type;
 
-	/* the value that is ordered */
+	/* 被排序的值 */
 	EquivalenceClass *pk_eclass pg_node_attr(copy_as_scalar, equal_as_scalar);
-	Oid			pk_opfamily;	/* btree opfamily defining the ordering */
+	Oid			pk_opfamily;	/* 定义排序的 btree 运算符族 */
 	int			pk_strategy;	/* sort direction (ASC or DESC) */
-	bool		pk_nulls_first; /* do NULLs come before normal values? */
+	bool		pk_nulls_first; /* 空值是否排在普通值之前? */
 } PathKey;
 
 /*

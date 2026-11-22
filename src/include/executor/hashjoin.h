@@ -77,14 +77,14 @@
 
 typedef struct HashJoinTupleData
 {
-	/* link to next tuple in same bucket */
+	/*  链到同桶中下一元组  */
 	union
 	{
 		struct HashJoinTupleData *unshared;
 		dsa_pointer shared;
 	}			next;
 	uint32		hashvalue;		/* tuple's hash code */
-	/* Tuple data, in MinimalTuple format, follows on a MAXALIGN boundary */
+	/*  元组数据,MinimalTuple 格式,跟在 MAXALIGN 边界上  */
 }			HashJoinTupleData;
 
 #define HJTUPLE_OVERHEAD  MAXALIGN(sizeof(HashJoinTupleData))
@@ -112,8 +112,8 @@ typedef struct HashJoinTupleData
  */
 typedef struct HashSkewBucket
 {
-	uint32		hashvalue;		/* common hash value */
-	HashJoinTuple tuples;		/* linked list of inner-relation tuples */
+	uint32		hashvalue;		/*  常见哈希值  */
+	HashJoinTuple tuples;		/*  内关系元组的链表  */
 } HashSkewBucket;
 
 #define SKEW_BUCKET_OVERHEAD  MAXALIGN(sizeof(HashSkewBucket))
@@ -127,11 +127,11 @@ typedef struct HashSkewBucket
  */
 typedef struct HashMemoryChunkData
 {
-	int			ntuples;		/* number of tuples stored in this chunk */
-	size_t		maxlen;			/* size of the chunk's tuple buffer */
-	size_t		used;			/* number of buffer bytes already used */
+	int			ntuples;		/*  本块中存储的元组数  */
+	size_t		maxlen;			/*  块的元组缓冲大小  */
+	size_t		used;			/*  已使用的缓冲字节数  */
 
-	/* pointer to the next chunk (linked list) */
+	/*  指向下一块的指针(链表)  */
 	union
 	{
 		struct HashMemoryChunkData *unshared;
@@ -150,7 +150,7 @@ typedef struct HashMemoryChunkData *HashMemoryChunk;
 #define HASH_CHUNK_SIZE			(32 * 1024L)
 #define HASH_CHUNK_HEADER_SIZE	MAXALIGN(sizeof(HashMemoryChunkData))
 #define HASH_CHUNK_DATA(hc)		(((char *) (hc)) + HASH_CHUNK_HEADER_SIZE)
-/* tuples exceeding HASH_CHUNK_THRESHOLD bytes are put in their own chunk */
+/*  超过 HASH_CHUNK_THRESHOLD 字节的元组放入自有块  */
 #define HASH_CHUNK_THRESHOLD	(HASH_CHUNK_SIZE / 4)
 
 /*
@@ -161,16 +161,16 @@ typedef struct HashMemoryChunkData *HashMemoryChunk;
  */
 typedef struct ParallelHashJoinBatch
 {
-	dsa_pointer buckets;		/* array of hash table buckets */
-	Barrier		batch_barrier;	/* synchronization for joining this batch */
+	dsa_pointer buckets;		/*  哈希表桶数组  */
+	Barrier		batch_barrier;	/*  连接本批的同步  */
 
-	dsa_pointer chunks;			/* chunks of tuples loaded */
-	size_t		size;			/* size of buckets + chunks in memory */
-	size_t		estimated_size; /* size of buckets + chunks while writing */
-	size_t		ntuples;		/* number of tuples loaded */
-	size_t		old_ntuples;	/* number of tuples before repartitioning */
+	dsa_pointer chunks;			/*  已装入的元组块  */
+	size_t		size;			/*  内存中桶+块的大小  */
+	size_t		estimated_size; /*  写出时桶+块的大小  */
+	size_t		ntuples;		/*  已装入元组数  */
+	size_t		old_ntuples;	/*  重分区前的元组数  */
 	bool		space_exhausted;
-	bool		skip_unmatched; /* whether to abandon unmatched scan */
+	bool		skip_unmatched; /*  是否放弃未匹配扫描  */
 
 	/*
 	 * Variable-sized SharedTuplestore objects follow this struct in memory.
@@ -178,23 +178,23 @@ typedef struct ParallelHashJoinBatch
 	 */
 } ParallelHashJoinBatch;
 
-/* Accessor for inner batch tuplestore following a ParallelHashJoinBatch. */
+/*  ParallelHashJoinBatch 后内批 tuplestore 的访问器。  */
 #define ParallelHashJoinBatchInner(batch)							\
 	((SharedTuplestore *)											\
 	 ((char *) (batch) + MAXALIGN(sizeof(ParallelHashJoinBatch))))
 
-/* Accessor for outer batch tuplestore following a ParallelHashJoinBatch. */
+/*  ParallelHashJoinBatch 后外批 tuplestore 的访问器。  */
 #define ParallelHashJoinBatchOuter(batch, nparticipants) \
 	((SharedTuplestore *)												\
 	 ((char *) ParallelHashJoinBatchInner(batch) +						\
 	  MAXALIGN(sts_estimate(nparticipants))))
 
-/* Total size of a ParallelHashJoinBatch and tuplestores. */
+/*  ParallelHashJoinBatch 与 tuplestore 的总大小。  */
 #define EstimateParallelHashJoinBatch(hashtable)						\
 	(MAXALIGN(sizeof(ParallelHashJoinBatch)) +							\
 	 MAXALIGN(sts_estimate((hashtable)->parallel_state->nparticipants)) * 2)
 
-/* Accessor for the nth ParallelHashJoinBatch given the base. */
+/*  给定基址访问第 n 个 ParallelHashJoinBatch。  */
 #define NthParallelHashJoinBatch(base, n)								\
 	((ParallelHashJoinBatch *)											\
 	 ((char *) (base) +													\
@@ -208,15 +208,15 @@ typedef struct ParallelHashJoinBatchAccessor
 {
 	ParallelHashJoinBatch *shared;	/* pointer to shared state */
 
-	/* Per-backend partial counters to reduce contention. */
-	size_t		preallocated;	/* pre-allocated space for this backend */
-	size_t		ntuples;		/* number of tuples */
+	/*  每后端部分计数器以降低争用。  */
+	size_t		preallocated;	/*  本后端预分配的空间  */
+	size_t		ntuples;		/*  元组数  */
 	size_t		size;			/* size of partition in memory */
 	size_t		estimated_size; /* size of partition on disk */
-	size_t		old_ntuples;	/* how many tuples before repartitioning? */
-	bool		at_least_one_chunk; /* has this backend allocated a chunk? */
-	bool		outer_eof;		/* has this process hit end of batch? */
-	bool		done;			/* flag to remember that a batch is done */
+	size_t		old_ntuples;	/*  重分区前有多少元组?  */
+	bool		at_least_one_chunk; /*  本后端是否已分配块?  */
+	bool		outer_eof;		/*  本进程是否已到批末?  */
+	bool		done;			/*  记住批已完成的标志  */
 	SharedTuplestoreAccessor *inner_tuples;
 	SharedTuplestoreAccessor *outer_tuples;
 } ParallelHashJoinBatchAccessor;
@@ -229,13 +229,13 @@ typedef struct ParallelHashJoinBatchAccessor
  */
 typedef enum ParallelHashGrowth
 {
-	/* The current dimensions are sufficient. */
+	/*  当前维度已足够。  */
 	PHJ_GROWTH_OK,
-	/* The load factor is too high, so we need to add buckets. */
+	/*  负载因子过高,需要加桶。  */
 	PHJ_GROWTH_NEED_MORE_BUCKETS,
-	/* The memory budget would be exhausted, so we need to repartition. */
+	/*  内存预算将耗尽,需要重分区。  */
 	PHJ_GROWTH_NEED_MORE_BATCHES,
-	/* Repartitioning didn't help last time, so don't try to do that again. */
+	/*  上次重分区无助,故不再尝试。  */
 	PHJ_GROWTH_DISABLED
 } ParallelHashGrowth;
 
@@ -245,27 +245,27 @@ typedef enum ParallelHashGrowth
  */
 typedef struct ParallelHashJoinState
 {
-	dsa_pointer batches;		/* array of ParallelHashJoinBatch */
-	dsa_pointer old_batches;	/* previous generation during repartition */
-	int			nbatch;			/* number of batches now */
-	int			old_nbatch;		/* previous number of batches */
-	int			nbuckets;		/* number of buckets */
-	ParallelHashGrowth growth;	/* control batch/bucket growth */
+	dsa_pointer batches;		/*  ParallelHashJoinBatch 数组  */
+	dsa_pointer old_batches;	/*  重分区时的上一代  */
+	int			nbatch;			/*  当前批次数  */
+	int			old_nbatch;		/*  先前批次数  */
+	int			nbuckets;		/*  桶数  */
+	ParallelHashGrowth growth;	/*  控制批/桶增长  */
 	dsa_pointer chunk_work_queue;	/* chunk work queue */
 	int			nparticipants;
 	size_t		space_allowed;
-	size_t		total_tuples;	/* total number of inner tuples */
+	size_t		total_tuples;	/*  内元组总数  */
 	LWLock		lock;			/* lock protecting the above */
 
-	Barrier		build_barrier;	/* synchronization for the build phases */
+	Barrier		build_barrier;	/*  构建阶段的同步  */
 	Barrier		grow_batches_barrier;
 	Barrier		grow_buckets_barrier;
-	pg_atomic_uint32 distributor;	/* counter for load balancing */
+	pg_atomic_uint32 distributor;	/*  负载均衡计数器  */
 
-	SharedFileSet fileset;		/* space for shared temporary files */
+	SharedFileSet fileset;		/*  共享临时文件空间  */
 } ParallelHashJoinState;
 
-/* The phases for building batches, used by build_barrier. */
+/*  构建批的阶段,由 build_barrier 使用。  */
 #define PHJ_BUILD_ELECT					0
 #define PHJ_BUILD_ALLOCATE				1
 #define PHJ_BUILD_HASH_INNER			2
@@ -273,7 +273,7 @@ typedef struct ParallelHashJoinState
 #define PHJ_BUILD_RUN					4
 #define PHJ_BUILD_FREE					5
 
-/* The phases for probing each batch, used by for batch_barrier. */
+/*  探测各批的阶段,由 batch_barrier 使用。  */
 #define PHJ_BATCH_ELECT					0
 #define PHJ_BATCH_ALLOCATE				1
 #define PHJ_BATCH_LOAD					2
@@ -281,57 +281,57 @@ typedef struct ParallelHashJoinState
 #define PHJ_BATCH_SCAN					4
 #define PHJ_BATCH_FREE					5
 
-/* The phases of batch growth while hashing, for grow_batches_barrier. */
+/*  哈希时批增长阶段,供 grow_batches_barrier。  */
 #define PHJ_GROW_BATCHES_ELECT			0
 #define PHJ_GROW_BATCHES_REALLOCATE		1
 #define PHJ_GROW_BATCHES_REPARTITION	2
 #define PHJ_GROW_BATCHES_DECIDE			3
 #define PHJ_GROW_BATCHES_FINISH			4
-#define PHJ_GROW_BATCHES_PHASE(n)		((n) % 5)	/* circular phases */
+#define PHJ_GROW_BATCHES_PHASE(n)		((n) % 5)	/*  循环阶段  */
 
-/* The phases of bucket growth while hashing, for grow_buckets_barrier. */
+/*  哈希时桶增长阶段,供 grow_buckets_barrier。  */
 #define PHJ_GROW_BUCKETS_ELECT			0
 #define PHJ_GROW_BUCKETS_REALLOCATE		1
 #define PHJ_GROW_BUCKETS_REINSERT		2
-#define PHJ_GROW_BUCKETS_PHASE(n)		((n) % 3)	/* circular phases */
+#define PHJ_GROW_BUCKETS_PHASE(n)		((n) % 3)	/*  循环阶段  */
 
 typedef struct HashJoinTableData
 {
-	int			nbuckets;		/* # buckets in the in-memory hash table */
-	int			log2_nbuckets;	/* its log2 (nbuckets must be a power of 2) */
+	int			nbuckets;		/*  内存哈希表中的桶数  */
+	int			log2_nbuckets;	/*  其 log2(nbuckets 须为 2 的幂)  */
 
-	int			nbuckets_original;	/* # buckets when starting the first hash */
-	int			nbuckets_optimal;	/* optimal # buckets (per batch) */
+	int			nbuckets_original;	/*  开始第一次哈希时的桶数  */
+	int			nbuckets_optimal;	/*  最优桶数(每批)  */
 	int			log2_nbuckets_optimal;	/* log2(nbuckets_optimal) */
 
-	/* buckets[i] is head of list of tuples in i'th in-memory bucket */
+	/*  buckets[i] 是第 i 个内存桶中元组链表头  */
 	union
 	{
-		/* unshared array is per-batch storage, as are all the tuples */
+		/*  非共享数组是每批存储,元组亦然  */
 		struct HashJoinTupleData **unshared;
-		/* shared array is per-query DSA area, as are all the tuples */
+		/*  共享数组在每查询 DSA 区,元组亦然  */
 		dsa_pointer_atomic *shared;
 	}			buckets;
 
 	bool		keepNulls;		/* true to store unmatchable NULL tuples */
 
-	bool		skewEnabled;	/* are we using skew optimization? */
-	HashSkewBucket **skewBucket;	/* hashtable of skew buckets */
+	bool		skewEnabled;	/*  是否使用偏斜优化?  */
+	HashSkewBucket **skewBucket;	/*  偏斜桶的哈希表  */
 	int			skewBucketLen;	/* size of skewBucket array (a power of 2!) */
-	int			nSkewBuckets;	/* number of active skew buckets */
-	int		   *skewBucketNums; /* array indexes of active skew buckets */
+	int			nSkewBuckets;	/*  活动偏斜桶数  */
+	int		   *skewBucketNums; /*  活动偏斜桶的数组下标  */
 
-	int			nbatch;			/* number of batches */
-	int			curbatch;		/* current batch #; 0 during 1st pass */
+	int			nbatch;			/*  批次数  */
+	int			curbatch;		/*  当前批号;首遍时为 0  */
 
-	int			nbatch_original;	/* nbatch when we started inner scan */
-	int			nbatch_outstart;	/* nbatch when we started outer scan */
+	int			nbatch_original;	/*  开始内扫描时的 nbatch  */
+	int			nbatch_outstart;	/*  开始外扫描时的 nbatch  */
 
-	bool		growEnabled;	/* flag to shut off nbatch increases */
+	bool		growEnabled;	/*  关闭 nbatch 增长的标志  */
 
-	double		totalTuples;	/* # tuples obtained from inner plan */
-	double		partialTuples;	/* # tuples obtained from inner plan by me */
-	double		skewTuples;		/* # tuples inserted into skew tuples */
+	double		totalTuples;	/*  从内计划获得的元组数  */
+	double		partialTuples;	/*  我从内计划获得的元组数  */
+	double		skewTuples;		/*  插入偏斜元组的个数  */
 
 	/*
 	 * These arrays are allocated for the life of the hash join, but only if
@@ -348,27 +348,27 @@ typedef struct HashJoinTableData
 	 * hashed. These are arrays of the same length as the number of hash join
 	 * clauses (hash keys).
 	 */
-	FmgrInfo   *outer_hashfunctions;	/* lookup data for hash functions */
-	FmgrInfo   *inner_hashfunctions;	/* lookup data for hash functions */
+	FmgrInfo   *outer_hashfunctions;	/*  哈希函数的查找数据  */
+	FmgrInfo   *inner_hashfunctions;	/*  哈希函数的查找数据  */
 	bool	   *hashStrict;		/* is each hash join operator strict? */
 	Oid		   *collations;
 
-	Size		spaceUsed;		/* memory space currently used by tuples */
-	Size		spaceAllowed;	/* upper limit for space used */
+	Size		spaceUsed;		/*  元组当前占用的内存空间  */
+	Size		spaceAllowed;	/*  空间使用上限  */
 	Size		spacePeak;		/* peak space used */
-	Size		spaceUsedSkew;	/* skew hash table's current space usage */
-	Size		spaceAllowedSkew;	/* upper limit for skew hashtable */
+	Size		spaceUsedSkew;	/*  偏斜哈希表当前空间用量  */
+	Size		spaceAllowedSkew;	/*  偏斜哈希表上限  */
 
 	MemoryContext hashCxt;		/* context for whole-hash-join storage */
-	MemoryContext batchCxt;		/* context for this-batch-only storage */
+	MemoryContext batchCxt;		/*  仅本批的存储上下文  */
 	MemoryContext spillCxt;		/* context for spilling to temp files */
 
-	/* used for dense allocation of tuples (into linked chunks) */
-	HashMemoryChunk chunks;		/* one list for the whole batch */
+	/*  用于密集分配元组(到链接块中)  */
+	HashMemoryChunk chunks;		/*  整批一个列表  */
 
-	/* Shared and private state for Parallel Hash. */
-	HashMemoryChunk current_chunk;	/* this backend's current chunk */
-	dsa_area   *area;			/* DSA area to allocate memory from */
+	/*  并行哈希的共享与私有状态。  */
+	HashMemoryChunk current_chunk;	/*  本后端当前块  */
+	dsa_area   *area;			/*  从中分配内存的 DSA 区  */
 	ParallelHashJoinState *parallel_state;
 	ParallelHashJoinBatchAccessor *batches;
 	dsa_pointer current_chunk_shared;

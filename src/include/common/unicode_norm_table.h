@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * unicode_norm_table.h
- *	  Composition table used for Unicode normalization
+ *	  用于 Unicode 规范化的组合表
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,24 +18,24 @@
  */
 typedef struct
 {
-	uint32		codepoint;		/* Unicode codepoint */
-	uint8		comb_class;		/* combining class of character */
-	uint8		dec_size_flags; /* size and flags of decomposition code list */
-	uint16		dec_index;		/* index into UnicodeDecomp_codepoints, or the
-								 * decomposition itself if DECOMP_INLINE */
+	uint32		codepoint;		/*  Unicode 码点  */
+	uint8		comb_class;		/*  字符的组合类  */
+	uint8		dec_size_flags; /*  分解码列表大小与标志  */
+	uint16		dec_index;		/*  UnicodeDecomp_codepoints 下标,
+								 * 或 DECOMP_INLINE 时即分解本身  */
 } pg_unicode_decomposition;
 
-#define DECOMP_NO_COMPOSE	0x80	/* don't use for re-composition */
-#define DECOMP_INLINE		0x40	/* decomposition is stored inline in
-									 * dec_index */
-#define DECOMP_COMPAT		0x20	/* compatibility mapping */
+#define DECOMP_NO_COMPOSE	0x80	/*  不用于重新组合  */
+#define DECOMP_INLINE		0x40	/*  分解内联存于 dec_index
+									 * 中  */
+#define DECOMP_COMPAT		0x20	/*  兼容映射  */
 
 #define DECOMPOSITION_SIZE(x) ((x)->dec_size_flags & 0x1F)
 #define DECOMPOSITION_NO_COMPOSE(x) (((x)->dec_size_flags & (DECOMP_NO_COMPOSE | DECOMP_COMPAT)) != 0)
 #define DECOMPOSITION_IS_INLINE(x) (((x)->dec_size_flags & DECOMP_INLINE) != 0)
 #define DECOMPOSITION_IS_COMPAT(x) (((x)->dec_size_flags & DECOMP_COMPAT) != 0)
 
-/* Table of Unicode codepoints and their decompositions */
+/*  Unicode 码点及其分解表  */
 static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 {
 	{0x00A0, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x0020},
@@ -410,7 +410,7 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x0341, 230, 1 | DECOMP_INLINE, 0x0301},
 	{0x0342, 230, 0, 0},
 	{0x0343, 230, 1 | DECOMP_INLINE, 0x0313},
-	{0x0344, 230, 2 | DECOMP_NO_COMPOSE, 567},	/* non-starter decomposition */
+	{0x0344, 230, 2 | DECOMP_NO_COMPOSE, 567},	/*  非起始分解  */
 	{0x0345, 240, 0, 0},
 	{0x0346, 230, 0, 0},
 	{0x0347, 220, 0, 0},
@@ -797,30 +797,30 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x0952, 220, 0, 0},
 	{0x0953, 230, 0, 0},
 	{0x0954, 230, 0, 0},
-	{0x0958, 0, 2 | DECOMP_NO_COMPOSE, 755},	/* in exclusion list */
-	{0x0959, 0, 2 | DECOMP_NO_COMPOSE, 757},	/* in exclusion list */
-	{0x095A, 0, 2 | DECOMP_NO_COMPOSE, 759},	/* in exclusion list */
-	{0x095B, 0, 2 | DECOMP_NO_COMPOSE, 761},	/* in exclusion list */
-	{0x095C, 0, 2 | DECOMP_NO_COMPOSE, 763},	/* in exclusion list */
-	{0x095D, 0, 2 | DECOMP_NO_COMPOSE, 765},	/* in exclusion list */
-	{0x095E, 0, 2 | DECOMP_NO_COMPOSE, 767},	/* in exclusion list */
-	{0x095F, 0, 2 | DECOMP_NO_COMPOSE, 769},	/* in exclusion list */
+	{0x0958, 0, 2 | DECOMP_NO_COMPOSE, 755},	/*  排除列表中  */
+	{0x0959, 0, 2 | DECOMP_NO_COMPOSE, 757},	/*  排除列表中  */
+	{0x095A, 0, 2 | DECOMP_NO_COMPOSE, 759},	/*  排除列表中  */
+	{0x095B, 0, 2 | DECOMP_NO_COMPOSE, 761},	/*  排除列表中  */
+	{0x095C, 0, 2 | DECOMP_NO_COMPOSE, 763},	/*  排除列表中  */
+	{0x095D, 0, 2 | DECOMP_NO_COMPOSE, 765},	/*  排除列表中  */
+	{0x095E, 0, 2 | DECOMP_NO_COMPOSE, 767},	/*  排除列表中  */
+	{0x095F, 0, 2 | DECOMP_NO_COMPOSE, 769},	/*  排除列表中  */
 	{0x09BC, 7, 0, 0},
 	{0x09CB, 0, 2, 771},
 	{0x09CC, 0, 2, 773},
 	{0x09CD, 9, 0, 0},
-	{0x09DC, 0, 2 | DECOMP_NO_COMPOSE, 775},	/* in exclusion list */
-	{0x09DD, 0, 2 | DECOMP_NO_COMPOSE, 777},	/* in exclusion list */
-	{0x09DF, 0, 2 | DECOMP_NO_COMPOSE, 779},	/* in exclusion list */
+	{0x09DC, 0, 2 | DECOMP_NO_COMPOSE, 775},	/*  排除列表中  */
+	{0x09DD, 0, 2 | DECOMP_NO_COMPOSE, 777},	/*  排除列表中  */
+	{0x09DF, 0, 2 | DECOMP_NO_COMPOSE, 779},	/*  排除列表中  */
 	{0x09FE, 230, 0, 0},
-	{0x0A33, 0, 2 | DECOMP_NO_COMPOSE, 781},	/* in exclusion list */
-	{0x0A36, 0, 2 | DECOMP_NO_COMPOSE, 783},	/* in exclusion list */
+	{0x0A33, 0, 2 | DECOMP_NO_COMPOSE, 781},	/*  排除列表中  */
+	{0x0A36, 0, 2 | DECOMP_NO_COMPOSE, 783},	/*  排除列表中  */
 	{0x0A3C, 7, 0, 0},
 	{0x0A4D, 9, 0, 0},
-	{0x0A59, 0, 2 | DECOMP_NO_COMPOSE, 785},	/* in exclusion list */
-	{0x0A5A, 0, 2 | DECOMP_NO_COMPOSE, 787},	/* in exclusion list */
-	{0x0A5B, 0, 2 | DECOMP_NO_COMPOSE, 789},	/* in exclusion list */
-	{0x0A5E, 0, 2 | DECOMP_NO_COMPOSE, 791},	/* in exclusion list */
+	{0x0A59, 0, 2 | DECOMP_NO_COMPOSE, 785},	/*  排除列表中  */
+	{0x0A5A, 0, 2 | DECOMP_NO_COMPOSE, 787},	/*  排除列表中  */
+	{0x0A5B, 0, 2 | DECOMP_NO_COMPOSE, 789},	/*  排除列表中  */
+	{0x0A5E, 0, 2 | DECOMP_NO_COMPOSE, 791},	/*  排除列表中  */
 	{0x0ABC, 7, 0, 0},
 	{0x0ACD, 9, 0, 0},
 	{0x0B3C, 7, 0, 0},
@@ -828,8 +828,8 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x0B4B, 0, 2, 795},
 	{0x0B4C, 0, 2, 797},
 	{0x0B4D, 9, 0, 0},
-	{0x0B5C, 0, 2 | DECOMP_NO_COMPOSE, 799},	/* in exclusion list */
-	{0x0B5D, 0, 2 | DECOMP_NO_COMPOSE, 801},	/* in exclusion list */
+	{0x0B5C, 0, 2 | DECOMP_NO_COMPOSE, 799},	/*  排除列表中  */
+	{0x0B5D, 0, 2 | DECOMP_NO_COMPOSE, 801},	/*  排除列表中  */
 	{0x0B94, 0, 2, 803},
 	{0x0BCA, 0, 2, 805},
 	{0x0BCB, 0, 2, 807},
@@ -882,38 +882,38 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x0F35, 220, 0, 0},
 	{0x0F37, 220, 0, 0},
 	{0x0F39, 216, 0, 0},
-	{0x0F43, 0, 2 | DECOMP_NO_COMPOSE, 845},	/* in exclusion list */
-	{0x0F4D, 0, 2 | DECOMP_NO_COMPOSE, 847},	/* in exclusion list */
-	{0x0F52, 0, 2 | DECOMP_NO_COMPOSE, 849},	/* in exclusion list */
-	{0x0F57, 0, 2 | DECOMP_NO_COMPOSE, 851},	/* in exclusion list */
-	{0x0F5C, 0, 2 | DECOMP_NO_COMPOSE, 853},	/* in exclusion list */
-	{0x0F69, 0, 2 | DECOMP_NO_COMPOSE, 855},	/* in exclusion list */
+	{0x0F43, 0, 2 | DECOMP_NO_COMPOSE, 845},	/*  排除列表中  */
+	{0x0F4D, 0, 2 | DECOMP_NO_COMPOSE, 847},	/*  排除列表中  */
+	{0x0F52, 0, 2 | DECOMP_NO_COMPOSE, 849},	/*  排除列表中  */
+	{0x0F57, 0, 2 | DECOMP_NO_COMPOSE, 851},	/*  排除列表中  */
+	{0x0F5C, 0, 2 | DECOMP_NO_COMPOSE, 853},	/*  排除列表中  */
+	{0x0F69, 0, 2 | DECOMP_NO_COMPOSE, 855},	/*  排除列表中  */
 	{0x0F71, 129, 0, 0},
 	{0x0F72, 130, 0, 0},
-	{0x0F73, 0, 2 | DECOMP_NO_COMPOSE, 857},	/* non-starter decomposition */
+	{0x0F73, 0, 2 | DECOMP_NO_COMPOSE, 857},	/*  非起始分解  */
 	{0x0F74, 132, 0, 0},
-	{0x0F75, 0, 2 | DECOMP_NO_COMPOSE, 859},	/* non-starter decomposition */
-	{0x0F76, 0, 2 | DECOMP_NO_COMPOSE, 861},	/* in exclusion list */
+	{0x0F75, 0, 2 | DECOMP_NO_COMPOSE, 859},	/*  非起始分解  */
+	{0x0F76, 0, 2 | DECOMP_NO_COMPOSE, 861},	/*  排除列表中  */
 	{0x0F77, 0, 2 | DECOMP_COMPAT, 863},
-	{0x0F78, 0, 2 | DECOMP_NO_COMPOSE, 865},	/* in exclusion list */
+	{0x0F78, 0, 2 | DECOMP_NO_COMPOSE, 865},	/*  排除列表中  */
 	{0x0F79, 0, 2 | DECOMP_COMPAT, 867},
 	{0x0F7A, 130, 0, 0},
 	{0x0F7B, 130, 0, 0},
 	{0x0F7C, 130, 0, 0},
 	{0x0F7D, 130, 0, 0},
 	{0x0F80, 130, 0, 0},
-	{0x0F81, 0, 2 | DECOMP_NO_COMPOSE, 869},	/* non-starter decomposition */
+	{0x0F81, 0, 2 | DECOMP_NO_COMPOSE, 869},	/*  非起始分解  */
 	{0x0F82, 230, 0, 0},
 	{0x0F83, 230, 0, 0},
 	{0x0F84, 9, 0, 0},
 	{0x0F86, 230, 0, 0},
 	{0x0F87, 230, 0, 0},
-	{0x0F93, 0, 2 | DECOMP_NO_COMPOSE, 871},	/* in exclusion list */
-	{0x0F9D, 0, 2 | DECOMP_NO_COMPOSE, 873},	/* in exclusion list */
-	{0x0FA2, 0, 2 | DECOMP_NO_COMPOSE, 875},	/* in exclusion list */
-	{0x0FA7, 0, 2 | DECOMP_NO_COMPOSE, 877},	/* in exclusion list */
-	{0x0FAC, 0, 2 | DECOMP_NO_COMPOSE, 879},	/* in exclusion list */
-	{0x0FB9, 0, 2 | DECOMP_NO_COMPOSE, 881},	/* in exclusion list */
+	{0x0F93, 0, 2 | DECOMP_NO_COMPOSE, 871},	/*  排除列表中  */
+	{0x0F9D, 0, 2 | DECOMP_NO_COMPOSE, 873},	/*  排除列表中  */
+	{0x0FA2, 0, 2 | DECOMP_NO_COMPOSE, 875},	/*  排除列表中  */
+	{0x0FA7, 0, 2 | DECOMP_NO_COMPOSE, 877},	/*  排除列表中  */
+	{0x0FAC, 0, 2 | DECOMP_NO_COMPOSE, 879},	/*  排除列表中  */
+	{0x0FB9, 0, 2 | DECOMP_NO_COMPOSE, 881},	/*  排除列表中  */
 	{0x0FC6, 220, 0, 0},
 	{0x1026, 0, 2, 883},
 	{0x1037, 7, 0, 0},
@@ -2066,7 +2066,7 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x2A74, 0, 3 | DECOMP_COMPAT, 2307},
 	{0x2A75, 0, 2 | DECOMP_COMPAT, 2310},
 	{0x2A76, 0, 3 | DECOMP_COMPAT, 2312},
-	{0x2ADC, 0, 2 | DECOMP_NO_COMPOSE, 2315},	/* in exclusion list */
+	{0x2ADC, 0, 2 | DECOMP_NO_COMPOSE, 2315},	/*  排除列表中  */
 	{0x2C7C, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x006A},
 	{0x2C7D, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x0056},
 	{0x2CEF, 230, 0, 0},
@@ -3545,9 +3545,9 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0xFB15, 0, 2 | DECOMP_COMPAT, 3554},
 	{0xFB16, 0, 2 | DECOMP_COMPAT, 3556},
 	{0xFB17, 0, 2 | DECOMP_COMPAT, 3558},
-	{0xFB1D, 0, 2 | DECOMP_NO_COMPOSE, 3560},	/* in exclusion list */
+	{0xFB1D, 0, 2 | DECOMP_NO_COMPOSE, 3560},	/*  排除列表中  */
 	{0xFB1E, 26, 0, 0},
-	{0xFB1F, 0, 2 | DECOMP_NO_COMPOSE, 3562},	/* in exclusion list */
+	{0xFB1F, 0, 2 | DECOMP_NO_COMPOSE, 3562},	/*  排除列表中  */
 	{0xFB20, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x05E2},
 	{0xFB21, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x05D0},
 	{0xFB22, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x05D3},
@@ -3558,38 +3558,38 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0xFB27, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x05E8},
 	{0xFB28, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x05EA},
 	{0xFB29, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x002B},
-	{0xFB2A, 0, 2 | DECOMP_NO_COMPOSE, 3564},	/* in exclusion list */
-	{0xFB2B, 0, 2 | DECOMP_NO_COMPOSE, 3566},	/* in exclusion list */
-	{0xFB2C, 0, 2 | DECOMP_NO_COMPOSE, 3568},	/* in exclusion list */
-	{0xFB2D, 0, 2 | DECOMP_NO_COMPOSE, 3570},	/* in exclusion list */
-	{0xFB2E, 0, 2 | DECOMP_NO_COMPOSE, 3572},	/* in exclusion list */
-	{0xFB2F, 0, 2 | DECOMP_NO_COMPOSE, 3574},	/* in exclusion list */
-	{0xFB30, 0, 2 | DECOMP_NO_COMPOSE, 3576},	/* in exclusion list */
-	{0xFB31, 0, 2 | DECOMP_NO_COMPOSE, 3578},	/* in exclusion list */
-	{0xFB32, 0, 2 | DECOMP_NO_COMPOSE, 3580},	/* in exclusion list */
-	{0xFB33, 0, 2 | DECOMP_NO_COMPOSE, 3582},	/* in exclusion list */
-	{0xFB34, 0, 2 | DECOMP_NO_COMPOSE, 3584},	/* in exclusion list */
-	{0xFB35, 0, 2 | DECOMP_NO_COMPOSE, 3586},	/* in exclusion list */
-	{0xFB36, 0, 2 | DECOMP_NO_COMPOSE, 3588},	/* in exclusion list */
-	{0xFB38, 0, 2 | DECOMP_NO_COMPOSE, 3590},	/* in exclusion list */
-	{0xFB39, 0, 2 | DECOMP_NO_COMPOSE, 3592},	/* in exclusion list */
-	{0xFB3A, 0, 2 | DECOMP_NO_COMPOSE, 3594},	/* in exclusion list */
-	{0xFB3B, 0, 2 | DECOMP_NO_COMPOSE, 3596},	/* in exclusion list */
-	{0xFB3C, 0, 2 | DECOMP_NO_COMPOSE, 3598},	/* in exclusion list */
-	{0xFB3E, 0, 2 | DECOMP_NO_COMPOSE, 3600},	/* in exclusion list */
-	{0xFB40, 0, 2 | DECOMP_NO_COMPOSE, 3602},	/* in exclusion list */
-	{0xFB41, 0, 2 | DECOMP_NO_COMPOSE, 3604},	/* in exclusion list */
-	{0xFB43, 0, 2 | DECOMP_NO_COMPOSE, 3606},	/* in exclusion list */
-	{0xFB44, 0, 2 | DECOMP_NO_COMPOSE, 3608},	/* in exclusion list */
-	{0xFB46, 0, 2 | DECOMP_NO_COMPOSE, 3610},	/* in exclusion list */
-	{0xFB47, 0, 2 | DECOMP_NO_COMPOSE, 3612},	/* in exclusion list */
-	{0xFB48, 0, 2 | DECOMP_NO_COMPOSE, 3614},	/* in exclusion list */
-	{0xFB49, 0, 2 | DECOMP_NO_COMPOSE, 3616},	/* in exclusion list */
-	{0xFB4A, 0, 2 | DECOMP_NO_COMPOSE, 3618},	/* in exclusion list */
-	{0xFB4B, 0, 2 | DECOMP_NO_COMPOSE, 3620},	/* in exclusion list */
-	{0xFB4C, 0, 2 | DECOMP_NO_COMPOSE, 3622},	/* in exclusion list */
-	{0xFB4D, 0, 2 | DECOMP_NO_COMPOSE, 3624},	/* in exclusion list */
-	{0xFB4E, 0, 2 | DECOMP_NO_COMPOSE, 3626},	/* in exclusion list */
+	{0xFB2A, 0, 2 | DECOMP_NO_COMPOSE, 3564},	/*  排除列表中  */
+	{0xFB2B, 0, 2 | DECOMP_NO_COMPOSE, 3566},	/*  排除列表中  */
+	{0xFB2C, 0, 2 | DECOMP_NO_COMPOSE, 3568},	/*  排除列表中  */
+	{0xFB2D, 0, 2 | DECOMP_NO_COMPOSE, 3570},	/*  排除列表中  */
+	{0xFB2E, 0, 2 | DECOMP_NO_COMPOSE, 3572},	/*  排除列表中  */
+	{0xFB2F, 0, 2 | DECOMP_NO_COMPOSE, 3574},	/*  排除列表中  */
+	{0xFB30, 0, 2 | DECOMP_NO_COMPOSE, 3576},	/*  排除列表中  */
+	{0xFB31, 0, 2 | DECOMP_NO_COMPOSE, 3578},	/*  排除列表中  */
+	{0xFB32, 0, 2 | DECOMP_NO_COMPOSE, 3580},	/*  排除列表中  */
+	{0xFB33, 0, 2 | DECOMP_NO_COMPOSE, 3582},	/*  排除列表中  */
+	{0xFB34, 0, 2 | DECOMP_NO_COMPOSE, 3584},	/*  排除列表中  */
+	{0xFB35, 0, 2 | DECOMP_NO_COMPOSE, 3586},	/*  排除列表中  */
+	{0xFB36, 0, 2 | DECOMP_NO_COMPOSE, 3588},	/*  排除列表中  */
+	{0xFB38, 0, 2 | DECOMP_NO_COMPOSE, 3590},	/*  排除列表中  */
+	{0xFB39, 0, 2 | DECOMP_NO_COMPOSE, 3592},	/*  排除列表中  */
+	{0xFB3A, 0, 2 | DECOMP_NO_COMPOSE, 3594},	/*  排除列表中  */
+	{0xFB3B, 0, 2 | DECOMP_NO_COMPOSE, 3596},	/*  排除列表中  */
+	{0xFB3C, 0, 2 | DECOMP_NO_COMPOSE, 3598},	/*  排除列表中  */
+	{0xFB3E, 0, 2 | DECOMP_NO_COMPOSE, 3600},	/*  排除列表中  */
+	{0xFB40, 0, 2 | DECOMP_NO_COMPOSE, 3602},	/*  排除列表中  */
+	{0xFB41, 0, 2 | DECOMP_NO_COMPOSE, 3604},	/*  排除列表中  */
+	{0xFB43, 0, 2 | DECOMP_NO_COMPOSE, 3606},	/*  排除列表中  */
+	{0xFB44, 0, 2 | DECOMP_NO_COMPOSE, 3608},	/*  排除列表中  */
+	{0xFB46, 0, 2 | DECOMP_NO_COMPOSE, 3610},	/*  排除列表中  */
+	{0xFB47, 0, 2 | DECOMP_NO_COMPOSE, 3612},	/*  排除列表中  */
+	{0xFB48, 0, 2 | DECOMP_NO_COMPOSE, 3614},	/*  排除列表中  */
+	{0xFB49, 0, 2 | DECOMP_NO_COMPOSE, 3616},	/*  排除列表中  */
+	{0xFB4A, 0, 2 | DECOMP_NO_COMPOSE, 3618},	/*  排除列表中  */
+	{0xFB4B, 0, 2 | DECOMP_NO_COMPOSE, 3620},	/*  排除列表中  */
+	{0xFB4C, 0, 2 | DECOMP_NO_COMPOSE, 3622},	/*  排除列表中  */
+	{0xFB4D, 0, 2 | DECOMP_NO_COMPOSE, 3624},	/*  排除列表中  */
+	{0xFB4E, 0, 2 | DECOMP_NO_COMPOSE, 3626},	/*  排除列表中  */
 	{0xFB4F, 0, 2 | DECOMP_COMPAT, 3628},
 	{0xFB50, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x0671},
 	{0xFB51, 0, 1 | DECOMP_COMPAT | DECOMP_INLINE, 0x0671},
@@ -4811,13 +4811,13 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x16FF0, 6, 0, 0},
 	{0x16FF1, 6, 0, 0},
 	{0x1BC9E, 1, 0, 0},
-	{0x1D15E, 0, 2 | DECOMP_NO_COMPOSE, 4808},	/* in exclusion list */
-	{0x1D15F, 0, 2 | DECOMP_NO_COMPOSE, 4810},	/* in exclusion list */
-	{0x1D160, 0, 2 | DECOMP_NO_COMPOSE, 4812},	/* in exclusion list */
-	{0x1D161, 0, 2 | DECOMP_NO_COMPOSE, 4814},	/* in exclusion list */
-	{0x1D162, 0, 2 | DECOMP_NO_COMPOSE, 4816},	/* in exclusion list */
-	{0x1D163, 0, 2 | DECOMP_NO_COMPOSE, 4818},	/* in exclusion list */
-	{0x1D164, 0, 2 | DECOMP_NO_COMPOSE, 4820},	/* in exclusion list */
+	{0x1D15E, 0, 2 | DECOMP_NO_COMPOSE, 4808},	/*  排除列表中  */
+	{0x1D15F, 0, 2 | DECOMP_NO_COMPOSE, 4810},	/*  排除列表中  */
+	{0x1D160, 0, 2 | DECOMP_NO_COMPOSE, 4812},	/*  排除列表中  */
+	{0x1D161, 0, 2 | DECOMP_NO_COMPOSE, 4814},	/*  排除列表中  */
+	{0x1D162, 0, 2 | DECOMP_NO_COMPOSE, 4816},	/*  排除列表中  */
+	{0x1D163, 0, 2 | DECOMP_NO_COMPOSE, 4818},	/*  排除列表中  */
+	{0x1D164, 0, 2 | DECOMP_NO_COMPOSE, 4820},	/*  排除列表中  */
 	{0x1D165, 216, 0, 0},
 	{0x1D166, 216, 0, 0},
 	{0x1D167, 1, 0, 0},
@@ -4848,12 +4848,12 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 	{0x1D1AB, 230, 0, 0},
 	{0x1D1AC, 230, 0, 0},
 	{0x1D1AD, 230, 0, 0},
-	{0x1D1BB, 0, 2 | DECOMP_NO_COMPOSE, 4822},	/* in exclusion list */
-	{0x1D1BC, 0, 2 | DECOMP_NO_COMPOSE, 4824},	/* in exclusion list */
-	{0x1D1BD, 0, 2 | DECOMP_NO_COMPOSE, 4826},	/* in exclusion list */
-	{0x1D1BE, 0, 2 | DECOMP_NO_COMPOSE, 4828},	/* in exclusion list */
-	{0x1D1BF, 0, 2 | DECOMP_NO_COMPOSE, 4830},	/* in exclusion list */
-	{0x1D1C0, 0, 2 | DECOMP_NO_COMPOSE, 4832},	/* in exclusion list */
+	{0x1D1BB, 0, 2 | DECOMP_NO_COMPOSE, 4822},	/*  排除列表中  */
+	{0x1D1BC, 0, 2 | DECOMP_NO_COMPOSE, 4824},	/*  排除列表中  */
+	{0x1D1BD, 0, 2 | DECOMP_NO_COMPOSE, 4826},	/*  排除列表中  */
+	{0x1D1BE, 0, 2 | DECOMP_NO_COMPOSE, 4828},	/*  排除列表中  */
+	{0x1D1BF, 0, 2 | DECOMP_NO_COMPOSE, 4830},	/*  排除列表中  */
+	{0x1D1C0, 0, 2 | DECOMP_NO_COMPOSE, 4832},	/*  排除列表中  */
 	{0x1D242, 230, 0, 0},
 	{0x1D243, 230, 0, 0},
 	{0x1D244, 230, 0, 0},
@@ -6816,7 +6816,7 @@ static const pg_unicode_decomposition UnicodeDecompMain[6775] =
 
 };
 
-/* codepoints array  */
+/*  码点数组  */
 static const uint32 UnicodeDecomp_codepoints[5098] =
 {
 	 /* 0 */ 0x0020, 0x0308,

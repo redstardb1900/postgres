@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * unicode_norm_hashfunc.h
- *	  Perfect hash functions used for Unicode normalization
+ *	  用于 Unicode 规范化的完美散列函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,10 +19,10 @@
 
 #include "common/unicode_norm_table.h"
 
-/* Typedef for perfect hash functions */
+/*  完美散列函数的 typedef  */
 typedef int (*cp_hash_func) (const void *key);
 
-/* Information for lookups with perfect hash functions */
+/*  用完美散列做查找的信息  */
 typedef struct
 {
 	const pg_unicode_decomposition *decomps;
@@ -37,7 +37,7 @@ typedef struct
 	int		num_recomps;
 } pg_unicode_recompinfo;
 
-/* Perfect hash function for decomposition */
+/*  分解用完美散列函数  */
 static int
 Decomp_hash_func(const void *key)
 {
@@ -1753,7 +1753,7 @@ Decomp_hash_func(const void *key)
 	return h[a % 13551] + h[b % 13551];
 }
 
-/* Hash lookup information for decomposition */
+/*  分解的散列查找信息  */
 static const pg_unicode_decompinfo UnicodeDecompInfo =
 {
 	UnicodeDecompMain,
@@ -1761,7 +1761,7 @@ static const pg_unicode_decompinfo UnicodeDecompInfo =
 	6775
 };
 
-/* Inverse lookup array -- contains indexes into UnicodeDecompMain[] */
+/*  逆查找数组 -- 含 UnicodeDecompMain[] 下标  */
 static const uint16 RecompInverseLookup[941] =
 {
 	/* U+003C+0338 -> U+226E */ 1857,
@@ -2707,7 +2707,7 @@ static const uint16 RecompInverseLookup[941] =
 	/* U+11935+11930 -> U+11938 */ 4743
 };
 
-/* Perfect hash function for recomposition */
+/*  重组合用完美散列函数  */
 static int
 Recomp_hash_func(const void *key)
 {
@@ -2965,7 +2965,7 @@ Recomp_hash_func(const void *key)
 	return h[a % 1883] + h[b % 1883];
 }
 
-/* Hash lookup information for recomposition */
+/*  重组合的散列查找信息  */
 static const pg_unicode_recompinfo UnicodeRecompInfo =
 {
 	RecompInverseLookup,

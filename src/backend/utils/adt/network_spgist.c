@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * network_spgist.c
- *	  SP-GiST support for network types.
+ *	  网络类型的 SP-GiST 支持。
  *
- * We split inet index entries first by address family (IPv4 or IPv6).
- * If the entries below a given inner tuple are all of the same family,
- * we identify their common prefix and split by the next bit of the address,
- * and by whether their masklens exceed the length of the common prefix.
+ * inet 索引项先按地址族(IPv4 或 IPv6)拆分。
+ * 若某内节点元组下条目同属一族,则识别其公共
+ * 前缀,并按地址的下一位拆分,以及掩码长是否
+ * 超过公共前缀长度。
  *
- * An inner tuple that has both IPv4 and IPv6 children has a null prefix
- * and exactly two nodes, the first being for IPv4 and the second for IPv6.
+ * 同时有 IPv4 与 IPv6 子项的内节点元组前缀为
+ * 空,恰有两个节点:先 IPv4 后 IPv6。
  *
- * Otherwise, the prefix is a CIDR value representing the common prefix,
- * and there are exactly four nodes.  Node numbers 0 and 1 are for addresses
- * with the same masklen as the prefix, while node numbers 2 and 3 are for
- * addresses with larger masklen.  (We do not allow a tuple to contain
- * entries with masklen smaller than its prefix's.)  Node numbers 0 and 1
- * are distinguished by the next bit of the address after the common prefix,
- * and likewise for node numbers 2 and 3.  If there are no more bits in
- * the address family, everything goes into node 0 (which will probably
- * lead to creating an allTheSame tuple).
+ * 否则前缀是表示公共前缀的 CIDR 值,恰有四个
+ * 节点。节点 0/1 对应掩码长与前缀相同的地址,
+ * 节点 2/3 对应更大掩码长。(不允许元组含掩码
+ * 长小于其前缀的条目。) 节点 0 与 1 由公共前缀
+ * 之后的下一位地址区分,2 与 3 同理。若该地址
+ * 族已无更多位,则全部进节点 0(很可能导致
+ * 创建 allTheSame 元组)。
+ *
+ *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -45,7 +45,7 @@ static int	inet_spg_consistent_bitmap(const inet *prefix, int nkeys,
 									   ScanKey scankeys, bool leaf);
 
 /*
- * The SP-GiST configuration function
+ * SP-GiST 配置函数
  */
 Datum
 inet_spg_config(PG_FUNCTION_ARGS)
@@ -62,7 +62,7 @@ inet_spg_config(PG_FUNCTION_ARGS)
 }
 
 /*
- * The SP-GiST choose function
+ * SP-GiST 选择函数
  */
 Datum
 inet_spg_choose(PG_FUNCTION_ARGS)
@@ -74,12 +74,12 @@ inet_spg_choose(PG_FUNCTION_ARGS)
 	int			commonbits;
 
 	/*
-	 * If we're looking at a tuple that splits by address family, choose the
-	 * appropriate subnode.
+	 * 若看的是按地址族拆分的元组,选择合适
+	 * 子节点。
 	 */
 	if (!in->hasPrefix)
 	{
-		/* allTheSame isn't possible for such a tuple */
+		/* 此类元组不可能 allTheSame */
 		Assert(!in->allTheSame);
 		Assert(in->nNodes == 2);
 
@@ -90,25 +90,25 @@ inet_spg_choose(PG_FUNCTION_ARGS)
 		PG_RETURN_VOID();
 	}
 
-	/* Else it must split by prefix */
+	/* 否则须按前缀拆分 */
 	Assert(in->nNodes == 4 || in->allTheSame);
 
 	prefix = DatumGetInetPP(in->prefixDatum);
 	commonbits = ip_bits(prefix);
 
 	/*
-	 * We cannot put addresses from different families under the same inner
-	 * node, so we have to split if the new value's family is different.
+	 * 无法把不同族的地址放在同一内节点下,故新值
+	 * 族不同时必须拆分。
 	 */
 	if (ip_family(val) != ip_family(prefix))
 	{
-		/* Set up 2-node tuple */
+		/* 建 2 节点元组 */
 		out->resultType = spgSplitTuple;
 		out->result.splitTuple.prefixHasPrefix = false;
 		out->result.splitTuple.prefixNNodes = 2;
 		out->result.splitTuple.prefixNodeLabels = NULL;
 
-		/* Identify which node the existing data goes into */
+		/* 确定既有数据进入哪个节点 */
 		out->result.splitTuple.childNodeN =
 			(ip_family(prefix) == PGSQL_AF_INET) ? 0 : 1;
 
@@ -119,16 +119,16 @@ inet_spg_choose(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If the new value does not match the existing prefix, we have to split.
+	 * 若新值与既有前缀不匹配,必须拆分。
 	 */
 	if (ip_bits(val) < commonbits ||
 		bitncmp(ip_addr(prefix), ip_addr(val), commonbits) != 0)
 	{
-		/* Determine new prefix length for the split tuple */
+		/* 确定拆分元组的新前缀长度 */
 		commonbits = bitncommon(ip_addr(prefix), ip_addr(val),
 								Min(ip_bits(val), commonbits));
 
-		/* Set up 4-node tuple */
+		/* 建 4 节点元组 */
 		out->resultType = spgSplitTuple;
 		out->result.splitTuple.prefixHasPrefix = true;
 		out->result.splitTuple.prefixPrefixDatum =
@@ -136,7 +136,7 @@ inet_spg_choose(PG_FUNCTION_ARGS)
 		out->result.splitTuple.prefixNNodes = 4;
 		out->result.splitTuple.prefixNodeLabels = NULL;
 
-		/* Identify which node the existing data goes into */
+		/* 确定既有数据进入哪个节点 */
 		out->result.splitTuple.childNodeN =
 			inet_spg_node_number(prefix, commonbits);
 
@@ -147,9 +147,9 @@ inet_spg_choose(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * All OK, choose the node to descend into.  (If this tuple is marked
-	 * allTheSame, the core code will ignore our choice of nodeN; but we need
-	 * not account for that case explicitly here.)
+	 * 一切正常,选择下潜节点。(若本元组标为
+	 * allTheSame,核心会忽略我们对 nodeN 的选择;但
+	 * 此处不必显式处理该情形。)
 	 */
 	out->resultType = spgMatchNode;
 	out->result.matchNode.nodeN = inet_spg_node_number(val, commonbits);
@@ -159,7 +159,7 @@ inet_spg_choose(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST PickSplit method
+ * GiST 拆分方法
  */
 Datum
 inet_spg_picksplit(PG_FUNCTION_ARGS)
@@ -172,11 +172,11 @@ inet_spg_picksplit(PG_FUNCTION_ARGS)
 				commonbits;
 	bool		differentFamilies = false;
 
-	/* Initialize the prefix with the first item */
+	/* 用第一项初始化前缀 */
 	prefix = DatumGetInetPP(in->datums[0]);
 	commonbits = ip_bits(prefix);
 
-	/* Examine remaining items to discover minimum common prefix length */
+	/* 检查其余项以发现最小公共前缀长度 */
 	for (i = 1; i < in->nTuples; i++)
 	{
 		tmp = DatumGetInetPP(in->datums[i]);
@@ -194,14 +194,14 @@ inet_spg_picksplit(PG_FUNCTION_ARGS)
 			break;
 	}
 
-	/* Don't need labels; allocate output arrays */
+	/* 不需要标签;分配输出数组 */
 	out->nodeLabels = NULL;
 	out->mapTuplesToNodes = (int *) palloc(sizeof(int) * in->nTuples);
 	out->leafTupleDatums = (Datum *) palloc(sizeof(Datum) * in->nTuples);
 
 	if (differentFamilies)
 	{
-		/* Set up 2-node tuple */
+		/* 建 2 节点元组 */
 		out->hasPrefix = false;
 		out->nNodes = 2;
 
@@ -215,7 +215,7 @@ inet_spg_picksplit(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Set up 4-node tuple */
+		/* 建 4 节点元组 */
 		out->hasPrefix = true;
 		out->prefixDatum =
 			InetPGetDatum(cidr_set_masklen_internal(prefix, commonbits));
@@ -233,7 +233,7 @@ inet_spg_picksplit(PG_FUNCTION_ARGS)
 }
 
 /*
- * The SP-GiST query consistency check for inner tuples
+ * 内节点元组的 SP-GiST 查询一致性检查
  */
 Datum
 inet_spg_inner_consistent(PG_FUNCTION_ARGS)
@@ -248,7 +248,7 @@ inet_spg_inner_consistent(PG_FUNCTION_ARGS)
 		Assert(!in->allTheSame);
 		Assert(in->nNodes == 2);
 
-		/* Identify which child nodes need to be visited */
+		/* 确定需访问哪些子节点 */
 		which = 1 | (1 << 1);
 
 		for (i = 0; i < in->nkeys; i++)
@@ -274,7 +274,7 @@ inet_spg_inner_consistent(PG_FUNCTION_ARGS)
 					break;
 
 				default:
-					/* all other ops can only match addrs of same family */
+					/* 其他运算只能匹配同族地址 */
 					if (ip_family(argument) == PGSQL_AF_INET)
 						which &= 1;
 					else
@@ -287,13 +287,13 @@ inet_spg_inner_consistent(PG_FUNCTION_ARGS)
 	{
 		Assert(in->nNodes == 4);
 
-		/* Identify which child nodes need to be visited */
+		/* 确定需访问哪些子节点 */
 		which = inet_spg_consistent_bitmap(DatumGetInetPP(in->prefixDatum),
 										   in->nkeys, in->scankeys, false);
 	}
 	else
 	{
-		/* Must visit all nodes; we assume there are less than 32 of 'em */
+		/* 须访问全部节点;假定少于 32 个 */
 		which = ~0;
 	}
 
@@ -317,7 +317,7 @@ inet_spg_inner_consistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * The SP-GiST query consistency check for leaf tuples
+ * 叶子元组的 SP-GiST 查询一致性检查
  */
 Datum
 inet_spg_leaf_consistent(PG_FUNCTION_ARGS)
@@ -326,25 +326,25 @@ inet_spg_leaf_consistent(PG_FUNCTION_ARGS)
 	spgLeafConsistentOut *out = (spgLeafConsistentOut *) PG_GETARG_POINTER(1);
 	inet	   *leaf = DatumGetInetPP(in->leafDatum);
 
-	/* All tests are exact. */
+	/* 测试皆精确。 */
 	out->recheck = false;
 
-	/* Leaf is what it is... */
+	/* 叶子即其所是... */
 	out->leafValue = InetPGetDatum(leaf);
 
-	/* Use common code to apply the tests. */
+	/* 用共用代码施加测试。 */
 	PG_RETURN_BOOL(inet_spg_consistent_bitmap(leaf, in->nkeys, in->scankeys,
 											  true));
 }
 
 /*
- * Calculate node number (within a 4-node, single-family inner index tuple)
+ * 计算节点号(在 4 节点、单族内索引元组内)。
  *
- * The value must have the same family as the node's prefix, and
- * commonbits is the mask length of the prefix.  We use even or odd
- * nodes according to the next address bit after the commonbits,
- * and low or high nodes according to whether the value's mask length
- * is larger than commonbits.
+ * 值须与节点前缀同族,commonbits 为前缀的掩码
+ * 长。按 commonbits 之后的下一位地址选用偶/奇
+ * 节点,并按值的掩码长是否大于 commonbits
+ * 选用低/高节点。
+ *
  */
 static int
 inet_spg_node_number(const inet *val, int commonbits)
@@ -361,14 +361,14 @@ inet_spg_node_number(const inet *val, int commonbits)
 }
 
 /*
- * Calculate bitmap of node numbers that are consistent with the query
+ * 计算与查询一致的节点号位图。
  *
- * This can be used either at a 4-way inner tuple, or at a leaf tuple.
- * In the latter case, we should return a boolean result (0 or 1)
- * not a bitmap.
+ * 可用于 4 路内节点元组,也可用于叶子元组。
+ * 后者应返回布尔结果(0 或 1)而非
+ * 位图。
  *
- * This definition is pretty odd, but the inner and leaf consistency checks
- * are mostly common and it seems best to keep them in one function.
+ * 定义颇怪,但内外一致性检查大多共用,放在
+ * 一个函数里更好。
  */
 static int
 inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
@@ -378,7 +378,7 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 	int			commonbits,
 				i;
 
-	/* Initialize result to allow visiting all children */
+	/* 初始化结果为允许访问全部子项 */
 	if (leaf)
 		bitmap = 1;
 	else
@@ -393,9 +393,9 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 		int			order;
 
 		/*
-		 * Check 0: different families
+		 * 检查 0: 地址族不同
 		 *
-		 * Matching families do not help any of the strategies.
+		 * 匹配的地址族对任何策略都无帮助。
 		 */
 		if (ip_family(argument) != ip_family(prefix))
 		{
@@ -417,7 +417,7 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 					break;
 
 				default:
-					/* For all other cases, we can be sure there is no match */
+					/* 其余所有情况均可断定不匹配 */
 					bitmap = 0;
 					break;
 			}
@@ -425,22 +425,22 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 			if (!bitmap)
 				break;
 
-			/* Other checks make no sense with different families. */
+			/* 族不同时其他检查无意义。 */
 			continue;
 		}
 
 		/*
-		 * Check 1: network bit count
+		 * 检查 1: 网络位数
 		 *
-		 * Network bit count (ip_bits) helps to check leaves for sub network
-		 * and sup network operators.  At non-leaf nodes, we know every child
-		 * value has greater ip_bits, so we can avoid descending in some cases
-		 * too.
+		 * 网络位数(ip_bits)有助于在叶子上检查子网/超网
+		 * 运算符。在非叶节点,已知每个子值有更大
+		 * ip_bits,故某些情形也可避免下潜。
 		 *
-		 * This check is less expensive than checking the address bits, so we
-		 * are doing this before, but it has to be done after for the basic
-		 * comparison strategies, because ip_bits only affect their results
-		 * when the common network bits are the same.
+		 *
+		 * 本检查比查地址位便宜,故放在前面;但对基本
+		 * 比较策略须放后面,因仅当公共网络位相同
+		 * 时 ip_bits 才影响其
+		 * 结果。
 		 */
 		switch (strategy)
 		{
@@ -482,12 +482,12 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 			break;
 
 		/*
-		 * Check 2: common network bits
+		 * 检查 2: 公共网络位
 		 *
-		 * Compare available common prefix bits to the query, but not beyond
-		 * either the query's netmask or the minimum netmask among the
-		 * represented values.  If these bits don't match the query, we can
-		 * eliminate some cases.
+		 * 把可用的公共前缀位与查询作比较,但不越过查询
+		 * 的掩码或所表示值中的最小掩码。若这些位
+		 * 与查询不符,可排除部分
+		 * 情形。
 		 */
 		order = bitncmp(ip_addr(prefix), ip_addr(argument),
 						Min(commonbits, ip_bits(argument)));
@@ -512,7 +512,7 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 					break;
 
 				default:
-					/* For all other cases, we can be sure there is no match */
+					/* 其余所有情况均可断定不匹配 */
 					bitmap = 0;
 					break;
 			}
@@ -521,19 +521,19 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 				break;
 
 			/*
-			 * Remaining checks make no sense when common bits don't match.
+			 * 公共位不匹配时其余检查无意义。
 			 */
 			continue;
 		}
 
 		/*
-		 * Check 3: next network bit
+		 * 检查 3: 下一网络位
 		 *
-		 * We can filter out branch 2 or 3 using the next network bit of the
-		 * argument, if it is available.
+		 * 若参数的下一网络位可用,可用它过滤分支
+		 * 2 或 3。
 		 *
-		 * This check matters for the performance of the search. The results
-		 * would be correct without it.
+		 * 本检查影响搜索性能。没有它结果仍
+		 * 正确。
 		 */
 		if (bitmap & ((1 << 2) | (1 << 3)) &&
 			commonbits < ip_bits(argument))
@@ -573,19 +573,19 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 		}
 
 		/*
-		 * Remaining checks are only for the basic comparison strategies. This
-		 * test relies on the strategy number ordering defined in stratnum.h.
+		 * 其余检查仅针对基本比较策略。本测试依赖
+		 * stratnum.h 中定义的策略号次序。
 		 */
 		if (strategy < RTEqualStrategyNumber ||
 			strategy > RTGreaterEqualStrategyNumber)
 			continue;
 
 		/*
-		 * Check 4: network bit count
+		 * 检查 4: 网络位数
 		 *
-		 * At this point, we know that the common network bits of the prefix
-		 * and the argument are the same, so we can go forward and check the
-		 * ip_bits.
+		 * 至此已知前缀与参数的公共网络位相同,可
+		 * 继续检查 ip_bits。
+		 *
 		 */
 		switch (strategy)
 		{
@@ -607,19 +607,19 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 		if (!bitmap)
 			break;
 
-		/* Remaining checks don't make sense with different ip_bits. */
+		/* ip_bits 不同时其余检查无意义。 */
 		if (commonbits != ip_bits(argument))
 			continue;
 
 		/*
-		 * Check 5: next host bit
+		 * 查 5: 下一主机位
 		 *
-		 * We can filter out branch 0 or 1 using the next host bit of the
-		 * argument, if it is available.
+		 * 若参数的下一主机位可用,可用它过滤分支
+		 * 0 或 1。
 		 *
-		 * This check matters for the performance of the search. The results
-		 * would be correct without it.  There is no point in running it for
-		 * leafs as we have to check the whole address on the next step.
+		 * 本检查影响搜索性能。没有它结果仍正确。
+		 * 对叶子无意义,因下一步须检查整个
+		 * 地址。
 		 */
 		if (!leaf && bitmap & (1 | (1 << 1)) &&
 			commonbits < ip_maxbits(argument))
@@ -659,14 +659,14 @@ inet_spg_consistent_bitmap(const inet *prefix, int nkeys, ScanKey scankeys,
 		}
 
 		/*
-		 * Check 6: whole address
+		 * 检查 6: 整个地址
 		 *
-		 * This is the last check for correctness of the basic comparison
-		 * strategies.  It's only appropriate at leaf entries.
+		 * 基本比较策略正确性的最后检查。仅适用于
+		 * 叶子条目。
 		 */
 		if (leaf)
 		{
-			/* Redo ordering comparison using all address bits */
+			/* 用全部地址位重做次序比较 */
 			order = bitncmp(ip_addr(prefix), ip_addr(argument),
 							ip_maxbits(prefix));
 

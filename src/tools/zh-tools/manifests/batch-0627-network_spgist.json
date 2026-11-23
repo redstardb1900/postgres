@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0627",
+ "title": "backend/utils/adt network_spgist — batch 0627",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cd8439d42eae47a8a1dafb30171e8b0eb957d8bb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/network_spgist.c",
+   "kind": "c_comment",
+   "note": "0627"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0627-network_spgist.json",
+   "kind": "manifest",
+   "note": "0627"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/network_spgist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "L53 注释掉的代码 KEEP"
+   ],
+   "note": "0627"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0627-network_spgist.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0627"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0627"
+  }
+ ],
+ "notes": "network_spgist.c 全文件；对齐 network_gist 同 EN；L615 查5 压缩；L588 空白对齐；L53 KEEP"
+}

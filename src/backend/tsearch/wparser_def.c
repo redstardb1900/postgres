@@ -26,11 +26,11 @@
 #include "utils/builtins.h"
 
 
-/* Define me to enable tracing of parser behavior */
+/* 定义本宏以启用解析器行为跟踪 */
 /* #define WPARSER_TRACE */
 
 
-/* Output token categories */
+/* 输出词元类别 */
 
 #define ASCIIWORD		1
 #define WORD_T			2
@@ -113,7 +113,7 @@ static const char *const lex_descr[] = {
 };
 
 
-/* Parser states */
+/* 解析状态 */
 
 typedef enum
 {
@@ -194,16 +194,16 @@ typedef enum
 	TPS_InHyphenAsciiWordPart,
 	TPS_InHyphenNumWordPart,
 	TPS_InHyphenUnsignedInt,
-	TPS_Null					/* last state (fake value) */
+	TPS_Null					/* 末状态(伪值) */
 } TParserState;
 
-/* forward declaration */
+/* 前置声明 */
 struct TParser;
 
-typedef int (*TParserCharTest) (struct TParser *);	/* any p_is* functions
-													 * except p_iseq */
-typedef void (*TParserSpecial) (struct TParser *);	/* special handler for
-													 * special cases... */
+typedef int (*TParserCharTest) (struct TParser *);	/* 任一 p_is* 函数
+													 * 除 p_iseq */
+typedef void (*TParserSpecial) (struct TParser *);	/* 特殊情形的
+													 * 特殊处理... */
 
 typedef struct
 {
@@ -215,7 +215,7 @@ typedef struct
 	TParserSpecial special;
 } TParserStateActionItem;
 
-/* Flag bits in TParserStateActionItem.flags */
+/* TParserStateActionItem.flags 的标志位 */
 #define A_NEXT		0x0000
 #define A_BINGO		0x0001
 #define A_POP		0x0002
@@ -227,11 +227,11 @@ typedef struct
 
 typedef struct TParserPosition
 {
-	int			posbyte;		/* position of parser in bytes */
-	int			poschar;		/* position of parser in characters */
-	int			charlen;		/* length of current char */
-	int			lenbytetoken;	/* length of token-so-far in bytes */
-	int			lenchartoken;	/* and in chars */
+	int			posbyte;		/* 解析器按字节的位置 */
+	int			poschar;		/* 解析器按字符的位置 */
+	int			charlen;		/* 当前字符长度 */
+	int			lenbytetoken;	/* 迄今词元的字节长度 */
+	int			lenchartoken;	/* 及字符数 */
 	TParserState state;
 	struct TParserPosition *prev;
 	const TParserStateActionItem *pushedAtAction;
@@ -239,23 +239,23 @@ typedef struct TParserPosition
 
 typedef struct TParser
 {
-	/* string and position information */
-	char	   *str;			/* multibyte string */
-	int			lenstr;			/* length of mbstring */
-	wchar_t    *wstr;			/* wide character string */
-	pg_wchar   *pgwstr;			/* wide character string for C-locale */
+	/* 串与位置信息 */
+	char	   *str;			/* 多字节串 */
+	int			lenstr;			/* mbstring 长度 */
+	wchar_t    *wstr;			/* 宽字符串 */
+	pg_wchar   *pgwstr;			/* C 区域设置用宽字符串 */
 	bool		usewide;
 
-	/* State of parse */
+	/* 解析状态 */
 	int			charmaxlen;
 	TParserPosition *state;
 	bool		ignore;
 	bool		wanthost;
 
-	/* silly char */
+	/* 杂字符 */
 	char		c;
 
-	/* out */
+	/* 出 */
 	char	   *token;
 	int			lenbytetoken;
 	int			lenchartoken;
@@ -263,7 +263,7 @@ typedef struct TParser
 } TParser;
 
 
-/* forward decls here */
+/* 此处前置声明 */
 static bool TParserGet(TParser *prs);
 
 
@@ -294,7 +294,7 @@ TParserInit(char *str, int len)
 	prs->lenstr = len;
 
 	/*
-	 * Use wide char code only when max encoding length > 1.
+	 * 仅当最大编码长度 > 1 时用宽字符代码。
 	 */
 	if (prs->charmaxlen > 1)
 	{
@@ -304,8 +304,8 @@ TParserInit(char *str, int len)
 		if (database_ctype_is_c)
 		{
 			/*
-			 * char2wchar doesn't work for C-locale and sizeof(pg_wchar) could
-			 * be different from sizeof(wchar_t)
+			 * char2wchar 对 C 区域设置无效,且 sizeof(pg_wchar)
+			 * 可能异于 sizeof(wchar_t)
 			 */
 			prs->pgwstr = (pg_wchar *) palloc(sizeof(pg_wchar) * (prs->lenstr + 1));
 			pg_mb2wchar_with_len(prs->str, prs->pgwstr, prs->lenstr);
@@ -331,15 +331,15 @@ TParserInit(char *str, int len)
 }
 
 /*
- * As an alternative to a full TParserInit one can create a
- * TParserCopy which basically is a regular TParser without a private
- * copy of the string - instead it uses the one from another TParser.
- * This is useful because at some places TParsers are created
- * recursively and the repeated copying around of the strings can
- * cause major inefficiency if the source string is long.
- * The new parser starts parsing at the original's current position.
+ * 相对完整 TParserInit,也可造
+ * TParserCopy:本质是普通 TParser,但不
+ * 私有拷贝串,而用另一 TParser 的串。
+ * 递归创建 TParsers 时很有用,避免长源
+ * 串反复拷贝造成严重低效。
+ * 新解析器从原解析器当前位置开始
+ * 解析。
  *
- * Obviously one must not close the original TParser before the copy.
+ * 显然关闭副本前不得关闭原 TParser。
  */
 static TParser *
 TParserCopyInit(const TParser *orig)
@@ -390,7 +390,7 @@ TParserClose(TParser *prs)
 }
 
 /*
- * Close a parser created with TParserCopyInit
+ * 关闭 TParserCopyInit 创建的解析器
  */
 static void
 TParserCopyClose(TParser *prs)
@@ -411,13 +411,13 @@ TParserCopyClose(TParser *prs)
 
 
 /*
- * Character-type support functions, equivalent to is* macros, but
- * working with any possible encodings and locales. Notes:
- *	- with multibyte encoding and C-locale isw* function may fail
- *	  or give wrong result.
- *	- multibyte encoding and C-locale often are used for
- *	  Asian languages.
- *	- if locale is C then we use pgwstr instead of wstr.
+ * 字符类型支持函数,等价于 is* 宏,但
+ * 可处理任意编码与区域设置。注意:
+ *	- 多字节编码与 C 区域设置下 isw* 可能
+ *	  失败或结果错误
+ *	- 多字节编码与 C 区域设置常用于
+ *	  亚洲语言。
+ *	- 若区域设置为 C 则用 pgwstr 而非 wstr。
  */
 
 #define p_iswhat(type, nonascii)											\
@@ -447,8 +447,8 @@ p_isnot##type(TParser *prs)													\
 }
 
 /*
- * In C locale with a multibyte encoding, any non-ASCII symbol is considered
- * an alpha character, but not a member of other char classes.
+ * 在 C 区域设置且多字节编码下,任何非 ASCII
+ * 符号视为 alpha,但不属其他字符类。
  */
 p_iswhat(alnum, 1)
 p_iswhat(alpha, 1)
@@ -460,7 +460,7 @@ p_iswhat(space, 0)
 p_iswhat(upper, 0)
 p_iswhat(xdigit, 0)
 
-/* p_iseq should be used only for ascii symbols */
+/* p_iseq 应只用于 ascii 符号 */
 
 static int
 p_iseq(TParser *prs, char c)
@@ -505,14 +505,14 @@ p_isurlchar(TParser *prs)
 {
 	char		ch;
 
-	/* no non-ASCII need apply */
+	/* 非 ASCII 无需适用 */
 	if (prs->state->charlen != 1)
 		return 0;
 	ch = *(prs->str + prs->state->posbyte);
-	/* no spaces or control characters */
+	/* 不要空白或控制字符 */
 	if (ch <= 0x20 || ch >= 0x7F)
 		return 0;
-	/* reject characters disallowed by RFC 3986 */
+	/* 拒绝 RFC 3986 禁止的字符 */
 	switch (ch)
 	{
 		case '"':
@@ -530,7 +530,7 @@ p_isurlchar(TParser *prs)
 }
 
 
-/* deliberately suppress unused-function complaints for the above */
+/* 有意压制上述未用函数的告警 */
 void		_make_compiler_happy(void);
 void
 _make_compiler_happy(void)
@@ -633,8 +633,8 @@ p_ishost(TParser *prs)
 	tmpprs->wanthost = true;
 
 	/*
-	 * Check stack depth before recursing.  (Since TParserGet() doesn't
-	 * normally recurse, we put the cost of checking here not there.)
+	 * 递归前检查栈深。(TParserGet() 通常
+	 * 不递归,故把检查开销放在此处。)
 	 */
 	check_stack_depth();
 
@@ -662,8 +662,8 @@ p_isURLPath(TParser *prs)
 	tmpprs->state->state = TPS_InURLPathFirst;
 
 	/*
-	 * Check stack depth before recursing.  (Since TParserGet() doesn't
-	 * normally recurse, we put the cost of checking here not there.)
+	 * 递归前检查栈深。(TParserGet() 通常
+	 * 不递归,故把检查开销放在此处。)
 	 */
 	check_stack_depth();
 
@@ -682,16 +682,16 @@ p_isURLPath(TParser *prs)
 }
 
 /*
- * returns true if current character has zero display length or
- * it's a special sign in several languages. Such characters
- * aren't a word-breaker although they aren't an isalpha.
- * In beginning of word they aren't a part of it.
+ * 若当前字符显示长度为 0,或为若干
+ * 语言中的特殊记号,则返回真。此类字符
+ * 虽非 isalpha,但不是断词符。
+ * 在词首时它们不构成词的一部分。
  */
 static int
 p_isspecial(TParser *prs)
 {
 	/*
-	 * pg_dsplen could return -1 which means error or control character
+	 * pg_dsplen 可能返回 -1,表示出错或控制字符
 	 */
 	if (pg_dsplen(prs->str + prs->state->posbyte) == 0)
 		return 1;
@@ -706,7 +706,7 @@ p_isspecial(TParser *prs)
 	{
 		static const pg_wchar strange_letter[] = {
 			/*
-			 * use binary search, so elements should be ordered
+			 * 用二分查找,故元素须有序
 			 */
 			0x0903,				/* DEVANAGARI SIGN VISARGA */
 			0x093E,				/* DEVANAGARI VOWEL SIGN AA */

@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0614",
+ "title": "backend/tsearch wparser_def 前段 — batch 0614",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e2c5011cb01d0f122d44195f72e4a2f37ca96843",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/wparser_def.c",
+   "kind": "c_comment",
+   "note": "0614"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0614-wparser_def.json",
+   "kind": "manifest",
+   "note": "0614"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/wparser_def.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。",
+    "WPARSER_TRACE 注释宏 KEEP。",
+    "HTML 标签字面量注释 KEEP。",
+    "Unicode 字符正式名表 KEEP。",
+    "Unicode Mark Spacing Combining 说明块 KEEP（防 halfen MIXED）。"
+   ],
+   "note": "0614"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0614-wparser_def.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0614"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0614"
+  }
+ ],
+ "notes": "wparser_def.c 前段短注至二分查找；Unicode 名表与 Mark 说明块 KEEP"
+}

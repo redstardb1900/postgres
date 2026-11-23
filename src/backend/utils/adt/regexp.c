@@ -867,14 +867,14 @@ similar_escape_internal(text *pat_text, text *esc_text)
 		char		pchar = *p;
 
 		/*
-		 * If both the escape character and the current character from the
-		 * pattern are multi-byte, we need to take the slow path.
+		 * 若转义字符与模式当前字符都是多字节,
+		 * 须走慢路径。
 		 *
-		 * But if one of them is single-byte, we can process the pattern one
-		 * byte at a time, ignoring multi-byte characters.  (This works
-		 * because all server-encodings have the property that a valid
-		 * multi-byte character representation cannot contain the
-		 * representation of a valid single-byte character.)
+		 * 但若其一为单字节,可按字节处理模式,
+		 * 忽略多字节字符。(可行因凡服务器编码
+		 * 都有:合法多字节表示不会包含合法
+		 * 单字节字符的
+		 * 表示。)
 		 */
 
 		if (elen > 1)
@@ -883,7 +883,7 @@ similar_escape_internal(text *pat_text, text *esc_text)
 
 			if (mblen > 1)
 			{
-				/* slow, multi-byte path */
+				/* 慢速多字节路径 */
 				if (afterescape)
 				{
 					*r++ = '\\';
@@ -893,15 +893,15 @@ similar_escape_internal(text *pat_text, text *esc_text)
 				}
 				else if (e && elen == mblen && memcmp(e, p, mblen) == 0)
 				{
-					/* SQL escape character; do not send to output */
+					/* SQL 转义字符;不送往输出 */
 					afterescape = true;
 				}
 				else
 				{
 					/*
-					 * We know it's a multi-byte character, so we don't need
-					 * to do all the comparisons to single-byte characters
-					 * that we do below.
+					 * 已知是多字节字符,故不必做下面
+					 * 那些与单字节字符的全部
+					 * 比较。
 					 */
 					memcpy(r, p, mblen);
 					r += mblen;
@@ -914,12 +914,12 @@ similar_escape_internal(text *pat_text, text *esc_text)
 			}
 		}
 
-		/* fast path */
+		/* 快路径 */
 		if (afterescape)
 		{
-			if (pchar == '"' && bracket_depth < 1)	/* escape-double-quote? */
+			if (pchar == '"' && bracket_depth < 1)	/* 转义双引号? */
 			{
-				/* emit appropriate part separator, per notes above */
+				/* 按上文说明发出适当分段分隔符 */
 				if (nquotes == 0)
 				{
 					*r++ = ')';
@@ -952,16 +952,16 @@ similar_escape_internal(text *pat_text, text *esc_text)
 			else
 			{
 				/*
-				 * We allow any character at all to be escaped; notably, this
-				 * allows access to POSIX character-class escapes such as
-				 * "\d".  The SQL spec is considerably more restrictive.
+				 * 允许转义任意字符;尤其可访问 POSIX
+				 * 字符类转义如 "\d"。SQL 规范
+				 * 严格得多。
 				 */
 				*r++ = '\\';
 				*r++ = pchar;
 
 				/*
-				 * If we encounter an escaped character in a character class,
-				 * we are no longer at the beginning.
+				 * 若在字符类中遇到转义字符,则不再处于
+				 * 开头。
 				 */
 				charclass_pos = 3;
 			}
@@ -969,69 +969,69 @@ similar_escape_internal(text *pat_text, text *esc_text)
 		}
 		else if (e && pchar == *e)
 		{
-			/* SQL escape character; do not send to output */
+			/* SQL 转义字符;不送往输出 */
 			afterescape = true;
 		}
 		else if (bracket_depth > 0)
 		{
-			/* inside a character class */
+			/* 在字符类内部 */
 			if (pchar == '\\')
 			{
 				/*
-				 * If we're here, backslash is not the SQL escape character,
-				 * so treat it as a literal class element, which requires
-				 * doubling it.  (This matches our behavior for backslashes
-				 * outside character classes.)
+				 * 若到此,反斜杠不是 SQL 转义字符,
+				 * 故当字面类元素处理,须加倍。
+				 * (与字符类外反斜杠行为一致。)
+				 *
 				 */
 				*r++ = '\\';
 			}
 			*r++ = pchar;
 
-			/* parse the character class well enough to identify ending ']' */
+			/* 解析字符类到足以识别结束 ']' */
 			if (pchar == ']' && charclass_pos > 2)
 			{
-				/* found the real end of a bracket pair */
+				/* 找到括号对的真正终点 */
 				bracket_depth--;
-				/* don't reset charclass_pos, this may be an inner bracket */
+				/* 不复位 charclass_pos,可能是内层括号 */
 			}
 			else if (pchar == '[')
 			{
-				/* start of a nested bracket pair */
+				/* 嵌套括号对起点 */
 				bracket_depth++;
 
 				/*
-				 * We are no longer at the beginning of a character class.
-				 * (The nested bracket pair is a collating element, not a
-				 * character class in its own right.)
+				 * 已不在字符类开头。(嵌套括号对是
+				 * 排序元素,本身不是字符类。)
+				 *
 				 */
 				charclass_pos = 3;
 			}
 			else if (pchar == '^')
 			{
 				/*
-				 * A caret right after the opening bracket negates the
-				 * character class.  In that case, the following will
-				 * increment charclass_pos from 1 to 2, so that a following
-				 * ']' is still a literal character and does not end the
-				 * character class.  If we are further inside a character
-				 * class, charclass_pos might get incremented past 3, which is
-				 * fine.
+				 * 开括号后紧跟的脱字符取反该字符类。
+				 * 此时会把 charclass_pos 从 1 增到
+				 * 2,使随后 ']' 仍为字面字符、
+				 * 不结束该类。若已更深进入字符
+				 * 类,charclass_pos 可增过 3,
+				 * 无妨。
+				 *
 				 */
 				charclass_pos++;
 			}
 			else
 			{
 				/*
-				 * Anything else (including a backslash or leading ']') is an
-				 * element of the character class, so we are no longer at the
-				 * beginning of the class.
+				 * 其他任何东西(含反斜杠或前导 ']')
+				 * 都是字符类元素,故已不在
+				 * 类开头。
 				 */
 				charclass_pos = 3;
 			}
 		}
 		else if (pchar == '[')
 		{
-			/* start of a character class */
+			/* 字符类起点 */
 			*r++ = pchar;
 			bracket_depth = 1;
 			charclass_pos = 1;
@@ -1045,7 +1045,7 @@ similar_escape_internal(text *pat_text, text *esc_text)
 			*r++ = '.';
 		else if (pchar == '(')
 		{
-			/* convert to non-capturing parenthesis */
+			/* 转为非捕获括号 */
 			*r++ = '(';
 			*r++ = '?';
 			*r++ = ':';
@@ -1086,7 +1086,7 @@ similar_to_escape_2(PG_FUNCTION_ARGS)
 
 /*
  * similar_to_escape(pattern)
- * Inserts a default escape character.
+ * 插入默认转义字符。
  */
 Datum
 similar_to_escape_1(PG_FUNCTION_ARGS)
@@ -1102,9 +1102,9 @@ similar_to_escape_1(PG_FUNCTION_ARGS)
 /*
  * similar_escape(pattern, escape)
  *
- * Legacy function for compatibility with views stored using the
- * pre-v13 expansion of SIMILAR TO.  Unlike the above functions, this
- * is non-strict, which leads to not-per-spec handling of "ESCAPE NULL".
+ * 兼容用旧函数:适配 v13 前 SIMILAR TO 展开的
+ * 视图。与上述函数不同,本函数非 strict,导致
+ * "ESCAPE NULL" 处理不合规范。
  */
 Datum
 similar_escape(PG_FUNCTION_ARGS)
@@ -1113,13 +1113,13 @@ similar_escape(PG_FUNCTION_ARGS)
 	text	   *esc_text;
 	text	   *result;
 
-	/* This function is not strict, so must test explicitly */
+	/* 本函数非 strict,故须显式测试 */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 	pat_text = PG_GETARG_TEXT_PP(0);
 
 	if (PG_ARGISNULL(1))
-		esc_text = NULL;		/* use default escape character */
+		esc_text = NULL;		/* 用默认转义字符 */
 	else
 		esc_text = PG_GETARG_TEXT_PP(1);
 
@@ -1130,7 +1130,7 @@ similar_escape(PG_FUNCTION_ARGS)
 
 /*
  * regexp_count()
- *		Return the number of matches of a pattern within a string.
+ *		返回串中模式匹配次数。
  */
 Datum
 regexp_count(PG_FUNCTION_ARGS)
@@ -1142,7 +1142,7 @@ regexp_count(PG_FUNCTION_ARGS)
 	pg_re_flags re_flags;
 	regexp_matches_ctx *matchctx;
 
-	/* Collect optional parameters */
+	/* 收集可选参数 */
 	if (PG_NARGS() > 2)
 	{
 		start = PG_GETARG_INT32(2);
@@ -1153,7 +1153,7 @@ regexp_count(PG_FUNCTION_ARGS)
 							"start", start)));
 	}
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
 	/* User mustn't specify 'g' */
 	if (re_flags.glob)

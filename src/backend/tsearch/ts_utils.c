@@ -22,12 +22,12 @@
 
 
 /*
- * Given the base name and extension of a tsearch config file, return
- * its full path name.  The base name is assumed to be user-supplied,
- * and is checked to prevent pathname attacks.  The extension is assumed
- * to be safe.
+ * 给定 tsearch 配置文件基名与扩展名,返回其
+ * 完整路径名。基名视为用户供给,须检查以防
+ * 路径攻击。扩展名假定
+ * 安全。
  *
- * The result is a palloc'd string.
+ * 结果为 palloc 的字符串。
  */
 char *
 get_tsearch_config_filename(const char *basename,
@@ -37,13 +37,13 @@ get_tsearch_config_filename(const char *basename,
 	char	   *result;
 
 	/*
-	 * We limit the basename to contain a-z, 0-9, and underscores.  This may
-	 * be overly restrictive, but we don't want to allow access to anything
-	 * outside the tsearch_data directory, so for instance '/' *must* be
-	 * rejected, and on some platforms '\' and ':' are risky as well. Allowing
-	 * uppercase might result in incompatible behavior between case-sensitive
-	 * and case-insensitive filesystems, and non-ASCII characters create other
-	 * interesting risks, so on the whole a tight policy seems best.
+	 * 基名限含 a-z、0-9 与下划线。或过严,但我们不想
+	 * 允许访问 tsearch_data 目录外任何内容,
+	 * 故例如 '/' *必须* 拒绝,且某些平台上 '\' 与 ':'
+	 * 也有风险。允许大写可能使大小写敏感与不敏感
+	 * 文件系统行为不一,非 ASCII 字符带来其他有趣
+	 * 风险,故整体以
+	 * 紧策略为妥。
 	 */
 	if (strspn(basename, "abcdefghijklmnopqrstuvwxyz0123456789_") != strlen(basename))
 		ereport(ERROR,
@@ -60,9 +60,9 @@ get_tsearch_config_filename(const char *basename,
 }
 
 /*
- * Reads a stop-word file. Each word is run through 'wordop'
- * function, if given.  wordop may either modify the input in-place,
- * or palloc a new version.
+ * 读停用词文件。每个词若给了 wordop 则经其
+ * 处理。wordop 可原地改输入,或
+ * palloc 新版。
  */
 void
 readstoplist(const char *fname, StopList *s, char *(*wordop) (const char *))
@@ -87,12 +87,12 @@ readstoplist(const char *fname, StopList *s, char *(*wordop) (const char *))
 		{
 			char	   *pbuf = line;
 
-			/* Trim trailing space */
+			/* 去掉尾部空白 */
 			while (*pbuf && !t_isspace(pbuf))
 				pbuf += pg_mblen(pbuf);
 			*pbuf = '\0';
 
-			/* Skip empty lines */
+			/* 跳过空行 */
 			if (*line == '\0')
 			{
 				pfree(line);
@@ -131,7 +131,7 @@ readstoplist(const char *fname, StopList *s, char *(*wordop) (const char *))
 
 	s->stop = stop;
 
-	/* Sort to allow binary searching */
+	/* 排序以便二分查找 */
 	if (s->stop && s->len > 0)
 		qsort(s->stop, s->len, sizeof(char *), pg_qsort_strcmp);
 }

@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0605",
+ "title": "backend/tsearch 小词典+utils 短注 — batch 0605",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d11df8dcc1b7717d2b1d9173e0e3171cf35a9d95",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/dict.c",
+   "kind": "c_comment",
+   "note": "0605"
+  },
+  {
+   "pattern": "src/backend/tsearch/dict_simple.c",
+   "kind": "c_comment",
+   "note": "0605"
+  },
+  {
+   "pattern": "src/backend/tsearch/dict_synonym.c",
+   "kind": "c_comment",
+   "note": "0605"
+  },
+  {
+   "pattern": "src/backend/tsearch/ts_utils.c",
+   "kind": "c_comment",
+   "note": "0605"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0605-tsearch.json",
+   "kind": "manifest",
+   "note": "0605"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/dict.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。"
+   ],
+   "note": "0605"
+  },
+  {
+   "path": "src/backend/tsearch/dict_simple.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。"
+   ],
+   "note": "0605"
+  },
+  {
+   "path": "src/backend/tsearch/dict_synonym.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。"
+   ],
+   "note": "0605"
+  },
+  {
+   "path": "src/backend/tsearch/ts_utils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。"
+   ],
+   "note": "0605"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0605-tsearch.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0605"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0605"
+  }
+ ],
+ "notes": "dict/dict_simple/dict_synonym/ts_utils 短注已译；dict_ispell 无散文未触达"
+}

@@ -28,17 +28,17 @@ typedef struct
 
 typedef struct
 {
-	int			len;			/* length of syn array */
+	int			len;			/* syn 数组长度 */
 	Syn		   *syn;
 	bool		case_sensitive;
 } DictSyn;
 
 /*
- * Finds the next whitespace-delimited word within the 'in' string.
- * Returns a pointer to the first character of the word, and a pointer
- * to the next byte after the last character in the word (in *end).
- * Character '*' at the end of word will not be treated as word
- * character if flags is not null.
+ * 在 in 串中找下一个空白分隔的词。
+ * 返回指向词首字符的指针,并经 *end 返回
+ * 指向词末字符之后下一字节的指针。
+ * 若 flags 非空,词末 '*' 不视为
+ * 词字符。
  */
 static char *
 findwrd(char *in, char **end, uint16 *flags)
@@ -46,11 +46,11 @@ findwrd(char *in, char **end, uint16 *flags)
 	char	   *start;
 	char	   *lastchar;
 
-	/* Skip leading spaces */
+	/* 跳过前导空白 */
 	while (*in && t_isspace(in))
 		in += pg_mblen(in);
 
-	/* Return NULL on empty lines */
+	/* 空行返回 NULL */
 	if (*in == '\0')
 	{
 		*end = NULL;
@@ -59,7 +59,7 @@ findwrd(char *in, char **end, uint16 *flags)
 
 	lastchar = start = in;
 
-	/* Find end of word */
+	/* 找词尾 */
 	while (*in && !t_isspace(in))
 	{
 		lastchar = in;
@@ -139,12 +139,12 @@ dsynonym_init(PG_FUNCTION_ARGS)
 		starti = findwrd(line, &end, NULL);
 		if (!starti)
 		{
-			/* Empty line */
+			/* 空行 */
 			goto skipline;
 		}
 		if (*end == '\0')
 		{
-			/* A line with only one word. Ignore silently. */
+			/* 仅一词的行。静默忽略。 */
 			goto skipline;
 		}
 		*end = '\0';
@@ -152,14 +152,14 @@ dsynonym_init(PG_FUNCTION_ARGS)
 		starto = findwrd(end + 1, &end, &flags);
 		if (!starto)
 		{
-			/* A line with only one word (+whitespace). Ignore silently. */
+			/* 仅一词(+空白)的行。静默忽略。 */
 			goto skipline;
 		}
 		*end = '\0';
 
 		/*
-		 * starti now points to the first word, and starto to the second word
-		 * on the line, with a \0 terminator at the end of both words.
+		 * starti 现指向第一词,starto 指向行上第二词,
+		 * 两词末均有 \0 终止符。
 		 */
 
 		if (cur >= d->len)
@@ -216,7 +216,7 @@ dsynonym_lexize(PG_FUNCTION_ARGS)
 			   *found;
 	TSLexeme   *res;
 
-	/* note: d->len test protects against Solaris bsearch-of-no-items bug */
+	/* 注:d->len 测试防范 Solaris 空项 bsearch 缺陷 */
 	if (len <= 0 || d->len <= 0)
 		PG_RETURN_POINTER(NULL);
 

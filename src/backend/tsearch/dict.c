@@ -21,7 +21,7 @@
 
 
 /*
- * Lexize one word by dictionary, mostly debug function
+ * 用词典对一个词做词元化,多为调试函数
  */
 Datum
 ts_lexize(PG_FUNCTION_ARGS)

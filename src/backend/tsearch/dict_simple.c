@@ -35,7 +35,7 @@ dsimple_init(PG_FUNCTION_ARGS)
 				acceptloaded = false;
 	ListCell   *l;
 
-	d->accept = true;			/* default */
+	d->accept = true;			/* 默认 */
 
 	foreach(l, dictoptions)
 	{
@@ -84,21 +84,21 @@ dsimple_lexize(PG_FUNCTION_ARGS)
 
 	if (*txt == '\0' || searchstoplist(&(d->stoplist), txt))
 	{
-		/* reject as stopword */
+		/* 作停用词拒绝 */
 		pfree(txt);
 		res = palloc0(sizeof(TSLexeme) * 2);
 		PG_RETURN_POINTER(res);
 	}
 	else if (d->accept)
 	{
-		/* accept */
+		/* 接受 */
 		res = palloc0(sizeof(TSLexeme) * 2);
 		res[0].lexeme = txt;
 		PG_RETURN_POINTER(res);
 	}
 	else
 	{
-		/* report as unrecognized */
+		/* 报告为无法识别 */
 		pfree(txt);
 		PG_RETURN_POINTER(NULL);
 	}

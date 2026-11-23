@@ -1941,29 +1941,29 @@ prsd_end(PG_FUNCTION_ARGS)
  * describing the "short word" length parameter.
  */
 
-/* Interesting words are non-repeated search terms */
+/* 有趣词是非重复的检索词 */
 #define INTERESTINGWORD(j) \
 	(prs->words[j].item && !prs->words[j].repeated)
 
-/* Don't want to end at a non-word or a short word, unless interesting */
+/* 不要停在非词或短词上,除非该词有趣 */
 #define BADENDPOINT(j) \
 	((NOENDTOKEN(prs->words[j].type) || prs->words[j].len <= shortword) && \
 	 !INTERESTINGWORD(j))
 
 typedef struct
 {
-	/* one cover (well, really one fragment) for mark_hl_fragments */
-	int32		startpos;		/* fragment's starting word index */
-	int32		endpos;			/* ending word index (inclusive) */
-	int32		poslen;			/* number of interesting words */
-	int32		curlen;			/* total number of words */
-	bool		chosen;			/* chosen? */
-	bool		excluded;		/* excluded? */
+	/* 一个覆盖(实为片段),供 mark_hl_fragments */
+	int32		startpos;		/* 片段起始词下标 */
+	int32		endpos;			/* 结束词下标(含) */
+	int32		poslen;			/* 有趣词个数 */
+	int32		curlen;			/* 词总数 */
+	bool		chosen;			/* 已选? */
+	bool		excluded;		/* 排除? */
 } CoverPos;
 
 typedef struct
 {
-	/* callback data for checkcondition_HL */
+	/* checkcondition_HL 的回调数据 */
 	HeadlineWordEntry *words;
 	int			len;
 } hlCheck;
@@ -1982,12 +1982,12 @@ checkcondition_HL(void *opaque, QueryOperand *val, ExecPhraseData *data)
 	hlCheck    *checkval = (hlCheck *) opaque;
 	int			i;
 
-	/* scan words array for matching items */
+	/* 扫描 words 数组找匹配项 */
 	for (i = 0; i < checkval->len; i++)
 	{
 		if (checkval->words[i].item == val)
 		{
-			/* if data == NULL, don't need to report positions */
+			/* data == NULL 则无需报告位置 */
 			if (!data)
 				return TS_YES;
 
@@ -2012,20 +2012,20 @@ checkcondition_HL(void *opaque, QueryOperand *val, ExecPhraseData *data)
 }
 
 /*
- * hlCover: try to find a substring of prs' word list that satisfies query
+ * hlCover:在 prs 词表中找满足查询的子串
  *
- * locations is the result of TS_execute_locations() for the query.
- * We use this to identify plausible subranges of the query.
+ * locations 是查询的 TS_execute_locations() 结果。
+ * 用来识别查询的可行子范围。
  *
- * *nextpos is the lexeme position (NOT word index) to start the search
- * at.  Caller should initialize this to zero.  If successful, we'll
- * advance it to the next place to search at.
+ * *nextpos 是开始搜索的词元位置(非词下标)。
+ * 调用方应初始化为 0。成功则推进到下一
+ * 搜索起点。
  *
- * On success, sets *p to first word index and *q to last word index of the
- * cover substring, and returns true.
+ * 成功时置 *p 与 *q 为覆盖子串首/末词下标,
+ * 并返回真。
  *
- * The result is a minimal cover, in the sense that both *p and *q will be
- * words used in the query.
+ * 结果是最小覆盖:*p 与 *q 都会是
+ * 查询所用之词。
  */
 static bool
 hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
@@ -2033,7 +2033,7 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 {
 	int			pos = *nextpos;
 
-	/* This loop repeats when our selected word-range fails the query */
+	/* 所选词范围未满足查询时本循环会重来 */
 	for (;;)
 	{
 		int			posb,
@@ -2041,12 +2041,12 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 		ListCell   *lc;
 
 		/*
-		 * For each AND'ed query term or phrase, find its first occurrence at
-		 * or after pos; set pose to the maximum of those positions.
+		 * 对每个 AND 查询词或短语,找其在 pos 及之后
+		 * 的首次出现;pose 取这些位置的最大。
 		 *
-		 * We need not consider ORs or NOTs here; see the comments for
-		 * TS_execute_locations().  Rechecking the match with TS_execute(),
-		 * below, will deal with any ensuing imprecision.
+		 * 此处不必考虑 OR/NOT;见
+		 * TS_execute_locations() 注释。下文再用
+		 * TS_execute() 复核,处理随之不精确。
 		 */
 		pose = -1;
 		foreach(lc, locations)
@@ -2056,7 +2056,7 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 
 			for (int i = 0; i < pdata->npos; i++)
 			{
-				/* For phrase matches, use the ending lexeme */
+				/* 短语匹配用末词元 */
 				int			endp = pdata->pos[i];
 
 				if (endp >= pos)
@@ -2066,20 +2066,20 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 				}
 			}
 			if (first < 0)
-				return false;	/* no more matches for this term */
+				return false;	/* 本词再无匹配 */
 			if (first > pose)
 				pose = first;
 		}
 
 		if (pose < 0)
-			return false;		/* we only get here if empty list */
+			return false;		/* 仅空列表才到此 */
 
 		/*
-		 * Now, for each AND'ed query term or phrase, find its last occurrence
-		 * at or before pose; set posb to the minimum of those positions.
+		 * 再对每个 AND 查询词或短语,找其在 pose 及
+		 * 之前的末次出现;posb 取这些位置的最小。
 		 *
-		 * We start posb at INT_MAX - 1 to guarantee no overflow if we compute
-		 * posb + 1 below.
+		 * posb 初值 INT_MAX-1,保证下面算
+		 * posb+1 不溢
 		 */
 		posb = INT_MAX - 1;
 		foreach(lc, locations)
@@ -2089,7 +2089,7 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 
 			for (int i = pdata->npos - 1; i >= 0; i--)
 			{
-				/* For phrase matches, use the starting lexeme */
+				/* 短语匹配用首词元 */
 				int			startp = pdata->pos[i] - pdata->width;
 
 				if (startp <= pose)
@@ -2103,25 +2103,25 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 		}
 
 		/*
-		 * We could end up with posb to the left of pos, in case some phrase
-		 * match crosses pos.  Try the match starting at pos anyway, since the
-		 * result of TS_execute_locations is imprecise for phrase matches OR'd
-		 * with plain matches; that is, if the query is "(A <-> B) | C" then C
-		 * could match at pos even though the phrase match would have to
-		 * extend to the left of pos.
+		 * 若某短语匹配跨过 pos,可能得到 posb 在 pos
+		 * 左侧。仍从 pos 试匹配,因短语与普通匹配
+		 * OR 时 TS_execute_locations 结果不精确;即
+		 * 若查询为 "(A <-> B) | C",则 C 可在 pos
+		 * 匹配,即使短语匹配须伸到
+		 * pos 左侧。
 		 */
 		posb = Max(posb, pos);
 
-		/* This test probably always succeeds, but be paranoid */
+		/* 此测试多半总成功,但仍要防万一 */
 		if (posb <= pose)
 		{
 			/*
-			 * posb .. pose is now the shortest, earliest-after-pos range of
-			 * lexeme positions containing all the query terms.  It will
-			 * contain all phrase matches, too, except in the corner case
-			 * described just above.
+			 * posb..pose 现为 pos 之后最早且最短、含全部
+			 * 查询词的词元位置范围。除上文边角外
+			 * 也含全部短语匹配。
 			 *
-			 * Now convert these lexeme positions to indexes in prs->words[].
+			 *
+			 * 现把这些词元位置转为 prs->words[] 下标。
 			 */
 			int			idxb = -1;
 			int			idxe = -1;
@@ -2138,15 +2138,15 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 					break;
 			}
 
-			/* This test probably always succeeds, but be paranoid */
+			/* 此测试多半总成功,但仍要防万一 */
 			if (idxb >= 0 && idxe >= idxb)
 			{
 				/*
-				 * Finally, check that the selected range satisfies the query.
-				 * This should succeed in all simple cases; but odd cases
-				 * involving non-top-level NOT conditions or phrase matches
-				 * OR'd with other things could fail, since the result of
-				 * TS_execute_locations doesn't fully represent such things.
+				 * 最后检查所选范围是否满足查询。简单
+				 * 情形应成功;但非顶层 NOT 或短语与他物
+				 * OR 等怪例可能失败,因
+				 * TS_execute_locations 结果不能完整表示
+				 * 这类情况。
 				 */
 				hlCheck		ch;
 
@@ -2155,7 +2155,7 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 				if (TS_execute(GETQUERY(query), &ch,
 							   TS_EXEC_EMPTY, checkcondition_HL))
 				{
-					/* Match!  Advance *nextpos and return the word range. */
+					/* 匹配!推进 *nextpos 并返回词范围。 */
 					*nextpos = posb + 1;
 					*p = idxb;
 					*q = idxe;
@@ -2165,19 +2165,19 @@ hlCover(HeadlineParsedText *prs, TSQuery query, List *locations,
 		}
 
 		/*
-		 * Advance pos and try again.  Any later workable match must start
-		 * beyond posb.
+		 * 推进 pos 重试。之后可行匹配必始于
+		 * posb 外。
 		 */
 		pos = posb + 1;
 	}
-	/* Can't get here, but stupider compilers complain if we leave it off */
+	/* 不可达,但傻编译器缺了会抱怨 */
 	return false;
 }
 
 /*
- * Apply suitable highlight marking to words selected by headline selector
+ * 对标题选择器选出的词施加合适高亮标记
  *
- * The words from startpos to endpos inclusive are marked per highlightall
+ * 自 startpos 至 endpos(含)按 highlightall 标记
  */
 static void
 mark_fragment(HeadlineParsedText *prs, bool highlightall,
@@ -2207,13 +2207,13 @@ mark_fragment(HeadlineParsedText *prs, bool highlightall,
 }
 
 /*
- * split a cover substring into fragments not longer than max_words
+ * 把覆盖子串拆成不长于 max_words 的片段
  *
- * At entry, *startpos and *endpos are the (remaining) bounds of the cover
- * substring.  They are updated to hold the bounds of the next fragment.
+ * 入口时 *startpos 与 *endpos 是覆盖子串(剩余)
+ * 边界。更新为下一片段的边界。
  *
- * *curlen and *poslen are set to the fragment's length, in words and
- * interesting words respectively.
+ * *curlen 与 *poslen 分别设为片段词数与
+ * 有趣词数。
  */
 static void
 get_next_fragment(HeadlineParsedText *prs, int *startpos, int *endpos,
@@ -2222,20 +2222,20 @@ get_next_fragment(HeadlineParsedText *prs, int *startpos, int *endpos,
 	int			i;
 
 	/*
-	 * Objective: select a fragment of words between startpos and endpos such
-	 * that it has at most max_words and both ends have query words. If the
-	 * startpos and endpos are the endpoints of the cover and the cover has
-	 * fewer words than max_words, then this function should just return the
-	 * cover
+	 * 目标:在 startpos 与 endpos 间选词片段,使
+	 * 其至多 max_words 且两端皆为查询词。若
+	 * startpos/endpos 是覆盖端点且词数少于
+	 * max_words,则本函数应直接返回该覆盖
+	 *
 	 */
-	/* first move startpos to an item */
+	/* 先把 startpos 移到一项 */
 	for (i = *startpos; i <= *endpos; i++)
 	{
 		*startpos = i;
 		if (INTERESTINGWORD(i))
 			break;
 	}
-	/* cut endpos to have only max_words */
+	/* 裁 endpos 使仅含 max_words */
 	*curlen = 0;
 	*poslen = 0;
 	for (i = *startpos; i <= *endpos && *curlen < max_words; i++)
@@ -2245,7 +2245,7 @@ get_next_fragment(HeadlineParsedText *prs, int *startpos, int *endpos,
 		if (INTERESTINGWORD(i))
 			*poslen += 1;
 	}
-	/* if the cover was cut then move back endpos to a query item */
+	/* 若覆盖被裁则把 endpos 移回查询项 */
 	if (*endpos > i)
 	{
 		*endpos = i;
@@ -2261,10 +2261,10 @@ get_next_fragment(HeadlineParsedText *prs, int *startpos, int *endpos,
 }
 
 /*
- * Headline selector used when MaxFragments > 0
+ * MaxFragments > 0 时用的标题选择器
  *
- * Note: in this mode, highlightall is disregarded for phrase selection;
- * it only controls presentation details.
+ * 注意:此模式下短语选取忽略 highlightall;
+ * 它只控制呈现细节。
  */
 static void
 mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
@@ -2297,17 +2297,17 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 
 	covers = palloc(maxcovers * sizeof(CoverPos));
 
-	/* get all covers */
+	/* 取各覆盖 */
 	while (hlCover(prs, query, locations, &nextpos, &p, &q))
 	{
 		startpos = p;
 		endpos = q;
 
 		/*
-		 * Break the cover into smaller fragments such that each fragment has
-		 * at most max_words. Also ensure that each end of each fragment is a
-		 * query word. This will allow us to stretch the fragment in either
-		 * direction
+		 * 把覆盖拆成更小片段,使每段至多
+		 * max_words。并确保每段两端皆为
+		 * 查询词。这样可向两侧拉伸
+		 * 片段
 		 */
 
 		while (startpos <= endpos)
@@ -2330,7 +2330,7 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 		}
 	}
 
-	/* choose best covers */
+	/* 选最佳覆盖 */
 	for (f = 0; f < max_fragments; f++)
 	{
 		maxitems = 0;
@@ -2338,8 +2338,8 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 		minI = -1;
 
 		/*
-		 * Choose the cover that contains max items. In case of tie choose the
-		 * one with smaller number of words.
+		 * 选含项最多的覆盖。并列则选
+		 * 词数较少者。
 		 */
 		for (i = 0; i < numcovers; i++)
 		{
@@ -2353,24 +2353,24 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 				minI = i;
 			}
 		}
-		/* if a cover was found mark it */
+		/* 若找到覆盖则标记 */
 		if (minI >= 0)
 		{
 			covers[minI].chosen = true;
-			/* adjust the size of cover */
+			/* 调整覆盖大小 */
 			startpos = covers[minI].startpos;
 			endpos = covers[minI].endpos;
 			curlen = covers[minI].curlen;
-			/* stretch the cover if cover size is lower than max_words */
+			/* 覆盖小于 max_words 则拉伸 */
 			if (curlen < max_words)
 			{
-				/* divide the stretch on both sides of cover */
+				/* 把拉伸分到覆盖两侧 */
 				maxstretch = (max_words - curlen) / 2;
 
 				/*
-				 * first stretch the startpos stop stretching if 1. we hit the
-				 * beginning of document 2. exceed maxstretch 3. we hit an
-				 * already marked fragment
+				 * 先拉伸 startpos,遇以下则停:1.到文档
+				 * 开头 2.超过 maxstretch 3.碰到已
+				 * 标记片段
 				 */
 				stretch = 0;
 				posmarker = startpos;
@@ -2383,14 +2383,14 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 					}
 					posmarker = i;
 				}
-				/* cut back startpos till we find a good endpoint */
+				/* 回缩 startpos 直到好的端点 */
 				for (i = posmarker; i < startpos && BADENDPOINT(i); i++)
 				{
 					if (!NONWORDTOKEN(prs->words[i].type))
 						curlen--;
 				}
 				startpos = i;
-				/* now stretch the endpos as much as possible */
+				/* 再尽量拉伸 endpos */
 				posmarker = endpos;
 				for (i = endpos + 1; i < prs->curwords && curlen < max_words && !prs->words[i].in; i++)
 				{
@@ -2398,7 +2398,7 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 						curlen++;
 					posmarker = i;
 				}
-				/* cut back endpos till we find a good endpoint */
+				/* 回缩 endpos 直到好的端点 */
 				for (i = posmarker; i > endpos && BADENDPOINT(i); i--)
 				{
 					if (!NONWORDTOKEN(prs->words[i].type))
@@ -2409,10 +2409,10 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 			covers[minI].startpos = startpos;
 			covers[minI].endpos = endpos;
 			covers[minI].curlen = curlen;
-			/* Mark the chosen fragments (covers) */
+			/* 标记所选片段(覆盖) */
 			mark_fragment(prs, highlightall, startpos, endpos);
 			num_f++;
-			/* Exclude covers overlapping this one from future consideration */
+			/* 排除与本覆盖重叠者,后续不再考虑 */
 			for (i = 0; i < numcovers; i++)
 			{
 				if (i != minI &&
@@ -2426,10 +2426,10 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 			}
 		}
 		else
-			break;				/* no selectable covers remain */
+			break;				/* 无可选覆盖则止 */
 	}
 
-	/* show the first min_words words if we have not marked anything */
+	/* 若尚未标记任何内容则显示前 min_words 词 */
 	if (num_f <= 0)
 	{
 		startpos = curlen = 0;
@@ -2447,7 +2447,7 @@ mark_hl_fragments(HeadlineParsedText *prs, TSQuery query, List *locations,
 }
 
 /*
- * Headline selector used when MaxFragments == 0
+ * MaxFragments == 0 时用的标题选择器
  */
 static void
 mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
@@ -2470,14 +2470,14 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 
 	if (!highlightall)
 	{
-		/* examine all covers, select a headline using the best one */
+		/* 考察全部覆盖,用最佳者选标题 */
 		while (hlCover(prs, query, locations, &nextpos, &p, &q))
 		{
 			/*
-			 * Count words (curlen) and interesting words (poslen) within
-			 * cover, but stop once we reach max_words.  This step doesn't
-			 * consider whether that's a good stopping point.  posb and pose
-			 * are set to the start and end indexes of the possible headline.
+			 * 统计覆盖内词数(curlen)与有趣词
+			 * (poslen),达 max_words 即停。本步不管
+			 * 是否好停点。posb/pose 设为可能标题
+			 * 的起止下标。
 			 */
 			curlen = 0;
 			poslen = 0;
@@ -2494,9 +2494,9 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 			if (curlen < max_words)
 			{
 				/*
-				 * We have room to lengthen the headline, so search forward
-				 * until it's full or we find a good stopping point.  We'll
-				 * reconsider the word at "q", then move forward.
+				 * 标题还有加长空间,则向前搜至满
+				 * 或遇好停点。会重看 "q" 处
+				 * 词再前进。
 				 */
 				for (i = i - 1; i < prs->curwords && curlen < max_words; i++)
 				{
@@ -2516,8 +2516,8 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 				if (curlen < min_words)
 				{
 					/*
-					 * Reached end of text and our headline is still shorter
-					 * than min_words, so try to extend it to the left.
+					 * 已到文末且标题仍短于 min_words,
+					 * 故试向左扩展。
 					 */
 					for (i = p - 1; i >= 0; i--)
 					{
@@ -2538,8 +2538,8 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 			else
 			{
 				/*
-				 * Can't make headline longer, so consider making it shorter
-				 * if needed to avoid a bad endpoint.
+				 * 无法再加长标题,故必要时考虑缩短
+				 * 以避免坏端点。
 				 */
 				if (i > q)
 					i = q;
@@ -2556,17 +2556,17 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 			}
 
 			/*
-			 * Check whether the proposed headline includes the original
-			 * cover; it might not if we trimmed it due to max_words.
+			 * 检查拟用标题是否包含原覆盖;若因
+			 * max_words 裁过则可能不含。
 			 */
 			poscover = (posb <= p && pose >= q);
 
 			/*
-			 * Adopt this headline if it's better than the last one, giving
-			 * highest priority to headlines including the cover, then to
-			 * headlines with more interesting words, then to headlines with
-			 * good stopping points.  (Since bestlen is initially -1, we will
-			 * certainly adopt the first headline.)
+			 * 若本标题优于上一个则采纳:优先含覆盖
+			 * 者,其次有趣词更多者,再次停点好者。
+			 * (bestlen 初为 -1,故必采纳
+			 * 首个标题。)
+			 *
 			 */
 			if (poscover > bestcover ||
 				(poscover == bestcover && poslen > bestlen) ||
@@ -2581,8 +2581,8 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 		}
 
 		/*
-		 * If we found nothing acceptable, select min_words words starting at
-		 * the beginning.
+		 * 若无一可接受,则自开头选取
+		 * min_words 词
 		 */
 		if (bestlen < 0)
 		{
@@ -2600,7 +2600,7 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 	}
 	else
 	{
-		/* highlightall mode: headline is whole document */
+		/* highlightall 模式:标题为全文 */
 		bestb = 0;
 		beste = prs->curwords - 1;
 	}
@@ -2609,7 +2609,7 @@ mark_hl_words(HeadlineParsedText *prs, TSQuery query, List *locations,
 }
 
 /*
- * Default parser's prsheadline function
+ * 默认解析器的 prsheadline 函数
  */
 Datum
 prsd_headline(PG_FUNCTION_ARGS)
@@ -2619,7 +2619,7 @@ prsd_headline(PG_FUNCTION_ARGS)
 	TSQuery		query = PG_GETARG_TSQUERY(2);
 	List	   *locations;
 
-	/* default option values: */
+	/* 默认选项值: */
 	int			min_words = 15;
 	int			max_words = 35;
 	int			shortword = 3;
@@ -2627,7 +2627,7 @@ prsd_headline(PG_FUNCTION_ARGS)
 	bool		highlightall = false;
 	ListCell   *l;
 
-	/* Extract configuration option values */
+	/* 提取配置选项值 */
 	prs->startsel = NULL;
 	prs->stopsel = NULL;
 	prs->fragdelim = NULL;
@@ -2664,7 +2664,7 @@ prsd_headline(PG_FUNCTION_ARGS)
 							defel->defname)));
 	}
 
-	/* in HighlightAll mode these parameters are ignored */
+	/* HighlightAll 模式下忽略这些参数 */
 	if (!highlightall)
 	{
 		if (min_words >= max_words)
@@ -2685,7 +2685,7 @@ prsd_headline(PG_FUNCTION_ARGS)
 					 errmsg("MaxFragments should be >= 0")));
 	}
 
-	/* Locate words and phrases matching the query */
+	/* 定位匹配查询的词与短语 */
 	if (query->size > 0)
 	{
 		hlCheck		ch;
@@ -2696,9 +2696,9 @@ prsd_headline(PG_FUNCTION_ARGS)
 										 checkcondition_HL);
 	}
 	else
-		locations = NIL;		/* empty query matches nothing */
+		locations = NIL;		/* 空查询匹配空 */
 
-	/* Apply appropriate headline selector */
+	/* 应用合适的标题选择器 */
 	if (max_fragments == 0)
 		mark_hl_words(prs, query, locations, highlightall, shortword,
 					  min_words, max_words);
@@ -2706,7 +2706,7 @@ prsd_headline(PG_FUNCTION_ARGS)
 		mark_hl_fragments(prs, query, locations, highlightall, shortword,
 						  min_words, max_words, max_fragments);
 
-	/* Fill in default values for string options */
+	/* 为串选项填默认值 */
 	if (!prs->startsel)
 		prs->startsel = pstrdup("<b>");
 	if (!prs->stopsel)
@@ -2714,7 +2714,7 @@ prsd_headline(PG_FUNCTION_ARGS)
 	if (!prs->fragdelim)
 		prs->fragdelim = pstrdup(" ... ");
 
-	/* Caller will need these lengths, too */
+	/* 调用方也需要这些长度 */
 	prs->startsellen = strlen(prs->startsel);
 	prs->stopsellen = strlen(prs->stopsel);
 	prs->fragdelimlen = strlen(prs->fragdelim);

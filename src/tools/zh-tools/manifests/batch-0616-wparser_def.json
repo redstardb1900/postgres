@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0616",
+ "title": "backend/tsearch wparser_def 标题引擎 — batch 0616",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "20619ca66ced0d5a5d40febcd4bb408424b464f0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/wparser_def.c",
+   "kind": "c_comment",
+   "note": "0616"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0616-wparser_def.json",
+   "kind": "manifest",
+   "note": "0616"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/wparser_def.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标题宏说明块 KEEP（防 halfen）。",
+    "TS_execute 回调 lexemes/tokens 对照说明 KEEP。"
+   ],
+   "note": "0616"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0616-wparser_def.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0616"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0616"
+  }
+ ],
+ "notes": "wparser_def ts_headline；宏说明与 lexemes/tokens 对照 KEEP"
+}

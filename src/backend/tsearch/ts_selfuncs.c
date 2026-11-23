@@ -26,20 +26,20 @@
 
 
 /*
- * The default text search selectivity is chosen to be small enough to
- * encourage indexscans for typical table densities.  See selfuncs.h and
- * DEFAULT_EQ_SEL for details.
+ * 默认全文检索选择率取得足够小,以在典型表密度下
+ * 鼓励索引扫描。细节见 selfuncs.h 与
+ * DEFAULT_EQ_SEL。
  */
 #define DEFAULT_TS_MATCH_SEL 0.005
 
-/* lookup table type for binary searching through MCELEMs */
+/* 在 MCELEMs 中二分查找用的查找表类型 */
 typedef struct
 {
 	text	   *element;
 	float4		frequency;
 } TextFreq;
 
-/* type of keys for bsearch'ing through an array of TextFreqs */
+/* 在 TextFreqs 数组中 bsearch 的键类型 */
 typedef struct
 {
 	char	   *lexeme;
@@ -59,9 +59,9 @@ static int	compare_lexeme_textfreq(const void *e1, const void *e2);
 
 
 /*
- *	tsmatchsel -- Selectivity of "@@"
+ *	tsmatchsel -- "@@" 的选择率
  *
- * restriction selectivity function for tsvector @@ tsquery and
+ * 限制选择率:tsvector @@ tsquery 与
  * tsquery @@ tsvector
  */
 Datum
@@ -80,15 +80,15 @@ tsmatchsel(PG_FUNCTION_ARGS)
 	Selectivity selec;
 
 	/*
-	 * If expression is not variable = something or something = variable, then
-	 * punt and return a default estimate.
+	 * 若表达式不是变量 = 某物或某物 = 变量,则
+	 * 放弃并返回默认估计。
 	 */
 	if (!get_restriction_variable(root, args, varRelid,
 								  &vardata, &other, &varonleft))
 		PG_RETURN_FLOAT8(DEFAULT_TS_MATCH_SEL);
 
 	/*
-	 * Can't do anything useful if the something is not a constant, either.
+	 * 若那一侧也非常量,同样做不成有用估计。
 	 */
 	if (!IsA(other, Const))
 	{
@@ -97,7 +97,7 @@ tsmatchsel(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The "@@" operator is strict, so we can cope with NULL right away
+	 * "@@" 运算符是严格的,故可立即处理 NULL
 	 */
 	if (((Const *) other)->constisnull)
 	{
@@ -106,20 +106,20 @@ tsmatchsel(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * OK, there's a Var and a Const we're dealing with here.  We need the
-	 * Const to be a TSQuery, else we can't do anything useful.  We have to
-	 * check this because the Var might be the TSQuery not the TSVector.
+	 * 此处处理的是变量与常量。常量须为 TSQuery,
+	 * 否则做不成有用估计。必须检查,因变量也可能
+	 * 是 TSQuery 而非 TSVector。
 	 */
 	if (((Const *) other)->consttype == TSQUERYOID)
 	{
-		/* tsvector @@ tsquery or the other way around */
+		/* tsvector @@ tsquery 或反过来 */
 		Assert(vardata.vartype == TSVECTOROID);
 
 		selec = tsquerysel(&vardata, ((Const *) other)->constvalue);
 	}
 	else
 	{
-		/* If we can't see the query structure, must punt */
+		/* 若看不到查询结构,只好放弃 */
 		selec = DEFAULT_TS_MATCH_SEL;
 	}
 
@@ -132,20 +132,20 @@ tsmatchsel(PG_FUNCTION_ARGS)
 
 
 /*
- *	tsmatchjoinsel -- join selectivity of "@@"
+ *	tsmatchjoinsel -- "@@" 的连接选择率
  *
- * join selectivity function for tsvector @@ tsquery and tsquery @@ tsvector
+ * tsvector @@ tsquery 与 tsquery @@ tsvector 的连接选择率函数
  */
 Datum
 tsmatchjoinsel(PG_FUNCTION_ARGS)
 {
-	/* for the moment we just punt */
+	/* 眼下只好放弃 */
 	PG_RETURN_FLOAT8(DEFAULT_TS_MATCH_SEL);
 }
 
 
 /*
- * @@ selectivity for tsvector var vs tsquery constant
+ * tsvector 变量对 tsquery 常量的 @@ 选择率
  */
 static Selectivity
 tsquerysel(VariableStatData *vardata, Datum constval)
@@ -153,10 +153,10 @@ tsquerysel(VariableStatData *vardata, Datum constval)
 	Selectivity selec;
 	TSQuery		query;
 
-	/* The caller made sure the const is a TSQuery, so get it now */
+	/* 调用方已确保常量是 TSQuery,现取出 */
 	query = DatumGetTSQuery(constval);
 
-	/* Empty query matches nothing */
+	/* 空查询不匹配任何行 */
 	if (query->size == 0)
 		return (Selectivity) 0.0;
 
@@ -167,14 +167,14 @@ tsquerysel(VariableStatData *vardata, Datum constval)
 
 		stats = (Form_pg_statistic) GETSTRUCT(vardata->statsTuple);
 
-		/* MCELEM will be an array of TEXT elements for a tsvector column */
+		/* 对 tsvector 列,MCELEM 将是 TEXT 元素数组 */
 		if (get_attstatsslot(&sslot, vardata->statsTuple,
 							 STATISTIC_KIND_MCELEM, InvalidOid,
 							 ATTSTATSSLOT_VALUES | ATTSTATSSLOT_NUMBERS))
 		{
 			/*
-			 * There is a most-common-elements slot for the tsvector Var, so
-			 * use that.
+			 * tsvector 变量有最常见元素槽,
+			 * 用之。
 			 */
 			selec = mcelem_tsquery_selec(query, sslot.values, sslot.nvalues,
 										 sslot.numbers, sslot.nnumbers);
@@ -182,27 +182,27 @@ tsquerysel(VariableStatData *vardata, Datum constval)
 		}
 		else
 		{
-			/* No most-common-elements info, so do without */
+			/* 无最常见元素信息,只好不用 */
 			selec = tsquery_opr_selec_no_stats(query);
 		}
 
 		/*
-		 * MCE stats count only non-null rows, so adjust for null rows.
+		 * MCE 统计只计非空行,故按空行调整。
 		 */
 		selec *= (1.0 - stats->stanullfrac);
 	}
 	else
 	{
-		/* No stats at all, so do without */
+		/* 全无统计,只好不用 */
 		selec = tsquery_opr_selec_no_stats(query);
-		/* we assume no nulls here, so no stanullfrac correction */
+		/* 此处假定无空值,故不做 stanullfrac 校正 */
 	}
 
 	return selec;
 }
 
 /*
- * Extract data from the pg_statistic arrays into useful format.
+ * 把 pg_statistic 数组提取为有用格式。
  */
 static Selectivity
 mcelem_tsquery_selec(TSQuery query, Datum *mcelem, int nmcelem,
@@ -214,25 +214,25 @@ mcelem_tsquery_selec(TSQuery query, Datum *mcelem, int nmcelem,
 	int			i;
 
 	/*
-	 * There should be two more Numbers than Values, because the last two
-	 * cells are taken for minimal and maximal frequency.  Punt if not.
+	 * Numbers 应比 Values 多两项,因末两格用于
+	 * 最小与最大频率。否则放弃。
 	 *
-	 * (Note: the MCELEM statistics slot definition allows for a third extra
-	 * number containing the frequency of nulls, but we're not expecting that
-	 * to appear for a tsvector column.)
+	 * (注:MCELEM 统计槽定义允许第三项额外数字表示
+	 * 空值频率,但我们不预期它出现在
+	 * tsvector 列上。)
 	 */
 	if (nnumbers != nmcelem + 2)
 		return tsquery_opr_selec_no_stats(query);
 
 	/*
-	 * Transpose the data into a single array so we can use bsearch().
+	 * 转置为单一数组以便使用 bsearch()。
 	 */
 	lookup = (TextFreq *) palloc(sizeof(TextFreq) * nmcelem);
 	for (i = 0; i < nmcelem; i++)
 	{
 		/*
-		 * The text Datums came from an array, so it cannot be compressed or
-		 * stored out-of-line -- it's safe to use VARSIZE_ANY*.
+		 * 这些 text 来自数组,故不可能压缩或
+		 * 行外存储 -- 可安全使用 VARSIZE_ANY*。
 		 */
 		Assert(!VARATT_IS_COMPRESSED(mcelem[i]) && !VARATT_IS_EXTERNAL(mcelem[i]));
 		lookup[i].element = (text *) DatumGetPointer(mcelem[i]);
@@ -240,8 +240,8 @@ mcelem_tsquery_selec(TSQuery query, Datum *mcelem, int nmcelem,
 	}
 
 	/*
-	 * Grab the lowest frequency. compute_tsvector_stats() stored it for us in
-	 * the one before the last cell of the Numbers array. See ts_typanalyze.c
+	 * 取最低频率。compute_tsvector_stats() 把它存于
+	 * Numbers 数组倒数第二格。见 ts_typanalyze.c
 	 */
 	minfreq = numbers[nnumbers - 2];
 
@@ -254,26 +254,26 @@ mcelem_tsquery_selec(TSQuery query, Datum *mcelem, int nmcelem,
 }
 
 /*
- * Traverse the tsquery in preorder, calculating selectivity as:
+ * 前序遍历 tsquery,按如下计算选择率:
  *
- *	 selec(left_oper) * selec(right_oper) in AND & PHRASE nodes,
+ *	 selec(left_oper) * selec(right_oper) 于 AND & PHRASE,
  *
  *	 selec(left_oper) + selec(right_oper) -
- *		selec(left_oper) * selec(right_oper) in OR nodes,
+ *		selec(left_oper) * selec(right_oper) 于 OR,
  *
- *	 1 - select(oper) in NOT nodes
+ *	 1 - select(oper) 于 NOT
  *
- *	 histogram-based estimation in prefix VAL nodes
+ *	 前缀 VAL 节点:基于直方图估计
  *
- *	 freq[val] in exact VAL nodes, if the value is in MCELEM
- *	 min(freq[MCELEM]) / 2 in VAL nodes, if it is not
+ *	 精确 VAL 且在 MCELEM:freq[val]
+ *	 否则:min(freq[MCELEM]) / 2
  *
- * The MCELEM array is already sorted (see ts_typanalyze.c), so we can use
- * binary search for determining freq[MCELEM].
+ * MCELEM 数组已排序(见 ts_typanalyze.c),故可用
+ * 二分查找确定 freq[MCELEM]。
  *
- * If we don't have stats for the tsvector, we still use this logic,
- * except we use default estimates for VAL nodes.  This case is signaled
- * by lookup == NULL.
+ * 即使没有 tsvector 统计仍用此逻辑,
+ * 只是 VAL 用默认估计。由 lookup == NULL
+ * 表示。
  */
 static Selectivity
 tsquery_opr_selec(QueryItem *item, char *operand,
@@ -281,7 +281,7 @@ tsquery_opr_selec(QueryItem *item, char *operand,
 {
 	Selectivity selec;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数递归,可能把栈撑爆 */
 	check_stack_depth();
 
 	if (item->type == QI_VAL)
@@ -290,32 +290,32 @@ tsquery_opr_selec(QueryItem *item, char *operand,
 		LexemeKey	key;
 
 		/*
-		 * Prepare the key for bsearch().
+		 * 为 bsearch() 准备键。
 		 */
 		key.lexeme = operand + oper->distance;
 		key.length = oper->length;
 
 		if (oper->prefix)
 		{
-			/* Prefix match, ie the query item is lexeme:* */
+			/* 前缀匹配,即查询项为 lexeme:* */
 			Selectivity matched,
 						allmces;
 			int			i,
 						n_matched;
 
 			/*
-			 * Our strategy is to scan through the MCELEM list and combine the
-			 * frequencies of the ones that match the prefix.  We then
-			 * extrapolate the fraction of matching MCELEMs to the remaining
-			 * rows, assuming that the MCELEMs are representative of the whole
-			 * lexeme population in this respect.  (Compare
-			 * histogram_selectivity().)  Note that these are most common
-			 * elements not most common values, so they're not mutually
-			 * exclusive.  We treat occurrences as independent events.
+			 * 策略是扫描 MCELEM 列表并合并匹配该前缀者
+			 * 的频率。再把匹配比例外推到其余行,假定
+			 * 在此方面 MCELEM 可代表整个词元人群。(对照
+			 * histogram_selectivity()。)注意这些是最常
+			 * 见元素而非最常见值,故不互斥。
+			 * 我们把出现当作独立事件。
 			 *
-			 * This is only a good plan if we have a pretty fair number of
-			 * MCELEMs available; we set the threshold at 100.  If no stats or
-			 * insufficient stats, arbitrarily use DEFAULT_TS_MATCH_SEL*4.
+			 * 仅当 MCELEM 相当多时此计划才好。
+			 *
+			 * 阈值定为 100。无统计或统计不足时,任意采用
+			 * DEFAULT_TS_MATCH_SEL*4。
+			 *
 			 */
 			if (lookup == NULL || length < 100)
 				return (Selectivity) (DEFAULT_TS_MATCH_SEL * 4);
@@ -337,26 +337,26 @@ tsquery_opr_selec(QueryItem *item, char *operand,
 				allmces += t->frequency - allmces * t->frequency;
 			}
 
-			/* Clamp to ensure sanity in the face of roundoff error */
+			/* 钳制以确保舍入误差下仍合理 */
 			CLAMP_PROBABILITY(matched);
 			CLAMP_PROBABILITY(allmces);
 
 			selec = matched + (1.0 - allmces) * ((double) n_matched / length);
 
 			/*
-			 * In any case, never believe that a prefix match has selectivity
-			 * less than we would assign for a non-MCELEM lexeme.  This
-			 * preserves the property that "word:*" should be estimated to
-			 * match at least as many rows as "word" would be.
+			 * 无论如何,切勿相信前缀匹配的选择率会低于
+			 * 非 MCELEM 词元的赋值。这保持了 "word:*"
+			 * 估计匹配行数至少应与 "word"
+			 * 一样多的性质。
 			 */
 			selec = Max(Min(DEFAULT_TS_MATCH_SEL, minfreq / 2), selec);
 		}
 		else
 		{
-			/* Regular exact lexeme match */
+			/* 常规精确词元匹配 */
 			TextFreq   *searchres;
 
-			/* If no stats for the variable, use DEFAULT_TS_MATCH_SEL */
+			/* 变量无统计时用 DEFAULT_TS_MATCH_SEL */
 			if (lookup == NULL)
 				return (Selectivity) DEFAULT_TS_MATCH_SEL;
 
@@ -367,16 +367,16 @@ tsquery_opr_selec(QueryItem *item, char *operand,
 			if (searchres)
 			{
 				/*
-				 * The element is in MCELEM.  Return precise selectivity (or
-				 * at least as precise as ANALYZE could find out).
+				 * 元素在 MCELEM 中。返回精确选择率(或至少
+				 * 与 ANALYZE 能弄清的一样精确)。
 				 */
 				selec = searchres->frequency;
 			}
 			else
 			{
 				/*
-				 * The element is not in MCELEM.  Punt, but assume that the
-				 * selectivity cannot be more than minfreq / 2.
+				 * 元素不在 MCELEM 中。放弃,但假定选择率
+				 * 不会高于 minfreq / 2。
 				 */
 				selec = Min(DEFAULT_TS_MATCH_SEL, minfreq / 2);
 			}
@@ -384,7 +384,7 @@ tsquery_opr_selec(QueryItem *item, char *operand,
 	}
 	else
 	{
-		/* Current TSQuery node is an operator */
+		/* 当前 TSQuery 节点是运算符 */
 		Selectivity s1,
 					s2;
 
@@ -414,22 +414,22 @@ tsquery_opr_selec(QueryItem *item, char *operand,
 
 			default:
 				elog(ERROR, "unrecognized operator: %d", item->qoperator.oper);
-				selec = 0;		/* keep compiler quiet */
+				selec = 0;		/* 让编译器安静 */
 				break;
 		}
 	}
 
-	/* Clamp intermediate results to stay sane despite roundoff error */
+	/* 钳制中间结果,以免舍入误差导致离谱 */
 	CLAMP_PROBABILITY(selec);
 
 	return selec;
 }
 
 /*
- * bsearch() comparator for a lexeme (non-NULL terminated string with length)
- * and a TextFreq. Use length, then byte-for-byte comparison, because that's
- * how ANALYZE code sorted data before storing it in a statistic tuple.
- * See ts_typanalyze.c for details.
+ * bsearch() 比较器:词元(带长度的非空终止串)
+ * 与 TextFreq。先比长度再逐字节,因 ANALYZE
+ * 存入统计元组前即如此排序。
+ * 细节见 ts_typanalyze.c。
  */
 static int
 compare_lexeme_textfreq(const void *e1, const void *e2)
@@ -442,12 +442,12 @@ compare_lexeme_textfreq(const void *e1, const void *e2)
 	len1 = key->length;
 	len2 = VARSIZE_ANY_EXHDR(t->element);
 
-	/* Compare lengths first, possibly avoiding a strncmp call */
+	/* 先比长度,或可避免一次 strncmp */
 	if (len1 > len2)
 		return 1;
 	else if (len1 < len2)
 		return -1;
 
-	/* Fall back on byte-for-byte comparison */
+	/* 退回逐字节比较 */
 	return strncmp(key->lexeme, VARDATA_ANY(t->element), len1);
 }

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * mac.c
- *	  PostgreSQL type definitions for 6 byte, EUI-48, MAC addresses.
+ *	  6 字节 EUI-48 MAC 地址的 PostgreSQL 类型定义。
  *
  * Portions Copyright (c) 1998-2023, PostgreSQL Global Development Group
  *
@@ -24,7 +24,7 @@
 
 
 /*
- *	Utility macros used for sorting and comparing:
+ *	用于排序与比较的工具宏:
  */
 
 #define hibits(addr) \
@@ -33,13 +33,13 @@
 #define lobits(addr) \
   ((unsigned long)(((addr)->d<<16)|((addr)->e<<8)|((addr)->f)))
 
-/* sortsupport for macaddr */
+/* macaddr 的 sortsupport */
 typedef struct
 {
-	int64		input_count;	/* number of non-null values seen */
-	bool		estimating;		/* true if estimating cardinality */
+	int64		input_count;	/* 已见到的非空值个数 */
+	bool		estimating;		/* 正在估算基数时为 true */
 
-	hyperLogLogState abbr_card; /* cardinality estimator */
+	hyperLogLogState abbr_card; /* 基数估算器 */
 } macaddr_sortsupport_state;
 
 static int	macaddr_cmp_internal(macaddr *a1, macaddr *a2);
@@ -48,7 +48,7 @@ static bool macaddr_abbrev_abort(int memtupcount, SortSupport ssup);
 static Datum macaddr_abbrev_convert(Datum original, SortSupport ssup);
 
 /*
- *	MAC address reader.  Accepts several common notations.
+ *	MAC 地址读取器。接受几种常见记法。
  */
 
 Datum
@@ -66,7 +66,7 @@ macaddr_in(PG_FUNCTION_ARGS)
 	char		junk[2];
 	int			count;
 
-	/* %1s matches iff there is trailing non-whitespace garbage */
+	/* %1s 仅当有尾部非空白垃圾时才匹配 */
 
 	count = sscanf(str, "%x:%x:%x:%x:%x:%x%1s",
 				   &a, &b, &c, &d, &e, &f, junk);
@@ -114,7 +114,7 @@ macaddr_in(PG_FUNCTION_ARGS)
 }
 
 /*
- *	MAC address output function.  Fixed format.
+ *	MAC 地址输出函数。固定格式。
  */
 
 Datum
@@ -132,9 +132,9 @@ macaddr_out(PG_FUNCTION_ARGS)
 }
 
 /*
- *		macaddr_recv			- converts external binary format to macaddr
+ *		macaddr_recv			- 外部二进制格式转为 macaddr
  *
- * The external representation is just the six bytes, MSB first.
+ * 外部表示恰为六个字节,MSB 在前。
  */
 Datum
 macaddr_recv(PG_FUNCTION_ARGS)
@@ -155,7 +155,7 @@ macaddr_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- *		macaddr_send			- converts macaddr to binary format
+ *		macaddr_send			- macaddr 转为二进制格式
  */
 Datum
 macaddr_send(PG_FUNCTION_ARGS)
@@ -175,7 +175,7 @@ macaddr_send(PG_FUNCTION_ARGS)
 
 
 /*
- *	Comparison function for sorting:
+ *	排序用比较函数:
  */
 
 static int
@@ -203,7 +203,7 @@ macaddr_cmp(PG_FUNCTION_ARGS)
 }
 
 /*
- *	Boolean comparisons.
+ *	布尔比较。
  */
 
 Datum
@@ -261,7 +261,7 @@ macaddr_ne(PG_FUNCTION_ARGS)
 }
 
 /*
- * Support function for hash indexes on macaddr.
+ * macaddr 哈希索引的支持函数。
  */
 Datum
 hashmacaddr(PG_FUNCTION_ARGS)
@@ -281,7 +281,7 @@ hashmacaddrextended(PG_FUNCTION_ARGS)
 }
 
 /*
- * Arithmetic functions: bitwise NOT, AND, OR.
+ * 算术函数:按位 NOT、AND、OR。
  */
 Datum
 macaddr_not(PG_FUNCTION_ARGS)
@@ -334,8 +334,8 @@ macaddr_or(PG_FUNCTION_ARGS)
 }
 
 /*
- *	Truncation function to allow comparing mac manufacturers.
- *	From suggestion by Alex Pilosov <alex@pilosoft.com>
+ *	截断函数,用于比较 mac 制造商。
+ *	据外部贡献者建议。
  */
 Datum
 macaddr_trunc(PG_FUNCTION_ARGS)
@@ -356,8 +356,8 @@ macaddr_trunc(PG_FUNCTION_ARGS)
 }
 
 /*
- * SortSupport strategy function. Populates a SortSupport struct with the
- * information necessary to use comparison by abbreviated keys.
+ * SortSupport 策略函数。向 SortSupport 结构填入
+ * 用缩写键比较所需的信息。
  */
 Datum
 macaddr_sortsupport(PG_FUNCTION_ARGS)
@@ -393,8 +393,8 @@ macaddr_sortsupport(PG_FUNCTION_ARGS)
 }
 
 /*
- * SortSupport "traditional" comparison function. Pulls two MAC addresses from
- * the heap and runs a standard comparison on them.
+ * SortSupport "传统"比较函数。从堆取出两个 MAC
+ * 地址并对它们做标准比较。
  */
 static int
 macaddr_fast_cmp(Datum x, Datum y, SortSupport ssup)
@@ -406,10 +406,10 @@ macaddr_fast_cmp(Datum x, Datum y, SortSupport ssup)
 }
 
 /*
- * Callback for estimating effectiveness of abbreviated key optimization.
+ * 用于估算缩写键优化效果的回调。
  *
- * We pay no attention to the cardinality of the non-abbreviated data, because
- * there is no equality fast-path within authoritative macaddr comparator.
+ * 我们完全不关心非缩写数据的基数,因为权威的
+ * macaddr 比较器内没有相等快速路径。
  */
 static bool
 macaddr_abbrev_abort(int memtupcount, SortSupport ssup)
@@ -423,10 +423,10 @@ macaddr_abbrev_abort(int memtupcount, SortSupport ssup)
 	abbr_card = estimateHyperLogLog(&uss->abbr_card);
 
 	/*
-	 * If we have >100k distinct values, then even if we were sorting many
-	 * billion rows we'd likely still break even, and the penalty of undoing
-	 * that many rows of abbrevs would probably not be worth it. At this point
-	 * we stop counting because we know that we're now fully committed.
+	 * 若已有 >100k 个不同值,那么即使要排序数十亿
+	 * 行,我们大概率仍不吃亏,而撤销这么多行缩写
+	 * 的代价很可能不值得。到这时我们停止计数,
+	 * 因为已知已完全投入。
 	 */
 	if (abbr_card > 100000.0)
 	{
@@ -442,10 +442,10 @@ macaddr_abbrev_abort(int memtupcount, SortSupport ssup)
 	}
 
 	/*
-	 * Target minimum cardinality is 1 per ~2k of non-null inputs. 0.5 row
-	 * fudge factor allows us to abort earlier on genuinely pathological data
-	 * where we've had exactly one abbreviated value in the first 2k
-	 * (non-null) rows.
+	 * 目标最小基数为每 ~2k 个非空输入 1 个。0.5 行
+	 * 容差因子使我们在真正病态数据上更早中止——
+	 * 即前 2k 个(非空)行中恰好只有一个
+	 * 缩写值。
 	 */
 	if (abbr_card < uss->input_count / 2000.0 + 0.5)
 	{
@@ -471,13 +471,13 @@ macaddr_abbrev_abort(int memtupcount, SortSupport ssup)
 }
 
 /*
- * SortSupport conversion routine. Converts original macaddr representation
- * to abbreviated key representation.
+ * SortSupport 转换例程。把原始 macaddr 表示
+ * 转为缩写键表示。
  *
- * Packs the bytes of a 6-byte MAC address into a Datum and treats it as an
- * unsigned integer for purposes of comparison. On a 64-bit machine, there
- * will be two zeroed bytes of padding. The integer is converted to native
- * endianness to facilitate easy comparison.
+ * 把 6 字节 MAC 地址打进 Datum 并当作无符号整数
+ * 来比较。在 64 位机上会有两个置零填充字节。
+ * 整数转为本地字节序以便容易
+ * 比较。
  */
 static Datum
 macaddr_abbrev_convert(Datum original, SortSupport ssup)
@@ -487,9 +487,9 @@ macaddr_abbrev_convert(Datum original, SortSupport ssup)
 	Datum		res;
 
 	/*
-	 * On a 64-bit machine, zero out the 8-byte datum and copy the 6 bytes of
-	 * the MAC address in. There will be two bytes of zero padding on the end
-	 * of the least significant bits.
+	 * 在 64 位机上,先清零 8 字节 datum 再拷入 MAC
+	 * 地址的 6 字节。最低有效位一端会有两个
+	 * 置零填充字节。
 	 */
 #if SIZEOF_DATUM == 8
 	memset(&res, 0, SIZEOF_DATUM);
@@ -500,10 +500,10 @@ macaddr_abbrev_convert(Datum original, SortSupport ssup)
 	uss->input_count += 1;
 
 	/*
-	 * Cardinality estimation. The estimate uses uint32, so on a 64-bit
-	 * architecture, XOR the two 32-bit halves together to produce slightly
-	 * more entropy. The two zeroed bytes won't have any practical impact on
-	 * this operation.
+	 * 基数估算。估算用 uint32,故在 64 位架构上把
+	 * 两个 32 位半部异或以稍增熵。两个置零字节
+	 * 对本次操作无实际
+	 * 影响。
 	 */
 	if (uss->estimating)
 	{
@@ -519,12 +519,12 @@ macaddr_abbrev_convert(Datum original, SortSupport ssup)
 	}
 
 	/*
-	 * Byteswap on little-endian machines.
+	 * 小端机器上做字节交换。
 	 *
-	 * This is needed so that ssup_datum_unsigned_cmp() (an unsigned integer
-	 * 3-way comparator) works correctly on all platforms. Without this, the
-	 * comparator would have to call memcmp() with a pair of pointers to the
-	 * first byte of each abbreviated key, which is slower.
+	 * 需要如此,以便 ssup_datum_unsigned_cmp()(无符号
+	 * 整数三路比较器)在所有平台正确。否则比较器
+	 * 得对每个缩写键首字节指针对调用 memcmp(),
+	 * 更慢。
 	 */
 	res = DatumBigEndianToNative(res);
 

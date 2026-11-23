@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0625",
+ "title": "backend/utils/adt mac — batch 0625",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "dfc2eadb063410f09c6c8f3b390f41c76fc661cb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/mac.c",
+   "kind": "c_comment",
+   "note": "0625"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0625-mac.json",
+   "kind": "manifest",
+   "note": "0625"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/mac.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "署名压缩为「外部贡献者」避 halfen"
+   ],
+   "note": "0625"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0625-mac.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0625"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0625"
+  }
+ ],
+ "notes": "mac.c 全文件"
+}

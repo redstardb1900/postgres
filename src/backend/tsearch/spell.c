@@ -70,26 +70,26 @@
 
 
 /*
- * Initialization requires a lot of memory that's not needed
- * after the initialization is done.  During initialization,
- * CurrentMemoryContext is the long-lived memory context associated
- * with the dictionary cache entry.  We keep the short-lived stuff
- * in the Conf->buildCxt context.
+ * 初始化需大量事后不再要的内存。初始化
+ * 期间,CurrentMemoryContext 是与词典缓存
+ * 项关联的长寿命内存上下文。短寿命内容
+ * 放在 Conf->buildCxt 上下文中。
+ *
  */
 #define tmpalloc(sz)  MemoryContextAlloc(Conf->buildCxt, (sz))
 #define tmpalloc0(sz)  MemoryContextAllocZero(Conf->buildCxt, (sz))
 
 /*
- * Prepare for constructing an ISpell dictionary.
+ * 准备构造 ISpell 词典。
  *
- * The IspellDict struct is assumed to be zeroed when allocated.
+ * 假定分配 IspellDict 时已清零。
  */
 void
 NIStartBuild(IspellDict *Conf)
 {
 	/*
-	 * The temp context is a child of CurTransactionContext, so that it will
-	 * go away automatically on error.
+	 * 临时上下文是 CurTransactionContext 的子上下文,故
+	 * 出错时会自动消失。
 	 */
 	Conf->buildCxt = AllocSetContextCreate(CurTransactionContext,
 										   "Ispell dictionary init context",
@@ -97,14 +97,14 @@ NIStartBuild(IspellDict *Conf)
 }
 
 /*
- * Clean up when dictionary construction is complete.
+ * 词典构造完成时清理。
  */
 void
 NIFinishBuild(IspellDict *Conf)
 {
-	/* Release no-longer-needed temp memory */
+	/* 释放不再需要的临时内存 */
 	MemoryContextDelete(Conf->buildCxt);
-	/* Just for cleanliness, zero the now-dangling pointers */
+	/* 为干净起见,把现已悬空的指针清零 */
 	Conf->buildCxt = NULL;
 	Conf->Spell = NULL;
 	Conf->firstfree = NULL;
@@ -113,35 +113,35 @@ NIFinishBuild(IspellDict *Conf)
 
 
 /*
- * "Compact" palloc: allocate without extra palloc overhead.
+ * "紧凑" palloc:分配时不带额外 palloc 开销。
  *
- * Since we have no need to free the ispell data items individually, there's
- * not much value in the per-chunk overhead normally consumed by palloc.
- * Getting rid of it is helpful since ispell can allocate a lot of small nodes.
+ * 因无需逐个释放 ispell 数据项,通常由 palloc
+ * 消耗的每块开销价值不大。去掉它有帮助,因
+ * ispell 可能分配大量小节点。
  *
- * We currently pre-zero all data allocated this way, even though some of it
- * doesn't need that.  The cpalloc and cpalloc0 macros are just documentation
- * to indicate which allocations actually require zeroing.
+ * 当前以此方式分配的数据一律预清零,即便有些
+ * 并不需要。cpalloc 与 cpalloc0 宏仅作文档,
+ * 标明哪些分配实际需要清零。
  */
-#define COMPACT_ALLOC_CHUNK 8192	/* amount to get from palloc at once */
-#define COMPACT_MAX_REQ		1024	/* must be < COMPACT_ALLOC_CHUNK */
+#define COMPACT_ALLOC_CHUNK 8192	/* 每次从 palloc 取的量 */
+#define COMPACT_MAX_REQ		1024	/* 须 < COMPACT_ALLOC_CHUNK */
 
 static void *
 compact_palloc0(IspellDict *Conf, size_t size)
 {
 	void	   *result;
 
-	/* Should only be called during init */
+	/* 只应在初始化期间调用 */
 	Assert(Conf->buildCxt != NULL);
 
-	/* No point in this for large chunks */
+	/* 大块没必要用这套 */
 	if (size > COMPACT_MAX_REQ)
 		return palloc0(size);
 
-	/* Keep everything maxaligned */
+	/* 保持一切 maxaligned */
 	size = MAXALIGN(size);
 
-	/* Need more space? */
+	/* 要更多空间? */
 	if (size > Conf->avail)
 	{
 		Conf->firstfree = palloc0(COMPACT_ALLOC_CHUNK);
@@ -169,7 +169,7 @@ cpstrdup(IspellDict *Conf, const char *str)
 
 
 /*
- * Apply lowerstr(), producing a temporary result (in the buildCxt).
+ * 应用 lowerstr(),结果为临时的(在 buildCxt 中)。
  */
 static char *
 lowerstr_ctx(IspellDict *Conf, const char *src)
@@ -252,7 +252,7 @@ findchar2(char *str, int c1, int c2)
 }
 
 
-/* backward string compare for suffix tree operations */
+/* 后缀树操作用的反向串比较 */
 static int
 strbcmp(const unsigned char *s1, const unsigned char *s2)
 {
@@ -303,9 +303,9 @@ strbncmp(const unsigned char *s1, const unsigned char *s2, size_t count)
 }
 
 /*
- * Compares affixes.
- * First compares the type of an affix. Prefixes should go before affixes.
- * If types are equal then compares replaceable string.
+ * 比较词缀。
+ * 先比词缀类型。前缀应排在后缀之前。
+ * 类型相同则比较可替换串。
  */
 static int
 cmpaffix(const void *s1, const void *s2)
@@ -366,10 +366,10 @@ getNextFlagFromString(IspellDict *Conf, char **sflagset, char *sflag)
 				COPYCHAR(sflag, *sflagset);
 				sflag += pg_mblen(*sflagset);
 
-				/* Go to start of the next flag */
+				/* 转到下一标志起点 */
 				*sflagset += pg_mblen(*sflagset);
 
-				/* Check if we get all characters of flag */
+				/* 检查是否取齐标志全部字符 */
 				maxstep--;
 				stop = (maxstep == 0);
 				break;
@@ -387,7 +387,7 @@ getNextFlagFromString(IspellDict *Conf, char **sflagset, char *sflag)
 									*sflagset)));
 				sflag += sprintf(sflag, "%0d", s);
 
-				/* Go to start of the next flag */
+				/* 转到下一标志起点 */
 				*sflagset = next;
 				while (**sflagset)
 				{
@@ -440,16 +440,16 @@ getNextFlagFromString(IspellDict *Conf, char **sflagset, char *sflag)
 }
 
 /*
- * Checks if the affix set Conf->AffixData[affix] contains affixflag.
- * Conf->AffixData[affix] does not contain affixflag if this flag is not used
- * actually by the .dict file.
+ * 检查词缀集 Conf->AffixData[affix] 是否含 affixflag。
+ * 若该标志实际未被 .dict 使用,则该槽
+ * 不含 affixflag。
  *
- * Conf: current dictionary.
- * affix: index of the Conf->AffixData array.
- * affixflag: the affix flag.
+ * Conf:当前词典。
+ * affix:Conf->AffixData 数组下标。
+ * affixflag:词缀标志。
  *
- * Returns true if the string Conf->AffixData[affix] contains affixflag,
- * otherwise returns false.
+ * 若串含 affixflag 返回真,
+ * 否则返回假。
  */
 static bool
 IsAffixFlagInUse(IspellDict *Conf, int affix, const char *affixflag)
@@ -467,21 +467,21 @@ IsAffixFlagInUse(IspellDict *Conf, int affix, const char *affixflag)
 	while (*flagcur)
 	{
 		getNextFlagFromString(Conf, &flagcur, flag);
-		/* Compare first affix flag in flagcur with affixflag */
+		/* 比较 flagcur 首标志与 affixflag */
 		if (strcmp(flag, affixflag) == 0)
 			return true;
 	}
 
-	/* Could not find affixflag */
+	/* 未找到 affixflag */
 	return false;
 }
 
 /*
- * Adds the new word into the temporary array Spell.
+ * 把新词加入临时数组 Spell。
  *
- * Conf: current dictionary.
- * word: new word.
- * flag: set of affix flags. Single flag can be get by getNextFlagFromString().
+ * Conf:当前词典。
+ * word:新词。
+ * flag:词缀标志集。单标志可由 getNextFlagFromString() 取得。
  */
 static void
 NIAddSpell(IspellDict *Conf, const char *word, const char *flag)
@@ -507,12 +507,12 @@ NIAddSpell(IspellDict *Conf, const char *word, const char *flag)
 }
 
 /*
- * Imports dictionary into the temporary array Spell.
+ * 把词典导入临时数组 Spell。
  *
- * Note caller must already have applied get_tsearch_config_filename.
+ * 注意调用方须已应用 get_tsearch_config_filename。
  *
- * Conf: current dictionary.
- * filename: path to the .dict file.
+ * Conf:当前词典。
+ * filename:.dict 文件路径。
  */
 void
 NIImportDictionary(IspellDict *Conf, const char *filename)
@@ -531,10 +531,10 @@ NIImportDictionary(IspellDict *Conf, const char *filename)
 		char	   *s,
 				   *pstr;
 
-		/* Set of affix flags */
+		/* 词缀标志集 */
 		const char *flag;
 
-		/* Extract flag from the line */
+		/* 从该行提取标志 */
 		flag = NULL;
 		if ((s = findchar(line, '/')))
 		{
@@ -542,7 +542,7 @@ NIImportDictionary(IspellDict *Conf, const char *filename)
 			flag = s;
 			while (*s)
 			{
-				/* we allow only single encoded flags for faster works */
+				/* 为更快,只允许单编码标志 */
 				if (pg_mblen(s) == 1 && t_isprint(s) && !t_isspace(s))
 					s++;
 				else
@@ -555,7 +555,7 @@ NIImportDictionary(IspellDict *Conf, const char *filename)
 		else
 			flag = "";
 
-		/* Remove trailing spaces */
+		/* 去掉尾部空格 */
 		s = line;
 		while (*s)
 		{
@@ -624,9 +624,9 @@ FindWord(IspellDict *Conf, const char *word, const char *affixflag, int flag)
 					if (flag == 0)
 					{
 						/*
-						 * The word can be formed only with another word. And
-						 * in the flag parameter there is not a sign that we
-						 * search compound words.
+						 * 该词只能与另一词一起构成。且
+						 * flag 参数中没有表示我们在搜
+						 * 复合词的迹象。
 						 */
 						if (StopMiddle->compoundflag & FF_COMPOUNDONLY)
 							return 0;
@@ -635,8 +635,8 @@ FindWord(IspellDict *Conf, const char *word, const char *affixflag, int flag)
 						return 0;
 
 					/*
-					 * Check if this affix rule is presented in the affix set
-					 * with index StopMiddle->affix.
+					 * 检查此词缀规则是否出现在下标
+					 * StopMiddle->affix 集中。
 					 */
 					if (IsAffixFlagInUse(Conf, StopMiddle->affix, affixflag))
 						return 1;
@@ -696,13 +696,13 @@ NIAddAffix(IspellDict *Conf, const char *flag, char flagflags, const char *mask,
 
 	Affix = Conf->Affix + Conf->naffixes;
 
-	/* This affix rule can be applied for words with any ending */
+	/* 此词缀规则可应用于任意词尾的词 */
 	if (strcmp(mask, ".") == 0 || *mask == '\0')
 	{
 		Affix->issimple = 1;
 		Affix->isregis = 0;
 	}
-	/* This affix rule will use regis to search word ending */
+	/* 此词缀规则将用 regis 搜索词尾 */
 	else if (RS_isRegis(mask))
 	{
 		Affix->issimple = 0;
@@ -710,7 +710,7 @@ NIAddAffix(IspellDict *Conf, const char *flag, char flagflags, const char *mask,
 		RS_compile(&(Affix->reg.regis), (type == FF_SUFFIX),
 				   *mask ? mask : VoidString);
 	}
-	/* This affix rule will use regex_t to search word ending */
+	/* 此词缀规则将用 regex_t 搜索词尾 */
 	else
 	{
 		int			masklen;
@@ -732,9 +732,9 @@ NIAddAffix(IspellDict *Conf, const char *flag, char flagflags, const char *mask,
 		wmasklen = pg_mb2wchar_with_len(tmask, wmask, masklen);
 
 		/*
-		 * The regex and all internal state created by pg_regcomp are
-		 * allocated in the dictionary's memory context, and will be freed
-		 * automatically when it is destroyed.
+		 * pg_regcomp 创建的正则及全部内部状态分配在
+		 * 词典的内存上下文中,销毁词典时会自动
+		 * 释放。
 		 */
 		Affix->reg.pregex = palloc(sizeof(regex_t));
 		err = pg_regcomp(Affix->reg.pregex, wmask, wmasklen,
@@ -768,7 +768,7 @@ NIAddAffix(IspellDict *Conf, const char *flag, char flagflags, const char *mask,
 	Conf->naffixes++;
 }
 
-/* Parsing states for parse_affentry() and friends */
+/* parse_affentry() 等的解析状态 */
 #define PAE_WAIT_MASK	0
 #define PAE_INMASK		1
 #define PAE_WAIT_FIND	2
@@ -779,14 +779,14 @@ NIAddAffix(IspellDict *Conf, const char *flag, char flagflags, const char *mask,
 #define PAE_WAIT_FLAG	7
 
 /*
- * Parse next space-separated field of an .affix file line.
+ * 解析 .affix 文件行中下一空白分隔字段。
  *
- * *str is the input pointer (will be advanced past field)
- * next is where to copy the field value to, with null termination
+ * *str 为输入指针(将推进过该字段)
+ * next 为字段值拷贝处,带空终止
  *
- * The buffer at "next" must be of size BUFSIZ; we truncate the input to fit.
+ * next 处缓冲须为 BUFSIZ;输入过长则截断以放入。
  *
- * Returns true if we found a field, false if not.
+ * 找到字段返回真,否则假。
  */
 static bool
 get_nextfield(char **str, char *next)
@@ -837,7 +837,7 @@ get_nextfield(char **str, char *next)
 
 	*next = '\0';
 
-	return (state == PAE_INMASK);	/* OK if we got a nonempty field */
+	return (state == PAE_INMASK);	/* 若得非空字段则 OK */
 }
 
 /*
@@ -886,7 +886,7 @@ parse_ooaffentry(char *str, char *type, char *flag, char *find,
 				break;
 			case PAE_WAIT_MASK:
 				valid = get_nextfield(&str, mask);
-				state = -1;		/* force loop exit */
+				state = -1;		/* 逼退循环 */
 				break;
 			default:
 				elog(ERROR, "unrecognized state in parse_ooaffentry: %d",
@@ -896,9 +896,9 @@ parse_ooaffentry(char *str, char *type, char *flag, char *find,
 		if (valid)
 			fields_read++;
 		else
-			break;				/* early EOL */
+			break;				/* 早 EOL */
 		if (state < 0)
-			break;				/* got all fields */
+			break;				/* 字段齐 */
 	}
 
 	return fields_read;
@@ -984,7 +984,7 @@ parse_affentry(char *str, char *mask, char *find, char *repl)
 		{
 			if (t_iseq(str, '-'))
 			{
-				break;			/* void repl */
+				break;			/* 空 repl */
 			}
 			else if (t_isalpha(str))
 			{

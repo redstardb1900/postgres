@@ -21,7 +21,7 @@
 #define IGNORE_LONGLEXEME	1
 
 /*
- * Lexize subsystem
+ * 词元子系统
  */
 
 typedef struct ParsedLex
@@ -45,12 +45,12 @@ typedef struct
 	int			posDict;
 	DictSubState dictState;
 	ParsedLex  *curSub;
-	ListParsedLex towork;		/* current list to work */
-	ListParsedLex waste;		/* list of lexemes that already lexized */
+	ListParsedLex towork;		/* 待处理列表 */
+	ListParsedLex waste;		/* 已词元化的词元列表 */
 
 	/*
-	 * fields to store last variant to lexize (basically, thesaurus or similar
-	 * to, which wants several lexemes
+	 * 存放上次待词元化变体的字段(基本为同义词典或
+	 * 类似、需要多个词元者)
 	 */
 
 	ParsedLex  *lastRes;
@@ -180,8 +180,8 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 	if (ld->curDictId == InvalidOid)
 	{
 		/*
-		 * usual mode: dictionary wants only one word, but we should keep in
-		 * mind that we should go through all stack
+		 * 常规模式:词典只要一词,但须记住应遍历
+		 * 整个栈
 		 */
 
 		while (ld->towork.head)
@@ -194,7 +194,7 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 
 			if (curVal->type == 0 || curVal->type >= ld->cfg->lenmap || map->len == 0)
 			{
-				/* skip this type of lexeme */
+				/* 跳过此类词元 */
 				RemoveHead(ld);
 				continue;
 			}
@@ -214,8 +214,8 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 				if (ld->dictState.getnext)
 				{
 					/*
-					 * dictionary wants next word, so setup and store current
-					 * position and go to multiword mode
+					 * 词典要下一词,故建立并保存当前位置
+					 * 后转入多词模式
 					 */
 
 					ld->curDictId = DatumGetObjectId(map->dictIds[i]);
@@ -226,7 +226,7 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 					return LexizeExec(ld, correspondLexem);
 				}
 
-				if (!res)		/* dictionary doesn't know this lexeme */
+				if (!res)		/* 词典不识此词元 */
 					continue;
 
 				if (res->flags & TSL_FILTER)
@@ -245,11 +245,11 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 		}
 	}
 	else
-	{							/* curDictId is valid */
+	{							/* curDictId 有效 */
 		dict = lookup_ts_dictionary_cache(ld->curDictId);
 
 		/*
-		 * Dictionary ld->curDictId asks us about following words
+		 * 词典 ld->curDictId 询问后续词
 		 */
 
 		while (ld->curSub)
@@ -264,15 +264,15 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 
 				if (curVal->type >= ld->cfg->lenmap || map->len == 0)
 				{
-					/* skip this type of lexeme */
+					/* 跳过此类词元 */
 					ld->curSub = curVal->next;
 					continue;
 				}
 
 				/*
-				 * We should be sure that current type of lexeme is recognized
-				 * by our dictionary: we just check is it exist in list of
-				 * dictionaries ?
+				 * 须确认当前词元类型为本词典所识:只需检查
+				 * 它是否存在于词典
+				 * 列表中?
 				 */
 				for (i = 0; i < map->len && !dictExists; i++)
 					if (ld->curDictId == DatumGetObjectId(map->dictIds[i]))
@@ -281,8 +281,8 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 				if (!dictExists)
 				{
 					/*
-					 * Dictionary can't work with current type of lexeme,
-					 * return to basic mode and redo all stored lexemes
+					 * 词典不能处理当前词元类型,
+					 * 回到基本模式并重做所有已存词元
 					 */
 					ld->curDictId = InvalidOid;
 					return LexizeExec(ld, correspondLexem);
@@ -300,7 +300,7 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 
 			if (ld->dictState.getnext)
 			{
-				/* Dictionary wants one more */
+				/* 词典还要一个 */
 				ld->curSub = curVal->next;
 				if (res)
 					setNewTmpRes(ld, curVal, res);
@@ -310,9 +310,9 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 			if (res || ld->tmpRes)
 			{
 				/*
-				 * Dictionary normalizes lexemes, so we remove from stack all
-				 * used lexemes, return to basic mode and redo end of stack
-				 * (if it exists)
+				 * 词典已规范化词元,故从栈移除已用词元,
+				 * 回到基本模式并重做栈尾
+				 * (若仍有)
 				 */
 				if (res)
 				{
@@ -324,7 +324,7 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 					moveToWaste(ld, ld->lastRes);
 				}
 
-				/* reset to initial state */
+				/* 复位到初始状态 */
 				ld->curDictId = InvalidOid;
 				ld->posDict = 0;
 				ld->lastRes = NULL;
@@ -334,8 +334,8 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 			}
 
 			/*
-			 * Dict don't want next lexem and didn't recognize anything, redo
-			 * from ld->towork.head
+			 * 词典不要下一词元且未识别,自 ld->towork.head 
+			 * 重做
 			 */
 			ld->curDictId = InvalidOid;
 			return LexizeExec(ld, correspondLexem);
@@ -347,15 +347,15 @@ LexizeExec(LexizeData *ld, ParsedLex **correspondLexem)
 }
 
 /*
- * Parse string and lexize words.
+ * 解析字符串并词元化。
  *
- * prs will be filled in.
+ * 结果填入 prs。
  */
 void
 parsetext(Oid cfgId, ParsedText *prs, char *buf, int buflen)
 {
 	int			type,
-				lenlemm = 0;	/* silence compiler warning */
+				lenlemm = 0;	/* 消编译器告警 */
 	char	   *lemm = NULL;
 	LexizeData	ldata;
 	TSLexeme   *norms;
@@ -403,7 +403,7 @@ parsetext(Oid cfgId, ParsedText *prs, char *buf, int buflen)
 		{
 			TSLexeme   *ptr = norms;
 
-			prs->pos++;			/* set pos */
+			prs->pos++;			/* 置 pos */
 
 			while (ptr->lexeme)
 			{
@@ -432,10 +432,10 @@ parsetext(Oid cfgId, ParsedText *prs, char *buf, int buflen)
 }
 
 /*
- * Headline framework
+ * 标题框架
  */
 
-/* Add a word to prs->words[] */
+/* 向 prs->words[] 加一词 */
 static void
 hladdword(HeadlineParsedText *prs, char *buf, int buflen, int type)
 {
@@ -453,12 +453,12 @@ hladdword(HeadlineParsedText *prs, char *buf, int buflen, int type)
 }
 
 /*
- * Add pos and matching-query-item data to the just-added word.
- * Here, buf/buflen represent a processed lexeme, not raw token text.
+ * 给刚加入的词附加 pos 与匹配查询项数据。
+ * 此处 buf/buflen 表示已处理词元,非原始词元文本。
  *
- * If the query contains more than one matching item, we replicate
- * the last-added word so that each item can be pointed to.  The
- * duplicate entries are marked with repeated = 1.
+ * 若查询含多个匹配项,则复制刚加入的词,使
+ * 每项可被指向。副本以
+ * repeated = 1 标记。
  */
 static void
 hlfinditem(HeadlineParsedText *prs, TSQuery query, int32 pos, char *buf, int buflen)
@@ -540,7 +540,7 @@ void
 hlparsetext(Oid cfgId, HeadlineParsedText *prs, TSQuery query, char *buf, int buflen)
 {
 	int			type,
-				lenlemm = 0;	/* silence compiler warning */
+				lenlemm = 0;	/* 消编译器告警 */
 	char	   *lemm = NULL;
 	LexizeData	ldata;
 	TSLexeme   *norms;
@@ -601,7 +601,7 @@ hlparsetext(Oid cfgId, HeadlineParsedText *prs, TSQuery query, char *buf, int bu
 }
 
 /*
- * Generate the headline, as a text object, from HeadlineParsedText.
+ * 由 HeadlineParsedText 生成标题,作为 text 对象。
  */
 text *
 generateHeadline(HeadlineParsedText *prs)
@@ -633,10 +633,10 @@ generateHeadline(HeadlineParsedText *prs)
 			if (!infrag)
 			{
 
-				/* start of a new fragment */
+				/* 新片段起点 */
 				infrag = 1;
 				numfragments++;
-				/* add a fragment delimiter if this is after the first one */
+				/* 非首片段则加片段分隔符 */
 				if (numfragments > 1)
 				{
 					memcpy(ptr, prs->fragdelim, prs->fragdelimlen);

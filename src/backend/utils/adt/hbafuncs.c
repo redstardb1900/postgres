@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hbafuncs.c
- *	  Support functions for SQL views of authentication files.
+ *	  认证文件 SQL 视图的支持函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -36,18 +36,18 @@ static void fill_ident_view(Tuplestorestate *tuple_store, TupleDesc tupdesc);
 
 
 /*
- * This macro specifies the maximum number of authentication options
- * that are possible with any given authentication method that is supported.
- * Currently LDAP supports 12, and there are 3 that are not dependent on
- * the auth method here.  It may not actually be possible to set all of them
- * at the same time, but we'll set the macro value high enough to be
- * conservative and avoid warnings from static analysis tools.
+ * 本宏规定任一受支持认证方法可能出现的
+ * 认证选项最大个数。当前 LDAP 支持 12 个,另有
+ * 3 个与认证方法无关。未必能同时全部设置,但
+ * 把宏值设得足够高以保守并避免静态分析
+ * 工具警告。
+ *
  */
 #define MAX_HBA_OPTIONS 15
 
 /*
- * Create a text array listing the options specified in the HBA line.
- * Return NULL if no options are specified.
+ * 创建列出 HBA 行中所指定选项的 text 数组。
+ * 若未指定选项则返回 NULL。
  */
 static ArrayType *
 get_hba_options(HbaLine *hba)
@@ -153,7 +153,7 @@ get_hba_options(HbaLine *hba)
 				CStringGetTextDatum(psprintf("radiusports=%s", hba->radiusports_s));
 	}
 
-	/* If you add more options, consider increasing MAX_HBA_OPTIONS. */
+	/* 若再加选项,考虑增大 MAX_HBA_OPTIONS。 */
 	Assert(noptions <= MAX_HBA_OPTIONS);
 
 	if (noptions > 0)
@@ -162,23 +162,23 @@ get_hba_options(HbaLine *hba)
 		return NULL;
 }
 
-/* Number of columns in pg_hba_file_rules view */
+/* pg_hba_file_rules 视图的列数 */
 #define NUM_PG_HBA_FILE_RULES_ATTS	 11
 
 /*
  * fill_hba_line
- *		Build one row of pg_hba_file_rules view, add it to tuplestore.
+ *		构建 pg_hba_file_rules 视图的一行,加入 tuplestore。
  *
- * tuple_store: where to store data
- * tupdesc: tuple descriptor for the view
- * rule_number: unique identifier among all valid rules
- * filename: configuration file name (must always be valid)
- * lineno: line number of configuration file (must always be valid)
- * hba: parsed line data (can be NULL, in which case err_msg should be set)
- * err_msg: error message (NULL if none)
+ * tuple_store: 存放数据之处
+ * tupdesc: 视图的元组描述符
+ * rule_number: 全部有效规则中的唯一标识
+ * filename: 配置文件名(必须始终有效)
+ * lineno: 配置文件行号(必须始终有效)
+ * hba: 已解析行数据(可为 NULL,此时应设置 err_msg)
+ * err_msg: 错误消息(无则 NULL)
  *
- * Note: leaks memory, but we don't care since this is run in a short-lived
- * memory context.
+ * 注意:会泄漏内存,但无妨,因运行于短命内存上下文。
+ *
  */
 static void
 fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
@@ -202,7 +202,7 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 	memset(nulls, 0, sizeof(nulls));
 	index = 0;
 
-	/* rule_number, nothing on error */
+	/* rule_number,出错时无 */
 	if (err_msg)
 		nulls[index++] = true;
 	else
@@ -217,7 +217,7 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 	if (hba != NULL)
 	{
 		/* type */
-		/* Avoid a default: case so compiler will warn about missing cases */
+		/* 不用 default: 以便编译器警告缺案 */
 		typestr = NULL;
 		switch (hba->conntype)
 		{
@@ -249,12 +249,12 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 		if (hba->databases)
 		{
 			/*
-			 * Flatten AuthToken list to string list.  It might seem that we
-			 * should re-quote any quoted tokens, but that has been rejected
-			 * on the grounds that it makes it harder to compare the array
-			 * elements to other system catalogs.  That makes entries like
-			 * "all" or "samerole" formally ambiguous ... but users who name
-			 * databases/roles that way are inflicting their own pain.
+			 * 把 AuthToken 列表展平为字符串列表。或许应
+			 * 对被引号的词元重新加引号,但已被否决,
+			 * 理由是会更难把数组元素与其他系统
+			 * 目录比较。这使得 "all"/"samerole" 等项
+			 * 形式上有歧义……但把库/角色起成那样的
+			 * 用户是自找麻烦。
 			 */
 			List	   *names = NIL;
 
@@ -272,7 +272,7 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 		/* user */
 		if (hba->roles)
 		{
-			/* Flatten AuthToken list to string list; see comment above */
+			/* 把 AuthToken 列表展平为字符串列表;见上文 */
 			List	   *roles = NIL;
 
 			foreach(lc, hba->roles)
@@ -286,8 +286,8 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 		else
 			nulls[index++] = true;
 
-		/* address and netmask */
-		/* Avoid a default: case so compiler will warn about missing cases */
+		/* address 与 netmask */
+		/* 不用 default: 以便编译器警告缺案 */
 		addrstr = maskstr = NULL;
 		switch (hba->ip_cmp_method)
 		{
@@ -299,8 +299,8 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 				else
 				{
 					/*
-					 * Note: if pg_getnameinfo_all fails, it'll set buffer to
-					 * "???", which we want to return.
+					 * 注意:pg_getnameinfo_all 失败则 buffer 为
+					 * "???",正是要返回的。
 					 */
 					if (hba->addrlen > 0)
 					{
@@ -353,7 +353,7 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 	}
 	else
 	{
-		/* no parsing result, so set relevant fields to nulls */
+		/* 无解析结果,相关字段置空 */
 		memset(&nulls[3], true, (NUM_PG_HBA_FILE_RULES_ATTS - 4) * sizeof(bool));
 	}
 
@@ -369,7 +369,7 @@ fill_hba_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 
 /*
  * fill_hba_view
- *		Read the pg_hba.conf file and fill the tuplestore with view records.
+ *		读 pg_hba.conf 并用视图记录填 tuplestore。
  */
 static void
 fill_hba_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
@@ -382,16 +382,16 @@ fill_hba_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 	MemoryContext oldcxt;
 
 	/*
-	 * In the unlikely event that we can't open pg_hba.conf, we throw an
-	 * error, rather than trying to report it via some sort of view entry.
-	 * (Most other error conditions should result in a message in a view
-	 * entry.)
+	 * 万一打不开 pg_hba.conf,我们抛错,而不是试图
+	 * 用某种视图条目报告。(多数其他错误条件应
+	 * 在视图条目中留消息。)
+	 *
 	 */
 	file = open_auth_file(HbaFileName, ERROR, 0, NULL);
 
 	tokenize_auth_file(HbaFileName, file, &hba_lines, DEBUG3, 0);
 
-	/* Now parse all the lines */
+	/* 现在解析全部行 */
 	hbacxt = AllocSetContextCreate(CurrentMemoryContext,
 								   "hba parser context",
 								   ALLOCSET_SMALL_SIZES);
@@ -401,11 +401,11 @@ fill_hba_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 		TokenizedAuthLine *tok_line = (TokenizedAuthLine *) lfirst(line);
 		HbaLine    *hbaline = NULL;
 
-		/* don't parse lines that already have errors */
+		/* 已有错误的行不再解析 */
 		if (tok_line->err_msg == NULL)
 			hbaline = parse_hba_line(tok_line, DEBUG3);
 
-		/* No error, set a new rule number */
+		/* 无错,设置新规则号 */
 		if (tok_line->err_msg == NULL)
 			rule_number++;
 
@@ -414,9 +414,9 @@ fill_hba_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 					  tok_line->err_msg);
 	}
 
-	/* Free tokenizer memory */
+	/* 释放分词器内存 */
 	free_auth_file(file, 0);
-	/* Free parse_hba_line memory */
+	/* 清 parse_hba_line 内存 */
 	MemoryContextSwitchTo(oldcxt);
 	MemoryContextDelete(hbacxt);
 }
@@ -424,8 +424,8 @@ fill_hba_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 /*
  * pg_hba_file_rules
  *
- * SQL-accessible set-returning function to return all the entries in the
- * pg_hba.conf file.
+ * SQL 可访问 SRF,返回 pg_hba.conf 全部
+ * 条目。
  */
 Datum
 pg_hba_file_rules(PG_FUNCTION_ARGS)
@@ -433,37 +433,37 @@ pg_hba_file_rules(PG_FUNCTION_ARGS)
 	ReturnSetInfo *rsi;
 
 	/*
-	 * Build tuplestore to hold the result rows.  We must use the Materialize
-	 * mode to be safe against HBA file changes while the cursor is open. It's
-	 * also more efficient than having to look up our current position in the
-	 * parsed list every time.
+	 * 构建存放结果行的 tuplestore。必须用 Materialize
+	 * 模式以防游标打开期间 HBA 文件变更。也比每次
+	 * 在已解析列表中查找当前位置更
+	 * 高效。
 	 */
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Fill the tuplestore */
+	/* 填充 tuplestore */
 	rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 	fill_hba_view(rsi->setResult, rsi->setDesc);
 
 	PG_RETURN_NULL();
 }
 
-/* Number of columns in pg_ident_file_mappings view */
+/* pg_ident_file_mappings 视图的列数 */
 #define NUM_PG_IDENT_FILE_MAPPINGS_ATTS	 7
 
 /*
- * fill_ident_line: build one row of pg_ident_file_mappings view, add it to
+ * fill_ident_line: 构建 pg_ident_file_mappings 视图的一行,加入
  * tuplestore
  *
- * tuple_store: where to store data
- * tupdesc: tuple descriptor for the view
- * map_number: unique identifier among all valid maps
- * filename: configuration file name (must always be valid)
- * lineno: line number of configuration file (must always be valid)
- * ident: parsed line data (can be NULL, in which case err_msg should be set)
- * err_msg: error message (NULL if none)
+ * tuple_store: 存放数据之处
+ * tupdesc: 视图的元组描述符
+ * map_number: 全部有效映射中的唯一标识
+ * filename: 配置文件名(必须始终有效)
+ * lineno: 配置文件行号(必须始终有效)
+ * ident: 已解析行数据(可为 NULL,此时应设置 err_msg)
+ * err_msg: 错误消息(无则 NULL)
  *
- * Note: leaks memory, but we don't care since this is run in a short-lived
- * memory context.
+ * 注意:会泄漏内存,但无妨,因运行于短命内存上下文。
+ *
  */
 static void
 fill_ident_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
@@ -481,7 +481,7 @@ fill_ident_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 	memset(nulls, 0, sizeof(nulls));
 	index = 0;
 
-	/* map_number, nothing on error */
+	/* map_number,出错时无 */
 	if (err_msg)
 		nulls[index++] = true;
 	else
@@ -501,7 +501,7 @@ fill_ident_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 	}
 	else
 	{
-		/* no parsing result, so set relevant fields to nulls */
+		/* 无解析结果,相关字段置空 */
 		memset(&nulls[3], true, (NUM_PG_IDENT_FILE_MAPPINGS_ATTS - 4) * sizeof(bool));
 	}
 
@@ -516,7 +516,7 @@ fill_ident_line(Tuplestorestate *tuple_store, TupleDesc tupdesc,
 }
 
 /*
- * Read the pg_ident.conf file and fill the tuplestore with view records.
+ * 读 pg_ident.conf 并用视图记录填 tuplestore。
  */
 static void
 fill_ident_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
@@ -529,16 +529,16 @@ fill_ident_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 	MemoryContext oldcxt;
 
 	/*
-	 * In the unlikely event that we can't open pg_ident.conf, we throw an
-	 * error, rather than trying to report it via some sort of view entry.
-	 * (Most other error conditions should result in a message in a view
-	 * entry.)
+	 * 万一打不开 pg_ident.conf,我们抛错,而不是试图
+	 * 用某种视图条目报告。(多数其他错误条件应
+	 * 在视图条目中留消息。)
+	 *
 	 */
 	file = open_auth_file(IdentFileName, ERROR, 0, NULL);
 
 	tokenize_auth_file(IdentFileName, file, &ident_lines, DEBUG3, 0);
 
-	/* Now parse all the lines */
+	/* 现在解析全部行 */
 	identcxt = AllocSetContextCreate(CurrentMemoryContext,
 									 "ident parser context",
 									 ALLOCSET_SMALL_SIZES);
@@ -548,11 +548,11 @@ fill_ident_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 		TokenizedAuthLine *tok_line = (TokenizedAuthLine *) lfirst(line);
 		IdentLine  *identline = NULL;
 
-		/* don't parse lines that already have errors */
+		/* 已有错误的行不再解析 */
 		if (tok_line->err_msg == NULL)
 			identline = parse_ident_line(tok_line, DEBUG3);
 
-		/* no error, set a new mapping number */
+		/* 无错,设置新映射号 */
 		if (tok_line->err_msg == NULL)
 			map_number++;
 
@@ -561,15 +561,15 @@ fill_ident_view(Tuplestorestate *tuple_store, TupleDesc tupdesc)
 						identline, tok_line->err_msg);
 	}
 
-	/* Free tokenizer memory */
+	/* 释放分词器内存 */
 	free_auth_file(file, 0);
-	/* Free parse_ident_line memory */
+	/* 清 parse_ident_line 内存 */
 	MemoryContextSwitchTo(oldcxt);
 	MemoryContextDelete(identcxt);
 }
 
 /*
- * SQL-accessible SRF to return all the entries in the pg_ident.conf file.
+ * SQL 可访问的 SRF,返回 pg_ident.conf 全部条目。
  */
 Datum
 pg_ident_file_mappings(PG_FUNCTION_ARGS)
@@ -577,14 +577,14 @@ pg_ident_file_mappings(PG_FUNCTION_ARGS)
 	ReturnSetInfo *rsi;
 
 	/*
-	 * Build tuplestore to hold the result rows.  We must use the Materialize
-	 * mode to be safe against HBA file changes while the cursor is open. It's
-	 * also more efficient than having to look up our current position in the
-	 * parsed list every time.
+	 * 构建存放结果行的 tuplestore。必须用 Materialize
+	 * 模式以防游标打开期间 HBA 文件变更。也比每次
+	 * 在已解析列表中查找当前位置更
+	 * 高效。
 	 */
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* Fill the tuplestore */
+	/* 填充 tuplestore */
 	rsi = (ReturnSetInfo *) fcinfo->resultinfo;
 	fill_ident_view(rsi->setResult, rsi->setDesc);
 

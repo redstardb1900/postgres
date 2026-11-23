@@ -2138,5 +2138,10 @@
   "path": "src/backend/utils/init/postinit.c",
   "pattern": "(autovacuum launcher|autovacuum worker)",
   "reason": "process proper nouns kept EN beside zh prose in InitPostgres banner (batch-0434; extends two earlier single-site postinit entries)"
+ },
+ {
+  "path": "src/backend/utils/adt/network.c",
+  "pattern": "31\\s+bits\\s+network",
+  "reason": "ASCII diagram/format sketch labels kept EN (abbrev-key packing boxes; batch-0631)"
  }
 ]

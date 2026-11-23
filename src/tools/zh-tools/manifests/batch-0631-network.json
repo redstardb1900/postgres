@@ -1,0 +1,80 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0631",
+ "title": "backend/utils/adt network — batch 0631",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "267d63b43a0f078f35c17180bdb04576e74937fd",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/network.c",
+   "kind": "c_comment",
+   "note": "0631"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0631-network.json",
+   "kind": "manifest",
+   "note": "0631"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0631 ASCII-diagram halfen exemption"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/network.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "IDENTIFICATION KEEP (src/backend/utils/adt/network.c)",
+    "translator: 注释 KEEP",
+    "缩写键 ASCII 图/节标题下划线 KEEP",
+    "SIZEOF_DATUM != 8 代码式注释 KEEP",
+    "bitncmp man-page 格式串 KEEP (int/bitncmp/return:/note:/author:)"
+   ],
+   "note": "0631"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0631-network.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0631"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0631 ASCII图 halfen豁免"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0631"
+  }
+ ],
+ "notes": "network.c 全文件; 地址族/网络掩码/CIDR/inet/主机部分/子网位/缩写键/基数对齐既译; ASCII图 KEEP+halfen豁免; translator/IDENT/格式串 KEEP"
+}

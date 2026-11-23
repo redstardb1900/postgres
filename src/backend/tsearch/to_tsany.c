@@ -21,17 +21,17 @@
 
 
 /*
- * Opaque data structure, which is passed by parse_tsquery() to pushval_morph().
+ * 不透明结构,由 parse_tsquery() 传给 pushval_morph()。
  */
 typedef struct MorphOpaque
 {
 	Oid			cfg_id;
 
 	/*
-	 * Single tsquery morph could be parsed into multiple words.  When these
-	 * words reside in adjacent positions, they are connected using this
-	 * operator.  Usually, that is OP_PHRASE, which requires word positions of
-	 * a complex morph to exactly match the tsvector.
+	 * 单个 tsquery 词形可解析为多词。这些词若处于相邻
+	 * 位置,则用此运算符连接。通常即 OP_PHRASE,它要求
+	 * 复合词形的词位置与 tsvector 精确
+	 * 匹配。
 	 */
 	int			qoperator;
 } MorphOpaque;
@@ -95,12 +95,12 @@ uniqueWORD(ParsedWord *a, int32 l)
 	ptr = a + 1;
 
 	/*
-	 * Sort words with its positions
+	 * 按词及其位置排序
 	 */
 	qsort(a, l, sizeof(ParsedWord), compareWORD);
 
 	/*
-	 * Initialize first word and its first position
+	 * 初始化首词及其首个位置
 	 */
 	tmppos = LIMITPOS(a->pos.pos);
 	a->alen = 2;
@@ -109,7 +109,7 @@ uniqueWORD(ParsedWord *a, int32 l)
 	a->pos.apos[1] = tmppos;
 
 	/*
-	 * Summarize position information for each word
+	 * 汇总每个词的位置信息
 	 */
 	while (ptr - a < l)
 	{
@@ -117,7 +117,7 @@ uniqueWORD(ParsedWord *a, int32 l)
 			  strncmp(ptr->word, res->word, res->len) == 0))
 		{
 			/*
-			 * Got a new word, so put it in result
+			 * 遇到新词,写入结果
 			 */
 			res++;
 			res->len = ptr->len;
@@ -131,9 +131,9 @@ uniqueWORD(ParsedWord *a, int32 l)
 		else
 		{
 			/*
-			 * The word already exists, so adjust position information. But
-			 * before we should check size of position's array, max allowed
-			 * value for position and uniqueness of position
+			 * 词已存在,调整位置信息。但先应检查
+			 * 位置数组大小、位置允许最大值
+			 * 以及位置唯一性
 			 */
 			pfree(ptr->word);
 			if (res->pos.apos[0] < MAXNUMPOS - 1 && res->pos.apos[res->pos.apos[0]] != MAXENTRYPOS - 1 &&
@@ -158,9 +158,9 @@ uniqueWORD(ParsedWord *a, int32 l)
 }
 
 /*
- * make value of tsvector, given parsed text
+ * 由已解析文本构造 tsvector 值
  *
- * Note: frees prs->words and subsidiary data.
+ * 注意:释放 prs->words 及附属数据。
  */
 TSVector
 make_tsvector(ParsedText *prs)
@@ -174,11 +174,11 @@ make_tsvector(ParsedText *prs)
 	char	   *str;
 	int			stroff;
 
-	/* Merge duplicate words */
+	/* 合并重复词 */
 	if (prs->curwords > 0)
 		prs->curwords = uniqueWORD(prs->words, prs->curwords);
 
-	/* Determine space needed */
+	/* 确定所需空间 */
 	for (i = 0; i < prs->curwords; i++)
 	{
 		lenstr += prs->words[i].len;
@@ -248,8 +248,8 @@ to_tsvector_byid(PG_FUNCTION_ARGS)
 	ParsedText	prs;
 	TSVector	out;
 
-	prs.lenwords = VARSIZE_ANY_EXHDR(in) / 6;	/* just estimation of word's
-												 * number */
+	prs.lenwords = VARSIZE_ANY_EXHDR(in) / 6;	/* 仅粗估
+												 * 词数 */
 	if (prs.lenwords < 2)
 		prs.lenwords = 2;
 	else if (prs.lenwords > MaxAllocSize / sizeof(ParsedWord))
@@ -280,7 +280,7 @@ to_tsvector(PG_FUNCTION_ARGS)
 }
 
 /*
- * Worker function for jsonb(_string)_to_tsvector(_byid)
+ * jsonb(_string)_to_tsvector(_byid) 的工作函数
  */
 static TSVector
 jsonb_to_tsvector_worker(Oid cfgId, Jsonb *jb, uint32 flags)
@@ -359,7 +359,7 @@ jsonb_to_tsvector(PG_FUNCTION_ARGS)
 }
 
 /*
- * Worker function for json(_string)_to_tsvector(_byid)
+ * json(_string)_to_tsvector(_byid) 的工作函数
  */
 static TSVector
 json_to_tsvector_worker(Oid cfgId, text *json, uint32 flags)
@@ -438,7 +438,7 @@ json_to_tsvector(PG_FUNCTION_ARGS)
 }
 
 /*
- * Parse lexemes in an element of a json(b) value, add to TSVectorBuildState.
+ * 解析 json(b) 元素中的词元,加入 TSVectorBuildState。
  */
 static void
 add_to_tsvector(void *_state, char *elem_value, int elem_len)
@@ -450,8 +450,8 @@ add_to_tsvector(void *_state, char *elem_value, int elem_len)
 	if (prs->words == NULL)
 	{
 		/*
-		 * First time through: initialize words array to a reasonable size.
-		 * (parsetext() will realloc it bigger as needed.)
+		 * 首次进入:把 words 数组初始化为合理大小。
+		 * (parsetext() 会按需再 realloc 放大。)
 		 */
 		prs->lenwords = 16;
 		prs->words = (ParsedWord *) palloc(sizeof(ParsedWord) * prs->lenwords);
@@ -464,10 +464,10 @@ add_to_tsvector(void *_state, char *elem_value, int elem_len)
 	parsetext(state->cfgId, prs, elem_value, elem_len);
 
 	/*
-	 * If we extracted any words from this JSON element, advance pos to create
-	 * an artificial break between elements.  This is because we don't want
-	 * phrase searches to think that the last word in this element is adjacent
-	 * to the first word in the next one.
+	 * 若本 JSON 元素抽出了词,则推进 pos,在元素间
+	 * 制造人为间断。因不想让短语搜索以为本元素
+	 * 末词与下一元素首词
+	 * 相邻。
 	 */
 	if (prs->curwords > prevwords)
 		prs->pos += 1;
@@ -480,14 +480,14 @@ add_to_tsvector(void *_state, char *elem_value, int elem_len)
 
 
 /*
- * This function is used for morph parsing.
+ * 本函数用于词形解析。
  *
- * The value is passed to parsetext which will call the right dictionary to
- * lexize the word. If it turns out to be a stopword, we push a QI_VALSTOP
- * to the stack.
+ * 值交给 parsetext,由其调用合适词典做
+ * 词元化。若为停用词,则把 QI_VALSTOP
+ * 压栈。
  *
- * All words belonging to the same variant are pushed as an ANDed list,
- * and different variants are ORed together.
+ * 同一切分变体的词以 AND 列表压栈,
+ * 不同变体之间 OR 连接。
  */
 static void
 pushval_morph(Datum opaque, TSQueryParserState state, char *strval, int lenval, int16 weight, bool prefix)
@@ -513,14 +513,14 @@ pushval_morph(Datum opaque, TSQueryParserState state, char *strval, int lenval, 
 		while (count < prs.curwords)
 		{
 			/*
-			 * Were any stop words removed? If so, fill empty positions with
-			 * placeholders linked by an appropriate operator.
+			 * 是否去掉了停用词?若是,用适当运算符
+			 * 连接的占位符填补空位。
 			 */
 			if (pos > 0 && pos + 1 < prs.words[count].pos.pos)
 			{
 				while (pos + 1 < prs.words[count].pos.pos)
 				{
-					/* put placeholders for each missing stop word */
+					/* 为每个缺失停用词放占位符 */
 					pushStop(state);
 					if (cntpos)
 						pushOperator(state, data->qoperator, 1);
@@ -529,16 +529,16 @@ pushval_morph(Datum opaque, TSQueryParserState state, char *strval, int lenval, 
 				}
 			}
 
-			/* save current word's position */
+			/* 保存当前词位置 */
 			pos = prs.words[count].pos.pos;
 
-			/* Go through all variants obtained from this token */
+			/* 遍历本词元得到的所有变体 */
 			cntvar = 0;
 			while (count < prs.curwords && pos == prs.words[count].pos.pos)
 			{
 				variant = prs.words[count].nvariant;
 
-				/* Push all words belonging to the same variant */
+				/* 压入同一切分变体的全部词 */
 				cnt = 0;
 				while (count < prs.curwords &&
 					   pos == prs.words[count].pos.pos &&
@@ -563,7 +563,7 @@ pushval_morph(Datum opaque, TSQueryParserState state, char *strval, int lenval, 
 
 			if (cntpos)
 			{
-				/* distance may be useful */
+				/* 距离或有用 */
 				pushOperator(state, data->qoperator, 1);
 			}
 
@@ -586,10 +586,10 @@ to_tsquery_byid(PG_FUNCTION_ARGS)
 	data.cfg_id = PG_GETARG_OID(0);
 
 	/*
-	 * Passing OP_PHRASE as a qoperator makes tsquery require matching of word
-	 * positions of a complex morph exactly match the tsvector.  Also, when
-	 * the complex morphs are connected with OP_PHRASE operator, we connect
-	 * all their words into the OP_PHRASE sequence.
+	 * 将 OP_PHRASE 作 qoperator 时,tsquery 要求复合词形
+	 * 的词位置与 tsvector 精确匹配。另当复合词形经
+	 * OP_PHRASE 相连时,把其词全部连入 OP_PHRASE
+	 * 序列。
 	 */
 	data.qoperator = OP_PHRASE;
 
@@ -624,9 +624,9 @@ plainto_tsquery_byid(PG_FUNCTION_ARGS)
 	data.cfg_id = PG_GETARG_OID(0);
 
 	/*
-	 * parse_tsquery() with P_TSQ_PLAIN flag takes the whole input text as a
-	 * single morph.  Passing OP_PHRASE as a qoperator makes tsquery require
-	 * matching of all words independently on their positions.
+	 * parse_tsquery() 带 P_TSQ_PLAIN 时把整段输入视作
+	 * 单个词形。将 OP_PHRASE 作 qoperator 时,tsquery
+	 * 要求匹配全部词,而不论其位置。
 	 */
 	data.qoperator = OP_AND;
 
@@ -662,9 +662,9 @@ phraseto_tsquery_byid(PG_FUNCTION_ARGS)
 	data.cfg_id = PG_GETARG_OID(0);
 
 	/*
-	 * parse_tsquery() with P_TSQ_PLAIN flag takes the whole input text as a
-	 * single morph.  Passing OP_PHRASE as a qoperator makes tsquery require
-	 * matching of word positions.
+	 * parse_tsquery() 带 P_TSQ_PLAIN 时把整段输入视作
+	 * 单个词形。将 OP_PHRASE 作 qoperator 时,tsquery
+	 * 要求匹配词位置。
 	 */
 	data.qoperator = OP_PHRASE;
 
@@ -699,10 +699,10 @@ websearch_to_tsquery_byid(PG_FUNCTION_ARGS)
 	data.cfg_id = PG_GETARG_OID(0);
 
 	/*
-	 * Passing OP_PHRASE as a qoperator makes tsquery require matching of word
-	 * positions of a complex morph exactly match the tsvector.  Also, when
-	 * the complex morphs are given in quotes, we connect all their words into
-	 * the OP_PHRASE sequence.
+	 * 将 OP_PHRASE 作 qoperator 时,tsquery 要求复合词形
+	 * 的词位置与 tsvector 精确匹配。另当复合词形写在
+	 * 引号内时,把其词全部连入 OP_PHRASE
+	 * 序列。
 	 */
 	data.qoperator = OP_PHRASE;
 

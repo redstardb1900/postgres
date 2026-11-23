@@ -964,7 +964,7 @@ p_isspecial(TParser *prs)
 }
 
 /*
- * Table of state/action of parser
+ * 解析器状态/动作表
  */
 
 static const TParserStateActionItem actionTPS_Base[] = {
@@ -1208,7 +1208,7 @@ static const TParserStateActionItem actionTPS_InTagFirst[] = {
 static const TParserStateActionItem actionTPS_InXMLBegin[] = {
 	{p_isEOF, 0, A_POP, TPS_Null, 0, NULL},
 	/* <?xml ... */
-	/* XXX do we wants states for the m and l ?  Right now this accepts <?xZ */
+	/* XXX 要不要为 m、l 设状态?现接受 <?xZ */
 	{p_iseqC, 'x', A_NEXT, TPS_InTag, 0, NULL},
 	{NULL, 0, A_POP, TPS_Null, 0, NULL}
 };
@@ -1601,14 +1601,14 @@ static const TParserStateActionItem actionTPS_InHyphenUnsignedInt[] = {
 
 
 /*
- * main table of per-state parser actions
+ * 每状态解析器动作主表
  */
 typedef struct
 {
-	const TParserStateActionItem *action;	/* the actual state info */
-	TParserState state;			/* only for Assert crosscheck */
+	const TParserStateActionItem *action;	/* 实际状态信息 */
+	TParserState state;			/* 仅供 Assert 交叉校验 */
 #ifdef WPARSER_TRACE
-	const char *state_name;		/* only for debug printout */
+	const char *state_name;		/* 仅供调试打印 */
 #endif
 } TParserStateAction;
 
@@ -1621,7 +1621,7 @@ typedef struct
 #endif
 
 /*
- * order must be the same as in typedef enum {} TParserState!!
+ * 次序须与 TParserState 枚举定义相同!!
  */
 
 static const TParserStateAction Actions[] = {
@@ -1720,7 +1720,7 @@ TParserGet(TParser *prs)
 	prs->token = prs->str + prs->state->posbyte;
 	prs->state->pushedAtAction = NULL;
 
-	/* look at string */
+	/* 查看串 */
 	while (prs->state->posbyte <= prs->lenstr)
 	{
 		if (prs->state->posbyte == prs->lenstr)
@@ -1735,7 +1735,7 @@ TParserGet(TParser *prs)
 
 		if (prs->state->pushedAtAction)
 		{
-			/* After a POP, pick up at the next test */
+			/* POP 之后从下一测试继续 */
 			item = prs->state->pushedAtAction + 1;
 			prs->state->pushedAtAction = NULL;
 		}
@@ -1745,7 +1745,7 @@ TParserGet(TParser *prs)
 			Assert(item != NULL);
 		}
 
-		/* find action by character class */
+		/* 按字符类查找动作 */
 		while (item->isclass)
 		{
 			prs->c = item->c;
@@ -1759,7 +1759,7 @@ TParserGet(TParser *prs)
 			TParserPosition *ptr;
 
 			fprintf(stderr, "state ");
-			/* indent according to stack depth */
+			/* 按栈深缩进 */
 			for (ptr = prs->state->prev; ptr; ptr = ptr->prev)
 				fprintf(stderr, "  ");
 			fprintf(stderr, "%s ", Actions[prs->state->state].state_name);
@@ -1783,11 +1783,11 @@ TParserGet(TParser *prs)
 		}
 #endif
 
-		/* call special handler if exists */
+		/* 若有特殊处理则调用 */
 		if (item->special)
 			item->special(prs);
 
-		/* BINGO, token is found */
+		/* BINGO,找到词元 */
 		if (item->flags & A_BINGO)
 		{
 			Assert(item->type > 0);
@@ -1797,9 +1797,9 @@ TParserGet(TParser *prs)
 			prs->type = item->type;
 		}
 
-		/* do various actions by flags */
+		/* 按标志做各种动作 */
 		if (item->flags & A_POP)
-		{						/* pop stored state in stack */
+		{						/* 弹出栈内保存状态 */
 			TParserPosition *ptr = prs->state->prev;
 
 			pfree(prs->state);
@@ -1807,12 +1807,12 @@ TParserGet(TParser *prs)
 			Assert(prs->state);
 		}
 		else if (item->flags & A_PUSH)
-		{						/* push (store) state in stack */
-			prs->state->pushedAtAction = item;	/* remember where we push */
+		{						/* 压入(保存)状态到栈 */
+			prs->state->pushedAtAction = item;	/* 记住压入位置 */
 			prs->state = newTParserPosition(prs->state);
 		}
 		else if (item->flags & A_CLEAR)
-		{						/* clear previous pushed state */
+		{						/* 清除先前压入的状态 */
 			TParserPosition *ptr;
 
 			Assert(prs->state->prev);
@@ -1821,7 +1821,7 @@ TParserGet(TParser *prs)
 			prs->state->prev = ptr;
 		}
 		else if (item->flags & A_CLRALL)
-		{						/* clear all previous pushed state */
+		{						/* 清除全部先前压入状态 */
 			TParserPosition *ptr;
 
 			while (prs->state->prev)
@@ -1832,7 +1832,7 @@ TParserGet(TParser *prs)
 			}
 		}
 		else if (item->flags & A_MERGE)
-		{						/* merge posinfo with current and pushed state */
+		{						/* 合并当前与压入状态位置信息 */
 			TParserPosition *ptr = prs->state;
 
 			Assert(prs->state->prev);
@@ -1846,21 +1846,21 @@ TParserGet(TParser *prs)
 			pfree(ptr);
 		}
 
-		/* set new state if pointed */
+		/* 有指向则设新状态 */
 		if (item->tostate != TPS_Null)
 			prs->state->state = item->tostate;
 
-		/* check for go away */
+		/* 查是否离开 */
 		if ((item->flags & A_BINGO) ||
 			(prs->state->posbyte >= prs->lenstr &&
 			 (item->flags & A_RERUN) == 0))
 			break;
 
-		/* go to beginning of loop if we should rerun or we just restore state */
+		/* 应重跑或刚恢复状态则回到循环开头 */
 		if (item->flags & (A_RERUN | A_POP))
 			continue;
 
-		/* move forward */
+		/* 向前推进 */
 		if (prs->state->charlen)
 		{
 			prs->state->posbyte += prs->state->charlen;
@@ -1924,10 +1924,10 @@ prsd_end(PG_FUNCTION_ARGS)
 
 
 /*
- * ts_headline support begins here
+ * 以下开始 ts_headline 支持
  */
 
-/* token type classification macros */
+/* 词元类型分类宏 */
 #define TS_IDIGNORE(x)	( (x)==TAG_T || (x)==PROTOCOL || (x)==SPACE || (x)==XMLENTITY )
 #define HLIDREPLACE(x)	( (x)==TAG_T )
 #define HLIDSKIP(x)		( (x)==URL_T || (x)==NUMHWORD || (x)==ASCIIHWORD || (x)==HWORD )

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0615",
+ "title": "backend/tsearch wparser_def 状态机/引擎 — batch 0615",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c46bd000b1e0d5854f1645638fc4c7ad5dce82dc",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/wparser_def.c",
+   "kind": "c_comment",
+   "note": "0615"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0615-wparser_def.json",
+   "kind": "manifest",
+   "note": "0615"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/wparser_def.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "HTML/XML 标签字面量注释 KEEP。"
+   ],
+   "note": "0615"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0615-wparser_def.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0615"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0615"
+  }
+ ],
+ "notes": "wparser_def 状态机表头与 TParserGet 引擎短注；至 ts_headline 入口"
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pgstatfuncs.c
- *	  Functions for accessing various forms of statistics data
+ *	  访问各类统计数据的函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -153,7 +153,7 @@ pg_stat_get_function_calls(PG_FUNCTION_ARGS)
 	PG_RETURN_INT64(funcentry->numcalls);
 }
 
-/* convert counter from microsec to millisec for display */
+/* 把计数器从微秒转为毫秒以便显示 */
 #define PG_STAT_GET_FUNCENTRY_FLOAT8_MS(stat)						\
 Datum																\
 CppConcat(pg_stat_get_function_,stat)(PG_FUNCTION_ARGS)				\
@@ -180,10 +180,10 @@ pg_stat_get_backend_idset(PG_FUNCTION_ARGS)
 	FuncCallContext *funcctx;
 	int		   *fctx;
 
-	/* stuff done only on the first call of the function */
+	/* 仅在函数首次调用时做的事 */
 	if (SRF_IS_FIRSTCALL())
 	{
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用持久化的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		fctx = MemoryContextAlloc(funcctx->multi_call_memory_ctx,
@@ -193,37 +193,37 @@ pg_stat_get_backend_idset(PG_FUNCTION_ARGS)
 		fctx[0] = 0;
 	}
 
-	/* stuff done on every call of the function */
+	/* 函数每次调用都做的事 */
 	funcctx = SRF_PERCALL_SETUP();
 	fctx = funcctx->user_fctx;
 
 	fctx[0] += 1;
 
 	/*
-	 * We recheck pgstat_fetch_stat_numbackends() each time through, just in
-	 * case the local status data has been refreshed since we started.  It's
-	 * plenty cheap enough if not.  If a refresh does happen, we'll likely
-	 * miss or duplicate some backend IDs, but we're content not to crash.
-	 * (Refreshing midway through such a query would be problematic usage
-	 * anyway, since the backend IDs we've already returned might no longer
-	 * refer to extant sessions.)
+	 * 每次循环都重查 pgstat_fetch_stat_numbackends(),以防
+	 * 本地状态自开始后已刷新。未刷新时开销也
+	 * 足够便宜。若确有刷新,可能漏掉或重复某些
+	 * 后端 ID,但可接受只要不崩溃。
+	 * (在此类查询中途刷新本就用法有问题,
+	 * 因已返回的后端 ID 可能不再
+	 * 指向现存会话。)
 	 */
 	if (fctx[0] <= pgstat_fetch_stat_numbackends())
 	{
-		/* do when there is more left to send */
+		/* 还有剩余要发送时执行 */
 		LocalPgBackendStatus *local_beentry = pgstat_get_local_beentry_by_index(fctx[0]);
 
 		SRF_RETURN_NEXT(funcctx, Int32GetDatum(local_beentry->backend_id));
 	}
 	else
 	{
-		/* do when there is no more left */
+		/* 没有剩余时执行 */
 		SRF_RETURN_DONE(funcctx);
 	}
 }
 
 /*
- * Returns command progress information for the named command.
+ * 返回指定命令的命令进度信息。
  */
 Datum
 pg_stat_get_progress_info(PG_FUNCTION_ARGS)
@@ -235,7 +235,7 @@ pg_stat_get_progress_info(PG_FUNCTION_ARGS)
 	ProgressCommandType cmdtype;
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 
-	/* Translate command name into command type code. */
+	/* 把命令名翻译为命令类型码。 */
 	if (pg_strcasecmp(cmd, "VACUUM") == 0)
 		cmdtype = PROGRESS_COMMAND_VACUUM;
 	else if (pg_strcasecmp(cmd, "ANALYZE") == 0)
@@ -255,7 +255,7 @@ pg_stat_get_progress_info(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* 1-based index */
+	/* 1 起算 */
 	for (curr_backend = 1; curr_backend <= num_backends; curr_backend++)
 	{
 		LocalPgBackendStatus *local_beentry;
@@ -268,17 +268,17 @@ pg_stat_get_progress_info(PG_FUNCTION_ARGS)
 		beentry = &local_beentry->backendStatus;
 
 		/*
-		 * Report values for only those backends which are running the given
-		 * command.
+		 * 仅汇报执行给定命令的后端。
+		 * 
 		 */
 		if (beentry->st_progress_command != cmdtype)
 			continue;
 
-		/* Value available to all callers */
+		/* 所有调用者均可获的值 */
 		values[0] = Int32GetDatum(beentry->st_procpid);
 		values[1] = ObjectIdGetDatum(beentry->st_databaseid);
 
-		/* show rest of the values including relid only to role members */
+		/* 含 relid 的其余值仅向角色成员显示 */
 		if (HAS_PGSTAT_PERMISSIONS(beentry->st_userid))
 		{
 			values[2] = ObjectIdGetDatum(beentry->st_progress_command_target);
@@ -299,7 +299,7 @@ pg_stat_get_progress_info(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns activity of PG backends.
+ * 返回 PG 后端的活动。
  */
 Datum
 pg_stat_get_activity(PG_FUNCTION_ARGS)
@@ -312,10 +312,10 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* 1-based index */
+	/* 1 起算 */
 	for (curr_backend = 1; curr_backend <= num_backends; curr_backend++)
 	{
-		/* for each row */
+		/* 每行 */
 		Datum		values[PG_STAT_GET_ACTIVITY_COLS] = {0};
 		bool		nulls[PG_STAT_GET_ACTIVITY_COLS] = {0};
 		LocalPgBackendStatus *local_beentry;
@@ -324,15 +324,15 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 		const char *wait_event_type = NULL;
 		const char *wait_event = NULL;
 
-		/* Get the next one in the list */
+		/* 取列表中下一个 */
 		local_beentry = pgstat_get_local_beentry_by_index(curr_backend);
 		beentry = &local_beentry->backendStatus;
 
-		/* If looking for specific PID, ignore all the others */
+		/* 若查找特定 PID,忽略所有其他 */
 		if (pid != -1 && beentry->st_procpid != pid)
 			continue;
 
-		/* Values available to all callers */
+		/* 所有调用者可获的值 */
 		if (beentry->st_databaseid != InvalidOid)
 			values[0] = ObjectIdGetDatum(beentry->st_databaseid);
 		else
@@ -360,7 +360,7 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 		else
 			nulls[16] = true;
 
-		/* Values only available to role member or pg_read_all_stats */
+		/* 仅角色成员或 pg_read_all_stats 可获的值 */
 		if (HAS_PGSTAT_PERMISSIONS(beentry->st_userid))
 		{
 			SockAddr	zero_clientaddr;
@@ -403,17 +403,17 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 			if (proc == NULL && (beentry->st_backendType != B_BACKEND))
 			{
 				/*
-				 * For an auxiliary process, retrieve process info from
-				 * AuxiliaryProcs stored in shared-memory.
+				 * 对辅助进程,从共享内存中的
+				 * AuxiliaryProcs 取进程信息。
 				 */
 				proc = AuxiliaryPidGetProc(beentry->st_procpid);
 			}
 
 			/*
-			 * If a PGPROC entry was retrieved, display wait events and lock
-			 * group leader or apply leader information if any.  To avoid
-			 * extra overhead, no extra lock is being held, so there is no
-			 * guarantee of consistency across multiple rows.
+			 * 若取到了 PGPROC 条目,则显示等待事件以及锁
+			 * 组领导者或应用领导者信息(若有)。为避免
+			 * 额外开销,未持有额外锁,故多行之间
+			 * 不保证一致性。
 			 */
 			if (proc != NULL)
 			{
@@ -427,9 +427,9 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 				leader = proc->lockGroupLeader;
 
 				/*
-				 * Show the leader only for active parallel workers.  This
-				 * leaves the field as NULL for the leader of a parallel group
-				 * or the leader of parallel apply workers.
+				 * 仅对活动并行工作进程显示领导者。这会
+				 * 让并行组领导者或并行应用工作进程
+				 * 领导者的该字段为 NULL。
 				 */
 				if (leader && leader->pid != beentry->st_procpid)
 				{
@@ -459,9 +459,9 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 				nulls[7] = true;
 
 			/*
-			 * Don't expose transaction time for walsenders; it confuses
-			 * monitoring, particularly because we don't keep the time up-to-
-			 * date.
+			 * 不对 walsender 暴露事务时间;它会
+			 * 干扰监控,尤因未及时更新该时间。
+			 * 
 			 */
 			if (beentry->st_xact_start_timestamp != 0 &&
 				beentry->st_backendType != B_WAL_SENDER)
@@ -484,7 +484,7 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 			else
 				nulls[11] = true;
 
-			/* A zeroed client addr means we don't know */
+			/* 客户端地址全零表示未知 */
 			memset(&zero_clientaddr, 0, sizeof(zero_clientaddr));
 			if (memcmp(&(beentry->st_clientaddr), &zero_clientaddr,
 					   sizeof(zero_clientaddr)) == 0)
@@ -531,10 +531,10 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 				else if (beentry->st_clientaddr.addr.ss_family == AF_UNIX)
 				{
 					/*
-					 * Unix sockets always reports NULL for host and -1 for
-					 * port, so it's possible to tell the difference to
-					 * connections we have no permissions to view, or with
-					 * errors.
+					 * Unix 套接字对 host 恒报 NULL、对
+					 * port 恒报 -1,故可区分于无权查看
+					 * 的连接或出错情况。
+					 * 
 					 */
 					nulls[12] = true;
 					nulls[13] = true;
@@ -542,13 +542,13 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 				}
 				else
 				{
-					/* Unknown address type, should never happen */
+					/* 未知地址类型,不应发生 */
 					nulls[12] = true;
 					nulls[13] = true;
 					nulls[14] = true;
 				}
 			}
-			/* Add backend type */
+			/* 加后端类型 */
 			if (beentry->st_backendType == B_BG_WORKER)
 			{
 				const char *bgw_type;
@@ -563,7 +563,7 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 				values[17] =
 					CStringGetTextDatum(GetBackendTypeDesc(beentry->st_backendType));
 
-			/* SSL information */
+			/* SSL 信息 */
 			if (beentry->st_ssl)
 			{
 				values[18] = BoolGetDatum(true);	/* ssl */
@@ -595,23 +595,23 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 				nulls[19] = nulls[20] = nulls[21] = nulls[22] = nulls[23] = nulls[24] = true;
 			}
 
-			/* GSSAPI information */
+			/* GSSAPI 信息 */
 			if (beentry->st_gss)
 			{
 				values[25] = BoolGetDatum(beentry->st_gssstatus->gss_auth); /* gss_auth */
 				values[26] = CStringGetTextDatum(beentry->st_gssstatus->gss_princ);
-				values[27] = BoolGetDatum(beentry->st_gssstatus->gss_enc);	/* GSS Encryption in use */
-				values[28] = BoolGetDatum(beentry->st_gssstatus->gss_delegation);	/* GSS credentials
-																					 * delegated */
+				values[27] = BoolGetDatum(beentry->st_gssstatus->gss_enc);	/* GSS 加密使用中 */
+				values[28] = BoolGetDatum(beentry->st_gssstatus->gss_delegation);	/* GSS 凭据
+																					 * 已委派 */
 			}
 			else
 			{
 				values[25] = BoolGetDatum(false);	/* gss_auth */
-				nulls[26] = true;	/* No GSS principal */
-				values[27] = BoolGetDatum(false);	/* GSS Encryption not in
-													 * use */
-				values[28] = BoolGetDatum(false);	/* GSS credentials not
-													 * delegated */
+				nulls[26] = true;	/* 无 GSS 主体 */
+				values[27] = BoolGetDatum(false);	/* GSS 加密未使用
+													 *  */
+				values[28] = BoolGetDatum(false);	/* GSS 凭据未
+													 * 委派 */
 			}
 			if (beentry->st_query_id == 0)
 				nulls[30] = true;
@@ -620,7 +620,7 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* No permissions to view data about this session */
+			/* 无权查看此会话的数据 */
 			values[5] = CStringGetTextDatum("<insufficient privilege>");
 			nulls[4] = true;
 			nulls[6] = true;
@@ -650,7 +650,7 @@ pg_stat_get_activity(PG_FUNCTION_ARGS)
 
 		tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc, values, nulls);
 
-		/* If only a single backend was requested, and we found it, break. */
+		/* 若只请求单个后端且已找到,则跳出。 */
 		if (pid != -1)
 			break;
 	}
@@ -714,11 +714,11 @@ pg_stat_get_backend_subxact(PG_FUNCTION_ARGS)
 	int32		beid = PG_GETARG_INT32(0);
 	LocalPgBackendStatus *local_beentry;
 
-	/* Initialise values and NULL flags arrays */
+	/* 初始化 values 与 NULL 标志数组 */
 	MemSet(values, 0, sizeof(values));
 	MemSet(nulls, 0, sizeof(nulls));
 
-	/* Initialise attributes information in the tuple descriptor */
+	/* 初始化元组描述符中的属性信息 */
 	tupdesc = CreateTemplateTupleDesc(PG_STAT_GET_SUBXACT_COLS);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "subxact_count",
 					   INT4OID, -1, 0);
@@ -729,7 +729,7 @@ pg_stat_get_backend_subxact(PG_FUNCTION_ARGS)
 
 	if ((local_beentry = pgstat_get_local_beentry_by_backend_id(beid)) != NULL)
 	{
-		/* Fill values and NULLs */
+		/* 填 values 与 NULLs */
 		values[0] = Int32GetDatum(local_beentry->backend_subxact_count);
 		values[1] = BoolGetDatum(local_beentry->backend_subxact_overflowed);
 	}
@@ -739,7 +739,7 @@ pg_stat_get_backend_subxact(PG_FUNCTION_ARGS)
 		nulls[1] = true;
 	}
 
-	/* Returns the record as Datum */
+	/* 以 Datum 返回该记录 */
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }
 
@@ -827,8 +827,8 @@ pg_stat_get_backend_activity_start(PG_FUNCTION_ARGS)
 	result = beentry->st_activity_start_timestamp;
 
 	/*
-	 * No time recorded for start of current query -- this is the case if the
-	 * user hasn't enabled query-level stats collection.
+	 * 未记录当前查询开始时间 -- 用户未启用
+	 * 查询级统计收集时即如此。
 	 */
 	if (result == 0)
 		PG_RETURN_NULL();
@@ -852,7 +852,7 @@ pg_stat_get_backend_xact_start(PG_FUNCTION_ARGS)
 
 	result = beentry->st_xact_start_timestamp;
 
-	if (result == 0)			/* not in a transaction */
+	if (result == 0)			/* 不在事务中 */
 		PG_RETURN_NULL();
 
 	PG_RETURN_TIMESTAMPTZ(result);
@@ -874,7 +874,7 @@ pg_stat_get_backend_start(PG_FUNCTION_ARGS)
 
 	result = beentry->st_proc_start_timestamp;
 
-	if (result == 0)			/* probably can't happen? */
+	if (result == 0)			/* 大概不会发生? */
 		PG_RETURN_NULL();
 
 	PG_RETURN_TIMESTAMPTZ(result);
@@ -896,7 +896,7 @@ pg_stat_get_backend_client_addr(PG_FUNCTION_ARGS)
 	else if (!HAS_PGSTAT_PERMISSIONS(beentry->st_userid))
 		PG_RETURN_NULL();
 
-	/* A zeroed client addr means we don't know */
+	/* 客户端地址全零表示未知 */
 	memset(&zero_clientaddr, 0, sizeof(zero_clientaddr));
 	if (memcmp(&(beentry->st_clientaddr), &zero_clientaddr,
 			   sizeof(zero_clientaddr)) == 0)
@@ -941,7 +941,7 @@ pg_stat_get_backend_client_port(PG_FUNCTION_ARGS)
 	else if (!HAS_PGSTAT_PERMISSIONS(beentry->st_userid))
 		PG_RETURN_NULL();
 
-	/* A zeroed client addr means we don't know */
+	/* 客户端地址全零表示未知 */
 	memset(&zero_clientaddr, 0, sizeof(zero_clientaddr));
 	if (memcmp(&(beentry->st_clientaddr), &zero_clientaddr,
 			   sizeof(zero_clientaddr)) == 0)
@@ -1153,7 +1153,7 @@ pg_stat_get_db_checksum_last_failure(PG_FUNCTION_ARGS)
 		PG_RETURN_TIMESTAMPTZ(result);
 }
 
-/* convert counter from microsec to millisec for display */
+/* 把计数器从微秒转为毫秒以便显示 */
 #define PG_STAT_GET_DBENTRY_FLOAT8_MS(stat)						\
 Datum															\
 CppConcat(pg_stat_get_db_,stat)(PG_FUNCTION_ARGS)				\
@@ -1218,7 +1218,7 @@ pg_stat_get_bgwriter_maxwritten_clean(PG_FUNCTION_ARGS)
 Datum
 pg_stat_get_checkpoint_write_time(PG_FUNCTION_ARGS)
 {
-	/* time is already in msec, just convert to double for presentation */
+	/* 时间已是毫秒,仅转为 double 以便呈现 */
 	PG_RETURN_FLOAT8((double)
 					 pgstat_fetch_stat_checkpointer()->checkpoint_write_time);
 }
@@ -1226,7 +1226,7 @@ pg_stat_get_checkpoint_write_time(PG_FUNCTION_ARGS)
 Datum
 pg_stat_get_checkpoint_sync_time(PG_FUNCTION_ARGS)
 {
-	/* time is already in msec, just convert to double for presentation */
+	/* 时间已是毫秒,仅转为 double 以便呈现 */
 	PG_RETURN_FLOAT8((double)
 					 pgstat_fetch_stat_checkpointer()->checkpoint_sync_time);
 }
@@ -1256,8 +1256,8 @@ pg_stat_get_buf_alloc(PG_FUNCTION_ARGS)
 }
 
 /*
-* When adding a new column to the pg_stat_io view, add a new enum value
-* here above IO_NUM_COLUMNS.
+* 向 pg_stat_io 视图加新列时,在 IO_NUM_COLUMNS
+* 之上新增枚举值。
 */
 typedef enum io_stat_col
 {
@@ -1284,8 +1284,8 @@ typedef enum io_stat_col
 } io_stat_col;
 
 /*
- * When adding a new IOOp, add a new io_stat_col and add a case to this
- * function returning the corresponding io_stat_col.
+ * 新增 IOOp 时,增加新的 io_stat_col,并在本函数
+ * 中加 case 返回对应的 io_stat_col。
  */
 static io_stat_col
 pgstat_get_io_op_index(IOOp io_op)
@@ -1315,10 +1315,10 @@ pgstat_get_io_op_index(IOOp io_op)
 }
 
 /*
- * Get the number of the column containing IO times for the specified IOOp.
- * This function encodes our assumption that IO time for an IOOp is displayed
- * in the view in the column directly after the IOOp counts. If an op has no
- * associated time, IO_COL_INVALID is returned.
+ * 取得指定 IOOp 的 IO 时间所在列号。
+ * 本函数体现我们的假定:某 IOOp 的 IO 时间在视图中
+ * 显示于该 IOOp 计数列的紧后一列。若操作无
+ * 关联时间,则返回 IO_COL_INVALID。
  */
 static io_stat_col
 pgstat_get_io_time_index(IOOp io_op)
@@ -1367,15 +1367,15 @@ pg_stat_get_io(PG_FUNCTION_ARGS)
 		PgStat_BktypeIO *bktype_stats = &backends_io_stats->stats[bktype];
 
 		/*
-		 * In Assert builds, we can afford an extra loop through all of the
-		 * counters checking that only expected stats are non-zero, since it
-		 * keeps the non-Assert code cleaner.
+		 * 在 Assert 构建中,可负担多一轮遍历全部
+		 * 计数器,检查仅预期统计非零,因这能使
+		 * 非 Assert 代码更干净。
 		 */
 		Assert(pgstat_bktype_io_stats_valid(bktype_stats, bktype));
 
 		/*
-		 * For those BackendTypes without IO Operation stats, skip
-		 * representing them in the view altogether.
+		 * 对无 IO 操作统计的 BackendType,完全
+		 * 不在视图中表示它们。
 		 */
 		if (!pgstat_tracks_io_bktype(bktype))
 			continue;
@@ -1392,9 +1392,9 @@ pg_stat_get_io(PG_FUNCTION_ARGS)
 				bool		nulls[IO_NUM_COLUMNS] = {0};
 
 				/*
-				 * Some combinations of BackendType, IOObject, and IOContext
-				 * are not valid for any type of IOOp. In such cases, omit the
-				 * entire row from the view.
+				 * 某些 BackendType、IOObject 与 IOContext
+				 * 组合对任何 IOOp 都无效。此时从视图
+				 * 省略整行。
 				 */
 				if (!pgstat_tracks_io_object(bktype, io_obj, io_context))
 					continue;
@@ -1405,10 +1405,10 @@ pg_stat_get_io(PG_FUNCTION_ARGS)
 				values[IO_COL_RESET_TIME] = reset_time;
 
 				/*
-				 * Hard-code this to the value of BLCKSZ for now. Future
-				 * values could include XLOG_BLCKSZ, once WAL IO is tracked,
-				 * and constant multipliers, once non-block-oriented IO (e.g.
-				 * temporary file IO) is tracked.
+				 * 暂硬编码为 BLCKSZ。将来在跟踪 WAL IO
+				 * 后可含 XLOG_BLCKSZ,并在跟踪非面向块
+				 * 的 IO(如临时文件 IO)后可含
+				 * 常数倍乘。
 				 */
 				values[IO_COL_CONVERSION] = Int64GetDatum(BLCKSZ);
 
@@ -1418,9 +1418,9 @@ pg_stat_get_io(PG_FUNCTION_ARGS)
 					int			time_idx = pgstat_get_io_time_index(io_op);
 
 					/*
-					 * Some combinations of BackendType and IOOp, of IOContext
-					 * and IOOp, and of IOObject and IOOp are not tracked. Set
-					 * these cells in the view NULL.
+					 * 某些 BackendType 与 IOOp、IOContext 与
+					 * IOOp、以及 IOObject 与 IOOp 组合不跟踪。
+					 * 视图中这些格置 NULL。
 					 */
 					if (pgstat_tracks_io_op(bktype, io_obj, io_context, io_op))
 					{
@@ -1432,7 +1432,7 @@ pg_stat_get_io(PG_FUNCTION_ARGS)
 					else
 						nulls[op_idx] = true;
 
-					/* not every operation is timed */
+					/* 并非每个操作都计时 */
 					if (time_idx == IO_COL_INVALID)
 						continue;
 
@@ -1457,7 +1457,7 @@ pg_stat_get_io(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns statistics of WAL activity
+ * 返回 WAL 活动统计
  */
 Datum
 pg_stat_get_wal(PG_FUNCTION_ARGS)
@@ -1469,7 +1469,7 @@ pg_stat_get_wal(PG_FUNCTION_ARGS)
 	char		buf[256];
 	PgStat_WalStats *wal_stats;
 
-	/* Initialise attributes information in the tuple descriptor */
+	/* 初始化元组描述符中的属性信息 */
 	tupdesc = CreateTemplateTupleDesc(PG_STAT_GET_WAL_COLS);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "wal_records",
 					   INT8OID, -1, 0);
@@ -1492,14 +1492,14 @@ pg_stat_get_wal(PG_FUNCTION_ARGS)
 
 	BlessTupleDesc(tupdesc);
 
-	/* Get statistics about WAL activity */
+	/* 获取 WAL 活动统计 */
 	wal_stats = pgstat_fetch_stat_wal();
 
-	/* Fill values and NULLs */
+	/* 填 values 与 NULLs */
 	values[0] = Int64GetDatum(wal_stats->wal_records);
 	values[1] = Int64GetDatum(wal_stats->wal_fpi);
 
-	/* Convert to numeric. */
+	/* 转为 numeric。 */
 	snprintf(buf, sizeof buf, UINT64_FORMAT, wal_stats->wal_bytes);
 	values[2] = DirectFunctionCall3(numeric_in,
 									CStringGetDatum(buf),
@@ -1510,18 +1510,18 @@ pg_stat_get_wal(PG_FUNCTION_ARGS)
 	values[4] = Int64GetDatum(wal_stats->wal_write);
 	values[5] = Int64GetDatum(wal_stats->wal_sync);
 
-	/* Convert counters from microsec to millisec for display */
+	/* 把计数器从微秒转为毫秒以便显示 */
 	values[6] = Float8GetDatum(((double) wal_stats->wal_write_time) / 1000.0);
 	values[7] = Float8GetDatum(((double) wal_stats->wal_sync_time) / 1000.0);
 
 	values[8] = TimestampTzGetDatum(wal_stats->stat_reset_timestamp);
 
-	/* Returns the record as Datum */
+	/* 以 Datum 返回该记录 */
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }
 
 /*
- * Returns statistics of SLRU caches.
+ * 返回 SLRU 缓存统计。
  */
 Datum
 pg_stat_get_slru(PG_FUNCTION_ARGS)
@@ -1533,12 +1533,12 @@ pg_stat_get_slru(PG_FUNCTION_ARGS)
 
 	InitMaterializedSRF(fcinfo, 0);
 
-	/* request SLRU stats from the cumulative stats system */
+	/* 从累计统计系统请求 SLRU 统计 */
 	stats = pgstat_fetch_slru();
 
 	for (i = 0;; i++)
 	{
-		/* for each row */
+		/* 每行 */
 		Datum		values[PG_STAT_GET_SLRU_COLS] = {0};
 		bool		nulls[PG_STAT_GET_SLRU_COLS] = {0};
 		PgStat_SLRUStats stat;
@@ -1617,7 +1617,7 @@ pg_stat_get_xact_tuples_inserted(PG_FUNCTION_ARGS)
 	else
 	{
 		result = tabentry->counts.tuples_inserted;
-		/* live subtransactions' counts aren't in tuples_inserted yet */
+		/* 活动子事务计数尚未计入 tuples_inserted */
 		for (trans = tabentry->trans; trans != NULL; trans = trans->upper)
 			result += trans->tuples_inserted;
 	}
@@ -1638,7 +1638,7 @@ pg_stat_get_xact_tuples_updated(PG_FUNCTION_ARGS)
 	else
 	{
 		result = tabentry->counts.tuples_updated;
-		/* live subtransactions' counts aren't in tuples_updated yet */
+		/* 活动子事务计数尚未计入 tuples_updated */
 		for (trans = tabentry->trans; trans != NULL; trans = trans->upper)
 			result += trans->tuples_updated;
 	}
@@ -1659,7 +1659,7 @@ pg_stat_get_xact_tuples_deleted(PG_FUNCTION_ARGS)
 	else
 	{
 		result = tabentry->counts.tuples_deleted;
-		/* live subtransactions' counts aren't in tuples_deleted yet */
+		/* 活动子事务计数尚未计入 tuples_deleted */
 		for (trans = tabentry->trans; trans != NULL; trans = trans->upper)
 			result += trans->tuples_deleted;
 	}
@@ -1696,7 +1696,7 @@ PG_STAT_GET_XACT_FUNCENTRY_FLOAT8_MS(total_time)
 /* pg_stat_get_xact_function_self_time */
 PG_STAT_GET_XACT_FUNCENTRY_FLOAT8_MS(self_time)
 
-/* Get the timestamp of the current statistics snapshot */
+/* 获取当前统计快照的时间戳 */
 Datum
 pg_stat_get_snapshot_timestamp(PG_FUNCTION_ARGS)
 {
@@ -1711,7 +1711,7 @@ pg_stat_get_snapshot_timestamp(PG_FUNCTION_ARGS)
 	PG_RETURN_TIMESTAMPTZ(ts);
 }
 
-/* Discard the active statistics snapshot */
+/* 丢弃活动的统计快照 */
 Datum
 pg_stat_clear_snapshot(PG_FUNCTION_ARGS)
 {
@@ -1721,7 +1721,7 @@ pg_stat_clear_snapshot(PG_FUNCTION_ARGS)
 }
 
 
-/* Force statistics to be reported at the next occasion */
+/* 强制在下次时机上报统计 */
 Datum
 pg_stat_force_next_flush(PG_FUNCTION_ARGS)
 {
@@ -1731,7 +1731,7 @@ pg_stat_force_next_flush(PG_FUNCTION_ARGS)
 }
 
 
-/* Reset all counters for the current database */
+/* 重置当前数据库的全部计数器 */
 Datum
 pg_stat_reset(PG_FUNCTION_ARGS)
 {
@@ -1741,10 +1741,10 @@ pg_stat_reset(PG_FUNCTION_ARGS)
 }
 
 /*
- * Reset some shared cluster-wide counters
+ * 重置若干共享集簇级计数器
  *
- * When adding a new reset target, ideally the name should match that in
- * pgstat_kind_infos, if relevant.
+ * 新增重置目标时,名称最好与 pgstat_kind_infos
+ * 中的一致(若相关)。
  */
 Datum
 pg_stat_reset_shared(PG_FUNCTION_ARGS)
@@ -1756,8 +1756,8 @@ pg_stat_reset_shared(PG_FUNCTION_ARGS)
 	else if (strcmp(target, "bgwriter") == 0)
 	{
 		/*
-		 * Historically checkpointer was part of bgwriter, continue to reset
-		 * both for now.
+		 * 历史上 checkpointer 属 bgwriter,现仍一并
+		 * 重置。
 		 */
 		pgstat_reset_of_kind(PGSTAT_KIND_BGWRITER);
 		pgstat_reset_of_kind(PGSTAT_KIND_CHECKPOINTER);
@@ -1778,8 +1778,8 @@ pg_stat_reset_shared(PG_FUNCTION_ARGS)
 }
 
 /*
- * Reset a statistics for a single object, which may be of current
- * database or shared across all databases in the cluster.
+ * 重置单个对象的统计,该对象可属当前
+ * 数据库,或在集簇内各库间共享。
  */
 Datum
 pg_stat_reset_single_table_counters(PG_FUNCTION_ARGS)
@@ -1802,7 +1802,7 @@ pg_stat_reset_single_function_counters(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
-/* Reset SLRU counters (a specific one or all of them). */
+/* 重置 SLRU 计数器(某个或全部)。 */
 Datum
 pg_stat_reset_slru(PG_FUNCTION_ARGS)
 {
@@ -1819,7 +1819,7 @@ pg_stat_reset_slru(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
-/* Reset replication slots stats (a specific one or all of them). */
+/* 重置复制槽统计(某个或全部)。 */
 Datum
 pg_stat_reset_replication_slot(PG_FUNCTION_ARGS)
 {
@@ -1836,7 +1836,7 @@ pg_stat_reset_replication_slot(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
-/* Reset subscription stats (a specific one or all of them) */
+/* 重置订阅统计(某个或全部) */
 Datum
 pg_stat_reset_subscription_stats(PG_FUNCTION_ARGS)
 {
@@ -1844,7 +1844,7 @@ pg_stat_reset_subscription_stats(PG_FUNCTION_ARGS)
 
 	if (PG_ARGISNULL(0))
 	{
-		/* Clear all subscription stats */
+		/* 清除全部订阅统计 */
 		pgstat_reset_of_kind(PGSTAT_KIND_SUBSCRIPTION);
 	}
 	else
@@ -1869,7 +1869,7 @@ pg_stat_get_archiver(PG_FUNCTION_ARGS)
 	bool		nulls[7] = {0};
 	PgStat_ArchiverStats *archiver_stats;
 
-	/* Initialise attributes information in the tuple descriptor */
+	/* 初始化元组描述符中的属性信息 */
 	tupdesc = CreateTemplateTupleDesc(7);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "archived_count",
 					   INT8OID, -1, 0);
@@ -1888,10 +1888,10 @@ pg_stat_get_archiver(PG_FUNCTION_ARGS)
 
 	BlessTupleDesc(tupdesc);
 
-	/* Get statistics about the archiver process */
+	/* 获取归档进程统计 */
 	archiver_stats = pgstat_fetch_stat_archiver();
 
-	/* Fill values and NULLs */
+	/* 填 values 与 NULLs */
 	values[0] = Int64GetDatum(archiver_stats->archived_count);
 	if (*(archiver_stats->last_archived_wal) == '\0')
 		nulls[1] = true;
@@ -1919,13 +1919,13 @@ pg_stat_get_archiver(PG_FUNCTION_ARGS)
 	else
 		values[6] = TimestampTzGetDatum(archiver_stats->stat_reset_timestamp);
 
-	/* Returns the record as Datum */
+	/* 以 Datum 返回该记录 */
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }
 
 /*
- * Get the statistics for the replication slot. If the slot statistics is not
- * available, return all-zeroes stats.
+ * 获取复制槽统计。若槽统计不可用,
+ * 则返回全零统计。
  */
 Datum
 pg_stat_get_replication_slot(PG_FUNCTION_ARGS)
@@ -1939,7 +1939,7 @@ pg_stat_get_replication_slot(PG_FUNCTION_ARGS)
 	PgStat_StatReplSlotEntry *slotent;
 	PgStat_StatReplSlotEntry allzero;
 
-	/* Initialise attributes information in the tuple descriptor */
+	/* 初始化元组描述符中的属性信息 */
 	tupdesc = CreateTemplateTupleDesc(PG_STAT_GET_REPLICATION_SLOT_COLS);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "slot_name",
 					   TEXTOID, -1, 0);
@@ -1968,8 +1968,8 @@ pg_stat_get_replication_slot(PG_FUNCTION_ARGS)
 	if (!slotent)
 	{
 		/*
-		 * If the slot is not found, initialise its stats. This is possible if
-		 * the create slot message is lost.
+		 * 若未找到槽则初始化其统计。创建槽
+		 * 消息丢失时可能如此。
 		 */
 		memset(&allzero, 0, sizeof(PgStat_StatReplSlotEntry));
 		slotent = &allzero;
@@ -1990,13 +1990,13 @@ pg_stat_get_replication_slot(PG_FUNCTION_ARGS)
 	else
 		values[9] = TimestampTzGetDatum(slotent->stat_reset_timestamp);
 
-	/* Returns the record as Datum */
+	/* 以 Datum 返回该记录 */
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }
 
 /*
- * Get the subscription statistics for the given subscription. If the
- * subscription statistics is not available, return all-zeros stats.
+ * 获取给定订阅的订阅统计。若
+ * 订阅统计不可用,则返回全零统计。
  */
 Datum
 pg_stat_get_subscription_stats(PG_FUNCTION_ARGS)
@@ -2009,10 +2009,10 @@ pg_stat_get_subscription_stats(PG_FUNCTION_ARGS)
 	PgStat_StatSubEntry *subentry;
 	PgStat_StatSubEntry allzero;
 
-	/* Get subscription stats */
+	/* 获取订阅统计 */
 	subentry = pgstat_fetch_stat_subscription(subid);
 
-	/* Initialise attributes information in the tuple descriptor */
+	/* 初始化元组描述符中的属性信息 */
 	tupdesc = CreateTemplateTupleDesc(PG_STAT_GET_SUBSCRIPTION_STATS_COLS);
 	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "subid",
 					   OIDOID, -1, 0);
@@ -2026,7 +2026,7 @@ pg_stat_get_subscription_stats(PG_FUNCTION_ARGS)
 
 	if (!subentry)
 	{
-		/* If the subscription is not found, initialise its stats */
+		/* 若未找到订阅则初始化其统计 */
 		memset(&allzero, 0, sizeof(PgStat_StatSubEntry));
 		subentry = &allzero;
 	}
@@ -2046,16 +2046,16 @@ pg_stat_get_subscription_stats(PG_FUNCTION_ARGS)
 	else
 		values[3] = TimestampTzGetDatum(subentry->stat_reset_timestamp);
 
-	/* Returns the record as Datum */
+	/* 以 Datum 返回该记录 */
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }
 
 /*
- * Checks for presence of stats for object with provided kind, database oid,
- * object oid.
+ * 检查给定 kind、库 oid、对象 oid 是否有统计。
+ * 
  *
- * This is useful for tests, but not really anything else. Therefore not
- * documented.
+ * 这对测试有用,别无他用,故不建档。
+ * 
  */
 Datum
 pg_stat_have_stats(PG_FUNCTION_ARGS)

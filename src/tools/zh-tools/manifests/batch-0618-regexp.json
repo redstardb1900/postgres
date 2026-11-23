@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0618",
+ "title": "backend/utils/adt regexp 中段 — batch 0618",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e083cec7af8d18efdf8208c287ec11c97d63b677",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/regexp.c",
+   "kind": "c_comment",
+   "note": "0618"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0618-regexp.json",
+   "kind": "manifest",
+   "note": "0618"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/regexp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "SIMILAR TO 转换 ASCII 图解块 KEEP。"
+   ],
+   "note": "0618"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0618-regexp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0618"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0618"
+  }
+ ],
+ "notes": "regexp.c substr/replace/similar 入口；图解块 KEEP"
+}

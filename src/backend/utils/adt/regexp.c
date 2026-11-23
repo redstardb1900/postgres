@@ -453,7 +453,7 @@ parse_re_flags(pg_re_flags *flags, text *opts)
 
 
 /*
- *	interface routines called by the function manager
+ *	函数管理器调用的接口例程
  */
 
 Datum
@@ -514,8 +514,8 @@ textregexne(PG_FUNCTION_ARGS)
 
 
 /*
- *	routines that use the regexp stuff, but ignore the case.
- *	for this, we use the REG_ICASE flag to pg_regcomp
+ *	使用正则但忽略大小写的例程。
+ *	为此对 pg_regcomp 使用 REG_ICASE 标志
  */
 
 
@@ -578,7 +578,7 @@ texticregexne(PG_FUNCTION_ARGS)
 
 /*
  * textregexsubstr()
- *		Return a substring matched by a regular expression.
+ *		返回正则表达式匹配的子串。
  */
 Datum
 textregexsubstr(PG_FUNCTION_ARGS)
@@ -590,38 +590,38 @@ textregexsubstr(PG_FUNCTION_ARGS)
 	int			so,
 				eo;
 
-	/* Compile RE */
+	/* 编译 RE */
 	re = RE_compile_and_cache(p, REG_ADVANCED, PG_GET_COLLATION());
 
 	/*
-	 * We pass two regmatch_t structs to get info about the overall match and
-	 * the match for the first parenthesized subexpression (if any). If there
-	 * is a parenthesized subexpression, we return what it matched; else
-	 * return what the whole regexp matched.
+	 * 传入两个 regmatch_t,分别取整体匹配与
+	 * 首个括号子表达式(若有)的信息。若有括号
+	 * 子表达式则返回其匹配;否则返回整个
+	 * 正则的匹配。
 	 */
 	if (!RE_execute(re,
 					VARDATA_ANY(s), VARSIZE_ANY_EXHDR(s),
 					2, pmatch))
-		PG_RETURN_NULL();		/* definitely no match */
+		PG_RETURN_NULL();		/* 肯定无匹配 */
 
 	if (re->re_nsub > 0)
 	{
-		/* has parenthesized subexpressions, use the first one */
+		/* 有括号子表达式,用第一个 */
 		so = pmatch[1].rm_so;
 		eo = pmatch[1].rm_eo;
 	}
 	else
 	{
-		/* no parenthesized subexpression, use whole match */
+		/* 无括号子表达式,用整体匹配 */
 		so = pmatch[0].rm_so;
 		eo = pmatch[0].rm_eo;
 	}
 
 	/*
-	 * It is possible to have a match to the whole pattern but no match for a
-	 * subexpression; for example 'foo(bar)?' is considered to match 'foo' but
-	 * there is no subexpression match.  So this extra test for match failure
-	 * is not redundant.
+	 * 可能整体模式匹配但子表达式无匹配;例如
+	 * 模式 'foo(bar)?' 视为匹配 'foo' 但无
+	 * 子表达式匹配。故此额外失败测试并非
+	 * 多余。
 	 */
 	if (so < 0 || eo < 0)
 		PG_RETURN_NULL();
@@ -634,10 +634,10 @@ textregexsubstr(PG_FUNCTION_ARGS)
 
 /*
  * textregexreplace_noopt()
- *		Return a string matched by a regular expression, with replacement.
+ *		返回经正则匹配并替换后的串。
  *
- * This version doesn't have an option argument: we default to case
- * sensitive match, replace the first instance only.
+ * 本版无选项参数:默认区分大小写匹配,
+ * 只替换第一处。
  */
 Datum
 textregexreplace_noopt(PG_FUNCTION_ARGS)
@@ -653,7 +653,7 @@ textregexreplace_noopt(PG_FUNCTION_ARGS)
 
 /*
  * textregexreplace()
- *		Return a string matched by a regular expression, with replacement.
+ *		返回经正则匹配并替换后的串。
  */
 Datum
 textregexreplace(PG_FUNCTION_ARGS)
@@ -665,11 +665,11 @@ textregexreplace(PG_FUNCTION_ARGS)
 	pg_re_flags flags;
 
 	/*
-	 * regexp_replace() with four arguments will be preferentially resolved as
-	 * this form when the fourth argument is of type UNKNOWN.  However, the
-	 * user might have intended to call textregexreplace_extended_no_n.  If we
-	 * see flags that look like an integer, emit the same error that
-	 * parse_re_flags would, but add a HINT about how to fix it.
+	 * 四参数 regexp_replace() 在第四参为
+	 * UNKNOWN 时会优先解析成本形式。但用户可能
+	 * 本意调用 textregexreplace_extended_no_n。若
+	 * 标志看起来像整数,则报与 parse_re_flags
+	 * 相同的错,并加 HINT 说明如何修正。
 	 */
 	if (VARSIZE_ANY_EXHDR(opt) > 0)
 	{
@@ -692,9 +692,9 @@ textregexreplace(PG_FUNCTION_ARGS)
 
 /*
  * textregexreplace_extended()
- *		Return a string matched by a regular expression, with replacement.
- *		Extends textregexreplace by allowing a start position and the
- *		choice of the occurrence to replace (0 means all occurrences).
+ *		返回经正则匹配并替换后的串。
+ *		相对 textregexreplace 增加起始位置与
+ *		替换第几次出现的选择(0 表示全部)。
  */
 Datum
 textregexreplace_extended(PG_FUNCTION_ARGS)
@@ -707,7 +707,7 @@ textregexreplace_extended(PG_FUNCTION_ARGS)
 	text	   *flags = PG_GETARG_TEXT_PP_IF_EXISTS(5);
 	pg_re_flags re_flags;
 
-	/* Collect optional parameters */
+	/* 收集可选参数 */
 	if (PG_NARGS() > 3)
 	{
 		start = PG_GETARG_INT32(3);
@@ -727,27 +727,27 @@ textregexreplace_extended(PG_FUNCTION_ARGS)
 							"n", n)));
 	}
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
 
-	/* If N was not specified, deduce it from the 'g' flag */
+	/* 未指定 N 则由 'g' 标志推断 */
 	if (PG_NARGS() <= 4)
 		n = re_flags.glob ? 0 : 1;
 
-	/* Do the replacement(s) */
+	/* 做替换 */
 	PG_RETURN_TEXT_P(replace_text_regexp(s, p, r,
 										 re_flags.cflags, PG_GET_COLLATION(),
 										 start - 1, n));
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 textregexreplace_extended_no_n(PG_FUNCTION_ARGS)
 {
 	return textregexreplace_extended(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 textregexreplace_extended_no_flags(PG_FUNCTION_ARGS)
 {
@@ -757,12 +757,12 @@ textregexreplace_extended_no_flags(PG_FUNCTION_ARGS)
 /*
  * similar_to_escape(), similar_escape()
  *
- * Convert a SQL "SIMILAR TO" regexp pattern to POSIX style, so it can be
- * used by our regexp engine.
+ * 把 SQL "SIMILAR TO" 正则模式转为 POSIX 风格,供本
+ * 正则引擎使用。
  *
- * similar_escape_internal() is the common workhorse for three SQL-exposed
- * functions.  esc_text can be passed as NULL to select the default escape
- * (which is '\'), or as an empty string to select no escape character.
+ * similar_escape_internal() 是三个 SQL 暴露函数
+ * 的公共主力。esc_text 可传 NULL 选默认转义
+ * (即 '\'),或传空串表示无转义字符。
  */
 static text *
 similar_escape_internal(text *pat_text, text *esc_text)
@@ -775,14 +775,14 @@ similar_escape_internal(text *pat_text, text *esc_text)
 				elen;
 	bool		afterescape = false;
 	int			nquotes = 0;
-	int			bracket_depth = 0;	/* square bracket nesting level */
-	int			charclass_pos = 0;	/* position inside a character class */
+	int			bracket_depth = 0;	/* 方括号嵌套层数 */
+	int			charclass_pos = 0;	/* 字符类内部位置 */
 
 	p = VARDATA_ANY(pat_text);
 	plen = VARSIZE_ANY_EXHDR(pat_text);
 	if (esc_text == NULL)
 	{
-		/* No ESCAPE clause provided; default to backslash as escape */
+		/* 未提供 ESCAPE 子句;默认反斜杠为转义 */
 		e = "\\";
 		elen = 1;
 	}
@@ -791,7 +791,7 @@ similar_escape_internal(text *pat_text, text *esc_text)
 		e = VARDATA_ANY(esc_text);
 		elen = VARSIZE_ANY_EXHDR(esc_text);
 		if (elen == 0)
-			e = NULL;			/* no escape character */
+			e = NULL;			/* 无转义字符 */
 		else if (elen > 1)
 		{
 			int			escape_mblen = pg_mbstrlen_with_len(e, elen);
@@ -850,9 +850,9 @@ similar_escape_internal(text *pat_text, text *esc_text)
 	 */
 
 	/*
-	 * We need room for the prefix/postfix and part separators, plus as many
-	 * as 3 output bytes per input byte; since the input is at most 1GB this
-	 * can't overflow size_t.
+	 * 需要前缀/后缀与分段分隔符空间,外加每输入
+	 * 字节最多 3 输出字节;输入至多 1GB,故 size_t
+	 * 不会溢出。
 	 */
 	result = (text *) palloc(VARHDRSZ + 23 + 3 * (size_t) plen);
 	r = VARDATA(result);

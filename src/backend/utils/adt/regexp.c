@@ -1739,8 +1739,8 @@ build_regexp_match_result(regexp_matches_ctx *matchctx)
 
 /*
  * regexp_split_to_table()
- *		Split the string at matches of the pattern, returning the
- *		split-out substrings as a table.
+ *		在模式匹配处拆分串,以表返回
+ *		拆出的子串。
  */
 Datum
 regexp_split_to_table(PG_FUNCTION_ARGS)
@@ -1758,19 +1758,19 @@ regexp_split_to_table(PG_FUNCTION_ARGS)
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* Determine options */
+		/* 确定选项 */
 		parse_re_flags(&re_flags, flags);
-		/* User mustn't specify 'g' */
+		/* 用户不得指定 'g' */
 		if (re_flags.glob)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 			/* translator: %s is a SQL function name */
 					 errmsg("%s does not support the \"global\" option",
 							"regexp_split_to_table()")));
-		/* But we find all the matches anyway */
+		/* 但仍找出全部匹配 */
 		re_flags.glob = true;
 
-		/* be sure to copy the input string into the multi-call ctx */
+		/* 务必将输入串复制进多调用上下文 */
 		splitctx = setup_regexp_matches(PG_GETARG_TEXT_P_COPY(0), pattern,
 										&re_flags, 0,
 										PG_GET_COLLATION(),
@@ -1794,7 +1794,7 @@ regexp_split_to_table(PG_FUNCTION_ARGS)
 	SRF_RETURN_DONE(funcctx);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_split_to_table_no_flags(PG_FUNCTION_ARGS)
 {
@@ -1803,8 +1803,8 @@ regexp_split_to_table_no_flags(PG_FUNCTION_ARGS)
 
 /*
  * regexp_split_to_array()
- *		Split the string at matches of the pattern, returning the
- *		split-out substrings as an array.
+ *		在模式匹配处拆分串,以数组返回
+ *		拆出的子串。
  */
 Datum
 regexp_split_to_array(PG_FUNCTION_ARGS)
@@ -1813,16 +1813,16 @@ regexp_split_to_array(PG_FUNCTION_ARGS)
 	pg_re_flags re_flags;
 	regexp_matches_ctx *splitctx;
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, PG_GETARG_TEXT_PP_IF_EXISTS(2));
-	/* User mustn't specify 'g' */
+	/* 用户不得指定 'g' */
 	if (re_flags.glob)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 		/* translator: %s is a SQL function name */
 				 errmsg("%s does not support the \"global\" option",
 						"regexp_split_to_array()")));
-	/* But we find all the matches anyway */
+	/* 但仍找出全部匹配 */
 	re_flags.glob = true;
 
 	splitctx = setup_regexp_matches(PG_GETARG_TEXT_PP(0),
@@ -1844,7 +1844,7 @@ regexp_split_to_array(PG_FUNCTION_ARGS)
 	PG_RETURN_DATUM(makeArrayResult(astate, CurrentMemoryContext));
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_split_to_array_no_flags(PG_FUNCTION_ARGS)
 {
@@ -1852,10 +1852,10 @@ regexp_split_to_array_no_flags(PG_FUNCTION_ARGS)
 }
 
 /*
- * build_regexp_split_result - build output string for current match
+ * build_regexp_split_result - 为当前匹配构建输出串
  *
- * We return the string between the current match and the previous one,
- * or the string after the last match when next_match == nmatches.
+ * 返回当前匹配与上一匹配之间的串,
+ * 或当 next_match == nmatches 时末匹配之后的串。
  */
 static Datum
 build_regexp_split_result(regexp_matches_ctx *splitctx)
@@ -1896,7 +1896,7 @@ build_regexp_split_result(regexp_matches_ctx *splitctx)
 
 /*
  * regexp_substr()
- *		Return the substring that matches a regular expression pattern
+ *		返回匹配正则表达式模式的子串
  */
 Datum
 regexp_substr(PG_FUNCTION_ARGS)
@@ -1913,7 +1913,7 @@ regexp_substr(PG_FUNCTION_ARGS)
 	pg_re_flags re_flags;
 	regexp_matches_ctx *matchctx;
 
-	/* Collect optional parameters */
+	/* 收集可选参数 */
 	if (PG_NARGS() > 2)
 	{
 		start = PG_GETARG_INT32(2);
@@ -1942,33 +1942,33 @@ regexp_substr(PG_FUNCTION_ARGS)
 							"subexpr", subexpr)));
 	}
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
-	/* User mustn't specify 'g' */
+	/* 用户不得指定 'g' */
 	if (re_flags.glob)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 		/* translator: %s is a SQL function name */
 				 errmsg("%s does not support the \"global\" option",
 						"regexp_substr()")));
-	/* But we find all the matches anyway */
+	/* 但仍找出全部匹配 */
 	re_flags.glob = true;
 
-	/* Do the matching */
+	/* 执行匹配 */
 	matchctx = setup_regexp_matches(str, pattern, &re_flags, start - 1,
 									PG_GET_COLLATION(),
-									(subexpr > 0),	/* need submatches? */
+									(subexpr > 0),	/* 需要子匹配? */
 									false, false);
 
-	/* When n exceeds matches return NULL (includes case of no matches) */
+	/* 当 n 超出匹配数时返回 NULL(含无匹配) */
 	if (n > matchctx->nmatches)
 		PG_RETURN_NULL();
 
-	/* When subexpr exceeds number of subexpressions return NULL */
+	/* 当 subexpr 超出子表达式数时返回 NULL */
 	if (subexpr > matchctx->npatterns)
 		PG_RETURN_NULL();
 
-	/* Select the appropriate match position to return */
+	/* 选取要返回的匹配位置 */
 	pos = (n - 1) * matchctx->npatterns;
 	if (subexpr > 0)
 		pos += subexpr - 1;
@@ -1977,7 +1977,7 @@ regexp_substr(PG_FUNCTION_ARGS)
 	eo = matchctx->match_locs[pos + 1];
 
 	if (so < 0 || eo < 0)
-		PG_RETURN_NULL();		/* unidentifiable location */
+		PG_RETURN_NULL();		/* 位置无法识别 */
 
 	PG_RETURN_DATUM(DirectFunctionCall3(text_substr,
 										PointerGetDatum(matchctx->orig_str),
@@ -1985,28 +1985,28 @@ regexp_substr(PG_FUNCTION_ARGS)
 										Int32GetDatum(eo - so)));
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_substr_no_start(PG_FUNCTION_ARGS)
 {
 	return regexp_substr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_substr_no_n(PG_FUNCTION_ARGS)
 {
 	return regexp_substr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_substr_no_flags(PG_FUNCTION_ARGS)
 {
 	return regexp_substr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_substr_no_subexpr(PG_FUNCTION_ARGS)
 {
@@ -2014,10 +2014,10 @@ regexp_substr_no_subexpr(PG_FUNCTION_ARGS)
 }
 
 /*
- * regexp_fixed_prefix - extract fixed prefix, if any, for a regexp
+ * regexp_fixed_prefix - 抽取正则的固定前缀(若有)
  *
- * The result is NULL if there is no fixed prefix, else a palloc'd string.
- * If it is an exact match, not just a prefix, *exact is returned as true.
+ * 无固定前缀则结果为 NULL,否则为 palloc 串。
+ * 若是精确匹配而非仅前缀,*exact 返回 true。
  */
 char *
 regexp_fixed_prefix(text *text_re, bool case_insensitive, Oid collation,
@@ -2032,16 +2032,16 @@ regexp_fixed_prefix(text *text_re, bool case_insensitive, Oid collation,
 	size_t		maxlen;
 	char		errMsg[100];
 
-	*exact = false;				/* default result */
+	*exact = false;				/* 默认结果 */
 
-	/* Compile RE */
+	/* 编译 RE */
 	cflags = REG_ADVANCED;
 	if (case_insensitive)
 		cflags |= REG_ICASE;
 
 	re = RE_compile_and_cache(text_re, cflags | REG_NOSUB, collation);
 
-	/* Examine it to see if there's a fixed prefix */
+	/* 检查是否有固定前缀 */
 	re_result = pg_regprefix(re, &str, &slen);
 
 	switch (re_result)
@@ -2050,16 +2050,16 @@ regexp_fixed_prefix(text *text_re, bool case_insensitive, Oid collation,
 			return NULL;
 
 		case REG_PREFIX:
-			/* continue with wchar conversion */
+			/* 继续做 wchar 转换 */
 			break;
 
 		case REG_EXACT:
 			*exact = true;
-			/* continue with wchar conversion */
+			/* 继续做 wchar 转换 */
 			break;
 
 		default:
-			/* re failed??? */
+			/* re 失败??? */
 			pg_regerror(re_result, re, errMsg, sizeof(errMsg));
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_REGULAR_EXPRESSION),
@@ -2067,7 +2067,7 @@ regexp_fixed_prefix(text *text_re, bool case_insensitive, Oid collation,
 			break;
 	}
 
-	/* Convert pg_wchar result back to database encoding */
+	/* 把 pg_wchar 结果转回数据库编码 */
 	maxlen = pg_database_encoding_max_length() * slen + 1;
 	result = (char *) palloc(maxlen);
 	slen = pg_wchar2mb_with_len(str, result, slen);

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0622",
+ "title": "backend/utils/adt regexp split/substr/prefix — batch 0622",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "94636585390d1f5854c404c7d855a374688fc945",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/regexp.c",
+   "kind": "c_comment",
+   "note": "0622"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0622-regexp.json",
+   "kind": "manifest",
+   "note": "0622"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/regexp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "translator KEEP; ASCII 图解/trigraph 等既有 KEEP"
+   ],
+   "note": "0622"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0622-regexp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0622"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0622"
+  }
+ ],
+ "notes": "split/substr/fixed_prefix 收尾；translator KEEP"
+}

@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0608",
+ "title": "backend/tsearch ts_locale 短注 — batch 0608",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "add78e0d0d1bc0342dca25bc37c8fe4eed660aac",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/ts_locale.c",
+   "kind": "c_comment",
+   "note": "0608"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0608-ts_locale.json",
+   "kind": "manifest",
+   "note": "0608"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/ts_locale.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。",
+    "TODO KEEP。",
+    "tsearch_readline 用法块含代码样例 KEEP（防 halfen MIXED）。"
+   ],
+   "note": "0608"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0608-ts_locale.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0608"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0608"
+  }
+ ],
+ "notes": "ts_locale 短注已译；TODO 与含代码样例的 readline 用法块 KEEP"
+}

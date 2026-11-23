@@ -23,13 +23,13 @@ static void tsearch_readline_callback(void *arg);
 
 
 /*
- * The reason these functions use a 3-wchar_t output buffer, not 2 as you
- * might expect, is that on Windows "wchar_t" is 16 bits and what we'll be
- * getting from char2wchar() is UTF16 not UTF32.  A single input character
- * may therefore produce a surrogate pair rather than just one wchar_t;
- * we also need room for a trailing null.  When we do get a surrogate pair,
- * we pass just the first code to iswdigit() etc, so that these functions will
- * always return false for characters outside the Basic Multilingual Plane.
+ * 这些函数用 3 个 wchar_t 输出缓冲而非直觉上的 2,因
+ * Windows 上 wchar_t 为 16 位,且 char2wchar() 得到
+ * UTF16 而非 UTF32。单输入字符因此可能产生代理对,
+ * 而非仅一个 wchar_t;须留尾空字符位。若确为代理对,
+ * 我们只把首码点传给 iswdigit() 等,故对基本多文种
+ * 平面以外的字符,这些函数
+ * 恒返回假。
  */
 #define WC_BUF_LEN  3
 
@@ -142,7 +142,7 @@ tsearch_readline_begin(tsearch_readline_state *stp,
 	stp->lineno = 0;
 	initStringInfo(&stp->buf);
 	stp->curline = NULL;
-	/* Setup error traceback support for ereport() */
+	/* 为 ereport() 设置错误回溯支持 */
 	stp->cb.callback = tsearch_readline_callback;
 	stp->cb.arg = (void *) stp;
 	stp->cb.previous = error_context_stack;
@@ -151,19 +151,19 @@ tsearch_readline_begin(tsearch_readline_state *stp,
 }
 
 /*
- * Read the next line from a tsearch data file (expected to be in UTF-8), and
- * convert it to database encoding if needed. The returned string is palloc'd.
- * NULL return means EOF.
+ * 从 tsearch 数据文件读下一行(预期 UTF-8),需要时
+ * 转为数据库编码。返回串经 palloc。返回 NULL
+ * 表示 EOF。
  */
 char *
 tsearch_readline(tsearch_readline_state *stp)
 {
 	char	   *recoded;
 
-	/* Advance line number to use in error reports */
+	/* 推进行号以用于错误报告 */
 	stp->lineno++;
 
-	/* Clear curline, it's no longer relevant */
+	/* 清除 curline,已不再相关 */
 	if (stp->curline)
 	{
 		if (stp->curline != stp->buf.data)
@@ -171,39 +171,39 @@ tsearch_readline(tsearch_readline_state *stp)
 		stp->curline = NULL;
 	}
 
-	/* Collect next line, if there is one */
+	/* 收集下一行(若有) */
 	if (!pg_get_line_buf(stp->fp, &stp->buf))
 		return NULL;
 
-	/* Validate the input as UTF-8, then convert to DB encoding if needed */
+	/* 校验输入为 UTF-8,需要时再转为 DB 编码 */
 	recoded = pg_any_to_server(stp->buf.data, stp->buf.len, PG_UTF8);
 
-	/* Save the correctly-encoded string for possible error reports */
-	stp->curline = recoded;		/* might be equal to buf.data */
+	/* 保存正确编码的串以备错误报告 */
+	stp->curline = recoded;		/* 可能等于 buf.data */
 
 	/*
-	 * We always return a freshly pstrdup'd string.  This is clearly necessary
-	 * if pg_any_to_server() returned buf.data, and we need a second copy even
-	 * if encoding conversion did occur.  The caller is entitled to pfree the
-	 * returned string at any time, which would leave curline pointing to
-	 * recycled storage, causing problems if an error occurs after that point.
-	 * (It's preferable to return the result of pstrdup instead of the output
-	 * of pg_any_to_server, because the conversion result tends to be
-	 * over-allocated.  Since callers might save the result string directly
-	 * into a long-lived dictionary structure, we don't want it to be a larger
-	 * palloc chunk than necessary.  We'll reclaim the conversion result on
-	 * the next call.)
+	 * 我们总返回新 pstrdup 的串。若 pg_any_to_server() 返回
+	 * 的是 buf.data,这显然必要;即便发生了编码转换也需要
+	 * 第二份拷贝。调用方有权随时 pfree 返回串,那之后若
+	 * 再出错,curline 会指向已回收存储而惹祸。
+	 * (更愿返回 pstrdup 结果而非 pg_any_to_server 的输出,
+	 * 因转换结果往往过量分配。调用方可能把结果串直接
+	 * 存入长寿命词典结构,故不想 palloc 块偏大。
+	 * 转换结果将在下次调用时回收。)
+	 *
+	 *
+	 *
 	 */
 	return pstrdup(recoded);
 }
 
 /*
- * Close down after reading a file with tsearch_readline()
+ * 用 tsearch_readline() 读完文件后收尾
  */
 void
 tsearch_readline_end(tsearch_readline_state *stp)
 {
-	/* Suppress use of curline in any error reported below */
+	/* 禁止下方错误报告使用 curline */
 	if (stp->curline)
 	{
 		if (stp->curline != stp->buf.data)
@@ -211,17 +211,17 @@ tsearch_readline_end(tsearch_readline_state *stp)
 		stp->curline = NULL;
 	}
 
-	/* Release other resources */
+	/* 释放其他资源 */
 	pfree(stp->buf.data);
 	FreeFile(stp->fp);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈 */
 	error_context_stack = stp->cb.previous;
 }
 
 /*
- * Error context callback for errors occurring while reading a tsearch
- * configuration file.
+ * 读 tsearch 配置文件时出错的错误上下文
+ * 回调。
  */
 static void
 tsearch_readline_callback(void *arg)
@@ -229,10 +229,10 @@ tsearch_readline_callback(void *arg)
 	tsearch_readline_state *stp = (tsearch_readline_state *) arg;
 
 	/*
-	 * We can't include the text of the config line for errors that occur
-	 * during tsearch_readline() itself.  The major cause of such errors is
-	 * encoding violations, and we daren't try to print error messages
-	 * containing badly-encoded data.
+	 * tsearch_readline() 自身出错时不能纳入配置行文本。
+	 * 此类错误主因是编码违规,对含错误编码数据的
+	 * 消息我们不敢尝试打印。
+	 *
 	 */
 	if (stp->curline)
 		errcontext("line %d of configuration file \"%s\": \"%s\"",
@@ -247,9 +247,9 @@ tsearch_readline_callback(void *arg)
 
 
 /*
- * lowerstr --- fold null-terminated string to lower case
+ * lowerstr --- 将空终止串折为小写
  *
- * Returned string is palloc'd
+ * 返回串经 palloc
  */
 char *
 lowerstr(const char *str)
@@ -258,11 +258,11 @@ lowerstr(const char *str)
 }
 
 /*
- * lowerstr_with_len --- fold string to lower case
+ * lowerstr_with_len --- 将串折为小写
  *
- * Input string need not be null-terminated.
+ * 输入串不必空终止。
  *
- * Returned string is palloc'd
+ * 返回串经 palloc
  */
 char *
 lowerstr_with_len(const char *str, int len)
@@ -274,9 +274,9 @@ lowerstr_with_len(const char *str, int len)
 		return pstrdup("");
 
 	/*
-	 * Use wide char code only when max encoding length > 1 and ctype != C.
-	 * Some operating systems fail with multi-byte encodings and a C locale.
-	 * Also, for a C locale there is no need to process as multibyte. From
+	 * 仅当最大编码长度 > 1 且 ctype != C 时用宽字符代码。
+	 * 某些操作系统在多字节编码与 C 区域设置下会失败。
+	 * 对 C 区域设置也无需按多字节处理。源自
 	 * backend/utils/adt/oracle_compat.c Teodor
 	 */
 	if (pg_database_encoding_max_length() > 1 && !database_ctype_is_c)
@@ -286,9 +286,9 @@ lowerstr_with_len(const char *str, int len)
 		int			wlen;
 
 		/*
-		 * alloc number of wchar_t for worst case, len contains number of
-		 * bytes >= number of characters and alloc 1 wchar_t for 0, because
-		 * wchar2char wants zero-terminated string
+		 * 按最坏情况分配 wchar_t 个数,len 为字节数且
+		 * >= 字符数,再为 0 分配 1 个 wchar_t,因
+		 * wchar2char 要零终止串
 		 */
 		wptr = wstr = (wchar_t *) palloc(sizeof(wchar_t) * (len + 1));
 
@@ -302,7 +302,7 @@ lowerstr_with_len(const char *str, int len)
 		}
 
 		/*
-		 * Alloc result string for worst case + '\0'
+		 * 按最坏情况分配结果串 + '\0'
 		 */
 		len = pg_database_encoding_max_length() * wlen + 1;
 		out = (char *) palloc(len);

@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0629",
+ "title": "backend/utils/adt jsonb_gin — batch 0629",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "416e611813db3e980acecae6b4770b2a1007cba3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/jsonb_gin.c",
+   "kind": "c_comment",
+   "note": "0629"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0629-jsonb_gin.json",
+   "kind": "manifest",
+   "note": "0629"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/jsonb_gin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION KEEP",
+    "算子等价式/公式行 KEEP (L15-16/L25-26/L43/L48); L647 避行首!",
+    "注释掉的代码 KEEP (L934/L1018/L1225/L1277)"
+   ],
+   "note": "0629"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0629-jsonb_gin.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0629"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0629"
+  }
+ ],
+ "notes": "jsonb_gin.c 全文件; 访问器/索引条目/重新检查/有损/全索引扫描对齐既译; L239=L1102 L246=L1109; 公式/等价式 KEEP"
+}

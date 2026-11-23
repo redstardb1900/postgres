@@ -1,55 +1,55 @@
 /*-------------------------------------------------------------------------
  *
  * jsonb_gin.c
- *	 GIN support functions for jsonb
+ *	 jsonb 的 GIN 支持函数
  *
  * Copyright (c) 2014-2023, PostgreSQL Global Development Group
  *
- * We provide two opclasses for jsonb indexing: jsonb_ops and jsonb_path_ops.
- * For their description see json.sgml and comments in jsonb.h.
+ * 为 jsonb 索引提供两个操作类: jsonb_ops 与 jsonb_path_ops。
+ * 说明见 json.sgml 与 jsonb.h 中的注释。
  *
- * The operators support, among the others, "jsonb @? jsonpath" and
- * "jsonb @@ jsonpath".  Expressions containing these operators are easily
- * expressed through each other.
+ * 算子还支持 "jsonb @? jsonpath" 与
+ * "jsonb @@ jsonpath"。含这些算子的表达式可轻易
+ * 互相表达。
  *
  *	jb @? 'path' <=> jb @@ 'EXISTS(path)'
  *	jb @@ 'expr' <=> jb @? '$ ? (expr)'
  *
- * Thus, we're going to consider only @@ operator, while regarding @? operator
- * the same is true for jb @@ 'EXISTS(path)'.
+ * 故下文只论 @@ 算子;对 @? 算子而言
+ * 等同于 jb @@ 'EXISTS(path)'。
  *
- * Result of jsonpath query extraction is a tree, which leaf nodes are index
- * entries and non-leaf nodes are AND/OR logical expressions.  Basically we
- * extract following statements out of jsonpath:
+ * jsonpath 查询提取结果是一棵树,叶节点为索引
+ * 条目,非叶节点为 AND/OR 逻辑表达式。我们基本上从
+ * jsonpath 提取下列语句:
  *
  *	1) "accessors_chain = const",
  *	2) "EXISTS(accessors_chain)".
  *
- * Accessors chain may consist of .key, [*] and [index] accessors.  jsonb_ops
- * additionally supports .* and .**.
+ * 访问器链可由 .key、[*] 与 [index] 访问器组成。jsonb_ops
+ * 还支持 .* 与 .**。
  *
- * For now, both jsonb_ops and jsonb_path_ops supports only statements of
- * the 1st find.  jsonb_ops might also support statements of the 2nd kind,
- * but given we have no statistics keys extracted from accessors chain
- * are likely non-selective.  Therefore, we choose to not confuse optimizer
- * and skip statements of the 2nd kind altogether.  In future versions that
- * might be changed.
+ * 目前 jsonb_ops 与 jsonb_path_ops 都只支持第 1 种
+ * 语句。jsonb_ops 或许也能支持第 2 种,
+ * 但因无统计信息,自访问器链提取的键
+ * 多半非选择性。故选择不迷惑优化器,
+ * 一并跳过第 2 种语句。将来版本或
+ * 会改变。
  *
- * In jsonb_ops statement of the 1st kind is split into expression of AND'ed
- * keys and const.  Sometimes const might be interpreted as both value or key
- * in jsonb_ops.  Then statement of 1st kind is decomposed into the expression
- * below.
+ * 在 jsonb_ops 中第 1 种语句拆成 AND 连接的键与
+ * const。有时 const 在 jsonb_ops 中可既当值又当键,
+ * 此时第 1 种语句分解为下列表达式。
+ *
  *
  *	key1 AND key2 AND ... AND keyN AND (const_as_value OR const_as_key)
  *
- * jsonb_path_ops transforms each statement of the 1st kind into single hash
- * entry below.
+ * jsonb_path_ops 把每个第 1 种语句变成下式单个哈希条目。
+ *
  *
  *	HASH(key1, key2, ... , keyN, const)
  *
- * Despite statements of the 2nd kind are not supported by both jsonb_ops and
- * jsonb_path_ops, EXISTS(path) expressions might be still supported,
- * when statements of 1st kind could be extracted out of their filters.
+ * 尽管 jsonb_ops 与 jsonb_path_ops 都不支持第 2 种
+ * 语句,EXISTS(path) 若可从其过滤器提取第 1 种
+ * 语句则仍可能得到支持。
  *
  * IDENTIFICATION
  *	  src/backend/utils/adt/jsonb_gin.c
@@ -76,7 +76,7 @@ typedef struct PathHashStack
 	struct PathHashStack *parent;
 } PathHashStack;
 
-/* Buffer for GIN entries */
+/* GIN 条目缓冲区 */
 typedef struct GinEntries
 {
 	Datum	   *buf;
@@ -93,57 +93,57 @@ typedef enum JsonPathGinNodeType
 
 typedef struct JsonPathGinNode JsonPathGinNode;
 
-/* Node in jsonpath expression tree */
+/* jsonpath 表达式树节点 */
 struct JsonPathGinNode
 {
 	JsonPathGinNodeType type;
 	union
 	{
-		int			nargs;		/* valid for OR and AND nodes */
-		int			entryIndex; /* index in GinEntries array, valid for ENTRY
-								 * nodes after entries output */
-		Datum		entryDatum; /* path hash or key name/scalar, valid for
-								 * ENTRY nodes before entries output */
+		int			nargs;		/* 对 OR/AND 节点有效 */
+		int			entryIndex; /* GinEntries 下标,条目输出后对 ENTRY
+								 * 节点有效 */
+		Datum		entryDatum; /* 路径哈希或键名/标量,输出前
+								 * 对 ENTRY 节点有效 */
 	}			val;
-	JsonPathGinNode *args[FLEXIBLE_ARRAY_MEMBER];	/* valid for OR and AND
-													 * nodes */
+	JsonPathGinNode *args[FLEXIBLE_ARRAY_MEMBER];	/* OR/AND 节点有效
+													 *  */
 };
 
 /*
- * jsonb_ops entry extracted from jsonpath item.  Corresponding path item
- * may be: '.key', '.*', '.**', '[index]' or '[*]'.
- * Entry type is stored in 'type' field.
+ * 自 jsonpath 项提取的 jsonb_ops 条目。对应路径项可为:
+ * '.key'、'.*'、'.**'、'[index]' 或 '[*]'。
+ * 条目类型存在 'type' 字段。
  */
 typedef struct JsonPathGinPathItem
 {
 	struct JsonPathGinPathItem *parent;
-	Datum		keyName;		/* key name (for '.key' path item) or NULL */
-	JsonPathItemType type;		/* type of jsonpath item */
+	Datum		keyName;		/* 键名(对 .key 路径项)或 NULL */
+	JsonPathItemType type;		/* jsonpath 项的类型 */
 } JsonPathGinPathItem;
 
-/* GIN representation of the extracted json path */
+/* 所提取 json 路径的 GIN 表示 */
 typedef union JsonPathGinPath
 {
-	JsonPathGinPathItem *items; /* list of path items (jsonb_ops) */
-	uint32		hash;			/* hash of the path (jsonb_path_ops) */
+	JsonPathGinPathItem *items; /* 路径项列表 (jsonb_ops) */
+	uint32		hash;			/* 路径的哈希 (jsonb_path_ops) */
 } JsonPathGinPath;
 
 typedef struct JsonPathGinContext JsonPathGinContext;
 
-/* Callback, which stores information about path item into JsonPathGinPath */
+/* 存路径项信息到 JsonPathGinPath 的回调 */
 typedef bool (*JsonPathGinAddPathItemFunc) (JsonPathGinPath *path,
 											JsonPathItem *jsp);
 
 /*
- * Callback, which extracts set of nodes from statement of 1st kind
- * (scalar != NULL) or statement of 2nd kind (scalar == NULL).
+ * 自第 1 种语句(scalar != NULL)或第 2 种语句
+ * (scalar == NULL)提取节点集的回调。
  */
 typedef List *(*JsonPathGinExtractNodesFunc) (JsonPathGinContext *cxt,
 											  JsonPathGinPath path,
 											  JsonbValue *scalar,
 											  List *nodes);
 
-/* Context for jsonpath entries extraction */
+/* jsonpath 条目提取上下文 */
 struct JsonPathGinContext
 {
 	JsonPathGinAddPathItemFunc add_path_item;
@@ -158,7 +158,7 @@ static JsonPathGinNode *extract_jsp_bool_expr(JsonPathGinContext *cxt,
 											  JsonPathGinPath path, JsonPathItem *jsp, bool not);
 
 
-/* Initialize GinEntries struct */
+/* 初始化 GinEntries 结构 */
 static void
 init_gin_entries(GinEntries *entries, int preallocated)
 {
@@ -167,7 +167,7 @@ init_gin_entries(GinEntries *entries, int preallocated)
 	entries->count = 0;
 }
 
-/* Add new entry to GinEntries */
+/* 向 GinEntries 加条目 */
 static int
 add_gin_entry(GinEntries *entries, Datum entry)
 {
@@ -195,7 +195,7 @@ add_gin_entry(GinEntries *entries, Datum entry)
 
 /*
  *
- * jsonb_ops GIN opclass support functions
+ * jsonb_ops GIN 操作类支持函数
  *
  */
 
@@ -216,7 +216,7 @@ gin_compare_jsonb(PG_FUNCTION_ARGS)
 	len1 = VARSIZE_ANY_EXHDR(arg1);
 	len2 = VARSIZE_ANY_EXHDR(arg2);
 
-	/* Compare text as bttextcmp does, but always using C collation */
+	/* 按 bttextcmp 比较 text,但始终用 C 排序规则 */
 	result = varstr_cmp(a1p, len1, a2p, len2, C_COLLATION_OID);
 
 	PG_FREE_IF_COPY(arg1, 0);
@@ -236,14 +236,14 @@ gin_extract_jsonb(PG_FUNCTION_ARGS)
 	JsonbIteratorToken r;
 	GinEntries	entries;
 
-	/* If the root level is empty, we certainly have no keys */
+	/* 若根级为空,则肯定没有任何键 */
 	if (total == 0)
 	{
 		*nentries = 0;
 		PG_RETURN_POINTER(NULL);
 	}
 
-	/* Otherwise, use 2 * root count as initial estimate of result size */
+	/* 否则用 2 * 根计数作为结果大小的初始估计 */
 	init_gin_entries(&entries, 2 * total);
 
 	it = JsonbIteratorInit(&jb->root);
@@ -256,14 +256,14 @@ gin_extract_jsonb(PG_FUNCTION_ARGS)
 				add_gin_entry(&entries, make_scalar_key(&v, true));
 				break;
 			case WJB_ELEM:
-				/* Pretend string array elements are keys, see jsonb.h */
+				/* 假装字符串数组元素是键,见 jsonb.h */
 				add_gin_entry(&entries, make_scalar_key(&v, v.type == jbvString));
 				break;
 			case WJB_VALUE:
 				add_gin_entry(&entries, make_scalar_key(&v, false));
 				break;
 			default:
-				/* we can ignore structural items */
+				/* 可忽略结构性项 */
 				break;
 		}
 	}
@@ -273,7 +273,7 @@ gin_extract_jsonb(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(entries.buf);
 }
 
-/* Append JsonPathGinPathItem to JsonPathGinPath (jsonb_ops) */
+/* 追加 JsonPathGinPathItem 到 JsonPathGinPath(jsonb_ops) */
 static bool
 jsonb_ops__add_path_item(JsonPathGinPath *path, JsonPathItem *jsp)
 {
@@ -283,7 +283,7 @@ jsonb_ops__add_path_item(JsonPathGinPath *path, JsonPathItem *jsp)
 	switch (jsp->type)
 	{
 		case jpiRoot:
-			path->items = NULL; /* reset path */
+			path->items = NULL; /* 清路径 */
 			return true;
 
 		case jpiKey:
@@ -303,7 +303,7 @@ jsonb_ops__add_path_item(JsonPathGinPath *path, JsonPathItem *jsp)
 			break;
 
 		default:
-			/* other path items like item methods are not supported */
+			/* 项方法等其他路径项不受支持 */
 			return false;
 	}
 
@@ -318,14 +318,14 @@ jsonb_ops__add_path_item(JsonPathGinPath *path, JsonPathItem *jsp)
 	return true;
 }
 
-/* Combine existing path hash with next key hash (jsonb_path_ops) */
+/* 合并现有路径哈希与下一键哈希 (jsonb_path_ops) */
 static bool
 jsonb_path_ops__add_path_item(JsonPathGinPath *path, JsonPathItem *jsp)
 {
 	switch (jsp->type)
 	{
 		case jpiRoot:
-			path->hash = 0;		/* reset path hash */
+			path->hash = 0;		/* 清路径哈希 */
 			return true;
 
 		case jpiKey:
@@ -341,10 +341,10 @@ jsonb_path_ops__add_path_item(JsonPathGinPath *path, JsonPathItem *jsp)
 
 		case jpiIndexArray:
 		case jpiAnyArray:
-			return true;		/* path hash is unchanged */
+			return true;		/* 路径哈希不变 */
 
 		default:
-			/* other items (wildcard paths, item methods) are not supported */
+			/* 其他项(通配路径、项方法)不受支持 */
 			return false;
 	}
 }
@@ -403,7 +403,7 @@ make_jsp_expr_node_binary(JsonPathGinNodeType type,
 	return node;
 }
 
-/* Append a list of nodes from the jsonpath (jsonb_ops). */
+/* 从 jsonpath 追加节点列表 (jsonb_ops)。 */
 static List *
 jsonb_ops__extract_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 						 JsonbValue *scalar, List *nodes)
@@ -415,32 +415,32 @@ jsonb_ops__extract_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 		JsonPathGinNode *node;
 
 		/*
-		 * Append path entry nodes only if scalar is provided.  See header
-		 * comment for details.
+		 * 仅当提供了标量时才追加路径条目节点。详见
+		 * 文件头注释。
 		 */
 		for (pentry = path.items; pentry; pentry = pentry->parent)
 		{
-			if (pentry->type == jpiKey) /* only keys are indexed */
+			if (pentry->type == jpiKey) /* 只索引键 */
 				nodes = lappend(nodes, make_jsp_entry_node(pentry->keyName));
 		}
 
-		/* Append scalar node for equality queries. */
+		/* 为相等查询追加标量节点。 */
 		if (scalar->type == jbvString)
 		{
 			JsonPathGinPathItem *last = path.items;
 			GinTernaryValue key_entry;
 
 			/*
-			 * Assuming that jsonb_ops interprets string array elements as
-			 * keys, we may extract key or non-key entry or even both.  In the
-			 * latter case we create OR-node.  It is possible in lax mode
-			 * where arrays are automatically unwrapped, or in strict mode for
-			 * jpiAny items.
+			 * 假定 jsonb_ops 视字符串数组元素为键,或可
+			 * 提取键或非键条目乃至二者。后者则创建
+			 * OR 节点。此可于宽松模式(数组自动展开),或
+			 * 严格模式下对 jpiAny 项发生。
+			 *
 			 */
 
 			if (cxt->lax)
 				key_entry = GIN_MAYBE;
-			else if (!last)		/* root ($) */
+			else if (!last)		/* 根 ($) */
 				key_entry = GIN_FALSE;
 			else if (last->type == jpiAnyArray || last->type == jpiIndexArray)
 				key_entry = GIN_TRUE;
@@ -473,14 +473,14 @@ jsonb_ops__extract_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 	return nodes;
 }
 
-/* Append a list of nodes from the jsonpath (jsonb_path_ops). */
+/* 从 jsonpath 追加节点列表 (jsonb_path_ops)。 */
 static List *
 jsonb_path_ops__extract_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 							  JsonbValue *scalar, List *nodes)
 {
 	if (scalar)
 	{
-		/* append path hash node for equality queries */
+		/* 为相等查询追加路径哈希节点 */
 		uint32		hash = path.hash;
 
 		JsonbHashScalarValue(scalar, &hash);
@@ -490,15 +490,15 @@ jsonb_path_ops__extract_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 	}
 	else
 	{
-		/* jsonb_path_ops doesn't support EXISTS queries => nothing to append */
+		/* jsonb_path_ops 不支持 EXISTS => 无可追加 */
 		return nodes;
 	}
 }
 
 /*
- * Extract a list of expression nodes that need to be AND-ed by the caller.
- * Extracted expression is 'path == scalar' if 'scalar' is non-NULL, and
- * 'EXISTS(path)' otherwise.
+ * 提取需由调用者 AND 连接的表达式节点列表。
+ * 若 scalar 非 NULL,提取式为 'path == scalar';否则为
+ * 'EXISTS(path)'。
  */
 static List *
 extract_jsp_path_expr_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
@@ -533,8 +533,8 @@ extract_jsp_path_expr_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 				if (!cxt->add_path_item(&path, jsp))
 
 					/*
-					 * Path is not supported by the index opclass, return only
-					 * the extracted filter nodes.
+					 * 索引操作类不支持该路径,只返回已提取的
+					 * 过滤器节点。
 					 */
 					return nodes;
 				break;
@@ -547,38 +547,38 @@ extract_jsp_path_expr_nodes(JsonPathGinContext *cxt, JsonPathGinPath path,
 	}
 
 	/*
-	 * Append nodes from the path expression itself to the already extracted
-	 * list of filter nodes.
+	 * 把路径表达式自身节点追加到已提取的
+	 * 过滤节点列表。
 	 */
 	return cxt->extract_nodes(cxt, path, scalar, nodes);
 }
 
 /*
- * Extract an expression node from one of following jsonpath path expressions:
- *   EXISTS(jsp)    (when 'scalar' is NULL)
- *   jsp == scalar  (when 'scalar' is not NULL).
+ * 自下列 jsonpath 路径表达式提取表达式节点:
+ *     EXISTS(jsp)    (scalar==NULL)
+ *     jsp==scalar(非 NULL)。
  *
- * The current path (@) is passed in 'path'.
+ * 当前路径 (@) 经 'path' 传入。
  */
 static JsonPathGinNode *
 extract_jsp_path_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 					  JsonPathItem *jsp, JsonbValue *scalar)
 {
-	/* extract a list of nodes to be AND-ed */
+	/* 提取待 AND 连接的节点列表 */
 	List	   *nodes = extract_jsp_path_expr_nodes(cxt, path, jsp, scalar);
 
 	if (nodes == NIL)
-		/* no nodes were extracted => full scan is needed for this path */
+		/* 未提取到节点 => 此路径需全扫描 */
 		return NULL;
 
 	if (list_length(nodes) == 1)
-		return linitial(nodes); /* avoid extra AND-node */
+		return linitial(nodes); /* 避多余 AND 节点 */
 
-	/* construct AND-node for path with filters */
+	/* 为过滤路径建 AND 节点 */
 	return make_jsp_expr_node_args(JSP_GIN_AND, nodes);
 }
 
-/* Recursively extract nodes from the boolean jsonpath expression. */
+/* 从布尔 jsonpath 表达式递归提取节点。 */
 static JsonPathGinNode *
 extract_jsp_bool_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 					  JsonPathItem *jsp, bool not)
@@ -614,13 +614,13 @@ extract_jsp_bool_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 				return make_jsp_expr_node_binary(type, larg, rarg);
 			}
 
-		case jpiNot:			/* !expr  */
+		case jpiNot:			/* !expr */
 			{
 				JsonPathItem arg;
 
 				jspGetArg(jsp, &arg);
 
-				/* extract child expression inverting 'not' flag */
+				/* 提取子表达式并反转 not 标志 */
 				return extract_jsp_bool_expr(cxt, path, &arg, !not);
 			}
 
@@ -629,7 +629,7 @@ extract_jsp_bool_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 				JsonPathItem arg;
 
 				if (not)
-					return NULL;	/* NOT EXISTS is not supported */
+					return NULL;	/* 不支持 NOT EXISTS */
 
 				jspGetArg(jsp, &arg);
 
@@ -639,17 +639,17 @@ extract_jsp_bool_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 		case jpiNotEqual:
 
 			/*
-			 * 'not' == true case is not supported here because '!(path !=
-			 * scalar)' is not equivalent to 'path == scalar' in the general
-			 * case because of sequence comparison semantics: 'path == scalar'
-			 * === 'EXISTS (path, @ == scalar)', '!(path != scalar)' ===
-			 * 'FOR_ALL(path, @ == scalar)'. So, we should translate '!(path
-			 * != scalar)' into GIN query 'path == scalar || EMPTY(path)', but
-			 * 'EMPTY(path)' queries are not supported by the both jsonb
-			 * opclasses.  However in strict mode we could omit 'EMPTY(path)'
-			 * part if the path can return exactly one item (it does not
-			 * contain wildcard accessors or item methods like .keyvalue()
-			 * etc.).
+			 * 此处不支持 'not'==true 情形,因为
+			 * 一般地 '!(path != scalar)' 不等价于 'path == scalar',
+			 * 缘于序列比较语义:
+			 * 即 'path == scalar' === 'EXISTS (path, @ == scalar)'
+			 * 且 '!(path != scalar)' === 'FOR_ALL(path, @ == scalar)'。
+			 * 故应译为 path==scalar||EMPTY(path),但
+			 * 两种 jsonb 操作类都不支持 EMPTY(path)
+			 * 查询。不过严格模式下若路径恰返回一项(不含
+			 * 通配访问器或 .keyvalue() 等项方法),可省略
+			 * EMPTY(path) 部分。
+			 *
 			 */
 			return NULL;
 
@@ -678,7 +678,7 @@ extract_jsp_bool_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 					path_item = &left_item;
 				}
 				else
-					return NULL;	/* at least one operand should be a scalar */
+					return NULL;	/* 至少一个操作数应为标量 */
 
 				switch (scalar_item->type)
 				{
@@ -710,11 +710,11 @@ extract_jsp_bool_expr(JsonPathGinContext *cxt, JsonPathGinPath path,
 			}
 
 		default:
-			return NULL;		/* not a boolean expression */
+			return NULL;		/* 不是布尔表达式 */
 	}
 }
 
-/* Recursively emit all GIN entries found in the node tree */
+/* 递归发出节点树中找到的全部 GIN 条目 */
 static void
 emit_jsp_gin_entries(JsonPathGinNode *node, GinEntries *entries)
 {
@@ -723,7 +723,7 @@ emit_jsp_gin_entries(JsonPathGinNode *node, GinEntries *entries)
 	switch (node->type)
 	{
 		case JSP_GIN_ENTRY:
-			/* replace datum with its index in the array */
+			/* 用其在数组中的下标替换 datum */
 			node->val.entryIndex = add_gin_entry(entries, node->val.entryDatum);
 			break;
 
@@ -741,8 +741,8 @@ emit_jsp_gin_entries(JsonPathGinNode *node, GinEntries *entries)
 }
 
 /*
- * Recursively extract GIN entries from jsonpath query.
- * Root expression node is put into (*extra_data)[0].
+ * 从 jsonpath 查询递归提取 GIN 条目。
+ * 根表达式节点放入 (*extra_data)[0]。
  */
 static Datum *
 extract_jsp_query(JsonPath *jp, StrategyNumber strat, bool pathOps,
@@ -792,8 +792,8 @@ extract_jsp_query(JsonPath *jp, StrategyNumber strat, bool pathOps,
 }
 
 /*
- * Recursively execute jsonpath expression.
- * 'check' is a bool[] or a GinTernaryValue[] depending on 'ternary' flag.
+ * 递归执行 jsonpath 表达式。
+ * 'check' 依 'ternary' 标志为 bool[] 或 GinTernaryValue[]。
  */
 static GinTernaryValue
 execute_jsp_gin_node(JsonPathGinNode *node, void *check, bool ternary)
@@ -840,7 +840,7 @@ execute_jsp_gin_node(JsonPathGinNode *node, void *check, bool ternary)
 
 		default:
 			elog(ERROR, "invalid jsonpath gin node type: %d", node->type);
-			return GIN_FALSE;	/* keep compiler quiet */
+			return GIN_FALSE;	/* 让编译器安静 */
 	}
 }
 
@@ -854,18 +854,18 @@ gin_extract_jsonb_query(PG_FUNCTION_ARGS)
 
 	if (strategy == JsonbContainsStrategyNumber)
 	{
-		/* Query is a jsonb, so just apply gin_extract_jsonb... */
+		/* 查询是 jsonb,故直接套用 gin_extract_jsonb... */
 		entries = (Datum *)
 			DatumGetPointer(DirectFunctionCall2(gin_extract_jsonb,
 												PG_GETARG_DATUM(0),
 												PointerGetDatum(nentries)));
-		/* ...although "contains {}" requires a full index scan */
+		/* 不过 "contains {}" 需要全索引扫描 */
 		if (*nentries == 0)
 			*searchMode = GIN_SEARCH_MODE_ALL;
 	}
 	else if (strategy == JsonbExistsStrategyNumber)
 	{
-		/* Query is a text string, which we treat as a key */
+		/* 查询是文本串,当作键处理 */
 		text	   *query = PG_GETARG_TEXT_PP(0);
 
 		*nentries = 1;
@@ -877,7 +877,7 @@ gin_extract_jsonb_query(PG_FUNCTION_ARGS)
 	else if (strategy == JsonbExistsAnyStrategyNumber ||
 			 strategy == JsonbExistsAllStrategyNumber)
 	{
-		/* Query is a text array; each element is treated as a key */
+		/* 查询是文本数组;每个元素当作键 */
 		ArrayType  *query = PG_GETARG_ARRAYTYPE_P(0);
 		Datum	   *key_datums;
 		bool	   *key_nulls;
@@ -891,17 +891,17 @@ gin_extract_jsonb_query(PG_FUNCTION_ARGS)
 
 		for (i = 0, j = 0; i < key_count; i++)
 		{
-			/* Nulls in the array are ignored */
+			/* 忽略数组中的空值 */
 			if (key_nulls[i])
 				continue;
-			/* We rely on the array elements not being toasted */
+			/* 依赖数组元素未被 toast */
 			entries[j++] = make_text_key(JGINFLAG_KEY,
 										 VARDATA_ANY(key_datums[i]),
 										 VARSIZE_ANY_EXHDR(key_datums[i]));
 		}
 
 		*nentries = j;
-		/* ExistsAll with no keys should match everything */
+		/* 无键的 ExistsAll 应匹配一切 */
 		if (j == 0 && strategy == JsonbExistsAllStrategyNumber)
 			*searchMode = GIN_SEARCH_MODE_ALL;
 	}
@@ -919,7 +919,7 @@ gin_extract_jsonb_query(PG_FUNCTION_ARGS)
 	else
 	{
 		elog(ERROR, "unrecognized strategy number: %d", strategy);
-		entries = NULL;			/* keep compiler quiet */
+		entries = NULL;			/* 让编译器安静 */
 	}
 
 	PG_RETURN_POINTER(entries);
@@ -942,12 +942,12 @@ gin_consistent_jsonb(PG_FUNCTION_ARGS)
 	if (strategy == JsonbContainsStrategyNumber)
 	{
 		/*
-		 * We must always recheck, since we can't tell from the index whether
-		 * the positions of the matched items match the structure of the query
-		 * object.  (Even if we could, we'd also have to worry about hashed
-		 * keys and the index's failure to distinguish keys from string array
-		 * elements.)  However, the tuple certainly doesn't match unless it
-		 * contains all the query keys.
+		 * 须始终重检,因无法从索引判断匹配项位置
+		 * 是否与查询对象结构相符。(即便能,还得顾虑
+		 * 哈希键,及索引无法区分键与字符串数组
+		 * 元素。)但除非元组含全部查询键,否则
+		 * 肯定不匹配。
+		 *
 		 */
 		*recheck = true;
 		for (i = 0; i < nkeys; i++)
@@ -962,26 +962,26 @@ gin_consistent_jsonb(PG_FUNCTION_ARGS)
 	else if (strategy == JsonbExistsStrategyNumber)
 	{
 		/*
-		 * Although the key is certainly present in the index, we must recheck
-		 * because (1) the key might be hashed, and (2) the index match might
-		 * be for a key that's not at top level of the JSON object.  For (1),
-		 * we could look at the query key to see if it's hashed and not
-		 * recheck if not, but the index lacks enough info to tell about (2).
+		 * 虽键肯定在索引中,仍须重检,因 (1) 键可能
+		 * 已哈希,(2) 匹配可能落在非 JSON 对象顶层的
+		 * 键上。对 (1) 可看查询键是否已哈希以决定
+		 * 是否跳过重检,但索引信息不足,无法判定 (2)。
+		 *
 		 */
 		*recheck = true;
 		res = true;
 	}
 	else if (strategy == JsonbExistsAnyStrategyNumber)
 	{
-		/* As for plain exists, we must recheck */
+		/* 同普通 exists,须重新检查 */
 		*recheck = true;
 		res = true;
 	}
 	else if (strategy == JsonbExistsAllStrategyNumber)
 	{
-		/* As for plain exists, we must recheck */
+		/* 同普通 exists,须重新检查 */
 		*recheck = true;
-		/* ... but unless all the keys are present, we can say "false" */
+		/* 但除非全部键都在,否则可判为 false */
 		for (i = 0; i < nkeys; i++)
 		{
 			if (!check[i])
@@ -1022,14 +1022,14 @@ gin_triconsistent_jsonb(PG_FUNCTION_ARGS)
 	int32		i;
 
 	/*
-	 * Note that we never return GIN_TRUE, only GIN_MAYBE or GIN_FALSE; this
-	 * corresponds to always forcing recheck in the regular consistent
-	 * function, for the reasons listed there.
+	 * 注意从不返回 GIN_TRUE,只返回 GIN_MAYBE 或
+	 * GIN_FALSE;对应常规 consistent 中始终强制
+	 * 重新检查,理由见该处所列。
 	 */
 	if (strategy == JsonbContainsStrategyNumber ||
 		strategy == JsonbExistsAllStrategyNumber)
 	{
-		/* All extracted keys must be present */
+		/* 全部已提取键都必须存在 */
 		for (i = 0; i < nkeys; i++)
 		{
 			if (check[i] == GIN_FALSE)
@@ -1042,7 +1042,7 @@ gin_triconsistent_jsonb(PG_FUNCTION_ARGS)
 	else if (strategy == JsonbExistsStrategyNumber ||
 			 strategy == JsonbExistsAnyStrategyNumber)
 	{
-		/* At least one extracted key must be present */
+		/* 至少一个已提取键必须存在 */
 		res = GIN_FALSE;
 		for (i = 0; i < nkeys; i++)
 		{
@@ -1063,7 +1063,7 @@ gin_triconsistent_jsonb(PG_FUNCTION_ARGS)
 			res = execute_jsp_gin_node((JsonPathGinNode *) extra_data[0], check,
 									   true);
 
-			/* Should always recheck the result */
+			/* 应始终重新检查结果 */
 			if (res == GIN_TRUE)
 				res = GIN_MAYBE;
 		}
@@ -1076,13 +1076,13 @@ gin_triconsistent_jsonb(PG_FUNCTION_ARGS)
 
 /*
  *
- * jsonb_path_ops GIN opclass support functions
+ * jsonb_path_ops GIN 操作类支持函数
  *
- * In a jsonb_path_ops index, the GIN keys are uint32 hashes, one per JSON
- * value; but the JSON key(s) leading to each value are also included in its
- * hash computation.  This means we can only support containment queries,
- * but the index can distinguish, for example, {"foo": 42} from {"bar": 42}
- * since different hashes will be generated.
+ * jsonb_path_ops 索引中 GIN key 为 uint32 哈希,每
+ * 个 JSON 值一个;通向该值的 JSON key 也纳入哈希。
+ * 故只能支持包含查询,但索引能区分
+ * 如 {"foo": 42} 与 {"bar": 42},因其生成不同
+ * 哈希。
  *
  */
 
@@ -1099,17 +1099,17 @@ gin_extract_jsonb_path(PG_FUNCTION_ARGS)
 	PathHashStack *stack;
 	GinEntries	entries;
 
-	/* If the root level is empty, we certainly have no keys */
+	/* 若根级为空,则肯定没有任何键 */
 	if (total == 0)
 	{
 		*nentries = 0;
 		PG_RETURN_POINTER(NULL);
 	}
 
-	/* Otherwise, use 2 * root count as initial estimate of result size */
+	/* 否则用 2 * 根计数作为结果大小的初始估计 */
 	init_gin_entries(&entries, 2 * total);
 
-	/* We keep a stack of partial hashes corresponding to parent key levels */
+	/* 维护与父键层级对应的部分哈希栈 */
 	tail.parent = NULL;
 	tail.hash = 0;
 	stack = &tail;
@@ -1124,43 +1124,43 @@ gin_extract_jsonb_path(PG_FUNCTION_ARGS)
 		{
 			case WJB_BEGIN_ARRAY:
 			case WJB_BEGIN_OBJECT:
-				/* Push a stack level for this object */
+				/* 为此对象压入一层栈 */
 				parent = stack;
 				stack = (PathHashStack *) palloc(sizeof(PathHashStack));
 
 				/*
-				 * We pass forward hashes from outer nesting levels so that
-				 * the hashes for nested values will include outer keys as
-				 * well as their own keys.
+				 * 把外层嵌套级的哈希向前传递,使嵌套值的
+				 * 哈希既含外层键也含自身键。
 				 *
-				 * Nesting an array within another array will not alter
-				 * innermost scalar element hash values, but that seems
-				 * inconsequential.
+				 *
+				 * 数组套数组不改最内标量元素哈希值,
+				 * 但这似乎无关紧要。
+				 *
 				 */
 				stack->hash = parent->hash;
 				stack->parent = parent;
 				break;
 			case WJB_KEY:
-				/* mix this key into the current outer hash */
+				/* 把此键混入当前外层哈希 */
 				JsonbHashScalarValue(&v, &stack->hash);
-				/* hash is now ready to incorporate the value */
+				/* 哈希现已就绪,可并入值 */
 				break;
 			case WJB_ELEM:
 			case WJB_VALUE:
-				/* mix the element or value's hash into the prepared hash */
+				/* 把元素或值的哈希混入已准备的哈希 */
 				JsonbHashScalarValue(&v, &stack->hash);
-				/* and emit an index entry */
+				/* 发出索引条目 */
 				add_gin_entry(&entries, UInt32GetDatum(stack->hash));
-				/* reset hash for next key, value, or sub-object */
+				/* 为下一键、值或子对象复位哈希 */
 				stack->hash = stack->parent->hash;
 				break;
 			case WJB_END_ARRAY:
 			case WJB_END_OBJECT:
-				/* Pop the stack */
+				/* 弹出栈 */
 				parent = stack->parent;
 				pfree(stack);
 				stack = parent;
-				/* reset hash for next key, value, or sub-object */
+				/* 为下一键、值或子对象复位哈希 */
 				if (stack->parent)
 					stack->hash = stack->parent->hash;
 				else
@@ -1186,13 +1186,13 @@ gin_extract_jsonb_query_path(PG_FUNCTION_ARGS)
 
 	if (strategy == JsonbContainsStrategyNumber)
 	{
-		/* Query is a jsonb, so just apply gin_extract_jsonb_path ... */
+		/* 查询是 jsonb,故直接套用 gin_extract_jsonb_path ... */
 		entries = (Datum *)
 			DatumGetPointer(DirectFunctionCall2(gin_extract_jsonb_path,
 												PG_GETARG_DATUM(0),
 												PointerGetDatum(nentries)));
 
-		/* ... although "contains {}" requires a full index scan */
+		/* 不过 "contains {}" 需要全索引扫描 */
 		if (*nentries == 0)
 			*searchMode = GIN_SEARCH_MODE_ALL;
 	}
@@ -1232,13 +1232,13 @@ gin_consistent_jsonb_path(PG_FUNCTION_ARGS)
 	if (strategy == JsonbContainsStrategyNumber)
 	{
 		/*
-		 * jsonb_path_ops is necessarily lossy, not only because of hash
-		 * collisions but also because it doesn't preserve complete
-		 * information about the structure of the JSON object.  Besides, there
-		 * are some special rules around the containment of raw scalars in
-		 * arrays that are not handled here.  So we must always recheck a
-		 * match.  However, if not all of the keys are present, the tuple
-		 * certainly doesn't match.
+		 * jsonb_path_ops 必然有损,不仅因哈希冲突,也因
+		 * 不保留 JSON 结构完整信息。此外,原始标量
+		 * 在数组中的包含有特殊规则此处未处理。故匹配
+		 * 须始终重新检查。但若并非全部键都在,元组
+		 * 肯定不匹配。
+		 *
+		 *
 		 */
 		*recheck = true;
 		for (i = 0; i < nkeys; i++)
@@ -1283,9 +1283,9 @@ gin_triconsistent_jsonb_path(PG_FUNCTION_ARGS)
 	if (strategy == JsonbContainsStrategyNumber)
 	{
 		/*
-		 * Note that we never return GIN_TRUE, only GIN_MAYBE or GIN_FALSE;
-		 * this corresponds to always forcing recheck in the regular
-		 * consistent function, for the reasons listed there.
+		 * 注意从不返回 GIN_TRUE,只返回 GIN_MAYBE 或
+		 * GIN_FALSE;对应常规 consistent 中始终强制
+		 * 重新检查,理由见该处所列。
 		 */
 		for (i = 0; i < nkeys; i++)
 		{
@@ -1305,7 +1305,7 @@ gin_triconsistent_jsonb_path(PG_FUNCTION_ARGS)
 			res = execute_jsp_gin_node((JsonPathGinNode *) extra_data[0], check,
 									   true);
 
-			/* Should always recheck the result */
+			/* 应始终重新检查结果 */
 			if (res == GIN_TRUE)
 				res = GIN_MAYBE;
 		}
@@ -1317,10 +1317,10 @@ gin_triconsistent_jsonb_path(PG_FUNCTION_ARGS)
 }
 
 /*
- * Construct a jsonb_ops GIN key from a flag byte and a textual representation
- * (which need not be null-terminated).  This function is responsible
- * for hashing overlength text representations; it will add the
- * JGINFLAG_HASHED bit to the flag value if it does that.
+ * 由标志字节与文本表示构造 jsonb_ops GIN 键
+ * (不必 NUL 结尾)。本函数负责对超长文本表示
+ * 做哈希;若如此则把 JGINFLAG_HASHED 位加进
+ * 标志值上。
  */
 static Datum
 make_text_key(char flag, const char *str, int len)
@@ -1340,9 +1340,9 @@ make_text_key(char flag, const char *str, int len)
 	}
 
 	/*
-	 * Now build the text Datum.  For simplicity we build a 4-byte-header
-	 * varlena text Datum here, but we expect it will get converted to short
-	 * header format when stored in the index.
+	 * 现构造 text Datum。为简便此处建 4 字节头
+	 * 的 varlena Datum,但期望存入索引时转成短
+	 * 头格式。
 	 */
 	item = (text *) palloc(VARHDRSZ + len + 1);
 	SET_VARSIZE(item, VARHDRSZ + len + 1);
@@ -1355,10 +1355,10 @@ make_text_key(char flag, const char *str, int len)
 }
 
 /*
- * Create a textual representation of a JsonbValue that will serve as a GIN
- * key in a jsonb_ops index.  is_key is true if the JsonbValue is a key,
- * or if it is a string array element (since we pretend those are keys,
- * see jsonb.h).
+ * 为 JsonbValue 建文本表示,作 jsonb_ops 索引中
+ * 的 GIN 键。若它是键,或是字符串数组元素
+ * (因假装那些是键,见 jsonb.h),则 is_key 为
+ * 真。
  */
 static Datum
 make_scalar_key(const JsonbValue *scalarVal, bool is_key)
@@ -1381,14 +1381,14 @@ make_scalar_key(const JsonbValue *scalarVal, bool is_key)
 			Assert(!is_key);
 
 			/*
-			 * A normalized textual representation, free of trailing zeroes,
-			 * is required so that numerically equal values will produce equal
-			 * strings.
+			 * 需无尾随零的规范化文本表示,使数值相等
+			 * 的值产生相等的字符串。
 			 *
-			 * It isn't ideal that numerics are stored in a relatively bulky
-			 * textual format.  However, it's a notationally convenient way of
-			 * storing a "union" type in the GIN B-Tree, and indexing Jsonb
-			 * strings takes precedence.
+			 *
+			 * 数值以较臃肿文本格式存放并不理想。但
+			 * 这是在 GIN B-Tree 中存 "union" 类型的记法上
+			 * 方便的方式,且索引 Jsonb 字符串优先。
+			 *
 			 */
 			cstr = numeric_normalize(scalarVal->val.numeric);
 			item = make_text_key(JGINFLAG_NUM, cstr, strlen(cstr));
@@ -1401,7 +1401,7 @@ make_scalar_key(const JsonbValue *scalarVal, bool is_key)
 			break;
 		default:
 			elog(ERROR, "unrecognized jsonb scalar type: %d", scalarVal->type);
-			item = 0;			/* keep compiler quiet */
+			item = 0;			/* 让编译器安静 */
 			break;
 	}
 

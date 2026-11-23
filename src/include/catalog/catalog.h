@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * catalog.h
- *	  prototypes for functions in backend/catalog/catalog.c
+ *	  backend/catalog/catalog.c 中函数的原型
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

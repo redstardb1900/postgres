@@ -1,0 +1,163 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0604",
+ "title": "include 余件横幅短注 — batch 0604",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "2dbcc44cd683bcc549f01d5ef2c331831e105da2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/catalog/binary_upgrade.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/include/catalog/catalog.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/include/replication/decode.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/include/replication/logicallauncher.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/include/replication/logicalworker.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/include/executor/execAsync.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/include/port/win32ntdll.h",
+   "kind": "c_comment",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0604-include-banners.json",
+   "kind": "manifest",
+   "note": "0604"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/catalog/binary_upgrade.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/include/catalog/catalog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/include/replication/decode.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/include/replication/logicallauncher.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/include/replication/logicalworker.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/include/executor/execAsync.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/include/port/win32ntdll.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权/路径 KEEP。"
+   ],
+   "note": "0604"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0604-include-banners.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0604"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0604"
+  }
+ ],
+ "notes": "include 余件模块行已译；SectionMemoryManager 许可区 R5 保护未触达；Form_/纯路径 stub 留后"
+}

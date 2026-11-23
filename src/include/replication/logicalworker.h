@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * logicalworker.h
- *	  Exports for logical replication workers.
+ *	  逻辑复制 worker 的导出。
  *
  * Portions Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *

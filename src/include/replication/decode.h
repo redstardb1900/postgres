@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  * decode.h
- *	   PostgreSQL WAL to logical transformation
+ *	   PostgreSQL WAL 到逻辑变换
  *
  * Portions Copyright (c) 2012-2023, PostgreSQL Global Development Group
  *

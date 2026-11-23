@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * win32ntdll.h
- *	  Dynamically loaded Windows NT functions.
+ *	  动态加载的 Windows NT 函数。
  *
  * Portions Copyright (c) 2021-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

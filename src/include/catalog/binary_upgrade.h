@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * binary_upgrade.h
- *	  variables used for binary upgrades
+ *	  二进制升级所用变量
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

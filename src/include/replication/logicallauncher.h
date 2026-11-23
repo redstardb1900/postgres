@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * logicallauncher.h
- *	  Exports for logical replication launcher.
+ *	  逻辑复制 launcher 的导出。
  *
  * Portions Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *

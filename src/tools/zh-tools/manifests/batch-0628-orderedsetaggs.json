@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0628",
+ "title": "backend/utils/adt orderedsetaggs — batch 0628",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "fb853b65a39eb7fc9115268103cdd084a624fec3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/orderedsetaggs.c",
+   "kind": "c_comment",
+   "note": "0628"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0628-orderedsetaggs.json",
+   "kind": "manifest",
+   "note": "0628"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/orderedsetaggs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION KEEP",
+    "/*---------- 数学公式块保留 K/N/percentile/ceil 等符号"
+   ],
+   "note": "0628"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0628-orderedsetaggs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0628"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0628"
+  }
+ ],
+ "notes": "orderedsetaggs.c 全文件; L75=L90 等同译; WITHIN GROUP 横幅避 halfen; 公式块保留 K/N/percentile/ceil; shutdown→关闭(P65)"
+}

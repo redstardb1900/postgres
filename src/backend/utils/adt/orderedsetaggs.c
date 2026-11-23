@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * orderedsetaggs.c
- *		Ordered-set aggregate functions.
+ *		有序集聚合函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,76 +32,76 @@
 
 
 /*
- * Generic support for ordered-set aggregates
+ * 有序集聚合的通用支持
  *
- * The state for an ordered-set aggregate is divided into a per-group struct
- * (which is the internal-type transition state datum returned to nodeAgg.c)
- * and a per-query struct, which contains data and sub-objects that we can
- * create just once per query because they will not change across groups.
- * The per-query struct and subsidiary data live in the executor's per-query
- * memory context, and go away implicitly at ExecutorEnd().
+ * 有序集聚合的状态分为每组结构(作为内部类型过渡
+ * 状态 datum 返回给 nodeAgg.c)与每查询结构;后者含
+ * 可只建一次的数据与子对象,因各组间不会变化。每查
+ * 询结构及附属数据位于执行器的每查询内存上下文,
+ * 在 ExecutorEnd() 时隐式释放。
  *
- * These structs are set up during the first call of the transition function.
- * Because we allow nodeAgg.c to merge ordered-set aggregates (but not
- * hypothetical aggregates) with identical inputs and transition functions,
- * this info must not depend on the particular aggregate (ie, particular
- * final-function), nor on the direct argument(s) of the aggregate.
+ *
+ * 这些结构在转移函数首次调用时建立。因允许
+ * nodeAgg.c 合并输入与转移函数相同的有序集聚合
+ * (但不合并假想集聚合),此信息不得依赖特定聚合
+ * (即特定最终函数),也不得依赖该聚合的直接参数。
+ *
  */
 
 typedef struct OSAPerQueryState
 {
-	/* Representative Aggref for this aggregate: */
+	/* 本聚合的代表性 Aggref: */
 	Aggref	   *aggref;
-	/* Memory context containing this struct and other per-query data: */
+	/* 含本结构及其他每查询数据的内存上下文: */
 	MemoryContext qcontext;
-	/* Context for expression evaluation */
+	/* 表达式求值上下文 */
 	ExprContext *econtext;
-	/* Do we expect multiple final-function calls within one group? */
+	/* 是否预期一组内多次调用最终函数? */
 	bool		rescan_needed;
 
-	/* These fields are used only when accumulating tuples: */
+	/* 以下字段仅在累积元组时使用: */
 
-	/* Tuple descriptor for tuples inserted into sortstate: */
+	/* 插入 sortstate 的元组的元组描述符: */
 	TupleDesc	tupdesc;
-	/* Tuple slot we can use for inserting/extracting tuples: */
+	/* 用于插入/取出元组的元组槽: */
 	TupleTableSlot *tupslot;
-	/* Per-sort-column sorting information */
+	/* 各排序列的排序信息 */
 	int			numSortCols;
 	AttrNumber *sortColIdx;
 	Oid		   *sortOperators;
 	Oid		   *eqOperators;
 	Oid		   *sortCollations;
 	bool	   *sortNullsFirsts;
-	/* Equality operator call info, created only if needed: */
+	/* 相等操作符调用信息,仅在需要时创建: */
 	ExprState  *compareTuple;
 
-	/* These fields are used only when accumulating datums: */
+	/* 以下字段仅在累积 datum 时使用: */
 
-	/* Info about datatype of datums being sorted: */
+	/* 被排序 datum 的数据类型信息: */
 	Oid			sortColType;
 	int16		typLen;
 	bool		typByVal;
 	char		typAlign;
-	/* Info about sort ordering: */
+	/* 排序次序信息: */
 	Oid			sortOperator;
 	Oid			eqOperator;
 	Oid			sortCollation;
 	bool		sortNullsFirst;
-	/* Equality operator call info, created only if needed: */
+	/* 相等操作符调用信息,仅在需要时创建: */
 	FmgrInfo	equalfn;
 } OSAPerQueryState;
 
 typedef struct OSAPerGroupState
 {
-	/* Link to the per-query state for this aggregate: */
+	/* 链到本聚合的每查询状态: */
 	OSAPerQueryState *qstate;
-	/* Memory context containing per-group data: */
+	/* 含每组数据的内存上下文: */
 	MemoryContext gcontext;
-	/* Sort object we're accumulating data in: */
+	/* 正在累积数据的排序对象: */
 	Tuplesortstate *sortstate;
-	/* Number of normal rows inserted into sortstate: */
+	/* 已插入 sortstate 的普通行数: */
 	int64		number_of_rows;
-	/* Have we already done tuplesort_performsort? */
+	/* 是否已做过 tuplesort_performsort? */
 	bool		sort_done;
 } OSAPerGroupState;
 
@@ -109,7 +109,7 @@ static void ordered_set_shutdown(Datum arg);
 
 
 /*
- * Set up working state for an ordered-set aggregate
+ * 为有序集聚合建立工作状态
  */
 static OSAPerGroupState *
 ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
@@ -121,16 +121,16 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 	int			tuplesortopt;
 
 	/*
-	 * Check we're called as aggregate (and not a window function), and get
-	 * the Agg node's group-lifespan context (which might change from group to
-	 * group, so we shouldn't cache it in the per-query state).
+	 * 确认按聚合调用(而非窗口函数),并取得 Agg 节点
+	 * 的组寿命上下文(可能随组变化,故不应缓存在每
+	 * 查询状态中)。
 	 */
 	if (AggCheckCallContext(fcinfo, &gcontext) != AGG_CONTEXT_AGGREGATE)
 		elog(ERROR, "ordered-set aggregate called in non-aggregate context");
 
 	/*
-	 * We keep a link to the per-query state in fn_extra; if it's not there,
-	 * create it, and do the per-query setup we need.
+	 * 在 fn_extra 中保留到每查询状态的链接;若尚无则
+	 * 创建它,并做所需的每查询设置。
 	 */
 	qstate = (OSAPerQueryState *) fcinfo->flinfo->fn_extra;
 	if (qstate == NULL)
@@ -140,7 +140,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 		List	   *sortlist;
 		int			numSortCols;
 
-		/* Get the Aggref so we can examine aggregate's arguments */
+		/* 取 Aggref 以便检查聚合的参数 */
 		aggref = AggGetAggref(fcinfo);
 		if (!aggref)
 			elog(ERROR, "ordered-set aggregate called in non-aggregate context");
@@ -148,9 +148,9 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 			elog(ERROR, "ordered-set aggregate support function called for non-ordered-set aggregate");
 
 		/*
-		 * Prepare per-query structures in the fn_mcxt, which we assume is the
-		 * executor's per-query context; in any case it's the right place to
-		 * keep anything found via fn_extra.
+		 * 在 fn_mcxt 中准备每查询结构;假定它是执行器的
+		 * 每查询上下文;无论如何都是存放经 fn_extra 找到
+		 * 之物的合适位置。
 		 */
 		qcontext = fcinfo->flinfo->fn_mcxt;
 		oldcontext = MemoryContextSwitchTo(qcontext);
@@ -159,10 +159,10 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 		qstate->aggref = aggref;
 		qstate->qcontext = qcontext;
 
-		/* We need to support rescans if the trans state is shared */
+		/* 过渡状态共享时须支持重扫 */
 		qstate->rescan_needed = AggStateIsShared(fcinfo);
 
-		/* Extract the sort information */
+		/* 提取排序信息 */
 		sortlist = aggref->aggorder;
 		numSortCols = list_length(sortlist);
 
@@ -173,7 +173,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 			int			i;
 
 			if (ishypothetical)
-				numSortCols++;	/* make space for flag column */
+				numSortCols++;	/* 为标志列腾出空间 */
 			qstate->numSortCols = numSortCols;
 			qstate->sortColIdx = (AttrNumber *) palloc(numSortCols * sizeof(AttrNumber));
 			qstate->sortOperators = (Oid *) palloc(numSortCols * sizeof(Oid));
@@ -188,7 +188,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 				TargetEntry *tle = get_sortgroupclause_tle(sortcl,
 														   aggref->args);
 
-				/* the parser should have made sure of this */
+				/* 解析器应已保证这一点 */
 				Assert(OidIsValid(sortcl->sortop));
 
 				qstate->sortColIdx[i] = tle->resno;
@@ -201,7 +201,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 
 			if (ishypothetical)
 			{
-				/* Add an integer flag column as the last sort column */
+				/* 追加整型标志列作为最后排序列 */
 				qstate->sortColIdx[i] = list_length(aggref->args) + 1;
 				qstate->sortOperators[i] = Int4LessOperator;
 				qstate->eqOperators[i] = Int4EqualOperator;
@@ -213,12 +213,12 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 			Assert(i == numSortCols);
 
 			/*
-			 * Get a tupledesc corresponding to the aggregated inputs
-			 * (including sort expressions) of the agg.
+			 * 取得对应聚合输入(含排序表达式)的
+			 * tupledesc。
 			 */
 			qstate->tupdesc = ExecTypeFromTL(aggref->args);
 
-			/* If we need a flag column, hack the tupledesc to include that */
+			/* 若需要标志列,改 tupledesc 以包含它 */
 			if (ishypothetical)
 			{
 				TupleDesc	newdesc;
@@ -239,13 +239,13 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 				qstate->tupdesc = newdesc;
 			}
 
-			/* Create slot we'll use to store/retrieve rows */
+			/* 创建用于存取行的槽 */
 			qstate->tupslot = MakeSingleTupleTableSlot(qstate->tupdesc,
 													   &TTSOpsMinimalTuple);
 		}
 		else
 		{
-			/* Sort single datums */
+			/* 排序单值 */
 			SortGroupClause *sortcl;
 			TargetEntry *tle;
 
@@ -255,17 +255,17 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 			sortcl = (SortGroupClause *) linitial(sortlist);
 			tle = get_sortgroupclause_tle(sortcl, aggref->args);
 
-			/* the parser should have made sure of this */
+			/* 解析器应已保证这一点 */
 			Assert(OidIsValid(sortcl->sortop));
 
-			/* Save sort ordering info */
+			/* 保存排序信息 */
 			qstate->sortColType = exprType((Node *) tle->expr);
 			qstate->sortOperator = sortcl->sortop;
 			qstate->eqOperator = sortcl->eqop;
 			qstate->sortCollation = exprCollation((Node *) tle->expr);
 			qstate->sortNullsFirst = sortcl->nulls_first;
 
-			/* Save datatype info */
+			/* 保存类型信息 */
 			get_typlenbyvalalign(qstate->sortColType,
 								 &qstate->typLen,
 								 &qstate->typByVal,
@@ -277,7 +277,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* Now build the stuff we need in group-lifespan context */
+	/* 在组寿命上下文中构建所需对象 */
 	oldcontext = MemoryContextSwitchTo(gcontext);
 
 	osastate = (OSAPerGroupState *) palloc(sizeof(OSAPerGroupState));
@@ -290,7 +290,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 		tuplesortopt |= TUPLESORT_RANDOMACCESS;
 
 	/*
-	 * Initialize tuplesort object.
+	 * 初始化 tuplesort 对象
 	 */
 	if (use_tuples)
 		osastate->sortstate = tuplesort_begin_heap(qstate->tupdesc,
@@ -314,7 +314,7 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 	osastate->number_of_rows = 0;
 	osastate->sort_done = false;
 
-	/* Now register a shutdown callback to clean things up at end of group */
+	/* 注册关闭回调,在组结束时清理 */
 	AggRegisterCallback(fcinfo,
 						ordered_set_shutdown,
 						PointerGetDatum(osastate));
@@ -325,49 +325,49 @@ ordered_set_startup(FunctionCallInfo fcinfo, bool use_tuples)
 }
 
 /*
- * Clean up when evaluation of an ordered-set aggregate is complete.
+ * 有序集聚合求值完成时清理。
  *
- * We don't need to bother freeing objects in the per-group memory context,
- * since that will get reset anyway by nodeAgg.c; nor should we free anything
- * in the per-query context, which will get cleared (if this was the last
- * group) by ExecutorEnd.  But we must take care to release any potential
- * non-memory resources.
+ * 不必费心释放每组内存上下文中的对象,nodeAgg.c
+ * 反正会复位;也不应释放每查询上下文中的任何东
+ * 西,ExecutorEnd 会在(若为本最后一组时)清掉它。
+ * 但必须留意释放任何潜在的非内存资源。
  *
- * In the case where we're not expecting multiple finalfn calls, we could
- * arguably rely on the finalfn to clean up; but it's easier and more testable
- * if we just do it the same way in either case.
+ *
+ * 若不预期多次 finalfn 调用,或可指望 finalfn 自
+ * 行清理;但两种情形用同一方式更简单也更易测。
+ *
  */
 static void
 ordered_set_shutdown(Datum arg)
 {
 	OSAPerGroupState *osastate = (OSAPerGroupState *) DatumGetPointer(arg);
 
-	/* Tuplesort object might have temp files. */
+	/* Tuplesort 或有临时文件。 */
 	if (osastate->sortstate)
 		tuplesort_end(osastate->sortstate);
 	osastate->sortstate = NULL;
-	/* The tupleslot probably can't be holding a pin, but let's be safe. */
+	/* tupleslot 大概未持有 pin,但为安全起见仍处理。 */
 	if (osastate->qstate->tupslot)
 		ExecClearTuple(osastate->qstate->tupslot);
 }
 
 
 /*
- * Generic transition function for ordered-set aggregates
- * with a single input column in which we want to suppress nulls
+ * 有序集聚合的通用转移函数
+ * 用于单输入列且要抑制空值的情形
  */
 Datum
 ordered_set_transition(PG_FUNCTION_ARGS)
 {
 	OSAPerGroupState *osastate;
 
-	/* If first call, create the transition state workspace */
+	/* 若为首次调用,创建过渡状态工作区 */
 	if (PG_ARGISNULL(0))
 		osastate = ordered_set_startup(fcinfo, false);
 	else
 		osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* Load the datum into the tuplesort object, but only if it's not null */
+	/* 仅当非空时把 datum 载入 tuplesort 对象 */
 	if (!PG_ARGISNULL(1))
 	{
 		tuplesort_putdatum(osastate->sortstate, PG_GETARG_DATUM(1), false);
@@ -378,8 +378,8 @@ ordered_set_transition(PG_FUNCTION_ARGS)
 }
 
 /*
- * Generic transition function for ordered-set aggregates
- * with (potentially) multiple aggregated input columns
+ * 有序集聚合的通用转移函数
+ * 用于(可能)有多列聚合输入的情形
  */
 Datum
 ordered_set_transition_multi(PG_FUNCTION_ARGS)
@@ -389,13 +389,13 @@ ordered_set_transition_multi(PG_FUNCTION_ARGS)
 	int			nargs;
 	int			i;
 
-	/* If first call, create the transition state workspace */
+	/* 若为首次调用,创建过渡状态工作区 */
 	if (PG_ARGISNULL(0))
 		osastate = ordered_set_startup(fcinfo, true);
 	else
 		osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* Form a tuple from all the other inputs besides the transition value */
+	/* 由过渡值以外的其余输入组成元组 */
 	slot = osastate->qstate->tupslot;
 	ExecClearTuple(slot);
 	nargs = PG_NARGS() - 1;
@@ -406,7 +406,7 @@ ordered_set_transition_multi(PG_FUNCTION_ARGS)
 	}
 	if (osastate->qstate->aggref->aggkind == AGGKIND_HYPOTHETICAL)
 	{
-		/* Add a zero flag value to mark this row as a normal input row */
+		/* 加零标志值,标此行为普通输入行 */
 		slot->tts_values[i] = Int32GetDatum(0);
 		slot->tts_isnull[i] = false;
 		i++;
@@ -414,7 +414,7 @@ ordered_set_transition_multi(PG_FUNCTION_ARGS)
 	Assert(i == slot->tts_tupleDescriptor->natts);
 	ExecStoreVirtualTuple(slot);
 
-	/* Load the row into the tuplesort object */
+	/* 把该行载入 tuplesort 对象 */
 	tuplesort_puttupleslot(osastate->sortstate, slot);
 	osastate->number_of_rows++;
 
@@ -423,7 +423,7 @@ ordered_set_transition_multi(PG_FUNCTION_ARGS)
 
 
 /*
- * percentile_disc(float8) within group(anyelement) - discrete percentile
+ * percentile_disc(float8) WITHIN GROUP (anyelement) - 离散百分位数
  */
 Datum
 percentile_disc_final(PG_FUNCTION_ARGS)
@@ -436,7 +436,7 @@ percentile_disc_final(PG_FUNCTION_ARGS)
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* Get and check the percentile argument */
+	/* 取得并检查百分位参数 */
 	if (PG_ARGISNULL(1))
 		PG_RETURN_NULL();
 
@@ -448,17 +448,17 @@ percentile_disc_final(PG_FUNCTION_ARGS)
 				 errmsg("percentile value %g is not between 0 and 1",
 						percentile)));
 
-	/* If there were no regular rows, the result is NULL */
+	/* 若无普通行,结果为 NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
 	osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* number_of_rows could be zero if we only saw NULL input values */
+	/* 若只见过 NULL 输入,number_of_rows 可能为 0 */
 	if (osastate->number_of_rows == 0)
 		PG_RETURN_NULL();
 
-	/* Finish the sort, or rescan if we already did */
+	/* 完成排序,或若已做过则重扫 */
 	if (!osastate->sort_done)
 	{
 		tuplesort_performsort(osastate->sortstate);
@@ -468,9 +468,9 @@ percentile_disc_final(PG_FUNCTION_ARGS)
 		tuplesort_rescan(osastate->sortstate);
 
 	/*----------
-	 * We need the smallest K such that (K/N) >= percentile.
-	 * N>0, therefore K >= N*percentile, therefore K = ceil(N*percentile).
-	 * So we skip K-1 rows (if K>0) and return the next row fetched.
+	 * 求满足 (K/N) >= percentile 的最小 K。
+	 * N>0,故 K >= N*percentile,故 K = ceil(N*percentile)。
+	 * 因此跳过 K-1 行(若 K>0)并返回接着取出的行。
 	 *----------
 	 */
 	rownum = (int64) ceil(percentile * osastate->number_of_rows);
@@ -486,7 +486,7 @@ percentile_disc_final(PG_FUNCTION_ARGS)
 							NULL))
 		elog(ERROR, "missing row in percentile_disc");
 
-	/* We shouldn't have stored any nulls, but do the right thing anyway */
+	/* 本不应存过空值,但仍做正确处理 */
 	if (isnull)
 		PG_RETURN_NULL();
 	else
@@ -495,9 +495,9 @@ percentile_disc_final(PG_FUNCTION_ARGS)
 
 
 /*
- * For percentile_cont, we need a way to interpolate between consecutive
- * values. Use a helper function for that, so that we can share the rest
- * of the code between types.
+ * percentile_cont 需在相邻值之间插值。用辅助函数
+ * 完成,以便其余代码可在各类型间共享。
+ *
  */
 typedef Datum (*LerpFunc) (Datum lo, Datum hi, double pct);
 
@@ -522,7 +522,7 @@ interval_lerp(Datum lo, Datum hi, double pct)
 }
 
 /*
- * Continuous percentile
+ * 连续百分位数
  */
 static Datum
 percentile_cont_final_common(FunctionCallInfo fcinfo,
@@ -541,7 +541,7 @@ percentile_cont_final_common(FunctionCallInfo fcinfo,
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* Get and check the percentile argument */
+	/* 取得并检查百分位参数 */
 	if (PG_ARGISNULL(1))
 		PG_RETURN_NULL();
 
@@ -553,19 +553,19 @@ percentile_cont_final_common(FunctionCallInfo fcinfo,
 				 errmsg("percentile value %g is not between 0 and 1",
 						percentile)));
 
-	/* If there were no regular rows, the result is NULL */
+	/* 若无普通行,结果为 NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
 	osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* number_of_rows could be zero if we only saw NULL input values */
+	/* 若只见过 NULL 输入,number_of_rows 可能为 0 */
 	if (osastate->number_of_rows == 0)
 		PG_RETURN_NULL();
 
 	Assert(expect_type == osastate->qstate->sortColType);
 
-	/* Finish the sort, or rescan if we already did */
+	/* 完成排序,或若已做过则重扫 */
 	if (!osastate->sort_done)
 	{
 		tuplesort_performsort(osastate->sortstate);
@@ -609,7 +609,7 @@ percentile_cont_final_common(FunctionCallInfo fcinfo,
 }
 
 /*
- * percentile_cont(float8) within group (float8)	- continuous percentile
+ * percentile_cont(float8) WITHIN GROUP (float8) - 连续百分位数
  */
 Datum
 percentile_cont_float8_final(PG_FUNCTION_ARGS)
@@ -618,7 +618,7 @@ percentile_cont_float8_final(PG_FUNCTION_ARGS)
 }
 
 /*
- * percentile_cont(float8) within group (interval)	- continuous percentile
+ * percentile_cont(float8) WITHIN GROUP (interval) - 连续百分位数
  */
 Datum
 percentile_cont_interval_final(PG_FUNCTION_ARGS)
@@ -628,21 +628,21 @@ percentile_cont_interval_final(PG_FUNCTION_ARGS)
 
 
 /*
- * Support code for handling arrays of percentiles
+ * 处理百分位点数组的支持代码
  *
- * Note: in each pct_info entry, second_row should be equal to or
- * exactly one more than first_row.
+ * 注意:各 pct_info 项中,second_row 应等于或恰好比
+ * first_row 多 1。
  */
 struct pct_info
 {
-	int64		first_row;		/* first row to sample */
-	int64		second_row;		/* possible second row to sample */
-	double		proportion;		/* interpolation fraction */
-	int			idx;			/* index of this item in original array */
+	int64		first_row;		/* 要采样的首行 */
+	int64		second_row;		/* 可能的第二采样行 */
+	double		proportion;		/* 插值比例 */
+	int			idx;			/* 本项在原数组中的下标 */
 };
 
 /*
- * Sort comparator to sort pct_infos by first_row then second_row
+ * 按 first_row 再 second_row 排序 pct_infos 的比较器
  */
 static int
 pct_info_cmp(const void *pa, const void *pb)
@@ -658,7 +658,7 @@ pct_info_cmp(const void *pa, const void *pb)
 }
 
 /*
- * Construct array showing which rows to sample for percentiles.
+ * 构造数组,标明百分位点要采样哪些行。
  */
 static struct pct_info *
 setup_pct_info(int num_percentiles,
@@ -678,7 +678,7 @@ setup_pct_info(int num_percentiles,
 
 		if (percentiles_null[i])
 		{
-			/* dummy entry for any NULL in array */
+			/* 数组中任一 NULL 的哑项 */
 			pct_info[i].first_row = 0;
 			pct_info[i].second_row = 0;
 			pct_info[i].proportion = 0;
@@ -702,9 +702,9 @@ setup_pct_info(int num_percentiles,
 			else
 			{
 				/*----------
-				 * We need the smallest K such that (K/N) >= percentile.
-				 * N>0, therefore K >= N*percentile, therefore
-				 * K = ceil(N*percentile); but not less than 1.
+				 * 求满足 (K/N) >= percentile 的最小 K。
+				 * N>0,故 K >= N*percentile,故
+				 * K = ceil(N*percentile);且不小于 1。
 				 *----------
 				 */
 				int64		row = (int64) ceil(p * rowcount);
@@ -718,8 +718,8 @@ setup_pct_info(int num_percentiles,
 	}
 
 	/*
-	 * The parameter array wasn't necessarily in sorted order, but we need to
-	 * visit the rows in order, so sort by first_row/second_row.
+	 * 参数数组未必有序,但须按行序访问,故按
+	 * first_row/second_row 排序。
 	 */
 	qsort(pct_info, num_percentiles, sizeof(struct pct_info), pct_info_cmp);
 
@@ -727,7 +727,7 @@ setup_pct_info(int num_percentiles,
 }
 
 /*
- * percentile_disc(float8[]) within group (anyelement)	- discrete percentiles
+ * percentile_disc(float8[]) WITHIN GROUP (anyelement) - 离散百分位点
  */
 Datum
 percentile_disc_multi_final(PG_FUNCTION_ARGS)
@@ -747,17 +747,17 @@ percentile_disc_multi_final(PG_FUNCTION_ARGS)
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* If there were no regular rows, the result is NULL */
+	/* 若无普通行,结果为 NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
 	osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* number_of_rows could be zero if we only saw NULL input values */
+	/* 若只见过 NULL 输入,number_of_rows 可能为 0 */
 	if (osastate->number_of_rows == 0)
 		PG_RETURN_NULL();
 
-	/* Deconstruct the percentile-array input */
+	/* 解构百分位数组输入 */
 	if (PG_ARGISNULL(1))
 		PG_RETURN_NULL();
 	param = PG_GETARG_ARRAYTYPE_P(1);
@@ -780,8 +780,8 @@ percentile_disc_multi_final(PG_FUNCTION_ARGS)
 	result_isnull = (bool *) palloc(num_percentiles * sizeof(bool));
 
 	/*
-	 * Start by dealing with any nulls in the param array - those are sorted
-	 * to the front on row=0, so set the corresponding result indexes to null
+	 * 先处理参数数组中的空值—它们按 row=0 排到前
+	 * 面,故把对应结果下标置为空
 	 */
 	for (i = 0; i < num_percentiles; i++)
 	{
@@ -795,12 +795,12 @@ percentile_disc_multi_final(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If there's anything left after doing the nulls, then grind the input
-	 * and extract the needed values
+	 * 处理完空值后若还有剩余,则研磨输入并提取
+	 * 所需值
 	 */
 	if (i < num_percentiles)
 	{
-		/* Finish the sort, or rescan if we already did */
+		/* 完成排序,或若已做过则重扫 */
 		if (!osastate->sort_done)
 		{
 			tuplesort_performsort(osastate->sortstate);
@@ -814,7 +814,7 @@ percentile_disc_multi_final(PG_FUNCTION_ARGS)
 			int64		target_row = pct_info[i].first_row;
 			int			idx = pct_info[i].idx;
 
-			/* Advance to target row, if not already there */
+			/* 推进到目标行(若尚未到达) */
 			if (target_row > rownum)
 			{
 				if (!tuplesort_skiptuples(osastate->sortstate, target_row - rownum - 1, true))
@@ -832,7 +832,7 @@ percentile_disc_multi_final(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* We make the output array the same shape as the input */
+	/* 使输出数组与输入同形 */
 	PG_RETURN_POINTER(construct_md_array(result_datum, result_isnull,
 										 ARR_NDIM(param),
 										 ARR_DIMS(param),
@@ -844,7 +844,7 @@ percentile_disc_multi_final(PG_FUNCTION_ARGS)
 }
 
 /*
- * percentile_cont(float8[]) within group ()	- continuous percentiles
+ * percentile_cont(float8[]) WITHIN GROUP () - 连续百分位点
  */
 static Datum
 percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
@@ -868,19 +868,19 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* If there were no regular rows, the result is NULL */
+	/* 若无普通行,结果为 NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
 	osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* number_of_rows could be zero if we only saw NULL input values */
+	/* 若只见过 NULL 输入,number_of_rows 可能为 0 */
 	if (osastate->number_of_rows == 0)
 		PG_RETURN_NULL();
 
 	Assert(expect_type == osastate->qstate->sortColType);
 
-	/* Deconstruct the percentile-array input */
+	/* 解构百分位数组输入 */
 	if (PG_ARGISNULL(1))
 		PG_RETURN_NULL();
 	param = PG_GETARG_ARRAYTYPE_P(1);
@@ -903,8 +903,8 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 	result_isnull = (bool *) palloc(num_percentiles * sizeof(bool));
 
 	/*
-	 * Start by dealing with any nulls in the param array - those are sorted
-	 * to the front on row=0, so set the corresponding result indexes to null
+	 * 先处理参数数组中的空值—它们按 row=0 排到前
+	 * 面,故把对应结果下标置为空
 	 */
 	for (i = 0; i < num_percentiles; i++)
 	{
@@ -918,12 +918,12 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 	}
 
 	/*
-	 * If there's anything left after doing the nulls, then grind the input
-	 * and extract the needed values
+	 * 处理完空值后若还有剩余,则研磨输入并提取
+	 * 所需值
 	 */
 	if (i < num_percentiles)
 	{
-		/* Finish the sort, or rescan if we already did */
+		/* 完成排序,或若已做过则重扫 */
 		if (!osastate->sort_done)
 		{
 			tuplesort_performsort(osastate->sortstate);
@@ -939,10 +939,10 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 			int			idx = pct_info[i].idx;
 
 			/*
-			 * Advance to first_row, if not already there.  Note that we might
-			 * already have rownum beyond first_row, in which case first_val
-			 * is already correct.  (This occurs when interpolating between
-			 * the same two input rows as for the previous percentile.)
+			 * 推进到 first_row(若尚未到达)。注意 rownum
+			 * 可能已超过 first_row,此时 first_val 已正确。
+			 * (与上一百分位点相同的两输入行之间插值时
+			 * 会发生。)
 			 */
 			if (first_row > rownum)
 			{
@@ -954,20 +954,20 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 					elog(ERROR, "missing row in percentile_cont");
 
 				rownum = first_row;
-				/* Always advance second_val to be latest input value */
+				/* 始终推进 second_val 为最新输入值 */
 				second_val = first_val;
 			}
 			else if (first_row == rownum)
 			{
 				/*
-				 * We are already at the desired row, so we must previously
-				 * have read its value into second_val (and perhaps first_val
-				 * as well, but this assignment is harmless in that case).
+				 * 已在目标行,故先前必已把其值读入
+				 * second_val(或许也读入 first_val,但赋值无妨)。
+				 * 
 				 */
 				first_val = second_val;
 			}
 
-			/* Fetch second_row if needed */
+			/* 若需要则取 second_row */
 			if (second_row > rownum)
 			{
 				if (!tuplesort_getdatum(osastate->sortstate, true, true,
@@ -975,10 +975,10 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 					elog(ERROR, "missing row in percentile_cont");
 				rownum++;
 			}
-			/* We should now certainly be on second_row exactly */
+			/* 此时应正好位于 second_row */
 			Assert(second_row == rownum);
 
-			/* Compute appropriate result */
+			/* 计算适当结果 */
 			if (second_row > first_row)
 				result_datum[idx] = lerpfunc(first_val, second_val,
 											 pct_info[i].proportion);
@@ -989,7 +989,7 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 		}
 	}
 
-	/* We make the output array the same shape as the input */
+	/* 使输出数组与输入同形 */
 	PG_RETURN_POINTER(construct_md_array(result_datum, result_isnull,
 										 ARR_NDIM(param),
 										 ARR_DIMS(param), ARR_LBOUND(param),
@@ -1000,14 +1000,14 @@ percentile_cont_multi_final_common(FunctionCallInfo fcinfo,
 }
 
 /*
- * percentile_cont(float8[]) within group (float8)	- continuous percentiles
+ * percentile_cont(float8[]) WITHIN GROUP (float8) - 连续百分位点
  */
 Datum
 percentile_cont_float8_multi_final(PG_FUNCTION_ARGS)
 {
 	return percentile_cont_multi_final_common(fcinfo,
 											  FLOAT8OID,
-	/* hard-wired info on type float8 */
+	/* float8 类型硬接线信息 */
 											  sizeof(float8),
 											  FLOAT8PASSBYVAL,
 											  TYPALIGN_DOUBLE,
@@ -1015,21 +1015,21 @@ percentile_cont_float8_multi_final(PG_FUNCTION_ARGS)
 }
 
 /*
- * percentile_cont(float8[]) within group (interval)  - continuous percentiles
+ * percentile_cont(float8[]) WITHIN GROUP (interval) - 连续百分位点
  */
 Datum
 percentile_cont_interval_multi_final(PG_FUNCTION_ARGS)
 {
 	return percentile_cont_multi_final_common(fcinfo,
 											  INTERVALOID,
-	/* hard-wired info on type interval */
+	/* interval 类型硬接线信息 */
 											  16, false, TYPALIGN_DOUBLE,
 											  interval_lerp);
 }
 
 
 /*
- * mode() within group (anyelement) - most common value
+ * mode() WITHIN GROUP (anyelement) - 众数
  */
 Datum
 mode_final(PG_FUNCTION_ARGS)
@@ -1049,17 +1049,17 @@ mode_final(PG_FUNCTION_ARGS)
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* If there were no regular rows, the result is NULL */
+	/* 若无普通行,结果为 NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
 	osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 
-	/* number_of_rows could be zero if we only saw NULL input values */
+	/* 若只见过 NULL 输入,number_of_rows 可能为 0 */
 	if (osastate->number_of_rows == 0)
 		PG_RETURN_NULL();
 
-	/* Look up the equality function for the datatype, if we didn't already */
+	/* 若尚未查找,则查找该数据类型的相等函数 */
 	equalfn = &(osastate->qstate->equalfn);
 	if (!OidIsValid(equalfn->fn_oid))
 		fmgr_info_cxt(get_opcode(osastate->qstate->eqOperator), equalfn,
@@ -1067,7 +1067,7 @@ mode_final(PG_FUNCTION_ARGS)
 
 	shouldfree = !(osastate->qstate->typByVal);
 
-	/* Finish the sort, or rescan if we already did */
+	/* 完成排序,或若已做过则重扫 */
 	if (!osastate->sort_done)
 	{
 		tuplesort_performsort(osastate->sortstate);
@@ -1076,17 +1076,17 @@ mode_final(PG_FUNCTION_ARGS)
 	else
 		tuplesort_rescan(osastate->sortstate);
 
-	/* Scan tuples and count frequencies */
+	/* 扫描元组并计频率 */
 	while (tuplesort_getdatum(osastate->sortstate, true, true, &val, &isnull,
 							  &abbrev_val))
 	{
-		/* we don't expect any nulls, but ignore them if found */
+		/* 不预期有空值,但若有则忽略 */
 		if (isnull)
 			continue;
 
 		if (last_val_freq == 0)
 		{
-			/* first nonnull value - it's the mode for now */
+			/* 首个非空值—暂为众数 */
 			mode_val = last_val = val;
 			mode_freq = last_val_freq = 1;
 			last_val_is_mode = true;
@@ -1095,12 +1095,12 @@ mode_final(PG_FUNCTION_ARGS)
 		else if (abbrev_val == last_abbrev_val &&
 				 DatumGetBool(FunctionCall2Coll(equalfn, PG_GET_COLLATION(), val, last_val)))
 		{
-			/* value equal to previous value, count it */
+			/* 值等于前值,计入 */
 			if (last_val_is_mode)
-				mode_freq++;	/* needn't maintain last_val_freq */
+				mode_freq++;	/* 不必维护 last_val_freq */
 			else if (++last_val_freq > mode_freq)
 			{
-				/* last_val becomes new mode */
+				/* last_val 成为新众数 */
 				if (shouldfree)
 					pfree(DatumGetPointer(mode_val));
 				mode_val = last_val;
@@ -1112,11 +1112,11 @@ mode_final(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* val should replace last_val */
+			/* val 应替换 last_val */
 			if (shouldfree && !last_val_is_mode)
 				pfree(DatumGetPointer(last_val));
 			last_val = val;
-			/* avoid equality function calls by reusing abbreviated keys */
+			/* 复用缩写键以避免相等函数调用 */
 			last_abbrev_val = abbrev_val;
 			last_val_freq = 1;
 			last_val_is_mode = false;
@@ -1136,9 +1136,9 @@ mode_final(PG_FUNCTION_ARGS)
 
 
 /*
- * Common code to sanity-check args for hypothetical-set functions. No need
- * for friendly errors, these can only happen if someone's messing up the
- * aggregate definitions. The checks are needed for security, however.
+ * 假想集函数参数合理性检查的共用代码。无需友
+ * 好报错,仅当有人弄乱聚合定义时才会发生。但
+ * 检查仍为安全所需。
  */
 static void
 hypothetical_check_argtypes(FunctionCallInfo fcinfo, int nargs,
@@ -1146,13 +1146,13 @@ hypothetical_check_argtypes(FunctionCallInfo fcinfo, int nargs,
 {
 	int			i;
 
-	/* check that we have an int4 flag column */
+	/* 检查确有 int4 标志列 */
 	if (!tupdesc ||
 		(nargs + 1) != tupdesc->natts ||
 		TupleDescAttr(tupdesc, nargs)->atttypid != INT4OID)
 		elog(ERROR, "type mismatch in hypothetical-set function");
 
-	/* check that direct args match in type with aggregated args */
+	/* 检查直接参数与聚合参数类型匹配 */
 	for (i = 0; i < nargs; i++)
 	{
 		Form_pg_attribute attr = TupleDescAttr(tupdesc, i);
@@ -1163,11 +1163,11 @@ hypothetical_check_argtypes(FunctionCallInfo fcinfo, int nargs,
 }
 
 /*
- * compute rank of hypothetical row
+ * 计算假想行的秩
  *
- * flag should be -1 to sort hypothetical row ahead of its peers, or +1
- * to sort behind.
- * total number of regular rows is returned into *number_of_rows.
+ * flag 为 -1 时假想行排在同侪之前,+1 时
+ * 排到后面。
+ * 普通行总数经 *number_of_rows 返回。
  */
 static int64
 hypothetical_rank_common(FunctionCallInfo fcinfo, int flag,
@@ -1181,7 +1181,7 @@ hypothetical_rank_common(FunctionCallInfo fcinfo, int flag,
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* If there were no regular rows, the rank is always 1 */
+	/* 若无普通行,秩恒为 1 */
 	if (PG_ARGISNULL(0))
 	{
 		*number_of_rows = 0;
@@ -1191,17 +1191,17 @@ hypothetical_rank_common(FunctionCallInfo fcinfo, int flag,
 	osastate = (OSAPerGroupState *) PG_GETARG_POINTER(0);
 	*number_of_rows = osastate->number_of_rows;
 
-	/* Adjust nargs to be the number of direct (or aggregated) args */
+	/* 把 nargs 调整为直接(或聚合)参数个数 */
 	if (nargs % 2 != 0)
 		elog(ERROR, "wrong number of arguments in hypothetical-set function");
 	nargs /= 2;
 
 	hypothetical_check_argtypes(fcinfo, nargs, osastate->qstate->tupdesc);
 
-	/* because we need a hypothetical row, we can't share transition state */
+	/* 因需要假想行,不能共享过渡状态 */
 	Assert(!osastate->sort_done);
 
-	/* insert the hypothetical row into the sort */
+	/* 把假想行插入排序 */
 	slot = osastate->qstate->tupslot;
 	ExecClearTuple(slot);
 	for (i = 0; i < nargs; i++)
@@ -1215,11 +1215,11 @@ hypothetical_rank_common(FunctionCallInfo fcinfo, int flag,
 
 	tuplesort_puttupleslot(osastate->sortstate, slot);
 
-	/* finish the sort */
+	/* 完成排序 */
 	tuplesort_performsort(osastate->sortstate);
 	osastate->sort_done = true;
 
-	/* iterate till we find the hypothetical row */
+	/* 迭代直至找到假想行 */
 	while (tuplesort_gettupleslot(osastate->sortstate, true, true, slot, NULL))
 	{
 		bool		isnull;
@@ -1240,7 +1240,7 @@ hypothetical_rank_common(FunctionCallInfo fcinfo, int flag,
 
 
 /*
- * rank()  - rank of hypothetical row
+ * rank() - 假想行的秩
  */
 Datum
 hypothetical_rank_final(PG_FUNCTION_ARGS)
@@ -1254,7 +1254,7 @@ hypothetical_rank_final(PG_FUNCTION_ARGS)
 }
 
 /*
- * percent_rank()	- percentile rank of hypothetical row
+ * percent_rank() - 假想行的百分位秩
  */
 Datum
 hypothetical_percent_rank_final(PG_FUNCTION_ARGS)
@@ -1274,7 +1274,7 @@ hypothetical_percent_rank_final(PG_FUNCTION_ARGS)
 }
 
 /*
- * cume_dist()	- cumulative distribution of hypothetical row
+ * cume_dist() - 假想行的累积分布
  */
 Datum
 hypothetical_cume_dist_final(PG_FUNCTION_ARGS)
@@ -1291,7 +1291,7 @@ hypothetical_cume_dist_final(PG_FUNCTION_ARGS)
 }
 
 /*
- * dense_rank() - rank of hypothetical row without gaps in ranking
+ * dense_rank() - 假想行无间断秩
  */
 Datum
 hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
@@ -1312,7 +1312,7 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 
 	Assert(AggCheckCallContext(fcinfo, NULL) == AGG_CONTEXT_AGGREGATE);
 
-	/* If there were no regular rows, the rank is always 1 */
+	/* 若无普通行,秩恒为 1 */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_INT64(rank);
 
@@ -1322,14 +1322,14 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 	{
 		MemoryContext oldcontext;
 
-		/* Make sure to we create econtext under correct parent context. */
+		/* 确保在正确的父上下文下创建 econtext。 */
 		oldcontext = MemoryContextSwitchTo(osastate->qstate->qcontext);
 		osastate->qstate->econtext = CreateStandaloneExprContext();
 		econtext = osastate->qstate->econtext;
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* Adjust nargs to be the number of direct (or aggregated) args */
+	/* 把 nargs 调整为直接(或聚合)参数个数 */
 	if (nargs % 2 != 0)
 		elog(ERROR, "wrong number of arguments in hypothetical-set function");
 	nargs /= 2;
@@ -1337,12 +1337,12 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 	hypothetical_check_argtypes(fcinfo, nargs, osastate->qstate->tupdesc);
 
 	/*
-	 * When comparing tuples, we can omit the flag column since we will only
-	 * compare rows with flag == 0.
+	 * 比较元组时可省略标志列,因只会比较
+	 * flag == 0 的行。
 	 */
 	numDistinctCols = osastate->qstate->numSortCols - 1;
 
-	/* Build tuple comparator, if we didn't already */
+	/* 若尚未建立则构建元组比较器 */
 	compareTuple = osastate->qstate->compareTuple;
 	if (compareTuple == NULL)
 	{
@@ -1360,10 +1360,10 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 		osastate->qstate->compareTuple = compareTuple;
 	}
 
-	/* because we need a hypothetical row, we can't share transition state */
+	/* 因需要假想行,不能共享过渡状态 */
 	Assert(!osastate->sort_done);
 
-	/* insert the hypothetical row into the sort */
+	/* 把假想行插入排序 */
 	slot = osastate->qstate->tupslot;
 	ExecClearTuple(slot);
 	for (i = 0; i < nargs; i++)
@@ -1377,20 +1377,20 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 
 	tuplesort_puttupleslot(osastate->sortstate, slot);
 
-	/* finish the sort */
+	/* 完成排序 */
 	tuplesort_performsort(osastate->sortstate);
 	osastate->sort_done = true;
 
 	/*
-	 * We alternate fetching into tupslot and extraslot so that we have the
-	 * previous row available for comparisons.  This is accomplished by
-	 * swapping the slot pointer variables after each row.
+	 * 交替取入 tupslot 与 extraslot,以便比较时有前
+	 * 一行可用。做法是每行后交换槽指针变量。
+	 * 
 	 */
 	extraslot = MakeSingleTupleTableSlot(osastate->qstate->tupdesc,
 										 &TTSOpsMinimalTuple);
 	slot2 = extraslot;
 
-	/* iterate till we find the hypothetical row */
+	/* 迭代直至找到假想行 */
 	while (tuplesort_gettupleslot(osastate->sortstate, true, true, slot,
 								  &abbrevVal))
 	{
@@ -1401,7 +1401,7 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 		if (!isnull && DatumGetInt32(d) != 0)
 			break;
 
-		/* count non-distinct tuples */
+		/* 计非互异行 */
 		econtext->ecxt_outertuple = slot;
 		econtext->ecxt_innertuple = slot2;
 
@@ -1413,7 +1413,7 @@ hypothetical_dense_rank_final(PG_FUNCTION_ARGS)
 		tmpslot = slot2;
 		slot2 = slot;
 		slot = tmpslot;
-		/* avoid ExecQual() calls by reusing abbreviated keys */
+		/* 复用缩写键以避免 ExecQual() 调用 */
 		abbrevOld = abbrevVal;
 
 		rank++;

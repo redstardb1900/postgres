@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * enum.c
- *	  I/O functions, operators, aggregates etc for enum types
+ *	  枚举类型的 I/O、运算符、聚集等
  *
  * Copyright (c) 2006-2023, PostgreSQL Global Development Group
  *
@@ -32,32 +32,32 @@ static ArrayType *enum_range_internal(Oid enumtypoid, Oid lower, Oid upper);
 
 
 /*
- * Disallow use of an uncommitted pg_enum tuple.
+ * 禁止使用未提交的 pg_enum 元组。
  *
- * We need to make sure that uncommitted enum values don't get into indexes.
- * If they did, and if we then rolled back the pg_enum addition, we'd have
- * broken the index because value comparisons will not work reliably without
- * an underlying pg_enum entry.  (Note that removal of the heap entry
- * containing an enum value is not sufficient to ensure that it doesn't appear
- * in upper levels of indexes.)  To do this we prevent an uncommitted row from
- * being used for any SQL-level purpose.  This is stronger than necessary,
- * since the value might not be getting inserted into a table or there might
- * be no index on its column, but it's easy to enforce centrally.
+ * 须确保未提交的枚举值不进入索引。若进入后又
+ * 回滚了 pg_enum 的添加,索引会损坏,因无底层
+ * pg_enum 项时值比较不可靠。注意:仅删除含枚举
+ * 值的堆项不足以保证它不出现在索引上层。为此
+ * 禁止未提交行用于任何 SQL 层用途。这比必要更
+ * 严,因该值未必插入表中,或其列上可能无索引,
+ * 但集中强制很容易。
  *
- * However, it's okay to allow use of uncommitted values belonging to enum
- * types that were themselves created in the same transaction, because then
- * any such index would also be new and would go away altogether on rollback.
- * We don't implement that fully right now, but we do allow free use of enum
- * values created during CREATE TYPE AS ENUM, which are surely of the same
- * lifespan as the enum type.  (This case is required by "pg_restore -1".)
- * Values added by ALTER TYPE ADD VALUE are currently restricted, but could
- * be allowed if the enum type could be proven to have been created earlier
- * in the same transaction.  (Note that comparing tuple xmins would not work
- * for that, because the type tuple might have been updated in the current
- * transaction.  Subtransactions also create hazards to be accounted for.)
  *
- * This function needs to be called (directly or indirectly) in any of the
- * functions below that could return an enum value to SQL operations.
+ *
+ * 但允许使用同事务内创建的枚举类型所属的未提交
+ * 值,因那时相关索引也是新建的,回滚会一并消失。
+ * 尚未完全实现该放宽,但允许自由使用 CREATE TYPE
+ * AS ENUM 期间创建的枚举值,寿命与类型相同,此情形
+ * 为 pg_restore -1 所需。ALTER TYPE ADD VALUE 所加
+ * 值目前仍受限,但若能证明枚举类型在同事务更早
+ * 创建则可放宽。注意比较元组 xmin 不行,因类型
+ * 元组可能已在当前事务中更新。子事务也带来须
+ * 计入的风险。
+ *
+ *
+ *
+ * 下列任何可能把枚举值返回给 SQL 操作的函数
+ * 都须直接或间接调用本函数。
  */
 static void
 check_safe_enum_use(HeapTuple enumval_tup)
@@ -66,15 +66,15 @@ check_safe_enum_use(HeapTuple enumval_tup)
 	Form_pg_enum en = (Form_pg_enum) GETSTRUCT(enumval_tup);
 
 	/*
-	 * If the row is hinted as committed, it's surely safe.  This provides a
-	 * fast path for all normal use-cases.
+	 * 若行已提示为已提交,则肯定安全。这为全部
+	 * 正常用例提供快路径。
 	 */
 	if (HeapTupleHeaderXminCommitted(enumval_tup->t_data))
 		return;
 
 	/*
-	 * Usually, a row would get hinted as committed when it's read or loaded
-	 * into syscache; but just in case not, let's check the xmin directly.
+	 * 通常行在被读入或载入 syscache 时会得到已提交
+	 * 提示;若未提示,则直接检查 xmin。
 	 */
 	xmin = HeapTupleHeaderGetXmin(enumval_tup->t_data);
 	if (!TransactionIdIsInProgress(xmin) &&
@@ -82,17 +82,17 @@ check_safe_enum_use(HeapTuple enumval_tup)
 		return;
 
 	/*
-	 * Check if the enum value is uncommitted.  If not, it's safe, because it
-	 * was made during CREATE TYPE AS ENUM and can't be shorter-lived than its
-	 * owning type.  (This'd also be false for values made by other
-	 * transactions; but the previous tests should have handled all of those.)
+	 * 检查枚举值是否未提交。若非未提交则安全,因其在
+	 * CREATE TYPE AS ENUM 期间产生,寿命不短于所属
+	 * 类型。他事务产生的值也会为假;但前面测试
+	 * 应已处理那些情况。
 	 */
 	if (!EnumUncommitted(en->oid))
 		return;
 
 	/*
-	 * There might well be other tests we could do here to narrow down the
-	 * unsafe conditions, but for now just raise an exception.
+	 * 或许还可做其他测试以收窄不安全条件,
+	 * 但目前直接抛异常。
 	 */
 	ereport(ERROR,
 			(errcode(ERRCODE_UNSAFE_NEW_ENUM_VALUE_USAGE),
@@ -103,7 +103,7 @@ check_safe_enum_use(HeapTuple enumval_tup)
 }
 
 
-/* Basic I/O support */
+/* 基本 I/O 支持 */
 
 Datum
 enum_in(PG_FUNCTION_ARGS)
@@ -114,7 +114,7 @@ enum_in(PG_FUNCTION_ARGS)
 	Oid			enumoid;
 	HeapTuple	tup;
 
-	/* must check length to prevent Assert failure within SearchSysCache */
+	/* 须检查长度以防 SearchSysCache 内 Assert 失败 */
 	if (strlen(name) >= NAMEDATALEN)
 		ereturn(escontext, (Datum) 0,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -133,16 +133,16 @@ enum_in(PG_FUNCTION_ARGS)
 						name)));
 
 	/*
-	 * Check it's safe to use in SQL.  Perhaps we should take the trouble to
-	 * report "unsafe use" softly; but it's unclear that it's worth the
-	 * trouble, or indeed that that is a legitimate bad-input case at all
-	 * rather than an implementation shortcoming.
+	 * 检查在 SQL 中使用是否安全。或许应以软方式报告
+	 * "不安全使用";但不清楚是否值得费事,也不清楚
+	 * 那究竟是正当的坏输入情形,还是实现上的
+	 * 不足。
 	 */
 	check_safe_enum_use(tup);
 
 	/*
-	 * This comes from pg_enum.oid and stores system oids in user tables. This
-	 * oid must be preserved by binary upgrades.
+	 * 来自 pg_enum.oid,把系统 oid 存入用户表。此
+	 * oid 须由二进制升级保留。
 	 */
 	enumoid = ((Form_pg_enum) GETSTRUCT(tup))->oid;
 
@@ -174,7 +174,7 @@ enum_out(PG_FUNCTION_ARGS)
 	PG_RETURN_CSTRING(result);
 }
 
-/* Binary I/O support */
+/* 二进制 I/O */
 Datum
 enum_recv(PG_FUNCTION_ARGS)
 {
@@ -187,7 +187,7 @@ enum_recv(PG_FUNCTION_ARGS)
 
 	name = pq_getmsgtext(buf, buf->len - buf->cursor, &nbytes);
 
-	/* must check length to prevent Assert failure within SearchSysCache */
+	/* 须检查长度以防 SearchSysCache 内 Assert 失败 */
 	if (strlen(name) >= NAMEDATALEN)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -205,7 +205,7 @@ enum_recv(PG_FUNCTION_ARGS)
 						format_type_be(enumtypoid),
 						name)));
 
-	/* check it's safe to use in SQL */
+	/* 检查可否用于 SQL */
 	check_safe_enum_use(tup);
 
 	enumoid = ((Form_pg_enum) GETSTRUCT(tup))->oid;
@@ -241,12 +241,12 @@ enum_send(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 
-/* Comparison functions and related */
+/* 比较函数及相关 */
 
 /*
- * enum_cmp_internal is the common engine for all the visible comparison
- * functions, except for enum_eq and enum_ne which can just check for OID
- * equality directly.
+ * enum_cmp_internal 是除 enum_eq/enum_ne 外全部可见
+ * 比较函数的共用引擎;后两者可直接检查 OID
+ * 相等。
  */
 static int
 enum_cmp_internal(Oid arg1, Oid arg2, FunctionCallInfo fcinfo)
@@ -254,19 +254,19 @@ enum_cmp_internal(Oid arg1, Oid arg2, FunctionCallInfo fcinfo)
 	TypeCacheEntry *tcache;
 
 	/*
-	 * We don't need the typcache except in the hopefully-uncommon case that
-	 * one or both Oids are odd.  This means that cursory testing of code that
-	 * fails to pass flinfo to an enum comparison function might not disclose
-	 * the oversight.  To make such errors more obvious, Assert that we have a
-	 * place to cache even when we take a fast-path exit.
+	 * 除有希望少见的单方或双方 OID 为奇数外,不需要
+	 * typcache。故对未把 flinfo 传给枚举比较函数的代码
+	 * 做粗测可能发现不了疏漏。为使此类错误更明显,即便
+	 * 走快路径退出也 Assert 有缓存
+	 * 位置。
 	 */
 	Assert(fcinfo->flinfo != NULL);
 
-	/* Equal OIDs are equal no matter what */
+	/* OID 相等则无论怎样都相等 */
 	if (arg1 == arg2)
 		return 0;
 
-	/* Fast path: even-numbered Oids are known to compare correctly */
+	/* 快路径:偶数 OID 已知比较正确 */
 	if ((arg1 & 1) == 0 && (arg2 & 1) == 0)
 	{
 		if (arg1 < arg2)
@@ -275,7 +275,7 @@ enum_cmp_internal(Oid arg1, Oid arg2, FunctionCallInfo fcinfo)
 			return 1;
 	}
 
-	/* Locate the typcache entry for the enum type */
+	/* 定位该枚举类型的 typcache 项 */
 	tcache = (TypeCacheEntry *) fcinfo->flinfo->fn_extra;
 	if (tcache == NULL)
 	{
@@ -283,7 +283,7 @@ enum_cmp_internal(Oid arg1, Oid arg2, FunctionCallInfo fcinfo)
 		Form_pg_enum en;
 		Oid			typeoid;
 
-		/* Get the OID of the enum type containing arg1 */
+		/* 取含 arg1 的枚举类型 OID */
 		enum_tup = SearchSysCache1(ENUMOID, ObjectIdGetDatum(arg1));
 		if (!HeapTupleIsValid(enum_tup))
 			ereport(ERROR,
@@ -293,12 +293,12 @@ enum_cmp_internal(Oid arg1, Oid arg2, FunctionCallInfo fcinfo)
 		en = (Form_pg_enum) GETSTRUCT(enum_tup);
 		typeoid = en->enumtypid;
 		ReleaseSysCache(enum_tup);
-		/* Now locate and remember the typcache entry */
+		/* 定位并记住 typcache 项 */
 		tcache = lookup_type_cache(typeoid, 0);
 		fcinfo->flinfo->fn_extra = (void *) tcache;
 	}
 
-	/* The remaining comparison logic is in typcache.c */
+	/* 其余比较逻辑在 typcache.c */
 	return compare_values_of_enum(tcache, arg1, arg2);
 }
 
@@ -383,10 +383,10 @@ enum_cmp(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(enum_cmp_internal(a, b, fcinfo));
 }
 
-/* Enum programming support functions */
+/* 枚举编程支持函数 */
 
 /*
- * enum_endpoint: common code for enum_first/enum_last
+ * enum_endpoint: enum_first/enum_last 的共用代码
  */
 static Oid
 enum_endpoint(Oid enumtypoid, ScanDirection direction)
@@ -399,9 +399,9 @@ enum_endpoint(Oid enumtypoid, ScanDirection direction)
 	Oid			minmax;
 
 	/*
-	 * Find the first/last enum member using pg_enum_typid_sortorder_index.
-	 * Note we must not use the syscache.  See comments for RenumberEnumType
-	 * in catalog/pg_enum.c for more info.
+	 * 用 pg_enum_typid_sortorder_index 找首/末枚举成员。
+	 * 注意不可用 syscache。详见 catalog/pg_enum.c 中
+	 * RenumberEnumType 的注释。
 	 */
 	ScanKeyInit(&skey,
 				Anum_pg_enum_enumtypid,
@@ -416,13 +416,13 @@ enum_endpoint(Oid enumtypoid, ScanDirection direction)
 	enum_tuple = systable_getnext_ordered(enum_scan, direction);
 	if (HeapTupleIsValid(enum_tuple))
 	{
-		/* check it's safe to use in SQL */
+		/* 检查可否用于 SQL */
 		check_safe_enum_use(enum_tuple);
 		minmax = ((Form_pg_enum) GETSTRUCT(enum_tuple))->oid;
 	}
 	else
 	{
-		/* should only happen with an empty enum */
+		/* 仅应发生在空枚举 */
 		minmax = InvalidOid;
 	}
 
@@ -440,9 +440,9 @@ enum_first(PG_FUNCTION_ARGS)
 	Oid			min;
 
 	/*
-	 * We rely on being able to get the specific enum type from the calling
-	 * expression tree.  Notice that the actual value of the argument isn't
-	 * examined at all; in particular it might be NULL.
+	 * 依赖能从调用表达式树取得具体枚举类型。
+	 * 注意完全不查看实参的实际值;尤其它可能
+	 * 为 NULL。
 	 */
 	enumtypoid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 	if (enumtypoid == InvalidOid)
@@ -450,7 +450,7 @@ enum_first(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("could not determine actual enum type")));
 
-	/* Get the OID using the index */
+	/* 用索引取 OID */
 	min = enum_endpoint(enumtypoid, ForwardScanDirection);
 
 	if (!OidIsValid(min))
@@ -469,9 +469,9 @@ enum_last(PG_FUNCTION_ARGS)
 	Oid			max;
 
 	/*
-	 * We rely on being able to get the specific enum type from the calling
-	 * expression tree.  Notice that the actual value of the argument isn't
-	 * examined at all; in particular it might be NULL.
+	 * 依赖能从调用表达式树取得具体枚举类型。
+	 * 注意完全不查看实参的实际值;尤其它可能
+	 * 为 NULL。
 	 */
 	enumtypoid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 	if (enumtypoid == InvalidOid)
@@ -479,7 +479,7 @@ enum_last(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("could not determine actual enum type")));
 
-	/* Get the OID using the index */
+	/* 用索引取 OID */
 	max = enum_endpoint(enumtypoid, BackwardScanDirection);
 
 	if (!OidIsValid(max))
@@ -491,7 +491,7 @@ enum_last(PG_FUNCTION_ARGS)
 	PG_RETURN_OID(max);
 }
 
-/* 2-argument variant of enum_range */
+/* enum_range 的双参数变体 */
 Datum
 enum_range_bounds(PG_FUNCTION_ARGS)
 {
@@ -509,9 +509,9 @@ enum_range_bounds(PG_FUNCTION_ARGS)
 		upper = PG_GETARG_OID(1);
 
 	/*
-	 * We rely on being able to get the specific enum type from the calling
-	 * expression tree.  The generic type mechanism should have ensured that
-	 * both are of the same type.
+	 * 依赖能从调用表达式树取得具体枚举类型。
+	 * 通用类型机制应已确保两者类型
+	 * 相同。
 	 */
 	enumtypoid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 	if (enumtypoid == InvalidOid)
@@ -522,16 +522,16 @@ enum_range_bounds(PG_FUNCTION_ARGS)
 	PG_RETURN_ARRAYTYPE_P(enum_range_internal(enumtypoid, lower, upper));
 }
 
-/* 1-argument variant of enum_range */
+/* enum_range 的单参数变体 */
 Datum
 enum_range_all(PG_FUNCTION_ARGS)
 {
 	Oid			enumtypoid;
 
 	/*
-	 * We rely on being able to get the specific enum type from the calling
-	 * expression tree.  Notice that the actual value of the argument isn't
-	 * examined at all; in particular it might be NULL.
+	 * 依赖能从调用表达式树取得具体枚举类型。
+	 * 注意完全不查看实参的实际值;尤其它可能
+	 * 为 NULL。
 	 */
 	enumtypoid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 	if (enumtypoid == InvalidOid)
@@ -558,9 +558,9 @@ enum_range_internal(Oid enumtypoid, Oid lower, Oid upper)
 	bool		left_found;
 
 	/*
-	 * Scan the enum members in order using pg_enum_typid_sortorder_index.
-	 * Note we must not use the syscache.  See comments for RenumberEnumType
-	 * in catalog/pg_enum.c for more info.
+	 * 用 pg_enum_typid_sortorder_index 按序扫描枚举成员。
+	 * 注意不可用 syscache。详见 catalog/pg_enum.c 中
+	 * RenumberEnumType 的注释。
 	 */
 	ScanKeyInit(&skey,
 				Anum_pg_enum_enumtypid,
@@ -585,7 +585,7 @@ enum_range_internal(Oid enumtypoid, Oid lower, Oid upper)
 
 		if (left_found)
 		{
-			/* check it's safe to use in SQL */
+			/* 检查可否用于 SQL */
 			check_safe_enum_use(enum_tuple);
 
 			if (cnt >= max)
@@ -605,8 +605,8 @@ enum_range_internal(Oid enumtypoid, Oid lower, Oid upper)
 	index_close(enum_idx, AccessShareLock);
 	table_close(enum_rel, AccessShareLock);
 
-	/* and build the result array */
-	/* note this hardwires some details about the representation of Oid */
+	/* 并构建结果数组 */
+	/* 注意此处写死了 Oid 表示的若干细节 */
 	result = construct_array(elems, cnt, enumtypoid,
 							 sizeof(Oid), true, TYPALIGN_INT);
 

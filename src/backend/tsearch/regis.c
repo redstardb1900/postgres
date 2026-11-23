@@ -24,8 +24,8 @@
 
 
 /*
- * Test whether a regex is of the subset supported here.
- * Keep this in sync with RS_compile!
+ * 测试正则是否属于此处支持的子集。
+ * 请与 RS_compile 保持同步!
  */
 bool
 RS_isRegis(const char *str)
@@ -115,7 +115,7 @@ RS_compile(Regis *r, bool issuffix, const char *str)
 				ptr->type = RSF_ONEOF;
 				state = RS_IN_ONEOF;
 			}
-			else				/* shouldn't get here */
+			else				/* 不应到达此处 */
 				elog(ERROR, "invalid regis pattern: \"%s\"", str);
 		}
 		else if (state == RS_IN_ONEOF)
@@ -131,7 +131,7 @@ RS_compile(Regis *r, bool issuffix, const char *str)
 				ptr->len = pg_mblen(c);
 				state = RS_IN_ONEOF_IN;
 			}
-			else				/* shouldn't get here */
+			else				/* 不应到达此处 */
 				elog(ERROR, "invalid regis pattern: \"%s\"", str);
 		}
 		else if (state == RS_IN_ONEOF_IN || state == RS_IN_NONEOF)
@@ -143,7 +143,7 @@ RS_compile(Regis *r, bool issuffix, const char *str)
 			}
 			else if (t_iseq(c, ']'))
 				state = RS_IN_WAIT;
-			else				/* shouldn't get here */
+			else				/* 不应到达此处 */
 				elog(ERROR, "invalid regis pattern: \"%s\"", str);
 		}
 		else
@@ -151,7 +151,7 @@ RS_compile(Regis *r, bool issuffix, const char *str)
 		c += pg_mblen(c);
 	}
 
-	if (state != RS_IN_WAIT)	/* shouldn't get here */
+	if (state != RS_IN_WAIT)	/* 不应到达此处 */
 		elog(ERROR, "invalid regis pattern: \"%s\"", str);
 
 	ptr = r->node;

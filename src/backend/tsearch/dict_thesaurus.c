@@ -23,15 +23,15 @@
 
 
 /*
- * Temporary we use TSLexeme.flags for inner use...
+ * 暂用 TSLexeme.flags 作内部用途...
  */
 #define DT_USEASIS		0x1000
 
 typedef struct LexemeInfo
 {
-	uint32		idsubst;		/* entry's number in DictThesaurus->subst */
-	uint16		posinsubst;		/* pos info in entry */
-	uint16		tnvariant;		/* total num lexemes in one variant */
+	uint32		idsubst;		/* DictThesaurus->subst 中项号 */
+	uint16		posinsubst;		/* 项内位信息 */
+	uint16		tnvariant;		/* 一个变体中的词元总数 */
 	struct LexemeInfo *nextentry;
 	struct LexemeInfo *nextvariant;
 } LexemeInfo;
@@ -44,24 +44,24 @@ typedef struct
 
 typedef struct
 {
-	uint16		lastlexeme;		/* number lexemes to substitute */
+	uint16		lastlexeme;		/* 待替换的词元数 */
 	uint16		reslen;
-	TSLexeme   *res;			/* prepared substituted result */
+	TSLexeme   *res;			/* 已备好的替换结果 */
 } TheSubstitute;
 
 typedef struct
 {
-	/* subdictionary to normalize lexemes */
+	/* 用于规范化词元的子词典 */
 	Oid			subdictOid;
 	TSDictionaryCacheEntry *subdict;
 
-	/* Array to search lexeme by exact match */
+	/* 按精确匹配查找词元的数组 */
 	TheLexeme  *wrds;
-	int			nwrds;			/* current number of words */
-	int			ntwrds;			/* allocated array length */
+	int			nwrds;			/* 当前词数 */
+	int			ntwrds;			/* 已分配数组长度 */
 
 	/*
-	 * Storage of substituted result, n-th element is for n-th expression
+	 * 替换结果存储,第 n 元对应第 n 个表达式
 	 */
 	TheSubstitute *subst;
 	int			nsubst;
@@ -189,7 +189,7 @@ thesaurusRead(const char *filename, DictThesaurus *d)
 
 		ptr = line;
 
-		/* is it a comment? */
+		/* 是否注释? */
 		while (*ptr && t_isspace(ptr))
 			ptr += pg_mblen(ptr);
 
@@ -400,7 +400,7 @@ compileTheLexeme(DictThesaurus *d)
 	{
 		TSLexeme   *ptr;
 
-		if (strcmp(d->wrds[i].lexeme, "?") == 0)	/* Is stop word marker? */
+		if (strcmp(d->wrds[i].lexeme, "?") == 0)	/* 停用词标记? */
 			newwrds = addCompiledLexeme(newwrds, &nnw, &tnm, NULL, d->wrds[i].entries, 0);
 		else
 		{
@@ -431,7 +431,7 @@ compileTheLexeme(DictThesaurus *d)
 					int			tnvar = 1;
 					int			curvar = ptr->nvariant;
 
-					/* compute n words in one variant */
+					/* 计算一个变体中的词数 */
 					while (remptr->lexeme)
 					{
 						if (remptr->nvariant != (remptr - 1)->nvariant)
@@ -520,7 +520,7 @@ compileTheSubstitute(DictThesaurus *d)
 						tmplex[2];
 
 			if (inptr->flags & DT_USEASIS)
-			{					/* do not lexize */
+			{					/* 勿词元化 */
 				tmplex[0] = *inptr;
 				tmplex[0].flags = 0;
 				tmplex[1].lexeme = NULL;
@@ -743,7 +743,7 @@ findVariant(LexemeInfo *in, LexemeInfo *stored, uint16 curpos, LexemeInfo **newi
 			in = ptr;
 		}
 
-		/* step forward */
+		/* 前进一步 */
 		for (i = 0; i < newn; i++)
 			newin[i] = newin[i]->nextentry;
 	}
@@ -840,7 +840,7 @@ thesaurus_lexize(PG_FUNCTION_ARGS)
 
 			if (i < nlex)
 			{
-				/* no chance to find */
+				/* 无望找到 */
 				pfree(infos);
 				continue;
 			}
@@ -849,14 +849,14 @@ thesaurus_lexize(PG_FUNCTION_ARGS)
 		}
 	}
 	else if (res)
-	{							/* stop-word */
+	{							/* 停用词 */
 		LexemeInfo *infos = findTheLexeme(d, NULL);
 
 		info = findVariant(NULL, stored, curpos, &infos, 1);
 	}
 	else
 	{
-		info = NULL;			/* word isn't recognized */
+		info = NULL;			/* 词未被识别 */
 	}
 
 	dstate->private_state = (void *) info;

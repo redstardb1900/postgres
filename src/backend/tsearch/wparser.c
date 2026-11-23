@@ -24,7 +24,7 @@
 #include "utils/jsonfuncs.h"
 #include "utils/varlena.h"
 
-/******sql-level interface******/
+/******SQL 级接口******/
 
 typedef struct
 {
@@ -32,7 +32,7 @@ typedef struct
 	LexDescr   *list;
 } TSTokenTypeStorage;
 
-/* state for ts_headline_json_* */
+/* ts_headline_json_* 的状态 */
 typedef struct HeadlineJsonState
 {
 	HeadlineParsedText *prs;
@@ -62,7 +62,7 @@ tt_setup_firstcall(FuncCallContext *funcctx, FunctionCallInfo fcinfo,
 
 	st = (TSTokenTypeStorage *) palloc(sizeof(TSTokenTypeStorage));
 	st->cur = 0;
-	/* lextype takes one dummy argument */
+	/* lextype 接受一个哑元参数 */
 	st->list = (LexDescr *) DatumGetPointer(OidFunctionCall1(prs->lextypeOid,
 															 (Datum) 0));
 	funcctx->user_fctx = (void *) st;
@@ -519,7 +519,7 @@ ts_headline_json_opt(PG_FUNCTION_ARGS)
 
 
 /*
- * Return headline in text from, generated from a json(b) element
+ * 由 json(b) 元素生成标题,以 text 形式返回
  */
 static text *
 headline_json_value(void *_state, char *elem_value, int elem_len)

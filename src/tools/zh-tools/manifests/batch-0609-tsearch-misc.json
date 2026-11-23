@@ -1,0 +1,97 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0609",
+ "title": "backend/tsearch thesaurus+regis+wparser 短注 — batch 0609",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "97a19b7c59415a4155e4ebd89055e74565c51120",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/dict_thesaurus.c",
+   "kind": "c_comment",
+   "note": "0609"
+  },
+  {
+   "pattern": "src/backend/tsearch/regis.c",
+   "kind": "c_comment",
+   "note": "0609"
+  },
+  {
+   "pattern": "src/backend/tsearch/wparser.c",
+   "kind": "c_comment",
+   "note": "0609"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0609-tsearch-misc.json",
+   "kind": "manifest",
+   "note": "0609"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/dict_thesaurus.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。",
+    "uniq/found 等超紧预算短标 KEEP。"
+   ],
+   "note": "0609"
+  },
+  {
+   "path": "src/backend/tsearch/regis.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。",
+    "okay 短标 KEEP。"
+   ],
+   "note": "0609"
+  },
+  {
+   "path": "src/backend/tsearch/wparser.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。"
+   ],
+   "note": "0609"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0609-tsearch-misc.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0609"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0609"
+  }
+ ],
+ "notes": "thesaurus/regis/wparser 短注已译；okay/uniq/found 等超紧短标 KEEP"
+}

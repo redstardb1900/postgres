@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * encode.c
- *	  Various data encoding/decoding things.
+ *	  各类数据编码/解码。
  *
  * Copyright (c) 2001-2023, PostgreSQL Global Development Group
  *
@@ -22,13 +22,13 @@
 
 
 /*
- * Encoding conversion API.
- * encode_len() and decode_len() compute the amount of space needed, while
- * encode() and decode() perform the actual conversions.  It is okay for
- * the _len functions to return an overestimate, but not an underestimate.
- * (Having said that, large overestimates could cause unnecessary errors,
- * so it's better to get it right.)  The conversion routines write to the
- * buffer at *res and return the true length of their output.
+ * 编码转换 API。
+ * encode_len() 与 decode_len() 计算所需空间,而
+ * encode() 与 decode() 执行实际转换。_len 函数可
+ * 高估但不可低估。(虽如此,过大高估可能
+ * 引发不必要错误,故最好估准。) 转换例程
+ * 写入 *res 所指缓冲并返回其输出的
+ * 真实长度。
  */
 struct pg_encoding
 {
@@ -41,7 +41,7 @@ struct pg_encoding
 static const struct pg_encoding *pg_find_encoding(const char *name);
 
 /*
- * SQL functions.
+ * SQL 函数。
  */
 
 Datum
@@ -71,8 +71,8 @@ binary_encode(PG_FUNCTION_ARGS)
 	resultlen = enc->encode_len(dataptr, datalen);
 
 	/*
-	 * resultlen possibly overflows uint32, therefore on 32-bit machines it's
-	 * unsafe to rely on palloc's internal check.
+	 * resultlen 可能溢出 uint32,故在 32 位机上
+	 * 不可依赖 palloc 的内部检查。
 	 */
 	if (resultlen > MaxAllocSize - VARHDRSZ)
 		ereport(ERROR,
@@ -83,7 +83,7 @@ binary_encode(PG_FUNCTION_ARGS)
 
 	res = enc->encode(dataptr, datalen, VARDATA(result));
 
-	/* Make this FATAL 'cause we've trodden on memory ... */
+	/* 用 FATAL,因已踩坏内存 ... */
 	if (res > resultlen)
 		elog(FATAL, "overflow - encode estimate too small");
 
@@ -119,8 +119,8 @@ binary_decode(PG_FUNCTION_ARGS)
 	resultlen = enc->decode_len(dataptr, datalen);
 
 	/*
-	 * resultlen possibly overflows uint32, therefore on 32-bit machines it's
-	 * unsafe to rely on palloc's internal check.
+	 * resultlen 可能溢出 uint32,故在 32 位机上
+	 * 不可依赖 palloc 的内部检查。
 	 */
 	if (resultlen > MaxAllocSize - VARHDRSZ)
 		ereport(ERROR,
@@ -131,7 +131,7 @@ binary_decode(PG_FUNCTION_ARGS)
 
 	res = enc->decode(dataptr, datalen, VARDATA(result));
 
-	/* Make this FATAL 'cause we've trodden on memory ... */
+	/* 用 FATAL,因已踩坏内存 ... */
 	if (res > resultlen)
 		elog(FATAL, "overflow - decode estimate too small");
 
@@ -282,7 +282,7 @@ pg_base64_encode(const char *src, size_t len, char *dst)
 		pos--;
 		s++;
 
-		/* write it out */
+		/* 写出 */
 		if (pos < 0)
 		{
 			*p++ = _base64[(buf >> 18) & 0x3f];
@@ -331,7 +331,7 @@ pg_base64_decode(const char *src, size_t len, char *dst)
 
 		if (c == '=')
 		{
-			/* end sequence */
+			/* 结束序列 */
 			if (!end)
 			{
 				if (pos == 2)
@@ -356,7 +356,7 @@ pg_base64_decode(const char *src, size_t len, char *dst)
 						 errmsg("invalid symbol \"%.*s\" found while decoding base64 sequence",
 								pg_mblen(s - 1), s - 1)));
 		}
-		/* add it to buffer */
+		/* 加入缓冲 */
 		buf = (buf << 6) + b;
 		pos++;
 		if (pos == 4)
@@ -384,7 +384,7 @@ pg_base64_decode(const char *src, size_t len, char *dst)
 static uint64
 pg_base64_enc_len(const char *src, size_t srclen)
 {
-	/* 3 bytes will be converted to 4, linefeed after 76 chars */
+	/* 3 字节转 4,每 76 字符后换行 */
 	return ((uint64) srclen + 2) / 3 * 4 + (uint64) srclen / (76 * 3 / 4);
 }
 
@@ -396,16 +396,16 @@ pg_base64_dec_len(const char *src, size_t srclen)
 
 /*
  * Escape
- * Minimally escape bytea to text.
- * De-escape text to bytea.
+ * bytea 最小转义为 text。
+ * text 反转义→bytea
  *
- * We must escape zero bytes and high-bit-set bytes to avoid generating
- * text that might be invalid in the current encoding, or that might
- * change to something else if passed through an encoding conversion
- * (leading to failing to de-escape to the original bytea value).
- * Also of course backslash itself has to be escaped.
+ * 须转义零字节与高位置位字节,以免生成
+ * 在当前编码下可能无效的文本,或经编码转换
+ * 后变成别的内容(导致无法反转义回原
+ * bytea)。
+ * 当然反斜杠本身也须转义。
  *
- * De-escaping processes \\ and any \### octal
+ * 反转义处理 \\ 与任何 \### 八进制
  */
 
 #define VAL(CH)			((CH) - '0')
@@ -484,8 +484,8 @@ esc_decode(const char *src, size_t srclen, char *dst)
 		else
 		{
 			/*
-			 * One backslash, not followed by ### valid octal. Should never
-			 * get here, since esc_dec_len does same check.
+			 * 一个反斜杠,后非合法 ### 八进制。不应
+			 * 到此,因 esc_dec_len 做同样检查。
 			 */
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -535,7 +535,7 @@ esc_dec_len(const char *src, size_t srclen)
 				 (src[3] >= '0' && src[3] <= '7'))
 		{
 			/*
-			 * backslash + valid octal
+			 * \ + 合法八进制
 			 */
 			src += 4;
 		}
@@ -543,14 +543,14 @@ esc_dec_len(const char *src, size_t srclen)
 				 (src[1] == '\\'))
 		{
 			/*
-			 * two backslashes = backslash
+			 * 两反斜杠 = 反斜杠
 			 */
 			src += 2;
 		}
 		else
 		{
 			/*
-			 * one backslash, not followed by ### valid octal
+			 * 一反斜杠,后非合法 ### 八进制
 			 */
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),

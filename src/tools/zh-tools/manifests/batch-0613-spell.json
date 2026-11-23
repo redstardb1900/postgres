@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0613",
+ "title": "backend/tsearch spell 后段短注 — batch 0613",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ac9161c4a83077fa269f09f30cac4dad7dab4f7a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/spell.c",
+   "kind": "c_comment",
+   "note": "0613"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0613-spell.json",
+   "kind": "manifest",
+   "note": "0613"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/spell.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。",
+    "词缀格式样例块 KEEP。"
+   ],
+   "note": "0613"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0613-spell.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0613"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0613"
+  }
+ ],
+ "notes": "spell.c 后段短注已译；格式样例 KEEP"
+}

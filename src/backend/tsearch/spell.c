@@ -1026,7 +1026,7 @@ parse_affentry(char *str, char *mask, char *find, char *repl)
 }
 
 /*
- * Sets a Hunspell options depending on flag type.
+ * 按标志类型设置 Hunspell 选项。
  */
 static void
 setCompoundAffixFlagValue(IspellDict *Conf, CompoundAffixFlag *entry,
@@ -1058,11 +1058,11 @@ setCompoundAffixFlagValue(IspellDict *Conf, CompoundAffixFlag *entry,
 }
 
 /*
- * Sets up a correspondence for the affix parameter with the affix flag.
+ * 为词缀参数与词缀标志建立对应。
  *
- * Conf: current dictionary.
- * s: affix flag in string.
- * val: affix parameter.
+ * Conf:当前词典。
+ * s:串形词缀标志。
+ * val:词缀参数。
  */
 static void
 addCompoundAffixFlagValue(IspellDict *Conf, char *s, uint32 val)
@@ -1080,7 +1080,7 @@ addCompoundAffixFlagValue(IspellDict *Conf, char *s, uint32 val)
 				(errcode(ERRCODE_CONFIG_FILE_ERROR),
 				 errmsg("syntax error")));
 
-	/* Get flag without \n */
+	/* 取无 \n 标志 */
 	sflag = sbuf;
 	while (*s && !t_isspace(s) && *s != '\n')
 	{
@@ -1091,7 +1091,7 @@ addCompoundAffixFlagValue(IspellDict *Conf, char *s, uint32 val)
 	}
 	*sflag = '\0';
 
-	/* Resize array or allocate memory for array CompoundAffixFlag */
+	/* 调整数组大小或为 CompoundAffixFlag 分配内存 */
 	if (Conf->nCompoundAffixFlag >= Conf->mCompoundAffixFlag)
 	{
 		if (Conf->mCompoundAffixFlag)
@@ -1118,8 +1118,8 @@ addCompoundAffixFlagValue(IspellDict *Conf, char *s, uint32 val)
 }
 
 /*
- * Returns a set of affix parameters which correspondence to the set of affix
- * flags s.
+ * 返回与词缀标志集 s 对应的词缀参数
+ * 集。
  */
 static int
 getCompoundAffixFlagValue(IspellDict *Conf, char *s)
@@ -1151,11 +1151,11 @@ getCompoundAffixFlagValue(IspellDict *Conf, char *s)
 }
 
 /*
- * Returns a flag set using the s parameter.
+ * 用 s 参数返回标志集。
  *
- * If Conf->useFlagAliases is true then the s parameter is index of the
- * Conf->AffixData array and function returns its entry.
- * Else function returns the s parameter.
+ * 若 Conf->useFlagAliases 为真,则 s 是
+ * Conf->AffixData 下标,函数返回其项。
+ * 否则函数返回 s 本身。
  */
 static char *
 getAffixFlagSet(IspellDict *Conf, char *s)
@@ -1175,8 +1175,8 @@ getAffixFlagSet(IspellDict *Conf, char *s)
 		if (curaffix > 0 && curaffix < Conf->nAffixData)
 
 			/*
-			 * Do not subtract 1 from curaffix because empty string was added
-			 * in NIImportOOAffixes
+			 * 勿从 curaffix 减 1,因空串已加入
+			 * NIImportOOAffixes
 			 */
 			return Conf->AffixData[curaffix];
 		else if (curaffix > Conf->nAffixData)
@@ -1190,10 +1190,10 @@ getAffixFlagSet(IspellDict *Conf, char *s)
 }
 
 /*
- * Import an affix file that follows MySpell or Hunspell format.
+ * 导入遵循 MySpell 或 Hunspell 格式的词缀文件。
  *
- * Conf: current dictionary.
- * filename: path to the .affix file.
+ * Conf:当前词典。
+ * filename:.affix 文件路径。
  */
 static void
 NIImportOOAffixes(IspellDict *Conf, const char *filename)
@@ -1215,7 +1215,7 @@ NIImportOOAffixes(IspellDict *Conf, const char *filename)
 	tsearch_readline_state trst;
 	char	   *recoded;
 
-	/* read file to find any flag */
+	/* 读文件查找标志 */
 	Conf->usecompound = false;
 	Conf->useFlagAliases = false;
 	Conf->flagMode = FM_CHAR;
@@ -1243,7 +1243,7 @@ NIImportOOAffixes(IspellDict *Conf, const char *filename)
 		else if (STRNCMP(recoded, "COMPOUNDLAST") == 0)
 			addCompoundAffixFlagValue(Conf, recoded + strlen("COMPOUNDLAST"),
 									  FF_COMPOUNDLAST);
-		/* COMPOUNDLAST and COMPOUNDEND are synonyms */
+		/* COMPOUNDLAST 与 COMPOUNDEND 同义 */
 		else if (STRNCMP(recoded, "COMPOUNDEND") == 0)
 			addCompoundAffixFlagValue(Conf, recoded + strlen("COMPOUNDEND"),
 									  FF_COMPOUNDLAST);
@@ -1310,10 +1310,10 @@ NIImportOOAffixes(IspellDict *Conf, const char *filename)
 			pfree(ptype);
 		ptype = lowerstr_ctx(Conf, type);
 
-		/* First try to parse AF parameter (alias compression) */
+		/* 先试解析 AF 参数(别名压缩) */
 		if (STRNCMP(ptype, "af") == 0)
 		{
-			/* First line is the number of aliases */
+			/* 首行是别名个数 */
 			if (!Conf->useFlagAliases)
 			{
 				Conf->useFlagAliases = true;
@@ -1323,17 +1323,17 @@ NIImportOOAffixes(IspellDict *Conf, const char *filename)
 							(errcode(ERRCODE_CONFIG_FILE_ERROR),
 							 errmsg("invalid number of flag vector aliases")));
 
-				/* Also reserve place for empty flag set */
+				/* 也为空标志集预留位置 */
 				naffix++;
 
 				Conf->AffixData = (char **) palloc0(naffix * sizeof(char *));
 				Conf->lenAffixData = Conf->nAffixData = naffix;
 
-				/* Add empty flag set into AffixData */
+				/* 把空标志集加入 AffixData */
 				Conf->AffixData[curaffix] = VoidString;
 				curaffix++;
 			}
-			/* Other lines are aliases */
+			/* 其余行是别名 */
 			else
 			{
 				if (curaffix < naffix)
@@ -1349,7 +1349,7 @@ NIImportOOAffixes(IspellDict *Conf, const char *filename)
 			}
 			goto nextline;
 		}
-		/* Else try to parse prefixes and suffixes */
+		/* 否则试解析前缀与后缀 */
 		if (fields_read < 4 ||
 			(STRNCMP(ptype, "sfx") != 0 && STRNCMP(ptype, "pfx") != 0))
 			goto nextline;
@@ -1383,12 +1383,12 @@ NIImportOOAffixes(IspellDict *Conf, const char *filename)
 			char	   *ptr;
 			int			aflg = 0;
 
-			/* Get flags after '/' (flags are case sensitive) */
+			/* 取 '/' 后的标志(标志区分大小写) */
 			if ((ptr = strchr(repl, '/')) != NULL)
 				aflg |= getCompoundAffixFlagValue(Conf,
 												  getAffixFlagSet(Conf,
 																  ptr + 1));
-			/* Get lowercased version of string before '/' */
+			/* 取 '/' 前串的小写版 */
 			prepl = lowerstr_ctx(Conf, repl);
 			if ((ptr = strchr(prepl, '/')) != NULL)
 				*ptr = '\0';
@@ -1416,13 +1416,13 @@ nextline:
 }
 
 /*
- * import affixes
+ * 导入词缀
  *
- * Note caller must already have applied get_tsearch_config_filename
+ * 注意调用方须已应用 get_tsearch_config_filename
  *
- * This function is responsible for parsing ispell ("old format") affix files.
- * If we realize that the file contains new-format commands, we pass off the
- * work to NIImportOOAffixes(), which will re-read the whole file.
+ * 本函数负责解析 ispell("旧格式")词缀文件。
+ * 若发现文件含新格式命令,则交由
+ * NIImportOOAffixes() 处理,由其重读整个文件。
  */
 void
 NIImportAffixes(IspellDict *Conf, const char *filename)
@@ -1454,13 +1454,13 @@ NIImportAffixes(IspellDict *Conf, const char *filename)
 	{
 		pstr = lowerstr(recoded);
 
-		/* Skip comments and empty lines */
+		/* 跳过注释与空行 */
 		if (*pstr == '#' || *pstr == '\n')
 			goto nextline;
 
 		if (STRNCMP(pstr, "compoundwords") == 0)
 		{
-			/* Find case-insensitive L flag in non-lowercased string */
+			/* 在未小写串中找大小写不敏感的 L 标志 */
 			s = findchar2(recoded, 'l', 'L');
 			if (s)
 			{
@@ -1494,7 +1494,7 @@ NIImportAffixes(IspellDict *Conf, const char *filename)
 		}
 		if (STRNCMP(pstr, "flag") == 0)
 		{
-			s = recoded + 4;	/* we need non-lowercased string */
+			s = recoded + 4;	/* 需要未小写串 */
 			flagflags = 0;
 
 			while (*s && t_isspace(s))
@@ -1515,9 +1515,9 @@ NIImportAffixes(IspellDict *Conf, const char *filename)
 				s++;
 
 			/*
-			 * An old-format flag is a single ASCII character; we expect it to
-			 * be followed by EOL, whitespace, or ':'.  Otherwise this is a
-			 * new-format flag command.
+			 * 旧格式标志是单个 ASCII 字符;预期后接
+			 * EOL、空白或 ':'。否则这是
+			 * 新格式标志命令。
 			 */
 			if (*s && pg_mblen(s) == 1)
 			{
@@ -1566,10 +1566,10 @@ isnewformat:
 }
 
 /*
- * Merges two affix flag sets and stores a new affix flag set into
+ * 合并两个词缀标志集,并把新集存入
  * Conf->AffixData.
  *
- * Returns index of a new affix flag set.
+ * 返回新词缀标志集的下标。
  */
 static int
 MergeAffix(IspellDict *Conf, int a1, int a2)
@@ -1578,13 +1578,13 @@ MergeAffix(IspellDict *Conf, int a1, int a2)
 
 	Assert(a1 < Conf->nAffixData && a2 < Conf->nAffixData);
 
-	/* Do not merge affix flags if one of affix flags is empty */
+	/* 若任一方为空则不合并词缀标志 */
 	if (*Conf->AffixData[a1] == '\0')
 		return a2;
 	else if (*Conf->AffixData[a2] == '\0')
 		return a1;
 
-	/* Double the size of AffixData if there's not enough space */
+	/* AffixData 空间不足则扩为两倍 */
 	if (Conf->nAffixData + 1 >= Conf->lenAffixData)
 	{
 		Conf->lenAffixData *= 2;
@@ -1615,8 +1615,8 @@ MergeAffix(IspellDict *Conf, int a1, int a2)
 }
 
 /*
- * Returns a set of affix parameters which correspondence to the set of affix
- * flags with the given index.
+ * 返回与给定下标的词缀标志集对应的
+ * 词缀参数集。
  */
 static uint32
 makeCompoundFlags(IspellDict *Conf, int affix)
@@ -1628,12 +1628,12 @@ makeCompoundFlags(IspellDict *Conf, int affix)
 }
 
 /*
- * Makes a prefix tree for the given level.
+ * 为给定层级构造前缀树。
  *
- * Conf: current dictionary.
- * low: lower index of the Conf->Spell array.
- * high: upper index of the Conf->Spell array.
- * level: current prefix tree level.
+ * Conf:当前词典。
+ * low:Conf->Spell 数组下界。
+ * high:Conf->Spell 数组上界。
+ * level:当前前缀树层级。
  */
 static SPNode *
 mkSPNode(IspellDict *Conf, int low, int high, int level)
@@ -1667,7 +1667,7 @@ mkSPNode(IspellDict *Conf, int low, int high, int level)
 			{
 				if (lastchar)
 				{
-					/* Next level of the prefix tree */
+					/* 前缀树下一层 */
 					data->node = mkSPNode(Conf, lownew, i, level + 1);
 					lownew = i;
 					data++;
@@ -1682,9 +1682,9 @@ mkSPNode(IspellDict *Conf, int low, int high, int level)
 				if (data->isword && data->affix != Conf->Spell[i]->p.d.affix)
 				{
 					/*
-					 * MergeAffix called a few times. If one of word is
-					 * allowed to be in compound word and another isn't, then
-					 * clear FF_COMPOUNDONLY flag.
+					 * MergeAffix 会调用多次。若一词允许
+					 * 出现在复合词中而另一词不允许,则
+					 * 清 FF_COMPOUNDONLY。
 					 */
 
 					clearCompoundOnly = (FF_COMPOUNDONLY & data->compoundflag
@@ -1707,15 +1707,15 @@ mkSPNode(IspellDict *Conf, int low, int high, int level)
 			}
 		}
 
-	/* Next level of the prefix tree */
+	/* 前缀树下一层 */
 	data->node = mkSPNode(Conf, lownew, high, level + 1);
 
 	return rs;
 }
 
 /*
- * Builds the Conf->Dictionary tree and AffixData from the imported dictionary
- * and affixes.
+ * 由已导入词典与词缀构建 Dictionary 树与
+ * AffixData.
  */
 void
 NISortDictionary(IspellDict *Conf)
@@ -1724,11 +1724,11 @@ NISortDictionary(IspellDict *Conf)
 	int			naffix;
 	int			curaffix;
 
-	/* compress affixes */
+	/* 压缩词缀 */
 
 	/*
-	 * If we use flag aliases then we need to use Conf->AffixData filled in
-	 * the NIImportOOAffixes().
+	 * 若使用标志别名,则须用 NIImportOOAffixes()
+	 * 填好的 AffixData.
 	 */
 	if (Conf->useFlagAliases)
 	{
@@ -1759,8 +1759,8 @@ NISortDictionary(IspellDict *Conf)
 			else
 			{
 				/*
-				 * If Conf->Spell[i]->p.flag is empty, then get empty value of
-				 * Conf->AffixData (0 index).
+				 * 若 Conf->Spell[i]->p.flag 为空,则取
+				 * AffixData 空值(下标0).
 				 */
 				curaffix = 0;
 			}
@@ -1769,10 +1769,10 @@ NISortDictionary(IspellDict *Conf)
 			Conf->Spell[i]->p.d.len = strlen(Conf->Spell[i]->word);
 		}
 	}
-	/* Otherwise fill Conf->AffixData here */
+	/* 否则在此填充 Conf->AffixData */
 	else
 	{
-		/* Count the number of different flags used in the dictionary */
+		/* 统计词典中使用的不同标志个数 */
 		qsort(Conf->Spell, Conf->nspell, sizeof(SPELL *),
 			  cmpspellaffix);
 
@@ -1785,9 +1785,9 @@ NISortDictionary(IspellDict *Conf)
 		}
 
 		/*
-		 * Fill in Conf->AffixData with the affixes that were used in the
-		 * dictionary. Replace textual flag-field of Conf->Spell entries with
-		 * indexes into Conf->AffixData array.
+		 * 用词典中用过的词缀填充 Conf->AffixData。
+		 * 把 Conf->Spell 项的文本标志字段换成
+		 * Conf->AffixData 数组下标。
 		 */
 		Conf->AffixData = (char **) palloc0(naffix * sizeof(char *));
 
@@ -1810,21 +1810,21 @@ NISortDictionary(IspellDict *Conf)
 		Conf->lenAffixData = Conf->nAffixData = naffix;
 	}
 
-	/* Start build a prefix tree */
+	/* 开始构建前缀树 */
 	qsort(Conf->Spell, Conf->nspell, sizeof(SPELL *), cmpspell);
 	Conf->Dictionary = mkSPNode(Conf, 0, Conf->nspell, 0);
 }
 
 /*
- * Makes a prefix tree for the given level using the repl string of an affix
- * rule. Affixes with empty replace string do not include in the prefix tree.
- * This affixes are included by mkVoidAffix().
+ * 用词缀规则的 repl 串为给定层级构造前缀树。
+ * 替换串为空的词缀不进入前缀树。
+ * 此类词缀由 mkVoidAffix() 纳入。
  *
- * Conf: current dictionary.
- * low: lower index of the Conf->Affix array.
- * high: upper index of the Conf->Affix array.
- * level: current prefix tree level.
- * type: FF_SUFFIX or FF_PREFIX.
+ * Conf:当前词典。
+ * low:Conf->Affix 数组下界。
+ * high:Conf->Affix 数组上界。
+ * level:当前前缀树层级。
+ * type:FF_SUFFIX 或 FF_PREFIX.
  */
 static AffixNode *
 mkANode(IspellDict *Conf, int low, int high, int level, int type)
@@ -1863,7 +1863,7 @@ mkANode(IspellDict *Conf, int low, int high, int level, int type)
 			{
 				if (lastchar)
 				{
-					/* Next level of the prefix tree */
+					/* 前缀树下一层 */
 					data->node = mkANode(Conf, lownew, i, level + 1, type);
 					if (naff)
 					{
@@ -1879,12 +1879,12 @@ mkANode(IspellDict *Conf, int low, int high, int level, int type)
 			}
 			data->val = GETCHAR(Conf->Affix + i, level, type);
 			if (Conf->Affix[i].replen == level + 1)
-			{					/* affix stopped */
+			{					/* 词缀停止 */
 				aff[naff++] = Conf->Affix + i;
 			}
 		}
 
-	/* Next level of the prefix tree */
+	/* 前缀树下一层 */
 	data->node = mkANode(Conf, lownew, high, level + 1, type);
 	if (naff)
 	{
@@ -1900,8 +1900,8 @@ mkANode(IspellDict *Conf, int low, int high, int level, int type)
 }
 
 /*
- * Makes the root void node in the prefix tree. The root void node is created
- * for affixes which have empty replace string ("repl" field).
+ * 在前缀树中造根空节点。根空节点为
+ * 替换串("repl" 字段)为空的词缀而建。
  */
 static void
 mkVoidAffix(IspellDict *Conf, bool issuffix, int startsuffix)
@@ -1926,12 +1926,12 @@ mkVoidAffix(IspellDict *Conf, bool issuffix, int startsuffix)
 		Conf->Prefix = Affix;
 	}
 
-	/* Count affixes with empty replace string */
+	/* 统计替换串为空的词缀 */
 	for (i = start; i < end; i++)
 		if (Conf->Affix[i].replen == 0)
 			cnt++;
 
-	/* There is not affixes with empty replace string */
+	/* 没有替换串为空的词缀 */
 	if (cnt == 0)
 		return;
 
@@ -1948,14 +1948,14 @@ mkVoidAffix(IspellDict *Conf, bool issuffix, int startsuffix)
 }
 
 /*
- * Checks if the affixflag is used by dictionary. Conf->AffixData does not
- * contain affixflag if this flag is not used actually by the .dict file.
+ * 检查词典是否使用 affixflag。若该标志实际
+ * 未被 .dict 使用,则 Conf->AffixData 不含它。
  *
- * Conf: current dictionary.
- * affixflag: affix flag.
+ * Conf:当前词典。
+ * affixflag:词缀标志
  *
- * Returns true if the Conf->AffixData array contains affixflag, otherwise
- * returns false.
+ * 若 Conf->AffixData 含 affixflag 返回真,否则
+ * 返回假。
  */
 static bool
 isAffixInUse(IspellDict *Conf, char *affixflag)
@@ -1970,7 +1970,7 @@ isAffixInUse(IspellDict *Conf, char *affixflag)
 }
 
 /*
- * Builds Conf->Prefix and Conf->Suffix trees from the imported affixes.
+ * 由已导入词缀构建 Conf->Prefix 与 Conf->Suffix 树。
  */
 void
 NISortAffixes(IspellDict *Conf)
@@ -1983,7 +1983,7 @@ NISortAffixes(IspellDict *Conf)
 	if (Conf->naffixes == 0)
 		return;
 
-	/* Store compound affixes in the Conf->CompoundAffix array */
+	/* 把复合词缀存入 Conf->CompoundAffix 数组 */
 	if (Conf->naffixes > 1)
 		qsort(Conf->Affix, Conf->naffixes, sizeof(AFFIX), cmpaffix);
 	Conf->CompoundAffix = ptr = (CMPDAffix *) palloc(sizeof(CMPDAffix) * Conf->naffixes);
@@ -2006,7 +2006,7 @@ NISortAffixes(IspellDict *Conf)
 						 (const unsigned char *) Affix->repl,
 						 (ptr - 1)->len))
 			{
-				/* leave only unique and minimal suffixes */
+				/* 只保留唯一且最短的后缀 */
 				ptr->affix = Affix->repl;
 				ptr->len = Affix->replen;
 				ptr->issuffix = issuffix;
@@ -2017,7 +2017,7 @@ NISortAffixes(IspellDict *Conf)
 	ptr->affix = NULL;
 	Conf->CompoundAffix = (CMPDAffix *) repalloc(Conf->CompoundAffix, sizeof(CMPDAffix) * (ptr - Conf->CompoundAffix + 1));
 
-	/* Start build a prefix tree */
+	/* 开始构建前缀树 */
 	Conf->Prefix = mkANode(Conf, 0, firstsuffix, 0, FF_PREFIX);
 	Conf->Suffix = mkANode(Conf, firstsuffix, Conf->naffixes, 0, FF_SUFFIX);
 	mkVoidAffix(Conf, true, firstsuffix);
@@ -2033,7 +2033,7 @@ FindAffixes(AffixNode *node, const char *word, int wrdlen, int *level, int type)
 	uint8 symbol;
 
 	if (node->isvoid)
-	{							/* search void affixes */
+	{							/* 搜索空词缀 */
 		if (node->data->naff)
 			return node->data;
 		node = node->data->node;
@@ -2071,7 +2071,7 @@ static char *
 CheckAffix(const char *word, size_t len, AFFIX *Affix, int flagflags, char *newword, int *baselen)
 {
 	/*
-	 * Check compound allow flags
+	 * 检查复合允许标志
 	 */
 
 	if (flagflags == 0)
@@ -2103,20 +2103,20 @@ CheckAffix(const char *word, size_t len, AFFIX *Affix, int flagflags, char *neww
 	}
 
 	/*
-	 * make replace pattern of affix
+	 * 构造词缀的替换模式
 	 */
 	if (Affix->type == FF_SUFFIX)
 	{
 		strcpy(newword, word);
 		strcpy(newword + len - Affix->replen, Affix->find);
-		if (baselen)			/* store length of non-changed part of word */
+		if (baselen)			/* 存词未改部分长度 */
 			*baselen = len - Affix->replen;
 	}
 	else
 	{
 		/*
-		 * if prefix is an all non-changed part's length then all word
-		 * contains only prefix and suffix, so out
+		 * 若前缀等于全部未改部分长度,则整词
+		 * 只含前缀与后缀,故退出
 		 */
 		if (baselen && *baselen + strlen(Affix->find) <= Affix->replen)
 			return NULL;
@@ -2125,7 +2125,7 @@ CheckAffix(const char *word, size_t len, AFFIX *Affix, int flagflags, char *neww
 	}
 
 	/*
-	 * check resulting word
+	 * 检查结果词
 	 */
 	if (Affix->issimple)
 		return newword;
@@ -2140,7 +2140,7 @@ CheckAffix(const char *word, size_t len, AFFIX *Affix, int flagflags, char *neww
 		size_t		data_len;
 		int			newword_len;
 
-		/* Convert data string to wide characters */
+		/* 把数据串转为宽字符 */
 		newword_len = strlen(newword);
 		data = (pg_wchar *) palloc((newword_len + 1) * sizeof(pg_wchar));
 		data_len = pg_mb2wchar_with_len(newword, data, newword_len);
@@ -2196,7 +2196,7 @@ NormalizeSubWord(IspellDict *Conf, char *word, int flag)
 	*cur = NULL;
 
 
-	/* Check that the word itself is normal form */
+	/* 检查该词本身是否为正规形 */
 	if (FindWord(Conf, word, VoidString, flag))
 	{
 		*cur = pstrdup(word);
@@ -2204,7 +2204,7 @@ NormalizeSubWord(IspellDict *Conf, char *word, int flag)
 		*cur = NULL;
 	}
 
-	/* Find all other NORMAL forms of the 'word' (check only prefix) */
+	/* 找该词所有其他 NORMAL 形(只查前缀) */
 	pnode = Conf->Prefix;
 	plevel = 0;
 	while (pnode)
@@ -2216,7 +2216,7 @@ NormalizeSubWord(IspellDict *Conf, char *word, int flag)
 		{
 			if (CheckAffix(word, wrdlen, prefix->aff[j], flag, newword, NULL))
 			{
-				/* prefix success */
+				/* 前缀成功 */
 				if (FindWord(Conf, newword, prefix->aff[j]->flag, flag))
 					cur += addToResult(forms, cur, newword);
 			}
@@ -2225,27 +2225,27 @@ NormalizeSubWord(IspellDict *Conf, char *word, int flag)
 	}
 
 	/*
-	 * Find all other NORMAL forms of the 'word' (check suffix and then
-	 * prefix)
+	 * 找该词所有其他 NORMAL 形(先查后缀再
+	 * 前缀)
 	 */
 	while (snode)
 	{
 		int			baselen = 0;
 
-		/* find possible suffix */
+		/* 找可能的后缀 */
 		suffix = FindAffixes(snode, word, wrdlen, &slevel, FF_SUFFIX);
 		if (!suffix)
 			break;
-		/* foreach suffix check affix */
+		/* 对每个后缀查词缀 */
 		for (i = 0; i < suffix->naff; i++)
 		{
 			if (CheckAffix(word, wrdlen, suffix->aff[i], flag, newword, &baselen))
 			{
-				/* suffix success */
+				/* 后缀成功 */
 				if (FindWord(Conf, newword, suffix->aff[i]->flag, flag))
 					cur += addToResult(forms, cur, newword);
 
-				/* now we will look changed word with prefixes */
+				/* 现用前缀查看已改词 */
 				pnode = Conf->Prefix;
 				plevel = 0;
 				swrdlen = strlen(newword);
@@ -2258,7 +2258,7 @@ NormalizeSubWord(IspellDict *Conf, char *word, int flag)
 					{
 						if (CheckAffix(newword, swrdlen, prefix->aff[j], flag, pnewword, &baselen))
 						{
-							/* prefix success */
+							/* 前缀成功 */
 							char	   *ff = (prefix->aff[j]->flagflags & suffix->aff[i]->flagflags & FF_CROSSPRODUCT) ?
 								VoidString : prefix->aff[j]->flag;
 
@@ -2295,7 +2295,7 @@ CheckCompoundAffixes(CMPDAffix **ptr, char *word, int len, bool CheckInPlace)
 {
 	bool		issuffix;
 
-	/* in case CompoundAffix is null: */
+	/* 若 CompoundAffix 为空时: */
 	if (*ptr == NULL)
 		return -1;
 
@@ -2378,14 +2378,14 @@ SplitToVariants(IspellDict *Conf, SPNode *snode, SplitVar *orig, char *word, int
 			   *StopHigh,
 			   *StopMiddle = NULL;
 	SPNode	   *node = (snode) ? snode : Conf->Dictionary;
-	int			level = (snode) ? minpos : startpos;	/* recursive
+	int			level = (snode) ? minpos : startpos;	/* 递归
 														 * minpos==level */
 	int			lenaff;
 	CMPDAffix  *caff;
 	char	   *notprobed;
 	int			compoundflag = 0;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数递归,可能把栈撑爆 */
 	check_stack_depth();
 
 	notprobed = (char *) palloc(wordlen);
@@ -2394,12 +2394,12 @@ SplitToVariants(IspellDict *Conf, SPNode *snode, SplitVar *orig, char *word, int
 
 	while (level < wordlen)
 	{
-		/* find word with epenthetic or/and compound affix */
+		/* 用插音或/与复合词缀找词 */
 		caff = Conf->CompoundAffix;
 		while (level > startpos && (lenaff = CheckCompoundAffixes(&caff, word + level, wordlen - level, (node) ? true : false)) >= 0)
 		{
 			/*
-			 * there is one of compound affixes, so check word for existings
+			 * 这是复合词缀之一,故检查词是否存在
 			 */
 			char		buf[MAXNORMLEN];
 			char	  **subres;
@@ -2413,7 +2413,7 @@ SplitToVariants(IspellDict *Conf, SPNode *snode, SplitVar *orig, char *word, int
 				continue;
 
 			if (lenaff >= MAXNORMLEN)
-				continue;		/* skip too big value */
+				continue;		/* 跳过过大值 */
 			if (lenaff > 0)
 				memcpy(buf, word + startpos, lenaff);
 			buf[lenaff] = '\0';
@@ -2427,7 +2427,7 @@ SplitToVariants(IspellDict *Conf, SPNode *snode, SplitVar *orig, char *word, int
 			subres = NormalizeSubWord(Conf, buf, compoundflag);
 			if (subres)
 			{
-				/* Yes, it was a word from dictionary */
+				/* 是的,这是词典中的词 */
 				SplitVar   *new = CopyVar(var, 0);
 				SplitVar   *ptr = var;
 				char	  **sptr = subres;
@@ -2475,31 +2475,31 @@ SplitToVariants(IspellDict *Conf, SPNode *snode, SplitVar *orig, char *word, int
 			else
 				compoundflag = FF_COMPOUNDMIDDLE;
 
-			/* find infinitive */
+			/* 找不定式 */
 			if (StopMiddle->isword &&
 				(StopMiddle->compoundflag & compoundflag) &&
 				notprobed[level])
 			{
-				/* ok, we found full compoundallowed word */
+				/* 好,找到完整的允许复合词 */
 				if (level > minpos)
 				{
-					/* and its length more than minimal */
+					/* 且其长度超过最小 */
 					if (wordlen == level + 1)
 					{
-						/* well, it was last word */
+						/* 好,这是末词 */
 						AddStem(var, pnstrdup(word + startpos, wordlen - startpos));
 						pfree(notprobed);
 						return var;
 					}
 					else
 					{
-						/* then we will search more big word at the same point */
+						/* 然后在同点再搜更大词 */
 						SplitVar   *ptr = var;
 
 						while (ptr->next)
 							ptr = ptr->next;
 						ptr->next = SplitToVariants(Conf, node, var, word, wordlen, startpos, level);
-						/* we can find next word */
+						/* 还能找下一词 */
 						level++;
 						AddStem(var, pnstrdup(word + startpos, level - startpos));
 						node = Conf->Dictionary;

@@ -1463,24 +1463,24 @@ regexp_matches_no_flags(PG_FUNCTION_ARGS)
 }
 
 /*
- * setup_regexp_matches --- do the initial matching for regexp_match,
- *		regexp_split, and related functions
+ * setup_regexp_matches --- 为 regexp_match
+ *		与 regexp_split 等做初始匹配
  *
- * To avoid having to re-find the compiled pattern on each call, we do
- * all the matching in one swoop.  The returned regexp_matches_ctx contains
- * the locations of all the substrings matching the pattern.
+ * 为免每次调用重新查找已编译模式,一次做完
+ * 全部匹配。返回的 regexp_matches_ctx 含
+ * 所有匹配该模式的子串位置。
  *
- * start_search: the character (not byte) offset in orig_str at which to
- * begin the search.  Returned positions are relative to orig_str anyway.
- * use_subpatterns: collect data about matches to parenthesized subexpressions.
- * ignore_degenerate: ignore zero-length matches.
- * fetching_unmatched: caller wants to fetch unmatched substrings.
+ * start_search: 在 orig_str 中开始搜索的字符(非字节)
+ * 偏移。返回位置仍相对 orig_str。
+ * use_subpatterns: 收集括号子表达式的匹配数据。
+ * ignore_degenerate: 忽略零长度匹配。
+ * fetching_unmatched: 调用方要取未匹配子串。
  *
- * We don't currently assume that fetching_unmatched is exclusive of fetching
- * the matched text too; if it's set, the conversion buffer is large enough to
- * fetch any single matched or unmatched string, but not any larger
- * substring.  (In practice, when splitting the matches are usually small
- * anyway, and it didn't seem worth complicating the code further.)
+ * 当前不假定取未匹配与取匹配正文互斥;若置位,
+ * 转换缓冲够取任一单段匹配或未匹配串,但不够
+ * 更大子串。(实践中拆分时匹配通常较小,
+ * 不值得再把代码复杂化。)
+ *
  */
 static regexp_matches_ctx *
 setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
@@ -1503,23 +1503,23 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 	int			array_idx;
 	int			prev_match_end;
 	int			prev_valid_match_end;
-	int			maxlen = 0;		/* largest fetch length in characters */
+	int			maxlen = 0;		/* 最大取串长度(字符数) */
 
-	/* save original string --- we'll extract result substrings from it */
+	/* 保存原串 --- 结果子串从中抽取 */
 	matchctx->orig_str = orig_str;
 
-	/* convert string to pg_wchar form for matching */
+	/* 转为 pg_wchar 形式以便匹配 */
 	orig_len = VARSIZE_ANY_EXHDR(orig_str);
 	wide_str = (pg_wchar *) palloc(sizeof(pg_wchar) * (orig_len + 1));
 	wide_len = pg_mb2wchar_with_len(VARDATA_ANY(orig_str), wide_str, orig_len);
 
-	/* set up the compiled pattern */
+	/* 准备已编译模式 */
 	cflags = re_flags->cflags;
 	if (!use_subpatterns)
 		cflags |= REG_NOSUB;
 	cpattern = RE_compile_and_cache(pattern, cflags, collation);
 
-	/* do we want to remember subpatterns? */
+	/* 是否要记住子模式? */
 	if (use_subpatterns && cpattern->re_nsub > 0)
 	{
 		matchctx->npatterns = cpattern->re_nsub;
@@ -1532,35 +1532,35 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 		pmatch_len = 1;
 	}
 
-	/* temporary output space for RE package */
+	/* RE 包的临时输出空间 */
 	pmatch = palloc(sizeof(regmatch_t) * pmatch_len);
 
 	/*
-	 * the real output space (grown dynamically if needed)
+	 * 真正的输出空间(需要时动态增长)
 	 *
-	 * use values 2^n-1, not 2^n, so that we hit the limit at 2^28-1 rather
-	 * than at 2^27
+	 * 用 2^n-1 而非 2^n,以便撞上限在 2^28-1
+	 * 而非 2^27
 	 */
 	array_len = re_flags->glob ? 255 : 31;
 	matchctx->match_locs = (int *) palloc(sizeof(int) * array_len);
 	array_idx = 0;
 
-	/* search for the pattern, perhaps repeatedly */
+	/* 搜索模式,可重复 */
 	prev_match_end = 0;
 	prev_valid_match_end = 0;
 	while (RE_wchar_execute(cpattern, wide_str, wide_len, start_search,
 							pmatch_len, pmatch))
 	{
 		/*
-		 * If requested, ignore degenerate matches, which are zero-length
-		 * matches occurring at the start or end of a string or just after a
-		 * previous match.
+		 * 若请求,忽略退化匹配,即出现在串首/尾
+		 * 或紧接前一匹配之后的零长度
+		 * 匹配。
 		 */
 		if (!ignore_degenerate ||
 			(pmatch[0].rm_so < wide_len &&
 			 pmatch[0].rm_eo > prev_match_end))
 		{
-			/* enlarge output space if needed */
+			/* 必要时扩大输出空间 */
 			while (array_idx + matchctx->npatterns * 2 + 1 > array_len)
 			{
 				array_len += array_len + 1; /* 2^n-1 => 2^(n+1)-1 */
@@ -1572,7 +1572,7 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 														sizeof(int) * array_len);
 			}
 
-			/* save this match's locations */
+			/* 保存本匹配的位置 */
 			if (use_subpatterns)
 			{
 				int			i;
@@ -1601,9 +1601,9 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 			matchctx->nmatches++;
 
 			/*
-			 * check length of unmatched portion between end of previous valid
-			 * (nondegenerate, or degenerate but not ignored) match and start
-			 * of current one
+			 * 检查上一有效匹配(非退化,或退化但未忽略)
+			 * 终点与当前匹配起点之间未匹配段的
+			 * 长度
 			 */
 			if (fetching_unmatched &&
 				pmatch[0].rm_so >= 0 &&
@@ -1613,15 +1613,15 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 		}
 		prev_match_end = pmatch[0].rm_eo;
 
-		/* if not glob, stop after one match */
+		/* 非 glob 则一匹配即停 */
 		if (!re_flags->glob)
 			break;
 
 		/*
-		 * Advance search position.  Normally we start the next search at the
-		 * end of the previous match; but if the match was of zero length, we
-		 * have to advance by one character, or we'd just find the same match
-		 * again.
+		 * 推进搜索位置。通常下一搜索起于前一匹配
+		 * 终点;但若匹配为零长度,须前进一字符,
+		 * 否则会再次找到同一匹配。
+		 *
 		 */
 		start_search = prev_match_end;
 		if (pmatch[0].rm_so == pmatch[0].rm_eo)
@@ -1631,16 +1631,16 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 	}
 
 	/*
-	 * check length of unmatched portion between end of last match and end of
-	 * input string
+	 * 检查末匹配终点与输入串末尾之间未匹配段
+	 * 的长度
 	 */
 	if (fetching_unmatched &&
 		(wide_len - prev_valid_match_end) > maxlen)
 		maxlen = (wide_len - prev_valid_match_end);
 
 	/*
-	 * Keep a note of the end position of the string for the benefit of
-	 * splitting code.
+	 * 记下串的终点位置,供拆分代码
+	 * 使用。
 	 */
 	matchctx->match_locs[array_idx] = wide_len;
 
@@ -1650,19 +1650,19 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 		int			conv_bufsiz;
 
 		/*
-		 * Make the conversion buffer large enough for any substring of
-		 * interest.
+		 * 使转换缓冲足以容纳任何感兴趣的
+		 * 子串。
 		 *
-		 * Worst case: assume we need the maximum size (maxlen*eml), but take
-		 * advantage of the fact that the original string length in bytes is
-		 * an upper bound on the byte length of any fetched substring (and we
-		 * know that len+1 is safe to allocate because the varlena header is
-		 * longer than 1 byte).
+		 * 最坏:假定需要最大尺寸(maxlen*eml),但利用
+		 * 原串字节长度是任何取回子串字节长的
+		 * 上界(且知 len+1 可安全分配,因 varlena
+		 * 头长于 1
+		 * 字节)。
 		 */
 		if (maxsiz > orig_len)
 			conv_bufsiz = orig_len + 1;
 		else
-			conv_bufsiz = maxsiz + 1;	/* safe since maxsiz < 2^30 */
+			conv_bufsiz = maxsiz + 1;	/* 安全因 maxsiz < 2^30 */
 
 		matchctx->conv_buf = palloc(conv_bufsiz);
 		matchctx->conv_bufsiz = conv_bufsiz;
@@ -1670,21 +1670,21 @@ setup_regexp_matches(text *orig_str, text *pattern, pg_re_flags *re_flags,
 	}
 	else
 	{
-		/* No need to keep the wide string if we're in a single-byte charset. */
+		/* 单字节字符集无需保留宽字符串。 */
 		pfree(wide_str);
 		matchctx->wide_str = NULL;
 		matchctx->conv_buf = NULL;
 		matchctx->conv_bufsiz = 0;
 	}
 
-	/* Clean up temp storage */
+	/* 清理临时存储 */
 	pfree(pmatch);
 
 	return matchctx;
 }
 
 /*
- * build_regexp_match_result - build output array for current match
+ * build_regexp_match_result - 为当前匹配构建输出数组
  */
 static ArrayType *
 build_regexp_match_result(regexp_matches_ctx *matchctx)
@@ -1697,7 +1697,7 @@ build_regexp_match_result(regexp_matches_ctx *matchctx)
 	int			loc;
 	int			i;
 
-	/* Extract matching substrings from the original string */
+	/* 从原串抽取匹配子串 */
 	loc = matchctx->next_match * matchctx->npatterns * 2;
 	for (i = 0; i < matchctx->npatterns; i++)
 	{
@@ -1729,10 +1729,10 @@ build_regexp_match_result(regexp_matches_ctx *matchctx)
 		}
 	}
 
-	/* And form an array */
+	/* 并构成数组 */
 	dims[0] = matchctx->npatterns;
 	lbs[0] = 1;
-	/* XXX: this hardcodes assumptions about the text type */
+	/* XXX: 此处写死了对 text 类型的假定 */
 	return construct_md_array(elems, nulls, 1, dims, lbs,
 							  TEXTOID, -1, false, TYPALIGN_INT);
 }

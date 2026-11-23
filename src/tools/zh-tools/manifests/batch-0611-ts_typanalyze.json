@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0611",
+ "title": "backend/tsearch ts_typanalyze 短注 — batch 0611",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "bed8fb6ee0e87d0ff954d8db188977502719ecc9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/tsearch/ts_typanalyze.c",
+   "kind": "c_comment",
+   "note": "0611"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0611-ts_typanalyze.json",
+   "kind": "manifest",
+   "note": "0611"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/tsearch/ts_typanalyze.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "版权横幅 KEEP。",
+    "Lossy Counting 长文算法块 L75-141 KEEP（半英 MIXED 风险）。"
+   ],
+   "note": "0611"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0611-ts_typanalyze.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0611"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0611"
+  }
+ ],
+ "notes": "ts_typanalyze 短注已译；LC 论文长块 KEEP"
+}

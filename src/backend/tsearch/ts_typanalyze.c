@@ -22,19 +22,19 @@
 #include "varatt.h"
 
 
-/* A hash key for lexemes */
+/* 词元的哈希键 */
 typedef struct
 {
-	char	   *lexeme;			/* lexeme (not NULL terminated!) */
-	int			length;			/* its length in bytes */
+	char	   *lexeme;			/* 词元(非空终止!) */
+	int			length;			/* 其字节长度 */
 } LexemeHashKey;
 
-/* A hash table entry for the Lossy Counting algorithm */
+/* 有损计数算法的哈希表条目 */
 typedef struct
 {
-	LexemeHashKey key;			/* This is 'e' from the LC algorithm. */
-	int			frequency;		/* This is 'f'. */
-	int			delta;			/* And this is 'delta'. */
+	LexemeHashKey key;			/* 此即 LC 算法中的 'e'。 */
+	int			frequency;		/* 即 'f'。 */
+	int			delta;			/* 此即 'delta'。 */
 } TrackItem;
 
 static void compute_tsvector_stats(VacAttrStats *stats,
@@ -52,7 +52,7 @@ static int	trackitem_compare_lexemes(const void *e1, const void *e2,
 
 
 /*
- *	ts_typanalyze -- a custom typanalyze function for tsvector columns
+ *	ts_typanalyze -- tsvector 列的定制 typanalyze 函数
  */
 Datum
 ts_typanalyze(PG_FUNCTION_ARGS)
@@ -60,13 +60,13 @@ ts_typanalyze(PG_FUNCTION_ARGS)
 	VacAttrStats *stats = (VacAttrStats *) PG_GETARG_POINTER(0);
 	Form_pg_attribute attr = stats->attr;
 
-	/* If the attstattarget column is negative, use the default value */
-	/* NB: it is okay to scribble on stats->attr since it's a copy */
+	/* 若 attstattarget 列为负,则用默认值 */
+	/* 注:可涂改 stats->attr,因其为副本 */
 	if (attr->attstattarget < 0)
 		attr->attstattarget = default_statistics_target;
 
 	stats->compute_stats = compute_tsvector_stats;
-	/* see comment about the choice of minrows in commands/analyze.c */
+	/* 关于 minrows 取值见 commands/analyze.c 注释 */
 	stats->minrows = 300 * attr->attstattarget;
 
 	PG_RETURN_BOOL(true);
@@ -149,38 +149,38 @@ compute_tsvector_stats(VacAttrStats *stats,
 	int			null_cnt = 0;
 	double		total_width = 0;
 
-	/* This is D from the LC algorithm. */
+	/* 此即 LC 算法中的 D。 */
 	HTAB	   *lexemes_tab;
 	HASHCTL		hash_ctl;
 	HASH_SEQ_STATUS scan_status;
 
-	/* This is the current bucket number from the LC algorithm */
+	/* 此即 LC 算法的当前桶号 */
 	int			b_current;
 
-	/* This is 'w' from the LC algorithm */
+	/* 此即 LC 算法中的 'w' */
 	int			bucket_width;
 	int			vector_no,
 				lexeme_no;
 	LexemeHashKey hash_key;
 
 	/*
-	 * We want statistics_target * 10 lexemes in the MCELEM array.  This
-	 * multiplier is pretty arbitrary, but is meant to reflect the fact that
-	 * the number of individual lexeme values tracked in pg_statistic ought to
-	 * be more than the number of values for a simple scalar column.
+	 * 希望 MCELEM 数组含 statistics_target * 10 个词元。
+	 * 该乘数颇任意,意在反映:pg_statistic 中跟踪的
+	 * 个别词元值数目,应多于简单标量列的
+	 * 取值数目。
 	 */
 	num_mcelem = stats->attr->attstattarget * 10;
 
 	/*
-	 * We set bucket width equal to (num_mcelem + 10) / 0.007 as per the
-	 * comment above.
+	 * 按上文注释,桶宽取 (num_mcelem + 10) / 0.007
+	 * (见上文)。
 	 */
 	bucket_width = (num_mcelem + 10) * 1000 / 7;
 
 	/*
-	 * Create the hashtable. It will be in local memory, so we don't need to
-	 * worry about overflowing the initial size. Also we don't need to pay any
-	 * attention to locking and memory management.
+	 * 创建哈希表。它在本地内存,故不必担心初始大小
+	 * 溢出。也不必操心加锁与
+	 * 内存管理。
 	 */
 	hash_ctl.keysize = sizeof(LexemeHashKey);
 	hash_ctl.entrysize = sizeof(TrackItem);
@@ -192,11 +192,11 @@ compute_tsvector_stats(VacAttrStats *stats,
 							  &hash_ctl,
 							  HASH_ELEM | HASH_FUNCTION | HASH_COMPARE | HASH_CONTEXT);
 
-	/* Initialize counters. */
+	/* 初始化计数器 */
 	b_current = 1;
 	lexeme_no = 0;
 
-	/* Loop over the tsvectors. */
+	/* 遍历各 tsvector。 */
 	for (vector_no = 0; vector_no < samplerows; vector_no++)
 	{
 		Datum		value;
@@ -211,7 +211,7 @@ compute_tsvector_stats(VacAttrStats *stats,
 		value = fetchfunc(stats, vector_no, &isnull);
 
 		/*
-		 * Check for null/nonnull.
+		 * 检查空/非空。
 		 */
 		if (isnull)
 		{
@@ -220,21 +220,21 @@ compute_tsvector_stats(VacAttrStats *stats,
 		}
 
 		/*
-		 * Add up widths for average-width calculation.  Since it's a
-		 * tsvector, we know it's varlena.  As in the regular
-		 * compute_minimal_stats function, we use the toasted width for this
-		 * calculation.
+		 * 累加宽度以算平均宽度。既是 tsvector,必为
+		 * varlena。与常规 compute_minimal_stats
+		 * 一样,此处用已 toast 的宽度
+		 * 做计算。
 		 */
 		total_width += VARSIZE_ANY(DatumGetPointer(value));
 
 		/*
-		 * Now detoast the tsvector if needed.
+		 * 现按需 detoast 该 tsvector。
 		 */
 		vector = DatumGetTSVector(value);
 
 		/*
-		 * We loop through the lexemes in the tsvector and add them to our
-		 * tracking hashtable.
+		 * 遍历 tsvector 中的词元,加入跟踪
+		 * 哈希表。
 		 */
 		lexemesptr = STRPTR(vector);
 		curentryptr = ARRPTR(vector);
@@ -244,27 +244,27 @@ compute_tsvector_stats(VacAttrStats *stats,
 			bool		found;
 
 			/*
-			 * Construct a hash key.  The key points into the (detoasted)
-			 * tsvector value at this point, but if a new entry is created, we
-			 * make a copy of it.  This way we can free the tsvector value
-			 * once we've processed all its lexemes.
+			 * 构造哈希键。此刻键指向(已 detoast 的)
+			 * tsvector 值;若创建新项则再拷贝。
+			 * 这样处理完其全部词元后即可释放
+			 * 该 tsvector。
 			 */
 			hash_key.lexeme = lexemesptr + curentryptr->pos;
 			hash_key.length = curentryptr->len;
 
-			/* Lookup current lexeme in hashtable, adding it if new */
+			/* 在哈希表中查找当前词元,新则加入 */
 			item = (TrackItem *) hash_search(lexemes_tab,
 											 &hash_key,
 											 HASH_ENTER, &found);
 
 			if (found)
 			{
-				/* The lexeme is already on the tracking list */
+				/* 该词元已在跟踪列表上 */
 				item->frequency++;
 			}
 			else
 			{
-				/* Initialize new tracking list element */
+				/* 初始化新的跟踪列表元素 */
 				item->frequency = 1;
 				item->delta = b_current - 1;
 
@@ -272,26 +272,26 @@ compute_tsvector_stats(VacAttrStats *stats,
 				memcpy(item->key.lexeme, hash_key.lexeme, hash_key.length);
 			}
 
-			/* lexeme_no is the number of elements processed (ie N) */
+			/* lexeme_no 为已处理元素数(即 N) */
 			lexeme_no++;
 
-			/* We prune the D structure after processing each bucket */
+			/* 每处理完一桶后修剪 D 结构 */
 			if (lexeme_no % bucket_width == 0)
 			{
 				prune_lexemes_hashtable(lexemes_tab, b_current);
 				b_current++;
 			}
 
-			/* Advance to the next WordEntry in the tsvector */
+			/* 前进到 tsvector 中下一 WordEntry */
 			curentryptr++;
 		}
 
-		/* If the vector was toasted, free the detoasted copy. */
+		/* 若向量曾被 toast,释放 detoast 副本。 */
 		if (TSVectorGetDatum(vector) != value)
 			pfree(vector);
 	}
 
-	/* We can only compute real stats if we found some non-null values. */
+	/* 仅当发现若干非空值时才能算真实统计。 */
 	if (null_cnt < samplerows)
 	{
 		int			nonnull_cnt = samplerows - null_cnt;
@@ -304,24 +304,24 @@ compute_tsvector_stats(VacAttrStats *stats,
 					maxfreq;
 
 		stats->stats_valid = true;
-		/* Do the simple null-frac and average width stats */
+		/* 做简单的空值比例与平均宽度统计 */
 		stats->stanullfrac = (double) null_cnt / (double) samplerows;
 		stats->stawidth = total_width / (double) nonnull_cnt;
 
-		/* Assume it's a unique column (see notes above) */
+		/* 假定为唯一列(见上文说明) */
 		stats->stadistinct = -1.0 * (1.0 - stats->stanullfrac);
 
 		/*
-		 * Construct an array of the interesting hashtable items, that is,
-		 * those meeting the cutoff frequency (s - epsilon)*N.  Also identify
-		 * the minimum and maximum frequencies among these items.
+		 * 构造有趣哈希表条目的数组,即满足截止频率
+		 * (s - epsilon)*N 者。并识别这些项中的
+		 * 最小与最大频率。
 		 *
-		 * Since epsilon = s/10 and bucket_width = 1/epsilon, the cutoff
-		 * frequency is 9*N / bucket_width.
+		 * 因 epsilon = s/10 且 bucket_width = 1/epsilon,截止
+		 * 频率为 9*N / bucket_width。
 		 */
 		cutoff_freq = 9 * lexeme_no / bucket_width;
 
-		i = hash_get_num_entries(lexemes_tab);	/* surely enough space */
+		i = hash_get_num_entries(lexemes_tab);	/* 空间肯定够 */
 		sort_table = (TrackItem **) palloc(sizeof(TrackItem *) * i);
 
 		hash_seq_init(&scan_status, lexemes_tab);
@@ -339,27 +339,27 @@ compute_tsvector_stats(VacAttrStats *stats,
 		}
 		Assert(track_len <= i);
 
-		/* emit some statistics for debug purposes */
+		/* 输出一些调试用统计 */
 		elog(DEBUG3, "tsvector_stats: target # mces = %d, bucket width = %d, "
 			 "# lexemes = %d, hashtable size = %d, usable entries = %d",
 			 num_mcelem, bucket_width, lexeme_no, i, track_len);
 
 		/*
-		 * If we obtained more lexemes than we really want, get rid of those
-		 * with least frequencies.  The easiest way is to qsort the array into
-		 * descending frequency order and truncate the array.
+		 * 若得到的词元多于真正想要的,去掉频率最低者。
+		 * 最简办法是按频率降序 qsort 数组并
+		 * 截断。
 		 */
 		if (num_mcelem < track_len)
 		{
 			qsort_interruptible(sort_table, track_len, sizeof(TrackItem *),
 								trackitem_compare_frequencies_desc, NULL);
-			/* reset minfreq to the smallest frequency we're keeping */
+			/* 把 minfreq 重置为所保留的最小频率 */
 			minfreq = sort_table[num_mcelem - 1]->frequency;
 		}
 		else
 			num_mcelem = track_len;
 
-		/* Generate MCELEM slot entry */
+		/* 生成 MCELEM 槽项 */
 		if (num_mcelem > 0)
 		{
 			MemoryContext old_context;
@@ -367,42 +367,42 @@ compute_tsvector_stats(VacAttrStats *stats,
 			float4	   *mcelem_freqs;
 
 			/*
-			 * We want to store statistics sorted on the lexeme value using
-			 * first length, then byte-for-byte comparison. The reason for
-			 * doing length comparison first is that we don't care about the
-			 * ordering so long as it's consistent, and comparing lengths
-			 * first gives us a chance to avoid a strncmp() call.
+			 * 希望按词元值排序存统计:先长度,再逐字节。
+			 * 先比长度因只要一致即可,不在乎顺序,
+			 * 且先比长度或可避免一次 strncmp()
+			 * 调用。
 			 *
-			 * This is different from what we do with scalar statistics --
-			 * they get sorted on frequencies. The rationale is that we
-			 * usually search through most common elements looking for a
-			 * specific value, so we can grab its frequency.  When values are
-			 * presorted we can employ binary search for that.  See
-			 * ts_selfuncs.c for a real usage scenario.
+			 *
+			 * 这与标量统计不同——后者按频率排序。因
+			 * 我们常在最常见元素中查特定值以取其
+			 * 频率。值预排序时可用二分查找。见
+			 * ts_selfuncs.c。
+			 *
+			 *
 			 */
 			qsort_interruptible(sort_table, num_mcelem, sizeof(TrackItem *),
 								trackitem_compare_lexemes, NULL);
 
-			/* Must copy the target values into anl_context */
+			/* 必须把目标值拷入 anl_context */
 			old_context = MemoryContextSwitchTo(stats->anl_context);
 
 			/*
-			 * We sorted statistics on the lexeme value, but we want to be
-			 * able to find out the minimal and maximal frequency without
-			 * going through all the values.  We keep those two extra
-			 * frequencies in two extra cells in mcelem_freqs.
+			 * 统计已按词元值排序,但希望不必遍历全部值
+			 * 就能得知最小与最大频率。把这两个额外
+			 * 频率放在 mcelem_freqs 的两格额外
+			 * 单元中。
 			 *
-			 * (Note: the MCELEM statistics slot definition allows for a third
-			 * extra number containing the frequency of nulls, but we don't
-			 * create that for a tsvector column, since null elements aren't
-			 * possible.)
+			 * (注:MCELEM 统计槽定义允许第三项额外数字
+			 * 表示空值频率,但我们不为 tsvector 列创建
+			 * 它,因不可能有空元素。)
+			 *
 			 */
 			mcelem_values = (Datum *) palloc(num_mcelem * sizeof(Datum));
 			mcelem_freqs = (float4 *) palloc((num_mcelem + 2) * sizeof(float4));
 
 			/*
-			 * See comments above about use of nonnull_cnt as the divisor for
-			 * the final frequency estimates.
+			 * 关于用 nonnull_cnt 作最终频率估计除数,见
+			 * 上文注释。
 			 */
 			for (i = 0; i < num_mcelem; i++)
 			{
@@ -421,35 +421,35 @@ compute_tsvector_stats(VacAttrStats *stats,
 			stats->staop[0] = TextEqualOperator;
 			stats->stacoll[0] = DEFAULT_COLLATION_OID;
 			stats->stanumbers[0] = mcelem_freqs;
-			/* See above comment about two extra frequency fields */
+			/* 关于两个额外频率字段见上文注释 */
 			stats->numnumbers[0] = num_mcelem + 2;
 			stats->stavalues[0] = mcelem_values;
 			stats->numvalues[0] = num_mcelem;
-			/* We are storing text values */
+			/* 存储的是 text 值 */
 			stats->statypid[0] = TEXTOID;
-			stats->statyplen[0] = -1;	/* typlen, -1 for varlena */
+			stats->statyplen[0] = -1;	/* typlen,varlena 为 -1 */
 			stats->statypbyval[0] = false;
 			stats->statypalign[0] = 'i';
 		}
 	}
 	else
 	{
-		/* We found only nulls; assume the column is entirely null */
+		/* 只见到空值;假定整列皆空 */
 		stats->stats_valid = true;
 		stats->stanullfrac = 1.0;
-		stats->stawidth = 0;	/* "unknown" */
-		stats->stadistinct = 0.0;	/* "unknown" */
+		stats->stawidth = 0;	/* "未知" */
+		stats->stadistinct = 0.0;	/* "未知" */
 	}
 
 	/*
-	 * We don't need to bother cleaning up any of our temporary palloc's. The
-	 * hashtable should also go away, as it used a child memory context.
+	 * 不必费心清理临时 palloc。哈希表也应随之消失,
+	 * 因其使用了子内存上下文。
 	 */
 }
 
 /*
- *	A function to prune the D structure from the Lossy Counting algorithm.
- *	Consult compute_tsvector_stats() for wider explanation.
+ *	修剪有损计数算法中 D 结构的函数。
+ *	更广说明见 compute_tsvector_stats()。
  */
 static void
 prune_lexemes_hashtable(HTAB *lexemes_tab, int b_current)
@@ -473,8 +473,8 @@ prune_lexemes_hashtable(HTAB *lexemes_tab, int b_current)
 }
 
 /*
- * Hash functions for lexemes. They are strings, but not NULL terminated,
- * so we need a special hash function.
+ * 词元的哈希函数。它们是串但非空终止,
+ * 故需要专用哈希函数。
  */
 static uint32
 lexeme_hash(const void *key, Size keysize)
@@ -486,17 +486,17 @@ lexeme_hash(const void *key, Size keysize)
 }
 
 /*
- *	Matching function for lexemes, to be used in hashtable lookups.
+ *	词元匹配函数,用于哈希表查找。
  */
 static int
 lexeme_match(const void *key1, const void *key2, Size keysize)
 {
-	/* The keysize parameter is superfluous, the keys store their lengths */
+	/* keysize 参数多余,键自带长度 */
 	return lexeme_compare(key1, key2);
 }
 
 /*
- *	Comparison function for lexemes.
+ *	词元比较函数。
  */
 static int
 lexeme_compare(const void *key1, const void *key2)
@@ -504,17 +504,17 @@ lexeme_compare(const void *key1, const void *key2)
 	const LexemeHashKey *d1 = (const LexemeHashKey *) key1;
 	const LexemeHashKey *d2 = (const LexemeHashKey *) key2;
 
-	/* First, compare by length */
+	/* 先按长度比较 */
 	if (d1->length > d2->length)
 		return 1;
 	else if (d1->length < d2->length)
 		return -1;
-	/* Lengths are equal, do a byte-by-byte comparison */
+	/* 长度相等,再逐字节比较 */
 	return strncmp(d1->lexeme, d2->lexeme, d1->length);
 }
 
 /*
- *	Comparator for sorting TrackItems on frequencies (descending sort)
+ *	按频率排序 TrackItems 的比较器(降序)
  */
 static int
 trackitem_compare_frequencies_desc(const void *e1, const void *e2, void *arg)
@@ -526,7 +526,7 @@ trackitem_compare_frequencies_desc(const void *e1, const void *e2, void *arg)
 }
 
 /*
- *	Comparator for sorting TrackItems on lexemes
+ *	按词元排序 TrackItems 的比较器
  */
 static int
 trackitem_compare_lexemes(const void *e1, const void *e2, void *arg)

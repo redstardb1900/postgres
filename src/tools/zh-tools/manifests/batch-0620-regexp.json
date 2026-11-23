@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0620",
+ "title": "backend/utils/adt regexp_count/instr/like/match — batch 0620",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f128cfb3ddb1343082fddf158ebf8f0d04446160",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/regexp.c",
+   "kind": "c_comment",
+   "note": "0620"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0620-regexp.json",
+   "kind": "manifest",
+   "note": "0620"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/regexp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "translator: gettext 提示行 KEEP EN"
+   ],
+   "note": "0620"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0620-regexp.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0620"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0620"
+  }
+ ],
+ "notes": "regexp_count 余段至 regexp_matches 包装；translator KEEP；L1171 可略=ignore 压缩"
+}

@@ -1155,33 +1155,33 @@ regexp_count(PG_FUNCTION_ARGS)
 
 	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
-	/* User mustn't specify 'g' */
+	/* 用户不得指定 'g' */
 	if (re_flags.glob)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 		/* translator: %s is a SQL function name */
 				 errmsg("%s does not support the \"global\" option",
 						"regexp_count()")));
-	/* But we find all the matches anyway */
+	/* 但仍找出全部匹配 */
 	re_flags.glob = true;
 
-	/* Do the matching */
+	/* 执行匹配 */
 	matchctx = setup_regexp_matches(str, pattern, &re_flags, start - 1,
 									PG_GET_COLLATION(),
-									false,	/* can ignore subexprs */
+									false,	/* 可略子表达式 */
 									false, false);
 
 	PG_RETURN_INT32(matchctx->nmatches);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_count_no_start(PG_FUNCTION_ARGS)
 {
 	return regexp_count(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_count_no_flags(PG_FUNCTION_ARGS)
 {
@@ -1190,7 +1190,7 @@ regexp_count_no_flags(PG_FUNCTION_ARGS)
 
 /*
  * regexp_instr()
- *		Return the match's position within the string
+ *		返回匹配在串中的位置
  */
 Datum
 regexp_instr(PG_FUNCTION_ARGS)
@@ -1206,7 +1206,7 @@ regexp_instr(PG_FUNCTION_ARGS)
 	pg_re_flags re_flags;
 	regexp_matches_ctx *matchctx;
 
-	/* Collect optional parameters */
+	/* 收集可选参数 */
 	if (PG_NARGS() > 2)
 	{
 		start = PG_GETARG_INT32(2);
@@ -1244,33 +1244,33 @@ regexp_instr(PG_FUNCTION_ARGS)
 							"subexpr", subexpr)));
 	}
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
-	/* User mustn't specify 'g' */
+	/* 用户不得指定 'g' */
 	if (re_flags.glob)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 		/* translator: %s is a SQL function name */
 				 errmsg("%s does not support the \"global\" option",
 						"regexp_instr()")));
-	/* But we find all the matches anyway */
+	/* 但仍找出全部匹配 */
 	re_flags.glob = true;
 
-	/* Do the matching */
+	/* 执行匹配 */
 	matchctx = setup_regexp_matches(str, pattern, &re_flags, start - 1,
 									PG_GET_COLLATION(),
-									(subexpr > 0),	/* need submatches? */
+									(subexpr > 0),	/* 需要子匹配? */
 									false, false);
 
-	/* When n exceeds matches return 0 (includes case of no matches) */
+	/* 当 n 超出匹配数时返回 0(含无匹配) */
 	if (n > matchctx->nmatches)
 		PG_RETURN_INT32(0);
 
-	/* When subexpr exceeds number of subexpressions return 0 */
+	/* 当 subexpr 超出子表达式数时返回 0 */
 	if (subexpr > matchctx->npatterns)
 		PG_RETURN_INT32(0);
 
-	/* Select the appropriate match position to return */
+	/* 选取要返回的匹配位置 */
 	pos = (n - 1) * matchctx->npatterns;
 	if (subexpr > 0)
 		pos += subexpr - 1;
@@ -1281,38 +1281,38 @@ regexp_instr(PG_FUNCTION_ARGS)
 	if (matchctx->match_locs[pos] >= 0)
 		PG_RETURN_INT32(matchctx->match_locs[pos] + 1);
 	else
-		PG_RETURN_INT32(0);		/* position not identifiable */
+		PG_RETURN_INT32(0);		/* 位置无法识别 */
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_instr_no_start(PG_FUNCTION_ARGS)
 {
 	return regexp_instr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_instr_no_n(PG_FUNCTION_ARGS)
 {
 	return regexp_instr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_instr_no_endoption(PG_FUNCTION_ARGS)
 {
 	return regexp_instr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_instr_no_flags(PG_FUNCTION_ARGS)
 {
 	return regexp_instr(fcinfo);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_instr_no_subexpr(PG_FUNCTION_ARGS)
 {
@@ -1321,7 +1321,7 @@ regexp_instr_no_subexpr(PG_FUNCTION_ARGS)
 
 /*
  * regexp_like()
- *		Test for a pattern match within a string.
+ *		测试串内是否有模式匹配。
  */
 Datum
 regexp_like(PG_FUNCTION_ARGS)
@@ -1331,9 +1331,9 @@ regexp_like(PG_FUNCTION_ARGS)
 	text	   *flags = PG_GETARG_TEXT_PP_IF_EXISTS(2);
 	pg_re_flags re_flags;
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
-	/* User mustn't specify 'g' */
+	/* 用户不得指定 'g' */
 	if (re_flags.glob)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1341,7 +1341,7 @@ regexp_like(PG_FUNCTION_ARGS)
 				 errmsg("%s does not support the \"global\" option",
 						"regexp_like()")));
 
-	/* Otherwise it's like textregexeq/texticregexeq */
+	/* 否则如同 textregexeq/texticregexeq */
 	PG_RETURN_BOOL(RE_compile_and_execute(pattern,
 										  VARDATA_ANY(str),
 										  VARSIZE_ANY_EXHDR(str),
@@ -1350,7 +1350,7 @@ regexp_like(PG_FUNCTION_ARGS)
 										  0, NULL));
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_like_no_flags(PG_FUNCTION_ARGS)
 {
@@ -1359,7 +1359,7 @@ regexp_like_no_flags(PG_FUNCTION_ARGS)
 
 /*
  * regexp_match()
- *		Return the first substring(s) matching a pattern within a string.
+ *		返回串内模式的首个匹配子串。
  */
 Datum
 regexp_match(PG_FUNCTION_ARGS)
@@ -1370,9 +1370,9 @@ regexp_match(PG_FUNCTION_ARGS)
 	pg_re_flags re_flags;
 	regexp_matches_ctx *matchctx;
 
-	/* Determine options */
+	/* 确定选项 */
 	parse_re_flags(&re_flags, flags);
-	/* User mustn't specify 'g' */
+	/* 用户不得指定 'g' */
 	if (re_flags.glob)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1389,14 +1389,14 @@ regexp_match(PG_FUNCTION_ARGS)
 
 	Assert(matchctx->nmatches == 1);
 
-	/* Create workspace that build_regexp_match_result needs */
+	/* 创建 build_regexp_match_result 所需工作区 */
 	matchctx->elems = (Datum *) palloc(sizeof(Datum) * matchctx->npatterns);
 	matchctx->nulls = (bool *) palloc(sizeof(bool) * matchctx->npatterns);
 
 	PG_RETURN_DATUM(PointerGetDatum(build_regexp_match_result(matchctx)));
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_match_no_flags(PG_FUNCTION_ARGS)
 {
@@ -1405,7 +1405,7 @@ regexp_match_no_flags(PG_FUNCTION_ARGS)
 
 /*
  * regexp_matches()
- *		Return a table of all matches of a pattern within a string.
+ *		以表形式返回串内模式的全部匹配。
  */
 Datum
 regexp_matches(PG_FUNCTION_ARGS)
@@ -1423,16 +1423,16 @@ regexp_matches(PG_FUNCTION_ARGS)
 		funcctx = SRF_FIRSTCALL_INIT();
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* Determine options */
+		/* 确定选项 */
 		parse_re_flags(&re_flags, flags);
 
-		/* be sure to copy the input string into the multi-call ctx */
+		/* 务必将输入串复制进多调用上下文 */
 		matchctx = setup_regexp_matches(PG_GETARG_TEXT_P_COPY(0), pattern,
 										&re_flags, 0,
 										PG_GET_COLLATION(),
 										true, false, false);
 
-		/* Pre-create workspace that build_regexp_match_result needs */
+		/* 预创建 build_regexp_match_result 所需工作区 */
 		matchctx->elems = (Datum *) palloc(sizeof(Datum) * matchctx->npatterns);
 		matchctx->nulls = (bool *) palloc(sizeof(bool) * matchctx->npatterns);
 
@@ -1455,7 +1455,7 @@ regexp_matches(PG_FUNCTION_ARGS)
 	SRF_RETURN_DONE(funcctx);
 }
 
-/* This is separate to keep the opr_sanity regression test from complaining */
+/* 分开写以免 opr_sanity 回归测试抱怨 */
 Datum
 regexp_matches_no_flags(PG_FUNCTION_ARGS)
 {

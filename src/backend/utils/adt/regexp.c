@@ -42,79 +42,79 @@
 	(PG_NARGS() > (_n) ? PG_GETARG_TEXT_PP(_n) : NULL)
 
 
-/* all the options of interest for regex functions */
+/* 正则函数关心的全部选项 */
 typedef struct pg_re_flags
 {
-	int			cflags;			/* compile flags for Spencer's regex code */
-	bool		glob;			/* do it globally (for each occurrence) */
+	int			cflags;			/* Spencer 正则代码的编译标志 */
+	bool		glob;			/* 是否全局(每处出现) */
 } pg_re_flags;
 
-/* cross-call state for regexp_match and regexp_split functions */
+/* regexp_match 与 regexp_split 的跨调用状态 */
 typedef struct regexp_matches_ctx
 {
-	text	   *orig_str;		/* data string in original TEXT form */
-	int			nmatches;		/* number of places where pattern matched */
-	int			npatterns;		/* number of capturing subpatterns */
-	/* We store start char index and end+1 char index for each match */
-	/* so the number of entries in match_locs is nmatches * npatterns * 2 */
-	int		   *match_locs;		/* 0-based character indexes */
-	int			next_match;		/* 0-based index of next match to process */
-	/* workspace for build_regexp_match_result() */
-	Datum	   *elems;			/* has npatterns elements */
-	bool	   *nulls;			/* has npatterns elements */
-	pg_wchar   *wide_str;		/* wide-char version of original string */
-	char	   *conv_buf;		/* conversion buffer, if needed */
-	int			conv_bufsiz;	/* size thereof */
+	text	   *orig_str;		/* 原始 TEXT 形式的数据串 */
+	int			nmatches;		/* 模式匹配处的个数 */
+	int			npatterns;		/* 捕获子模式个数 */
+	/* 每匹配存起始字符下标与结束+1 下标 */
+	/* 故 match_locs 项数为 nmatches * npatterns * 2 */
+	int		   *match_locs;		/* 从 0 起的字符下标 */
+	int			next_match;		/* 下一待处理匹配的 0 基下标 */
+	/* build_regexp_match_result() 的工作区 */
+	Datum	   *elems;			/* 含 npatterns 项 */
+	bool	   *nulls;			/* 含 npatterns 项 */
+	pg_wchar   *wide_str;		/* 原串的宽字符版 */
+	char	   *conv_buf;		/* 转换缓冲区(若需要) */
+	int			conv_bufsiz;	/* 其大小 */
 } regexp_matches_ctx;
 
 /*
- * We cache precompiled regular expressions using a "self organizing list"
- * structure, in which recently-used items tend to be near the front.
- * Whenever we use an entry, it's moved up to the front of the list.
- * Over time, an item's average position corresponds to its frequency of use.
+ * 用"自组织列表"结构缓存预编译正则表达式,
+ * 最近使用项倾向靠前。
+ * 每次使用某项就把它移到列表前端。
+ * 久而久之,项的平均位置对应其使用频率。
  *
- * When we first create an entry, it's inserted at the front of
- * the array, dropping the entry at the end of the array if necessary to
- * make room.  (This might seem to be weighting the new entry too heavily,
- * but if we insert new entries further back, we'll be unable to adjust to
- * a sudden shift in the query mix where we are presented with MAX_CACHED_RES
- * never-before-seen items used circularly.  We ought to be able to handle
- * that case, so we have to insert at the front.)
+ * 新建项时插到数组前端;必要时丢掉
+ * 数组末项腾位置。(看似给新项过重权重,
+ * 但若插得更靠后,遇查询组合突变、循环
+ * 出现 MAX_CACHED_RES 个从未见过的项时
+ * 就无法适应。我们应能处理该情形,
+ * 故必须插到前端。)
  *
- * Knuth mentions a variant strategy in which a used item is moved up just
- * one place in the list.  Although he says this uses fewer comparisons on
- * average, it seems not to adapt very well to the situation where you have
- * both some reusable patterns and a steady stream of non-reusable patterns.
- * A reusable pattern that isn't used at least as often as non-reusable
- * patterns are seen will "fail to keep up" and will drop off the end of the
- * cache.  With move-to-front, a reusable pattern is guaranteed to stay in
- * the cache as long as it's used at least once in every MAX_CACHED_RES uses.
+ *
+ * Knuth 提到变体策略:已用项只上移一位。虽说
+ * 平均比较更少,但对既有可复用模式又有稳定
+ * 不可复用模式流的情况适应不佳。可复用模式若
+ * 使用频率不及不可复用模式出现频率,会"跟不上"
+ * 而掉出缓存末端。移到前端策略下,可复用
+ * 模式只要每 MAX_CACHED_RES 次使用中
+ * 至少用一次,就保证留在缓存。
+ *
  */
 
-/* this is the maximum number of cached regular expressions */
+/* 缓存正则的最大个数 */
 #ifndef MAX_CACHED_RES
 #define MAX_CACHED_RES	32
 #endif
 
-/* A parent memory context for regular expressions. */
+/* 正则表达式的父内存上下文。 */
 static MemoryContext RegexpCacheMemoryContext;
 
-/* this structure describes one cached regular expression */
+/* 本结构描述一个缓存的正则表达式 */
 typedef struct cached_re_str
 {
-	MemoryContext cre_context;	/* memory context for this regexp */
-	char	   *cre_pat;		/* original RE (not null terminated!) */
-	int			cre_pat_len;	/* length of original RE, in bytes */
-	int			cre_flags;		/* compile flags: extended,icase etc */
-	Oid			cre_collation;	/* collation to use */
-	regex_t		cre_re;			/* the compiled regular expression */
+	MemoryContext cre_context;	/* 本正则的内存上下文 */
+	char	   *cre_pat;		/* 原始 RE(非空终止!) */
+	int			cre_pat_len;	/* 原始 RE 字节长度 */
+	int			cre_flags;		/* 编译标志:extended,icase 等 */
+	Oid			cre_collation;	/* 排序规则 */
+	regex_t		cre_re;			/* 已编译的正则表达式 */
 } cached_re_str;
 
-static int	num_res = 0;		/* # of cached re's */
-static cached_re_str re_array[MAX_CACHED_RES];	/* cached re's */
+static int	num_res = 0;		/* 已缓存 re 数 */
+static cached_re_str re_array[MAX_CACHED_RES];	/* 缓存 re */
 
 
-/* Local functions */
+/* 本地函数 */
 static regexp_matches_ctx *setup_regexp_matches(text *orig_str, text *pattern,
 												pg_re_flags *re_flags,
 												int start_search,
@@ -127,16 +127,16 @@ static Datum build_regexp_split_result(regexp_matches_ctx *splitctx);
 
 
 /*
- * RE_compile_and_cache - compile a RE, caching if possible
+ * RE_compile_and_cache - 编译 RE,尽可能缓存
  *
- * Returns regex_t *
+ * 返回 regex_t *
  *
- *	text_re --- the pattern, expressed as a TEXT object
- *	cflags --- compile options for the pattern
- *	collation --- collation to use for LC_CTYPE-dependent behavior
+ *	text_re --- 模式,以 TEXT 对象表示
+ *	cflags --- 模式的编译选项
+ *	collation --- LC_CTYPE 相关行为所用排序规则
  *
- * Pattern is given in the database encoding.  We internally convert to
- * an array of pg_wchar, which is what Spencer's regex package wants.
+ * 模式为数据库编码。内部转为 pg_wchar 数组,
+ * 即 Spencer 正则包所需形式。
  */
 regex_t *
 RE_compile_and_cache(text *text_re, int cflags, Oid collation)
@@ -152,9 +152,9 @@ RE_compile_and_cache(text *text_re, int cflags, Oid collation)
 	MemoryContext oldcontext;
 
 	/*
-	 * Look for a match among previously compiled REs.  Since the data
-	 * structure is self-organizing with most-used entries at the front, our
-	 * search strategy can just be to scan from the front.
+	 * 在先前编译的 RE 中查找匹配。因数据
+	 * 结构自组织且最常用项在前,搜索策略
+	 * 只需从头扫描。
 	 */
 	for (i = 0; i < num_res; i++)
 	{
@@ -164,7 +164,7 @@ RE_compile_and_cache(text *text_re, int cflags, Oid collation)
 			memcmp(re_array[i].cre_pat, text_re_val, text_re_len) == 0)
 		{
 			/*
-			 * Found a match; move it to front if not there already.
+			 * 找到匹配;若不在前端则移到前端。
 			 */
 			if (i > 0)
 			{
@@ -177,7 +177,7 @@ RE_compile_and_cache(text *text_re, int cflags, Oid collation)
 		}
 	}
 
-	/* Set up the cache memory on first go through. */
+	/* 首次经过时建立缓存内存。 */
 	if (unlikely(RegexpCacheMemoryContext == NULL))
 		RegexpCacheMemoryContext =
 			AllocSetContextCreate(TopMemoryContext,
@@ -185,22 +185,22 @@ RE_compile_and_cache(text *text_re, int cflags, Oid collation)
 								  ALLOCSET_SMALL_SIZES);
 
 	/*
-	 * Couldn't find it, so try to compile the new RE.  To avoid leaking
-	 * resources on failure, we build into the re_temp local.
+	 * 未找到,故试编译新 RE。为避免失败时泄漏
+	 * 资源,先建到局部 re_temp。
 	 */
 
-	/* Convert pattern string to wide characters */
+	/* 把模式串转为宽字符 */
 	pattern = (pg_wchar *) palloc((text_re_len + 1) * sizeof(pg_wchar));
 	pattern_len = pg_mb2wchar_with_len(text_re_val,
 									   pattern,
 									   text_re_len);
 
 	/*
-	 * Make a memory context for this compiled regexp.  This is initially a
-	 * child of the current memory context, so it will be cleaned up
-	 * automatically if compilation is interrupted and throws an ERROR. We'll
-	 * re-parent it under the longer lived cache context if we make it to the
-	 * bottom of this function.
+	 * 为本编译正则建内存上下文。初为当前
+	 * 内存上下文之子,故编译中断抛 ERROR 时
+	 * 会自动清理。若能走到本函数底部,再改挂
+	 * 到更长寿的缓存上下文。
+	 *
 	 */
 	re_temp.cre_context = AllocSetContextCreate(CurrentMemoryContext,
 												"RegexpMemoryContext",
@@ -217,20 +217,20 @@ RE_compile_and_cache(text *text_re, int cflags, Oid collation)
 
 	if (regcomp_result != REG_OKAY)
 	{
-		/* re didn't compile (no need for pg_regfree, if so) */
+		/* re 未编译成功(若如此无需 pg_regfree) */
 		pg_regerror(regcomp_result, &re_temp.cre_re, errMsg, sizeof(errMsg));
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_REGULAR_EXPRESSION),
 				 errmsg("invalid regular expression: %s", errMsg)));
 	}
 
-	/* Copy the pattern into the per-regexp memory context. */
+	/* 把模式拷入每正则内存上下文。 */
 	re_temp.cre_pat = palloc(text_re_len + 1);
 	memcpy(re_temp.cre_pat, text_re_val, text_re_len);
 
 	/*
-	 * NUL-terminate it only for the benefit of the identifier used for the
-	 * memory context, visible in the pg_backend_memory_contexts view.
+	 * 仅为空终止,以利内存上下文标识符,该标识
+	 * 可见于 pg_backend_memory_contexts 视图。
 	 */
 	re_temp.cre_pat[text_re_len] = 0;
 	MemoryContextSetIdentifier(re_temp.cre_context, re_temp.cre_pat);
@@ -240,18 +240,18 @@ RE_compile_and_cache(text *text_re, int cflags, Oid collation)
 	re_temp.cre_collation = collation;
 
 	/*
-	 * Okay, we have a valid new item in re_temp; insert it into the storage
-	 * array.  Discard last entry if needed.
+	 * 好,re_temp 中已有有效新项;插入存储数组。
+	 * 必要时丢掉末项。
 	 */
 	if (num_res >= MAX_CACHED_RES)
 	{
 		--num_res;
 		Assert(num_res < MAX_CACHED_RES);
-		/* Delete the memory context holding the regexp and pattern. */
+		/* 删除容纳正则与模式的内存上下文。 */
 		MemoryContextDelete(re_array[num_res].cre_context);
 	}
 
-	/* Re-parent the memory context to our long-lived cache context. */
+	/* 把内存上下文改挂到长寿缓存上下文。 */
 	MemoryContextSetParent(re_temp.cre_context, RegexpCacheMemoryContext);
 
 	if (num_res > 0)
@@ -286,19 +286,19 @@ RE_wchar_execute(regex_t *re, pg_wchar *data, int data_len,
 	int			regexec_result;
 	char		errMsg[100];
 
-	/* Perform RE match and return result */
+	/* 执行 RE 匹配并返回结果 */
 	regexec_result = pg_regexec(re,
 								data,
 								data_len,
 								start_search,
-								NULL,	/* no details */
+								NULL,	/* 无细节 */
 								nmatch,
 								pmatch,
 								0);
 
 	if (regexec_result != REG_OKAY && regexec_result != REG_NOMATCH)
 	{
-		/* re failed??? */
+		/* re 失败??? */
 		pg_regerror(regexec_result, re, errMsg, sizeof(errMsg));
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_REGULAR_EXPRESSION),
@@ -329,11 +329,11 @@ RE_execute(regex_t *re, char *dat, int dat_len,
 	int			data_len;
 	bool		match;
 
-	/* Convert data string to wide characters */
+	/* 把数据串转为宽字符 */
 	data = (pg_wchar *) palloc((dat_len + 1) * sizeof(pg_wchar));
 	data_len = pg_mb2wchar_with_len(dat, data, dat_len);
 
-	/* Perform RE match and return result */
+	/* 执行 RE 匹配并返回结果 */
 	match = RE_wchar_execute(re, data, data_len, 0, nmatch, pmatch);
 
 	pfree(data);
@@ -362,11 +362,11 @@ RE_compile_and_execute(text *text_re, char *dat, int dat_len,
 {
 	regex_t    *re;
 
-	/* Use REG_NOSUB if caller does not want sub-match details */
+	/* 调用方不要子匹配细节则用 REG_NOSUB */
 	if (nmatch < 2)
 		cflags |= REG_NOSUB;
 
-	/* Compile RE */
+	/* 编译 RE */
 	re = RE_compile_and_cache(text_re, cflags, collation);
 
 	return RE_execute(re, dat, dat_len, nmatch, pmatch);
@@ -374,18 +374,18 @@ RE_compile_and_execute(text *text_re, char *dat, int dat_len,
 
 
 /*
- * parse_re_flags - parse the options argument of regexp_match and friends
+ * parse_re_flags - 解析 regexp_match 等的选项参数
  *
- *	flags --- output argument, filled with desired options
- *	opts --- TEXT object, or NULL for defaults
+ *	flags --- 输出参数,填入所需选项
+ *	opts --- TEXT 对象,或 NULL 表示默认
  *
- * This accepts all the options allowed by any of the callers; callers that
- * don't want some have to reject them after the fact.
+ * 接受任一调用方允许的全部选项;不想要的
+ * 由调用方事后拒绝。
  */
 static void
 parse_re_flags(pg_re_flags *flags, text *opts)
 {
-	/* regex flavor is always folded into the compile flags */
+	/* 正则风格总是折入编译标志 */
 	flags->cflags = REG_ADVANCED;
 	flags->glob = false;
 
@@ -405,39 +405,39 @@ parse_re_flags(pg_re_flags *flags, text *opts)
 				case 'b':		/* BREs (but why???) */
 					flags->cflags &= ~(REG_ADVANCED | REG_EXTENDED | REG_QUOTE);
 					break;
-				case 'c':		/* case sensitive */
+				case 'c':		/*区分大小写*/
 					flags->cflags &= ~REG_ICASE;
 					break;
-				case 'e':		/* plain EREs */
+				case 'e':		/*普通 EREs*/
 					flags->cflags |= REG_EXTENDED;
 					flags->cflags &= ~(REG_ADVANCED | REG_QUOTE);
 					break;
-				case 'i':		/* case insensitive */
+				case 'i':		/* 忽略大小写 */
 					flags->cflags |= REG_ICASE;
 					break;
-				case 'm':		/* Perloid synonym for n */
-				case 'n':		/* \n affects ^ $ . [^ */
+				case 'm':		/* Perloid 的 n 同义 */
+				case 'n':		/* \n 影响 ^ $ . [^ */
 					flags->cflags |= REG_NEWLINE;
 					break;
-				case 'p':		/* ~Perl, \n affects . [^ */
+				case 'p':		/* ~Perl,\n 影响 . [^ */
 					flags->cflags |= REG_NLSTOP;
 					flags->cflags &= ~REG_NLANCH;
 					break;
-				case 'q':		/* literal string */
+				case 'q':		/* 字面串 */
 					flags->cflags |= REG_QUOTE;
 					flags->cflags &= ~(REG_ADVANCED | REG_EXTENDED);
 					break;
-				case 's':		/* single line, \n ordinary */
+				case 's':		/* 单行,\n 普通 */
 					flags->cflags &= ~REG_NEWLINE;
 					break;
-				case 't':		/* tight syntax */
+				case 't':		/* 紧凑语法 */
 					flags->cflags &= ~REG_EXPANDED;
 					break;
-				case 'w':		/* weird, \n affects ^ $ only */
+				case 'w':		/* 怪异,\n 仅影响 ^ $ */
 					flags->cflags &= ~REG_NLSTOP;
 					flags->cflags |= REG_NLANCH;
 					break;
-				case 'x':		/* expanded syntax */
+				case 'x':		/* 扩展语法 */
 					flags->cflags |= REG_EXPANDED;
 					break;
 				default:

@@ -1,0 +1,72 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0644",
+ "title": "plpgsql 头文件 — batch 0644",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c789d2a309b2a1afb01f2b25b523a57ccc228972",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0644 next→pl_comp/pl_exec"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/plpgsql.h",
+   "kind": "c_comment",
+   "note": "0644"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0644-plpgsqlh.json",
+   "kind": "manifest",
+   "note": "0644"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0644"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→pl_comp.c/pl_exec.c"
+  },
+  {
+   "path": "src/pl/plpgsql/src/plpgsql.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 266,
+   "translated": 265,
+   "preserved": 1,
+   "preserved_reasons": ["PLPGSQL_H 包含守卫"],
+   "note": "0644 定义与结构"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0644-plpgsqlh.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "plpgsql.h。pl_comp.c、pl_exec.c 未纳入。横线、路径、纯函数名与 PLPGSQL_H 守卫 KEEP。术语：扩展 datum、简单表达式、插装插件、性能分析器、记号侧的语句/命名空间沿用前批。"
+}

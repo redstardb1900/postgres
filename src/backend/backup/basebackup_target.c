@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_target.c
- *	  Base backups can be "targeted", which means that they can be sent
- *	  somewhere other than to the client which requested the backup.
- *	  Furthermore, new targets can be defined by extensions. This file
- *	  contains code to support that functionality.
+ *	  基备份可被"定向"，即发往请求备份的客户端
+ *	  以外之处。扩展还可定义新 target。本文件
+ *	  含支持该功能的代码。
+ *	  代码见下。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -53,9 +53,9 @@ static BaseBackupTargetType builtin_backup_targets[] =
 static List *BaseBackupTargetTypeList = NIL;
 
 /*
- * Add a new base backup target type.
+ * 新增基备份 target 类型。
  *
- * This is intended for use by server extensions.
+ * 供服务器扩展使用。
  */
 void
 BaseBackupAddTarget(char *name,
@@ -66,11 +66,11 @@ BaseBackupAddTarget(char *name,
 	MemoryContext oldcontext;
 	ListCell   *lc;
 
-	/* If the target list is not yet initialized, do that first. */
+	/* 若 target 列表尚未初始化，先初始化。 */
 	if (BaseBackupTargetTypeList == NIL)
 		initialize_target_list();
 
-	/* Search the target type list for an existing entry with this name. */
+	/* 在 target 类型列表中查找同名已有条目。 */
 	foreach(lc, BaseBackupTargetTypeList)
 	{
 		BaseBackupTargetType *ttype = lfirst(lc);
@@ -78,11 +78,11 @@ BaseBackupAddTarget(char *name,
 		if (strcmp(ttype->name, name) == 0)
 		{
 			/*
-			 * We found one, so update it.
+			 * 找到了，故更新它。
 			 *
-			 * It is probably not a great idea to call BaseBackupAddTarget for
-			 * the same name multiple times, but if it happens, this seems
-			 * like the sanest behavior.
+			 * 对同一名字多次调用 BaseBackupAddTarget 多半
+			 * 不是好主意；若发生了，这样处理似乎最
+			 * 稳妥。
 			 */
 			ttype->check_detail = check_detail;
 			ttype->get_sink = get_sink;
@@ -91,9 +91,9 @@ BaseBackupAddTarget(char *name,
 	}
 
 	/*
-	 * We use TopMemoryContext for allocations here to make sure that the data
-	 * we need doesn't vanish under us; that's also why we copy the target
-	 * name into a newly-allocated chunk of memory.
+	 * 此处分配用 TopMemoryContext，确保所需数据不会
+	 * 在脚下消失；这也是把 target 名拷到新分配内存块
+	 * 的原因。
 	 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 	newtype = palloc(sizeof(BaseBackupTargetType));
@@ -105,24 +105,24 @@ BaseBackupAddTarget(char *name,
 }
 
 /*
- * Look up a base backup target and validate the target_detail.
+ * 查找基备份 target 并校验 target_detail。
  *
- * Extensions that define new backup targets will probably define a new
- * type of bbsink to match. Validation of the target_detail can be performed
- * either in the check_detail routine called here, or in the bbsink
- * constructor, which will be called from BaseBackupGetSink. It's mostly
- * a matter of taste, but the check_detail function runs somewhat earlier.
+ * 定义新备份 target 的扩展多半会定义匹配的新
+ * bbsink 类型。target_detail 的校验可在此调用的
+ * check_detail 例程中做，也可在 bbsink 构造函数中
+ * 做（由 BaseBackupGetSink 调用）。多半是品味问题，
+ * 但 check_detail 运行得稍早些。
  */
 BaseBackupTargetHandle *
 BaseBackupGetTargetHandle(char *target, char *target_detail)
 {
 	ListCell   *lc;
 
-	/* If the target list is not yet initialized, do that first. */
+	/* 若 target 列表尚未初始化，先初始化。 */
 	if (BaseBackupTargetTypeList == NIL)
 		initialize_target_list();
 
-	/* Search the target type list for a match. */
+	/* 在 target 类型列表中找匹配。 */
 	foreach(lc, BaseBackupTargetTypeList)
 	{
 		BaseBackupTargetType *ttype = lfirst(lc);
@@ -131,7 +131,7 @@ BaseBackupGetTargetHandle(char *target, char *target_detail)
 		{
 			BaseBackupTargetHandle *handle;
 
-			/* Found the target. */
+			/* 找到 target。 */
 			handle = palloc(sizeof(BaseBackupTargetHandle));
 			handle->type = ttype;
 			handle->detail_arg = ttype->check_detail(target, target_detail);
@@ -140,24 +140,24 @@ BaseBackupGetTargetHandle(char *target, char *target_detail)
 		}
 	}
 
-	/* Did not find the target. */
+	/* 未找到该 target。 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("unrecognized target: \"%s\"", target)));
 
-	/* keep compiler quiet */
+	/* 让编译器安静 */
 	return NULL;
 }
 
 /*
- * Construct a bbsink that will implement the backup target.
+ * 构造实现该备份 target 的 bbsink。
  *
- * The get_sink function does all the real work, so all we have to do here
- * is call it with the correct arguments. Whatever the check_detail function
- * returned is here passed through to the get_sink function. This lets those
- * two functions communicate with each other, if they wish. If not, the
- * check_detail function can simply return the target_detail and let the
- * get_sink function take it from there.
+ * 真正工作由 get_sink 完成，此处只需用正确参数
+ * 调用它。check_detail 返回值原样传给 get_sink，
+ * 以便两函数可通信；若不需要，check_detail 可
+ * 直接返回 target_detail，交由 get_sink
+ * 接着处理即可。
+ *
  */
 bbsink *
 BaseBackupGetSink(BaseBackupTargetHandle *handle, bbsink *next_sink)
@@ -166,7 +166,7 @@ BaseBackupGetSink(BaseBackupTargetHandle *handle, bbsink *next_sink)
 }
 
 /*
- * Load predefined target types into BaseBackupTargetTypeList.
+ * 预定义 target 类型载入 BaseBackupTargetTypeList。
  */
 static void
 initialize_target_list(void)
@@ -184,11 +184,11 @@ initialize_target_list(void)
 }
 
 /*
- * Normally, a get_sink function should construct and return a new bbsink that
- * implements the backup target, but the 'blackhole' target just throws the
- * data away. We could implement that by adding a bbsink that does nothing
- * but forward, but it's even cheaper to implement that by not adding a bbsink
- * at all.
+ * 通常 get_sink 应构造并返回实现该 target 的新
+ * bbsink，但 blackhole target 只丢弃数据。虽可
+ * 用只转发的 bbsink，但不添加 bbsink 更省事。
+ *
+ *
  */
 static bbsink *
 blackhole_get_sink(bbsink *next_sink, void *detail_arg)
@@ -197,7 +197,7 @@ blackhole_get_sink(bbsink *next_sink, void *detail_arg)
 }
 
 /*
- * Create a bbsink implementing a server-side backup.
+ * 创建实现服务器端备份的 bbsink。
  */
 static bbsink *
 server_get_sink(bbsink *next_sink, void *detail_arg)
@@ -206,8 +206,8 @@ server_get_sink(bbsink *next_sink, void *detail_arg)
 }
 
 /*
- * Implement target-detail checking for a target that does not accept a
- * detail.
+ * 为不接受 detail 的 target 实现 target-detail
+ * 检查.
  */
 static void *
 reject_target_detail(char *target, char *target_detail)
@@ -222,11 +222,11 @@ reject_target_detail(char *target, char *target_detail)
 }
 
 /*
- * Implement target-detail checking for a server-side backup.
+ * 为服务器端备份实现 target-detail 检查。
  *
- * target_detail should be the name of the directory to which the backup
- * should be written, but we don't check that here. Rather, that check,
- * as well as the necessary permissions checking, happens in bbsink_server_new.
+ * target_detail 应为写入备份的目录名，但此处不
+ * 检查。该检查以及必要的权限检查在
+ * bbsink_server_new 中进行。
  */
 static void *
 server_check_detail(char *target, char *target_detail)

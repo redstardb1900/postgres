@@ -1,26 +1,26 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_progress.c
- *	  Basebackup sink implementing progress tracking, including but not
- *	  limited to command progress reporting.
+ *	  实现进度跟踪的基备份 sink，含但不限于
+ *	  命令进度报告。
  *
- * This should be used even if the PROGRESS option to the replication
- * command BASE_BACKUP is not specified. Without that option, we won't
- * have tallied up the size of the files that are going to need to be
- * backed up, but we can still report to the command progress reporting
- * facility how much data we've processed.
+ * 即便复制命令 BASE_BACKUP 未指定 PROGRESS
+ * 选项也应使用。无该选项时不会预先累计待备份
+ * 文件大小，但仍可向命令进度报告设施报告已
+ * 处理的数据量。
  *
- * Moreover, we also use this as a convenient place to update certain
- * fields of the bbsink_state. That work is accurately described as
- * keeping track of our progress, but it's not just for introspection.
- * We need those fields to be updated properly in order for base backups
- * to work.
  *
- * This particular basebackup sink requires extra callbacks that most base
- * backup sinks don't. Rather than cramming those into the interface, we just
- * have a few extra functions here that basebackup.c can call. (We could put
- * the logic directly into that file as it's fairly simple, but it seems
- * cleaner to have everything related to progress reporting in one place.)
+ * 此外也借此处更新 bbsink_state 的若干字段。
+ * 这确属跟踪进度，但不止内省：字段须正确更新
+ * 基备份才能正常工作。
+ *
+ *
+ *
+ * 本基备份 sink 需要多数 sink 没有的额外回调。
+ * 与其塞进接口，不如在此提供若干供 basebackup.c
+ * 调用的额外函数。（逻辑虽简单可直接放该文件，
+ * 但把进度报告相关都放一处
+ * 更清晰。）
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -56,8 +56,8 @@ static const bbsink_ops bbsink_progress_ops = {
 };
 
 /*
- * Create a new basebackup sink that performs progress tracking functions and
- * forwards data to a successor sink.
+ * 创建执行进度跟踪并把数据转发给后继 sink 的
+ * 新基备份 sink。
  */
 bbsink *
 bbsink_progress_new(bbsink *next, bool estimate_backup_size)
@@ -71,9 +71,9 @@ bbsink_progress_new(bbsink *next, bool estimate_backup_size)
 	sink->bbs_next = next;
 
 	/*
-	 * Report that a base backup is in progress, and set the total size of the
-	 * backup to -1, which will get translated to NULL. If we're estimating
-	 * the backup size, we'll insert the real estimate when we have it.
+	 * 报告基备份进行中，并把备份总大小设为 -1，
+	 * 其会被转成 NULL。若正在估算备份大小，有真实
+	 * 估计后再填入。
 	 */
 	pgstat_progress_start_command(PROGRESS_COMMAND_BASEBACKUP, InvalidOid);
 	pgstat_progress_update_param(PROGRESS_BASEBACKUP_BACKUP_TOTAL, -1);
@@ -82,7 +82,7 @@ bbsink_progress_new(bbsink *next, bool estimate_backup_size)
 }
 
 /*
- * Progress reporting at start of backup.
+ * 备份开始时的进度报告。
  */
 static void
 bbsink_progress_begin_backup(bbsink *sink)
@@ -95,9 +95,9 @@ bbsink_progress_begin_backup(bbsink *sink)
 	int64		val[3];
 
 	/*
-	 * Report that we are now streaming database files as a base backup. Also
-	 * advertise the number of tablespaces, and, if known, the estimated total
-	 * backup size.
+	 * 报告正在以基备份流式传送数据库文件。并公布
+	 * 表空间个数，以及（若已知）估计的备份
+	 * 总大小。
 	 */
 	val[0] = PROGRESS_BASEBACKUP_PHASE_STREAM_BACKUP;
 	if (sink->bbs_state->bytes_total_is_valid)
@@ -107,48 +107,48 @@ bbsink_progress_begin_backup(bbsink *sink)
 	val[2] = list_length(sink->bbs_state->tablespaces);
 	pgstat_progress_update_multi_param(3, index, val);
 
-	/* Delegate to next sink. */
+	/* 转发下一 sink。 */
 	bbsink_forward_begin_backup(sink);
 }
 
 /*
- * End-of archive progress reporting.
+ * 归档结束时的进度报告。
  */
 static void
 bbsink_progress_end_archive(bbsink *sink)
 {
 	/*
-	 * We expect one archive per tablespace, so reaching the end of an archive
-	 * also means reaching the end of a tablespace. (Some day we might have a
-	 * reason to decouple these concepts.)
+	 * 预期每个表空间一个归档，故到达归档末也意味
+	 * 到达表空间末。（将来或许有理由拆开这两个
+	 * 概念。）
 	 *
-	 * If WAL is included in the backup, we'll mark the last tablespace
-	 * complete before the last archive is complete, so we need a guard here
-	 * to ensure that the number of tablespaces streamed doesn't exceed the
-	 * total.
+	 * 若备份含 WAL，会在最后一个归档结束前就标完
+	 * 最后一个表空间，故此处须防护，确保已流式传送
+	 * 的表空间数不超总数。
+	 *
 	 */
 	if (sink->bbs_state->tablespace_num < list_length(sink->bbs_state->tablespaces))
 		pgstat_progress_update_param(PROGRESS_BASEBACKUP_TBLSPC_STREAMED,
 									 sink->bbs_state->tablespace_num + 1);
 
-	/* Delegate to next sink. */
+	/* 转发下一 sink。 */
 	bbsink_forward_end_archive(sink);
 
 	/*
-	 * This is a convenient place to update the bbsink_state's notion of which
-	 * is the current tablespace. Note that the bbsink_state object is shared
-	 * across all bbsink objects involved, but we're the outermost one and
-	 * this is the very last thing we do.
+	 * 此处便于更新 bbsink_state 对当前表空间的认识。
+	 * 注意 bbsink_state 在相关 bbsink 间共享，而我们
+	 * 是最外层，这是我们做的最后一件事。
+	 * 最后一步。
 	 */
 	sink->bbs_state->tablespace_num++;
 }
 
 /*
- * Handle progress tracking for new archive contents.
+ * 处理新归档内容的进度跟踪。
  *
- * Increment the counter for the amount of data already streamed
- * by the given number of bytes, and update the progress report for
- * pg_stat_progress_basebackup.
+ * 把已流式传送计数增加给定字节数，并更新
+ * pg_stat_progress_basebackup
+ * 进度报告。
  */
 static void
 bbsink_progress_archive_contents(bbsink *sink, size_t len)
@@ -161,21 +161,21 @@ bbsink_progress_archive_contents(bbsink *sink, size_t len)
 	int64		val[2];
 	int			nparam = 0;
 
-	/* First update bbsink_state with # of bytes done. */
+	/* 先用已完成字节数更新 bbsink_state。 */
 	state->bytes_done += len;
 
-	/* Now forward to next sink. */
+	/* 再转发下一 sink。 */
 	bbsink_forward_archive_contents(sink, len);
 
-	/* Prepare to set # of bytes done for command progress reporting. */
+	/* 准备为命令进度报告设置已完成字节数。 */
 	val[nparam++] = state->bytes_done;
 
 	/*
-	 * We may also want to update # of total bytes, to avoid overflowing past
-	 * 100% or the full size. This may make the total size number change as we
-	 * approach the end of the backup (the estimate will always be wrong if
-	 * WAL is included), but that's better than having the done column be
-	 * bigger than the total.
+	 * 也可能要更新总字节数，以免超过 100% 或总额。
+	 * 接近备份末时总额可能变（含 WAL 时估计总会偏），
+	 * 但总好过"已完成"列大于"总计"。
+	 *
+	 *
 	 */
 	if (state->bytes_total_is_valid && state->bytes_done > state->bytes_total)
 		val[nparam++] = state->bytes_done;
@@ -184,7 +184,7 @@ bbsink_progress_archive_contents(bbsink *sink, size_t len)
 }
 
 /*
- * Advertise that we are waiting for the start-of-backup checkpoint.
+ * 公布正在等待备份开始检查点。
  */
 void
 basebackup_progress_wait_checkpoint(void)
@@ -194,7 +194,7 @@ basebackup_progress_wait_checkpoint(void)
 }
 
 /*
- * Advertise that we are estimating the backup size.
+ * 公布正在估算备份大小。
  */
 void
 basebackup_progress_estimate_backup_size(void)
@@ -204,7 +204,7 @@ basebackup_progress_estimate_backup_size(void)
 }
 
 /*
- * Advertise that we are waiting for WAL archiving at end-of-backup.
+ * 公布正在等待备份结束时的 WAL 归档。
  */
 void
 basebackup_progress_wait_wal_archive(bbsink_state *state)
@@ -216,10 +216,10 @@ basebackup_progress_wait_wal_archive(bbsink_state *state)
 	int64		val[2];
 
 	/*
-	 * We report having finished all tablespaces at this point, even if the
-	 * archive for the main tablespace is still open, because what's going to
-	 * be added is WAL files, not files that are really from the main
-	 * tablespace.
+	 * 此时报告所有表空间已完成，即便主表空间归档
+	 * 仍打开；因接着加入的是 WAL 文件，而非真正
+	 * 属于主表空间的文件。
+	 * 表空间.
 	 */
 	val[0] = PROGRESS_BASEBACKUP_PHASE_WAIT_WAL_ARCHIVE;
 	val[1] = list_length(state->tablespaces);
@@ -227,7 +227,7 @@ basebackup_progress_wait_wal_archive(bbsink_state *state)
 }
 
 /*
- * Advertise that we are transferring WAL files into the final archive.
+ * 公布正在把 WAL 文件转入最终归档。
  */
 void
 basebackup_progress_transfer_wal(void)
@@ -237,7 +237,7 @@ basebackup_progress_transfer_wal(void)
 }
 
 /*
- * Advertise that we are no longer performing a backup.
+ * 公布我们不再执行备份。
  */
 void
 basebackup_progress_done(void)

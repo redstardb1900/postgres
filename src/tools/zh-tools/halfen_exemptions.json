@@ -2188,5 +2188,15 @@
   "path": "src/backend/utils/mb/mbutils.c",
   "pattern": "FindDefaultConversionProc",
   "reason": "须保留默认转换查找例程标识符；周围已中文化 (batch-0636)"
+ },
+ {
+  "path": "src/backend/backup/basebackup.c",
+  "pattern": "init\\s+fork",
+  "reason": "关系 fork 专名 KEEP（init fork）；周围已中文化 (batch-0637)"
+ },
+ {
+  "path": "src/backend/backup/basebackup_target.c",
+  "pattern": "get_sink|bbsink|blackhole|target",
+  "reason": "bbsink/target/get_sink/blackhole 标识符 KEEP；周围已中文化 (batch-0637)"
  }
 ]

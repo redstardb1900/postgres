@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup.c
- *	  code for taking a base backup and streaming it to a standby
+ *	  拍摄基备份并流式传送到备库的代码
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -48,12 +48,12 @@
 #include "utils/timestamp.h"
 
 /*
- * How much data do we want to send in one CopyData message? Note that
- * this may also result in reading the underlying files in chunks of this
- * size.
+ * 一条 CopyData 消息想发送多少数据？注意这也
+ * 可能导致按此大小分块读取底层文件。
  *
- * NB: The buffer size is required to be a multiple of the system block
- * size, so use that value instead if it's bigger than our preference.
+ *
+ * 注意：缓冲大小须为系统块大小的倍数；若系统
+ * 块更大则改用之，而非我们偏好的大小。
  */
 #define SINK_BUFFER_LENGTH			Max(32768, BLCKSZ)
 
@@ -98,20 +98,20 @@ static bool is_checksummed_file(const char *fullpath, const char *filename);
 static int	basebackup_read_file(int fd, char *buf, size_t nbytes, off_t offset,
 								 const char *filename, bool partial_read_ok);
 
-/* Was the backup currently in-progress initiated in recovery mode? */
+/* 当前进行中的备份是否在恢复模式下发起？ */
 static bool backup_started_in_recovery = false;
 
-/* Total number of checksum failures during base backup. */
+/* 基备份期间校验和失败总数。 */
 static long long int total_checksum_failures;
 
-/* Do not verify checksums. */
+/* 不校验校验和。 */
 static bool noverify_checksums = false;
 
 /*
- * Definition of one element part of an exclusion list, used for paths part
- * of checksum validation or base backups.  "name" is the name of the file
- * or path to check for exclusion.  If "match_prefix" is true, any items
- * matching the name as prefix are excluded.
+ * 排除列表元素定义，用于校验和验证或基备份路径。
+ * name 是要检查排除的文件或路径名。若
+ * match_prefix 为真，凡以该名为前缀的项皆排除。
+ * 匹配该名前缀者皆排除。
  */
 struct exclude_list_item
 {
@@ -120,94 +120,94 @@ struct exclude_list_item
 };
 
 /*
- * The contents of these directories are removed or recreated during server
- * start so they are not included in backups.  The directories themselves are
- * kept and included as empty to preserve access permissions.
+ * 这些目录内容在服务器启动时被删或重建，故不纳入
+ * 备份。目录本身保留并作空目录纳入以保留权限。
+ * 保留为空以保留权限。
  *
- * Note: this list should be kept in sync with the filter lists in pg_rewind's
+ * 注意：本列表应与 pg_rewind 过滤列表保持同步，见
  * filemap.c.
  */
 static const char *const excludeDirContents[] =
 {
 	/*
-	 * Skip temporary statistics files. PG_STAT_TMP_DIR must be skipped
-	 * because extensions like pg_stat_statements store data there.
+	 * 跳过临时统计文件。PG_STAT_TMP_DIR 必须跳过，因
+	 * pg_stat_statements 等扩展在此存数据。
 	 */
 	PG_STAT_TMP_DIR,
 
 	/*
-	 * It is generally not useful to backup the contents of this directory
-	 * even if the intention is to restore to another primary. See backup.sgml
-	 * for a more detailed description.
+	 * 一般不值得备份本目录内容，即便要恢复到
+	 * 另一主库。详见 backup.sgml。
+	 * 详见 backup.sgml。
 	 */
 	"pg_replslot",
 
-	/* Contents removed on startup, see dsm_cleanup_for_mmap(). */
+	/* 启动时清空内容，见 dsm_cleanup_for_mmap()。 */
 	PG_DYNSHMEM_DIR,
 
-	/* Contents removed on startup, see AsyncShmemInit(). */
+	/* 启动时清空内容，见 AsyncShmemInit()。 */
 	"pg_notify",
 
 	/*
-	 * Old contents are loaded for possible debugging but are not required for
-	 * normal operation, see SerialInit().
+	 * 旧内容会载入以供可能调试，但正常运行不需要，见
+	 * SerialInit()。
 	 */
 	"pg_serial",
 
-	/* Contents removed on startup, see DeleteAllExportedSnapshotFiles(). */
+	/* 启动时清空内容，见 DeleteAllExportedSnapshotFiles()。 */
 	"pg_snapshots",
 
-	/* Contents zeroed on startup, see StartupSUBTRANS(). */
+	/* 启动时清零内容，见 StartupSUBTRANS()。 */
 	"pg_subtrans",
 
-	/* end of list */
+	/* 列表终 */
 	NULL
 };
 
 /*
- * List of files excluded from backups.
+ * 从备份中排除的文件列表。
  */
 static const struct exclude_list_item excludeFiles[] =
 {
-	/* Skip auto conf temporary file. */
+	/* 跳过自动配置临时文件 */
 	{PG_AUTOCONF_FILENAME ".tmp", false},
 
-	/* Skip current log file temporary file */
+	/* 跳过当前日志临时文件 */
 	{LOG_METAINFO_DATAFILE_TMP, false},
 
 	/*
-	 * Skip relation cache because it is rebuilt on startup.  This includes
-	 * temporary files.
+	 * 跳过关系缓存，因其在启动时重建。这包括
+	 * 临时文件。
 	 */
 	{RELCACHE_INIT_FILENAME, true},
 
 	/*
-	 * backup_label and tablespace_map should not exist in a running cluster
-	 * capable of doing an online backup, but exclude them just in case.
+	 * 能做在线备份的运行中集簇不应有 backup_label 与
+	 * tablespace_map，但以防万一仍排除它们。
 	 */
 	{BACKUP_LABEL_FILE, false},
 	{TABLESPACE_MAP, false},
 
 	/*
-	 * If there's a backup_manifest, it belongs to a backup that was used to
-	 * start this server. It is *not* correct for this backup. Our
-	 * backup_manifest is injected into the backup separately if users want
-	 * it.
+	 * 若有 backup_manifest，它属于启动本服务器的
+	 * 备份；*不*适用于本次。若用户需要，我
+	 * 们的 backup_manifest 会另行注入备份。
+	 *
 	 */
 	{"backup_manifest", false},
 
 	{"postmaster.pid", false},
 	{"postmaster.opts", false},
 
-	/* end of list */
+	/* 列表终 */
 	{NULL, false}
 };
 
 /*
- * List of files excluded from checksum validation.
+ * 从校验和验证中排除的文件列表。
  *
- * Note: this list should be kept in sync with what pg_checksums.c
- * includes.
+ * 注意：应与 pg_checksums.c 所含保持同步。
+ *
  */
 static const struct exclude_list_item noChecksumFiles[] = {
 	{"pg_control", false},
@@ -221,10 +221,10 @@ static const struct exclude_list_item noChecksumFiles[] = {
 };
 
 /*
- * Actually do a base backup for the specified tablespaces.
+ * 实际为指定表空间做基备份。
  *
- * This is split out mainly to avoid complaints about "variable might be
- * clobbered by longjmp" from stupider versions of gcc.
+ * 拆出主要是为避免较笨 gcc 抱怨"变量可能被 longjmp
+ * 破坏"。
  */
 static void
 perform_base_backup(basebackup_options *opt, bbsink *sink)
@@ -236,14 +236,14 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 	BackupState *backup_state;
 	StringInfo	tablespace_map;
 
-	/* Initial backup state, insofar as we know it now. */
+	/* 就目前所知的初始备份状态。 */
 	state.tablespaces = NIL;
 	state.tablespace_num = 0;
 	state.bytes_done = 0;
 	state.bytes_total = 0;
 	state.bytes_total_is_valid = false;
 
-	/* we're going to use a BufFile, so we need a ResourceOwner */
+	/* 将用 BufFile，故需要 ResourceOwner */
 	Assert(CurrentResourceOwner == NULL);
 	CurrentResourceOwner = ResourceOwnerCreate(NULL, "base backup");
 
@@ -254,7 +254,7 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 
 	total_checksum_failures = 0;
 
-	/* Allocate backup related variables. */
+	/* 分配备份相关变量。 */
 	backup_state = (BackupState *) palloc0(sizeof(BackupState));
 	tablespace_map = makeStringInfo();
 
@@ -266,10 +266,10 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 	state.starttli = backup_state->starttli;
 
 	/*
-	 * Once do_pg_backup_start has been called, ensure that any failure causes
-	 * us to abort the backup so we don't "leak" a backup counter. For this
-	 * reason, *all* functionality between do_pg_backup_start() and the end of
-	 * do_pg_backup_stop() should be inside the error cleanup block!
+	 * 一旦调用了 do_pg_backup_start，须确保任何失败都会中止
+	 * 备份，以免"泄漏"备份计数。故 do_pg_backup_start()
+	 * 与 do_pg_backup_stop() 结束之间的*全部*功能都应在
+	 * 错误清理块内！
 	 */
 
 	PG_ENSURE_ERROR_CLEANUP(do_pg_abort_backup, BoolGetDatum(false));
@@ -277,14 +277,14 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 		ListCell   *lc;
 		tablespaceinfo *newti;
 
-		/* Add a node for the base directory at the end */
+		/* 在末尾为基目录加一个节点 */
 		newti = palloc0(sizeof(tablespaceinfo));
 		newti->size = -1;
 		state.tablespaces = lappend(state.tablespaces, newti);
 
 		/*
-		 * Calculate the total backup size by summing up the size of each
-		 * tablespace
+		 * 把各表空间大小相加，计算备份总大小
+		 * 表空间
 		 */
 		if (opt->progress)
 		{
@@ -305,10 +305,10 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 			state.bytes_total_is_valid = true;
 		}
 
-		/* notify basebackup sink about start of backup */
+		/* 通知基备份 sink 备份开始 */
 		bbsink_begin_backup(sink, &state, SINK_BUFFER_LENGTH);
 
-		/* Send off our tablespaces one by one */
+		/* 逐个发送我们的表空间 */
 		foreach(lc, state.tablespaces)
 		{
 			tablespaceinfo *ti = (tablespaceinfo *) lfirst(lc);
@@ -321,13 +321,13 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 
 				bbsink_begin_archive(sink, "base.tar");
 
-				/* In the main tar, include the backup_label first... */
+				/* 在主 tar 中先纳入 backup_label…… */
 				backup_label = build_backup_content(backup_state, false);
 				sendFileWithContent(sink, BACKUP_LABEL_FILE,
 									backup_label, &manifest);
 				pfree(backup_label);
 
-				/* Then the tablespace_map file, if required... */
+				/* 然后是 tablespace_map（若需）…… */
 				if (opt->sendtblspcmapfile)
 				{
 					sendFileWithContent(sink, TABLESPACE_MAP,
@@ -335,11 +335,11 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 					sendtblspclinks = false;
 				}
 
-				/* Then the bulk of the files... */
+				/* 然后是大量文件…… */
 				sendDir(sink, ".", 1, false, state.tablespaces,
 						sendtblspclinks, &manifest, NULL);
 
-				/* ... and pg_control after everything else. */
+				/* ……最后才是 pg_control。 */
 				if (lstat(XLOG_CONTROL_FILE, &statbuf) != 0)
 					ereport(ERROR,
 							(errcode_for_file_access(),
@@ -358,10 +358,10 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 			}
 
 			/*
-			 * If we're including WAL, and this is the main data directory we
-			 * don't treat this as the end of the tablespace. Instead, we will
-			 * include the xlog files below and stop afterwards. This is safe
-			 * since the main data directory is always sent *last*.
+			 * 若含 WAL 且这是主数据目录，则不把它当表空间
+			 * 结束。而是在下方纳入 xlog 后再停。这安全，
+			 * 因主数据目录总是*最后*发送。
+			 * 总是最后发。
 			 */
 			if (opt->includewal && ti->path == NULL)
 			{
@@ -369,13 +369,13 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 			}
 			else
 			{
-				/* Properly terminate the tarfile. */
+				/* 正确终止 tar 文件。 */
 				StaticAssertDecl(2 * TAR_BLOCK_SIZE <= BLCKSZ,
 								 "BLCKSZ too small for 2 tar blocks");
 				memset(sink->bbs_buffer, 0, 2 * TAR_BLOCK_SIZE);
 				bbsink_archive_contents(sink, 2 * TAR_BLOCK_SIZE);
 
-				/* OK, that's the end of the archive. */
+				/* 好，归档到此结束。 */
 				bbsink_end_archive(sink);
 			}
 		}
@@ -386,7 +386,7 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 		endptr = backup_state->stoppoint;
 		endtli = backup_state->stoptli;
 
-		/* Deallocate backup-related variables. */
+		/* 释放备份相关变量。 */
 		pfree(tablespace_map->data);
 		pfree(tablespace_map);
 		pfree(backup_state);
@@ -397,8 +397,8 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 	if (opt->includewal)
 	{
 		/*
-		 * We've left the last tar file "open", so we can now append the
-		 * required WAL files to it.
+		 * 我们把最后一个 tar 开着，以便现在追加所需
+		 * WAL 文件。
 		 */
 		char		pathbuf[MAXPGPATH];
 		XLogSegNo	segno;
@@ -417,13 +417,13 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 		basebackup_progress_transfer_wal();
 
 		/*
-		 * I'd rather not worry about timelines here, so scan pg_wal and
-		 * include all WAL files in the range between 'startptr' and 'endptr',
-		 * regardless of the timeline the file is stamped with. If there are
-		 * some spurious WAL files belonging to timelines that don't belong in
-		 * this server's history, they will be included too. Normally there
-		 * shouldn't be such files, but if there are, there's little harm in
-		 * including them.
+		 * 此处不想操心时间线，故扫描 pg_wal，纳入
+		 * startptr 与 endptr 间全部 WAL，不论戳记时间线。
+		 * 若有不属于本服务器历史的虚假 WAL，也会纳入。
+		 * 正常不应有；即便有，纳入也几乎无害。
+		 * 正常不应有；即便有，
+		 * 纳入也几乎无害。
+		 * 纳入之。
 		 */
 		XLByteToSeg(state.startptr, startsegno, wal_segment_size);
 		XLogFileName(firstoff, state.starttli, startsegno, wal_segment_size);
@@ -433,14 +433,14 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 		dir = AllocateDir("pg_wal");
 		while ((de = ReadDir(dir, "pg_wal")) != NULL)
 		{
-			/* Does it look like a WAL segment, and is it in the range? */
+			/* 看起来像 WAL 段且在范围内吗？ */
 			if (IsXLogFileName(de->d_name) &&
 				strcmp(de->d_name + 8, firstoff + 8) >= 0 &&
 				strcmp(de->d_name + 8, lastoff + 8) <= 0)
 			{
 				walFileList = lappend(walFileList, pstrdup(de->d_name));
 			}
-			/* Does it look like a timeline history file? */
+			/* 看起来像时间线历史文件吗？ */
 			else if (IsTLHistoryFileName(de->d_name))
 			{
 				historyFileList = lappend(historyFileList, pstrdup(de->d_name));
@@ -449,29 +449,29 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 		FreeDir(dir);
 
 		/*
-		 * Before we go any further, check that none of the WAL segments we
-		 * need were removed.
+		 * 继续前先检查我们需要的 WAL 段皆未被
+		 * 删除。
 		 */
 		CheckXLogRemoved(startsegno, state.starttli);
 
 		/*
-		 * Sort the WAL filenames.  We want to send the files in order from
-		 * oldest to newest, to reduce the chance that a file is recycled
-		 * before we get a chance to send it over.
+		 * 对 WAL 文件名排序。想从最旧到最新发送，以减
+		 * 少文件在我们有机会发送前就被回收的
+		 * 几率。
 		 */
 		list_sort(walFileList, compareWalFileNames);
 
 		/*
-		 * There must be at least one xlog file in the pg_wal directory, since
-		 * we are doing backup-including-xlog.
+		 * pg_wal 中至少须有一个 xlog 文件，因我们在做
+		 * 含 xlog 的备份。
 		 */
 		if (walFileList == NIL)
 			ereport(ERROR,
 					(errmsg("could not find any WAL files")));
 
 		/*
-		 * Sanity check: the first and last segment should cover startptr and
-		 * endptr, with no gaps in between.
+		 * 健全检查：首末段应覆盖 startptr 与
+		 * endptr，中间无缺口。
 		 */
 		XLogFromFileName((char *) linitial(walFileList),
 						 &tli, &segno, wal_segment_size);
@@ -509,7 +509,7 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 					(errmsg("could not find WAL file \"%s\"", endfname)));
 		}
 
-		/* Ok, we have everything we need. Send the WAL files. */
+		/* 好，所需皆备。发送 WAL 文件。 */
 		foreach(lc, walFileList)
 		{
 			char	   *walFileName = (char *) lfirst(lc);
@@ -526,9 +526,9 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 				int			save_errno = errno;
 
 				/*
-				 * Most likely reason for this is that the file was already
-				 * removed by a checkpoint, so check for that to get a better
-				 * error message.
+				 * 最可能是文件已被检查点删除，故检查之
+				 * 以得到更好的错误消息。
+				 *
 				 */
 				CheckXLogRemoved(segno, tli);
 
@@ -551,7 +551,7 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 						 errmsg("unexpected WAL file size \"%s\"", walFileName)));
 			}
 
-			/* send the WAL file itself */
+			/* 发送 WAL 文件本身 */
 			_tarWriteHeader(sink, pathbuf, NULL, &statbuf, false);
 
 			while ((cnt = basebackup_read_file(fd, sink->bbs_buffer,
@@ -577,31 +577,31 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 			}
 
 			/*
-			 * wal_segment_size is a multiple of TAR_BLOCK_SIZE, so no need
-			 * for padding.
+			 * wal_segment_size 是 TAR_BLOCK_SIZE 的倍数，故无需
+			 * 填充。
 			 */
 			Assert(wal_segment_size % TAR_BLOCK_SIZE == 0);
 
 			CloseTransientFile(fd);
 
 			/*
-			 * Mark file as archived, otherwise files can get archived again
-			 * after promotion of a new node. This is in line with
-			 * walreceiver.c always doing an XLogArchiveForceDone() after a
-			 * complete segment.
+			 * 标为已归档，否则新节点提升后文件可能再次
+			 * 被归档。与 walreceiver.c 在完整段后总做
+			 * XLogArchiveForceDone() 一致。
+			 * 完整段后。
 			 */
 			StatusFilePath(pathbuf, walFileName, ".done");
 			sendFileWithContent(sink, pathbuf, "", &manifest);
 		}
 
 		/*
-		 * Send timeline history files too. Only the latest timeline history
-		 * file is required for recovery, and even that only if there happens
-		 * to be a timeline switch in the first WAL segment that contains the
-		 * checkpoint record, or if we're taking a base backup from a standby
-		 * server and the target timeline changes while the backup is taken.
-		 * But they are small and highly useful for debugging purposes, so
-		 * better include them all, always.
+		 * 也发送时间线历史文件。恢复只需最新时间线
+		 * 历史文件，且仅当含检查点的首个 WAL 段恰有
+		 * 时间线切换，或从备库做基备份且期间目标时间线
+		 * 变化时才真正需要。但它们很小且对调试极有用，
+		 * 故总是全部纳入为好。
+		 * 故总是全部纳入。
+		 * 总是全部纳入。
 		 */
 		foreach(lc, historyFileList)
 		{
@@ -617,18 +617,18 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 			sendFile(sink, pathbuf, pathbuf, &statbuf, false, InvalidOid,
 					 &manifest, NULL);
 
-			/* unconditionally mark file as archived */
+			/* 无条件标文件为已归档 */
 			StatusFilePath(pathbuf, fname, ".done");
 			sendFileWithContent(sink, pathbuf, "", &manifest);
 		}
 
-		/* Properly terminate the tar file. */
+		/* 正确终止 tar 文件。 */
 		StaticAssertStmt(2 * TAR_BLOCK_SIZE <= BLCKSZ,
 						 "BLCKSZ too small for 2 tar blocks");
 		memset(sink->bbs_buffer, 0, 2 * TAR_BLOCK_SIZE);
 		bbsink_archive_contents(sink, 2 * TAR_BLOCK_SIZE);
 
-		/* OK, that's the end of the archive. */
+		/* 好，归档到此结束。 */
 		bbsink_end_archive(sink);
 	}
 
@@ -654,21 +654,21 @@ perform_base_backup(basebackup_options *opt, bbsink *sink)
 	}
 
 	/*
-	 * Make sure to free the manifest before the resource owners as manifests
-	 * use cryptohash contexts that may depend on resource owners (like
+	 * 确保在资源所有者之前释放清单，因清单使用的
+	 * cryptohash 上下文可能依赖资源所有者（如
 	 * OpenSSL).
 	 */
 	FreeBackupManifest(&manifest);
 
-	/* clean up the resource owner we created */
+	/* 清理我们创建的资源所有者 */
 	WalSndResourceCleanup(true);
 
 	basebackup_progress_done();
 }
 
 /*
- * list_sort comparison function, to compare log/seg portion of WAL segment
- * filenames, ignoring the timeline portion.
+ * list_sort 比较函数：比较 WAL 段文件名的 log/seg 部分，
+ * 忽略时间线部分。
  */
 static int
 compareWalFileNames(const ListCell *a, const ListCell *b)
@@ -680,7 +680,7 @@ compareWalFileNames(const ListCell *a, const ListCell *b)
 }
 
 /*
- * Parse the base backup options passed down by the parser
+ * 解析解析器下传的基备份选项
  */
 static void
 parse_basebackup_options(List *options, basebackup_options *opt)
@@ -954,11 +954,11 @@ parse_basebackup_options(List *options, basebackup_options *opt)
 
 
 /*
- * SendBaseBackup() - send a complete base backup.
+ * SendBaseBackup() - 发送完整基备份。
  *
- * The function will put the system into backup mode like pg_backup_start()
- * does, so that the backup is consistent even though we read directly from
- * the filesystem, bypassing the buffer cache.
+ * 本函数会像 pg_backup_start() 一样使系统进入备份模式，
+ * 以便即便直接读文件系统、绕过缓冲缓存，备份仍
+ * 一致。
  */
 void
 SendBaseBackup(BaseBackupCmd *cmd)
@@ -986,20 +986,20 @@ SendBaseBackup(BaseBackupCmd *cmd)
 	}
 
 	/*
-	 * If the target is specifically 'client' then set up to stream the backup
-	 * to the client; otherwise, it's being sent someplace else and should not
-	 * be sent to the client. BaseBackupGetSink has the job of setting up a
-	 * sink to send the backup data wherever it needs to go.
+	 * 若 target 明确为 'client'，则设置为向客户端流式传送
+	 * 备份；否则发往别处，不应发给客户端。
+	 * BaseBackupGetSink 负责建立 sink，把备份数据送到
+	 * 该去的地方。
 	 */
 	sink = bbsink_copystream_new(opt.send_to_client);
 	if (opt.target_handle != NULL)
 		sink = BaseBackupGetSink(opt.target_handle, sink);
 
-	/* Set up network throttling, if client requested it */
+	/* 若客户端请求，则设置网络限速 */
 	if (opt.maxrate > 0)
 		sink = bbsink_throttle_new(sink, opt.maxrate);
 
-	/* Set up server-side compression, if client requested it */
+	/* 若客户端请求，则设置服务器端压缩 */
 	if (opt.compression == PG_COMPRESSION_GZIP)
 		sink = bbsink_gzip_new(sink, &opt.compression_specification);
 	else if (opt.compression == PG_COMPRESSION_LZ4)
@@ -1007,12 +1007,12 @@ SendBaseBackup(BaseBackupCmd *cmd)
 	else if (opt.compression == PG_COMPRESSION_ZSTD)
 		sink = bbsink_zstd_new(sink, &opt.compression_specification);
 
-	/* Set up progress reporting. */
+	/* 设置进度报告。 */
 	sink = bbsink_progress_new(sink, opt.progress);
 
 	/*
-	 * Perform the base backup, but make sure we clean up the bbsink even if
-	 * an error occurs.
+	 * 执行基备份，但确保即便出错也清理 bbsink。
+	 * 出错亦然。
 	 */
 	PG_TRY();
 	{
@@ -1026,7 +1026,7 @@ SendBaseBackup(BaseBackupCmd *cmd)
 }
 
 /*
- * Inject a file with given name and content in the output tar stream.
+ * 在输出 tar 流中注入给定名与内容的文件。
  */
 static void
 sendFileWithContent(bbsink *sink, const char *filename, const char *content,
@@ -1044,10 +1044,10 @@ sendFileWithContent(bbsink *sink, const char *filename, const char *content,
 	len = strlen(content);
 
 	/*
-	 * Construct a stat struct for the backup_label file we're injecting in
-	 * the tar.
+	 * 为正在注入 tar 的 backup_label 构造 stat 结构。
+	 * tar中.
 	 */
-	/* Windows doesn't have the concept of uid and gid */
+	/* Windows 没有 uid 与 gid 的概念 */
 #ifdef WIN32
 	statbuf.st_uid = 0;
 	statbuf.st_gid = 0;
@@ -1083,11 +1083,11 @@ sendFileWithContent(bbsink *sink, const char *filename, const char *content,
 }
 
 /*
- * Include the tablespace directory pointed to by 'path' in the output tar
- * stream.  If 'sizeonly' is true, we just calculate a total length and return
- * it, without actually sending anything.
+ * 把 'path' 指向的表空间目录纳入输出 tar 流。若
+ * sizeonly 为真，只计算总长度并返回，不实际发送。
+ * 不实际发送任何内容。
  *
- * Only used to send auxiliary tablespaces, not PGDATA.
+ * 仅用于发送辅助表空间，非 PGDATA。
  */
 static int64
 sendTablespace(bbsink *sink, char *path, char *spcoid, bool sizeonly,
@@ -1098,15 +1098,15 @@ sendTablespace(bbsink *sink, char *path, char *spcoid, bool sizeonly,
 	struct stat statbuf;
 
 	/*
-	 * 'path' points to the tablespace location, but we only want to include
-	 * the version directory in it that belongs to us.
+	 * path 指向表空间位置，但我们只想纳入其中属于
+	 * 我们的版本目录。
 	 */
 	snprintf(pathbuf, sizeof(pathbuf), "%s/%s", path,
 			 TABLESPACE_VERSION_DIRECTORY);
 
 	/*
-	 * Store a directory entry in the tar file so we get the permissions
-	 * right.
+	 * 在 tar 中存目录项以便权限正确。
+	 *
 	 */
 	if (lstat(pathbuf, &statbuf) != 0)
 	{
@@ -1116,14 +1116,14 @@ sendTablespace(bbsink *sink, char *path, char *spcoid, bool sizeonly,
 					 errmsg("could not stat file or directory \"%s\": %m",
 							pathbuf)));
 
-		/* If the tablespace went away while scanning, it's no error. */
+		/* 扫描时表空间消失不算错误。 */
 		return 0;
 	}
 
 	size = _tarWriteHeader(sink, TABLESPACE_VERSION_DIRECTORY, NULL, &statbuf,
 						   sizeonly);
 
-	/* Send all the files in the tablespace version directory */
+	/* 发送表空间版本目录中的全部文件 */
 	size += sendDir(sink, pathbuf, strlen(path), sizeonly, NIL, true, manifest,
 					spcoid);
 
@@ -1131,16 +1131,16 @@ sendTablespace(bbsink *sink, char *path, char *spcoid, bool sizeonly,
 }
 
 /*
- * Include all files from the given directory in the output tar stream. If
- * 'sizeonly' is true, we just calculate a total length and return it, without
- * actually sending anything.
+ * 把给定目录中全部文件纳入输出 tar 流。若 sizeonly
+ * 为真，只计算总长度并返回，不实际
+ * 发送任何内容。
  *
- * Omit any directory in the tablespaces list, to avoid backing up
- * tablespaces twice when they were created inside PGDATA.
+ * 省略表空间列表中的目录，以免 PGDATA 内创建的
+ * 表空间被备份两次。
  *
- * If sendtblspclinks is true, we need to include symlink
- * information in the tar file. If not, we can skip that
- * as it will be sent separately in the tablespace_map file.
+ * 若 sendtblspclinks 为真，须在 tar 纳入
+ * 符号链接信息；否则可跳过，因其会在
+ * tablespace_map 中单独发送。
  */
 static int64
 sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
@@ -1152,28 +1152,28 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 	char		pathbuf[MAXPGPATH * 2];
 	struct stat statbuf;
 	int64		size = 0;
-	const char *lastDir;		/* Split last dir from parent path. */
-	bool		isDbDir = false;	/* Does this directory contain relations? */
+	const char *lastDir;		/* 从父路径拆出末级目录. */
+	bool		isDbDir = false;	/* 本目录是否含关系？ */
 
 	/*
-	 * Determine if the current path is a database directory that can contain
-	 * relations.
+	 * 判断当前路径是否为可含关系的数据库目录。
 	 *
-	 * Start by finding the location of the delimiter between the parent path
-	 * and the current path.
+	 *
+	 * 先找出父路径与当前路径之间分隔符的位置。
+	 *
 	 */
 	lastDir = last_dir_separator(path);
 
-	/* Does this path look like a database path (i.e. all digits)? */
+	/* 本路径看起来像数据库路径（全数字）吗？ */
 	if (lastDir != NULL &&
 		strspn(lastDir + 1, "0123456789") == strlen(lastDir + 1))
 	{
-		/* Part of path that contains the parent directory. */
+		/* 含父目录的那部分路径。 */
 		int			parentPathLen = lastDir - path;
 
 		/*
-		 * Mark path as a database directory if the parent path is either
-		 * $PGDATA/base or a tablespace version path.
+		 * 若父路径是 $PGDATA/base 或表空间版本路径，则标
+		 * 本路径为数据库目录。
 		 */
 		if (strncmp(path, "./base", parentPathLen) == 0 ||
 			(parentPathLen >= (sizeof(TABLESPACE_VERSION_DIRECTORY) - 1) &&
@@ -1188,31 +1188,31 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 	{
 		int			excludeIdx;
 		bool		excludeFound;
-		ForkNumber	relForkNum; /* Type of fork if file is a relation */
-		int			relnumchars;	/* Chars in filename that are the
+		ForkNumber	relForkNum; /* 关系文件的 fork 类型 */
+		int			relnumchars;	/* 文件名中作为
 									 * relnumber */
 
-		/* Skip special stuff */
+		/* 跳过特殊内容 */
 		if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
 			continue;
 
-		/* Skip temporary files */
+		/* 跳过临时文件 */
 		if (strncmp(de->d_name,
 					PG_TEMP_FILE_PREFIX,
 					strlen(PG_TEMP_FILE_PREFIX)) == 0)
 			continue;
 
-		/* Skip macOS system files */
+		/* 跳过 macOS 文件 */
 		if (strcmp(de->d_name, ".DS_Store") == 0)
 			continue;
 
 		/*
-		 * Check if the postmaster has signaled us to exit, and abort with an
-		 * error in that case. The error handler further up will call
-		 * do_pg_abort_backup() for us. Also check that if the backup was
-		 * started while still in recovery, the server wasn't promoted.
-		 * do_pg_backup_stop() will check that too, but it's better to stop
-		 * the backup early than continue to the end and fail there.
+		 * 检查 postmaster 是否发信号让我们退出；若是则报错
+		 * 中止。上层错误处理会为我们调用
+		 * do_pg_abort_backup()。还要检查：若备份在恢复中
+		 * 开始，服务器是否已被提升。
+		 * do_pg_backup_stop() 也会查，但早停备份好过撑到
+		 * 末尾再失败。
 		 */
 		CHECK_FOR_INTERRUPTS();
 		if (RecoveryInProgress() != backup_started_in_recovery)
@@ -1223,7 +1223,7 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 							 "and should not be used. "
 							 "Try taking another online backup.")));
 
-		/* Scan for files that should be excluded */
+		/* 扫描应排除的文件 */
 		excludeFound = false;
 		for (excludeIdx = 0; excludeFiles[excludeIdx].name != NULL; excludeIdx++)
 		{
@@ -1242,21 +1242,21 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 		if (excludeFound)
 			continue;
 
-		/* Exclude all forks for unlogged tables except the init fork */
+		/* 排除非日志表除 init fork 外的全部 fork */
 		if (isDbDir &&
 			parse_filename_for_nontemp_relation(de->d_name, &relnumchars,
 												&relForkNum))
 		{
-			/* Never exclude init forks */
+			/* 永不排除 init fork */
 			if (relForkNum != INIT_FORKNUM)
 			{
 				char		initForkFile[MAXPGPATH];
 				char		relNumber[OIDCHARS + 1];
 
 				/*
-				 * If any other type of fork, check if there is an init fork
-				 * with the same RelFileNumber. If so, the file can be
-				 * excluded.
+				 * 若为其他 fork，检查是否有相同 RelFileNumber
+				 * 的 init fork。若有，则该文件可排除。
+				 *
 				 */
 				memcpy(relNumber, de->d_name, relnumchars);
 				relNumber[relnumchars] = '\0';
@@ -1274,7 +1274,7 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 			}
 		}
 
-		/* Exclude temporary relations */
+		/* 排除临时关系 */
 		if (isDbDir && looks_like_temp_rel_name(de->d_name))
 		{
 			elog(DEBUG2,
@@ -1286,7 +1286,7 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 
 		snprintf(pathbuf, sizeof(pathbuf), "%s/%s", path, de->d_name);
 
-		/* Skip pg_control here to back up it last */
+		/* 跳过 pg_control，留到最后备份 */
 		if (strcmp(pathbuf, "./global/pg_control") == 0)
 			continue;
 
@@ -1298,11 +1298,11 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 						 errmsg("could not stat file or directory \"%s\": %m",
 								pathbuf)));
 
-			/* If the file went away while scanning, it's not an error. */
+			/* 扫描时文件消失不算错误。 */
 			continue;
 		}
 
-		/* Scan for directories whose contents should be excluded */
+		/* 扫描内容应排除的目录 */
 		excludeFound = false;
 		for (excludeIdx = 0; excludeDirContents[excludeIdx] != NULL; excludeIdx++)
 		{
@@ -1321,28 +1321,28 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 			continue;
 
 		/*
-		 * We can skip pg_wal, the WAL segments need to be fetched from the
-		 * WAL archive anyway. But include it as an empty directory anyway, so
-		 * we get permissions right.
+		 * 可跳过 pg_wal，WAL 段反正要从 WAL 归档取。但仍
+		 * 把它作为空目录纳入，以便
+		 * 权限正确。
 		 */
 		if (strcmp(pathbuf, "./pg_wal") == 0)
 		{
-			/* If pg_wal is a symlink, write it as a directory anyway */
+			/* 若 pg_wal 是符号链接，仍写为目录 */
 			convert_link_to_directory(pathbuf, &statbuf);
 			size += _tarWriteHeader(sink, pathbuf + basepathlen + 1, NULL,
 									&statbuf, sizeonly);
 
 			/*
-			 * Also send archive_status directory (by hackishly reusing
-			 * statbuf from above ...).
+			 * 也发送 archive_status 目录（取巧复用上面的
+			 * statbuf……）。
 			 */
 			size += _tarWriteHeader(sink, "./pg_wal/archive_status", NULL,
 									&statbuf, sizeonly);
 
-			continue;			/* don't recurse into pg_wal */
+			continue;			/* 不递归进入 pg_wal */
 		}
 
-		/* Allow symbolic links in pg_tblspc only */
+		/* 仅允许 pg_tblspc 中的符号链接 */
 		if (strcmp(path, "./pg_tblspc") == 0 && S_ISLNK(statbuf.st_mode))
 		{
 			char		linkpath[MAXPGPATH];
@@ -1370,26 +1370,26 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 			ListCell   *lc;
 
 			/*
-			 * Store a directory entry in the tar file so we can get the
-			 * permissions right.
+			 * 在 tar 中存目录项以便取得
+			 * 正确权限。
 			 */
 			size += _tarWriteHeader(sink, pathbuf + basepathlen + 1, NULL, &statbuf,
 									sizeonly);
 
 			/*
-			 * Call ourselves recursively for a directory, unless it happens
-			 * to be a separate tablespace located within PGDATA.
+			 * 对目录递归调用自身，除非它恰是 PGDATA 内的
+			 * 独立表空间。
 			 */
 			foreach(lc, tablespaces)
 			{
 				tablespaceinfo *ti = (tablespaceinfo *) lfirst(lc);
 
 				/*
-				 * ti->rpath is the tablespace relative path within PGDATA, or
-				 * NULL if the tablespace has been properly located somewhere
-				 * else.
+				 * ti->rpath 是表空间在 PGDATA 内相对路径，或在
+				 * 表空间已正确放在别处时为
+				 * NULL.
 				 *
-				 * Skip past the leading "./" in pathbuf when comparing.
+				 * 比较时跳过 pathbuf 前导的 "./"。
 				 */
 				if (ti->rpath && strcmp(ti->rpath, pathbuf + 2) == 0)
 				{
@@ -1399,7 +1399,7 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 			}
 
 			/*
-			 * skip sending directories inside pg_tblspc, if not required.
+			 * 若不需要，跳过发送 pg_tblspc 内的目录。
 			 */
 			if (strcmp(pathbuf, "./pg_tblspc") == 0 && !sendtblspclinks)
 				skip_this_dir = true;
@@ -1419,13 +1419,13 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 
 			if (sent || sizeonly)
 			{
-				/* Add size. */
+				/* 加算. */
 				size += statbuf.st_size;
 
-				/* Pad to a multiple of the tar block size. */
+				/* 填充到 tar 块大小的倍数。 */
 				size += tarPaddingBytesRequired(statbuf.st_size);
 
-				/* Size of the header for the file. */
+				/* 该文件头的大小。 */
 				size += TAR_BLOCK_SIZE;
 			}
 		}
@@ -1438,22 +1438,22 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 }
 
 /*
- * Check if a file should have its checksum validated.
- * We validate checksums on files in regular tablespaces
- * (including global and default) only, and in those there
- * are some files that are explicitly excluded.
+ * 检查文件是否应做校验和验证。
+ * 只对常规表空间(含 global/default)中文件
+ * 验证校验和，且其中有些文件被显式
+ * 排除。
  */
 static bool
 is_checksummed_file(const char *fullpath, const char *filename)
 {
-	/* Check that the file is in a tablespace */
+	/* 检查文件是否在表空间中 */
 	if (strncmp(fullpath, "./global/", 9) == 0 ||
 		strncmp(fullpath, "./base/", 7) == 0 ||
 		strncmp(fullpath, "/", 1) == 0)
 	{
 		int			excludeIdx;
 
-		/* Compare file against noChecksumFiles skip list */
+		/* 对照 noChecksumFiles 跳过列表比较 */
 		for (excludeIdx = 0; noChecksumFiles[excludeIdx].name != NULL; excludeIdx++)
 		{
 			int			cmplen = strlen(noChecksumFiles[excludeIdx].name);
@@ -1472,15 +1472,15 @@ is_checksummed_file(const char *fullpath, const char *filename)
 }
 
 /*
- * Given the member, write the TAR header & send the file.
+ * 给定成员，写 TAR 头并发送文件。
  *
- * If 'missing_ok' is true, will not throw an error if the file is not found.
+ * 若 missing_ok 为真，文件未找到也不抛错。
  *
- * If dboid is anything other than InvalidOid then any checksum failures
- * detected will get reported to the cumulative stats system.
+ * 若 dboid 不是 InvalidOid，则检测到的校验和失败会
+ * 报告给累计统计系统。
  *
- * Returns true if the file was successfully sent, false if 'missing_ok',
- * and the file did not exist.
+ * 成功发送返回真；若 missing_ok 且文件不存在则
+ * 返回假。
  */
 static bool
 sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
@@ -1523,9 +1523,9 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 		char	   *filename;
 
 		/*
-		 * Get the filename (excluding path).  As last_dir_separator()
-		 * includes the last directory separator, we chop that off by
-		 * incrementing the pointer.
+		 * 取文件名（不含路径）。因 last_dir_separator()
+		 * 含最后的目录分隔符，通过递增指针
+		 * 去掉它。
 		 */
 		filename = last_dir_separator(readfilename) + 1;
 
@@ -1534,8 +1534,8 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 			verify_checksum = true;
 
 			/*
-			 * Cut off at the segment boundary (".") to get the segment number
-			 * in order to mix it into the checksum.
+			 * 在段边界（"."）处截断以取得段号，以便混入
+			 * 校验和。
 			 */
 			segmentpath = strstr(filename, ".");
 			if (segmentpath != NULL)
@@ -1550,25 +1550,25 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 	}
 
 	/*
-	 * Loop until we read the amount of data the caller told us to expect. The
-	 * file could be longer, if it was extended while we were sending it, but
-	 * for a base backup we can ignore such extended data. It will be restored
-	 * from WAL.
+	 * 循环读取直至达到调用方预期的数据量。文件可能在
+	 * 发送时被扩展而更长，但对基备份可忽略这类扩展
+	 * 数据，将由 WAL 恢复。
+	 *
 	 */
 	while (len < statbuf->st_size)
 	{
 		size_t		remaining = statbuf->st_size - len;
 
-		/* Try to read some more data. */
+		/* 尝试再读一些数据。 */
 		cnt = basebackup_read_file(fd, sink->bbs_buffer,
 								   Min(sink->bbs_buffer_length, remaining),
 								   len, readfilename, true);
 
 		/*
-		 * The checksums are verified at block level, so we iterate over the
-		 * buffer in chunks of BLCKSZ, after making sure that
-		 * TAR_SEND_SIZE/buf is divisible by BLCKSZ and we read a multiple of
-		 * BLCKSZ bytes.
+		 * 校验和按块级验证，故在确认 TAR_SEND_SIZE/buf
+		 * 可被 BLCKSZ 整除且读到其倍数后，按
+		 * BLCKSZ 块迭代缓冲。
+		 * BLCKSZ 字节
 		 */
 		Assert((sink->bbs_buffer_length % BLCKSZ) == 0);
 
@@ -1589,12 +1589,12 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 				page = sink->bbs_buffer + BLCKSZ * i;
 
 				/*
-				 * Only check pages which have not been modified since the
-				 * start of the base backup. Otherwise, they might have been
-				 * written only halfway and the checksum would not be valid.
-				 * However, replaying WAL would reinstate the correct page in
-				 * this case. We also skip completely new pages, since they
-				 * don't have a checksum yet.
+				 * 只检查自备份起未改的页。否则可能只写
+				 * 一半致校验和无效。但重放 WAL 会在此
+				 * 种情况下恢复正确页。我们也跳过全新
+				 * 页，因为它们尚无校验和。
+				 *
+				 *
 				 */
 				if (!PageIsNew(page) && PageGetLSN(page) < sink->bbs_state->startptr)
 				{
@@ -1603,30 +1603,30 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 					if (phdr->pd_checksum != checksum)
 					{
 						/*
-						 * Retry the block on the first failure.  It's
-						 * possible that we read the first 4K page of the
-						 * block just before postgres updated the entire block
-						 * so it ends up looking torn to us. If, before we
-						 * retry the read, the concurrent write of the block
-						 * finishes, the page LSN will be updated and we'll
-						 * realize that we should ignore this block.
+						 * 首次失败则重试；或更新前读了
+						 * 前 4K 页而看似撕裂。若重试前并
+						 * 发写完成，页 LSN 更新，我们就会
+						 * 意识到应忽略本块。
 						 *
-						 * There's no guarantee that this will actually
-						 * happen, though: the torn write could take an
-						 * arbitrarily long time to complete. Retrying
-						 * multiple times wouldn't fix this problem, either,
-						 * though it would reduce the chances of it happening
-						 * in practice. The only real fix here seems to be to
-						 * have some kind of interlock that allows us to wait
-						 * until we can be certain that no write to the block
-						 * is in progress. Since we don't have any such thing
-						 * right now, we just do this and hope for the best.
+						 *
+						 *
+						 *
+						 * 但无保证：撕裂写或任意久才完
+						 * 成。多次重试难根治，只降几率
+						 * 真修似需互锁，以便等到确定无
+						 * 对该块之写。目前没有，只好如此
+						 * 并指望最好结果。
+						 *
+						 *
+						 *
+						 *
+						 *
 						 */
 						if (block_retry == false)
 						{
 							int			reread_cnt;
 
-							/* Reread the failed block */
+							/* 重读失败的块 */
 							reread_cnt =
 								basebackup_read_file(fd,
 													 sink->bbs_buffer + BLCKSZ * i,
@@ -1636,21 +1636,21 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 							if (reread_cnt == 0)
 							{
 								/*
-								 * If we hit end-of-file, a concurrent
-								 * truncation must have occurred, so break out
-								 * of this loop just as if the initial fread()
-								 * returned 0. We'll drop through to the same
-								 * code that handles that case. (We must fix
-								 * up cnt first, though.)
+								 * 若遇 EOF 即并发截断，故像
+								 * 初始 fread() 返回 0 一样跳出，
+								 * 落到同一处理代码。（须先
+								 * 修正 cnt。）
+								 *
+								 *
 								 */
 								cnt = BLCKSZ * i;
 								break;
 							}
 
-							/* Set flag so we know a retry was attempted */
+							/* 设标志以便知道已尝试重试 */
 							block_retry = true;
 
-							/* Reset loop to validate the block again */
+							/* 重置循环以再次验证该块 */
 							i--;
 							continue;
 						}
@@ -1677,17 +1677,17 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 		}
 
 		/*
-		 * If we hit end-of-file, a concurrent truncation must have occurred.
-		 * That's not an error condition, because WAL replay will fix things
-		 * up.
+		 * 若碰到文件结束，则发生了并发截断。
+		 * 这不是错误，因 WAL 重放会把事情理顺。
+		 *
 		 */
 		if (cnt == 0)
 			break;
 
-		/* Archive the data we just read. */
+		/* 归档刚读到的数据。 */
 		bbsink_archive_contents(sink, cnt);
 
-		/* Also feed it to the checksum machinery. */
+		/* 也送入校验和机制。 */
 		if (pg_checksum_update(&checksum_ctx,
 							   (uint8 *) sink->bbs_buffer, cnt) < 0)
 			elog(ERROR, "could not update checksum of base backup");
@@ -1695,7 +1695,7 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 		len += cnt;
 	}
 
-	/* If the file was truncated while we were sending it, pad it with zeros */
+	/* 若发送时文件被截断，则用零填充 */
 	while (len < statbuf->st_size)
 	{
 		size_t		remaining = statbuf->st_size - len;
@@ -1711,9 +1711,9 @@ sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 	}
 
 	/*
-	 * Pad to a block boundary, per tar format requirements. (This small piece
-	 * of data is probably not worth throttling, and is not checksummed
-	 * because it's not actually part of the file.)
+	 * 按 tar 格式要求填充到块边界。（这小片数据多半
+	 * 不值得限速，也不做校验和，因其并非文件
+	 * 实际部分。）
 	 */
 	_tarWritePadding(sink, len);
 
@@ -1747,11 +1747,11 @@ _tarWriteHeader(bbsink *sink, const char *filename, const char *linktarget,
 	if (!sizeonly)
 	{
 		/*
-		 * As of this writing, the smallest supported block size is 1kB, which
-		 * is twice TAR_BLOCK_SIZE. Since the buffer size is required to be a
-		 * multiple of BLCKSZ, it should be safe to assume that the buffer is
-		 * large enough to fit an entire tar block. We double-check by means
-		 * of these assertions.
+		 * 截至撰写时，最小支持块大小为 1kB，即
+		 * TAR_BLOCK_SIZE 的两倍。因缓冲大小须为 BLCKSZ
+		 * 倍数，可假定缓冲大到能装下完整 tar 块。我们
+		 * 用这些断言再确认一次。
+		 * 用这些断言。
 		 */
 		StaticAssertDecl(TAR_BLOCK_SIZE <= BLCKSZ,
 						 "BLCKSZ too small for tar block");
@@ -1788,7 +1788,7 @@ _tarWriteHeader(bbsink *sink, const char *filename, const char *linktarget,
 }
 
 /*
- * Pad with zero bytes out to a multiple of TAR_BLOCK_SIZE.
+ * 用零字节填充到 TAR_BLOCK_SIZE 的倍数。
  */
 static void
 _tarWritePadding(bbsink *sink, int len)
@@ -1796,8 +1796,8 @@ _tarWritePadding(bbsink *sink, int len)
 	int			pad = tarPaddingBytesRequired(len);
 
 	/*
-	 * As in _tarWriteHeader, it should be safe to assume that the buffer is
-	 * large enough that we don't need to do this in multiple chunks.
+	 * 与 _tarWriteHeader 一样，可假定缓冲足够大，无需
+	 * 分多块做。
 	 */
 	Assert(sink->bbs_buffer_length >= TAR_BLOCK_SIZE);
 	Assert(pad <= TAR_BLOCK_SIZE);
@@ -1810,25 +1810,25 @@ _tarWritePadding(bbsink *sink, int len)
 }
 
 /*
- * If the entry in statbuf is a link, then adjust statbuf to make it look like a
- * directory, so that it will be written that way.
+ * 若 statbuf 中条目是链接，则调整 statbuf 使它看起来像
+ * 目录，从而按目录写出。
  */
 static void
 convert_link_to_directory(const char *pathbuf, struct stat *statbuf)
 {
-	/* If symlink, write it as a directory anyway */
+	/* 若是符号链接，仍写为目录 */
 	if (S_ISLNK(statbuf->st_mode))
 		statbuf->st_mode = S_IFDIR | pg_dir_create_mode;
 }
 
 /*
- * Read some data from a file, setting a wait event and reporting any error
- * encountered.
+ * 从文件读一些数据，设置等待事件并报告遇到的任何
+ * 错误。
  *
- * If partial_read_ok is false, also report an error if the number of bytes
- * read is not equal to the number of bytes requested.
+ * 若 partial_read_ok 为假，则读到的字节数不等于请求数
+ * 时也报错。
  *
- * Returns the number of bytes read.
+ * 返回读到的字节数。
  */
 static int
 basebackup_read_file(int fd, char *buf, size_t nbytes, off_t offset,

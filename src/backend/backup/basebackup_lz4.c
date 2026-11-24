@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_lz4.c
- *	  Basebackup sink implementing lz4 compression.
+ *	  实现 lz4 压缩的基备份 sink。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -22,16 +22,16 @@
 
 typedef struct bbsink_lz4
 {
-	/* Common information for all types of sink. */
+	/* 各类 sink 的公共信息。 */
 	bbsink		base;
 
-	/* Compression level. */
+	/* 压缩级别。 */
 	int			compresslevel;
 
 	LZ4F_compressionContext_t ctx;
 	LZ4F_preferences_t prefs;
 
-	/* Number of bytes staged in output buffer. */
+	/* 输出缓冲中已暂存的字节数。 */
 	size_t		bytes_written;
 } bbsink_lz4;
 
@@ -56,7 +56,7 @@ static const bbsink_ops bbsink_lz4_ops = {
 #endif
 
 /*
- * Create a new basebackup sink that performs lz4 compression.
+ * 创建执行 lz4 压缩的新基备份 sink。
  */
 bbsink *
 bbsink_lz4_new(bbsink *next, pg_compress_specification *compress)
@@ -65,7 +65,7 @@ bbsink_lz4_new(bbsink *next, pg_compress_specification *compress)
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("lz4 compression is not supported by this build")));
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 #else
 	bbsink_lz4 *sink;
 	int			compresslevel;
@@ -87,7 +87,7 @@ bbsink_lz4_new(bbsink *next, pg_compress_specification *compress)
 #ifdef USE_LZ4
 
 /*
- * Begin backup.
+ * 开始备份.
  */
 static void
 bbsink_lz4_begin_backup(bbsink *sink)
@@ -96,28 +96,28 @@ bbsink_lz4_begin_backup(bbsink *sink)
 	size_t		output_buffer_bound;
 	LZ4F_preferences_t *prefs = &mysink->prefs;
 
-	/* Initialize compressor object. */
+	/* 初始化压缩器对象。 */
 	memset(prefs, 0, sizeof(LZ4F_preferences_t));
 	prefs->frameInfo.blockSizeID = LZ4F_max256KB;
 	prefs->compressionLevel = mysink->compresslevel;
 
 	/*
-	 * We need our own buffer, because we're going to pass different data to
-	 * the next sink than what gets passed to us.
+	 * 需要自有缓冲，因传给下一 sink 的数据不同于
+	 * 传给我们的。
 	 */
 	mysink->base.bbs_buffer = palloc(mysink->base.bbs_buffer_length);
 
 	/*
-	 * Since LZ4F_compressUpdate() requires the output buffer of size equal or
-	 * greater than that of LZ4F_compressBound(), make sure we have the next
-	 * sink's bbs_buffer of length that can accommodate the compressed input
-	 * buffer.
+	 * 因 LZ4F_compressUpdate() 需要输出缓冲大小不小于
+	 * LZ4F_compressBound()，须保证下一 sink 的
+	 * bbs_buffer 长度能容纳压缩后的输入缓冲。
+	 *
 	 */
 	output_buffer_bound = LZ4F_compressBound(mysink->base.bbs_buffer_length,
 											 &mysink->prefs);
 
 	/*
-	 * The buffer length is expected to be a multiple of BLCKSZ, so round up.
+	 * 缓冲长度预期为 BLCKSZ 的倍数，故向上取整。
 	 */
 	output_buffer_bound = output_buffer_bound + BLCKSZ -
 		(output_buffer_bound % BLCKSZ);
@@ -126,7 +126,7 @@ bbsink_lz4_begin_backup(bbsink *sink)
 }
 
 /*
- * Prepare to compress the next archive.
+ * 准备压缩下一归档。
  */
 static void
 bbsink_lz4_begin_archive(bbsink *sink, const char *archive_name)
@@ -141,7 +141,7 @@ bbsink_lz4_begin_archive(bbsink *sink, const char *archive_name)
 		elog(ERROR, "could not create lz4 compression context: %s",
 			 LZ4F_getErrorName(ctxError));
 
-	/* First of all write the frame header to destination buffer. */
+	/* 先把帧头写入目标缓冲。 */
 	headerSize = LZ4F_compressBegin(mysink->ctx,
 									mysink->base.bbs_next->bbs_buffer,
 									mysink->base.bbs_next->bbs_buffer_length,
@@ -152,13 +152,13 @@ bbsink_lz4_begin_archive(bbsink *sink, const char *archive_name)
 			 LZ4F_getErrorName(headerSize));
 
 	/*
-	 * We need to write the compressed data after the header in the output
-	 * buffer. So, make sure to update the notion of bytes written to output
-	 * buffer.
+	 * 压缩数据须写在输出缓冲头之后。故须更新已写入
+	 * 输出缓冲字节数的认识。
+	 *
 	 */
 	mysink->bytes_written += headerSize;
 
-	/* Add ".lz4" to the archive name. */
+	/* 归档名加 ".lz4"。 */
 	lz4_archive_name = psprintf("%s.lz4", archive_name);
 	Assert(sink->bbs_next != NULL);
 	bbsink_begin_archive(sink->bbs_next, lz4_archive_name);
@@ -166,15 +166,15 @@ bbsink_lz4_begin_archive(bbsink *sink, const char *archive_name)
 }
 
 /*
- * Compress the input data to the output buffer until we run out of input
- * data. Each time the output buffer falls below the compression bound for
- * the input buffer, invoke the archive_contents() method for then next sink.
+ * 把输入压缩到输出缓冲直至输入耗尽。每当输出缓冲
+ * 低于输入缓冲的压缩上界，就调用下一 sink 的
+ * archive_contents() 方法。
  *
- * Note that since we're compressing the input, it may very commonly happen
- * that we consume all the input data without filling the output buffer. In
- * that case, the compressed representation of the current input data won't
- * actually be sent to the next bbsink until a later call to this function,
- * or perhaps even not until bbsink_lz4_end_archive() is invoked.
+	 * 注意因在压缩，常会耗尽输入而输出缓冲未满。此
+	 * 时当前输入的压缩结果要等到本函数稍后调用，
+	 * 甚至要到 bbsink_lz4_end_archive() 才发给
+	 * 下一 bbsink。
+	 *
  */
 static void
 bbsink_lz4_archive_contents(bbsink *sink, size_t avail_in)
@@ -186,9 +186,9 @@ bbsink_lz4_archive_contents(bbsink *sink, size_t avail_in)
 	avail_in_bound = LZ4F_compressBound(avail_in, &mysink->prefs);
 
 	/*
-	 * If the number of available bytes has fallen below the value computed by
-	 * LZ4F_compressBound(), ask the next sink to process the data so that we
-	 * can empty the buffer.
+	 * 若可用字节数已低于 LZ4F_compressBound() 算出的值，
+	 * 请下一 sink 处理数据以便我们
+	 * 清空缓冲。
 	 */
 	if ((mysink->base.bbs_next->bbs_buffer_length - mysink->bytes_written) <
 		avail_in_bound)
@@ -198,7 +198,7 @@ bbsink_lz4_archive_contents(bbsink *sink, size_t avail_in)
 	}
 
 	/*
-	 * Compress the input buffer and write it into the output buffer.
+	 * 压缩输入缓冲并写入输出缓冲。
 	 */
 	compressedSize = LZ4F_compressUpdate(mysink->ctx,
 										 mysink->base.bbs_next->bbs_buffer + mysink->bytes_written,
@@ -212,17 +212,17 @@ bbsink_lz4_archive_contents(bbsink *sink, size_t avail_in)
 			 LZ4F_getErrorName(compressedSize));
 
 	/*
-	 * Update our notion of how many bytes we've written into output buffer.
+	 * 更新已写入输出缓冲的字节数认识。
 	 */
 	mysink->bytes_written += compressedSize;
 }
 
 /*
- * There might be some data inside lz4's internal buffers; we need to get
- * that flushed out and also finalize the lz4 frame and then get that forwarded
- * to the successor sink as archive content.
+ * lz4 内部缓冲可能还有数据；须冲刷并结束 lz4 帧，
+ * 再作为归档内容转发给后继
+ * sink。
  *
- * Then we can end processing for this archive.
+ * 然后可结束本归档处理。
  */
 static void
 bbsink_lz4_end_archive(bbsink *sink)
@@ -251,24 +251,24 @@ bbsink_lz4_end_archive(bbsink *sink)
 		elog(ERROR, "could not end lz4 compression: %s",
 			 LZ4F_getErrorName(compressedSize));
 
-	/* Update our notion of how many bytes we've written. */
+	/* 更新已写入字节数的认识。 */
 	mysink->bytes_written += compressedSize;
 
-	/* Send whatever accumulated output bytes we have. */
+	/* 发送已累积的全部输出字节。 */
 	bbsink_archive_contents(sink->bbs_next, mysink->bytes_written);
 	mysink->bytes_written = 0;
 
-	/* Release the resources. */
+	/* 释放资源。 */
 	LZ4F_freeCompressionContext(mysink->ctx);
 	mysink->ctx = NULL;
 
-	/* Pass on the information that this archive has ended. */
+	/* 转发本归档已结束的信息。 */
 	bbsink_forward_end_archive(sink);
 }
 
 /*
- * Manifest contents are not compressed, but we do need to copy them into
- * the successor sink's buffer, because we have our own.
+ * 清单内容不压缩，但须拷入后继 sink 缓冲，因我们
+ * 有自己的缓冲。
  */
 static void
 bbsink_lz4_manifest_contents(bbsink *sink, size_t len)
@@ -278,8 +278,8 @@ bbsink_lz4_manifest_contents(bbsink *sink, size_t len)
 }
 
 /*
- * In case the backup fails, make sure we free the compression context by
- * calling LZ4F_freeCompressionContext() if needed to avoid memory leak.
+ * 若备份失败，须按需调用 LZ4F_freeCompressionContext()
+ * 释放压缩上下文以免泄漏。
  */
 static void
 bbsink_lz4_cleanup(bbsink *sink)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * backup_manifest.c
- *	  code for generating and sending a backup manifest
+ *	  生成并发送备份清单的代码
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -24,11 +24,11 @@
 static void AppendStringToManifest(backup_manifest_info *manifest, const char *s);
 
 /*
- * Does the user want a backup manifest?
+ * 用户是否需要备份清单？
  *
- * It's simplest to always have a manifest_info object, so that we don't need
- * checks for NULL pointers in too many places. However, if the user doesn't
- * want a manifest, we set manifest->buffile to NULL.
+ * 最简单是始终持有 manifest_info 对象，这样多数地方
+ * 就不必检查空指针。但若用户不要清单，则把
+ * manifest->buffile 置为 NULL。
  */
 static inline bool
 IsManifestEnabled(backup_manifest_info *manifest)
@@ -37,7 +37,7 @@ IsManifestEnabled(backup_manifest_info *manifest)
 }
 
 /*
- * Convenience macro for appending data to the backup manifest.
+ * 向备份清单追加数据的便利宏。
  */
 #define AppendToManifest(manifest, ...) \
 	{ \
@@ -47,10 +47,10 @@ IsManifestEnabled(backup_manifest_info *manifest)
 	}
 
 /*
- * Initialize state so that we can construct a backup manifest.
+ * 初始化状态以便构造备份清单。
  *
- * NB: Although the checksum type for the data files is configurable, the
- * checksum for the manifest itself always uses SHA-256. See comments in
+ * 注意：虽数据文件校验和类型可配置，但清单自身的
+ * 校验和始终用 SHA-256。见
  * SendBackupManifest.
  */
 void
@@ -84,7 +84,7 @@ InitializeBackupManifest(backup_manifest_info *manifest,
 }
 
 /*
- * Free resources assigned to a backup manifest constructed.
+ * 释放已构造备份清单所占用的资源。
  */
 void
 FreeBackupManifest(backup_manifest_info *manifest)
@@ -94,7 +94,7 @@ FreeBackupManifest(backup_manifest_info *manifest)
 }
 
 /*
- * Add an entry to the backup manifest for a file.
+ * 为某文件向备份清单添加条目。
  */
 void
 AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
@@ -109,10 +109,10 @@ AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
 		return;
 
 	/*
-	 * If this file is part of a tablespace, the pathname passed to this
-	 * function will be relative to the tar file that contains it. We want the
-	 * pathname relative to the data directory (ignoring the intermediate
-	 * symlink traversal).
+	 * 若文件属某表空间，传入本函数的路径名是相对
+	 * 于容纳它的 tar 文件的。我们要的是相对数据目录的
+	 * 路径名（忽略中间的符号链接
+	 * 穿越）。
 	 */
 	if (spcoid != NULL)
 	{
@@ -122,11 +122,11 @@ AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
 	}
 
 	/*
-	 * Each file's entry needs to be separated from any entry that follows by
-	 * a comma, but there's no comma before the first one or after the last
-	 * one. To make that work, adding a file to the manifest starts by
-	 * terminating the most recently added line, with a comma if appropriate,
-	 * but does not terminate the line inserted for this file.
+	 * 每个文件条目须与后续条目用逗号分隔，但首条前与
+	 * 末条后皆无逗号。为此，向清单添加文件时先
+	 * 结束最近追加的行（必要时加逗号），
+	 * 但不结束为本文件新插入的那一行。
+	 * 本文件行保持未结束。
 	 */
 	initStringInfo(&buf);
 	if (manifest->first_file)
@@ -138,9 +138,9 @@ AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
 		appendStringInfoString(&buf, ",\n");
 
 	/*
-	 * Write the relative pathname to this file out to the manifest. The
-	 * manifest is always stored in UTF-8, so we have to encode paths that are
-	 * not valid in that encoding.
+	 * 把该文件相对路径写出到清单。清单始终以
+	 * UTF-8 存储，故须对在该编码下不合法的路径
+	 * 另行编码。
 	 */
 	pathlen = strlen(pathname);
 	if (!manifest->force_encode &&
@@ -162,10 +162,10 @@ AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
 	appendStringInfo(&buf, "\"Size\": %zu, ", size);
 
 	/*
-	 * Convert last modification time to a string and append it to the
-	 * manifest. Since it's not clear what time zone to use and since time
-	 * zone definitions can change, possibly causing confusion, use GMT
-	 * always.
+	 * 把最后修改时间转为字符串并追加到清单。因
+	 * 时区选用不明且定义可能变更而致混淆，故用
+	 * GMT。
+	 *
 	 */
 	appendStringInfoString(&buf, "\"Last-Modified\": \"");
 	enlargeStringInfo(&buf, 128);
@@ -173,7 +173,7 @@ AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
 						   pg_gmtime(&mtime));
 	appendStringInfoChar(&buf, '"');
 
-	/* Add checksum information. */
+	/* 添加校验和信息。 */
 	if (checksum_ctx->type != CHECKSUM_TYPE_NONE)
 	{
 		uint8		checksumbuf[PG_CHECKSUM_MAX_LENGTH];
@@ -193,19 +193,19 @@ AddFileToBackupManifest(backup_manifest_info *manifest, const char *spcoid,
 		appendStringInfoChar(&buf, '"');
 	}
 
-	/* Close out the object. */
+	/* 结束该对象。 */
 	appendStringInfoString(&buf, " }");
 
-	/* OK, add it to the manifest. */
+	/* 好，加入清单。 */
 	AppendStringToManifest(manifest, buf.data);
 
-	/* Avoid leaking memory. */
+	/* 避免泄漏内存。 */
 	pfree(buf.data);
 }
 
 /*
- * Add information about the WAL that will need to be replayed when restoring
- * this backup to the manifest.
+ * 把恢复本备份时须重放的 WAL 相关信息
+ * 加入备份清单。
  */
 void
 AddWALInfoToBackupManifest(backup_manifest_info *manifest, XLogRecPtr startptr,
@@ -220,13 +220,13 @@ AddWALInfoToBackupManifest(backup_manifest_info *manifest, XLogRecPtr startptr,
 	if (!IsManifestEnabled(manifest))
 		return;
 
-	/* Terminate the list of files. */
+	/* 结束文件列表。 */
 	AppendStringToManifest(manifest, "\n],\n");
 
-	/* Read the timeline history for the ending timeline. */
+	/* 读取结束时间线的时间线历史。 */
 	timelines = readTimeLineHistory(endtli);
 
-	/* Start a list of LSN ranges. */
+	/* 开始 LSN 范围列表。 */
 	AppendStringToManifest(manifest, "\"WAL-Ranges\": [\n");
 
 	foreach(lc, timelines)
@@ -235,18 +235,18 @@ AddWALInfoToBackupManifest(backup_manifest_info *manifest, XLogRecPtr startptr,
 		XLogRecPtr	tl_beginptr;
 
 		/*
-		 * We only care about timelines that were active during the backup.
-		 * Skip any that ended before the backup started. (Note that if
-		 * entry->end is InvalidXLogRecPtr, it means that the timeline has not
-		 * yet ended.)
+		 * 我们只关心备份期间处于活动的时间线。
+		 * 跳过在备份开始前已结束的。（注意：若
+		 * entry->end 为 InvalidXLogRecPtr，表示时间线
+		 * 未结束.)
 		 */
 		if (!XLogRecPtrIsInvalid(entry->end) && entry->end < startptr)
 			continue;
 
 		/*
-		 * Because the timeline history file lists newer timelines before
-		 * older ones, the first timeline we encounter that is new enough to
-		 * matter ought to match the ending timeline of the backup.
+		 * 因时间线历史文件先列较新再列较旧者，
+		 * 我们遇到的第一条足够新的时间线应与备份的
+		 * 结束时间线相符。
 		 */
 		if (first_wal_range && endtli != entry->tli)
 			ereport(ERROR,
@@ -254,11 +254,11 @@ AddWALInfoToBackupManifest(backup_manifest_info *manifest, XLogRecPtr startptr,
 						   starttli, entry->tli));
 
 		/*
-		 * If this timeline entry matches with the timeline on which the
-		 * backup started, WAL needs to be checked from the start LSN of the
-		 * backup.  If this entry refers to a newer timeline, WAL needs to be
-		 * checked since the beginning of this timeline, so use the LSN where
-		 * the timeline began.
+		 * 若本时间线条目与备份开始所在时间线匹配，
+		 * 则须自备份起始 LSN 起检查 WAL。若条目指向
+		 * 较新时间线，则须自该时间线起点起检查，故用
+		 * 该时间线开始处的 LSN。
+		 * 即其起点。
 		 */
 		if (starttli == entry->tli)
 			tl_beginptr = startptr;
@@ -267,10 +267,10 @@ AddWALInfoToBackupManifest(backup_manifest_info *manifest, XLogRecPtr startptr,
 			tl_beginptr = entry->begin;
 
 			/*
-			 * If we reach a TLI that has no valid beginning LSN, there can't
-			 * be any more timelines in the history after this point, so we'd
-			 * better have arrived at the expected starting TLI. If not,
-			 * something's gone horribly wrong.
+			 * 若到达无有效起始 LSN 的 TLI，则其后历史中
+			 * 不应再有时间线，故此时应已到预期的起始
+			 * TLI。若否，则说明严重出错。
+			 *
 			 */
 			if (XLogRecPtrIsInvalid(entry->begin))
 				ereport(ERROR,
@@ -296,20 +296,20 @@ AddWALInfoToBackupManifest(backup_manifest_info *manifest, XLogRecPtr startptr,
 	}
 
 	/*
-	 * The last entry in the timeline history for the ending timeline should
-	 * be the ending timeline itself. Verify that this is what we observed.
+	 * 结束时间线之时间线历史的最后一条应为结束时间线
+	 * 本身。验证我们观察到的正是如此。
 	 */
 	if (!found_start_timeline)
 		ereport(ERROR,
 				errmsg("start timeline %u not found in history of timeline %u",
 					   starttli, endtli));
 
-	/* Terminate the list of WAL ranges. */
+	/* 结束 WAL 范围列表。 */
 	AppendStringToManifest(manifest, "\n],\n");
 }
 
 /*
- * Finalize the backup manifest, and send it to the client.
+ * 完成备份清单，并发送给客户端。
  */
 void
 SendBackupManifest(backup_manifest_info *manifest, bbsink *sink)
@@ -322,15 +322,15 @@ SendBackupManifest(backup_manifest_info *manifest, bbsink *sink)
 		return;
 
 	/*
-	 * Append manifest checksum, so that the problems with the manifest itself
-	 * can be detected.
+	 * 追加清单校验和，以便发现清单自身的
+	 * 问题。
 	 *
-	 * We always use SHA-256 for this, regardless of what algorithm is chosen
-	 * for checksumming the files.  If we ever want to make the checksum
-	 * algorithm used for the manifest file variable, the client will need a
-	 * way to figure out which algorithm to use as close to the beginning of
-	 * the manifest file as possible, to avoid having to read the whole thing
-	 * twice.
+	 * 此处始终用 SHA-256，与文件校验和所选算法
+	 * 无关。若日后要使清单文件校验和算法可变，
+	 * 客户端须尽可能靠近清单文件开头就判明所用
+	 * 算法，以免不得不把整份文件
+	 * 再读
+	 * 两次
 	 */
 	manifest->still_checksumming = false;
 	if (pg_cryptohash_final(manifest->manifest_ctx, checksumbuf,
@@ -346,8 +346,8 @@ SendBackupManifest(backup_manifest_info *manifest, bbsink *sink)
 	AppendStringToManifest(manifest, "\"}\n");
 
 	/*
-	 * We've written all the data to the manifest file.  Rewind the file so
-	 * that we can read it all back.
+	 * 清单文件数据已全部写完。回绕文件以便整份
+	 * 再读回来。
 	 */
 	if (BufFileSeek(manifest->buffile, 0, 0, SEEK_SET))
 		ereport(ERROR,
@@ -356,7 +356,7 @@ SendBackupManifest(backup_manifest_info *manifest, bbsink *sink)
 
 
 	/*
-	 * Send the backup manifest.
+	 * 发送备份清单。
 	 */
 	bbsink_begin_manifest(sink);
 	while (manifest_bytes_done < manifest->manifest_size)
@@ -371,12 +371,12 @@ SendBackupManifest(backup_manifest_info *manifest, bbsink *sink)
 	}
 	bbsink_end_manifest(sink);
 
-	/* Release resources */
+	/* 释放资源 */
 	BufFileClose(manifest->buffile);
 }
 
 /*
- * Append a cstring to the manifest.
+ * 向清单追加一个 cstring。
  */
 static void
 AppendStringToManifest(backup_manifest_info *manifest, const char *s)

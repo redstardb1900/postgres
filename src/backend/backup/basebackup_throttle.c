@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_throttle.c
- *	  Basebackup sink implementing throttling. Data is forwarded to the
- *	  next base backup sink in the chain at a rate no greater than the
- *	  configured maximum.
+ *	  实现限速的基备份 sink。数据转发给链中下
+ *	  一个基备份 sink，速率不超过所配置的
+ *	  最大值。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -22,19 +22,19 @@
 
 typedef struct bbsink_throttle
 {
-	/* Common information for all types of sink. */
+	/* 各类 sink 的公共信息。 */
 	bbsink		base;
 
-	/* The actual number of bytes, transfer of which may cause sleep. */
+	/* 实际字节数，传这么多就可能引发睡眠。 */
 	uint64		throttling_sample;
 
-	/* Amount of data already transferred but not yet throttled.  */
+	/* 已传输但尚未做限速处理的数据量。  */
 	int64		throttling_counter;
 
-	/* The minimum time required to transfer throttling_sample bytes. */
+	/* 传输 throttling_sample 字节所需的最短时间。 */
 	TimeOffset	elapsed_min_unit;
 
-	/* The last check of the transfer rate. */
+	/* 上次检查传输速率的时刻。 */
 	TimestampTz throttled_last;
 } bbsink_throttle;
 
@@ -56,13 +56,13 @@ static const bbsink_ops bbsink_throttle_ops = {
 };
 
 /*
- * How frequently to throttle, as a fraction of the specified rate-second.
+ * 限速检查频率，为所配置"每秒速率"的一个分数。
  */
 #define THROTTLING_FREQUENCY	8
 
 /*
- * Create a new basebackup sink that performs throttling and forwards data
- * to a successor sink.
+ * 创建执行限速并把数据转发给后继 sink 的
+ * 新基备份 sink。
  */
 bbsink *
 bbsink_throttle_new(bbsink *next, uint32 maxrate)
@@ -80,8 +80,8 @@ bbsink_throttle_new(bbsink *next, uint32 maxrate)
 		(int64) maxrate * (int64) 1024 / THROTTLING_FREQUENCY;
 
 	/*
-	 * The minimum amount of time for throttling_sample bytes to be
-	 * transferred.
+	 * 传输 throttling_sample 字节所需的最短
+	 * 时间。
 	 */
 	sink->elapsed_min_unit = USECS_PER_SEC / THROTTLING_FREQUENCY;
 
@@ -89,8 +89,8 @@ bbsink_throttle_new(bbsink *next, uint32 maxrate)
 }
 
 /*
- * There's no real work to do here, but we need to record the current time so
- * that it can be used for future calculations.
+ * 此处无实质工作，但需记录当前时间供后续计算
+ * 使用。
  */
 static void
 bbsink_throttle_begin_backup(bbsink *sink)
@@ -99,12 +99,12 @@ bbsink_throttle_begin_backup(bbsink *sink)
 
 	bbsink_forward_begin_backup(sink);
 
-	/* The 'real data' starts now (header was ignored). */
+	/* 真实数据自此开始（头已忽略）。 */
 	mysink->throttled_last = GetCurrentTimestamp();
 }
 
 /*
- * First throttle, and then pass archive contents to next sink.
+ * 先限速，再把归档内容交给下一 sink。
  */
 static void
 bbsink_throttle_archive_contents(bbsink *sink, size_t len)
@@ -115,7 +115,7 @@ bbsink_throttle_archive_contents(bbsink *sink, size_t len)
 }
 
 /*
- * First throttle, and then pass manifest contents to next sink.
+ * 先限速，再把清单内容交给下一 sink。
  */
 static void
 bbsink_throttle_manifest_contents(bbsink *sink, size_t len)
@@ -126,9 +126,9 @@ bbsink_throttle_manifest_contents(bbsink *sink, size_t len)
 }
 
 /*
- * Increment the network transfer counter by the given number of bytes,
- * and sleep if necessary to comply with the requested network transfer
- * rate.
+ * 把网络传输计数器增加给定字节数，并在必要时
+ * 睡眠以符合请求的网络传输速
+ * 率.
  */
 static void
 throttle(bbsink_throttle *sink, size_t increment)
@@ -141,13 +141,13 @@ throttle(bbsink_throttle *sink, size_t increment)
 	if (sink->throttling_counter < sink->throttling_sample)
 		return;
 
-	/* How much time should have elapsed at minimum? */
+	/* 按最小应已流逝多少时间？ */
 	elapsed_min = sink->elapsed_min_unit *
 		(sink->throttling_counter / sink->throttling_sample);
 
 	/*
-	 * Since the latch could be set repeatedly because of concurrently WAL
-	 * activity, sleep in a loop to ensure enough time has passed.
+	 * 因锁存器可被并发 WAL 活动反复置位，故在循环中
+	 * 睡眠以确保已过足够时间。
 	 */
 	for (;;)
 	{
@@ -155,22 +155,22 @@ throttle(bbsink_throttle *sink, size_t increment)
 					sleep;
 		int			wait_result;
 
-		/* Time elapsed since the last measurement (and possible wake up). */
+		/* 自上次测量（及可能的唤醒）以来流逝的时间。 */
 		elapsed = GetCurrentTimestamp() - sink->throttled_last;
 
-		/* sleep if the transfer is faster than it should be */
+		/* 若传输快于应有速度则睡眠 */
 		sleep = elapsed_min - elapsed;
 		if (sleep <= 0)
 			break;
 
 		ResetLatch(MyLatch);
 
-		/* We're eating a potentially set latch, so check for interrupts */
+		/* 我们可能吞掉已置位的锁存器，故检查中断 */
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * (TAR_SEND_SIZE / throttling_sample * elapsed_min_unit) should be
-		 * the maximum time to sleep. Thus the cast to long is safe.
+		 * (TAR_SEND_SIZE / throttling_sample * elapsed_min_unit)
+		 * 应是最长睡眠时间，故转为 long 是安全的。
 		 */
 		wait_result = WaitLatch(MyLatch,
 								WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
@@ -180,20 +180,20 @@ throttle(bbsink_throttle *sink, size_t increment)
 		if (wait_result & WL_LATCH_SET)
 			CHECK_FOR_INTERRUPTS();
 
-		/* Done waiting? */
+		/* 等完了? */
 		if (wait_result & WL_TIMEOUT)
 			break;
 	}
 
 	/*
-	 * As we work with integers, only whole multiple of throttling_sample was
-	 * processed. The rest will be done during the next call of this function.
+	 * 因用整数运算，只处理了 throttling_sample 的整倍
+	 * 数。余量留待本函数下次调用处理。
 	 */
 	sink->throttling_counter %= sink->throttling_sample;
 
 	/*
-	 * Time interval for the remaining amount and possible next increments
-	 * starts now.
+	 * 剩余量及后续可能增量的时间区间
+	 * 此刻起.
 	 */
 	sink->throttled_last = GetCurrentTimestamp();
 }

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_sink.c
- *	  Default implementations for bbsink (basebackup sink) callbacks.
+ *	  bbsink（基备份 sink）回调的默认实现。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -15,10 +15,10 @@
 #include "backup/basebackup_sink.h"
 
 /*
- * Forward begin_backup callback.
+ * 转发 begin_backup 回调。
  *
- * Only use this implementation if you want the bbsink you're implementing to
- * share a buffer with the successor bbsink.
+ * 仅当希望所实现的 bbsink 与后继 bbsink 共享缓冲时，
+ * 才使用本实现。
  */
 void
 bbsink_forward_begin_backup(bbsink *sink)
@@ -31,7 +31,7 @@ bbsink_forward_begin_backup(bbsink *sink)
 }
 
 /*
- * Forward begin_archive callback.
+ * 转发 begin_archive 回调。
  */
 void
 bbsink_forward_begin_archive(bbsink *sink, const char *archive_name)
@@ -41,14 +41,14 @@ bbsink_forward_begin_archive(bbsink *sink, const char *archive_name)
 }
 
 /*
- * Forward archive_contents callback.
+ * 转发 archive_contents 回调。
  *
- * Code that wants to use this should initialize its own bbs_buffer and
- * bbs_buffer_length fields to the values from the successor sink. In cases
- * where the buffer isn't shared, the data needs to be copied before forwarding
- * the callback. We don't do try to do that here, because there's really no
- * reason to have separately allocated buffers containing the same identical
- * data.
+ * 欲用本实现者，应把自身 bbs_buffer 与
+ * bbs_buffer_length 设为后继 sink 的值。缓冲不共享时，
+ * 须在转发回调前复制数据。此处不做复制，因为没有
+ * 理由为同一份相同数据分别再分配缓冲。
+ *
+ *
  */
 void
 bbsink_forward_archive_contents(bbsink *sink, size_t len)
@@ -60,7 +60,7 @@ bbsink_forward_archive_contents(bbsink *sink, size_t len)
 }
 
 /*
- * Forward end_archive callback.
+ * 转发 end_archive 回调。
  */
 void
 bbsink_forward_end_archive(bbsink *sink)
@@ -70,7 +70,7 @@ bbsink_forward_end_archive(bbsink *sink)
 }
 
 /*
- * Forward begin_manifest callback.
+ * 转发 begin_manifest 回调。
  */
 void
 bbsink_forward_begin_manifest(bbsink *sink)
@@ -80,10 +80,10 @@ bbsink_forward_begin_manifest(bbsink *sink)
 }
 
 /*
- * Forward manifest_contents callback.
+ * 转发 manifest_contents 回调。
  *
- * As with the archive_contents callback, it's expected that the buffer is
- * shared.
+ * 与 archive_contents 回调一样，预期缓冲是共享的。
+ *
  */
 void
 bbsink_forward_manifest_contents(bbsink *sink, size_t len)
@@ -95,7 +95,7 @@ bbsink_forward_manifest_contents(bbsink *sink, size_t len)
 }
 
 /*
- * Forward end_manifest callback.
+ * 转发 end_manifest 回调。
  */
 void
 bbsink_forward_end_manifest(bbsink *sink)
@@ -105,7 +105,7 @@ bbsink_forward_end_manifest(bbsink *sink)
 }
 
 /*
- * Forward end_backup callback.
+ * 转发 end_backup 回调。
  */
 void
 bbsink_forward_end_backup(bbsink *sink, XLogRecPtr endptr, TimeLineID endtli)
@@ -115,7 +115,7 @@ bbsink_forward_end_backup(bbsink *sink, XLogRecPtr endptr, TimeLineID endtli)
 }
 
 /*
- * Forward cleanup callback.
+ * 转发 cleanup 回调。
  */
 void
 bbsink_forward_cleanup(bbsink *sink)

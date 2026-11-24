@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_server.c
- *	  store basebackup archives on the server
+ *	  在服务器上存储基备份归档
  *
  * IDENTIFICATION
  *	  src/backend/backup/basebackup_server.c
@@ -22,16 +22,16 @@
 
 typedef struct bbsink_server
 {
-	/* Common information for all types of sink. */
+	/* 各类 sink 的公共信息。 */
 	bbsink		base;
 
-	/* Directory in which backup is to be stored. */
+	/* 存放备份的目录。 */
 	char	   *pathname;
 
-	/* Currently open file (or 0 if nothing open). */
+	/* 当前打开文件（无则 0）。 */
 	File		file;
 
-	/* Current file position. */
+	/* 当前文件位置。 */
 	off_t		filepos;
 } bbsink_server;
 
@@ -56,7 +56,7 @@ static const bbsink_ops bbsink_server_ops = {
 };
 
 /*
- * Create a new 'server' bbsink.
+ * 新建 'server' bbsink。
  */
 bbsink *
 bbsink_server_new(bbsink *next, char *pathname)
@@ -67,7 +67,7 @@ bbsink_server_new(bbsink *next, char *pathname)
 	sink->pathname = pathname;
 	sink->base.bbs_next = next;
 
-	/* Replication permission is not sufficient in this case. */
+	/* 仅有复制权限在此情形下不够。 */
 	StartTransactionCommand();
 	if (!has_privs_of_role(GetUserId(), ROLE_PG_WRITE_SERVER_FILES))
 		ereport(ERROR,
@@ -78,12 +78,12 @@ bbsink_server_new(bbsink *next, char *pathname)
 	CommitTransactionCommand();
 
 	/*
-	 * It's not a good idea to store your backups in the same directory that
-	 * you're backing up. If we allowed a relative path here, that could
-	 * easily happen accidentally, so we don't. The user could still
-	 * accomplish the same thing by including the absolute path to $PGDATA in
-	 * the pathname, but that's likely an intentional bad decision rather than
-	 * an accident.
+	 * 不宜把备份放在正在备份的同一目录。若允许
+	 * 相对路径，很容易误发生，故不许。用户仍可把
+	 * $PGDATA 绝对路径写入路径名达到同样效果，
+	 * 但那多半是有意的坏决定而非意外。
+	 *
+	 *
 	 */
 	if (!is_absolute_path(pathname))
 		ereport(ERROR,
@@ -95,8 +95,8 @@ bbsink_server_new(bbsink *next, char *pathname)
 		case 0:
 
 			/*
-			 * Does not exist, so create it using the same permissions we'd
-			 * use for a new subdirectory of the data directory itself.
+			 * 不存在，故用与数据目录新子目录相同权限
+			 * 创建它。
 			 */
 			if (MakePGDirectory(pathname) < 0)
 				ereport(ERROR,
@@ -105,13 +105,13 @@ bbsink_server_new(bbsink *next, char *pathname)
 			break;
 
 		case 1:
-			/* Exists, empty. */
+			/* 存在且空. */
 			break;
 
 		case 2:
 		case 3:
 		case 4:
-			/* Exists, not empty. */
+			/* 存在但非空。 */
 			ereport(ERROR,
 					(errcode(ERRCODE_DUPLICATE_FILE),
 					 errmsg("directory \"%s\" exists but is not empty",
@@ -119,7 +119,7 @@ bbsink_server_new(bbsink *next, char *pathname)
 			break;
 
 		default:
-			/* Access problem. */
+			/* 访问问题. */
 			ereport(ERROR,
 					(errcode_for_file_access(),
 					 errmsg("could not access directory \"%s\": %m",
@@ -130,7 +130,7 @@ bbsink_server_new(bbsink *next, char *pathname)
 }
 
 /*
- * Open the correct output file for this archive.
+ * 为本归档打开正确的输出文件。
  */
 static void
 bbsink_server_begin_archive(bbsink *sink, const char *archive_name)
@@ -156,7 +156,7 @@ bbsink_server_begin_archive(bbsink *sink, const char *archive_name)
 }
 
 /*
- * Write the data to the output file.
+ * 把数据写入输出文件。
  */
 static void
 bbsink_server_archive_contents(bbsink *sink, size_t len)
@@ -175,7 +175,7 @@ bbsink_server_archive_contents(bbsink *sink, size_t len)
 					 errmsg("could not write file \"%s\": %m",
 							FilePathName(mysink->file)),
 					 errhint("Check free disk space.")));
-		/* short write: complain appropriately */
+		/* 短写：按情形报错 */
 		ereport(ERROR,
 				(errcode(ERRCODE_DISK_FULL),
 				 errmsg("could not write file \"%s\": wrote only %d of %d bytes at offset %u",
@@ -190,7 +190,7 @@ bbsink_server_archive_contents(bbsink *sink, size_t len)
 }
 
 /*
- * fsync and close the current output file.
+ * fsync 并关闭当前输出文件。
  */
 static void
 bbsink_server_end_archive(bbsink *sink)
@@ -198,10 +198,10 @@ bbsink_server_end_archive(bbsink *sink)
 	bbsink_server *mysink = (bbsink_server *) sink;
 
 	/*
-	 * We intentionally don't use data_sync_elevel here, because the server
-	 * shouldn't PANIC just because we can't guarantee that the backup has
-	 * been written down to disk. Running recovery won't fix anything in this
-	 * case anyway.
+	 * 有意不用 data_sync_elevel，因不能仅因无法保证
+	 * 备份已落盘就让服务器 PANIC。此时跑恢复也
+	 * 无济于事。
+	 *
 	 */
 	if (FileSync(mysink->file, WAIT_EVENT_BASEBACKUP_SYNC) < 0)
 		ereport(ERROR,
@@ -210,7 +210,7 @@ bbsink_server_end_archive(bbsink *sink)
 						FilePathName(mysink->file))));
 
 
-	/* We're done with this file now. */
+	/* 本文件现已处理完毕。 */
 	FileClose(mysink->file);
 	mysink->file = 0;
 	mysink->filepos = 0;
@@ -219,12 +219,12 @@ bbsink_server_end_archive(bbsink *sink)
 }
 
 /*
- * Open the output file to which we will write the manifest.
+ * 打开将写入清单的输出文件。
  *
- * Just like pg_basebackup, we write the manifest first under a temporary
- * name and then rename it into place after fsync. That way, if the manifest
- * is there and under the correct name, the user can be sure that the backup
- * completed.
+ * 与 pg_basebackup 一样，先用临时名写清单，fsync
+ * 后再改名到位。这样若清单以正确名存在，用户可
+ * 确信备份已完成。
+ *
  */
 static void
 bbsink_server_begin_manifest(bbsink *sink)
@@ -249,7 +249,7 @@ bbsink_server_begin_manifest(bbsink *sink)
 }
 
 /*
- * Each chunk of manifest data is sent using a CopyData message.
+ * 清单数据的每一块用 CopyData 消息发送。
  */
 static void
 bbsink_server_manifest_contents(bbsink *sink, size_t len)
@@ -268,7 +268,7 @@ bbsink_server_manifest_contents(bbsink *sink, size_t len)
 					 errmsg("could not write file \"%s\": %m",
 							FilePathName(mysink->file)),
 					 errhint("Check free disk space.")));
-		/* short write: complain appropriately */
+		/* 短写：按情形报错 */
 		ereport(ERROR,
 				(errcode(ERRCODE_DISK_FULL),
 				 errmsg("could not write file \"%s\": wrote only %d of %d bytes at offset %u",
@@ -283,7 +283,7 @@ bbsink_server_manifest_contents(bbsink *sink, size_t len)
 }
 
 /*
- * fsync the backup manifest, close the file, and then rename it into place.
+ * fsync 备份清单、关闭文件，再改名到位。
  */
 static void
 bbsink_server_end_manifest(bbsink *sink)
@@ -292,14 +292,14 @@ bbsink_server_end_manifest(bbsink *sink)
 	char	   *tmp_filename;
 	char	   *filename;
 
-	/* We're done with this file now. */
+	/* 本文件现已处理完毕。 */
 	FileClose(mysink->file);
 	mysink->file = 0;
 
 	/*
-	 * Rename it into place. This also fsyncs the temporary file, so we don't
-	 * need to do that here. We don't use data_sync_elevel here for the same
-	 * reasons as in bbsink_server_end_archive.
+	 * 改名到位。这也会 fsync 临时文件，故此处不必再做。
+	 * 此处不用 data_sync_elevel，理由同
+	 * bbsink_server_end_archive。
 	 */
 	tmp_filename = psprintf("%s/backup_manifest.tmp", mysink->pathname);
 	filename = psprintf("%s/backup_manifest", mysink->pathname);

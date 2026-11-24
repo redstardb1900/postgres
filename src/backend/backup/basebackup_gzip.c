@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * basebackup_gzip.c
- *	  Basebackup sink implementing gzip compression.
+ *	  实现 gzip 压缩的基备份 sink。
  *
  * Portions Copyright (c) 2010-2023, PostgreSQL Global Development Group
  *
@@ -21,16 +21,16 @@
 #ifdef HAVE_LIBZ
 typedef struct bbsink_gzip
 {
-	/* Common information for all types of sink. */
+	/* 各类 sink 的公共信息。 */
 	bbsink		base;
 
-	/* Compression level. */
+	/* 压缩级别。 */
 	int			compresslevel;
 
-	/* Compressed data stream. */
+	/* 压缩数据流。 */
 	z_stream	zstream;
 
-	/* Number of bytes staged in output buffer. */
+	/* 输出缓冲中已暂存的字节数。 */
 	size_t		bytes_written;
 } bbsink_gzip;
 
@@ -56,7 +56,7 @@ static const bbsink_ops bbsink_gzip_ops = {
 #endif
 
 /*
- * Create a new basebackup sink that performs gzip compression.
+ * 创建执行 gzip 压缩的新基备份 sink。
  */
 bbsink *
 bbsink_gzip_new(bbsink *next, pg_compress_specification *compress)
@@ -65,7 +65,7 @@ bbsink_gzip_new(bbsink *next, pg_compress_specification *compress)
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("gzip compression is not supported by this build")));
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 #else
 	bbsink_gzip *sink;
 	int			compresslevel;
@@ -88,27 +88,27 @@ bbsink_gzip_new(bbsink *next, pg_compress_specification *compress)
 #ifdef HAVE_LIBZ
 
 /*
- * Begin backup.
+ * 开始备份.
  */
 static void
 bbsink_gzip_begin_backup(bbsink *sink)
 {
 	/*
-	 * We need our own buffer, because we're going to pass different data to
-	 * the next sink than what gets passed to us.
+	 * 需要自有缓冲，因传给下一 sink 的数据不同于
+	 * 传给我们的。
 	 */
 	sink->bbs_buffer = palloc(sink->bbs_buffer_length);
 
 	/*
-	 * Since deflate() doesn't require the output buffer to be of any
-	 * particular size, we can just make it the same size as the input buffer.
+	 * deflate() 不需要输出缓冲特定大小，故可与输入
+	 * 缓冲同大。
 	 */
 	bbsink_begin_backup(sink->bbs_next, sink->bbs_state,
 						sink->bbs_buffer_length);
 }
 
 /*
- * Prepare to compress the next archive.
+ * 准备压缩下一归档。
  */
 static void
 bbsink_gzip_begin_archive(bbsink *sink, const char *archive_name)
@@ -117,7 +117,7 @@ bbsink_gzip_begin_archive(bbsink *sink, const char *archive_name)
 	char	   *gz_archive_name;
 	z_stream   *zs = &mysink->zstream;
 
-	/* Initialize compressor object. */
+	/* 初始化压缩器对象。 */
 	memset(zs, 0, sizeof(z_stream));
 	zs->zalloc = gzip_palloc;
 	zs->zfree = gzip_pfree;
@@ -125,16 +125,16 @@ bbsink_gzip_begin_archive(bbsink *sink, const char *archive_name)
 	zs->avail_out = sink->bbs_next->bbs_buffer_length;
 
 	/*
-	 * We need to use deflateInit2() rather than deflateInit() here so that we
-	 * can request a gzip header rather than a zlib header. Otherwise, we want
-	 * to supply the same values that would have been used by default if we
-	 * had just called deflateInit().
+	 * 须用 deflateInit2() 而非 deflateInit()，以便请求
+	 * gzip 头而非 zlib 头。此外提供与直接调用
+	 * deflateInit() 时相同的默认
+	 * 值。
 	 *
-	 * Per the documentation for deflateInit2, the third argument must be
-	 * Z_DEFLATED; the fourth argument is the number of "window bits", by
-	 * default 15, but adding 16 gets you a gzip header rather than a zlib
-	 * header; the fifth argument controls memory usage, and 8 is the default;
-	 * and likewise Z_DEFAULT_STRATEGY is the default for the sixth argument.
+	 * 按 deflateInit2 文档，第三参须为 Z_DEFLATED；第四参
+	 * 为 window bits，默认 15，加 16 则得 gzip 头而非 zlib
+	 * 头；第五参控内存，默认 8；第六参默认亦为
+	 * Z_DEFAULT_STRATEGY。
+	 *
 	 */
 	if (deflateInit2(zs, mysink->compresslevel, Z_DEFLATED, 15 + 16, 8,
 					 Z_DEFAULT_STRATEGY) != Z_OK)
@@ -143,8 +143,8 @@ bbsink_gzip_begin_archive(bbsink *sink, const char *archive_name)
 				errmsg("could not initialize compression library"));
 
 	/*
-	 * Add ".gz" to the archive name. Note that the pg_basebackup -z produces
-	 * archives named ".tar.gz" rather than ".tgz", so we match that here.
+	 * 归档名加 ".gz"。注意 pg_basebackup -z 生成 ".tar.gz"
+	 * 而非 ".tgz"，此处对齐。
 	 */
 	gz_archive_name = psprintf("%s.gz", archive_name);
 	Assert(sink->bbs_next != NULL);
@@ -153,15 +153,15 @@ bbsink_gzip_begin_archive(bbsink *sink, const char *archive_name)
 }
 
 /*
- * Compress the input data to the output buffer until we run out of input
- * data. Each time the output buffer fills up, invoke the archive_contents()
- * method for then next sink.
+ * 把输入压缩到输出缓冲直至输入耗尽。输出缓冲一满
+ * 就调用下一 sink 的 archive_contents()
+ * 方法。
  *
- * Note that since we're compressing the input, it may very commonly happen
- * that we consume all the input data without filling the output buffer. In
- * that case, the compressed representation of the current input data won't
- * actually be sent to the next bbsink until a later call to this function,
- * or perhaps even not until bbsink_gzip_end_archive() is invoked.
+ * 注意因在压缩，常会耗尽输入而输出缓冲未满。此
+ * 时当前输入的压缩结果要等到本函数稍后调用，
+ * 甚至要到 bbsink_gzip_end_archive() 才发给
+ * 下一 bbsink。
+ * sink。
  */
 static void
 bbsink_gzip_archive_contents(bbsink *sink, size_t len)
@@ -169,7 +169,7 @@ bbsink_gzip_archive_contents(bbsink *sink, size_t len)
 	bbsink_gzip *mysink = (bbsink_gzip *) sink;
 	z_stream   *zs = &mysink->zstream;
 
-	/* Compress data from input buffer. */
+	/* 从输入缓冲压缩数据。 */
 	zs->next_in = (uint8 *) mysink->base.bbs_buffer;
 	zs->avail_in = len;
 
@@ -177,7 +177,7 @@ bbsink_gzip_archive_contents(bbsink *sink, size_t len)
 	{
 		int			res;
 
-		/* Write output data into unused portion of output buffer. */
+		/* 把输出写到输出缓冲未用部分。 */
 		Assert(mysink->bytes_written < mysink->base.bbs_next->bbs_buffer_length);
 		zs->next_out = (uint8 *)
 			mysink->base.bbs_next->bbs_buffer + mysink->bytes_written;
@@ -185,27 +185,27 @@ bbsink_gzip_archive_contents(bbsink *sink, size_t len)
 			mysink->base.bbs_next->bbs_buffer_length - mysink->bytes_written;
 
 		/*
-		 * Try to compress. Note that this will update zs->next_in and
-		 * zs->avail_in according to how much input data was consumed, and
-		 * zs->next_out and zs->avail_out according to how many output bytes
-		 * were produced.
+		 * 尝试压缩。会按已耗输入更新 zs->next_in 与
+		 * zs->avail_in，并按已产输出更新 zs->next_out 与
+		 * zs->avail_out。
+		 * 已写出。
 		 *
-		 * According to the zlib documentation, Z_STREAM_ERROR should only
-		 * occur if we've made a programming error, or if say there's been a
-		 * memory clobber; we use elog() rather than Assert() here out of an
-		 * abundance of caution.
+		 * 按 zlib 文档，Z_STREAM_ERROR 仅在编程错误或
+		 * 内存被破坏时出现；出于极度谨慎用 elog() 而非
+		 * Assert()。
+		 * 谨防万一。
 		 */
 		res = deflate(zs, Z_NO_FLUSH);
 		if (res == Z_STREAM_ERROR)
 			elog(ERROR, "could not compress data: %s", zs->msg);
 
-		/* Update our notion of how many bytes we've written. */
+		/* 更新已写入字节数的认识。 */
 		mysink->bytes_written =
 			mysink->base.bbs_next->bbs_buffer_length - zs->avail_out;
 
 		/*
-		 * If the output buffer is full, it's time for the next sink to
-		 * process the contents.
+		 * 若输出缓冲已满，则该由下一 sink
+		 * 处理内容。
 		 */
 		if (mysink->bytes_written >= mysink->base.bbs_next->bbs_buffer_length)
 		{
@@ -216,10 +216,10 @@ bbsink_gzip_archive_contents(bbsink *sink, size_t len)
 }
 
 /*
- * There might be some data inside zlib's internal buffers; we need to get
- * that flushed out and forwarded to the successor sink as archive content.
+ * zlib 内部缓冲可能还有数据；须冲刷并作为归档内容
+ * 转发给后继 sink。
  *
- * Then we can end processing for this archive.
+ * 然后可结束本归档处理。
  */
 static void
 bbsink_gzip_end_archive(bbsink *sink)
@@ -227,7 +227,7 @@ bbsink_gzip_end_archive(bbsink *sink)
 	bbsink_gzip *mysink = (bbsink_gzip *) sink;
 	z_stream   *zs = &mysink->zstream;
 
-	/* There is no more data available. */
+	/* 已无更多可用数据。 */
 	zs->next_in = (uint8 *) mysink->base.bbs_buffer;
 	zs->avail_in = 0;
 
@@ -235,7 +235,7 @@ bbsink_gzip_end_archive(bbsink *sink)
 	{
 		int			res;
 
-		/* Write output data into unused portion of output buffer. */
+		/* 把输出写到输出缓冲未用部分。 */
 		Assert(mysink->bytes_written < mysink->base.bbs_next->bbs_buffer_length);
 		zs->next_out = (uint8 *)
 			mysink->base.bbs_next->bbs_buffer + mysink->bytes_written;
@@ -243,36 +243,36 @@ bbsink_gzip_end_archive(bbsink *sink)
 			mysink->base.bbs_next->bbs_buffer_length - mysink->bytes_written;
 
 		/*
-		 * As bbsink_gzip_archive_contents, but pass Z_FINISH since there is
-		 * no more input.
+		 * 如同 bbsink_gzip_archive_contents，但因无更多输入
+		 * 传 Z_FINISH.
 		 */
 		res = deflate(zs, Z_FINISH);
 		if (res == Z_STREAM_ERROR)
 			elog(ERROR, "could not compress data: %s", zs->msg);
 
-		/* Update our notion of how many bytes we've written. */
+		/* 更新已写入字节数的认识。 */
 		mysink->bytes_written =
 			mysink->base.bbs_next->bbs_buffer_length - zs->avail_out;
 
 		/*
-		 * Apparently we had no data in the output buffer and deflate() was
-		 * not able to add any. We must be done.
+		 * 显然输出缓冲无数据且 deflate() 也未能追加。
+		 * 我们必定完成了。
 		 */
 		if (mysink->bytes_written == 0)
 			break;
 
-		/* Send whatever accumulated output bytes we have. */
+		/* 发送已累积的全部输出字节。 */
 		bbsink_archive_contents(sink->bbs_next, mysink->bytes_written);
 		mysink->bytes_written = 0;
 	}
 
-	/* Must also pass on the information that this archive has ended. */
+	/* 还必须转发本归档已结束的信息。 */
 	bbsink_forward_end_archive(sink);
 }
 
 /*
- * Manifest contents are not compressed, but we do need to copy them into
- * the successor sink's buffer, because we have our own.
+ * 清单内容不压缩，但须拷入后继 sink 缓冲，因我们
+ * 有自己的缓冲。
  */
 static void
 bbsink_gzip_manifest_contents(bbsink *sink, size_t len)
@@ -282,8 +282,8 @@ bbsink_gzip_manifest_contents(bbsink *sink, size_t len)
 }
 
 /*
- * Wrapper function to adjust the signature of palloc to match what libz
- * expects.
+ * 包装函数，调整 palloc 签名以匹配 libz 所预期。
+ *
  */
 static void *
 gzip_palloc(void *opaque, unsigned items, unsigned size)
@@ -292,8 +292,8 @@ gzip_palloc(void *opaque, unsigned items, unsigned size)
 }
 
 /*
- * Wrapper function to adjust the signature of pfree to match what libz
- * expects.
+ * 包装函数，调整 pfree 签名以匹配 libz 所预期。
+ *
  */
 static void
 gzip_pfree(void *opaque, void *address)

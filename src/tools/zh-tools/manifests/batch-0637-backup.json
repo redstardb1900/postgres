@@ -1,0 +1,261 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0637",
+ "title": "backend/backup 基备份 sink/清单 — batch 0637",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c2eee6d00c248161a6c3b6a465497c9ab6501443",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0637 next→port"
+  },
+  {
+   "pattern": "src/backend/backup/backup_manifest.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_copy.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_gzip.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_lz4.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_progress.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_server.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_sink.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_target.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_throttle.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/backend/backup/basebackup_zstd.c",
+   "kind": "c_comment",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0637-backup.json",
+   "kind": "manifest",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0637"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0637 halfen KEEP"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→port"
+  },
+  {
+   "path": "src/backend/backup/backup_manifest.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_copy.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_gzip.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_lz4.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_progress.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_server.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_sink.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_target.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_throttle.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/backend/backup/basebackup_zstd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "标识符/专名 KEEP（init fork/bbsink/blackhole 等）"
+   ],
+   "note": "0637 backup"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0637-backup.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "init fork / bbsink-blackhole-target 站点 KEEP"
+   ],
+   "note": "2 exemptions"
+  }
+ ],
+ "notes": "backup/ 11 .c 注释；halfen KEEP init fork 与 bbsink/blackhole；叠词/断义已清偿"
+}

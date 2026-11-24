@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0633",
+ "title": "backend/utils/adt jsonb — batch 0633",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0a6a689ea99ed08306198ccaf812101042f22f2c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/jsonb.c",
+   "kind": "c_comment",
+   "note": "0633"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0633-jsonb.json",
+   "kind": "manifest",
+   "note": "0633"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/jsonb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "translator: KEEP (L1234)",
+    "ASCII 标识/'N''n'/WJB_VALUE/XXX/StringBuffer/函数签名 KEEP"
+   ],
+   "note": "0633"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0633-jsonb.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0633"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0633"
+  }
+ ],
+ "notes": "jsonb.c 全文件; 键/值/对象/数组/词元/解析/去转义/标量/浅克隆对齐 json.c/jsonfuncs/jsonb_gin; L1282=L1342 等同 EN 同译; invalid→无效; StringBuffer 标识 KEEP"
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonb.c
- *		I/O routines for jsonb type
+ *		jsonb 类型的 I/O 例程
  *
  * Copyright (c) 2014-2023, PostgreSQL Global Development Group
  *
@@ -37,21 +37,21 @@ typedef struct JsonbInState
 	Node	   *escontext;
 } JsonbInState;
 
-/* unlike with json categories, we need to treat json and jsonb differently */
-typedef enum					/* type categories for datum_to_jsonb */
+/* 与 json 类别不同,json 与 jsonb 须区别对待 */
+typedef enum					/* datum_to_jsonb 的类型类别 */
 {
-	JSONBTYPE_NULL,				/* null, so we didn't bother to identify */
-	JSONBTYPE_BOOL,				/* boolean (built-in types only) */
-	JSONBTYPE_NUMERIC,			/* numeric (ditto) */
-	JSONBTYPE_DATE,				/* we use special formatting for datetimes */
-	JSONBTYPE_TIMESTAMP,		/* we use special formatting for timestamp */
-	JSONBTYPE_TIMESTAMPTZ,		/* ... and timestamptz */
+	JSONBTYPE_NULL,				/* 为 NULL,故未费心识别 */
+	JSONBTYPE_BOOL,				/* 布尔(仅内建类型) */
+	JSONBTYPE_NUMERIC,			/* 数值(同) */
+	JSONBTYPE_DATE,				/* 对日期时间类型用特殊格式化 */
+	JSONBTYPE_TIMESTAMP,		/* 对 timestamp 用特殊格式化 */
+	JSONBTYPE_TIMESTAMPTZ,		/* 及 timestamptz */
 	JSONBTYPE_JSON,				/* JSON */
 	JSONBTYPE_JSONB,			/* JSONB */
-	JSONBTYPE_ARRAY,			/* array */
-	JSONBTYPE_COMPOSITE,		/* composite */
-	JSONBTYPE_JSONCAST,			/* something with an explicit cast to JSON */
-	JSONBTYPE_OTHER				/* all else */
+	JSONBTYPE_ARRAY,			/*数组*/
+	JSONBTYPE_COMPOSITE,		/* 复合 */
+	JSONBTYPE_JSONCAST,			/* 具有到 JSON 的显式转换 */
+	JSONBTYPE_OTHER				/* 其余 */
 } JsonbTypeCategory;
 
 typedef struct JsonbAggState
@@ -93,7 +93,7 @@ static char *JsonbToCStringWorker(StringInfo out, JsonbContainer *in, int estima
 static void add_indent(StringInfo out, bool indent, int level);
 
 /*
- * jsonb type input function
+ * jsonb 类型输入函数
  */
 Datum
 jsonb_in(PG_FUNCTION_ARGS)
@@ -104,12 +104,12 @@ jsonb_in(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonb type recv function
+ * jsonb 类型 recv 函数
  *
- * The type is sent as text in binary mode, so this is almost the same
- * as the input function, but it's prefixed with a version number so we
- * can change the binary format sent in future if necessary. For now,
- * only version 1 is supported.
+ * 二进制模式下该类型以文本发送,故几乎等同
+ * 于输入函数,但前缀有版本号,以便日后
+ * 必要时可改二进制格式。目前
+ * 仅支持版本 1。
  */
 Datum
 jsonb_recv(PG_FUNCTION_ARGS)
@@ -128,7 +128,7 @@ jsonb_recv(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonb type output function
+ * jsonb 类型输出函数
  */
 Datum
 jsonb_out(PG_FUNCTION_ARGS)
@@ -142,9 +142,9 @@ jsonb_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonb type send function
+ * jsonb 类型 send 函数
  *
- * Just send jsonb as a version number, then a string of text
+ * 先发版本号,再发 jsonb 的文本串
  */
 Datum
 jsonb_send(PG_FUNCTION_ARGS)
@@ -166,7 +166,7 @@ jsonb_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the type name of a jsonb container.
+ * 取 jsonb 容器的类型名。
  */
 static const char *
 JsonbContainerTypeName(JsonbContainer *jbc)
@@ -187,7 +187,7 @@ JsonbContainerTypeName(JsonbContainer *jbc)
 }
 
 /*
- * Get the type name of a jsonb value.
+ * 取 jsonb 值的类型名。
  */
 const char *
 JsonbTypeName(JsonbValue *val)
@@ -233,10 +233,10 @@ JsonbTypeName(JsonbValue *val)
 }
 
 /*
- * SQL function jsonb_typeof(jsonb) -> text
+ * SQL 函数 jsonb_typeof(jsonb) -> text
  *
- * This function is here because the analog json function is in json.c, since
- * it uses the json parser internals not exposed elsewhere.
+ * 本函数放此是因对应的 json 函数在 json.c,因其
+ * 使用未在别处暴露的 json 解析器内部。
  */
 Datum
 jsonb_typeof(PG_FUNCTION_ARGS)
@@ -250,12 +250,12 @@ jsonb_typeof(PG_FUNCTION_ARGS)
 /*
  * jsonb_from_cstring
  *
- * Turns json string into a jsonb Datum.
+ * 把 json 串转为 jsonb Datum。
  *
- * Uses the json parser (with hooks) to construct a jsonb.
+ * 用带钩子的 json 解析器构造 jsonb。
  *
- * If escontext points to an ErrorSaveContext, errors are reported there
- * instead of being thrown.
+ * 若 escontext 指向 ErrorSaveContext,则错误报到该处
+ * 而不抛出。
  */
 static inline Datum
 jsonb_from_cstring(char *json, int len, Node *escontext)
@@ -281,7 +281,7 @@ jsonb_from_cstring(char *json, int len, Node *escontext)
 	if (!pg_parse_json_or_errsave(lex, &sem, escontext))
 		return (Datum) 0;
 
-	/* after parsing, the item member has the composed jsonb structure */
+	/* 解析后,item 成员已持有组成好的 jsonb 结构 */
 	PG_RETURN_POINTER(JsonbValueToJsonb(state.res));
 }
 
@@ -384,7 +384,7 @@ jsonb_put_escaped_value(StringInfo out, JsonbValue *scalarVal)
 }
 
 /*
- * For jsonb we always want the de-escaped value - that's what's in token
+ * 对 jsonb 我们总要去转义后的值——即词元中所存
  */
 static JsonParseErrorType
 jsonb_in_scalar(void *pstate, char *token, JsonTokenType tokentype)
@@ -407,8 +407,8 @@ jsonb_in_scalar(void *pstate, char *token, JsonTokenType tokentype)
 		case JSON_TOKEN_NUMBER:
 
 			/*
-			 * No need to check size of numeric values, because maximum
-			 * numeric size is well below the JsonbValue restriction
+			 * 无须检查数值大小,因最大
+			 * 数值尺寸远低于 JsonbValue 限制
 			 */
 			Assert(token != NULL);
 			v.type = jbvNumeric;
@@ -431,14 +431,14 @@ jsonb_in_scalar(void *pstate, char *token, JsonTokenType tokentype)
 			v.type = jbvNull;
 			break;
 		default:
-			/* should not be possible */
+			/* 不应发生 */
 			elog(ERROR, "invalid json token type");
 			break;
 	}
 
 	if (_state->parseState == NULL)
 	{
-		/* single scalar */
+		/* 单个标量 */
 		JsonbValue	va;
 
 		va.type = jbvArray;
@@ -471,14 +471,14 @@ jsonb_in_scalar(void *pstate, char *token, JsonTokenType tokentype)
 
 /*
  * JsonbToCString
- *	   Converts jsonb value to a C-string.
+ *	   把 jsonb 值转为 C 字符串。
  *
- * If 'out' argument is non-null, the resulting C-string is stored inside the
- * StringBuffer.  The resulting string is always returned.
+ * 若 'out' 非空,结果 C 字符串存入
+ * StringBuffer。结果串总会返回。
  *
- * A typical case for passing the StringInfo in rather than NULL is where the
- * caller wants access to the len attribute without having to call strlen, e.g.
- * if they are converting it to a text* object.
+ * 传入 StringInfo 而非 NULL 的典型情形是调用方
+ * 想直接读 len 而不调 strlen,例如
+ * 要把它转成 text* 对象时。
  */
 char *
 JsonbToCString(StringInfo out, JsonbContainer *in, int estimated_len)
@@ -487,7 +487,7 @@ JsonbToCString(StringInfo out, JsonbContainer *in, int estimated_len)
 }
 
 /*
- * same thing but with indentation turned on
+ * 同上,但开启缩进
  */
 char *
 JsonbToCStringIndent(StringInfo out, JsonbContainer *in, int estimated_len)
@@ -496,7 +496,7 @@ JsonbToCStringIndent(StringInfo out, JsonbContainer *in, int estimated_len)
 }
 
 /*
- * common worker for above two functions
+ * 上述两函数的公共工作函数
  */
 static char *
 JsonbToCStringWorker(StringInfo out, JsonbContainer *in, int estimated_len, bool indent)
@@ -508,12 +508,12 @@ JsonbToCStringWorker(StringInfo out, JsonbContainer *in, int estimated_len, bool
 	int			level = 0;
 	bool		redo_switch = false;
 
-	/* If we are indenting, don't add a space after a comma */
+	/* 缩进时,逗号后不加空格 */
 	int			ispaces = indent ? 1 : 2;
 
 	/*
-	 * Don't indent the very first item. This gets set to the indent flag at
-	 * the bottom of the loop.
+	 * 首项不缩进。循环末尾会把此标志设为
+	 * indent 标志。
 	 */
 	bool		use_indent = false;
 	bool		raw_scalar = false;
@@ -564,7 +564,7 @@ JsonbToCStringWorker(StringInfo out, JsonbContainer *in, int estimated_len, bool
 
 				add_indent(out, use_indent, level);
 
-				/* json rules guarantee this is a string */
+				/* json 规则保证这是字符串 */
 				jsonb_put_escaped_value(out, &v);
 				appendBinaryStringInfo(out, ": ", 2);
 
@@ -579,9 +579,9 @@ JsonbToCStringWorker(StringInfo out, JsonbContainer *in, int estimated_len, bool
 					Assert(type == WJB_BEGIN_OBJECT || type == WJB_BEGIN_ARRAY);
 
 					/*
-					 * We need to rerun the current switch() since we need to
-					 * output the object which we just got from the iterator
-					 * before calling the iterator again.
+					 * 须重跑当前 switch(),因须先
+					 * 输出刚从迭代器取得的对象
+					 * 再调用迭代器。
 					 */
 					redo_switch = true;
 				}
@@ -634,11 +634,11 @@ add_indent(StringInfo out, bool indent, int level)
 
 
 /*
- * Determine how we want to render values of a given type in datum_to_jsonb.
+ * 确定在 datum_to_jsonb 中如何呈现给定类型的值。
  *
- * Given the datatype OID, return its JsonbTypeCategory, as well as the type's
- * output function OID.  If the returned category is JSONBTYPE_JSONCAST,
- * we return the OID of the relevant cast function instead.
+ * 给定数据类型 OID,返回其 JsonbTypeCategory,以及该类型的
+ * 输出函数 OID。若返回类别为 JSONBTYPE_JSONCAST,
+ * 则改为返回相应转换函数的 OID。
  */
 static void
 jsonb_categorize_type(Oid typoid,
@@ -647,16 +647,16 @@ jsonb_categorize_type(Oid typoid,
 {
 	bool		typisvarlena;
 
-	/* Look through any domain */
+	/* 穿透任何域 */
 	typoid = getBaseType(typoid);
 
 	*outfuncoid = InvalidOid;
 
 	/*
-	 * We need to get the output function for everything except date and
-	 * timestamp types, booleans, array and composite types, json and jsonb,
-	 * and non-builtin types where there's a cast to json. In this last case
-	 * we return the oid of the cast function instead.
+	 * 除了 date/timestamp 类型、数组与复合类型、
+	 * 布尔、json 与 jsonb，以及存在到 json 转换的
+	 * 非内建类型外，都需取输出函数。最后一种情形
+	 * 则返回转换函数的 oid。
 	 */
 
 	switch (typoid)
@@ -696,20 +696,20 @@ jsonb_categorize_type(Oid typoid,
 			break;
 
 		default:
-			/* Check for arrays and composites */
+			/* 检查数组和复合类型 */
 			if (OidIsValid(get_element_type(typoid)) || typoid == ANYARRAYOID
 				|| typoid == ANYCOMPATIBLEARRAYOID || typoid == RECORDARRAYOID)
 				*tcategory = JSONBTYPE_ARRAY;
-			else if (type_is_rowtype(typoid))	/* includes RECORDOID */
+			else if (type_is_rowtype(typoid))	/* 含 RECORDOID */
 				*tcategory = JSONBTYPE_COMPOSITE;
 			else
 			{
-				/* It's probably the general case ... */
+				/* 多半是一般情形 ... */
 				*tcategory = JSONBTYPE_OTHER;
 
 				/*
-				 * but first let's look for a cast to json (note: not to
-				 * jsonb) if it's not built-in.
+				 * 但非内建时先查到 json 的转换(注意
+				 * 不是到 jsonb)。
 				 */
 				if (typoid >= FirstNormalObjectId)
 				{
@@ -725,13 +725,13 @@ jsonb_categorize_type(Oid typoid,
 					}
 					else
 					{
-						/* not a cast type, so just get the usual output func */
+						/* 非转换类型,故取通常输出函数 */
 						getTypeOutputInfo(typoid, outfuncoid, &typisvarlena);
 					}
 				}
 				else
 				{
-					/* any other builtin type */
+					/* 其他内建类型 */
 					getTypeOutputInfo(typoid, outfuncoid, &typisvarlena);
 				}
 				break;
@@ -740,16 +740,16 @@ jsonb_categorize_type(Oid typoid,
 }
 
 /*
- * Turn a Datum into jsonb, adding it to the result JsonbInState.
+ * 把 Datum 转为 jsonb,并加入结果 JsonbInState。
  *
- * tcategory and outfuncoid are from a previous call to json_categorize_type,
- * except that if is_null is true then they can be invalid.
+ * tcategory 与 outfuncoid 来自此前一次 json_categorize_type 调用，
+ * 但若 is_null 为真则二者可以为无效值。
  *
- * If key_scalar is true, the value is stored as a key, so insist
- * it's of an acceptable type, and force it to be a jbvString.
+ * 若 key_scalar 为真,则值存为键,故须
+ * 类型可接受,并强制为 jbvString。
  *
- * Note: currently, we assume that result->escontext is NULL and errors
- * will be thrown.
+ * 注意:目前假定 result->escontext 为 NULL,错误
+ * 将被抛出。
  */
 static void
 datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
@@ -763,7 +763,7 @@ datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
 
 	check_stack_depth();
 
-	/* Convert val to a JsonbValue in jb (in most cases) */
+	/*多数情形下把 val 转为 jb 中的 JsonbValue*/
 	if (is_null)
 	{
 		Assert(!key_scalar);
@@ -811,7 +811,7 @@ datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
 				outputstr = OidOutputFunctionCall(outfuncoid, val);
 				if (key_scalar)
 				{
-					/* always quote keys */
+					/*键总是加引号*/
 					jb.type = jbvString;
 					jb.val.string.len = strlen(outputstr);
 					jb.val.string.val = outputstr;
@@ -819,9 +819,9 @@ datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
 				else
 				{
 					/*
-					 * Make it numeric if it's a valid JSON number, otherwise
-					 * a string. Invalid numeric output will always have an
-					 * 'N' or 'n' in it (I think).
+					 * 若为合法 JSON 数则作 numeric,否则
+					 * 作字符串。无效数值输出总会含 'N'
+					 * 或 'n'(我想)。
 					 */
 					numeric_error = (strchr(outputstr, 'N') != NULL ||
 									 strchr(outputstr, 'n') != NULL);
@@ -866,7 +866,7 @@ datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
 			case JSONBTYPE_JSONCAST:
 			case JSONBTYPE_JSON:
 				{
-					/* parse the json right into the existing result object */
+					/* 把 json 直接解析进已有 result 对象 */
 					JsonLexContext *lex;
 					JsonSemAction sem;
 					text	   *json = DatumGetTextPP(val);
@@ -929,16 +929,16 @@ datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
 		}
 	}
 
-	/* Now insert jb into result, unless we did it recursively */
+	/* 现把 jb 插入 result,除非已递归完成 */
 	if (!is_null && !scalar_jsonb &&
 		tcategory >= JSONBTYPE_JSON && tcategory <= JSONBTYPE_JSONCAST)
 	{
-		/* work has been done recursively */
+		/* 工作已递归完成 */
 		return;
 	}
 	else if (result->parseState == NULL)
 	{
-		/* single root scalar */
+		/* 单个根标量 */
 		JsonbValue	va;
 
 		va.type = jbvArray;
@@ -970,9 +970,9 @@ datum_to_jsonb(Datum val, bool is_null, JsonbInState *result,
 }
 
 /*
- * Process a single dimension of an array.
- * If it's the innermost dimension, output the values, otherwise call
- * ourselves recursively to process the next dimension.
+ * 处理数组的一个维度。
+ * 若是最内层维度则输出各值，否则递归调用自身
+ * 去处理下一个维度。
  */
 static void
 array_dim_to_jsonb(JsonbInState *result, int dim, int ndims, int *dims, Datum *vals,
@@ -1004,7 +1004,7 @@ array_dim_to_jsonb(JsonbInState *result, int dim, int ndims, int *dims, Datum *v
 }
 
 /*
- * Turn an array into JSON.
+ * 把数组转成 JSON。
  */
 static void
 array_to_jsonb_internal(Datum array, JsonbInState *result)
@@ -1052,7 +1052,7 @@ array_to_jsonb_internal(Datum array, JsonbInState *result)
 }
 
 /*
- * Turn a composite / record into JSON.
+ * 把复合类型/记录转成 JSON。
  */
 static void
 composite_to_jsonb(Datum composite, JsonbInState *result)
@@ -1067,12 +1067,12 @@ composite_to_jsonb(Datum composite, JsonbInState *result)
 
 	td = DatumGetHeapTupleHeader(composite);
 
-	/* Extract rowtype info and find a tupdesc */
+	/* 提取行类型信息并找到 tupdesc */
 	tupType = HeapTupleHeaderGetTypeId(td);
 	tupTypmod = HeapTupleHeaderGetTypMod(td);
 	tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 
-	/* Build a temporary HeapTuple control structure */
+	/* 构建临时 HeapTuple 控制结构 */
 	tmptup.t_len = HeapTupleHeaderGetDatumLength(td);
 	tmptup.t_data = td;
 	tuple = &tmptup;
@@ -1095,7 +1095,7 @@ composite_to_jsonb(Datum composite, JsonbInState *result)
 		attname = NameStr(att->attname);
 
 		v.type = jbvString;
-		/* don't need checkStringLen here - can't exceed maximum name length */
+		/* 此处无须 checkStringLen——不会超过最大名字长度 */
 		v.val.string.len = strlen(attname);
 		v.val.string.val = attname;
 
@@ -1119,11 +1119,11 @@ composite_to_jsonb(Datum composite, JsonbInState *result)
 }
 
 /*
- * Append JSON text for "val" to "result".
+ * 向结果追加 "val" 的 JSON 文本
  *
- * This is just a thin wrapper around datum_to_jsonb.  If the same type will be
- * printed many times, avoid using this; better to do the jsonb_categorize_type
- * lookups only once.
+ * 这只是 datum_to_jsonb 的薄封装。若同一类型将
+ * 打印多次,勿用本函数;宜只做一次 jsonb_categorize_type
+ * 的查找。
  */
 
 static void
@@ -1151,11 +1151,11 @@ add_jsonb(Datum val, bool is_null, JsonbInState *result,
 }
 
 /*
- * Is the given type immutable when coming out of a JSONB context?
+ * 给定类型脱离 JSONB 上下文后还算不可变吗?
  *
- * At present, datetimes are all considered mutable, because they
- * depend on timezone.  XXX we should also drill down into objects and
- * arrays, but do not.
+ * 目前所有日期时间类型都被视为可变，因为
+ * 依赖时区。XXX 还应深入对象与
+ * 数组,但未做。
  */
 bool
 to_jsonb_is_immutable(Oid typoid)
@@ -1179,10 +1179,10 @@ to_jsonb_is_immutable(Oid typoid)
 			return false;
 
 		case JSONBTYPE_ARRAY:
-			return false;		/* TODO recurse into elements */
+			return false;		/* TODO 递归处理元素 */
 
 		case JSONBTYPE_COMPOSITE:
-			return false;		/* TODO recurse into fields */
+			return false;		/* TODO 递归处理字段 */
 
 		case JSONBTYPE_NUMERIC:
 		case JSONBTYPE_JSONCAST:
@@ -1190,11 +1190,11 @@ to_jsonb_is_immutable(Oid typoid)
 			return func_volatile(outfuncoid) == PROVOLATILE_IMMUTABLE;
 	}
 
-	return false;				/* not reached */
+	return false;				/* 不可达 */
 }
 
 /*
- * SQL function to_jsonb(anyvalue)
+ * SQL 函数 to_jsonb(anyvalue)
  */
 Datum
 to_jsonb(PG_FUNCTION_ARGS)
@@ -1243,7 +1243,7 @@ jsonb_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 
 	for (i = 0; i < nargs; i += 2)
 	{
-		/* process key */
+		/* 处理键 */
 		bool		skip;
 
 		if (nulls[i])
@@ -1251,16 +1251,16 @@ jsonb_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("argument %d: key must not be null", i + 1)));
 
-		/* skip null values if absent_on_null */
+		/* absent_on_null 时跳过 NULL 值 */
 		skip = absent_on_null && nulls[i + 1];
 
-		/* we need to save skipped keys for the key uniqueness check */
+		/* 须保存被跳过的键以便键唯一性检查 */
 		if (skip && !unique_keys)
 			continue;
 
 		add_jsonb(args[i], false, &result, types[i], true);
 
-		/* process value */
+		/* 处理值 */
 		add_jsonb(args[i + 1], nulls[i + 1], &result, types[i + 1], false);
 	}
 
@@ -1270,7 +1270,7 @@ jsonb_build_object_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 }
 
 /*
- * SQL function jsonb_build_object(variadic "any")
+ * SQL 函数 jsonb_build_object(variadic "any")
  */
 Datum
 jsonb_build_object(PG_FUNCTION_ARGS)
@@ -1279,7 +1279,7 @@ jsonb_build_object(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	Oid		   *types;
 
-	/* build argument values to build the object */
+	/* 构建组成该对象的参数值 */
 	int			nargs = extract_variadic_args(fcinfo, 0, true,
 											  &args, &types, &nulls);
 
@@ -1290,7 +1290,7 @@ jsonb_build_object(PG_FUNCTION_ARGS)
 }
 
 /*
- * degenerate case of jsonb_build_object where it gets 0 arguments.
+ * jsonb_build_object 收到 0 个参数时的退化情形。
  */
 Datum
 jsonb_build_object_noargs(PG_FUNCTION_ARGS)
@@ -1330,7 +1330,7 @@ jsonb_build_array_worker(int nargs, Datum *args, bool *nulls, Oid *types,
 }
 
 /*
- * SQL function jsonb_build_array(variadic "any")
+ * SQL 函数 jsonb_build_array(variadic "any")
  */
 Datum
 jsonb_build_array(PG_FUNCTION_ARGS)
@@ -1339,7 +1339,7 @@ jsonb_build_array(PG_FUNCTION_ARGS)
 	bool	   *nulls;
 	Oid		   *types;
 
-	/* build argument values to build the object */
+	/* 构建组成该对象的参数值 */
 	int			nargs = extract_variadic_args(fcinfo, 0, true,
 											  &args, &types, &nulls);
 
@@ -1351,7 +1351,7 @@ jsonb_build_array(PG_FUNCTION_ARGS)
 
 
 /*
- * degenerate case of jsonb_build_array where it gets 0 arguments.
+ * jsonb_build_array 收到 0 个参数时的退化情形。
  */
 Datum
 jsonb_build_array_noargs(PG_FUNCTION_ARGS)
@@ -1368,10 +1368,10 @@ jsonb_build_array_noargs(PG_FUNCTION_ARGS)
 
 
 /*
- * SQL function jsonb_object(text[])
+ * SQL 函数 jsonb_object(text[])
  *
- * take a one or two dimensional array of text as name value pairs
- * for a jsonb object.
+ * 取一维或二维 text 数组作为 jsonb 对象的
+ * 键/值对。
  *
  */
 Datum
@@ -1469,10 +1469,10 @@ close_object:
 }
 
 /*
- * SQL function jsonb_object(text[], text[])
+ * SQL 函数 jsonb_object(text[], text[])
  *
- * take separate name and value arrays of text to construct a jsonb object
- * pairwise.
+ * 取分开的 text 键与值数组两两配对构造 jsonb
+ * 对象。
  */
 Datum
 jsonb_object_two_arg(PG_FUNCTION_ARGS)
@@ -1562,9 +1562,9 @@ close_object:
 
 
 /*
- * shallow clone of a parse state, suitable for use in aggregate
- * final functions that will only append to the values rather than
- * change them.
+ * 解析状态的浅克隆,适于仅追加值而不
+ * 修改它们的聚合最终函数
+ * 使用。
  */
 static JsonbParseState *
 clone_parse_state(JsonbParseState *state)
@@ -1613,11 +1613,11 @@ jsonb_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 因参数为 internal 类型而无法直接调用 */
 		elog(ERROR, "jsonb_agg_transfn called in non-aggregate context");
 	}
 
-	/* set up the accumulator on the first go round */
+	/* 首轮时建立累加器 */
 
 	if (PG_ARGISNULL(0))
 	{
@@ -1648,7 +1648,7 @@ jsonb_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 	if (absent_on_null && PG_ARGISNULL(1))
 		PG_RETURN_POINTER(state);
 
-	/* turn the argument into jsonb in the normal function context */
+	/* 在普通函数上下文中把参数转为 jsonb */
 
 	val = PG_ARGISNULL(1) ? (Datum) 0 : PG_GETARG_DATUM(1);
 
@@ -1659,7 +1659,7 @@ jsonb_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 
 	jbelem = JsonbValueToJsonb(elem.res);
 
-	/* switch to the aggregate context for accumulation operations */
+	/* 切到聚合上下文以做累积操作 */
 
 	oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -1691,7 +1691,7 @@ jsonb_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 			case WJB_VALUE:
 				if (v.type == jbvString)
 				{
-					/* copy string values in the aggregate context */
+					/* 在聚合上下文中复制字符串值 */
 					char	   *buf = palloc(v.val.string.len + 1);
 
 					snprintf(buf, v.val.string.len + 1, "%s", v.val.string.val);
@@ -1699,7 +1699,7 @@ jsonb_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 				}
 				else if (v.type == jbvNumeric)
 				{
-					/* same for numeric */
+					/* 数值同理 */
 					v.val.numeric =
 						DatumGetNumeric(DirectFunctionCall1(numeric_uplus,
 															NumericGetDatum(v.val.numeric)));
@@ -1718,7 +1718,7 @@ jsonb_agg_transfn_worker(FunctionCallInfo fcinfo, bool absent_on_null)
 }
 
 /*
- * jsonb_agg aggregate function
+ * jsonb_agg 聚合函数
  */
 Datum
 jsonb_agg_transfn(PG_FUNCTION_ARGS)
@@ -1727,7 +1727,7 @@ jsonb_agg_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonb_agg_strict aggregate function
+ * jsonb_agg_strict 聚合函数
  */
 Datum
 jsonb_agg_strict_transfn(PG_FUNCTION_ARGS)
@@ -1742,19 +1742,19 @@ jsonb_agg_finalfn(PG_FUNCTION_ARGS)
 	JsonbInState result;
 	Jsonb	   *out;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();		/* returns null iff no input values */
+		PG_RETURN_NULL();		/* 无输入值时才返回 null */
 
 	arg = (JsonbAggState *) PG_GETARG_POINTER(0);
 
 	/*
-	 * We need to do a shallow clone of the argument in case the final
-	 * function is called more than once, so we avoid changing the argument. A
-	 * shallow clone is sufficient as we aren't going to change any of the
-	 * values, just add the final array end marker.
+	 * 须对参数做浅克隆,以防最终
+	 * 函数被多次调用而改动参数。浅
+	 * 克隆已够用,因我们不会改任何
+	 * 值,只加最终数组结束标记。
 	 */
 	memset(&result, 0, sizeof(JsonbInState));
 
@@ -1788,11 +1788,11 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 	{
-		/* cannot be called directly because of internal-type argument */
+		/* 因参数为 internal 类型而无法直接调用 */
 		elog(ERROR, "jsonb_object_agg_transfn called in non-aggregate context");
 	}
 
-	/* set up the accumulator on the first go round */
+	/* 首轮时建立累加器 */
 
 	if (PG_ARGISNULL(0))
 	{
@@ -1835,7 +1835,7 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 		result = state->res;
 	}
 
-	/* turn the argument into jsonb in the normal function context */
+	/* 在普通函数上下文中把参数转为 jsonb */
 
 	if (PG_ARGISNULL(1))
 		ereport(ERROR,
@@ -1843,8 +1843,8 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 				 errmsg("field name must not be null")));
 
 	/*
-	 * Skip null values if absent_on_null unless key uniqueness check is
-	 * needed (because we must save keys in this case).
+	 * absent_on_null 时跳过 NULL 值,除非需要
+	 * 键唯一性检查(因须保存键)。
 	 */
 	skip = absent_on_null && PG_ARGISNULL(2);
 
@@ -1871,14 +1871,14 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 
 	it = JsonbIteratorInit(&jbkey->root);
 
-	/* switch to the aggregate context for accumulation operations */
+	/* 切到聚合上下文以做累积操作 */
 
 	oldcontext = MemoryContextSwitchTo(aggcontext);
 
 	/*
-	 * keys should be scalar, and we should have already checked for that
-	 * above when calling datum_to_jsonb, so we only need to look for these
-	 * things.
+	 * 键应为标量,上方调用 datum_to_jsonb 时
+	 * 已检查,故此处只须再看这些
+	 * 事项
 	 */
 
 	while ((type = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
@@ -1892,7 +1892,7 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 			case WJB_ELEM:
 				if (v.type == jbvString)
 				{
-					/* copy string values in the aggregate context */
+					/* 在聚合上下文中复制字符串值 */
 					char	   *buf = palloc(v.val.string.len + 1);
 
 					snprintf(buf, v.val.string.len + 1, "%s", v.val.string.val);
@@ -1930,9 +1930,9 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 	single_scalar = false;
 
 	/*
-	 * values can be anything, including structured and null, so we treat them
-	 * as in json_agg_transfn, except that single scalars are always pushed as
-	 * WJB_VALUE items.
+	 * 值可为任意内容(含结构与 null),处理同
+	 * json_agg_transfn,唯单标量总压为 WJB_VALUE
+	 * 项。
 	 */
 
 	while ((type = JsonbIteratorNext(&it, &v, false)) != WJB_DONE)
@@ -1961,7 +1961,7 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 			case WJB_VALUE:
 				if (v.type == jbvString)
 				{
-					/* copy string values in the aggregate context */
+					/* 在聚合上下文中复制字符串值 */
 					char	   *buf = palloc(v.val.string.len + 1);
 
 					snprintf(buf, v.val.string.len + 1, "%s", v.val.string.val);
@@ -1969,7 +1969,7 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 				}
 				else if (v.type == jbvNumeric)
 				{
-					/* same for numeric */
+					/* 数值同理 */
 					v.val.numeric =
 						DatumGetNumeric(DirectFunctionCall1(numeric_uplus,
 															NumericGetDatum(v.val.numeric)));
@@ -1989,7 +1989,7 @@ jsonb_object_agg_transfn_worker(FunctionCallInfo fcinfo,
 }
 
 /*
- * jsonb_object_agg aggregate function
+ * jsonb_object_agg 聚合函数
  */
 Datum
 jsonb_object_agg_transfn(PG_FUNCTION_ARGS)
@@ -1999,7 +1999,7 @@ jsonb_object_agg_transfn(PG_FUNCTION_ARGS)
 
 
 /*
- * jsonb_object_agg_strict aggregate function
+ * jsonb_object_agg_strict 聚合函数
  */
 Datum
 jsonb_object_agg_strict_transfn(PG_FUNCTION_ARGS)
@@ -2008,7 +2008,7 @@ jsonb_object_agg_strict_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonb_object_agg_unique aggregate function
+ * jsonb_object_agg_unique 聚合函数
  */
 Datum
 jsonb_object_agg_unique_transfn(PG_FUNCTION_ARGS)
@@ -2017,7 +2017,7 @@ jsonb_object_agg_unique_transfn(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonb_object_agg_unique_strict aggregate function
+ * jsonb_object_agg_unique_strict 聚合函数
  */
 Datum
 jsonb_object_agg_unique_strict_transfn(PG_FUNCTION_ARGS)
@@ -2032,20 +2032,20 @@ jsonb_object_agg_finalfn(PG_FUNCTION_ARGS)
 	JsonbInState result;
 	Jsonb	   *out;
 
-	/* cannot be called directly because of internal-type argument */
+	/* 因参数为 internal 类型而无法直接调用 */
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();		/* returns null iff no input values */
+		PG_RETURN_NULL();		/* 无输入值时才返回 null */
 
 	arg = (JsonbAggState *) PG_GETARG_POINTER(0);
 
 	/*
-	 * We need to do a shallow clone of the argument's res field in case the
-	 * final function is called more than once, so we avoid changing the
-	 * aggregate state value.  A shallow clone is sufficient as we aren't
-	 * going to change any of the values, just add the final object end
-	 * marker.
+	 * 须浅克隆参数的 res 字段,以防最终
+	 * 函数被多次调用而改动
+	 * 聚合状态值。浅克隆已够用,因我们不会
+	 * 改任何值,只加最终对象的结束
+	 * 标记
 	 */
 	memset(&result, 0, sizeof(JsonbInState));
 
@@ -2061,7 +2061,7 @@ jsonb_object_agg_finalfn(PG_FUNCTION_ARGS)
 
 
 /*
- * Extract scalar value from raw-scalar pseudo-array jsonb.
+ * 从 raw-scalar 伪数组 jsonb 提取标量值。
  */
 bool
 JsonbExtractScalar(JsonbContainer *jbc, JsonbValue *res)
@@ -2072,14 +2072,14 @@ JsonbExtractScalar(JsonbContainer *jbc, JsonbValue *res)
 
 	if (!JsonContainerIsArray(jbc) || !JsonContainerIsScalar(jbc))
 	{
-		/* inform caller about actual type of container */
+		/* 告知调用方容器的实际类型 */
 		res->type = (JsonContainerIsArray(jbc)) ? jbvArray : jbvObject;
 		return false;
 	}
 
 	/*
-	 * A root scalar is stored as an array of one element, so we get the array
-	 * and then its first (and only) member.
+	 * 根标量存为一元数组,故先取该数组
+	 * 再取其首个(唯一)成员。
 	 */
 	it = JsonbIteratorInit(jbc);
 
@@ -2101,7 +2101,7 @@ JsonbExtractScalar(JsonbContainer *jbc, JsonbValue *res)
 }
 
 /*
- * Emit correct, translatable cast error message
+ * 发出正确且可翻译的转换错误消息
  */
 static void
 cannotCastJsonbValue(enum jbvType type, const char *sqltype)
@@ -2129,7 +2129,7 @@ cannotCastJsonbValue(enum jbvType type, const char *sqltype)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg(messages[i].msg, sqltype)));
 
-	/* should be unreachable */
+	/* 应不可达 */
 	elog(ERROR, "unknown jsonb type: %d", (int) type);
 }
 
@@ -2158,8 +2158,8 @@ jsonb_numeric(PG_FUNCTION_ARGS)
 		cannotCastJsonbValue(v.type, "numeric");
 
 	/*
-	 * v.val.numeric points into jsonb body, so we need to make a copy to
-	 * return
+	 * v.val.numeric 指向 jsonb 体,故须复制后再
+	 * 返回
 	 */
 	retValue = DatumGetNumericCopy(NumericGetDatum(v.val.numeric));
 

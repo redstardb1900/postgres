@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * atomics.c
- *	   Non-Inline parts of the atomics implementation
+ *	   原子操作实现中的非内联部分
  *
  * Portions Copyright (c) 2013-2023, PostgreSQL Global Development Group
  *
@@ -29,12 +29,12 @@ void
 pg_spinlock_barrier(void)
 {
 	/*
-	 * NB: we have to be reentrant here, some barriers are placed in signal
-	 * handlers.
+	 * 注意：须可重入，因部分屏障放在信号处理函数。
 	 *
-	 * We use kill(0) for the fallback barrier as we assume that kernels on
-	 * systems old enough to require fallback barrier support will include an
-	 * appropriate barrier while checking the existence of the postmaster pid.
+	 *
+	 * 回退屏障用 kill(0)：假定仍需回退屏障支持的
+	 * 老系统内核，在检查 postmaster 进程号是否存在
+	 * 时会插入适当的内存屏障。
 	 */
 	(void) kill(PostmasterPid, 0);
 }
@@ -44,7 +44,7 @@ pg_spinlock_barrier(void)
 void
 pg_extern_compiler_barrier(void)
 {
-	/* do nothing */
+	/* 无操作 */
 }
 #endif
 
@@ -60,9 +60,9 @@ pg_atomic_init_flag_impl(volatile pg_atomic_flag *ptr)
 #ifndef HAVE_SPINLOCKS
 
 	/*
-	 * NB: If we're using semaphore based TAS emulation, be careful to use a
-	 * separate set of semaphores. Otherwise we'd get in trouble if an atomic
-	 * var would be manipulated while spinlock is held.
+	 * 注意：若用基于信号量的 TAS 仿真，须使用另一
+	 * 组信号量。否则在持有自旋锁时操纵原子变量
+	 * 会出问题。
 	 */
 	s_init_lock_sema((slock_t *) &ptr->sema, true);
 #else
@@ -109,8 +109,8 @@ pg_atomic_init_u32_impl(volatile pg_atomic_uint32 *ptr, uint32 val_)
 					 "size mismatch of atomic_uint32 vs slock_t");
 
 	/*
-	 * If we're using semaphore based atomic flags, be careful about nested
-	 * usage of atomics while a spinlock is held.
+	 * 若用基于信号量的原子标志，须当心在持有
+	 * 自旋锁时嵌套使用原子操作。
 	 */
 #ifndef HAVE_SPINLOCKS
 	s_init_lock_sema((slock_t *) &ptr->sema, true);
@@ -124,9 +124,9 @@ void
 pg_atomic_write_u32_impl(volatile pg_atomic_uint32 *ptr, uint32 val)
 {
 	/*
-	 * One might think that an unlocked write doesn't need to acquire the
-	 * spinlock, but one would be wrong. Even an unlocked write has to cause a
-	 * concurrent pg_atomic_compare_exchange_u32() (et al) to fail.
+	 * 或许以为无锁写不必获取自旋锁，但那就错了。
+	 * 即便无锁写也须使并发的
+	 * pg_atomic_compare_exchange_u32()（等）失败。
 	 */
 	SpinLockAcquire((slock_t *) &ptr->sema);
 	ptr->value = val;
@@ -140,22 +140,22 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 	bool		ret;
 
 	/*
-	 * Do atomic op under a spinlock. It might look like we could just skip
-	 * the cmpxchg if the lock isn't available, but that'd just emulate a
-	 * 'weak' compare and swap. I.e. one that allows spurious failures. Since
-	 * several algorithms rely on a strong variant and that is efficiently
-	 * implementable on most major architectures let's emulate it here as
+	 * 在自旋锁下做原子操作。看似锁不可用时可跳过
+	 * cmpxchg，但那只是仿真"弱"比较交换，即允许
+	 * 伪失败。若干算法依赖强变体，且该变体在多数主流
+	 * 架构上可高效实现，故此处也按强变体
+	 * 仿真。
 	 * well.
 	 */
 	SpinLockAcquire((slock_t *) &ptr->sema);
 
-	/* perform compare/exchange logic */
+	/* 执行比较/交换逻辑 */
 	ret = ptr->value == *expected;
 	*expected = ptr->value;
 	if (ret)
 		ptr->value = newval;
 
-	/* and release lock */
+	/* 并释放锁 */
 	SpinLockRelease((slock_t *) &ptr->sema);
 
 	return ret;
@@ -185,8 +185,8 @@ pg_atomic_init_u64_impl(volatile pg_atomic_uint64 *ptr, uint64 val_)
 					 "size mismatch of atomic_uint64 vs slock_t");
 
 	/*
-	 * If we're using semaphore based atomic flags, be careful about nested
-	 * usage of atomics while a spinlock is held.
+	 * 若用基于信号量的原子标志，须当心在持有
+	 * 自旋锁时嵌套使用原子操作。
 	 */
 #ifndef HAVE_SPINLOCKS
 	s_init_lock_sema((slock_t *) &ptr->sema, true);
@@ -203,22 +203,22 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 	bool		ret;
 
 	/*
-	 * Do atomic op under a spinlock. It might look like we could just skip
-	 * the cmpxchg if the lock isn't available, but that'd just emulate a
-	 * 'weak' compare and swap. I.e. one that allows spurious failures. Since
-	 * several algorithms rely on a strong variant and that is efficiently
-	 * implementable on most major architectures let's emulate it here as
+	 * 在自旋锁下做原子操作。看似锁不可用时可跳过
+	 * cmpxchg，但那只是仿真"弱"比较交换，即允许
+	 * 伪失败。若干算法依赖强变体，且该变体在多数主流
+	 * 架构上可高效实现，故此处也按强变体
+	 * 仿真。
 	 * well.
 	 */
 	SpinLockAcquire((slock_t *) &ptr->sema);
 
-	/* perform compare/exchange logic */
+	/* 执行比较/交换逻辑 */
 	ret = ptr->value == *expected;
 	*expected = ptr->value;
 	if (ret)
 		ptr->value = newval;
 
-	/* and release lock */
+	/* 并释放锁 */
 	SpinLockRelease((slock_t *) &ptr->sema);
 
 	return ret;

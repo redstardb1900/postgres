@@ -2198,5 +2198,20 @@
   "path": "src/backend/backup/basebackup_target.c",
   "pattern": "get_sink|bbsink|blackhole|target",
   "reason": "bbsink/target/get_sink/blackhole 标识符 KEEP；周围已中文化 (batch-0637)"
+ },
+ {
+  "path": "src/backend/port/sysv_shmem.c",
+  "pattern": "Hugepagesize|nnnn\\s+kB",
+  "reason": "/proc/meminfo 大页行格式样例 KEEP；周围已中文化 (batch-0638)"
+ },
+ {
+  "path": "src/backend/port/win32/crashdump.c",
+  "pattern": "typedef\\s+enum",
+  "reason": "MS SDK 头中的非法 typedef 片段 KEEP；周围已中文化 (batch-0638)"
+ },
+ {
+  "path": "src/backend/port/win32/socket.c",
+  "pattern": "const\\s+void",
+  "reason": "SUS 函数签名字面量 KEEP；周围已中文化 (batch-0638)"
  }
 ]

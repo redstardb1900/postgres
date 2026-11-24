@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sysv_sema.c
- *	  Implement PGSemaphores using SysV semaphore facilities
+ *	  用 SysV 信号量设施实现 PGSemaphore
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -29,8 +29,8 @@
 
 typedef struct PGSemaphoreData
 {
-	int			semId;			/* semaphore set identifier */
-	int			semNum;			/* semaphore number within set */
+	int			semId;			/* 信号量集标识符 */
+	int			semNum;			/* 集内信号量编号 */
 } PGSemaphoreData;
 
 #ifndef HAVE_UNION_SEMUN
@@ -42,30 +42,30 @@ union semun
 };
 #endif
 
-typedef key_t IpcSemaphoreKey;	/* semaphore key passed to semget(2) */
-typedef int IpcSemaphoreId;		/* semaphore ID returned by semget(2) */
+typedef key_t IpcSemaphoreKey;	/* 传给 semget(2) 的信号量键 */
+typedef int IpcSemaphoreId;		/* semget(2) 返回的信号量 ID */
 
 /*
- * SEMAS_PER_SET is the number of useful semaphores in each semaphore set
- * we allocate.  It must be *less than* your kernel's SEMMSL (max semaphores
- * per set) parameter, which is often around 25.  (Less than, because we
- * allocate one extra sema in each set for identification purposes.)
+ * SEMAS_PER_SET 是我们分配的每个信号量集中
+ * 有用信号量个数。必须*小于*内核 SEMMSL（每集
+ * 最大信号量数）参数，该值常约 25。（小于是因
+ * 每集多分配一个信号量供标识用。）
  */
 #define SEMAS_PER_SET	16
 
-#define IPCProtection	(0600)	/* access/modify by user only */
+#define IPCProtection	(0600)	/* 仅由用户访问/修改 */
 
-#define PGSemaMagic		537		/* must be less than SEMVMX */
+#define PGSemaMagic		537		/* 必须小于 SEMVMX */
 
 
-static PGSemaphore sharedSemas; /* array of PGSemaphoreData in shared memory */
-static int	numSharedSemas;		/* number of PGSemaphoreDatas used so far */
-static int	maxSharedSemas;		/* allocated size of PGSemaphoreData array */
-static IpcSemaphoreId *mySemaSets;	/* IDs of sema sets acquired so far */
-static int	numSemaSets;		/* number of sema sets acquired so far */
-static int	maxSemaSets;		/* allocated size of mySemaSets array */
-static IpcSemaphoreKey nextSemaKey; /* next key to try using */
-static int	nextSemaNumber;		/* next free sem num in last sema set */
+static PGSemaphore sharedSemas; /* 共享内存中的 PGSemaphoreData 数组 */
+static int	numSharedSemas;		/* 迄今已用的 PGSemaphoreData 数 */
+static int	maxSharedSemas;		/* PGSemaphoreData 数组已分配大小 */
+static IpcSemaphoreId *mySemaSets;	/* 已获取的信号量集 ID */
+static int	numSemaSets;		/* 已获取的信号量集个数 */
+static int	maxSemaSets;		/* mySemaSets 数组已分配大小 */
+static IpcSemaphoreKey nextSemaKey; /* 下一待试键 */
+static int	nextSemaNumber;		/* 末集下一空闲编号 */
 
 
 static IpcSemaphoreId InternalIpcSemaphoreCreate(IpcSemaphoreKey semKey,
@@ -82,16 +82,16 @@ static void ReleaseSemaphores(int status, Datum arg);
 /*
  * InternalIpcSemaphoreCreate
  *
- * Attempt to create a new semaphore set with the specified key.
- * Will fail (return -1) if such a set already exists.
+ * 尝试用指定键创建新信号量集。
+ * 若该集已存在则失败（返回 -1）。
  *
- * If we fail with a failure code other than collision-with-existing-set,
- * print out an error and abort.  Other types of errors suggest nonrecoverable
+ * 若失败且失败码不是与已有集合冲突，
+ * 则打印错误并中止。其他错误暗示不可恢复的
  * problems.
  *
- * Unfortunately, it's sometimes hard to tell whether errors are
- * nonrecoverable.  Our caller keeps track of whether continuing to retry
- * is sane or not; if not, we abort on failure regardless of the errno.
+ * 可惜有时很难判断错误是否不可恢复。调用方
+ * 跟踪继续重试是否合理；若不合理，则无论
+ * errno 为何，失败即中止。
  */
 static IpcSemaphoreId
 InternalIpcSemaphoreCreate(IpcSemaphoreKey semKey, int numSems, bool retry_ok)
@@ -105,18 +105,18 @@ InternalIpcSemaphoreCreate(IpcSemaphoreKey semKey, int numSems, bool retry_ok)
 		int			saved_errno = errno;
 
 		/*
-		 * Fail quietly if error suggests a collision with an existing set and
-		 * our caller has not lost patience.
+		 * 若错误暗示与已有集合冲突且调用方尚未失去
+		 * 耐心，则安静失败。
 		 *
-		 * One would expect EEXIST, given that we said IPC_EXCL, but perhaps
-		 * we could get a permission violation instead.  On some platforms
-		 * EINVAL will be reported if the existing set has too few semaphores.
-		 * Also, EIDRM might occur if an old set is slated for destruction but
-		 * not gone yet.
+		 * 既说了 IPC_EXCL，本预期 EEXIST，但或许
+		 * 会得到权限违规。某些平台若已有集合信号量
+		 * 太少会报告 EINVAL。
+		 * 此外，旧集已排定销毁但未消失时也可能出 EIDRM。
 		 *
-		 * EINVAL is the key reason why we need the caller-level loop limit,
-		 * as it can also mean that the platform's SEMMSL is less than
-		 * numSems, and that condition can't be fixed by trying another key.
+		 *
+		 * EINVAL 是我们需要调用方层循环上限的关键
+		 * 原因，因其也可能表示平台 SEMMSL 小于
+		 * numSems，而换键无法修复该情况。
 		 */
 		if (retry_ok &&
 			(saved_errno == EEXIST
@@ -129,7 +129,7 @@ InternalIpcSemaphoreCreate(IpcSemaphoreKey semKey, int numSems, bool retry_ok)
 			return -1;
 
 		/*
-		 * Else complain and abort
+		 * 否则抱怨并中止
 		 */
 		ereport(FATAL,
 				(errmsg("could not create semaphores: %m"),
@@ -151,7 +151,7 @@ InternalIpcSemaphoreCreate(IpcSemaphoreKey semKey, int numSems, bool retry_ok)
 }
 
 /*
- * Initialize a semaphore to the specified value.
+ * 把信号量初始化为指定值。
  */
 static void
 IpcSemaphoreInitialize(IpcSemaphoreId semId, int semNum, int value)
@@ -174,20 +174,20 @@ IpcSemaphoreInitialize(IpcSemaphoreId semId, int semNum, int value)
 }
 
 /*
- * IpcSemaphoreKill(semId)	- removes a semaphore set
+ * IpcSemaphoreKill(semId)	- 移除信号量集
  */
 static void
 IpcSemaphoreKill(IpcSemaphoreId semId)
 {
 	union semun semun;
 
-	semun.val = 0;				/* unused, but keep compiler quiet */
+	semun.val = 0;				/* 未用，但让编译器安静 */
 
 	if (semctl(semId, 0, IPC_RMID, semun) < 0)
 		elog(LOG, "semctl(%d, 0, IPC_RMID, ...) failed: %m", semId);
 }
 
-/* Get the current value (semval) of the semaphore */
+/* 获取信号量当前值（semval） */
 static int
 IpcSemaphoreGetValue(IpcSemaphoreId semId, int semNum)
 {
@@ -198,7 +198,7 @@ IpcSemaphoreGetValue(IpcSemaphoreId semId, int semNum)
 	return semctl(semId, semNum, GETVAL, dummy);
 }
 
-/* Get the PID of the last process to do semop() on the semaphore */
+/* 获取最后对该信号量做 semop() 的进程 PID */
 static pid_t
 IpcSemaphoreGetLastPID(IpcSemaphoreId semId, int semNum)
 {
@@ -211,13 +211,13 @@ IpcSemaphoreGetLastPID(IpcSemaphoreId semId, int semNum)
 
 
 /*
- * Create a semaphore set with the given number of useful semaphores
- * (an additional sema is actually allocated to serve as identifier).
- * Dead Postgres sema sets are recycled if found, but we do not fail
- * upon collision with non-Postgres sema sets.
+ * 创建含给定数量有用信号量的信号量集
+ * 实际多分配一个信号量用作标识。
+ * 若发现已死的 Postgres 信号量集则回收，但与
+ * 非 Postgres 集冲突时不失败。
  *
- * The idea here is to detect and re-use keys that may have been assigned
- * by a crashed postmaster or backend.
+ * 用意是检出并重用可能由崩溃的 postmaster
+ * 或 backend 分配过的键。
  */
 static IpcSemaphoreId
 IpcSemaphoreCreate(int numSems)
@@ -227,69 +227,69 @@ IpcSemaphoreCreate(int numSems)
 	union semun semun;
 	PGSemaphoreData mysema;
 
-	/* Loop till we find a free IPC key */
+	/* 循环直至找到空闲 IPC 键 */
 	for (nextSemaKey++;; nextSemaKey++, num_tries++)
 	{
 		pid_t		creatorPID;
 
 		/*
-		 * Try to create new semaphore set.  Give up after trying 1000
-		 * distinct IPC keys.
+		 * 尝试创建新信号量集。试过 1000 个不同 IPC
+		 * 键后放弃。
 		 */
 		semId = InternalIpcSemaphoreCreate(nextSemaKey, numSems + 1,
 										   num_tries < 1000);
 		if (semId >= 0)
-			break;				/* successful create */
+			break;				/* 创建成功 */
 
-		/* See if it looks to be leftover from a dead Postgres process */
+		/* 看是否像死掉的 Postgres 进程遗留 */
 		semId = semget(nextSemaKey, numSems + 1, 0);
 		if (semId < 0)
-			continue;			/* failed: must be some other app's */
+			continue;			/* 失败：必属其他应用 */
 		if (IpcSemaphoreGetValue(semId, numSems) != PGSemaMagic)
-			continue;			/* sema belongs to a non-Postgres app */
+			continue;			/* 信号量属于非 Postgres 应用 */
 
 		/*
-		 * If the creator PID is my own PID or does not belong to any extant
-		 * process, it's safe to zap it.
+		 * 若创建者 PID 属我自己，或不属于任何现存进程，
+		 * 则可安全干掉它。
 		 */
 		creatorPID = IpcSemaphoreGetLastPID(semId, numSems);
 		if (creatorPID <= 0)
-			continue;			/* oops, GETPID failed */
+			continue;			/* 糟，GETPID 失败 */
 		if (creatorPID != getpid())
 		{
 			if (kill(creatorPID, 0) == 0 || errno != ESRCH)
-				continue;		/* sema belongs to a live process */
+				continue;		/* 信号量属存活进程 */
 		}
 
 		/*
-		 * The sema set appears to be from a dead Postgres process, or from a
-		 * previous cycle of life in this same process.  Zap it, if possible.
-		 * This probably shouldn't fail, but if it does, assume the sema set
-		 * belongs to someone else after all, and continue quietly.
+		 * 该信号量集看似来自已死 Postgres 进程，或
+		 * 来自本进程先前生命周期。尽可能干掉它。
+		 * 这大概不该失败；若失败，则假定信号量集
+		 * 终究属于别人，安静继续。
 		 */
-		semun.val = 0;			/* unused, but keep compiler quiet */
+		semun.val = 0;			/* 未用，但让编译器安静 */
 		if (semctl(semId, 0, IPC_RMID, semun) < 0)
 			continue;
 
 		/*
-		 * Now try again to create the sema set.
+		 * 现在再试创建该信号量集。
 		 */
 		semId = InternalIpcSemaphoreCreate(nextSemaKey, numSems + 1, true);
 		if (semId >= 0)
-			break;				/* successful create */
+			break;				/* 创建成功 */
 
 		/*
-		 * Can only get here if some other process managed to create the same
-		 * sema key before we did.  Let him have that one, loop around to try
-		 * next key.
+		 * 仅当其他进程抢先用同一信号量键创建时才会
+		 * 到此。让他用那个，循环试下一键。
+		 *
 		 */
 	}
 
 	/*
-	 * OK, we created a new sema set.  Mark it as created by this process. We
-	 * do this by setting the spare semaphore to PGSemaMagic-1 and then
-	 * incrementing it with semop().  That leaves it with value PGSemaMagic
-	 * and sempid referencing this process.
+	 * 好，已创建新信号量集。标记为本进程所创。我们
+	 * 把备用信号量设为 PGSemaMagic-1，再用
+	 * semop() 递增。最终值为 PGSemaMagic，且
+	 * sempid 引用本进程。
 	 */
 	IpcSemaphoreInitialize(semId, numSems, PGSemaMagic - 1);
 	mysema.semId = semId;
@@ -301,7 +301,7 @@ IpcSemaphoreCreate(int numSems)
 
 
 /*
- * Report amount of shared memory needed for semaphores
+ * 报告信号量所需的共享内存空间
  */
 Size
 PGSemaphoreShmemSize(int maxSemas)
@@ -310,21 +310,21 @@ PGSemaphoreShmemSize(int maxSemas)
 }
 
 /*
- * PGReserveSemaphores --- initialize semaphore support
+ * PGReserveSemaphores --- 初始化信号量支持
  *
- * This is called during postmaster start or shared memory reinitialization.
- * It should do whatever is needed to be able to support up to maxSemas
- * subsequent PGSemaphoreCreate calls.  Also, if any system resources
- * are acquired here or in PGSemaphoreCreate, register an on_shmem_exit
- * callback to release them.
+ * 在 postmaster 启动或共享内存重初始化时调用。
+ * 应做足准备以支持最多 maxSemas 次后续
+ * PGSemaphoreCreate 调用。此外，若在此或在
+ * PGSemaphoreCreate 中获取了系统资源，须注册
+ * on_shmem_exit 回调。
  *
- * In the SysV implementation, we acquire semaphore sets on-demand; the
- * maxSemas parameter is just used to size the arrays.  There is an array
- * of PGSemaphoreData structs in shared memory, and a postmaster-local array
- * with one entry per SysV semaphore set, which we use for releasing the
- * semaphore sets when done.  (This design ensures that postmaster shutdown
- * doesn't rely on the contents of shared memory, which a failed backend might
- * have clobbered.)
+ * SysV 实现按需获取信号量集；maxSemas 参数
+ * 仅用于确定数组大小。共享内存中有
+ * PGSemaphoreData 结构数组，另有 postmaster
+ * 本地数组，每 SysV 信号量集一项，用于完成后
+ * 释放信号量集。（此设计确保 postmaster 关机
+ * 不依赖共享内存内容，因失败的 backend 可能已
+ * 破坏它。）
  */
 void
 PGReserveSemaphores(int maxSemas)
@@ -332,10 +332,10 @@ PGReserveSemaphores(int maxSemas)
 	struct stat statbuf;
 
 	/*
-	 * We use the data directory's inode number to seed the search for free
-	 * semaphore keys.  This minimizes the odds of collision with other
-	 * postmasters, while maximizing the odds that we will detect and clean up
-	 * semaphores left over from a crashed postmaster in our own directory.
+	 * 用数据目录的 inode 号播种搜索空闲信号量
+	 * 键。这可尽量减少与其他 postmaster 冲突的
+	 * 几率，同时尽量提高检出并清理本目录中
+	 * 崩溃 postmaster 遗留信号量的几率。
 	 */
 	if (stat(DataDir, &statbuf) < 0)
 		ereport(FATAL,
@@ -344,9 +344,9 @@ PGReserveSemaphores(int maxSemas)
 						DataDir)));
 
 	/*
-	 * We must use ShmemAllocUnlocked(), since the spinlock protecting
-	 * ShmemAlloc() won't be ready yet.  (This ordering is necessary when we
-	 * are emulating spinlocks with semaphores.)
+	 * 必须用 ShmemAllocUnlocked()，因保护
+	 * ShmemAlloc() 的自旋锁尚未就绪。（用信号量
+	 * 仿真自旋锁时此顺序必要。）
 	 */
 	sharedSemas = (PGSemaphore)
 		ShmemAllocUnlocked(PGSemaphoreShmemSize(maxSemas));
@@ -360,15 +360,15 @@ PGReserveSemaphores(int maxSemas)
 		elog(PANIC, "out of memory");
 	numSemaSets = 0;
 	nextSemaKey = statbuf.st_ino;
-	nextSemaNumber = SEMAS_PER_SET; /* force sema set alloc on 1st call */
+	nextSemaNumber = SEMAS_PER_SET; /* 首次调用强制分配集 */
 
 	on_shmem_exit(ReleaseSemaphores, 0);
 }
 
 /*
- * Release semaphores at shutdown or shmem reinitialization
+ * 关机或共享内存重初始化时释放信号量
  *
- * (called as an on_shmem_exit callback, hence funny argument list)
+ * 注：作为 on_shmem_exit 回调，故参数列表古怪
  */
 static void
 ReleaseSemaphores(int status, Datum arg)
@@ -383,33 +383,33 @@ ReleaseSemaphores(int status, Datum arg)
 /*
  * PGSemaphoreCreate
  *
- * Allocate a PGSemaphore structure with initial count 1
+ * 分配初始计数为 1 的 PGSemaphore 结构
  */
 PGSemaphore
 PGSemaphoreCreate(void)
 {
 	PGSemaphore sema;
 
-	/* Can't do this in a backend, because static state is postmaster's */
+	/* 不能在 backend 中做：静态状态属 postmaster */
 	Assert(!IsUnderPostmaster);
 
 	if (nextSemaNumber >= SEMAS_PER_SET)
 	{
-		/* Time to allocate another semaphore set */
+		/* 该分配另一信号量集了 */
 		if (numSemaSets >= maxSemaSets)
 			elog(PANIC, "too many semaphores created");
 		mySemaSets[numSemaSets] = IpcSemaphoreCreate(SEMAS_PER_SET);
 		numSemaSets++;
 		nextSemaNumber = 0;
 	}
-	/* Use the next shared PGSemaphoreData */
+	/* 用下一共享 PGSemaphoreData */
 	if (numSharedSemas >= maxSharedSemas)
 		elog(PANIC, "too many semaphores created");
 	sema = &sharedSemas[numSharedSemas++];
-	/* Assign the next free semaphore in the current set */
+	/* 分配当前集中下一空闲信号量 */
 	sema->semId = mySemaSets[numSemaSets - 1];
 	sema->semNum = nextSemaNumber++;
-	/* Initialize it to count 1 */
+	/* 初始化为计数 1 */
 	IpcSemaphoreInitialize(sema->semId, sema->semNum, 1);
 
 	return sema;
@@ -418,7 +418,7 @@ PGSemaphoreCreate(void)
 /*
  * PGSemaphoreReset
  *
- * Reset a previously-initialized PGSemaphore to have count 0
+ * 把已初始化的 PGSemaphore 复位为计数 0
  */
 void
 PGSemaphoreReset(PGSemaphore sema)
@@ -429,7 +429,7 @@ PGSemaphoreReset(PGSemaphore sema)
 /*
  * PGSemaphoreLock
  *
- * Lock a semaphore (decrement count), blocking if count would be < 0
+ * 锁定信号量（减计数），若计数将 < 0 则阻塞
  */
 void
 PGSemaphoreLock(PGSemaphore sema)
@@ -437,18 +437,18 @@ PGSemaphoreLock(PGSemaphore sema)
 	int			errStatus;
 	struct sembuf sops;
 
-	sops.sem_op = -1;			/* decrement */
+	sops.sem_op = -1;			/* 递减 */
 	sops.sem_flg = 0;
 	sops.sem_num = sema->semNum;
 
 	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and lock the semaphore again.
+	 * 注意：若 errStatus 为 -1 且 errno == EINTR，表示因
+	 * 收到信号而过早从操作返回。于是我们
+	 * 再次尝试锁定信号量。
 	 *
-	 * We used to check interrupts here, but that required servicing
-	 * interrupts directly from signal handlers. Which is hard to do safely
-	 * and portably.
+	 * 从前在此检查中断，但那要求从信号处理函数
+	 * 中直接处理中断。既难安全又难可移植。
+	 *
 	 */
 	do
 	{
@@ -462,7 +462,7 @@ PGSemaphoreLock(PGSemaphore sema)
 /*
  * PGSemaphoreUnlock
  *
- * Unlock a semaphore (increment count)
+ * 解锁信号量（增计数）
  */
 void
 PGSemaphoreUnlock(PGSemaphore sema)
@@ -470,15 +470,15 @@ PGSemaphoreUnlock(PGSemaphore sema)
 	int			errStatus;
 	struct sembuf sops;
 
-	sops.sem_op = 1;			/* increment */
+	sops.sem_op = 1;			/* 递增 */
 	sops.sem_flg = 0;
 	sops.sem_num = sema->semNum;
 
 	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and unlock the semaphore again. Not clear this can really happen,
-	 * but might as well cope.
+	 * 注意：若 errStatus 为 -1 且 errno == EINTR，表示因
+	 * 收到信号而过早从操作返回。于是我们
+	 * 再次尝试解锁信号量。不清楚这是否真会发生，
+	 * 但不妨应对。
 	 */
 	do
 	{
@@ -492,7 +492,7 @@ PGSemaphoreUnlock(PGSemaphore sema)
 /*
  * PGSemaphoreTryLock
  *
- * Lock a semaphore only if able to do so without blocking
+ * 仅在能不阻塞时锁定信号量
  */
 bool
 PGSemaphoreTryLock(PGSemaphore sema)
@@ -500,14 +500,14 @@ PGSemaphoreTryLock(PGSemaphore sema)
 	int			errStatus;
 	struct sembuf sops;
 
-	sops.sem_op = -1;			/* decrement */
-	sops.sem_flg = IPC_NOWAIT;	/* but don't block */
+	sops.sem_op = -1;			/* 递减 */
+	sops.sem_flg = IPC_NOWAIT;	/* 但不阻塞 */
 	sops.sem_num = sema->semNum;
 
 	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and lock the semaphore again.
+	 * 注意：若 errStatus 为 -1 且 errno == EINTR，表示因
+	 * 收到信号而过早从操作返回。于是我们
+	 * 再次尝试锁定信号量。
 	 */
 	do
 	{
@@ -516,16 +516,16 @@ PGSemaphoreTryLock(PGSemaphore sema)
 
 	if (errStatus < 0)
 	{
-		/* Expect EAGAIN or EWOULDBLOCK (platform-dependent) */
+		/* 预期 EAGAIN 或 EWOULDBLOCK（平台相关） */
 #ifdef EAGAIN
 		if (errno == EAGAIN)
-			return false;		/* failed to lock it */
+			return false;		/* 未能锁定 */
 #endif
 #if defined(EWOULDBLOCK) && (!defined(EAGAIN) || (EWOULDBLOCK != EAGAIN))
 		if (errno == EWOULDBLOCK)
-			return false;		/* failed to lock it */
+			return false;		/* 未能锁定 */
 #endif
-		/* Otherwise we got trouble */
+		/* 否则就麻烦了 */
 		elog(FATAL, "semop(id=%d) failed: %m", sema->semId);
 	}
 

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * win32_shmem.c
- *	  Implement shared memory using win32 facilities
+ *	  用 win32 设施实现共享内存
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -20,23 +20,23 @@
 
 
 /*
- * Early in a process's life, Windows asynchronously creates threads for the
- * process's "default thread pool"
+ * 进程生命早期，Windows 会异步为进程的"默认线程池"
+ * 创建线程
  * (https://docs.microsoft.com/en-us/windows/desktop/ProcThread/thread-pools).
- * Occasionally, thread creation allocates a stack after
- * PGSharedMemoryReAttach() has released UsedShmemSegAddr and before it has
- * mapped shared memory at UsedShmemSegAddr.  This would cause mapping to fail
- * if the allocator preferred the just-released region for allocating the new
- * thread stack.  We observed such failures in some Windows Server 2016
- * configurations.  To give the system another region to prefer, reserve and
- * release an additional, protective region immediately before reserving or
- * releasing shared memory.  The idea is that, if the allocator handed out
- * REGION1 pages before REGION2 pages at one occasion, it will do so whenever
- * both regions are free.  Windows Server 2016 exhibits that behavior, and a
- * system behaving differently would have less need to protect
- * UsedShmemSegAddr.  The protective region must be at least large enough for
- * one thread stack.  However, ten times as much is less than 2% of the 32-bit
- * address space and is negligible relative to the 64-bit address space.
+ * 偶尔，线程创建会在其后分配栈：
+ * PGSharedMemoryReAttach() 已释放 UsedShmemSegAddr，且尚未
+ * 把共享内存映射到 UsedShmemSegAddr。若分配器偏爱刚释放
+ * 区域来放新线程栈，映射就会失败。我们在某些 Windows
+ * Server 2016 配置上观察到此类失败。为给系统另一
+ * 偏爱区域，在保留或释放共享内存前，先保留并释放
+ * 额外保护区域。想法是：若分配器某次先给出 REGION1
+ * 页再给 REGION2 页，则两区皆空时也会如此。Windows
+ * Server 2016 表现如此；行为不同的系统对保护
+ * UsedShmemSegAddr 的需求更小。保护区域至少
+ * 须够一个线程栈。不过十倍于栈仍不到 32 位
+ * 地址空间的 2%，相对 64 位地址空间可忽略。
+ *
+ *
  */
 #define PROTECTIVE_REGION_SIZE (10 * WIN32_STACK_RLIMIT)
 void	   *ShmemProtectiveRegion = NULL;
@@ -49,17 +49,17 @@ static bool EnableLockPagesPrivilege(int elevel);
 static void pgwin32_SharedMemoryDelete(int status, Datum shmId);
 
 /*
- * Generate shared memory segment name. Expand the data directory, to generate
- * an identifier unique for this data directory. Then replace all backslashes
- * with forward slashes, since backslashes aren't permitted in global object names.
+ * 生成共享内存段名。展开数据目录以生成对该数据
+ * 目录唯一的标识。再把反斜杠换成正斜杠，因全局
+ * 对象名不允许反斜杠。
  *
- * Store the shared memory segment in the Global\ namespace (requires NT2 TSE or
- * 2000, but that's all we support for other reasons as well), to make sure you can't
- * open two postmasters in different sessions against the same data directory.
+ * 把共享内存段放在 Global\ 命名空间（需 NT2 TSE 或
+ * 2000，但我们因其他原因也只支持这些），以确保不能
+ * 在不同会话对同一数据目录开两个 postmaster。
  *
- * XXX: What happens with junctions? It's only someone breaking things on purpose,
- *		and this is still better than before, but we might want to do something about
- *		that sometime in the future.
+ * XXX: junction 会怎样？只是有人故意搞破坏，
+ *		且这仍好于从前，但将来或许要对
+ *		此做些处理。
  */
 static char *
 GetSharedMemName(void)
@@ -74,7 +74,7 @@ GetSharedMemName(void)
 		elog(FATAL, "could not get size for full pathname of datadir %s: error code %lu",
 			 DataDir, GetLastError());
 
-	retptr = malloc(bufsize + 18);	/* 18 for Global\PostgreSQL: */
+	retptr = malloc(bufsize + 18);	/* Global\PostgreSQL: 占 18 */
 	if (retptr == NULL)
 		elog(FATAL, "could not allocate memory for shared memory name");
 
@@ -85,10 +85,10 @@ GetSharedMemName(void)
 			 DataDir, GetLastError());
 
 	/*
-	 * XXX: Intentionally overwriting the Global\ part here. This was not the
-	 * original approach, but putting it in the actual Global\ namespace
-	 * causes permission errors in a lot of cases, so we leave it in the
-	 * default namespace for now.
+	 * XXX: 故意在此覆盖 Global\ 部分。原先不是此
+	 * 做法，但放进真正的 Global\ 命名空间在很多
+	 * 情况下会权限错误，故暂留默认命名空间。
+	 *
 	 */
 	for (cp = retptr; *cp; cp++)
 		if (*cp == '\\')
@@ -101,13 +101,13 @@ GetSharedMemName(void)
 /*
  * PGSharedMemoryIsInUse
  *
- * Is a previously-existing shmem segment still existing and in use?
+ * 先前存在的共享内存段是否仍存在且在使用？
  *
- * The point of this exercise is to detect the case where a prior postmaster
- * crashed, but it left child backends that are still running.  Therefore
- * we only care about shmem segments that are associated with the intended
- * DataDir.  This is an important consideration since accidental matches of
- * shmem segment IDs are reasonably common.
+ * 用意是检出先前 postmaster 已崩溃、但仍有子
+ * backend 在跑的情形。因此我们只关心与目标
+ * DataDir 关联的共享内存段。这很重要，因共享内存
+ * 段 ID 偶然匹配相当常见。
+ *
  */
 bool
 PGSharedMemoryIsInUse(unsigned long id1, unsigned long id2)
@@ -131,7 +131,7 @@ PGSharedMemoryIsInUse(unsigned long id1, unsigned long id2)
 /*
  * EnableLockPagesPrivilege
  *
- * Try to acquire SeLockMemoryPrivilege so we can use large pages.
+ * 尝试获取 SeLockMemoryPrivilege 以便使用大页。
  */
 static bool
 EnableLockPagesPrivilege(int elevel)
@@ -200,8 +200,8 @@ EnableLockPagesPrivilege(int elevel)
 /*
  * PGSharedMemoryCreate
  *
- * Create a shared memory segment of the given size and initialize its
- * standard header.
+ * 创建给定大小的共享内存段并初始化其
+ * 标准头。
  */
 PGShmemHeader *
 PGSharedMemoryCreate(Size size,
@@ -226,7 +226,7 @@ PGSharedMemoryCreate(Size size,
 		elog(FATAL, "could not reserve memory region: error code %lu",
 			 GetLastError());
 
-	/* Room for a header? */
+	/* 有头空间？ */
 	Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
 
 	szShareMem = GetSharedMemName();
@@ -235,7 +235,7 @@ PGSharedMemoryCreate(Size size,
 
 	if (huge_pages == HUGE_PAGES_ON || huge_pages == HUGE_PAGES_TRY)
 	{
-		/* Does the processor support large pages? */
+		/* 处理器支持大页吗？ */
 		largePageSize = GetLargePageMinimum();
 		if (largePageSize == 0)
 		{
@@ -252,10 +252,10 @@ PGSharedMemoryCreate(Size size,
 		}
 		else
 		{
-			/* Huge pages available and privilege enabled, so turn on */
+			/* 大页可用且特权已启用，故打开 */
 			flProtect = PAGE_READWRITE | SEC_COMMIT | SEC_LARGE_PAGES;
 
-			/* Round size up as appropriate. */
+			/* 按需向上取整大小。 */
 			if (size % largePageSize != 0)
 				size += largePageSize - (size % largePageSize);
 		}
@@ -270,24 +270,24 @@ retry:
 	size_low = (DWORD) size;
 
 	/*
-	 * When recycling a shared memory segment, it may take a short while
-	 * before it gets dropped from the global namespace. So re-try after
-	 * sleeping for a second, and continue retrying 10 times. (both the 1
-	 * second time and the 10 retries are completely arbitrary)
+	 * 回收共享内存段时，从全局命名空间消失可能要
+	 * 一小会儿。故睡眠一秒后重试，并重试 10 次。
+	 * 注：1 秒间隔与 10 次重试都完全任意。
+	 *
 	 */
 	for (i = 0; i < 10; i++)
 	{
 		/*
-		 * In case CreateFileMapping() doesn't set the error code to 0 on
+		 * 以防 CreateFileMapping() 成功时未把错误码
 		 * success
 		 */
 		SetLastError(0);
 
-		hmap = CreateFileMapping(INVALID_HANDLE_VALUE,	/* Use the pagefile */
-								 NULL,	/* Default security attrs */
+		hmap = CreateFileMapping(INVALID_HANDLE_VALUE,	/* 用页面文件 */
+								 NULL,	/* 默认安全属性 */
 								 flProtect,
-								 size_high, /* Size Upper 32 Bits	*/
-								 size_low,	/* Size Lower 32 bits */
+								 size_high, /* 大小高 32 位	*/
+								 size_low,	/* 大小低 32 位 */
 								 szShareMem);
 
 		if (!hmap)
@@ -301,8 +301,8 @@ retry:
 					 size);
 
 				/*
-				 * Use the original size, not the rounded-up value, when
-				 * falling back to non-huge pages.
+				 * 回退到非大页时，用原始大小而非
+				 * 向上取整后的值。
 				 */
 				size = orig_size;
 				flProtect = PAGE_READWRITE;
@@ -316,13 +316,13 @@ retry:
 		}
 
 		/*
-		 * If the segment already existed, CreateFileMapping() will return a
-		 * handle to the existing one and set ERROR_ALREADY_EXISTS.
+		 * 若段已存在，CreateFileMapping() 会返回已有
+		 * 段的句柄并设置 ERROR_ALREADY_EXISTS。
 		 */
 		if (GetLastError() == ERROR_ALREADY_EXISTS)
 		{
-			CloseHandle(hmap);	/* Close the handle, since we got a valid one
-								 * to the previous segment. */
+			CloseHandle(hmap);	/* 关闭句柄，因拿到了指向先前段
+								 * 的有效句柄。 */
 			hmap = NULL;
 			Sleep(1000);
 			continue;
@@ -331,8 +331,8 @@ retry:
 	}
 
 	/*
-	 * If the last call in the loop still returned ERROR_ALREADY_EXISTS, this
-	 * shared memory segment exists and we assume it belongs to somebody else.
+	 * 若循环最后一次仍返回 ERROR_ALREADY_EXISTS，则此
+	 * 共享内存段存在，并假定属于别人。
 	 */
 	if (!hmap)
 		ereport(FATAL,
@@ -342,7 +342,7 @@ retry:
 	free(szShareMem);
 
 	/*
-	 * Make the handle inheritable
+	 * 使句柄可继承
 	 */
 	if (!DuplicateHandle(GetCurrentProcess(), hmap, GetCurrentProcess(), &hmap2, 0, TRUE, DUPLICATE_SAME_ACCESS))
 		ereport(FATAL,
@@ -350,7 +350,7 @@ retry:
 				 errdetail("Failed system call was DuplicateHandle.")));
 
 	/*
-	 * Close the old, non-inheritable handle. If this fails we don't really
+	 * 关闭旧的不可继承句柄。若失败我们并不
 	 * care.
 	 */
 	if (!CloseHandle(hmap))
@@ -359,14 +359,14 @@ retry:
 	desiredAccess = FILE_MAP_WRITE | FILE_MAP_READ;
 
 #ifdef FILE_MAP_LARGE_PAGES
-	/* Set large pages if wanted. */
+	/* 若需要则设大页。 */
 	if ((flProtect & SEC_LARGE_PAGES) != 0)
 		desiredAccess |= FILE_MAP_LARGE_PAGES;
 #endif
 
 	/*
-	 * Get a pointer to the new shared memory segment. Map the whole segment
-	 * at once, and let the system decide on the initial address.
+	 * 取得新共享内存段指针。一次映射整段，
+	 * 并让系统决定初始地址。
 	 */
 	memAddress = MapViewOfFileEx(hmap2, desiredAccess, 0, 0, 0, NULL);
 	if (!memAddress)
@@ -377,27 +377,27 @@ retry:
 
 
 	/*
-	 * OK, we created a new segment.  Mark it as created by this process. The
-	 * order of assignments here is critical so that another Postgres process
-	 * can't see the header as valid but belonging to an invalid PID!
+	 * 好，已创建新段。标记为本进程所创。赋值顺序
+	 * 关键，以免其他 Postgres 进程看见头有效但
+	 * 属于无效 PID！
 	 */
 	hdr = (PGShmemHeader *) memAddress;
 	hdr->creatorPID = getpid();
 	hdr->magic = PGShmemMagic;
 
 	/*
-	 * Initialize space allocation status for segment.
+	 * 初始化该段的空间分配状态。
 	 */
 	hdr->totalsize = size;
 	hdr->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
 	hdr->dsm_control = 0;
 
-	/* Save info for possible future use */
+	/* 保存信息以备将来使用 */
 	UsedShmemSegAddr = memAddress;
 	UsedShmemSegSize = size;
 	UsedShmemSegID = hmap2;
 
-	/* Register on-exit routine to delete the new segment */
+	/* 注册退出例程以删除新段 */
 	on_shmem_exit(pgwin32_SharedMemoryDelete, PointerGetDatum(hmap2));
 
 	*shim = hdr;
@@ -407,13 +407,13 @@ retry:
 /*
  * PGSharedMemoryReAttach
  *
- * This is called during startup of a postmaster child process to re-attach to
- * an already existing shared memory segment, using the handle inherited from
- * the postmaster.
+ * 在 postmaster 子进程启动时调用，以用从 postmaster
+ * 继承的句柄重新附着已有共享内存段。
  *
- * ShmemProtectiveRegion, UsedShmemSegID and UsedShmemSegAddr are implicit
- * parameters to this routine.  The caller must have already restored them to
- * the postmaster's values.
+ *
+ * ShmemProtectiveRegion、UsedShmemSegID 与 UsedShmemSegAddr
+ * 是本例程隐式参数。调用方须已把它们恢复为
+ * postmaster 的值。
  */
 void
 PGSharedMemoryReAttach(void)
@@ -426,7 +426,7 @@ PGSharedMemoryReAttach(void)
 	Assert(IsUnderPostmaster);
 
 	/*
-	 * Release memory region reservations made by the postmaster
+	 * 释放 postmaster 所做的内存区域保留
 	 */
 	if (VirtualFree(ShmemProtectiveRegion, 0, MEM_RELEASE) == 0)
 		elog(FATAL, "failed to release reserved memory region (addr=%p): error code %lu",
@@ -446,22 +446,22 @@ PGSharedMemoryReAttach(void)
 		elog(FATAL, "reattaching to shared memory returned non-PostgreSQL memory");
 	dsm_set_control_handle(hdr->dsm_control);
 
-	UsedShmemSegAddr = hdr;		/* probably redundant */
+	UsedShmemSegAddr = hdr;		/* 大概多余 */
 }
 
 /*
  * PGSharedMemoryNoReAttach
  *
- * This is called during startup of a postmaster child process when we choose
- * *not* to re-attach to the existing shared memory segment.  We must clean up
- * to leave things in the appropriate state.
+ * 在 postmaster 子进程启动时，当我们选择
+ * *不*重新附着已有共享内存段时调用。须清理
+ * 以使状态正确。
  *
- * The child process startup logic might or might not call PGSharedMemoryDetach
- * after this; make sure that it will be a no-op if called.
+ * 子进程启动逻辑此后或会调用 PGSharedMemoryDetach；
+ * 确保若调用则是空操作。
  *
- * ShmemProtectiveRegion, UsedShmemSegID and UsedShmemSegAddr are implicit
- * parameters to this routine.  The caller must have already restored them to
- * the postmaster's values.
+ * ShmemProtectiveRegion、UsedShmemSegID 与 UsedShmemSegAddr
+ * 是本例程隐式参数。调用方须已把它们恢复为
+ * postmaster 的值。
  */
 void
 PGSharedMemoryNoReAttach(void)
@@ -471,15 +471,15 @@ PGSharedMemoryNoReAttach(void)
 	Assert(IsUnderPostmaster);
 
 	/*
-	 * Under Windows we will not have mapped the segment, so we don't need to
-	 * un-map it.  Just reset UsedShmemSegAddr to show we're not attached.
+	 * Windows 下我们尚未映射该段，故不必取消映射。
+	 * 只需复位 UsedShmemSegAddr 以示未附着。
 	 */
 	UsedShmemSegAddr = NULL;
 
 	/*
-	 * We *must* close the inherited shmem segment handle, else Windows will
-	 * consider the existence of this process to mean it can't release the
-	 * shmem segment yet.  We can now use PGSharedMemoryDetach to do that.
+	 * 必须关闭继承的共享内存段句柄，否则 Windows 会
+	 * 认为本进程存在即不能释放该段。现在可用
+	 * PGSharedMemoryDetach 来做。
 	 */
 	PGSharedMemoryDetach();
 }
@@ -487,21 +487,21 @@ PGSharedMemoryNoReAttach(void)
 /*
  * PGSharedMemoryDetach
  *
- * Detach from the shared memory segment, if still attached.  This is not
- * intended to be called explicitly by the process that originally created the
- * segment (it will have an on_shmem_exit callback registered to do that).
- * Rather, this is for subprocesses that have inherited an attachment and want
- * to get rid of it.
+ * 若仍附着则脱离共享内存段。本意不是由原先创建该
+ * 段的进程显式调用（它会注册 on_shmem_exit 回调
+ * 来做）。而是给继承了附着并想去掉它的子进程用。
  *
- * ShmemProtectiveRegion, UsedShmemSegID and UsedShmemSegAddr are implicit
- * parameters to this routine.
+ *
+ *
+ * ShmemProtectiveRegion、UsedShmemSegID 与 UsedShmemSegAddr
+ * 是本例程隐式参数。
  */
 void
 PGSharedMemoryDetach(void)
 {
 	/*
-	 * Releasing the protective region liberates an unimportant quantity of
-	 * address space, but be tidy.
+	 * 释放保护区域可解放少量无关紧要的地址空间，
+	 * 但保持整洁。
 	 */
 	if (ShmemProtectiveRegion != NULL)
 	{
@@ -512,7 +512,7 @@ PGSharedMemoryDetach(void)
 		ShmemProtectiveRegion = NULL;
 	}
 
-	/* Unmap the view, if it's mapped */
+	/* 若已映射则取消映射 */
 	if (UsedShmemSegAddr != NULL)
 	{
 		if (!UnmapViewOfFile(UsedShmemSegAddr))
@@ -522,7 +522,7 @@ PGSharedMemoryDetach(void)
 		UsedShmemSegAddr = NULL;
 	}
 
-	/* And close the shmem handle, if we have one */
+	/* 若有共享内存句柄则关闭之 */
 	if (UsedShmemSegID != INVALID_HANDLE_VALUE)
 	{
 		if (!CloseHandle(UsedShmemSegID))
@@ -537,8 +537,8 @@ PGSharedMemoryDetach(void)
 /*
  * pgwin32_SharedMemoryDelete
  *
- * Detach from and delete the shared memory segment
- * (called as an on_shmem_exit callback, hence funny argument list)
+ * 脱离并删除共享内存段
+ * 注：作为 on_shmem_exit 回调，故参数列表古怪
  */
 static void
 pgwin32_SharedMemoryDelete(int status, Datum shmId)
@@ -550,19 +550,19 @@ pgwin32_SharedMemoryDelete(int status, Datum shmId)
 /*
  * pgwin32_ReserveSharedMemoryRegion(hChild)
  *
- * Reserve the memory region that will be used for shared memory in a child
- * process. It is called before the child process starts, to make sure the
- * memory is available.
+ * 为子进程保留将用于共享内存的内存区域。在子进程
+ * 启动前调用，以确保内存可用。
  *
- * Once the child starts, DLLs loading in different order or threads getting
- * scheduled differently may allocate memory which can conflict with the
- * address space we need for our shared memory. By reserving the shared
- * memory region before the child starts, and freeing it only just before we
- * attempt to get access to the shared memory forces these allocations to
- * be given different address ranges that don't conflict.
  *
- * NOTE! This function executes in the postmaster, and should for this
- * reason not use elog(FATAL) since that would take down the postmaster.
+ * 子进程一旦启动，DLL 加载顺序不同或线程调度
+ * 不同可能分配与我们共享内存所需地址冲突的
+ * 内存。在子进程启动前保留共享内存区域，仅在
+ * 试图访问共享内存前才释放，可迫使这些分配
+ *
+	 * 使用不冲突的其他地址范围。
+ *
+ * 注意！本函数在 postmaster 中执行，因此不应
+ * 用 elog(FATAL)，以免弄垮 postmaster。
  */
 int
 pgwin32_ReserveSharedMemoryRegion(HANDLE hChild)
@@ -579,7 +579,7 @@ pgwin32_ReserveSharedMemoryRegion(HANDLE hChild)
 							 MEM_RESERVE, PAGE_NOACCESS);
 	if (address == NULL)
 	{
-		/* Don't use FATAL since we're running in the postmaster */
+		/* 不用 FATAL，因我们在 postmaster 中运行 */
 		elog(LOG, "could not reserve shared memory region (addr=%p) for child %p: error code %lu",
 			 ShmemProtectiveRegion, hChild, GetLastError());
 		return false;
@@ -587,10 +587,10 @@ pgwin32_ReserveSharedMemoryRegion(HANDLE hChild)
 	if (address != ShmemProtectiveRegion)
 	{
 		/*
-		 * Should never happen - in theory if allocation granularity causes
-		 * strange effects it could, so check just in case.
+		 * 不应发生——理论上若分配粒度导致奇怪效果
+		 * 也可能，故仍检查以防万一。
 		 *
-		 * Don't use FATAL since we're running in the postmaster.
+		 * 不用 FATAL，因我们在 postmaster 中运行。
 		 */
 		elog(LOG, "reserved shared memory region got incorrect address %p, expected %p",
 			 address, ShmemProtectiveRegion);
@@ -617,9 +617,9 @@ pgwin32_ReserveSharedMemoryRegion(HANDLE hChild)
 }
 
 /*
- * This function is provided for consistency with sysv_shmem.c and does not
- * provide any useful information for Windows.  To obtain the large page size,
- * use GetLargePageMinimum() instead.
+ * 为与 sysv_shmem.c 一致而提供，对 Windows 不提供
+ * 任何有用信息。要取得大页大小，请改用
+ * GetLargePageMinimum()。
  */
 void
 GetHugePageSize(Size *hugepagesize, int *mmap_flags)
@@ -631,7 +631,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 }
 
 /*
- * GUC check_hook for huge_page_size
+ * huge_page_size 的 GUC check_hook
  */
 bool
 check_huge_page_size(int *newval, void **extra, GucSource source)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * win32_sema.c
- *	  Microsoft Windows Win32 Semaphores Emulation
+ *	  Microsoft Windows Win32 信号量仿真
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -17,31 +17,31 @@
 #include "storage/ipc.h"
 #include "storage/pg_sema.h"
 
-static HANDLE *mySemSet;		/* IDs of sema sets acquired so far */
-static int	numSems;			/* number of sema sets acquired so far */
-static int	maxSems;			/* allocated size of mySemaSet array */
+static HANDLE *mySemSet;		/* 已获取的信号量集 ID */
+static int	numSems;			/* 已获取的信号量集个数 */
+static int	maxSems;			/* mySemaSet 数组已分配大小 */
 
 static void ReleaseSemaphores(int code, Datum arg);
 
 
 /*
- * Report amount of shared memory needed for semaphores
+ * 报告信号量所需的共享内存空间
  */
 Size
 PGSemaphoreShmemSize(int maxSemas)
 {
-	/* No shared memory needed on Windows */
+	/* Windows 上不需要共享内存 */
 	return 0;
 }
 
 /*
- * PGReserveSemaphores --- initialize semaphore support
+ * PGReserveSemaphores --- 初始化信号量支持
  *
- * In the Win32 implementation, we acquire semaphores on-demand; the
- * maxSemas parameter is just used to size the array that keeps track of
- * acquired semas for subsequent releasing.  We use anonymous semaphores
- * so the semaphores are automatically freed when the last referencing
- * process exits.
+ * Win32 实现按需获取信号量；maxSemas 仅用于
+ * 确定跟踪已获取信号量以便随后释放的数组大小。
+ * 使用匿名信号量，因而最后一个引用进程退出时
+ * 信号量会自动释放。
+ *
  */
 void
 PGReserveSemaphores(int maxSemas)
@@ -56,9 +56,9 @@ PGReserveSemaphores(int maxSemas)
 }
 
 /*
- * Release semaphores at shutdown or shmem reinitialization
+ * 关机或共享内存重初始化时释放信号量
  *
- * (called as an on_shmem_exit callback, hence funny argument list)
+ * 注：作为 on_shmem_exit 回调，故参数列表古怪
  */
 static void
 ReleaseSemaphores(int code, Datum arg)
@@ -73,7 +73,7 @@ ReleaseSemaphores(int code, Datum arg)
 /*
  * PGSemaphoreCreate
  *
- * Allocate a PGSemaphore structure with initial count 1
+ * 分配初始计数为 1 的 PGSemaphore 结构
  */
 PGSemaphore
 PGSemaphoreCreate(void)
@@ -81,7 +81,7 @@ PGSemaphoreCreate(void)
 	HANDLE		cur_handle;
 	SECURITY_ATTRIBUTES sec_attrs;
 
-	/* Can't do this in a backend, because static state is postmaster's */
+	/* 不能在 backend 中做：静态状态属 postmaster */
 	Assert(!IsUnderPostmaster);
 
 	if (numSems >= maxSems)
@@ -92,11 +92,11 @@ PGSemaphoreCreate(void)
 	sec_attrs.lpSecurityDescriptor = NULL;
 	sec_attrs.bInheritHandle = TRUE;
 
-	/* We don't need a named semaphore */
+	/* 不需要命名信号量 */
 	cur_handle = CreateSemaphore(&sec_attrs, 1, 32767, NULL);
 	if (cur_handle)
 	{
-		/* Successfully done */
+		/* 成功完成 */
 		mySemSet[numSems++] = cur_handle;
 	}
 	else
@@ -110,14 +110,14 @@ PGSemaphoreCreate(void)
 /*
  * PGSemaphoreReset
  *
- * Reset a previously-initialized PGSemaphore to have count 0
+ * 把已初始化的 PGSemaphore 复位为计数 0
  */
 void
 PGSemaphoreReset(PGSemaphore sema)
 {
 	/*
-	 * There's no direct API for this in Win32, so we have to ratchet the
-	 * semaphore down to 0 with repeated trylock's.
+	 * Win32 无直接 API，只好反复 tryLock 把
+	 * 信号量递减到 0。
 	 */
 	while (PGSemaphoreTryLock(sema))
 		 /* loop */ ;
@@ -126,7 +126,7 @@ PGSemaphoreReset(PGSemaphore sema)
 /*
  * PGSemaphoreLock
  *
- * Lock a semaphore (decrement count), blocking if count would be < 0.
+ * 锁定信号量（减计数），若计数将 < 0 则阻塞。
  */
 void
 PGSemaphoreLock(PGSemaphore sema)
@@ -135,18 +135,18 @@ PGSemaphoreLock(PGSemaphore sema)
 	bool		done = false;
 
 	/*
-	 * Note: pgwin32_signal_event should be first to ensure that it will be
-	 * reported when multiple events are set.  We want to guarantee that
-	 * pending signals are serviced.
+	 * 注意：pgwin32_signal_event 应排在最前，以确保
+	 * 多事件同时置位时仍会报告它。我们要保证
+	 * 挂起信号得到处理。
 	 */
 	wh[0] = pgwin32_signal_event;
 	wh[1] = sema;
 
 	/*
-	 * As in other implementations of PGSemaphoreLock, we need to check for
-	 * cancel/die interrupts each time through the loop.  But here, there is
-	 * no hidden magic about whether the syscall will internally service a
-	 * signal --- we do that ourselves.
+	 * 与其他 PGSemaphoreLock 实现一样，每次循环须检查
+	 * cancel/die 中断。但此处没有系统调用会暗中代为
+	 * 处理信号的隐藏魔法——
+	 * 我们自己处理信号。
 	 */
 	while (!done)
 	{
@@ -158,21 +158,21 @@ PGSemaphoreLock(PGSemaphore sema)
 		switch (rc)
 		{
 			case WAIT_OBJECT_0:
-				/* Signal event is set - we have a signal to deliver */
+				/* 信号事件已置位——有信号待投递 */
 				pgwin32_dispatch_queued_signals();
 				break;
 			case WAIT_OBJECT_0 + 1:
-				/* We got it! */
+				/* 拿到了! */
 				done = true;
 				break;
 			case WAIT_IO_COMPLETION:
 
 				/*
-				 * The system interrupted the wait to execute an I/O
-				 * completion routine or asynchronous procedure call in this
-				 * thread.  PostgreSQL does not provoke either of these, but
-				 * atypical loaded DLLs or even other processes might do so.
-				 * Now, resume waiting.
+				 * 系统中断等待，在本线程执行 I/O
+				 * 完成例程或异步过程调用。PostgreSQL 不
+				 * 会引发这两者，但非典型加载的 DLL 乃至
+				 * 其他进程也可能如此。
+				 * 继续等待。
 				 */
 				break;
 			case WAIT_FAILED:
@@ -190,7 +190,7 @@ PGSemaphoreLock(PGSemaphore sema)
 /*
  * PGSemaphoreUnlock
  *
- * Unlock a semaphore (increment count)
+ * 解锁信号量（增计数）
  */
 void
 PGSemaphoreUnlock(PGSemaphore sema)
@@ -204,7 +204,7 @@ PGSemaphoreUnlock(PGSemaphore sema)
 /*
  * PGSemaphoreTryLock
  *
- * Lock a semaphore only if able to do so without blocking
+ * 仅在能不阻塞时锁定信号量
  */
 bool
 PGSemaphoreTryLock(PGSemaphore sema)
@@ -215,21 +215,21 @@ PGSemaphoreTryLock(PGSemaphore sema)
 
 	if (ret == WAIT_OBJECT_0)
 	{
-		/* We got it! */
+		/* 拿到了! */
 		return true;
 	}
 	else if (ret == WAIT_TIMEOUT)
 	{
-		/* Can't get it */
+		/* 拿不到 */
 		errno = EAGAIN;
 		return false;
 	}
 
-	/* Otherwise we are in trouble */
+	/* 否则就麻烦了 */
 	ereport(FATAL,
 			(errmsg("could not try-lock semaphore: error code %lu",
 					GetLastError())));
 
-	/* keep compiler quiet */
+	/* 让编译器安静 */
 	return false;
 }

@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * timer.c
- *	  Microsoft Windows Win32 Timer Implementation
+ *	  Microsoft Windows Win32 定时器实现
  *
- *	  Limitations of this implementation:
+ *	  本实现的限制：
  *
- *	  - Does not support interval timer (value->it_interval)
- *	  - Only supports ITIMER_REAL
+ *	  - 不支持间隔定时器（value->it_interval）
+ *	  - 仅支持 ITIMER_REAL
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -19,7 +19,7 @@
 #include "postgres.h"
 
 
-/* Communication area for inter-thread communication */
+/* 线程间通信区 */
 typedef struct timerCA
 {
 	struct itimerval value;
@@ -31,7 +31,7 @@ static timerCA timerCommArea;
 static HANDLE timerThreadHandle = INVALID_HANDLE_VALUE;
 
 
-/* Timer management thread */
+/* 定时器管理线程 */
 static DWORD WINAPI
 pg_timer_thread(LPVOID param)
 {
@@ -48,14 +48,14 @@ pg_timer_thread(LPVOID param)
 		r = WaitForSingleObjectEx(timerCommArea.event, waittime, FALSE);
 		if (r == WAIT_OBJECT_0)
 		{
-			/* Event signaled from main thread, change the timer */
+			/* 主线程发信号的事件，用于改定时器 */
 			EnterCriticalSection(&timerCommArea.crit_sec);
 			if (timerCommArea.value.it_value.tv_sec == 0 &&
 				timerCommArea.value.it_value.tv_usec == 0)
-				waittime = INFINITE;	/* Cancel the interrupt */
+				waittime = INFINITE;	/* 取消中断 */
 			else
 			{
-				/* WaitForSingleObjectEx() uses milliseconds, round up */
+				/* WaitForSingleObjectEx() 用毫秒，向上取整 */
 				waittime = (timerCommArea.value.it_value.tv_usec + 999) / 1000 +
 					timerCommArea.value.it_value.tv_sec * 1000;
 			}
@@ -64,13 +64,13 @@ pg_timer_thread(LPVOID param)
 		}
 		else if (r == WAIT_TIMEOUT)
 		{
-			/* Timeout expired, signal SIGALRM and turn it off */
+			/* 超时到期，发 SIGALRM 并关掉定时器 */
 			pg_queue_signal(SIGALRM);
 			waittime = INFINITE;
 		}
 		else
 		{
-			/* Should never happen */
+			/* 不应发生 */
 			Assert(false);
 		}
 	}
@@ -79,8 +79,8 @@ pg_timer_thread(LPVOID param)
 }
 
 /*
- * Win32 setitimer emulation by creating a persistent thread
- * to handle the timer setting and notification upon timeout.
+ * 用持久线程仿真 Win32 setitimer，
+ * 负责设定定时器并在超时通知。
  */
 int
 setitimer(int which, const struct itimerval *value, struct itimerval *ovalue)
@@ -91,7 +91,7 @@ setitimer(int which, const struct itimerval *value, struct itimerval *ovalue)
 
 	if (timerThreadHandle == INVALID_HANDLE_VALUE)
 	{
-		/* First call in this backend, create event and the timer thread */
+		/* 本 backend 首次调用：创建事件与定时器线程 */
 		timerCommArea.event = CreateEvent(NULL, TRUE, FALSE, NULL);
 		if (timerCommArea.event == NULL)
 			ereport(FATAL,
@@ -109,7 +109,7 @@ setitimer(int which, const struct itimerval *value, struct itimerval *ovalue)
 									 GetLastError())));
 	}
 
-	/* Request the timer thread to change settings */
+	/* 请求定时器线程更改设置 */
 	EnterCriticalSection(&timerCommArea.crit_sec);
 	if (ovalue)
 		*ovalue = timerCommArea.value;

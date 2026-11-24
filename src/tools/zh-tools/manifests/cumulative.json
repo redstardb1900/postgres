@@ -12046,6 +12046,61 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0637-backup.json",
    "kind": "manifest",
    "note": "0637"
+  },
+  {
+   "pattern": "src/backend/port/atomics.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/posix_sema.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/sysv_sema.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/sysv_shmem.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32_sema.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32_shmem.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/crashdump.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/signal.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/socket.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/timer.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0638-port.json",
+   "kind": "manifest",
+   "note": "0638"
   }
  ],
  "files": [
@@ -39283,7 +39338,133 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0637"
+  },
+  {
+   "path": "src/backend/port/atomics.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 13,
+   "preserved": 3,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/posix_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 39,
+   "preserved": 2,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/sysv_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 71,
+   "translated": 67,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/sysv_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 84,
+   "preserved": 12,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/win32_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/win32_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 49,
+   "translated": 46,
+   "preserved": 3,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/win32/crashdump.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/win32/signal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 33,
+   "preserved": 2,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/win32/socket.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 38,
+   "preserved": 1,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638"
+  },
+  {
+   "path": "src/backend/port/win32/timer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0638"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0638-port.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0638"
   }
  ],
- "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory. | append batch-0637 backup (+12 entries)"
+ "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory. | append batch-0637 backup (+12 entries) | append batch-0638 port (+11 entries)"
 }

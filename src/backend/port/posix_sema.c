@@ -1,18 +1,18 @@
 /*-------------------------------------------------------------------------
  *
  * posix_sema.c
- *	  Implement PGSemaphores using POSIX semaphore facilities
+ *	  用 POSIX 信号量设施实现 PGSemaphore
  *
- * We prefer the unnamed style of POSIX semaphore (the kind made with
- * sem_init).  We can cope with the kind made with sem_open, however.
+ * 我们更倾向无名 POSIX 信号量（用 sem_init
+ * 创建的那种）。也可用 sem_open 创建的那种。
  *
- * In either implementation, typedef PGSemaphore is equivalent to "sem_t *".
- * With unnamed semaphores, the sem_t structs live in an array in shared
- * memory.  With named semaphores, that's not true because we cannot persuade
- * sem_open to do its allocation there.  Therefore, the named-semaphore code
- * *does not cope with EXEC_BACKEND*.  The sem_t structs will just be in the
- * postmaster's private memory, where they are successfully inherited by
- * forked backends, but they could not be accessed by exec'd backends.
+ * 无论哪种实现，typedef PGSemaphore 都等价于 "sem_t *"。
+ * 无名信号量时，sem_t 结构位于共享内存中的
+ * 数组。有名信号量则不然，因无法让 sem_open
+ * 在那里分配。因此有名信号量代码
+ * *不支持 EXEC_BACKEND*。sem_t 结构仅在
+ * postmaster 私有内存中，可被 fork 的 backend
+ * 成功继承，但 exec 的 backend 无法访问。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -37,7 +37,7 @@
 #include "storage/shmem.h"
 
 
-/* see file header comment */
+/* 见文件头注释 */
 #if defined(USE_NAMED_POSIX_SEMAPHORES) && defined(EXEC_BACKEND)
 #error cannot use named POSIX semaphores with EXEC_BACKEND
 #endif
@@ -48,7 +48,7 @@ typedef union SemTPadded
 	char		pad[PG_CACHE_LINE_SIZE];
 } SemTPadded;
 
-/* typedef PGSemaphore is equivalent to pointer to sem_t */
+/* typedef PGSemaphore 等价于指向 sem_t 的指针 */
 typedef struct PGSemaphoreData
 {
 	SemTPadded	sem_padded;
@@ -56,16 +56,16 @@ typedef struct PGSemaphoreData
 
 #define PG_SEM_REF(x)	(&(x)->sem_padded.pgsem)
 
-#define IPCProtection	(0600)	/* access/modify by user only */
+#define IPCProtection	(0600)	/* 仅由用户访问/修改 */
 
 #ifdef USE_NAMED_POSIX_SEMAPHORES
-static sem_t **mySemPointers;	/* keep track of created semaphores */
+static sem_t **mySemPointers;	/* 跟踪已创建的信号量 */
 #else
-static PGSemaphore sharedSemas; /* array of PGSemaphoreData in shared memory */
+static PGSemaphore sharedSemas; /* 共享内存中的 PGSemaphoreData 数组 */
 #endif
-static int	numSems;			/* number of semas acquired so far */
-static int	maxSems;			/* allocated size of above arrays */
-static int	nextSemKey;			/* next name to try */
+static int	numSems;			/* 迄今已获取的信号量数 */
+static int	maxSems;			/* 上述数组的已分配大小 */
+static int	nextSemKey;			/* 下一待试名 */
 
 
 static void ReleaseSemaphores(int status, Datum arg);
@@ -76,10 +76,10 @@ static void ReleaseSemaphores(int status, Datum arg);
 /*
  * PosixSemaphoreCreate
  *
- * Attempt to create a new named semaphore.
+ * 尝试创建新的有名信号量。
  *
- * If we fail with a failure code other than collision-with-existing-sema,
- * print out an error and abort.  Other types of errors suggest nonrecoverable
+ * 若失败且失败码不是与已有信号量冲突，
+ * 则打印错误并中止。其他错误暗示不可恢复的
  * problems.
  */
 static sem_t *
@@ -106,19 +106,19 @@ PosixSemaphoreCreate(void)
 			break;
 #endif
 
-		/* Loop if error indicates a collision */
+		/* 若错误表示冲突则循环 */
 		if (errno == EEXIST || errno == EACCES || errno == EINTR)
 			continue;
 
 		/*
-		 * Else complain and abort
+		 * 否则抱怨并中止
 		 */
 		elog(FATAL, "sem_open(\"%s\") failed: %m", semname);
 	}
 
 	/*
-	 * Unlink the semaphore immediately, so it can't be accessed externally.
-	 * This also ensures that it will go away if we crash.
+	 * 立即 unlink 信号量，使其无法被外部访问。
+	 * 这也确保崩溃时它会消失。
 	 */
 	sem_unlink(semname);
 
@@ -129,7 +129,7 @@ PosixSemaphoreCreate(void)
 /*
  * PosixSemaphoreCreate
  *
- * Attempt to create a new unnamed semaphore.
+ * 尝试创建新的无名信号量。
  */
 static void
 PosixSemaphoreCreate(sem_t *sem)
@@ -141,17 +141,17 @@ PosixSemaphoreCreate(sem_t *sem)
 
 
 /*
- * PosixSemaphoreKill	- removes a semaphore
+ * PosixSemaphoreKill	- 移除信号量
  */
 static void
 PosixSemaphoreKill(sem_t *sem)
 {
 #ifdef USE_NAMED_POSIX_SEMAPHORES
-	/* Got to use sem_close for named semaphores */
+	/* 有名信号量须用 sem_close */
 	if (sem_close(sem) < 0)
 		elog(LOG, "sem_close failed: %m");
 #else
-	/* Got to use sem_destroy for unnamed semaphores */
+	/* 无名信号量须用 sem_destroy */
 	if (sem_destroy(sem) < 0)
 		elog(LOG, "sem_destroy failed: %m");
 #endif
@@ -159,38 +159,38 @@ PosixSemaphoreKill(sem_t *sem)
 
 
 /*
- * Report amount of shared memory needed for semaphores
+ * 报告信号量所需的共享内存空间
  */
 Size
 PGSemaphoreShmemSize(int maxSemas)
 {
 #ifdef USE_NAMED_POSIX_SEMAPHORES
-	/* No shared memory needed in this case */
+	/* 此种情况不需要共享内存 */
 	return 0;
 #else
-	/* Need a PGSemaphoreData per semaphore */
+	/* 每信号量一 PGSemaphoreData */
 	return mul_size(maxSemas, sizeof(PGSemaphoreData));
 #endif
 }
 
 /*
- * PGReserveSemaphores --- initialize semaphore support
+ * PGReserveSemaphores --- 初始化信号量支持
  *
- * This is called during postmaster start or shared memory reinitialization.
- * It should do whatever is needed to be able to support up to maxSemas
- * subsequent PGSemaphoreCreate calls.  Also, if any system resources
- * are acquired here or in PGSemaphoreCreate, register an on_shmem_exit
- * callback to release them.
+ * 在 postmaster 启动或共享内存重初始化时调用。
+ * 应做足准备以支持最多 maxSemas 次后续
+ * PGSemaphoreCreate 调用。此外，若在此或在
+ * PGSemaphoreCreate 中获取了系统资源，须注册
+ * on_shmem_exit 回调。
  *
- * In the Posix implementation, we acquire semaphores on-demand; the
- * maxSemas parameter is just used to size the arrays.  For unnamed
- * semaphores, there is an array of PGSemaphoreData structs in shared memory.
- * For named semaphores, we keep a postmaster-local array of sem_t pointers,
- * which we use for releasing the semaphores when done.
- * (This design minimizes the dependency of postmaster shutdown on the
- * contents of shared memory, which a failed backend might have clobbered.
- * We can't do much about the possibility of sem_destroy() crashing, but
- * we don't have to expose the counters to other processes.)
+ * Posix 实现按需获取信号量；maxSemas 参数
+ * 仅用于确定数组大小。无名信号量时，在共享
+ * 内存中有 PGSemaphoreData 结构数组。
+ * 有名信号量则保留 postmaster 本地的 sem_t 指针
+ * 数组，用于完成后释放信号量。
+ * 此设计尽量减少 postmaster 关机对共享内存
+ * 内容的依赖，因失败的 backend 可能已破坏它。
+ * sem_destroy() 崩溃的可能我们无能为力，但
+ * 不必把计数器暴露给其他进程。
  */
 void
 PGReserveSemaphores(int maxSemas)
@@ -198,10 +198,10 @@ PGReserveSemaphores(int maxSemas)
 	struct stat statbuf;
 
 	/*
-	 * We use the data directory's inode number to seed the search for free
-	 * semaphore keys.  This minimizes the odds of collision with other
-	 * postmasters, while maximizing the odds that we will detect and clean up
-	 * semaphores left over from a crashed postmaster in our own directory.
+	 * 用数据目录的 inode 号播种搜索空闲信号量
+	 * 键。这可尽量减少与其他 postmaster 冲突的
+	 * 几率，同时尽量提高检出并清理本目录中
+	 * 崩溃 postmaster 遗留信号量的几率。
 	 */
 	if (stat(DataDir, &statbuf) < 0)
 		ereport(FATAL,
@@ -216,9 +216,9 @@ PGReserveSemaphores(int maxSemas)
 #else
 
 	/*
-	 * We must use ShmemAllocUnlocked(), since the spinlock protecting
-	 * ShmemAlloc() won't be ready yet.  (This ordering is necessary when we
-	 * are emulating spinlocks with semaphores.)
+	 * 必须用 ShmemAllocUnlocked()，因保护
+	 * ShmemAlloc() 的自旋锁尚未就绪。（用信号量
+	 * 仿真自旋锁时此顺序必要。）
 	 */
 	sharedSemas = (PGSemaphore)
 		ShmemAllocUnlocked(PGSemaphoreShmemSize(maxSemas));
@@ -232,9 +232,9 @@ PGReserveSemaphores(int maxSemas)
 }
 
 /*
- * Release semaphores at shutdown or shmem reinitialization
+ * 关机或共享内存重初始化时释放信号量
  *
- * (called as an on_shmem_exit callback, hence funny argument list)
+ * 注：作为 on_shmem_exit 回调，故参数列表古怪
  */
 static void
 ReleaseSemaphores(int status, Datum arg)
@@ -256,7 +256,7 @@ ReleaseSemaphores(int status, Datum arg)
 /*
  * PGSemaphoreCreate
  *
- * Allocate a PGSemaphore structure with initial count 1
+ * 分配初始计数为 1 的 PGSemaphore 结构
  */
 PGSemaphore
 PGSemaphoreCreate(void)
@@ -264,7 +264,7 @@ PGSemaphoreCreate(void)
 	PGSemaphore sema;
 	sem_t	   *newsem;
 
-	/* Can't do this in a backend, because static state is postmaster's */
+	/* 不能在 backend 中做：静态状态属 postmaster */
 	Assert(!IsUnderPostmaster);
 
 	if (numSems >= maxSems)
@@ -272,7 +272,7 @@ PGSemaphoreCreate(void)
 
 #ifdef USE_NAMED_POSIX_SEMAPHORES
 	newsem = PosixSemaphoreCreate();
-	/* Remember new sema for ReleaseSemaphores */
+	/* 记住新信号量供 ReleaseSemaphores */
 	mySemPointers[numSems] = newsem;
 	sema = (PGSemaphore) newsem;
 #else
@@ -289,23 +289,23 @@ PGSemaphoreCreate(void)
 /*
  * PGSemaphoreReset
  *
- * Reset a previously-initialized PGSemaphore to have count 0
+ * 把已初始化的 PGSemaphore 复位为计数 0
  */
 void
 PGSemaphoreReset(PGSemaphore sema)
 {
 	/*
-	 * There's no direct API for this in POSIX, so we have to ratchet the
-	 * semaphore down to 0 with repeated trywait's.
+	 * POSIX 无直接 API，只好反复 trywait 把
+	 * 信号量递减到 0。
 	 */
 	for (;;)
 	{
 		if (sem_trywait(PG_SEM_REF(sema)) < 0)
 		{
 			if (errno == EAGAIN || errno == EDEADLK)
-				break;			/* got it down to 0 */
+				break;			/* 已减到 0 */
 			if (errno == EINTR)
-				continue;		/* can this happen? */
+				continue;		/* 会发生吗？ */
 			elog(FATAL, "sem_trywait failed: %m");
 		}
 	}
@@ -314,14 +314,14 @@ PGSemaphoreReset(PGSemaphore sema)
 /*
  * PGSemaphoreLock
  *
- * Lock a semaphore (decrement count), blocking if count would be < 0
+ * 锁定信号量（减计数），若计数将 < 0 则阻塞
  */
 void
 PGSemaphoreLock(PGSemaphore sema)
 {
 	int			errStatus;
 
-	/* See notes in sysv_sema.c's implementation of PGSemaphoreLock. */
+	/* 见 sysv_sema.c 中 PGSemaphoreLock 实现的说明。 */
 	do
 	{
 		errStatus = sem_wait(PG_SEM_REF(sema));
@@ -334,7 +334,7 @@ PGSemaphoreLock(PGSemaphore sema)
 /*
  * PGSemaphoreUnlock
  *
- * Unlock a semaphore (increment count)
+ * 解锁信号量（增计数）
  */
 void
 PGSemaphoreUnlock(PGSemaphore sema)
@@ -342,10 +342,10 @@ PGSemaphoreUnlock(PGSemaphore sema)
 	int			errStatus;
 
 	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and unlock the semaphore again. Not clear this can really happen,
-	 * but might as well cope.
+	 * 注意：若 errStatus 为 -1 且 errno == EINTR，表示因
+	 * 收到信号而过早从操作返回。于是我们
+	 * 再次尝试解锁信号量。不清楚这是否真会发生，
+	 * 但不妨应对。
 	 */
 	do
 	{
@@ -359,7 +359,7 @@ PGSemaphoreUnlock(PGSemaphore sema)
 /*
  * PGSemaphoreTryLock
  *
- * Lock a semaphore only if able to do so without blocking
+ * 仅在能不阻塞时锁定信号量
  */
 bool
 PGSemaphoreTryLock(PGSemaphore sema)
@@ -367,9 +367,9 @@ PGSemaphoreTryLock(PGSemaphore sema)
 	int			errStatus;
 
 	/*
-	 * Note: if errStatus is -1 and errno == EINTR then it means we returned
-	 * from the operation prematurely because we were sent a signal.  So we
-	 * try and lock the semaphore again.
+	 * 注意：若 errStatus 为 -1 且 errno == EINTR，表示因
+	 * 收到信号而过早从操作返回。于是我们
+	 * 再次尝试锁定信号量。
 	 */
 	do
 	{
@@ -379,8 +379,8 @@ PGSemaphoreTryLock(PGSemaphore sema)
 	if (errStatus < 0)
 	{
 		if (errno == EAGAIN || errno == EDEADLK)
-			return false;		/* failed to lock it */
-		/* Otherwise we got trouble */
+			return false;		/* 未能锁定 */
+		/* 否则就麻烦了 */
 		elog(FATAL, "sem_trywait failed: %m");
 	}
 

@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * sysv_shmem.c
- *	  Implement shared memory using SysV facilities
+ *	  用 SysV 设施实现共享内存
  *
- * These routines used to be a fairly thin layer on top of SysV shared
- * memory functionality.  With the addition of anonymous-shmem logic,
- * they're a bit fatter now.  We still require a SysV shmem block to
- * exist, though, because mmap'd shmem provides no way to find out how
- * many processes are attached, which we need for interlocking purposes.
+ * 这些例程曾是 SysV 共享内存功能上相当薄的
+ * 一层。加入匿名共享内存逻辑后变厚了些。我们仍
+ * 要求有 SysV 共享内存块存在，因 mmap 的共享内存
+ * 无法得知有多少进程附着，而联锁需要该信息。
+ * 有多少进程附着，联锁需要该信息。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -39,54 +39,54 @@
 
 
 /*
- * As of PostgreSQL 9.3, we normally allocate only a very small amount of
- * System V shared memory, and only for the purposes of providing an
- * interlock to protect the data directory.  The real shared memory block
- * is allocated using mmap().  This works around the problem that many
- * systems have very low limits on the amount of System V shared memory
- * that can be allocated.  Even a limit of a few megabytes will be enough
- * to run many copies of PostgreSQL without needing to adjust system settings.
+ * 自 PostgreSQL 9.3 起，通常只分配很少量的
+ * System V 共享内存，且仅用于提供保护数据目录的
+ * 联锁。真正的共享内存块用 mmap() 分配。这绕开
+ * 许多系统对可分配 System V 共享内存量限制极低
+ * 的问题。哪怕只有几兆字节上限，也足以运行许多
+ * 份 PostgreSQL 而无需调整系统设置。
  *
- * We assume that no one will attempt to run PostgreSQL 9.3 or later on
- * systems that are ancient enough that anonymous shared memory is not
- * supported, such as pre-2.4 versions of Linux.  If that turns out to be
- * false, we might need to add compile and/or run-time tests here and do this
- * only if the running kernel supports it.
  *
- * However, we must always disable this logic in the EXEC_BACKEND case, and
- * fall back to the old method of allocating the entire segment using System V
- * shared memory, because there's no way to attach an anonymous mmap'd segment
- * to a process after exec().  Since EXEC_BACKEND is intended only for
- * developer use, this shouldn't be a big problem.  Because of this, we do
- * not worry about supporting anonymous shmem in the EXEC_BACKEND cases below.
+ * 我们假定没人会在古老到不支持匿名共享内存的
+ * 系统上跑 PostgreSQL 9.3 或更新版，例如 Linux
+ * 2.4 之前。若假定不成立，或须在此加编译与/或
+ * 运行时测试，仅当运行中的内核支持时才做。
  *
- * As of PostgreSQL 12, we regained the ability to use a large System V shared
- * memory region even in non-EXEC_BACKEND builds, if shared_memory_type is set
- * to sysv (though this is not the default).
+ *
+ * 但在 EXEC_BACKEND 情形必须始终禁用此逻辑，并
+ * 回退到用 System V 共享内存分配整段的旧方法，因
+ * exec() 之后无法把匿名 mmap 段附着到进程。既然
+ * EXEC_BACKEND 仅供开发者使用，这不该是大问题。
+ * 因此，下文 EXEC_BACKEND 情形我们不操心支持
+ * 匿名共享内存。
+ *
+ * 自 PostgreSQL 12 起，即便非 EXEC_BACKEND 构建，
+ * 若 shared_memory_type 设为 sysv（非默认），也可
+ * 用大型 System V 共享内存区。
  */
 
 
-typedef key_t IpcMemoryKey;		/* shared memory key passed to shmget(2) */
-typedef int IpcMemoryId;		/* shared memory ID returned by shmget(2) */
+typedef key_t IpcMemoryKey;		/* 传给 shmget(2) 的共享内存键 */
+typedef int IpcMemoryId;		/* shmget(2) 返回的共享内存 ID */
 
 /*
- * How does a given IpcMemoryId relate to this PostgreSQL process?
+ * 给定 IpcMemoryId 与本 PostgreSQL 进程有何关系？
  *
- * One could recycle unattached segments of different data directories if we
- * distinguished that case from other SHMSTATE_FOREIGN cases.  Doing so would
- * cause us to visit less of the key space, making us less likely to detect a
- * SHMSTATE_ATTACHED key.  It would also complicate the concurrency analysis,
- * in that postmasters of different data directories could simultaneously
- * attempt to recycle a given key.  We'll waste keys longer in some cases, but
- * avoiding the problems of the alternative justifies that loss.
+ * 若把不同数据目录的未附着段与其他 SHMSTATE_FOREIGN
+ * 情形区分，或可回收它们。那样会少访问键空间，更难
+ * 检出 SHMSTATE_ATTACHED 键。也会让并发分析更复杂：
+ * 不同数据目录的 postmaster 可能同时试图回收同一键。
+ * 某些情形会更久浪费键，但避免替代方案的问题足以
+ * 证明这点损失合理。
+ *
  */
 typedef enum
 {
-	SHMSTATE_ANALYSIS_FAILURE,	/* unexpected failure to analyze the ID */
-	SHMSTATE_ATTACHED,			/* pertinent to DataDir, has attached PIDs */
-	SHMSTATE_ENOENT,			/* no segment of that ID */
-	SHMSTATE_FOREIGN,			/* exists, but not pertinent to DataDir */
-	SHMSTATE_UNATTACHED			/* pertinent to DataDir, no attached PIDs */
+	SHMSTATE_ANALYSIS_FAILURE,	/* 分析该 ID 时意外失败 */
+	SHMSTATE_ATTACHED,			/* 与 DataDir 相关，有附着 PID */
+	SHMSTATE_ENOENT,			/* 无该 ID 的段 */
+	SHMSTATE_FOREIGN,			/* 存在，但与 DataDir 无关 */
+	SHMSTATE_UNATTACHED			/* 与 DataDir 相关，无附着 PID */
 } IpcMemoryState;
 
 
@@ -107,14 +107,14 @@ static IpcMemoryState PGSharedMemoryAttach(IpcMemoryId shmId,
 /*
  *	InternalIpcMemoryCreate(memKey, size)
  *
- * Attempt to create a new shared memory segment with the specified key.
- * Will fail (return NULL) if such a segment already exists.  If successful,
- * attach the segment to the current process and return its attached address.
- * On success, callbacks are registered with on_shmem_exit to detach and
- * delete the segment when on_shmem_exit is called.
+ * 尝试用指定键创建新共享内存段。
+ * 若该段已存在则失败（返回 NULL）。成功则把段
+ * 附着到当前进程并返回附着地址。
+ * 成功时向 on_shmem_exit 注册回调，以便在调用
+ * on_shmem_exit 时脱离并删除该段。
  *
- * If we fail with a failure code other than collision-with-existing-segment,
- * print out an error and abort.  Other types of errors are not recoverable.
+ * 若失败且失败码不是与已有段冲突，则打印错误
+ * 并中止。其他类型错误不可恢复。
  */
 static void *
 InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
@@ -124,14 +124,14 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 	void	   *memAddress;
 
 	/*
-	 * Normally we just pass requestedAddress = NULL to shmat(), allowing the
-	 * system to choose where the segment gets mapped.  But in an EXEC_BACKEND
-	 * build, it's possible for whatever is chosen in the postmaster to not
-	 * work for backends, due to variations in address space layout.  As a
-	 * rather klugy workaround, allow the user to specify the address to use
-	 * via setting the environment variable PG_SHMEM_ADDR.  (If this were of
-	 * interest for anything except debugging, we'd probably create a cleaner
-	 * and better-documented way to set it, such as a GUC.)
+	 * 通常把 requestedAddress = NULL 传给 shmat()，让
+	 * 系统选择段映射位置。但在 EXEC_BACKEND 构建中，
+	 * postmaster 所选地址可能因地址空间布局差异而不适
+	 * 用于 backend。作为颇为笨拙的变通，允许用户通过
+	 * 环境变量 PG_SHMEM_ADDR 指定地址。（若这不只是
+	 * 调试用途，我们大概会提供更干净、文档更好的
+	 * 设置方式，例如 GUC。）
+	 *
 	 */
 #ifdef EXEC_BACKEND
 	{
@@ -143,8 +143,8 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 		{
 #if defined(__darwin__) && SIZEOF_VOID_P == 8
 			/*
-			 * Provide a default value that is believed to avoid problems with
-			 * ASLR on the current macOS release.
+			 * 提供据信可避免当前 macOS 发行版 ASLR
+			 * 问题的默认值。
 			 */
 			requestedAddress = (void *) 0x80000000000;
 #endif
@@ -159,10 +159,10 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 		int			shmget_errno = errno;
 
 		/*
-		 * Fail quietly if error indicates a collision with existing segment.
-		 * One would expect EEXIST, given that we said IPC_EXCL, but perhaps
-		 * we could get a permission violation instead?  Also, EIDRM might
-		 * occur if an old seg is slated for destruction but not gone yet.
+		 * 若错误表示与已有段冲突则安静失败。
+		 * 既说了 IPC_EXCL，本预期 EEXIST，但或许会得
+		 * 到权限违规？此外，若旧段已排定销毁但尚未
+		 * 消失，也可能出现 EIDRM。
 		 */
 		if (shmget_errno == EEXIST || shmget_errno == EACCES
 #ifdef EIDRM
@@ -172,13 +172,13 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 			return NULL;
 
 		/*
-		 * Some BSD-derived kernels are known to return EINVAL, not EEXIST, if
-		 * there is an existing segment but it's smaller than "size" (this is
-		 * a result of poorly-thought-out ordering of error tests). To
-		 * distinguish between collision and invalid size in such cases, we
-		 * make a second try with size = 0.  These kernels do not test size
-		 * against SHMMIN in the preexisting-segment case, so we will not get
-		 * EINVAL a second time if there is such a segment.
+		 * 某些 BSD 衍生内核在已有段但小于 "size" 时返回
+		 * EINVAL 而非 EEXIST（错误测试顺序欠妥所致）。为
+		 * 在此情形区分冲突与非法大小，用 size = 0
+		 * 再试一次。这些内核在已有段情形下不对照 SHMMIN
+		 * 测 size，故若确有此段，第二次不会再得 EINVAL。
+		 *
+		 *
 		 */
 		if (shmget_errno == EINVAL)
 		{
@@ -186,22 +186,22 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 
 			if (shmid < 0)
 			{
-				/* As above, fail quietly if we verify a collision */
+				/* 同上，若核实为冲突则安静失败 */
 				if (errno == EEXIST || errno == EACCES
 #ifdef EIDRM
 					|| errno == EIDRM
 #endif
 					)
 					return NULL;
-				/* Otherwise, fall through to report the original error */
+				/* 否则落入报告原始错误 */
 			}
 			else
 			{
 				/*
-				 * On most platforms we cannot get here because SHMMIN is
-				 * greater than zero.  However, if we do succeed in creating a
-				 * zero-size segment, free it and then fall through to report
-				 * the original error.
+				 * 多数平台因 SHMMIN 大于零而到不了这里。
+				 * 但若确实创建了零大小段，则释放它再落入
+				 * 报告原始错误。
+				 *
 				 */
 				if (shmctl(shmid, IPC_RMID, NULL) < 0)
 					elog(LOG, "shmctl(%d, %d, 0) failed: %m",
@@ -210,13 +210,13 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 		}
 
 		/*
-		 * Else complain and abort.
+		 * 否则抱怨并中止。
 		 *
-		 * Note: at this point EINVAL should mean that either SHMMIN or SHMMAX
-		 * is violated.  SHMALL violation might be reported as either ENOMEM
-		 * (BSDen) or ENOSPC (Linux); the Single Unix Spec fails to say which
-		 * it should be.  SHMMNI violation is ENOSPC, per spec.  Just plain
-		 * not-enough-RAM is ENOMEM.
+		 * 注意：此时 EINVAL 应表示违反了 SHMMIN 或 SHMMAX。
+		 * SHMALL 违规可能报 ENOMEM（BSD）或 ENOSPC（Linux）；
+		 * 单一 Unix 规范未说明该用哪个。
+		 * SHMMNI 违规按规范是 ENOSPC。单纯内存不足是
+		 * ENOMEM。
 		 */
 		errno = shmget_errno;
 		ereport(FATAL,
@@ -247,23 +247,23 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 						 "memory configuration.") : 0));
 	}
 
-	/* Register on-exit routine to delete the new segment */
+	/* 注册退出例程以删除新段 */
 	on_shmem_exit(IpcMemoryDelete, Int32GetDatum(shmid));
 
-	/* OK, should be able to attach to the segment */
+	/* 好，应能附着到该段 */
 	memAddress = shmat(shmid, requestedAddress, PG_SHMAT_FLAGS);
 
 	if (memAddress == (void *) -1)
 		elog(FATAL, "shmat(id=%d, addr=%p, flags=0x%x) failed: %m",
 			 shmid, requestedAddress, PG_SHMAT_FLAGS);
 
-	/* Register on-exit routine to detach new segment before deleting */
+	/* 注册退出例程以在删除前脱离新段 */
 	on_shmem_exit(IpcMemoryDetach, PointerGetDatum(memAddress));
 
 	/*
-	 * Store shmem key and ID in data directory lockfile.  Format to try to
-	 * keep it the same length always (trailing junk in the lockfile won't
-	 * hurt, but might confuse humans).
+	 * 把共享内存键与 ID 存入数据目录锁文件。格式尽量
+	 * 始终同长（锁文件尾部垃圾无害，或迷惑人）。
+	 *
 	 */
 	{
 		char		line[64];
@@ -284,7 +284,7 @@ InternalIpcMemoryCreate(IpcMemoryKey memKey, Size size)
 static void
 IpcMemoryDetach(int status, Datum shmaddr)
 {
-	/* Detach System V shared memory block. */
+	/* 脱离 System V 共享内存块。 */
 	if (shmdt((void *) DatumGetPointer(shmaddr)) < 0)
 		elog(LOG, "shmdt(%p) failed: %m", DatumGetPointer(shmaddr));
 }
@@ -304,13 +304,13 @@ IpcMemoryDelete(int status, Datum shmId)
 /*
  * PGSharedMemoryIsInUse
  *
- * Is a previously-existing shmem segment still existing and in use?
+ * 先前存在的共享内存段是否仍存在且在使用？
  *
- * The point of this exercise is to detect the case where a prior postmaster
- * crashed, but it left child backends that are still running.  Therefore
- * we only care about shmem segments that are associated with the intended
- * DataDir.  This is an important consideration since accidental matches of
- * shmem segment IDs are reasonably common.
+ * 用意是检出先前 postmaster 已崩溃、但仍有子
+ * backend 在跑的情形。因此我们只关心与目标
+ * DataDir 关联的共享内存段。这很重要，因共享内存
+ * 段 ID 偶然匹配相当常见。
+ *
  */
 bool
 PGSharedMemoryIsInUse(unsigned long id1, unsigned long id2)
@@ -335,12 +335,12 @@ PGSharedMemoryIsInUse(unsigned long id1, unsigned long id2)
 }
 
 /*
- * Test for a segment with id shmId; see comment at IpcMemoryState.
+ * 测试 id 为 shmId 的段；见 IpcMemoryState 处注释。
  *
- * If the segment exists, we'll attempt to attach to it, using attachAt
- * if that's not NULL (but it's best to pass NULL if possible).
+ * 若段存在，则尝试附着，若 attachAt 非 NULL 则用它
+ * 但尽可能传 NULL 更好。
  *
- * *addr is set to the segment memory address if we attached to it, else NULL.
+ * *addr 在附着成功时设为段内存地址，否则为 NULL。
  */
 static IpcMemoryState
 PGSharedMemoryAttach(IpcMemoryId shmId,
@@ -354,32 +354,32 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 	*addr = NULL;
 
 	/*
-	 * First, try to stat the shm segment ID, to see if it exists at all.
+	 * 先尝试 stat 该 shm 段 ID，看它是否根本存在。
 	 */
 	if (shmctl(shmId, IPC_STAT, &shmStat) < 0)
 	{
 		/*
-		 * EINVAL actually has multiple possible causes documented in the
-		 * shmctl man page, but we assume it must mean the segment no longer
+		 * EINVAL 在 shmctl 手册中有多种可能原因，但我们
+		 * 假定它一定表示段已不存在。
 		 * exists.
 		 */
 		if (errno == EINVAL)
 			return SHMSTATE_ENOENT;
 
 		/*
-		 * EACCES implies we have no read permission, which means it is not a
-		 * Postgres shmem segment (or at least, not one that is relevant to
-		 * our data directory).
+		 * EACCES 表示无读权限，意味着不是 Postgres 共享内存
+		 * 段（或至少与我们的数据目录无关）。
+		 *
 		 */
 		if (errno == EACCES)
 			return SHMSTATE_FOREIGN;
 
 		/*
-		 * Some Linux kernel versions (in fact, all of them as of July 2007)
-		 * sometimes return EIDRM when EINVAL is correct.  The Linux kernel
-		 * actually does not have any internal state that would justify
-		 * returning EIDRM, so we can get away with assuming that EIDRM is
-		 * equivalent to EINVAL on that platform.
+		 * 某些 Linux 内核版本（截至 2007 年 7 月全部）
+		 * 有时在应为 EINVAL 时返回 EIDRM。Linux 内核无
+		 * 可证返回 EIDRM 的内部状态，故假定该平台上
+		 * EIDRM 等价于 EINVAL。
+		 *
 		 */
 #ifdef HAVE_LINUX_EIDRM_BUG
 		if (errno == EIDRM)
@@ -387,48 +387,48 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 #endif
 
 		/*
-		 * Otherwise, we had better assume that the segment is in use.  The
-		 * only likely case is (non-Linux, assumed spec-compliant) EIDRM,
-		 * which implies that the segment has been IPC_RMID'd but there are
-		 * still processes attached to it.
+		 * 否则最好假定该段仍在使用。唯一可能情形是非
+		 * Linux、假定合规范的 EIDRM，表示段已
+		 * IPC_RMID 但仍有进程附着。
+		 *
 		 */
 		return SHMSTATE_ANALYSIS_FAILURE;
 	}
 
 	/*
-	 * Try to attach to the segment and see if it matches our data directory.
-	 * This avoids any risk of duplicate-shmem-key conflicts on machines that
-	 * are running several postmasters under the same userid.
+	 * 尝试附着该段，看是否匹配我们的数据目录。
+	 * 这可避免同一 userid 下跑多个 postmaster 的机器上
+	 * 出现重复共享内存键冲突。
 	 *
-	 * (When we're called from PGSharedMemoryCreate, this stat call is
-	 * duplicative; but since this isn't a high-traffic case it's not worth
-	 * trying to optimize.)
+	 * 从 PGSharedMemoryCreate 调用时，此 stat 重复；
+	 * 但非高频路径，不值得优化。）
+	 *
 	 */
 	if (stat(DataDir, &statbuf) < 0)
-		return SHMSTATE_ANALYSIS_FAILURE;	/* can't stat; be conservative */
+		return SHMSTATE_ANALYSIS_FAILURE;	/* 无法 stat；保守处理 */
 
 	hdr = (PGShmemHeader *) shmat(shmId, attachAt, PG_SHMAT_FLAGS);
 	if (hdr == (PGShmemHeader *) -1)
 	{
 		/*
-		 * Attachment failed.  The cases we're interested in are the same as
-		 * for the shmctl() call above.  In particular, note that the owning
-		 * postmaster could have terminated and removed the segment between
-		 * shmctl() and shmat().
+		 * 附着失败。关心的情形与上面 shmctl() 调用相同。
+		 * 尤其注意：拥有方 postmaster 可能在 shmctl() 与
+		 * shmat() 之间已终止并移除了该段。
 		 *
-		 * If attachAt isn't NULL, it's possible that EINVAL reflects a
-		 * problem with that address not a vanished segment, so it's best to
-		 * pass NULL when probing for conflicting segments.
+		 *
+		 * 若 attachAt 非 NULL，EINVAL 或反映该地址有问题
+		 * 而非段已消失，故探测冲突段时最好传 NULL。
+		 *
 		 */
 		if (errno == EINVAL)
-			return SHMSTATE_ENOENT; /* segment disappeared */
+			return SHMSTATE_ENOENT; /* 段已消失 */
 		if (errno == EACCES)
-			return SHMSTATE_FOREIGN;	/* must be non-Postgres */
+			return SHMSTATE_FOREIGN;	/* 必为非 Postgres */
 #ifdef HAVE_LINUX_EIDRM_BUG
 		if (errno == EIDRM)
-			return SHMSTATE_ENOENT; /* segment disappeared */
+			return SHMSTATE_ENOENT; /* 段已消失 */
 #endif
-		/* Otherwise, be conservative. */
+		/* 否则保守处理。 */
 		return SHMSTATE_ANALYSIS_FAILURE;
 	}
 	*addr = hdr;
@@ -438,41 +438,41 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 		hdr->inode != statbuf.st_ino)
 	{
 		/*
-		 * It's either not a Postgres segment, or not one for my data
+		 * 要么不是 Postgres 段，要么不是我的数据
 		 * directory.
 		 */
 		return SHMSTATE_FOREIGN;
 	}
 
 	/*
-	 * It does match our data directory, so now test whether any processes are
-	 * still attached to it.  (We are, now, but the shm_nattch result is from
-	 * before we attached to it.)
+	 * 它确实匹配我们的数据目录，故再测是否仍有进程
+	 * 附着。（我们现在附着了，但 shm_nattch 结果来自
+	 * 附着之前。）
 	 */
 	return shmStat.shm_nattch == 0 ? SHMSTATE_UNATTACHED : SHMSTATE_ATTACHED;
 }
 
 /*
- * Identify the huge page size to use, and compute the related mmap flags.
+ * 确定要使用的大页大小，并计算相关 mmap 标志。
  *
- * Some Linux kernel versions have a bug causing mmap() to fail on requests
- * that are not a multiple of the hugepage size.  Versions without that bug
- * instead silently round the request up to the next hugepage multiple ---
- * and then munmap() fails when we give it a size different from that.
- * So we have to round our request up to a multiple of the actual hugepage
- * size to avoid trouble.
+ * 某些 Linux 内核版本有 bug：mmap() 在请求不是大页
+ * 大小倍数时失败。无该 bug 的版本则默默把请求向上
+ * 取整到下一大大页倍数——然后给出不同大小时
+ * munmap() 会失败。
+ * 因此必须把请求向上取整为实际大页大小的倍数以免
+ * 麻烦。
  *
- * Doing the round-up ourselves also lets us make use of the extra memory,
- * rather than just wasting it.  Currently, we just increase the available
- * space recorded in the shmem header, which will make the extra usable for
- * purposes such as additional locktable entries.  Someday, for very large
- * hugepage sizes, we might want to think about more invasive strategies,
- * such as increasing shared_buffers to absorb the extra space.
+ * 自己做向上取整也可利用额外内存，而非浪费。
+ * 当前只增加共享内存头中记录的可用空间，使额外
+ * 部分可用于例如更多锁表项等用途。将来对非常大的
+ * 或可考虑更侵入的策略，例如增大 shared_buffers 来吸收
+ * 额外空间。
  *
- * Returns the (real, assumed or config provided) page size into
- * *hugepagesize, and the hugepage-related mmap flags to use into
- * *mmap_flags if requested by the caller.  If huge pages are not supported,
- * *hugepagesize and *mmap_flags are set to 0.
+ *
+ * 把（真实、假定或配置提供的）页大小返回到
+ * *hugepagesize，若调用方请求则把大页相关 mmap
+ * 标志返回到 *mmap_flags。若不支持大页，则
+ * *hugepagesize 与 *mmap_flags 设为 0。
  */
 void
 GetHugePageSize(Size *hugepagesize, int *mmap_flags)
@@ -484,10 +484,10 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 	int			mmap_flags_local = 0;
 
 	/*
-	 * System-dependent code to find out the default huge page size.
+	 * 查明默认大页大小的系统相关代码。
 	 *
-	 * On Linux, read /proc/meminfo looking for a line like "Hugepagesize:
-	 * nnnn kB".  Ignore any failures, falling back to the preset default.
+	 * 在 Linux 上读 /proc/meminfo，查找形如 "Hugepagesize:
+	 * nnnn kB" 的行。忽略任何失败，回退到预设默认。
 	 */
 #ifdef __linux__
 
@@ -508,7 +508,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 						default_hugepagesize = sz * (Size) 1024;
 						break;
 					}
-					/* We could accept other units besides kB, if needed */
+					/* 若需要也可接受 kB 以外的单位 */
 				}
 			}
 			FreeFile(fp);
@@ -518,23 +518,23 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 
 	if (huge_page_size != 0)
 	{
-		/* If huge page size is requested explicitly, use that. */
+		/* 若显式请求了大页大小，则用之。 */
 		hugepagesize_local = (Size) huge_page_size * 1024;
 	}
 	else if (default_hugepagesize != 0)
 	{
-		/* Otherwise use the system default, if we have it. */
+		/* 否则若有系统默认则用之。 */
 		hugepagesize_local = default_hugepagesize;
 	}
 	else
 	{
 		/*
-		 * If we fail to find out the system's default huge page size, or no
-		 * huge page size is requested explicitly, assume it is 2MB. This will
-		 * work fine when the actual size is less.  If it's more, we might get
-		 * mmap() or munmap() failures due to unaligned requests; but at this
-		 * writing, there are no reports of any non-Linux systems being picky
-		 * about that.
+		 * 若未能查明系统默认大页大小，或未显式请求
+		 * 大页大小，则假定为 2MB。实际更小时没问题。若
+		 * 更大，可能因未对齐导致 mmap()/munmap() 失败；但
+		 * 撰写时尚无非 Linux 系统对此挑剔的报告。
+		 *
+		 *
 		 */
 		hugepagesize_local = 2 * 1024 * 1024;
 	}
@@ -542,7 +542,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 	mmap_flags_local = MAP_HUGETLB;
 
 	/*
-	 * On recent enough Linux, also include the explicit page size, if
+	 * 在足够新的 Linux 上，若必要也含显式页大小。
 	 * necessary.
 	 */
 #if defined(MAP_HUGE_MASK) && defined(MAP_HUGE_SHIFT)
@@ -554,7 +554,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 	}
 #endif
 
-	/* assign the results found */
+	/* 赋以所得结果 */
 	if (mmap_flags)
 		*mmap_flags = mmap_flags_local;
 	if (hugepagesize)
@@ -571,13 +571,13 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 }
 
 /*
- * GUC check_hook for huge_page_size
+ * huge_page_size 的 GUC check_hook
  */
 bool
 check_huge_page_size(int *newval, void **extra, GucSource source)
 {
 #if !(defined(MAP_HUGE_MASK) && defined(MAP_HUGE_SHIFT))
-	/* Recent enough Linux only, for now.  See GetHugePageSize(). */
+	/* 目前仅足够新的 Linux。见 GetHugePageSize()。 */
 	if (*newval != 0)
 	{
 		GUC_check_errdetail("huge_page_size must be 0 on this platform.");
@@ -588,11 +588,11 @@ check_huge_page_size(int *newval, void **extra, GucSource source)
 }
 
 /*
- * Creates an anonymous mmap()ed shared memory segment.
+ * 创建匿名 mmap() 的共享内存段。
  *
- * Pass the requested size in *size.  This function will modify *size to the
- * actual size of the allocation, if it ends up allocating a segment that is
- * larger than requested.
+ * 在 *size 中传入请求大小。若最终分配大于请求，本函数
+ * 会把 *size 改为实际分配大小。
+ *
  */
 static void *
 CreateAnonymousSegment(Size *size)
@@ -602,13 +602,13 @@ CreateAnonymousSegment(Size *size)
 	int			mmap_errno = 0;
 
 #ifndef MAP_HUGETLB
-	/* PGSharedMemoryCreate should have dealt with this case */
+	/* PGSharedMemoryCreate 本应已处理此情形 */
 	Assert(huge_pages != HUGE_PAGES_ON);
 #else
 	if (huge_pages == HUGE_PAGES_ON || huge_pages == HUGE_PAGES_TRY)
 	{
 		/*
-		 * Round up the request size to a suitable large value.
+		 * 把请求大小向上取整到合适的较大值。
 		 */
 		Size		hugepagesize;
 		int			mmap_flags;
@@ -630,8 +630,8 @@ CreateAnonymousSegment(Size *size)
 	if (ptr == MAP_FAILED && huge_pages != HUGE_PAGES_ON)
 	{
 		/*
-		 * Use the original size, not the rounded-up value, when falling back
-		 * to non-huge pages.
+		 * 回退到非大页时用原始大小，非取整值。
+		 *
 		 */
 		allocsize = *size;
 		ptr = mmap(NULL, allocsize, PROT_READ | PROT_WRITE,
@@ -659,13 +659,13 @@ CreateAnonymousSegment(Size *size)
 }
 
 /*
- * AnonymousShmemDetach --- detach from an anonymous mmap'd block
- * (called as an on_shmem_exit callback, hence funny argument list)
+ * AnonymousShmemDetach --- 脱离匿名 mmap 块
+ * 注：作为 on_shmem_exit 回调，故参数列表古怪
  */
 static void
 AnonymousShmemDetach(int status, Datum arg)
 {
-	/* Release anonymous shared memory block, if any. */
+	/* 若有则释放匿名共享内存块。 */
 	if (AnonymousShmem != NULL)
 	{
 		if (munmap(AnonymousShmem, AnonymousShmemSize) < 0)
@@ -678,14 +678,14 @@ AnonymousShmemDetach(int status, Datum arg)
 /*
  * PGSharedMemoryCreate
  *
- * Create a shared memory segment of the given size and initialize its
- * standard header.  Also, register an on_shmem_exit callback to release
- * the storage.
+ * 创建给定大小的共享内存段并初始化其标准头。
+ * 并注册 on_shmem_exit 回调以释放存储。
  *
- * Dead Postgres segments pertinent to this DataDir are recycled if found, but
- * we do not fail upon collision with foreign shmem segments.  The idea here
- * is to detect and re-use keys that may have been assigned by a crashed
- * postmaster or backend.
+ *
+ * 若发现与本 DataDir 相关的已死 Postgres 段则回收，
+ * 但与外来共享内存段冲突时不失败。用意是检出并
+ * 重用可能由崩溃的 postmaster 或 backend 分配的键。
+ *
  */
 PGShmemHeader *
 PGSharedMemoryCreate(Size size,
@@ -698,9 +698,9 @@ PGSharedMemoryCreate(Size size,
 	Size		sysvsize;
 
 	/*
-	 * We use the data directory's ID info (inode and device numbers) to
-	 * positively identify shmem segments associated with this data dir, and
-	 * also as seeds for searching for a free shmem key.
+	 * 用数据目录的 ID 信息（inode 与设备号）来识别
+	 * 与本数据目录关联的共享内存段，并作为搜索空闲
+	 * 共享内存键的种子。
 	 */
 	if (stat(DataDir, &statbuf) < 0)
 		ereport(FATAL,
@@ -708,7 +708,7 @@ PGSharedMemoryCreate(Size size,
 				 errmsg("could not stat data directory \"%s\": %m",
 						DataDir)));
 
-	/* Complain if hugepages demanded but we can't possibly support them */
+	/* 若要求大页但完全无法支持则抱怨 */
 #if !defined(MAP_HUGETLB)
 	if (huge_pages == HUGE_PAGES_ON)
 		ereport(ERROR,
@@ -716,13 +716,13 @@ PGSharedMemoryCreate(Size size,
 				 errmsg("huge pages not supported on this platform")));
 #endif
 
-	/* For now, we don't support huge pages in SysV memory */
+	/* 目前 SysV 内存不支持大页 */
 	if (huge_pages == HUGE_PAGES_ON && shared_memory_type != SHMEM_TYPE_MMAP)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("huge pages not supported with the current shared_memory_type setting")));
 
-	/* Room for a header? */
+	/* 有头空间？ */
 	Assert(size > MAXALIGN(sizeof(PGShmemHeader)));
 
 	if (shared_memory_type == SHMEM_TYPE_MMAP)
@@ -730,20 +730,20 @@ PGSharedMemoryCreate(Size size,
 		AnonymousShmem = CreateAnonymousSegment(&size);
 		AnonymousShmemSize = size;
 
-		/* Register on-exit routine to unmap the anonymous segment */
+		/* 注册退出例程以取消映射匿名段 */
 		on_shmem_exit(AnonymousShmemDetach, (Datum) 0);
 
-		/* Now we need only allocate a minimal-sized SysV shmem block. */
+		/* 现在只需分配最小尺寸的 SysV 共享内存块。 */
 		sysvsize = sizeof(PGShmemHeader);
 	}
 	else
 		sysvsize = size;
 
 	/*
-	 * Loop till we find a free IPC key.  Trust CreateDataDirLockFile() to
-	 * ensure no more than one postmaster per data directory can enter this
-	 * loop simultaneously.  (CreateDataDirLockFile() does not entirely ensure
-	 * that, but prefer fixing it over coping here.)
+	 * 循环直至找到空闲 IPC 键。信任 CreateDataDirLockFile()
+	 * 确保每个数据目录最多一个 postmaster 能同时进入此
+	 * 循环。（CreateDataDirLockFile() 并未完全保证如此，
+	 * 但宁可修它也不在此凑合。）
 	 */
 	NextShmemSegID = statbuf.st_ino;
 
@@ -753,17 +753,17 @@ PGSharedMemoryCreate(Size size,
 		PGShmemHeader *oldhdr;
 		IpcMemoryState state;
 
-		/* Try to create new segment */
+		/* 尝试创建新段 */
 		memAddress = InternalIpcMemoryCreate(NextShmemSegID, sysvsize);
 		if (memAddress)
-			break;				/* successful create and attach */
+			break;				/* 创建并附着成功 */
 
-		/* Check shared memory and possibly remove and recreate */
+		/* 检查共享内存，可能移除并重建 */
 
 		/*
-		 * shmget() failure is typically EACCES, hence SHMSTATE_FOREIGN.
-		 * ENOENT, a narrow possibility, implies SHMSTATE_ENOENT, but one can
-		 * safely treat SHMSTATE_ENOENT like SHMSTATE_FOREIGN.
+		 * shmget() 失败通常是 EACCES，故为 SHMSTATE_FOREIGN。
+		 * ENOENT（窄可能）意味着 SHMSTATE_ENOENT，但可安全
+		 * 把 SHMSTATE_ENOENT 当作 SHMSTATE_FOREIGN。
 		 */
 		shmid = shmget(NextShmemSegID, sizeof(PGShmemHeader), 0);
 		if (shmid < 0)
@@ -789,9 +789,9 @@ PGSharedMemoryCreate(Size size,
 			case SHMSTATE_ENOENT:
 
 				/*
-				 * To our surprise, some other process deleted since our last
-				 * InternalIpcMemoryCreate().  Moments earlier, we would have
-				 * seen SHMSTATE_FOREIGN.  Try that same ID again.
+				 * 出乎意料，自上次 InternalIpcMemoryCreate()
+				 * 以来另有进程已删除。片刻前本会看见
+				 * SHMSTATE_FOREIGN。再试同一 ID。
 				 */
 				elog(LOG,
 					 "shared memory block (key %lu, ID %lu) deleted during startup",
@@ -804,14 +804,14 @@ PGSharedMemoryCreate(Size size,
 			case SHMSTATE_UNATTACHED:
 
 				/*
-				 * The segment pertains to DataDir, and every process that had
-				 * used it has died or detached.  Zap it, if possible, and any
-				 * associated dynamic shared memory segments, as well.  This
-				 * shouldn't fail, but if it does, assume the segment belongs
-				 * to someone else after all, and try the next candidate.
-				 * Otherwise, try again to create the segment.  That may fail
-				 * if some other process creates the same shmem key before we
-				 * do, in which case we'll try the next key.
+				 * 该段属 DataDir，曾用它的进程都已死或脱离。
+				 * 尽可能干掉它及关联动态共享内存段。不该
+				 * 失败；若失败则假定属别人，试下一候选。
+				 * 否则再试创建。若其他进程抢先用同一键
+				 * 创建，则可能失败，那时试下一键。
+				 *
+				 *
+				 *
 				 */
 				if (oldhdr->dsm_control != 0)
 					dsm_cleanup_using_control_segment(oldhdr->dsm_control);
@@ -824,32 +824,32 @@ PGSharedMemoryCreate(Size size,
 			elog(LOG, "shmdt(%p) failed: %m", oldhdr);
 	}
 
-	/* Initialize new segment. */
+	/* 初始化新段。 */
 	hdr = (PGShmemHeader *) memAddress;
 	hdr->creatorPID = getpid();
 	hdr->magic = PGShmemMagic;
 	hdr->dsm_control = 0;
 
-	/* Fill in the data directory ID info, too */
+	/* 也填入数据目录 ID 信息 */
 	hdr->device = statbuf.st_dev;
 	hdr->inode = statbuf.st_ino;
 
 	/*
-	 * Initialize space allocation status for segment.
+	 * 初始化该段的空间分配状态。
 	 */
 	hdr->totalsize = size;
 	hdr->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
 	*shim = hdr;
 
-	/* Save info for possible future use */
+	/* 保存信息以备将来使用 */
 	UsedShmemSegAddr = memAddress;
 	UsedShmemSegID = (unsigned long) NextShmemSegID;
 
 	/*
-	 * If AnonymousShmem is NULL here, then we're not using anonymous shared
-	 * memory, and should return a pointer to the System V shared memory
-	 * block. Otherwise, the System V shared memory block is only a shim, and
-	 * we must return a pointer to the real block.
+	 * 若此处 AnonymousShmem 为 NULL，则未用匿名共享
+	 * 内存，应返回指向 System V 共享内存块的指针。
+	 * 否则 System V 块只是垫片，须返回真正块指针。
+	 *
 	 */
 	if (AnonymousShmem == NULL)
 		return hdr;
@@ -862,14 +862,14 @@ PGSharedMemoryCreate(Size size,
 /*
  * PGSharedMemoryReAttach
  *
- * This is called during startup of a postmaster child process to re-attach to
- * an already existing shared memory segment.  This is needed only in the
- * EXEC_BACKEND case; otherwise postmaster children inherit the shared memory
- * segment attachment via fork().
+ * 在 postmaster 子进程启动时调用，以重新附着已有共享内存
+ * 段。仅 EXEC_BACKEND 情形需要；否则 postmaster 子进程经
+ * fork() 继承共享内存段附着。
  *
- * UsedShmemSegID and UsedShmemSegAddr are implicit parameters to this
- * routine.  The caller must have already restored them to the postmaster's
- * values.
+ *
+ * UsedShmemSegID 与 UsedShmemSegAddr 是本例程隐式参数。
+ * 调用方须已把它们恢复为 postmaster 的值。
+ *
  */
 void
 PGSharedMemoryReAttach(void)
@@ -883,7 +883,7 @@ PGSharedMemoryReAttach(void)
 	Assert(IsUnderPostmaster);
 
 #ifdef __CYGWIN__
-	/* cygipc (currently) appears to not detach on exec. */
+	/* cygipc（目前）似乎在 exec 时不脱离。 */
 	PGSharedMemoryDetach();
 	UsedShmemSegAddr = origUsedShmemSegAddr;
 #endif
@@ -902,23 +902,23 @@ PGSharedMemoryReAttach(void)
 			 hdr, origUsedShmemSegAddr);
 	dsm_set_control_handle(hdr->dsm_control);
 
-	UsedShmemSegAddr = hdr;		/* probably redundant */
+	UsedShmemSegAddr = hdr;		/* 大概多余 */
 }
 
 /*
  * PGSharedMemoryNoReAttach
  *
- * This is called during startup of a postmaster child process when we choose
- * *not* to re-attach to the existing shared memory segment.  We must clean up
- * to leave things in the appropriate state.  This is not used in the non
- * EXEC_BACKEND case, either.
+ * 在 postmaster 子进程启动时，当选择 *不* 重新附着
+ * 已有共享内存段时调用。须清理以使状态正确。非
+ * EXEC_BACKEND 情形也不使用。
  *
- * The child process startup logic might or might not call PGSharedMemoryDetach
- * after this; make sure that it will be a no-op if called.
  *
- * UsedShmemSegID and UsedShmemSegAddr are implicit parameters to this
- * routine.  The caller must have already restored them to the postmaster's
- * values.
+ * 子进程启动逻辑此后或会调用 PGSharedMemoryDetach；
+ * 确保若调用则是空操作。
+ *
+ * UsedShmemSegID 与 UsedShmemSegAddr 是本例程隐式参数。
+ * 调用方须已把它们恢复为 postmaster 的值。
+ *
  */
 void
 PGSharedMemoryNoReAttach(void)
@@ -927,13 +927,13 @@ PGSharedMemoryNoReAttach(void)
 	Assert(IsUnderPostmaster);
 
 #ifdef __CYGWIN__
-	/* cygipc (currently) appears to not detach on exec. */
+	/* cygipc（目前）似乎在 exec 时不脱离。 */
 	PGSharedMemoryDetach();
 #endif
 
-	/* For cleanliness, reset UsedShmemSegAddr to show we're not attached. */
+	/* 为整洁起见，复位 UsedShmemSegAddr 以示未附着。 */
 	UsedShmemSegAddr = NULL;
-	/* And the same for UsedShmemSegID. */
+	/* UsedShmemSegID 同样处理。 */
 	UsedShmemSegID = 0;
 }
 
@@ -942,14 +942,14 @@ PGSharedMemoryNoReAttach(void)
 /*
  * PGSharedMemoryDetach
  *
- * Detach from the shared memory segment, if still attached.  This is not
- * intended to be called explicitly by the process that originally created the
- * segment (it will have on_shmem_exit callback(s) registered to do that).
- * Rather, this is for subprocesses that have inherited an attachment and want
- * to get rid of it.
+ * 若仍附着则脱离共享内存段。本意不是由原先创建
+ * 该段的进程显式调用（它会注册 on_shmem_exit 回调）。
+ * 而是给继承了附着并想去掉它的子进程用。
  *
- * UsedShmemSegID and UsedShmemSegAddr are implicit parameters to this
- * routine, also AnonymousShmem and AnonymousShmemSize.
+ *
+ *
+ * UsedShmemSegID 与 UsedShmemSegAddr 是本例程隐式参数，
+ * 另有 AnonymousShmem 与 AnonymousShmemSize。
  */
 void
 PGSharedMemoryDetach(void)
@@ -958,7 +958,7 @@ PGSharedMemoryDetach(void)
 	{
 		if ((shmdt(UsedShmemSegAddr) < 0)
 #if defined(EXEC_BACKEND) && defined(__CYGWIN__)
-		/* Work-around for cygipc exec bug */
+		/* cygipc 执行缺陷的变通 */
 			&& shmdt(NULL) < 0
 #endif
 			)

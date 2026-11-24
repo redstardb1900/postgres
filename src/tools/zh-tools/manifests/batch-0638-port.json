@@ -1,0 +1,244 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0638",
+ "title": "backend/port 信号量/共享内存/win32 — batch 0638",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "862c2135c8de995e787cdc60b0ea36885c6f4c7b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0638 next→jit"
+  },
+  {
+   "pattern": "src/backend/port/atomics.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/posix_sema.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/sysv_sema.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/sysv_shmem.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32_sema.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32_shmem.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/crashdump.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/signal.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/socket.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/backend/port/win32/timer.c",
+   "kind": "c_comment",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0638-port.json",
+   "kind": "manifest",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0638"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0638 halfen KEEP"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→jit"
+  },
+  {
+   "path": "src/backend/port/atomics.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 13,
+   "preserved": 3,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/posix_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 39,
+   "preserved": 2,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/sysv_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 71,
+   "translated": 67,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/sysv_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 84,
+   "preserved": 12,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP",
+    "Hugepagesize/nnnn kB 格式样例 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/win32_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/win32_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 49,
+   "translated": 46,
+   "preserved": 3,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/win32/crashdump.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0638 port；typedef enum 片段 KEEP"
+  },
+  {
+   "path": "src/backend/port/win32/signal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 33,
+   "preserved": 2,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/win32/socket.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 38,
+   "preserved": 1,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP",
+    "const void 签名字面量 KEEP"
+   ],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/backend/port/win32/timer.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 11,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0638 port"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0638-port.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 0,
+   "preserved": 3,
+   "preserved_reasons": [
+    "Hugepagesize/nnnn kB 格式样例 KEEP",
+    "MS SDK typedef enum 片段 KEEP",
+    "SUS const void 签名字面量 KEEP"
+   ],
+   "note": "3 exemptions"
+  }
+ ],
+ "notes": "port/ 10 .c 注释（信号量、共享内存、win32 crashdump/signal/socket/timer）；英文残行已清空；halfen KEEP 三处字面量"
+}

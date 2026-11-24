@@ -1,31 +1,31 @@
 /*-------------------------------------------------------------------------
  *
  * crashdump.c
- *		   Automatic crash dump creation for PostgreSQL on Windows
+ *		   Windows 上 PostgreSQL 的自动崩溃转储
  *
- * The crashdump feature traps unhandled win32 exceptions produced by the
- * backend, and tries to produce a Windows MiniDump crash
- * dump for later debugging and analysis. The machine performing the dump
- * doesn't need any special debugging tools; the user only needs to send
- * the dump to somebody who has the same version of PostgreSQL and has debugging
+ * 崩溃转储功能捕获 backend 产生的未处理 win32 异常，
+ * 并尝试生成 Windows MiniDump 崩溃
+ * 转储供日后调试分析。执行转储的机器
+ * 无需特殊调试工具；用户只需把转储发给
+ * 持有同版本 PostgreSQL 且具备调试工具的人。
  * tools.
  *
  * crashdump module originally by Craig Ringer <ringerc@ringerc.id.au>
  *
  * LIMITATIONS
  * ===========
- * This *won't* work in hard OOM situations or stack overflows.
+ * 硬性 OOM 或栈溢出时*不能*工作。
  *
- * For those, it'd be necessary to take a much more complicated approach where
- * the handler switches to a new stack (if it can) and forks a helper process
+ * 那种情况须用更复杂做法：处理函数（若可能）切到
+ * 新栈并 fork 辅助进程来调试自身。
  * to debug it self.
  *
  * POSSIBLE FUTURE WORK
  * ====================
- * For bonus points, the crash dump format permits embedding of user-supplied
- * data. If there's anything else that should always be supplied with a crash
- * dump (postgresql.conf? Last few lines of a log file?), it could potentially
- * be added, though at the cost of a greater chance of the crash dump failing.
+ * 额外加分项：崩溃转储格式允许嵌入用户提供的
+ * 数据。若还有总应随转储附带的内容
+ * 如 postgresql.conf 或日志末几行，或可加入，
+ * 但代价是转储失败的几率更大。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -39,11 +39,11 @@
 #include "postgres.h"
 
 /*
- * Some versions of the MS SDK contain "typedef enum { ... } ;" which the MS
- * compiler quite sanely complains about. Well done, Microsoft.
- * This pragma disables the warning just while we include the header.
- * The pragma is known to work with all (as at the time of writing) supported
- * versions of MSVC.
+ * 某些版本的 MS SDK 含 "typedef enum { ... } ;"，MS
+ * 编译器对此会合理抱怨。干得好，Microsoft。
+ * 本 pragma 仅在包含该头时禁用该警告。
+ * 据撰写时所知，该 pragma 适用于全部受支持的
+ *
  */
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -55,16 +55,16 @@
 #endif
 
 /*
- * Much of the following code is based on CodeProject and MSDN examples,
+ * 以下代码多基于 CodeProject 与 MSDN 示例，
  * particularly
  * http://www.codeproject.com/KB/debug/postmortemdebug_standalone1.aspx
  *
- * Useful MSDN articles:
+ * 有用 MSDN 文章：
  *
  * http://msdn.microsoft.com/en-us/library/ff805116(v=VS.85).aspx
  * http://msdn.microsoft.com/en-us/library/ms679294(VS.85).aspx
  *
- * Other useful articles on working with minidumps:
+ * 其他关于 minidump 的有用文章：
  * http://www.debuginfo.com/articles/effminidumps.html
  */
 
@@ -76,28 +76,28 @@ typedef BOOL (WINAPI * MINIDUMPWRITEDUMP) (HANDLE hProcess, DWORD dwPid, HANDLE 
 
 
 /*
- * This function is the exception handler passed to SetUnhandledExceptionFilter.
- * It's invoked only if there's an unhandled exception. The handler will use
- * dbghelp.dll to generate a crash dump, then resume the normal unhandled
- * exception process, which will generally exit with an error message from
- * the runtime.
+ * 本函数是传给 SetUnhandledExceptionFilter 的异常处理函数。
+ * 仅在有未处理异常时调用。处理函数将用
+ * dbghelp.dll 生成崩溃转储，然后恢复正常的未处理
+ * 异常流程，通常以运行时错误消息退出。
  *
- * This function is run under the unhandled exception handler, effectively
- * in a crash context, so it should be careful with memory and avoid using
- * any PostgreSQL functions.
+ *
+ * 本函数在未处理异常处理函数下运行，实质处于
+ * 崩溃语境，故应谨慎用内存并避免调用任何
+ * PostgreSQL 函数。
  */
 static LONG WINAPI
 crashDumpHandler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 {
 	/*
-	 * We only write crash dumps if the "crashdumps" directory within the
-	 * postgres data directory exists.
+	 * 仅当 postgres 数据目录内存在 "crashdumps"
+	 * 目录时才写崩溃转储。
 	 */
 	DWORD		attribs = GetFileAttributesA("crashdumps");
 
 	if (attribs != INVALID_FILE_ATTRIBUTES && (attribs & FILE_ATTRIBUTE_DIRECTORY))
 	{
-		/* 'crashdumps' exists and is a directory. Try to write a dump' */
+		/* crashdumps 存在且为目录。尝试写转储 */
 		HMODULE		hDll = NULL;
 		MINIDUMPWRITEDUMP pDump = NULL;
 		MINIDUMP_TYPE dumpType;
@@ -112,7 +112,7 @@ crashDumpHandler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 		ExInfo.ExceptionPointers = pExceptionInfo;
 		ExInfo.ClientPointers = FALSE;
 
-		/* Load the dbghelp.dll library and functions */
+		/* 加载 dbghelp.dll 库及函数 */
 		hDll = LoadLibrary("dbghelp.dll");
 		if (hDll == NULL)
 		{
@@ -129,9 +129,9 @@ crashDumpHandler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 		}
 
 		/*
-		 * Dump as much as we can, except shared memory, code segments, and
-		 * memory mapped files. Exactly what we can dump depends on the
-		 * version of dbghelp.dll, see:
+		 * 尽量多转储，但排除共享内存、代码段与
+		 * 内存映射文件。具体能转储什么取决于
+		 * dbghelp.dll 版本，见：
 		 * http://msdn.microsoft.com/en-us/library/ms680519(v=VS.85).aspx
 		 */
 		dumpType = MiniDumpNormal | MiniDumpWithHandleData |
@@ -139,7 +139,7 @@ crashDumpHandler(struct _EXCEPTION_POINTERS *pExceptionInfo)
 
 		if (GetProcAddress(hDll, "EnumDirTree") != NULL)
 		{
-			/* If this function exists, we have version 5.2 or newer */
+			/* 若此函数存在，则版本为 5.2 或更新 */
 			dumpType |= MiniDumpWithIndirectlyReferencedMemory |
 				MiniDumpWithPrivateReadWriteMemory;
 		}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * socket.c
- *	  Microsoft Windows Win32 Socket Functions
+ *	  Microsoft Windows Win32 套接字函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -14,20 +14,20 @@
 #include "postgres.h"
 
 /*
- * Indicate if pgwin32_recv() and pgwin32_send() should operate
- * in non-blocking mode.
+ * 指示 pgwin32_recv() 与 pgwin32_send() 是否应
+ * 非阻塞模式。
  *
- * Since the socket emulation layer always sets the actual socket to
- * non-blocking mode in order to be able to deliver signals, we must
- * specify this in a separate flag if we actually need non-blocking
+ * 套接字仿真层总把实际套接字设为非阻塞以便
+ * 投递信号，若确需非阻塞操作，须用单独标志
+ * 指明。
  * operation.
  *
- * This flag changes the behaviour *globally* for all socket operations,
- * so it should only be set for very short periods of time.
+ * 此标志*全局*改变所有套接字操作的行为，
+ * 故只应设极短时间。
  */
 int			pgwin32_noblock = 0;
 
-/* Undef the macros defined in win32.h, so we can access system functions */
+/* 取消 win32.h 中定义的宏，以便访问系统函数 */
 #undef socket
 #undef bind
 #undef listen
@@ -38,19 +38,19 @@ int			pgwin32_noblock = 0;
 #undef send
 
 /*
- * Blocking socket functions implemented so they listen on both
- * the socket and the signal event, required for signal handling.
+ * 阻塞套接字函数实现为同时监听套接字与
+ * 信号事件，信号处理需要如此。
  */
 
 /*
- * Convert the last socket error code into errno
+ * 把最后的套接字错误码转为 errno
  *
- * Note: where there is a direct correspondence between a WSAxxx error code
- * and a Berkeley error symbol, this mapping is actually a no-op, because
- * in win32_port.h we redefine the network-related Berkeley error symbols to
- * have the values of their WSAxxx counterparts.  The point of the switch is
- * mostly to translate near-miss error codes into something that's sensible
- * in the Berkeley universe.
+ * 注意：若 WSAxxx 错误码与 Berkeley 错误符号有直接
+ * 对应，此映射实际为空操作，因在 win32_port.h 中
+ * 我们把网络相关 Berkeley 错误符号重定义为
+ * 其 WSAxxx 对应值。switch 的要点主要是把
+ * 近似错误码翻译成 Berkeley 体系中说得通的
+ * 形式。
  */
 static void
 TranslateSocketError(void)
@@ -186,7 +186,7 @@ pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout)
 	HANDLE		events[2];
 	int			r;
 
-	/* Create an event object just once and use it on all future calls */
+	/* 事件对象只创建一次，此后调用都复用 */
 	if (waitevent == INVALID_HANDLE_VALUE)
 	{
 		waitevent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -200,18 +200,18 @@ pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout)
 				(errmsg_internal("could not reset socket waiting event: error code %lu", GetLastError())));
 
 	/*
-	 * Track whether socket is UDP or not.  (NB: most likely, this is both
-	 * useless and wrong; there is no reason to think that the behavior of
-	 * WSAEventSelect is different for TCP and UDP.)
+	 * 跟踪套接字是否为 UDP。（注意：这多半既无用
+	 * 又错误；没有理由认为 WSAEventSelect 对 TCP
+	 * 与 UDP 行为不同。
 	 */
 	if (current_socket != s)
 		isUDP = isDataGram(s);
 	current_socket = s;
 
 	/*
-	 * Attach event to socket.  NOTE: we must detach it again before
-	 * returning, since other bits of code may try to attach other events to
-	 * the socket.
+	 * 附事件到套接字。注意：返回前必须再卸下，
+	 * 因其他代码可能把别的事件附到该套接字。
+	 *
 	 */
 	if (WSAEventSelect(s, waitevent, what) != 0)
 	{
@@ -223,11 +223,11 @@ pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout)
 	events[1] = waitevent;
 
 	/*
-	 * Just a workaround of unknown locking problem with writing in UDP socket
-	 * under high load: Client's pgsql backend sleeps infinitely in
-	 * WaitForMultipleObjectsEx, pgstat process sleeps in pgwin32_select().
-	 * So, we will wait with small timeout(0.1 sec) and if socket is still
-	 * blocked, try WSASend (see comments in pgwin32_select) and wait again.
+	 * 高负载下写 UDP 套接字时未知锁问题的变通：
+	 * 客户端 pgsql 后端在 WaitForMultipleObjectsEx
+	 * 中无限睡眠，pgstat 进程在 pgwin32_select() 中睡眠。
+	 * 因此用短超时（0.1 秒）等待；若套接字仍阻塞，
+	 * 试 WSASend（见 pgwin32_select 注释）再等。
 	 */
 	if ((what & FD_WRITE) && isUDP)
 	{
@@ -245,7 +245,7 @@ pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout)
 				buf.len = 0;
 
 				r = WSASend(s, &buf, 1, &sent, 0, NULL, NULL);
-				if (r == 0)		/* Completed - means things are fine! */
+				if (r == 0)		/* 已完成——表示正常！ */
 				{
 					WSAEventSelect(s, NULL, 0);
 					return 1;
@@ -285,7 +285,7 @@ pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout)
 }
 
 /*
- * Create a socket, setting it to overlapped and non-blocking
+ * 创建套接字，设为重叠且非阻塞
  */
 SOCKET
 pgwin32_socket(int af, int type, int protocol)
@@ -339,8 +339,8 @@ pgwin32_accept(SOCKET s, struct sockaddr *addr, int *addrlen)
 	SOCKET		rs;
 
 	/*
-	 * Poll for signals, but don't return with EINTR, since we don't handle
-	 * that in pqcomm.c
+	 * 轮询信号，但不以 EINTR 返回，因 pqcomm.c
+	 * 不处理它
 	 */
 	pgwin32_poll_signals();
 
@@ -354,7 +354,7 @@ pgwin32_accept(SOCKET s, struct sockaddr *addr, int *addrlen)
 }
 
 
-/* No signal delivery during connect. */
+/* connect 期间不投递信号。 */
 int
 pgwin32_connect(SOCKET s, const struct sockaddr *addr, int addrlen)
 {
@@ -372,7 +372,7 @@ pgwin32_connect(SOCKET s, const struct sockaddr *addr, int addrlen)
 
 	while (pgwin32_waitforsinglesocket(s, FD_CONNECT, INFINITE) == 0)
 	{
-		/* Loop endlessly as long as we are just delivering signals */
+		/* 只要只是在投递信号就无限循环 */
 	}
 
 	return 0;
@@ -395,7 +395,7 @@ pgwin32_recv(SOCKET s, char *buf, int len, int f)
 
 	r = WSARecv(s, &wbuf, 1, &b, &flags, NULL, NULL);
 	if (r != SOCKET_ERROR)
-		return b;				/* success */
+		return b;				/* 成功 */
 
 	if (WSAGetLastError() != WSAEWOULDBLOCK)
 	{
@@ -406,24 +406,24 @@ pgwin32_recv(SOCKET s, char *buf, int len, int f)
 	if (pgwin32_noblock)
 	{
 		/*
-		 * No data received, and we are in "emulated non-blocking mode", so
-		 * return indicating that we'd block if we were to continue.
+		 * 未收到数据，且处于"仿真非阻塞模式"，故
+		 * 返回表示若继续则会阻塞。
 		 */
 		errno = EWOULDBLOCK;
 		return -1;
 	}
 
-	/* We're in blocking mode, so wait for data */
+	/* 阻塞模式，故等待数据 */
 
 	for (n = 0; n < 5; n++)
 	{
 		if (pgwin32_waitforsinglesocket(s, FD_READ | FD_CLOSE | FD_ACCEPT,
 										INFINITE) == 0)
-			return -1;			/* errno already set */
+			return -1;			/* errno 已设置 */
 
 		r = WSARecv(s, &wbuf, 1, &b, &flags, NULL, NULL);
 		if (r != SOCKET_ERROR)
-			return b;			/* success */
+			return b;			/* 成功 */
 		if (WSAGetLastError() != WSAEWOULDBLOCK)
 		{
 			TranslateSocketError();
@@ -431,11 +431,11 @@ pgwin32_recv(SOCKET s, char *buf, int len, int f)
 		}
 
 		/*
-		 * There seem to be cases on win2k (at least) where WSARecv can return
-		 * WSAEWOULDBLOCK even when pgwin32_waitforsinglesocket claims the
-		 * socket is readable.  In this case, just sleep for a moment and try
-		 * again.  We try up to 5 times - if it fails more than that it's not
-		 * likely to ever come back.
+		 * 至少在 win2k 上，即便 pgwin32_waitforsinglesocket
+		 * 声称套接字可读，WSARecv 仍可能返回
+		 * WSAEWOULDBLOCK。此时稍睡片刻再试。
+		 * 最多试 5 次——失败更多则不太可能再
+		 * 恢复。
 		 */
 		pg_usleep(10000);
 	}
@@ -446,13 +446,13 @@ pgwin32_recv(SOCKET s, char *buf, int len, int f)
 }
 
 /*
- * The second argument to send() is defined by SUS to be a "const void *"
- * and so we use the same signature here to keep compilers happy when
- * handling callers.
+ * SUS 把 send() 第二参定义为 "const void *"，
+ * 此处用相同签名，以便处理调用方时编译器
+ * 保持安静。
  *
- * But the buf member of a WSABUF struct is defined as "char *", so we cast
- * the second argument to that here when assigning it, also to keep compilers
- * happy.
+ * 但 WSABUF 的 buf 成员定义为 "char *"，故赋值时
+ * 把第二参转成该类型，同样为让编译器安静。
+ *
  */
 
 int
@@ -469,14 +469,14 @@ pgwin32_send(SOCKET s, const void *buf, int len, int flags)
 	wbuf.buf = (char *) buf;
 
 	/*
-	 * Readiness of socket to send data to UDP socket may be not true: socket
-	 * can become busy again! So loop until send or error occurs.
+	 * UDP 套接字可发送的就绪可能不真：套接字可能
+	 * 又变忙！故循环直至发送成功或出错。
 	 */
 	for (;;)
 	{
 		r = WSASend(s, &wbuf, 1, &b, flags, NULL, NULL);
 		if (r != SOCKET_ERROR && b > 0)
-			/* Write succeeded right away */
+			/* 写入立刻成功 */
 			return b;
 
 		if (r == SOCKET_ERROR &&
@@ -489,14 +489,14 @@ pgwin32_send(SOCKET s, const void *buf, int len, int flags)
 		if (pgwin32_noblock)
 		{
 			/*
-			 * No data sent, and we are in "emulated non-blocking mode", so
-			 * return indicating that we'd block if we were to continue.
+			 * 未发送数据，且处于"仿真非阻塞模式"，故
+			 * 返回表示若继续则会阻塞。
 			 */
 			errno = EWOULDBLOCK;
 			return -1;
 		}
 
-		/* No error, zero bytes */
+		/* 无错，零字节 */
 
 		if (pgwin32_waitforsinglesocket(s, FD_WRITE | FD_CLOSE, INFINITE) == 0)
 			return -1;
@@ -507,11 +507,11 @@ pgwin32_send(SOCKET s, const void *buf, int len, int flags)
 
 
 /*
- * Wait for activity on one or more sockets.
- * While waiting, allow signals to run
+ * 等待一个或多个套接字活动。
+ * 等待时允许信号运行
  *
- * NOTE! Currently does not implement exceptfds check,
- * since it is not used in postgresql!
+ * 注意！当前未实现 exceptfds 检查，
+ * 因 postgresql 未使用它！
  */
 int
 pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timeval *timeout)
@@ -537,14 +537,14 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 	FD_ZERO(&outwritefds);
 
 	/*
-	 * Windows does not guarantee to log an FD_WRITE network event indicating
-	 * that more data can be sent unless the previous send() failed with
-	 * WSAEWOULDBLOCK.  While our caller might well have made such a call, we
-	 * cannot assume that here.  Therefore, if waiting for write-ready, force
-	 * the issue by doing a dummy send().  If the dummy send() succeeds,
-	 * assume that the socket is in fact write-ready, and return immediately.
-	 * Also, if it fails with something other than WSAEWOULDBLOCK, return a
-	 * write-ready indication to let our caller deal with the error condition.
+	 * Windows 不保证记录 FD_WRITE 网络事件以表示
+	 * 可再发送，除非先前 send() 以 WSAEWOULDBLOCK
+	 * 失败。调用方或许做过这种调用，但此处不能
+	 * 假定。因此若等待写就绪，用哑 send() 强制。
+	 * 若哑 send() 成功，则假定套接字确实写就绪并
+	 * 立即返回。若失败且原因不是 WSAEWOULDBLOCK，
+	 * 也返回写就绪指示，让调用方处理该
+	 * 错误条件。
 	 */
 	if (writefds != NULL)
 	{
@@ -562,7 +562,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 				FD_SET(writefds->fd_array[i], &outwritefds);
 		}
 
-		/* If we found any write-ready sockets, just return them immediately */
+		/* 若找到任何写就绪套接字，立即返回它们 */
 		if (outwritefds.fd_count > 0)
 		{
 			memcpy(writefds, &outwritefds, sizeof(fd_set));
@@ -573,11 +573,11 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 	}
 
 
-	/* Now set up for an actual select */
+	/* 现在设置实际的 select */
 
 	if (timeout != NULL)
 	{
-		/* timeoutval is in milliseconds */
+		/* timeoutval 以毫秒计 */
 		timeoutval = timeout->tv_sec * 1000 + timeout->tv_usec / 1000;
 	}
 
@@ -597,7 +597,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 			if (!readfds ||
 				!FD_ISSET(writefds->fd_array[i], readfds))
 			{
-				/* If the socket is not in the read list */
+				/* 若套接字不在读列表中 */
 				events[numevents] = WSACreateEvent();
 				sockets[numevents] = writefds->fd_array[i];
 				numevents++;
@@ -618,7 +618,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 		if (WSAEventSelect(sockets[i], events[i], flags) != 0)
 		{
 			TranslateSocketError();
-			/* release already-assigned event objects */
+			/* 释放已分配的事件对象 */
 			while (--i >= 0)
 				WSAEventSelect(sockets[i], NULL, 0);
 			for (i = 0; i < numevents; i++)
@@ -632,8 +632,8 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 	if (r != WAIT_TIMEOUT && r != WAIT_IO_COMPLETION && r != (WAIT_OBJECT_0 + numevents))
 	{
 		/*
-		 * We scan all events, even those not signaled, in case more than one
-		 * event has been tagged but Wait.. can only return one.
+		 * 扫描全部事件，包括未发信号的，以防多个
+		 * 事件已标记而 Wait.. 只能返回一个。
 		 */
 		WSANETWORKEVENTS resEvents;
 
@@ -643,7 +643,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 			if (WSAEnumNetworkEvents(sockets[i], events[i], &resEvents) != 0)
 				elog(ERROR, "failed to enumerate network events: error code %d",
 					 WSAGetLastError());
-			/* Read activity? */
+			/* 读活动？ */
 			if (readfds && FD_ISSET(sockets[i], readfds))
 			{
 				if ((resEvents.lNetworkEvents & FD_READ) ||
@@ -655,7 +655,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 					nummatches++;
 				}
 			}
-			/* Write activity? */
+			/* 写活动？ */
 			if (writefds && FD_ISSET(sockets[i], writefds))
 			{
 				if ((resEvents.lNetworkEvents & FD_WRITE) ||
@@ -669,7 +669,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 		}
 	}
 
-	/* Clean up all the event objects */
+	/* 清理全部事件对象 */
 	for (i = 0; i < numevents; i++)
 	{
 		WSAEventSelect(sockets[i], NULL, 0);
@@ -685,7 +685,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 		return 0;
 	}
 
-	/* Signal-like events. */
+	/* 类信号事件。 */
 	if (r == WAIT_OBJECT_0 + numevents || r == WAIT_IO_COMPLETION)
 	{
 		pgwin32_dispatch_queued_signals();
@@ -697,7 +697,7 @@ pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, c
 		return -1;
 	}
 
-	/* Overwrite socket sets with our resulting values */
+	/* 用结果值覆盖套接字集合 */
 	if (readfds)
 		memcpy(readfds, &outreadfds, sizeof(fd_set));
 	if (writefds)

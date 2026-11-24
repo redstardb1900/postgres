@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * signal.c
- *	  Microsoft Windows Win32 Signal Emulation Functions
+ *	  Microsoft Windows Win32 信号仿真函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -16,10 +16,10 @@
 #include "libpq/pqsignal.h"
 
 /*
- * These are exported for use by the UNBLOCKED_SIGNAL_QUEUE() macro.
- * pg_signal_queue must be volatile since it is changed by the signal
- * handling thread and inspected without any lock by the main thread.
- * pg_signal_mask is only changed by main thread so shouldn't need it.
+ * 这些由 UNBLOCKED_SIGNAL_QUEUE() 宏导出使用。
+ * pg_signal_queue 须为 volatile，因信号线程会改它，
+ * 主线程不加锁检查。pg_signal_mask 仅由主线程
+ * 修改，故不必 volatile。
  */
 volatile int pg_signal_queue;
 int			pg_signal_mask;
@@ -28,26 +28,26 @@ HANDLE		pgwin32_signal_event;
 HANDLE		pgwin32_initial_signal_pipe = INVALID_HANDLE_VALUE;
 
 /*
- * pg_signal_crit_sec is used to protect only pg_signal_queue. That is the only
- * variable that can be accessed from the signal sending threads!
+ * pg_signal_crit_sec 仅保护 pg_signal_queue。那是发信号
+ * 线程唯一可访问的变量！
  */
 static CRITICAL_SECTION pg_signal_crit_sec;
 
-/* Note that array elements 0 are unused since they correspond to signal 0 */
+/* 注意下标 0 未用，因其对应信号 0 */
 static struct sigaction pg_signal_array[PG_SIGNAL_COUNT];
 static pqsigfunc pg_signal_defaults[PG_SIGNAL_COUNT];
 
 
-/* Signal handling thread functions */
+/* 信号处理线程函数 */
 static DWORD WINAPI pg_signal_thread(LPVOID param);
 static BOOL WINAPI pg_console_handler(DWORD dwCtrlType);
 
 
 /*
- * pg_usleep --- delay the specified number of microseconds, but
- * stop waiting if a signal arrives.
+ * pg_usleep --- 延迟指定微秒数，但若有信号到达
+ * 则停止等待。
  *
- * This replaces the non-signal-aware version provided by src/port/pgsleep.c.
+ * 取代 src/port/pgsleep.c 提供的非信号感知版本。
  */
 void
 pg_usleep(long microsec)
@@ -55,9 +55,9 @@ pg_usleep(long microsec)
 	if (unlikely(pgwin32_signal_event == NULL))
 	{
 		/*
-		 * If we're reached by pgwin32_open_handle() early in startup before
-		 * the signal event is set up, just fall back to a regular
-		 * non-interruptible sleep.
+		 * 若在启动早期、信号事件尚未建立时被
+		 * pgwin32_open_handle() 调到，则退回普通
+		 * 不可中断休眠。
 		 */
 		SleepEx((microsec < 500 ? 1 : (microsec + 500) / 1000), FALSE);
 		return;
@@ -74,7 +74,7 @@ pg_usleep(long microsec)
 }
 
 
-/* Initialization */
+/* 初始化 */
 void
 pgwin32_signal_initialize(void)
 {
@@ -93,28 +93,28 @@ pgwin32_signal_initialize(void)
 	pg_signal_mask = 0;
 	pg_signal_queue = 0;
 
-	/* Create the global event handle used to flag signals */
+	/* 创建用于标记信号的全局事件句柄 */
 	pgwin32_signal_event = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (pgwin32_signal_event == NULL)
 		ereport(FATAL,
 				(errmsg_internal("could not create signal event: error code %lu", GetLastError())));
 
-	/* Create thread for handling signals */
+	/* 创建处理信号的线程 */
 	signal_thread_handle = CreateThread(NULL, 0, pg_signal_thread, NULL, 0, NULL);
 	if (signal_thread_handle == NULL)
 		ereport(FATAL,
 				(errmsg_internal("could not create signal handler thread")));
 
-	/* Create console control handle to pick up Ctrl-C etc */
+	/* 创建控制台控制句柄以捕获 Ctrl-C 等 */
 	if (!SetConsoleCtrlHandler(pg_console_handler, TRUE))
 		ereport(FATAL,
 				(errmsg_internal("could not set console control handler")));
 }
 
 /*
- * Dispatch all signals currently queued and not blocked
- * Blocked signals are ignored, and will be fired at the time of
- * the pqsigprocmask() call.
+ * 分派当前已排队且未阻塞的全部信号
+ * 被阻塞的信号忽略，将在 pqsigprocmask()
+ * 调用时触发。
  */
 void
 pgwin32_dispatch_queued_signals(void)
@@ -125,14 +125,14 @@ pgwin32_dispatch_queued_signals(void)
 	EnterCriticalSection(&pg_signal_crit_sec);
 	while ((exec_mask = UNBLOCKED_SIGNAL_QUEUE()) != 0)
 	{
-		/* One or more unblocked signals queued for execution */
+		/* 有一个或多个未阻塞信号排队待执行 */
 		int			i;
 
 		for (i = 1; i < PG_SIGNAL_COUNT; i++)
 		{
 			if (exec_mask & sigmask(i))
 			{
-				/* Execute this signal */
+				/* 执行此信号 */
 				struct sigaction *act = &pg_signal_array[i];
 				pqsigfunc	sig = act->sa_handler;
 
@@ -166,7 +166,7 @@ pgwin32_dispatch_queued_signals(void)
 	LeaveCriticalSection(&pg_signal_crit_sec);
 }
 
-/* signal masking. Only called on main thread, no sync required */
+/* 信号屏蔽。仅在主线程调用，无需同步 */
 int
 pqsigprocmask(int how, const sigset_t *set, sigset_t *oset)
 {
@@ -193,8 +193,8 @@ pqsigprocmask(int how, const sigset_t *set, sigset_t *oset)
 	}
 
 	/*
-	 * Dispatch any signals queued up right away, in case we have unblocked
-	 * one or more signals previously queued
+	 * 立刻分派已排队信号，以防我们刚解除阻塞了
+	 * 先前排队的一个或多个信号
 	 */
 	pgwin32_dispatch_queued_signals();
 
@@ -202,9 +202,9 @@ pqsigprocmask(int how, const sigset_t *set, sigset_t *oset)
 }
 
 /*
- * Unix-like signal handler installation
+ * 类 Unix 信号处理函数安装
  *
- * Only called on main thread, no sync required
+ * 仅在主线程调用，无需同步
  */
 int
 pqsigaction(int signum, const struct sigaction *act,
@@ -222,7 +222,7 @@ pqsigaction(int signum, const struct sigaction *act,
 	return 0;
 }
 
-/* Create the signal listener pipe for specified PID */
+/* 为指定 PID 创建信号监听管道 */
 HANDLE
 pgwin32_create_signal_listener(pid_t pid)
 {
@@ -245,22 +245,22 @@ pgwin32_create_signal_listener(pid_t pid)
 
 
 /*
- * All functions below execute on the signal handler thread
- * and must be synchronized as such!
- * NOTE! The only global variable that can be used is
+ * 以下全部函数在信号处理线程上执行
+ * 且必须按此同步！
+ * 注意！唯一可用的全局变量是
  * pg_signal_queue!
  */
 
 
 /*
- * Queue a signal for the main thread, by setting the flag bit and event.
+ * 通过置标志位与事件，为主线程排队信号。
  */
 void
 pg_queue_signal(int signum)
 {
 	Assert(pgwin32_signal_event != NULL);
 	if (signum >= PG_SIGNAL_COUNT || signum <= 0)
-		return;					/* ignore any bad signal number */
+		return;					/* 忽略坏信号编号 */
 
 	EnterCriticalSection(&pg_signal_crit_sec);
 	pg_signal_queue |= sigmask(signum);
@@ -269,21 +269,21 @@ pg_queue_signal(int signum)
 	SetEvent(pgwin32_signal_event);
 }
 
-/* Signal handling thread */
+/* 信号处理线程 */
 static DWORD WINAPI
 pg_signal_thread(LPVOID param)
 {
 	char		pipename[128];
 	HANDLE		pipe = pgwin32_initial_signal_pipe;
 
-	/* Set up pipe name, in case we have to re-create the pipe. */
+	/* 设置管道名，以防须重建管道。 */
 	snprintf(pipename, sizeof(pipename), "\\\\.\\pipe\\pgsignal_%lu", GetCurrentProcessId());
 
 	for (;;)
 	{
 		BOOL		fConnected;
 
-		/* Create a new pipe instance if we don't have one. */
+		/* 若尚无管道实例则新建一个。 */
 		if (pipe == INVALID_HANDLE_VALUE)
 		{
 			pipe = CreateNamedPipe(pipename, PIPE_ACCESS_DUPLEX,
@@ -299,15 +299,15 @@ pg_signal_thread(LPVOID param)
 		}
 
 		/*
-		 * Wait for a client to connect.  If something connects before we
-		 * reach here, we'll get back a "failure" with ERROR_PIPE_CONNECTED,
-		 * which is actually a success (way to go, Microsoft).
+		 * 等待客户端连接。若在到达此处前已有连接，
+		 * 会得到带 ERROR_PIPE_CONNECTED 的"失败"，
+		 * 实际却是成功（干得好，Microsoft）。
 		 */
 		fConnected = ConnectNamedPipe(pipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
 		if (fConnected)
 		{
 			/*
-			 * We have a connection from a would-be signal sender. Process it.
+			 * 有潜在信号发送方的连接。处理它。
 			 */
 			BYTE		sigNum;
 			DWORD		bytes;
@@ -316,52 +316,52 @@ pg_signal_thread(LPVOID param)
 				bytes == 1)
 			{
 				/*
-				 * Queue the signal before responding to the client.  In this
-				 * way, it's guaranteed that once kill() has returned in the
-				 * signal sender, the next CHECK_FOR_INTERRUPTS() in the
-				 * signal recipient will see the signal.  (This is a stronger
-				 * guarantee than POSIX makes; maybe we don't need it?  But
-				 * without it, we've seen timing bugs on Windows that do not
-				 * manifest on any known Unix.)
+				 * 应答前先排队。这样可保证一旦
+				 * 发送方的 kill() 返回，接收方下次
+				 * CHECK_FOR_INTERRUPTS() 就能看见该信号。
+				 * 比 POSIX 更强；或许不必？但
+				 * 若无此保证，Windows 上曾见时序 bug，
+				 * 而在任何已知 Unix 上都不表现。
+				 *
 				 */
 				pg_queue_signal(sigNum);
 
 				/*
-				 * Write something back to the client, allowing its
-				 * CallNamedPipe() call to terminate.
+				 * 向客户端写回一点数据，允许其
+				 * CallNamedPipe() 结束。
 				 */
 				WriteFile(pipe, &sigNum, 1, &bytes, NULL);	/* Don't care if it
 															 * works or not */
 
 				/*
-				 * We must wait for the client to read the data before we can
-				 * disconnect, else the data will be lost.  (If the WriteFile
-				 * call failed, there'll be nothing in the buffer, so this
-				 * shouldn't block.)
+				 * 断开前须等客户端读完，否则数据丢失。
+				 * WriteFile 失败则缓冲为空，故不
+				 * 阻塞。
+				 *
 				 */
 				FlushFileBuffers(pipe);
 			}
 			else
 			{
 				/*
-				 * If we fail to read a byte from the client, assume it's the
-				 * client's problem and do nothing.  Perhaps it'd be better to
-				 * force a pipe close and reopen?
+				 * 若未能从客户端读到一字节，假定是客户端
+				 * 的问题而什么也不做。或许更好的做法是
+				 * 强制关闭并重开管道？
 				 */
 			}
 
-			/* Disconnect from client so that we can re-use the pipe. */
+			/* 与客户端断开以便重用管道。 */
 			DisconnectNamedPipe(pipe);
 		}
 		else
 		{
 			/*
-			 * Connection failed.  Cleanup and try again.
+			 * 连接失败。清理后重试。
 			 *
-			 * This should never happen.  If it does, there's a window where
-			 * we'll miss signals until we manage to re-create the pipe.
-			 * However, just trying to use the same pipe again is probably not
-			 * going to work, so we have little choice.
+			 * 这不应发生。若发生，重建管道前会有窗口
+			 * 漏掉信号。但再试同一管道大概也行不通，
+			 * 因此我们几乎
+			 * 别无选择。
 			 */
 			CloseHandle(pipe);
 			pipe = INVALID_HANDLE_VALUE;
@@ -371,8 +371,8 @@ pg_signal_thread(LPVOID param)
 }
 
 
-/* Console control handler will execute on a thread created
-   by the OS at the time of invocation */
+/* 控制台处理函数将在调用时由 OS 所建
+   的线程上执行 */
 static BOOL WINAPI
 pg_console_handler(DWORD dwCtrlType)
 {

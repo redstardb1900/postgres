@@ -2213,5 +2213,10 @@
   "path": "src/backend/port/win32/socket.c",
   "pattern": "const\\s+void",
   "reason": "SUS 函数签名字面量 KEEP；周围已中文化 (batch-0638)"
+ },
+ {
+  "path": "src/backend/archive/shell_archive.c",
+  "pattern": "command not found",
+  "reason": "shell 错误字面量 \"command not found\" 须与 EN 一致；周围已中文化 (batch-0641)"
  }
 ]

@@ -1,0 +1,121 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0641",
+ "title": "backend 小件 foreign/bootstrap/archive — batch 0641",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "07a798e58cba43d8b52f894f93cd5d469e3dc21f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0641 next→include/port 残留头"
+  },
+  {
+   "pattern": "src/backend/foreign/foreign.c",
+   "kind": "c_comment",
+   "note": "0641"
+  },
+  {
+   "pattern": "src/backend/bootstrap/bootstrap.c",
+   "kind": "c_comment",
+   "note": "0641"
+  },
+  {
+   "pattern": "src/backend/archive/shell_archive.c",
+   "kind": "c_comment",
+   "note": "0641"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0641-small.json",
+   "kind": "manifest",
+   "note": "0641"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0641 command not found 字面量豁免"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0641"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→include/port 残留头"
+  },
+  {
+   "path": "src/backend/foreign/foreign.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 52,
+   "translated": 52,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0641 外部数据包装器/服务器/用户映射"
+  },
+  {
+   "path": "src/backend/bootstrap/bootstrap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 66,
+   "translated": 60,
+   "preserved": 6,
+   "preserved_reasons": [
+    "纯函数名横幅 KEEP",
+    "No checksum 11B KEEP",
+    "special no-gc mem context 25B KEEP"
+   ],
+   "note": "0641 引导模式"
+  },
+  {
+   "path": "src/backend/archive/shell_archive.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0641 archive_command 归档"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0641-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "command not found 引用字面量豁免"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "foreign.c / bootstrap.c / shell_archive.c 注释。bootparse.y 与 bootscanner.l 暂缓。横幅横线与函数名 KEEP；No checksum 与 no-gc 内存上下文预算不足 KEEP；英文残行已并入上行。术语：外部数据包装器、外部服务器、用户映射、外部表、引导模式、归档器。"
+}

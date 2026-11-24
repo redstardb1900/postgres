@@ -2,9 +2,9 @@
  *
  * shell_archive.c
  *
- * This archiving function uses a user-specified shell command (the
- * archive_command GUC) to copy write-ahead log files.  It is used as the
- * default, but other modules may define their own custom archiving logic.
+ * 本归档函数用用户指定的 shell 命令（即
+ *  archive_command 这个 GUC）来复制 WAL 文件。用作
+ * 默认，但其他模块可自定归档逻辑。
  *
  * Copyright (c) 2022-2023, PostgreSQL Global Development Group
  *
@@ -81,12 +81,12 @@ shell_archive_file(ArchiveModuleState *state, const char *file,
 	if (rc != 0)
 	{
 		/*
-		 * If either the shell itself, or a called command, died on a signal,
-		 * abort the archiver.  We do this because system() ignores SIGINT and
-		 * SIGQUIT while waiting; so a signal is very likely something that
-		 * should have interrupted us too.  Also die if the shell got a hard
-		 * "command not found" type of error.  If we overreact it's no big
-		 * deal, the postmaster will just start the archiver again.
+		 * 若 shell 自身或所调命令因信号而死，
+		 * 就中止归档器。因 system() 等待时忽略
+		 *  SIGINT 与 SIGQUIT，故该信号多半也是
+		 * 该打断我们的。若 shell 遇到
+		 * 硬 "command not found" 类错也中止。过当无大
+		 * 碍，postmaster 会再启动归档器。
 		 */
 		int			lev = wait_result_is_any_signal(rc, true) ? FATAL : LOG;
 

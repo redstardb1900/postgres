@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * bootstrap.c
- *	  routines to support running postgres in 'bootstrap' mode
- *	bootstrap mode is used to create the initial template database
+ *	支持以引导模式运行 postgres 的例程。
+ *	引导模式用来创建最初的模板数据库。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -56,24 +56,24 @@ static Oid	gettype(char *type);
 static void cleanup(void);
 
 /* ----------------
- *		global variables
+ *	全局变量
  * ----------------
  */
 
-Relation	boot_reldesc;		/* current relation descriptor */
+Relation	boot_reldesc;		/* 当前关系描述符 */
 
-Form_pg_attribute attrtypes[MAXATTR];	/* points to attribute info */
-int			numattr;			/* number of attributes for cur. rel */
+Form_pg_attribute attrtypes[MAXATTR];	/* 指向属性信息 */
+int			numattr;			/* 当前关系的属性个数 */
 
 
 /*
- * Basic information associated with each type.  This is used before
- * pg_type is filled, so it has to cover the datatypes used as column types
- * in the core "bootstrapped" catalogs.
+ * 每个类型的基本信息。pg_type 填好前就用，
+ * 故须覆盖核心已引导目录里、用作列类型的
+ * 那些数据类型。
  *
- *		XXX several of these input/output functions do catalog scans
- *			(e.g., F_REGPROCIN scans pg_proc).  this obviously creates some
- *			order dependencies in the catalog creation process.
+ *	XXX 其中若干输入/输出函数会扫描目录
+ *	 (例如 F_REGPROCIN 扫描 pg_proc)。这显然会造成一些
+ *	目录创建过程中的顺序依赖。
  */
 struct typinfo
 {
@@ -145,23 +145,23 @@ static const struct typinfo TypInfo[] = {
 static const int n_types = sizeof(TypInfo) / sizeof(struct typinfo);
 
 struct typmap
-{								/* a hack */
+{								/* 变通 */
 	Oid			am_oid;
 	FormData_pg_type am_typ;
 };
 
-static List *Typ = NIL;			/* List of struct typmap* */
+static List *Typ = NIL;			/* typmap 结构指针表 */
 static struct typmap *Ap = NULL;
 
-static Datum values[MAXATTR];	/* current row's attribute values */
+static Datum values[MAXATTR];	/* 当前行的各属性值 */
 static bool Nulls[MAXATTR];
 
 static MemoryContext nogc = NULL;	/* special no-gc mem context */
 
 /*
- *	At bootstrap time, we first declare all the indices to be built, and
- *	then build them.  The IndexList structure stores enough information
- *	to allow us to build the indices after they've been declared.
+ *	引导时我们先声明全部待建索引，再
+ *	构建它们。IndexList 结构存有足够信息，
+ *	让我们能在声明之后构建这些索引。
  */
 
 typedef struct _IndexList
@@ -176,10 +176,10 @@ static IndexList *ILHead = NULL;
 
 
 /*
- * In shared memory checker mode, all we really want to do is create shared
- * memory and semaphores (just to prove we can do it with the current GUC
- * settings).  Since, in fact, that was already done by
- * CreateSharedMemoryAndSemaphores(), we have nothing more to do here.
+ * 在共享内存检查模式下，我们真正要做的只是创建共享
+ * 内存与信号量（只为证明用当前 GUC
+ *  设置就能做到）。其实那已经由
+ *  CreateSharedMemoryAndSemaphores() 做过，此处无更多事。
  */
 static void
 CheckerModeMain(void)
@@ -188,16 +188,16 @@ CheckerModeMain(void)
 }
 
 /*
- *	 The main entry point for running the backend in bootstrap mode
+ *	以引导模式运行 backend 的主入口。
  *
- *	 The bootstrap mode is used to initialize the template database.
- *	 The bootstrap backend doesn't speak SQL, but instead expects
- *	 commands in a special bootstrap language.
+ *	引导模式用来初始化模板数据库。
+ *	引导 backend 不讲 SQL，而是期待
+ *	一种特殊引导语言的命令。
  *
- *	 When check_only is true, startup is done only far enough to verify that
- *	 the current configuration, particularly the passed in options pertaining
- *	 to shared memory sizing, options work (or at least do not cause an error
- *	 up to shared memory creation).
+ *	当 check_only 为真时，启动只进行到足以验证
+ *	当前配置，特别是传入的、关于
+ *	共享内存尺寸的选项能用（至少到共享内存
+ *	创建都不出错）。
  */
 void
 BootstrapModeMain(int argc, char *argv[], bool check_only)
@@ -211,10 +211,10 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 
 	InitStandaloneProcess(argv[0]);
 
-	/* Set defaults, to be overridden by explicit options below */
+	/* 先设默认值，再由下面的显式选项覆盖 */
 	InitializeGUCOptions();
 
-	/* an initial --boot or --check should be present */
+	/* 开头应当有 --boot 或 --check */
 	Assert(argc > 1
 		   && (strcmp(argv[1], "--boot") == 0
 			   || strcmp(argv[1], "--check") == 0));
@@ -259,7 +259,7 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 				break;
 			case 'd':
 				{
-					/* Turn on debugging for the bootstrap process. */
+					/* 打开引导过程的调试 */
 					char	   *debugstr;
 
 					debugstr = psprintf("debug%s", optarg);
@@ -305,13 +305,13 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 		proc_exit(1);
 	}
 
-	/* Acquire configuration parameters */
+	/* 取得配置参数 */
 	if (!SelectConfigFiles(userDoption, progname))
 		proc_exit(1);
 
 	/*
-	 * Validate we have been given a reasonable-looking DataDir and change
-	 * into it
+	 * 校验所给 DataDir 看起来合理，并切入其中。
+	 *
 	 */
 	checkDataDir();
 	ChangeToDataDir();
@@ -326,9 +326,9 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	CreateSharedMemoryAndSemaphores();
 
 	/*
-	 * XXX: It might make sense to move this into its own function at some
-	 * point. Right now it seems like it'd cause more code duplication than
-	 * it's worth.
+	 * XXX：将来把这段挪进独立函数或许有道理，
+	 * 但眼下看来会造成更多代码重复，并不
+	 * 值得。
 	 */
 	if (check_only)
 	{
@@ -338,7 +338,7 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	}
 
 	/*
-	 * Do backend-like initialization for bootstrap mode
+	 * 为引导模式做类似 backend 的初始化
 	 */
 	InitProcess();
 
@@ -348,15 +348,15 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	BootStrapXLOG();
 
 	/*
-	 * To ensure that src/common/link-canary.c is linked into the backend, we
-	 * must call it from somewhere.  Here is as good as anywhere.
+	 * 为确保 src/common/link-canary.c 被链进 backend，我们
+	 * 必须在某处调用它。这里就很合适。
 	 */
 	if (pg_link_canary_is_frontend())
 		elog(ERROR, "backend is incorrectly linked to frontend functions");
 
 	InitPostgres(NULL, InvalidOid, NULL, InvalidOid, false, false, NULL);
 
-	/* Initialize stuff for bootstrap-file processing */
+	/* 初始化引导文件处理所需的东西 */
 	for (i = 0; i < MAXATTR; i++)
 	{
 		attrtypes[i] = NULL;
@@ -364,31 +364,31 @@ BootstrapModeMain(int argc, char *argv[], bool check_only)
 	}
 
 	/*
-	 * Process bootstrap input.
+	 * 处理引导输入。
 	 */
 	StartTransactionCommand();
 	boot_yyparse();
 	CommitTransactionCommand();
 
 	/*
-	 * We should now know about all mapped relations, so it's okay to write
-	 * out the initial relation mapping files.
+	 * 现在应当已经知道全部已映射关系，故可以写出
+	 * 最初的关系映射文件。
 	 */
 	RelationMapFinishBootstrap();
 
-	/* Clean up and exit */
+	/* 清理并退出 */
 	cleanup();
 	proc_exit(0);
 }
 
 
 /* ----------------------------------------------------------------
- *						misc functions
+ *	杂项函数
  * ----------------------------------------------------------------
  */
 
 /*
- * Set up signal handling for a bootstrap process
+ * 为引导进程建立信号处理
  */
 static void
 bootstrap_signals(void)
@@ -396,9 +396,9 @@ bootstrap_signals(void)
 	Assert(!IsUnderPostmaster);
 
 	/*
-	 * We don't actually need any non-default signal handling in bootstrap
-	 * mode; "curl up and die" is a sufficient response for all these cases.
-	 * Let's set that handling explicitly, as documentation if nothing else.
+	 * 引导模式下其实不需要非默认信号处理；
+	 * 这些情况退出就够了。
+	 * 我们明确设置该处理，至少当作文档。
 	 */
 	pqsignal(SIGHUP, SIG_DFL);
 	pqsignal(SIGINT, SIG_DFL);
@@ -407,14 +407,14 @@ bootstrap_signals(void)
 }
 
 /* ----------------------------------------------------------------
- *				MANUAL BACKEND INTERACTIVE INTERFACE COMMANDS
+ *	手工 backend 交互接口命令
  * ----------------------------------------------------------------
  */
 
 /* ----------------
  *		boot_openrel
  *
- * Execute BKI OPEN command.
+ * 执行 BKI OPEN 命令。
  * ----------------
  */
 void
@@ -426,8 +426,8 @@ boot_openrel(char *relname)
 		relname[NAMEDATALEN - 1] = '\0';
 
 	/*
-	 * pg_type must be filled before any OPEN command is executed, hence we
-	 * can now populate Typ if we haven't yet.
+	 * 任何 OPEN 前必须已填好 pg_type，故我们
+	 * 若尚未有，现在就填充 Typ
 	 */
 	if (Typ == NIL)
 		populate_typ_list();
@@ -494,9 +494,9 @@ closerel(char *relname)
 /* ----------------
  * DEFINEATTR()
  *
- * define a <field,type> pair
- * if there are n fields in a relation to be created, this routine
- * will be called n times
+ * 定义 <field,type> 对。
+ * 若待创建的关系有 n 个字段，本例程
+ * 将被调用 n 次
  * ----------------
  */
 void
@@ -529,7 +529,7 @@ DefineAttr(char *name, char *type, int attnum, int nullness)
 		attrtypes[attnum]->attstorage = Ap->am_typ.typstorage;
 		attrtypes[attnum]->attcompression = InvalidCompressionMethod;
 		attrtypes[attnum]->attcollation = Ap->am_typ.typcollation;
-		/* if an array type, assume 1-dimensional attribute */
+		/* 若是数组类型，就假定为一维属性 */
 		if (Ap->am_typ.typelem != InvalidOid && Ap->am_typ.typlen < 0)
 			attrtypes[attnum]->attndims = 1;
 		else
@@ -544,7 +544,7 @@ DefineAttr(char *name, char *type, int attnum, int nullness)
 		attrtypes[attnum]->attstorage = TypInfo[typeoid].storage;
 		attrtypes[attnum]->attcompression = InvalidCompressionMethod;
 		attrtypes[attnum]->attcollation = TypInfo[typeoid].collation;
-		/* if an array type, assume 1-dimensional attribute */
+		/* 若是数组类型，就假定为一维属性 */
 		if (TypInfo[typeoid].elem != InvalidOid &&
 			attrtypes[attnum]->attlen < 0)
 			attrtypes[attnum]->attndims = 1;
@@ -553,10 +553,10 @@ DefineAttr(char *name, char *type, int attnum, int nullness)
 	}
 
 	/*
-	 * If a system catalog column is collation-aware, force it to use C
-	 * collation, so that its behavior is independent of the database's
-	 * collation.  This is essential to allow template0 to be cloned with a
-	 * different database collation.
+	 * 若系统目录列会感知排序规则，就强制它使用 C
+	 *  排序规则，使其行为不依赖该数据库的
+	 * 排序规则。必须能够用不同的数据库排序规则
+	 * 来克隆 template0。
 	 */
 	if (OidIsValid(attrtypes[attnum]->attcollation))
 		attrtypes[attnum]->attcollation = C_COLLATION_OID;
@@ -579,15 +579,15 @@ DefineAttr(char *name, char *type, int attnum, int nullness)
 		Assert(nullness == BOOTCOL_NULL_AUTO);
 
 		/*
-		 * Mark as "not null" if type is fixed-width and prior columns are
-		 * likewise fixed-width and not-null.  This corresponds to case where
-		 * column can be accessed directly via C struct declaration.
+		 * 若类型是定宽，且先前各列同样
+		 * 是定宽且非空，则标成非空。这对应于
+		 * 该列可经 C 结构体声明直接访问的情形。
 		 */
 		if (attrtypes[attnum]->attlen > 0)
 		{
 			int			i;
 
-			/* check earlier attributes */
+			/* 检查更早的属性 */
 			for (i = 0; i < attnum; i++)
 			{
 				if (attrtypes[i]->attlen <= 0 ||
@@ -604,8 +604,8 @@ DefineAttr(char *name, char *type, int attnum, int nullness)
 /* ----------------
  *		InsertOneTuple
  *
- * If objectid is not zero, it is a specific OID to assign to the tuple.
- * Otherwise, an OID will be assigned (if necessary) by heap_insert.
+ * 若 objectid 不是零，它就是要赋给该元组的特定 OID。
+ * 否则 OID 将由 heap_insert 分配（若需要）。
  * ----------------
  */
 void
@@ -619,14 +619,14 @@ InsertOneTuple(void)
 
 	tupDesc = CreateTupleDesc(numattr, attrtypes);
 	tuple = heap_form_tuple(tupDesc, values, Nulls);
-	pfree(tupDesc);				/* just free's tupDesc, not the attrtypes */
+	pfree(tupDesc);				/* 只释放 tupDesc，而非 attrtypes */
 
 	simple_heap_insert(boot_reldesc, tuple);
 	heap_freetuple(tuple);
 	elog(DEBUG4, "row inserted");
 
 	/*
-	 * Reset null markers for next tuple
+	 * 为下一元组重置空标记
 	 */
 	for (i = 0; i < numattr; i++)
 		Nulls[i] = false;
@@ -662,8 +662,8 @@ InsertOneValue(char *value, int i)
 	values[i] = OidInputFunctionCall(typinput, value, typioparam, -1);
 
 	/*
-	 * We use ereport not elog here so that parameters aren't evaluated unless
-	 * the message is going to be printed, which generally it isn't
+	 * 这里用 ereport 而不用 elog，以便除非
+	 * 消息将打印才求值参数，而通常不会。
 	 */
 	ereport(DEBUG4,
 			(errmsg_internal("inserted -> %s",
@@ -702,7 +702,7 @@ cleanup(void)
 /* ----------------
  *		populate_typ_list
  *
- * Load the Typ list by reading pg_type.
+ * 读取 pg_type，装入 Typ 表。
  * ----------------
  */
 static void
@@ -737,12 +737,12 @@ populate_typ_list(void)
 /* ----------------
  *		gettype
  *
- * NB: this is really ugly; it will return an integer index into TypInfo[],
- * and not an OID at all, until the first reference to a type not known in
- * TypInfo[].  At that point it will read and cache pg_type in Typ,
- * and subsequently return a real OID (and set the global pointer Ap to
- * point at the found row in Typ).  So caller must check whether Typ is
- * still NIL to determine what the return value is!
+ * 注意：这确实很丑；它返回 TypInfo[] 的整数下标，
+ * 根本不是 OID，直到首次引用 TypInfo[] 里未知的
+ * 类型。届时它读入并缓存 pg_type 到 Typ，
+ * 此后才返回真正的 OID（并把全局指针 Ap 设成
+ * 指向 Typ 中找到的行）。故调用者必须检查 Typ
+ *  是否仍为 NIL，以判断返回的是什么
  * ----------------
  */
 static Oid
@@ -764,8 +764,8 @@ gettype(char *type)
 		}
 
 		/*
-		 * The type wasn't known; reload the pg_type contents and check again
-		 * to handle composite types, added since last populating the list.
+		 * 该类型原先未知；重新装入 pg_type 的内容再检查，
+		 * 以处理自上次装入该表后新增的复合类型。
 		 */
 
 		list_free_deep(Typ);
@@ -773,8 +773,8 @@ gettype(char *type)
 		populate_typ_list();
 
 		/*
-		 * Calling gettype would result in infinite recursion for types
-		 * missing in pg_type, so just repeat the lookup.
+		 * 调用 gettype 对 pg_type 所缺类型会无限递归，
+		 * 所以只是把查找再做一遍。
 		 */
 		foreach(lc, Typ)
 		{
@@ -796,24 +796,24 @@ gettype(char *type)
 			if (strncmp(type, TypInfo[i].name, NAMEDATALEN) == 0)
 				return i;
 		}
-		/* Not in TypInfo, so we'd better be able to read pg_type now */
+		/* 不在 TypInfo 里，所以现在最好能读到 pg_type */
 		elog(DEBUG4, "external type: %s", type);
 		populate_typ_list();
 		return gettype(type);
 	}
 	elog(ERROR, "unrecognized type \"%s\"", type);
-	/* not reached, here to make compiler happy */
+	/* 到不了，为让编译器满意 */
 	return 0;
 }
 
 /* ----------------
  *		boot_get_type_io_data
  *
- * Obtain type I/O information at bootstrap time.  This intentionally has
- * almost the same API as lsyscache.c's get_type_io_data, except that
- * we only support obtaining the typinput and typoutput routines, not
- * the binary I/O routines.  It is exported so that array_in and array_out
- * can be made to work during early bootstrap.
+ * 在引导时取得类型 I/O 信息。这是有意让它
+ * 几乎与 lsyscache.c 的 get_type_io_data 同一 API，只是
+ * 我们只支持取得 typinput 与 typoutput，不支持
+ * 二进制 I/O。导出它，是为了让 array_in 与 array_out
+ *  能在早期引导期间工作。
  * ----------------
  */
 void
@@ -828,7 +828,7 @@ boot_get_type_io_data(Oid typid,
 {
 	if (Typ != NIL)
 	{
-		/* We have the boot-time contents of pg_type, so use it */
+		/* 已有 pg_type 的引导期内容，故用它 */
 		struct typmap *ap = NULL;
 		ListCell   *lc;
 
@@ -847,7 +847,7 @@ boot_get_type_io_data(Oid typid,
 		*typalign = ap->am_typ.typalign;
 		*typdelim = ap->am_typ.typdelim;
 
-		/* XXX this logic must match getTypeIOParam() */
+		/* XXX 此逻辑必须匹配 getTypeIOParam() */
 		if (OidIsValid(ap->am_typ.typelem))
 			*typioparam = ap->am_typ.typelem;
 		else
@@ -858,7 +858,7 @@ boot_get_type_io_data(Oid typid,
 	}
 	else
 	{
-		/* We don't have pg_type yet, so use the hard-wired TypInfo array */
+		/* 还没有 pg_type，故用写死的 TypInfo 数组 */
 		int			typeindex;
 
 		for (typeindex = 0; typeindex < n_types; typeindex++)
@@ -872,10 +872,10 @@ boot_get_type_io_data(Oid typid,
 		*typlen = TypInfo[typeindex].len;
 		*typbyval = TypInfo[typeindex].byval;
 		*typalign = TypInfo[typeindex].align;
-		/* We assume typdelim is ',' for all boot-time types */
+		/* 假定所有引导期类型的 typdelim 是 ',' */
 		*typdelim = ',';
 
-		/* XXX this logic must match getTypeIOParam() */
+		/* XXX 此逻辑必须匹配 getTypeIOParam() */
 		if (OidIsValid(TypInfo[typeindex].elem))
 			*typioparam = TypInfo[typeindex].elem;
 		else
@@ -889,8 +889,8 @@ boot_get_type_io_data(Oid typid,
 /* ----------------
  *		AllocateAttribute
  *
- * Note: bootstrap never sets any per-column ACLs, so we only need
- * ATTRIBUTE_FIXED_PART_SIZE space per attribute.
+ * 注意：引导从不设置按列 ACL，故每个属性只需
+ *  ATTRIBUTE_FIXED_PART_SIZE 的空间。
  * ----------------
  */
 static Form_pg_attribute
@@ -901,15 +901,15 @@ AllocateAttribute(void)
 }
 
 /*
- *	index_register() -- record an index that has been set up for building
- *						later.
+ *	index_register()：记下已设好、稍后构建的索引。
  *
- *		At bootstrap time, we define a bunch of indexes on system catalogs.
- *		We postpone actually building the indexes until just before we're
- *		finished with initialization, however.  This is because the indexes
- *		themselves have catalog entries, and those have to be included in the
- *		indexes on those catalogs.  Doing it in two phases is the simplest
- *		way of making sure the indexes have the right contents at the end.
+ *
+ *	引导时，我们在系统目录上定义一批索引。
+ *	但真正构建要推迟到初始化快要
+ *	完成之前。因为这些索引
+ *	自身也有目录项，而那些项必须收进
+ *	这些目录上的索引里。分两阶段是最简单的
+ *	办法，才能确保索引最终内容正确。
  */
 void
 index_register(Oid heap,
@@ -920,9 +920,9 @@ index_register(Oid heap,
 	MemoryContext oldcxt;
 
 	/*
-	 * XXX mao 10/31/92 -- don't gc index reldescs, associated info at
-	 * bootstrap time.  we'll declare the indexes now, but want to create them
-	 * later.
+	 * XXX mao 10/31/92：引导时不要回收索引 reldesc
+	 *  及相关信息。现在就声明索引，但稍后再创建。
+	 *
 	 */
 
 	if (nogc == NULL)
@@ -938,15 +938,15 @@ index_register(Oid heap,
 	newind->il_info = (IndexInfo *) palloc(sizeof(IndexInfo));
 
 	memcpy(newind->il_info, indexInfo, sizeof(IndexInfo));
-	/* expressions will likely be null, but may as well copy it */
+	/* 表达式多半是 null，但仍不妨复制它 */
 	newind->il_info->ii_Expressions =
 		copyObject(indexInfo->ii_Expressions);
 	newind->il_info->ii_ExpressionsState = NIL;
-	/* predicate will likely be null, but may as well copy it */
+	/* 谓词多半是 null，但仍不妨复制它 */
 	newind->il_info->ii_Predicate =
 		copyObject(indexInfo->ii_Predicate);
 	newind->il_info->ii_PredicateState = NULL;
-	/* no exclusion constraints at bootstrap time, so no need to copy */
+	/* 引导时没有排除约束，故不必复制 */
 	Assert(indexInfo->ii_ExclusionOps == NULL);
 	Assert(indexInfo->ii_ExclusionProcs == NULL);
 	Assert(indexInfo->ii_ExclusionStrats == NULL);
@@ -959,7 +959,7 @@ index_register(Oid heap,
 
 
 /*
- * build_indices -- fill in all the indexes registered earlier
+ * build_indices：填好先前登记的全部索引
  */
 void
 build_indices(void)
@@ -969,7 +969,7 @@ build_indices(void)
 		Relation	heap;
 		Relation	ind;
 
-		/* need not bother with locks during bootstrap */
+		/* 引导期间不必费心管锁 */
 		heap = table_open(ILHead->il_heap, NoLock);
 		ind = index_open(ILHead->il_ind, NoLock);
 

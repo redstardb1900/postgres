@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * foreign.c
- *		  support for foreign-data wrappers, servers and user mappings.
+ *	外部数据包装器、服务器与用户映射的支持。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  *
@@ -32,7 +32,7 @@
 
 
 /*
- * GetForeignDataWrapper -	look up the foreign-data wrapper by OID.
+ * GetForeignDataWrapper：按 OID 查外部数据包装器。
  */
 ForeignDataWrapper *
 GetForeignDataWrapper(Oid fdwid)
@@ -42,9 +42,9 @@ GetForeignDataWrapper(Oid fdwid)
 
 
 /*
- * GetForeignDataWrapperExtended -	look up the foreign-data wrapper
- * by OID. If flags uses FDW_MISSING_OK, return NULL if the object cannot
- * be found instead of raising an error.
+ * GetForeignDataWrapperExtended：查外部数据包装器，
+ * 按 OID。flags 含 FDW_MISSING_OK 时，对象找不到就
+ * 返回 NULL，而不报错。
  */
 ForeignDataWrapper *
 GetForeignDataWrapperExtended(Oid fdwid, bits16 flags)
@@ -73,7 +73,7 @@ GetForeignDataWrapperExtended(Oid fdwid, bits16 flags)
 	fdw->fdwhandler = fdwform->fdwhandler;
 	fdw->fdwvalidator = fdwform->fdwvalidator;
 
-	/* Extract the fdwoptions */
+	/* 提取 fdwoptions */
 	datum = SysCacheGetAttr(FOREIGNDATAWRAPPEROID,
 							tp,
 							Anum_pg_foreign_data_wrapper_fdwoptions,
@@ -90,8 +90,8 @@ GetForeignDataWrapperExtended(Oid fdwid, bits16 flags)
 
 
 /*
- * GetForeignDataWrapperByName - look up the foreign-data wrapper
- * definition by name.
+ * GetForeignDataWrapperByName：查外部数据包装器
+ * 定义，按名。
  */
 ForeignDataWrapper *
 GetForeignDataWrapperByName(const char *fdwname, bool missing_ok)
@@ -106,7 +106,7 @@ GetForeignDataWrapperByName(const char *fdwname, bool missing_ok)
 
 
 /*
- * GetForeignServer - look up the foreign server definition.
+ * GetForeignServer：查外部服务器定义。
  */
 ForeignServer *
 GetForeignServer(Oid serverid)
@@ -116,9 +116,9 @@ GetForeignServer(Oid serverid)
 
 
 /*
- * GetForeignServerExtended - look up the foreign server definition. If
- * flags uses FSV_MISSING_OK, return NULL if the object cannot be found
- * instead of raising an error.
+ * GetForeignServerExtended：查外部服务器定义。若
+ *  flags 含 FSV_MISSING_OK，对象找不到就返回 NULL，
+ * 而不报错。
  */
 ForeignServer *
 GetForeignServerExtended(Oid serverid, bits16 flags)
@@ -146,21 +146,21 @@ GetForeignServerExtended(Oid serverid, bits16 flags)
 	server->owner = serverform->srvowner;
 	server->fdwid = serverform->srvfdw;
 
-	/* Extract server type */
+	/* 取服务器类型 */
 	datum = SysCacheGetAttr(FOREIGNSERVEROID,
 							tp,
 							Anum_pg_foreign_server_srvtype,
 							&isnull);
 	server->servertype = isnull ? NULL : TextDatumGetCString(datum);
 
-	/* Extract server version */
+	/* 提取服务器版本 */
 	datum = SysCacheGetAttr(FOREIGNSERVEROID,
 							tp,
 							Anum_pg_foreign_server_srvversion,
 							&isnull);
 	server->serverversion = isnull ? NULL : TextDatumGetCString(datum);
 
-	/* Extract the srvoptions */
+	/* 提取 srvoptions */
 	datum = SysCacheGetAttr(FOREIGNSERVEROID,
 							tp,
 							Anum_pg_foreign_server_srvoptions,
@@ -177,7 +177,7 @@ GetForeignServerExtended(Oid serverid, bits16 flags)
 
 
 /*
- * GetForeignServerByName - look up the foreign server definition by name.
+ * GetForeignServerByName：按名查外部服务器定义。
  */
 ForeignServer *
 GetForeignServerByName(const char *srvname, bool missing_ok)
@@ -192,10 +192,10 @@ GetForeignServerByName(const char *srvname, bool missing_ok)
 
 
 /*
- * GetUserMapping - look up the user mapping.
+ * GetUserMapping：查用户映射。
  *
- * If no mapping is found for the supplied user, we also look for
- * PUBLIC mappings (userid == InvalidOid).
+ * 若所给用户没有映射，再查找
+ *  PUBLIC 映射(userid==InvalidOid)。
  */
 UserMapping *
 GetUserMapping(Oid userid, Oid serverid)
@@ -211,7 +211,7 @@ GetUserMapping(Oid userid, Oid serverid)
 
 	if (!HeapTupleIsValid(tp))
 	{
-		/* Not found for the specific user -- try PUBLIC */
+		/* 该用户未找到，改试 PUBLIC */
 		tp = SearchSysCache2(USERMAPPINGUSERSERVER,
 							 ObjectIdGetDatum(InvalidOid),
 							 ObjectIdGetDatum(serverid));
@@ -228,7 +228,7 @@ GetUserMapping(Oid userid, Oid serverid)
 	um->userid = userid;
 	um->serverid = serverid;
 
-	/* Extract the umoptions */
+	/* 提取 umoptions */
 	datum = SysCacheGetAttr(USERMAPPINGUSERSERVER,
 							tp,
 							Anum_pg_user_mapping_umoptions,
@@ -245,7 +245,7 @@ GetUserMapping(Oid userid, Oid serverid)
 
 
 /*
- * GetForeignTable - look up the foreign table definition by relation oid.
+ * GetForeignTable：按关系 OID 查外部表定义。
  */
 ForeignTable *
 GetForeignTable(Oid relid)
@@ -265,7 +265,7 @@ GetForeignTable(Oid relid)
 	ft->relid = relid;
 	ft->serverid = tableform->ftserver;
 
-	/* Extract the ftoptions */
+	/* 提取 ftoptions */
 	datum = SysCacheGetAttr(FOREIGNTABLEREL,
 							tp,
 							Anum_pg_foreign_table_ftoptions,
@@ -282,8 +282,8 @@ GetForeignTable(Oid relid)
 
 
 /*
- * GetForeignColumnOptions - Get attfdwoptions of given relation/attnum
- * as list of DefElem.
+ * GetForeignColumnOptions：给定关系/attnum 的 attfdwoptions
+ *  作 DefElem 列表
  */
 List *
 GetForeignColumnOptions(Oid relid, AttrNumber attnum)
@@ -315,8 +315,8 @@ GetForeignColumnOptions(Oid relid, AttrNumber attnum)
 
 
 /*
- * GetFdwRoutine - call the specified foreign-data wrapper handler routine
- * to get its FdwRoutine struct.
+ * GetFdwRoutine：调用指定外部数据包装器的 handler，
+ * 以取得其 FdwRoutine。
  */
 FdwRoutine *
 GetFdwRoutine(Oid fdwhandler)
@@ -324,10 +324,10 @@ GetFdwRoutine(Oid fdwhandler)
 	Datum		datum;
 	FdwRoutine *routine;
 
-	/* Check if the access to foreign tables is restricted */
+	/* 检查对外部表的访问是否受限 */
 	if (unlikely((restrict_nonsystem_relation_kind & RESTRICT_RELKIND_FOREIGN_TABLE) != 0))
 	{
-		/* there must not be built-in FDW handler  */
+		/* 不得有内建的 FDW handler  */
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("access to non-system foreign table is restricted")));
@@ -345,8 +345,8 @@ GetFdwRoutine(Oid fdwhandler)
 
 
 /*
- * GetForeignServerIdByRelId - look up the foreign server
- * for the given foreign table, and return its OID.
+ * GetForeignServerIdByRelId：查外部服务器，
+ * 供给定外部表，并返回其 OID。
  */
 Oid
 GetForeignServerIdByRelId(Oid relid)
@@ -367,8 +367,8 @@ GetForeignServerIdByRelId(Oid relid)
 
 
 /*
- * GetFdwRoutineByServerId - look up the handler of the foreign-data wrapper
- * for the given foreign server, and retrieve its FdwRoutine struct.
+ * GetFdwRoutineByServerId：查外部数据包装器的 handler，
+ * 供给定外部服务器，并取其 FdwRoutine。
  */
 FdwRoutine *
 GetFdwRoutineByServerId(Oid serverid)
@@ -379,7 +379,7 @@ GetFdwRoutineByServerId(Oid serverid)
 	Oid			fdwid;
 	Oid			fdwhandler;
 
-	/* Get foreign-data wrapper OID for the server. */
+	/* 取该服务器的外部数据包装器 OID */
 	tp = SearchSysCache1(FOREIGNSERVEROID, ObjectIdGetDatum(serverid));
 	if (!HeapTupleIsValid(tp))
 		elog(ERROR, "cache lookup failed for foreign server %u", serverid);
@@ -387,14 +387,14 @@ GetFdwRoutineByServerId(Oid serverid)
 	fdwid = serverform->srvfdw;
 	ReleaseSysCache(tp);
 
-	/* Get handler function OID for the FDW. */
+	/* 取该 FDW 的 handler 函数 OID */
 	tp = SearchSysCache1(FOREIGNDATAWRAPPEROID, ObjectIdGetDatum(fdwid));
 	if (!HeapTupleIsValid(tp))
 		elog(ERROR, "cache lookup failed for foreign-data wrapper %u", fdwid);
 	fdwform = (Form_pg_foreign_data_wrapper) GETSTRUCT(tp);
 	fdwhandler = fdwform->fdwhandler;
 
-	/* Complain if FDW has been set to NO HANDLER. */
+	/* 若 FDW 被设为 NO HANDLER 则报错 */
 	if (!OidIsValid(fdwhandler))
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -403,37 +403,37 @@ GetFdwRoutineByServerId(Oid serverid)
 
 	ReleaseSysCache(tp);
 
-	/* And finally, call the handler function. */
+	/* 最后调用该 handler 函数 */
 	return GetFdwRoutine(fdwhandler);
 }
 
 
 /*
- * GetFdwRoutineByRelId - look up the handler of the foreign-data wrapper
- * for the given foreign table, and retrieve its FdwRoutine struct.
+ * GetFdwRoutineByRelId：查外部数据包装器的 handler，
+ * 供给定外部表，并取其 FdwRoutine。
  */
 FdwRoutine *
 GetFdwRoutineByRelId(Oid relid)
 {
 	Oid			serverid;
 
-	/* Get server OID for the foreign table. */
+	/* 取该外部表的服务器 OID */
 	serverid = GetForeignServerIdByRelId(relid);
 
-	/* Now retrieve server's FdwRoutine struct. */
+	/* 再取服务器的 FdwRoutine */
 	return GetFdwRoutineByServerId(serverid);
 }
 
 /*
- * GetFdwRoutineForRelation - look up the handler of the foreign-data wrapper
- * for the given foreign table, and retrieve its FdwRoutine struct.
+ * GetFdwRoutineForRelation：查外部数据包装器的 handler，
+ * 供给定外部表，并取其 FdwRoutine。
  *
- * This function is preferred over GetFdwRoutineByRelId because it caches
- * the data in the relcache entry, saving a number of catalog lookups.
+ * 本函数优于 GetFdwRoutineByRelId，因它把数据
+ * 缓存在 relcache 条目里，少做若干系统目录查找。
  *
- * If makecopy is true then the returned data is freshly palloc'd in the
- * caller's memory context.  Otherwise, it's a pointer to the relcache data,
- * which will be lost in any relcache reset --- so don't rely on it long.
+ * 若 makecopy 为真，返回的数据在调用者的
+ * 内存上下文中新 palloc。否则它是 relcache 数据的指针，
+ * 任何 relcache 重置都会丢失它，故勿长期依赖。
  */
 FdwRoutine *
 GetFdwRoutineForRelation(Relation relation, bool makecopy)
@@ -443,20 +443,20 @@ GetFdwRoutineForRelation(Relation relation, bool makecopy)
 
 	if (relation->rd_fdwroutine == NULL)
 	{
-		/* Get the info by consulting the catalogs and the FDW code */
+		/* 查阅系统目录与 FDW 代码来取得该信息 */
 		fdwroutine = GetFdwRoutineByRelId(RelationGetRelid(relation));
 
-		/* Save the data for later reuse in CacheMemoryContext */
+		/* 把数据存进 CacheMemoryContext 供以后复用 */
 		cfdwroutine = (FdwRoutine *) MemoryContextAlloc(CacheMemoryContext,
 														sizeof(FdwRoutine));
 		memcpy(cfdwroutine, fdwroutine, sizeof(FdwRoutine));
 		relation->rd_fdwroutine = cfdwroutine;
 
-		/* Give back the locally palloc'd copy regardless of makecopy */
+		/* 不论 makecopy 与否，都交还本地 palloc 的副本 */
 		return fdwroutine;
 	}
 
-	/* We have valid cached data --- does the caller want a copy? */
+	/* 已有有效缓存。调用者要一份副本吗 */
 	if (makecopy)
 	{
 		fdwroutine = (FdwRoutine *) palloc(sizeof(FdwRoutine));
@@ -464,16 +464,16 @@ GetFdwRoutineForRelation(Relation relation, bool makecopy)
 		return fdwroutine;
 	}
 
-	/* Only a short-lived reference is needed, so just hand back cached copy */
+	/* 只需短时引用，故直接交还缓存副本 */
 	return relation->rd_fdwroutine;
 }
 
 
 /*
- * IsImportableForeignTable - filter table names for IMPORT FOREIGN SCHEMA
+ * IsImportableForeignTable：为 IMPORT FOREIGN SCHEMA 过滤表名。
  *
- * Returns true if given table name should be imported according to the
- * statement's import filter options.
+ * 若给定表名按该语句的导入过滤选项
+ * 应被导入，就返回 true。
  */
 bool
 IsImportableForeignTable(const char *tablename,
@@ -506,14 +506,14 @@ IsImportableForeignTable(const char *tablename,
 			}
 			return true;
 	}
-	return false;				/* shouldn't get here */
+	return false;				/* 不应到达此处 */
 }
 
 
 /*
- * pg_options_to_table - Convert options array to name/value table
+ * pg_options_to_table：把选项数组转成名/值表。
  *
- * This is useful to provide details for information_schema and pg_dump.
+ * 便于给 information_schema 和 pg_dump 提供细节。
  */
 Datum
 pg_options_to_table(PG_FUNCTION_ARGS)
@@ -526,7 +526,7 @@ pg_options_to_table(PG_FUNCTION_ARGS)
 	options = untransformRelOptions(array);
 	rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 
-	/* prepare the result set */
+	/* 准备结果集 */
 	InitMaterializedSRF(fcinfo, MAT_SRF_USE_EXPECTED_DESC);
 
 	foreach(cell, options)
@@ -556,18 +556,18 @@ pg_options_to_table(PG_FUNCTION_ARGS)
 
 
 /*
- * Describes the valid options for postgresql FDW, server, and user mapping.
+ * 描述 postgresql FDW、服务器与用户映射的有效选项。
  */
 struct ConnectionOption
 {
 	const char *optname;
-	Oid			optcontext;		/* Oid of catalog in which option may appear */
+	Oid			optcontext;		/* 选项可以出现在其中的目录 OID */
 };
 
 /*
- * Copied from fe-connect.c PQconninfoOptions.
+ * 抄自 fe-connect.c PQconninfoOptions。
  *
- * The list is small - don't bother with bsearch if it stays so.
+ * 表还小，若一直这样就不必用 bsearch。
  */
 static const struct ConnectionOption libpq_conninfo_options[] = {
 	{"authtype", ForeignServerRelationId},
@@ -590,9 +590,9 @@ static const struct ConnectionOption libpq_conninfo_options[] = {
 
 
 /*
- * Check if the provided option is one of libpq conninfo options.
- * context is the Oid of the catalog the option came from, or 0 if we
- * don't care.
+ * 检查所给选项是否属于 libpq 的 conninfo 选项。
+ * context 是选项来源目录的 OID；不在意则为 0。
+ *
  */
 static bool
 is_conninfo_option(const char *option, Oid context)
@@ -607,16 +607,16 @@ is_conninfo_option(const char *option, Oid context)
 
 
 /*
- * Validate the generic option given to SERVER or USER MAPPING.
- * Raise an ERROR if the option or its value is considered invalid.
+ * 校验交给 SERVER 或 USER MAPPING 的通用选项。
+ * 若该选项或其值被视为无效，则报 ERROR。
  *
- * Valid server options are all libpq conninfo options except
- * user and password -- these may only appear in USER MAPPING options.
+ * 服务器有效选项即 libpq 的 conninfo 各项，
+ * user 与 password除外；二者只可在 USER MAPPING 选项中。
  *
- * Caution: this function is deprecated, and is now meant only for testing
- * purposes, because the list of options it knows about doesn't necessarily
- * square with those known to whichever libpq instance you might be using.
- * Inquire of libpq itself, instead.
+ * 注意：此函数已弃用，现仅供测试
+ * 之用，因它所知的选项列表未必
+ * 与你正用的那个 libpq 实例所知相符。
+ * 应改为询问 libpq 自身。
  */
 Datum
 postgresql_fdw_validator(PG_FUNCTION_ARGS)
@@ -638,8 +638,8 @@ postgresql_fdw_validator(PG_FUNCTION_ARGS)
 			bool		has_valid_options = false;
 
 			/*
-			 * Unknown option specified, complain about it. Provide a hint
-			 * with a valid option that looks similar, if there is one.
+			 * 指定了未知选项就报错，并提示
+			 * 一个形近的有效选项，若存在的话。
 			 */
 			initClosestMatch(&match_state, def->defname, 4);
 			for (opt = libpq_conninfo_options; opt->optname; opt++)
@@ -669,10 +669,10 @@ postgresql_fdw_validator(PG_FUNCTION_ARGS)
 
 
 /*
- * get_foreign_data_wrapper_oid - given a FDW name, look up the OID
+ * get_foreign_data_wrapper_oid：给定 FDW 名，查 OID。
  *
- * If missing_ok is false, throw an error if name not found.  If true, just
- * return InvalidOid.
+ *  missing_ok 为假则找不到名就报错，为真只返回 InvalidOid
+ *
  */
 Oid
 get_foreign_data_wrapper_oid(const char *fdwname, bool missing_ok)
@@ -692,10 +692,10 @@ get_foreign_data_wrapper_oid(const char *fdwname, bool missing_ok)
 
 
 /*
- * get_foreign_server_oid - given a server name, look up the OID
+ * get_foreign_server_oid：给定服务器名，查 OID。
  *
- * If missing_ok is false, throw an error if name not found.  If true, just
- * return InvalidOid.
+ *  missing_ok 为假则找不到名就报错，为真只返回 InvalidOid
+ *
  */
 Oid
 get_foreign_server_oid(const char *servername, bool missing_ok)
@@ -712,27 +712,27 @@ get_foreign_server_oid(const char *servername, bool missing_ok)
 }
 
 /*
- * Get a copy of an existing local path for a given join relation.
+ * 取给定连接关系一条现有本地路径的副本。
  *
- * This function is usually helpful to obtain an alternate local path for EPQ
- * checks.
+ * 本函数通常用来取得另一条供 EPQ 检查的本地路径。
  *
- * Right now, this function only supports unparameterized foreign joins, so we
- * only search for unparameterized path in the given list of paths. Since we
- * are searching for a path which can be used to construct an alternative local
- * plan for a foreign join, we look for only MergeJoin, HashJoin or NestLoop
- * paths.
  *
- * If the inner or outer subpath of the chosen path is a ForeignScan, we
- * replace it with its outer subpath.  For this reason, and also because the
- * planner might free the original path later, the path returned by this
- * function is a shallow copy of the original.  There's no need to copy
- * the substructure, so we don't.
+ * 目前本函数只支持无参数的外部连接，因此我们
+ * 只在给定路径表里搜无参数路径。因为我们
+ * 要找能替外部连接构造替代本地计划的路径，
+ * 故只找 MergeJoin、HashJoin 或 NestLoop 路径。
  *
- * Since the plan created using this path will presumably only be used to
- * execute EPQ checks, efficiency of the path is not a concern. But since the
- * path list in RelOptInfo is anyway sorted by total cost we are likely to
- * choose the most efficient path, which is all for the best.
+ *
+ * 若所选路径的内子路径或外子路径是 ForeignScan，就
+ * 把它换成其外子路径。为此，也因为
+ * 规划器稍后可能释放原路径，本函数返回的路径
+ * 是原路径的浅拷贝。不必复制
+ * 子结构，故不复制。
+ *
+ * 因为用此路径建成的计划大概只用来
+ * 执行 EPQ 检查，路径效率无需操心。但因为
+ *  RelOptInfo 里的路径表反正按总代价排序，我们多半会
+ * 选中最有效的路径，那再好不过。
  */
 Path *
 GetExistingLocalJoinPath(RelOptInfo *joinrel)
@@ -746,7 +746,7 @@ GetExistingLocalJoinPath(RelOptInfo *joinrel)
 		Path	   *path = (Path *) lfirst(lc);
 		JoinPath   *joinpath = NULL;
 
-		/* Skip parameterized paths. */
+		/* 跳过带参数的路径 */
 		if (path->param_info != NULL)
 			continue;
 
@@ -782,22 +782,22 @@ GetExistingLocalJoinPath(RelOptInfo *joinrel)
 			default:
 
 				/*
-				 * Just skip anything else. We don't know if corresponding
-				 * plan would build the output row from whole-row references
-				 * of base relations and execute the EPQ checks.
+				 * 其余一律跳过。我们不知道对应计划是否
+				 * 会用基关系的整行引用来构建输出行，
+				 * 并执行 EPQ 检查。
 				 */
 				break;
 		}
 
-		/* This path isn't good for us, check next. */
+		/* 此路径不适合我们，看下一条 */
 		if (!joinpath)
 			continue;
 
 		/*
-		 * If either inner or outer path is a ForeignPath corresponding to a
-		 * pushed down join, replace it with the fdw_outerpath, so that we
-		 * maintain path for EPQ checks built entirely of local join
-		 * strategies.
+		 * 若内路径或外路径是 ForeignPath，且对应某个
+		 * 下推连接，就换成 fdw_outerpath，来维持
+		 * 全由本地连接策略构成的 EPQ 检查路径。
+		 *
 		 */
 		if (IsA(joinpath->outerjoinpath, ForeignPath))
 		{

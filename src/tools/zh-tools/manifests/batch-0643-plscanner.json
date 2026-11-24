@@ -1,0 +1,72 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0643",
+ "title": "plpgsql 扫描器 — batch 0643",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4232f55706ca71c4b46f2c99b70876ef849f36b1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0643 next→plpgsql.h/pl_comp/pl_exec"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/pl_scanner.c",
+   "kind": "c_comment",
+   "note": "0643"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0643-plscanner.json",
+   "kind": "manifest",
+   "note": "0643"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0643"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→plpgsql.h/pl_comp/pl_exec"
+  },
+  {
+   "path": "src/pl/plpgsql/src/pl_scanner.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 61,
+   "translated": 59,
+   "preserved": 2,
+   "preserved_reasons": ["B46/B48 translator 注释整段保护"],
+   "note": "0643 词法扫描"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0643-plscanner.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "pl_scanner.c。plpgsql.h、pl_comp.c、pl_exec.c 未纳入。横线、路径、纯函数名与 translator 行 KEEP。术语：核心扫描器、核心词法器、记号、推回、非保留关键字。"
+}

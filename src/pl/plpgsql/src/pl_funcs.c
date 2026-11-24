@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
- * pl_funcs.c		- Misc functions for the PL/pgSQL
- *			  procedural language
+ * pl_funcs.c：PL/pgSQL 过程语言的杂项
+ *	函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,24 +19,24 @@
 #include "utils/memutils.h"
 
 /* ----------
- * Local variables for namespace handling
+ * 命名空间处理的局部变量。
  *
- * The namespace structure actually forms a tree, of which only one linear
- * list or "chain" (from the youngest item to the root) is accessible from
- * any one plpgsql statement.  During initial parsing of a function, ns_top
- * points to the youngest item accessible from the block currently being
- * parsed.  We store the entire tree, however, since at runtime we will need
- * to access the chain that's relevant to any one statement.
+ * 命名空间结构其实是一棵树，其中从任一
+ *  plpgsql 语句只能访问一条链（从最年轻项到根）。
+ * 函数初次解析期间，ns_top 指向当前正在
+ * 解析的块所能访问的最年轻项。不过我们仍保存
+ * 整棵树，因为运行时需要访问与任一语句
+ * 相关的那条链。
  *
- * Block boundaries in the namespace chain are marked by PLPGSQL_NSTYPE_LABEL
- * items.
+ * 命名空间链中块边界由 PLPGSQL_NSTYPE_LABEL 项标出。
+ *
  * ----------
  */
 static PLpgSQL_nsitem *ns_top = NULL;
 
 
 /* ----------
- * plpgsql_ns_init			Initialize namespace processing for a new function
+ * plpgsql_ns_init：为新函数初始化命名空间处理
  * ----------
  */
 void
@@ -47,7 +47,7 @@ plpgsql_ns_init(void)
 
 
 /* ----------
- * plpgsql_ns_push			Create a new namespace level
+ * plpgsql_ns_push：新建一层命名空间
  * ----------
  */
 void
@@ -60,7 +60,7 @@ plpgsql_ns_push(const char *label, PLpgSQL_label_type label_type)
 
 
 /* ----------
- * plpgsql_ns_pop			Pop entries back to (and including) the last label
+ * plpgsql_ns_pop：弹出直到并含最后标签的项
  * ----------
  */
 void
@@ -74,7 +74,7 @@ plpgsql_ns_pop(void)
 
 
 /* ----------
- * plpgsql_ns_top			Fetch the current namespace chain end
+ * plpgsql_ns_top：取当前命名空间链的末端
  * ----------
  */
 PLpgSQL_nsitem *
@@ -85,7 +85,7 @@ plpgsql_ns_top(void)
 
 
 /* ----------
- * plpgsql_ns_additem		Add an item to the current namespace chain
+ * plpgsql_ns_additem：往当前命名空间链加一项
  * ----------
  */
 void
@@ -94,7 +94,7 @@ plpgsql_ns_additem(PLpgSQL_nsitem_type itemtype, int itemno, const char *name)
 	PLpgSQL_nsitem *nse;
 
 	Assert(name != NULL);
-	/* first item added must be a label */
+	/* 首个加入项必须是标签 */
 	Assert(ns_top != NULL || itemtype == PLPGSQL_NSTYPE_LABEL);
 
 	nse = palloc(offsetof(PLpgSQL_nsitem, name) + strlen(name) + 1);
@@ -107,23 +107,23 @@ plpgsql_ns_additem(PLpgSQL_nsitem_type itemtype, int itemno, const char *name)
 
 
 /* ----------
- * plpgsql_ns_lookup		Lookup an identifier in the given namespace chain
+ * plpgsql_ns_lookup：在给定命名空间链中查标识符。
  *
- * Note that this only searches for variables, not labels.
+ * 注意：这里只查变量，不查标签。
  *
- * If localmode is true, only the topmost block level is searched.
+ * 若 localmode 为真，只搜索最顶层的块。
  *
- * name1 must be non-NULL.  Pass NULL for name2 and/or name3 if parsing a name
- * with fewer than three components.
+ * name1 必须非 NULL。解析不足三部分的名字时，
+ * name2 与/或 name3 传 NULL。
  *
- * If names_used isn't NULL, *names_used receives the number of names
- * matched: 0 if no match, 1 if name1 matched an unqualified variable name,
- * 2 if name1 and name2 matched a block label + variable name.
+ * 若 names_used 不是 NULL，*names_used 收到匹配的
+ * 名字数：无匹配为 0，name1 匹配无限定变量名则为 1，
+ * name1 与 name2 匹配块标签加变量名则为 2。
  *
- * Note that name3 is never directly matched to anything.  However, if it
- * isn't NULL, we will disregard qualified matches to scalar variables.
- * Similarly, if name2 isn't NULL, we disregard unqualified matches to
- * scalar variables.
+ * 注意：name3 从不直接匹配任何东西。但若它
+ * 不是 NULL，就不理会对标量变量的限定匹配。
+ * 同样，若 name2 不是 NULL，就不理会无限定匹配到
+ * 标量变量。
  * ----------
  */
 PLpgSQL_nsitem *
@@ -131,12 +131,12 @@ plpgsql_ns_lookup(PLpgSQL_nsitem *ns_cur, bool localmode,
 				  const char *name1, const char *name2, const char *name3,
 				  int *names_used)
 {
-	/* Outer loop iterates once per block level in the namespace chain */
+	/* 外层循环对命名空间链的每一块层迭代一次 */
 	while (ns_cur != NULL)
 	{
 		PLpgSQL_nsitem *nsitem;
 
-		/* Check this level for unqualified match to variable name */
+		/* 在本层检查对变量名的无限定匹配 */
 		for (nsitem = ns_cur;
 			 nsitem->itemtype != PLPGSQL_NSTYPE_LABEL;
 			 nsitem = nsitem->prev)
@@ -153,7 +153,7 @@ plpgsql_ns_lookup(PLpgSQL_nsitem *ns_cur, bool localmode,
 			}
 		}
 
-		/* Check this level for qualified match to variable name */
+		/* 在本层检查对变量名的限定匹配 */
 		if (name2 != NULL &&
 			strcmp(nsitem->name, name1) == 0)
 		{
@@ -175,20 +175,20 @@ plpgsql_ns_lookup(PLpgSQL_nsitem *ns_cur, bool localmode,
 		}
 
 		if (localmode)
-			break;				/* do not look into upper levels */
+			break;				/* 不要再看更上层 */
 
 		ns_cur = nsitem->prev;
 	}
 
-	/* This is just to suppress possibly-uninitialized-variable warnings */
+	/* 这只是为了压掉可能未初始化变量的警告 */
 	if (names_used)
 		*names_used = 0;
-	return NULL;				/* No match found */
+	return NULL;				/* 无匹配 */
 }
 
 
 /* ----------
- * plpgsql_ns_lookup_label		Lookup a label in the given namespace chain
+ * plpgsql_ns_lookup_label：在给定命名空间链中查标签
  * ----------
  */
 PLpgSQL_nsitem *
@@ -202,12 +202,12 @@ plpgsql_ns_lookup_label(PLpgSQL_nsitem *ns_cur, const char *name)
 		ns_cur = ns_cur->prev;
 	}
 
-	return NULL;				/* label not found */
+	return NULL;				/* 未找到标签 */
 }
 
 
 /* ----------
- * plpgsql_ns_find_nearest_loop		Find innermost loop label in namespace chain
+ * plpgsql_ns_find_nearest_loop：在链中找最内层循环标签
  * ----------
  */
 PLpgSQL_nsitem *
@@ -221,12 +221,12 @@ plpgsql_ns_find_nearest_loop(PLpgSQL_nsitem *ns_cur)
 		ns_cur = ns_cur->prev;
 	}
 
-	return NULL;				/* no loop found */
+	return NULL;				/* 无循环 */
 }
 
 
 /*
- * Statement type as a string, for use in error messages etc.
+ * 语句类型的字符串，供错误消息等使用。
  */
 const char *
 plpgsql_stmt_typename(PLpgSQL_stmt *stmt)
@@ -294,7 +294,7 @@ plpgsql_stmt_typename(PLpgSQL_stmt *stmt)
 }
 
 /*
- * GET DIAGNOSTICS item name as a string, for use in error messages etc.
+ * GET DIAGNOSTICS 项名的字符串，供错误消息等使用。
  */
 const char *
 plpgsql_getdiag_kindname(PLpgSQL_getdiag_kind kind)
@@ -334,13 +334,13 @@ plpgsql_getdiag_kindname(PLpgSQL_getdiag_kind kind)
 
 
 /**********************************************************************
- * Release memory when a PL/pgSQL function is no longer needed
+ * 当 PL/pgSQL 函数不再需要时，释放其内存。
  *
- * The code for recursing through the function tree is really only
- * needed to locate PLpgSQL_expr nodes, which may contain references
- * to saved SPI Plans that must be freed.  The function tree itself,
- * along with subsidiary data, is freed in one swoop by freeing the
- * function's permanent memory context.
+ * 递归遍历函数树的代码其实只为了
+ * 定位可能含已保存 SPI 计划引用的 PLpgSQL_expr
+ *  节点，那些计划必须释放。函数树本身
+ * 连同附属数据，靠释放其永久内存上下文
+ * 一次完成。
  **********************************************************************/
 static void free_stmt(PLpgSQL_stmt *stmt);
 static void free_block(PLpgSQL_stmt_block *block);
@@ -728,10 +728,10 @@ plpgsql_free_function_memory(PLpgSQL_function *func)
 {
 	int			i;
 
-	/* Better not call this on an in-use function */
+	/* 最好别对正在使用的函数调用它 */
 	Assert(func->use_count == 0);
 
-	/* Release plans associated with variable declarations */
+	/* 释放与变量声明关联的计划 */
 	for (i = 0; i < func->ndatums; i++)
 	{
 		PLpgSQL_datum *d = func->datums[i];
@@ -764,15 +764,15 @@ plpgsql_free_function_memory(PLpgSQL_function *func)
 	}
 	func->ndatums = 0;
 
-	/* Release plans in statement tree */
+	/* 释放语句树中的计划 */
 	if (func->action)
 		free_block(func->action);
 	func->action = NULL;
 
 	/*
-	 * And finally, release all memory except the PLpgSQL_function struct
-	 * itself (which has to be kept around because there may be multiple
-	 * fn_extra pointers to it).
+	 * 最后释放全部内存，只留 PLpgSQL_function 结构
+	 * 本身（必须留着，因可能有多个 fn_extra 指针
+	 * 指向它）。
 	 */
 	if (func->fn_cxt)
 		MemoryContextDelete(func->fn_cxt);
@@ -781,7 +781,7 @@ plpgsql_free_function_memory(PLpgSQL_function *func)
 
 
 /**********************************************************************
- * Debug functions for analyzing the compiled code
+ * 用于分析已编译代码的调试函数
  **********************************************************************/
 static int	dump_indent;
 

@@ -1,0 +1,117 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0642",
+ "title": "plpgsql 杂项/处理函数/关键字表 — batch 0642",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f1a830de51279d2be339fad48a8ea9af2142da17",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0642 next→plpgsql 扫描器/头/编译/执行"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/pl_funcs.c",
+   "kind": "c_comment",
+   "note": "0642"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/pl_handler.c",
+   "kind": "c_comment",
+   "note": "0642"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/pl_reserved_kwlist.h",
+   "kind": "c_comment",
+   "note": "0642"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/pl_unreserved_kwlist.h",
+   "kind": "c_comment",
+   "note": "0642"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0642-plpgsql.json",
+   "kind": "manifest",
+   "note": "0642"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0642"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→plpgsql 扫描器/头/编译/执行"
+  },
+  {
+   "path": "src/pl/plpgsql/src/pl_funcs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 27,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0642 命名空间与释放"
+  },
+  {
+   "path": "src/pl/plpgsql/src/pl_handler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 48,
+   "translated": 48,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0642 调用/内联/校验"
+  },
+  {
+   "path": "src/pl/plpgsql/src/pl_reserved_kwlist.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0642 保留关键字表"
+  },
+  {
+   "path": "src/pl/plpgsql/src/pl_unreserved_kwlist.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0642 非保留关键字表"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0642-plpgsql.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "pl_funcs.c、pl_handler.c 与两份关键字表。pl_scanner.c、plpgsql.h、pl_comp.c、pl_exec.c 未纳入。横线与路径 KEEP；英文残行已并入上行。术语沿用 PL/pgSQL、命名空间、连接/断开 SPI 管理器。"
+}

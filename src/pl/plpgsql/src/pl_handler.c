@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
- * pl_handler.c		- Handler for the PL/pgSQL
- *			  procedural language
+ * pl_handler.c：PL/pgSQL 过程语言的
+ *	处理函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -33,7 +33,7 @@ static void plpgsql_extra_errors_assign_hook(const char *newvalue, void *extra);
 
 PG_MODULE_MAGIC;
 
-/* Custom GUC variable */
+/* 定制 GUC 变量 */
 static const struct config_enum_entry variable_conflict_options[] = {
 	{"error", PLPGSQL_RESOLVE_ERROR, false},
 	{"use_variable", PLPGSQL_RESOLVE_VARIABLE, false},
@@ -52,7 +52,7 @@ char	   *plpgsql_extra_errors_string = NULL;
 int			plpgsql_extra_warnings;
 int			plpgsql_extra_errors;
 
-/* Hook for plugins */
+/* 插件钩子 */
 PLpgSQL_plugin **plpgsql_plugin_ptr = NULL;
 
 
@@ -71,13 +71,13 @@ plpgsql_extra_checks_check_hook(char **newvalue, void **extra, GucSource source)
 		extrachecks = PLPGSQL_XCHECK_NONE;
 	else
 	{
-		/* Need a modifiable copy of string */
+		/* 需可改的字符串副本 */
 		rawstring = pstrdup(*newvalue);
 
-		/* Parse string into list of identifiers */
+		/* 把字符串解析成标识符列表 */
 		if (!SplitIdentifierString(rawstring, ',', &elemlist))
 		{
-			/* syntax error in list */
+			/* 列表内语法错 */
 			GUC_check_errdetail("List syntax is invalid.");
 			pfree(rawstring);
 			list_free(elemlist);
@@ -137,14 +137,14 @@ plpgsql_extra_errors_assign_hook(const char *newvalue, void *extra)
 
 
 /*
- * _PG_init()			- library load-time initialization
+ * _PG_init()：库加载时的初始化。
  *
- * DO NOT make this static nor change its name!
+ * 别改成 static，也别改它的名字！
  */
 void
 _PG_init(void)
 {
-	/* Be sure we do initialization only once (should be redundant now) */
+	/* 确保初始化只做一次（现在本该是多余的） */
 	static bool inited = false;
 
 	if (inited)
@@ -203,7 +203,7 @@ _PG_init(void)
 	RegisterXactCallback(plpgsql_xact_cb, NULL);
 	RegisterSubXactCallback(plpgsql_subxact_cb, NULL);
 
-	/* Set up a rendezvous point with optional instrumentation plugin */
+	/* 与可选的插装插件建立一个会合点 */
 	plpgsql_plugin_ptr = (PLpgSQL_plugin **) find_rendezvous_variable("PLpgSQL_plugin");
 
 	inited = true;
@@ -212,8 +212,8 @@ _PG_init(void)
 /* ----------
  * plpgsql_call_handler
  *
- * The PostgreSQL function manager and trigger manager
- * call this function for execution of PL/pgSQL procedures.
+ * PostgreSQL 函数管理器与触发器管理器
+ * 调用本函数来执行 PL/pgSQL 过程。
  * ----------
  */
 PG_FUNCTION_INFO_V1(plpgsql_call_handler);
@@ -233,26 +233,26 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 		!castNode(CallContext, fcinfo->context)->atomic;
 
 	/*
-	 * Connect to SPI manager
+	 * 连接 SPI 管理器
 	 */
 	if ((rc = SPI_connect_ext(nonatomic ? SPI_OPT_NONATOMIC : 0)) != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed: %s", SPI_result_code_string(rc));
 
-	/* Find or compile the function */
+	/* 查找或编译该函数 */
 	func = plpgsql_compile(fcinfo, false);
 
-	/* Must save and restore prior value of cur_estate */
+	/* 必须保存并恢复 cur_estate 的原值 */
 	save_cur_estate = func->cur_estate;
 
-	/* Mark the function as busy, so it can't be deleted from under us */
+	/* 把函数标为忙，以免它在我们脚下被删掉 */
 	func->use_count++;
 
 	/*
-	 * If we'll need a procedure-lifespan resowner to execute any CALL or DO
-	 * statements, create it now.  Since this resowner is not tied to any
-	 * parent, failing to free it would result in process-lifespan leaks.
-	 * Therefore, be very wary of adding any code between here and the PG_TRY
-	 * block.
+	 * 若执行任何 CALL 或 DO 需要过程寿命的 resowner，
+	 * 现在就创建。因该 resowner 不系于任何父级，
+	 * 不释放它就会造成进程寿命的泄漏。
+	 * 因此从这里到 PG_TRY 块之间，加代码要非常小心。
+	 *
 	 */
 	procedure_resowner =
 		(nonatomic && func->requires_procedure_resowner) ?
@@ -261,8 +261,8 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 	PG_TRY();
 	{
 		/*
-		 * Determine if called as function or trigger and call appropriate
-		 * subhandler
+		 * 判断是作为函数还是触发器被调用，并调用相应
+		 * 子例程
 		 */
 		if (CALLED_AS_TRIGGER(fcinfo))
 			retval = PointerGetDatum(plpgsql_exec_trigger(func,
@@ -271,7 +271,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 		{
 			plpgsql_exec_event_trigger(func,
 									   (EventTriggerData *) fcinfo->context);
-			/* there's no return value in this case */
+			/* 这种情况下没有返回值 */
 		}
 		else
 			retval = plpgsql_exec_function(func, fcinfo,
@@ -281,11 +281,11 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 	}
 	PG_FINALLY();
 	{
-		/* Decrement use-count, restore cur_estate */
+		/* 递减使用计数，恢复 cur_estate */
 		func->use_count--;
 		func->cur_estate = save_cur_estate;
 
-		/* Be sure to release the procedure resowner if any */
+		/* 若有过程 resowner，务必释放它 */
 		if (procedure_resowner)
 		{
 			ResourceOwnerReleaseAllPlanCacheRefs(procedure_resowner);
@@ -295,7 +295,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 	PG_END_TRY();
 
 	/*
-	 * Disconnect from SPI manager
+	 * 断开 SPI 管理器连接
 	 */
 	if ((rc = SPI_finish()) != SPI_OK_FINISH)
 		elog(ERROR, "SPI_finish failed: %s", SPI_result_code_string(rc));
@@ -306,7 +306,7 @@ plpgsql_call_handler(PG_FUNCTION_ARGS)
 /* ----------
  * plpgsql_inline_handler
  *
- * Called by PostgreSQL to execute an anonymous code block
+ * 由 PostgreSQL 调用来执行匿名代码块
  * ----------
  */
 PG_FUNCTION_INFO_V1(plpgsql_inline_handler);
@@ -324,21 +324,21 @@ plpgsql_inline_handler(PG_FUNCTION_ARGS)
 	int			rc;
 
 	/*
-	 * Connect to SPI manager
+	 * 连接 SPI 管理器
 	 */
 	if ((rc = SPI_connect_ext(codeblock->atomic ? 0 : SPI_OPT_NONATOMIC)) != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed: %s", SPI_result_code_string(rc));
 
-	/* Compile the anonymous code block */
+	/* 编译该匿名代码块 */
 	func = plpgsql_compile_inline(codeblock->source_text);
 
-	/* Mark the function as busy, just pro forma */
+	/* 把函数标为忙，只是走个形式 */
 	func->use_count++;
 
 	/*
-	 * Set up a fake fcinfo with just enough info to satisfy
-	 * plpgsql_exec_function().  In particular note that this sets things up
-	 * with no arguments passed.
+	 * 建一个假的 fcinfo，信息刚够满足
+	 *  plpgsql_exec_function()。特别是这里
+	 * 不传入任何参数。
 	 */
 	MemSet(fake_fcinfo, 0, SizeForFunctionCallInfo(0));
 	MemSet(&flinfo, 0, sizeof(flinfo));
@@ -347,81 +347,81 @@ plpgsql_inline_handler(PG_FUNCTION_ARGS)
 	flinfo.fn_mcxt = CurrentMemoryContext;
 
 	/*
-	 * Create a private EState and resowner for simple-expression execution.
-	 * Notice that these are NOT tied to transaction-level resources; they
-	 * must survive any COMMIT/ROLLBACK the DO block executes, since we will
-	 * unconditionally try to clean them up below.  (Hence, be wary of adding
-	 * anything that could fail between here and the PG_TRY block.)  See the
-	 * comments for shared_simple_eval_estate.
+	 * 为简单表达式执行建私有 EState 与 resowner。
+	 * 注意它们并不绑到事务级资源上；它们必须
+	 * 熬过 DO 块执行的任何 COMMIT/ROLLBACK，因为下面
+	 * 我们会无条件清理它们。（因此从这里到 PG_TRY
+	 *  块之间，别加任何可能失败的东西。）见
+	 *  shared_simple_eval_estate 的注释。
 	 *
-	 * Because this resowner isn't tied to the calling transaction, we can
-	 * also use it as the "procedure" resowner for any CALL statements.  That
-	 * helps reduce the opportunities for failure here.
+	 * 因为该 resowner 不绑到调用方事务，我们也
+	 * 可以把它用作任何 CALL 语句的过程 resowner。这
+	 * 有助于减少这里失败的机会。
 	 */
 	simple_eval_estate = CreateExecutorState();
 	simple_eval_resowner =
 		ResourceOwnerCreate(NULL, "PL/pgSQL DO block simple expressions");
 
-	/* And run the function */
+	/* 再运行该函数 */
 	PG_TRY();
 	{
 		retval = plpgsql_exec_function(func, fake_fcinfo,
 									   simple_eval_estate,
 									   simple_eval_resowner,
-									   simple_eval_resowner,	/* see above */
+									   simple_eval_resowner,	/* 见上文 */
 									   codeblock->atomic);
 	}
 	PG_CATCH();
 	{
 		/*
-		 * We need to clean up what would otherwise be long-lived resources
-		 * accumulated by the failed DO block, principally cached plans for
-		 * statements (which can be flushed by plpgsql_free_function_memory),
-		 * execution trees for simple expressions, which are in the private
-		 * EState, and cached-plan refcounts held by the private resowner.
+		 * 必须清理否则会长期存活的资源，它们是
+		 * 失败的 DO 块积下来的，主要是语句的缓存计划
+		 * 可用 plpgsql_free_function_memory 冲掉，
+		 * 简单表达式的执行树（在私有 EState 里），以及
+		 * 私有 resowner 持有的缓存计划引用计数。
 		 *
-		 * Before releasing the private EState, we must clean up any
-		 * simple_econtext_stack entries pointing into it, which we can do by
-		 * invoking the subxact callback.  (It will be called again later if
-		 * some outer control level does a subtransaction abort, but no harm
-		 * is done.)  We cheat a bit knowing that plpgsql_subxact_cb does not
-		 * pay attention to its parentSubid argument.
+		 * 释放私有 EState 之前，必须清掉任何指向
+		 * 它内部的 simple_econtext_stack 项，这可以靠
+		 * 调用子事务回调来做。（若外层稍后中止子事务
+		 * 还会再调一次，但没有害处。）我们取巧，知道
+		 *  plpgsql_subxact_cb 并不理会它的
+		 *  parentSubid 参数。
 		 */
 		plpgsql_subxact_cb(SUBXACT_EVENT_ABORT_SUB,
 						   GetCurrentSubTransactionId(),
 						   0, NULL);
 
-		/* Clean up the private EState and resowner */
+		/* 清理私有 EState 与 resowner */
 		FreeExecutorState(simple_eval_estate);
 		ResourceOwnerReleaseAllPlanCacheRefs(simple_eval_resowner);
 		ResourceOwnerDelete(simple_eval_resowner);
 
-		/* Function should now have no remaining use-counts ... */
+		/* 函数现应无剩余使用计数…… */
 		func->use_count--;
 		Assert(func->use_count == 0);
 
-		/* ... so we can free subsidiary storage */
+		/* ……因此可以释放附属存储 */
 		plpgsql_free_function_memory(func);
 
-		/* And propagate the error */
+		/* 再把错误传出去 */
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
 
-	/* Clean up the private EState and resowner */
+	/* 清理私有 EState 与 resowner */
 	FreeExecutorState(simple_eval_estate);
 	ResourceOwnerReleaseAllPlanCacheRefs(simple_eval_resowner);
 	ResourceOwnerDelete(simple_eval_resowner);
 
-	/* Function should now have no remaining use-counts ... */
+	/* 函数现应无剩余使用计数…… */
 	func->use_count--;
 	Assert(func->use_count == 0);
 
-	/* ... so we can free subsidiary storage */
+	/* ……因此可以释放附属存储 */
 	plpgsql_free_function_memory(func);
 
 	/*
-	 * Disconnect from SPI manager
+	 * 断开 SPI 管理器连接
 	 */
 	if ((rc = SPI_finish()) != SPI_OK_FINISH)
 		elog(ERROR, "SPI_finish failed: %s", SPI_result_code_string(rc));
@@ -432,8 +432,8 @@ plpgsql_inline_handler(PG_FUNCTION_ARGS)
 /* ----------
  * plpgsql_validator
  *
- * This function attempts to validate a PL/pgSQL function at
- * CREATE FUNCTION time.
+ * 本函数试图在 CREATE FUNCTION 时验证
+ *  PL/pgSQL 函数。
  * ----------
  */
 PG_FUNCTION_INFO_V1(plpgsql_validator);
@@ -456,7 +456,7 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 	if (!CheckFunctionValidatorAccess(fcinfo->flinfo->fn_oid, funcoid))
 		PG_RETURN_VOID();
 
-	/* Get the new function's pg_proc entry */
+	/* 取得新函数的 pg_proc 项 */
 	tuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcoid));
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for function %u", funcoid);
@@ -464,8 +464,8 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 
 	functyptype = get_typtype(proc->prorettype);
 
-	/* Disallow pseudotype result */
-	/* except for TRIGGER, EVTTRIGGER, RECORD, VOID, or polymorphic */
+	/* 禁止伪类型结果 */
+	/* 但 TRIGGER、EVTTRIGGER、RECORD、VOID 或多态除外 */
 	if (functyptype == TYPTYPE_PSEUDO)
 	{
 		if (proc->prorettype == TRIGGEROID)
@@ -481,8 +481,8 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 							format_type_be(proc->prorettype))));
 	}
 
-	/* Disallow pseudotypes in arguments (either IN or OUT) */
-	/* except for RECORD and polymorphic */
+	/* 禁止参数中的伪类型(无论 IN 或 OUT) */
+	/* 但 RECORD 与多态除外 */
 	numargs = get_func_arg_info(tuple,
 								&argtypes, &argnames, &argmodes);
 	for (i = 0; i < numargs; i++)
@@ -498,7 +498,7 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Postpone body checks if !check_function_bodies */
+	/* 若 !check_function_bodies 则延后查体 */
 	if (check_function_bodies)
 	{
 		LOCAL_FCINFO(fake_fcinfo, 0);
@@ -508,14 +508,14 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 		EventTriggerData etrigdata;
 
 		/*
-		 * Connect to SPI manager (is this needed for compilation?)
+		 * 连接 SPI 管理器（编译需要这样做吗？）
 		 */
 		if ((rc = SPI_connect()) != SPI_OK_CONNECT)
 			elog(ERROR, "SPI_connect failed: %s", SPI_result_code_string(rc));
 
 		/*
-		 * Set up a fake fcinfo with just enough info to satisfy
-		 * plpgsql_compile().
+		 * 建一个假 fcinfo，信息刚够满足
+		 *  plpgsql_compile()
 		 */
 		MemSet(fake_fcinfo, 0, SizeForFunctionCallInfo(0));
 		MemSet(&flinfo, 0, sizeof(flinfo));
@@ -535,11 +535,11 @@ plpgsql_validator(PG_FUNCTION_ARGS)
 			fake_fcinfo->context = (Node *) &etrigdata;
 		}
 
-		/* Test-compile the function */
+		/* 试编译该函数 */
 		plpgsql_compile(fake_fcinfo, true);
 
 		/*
-		 * Disconnect from SPI manager
+		 * 断开 SPI 管理器连接
 		 */
 		if ((rc = SPI_finish()) != SPI_OK_FINISH)
 			elog(ERROR, "SPI_finish failed: %s", SPI_result_code_string(rc));

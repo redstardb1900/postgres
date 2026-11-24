@@ -2,10 +2,10 @@
  *
  * pl_unreserved_kwlist.h
  *
- * The keyword lists are kept in their own source files for use by
- * automatic tools.  The exact representation of a keyword is determined
- * by the PG_KEYWORD macro, which is not defined in this file; it can
- * be defined by the caller for special purposes.
+ * 关键字表各自放在单独源文件里，供
+ * 自动工具使用。关键字的确切表示由
+ *  PG_KEYWORD 宏决定。本文件不定义它，调用者可
+ * 为特殊目的自行定义。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,18 +15,18 @@
  *-------------------------------------------------------------------------
  */
 
-/* There is deliberately not an #ifndef PL_UNRESERVED_KWLIST_H here. */
+/* 这里故意不放 #ifndef PL_UNRESERVED_KWLIST_H。 */
 
 /*
- * List of (keyword-name, keyword-token-value) pairs.
+ * (关键字名, 关键字记号值) 对的列表。
  *
- * Be careful not to put the same word into pl_reserved_kwlist.h.  Also be
- * sure that pl_gram.y's unreserved_keyword production agrees with this list.
+ * 注意不要把同一个词放进 pl_reserved_kwlist.h。还要
+ * 确保 pl_gram.y 的 unreserved_keyword 产生式与本表一致。
  *
- * Note: gen_keywordlist.pl requires the entries to appear in ASCII order.
+ * 注意：gen_keywordlist.pl 要求条目按 ASCII 序排列。
  */
 
-/* name, value */
+/* 名与值 */
 PG_KEYWORD("absolute", K_ABSOLUTE)
 PG_KEYWORD("alias", K_ALIAS)
 PG_KEYWORD("and", K_AND)

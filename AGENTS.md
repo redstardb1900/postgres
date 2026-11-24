@@ -37,7 +37,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B -I src/tools/zh-tools/scan_halfen.py --work
 ## 下一战役
 
 **现行交接：** `/home/redstar/pg/HANDOVER-20261124-REL_16_11_zh.md`（仓库外）。  
-FINAL 第七节 regex 未开工已过时（0436–0441 已完）；adt 至 0635、utils/mb 至 0636、backup 至 0637、port 至 0638、jit 至 0640、foreign/bootstrap/archive 至 0641 收口。
+FINAL 第七节 regex 未开工已过时（0436–0441 已完）；adt 至 0635、utils/mb 至 0636、backup 至 0637、port 至 0638、jit 至 0640、foreign/bootstrap/archive 至 0641、plpgsql 杂项/处理函数/关键字表至 0642 收口。`src/include/port/` 残留头只有路径标识，无散文。
 
-**建议下一战役：** `src/include/port/` 残留头 → PL/客户端/contrib。  
+**建议下一战役：** plpgsql 余下 `pl_scanner.c`、`plpgsql.h`、`pl_comp.c`、`pl_exec.c` → PL/客户端/contrib。  
 暂缓：`ppport.h`、libstemmer、测试期望、`gram.y`/`scan.l`/flex·bison（详见交接 §4）。

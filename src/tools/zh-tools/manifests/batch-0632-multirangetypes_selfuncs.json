@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0632",
+ "title": "backend/utils/adt multirangetypes_selfuncs — batch 0632",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c6f2e8c56062c77b2ef36af9f75ca0549c2b80c7",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/multirangetypes_selfuncs.c",
+   "kind": "c_comment",
+   "note": "0632"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0632-multirangetypes_selfuncs.json",
+   "kind": "manifest",
+   "note": "0632"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0632 selfuncs notation halfen exemption"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/multirangetypes_selfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION KEEP",
+    "公式/ASCII 图 KEEP (A&&B / 积分梯形 / P(x1)=…)",
+    "halfen 记号豁免：var Op other / [length1,length2] / (number of bins)"
+   ],
+   "note": "0632"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0632-multirangetypes_selfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0632"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0632 selfuncs notation halfen exemption"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0632"
+  }
+ ],
+ "notes": "multirangetypes_selfuncs.c 全文件; 多范围/选择率/直方图/估算(禁估计)/空多范围占比/边界对齐 rangetypes_selfuncs; 公式ASCII KEEP; 等义压缩: L101比较符旁空格、L127省「所有」、L238-239一如对元素的提升、L259-262省「值/我们」、L332-334仍可按、L431任一非空包含"
+}

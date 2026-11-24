@@ -1,26 +1,26 @@
 /*-------------------------------------------------------------------------
  *
  * mbutils.c
- *	  This file contains functions for encoding conversion.
+ *	  本文件含编码转换相关函数。
  *
- * The string-conversion functions in this file share some API quirks.
- * Note the following:
+ * 本文件中的字符串转换函数有若干 API 怪癖。
+ * 注意如下：
  *
- * The functions return a palloc'd, null-terminated string if conversion
- * is required.  However, if no conversion is performed, the given source
- * string pointer is returned as-is.
+ * 若需转换，函数返回 palloc 的、以空字节结尾的
+ * 字符串。但若不做转换，则原样返回给定源
+ * 串指针。
  *
- * Although the presence of a length argument means that callers can pass
- * non-null-terminated strings, care is required because the same string
- * will be passed back if no conversion occurs.  Such callers *must* check
- * whether result == src and handle that case differently.
+ * 虽有长度参数，调用方可传入非空终止串，
+ * 但仍须当心：若不发生转换，将回传同一
+ * 字符串。此类调用方*必须*检查
+ * result == src 并区别处理。
  *
- * If the source and destination encodings are the same, the source string
- * is returned without any verification; it's assumed to be valid data.
- * If that might not be the case, the caller is responsible for validating
- * the string using a separate call to pg_verify_mbstr().  Whenever the
- * source and destination encodings are different, the functions ensure that
- * the result is validly encoded according to the destination encoding.
+ * 若源与目标编码相同，则原样返回源串，
+ * 不做任何校验；假定其为合法数据。
+ * 若可能并非如此，调用方须另行调用
+ * pg_verify_mbstr() 校验该串。只要源与
+ * 目标编码不同，函数即保证结果按目标编码
+ * 合法编码。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -43,69 +43,69 @@
 #include "varatt.h"
 
 /*
- * We maintain a simple linked list caching the fmgr lookup info for the
- * currently selected conversion functions, as well as any that have been
- * selected previously in the current session.  (We remember previous
- * settings because we must be able to restore a previous setting during
- * transaction rollback, without doing any fresh catalog accesses.)
+ * 我们维护一简单链表，缓存当前所选转换函数
+ * 的 fmgr 查找信息，以及本会话中曾选过的
+ * 任何转换函数。（记住先前设置，是因事务
+ * 回滚时必须能恢复先前设置，且不得再做
+ * 新的目录访问。）
  *
- * Since we'll never release this data, we just keep it in TopMemoryContext.
+ * 此数据永不释放，故径置于 TopMemoryContext。
  */
 typedef struct ConvProcInfo
 {
-	int			s_encoding;		/* server and client encoding IDs */
+	int			s_encoding;		/* 服务器与客户端编码 ID */
 	int			c_encoding;
-	FmgrInfo	to_server_info; /* lookup info for conversion procs */
+	FmgrInfo	to_server_info; /* 转换过程的查找信息 */
 	FmgrInfo	to_client_info;
 } ConvProcInfo;
 
-static List *ConvProcList = NIL;	/* List of ConvProcInfo */
+static List *ConvProcList = NIL;	/* ConvProcInfo 列表 */
 
 /*
- * These variables point to the currently active conversion functions,
- * or are NULL when no conversion is needed.
+ * 这些变量指向当前活动的转换函数，
+ * 无需转换时为 NULL。
  */
 static FmgrInfo *ToServerConvProc = NULL;
 static FmgrInfo *ToClientConvProc = NULL;
 
 /*
- * This variable stores the conversion function to convert from UTF-8
- * to the server encoding.  It's NULL if the server encoding *is* UTF-8,
- * or if we lack a conversion function for this.
+ * 此变量存放把 UTF-8 转到服务器编码的
+ * 转换函数。若服务器编码*就是* UTF-8，或
+ * 缺少该转换函数，则为 NULL。
  */
 static FmgrInfo *Utf8ToServerConvProc = NULL;
 
 /*
- * These variables track the currently-selected encodings.
+ * 这些变量跟踪当前所选编码。
  */
 static const pg_enc2name *ClientEncoding = &pg_enc2name_tbl[PG_SQL_ASCII];
 static const pg_enc2name *DatabaseEncoding = &pg_enc2name_tbl[PG_SQL_ASCII];
 static const pg_enc2name *MessageEncoding = &pg_enc2name_tbl[PG_SQL_ASCII];
 
 /*
- * During backend startup we can't set client encoding because we (a)
- * can't look up the conversion functions, and (b) may not know the database
- * encoding yet either.  So SetClientEncoding() just accepts anything and
- * remembers it for InitializeClientEncoding() to apply later.
+ * 后端启动期间无法设客户端编码，因我们 (a)
+ * 无法查找转换函数，且 (b) 可能尚不知数据库
+ * 编码。故 SetClientEncoding() 先接受任意值并
+ * 记住，供 InitializeClientEncoding() 稍后应用。
  */
 static bool backend_startup_complete = false;
 static int	pending_client_encoding = PG_SQL_ASCII;
 
 
-/* Internal functions */
+/* 内部函数 */
 static char *perform_default_encoding_conversion(const char *src,
 												 int len, bool is_client_to_server);
 static int	cliplen(const char *str, int len, int limit);
 
 
 /*
- * Prepare for a future call to SetClientEncoding.  Success should mean
- * that SetClientEncoding is guaranteed to succeed for this encoding request.
+ * 为日后调用 SetClientEncoding 做准备。成功应意味
+ * 对此编码请求，SetClientEncoding 保证会成功。
  *
- * (But note that success before backend_startup_complete does not guarantee
- * success after ...)
+ * 但注意：backend_startup_complete 前的成功并不保证
+ * 此后仍成功)
  *
- * Returns 0 if okay, -1 if not (bad encoding or can't support conversion)
+ * 成功返回 0，否则 -1（坏编码或无法支持转换）
  */
 int
 PrepareClientEncoding(int encoding)
@@ -116,14 +116,14 @@ PrepareClientEncoding(int encoding)
 	if (!PG_VALID_FE_ENCODING(encoding))
 		return -1;
 
-	/* Can't do anything during startup, per notes above */
+	/* 启动期间不能做任何事，见上注 */
 	if (!backend_startup_complete)
 		return 0;
 
 	current_server_encoding = GetDatabaseEncoding();
 
 	/*
-	 * Check for cases that require no conversion function.
+	 * 检查无需转换函数的情形。
 	 */
 	if (current_server_encoding == encoding ||
 		current_server_encoding == PG_SQL_ASCII ||
@@ -133,9 +133,9 @@ PrepareClientEncoding(int encoding)
 	if (IsTransactionState())
 	{
 		/*
-		 * If we're in a live transaction, it's safe to access the catalogs,
-		 * so look up the functions.  We repeat the lookup even if the info is
-		 * already cached, so that we can react to changes in the contents of
+		 * 若处于活动事务中，访问目录是安全的，
+		 * 故查找函数。即便信息已缓存也重复查找，
+		 * 以便能响应
 		 * pg_conversion.
 		 */
 		Oid			to_server_proc,
@@ -153,7 +153,7 @@ PrepareClientEncoding(int encoding)
 			return -1;
 
 		/*
-		 * Load the fmgr info into TopMemoryContext (could still fail here)
+		 * 把 fmgr 信息载入 TopMemoryContext(此处仍可能失败)
 		 */
 		convinfo = (ConvProcInfo *) MemoryContextAlloc(TopMemoryContext,
 													   sizeof(ConvProcInfo));
@@ -164,27 +164,27 @@ PrepareClientEncoding(int encoding)
 		fmgr_info_cxt(to_client_proc, &convinfo->to_client_info,
 					  TopMemoryContext);
 
-		/* Attach new info to head of list */
+		/* 把新信息接到链表头 */
 		oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 		ConvProcList = lcons(convinfo, ConvProcList);
 		MemoryContextSwitchTo(oldcontext);
 
 		/*
-		 * We cannot yet remove any older entry for the same encoding pair,
-		 * since it could still be in use.  SetClientEncoding will clean up.
+		 * 尚无法删除同一编码对的较旧条目，因其
+		 * 可能仍在使用。SetClientEncoding 会清理。
 		 */
 
-		return 0;				/* success */
+		return 0;				/* 成功 */
 	}
 	else
 	{
 		/*
-		 * If we're not in a live transaction, the only thing we can do is
-		 * restore a previous setting using the cache.  This covers all
-		 * transaction-rollback cases.  The only case it might not work for is
-		 * trying to change client_encoding on the fly by editing
-		 * postgresql.conf and SIGHUP'ing.  Which would probably be a stupid
-		 * thing to do anyway.
+		 * 若不在活动事务中，唯一能做的是用缓存
+		 * 恢复先前设置。这覆盖全部事务回滚情形。
+		 * 唯一可能不适用的情况是试图通过编辑
+		 * postgresql.conf 并 SIGHUP 来即时改
+		 * client_encoding。那多半本就是蠢
+		 * 事。
 		 */
 		foreach(lc, ConvProcList)
 		{
@@ -195,15 +195,15 @@ PrepareClientEncoding(int encoding)
 				return 0;
 		}
 
-		return -1;				/* it's not cached, so fail */
+		return -1;				/* 未缓存，故失败 */
 	}
 }
 
 /*
- * Set the active client encoding and set up the conversion-function pointers.
- * PrepareClientEncoding should have been called previously for this encoding.
+ * 设定活动客户端编码并建立转换函数指针。
+ * 此前应对此编码调用过 PrepareClientEncoding。
  *
- * Returns 0 if okay, -1 if not (bad encoding or can't support conversion)
+ * 成功返回 0，否则 -1（坏编码或无法支持转换）
  */
 int
 SetClientEncoding(int encoding)
@@ -215,7 +215,7 @@ SetClientEncoding(int encoding)
 	if (!PG_VALID_FE_ENCODING(encoding))
 		return -1;
 
-	/* Can't do anything during startup, per notes above */
+	/* 启动期间不能做任何事，见上注 */
 	if (!backend_startup_complete)
 	{
 		pending_client_encoding = encoding;
@@ -225,7 +225,7 @@ SetClientEncoding(int encoding)
 	current_server_encoding = GetDatabaseEncoding();
 
 	/*
-	 * Check for cases that require no conversion function.
+	 * 检查无需转换函数的情形。
 	 */
 	if (current_server_encoding == encoding ||
 		current_server_encoding == PG_SQL_ASCII ||
@@ -238,10 +238,10 @@ SetClientEncoding(int encoding)
 	}
 
 	/*
-	 * Search the cache for the entry previously prepared by
-	 * PrepareClientEncoding; if there isn't one, we lose.  While at it,
-	 * release any duplicate entries so that repeated Prepare/Set cycles don't
-	 * leak memory.
+	 * 在缓存中查找先前由 PrepareClientEncoding
+	 * 准备的条目；若无则失败。同时释放重复条目，
+	 * 以免反复 Prepare/Set 循环造成
+	 * 内存泄漏
 	 */
 	found = false;
 	foreach(lc, ConvProcList)
@@ -253,7 +253,7 @@ SetClientEncoding(int encoding)
 		{
 			if (!found)
 			{
-				/* Found newest entry, so set up */
+				/* 找到最新条目并建立 */
 				ClientEncoding = &pg_enc2name_tbl[encoding];
 				ToServerConvProc = &convinfo->to_server_info;
 				ToClientConvProc = &convinfo->to_client_info;
@@ -261,7 +261,7 @@ SetClientEncoding(int encoding)
 			}
 			else
 			{
-				/* Duplicate entry, release it */
+				/* 重复条目，释放之 */
 				ConvProcList = foreach_delete_current(ConvProcList, lc);
 				pfree(convinfo);
 			}
@@ -269,14 +269,14 @@ SetClientEncoding(int encoding)
 	}
 
 	if (found)
-		return 0;				/* success */
+		return 0;				/* 成功 */
 	else
-		return -1;				/* it's not cached, so fail */
+		return -1;				/* 未缓存，故失败 */
 }
 
 /*
- * Initialize client encoding conversions.
- *		Called from InitPostgres() once during backend startup.
+ * 初始化客户端编码转换。
+ *	由 InitPostgres() 在后端启动时调用一次。
  */
 void
 InitializeClientEncoding(void)
@@ -290,8 +290,8 @@ InitializeClientEncoding(void)
 		SetClientEncoding(pending_client_encoding) < 0)
 	{
 		/*
-		 * Oops, the requested conversion is not available. We couldn't fail
-		 * before, but we can now.
+		 * 糟糕，请求的转换不可用。此前无法失败，
+		 * 现在可以了。
 		 */
 		ereport(FATAL,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -301,9 +301,9 @@ InitializeClientEncoding(void)
 	}
 
 	/*
-	 * Also look up the UTF8-to-server conversion function if needed.  Since
-	 * the server encoding is fixed within any one backend process, we don't
-	 * have to do this more than once.
+	 * 若需要也查找 UTF8→服务器转换函数。因任一
+	 * 后端进程内服务器编码固定，我们
+	 * 不必做超过一次。
 	 */
 	current_server_encoding = GetDatabaseEncoding();
 	if (current_server_encoding != PG_UTF8 &&
@@ -315,7 +315,7 @@ InitializeClientEncoding(void)
 		utf8_to_server_proc =
 			FindDefaultConversionProc(PG_UTF8,
 									  current_server_encoding);
-		/* If there's no such conversion, just leave the pointer as NULL */
+		/* 若无此转换，指针保持为 NULL */
 		if (OidIsValid(utf8_to_server_proc))
 		{
 			FmgrInfo   *finfo;
@@ -324,14 +324,14 @@ InitializeClientEncoding(void)
 													sizeof(FmgrInfo));
 			fmgr_info_cxt(utf8_to_server_proc, finfo,
 						  TopMemoryContext);
-			/* Set Utf8ToServerConvProc only after data is fully valid */
+			/* 数据完全有效后才设 Utf8ToServerConvProc */
 			Utf8ToServerConvProc = finfo;
 		}
 	}
 }
 
 /*
- * returns the current client encoding
+ * 返回当前客户端编码
  */
 int
 pg_get_client_encoding(void)
@@ -340,7 +340,7 @@ pg_get_client_encoding(void)
 }
 
 /*
- * returns the current client encoding name
+ * 返回当前客户端编码名
  */
 const char *
 pg_get_client_encoding_name(void)
@@ -349,9 +349,9 @@ pg_get_client_encoding_name(void)
 }
 
 /*
- * Convert src string to another encoding (general case).
+ * 把 src 串转到另一编码（一般情形）。
  *
- * See the notes about string conversion functions at the top of this file.
+ * 见本文件顶部关于字符串转换函数的说明。
  */
 unsigned char *
 pg_do_encoding_conversion(unsigned char *src, int len,
@@ -361,22 +361,22 @@ pg_do_encoding_conversion(unsigned char *src, int len,
 	Oid			proc;
 
 	if (len <= 0)
-		return src;				/* empty string is always valid */
+		return src;				/* 空串总是合法的 */
 
 	if (src_encoding == dest_encoding)
-		return src;				/* no conversion required, assume valid */
+		return src;				/* 无需转换，假定合法 */
 
 	if (dest_encoding == PG_SQL_ASCII)
-		return src;				/* any string is valid in SQL_ASCII */
+		return src;				/* SQL_ASCII 下任意串皆合法 */
 
 	if (src_encoding == PG_SQL_ASCII)
 	{
-		/* No conversion is possible, but we must validate the result */
+		/* 无法转换，但必须校验结果 */
 		(void) pg_verify_mbstr(dest_encoding, (const char *) src, len, false);
 		return src;
 	}
 
-	if (!IsTransactionState())	/* shouldn't happen */
+	if (!IsTransactionState())	/* 不应发生 */
 		elog(ERROR, "cannot perform encoding conversion outside a transaction");
 
 	proc = FindDefaultConversionProc(src_encoding, dest_encoding);
@@ -388,13 +388,13 @@ pg_do_encoding_conversion(unsigned char *src, int len,
 						pg_encoding_to_char(dest_encoding))));
 
 	/*
-	 * Allocate space for conversion result, being wary of integer overflow.
+	 * 为转换结果分配空间，警惕整数溢出。
 	 *
-	 * len * MAX_CONVERSION_GROWTH is typically a vast overestimate of the
-	 * required space, so it might exceed MaxAllocSize even though the result
-	 * would actually fit.  We do not want to hand back a result string that
-	 * exceeds MaxAllocSize, because callers might not cope gracefully --- but
-	 * if we just allocate more than that, and don't use it, that's fine.
+	 * len * MAX_CONVERSION_GROWTH 通常远超实际所需，
+	 * 故即便结果实际装得下，也可能超过 MaxAllocSize。
+	 * 我们不想交回超过 MaxAllocSize 的结果串，
+	 * 因调用方可能应付不好——但若只是多分配
+	 * 而未用完，则无妨。
 	 */
 	if ((Size) len >= (MaxAllocHugeSize / (Size) MAX_CONVERSION_GROWTH))
 		ereport(ERROR,
@@ -416,9 +416,9 @@ pg_do_encoding_conversion(unsigned char *src, int len,
 							BoolGetDatum(false));
 
 	/*
-	 * If the result is large, it's worth repalloc'ing to release any extra
-	 * space we asked for.  The cutoff here is somewhat arbitrary, but we
-	 * *must* check when len * MAX_CONVERSION_GROWTH exceeds MaxAllocSize.
+	 * 若结果很大，值得用 repalloc 释放多要的空间。
+	 * 此处阈值略随意，但当 len * MAX_CONVERSION_GROWTH
+	 * 超过 MaxAllocSize 时*必须*检查。
 	 */
 	if (len > 1000000)
 	{
@@ -438,32 +438,32 @@ pg_do_encoding_conversion(unsigned char *src, int len,
 }
 
 /*
- * Convert src string to another encoding.
+ * 把源串转到另一编码。
  *
- * This function has a different API than the other conversion functions.
- * The caller should've looked up the conversion function using
- * FindDefaultConversionProc().  Unlike the other functions, the converted
- * result is not palloc'd.  It is written to the caller-supplied buffer
- * instead.
+ * 本函数接口与其他转换函数不同。
+ * 调用方应已查得默认转换过程
+ * 即 FindDefaultConversionProc。与其他函数
+ * 不同：结果不经堆分配，写入调用方缓冲。
  *
- * src_encoding   - encoding to convert from
- * dest_encoding  - encoding to convert to
- * src, srclen    - input buffer and its length in bytes
- * dest, destlen  - destination buffer and its size in bytes
  *
- * The output is null-terminated.
+ * src_encoding   - 源编码
+ * dest_encoding  - 目标编码
+ * src, srclen    - 输入缓冲及其字节长度
+ * dest, destlen  - 目标缓冲及其字节大小
  *
- * If destlen < srclen * MAX_CONVERSION_INPUT_LENGTH + 1, the converted output
- * wouldn't necessarily fit in the output buffer, and the function will not
- * convert the whole input.
+ * 输出以空字节结尾。
  *
- * TODO: The conversion function interface is not great.  Firstly, it
- * would be nice to pass through the destination buffer size to the
- * conversion function, so that if you pass a shorter destination buffer, it
- * could still continue to fill up the whole buffer.  Currently, we have to
- * assume worst case expansion and stop the conversion short, even if there
- * is in fact space left in the destination buffer.  Secondly, it would be
- * nice to return the number of bytes written to the caller, to avoid a call
+ * 若 destlen < srclen * MAX_CONVERSION_INPUT_LENGTH + 1，转换输出
+ * 未必装得进输出缓冲，函数将不会
+ * 转换全部输入。
+ *
+ * TODO: 转换函数接口不佳。首先，若能把目标
+ * 缓冲大小传给转换函数会很好，这样传入较短
+ * 目标缓冲时仍可填满整个缓冲。目前我们只能按
+ * 最坏膨胀假定提前停转换，即便目标缓冲实际
+ * 仍有空间。其次，若能向调用方返回已写
+ * 字节数会很好，以免再调用
+ * strlen()。
  * to strlen().
  */
 int
@@ -477,8 +477,8 @@ pg_do_encoding_conversion_buf(Oid proc,
 	Datum		result;
 
 	/*
-	 * If the destination buffer is not large enough to hold the result in the
-	 * worst case, limit the input size passed to the conversion function.
+	 * 若目标缓冲不足以按最坏情况容纳结果，则限制
+	 * 传给转换函数的输入大小。
 	 */
 	if ((Size) srclen >= ((destlen - 1) / (Size) MAX_CONVERSION_GROWTH))
 		srclen = ((destlen - 1) / (Size) MAX_CONVERSION_GROWTH);
@@ -494,8 +494,8 @@ pg_do_encoding_conversion_buf(Oid proc,
 }
 
 /*
- * Convert string to encoding encoding_name. The source
- * encoding is the DB encoding.
+ * 把串转到 encoding_name 所指编码。源
+ * 编码为 DB 编码。
  *
  * BYTEA convert_to(TEXT string, NAME encoding_name) */
 Datum
@@ -508,9 +508,9 @@ pg_convert_to(PG_FUNCTION_ARGS)
 	Datum		result;
 
 	/*
-	 * pg_convert expects a bytea as its first argument. We're passing it a
-	 * text argument here, relying on the fact that they are both in fact
-	 * varlena types, and thus structurally identical.
+	 * pg_convert 期望首参为 bytea。此处传入
+	 * text，依赖二者同为 varlena 类型，因而
+	 * 结构相同。
 	 */
 	result = DirectFunctionCall3(pg_convert, string,
 								 src_encoding_name, dest_encoding_name);
@@ -519,8 +519,8 @@ pg_convert_to(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert string from encoding encoding_name. The destination
- * encoding is the DB encoding.
+ * 把串从 encoding_name 所指编码转来。目标
+ * 编码为 DB 编码。
  *
  * TEXT convert_from(BYTEA string, NAME encoding_name) */
 Datum
@@ -536,17 +536,17 @@ pg_convert_from(PG_FUNCTION_ARGS)
 								 src_encoding_name, dest_encoding_name);
 
 	/*
-	 * pg_convert returns a bytea, which we in turn return as text, relying on
-	 * the fact that they are both in fact varlena types, and thus
-	 * structurally identical. Although not all bytea values are valid text,
-	 * in this case it will be because we've told pg_convert to return one
-	 * that is valid as text in the current database encoding.
+	 * pg_convert 返回 bytea，我们再当 text 返回，依赖
+	 * 二者同为 varlena 类型，因而
+	 * 结构相同。虽非所有 bytea 值都是合法 text，
+	 * 但此处会是，因我们已让 pg_convert 返回在
+	 * 当前数据库编码下作为 text 合法者。
 	 */
 	PG_RETURN_DATUM(result);
 }
 
 /*
- * Convert string between two arbitrary encodings.
+ * 在任意两编码间转换字符串。
  *
  * BYTEA convert(BYTEA string, NAME src_encoding_name, NAME dest_encoding_name)
  */
@@ -574,23 +574,23 @@ pg_convert(PG_FUNCTION_ARGS)
 				 errmsg("invalid destination encoding name \"%s\"",
 						dest_encoding_name)));
 
-	/* make sure that source string is valid */
+	/* 确保源串合法 */
 	len = VARSIZE_ANY_EXHDR(string);
 	src_str = VARDATA_ANY(string);
 	(void) pg_verify_mbstr(src_encoding, src_str, len, false);
 
-	/* perform conversion */
+	/* 执行转换 */
 	dest_str = (char *) pg_do_encoding_conversion((unsigned char *) unconstify(char *, src_str),
 												  len,
 												  src_encoding,
 												  dest_encoding);
 
-	/* update len if conversion actually happened */
+	/* 若实际发生转换则更新 len */
 	if (dest_str != src_str)
 		len = strlen(dest_str);
 
 	/*
-	 * build bytea data type structure.
+	 * 构造 bytea 数据类型结构
 	 */
 	retval = (bytea *) palloc(len + VARHDRSZ);
 	SET_VARSIZE(retval, len + VARHDRSZ);
@@ -599,16 +599,16 @@ pg_convert(PG_FUNCTION_ARGS)
 	if (dest_str != src_str)
 		pfree(dest_str);
 
-	/* free memory if allocated by the toaster */
+	/* 若由 toaster 分配则释放内存 */
 	PG_FREE_IF_COPY(string, 0);
 
 	PG_RETURN_BYTEA_P(retval);
 }
 
 /*
- * get the length of the string considered as text in the specified
- * encoding. Raises an error if the data is not valid in that
- * encoding.
+ * 按指定编码把串视为 text 时的
+ * 长度。数据在该编码下不合法则
+ * 报错。
  *
  * INT4 length (BYTEA string, NAME src_encoding_name)
  */
@@ -637,9 +637,9 @@ length_in_encoding(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get maximum multibyte character length in the specified encoding.
+ * 取指定编码下多字节字符的最大长度。
  *
- * Note encoding is specified numerically, not by name as above.
+ * 注意编码以数值指定，非如上按名。
  */
 Datum
 pg_encoding_max_length_sql(PG_FUNCTION_ARGS)
@@ -653,9 +653,9 @@ pg_encoding_max_length_sql(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert client encoding to server encoding.
+ * 把客户端编码转到服务器编码。
  *
- * See the notes about string conversion functions at the top of this file.
+ * 见本文件顶部关于字符串转换函数的说明。
  */
 char *
 pg_client_to_server(const char *s, int len)
@@ -664,26 +664,26 @@ pg_client_to_server(const char *s, int len)
 }
 
 /*
- * Convert any encoding to server encoding.
+ * 把任意编码转到服务器编码。
  *
- * See the notes about string conversion functions at the top of this file.
+ * 见本文件顶部关于字符串转换函数的说明。
  *
- * Unlike the other string conversion functions, this will apply validation
- * even if encoding == DatabaseEncoding->encoding.  This is because this is
- * used to process data coming in from outside the database, and we never
- * want to just assume validity.
+ * 与其他字符串转换函数不同，即便 encoding ==
+ * DatabaseEncoding->encoding 也会做校验。因本函数
+ * 处理来自库外的数据，我们从不愿只是
+ * 假定其合法。
  */
 char *
 pg_any_to_server(const char *s, int len, int encoding)
 {
 	if (len <= 0)
-		return unconstify(char *, s);	/* empty string is always valid */
+		return unconstify(char *, s);	/* 空串总是合法的 */
 
 	if (encoding == DatabaseEncoding->encoding ||
 		encoding == PG_SQL_ASCII)
 	{
 		/*
-		 * No conversion is needed, but we must still validate the data.
+		 * 无需转换，但仍必须校验数据。
 		 */
 		(void) pg_verify_mbstr(DatabaseEncoding->encoding, s, len, false);
 		return unconstify(char *, s);
@@ -692,13 +692,13 @@ pg_any_to_server(const char *s, int len, int encoding)
 	if (DatabaseEncoding->encoding == PG_SQL_ASCII)
 	{
 		/*
-		 * No conversion is possible, but we must still validate the data,
-		 * because the client-side code might have done string escaping using
-		 * the selected client_encoding.  If the client encoding is ASCII-safe
-		 * then we just do a straight validation under that encoding.  For an
-		 * ASCII-unsafe encoding we have a problem: we dare not pass such data
-		 * to the parser but we have no way to convert it.  We compromise by
-		 * rejecting the data if it contains any non-ASCII characters.
+		 * 无法转换，但仍必须校验数据，因客户端
+		 * 代码可能已按所选 client_encoding 做了串转义。
+		 * 若客户端编码是 ASCII 安全的，则直接按该编码
+		 * 做校验。对 ASCII 不安全的编码则有问题：不敢把
+		 * 此类数据交给解析器，又无法转换。折中办法是
+		 * 若含任何非 ASCII 字符则拒绝该
+		 * 数据。
 		 */
 		if (PG_VALID_BE_ENCODING(encoding))
 			(void) pg_verify_mbstr(encoding, s, len, false);
@@ -719,11 +719,11 @@ pg_any_to_server(const char *s, int len, int encoding)
 		return unconstify(char *, s);
 	}
 
-	/* Fast path if we can use cached conversion function */
+	/* 可用缓存转换函数时的快速路径 */
 	if (encoding == ClientEncoding->encoding)
 		return perform_default_encoding_conversion(s, len, true);
 
-	/* General case ... will not work outside transactions */
+	/* 一般情形 … 事务外不可用 */
 	return (char *) pg_do_encoding_conversion((unsigned char *) unconstify(char *, s),
 											  len,
 											  encoding,
@@ -731,9 +731,9 @@ pg_any_to_server(const char *s, int len, int encoding)
 }
 
 /*
- * Convert server encoding to client encoding.
+ * 把服务器编码转到客户端编码。
  *
- * See the notes about string conversion functions at the top of this file.
+ * 见本文件顶部关于字符串转换函数的说明。
  */
 char *
 pg_server_to_client(const char *s, int len)
@@ -742,32 +742,32 @@ pg_server_to_client(const char *s, int len)
 }
 
 /*
- * Convert server encoding to any encoding.
+ * 把服务器编码转到任意编码。
  *
- * See the notes about string conversion functions at the top of this file.
+ * 见本文件顶部关于字符串转换函数的说明。
  */
 char *
 pg_server_to_any(const char *s, int len, int encoding)
 {
 	if (len <= 0)
-		return unconstify(char *, s);	/* empty string is always valid */
+		return unconstify(char *, s);	/* 空串总是合法的 */
 
 	if (encoding == DatabaseEncoding->encoding ||
 		encoding == PG_SQL_ASCII)
-		return unconstify(char *, s);	/* assume data is valid */
+		return unconstify(char *, s);	/* 假定数据合法 */
 
 	if (DatabaseEncoding->encoding == PG_SQL_ASCII)
 	{
-		/* No conversion is possible, but we must validate the result */
+		/* 无法转换，但必须校验结果 */
 		(void) pg_verify_mbstr(encoding, s, len, false);
 		return unconstify(char *, s);
 	}
 
-	/* Fast path if we can use cached conversion function */
+	/* 可用缓存转换函数时的快速路径 */
 	if (encoding == ClientEncoding->encoding)
 		return perform_default_encoding_conversion(s, len, false);
 
-	/* General case ... will not work outside transactions */
+	/* 一般情形 … 事务外不可用 */
 	return (char *) pg_do_encoding_conversion((unsigned char *) unconstify(char *, s),
 											  len,
 											  DatabaseEncoding->encoding,
@@ -775,10 +775,10 @@ pg_server_to_any(const char *s, int len, int encoding)
 }
 
 /*
- *	Perform default encoding conversion using cached FmgrInfo. Since
- *	this function does not access database at all, it is safe to call
- *	outside transactions.  If the conversion has not been set up by
- *	SetClientEncoding(), no conversion is performed.
+ *	用缓存的 FmgrInfo 做默认编码转换。因本函数
+ *	完全不访问数据库，可在事务外安全调用。
+ *	若尚未由 SetClientEncoding() 建立转换，则
+ *	不执行转换。
  */
 static char *
 perform_default_encoding_conversion(const char *src, int len,
@@ -806,8 +806,8 @@ perform_default_encoding_conversion(const char *src, int len,
 		return unconstify(char *, src);
 
 	/*
-	 * Allocate space for conversion result, being wary of integer overflow.
-	 * See comments in pg_do_encoding_conversion.
+	 * 为转换结果分配空间，警惕整数溢出。
+	 * 见 pg_do_encoding_conversion 注释。
 	 */
 	if ((Size) len >= (MaxAllocHugeSize / (Size) MAX_CONVERSION_GROWTH))
 		ereport(ERROR,
@@ -829,7 +829,7 @@ perform_default_encoding_conversion(const char *src, int len,
 				  BoolGetDatum(false));
 
 	/*
-	 * Release extra space if there might be a lot --- see comments in
+	 * 若可能有很多多余空间则释放——见
 	 * pg_do_encoding_conversion.
 	 */
 	if (len > 1000000)
@@ -850,16 +850,16 @@ perform_default_encoding_conversion(const char *src, int len,
 }
 
 /*
- * Convert a single Unicode code point into a string in the server encoding.
+ * 把单个 Unicode 码点转成服务器编码下的字符串。
  *
- * The code point given by "c" is converted and stored at *s, which must
- * have at least MAX_UNICODE_EQUIVALENT_STRING+1 bytes available.
- * The output will have a trailing '\0'.  Throws error if the conversion
- * cannot be performed.
+ * 码点 c 被转换并存于 *s，该处必须至少有
+ * MAX_UNICODE_EQUIVALENT_STRING+1 字节可用。
+ * 输出带尾随 '\0'。若无法转换则
+ * 报错。
  *
- * Note that this relies on having previously looked up any required
- * conversion function.  That's partly for speed but mostly because the parser
- * may call this outside any transaction, or in an aborted transaction.
+ * 注意这依赖先前已查找过所需转换函数。
+ * 一则为速度，更因解析器可能在事务外或已中止
+ * 的事务中调用本函数。
  */
 void
 pg_unicode_to_server(pg_wchar c, unsigned char *s)
@@ -869,15 +869,15 @@ pg_unicode_to_server(pg_wchar c, unsigned char *s)
 	int			server_encoding;
 
 	/*
-	 * Complain if invalid Unicode code point.  The choice of errcode here is
-	 * debatable, but really our caller should have checked this anyway.
+	 * 若 Unicode 码点无效则抱怨。此处 errcode 的选择
+	 * 可商榷，但调用方本应已检查过。
 	 */
 	if (!is_valid_unicode_codepoint(c))
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("invalid Unicode code point")));
 
-	/* Otherwise, if it's in ASCII range, conversion is trivial */
+	/* 否则，若在 ASCII 范围，转换平凡 */
 	if (c <= 0x7F)
 	{
 		s[0] = (unsigned char) c;
@@ -885,7 +885,7 @@ pg_unicode_to_server(pg_wchar c, unsigned char *s)
 		return;
 	}
 
-	/* If the server encoding is UTF-8, we just need to reformat the code */
+	/* 若服务器编码是 UTF-8，只需重排该码点 */
 	server_encoding = GetDatabaseEncoding();
 	if (server_encoding == PG_UTF8)
 	{
@@ -894,7 +894,7 @@ pg_unicode_to_server(pg_wchar c, unsigned char *s)
 		return;
 	}
 
-	/* For all other cases, we must have a conversion function available */
+	/* 其余情形必须有可用的转换函数 */
 	if (Utf8ToServerConvProc == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -902,12 +902,12 @@ pg_unicode_to_server(pg_wchar c, unsigned char *s)
 						pg_enc2name_tbl[PG_UTF8].name,
 						GetDatabaseEncodingName())));
 
-	/* Construct UTF-8 source string */
+	/* 构造 UTF-8 源串 */
 	unicode_to_utf8(c, c_as_utf8);
 	c_as_utf8_len = pg_utf_mblen(c_as_utf8);
 	c_as_utf8[c_as_utf8_len] = '\0';
 
-	/* Convert, or throw error if we can't */
+	/* 转换，不能则报错 */
 	FunctionCall6(Utf8ToServerConvProc,
 				  Int32GetDatum(PG_UTF8),
 				  Int32GetDatum(server_encoding),
@@ -918,10 +918,10 @@ pg_unicode_to_server(pg_wchar c, unsigned char *s)
 }
 
 /*
- * Convert a single Unicode code point into a string in the server encoding.
+ * 把单个 Unicode 码点转成服务器编码下的字符串。
  *
- * Same as pg_unicode_to_server(), except that we don't throw errors,
- * but simply return false on conversion failure.
+ * 与 pg_unicode_to_server() 相同，但不报错，
+ * 转换失败时只返回 false。
  */
 bool
 pg_unicode_to_server_noerror(pg_wchar c, unsigned char *s)
@@ -931,11 +931,11 @@ pg_unicode_to_server_noerror(pg_wchar c, unsigned char *s)
 	int			converted_len;
 	int			server_encoding;
 
-	/* Fail if invalid Unicode code point */
+	/* 无效 Unicode 码点则失败 */
 	if (!is_valid_unicode_codepoint(c))
 		return false;
 
-	/* Otherwise, if it's in ASCII range, conversion is trivial */
+	/* 否则，若在 ASCII 范围，转换平凡 */
 	if (c <= 0x7F)
 	{
 		s[0] = (unsigned char) c;
@@ -943,7 +943,7 @@ pg_unicode_to_server_noerror(pg_wchar c, unsigned char *s)
 		return true;
 	}
 
-	/* If the server encoding is UTF-8, we just need to reformat the code */
+	/* 若服务器编码是 UTF-8，只需重排该码点 */
 	server_encoding = GetDatabaseEncoding();
 	if (server_encoding == PG_UTF8)
 	{
@@ -952,16 +952,16 @@ pg_unicode_to_server_noerror(pg_wchar c, unsigned char *s)
 		return true;
 	}
 
-	/* For all other cases, we must have a conversion function available */
+	/* 其余情形必须有可用的转换函数 */
 	if (Utf8ToServerConvProc == NULL)
 		return false;
 
-	/* Construct UTF-8 source string */
+	/* 构造 UTF-8 源串 */
 	unicode_to_utf8(c, c_as_utf8);
 	c_as_utf8_len = pg_utf_mblen(c_as_utf8);
 	c_as_utf8[c_as_utf8_len] = '\0';
 
-	/* Convert, but without throwing error if we can't */
+	/* 转换，但不能则不报错 */
 	converted_len = DatumGetInt32(FunctionCall6(Utf8ToServerConvProc,
 												Int32GetDatum(PG_UTF8),
 												Int32GetDatum(server_encoding),
@@ -970,26 +970,26 @@ pg_unicode_to_server_noerror(pg_wchar c, unsigned char *s)
 												Int32GetDatum(c_as_utf8_len),
 												BoolGetDatum(true)));
 
-	/* Conversion was successful iff it consumed the whole input */
+	/* 仅当耗尽全部输入时转换才算成功 */
 	return (converted_len == c_as_utf8_len);
 }
 
 
-/* convert a multibyte string to a wchar */
+/* 把多字节串转为 wchar */
 int
 pg_mb2wchar(const char *from, pg_wchar *to)
 {
 	return pg_wchar_table[DatabaseEncoding->encoding].mb2wchar_with_len((const unsigned char *) from, to, strlen(from));
 }
 
-/* convert a multibyte string to a wchar with a limited length */
+/* 把多字节串转为 wchar，有长度限制 */
 int
 pg_mb2wchar_with_len(const char *from, pg_wchar *to, int len)
 {
 	return pg_wchar_table[DatabaseEncoding->encoding].mb2wchar_with_len((const unsigned char *) from, to, len);
 }
 
-/* same, with any encoding */
+/* 同上，任意编码 */
 int
 pg_encoding_mb2wchar_with_len(int encoding,
 							  const char *from, pg_wchar *to, int len)
@@ -997,21 +997,21 @@ pg_encoding_mb2wchar_with_len(int encoding,
 	return pg_wchar_table[encoding].mb2wchar_with_len((const unsigned char *) from, to, len);
 }
 
-/* convert a wchar string to a multibyte */
+/* 把 wchar 串转为多字节 */
 int
 pg_wchar2mb(const pg_wchar *from, char *to)
 {
 	return pg_wchar_table[DatabaseEncoding->encoding].wchar2mb_with_len(from, (unsigned char *) to, pg_wchar_strlen(from));
 }
 
-/* convert a wchar string to a multibyte with a limited length */
+/* 把 wchar 串转为多字节，有长度限制 */
 int
 pg_wchar2mb_with_len(const pg_wchar *from, char *to, int len)
 {
 	return pg_wchar_table[DatabaseEncoding->encoding].wchar2mb_with_len(from, (unsigned char *) to, len);
 }
 
-/* same, with any encoding */
+/* 同上，任意编码 */
 int
 pg_encoding_wchar2mb_with_len(int encoding,
 							  const pg_wchar *from, char *to, int len)
@@ -1019,27 +1019,27 @@ pg_encoding_wchar2mb_with_len(int encoding,
 	return pg_wchar_table[encoding].wchar2mb_with_len(from, (unsigned char *) to, len);
 }
 
-/* returns the byte length of a multibyte character */
+/* 返回多字节字符的字节长度 */
 int
 pg_mblen(const char *mbstr)
 {
 	return pg_wchar_table[DatabaseEncoding->encoding].mblen((const unsigned char *) mbstr);
 }
 
-/* returns the display length of a multibyte character */
+/* 返回多字节字符的显示长度 */
 int
 pg_dsplen(const char *mbstr)
 {
 	return pg_wchar_table[DatabaseEncoding->encoding].dsplen((const unsigned char *) mbstr);
 }
 
-/* returns the length (counted in wchars) of a multibyte string */
+/* 返回多字节串的长度（按 wchar 计） */
 int
 pg_mbstrlen(const char *mbstr)
 {
 	int			len = 0;
 
-	/* optimization for single byte encoding */
+	/* 单字节编码的优化 */
 	if (pg_database_encoding_max_length() == 1)
 		return strlen(mbstr);
 
@@ -1051,15 +1051,15 @@ pg_mbstrlen(const char *mbstr)
 	return len;
 }
 
-/* returns the length (counted in wchars) of a multibyte string
- * (not necessarily NULL terminated)
+/* 返回多字节串的长度（按 wchar 计）
+ * 不一定以 NULL 结尾
  */
 int
 pg_mbstrlen_with_len(const char *mbstr, int limit)
 {
 	int			len = 0;
 
-	/* optimization for single byte encoding */
+	/* 单字节编码的优化 */
 	if (pg_database_encoding_max_length() == 1)
 		return limit;
 
@@ -1075,10 +1075,10 @@ pg_mbstrlen_with_len(const char *mbstr, int limit)
 }
 
 /*
- * returns the byte length of a multibyte string
- * (not necessarily NULL terminated)
- * that is no longer than limit.
- * this function does not break multibyte character boundary.
+ * 返回多字节串的字节长度
+ * 不一定以 NULL 结尾
+ * 且不超过 limit。
+ * 本函数不打破多字节字符边界。
  */
 int
 pg_mbcliplen(const char *mbstr, int len, int limit)
@@ -1088,7 +1088,7 @@ pg_mbcliplen(const char *mbstr, int len, int limit)
 }
 
 /*
- * pg_mbcliplen with specified encoding; string must be valid in encoding
+ * 带指定编码的 pg_mbcliplen；串在该编码下须合法
  */
 int
 pg_encoding_mbcliplen(int encoding, const char *mbstr,
@@ -1098,7 +1098,7 @@ pg_encoding_mbcliplen(int encoding, const char *mbstr,
 	int			clen = 0;
 	int			l;
 
-	/* optimization for single byte encoding */
+	/* 单字节编码的优化 */
 	if (pg_encoding_max_length(encoding) == 1)
 		return cliplen(mbstr, len, limit);
 
@@ -1119,8 +1119,8 @@ pg_encoding_mbcliplen(int encoding, const char *mbstr,
 }
 
 /*
- * Similar to pg_mbcliplen except the limit parameter specifies the
- * character length, not the byte length.
+ * 类似 pg_mbcliplen，但 limit 参数指定的是
+ * 字符长度，而非字节长度。
  */
 int
 pg_mbcharcliplen(const char *mbstr, int len, int limit)
@@ -1129,7 +1129,7 @@ pg_mbcharcliplen(const char *mbstr, int len, int limit)
 	int			nch = 0;
 	int			l;
 
-	/* optimization for single byte encoding */
+	/* 单字节编码的优化 */
 	if (pg_database_encoding_max_length() == 1)
 		return cliplen(mbstr, len, limit);
 
@@ -1146,7 +1146,7 @@ pg_mbcharcliplen(const char *mbstr, int len, int limit)
 	return clen;
 }
 
-/* mbcliplen for any single-byte encoding */
+/* 任意单字节编码的 mbcliplen */
 static int
 cliplen(const char *str, int len, int limit)
 {
@@ -1171,7 +1171,7 @@ SetDatabaseEncoding(int encoding)
 void
 SetMessageEncoding(int encoding)
 {
-	/* Some calls happen before we can elog()! */
+	/* 尚不能 elog() 时也有调用 */
 	Assert(PG_VALID_ENCODING(encoding));
 
 	MessageEncoding = &pg_enc2name_tbl[encoding];
@@ -1180,9 +1180,9 @@ SetMessageEncoding(int encoding)
 
 #ifdef ENABLE_NLS
 /*
- * Make one bind_textdomain_codeset() call, translating a pg_enc to a gettext
- * codeset.  Fails for MULE_INTERNAL, an encoding unknown to gettext; can also
- * fail for gettext-internal causes like out-of-memory.
+ * 做一次 bind_textdomain_codeset() 调用，把 pg_enc 译为
+ * gettext codeset。对 gettext 未知的 MULE_INTERNAL 失败；也可
+ * 因内存耗尽等 gettext 内部原因失败。
  */
 static bool
 raw_pg_bind_textdomain_codeset(const char *domainname, int encoding)
@@ -1211,23 +1211,23 @@ raw_pg_bind_textdomain_codeset(const char *domainname, int encoding)
 }
 
 /*
- * Bind a gettext message domain to the codeset corresponding to the database
- * encoding.  For SQL_ASCII, instead bind to the codeset implied by LC_CTYPE.
- * Return the MessageEncoding implied by the new settings.
+ * 把 gettext 消息域绑定到与数据库编码对应的
+ * codeset。对 SQL_ASCII，改绑到 LC_CTYPE 所隐含的 codeset。
+ * 返回新设置所隐含的 MessageEncoding。
  *
- * On most platforms, gettext defaults to the codeset implied by LC_CTYPE.
- * When that matches the database encoding, we don't need to do anything.  In
- * CREATE DATABASE, we enforce or trust that the locale's codeset matches the
- * database encoding, except for the C locale.  (On Windows, we also permit a
- * discrepancy under the UTF8 encoding.)  For the C locale, explicitly bind
- * gettext to the right codeset.
+ * 多数平台上，gettext 默认用 LC_CTYPE 隐含的 codeset。
+ * 若与数据库编码一致，则无需做事。在 CREATE
+ * DATABASE 中，我们强制或信任区域设置 codeset 与数据库
+ * 编码一致，C 区域设置除外。（Windows 上 UTF8 编码下也
+ * 允许不一致。）对 C 区域设置，显式把 gettext 绑到
+ * 正确的 codeset。
  *
- * On Windows, gettext defaults to the Windows ANSI code page.  This is a
- * convenient departure for software that passes the strings to Windows ANSI
- * APIs, but we don't do that.  Compel gettext to use database encoding or,
- * failing that, the LC_CTYPE encoding as it would on other platforms.
+ * 在 Windows 上，gettext 默认用 Windows ANSI 代码页。这对
+ * 把串交给 Windows ANSI APIs 的软件很方便，但我们
+ * 不做那样。迫使 gettext 用数据库编码，或否则用
+ * LC_CTYPE 编码，一如其他平台。
  *
- * This function is called before elog() and palloc() are usable.
+ * 本函数在 elog() 与 palloc() 可用之前调用。
  */
 int
 pg_bind_textdomain_codeset(const char *domainname)
@@ -1251,7 +1251,7 @@ pg_bind_textdomain_codeset(const char *domainname)
 
 #ifdef WIN32
 	if (!raw_pg_bind_textdomain_codeset(domainname, new_msgenc))
-		/* On failure, the old message encoding remains valid. */
+		/* 失败时，旧消息编码仍有效。 */
 		return GetMessageEncoding();
 #endif
 
@@ -1260,9 +1260,9 @@ pg_bind_textdomain_codeset(const char *domainname)
 #endif
 
 /*
- * The database encoding, also called the server encoding, represents the
- * encoding of data stored in text-like data types.  Affected types include
- * cstring, text, varchar, name, xml, and json.
+ * 数据库编码也称服务器编码，表示类文本
+ * 数据类型中所存数据的编码。受影响类型有
+ * 含 cstring 等文本类类型。
  */
 int
 GetDatabaseEncoding(void)
@@ -1306,10 +1306,10 @@ PG_encoding_to_char(PG_FUNCTION_ARGS)
 }
 
 /*
- * gettext() returns messages in this encoding.  This often matches the
- * database encoding, but it differs for SQL_ASCII databases, for processes
- * not attached to a database, and under a database encoding lacking iconv
- * support (MULE_INTERNAL).
+ * gettext() 以此编码返回消息。这常与数据库编码
+ * 一致，但对 SQL_ASCII 库、未附着数据库的进程，以及
+ * 缺乏 iconv 支持的数据库编码则不同
+ * 支持(MULE_INTERNAL)。
  */
 int
 GetMessageEncoding(void)
@@ -1319,14 +1319,14 @@ GetMessageEncoding(void)
 
 
 /*
- * Generic character incrementer function.
+ * 通用字符递增函数。
  *
- * Not knowing anything about the properties of the encoding in use, we just
- * keep incrementing the last byte until we get a validly-encoded result,
- * or we run out of values to try.  We don't bother to try incrementing
- * higher-order bytes, so there's no growth in runtime for wider characters.
- * (If we did try to do that, we'd need to consider the likelihood that 255
- * is not a valid final byte in the encoding.)
+ * 因不知所用编码的性质，我们只递增最后一字节，
+ * 直到得到合法编码的结果，或用尽可试值。
+ * 不尝试递增高位字节，故更宽字符不会增加
+ * 运行时。（若尝试，还需考虑 255 在该
+ * 编码中未必是合法
+ * 末字节的可能。）
  */
 static bool
 pg_generic_charinc(unsigned char *charptr, int len)
@@ -1334,7 +1334,7 @@ pg_generic_charinc(unsigned char *charptr, int len)
 	unsigned char *lastbyte = charptr + len - 1;
 	mbchar_verifier mbverify;
 
-	/* We can just invoke the character verifier directly. */
+	/* 可直接调用字符校验器。 */
 	mbverify = pg_wchar_table[GetDatabaseEncoding()].mbverifychar;
 
 	while (*lastbyte < (unsigned char) 255)
@@ -1348,19 +1348,19 @@ pg_generic_charinc(unsigned char *charptr, int len)
 }
 
 /*
- * UTF-8 character incrementer function.
+ * UTF-8 字符递增函数。
  *
- * For a one-byte character less than 0x7F, we just increment the byte.
+ * 对小于 0x7F 的单字节字符，只递增该字节。
  *
- * For a multibyte character, every byte but the first must fall between 0x80
- * and 0xBF; and the first byte must be between 0xC0 and 0xF4.  We increment
- * the last byte that's not already at its maximum value.  If we can't find a
- * byte that's less than the maximum allowable value, we simply fail.  We also
- * need some special-case logic to skip regions used for surrogate pair
- * handling, as those should not occur in valid UTF-8.
+ * 对多字节字符，除首字节外每字节须在 0x80 与
+ * 0xBF 之间；首字节须在 0xC0 与 0xF4 之间。我们递增
+ * 尚未达其最大值的最后一字节。若找不到小于最大
+ * 允许值的字节则失败。还需要些特例逻辑以跳过代理对
+ * 处理所用区域，因它们不应出现在
+ * 合法 UTF-8 中。
  *
- * Note that we don't reset lower-order bytes back to their minimums, since
- * we can't afford to make an exhaustive search (see make_greater_string).
+ * 注意我们不把低位字节重置为最小值，因负担不起
+ * 穷举搜索（见 make_greater_string）。
  */
 static bool
 pg_utf8_increment(unsigned char *charptr, int length)
@@ -1371,7 +1371,7 @@ pg_utf8_increment(unsigned char *charptr, int length)
 	switch (length)
 	{
 		default:
-			/* reject lengths 5 and 6 for now */
+			/* 暂拒绝长度 5 与 6 */
 			return false;
 		case 4:
 			a = charptr[3];
@@ -1421,24 +1421,24 @@ pg_utf8_increment(unsigned char *charptr, int length)
 }
 
 /*
- * EUC-JP character incrementer function.
+ * EUC-JP 字符递增函数。
  *
- * If the sequence starts with SS2 (0x8e), it must be a two-byte sequence
- * representing JIS X 0201 characters with the second byte ranging between
- * 0xa1 and 0xdf.  We just increment the last byte if it's less than 0xdf,
- * and otherwise rewrite the whole sequence to 0xa1 0xa1.
+ * 若序列以 SS2 (0x8e) 开头，则必为两字节序列，表示
+ * JIS X 0201 字符，第二字节在 0xa1 与 0xdf 之间。若末字节
+ * 小于 0xdf 则只递增之，否则整序列改写为
+ * 0xa1 0xa1。
  *
- * If the sequence starts with SS3 (0x8f), it must be a three-byte sequence
- * in which the last two bytes range between 0xa1 and 0xfe.  The last byte
- * is incremented if possible, otherwise the second-to-last byte.
+ * 若序列以 SS3 (0x8f) 开头，则必为三字节序列，末两字节
+ * 在 0xa1 与 0xfe 之间。可能则递增末字节，否则递增
+ * 倒数第二字节。
  *
- * If the sequence starts with a value other than the above and its MSB
- * is set, it must be a two-byte sequence representing JIS X 0208 characters
- * with both bytes ranging between 0xa1 and 0xfe.  The last byte is
- * incremented if possible, otherwise the second-to-last byte.
+ * 若序列以其他值开头且其 MSB 置位，则必为表示
+ * JIS X 0208 字符的两字节序列，两字节均在 0xa1 与
+ * 0xfe 之间。可能则递增末字节，否则递增
+ * 倒数第二字节。
  *
- * Otherwise, the sequence is a single-byte ASCII character. It is
- * incremented up to 0x7f.
+ * 否则，序列为单字节 ASCII 字符。将其
+ * 递增至 0x7f。
  */
 static bool
 pg_eucjp_increment(unsigned char *charptr, int length)
@@ -1484,7 +1484,7 @@ pg_eucjp_increment(unsigned char *charptr, int length)
 				}
 			}
 
-			/* Out of 3-byte code region */
+			/* 超出三字节码区 */
 			return false;
 
 		default:
@@ -1508,11 +1508,11 @@ pg_eucjp_increment(unsigned char *charptr, int length)
 					}
 				}
 
-				/* Out of 2 byte code region */
+				/* 超出两字节码区 */
 				return false;
 			}
 			else
-			{					/* ASCII, single byte */
+			{					/* ASCII，单字节 */
 				if (c1 > 0x7e)
 					return false;
 				(*charptr)++;
@@ -1524,14 +1524,14 @@ pg_eucjp_increment(unsigned char *charptr, int length)
 }
 
 /*
- * get the character incrementer for the encoding for the current database
+ * 取当前数据库编码的字符递增器
  */
 mbcharacter_incrementer
 pg_database_encoding_character_incrementer(void)
 {
 	/*
-	 * Eventually it might be best to add a field to pg_wchar_table[], but for
-	 * now we just use a switch.
+	 * 最终最好在 pg_wchar_table[] 加字段，但目前
+	 * 我们只用 switch。
 	 */
 	switch (GetDatabaseEncoding())
 	{
@@ -1547,7 +1547,7 @@ pg_database_encoding_character_incrementer(void)
 }
 
 /*
- * fetch maximum length of the encoding for the current database
+ * 取当前数据库编码的最大长度
  */
 int
 pg_database_encoding_max_length(void)
@@ -1556,8 +1556,8 @@ pg_database_encoding_max_length(void)
 }
 
 /*
- * Verify mbstr to make sure that it is validly encoded in the current
- * database encoding.  Otherwise same as pg_verify_mbstr().
+ * 校验 mbstr，确保其在当前数据库
+ * 编码下合法。其余同 pg_verify_mbstr()。
  */
 bool
 pg_verifymbstr(const char *mbstr, int len, bool noError)
@@ -1566,8 +1566,8 @@ pg_verifymbstr(const char *mbstr, int len, bool noError)
 }
 
 /*
- * Verify mbstr to make sure that it is validly encoded in the specified
- * encoding.
+ * 校验 mbstr，确保其在指定编码下
+ * 合法。
  */
 bool
 pg_verify_mbstr(int encoding, const char *mbstr, int len, bool noError)
@@ -1587,18 +1587,18 @@ pg_verify_mbstr(int encoding, const char *mbstr, int len, bool noError)
 }
 
 /*
- * Verify mbstr to make sure that it is validly encoded in the specified
- * encoding.
+ * 校验 mbstr，确保其在指定编码下
+ * 合法。
  *
- * mbstr is not necessarily zero terminated; length of mbstr is
- * specified by len.
+ * mbstr 不一定以零结尾；其长度由
+ * len 指定。
  *
- * If OK, return length of string in the encoding.
- * If a problem is found, return -1 when noError is
- * true; when noError is false, ereport() a descriptive message.
+ * 若 OK，返回该编码下的串长。
+ * 若发现问题，noError 为真时返回 -1；
+ * noError 为假时 ereport() 描述性消息。
  *
- * Note: We cannot use the faster encoding-specific mbverifystr() function
- * here, because we need to count the number of characters in the string.
+ * 注意：无法用更快的编码专用 mbverifystr()，
+ * 因我们需要统计串中的字符数。
  */
 int
 pg_verify_mbstr_len(int encoding, const char *mbstr, int len, bool noError)
@@ -1609,7 +1609,7 @@ pg_verify_mbstr_len(int encoding, const char *mbstr, int len, bool noError)
 	Assert(PG_VALID_ENCODING(encoding));
 
 	/*
-	 * In single-byte encodings, we need only reject nulls (\0).
+	 * 单字节编码中只需拒绝空字节 (\0)。
 	 */
 	if (pg_encoding_max_length(encoding) <= 1)
 	{
@@ -1622,7 +1622,7 @@ pg_verify_mbstr_len(int encoding, const char *mbstr, int len, bool noError)
 		report_invalid_encoding(encoding, nullpos, 1);
 	}
 
-	/* fetch function pointer just once */
+	/* 函数指针只取一次 */
 	mbverifychar = pg_wchar_table[encoding].mbverifychar;
 
 	mb_len = 0;
@@ -1631,7 +1631,7 @@ pg_verify_mbstr_len(int encoding, const char *mbstr, int len, bool noError)
 	{
 		int			l;
 
-		/* fast path for ASCII-subset characters */
+		/* ASCII 子集字符的快速路径 */
 		if (!IS_HIGHBIT_SET(*mbstr))
 		{
 			if (*mbstr != '\0')
@@ -1663,14 +1663,14 @@ pg_verify_mbstr_len(int encoding, const char *mbstr, int len, bool noError)
 }
 
 /*
- * check_encoding_conversion_args: check arguments of a conversion function
+ * check_encoding_conversion_args: 检查转换函数参数
  *
- * "expected" arguments can be either an encoding ID or -1 to indicate that
- * the caller will check whether it accepts the ID.
+ * expected 参数可以是编码 ID，或 -1 表示由
+ * 调用方检查是否接受该 ID。
  *
- * Note: the errors here are not really user-facing, so elog instead of
- * ereport seems sufficient.  Also, we trust that the "expected" encoding
- * arguments are valid encoding IDs, but we don't trust the actuals.
+ * 注意：此处错误并非真正面向用户，故用 elog 而非
+ * ereport 即足。另，我们信任 expected 编码参数是
+ * 合法编码 ID，但不信任实际值。
  */
 void
 check_encoding_conversion_args(int src_encoding,
@@ -1696,10 +1696,10 @@ check_encoding_conversion_args(int src_encoding,
 }
 
 /*
- * report_invalid_encoding: complain about invalid multibyte character
+ * report_invalid_encoding: 抱怨无效多字节字符
  *
- * note: len is remaining length of string, not length of character;
- * len must be greater than zero (or we'd neglect initializing "buf").
+ * 注意：len 是串的剩余长度，非字符长度；
+ * len 必须大于零（否则会忽略初始化 "buf"）。
  */
 void
 report_invalid_encoding(int encoding, const char *mbstr, int len)
@@ -1711,7 +1711,7 @@ report_invalid_encoding(int encoding, const char *mbstr, int len)
 				jlimit;
 
 	jlimit = Min(l, len);
-	jlimit = Min(jlimit, 8);	/* prevent buffer overrun */
+	jlimit = Min(jlimit, 8);	/* 防止缓冲越界 */
 
 	for (j = 0; j < jlimit; j++)
 	{
@@ -1728,10 +1728,10 @@ report_invalid_encoding(int encoding, const char *mbstr, int len)
 }
 
 /*
- * report_untranslatable_char: complain about untranslatable character
+ * report_untranslatable_char: 抱怨不可翻译字符
  *
- * note: len is remaining length of string, not length of character;
- * len must be greater than zero (or we'd neglect initializing "buf").
+ * 注意：len 是串的剩余长度，非字符长度；
+ * len 必须大于零（否则会忽略初始化 "buf"）。
  */
 void
 report_untranslatable_char(int src_encoding, int dest_encoding,
@@ -1744,15 +1744,15 @@ report_untranslatable_char(int src_encoding, int dest_encoding,
 				jlimit;
 
 	/*
-	 * We probably could use plain pg_encoding_mblen(), because
-	 * gb18030_to_utf8() verifies before it converts.  All conversions should.
-	 * For src_encoding!=GB18030, len>0 meets pg_encoding_mblen() needs.  Even
-	 * so, be defensive, since a buggy conversion might pass invalid data.
-	 * This is not a performance-critical path.
+	 * 大概可用普通 pg_encoding_mblen()，因
+	 * gb18030_to_utf8() 在转换前校验。凡转换皆应如此。
+	 * 对 src_encoding!=GB18030，len>0 满足 pg_encoding_mblen()。即便
+	 * 如此仍须防备，因有缺陷转换可能传入无效数据。
+	 * 这不是性能关键路径。
 	 */
 	l = pg_encoding_mblen_or_incomplete(src_encoding, mbstr, len);
 	jlimit = Min(l, len);
-	jlimit = Min(jlimit, 8);	/* prevent buffer overrun */
+	jlimit = Min(jlimit, 8);	/* 防止缓冲越界 */
 
 	for (j = 0; j < jlimit; j++)
 	{
@@ -1772,10 +1772,10 @@ report_untranslatable_char(int src_encoding, int dest_encoding,
 
 #ifdef WIN32
 /*
- * Convert from MessageEncoding to a palloc'ed, null-terminated utf16
- * string. The character length is also passed to utf16len if not
- * null. Returns NULL iff failed. Before MessageEncoding initialization, "str"
- * should be ASCII-only; this will function as though MessageEncoding is UTF8.
+ * 把 MessageEncoding 转为 palloc 的、空终止的 utf16
+ * 串。若 utf16len 非空也传入字符长度。
+ * 失败则返回 NULL。MessageEncoding 初始化前，"str"
+ * 应为仅 ASCII；此时作用如同 MessageEncoding 为 UTF8。
  */
 WCHAR *
 pgwin32_message_to_UTF16(const char *str, int len, int *utf16len)
@@ -1786,15 +1786,15 @@ pgwin32_message_to_UTF16(const char *str, int len, int *utf16len)
 	UINT		codepage;
 
 	if (msgenc == PG_SQL_ASCII)
-		/* No conversion is possible, and SQL_ASCII is never utf16. */
+		/* 无法转换，且 SQL_ASCII 从不是 utf16。 */
 		return NULL;
 
 	codepage = pg_enc2name_tbl[msgenc].codepage;
 
 	/*
-	 * Use MultiByteToWideChar directly if there is a corresponding codepage,
-	 * or double conversion through UTF8 if not.  Double conversion is needed,
-	 * for example, in an ENCODING=LATIN8, LC_CTYPE=C database.
+	 * 若有对应代码页则直接用 MultiByteToWideChar，
+	 * 否则经 UTF8 做双重转换。双重转换例如用于
+	 * ENCODING=LATIN8, LC_CTYPE=C 的数据库。
 	 */
 	if (codepage != 0)
 	{
@@ -1807,8 +1807,8 @@ pgwin32_message_to_UTF16(const char *str, int len, int *utf16len)
 		char	   *utf8;
 
 		/*
-		 * XXX pg_do_encoding_conversion() requires a transaction.  In the
-		 * absence of one, hope for the input to be valid UTF8.
+		 * XXX pg_do_encoding_conversion() 需要事务。若无
+		 * 事务，则指望输入为合法 UTF8。
 		 */
 		if (IsTransactionState())
 		{

@@ -28,15 +28,15 @@ PG_FUNCTION_INFO_V1(mic_to_big5);
 
 /* ----------
  * conv_proc(
- *		INTEGER,	-- source encoding id
- *		INTEGER,	-- destination encoding id
- *		CSTRING,	-- source string (null terminated C string)
- *		CSTRING,	-- destination string (null terminated C string)
- *		INTEGER,	-- source string length
- *		BOOL		-- if true, don't throw an error if conversion fails
+ *		INTEGER,	-- 源编码 id
+ *		INTEGER,	-- 目标编码 id
+ *		CSTRING,	-- 源串 (NUL 终止 C 串)
+ *		CSTRING,	-- 目标串 (NUL 终止 C 串)
+ *		INTEGER,	-- 源串长度
+ *		BOOL		-- 为真时转换失败不抛错
  * ) returns INTEGER;
  *
- * Returns the number of bytes successfully converted.
+ * 返回成功转换的字节数。
  * ----------
  */
 
@@ -162,7 +162,7 @@ euc_tw2big5(const unsigned char *euc, unsigned char *p, int len, bool noError)
 		c1 = *euc;
 		if (IS_HIGHBIT_SET(c1))
 		{
-			/* Verify and decode the next EUC_TW input character */
+			/* 校验并解码下一 EUC_TW 输入字符 */
 			l = pg_encoding_verifymbchar(PG_EUC_TW, (const char *) euc, len);
 			if (l < 0)
 			{
@@ -173,7 +173,7 @@ euc_tw2big5(const unsigned char *euc, unsigned char *p, int len, bool noError)
 			}
 			if (c1 == SS2)
 			{
-				c1 = euc[1];	/* plane No. */
+				c1 = euc[1];	/* 平面号 */
 				if (c1 == 0xa1)
 					lc = LC_CNS11643_1;
 				else if (c1 == 0xa2)
@@ -188,7 +188,7 @@ euc_tw2big5(const unsigned char *euc, unsigned char *p, int len, bool noError)
 				cnsBuf = (c1 << 8) | euc[1];
 			}
 
-			/* Write it out in Big5 */
+			/* 写成 Big5 */
 			big5buf = CNStoBIG5(cnsBuf, lc);
 			if (big5buf == 0)
 			{
@@ -204,7 +204,7 @@ euc_tw2big5(const unsigned char *euc, unsigned char *p, int len, bool noError)
 			len -= l;
 		}
 		else
-		{						/* should be ASCII */
+		{						/* 应为 ASCII */
 			if (c1 == 0)
 			{
 				if (noError)
@@ -237,7 +237,7 @@ big52euc_tw(const unsigned char *big5, unsigned char *p, int len, bool noError)
 
 	while (len > 0)
 	{
-		/* Verify and decode the next Big5 input character */
+		/* 校验并解码下一 Big5 输入字符 */
 		c1 = *big5;
 		if (IS_HIGHBIT_SET(c1))
 		{
@@ -328,14 +328,14 @@ euc_tw2mic(const unsigned char *euc, unsigned char *p, int len, bool noError)
 			}
 			if (c1 == SS2)
 			{
-				c1 = euc[1];	/* plane No. */
+				c1 = euc[1];	/* 平面号 */
 				if (c1 == 0xa1)
 					*p++ = LC_CNS11643_1;
 				else if (c1 == 0xa2)
 					*p++ = LC_CNS11643_2;
 				else
 				{
-					/* other planes are MULE private charsets */
+					/* 其它平面为 MULE 私有字符集 */
 					*p++ = LCPRV2_B;
 					*p++ = c1 - 0xa3 + LC_CNS11643_3;
 				}
@@ -352,7 +352,7 @@ euc_tw2mic(const unsigned char *euc, unsigned char *p, int len, bool noError)
 			len -= l;
 		}
 		else
-		{						/* should be ASCII */
+		{						/* 应为 ASCII */
 			if (c1 == 0)
 			{
 				if (noError)
@@ -484,10 +484,10 @@ big52mic(const unsigned char *big5, unsigned char *p, int len, bool noError)
 		cnsBuf = BIG5toCNS(big5buf, &lc);
 		if (lc != 0)
 		{
-			/* Planes 3 and 4 are MULE private charsets */
+			/* 平面 3/4 为 MULE 私有字符集 */
 			if (lc == LC_CNS11643_3 || lc == LC_CNS11643_4)
 				*p++ = LCPRV2_B;
-			*p++ = lc;			/* Plane No. */
+			*p++ = lc;			/* 平面号 */
 			*p++ = (cnsBuf >> 8) & 0x00ff;
 			*p++ = cnsBuf & 0x00ff;
 		}
@@ -548,7 +548,7 @@ mic2big5(const unsigned char *mic, unsigned char *p, int len, bool noError)
 		{
 			if (c1 == LCPRV2_B)
 			{
-				c1 = mic[1];	/* get plane no. */
+				c1 = mic[1];	/* 取平面号 */
 				cnsBuf = (mic[2] << 8) | mic[3];
 			}
 			else

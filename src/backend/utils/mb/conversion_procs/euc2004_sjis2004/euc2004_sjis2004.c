@@ -24,15 +24,15 @@ static int	shift_jis_20042euc_jis_2004(const unsigned char *sjis, unsigned char 
 
 /* ----------
  * conv_proc(
- *		INTEGER,	-- source encoding id
- *		INTEGER,	-- destination encoding id
- *		CSTRING,	-- source string (null terminated C string)
- *		CSTRING,	-- destination string (null terminated C string)
- *		INTEGER,	-- source string length
- *		BOOL		-- if true, don't throw an error if conversion fails
+ *		INTEGER,	-- 源编码 id
+ *		INTEGER,	-- 目标编码 id
+ *		CSTRING,	-- 源串 (NUL 终止 C 串)
+ *		CSTRING,	-- 目标串 (NUL 终止 C 串)
+ *		INTEGER,	-- 源串长度
+ *		BOOL		-- 为真时转换失败不抛错
  * ) returns INTEGER;
  *
- * Returns the number of bytes successfully converted.
+ * 返回成功转换的字节数。
  * ----------
  */
 
@@ -109,11 +109,11 @@ euc_jis_20042shift_jis_2004(const unsigned char *euc, unsigned char *p, int len,
 									(const char *) euc, len);
 		}
 
-		if (c1 == SS2 && l == 2)	/* JIS X 0201 kana? */
+		if (c1 == SS2 && l == 2)	/* JIS X0201假名? */
 		{
 			*p++ = euc[1];
 		}
-		else if (c1 == SS3 && l == 3)	/* JIS X 0213 plane 2? */
+		else if (c1 == SS3 && l == 3)	/* JIS X 0213 平面2? */
 		{
 			ku = euc[1] - 0xa0;
 			ten = euc[2] - 0xa0;
@@ -163,7 +163,7 @@ euc_jis_20042shift_jis_2004(const unsigned char *euc, unsigned char *p, int len,
 				*p++ = ten + 0x9e;
 		}
 
-		else if (l == 2)		/* JIS X 0213 plane 1? */
+		else if (l == 2)		/* JIS X 0213 平面1? */
 		{
 			ku = c1 - 0xa0;
 			ten = euc[1] - 0xa0;
@@ -214,9 +214,9 @@ euc_jis_20042shift_jis_2004(const unsigned char *euc, unsigned char *p, int len,
 }
 
 /*
- * returns SHIFT_JIS_2004 "ku" code indicated by second byte
- * *ku = 0: "ku" = even
- * *ku = 1: "ku" = odd
+ * 返回次字节所示 SHIFT_JIS_2004 "ku" 码
+ * *ku = 0: "ku" = 偶
+ * *ku = 1: "ku" = 奇
  */
 static int
 get_ten(int b, int *ku)
@@ -240,8 +240,8 @@ get_ten(int b, int *ku)
 	}
 	else
 	{
-		ten = -1;				/* error */
-		*ku = 0;				/* keep compiler quiet */
+		ten = -1;				/* 错 */
+		*ku = 0;				/* 让编译器安静 */
 	}
 	return ten;
 }
@@ -293,7 +293,7 @@ shift_jis_20042euc_jis_2004(const unsigned char *sjis, unsigned char *p, int len
 
 		if (c1 >= 0xa1 && c1 <= 0xdf && l == 1)
 		{
-			/* JIS X0201 (1 byte kana) */
+			/* JIS X0201 (1B假名) */
 			*p++ = SS2;
 			*p++ = c1;
 		}
@@ -308,7 +308,7 @@ shift_jis_20042euc_jis_2004(const unsigned char *sjis, unsigned char *p, int len
 			/*
 			 * JIS X 0213
 			 */
-			if (c1 >= 0x81 && c1 <= 0x9f)	/* plane 1 1ku-62ku */
+			if (c1 >= 0x81 && c1 <= 0x9f)	/* 平面1 1-62区 */
 			{
 				ku = (c1 << 1) - 0x100;
 				ten = get_ten(c2, &kubun);
@@ -321,7 +321,7 @@ shift_jis_20042euc_jis_2004(const unsigned char *sjis, unsigned char *p, int len
 				}
 				ku -= kubun;
 			}
-			else if (c1 >= 0xe0 && c1 <= 0xef)	/* plane 1 62ku-94ku */
+			else if (c1 >= 0xe0 && c1 <= 0xef)	/* 平面1 62-94区 */
 			{
 				ku = (c1 << 1) - 0x180;
 				ten = get_ten(c2, &kubun);
@@ -334,8 +334,8 @@ shift_jis_20042euc_jis_2004(const unsigned char *sjis, unsigned char *p, int len
 				}
 				ku -= kubun;
 			}
-			else if (c1 >= 0xf0 && c1 <= 0xf3)	/* plane 2
-												 * 1,3,4,5,8,12,13,14,15 ku */
+			else if (c1 >= 0xf0 && c1 <= 0xf3)	/* 平面2
+												 * 1,3,4,5,8,12,13,14,15区 */
 			{
 				plane = 2;
 				ten = get_ten(c2, &kubun);
@@ -362,7 +362,7 @@ shift_jis_20042euc_jis_2004(const unsigned char *sjis, unsigned char *p, int len
 						break;
 				}
 			}
-			else if (c1 >= 0xf4 && c1 <= 0xfc)	/* plane 2 78-94ku */
+			else if (c1 >= 0xf4 && c1 <= 0xfc)	/* 面2 78-94区 */
 			{
 				plane = 2;
 				ten = get_ten(c2, &kubun);

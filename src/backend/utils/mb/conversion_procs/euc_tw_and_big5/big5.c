@@ -10,7 +10,7 @@
  * src/backend/utils/mb/conversion_procs/euc_tw_and_big5/big5.c
  */
 
-/* can be used in either frontend or backend */
+/* 前后端皆可用 */
 #include "postgres_fe.h"
 
 #include "mb/pg_wchar.h"
@@ -21,7 +21,7 @@ typedef struct
 				peer;
 } codes_t;
 
-/* map Big5 Level 1 to CNS 11643-1992 Plane 1 */
+/* Big5 一级映到 CNS 11643-1992 平面1 */
 static const codes_t big5Level1ToCnsPlane1[25] = {	/* range */
 	{0xA140, 0x2121},
 	{0xA1F6, 0x2258},
@@ -50,7 +50,7 @@ static const codes_t big5Level1ToCnsPlane1[25] = {	/* range */
 	{0xc67f, 0x0000}
 };
 
-/* map CNS 11643-1992 Plane 1 to Big5 Level 1 */
+/* CNS 11643-1992 平面1 映到 Big5 一级 */
 static const codes_t cnsPlane1ToBig5Level1[26] = {	/* range */
 	{0x2121, 0xA140},
 	{0x2257, 0xA1F7},
@@ -80,7 +80,7 @@ static const codes_t cnsPlane1ToBig5Level1[26] = {	/* range */
 	{0x7d4c, 0x0000}
 };
 
-/* map Big5 Level 2 to CNS 11643-1992 Plane 2 */
+/* Big5 二级映到 CNS 11643-1992 平面2 */
 static const codes_t big5Level2ToCnsPlane2[48] = {	/* range */
 	{0xC940, 0x2121},
 	{0xc94a, 0x0000},
@@ -132,7 +132,7 @@ static const codes_t big5Level2ToCnsPlane2[48] = {	/* range */
 	{0xf9d6, 0x0000}
 };
 
-/* map CNS 11643-1992 Plane 2 to Big5 Level 2 */
+/* CNS 11643-1992 平面2 映到 Big5 二级 */
 static const codes_t cnsPlane2ToBig5Level2[49] = {	/* range */
 	{0x2121, 0xC940},
 	{0x212B, 0xC94B},
@@ -185,7 +185,7 @@ static const codes_t cnsPlane2ToBig5Level2[49] = {	/* range */
 	{0x7245, 0x0000}
 };
 
-/* Big Five Level 1 Correspondence to CNS 11643-1992 Plane 4 */
+/* Big5 一级对应 CNS 11643-1992 平面4 */
 static const unsigned short b1c4[][2] = {
 	{0xC879, 0x2123},
 	{0xC87B, 0x2124},
@@ -193,7 +193,7 @@ static const unsigned short b1c4[][2] = {
 	{0xC8A2, 0x2152}
 };
 
-/* Big Five Level 2 Correspondence to CNS 11643-1992 Plane 3 */
+/* Big5 二级对应 CNS 11643-1992 平面3 */
 static const unsigned short b2c3[][2] = {
 	{0xF9D6, 0x4337},
 	{0xF9D7, 0x4F50},
@@ -223,31 +223,31 @@ static unsigned short BinarySearchRange
 				return 0;
 			if (code >= 0xa140U)
 			{
-				/* big5 to cns */
+				/* big5→cns */
 				tmp = ((code & 0xff00) - (array[mid].code & 0xff00)) >> 8;
 				high = code & 0x00ff;
 				low = array[mid].code & 0x00ff;
 
 				/*
-				 * NOTE: big5 high_byte: 0xa1-0xfe, low_byte: 0x40-0x7e,
-				 * 0xa1-0xfe (radicals: 0x00-0x3e, 0x3f-0x9c) big5 radix is
-				 * 0x9d.                     [region_low, region_high] We
-				 * should remember big5 has two different regions (above).
-				 * There is a bias for the distance between these regions.
-				 * 0xa1 - 0x7e + bias = 1 (Distance between 0xa1 and 0x7e is
-				 * 1.) bias = - 0x22.
+				 * 注: big5 high_byte: 0xa1-0xfe, low_byte: 0x40-0x7e,
+				 * 0xa1-0xfe (部首: 0x00-0x3e, 0x3f-0x9c) big5 基数为
+				 * 0x9d.                    [region_low, region_high] 须
+				 * 记住 big5 有两个不同区间 (如上)。
+				 * 两区间之间的距离有偏置。
+				 * 0xa1 - 0x7e + 偏置 = 1 (0xa1 与 0x7e 间距为
+				 * 1.)偏置=-0x22.
 				 */
 				distance = tmp * 0x9d + high - low +
 					(high >= 0xa1 ? (low >= 0xa1 ? 0 : -0x22)
 					 : (low >= 0xa1 ? +0x22 : 0));
 
 				/*
-				 * NOTE: we have to convert the distance into a code point.
-				 * The code point's low_byte is 0x21 plus mod_0x5e. In the
-				 * first, we extract the mod_0x5e of the starting code point,
-				 * subtracting 0x21, and add distance to it. Then we calculate
-				 * again mod_0x5e of them, and restore the final codepoint,
-				 * adding 0x21.
+				 * 注: 须把距离换成码点。
+				 * 码点 low_byte 为 0x21 加 mod_0x5e。先
+				 * 取出起始码点的 mod_0x5e,
+				 * 减 0x21, 再加上距离。再对之和
+				 * 取 mod_0x5e, 并还原最终码点,
+				 * 加0x21。
 				 */
 				tmp = (array[mid].peer & 0x00ff) + distance - 0x21;
 				tmp = (array[mid].peer & 0xff00) + ((tmp / 0x5e) << 8)
@@ -256,19 +256,19 @@ static unsigned short BinarySearchRange
 			}
 			else
 			{
-				/* cns to big5 */
+				/* cns→big5 */
 				tmp = ((code & 0xff00) - (array[mid].code & 0xff00)) >> 8;
 
 				/*
-				 * NOTE: ISO charsets ranges between 0x21-0xfe (94charset).
-				 * Its radix is 0x5e. But there is no distance bias like big5.
+				 * 注: ISO 字符集区间 0x21-0xfe (94 字符)。
+				 * 基数 0x5e。但无 big5 那种距离偏置。
 				 */
 				distance = tmp * 0x5e
 					+ ((int) (code & 0x00ff) - (int) (array[mid].code & 0x00ff));
 
 				/*
-				 * NOTE: Similar to big5 to cns conversion, we extract
-				 * mod_0x9d and restore mod_0x9d into a code point.
+				 * 注: 类似 big5→cns 转换, 我们取出
+				 * mod_0x9d 并还原为码点。
 				 */
 				low = array[mid].peer & 0x00ff;
 				tmp = low + distance - (low >= 0xa1 ? 0x62 : 0x40);
@@ -296,7 +296,7 @@ BIG5toCNS(unsigned short big5, unsigned char *lc)
 
 	if (big5 < 0xc940U)
 	{
-		/* level 1 */
+		/* 一级 */
 
 		for (i = 0; i < sizeof(b1c4) / (sizeof(unsigned short) * 2); i++)
 		{
@@ -312,13 +312,13 @@ BIG5toCNS(unsigned short big5, unsigned char *lc)
 	}
 	else if (big5 == 0xc94aU)
 	{
-		/* level 2 */
+		/* 二级 */
 		*lc = LC_CNS11643_1;
 		cns = 0x4442;
 	}
 	else
 	{
-		/* level 2 */
+		/* 二级 */
 		for (i = 0; i < sizeof(b2c3) / (sizeof(unsigned short) * 2); i++)
 		{
 			if (b2c3[i][0] == big5)
@@ -333,7 +333,7 @@ BIG5toCNS(unsigned short big5, unsigned char *lc)
 	}
 
 	if (0 == cns)
-	{							/* no mapping Big5 to CNS 11643-1992 */
+	{							/* 无 Big5→CNS 11643-1992 映射 */
 		*lc = 0;
 		return (unsigned short) '?';
 	}

@@ -1,6 +1,6 @@
 /*
- * make KOI8->CP1251(win-1251) and CP1251(win-1251)->KOI8 translation table
- * from koi-win.tab.
+ * 由 koi-win.tab 生成 KOI8/CP1251 对照表
+ *
  *
  * Tatsuo Ishii
  *

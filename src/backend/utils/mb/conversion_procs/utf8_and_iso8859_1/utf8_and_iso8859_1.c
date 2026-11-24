@@ -22,15 +22,15 @@ PG_FUNCTION_INFO_V1(utf8_to_iso8859_1);
 
 /* ----------
  * conv_proc(
- *		INTEGER,	-- source encoding id
- *		INTEGER,	-- destination encoding id
- *		CSTRING,	-- source string (null terminated C string)
- *		CSTRING,	-- destination string (null terminated C string)
- *		INTEGER,	-- source string length
- *		BOOL		-- if true, don't throw an error if conversion fails
+ *		INTEGER,	-- 源编码 id
+ *		INTEGER,	-- 目标编码 id
+ *		CSTRING,	-- 源串 (NUL 终止 C 串)
+ *		CSTRING,	-- 目标串 (NUL 终止 C 串)
+ *		INTEGER,	-- 源串长度
+ *		BOOL		-- 为真时转换失败不抛错
  * ) returns INTEGER;
  *
- * Returns the number of bytes successfully converted.
+ * 返回成功转换的字节数。
  * ----------
  */
 
@@ -92,7 +92,7 @@ utf8_to_iso8859_1(PG_FUNCTION_ARGS)
 				break;
 			report_invalid_encoding(PG_UTF8, (const char *) src, len);
 		}
-		/* fast path for ASCII-subset characters */
+		/* ASCII 子集字符快路径 */
 		if (!IS_HIGHBIT_SET(c))
 		{
 			*dest++ = c;

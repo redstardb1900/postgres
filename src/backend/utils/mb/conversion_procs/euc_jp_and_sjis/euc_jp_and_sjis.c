@@ -16,14 +16,14 @@
 #include "mb/pg_wchar.h"
 
 /*
- * SJIS alternative code.
- * this code is used if a mapping EUC -> SJIS is not defined.
+ * SJIS 替代码。
+ * 无 EUC->SJIS 映射时使用此码。
  */
 #define PGSJISALTCODE 0x81ac
 #define PGEUCALTCODE 0xa2ae
 
 /*
- * conversion table between SJIS UDC (IBM kanji) and EUC_JP
+ * SJIS UDC (IBM 汉字) 与 EUC_JP 转换表
  */
 #include "sjis.map"
 
@@ -38,15 +38,15 @@ PG_FUNCTION_INFO_V1(mic_to_sjis);
 
 /* ----------
  * conv_proc(
- *		INTEGER,	-- source encoding id
- *		INTEGER,	-- destination encoding id
- *		CSTRING,	-- source string (null terminated C string)
- *		CSTRING,	-- destination string (null terminated C string)
- *		INTEGER,	-- source string length
- *		BOOL		-- if true, don't throw an error if conversion fails
+ *		INTEGER,	-- 源编码 id
+ *		INTEGER,	-- 目标编码 id
+ *		CSTRING,	-- 源串 (NUL 终止 C 串)
+ *		CSTRING,	-- 目标串 (NUL 终止 C 串)
+ *		INTEGER,	-- 源串长度
+ *		BOOL		-- 为真时转换失败不抛错
  * ) returns INTEGER;
  *
- * Returns the number of bytes successfully converted.
+ * 返回成功转换的字节数。
  * ----------
  */
 
@@ -171,7 +171,7 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 		c1 = *sjis;
 		if (c1 >= 0xa1 && c1 <= 0xdf)
 		{
-			/* JIS X0201 (1 byte kana) */
+			/* JIS X0201 (1B假名) */
 			*p++ = LC_JISX0201K;
 			*p++ = c1;
 			sjis++;
@@ -180,7 +180,7 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 		else if (IS_HIGHBIT_SET(c1))
 		{
 			/*
-			 * JIS X0208, X0212, user defined extended characters
+			 * JIS X0208/X0212、用户定义扩展字符
 			 */
 			if (len < 2 || !ISSJISHEAD(c1) || !ISSJISTAIL(sjis[1]))
 			{
@@ -192,7 +192,7 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			k = (c1 << 8) + c2;
 			if (k >= 0xed40 && k < 0xf040)
 			{
-				/* NEC selection IBM kanji */
+				/* NEC 选区 IBM 汉字 */
 				for (i = 0;; i++)
 				{
 					k2 = ibmkanji[i].nec;
@@ -216,7 +216,7 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			}
 			else if ((k >= 0xeb40 && k < 0xf040) || (k >= 0xfc4c && k <= 0xfcfc))
 			{
-				/* NEC selection IBM kanji - Other undecided justice */
+				/* NEC 选区 IBM 汉字 - 其它未定裁决 */
 				*p++ = LC_JISX0208;
 				*p++ = PGEUCALTCODE >> 8;
 				*p++ = PGEUCALTCODE & 0xff;
@@ -224,8 +224,8 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			else if (k >= 0xf040 && k < 0xf540)
 			{
 				/*
-				 * UDC1 mapping to X0208 85 ku - 94 ku JIS code 0x7521 -
-				 * 0x7e7e EUC 0xf5a1 - 0xfefe
+				 * UDC1 映到 X0208 85-94 区 JIS 码 0x7521 -
+				 * 0x7e7e；EUC 0xf5a1-0xfefe
 				 */
 				*p++ = LC_JISX0208;
 				c1 -= 0x6f;
@@ -235,8 +235,8 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			else if (k >= 0xf540 && k < 0xfa40)
 			{
 				/*
-				 * UDC2 mapping to X0212 85 ku - 94 ku JIS code 0x7521 -
-				 * 0x7e7e EUC 0x8ff5a1 - 0x8ffefe
+				 * UDC2 映到 X0212 85-94 区 JIS 码 0x7521 -
+				 * 0x7e7e；EUC 0x8ff5a1-0x8ffefe
 				 */
 				*p++ = LC_JISX0212;
 				c1 -= 0x74;
@@ -246,7 +246,7 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			else if (k >= 0xfa40)
 			{
 				/*
-				 * mapping IBM kanji to X0208 and X0212
+				 * IBM 汉字映到 X0208 与 X0212
 				 */
 				for (i = 0;; i++)
 				{
@@ -275,7 +275,7 @@ sjis2mic(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			len -= 2;
 		}
 		else
-		{						/* should be ASCII */
+		{						/* 应为 ASCII */
 			if (c1 == 0)
 			{
 				if (noError)
@@ -364,7 +364,7 @@ mic2sjis(const unsigned char *mic, unsigned char *p, int len, bool noError)
 			}
 			else
 			{
-				/* IBM kanji */
+				/* IBM汉字 */
 				for (i = 0;; i++)
 				{
 					k2 = ibmkanji[i].euc & 0xffff;
@@ -436,12 +436,12 @@ euc_jp2mic(const unsigned char *euc, unsigned char *p, int len, bool noError)
 									(const char *) euc, len);
 		}
 		if (c1 == SS2)
-		{						/* 1 byte kana? */
+		{						/* 1B假名? */
 			*p++ = LC_JISX0201K;
 			*p++ = euc[1];
 		}
 		else if (c1 == SS3)
-		{						/* JIS X0212 kanji? */
+		{						/* JIS X0212汉字? */
 			*p++ = LC_JISX0212;
 			*p++ = euc[1];
 			*p++ = euc[2];
@@ -567,12 +567,12 @@ euc_jp2sjis(const unsigned char *euc, unsigned char *p, int len, bool noError)
 		}
 		if (c1 == SS2)
 		{
-			/* hankaku kana? */
+			/* 半角假名? */
 			*p++ = euc[1];
 		}
 		else if (c1 == SS3)
 		{
-			/* JIS X0212 kanji? */
+			/* JIS X0212汉字? */
 			c1 = euc[1];
 			c2 = euc[2];
 			k = c1 << 8 | c2;
@@ -588,7 +588,7 @@ euc_jp2sjis(const unsigned char *euc, unsigned char *p, int len, bool noError)
 				int			i,
 							k2;
 
-				/* IBM kanji */
+				/* IBM汉字 */
 				for (i = 0;; i++)
 				{
 					k2 = ibmkanji[i].euc & 0xffff;
@@ -610,7 +610,7 @@ euc_jp2sjis(const unsigned char *euc, unsigned char *p, int len, bool noError)
 		}
 		else
 		{
-			/* JIS X0208 kanji? */
+			/* JIS X0208汉字? */
 			c2 = euc[1];
 			k = (c1 << 8) | (c2 & 0xff);
 			if (k >= 0xf5a1)
@@ -673,20 +673,20 @@ sjis2euc_jp(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 		}
 		if (c1 >= 0xa1 && c1 <= 0xdf)
 		{
-			/* JIS X0201 (1 byte kana) */
+			/* JIS X0201 (1B假名) */
 			*p++ = SS2;
 			*p++ = c1;
 		}
 		else
 		{
 			/*
-			 * JIS X0208, X0212, user defined extended characters
+			 * JIS X0208/X0212、用户定义扩展字符
 			 */
 			c2 = sjis[1];
 			k = (c1 << 8) + c2;
 			if (k >= 0xed40 && k < 0xf040)
 			{
-				/* NEC selection IBM kanji */
+				/* NEC 选区 IBM 汉字 */
 				for (i = 0;; i++)
 				{
 					k2 = ibmkanji[i].nec;
@@ -709,15 +709,15 @@ sjis2euc_jp(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			}
 			else if ((k >= 0xeb40 && k < 0xf040) || (k >= 0xfc4c && k <= 0xfcfc))
 			{
-				/* NEC selection IBM kanji - Other undecided justice */
+				/* NEC 选区 IBM 汉字 - 其它未定裁决 */
 				*p++ = PGEUCALTCODE >> 8;
 				*p++ = PGEUCALTCODE & 0xff;
 			}
 			else if (k >= 0xf040 && k < 0xf540)
 			{
 				/*
-				 * UDC1 mapping to X0208 85 ku - 94 ku JIS code 0x7521 -
-				 * 0x7e7e EUC 0xf5a1 - 0xfefe
+				 * UDC1 映到 X0208 85-94 区 JIS 码 0x7521 -
+				 * 0x7e7e；EUC 0xf5a1-0xfefe
 				 */
 				c1 -= 0x6f;
 				*p++ = ((c1 & 0x3f) << 1) + 0xf3 + (c2 > 0x9e);
@@ -726,8 +726,8 @@ sjis2euc_jp(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			else if (k >= 0xf540 && k < 0xfa40)
 			{
 				/*
-				 * UDC2 mapping to X0212 85 ku - 94 ku JIS code 0x7521 -
-				 * 0x7e7e EUC 0x8ff5a1 - 0x8ffefe
+				 * UDC2 映到 X0212 85-94 区 JIS 码 0x7521 -
+				 * 0x7e7e；EUC 0x8ff5a1-0x8ffefe
 				 */
 				*p++ = SS3;
 				c1 -= 0x74;
@@ -737,7 +737,7 @@ sjis2euc_jp(const unsigned char *sjis, unsigned char *p, int len, bool noError)
 			else if (k >= 0xfa40)
 			{
 				/*
-				 * mapping IBM kanji to X0208 and X0212
+				 * IBM 汉字映到 X0208 与 X0212
 				 *
 				 */
 				for (i = 0;; i++)

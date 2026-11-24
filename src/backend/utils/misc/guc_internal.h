@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------
  * guc_internal.h
  *
- * Declarations shared between backend/utils/misc/guc.c and
+ * guc.c 与 guc-file.l 共用的声明
  * backend/utils/misc/guc-file.l
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group

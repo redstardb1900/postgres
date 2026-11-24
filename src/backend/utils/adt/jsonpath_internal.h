@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jsonpath_internal.h
- *     Private definitions for jsonpath scanner & parser
+ *     jsonpath 扫描器与解析器私有定义
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -14,7 +14,7 @@
 #ifndef JSONPATH_INTERNAL_H
 #define JSONPATH_INTERNAL_H
 
-/* struct JsonPathString is shared between scan and gram */
+/* struct JsonPathString 由 scan 与 gram 共用 */
 typedef struct JsonPathString
 {
 	char	   *val;

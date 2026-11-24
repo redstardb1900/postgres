@@ -36,4 +36,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B -I src/tools/zh-tools/scan_halfen.py --work
 
 ## 下一战役
 
-`src/backend/regex/` 翻译（1250 块，4-5 批）——先开 glossary 预备批定款引擎术语（详见 HANDOVER-FINAL 第七节）。
+**现行交接：** `/home/redstar/pg/HANDOVER-20261124-REL_16_11_zh.md`（仓库外）。  
+FINAL 第七节 regex 未开工已过时（0436–0441 已完）；adt 至 0635、utils/mb 至 0636 收口。
+
+**建议下一战役：** `src/backend/backup/` → `backend/port` / `jit` → PL/客户端/contrib。  
+暂缓：`ppport.h`、libstemmer、测试期望、`gram.y`/`scan.l`/flex·bison（详见交接 §4）。

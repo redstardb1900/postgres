@@ -40,26 +40,26 @@ PG_FUNCTION_INFO_V1(win866_to_iso);
 
 /* ----------
  * conv_proc(
- *		INTEGER,	-- source encoding id
- *		INTEGER,	-- destination encoding id
- *		CSTRING,	-- source string (null terminated C string)
- *		CSTRING,	-- destination string (null terminated C string)
- *		INTEGER,	-- source string length
- *		BOOL		-- if true, don't throw an error if conversion fails
+ *		INTEGER,	-- 源编码 id
+ *		INTEGER,	-- 目标编码 id
+ *		CSTRING,	-- 源串 (NUL 终止 C 串)
+ *		CSTRING,	-- 目标串 (NUL 终止 C 串)
+ *		INTEGER,	-- 源串长度
+ *		BOOL		-- 为真时转换失败不抛错
  * ) returns INTEGER;
  *
- * Returns the number of bytes successfully converted.
+ * 返回成功转换的字节数。
  * ----------
  */
 
 /*
- * Cyrillic support
- * currently supported Cyrillic encodings:
+ * 西里尔支持
+ * 当前支持的西里尔编码：
  *
- * KOI8-R (this is also the charset for the mule internal code for Cyrillic)
+ * KOI8-R (亦为西里尔 mule 内部码所用字符集)
  * ISO-8859-5
- * Microsoft's CP1251 (windows-1251)
- * Alternativny Variant (MS-DOS CP866)
+ * Microsoft CP1251 (windows-1251)
+ * Alternativny Variant(MS-DOS CP866)
  */
 
 /* ISO-8859-5 to KOI8-R */

@@ -1,6 +1,6 @@
 /*
- * make KOI8->ISO8859-5 and ISO8859-5->KOI8 translation table
- * from koi-iso.tab.
+ * 由 koi-iso.tab 生成 KOI8/ISO8859-5 对照表
+ *
  *
  * Tatsuo Ishii
  *

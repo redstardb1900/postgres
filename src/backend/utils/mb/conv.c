@@ -1,6 +1,6 @@
 /*-------------------------------------------------------------------------
  *
- *	  Utility functions for conversion procs.
+ *	  转换过程用的工具函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -15,19 +15,19 @@
 
 
 /*
- * local2local: a generic single byte charset encoding
- * conversion between two ASCII-superset encodings.
+ * local2local: 通用单字节字符集编码
+ * 在两个 ASCII 超集编码之间的转换。
  *
- * l points to the source string of length len
- * p is the output area (must be large enough!)
- * src_encoding is the PG identifier for the source encoding
- * dest_encoding is the PG identifier for the target encoding
- * tab holds conversion entries for the source charset
- * starting from 128 (0x80). each entry in the table holds the corresponding
- * code point for the target charset, or 0 if there is no equivalent code.
+ * l 指向长度为 len 的源串
+ * p 为输出区（必须足够大！）
+ * src_encoding 为源编码的 PG 标识符
+ * dest_encoding 为目标编码的 PG 标识符
+ * tab 保存源字符集的转换表项
+ * 自 128 (0x80) 起。表中每项保存对应的
+ * 目标字符集码点；若无等价码则为 0。
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 local2local(const unsigned char *l,
@@ -75,15 +75,15 @@ local2local(const unsigned char *l,
 }
 
 /*
- * LATINn ---> MIC when the charset's local codes map directly to MIC
+ * LATINn ---> MIC（本地码直接映射到 MIC 时）
  *
- * l points to the source string of length len
- * p is the output area (must be large enough!)
- * lc is the mule character set id for the local encoding
- * encoding is the PG identifier for the local encoding
+ * l 指向长度为 len 的源串
+ * p 为输出区（必须足够大！）
+ * lc 为本地编码的 mule 字符集 id
+ * encoding 为本地编码的 PG 标识符
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 latin2mic(const unsigned char *l, unsigned char *p, int len,
@@ -113,15 +113,15 @@ latin2mic(const unsigned char *l, unsigned char *p, int len,
 }
 
 /*
- * MIC ---> LATINn when the charset's local codes map directly to MIC
+ * MIC ---> LATINn（本地码直接映射到 MIC 时）
  *
- * mic points to the source string of length len
- * p is the output area (must be large enough!)
- * lc is the mule character set id for the local encoding
- * encoding is the PG identifier for the local encoding
+ * mic 指向长度为 len 的源串
+ * p 为输出区（必须足够大！）
+ * lc 为本地编码的 mule 字符集 id
+ * encoding 为本地编码的 PG 标识符
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 mic2latin(const unsigned char *mic, unsigned char *p, int len,
@@ -141,7 +141,7 @@ mic2latin(const unsigned char *mic, unsigned char *p, int len,
 		}
 		if (!IS_HIGHBIT_SET(c1))
 		{
-			/* easy for ASCII */
+			/* ASCII 简单 */
 			*p++ = c1;
 			mic++;
 			len--;
@@ -176,19 +176,19 @@ mic2latin(const unsigned char *mic, unsigned char *p, int len,
 
 
 /*
- * latin2mic_with_table: a generic single byte charset encoding
- * conversion from a local charset to the mule internal code.
+ * latin2mic_with_table: 通用单字节字符集编码
+ * 从本地字符集转换到 mule 内部码。
  *
- * l points to the source string of length len
- * p is the output area (must be large enough!)
- * lc is the mule character set id for the local encoding
- * encoding is the PG identifier for the local encoding
- * tab holds conversion entries for the local charset
- * starting from 128 (0x80). each entry in the table holds the corresponding
- * code point for the mule encoding, or 0 if there is no equivalent code.
+ * l 指向长度为 len 的源串
+ * p 为输出区（必须足够大！）
+ * lc 为本地编码的 mule 字符集 id
+ * encoding 为本地编码的 PG 标识符
+ * tab 保存本地字符集的转换表项
+ * 自 128 (0x80) 起。表中每项保存对应的
+ * mule 编码码点；若无等价码则为 0。
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 latin2mic_with_table(const unsigned char *l,
@@ -239,19 +239,19 @@ latin2mic_with_table(const unsigned char *l,
 }
 
 /*
- * mic2latin_with_table: a generic single byte charset encoding
- * conversion from the mule internal code to a local charset.
+ * mic2latin_with_table: 通用单字节字符集编码
+ * 从 mule 内部码转换到本地字符集。
  *
- * mic points to the source string of length len
- * p is the output area (must be large enough!)
- * lc is the mule character set id for the local encoding
- * encoding is the PG identifier for the local encoding
- * tab holds conversion entries for the mule internal code's second byte,
- * starting from 128 (0x80). each entry in the table holds the corresponding
- * code point for the local charset, or 0 if there is no equivalent code.
+ * mic 指向长度为 len 的源串
+ * p 为输出区（必须足够大！）
+ * lc 为本地编码的 mule 字符集 id
+ * encoding 为本地编码的 PG 标识符
+ * tab 保存 mule 内部码第二字节的转换表项，
+ * 自 128 (0x80) 起。表中每项保存对应的
+ * 本地字符集码点；若无等价码则为 0。
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 mic2latin_with_table(const unsigned char *mic,
@@ -277,7 +277,7 @@ mic2latin_with_table(const unsigned char *mic,
 		}
 		if (!IS_HIGHBIT_SET(c1))
 		{
-			/* easy for ASCII */
+			/* ASCII 简单 */
 			*p++ = c1;
 			mic++;
 			len--;
@@ -300,7 +300,7 @@ mic2latin_with_table(const unsigned char *mic,
 					break;
 				report_untranslatable_char(PG_MULE_INTERNAL, encoding,
 										   (const char *) mic, len);
-				break;			/* keep compiler quiet */
+				break;			/* 让编译器安静 */
 			}
 			*p++ = c2;
 			mic += 2;
@@ -313,8 +313,8 @@ mic2latin_with_table(const unsigned char *mic,
 }
 
 /*
- * comparison routine for bsearch()
- * this routine is intended for combined UTF8 -> local code
+ * 供 bsearch() 用的比较例程
+ * 本例程用于组合 UTF8 -> 本地码
  */
 static int
 compare3(const void *p1, const void *p2)
@@ -332,8 +332,8 @@ compare3(const void *p1, const void *p2)
 }
 
 /*
- * comparison routine for bsearch()
- * this routine is intended for local code -> combined UTF8
+ * 供 bsearch() 用的比较例程
+ * 本例程用于本地码 -> 组合 UTF8
  */
 static int
 compare4(const void *p1, const void *p2)
@@ -347,7 +347,7 @@ compare4(const void *p1, const void *p2)
 }
 
 /*
- * store 32bit character representation into multibyte stream
+ * 把 32 位字符表示存入多字节流
  */
 static inline unsigned char *
 store_coded_char(unsigned char *dest, uint32 code)
@@ -364,10 +364,10 @@ store_coded_char(unsigned char *dest, uint32 code)
 }
 
 /*
- * Convert a character using a conversion radix tree.
+ * 用转换基数树转换一个字符。
  *
- * 'l' is the length of the input character in bytes, and b1-b4 are
- * the input character's bytes.
+ * 'l' 为输入字符的字节长度，b1-b4 为
+ * 输入字符的各字节。
  */
 static inline uint32
 pg_mb_radix_conv(const pg_mb_radix_tree *rt,
@@ -379,16 +379,16 @@ pg_mb_radix_conv(const pg_mb_radix_tree *rt,
 {
 	if (l == 4)
 	{
-		/* 4-byte code */
+		/* 4字节码 */
 
-		/* check code validity */
+		/* 检查码有效性 */
 		if (b1 < rt->b4_1_lower || b1 > rt->b4_1_upper ||
 			b2 < rt->b4_2_lower || b2 > rt->b4_2_upper ||
 			b3 < rt->b4_3_lower || b3 > rt->b4_3_upper ||
 			b4 < rt->b4_4_lower || b4 > rt->b4_4_upper)
 			return 0;
 
-		/* perform lookup */
+		/* 执行查找 */
 		if (rt->chars32)
 		{
 			uint32		idx = rt->b4root;
@@ -410,15 +410,15 @@ pg_mb_radix_conv(const pg_mb_radix_tree *rt,
 	}
 	else if (l == 3)
 	{
-		/* 3-byte code */
+		/* 3字节码 */
 
-		/* check code validity */
+		/* 检查码有效性 */
 		if (b2 < rt->b3_1_lower || b2 > rt->b3_1_upper ||
 			b3 < rt->b3_2_lower || b3 > rt->b3_2_upper ||
 			b4 < rt->b3_3_lower || b4 > rt->b3_3_upper)
 			return 0;
 
-		/* perform lookup */
+		/* 执行查找 */
 		if (rt->chars32)
 		{
 			uint32		idx = rt->b3root;
@@ -438,14 +438,14 @@ pg_mb_radix_conv(const pg_mb_radix_tree *rt,
 	}
 	else if (l == 2)
 	{
-		/* 2-byte code */
+		/* 2字节码 */
 
-		/* check code validity - first byte */
+		/* 检查码有效性 - 首字节 */
 		if (b3 < rt->b2_1_lower || b3 > rt->b2_1_upper ||
 			b4 < rt->b2_2_lower || b4 > rt->b2_2_upper)
 			return 0;
 
-		/* perform lookup */
+		/* 执行查找 */
 		if (rt->chars32)
 		{
 			uint32		idx = rt->b2root;
@@ -463,45 +463,45 @@ pg_mb_radix_conv(const pg_mb_radix_tree *rt,
 	}
 	else if (l == 1)
 	{
-		/* 1-byte code */
+		/* 1字节码 */
 
-		/* check code validity - first byte */
+		/* 检查码有效性 - 首字节 */
 		if (b4 < rt->b1_lower || b4 > rt->b1_upper)
 			return 0;
 
-		/* perform lookup */
+		/* 执行查找 */
 		if (rt->chars32)
 			return rt->chars32[b4 + rt->b1root - rt->b1_lower];
 		else
 			return rt->chars16[b4 + rt->b1root - rt->b1_lower];
 	}
-	return 0;					/* shouldn't happen */
+	return 0;					/* 不应发生 */
 }
 
 /*
- * UTF8 ---> local code
+ * UTF8 ---> 本地码
  *
- * utf: input string in UTF8 encoding (need not be null-terminated)
- * len: length of input string (in bytes)
- * iso: pointer to the output area (must be large enough!)
-		  (output string will be null-terminated)
- * map: conversion map for single characters
- * cmap: conversion map for combined characters
- *		  (optional, pass NULL if none)
- * cmapsize: number of entries in the conversion map for combined characters
- *		  (optional, pass 0 if none)
- * conv_func: algorithmic encoding conversion function
- *		  (optional, pass NULL if none)
- * encoding: PG identifier for the local encoding
+ * utf: UTF8 编码的输入串（不必以空字节结尾）
+ * len: 输入串长度（字节）
+ * iso: 指向输出区的指针（必须足够大！）
+		  （输出串将空终止）
+ * map: 单字符转换映射
+ * cmap: 组合字符转换映射
+ *		  (可选，无则传 NULL)
+ * cmapsize: 组合字符转换映射的表项数
+ *		  (可选，无则传 0)
+ * conv_func: 算法型编码转换函数
+ *		  (可选，无则传 NULL)
+ * encoding: 本地编码的 PG 标识符
  *
- * For each character, the cmap (if provided) is consulted first; if no match,
- * the map is consulted next; if still no match, the conv_func (if provided)
- * is applied.  An error is raised if no match is found.
+ * 对每个字符，先查 cmap（若已提供）；无匹配则
+ * 再查 map；仍无匹配则应用 conv_func（若已提供）。
+ * 若仍无匹配则报错。
  *
- * See pg_wchar.h for more details about the data structures used here.
+ * 数据结构细节见 pg_wchar.h。
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 UtfToLocal(const unsigned char *utf, int len,
@@ -528,7 +528,7 @@ UtfToLocal(const unsigned char *utf, int len,
 		unsigned char b3 = 0;
 		unsigned char b4 = 0;
 
-		/* "break" cases all represent errors */
+		/* "break" 情形均表示错误 */
 		if (*utf == '\0')
 			break;
 
@@ -541,12 +541,12 @@ UtfToLocal(const unsigned char *utf, int len,
 
 		if (l == 1)
 		{
-			/* ASCII case is easy, assume it's one-to-one conversion */
+			/* ASCII 情形简单，假定为一对一转换 */
 			*iso++ = *utf++;
 			continue;
 		}
 
-		/* collect coded char of length l */
+		/* 收集长为 l 的编码字符 */
 		if (l == 2)
 		{
 			b3 = *utf++;
@@ -568,24 +568,24 @@ UtfToLocal(const unsigned char *utf, int len,
 		else
 		{
 			elog(ERROR, "unsupported character length %d", l);
-			iutf = 0;			/* keep compiler quiet */
+			iutf = 0;			/* 让编译器安静 */
 		}
 		iutf = (b1 << 24 | b2 << 16 | b3 << 8 | b4);
 
-		/* First, try with combined map if possible */
+		/* 首先，若可能则试用组合映射 */
 		if (cmap && len > l)
 		{
 			const unsigned char *utf_save = utf;
 			int			len_save = len;
 			int			l_save = l;
 
-			/* collect next character, same as above */
+			/* 收集下一字符，同上 */
 			len -= l;
 
 			l = pg_utf_mblen(utf);
 			if (len < l)
 			{
-				/* need more data to decide if this is a combined char */
+				/* 需更多数据才能判定是否为组合字符 */
 				utf -= l_save;
 				break;
 			}
@@ -598,7 +598,7 @@ UtfToLocal(const unsigned char *utf, int len,
 				break;
 			}
 
-			/* We assume ASCII character cannot be in combined map */
+			/* 假定 ASCII 字符不会出现在组合映射中 */
 			if (l > 1)
 			{
 				uint32		iutf2;
@@ -625,7 +625,7 @@ UtfToLocal(const unsigned char *utf, int len,
 				else
 				{
 					elog(ERROR, "unsupported character length %d", l);
-					iutf2 = 0;	/* keep compiler quiet */
+					iutf2 = 0;	/* 让编译器安静 */
 				}
 
 				cutf[0] = iutf;
@@ -641,13 +641,13 @@ UtfToLocal(const unsigned char *utf, int len,
 				}
 			}
 
-			/* fail, so back up to reprocess second character next time */
+			/* 失败，回退以便下次再处理第二字符 */
 			utf = utf_save;
 			len = len_save;
 			l = l_save;
 		}
 
-		/* Now check ordinary map */
+		/* 现检查普通映射 */
 		if (map)
 		{
 			uint32		converted = pg_mb_radix_conv(map, l, b1, b2, b3, b4);
@@ -659,7 +659,7 @@ UtfToLocal(const unsigned char *utf, int len,
 			}
 		}
 
-		/* if there's a conversion function, try that */
+		/* 若有转换函数，则试用 */
 		if (conv_func)
 		{
 			uint32		converted = (*conv_func) (iutf);
@@ -671,7 +671,7 @@ UtfToLocal(const unsigned char *utf, int len,
 			}
 		}
 
-		/* failed to translate this character */
+		/* 未能翻译此字符 */
 		utf -= l;
 		if (noError)
 			break;
@@ -679,7 +679,7 @@ UtfToLocal(const unsigned char *utf, int len,
 								   (const char *) utf, len);
 	}
 
-	/* if we broke out of loop early, must be invalid input */
+	/* 若提前跳出循环，则输入必无效 */
 	if (len > 0 && !noError)
 		report_invalid_encoding(PG_UTF8, (const char *) utf, len);
 
@@ -689,29 +689,29 @@ UtfToLocal(const unsigned char *utf, int len,
 }
 
 /*
- * local code ---> UTF8
+ * 本地码 ---> UTF8
  *
- * iso: input string in local encoding (need not be null-terminated)
- * len: length of input string (in bytes)
- * utf: pointer to the output area (must be large enough!)
-		  (output string will be null-terminated)
- * map: conversion map for single characters
- * cmap: conversion map for combined characters
- *		  (optional, pass NULL if none)
- * cmapsize: number of entries in the conversion map for combined characters
- *		  (optional, pass 0 if none)
- * conv_func: algorithmic encoding conversion function
- *		  (optional, pass NULL if none)
- * encoding: PG identifier for the local encoding
+ * iso: 本地编码的输入串（不必以空字节结尾）
+ * len: 输入串长度（字节）
+ * utf: 指向输出区的指针（必须足够大！）
+		  （输出串将空终止）
+ * map: 单字符转换映射
+ * cmap: 组合字符转换映射
+ *		  (可选，无则传 NULL)
+ * cmapsize: 组合字符转换映射的表项数
+ *		  (可选，无则传 0)
+ * conv_func: 算法型编码转换函数
+ *		  (可选，无则传 NULL)
+ * encoding: 本地编码的 PG 标识符
  *
- * For each character, the map is consulted first; if no match, the cmap
- * (if provided) is consulted next; if still no match, the conv_func
- * (if provided) is applied.  An error is raised if no match is found.
+ * 对每个字符先查 map；无匹配则再查 cmap（若
+ * 已提供）；仍无匹配则应用 conv_func（若已
+ * 提供）。若仍无匹配则报错。
  *
- * See pg_wchar.h for more details about the data structures used here.
+ * 数据结构细节见 pg_wchar.h。
  *
- * Returns the number of input bytes consumed.  If noError is true, this can
- * be less than 'len'.
+ * 返回已消耗的输入字节数。若 noError 为真，该值可
+ * 小于 'len'。
  */
 int
 LocalToUtf(const unsigned char *iso, int len,
@@ -739,13 +739,13 @@ LocalToUtf(const unsigned char *iso, int len,
 		unsigned char b3 = 0;
 		unsigned char b4 = 0;
 
-		/* "break" cases all represent errors */
+		/* "break" 情形均表示错误 */
 		if (*iso == '\0')
 			break;
 
 		if (!IS_HIGHBIT_SET(*iso))
 		{
-			/* ASCII case is easy, assume it's one-to-one conversion */
+			/* ASCII 情形简单，假定为一对一转换 */
 			*utf++ = *iso++;
 			l = 1;
 			continue;
@@ -755,7 +755,7 @@ LocalToUtf(const unsigned char *iso, int len,
 		if (l < 0)
 			break;
 
-		/* collect coded char of length l */
+		/* 收集长为 l 的编码字符 */
 		if (l == 1)
 			b4 = *iso++;
 		else if (l == 2)
@@ -779,7 +779,7 @@ LocalToUtf(const unsigned char *iso, int len,
 		else
 		{
 			elog(ERROR, "unsupported character length %d", l);
-			iiso = 0;			/* keep compiler quiet */
+			iiso = 0;			/* 让编译器安静 */
 		}
 		iiso = (b1 << 24 | b2 << 16 | b3 << 8 | b4);
 
@@ -793,7 +793,7 @@ LocalToUtf(const unsigned char *iso, int len,
 				continue;
 			}
 
-			/* If there's a combined character map, try that */
+			/* 若有组合字符映射，则试用 */
 			if (cmap)
 			{
 				cp = bsearch(&iiso, cmap, cmapsize,
@@ -808,7 +808,7 @@ LocalToUtf(const unsigned char *iso, int len,
 			}
 		}
 
-		/* if there's a conversion function, try that */
+		/* 若有转换函数，则试用 */
 		if (conv_func)
 		{
 			uint32		converted = (*conv_func) (iiso);
@@ -820,7 +820,7 @@ LocalToUtf(const unsigned char *iso, int len,
 			}
 		}
 
-		/* failed to translate this character */
+		/* 未能翻译此字符 */
 		iso -= l;
 		if (noError)
 			break;
@@ -828,7 +828,7 @@ LocalToUtf(const unsigned char *iso, int len,
 								   (const char *) iso, len);
 	}
 
-	/* if we broke out of loop early, must be invalid input */
+	/* 若提前跳出循环，则输入必无效 */
 	if (len > 0 && !noError)
 		report_invalid_encoding(encoding, (const char *) iso, len);
 

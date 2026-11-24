@@ -11801,6 +11801,191 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0635-rangetypes.json",
    "kind": "manifest",
    "note": "0635"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonpath_internal.h",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conv.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/cyrillic_and_mic/cyrillic_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc2004_sjis2004/euc2004_sjis2004.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_cn_and_mic/euc_cn_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_jp_and_sjis/euc_jp_and_sjis.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_kr_and_mic/euc_kr_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/big5.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/euc_tw_and_big5.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/latin2_and_win1250/latin2_and_win1250.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/latin_and_mic/latin_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_big5/utf8_and_big5.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_cyrillic/utf8_and_cyrillic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc2004/utf8_and_euc2004.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_cn/utf8_and_euc_cn.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_jp/utf8_and_euc_jp.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_kr/utf8_and_euc_kr.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_tw/utf8_and_euc_tw.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_gb18030/utf8_and_gb18030.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_gbk/utf8_and_gbk.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859/utf8_and_iso8859.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859_1/utf8_and_iso8859_1.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_johab/utf8_and_johab.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_sjis/utf8_and_sjis.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_sjis2004/utf8_and_sjis2004.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_uhc/utf8_and_uhc.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_win/utf8_and_win.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/iso.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/mbutils.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/stringinfo_mb.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/win1251.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/win866.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/wstrcmp.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/wstrncmp.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/misc/guc_internal.h",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0636-utils-mb.json",
+   "kind": "manifest",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0637-utils-mb-conv.json",
+   "kind": "manifest",
+   "note": "0637"
   }
  ],
  "files": [
@@ -38548,6 +38733,376 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0635"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonpath_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conv.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/cyrillic_and_mic/cyrillic_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc2004_sjis2004/euc2004_sjis2004.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_cn_and_mic/euc_cn_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_jp_and_sjis/euc_jp_and_sjis.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_kr_and_mic/euc_kr_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/big5.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/euc_tw_and_big5.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/latin2_and_win1250/latin2_and_win1250.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/latin_and_mic/latin_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_big5/utf8_and_big5.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_cyrillic/utf8_and_cyrillic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc2004/utf8_and_euc2004.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_cn/utf8_and_euc_cn.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_jp/utf8_and_euc_jp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_kr/utf8_and_euc_kr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_tw/utf8_and_euc_tw.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_gb18030/utf8_and_gb18030.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_gbk/utf8_and_gbk.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859/utf8_and_iso8859.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859_1/utf8_and_iso8859_1.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_johab/utf8_and_johab.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_sjis/utf8_and_sjis.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_sjis2004/utf8_and_sjis2004.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_uhc/utf8_and_uhc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_win/utf8_and_win.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/iso.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/mbutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/stringinfo_mb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/win1251.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/win866.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/wstrcmp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/wstrncmp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/misc/guc_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0636-utils-mb.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0637-utils-mb-conv.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0637"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

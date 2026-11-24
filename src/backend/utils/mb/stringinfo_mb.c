@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * stringinfo_mb.c
- *		Multibyte encoding-aware additional StringInfo facilities
+ *		感知多字节编码的额外 StringInfo 设施
  *
- * This is separate from common/stringinfo.c so that frontend users
- * of that file need not pull in unnecessary multibyte-encoding support
- * code.
+ * 与 common/stringinfo.c 分开，使前端用户
+ * 无需拉入多余的多字节编码支持代码
+ *
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,9 +26,9 @@
 /*
  * appendStringInfoStringQuoted
  *
- * Append up to maxlen bytes from s to str, or the whole input string if
- * maxlen < 0, adding single quotes around it and doubling all single quotes.
- * Add an ellipsis if the copy is incomplete.
+ * 自 s 向 str 追加至多 maxlen 字节；若
+ * maxlen < 0 则追加整串，并加单引号且把单引号加倍。
+ * 若拷贝不完整则追加省略号。
  */
 void
 appendStringInfoStringQuoted(StringInfo str, const char *s, int maxlen)
@@ -65,17 +65,17 @@ appendStringInfoStringQuoted(StringInfo str, const char *s, int maxlen)
 
 	while ((chunk_end = strchr(chunk_search_start, '\'')) != NULL)
 	{
-		/* copy including the found delimiting ' */
+		/* 拷贝到（含）找到的定界 ' */
 		appendBinaryStringInfoNT(str,
 								 chunk_copy_start,
 								 chunk_end - chunk_copy_start + 1);
 
-		/* in order to double it, include this ' into the next chunk as well */
+		/* 为将其加倍，也把此 ' 纳入下一块 */
 		chunk_copy_start = chunk_end;
 		chunk_search_start = chunk_end + 1;
 	}
 
-	/* copy the last chunk and terminate */
+	/* 拷贝最后一块并结束 */
 	if (ellipsis)
 		appendStringInfo(str, "%s...'", chunk_copy_start);
 	else

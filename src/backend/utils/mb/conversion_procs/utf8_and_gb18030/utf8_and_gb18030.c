@@ -23,10 +23,10 @@ PG_FUNCTION_INFO_V1(gb18030_to_utf8);
 PG_FUNCTION_INFO_V1(utf8_to_gb18030);
 
 /*
- * Convert 4-byte GB18030 characters to and from a linear code space
+ * 四字节 GB18030 与线性码空间互转
  *
- * The first and third bytes can range from 0x81 to 0xfe (126 values),
- * while the second and fourth bytes can range from 0x30 to 0x39 (10 values).
+ * 第一、三字节取值 0x81..0xfe (126 值),
+ * 第二、四字节取值 0x30..0x39 (10 值)。
  */
 static inline uint32
 gb_linear(uint32 gb)
@@ -52,9 +52,9 @@ gb_unlinear(uint32 lin)
 }
 
 /*
- * Convert word-formatted UTF8 to and from Unicode code points
+ * 字格式 UTF8 与 Unicode 码点互转
  *
- * Probably this should be somewhere else ...
+ * 或许本应放在别处 ...
  */
 static inline uint32
 unicode_to_utf8word(uint32 c)
@@ -119,10 +119,10 @@ utf8word_to_unicode(uint32 c)
 }
 
 /*
- * Perform mapping of GB18030 ranges to UTF8
+ * 执行 GB18030 区间到 UTF8 的映射
  *
- * The ranges we need to convert are specified in gb-18030-2000.xml.
- * All are ranges of 4-byte GB18030 codes.
+ * 待转区间见 gb-18030-2000.xml。
+ * 均为四字节 GB18030 码区间。
  */
 static uint32
 conv_18030_to_utf8(uint32 code)
@@ -144,12 +144,12 @@ conv_18030_to_utf8(uint32 code)
 	conv18030(0xFA2A, 0x84309C38, 0x84318537);
 	conv18030(0xFFE6, 0x8431A234, 0x8431A439);
 	conv18030(0x10000, 0x90308130, 0xE3329A35);
-	/* No mapping exists */
+	/* 无映射 */
 	return 0;
 }
 
 /*
- * Perform mapping of UTF8 ranges to GB18030
+ * 执行 UTF8 区间到 GB18030 的映射
  */
 static uint32
 conv_utf8_to_18030(uint32 code)
@@ -173,21 +173,21 @@ conv_utf8_to_18030(uint32 code)
 	convutf8(0xFA2A, 0xFE2F, 0x84309C38);
 	convutf8(0xFFE6, 0xFFFF, 0x8431A234);
 	convutf8(0x10000, 0x10FFFF, 0x90308130);
-	/* No mapping exists */
+	/* 无映射 */
 	return 0;
 }
 
 /* ----------
  * conv_proc(
- *		INTEGER,	-- source encoding id
- *		INTEGER,	-- destination encoding id
- *		CSTRING,	-- source string (null terminated C string)
- *		CSTRING,	-- destination string (null terminated C string)
- *		INTEGER,	-- source string length
- *		BOOL		-- if true, don't throw an error if conversion fails
+ *		INTEGER,	-- 源编码 id
+ *		INTEGER,	-- 目标编码 id
+ *		CSTRING,	-- 源串 (NUL 终止 C 串)
+ *		CSTRING,	-- 目标串 (NUL 终止 C 串)
+ *		INTEGER,	-- 源串长度
+ *		BOOL		-- 为真时转换失败不抛错
  * ) returns INTEGER;
  *
- * Returns the number of bytes successfully converted.
+ * 返回成功转换的字节数。
  * ----------
  */
 Datum

@@ -1,0 +1,704 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0636",
+ "title": "backend/utils mb 收尾 — batch 0636",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b075daf9f887feb47156cc4ca5cd0ac0a3c1d448",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonpath_internal.h",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conv.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/cyrillic_and_mic/cyrillic_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc2004_sjis2004/euc2004_sjis2004.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_cn_and_mic/euc_cn_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_jp_and_sjis/euc_jp_and_sjis.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_kr_and_mic/euc_kr_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/big5.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/euc_tw_and_big5.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/latin2_and_win1250/latin2_and_win1250.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/latin_and_mic/latin_and_mic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_big5/utf8_and_big5.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_cyrillic/utf8_and_cyrillic.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc2004/utf8_and_euc2004.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_cn/utf8_and_euc_cn.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_jp/utf8_and_euc_jp.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_kr/utf8_and_euc_kr.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_euc_tw/utf8_and_euc_tw.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_gb18030/utf8_and_gb18030.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_gbk/utf8_and_gbk.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859/utf8_and_iso8859.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859_1/utf8_and_iso8859_1.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_johab/utf8_and_johab.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_sjis/utf8_and_sjis.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_sjis2004/utf8_and_sjis2004.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_uhc/utf8_and_uhc.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/utf8_and_win/utf8_and_win.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/iso.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/mbutils.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/stringinfo_mb.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/win1251.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/win866.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/wstrcmp.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/mb/wstrncmp.c",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/backend/utils/misc/guc_internal.h",
+   "kind": "c_comment",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0636"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0636-utils-mb.json",
+   "kind": "manifest",
+   "note": "0636"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonpath_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conv.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/cyrillic_and_mic/cyrillic_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc2004_sjis2004/euc2004_sjis2004.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_cn_and_mic/euc_cn_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_jp_and_sjis/euc_jp_and_sjis.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_kr_and_mic/euc_kr_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/big5.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/euc_tw_and_big5.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/latin2_and_win1250/latin2_and_win1250.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/latin_and_mic/latin_and_mic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_big5/utf8_and_big5.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_cyrillic/utf8_and_cyrillic.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc2004/utf8_and_euc2004.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_cn/utf8_and_euc_cn.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_jp/utf8_and_euc_jp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_kr/utf8_and_euc_kr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_euc_tw/utf8_and_euc_tw.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_gb18030/utf8_and_gb18030.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_gbk/utf8_and_gbk.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859/utf8_and_iso8859.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_iso8859_1/utf8_and_iso8859_1.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_johab/utf8_and_johab.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_sjis/utf8_and_sjis.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_sjis2004/utf8_and_sjis2004.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_uhc/utf8_and_uhc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/utf8_and_win/utf8_and_win.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/iso.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/mbutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/stringinfo_mb.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/win1251.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/win866.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/wstrcmp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/mb/wstrncmp.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/backend/utils/misc/guc_internal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径 KEEP",
+    "编码名/签名骨架 KEEP"
+   ],
+   "note": "0636"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0636-utils-mb.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0636"
+  }
+ ],
+ "notes": "utils mb 收尾；.y/.l 暂缓；halfen+6；AGENTS→backup"
+}

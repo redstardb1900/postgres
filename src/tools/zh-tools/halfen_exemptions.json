@@ -2158,5 +2158,35 @@
   "path": "src/backend/utils/adt/rangetypes.c",
   "pattern": "<lb-inc>\\s*<string>,\\s*<string>\\s*<ub-inc>",
   "reason": "range_parse 输入语法 BNF 骨架 ASCII KEEP（<range>/<lb-inc>/<ub-inc>/<string>；batch-0635）"
+ },
+ {
+  "path": "src/backend/utils/mb/conversion_procs/cyrillic_and_mic/cyrillic_and_mic.c",
+  "pattern": "Alternativny Variant",
+  "reason": "西里尔编码专名 Alternativny Variant (MS-DOS CP866) ASCII KEEP；zh 列表说明完整 (batch-0637)"
+ },
+ {
+  "path": "src/backend/utils/mb/conversion_procs/euc_tw_and_big5/big5.c",
+  "pattern": "high_byte|low_byte|0x00-0x3e",
+  "reason": "big5 距离公式保留 high_byte/low_byte 与十六进制区间；zh 注记完整 (batch-0637)"
+ },
+ {
+  "path": "src/backend/utils/mb/iso.c",
+  "pattern": "KOI8|ISO8859|Tatsuo|koi-iso",
+  "reason": "表生成器头：编码名/作者署名与路径 KEEP；zh 说明完整 (batch-0636)"
+ },
+ {
+  "path": "src/backend/utils/mb/win1251.c",
+  "pattern": "KOI8|CP1251|Tatsuo|koi-win",
+  "reason": "表生成器头：编码名/作者署名 KEEP；zh 说明完整 (batch-0636)"
+ },
+ {
+  "path": "src/backend/utils/mb/win866.c",
+  "pattern": "KOI8|CP866|Tatsuo|koi-alt",
+  "reason": "表生成器头：编码名/作者署名 KEEP；zh 说明完整 (batch-0636)"
+ },
+ {
+  "path": "src/backend/utils/mb/mbutils.c",
+  "pattern": "FindDefaultConversionProc",
+  "reason": "须保留默认转换查找例程标识符；周围已中文化 (batch-0636)"
  }
 ]

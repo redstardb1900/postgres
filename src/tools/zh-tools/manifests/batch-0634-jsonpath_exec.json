@@ -1,0 +1,79 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0634",
+ "title": "backend/utils/adt jsonpath_exec — batch 0634",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "801544762e27e80907793fca56fe2be176d28ec3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/jsonpath_exec.c",
+   "kind": "c_comment",
+   "note": "0634"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0634-jsonpath_exec.json",
+   "kind": "manifest",
+   "note": "0634"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0634 keyvalue format halfen exemption"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/jsonpath_exec.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径/文件名/横幅 KEEP",
+    "函数名头行 jsonb_path_* KEEP",
+    "ASCII 谓词草图/类型名/jperError/error(5B)/公式/mode KEEP",
+    ".keyvalue() 格式骨架 halfen 豁免"
+   ],
+   "note": "0634"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0634-jsonpath_exec.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0634"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0634"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0634 keyvalue format halfen exemption"
+  }
+ ],
+ "notes": "jsonpath_exec.c 全文件; 宽松/严格模式、谓词、序列、访问器、解包对齐 jsonpath.c/jsonb_gin; mode closer 4B KEEP; 公式 id= KEEP; .keyvalue() 格式骨架 halfen 豁免; 等义压缩已披露"
+}

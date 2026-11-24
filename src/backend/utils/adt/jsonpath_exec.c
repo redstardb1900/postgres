@@ -1,53 +1,53 @@
 /*-------------------------------------------------------------------------
  *
  * jsonpath_exec.c
- *	 Routines for SQL/JSON path execution.
+ *	 SQL/JSON 路径执行例程。
  *
- * Jsonpath is executed in the global context stored in JsonPathExecContext,
- * which is passed to almost every function involved into execution.  Entry
- * point for jsonpath execution is executeJsonPath() function, which
- * initializes execution context including initial JsonPathItem and JsonbValue,
- * flags, stack for calculation of @ in filters.
+ * Jsonpath 在存于 JsonPathExecContext 的全局上下文中执行，
+ * 该上下文几乎传给参与执行的每个函数。jsonpath
+ * 执行入口是 executeJsonPath()，它会
+ * 初始化执行上下文，含初始 JsonPathItem 与 JsonbValue、
+ * 标志及过滤器中计算 @ 用的栈。
  *
- * The result of jsonpath query execution is enum JsonPathExecResult and
- * if succeeded sequence of JsonbValue, written to JsonValueList *found, which
- * is passed through the jsonpath items.  When found == NULL, we're inside
- * exists-query and we're interested only in whether result is empty.  In this
- * case execution is stopped once first result item is found, and the only
- * execution result is JsonPathExecResult.  The values of JsonPathExecResult
- * are following:
- * - jperOk			-- result sequence is not empty
- * - jperNotFound	-- result sequence is empty
- * - jperError		-- error occurred during execution
+ * jsonpath 查询执行结果为枚举 JsonPathExecResult，若成功
+ * 还有写入 JsonValueList *found 的 JsonbValue 序列，该列表
+ * 沿 jsonpath 各项传递。当 found == NULL 时，处于
+ * exists 查询，只关心结果是否为空。此
+ * 时一旦找到首个结果项即停，唯一的
+ * 执行结果是 JsonPathExecResult。JsonPathExecResult 取值
+ * 如下：
+ * - jperOk			-- 结果序列非空
+ * - jperNotFound	-- 结果序列为空
+ * - jperError		-- 执行中发生错误
  *
- * Jsonpath is executed recursively (see executeItem()) starting form the
- * first path item (which in turn might be, for instance, an arithmetic
- * expression evaluated separately).  On each step single JsonbValue obtained
- * from previous path item is processed.  The result of processing is a
- * sequence of JsonbValue (probably empty), which is passed to the next path
- * item one by one.  When there is no next path item, then JsonbValue is added
- * to the 'found' list.  When found == NULL, then execution functions just
- * return jperOk (see executeNextItem()).
+ * Jsonpath 自首个路径项起递归执行（见 executeItem()；
+ * 首项本身也可能是单独求值的算术
+ * 表达式）。每步处理自前一路径项得到的单个 JsonbValue。
+ * 处理结果是一个 JsonbValue 序列（可为空），再逐个
+ * 传给下一路径项。若无下一路径项，则把
+ * JsonbValue 加入 'found' 列表。当 found == NULL 时，
+ * 执行函数只返回 jperOk（见
+ * executeNextItem()）。
  *
- * Many of jsonpath operations require automatic unwrapping of arrays in lax
- * mode.  So, if input value is array, then corresponding operation is
- * processed not on array itself, but on all of its members one by one.
- * executeItemOptUnwrapTarget() function have 'unwrap' argument, which indicates
- * whether unwrapping of array is needed.  When unwrap == true, each of array
- * members is passed to executeItemOptUnwrapTarget() again but with unwrap == false
- * in order to avoid subsequent array unwrapping.
+ * 宽松模式下，许多 jsonpath 运算要求自动解包数组。
+ * 因此若输入值是数组，则相应运算并非
+ * 作用在数组本身，而是逐个作用在其各成员上。
+ * executeItemOptUnwrapTarget() 有 'unwrap' 参数，指示
+ * 是否需要解包数组。当 unwrap == true 时，数组的每个
+ * 成员再以 unwrap == false 传入 executeItemOptUnwrapTarget()，
+ * 以免后续再次解包数组。
  *
- * All boolean expressions (predicates) are evaluated by executeBoolItem()
- * function, which returns tri-state JsonPathBool.  When error is occurred
- * during predicate execution, it returns jpbUnknown.  According to standard
- * predicates can be only inside filters.  But we support their usage as
- * jsonpath expression.  This helps us to implement @@ operator.  In this case
- * resulting JsonPathBool is transformed into jsonb bool or null.
+ * 所有布尔表达式（谓词）由 executeBoolItem()
+ * 求值，返回三态 JsonPathBool。谓词执行中若
+ * 出错则返回 jpbUnknown。按标准，谓词
+ * 只能出现在过滤器内。但我们支持把它用作
+ * jsonpath 表达式，以便实现 @@ 运算符。此时
+ * 把结果 JsonPathBool 转成 jsonb 布尔或 null。
  *
- * Arithmetic and boolean expression are evaluated recursively from expression
- * tree top down to the leaves.  Therefore, for binary arithmetic expressions
- * we calculate operands first.  Then we check that results are numeric
- * singleton lists, calculate the result and pass it to the next path item.
+ * 算术与布尔表达式自表达式树顶向下递归求值
+ * 至叶。因此对二元算术表达式，我们先
+ * 计算操作数，再检查结果是否为数值
+ * 单例列表，算出结果并传给下一路径项。
  *
  * Copyright (c) 2019-2023, PostgreSQL Global Development Group
  *
@@ -79,7 +79,7 @@
 #include "utils/varlena.h"
 
 /*
- * Represents "base object" and it's "id" for .keyvalue() evaluation.
+ * 表示 .keyvalue() 求值用的"基对象"及其 "id"。
  */
 typedef struct JsonBaseObjectInfo
 {
@@ -88,37 +88,37 @@ typedef struct JsonBaseObjectInfo
 } JsonBaseObjectInfo;
 
 /*
- * Context of jsonpath execution.
+ * jsonpath 执行上下文。
  */
 typedef struct JsonPathExecContext
 {
-	Jsonb	   *vars;			/* variables to substitute into jsonpath */
-	JsonbValue *root;			/* for $ evaluation */
-	JsonbValue *current;		/* for @ evaluation */
-	JsonBaseObjectInfo baseObject;	/* "base object" for .keyvalue()
-									 * evaluation */
-	int			lastGeneratedObjectId;	/* "id" counter for .keyvalue()
-										 * evaluation */
-	int			innermostArraySize; /* for LAST array index evaluation */
-	bool		laxMode;		/* true for "lax" mode, false for "strict"
+	Jsonb	   *vars;			/* 代入 jsonpath 的变量 */
+	JsonbValue *root;			/* 供 $ 求值 */
+	JsonbValue *current;		/* 供 @ 求值 */
+	JsonBaseObjectInfo baseObject;	/* .keyvalue() 的"基对象"
+									 * 求值 */
+	int			lastGeneratedObjectId;	/* .keyvalue() 的id计数器
+										 * 求值 */
+	int			innermostArraySize; /* 供 LAST 数组下标求值 */
+	bool		laxMode;		/* "lax" 真=宽松，"strict" 假=严格
 								 * mode */
-	bool		ignoreStructuralErrors; /* with "true" structural errors such
-										 * as absence of required json item or
-										 * unexpected json item type are
-										 * ignored */
-	bool		throwErrors;	/* with "false" all suppressible errors are
-								 * suppressed */
+	bool		ignoreStructuralErrors; /* 为 true 时结构错误如
+										 * 缺所需 json 项或
+										 * 项类型不符会被
+										 * 忽略 */
+	bool		throwErrors;	/* 为 false 时全部可抑制错误均被
+								 * 抑制 */
 	bool		useTz;
 } JsonPathExecContext;
 
-/* Context for LIKE_REGEX execution. */
+/* LIKE_REGEX 执行上下文。 */
 typedef struct JsonLikeRegexContext
 {
 	text	   *regex;
 	int			cflags;
 } JsonLikeRegexContext;
 
-/* Result of jsonpath predicate evaluation */
+/* jsonpath 谓词求值结果 */
 typedef enum JsonPathBool
 {
 	jpbFalse = 0,
@@ -126,7 +126,7 @@ typedef enum JsonPathBool
 	jpbUnknown = 2
 } JsonPathBool;
 
-/* Result of jsonpath expression evaluation */
+/* jsonpath 表达式求值结果 */
 typedef enum JsonPathExecResult
 {
 	jperOk = 0,
@@ -137,7 +137,7 @@ typedef enum JsonPathExecResult
 #define jperIsError(jper)			((jper) == jperError)
 
 /*
- * List of jsonb values with shortcut for single-value list.
+ * 带单值列表快捷路径的 jsonb 值列表。
  */
 typedef struct JsonValueList
 {
@@ -152,14 +152,14 @@ typedef struct JsonValueListIterator
 	ListCell   *next;
 } JsonValueListIterator;
 
-/* strict/lax flags is decomposed into four [un]wrap/error flags */
+/* 严格/宽松标志分解为四[解]包/错标志 */
 #define jspStrictAbsenseOfErrors(cxt)	(!(cxt)->laxMode)
 #define jspAutoUnwrap(cxt)				((cxt)->laxMode)
 #define jspAutoWrap(cxt)				((cxt)->laxMode)
 #define jspIgnoreStructuralErrors(cxt)	((cxt)->ignoreStructuralErrors)
 #define jspThrowErrors(cxt)				((cxt)->throwErrors)
 
-/* Convenience macro: return or throw error depending on context */
+/* 便捷宏：按上下文返回或抛错 */
 #define RETURN_ERROR(throw_error) \
 do { \
 	if (jspThrowErrors(cxt)) \
@@ -259,15 +259,15 @@ static int	compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 
 /*
  * jsonb_path_exists
- *		Returns true if jsonpath returns at least one item for the specified
- *		jsonb value.  This function and jsonb_path_match() are used to
- *		implement @? and @@ operators, which in turn are intended to have an
- *		index support.  Thus, it's desirable to make it easier to achieve
- *		consistency between index scan results and sequential scan results.
- *		So, we throw as few errors as possible.  Regarding this function,
- *		such behavior also matches behavior of JSON_EXISTS() clause of
- *		SQL/JSON.  Regarding jsonb_path_match(), this function doesn't have
- *		an analogy in SQL/JSON, so we define its behavior on our own.
+ *		若 jsonpath 对指定 jsonb 值至少返回一项则
+ *		为真。本函数与 jsonb_path_match() 用于
+ *		实现 @? 与 @@ 运算符，而这些运算符又旨在获得
+ *		索引支持。因此希望更易达成索引扫描与
+ *		顺序扫描结果的一致性。
+ *		故尽量少抛错。对本函数而言，
+ *		此行为也与 SQL/JSON 的 JSON_EXISTS() 子句
+ *		一致。至于 jsonb_path_match()，SQL/JSON 中并无
+ *		对应物，故自行定义其行为。
  */
 static Datum
 jsonb_path_exists_internal(FunctionCallInfo fcinfo, bool tz)
@@ -309,20 +309,20 @@ jsonb_path_exists_tz(PG_FUNCTION_ARGS)
 
 /*
  * jsonb_path_exists_opr
- *		Implementation of operator "jsonb @? jsonpath" (2-argument version of
- *		jsonb_path_exists()).
+ *		"jsonb @? jsonpath" 的实现（jsonb_path_exists()
+ *		双参数版）。
  */
 Datum
 jsonb_path_exists_opr(PG_FUNCTION_ARGS)
 {
-	/* just call the other one -- it can handle both cases */
+	/* 直接调另一版——可处理两种情况 */
 	return jsonb_path_exists_internal(fcinfo, false);
 }
 
 /*
  * jsonb_path_match
- *		Returns jsonpath predicate result item for the specified jsonb value.
- *		See jsonb_path_exists() comment for details regarding error handling.
+ *		返回指定 jsonb 值上的 jsonpath 谓词结果项。
+ *		错误处理细节见 jsonb_path_exists() 注释。
  */
 static Datum
 jsonb_path_match_internal(FunctionCallInfo fcinfo, bool tz)
@@ -377,20 +377,20 @@ jsonb_path_match_tz(PG_FUNCTION_ARGS)
 
 /*
  * jsonb_path_match_opr
- *		Implementation of operator "jsonb @@ jsonpath" (2-argument version of
- *		jsonb_path_match()).
+ *		"jsonb @@ jsonpath" 的实现（jsonb_path_match()
+ *		双参数版）。
  */
 Datum
 jsonb_path_match_opr(PG_FUNCTION_ARGS)
 {
-	/* just call the other one -- it can handle both cases */
+	/* 直接调另一版——可处理两种情况 */
 	return jsonb_path_match_internal(fcinfo, false);
 }
 
 /*
  * jsonb_path_query
- *		Executes jsonpath for given jsonb document and returns result as
- *		rowset.
+ *		对给定 jsonb 文档执行 jsonpath，结果返回为
+ *		行集
  */
 static Datum
 jsonb_path_query_internal(FunctionCallInfo fcinfo, bool tz)
@@ -452,8 +452,8 @@ jsonb_path_query_tz(PG_FUNCTION_ARGS)
 
 /*
  * jsonb_path_query_array
- *		Executes jsonpath for given jsonb document and returns result as
- *		jsonb array.
+ *		对给定 jsonb 执行 jsonpath，结果返回为
+ *		jsonb数组
  */
 static Datum
 jsonb_path_query_array_internal(FunctionCallInfo fcinfo, bool tz)
@@ -483,8 +483,8 @@ jsonb_path_query_array_tz(PG_FUNCTION_ARGS)
 
 /*
  * jsonb_path_query_first
- *		Executes jsonpath for given jsonb document and returns first result
- *		item.  If there are no items, NULL returned.
+ *		对给定 jsonb 文档执行 jsonpath，并返回首个结果
+ *		项。若无项则返回 NULL。
  */
 static Datum
 jsonb_path_query_first_internal(FunctionCallInfo fcinfo, bool tz)
@@ -518,23 +518,23 @@ jsonb_path_query_first_tz(PG_FUNCTION_ARGS)
 /********************Execute functions for JsonPath**************************/
 
 /*
- * Interface to jsonpath executor
+ * jsonpath 执行器接口
  *
- * 'path' - jsonpath to be executed
- * 'vars' - variables to be substituted to jsonpath
- * 'json' - target document for jsonpath evaluation
- * 'throwErrors' - whether we should throw suppressible errors
- * 'result' - list to store result items into
+ * 'path' - 待执行的 jsonpath
+ * 'vars' - 代入 jsonpath 的变量
+ * 'json' - jsonpath 求值的目标文档
+ * 'throwErrors' - 是否应抛出可抑制错误
+ * 'result' - 存放结果项的列表
  *
- * Returns an error if a recoverable error happens during processing, or NULL
- * on no error.
+ * 处理中若有可恢复错误则返回之，无错则
+ * 为 NULL。
  *
- * Note, jsonb and jsonpath values should be available and untoasted during
- * work because JsonPathItem, JsonbValue and result item could have pointers
- * into input values.  If caller needs to just check if document matches
- * jsonpath, then it doesn't provide a result arg.  In this case executor
- * works till first positive result and does not check the rest if possible.
- * In other case it tries to find all the satisfied result items.
+ * 注意：工作期间 jsonb 与 jsonpath 值须可用且已
+ * 解除 TOAST，因 JsonPathItem、JsonbValue 与结果项可能持有
+ * 指向输入的指针。若调用方只需检查文档是否匹配
+ * jsonpath，则不提供 result 参数。此时执行器
+ * 工作到首个肯定结果即止，并尽可能不检查其余。
+ * 否则尝试找出全部满足的结果项。
  */
 static JsonPathExecResult
 executeJsonPath(JsonPath *path, Jsonb *vars, Jsonb *json, bool throwErrors,
@@ -573,8 +573,8 @@ executeJsonPath(JsonPath *path, Jsonb *vars, Jsonb *json, bool throwErrors,
 	if (jspStrictAbsenseOfErrors(&cxt) && !result)
 	{
 		/*
-		 * In strict mode we must get a complete list of values to check that
-		 * there are no errors at all.
+		 * 严格模式下必须取得完整值列表，以检查
+		 * 完全没有错误。
 		 */
 		JsonValueList vals = {0};
 
@@ -594,7 +594,7 @@ executeJsonPath(JsonPath *path, Jsonb *vars, Jsonb *json, bool throwErrors,
 }
 
 /*
- * Execute jsonpath with automatic unwrapping of current item in lax mode.
+ * 在宽松模式下对当前项自动解包后执行 jsonpath。
  */
 static JsonPathExecResult
 executeItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -604,9 +604,9 @@ executeItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Main jsonpath executor function: walks on jsonpath structure, finds
- * relevant parts of jsonb and evaluates expressions over them.
- * When 'unwrap' is true current SQL/JSON item is unwrapped if it is an array.
+ * 主 jsonpath 执行函数：遍历 jsonpath 结构，找出
+ * jsonb 相关部分并对其求值表达式。
+ * 当 'unwrap' 为真且当前 SQL/JSON 项为数组时则解包。
  */
 static JsonPathExecResult
 executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -621,7 +621,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 
 	switch (jsp->type)
 	{
-			/* all boolean item types: */
+			/* 全布尔项类型： */
 		case jpiAnd:
 		case jpiOr:
 		case jpiNot:
@@ -659,7 +659,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 					res = executeNextItem(cxt, jsp, NULL,
 										  v, found, false);
 
-					/* free value if it was not added to found list */
+					/* 若值未加入 found 列表则释放 */
 					if (jspHasNext(jsp) || !found)
 						pfree(v);
 				}
@@ -728,7 +728,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				if (singleton)
 					size = 1;
 
-				cxt->innermostArraySize = size; /* for LAST evaluation */
+				cxt->innermostArraySize = size; /* 供 LAST 求值 */
 
 				for (i = 0; i < jsp->content.array.nelems; i++)
 				{
@@ -923,7 +923,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			{
 				bool		hasNext = jspGetNext(jsp, &elem);
 
-				/* first try without any intermediate steps */
+				/* 先试不经中间步骤 */
 				if (jsp->content.anybounds.first == 0)
 				{
 					bool		savedIgnoreStructuralErrors;
@@ -962,8 +962,8 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				if (!hasNext && !found && jsp->type != jpiVariable)
 				{
 					/*
-					 * Skip evaluation, but not for variables.  We must
-					 * trigger an error for the missing variable.
+					 * 跳过求值，但变量除外。对缺失变量
+					 * 必须触发错误。
 					 */
 					res = jperOk;
 					break;
@@ -1063,7 +1063,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				}
 				else if (jb->type == jbvString)
 				{
-					/* cast string as double */
+					/* 字符串转 double */
 					double		val;
 					char	   *tmp = pnstrdup(jb->val.string.val,
 											   jb->val.string.len);
@@ -1118,7 +1118,7 @@ executeItemOptUnwrapTarget(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Unwrap current array item and execute jsonpath for each of its elements.
+ * 解包当前数组项，并对各元素执行 jsonpath。
  */
 static JsonPathExecResult
 executeItemUnwrapTargetArray(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1137,8 +1137,8 @@ executeItemUnwrapTargetArray(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Execute next jsonpath item if exists.  Otherwise put "v" to the "found"
- * list if provided.
+ * 若有下一 jsonpath 项则执行。否则若有 found
+ * 则放入 v。
  */
 static JsonPathExecResult
 executeNextItem(JsonPathExecContext *cxt,
@@ -1168,8 +1168,8 @@ executeNextItem(JsonPathExecContext *cxt,
 }
 
 /*
- * Same as executeItem(), but when "unwrap == true" automatically unwraps
- * each array item from the resulting sequence in lax mode.
+ * 同 executeItem()，但 unwrap==true 时在宽松模式
+ * 下自动解包结果序列中每个数组项。
  */
 static JsonPathExecResult
 executeItemOptUnwrapResult(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1204,7 +1204,7 @@ executeItemOptUnwrapResult(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Same as executeItemOptUnwrapResult(), but with error suppression.
+ * 同 executeItemOptUnwrapResult()，但抑制错误。
  */
 static JsonPathExecResult
 executeItemOptUnwrapResultNoThrow(JsonPathExecContext *cxt,
@@ -1222,7 +1222,7 @@ executeItemOptUnwrapResultNoThrow(JsonPathExecContext *cxt,
 	return res;
 }
 
-/* Execute boolean-valued jsonpath expression. */
+/* 执行布尔值 jsonpath 表达式。 */
 static JsonPathBool
 executeBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				JsonbValue *jb, bool canHaveNext)
@@ -1232,7 +1232,7 @@ executeBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	JsonPathBool res;
 	JsonPathBool res2;
 
-	/* since this function recurses, it could be driven to stack overflow */
+	/* 本函数会递归，可能被驱至栈溢出 */
 	check_stack_depth();
 
 	if (!canHaveNext && jspHasNext(jsp))
@@ -1248,7 +1248,7 @@ executeBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 				return jpbFalse;
 
 			/*
-			 * SQL/JSON says that we should check second arg in case of
+			 * SQL/JSON 规定出错时仍应检查第二参数，
 			 * jperError
 			 */
 
@@ -1304,10 +1304,10 @@ executeBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		case jpiLikeRegex:		/* 'expr LIKE_REGEX pattern FLAGS flags' */
 			{
 				/*
-				 * 'expr' is a sequence-returning expression.  'pattern' is a
-				 * regex string literal.  SQL/JSON standard requires XQuery
-				 * regexes, but we use Postgres regexes here.  'flags' is a
-				 * string literal converted to integer flags at compile-time.
+				 * 'expr' 是返回序列的表达式。'pattern' 是
+				 * 正则字符串字面量。SQL/JSON 标准要求 XQuery
+				 * 正则，但此处用 Postgres 正则。'flags' 是在
+				 * 编译期转成整数标志的字符串字面量。
 				 */
 				JsonLikeRegexContext lrcxt = {0};
 
@@ -1324,8 +1324,8 @@ executeBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			if (jspStrictAbsenseOfErrors(cxt))
 			{
 				/*
-				 * In strict mode we must get a complete list of values to
-				 * check that there are no errors at all.
+				 * 严格模式下必须取得完整值列表，以
+				 * 检查完全没有错误。
 				 */
 				JsonValueList vals = {0};
 				JsonPathExecResult res =
@@ -1356,8 +1356,8 @@ executeBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Execute nested (filters etc.) boolean expression pushing current SQL/JSON
- * item onto the stack.
+ * 执行嵌套（过滤器等）布尔表达式，把当前 SQL/JSON
+ * 项压入栈。
  */
 static JsonPathBool
 executeNestedBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1375,10 +1375,10 @@ executeNestedBoolItem(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Implementation of several jsonpath nodes:
- *  - jpiAny (.** accessor),
- *  - jpiAnyKey (.* accessor),
- *  - jpiAnyArray ([*] accessor)
+ * 若干 jsonpath 节点的实现：
+ *  - jpiAny (.** 访问器)
+ *  - jpiAnyKey (.* 访问器)
+ *  - jpiAnyArray ([*]访问器)
  */
 static JsonPathExecResult
 executeAnyItem(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbContainer *jbc,
@@ -1398,7 +1398,7 @@ executeAnyItem(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbContainer *jbc,
 	it = JsonbIteratorInit(jbc);
 
 	/*
-	 * Recursively iterate over jsonb objects/arrays
+	 * 递归遍历 jsonb 对象/数组
 	 */
 	while ((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE)
 	{
@@ -1413,9 +1413,9 @@ executeAnyItem(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbContainer *jbc,
 
 			if (level >= first ||
 				(first == PG_UINT32_MAX && last == PG_UINT32_MAX &&
-				 v.type != jbvBinary))	/* leaves only requested */
+				 v.type != jbvBinary))	/* 仅留所请求的 */
 			{
-				/* check expression */
+				/* 检查表达式 */
 				if (jsp)
 				{
 					if (ignoreStructuralErrors)
@@ -1462,14 +1462,14 @@ executeAnyItem(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbContainer *jbc,
 }
 
 /*
- * Execute unary or binary predicate.
+ * 执行一元或二元谓词。
  *
- * Predicates have existence semantics, because their operands are item
- * sequences.  Pairs of items from the left and right operand's sequences are
- * checked.  TRUE returned only if any pair satisfying the condition is found.
- * In strict mode, even if the desired pair has already been found, all pairs
- * still need to be examined to check the absence of errors.  If any error
- * occurs, UNKNOWN (analogous to SQL NULL) is returned.
+ * 谓词具有存在语义，因其操作数是项
+ * 序列。检查左右操作数序列中的项对。
+ * 仅当找到任一满足条件的对时才返回 TRUE。
+ * 严格模式下，即使已找到目标对，仍须检查
+ * 全部对以确认无错误。若发生任何错误，
+ * 则返回 UNKNOWN（类似 SQL NULL）。
  */
 static JsonPathBool
 executePredicate(JsonPathExecContext *cxt, JsonPathItem *pred,
@@ -1485,14 +1485,14 @@ executePredicate(JsonPathExecContext *cxt, JsonPathItem *pred,
 	bool		error = false;
 	bool		found = false;
 
-	/* Left argument is always auto-unwrapped. */
+	/* 左参数总是自动解包。 */
 	res = executeItemOptUnwrapResultNoThrow(cxt, larg, jb, true, &lseq);
 	if (jperIsError(res))
 		return jpbUnknown;
 
 	if (rarg)
 	{
-		/* Right argument is conditionally auto-unwrapped. */
+		/* 右参数按条件自动解包。 */
 		res = executeItemOptUnwrapResultNoThrow(cxt, rarg, jb,
 												unwrapRightArg, &rseq);
 		if (jperIsError(res))
@@ -1512,7 +1512,7 @@ executePredicate(JsonPathExecContext *cxt, JsonPathItem *pred,
 		else
 			rval = NULL;
 
-		/* Loop over right arg sequence or do single pass otherwise */
+		/* 遍历右参序列，否则单次遍历 */
 		while (rarg ? (rval != NULL) : first)
 		{
 			JsonPathBool res = exec(pred, lval, rval, param);
@@ -1538,18 +1538,18 @@ executePredicate(JsonPathExecContext *cxt, JsonPathItem *pred,
 		}
 	}
 
-	if (found)					/* possible only in strict mode */
+	if (found)					/* 仅严格模式可能 */
 		return jpbTrue;
 
-	if (error)					/* possible only in lax mode */
+	if (error)					/* 仅宽松模式可能 */
 		return jpbUnknown;
 
 	return jpbFalse;
 }
 
 /*
- * Execute binary arithmetic expression on singleton numeric operands.
- * Array operands are automatically unwrapped in lax mode.
+ * 在单例数值操作数上执行二元算术表达式。
+ * 宽松模式下数组操作数自动解包。
  */
 static JsonPathExecResult
 executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1567,8 +1567,8 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	jspGetLeftArg(jsp, &elem);
 
 	/*
-	 * XXX: By standard only operands of multiplicative expressions are
-	 * unwrapped.  We extend it to other binary arithmetic expressions too.
+	 * XXX: 按标准仅乘法表达式的操作数会
+	 * 解包。我们把此扩展到其他二元算术表达式。
 	 */
 	jper = executeItemOptUnwrapResult(cxt, &elem, jb, true, &lseq);
 	if (jperIsError(jper))
@@ -1619,8 +1619,8 @@ executeBinaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Execute unary arithmetic expression for each numeric item in its operand's
- * sequence.  Array operand is automatically unwrapped in lax mode.
+ * 对操作数序列中的每个数值项执行一元算术
+ * 表达式。宽松模式下数组操作数自动解包。
  */
 static JsonPathExecResult
 executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1655,7 +1655,7 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 		else
 		{
 			if (!found && !hasNext)
-				continue;		/* skip non-numerics processing */
+				continue;		/* 跳过非数值处理 */
 
 			RETURN_ERROR(ereport(ERROR,
 								 (errcode(ERRCODE_SQL_JSON_NUMBER_NOT_FOUND),
@@ -1685,9 +1685,9 @@ executeUnaryArithmExpr(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * STARTS_WITH predicate callback.
+ * STARTS_WITH 谓词回调。
  *
- * Check if the 'whole' string starts from 'initial' string.
+ * 检查 'whole' 字符串是否以 'initial' 开头。
  */
 static JsonPathBool
 executeStartsWith(JsonPathItem *jsp, JsonbValue *whole, JsonbValue *initial,
@@ -1709,9 +1709,9 @@ executeStartsWith(JsonPathItem *jsp, JsonbValue *whole, JsonbValue *initial,
 }
 
 /*
- * LIKE_REGEX predicate callback.
+ * LIKE_REGEX 谓词回调。
  *
- * Check if the string matches regex pattern.
+ * 检查字符串是否匹配正则模式。
  */
 static JsonPathBool
 executeLikeRegex(JsonPathItem *jsp, JsonbValue *str, JsonbValue *rarg,
@@ -1722,7 +1722,7 @@ executeLikeRegex(JsonPathItem *jsp, JsonbValue *str, JsonbValue *rarg,
 	if (!(str = getScalar(str, jbvString)))
 		return jpbUnknown;
 
-	/* Cache regex text and converted flags. */
+	/* 缓存正则文本与已转标志。 */
 	if (!cxt->regex)
 	{
 		cxt->regex =
@@ -1741,8 +1741,8 @@ executeLikeRegex(JsonPathItem *jsp, JsonbValue *str, JsonbValue *rarg,
 }
 
 /*
- * Execute numeric item methods (.abs(), .floor(), .ceil()) using the specified
- * user function 'func'.
+ * 用用户函数 func 执行数值项方法
+ * .abs/.floor/.ceil。
  */
 static JsonPathExecResult
 executeNumericItemMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1774,11 +1774,11 @@ executeNumericItemMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Implementation of the .datetime() method.
+ * .datetime() 方法的实现。
  *
- * Converts a string into a date/time value. The actual type is determined at run time.
- * If an argument is provided, this argument is used as a template string.
- * Otherwise, the first fitting ISO format is selected.
+ * 把字符串转为日期/时间值。实际类型在运行时确定。
+ * 若提供参数，则该参数用作模板字符串。
+ * 否则选用首个合适的 ISO 格式。
  */
 static JsonPathExecResult
 executeDateTimeMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1805,9 +1805,9 @@ executeDateTimeMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 										jb->val.string.len);
 
 	/*
-	 * At some point we might wish to have callers supply the collation to
-	 * use, but right now it's unclear that they'd be able to do better than
-	 * DEFAULT_COLLATION_OID anyway.
+	 * 将来或许希望由调用方提供排序规则，
+	 * 但目前不清楚他们能否优于
+	 * DEFAULT_COLLATION_OID。
 	 */
 	collid = DEFAULT_COLLATION_OID;
 
@@ -1840,11 +1840,11 @@ executeDateTimeMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	else
 	{
 		/*
-		 * According to SQL/JSON standard enumerate ISO formats for: date,
-		 * timetz, time, timestamptz, timestamp.
+		 * 按 SQL/JSON 标准枚举 ISO 格式：date、
+		 * timetz/time/timestamptz/timestamp。
 		 *
-		 * We also support ISO 8601 format (with "T") for timestamps, because
-		 * to_json[b]() functions use this format.
+		 * 我们也支持时间戳的 ISO 8601 格式（带 "T"），因
+		 * to_json[b]() 使用该格式。
 		 */
 		static const char *fmt_str[] =
 		{
@@ -1869,11 +1869,11 @@ executeDateTimeMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 			"yyyy-mm-dd\"T\"HH24:MI:SS"
 		};
 
-		/* cache for format texts */
+		/* 格式文本缓存 */
 		static text *fmt_txt[lengthof(fmt_str)] = {0};
 		int			i;
 
-		/* loop until datetime format fits */
+		/* 循环至格式合适 */
 		for (i = 0; i < lengthof(fmt_str); i++)
 		{
 			ErrorSaveContext escontext = {T_ErrorSaveContext};
@@ -1928,27 +1928,27 @@ executeDateTimeMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Implementation of .keyvalue() method.
+ * .keyvalue() 方法的实现。
  *
- * .keyvalue() method returns a sequence of object's key-value pairs in the
- * following format: '{ "key": key, "value": value, "id": id }'.
+ * .keyvalue() 方法返回对象键值对序列，格式为
+ * '{ "key": key, "value": value, "id": id }'。
  *
- * "id" field is an object identifier which is constructed from the two parts:
- * base object id and its binary offset in base object's jsonb:
+ * "id" 字段是对象标识符，由两部分构成：
+ * 基对象 id 及其在基对象 jsonb 内的偏移：
  * id = 10000000000 * base_object_id + obj_offset_in_base_object
  *
- * 10000000000 (10^10) -- is a first round decimal number greater than 2^32
- * (maximal offset in jsonb).  Decimal multiplier is used here to improve the
- * readability of identifiers.
+ * 10000000000 (10^10) -- 大于 2^32（jsonb 最大偏移）
+ * 的首个整十进制数。用十进制乘数以改善
+ * 标识符可读性。
  *
- * Base object is usually a root object of the path: context item '$' or path
- * variable '$var', literals can't produce objects for now.  But if the path
- * contains generated objects (.keyvalue() itself, for example), then they
- * become base object for the subsequent .keyvalue().
+ * 基对象通常是路径的根对象：上下文项 '$' 或路径
+ * 变量 '$var'；字面量目前不能产生对象。但若路径
+ * 含生成对象（例如 .keyvalue() 自身），则它们
+ * 成为后续 .keyvalue() 的基对象。
  *
- * Id of '$' is 0. Id of '$var' is its ordinal (positive) number in the list
- * of variables (see getJsonPathVariable()).  Ids for generated objects
- * are assigned using global counter JsonPathExecContext.lastGeneratedObjectId.
+ * '$' 的 id 为 0。'$var' 的 id 是变量列表中的正序
+ * 号（见 getJsonPathVariable()）。生成对象的 id
+ * 由全局计数器 JsonPathExecContext.lastGeneratedObjectId 分配。
  */
 static JsonPathExecResult
 executeKeyValueMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -1977,7 +1977,7 @@ executeKeyValueMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	jbc = jb->val.binary.data;
 
 	if (!JsonContainerSize(jbc))
-		return jperNotFound;	/* no key-value pairs */
+		return jperNotFound;	/* 无键值对 */
 
 	hasNext = jspGetNext(jsp, &next);
 
@@ -1993,7 +1993,7 @@ executeKeyValueMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	idstr.val.string.val = "id";
 	idstr.val.string.len = 2;
 
-	/* construct object id from its base object and offset inside that */
+	/* 由基对象与内部偏移构造对象 id */
 	id = jb->type != jbvBinary ? 0 :
 		(int64) ((char *) jbc - (char *) cxt->baseObject.jbc);
 	id += (int64) cxt->baseObject.id * INT64CONST(10000000000);
@@ -2057,8 +2057,8 @@ executeKeyValueMethod(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Convert boolean execution status 'res' to a boolean JSON item and execute
- * next jsonpath.
+ * 把布尔状态 'res' 转为布尔 JSON 项并执行下一
+ * jsonpath。
  */
 static JsonPathExecResult
 appendBoolResult(JsonPathExecContext *cxt, JsonPathItem *jsp,
@@ -2068,7 +2068,7 @@ appendBoolResult(JsonPathExecContext *cxt, JsonPathItem *jsp,
 	JsonbValue	jbv;
 
 	if (!jspGetNext(jsp, &next) && !found)
-		return jperOk;			/* found singleton boolean value */
+		return jperOk;			/* 找到单例布尔值 */
 
 	if (res == jpbUnknown)
 	{
@@ -2084,9 +2084,9 @@ appendBoolResult(JsonPathExecContext *cxt, JsonPathItem *jsp,
 }
 
 /*
- * Convert jsonpath's scalar or variable node to actual jsonb value.
+ * 把 jsonpath 的标量或变量节点转为实际 jsonb 值。
  *
- * If node is a variable then its id returned, otherwise 0 returned.
+ * 若节点是变量则返回其 id，否则返回 0。
  */
 static void
 getJsonPathItem(JsonPathExecContext *cxt, JsonPathItem *item,
@@ -2119,7 +2119,7 @@ getJsonPathItem(JsonPathExecContext *cxt, JsonPathItem *item,
 }
 
 /*
- * Get the value of variable passed to jsonpath executor
+ * 获取传给 jsonpath 执行器的变量值
  */
 static void
 getJsonPathVariable(JsonPathExecContext *cxt, JsonPathItem *variable,
@@ -2164,7 +2164,7 @@ getJsonPathVariable(JsonPathExecContext *cxt, JsonPathItem *variable,
 /**************** Support functions for JsonPath execution *****************/
 
 /*
- * Returns the size of an array item, or -1 if item is not an array.
+ * 返回数组项的大小；若不是数组则返回 -1。
  */
 static int
 JsonbArraySize(JsonbValue *jb)
@@ -2182,7 +2182,7 @@ JsonbArraySize(JsonbValue *jb)
 	return -1;
 }
 
-/* Comparison predicate callback. */
+/* 比较谓词回调。 */
 static JsonPathBool
 executeComparison(JsonPathItem *cmp, JsonbValue *lv, JsonbValue *rv, void *p)
 {
@@ -2192,7 +2192,7 @@ executeComparison(JsonPathItem *cmp, JsonbValue *lv, JsonbValue *rv, void *p)
 }
 
 /*
- * Perform per-byte comparison of two strings.
+ * 对两个字符串做逐字节比较。
  */
 static int
 binaryCompareStrings(const char *s1, int len1,
@@ -2212,8 +2212,8 @@ binaryCompareStrings(const char *s1, int len1,
 }
 
 /*
- * Compare two strings in the current server encoding using Unicode codepoint
- * collation.
+ * 在当前服务器编码下用 Unicode 码点排序规则
+ * 比两串
  */
 static int
 compareStrings(const char *mbstr1, int mblen1,
@@ -2223,9 +2223,9 @@ compareStrings(const char *mbstr1, int mblen1,
 		GetDatabaseEncoding() == PG_UTF8)
 	{
 		/*
-		 * It's known property of UTF-8 strings that their per-byte comparison
-		 * result matches codepoints comparison result.  ASCII can be
-		 * considered as special case of UTF-8.
+		 * UTF-8 字符串有一已知性质：其逐字节比较结果
+		 * 与码点比较结果一致。ASCII 可视为
+		 * UTF-8 的特例。
 		 */
 		return binaryCompareStrings(mbstr1, mblen1, mbstr2, mblen2);
 	}
@@ -2238,10 +2238,10 @@ compareStrings(const char *mbstr1, int mblen1,
 					utf8len2;
 
 		/*
-		 * We have to convert other encodings to UTF-8 first, then compare.
-		 * Input strings may be not null-terminated and pg_server_to_any() may
-		 * return them "as is".  So, use strlen() only if there is real
-		 * conversion.
+		 * 其他编码须先转为 UTF-8 再比较。
+		 * 输入串可能非空终止，且 pg_server_to_any() 可能
+		 * 原样返回。故仅真正转换时才用
+		 * strlen()。
 		 */
 		utf8str1 = pg_server_to_any(mbstr1, mblen1, PG_UTF8);
 		utf8str2 = pg_server_to_any(mbstr2, mblen2, PG_UTF8);
@@ -2251,26 +2251,26 @@ compareStrings(const char *mbstr1, int mblen1,
 		cmp = binaryCompareStrings(utf8str1, utf8len1, utf8str2, utf8len2);
 
 		/*
-		 * If pg_server_to_any() did no real conversion, then we actually
-		 * compared original strings.  So, we already done.
+		 * 若 pg_server_to_any() 未真正转换，则实际比较的是
+		 * 原始字符串，已经完成。
 		 */
 		if (mbstr1 == utf8str1 && mbstr2 == utf8str2)
 			return cmp;
 
-		/* Free memory if needed */
+		/* 需则释放内存 */
 		if (mbstr1 != utf8str1)
 			pfree(utf8str1);
 		if (mbstr2 != utf8str2)
 			pfree(utf8str2);
 
 		/*
-		 * When all Unicode codepoints are equal, return result of binary
-		 * comparison.  In some edge cases, same characters may have different
-		 * representations in encoding.  Then our behavior could diverge from
-		 * standard.  However, that allow us to do simple binary comparison
-		 * for "==" operator, which is performance critical in typical cases.
-		 * In future to implement strict standard conformance, we can do
-		 * normalization of input JSON strings.
+		 * 当全部 Unicode 码点相等时，返回二进制比较
+		 * 结果。某些边界情况下，同一字符在编码中可能有
+		 * 不同表示，此时行为可能偏离
+		 * 标准。但这使我们能对 "==" 运算符做简单二进制
+		 * 比较，这在典型情形下对性能至关重要。
+		 * 将来若要严格符合标准，可对输入
+		 * JSON 字符串做规范化。
 		 */
 		if (cmp == 0)
 			return binaryCompareStrings(mbstr1, mblen1, mbstr2, mblen2);
@@ -2280,7 +2280,7 @@ compareStrings(const char *mbstr1, int mblen1,
 }
 
 /*
- * Compare two SQL/JSON items using comparison operation 'op'.
+ * 用比较运算 'op' 比较两个 SQL/JSON 项。
  */
 static JsonPathBool
 compareItems(int32 op, JsonbValue *jb1, JsonbValue *jb2, bool useTz)
@@ -2293,12 +2293,12 @@ compareItems(int32 op, JsonbValue *jb1, JsonbValue *jb2, bool useTz)
 		if (jb1->type == jbvNull || jb2->type == jbvNull)
 
 			/*
-			 * Equality and order comparison of nulls to non-nulls returns
-			 * always false, but inequality comparison returns true.
+			 * null 与非 null 的相等与次序比较总是
+			 * 返回 false，但不等比较返回 true。
 			 */
 			return op == jpiNotEqual ? jpbTrue : jpbFalse;
 
-		/* Non-null items of different types are not comparable. */
+		/* 不同类型非 null 项不可比较。 */
 		return jpbUnknown;
 	}
 
@@ -2343,7 +2343,7 @@ compareItems(int32 op, JsonbValue *jb1, JsonbValue *jb2, bool useTz)
 		case jbvBinary:
 		case jbvArray:
 		case jbvObject:
-			return jpbUnknown;	/* non-scalars are not comparable */
+			return jpbUnknown;	/* 非标量不可比较 */
 
 		default:
 			elog(ERROR, "invalid jsonb value type %d", jb1->type);
@@ -2377,7 +2377,7 @@ compareItems(int32 op, JsonbValue *jb1, JsonbValue *jb2, bool useTz)
 	return res ? jpbTrue : jpbFalse;
 }
 
-/* Compare two numerics */
+/* 比较两 numeric */
 static int
 compareNumeric(Numeric a, Numeric b)
 {
@@ -2397,8 +2397,8 @@ copyJsonbValue(JsonbValue *src)
 }
 
 /*
- * Execute array subscript expression and convert resulting numeric item to
- * the integer type with truncation.
+ * 执行数组下标表达式，并把所得数值项截断
+ * 转换为整数类型。
  */
 static JsonPathExecResult
 getArrayIndex(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
@@ -2434,7 +2434,7 @@ getArrayIndex(JsonPathExecContext *cxt, JsonPathItem *jsp, JsonbValue *jb,
 	return jperOk;
 }
 
-/* Save base object and its id needed for the execution of .keyvalue(). */
+/* 保存 .keyvalue() 所需基对象及其 id。 */
 static JsonBaseObjectInfo
 setBaseObject(JsonPathExecContext *cxt, JsonbValue *jbv, int32 id)
 {
@@ -2512,7 +2512,7 @@ JsonValueListInitIterator(const JsonValueList *jvl, JsonValueListIterator *it)
 }
 
 /*
- * Get the next item from the sequence advancing iterator.
+ * 推进迭代器，从序列取下一项。
  */
 static JsonbValue *
 JsonValueListNext(const JsonValueList *jvl, JsonValueListIterator *it)
@@ -2533,7 +2533,7 @@ JsonValueListNext(const JsonValueList *jvl, JsonValueListIterator *it)
 }
 
 /*
- * Initialize a binary JsonbValue with the given jsonb container.
+ * 用给定 jsonb 容器初始化二进制 JsonbValue。
  */
 static JsonbValue *
 JsonbInitBinary(JsonbValue *jbv, Jsonb *jb)
@@ -2546,7 +2546,7 @@ JsonbInitBinary(JsonbValue *jbv, Jsonb *jb)
 }
 
 /*
- * Returns jbv* type of JsonbValue. Note, it never returns jbvBinary as is.
+ * 返回 JsonbValue 的 jbv* 类型；从不以原样返回 jbvBinary。
  */
 static int
 JsonbType(JsonbValue *jb)
@@ -2557,7 +2557,7 @@ JsonbType(JsonbValue *jb)
 	{
 		JsonbContainer *jbc = (void *) jb->val.binary.data;
 
-		/* Scalars should be always extracted during jsonpath execution. */
+		/* 标量在 jsonpath 执行中总应被提取。 */
 		Assert(!JsonContainerIsScalar(jbc));
 
 		if (JsonContainerIsObject(jbc))
@@ -2571,18 +2571,18 @@ JsonbType(JsonbValue *jb)
 	return type;
 }
 
-/* Get scalar of given type or NULL on type mismatch */
+/* 取给定类型标量，类型不符则 NULL */
 static JsonbValue *
 getScalar(JsonbValue *scalar, enum jbvType type)
 {
-	/* Scalars should be always extracted during jsonpath execution. */
+	/* 标量在 jsonpath 执行中总应被提取。 */
 	Assert(scalar->type != jbvBinary ||
 		   !JsonContainerIsScalar(scalar->val.binary.data));
 
 	return scalar->type == type ? scalar : NULL;
 }
 
-/* Construct a JSON array from the item list */
+/* 由项列表构造 JSON 数组 */
 static JsonbValue *
 wrapItemsInArray(const JsonValueList *items)
 {
@@ -2599,7 +2599,7 @@ wrapItemsInArray(const JsonValueList *items)
 	return pushJsonbValue(&ps, WJB_END_ARRAY, NULL);
 }
 
-/* Check if the timezone required for casting from type1 to type2 is used */
+/* 检查 type1→type2 转换所需时区是否在用 */
 static void
 checkTimezoneIsUsedForCast(bool useTz, const char *type1, const char *type2)
 {
@@ -2611,7 +2611,7 @@ checkTimezoneIsUsedForCast(bool useTz, const char *type1, const char *type2)
 				 errhint("Use *_tz() function for time zone support.")));
 }
 
-/* Convert time datum to timetz datum */
+/* 把 time 转为 timetz */
 static Datum
 castTimeToTimeTz(Datum time, bool useTz)
 {
@@ -2621,8 +2621,8 @@ castTimeToTimeTz(Datum time, bool useTz)
 }
 
 /*
- * Compare date to timestamp.
- * Note that this doesn't involve any timezone considerations.
+ * 比较date与timestamp。
+ * 注意这不涉及任何时区。
  */
 static int
 cmpDateToTimestamp(DateADT date1, Timestamp ts2, bool useTz)
@@ -2631,7 +2631,7 @@ cmpDateToTimestamp(DateADT date1, Timestamp ts2, bool useTz)
 }
 
 /*
- * Compare date to timestamptz.
+ * 比较date与timestamptz。
  */
 static int
 cmpDateToTimestampTz(DateADT date1, TimestampTz tstz2, bool useTz)
@@ -2642,7 +2642,7 @@ cmpDateToTimestampTz(DateADT date1, TimestampTz tstz2, bool useTz)
 }
 
 /*
- * Compare timestamp to timestamptz.
+ * 比较timestamp与timestamptz。
  */
 static int
 cmpTimestampToTimestampTz(Timestamp ts1, TimestampTz tstz2, bool useTz)
@@ -2653,9 +2653,9 @@ cmpTimestampToTimestampTz(Timestamp ts1, TimestampTz tstz2, bool useTz)
 }
 
 /*
- * Cross-type comparison of two datetime SQL/JSON items.  If items are
- * uncomparable *cast_error flag is set, otherwise *cast_error is unset.
- * If the cast requires timezone and it is not used, then explicit error is thrown.
+ * 两个日期时间 SQL/JSON 项的跨类型比较。若项
+ * 不可比则置 *cast_error，否则清除 *cast_error。
+ * 若转换需时区但未用，则显式抛错。
  */
 static int
 compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
@@ -2687,7 +2687,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 
 				case TIMEOID:
 				case TIMETZOID:
-					*cast_error = true; /* uncomparable types */
+					*cast_error = true; /* 不可比较类型 */
 					return 0;
 
 				default:
@@ -2713,7 +2713,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 				case DATEOID:
 				case TIMESTAMPOID:
 				case TIMESTAMPTZOID:
-					*cast_error = true; /* uncomparable types */
+					*cast_error = true; /* 不可比较类型 */
 					return 0;
 
 				default:
@@ -2739,7 +2739,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 				case DATEOID:
 				case TIMESTAMPOID:
 				case TIMESTAMPTZOID:
-					*cast_error = true; /* uncomparable types */
+					*cast_error = true; /* 不可比较类型 */
 					return 0;
 
 				default:
@@ -2768,7 +2768,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 
 				case TIMEOID:
 				case TIMETZOID:
-					*cast_error = true; /* uncomparable types */
+					*cast_error = true; /* 不可比较类型 */
 					return 0;
 
 				default:
@@ -2797,7 +2797,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 
 				case TIMEOID:
 				case TIMETZOID:
-					*cast_error = true; /* uncomparable types */
+					*cast_error = true; /* 不可比较类型 */
 					return 0;
 
 				default:
@@ -2811,7 +2811,7 @@ compareDatetime(Datum val1, Oid typid1, Datum val2, Oid typid2,
 	}
 
 	if (*cast_error)
-		return 0;				/* cast error */
+		return 0;				/* 转换错 */
 
 	return DatumGetInt32(DirectFunctionCall2(cmpfunc, val1, val2));
 }

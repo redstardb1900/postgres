@@ -2148,5 +2148,10 @@
   "path": "src/backend/utils/adt/multirangetypes_selfuncs.c",
   "pattern": "(var Op other|\\[length1, length2\\]|\\(number of bins\\))",
   "reason": "selfuncs notation set: clause-shape placeholder var Op other, interval [length1, length2], formula-block label (number of bins); zh prose complete (batch-0632, rangetypes_selfuncs precedent)"
+ },
+ {
+  "path": "src/backend/utils/adt/jsonpath_exec.c",
+  "pattern": "\\{\\s*\"key\":\\s*key,\\s*\"value\":\\s*value,\\s*\"id\":\\s*id\\s*\\}",
+  "reason": "jsonpath .keyvalue() 返回格式骨架 ASCII KEEP（键名 key/value/id 与 JSON 字面；batch-0634）"
  }
 ]

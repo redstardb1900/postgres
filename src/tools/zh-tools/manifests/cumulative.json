@@ -11781,6 +11781,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0633-jsonb.json",
    "kind": "manifest",
    "note": "0633"
+  },
+  {
+   "pattern": "src/backend/utils/adt/jsonpath_exec.c",
+   "kind": "c_comment",
+   "note": "0634"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0634-jsonpath_exec.json",
+   "kind": "manifest",
+   "note": "0634"
   }
  ],
  "files": [
@@ -38479,6 +38489,31 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0633"
+  },
+  {
+   "path": "src/backend/utils/adt/jsonpath_exec.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径/文件名/横幅 KEEP",
+    "函数名头行 jsonb_path_* KEEP",
+    "ASCII 谓词草图/类型名/jperError/error(5B)/公式/mode KEEP",
+    ".keyvalue() 格式骨架 halfen 豁免"
+   ],
+   "note": "0634"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0634-jsonpath_exec.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0634"
   }
  ],
  "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory."

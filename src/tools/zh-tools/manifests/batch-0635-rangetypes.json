@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0635",
+ "title": "backend/utils/adt rangetypes — batch 0635",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "dc2414116e8ba0bf8de86a57ab3dd85dfabd9097",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/adt/rangetypes.c",
+   "kind": "c_comment",
+   "note": "0635"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0635-rangetypes.json",
+   "kind": "manifest",
+   "note": "0635"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "append"
+  },
+  {
+   "pattern": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "note": "0635 range_parse BNF halfen exemption"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/adt/rangetypes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [
+    "Copyright/IDENTIFICATION/路径/文件名/横幅 KEEP",
+    "range_parse 输入语法 BNF 骨架 ASCII KEEP",
+    "标识符/类型名/公式片段 KEEP (ANYRANGE/RangeBound/A..B/<0,0,>0 等)"
+   ],
+   "note": "0635"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0635-rangetypes.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0635"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "append 0635"
+  },
+  {
+   "path": "src/tools/zh-tools/halfen_exemptions.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0635 BNF halfen exemption"
+  }
+ ],
+ "notes": "rangetypes.c 全文件; 范围/下界上界/空范围/包含/重叠/相邻/序列化反序列化/规范化/标志; 严格在左/右、不延伸左/右侧对齐 multirangetypes; BNF KEEP; 等义压缩已披露"
+}

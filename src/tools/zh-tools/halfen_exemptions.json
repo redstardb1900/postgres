@@ -2153,5 +2153,10 @@
   "path": "src/backend/utils/adt/jsonpath_exec.c",
   "pattern": "\\{\\s*\"key\":\\s*key,\\s*\"value\":\\s*value,\\s*\"id\":\\s*id\\s*\\}",
   "reason": "jsonpath .keyvalue() 返回格式骨架 ASCII KEEP（键名 key/value/id 与 JSON 字面；batch-0634）"
+ },
+ {
+  "path": "src/backend/utils/adt/rangetypes.c",
+  "pattern": "<lb-inc>\\s*<string>,\\s*<string>\\s*<ub-inc>",
+  "reason": "range_parse 输入语法 BNF 骨架 ASCII KEEP（<range>/<lb-inc>/<ub-inc>/<string>；batch-0635）"
  }
 ]

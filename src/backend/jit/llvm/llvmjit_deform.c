@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit_deform.c
- *	  Generate code for deforming a heap tuple.
+ *	  为堆元组变形生成代码。
  *
- * This gains performance benefits over unJITed deforming from compile-time
- * knowledge of the tuple descriptor. Fixed column widths, NOT NULLness, etc
- * can be taken advantage of.
+ * 相对未 JIT 的变形，本实现能利用编译期
+ * 对元组描述符的知识：固定列宽、NOT NULL 等
+ * 均可利用。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,7 +28,7 @@
 
 
 /*
- * Create a function that deforms a tuple of type desc up to natts columns.
+ * 创建函数，把类型为 desc 的元组变形到 natts 列。
  */
 LLVMValueRef
 slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
@@ -79,22 +79,22 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 
 	LLVMValueRef v_hasnulls;
 
-	/* last column (0 indexed) guaranteed to exist */
+	/* 保证存在的最后一列（0 起算） */
 	int			guaranteed_column_number = -1;
 
-	/* current known alignment */
+	/* 当前已知对齐 */
 	int			known_alignment = 0;
 
-	/* if true, known_alignment describes definite offset of column */
+	/* 若为真，known_alignment 即该列的确定偏移 */
 	bool		attguaranteedalign = true;
 
 	int			attnum;
 
-	/* virtual tuples never need deforming, so don't generate code */
+	/* 虚元组无需变形，故不生成代码 */
 	if (ops == &TTSOpsVirtual)
 		return NULL;
 
-	/* decline to JIT for slot types we don't know to handle */
+	/* 未知如何处理的槽类型不做 JIT */
 	if (ops != &TTSOpsHeapTuple && ops != &TTSOpsBufferHeapTuple &&
 		ops != &TTSOpsMinimalTuple)
 		return NULL;
@@ -105,23 +105,23 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	funcname = llvm_expand_funcname(context, "deform");
 
 	/*
-	 * Check which columns have to exist, so we don't have to check the row's
-	 * natts unnecessarily.
+	 * 检查哪些列必须存在，以免不必要地检查行的
+	 * natts。
 	 */
 	for (attnum = 0; attnum < desc->natts; attnum++)
 	{
 		Form_pg_attribute att = TupleDescAttr(desc, attnum);
 
 		/*
-		 * If the column is declared NOT NULL then it must be present in every
-		 * tuple, unless there's a "missing" entry that could provide a
-		 * non-NULL value for it. That in turn guarantees that the NULL bitmap
-		 * - if there are any NULLable columns - is at least long enough to
-		 * cover columns up to attnum.
+		 * 若列声明为 NOT NULL，则每条元组都必须有它，
+		 * 除非有 missing 项可为其提供非空值。
+		 * 这进而保证 NULL 位图（若有可空列）至少
+		 * 长到能覆盖至 attnum 的列。
 		 *
-		 * Be paranoid and also check !attisdropped, even though the
-		 * combination of attisdropped && attnotnull combination shouldn't
-		 * exist.
+		 *
+		 * 再偏执地检查 !attisdropped，尽管
+		 * attisdropped && attnotnull 组合本不应存在。
+		 *
 		 */
 		if (att->attnotnull &&
 			!att->atthasmissing &&
@@ -129,7 +129,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 			guaranteed_column_number = attnum;
 	}
 
-	/* Create the signature and function */
+	/* 创建签名与函数 */
 	{
 		LLVMTypeRef param_types[1];
 
@@ -167,7 +167,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 
 	LLVMPositionBuilderAtEnd(b, b_entry);
 
-	/* perform allocas first, llvm only converts those to registers */
+	/* 先做 alloca，llvm 只把这些转成寄存器 */
 	v_offp = LLVMBuildAlloca(b, TypeSizeT, "v_offp");
 
 	v_slot = LLVMGetParam(v_deform_fn, 0);
@@ -217,7 +217,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	}
 	else
 	{
-		/* should've returned at the start of the function */
+		/* 本应在函数开头就返回了 */
 		pg_unreachable();
 	}
 
@@ -264,8 +264,8 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 							"maxatt");
 
 	/*
-	 * Need to zext, as getelementptr otherwise treats hoff as a signed 8bit
-	 * integer, which'd yield a negative offset for t_hoff > 127.
+	 * 须 zext，否则 getelementptr 会把 hoff 当有符号 8 位
+	 * 整数，t_hoff > 127 时会得到负偏移。
 	 */
 	v_hoff =
 		LLVMBuildZExt(b,
@@ -286,8 +286,8 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 						   "v_tupdata_base");
 
 	/*
-	 * Load tuple start offset from slot. Will be reset below in case there's
-	 * no existing deformed columns in slot.
+	 * 从槽加载元组起始偏移。若槽中尚无已变形列，
+	 * 下面会重置。
 	 */
 	{
 		LLVMValueRef v_off_start;
@@ -297,7 +297,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		LLVMBuildStore(b, v_off_start, v_offp);
 	}
 
-	/* build the basic block for each attribute, need them as jump target */
+	/* 为每属性建基本块，后面要当跳转目标 */
 	for (attnum = 0; attnum < natts; attnum++)
 	{
 		attcheckattnoblocks[attnum] =
@@ -315,16 +315,16 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	}
 
 	/*
-	 * Check if it is guaranteed that all the desired attributes are available
-	 * in the tuple (but still possibly NULL), by dint of either the last
-	 * to-be-deformed column being NOT NULL, or subsequent ones not accessed
-	 * here being NOT NULL.  If that's not guaranteed the tuple headers natt's
-	 * has to be checked, and missing attributes potentially have to be
-	 * fetched (using slot_getmissingattrs().
+	 * 检查是否保证所需属性都在元组中（仍可能
+	 * 为 NULL）：或因待变形的最后一列是 NOT NULL，
+	 * 或因这里未访问的后续列是 NOT NULL。若不保证，
+	 * 就要检查元组头的 natts，缺失属性可能还须
+	 * 用 slot_getmissingattrs() 去取。
+	 *
 	 */
 	if ((natts - 1) <= guaranteed_column_number)
 	{
-		/* just skip through unnecessary blocks */
+		/* 只跳过不需要的块 */
 		LLVMBuildBr(b, b_adjust_unavail_cols);
 		LLVMPositionBuilderAtEnd(b, b_adjust_unavail_cols);
 		LLVMBuildBr(b, b_find_start);
@@ -334,7 +334,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		LLVMValueRef v_params[3];
 		LLVMValueRef f;
 
-		/* branch if not all columns available */
+		/* 并非所有列都可用则分支 */
 		LLVMBuildCondBr(b,
 						LLVMBuildICmp(b, LLVMIntULT,
 									  v_maxatt,
@@ -343,7 +343,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 						b_adjust_unavail_cols,
 						b_find_start);
 
-		/* if not, memset tts_isnull of relevant cols to true */
+		/* 若否，把相关列的 tts_isnull 置 true */
 		LLVMPositionBuilderAtEnd(b, b_adjust_unavail_cols);
 
 		v_params[0] = v_slot;
@@ -361,10 +361,10 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	v_nvalid = l_load(b, LLVMInt16TypeInContext(lc), v_nvalidp, "");
 
 	/*
-	 * Build switch to go from nvalid to the right startblock.  Callers
-	 * currently don't have the knowledge, but it'd be good for performance to
-	 * avoid this check when it's known that the slot is empty (e.g. in scan
-	 * nodes).
+	 * 建 switch，从 nvalid 跳到正确 startblock。调用方
+	 * 目前还没有这知识，但若已知槽为空（如扫描
+	 * 节点），跳过此检查对性能更好。
+	 *
 	 */
 	if (true)
 	{
@@ -380,7 +380,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	}
 	else
 	{
-		/* jump from entry block to first block */
+		/* 从入口块跳到第一块 */
 		LLVMBuildBr(b, attcheckattnoblocks[0]);
 	}
 
@@ -388,8 +388,8 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	LLVMBuildUnreachable(b);
 
 	/*
-	 * Iterate over each attribute that needs to be deformed, build code to
-	 * deform it.
+	 * 遍历每个待变形属性，生成变形它的代码。
+	 *
 	 */
 	for (attnum = 0; attnum < natts; attnum++)
 	{
@@ -400,12 +400,12 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		LLVMValueRef v_attdatap;
 		LLVMValueRef v_resultp;
 
-		/* build block checking whether we did all the necessary attributes */
+		/* 建块：检查是否已做完所有必要属性 */
 		LLVMPositionBuilderAtEnd(b, attcheckattnoblocks[attnum]);
 
 		/*
-		 * If this is the first attribute, slot->tts_nvalid was 0. Therefore
-		 * also reset offset to 0, it may be from a previous execution.
+		 * 若是第一属性，则 slot->tts_nvalid 曾为 0。因此
+		 * 也把偏移重置为 0，它可能来自上次执行。
 		 */
 		if (attnum == 0)
 		{
@@ -413,9 +413,9 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		}
 
 		/*
-		 * Build check whether column is available (i.e. whether the tuple has
-		 * that many columns stored). We can avoid the branch if we know
-		 * there's a subsequent NOT NULL column.
+		 * 检查列是否可用（即元组是否存了那么多列）。
+		 * 若已知后面有 NOT NULL 列，可免此分支。
+		 *
 		 */
 		if (attnum <= guaranteed_column_number)
 		{
@@ -434,9 +434,9 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		LLVMPositionBuilderAtEnd(b, attstartblocks[attnum]);
 
 		/*
-		 * Check for nulls if necessary. No need to take missing attributes
-		 * into account, because if they're present the heaptuple's natts
-		 * would have indicated that a slot_getmissingattrs() is needed.
+		 * 必要时检查空值。不必考虑 missing 属性：
+		 * 若有，堆元组的 natts 会表明需要
+		 * slot_getmissingattrs()。
 		 */
 		if (!att->attnotnull)
 		{
@@ -473,11 +473,11 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 
 			LLVMPositionBuilderAtEnd(b, b_ifnull);
 
-			/* store null-byte */
+			/* 存空值字节 */
 			LLVMBuildStore(b,
 						   l_int8_const(lc, 1),
 						   l_gep(b, LLVMInt8TypeInContext(lc), v_tts_nulls, &l_attno, 1, ""));
-			/* store zero datum */
+			/* 存零 Datum */
 			LLVMBuildStore(b,
 						   l_sizet_const(0),
 						   l_gep(b, TypeSizeT, v_tts_values, &l_attno, 1, ""));
@@ -487,14 +487,14 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		}
 		else
 		{
-			/* nothing to do */
+			/* 无事可做 */
 			LLVMBuildBr(b, attcheckalignblocks[attnum]);
 			LLVMPositionBuilderAtEnd(b, attisnullblocks[attnum]);
 			LLVMBuildBr(b, attcheckalignblocks[attnum]);
 		}
 		LLVMPositionBuilderAtEnd(b, attcheckalignblocks[attnum]);
 
-		/* determine required alignment */
+		/* 判定所需对齐 */
 		if (att->attalign == TYPALIGN_INT)
 			alignto = ALIGNOF_INT;
 		else if (att->attalign == TYPALIGN_CHAR)
@@ -510,25 +510,25 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		}
 
 		/* ------
-		 * Even if alignment is required, we can skip doing it if provably
-		 * unnecessary:
-		 * - first column is guaranteed to be aligned
-		 * - columns following a NOT NULL fixed width datum have known
-		 *   alignment, can skip alignment computation if that known alignment
-		 *   is compatible with current column.
+		 * 即使需要对齐，在可证明不必时也可跳过：
+		 *
+		 * - 第一列保证已对齐
+		 * - NOT NULL 定宽 datum 之后的列已知对齐，
+		 *   若该已知对齐与当前列兼容，可跳过对齐计算。
+		 *
 		 * ------
 		 */
 		if (alignto > 1 &&
 			(known_alignment < 0 || known_alignment != TYPEALIGN(alignto, known_alignment)))
 		{
 			/*
-			 * When accessing a varlena field, we have to "peek" to see if we
-			 * are looking at a pad byte or the first byte of a 1-byte-header
-			 * datum.  A zero byte must be either a pad byte, or the first
-			 * byte of a correctly aligned 4-byte length word; in either case,
-			 * we can align safely.  A non-zero byte must be either a 1-byte
-			 * length word, or the first byte of a correctly aligned 4-byte
-			 * length word; in either case, we need not align.
+			 * 访问 varlena 字段时须"窥视"：是填充字节，
+			 * 还是 1 字节头 datum 的首字节。零字节是填充，
+			 * 或已对齐的 4 字节长度字首字节；两种
+			 * 情况都可安全对齐。非零字节是 1 字节长度字，
+			 * 或已正确对齐的 4 字节长度字的首字节；两种
+			 * 情况都不必对齐。
+			 *
 			 */
 			if (att->attlen == -1)
 			{
@@ -536,7 +536,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 				LLVMValueRef v_ispad;
 				LLVMValueRef v_off;
 
-				/* don't know if short varlena or not */
+				/* 尚不知是否短 varlena */
 				attguaranteedalign = false;
 
 				v_off = l_load(b, TypeSizeT, v_offp, "");
@@ -559,7 +559,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 
 			LLVMPositionBuilderAtEnd(b, attalignblocks[attnum]);
 
-			/* translation of alignment code (cf TYPEALIGN()) */
+			/* 对齐代码的翻译（参见 TYPEALIGN()） */
 			{
 				LLVMValueRef v_off_aligned;
 				LLVMValueRef v_off = l_load(b, TypeSizeT, v_offp, "");
@@ -579,9 +579,9 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 			}
 
 			/*
-			 * As alignment either was unnecessary or has been performed, we
-			 * now know the current alignment. This is only safe because this
-			 * value isn't used for varlena and nullable columns.
+			 * 对齐要么本不必要，要么已做完，故现在知道
+			 * 当前对齐。仅因 varlena 与可空列不用此值，
+			 * 这样做才安全。
 			 */
 			if (known_alignment >= 0)
 			{
@@ -602,10 +602,10 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		LLVMPositionBuilderAtEnd(b, attstoreblocks[attnum]);
 
 		/*
-		 * Store the current offset if known to be constant. That allows LLVM
-		 * to generate better code. Without that LLVM can't figure out that
-		 * the offset might be constant due to the jumps for previously
-		 * decoded columns.
+		 * 若偏移已知为常量则存下来。这让 LLVM 能生成
+		 * 更好的代码。否则 LLVM 看不出偏移可能是常量，
+		 * 因为先前已解码列的跳转会挡住分析。
+		 *
 		 */
 		if (attguaranteedalign)
 		{
@@ -613,19 +613,19 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 			LLVMBuildStore(b, l_sizet_const(known_alignment), v_offp);
 		}
 
-		/* compute what following columns are aligned to */
+		/* 计算后续列对齐到何处 */
 		if (att->attlen < 0)
 		{
-			/* can't guarantee any alignment after variable length field */
+			/* 变长字段之后无法再保证任何对齐 */
 			known_alignment = -1;
 			attguaranteedalign = false;
 		}
 		else if (att->attnotnull && attguaranteedalign && known_alignment >= 0)
 		{
 			/*
-			 * If the offset to the column was previously known, a NOT NULL &
-			 * fixed-width column guarantees that alignment is just the
-			 * previous alignment plus column width.
+			 * 若该列偏移先前已知，则 NOT NULL 且定宽的列
+			 * 保证对齐就是先前对齐加上列宽。
+			 *
 			 */
 			Assert(att->attlen > 0);
 			known_alignment += att->attlen;
@@ -633,9 +633,9 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		else if (att->attnotnull && (att->attlen % alignto) == 0)
 		{
 			/*
-			 * After a NOT NULL fixed-width column with a length that is a
-			 * multiple of its alignment requirement, we know the following
-			 * column is aligned to at least the current column's alignment.
+			 * NOT NULL 定宽列若长度为其对齐的整数倍，
+			 * 则下一列至少对齐到当前列的对齐。
+			 *
 			 */
 			Assert(att->attlen > 0);
 			known_alignment = alignto;
@@ -649,7 +649,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		}
 
 
-		/* compute address to load data from */
+		/* 计算加载数据的地址 */
 		{
 			LLVMValueRef v_off = l_load(b, TypeSizeT, v_offp, "");
 
@@ -657,16 +657,16 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 				l_gep(b, LLVMInt8TypeInContext(lc), v_tupdata_base, &v_off, 1, "");
 		}
 
-		/* compute address to store value at */
+		/* 计算存值的地址 */
 		v_resultp = l_gep(b, TypeSizeT, v_tts_values, &l_attno, 1, "");
 
-		/* store null-byte (false) */
+		/* 存空字节(false) */
 		LLVMBuildStore(b, l_int8_const(lc, 0),
 					   l_gep(b, TypeStorageBool, v_tts_nulls, &l_attno, 1, ""));
 
 		/*
-		 * Store datum. For byval: datums copy the value, extend to Datum's
-		 * width, and store. For byref types: store pointer to data.
+		 * 存 Datum。byval：复制值、扩展到 Datum 宽后存储。
+		 * byref：存指向数据的指针。
 		 */
 		if (att->attbyval)
 		{
@@ -685,7 +685,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		{
 			LLVMValueRef v_tmp_loaddata;
 
-			/* store pointer */
+			/* 存指针 */
 			v_tmp_loaddata =
 				LLVMBuildPtrToInt(b,
 								  v_attdatap,
@@ -694,7 +694,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 			LLVMBuildStore(b, v_tmp_loaddata, v_resultp);
 		}
 
-		/* increment data pointer */
+		/* 递增数据指针 */
 		if (att->attlen > 0)
 		{
 			v_incby = l_sizet_const(att->attlen);
@@ -718,13 +718,13 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 
 			l_callsite_ro(v_incby);
 
-			/* add 1 for NUL byte */
+			/* +1 为 NUL 字节 */
 			v_incby = LLVMBuildAdd(b, v_incby, l_sizet_const(1), "");
 		}
 		else
 		{
 			Assert(false);
-			v_incby = NULL;		/* silence compiler */
+			v_incby = NULL;		/* 让编译器静 */
 		}
 
 		if (attguaranteedalign)
@@ -741,12 +741,12 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 		}
 
 		/*
-		 * jump to next block, unless last possible column, or all desired
-		 * (available) attributes have been fetched.
+		 * 跳到下一块，除非已是最后可能列，或想要的
+		 * 可用属性都已取到。
 		 */
 		if (attnum + 1 == natts)
 		{
-			/* jump out */
+			/* 跳出 */
 			LLVMBuildBr(b, b_out);
 		}
 		else
@@ -756,7 +756,7 @@ slot_compile_deform(LLVMJitContext *context, TupleDesc desc,
 	}
 
 
-	/* build block that returns */
+	/* 建返回用的块 */
 	LLVMPositionBuilderAtEnd(b, b_out);
 
 	{

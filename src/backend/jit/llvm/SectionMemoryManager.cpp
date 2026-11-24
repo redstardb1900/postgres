@@ -30,8 +30,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the section-based memory manager used by the MCJIT
-// execution engine and RuntimeDyld
+// 本文件实现 MCJIT 执行引擎与 RuntimeDyld 所用的
+// 基于节的内存管理器
 //
 //===----------------------------------------------------------------------===//
 
@@ -75,16 +75,16 @@ void SectionMemoryManager::reserveAllocationSpace(
 
   static const size_t PageSize = sys::Process::getPageSizeEstimate();
 
-  // Code alignment needs to be at least the stub alignment - however, we
-  // don't have an easy way to get that here so as a workaround, we assume
-  // it's 8, which is the largest value I observed across all platforms.
+  // 代码对齐至少须达到 stub 对齐——但此处不易取得
+  // 该值，故权宜假定为 8，这是我在各平台上见到的
+  // 最大值。
   constexpr uint64_t StubAlign = 8;
   CodeAlign = Align(std::max(CodeAlign.value(), StubAlign));
   RODataAlign = Align(std::max(RODataAlign.value(), StubAlign));
   RWDataAlign = Align(std::max(RWDataAlign.value(), StubAlign));
 
-  // Get space required for each section. Use the same calculation as
-  // allocateSection because we need to be able to satisfy it.
+  // 取每节所需空间。计算与 allocateSection 相同，
+  // 因为必须能满足它。
   uint64_t RequiredCodeSize = alignTo(CodeSize, CodeAlign) + CodeAlign.value();
   uint64_t RequiredRODataSize =
       alignTo(RODataSize, RODataAlign) + RODataAlign.value();
@@ -94,21 +94,21 @@ void SectionMemoryManager::reserveAllocationSpace(
   if (hasSpace(CodeMem, RequiredCodeSize) &&
       hasSpace(RODataMem, RequiredRODataSize) &&
       hasSpace(RWDataMem, RequiredRWDataSize)) {
-    // Sufficient space in contiguous block already available.
+    // 连续块中已有足够空间。
     return;
   }
 
-  // MemoryManager does not have functions for releasing memory after it's
-  // allocated. Normally it tries to use any excess blocks that were allocated
-  // due to page alignment, but if we have insufficient free memory for the
-  // request this can lead to allocating disparate memory that can violate the
-  // ARM ABI. Clear free memory so only the new allocations are used, but do
-  // not release allocated memory as it may still be in-use.
+  // MemoryManager 没有在分配后再释放内存的函数。
+  // 通常它会尽量用因页对齐而多分配的多余块，但若
+  // 空闲内存不够本次请求，就会分到相距过远的内存，
+  // 从而违反 ARM ABI。清空空闲内存，只用新分配，但
+  // 不释放已分配内存，因其可能仍在使用。
+  // 
   CodeMem.FreeMem.clear();
   RODataMem.FreeMem.clear();
   RWDataMem.FreeMem.clear();
 
-  // Round up to the nearest page size. Blocks must be page-aligned.
+  // 上取整到最近页大小。块必须按页对齐。
   RequiredCodeSize = alignTo(RequiredCodeSize, PageSize);
   RequiredRODataSize = alignTo(RequiredRODataSize, PageSize);
   RequiredRWDataSize = alignTo(RequiredRWDataSize, PageSize);
@@ -122,7 +122,7 @@ void SectionMemoryManager::reserveAllocationSpace(
   if (ec) {
     return;
   }
-  // CodeMem will arbitrarily own this MemoryBlock to handle cleanup.
+  // CodeMem 将任意地拥有此 MemoryBlock 以便清理。
   CodeMem.AllocatedMem.push_back(MB);
   uintptr_t Addr = (uintptr_t)MB.base();
   FreeMemBlock FreeMB;
@@ -192,21 +192,21 @@ uint8_t *SectionMemoryManager::allocateSection(
     llvm_unreachable("Unknown SectionMemoryManager::AllocationPurpose");
   }();
 
-  // Look in the list of free memory regions and use a block there if one
-  // is available.
+  // 在空闲内存区列表中查找，若有一块够用就用。
+  // 
   for (FreeMemBlock &FreeMB : MemGroup.FreeMem) {
     if (FreeMB.Free.allocatedSize() >= RequiredSize) {
       Addr = (uintptr_t)FreeMB.Free.base();
       uintptr_t EndOfBlock = Addr + FreeMB.Free.allocatedSize();
-      // Align the address.
+      // 对齐该地址。
       Addr = (Addr + Alignment - 1) & ~(uintptr_t)(Alignment - 1);
 
       if (FreeMB.PendingPrefixIndex == (unsigned)-1) {
-        // The part of the block we're giving out to the user is now pending
+        // 交给用户的那部分块现在处于 pending
         MemGroup.PendingMem.push_back(sys::MemoryBlock((void *)Addr, Size));
 
-        // Remember this pending block, such that future allocations can just
-        // modify it rather than creating a new one
+        // 记住此 pending 块，使后续分配只需改它而不必
+        // 新建一个
         FreeMB.PendingPrefixIndex = MemGroup.PendingMem.size() - 1;
       } else {
         sys::MemoryBlock &PendingMB =
@@ -215,36 +215,36 @@ uint8_t *SectionMemoryManager::allocateSection(
                                      Addr + Size - (uintptr_t)PendingMB.base());
       }
 
-      // Remember how much free space is now left in this block
+      // 记住此块现在还剩多少空闲空间
       FreeMB.Free =
           sys::MemoryBlock((void *)(Addr + Size), EndOfBlock - Addr - Size);
       return (uint8_t *)Addr;
     }
   }
 
-  // No pre-allocated free block was large enough. Allocate a new memory region.
-  // Note that all sections get allocated as read-write.  The permissions will
-  // be updated later based on memory group.
+  // 没有够大的预分配空闲块。分配新的内存区域。
+  // 注意所有节都按读写分配。权限稍后按内存组
+  // 再更新。
   //
-  // FIXME: It would be useful to define a default allocation size (or add
-  // it as a constructor parameter) to minimize the number of allocations.
+  // FIXME: 定义默认分配大小（或作构造参数）会有用，
+  // 以减少分配次数。
   //
-  // FIXME: Initialize the Near member for each memory group to avoid
-  // interleaving.
+  // FIXME: 初始化各内存组的 Near 成员以免交错。
+  // 
   std::error_code ec;
   sys::MemoryBlock MB = MMapper->allocateMappedMemory(
       Purpose, RequiredSize, &MemGroup.Near,
       sys::Memory::MF_READ | sys::Memory::MF_WRITE, ec);
   if (ec) {
-    // FIXME: Add error propagation to the interface.
+    // FIXME: 给接口加上错误传播。
     return nullptr;
   }
 
-  // Save this address as the basis for our next request
+  // 保存此地址作为下次请求的基准
   MemGroup.Near = MB;
 
-  // Copy the address to all the other groups, if they have not
-  // been initialized.
+  // 若其他组尚未初始化，把该地址拷过去。
+  // 
   if (CodeMem.Near.base() == nullptr)
     CodeMem.Near = MB;
   if (RODataMem.Near.base() == nullptr)
@@ -252,19 +252,19 @@ uint8_t *SectionMemoryManager::allocateSection(
   if (RWDataMem.Near.base() == nullptr)
     RWDataMem.Near = MB;
 
-  // Remember that we allocated this memory
+  // 记住我们分配了这块内存
   MemGroup.AllocatedMem.push_back(MB);
   Addr = (uintptr_t)MB.base();
   uintptr_t EndOfBlock = Addr + MB.allocatedSize();
 
-  // Align the address.
+  // 对齐该地址。
   Addr = (Addr + Alignment - 1) & ~(uintptr_t)(Alignment - 1);
 
-  // The part of the block we're giving out to the user is now pending
+  // 交给用户的那部分块现在处于 pending
   MemGroup.PendingMem.push_back(sys::MemoryBlock((void *)Addr, Size));
 
-  // The allocateMappedMemory may allocate much more memory than we need. In
-  // this case, we store the unused memory as a free memory block.
+  // allocateMappedMemory 可能分配远超所需的内存。此时
+  // 把未用内存存成空闲块。
   unsigned FreeSize = EndOfBlock - Addr - Size;
   if (FreeSize > 16) {
     FreeMemBlock FreeMB;
@@ -273,15 +273,15 @@ uint8_t *SectionMemoryManager::allocateSection(
     MemGroup.FreeMem.push_back(FreeMB);
   }
 
-  // Return aligned address
+  // 返回对齐地址
   return (uint8_t *)Addr;
 }
 
 bool SectionMemoryManager::finalizeMemory(std::string *ErrMsg) {
-  // FIXME: Should in-progress permissions be reverted if an error occurs?
+  // FIXME: 出错时是否应撤销进行中的权限更改？
   std::error_code ec;
 
-  // Make code memory executable.
+  // 使代码内存可执行。
   ec = applyMemoryGroupPermissions(CodeMem,
                                    sys::Memory::MF_READ | sys::Memory::MF_EXEC);
   if (ec) {
@@ -291,7 +291,7 @@ bool SectionMemoryManager::finalizeMemory(std::string *ErrMsg) {
     return true;
   }
 
-  // Make read-only data memory read-only.
+  // 使只读数据内存变为只读。
   ec = applyMemoryGroupPermissions(RODataMem, sys::Memory::MF_READ);
   if (ec) {
     if (ErrMsg) {
@@ -300,11 +300,11 @@ bool SectionMemoryManager::finalizeMemory(std::string *ErrMsg) {
     return true;
   }
 
-  // Read-write data memory already has the correct permissions
+  // 读写数据内存权限已经正确
 
-  // Some platforms with separate data cache and instruction cache require
-  // explicit cache flush, otherwise JIT code manipulations (like resolved
-  // relocations) will get to the data cache but not to the instruction cache.
+  // 有些平台数据缓存与指令缓存分离，须刷新缓存，
+  // 否则 JIT 代码改动（如已解析的重定位）只进数据
+  // 缓存而进不了指令缓存。
   invalidateInstructionCache();
 
   return false;
@@ -340,15 +340,15 @@ SectionMemoryManager::applyMemoryGroupPermissions(MemoryGroup &MemGroup,
 
   MemGroup.PendingMem.clear();
 
-  // Now go through free blocks and trim any of them that don't span the entire
-  // page because one of the pending blocks may have overlapped it.
+  // 再扫空闲块，裁掉那些未覆盖整页的，因为某个
+  // pending 块可能与之重叠。
   for (FreeMemBlock &FreeMB : MemGroup.FreeMem) {
     FreeMB.Free = trimBlockToPageSize(FreeMB.Free);
-    // We cleared the PendingMem list, so all these pointers are now invalid
+    // 已清空 PendingMem 列表，故这些指针现在都无效
     FreeMB.PendingPrefixIndex = (unsigned)-1;
   }
 
-  // Remove all blocks which are now empty
+  // 去掉现已为空的块
   erase_if(MemGroup.FreeMem, [](FreeMemBlock &FreeMB) {
     return FreeMB.Free.allocatedSize() == 0;
   });
@@ -374,8 +374,8 @@ SectionMemoryManager::MemoryMapper::~MemoryMapper() = default;
 void SectionMemoryManager::anchor() {}
 
 namespace {
-// Trivial implementation of SectionMemoryManager::MemoryMapper that just calls
-// into sys::Memory.
+// SectionMemoryManager::MemoryMapper 的平凡实现，只调用
+// sys::Memory。
 class DefaultMMapper final : public SectionMemoryManager::MemoryMapper {
 public:
   sys::MemoryBlock

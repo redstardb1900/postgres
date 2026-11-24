@@ -1,0 +1,210 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0640",
+ "title": "backend/jit LLVM JIT 提供方 — batch 0640",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d4776536ca904f175cb3e3c25abda973a1436c7c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0640 next→小件"
+  },
+  {
+   "pattern": "src/backend/jit/jit.c",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit.c",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit_deform.c",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit_expr.c",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit_types.c",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit_error.cpp",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit_inline.cpp",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/llvmjit_wrap.cpp",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/backend/jit/llvm/SectionMemoryManager.cpp",
+   "kind": "c_comment",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0640-jit.json",
+   "kind": "manifest",
+   "note": "0640"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0640"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→小件 foreign/bootstrap/archive"
+  },
+  {
+   "path": "src/backend/jit/jit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 16,
+   "preserved": 1,
+   "preserved_reasons": [
+    "GUCs 4B 不足 KEEP"
+   ],
+   "note": "0640 jit 提供方加载"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 85,
+   "preserved": 11,
+   "preserved_reasons": [
+    "#endif LLVM_VERSION_MAJOR 标签 KEEP",
+    "in llvmjit_wrap.cpp 路径 KEEP"
+   ],
+   "note": "0640 LLVM JIT 核心"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit_deform.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 56,
+   "translated": 51,
+   "preserved": 5,
+   "preserved_reasons": [
+    "t_infomask 位运算 KEEP",
+    "TYPEALIGN 公式 KEEP"
+   ],
+   "note": "0640 元组变形发码"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit_expr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 151,
+   "translated": 142,
+   "preserved": 9,
+   "preserved_reasons": [
+    "slots / aggvalues/aggnulls / casetest 预算不足 KEEP",
+    "代码摘录 KEEP"
+   ],
+   "note": "0640 表达式 JIT"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit_types.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0640 发码类型表"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit_error.cpp",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0640 LLVM FATAL/OOM"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit_inline.cpp",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 58,
+   "preserved": 4,
+   "preserved_reasons": [
+    "注释掉的 #define INLINE_DEBUG KEEP",
+    "IRMover 参数名注释 KEEP"
+   ],
+   "note": "0640 跨模块内联"
+  },
+  {
+   "path": "src/backend/jit/llvm/llvmjit_wrap.cpp",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0640 LLVM C-API 包装"
+  },
+  {
+   "path": "src/backend/jit/llvm/SectionMemoryManager.cpp",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 53,
+   "preserved": 16,
+   "preserved_reasons": [
+    "来源/许可证段 R5 保护 KEEP",
+    "LLVM Apache/SPDX 许可证横幅 KEEP",
+    "C++ namespace 闭合注释 KEEP"
+   ],
+   "note": "0640 ARM 大内存 SectionMemoryManager 回移植"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0640-jit.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "backend/jit 9 文件注释（jit.c + llvm/ 下 .c/.cpp）；LLVM 标识符/ORC/LLJIT/bitcode 保留；许可证横幅与 #endif 标签 KEEP；英文残行已并入上行"
+}

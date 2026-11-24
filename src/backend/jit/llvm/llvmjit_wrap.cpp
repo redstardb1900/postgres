@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit_wrap.cpp
- *	  Parts of the LLVM interface not (yet) exposed to C.
+ *	  LLVM 接口中尚未向 C 暴露的部分。
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -18,7 +18,7 @@ extern "C"
 
 #include <llvm-c/Core.h>
 
-/* Avoid macro clash with LLVM's C++ headers */
+/* 避免与 LLVM 的 C++ 头发生宏冲突 */
 #undef Min
 
 #include <llvm/IR/Attributes.h>
@@ -44,7 +44,7 @@ extern "C"
 
 
 /*
- * C-API extensions.
+ * C-API 扩展。
  */
 #if defined(HAVE_DECL_LLVMGETHOSTCPUNAME) && !HAVE_DECL_LLVMGETHOSTCPUNAME
 char *LLVMGetHostCPUName(void) {
@@ -67,17 +67,17 @@ char *LLVMGetHostCPUFeatures(void) {
 #endif
 
 /*
- * Like LLVM's LLVMGetAttributeCountAtIndex(), works around a bug in LLVM 3.9.
+ * 类似 LLVMGetAttributeCountAtIndex()，绕开 LLVM 3.9 的缺陷。
  *
- * In LLVM <= 3.9, LLVMGetAttributeCountAtIndex() segfaults if there are no
- * attributes at an index (fixed in LLVM commit ce9bb1097dc2).
+ * LLVM <= 3.9 在某索引无属性时，LLVMGetAttributeCountAtIndex()
+ * 会段错误（已在 LLVM 提交 ce9bb1097dc2 修复）。
  */
 unsigned
 LLVMGetAttributeCountAtIndexPG(LLVMValueRef F, uint32 Idx)
 {
 	/*
-	 * This is more expensive, so only do when using a problematic LLVM
-	 * version.
+	 * 这更贵，故仅在有问题的 LLVM 版本上做。
+	 *
 	 */
 #if LLVM_VERSION_MAJOR < 4
 	if (!llvm::unwrap<llvm::Function>(F)->getAttributes().hasAttributes(Idx))
@@ -85,8 +85,8 @@ LLVMGetAttributeCountAtIndexPG(LLVMValueRef F, uint32 Idx)
 #endif
 
 	/*
-	 * There is no nice public API to determine the count nicely, so just
-	 * always fall back to LLVM's C API.
+	 * 没有好用的公开 API 能干净地取个数，故一律
+	 * 回退到 LLVM 的 C API。
 	 */
 	return LLVMGetAttributeCountAtIndex(F, Idx);
 }

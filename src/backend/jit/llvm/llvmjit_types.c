@@ -1,19 +1,19 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit_types.c
- *	  List of types needed by JIT emitting code.
+ *	  JIT 发码所需的类型列表。
  *
- * JIT emitting code often needs to access struct elements, create functions
- * with the correct signature etc. To allow synchronizing these types with a
- * low chance of definitions getting out of sync, this file lists types and
- * functions that directly need to be accessed from LLVM.
+ * JIT 发码常要访问结构体成员、按正确签名创建函数
+ * 等。为使这些类型易于与定义同步、降低走样风险，
+ * 本文件列出需从 LLVM 直接访问的类型与
+ * 函数。
  *
- * When LLVM is first used in a backend, a bitcode version of this file will
- * be loaded. The needed types and signatures will be stored into Struct*,
- * Type*, Func* variables.
+ * backend 首次使用 LLVM 时，会加载本文件的 bitcode
+ * 版本。所需类型与签名存入 Struct*、
+ * Type*、Func* 变量。
  *
- * NB: This file will not be linked into the server, it's just converted to
- * bitcode.
+ * 注意：本文件不会链进服务器，只是转成 bitcode。
+ *
  *
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
@@ -41,9 +41,9 @@
 
 
 /*
- * List of types needed for JITing. These have to be non-static, otherwise
- * clang/LLVM will omit them.  As this file will never be linked into
- * anything, that's harmless.
+ * JITing 所需类型列表。必须非 static，否则
+ * clang/LLVM 会省略它们。本文件永不链进任何
+ * 东西，故无害。
  */
 PGFunction	TypePGFunction;
 size_t		TypeSizeT;
@@ -72,9 +72,9 @@ MinimalTupleData StructMinimalTupleData;
 
 
 /*
- * To determine which attributes functions need to have (depends e.g. on
- * compiler version and settings) to be compatible for inlining, we simply
- * copy the attributes of this function.
+ * 为判定函数须带哪些属性（取决于编译器版本
+ * 与设置等）才能兼容内联，我们只是
+ * 复制本函数的属性。
  */
 extern Datum AttributeTemplate(PG_FUNCTION_ARGS);
 Datum
@@ -86,8 +86,8 @@ AttributeTemplate(PG_FUNCTION_ARGS)
 }
 
 /*
- * And some more "templates" to give us examples of function types
- * corresponding to function pointer types.
+ * 再给一些"templates"，作为函数指针类型所对应
+ * 函数类型的示例。
  */
 
 extern void ExecEvalSubroutineTemplate(ExprState *state,
@@ -117,11 +117,11 @@ ExecEvalBoolSubroutineTemplate(ExprState *state,
 }
 
 /*
- * Clang represents stdbool.h style booleans that are returned by functions
- * differently (as i1) than stored ones (as i8). Therefore we do not just need
- * TypeBool (above), but also a way to determine the width of a returned
- * integer. This allows us to keep compatible with non-stdbool using
- * architectures.
+ * Clang 对函数返回的 stdbool.h 风格布尔
+ * 表示成 i1，与存储的（i8）不同。因此不但需要
+ * TypeBool（见上），还要能判定返回整数的
+ * 宽度。这样可与不用 stdbool 的架构
+ * 兼容。
  */
 extern bool FunctionReturningBool(void);
 bool
@@ -131,9 +131,9 @@ FunctionReturningBool(void)
 }
 
 /*
- * To force signatures of functions used during JITing to be present,
- * reference the functions required. This again has to be non-static, to avoid
- * being removed as unnecessary.
+ * 为强制 JITing 所用函数的签名存在，
+ * 引用所需函数。同样必须非 static，以免被
+ * 当作无用而删掉。
  */
 void	   *referenced_functions[] =
 {

@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit_inline.cpp
- *	  Cross module inlining suitable for postgres' JIT
+ *	  适合 postgres JIT 的跨模块内联
  *
- * The inliner iterates over external functions referenced from the passed
- * module and attempts to inline those.  It does so by utilizing pre-built
- * indexes over both postgres core code and extension modules.  When a match
- * for an external function is found - not guaranteed! - the index will then
- * be used to judge their instruction count / inline worthiness. After doing
- * so for all external functions, all the referenced functions (and
- * prerequisites) will be imported.
+ * 内联器遍历传入模块所引用的外部函数并尝试内联。
+ * 做法是利用预先建好的、覆盖 postgres 核心与扩展
+ * 模块的索引。找到外部函数匹配时——不保证！——用
+ * 索引判断其指令数/内联价值。对全部外部函数做完后，
+ * 导入所有被引用函数（及其前置依赖）。
+ *
+ *
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -42,7 +42,7 @@ extern "C"
 #include <llvm-c/Core.h>
 #include <llvm-c/BitReader.h>
 
-/* Avoid macro clash with LLVM's C++ headers */
+/* 避免与 LLVM 的 C++ 头发生宏冲突 */
 #undef Min
 
 #include <llvm/ADT/SetVector.h>
@@ -66,13 +66,13 @@ extern "C"
 
 
 /*
- * Type used to represent modules InlineWorkListItem's subject is searched for
- * in.
+ * 表示搜索 InlineWorkListItem 主体时所查模块的类型。
+ *
  */
 typedef llvm::SmallVector<llvm::ModuleSummaryIndex *, 2> InlineSearchPath;
 
 /*
- * Item in queue of to-be-checked symbols and corresponding queue.
+ * 待检查符号队列中的项，以及对应队列。
  */
 typedef struct InlineWorkListItem
 {
@@ -82,8 +82,8 @@ typedef struct InlineWorkListItem
 typedef llvm::SmallVector<InlineWorkListItem, 128> InlineWorkList;
 
 /*
- * Information about symbols processed during inlining. Used to prevent
- * repeated searches and provide additional information.
+ * 内联期间已处理符号的信息。用于避免重复搜索
+ * 并提供附加信息。
  */
 typedef struct FunctionInlineState
 {
@@ -95,8 +95,8 @@ typedef struct FunctionInlineState
 typedef llvm::StringMap<FunctionInlineState> FunctionInlineStates;
 
 /*
- * Map of modules that should be inlined, with a list of the to-be inlined
- * symbols.
+ * 应内联的模块映射，值为待内联符号集合。
+ *
  */
 typedef llvm::StringMap<llvm::StringSet<> > ImportMapTy;
 
@@ -105,8 +105,8 @@ const float inline_cost_decay_factor = 0.5;
 const int inline_initial_cost = 150;
 
 /*
- * These are managed statics so LLVM knows to deallocate them during an
- * LLVMShutdown(), rather than after (which'd cause crashes).
+ * 这些是 managed static，好让 LLVM 在 LLVMShutdown()
+ * 期间释放，而不是之后（之后会崩溃）。
  */
 typedef llvm::StringMap<std::unique_ptr<llvm::Module> > ModuleCache;
 llvm::ManagedStatic<ModuleCache> module_cache;
@@ -144,7 +144,7 @@ static void add_module_to_inline_search_path(InlineSearchPath& path, llvm::Strin
 static llvm::SmallVector<llvm::GlobalValueSummary *, 1>
 summaries_for_guid(const InlineSearchPath& path, llvm::GlobalValue::GUID guid);
 
-/* verbose debugging for inliner development */
+/* 内联器开发用的详细调试 */
 /* #define INLINE_DEBUG */
 #ifdef INLINE_DEBUG
 #define ilog		elog
@@ -153,9 +153,9 @@ summaries_for_guid(const InlineSearchPath& path, llvm::GlobalValue::GUID guid);
 #endif
 
 /*
- * Reset inlining related state. This needs to be called before the currently
- * used LLVMContextRef is disposed (and a new one create), otherwise we would
- * have dangling references to deleted modules.
+ * 重置与内联相关的状态。须在丢弃当前所用
+ * LLVMContextRef（并新建）之前调用，否则会留下指向
+ * 已删模块的悬空引用。
  */
 void
 llvm_inline_reset_caches(void)
@@ -165,8 +165,8 @@ llvm_inline_reset_caches(void)
 }
 
 /*
- * Perform inlining of external function references in M based on a simple
- * cost based analysis.
+ * 基于简单代价分析，对 M 中的外部函数引用做内联。
+ *
  */
 void
 llvm_inline(LLVMModuleRef M)
@@ -181,8 +181,8 @@ llvm_inline(LLVMModuleRef M)
 }
 
 /*
- * Build information necessary for inlining external function references in
- * mod.
+ * 为在 mod 中内联外部函数引用而构建必要信息。
+ *
  */
 static std::unique_ptr<ImportMapTy>
 llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
@@ -193,28 +193,28 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 
 	InlineSearchPath defaultSearchPath;
 
-	/* attempt to add module to search path */
+	/* 尝试把模块加入搜索路径 */
 	add_module_to_inline_search_path(defaultSearchPath, "$libdir/postgres");
-	/* if postgres isn't available, no point continuing */
+	/* 若 postgres 不可用，继续也无意义 */
 	if (defaultSearchPath.empty())
 		return nullptr;
 
 	/*
-	 * Start inlining with current references to external functions by putting
-	 * them on the inlining worklist. If, during inlining of those, new extern
-	 * functions need to be inlined, they'll also be put there, with a lower
-	 * priority.
+	 * 从当前对外部函数的引用开始内联，把它们放入内联
+	 * 工作队列。内联这些时若又需内联新的外部函数，
+	 * 也会放入，但优先级更低。
+	 *
 	 */
 	for (const llvm::Function &funcDecl : mod->functions())
 	{
 		InlineWorkListItem item = {};
 		FunctionInlineState inlineState = {};
 
-		/* already has a definition */
+		/* 已有定义 */
 		if (!funcDecl.isDeclaration())
 			continue;
 
-		/* llvm provides implementation */
+		/* 由 llvm 提供实现 */
 		if (funcDecl.isIntrinsic())
 			continue;
 
@@ -229,8 +229,8 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 	}
 
 	/*
-	 * Iterate over pending worklist items, look them up in index, check
-	 * whether they should be inlined.
+	 * 遍历挂起工作队列项，在索引中查找，检查应否
+	 * 内联。
 	 */
 	while (!worklist.empty())
 	{
@@ -249,7 +249,7 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 		funcGUID = llvm::GlobalValue::getGUID(cfuncname);
 #endif
 
-		/* already processed */
+		/* 已经处理过 */
 		if (inlineState.processed)
 			continue;
 
@@ -258,9 +258,9 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 			add_module_to_inline_search_path(item.searchpath, cmodname);
 
 		/*
-		 * Iterate over all known definitions of function, via the index. Then
-		 * look up module(s), check if function actually is defined (there
-		 * could be hash conflicts).
+		 * 经索引遍历函数的所有已知定义，再查模块，核对
+		 * 函数是否真有定义（可能有散列冲突）。
+		 *
 		 */
 		for (const auto &gvs : summaries_for_guid(item.searchpath, funcGUID))
 		{
@@ -295,8 +295,8 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 			funcDef = defMod->getFunction(cfuncname);
 
 			/*
-			 * This can happen e.g. in case of a hash collision of the
-			 * function's name.
+			 * 例如函数名散列冲突时会发生。
+			 *
 			 */
 			if (!funcDef)
 				continue;
@@ -312,8 +312,8 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 			int running_instcount = 0;
 
 			/*
-			 * Check whether function, and objects it depends on, are
-			 * inlinable.
+			 * 检查函数及其依赖对象是否可内联。
+			 *
 			 */
 			if (function_inlinable(*funcDef,
 								   inlineState.costLimit,
@@ -325,11 +325,11 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 								   importVars))
 			{
 				/*
-				 * Check whether function and all its dependencies are too
-				 * big. Dependencies already counted for other functions that
-				 * will get inlined are not counted again. While this make
-				 * things somewhat order dependent, I can't quite see a point
-				 * in a different behaviour.
+				 * 检查函数及依赖是否太大。已计入将内联
+				 * 函数的依赖不再重计。结果略依赖顺序，但
+				 * 看不出另一种行为有何意义。
+				 *
+				 *
 				 */
 				if (running_instcount > inlineState.costLimit)
 				{
@@ -342,7 +342,7 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 				ilog(DEBUG1, "inline top function %s total_instcount: %d, partial: %d",
 					 symbolName.data(), running_instcount, fs->instCount());
 
-				/* import referenced function itself */
+				/* 导入被引用函数本身 */
 				importVars.insert(symbolName);
 
 				{
@@ -352,12 +352,12 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 					Assert(modGlobalsToInline.size() > 0);
 				}
 
-				/* mark function as inlined */
+				/* 标记函数已内联 */
 				inlineState.inlined = true;
 
 				/*
-				 * Found definition to inline, don't look for further
-				 * potential definitions.
+				 * 已找到要内联的定义，不再另找。
+				 *
 				 */
 				break;
 			}
@@ -366,13 +366,13 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 				ilog(DEBUG1, "had to skip inlining %s",
 					 symbolName.data());
 
-				/* It's possible there's another definition that's inlinable. */
+				/* 可能还有另一个可内联的定义。 */
 			}
 		}
 
 		/*
-		 * Signal that we're done with symbol, whether successful (inlined =
-		 * true above) or not.
+		 * 无论成功（上面 inlined=true）与否，都标明本符号
+		 * 已处理完。
 		 */
 		inlineState.processed = true;
 	}
@@ -381,8 +381,8 @@ llvm_build_inline_plan(LLVMContextRef lc, llvm::Module *mod)
 }
 
 /*
- * Perform the actual inlining of external functions (and their dependencies)
- * into mod.
+ * 把外部函数（及其依赖）真正内联进 mod。
+ *
  */
 static void
 llvm_execute_inline_plan(llvm::Module *mod, ImportMapTy *globalsToInline)
@@ -416,10 +416,10 @@ llvm_execute_inline_plan(llvm::Module *mod, ImportMapTy *globalsToInline)
 				elog(FATAL, "didn't refind value %s to import", SymbolName.data());
 
 			/*
-			 * For functions (global vars are only inlined if already static),
-			 * mark imported variables as being clones from other
-			 * functions. That a) avoids symbol conflicts b) allows the
-			 * optimizer to perform inlining.
+			 * 对函数（全局变量仅已是 static 才内联），导入
+			 * 变量标成其他函数克隆。a) 避免符号
+			 * 冲突 b) 允许优化器做内联。
+			 *
 			*/
 			if (llvm::isa<llvm::Function>(valueToImport))
 			{
@@ -427,18 +427,18 @@ llvm_execute_inline_plan(llvm::Module *mod, ImportMapTy *globalsToInline)
 				typedef llvm::GlobalValue::LinkageTypes LinkageTypes;
 
 				/*
-				 * Per-function info isn't necessarily stripped yet, as the
-				 * module is lazy-loaded when stripped above.
+				 * 每函数信息未必已剥掉，剥时模块是惰性
+				 * 加载的。
 				 */
 				llvm::stripDebugInfo(*F);
 
 				/*
-				 * If the to-be-imported function is one referenced including
-				 * its module name, create a tiny inline function that just
-				 * forwards the call. One might think a GlobalAlias would do
-				 * the trick, but a) IRMover doesn't override a declaration
-				 * with an alias pointing to a definition (instead renaming
-				 * it), b) Aliases can't be AvailableExternally.
+				 * 若待导入函数带模块名引用，建只转发调用
+				 * 的小内联函数。或以为 GlobalAlias 即可，
+				 * 但 a) IRMover 不会用别名覆盖声明（改名），
+				 * b) 别名不能是 AvailableExternally。
+				 *
+				 *
 				 */
 				if (modname)
 				{
@@ -477,10 +477,10 @@ llvm_execute_inline_plan(llvm::Module *mod, ImportMapTy *globalsToInline)
 }
 
 /*
- * Return a module identified by modPath, caching it in memory.
+ * 返回以 modPath 标识的模块，并缓存在内存中。
  *
- * Note that such a module may *not* be modified without copying, otherwise
- * the cache state would get corrupted.
+ * 注意：未经拷贝不得修改该模块，否则缓存状态会坏。
+ *
  */
 static llvm::Module*
 load_module_cached(LLVMContextRef lc, llvm::StringRef modPath)
@@ -512,9 +512,9 @@ load_module(LLVMContextRef lc, llvm::StringRef Identifier)
 		elog(FATAL, "failed to parse bitcode in file \"%s\"", path);
 
 	/*
-	 * Currently there's no use in more detailed debug info for JITed
-	 * code. Until that changes, not much point in wasting memory and cycles
-	 * on processing debuginfo.
+	 * 目前 JIT 代码用不到更细调试信息。在那之前，
+	 * 花内存和周期处理 debuginfo 没多大意义。
+	 *
 	 */
 	llvm::StripDebugInfo(*llvm::unwrap(mod));
 
@@ -522,8 +522,8 @@ load_module(LLVMContextRef lc, llvm::StringRef Identifier)
 }
 
 /*
- * Compute list of referenced variables, functions and the instruction count
- * for a function.
+ * 计算函数所引用的变量、函数列表及指令数。
+ *
  */
 static void
 function_references(llvm::Function &F,
@@ -548,7 +548,7 @@ function_references(llvm::Function &F,
 			while (!Worklist.empty()) {
 				llvm::User *U = Worklist.pop_back_val();
 
-				/* visited before */
+				/* 已访问过 */
 				if (!Visited.insert(U).second)
 					continue;
 
@@ -576,11 +576,11 @@ function_references(llvm::Function &F,
 }
 
 /*
- * Check whether function F is inlinable and, if so, what globals need to be
- * imported.
+ * 检查函数 F 是否可内联，若可，须导入哪些全局。
  *
- * References to external functions from, potentially recursively, inlined
- * functions are added to the passed in worklist.
+ *
+ * 被（可能递归）内联的函数对外部函数的引用，加入
+ * 传入的工作队列。
  */
 static bool
 function_inlinable(llvm::Function &F,
@@ -596,13 +596,13 @@ function_inlinable(llvm::Function &F,
 	llvm::SmallPtrSet<llvm::GlobalVariable *, 8> referencedVars;
 	llvm::SmallPtrSet<llvm::Function *, 8> referencedFunctions;
 
-	/* can't rely on what may be inlined */
+	/* 不能依赖可能被内联者 */
 	if (F.isInterposable())
 		return false;
 
 	/*
-	 * Can't rely on function being present. Alternatively we could create a
-	 * static version of these functions?
+	 * 不能依赖函数一定存在。或者我们可以为这些函数
+	 * 创建 static 版本？
 	 */
 	if (F.hasAvailableExternallyLinkage())
 		return false;
@@ -631,8 +631,8 @@ function_inlinable(llvm::Function &F,
 			elog(FATAL, "failed to materialize metadata");
 
 		/*
-		 * Don't inline functions that access thread local variables.  That
-		 * doesn't work on current LLVM releases (but might in future).
+		 * 不内联访问线程局部变量的函数。当前 LLVM 版
+		 * 做不到（将来或许可以）。
 		 */
 		if (rv->isThreadLocal())
 		{
@@ -642,19 +642,19 @@ function_inlinable(llvm::Function &F,
 		}
 
 		/*
-		 * Never want to inline externally visible vars, cheap enough to
-		 * reference.
+		 * 从不内联对外可见变量，引用它们足够便宜。
+		 *
 		 */
 		if (rv->hasExternalLinkage() || rv->hasAvailableExternallyLinkage())
 			continue;
 
 		/*
-		 * If variable is file-local, we need to inline it, to be able to
-		 * inline the function itself. Can't do that if the variable can be
-		 * modified, because they'd obviously get out of sync.
+		 * 若变量是文件局部的，须内联它才能内联函数
+		 * 若变量可被修改则不能，因为显然会失步。
 		 *
-		 * XXX: Currently not a problem, but there'd be problems with
-		 * nontrivial initializers if they were allowed for postgres.
+		 *
+		 * XXX: 目前不是问题，但若 postgres 允许非平凡
+		 * 初始化器，会有问题。
 		 */
 		if (!rv->isConstant())
 		{
@@ -667,15 +667,15 @@ function_inlinable(llvm::Function &F,
 			 rv->getName().data(), (int)rv->getLinkage());
 
 		importVars.insert(rv->getName());
-		/* small cost attributed to each cloned global */
+		/* 每个克隆的全局记一小笔代价 */
 		running_instcount += 5;
 	}
 
 	visitedFunctions.insert(&F);
 
 	/*
-	 * Check referenced functions. Check whether used static ones are
-	 * inlinable, and remember external ones for inlining.
+	 * 检查被引用函数。静态的查是否可内联，外部
+	 * 记下待内联。
 	 */
 	for (llvm::Function* referencedFunction: referencedFunctions)
 	{
@@ -687,22 +687,22 @@ function_inlinable(llvm::Function &F,
 		if (referencedFunction->isIntrinsic())
 			continue;
 
-		/* if already visited skip, otherwise remember */
+		/* 若已访问则跳过，否则记住 */
 		if (!visitedFunctions.insert(referencedFunction).second)
 			continue;
 
 		/*
-		 * We don't inline external functions directly here, instead we put
-		 * them on the worklist if appropriate and check them from
-		 * llvm_build_inline_plan().
+		 * 此处不直接内联外部函数，适当时放入工作
+		 * 队列，由 llvm_build_inline_plan() 检查。
+		 *
 		 */
 		if (referencedFunction->hasExternalLinkage())
 		{
 			llvm::StringRef funcName = referencedFunction->getName();
 
 			/*
-			 * Don't bother checking for inlining if remaining cost budget is
-			 * very small.
+			 * 剩余代价预算很小时，不必再检查内联。
+			 *
 			 */
 			if (subThreshold < 5)
 				continue;
@@ -729,9 +729,9 @@ function_inlinable(llvm::Function &F,
 					 it->second.costLimit < subThreshold)
 			{
 				/*
-				 * Update inlining threshold if higher. Need to re-queue
-				 * to be processed if already processed with lower
-				 * threshold.
+				 * 阈值更高则更新。更低阈值已处理过则
+				 * 须重新入队。
+				 *
 				 */
 				if (it->second.processed)
 				{
@@ -748,7 +748,7 @@ function_inlinable(llvm::Function &F,
 			continue;
 		}
 
-		/* can't rely on what may be inlined */
+		/* 不能依赖可能被内联者 */
 		if (referencedFunction->isInterposable())
 			return false;
 
@@ -767,10 +767,10 @@ function_inlinable(llvm::Function &F,
 			return false;
 		}
 
-		/* import referenced function itself */
+		/* 导入被引用函数本身 */
 		importVars.insert(referencedFunction->getName());
 
-		/* import referenced function and its dependents */
+		/* 导入被引用函数及其依赖 */
 		for (auto& recImportVar : recImportVars)
 			importVars.insert(recImportVar.first());
 	}
@@ -779,8 +779,8 @@ function_inlinable(llvm::Function &F,
 }
 
 /*
- * Attempt to load module summary located at path. Return empty pointer when
- * loading fails.
+ * 尝试加载 path 处的模块摘要。失败则返回空指针。
+ *
  */
 static std::unique_ptr<llvm::ModuleSummaryIndex>
 llvm_load_summary(llvm::StringRef path)
@@ -819,19 +819,19 @@ llvm_load_summary(llvm::StringRef path)
 }
 
 /*
- * Attempt to add modpath to the search path.
+ * 尝试把 modpath 加入搜索路径。
  */
 static void
 add_module_to_inline_search_path(InlineSearchPath& searchpath, llvm::StringRef modpath)
 {
-	/* only extension in libdir are candidates for inlining for now */
+	/* 目前仅 libdir 中的扩展可作内联候选 */
 #if LLVM_VERSION_MAJOR < 16
 #define starts_with startswith
 #endif
 	if (!modpath.starts_with("$libdir/"))
 		return;
 
-	/* if there's no match, attempt to load */
+	/* 若无匹配，尝试加载 */
 	auto it = summary_cache->find(modpath);
 	if (it == summary_cache->end())
 	{
@@ -844,14 +844,14 @@ add_module_to_inline_search_path(InlineSearchPath& searchpath, llvm::StringRef m
 
 	Assert(it != summary_cache->end());
 
-	/* if the entry isn't NULL, it's validly loaded */
+	/* 若表项非 NULL，则已有效加载 */
 	if (it->second)
 		searchpath.push_back(it->second.get());
 }
 
 /*
- * Search for all references for functions hashing to guid in the search path,
- * and return them in search path order.
+ * 在搜索路径中查找散列到 guid 的全部函数引用，
+ * 并按搜索路径顺序返回。
  */
 static llvm::SmallVector<llvm::GlobalValueSummary *, 1>
 summaries_for_guid(const InlineSearchPath& path, llvm::GlobalValue::GUID guid)
@@ -863,7 +863,7 @@ summaries_for_guid(const InlineSearchPath& path, llvm::GlobalValue::GUID guid)
 #if LLVM_VERSION_MAJOR > 4
 		llvm::ValueInfo funcVI = index->getValueInfo(guid);
 
-		/* if index doesn't know function, we don't have a body, continue */
+		/* 若索引不知该函数，则无函数体，继续 */
 		if (funcVI)
 			for (auto &gv : funcVI.getSummaryList())
 				matches.push_back(gv.get());
@@ -882,7 +882,7 @@ summaries_for_guid(const InlineSearchPath& path, llvm::GlobalValue::GUID guid)
 }
 
 /*
- * Create inline wrapper with the name Name, redirecting the call to F.
+ * 创建名为 Name 的内联包装，把调用转到 F。
  */
 static llvm::Function*
 create_redirection_function(std::unique_ptr<llvm::Module> &importMod,

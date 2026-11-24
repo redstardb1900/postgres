@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit_error.cpp
- *	  LLVM error related handling that requires interfacing with C++
+ *	  需与 C++ 对接的 LLVM 错误处理
  *
- * Unfortunately neither (re)setting the C++ new handler, nor the LLVM OOM
- * handler are exposed to C. Therefore this file wraps the necessary code.
+ * 不幸的是，(重新)设置 C++ new 处理函数与 LLVM 的 OOM
+ * 处理函数均未向 C 暴露。故本文件包装所需代码。
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -42,22 +42,22 @@ static void fatal_llvm_error_handler(void *user_data, const std::string& reason,
 
 
 /*
- * Enter a section in which C++ and LLVM errors are treated as FATAL errors.
+ * 进入一段区间：C++ 与 LLVM 错误均按 FATAL 处理。
  *
- * This is necessary for LLVM as LLVM's error handling for such cases
- * (exit()ing, throwing std::bad_alloc() if compiled with exceptions, abort())
- * isn't compatible with postgres error handling.  Thus in sections where LLVM
- * code, not LLVM generated functions!, is executing, standard new, LLVM OOM
- * and LLVM fatal errors (some OOM errors masquerade as those) are redirected
- * to our own error handlers.
+ * 对 LLVM 有必要，因其对此类情况的错误处理
+ * 即 exit()、在启用异常时抛 std::bad_alloc()、abort()
+ * 与 postgres 错误处理不兼容。故在执行 LLVM 代码
+ * 非 LLVM 生成的函数时，把标准 new、LLVM 的 OOM
+ * 及 LLVM 致命错误（有些 OOM 会伪装成这类）改送到
+ * 自有错误处理。
  *
- * These error handlers use FATAL, because there's no reliable way from within
- * LLVM to throw an error that's guaranteed not to corrupt LLVM's state.
+ * 这些处理函数用 FATAL，因为从 LLVM 内部没有可靠办法
+ * 抛出一个保证不破坏 LLVM 状态的错误。
  *
- * To avoid disturbing extensions using C++ and/or LLVM, these handlers are
- * unset when not executing LLVM code. There is no need to call
- * llvm_leave_fatal_on_oom() when ERRORing out, error recovery resets the
- * handlers in that case.
+ * 为免打扰使用 C++ 和/或 LLVM 的扩展，这些处理函数在
+ * 未执行 LLVM 代码时卸下。ERROR 退出时不必调用
+ * llvm_leave_fatal_on_oom()，错误恢复那时会重置
+ * 这些处理函数。
  */
 void
 llvm_enter_fatal_on_oom(void)
@@ -74,7 +74,7 @@ llvm_enter_fatal_on_oom(void)
 }
 
 /*
- * Leave fatal error section started with llvm_enter_fatal_on_oom().
+ * 离开 llvm_enter_fatal_on_oom() 开始的致命错误区间。
  */
 void
 llvm_leave_fatal_on_oom(void)
@@ -91,8 +91,8 @@ llvm_leave_fatal_on_oom(void)
 }
 
 /*
- * Are we currently in a fatal-on-oom section? Useful to skip cleanup in case
- * of errors.
+ * 当前是否处于 fatal-on-oom 区间？出错时可跳过清理。
+ *
  */
 bool
 llvm_in_fatal_on_oom(void)
@@ -101,8 +101,8 @@ llvm_in_fatal_on_oom(void)
 }
 
 /*
- * Reset fatal error handling. This should only be called in error recovery
- * loops like PostgresMain()'s.
+ * 重置致命错误处理。只应在错误恢复循环中调用，
+ * 如 PostgresMain()。
  */
 void
 llvm_reset_after_error(void)

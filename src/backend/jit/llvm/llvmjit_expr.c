@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit_expr.c
- *	  JIT compile expressions.
+ *	  JIT 编译表达式。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -64,7 +64,7 @@ static LLVMValueRef build_EvalXFuncInt(LLVMBuilderRef b, LLVMModuleRef mod,
 									   int natts, LLVMValueRef *v_args);
 static LLVMValueRef create_LifetimeEnd(LLVMModuleRef mod);
 
-/* macro making it easier to call ExecEval* functions */
+/* 便于调用 ExecEval* 的宏 */
 #define build_EvalXFunc(b, mod, funcname, v_state, op, ...) \
 	build_EvalXFuncInt(b, mod, funcname, v_state, op, \
 					   lengthof(((LLVMValueRef[]){__VA_ARGS__})), \
@@ -72,7 +72,7 @@ static LLVMValueRef create_LifetimeEnd(LLVMModuleRef mod);
 
 
 /*
- * JIT compile expression.
+ * JIT 编译表达式。
  */
 bool
 llvm_compile_expr(ExprState *state)
@@ -89,15 +89,15 @@ llvm_compile_expr(ExprState *state)
 	LLVMBasicBlockRef entry;
 	LLVMBasicBlockRef *opblocks;
 
-	/* state itself */
+	/* 状态本身 */
 	LLVMValueRef v_state;
 	LLVMValueRef v_econtext;
 	LLVMValueRef v_parent;
 
-	/* returnvalue */
+	/* 返回值 */
 	LLVMValueRef v_isnullp;
 
-	/* tmp vars in state */
+	/* 状态内临时 */
 	LLVMValueRef v_tmpvaluep;
 	LLVMValueRef v_tmpisnullp;
 
@@ -107,7 +107,7 @@ llvm_compile_expr(ExprState *state)
 	LLVMValueRef v_scanslot;
 	LLVMValueRef v_resultslot;
 
-	/* nulls/values of slots */
+	/* 槽的 nulls/values */
 	LLVMValueRef v_innervalues;
 	LLVMValueRef v_innernulls;
 	LLVMValueRef v_outervalues;
@@ -117,7 +117,7 @@ llvm_compile_expr(ExprState *state)
 	LLVMValueRef v_resultvalues;
 	LLVMValueRef v_resultnulls;
 
-	/* stuff in econtext */
+	/* econtext 内 */
 	LLVMValueRef v_aggvalues;
 	LLVMValueRef v_aggnulls;
 
@@ -127,12 +127,12 @@ llvm_compile_expr(ExprState *state)
 	llvm_enter_fatal_on_oom();
 
 	/*
-	 * Right now we don't support compiling expressions without a parent, as
-	 * we need access to the EState.
+	 * 目前不支持编译没有 parent 的表达式，因为需要
+	 * 访问 EState。
 	 */
 	Assert(parent);
 
-	/* get or create JIT context */
+	/* 取或建 JIT 上下文 */
 	if (parent->state->es_jit)
 		context = (LLVMJitContext *) parent->state->es_jit;
 	else
@@ -150,7 +150,7 @@ llvm_compile_expr(ExprState *state)
 
 	funcname = llvm_expand_funcname(context, "evalexpr");
 
-	/* create function */
+	/* 创建函数 */
 	eval_fn = LLVMAddFunction(mod, funcname,
 							  llvm_pg_var_func_type("ExecInterpExprStillValid"));
 	LLVMSetLinkage(eval_fn, LLVMExternalLinkage);
@@ -159,7 +159,7 @@ llvm_compile_expr(ExprState *state)
 
 	entry = LLVMAppendBasicBlockInContext(lc, eval_fn, "entry");
 
-	/* build state */
+	/* 建状态 */
 	v_state = LLVMGetParam(eval_fn, 0);
 	v_econtext = LLVMGetParam(eval_fn, 1);
 	v_isnullp = LLVMGetParam(eval_fn, 2);
@@ -182,7 +182,7 @@ llvm_compile_expr(ExprState *state)
 								 FIELDNO_EXPRSTATE_PARENT,
 								 "v.state.parent");
 
-	/* build global slots */
+	/* 建全局槽 */
 	v_scanslot = l_load_struct_gep(b,
 								   StructExprContext,
 								   v_econtext,
@@ -204,7 +204,7 @@ llvm_compile_expr(ExprState *state)
 									 FIELDNO_EXPRSTATE_RESULTSLOT,
 									 "v_resultslot");
 
-	/* build global values/isnull pointers */
+	/* 建全局 values/isnull 指针 */
 	v_scanvalues = l_load_struct_gep(b,
 									 StructTupleTableSlot,
 									 v_scanslot,
@@ -258,12 +258,12 @@ llvm_compile_expr(ExprState *state)
 								   FIELDNO_EXPRCONTEXT_AGGNULLS,
 								   "v.econtext.aggnulls");
 
-	/* allocate blocks for each op upfront, so we can do jumps easily */
+	/* 预先为每个 op 分配块，便于跳转 */
 	opblocks = palloc(sizeof(LLVMBasicBlockRef) * state->steps_len);
 	for (int opno = 0; opno < state->steps_len; opno++)
 		opblocks[opno] = l_bb_append_v(eval_fn, "b.op.%d.start", opno);
 
-	/* jump from entry to first block */
+	/* 从入口跳到第一块 */
 	LLVMBuildBr(b, opblocks[0]);
 
 	for (int opno = 0; opno < state->steps_len; opno++)
@@ -317,7 +317,7 @@ llvm_compile_expr(ExprState *state)
 					if (op->d.fetch.fixed)
 						tts_ops = op->d.fetch.kind;
 
-					/* step should not have been generated */
+					/* 不应生成过该步骤 */
 					Assert(tts_ops != &TTSOpsVirtual);
 
 					if (opcode == EEOP_INNER_FETCHSOME)
@@ -328,8 +328,8 @@ llvm_compile_expr(ExprState *state)
 						v_slot = v_scanslot;
 
 					/*
-					 * Check if all required attributes are available, or
-					 * whether deforming is required.
+					 * 检查所需属性是否都可用，或是否
+					 * 需要变形。
 					 */
 					v_nvalid =
 						l_load_struct_gep(b,
@@ -346,10 +346,10 @@ llvm_compile_expr(ExprState *state)
 					LLVMPositionBuilderAtEnd(b, b_fetch);
 
 					/*
-					 * If the tupledesc of the to-be-deformed tuple is known,
-					 * and JITing of deforming is enabled, build deform
-					 * function specific to tupledesc and the exact number of
-					 * to-be-extracted attributes.
+					 * 若待变形元组的 tupledesc 已知，且
+					 * 启用变形 JIT，则按 tupledesc 与待提取
+					 * 属性的确切个数生成专用变形函数。
+					 *
 					 */
 					if (tts_ops && desc && (context->base.flags & PGJIT_DEFORM))
 					{
@@ -478,12 +478,12 @@ llvm_compile_expr(ExprState *state)
 						v_nulls = v_scannulls;
 					}
 
-					/* load data */
+					/* 取数据 */
 					v_attnum = l_int32_const(lc, op->d.assign_var.attnum);
 					v_value = l_load_gep1(b, TypeSizeT, v_values, v_attnum, "");
 					v_isnull = l_load_gep1(b, TypeStorageBool, v_nulls, v_attnum, "");
 
-					/* compute addresses of targets */
+					/* 计算目标地址 */
 					v_resultnum = l_int32_const(lc, op->d.assign_var.resultnum);
 					v_rvaluep = l_gep(b,
 									  TypeSizeT,
@@ -494,7 +494,7 @@ llvm_compile_expr(ExprState *state)
 									   v_resultnulls,
 									   &v_resultnum, 1, "");
 
-					/* and store */
+					/* 并存储 */
 					LLVMBuildStore(b, v_value, v_rvaluep);
 					LLVMBuildStore(b, v_isnull, v_risnullp);
 
@@ -512,21 +512,21 @@ llvm_compile_expr(ExprState *state)
 					LLVMValueRef v_resultnum;
 					size_t		resultnum = op->d.assign_tmp.resultnum;
 
-					/* load data */
+					/* 取数据 */
 					v_value = l_load(b, TypeSizeT, v_tmpvaluep, "");
 					v_isnull = l_load(b, TypeStorageBool, v_tmpisnullp, "");
 
-					/* compute addresses of targets */
+					/* 计算目标地址 */
 					v_resultnum = l_int32_const(lc, resultnum);
 					v_rvaluep =
 						l_gep(b, TypeSizeT, v_resultvalues, &v_resultnum, 1, "");
 					v_risnullp =
 						l_gep(b, TypeStorageBool, v_resultnulls, &v_resultnum, 1, "");
 
-					/* store nullness */
+					/* 存空值性 */
 					LLVMBuildStore(b, v_isnull, v_risnullp);
 
-					/* make value readonly if necessary */
+					/* 必要时把值改成只读 */
 					if (opcode == EEOP_ASSIGN_TMP_MAKE_RO)
 					{
 						LLVMBasicBlockRef b_notnull;
@@ -535,13 +535,13 @@ llvm_compile_expr(ExprState *state)
 						b_notnull = l_bb_before_v(opblocks[opno + 1],
 												  "op.%d.assign_tmp.notnull", opno);
 
-						/* check if value is NULL */
+						/* 检查值是否 NULL */
 						LLVMBuildCondBr(b,
 										LLVMBuildICmp(b, LLVMIntEQ, v_isnull,
 													  l_sbool_const(0), ""),
 										b_notnull, opblocks[opno + 1]);
 
-						/* if value is not null, convert to RO datum */
+						/* 若非空，转成 RO datum */
 						LLVMPositionBuilderAtEnd(b, b_notnull);
 						v_params[0] = v_value;
 						v_value =
@@ -551,12 +551,12 @@ llvm_compile_expr(ExprState *state)
 								   v_params, lengthof(v_params), "");
 
 						/*
-						 * Falling out of the if () with builder in b_notnull,
-						 * which is fine - the null is already stored above.
+						 * 出 if 时 builder 在 b_notnull，无妨上面已
+						 * 存过空值。
 						 */
 					}
 
-					/* and finally store result */
+					/* 最后存储结果 */
 					LLVMBuildStore(b, v_value, v_rvaluep);
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
@@ -592,13 +592,13 @@ llvm_compile_expr(ExprState *state)
 						LLVMValueRef v_fcinfo;
 
 						/*
-						 * Block for the actual function call, if args are
-						 * non-NULL.
+						 * 若参数非空，则真正调用函数的块
+						 *
 						 */
 						b_nonull = l_bb_before_v(opblocks[opno + 1],
 												 "b.%d.no-null-args", opno);
 
-						/* should make sure they're optimized beforehand */
+						/* 应确保事先已优化 */
 						if (op->d.func.nargs == 0)
 							elog(ERROR, "argumentless strict functions are pointless");
 
@@ -606,12 +606,12 @@ llvm_compile_expr(ExprState *state)
 							l_ptr_const(fcinfo, l_ptr(StructFunctionCallInfoData));
 
 						/*
-						 * set resnull to true, if the function is actually
-						 * called, it'll be reset
+						 * resnull 置 true；若真正调用函数，再
+						 * 复位
 						 */
 						LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
 
-						/* create blocks for checking args, one for each */
+						/* 为检查各参数各建一块 */
 						b_checkargnulls =
 							palloc(sizeof(LLVMBasicBlockRef *) * op->d.func.nargs);
 						for (int argno = 0; argno < op->d.func.nargs; argno++)
@@ -619,10 +619,10 @@ llvm_compile_expr(ExprState *state)
 								l_bb_before_v(b_nonull, "b.%d.isnull.%d", opno,
 											  argno);
 
-						/* jump to check of first argument */
+						/* 跳到检查第一个参数 */
 						LLVMBuildBr(b, b_checkargnulls[0]);
 
-						/* check each arg for NULLness */
+						/* 逐个检查参数 NULLness */
 						for (int argno = 0; argno < op->d.func.nargs; argno++)
 						{
 							LLVMValueRef v_argisnull;
@@ -631,15 +631,15 @@ llvm_compile_expr(ExprState *state)
 							LLVMPositionBuilderAtEnd(b, b_checkargnulls[argno]);
 
 							/*
-							 * Compute block to jump to if argument is not
-							 * null.
+							 * 计算参数非空时要跳到的块。
+							 *
 							 */
 							if (argno + 1 == op->d.func.nargs)
 								b_argnotnull = b_nonull;
 							else
 								b_argnotnull = b_checkargnulls[argno + 1];
 
-							/* and finally load & check NULLness of arg */
+							/* 最后加载并检查参数 NULLness */
 							v_argisnull = l_funcnull(b, v_fcinfo, argno);
 							LLVMBuildCondBr(b,
 											LLVMBuildICmp(b, LLVMIntEQ,
@@ -676,9 +676,9 @@ llvm_compile_expr(ExprState *state)
 				break;
 
 				/*
-				 * Treat them the same for now, optimizer can remove
-				 * redundancy. Could be worthwhile to optimize during emission
-				 * though.
+				 * 同等对待，优化器可去掉冗余。发码
+				 * 优化或许也值得。
+				 *
 				 */
 			case EEOP_BOOL_AND_STEP_FIRST:
 			case EEOP_BOOL_AND_STEP:
@@ -714,26 +714,26 @@ llvm_compile_expr(ExprState *state)
 					v_boolnull = l_load(b, TypeStorageBool, v_resnullp, "");
 					v_boolvalue = l_load(b, TypeSizeT, v_resvaluep, "");
 
-					/* set resnull to boolnull */
+					/* resnull 置为 boolnull */
 					LLVMBuildStore(b, v_boolnull, v_resnullp);
-					/* set revalue to boolvalue */
+					/* resvalue 置 boolvalue */
 					LLVMBuildStore(b, v_boolvalue, v_resvaluep);
 
-					/* check if current input is NULL */
+					/* 检查当前输入是否 NULL */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_boolnull,
 												  l_sbool_const(1), ""),
 									b_boolisnull,
 									b_boolcheckfalse);
 
-					/* build block that sets anynull */
+					/* 建把 anynull 置位的块 */
 					LLVMPositionBuilderAtEnd(b, b_boolisnull);
-					/* set boolanynull to true */
+					/* boolanynull 置 true */
 					LLVMBuildStore(b, l_sbool_const(1), v_boolanynullp);
-					/* and jump to next block */
+					/* 并跳到下一块 */
 					LLVMBuildBr(b, b_boolcont);
 
-					/* build block checking for false */
+					/* 建检查 false 的块 */
 					LLVMPositionBuilderAtEnd(b, b_boolcheckfalse);
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_boolvalue,
@@ -742,29 +742,29 @@ llvm_compile_expr(ExprState *state)
 									b_boolcont);
 
 					/*
-					 * Build block handling FALSE. Value is false, so short
-					 * circuit.
+					 * 处理 FALSE 的块。值为假，故短路。
+					 *
 					 */
 					LLVMPositionBuilderAtEnd(b, b_boolisfalse);
-					/* result is already set to FALSE, need not change it */
-					/* and jump to the end of the AND expression */
+					/* 结果已是 FALSE，不必改 */
+					/* 并跳到 AND 表达式末尾 */
 					LLVMBuildBr(b, opblocks[op->d.boolexpr.jumpdone]);
 
-					/* Build block that continues if bool is TRUE. */
+					/* 建布尔为 TRUE 时继续的块。 */
 					LLVMPositionBuilderAtEnd(b, b_boolcont);
 
 					v_boolanynull = l_load(b, TypeStorageBool, v_boolanynullp, "");
 
-					/* set value to NULL if any previous values were NULL */
+					/* 若先前有 NULL 则把值置 NULL */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_boolanynull,
 												  l_sbool_const(0), ""),
 									opblocks[opno + 1], b_boolisanynull);
 
 					LLVMPositionBuilderAtEnd(b, b_boolisanynull);
-					/* set resnull to true */
+					/* resnull 置 true */
 					LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
-					/* reset resvalue */
+					/* 复位resvalue */
 					LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
@@ -772,9 +772,9 @@ llvm_compile_expr(ExprState *state)
 				}
 
 				/*
-				 * Treat them the same for now, optimizer can remove
-				 * redundancy. Could be worthwhile to optimize during emission
-				 * though.
+				 * 同等对待，优化器可去掉冗余。发码
+				 * 优化或许也值得。
+				 *
 				 */
 			case EEOP_BOOL_OR_STEP_FIRST:
 			case EEOP_BOOL_OR_STEP:
@@ -810,9 +810,9 @@ llvm_compile_expr(ExprState *state)
 					v_boolnull = l_load(b, TypeStorageBool, v_resnullp, "");
 					v_boolvalue = l_load(b, TypeSizeT, v_resvaluep, "");
 
-					/* set resnull to boolnull */
+					/* resnull 置为 boolnull */
 					LLVMBuildStore(b, v_boolnull, v_resnullp);
-					/* set revalue to boolvalue */
+					/* resvalue 置 boolvalue */
 					LLVMBuildStore(b, v_boolvalue, v_resvaluep);
 
 					LLVMBuildCondBr(b,
@@ -821,14 +821,14 @@ llvm_compile_expr(ExprState *state)
 									b_boolisnull,
 									b_boolchecktrue);
 
-					/* build block that sets anynull */
+					/* 建把 anynull 置位的块 */
 					LLVMPositionBuilderAtEnd(b, b_boolisnull);
-					/* set boolanynull to true */
+					/* boolanynull 置 true */
 					LLVMBuildStore(b, l_sbool_const(1), v_boolanynullp);
-					/* and jump to next block */
+					/* 并跳到下一块 */
 					LLVMBuildBr(b, b_boolcont);
 
-					/* build block checking for true */
+					/* 建检查 true 的块 */
 					LLVMPositionBuilderAtEnd(b, b_boolchecktrue);
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_boolvalue,
@@ -837,29 +837,29 @@ llvm_compile_expr(ExprState *state)
 									b_boolcont);
 
 					/*
-					 * Build block handling True. Value is true, so short
-					 * circuit.
+					 * 处理 True 的块。值为真，故短路。
+					 *
 					 */
 					LLVMPositionBuilderAtEnd(b, b_boolistrue);
-					/* result is already set to TRUE, need not change it */
-					/* and jump to the end of the OR expression */
+					/* 结果已是 TRUE，不必改 */
+					/* 并跳到 OR 表达式末尾 */
 					LLVMBuildBr(b, opblocks[op->d.boolexpr.jumpdone]);
 
-					/* build block that continues if bool is FALSE */
+					/* 建布尔为 FALSE 时继续的块 */
 					LLVMPositionBuilderAtEnd(b, b_boolcont);
 
 					v_boolanynull = l_load(b, TypeStorageBool, v_boolanynullp, "");
 
-					/* set value to NULL if any previous values were NULL */
+					/* 若先前有 NULL 则把值置 NULL */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_boolanynull,
 												  l_sbool_const(0), ""),
 									opblocks[opno + 1], b_boolisanynull);
 
 					LLVMPositionBuilderAtEnd(b, b_boolisanynull);
-					/* set resnull to true */
+					/* resnull 置 true */
 					LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
-					/* reset resvalue */
+					/* 复位resvalue */
 					LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
@@ -881,9 +881,9 @@ llvm_compile_expr(ExprState *state)
 															l_sizet_const(0),
 															""),
 											  TypeSizeT, "");
-					/* set resnull to boolnull */
+					/* resnull 置为 boolnull */
 					LLVMBuildStore(b, v_boolnull, v_resnullp);
-					/* set revalue to !boolvalue */
+					/* resvalue 置 !boolvalue */
 					LLVMBuildStore(b, v_negbool, v_resvaluep);
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
@@ -916,13 +916,13 @@ llvm_compile_expr(ExprState *state)
 									b_qualfail,
 									opblocks[opno + 1]);
 
-					/* build block handling NULL or false */
+					/* 建处理 NULL 或 false 的块 */
 					LLVMPositionBuilderAtEnd(b, b_qualfail);
-					/* set resnull to false */
+					/* resnull 置 false */
 					LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
-					/* set resvalue to false */
+					/* resvalue 置 false */
 					LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
-					/* and jump out */
+					/* 并跳出 */
 					LLVMBuildBr(b, opblocks[op->d.qualexpr.jumpdone]);
 					break;
 				}
@@ -937,7 +937,7 @@ llvm_compile_expr(ExprState *state)
 				{
 					LLVMValueRef v_resnull;
 
-					/* Transfer control if current result is null */
+					/* 当前结果为空则转移控制 */
 
 					v_resnull = l_load(b, TypeStorageBool, v_resnullp, "");
 
@@ -953,7 +953,7 @@ llvm_compile_expr(ExprState *state)
 				{
 					LLVMValueRef v_resnull;
 
-					/* Transfer control if current result is non-null */
+					/* 当前结果非空则转移控制 */
 
 					v_resnull = l_load(b, TypeStorageBool, v_resnullp, "");
 
@@ -972,7 +972,7 @@ llvm_compile_expr(ExprState *state)
 					LLVMValueRef v_resvalue;
 					LLVMValueRef v_nullorfalse;
 
-					/* Transfer control if current result is null or false */
+					/* 当前结果为空或假则转移控制 */
 
 					v_resvalue = l_load(b, TypeSizeT, v_resvaluep, "");
 					v_resnull = l_load(b, TypeStorageBool, v_resnullp, "");
@@ -1056,16 +1056,16 @@ llvm_compile_expr(ExprState *state)
 					b_notnull = l_bb_before_v(opblocks[opno + 1],
 											  "op.%d.isnotnull", opno);
 
-					/* check if value is NULL */
+					/* 检查值是否 NULL */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_resnull,
 												  l_sbool_const(1), ""),
 									b_isnull, b_notnull);
 
-					/* if value is NULL, return false */
+					/* 若值为 NULL，返回 false */
 					LLVMPositionBuilderAtEnd(b, b_isnull);
 
-					/* result is not null */
+					/* 结果非空 */
 					LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
 
 					if (opcode == EEOP_BOOLTEST_IS_TRUE ||
@@ -1086,8 +1086,8 @@ llvm_compile_expr(ExprState *state)
 						opcode == EEOP_BOOLTEST_IS_NOT_FALSE)
 					{
 						/*
-						 * if value is not null NULL, return value (already
-						 * set)
+						 * 若值非 NULL，返回该值（已设置）。
+						 *
 						 */
 					}
 					else
@@ -1260,16 +1260,16 @@ llvm_compile_expr(ExprState *state)
 
 					v_null = l_load(b, TypeStorageBool, v_nullp, "");
 
-					/* store null isnull value in result */
+					/* 把 isnull 存进结果 */
 					LLVMBuildStore(b, v_null, v_resnullp);
 
-					/* check if value is NULL */
+					/* 检查值是否 NULL */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_null,
 												  l_sbool_const(1), ""),
 									opblocks[opno + 1], b_notnull);
 
-					/* if value is not null, convert to RO datum */
+					/* 若非空，转成 RO datum */
 					LLVMPositionBuilderAtEnd(b, b_notnull);
 
 					v_valuep = l_ptr_const(op->d.make_readonly.value,
@@ -1334,7 +1334,7 @@ llvm_compile_expr(ExprState *state)
 									 FIELDNO_FUNCTIONCALLINFODATA_ISNULL,
 									 "v_fcinfo_in_isnull");
 
-					/* output functions are not called on nulls */
+					/* 输出函数不会对空值调用 */
 					v_resnull = l_load(b, TypeStorageBool, v_resnullp, "");
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b, LLVMIntEQ, v_resnull,
@@ -1349,24 +1349,24 @@ llvm_compile_expr(ExprState *state)
 					LLVMPositionBuilderAtEnd(b, b_calloutput);
 					v_resvalue = l_load(b, TypeSizeT, v_resvaluep, "");
 
-					/* set arg[0] */
+					/* 置 arg[0] */
 					LLVMBuildStore(b,
 								   v_resvalue,
 								   l_funcvaluep(b, v_fcinfo_out, 0));
 					LLVMBuildStore(b,
 								   l_sbool_const(0),
 								   l_funcnullp(b, v_fcinfo_out, 0));
-					/* and call output function (can never return NULL) */
+					/* 并调用输出函数（永不返回 NULL） */
 					v_output = l_call(b,
 									  LLVMGetFunctionType(v_fn_out),
 									  v_fn_out, &v_fcinfo_out,
 									  1, "funccall_coerce_out");
 					LLVMBuildBr(b, b_input);
 
-					/* build block handling input function call */
+					/* 建处理输入函数调用的块 */
 					LLVMPositionBuilderAtEnd(b, b_input);
 
-					/* phi between resnull and output function call branches */
+					/* resnull 与输出函数调用分支之间的 phi */
 					{
 						LLVMValueRef incoming_values[2];
 						LLVMBasicBlockRef incoming_blocks[2];
@@ -1384,8 +1384,8 @@ llvm_compile_expr(ExprState *state)
 					}
 
 					/*
-					 * If input function is strict, skip if input string is
-					 * NULL.
+					 * 若输入函数 strict，输入串为 NULL 则跳过
+					 *
 					 */
 					if (op->d.iocoerce.finfo_in->fn_strict)
 					{
@@ -1401,19 +1401,19 @@ llvm_compile_expr(ExprState *state)
 					}
 
 					LLVMPositionBuilderAtEnd(b, b_inputcall);
-					/* set arguments */
-					/* arg0: output */
+					/* 设置参数 */
+					/* arg0: 输出 */
 					LLVMBuildStore(b, v_output,
 								   l_funcvaluep(b, v_fcinfo_in, 0));
 					LLVMBuildStore(b, v_resnull,
 								   l_funcnullp(b, v_fcinfo_in, 0));
 
-					/* arg1: ioparam: preset in execExpr.c */
-					/* arg2: typmod: preset in execExpr.c  */
+					/* arg1 为 ioparam，见 execExpr.c */
+					/* arg2 为 typmod，见 execExpr.c  */
 
-					/* reset fcinfo_in->isnull */
+					/* 清 fcinfo_in->isnull */
 					LLVMBuildStore(b, l_sbool_const(0), v_fcinfo_in_isnullp);
-					/* and call function */
+					/* 并调用函数 */
 					v_retval = l_call(b,
 									  LLVMGetFunctionType(v_fn_in),
 									  v_fn_in, &v_fcinfo_in, 1,
@@ -1455,7 +1455,7 @@ llvm_compile_expr(ExprState *state)
 
 					v_fcinfo = l_ptr_const(fcinfo, l_ptr(StructFunctionCallInfoData));
 
-					/* load args[0|1].isnull for both arguments */
+					/* 加载两参数的 args[0|1].isnull */
 					v_argnull0 = l_funcnull(b, v_fcinfo, 0);
 					v_argisnull0 = LLVMBuildICmp(b, LLVMIntEQ, v_argnull0,
 												 l_sbool_const(1), "");
@@ -1467,22 +1467,22 @@ llvm_compile_expr(ExprState *state)
 					v_bothargisnull = LLVMBuildAnd(b, v_argisnull0, v_argisnull1, "");
 
 					/*
-					 * Check function arguments for NULLness: If either is
-					 * NULL, we check if both args are NULL. Otherwise call
-					 * comparator.
+					 * 查参数 NULLness：任一为 NULL 则看是否
+					 * 两参数都是 NULL。否则调用比较器。
+					 *
 					 */
 					LLVMBuildCondBr(b, v_anyargisnull, b_checkbothargnull,
 									b_noargnull);
 
 					/*
-					 * build block checking if any arg is null
+					 * 建检查是否有参数为 null 的块
 					 */
 					LLVMPositionBuilderAtEnd(b, b_checkbothargnull);
 					LLVMBuildCondBr(b, v_bothargisnull, b_bothargnull,
 									b_anyargnull);
 
 
-					/* Both NULL? Then is not distinct... */
+					/* 都是 NULL？则并非 distinct */
 					LLVMPositionBuilderAtEnd(b, b_bothargnull);
 					LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
 					if (opcode == EEOP_NOT_DISTINCT)
@@ -1492,7 +1492,7 @@ llvm_compile_expr(ExprState *state)
 
 					LLVMBuildBr(b, opblocks[opno + 1]);
 
-					/* Only one is NULL? Then is distinct... */
+					/* 仅一个是 NULL？则是 distinct */
 					LLVMPositionBuilderAtEnd(b, b_anyargnull);
 					LLVMBuildStore(b, l_sbool_const(0), v_resnullp);
 					if (opcode == EEOP_NOT_DISTINCT)
@@ -1501,7 +1501,7 @@ llvm_compile_expr(ExprState *state)
 						LLVMBuildStore(b, l_sizet_const(1), v_resvaluep);
 					LLVMBuildBr(b, opblocks[opno + 1]);
 
-					/* neither argument is null: compare */
+					/* 两参数都非空：比较 */
 					LLVMPositionBuilderAtEnd(b, b_noargnull);
 
 					v_result = BuildV1Call(context, b, mod, fcinfo,
@@ -1509,7 +1509,7 @@ llvm_compile_expr(ExprState *state)
 
 					if (opcode == EEOP_DISTINCT)
 					{
-						/* Must invert result of "=" */
+						/* 须把 = 的结果取反 */
 						v_result =
 							LLVMBuildZExt(b,
 										  LLVMBuildICmp(b, LLVMIntEQ,
@@ -1550,10 +1550,10 @@ llvm_compile_expr(ExprState *state)
 
 					v_fcinfo = l_ptr_const(fcinfo, l_ptr(StructFunctionCallInfoData));
 
-					/* save original arg[0] */
+					/* 保存原 arg[0] */
 					v_arg0 = l_funcvalue(b, v_fcinfo, 0);
 
-					/* if either argument is NULL they can't be equal */
+					/* 任一参数为 NULL 则不可能相等 */
 					v_argnull0 = l_funcnull(b, v_fcinfo, 0);
 					v_argnull1 = l_funcnull(b, v_fcinfo, 1);
 
@@ -1567,22 +1567,22 @@ llvm_compile_expr(ExprState *state)
 
 					LLVMBuildCondBr(b, v_anyargisnull, b_hasnull, b_nonull);
 
-					/* one (or both) of the arguments are null, return arg[0] */
+					/* 一个（或两个）参数为空，返回 arg[0] */
 					LLVMPositionBuilderAtEnd(b, b_hasnull);
 					LLVMBuildStore(b, v_argnull0, v_resnullp);
 					LLVMBuildStore(b, v_arg0, v_resvaluep);
 					LLVMBuildBr(b, opblocks[opno + 1]);
 
-					/* build block to invoke function and check result */
+					/* 建调用函数并检查结果的块 */
 					LLVMPositionBuilderAtEnd(b, b_nonull);
 
 					/*
-					 * If first argument is of varlena type, it might be an
-					 * expanded datum.  We need to ensure that the value
-					 * passed to the comparison function is a read-only
-					 * pointer.  However, if we end by returning the first
-					 * argument, that will be the original read-write pointer
-					 * if it was read-write.
+					 * 第一参数若为 varlena 类型，可能是扩展
+					 * datum。须保证比较函数拿到只读指针
+					 * 但若最终返回第一参数且是读写指针
+					 * 则仍返回原来的读写指针。
+					 *
+					 *
 					 */
 					if (op->d.func.make_ro)
 					{
@@ -1602,9 +1602,9 @@ llvm_compile_expr(ExprState *state)
 					v_retval = BuildV1Call(context, b, mod, fcinfo, &v_fcinfo_isnull);
 
 					/*
-					 * If result not null and arguments are equal return null,
-					 * else return arg[0] (same result as if there'd been
-					 * NULLs, hence reuse b_hasnull).
+					 * 若结果非空且参数相等返回空，否则返回
+					 * arg[0](与有 NULL 时同，故复用 b_hasnull)
+					 *
 					 */
 					v_argsequal = LLVMBuildAnd(b,
 											   LLVMBuildICmp(b, LLVMIntEQ,
@@ -1618,7 +1618,7 @@ llvm_compile_expr(ExprState *state)
 											   "");
 					LLVMBuildCondBr(b, v_argsequal, b_argsequal, b_hasnull);
 
-					/* build block setting result to NULL, if args are equal */
+					/* 参数相等时把结果置 NULL 的块 */
 					LLVMPositionBuilderAtEnd(b, b_argsequal);
 					LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
 					LLVMBuildStore(b, l_sizet_const(0), v_resvaluep);
@@ -1684,8 +1684,8 @@ llvm_compile_expr(ExprState *state)
 									  opno);
 
 					/*
-					 * If function is strict, and either arg is null, we're
-					 * done.
+					 * 若函数是 strict 且任一参数为空则结束
+					 *
 					 */
 					if (op->d.rowcompare_step.finfo->fn_strict)
 					{
@@ -1719,15 +1719,15 @@ llvm_compile_expr(ExprState *state)
 						LLVMBuildBr(b, b_compare);
 					}
 
-					/* build block invoking comparison function */
+					/* 建调用比较函数的块 */
 					LLVMPositionBuilderAtEnd(b, b_compare);
 
-					/* call function */
+					/* 调用函数 */
 					v_retval = BuildV1Call(context, b, mod, fcinfo,
 										   &v_fcinfo_isnull);
 					LLVMBuildStore(b, v_retval, v_resvaluep);
 
-					/* if result of function is NULL, force NULL result */
+					/* 若函数结果为 NULL，强制结果为 NULL */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b,
 												  LLVMIntEQ,
@@ -1737,10 +1737,10 @@ llvm_compile_expr(ExprState *state)
 									b_compare_result,
 									b_null);
 
-					/* build block analyzing the !NULL comparator result */
+					/* 建分析非空比较器结果的块 */
 					LLVMPositionBuilderAtEnd(b, b_compare_result);
 
-					/* if results equal, compare next, otherwise done */
+					/* 若结果相等则比较下一对，否则完 */
 					LLVMBuildCondBr(b,
 									LLVMBuildICmp(b,
 												  LLVMIntEQ,
@@ -1750,8 +1750,8 @@ llvm_compile_expr(ExprState *state)
 									opblocks[op->d.rowcompare_step.jumpdone]);
 
 					/*
-					 * Build block handling NULL input or NULL comparator
-					 * result.
+					 * 处理 NULL 输入或比较器结果为 NULL 块
+					 *
 					 */
 					LLVMPositionBuilderAtEnd(b, b_null);
 					LLVMBuildStore(b, l_sbool_const(1), v_resnullp);
@@ -1769,9 +1769,9 @@ llvm_compile_expr(ExprState *state)
 					LLVMIntPredicate predicate;
 
 					/*
-					 * Btree comparators return 32 bit results, need to be
-					 * careful about sign (used as a 64 bit value it's
-					 * otherwise wrong).
+					 * Btree 比较器返回 32 位，须当心符号(
+					 * 64 位值用会错）。
+					 *
 					 */
 					v_cmpresult =
 						LLVMBuildTrunc(b,
@@ -1793,9 +1793,9 @@ llvm_compile_expr(ExprState *state)
 							predicate = LLVMIntSGE;
 							break;
 						default:
-							/* EQ and NE cases aren't allowed here */
+							/* 此处不允许 EQ 与 NE */
 							Assert(false);
-							predicate = 0;	/* prevent compiler warning */
+							predicate = 0;	/* 防止编译器警告 */
 							break;
 					}
 
@@ -1951,11 +1951,11 @@ llvm_compile_expr(ExprState *state)
 
 					v_aggno = l_int32_const(lc, op->d.aggref.aggno);
 
-					/* load agg value / null */
+					/* 加载聚合值/空 */
 					value = l_load_gep1(b, TypeSizeT, v_aggvalues, v_aggno, "aggvalue");
 					isnull = l_load_gep1(b, TypeStorageBool, v_aggnulls, v_aggno, "aggnull");
 
-					/* and store result */
+					/* 并存储结果 */
 					LLVMBuildStore(b, value, v_resvaluep);
 					LLVMBuildStore(b, isnull, v_resnullp);
 
@@ -1978,15 +1978,15 @@ llvm_compile_expr(ExprState *state)
 								isnull;
 
 					/*
-					 * At this point aggref->wfuncno is not yet set (it's set
-					 * up in ExecInitWindowAgg() after initializing the
-					 * expression). So load it from memory each time round.
+					 * 此时 aggref->wfuncno 尚未设置
+					 * 由 ExecInitWindowAgg() 初始化后设置
+					 * 故每次从内存加载。
 					 */
 					v_wfuncnop = l_ptr_const(&wfunc->wfuncno,
 											 l_ptr(LLVMInt32TypeInContext(lc)));
 					v_wfuncno = l_load(b, LLVMInt32TypeInContext(lc), v_wfuncnop, "v_wfuncno");
 
-					/* load window func value / null */
+					/* 加载窗口函数值/空值 */
 					value = l_load_gep1(b, TypeSizeT, v_aggvalues, v_wfuncno,
 										"windowvalue");
 					isnull = l_load_gep1(b, TypeStorageBool, v_aggnulls, v_wfuncno,
@@ -2076,7 +2076,7 @@ llvm_compile_expr(ExprState *state)
 					v_argsp = l_ptr_const(args, l_ptr(StructNullableDatum));
 					v_nullsp = l_ptr_const(nulls, l_ptr(TypeStorageBool));
 
-					/* create blocks for checking args */
+					/* 为检查参数创建块 */
 					b_checknulls = palloc(sizeof(LLVMBasicBlockRef) * nargs);
 					for (int argno = 0; argno < nargs; argno++)
 					{
@@ -2088,7 +2088,7 @@ llvm_compile_expr(ExprState *state)
 
 					LLVMBuildBr(b, b_checknulls[0]);
 
-					/* strict function, check for NULL args */
+					/* strict 函数，检查 NULL 参数 */
 					for (int argno = 0; argno < nargs; argno++)
 					{
 						LLVMValueRef v_argno = l_int32_const(lc, argno);
@@ -2256,7 +2256,7 @@ llvm_compile_expr(ExprState *state)
 										b_init,
 										b_no_init);
 
-						/* block to init the transition value if necessary */
+						/* 必要时初始化转移值的块 */
 						{
 							LLVMValueRef params[4];
 
@@ -2333,19 +2333,19 @@ llvm_compile_expr(ExprState *state)
 									 FIELDNO_AGGSTATE_CURPERTRANS,
 									 "aggstate.curpertrans");
 
-					/* set aggstate globals */
+					/* 设 aggstate 全局 */
 					LLVMBuildStore(b, v_aggcontext, v_curaggcontext);
 					LLVMBuildStore(b, l_int32_const(lc, op->d.agg_trans.setno),
 								   v_current_setp);
 					LLVMBuildStore(b, v_pertransp, v_current_pertransp);
 
-					/* invoke transition function in per-tuple context */
+					/* 在 per-tuple 上下文中调用转移函数 */
 					v_tmpcontext =
 						l_ptr_const(aggstate->tmpcontext->ecxt_per_tuple_memory,
 									l_ptr(StructMemoryContextData));
 					v_oldcontext = l_mcxt_switch(mod, b, v_tmpcontext);
 
-					/* store transvalue in fcinfo->args[0] */
+					/* transvalue 存入 fcinfo->args[0] */
 					v_transvaluep =
 						l_struct_gep(b,
 									 StructAggStatePerGroupData,
@@ -2368,18 +2368,18 @@ llvm_compile_expr(ExprState *state)
 								   l_load(b, TypeStorageBool, v_transnullp, "transnull"),
 								   l_funcnullp(b, v_fcinfo, 0));
 
-					/* and invoke transition function */
+					/* 并调用转移函数 */
 					v_retval = BuildV1Call(context, b, mod, fcinfo,
 										   &v_fcinfo_isnull);
 
 					/*
-					 * For pass-by-ref datatype, must copy the new value into
-					 * aggcontext and free the prior transValue.  But if
-					 * transfn returned a pointer to its first input, we don't
-					 * need to do anything.  Also, if transfn returned a
-					 * pointer to a R/W expanded object that is already a
-					 * child of the aggcontext, assume we can adopt that value
-					 * without copying it.
+					 * 按引用类型须拷新值进 aggcontext 并释放
+					 * 先前 transValue。若 transfn 返回指向其
+					 * 第一输入指针则不必做事。若 transfn 返回
+					 * 已是 aggcontext 子对象的读写扩展
+					 * 对象指针，则假定可收养该值
+					 * 不必拷贝。
+					 *
 					 */
 					if (opcode == EEOP_AGG_PLAIN_TRANS_INIT_STRICT_BYREF ||
 						opcode == EEOP_AGG_PLAIN_TRANS_STRICT_BYREF ||
@@ -2411,7 +2411,7 @@ llvm_compile_expr(ExprState *state)
 													  v_retval, ""),
 										b_nocall, b_call);
 
-						/* returned datum not passed datum, reparent */
+						/* 返回 datum 不是传入的，须改父 */
 						LLVMPositionBuilderAtEnd(b, b_call);
 
 						params[0] = v_aggstatep;
@@ -2431,18 +2431,18 @@ llvm_compile_expr(ExprState *state)
 								   params, lengthof(params),
 								   "");
 
-						/* store trans value */
+						/* 存 trans 值 */
 						LLVMBuildStore(b, v_newval, v_transvaluep);
 						LLVMBuildStore(b, v_fcinfo_isnull, v_transnullp);
 
 						l_mcxt_switch(mod, b, v_oldcontext);
 						LLVMBuildBr(b, opblocks[opno + 1]);
 
-						/* returned datum passed datum, no need to reparent */
+						/* 返回的 datum 即传入的，不必改父 */
 						LLVMPositionBuilderAtEnd(b, b_nocall);
 					}
 
-					/* store trans value */
+					/* 存 trans 值 */
 					LLVMBuildStore(b, v_retval, v_transvaluep);
 					LLVMBuildStore(b, v_fcinfo_isnull, v_transnullp);
 
@@ -2521,10 +2521,10 @@ llvm_compile_expr(ExprState *state)
 	LLVMDisposeBuilder(b);
 
 	/*
-	 * Don't immediately emit function, instead do so the first time the
-	 * expression is actually evaluated. That allows to emit a lot of
-	 * functions together, avoiding a lot of repeated llvm and memory
-	 * remapping overhead.
+	 * 不立刻发函数，等表达式真正求值时第一次再发
+	 * 这样可把许多函数一起发出，避免反复 llvm 与
+	 * 内存重映射开销。
+	 *
 	 */
 	{
 
@@ -2547,12 +2547,12 @@ llvm_compile_expr(ExprState *state)
 }
 
 /*
- * Run compiled expression.
+ * 运行已编译表达式
  *
- * This will only be called the first time a JITed expression is called. We
- * first make sure the expression is still up-to-date, and then get a pointer to
- * the emitted function. The latter can be the first thing that triggers
- * optimizing and emitting all the generated functions.
+ * 仅在 JIT 表达式第一次被调用时走这里。先确认表达式
+ * 仍是最新的，再取已发函数的指针。后者可能是第一次
+ * 真正触发优化并发出全部已生成函数。
+ *
  */
 static Datum
 ExecRunCompiledExpr(ExprState *state, ExprContext *econtext, bool *isNull)
@@ -2568,7 +2568,7 @@ ExecRunCompiledExpr(ExprState *state, ExprContext *econtext, bool *isNull)
 	llvm_leave_fatal_on_oom();
 	Assert(func);
 
-	/* remove indirection via this function for future calls */
+	/* 以后调用不再经本函数间接 */
 	state->evalfunc = func;
 
 	return func(state, econtext, isNull);
@@ -2603,8 +2603,8 @@ BuildV1Call(LLVMJitContext *context, LLVMBuilderRef b,
 		*v_fcinfo_isnull = l_load(b, TypeStorageBool, v_fcinfo_isnullp, "");
 
 	/*
-	 * Add lifetime-end annotation, signaling that writes to memory don't have
-	 * to be retained (important for inlining potential).
+	 * 加 lifetime-end 注解，表明对内存的写不必保留
+	 * 对内联潜力很重要。
 	 */
 	{
 		LLVMValueRef v_lifetime = create_LifetimeEnd(mod);
@@ -2623,7 +2623,7 @@ BuildV1Call(LLVMJitContext *context, LLVMBuilderRef b,
 }
 
 /*
- * Implement an expression step by calling the function funcname.
+ * 通过调用 funcname 实现一个表达式步骤。
  */
 static LLVMValueRef
 build_EvalXFuncInt(LLVMBuilderRef b, LLVMModuleRef mod, const char *funcname,
@@ -2635,7 +2635,7 @@ build_EvalXFuncInt(LLVMBuilderRef b, LLVMModuleRef mod, const char *funcname,
 	int			argno = 0;
 	LLVMValueRef v_ret;
 
-	/* cheap pre-check as llvm just asserts out */
+	/* 廉价预检查，因 llvm 只会断言 */
 	if (LLVMCountParams(v_fn) != (nargs + 2))
 		elog(ERROR, "parameter mismatch: %s expects %d passed %d",
 			 funcname, LLVMCountParams(v_fn), nargs + 2);
@@ -2663,7 +2663,7 @@ create_LifetimeEnd(LLVMModuleRef mod)
 	LLVMTypeRef param_types[2];
 	LLVMContextRef lc;
 
-	/* LLVM 5+ has a variadic pointer argument */
+	/* LLVM 5+ 有可变参数指针 */
 #if LLVM_VERSION_MAJOR < 5
 	const char *nm = "llvm.lifetime.end";
 #else

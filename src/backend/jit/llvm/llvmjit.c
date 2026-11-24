@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * llvmjit.c
- *	  Core part of the LLVM JIT provider.
+ *	  LLVM JIT 提供方的核心。
  *
  * Copyright (c) 2016-2023, PostgreSQL Global Development Group
  *
@@ -50,7 +50,7 @@
 
 #define LLVMJIT_LLVM_CONTEXT_REUSE_MAX 100
 
-/* Handle of a module emitted via ORC JIT */
+/* 经 ORC JIT 发出的模块句柄 */
 typedef struct LLVMJitHandle
 {
 #if LLVM_VERSION_MAJOR > 11
@@ -63,7 +63,7 @@ typedef struct LLVMJitHandle
 } LLVMJitHandle;
 
 
-/* types & functions commonly needed for JITing */
+/* JITing 常用的类型与函数 */
 LLVMTypeRef TypeSizeT;
 LLVMTypeRef TypeParamBool;
 LLVMTypeRef TypeStorageBool;
@@ -104,10 +104,10 @@ LLVMModuleRef llvm_types_module = NULL;
 static bool llvm_session_initialized = false;
 static size_t llvm_generation = 0;
 
-/* number of LLVMJitContexts that currently are in use */
+/* 当前仍在使用的 LLVMJitContext 个数 */
 static size_t llvm_jit_context_in_use_count = 0;
 
-/* how many times has the current LLVMContextRef been used */
+/* 当前 LLVMContextRef 已被复用多少次 */
 static size_t llvm_llvm_context_reuse_count = 0;
 static const char *llvm_triple = NULL;
 static const char *llvm_layout = NULL;
@@ -145,7 +145,7 @@ PG_MODULE_MAGIC;
 
 
 /*
- * Initialize LLVM JIT provider.
+ * 初始化 LLVM JIT 提供方
  */
 void
 _PG_jit_provider_init(JitProviderCallbacks *cb)
@@ -157,17 +157,17 @@ _PG_jit_provider_init(JitProviderCallbacks *cb)
 
 
 /*
- * Every now and then create a new LLVMContextRef. Unfortunately, during every
- * round of inlining, types may "leak" (they can still be found/used via the
- * context, but new types will be created the next time in inlining is
- * performed). To prevent that from slowly accumulating problematic amounts of
- * memory, recreate the LLVMContextRef we use. We don't want to do so too
- * often, as that implies some overhead (particularly re-loading the module
- * summaries / modules is fairly expensive). A future TODO would be to make
- * this more finegrained and only drop/recreate the LLVMContextRef when we know
- * there has been inlining. If we can get the size of the context from LLVM
- * then that might be a better way to determine when to drop/recreate rather
- * then the usagecount heuristic currently employed.
+ * 偶尔新建 LLVMContextRef。不幸的是，每轮内联
+ * 类型可能"泄漏"（仍可经上下文找到/使用，但下次
+ * 再内联会创建新类型）。为免内存积到成问题的
+ * 程度，重建所用的 LLVMContextRef。不宜太勤，因为
+ * 有开销（尤其重新加载模块摘要/模块相当贵）。
+ * 将来 TODO：更细：仅在确知发生过内联时才丢弃/
+ * 重建 LLVMContextRef。若能从 LLVM 取得上下文大小，
+ * 用它决定何时丢弃/重建，会优于现在的
+ * usagecount 启发式。
+ *
+ *
  */
 static void
 llvm_recreate_llvm_context(void)
@@ -176,8 +176,8 @@ llvm_recreate_llvm_context(void)
 		elog(ERROR, "Trying to recreate a non-existing context");
 
 	/*
-	 * We can only safely recreate the LLVM context if no other code is being
-	 * JITed, otherwise we'd release the types in use for that.
+	 * 仅当没有其他代码正在 JIT 时才能安全重建 LLVM
+	 * 上下文，否则会释放那些正在用的类型。
 	 */
 	if (llvm_jit_context_in_use_count > 0)
 	{
@@ -192,10 +192,10 @@ llvm_recreate_llvm_context(void)
 	}
 
 	/*
-	 * Need to reset the modules that the inlining code caches before
-	 * disposing of the context. LLVM modules exist within a specific LLVM
-	 * context, therefore disposing of the context before resetting the cache
-	 * would lead to dangling pointers to modules.
+	 * 丢弃上下文前须重置内联代码所缓存的模块。
+	 * LLVM 模块存在于特定 LLVM 上下文中，先丢上下文
+	 * 再清缓存会留下指向模块的悬空指针。
+	 *
 	 */
 	llvm_inline_reset_caches();
 
@@ -204,20 +204,20 @@ llvm_recreate_llvm_context(void)
 	llvm_llvm_context_reuse_count = 0;
 
 	/*
-	 * Re-build cached type information, so code generation code can rely on
-	 * that information to be present (also prevents the variables to be
-	 * dangling references).
+	 * 重建缓存的类型信息，让发码代码可以依赖其
+	 * 存在（也避免变量变成悬空引用）。
+	 *
 	 */
 	llvm_create_types();
 }
 
 
 /*
- * Create a context for JITing work.
+ * 为 JIT 工作创建上下文。
  *
- * The context, including subsidiary resources, will be cleaned up either when
- * the context is explicitly released, or when the lifetime of
- * CurrentResourceOwner ends (usually the end of the current [sub]xact).
+ * 上下文及其附属资源会在显式释放时、或
+ * CurrentResourceOwner 生命结束时（通常是当前
+ * [子]事务结束）清理。
  */
 LLVMJitContext *
 llvm_create_context(int jitFlags)
@@ -236,7 +236,7 @@ llvm_create_context(int jitFlags)
 									 sizeof(LLVMJitContext));
 	context->base.flags = jitFlags;
 
-	/* ensure cleanup */
+	/* 确保清理 */
 	context->base.resowner = CurrentResourceOwner;
 	ResourceOwnerRememberJIT(CurrentResourceOwner, PointerGetDatum(context));
 
@@ -246,7 +246,7 @@ llvm_create_context(int jitFlags)
 }
 
 /*
- * Release resources required by one llvm context.
+ * 释放一个 llvm 上下文所需的资源。
  */
 static void
 llvm_release_context(JitContext *context)
@@ -255,15 +255,15 @@ llvm_release_context(JitContext *context)
 	ListCell   *lc;
 
 	/*
-	 * Consider as cleaned up even if we skip doing so below, that way we can
-	 * verify the tracking is correct (see llvm_shutdown()).
+	 * 即便下面跳过清理也视为已清，以便核对跟踪是否
+	 * 正确（见 llvm_shutdown()）。
 	 */
 	llvm_jit_context_in_use_count--;
 
 	/*
-	 * When this backend is exiting, don't clean up LLVM. As an error might
-	 * have occurred from within LLVM, we do not want to risk reentering. All
-	 * resource cleanup is going to happen through process exit.
+	 * 本 backend 正在退出时不要清理 LLVM。错误可能
+	 * 源自 LLVM 内部，不想冒险重入。资源清理将随
+	 * 进程退出完成。
 	 */
 	if (proc_exit_inprogress)
 		return;
@@ -289,10 +289,10 @@ llvm_release_context(JitContext *context)
 			LLVMOrcReleaseResourceTracker(jit_handle->resource_tracker);
 
 			/*
-			 * Without triggering cleanup of the string pool, we'd leak
-			 * memory. It'd be sufficient to do this far less often, but in
-			 * experiments the required time was small enough to just always
-			 * do it.
+			 * 不触发字符串池清理会漏内存。其实不必
+			 * 每次都做，但实验里耗时很小，故一律做。
+			 *
+			 *
 			 */
 			ee = LLVMOrcLLJITGetExecutionSession(jit_handle->lljit);
 			sp = LLVMOrcExecutionSessionGetSymbolStringPool(ee);
@@ -313,7 +313,7 @@ llvm_release_context(JitContext *context)
 }
 
 /*
- * Return module which may be modified, e.g. by creating new functions.
+ * 返回可修改的模块，例如可在其中创建新函数。
  */
 LLVMModuleRef
 llvm_mutable_module(LLVMJitContext *context)
@@ -321,7 +321,7 @@ llvm_mutable_module(LLVMJitContext *context)
 	llvm_assert_in_fatal_section();
 
 	/*
-	 * If there's no in-progress module, create a new one.
+	 * 若没有进行中的模块，则新建一个。
 	 */
 	if (!context->module)
 	{
@@ -336,9 +336,9 @@ llvm_mutable_module(LLVMJitContext *context)
 }
 
 /*
- * Expand function name to be non-conflicting. This should be used by code
- * generating code, when adding new externally visible function definitions to
- * a Module.
+ * 把函数名扩成不冲突的。发码时向模块添加新的
+ * 对外可见函数定义，应使用本函数。
+ *
  */
 char *
 llvm_expand_funcname(struct LLVMJitContext *context, const char *basename)
@@ -348,8 +348,8 @@ llvm_expand_funcname(struct LLVMJitContext *context, const char *basename)
 	context->base.instr.created_functions++;
 
 	/*
-	 * Previously we used dots to separate, but turns out some tools, e.g.
-	 * GDB, don't like that and truncate name.
+	 * 以前用点分隔，但有些工具（如 GDB）不喜欢，
+	 * 会截断名字。
 	 */
 	return psprintf("%s_%zu_%d",
 					basename,
@@ -358,8 +358,8 @@ llvm_expand_funcname(struct LLVMJitContext *context, const char *basename)
 }
 
 /*
- * Return pointer to function funcname, which has to exist. If there's pending
- * code to be optimized and emitted, do so first.
+ * 返回必须存在的函数 funcname 的指针。若有待优化
+ * 并发出的代码，先做完。
  */
 void *
 llvm_get_function(LLVMJitContext *context, const char *funcname)
@@ -372,8 +372,8 @@ llvm_get_function(LLVMJitContext *context, const char *funcname)
 	llvm_assert_in_fatal_section();
 
 	/*
-	 * If there is a pending / not emitted module, compile and emit now.
-	 * Otherwise we might not find the [correct] function.
+	 * 若有挂起/未发出的模块，现在编译并发出。
+	 * 否则可能找不到正确的函数。
 	 */
 	if (!context->compiled)
 	{
@@ -381,8 +381,8 @@ llvm_get_function(LLVMJitContext *context, const char *funcname)
 	}
 
 	/*
-	 * ORC's symbol table is of *unmangled* symbols. Therefore we don't need
-	 * to mangle here.
+	 * ORC 符号表是未修饰符号，故此处不必修饰。
+	 *
 	 */
 
 #if LLVM_VERSION_MAJOR > 11
@@ -403,10 +403,10 @@ llvm_get_function(LLVMJitContext *context, const char *funcname)
 				 funcname, llvm_error_message(error));
 
 		/*
-		 * LLJIT only actually emits code the first time a symbol is
-		 * referenced. Thus add lookup time to emission time. That's counting
-		 * a bit more than with older LLVM versions, but unlikely to ever
-		 * matter.
+		 * LLJIT 仅在首次引用符号时才发码。故查找
+		 * 时间计入发出时间。比旧 LLVM 多计一点，但不太
+		 * 会要紧。
+		 *
 		 */
 		INSTR_TIME_SET_CURRENT(endtime);
 		INSTR_TIME_ACCUM_DIFF(context->base.instr.emission_counter,
@@ -457,8 +457,8 @@ llvm_get_function(LLVMJitContext *context, const char *funcname)
 }
 
 /*
- * Return type of a variable in llvmjit_types.c. This is useful to keep types
- * in sync between plain C and JIT related code.
+ * 返回 llvmjit_types.c 中某变量的类型。便于让普通 C
+ * 与 JIT 相关代码的类型保持同步。
  */
 LLVMTypeRef
 llvm_pg_var_type(const char *varname)
@@ -466,7 +466,7 @@ llvm_pg_var_type(const char *varname)
 	LLVMValueRef v_srcvar;
 	LLVMTypeRef typ;
 
-	/* this'll return a *pointer* to the global */
+	/* 这会返回指向该全局的指针 */
 	v_srcvar = LLVMGetNamedGlobal(llvm_types_module, varname);
 	if (!v_srcvar)
 		elog(ERROR, "variable %s not in llvmjit_types.c", varname);
@@ -477,8 +477,8 @@ llvm_pg_var_type(const char *varname)
 }
 
 /*
- * Return function type of a variable in llvmjit_types.c. This is useful to
- * keep function types in sync between C and JITed code.
+ * 返回 llvmjit_types.c 中某变量的函数类型。便于让 C
+ * 与 JIT 代码的函数类型保持同步。
  */
 LLVMTypeRef
 llvm_pg_var_func_type(const char *varname)
@@ -496,11 +496,11 @@ llvm_pg_var_func_type(const char *varname)
 }
 
 /*
- * Return declaration for a function referenced in llvmjit_types.c, adding it
- * to the module if necessary.
+ * 返回 llvmjit_types.c 中引用的函数声明，必要时加到
+ * 模块中。
  *
- * This is used to make functions discovered via llvm_create_types() known to
- * the module that's currently being worked on.
+ * 用来让 llvm_create_types() 发现的函数为当前正在
+ * 处理的模块所知。
  */
 LLVMValueRef
 llvm_pg_func(LLVMModuleRef mod, const char *funcname)
@@ -508,7 +508,7 @@ llvm_pg_func(LLVMModuleRef mod, const char *funcname)
 	LLVMValueRef v_srcfn;
 	LLVMValueRef v_fn;
 
-	/* don't repeatedly add function */
+	/* 不要重复添加函数 */
 	v_fn = LLVMGetNamedFunction(mod, funcname);
 	if (v_fn)
 		return v_fn;
@@ -527,8 +527,8 @@ llvm_pg_func(LLVMModuleRef mod, const char *funcname)
 }
 
 /*
- * Copy attributes from one function to another, for a specific index (an
- * index can reference return value, function and parameter attributes).
+ * 按指定索引把属性从一函数拷到另一函数（索引可
+ * 指返回值、函数及参数属性）。
  */
 static void
 llvm_copy_attributes_at_index(LLVMValueRef v_from, LLVMValueRef v_to, uint32 index)
@@ -539,8 +539,8 @@ llvm_copy_attributes_at_index(LLVMValueRef v_from, LLVMValueRef v_to, uint32 ind
 	num_attributes = LLVMGetAttributeCountAtIndexPG(v_from, index);
 
 	/*
-	 * Not just for efficiency: LLVM <= 3.9 crashes when
-	 * LLVMGetAttributesAtIndex() is called for an index with 0 attributes.
+	 * 不只为效率：LLVM <= 3.9 在
+	 * 对 0 属性的索引调 LLVMGetAttributesAtIndex() 会崩。
 	 */
 	if (num_attributes == 0)
 		return;
@@ -555,24 +555,24 @@ llvm_copy_attributes_at_index(LLVMValueRef v_from, LLVMValueRef v_to, uint32 ind
 }
 
 /*
- * Copy all attributes from one function to another. I.e. function, return and
- * parameters will be copied.
+ * 拷贝一函数的全部属性，即函数、返回值与参数。
+ *
  */
 void
 llvm_copy_attributes(LLVMValueRef v_from, LLVMValueRef v_to)
 {
 	uint32		param_count;
 
-	/* copy function attributes */
+	/* 拷贝函数属性 */
 	llvm_copy_attributes_at_index(v_from, v_to, LLVMAttributeFunctionIndex);
 
 	if (LLVMGetTypeKind(LLVMGetFunctionReturnType(v_to)) != LLVMVoidTypeKind)
 	{
-		/* and the return value attributes */
+		/* 以及返回值属性 */
 		llvm_copy_attributes_at_index(v_from, v_to, LLVMAttributeReturnIndex);
 	}
 
-	/* and each function parameter's attribute */
+	/* 以及每个函数参数的属性 */
 	param_count = LLVMCountParams(v_from);
 
 	for (int paramidx = 1; paramidx <= param_count; paramidx++)
@@ -580,7 +580,7 @@ llvm_copy_attributes(LLVMValueRef v_from, LLVMValueRef v_to)
 }
 
 /*
- * Return a callable LLVMValueRef for fcinfo.
+ * 返回 fcinfo 可调用 LLVMValueRef。
  */
 LLVMValueRef
 llvm_function_reference(LLVMJitContext *context,
@@ -598,20 +598,20 @@ llvm_function_reference(LLVMJitContext *context,
 
 	if (modname != NULL && basename != NULL)
 	{
-		/* external function in loadable library */
+		/* 可加载库中的外部函数 */
 		funcname = psprintf("pgextern.%s.%s", modname, basename);
 	}
 	else if (basename != NULL)
 	{
-		/* internal function */
+		/* 内部函数 */
 		funcname = pstrdup(basename);
 	}
 	else
 	{
 		/*
-		 * Function we don't know to handle, return pointer. We do so by
-		 * creating a global constant containing a pointer to the function.
-		 * Makes IR more readable.
+		 * 不知如何处理的函数则返回指针。做法是建含
+		 * 函数指针的全局常量。IR 更好读。
+		 *
 		 */
 		LLVMValueRef v_fn_addr;
 
@@ -632,7 +632,7 @@ llvm_function_reference(LLVMJitContext *context,
 		return l_load(builder, TypePGFunction, v_fn, "");
 	}
 
-	/* check if function already has been added */
+	/* 检查函数是否已添加 */
 	v_fn = LLVMGetNamedFunction(mod, funcname);
 	if (v_fn != 0)
 		return v_fn;
@@ -643,7 +643,7 @@ llvm_function_reference(LLVMJitContext *context,
 }
 
 /*
- * Optimize code in module using the flags set in context.
+ * 按上下文中的标志优化模块中的代码。
  */
 static void
 llvm_optimize_module(LLVMJitContext *context, LLVMModuleRef module)
@@ -661,9 +661,9 @@ llvm_optimize_module(LLVMJitContext *context, LLVMModuleRef module)
 		compile_optlevel = 0;
 
 	/*
-	 * Have to create a new pass manager builder every pass through, as the
-	 * inliner has some per-builder state. Otherwise one ends up only inlining
-	 * a function the first time though.
+	 * 每次通过都须新建 PassManagerBuilder，因内联器
+	 * 有每 builder 状态。否则一个函数只会在第一次被
+	 * 内联。
 	 */
 	llvm_pmb = LLVMPassManagerBuilderCreate();
 	LLVMPassManagerBuilderSetOptLevel(llvm_pmb, compile_optlevel);
@@ -671,20 +671,20 @@ llvm_optimize_module(LLVMJitContext *context, LLVMModuleRef module)
 
 	if (context->base.flags & PGJIT_OPT3)
 	{
-		/* TODO: Unscientifically determined threshold */
+		/* TODO：阈值并非科学测定 */
 		LLVMPassManagerBuilderUseInlinerWithThreshold(llvm_pmb, 512);
 	}
 	else
 	{
-		/* we rely on mem2reg heavily, so emit even in the O0 case */
+		/* 我们重度依赖 mem2reg，故 O0 也发出 */
 		LLVMAddPromoteMemoryToRegisterPass(llvm_fpm);
 	}
 
 	LLVMPassManagerBuilderPopulateFunctionPassManager(llvm_pmb, llvm_fpm);
 
 	/*
-	 * Do function level optimization. This could be moved to the point where
-	 * functions are emitted, to reduce memory usage a bit.
+	 * 做函数级优化。可挪到发函数时做，以略减内存。
+	 *
 	 */
 	LLVMInitializeFunctionPassManager(llvm_fpm);
 	for (func = LLVMGetFirstFunction(context->module);
@@ -695,16 +695,16 @@ llvm_optimize_module(LLVMJitContext *context, LLVMModuleRef module)
 	LLVMDisposePassManager(llvm_fpm);
 
 	/*
-	 * Perform module level optimization. We do so even in the non-optimized
-	 * case, so always-inline functions etc get inlined. It's cheap enough.
+	 * 做模块级优化。即便非优化情形也做，以便
+	 * always-inline 等函数被内联。足够便宜。
 	 */
 	llvm_mpm = LLVMCreatePassManager();
 	LLVMPassManagerBuilderPopulateModulePassManager(llvm_pmb,
 													llvm_mpm);
-	/* always use always-inliner pass */
+	/* 总用 always-inliner 遍 */
 	if (!(context->base.flags & PGJIT_OPT3))
 		LLVMAddAlwaysInlinerPass(llvm_mpm);
-	/* if doing inlining, but no expensive optimization, add inlining pass */
+	/* 若做内联但不做昂贵优化，则加内联遍 */
 	if (context->base.flags & PGJIT_INLINE
 		&& !(context->base.flags & PGJIT_OPT3))
 		LLVMAddFunctionInliningPass(llvm_mpm);
@@ -740,7 +740,7 @@ llvm_optimize_module(LLVMJitContext *context, LLVMModuleRef module)
 }
 
 /*
- * Emit code for the currently pending module.
+ * 为当前挂起的模块发码。
  */
 static void
 llvm_compile_module(LLVMJitContext *context)
@@ -760,7 +760,7 @@ llvm_compile_module(LLVMJitContext *context)
 	else
 		compile_orc = llvm_opt0_orc;
 
-	/* perform inlining */
+	/* 执行内联 */
 	if (context->base.flags & PGJIT_INLINE)
 	{
 		INSTR_TIME_SET_CURRENT(starttime);
@@ -782,7 +782,7 @@ llvm_compile_module(LLVMJitContext *context)
 	}
 
 
-	/* optimize according to the chosen optimization settings */
+	/* 按所选优化设置进行优化 */
 	INSTR_TIME_SET_CURRENT(starttime);
 	llvm_optimize_module(context, context->module);
 	INSTR_TIME_SET_CURRENT(endtime);
@@ -804,10 +804,10 @@ llvm_compile_module(LLVMJitContext *context)
 		MemoryContextAlloc(TopMemoryContext, sizeof(LLVMJitHandle));
 
 	/*
-	 * Emit the code. Note that this can, depending on the optimization
-	 * settings, take noticeable resources as code emission executes low-level
-	 * instruction combining/selection passes etc. Without optimization a
-	 * faster instruction selection mechanism is used.
+	 * 发码。注意：视优化，发码会跑低级指令合并/
+	 * 选择等遍，可能明显耗资源。无优化时用更快的
+	 * 指令选择机制。
+	 *
 	 */
 	INSTR_TIME_SET_CURRENT(starttime);
 #if LLVM_VERSION_MAJOR > 11
@@ -822,12 +822,12 @@ llvm_compile_module(LLVMJitContext *context)
 		handle->resource_tracker = LLVMOrcJITDylibCreateResourceTracker(jd);
 
 		/*
-		 * NB: This doesn't actually emit code. That happens lazily the first
-		 * time a symbol defined in the module is requested. Due to that
-		 * llvm_get_function() also accounts for emission time.
+		 * 注意：这并不真正发码。模块中某符号首次被请求
+		 * 时才惰性发出。因此 llvm_get_function() 也把发出
+		 * 时间计入。
 		 */
 
-		context->module = NULL; /* will be owned by LLJIT */
+		context->module = NULL; /* 将由 LLJIT 拥有 */
 		error = LLVMOrcLLJITAddLLVMIRModuleWithRT(compile_orc,
 												  handle->resource_tracker,
 												  ts_module);
@@ -838,7 +838,7 @@ llvm_compile_module(LLVMJitContext *context)
 
 		handle->lljit = compile_orc;
 
-		/* LLVMOrcLLJITAddLLVMIRModuleWithRT takes ownership of the module */
+		/* LLVMOrcLLJITAddLLVMIRModuleWithRT 取得模块所有权 */
 	}
 #elif LLVM_VERSION_MAJOR > 6
 	{
@@ -847,7 +847,7 @@ llvm_compile_module(LLVMJitContext *context)
 										llvm_resolve_symbol, NULL))
 			elog(ERROR, "failed to JIT module");
 
-		/* LLVMOrcAddEagerlyCompiledIR takes ownership of the module */
+		/* LLVMOrcAddEagerlyCompiledIR 取得模块所有权 */
 	}
 #elif LLVM_VERSION_MAJOR > 4
 	{
@@ -861,7 +861,7 @@ llvm_compile_module(LLVMJitContext *context)
 
 		LLVMOrcDisposeSharedModuleRef(smod);
 	}
-#else							/* LLVM 4.0 and 3.9 */
+#else							/* LLVM 4.0 与 3.9 */
 	{
 		handle->stack = compile_orc;
 		handle->orc_handle = LLVMOrcAddEagerlyCompiledIR(compile_orc, context->module,
@@ -878,7 +878,7 @@ llvm_compile_module(LLVMJitContext *context)
 	context->module = NULL;
 	context->compiled = true;
 
-	/* remember emitted code for cleanup and lookups */
+	/* 记住已发码，供清理与查找 */
 	oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 	context->handles = lappend(context->handles, handle);
 	MemoryContextSwitchTo(oldcontext);
@@ -893,7 +893,7 @@ llvm_compile_module(LLVMJitContext *context)
 }
 
 /*
- * Per session initialization.
+ * 每会话初始化。
  */
 static void
 llvm_session_initialize(void)
@@ -923,26 +923,26 @@ llvm_session_initialize(void)
 	}
 
 	/*
-	 * When targeting LLVM 15, turn off opaque pointers for the context we
-	 * build our code in.  We don't need to do so for other contexts (e.g.
-	 * llvm_ts_context).  Once the IR is generated, it carries the necessary
-	 * information.
+	 * 面向 LLVM 15 时，对我们在其中建码的上下文关掉
+	 * 不透明指针。其他上下文（如 llvm_ts_context）不必。
+	 * IR 一旦生成即自带必要信息。
 	 *
-	 * For 16 and above, opaque pointers must be used, and we have special
-	 * code for that.
+	 *
+	 * 16 及以上必须用不透明指针，我们有专门代码。
+	 *
 	 */
 #if LLVM_VERSION_MAJOR == 15
 	LLVMContextSetOpaquePointers(LLVMGetGlobalContext(), false);
 #endif
 
 	/*
-	 * Synchronize types early, as that also includes inferring the target
-	 * triple.
+	 * 尽早同步类型，其中也包括推断目标三元组。
+	 *
 	 */
 	llvm_create_types();
 
 	/*
-	 * Extract target information from loaded module.
+	 * 从已加载模块提取目标信息。
 	 */
 	llvm_set_target();
 
@@ -952,10 +952,10 @@ llvm_session_initialize(void)
 	}
 
 	/*
-	 * We want the generated code to use all available features. Therefore
-	 * grab the host CPU string and detect features of the current CPU. The
-	 * latter is needed because some CPU architectures default to enabling
-	 * features not all CPUs have (weird, huh).
+	 * 希望生成代码用上全部可用特性。故取主机 CPU
+	 * 字符串并探测当前 CPU 的特性。后者有必要，因为
+	 * 有些 CPU 架构默认启用并非所有 CPU 都有的特性
+	 * 挺怪。
 	 */
 	cpu = LLVMGetHostCPUName();
 	features = LLVMGetHostCPUFeatures();
@@ -978,7 +978,7 @@ llvm_session_initialize(void)
 	LLVMDisposeMessage(features);
 	features = NULL;
 
-	/* force symbols in main binary to be loaded */
+	/* 强制加载主二进制中的符号 */
 	LLVMLoadLibraryPermanently(NULL);
 
 #if LLVM_VERSION_MAJOR > 11
@@ -1028,12 +1028,12 @@ static void
 llvm_shutdown(int code, Datum arg)
 {
 	/*
-	 * If llvm_shutdown() is reached while in a fatal-on-oom section an error
-	 * has occurred in the middle of LLVM code. It is not safe to call back
-	 * into LLVM (which is why a FATAL error was thrown).
+	 * 若在 fatal-on-oom 区间内到达 llvm_shutdown()，说明
+	 * LLVM 代码中途出错。回调进 LLVM 不安全（这也是
+	 * 抛 FATAL 的原因）。
 	 *
-	 * We do need to shutdown LLVM in other shutdown cases, otherwise e.g.
-	 * profiling data won't be written out.
+	 * 其他关机情形仍须关闭 LLVM，否则如剖析数据
+	 * 不会写出。
 	 */
 	if (llvm_in_fatal_on_oom())
 	{
@@ -1065,7 +1065,7 @@ llvm_shutdown(int code, Datum arg)
 	}
 #else							/* LLVM_VERSION_MAJOR > 11 */
 	{
-		/* unregister profiling support, needs to be flushed to be useful */
+		/* 注销剖析支持，须刷新才有用 */
 
 		if (llvm_opt3_orc)
 		{
@@ -1090,14 +1090,14 @@ llvm_shutdown(int code, Datum arg)
 #endif							/* LLVM_VERSION_MAJOR > 11 */
 }
 
-/* helper for llvm_create_types, returning a function's return type */
+/* llvm_create_types 的辅助，返回函数的返回类型 */
 static LLVMTypeRef
 load_return_type(LLVMModuleRef mod, const char *name)
 {
 	LLVMValueRef value;
 	LLVMTypeRef typ;
 
-	/* this'll return a *pointer* to the function */
+	/* 这会返回指向该函数的指针 */
 	value = LLVMGetNamedFunction(mod, name);
 	if (!value)
 		elog(ERROR, "function %s is unknown", name);
@@ -1108,8 +1108,8 @@ load_return_type(LLVMModuleRef mod, const char *name)
 }
 
 /*
- * Load triple & layout from clang emitted file so we're guaranteed to be
- * compatible.
+ * 从 clang 发出的文件加载三元组与布局，以保证兼容。
+ *
  */
 static void
 llvm_set_target(void)
@@ -1125,10 +1125,10 @@ llvm_set_target(void)
 }
 
 /*
- * Load required information, types, function signatures from llvmjit_types.c
- * and make them available in global variables.
+ * 从 llvmjit_types.c 加载所需信息、类型、函数签名，
+ * 放到全局变量中。
  *
- * Those global variables are then used while emitting code.
+ * 发码时使用这些全局变量。
  */
 static void
 llvm_create_types(void)
@@ -1139,14 +1139,14 @@ llvm_create_types(void)
 
 	snprintf(path, MAXPGPATH, "%s/%s", pkglib_path, "llvmjit_types.bc");
 
-	/* open file */
+	/* 开文件 */
 	if (LLVMCreateMemoryBufferWithContentsOfFile(path, &buf, &msg))
 	{
 		elog(ERROR, "LLVMCreateMemoryBufferWithContentsOfFile(%s) failed: %s",
 			 path, msg);
 	}
 
-	/* eagerly load contents, going to need it all */
+	/* 急切加载全部内容，都会用到 */
 	if (LLVMParseBitcodeInContext2(llvm_context, buf, &llvm_types_module))
 	{
 		elog(ERROR, "LLVMParseBitcodeInContext2 of %s failed", path);
@@ -1181,8 +1181,8 @@ llvm_create_types(void)
 }
 
 /*
- * Split a symbol into module / function parts.  If the function is in the
- * main binary (or an external library) *modname will be NULL.
+ * 把符号拆成模块/函数部分。若函数在主二进制（或
+ * 外部库）中，*modname 为 NULL。
  */
 void
 llvm_split_symbol_name(const char *name, char **modname, char **funcname)
@@ -1191,16 +1191,16 @@ llvm_split_symbol_name(const char *name, char **modname, char **funcname)
 	*funcname = NULL;
 
 	/*
-	 * Module function names are pgextern.$module.$funcname
+	 * 模块函数名是 pgextern.$module.$funcname
 	 */
 	if (strncmp(name, "pgextern.", strlen("pgextern.")) == 0)
 	{
 		/*
-		 * Symbol names cannot contain a ., therefore we can split based on
-		 * first and last occurrence of one.
+		 * 符号名不能含"."，故按首末一个点拆。
+		 *
 		 */
 		*funcname = rindex(name, '.');
-		(*funcname)++;			/* jump over . */
+		(*funcname)++;			/* 跳过点 */
 
 		*modname = pnstrdup(name + strlen("pgextern."),
 							*funcname - name - strlen("pgextern.") - 1);
@@ -1216,7 +1216,7 @@ llvm_split_symbol_name(const char *name, char **modname, char **funcname)
 }
 
 /*
- * Attempt to resolve symbol, so LLVM can emit a reference to it.
+ * 尝试解析符号，以便 LLVM 能发出对它的引用。
  */
 static uint64_t
 llvm_resolve_symbol(const char *symname, void *ctx)
@@ -1226,8 +1226,8 @@ llvm_resolve_symbol(const char *symname, void *ctx)
 	char	   *modname;
 
 	/*
-	 * macOS prefixes all object level symbols with an underscore. But neither
-	 * dlsym() nor PG's inliner expect that. So undo.
+	 * macOS 给所有目标级符号加下划线前缀。但 dlsym()
+	 * 与 PG 内联器都不期望。故去掉。
 	 */
 #if defined(__darwin__)
 	if (symname[0] != '_')
@@ -1237,7 +1237,7 @@ llvm_resolve_symbol(const char *symname, void *ctx)
 
 	llvm_split_symbol_name(symname, &modname, &funcname);
 
-	/* functions that aren't resolved to names shouldn't ever get here */
+	/* 未解析成名字的函数不应走到这里 */
 	Assert(funcname);
 
 	if (modname)
@@ -1250,7 +1250,7 @@ llvm_resolve_symbol(const char *symname, void *ctx)
 	if (modname)
 		pfree(modname);
 
-	/* let LLVM will error out - should never happen */
+	/* 让 LLVM 报错——不应发生 */
 	if (!addr)
 		elog(WARNING, "failed to resolve name %s", symname);
 
@@ -1296,13 +1296,13 @@ llvm_resolve_symbols(LLVMOrcDefinitionGeneratorRef GeneratorObj, void *Ctx,
 }
 
 /*
- * We cannot throw errors through LLVM (without causing a FATAL at least), so
- * just use WARNING here. That's OK anyway, as the error is also reported at
- * the top level action (with less detail) and there might be multiple
- * invocations of errors with details.
+ * 不能经 LLVM 抛错（至少会变成 FATAL），故此处只用
+ * WARNING。无妨：顶层动作也会报错（细节较少），且
+ * 带细节的错误可能被调用多次。
  *
- * This doesn't really happen during normal operation, but in cases like
- * symbol resolution breakage. So just using elog(WARNING) is fine.
+ *
+ * 正常运行很少发生，多见于符号解析损坏。故用
+ * elog(WARNING) 即可。
  */
 static void
 llvm_log_jit_error(void *ctx, LLVMErrorRef error)
@@ -1312,7 +1312,7 @@ llvm_log_jit_error(void *ctx, LLVMErrorRef error)
 }
 
 /*
- * Create our own object layer, so we can add event listeners.
+ * 创建自有对象层，以便添加事件监听器。
  */
 static LLVMOrcObjectLayerRef
 llvm_create_object_layer(void *Ctx, LLVMOrcExecutionSessionRef ES, const char *Triple)
@@ -1348,8 +1348,8 @@ llvm_create_object_layer(void *Ctx, LLVMOrcExecutionSessionRef ES, const char *T
 }
 
 /*
- * Create LLJIT instance, using the passed in target machine. Note that the
- * target machine afterwards is owned by the LLJIT instance.
+ * 用传入的目标机创建 LLJIT 实例。之后目标机归该
+ * LLJIT 实例所有。
  */
 static LLVMOrcLLJITRef
 llvm_create_jit_instance(LLVMTargetMachineRef tm)
@@ -1378,8 +1378,8 @@ llvm_create_jit_instance(LLVMTargetMachineRef tm)
 											llvm_log_jit_error, NULL);
 
 	/*
-	 * Symbol resolution support for symbols in the postgres binary /
-	 * libraries already loaded.
+	 * 解析 postgres 二进制/已加载库中符号的支持。
+	 *
 	 */
 	error = LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(&main_gen,
 																 LLVMOrcLLJITGetGlobalPrefix(lljit),
@@ -1390,8 +1390,8 @@ llvm_create_jit_instance(LLVMTargetMachineRef tm)
 	LLVMOrcJITDylibAddGenerator(LLVMOrcLLJITGetMainJITDylib(lljit), main_gen);
 
 	/*
-	 * Symbol resolution support for "special" functions, e.g. a call into an
-	 * SQL callable function.
+	 * 解析特殊函数的支持，例如调用 SQL 可调用函数。
+	 *
 	 */
 #if LLVM_VERSION_MAJOR > 14
 	ref_gen = LLVMOrcCreateCustomCAPIDefinitionGenerator(llvm_resolve_symbols, NULL, NULL);

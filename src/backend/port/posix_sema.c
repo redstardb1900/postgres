@@ -79,8 +79,8 @@ static void ReleaseSemaphores(int status, Datum arg);
  * 尝试创建新的有名信号量。
  *
  * 若失败且失败码不是与已有信号量冲突，
- * 则打印错误并中止。其他错误暗示不可恢复的
- * problems.
+ * 则打印错误并中止。其他错误暗示不可恢复的问题
+ *
  */
 static sem_t *
 PosixSemaphoreCreate(void)

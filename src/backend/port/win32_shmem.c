@@ -278,8 +278,8 @@ retry:
 	for (i = 0; i < 10; i++)
 	{
 		/*
-		 * 以防 CreateFileMapping() 成功时未把错误码
-		 * success
+		 * 以防 CreateFileMapping() 成功时未把错误码设为 0
+		 *
 		 */
 		SetLastError(0);
 
@@ -350,8 +350,8 @@ retry:
 				 errdetail("Failed system call was DuplicateHandle.")));
 
 	/*
-	 * 关闭旧的不可继承句柄。若失败我们并不
-	 * care.
+	 * 关闭旧的不可继承句柄。若失败我们并不在意
+	 *
 	 */
 	if (!CloseHandle(hmap))
 		elog(LOG, "could not close handle to shared memory: error code %lu", GetLastError());

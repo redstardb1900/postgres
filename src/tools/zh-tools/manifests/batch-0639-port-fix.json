@@ -1,0 +1,159 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0639",
+ "title": "backend/port 审查清偿 — batch 0639",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8ec30359f314bfdf6d91a7eb0ff20bcaefc570e9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/port/atomics.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/backend/port/posix_sema.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/backend/port/sysv_sema.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/backend/port/sysv_shmem.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/backend/port/win32_shmem.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/backend/port/win32/crashdump.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/backend/port/win32/socket.c",
+   "kind": "c_comment",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0639-port-fix.json",
+   "kind": "manifest",
+   "note": "0639"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0639"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/port/atomics.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 13,
+   "preserved": 3,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "清 well. 孤儿行"
+  },
+  {
+   "path": "src/backend/port/posix_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 39,
+   "preserved": 2,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "补上「问题」"
+  },
+  {
+   "path": "src/backend/port/sysv_sema.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 71,
+   "translated": 67,
+   "preserved": 4,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "补上「问题」"
+  },
+  {
+   "path": "src/backend/port/sysv_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 84,
+   "preserved": 12,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "大大页/数据目录/孤儿行"
+  },
+  {
+   "path": "src/backend/port/win32_shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 49,
+   "translated": 46,
+   "preserved": 3,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "补上设为 0 / 在意"
+  },
+  {
+   "path": "src/backend/port/win32/crashdump.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "MSVC 版本 / 特别是 / 孤儿行"
+  },
+  {
+   "path": "src/backend/port/win32/socket.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 39,
+   "translated": 38,
+   "preserved": 1,
+   "preserved_reasons": [
+    "版权头或未改短注 KEEP"
+   ],
+   "note": "清 operation.；backend 同译"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0639-port-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "0638 只读审查 FAIL 的 15 处：叠词大大页、丢宾语、英文孤儿行、backend 同译。源文件已在 cumulative，本批只追加 manifest"
+}

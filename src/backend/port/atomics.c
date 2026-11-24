@@ -145,7 +145,7 @@ pg_atomic_compare_exchange_u32_impl(volatile pg_atomic_uint32 *ptr,
 	 * 伪失败。若干算法依赖强变体，且该变体在多数主流
 	 * 架构上可高效实现，故此处也按强变体
 	 * 仿真。
-	 * well.
+	 *
 	 */
 	SpinLockAcquire((slock_t *) &ptr->sema);
 
@@ -208,7 +208,7 @@ pg_atomic_compare_exchange_u64_impl(volatile pg_atomic_uint64 *ptr,
 	 * 伪失败。若干算法依赖强变体，且该变体在多数主流
 	 * 架构上可高效实现，故此处也按强变体
 	 * 仿真。
-	 * well.
+	 *
 	 */
 	SpinLockAcquire((slock_t *) &ptr->sema);
 

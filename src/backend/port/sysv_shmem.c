@@ -361,7 +361,7 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 		/*
 		 * EINVAL 在 shmctl 手册中有多种可能原因，但我们
 		 * 假定它一定表示段已不存在。
-		 * exists.
+		 *
 		 */
 		if (errno == EINVAL)
 			return SHMSTATE_ENOENT;
@@ -438,8 +438,8 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
 		hdr->inode != statbuf.st_ino)
 	{
 		/*
-		 * 要么不是 Postgres 段，要么不是我的数据
-		 * directory.
+		 * 要么不是 Postgres 段，要么不是我的数据目录
+		 *
 		 */
 		return SHMSTATE_FOREIGN;
 	}
@@ -457,7 +457,7 @@ PGSharedMemoryAttach(IpcMemoryId shmId,
  *
  * 某些 Linux 内核版本有 bug：mmap() 在请求不是大页
  * 大小倍数时失败。无该 bug 的版本则默默把请求向上
- * 取整到下一大大页倍数——然后给出不同大小时
+ * 取整到下一大页倍数——然后给出不同大小时
  * munmap() 会失败。
  * 因此必须把请求向上取整为实际大页大小的倍数以免
  * 麻烦。
@@ -543,7 +543,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 
 	/*
 	 * 在足够新的 Linux 上，若必要也含显式页大小。
-	 * necessary.
+	 *
 	 */
 #if defined(MAP_HUGE_MASK) && defined(MAP_HUGE_SHIFT)
 	if (hugepagesize_local != default_hugepagesize)

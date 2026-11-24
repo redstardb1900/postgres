@@ -20,7 +20,7 @@
  * 套接字仿真层总把实际套接字设为非阻塞以便
  * 投递信号，若确需非阻塞操作，须用单独标志
  * 指明。
- * operation.
+ *
  *
  * 此标志*全局*改变所有套接字操作的行为，
  * 故只应设极短时间。
@@ -224,7 +224,7 @@ pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout)
 
 	/*
 	 * 高负载下写 UDP 套接字时未知锁问题的变通：
-	 * 客户端 pgsql 后端在 WaitForMultipleObjectsEx
+	 * 客户端 pgsql 的 backend 在 WaitForMultipleObjectsEx
 	 * 中无限睡眠，pgstat 进程在 pgwin32_select() 中睡眠。
 	 * 因此用短超时（0.1 秒）等待；若套接字仍阻塞，
 	 * 试 WSASend（见 pgwin32_select 注释）再等。

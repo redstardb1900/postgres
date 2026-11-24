@@ -8,7 +8,7 @@
  * 转储供日后调试分析。执行转储的机器
  * 无需特殊调试工具；用户只需把转储发给
  * 持有同版本 PostgreSQL 且具备调试工具的人。
- * tools.
+ *
  *
  * crashdump module originally by Craig Ringer <ringerc@ringerc.id.au>
  *
@@ -18,7 +18,7 @@
  *
  * 那种情况须用更复杂做法：处理函数（若可能）切到
  * 新栈并 fork 辅助进程来调试自身。
- * to debug it self.
+ *
  *
  * POSSIBLE FUTURE WORK
  * ====================
@@ -42,7 +42,7 @@
  * 某些版本的 MS SDK 含 "typedef enum { ... } ;"，MS
  * 编译器对此会合理抱怨。干得好，Microsoft。
  * 本 pragma 仅在包含该头时禁用该警告。
- * 据撰写时所知，该 pragma 适用于全部受支持的
+ * 据撰写时所知，该 pragma 适用于全部受支持的 MSVC 版本
  *
  */
 #ifdef _MSC_VER
@@ -56,7 +56,7 @@
 
 /*
  * 以下代码多基于 CodeProject 与 MSDN 示例，
- * particularly
+ * 特别是
  * http://www.codeproject.com/KB/debug/postmortemdebug_standalone1.aspx
  *
  * 有用 MSDN 文章：

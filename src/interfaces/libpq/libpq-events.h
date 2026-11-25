@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * libpq-events.h
- *	  This file contains definitions that are useful to applications
- *	  that invoke the libpq "events" API, but are not interesting to
- *	  ordinary users of libpq.
+ *	本文件所含定义对调用
+ *	libpq 事件 API 的应用程序有用，但对 libpq
+ *	普通用户无兴趣。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,7 +23,7 @@ extern "C"
 {
 #endif
 
-/* Callback Event Ids */
+/* 回调事件标识 */
 typedef enum
 {
 	PGEVT_REGISTER,
@@ -68,23 +68,23 @@ typedef struct
 
 typedef int (*PGEventProc) (PGEventId evtId, void *evtInfo, void *passThrough);
 
-/* Registers an event proc with the given PGconn. */
+/* 向给定 PGconn 注册一个事件过程。 */
 extern int	PQregisterEventProc(PGconn *conn, PGEventProc proc,
 								const char *name, void *passThrough);
 
-/* Sets the PGconn instance data for the provided proc to data. */
+/* 把所给过程的 PGconn 实例数据设为 data。 */
 extern int	PQsetInstanceData(PGconn *conn, PGEventProc proc, void *data);
 
-/* Gets the PGconn instance data for the provided proc. */
+/* 取所给过程的 PGconn 实例数据。 */
 extern void *PQinstanceData(const PGconn *conn, PGEventProc proc);
 
-/* Sets the PGresult instance data for the provided proc to data. */
+/* 把所给过程的 PGresult 实例数据设为 data。 */
 extern int	PQresultSetInstanceData(PGresult *result, PGEventProc proc, void *data);
 
-/* Gets the PGresult instance data for the provided proc. */
+/* 取所给过程的 PGresult 实例数据。 */
 extern void *PQresultInstanceData(const PGresult *result, PGEventProc proc);
 
-/* Fires RESULTCREATE events for an application-created PGresult. */
+/* 为应用程序所建 PGresult 触发 RESULTCREATE 事件。 */
 extern int	PQfireResultCreateEvents(PGconn *conn, PGresult *res);
 
 #ifdef __cplusplus

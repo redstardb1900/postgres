@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * libpq-fe.h
- *	  This file contains definitions for structures and
- *	  externs for functions used by frontend postgres applications.
+ *	本文件含结构体的定义，以及
+ *	供前端 postgres 应用程序所用的函数外部声明。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,135 +23,135 @@ extern "C"
 #include <stdio.h>
 
 /*
- * postgres_ext.h defines the backend's externally visible types,
- * such as Oid.
+ * postgres_ext.h 定义后端对外可见的类型，
+ * 如 Oid。
  */
 #include "postgres_ext.h"
 
 /*
- * These symbols may be used in compile-time #ifdef tests for the availability
- * of newer libpq features.
+ * 这些符号可能用于编译期 #ifdef 测试，以探测有无
+ * 较新 libpq 功能。
  */
-/* Indicates presence of PQenterPipelineMode and friends */
+/* 标明存在 PQenterPipelineMode 及其同类 */
 #define LIBPQ_HAS_PIPELINING 1
-/* Indicates presence of PQsetTraceFlags; also new PQtrace output format */
+/* 标明存在 PQsetTraceFlags；亦为新的 PQtrace 输出格式 */
 #define LIBPQ_HAS_TRACE_FLAGS 1
-/* Indicates that PQsslAttribute(NULL, "library") is useful */
+/* 标明 PQsslAttribute(NULL, "library") 有用 */
 #define LIBPQ_HAS_SSL_LIBRARY_DETECTION 1
 
 /*
- * Option flags for PQcopyResult
+ * PQcopyResult 的选项标志
  */
 #define PG_COPYRES_ATTRS		  0x01
-#define PG_COPYRES_TUPLES		  0x02	/* Implies PG_COPYRES_ATTRS */
+#define PG_COPYRES_TUPLES		  0x02	/* 隐含 PG_COPYRES_ATTRS */
 #define PG_COPYRES_EVENTS		  0x04
 #define PG_COPYRES_NOTICEHOOKS	  0x08
 
-/* Application-visible enum types */
+/* 应用可见的枚举类型 */
 
 /*
- * Although it is okay to add to these lists, values which become unused
- * should never be removed, nor should constants be redefined - that would
- * break compatibility with existing code.
+ * 虽可向这些列表追加，但不再使用的值
+ * 绝不可删除，常量也绝不可重定义，否则将
+ * 破坏与既有代码的兼容性。
  */
 
 typedef enum
 {
 	CONNECTION_OK,
 	CONNECTION_BAD,
-	/* Non-blocking mode only below here */
+	/* 以下仅非阻塞模式 */
 
 	/*
-	 * The existence of these should never be relied upon - they should only
-	 * be used for user feedback or similar purposes.
+	 * 绝不可依赖这些状态的存在，只可用于
+	 * 用户反馈或类似用途。
 	 */
-	CONNECTION_STARTED,			/* Waiting for connection to be made.  */
-	CONNECTION_MADE,			/* Connection OK; waiting to send.     */
-	CONNECTION_AWAITING_RESPONSE,	/* Waiting for a response from the
-									 * postmaster.        */
-	CONNECTION_AUTH_OK,			/* Received authentication; waiting for
-								 * backend startup. */
-	CONNECTION_SETENV,			/* This state is no longer used. */
-	CONNECTION_SSL_STARTUP,		/* Negotiating SSL. */
-	CONNECTION_NEEDED,			/* Internal state: connect() needed */
-	CONNECTION_CHECK_WRITABLE,	/* Checking if session is read-write. */
-	CONNECTION_CONSUME,			/* Consuming any extra messages. */
-	CONNECTION_GSS_STARTUP,		/* Negotiating GSSAPI. */
-	CONNECTION_CHECK_TARGET,	/* Checking target server properties. */
-	CONNECTION_CHECK_STANDBY	/* Checking if server is in standby mode. */
+	CONNECTION_STARTED,			/* 等待建立连接。  */
+	CONNECTION_MADE,			/* 连接正常；等待发送。     */
+	CONNECTION_AWAITING_RESPONSE,	/* 等待响应，来自 
+									 * postmaster。 */
+	CONNECTION_AUTH_OK,			/* 已收到认证；等待
+								 * 后端启动。 */
+	CONNECTION_SETENV,			/* 此状态已不再使用。 */
+	CONNECTION_SSL_STARTUP,		/* 协商 SSL。 */
+	CONNECTION_NEEDED,			/* 内部状态：需要 connect() */
+	CONNECTION_CHECK_WRITABLE,	/* 检查会话是否可读写。 */
+	CONNECTION_CONSUME,			/* 正在消耗多余消息。 */
+	CONNECTION_GSS_STARTUP,		/* 协商 GSSAPI。 */
+	CONNECTION_CHECK_TARGET,	/* 检查目标服务器属性。 */
+	CONNECTION_CHECK_STANDBY	/* 检查其是否处于备用模式。 */
 } ConnStatusType;
 
 typedef enum
 {
 	PGRES_POLLING_FAILED = 0,
-	PGRES_POLLING_READING,		/* These two indicate that one may	  */
-	PGRES_POLLING_WRITING,		/* use select before polling again.   */
+	PGRES_POLLING_READING,		/* 二者表示再次轮询前	  */
+	PGRES_POLLING_WRITING,		/* 可能先用 select。   */
 	PGRES_POLLING_OK,
-	PGRES_POLLING_ACTIVE		/* unused; keep for awhile for backwards
-								 * compatibility */
+	PGRES_POLLING_ACTIVE		/* 未使用；暂时保留以求向后
+								 * 兼容性 */
 } PostgresPollingStatusType;
 
 typedef enum
 {
-	PGRES_EMPTY_QUERY = 0,		/* empty query string was executed */
-	PGRES_COMMAND_OK,			/* a query command that doesn't return
-								 * anything was executed properly by the
-								 * backend */
-	PGRES_TUPLES_OK,			/* a query command that returns tuples was
-								 * executed properly by the backend, PGresult
-								 * contains the result tuples */
-	PGRES_COPY_OUT,				/* Copy Out data transfer in progress */
-	PGRES_COPY_IN,				/* Copy In data transfer in progress */
-	PGRES_BAD_RESPONSE,			/* an unexpected response was recv'd from the
-								 * backend */
-	PGRES_NONFATAL_ERROR,		/* notice or warning message */
-	PGRES_FATAL_ERROR,			/* query failed */
-	PGRES_COPY_BOTH,			/* Copy In/Out data transfer in progress */
-	PGRES_SINGLE_TUPLE,			/* single tuple from larger resultset */
-	PGRES_PIPELINE_SYNC,		/* pipeline synchronization point */
-	PGRES_PIPELINE_ABORTED		/* Command didn't run because of an abort
-								 * earlier in a pipeline */
+	PGRES_EMPTY_QUERY = 0,		/* 空查询串已执行 */
+	PGRES_COMMAND_OK,			/* 不返回东西的查询命令
+								 * 已被正确执行，执行方为
+								 * 后端 */
+	PGRES_TUPLES_OK,			/* 返回元组的查询命令已被
+								 * 后端正确执行，且 PGresult 
+								 * 含有结果元组 */
+	PGRES_COPY_OUT,				/* COPY OUT 数据传输进行中 */
+	PGRES_COPY_IN,				/* COPY IN 数据传输进行中 */
+	PGRES_BAD_RESPONSE,			/* 收到了意外响应，其来自
+								 * 后端 */
+	PGRES_NONFATAL_ERROR,		/* 通知或警告消息 */
+	PGRES_FATAL_ERROR,			/* 查询失败 */
+	PGRES_COPY_BOTH,			/* COPY IN/OUT 数据传输进行中 */
+	PGRES_SINGLE_TUPLE,			/* 较大结果集中的单个元组 */
+	PGRES_PIPELINE_SYNC,		/* 管道同步点 */
+	PGRES_PIPELINE_ABORTED		/* 命令未运行，因管道中
+								 * 更早的中止 */
 } ExecStatusType;
 
 typedef enum
 {
-	PQTRANS_IDLE,				/* connection idle */
-	PQTRANS_ACTIVE,				/* command in progress */
-	PQTRANS_INTRANS,			/* idle, within transaction block */
-	PQTRANS_INERROR,			/* idle, within failed transaction */
-	PQTRANS_UNKNOWN				/* cannot determine status */
+	PQTRANS_IDLE,				/* 连接空闲 */
+	PQTRANS_ACTIVE,				/* 命令进行中 */
+	PQTRANS_INTRANS,			/* 空闲，位于事务块内 */
+	PQTRANS_INERROR,			/* 空闲，在失败事务中 */
+	PQTRANS_UNKNOWN				/* 无法判定状态 */
 } PGTransactionStatusType;
 
 typedef enum
 {
-	PQERRORS_TERSE,				/* single-line error messages */
-	PQERRORS_DEFAULT,			/* recommended style */
-	PQERRORS_VERBOSE,			/* all the facts, ma'am */
-	PQERRORS_SQLSTATE			/* only error severity and SQLSTATE code */
+	PQERRORS_TERSE,				/* 单行错误消息 */
+	PQERRORS_DEFAULT,			/* 推荐风格 */
+	PQERRORS_VERBOSE,			/* 诸事实，女士 */
+	PQERRORS_SQLSTATE			/* 仅错误严重级与 SQLSTATE 码 */
 } PGVerbosity;
 
 typedef enum
 {
-	PQSHOW_CONTEXT_NEVER,		/* never show CONTEXT field */
-	PQSHOW_CONTEXT_ERRORS,		/* show CONTEXT for errors only (default) */
-	PQSHOW_CONTEXT_ALWAYS		/* always show CONTEXT field */
+	PQSHOW_CONTEXT_NEVER,		/* 永不显示 CONTEXT 域 */
+	PQSHOW_CONTEXT_ERRORS,		/* 仅对错误显示 CONTEXT（默认） */
+	PQSHOW_CONTEXT_ALWAYS		/* 总是显示 CONTEXT 域 */
 } PGContextVisibility;
 
 /*
- * PGPing - The ordering of this enum should not be altered because the
- * values are exposed externally via pg_isready.
+ * PGPing：此枚举的顺序不可改，因为这些
+ * 值经 pg_isready 对外暴露。
  */
 
 typedef enum
 {
-	PQPING_OK,					/* server is accepting connections */
-	PQPING_REJECT,				/* server is alive but rejecting connections */
-	PQPING_NO_RESPONSE,			/* could not establish connection */
-	PQPING_NO_ATTEMPT			/* connection not attempted (bad params) */
+	PQPING_OK,					/* 服务器正在接受连接 */
+	PQPING_REJECT,				/* 服务器存活但拒绝连接 */
+	PQPING_NO_RESPONSE,			/* 未能建立连接 */
+	PQPING_NO_ATTEMPT			/* 未尝试连接（参数有误） */
 } PGPing;
 
 /*
- * PGpipelineStatus - Current status of pipeline mode
+ * PGpipelineStatus：管道模式的当前状态
  */
 typedef enum
 {
@@ -160,87 +160,87 @@ typedef enum
 	PQ_PIPELINE_ABORTED
 } PGpipelineStatus;
 
-/* PGconn encapsulates a connection to the backend.
- * The contents of this struct are not supposed to be known to applications.
+/* PGconn 封装通往后端的连接。
+ * 本结构内容不该为应用程序所知。
  */
 typedef struct pg_conn PGconn;
 
-/* PGresult encapsulates the result of a query (or more precisely, of a single
- * SQL command --- a query string given to PQsendQuery can contain multiple
- * commands and thus return multiple PGresult objects).
- * The contents of this struct are not supposed to be known to applications.
+/* PGresult 封装一次查询的结果（或更精确地说，是单条 
+ * SQL 命令---交给 PQsendQuery 的查询串可含多条
+ * 命令，因而返回多个 PGresult 对象）。
+ * 本结构内容不该为应用程序所知。
  */
 typedef struct pg_result PGresult;
 
-/* PGcancel encapsulates the information needed to cancel a running
- * query on an existing connection.
- * The contents of this struct are not supposed to be known to applications.
+/* PGcancel 封装为取消既有连接上
+ * 运行中查询所需信息。
+ * 本结构内容不该为应用程序所知。
  */
 typedef struct pg_cancel PGcancel;
 
-/* PGnotify represents the occurrence of a NOTIFY message.
- * Ideally this would be an opaque typedef, but it's so simple that it's
- * unlikely to change.
- * NOTE: in Postgres 6.4 and later, the be_pid is the notifying backend's,
- * whereas in earlier versions it was always your own backend's PID.
+/* PGnotify 表示出现了 NOTIFY 消息。
+ * 理想情况下它应是不透明 typedef，但它太简单，故
+ * 不大可能变。
+ * 注意：Postgres 6.4 起 be_pid 是发通知后端的 PID，
+ * 更早版本则始终是你自己后端的 PID。
  */
 typedef struct pgNotify
 {
-	char	   *relname;		/* notification condition name */
-	int			be_pid;			/* process ID of notifying server process */
-	char	   *extra;			/* notification parameter */
-	/* Fields below here are private to libpq; apps should not use 'em */
-	struct pgNotify *next;		/* list link */
+	char	   *relname;		/* 通知条件名 */
+	int			be_pid;			/* 发通知的服务器进程 ID */
+	char	   *extra;			/* 通知参数 */
+	/* 以下字段为 libpq 私有；应用不该使用它们 */
+	struct pgNotify *next;		/* 链节 */
 } PGnotify;
 
-/* Function types for notice-handling callbacks */
+/* 通知处理回调的函数类型 */
 typedef void (*PQnoticeReceiver) (void *arg, const PGresult *res);
 typedef void (*PQnoticeProcessor) (void *arg, const char *message);
 
-/* Print options for PQprint() */
+/* PQprint() 的打印选项 */
 typedef char pqbool;
 
 typedef struct _PQprintOpt
 {
-	pqbool		header;			/* print output field headings and row count */
-	pqbool		align;			/* fill align the fields */
-	pqbool		standard;		/* old brain dead format */
-	pqbool		html3;			/* output html tables */
-	pqbool		expanded;		/* expand tables */
-	pqbool		pager;			/* use pager for output if needed */
-	char	   *fieldSep;		/* field separator */
-	char	   *tableOpt;		/* insert to HTML <table ...> */
-	char	   *caption;		/* HTML <caption> */
-	char	  **fieldName;		/* null terminated array of replacement field
-								 * names */
+	pqbool		header;			/* 打印输出字段标题与行数 */
+	pqbool		align;			/* 填充对齐各字段 */
+	pqbool		standard;		/* 陈旧的脑死格式 */
+	pqbool		html3;			/* 输出 HTML 表 */
+	pqbool		expanded;		/* 展开表 */
+	pqbool		pager;			/* 需要时用分页器输出 */
+	char	   *fieldSep;		/* 字段分隔符 */
+	char	   *tableOpt;		/* 插入 HTML <table ...> */
+	char	   *caption;		/* HTML标题 */
+	char	  **fieldName;		/* 以空字符结尾的替换字段名数
+								 * 组 */
 } PQprintOpt;
 
 /* ----------------
- * Structure for the conninfo parameter definitions returned by PQconndefaults
- * or PQconninfoParse.
+ * 由 PQconndefaults 返回的 conninfo 参数定义结构，或
+ * PQconninfoParse。
  *
- * All fields except "val" point at static strings which must not be altered.
- * "val" is either NULL or a malloc'd current-value string.  PQconninfoFree()
- * will release both the val strings and the PQconninfoOption array itself.
+ * 除 val 外各字段均指向静态串，不得更改。
+ * val 或为 NULL，或为 malloc 出的当前值串。PQconninfoFree() 
+ * 将释放 val 串与 PQconninfoOption 数组本身。
  * ----------------
  */
 typedef struct _PQconninfoOption
 {
-	char	   *keyword;		/* The keyword of the option			*/
-	char	   *envvar;			/* Fallback environment variable name	*/
-	char	   *compiled;		/* Fallback compiled in default value	*/
-	char	   *val;			/* Option's current value, or NULL		 */
-	char	   *label;			/* Label for field in connect dialog	*/
-	char	   *dispchar;		/* Indicates how to display this field in a
-								 * connect dialog. Values are: "" Display
-								 * entered value as is "*" Password field -
-								 * hide value "D"  Debug option - don't show
-								 * by default */
-	int			dispsize;		/* Field size in characters for dialog	*/
+	char	   *keyword;		/* 该选项的关键字			*/
+	char	   *envvar;			/* 回退用的环境变量名	*/
+	char	   *compiled;		/* 回退用的编译期默认值	*/
+	char	   *val;			/* 选项当前值，或 NULL		 */
+	char	   *label;			/* 连接对话框里的字段标签	*/
+	char	   *dispchar;		/* 指明连接对话框中本字段
+								 * 怎么显示。取值如下：空串
+								 * 则原样显示所输；*口令字段，
+								 * 隐藏值；D为调试项且默认不
+								 * 显示。 */
+	int			dispsize;		/* 对话框字段的字符宽度	*/
 } PQconninfoOption;
 
 /* ----------------
- * PQArgBlock -- structure for PQfn() arguments
+ * PQArgBlock：PQfn() 参数用的结构
  * ----------------
  */
 typedef struct
@@ -249,41 +249,41 @@ typedef struct
 	int			isint;
 	union
 	{
-		int		   *ptr;		/* can't use void (dec compiler barfs)	 */
+		int		   *ptr;		/* 不能用 void，DEC编译器报错	 */
 		int			integer;
 	}			u;
 } PQArgBlock;
 
 /* ----------------
- * PGresAttDesc -- Data about a single attribute (column) of a query result
+ * PGresAttDesc：查询结果里单个属性（列）的数据
  * ----------------
  */
 typedef struct pgresAttDesc
 {
-	char	   *name;			/* column name */
-	Oid			tableid;		/* source table, if known */
-	int			columnid;		/* source column, if known */
-	int			format;			/* format code for value (text/binary) */
-	Oid			typid;			/* type id */
-	int			typlen;			/* type size */
-	int			atttypmod;		/* type-specific modifier info */
+	char	   *name;			/* 列名 */
+	Oid			tableid;		/* 源表，若已知 */
+	int			columnid;		/* 源列，若已知 */
+	int			format;			/* 值格式码（文本/二进制） */
+	Oid			typid;			/* 型id */
+	int			typlen;			/* 型大小 */
+	int			atttypmod;		/* 类型专属的修饰信息 */
 } PGresAttDesc;
 
 /* ----------------
- * Exported functions of libpq
+ * libpq 导出的函数
  * ----------------
  */
 
 /* === in fe-connect.c === */
 
-/* make a new client connection to the backend */
-/* Asynchronous (non-blocking) */
+/* 新建一条通往后端的客户端连接 */
+/* 异步（非阻塞） */
 extern PGconn *PQconnectStart(const char *conninfo);
 extern PGconn *PQconnectStartParams(const char *const *keywords,
 									const char *const *values, int expand_dbname);
 extern PostgresPollingStatusType PQconnectPoll(PGconn *conn);
 
-/* Synchronous (blocking) */
+/* 同步（阻塞） */
 extern PGconn *PQconnectdb(const char *conninfo);
 extern PGconn *PQconnectdbParams(const char *const *keywords,
 								 const char *const *values, int expand_dbname);
@@ -295,45 +295,45 @@ extern PGconn *PQsetdbLogin(const char *pghost, const char *pgport,
 #define PQsetdb(M_PGHOST,M_PGPORT,M_PGOPT,M_PGTTY,M_DBNAME)  \
 	PQsetdbLogin(M_PGHOST, M_PGPORT, M_PGOPT, M_PGTTY, M_DBNAME, NULL, NULL)
 
-/* close the current connection and free the PGconn data structure */
+/* 关闭当前连接并释放 PGconn 数据结构 */
 extern void PQfinish(PGconn *conn);
 
-/* get info about connection options known to PQconnectdb */
+/* 获取 PQconnectdb 所知的连接选项信息 */
 extern PQconninfoOption *PQconndefaults(void);
 
-/* parse connection options in same way as PQconnectdb */
+/* 用与 PQconnectdb 相同方式解析连接选项 */
 extern PQconninfoOption *PQconninfoParse(const char *conninfo, char **errmsg);
 
-/* return the connection options used by a live connection */
+/* 返回活动连接所用的连接选项 */
 extern PQconninfoOption *PQconninfo(PGconn *conn);
 
-/* free the data structure returned by PQconndefaults() or PQconninfoParse() */
+/* 释放 PQconndefaults() 或 PQconninfoParse() 返回的数据结构 */
 extern void PQconninfoFree(PQconninfoOption *connOptions);
 
 /*
- * close the current connection and reestablish a new one with the same
- * parameters
+ * 关闭当前连接并重建，沿用相同
+ * 参数
  */
-/* Asynchronous (non-blocking) */
+/* 异步（非阻塞） */
 extern int	PQresetStart(PGconn *conn);
 extern PostgresPollingStatusType PQresetPoll(PGconn *conn);
 
-/* Synchronous (blocking) */
+/* 同步（阻塞） */
 extern void PQreset(PGconn *conn);
 
-/* request a cancel structure */
+/* 请求一个取消结构 */
 extern PGcancel *PQgetCancel(PGconn *conn);
 
-/* free a cancel structure */
+/* 释放取消结构 */
 extern void PQfreeCancel(PGcancel *cancel);
 
-/* issue a cancel request */
+/* 发出取消请求 */
 extern int	PQcancel(PGcancel *cancel, char *errbuf, int errbufsize);
 
-/* backwards compatible version of PQcancel; not thread-safe */
+/* PQcancel 的向后兼容版本；非线程安全 */
 extern int	PQrequestCancel(PGconn *conn);
 
-/* Accessor functions for PGconn objects */
+/* PGconn 对象的存取函数 */
 extern char *PQdb(const PGconn *conn);
 extern char *PQuser(const PGconn *conn);
 extern char *PQpass(const PGconn *conn);
@@ -358,36 +358,36 @@ extern int	PQconnectionUsedGSSAPI(const PGconn *conn);
 extern int	PQclientEncoding(const PGconn *conn);
 extern int	PQsetClientEncoding(PGconn *conn, const char *encoding);
 
-/* SSL information functions */
+/* SSL 信息函数 */
 extern int	PQsslInUse(PGconn *conn);
 extern void *PQsslStruct(PGconn *conn, const char *struct_name);
 extern const char *PQsslAttribute(PGconn *conn, const char *attribute_name);
 extern const char *const *PQsslAttributeNames(PGconn *conn);
 
-/* Get the OpenSSL structure associated with a connection. Returns NULL for
- * unencrypted connections or if any other TLS library is in use. */
+/* 取得与连接关联的 OpenSSL 结构。对未加密连接，
+ * 或在使用其他 TLS 库时，返回 NULL。 */
 extern void *PQgetssl(PGconn *conn);
 
-/* Tell libpq whether it needs to initialize OpenSSL */
+/* 告知 libpq 是否需要初始化 OpenSSL */
 extern void PQinitSSL(int do_init);
 
-/* More detailed way to tell libpq whether it needs to initialize OpenSSL */
+/* 以更细的方式告知 libpq 是否需要初始化 OpenSSL */
 extern void PQinitOpenSSL(int do_ssl, int do_crypto);
 
-/* Return true if GSSAPI encryption is in use */
+/* 若正在使用 GSSAPI 加密则返回真 */
 extern int	PQgssEncInUse(PGconn *conn);
 
-/* Returns GSSAPI context if GSSAPI is in use */
+/* 使用 GSSAPI 时返回其上下文 */
 extern void *PQgetgssctx(PGconn *conn);
 
-/* Set verbosity for PQerrorMessage and PQresultErrorMessage */
+/* 设置 PQerrorMessage 与 PQresultErrorMessage 的详略 */
 extern PGVerbosity PQsetErrorVerbosity(PGconn *conn, PGVerbosity verbosity);
 
-/* Set CONTEXT visibility for PQerrorMessage and PQresultErrorMessage */
+/* 设 PQerrorMessage 与 PQresultErrorMessage 的 CONTEXT 可见性 */
 extern PGContextVisibility PQsetErrorContextVisibility(PGconn *conn,
 													   PGContextVisibility show_context);
 
-/* Override default notice handling routines */
+/* 覆盖默认的通知处理例程 */
 extern PQnoticeReceiver PQsetNoticeReceiver(PGconn *conn,
 											PQnoticeReceiver proc,
 											void *arg);
@@ -396,11 +396,11 @@ extern PQnoticeProcessor PQsetNoticeProcessor(PGconn *conn,
 											  void *arg);
 
 /*
- *	   Used to set callback that prevents concurrent access to
- *	   non-thread safe functions that libpq needs.
- *	   The default implementation uses a libpq internal mutex.
- *	   Only required for multithreaded apps that use kerberos
- *	   both within their app and for postgresql connections.
+ *	用于设置回调，以防并发访问 
+ *	libpq 需要的非线程安全函数。
+ *	默认实现使用 libpq 内部的互斥锁。
+ *	只对多线程应用有要求：它们在应用内
+ *	和 postgresql 连接中都使用 kerberos。
  */
 typedef void (*pgthreadlock_t) (int acquire);
 
@@ -410,16 +410,16 @@ extern pgthreadlock_t PQregisterThreadLock(pgthreadlock_t newhandler);
 extern void PQtrace(PGconn *conn, FILE *debug_port);
 extern void PQuntrace(PGconn *conn);
 
-/* flags controlling trace output: */
-/* omit timestamps from each line */
+/* 控制跟踪输出的标志： */
+/* 每行省略时间戳 */
 #define PQTRACE_SUPPRESS_TIMESTAMPS		(1<<0)
-/* redact portions of some messages, for testing frameworks */
+/* 涂黑部分消息，供测试框架使用 */
 #define PQTRACE_REGRESS_MODE			(1<<1)
 extern void PQsetTraceFlags(PGconn *conn, int flags);
 
 /* === in fe-exec.c === */
 
-/* Simple synchronous query */
+/* 简单的同步查询 */
 extern PGresult *PQexec(PGconn *conn, const char *query);
 extern PGresult *PQexecParams(PGconn *conn,
 							  const char *command,
@@ -440,7 +440,7 @@ extern PGresult *PQexecPrepared(PGconn *conn,
 								const int *paramFormats,
 								int resultFormat);
 
-/* Interface for multiple-result or asynchronous queries */
+/* 多结果或异步查询的接口 */
 #define PQ_QUERY_PARAM_MAX_LIMIT 65535
 
 extern int	PQsendQuery(PGconn *conn, const char *query);
@@ -465,32 +465,32 @@ extern int	PQsendQueryPrepared(PGconn *conn,
 extern int	PQsetSingleRowMode(PGconn *conn);
 extern PGresult *PQgetResult(PGconn *conn);
 
-/* Routines for managing an asynchronous query */
+/* 管理异步查询的例程 */
 extern int	PQisBusy(PGconn *conn);
 extern int	PQconsumeInput(PGconn *conn);
 
-/* Routines for pipeline mode management */
+/* 管道模式管理例程 */
 extern int	PQenterPipelineMode(PGconn *conn);
 extern int	PQexitPipelineMode(PGconn *conn);
 extern int	PQpipelineSync(PGconn *conn);
 extern int	PQsendFlushRequest(PGconn *conn);
 
-/* LISTEN/NOTIFY support */
+/* LISTEN/NOTIFY 支持 */
 extern PGnotify *PQnotifies(PGconn *conn);
 
-/* Routines for copy in/out */
+/* COPY IN/OUT 的例程 */
 extern int	PQputCopyData(PGconn *conn, const char *buffer, int nbytes);
 extern int	PQputCopyEnd(PGconn *conn, const char *errormsg);
 extern int	PQgetCopyData(PGconn *conn, char **buffer, int async);
 
-/* Deprecated routines for copy in/out */
+/* 已废弃的 COPY IN/OUT 例程 */
 extern int	PQgetline(PGconn *conn, char *buffer, int length);
 extern int	PQputline(PGconn *conn, const char *string);
 extern int	PQgetlineAsync(PGconn *conn, char *buffer, int bufsize);
 extern int	PQputnbytes(PGconn *conn, const char *buffer, int nbytes);
 extern int	PQendcopy(PGconn *conn);
 
-/* Set blocking/nonblocking connection to the backend */
+/* 设置通往后端的阻塞/非阻塞连接 */
 extern int	PQsetnonblocking(PGconn *conn, int arg);
 extern int	PQisnonblocking(const PGconn *conn);
 extern int	PQisthreadsafe(void);
@@ -498,12 +498,12 @@ extern PGPing PQping(const char *conninfo);
 extern PGPing PQpingParams(const char *const *keywords,
 						   const char *const *values, int expand_dbname);
 
-/* Force the write buffer to be written (or at least try) */
+/* 强制写出写缓冲（或至少尝试） */
 extern int	PQflush(PGconn *conn);
 
 /*
- * "Fast path" interface --- not really recommended for application
- * use
+ * 快速路径接口并不真推荐给应用使
+ * 用
  */
 extern PGresult *PQfn(PGconn *conn,
 					  int fnid,
@@ -513,7 +513,7 @@ extern PGresult *PQfn(PGconn *conn,
 					  const PQArgBlock *args,
 					  int nargs);
 
-/* Accessor functions for PGresult objects */
+/* PGresult 对象的存取函数 */
 extern ExecStatusType PQresultStatus(const PGresult *res);
 extern char *PQresStatus(ExecStatusType status);
 extern char *PQresultErrorMessage(const PGresult *res);
@@ -533,8 +533,8 @@ extern Oid	PQftype(const PGresult *res, int field_num);
 extern int	PQfsize(const PGresult *res, int field_num);
 extern int	PQfmod(const PGresult *res, int field_num);
 extern char *PQcmdStatus(PGresult *res);
-extern char *PQoidStatus(const PGresult *res);	/* old and ugly */
-extern Oid	PQoidValue(const PGresult *res);	/* new and improved */
+extern char *PQoidStatus(const PGresult *res);	/* 又旧又丑 */
+extern Oid	PQoidValue(const PGresult *res);	/* 新且改进过 */
 extern char *PQcmdTuples(PGresult *res);
 extern char *PQgetvalue(const PGresult *res, int tup_num, int field_num);
 extern int	PQgetlength(const PGresult *res, int tup_num, int field_num);
@@ -542,26 +542,26 @@ extern int	PQgetisnull(const PGresult *res, int tup_num, int field_num);
 extern int	PQnparams(const PGresult *res);
 extern Oid	PQparamtype(const PGresult *res, int param_num);
 
-/* Describe prepared statements and portals */
+/* 描述预备语句与门户 */
 extern PGresult *PQdescribePrepared(PGconn *conn, const char *stmt);
 extern PGresult *PQdescribePortal(PGconn *conn, const char *portal);
 extern int	PQsendDescribePrepared(PGconn *conn, const char *stmt);
 extern int	PQsendDescribePortal(PGconn *conn, const char *portal);
 
-/* Delete a PGresult */
+/* 删除 PGresult */
 extern void PQclear(PGresult *res);
 
-/* For freeing other alloc'd results, such as PGnotify structs */
+/* 用于释放其他已分配结果，如 PGnotify 结构 */
 extern void PQfreemem(void *ptr);
 
-/* Exists for backward compatibility.  bjm 2003-03-24 */
+/* 为向后兼容而存在。 bjm 2003-03-24 */
 #define PQfreeNotify(ptr) PQfreemem(ptr)
 
-/* Error when no password was given. */
-/* Note: depending on this is deprecated; use PQconnectionNeedsPassword(). */
+/* 未给出密码时的错误。 */
+/* 注意：依赖它已废弃；改用 PQconnectionNeedsPassword()。 */
 #define PQnoPasswordSupplied	"fe_sendauth: no password supplied\n"
 
-/* Create and manipulate PGresults */
+/* 创建并操作 PGresults */
 extern PGresult *PQmakeEmptyPGresult(PGconn *conn, ExecStatusType status);
 extern PGresult *PQcopyResult(const PGresult *src, int flags);
 extern int	PQsetResultAttrs(PGresult *res, int numAttributes, PGresAttDesc *attDescs);
@@ -569,7 +569,7 @@ extern void *PQresultAlloc(PGresult *res, size_t nBytes);
 extern size_t PQresultMemorySize(const PGresult *res);
 extern int	PQsetvalue(PGresult *res, int tup_num, int field_num, char *value, int len);
 
-/* Quoting strings before inclusion in queries. */
+/* 纳入查询前给字符串加引号。 */
 extern size_t PQescapeStringConn(PGconn *conn,
 								 char *to, const char *from, size_t length,
 								 int *error);
@@ -581,7 +581,7 @@ extern unsigned char *PQescapeByteaConn(PGconn *conn,
 extern unsigned char *PQunescapeBytea(const unsigned char *strtext,
 									  size_t *retbuflen);
 
-/* These forms are deprecated! */
+/* 这些形式已废弃！ */
 extern size_t PQescapeString(char *to, const char *from, size_t length);
 extern unsigned char *PQescapeBytea(const unsigned char *from, size_t from_length,
 									size_t *to_length);
@@ -590,31 +590,31 @@ extern unsigned char *PQescapeBytea(const unsigned char *from, size_t from_lengt
 
 /* === in fe-print.c === */
 
-extern void PQprint(FILE *fout, /* output stream */
+extern void PQprint(FILE *fout, /* 输出流 */
 					const PGresult *res,
-					const PQprintOpt *po);	/* option structure */
+					const PQprintOpt *po);	/* 选项结构 */
 
 /*
- * really old printing routines
+ * 极旧的打印例程
  */
 extern void PQdisplayTuples(const PGresult *res,
-							FILE *fp,	/* where to send the output */
-							int fillAlign,	/* pad the fields with spaces */
-							const char *fieldSep,	/* field separator */
-							int printHeader,	/* display headers? */
+							FILE *fp,	/* 输出发往何处 */
+							int fillAlign,	/* 用空格填充字段 */
+							const char *fieldSep,	/* 字段分隔符 */
+							int printHeader,	/* 显示表头？ */
 							int quiet);
 
 extern void PQprintTuples(const PGresult *res,
-						  FILE *fout,	/* output stream */
-						  int PrintAttNames,	/* print attribute names */
-						  int TerseOutput,	/* delimiter bars */
-						  int colWidth);	/* width of column, if 0, use
-											 * variable width */
+						  FILE *fout,	/* 输出流 */
+						  int PrintAttNames,	/* 打印属性名 */
+						  int TerseOutput,	/* 分隔竖线 */
+						  int colWidth);	/* 列宽，若为 0 则用
+											 * 可变宽度 */
 
 
 /* === in fe-lobj.c === */
 
-/* Large-object access routines */
+/* 大对象访问例程 */
 extern int	lo_open(PGconn *conn, Oid lobjId, int mode);
 extern int	lo_close(PGconn *conn, int fd);
 extern int	lo_read(PGconn *conn, int fd, char *buf, size_t len);
@@ -634,19 +634,19 @@ extern int	lo_export(PGconn *conn, Oid lobjId, const char *filename);
 
 /* === in fe-misc.c === */
 
-/* Get the version of the libpq library in use */
+/* 取得正在使用的 libpq 库版本 */
 extern int	PQlibVersion(void);
 
-/* Determine length of multibyte encoded char at *s */
+/* 确定 *s 处多字节编码字符的长度 */
 extern int	PQmblen(const char *s, int encoding);
 
-/* Same, but not more than the distance to the end of string s */
+/* 同上，但不超过到字符串 s 末尾的距离 */
 extern int	PQmblenBounded(const char *s, int encoding);
 
-/* Determine display length of multibyte encoded char at *s */
+/* 确定 *s 处多字节编码字符的显示长度 */
 extern int	PQdsplen(const char *s, int encoding);
 
-/* Get encoding id from environment variable PGCLIENTENCODING */
+/* 从环境变量 PGCLIENTENCODING 取得编码 id */
 extern int	PQenv2encoding(void);
 
 /* === in fe-auth.c === */
@@ -662,7 +662,7 @@ extern int	pg_valid_server_encoding_id(int encoding);
 
 /* === in fe-secure-openssl.c === */
 
-/* Support for overriding sslpassword handling with a callback */
+/* 支持用回调覆盖 sslpassword 的处理 */
 typedef int (*PQsslKeyPassHook_OpenSSL_type) (char *buf, int size, PGconn *conn);
 extern PQsslKeyPassHook_OpenSSL_type PQgetSSLKeyPassHook_OpenSSL(void);
 extern void PQsetSSLKeyPassHook_OpenSSL(PQsslKeyPassHook_OpenSSL_type hook);

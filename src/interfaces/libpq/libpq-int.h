@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * libpq-int.h
- *	  This file contains internal definitions meant to be used only by
- *	  the frontend libpq library, not by applications that call it.
+ *	本文件含只供内部使用的定义，给
+ *	前端 libpq 库用，不给调用它的应用程序。
  *
- *	  An application can include this file if it wants to bypass the
- *	  official API defined by libpq-fe.h, but code that does so is much
- *	  more likely to break across PostgreSQL releases than code that uses
- *	  only the official API.
+ *	应用程序若想绕过，可以包含本文件
+ *	libpq-fe.h 所定的官方 API，但这样做的代码
+ *	比只用官方 API 的代码，更可能在 PostgreSQL
+ *	各版本之间坏掉。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,13 +20,13 @@
 #ifndef LIBPQ_INT_H
 #define LIBPQ_INT_H
 
-/* We assume libpq-fe.h has already been included. */
+/* 假定已经包含了 libpq-fe.h。 */
 #include "libpq-events.h"
 
 #include <netdb.h>
 #include <sys/socket.h>
 #include <time.h>
-/* MinGW has sys/time.h, but MSVC doesn't */
+/* MinGW 有 sys/time.h，但 MSVC 没有 */
 #ifndef _MSC_VER
 #include <sys/time.h>
 #endif
@@ -40,9 +40,9 @@
 #include <signal.h>
 #endif
 
-/* include stuff common to fe and be */
+/* 包含前后端共用的东西 */
 #include "libpq/pqcomm.h"
-/* include stuff found in fe only */
+/* 只包含前端才有的东西 */
 #include "fe-auth-sasl.h"
 #include "pqexpbuffer.h"
 
@@ -64,7 +64,7 @@
 
 #ifndef ENABLE_GSS
 /*
- * Define a fake structure compatible with GSSAPI on Unix.
+ * 定义一个与 Unix 上 GSSAPI 兼容的假结构。
  */
 typedef struct
 {
@@ -86,87 +86,87 @@ typedef struct
 #include "common/pg_prng.h"
 
 /*
- * POSTGRES backend dependent Constants.
+ * 依赖 POSTGRES 后端的常量。
  */
-#define CMDSTATUS_LEN 64		/* should match COMPLETION_TAG_BUFSIZE */
+#define CMDSTATUS_LEN 64		/* 对齐 COMPLETION_TAG_BUFSIZE */
 
 /*
- * PGresult and the subsidiary types PGresAttDesc, PGresAttValue
- * represent the result of a query (or more precisely, of a single SQL
- * command --- a query string given to PQexec can contain multiple commands).
- * Note we assume that a single command can return at most one tuple group,
- * hence there is no need for multiple descriptor sets.
+ * PGresult 及附属类型 PGresAttDesc、PGresAttValue
+ * 表示一次查询的结果（更精确说，是单条 SQL
+ * 命令。交给 PQexec 的查询串可含多条命令）。
+ * 注意我们假定单条命令最多返回一组元组，
+ * 因此不需要多套描述符。
  */
 
-/* Subsidiary-storage management structure for PGresult.
- * See space management routines in fe-exec.c for details.
- * Note that space[k] refers to the k'th byte starting from the physical
- * head of the block --- it's a union, not a struct!
+/* PGresult 的附属存储管理结构。
+ * 详见 fe-exec.c 里的空间管理例程。
+ * 注意 space[k] 指从块的物理
+ * 头起第 k 字节；是联合非结构！
  */
 typedef union pgresult_data PGresult_data;
 
 union pgresult_data
 {
-	PGresult_data *next;		/* link to next block, or NULL */
-	char		space[1];		/* dummy for accessing block as bytes */
+	PGresult_data *next;		/* 链到下一块，或 NULL */
+	char		space[1];		/* 当作字节访问块的占位 */
 };
 
-/* Data about a single parameter of a prepared statement */
+/* 预备语句单个参数的数据 */
 typedef struct pgresParamDesc
 {
-	Oid			typid;			/* type id */
+	Oid			typid;			/* 型id */
 } PGresParamDesc;
 
 /*
- * Data for a single attribute of a single tuple
+ * 单个元组的单个属性的数据
  *
- * We use char* for Attribute values.
+ * 属性值我们用 char*。
  *
- * The value pointer always points to a null-terminated area; we add a
- * null (zero) byte after whatever the backend sends us.  This is only
- * particularly useful for text values ... with a binary value, the
- * value might have embedded nulls, so the application can't use C string
- * operators on it.  But we add a null anyway for consistency.
- * Note that the value itself does not contain a length word.
+ * 值指针总指向以空字符结尾的区域；我们在
+ * 后端所发内容之后补一个零字节。这仅对
+ * 文本值特别有用。二进制值时，
+ * 值里可能嵌有空字符，故应用程序无法用 C 字符串
+ * 运算处理。但为一致仍补上零。
+ * 注意值本身不含长度字。
  *
- * A NULL attribute is a special case in two ways: its len field is NULL_LEN
- * and its value field points to null_field in the owning PGresult.  All the
- * NULL attributes in a query result point to the same place (there's no need
- * to store a null string separately for each one).
+ * NULL 属性有两点特殊：其 len 字段为 NULL_LEN
+ * 且其 value 指向所属 PGresult 里的 null_field。所有
+ * 查询结果里的 NULL 属性都指向同一处（不必
+ * 为每个单独存一份空串）。
  */
 
-#define NULL_LEN		(-1)	/* pg_result len for NULL value */
+#define NULL_LEN		(-1)	/* NULL 值的 pg_result 长度 */
 
 typedef struct pgresAttValue
 {
-	int			len;			/* length in bytes of the value */
-	char	   *value;			/* actual value, plus terminating zero byte */
+	int			len;			/* 值的字节长度 */
+	char	   *value;			/* 实际值，外加结尾的零字节 */
 } PGresAttValue;
 
-/* Typedef for message-field list entries */
+/* 消息字段列表项的类型定义 */
 typedef struct pgMessageField
 {
-	struct pgMessageField *next;	/* list link */
-	char		code;			/* field code */
-	char		contents[FLEXIBLE_ARRAY_MEMBER];	/* value, nul-terminated */
+	struct pgMessageField *next;	/* 链节 */
+	char		code;			/* 字段码 */
+	char		contents[FLEXIBLE_ARRAY_MEMBER];	/* 值，NUL 结尾 */
 } PGMessageField;
 
-/* Fields needed for notice handling */
+/* 通知处理所需的字段 */
 typedef struct
 {
-	PQnoticeReceiver noticeRec; /* notice message receiver */
+	PQnoticeReceiver noticeRec; /* 通知消息接收者 */
 	void	   *noticeRecArg;
-	PQnoticeProcessor noticeProc;	/* notice message processor */
+	PQnoticeProcessor noticeProc;	/* 通知消息处理器 */
 	void	   *noticeProcArg;
 } PGNoticeHooks;
 
 typedef struct PGEvent
 {
-	PGEventProc proc;			/* the function to call on events */
-	char	   *name;			/* used only for error messages */
-	void	   *passThrough;	/* pointer supplied at registration time */
-	void	   *data;			/* optional state (instance) data */
-	bool		resultInitialized;	/* T if RESULTCREATE/COPY succeeded */
+	PGEventProc proc;			/* 事件时调用的函数 */
+	char	   *name;			/* 只用于错误消息 */
+	void	   *passThrough;	/* 注册时提供的指针 */
+	void	   *data;			/* 可选状态（实例）数据 */
+	bool		resultInitialized;	/* RESULTCREATE/COPY 成功为 T */
 } PGEvent;
 
 struct pg_result
@@ -174,138 +174,138 @@ struct pg_result
 	int			ntups;
 	int			numAttributes;
 	PGresAttDesc *attDescs;
-	PGresAttValue **tuples;		/* each PGresult tuple is an array of
-								 * PGresAttValue's */
-	int			tupArrSize;		/* allocated size of tuples array */
+	PGresAttValue **tuples;		/* 每个 PGresult 元组是一组
+								 * PGresAttValue */
+	int			tupArrSize;		/* 元组数组的已分配大小 */
 	int			numParameters;
 	PGresParamDesc *paramDescs;
 	ExecStatusType resultStatus;
-	char		cmdStatus[CMDSTATUS_LEN];	/* cmd status from the query */
-	int			binary;			/* binary tuple values if binary == 1,
-								 * otherwise text */
+	char		cmdStatus[CMDSTATUS_LEN];	/* 查询的命令状态 */
+	int			binary;			/* binary 为 1 时值是二进制，
+								 * 否则文本 */
 
 	/*
-	 * These fields are copied from the originating PGconn, so that operations
-	 * on the PGresult don't have to reference the PGconn.
+	 * 这些字段从源 PGconn 复制而来，以便对
+	 * PGresult 的操作不必再引用 PGconn。
 	 */
 	PGNoticeHooks noticeHooks;
 	PGEvent    *events;
 	int			nEvents;
-	int			client_encoding;	/* encoding id */
+	int			client_encoding;	/* 编码 id */
 
 	/*
-	 * Error information (all NULL if not an error result).  errMsg is the
-	 * "overall" error message returned by PQresultErrorMessage.  If we have
-	 * per-field info then it is stored in a linked list.
+	 * 错误信息（若不是错误结果则全为 NULL）。errMsg 是
+	 * PQresultErrorMessage 返回的总错误消息。若有
+	 * 逐字段信息，就存在一个链表里。
 	 */
-	char	   *errMsg;			/* error message, or NULL if no error */
-	PGMessageField *errFields;	/* message broken into fields */
-	char	   *errQuery;		/* text of triggering query, if available */
+	char	   *errMsg;			/* 错误消息，没有则为 NULL */
+	PGMessageField *errFields;	/* 消息拆成的字段 */
+	char	   *errQuery;		/* 触发查询的文本，若有的话 */
 
-	/* All NULL attributes in the query result point to this null string */
+	/* 查询结果中所有 NULL 属性都指向这条空串 */
 	char		null_field[1];
 
 	/*
-	 * Space management information.  Note that attDescs and error stuff, if
-	 * not null, point into allocated blocks.  But tuples points to a
-	 * separately malloc'd block, so that we can realloc it.
+	 * 空间管理信息。注意 attDescs 与错误材料若
+	 * 非空，就指向已分配的块。但 tuples 指向
+	 * 单独 malloc 的块，以便我们能 realloc 它。
 	 */
-	PGresult_data *curBlock;	/* most recently allocated block */
-	int			curOffset;		/* start offset of free space in block */
-	int			spaceLeft;		/* number of free bytes remaining in block */
+	PGresult_data *curBlock;	/* 最近分配的块 */
+	int			curOffset;		/* 块内空闲空间的起始偏移 */
+	int			spaceLeft;		/* 块内剩余的空闲字节数 */
 
-	size_t		memorySize;		/* total space allocated for this PGresult */
+	size_t		memorySize;		/* 此 PGresult 分配的总空间 */
 };
 
-/* PGAsyncStatusType defines the state of the query-execution state machine */
+/* PGAsyncStatusType 定义查询执行状态机的状态 */
 typedef enum
 {
-	PGASYNC_IDLE,				/* nothing's happening, dude */
-	PGASYNC_BUSY,				/* query in progress */
-	PGASYNC_READY,				/* query done, waiting for client to fetch
-								 * result */
-	PGASYNC_READY_MORE,			/* query done, waiting for client to fetch
-								 * result, more results expected from this
-								 * query */
-	PGASYNC_COPY_IN,			/* Copy In data transfer in progress */
-	PGASYNC_COPY_OUT,			/* Copy Out data transfer in progress */
-	PGASYNC_COPY_BOTH,			/* Copy In/Out data transfer in progress */
-	PGASYNC_PIPELINE_IDLE,		/* "Idle" between commands in pipeline mode */
+	PGASYNC_IDLE,				/* 啥也没发生 */
+	PGASYNC_BUSY,				/* 查询进行中 */
+	PGASYNC_READY,				/* 查询完成，等客户端来取
+								 * 结果 */
+	PGASYNC_READY_MORE,			/* 查询完成，等客户端来取
+								 * 结果，更多结果将来自此查
+								 * 询 */
+	PGASYNC_COPY_IN,			/* COPY IN 数据传输进行中 */
+	PGASYNC_COPY_OUT,			/* COPY OUT 数据传输进行中 */
+	PGASYNC_COPY_BOTH,			/* COPY IN/OUT 数据传输进行中 */
+	PGASYNC_PIPELINE_IDLE,		/* 管线模式里命令之间的空闲 */
 } PGAsyncStatusType;
 
-/* Target server type (decoded value of target_session_attrs) */
+/* 目标服务器类型（解码 target_session_attrs） */
 typedef enum
 {
-	SERVER_TYPE_ANY = 0,		/* Any server (default) */
-	SERVER_TYPE_READ_WRITE,		/* Read-write server */
-	SERVER_TYPE_READ_ONLY,		/* Read-only server */
-	SERVER_TYPE_PRIMARY,		/* Primary server */
-	SERVER_TYPE_STANDBY,		/* Standby server */
-	SERVER_TYPE_PREFER_STANDBY, /* Prefer standby server */
-	SERVER_TYPE_PREFER_STANDBY_PASS2	/* second pass - behaves same as ANY */
+	SERVER_TYPE_ANY = 0,		/* 任意（默认） */
+	SERVER_TYPE_READ_WRITE,		/* 读写服务器 */
+	SERVER_TYPE_READ_ONLY,		/* 只读服务器 */
+	SERVER_TYPE_PRIMARY,		/* 主服务器 */
+	SERVER_TYPE_STANDBY,		/* 备服务器 */
+	SERVER_TYPE_PREFER_STANDBY, /* 优先备用服务器 */
+	SERVER_TYPE_PREFER_STANDBY_PASS2	/* 第二遍，行为同 ANY */
 } PGTargetServerType;
 
-/* Target server type (decoded value of load_balance_hosts) */
+/* 目标服务器类型（解码 load_balance_hosts） */
 typedef enum
 {
-	LOAD_BALANCE_DISABLE = 0,	/* Use the existing host order (default) */
-	LOAD_BALANCE_RANDOM,		/* Randomly shuffle the hosts */
+	LOAD_BALANCE_DISABLE = 0,	/* 沿用现有主机顺序（默认） */
+	LOAD_BALANCE_RANDOM,		/* 随机打乱主机 */
 } PGLoadBalanceType;
 
-/* Boolean value plus a not-known state, for GUCs we might have to fetch */
+/* 布尔值加未知态，供也许要取的 GUCs */
 typedef enum
 {
-	PG_BOOL_UNKNOWN = 0,		/* Currently unknown */
-	PG_BOOL_YES,				/* Yes (true) */
-	PG_BOOL_NO					/* No (false) */
+	PG_BOOL_UNKNOWN = 0,		/* 目前未知 */
+	PG_BOOL_YES,				/* 是(真) */
+	PG_BOOL_NO					/* 否(假) */
 } PGTernaryBool;
 
-/* Typedef for the EnvironmentOptions[] array */
+/* EnvironmentOptions[] 的类型定义 */
 typedef struct PQEnvironmentOption
 {
-	const char *envName,		/* name of an environment variable */
-			   *pgName;			/* name of corresponding SET variable */
+	const char *envName,		/* 某个环境变量的名字 */
+			   *pgName;			/* 对应 SET 变量的名字 */
 } PQEnvironmentOption;
 
-/* Typedef for parameter-status list entries */
+/* 参数状态列表项的类型定义 */
 typedef struct pgParameterStatus
 {
-	struct pgParameterStatus *next; /* list link */
-	char	   *name;			/* parameter name */
-	char	   *value;			/* parameter value */
-	/* Note: name and value are stored in same malloc block as struct is */
+	struct pgParameterStatus *next; /* 链节 */
+	char	   *name;			/* 参数名 */
+	char	   *value;			/* 参数值 */
+	/* 注意：name 与 value 和该结构存在同一 malloc 块里 */
 } pgParameterStatus;
 
-/* large-object-access data ... allocated only if large-object code is used. */
+/* 大对象访问数据。只有用到大对象代码才分配。 */
 typedef struct pgLobjfuncs
 {
-	Oid			fn_lo_open;		/* OID of backend function lo_open		*/
-	Oid			fn_lo_close;	/* OID of backend function lo_close		*/
-	Oid			fn_lo_creat;	/* OID of backend function lo_creat		*/
-	Oid			fn_lo_create;	/* OID of backend function lo_create	*/
-	Oid			fn_lo_unlink;	/* OID of backend function lo_unlink	*/
-	Oid			fn_lo_lseek;	/* OID of backend function lo_lseek		*/
-	Oid			fn_lo_lseek64;	/* OID of backend function lo_lseek64	*/
-	Oid			fn_lo_tell;		/* OID of backend function lo_tell		*/
-	Oid			fn_lo_tell64;	/* OID of backend function lo_tell64	*/
-	Oid			fn_lo_truncate; /* OID of backend function lo_truncate	*/
-	Oid			fn_lo_truncate64;	/* OID of function lo_truncate64 */
-	Oid			fn_lo_read;		/* OID of backend function LOread		*/
-	Oid			fn_lo_write;	/* OID of backend function LOwrite		*/
+	Oid			fn_lo_open;		/* 后端函数 lo_open 的 OID		*/
+	Oid			fn_lo_close;	/* 后端函数 lo_close 的 OID		*/
+	Oid			fn_lo_creat;	/* 后端函数 lo_creat 的 OID		*/
+	Oid			fn_lo_create;	/* 后端函数 lo_create 的 OID	*/
+	Oid			fn_lo_unlink;	/* 后端函数 lo_unlink 的 OID	*/
+	Oid			fn_lo_lseek;	/* 后端函数 lo_lseek 的 OID		*/
+	Oid			fn_lo_lseek64;	/* 后端函数 lo_lseek64 的 OID	*/
+	Oid			fn_lo_tell;		/* 后端函数 lo_tell 的 OID		*/
+	Oid			fn_lo_tell64;	/* 后端函数 lo_tell64 的 OID	*/
+	Oid			fn_lo_truncate; /* 后端函数 lo_truncate 的 OID	*/
+	Oid			fn_lo_truncate64;	/* 函数 lo_truncate64 的 OID */
+	Oid			fn_lo_read;		/* 后端函数 LOread 的 OID		*/
+	Oid			fn_lo_write;	/* 后端函数 LOwrite 的 OID		*/
 } PGlobjfuncs;
 
-/* PGdataValue represents a data field value being passed to a row processor.
- * It could be either text or binary data; text data is not zero-terminated.
- * A SQL NULL is represented by len < 0; then value is still valid but there
- * are no data bytes there.
+/* PGdataValue 表示传给行处理器的一个数据字段值。
+ * 它可能是文本或二进制；文本不以零结尾。
+ * SQL NULL 用 len < 0 表示；此时 value 仍有效，但那里
+ * 没有数据字节。
  */
 typedef struct pgDataValue
 {
-	int			len;			/* data length in bytes, or <0 if NULL */
-	const char *value;			/* data value, without zero-termination */
+	int			len;			/* 数据字节长度，NULL 时 <0 */
+	const char *value;			/* 数据值，没有零结尾 */
 } PGdataValue;
 
-/* Host address type enum for struct pg_conn_host */
+/* pg_conn_host 的主机地址类型枚举 */
 typedef enum pg_conn_host_type
 {
 	CHT_HOST_NAME,
@@ -314,346 +314,346 @@ typedef enum pg_conn_host_type
 } pg_conn_host_type;
 
 /*
- * PGQueryClass tracks which query protocol is in use for each command queue
- * entry, or special operation in execution
+ * PGQueryClass 跟踪每条命令队列项在用哪种查询协议，
+ * 或执行中的特殊操作
  */
 typedef enum
 {
-	PGQUERY_SIMPLE,				/* simple Query protocol (PQexec) */
-	PGQUERY_EXTENDED,			/* full Extended protocol (PQexecParams) */
-	PGQUERY_PREPARE,			/* Parse only (PQprepare) */
-	PGQUERY_DESCRIBE,			/* Describe Statement or Portal */
-	PGQUERY_SYNC,				/* Sync (at end of a pipeline) */
+	PGQUERY_SIMPLE,				/* 简单查询协议（PQexec） */
+	PGQUERY_EXTENDED,			/* 完整扩展协议（PQexecParams） */
+	PGQUERY_PREPARE,			/* 只解析(PQprepare) */
+	PGQUERY_DESCRIBE,			/* 描述语句或门户 */
+	PGQUERY_SYNC,				/* 同步（管线末尾） */
 	PGQUERY_CLOSE
 } PGQueryClass;
 
 /*
- * An entry in the pending command queue.
+ * 待处理命令队列中的一项。
  */
 typedef struct PGcmdQueueEntry
 {
-	PGQueryClass queryclass;	/* Query type */
-	char	   *query;			/* SQL command, or NULL if none/unknown/OOM */
-	struct PGcmdQueueEntry *next;	/* list link */
+	PGQueryClass queryclass;	/* 查询类 */
+	char	   *query;			/* SQL 命令，NULL 表无/未知/OOM */
+	struct PGcmdQueueEntry *next;	/* 链节 */
 } PGcmdQueueEntry;
 
 /*
- * pg_conn_host stores all information about each of possibly several hosts
- * mentioned in the connection string.  Most fields are derived by splitting
- * the relevant connection parameter (e.g., pghost) at commas.
+ * pg_conn_host 存放连接串里可能有的每一台主机的
+ * 全部信息。多数字段由拆分
+ * 相应连接参数（如 pghost）的逗号而来。
  */
 typedef struct pg_conn_host
 {
-	pg_conn_host_type type;		/* type of host address */
-	char	   *host;			/* host name or socket path */
-	char	   *hostaddr;		/* host numeric IP address */
-	char	   *port;			/* port number (if NULL or empty, use
-								 * DEF_PGPORT[_STR]) */
-	char	   *password;		/* password for this host, read from the
-								 * password file; NULL if not sought or not
-								 * found in password file. */
+	pg_conn_host_type type;		/* 主机地址类型 */
+	char	   *host;			/* 主机名或套接字径 */
+	char	   *hostaddr;		/* 主机数字 IP 地址 */
+	char	   *port;			/* 端口号；空或 NULL 时用
+								 * DEF_PGPORT[_STR] */
+	char	   *password;		/* 此主机的口令，读自
+								 * 口令文件；若未查找或未
+								 * 找到则 NULL。 */
 } pg_conn_host;
 
 /*
- * PGconn stores all the state data associated with a single connection
- * to a backend.
+ * PGconn 存放单条后端连接的
+ * 全状态。
  */
 struct pg_conn
 {
-	/* Saved values of connection options */
-	char	   *pghost;			/* the machine on which the server is running,
-								 * or a path to a UNIX-domain socket, or a
-								 * comma-separated list of machines and/or
-								 * paths; if NULL, use DEFAULT_PGSOCKET_DIR */
-	char	   *pghostaddr;		/* the numeric IP address of the machine on
-								 * which the server is running, or a
-								 * comma-separated list of same.  Takes
-								 * precedence over pghost. */
-	char	   *pgport;			/* the server's communication port number, or
-								 * a comma-separated list of ports */
-	char	   *connect_timeout;	/* connection timeout (numeric string) */
-	char	   *pgtcp_user_timeout; /* tcp user timeout (numeric string) */
-	char	   *client_encoding_initial;	/* encoding to use */
-	char	   *pgoptions;		/* options to start the backend with */
-	char	   *appname;		/* application name */
-	char	   *fbappname;		/* fallback application name */
-	char	   *dbName;			/* database name */
-	char	   *replication;	/* connect as the replication standby? */
-	char	   *pguser;			/* Postgres username and password, if any */
+	/* 连接选项的保存值 */
+	char	   *pghost;			/* 服务器所在机器，或 UNIX 域
+								 * 套接字路径，或逗号分隔的
+								 * 机器与路径列表；NULL 时用
+								 * DEFAULT_PGSOCKET_DIR */
+	char	   *pghostaddr;		/* 服务器所在机器的数字
+								 * IP 地址，或同样的
+								 * 逗号分隔列表。其优先级
+								 * 高于 pghost。 */
+	char	   *pgport;			/* 服务器的通信端口号，或
+								 * 逗号分隔的端口列表 */
+	char	   *connect_timeout;	/* 连接超时（数字串） */
+	char	   *pgtcp_user_timeout; /* TCP 用户超时（数字串） */
+	char	   *client_encoding_initial;	/* 所用编码 */
+	char	   *pgoptions;		/* 启动后端时的选项 */
+	char	   *appname;		/* 应用名 */
+	char	   *fbappname;		/* 后备应用名 */
+	char	   *dbName;			/* 数据库名 */
+	char	   *replication;	/* 是否作为复制备机连接？ */
+	char	   *pguser;			/* Postgres 用户名与口令，若有 */
 	char	   *pgpass;
-	char	   *pgpassfile;		/* path to a file containing password(s) */
-	char	   *channel_binding;	/* channel binding mode
-									 * (require,prefer,disable) */
-	char	   *keepalives;		/* use TCP keepalives? */
-	char	   *keepalives_idle;	/* time between TCP keepalives */
-	char	   *keepalives_interval;	/* time between TCP keepalive
-										 * retransmits */
-	char	   *keepalives_count;	/* maximum number of TCP keepalive
-									 * retransmits */
-	char	   *sslmode;		/* SSL mode (require,prefer,allow,disable) */
-	char	   *sslcompression; /* SSL compression (0 or 1) */
-	char	   *sslkey;			/* client key filename */
-	char	   *sslcert;		/* client certificate filename */
-	char	   *sslpassword;	/* client key file password */
-	char	   *sslcertmode;	/* client cert mode (require,allow,disable) */
-	char	   *sslrootcert;	/* root certificate filename */
-	char	   *sslcrl;			/* certificate revocation list filename */
-	char	   *sslcrldir;		/* certificate revocation list directory name */
-	char	   *sslsni;			/* use SSL SNI extension (0 or 1) */
-	char	   *requirepeer;	/* required peer credentials for local sockets */
-	char	   *gssencmode;		/* GSS mode (require,prefer,disable) */
-	char	   *krbsrvname;		/* Kerberos service name */
-	char	   *gsslib;			/* What GSS library to use ("gssapi" or
-								 * "sspi") */
-	char	   *gssdelegation;	/* Try to delegate GSS credentials? (0 or 1) */
-	char	   *ssl_min_protocol_version;	/* minimum TLS protocol version */
-	char	   *ssl_max_protocol_version;	/* maximum TLS protocol version */
-	char	   *target_session_attrs;	/* desired session properties */
-	char	   *require_auth;	/* name of the expected auth method */
-	char	   *load_balance_hosts; /* load balance over hosts */
+	char	   *pgpassfile;		/* 含有口令的文件路径 */
+	char	   *channel_binding;	/* 通道绑定模式
+									 * require/prefer/disable */
+	char	   *keepalives;		/* 用 TCP 保活？ */
+	char	   *keepalives_idle;	/* TCP 保活间隔 */
+	char	   *keepalives_interval;	/* TCP 保活的间隔
+										 * 重传数 */
+	char	   *keepalives_count;	/* TCP 保活最大次数
+									 * 重传数 */
+	char	   *sslmode;		/* SSL 模式 require/prefer/allow/disable */
+	char	   *sslcompression; /* SSL 压缩（0 或 1） */
+	char	   *sslkey;			/* 密钥文件名 */
+	char	   *sslcert;		/* 客户端证书文件名 */
+	char	   *sslpassword;	/* 密钥文件的口令 */
+	char	   *sslcertmode;	/* 客户证书模式 require/allow/disable */
+	char	   *sslrootcert;	/* 根证书文件名 */
+	char	   *sslcrl;			/* 证书吊销列表文件名 */
+	char	   *sslcrldir;		/* 证书吊销列表目录名 */
+	char	   *sslsni;			/* 用 SSL SNI 扩展否（0/1） */
+	char	   *requirepeer;	/* 本地套接字所要求的对端凭据 */
+	char	   *gssencmode;		/* GSS 模式 require/prefer/disable */
+	char	   *krbsrvname;		/* Kerberos 服务名 */
+	char	   *gsslib;			/* 用哪种 GSS 库（gssapi 或
+								 * sspi） */
+	char	   *gssdelegation;	/* 尝试委托 GSS 凭据？（0 或 1） */
+	char	   *ssl_min_protocol_version;	/* 最低 TLS 协议版本 */
+	char	   *ssl_max_protocol_version;	/* 最高 TLS 协议版本 */
+	char	   *target_session_attrs;	/* 期望的会话属性 */
+	char	   *require_auth;	/* 期望的认证方法名 */
+	char	   *load_balance_hosts; /* 主机间负载均衡 */
 
-	/* Optional file to write trace info to */
+	/* 可选的跟踪信息输出文件 */
 	FILE	   *Pfdebug;
 	int			traceFlags;
 
-	/* Callback procedures for notice message processing */
+	/* 通知消息处理的回调过程 */
 	PGNoticeHooks noticeHooks;
 
-	/* Event procs registered via PQregisterEventProc */
-	PGEvent    *events;			/* expandable array of event data */
-	int			nEvents;		/* number of active events */
-	int			eventArraySize; /* allocated array size */
+	/* 经 PQregisterEventProc 注册的事件过程 */
+	PGEvent    *events;			/* 可扩展的事件数据数组 */
+	int			nEvents;		/* 活动事件数 */
+	int			eventArraySize; /* 数组分配大小 */
 
-	/* Status indicators */
+	/* 状态指示 */
 	ConnStatusType status;
 	PGAsyncStatusType asyncStatus;
-	PGTransactionStatusType xactStatus; /* never changes to ACTIVE */
-	char		last_sqlstate[6];	/* last reported SQLSTATE */
-	bool		options_valid;	/* true if OK to attempt connection */
-	bool		nonblocking;	/* whether this connection is using nonblock
-								 * sending semantics */
-	PGpipelineStatus pipelineStatus;	/* status of pipeline mode */
-	bool		singleRowMode;	/* return current query result row-by-row? */
-	char		copy_is_binary; /* 1 = copy binary, 0 = copy text */
-	int			copy_already_done;	/* # bytes already returned in COPY OUT */
-	PGnotify   *notifyHead;		/* oldest unreported Notify msg */
-	PGnotify   *notifyTail;		/* newest unreported Notify msg */
+	PGTransactionStatusType xactStatus; /* 从不变成 ACTIVE */
+	char		last_sqlstate[6];	/* 上次的 SQLSTATE */
+	bool		options_valid;	/* 可以尝试连接则为真 */
+	bool		nonblocking;	/* 此连接是否使用非阻塞
+								 * 发送语义 */
+	PGpipelineStatus pipelineStatus;	/* 管线模式的状态 */
+	bool		singleRowMode;	/* 是否逐行返回当前查询结果？ */
+	char		copy_is_binary; /* 1 二进制拷贝，0 文本 */
+	int			copy_already_done;	/* COPY OUT 已返回的字节数 */
+	PGnotify   *notifyHead;		/* 最旧的未报告 Notify */
+	PGnotify   *notifyTail;		/* 最新的未报告 Notify */
 
-	/* Support for multiple hosts in connection string */
-	int			nconnhost;		/* # of hosts named in conn string */
-	int			whichhost;		/* host we're currently trying/connected to */
-	pg_conn_host *connhost;		/* details about each named host */
-	char	   *connip;			/* IP address for current network connection */
+	/* 连接串里支持多台主机 */
+	int			nconnhost;		/* 连接串中点名的主机数 */
+	int			whichhost;		/* 当前正在尝试或已连上的主机 */
+	pg_conn_host *connhost;		/* 各主机的详情 */
+	char	   *connip;			/* 当前网络连接的 IP 地址 */
 
 	/*
-	 * The pending command queue as a singly-linked list.  Head is the command
-	 * currently in execution, tail is where new commands are added.
+	 * 待处理命令队列，做成单链表。头是
+	 * 当前在执行的命令，尾是新命令加入处。
 	 */
 	PGcmdQueueEntry *cmd_queue_head;
 	PGcmdQueueEntry *cmd_queue_tail;
 
 	/*
-	 * To save malloc traffic, we don't free entries right away; instead we
-	 * save them in this list for possible reuse.
+	 * 为省 malloc 开销，我们不立刻释放项；而是
+	 * 把它们存此表，供可能复用。
 	 */
 	PGcmdQueueEntry *cmd_queue_recycle;
 
-	/* Connection data */
-	pgsocket	sock;			/* FD for socket, PGINVALID_SOCKET if
-								 * unconnected */
-	SockAddr	laddr;			/* Local address */
-	SockAddr	raddr;			/* Remote address */
-	ProtocolVersion pversion;	/* FE/BE protocol version in use */
-	int			sversion;		/* server version, e.g. 70401 for 7.4.1 */
-	bool		auth_req_received;	/* true if any type of auth req received */
-	bool		password_needed;	/* true if server demanded a password */
-	bool		gssapi_used;	/* true if authenticated via gssapi */
-	bool		sigpipe_so;		/* have we masked SIGPIPE via SO_NOSIGPIPE? */
-	bool		sigpipe_flag;	/* can we mask SIGPIPE via MSG_NOSIGNAL? */
-	bool		write_failed;	/* have we had a write failure on sock? */
-	char	   *write_err_msg;	/* write error message, or NULL if OOM */
+	/* 连接数据 */
+	pgsocket	sock;			/* FD；PGINVALID_SOCKET 若
+								 * 未连接 */
+	SockAddr	laddr;			/* 本地地址 */
+	SockAddr	raddr;			/* 远端地址 */
+	ProtocolVersion pversion;	/* 在用的 FE/BE 协议版本 */
+	int			sversion;		/* 服务器版本，70401 即 7.4.1 */
+	bool		auth_req_received;	/* 收到过认证请求则为真 */
+	bool		password_needed;	/* 服务器要过口令则为真 */
+	bool		gssapi_used;	/* 若经 gssapi 认证则为真 */
+	bool		sigpipe_so;		/* 已用 SO_NOSIGPIPE 挡 SIGPIPE？ */
+	bool		sigpipe_flag;	/* 能用 MSG_NOSIGNAL 挡 SIGPIPE？ */
+	bool		write_failed;	/* 套接字上发生过写失败吗？ */
+	char	   *write_err_msg;	/* 写错误消息，OOM 则 NULL */
 
-	bool		auth_required;	/* require an authentication challenge from
-								 * the server? */
-	uint32		allowed_auth_methods;	/* bitmask of acceptable AuthRequest
-										 * codes */
-	bool		client_finished_auth;	/* have we finished our half of the
-										 * authentication exchange? */
+	bool		auth_required;	/* 是否要求对方发认证
+								 * 质询？ */
+	uint32		allowed_auth_methods;	/* 可接受 AuthRequest 的掩
+										 * 码 */
+	bool		client_finished_auth;	/* 认证交换中我们这一半
+										 * 是否已经做完？ */
 
 
-	/* Transient state needed while establishing connection */
-	PGTargetServerType target_server_type;	/* desired session properties */
-	PGLoadBalanceType load_balance_type;	/* desired load balancing
-											 * algorithm */
-	bool		try_next_addr;	/* time to advance to next address/host? */
-	bool		try_next_host;	/* time to advance to next connhost[]? */
-	int			naddr;			/* number of addresses returned by getaddrinfo */
-	int			whichaddr;		/* the address currently being tried */
-	AddrInfo   *addr;			/* the array of addresses for the currently
-								 * tried host */
-	bool		send_appname;	/* okay to send application_name? */
+	/* 建立连接期间需要的短暂状态 */
+	PGTargetServerType target_server_type;	/* 期望的会话属性 */
+	PGLoadBalanceType load_balance_type;	/* 期望的负载均衡
+											 * 算法 */
+	bool		try_next_addr;	/* 该进下一地址/主机了吗？ */
+	bool		try_next_host;	/* 该进下一个 connhost[]？ */
+	int			naddr;			/* getaddrinfo 返回的地址数 */
+	int			whichaddr;		/* 当前正在尝试的地址 */
+	AddrInfo   *addr;			/* 当前所试主机的地址
+								 * 数组 */
+	bool		send_appname;	/* 能发 application_name？ */
 
-	/* Miscellaneous stuff */
-	int			be_pid;			/* PID of backend --- needed for cancels */
-	int			be_key;			/* key of backend --- needed for cancels */
-	pgParameterStatus *pstatus; /* ParameterStatus data */
-	int			client_encoding;	/* encoding id */
+	/* 杂项 */
+	int			be_pid;			/* 后端 PID，取消时需要 */
+	int			be_key;			/* 后端密钥，取消时需要 */
+	pgParameterStatus *pstatus; /* ParameterStatus */
+	int			client_encoding;	/* 编码 id */
 	bool		std_strings;	/* standard_conforming_strings */
 	PGTernaryBool default_transaction_read_only;	/* default_transaction_read_only */
 	PGTernaryBool in_hot_standby;	/* in_hot_standby */
-	PGVerbosity verbosity;		/* error/notice message verbosity */
-	PGContextVisibility show_context;	/* whether to show CONTEXT field */
-	PGlobjfuncs *lobjfuncs;		/* private state for large-object access fns */
-	pg_prng_state prng_state;	/* prng state for load balancing connections */
+	PGVerbosity verbosity;		/* 错误与通知的详细度 */
+	PGContextVisibility show_context;	/* 是否显示 CONTEXT 字段 */
+	PGlobjfuncs *lobjfuncs;		/* 大对象访问函数的私有状态 */
+	pg_prng_state prng_state;	/* 负载均衡连接的伪随机态 */
 
 
 	/*
-	 * Buffer for data received from backend and not yet processed.
+	 * 存放从后端收到、尚未处理的数据的缓冲。
 	 *
-	 * NB: We rely on a maximum inBufSize/outBufSize of INT_MAX (and therefore
-	 * an INT_MAX upper bound on the size of any and all packet contents) to
-	 * avoid overflow; for example in reportErrorPosition(). Changing the type
-	 * would require not only an adjustment to the overflow protection in
-	 * pqCheck{In,Out}BufferSpace(), but also a careful audit of all libpq
-	 * code that uses ints during size calculations.
+	 * 注意：我们依赖 inBufSize/outBufSize 最大为 INT_MAX（因而
+	 * 任何及所有包内容的大小都有 INT_MAX 上限），以免
+	 * 溢出；例如在 reportErrorPosition() 里。改类型不但要
+	 * 调整 pqCheck{In,Out}BufferSpace() 里的溢出保护，还要
+	 * 仔细审计 libpq 里所有在尺寸计算中
+	 * 使用 int 的代码。
 	 */
-	char	   *inBuffer;		/* currently allocated buffer */
-	int			inBufSize;		/* allocated size of buffer */
-	int			inStart;		/* offset to first unconsumed data in buffer */
-	int			inCursor;		/* next byte to tentatively consume */
-	int			inEnd;			/* offset to first position after avail data */
+	char	   *inBuffer;		/* 当前已分配缓冲 */
+	int			inBufSize;		/* 缓冲区已分配大小 */
+	int			inStart;		/* 首个未消费数据的偏移 */
+	int			inCursor;		/* 下一个试探消费的字节 */
+	int			inEnd;			/* 可用数据后首位置的偏移 */
 
-	/* Buffer for data not yet sent to backend */
-	char	   *outBuffer;		/* currently allocated buffer */
-	int			outBufSize;		/* allocated size of buffer */
-	int			outCount;		/* number of chars waiting in buffer */
+	/* 尚未发给后端的数据缓冲 */
+	char	   *outBuffer;		/* 当前已分配缓冲 */
+	int			outBufSize;		/* 缓冲区已分配大小 */
+	int			outCount;		/* 缓冲里等待的字符数 */
 
-	/* State for constructing messages in outBuffer */
-	int			outMsgStart;	/* offset to msg start (length word); if -1,
-								 * msg has no length word */
-	int			outMsgEnd;		/* offset to msg end (so far) */
+	/* 在 outBuffer 里构造消息的状态 */
+	int			outMsgStart;	/* 消息起点偏移；-1 表示
+								 * 消息没有长度字 */
+	int			outMsgEnd;		/* 消息结尾的偏移 */
 
-	/* Row processor interface workspace */
-	PGdataValue *rowBuf;		/* array for passing values to rowProcessor */
-	int			rowBufLen;		/* number of entries allocated in rowBuf */
+	/* 行处理器接口的工作区 */
+	PGdataValue *rowBuf;		/* 传给 rowProcessor 的值数组 */
+	int			rowBufLen;		/* rowBuf 里已分配的项数 */
 
 	/*
-	 * Status for asynchronous result construction.  If result isn't NULL, it
-	 * is a result being constructed or ready to return.  If result is NULL
-	 * and error_result is true, then we need to return a PGRES_FATAL_ERROR
-	 * result, but haven't yet constructed it; text for the error has been
-	 * appended to conn->errorMessage.  (Delaying construction simplifies
-	 * dealing with out-of-memory cases.)  If next_result isn't NULL, it is a
-	 * PGresult that will replace "result" after we return that one.
+	 * 异步构造结果的状态。若 result 非 NULL，它
+	 * 是一个正在构造或准备返回的结果。若 result 为 NULL
+	 * 且 error_result 为真，则我们需要返回一个
+	 * PGRES_FATAL_ERROR 结果，但还没构造它；错误文本已
+	 * 追加到 conn->errorMessage。（推迟构造简化了
+	 * 对内存不足情形的处理。）若 next_result 非 NULL，它是
+	 * 将替换刚返回的那个 PGresult。
 	 */
-	PGresult   *result;			/* result being constructed */
-	bool		error_result;	/* do we need to make an ERROR result? */
-	PGresult   *next_result;	/* next result (used in single-row mode) */
+	PGresult   *result;			/* 正在构造的结果 */
+	bool		error_result;	/* 要做 ERROR 结果吗？ */
+	PGresult   *next_result;	/* 下一结果（单行模式） */
 
-	/* Assorted state for SASL, SSL, GSS, etc */
+	/* SASL、SSL、GSS 等的各种状态 */
 	const pg_fe_sasl_mech *sasl;
 	void	   *sasl_state;
 	int			scram_sha_256_iterations;
 
-	/* SSL structures */
+	/* SSL 结构 */
 	bool		ssl_in_use;
-	bool		ssl_cert_requested; /* Did the server ask us for a cert? */
-	bool		ssl_cert_sent;	/* Did we send one in reply? */
+	bool		ssl_cert_requested; /* 服务器要过证书吗？ */
+	bool		ssl_cert_sent;	/* 回复里送过吗？ */
 
 #ifdef USE_SSL
-	bool		allow_ssl_try;	/* Allowed to try SSL negotiation */
-	bool		wait_ssl_try;	/* Delay SSL negotiation until after
-								 * attempting normal connection */
+	bool		allow_ssl_try;	/* 允许尝试 SSL 协商 */
+	bool		wait_ssl_try;	/* 把 SSL 协商推迟到
+								 * 尝试普通连接之后 */
 #ifdef USE_OPENSSL
-	SSL		   *ssl;			/* SSL status, if have SSL connection */
-	X509	   *peer;			/* X509 cert of server */
+	SSL		   *ssl;			/* 若有 SSL 连接，其 SSL 状态 */
+	X509	   *peer;			/* 服务器 X509 证 */
 #ifdef USE_SSL_ENGINE
-	ENGINE	   *engine;			/* SSL engine, if any */
+	ENGINE	   *engine;			/* SSL引擎(若有) */
 #else
-	void	   *engine;			/* dummy field to keep struct the same if
-								 * OpenSSL version changes */
+	void	   *engine;			/* 占位以使结构不变，若
+								 * OpenSSL 版本一变 */
 #endif
-	bool		crypto_loaded;	/* Track if libcrypto locking callbacks have
-								 * been done for this connection. This can be
-								 * removed once support for OpenSSL 1.0.2 is
-								 * removed as this locking is handled
-								 * internally in OpenSSL >= 1.1.0. */
+	bool		crypto_loaded;	/* 记录本连接是否已做
+								 * libcrypto 加锁回调。可以在
+								 * 去掉 OpenSSL 1.0.2 支持后删掉，
+								 * 因为这种加锁在
+								 * OpenSSL >= 1.1.0 内部处理 */
 #endif							/* USE_OPENSSL */
 #endif							/* USE_SSL */
 
 #ifdef ENABLE_GSS
-	gss_ctx_id_t gctx;			/* GSS context */
-	gss_name_t	gtarg_nam;		/* GSS target name */
+	gss_ctx_id_t gctx;			/* GSS 语境 */
+	gss_name_t	gtarg_nam;		/* GSS 目标名 */
 
-	/* The following are encryption-only */
-	bool		try_gss;		/* GSS attempting permitted */
-	bool		gssenc;			/* GSS encryption is usable */
-	gss_cred_id_t gcred;		/* GSS credential temp storage. */
+	/* 以下几项只用于加密 */
+	bool		try_gss;		/* 允许尝试 GSS */
+	bool		gssenc;			/* GSS 加密可用 */
+	gss_cred_id_t gcred;		/* GSS 凭据的临时存放。 */
 
-	/* GSS encryption I/O state --- see fe-secure-gssapi.c */
-	char	   *gss_SendBuffer; /* Encrypted data waiting to be sent */
-	int			gss_SendLength; /* End of data available in gss_SendBuffer */
-	int			gss_SendNext;	/* Next index to send a byte from
+	/* GSS 加密的 I/O 状态，见 fe-secure-gssapi.c */
+	char	   *gss_SendBuffer; /* 等待发送的已加密数据 */
+	int			gss_SendLength; /* gss_SendBuffer 里可用数据的末尾 */
+	int			gss_SendNext;	/* 发送下标，取自
 								 * gss_SendBuffer */
-	int			gss_SendConsumed;	/* Number of source bytes encrypted but
-									 * not yet reported as sent */
-	char	   *gss_RecvBuffer; /* Received, encrypted data */
-	int			gss_RecvLength; /* End of data available in gss_RecvBuffer */
-	char	   *gss_ResultBuffer;	/* Decryption of data in gss_RecvBuffer */
-	int			gss_ResultLength;	/* End of data available in
+	int			gss_SendConsumed;	/* 源字节已加密，但还
+									 * 没报成已发送 */
+	char	   *gss_RecvBuffer; /* 收到的已加密数据 */
+	int			gss_RecvLength; /* gss_RecvBuffer 里可用数据的末尾 */
+	char	   *gss_ResultBuffer;	/* gss_RecvBuffer 中数据的解密 */
+	int			gss_ResultLength;	/* 可用数据的末端在
 									 * gss_ResultBuffer */
-	int			gss_ResultNext; /* Next index to read a byte from
+	int			gss_ResultNext; /* 读下一字节的索引，从
 								 * gss_ResultBuffer */
-	uint32		gss_MaxPktSize; /* Maximum size we can encrypt and fit the
-								 * results into our output buffer */
+	uint32		gss_MaxPktSize; /* 我们能加密并塞进
+								 * 输出缓冲的最大结果 */
 #endif
 
 #ifdef ENABLE_SSPI
-	CredHandle *sspicred;		/* SSPI credentials handle */
-	CtxtHandle *sspictx;		/* SSPI context */
-	char	   *sspitarget;		/* SSPI target name */
-	int			usesspi;		/* Indicate if SSPI is in use on the
-								 * connection */
+	CredHandle *sspicred;		/* SSPI 凭据句柄 */
+	CtxtHandle *sspictx;		/* SSPI 语境 */
+	char	   *sspitarget;		/* SSPI 目标名 */
+	int			usesspi;		/* 表明是否在连接上用
+								 * SSPI */
 #endif
 
 	/*
-	 * Buffer for current error message.  This is cleared at the start of any
-	 * connection attempt or query cycle; after that, all code should append
-	 * messages to it, never overwrite.
+	 * 当前错误消息的缓冲。任何连接尝试或
+	 * 查询周期开始时清掉它；此后所有代码只应追加
+	 * 消息进去，绝不覆盖。
 	 *
-	 * In some situations we might report an error more than once in a query
-	 * cycle.  If so, errorMessage accumulates text from all the errors, and
-	 * errorReported tracks how much we've already reported, so that the
-	 * individual error PGresult objects don't contain duplicative text.
+	 * 有些情况下，一个查询周期里我们可能不止一次
+	 * 报告错误。那样 errorMessage 便累加全部错误文本，
+	 * errorReported 记录我们已经报告了多少，以便
+	 * 各个错误 PGresult 对象不含重复文本。
 	 */
-	PQExpBufferData errorMessage;	/* expansible string */
-	int			errorReported;	/* # bytes of string already reported */
+	PQExpBufferData errorMessage;	/* 可扩展的串 */
+	int			errorReported;	/* 字符串里已报告的字节数 */
 
-	/* Buffer for receiving various parts of messages */
-	PQExpBufferData workBuffer; /* expansible string */
+	/* 接收消息各部分的缓冲 */
+	PQExpBufferData workBuffer; /* 可扩展的串 */
 };
 
-/* PGcancel stores all data necessary to cancel a connection. A copy of this
- * data is required to safely cancel a connection running on a different
- * thread.
+/* PGcancel 存放安全取消一条连接所需的全部数据。其副本
+ * 才能安全取消跑在另一个
+ * 线程
  */
 struct pg_cancel
 {
-	SockAddr	raddr;			/* Remote address */
-	int			be_pid;			/* PID of backend --- needed for cancels */
-	int			be_key;			/* key of backend --- needed for cancels */
-	int			pgtcp_user_timeout; /* tcp user timeout */
-	int			keepalives;		/* use TCP keepalives? */
-	int			keepalives_idle;	/* time between TCP keepalives */
-	int			keepalives_interval;	/* time between TCP keepalive
-										 * retransmits */
-	int			keepalives_count;	/* maximum number of TCP keepalive
-									 * retransmits */
+	SockAddr	raddr;			/* 远端地址 */
+	int			be_pid;			/* 后端 PID，取消时需要 */
+	int			be_key;			/* 后端密钥，取消时需要 */
+	int			pgtcp_user_timeout; /* TCP 用户超时 */
+	int			keepalives;		/* 用 TCP 保活？ */
+	int			keepalives_idle;	/* TCP 保活间隔 */
+	int			keepalives_interval;	/* TCP 保活的间隔
+										 * 重传数 */
+	int			keepalives_count;	/* TCP 保活最大次数
+									 * 重传数 */
 };
 
 
-/* String descriptions of the ExecStatusTypes.
- * direct use of this array is deprecated; call PQresStatus() instead.
+/* ExecStatusTypes 的字符串说明。
+ * 直接使用此数组已弃用；请改调 PQresStatus()。
  */
 extern char *const pgresStatus[];
 
@@ -666,7 +666,7 @@ extern char *const pgresStatus[];
 #define ROOT_CERT_FILE		".postgresql/root.crt"
 #define ROOT_CRL_FILE		".postgresql/root.crl"
 #else
-/* On Windows, the "home" directory is already PostgreSQL-specific */
+/* 在 Windows 上，home 目录已经是 PostgreSQL 专用的 */
 #define USER_CERT_FILE		"postgresql.crt"
 #define USER_KEY_FILE		"postgresql.key"
 #define ROOT_CERT_FILE		"root.crt"
@@ -676,11 +676,11 @@ extern char *const pgresStatus[];
 #endif							/* USE_SSL */
 
 /* ----------------
- * Internal functions of libpq
- * Functions declared here need to be visible across files of libpq,
- * but are not intended to be called by applications.  We use the
- * convention "pqXXX" for internal functions, vs. the "PQxxx" names
- * used for application-visible routines.
+ * libpq 的内部函数
+ * 这里声明的函数需要在 libpq 各文件间可见，
+ * 但不打算给应用程序调用。我们用
+ * 约定内部函数叫 pqXXX，而给应用看的叫
+ * PQxxx 这些名字。
  * ----------------
  */
 
@@ -740,9 +740,9 @@ extern PGresult *pqFunctionCall3(PGconn *conn, Oid fnid,
 /* === in fe-misc.c === */
 
  /*
-  * "Get" and "Put" routines return 0 if successful, EOF if not. Note that for
-  * Get, EOF merely means the buffer is exhausted, not that there is
-  * necessarily any error.
+  * 取与放例程成功回 0，否则 EOF。注意对
+  * 取而言，EOF 只表示缓冲尽了，并非
+  * 一定有错误。
   */
 extern int	pqCheckOutBufferSpace(size_t bytes_needed, PGconn *conn);
 extern int	pqCheckInBufferSpace(size_t bytes_needed, PGconn *conn);
@@ -782,71 +782,71 @@ extern void pq_reset_sigpipe(sigset_t *osigset, bool sigpipe_pending,
 							 bool got_epipe);
 #endif
 
-/* === SSL === */
+/* SSL 部分 */
 
 /*
- * The SSL implementation provides these functions.
+ * SSL 实现提供这些函数。
  */
 
 /*
- *	Implementation of PQinitSSL().
+ *	PQinitSSL() 的实现。
  */
 extern void pgtls_init_library(bool do_ssl, int do_crypto);
 
 /*
- * Initialize SSL library.
+ * 初始化 SSL 库。
  *
- * The conn parameter is only used to be able to pass back an error
- * message - no connection-local setup is made here.  do_ssl controls
- * if SSL is initialized, and do_crypto does the same for the crypto
- * part.
+ * conn 参数只用来回传错误
+ * 消息，这里不做连接局部的设置。do_ssl 控制
+ * 是否初始化 SSL，do_crypto 对加密部分同样
+ * 做
  *
- * Returns 0 if OK, -1 on failure (adding a message to conn->errorMessage).
+ * 成功 0，失败 -1（往 conn->errorMessage 加消息）。
  */
 extern int	pgtls_init(PGconn *conn, bool do_ssl, bool do_crypto);
 
 /*
- *	Begin or continue negotiating a secure session.
+ *	开始或继续协商安全会话。
  */
 extern PostgresPollingStatusType pgtls_open_client(PGconn *conn);
 
 /*
- *	Close SSL connection.
+ *	关闭 SSL 连接。
  */
 extern void pgtls_close(PGconn *conn);
 
 /*
- *	Read data from a secure connection.
+ *	从安全连接读取数据。
  *
- * On failure, this function is responsible for appending a suitable message
- * to conn->errorMessage.  The caller must still inspect errno, but only
- * to determine whether to continue/retry after error.
+ * 失败时，本函数负责追加一条合适的消息
+ * 到 conn->errorMessage。调用者仍须查看 errno，但仅
+ * 以判断出错后要继续还是重试。
  */
 extern ssize_t pgtls_read(PGconn *conn, void *ptr, size_t len);
 
 /*
- *	Is there unread data waiting in the SSL read buffer?
+ *	SSL 读缓冲里还有未读的数据吗？
  */
 extern bool pgtls_read_pending(PGconn *conn);
 
 /*
- *	Write data to a secure connection.
+ *	向安全连接写数据。
  *
- * On failure, this function is responsible for appending a suitable message
- * to conn->errorMessage.  The caller must still inspect errno, but only
- * to determine whether to continue/retry after error.
+ * 失败时，本函数负责追加一条合适的消息
+ * 到 conn->errorMessage。调用者仍须查看 errno，但仅
+ * 以判断出错后要继续还是重试。
  */
 extern ssize_t pgtls_write(PGconn *conn, const void *ptr, size_t len);
 
 /*
- * Get the hash of the server certificate, for SCRAM channel binding type
- * tls-server-end-point.
+ * 取得服务器证书的散列，用于 SCRAM 通道绑定类型
+ * tls-server-end-point
  *
- * NULL is sent back to the caller in the event of an error, with an
- * error message for the caller to consume.
+ * 出错时向调用者回送 NULL，并带一条
+ * 供调用者使用的错误消息。
  *
- * This is not supported with old versions of OpenSSL that don't have
- * the X509_get_signature_nid() function.
+ * 无 X509_get_signature_nid() 的旧 OpenSSL
+ * 不支持。
  */
 #if defined(USE_OPENSSL) && (defined(HAVE_X509_GET_SIGNATURE_NID) || defined(HAVE_X509_GET_SIGNATURE_INFO))
 #define HAVE_PGTLS_GET_PEER_CERTIFICATE_HASH
@@ -854,30 +854,30 @@ extern char *pgtls_get_peer_certificate_hash(PGconn *conn, size_t *len);
 #endif
 
 /*
- * Verify that the server certificate matches the host name we connected to.
+ * 核实服务器证书与我们所连主机名是否匹配。
  *
- * The certificate's Common Name and Subject Alternative Names are considered.
+ * 要考虑证书的通用名与主题备用名。
  *
- * Returns 1 if the name matches, and 0 if it does not. On error, returns
- * -1, and sets the libpq error message.
+ * 名字匹配返回 1，不匹配返回 0。出错时返回
+ * 负1，并设置 libpq 错误消息
  *
  */
 extern int	pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 															int *names_examined,
 															char **first_name);
 
-/* === GSSAPI === */
+/* GSSAPI 部分 */
 
 #ifdef ENABLE_GSS
 
 /*
- * Establish a GSSAPI-encrypted connection.
+ * 建立一条 GSSAPI 加密的连接。
  */
 extern PostgresPollingStatusType pqsecure_open_gss(PGconn *conn);
 
 /*
- * Read and write functions for GSSAPI-encrypted connections, with internal
- * buffering to handle nonblocking sockets.
+ * 用于 GSSAPI 加密连接的读写函数，带内部
+ * 缓冲，以处理非阻塞套接字。
  */
 extern ssize_t pg_GSS_write(PGconn *conn, const void *ptr, size_t len);
 extern ssize_t pg_GSS_read(PGconn *conn, void *ptr, size_t len);
@@ -889,31 +889,31 @@ extern void pqTraceOutputMessage(PGconn *conn, const char *message,
 								 bool toServer);
 extern void pqTraceOutputNoTypeByteMessage(PGconn *conn, const char *message);
 
-/* === miscellaneous macros === */
+/* 杂项宏 */
 
 /*
- * Reset the conn's error-reporting state.
+ * 重置该连接的错误报告状态。
  */
 #define pqClearConnErrorState(conn) \
 	(resetPQExpBuffer(&(conn)->errorMessage), \
 	 (conn)->errorReported = 0)
 
 /*
- * Check whether we have a PGresult pending to be returned --- either a
- * constructed one in conn->result, or a "virtual" error result that we
- * don't intend to materialize until the end of the query cycle.
+ * 检查是否有待返回的 PGresult，要么是
+ * conn->result 中造好的，或一个虚拟错误结果，我们
+ * 不打算在查询周期结束前把它具体化。
  */
 #define pgHavePendingResult(conn) \
 	((conn)->result != NULL || (conn)->error_result)
 
 /*
- * this is so that we can check if a connection is non-blocking internally
- * without the overhead of a function call
+ * 这样我们就能在内部检查连接是否非阻塞，
+ * 省掉函数调用开销
  */
 #define pqIsnonblocking(conn)	((conn)->nonblocking)
 
 /*
- * Connection's outbuffer threshold, for pipeline mode.
+ * 连接输出缓冲的阈值，用于管线模式。
  */
 #define OUTBUFFER_THRESHOLD	65536
 
@@ -925,8 +925,8 @@ extern char *libpq_ngettext(const char *msgid, const char *msgid_plural, unsigne
 #define libpq_ngettext(s, p, n) ((n) == 1 ? (s) : (p))
 #endif
 /*
- * libpq code should use the above, not _(), since that would use the
- * surrounding programs's message catalog.
+ * libpq 代码应使用上面的，不要用 _()，否则将用到
+ * 外层程序的消息目录。
  */
 #undef _
 
@@ -934,8 +934,8 @@ extern void libpq_append_error(PQExpBuffer errorMessage, const char *fmt,...) pg
 extern void libpq_append_conn_error(PGconn *conn, const char *fmt,...) pg_attribute_printf(2, 3);
 
 /*
- * These macros are needed to let error-handling code be portable between
- * Unix and Windows.  (ugh)
+ * 这些宏让错误处理代码能在 Unix 与 Windows 之间移植。
+ * 唉。
  */
 #ifdef WIN32
 #define SOCK_ERRNO (WSAGetLastError())

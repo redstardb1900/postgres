@@ -1,0 +1,192 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0647",
+ "title": "libpq 客户端头 — batch 0647",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b2ec51284d82742b3ee29ab9157bf7403e8f53c5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0647 next→PL其余/contrib"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-auth.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-auth-sasl.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-gssapi-common.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/fe-secure-common.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/libpq-events.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/libpq-fe.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/libpq-int.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/pqexpbuffer.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/interfaces/libpq/win32.h",
+   "kind": "c_comment",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0647-libpqh.json",
+   "kind": "manifest",
+   "note": "0647"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0647"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→PL其余/contrib"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-auth.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 3,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-auth-sasl.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-gssapi-common.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/fe-secure-common.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/libpq-events.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 8,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/libpq-fe.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 176,
+   "translated": 166,
+   "preserved": 10,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/libpq-int.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 316,
+   "translated": 305,
+   "preserved": 11,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/pqexpbuffer.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/interfaces/libpq/win32.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 4,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与节标记整段保留"],
+   "note": "0647"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0647-libpqh.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "九个仍为英文的 libpq 客户端头单开。横线、包含守卫、纯路径与 === 节标记整段保留。收口行整行预算比正文更紧：重传数、掩码、查询、字段名数组拆到下一行。"
+}

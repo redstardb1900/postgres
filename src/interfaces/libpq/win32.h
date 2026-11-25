@@ -5,18 +5,18 @@
 #define __win32_h_included
 
 /*
- * Some compatibility functions
+ * 一些兼容函数
  */
 
-/* open provided elsewhere */
+/* open 由别处提供 */
 #define close(a) _close(a)
 #define read(a,b,c) _read(a,b,c)
 #define write(a,b,c) _write(a,b,c)
 
-#undef EAGAIN					/* doesn't apply on sockets */
+#undef EAGAIN					/* 不适用于套接字 */
 
 /*
- * support for handling Windows Socket errors
+ * 处理 Windows 套接字错误的支持
  */
 extern const char *winsock_strerror(int err, char *strerrbuf, size_t buflen);
 

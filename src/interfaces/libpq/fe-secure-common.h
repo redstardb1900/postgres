@@ -2,7 +2,7 @@
  *
  * fe-secure-common.h
  *
- * common implementation-independent SSL support code
+ * 与实现无关的公共 SSL 支持代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

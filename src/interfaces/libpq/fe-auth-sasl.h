@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * fe-auth-sasl.h
- *	  Defines the SASL mechanism interface for libpq.
+ *	为 libpq 定义 SASL 机制接口。
  *
- * Each SASL mechanism defines a frontend and a backend callback structure.
- * This is not part of the public API for applications.
+ * 每种 SASL 机制定义前端与后端各自的回调结构。
+ * 这不是供应用程序使用的公开 API。
  *
- * See src/include/libpq/sasl.h for the backend counterpart.
+ * 见 src/include/libpq/sasl.h 的后端对应部分。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,33 +22,33 @@
 #include "libpq-fe.h"
 
 /*
- * Frontend SASL mechanism callbacks.
+ * 前端 SASL 机制回调。
  *
- * To implement a frontend mechanism, declare a pg_be_sasl_mech struct with
- * appropriate callback implementations, then hook it into conn->sasl during
- * pg_SASL_init()'s mechanism negotiation.
+ * 要实现前端机制，声明带有
+ * 合适回调实现的 pg_be_sasl_mech 结构，再挂入 conn->sasl，于
+ * pg_SASL_init() 的机制协商期间。
  */
 typedef struct pg_fe_sasl_mech
 {
 	/*-------
 	 * init()
 	 *
-	 * Initializes mechanism-specific state for a connection.  This
-	 * callback must return a pointer to its allocated state, which will
-	 * be passed as-is as the first argument to the other callbacks.
-	 * the free() callback is called to release any state resources.
+	 * 为连接初始化机制专属状态。此
+	 * 回调必须返回指向其所分配状态的指针，并将
+	 * 它原样作为第一个参数传给其他回调。
+	 * free() 回调被调用来释放任何状态资源。
 	 *
-	 * If state allocation fails, the implementation should return NULL to
-	 * fail the authentication exchange.
+	 * 若状态分配失败，实现应返回 NULL 以
+	 * 使认证交换失败。
 	 *
-	 * Input parameters:
+	 * 输入参数：
 	 *
-	 *   conn:     The connection to the server
+	 * conn：到服务器的连接
 	 *
-	 *   password: The user's supplied password for the current connection
+	 * password：用户为当前连接提供的密码
 	 *
-	 *   mech:     The mechanism name in use, for implementations that may
-	 *			   advertise more than one name (such as *-PLUS variants).
+	 * mech：在用的机制名，供那些可能
+	 *	公布不止一个名称的实现（如 *-PLUS 变体）。
 	 *-------
 	 */
 	void	   *(*init) (PGconn *conn, const char *password, const char *mech);
@@ -56,40 +56,40 @@ typedef struct pg_fe_sasl_mech
 	/*--------
 	 * exchange()
 	 *
-	 * Produces a client response to a server challenge.  As a special case
-	 * for client-first SASL mechanisms, exchange() is called with a NULL
-	 * server response once at the start of the authentication exchange to
-	 * generate an initial response.
+	 * 生成对服务器质询的客户端响应。特例：
+	 * 对客户端先发 SASL 机制，在认证交换开始时
+	 * 用 NULL 服务器响应调用一次 exchange()，以
+	 * 生成初始响应。
 	 *
-	 * Input parameters:
+	 * 输入参数：
 	 *
-	 *	state:	   The opaque mechanism state returned by init()
+	 *	state：init() 返回的不透明机制状态
 	 *
-	 *	input:	   The challenge data sent by the server, or NULL when
-	 *			   generating a client-first initial response (that is, when
-	 *			   the server expects the client to send a message to start
-	 *			   the exchange).  This is guaranteed to be null-terminated
-	 *			   for safety, but SASL allows embedded nulls in challenges,
-	 *			   so mechanisms must be careful to check inputlen.
+	 *	input：服务器发来的质询数据，或为 NULL，当
+	 *	生成客户端先发初始响应时（亦即
+	 *	服务器期望客户端发送消息来启动
+	 *	该交换）。它保证以空字符结尾，
+	 *	目的是安全，但 SASL 允许质询内嵌空字符，
+	 *	故机制必须小心检查 inputlen。
 	 *
-	 *	inputlen:  The length of the challenge data sent by the server, or -1
-	 *             during client-first initial response generation.
+	 *	inputlen：服务器所发质询数据的长度，或在
+	 * 生成客户端先发初始响应时为 -1。
 	 *
-	 * Output parameters, to be set by the callback function:
+	 * 输出参数，由回调函数设置：
 	 *
-	 *	output:	   A malloc'd buffer containing the client's response to
-	 *			   the server (can be empty), or NULL if the exchange should
-	 *			   be aborted.  (*success should be set to false in the
-	 *			   latter case.)
+	 *	output：一块 malloc 的缓冲，含客户端给
+	 *	服务器的响应（可为空），或在交换应
+	 *	被中止时为 NULL。（*success 应设为 false，于
+	 *	后一情形。）
 	 *
-	 *	outputlen: The length (0 or higher) of the client response buffer,
-	 *			   ignored if output is NULL.
+	 *	outputlen：客户端响应缓冲的长度（0 或更高），
+	 *	output 为 NULL 时忽略。
 	 *
-	 *	done:      Set to true if the SASL exchange should not continue,
-	 *			   because the exchange is either complete or failed
+	 *	done：若 SASL 交换不应继续则设为 true，
+	 *	因该交换已完成或已失败。
 	 *
-	 *	success:   Set to true if the SASL exchange completed successfully.
-	 *			   Ignored if *done is false.
+	 *	success：若 SASL 交换成功完成则设为 true。
+	 *	若*done 为 false 则忽略。
 	 *--------
 	 */
 	void		(*exchange) (void *state, char *input, int inputlen,
@@ -99,16 +99,16 @@ typedef struct pg_fe_sasl_mech
 	/*--------
 	 * channel_bound()
 	 *
-	 * Returns true if the connection has an established channel binding.  A
-	 * mechanism implementation must ensure that a SASL exchange has actually
-	 * been completed, in addition to checking that channel binding is in use.
+	 * 若连接已建立通道绑定则返回 true。
+	 * 机制实现必须确保 SASL 交换确已
+	 * 完成，此外还要检查通道绑定正在使用。
 	 *
-	 * Mechanisms that do not implement channel binding may simply return
+	 * 未实现通道绑定的机制可能直接返回
 	 * false.
 	 *
-	 * Input parameters:
+	 * 输入参数：
 	 *
-	 *	state:    The opaque mechanism state returned by init()
+	 *	state：init() 返回的不透明机制状态
 	 *--------
 	 */
 	bool		(*channel_bound) (void *state);
@@ -116,12 +116,12 @@ typedef struct pg_fe_sasl_mech
 	/*--------
 	 * free()
 	 *
-	 * Frees the state allocated by init(). This is called when the connection
-	 * is dropped, not when the exchange is completed.
+	 * 释放 init() 所分配的状态。本回调在连接
+	 * 断开时调用，不是交换完成之时。
 	 *
-	 * Input parameters:
+	 * 输入参数：
 	 *
-	 *   state:    The opaque mechanism state returned by init()
+	 * state：init() 返回的不透明机制状态
 	 *--------
 	 */
 	void		(*free) (void *state);

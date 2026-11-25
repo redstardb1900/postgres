@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
- * plpython_system.h - pull in Python's system header files
+ * plpython_system.h：引入 Python 的系统头文件
  *
- * We break this out as a separate header file to precisely control
- * the scope of the "system_header" pragma.  No Postgres-specific
- * declarations should be put here.  However, we do include some stuff
- * that is meant to prevent conflicts between our code and Python.
+ * 我们把它拆成单独的头文件，以便精确控制
+ * system_header 编译指示的范围。不含 Postgres 专有
+ * 声明不该放在这里。不过我们确实包含一些东西
+ * 用来防止我们的代码与 Python 冲突。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,26 +18,26 @@
 #define PLPYTHON_SYSTEM_H
 
 /*
- * Newer versions of the Python headers trigger a lot of warnings with our
- * preferred compiler flags (at least -Wdeclaration-after-statement is known
- * to be problematic). The system_header pragma hides warnings from within
- * the rest of this file, if supported.
+ * 较新 Python 头在我们首选编译
+ * 标志下警告很多（至少已知
+ * -Wdeclaration-after-statement 有问题）。system_header
+ * 若支持就隐藏文件余下警告
  */
 #ifdef HAVE_PRAGMA_GCC_SYSTEM_HEADER
 #pragma GCC system_header
 #endif
 
 /*
- * Python versions <= 3.8 otherwise define a replacement, causing macro
- * redefinition warnings.
+ * 否则 Python <= 3.8 会定义一个替代，导致宏
+ * 重定义警告。
  */
 #define HAVE_SNPRINTF 1
 
 #if defined(_MSC_VER) && defined(_DEBUG)
-/* Python uses #pragma to bring in a non-default libpython on VC++ if
- * _DEBUG is defined */
+/* Python 在 VC++ 上用 #pragma 引入非默认 libpython，若
+ * 定义了 _DEBUG */
 #undef _DEBUG
-/* Also hide away errcode, since we load Python.h before postgres.h */
+/* 也藏起 errcode，因先加载 Python.h 后才是 postgres.h */
 #define errcode __msvc_errcode
 #include <Python.h>
 #undef errcode

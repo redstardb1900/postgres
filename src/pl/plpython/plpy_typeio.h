@@ -10,60 +10,60 @@
 #include "plpython.h"
 #include "utils/typcache.h"
 
-struct PLyProcedure;			/* avoid requiring plpy_procedure.h here */
+struct PLyProcedure;			/* 避免此处依赖 plpy_procedure.h */
 
 
 /*
- * "Input" conversion from PostgreSQL Datum to a Python object.
+ * 输入转换：PostgreSQL Datum 到 Python 对象。
  *
- * arg is the previously-set-up conversion data, val is the value to convert.
- * val mustn't be NULL.
+ * arg 是事先备好的转换数据，val 是要转换的值。
+ * val 不得为 NULL
  *
- * Note: the conversion data structs should be regarded as private to
- * plpy_typeio.c.  We declare them here only so that other modules can
- * define structs containing them.
+ * 注意：转换数据结构应视为私有，属于
+ * plpy_typeio.c。此处声明只为让其他模块能
+ * 定义含有它们的结构。
  */
-typedef struct PLyDatumToOb PLyDatumToOb;	/* forward reference */
+typedef struct PLyDatumToOb PLyDatumToOb;	/* 前向引用 */
 
 typedef PyObject *(*PLyDatumToObFunc) (PLyDatumToOb *arg, Datum val);
 
 typedef struct PLyScalarToOb
 {
-	FmgrInfo	typfunc;		/* lookup info for type's output function */
+	FmgrInfo	typfunc;		/* 类型输出函数的查找信息 */
 } PLyScalarToOb;
 
 typedef struct PLyArrayToOb
 {
-	PLyDatumToOb *elm;			/* conversion info for array's element type */
+	PLyDatumToOb *elm;			/* 数组元素类型的转换信息 */
 } PLyArrayToOb;
 
 typedef struct PLyTupleToOb
 {
-	/* If we're dealing with a RECORD type, actual descriptor is here: */
+	/* 若处理的是 RECORD 类型，实际描述符在此： */
 	TupleDesc	recdesc;
-	/* If we're dealing with a named composite type, these fields are set: */
-	TypeCacheEntry *typentry;	/* typcache entry for type */
-	uint64		tupdescid;		/* last tupdesc identifier seen in typcache */
-	/* These fields are NULL/0 if not yet set: */
-	PLyDatumToOb *atts;			/* array of per-column conversion info */
-	int			natts;			/* length of array */
+	/* 若处理的是命名复合类型，则设置这些字段： */
+	TypeCacheEntry *typentry;	/* 类型的 typcache 项 */
+	uint64		tupdescid;		/* typcache 中上次的 tupdesc 标识 */
+	/* 未设置时这些字段为 NULL/0 */
+	PLyDatumToOb *atts;			/* 每列转换信息的数组 */
+	int			natts;			/* 数组长度 */
 } PLyTupleToOb;
 
 typedef struct PLyTransformToOb
 {
-	FmgrInfo	typtransform;	/* lookup info for from-SQL transform func */
+	FmgrInfo	typtransform;	/* SQL 侧变换函数的查找信息 */
 } PLyTransformToOb;
 
 struct PLyDatumToOb
 {
-	PLyDatumToObFunc func;		/* conversion control function */
-	Oid			typoid;			/* OID of the source type */
-	int32		typmod;			/* typmod of the source type */
-	bool		typbyval;		/* its physical representation details */
+	PLyDatumToObFunc func;		/* 转换控制函数 */
+	Oid			typoid;			/* 源类型的 OID */
+	int32		typmod;			/* 源类型的 typmod */
+	bool		typbyval;		/* 其物理表示的细节 */
 	int16		typlen;
 	char		typalign;
-	MemoryContext mcxt;			/* context this info is stored in */
-	union						/* conversion-type-specific data */
+	MemoryContext mcxt;			/* 存放本信息的上下文 */
+	union						/* 转换类型专属数据 */
 	{
 		PLyScalarToOb scalar;
 		PLyArrayToOb array;
@@ -73,18 +73,18 @@ struct PLyDatumToOb
 };
 
 /*
- * "Output" conversion from Python object to a PostgreSQL Datum.
+ * 输出转换：Python 对象到 PostgreSQL Datum。
  *
- * arg is the previously-set-up conversion data, val is the value to convert.
+ * arg 是事先备好的转换数据，val 是要转换的值。
  *
- * *isnull is set to true if val is Py_None, false otherwise.
- * (The conversion function *must* be called even for Py_None,
- * so that domain constraints can be checked.)
+ * *isnull 在 val 为 Py_None 时设为真，否则为假。
+ * 即使对 Py_None，也必须调用转换函数，
+ * 以便检查域约束。
  *
- * inarray is true if the converted value was in an array (Python list).
- * It is used to give a better error message in some cases.
+ * 值在数组(Python 列表)中则 inarray 为真
+ * 某些情况下用它给出更好的错误消息。
  */
-typedef struct PLyObToDatum PLyObToDatum;	/* forward reference */
+typedef struct PLyObToDatum PLyObToDatum;	/* 前向引用 */
 
 typedef Datum (*PLyObToDatumFunc) (PLyObToDatum *arg, PyObject *val,
 								   bool *isnull,
@@ -92,51 +92,51 @@ typedef Datum (*PLyObToDatumFunc) (PLyObToDatum *arg, PyObject *val,
 
 typedef struct PLyObToScalar
 {
-	FmgrInfo	typfunc;		/* lookup info for type's input function */
-	Oid			typioparam;		/* argument to pass to it */
+	FmgrInfo	typfunc;		/* 类型输入函数的查找信息 */
+	Oid			typioparam;		/* 传给它的参数 */
 } PLyObToScalar;
 
 typedef struct PLyObToArray
 {
-	PLyObToDatum *elm;			/* conversion info for array's element type */
-	Oid			elmbasetype;	/* element base type */
+	PLyObToDatum *elm;			/* 数组元素类型的转换信息 */
+	Oid			elmbasetype;	/* 元素基类型 */
 } PLyObToArray;
 
 typedef struct PLyObToTuple
 {
-	/* If we're dealing with a RECORD type, actual descriptor is here: */
+	/* 若处理的是 RECORD 类型，实际描述符在此： */
 	TupleDesc	recdesc;
-	/* If we're dealing with a named composite type, these fields are set: */
-	TypeCacheEntry *typentry;	/* typcache entry for type */
-	uint64		tupdescid;		/* last tupdesc identifier seen in typcache */
-	/* These fields are NULL/0 if not yet set: */
-	PLyObToDatum *atts;			/* array of per-column conversion info */
-	int			natts;			/* length of array */
-	/* We might need to convert using record_in(); if so, cache info here */
-	FmgrInfo	recinfunc;		/* lookup info for record_in */
+	/* 若处理的是命名复合类型，则设置这些字段： */
+	TypeCacheEntry *typentry;	/* 类型的 typcache 项 */
+	uint64		tupdescid;		/* typcache 中上次的 tupdesc 标识 */
+	/* 未设置时这些字段为 NULL/0 */
+	PLyObToDatum *atts;			/* 每列转换信息的数组 */
+	int			natts;			/* 数组长度 */
+	/* 也许要用 record_in() 转换；是则把信息缓存在此 */
+	FmgrInfo	recinfunc;		/* record_in 的查找信息 */
 } PLyObToTuple;
 
 typedef struct PLyObToDomain
 {
-	PLyObToDatum *base;			/* conversion info for domain's base type */
-	void	   *domain_info;	/* cache space for domain_check() */
+	PLyObToDatum *base;			/* 域的基类型的转换信息 */
+	void	   *domain_info;	/* domain_check() 的缓存空间 */
 } PLyObToDomain;
 
 typedef struct PLyObToTransform
 {
-	FmgrInfo	typtransform;	/* lookup info for to-SQL transform function */
+	FmgrInfo	typtransform;	/* 到 SQL 的变换函数查找信息 */
 } PLyObToTransform;
 
 struct PLyObToDatum
 {
-	PLyObToDatumFunc func;		/* conversion control function */
-	Oid			typoid;			/* OID of the target type */
-	int32		typmod;			/* typmod of the target type */
-	bool		typbyval;		/* its physical representation details */
+	PLyObToDatumFunc func;		/* 转换控制函数 */
+	Oid			typoid;			/* 目标类型的 OID */
+	int32		typmod;			/* 目标类型的 typmod */
+	bool		typbyval;		/* 其物理表示的细节 */
 	int16		typlen;
 	char		typalign;
-	MemoryContext mcxt;			/* context this info is stored in */
-	union						/* conversion-type-specific data */
+	MemoryContext mcxt;			/* 存放本信息的上下文 */
+	union						/* 转换类型专属数据 */
 	{
 		PLyObToScalar scalar;
 		PLyObToArray array;
@@ -169,7 +169,7 @@ extern PGDLLEXPORT void PLy_output_setup_tuple(PLyObToDatum *arg, TupleDesc desc
 extern PGDLLEXPORT void PLy_output_setup_record(PLyObToDatum *arg, TupleDesc desc,
 												struct PLyProcedure *proc);
 
-/* conversion from Python objects to C strings --- exported for transforms */
+/* 从 Python 对象到 C 字符串的转换，导出供变换使用 */
 extern PGDLLEXPORT char *PLyObject_AsString(PyObject *plrv);
 
 #endif							/* PLPY_TYPEIO_H */

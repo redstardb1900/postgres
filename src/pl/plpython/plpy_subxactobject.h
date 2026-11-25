@@ -9,7 +9,7 @@
 #include "plpython.h"
 #include "utils/resowner.h"
 
-/* a list of nested explicit subtransactions */
+/* 嵌套显式子事务的列表 */
 extern List *explicit_subtransactions;
 
 
@@ -20,7 +20,7 @@ typedef struct PLySubtransactionObject
 	bool		exited;
 } PLySubtransactionObject;
 
-/* explicit subtransaction data */
+/* 显式子事务数据 */
 typedef struct PLySubtransactionData
 {
 	MemoryContext oldcontext;

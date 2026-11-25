@@ -1,0 +1,42 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0648",
+ "title": "plpython 头文件 — batch 0648",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7026d114e7c59c0ac6d32758505e7e1f6666f743",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {"pattern": "AGENTS.md", "kind": "tool", "note": "0648 next→plpython.c"},
+  {"pattern": "src/pl/plpython/plpy_elog.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_main.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_plpymodule.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_procedure.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_resultobject.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_spi.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_subxactobject.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_typeio.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpy_util.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpython.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/pl/plpython/plpython_system.h", "kind": "c_comment", "note": "0648"},
+  {"pattern": "src/tools/zh-tools/manifests/batch-0648-plpyh.json", "kind": "manifest", "note": "0648"},
+  {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "note": "0648"}
+ ],
+ "files": [
+  {"path": "AGENTS.md", "kind": "tool", "action": "modify", "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [], "note": "下一战役→plpython.c"},
+  {"path": "src/pl/plpython/plpy_elog.h", "kind": "c_comment", "action": "modify", "segments_total": 6, "translated": 2, "preserved": 4, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_main.h", "kind": "c_comment", "action": "modify", "segments_total": 9, "translated": 7, "preserved": 2, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_plpymodule.h", "kind": "c_comment", "action": "modify", "segments_total": 3, "translated": 1, "preserved": 2, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_procedure.h", "kind": "c_comment", "action": "modify", "segments_total": 33, "translated": 31, "preserved": 2, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_resultobject.h", "kind": "c_comment", "action": "modify", "segments_total": 6, "translated": 3, "preserved": 3, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_spi.h", "kind": "c_comment", "action": "modify", "segments_total": 5, "translated": 3, "preserved": 2, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_subxactobject.h", "kind": "c_comment", "action": "modify", "segments_total": 4, "translated": 2, "preserved": 2, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_typeio.h", "kind": "c_comment", "action": "modify", "segments_total": 46, "translated": 44, "preserved": 2, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpy_util.h", "kind": "c_comment", "action": "modify", "segments_total": 2, "translated": 1, "preserved": 1, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpython.h", "kind": "c_comment", "action": "modify", "segments_total": 6, "translated": 5, "preserved": 1, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/pl/plpython/plpython_system.h", "kind": "c_comment", "action": "modify", "segments_total": 6, "translated": 5, "preserved": 1, "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"], "note": "0648"},
+  {"path": "src/tools/zh-tools/manifests/batch-0648-plpyh.json", "kind": "manifest", "action": "add", "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": []},
+  {"path": "src/tools/zh-tools/manifests/cumulative.json", "kind": "manifest", "action": "modify", "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": []}
+ ],
+ "notes": "plpython 有散文的 11 个头。纯路径与包含守卫的 plpy_cursorobject.h、plpy_exec.h、plpy_planobject.h 未改，不入本批。上下文按 9 字节计。"
+}

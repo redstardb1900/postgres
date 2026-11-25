@@ -7,7 +7,7 @@
 
 #include "plpython.h"
 
-/* global exception classes */
+/* 全局异常类 */
 extern PyObject *PLy_exc_error;
 extern PyObject *PLy_exc_fatal;
 extern PyObject *PLy_exc_spi_error;
@@ -15,7 +15,7 @@ extern PyObject *PLy_exc_spi_error;
 /*
  * PLy_elog()
  *
- * See comments at elog() about the compiler hinting.
+ * 见 elog() 处关于编译器提示的注释。
  */
 #ifdef HAVE__BUILTIN_CONSTANT_P
 #define PLy_elog(elevel, ...) \

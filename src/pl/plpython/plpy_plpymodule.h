@@ -8,7 +8,7 @@
 #include "plpython.h"
 #include "utils/hsearch.h"
 
-/* A hash table mapping sqlstates to exceptions, for speedy lookup */
+/* 把 sqlstate 映射到异常的散列表，便于快速查找 */
 extern HTAB *PLy_spi_exceptions;
 
 

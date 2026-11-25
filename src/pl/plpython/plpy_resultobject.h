@@ -14,10 +14,10 @@ typedef struct PLyResultObject
 {
 	PyObject_HEAD
 	/* HeapTuple *tuples; */
-	PyObject   *nrows;			/* number of rows returned by query */
-	PyObject   *rows;			/* data rows, or empty list if no data
-								 * returned */
-	PyObject   *status;			/* query status, SPI_OK_*, or SPI_ERR_* */
+	PyObject   *nrows;			/* 查询返回的行数 */
+	PyObject   *rows;			/* 数据行，或无数据时的空
+								 * 列表 */
+	PyObject   *status;			/* 查询状态 SPI_OK_* 或 SPI_ERR_* */
 	TupleDesc	tupdesc;
 } PLyResultObject;
 

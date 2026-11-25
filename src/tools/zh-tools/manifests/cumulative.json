@@ -12291,6 +12291,66 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0647-libpqh.json",
    "kind": "manifest",
    "note": "0647"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_elog.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_main.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_plpymodule.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_procedure.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_resultobject.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_spi.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_subxactobject.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_typeio.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpy_util.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpython.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/pl/plpython/plpython_system.h",
+   "kind": "c_comment",
+   "note": "0648"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0648-plpyh.json",
+   "kind": "manifest",
+   "note": "0648"
   }
  ],
  "files": [
@@ -40056,7 +40116,127 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "0647"
+  },
+  {
+   "path": "src/pl/plpython/plpy_elog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 2,
+   "preserved": 4,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_main.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 7,
+   "preserved": 2,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_plpymodule.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 1,
+   "preserved": 2,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_procedure.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 33,
+   "translated": 31,
+   "preserved": 2,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_resultobject.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 3,
+   "preserved": 3,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_spi.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 3,
+   "preserved": 2,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_subxactobject.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 2,
+   "preserved": 2,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_typeio.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 46,
+   "translated": 44,
+   "preserved": 2,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpy_util.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpython.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 5,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/pl/plpython/plpython_system.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 5,
+   "preserved": 1,
+   "preserved_reasons": ["横线、包含守卫、路径与宏名整段保留"],
+   "note": "0648"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0648-plpyh.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0648"
   }
  ],
- "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory. | append batch-0637 backup (+12 entries) | append batch-0638 port (+11 entries) | append batch-0639 port-fix (+1 manifest) | append batch-0640 jit (+10 entries: 9 source + manifest) | append batch-0641 small (+4 entries: foreign/bootstrap/shell_archive + manifest) | append batch-0642 plpgsql (+5 entries: funcs/handler/kwlists + manifest) | append batch-0643 pl_scanner (+2 entries: scanner + manifest) | append batch-0644 plpgsql.h (+2 entries: header + manifest) | append batch-0645 pl_comp (+2 entries: compiler + manifest) | append batch-0646 pl_exec (+2 entries: executor + manifest) | append batch-0647 libpqh (+10 entries: 9 headers + manifest)"
+ "notes": "cumulative scope declaration, regenerated 2026-11-11 (batch-0348). The previous regeneration dated from batch-0259 (a57a7470fb1); all batches from 0260 through 0347 (88 batches: the P2 executor campaign, the P2 remainder waves, and the 0311-0347 consistency/halfen/rendering campaigns) landed without updating this file - batch gates were unaffected because every batch since the 0338 lesson runs check_scope with --incremental --base HEAD, leaving the default cumulative mode silently stale. Regeneration method: git diff --name-status REL_16_11-base..HEAD = 1212 changed paths (739 modify / 473 add); 995 entries reused from the previous file (kind/note/segments preserved, action refreshed per current git status), 217 fresh entries (new manifests 0320-0347, new tool/test files, newly translated .c/.h; inferred kind, terse note), plus this batch's own manifest path. c_comment entries 498->622, manifest entries 306->395. Going forward, every batch appends its manifest path (and any new tool paths) to this file in the same commit - recorded as a standing gate item in the campaign memory. | append batch-0637 backup (+12 entries) | append batch-0638 port (+11 entries) | append batch-0639 port-fix (+1 manifest) | append batch-0640 jit (+10 entries: 9 source + manifest) | append batch-0641 small (+4 entries: foreign/bootstrap/shell_archive + manifest) | append batch-0642 plpgsql (+5 entries: funcs/handler/kwlists + manifest) | append batch-0643 pl_scanner (+2 entries: scanner + manifest) | append batch-0644 plpgsql.h (+2 entries: header + manifest) | append batch-0645 pl_comp (+2 entries: compiler + manifest) | append batch-0646 pl_exec (+2 entries: executor + manifest) | append batch-0647 libpqh (+10 entries: 9 headers + manifest) | append batch-0648 plpyh (+12 entries: 11 headers + manifest)"
 }

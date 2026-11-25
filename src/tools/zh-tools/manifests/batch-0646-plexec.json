@@ -1,0 +1,72 @@
+{
+ "schema_version": 1,
+ "batch_id": "batch-0646",
+ "title": "plpgsql 执行器 — batch 0646",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "56c7966e9831f5cd478cf206162645839d460bfe",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "AGENTS.md",
+   "kind": "tool",
+   "note": "0646 next→PL/客户端"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/pl_exec.c",
+   "kind": "c_comment",
+   "note": "0646"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0646-plexec.json",
+   "kind": "manifest",
+   "note": "0646"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "0646"
+  }
+ ],
+ "files": [
+  {
+   "path": "AGENTS.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "下一战役→PL/客户端/contrib"
+  },
+  {
+   "path": "src/pl/plpgsql/src/pl_exec.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 808,
+   "translated": 798,
+   "preserved": 10,
+   "preserved_reasons": ["translator 注释与 FALL THRU 整段保护"],
+   "note": "0646 执行器"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0646-plexec.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "pl_exec.c 单开。横线、{ } ...、FALL THRU 与 translator: 整段 KEEP。直角引号改回 ASCII 双引号。RECFIELDs、strict_multiassignment、shared_simple_eval_resowner、ParamListInfos 保留原标识符。"
+}

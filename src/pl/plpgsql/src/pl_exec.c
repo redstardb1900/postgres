@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
- * pl_exec.c		- Executor for the PL/pgSQL
- *			  procedural language
+ * pl_exec.c：PL/pgSQL 过程语言的
+ *			  执行器
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -53,80 +53,80 @@
 #include "utils/typcache.h"
 
 /*
- * All plpgsql function executions within a single transaction share the same
- * executor EState for evaluating "simple" expressions.  Each function call
- * creates its own "eval_econtext" ExprContext within this estate for
- * per-evaluation workspace.  eval_econtext is freed at normal function exit,
- * and the EState is freed at transaction end (in case of error, we assume
- * that the abort mechanisms clean it all up).  Furthermore, any exception
- * block within a function has to have its own eval_econtext separate from
- * the containing function's, so that we can clean up ExprContext callbacks
- * properly at subtransaction exit.  We maintain a stack that tracks the
- * individual econtexts so that we can clean up correctly at subxact exit.
+ * 同一事务内，全部 plpgsql 函数执行共用同一个
+ * 执行器 EState，用以求值简单表达式。每次函数调用
+ * 都在此 EState 内自建 eval_econtext，即 ExprContext，供
+ * 每次求值的工作区。函数正常退出时释放 eval_econtext，
+ * 事务结束时释放 EState（出错时，我们假定
+ * 中止机制把它全部清掉）。此外，函数内任一异常
+ * 块都必须自有 eval_econtext，与所在函数的分开，
+ * 以便能在子事务退出时妥善清理 ExprContext 回调。
+ * 我们维护一个栈，跟踪各个 econtext，以便在子事务
+ * 退出时正确清理。
  *
- * This arrangement is a bit tedious to maintain, but it's worth the trouble
- * so that we don't have to re-prepare simple expressions on each trip through
- * a function.  (We assume the case to optimize is many repetitions of a
- * function within a transaction.)
+ * 这种安排维护起来有点烦，但麻烦是值得的，
+ * 这样每次进入函数都不必重新准备简单表达式。
+ * 我们假定要优化的是事务内对同一函数的多次
+ * 重复。
  *
- * However, there's no value in trying to amortize simple expression setup
- * across multiple executions of a DO block (inline code block), since there
- * can never be any.  If we use the shared EState for a DO block, the expr
- * state trees are effectively leaked till end of transaction, and that can
- * add up if the user keeps on submitting DO blocks.  Therefore, each DO block
- * has its own simple-expression EState, which is cleaned up at exit from
- * plpgsql_inline_handler().  DO blocks still use the simple_econtext_stack,
- * though, so that subxact abort cleanup does the right thing.
+ * 但把简单表达式准备摊到多次 DO 块执行并无价值（
+ * 即内联代码块），因为根本不可能有多次。
+ * 若 DO 块用共享 EState，表达式状态树其实泄漏到事务
+ * 结束。用户一再提交 DO 块，泄漏可能累加。
+ * 因此每个 DO 块自有简单表达式 EState，离开
+ * plpgsql_inline_handler() 时清理。DO 块照用
+ * simple_econtext_stack，以使子事务中止清理
+ * 仍能做对。
  *
- * (However, if a DO block executes COMMIT or ROLLBACK, then exec_stmt_commit
- * or exec_stmt_rollback will unlink it from the DO's simple-expression EState
- * and create a new shared EState that will be used thenceforth.  The original
- * EState will be cleaned up when we get back to plpgsql_inline_handler.  This
- * is a bit ugly, but it isn't worth doing better, since scenarios like this
- * can't result in indefinite accumulation of state trees.)
+ * 不过（若 DO 块执行 COMMIT、ROLLBACK，则 exec_stmt_commit
+ * 与 exec_stmt_rollback 把它从该 DO 的简单表达式 EState
+ * 解绑，并新建此后使用的共享 EState。原来的
+ * EState 将在回到 plpgsql_inline_handler 时被清理。这
+ * 有点难看，但不值得做得更好，因为这类情形
+ * 无法造成状态树无限堆积。）
  */
 typedef struct SimpleEcontextStackEntry
 {
-	ExprContext *stack_econtext;	/* a stacked econtext */
-	SubTransactionId xact_subxid;	/* ID for current subxact */
-	struct SimpleEcontextStackEntry *next;	/* next stack entry up */
+	ExprContext *stack_econtext;	/* 栈上的 econtext */
+	SubTransactionId xact_subxid;	/* 当前子事务 ID */
+	struct SimpleEcontextStackEntry *next;	/* 栈中更上一项 */
 } SimpleEcontextStackEntry;
 
 static EState *shared_simple_eval_estate = NULL;
 static SimpleEcontextStackEntry *simple_econtext_stack = NULL;
 
 /*
- * In addition to the shared simple-eval EState, we have a shared resource
- * owner that holds refcounts on the CachedPlans for any "simple" expressions
- * we have evaluated in the current transaction.  This allows us to avoid
- * continually grabbing and releasing a plan refcount when a simple expression
- * is used over and over.  (DO blocks use their own resowner, in exactly the
- * same way described above for shared_simple_eval_estate.)
+ * 除共享的简单求值 EState 外，还有共享资源
+ * 所有者，持有本事务中已求值的任何简单表达式
+ * 之 CachedPlans 的引用计数。这让我们避免在其
+ * 被反复使用时不停地抓取并释放计划引用计数。
+ * DO 块自用 resowner，做法与上文
+ * shared_simple_eval_estate 完全一样。）
  */
 static ResourceOwner shared_simple_eval_resowner = NULL;
 
 /*
- * Memory management within a plpgsql function generally works with three
- * contexts:
+ * plpgsql 函数内的内存管理大体靠三种内存上下文
+ * 如下：
  *
- * 1. Function-call-lifespan data, such as variable values, is kept in the
- * "main" context, a/k/a the "SPI Proc" context established by SPI_connect().
- * This is usually the CurrentMemoryContext while running code in this module
- * (which is not good, because careless coding can easily cause
- * function-lifespan memory leaks, but we live with it for now).
+ * 1. 函数调用寿命的数据，例如变量值，保存在
+ * 主内存上下文，亦即 SPI_connect() 所建的 SPI Proc 上下文。
+ * 在本模块跑代码时，它通常就是 CurrentMemoryContext（
+ * 这并不好，因粗心编码很容易造成函数寿命的
+ * 内存泄漏，但我们暂时忍受。）
  *
- * 2. Some statement-execution routines need statement-lifespan workspace.
- * A suitable context is created on-demand by get_stmt_mcontext(), and must
- * be reset at the end of the requesting routine.  Error recovery will clean
- * it up automatically.  Nested statements requiring statement-lifespan
- * workspace will result in a stack of such contexts, see push_stmt_mcontext().
+ * 2. 有些语句执行例程需要语句寿命的工作区。
+ * 内存上下文由 get_stmt_mcontext() 按需创建，且必须
+ * 在该请求例程结束时重置。错误恢复将自动清理。
+ * 嵌套语句若也要语句寿命工作区，便形成此类
+ * 内存上下文的栈，见 push_stmt_mcontext()。
  *
- * 3. We use the eval_econtext's per-tuple memory context for expression
- * evaluation, and as a general-purpose workspace for short-lived allocations.
- * Such allocations usually aren't explicitly freed, but are left to be
- * cleaned up by a context reset, typically done by exec_eval_cleanup().
+ * 3. 求值用 eval_econtext 的每元组内存上下文，并作
+ * 通用工作区，供短命分配之用。这类分配通常不显式
+ * 释放，而留待内存上下文重置来清理，通常由
+ * exec_eval_cleanup() 来做。
  *
- * These macros are for use in making short-lived allocations:
+ * 这些宏就是用来做短命分配的：
  */
 #define get_eval_mcontext(estate) \
 	((estate)->eval_econtext->ecxt_per_tuple_memory)
@@ -136,46 +136,46 @@ static ResourceOwner shared_simple_eval_resowner = NULL;
 	MemoryContextAllocZero(get_eval_mcontext(estate), sz)
 
 /*
- * We use two session-wide hash tables for caching cast information.
+ * 我们用两张连接期散列表来缓存转换信息。
  *
- * cast_expr_hash entries (of type plpgsql_CastExprHashEntry) hold compiled
- * expression trees for casts.  These survive for the life of the session and
- * are shared across all PL/pgSQL functions and DO blocks.  At some point it
- * might be worth invalidating them after pg_cast changes, but for the moment
- * we don't bother.
+ * cast_expr_hash 的项（plpgsql_CastExprHashEntry）存已编译
+ * 转换表达式树。它们在整个连接期内存活，并供全部
+ * PL/pgSQL 函数与 DO 块共享。将来也许值得在
+ * pg_cast 变更后作废它们，但此刻
+ * 不费心。
  *
- * There is a separate hash table shared_cast_hash (with entries of type
- * plpgsql_CastHashEntry) containing evaluation state trees for these
- * expressions, which are managed in the same way as simple expressions
- * (i.e., we assume cast expressions are always simple).
+ * 另有散列表 shared_cast_hash（项类型为
+ * plpgsql_CastHashEntry），存放这些表达式的求值
+ * 状态树，管理方式与简单表达式相同（亦即
+ * 我们假定转换表达式总是简单的）。
  *
- * As with simple expressions, DO blocks don't use the shared_cast_hash table
- * but must have their own evaluation state trees.  This isn't ideal, but we
- * don't want to deal with multiple simple_eval_estates within a DO block.
+ * 与简单表达式一样，DO 块不用 shared_cast_hash 表，
+ * 但必须自有求值状态树。这不理想，但我们不想
+ * 在一个 DO 块里对付多个 simple_eval_estates。
  */
-typedef struct					/* lookup key for cast info */
+typedef struct					/* 转换信息的查找键 */
 {
-	/* NB: we assume this struct contains no padding bytes */
-	Oid			srctype;		/* source type for cast */
-	Oid			dsttype;		/* destination type for cast */
-	int32		srctypmod;		/* source typmod for cast */
-	int32		dsttypmod;		/* destination typmod for cast */
+	/* 注意：假定此结构不含任何填充字节 */
+	Oid			srctype;		/* 转换的源类型 */
+	Oid			dsttype;		/* 转换的目标类型 */
+	int32		srctypmod;		/* 转换的源 typmod */
+	int32		dsttypmod;		/* 转换的目标 typmod */
 } plpgsql_CastHashKey;
 
-typedef struct					/* cast_expr_hash table entry */
+typedef struct					/* cast_expr_hash 表项 */
 {
-	plpgsql_CastHashKey key;	/* hash key --- MUST BE FIRST */
-	Expr	   *cast_expr;		/* cast expression, or NULL if no-op cast */
-	CachedExpression *cast_cexpr;	/* cached expression backing the above */
+	plpgsql_CastHashKey key;	/* 散列键须排第一 */
+	Expr	   *cast_expr;		/* 转换表达式，空操作则为 NULL */
+	CachedExpression *cast_cexpr;	/* 支撑上项的缓存表达式 */
 } plpgsql_CastExprHashEntry;
 
-typedef struct					/* cast_hash table entry */
+typedef struct					/* cast_hash 表项 */
 {
-	plpgsql_CastHashKey key;	/* hash key --- MUST BE FIRST */
-	plpgsql_CastExprHashEntry *cast_centry; /* link to matching expr entry */
-	/* ExprState is valid only when cast_lxid matches current LXID */
-	ExprState  *cast_exprstate; /* expression's eval tree */
-	bool		cast_in_use;	/* true while we're executing eval tree */
+	plpgsql_CastHashKey key;	/* 散列键须排第一 */
+	plpgsql_CastExprHashEntry *cast_centry; /* 链到匹配的 expr 项 */
+	/* 仅当 cast_lxid 匹配当前 LXID 时 ExprState 才有效 */
+	ExprState  *cast_exprstate; /* 表达式求值树 */
+	bool		cast_in_use;	/* 执行求值树期间为真 */
 	LocalTransactionId cast_lxid;
 } plpgsql_CastHashEntry;
 
@@ -183,53 +183,53 @@ static HTAB *cast_expr_hash = NULL;
 static HTAB *shared_cast_hash = NULL;
 
 /*
- * LOOP_RC_PROCESSING encapsulates common logic for looping statements to
- * handle return/exit/continue result codes from the loop body statement(s).
- * It's meant to be used like this:
+ * LOOP_RC_PROCESSING 封装循环语句的共同逻辑，用来
+ * 处理循环体语句给出的 return、exit、continue 结果码。
+ * 打算这样使用：
  *
- *		int rc = PLPGSQL_RC_OK;
+ *		int rc=PLPGSQL_RC_OK;
  *		for (...)
  *		{
  *			...
  *			rc = exec_stmts(estate, stmt->body);
- *			LOOP_RC_PROCESSING(stmt->label, break);
+ *			LOOP_RC_PROCESSING(stmt->label,break);
  *			...
  *		}
- *		return rc;
+ *		return(rc)
  *
- * If execution of the loop should terminate, LOOP_RC_PROCESSING will execute
- * "exit_action" (typically a "break" or "goto"), after updating "rc" to the
- * value the current statement should return.  If execution should continue,
- * LOOP_RC_PROCESSING will do nothing except reset "rc" to PLPGSQL_RC_OK.
+ * 若该循环的执行应当终止，LOOP_RC_PROCESSING 先把 rc
+ * 更新为当前语句应返回的值，再执行 exit_action（
+ * 通常为 break 或 goto）。若执行应当继续，
+ * LOOP_RC_PROCESSING 只把 rc 重置为 PLPGSQL_RC_OK。
  *
- * estate and rc are implicit arguments to the macro.
- * estate->exitlabel is examined and possibly updated.
+ * estate 与 rc 是该宏的隐式参数。
+ * 要检查 estate->exitlabel，并可能更新。
  */
 #define LOOP_RC_PROCESSING(looplabel, exit_action) \
 	if (rc == PLPGSQL_RC_RETURN) \
 	{ \
-		/* RETURN, so propagate RC_RETURN out */ \
+		/* RETURN，故向外传播 RC_RETURN */ \
 		exit_action; \
 	} \
 	else if (rc == PLPGSQL_RC_EXIT) \
 	{ \
 		if (estate->exitlabel == NULL) \
 		{ \
-			/* unlabeled EXIT terminates this loop */ \
+			/* 无标号 EXIT 终止本循环 */ \
 			rc = PLPGSQL_RC_OK; \
 			exit_action; \
 		} \
 		else if ((looplabel) != NULL && \
 				 strcmp(looplabel, estate->exitlabel) == 0) \
 		{ \
-			/* labeled EXIT matching this loop, so terminate loop */ \
+			/* 带标号 EXIT 匹配本循环则终止循环 */ \
 			estate->exitlabel = NULL; \
 			rc = PLPGSQL_RC_OK; \
 			exit_action; \
 		} \
 		else \
 		{ \
-			/* non-matching labeled EXIT, propagate RC_EXIT out */ \
+			/* 不匹配的带标号 EXIT，传出 RC_EXIT */ \
 			exit_action; \
 		} \
 	} \
@@ -237,19 +237,19 @@ static HTAB *shared_cast_hash = NULL;
 	{ \
 		if (estate->exitlabel == NULL) \
 		{ \
-			/* unlabeled CONTINUE matches this loop, so continue in loop */ \
+			/* 无标号 CONTINUE 匹配，故循环内继续 */ \
 			rc = PLPGSQL_RC_OK; \
 		} \
 		else if ((looplabel) != NULL && \
 				 strcmp(looplabel, estate->exitlabel) == 0) \
 		{ \
-			/* labeled CONTINUE matching this loop, so continue in loop */ \
+			/* 带标号 CONTINUE 匹配，故在循环内继续 */ \
 			estate->exitlabel = NULL; \
 			rc = PLPGSQL_RC_OK; \
 		} \
 		else \
 		{ \
-			/* non-matching labeled CONTINUE, propagate RC_CONTINUE out */ \
+			/* 不匹配的带标号 CONTINUE，传出 RC_CONTINUE */ \
 			exit_action; \
 		} \
 	} \
@@ -257,7 +257,7 @@ static HTAB *shared_cast_hash = NULL;
 		Assert(rc == PLPGSQL_RC_OK)
 
 /************************************************************
- * Local function forward declarations
+ * 局部函数的前向声明
  ************************************************************/
 static void coerce_function_result_tuple(PLpgSQL_execstate *estate,
 										 TupleDesc tupdesc);
@@ -460,22 +460,22 @@ static PLpgSQL_variable *make_callstmt_target(PLpgSQL_execstate *estate,
 
 
 /* ----------
- * plpgsql_exec_function	Called by the call handler for
- *				function execution.
+ * plpgsql_exec_function	供调用处理器来执行
+ *				该函数。
  *
- * This is also used to execute inline code blocks (DO blocks).  The only
- * difference that this code is aware of is that for a DO block, we want
- * to use a private simple_eval_estate and a private simple_eval_resowner,
- * which are created and passed in by the caller.  For regular functions,
- * pass NULL, which implies using shared_simple_eval_estate and
- * shared_simple_eval_resowner.  (When using a private simple_eval_estate,
- * we must also use a private cast hashtable, but that's taken care of
- * within plpgsql_estate_setup.)
- * procedure_resowner is a resowner that will survive for the duration
- * of execution of this function/procedure.  It is needed only if we
- * are doing non-atomic execution and there are CALL or DO statements
- * in the function; otherwise it can be NULL.  We use it to hold refcounts
- * on the CALL/DO statements' plans.
+ * 这也用来执行内联代码块（DO 块）。本代码
+ * 唯一知道的差别是：对 DO 块，我们要
+ * 用私有 simple_eval_estate 与私有 simple_eval_resowner，
+ * 它们由调用者创建并传入。普通函数则传
+ * NULL，意即使用 shared_simple_eval_estate 与
+ * shared_simple_eval_resowner。（若用私有 simple_eval_estate，
+ * 还必须再用私有转换散列表，此事交给
+ * plpgsql_estate_setup。）
+ * procedure_resowner 能在本函数与本过程的
+ * 执行期内一直存活。只当非原子执行且有
+ * CALL、DO 语句时才需要，否则可为 NULL。我们用它
+ * 来持有 CALL 与 DO 这两类语句
+ * 计划上的引用计数。
  * ----------
  */
 Datum
@@ -491,7 +491,7 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	int			rc;
 
 	/*
-	 * Setup the execution state
+	 * 设置执行状态
 	 */
 	plpgsql_estate_setup(&estate, func, (ReturnSetInfo *) fcinfo->resultinfo,
 						 simple_eval_estate, simple_eval_resowner);
@@ -499,7 +499,7 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	estate.atomic = atomic;
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设错误回溯支持
 	 */
 	plerrcontext.callback = plpgsql_exec_error_callback;
 	plerrcontext.arg = &estate;
@@ -507,13 +507,13 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	error_context_stack = &plerrcontext;
 
 	/*
-	 * Make local execution copies of all the datums
+	 * 给全部 datum 做局部执行副本
 	 */
 	estate.err_text = gettext_noop("during initialization of execution state");
 	copy_plpgsql_datums(&estate, func);
 
 	/*
-	 * Store the actual call argument values into the appropriate variables
+	 * 把实际的调用实参值存入相应的变量
 	 */
 	estate.err_text = gettext_noop("while storing call arguments into local variables");
 	for (i = 0; i < func->fn_nargs; i++)
@@ -532,25 +532,25 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 									  false);
 
 					/*
-					 * Force any array-valued parameter to be stored in
-					 * expanded form in our local variable, in hopes of
-					 * improving efficiency of uses of the variable.  (This is
-					 * a hack, really: why only arrays? Need more thought
-					 * about which cases are likely to win.  See also
-					 * typisarray-specific heuristic in exec_assign_value.)
+					 * 强制任何数组型参数以扩展形式存进
+					 * 局部变量，以期提高使用它的
+					 * 效率。（这实在是权宜：为何只限数组？
+					 * 哪些情形可能划算，还需多想。另见
+					 * exec_assign_value 中只对 typisarray 的
+					 * 启发规则。）
 					 *
-					 * Special cases: If passed a R/W expanded pointer, assume
-					 * we can commandeer the object rather than having to copy
-					 * it.  If passed a R/O expanded pointer, just keep it as
-					 * the value of the variable for the moment.  (We'll force
-					 * it to R/W if the variable gets modified, but that may
-					 * very well never happen.)
+					 * 特例：若传入 R/W 扩展指针，就假定可以
+					 * 征用该对象，而不必拷贝它。若传入的是
+					 * R/O 扩展指针，暂留作该变量的值（
+					 * 若变量被修改，我们再把它强制成
+					 * R/W，但那也许
+					 * 永远都不发生。）
 					 */
 					if (!var->isnull && var->datatype->typisarray)
 					{
 						if (VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(var->value)))
 						{
-							/* take ownership of R/W object */
+							/* 接管 R/W 对象所有权 */
 							assign_simple_var(&estate, var,
 											  TransferExpandedObject(var->value,
 																	 estate.datum_context),
@@ -559,11 +559,11 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 						}
 						else if (VARATT_IS_EXTERNAL_EXPANDED_RO(DatumGetPointer(var->value)))
 						{
-							/* R/O pointer, keep it as-is until assigned to */
+							/* R/O 指针，赋值前保持原样 */
 						}
 						else
 						{
-							/* flat array, so force to expanded form */
+							/* 扁平数组则强制成扩展形式 */
 							assign_simple_var(&estate, var,
 											  expand_array(var->value,
 														   estate.datum_context,
@@ -581,24 +581,24 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 
 					if (!fcinfo->args[i].isnull)
 					{
-						/* Assign row value from composite datum */
+						/* 从复合 datum 赋给行值 */
 						exec_move_row_from_datum(&estate,
 												 (PLpgSQL_variable *) rec,
 												 fcinfo->args[i].value);
 					}
 					else
 					{
-						/* If arg is null, set variable to null */
+						/* 实参若 NULL 就把变量置 NULL */
 						exec_move_row(&estate, (PLpgSQL_variable *) rec,
 									  NULL, NULL);
 					}
-					/* clean up after exec_move_row() */
+					/* exec_move_row() 之后清理 */
 					exec_eval_cleanup(&estate);
 				}
 				break;
 
 			default:
-				/* Anything else should not be an argument variable */
+				/* 此外任何东西都不该是参数变量 */
 				elog(ERROR, "unrecognized dtype: %d", func->datums[i]->dtype);
 		}
 	}
@@ -606,18 +606,18 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	estate.err_text = gettext_noop("during function entry");
 
 	/*
-	 * Set the magic variable FOUND to false
+	 * 把魔术变量 FOUND 设为假
 	 */
 	exec_set_found(&estate, false);
 
 	/*
-	 * Let the instrumentation plugin peek at this function
+	 * 让插装插件看一眼这个函数
 	 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->func_beg)
 		((*plpgsql_plugin_ptr)->func_beg) (&estate, func);
 
 	/*
-	 * Now call the toplevel block of statements
+	 * 现在调用顶层语句块
 	 */
 	estate.err_text = NULL;
 	rc = exec_toplevel_block(&estate, func->action);
@@ -630,7 +630,7 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	}
 
 	/*
-	 * We got a return value - process it
+	 * 得到返回值，接着处理它
 	 */
 	estate.err_text = gettext_noop("while casting return value to function's return type");
 
@@ -640,7 +640,7 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	{
 		ReturnSetInfo *rsi = estate.rsi;
 
-		/* Check caller can handle a set result */
+		/* 查调用者能否处理集合结果 */
 		if (!rsi || !IsA(rsi, ReturnSetInfo))
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -653,7 +653,7 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 
 		rsi->returnMode = SFRM_Materialize;
 
-		/* If we produced any tuples, send back the result */
+		/* 若产生了任何元组，就把结果送回 */
 		if (estate.tuple_store)
 		{
 			MemoryContext oldcxt;
@@ -669,21 +669,21 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	else if (!estate.retisnull)
 	{
 		/*
-		 * Cast result value to function's declared result type, and copy it
-		 * out to the upper executor memory context.  We must treat tuple
-		 * results specially in order to deal with cases like rowtypes
-		 * involving dropped columns.
+		 * 把结果值转换成函数声明的结果类型，并把它拷
+		 * 出到上层执行器内存上下文。对元组
+		 * 结果必须特殊处理，以对付诸如行类型
+		 * 含已删列的情形。
 		 */
 		if (estate.retistuple)
 		{
-			/* Don't need coercion if rowtype is known to match */
+			/* 若已知行类型匹配，则不必强制 */
 			if (func->fn_rettype == estate.rettype &&
 				func->fn_rettype != RECORDOID)
 			{
 				/*
-				 * Copy the tuple result into upper executor memory context.
-				 * However, if we have a R/W expanded datum, we can just
-				 * transfer its ownership out to the upper context.
+				 * 把元组结果拷进上层执行器内存上下文。
+				 * 不过若已有 R/W 扩展 datum，就可以只
+				 * 把它的所有权转出到上层上下文。
 				 */
 				estate.retval = SPI_datumTransfer(estate.retval,
 												  false,
@@ -692,12 +692,12 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 			else
 			{
 				/*
-				 * Need to look up the expected result type.  XXX would be
-				 * better to cache the tupdesc instead of repeating
-				 * get_call_result_type(), but the only easy place to save it
-				 * is in the PLpgSQL_function struct, and that's too
-				 * long-lived: composite types could change during the
-				 * existence of a PLpgSQL_function.
+				 * 需要查出预期的结果类型。XXX 更好是
+				 * 去缓存 tupdesc，而不是反复调用
+				 * get_call_result_type()，但唯一易存之处是
+				 * PLpgSQL_function 结构内，而那过于
+				 * 长命：复合类型在其存续期间可能
+				 * 改变。
 				 */
 				Oid			resultTypeId;
 				TupleDesc	tupdesc;
@@ -705,32 +705,32 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 				switch (get_call_result_type(fcinfo, &resultTypeId, &tupdesc))
 				{
 					case TYPEFUNC_COMPOSITE:
-						/* got the expected result rowtype, now coerce it */
+						/* 已得期望结果行类型，现在强制 */
 						coerce_function_result_tuple(&estate, tupdesc);
 						break;
 					case TYPEFUNC_COMPOSITE_DOMAIN:
-						/* got the expected result rowtype, now coerce it */
+						/* 已得期望结果行类型，现在强制 */
 						coerce_function_result_tuple(&estate, tupdesc);
-						/* and check domain constraints */
-						/* XXX allowing caching here would be good, too */
+						/* 并检查域约束 */
+						/* XXX 这里若能缓存也好 */
 						domain_check(estate.retval, false, resultTypeId,
 									 NULL, NULL);
 						break;
 					case TYPEFUNC_RECORD:
 
 						/*
-						 * Failed to determine actual type of RECORD.  We
-						 * could raise an error here, but what this means in
-						 * practice is that the caller is expecting any old
-						 * generic rowtype, so we don't really need to be
-						 * restrictive.  Pass back the generated result as-is.
+						 * RECORD 实际类型未能确定。我们
+						 * 本可在此报错，但这在实践中意味着
+						 * 调用者预期的是随便一种旧的
+						 * 通用行类型，所以我们实在不必
+						 * 苛刻。生成的结果就原样传回。
 						 */
 						estate.retval = SPI_datumTransfer(estate.retval,
 														  false,
 														  -1);
 						break;
 					default:
-						/* shouldn't get here if retistuple is true ... */
+						/* retistuple 为真则不该到此 ... */
 						elog(ERROR, "return type must be a row type");
 						break;
 				}
@@ -738,7 +738,7 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 		}
 		else
 		{
-			/* Scalar case: use exec_cast_value */
+			/* 标量情形用 exec_cast_value */
 			estate.retval = exec_cast_value(&estate,
 											estate.retval,
 											&fcinfo->isnull,
@@ -748,10 +748,10 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 											-1);
 
 			/*
-			 * If the function's return type isn't by value, copy the value
-			 * into upper executor memory context.  However, if we have a R/W
-			 * expanded datum, we can just transfer its ownership out to the
-			 * upper executor context.
+			 * 若函数的返回类型不按值，就把值拷入
+			 * 上层执行器内存上下文。不过若已有 R/W
+			 * 扩展 datum，就可只把它的所有权转出到
+			 * 上层上下文。
 			 */
 			if (!fcinfo->isnull && !func->fn_retbyval)
 				estate.retval = SPI_datumTransfer(estate.retval,
@@ -762,9 +762,9 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	else
 	{
 		/*
-		 * We're returning a NULL, which normally requires no conversion work
-		 * regardless of datatypes.  But, if we are casting it to a domain
-		 * return type, we'd better check that the domain's constraints pass.
+		 * 我们返回的是 NULL，通常不必做转换，
+		 * 无论数据类型如何。但若把它转换成域
+		 * 返回类型，最好检查该域约束能否通过。
 		 */
 		if (func->fn_retisdomain)
 			estate.retval = exec_cast_value(&estate,
@@ -779,34 +779,34 @@ plpgsql_exec_function(PLpgSQL_function *func, FunctionCallInfo fcinfo,
 	estate.err_text = gettext_noop("during function exit");
 
 	/*
-	 * Let the instrumentation plugin peek at this function
+	 * 让插装插件看一眼这个函数
 	 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->func_end)
 		((*plpgsql_plugin_ptr)->func_end) (&estate, func);
 
-	/* Clean up any leftover temporary memory */
+	/* 清掉残留的临时内存 */
 	plpgsql_destroy_econtext(&estate);
 	exec_eval_cleanup(&estate);
-	/* stmt_mcontext will be destroyed when function's main context is */
+	/* 函数主上下文一毁，stmt_mcontext 就随之销毁 */
 
 	/*
-	 * Pop the error context stack
+	 * 弹出错误上下文栈
 	 */
 	error_context_stack = plerrcontext.previous;
 
 	/*
-	 * Return the function's result
+	 * 返回该函数的结果
 	 */
 	return estate.retval;
 }
 
 /*
- * Helper for plpgsql_exec_function: coerce composite result to the specified
- * tuple descriptor, and copy it out to upper executor memory.  This is split
- * out mostly for cosmetic reasons --- the logic would be very deeply nested
- * otherwise.
+ * plpgsql_exec_function 的助手：把复合结果强制到指定
+ * 元组描述符，并把它拷出到上层执行器内存。拆出来
+ * 主要图外观，否则这段逻辑嵌套太深
+ * 而已。
  *
- * estate->retval is updated in-place.
+ * 就地更新 estate->retval。
  */
 static void
 coerce_function_result_tuple(PLpgSQL_execstate *estate, TupleDesc tupdesc)
@@ -815,25 +815,25 @@ coerce_function_result_tuple(PLpgSQL_execstate *estate, TupleDesc tupdesc)
 	TupleDesc	retdesc;
 	TupleConversionMap *tupmap;
 
-	/* We assume exec_stmt_return verified that result is composite */
+	/* 假定 exec_stmt_return 已核实结果是复合的 */
 	Assert(type_is_rowtype(estate->rettype));
 
-	/* We can special-case expanded records for speed */
+	/* 扩展记录可以走特例以求快 */
 	if (VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(estate->retval)))
 	{
 		ExpandedRecordHeader *erh = (ExpandedRecordHeader *) DatumGetEOHP(estate->retval);
 
 		Assert(erh->er_magic == ER_MAGIC);
 
-		/* Extract record's TupleDesc */
+		/* 取出记录的 TupleDesc */
 		retdesc = expanded_record_get_tupdesc(erh);
 
-		/* check rowtype compatibility */
+		/* 检查行类型兼容性 */
 		tupmap = convert_tuples_by_position(retdesc,
 											tupdesc,
 											gettext_noop("returned record type does not match expected record type"));
 
-		/* it might need conversion */
+		/* 它可能需要转换 */
 		if (tupmap)
 		{
 			rettup = expanded_record_get_tuple(erh);
@@ -841,26 +841,26 @@ coerce_function_result_tuple(PLpgSQL_execstate *estate, TupleDesc tupdesc)
 			rettup = execute_attr_map_tuple(rettup, tupmap);
 
 			/*
-			 * Copy tuple to upper executor memory, as a tuple Datum.  Make
-			 * sure it is labeled with the caller-supplied tuple type.
+			 * 作为元组 Datum 拷入上层执行器内存。要
+			 * 确保它标上调用者给出的元组类型。
 			 */
 			estate->retval = PointerGetDatum(SPI_returntuple(rettup, tupdesc));
-			/* no need to free map, we're about to return anyway */
+			/* 不必释放映射，反正马上返回 */
 		}
 		else if (!(tupdesc->tdtypeid == erh->er_decltypeid ||
 				   (tupdesc->tdtypeid == RECORDOID &&
 					!ExpandedRecordIsDomain(erh))))
 		{
 			/*
-			 * The expanded record has the right physical tupdesc, but the
-			 * wrong type ID.  (Typically, the expanded record is RECORDOID
-			 * but the function is declared to return a named composite type.
-			 * As in exec_move_row_from_datum, we don't allow returning a
-			 * composite-domain record from a function declared to return
-			 * RECORD.)  So we must flatten the record to a tuple datum and
-			 * overwrite its type fields with the right thing.  spi.c doesn't
-			 * provide any easy way to deal with this case, so we end up
-			 * duplicating the guts of datumCopy() :-(
+			 * 扩展记录的物理 tupdesc 是对的，但类型
+			 * 标识错了。（通常扩展记录是 RECORDOID，
+			 * 而函数声明返回具名复合类型。同
+			 * exec_move_row_from_datum 那样，不准由声明为
+			 * 返回 RECORD 的函数返回复合域记录。）
+			 * 所以必须把该记录压扁成元组 datum 并
+			 * 覆盖其类型字段为正确内容。spi.c 并不提供
+			 * 对付此种情形的简便途径，结果我们只好
+			 * 复制 datumCopy() 的核心代码 :-(
 			 */
 			Size		resultsize;
 			HeapTupleHeader tuphdr;
@@ -875,9 +875,9 @@ coerce_function_result_tuple(PLpgSQL_execstate *estate, TupleDesc tupdesc)
 		else
 		{
 			/*
-			 * We need only copy result into upper executor memory context.
-			 * However, if we have a R/W expanded datum, we can just transfer
-			 * its ownership out to the upper executor context.
+			 * 我们只需把结果拷进上层执行器内存上下文。
+			 * 不过若有 R/W 扩展 datum，就可以只转移
+			 * 其所有权到上层执行器上下文。
 			 */
 			estate->retval = SPI_datumTransfer(estate->retval,
 											   false,
@@ -886,28 +886,28 @@ coerce_function_result_tuple(PLpgSQL_execstate *estate, TupleDesc tupdesc)
 	}
 	else
 	{
-		/* Convert composite datum to a HeapTuple and TupleDesc */
+		/* 把复合 datum 转成 HeapTuple 和 TupleDesc */
 		HeapTupleData tmptup;
 
 		retdesc = deconstruct_composite_datum(estate->retval, &tmptup);
 		rettup = &tmptup;
 
-		/* check rowtype compatibility */
+		/* 检查行类型兼容性 */
 		tupmap = convert_tuples_by_position(retdesc,
 											tupdesc,
 											gettext_noop("returned record type does not match expected record type"));
 
-		/* it might need conversion */
+		/* 它可能需要转换 */
 		if (tupmap)
 			rettup = execute_attr_map_tuple(rettup, tupmap);
 
 		/*
-		 * Copy tuple to upper executor memory, as a tuple Datum.  Make sure
-		 * it is labeled with the caller-supplied tuple type.
+		 * 当 Datum 把元组拷入上层执行器内存。务必确保
+		 * 它标着调用者给出的元组类型。
 		 */
 		estate->retval = PointerGetDatum(SPI_returntuple(rettup, tupdesc));
 
-		/* no need to free map, we're about to return anyway */
+		/* 不必释放映射，反正马上返回 */
 
 		ReleaseTupleDesc(retdesc);
 	}
@@ -915,8 +915,8 @@ coerce_function_result_tuple(PLpgSQL_execstate *estate, TupleDesc tupdesc)
 
 
 /* ----------
- * plpgsql_exec_trigger		Called by the call handler for
- *				trigger execution.
+ * plpgsql_exec_trigger		供调用处理器来执行
+ *				触发器。
  * ----------
  */
 HeapTuple
@@ -932,13 +932,13 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 	HeapTuple	rettup;
 
 	/*
-	 * Setup the execution state
+	 * 设置执行状态
 	 */
 	plpgsql_estate_setup(&estate, func, NULL, NULL, NULL);
 	estate.trigdata = trigdata;
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设错误回溯支持
 	 */
 	plerrcontext.callback = plpgsql_exec_error_callback;
 	plerrcontext.arg = &estate;
@@ -946,20 +946,20 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 	error_context_stack = &plerrcontext;
 
 	/*
-	 * Make local execution copies of all the datums
+	 * 给全部 datum 做局部执行副本
 	 */
 	estate.err_text = gettext_noop("during initialization of execution state");
 	copy_plpgsql_datums(&estate, func);
 
 	/*
-	 * Put the OLD and NEW tuples into record variables
+	 * 把 OLD 与 NEW 元组放进记录变量
 	 *
-	 * We set up expanded records for both variables even though only one may
-	 * have a value.  This allows record references to succeed in functions
-	 * that are used for multiple trigger types.  For example, we might have a
-	 * test like "if (TG_OP = 'INSERT' and NEW.foo = 'xyz')", which should
-	 * work regardless of the current trigger type.  If a value is actually
-	 * fetched from an unsupplied tuple, it will read as NULL.
+	 * 我们给两个变量都建扩展记录，尽管也许只一个
+	 * 有值。这样，用于多种触发器类型的函数里
+	 * 记录引用仍能成功。例如我们也许写过
+	 * 如 if (TG_OP = 'INSERT' and NEW.foo = 'xyz')，它应当
+	 * 不论当前是哪种触发器都能工作。若真从一个
+	 * 未提供的元组里取值，读到的是 NULL。
 	 */
 	tupdesc = RelationGetDescr(trigdata->tg_relation);
 
@@ -974,7 +974,7 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 	if (!TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
 	{
 		/*
-		 * Per-statement triggers don't use OLD/NEW variables
+		 * 语句级触发器不用 OLD/NEW 变量
 		 */
 	}
 	else if (TRIGGER_FIRED_BY_INSERT(trigdata->tg_event))
@@ -990,12 +990,12 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 								  false, false);
 
 		/*
-		 * In BEFORE trigger, stored generated columns are not computed yet,
-		 * so make them null in the NEW row.  (Only needed in UPDATE branch;
-		 * in the INSERT case, they are already null, but in UPDATE, the field
-		 * still contains the old value.)  Alternatively, we could construct a
-		 * whole new row structure without the generated columns, but this way
-		 * seems more efficient and potentially less confusing.
+		 * BEFORE 触发器中，存储生成列还没算好，
+		 * 故把 NEW 行里的它们置 NULL。（只 UPDATE 分支要；
+		 * INSERT 时它们已是 NULL，但 UPDATE 里该字段
+		 * 仍是旧值。）另一办法是我们可以造出一个
+		 * 不含生成列的全新行结构，但眼下这办法
+		 * 似乎更高效，也更少让人糊涂。
 		 */
 		if (tupdesc->constr && tupdesc->constr->has_generated_stored &&
 			TRIGGER_FIRED_BEFORE(trigdata->tg_event))
@@ -1005,7 +1005,7 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 					expanded_record_set_field_internal(rec_new->erh,
 													   i + 1,
 													   (Datum) 0,
-													   true,	/* isnull */
+													   true,	/* 空否 */
 													   false, false);
 		}
 	}
@@ -1017,25 +1017,25 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 	else
 		elog(ERROR, "unrecognized trigger action: not INSERT, DELETE, or UPDATE");
 
-	/* Make transition tables visible to this SPI connection */
+	/* 让过渡表对本 SPI 连接可见 */
 	rc = SPI_register_trigger_data(trigdata);
 	Assert(rc >= 0);
 
 	estate.err_text = gettext_noop("during function entry");
 
 	/*
-	 * Set the magic variable FOUND to false
+	 * 把魔术变量 FOUND 设为假
 	 */
 	exec_set_found(&estate, false);
 
 	/*
-	 * Let the instrumentation plugin peek at this function
+	 * 让插装插件看一眼这个函数
 	 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->func_beg)
 		((*plpgsql_plugin_ptr)->func_beg) (&estate, func);
 
 	/*
-	 * Now call the toplevel block of statements
+	 * 现在调用顶层语句块
 	 */
 	estate.err_text = NULL;
 	rc = exec_toplevel_block(&estate, func->action);
@@ -1055,14 +1055,14 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 				 errmsg("trigger procedure cannot return a set")));
 
 	/*
-	 * Check that the returned tuple structure has the same attributes, the
-	 * relation that fired the trigger has. A per-statement trigger always
-	 * needs to return NULL, so we ignore any return value the function itself
-	 * produces (XXX: is this a good idea?)
+	 * 检查返回的元组结构是否与触发该触发器的
+	 * 关系拥有相同属性。语句级触发器始终要
+	 * 返回 NULL，故我们忽略函数自身产生的任何
+	 * 返回值。XXX：好主意吗？
 	 *
-	 * XXX This way it is possible, that the trigger returns a tuple where
-	 * attributes don't have the correct atttypmod's length. It's up to the
-	 * trigger's programmer to ensure that this doesn't happen. Jan
+	 * XXX 按此做法，触发器可能返回这样的元组：
+	 * 其属性的 atttypmod 长度并不正确。这得靠
+	 * 触发器程序员来保证此事不发生。Jan
 	 */
 	if (estate.retisnull || !TRIGGER_FIRED_FOR_ROW(trigdata->tg_event))
 		rettup = NULL;
@@ -1071,38 +1071,38 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 		TupleDesc	retdesc;
 		TupleConversionMap *tupmap;
 
-		/* We assume exec_stmt_return verified that result is composite */
+		/* 假定 exec_stmt_return 已核实结果是复合的 */
 		Assert(type_is_rowtype(estate.rettype));
 
-		/* We can special-case expanded records for speed */
+		/* 扩展记录可以走特例以求快 */
 		if (VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(estate.retval)))
 		{
 			ExpandedRecordHeader *erh = (ExpandedRecordHeader *) DatumGetEOHP(estate.retval);
 
 			Assert(erh->er_magic == ER_MAGIC);
 
-			/* Extract HeapTuple and TupleDesc */
+			/* 取出 HeapTuple 与 TupleDesc */
 			rettup = expanded_record_get_tuple(erh);
 			Assert(rettup);
 			retdesc = expanded_record_get_tupdesc(erh);
 
 			if (retdesc != RelationGetDescr(trigdata->tg_relation))
 			{
-				/* check rowtype compatibility */
+				/* 检查行类型兼容性 */
 				tupmap = convert_tuples_by_position(retdesc,
 													RelationGetDescr(trigdata->tg_relation),
 													gettext_noop("returned row structure does not match the structure of the triggering table"));
-				/* it might need conversion */
+				/* 它可能需要转换 */
 				if (tupmap)
 					rettup = execute_attr_map_tuple(rettup, tupmap);
-				/* no need to free map, we're about to return anyway */
+				/* 不必释放映射，反正马上返回 */
 			}
 
 			/*
-			 * Copy tuple to upper executor memory.  But if user just did
-			 * "return new" or "return old" without changing anything, there's
-			 * no need to copy; we can return the original tuple (which will
-			 * save a few cycles in trigger.c as well as here).
+			 * 元组拷入上层执行器内存。但若用户只是
+			 * 写了 return-new、return-old 且毫无改动，便
+			 * 不必拷贝；我们可以返回原来的元组（这也
+			 * 在 trigger.c 和这里省些周期）。
 			 */
 			if (rettup != trigdata->tg_newtuple &&
 				rettup != trigdata->tg_trigtuple)
@@ -1110,53 +1110,53 @@ plpgsql_exec_trigger(PLpgSQL_function *func,
 		}
 		else
 		{
-			/* Convert composite datum to a HeapTuple and TupleDesc */
+			/* 把复合 datum 转成 HeapTuple 和 TupleDesc */
 			HeapTupleData tmptup;
 
 			retdesc = deconstruct_composite_datum(estate.retval, &tmptup);
 			rettup = &tmptup;
 
-			/* check rowtype compatibility */
+			/* 检查行类型兼容性 */
 			tupmap = convert_tuples_by_position(retdesc,
 												RelationGetDescr(trigdata->tg_relation),
 												gettext_noop("returned row structure does not match the structure of the triggering table"));
-			/* it might need conversion */
+			/* 它可能需要转换 */
 			if (tupmap)
 				rettup = execute_attr_map_tuple(rettup, tupmap);
 
 			ReleaseTupleDesc(retdesc);
-			/* no need to free map, we're about to return anyway */
+			/* 不必释放映射，反正马上返回 */
 
-			/* Copy tuple to upper executor memory */
+			/* 元组拷入上层执行器内存 */
 			rettup = SPI_copytuple(rettup);
 		}
 	}
 
 	/*
-	 * Let the instrumentation plugin peek at this function
+	 * 让插装插件看一眼这个函数
 	 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->func_end)
 		((*plpgsql_plugin_ptr)->func_end) (&estate, func);
 
-	/* Clean up any leftover temporary memory */
+	/* 清掉残留的临时内存 */
 	plpgsql_destroy_econtext(&estate);
 	exec_eval_cleanup(&estate);
-	/* stmt_mcontext will be destroyed when function's main context is */
+	/* 函数主上下文一毁，stmt_mcontext 就随之销毁 */
 
 	/*
-	 * Pop the error context stack
+	 * 弹出错误上下文栈
 	 */
 	error_context_stack = plerrcontext.previous;
 
 	/*
-	 * Return the trigger's result
+	 * 返回该触发器的结果
 	 */
 	return rettup;
 }
 
 /* ----------
- * plpgsql_exec_event_trigger		Called by the call handler for
- *				event trigger execution.
+ * plpgsql_exec_event_trigger		供调用处理器来执行
+ *				事件触发器。
  * ----------
  */
 void
@@ -1167,13 +1167,13 @@ plpgsql_exec_event_trigger(PLpgSQL_function *func, EventTriggerData *trigdata)
 	int			rc;
 
 	/*
-	 * Setup the execution state
+	 * 设置执行状态
 	 */
 	plpgsql_estate_setup(&estate, func, NULL, NULL, NULL);
 	estate.evtrigdata = trigdata;
 
 	/*
-	 * Setup error traceback support for ereport()
+	 * 为 ereport() 设错误回溯支持
 	 */
 	plerrcontext.callback = plpgsql_exec_error_callback;
 	plerrcontext.arg = &estate;
@@ -1181,19 +1181,19 @@ plpgsql_exec_event_trigger(PLpgSQL_function *func, EventTriggerData *trigdata)
 	error_context_stack = &plerrcontext;
 
 	/*
-	 * Make local execution copies of all the datums
+	 * 给全部 datum 做局部执行副本
 	 */
 	estate.err_text = gettext_noop("during initialization of execution state");
 	copy_plpgsql_datums(&estate, func);
 
 	/*
-	 * Let the instrumentation plugin peek at this function
+	 * 让插装插件看一眼这个函数
 	 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->func_beg)
 		((*plpgsql_plugin_ptr)->func_beg) (&estate, func);
 
 	/*
-	 * Now call the toplevel block of statements
+	 * 现在调用顶层语句块
 	 */
 	estate.err_text = NULL;
 	rc = exec_toplevel_block(&estate, func->action);
@@ -1208,24 +1208,24 @@ plpgsql_exec_event_trigger(PLpgSQL_function *func, EventTriggerData *trigdata)
 	estate.err_text = gettext_noop("during function exit");
 
 	/*
-	 * Let the instrumentation plugin peek at this function
+	 * 让插装插件看一眼这个函数
 	 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->func_end)
 		((*plpgsql_plugin_ptr)->func_end) (&estate, func);
 
-	/* Clean up any leftover temporary memory */
+	/* 清掉残留的临时内存 */
 	plpgsql_destroy_econtext(&estate);
 	exec_eval_cleanup(&estate);
-	/* stmt_mcontext will be destroyed when function's main context is */
+	/* 函数主上下文一毁，stmt_mcontext 就随之销毁 */
 
 	/*
-	 * Pop the error context stack
+	 * 弹出错误上下文栈
 	 */
 	error_context_stack = plerrcontext.previous;
 }
 
 /*
- * error context callback to let us supply a call-stack traceback
+ * 错误上下文回调，用来提供调用栈回溯
  */
 static void
 plpgsql_exec_error_callback(void *arg)
@@ -1234,10 +1234,10 @@ plpgsql_exec_error_callback(void *arg)
 	int			err_lineno;
 
 	/*
-	 * If err_var is set, report the variable's declaration line number.
-	 * Otherwise, if err_stmt is set, report the err_stmt's line number.  When
-	 * err_stmt is not set, we're in function entry/exit, or some such place
-	 * not attached to a specific line number.
+	 * 若 err_var 已设置，就报告该变量的声明行号。
+	 * 否则若 err_stmt 已设，就报告它的行号。当
+	 * err_stmt 未设置，我们就在函数进入、退出这类
+	 * 没有挂到具体行号的地方。
 	 */
 	if (estate->err_var != NULL)
 		err_lineno = estate->err_var->lineno;
@@ -1249,10 +1249,10 @@ plpgsql_exec_error_callback(void *arg)
 	if (estate->err_text != NULL)
 	{
 		/*
-		 * We don't expend the cycles to run gettext() on err_text unless we
-		 * actually need it.  Therefore, places that set up err_text should
-		 * use gettext_noop() to ensure the strings get recorded in the
-		 * message dictionary.
+		 * 除非真需要，我们不对 err_text 花周期去跑
+		 * gettext()。因此，设置 err_text 的地方应当
+		 * 使用 gettext_noop()，好让这些字符串记入
+		 * 消息词典。
 		 */
 		if (err_lineno > 0)
 		{
@@ -1291,7 +1291,7 @@ plpgsql_exec_error_callback(void *arg)
 
 
 /* ----------
- * Support function for initializing local execution variables
+ * 初始化局部执行变量的支撑函数
  * ----------
  */
 static void
@@ -1305,18 +1305,18 @@ copy_plpgsql_datums(PLpgSQL_execstate *estate,
 	char	   *ws_next;
 	int			i;
 
-	/* Allocate local datum-pointer array */
+	/* 分配局部 datum 指针数组 */
 	estate->datums = (PLpgSQL_datum **)
 		palloc(sizeof(PLpgSQL_datum *) * ndatums);
 
 	/*
-	 * To reduce palloc overhead, we make a single palloc request for all the
-	 * space needed for locally-instantiated datums.
+	 * 为降低 palloc 开销，我们一次 palloc 申请全部
+	 * 局部实例化 datum 所需的空间。
 	 */
 	workspace = palloc(func->copiable_size);
 	ws_next = workspace;
 
-	/* Fill datum-pointer array, copying datums into workspace as needed */
+	/* 填充 datum 指针数组，按需把 datum 拷入工作区 */
 	indatums = func->datums;
 	outdatums = estate->datums;
 	for (i = 0; i < ndatums; i++)
@@ -1324,7 +1324,7 @@ copy_plpgsql_datums(PLpgSQL_execstate *estate,
 		PLpgSQL_datum *indatum = indatums[i];
 		PLpgSQL_datum *outdatum;
 
-		/* This must agree with plpgsql_finish_datums on what is copiable */
+		/* 哪些可拷贝必须与 plpgsql_finish_datums 一致 */
 		switch (indatum->dtype)
 		{
 			case PLPGSQL_DTYPE_VAR:
@@ -1344,16 +1344,16 @@ copy_plpgsql_datums(PLpgSQL_execstate *estate,
 			case PLPGSQL_DTYPE_RECFIELD:
 
 				/*
-				 * These datum records are read-only at runtime, so no need to
-				 * copy them (well, RECFIELD contains cached data, but we'd
-				 * just as soon centralize the caching anyway).
+				 * 这些 datum 记录运行时只读，所以不必
+				 * 拷贝它们（RECFIELD 虽含缓存数据，但我们
+				 * 宁可把缓存集中在一处）。
 				 */
 				outdatum = indatum;
 				break;
 
 			default:
 				elog(ERROR, "unrecognized dtype: %d", indatum->dtype);
-				outdatum = NULL;	/* keep compiler quiet */
+				outdatum = NULL;	/* 让编译器安静 */
 				break;
 		}
 
@@ -1364,9 +1364,9 @@ copy_plpgsql_datums(PLpgSQL_execstate *estate,
 }
 
 /*
- * If the variable has an armed "promise", compute the promised value
- * and assign it to the variable.
- * The assignment automatically disarms the promise.
+ * 若变量的承诺已武装，就算出所承诺的值
+ * 并把它赋给该变量。
+ * 这次赋值自动解除该承诺。
  */
 static void
 plpgsql_fulfill_promise(PLpgSQL_execstate *estate,
@@ -1375,14 +1375,14 @@ plpgsql_fulfill_promise(PLpgSQL_execstate *estate,
 	MemoryContext oldcontext;
 
 	if (var->promise == PLPGSQL_PROMISE_NONE)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	/*
-	 * This will typically be invoked in a short-lived context such as the
-	 * mcontext.  We must create variable values in the estate's datum
-	 * context.  This quick-and-dirty solution risks leaking some additional
-	 * cruft there, but since any one promise is honored at most once per
-	 * function call, it's probably not worth being more careful.
+	 * 这通常在短命上下文里被调用，例如
+	 * mcontext。我们必须把变量值建在 estate 的 datum
+	 * 内存上下文里。这个粗陋办法可能再泄漏一些
+	 * 杂物，但任一承诺每次函数调用至多兑现一次，
+	 * 更小心大概不值得。
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->datum_context);
 
@@ -1476,8 +1476,8 @@ plpgsql_fulfill_promise(PLpgSQL_execstate *estate,
 			if (estate->trigdata->tg_trigger->tgnargs > 0)
 			{
 				/*
-				 * For historical reasons, tg_argv[] subscripts start at zero
-				 * not one.  So we can't use construct_array().
+				 * 出于历史原因，tg_argv[] 的下标从零起
+				 * 非一。故无法用 construct_array()。
 				 */
 				int			nelems = estate->trigdata->tg_trigger->tgnargs;
 				Datum	   *elems;
@@ -1524,9 +1524,9 @@ plpgsql_fulfill_promise(PLpgSQL_execstate *estate,
 }
 
 /*
- * Create a memory context for statement-lifespan variables, if we don't
- * have one already.  It will be a child of stmt_mcontext_parent, which is
- * either the function's main context or a pushed-down outer stmt_mcontext.
+ * 若还没有，就为语句寿命的变量建内存上下文
+ * 它将作为 stmt_mcontext_parent 的子级，而该父级
+ * 要么是函数主上下文，要么是压下的外层 stmt_mcontext。
  */
 static MemoryContext
 get_stmt_mcontext(PLpgSQL_execstate *estate)
@@ -1542,42 +1542,42 @@ get_stmt_mcontext(PLpgSQL_execstate *estate)
 }
 
 /*
- * Push down the current stmt_mcontext so that called statements won't use it.
- * This is needed by statements that have statement-lifespan data and need to
- * preserve it across some inner statements.  The caller should eventually do
- * pop_stmt_mcontext().
+ * 压下当前 stmt_mcontext，免得被调语句用到它。
+ * 带有语句寿命数据、且要跨若干内层语句保住
+ * 它的语句才需要如此。调用者最终应当去
+ * pop_stmt_mcontext()
  */
 static void
 push_stmt_mcontext(PLpgSQL_execstate *estate)
 {
-	/* Should have done get_stmt_mcontext() first */
+	/* 本应先调用 get_stmt_mcontext() */
 	Assert(estate->stmt_mcontext != NULL);
-	/* Assert we've not messed up the stack linkage */
+	/* 断言我们没有弄乱栈的链接 */
 	Assert(MemoryContextGetParent(estate->stmt_mcontext) == estate->stmt_mcontext_parent);
-	/* Push it down to become the parent of any nested stmt mcontext */
+	/* 把它压下当任何嵌套 stmt 内存上下文之父 */
 	estate->stmt_mcontext_parent = estate->stmt_mcontext;
-	/* And make it not available for use directly */
+	/* 并使它不能直接拿来用 */
 	estate->stmt_mcontext = NULL;
 }
 
 /*
- * Undo push_stmt_mcontext().  We assume this is done just before or after
- * resetting the caller's stmt_mcontext; since that action will also delete
- * any child contexts, there's no need to explicitly delete whatever context
- * might currently be estate->stmt_mcontext.
+ * 撤销 push_stmt_mcontext()。假定这发生在重置调用者的
+ * stmt_mcontext 前后；因该动作同时删除一切
+ * 子上下文，故不必显式删除当前也许就是
+ * estate->stmt_mcontext。
  */
 static void
 pop_stmt_mcontext(PLpgSQL_execstate *estate)
 {
-	/* We need only pop the stack */
+	/* 我们只需弹出该栈 */
 	estate->stmt_mcontext = estate->stmt_mcontext_parent;
 	estate->stmt_mcontext_parent = MemoryContextGetParent(estate->stmt_mcontext);
 }
 
 
 /*
- * Subroutine for exec_stmt_block: does any condition in the condition list
- * match the current exception?
+ * exec_stmt_block 的子程序：条件列表中可有条件
+ * 匹配当前这个异常？
  */
 static bool
 exception_matches_conditions(ErrorData *edata, PLpgSQL_condition *cond)
@@ -1587,9 +1587,9 @@ exception_matches_conditions(ErrorData *edata, PLpgSQL_condition *cond)
 		int			sqlerrstate = cond->sqlerrstate;
 
 		/*
-		 * OTHERS matches everything *except* query-canceled and
-		 * assert-failure.  If you're foolish enough, you can match those
-		 * explicitly.
+		 * OTHERS 匹配除查询取消与断言失败外的
+		 * 一切。够鲁莽的话，你也能显式去匹配
+		 * 它们。
 		 */
 		if (sqlerrstate == 0)
 		{
@@ -1597,10 +1597,10 @@ exception_matches_conditions(ErrorData *edata, PLpgSQL_condition *cond)
 				edata->sqlerrcode != ERRCODE_ASSERT_FAILURE)
 				return true;
 		}
-		/* Exact match? */
+		/* 精确吗？ */
 		else if (edata->sqlerrcode == sqlerrstate)
 			return true;
-		/* Category match? */
+		/* 类别匹配？ */
 		else if (ERRCODE_IS_CATEGORY(sqlerrstate) &&
 				 ERRCODE_TO_CATEGORY(edata->sqlerrcode) == sqlerrstate)
 			return true;
@@ -1610,12 +1610,12 @@ exception_matches_conditions(ErrorData *edata, PLpgSQL_condition *cond)
 
 
 /* ----------
- * exec_toplevel_block			Execute the toplevel block
+ * exec_toplevel_block 执行顶层块。
  *
- * This is intentionally equivalent to executing exec_stmts() with a
- * list consisting of the one statement.  One tiny difference is that
- * we do not bother to save the entry value of estate->err_stmt;
- * that's assumed to be NULL.
+ * 这有意等价于执行 exec_stmts()，并配上一个
+ * 只含那一条语句的列表。一个细微差别是
+ * 我们并不费心保存 estate->err_stmt 进入值；
+ * 假定该值为 NULL。
  * ----------
  */
 static int
@@ -1625,7 +1625,7 @@ exec_toplevel_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 
 	estate->err_stmt = (PLpgSQL_stmt *) block;
 
-	/* Let the plugin know that we are about to execute this statement */
+	/* 让插件知道我们即将执行这条语句 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->stmt_beg)
 		((*plpgsql_plugin_ptr)->stmt_beg) (estate, (PLpgSQL_stmt *) block);
 
@@ -1633,7 +1633,7 @@ exec_toplevel_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 
 	rc = exec_stmt_block(estate, block);
 
-	/* Let the plugin know that we have finished executing this statement */
+	/* 让插件知道这条语句已经执行完 */
 	if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->stmt_end)
 		((*plpgsql_plugin_ptr)->stmt_end) (estate, (PLpgSQL_stmt *) block);
 
@@ -1644,7 +1644,7 @@ exec_toplevel_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 
 
 /* ----------
- * exec_stmt_block			Execute a block of statements
+ * exec_stmt_block 执行一块语句
  * ----------
  */
 static int
@@ -1654,7 +1654,7 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 	int			i;
 
 	/*
-	 * First initialize all variables declared in this block
+	 * 先初始化本块中声明的全部变量
 	 */
 	estate->err_text = gettext_noop("during statement block local variable initialization");
 
@@ -1664,14 +1664,14 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 		PLpgSQL_datum *datum = estate->datums[n];
 
 		/*
-		 * The set of dtypes handled here must match plpgsql_add_initdatums().
+		 * 此处处理的 dtype 集必须匹配 plpgsql_add_initdatums()。
 		 *
-		 * Note that we currently don't support promise datums within blocks,
-		 * only at a function's outermost scope, so we needn't handle those
-		 * here.
+		 * 注意我们目前不支持块内的承诺 datum，
+		 * 只在函数最外层作用域，故那些不必在
+		 * 此.
 		 *
-		 * Since RECFIELD isn't a supported case either, it's okay to cast the
-		 * PLpgSQL_datum to PLpgSQL_variable.
+		 * 因 RECFIELD 同样不是受支持情形，可把 PLpgSQL_datum
+		 * 转成 PLpgSQL_variable。
 		 */
 		estate->err_var = (PLpgSQL_variable *) datum;
 
@@ -1682,18 +1682,18 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 					PLpgSQL_var *var = (PLpgSQL_var *) datum;
 
 					/*
-					 * Free any old value, in case re-entering block, and
-					 * initialize to NULL
+					 * 释放任一旧值，以防重入块，并
+					 * 初始化为 NULL
 					 */
 					assign_simple_var(estate, var, (Datum) 0, true, false);
 
 					if (var->default_val == NULL)
 					{
 						/*
-						 * If needed, give the datatype a chance to reject
-						 * NULLs, by assigning a NULL to the variable.  We
-						 * claim the value is of type UNKNOWN, not the var's
-						 * datatype, else coercion will be skipped.
+						 * 需要时让数据类型有机会拒绝
+						 * NULL，靠给变量赋 NULL。我们
+						 * 声称该值类型是 UNKNOWN，而非变量的
+						 * 类型，否则跳过强制转换。
 						 */
 						if (var->datatype->typtype == TYPTYPE_DOMAIN)
 							exec_assign_value(estate,
@@ -1703,7 +1703,7 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 											  UNKNOWNOID,
 											  -1);
 
-						/* parser should have rejected NOT NULL */
+						/* 解析器本该拒绝 NOT NULL */
 						Assert(!var->notnull);
 					}
 					else
@@ -1719,20 +1719,20 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 					PLpgSQL_rec *rec = (PLpgSQL_rec *) datum;
 
 					/*
-					 * Deletion of any existing object will be handled during
-					 * the assignments below, and in some cases it's more
-					 * efficient for us not to get rid of it beforehand.
+					 * 任何现存对象的删除，会在下面的
+					 * 赋值过程中处理，而且有些情况下
+					 * 我们事先不清除它反而更高效。
 					 */
 					if (rec->default_val == NULL)
 					{
 						/*
-						 * If needed, give the datatype a chance to reject
-						 * NULLs, by assigning a NULL to the variable.
+						 * 需要时让数据类型有机会拒绝
+						 * NULL，靠给该变量赋 NULL。
 						 */
 						exec_move_row(estate, (PLpgSQL_variable *) rec,
 									  NULL, NULL);
 
-						/* parser should have rejected NOT NULL */
+						/* 解析器本该拒绝 NOT NULL */
 						Assert(!rec->notnull);
 					}
 					else
@@ -1753,7 +1753,7 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 	if (block->exceptions)
 	{
 		/*
-		 * Execute the statements in the block's body inside a sub-transaction
+		 * 在子事务里执行该块体中的语句
 		 */
 		MemoryContext oldcontext = CurrentMemoryContext;
 		ResourceOwner oldowner = CurrentResourceOwner;
@@ -1764,41 +1764,41 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 		estate->err_text = gettext_noop("during statement block entry");
 
 		/*
-		 * We will need a stmt_mcontext to hold the error data if an error
-		 * occurs.  It seems best to force it to exist before entering the
-		 * subtransaction, so that we reduce the risk of out-of-memory during
-		 * error recovery, and because this greatly simplifies restoring the
-		 * stmt_mcontext stack to the correct state after an error.  We can
-		 * ameliorate the cost of this by allowing the called statements to
-		 * use this mcontext too; so we don't push it down here.
+		 * 若出错，我们需要 stmt_mcontext 来存放错误数据。
+		 * 最好在进入子事务之前强迫它存在，
+		 * 从而我们降低错误恢复期间耗尽内存的风险，
+		 * 也因为这大大简化了出错后把
+		 * stmt_mcontext 栈恢复到正确状态。我们可
+		 * 让被调语句也用此内存上下文来分摊代价，
+		 * 因此我们在此不把它压下去。
 		 */
 		stmt_mcontext = get_stmt_mcontext(estate);
 
 		BeginInternalSubTransaction(NULL);
-		/* Want to run statements inside function's memory context */
+		/* 想在函数的内存上下文里运行语句 */
 		MemoryContextSwitchTo(oldcontext);
 
 		PG_TRY();
 		{
 			/*
-			 * We need to run the block's statements with a new eval_econtext
-			 * that belongs to the current subtransaction; if we try to use
-			 * the outer econtext then ExprContext shutdown callbacks will be
-			 * called at the wrong times.
+			 * 我们需用一个新的 eval_econtext 来运行块语句，
+			 * 它属于当前子事务；若我们试图使用
+			 * 外层 econtext，则 ExprContext 的关闭回调会
+			 * 在错时机被调用。
 			 */
 			plpgsql_create_econtext(estate);
 
 			estate->err_text = NULL;
 
-			/* Run the block's statements */
+			/* 运行该块的语句 */
 			rc = exec_stmts(estate, block->body);
 
 			estate->err_text = gettext_noop("during statement block exit");
 
 			/*
-			 * If the block ended with RETURN, we may need to copy the return
-			 * value out of the subtransaction eval_context.  We can avoid a
-			 * physical copy if the value happens to be a R/W expanded object.
+			 * 若块以 RETURN 结束，我们可能要把返回
+			 * 值拷出子事务的 eval_context。我们能避免
+			 * 一次物理拷贝，若该值恰为 R/W 扩展对象。
 			 */
 			if (rc == PLPGSQL_RC_RETURN &&
 				!estate->retisset &&
@@ -1812,17 +1812,17 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 											   resTypByVal, resTypLen);
 			}
 
-			/* Commit the inner transaction, return to outer xact context */
+			/* 提交内层事务，回到外层事务上下文 */
 			ReleaseCurrentSubTransaction();
 			MemoryContextSwitchTo(oldcontext);
 			CurrentResourceOwner = oldowner;
 
-			/* Assert that the stmt_mcontext stack is unchanged */
+			/* 断言 stmt_mcontext 栈没有改变 */
 			Assert(stmt_mcontext == estate->stmt_mcontext);
 
 			/*
-			 * Revert to outer eval_econtext.  (The inner one was
-			 * automatically cleaned up during subxact exit.)
+			 * 回到外层 eval_econtext。（内层已
+			 * 在子事务退出时被自动清理。）
 			 */
 			estate->eval_econtext = old_eval_econtext;
 		}
@@ -1833,49 +1833,49 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 
 			estate->err_text = gettext_noop("during exception cleanup");
 
-			/* Save error info in our stmt_mcontext */
+			/* 错误信息存入本 stmt_mcontext */
 			MemoryContextSwitchTo(stmt_mcontext);
 			edata = CopyErrorData();
 			FlushErrorState();
 
-			/* Abort the inner transaction */
+			/* 中止内层事务 */
 			RollbackAndReleaseCurrentSubTransaction();
 			MemoryContextSwitchTo(oldcontext);
 			CurrentResourceOwner = oldowner;
 
 			/*
-			 * Set up the stmt_mcontext stack as though we had restored our
-			 * previous state and then done push_stmt_mcontext().  The push is
-			 * needed so that statements in the exception handler won't
-			 * clobber the error data that's in our stmt_mcontext.
+			 * 把 stmt_mcontext 栈设成仿佛我们已恢复了
+			 * 先前状态，然后做过 push_stmt_mcontext()。压栈
+			 * 之所以需要，以免异常处理器中语句
+			 * 破坏我们 stmt_mcontext 里的错误数据。
 			 */
 			estate->stmt_mcontext_parent = stmt_mcontext;
 			estate->stmt_mcontext = NULL;
 
 			/*
-			 * Now we can delete any nested stmt_mcontexts that might have
-			 * been created as children of ours.  (Note: we do not immediately
-			 * release any statement-lifespan data that might have been left
-			 * behind in stmt_mcontext itself.  We could attempt that by doing
-			 * a MemoryContextReset on it before collecting the error data
-			 * above, but it seems too risky to do any significant amount of
-			 * work before collecting the error.)
+			 * 我们现在可删任何嵌套 stmt_mcontexts，可能已
+			 * 作为我们的子级被创建。（注意：我们并不立刻
+			 * 释放任何语句寿命数据，它们可能被留
+			 * 在 stmt_mcontext 自身里。我们可尝试靠
+			 * 一次 MemoryContextReset，在收集上文错误数据
+			 * 之前，但在收集到错误之前做任何大量工作
+			 * 似乎都太冒险。）
 			 */
 			MemoryContextDeleteChildren(stmt_mcontext);
 
-			/* Revert to outer eval_econtext */
+			/* 恢复到外层 eval_econtext */
 			estate->eval_econtext = old_eval_econtext;
 
 			/*
-			 * Must clean up the econtext too.  However, any tuple table made
-			 * in the subxact will have been thrown away by SPI during subxact
-			 * abort, so we don't need to (and mustn't try to) free the
+			 * 也必须清理 econtext。不过，子事务里建的
+			 * 任何元组表，都会在子事务中止时被 SPI 丢掉，
+			 * 所以我们不必（也不得尝试）释放
 			 * eval_tuptable.
 			 */
 			estate->eval_tuptable = NULL;
 			exec_eval_cleanup(estate);
 
-			/* Look for a matching exception handler */
+			/* 寻找匹配的异常处理器 */
 			foreach(e, block->exceptions->exc_list)
 			{
 				PLpgSQL_exception *exception = (PLpgSQL_exception *) lfirst(e);
@@ -1883,10 +1883,10 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 				if (exception_matches_conditions(edata, exception->conditions))
 				{
 					/*
-					 * Initialize the magic SQLSTATE and SQLERRM variables for
-					 * the exception block; this also frees values from any
-					 * prior use of the same exception. We needn't do this
-					 * until we have found a matching exception.
+					 * 为异常块初始化魔术变量 SQLSTATE、SQLERRM；
+					 * 这也释放该异常先前使用所留的
+					 * 任何值。匹配异常找到前我们不必
+					 * 做这事。
 					 */
 					PLpgSQL_var *state_var;
 					PLpgSQL_var *errm_var;
@@ -1901,8 +1901,8 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 					assign_text_var(estate, errm_var, edata->message);
 
 					/*
-					 * Also set up cur_error so the error data is accessible
-					 * inside the handler.
+					 * 也设 cur_error 让错误数据可在处理器
+					 * 内部访问。
 					 */
 					estate->cur_error = edata;
 
@@ -1915,17 +1915,17 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 			}
 
 			/*
-			 * Restore previous state of cur_error, whether or not we executed
-			 * a handler.  This is needed in case an error got thrown from
-			 * some inner block's exception handler.
+			 * 恢复 cur_error 先前状态，无论我们有没有执行
+			 * 过处理器。这是以防错误从某内层
+			 * 块的异常处理器抛出。
 			 */
 			estate->cur_error = save_cur_error;
 
-			/* If no match found, re-throw the error */
+			/* 无匹配则重新抛出该错误 */
 			if (e == NULL)
 				ReThrowError(edata);
 
-			/* Restore stmt_mcontext stack and release the error data */
+			/* 恢复 stmt_mcontext 栈并释放错误数据 */
 			pop_stmt_mcontext(estate);
 			MemoryContextReset(stmt_mcontext);
 		}
@@ -1936,7 +1936,7 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 	else
 	{
 		/*
-		 * Just execute the statements in the block's body
+		 * 只执行该块体中的语句
 		 */
 		estate->err_text = NULL;
 
@@ -1946,9 +1946,9 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 	estate->err_text = NULL;
 
 	/*
-	 * Handle the return code.  This is intentionally different from
-	 * LOOP_RC_PROCESSING(): CONTINUE never matches a block, and EXIT matches
-	 * a block only if there is a label match.
+	 * 处理返回码。这有意不同于
+	 * LOOP_RC_PROCESSING()：CONTINUE 从不匹配块，EXIT 只在
+	 * 标号匹配时才匹配块。
 	 */
 	switch (rc)
 	{
@@ -1976,8 +1976,8 @@ exec_stmt_block(PLpgSQL_execstate *estate, PLpgSQL_stmt_block *block)
 
 
 /* ----------
- * exec_stmts			Iterate over a list of statements
- *				as long as their return code is OK
+ * exec_stmts 遍历语句列表，
+ *	只要它们的返回码为 OK
  * ----------
  */
 static int
@@ -1989,9 +1989,9 @@ exec_stmts(PLpgSQL_execstate *estate, List *stmts)
 	if (stmts == NIL)
 	{
 		/*
-		 * Ensure we do a CHECK_FOR_INTERRUPTS() even though there is no
-		 * statement.  This prevents hangup in a tight loop if, for instance,
-		 * there is a LOOP construct with an empty body.
+		 * 即使没语句，也确保执行 CHECK_FOR_INTERRUPTS()。
+		 * 这能防止紧循环卡住，例如当
+		 * 存在一个空体的 LOOP 构造时。
 		 */
 		CHECK_FOR_INTERRUPTS();
 		return PLPGSQL_RC_OK;
@@ -2004,7 +2004,7 @@ exec_stmts(PLpgSQL_execstate *estate, List *stmts)
 
 		estate->err_stmt = stmt;
 
-		/* Let the plugin know that we are about to execute this statement */
+		/* 让插件知道我们即将执行这条语句 */
 		if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->stmt_beg)
 			((*plpgsql_plugin_ptr)->stmt_beg) (estate, stmt);
 
@@ -2121,13 +2121,13 @@ exec_stmts(PLpgSQL_execstate *estate, List *stmts)
 				break;
 
 			default:
-				/* point err_stmt to parent, since this one seems corrupt */
+				/* 把 err_stmt 指向父级，因本条似乎已损坏 */
 				estate->err_stmt = save_estmt;
 				elog(ERROR, "unrecognized cmd_type: %d", stmt->cmd_type);
-				rc = -1;		/* keep compiler quiet */
+				rc = -1;		/* 让编译器安静 */
 		}
 
-		/* Let the plugin know that we have finished executing this statement */
+		/* 让插件知道这条语句已经执行完 */
 		if (*plpgsql_plugin_ptr && (*plpgsql_plugin_ptr)->stmt_end)
 			((*plpgsql_plugin_ptr)->stmt_end) (estate, stmt);
 
@@ -2136,7 +2136,7 @@ exec_stmts(PLpgSQL_execstate *estate, List *stmts)
 			estate->err_stmt = save_estmt;
 			return rc;
 		}
-	}							/* end of loop over statements */
+	}							/* 语句循环结束 */
 
 	estate->err_stmt = save_estmt;
 	return PLPGSQL_RC_OK;
@@ -2144,8 +2144,8 @@ exec_stmts(PLpgSQL_execstate *estate, List *stmts)
 
 
 /* ----------
- * exec_stmt_assign			Evaluate an expression and
- *					put the result into a variable.
+ * exec_stmt_assign 对表达式求值并
+ *	把结果放进一个变量。
  * ----------
  */
 static int
@@ -2159,9 +2159,9 @@ exec_stmt_assign(PLpgSQL_execstate *estate, PLpgSQL_stmt_assign *stmt)
 }
 
 /* ----------
- * exec_stmt_perform		Evaluate query and discard result (but set
- *							FOUND depending on whether at least one row
- *							was returned).
+ * exec_stmt_perform 对查询求值并丢弃结果（但要
+ *	设 FOUND，视是否至少返回一行
+ *	而定）。
  * ----------
  */
 static int
@@ -2179,7 +2179,7 @@ exec_stmt_perform(PLpgSQL_execstate *estate, PLpgSQL_stmt_perform *stmt)
 /*
  * exec_stmt_call
  *
- * NOTE: this is used for both CALL and DO statements.
+ * 注意：这同时用于 CALL 与 DO 语句。
  */
 static int
 exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
@@ -2192,20 +2192,20 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
 	int			rc;
 
 	/*
-	 * Make a plan if we don't have one already.
+	 * 若我们还没有计划就做一个。
 	 */
 	if (expr->plan == NULL)
 		exec_prepare_plan(estate, expr, 0);
 
 	/*
-	 * A CALL or DO can never be a simple expression.
+	 * CALL 或 DO 绝不能是简单表达式。
 	 */
 	Assert(!expr->expr_simple_expr);
 
 	/*
-	 * Also construct a DTYPE_ROW datum representing the plpgsql variables
-	 * associated with the procedure's output arguments.  Then we can use
-	 * exec_move_row() to do the assignments.
+	 * 另外构造一个代表 plpgsql 变量的 DTYPE_ROW datum，
+	 * 关联到过程的输出参数。然后就能用
+	 * exec_move_row() 来完成赋值。
 	 */
 	if (stmt->is_call && stmt->target == NULL)
 		stmt->target = make_callstmt_target(estate, expr);
@@ -2215,11 +2215,11 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
 	before_lxid = MyProc->lxid;
 
 	/*
-	 * If we have a procedure-lifespan resowner, use that to hold the refcount
-	 * for the plan.  This avoids refcount leakage complaints if the called
-	 * procedure ends the current transaction.
+	 * 若我们有过程级 resowner，就为计划持有其引用计数。
+	 * 这可避免引用计数泄漏的抱怨，如果被调用的
+	 * 过程结束当前事务。
 	 *
-	 * Also, tell SPI to allow non-atomic execution.
+	 * 另外，告诉 SPI 允许非原子执行。
 	 */
 	memset(&options, 0, sizeof(options));
 	options.params = paramLI;
@@ -2238,8 +2238,8 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
 	if (before_lxid != after_lxid)
 	{
 		/*
-		 * If we are in a new transaction after the call, we need to build new
-		 * simple-expression infrastructure.
+		 * 若调用之后我们处于新事务中，就需要建立新的
+		 * 简单表达式设施。
 		 */
 		estate->simple_eval_estate = NULL;
 		estate->simple_eval_resowner = NULL;
@@ -2247,8 +2247,8 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
 	}
 
 	/*
-	 * Check result rowcount; if there's one row, assign procedure's output
-	 * values back to the appropriate variables.
+	 * 检查结果行数；若有一行，就把过程的输出
+	 * 值赋回相应的变量。
 	 */
 	if (SPI_processed == 1)
 	{
@@ -2269,9 +2269,9 @@ exec_stmt_call(PLpgSQL_execstate *estate, PLpgSQL_stmt_call *stmt)
 }
 
 /*
- * We construct a DTYPE_ROW datum representing the plpgsql variables
- * associated with the procedure's output arguments.  Then we can use
- * exec_move_row() to do the assignments.
+ * 我们构造一个代表 plpgsql 变量的 DTYPE_ROW datum，
+ * 关联到过程的输出参数。然后就能用
+ * exec_move_row() 来完成赋值。
  */
 static PLpgSQL_variable *
 make_callstmt_target(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
@@ -2290,13 +2290,13 @@ make_callstmt_target(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 	int			nfields;
 	int			i;
 
-	/* Use eval_mcontext for any cruft accumulated here */
+	/* 这里积下的杂物用 eval_mcontext */
 	oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 
 	/*
-	 * Get the parsed CallStmt, and look up the called procedure.  We use
-	 * SPI_plan_get_cached_plan to cover the edge case where expr->plan is
-	 * already stale and needs to be updated.
+	 * 取已解析的 CallStmt，并查找被调过程。我们用
+	 * SPI_plan_get_cached_plan 来覆盖边缘情况：expr->plan 已
+	 * 过期而需要更新。
 	 */
 	cplan = SPI_plan_get_cached_plan(expr->plan);
 	if (cplan == NULL || list_length(cplan->stmt_list) != 1)
@@ -2315,16 +2315,16 @@ make_callstmt_target(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 			 funcexpr->funcid);
 
 	/*
-	 * Get the argument names and modes, so that we can deliver on-point error
-	 * messages when something is wrong.
+	 * 取参数名与模式，以便出错时我们能给出切中要害的
+	 * 错误消息。
 	 */
 	numargs = get_func_arg_info(func_tuple, &argtypes, &argnames, &argmodes);
 
 	ReleaseSysCache(func_tuple);
 
 	/*
-	 * Begin constructing row Datum; keep it in fn_cxt so it's adequately
-	 * long-lived.
+	 * 开始构造行 Datum；把它留在 fn_cxt，才够
+	 * 长命。
 	 */
 	MemoryContextSwitchTo(estate->func->fn_cxt);
 
@@ -2337,9 +2337,9 @@ make_callstmt_target(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 	MemoryContextSwitchTo(get_eval_mcontext(estate));
 
 	/*
-	 * Examine procedure's argument list.  Each output arg position should be
-	 * an unadorned plpgsql variable (Datum), which we can insert into the row
-	 * Datum.
+	 * 检查过程的参数列表。每个输出参数位置都应是
+	 * 一个不加修饰的 plpgsql 变量（Datum），可插入到该行
+	 * Datum
 	 */
 	nfields = 0;
 	for (i = 0; i < numargs; i++)
@@ -2355,15 +2355,15 @@ make_callstmt_target(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 				Param	   *param = (Param *) n;
 				int			dno;
 
-				/* paramid is offset by 1 (see make_datum_param()) */
+				/* paramid 偏移了 1（见 make_datum_param()） */
 				dno = param->paramid - 1;
-				/* must check assignability now, because grammar can't */
+				/* 此刻必须检查可赋值性，因语法无法 */
 				exec_check_assignable(estate, dno);
 				row->varnos[nfields++] = dno;
 			}
 			else
 			{
-				/* report error using parameter name, if available */
+				/* 若有参数名，就用它报告错误 */
 				if (argnames && argnames[i] && argnames[i][0])
 					ereport(ERROR,
 							(errcode(ERRCODE_SYNTAX_ERROR),
@@ -2390,8 +2390,8 @@ make_callstmt_target(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 }
 
 /* ----------
- * exec_stmt_getdiag					Put internal PG information into
- *										specified variables.
+ * exec_stmt_getdiag 把内部 PG 信息放入
+ *	指定的变量。
  * ----------
  */
 static int
@@ -2400,10 +2400,10 @@ exec_stmt_getdiag(PLpgSQL_execstate *estate, PLpgSQL_stmt_getdiag *stmt)
 	ListCell   *lc;
 
 	/*
-	 * GET STACKED DIAGNOSTICS is only valid inside an exception handler.
+	 * GET STACKED DIAGNOSTICS 只在异常处理器内有效。
 	 *
-	 * Note: we trust the grammar to have disallowed the relevant item kinds
-	 * if not is_stacked, otherwise we'd dump core below.
+	 * 注意：我们信任语法在非 is_stacked 时已禁用相关种类
+	 * 否则下面就会核心转储。
 	 */
 	if (stmt->is_stacked && estate->cur_error == NULL)
 		ereport(ERROR,
@@ -2484,7 +2484,7 @@ exec_stmt_getdiag(PLpgSQL_execstate *estate, PLpgSQL_stmt_getdiag *stmt)
 					char	   *contextstackstr;
 					MemoryContext oldcontext;
 
-					/* Use eval_mcontext for short-lived string */
+					/* 短命字符串用 eval_mcontext */
 					oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 					contextstackstr = GetErrorContextStack();
 					MemoryContextSwitchTo(oldcontext);
@@ -2505,9 +2505,9 @@ exec_stmt_getdiag(PLpgSQL_execstate *estate, PLpgSQL_stmt_getdiag *stmt)
 }
 
 /* ----------
- * exec_stmt_if				Evaluate a bool expression and
- *					execute the true or false body
- *					conditionally.
+ * exec_stmt_if 求值布尔表达式并
+ *	按条件执行其真体或
+ *	假体。
  * ----------
  */
 static int
@@ -2549,7 +2549,7 @@ exec_stmt_case(PLpgSQL_execstate *estate, PLpgSQL_stmt_case *stmt)
 
 	if (stmt->t_expr != NULL)
 	{
-		/* simple case */
+		/* 简单 CASE */
 		Datum		t_val;
 		Oid			t_typoid;
 		int32		t_typmod;
@@ -2560,12 +2560,12 @@ exec_stmt_case(PLpgSQL_execstate *estate, PLpgSQL_stmt_case *stmt)
 		t_var = (PLpgSQL_var *) estate->datums[stmt->t_varno];
 
 		/*
-		 * When expected datatype is different from real, change it. Note that
-		 * what we're modifying here is an execution copy of the datum, so
-		 * this doesn't affect the originally stored function parse tree. (In
-		 * theory, if the expression datatype keeps changing during execution,
-		 * this could cause a function-lifespan memory leak.  Doesn't seem
-		 * worth worrying about though.)
+		 * 当期望数据类型与实际不同时就改它。注意
+		 * 我们这里改的是该 datum 的一份执行副本，故
+		 * 这不影响原本存的函数语法树。（
+		 * 理论上，若表达式数据类型在执行中不断改变，
+		 * 这可能造成函数寿命级的内存泄漏。似乎
+		 * 并不值得担心。）
 		 */
 		if (t_var->datatype->typoid != t_typoid ||
 			t_var->datatype->atttypmod != t_typmod)
@@ -2574,7 +2574,7 @@ exec_stmt_case(PLpgSQL_execstate *estate, PLpgSQL_stmt_case *stmt)
 													 estate->func->fn_input_collation,
 													 NULL);
 
-		/* now we can assign to the variable */
+		/* 现在我们可赋给该变量 */
 		exec_assign_value(estate,
 						  (PLpgSQL_datum *) t_var,
 						  t_val,
@@ -2585,7 +2585,7 @@ exec_stmt_case(PLpgSQL_execstate *estate, PLpgSQL_stmt_case *stmt)
 		exec_eval_cleanup(estate);
 	}
 
-	/* Now search for a successful WHEN clause */
+	/* 现在搜索成功的 WHEN 子句 */
 	foreach(l, stmt->case_when_list)
 	{
 		PLpgSQL_case_when *cwt = (PLpgSQL_case_when *) lfirst(l);
@@ -2595,36 +2595,36 @@ exec_stmt_case(PLpgSQL_execstate *estate, PLpgSQL_stmt_case *stmt)
 		exec_eval_cleanup(estate);
 		if (!isnull && value)
 		{
-			/* Found it */
+			/* 得之 */
 
-			/* We can now discard any value we had for the temp variable */
+			/* 现在可以丢掉临时变量上原有的值 */
 			if (t_var != NULL)
 				assign_simple_var(estate, t_var, (Datum) 0, true, false);
 
-			/* Evaluate the statement(s), and we're done */
+			/* 求值这些语句，我们即完成 */
 			return exec_stmts(estate, cwt->stmts);
 		}
 	}
 
-	/* We can now discard any value we had for the temp variable */
+	/* 现在可以丢掉临时变量上原有的值 */
 	if (t_var != NULL)
 		assign_simple_var(estate, t_var, (Datum) 0, true, false);
 
-	/* SQL2003 mandates this error if there was no ELSE clause */
+	/* 若没有 ELSE 子句，SQL2003 强制此错误 */
 	if (!stmt->have_else)
 		ereport(ERROR,
 				(errcode(ERRCODE_CASE_NOT_FOUND),
 				 errmsg("case not found"),
 				 errhint("CASE statement is missing ELSE part.")));
 
-	/* Evaluate the ELSE statements, and we're done */
+	/* 求值 ELSE 语句，我们即完成 */
 	return exec_stmts(estate, stmt->else_stmts);
 }
 
 
 /* ----------
- * exec_stmt_loop			Loop over statements until
- *					an exit occurs.
+ * exec_stmt_loop 循环语句直到
+ *	出现退出。
  * ----------
  */
 static int
@@ -2644,9 +2644,9 @@ exec_stmt_loop(PLpgSQL_execstate *estate, PLpgSQL_stmt_loop *stmt)
 
 
 /* ----------
- * exec_stmt_while			Loop over statements as long
- *					as an expression evaluates to
- *					true or an exit occurs.
+ * exec_stmt_while 循环语句，只要
+ *	某表达式求值得
+ *	真，或出现退出。
  * ----------
  */
 static int
@@ -2675,9 +2675,9 @@ exec_stmt_while(PLpgSQL_execstate *estate, PLpgSQL_stmt_while *stmt)
 
 
 /* ----------
- * exec_stmt_fori			Iterate an integer variable
- *					from a lower to an upper value
- *					incrementing or decrementing by the BY value
+ * exec_stmt_fori 迭代一个整数变量，
+ *	从下限到上限，
+ *	按 BY 值递增或递减
  * ----------
  */
 static int
@@ -2697,7 +2697,7 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 	var = (PLpgSQL_var *) (estate->datums[stmt->var->dno]);
 
 	/*
-	 * Get the value of the lower bound
+	 * 取下限的值
 	 */
 	value = exec_eval_expr(estate, stmt->lower,
 						   &isnull, &valtype, &valtypmod);
@@ -2713,7 +2713,7 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 	exec_eval_cleanup(estate);
 
 	/*
-	 * Get the value of the upper bound
+	 * 取上限的值
 	 */
 	value = exec_eval_expr(estate, stmt->upper,
 						   &isnull, &valtype, &valtypmod);
@@ -2729,7 +2729,7 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 	exec_eval_cleanup(estate);
 
 	/*
-	 * Get the step value
+	 * 取步长值
 	 */
 	if (stmt->step)
 	{
@@ -2754,12 +2754,12 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 		step_value = 1;
 
 	/*
-	 * Now do the loop
+	 * 现在做循环
 	 */
 	for (;;)
 	{
 		/*
-		 * Check against upper bound
+		 * 对照上限检查
 		 */
 		if (stmt->reverse)
 		{
@@ -2772,23 +2772,23 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 				break;
 		}
 
-		found = true;			/* looped at least once */
+		found = true;			/* 至少循环一次 */
 
 		/*
-		 * Assign current value to loop var
+		 * 把当前值赋给循环变量
 		 */
 		assign_simple_var(estate, var, Int32GetDatum(loop_value), false, false);
 
 		/*
-		 * Execute the statements
+		 * 执行这些语句
 		 */
 		rc = exec_stmts(estate, stmt->body);
 
 		LOOP_RC_PROCESSING(stmt->label, break);
 
 		/*
-		 * Increase/decrease loop value, unless it would overflow, in which
-		 * case exit the loop.
+		 * 增减循环值，除非会溢出，那种情况
+		 * 则退出循环。
 		 */
 		if (stmt->reverse)
 		{
@@ -2805,10 +2805,10 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 	}
 
 	/*
-	 * Set the FOUND variable to indicate the result of executing the loop
-	 * (namely, whether we looped one or more times). This must be set here so
-	 * that it does not interfere with the value of the FOUND variable inside
-	 * the loop processing itself.
+	 * 设 FOUND 变量，标明执行该循环的结果，
+	 * 即：是否至少循环过一次。必须在此设置
+	 * 以免干扰 FOUND 变量的值，于
+	 * 循环处理本身内。
 	 */
 	exec_set_found(estate, found);
 
@@ -2817,10 +2817,10 @@ exec_stmt_fori(PLpgSQL_execstate *estate, PLpgSQL_stmt_fori *stmt)
 
 
 /* ----------
- * exec_stmt_fors			Execute a query, assign each
- *					tuple to a record or row and
- *					execute a group of statements
- *					for it.
+ * exec_stmt_fors 执行查询，把每个
+ *	元组赋给记录或行并
+ *	执行一组语句
+ *	为它。
  * ----------
  */
 static int
@@ -2830,17 +2830,17 @@ exec_stmt_fors(PLpgSQL_execstate *estate, PLpgSQL_stmt_fors *stmt)
 	int			rc;
 
 	/*
-	 * Open the implicit cursor for the statement using exec_run_select
+	 * 用 exec_run_select 为该语句打开隐式游标
 	 */
 	exec_run_select(estate, stmt->query, 0, &portal);
 
 	/*
-	 * Execute the loop
+	 * 执行该循环
 	 */
 	rc = exec_for_query(estate, (PLpgSQL_stmt_forq *) stmt, portal, true);
 
 	/*
-	 * Close the implicit cursor
+	 * 关闭隐式游标
 	 */
 	SPI_cursor_close(portal);
 
@@ -2849,7 +2849,7 @@ exec_stmt_fors(PLpgSQL_execstate *estate, PLpgSQL_stmt_fors *stmt)
 
 
 /* ----------
- * exec_stmt_forc			Execute a loop for each row from a cursor.
+ * exec_stmt_forc 对游标的每一行执行循环。
  * ----------
  */
 static int
@@ -2864,8 +2864,8 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 	int			rc;
 
 	/* ----------
-	 * Get the cursor variable and if it has an assigned name, check
-	 * that it's not in use currently.
+	 * 取游标变量，若已有名字就检查
+	 * 它当前并未在用。
 	 * ----------
 	 */
 	curvar = (PLpgSQL_var *) (estate->datums[stmt->curvar]);
@@ -2873,7 +2873,7 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 	{
 		MemoryContext oldcontext;
 
-		/* We only need stmt_mcontext to hold the cursor name string */
+		/* 只需 stmt_mcontext 留住游标名字符串 */
 		stmt_mcontext = get_stmt_mcontext(estate);
 		oldcontext = MemoryContextSwitchTo(stmt_mcontext);
 		curname = TextDatumGetCString(curvar->value);
@@ -2886,18 +2886,18 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 	}
 
 	/* ----------
-	 * Open the cursor just like an OPEN command
+	 * 像 OPEN 命令那样打开游标。
 	 *
-	 * Note: parser should already have checked that statement supplies
-	 * args iff cursor needs them, but we check again to be safe.
+	 * 注意：解析器本该已经检查过该语句提供了
+	 * 仅当游标需要才给参，安全起见再查一次。
 	 * ----------
 	 */
 	if (stmt->argquery != NULL)
 	{
 		/* ----------
-		 * OPEN CURSOR with args.  We fake a SELECT ... INTO ...
-		 * statement to evaluate the args and put 'em into the
-		 * internal row.
+		 * 带参 OPEN CURSOR。假造 SELECT ... INTO
+		 * 语句，以求值参数并放入
+		 * 内部行。
 		 * ----------
 		 */
 		PLpgSQL_stmt_execsql set_args;
@@ -2912,7 +2912,7 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 		set_args.lineno = stmt->lineno;
 		set_args.sqlstmt = stmt->argquery;
 		set_args.into = true;
-		/* XXX historically this has not been STRICT */
+		/* XXX 历来这里不是 STRICT */
 		set_args.target = (PLpgSQL_variable *)
 			(estate->datums[curvar->cursor_explicit_argrow]);
 
@@ -2934,12 +2934,12 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 		exec_prepare_plan(estate, query, curvar->cursor_options);
 
 	/*
-	 * Set up ParamListInfo for this query
+	 * 为该查询建 ParamListInfo
 	 */
 	paramLI = setup_param_list(estate, query);
 
 	/*
-	 * Open the cursor (the paramlist will get copied into the portal)
+	 * 打开游标（参数列表会拷进门户）
 	 */
 	portal = SPI_cursor_open_with_paramlist(curname, query->plan,
 											paramLI,
@@ -2949,8 +2949,8 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 			 SPI_result_code_string(SPI_result));
 
 	/*
-	 * If cursor variable was NULL, store the generated portal name in it,
-	 * after verifying it's okay to assign to.
+	 * 若游标变量为 NULL，就把生成的门户名存入，
+	 * 先确认可以赋值给它。
 	 */
 	if (curname == NULL)
 	{
@@ -2959,20 +2959,20 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 	}
 
 	/*
-	 * Clean up before entering exec_for_query
+	 * 进入 exec_for_query 之前先清理
 	 */
 	exec_eval_cleanup(estate);
 	if (stmt_mcontext)
 		MemoryContextReset(stmt_mcontext);
 
 	/*
-	 * Execute the loop.  We can't prefetch because the cursor is accessible
-	 * to the user, for instance via UPDATE WHERE CURRENT OF within the loop.
+	 * 执行该循环。我们无法预取，因用户能访问游标，
+	 * 例如在循环里用 UPDATE WHERE CURRENT OF。
 	 */
 	rc = exec_for_query(estate, (PLpgSQL_stmt_forq *) stmt, portal, false);
 
 	/* ----------
-	 * Close portal, and restore cursor variable if it was initially NULL.
+	 * 关闭门户，若游标变量最初为 NULL 就把它恢复。
 	 * ----------
 	 */
 	SPI_cursor_close(portal);
@@ -2985,11 +2985,11 @@ exec_stmt_forc(PLpgSQL_execstate *estate, PLpgSQL_stmt_forc *stmt)
 
 
 /* ----------
- * exec_stmt_foreach_a			Loop over elements or slices of an array
+ * exec_stmt_foreach_a 循环数组的元素或切片。
  *
- * When looping over elements, the loop variable is the same type that the
- * array stores (eg: integer), when looping through slices, the loop variable
- * is an array of size and dimensions to match the size of the slice.
+ * 遍历元素时，循环变量与数组所存类型相同。
+ * 例如 integer。遍历切片时，循环变量
+ * 是数组，其尺寸与维数要匹配切片的大小。
  * ----------
  */
 static int
@@ -3010,7 +3010,7 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 	Datum		value;
 	bool		isnull;
 
-	/* get the value of the array expression */
+	/* 取数组表达式的值 */
 	value = exec_eval_expr(estate, stmt->expr, &isnull, &arrtype, &arrtypmod);
 	if (isnull)
 		ereport(ERROR,
@@ -3018,15 +3018,15 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 				 errmsg("FOREACH expression must not be null")));
 
 	/*
-	 * Do as much as possible of the code below in stmt_mcontext, to avoid any
-	 * leaks from called subroutines.  We need a private stmt_mcontext since
-	 * we'll be calling arbitrary statement code.
+	 * 下面的代码尽量在 stmt_mcontext 里做，以免任何
+	 * 被调例程泄漏。我们需私有 stmt_mcontext，因为
+	 * 我们会调用任意的语句代码。
 	 */
 	stmt_mcontext = get_stmt_mcontext(estate);
 	push_stmt_mcontext(estate);
 	oldcontext = MemoryContextSwitchTo(stmt_mcontext);
 
-	/* check the type of the expression - must be an array */
+	/* 检查表达式的类型，必须是数组 */
 	if (!OidIsValid(get_element_type(arrtype)))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -3034,30 +3034,30 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 						format_type_be(arrtype))));
 
 	/*
-	 * We must copy the array into stmt_mcontext, else it will disappear in
-	 * exec_eval_cleanup.  This is annoying, but cleanup will certainly happen
-	 * while running the loop body, so we have little choice.
+	 * 我们必须把数组拷进 stmt_mcontext，否则它会在
+	 * exec_eval_cleanup 里消失。这很讨厌，但清理肯定会在
+	 * 跑循环体时发生，故我们几乎没选择。
 	 */
 	arr = DatumGetArrayTypePCopy(value);
 
-	/* Clean up any leftover temporary memory */
+	/* 清掉残留的临时内存 */
 	exec_eval_cleanup(estate);
 
-	/* Slice dimension must be less than or equal to array dimension */
+	/* 切片维数必须小于或等于数组维数 */
 	if (stmt->slice < 0 || stmt->slice > ARR_NDIM(arr))
 		ereport(ERROR,
 				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
 				 errmsg("slice dimension (%d) is out of the valid range 0..%d",
 						stmt->slice, ARR_NDIM(arr))));
 
-	/* Set up the loop variable and see if it is of an array type */
+	/* 设好循环变量，并看它是否为数组类型 */
 	loop_var = estate->datums[stmt->varno];
 	if (loop_var->dtype == PLPGSQL_DTYPE_REC ||
 		loop_var->dtype == PLPGSQL_DTYPE_ROW)
 	{
 		/*
-		 * Record/row variable is certainly not of array type, and might not
-		 * be initialized at all yet, so don't try to get its type
+		 * 记录或行变量肯定不是数组类型，且可能还
+		 * 完全没初始化，故别试图取它的类型
 		 */
 		loop_var_elem_type = InvalidOid;
 	}
@@ -3066,10 +3066,10 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 																		  loop_var));
 
 	/*
-	 * Sanity-check the loop variable type.  We don't try very hard here, and
-	 * should not be too picky since it's possible that exec_assign_value can
-	 * coerce values of different types.  But it seems worthwhile to complain
-	 * if the array-ness of the loop variable is not right.
+	 * 健全检查循环变量类型。我们这里不很较真，且
+	 * 不该太挑剔，因为 exec_assign_value 也许能强制
+	 * 不同类型的值。但若循环变量的数组性不对，
+	 * 抱怨一番似乎值得。
 	 */
 	if (stmt->slice > 0 && loop_var_elem_type == InvalidOid)
 		ereport(ERROR,
@@ -3080,41 +3080,41 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 				 errmsg("FOREACH loop variable must not be of an array type")));
 
-	/* Create an iterator to step through the array */
+	/* 建迭代器来逐步走过该数组 */
 	array_iterator = array_create_iterator(arr, stmt->slice, NULL);
 
-	/* Identify iterator result type */
+	/* 认出迭代器结果类型 */
 	if (stmt->slice > 0)
 	{
-		/* When slicing, nominal type of result is same as array type */
+		/* 切片时，结果的名义类型与数组类型相同 */
 		iterator_result_type = arrtype;
 		iterator_result_typmod = arrtypmod;
 	}
 	else
 	{
-		/* Without slicing, results are individual array elements */
+		/* 不切片时，结果是单独的数组元素 */
 		iterator_result_type = ARR_ELEMTYPE(arr);
 		iterator_result_typmod = arrtypmod;
 	}
 
-	/* Iterate over the array elements or slices */
+	/* 遍历数组的元素或切片 */
 	while (array_iterate(array_iterator, &value, &isnull))
 	{
-		found = true;			/* looped at least once */
+		found = true;			/* 至少循环一次 */
 
-		/* exec_assign_value and exec_stmts must run in the main context */
+		/* exec_assign_value 与 exec_stmts 必须在主上下文运行 */
 		MemoryContextSwitchTo(oldcontext);
 
-		/* Assign current element/slice to the loop variable */
+		/* 把当前元素或切片赋给循环变量 */
 		exec_assign_value(estate, loop_var, value, isnull,
 						  iterator_result_type, iterator_result_typmod);
 
-		/* In slice case, value is temporary; must free it to avoid leakage */
+		/* 切片情形下值是临时的，必须释放以免泄漏 */
 		if (stmt->slice > 0)
 			pfree(DatumGetPointer(value));
 
 		/*
-		 * Execute the statements
+		 * 执行这些语句
 		 */
 		rc = exec_stmts(estate, stmt->body);
 
@@ -3123,18 +3123,18 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 		MemoryContextSwitchTo(stmt_mcontext);
 	}
 
-	/* Restore memory context state */
+	/* 恢复内存上下文状态 */
 	MemoryContextSwitchTo(oldcontext);
 	pop_stmt_mcontext(estate);
 
-	/* Release temporary memory, including the array value */
+	/* 释放临时内存，包括该数组值 */
 	MemoryContextReset(stmt_mcontext);
 
 	/*
-	 * Set the FOUND variable to indicate the result of executing the loop
-	 * (namely, whether we looped one or more times). This must be set here so
-	 * that it does not interfere with the value of the FOUND variable inside
-	 * the loop processing itself.
+	 * 设 FOUND 变量，标明执行该循环的结果，
+	 * 即：是否至少循环过一次。必须在此设置
+	 * 以免干扰 FOUND 变量的值，于
+	 * 循环处理本身内。
 	 */
 	exec_set_found(estate, found);
 
@@ -3143,16 +3143,16 @@ exec_stmt_foreach_a(PLpgSQL_execstate *estate, PLpgSQL_stmt_foreach_a *stmt)
 
 
 /* ----------
- * exec_stmt_exit			Implements EXIT and CONTINUE
+ * exec_stmt_exit 实现 EXIT 与 CONTINUE
  *
- * This begins the process of exiting / restarting a loop.
+ * 这开始退出或重启某循环的过程。
  * ----------
  */
 static int
 exec_stmt_exit(PLpgSQL_execstate *estate, PLpgSQL_stmt_exit *stmt)
 {
 	/*
-	 * If the exit / continue has a condition, evaluate it
+	 * 若退出或继续带有条件，就求值它
 	 */
 	if (stmt->cond != NULL)
 	{
@@ -3174,40 +3174,40 @@ exec_stmt_exit(PLpgSQL_execstate *estate, PLpgSQL_stmt_exit *stmt)
 
 
 /* ----------
- * exec_stmt_return			Evaluate an expression and start
- *					returning from the function.
+ * exec_stmt_return 对表达式求值并开始
+ *	从该函数返回。
  *
- * Note: The result may be in the eval_mcontext.  Therefore, we must not
- * do exec_eval_cleanup while unwinding the control stack.
+ * 注意：结果可能在 eval_mcontext 里。因此，我们绝不可
+ * 在展开控制栈时做 exec_eval_cleanup。
  * ----------
  */
 static int
 exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 {
 	/*
-	 * If processing a set-returning PL/pgSQL function, the final RETURN
-	 * indicates that the function is finished producing tuples.  The rest of
-	 * the work will be done at the top level.
+	 * 若在处理返回集合的 PL/pgSQL 函数，最后的 RETURN
+	 * 表明该函数已结束产生元组。其余工作
+	 * 将在顶层完成。
 	 */
 	if (estate->retisset)
 		return PLPGSQL_RC_RETURN;
 
-	/* initialize for null result */
+	/* 为 NULL 结果初始化 */
 	estate->retval = (Datum) 0;
 	estate->retisnull = true;
 	estate->rettype = InvalidOid;
 
 	/*
-	 * Special case path when the RETURN expression is a simple variable
-	 * reference; in particular, this path is always taken in functions with
-	 * one or more OUT parameters.
+	 * 特例路径：当 RETURN 表达式是简单变量
+	 * 引用；函数里此路径必经，只要含有
+	 * 若干 OUT 参数。
 	 *
-	 * This special case is especially efficient for returning variables that
-	 * have R/W expanded values: we can put the R/W pointer directly into
-	 * estate->retval, leading to transferring the value to the caller's
-	 * context cheaply.  If we went through exec_eval_expr we'd end up with a
-	 * R/O pointer.  It's okay to skip MakeExpandedObjectReadOnly here since
-	 * we know we won't need the variable's value within the function anymore.
+	 * 此特例对返回具有 R/W 扩展值的变量特别高效：
+	 * 我们可把 R/W 指针直接放进 estate->retval，
+	 * 从而廉价地把值转到调用者上下文。若走
+	 * exec_eval_expr，结果会是一个
+	 * R/O 指针。这里可以跳过 MakeExpandedObjectReadOnly，因为
+	 * 我们知道函数内再也不需要该变量的值了。
 	 */
 	if (stmt->retvarno >= 0)
 	{
@@ -3216,7 +3216,7 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 		switch (retvar->dtype)
 		{
 			case PLPGSQL_DTYPE_PROMISE:
-				/* fulfill promise if needed, then handle like regular var */
+				/* 需要时兑现承诺，再当普通变量处理 */
 				plpgsql_fulfill_promise(estate, (PLpgSQL_var *) retvar);
 
 				/* FALL THRU */
@@ -3230,12 +3230,12 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 					estate->rettype = var->datatype->typoid;
 
 					/*
-					 * A PLpgSQL_var could not be of composite type, so
-					 * conversion must fail if retistuple.  We throw a custom
-					 * error mainly for consistency with historical behavior.
-					 * For the same reason, we don't throw error if the result
-					 * is NULL.  (Note that plpgsql_exec_trigger assumes that
-					 * any non-null result has been verified to be composite.)
+					 * PLpgSQL_var 不可能是复合类型，故
+					 * 若 retistuple，转换必失败。我们抛出
+					 * 定制错误，主要为了符合历史行为。
+					 * 同一原因：结果为 NULL 时我们不报错。（
+					 * 注意 plpgsql_exec_trigger 假定任何
+					 * 非空结果都已核实为复合的。）
 					 */
 					if (estate->retistuple && !estate->retisnull)
 						ereport(ERROR,
@@ -3248,7 +3248,7 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 				{
 					PLpgSQL_rec *rec = (PLpgSQL_rec *) retvar;
 
-					/* If record is empty, we return NULL not a row of nulls */
+					/* 记录若空，我们返回 NULL 而非一行空值 */
 					if (rec->erh && !ExpandedRecordIsEmpty(rec->erh))
 					{
 						estate->retval = ExpandedRecordGetDatum(rec->erh);
@@ -3263,7 +3263,7 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 					PLpgSQL_row *row = (PLpgSQL_row *) retvar;
 					int32		rettypmod;
 
-					/* We get here if there are multiple OUT parameters */
+					/* 多个 OUT 参数时走到这里 */
 					exec_eval_datum(estate,
 									(PLpgSQL_datum *) row,
 									&estate->rettype,
@@ -3290,8 +3290,8 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 										&rettypmod);
 
 		/*
-		 * As in the DTYPE_VAR case above, throw a custom error if a non-null,
-		 * non-composite value is returned in a function returning tuple.
+		 * 如上面对 DTYPE_VAR 的情形，若返回了非空、
+		 * 非复合值，而函数要返回元组，就抛定制错。
 		 */
 		if (estate->retistuple && !estate->retisnull &&
 			!type_is_rowtype(estate->rettype))
@@ -3303,9 +3303,9 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 	}
 
 	/*
-	 * Special hack for function returning VOID: instead of NULL, return a
-	 * non-null VOID value.  This is of dubious importance but is kept for
-	 * backwards compatibility.  We don't do it for procedures, though.
+	 * VOID 函数的特殊权宜：不返回 NULL，改返回一个
+	 * 非空 VOID 值。其重要性可疑，但仍保留，为了
+	 * 向后兼容。不过对过程我们不这么做。
 	 */
 	if (estate->fn_rettype == VOIDOID &&
 		estate->func->fn_prokind != PROKIND_PROCEDURE)
@@ -3319,9 +3319,9 @@ exec_stmt_return(PLpgSQL_execstate *estate, PLpgSQL_stmt_return *stmt)
 }
 
 /* ----------
- * exec_stmt_return_next		Evaluate an expression and add it to the
- *								list of tuples returned by the current
- *								SRF.
+ * exec_stmt_return_next 对表达式求值并把它加入
+ *	当前返回的元组列表，来自
+ *	SRF。
  * ----------
  */
 static int
@@ -3341,19 +3341,19 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 	if (estate->tuple_store == NULL)
 		exec_init_tuple_store(estate);
 
-	/* tuple_store_desc will be filled by exec_init_tuple_store */
+	/* tuple_store_desc 将由 exec_init_tuple_store 填好 */
 	tupdesc = estate->tuple_store_desc;
 	natts = tupdesc->natts;
 
 	/*
-	 * Special case path when the RETURN NEXT expression is a simple variable
-	 * reference; in particular, this path is always taken in functions with
-	 * one or more OUT parameters.
+	 * 特例路径：当 RETURN NEXT 表达式是简单变量
+	 * 引用；函数里此路径必经，只要含有
+	 * 若干 OUT 参数。
 	 *
-	 * Unlike exec_stmt_return, there's no special win here for R/W expanded
-	 * values, since they'll have to get flattened to go into the tuplestore.
-	 * Indeed, we'd better make them R/O to avoid any risk of the casting step
-	 * changing them in-place.
+	 * 与 exec_stmt_return 不同，这里对 R/W 扩展
+	 * 值并无特别好处，因它们必须压扁才进 tuplestore。
+	 * 其实我们最好把它们改成 R/O，以免转换步有风险
+	 * 就地改掉它们。
 	 */
 	if (stmt->retvarno >= 0)
 	{
@@ -3362,7 +3362,7 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 		switch (retvar->dtype)
 		{
 			case PLPGSQL_DTYPE_PROMISE:
-				/* fulfill promise if needed, then handle like regular var */
+				/* 需要时兑现承诺，再当普通变量处理 */
 				plpgsql_fulfill_promise(estate, (PLpgSQL_var *) retvar);
 
 				/* FALL THRU */
@@ -3379,12 +3379,12 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 								(errcode(ERRCODE_DATATYPE_MISMATCH),
 								 errmsg("wrong result type supplied in RETURN NEXT")));
 
-					/* let's be very paranoid about the cast step */
+					/* 对这次转换我们非常多疑 */
 					retval = MakeExpandedObjectReadOnly(retval,
 														isNull,
 														var->datatype->typlen);
 
-					/* coerce type if needed */
+					/* 需要时强制类型 */
 					retval = exec_cast_value(estate,
 											 retval,
 											 &isNull,
@@ -3404,13 +3404,13 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 					TupleDesc	rec_tupdesc;
 					TupleConversionMap *tupmap;
 
-					/* If rec is null, try to convert it to a row of nulls */
+					/* 若 rec 为 NULL，试把它转成一行空值 */
 					if (rec->erh == NULL)
 						instantiate_empty_record_variable(estate, rec);
 					if (ExpandedRecordIsEmpty(rec->erh))
 						deconstruct_expanded_record(rec->erh);
 
-					/* Use eval_mcontext for tuple conversion work */
+					/* 元组转换用 eval_mcontext */
 					oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 					rec_tupdesc = expanded_record_get_tupdesc(rec->erh);
 					tupmap = convert_tuples_by_position(rec_tupdesc,
@@ -3428,12 +3428,12 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 				{
 					PLpgSQL_row *row = (PLpgSQL_row *) retvar;
 
-					/* We get here if there are multiple OUT parameters */
+					/* 多个 OUT 参数时走到这里 */
 
-					/* Use eval_mcontext for tuple conversion work */
+					/* 元组转换用 eval_mcontext */
 					oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 					tuple = make_tuple_from_row(estate, row, tupdesc);
-					if (tuple == NULL)	/* should not happen */
+					if (tuple == NULL)	/* 不该发生 */
 						ereport(ERROR,
 								(errcode(ERRCODE_DATATYPE_MISMATCH),
 								 errmsg("wrong record type supplied in RETURN NEXT")));
@@ -3462,7 +3462,7 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 
 		if (estate->retistuple)
 		{
-			/* Expression should be of RECORD or composite type */
+			/* 表达式应为 RECORD 或复合类型 */
 			if (!isNull)
 			{
 				HeapTupleData tmptup;
@@ -3474,7 +3474,7 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 							(errcode(ERRCODE_DATATYPE_MISMATCH),
 							 errmsg("cannot return non-composite value from function returning composite type")));
 
-				/* Use eval_mcontext for tuple conversion work */
+				/* 元组转换用 eval_mcontext */
 				oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 				retvaldesc = deconstruct_composite_datum(retval, &tmptup);
 				tuple = &tmptup;
@@ -3488,7 +3488,7 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 			}
 			else
 			{
-				/* Composite NULL --- store a row of nulls */
+				/* 复合 NULL，存一行空值 */
 				Datum	   *nulldatums;
 				bool	   *nullflags;
 
@@ -3505,13 +3505,13 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 		{
 			Form_pg_attribute attr = TupleDescAttr(tupdesc, 0);
 
-			/* Simple scalar result */
+			/* 简单标量结果 */
 			if (natts != 1)
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
 						 errmsg("wrong result type supplied in RETURN NEXT")));
 
-			/* coerce type if needed */
+			/* 需要时强制类型 */
 			retval = exec_cast_value(estate,
 									 retval,
 									 &isNull,
@@ -3537,9 +3537,9 @@ exec_stmt_return_next(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * exec_stmt_return_query		Evaluate a query and add it to the
- *								list of tuples returned by the current
- *								SRF.
+ * exec_stmt_return_query 求值查询并把它加入
+ *	当前返回的元组列表，来自
+ *	SRF。
  * ----------
  */
 static int
@@ -3560,12 +3560,12 @@ exec_stmt_return_query(PLpgSQL_execstate *estate,
 
 	if (estate->tuple_store == NULL)
 		exec_init_tuple_store(estate);
-	/* There might be some tuples in the tuplestore already */
+	/* tuplestore 里可能已经有一些元组 */
 	tcount = tuplestore_tuple_count(estate->tuple_store);
 
 	/*
-	 * Set up DestReceiver to transfer results directly to tuplestore,
-	 * converting rowtype if necessary.  DestReceiver lives in mcontext.
+	 * 设好 DestReceiver，把结果直接转入 tuplestore，
+	 * 必要时转行类型。DestReceiver 住在内存上下文里。
 	 */
 	oldcontext = MemoryContextSwitchTo(stmt_mcontext);
 	treceiver = CreateDestReceiver(DestTuplestore);
@@ -3579,24 +3579,24 @@ exec_stmt_return_query(PLpgSQL_execstate *estate,
 
 	if (stmt->query != NULL)
 	{
-		/* static query */
+		/* 静态查询 */
 		PLpgSQL_expr *expr = stmt->query;
 		ParamListInfo paramLI;
 		SPIExecuteOptions options;
 
 		/*
-		 * On the first call for this expression generate the plan.
+		 * 该表达式第一次调用时生成计划。
 		 */
 		if (expr->plan == NULL)
 			exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
 
 		/*
-		 * Set up ParamListInfo to pass to executor
+		 * 建 ParamListInfo 传给执行器
 		 */
 		paramLI = setup_param_list(estate, expr);
 
 		/*
-		 * Execute the query
+		 * 执行该查询
 		 */
 		memset(&options, 0, sizeof(options));
 		options.params = paramLI;
@@ -3620,8 +3620,8 @@ exec_stmt_return_query(PLpgSQL_execstate *estate,
 		SPIExecuteOptions options;
 
 		/*
-		 * Evaluate the string expression after the EXECUTE keyword. Its
-		 * result is the querystring we have to execute.
+		 * 对 EXECUTE 关键字之后的字符串表达式求值。其
+		 * 结果就是要执行的查询串。
 		 */
 		Assert(stmt->dynquery != NULL);
 		query = exec_eval_expr(estate, stmt->dynquery,
@@ -3631,15 +3631,15 @@ exec_stmt_return_query(PLpgSQL_execstate *estate,
 					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 					 errmsg("query string argument of EXECUTE is null")));
 
-		/* Get the C-String representation */
+		/* 取 C 字符串表示 */
 		querystr = convert_value_to_string(estate, query, restype);
 
-		/* copy it into the stmt_mcontext before we clean up */
+		/* 清理前把它拷进 stmt_mcontext */
 		querystr = MemoryContextStrdup(stmt_mcontext, querystr);
 
 		exec_eval_cleanup(estate);
 
-		/* Execute query, passing params if necessary */
+		/* 执行查询，必要时传入参数 */
 		memset(&options, 0, sizeof(options));
 		options.params = exec_eval_using_params(estate,
 												stmt->params);
@@ -3653,12 +3653,12 @@ exec_stmt_return_query(PLpgSQL_execstate *estate,
 				 querystr, SPI_result_code_string(rc));
 	}
 
-	/* Clean up */
+	/* 清理 */
 	treceiver->rDestroy(treceiver);
 	exec_eval_cleanup(estate);
 	MemoryContextReset(stmt_mcontext);
 
-	/* Count how many tuples we got */
+	/* 数我们得到的元组 */
 	processed = tuplestore_tuple_count(estate->tuple_store) - tcount;
 
 	estate->eval_processed = processed;
@@ -3675,7 +3675,7 @@ exec_init_tuple_store(PLpgSQL_execstate *estate)
 	ResourceOwner oldowner;
 
 	/*
-	 * Check caller can handle a set result in the way we want
+	 * 查调用者能否如我们所要处理集合结果
 	 */
 	if (!rsi || !IsA(rsi, ReturnSetInfo))
 		ereport(ERROR,
@@ -3689,11 +3689,11 @@ exec_init_tuple_store(PLpgSQL_execstate *estate)
 				 errmsg("materialize mode required, but it is not allowed in this context")));
 
 	/*
-	 * Switch to the right memory context and resource owner for storing the
-	 * tuplestore for return set. If we're within a subtransaction opened for
-	 * an exception-block, for example, we must still create the tuplestore in
-	 * the resource owner that was active when this function was entered, and
-	 * not in the subtransaction resource owner.
+	 * 切换到正确的内存上下文与资源所有者，以便存放
+	 * 返回集合的 tuplestore。若我们处于为
+	 * 异常块打开的子事务中（例如），我们仍必须
+	 * 在进入本函数时活跃的资源所有者中建立它，
+	 * 不在子事务资源所有者中。
 	 */
 	oldcxt = MemoryContextSwitchTo(estate->tuple_store_cxt);
 	oldowner = CurrentResourceOwner;
@@ -3720,7 +3720,7 @@ do { \
 } while (0)
 
 /* ----------
- * exec_stmt_raise			Build a message and throw it with elog()
+ * exec_stmt_raise 构造一条消息并用 elog() 抛出
  * ----------
  */
 static int
@@ -3739,19 +3739,19 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 	MemoryContext stmt_mcontext;
 	ListCell   *lc;
 
-	/* RAISE with no parameters: re-throw current exception */
+	/* 无参数的 RAISE：重新抛出当前异常 */
 	if (stmt->condname == NULL && stmt->message == NULL &&
 		stmt->options == NIL)
 	{
 		if (estate->cur_error != NULL)
 			ReThrowError(estate->cur_error);
-		/* oops, we're not inside a handler */
+		/* 我们并不在处理器内 */
 		ereport(ERROR,
 				(errcode(ERRCODE_STACKED_DIAGNOSTICS_ACCESSED_WITHOUT_ACTIVE_HANDLER),
 				 errmsg("RAISE without parameters cannot be used outside an exception handler")));
 	}
 
-	/* We'll need to accumulate the various strings in stmt_mcontext */
+	/* 我们需要在 stmt_mcontext 里累积各个字符串 */
 	stmt_mcontext = get_stmt_mcontext(estate);
 
 	if (stmt->condname)
@@ -3767,7 +3767,7 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 		char	   *cp;
 		MemoryContext oldcontext;
 
-		/* build string in stmt_mcontext */
+		/* 在 stmt_mcontext 中建串 */
 		oldcontext = MemoryContextSwitchTo(stmt_mcontext);
 		initStringInfo(&ds);
 		MemoryContextSwitchTo(oldcontext);
@@ -3777,8 +3777,8 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 		for (cp = stmt->message; *cp; cp++)
 		{
 			/*
-			 * Occurrences of a single % are replaced by the next parameter's
-			 * external representation. Double %'s are converted to one %.
+			 * 单个 % 的出现被换成下一个参数的
+			 * 外部表示。两个 % 被转换成一个 %。
 			 */
 			if (cp[0] == '%')
 			{
@@ -3795,7 +3795,7 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 					continue;
 				}
 
-				/* should have been checked at compile time */
+				/* 编译时就该检查过 */
 				if (current_param == NULL)
 					elog(ERROR, "unexpected RAISE parameter list length");
 
@@ -3819,7 +3819,7 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 				appendStringInfoChar(&ds, cp[0]);
 		}
 
-		/* should have been checked at compile time */
+		/* 编译时就该检查过 */
 		if (current_param != NULL)
 			elog(ERROR, "unexpected RAISE parameter list length");
 
@@ -3888,11 +3888,11 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 		exec_eval_cleanup(estate);
 	}
 
-	/* Default code if nothing specified */
+	/* 未指定时用默认码 */
 	if (err_code == 0 && stmt->elog_level >= ERROR)
 		err_code = ERRCODE_RAISE_EXCEPTION;
 
-	/* Default error message if nothing specified */
+	/* 未指定时的默认错误消息 */
 	if (err_message == NULL)
 	{
 		if (condname)
@@ -3906,7 +3906,7 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 	}
 
 	/*
-	 * Throw the error (may or may not come back)
+	 * 抛错（可能回也可能不回）
 	 */
 	ereport(stmt->elog_level,
 			(err_code ? errcode(err_code) : 0,
@@ -3924,14 +3924,14 @@ exec_stmt_raise(PLpgSQL_execstate *estate, PLpgSQL_stmt_raise *stmt)
 			 (err_schema != NULL) ?
 			 err_generic_string(PG_DIAG_SCHEMA_NAME, err_schema) : 0));
 
-	/* Clean up transient strings */
+	/* 清理短命字符串 */
 	MemoryContextReset(stmt_mcontext);
 
 	return PLPGSQL_RC_OK;
 }
 
 /* ----------
- * exec_stmt_assert			Assert statement
+ * exec_stmt_assert 断言语句
  * ----------
  */
 static int
@@ -3940,7 +3940,7 @@ exec_stmt_assert(PLpgSQL_execstate *estate, PLpgSQL_stmt_assert *stmt)
 	bool		value;
 	bool		isnull;
 
-	/* do nothing when asserts are not enabled */
+	/* 断言未启用时什么都不做 */
 	if (!plpgsql_check_asserts)
 		return PLPGSQL_RC_OK;
 
@@ -3961,7 +3961,7 @@ exec_stmt_assert(PLpgSQL_execstate *estate, PLpgSQL_stmt_assert *stmt)
 								 &isnull, &typeid, &typmod);
 			if (!isnull)
 				message = convert_value_to_string(estate, val, typeid);
-			/* we mustn't do exec_eval_cleanup here */
+			/* 我们此处禁做 exec_eval_cleanup */
 		}
 
 		ereport(ERROR,
@@ -3974,7 +3974,7 @@ exec_stmt_assert(PLpgSQL_execstate *estate, PLpgSQL_stmt_assert *stmt)
 }
 
 /* ----------
- * Initialize a mostly empty execution state
+ * 初始化一个几乎空的执行态
  * ----------
  */
 static void
@@ -3986,7 +3986,7 @@ plpgsql_estate_setup(PLpgSQL_execstate *estate,
 {
 	HASHCTL		ctl;
 
-	/* this link will be restored at exit from plpgsql_call_handler */
+	/* 此链接将在离开 plpgsql_call_handler 时恢复 */
 	func->cur_estate = estate;
 
 	estate->func = func;
@@ -4024,71 +4024,71 @@ plpgsql_estate_setup(PLpgSQL_execstate *estate,
 	estate->found_varno = func->found_varno;
 	estate->ndatums = func->ndatums;
 	estate->datums = NULL;
-	/* the datums array will be filled by copy_plpgsql_datums() */
+	/* datums 数组将由 copy_plpgsql_datums() 填好 */
 	estate->datum_context = CurrentMemoryContext;
 
-	/* initialize our ParamListInfo with appropriate hook functions */
+	/* 用合适的钩子函数初始化我们的 ParamListInfo */
 	estate->paramLI = makeParamList(0);
 	estate->paramLI->paramFetch = plpgsql_param_fetch;
 	estate->paramLI->paramFetchArg = (void *) estate;
 	estate->paramLI->paramCompile = plpgsql_param_compile;
-	estate->paramLI->paramCompileArg = NULL;	/* not needed */
+	estate->paramLI->paramCompileArg = NULL;	/* 不需要 */
 	estate->paramLI->parserSetup = (ParserSetupHook) plpgsql_parser_setup;
-	estate->paramLI->parserSetupArg = NULL; /* filled during use */
+	estate->paramLI->parserSetupArg = NULL; /* 使用中填入 */
 	estate->paramLI->numParams = estate->ndatums;
 
-	/* Create the session-wide cast-expression hash if we didn't already */
+	/* 若还没有，就建会话范围的转换表达式散列表 */
 	if (cast_expr_hash == NULL)
 	{
 		ctl.keysize = sizeof(plpgsql_CastHashKey);
 		ctl.entrysize = sizeof(plpgsql_CastExprHashEntry);
 		cast_expr_hash = hash_create("PLpgSQL cast expressions",
-									 16,	/* start small and extend */
+									 16,	/* 先小再扩展 */
 									 &ctl,
 									 HASH_ELEM | HASH_BLOBS);
 	}
 
-	/* set up for use of appropriate simple-expression EState and cast hash */
+	/* 设好以便使用合适的简单表达式 EState 与转换散列表 */
 	if (simple_eval_estate)
 	{
 		estate->simple_eval_estate = simple_eval_estate;
-		/* Private cast hash just lives in function's main context */
+		/* 私有转换散列只存在于函数的主上下文 */
 		ctl.keysize = sizeof(plpgsql_CastHashKey);
 		ctl.entrysize = sizeof(plpgsql_CastHashEntry);
 		ctl.hcxt = CurrentMemoryContext;
 		estate->cast_hash = hash_create("PLpgSQL private cast cache",
-										16, /* start small and extend */
+										16, /* 先小再扩展 */
 										&ctl,
 										HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 	}
 	else
 	{
 		estate->simple_eval_estate = shared_simple_eval_estate;
-		/* Create the session-wide cast-info hash table if we didn't already */
+		/* 若还没有，就建会话范围的转换信息散列表 */
 		if (shared_cast_hash == NULL)
 		{
 			ctl.keysize = sizeof(plpgsql_CastHashKey);
 			ctl.entrysize = sizeof(plpgsql_CastHashEntry);
 			shared_cast_hash = hash_create("PLpgSQL cast cache",
-										   16,	/* start small and extend */
+										   16,	/* 先小再扩展 */
 										   &ctl,
 										   HASH_ELEM | HASH_BLOBS);
 		}
 		estate->cast_hash = shared_cast_hash;
 	}
-	/* likewise for the simple-expression resource owner */
+	/* 简单表达式资源所有者同样如此 */
 	if (simple_eval_resowner)
 		estate->simple_eval_resowner = simple_eval_resowner;
 	else
 		estate->simple_eval_resowner = shared_simple_eval_resowner;
 
-	/* if there's a procedure resowner, it'll be filled in later */
+	/* 若有过程的 resowner，稍后会填上它 */
 	estate->procedure_resowner = NULL;
 
 	/*
-	 * We start with no stmt_mcontext; one will be created only if needed.
-	 * That context will be a direct child of the function's main execution
-	 * context.  Additional stmt_mcontexts might be created as children of it.
+	 * 我们起初没有 stmt_mcontext；只在需要时才建一个。
+	 * 该上下文将是函数主执行上下文的直接子级。
+	 * 还可能创建更多 stmt_mcontexts，作为它的子级。
 	 */
 	estate->stmt_mcontext = NULL;
 	estate->stmt_mcontext_parent = CurrentMemoryContext;
@@ -4104,15 +4104,15 @@ plpgsql_estate_setup(PLpgSQL_execstate *estate,
 	estate->plugin_info = NULL;
 
 	/*
-	 * Create an EState and ExprContext for evaluation of simple expressions.
+	 * 建一个 EState 与 ExprContext，供简单表达式求值。
 	 */
 	plpgsql_create_econtext(estate);
 
 	/*
-	 * Let the plugin, if any, see this function before we initialize local
-	 * PL/pgSQL variables.  Note that we also give the plugin a few function
-	 * pointers, so it can call back into PL/pgSQL for doing things like
-	 * variable assignments and stack traces.
+	 * 有插装插件则让它先看函数，我们再初始化局部
+	 * 的 PL/pgSQL 变量。注意我们也交给插件几个函数
+	 * 指针，使它能回调 PL/pgSQL 去做诸如
+	 * 变量赋值与栈回溯等。
 	 */
 	if (*plpgsql_plugin_ptr)
 	{
@@ -4128,23 +4128,23 @@ plpgsql_estate_setup(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * Release temporary memory used by expression/subselect evaluation
+ * 释放表达式与子查询求值所用的临时内存。
  *
- * NB: the result of the evaluation is no longer valid after this is done,
- * unless it is a pass-by-value datatype.
+ * 注意：做完之后，求值结果就不再有效，
+ * 除非它是按值传递类型。
  * ----------
  */
 static void
 exec_eval_cleanup(PLpgSQL_execstate *estate)
 {
-	/* Clear result of a full SPI_execute */
+	/* 清掉完整 SPI_execute 的结果 */
 	if (estate->eval_tuptable != NULL)
 		SPI_freetuptable(estate->eval_tuptable);
 	estate->eval_tuptable = NULL;
 
 	/*
-	 * Clear result of exec_eval_simple_expr (but keep the econtext).  This
-	 * also clears any short-lived allocations done via get_eval_mcontext.
+	 * 清 exec_eval_simple_expr 的结果（但保留 econtext）。这
+	 * 也清掉经由 get_eval_mcontext 做的任何短命分配。
 	 */
 	if (estate->eval_econtext != NULL)
 		ResetExprContext(estate->eval_econtext);
@@ -4152,23 +4152,23 @@ exec_eval_cleanup(PLpgSQL_execstate *estate)
 
 
 /* ----------
- * Generate a prepared plan
+ * 生成预备计划。
  *
- * CAUTION: it is possible for this function to throw an error after it has
- * built a SPIPlan and saved it in expr->plan.  Therefore, be wary of doing
- * additional things contingent on expr->plan being NULL.  That is, given
- * code like
+ * 警告：本函数有可能在已经
+ * 建好 SPIPlan 并写入 expr->plan 后抛错。因此要当心做
+ * 那些以 expr->plan 为 NULL 为前提的额外事。亦即给定
+ * 代码：
  *
- *	if (query->plan == NULL)
+ *	若query->plan为NULL
  *	{
- *		// okay to put setup code here
- *		exec_prepare_plan(estate, query, ...);
- *		// NOT okay to put more logic here
+ *	// 此处可放准备代码
+ *	exec_prepare_plan(estate, query, ...);
+ *	// 此处不可再放更多逻辑
  *	}
  *
- * extra steps at the end are unsafe because they will not be executed when
- * re-executing the calling statement, if exec_prepare_plan failed the first
- * time.  This is annoyingly error-prone, but the alternatives are worse.
+ * 末尾多出的步骤并不安全，因为当
+ * 重跑调用语句时它们并不执行，如果 exec_prepare_plan 首次
+ * 失败的话。这很易错且讨厌，但其他办法更差。
  * ----------
  */
 static void
@@ -4179,13 +4179,13 @@ exec_prepare_plan(PLpgSQL_execstate *estate,
 	SPIPrepareOptions options;
 
 	/*
-	 * The grammar can't conveniently set expr->func while building the parse
-	 * tree, so make sure it's set before parser hooks need it.
+	 * 语法在建语法树时无法方便地设置 expr->func，
+	 * 故要确保在解析钩子需要它前已设好。
 	 */
 	expr->func = estate->func;
 
 	/*
-	 * Generate and save the plan
+	 * 生成并保存该计划
 	 */
 	memset(&options, 0, sizeof(options));
 	options.parserSetup = (ParserSetupHook) plpgsql_parser_setup;
@@ -4200,16 +4200,16 @@ exec_prepare_plan(PLpgSQL_execstate *estate,
 	SPI_keepplan(plan);
 	expr->plan = plan;
 
-	/* Check to see if it's a simple expression */
+	/* 检查它是不是简单表达式 */
 	exec_simple_check_plan(estate, expr);
 }
 
 
 /* ----------
- * exec_stmt_execsql			Execute an SQL statement (possibly with INTO).
+ * exec_stmt_execsql 执行一条 SQL 语句（可能带 INTO）。
  *
- * Note: some callers rely on this not touching stmt_mcontext.  If it ever
- * needs to use that, fix those callers to push/pop stmt_mcontext.
+ * 注意：有些调用者依赖这里不碰 stmt_mcontext。若它将来
+ * 要用它，就改那些调用者去压弹 stmt_mcontext。
  * ----------
  */
 static int
@@ -4228,8 +4228,8 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 		too_many_rows_level = WARNING;
 
 	/*
-	 * On the first call for this statement generate the plan, and detect
-	 * whether the statement is INSERT/UPDATE/DELETE/MERGE
+	 * 该语句第一次被调用时生成计划，并检测
+	 * 它是否为 INSERT/UPDATE/DELETE/MERGE
 	 */
 	if (expr->plan == NULL)
 		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
@@ -4244,11 +4244,11 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 			CachedPlanSource *plansource = (CachedPlanSource *) lfirst(l);
 
 			/*
-			 * We could look at the raw_parse_tree, but it seems simpler to
-			 * check the command tag.  Note we should *not* look at the Query
-			 * tree(s), since those are the result of rewriting and could be
-			 * stale, or could have been transmogrified into something else
-			 * entirely.
+			 * 我们本可看 raw_parse_tree，但查命令标签
+			 * 似乎更简单。注意我们绝不去看 Query
+			 * 树，因它们是重写结果，可能已过期，
+			 * 也可能被改成别的东西，改得十分
+			 * 彻底。
 			 */
 			if (plansource->commandTag == CMDTAG_INSERT ||
 				plansource->commandTag == CMDTAG_UPDATE ||
@@ -4263,21 +4263,21 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * Set up ParamListInfo to pass to executor
+	 * 建 ParamListInfo 传给执行器
 	 */
 	paramLI = setup_param_list(estate, expr);
 
 	/*
-	 * If we have INTO, then we only need one row back ... but if we have INTO
-	 * STRICT or extra check too_many_rows, ask for two rows, so that we can
-	 * verify the statement returns only one.  INSERT/UPDATE/DELETE are always
-	 * treated strictly. Without INTO, just run the statement to completion
-	 * (tcount = 0).
+	 * 若有 INTO，则只需取回一行……但若有 INTO
+	 * STRICT 还是额外的 too_many_rows 检查，就取两行以便
+	 * 核实该语句只返回一行。INSERT/UPDATE/DELETE 总是
+	 * 被严格对待。无 INTO 就把语句跑完（
+	 * tcount=0)
 	 *
-	 * We could just ask for two rows always when using INTO, but there are
-	 * some cases where demanding the extra row costs significant time, eg by
-	 * forcing completion of a sequential scan.  So don't do it unless we need
-	 * to enforce strictness.
+	 * 用 INTO 时本可总是要两行，但有些情形
+	 * 多要的那一行耗时很多，例如迫使一次
+	 * 顺序扫描跑完。故除非我们需要强制严格，
+	 * 否则不做。
 	 */
 	if (stmt->into)
 	{
@@ -4290,15 +4290,15 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 		tcount = 0;
 
 	/*
-	 * Execute the plan
+	 * 执行该计划
 	 */
 	rc = SPI_execute_plan_with_paramlist(expr->plan, paramLI,
 										 estate->readonly_func, tcount);
 
 	/*
-	 * Check for error, and set FOUND if appropriate (for historical reasons
-	 * we set FOUND only for certain query types).  Also Assert that we
-	 * identified the statement type the same as SPI did.
+	 * 检查有无错误，并在适当时设 FOUND（出于历史原因
+	 * 我们只对某些查询类型设 FOUND）。再断言我们
+	 * 认定的语句类型与 SPI 认定的相同。
 	 */
 	switch (rc)
 	{
@@ -4326,15 +4326,15 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 		case SPI_OK_REWRITTEN:
 
 			/*
-			 * The command was rewritten into another kind of command. It's
-			 * not clear what FOUND would mean in that case (and SPI doesn't
-			 * return the row count either), so just set it to false.  Note
-			 * that we can't assert anything about mod_stmt here.
+			 * 该命令被重写成另一种命令。此时
+			 * FOUND 意味什么并不清楚（而且 SPI 也不
+			 * 返回行数），故只把它设为假。注意
+			 * 我们在此无法对 mod_stmt 断言任何事。
 			 */
 			exec_set_found(estate, false);
 			break;
 
-			/* Some SPI errors deserve specific error messages */
+			/* 有些 SPI 错误该用专门的错误消息 */
 		case SPI_ERROR_COPY:
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -4353,29 +4353,29 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 			break;
 	}
 
-	/* All variants should save result info for GET DIAGNOSTICS */
+	/* 所有变体都应为 GET DIAGNOSTICS 保存结果信息 */
 	estate->eval_processed = SPI_processed;
 
-	/* Process INTO if present */
+	/* 若有 INTO 就处理 */
 	if (stmt->into)
 	{
 		SPITupleTable *tuptab = SPI_tuptable;
 		uint64		n = SPI_processed;
 		PLpgSQL_variable *target;
 
-		/* If the statement did not return a tuple table, complain */
+		/* 语句若没返回元组表，就报错 */
 		if (tuptab == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
 					 errmsg("INTO used with a command that cannot return data")));
 
-		/* Fetch target's datum entry */
+		/* 取目标的 datum 项 */
 		target = (PLpgSQL_variable *) estate->datums[stmt->target->dno];
 
 		/*
-		 * If SELECT ... INTO specified STRICT, and the query didn't find
-		 * exactly one row, throw an error.  If STRICT was not specified, then
-		 * allow the query to find any number of rows.
+		 * 若 SELECT ... INTO 指定了 STRICT，且查询没找到
+		 * 恰好一行就报错。若未指定 STRICT，则
+		 * 允许查询找到任意行数。
 		 */
 		if (n == 0)
 		{
@@ -4393,7 +4393,7 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 						 errmsg("query returned no rows"),
 						 errdetail ? errdetail_internal("parameters: %s", errdetail) : 0));
 			}
-			/* set the target to NULL(s) */
+			/* 把目标设成 NULL */
 			exec_move_row(estate, target, NULL, tuptab->tupdesc);
 		}
 		else
@@ -4416,17 +4416,17 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 						 errdetail ? errdetail_internal("parameters: %s", errdetail) : 0,
 						 errhint("Make sure the query returns a single row, or use LIMIT 1.")));
 			}
-			/* Put the first result row into the target */
+			/* 把第一行结果放进目标 */
 			exec_move_row(estate, target, tuptab->vals[0], tuptab->tupdesc);
 		}
 
-		/* Clean up */
+		/* 清理 */
 		exec_eval_cleanup(estate);
 		SPI_freetuptable(SPI_tuptable);
 	}
 	else
 	{
-		/* If the statement returned a tuple table, complain */
+		/* 若该语句返回了元组表，就报错 */
 		if (SPI_tuptable != NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
@@ -4439,8 +4439,8 @@ exec_stmt_execsql(PLpgSQL_execstate *estate,
 
 
 /* ----------
- * exec_stmt_dynexecute			Execute a dynamic SQL query
- *					(possibly with INTO).
+ * exec_stmt_dynexecute 执行动态 SQL 查询
+ *	可能带有 INTO。
  * ----------
  */
 static int
@@ -4458,8 +4458,8 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 	MemoryContext stmt_mcontext = get_stmt_mcontext(estate);
 
 	/*
-	 * First we evaluate the string expression after the EXECUTE keyword. Its
-	 * result is the querystring we have to execute.
+	 * 先对 EXECUTE 关键字之后的字符串表达式求值。其
+	 * 结果就是要执行的查询串。
 	 */
 	query = exec_eval_expr(estate, stmt->query, &isnull, &restype, &restypmod);
 	if (isnull)
@@ -4467,16 +4467,16 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("query string argument of EXECUTE is null")));
 
-	/* Get the C-String representation */
+	/* 取 C 字符串表示 */
 	querystr = convert_value_to_string(estate, query, restype);
 
-	/* copy it into the stmt_mcontext before we clean up */
+	/* 清理前把它拷进 stmt_mcontext */
 	querystr = MemoryContextStrdup(stmt_mcontext, querystr);
 
 	exec_eval_cleanup(estate);
 
 	/*
-	 * Execute the query without preparing a saved plan.
+	 * 执行该查询，但不准备保存的计划。
 	 */
 	paramLI = exec_eval_using_params(estate, stmt->params);
 
@@ -4503,19 +4503,19 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 		case 0:
 
 			/*
-			 * Also allow a zero return, which implies the querystring
-			 * contained no commands.
+			 * 也允许返回零，这表示该查询串
+			 * 里不含命令。
 			 */
 			break;
 
 		case SPI_OK_SELINTO:
 
 			/*
-			 * We want to disallow SELECT INTO for now, because its behavior
-			 * is not consistent with SELECT INTO in a normal plpgsql context.
-			 * (We need to reimplement EXECUTE to parse the string as a
-			 * plpgsql command, not just feed it to SPI_execute.)  This is not
-			 * a functional limitation because CREATE TABLE AS is allowed.
+			 * 我们目前想禁止 SELECT INTO，因其行为
+			 * 与普通 plpgsql 语境里的 SELECT INTO 不一致。
+			 * 我们需重做 EXECUTE，把字符串解析成一条
+			 * plpgsql 命令，而不只是喂给 SPI_execute。这并
+			 * 非功能限制，因为允许 CREATE TABLE AS。
 			 */
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -4523,7 +4523,7 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 					 errhint("You might want to use EXECUTE ... INTO or EXECUTE CREATE TABLE ... AS instead.")));
 			break;
 
-			/* Some SPI errors deserve specific error messages */
+			/* 有些 SPI 错误该用专门的错误消息 */
 		case SPI_ERROR_COPY:
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -4542,29 +4542,29 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 			break;
 	}
 
-	/* Save result info for GET DIAGNOSTICS */
+	/* 为 GET DIAGNOSTICS 留结果信息 */
 	estate->eval_processed = SPI_processed;
 
-	/* Process INTO if present */
+	/* 若有 INTO 就处理 */
 	if (stmt->into)
 	{
 		SPITupleTable *tuptab = SPI_tuptable;
 		uint64		n = SPI_processed;
 		PLpgSQL_variable *target;
 
-		/* If the statement did not return a tuple table, complain */
+		/* 语句若没返回元组表，就报错 */
 		if (tuptab == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
 					 errmsg("INTO used with a command that cannot return data")));
 
-		/* Fetch target's datum entry */
+		/* 取目标的 datum 项 */
 		target = (PLpgSQL_variable *) estate->datums[stmt->target->dno];
 
 		/*
-		 * If SELECT ... INTO specified STRICT, and the query didn't find
-		 * exactly one row, throw an error.  If STRICT was not specified, then
-		 * allow the query to find any number of rows.
+		 * 若 SELECT ... INTO 指定了 STRICT，且查询没找到
+		 * 恰好一行就报错。若未指定 STRICT，则
+		 * 允许查询找到任意行数。
 		 */
 		if (n == 0)
 		{
@@ -4582,7 +4582,7 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 						 errmsg("query returned no rows"),
 						 errdetail ? errdetail_internal("parameters: %s", errdetail) : 0));
 			}
-			/* set the target to NULL(s) */
+			/* 把目标设成 NULL */
 			exec_move_row(estate, target, NULL, tuptab->tupdesc);
 		}
 		else
@@ -4602,22 +4602,22 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 						 errdetail ? errdetail_internal("parameters: %s", errdetail) : 0));
 			}
 
-			/* Put the first result row into the target */
+			/* 把第一行结果放进目标 */
 			exec_move_row(estate, target, tuptab->vals[0], tuptab->tupdesc);
 		}
-		/* clean up after exec_move_row() */
+		/* exec_move_row() 之后清理 */
 		exec_eval_cleanup(estate);
 	}
 	else
 	{
 		/*
-		 * It might be a good idea to raise an error if the query returned
-		 * tuples that are being ignored, but historically we have not done
-		 * that.
+		 * 查询若返回了正被忽略的元组，报错也许
+		 * 是好主意，但历来我们并未这么做这
+		 * 事
 		 */
 	}
 
-	/* Release any result from SPI_execute, as well as transient data */
+	/* 释放 SPI_execute 的任何结果，以及临时数据 */
 	SPI_freetuptable(SPI_tuptable);
 	MemoryContextReset(stmt_mcontext);
 
@@ -4626,10 +4626,10 @@ exec_stmt_dynexecute(PLpgSQL_execstate *estate,
 
 
 /* ----------
- * exec_stmt_dynfors			Execute a dynamic query, assign each
- *					tuple to a record or row and
- *					execute a group of statements
- *					for it.
+ * exec_stmt_dynfors 执行动态查询，把每个
+ *	元组赋给记录或行并
+ *	执行一组语句
+ *	为它。
  * ----------
  */
 static int
@@ -4642,12 +4642,12 @@ exec_stmt_dynfors(PLpgSQL_execstate *estate, PLpgSQL_stmt_dynfors *stmt)
 									   NULL, CURSOR_OPT_NO_SCROLL);
 
 	/*
-	 * Execute the loop
+	 * 执行该循环
 	 */
 	rc = exec_for_query(estate, (PLpgSQL_stmt_forq *) stmt, portal, true);
 
 	/*
-	 * Close the implicit cursor
+	 * 关闭隐式游标
 	 */
 	SPI_cursor_close(portal);
 
@@ -4656,7 +4656,7 @@ exec_stmt_dynfors(PLpgSQL_execstate *estate, PLpgSQL_stmt_dynfors *stmt)
 
 
 /* ----------
- * exec_stmt_open			Execute an OPEN cursor statement
+ * exec_stmt_open 执行一条 OPEN 游标语句
  * ----------
  */
 static int
@@ -4670,8 +4670,8 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 	ParamListInfo paramLI;
 
 	/* ----------
-	 * Get the cursor variable and if it has an assigned name, check
-	 * that it's not in use currently.
+	 * 取游标变量，若已有名字就检查
+	 * 它当前并未在用。
 	 * ----------
 	 */
 	curvar = (PLpgSQL_var *) (estate->datums[stmt->curvar]);
@@ -4679,7 +4679,7 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 	{
 		MemoryContext oldcontext;
 
-		/* We only need stmt_mcontext to hold the cursor name string */
+		/* 只需 stmt_mcontext 留住游标名字符串 */
 		stmt_mcontext = get_stmt_mcontext(estate);
 		oldcontext = MemoryContextSwitchTo(stmt_mcontext);
 		curname = TextDatumGetCString(curvar->value);
@@ -4692,16 +4692,16 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 	}
 
 	/* ----------
-	 * Process the OPEN according to it's type.
+	 * 按它的类型来处理这个 OPEN。
 	 * ----------
 	 */
 	if (stmt->query != NULL)
 	{
 		/* ----------
-		 * This is an OPEN refcursor FOR SELECT ...
+		 * 这是 OPEN refcursor FOR SELECT ...
 		 *
-		 * We just make sure the query is planned. The real work is
-		 * done downstairs.
+		 * 我们只确保该查询已有计划。真正的工作
+		 * 在下层完成
 		 * ----------
 		 */
 		query = stmt->query;
@@ -4711,7 +4711,7 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 	else if (stmt->dynquery != NULL)
 	{
 		/* ----------
-		 * This is an OPEN refcursor FOR EXECUTE ...
+		 * 这是 OPEN refcursor FOR EXECUTE ...
 		 * ----------
 		 */
 		portal = exec_dynquery_with_params(estate,
@@ -4721,12 +4721,12 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 										   stmt->cursor_options);
 
 		/*
-		 * If cursor variable was NULL, store the generated portal name in it,
-		 * after verifying it's okay to assign to.
+		 * 若游标变量为 NULL，就把生成的门户名存入，
+		 * 先确认可以赋值给它。
 		 *
-		 * Note: exec_dynquery_with_params already reset the stmt_mcontext, so
-		 * curname is a dangling pointer here; but testing it for nullness is
-		 * OK.
+		 * 注意：exec_dynquery_with_params 已重置 stmt_mcontext，故
+		 * 此处 curname 是悬空指针；但测它是否为 NULL 仍
+		 * 可
 		 */
 		if (curname == NULL)
 		{
@@ -4739,18 +4739,18 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 	else
 	{
 		/* ----------
-		 * This is an OPEN cursor
+		 * 这是 OPEN 游标
 		 *
-		 * Note: parser should already have checked that statement supplies
-		 * args iff cursor needs them, but we check again to be safe.
+		 * 注意：解析器本该已经检查过该语句提供了
+		 * 仅当游标需要才给参，安全起见再查一次。
 		 * ----------
 		 */
 		if (stmt->argquery != NULL)
 		{
 			/* ----------
-			 * OPEN CURSOR with args.  We fake a SELECT ... INTO ...
-			 * statement to evaluate the args and put 'em into the
-			 * internal row.
+			 * 带参 OPEN CURSOR。假造 SELECT ... INTO
+			 * 语句，以求值参数并放入
+			 * 内部行。
 			 * ----------
 			 */
 			PLpgSQL_stmt_execsql set_args;
@@ -4765,7 +4765,7 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 			set_args.lineno = stmt->lineno;
 			set_args.sqlstmt = stmt->argquery;
 			set_args.into = true;
-			/* XXX historically this has not been STRICT */
+			/* XXX 历来这里不是 STRICT */
 			set_args.target = (PLpgSQL_variable *)
 				(estate->datums[curvar->cursor_explicit_argrow]);
 
@@ -4786,12 +4786,12 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 	}
 
 	/*
-	 * Set up ParamListInfo for this query
+	 * 为该查询建 ParamListInfo
 	 */
 	paramLI = setup_param_list(estate, query);
 
 	/*
-	 * Open the cursor (the paramlist will get copied into the portal)
+	 * 打开游标（参数列表会拷进门户）
 	 */
 	portal = SPI_cursor_open_with_paramlist(curname, query->plan,
 											paramLI,
@@ -4801,8 +4801,8 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 			 SPI_result_code_string(SPI_result));
 
 	/*
-	 * If cursor variable was NULL, store the generated portal name in it,
-	 * after verifying it's okay to assign to.
+	 * 若游标变量为 NULL，就把生成的门户名存入，
+	 * 先确认可以赋值给它。
 	 */
 	if (curname == NULL)
 	{
@@ -4810,7 +4810,7 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 		assign_text_var(estate, curvar, portal->name);
 	}
 
-	/* If we had any transient data, clean it up */
+	/* 若有过任何临时数据，就清掉 */
 	exec_eval_cleanup(estate);
 	if (stmt_mcontext)
 		MemoryContextReset(stmt_mcontext);
@@ -4820,8 +4820,8 @@ exec_stmt_open(PLpgSQL_execstate *estate, PLpgSQL_stmt_open *stmt)
 
 
 /* ----------
- * exec_stmt_fetch			Fetch from a cursor into a target, or just
- *							move the current position of the cursor
+ * exec_stmt_fetch 从游标取入目标，还是只
+ *	移动该游标的当前位置
  * ----------
  */
 static int
@@ -4836,7 +4836,7 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 	MemoryContext oldcontext;
 
 	/* ----------
-	 * Get the portal of the cursor by name
+	 * 按名字取游标的门户
 	 * ----------
 	 */
 	curvar = (PLpgSQL_var *) (estate->datums[stmt->curvar]);
@@ -4845,7 +4845,7 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("cursor variable \"%s\" is null", curvar->refname)));
 
-	/* Use eval_mcontext for short-lived string */
+	/* 短命字符串用 eval_mcontext */
 	oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 	curname = TextDatumGetCString(curvar->value);
 	MemoryContextSwitchTo(oldcontext);
@@ -4856,12 +4856,12 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 				(errcode(ERRCODE_UNDEFINED_CURSOR),
 				 errmsg("cursor \"%s\" does not exist", curname)));
 
-	/* Calculate position for FETCH_RELATIVE or FETCH_ABSOLUTE */
+	/* 为 FETCH_RELATIVE 还是 FETCH_ABSOLUTE 计算位置 */
 	if (stmt->expr)
 	{
 		bool		isnull;
 
-		/* XXX should be doing this in LONG not INT width */
+		/* XXX 本该用 LONG 而非 INT 宽度 */
 		how_many = exec_eval_integer(estate, stmt->expr, &isnull);
 
 		if (isnull)
@@ -4877,7 +4877,7 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 		PLpgSQL_variable *target;
 
 		/* ----------
-		 * Fetch 1 tuple from the cursor
+		 * 从游标取出 1 个元组
 		 * ----------
 		 */
 		SPI_scroll_cursor_fetch(portal, stmt->direction, how_many);
@@ -4885,7 +4885,7 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 		n = SPI_processed;
 
 		/* ----------
-		 * Set the target appropriately.
+		 * 恰当地设置该目标。
 		 * ----------
 		 */
 		target = (PLpgSQL_variable *) estate->datums[stmt->target->dno];
@@ -4899,12 +4899,12 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 	}
 	else
 	{
-		/* Move the cursor */
+		/* 移动该游标 */
 		SPI_scroll_cursor_move(portal, stmt->direction, how_many);
 		n = SPI_processed;
 	}
 
-	/* Set the ROW_COUNT and the global FOUND variable appropriately. */
+	/* 恰当地设置 ROW_COUNT 与全局 FOUND 变量。 */
 	estate->eval_processed = n;
 	exec_set_found(estate, n != 0);
 
@@ -4912,7 +4912,7 @@ exec_stmt_fetch(PLpgSQL_execstate *estate, PLpgSQL_stmt_fetch *stmt)
 }
 
 /* ----------
- * exec_stmt_close			Close a cursor
+ * exec_stmt_close 关闭游标
  * ----------
  */
 static int
@@ -4924,7 +4924,7 @@ exec_stmt_close(PLpgSQL_execstate *estate, PLpgSQL_stmt_close *stmt)
 	MemoryContext oldcontext;
 
 	/* ----------
-	 * Get the portal of the cursor by name
+	 * 按名字取游标的门户
 	 * ----------
 	 */
 	curvar = (PLpgSQL_var *) (estate->datums[stmt->curvar]);
@@ -4933,7 +4933,7 @@ exec_stmt_close(PLpgSQL_execstate *estate, PLpgSQL_stmt_close *stmt)
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("cursor variable \"%s\" is null", curvar->refname)));
 
-	/* Use eval_mcontext for short-lived string */
+	/* 短命字符串用 eval_mcontext */
 	oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 	curname = TextDatumGetCString(curvar->value);
 	MemoryContextSwitchTo(oldcontext);
@@ -4945,7 +4945,7 @@ exec_stmt_close(PLpgSQL_execstate *estate, PLpgSQL_stmt_close *stmt)
 				 errmsg("cursor \"%s\" does not exist", curname)));
 
 	/* ----------
-	 * And close it.
+	 * 并关闭它
 	 * ----------
 	 */
 	SPI_cursor_close(portal);
@@ -4956,7 +4956,7 @@ exec_stmt_close(PLpgSQL_execstate *estate, PLpgSQL_stmt_close *stmt)
 /*
  * exec_stmt_commit
  *
- * Commit the transaction.
+ * 提交该事务。
  */
 static int
 exec_stmt_commit(PLpgSQL_execstate *estate, PLpgSQL_stmt_commit *stmt)
@@ -4967,8 +4967,8 @@ exec_stmt_commit(PLpgSQL_execstate *estate, PLpgSQL_stmt_commit *stmt)
 		SPI_commit();
 
 	/*
-	 * We need to build new simple-expression infrastructure, since the old
-	 * data structures are gone.
+	 * 必须重建简单表达式设施，因为旧的
+	 * 数据结构已消失。
 	 */
 	estate->simple_eval_estate = NULL;
 	estate->simple_eval_resowner = NULL;
@@ -4980,7 +4980,7 @@ exec_stmt_commit(PLpgSQL_execstate *estate, PLpgSQL_stmt_commit *stmt)
 /*
  * exec_stmt_rollback
  *
- * Abort the transaction.
+ * 中止该事务。
  */
 static int
 exec_stmt_rollback(PLpgSQL_execstate *estate, PLpgSQL_stmt_rollback *stmt)
@@ -4991,8 +4991,8 @@ exec_stmt_rollback(PLpgSQL_execstate *estate, PLpgSQL_stmt_rollback *stmt)
 		SPI_rollback();
 
 	/*
-	 * We need to build new simple-expression infrastructure, since the old
-	 * data structures are gone.
+	 * 必须重建简单表达式设施，因为旧的
+	 * 数据结构已消失。
 	 */
 	estate->simple_eval_estate = NULL;
 	estate->simple_eval_resowner = NULL;
@@ -5002,7 +5002,7 @@ exec_stmt_rollback(PLpgSQL_execstate *estate, PLpgSQL_stmt_rollback *stmt)
 }
 
 /* ----------
- * exec_assign_expr			Put an expression's result into a variable.
+ * exec_assign_expr 把表达式的结果放入一个变量。
  * ----------
  */
 static void
@@ -5015,21 +5015,21 @@ exec_assign_expr(PLpgSQL_execstate *estate, PLpgSQL_datum *target,
 	int32		valtypmod;
 
 	/*
-	 * If first time through, create a plan for this expression.
+	 * 若是第一次，就为该表达式建计划。
 	 */
 	if (expr->plan == NULL)
 	{
 		/*
-		 * Mark the expression as being an assignment source, if target is a
-		 * simple variable.  (This is a bit messy, but it seems cleaner than
-		 * modifying the API of exec_prepare_plan for the purpose.  We need to
-		 * stash the target dno into the expr anyway, so that it will be
-		 * available if we have to replan.)
+		 * 若目标是简单变量，就把该表达式标成赋值源。
+		 * 这有点乱，但似乎比为此去改
+		 * exec_prepare_plan 的接口更干净。我们反正需把
+		 * 目标 dno 塞进该 expr，以便我们必须重做
+		 * 计划时它仍可用。
 		 */
 		if (target->dtype == PLPGSQL_DTYPE_VAR)
 			expr->target_param = target->dno;
 		else
-			expr->target_param = -1;	/* should be that already */
+			expr->target_param = -1;	/* 本该已经如此 */
 
 		exec_prepare_plan(estate, expr, 0);
 	}
@@ -5041,12 +5041,12 @@ exec_assign_expr(PLpgSQL_execstate *estate, PLpgSQL_datum *target,
 
 
 /* ----------
- * exec_assign_c_string		Put a C string into a text variable.
+ * exec_assign_c_string 把C字符串放入文本变量。
  *
- * We take a NULL pointer as signifying empty string, not SQL null.
+ * 我们把 NULL 指针看成空串，而非 SQL 空值。
  *
- * As with the underlying exec_assign_value, caller is expected to do
- * exec_eval_cleanup later.
+ * 与底层的 exec_assign_value 一样，期望调用者稍后做
+ * exec_eval_cleanup。
  * ----------
  */
 static void
@@ -5056,7 +5056,7 @@ exec_assign_c_string(PLpgSQL_execstate *estate, PLpgSQL_datum *target,
 	text	   *value;
 	MemoryContext oldcontext;
 
-	/* Use eval_mcontext for short-lived text value */
+	/* 短命文本值用 eval_mcontext */
 	oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 	if (str != NULL)
 		value = cstring_to_text(str);
@@ -5070,11 +5070,11 @@ exec_assign_c_string(PLpgSQL_execstate *estate, PLpgSQL_datum *target,
 
 
 /* ----------
- * exec_assign_value			Put a value into a target datum
+ * exec_assign_value 把一个值放入目标 datum
  *
- * Note: in some code paths, this will leak memory in the eval_mcontext;
- * we assume that will be cleaned up later by exec_eval_cleanup.  We cannot
- * call exec_eval_cleanup here for fear of destroying the input Datum value.
+ * 注意：有些代码路径将在 eval_mcontext 泄漏内存；
+ * 我们假定稍后由 exec_eval_cleanup 清掉。我们无法
+ * 在此调用它，唯恐毁掉输入的 Datum 值。
  * ----------
  */
 static void
@@ -5089,7 +5089,7 @@ exec_assign_value(PLpgSQL_execstate *estate,
 		case PLPGSQL_DTYPE_PROMISE:
 			{
 				/*
-				 * Target is a variable
+				 * 目标是变量
 				 */
 				PLpgSQL_var *var = (PLpgSQL_var *) target;
 				Datum		newvalue;
@@ -5109,33 +5109,33 @@ exec_assign_value(PLpgSQL_execstate *estate,
 									var->refname)));
 
 				/*
-				 * If type is by-reference, copy the new value (which is
-				 * probably in the eval_mcontext) into the procedure's main
-				 * memory context.  But if it's a read/write reference to an
-				 * expanded object, no physical copy needs to happen; at most
-				 * we need to reparent the object's memory context.
+				 * 若类型按引用，就把新值（它多半位于
+				 * eval_mcontext 里）拷进该过程的主
+				 * 内存上下文。但若它是指向扩展对象的读写
+				 * 引用，就不需物理拷贝；最多我们需要
+				 * 改挂该对象的内存上下文。
 				 *
-				 * If it's an array, we force the value to be stored in R/W
-				 * expanded form.  This wins if the function later does, say,
-				 * a lot of array subscripting operations on the variable, and
-				 * otherwise might lose.  We might need to use a different
-				 * heuristic, but it's too soon to tell.  Also, are there
-				 * cases where it'd be useful to force non-array values into
-				 * expanded form?
+				 * 若它是数组，就强制以 R/W 扩展形式存放
+				 * 该值。函数若后来对变量做很多下标操作，
+				 * 这样便划算，否则也许吃亏。我们也许要
+				 * 换一种启发，但现在判断还太早。另外，
+				 * 是否有这种情形：把非数组的值也强制
+				 * 存成扩展形式才有用
+				 * 呢？
 				 */
 				if (!var->datatype->typbyval && !isNull)
 				{
 					if (var->datatype->typisarray &&
 						!VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(newvalue)))
 					{
-						/* array and not already R/W, so apply expand_array */
+						/* 数组且还不是 R/W，就用 expand_array */
 						newvalue = expand_array(newvalue,
 												estate->datum_context,
 												NULL);
 					}
 					else
 					{
-						/* else transfer value if R/W, else just datumCopy */
+						/* 否则R/W就移交值，不然只 datumCopy */
 						newvalue = datumTransfer(newvalue,
 												 false,
 												 var->datatype->typlen);
@@ -5143,16 +5143,16 @@ exec_assign_value(PLpgSQL_execstate *estate,
 				}
 
 				/*
-				 * Now free the old value, if any, and assign the new one. But
-				 * skip the assignment if old and new values are the same.
-				 * Note that for expanded objects, this test is necessary and
-				 * cannot reliably be made any earlier; we have to be looking
-				 * at the object's standard R/W pointer to be sure pointer
-				 * equality is meaningful.
+				 * 现在释放旧值（若有）并赋上新值。但
+				 * 若新旧值相同，就跳过这次赋值。
+				 * 注意对扩展对象，此检查有必要，且
+				 * 无法更早可靠做出；我们必须正看着
+				 * 该对象的标准 R/W 指针，才能确定指针
+				 * 相等有意义。
 				 *
-				 * Also, if it's a promise variable, we should disarm the
-				 * promise in any case --- otherwise, assigning null to an
-				 * armed promise variable would fail to disarm the promise.
+				 * 另外若它是承诺变量，任何情况下我们
+				 * 都应解除承诺，否则向已武装的承诺
+				 * 变量赋 NULL 将无法解除该承诺。
 				 */
 				if (var->value != newvalue || var->isnull || isNull)
 					assign_simple_var(estate, var, newvalue, isNull,
@@ -5165,19 +5165,19 @@ exec_assign_value(PLpgSQL_execstate *estate,
 		case PLPGSQL_DTYPE_ROW:
 			{
 				/*
-				 * Target is a row variable
+				 * 目标是行变量
 				 */
 				PLpgSQL_row *row = (PLpgSQL_row *) target;
 
 				if (isNull)
 				{
-					/* If source is null, just assign nulls to the row */
+					/* 若源为 NULL，就只对该行赋空值 */
 					exec_move_row(estate, (PLpgSQL_variable *) row,
 								  NULL, NULL);
 				}
 				else
 				{
-					/* Source must be of RECORD or composite type */
+					/* 源必须是 RECORD 或复合类型 */
 					if (!type_is_rowtype(valtype))
 						ereport(ERROR,
 								(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -5191,7 +5191,7 @@ exec_assign_value(PLpgSQL_execstate *estate,
 		case PLPGSQL_DTYPE_REC:
 			{
 				/*
-				 * Target is a record variable
+				 * 目标是记录变量
 				 */
 				PLpgSQL_rec *rec = (PLpgSQL_rec *) target;
 
@@ -5203,13 +5203,13 @@ exec_assign_value(PLpgSQL_execstate *estate,
 								 errmsg("null value cannot be assigned to variable \"%s\" declared NOT NULL",
 										rec->refname)));
 
-					/* Set variable to a simple NULL */
+					/* 把变量设成简单 NULL */
 					exec_move_row(estate, (PLpgSQL_variable *) rec,
 								  NULL, NULL);
 				}
 				else
 				{
-					/* Source must be of RECORD or composite type */
+					/* 源必须是 RECORD 或复合类型 */
 					if (!type_is_rowtype(valtype))
 						ereport(ERROR,
 								(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -5223,7 +5223,7 @@ exec_assign_value(PLpgSQL_execstate *estate,
 		case PLPGSQL_DTYPE_RECFIELD:
 			{
 				/*
-				 * Target is a field of a record
+				 * 目标是记录的字段
 				 */
 				PLpgSQL_recfield *recfield = (PLpgSQL_recfield *) target;
 				PLpgSQL_rec *rec;
@@ -5233,10 +5233,10 @@ exec_assign_value(PLpgSQL_execstate *estate,
 				erh = rec->erh;
 
 				/*
-				 * If record variable is NULL, instantiate it if it has a
-				 * named composite type, else complain.  (This won't change
-				 * the logical state of the record, but if we successfully
-				 * assign below, the unassigned fields will all become NULLs.)
+				 * 记录变量若为 NULL，就在它有
+				 * 具名复合类型则建，否则报错。（这不改
+				 * 记录的逻辑状态，但若我们下面成功赋值
+				 * 则未赋值字段都将变成 NULL。）
 				 */
 				if (erh == NULL)
 				{
@@ -5245,8 +5245,8 @@ exec_assign_value(PLpgSQL_execstate *estate,
 				}
 
 				/*
-				 * Look up the field's properties if we have not already, or
-				 * if the tuple descriptor ID changed since last time.
+				 * 若尚未查过字段属性，或
+				 * 元组描述符标识自上次变了。
 				 */
 				if (unlikely(recfield->rectupledescid != erh->er_tupdesc_id))
 				{
@@ -5260,14 +5260,14 @@ exec_assign_value(PLpgSQL_execstate *estate,
 					recfield->rectupledescid = erh->er_tupdesc_id;
 				}
 
-				/* We don't support assignments to system columns. */
+				/* 我们不支持对系统列赋值。 */
 				if (recfield->finfo.fnumber <= 0)
 					ereport(ERROR,
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("cannot assign to system column \"%s\"",
 									recfield->fieldname)));
 
-				/* Cast the new value to the right type, if needed. */
+				/* 需要时把新值转换成正确类型。 */
 				value = exec_cast_value(estate,
 										value,
 										&isNull,
@@ -5276,7 +5276,7 @@ exec_assign_value(PLpgSQL_execstate *estate,
 										recfield->finfo.ftypeid,
 										recfield->finfo.ftypmod);
 
-				/* And assign it. */
+				/* 给它赋值 */
 				expanded_record_set_field(erh, recfield->finfo.fnumber,
 										  value, isNull, !estate->atomic);
 				break;
@@ -5288,21 +5288,21 @@ exec_assign_value(PLpgSQL_execstate *estate,
 }
 
 /*
- * exec_eval_datum				Get current value of a PLpgSQL_datum
+ * exec_eval_datum 取得 PLpgSQL_datum 的当前值
  *
- * The type oid, typmod, value in Datum format, and null flag are returned.
+ * 返回类型 oid、typmod、Datum 形式的值，以及空标志。
  *
- * At present this doesn't handle PLpgSQL_expr datums; that's not needed
- * because we never pass references to such datums to SPI.
+ * 目前这不处理 PLpgSQL_expr 这种 datum；那并不需要，
+ * 因为我们从不把此类datum的引用传给 SPI。
  *
- * NOTE: the returned Datum points right at the stored value in the case of
- * pass-by-reference datatypes.  Generally callers should take care not to
- * modify the stored value.  Some callers intentionally manipulate variables
- * referenced by R/W expanded pointers, though; it is those callers'
- * responsibility that the results are semantically OK.
+ * 注意：按引用传递时，返回的 Datum 直指所存的
+ * 值。一般调用者应注意不要修改所存的值。
+ * 不过有些调用者有意操作读写扩展指针所引用
+ * 的变量；让结果在语义上正确，是那些调用者
+ * 的责任。
  *
- * In some cases we have to palloc a return value, and in such cases we put
- * it into the estate's eval_mcontext.
+ * 有些情形我们必须 palloc 一个返回值，这时把它
+ * 放进 estate 的 eval_mcontext。
  */
 static void
 exec_eval_datum(PLpgSQL_execstate *estate,
@@ -5317,7 +5317,7 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 	switch (datum->dtype)
 	{
 		case PLPGSQL_DTYPE_PROMISE:
-			/* fulfill promise if needed, then handle like regular var */
+			/* 需要时兑现承诺，再当普通变量处理 */
 			plpgsql_fulfill_promise(estate, (PLpgSQL_var *) datum);
 
 			/* FALL THRU */
@@ -5338,14 +5338,14 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 				PLpgSQL_row *row = (PLpgSQL_row *) datum;
 				HeapTuple	tup;
 
-				/* We get here if there are multiple OUT parameters */
-				if (!row->rowtupdesc)	/* should not happen */
+				/* 多个 OUT 参数时走到这里 */
+				if (!row->rowtupdesc)	/* 不该发生 */
 					elog(ERROR, "row variable has no tupdesc");
-				/* Make sure we have a valid type/typmod setting */
+				/* 确保我们持有有效的类型与 typmod */
 				BlessTupleDesc(row->rowtupdesc);
 				oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 				tup = make_tuple_from_row(estate, row, row->rowtupdesc);
-				if (tup == NULL)	/* should not happen */
+				if (tup == NULL)	/* 不该发生 */
 					elog(ERROR, "row not compatible with its own tupdesc");
 				*typeid = row->rowtupdesc->tdtypeid;
 				*typetypmod = row->rowtupdesc->tdtypmod;
@@ -5361,10 +5361,10 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 
 				if (rec->erh == NULL)
 				{
-					/* Treat uninstantiated record as a simple NULL */
+					/* 把尚未实例化的记录当成简单 NULL */
 					*value = (Datum) 0;
 					*isnull = true;
-					/* Report variable's declared type */
+					/* 报告变量声明的类型 */
 					*typeid = rec->rectypeid;
 					*typetypmod = -1;
 				}
@@ -5372,7 +5372,7 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 				{
 					if (ExpandedRecordIsEmpty(rec->erh))
 					{
-						/* Empty record is also a NULL */
+						/* 空记录同样是 NULL */
 						*value = (Datum) 0;
 						*isnull = true;
 					}
@@ -5383,13 +5383,13 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 					}
 					if (rec->rectypeid != RECORDOID)
 					{
-						/* Report variable's declared type, if not RECORD */
+						/* 非 RECORD 时报告变量声明的类型 */
 						*typeid = rec->rectypeid;
 						*typetypmod = -1;
 					}
 					else
 					{
-						/* Report record's actual type if declared RECORD */
+						/* 声明 RECORD 时报告记录实际类型 */
 						*typeid = rec->erh->er_typeid;
 						*typetypmod = rec->erh->er_typmod;
 					}
@@ -5407,9 +5407,9 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 				erh = rec->erh;
 
 				/*
-				 * If record variable is NULL, instantiate it if it has a
-				 * named composite type, else complain.  (This won't change
-				 * the logical state of the record: it's still NULL.)
+				 * 记录变量若为 NULL，就在它有
+				 * 具名复合类型则建，否则报错。（这不改
+				 * 记录的逻辑状态：它仍是 NULL）。
 				 */
 				if (erh == NULL)
 				{
@@ -5418,8 +5418,8 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 				}
 
 				/*
-				 * Look up the field's properties if we have not already, or
-				 * if the tuple descriptor ID changed since last time.
+				 * 若尚未查过字段属性，或
+				 * 元组描述符标识自上次变了。
 				 */
 				if (unlikely(recfield->rectupledescid != erh->er_tupdesc_id))
 				{
@@ -5433,11 +5433,11 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 					recfield->rectupledescid = erh->er_tupdesc_id;
 				}
 
-				/* Report type data. */
+				/* 报类型数据 */
 				*typeid = recfield->finfo.ftypeid;
 				*typetypmod = recfield->finfo.ftypmod;
 
-				/* And fetch the field value. */
+				/* 并取出字段的值。 */
 				*value = expanded_record_get_field(erh,
 												   recfield->finfo.fnumber,
 												   isnull);
@@ -5450,10 +5450,10 @@ exec_eval_datum(PLpgSQL_execstate *estate,
 }
 
 /*
- * plpgsql_exec_get_datum_type				Get datatype of a PLpgSQL_datum
+ * plpgsql_exec_get_datum_type 取 PLpgSQL_datum 的类型
  *
- * This is the same logic as in exec_eval_datum, but we skip acquiring
- * the actual value of the variable.  Also, needn't support DTYPE_ROW.
+ * 逻辑与 exec_eval_datum 相同，但我们跳过获取
+ * 变量的实际值。而且不必支持 DTYPE_ROW。
  */
 Oid
 plpgsql_exec_get_datum_type(PLpgSQL_execstate *estate,
@@ -5478,12 +5478,12 @@ plpgsql_exec_get_datum_type(PLpgSQL_execstate *estate,
 
 				if (rec->erh == NULL || rec->rectypeid != RECORDOID)
 				{
-					/* Report variable's declared type */
+					/* 报告变量声明的类型 */
 					typeid = rec->rectypeid;
 				}
 				else
 				{
-					/* Report record's actual type if declared RECORD */
+					/* 声明 RECORD 时报告记录实际类型 */
 					typeid = rec->erh->er_typeid;
 				}
 				break;
@@ -5497,16 +5497,16 @@ plpgsql_exec_get_datum_type(PLpgSQL_execstate *estate,
 				rec = (PLpgSQL_rec *) (estate->datums[recfield->recparentno]);
 
 				/*
-				 * If record variable is NULL, instantiate it if it has a
-				 * named composite type, else complain.  (This won't change
-				 * the logical state of the record: it's still NULL.)
+				 * 记录变量若为 NULL，就在它有
+				 * 具名复合类型则建，否则报错。（这不改
+				 * 记录的逻辑状态：它仍是 NULL）。
 				 */
 				if (rec->erh == NULL)
 					instantiate_empty_record_variable(estate, rec);
 
 				/*
-				 * Look up the field's properties if we have not already, or
-				 * if the tuple descriptor ID changed since last time.
+				 * 若尚未查过字段属性，或
+				 * 元组描述符标识自上次变了。
 				 */
 				if (unlikely(recfield->rectupledescid != rec->erh->er_tupdesc_id))
 				{
@@ -5526,7 +5526,7 @@ plpgsql_exec_get_datum_type(PLpgSQL_execstate *estate,
 
 		default:
 			elog(ERROR, "unrecognized dtype: %d", datum->dtype);
-			typeid = InvalidOid;	/* keep compiler quiet */
+			typeid = InvalidOid;	/* 让编译器安静 */
 			break;
 	}
 
@@ -5534,11 +5534,11 @@ plpgsql_exec_get_datum_type(PLpgSQL_execstate *estate,
 }
 
 /*
- * plpgsql_exec_get_datum_type_info			Get datatype etc of a PLpgSQL_datum
+ * plpgsql_exec_get_datum_type_info 取 PLpgSQL_datum 的类型等
  *
- * An extended version of plpgsql_exec_get_datum_type, which also retrieves the
- * typmod and collation of the datum.  Note however that we don't report the
- * possibly-mutable typmod of RECORD values, but say -1 always.
+ * 这是 plpgsql_exec_get_datum_type 的扩展版，也取回
+ * 该 datum 的 typmod 与排序规则。但请注意我们不报告
+ * RECORD 值那可能变化的 typmod，而总是说 -1。
  */
 void
 plpgsql_exec_get_datum_type_info(PLpgSQL_execstate *estate,
@@ -5564,18 +5564,18 @@ plpgsql_exec_get_datum_type_info(PLpgSQL_execstate *estate,
 
 				if (rec->erh == NULL || rec->rectypeid != RECORDOID)
 				{
-					/* Report variable's declared type */
+					/* 报告变量声明的类型 */
 					*typeId = rec->rectypeid;
 					*typMod = -1;
 				}
 				else
 				{
-					/* Report record's actual type if declared RECORD */
+					/* 声明 RECORD 时报告记录实际类型 */
 					*typeId = rec->erh->er_typeid;
-					/* do NOT return the mutable typmod of a RECORD variable */
+					/* 切勿返回 RECORD 变量可变的 typmod */
 					*typMod = -1;
 				}
-				/* composite types are never collatable */
+				/* 复合类型从不可带排序规则 */
 				*collation = InvalidOid;
 				break;
 			}
@@ -5588,16 +5588,16 @@ plpgsql_exec_get_datum_type_info(PLpgSQL_execstate *estate,
 				rec = (PLpgSQL_rec *) (estate->datums[recfield->recparentno]);
 
 				/*
-				 * If record variable is NULL, instantiate it if it has a
-				 * named composite type, else complain.  (This won't change
-				 * the logical state of the record: it's still NULL.)
+				 * 记录变量若为 NULL，就在它有
+				 * 具名复合类型则建，否则报错。（这不改
+				 * 记录的逻辑状态：它仍是 NULL）。
 				 */
 				if (rec->erh == NULL)
 					instantiate_empty_record_variable(estate, rec);
 
 				/*
-				 * Look up the field's properties if we have not already, or
-				 * if the tuple descriptor ID changed since last time.
+				 * 若尚未查过字段属性，或
+				 * 元组描述符标识自上次变了。
 				 */
 				if (unlikely(recfield->rectupledescid != rec->erh->er_tupdesc_id))
 				{
@@ -5619,7 +5619,7 @@ plpgsql_exec_get_datum_type_info(PLpgSQL_execstate *estate,
 
 		default:
 			elog(ERROR, "unrecognized dtype: %d", datum->dtype);
-			*typeId = InvalidOid;	/* keep compiler quiet */
+			*typeId = InvalidOid;	/* 让编译器安静 */
 			*typMod = -1;
 			*collation = InvalidOid;
 			break;
@@ -5627,12 +5627,12 @@ plpgsql_exec_get_datum_type_info(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * exec_eval_integer		Evaluate an expression, coerce result to int4
+ * exec_eval_integer 对表达式求值，把结果强制为 int4
  *
- * Note we do not do exec_eval_cleanup here; the caller must do it at
- * some later point.  (We do this because the caller may be holding the
- * results of other, pass-by-reference, expression evaluations, such as
- * an array value to be subscripted.)
+ * 注意这里不做 exec_eval_cleanup；调用者必须在
+ * 稍后再做。（我们这么做，因调用者可能正持有
+ * 别的按引用传递的表达式求值结果，例如
+ * 待下标的数组值。）
  * ----------
  */
 static int
@@ -5652,10 +5652,10 @@ exec_eval_integer(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * exec_eval_boolean		Evaluate an expression, coerce result to bool
+ * exec_eval_boolean 对表达式求值，把结果强制为 bool
  *
- * Note we do not do exec_eval_cleanup here; the caller must do it at
- * some later point.
+ * 注意这里不做 exec_eval_cleanup；调用者必须在
+ * 稍后再做。
  * ----------
  */
 static bool
@@ -5675,10 +5675,10 @@ exec_eval_boolean(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * exec_eval_expr			Evaluate an expression and return
- *					the result Datum, along with data type/typmod.
+ * exec_eval_expr 对表达式求值并返回
+ *	结果 Datum，连同数据类型与 typmod。
  *
- * NOTE: caller must do exec_eval_cleanup when done with the Datum.
+ * 注意：调用者用完 Datum 后必须做 exec_eval_cleanup。
  * ----------
  */
 static Datum
@@ -5693,21 +5693,21 @@ exec_eval_expr(PLpgSQL_execstate *estate,
 	Form_pg_attribute attr;
 
 	/*
-	 * If first time through, create a plan for this expression.
+	 * 若是第一次，就为该表达式建计划。
 	 */
 	if (expr->plan == NULL)
 		exec_prepare_plan(estate, expr, CURSOR_OPT_PARALLEL_OK);
 
 	/*
-	 * If this is a simple expression, bypass SPI and use the executor
-	 * directly
+	 * 若这是简单表达式，就绕过 SPI，改用执行器
+	 * 直接
 	 */
 	if (exec_eval_simple_expr(estate, expr,
 							  &result, isNull, rettype, rettypmod))
 		return result;
 
 	/*
-	 * Else do it the hard way via exec_run_select
+	 * 否则经由 exec_run_select 走难路
 	 */
 	rc = exec_run_select(estate, expr, 0, NULL);
 	if (rc != SPI_OK_SELECT)
@@ -5717,7 +5717,7 @@ exec_eval_expr(PLpgSQL_execstate *estate,
 				 errcontext("query: %s", expr->query)));
 
 	/*
-	 * Check that the expression returns exactly one column...
+	 * 检查该表达式恰好返回一列……
 	 */
 	if (estate->eval_tuptable->tupdesc->natts != 1)
 		ereport(ERROR,
@@ -5729,14 +5729,14 @@ exec_eval_expr(PLpgSQL_execstate *estate,
 				 errcontext("query: %s", expr->query)));
 
 	/*
-	 * ... and get the column's datatype.
+	 * 并取得该列的数据类型。
 	 */
 	attr = TupleDescAttr(estate->eval_tuptable->tupdesc, 0);
 	*rettype = attr->atttypid;
 	*rettypmod = attr->atttypmod;
 
 	/*
-	 * If there are no rows selected, the result is a NULL of that type.
+	 * 若没有选中任何行，结果就是该类型的一个 NULL。
 	 */
 	if (estate->eval_processed == 0)
 	{
@@ -5745,7 +5745,7 @@ exec_eval_expr(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * Check that the expression returned no more than one row.
+	 * 检查该表达式返回的行不超过一行。
 	 */
 	if (estate->eval_processed != 1)
 		ereport(ERROR,
@@ -5754,7 +5754,7 @@ exec_eval_expr(PLpgSQL_execstate *estate,
 				 errcontext("query: %s", expr->query)));
 
 	/*
-	 * Return the single result Datum.
+	 * 返回唯一的结果Datum。
 	 */
 	return SPI_getbinval(estate->eval_tuptable->vals[0],
 						 estate->eval_tuptable->tupdesc, 1, isNull);
@@ -5762,11 +5762,11 @@ exec_eval_expr(PLpgSQL_execstate *estate,
 
 
 /* ----------
- * exec_run_select			Execute a select query
+ * exec_run_select 执行选择查询
  *
- * Note: passing maxtuples different from 0 ("return all tuples") is
- * deprecated because it will prevent parallel execution of the query.
- * However, we retain the parameter in case we need it someday.
+ * 注意：maxtuples 不为 0（即返回全部元组）已
+ * 被弃用，因它将阻止该查询并行执行。
+ * 但我们仍保留该参数，以备将来需要它。
  * ----------
  */
 static int
@@ -5777,15 +5777,15 @@ exec_run_select(PLpgSQL_execstate *estate,
 	int			rc;
 
 	/*
-	 * On the first call for this expression generate the plan.
+	 * 该表达式第一次调用时生成计划。
 	 *
-	 * If we don't need to return a portal, then we're just going to execute
-	 * the query immediately, which means it's OK to use a parallel plan, even
-	 * if the number of rows being fetched is limited.  If we do need to
-	 * return a portal (i.e., this is for a FOR loop), the user's code might
-	 * invoke additional operations inside the FOR loop, making parallel query
-	 * unsafe.  In any case, we don't expect any cursor operations to be done,
-	 * so specify NO_SCROLL for efficiency and semantic safety.
+	 * 若我们不需要返回门户，那就只是马上
+	 * 执行该查询，故即便所取行数有限，用并行
+	 * 计划也行。若我们确实需要返回门户
+	 * 也就是给 FOR 循环用的，用户代码可能在
+	 * FOR 循环里再调用别的操作，从而使并行查询
+	 * 不安全。无论如何，我们并不期望做任何游标
+	 * 操作，故为效率与语义安全指定 NO_SCROLL。
 	 */
 	if (expr->plan == NULL)
 	{
@@ -5797,12 +5797,12 @@ exec_run_select(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * Set up ParamListInfo to pass to executor
+	 * 建 ParamListInfo 传给执行器
 	 */
 	paramLI = setup_param_list(estate, expr);
 
 	/*
-	 * If a portal was requested, put the query and paramlist into the portal
+	 * 若请求了门户，就把查询与参数列表放进该门户
 	 */
 	if (portalP != NULL)
 	{
@@ -5817,15 +5817,15 @@ exec_run_select(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * Execute the query
+	 * 执行该查询
 	 */
 	rc = SPI_execute_plan_with_paramlist(expr->plan, paramLI,
 										 estate->readonly_func, maxtuples);
 	if (rc != SPI_OK_SELECT)
 	{
 		/*
-		 * SELECT INTO deserves a special error message, because "query is not
-		 * a SELECT" is not very helpful in that case.
+		 * SELECT INTO 该有专门的错误消息，因为"查询不是
+		 * SELECT"此时帮助不大。
 		 */
 		if (rc == SPI_OK_SELINTO)
 			ereport(ERROR,
@@ -5839,7 +5839,7 @@ exec_run_select(PLpgSQL_execstate *estate,
 					 errcontext("query: %s", expr->query)));
 	}
 
-	/* Save query results for eventual cleanup */
+	/* 保存查询结果，以便最终清理 */
 	Assert(estate->eval_tuptable == NULL);
 	estate->eval_tuptable = SPI_tuptable;
 	estate->eval_processed = SPI_processed;
@@ -5849,9 +5849,9 @@ exec_run_select(PLpgSQL_execstate *estate,
 
 
 /*
- * exec_for_query --- execute body of FOR loop for each row from a portal
+ * exec_for_query 对来自门户的每一行执行 FOR 循环体
  *
- * Used by exec_stmt_fors, exec_stmt_forc and exec_stmt_dynfors
+ * 供 exec_stmt_fors、exec_stmt_forc与exec_stmt_dynfors 用
  */
 static int
 exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
@@ -5865,38 +5865,38 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 	bool		tupdescs_match = true;
 	uint64		n;
 
-	/* Fetch loop variable's datum entry */
+	/* 取循环变量的 datum 项 */
 	var = (PLpgSQL_variable *) estate->datums[stmt->var->dno];
 
 	/*
-	 * Make sure the portal doesn't get closed by the user statements we
-	 * execute.
+	 * 确保该门户不被我们所执行的用户语句
+	 * 关闭
 	 */
 	PinPortal(portal);
 
 	/*
-	 * In a non-atomic context, we dare not prefetch, even if it would
-	 * otherwise be safe.  Aside from any semantic hazards that that might
-	 * create, if we prefetch toasted data and then the user commits the
-	 * transaction, the toast references could turn into dangling pointers.
-	 * (Rows we haven't yet fetched from the cursor are safe, because the
-	 * PersistHoldablePortal mechanism handles this scenario.)
+	 * 在非原子语境里，即便本来安全，我们也不敢
+	 * 预取。除了那可能造成的任何语义风险，若我们
+	 * 预取了 toast 数据，然后用户提交事务，
+	 * toast 引用就可能变成悬空指针。（尚未从该
+	 * 游标取出的行是安全的，因 PersistHoldablePortal
+	 * 机制处理此情形。）
 	 */
 	if (!estate->atomic)
 		prefetch_ok = false;
 
 	/*
-	 * Fetch the initial tuple(s).  If prefetching is allowed then we grab a
-	 * few more rows to avoid multiple trips through executor startup
-	 * overhead.
+	 * 取初始的元组。若允许预取，我们就再多抓
+	 * 几行，以免多次付出执行器的启动
+	 * 开销。
 	 */
 	SPI_cursor_fetch(portal, true, prefetch_ok ? 10 : 1);
 	tuptab = SPI_tuptable;
 	n = SPI_processed;
 
 	/*
-	 * If the query didn't return any rows, set the target to NULL and fall
-	 * through with found = false.
+	 * 若查询没有返回任何行，就把目标设为 NULL 并
+	 * 以 found 为假直落
 	 */
 	if (n == 0)
 	{
@@ -5904,10 +5904,10 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 		exec_eval_cleanup(estate);
 	}
 	else
-		found = true;			/* processed at least one tuple */
+		found = true;			/* 已处理至少一个元组 */
 
 	/*
-	 * Now do the loop
+	 * 现在做循环
 	 */
 	while (n > 0)
 	{
@@ -5916,15 +5916,15 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 		for (i = 0; i < n; i++)
 		{
 			/*
-			 * Assign the tuple to the target.  Here, because we know that all
-			 * loop iterations should be assigning the same tupdesc, we can
-			 * optimize away repeated creations of expanded records with
-			 * identical tupdescs.  Testing for changes of er_tupdesc_id is
-			 * reliable even if the loop body contains assignments that
-			 * replace the target's value entirely, because it's assigned from
-			 * a process-global counter.  The case where the tupdescs don't
-			 * match could possibly be handled more efficiently than this
-			 * coding does, but it's not clear extra effort is worthwhile.
+			 * 把该元组赋给目标。在此，因我们知道所有
+			 * 循环迭代都应赋同一元组描述符，故能
+			 * 省掉反复创建描述符相同的扩展记录。
+			 * 检测 er_tupdesc_id 变化依然可靠，即便循环
+			 * 体含有把目标值整个替换掉的赋值，
+			 * 因为它取自进程全局计数器。描述符不
+			 * 相符时，也许能比这段代码处理得更高效，
+			 * 但额外工夫是否值得，目前并不
+			 * 清楚。
 			 */
 			if (var->dtype == PLPGSQL_DTYPE_REC)
 			{
@@ -5934,24 +5934,24 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 					rec->erh->er_tupdesc_id == previous_id &&
 					tupdescs_match)
 				{
-					/* Only need to assign a new tuple value */
+					/* 只需赋一个新的元组值 */
 					expanded_record_set_tuple(rec->erh, tuptab->vals[i],
 											  true, !estate->atomic);
 				}
 				else
 				{
 					/*
-					 * First time through, or var's tupdesc changed in loop,
-					 * or we have to do it the hard way because type coercion
-					 * is needed.
+					 * 首次，还是变量描述符于循环中变了，
+					 * 还是因要做类型强制而必须走难
+					 * 路。
 					 */
 					exec_move_row(estate, var,
 								  tuptab->vals[i], tuptab->tupdesc);
 
 					/*
-					 * Check to see if physical assignment is OK next time.
-					 * Once the tupdesc comparison has failed once, we don't
-					 * bother rechecking in subsequent loop iterations.
+					 * 检查下次物理赋值是否可行。
+					 * 元组描述符比较一旦失败过，我们就不
+					 * 再在随后的循环迭代里复查。
 					 */
 					if (tupdescs_match)
 					{
@@ -5970,7 +5970,7 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 			exec_eval_cleanup(estate);
 
 			/*
-			 * Execute the statements
+			 * 执行这些语句
 			 */
 			rc = exec_stmts(estate, stmt->body);
 
@@ -5980,7 +5980,7 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 		SPI_freetuptable(tuptab);
 
 		/*
-		 * Fetch more tuples.  If prefetching is allowed, grab 50 at a time.
+		 * 再取更多元组。若允许预取，一次抓 50 个。
 		 */
 		SPI_cursor_fetch(portal, true, prefetch_ok ? 50 : 1);
 		tuptab = SPI_tuptable;
@@ -5990,17 +5990,17 @@ exec_for_query(PLpgSQL_execstate *estate, PLpgSQL_stmt_forq *stmt,
 loop_exit:
 
 	/*
-	 * Release last group of tuples (if any)
+	 * 释放上一组元组（若有）
 	 */
 	SPI_freetuptable(tuptab);
 
 	UnpinPortal(portal);
 
 	/*
-	 * Set the FOUND variable to indicate the result of executing the loop
-	 * (namely, whether we looped one or more times). This must be set last so
-	 * that it does not interfere with the value of the FOUND variable inside
-	 * the loop processing itself.
+	 * 设 FOUND 变量，标明执行该循环的结果，
+	 * 即：是否至少循环过一次。必须最后设置
+	 * 以免干扰 FOUND 变量的值，于
+	 * 循环处理本身内。
 	 */
 	exec_set_found(estate, found);
 
@@ -6009,30 +6009,30 @@ loop_exit:
 
 
 /* ----------
- * exec_eval_simple_expr -		Evaluate a simple expression returning
- *								a Datum by directly calling ExecEvalExpr().
+ * exec_eval_simple_expr 求简单表达式的值，返回
+ *	Datum，靠直接调用 ExecEvalExpr()。
  *
- * If successful, store results into *result, *isNull, *rettype, *rettypmod
- * and return true.  If the expression cannot be handled by simple evaluation,
- * return false.
+ * 若成功，就把结果存入 *result、*isNull、*rettype、*rettypmod
+ * 并返回真。若该表达式无法用简单求值处理，就
+ * 返回假。
  *
- * Because we only store one execution tree for a simple expression, we
- * can't handle recursion cases.  So, if we see the tree is already busy
- * with an evaluation in the current xact, we just return false and let the
- * caller run the expression the hard way.  (Other alternatives such as
- * creating a new tree for a recursive call either introduce memory leaks,
- * or add enough bookkeeping to be doubtful wins anyway.)  Another case that
- * is covered by the expr_simple_in_use test is where a previous execution
- * of the tree was aborted by an error: the tree may contain bogus state
- * so we dare not re-use it.
+ * 因我们对一条简单表达式只存一棵执行树，故
+ * 无法处理递归。因此若看到该树在当前事务里
+ * 已在求值，我们就返回假，让调用者用难的方式
+ * 去跑该表达式。（其他办法，例如为递归调用
+ * 新建一棵树，要么引入内存泄漏，要么添上不少
+ * 记账，反正未必划算。）expr_simple_in_use 还覆盖
+ * 另一种情形：该树上次执行因出错而中止，树里
+ * 可能含有虚假状态，故我们不敢
+ * 再重用它。
  *
- * It is possible that we'd need to replan a simple expression; for example,
- * someone might redefine a SQL function that had been inlined into the simple
- * expression.  That cannot cause a simple expression to become non-simple (or
- * vice versa), but we do have to handle replacing the expression tree.
+ * 我们有可能需要重做一条简单表达式的计划；例如
+ * 有人可能重定义一个已内联进该简单表达式的 SQL
+ * 函数。那无法让简单表达式变成非简单（反过来
+ * 也一样），但我们必须处理表达式树的替换。
  *
- * Note: if pass-by-reference, the result is in the eval_mcontext.
- * It will be freed when exec_eval_cleanup is done.
+ * 注意：若按引用传递，结果就在 eval_mcontext 里。
+ * exec_eval_cleanup 做完时它将被释放。
  * ----------
  */
 static bool
@@ -6051,31 +6051,31 @@ exec_eval_simple_expr(PLpgSQL_execstate *estate,
 	MemoryContext oldcontext;
 
 	/*
-	 * Forget it if expression wasn't simple before.
+	 * 若表达式原先不简单，就忘掉它。
 	 */
 	if (expr->expr_simple_expr == NULL)
 		return false;
 
 	/*
-	 * If expression is in use in current xact, don't touch it.
+	 * 若表达式正在当前事务里用，就别碰它。
 	 */
 	if (unlikely(expr->expr_simple_in_use) &&
 		expr->expr_simple_lxid == curlxid)
 		return false;
 
 	/*
-	 * Ensure that there's a portal-level snapshot, in case this simple
-	 * expression is the first thing evaluated after a COMMIT or ROLLBACK.
-	 * We'd have to do this anyway before executing the expression, so we
-	 * might as well do it now to ensure that any possible replanning doesn't
-	 * need to take a new snapshot.
+	 * 确保有门户级快照，以防这条简单表达式
+	 * 是 COMMIT 还是 ROLLBACK 之后第一个被求值的。
+	 * 执行该表达式之前我们反正必须这么做，故
+	 * 不妨现在就做，以确保任何可能的重计划都
+	 * 不需要取新快照。
 	 */
 	EnsurePortalSnapshotExists();
 
 	/*
-	 * Check to see if the cached plan has been invalidated.  If not, and this
-	 * is the first use in the current transaction, save a plan refcount in
-	 * the simple-expression resowner.
+	 * 检查缓存计划是否已失效。若没有，且这是
+	 * 当前事务里的首次使用，就把计划引用计数存入
+	 * 简单表达式所有者。
 	 */
 	if (likely(CachedPlanIsSimplyValid(expr->expr_simple_plansource,
 									   expr->expr_simple_plan,
@@ -6083,108 +6083,108 @@ exec_eval_simple_expr(PLpgSQL_execstate *estate,
 										estate->simple_eval_resowner : NULL))))
 	{
 		/*
-		 * It's still good, so just remember that we have a refcount on the
-		 * plan in the current transaction.  (If we already had one, this
-		 * assignment is a no-op.)
+		 * 它仍然有效，故只需记住我们在当前
+		 * 事务里对该计划有引用计数。（若已有，本次
+		 * 赋值即空操作）
 		 */
 		expr->expr_simple_plan_lxid = curlxid;
 	}
 	else
 	{
-		/* Need to replan */
+		/* 须重计划 */
 		CachedPlan *cplan;
 
 		/*
-		 * If we have a valid refcount on some previous version of the plan,
-		 * release it, so we don't leak plans intra-transaction.
+		 * 若我们对计划的某先前版本持有有效引用计数，
+		 * 就释放它，以免在事务之内泄漏计划。
 		 */
 		if (expr->expr_simple_plan_lxid == curlxid)
 			ReleaseCachedPlan(expr->expr_simple_plan,
 							  estate->simple_eval_resowner);
 
 		/*
-		 * Reset to "not simple" to leave sane state (with no dangling
-		 * pointers) in case we fail while replanning.  expr_simple_plansource
-		 * can be left alone however, as that cannot move.
+		 * 重置成非简单，以便重做计划若失败，留下
+		 * 没有悬空指针的健全状态。不过 expr_simple_plansource
+		 * 可以不动，因它无法移动。
 		 */
 		expr->expr_simple_expr = NULL;
 		expr->expr_rw_param = NULL;
 		expr->expr_simple_plan = NULL;
 		expr->expr_simple_plan_lxid = InvalidLocalTransactionId;
 
-		/* Do the replanning work in the eval_mcontext */
+		/* 在 eval_mcontext 里做重计划的工作 */
 		oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 		cplan = SPI_plan_get_cached_plan(expr->plan);
 		MemoryContextSwitchTo(oldcontext);
 
 		/*
-		 * We can't get a failure here, because the number of
-		 * CachedPlanSources in the SPI plan can't change from what
-		 * exec_simple_check_plan saw; it's a property of the raw parsetree
-		 * generated from the query text.
+		 * 这里我们无法失败，因为 SPI 计划里
+		 * CachedPlanSources 数量无法不同于
+		 * exec_simple_check_plan 所见。这属原始分析树，
+		 * 由查询文本生成。
 		 */
 		Assert(cplan != NULL);
 
 		/*
-		 * Recheck exec_is_simple_query, which could now report false in
-		 * edge-case scenarios such as a non-SRF having been replaced with a
-		 * SRF.  Also recheck CachedPlanAllowsSimpleValidityCheck, just to be
-		 * sure.  If either test fails, cope by declaring the plan to be
-		 * non-simple.  On success, we'll acquire a refcount on the new plan,
-		 * stored in simple_eval_resowner.
+		 * 复查 exec_is_simple_query，它在边缘情形现在可能
+		 * 报出假，例如非 SRF 被换成了
+		 * SRF。再查 CachedPlanAllowsSimpleValidityCheck 以求
+		 * 确认。若任一测试失败，就把该计划当成
+		 * 非简单。成功时我们取得新计划的引用计数，
+		 * 存入 simple_eval_resowner。
 		 */
 		if (exec_is_simple_query(expr) &&
 			CachedPlanAllowsSimpleValidityCheck(expr->expr_simple_plansource,
 												cplan,
 												estate->simple_eval_resowner))
 		{
-			/* Remember that we have the refcount */
+			/* 记住我们已持有引用计数 */
 			expr->expr_simple_plan = cplan;
 			expr->expr_simple_plan_lxid = curlxid;
 		}
 		else
 		{
-			/* Release SPI_plan_get_cached_plan's refcount */
+			/* 释放 SPI_plan_get_cached_plan 计数 */
 			ReleaseCachedPlan(cplan, CurrentResourceOwner);
 			return false;
 		}
 
 		/*
-		 * SPI_plan_get_cached_plan acquired a plan refcount stored in the
-		 * active resowner.  We don't need that anymore, so release it.
+		 * SPI_plan_get_cached_plan 取得的计划引用计数存放在
+		 * 活跃所有者里。我们不再需要它，故释放。
 		 */
 		ReleaseCachedPlan(cplan, CurrentResourceOwner);
 
-		/* Extract desired scalar expression from cached plan */
+		/* 从缓存计划抽出想要的标量表达式 */
 		exec_save_simple_expr(expr, cplan);
 	}
 
 	/*
-	 * Pass back previously-determined result type.
+	 * 把先前确定的结果类型传回去。
 	 */
 	*rettype = expr->expr_simple_type;
 	*rettypmod = expr->expr_simple_typmod;
 
 	/*
-	 * Set up ParamListInfo to pass to executor.  For safety, save and restore
-	 * estate->paramLI->parserSetupArg around our use of the param list.
+	 * 建 ParamListInfo 给执行器。安全起见，保存并恢复
+	 * 使用参数列表前后的 estate->paramLI->parserSetupArg。
 	 */
 	paramLI = estate->paramLI;
 	save_setup_arg = paramLI->parserSetupArg;
 
 	/*
-	 * We can skip using setup_param_list() in favor of just doing this
-	 * unconditionally, because there's no need for the optimization of
-	 * possibly setting ecxt_param_list_info to NULL; we've already forced use
-	 * of a generic plan.
+	 * 我们可以不调用 setup_param_list()，只无条件地
+	 * 这么做，因为不必做那种优化：把
+	 * ecxt_param_list_info 可能设成 NULL；我们已强制使用
+	 * 通用计划。
 	 */
 	paramLI->parserSetupArg = (void *) expr;
 	econtext->ecxt_param_list_info = paramLI;
 
 	/*
-	 * Prepare the expression for execution, if it's not been done already in
-	 * the current transaction.  (This will be forced to happen if we called
-	 * exec_save_simple_expr above.)
+	 * 若当前还没准备好，就准备执行该表达式，于
+	 * 当前事务。（若上面调用了 exec_save_simple_expr，则
+	 * 此事将被迫发生。）
 	 */
 	if (unlikely(expr->expr_simple_lxid != curlxid))
 	{
@@ -6198,16 +6198,16 @@ exec_eval_simple_expr(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * We have to do some of the things SPI_execute_plan would do, in
-	 * particular push a new snapshot so that stable functions within the
-	 * expression can see updates made so far by our own function.  However,
-	 * we can skip doing that (and just invoke the expression with the same
-	 * snapshot passed to our function) in some cases, which is useful because
-	 * it's quite expensive relative to the cost of a simple expression.  We
-	 * can skip it if the expression contains no stable or volatile functions;
-	 * immutable functions shouldn't need to see our updates.  Also, if this
-	 * is a read-only function, we haven't made any updates so again it's okay
-	 * to skip.
+	 * 我们必须做一些 SPI_execute_plan 将做的事，尤其
+	 * 是压入新快照，让表达式里的稳定函数能看见
+	 * 我们自己的函数至今做的更新。不过有些情形
+	 * 我们可以跳过（只用传给本函数的同一快照去
+	 * 调用该表达式），这很有用，因为相对一条简单
+	 * 表达式的代价，这一步相当贵。若表达式里没有
+	 * 稳定函数，也没有易变函数，就能跳过；不变函数
+	 * 不该需要看见我们的更新。另外，若这是只读
+	 * 函数，我们并未做过任何更新，故再次可以
+	 * 跳过
 	 */
 	oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 	need_snapshot = (expr->expr_simple_mutable && !estate->readonly_func);
@@ -6218,18 +6218,18 @@ exec_eval_simple_expr(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * Mark expression as busy for the duration of the ExecEvalExpr call.
+	 * 在 ExecEvalExpr 调用期间把该表达式标成忙碌。
 	 */
 	expr->expr_simple_in_use = true;
 
 	/*
-	 * Finally we can call the executor to evaluate the expression
+	 * 最后我们就能调用执行器来对该表达式求值
 	 */
 	*result = ExecEvalExpr(expr->expr_simple_state,
 						   econtext,
 						   isNull);
 
-	/* Assorted cleanup */
+	/* 各项清理 */
 	expr->expr_simple_in_use = false;
 
 	econtext->ecxt_param_list_info = NULL;
@@ -6242,26 +6242,26 @@ exec_eval_simple_expr(PLpgSQL_execstate *estate,
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
-	 * That's it.
+	 * 完毕。
 	 */
 	return true;
 }
 
 
 /*
- * Create a ParamListInfo to pass to SPI
+ * 建一个 ParamListInfo 传给 SPI
  *
- * We use a single ParamListInfo struct for all SPI calls made to evaluate
- * PLpgSQL_exprs in this estate.  It contains no per-param data, just hook
- * functions, so it's effectively read-only for SPI.
+ * 我们用同一个 ParamListInfo 结构，供本 estate 中为求值
+ * PLpgSQL_exprs 而做的全部 SPI 调用。它没有逐参数数据，
+ * 只有钩子函数，故对SPI实际上只读。
  *
- * An exception from pure read-only-ness is that the parserSetupArg points
- * to the specific PLpgSQL_expr being evaluated.  This is not an issue for
- * statement-level callers, but lower-level callers must save and restore
- * estate->paramLI->parserSetupArg just in case there's an active evaluation
- * at an outer call level.  (A plausible alternative design would be to
- * create a ParamListInfo struct for each PLpgSQL_expr, but for the moment
- * that seems like a waste of memory.)
+ * 对纯只读的一处例外是 parserSetupArg 指向正在
+ * 求值的那个具体 PLpgSQL_expr。对语句级调用者这不成
+ * 问题，但更低层的调用者必须保存并恢复
+ * estate->paramLI->parserSetupArg，以防外层正有一次活跃
+ * 求值。（说得通的替代是为每个 PLpgSQL_expr
+ * 各建一个 ParamListInfo，但眼下那
+ * 像是浪费内存。）
  */
 static ParamListInfo
 setup_param_list(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
@@ -6269,39 +6269,39 @@ setup_param_list(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 	ParamListInfo paramLI;
 
 	/*
-	 * We must have created the SPIPlan already (hence, query text has been
-	 * parsed/analyzed at least once); else we cannot rely on expr->paramnos.
+	 * 我们必须已经建好 SPIPlan（故查询文本已经
+	 * 至少解析分析过一次）；否则无法依赖 expr->paramnos。
 	 */
 	Assert(expr->plan != NULL);
 
 	/*
-	 * We only need a ParamListInfo if the expression has parameters.
+	 * 只有表达式带参数时，我们才需要 ParamListInfo。
 	 */
 	if (!bms_is_empty(expr->paramnos))
 	{
-		/* Use the common ParamListInfo */
+		/* 用共用 ParamListInfo */
 		paramLI = estate->paramLI;
 
 		/*
-		 * Set up link to active expr where the hook functions can find it.
-		 * Callers must save and restore parserSetupArg if there is any chance
-		 * that they are interrupting an active use of parameters.
+		 * 设链接到活跃表达式，钩子能在那找到它。
+		 * 若有任何可能打断参数的活跃使用，调用者必须
+		 * 保存并恢复 parserSetupArg。
 		 */
 		paramLI->parserSetupArg = (void *) expr;
 
 		/*
-		 * Also make sure this is set before parser hooks need it.  There is
-		 * no need to save and restore, since the value is always correct once
-		 * set.  (Should be set already, but let's be sure.)
+		 * 还要在解析器钩子需要它之前确保已设好。一旦
+		 * 设上，该值总是对的，故不必保存再恢复。
+		 * 本该已经设好，但让我们确认一下。
 		 */
 		expr->func = estate->func;
 	}
 	else
 	{
 		/*
-		 * Expression requires no parameters.  Be sure we represent this case
-		 * as a NULL ParamListInfo, so that plancache.c knows there is no
-		 * point in a custom plan.
+		 * 表达式不需要参数。务必把这种情况表示成
+		 * NULL 的 ParamListInfo，好让 plancache.c 知道没有
+		 * 定制计划意义。
 		 */
 		paramLI = NULL;
 	}
@@ -6309,14 +6309,14 @@ setup_param_list(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 }
 
 /*
- * plpgsql_param_fetch		paramFetch callback for dynamic parameter fetch
+ * plpgsql_param_fetch 动态取参数的 paramFetch 回调
  *
- * We always use the caller's workspace to construct the returned struct.
+ * 我们总是用调用者的工作区来构造返回的结构。
  *
- * Note: this is no longer used during query execution.  It is used during
- * planning (with speculative == true) and when the ParamListInfo we supply
- * to the executor is copied into a cursor portal or transferred to a
- * parallel child process.
+ * 注意：查询执行期间已不再用它。它用于计划
+ * 阶段（speculative 为真时），以及当我们提供的
+ * ParamListInfo 被拷进游标门户，还是传到某个
+ * 并行子进程时。
  */
 static ParamExternData *
 plpgsql_param_fetch(ParamListInfo params,
@@ -6330,31 +6330,31 @@ plpgsql_param_fetch(ParamListInfo params,
 	bool		ok = true;
 	int32		prmtypmod;
 
-	/* paramid's are 1-based, but dnos are 0-based */
+	/* paramid 从 1 起，dno 从 0 起 */
 	dno = paramid - 1;
 	Assert(dno >= 0 && dno < params->numParams);
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	expr = (PLpgSQL_expr *) params->parserSetupArg;
 	Assert(params->numParams == estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	datum = estate->datums[dno];
 
 	/*
-	 * Since copyParamList() or SerializeParamList() will try to materialize
-	 * every single parameter slot, it's important to return a dummy param
-	 * when asked for a datum that's not supposed to be used by this SQL
-	 * expression.  Otherwise we risk failures in exec_eval_datum(), or
-	 * copying a lot more data than necessary.
+	 * 因 copyParamList() 还是 SerializeParamList() 将试图
+	 * 物化每一个参数槽，故当被问到一个不该被这条
+	 * SQL 表达式使用的 datum 时，返回假参数很重要。
+	 * 否则我们可能在 exec_eval_datum() 中失败，还是
+	 * 拷贝远多过必要的数据。
 	 */
 	if (!bms_is_member(dno, expr->paramnos))
 		ok = false;
 
 	/*
-	 * If the access is speculative, we prefer to return no data rather than
-	 * to fail in exec_eval_datum().  Check the likely failure cases.
+	 * 若访问是推测性的，我们宁可不给数据，
+	 * 也不在 exec_eval_datum() 失败。查可能的失败处。
 	 */
 	else if (speculative)
 	{
@@ -6362,15 +6362,15 @@ plpgsql_param_fetch(ParamListInfo params,
 		{
 			case PLPGSQL_DTYPE_VAR:
 			case PLPGSQL_DTYPE_PROMISE:
-				/* always safe */
+				/* 总安全 */
 				break;
 
 			case PLPGSQL_DTYPE_ROW:
-				/* should be safe in all interesting cases */
+				/* 在所有要紧的情形里都应安全 */
 				break;
 
 			case PLPGSQL_DTYPE_REC:
-				/* always safe (might return NULL, that's fine) */
+				/* 总是安全（可能返回 NULL，无妨） */
 				break;
 
 			case PLPGSQL_DTYPE_RECFIELD:
@@ -6381,14 +6381,14 @@ plpgsql_param_fetch(ParamListInfo params,
 					rec = (PLpgSQL_rec *) (estate->datums[recfield->recparentno]);
 
 					/*
-					 * If record variable is NULL, don't risk anything.
+					 * 记录变量若 NULL，别冒任何风险。
 					 */
 					if (rec->erh == NULL)
 						ok = false;
 
 					/*
-					 * Look up the field's properties if we have not already,
-					 * or if the tuple descriptor ID changed since last time.
+					 * 若尚未查过字段属性，或
+					 * 元组描述符标识自上次变了。
 					 */
 					else if (unlikely(recfield->rectupledescid != rec->erh->er_tupdesc_id))
 					{
@@ -6408,7 +6408,7 @@ plpgsql_param_fetch(ParamListInfo params,
 		}
 	}
 
-	/* Return "no such parameter" if not ok */
+	/* 若不行就返回"无此参数" */
 	if (!ok)
 	{
 		prm->value = (Datum) 0;
@@ -6418,17 +6418,17 @@ plpgsql_param_fetch(ParamListInfo params,
 		return prm;
 	}
 
-	/* OK, evaluate the value and store into the return struct */
+	/* 好，求值并把值存进返回结构 */
 	exec_eval_datum(estate, datum,
 					&prm->ptype, &prmtypmod,
 					&prm->value, &prm->isnull);
-	/* We can always mark params as "const" for executor's purposes */
+	/* 为执行器着想，我们总能把参数标成"const" */
 	prm->pflags = PARAM_FLAG_CONST;
 
 	/*
-	 * If it's a read/write expanded datum, convert reference to read-only.
-	 * (There's little point in trying to optimize read/write parameters,
-	 * given the cases in which this function is used.)
+	 * 若它是读写扩展 datum，就把引用转成只读。
+	 * 试图优化读写参数意义不大，鉴于本函数
+	 * 被用到的那些情形。
 	 */
 	if (datum->dtype == PLPGSQL_DTYPE_VAR)
 		prm->value = MakeExpandedObjectReadOnly(prm->value,
@@ -6443,7 +6443,7 @@ plpgsql_param_fetch(ParamListInfo params,
 }
 
 /*
- * plpgsql_param_compile		paramCompile callback for plpgsql parameters
+ * plpgsql_param_compile：plpgsql 参数的 paramCompile 回调
  */
 static void
 plpgsql_param_compile(ParamListInfo params, Param *param,
@@ -6456,15 +6456,15 @@ plpgsql_param_compile(ParamListInfo params, Param *param,
 	PLpgSQL_datum *datum;
 	ExprEvalStep scratch;
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	expr = (PLpgSQL_expr *) params->parserSetupArg;
 
-	/* paramid's are 1-based, but dnos are 0-based */
+	/* paramid 从 1 起，dno 从 0 起 */
 	dno = param->paramid - 1;
 	Assert(dno >= 0 && dno < estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	datum = estate->datums[dno];
 
 	scratch.opcode = EEOP_PARAM_CALLBACK;
@@ -6472,11 +6472,11 @@ plpgsql_param_compile(ParamListInfo params, Param *param,
 	scratch.resnull = resnull;
 
 	/*
-	 * Select appropriate eval function.  It seems worth special-casing
-	 * DTYPE_VAR and DTYPE_RECFIELD for performance.  Also, we can determine
-	 * in advance whether MakeExpandedObjectReadOnly() will be required.
-	 * Currently, only VAR/PROMISE and REC datums could contain read/write
-	 * expanded objects.
+	 * 选择合适的求值函数。为了性能，特判
+	 * DTYPE_VAR 与 DTYPE_RECFIELD 似乎值得。我们也能事先
+	 * 断定是否需要 MakeExpandedObjectReadOnly()。
+	 * 目前只有 VAR/PROMISE 与 REC 这些 datum 可能含读写
+	 * 扩展对象。
 	 */
 	if (datum->dtype == PLPGSQL_DTYPE_VAR)
 	{
@@ -6503,10 +6503,10 @@ plpgsql_param_compile(ParamListInfo params, Param *param,
 		scratch.d.cparam.paramfunc = plpgsql_param_eval_generic;
 
 	/*
-	 * Note: it's tempting to use paramarg to store the estate pointer and
-	 * thereby save an indirection or two in the eval functions.  But that
-	 * doesn't work because the compiled expression might be used with
-	 * different estates for the same PL/pgSQL function.
+	 * 注意：想用 paramarg 存下 estate 指针，从而在求值
+	 * 函数里省掉一两次间接寻址，这很诱人。但那
+	 * 行不通，因为编译好的表达式可能配上不同的
+	 * estate，却用于同一个 PL/pgSQL 函数。
 	 */
 	scratch.d.cparam.paramarg = NULL;
 	scratch.d.cparam.paramid = param->paramid;
@@ -6515,10 +6515,10 @@ plpgsql_param_compile(ParamListInfo params, Param *param,
 }
 
 /*
- * plpgsql_param_eval_var		evaluation of EEOP_PARAM_CALLBACK step
+ * plpgsql_param_eval_var 对 EEOP_PARAM_CALLBACK 步求值
  *
- * This is specialized to the case of DTYPE_VAR variables for which
- * we do not need to invoke MakeExpandedObjectReadOnly.
+ * 这专用于这样一种 DTYPE_VAR 变量：
+ * 我们不必调用 MakeExpandedObjectReadOnly。
  */
 static void
 plpgsql_param_eval_var(ExprState *state, ExprEvalStep *op,
@@ -6529,28 +6529,28 @@ plpgsql_param_eval_var(ExprState *state, ExprEvalStep *op,
 	int			dno = op->d.cparam.paramid - 1;
 	PLpgSQL_var *var;
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	params = econtext->ecxt_param_list_info;
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	Assert(dno >= 0 && dno < estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	var = (PLpgSQL_var *) estate->datums[dno];
 	Assert(var->dtype == PLPGSQL_DTYPE_VAR);
 
-	/* inlined version of exec_eval_datum() */
+	/* exec_eval_datum() 的内联版 */
 	*op->resvalue = var->value;
 	*op->resnull = var->isnull;
 
-	/* safety check -- an assertion should be sufficient */
+	/* 安全检查，有断言就够了 */
 	Assert(var->datatype->typoid == op->d.cparam.paramtype);
 }
 
 /*
- * plpgsql_param_eval_var_ro		evaluation of EEOP_PARAM_CALLBACK step
+ * plpgsql_param_eval_var_ro 对 EEOP_PARAM_CALLBACK 步求值
  *
- * This is specialized to the case of DTYPE_VAR variables for which
- * we need to invoke MakeExpandedObjectReadOnly.
+ * 这专用于这样一种 DTYPE_VAR 变量：
+ * 我们要调用 MakeExpandedObjectReadOnly。
  */
 static void
 plpgsql_param_eval_var_ro(ExprState *state, ExprEvalStep *op,
@@ -6561,33 +6561,33 @@ plpgsql_param_eval_var_ro(ExprState *state, ExprEvalStep *op,
 	int			dno = op->d.cparam.paramid - 1;
 	PLpgSQL_var *var;
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	params = econtext->ecxt_param_list_info;
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	Assert(dno >= 0 && dno < estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	var = (PLpgSQL_var *) estate->datums[dno];
 	Assert(var->dtype == PLPGSQL_DTYPE_VAR);
 
 	/*
-	 * Inlined version of exec_eval_datum() ... and while we're at it, force
-	 * expanded datums to read-only.
+	 * exec_eval_datum() 的内联版……顺便把
+	 * 扩展 datum 转只读。
 	 */
 	*op->resvalue = MakeExpandedObjectReadOnly(var->value,
 											   var->isnull,
 											   -1);
 	*op->resnull = var->isnull;
 
-	/* safety check -- an assertion should be sufficient */
+	/* 安全检查，有断言就够了 */
 	Assert(var->datatype->typoid == op->d.cparam.paramtype);
 }
 
 /*
- * plpgsql_param_eval_recfield		evaluation of EEOP_PARAM_CALLBACK step
+ * plpgsql_param_eval_recfield 对 EEOP_PARAM_CALLBACK 步求值
  *
- * This is specialized to the case of DTYPE_RECFIELD variables, for which
- * we never need to invoke MakeExpandedObjectReadOnly.
+ * 这专用于 DTYPE_RECFIELD 变量，对它们
+ * 我们从不需调用 MakeExpandedObjectReadOnly。
  */
 static void
 plpgsql_param_eval_recfield(ExprState *state, ExprEvalStep *op,
@@ -6600,23 +6600,23 @@ plpgsql_param_eval_recfield(ExprState *state, ExprEvalStep *op,
 	PLpgSQL_rec *rec;
 	ExpandedRecordHeader *erh;
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	params = econtext->ecxt_param_list_info;
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	Assert(dno >= 0 && dno < estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	recfield = (PLpgSQL_recfield *) estate->datums[dno];
 	Assert(recfield->dtype == PLPGSQL_DTYPE_RECFIELD);
 
-	/* inline the relevant part of exec_eval_datum */
+	/* 内联 exec_eval_datum 里相关的部分 */
 	rec = (PLpgSQL_rec *) (estate->datums[recfield->recparentno]);
 	erh = rec->erh;
 
 	/*
-	 * If record variable is NULL, instantiate it if it has a named composite
-	 * type, else complain.  (This won't change the logical state of the
-	 * record: it's still NULL.)
+	 * 记录变量若为 NULL，就在它有
+	 * 具名复合类型则建，否则报错。（这不改记录的
+	 * 逻辑状态：仍NULL）
 	 */
 	if (erh == NULL)
 	{
@@ -6625,8 +6625,8 @@ plpgsql_param_eval_recfield(ExprState *state, ExprEvalStep *op,
 	}
 
 	/*
-	 * Look up the field's properties if we have not already, or if the tuple
-	 * descriptor ID changed since last time.
+	 * 若尚未查过字段属性，或元组
+	 * 描述符标识自上次变了。
 	 */
 	if (unlikely(recfield->rectupledescid != erh->er_tupdesc_id))
 	{
@@ -6640,12 +6640,12 @@ plpgsql_param_eval_recfield(ExprState *state, ExprEvalStep *op,
 		recfield->rectupledescid = erh->er_tupdesc_id;
 	}
 
-	/* OK to fetch the field value. */
+	/* 可以取该字段的值。 */
 	*op->resvalue = expanded_record_get_field(erh,
 											  recfield->finfo.fnumber,
 											  op->resnull);
 
-	/* safety check -- needed for, eg, record fields */
+	/* 安全检查，例如记录字段需要 */
 	if (unlikely(recfield->finfo.ftypeid != op->d.cparam.paramtype))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -6656,10 +6656,10 @@ plpgsql_param_eval_recfield(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * plpgsql_param_eval_generic		evaluation of EEOP_PARAM_CALLBACK step
+ * plpgsql_param_eval_generic 对 EEOP_PARAM_CALLBACK 步求值
  *
- * This handles all variable types, but assumes we do not need to invoke
- * MakeExpandedObjectReadOnly.
+ * 这处理全部变量类型，但假定我们不必调用
+ * MakeExpandedObjectReadOnly
  */
 static void
 plpgsql_param_eval_generic(ExprState *state, ExprEvalStep *op,
@@ -6672,20 +6672,20 @@ plpgsql_param_eval_generic(ExprState *state, ExprEvalStep *op,
 	Oid			datumtype;
 	int32		datumtypmod;
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	params = econtext->ecxt_param_list_info;
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	Assert(dno >= 0 && dno < estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	datum = estate->datums[dno];
 
-	/* fetch datum's value */
+	/* 取出 datum 的值 */
 	exec_eval_datum(estate, datum,
 					&datumtype, &datumtypmod,
 					op->resvalue, op->resnull);
 
-	/* safety check -- needed for, eg, record fields */
+	/* 安全检查，例如记录字段需要 */
 	if (unlikely(datumtype != op->d.cparam.paramtype))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -6696,10 +6696,10 @@ plpgsql_param_eval_generic(ExprState *state, ExprEvalStep *op,
 }
 
 /*
- * plpgsql_param_eval_generic_ro	evaluation of EEOP_PARAM_CALLBACK step
+ * plpgsql_param_eval_generic_ro 对 EEOP_PARAM_CALLBACK 步求值
  *
- * This handles all variable types, but assumes we need to invoke
- * MakeExpandedObjectReadOnly (hence, variable must be of a varlena type).
+ * 这处理全部变量类型，但假定我们需要调用
+ * MakeExpandedObjectReadOnly（故变量必须是变长类型）。
  */
 static void
 plpgsql_param_eval_generic_ro(ExprState *state, ExprEvalStep *op,
@@ -6712,20 +6712,20 @@ plpgsql_param_eval_generic_ro(ExprState *state, ExprEvalStep *op,
 	Oid			datumtype;
 	int32		datumtypmod;
 
-	/* fetch back the hook data */
+	/* 取回钩子数据 */
 	params = econtext->ecxt_param_list_info;
 	estate = (PLpgSQL_execstate *) params->paramFetchArg;
 	Assert(dno >= 0 && dno < estate->ndatums);
 
-	/* now we can access the target datum */
+	/* 现在可以访问目标 datum */
 	datum = estate->datums[dno];
 
-	/* fetch datum's value */
+	/* 取出 datum 的值 */
 	exec_eval_datum(estate, datum,
 					&datumtype, &datumtypmod,
 					op->resvalue, op->resnull);
 
-	/* safety check -- needed for, eg, record fields */
+	/* 安全检查，例如记录字段需要 */
 	if (unlikely(datumtype != op->d.cparam.paramtype))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -6734,7 +6734,7 @@ plpgsql_param_eval_generic_ro(ExprState *state, ExprEvalStep *op,
 						format_type_be(datumtype),
 						format_type_be(op->d.cparam.paramtype))));
 
-	/* force the value to read-only */
+	/* 把该值强制成只读 */
 	*op->resvalue = MakeExpandedObjectReadOnly(*op->resvalue,
 											   *op->resnull,
 											   -1);
@@ -6742,14 +6742,14 @@ plpgsql_param_eval_generic_ro(ExprState *state, ExprEvalStep *op,
 
 
 /*
- * exec_move_row			Move one tuple's values into a record or row
+ * exec_move_row 把一个元组的值移入记录还是行
  *
- * tup and tupdesc may both be NULL if we're just assigning an indeterminate
- * composite NULL to the target.  Alternatively, can have tup be NULL and
- * tupdesc not NULL, in which case we assign a row of NULLs to the target.
+ * tup 与 tupdesc 都可能为 NULL，若只是在赋一个不确定的
+ * 复合 NULL 给目标。另一做法是让 tup 为 NULL，且
+ * tupdesc 不是 NULL，此时就给目标赋一行 NULL。
  *
- * Since this uses the mcontext for workspace, caller should eventually call
- * exec_eval_cleanup to prevent long-term memory leaks.
+ * 这里用 mcontext 当工作区，调用者最终应调用
+ * exec_eval_cleanup，免得长期内存泄漏。
  */
 static void
 exec_move_row(PLpgSQL_execstate *estate,
@@ -6759,17 +6759,17 @@ exec_move_row(PLpgSQL_execstate *estate,
 	ExpandedRecordHeader *newerh = NULL;
 
 	/*
-	 * If target is RECORD, we may be able to avoid field-by-field processing.
+	 * 若目标是 RECORD，我们也许能避开逐字段处理。
 	 */
 	if (target->dtype == PLPGSQL_DTYPE_REC)
 	{
 		PLpgSQL_rec *rec = (PLpgSQL_rec *) target;
 
 		/*
-		 * If we have no source tupdesc, just set the record variable to NULL.
-		 * (If we have a source tupdesc but not a tuple, we'll set the
-		 * variable to a row of nulls, instead.  This is odd perhaps, but
-		 * backwards compatible.)
+		 * 若没有源 tupdesc，就把记录变量设为 NULL。
+		 * 若有源 tupdesc 却没有元组，就把该
+		 * 变量改成一行 NULL。这也许古怪，但
+		 * 仍向后兼容。
 		 */
 		if (tupdesc == NULL)
 		{
@@ -6777,10 +6777,10 @@ exec_move_row(PLpgSQL_execstate *estate,
 				rec->datatype->typtype == TYPTYPE_DOMAIN)
 			{
 				/*
-				 * If it's a composite domain, NULL might not be a legal
-				 * value, so we instead need to make an empty expanded record
-				 * and ensure that domain type checking gets done.  If there
-				 * is already an expanded record, piggyback on its lookups.
+				 * 若它是复合域，NULL 也许并非合法
+				 * 值，故改为建一个空的扩展记录
+				 * 并确保域类型检查得以完成。若已
+				 * 有扩展记录，就搭上它已做的查找。
 				 */
 				newerh = make_expanded_record_for_rec(estate, rec,
 													  NULL, rec->erh);
@@ -6789,7 +6789,7 @@ exec_move_row(PLpgSQL_execstate *estate,
 			}
 			else
 			{
-				/* Just clear it to NULL */
+				/* 只把它清成 NULL */
 				if (rec->erh)
 					DeleteExpandedObject(ExpandedRecordGetDatum(rec->erh));
 				rec->erh = NULL;
@@ -6798,20 +6798,20 @@ exec_move_row(PLpgSQL_execstate *estate,
 		}
 
 		/*
-		 * Build a new expanded record with appropriate tupdesc.
+		 * 按合适的 tupdesc 建一个新扩展记录。
 		 */
 		newerh = make_expanded_record_for_rec(estate, rec, tupdesc, NULL);
 
 		/*
-		 * If the rowtypes match, or if we have no tuple anyway, we can
-		 * complete the assignment without field-by-field processing.
+		 * 要么行类型相符，要么本来就没有元组，就能
+		 * 不必逐字段处理，直接完成赋值。
 		 *
-		 * The tests here are ordered more or less in order of cheapness.  We
-		 * can easily detect it will work if the target is declared RECORD or
-		 * has the same typeid as the source.  But when assigning from a query
-		 * result, it's common to have a source tupdesc that's labeled RECORD
-		 * but is actually physically compatible with a named-composite-type
-		 * target, so it's worth spending extra cycles to check for that.
+		 * 这里的检测大致按从便宜到贵排列。我们
+		 * 能轻易看出可行，只要目标声明为 RECORD
+		 * 还是 typeid 与源相同。但从查询
+		 * 结果赋值时，源 tupdesc 常被标成 RECORD
+		 * 但实际上与具名复合类型目标物理相容，
+		 * 所以值得多花些周期去检查。
 		 */
 		if (rec->rectypeid == RECORDOID ||
 			rec->rectypeid == tupdesc->tdtypeid ||
@@ -6820,16 +6820,16 @@ exec_move_row(PLpgSQL_execstate *estate,
 		{
 			if (!HeapTupleIsValid(tup))
 			{
-				/* No data, so force the record into all-nulls state */
+				/* 无数据，故把记录强行置成全 NULL 态 */
 				deconstruct_expanded_record(newerh);
 			}
 			else
 			{
-				/* No coercion is needed, so just assign the row value */
+				/* 不必强制，直接赋上该行的值 */
 				expanded_record_set_tuple(newerh, tup, true, !estate->atomic);
 			}
 
-			/* Complete the assignment */
+			/* 完成这次赋值 */
 			assign_record_var(estate, rec, newerh);
 
 			return;
@@ -6837,8 +6837,8 @@ exec_move_row(PLpgSQL_execstate *estate,
 	}
 
 	/*
-	 * Otherwise, deconstruct the tuple and do field-by-field assignment,
-	 * using exec_move_row_from_fields.
+	 * 否则拆开该元组并逐字段赋值，
+	 * 靠 exec_move_row_from_fields
 	 */
 	if (tupdesc && HeapTupleIsValid(tup))
 	{
@@ -6849,9 +6849,9 @@ exec_move_row(PLpgSQL_execstate *estate,
 		bool		nulls_local[64];
 
 		/*
-		 * Need workspace arrays.  If td_natts is small enough, use local
-		 * arrays to save doing a palloc.  Even if it's not small, we can
-		 * allocate both the Datum and isnull arrays in one palloc chunk.
+		 * 需要工作区数组。若 td_natts 够小，就靠局部
+		 * 用数组以免 palloc。即便不小，也能
+		 * 一次 palloc 同时分出 Datum 与 isnull 数组。
 		 */
 		if (td_natts <= lengthof(values_local))
 		{
@@ -6876,7 +6876,7 @@ exec_move_row(PLpgSQL_execstate *estate,
 	else
 	{
 		/*
-		 * Assign all-nulls.
+		 * 赋上全 NULL。
 		 */
 		exec_move_row_from_fields(estate, target, newerh,
 								  NULL, NULL, NULL);
@@ -6884,7 +6884,7 @@ exec_move_row(PLpgSQL_execstate *estate,
 }
 
 /*
- * Verify that a PLpgSQL_rec's rectypeid is up-to-date.
+ * 核实 PLpgSQL_rec 的 rectypeid 已是最新。
  */
 static void
 revalidate_rectypeid(PLpgSQL_rec *rec)
@@ -6893,35 +6893,35 @@ revalidate_rectypeid(PLpgSQL_rec *rec)
 	TypeCacheEntry *typentry;
 
 	if (rec->rectypeid == RECORDOID)
-		return;					/* it's RECORD, so nothing to do */
+		return;					/* 它是 RECORD，无需动作 */
 	Assert(typ != NULL);
 	if (typ->tcache &&
 		typ->tcache->tupDesc_identifier == typ->tupdesc_id)
 	{
 		/*
-		 * Although *typ is known up-to-date, it's possible that rectypeid
-		 * isn't, because *rec is cloned during each function startup from a
-		 * copy that we don't have a good way to update.  Hence, forcibly fix
-		 * rectypeid before returning.
+		 * 虽已知 *typ 最新，rectypeid 仍可能
+		 * 并非如此，因每次函数启动都从一份
+		 * 没有好办法更新的副本克隆 *rec。故强制
+		 * 修 rectypeid 再返回。
 		 */
 		rec->rectypeid = typ->typoid;
 		return;
 	}
 
 	/*
-	 * typcache entry has suffered invalidation, so re-look-up the type name
-	 * if possible, and then recheck the type OID.  If we don't have a
-	 * TypeName, then we just have to soldier on with the OID we've got.
+	 * typcache 项已失效，故重新查找类型名，
+	 * 若办得到，再复查类型 OID。若没有
+	 * TypeName，就只能拿现有 OID 硬撑下去。
 	 */
 	if (typ->origtypname != NULL)
 	{
-		/* this bit should match parse_datatype() in pl_gram.y */
+		/* 这段应匹配 pl_gram.y 里的 parse_datatype() */
 		typenameTypeIdAndMod(NULL, typ->origtypname,
 							 &typ->typoid,
 							 &typ->atttypmod);
 	}
 
-	/* this bit should match build_datatype() in pl_comp.c */
+	/* 这段应匹配 pl_comp.c 里的 build_datatype() */
 	typentry = lookup_type_cache(typ->typoid,
 								 TYPECACHE_TUPDESC |
 								 TYPECACHE_DOMAIN_BASE_INFO);
@@ -6931,8 +6931,8 @@ revalidate_rectypeid(PLpgSQL_rec *rec)
 	if (typentry->tupDesc == NULL)
 	{
 		/*
-		 * If we get here, user tried to replace a composite type with a
-		 * non-composite one.  We're not gonna support that.
+		 * 若走到这里，用户试图把复合类型换成
+		 * 非复合类型。我们不支持那样。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -6941,30 +6941,30 @@ revalidate_rectypeid(PLpgSQL_rec *rec)
 	}
 
 	/*
-	 * Update tcache and tupdesc_id.  Since we don't support changing to a
-	 * non-composite type, none of the rest of *typ needs to change.
+	 * 更新 tcache 与 tupdesc_id。因不支持改成
+	 * 非复合类型，*typ 其余部分都不必改。
 	 */
 	typ->tcache = typentry;
 	typ->tupdesc_id = typentry->tupDesc_identifier;
 
 	/*
-	 * Update *rec, too.  (We'll deal with subsidiary RECFIELDs as needed.)
+	 * 也更新 *rec。（附属 RECFIELDs 按需再处理。）
 	 */
 	rec->rectypeid = typ->typoid;
 }
 
 /*
- * Build an expanded record object suitable for assignment to "rec".
+ * 建一个适于赋给 rec 的扩展记录对象。
  *
- * Caller must supply either a source tuple descriptor or a source expanded
- * record (not both).  If the record variable has declared type RECORD,
- * it'll adopt the source's rowtype.  Even if it doesn't, we may be able to
- * piggyback on a source expanded record to save a typcache lookup.
+ * 调用者必须二择一：源元组描述符，要么源扩展
+ * 记录（不能都给）。若记录变量声明为 RECORD，
+ * 它将采纳源的行类型。即便不采纳，也可能
+ * 搭源扩展记录的便车，省一次 typcache 查找。
  *
- * Caller must fill the object with data, then do assign_record_var().
+ * 调用者必须填入数据，再调用 assign_record_var()。
  *
- * The new record is initially put into the mcontext, so it will be cleaned up
- * if we fail before reaching assign_record_var().
+ * 新记录起初放进 mcontext，因此若于到达
+ * assign_record_var() 前失败即被清掉。
  */
 static ExpandedRecordHeader *
 make_expanded_record_for_rec(PLpgSQL_execstate *estate,
@@ -6978,13 +6978,13 @@ make_expanded_record_for_rec(PLpgSQL_execstate *estate,
 	if (rec->rectypeid != RECORDOID)
 	{
 		/*
-		 * Make sure rec->rectypeid is up-to-date before using it.
+		 * 使用前确保 rec->rectypeid 是最新的。
 		 */
 		revalidate_rectypeid(rec);
 
 		/*
-		 * New record must be of desired type, but maybe srcerh has already
-		 * done all the same lookups.
+		 * 新记录必须是所需类型，但也许 srcerh 已经
+		 * 做过全部相同查找
 		 */
 		if (srcerh && rec->rectypeid == srcerh->er_decltypeid)
 			newerh = make_expanded_record_from_exprecord(srcerh,
@@ -6996,9 +6996,9 @@ make_expanded_record_for_rec(PLpgSQL_execstate *estate,
 	else
 	{
 		/*
-		 * We'll adopt the input tupdesc.  We can still use
-		 * make_expanded_record_from_exprecord, if srcerh isn't a composite
-		 * domain.  (If it is, we effectively adopt its base type.)
+		 * 我们将采纳输入 tupdesc。仍可用
+		 * make_expanded_record_from_exprecord，若 srcerh 非复合
+		 * 域。（若是，实际采纳的是其基类型。）
 		 */
 		if (srcerh && !ExpandedRecordIsDomain(srcerh))
 			newerh = make_expanded_record_from_exprecord(srcerh,
@@ -7016,18 +7016,18 @@ make_expanded_record_for_rec(PLpgSQL_execstate *estate,
 }
 
 /*
- * exec_move_row_from_fields	Move arrays of field values into a record or row
+ * exec_move_row_from_fields 把字段值数组移入记录还是行
  *
- * When assigning to a record, the caller must have already created a suitable
- * new expanded record object, newerh.  Pass NULL when assigning to a row.
+ * 赋给记录时，调用者必须已经建好一个合适的
+ * 新扩展记录对象 newerh。赋给行时传入 NULL。
  *
- * tupdesc describes the input row, which might have different column
- * types and/or different dropped-column positions than the target.
- * values/nulls/tupdesc can all be NULL if we just want to assign nulls to
- * all fields of the record or row.
+ * tupdesc 描述输入行，其列可能与目标的
+ * 类型不同，已删列的位置也不同。
+ * 若只想赋 NULL，values/nulls/tupdesc 都可以为 NULL，赋给
+ * 记录还是行的各字段。
  *
- * Since this uses the mcontext for workspace, caller should eventually call
- * exec_eval_cleanup to prevent long-term memory leaks.
+ * 这里用 mcontext 当工作区，调用者最终应调用
+ * exec_eval_cleanup，免得长期内存泄漏。
  */
 static void
 exec_move_row_from_fields(PLpgSQL_execstate *estate,
@@ -7042,8 +7042,8 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 	int			strict_multiassignment_level = 0;
 
 	/*
-	 * The extra check strict strict_multi_assignment can be active, only when
-	 * input tupdesc is specified.
+	 * 额外检查 strict_multi_assignment 仅能在指定了
+	 * 输入 tupdesc 时启用。
 	 */
 	if (tupdesc != NULL)
 	{
@@ -7053,7 +7053,7 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 			strict_multiassignment_level = WARNING;
 	}
 
-	/* Handle RECORD-target case */
+	/* 处理 RECORD 目标 */
 	if (target->dtype == PLPGSQL_DTYPE_REC)
 	{
 		PLpgSQL_rec *rec = (PLpgSQL_rec *) target;
@@ -7061,18 +7061,18 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 		Datum		newvalues_local[64];
 		bool		newnulls_local[64];
 
-		Assert(newerh != NULL); /* caller must have built new object */
+		Assert(newerh != NULL); /* 调用者必须已建好新对象 */
 
 		var_tupdesc = expanded_record_get_tupdesc(newerh);
 
 		/*
-		 * Coerce field values if needed.  This might involve dealing with
-		 * different sets of dropped columns and/or coercing individual column
-		 * types.  That's sort of a pain, but historically plpgsql has allowed
-		 * it, so we preserve the behavior.  However, it's worth a quick check
-		 * to see if the tupdescs are identical.  (Since expandedrecord.c
-		 * prefers to use refcounted tupdescs from the typcache, expanded
-		 * records with the same rowtype will have pointer-equal tupdescs.)
+		 * 需要时强制字段值。这可能要对付
+		 * 不同的已删列集合，以及强制各个列
+		 * 的类型。这有点麻烦，但 plpgsql 历来允许
+		 * 这样做，故我们保留该行为。不过值得快速
+		 * 查一下这些 tupdesc 是否相同。（因 expandedrecord.c
+		 * 优先用 typcache 里带引用计数的描述符，故扩展
+		 * 记录若行类型相同，其 tupdesc 指针相等。）
 		 */
 		if (var_tupdesc != tupdesc)
 		{
@@ -7081,9 +7081,9 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 			bool	   *newnulls;
 
 			/*
-			 * Need workspace arrays.  If vtd_natts is small enough, use local
-			 * arrays to save doing a palloc.  Even if it's not small, we can
-			 * allocate both the Datum and isnull arrays in one palloc chunk.
+			 * 需要工作区数组。若 vtd_natts 够小，就靠局部
+			 * 用数组以免 palloc。即便不小，也能
+			 * 一次 palloc 同时分出 Datum 与 isnull 数组。
 			 */
 			if (vtd_natts <= lengthof(newvalues_local))
 			{
@@ -7100,7 +7100,7 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 				newnulls = (bool *) (chunk + vtd_natts * sizeof(Datum));
 			}
 
-			/* Walk over destination columns */
+			/* 遍历目标各列 */
 			anum = 0;
 			for (fnum = 0; fnum < vtd_natts; fnum++)
 			{
@@ -7112,13 +7112,13 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 
 				if (attr->attisdropped)
 				{
-					/* expanded_record_set_fields should ignore this column */
-					continue;	/* skip dropped column in record */
+					/* expanded_record_set_fields 应忽略此列 */
+					continue;	/* 跳过记录中已删列 */
 				}
 
 				while (anum < td_natts &&
 					   TupleDescAttr(tupdesc, anum)->attisdropped)
-					anum++;		/* skip dropped column in tuple */
+					anum++;		/* 跳过元组中已删列 */
 
 				if (anum < td_natts)
 				{
@@ -7130,13 +7130,13 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 				}
 				else
 				{
-					/* no source for destination column */
+					/* 目标列没有来源 */
 					value = (Datum) 0;
 					isnull = true;
 					valtype = UNKNOWNOID;
 					valtypmod = -1;
 
-					/* When source value is missing */
+					/* 当源值缺失时 */
 					if (strict_multiassignment_level)
 						ereport(strict_multiassignment_level,
 								(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -7149,7 +7149,7 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 								 errhint("Make sure the query returns the exact list of columns.")));
 				}
 
-				/* Cast the new value to the right type, if needed. */
+				/* 需要时把新值转换成正确类型。 */
 				newvalues[fnum] = exec_cast_value(estate,
 												  value,
 												  &isnull,
@@ -7161,12 +7161,12 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 			}
 
 			/*
-			 * When strict_multiassignment extra check is active, then ensure
-			 * there are no unassigned source attributes.
+			 * 额外检查 strict_multiassignment 启用时，则确保
+			 * 没有未赋值的源属性。
 			 */
 			if (strict_multiassignment_level && anum < td_natts)
 			{
-				/* skip dropped columns in the source descriptor */
+				/* 跳过源描述符中的已删列 */
 				while (anum < td_natts &&
 					   TupleDescAttr(tupdesc, anum)->attisdropped)
 					anum++;
@@ -7187,28 +7187,28 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 			nulls = newnulls;
 		}
 
-		/* Insert the coerced field values into the new expanded record */
+		/* 把强制后的字段值插入新扩展记录 */
 		expanded_record_set_fields(newerh, values, nulls, !estate->atomic);
 
-		/* Complete the assignment */
+		/* 完成这次赋值 */
 		assign_record_var(estate, rec, newerh);
 
 		return;
 	}
 
-	/* newerh should not have been passed in non-RECORD cases */
+	/* 非 RECORD 情形不该传入 newerh */
 	Assert(newerh == NULL);
 
 	/*
-	 * For a row, we assign the individual field values to the variables the
-	 * row points to.
+	 * 对于行，我们把各字段值赋给该行所
+	 * 指向变量
 	 *
-	 * NOTE: both this code and the record code above silently ignore extra
-	 * columns in the source and assume NULL for missing columns.  This is
-	 * pretty dubious but it's the historical behavior.
+	 * 注意：这段与上面记录代码都默默忽略多余
+	 * 的源列，并对缺失列假定为 NULL。这
+	 * 相当可疑，不过这是历史行为。
 	 *
-	 * If we have no input data at all, we'll assign NULL to all columns of
-	 * the row variable.
+	 * 若全然没有输入数据，就给行变量的全部列
+	 * 赋上 NULL。
 	 */
 	if (target->dtype == PLPGSQL_DTYPE_ROW)
 	{
@@ -7227,7 +7227,7 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 
 			while (anum < td_natts &&
 				   TupleDescAttr(tupdesc, anum)->attisdropped)
-				anum++;			/* skip dropped column in tuple */
+				anum++;			/* 跳过元组中已删列 */
 
 			if (anum < td_natts)
 			{
@@ -7239,7 +7239,7 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 			}
 			else
 			{
-				/* no source for destination column */
+				/* 目标列没有来源 */
 				value = (Datum) 0;
 				isnull = true;
 				valtype = UNKNOWNOID;
@@ -7262,14 +7262,14 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 		}
 
 		/*
-		 * When strict_multiassignment extra check is active, ensure there are
-		 * no unassigned source attributes.
+		 * 当额外检查 strict_multiassignment 启用时，确保
+		 * 没有未赋值的源属性。
 		 */
 		if (strict_multiassignment_level && anum < td_natts)
 		{
 			while (anum < td_natts &&
 				   TupleDescAttr(tupdesc, anum)->attisdropped)
-				anum++;			/* skip dropped column in tuple */
+				anum++;			/* 跳过元组中已删列 */
 
 			if (anum < td_natts)
 				ereport(strict_multiassignment_level,
@@ -7290,17 +7290,17 @@ exec_move_row_from_fields(PLpgSQL_execstate *estate,
 }
 
 /*
- * compatible_tupdescs: detect whether two tupdescs are physically compatible
+ * compatible_tupdescs：检测两个 tupdesc 是否物理相容
  *
- * TRUE indicates that a tuple satisfying src_tupdesc can be used directly as
- * a value for a composite variable using dst_tupdesc.
+ * TRUE 表示满足 src_tupdesc 的元组可直接当作
+ * 使用 dst_tupdesc 的复合变量的值。
  */
 static bool
 compatible_tupdescs(TupleDesc src_tupdesc, TupleDesc dst_tupdesc)
 {
 	int			i;
 
-	/* Possibly we could allow src_tupdesc to have extra columns? */
+	/* 也许可以允许 src_tupdesc 再带额外的列？ */
 	if (dst_tupdesc->natts != src_tupdesc->natts)
 		return false;
 
@@ -7313,7 +7313,7 @@ compatible_tupdescs(TupleDesc src_tupdesc, TupleDesc dst_tupdesc)
 			return false;
 		if (!dattr->attisdropped)
 		{
-			/* Normal columns must match by type and typmod */
+			/* 普通列必须按类型与 typmod 匹配 */
 			if (dattr->atttypid != sattr->atttypid ||
 				(dattr->atttypmod >= 0 &&
 				 dattr->atttypmod != sattr->atttypmod))
@@ -7321,7 +7321,7 @@ compatible_tupdescs(TupleDesc src_tupdesc, TupleDesc dst_tupdesc)
 		}
 		else
 		{
-			/* Dropped columns are OK as long as length/alignment match */
+			/* 已删列只要长度与对齐一致就可以 */
 			if (dattr->attlen != sattr->attlen ||
 				dattr->attalign != sattr->attalign)
 				return false;
@@ -7331,12 +7331,12 @@ compatible_tupdescs(TupleDesc src_tupdesc, TupleDesc dst_tupdesc)
 }
 
 /* ----------
- * make_tuple_from_row		Make a tuple from the values of a row object
+ * make_tuple_from_row 用行对象的各值造出元组
  *
- * A NULL return indicates rowtype mismatch; caller must raise suitable error
+ * 返回 NULL 表示行类型不符；调用者必须报出合适错误
  *
- * The result tuple is freshly palloc'd in caller's context.  Some junk
- * may be left behind in eval_mcontext, too.
+ * 结果元组在调用者内存上下文中新 palloc。有些垃圾
+ * 也许也留在 eval_mcontext 里。
  * ----------
  */
 static HeapTuple
@@ -7363,7 +7363,7 @@ make_tuple_from_row(PLpgSQL_execstate *estate,
 
 		if (TupleDescAttr(tupdesc, i)->attisdropped)
 		{
-			nulls[i] = true;	/* leave the column as null */
+			nulls[i] = true;	/* 将该列留为 NULL */
 			continue;
 		}
 
@@ -7372,7 +7372,7 @@ make_tuple_from_row(PLpgSQL_execstate *estate,
 						&dvalues[i], &nulls[i]);
 		if (fieldtypeid != TupleDescAttr(tupdesc, i)->atttypid)
 			return NULL;
-		/* XXX should we insist on typmod match, too? */
+		/* XXX 是否也该坚持 typmod 相符？ */
 	}
 
 	tuple = heap_form_tuple(tupdesc, dvalues, nulls);
@@ -7381,18 +7381,18 @@ make_tuple_from_row(PLpgSQL_execstate *estate,
 }
 
 /*
- * deconstruct_composite_datum		extract tuple+tupdesc from composite Datum
+ * deconstruct_composite_datum 从复合 Datum 抽出元组与描述符
  *
- * The caller must supply a HeapTupleData variable, in which we set up a
- * tuple header pointing to the composite datum's body.  To make the tuple
- * value outlive that variable, caller would need to apply heap_copytuple...
- * but current callers only need a short-lived tuple value anyway.
+ * 调用者必须提供一个 HeapTupleData 变量，我们在其中建
+ * 好指向复合 datum 体的元组头。要让该元组
+ * 值活过那个变量，调用者就得再调用 heap_copytuple...
+ * 但当前调用者反正只需要短命的元组值。
  *
- * Returns a pointer to the TupleDesc of the datum's rowtype.
- * Caller is responsible for calling ReleaseTupleDesc when done with it.
+ * 返回指向该 datum 行类型的 TupleDesc 的指针。
+ * 调用者负责用完后调用 ReleaseTupleDesc。
  *
- * Note: it's caller's responsibility to be sure value is of composite type.
- * Also, best to call this in a short-lived context, as it might leak memory.
+ * 注意：调用者负责确保值是复合类型。
+ * 另，最好于短命内存上下文调用，因可能漏内存。
  */
 static TupleDesc
 deconstruct_composite_datum(Datum value, HeapTupleData *tmptup)
@@ -7401,36 +7401,36 @@ deconstruct_composite_datum(Datum value, HeapTupleData *tmptup)
 	Oid			tupType;
 	int32		tupTypmod;
 
-	/* Get tuple body (note this could involve detoasting) */
+	/* 取元组体（注意这可能要解 toast） */
 	td = DatumGetHeapTupleHeader(value);
 
-	/* Build a temporary HeapTuple control structure */
+	/* 建一个临时 HeapTuple 控制结构 */
 	tmptup->t_len = HeapTupleHeaderGetDatumLength(td);
 	ItemPointerSetInvalid(&(tmptup->t_self));
 	tmptup->t_tableOid = InvalidOid;
 	tmptup->t_data = td;
 
-	/* Extract rowtype info and find a tupdesc */
+	/* 抽出行类型信息并找到 tupdesc */
 	tupType = HeapTupleHeaderGetTypeId(td);
 	tupTypmod = HeapTupleHeaderGetTypMod(td);
 	return lookup_rowtype_tupdesc(tupType, tupTypmod);
 }
 
 /*
- * exec_move_row_from_datum		Move a composite Datum into a record or row
+ * exec_move_row_from_datum 把复合 Datum 移入记录还是行
  *
- * This is equivalent to deconstruct_composite_datum() followed by
- * exec_move_row(), but we can optimize things if the Datum is an
- * expanded-record reference.
+ * 这等价于 deconstruct_composite_datum() 之后再接
+ * exec_move_row()；Datum 属扩展记录引用则优化
+ * 即可。
  *
- * Note: it's caller's responsibility to be sure value is of composite type.
+ * 注意：调用者负责确保值是复合类型。
  */
 static void
 exec_move_row_from_datum(PLpgSQL_execstate *estate,
 						 PLpgSQL_variable *target,
 						 Datum value)
 {
-	/* Check to see if source is an expanded record */
+	/* 检查源是不是一个扩展记录 */
 	if (VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(value)))
 	{
 		ExpandedRecordHeader *erh = (ExpandedRecordHeader *) DatumGetEOHP(value);
@@ -7438,33 +7438,33 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 
 		Assert(erh->er_magic == ER_MAGIC);
 
-		/* These cases apply if the target is record not row... */
+		/* 以下情形适用于目标是记录而非行时 */
 		if (target->dtype == PLPGSQL_DTYPE_REC)
 		{
 			PLpgSQL_rec *rec = (PLpgSQL_rec *) target;
 
 			/*
-			 * If it's the same record already stored in the variable, do
-			 * nothing.  This would happen only in silly cases like "r := r",
-			 * but we need some check to avoid possibly freeing the variable's
-			 * live value below.  Note that this applies even if what we have
-			 * is a R/O pointer.
+			 * 若它就是变量里已经存着的同一记录，则
+			 * 什么都不做。这只出在傻情形，像 r := r，
+			 * 但仍需要一点检查，以免可能释放掉变量
+			 * 下方仍活着的值。注意即便我们持有的是
+			 * R/O 指针。
 			 */
 			if (erh == rec->erh)
 				return;
 
 			/*
-			 * Make sure rec->rectypeid is up-to-date before using it.
+			 * 使用前确保 rec->rectypeid 是最新的。
 			 */
 			revalidate_rectypeid(rec);
 
 			/*
-			 * If we have a R/W pointer, we're allowed to just commandeer
-			 * ownership of the expanded record.  If it's of the right type to
-			 * put into the record variable, do that.  (Note we don't accept
-			 * an expanded record of a composite-domain type as a RECORD
-			 * value.  We'll treat it as the base composite type instead;
-			 * compare logic in make_expanded_record_for_rec.)
+			 * 若持有 R/W 指针，就允许直接夺走
+			 * 该扩展记录的所有权。若类型适合放进
+			 * 记录变量，就这么做。（注意我们不接受
+			 * 把复合域类型的扩展记录当作 RECORD
+			 * 值。我们改把它当成基复合类型；
+			 * 逻辑见 make_expanded_record_for_rec。）
 			 */
 			if (VARATT_IS_EXTERNAL_EXPANDED_RW(DatumGetPointer(value)) &&
 				(rec->rectypeid == erh->er_decltypeid ||
@@ -7476,16 +7476,16 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 			}
 
 			/*
-			 * If we already have an expanded record object in the target
-			 * variable, and the source record contains a valid tuple
-			 * representation with the right rowtype, then we can skip making
-			 * a new expanded record and just assign the tuple with
-			 * expanded_record_set_tuple.  (We can't do the equivalent if we
-			 * have to do field-by-field assignment, since that wouldn't be
-			 * atomic if there's an error.)  We consider that there's a
-			 * rowtype match only if it's the same named composite type or
-			 * same registered rowtype; checking for matches of anonymous
-			 * rowtypes would be more expensive than this is worth.
+			 * 若目标变量里已有扩展记录对象
+			 * 且源记录含合法元组
+			 * 表示且行类型正确，于是我们可省去再造
+			 * 扩展记录，只把元组赋进去，用
+			 * expanded_record_set_tuple。（若必须逐字段赋值
+			 * 就无法照样做，因出错时那样并不原子。）
+			 * 我们认为有行类型匹配，
+			 * 仅当是同一具名复合类型，或
+			 * 同一已注册行类型；去查匿名行类型
+			 * 是否匹配则太贵，不值当。
 			 */
 			if (rec->erh &&
 				(erh->flags & ER_FLAG_FVALUE_VALID) &&
@@ -7500,18 +7500,18 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 			}
 
 			/*
-			 * Otherwise we're gonna need a new expanded record object.  Make
-			 * it here in hopes of piggybacking on the source object's
-			 * previous typcache lookup.
+			 * 否则就需要一个新的扩展记录对象。造在
+			 * 此处，指望能搭上源对象先前做过的
+			 * typcache 查找。
 			 */
 			newerh = make_expanded_record_for_rec(estate, rec, NULL, erh);
 
 			/*
-			 * If the expanded record contains a valid tuple representation,
-			 * and we don't need rowtype conversion, then just copying the
-			 * tuple is probably faster than field-by-field processing.  (This
-			 * isn't duplicative of the previous check, since here we will
-			 * catch the case where the record variable was previously empty.)
+			 * 若该扩展记录含有合法的元组表示，
+			 * 且不需要做行类型转换，那就只拷贝该
+			 * 元组，多半比逐字段处理更快。（这
+			 * 并非重复先前那次检查，因为这里将
+			 * 抓住记录变量先前为空的情形。）
 			 */
 			if ((erh->flags & ER_FLAG_FVALUE_VALID) &&
 				(rec->rectypeid == RECORDOID ||
@@ -7524,23 +7524,23 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 			}
 
 			/*
-			 * Need to special-case empty source record, else code below would
-			 * leak newerh.
+			 * 空的源记录必须走特例，否则下文将
+			 * 漏 newerh
 			 */
 			if (ExpandedRecordIsEmpty(erh))
 			{
-				/* Set newerh to a row of NULLs */
+				/* 把 newerh 设成一行 NULL */
 				deconstruct_expanded_record(newerh);
 				assign_record_var(estate, rec, newerh);
 				return;
 			}
-		}						/* end of record-target-only cases */
+		}						/* 记录目标分支到此结束 */
 
 		/*
-		 * If the source expanded record is empty, we should treat that like a
-		 * NULL tuple value.  (We're unlikely to see such a case, but we must
-		 * check this; deconstruct_expanded_record would cause a change of
-		 * logical state, which is not OK.)
+		 * 若源扩展记录为空，应把它当成一个
+		 * NULL 元组值。（不大可能见到，但必须
+		 * 检查；deconstruct_expanded_record 将改变
+		 * 逻辑状态，这不行。）
 		 */
 		if (ExpandedRecordIsEmpty(erh))
 		{
@@ -7550,8 +7550,8 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 		}
 
 		/*
-		 * Otherwise, ensure that the source record is deconstructed, and
-		 * assign from its field values.
+		 * 否则，确保源记录已经被拆开，并
+		 * 按其字段值来赋值。
 		 */
 		deconstruct_expanded_record(erh);
 		exec_move_row_from_fields(estate, target, newerh,
@@ -7561,9 +7561,9 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 	else
 	{
 		/*
-		 * Nope, we've got a plain composite Datum.  Deconstruct it; but we
-		 * don't use deconstruct_composite_datum(), because we may be able to
-		 * skip calling lookup_rowtype_tupdesc().
+		 * 不，这是普通复合 Datum。拆开它；但我们
+		 * 不用 deconstruct_composite_datum()，因我们可能
+		 * 跳过 lookup_rowtype_tupdesc()。
 		 */
 		HeapTupleHeader td;
 		HeapTupleData tmptup;
@@ -7572,35 +7572,35 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 		TupleDesc	tupdesc;
 		MemoryContext oldcontext;
 
-		/* Ensure that any detoasted data winds up in the eval_mcontext */
+		/* 确保任何解 toast 后的数据落进 eval_mcontext */
 		oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
-		/* Get tuple body (note this could involve detoasting) */
+		/* 取元组体（注意这可能要解 toast） */
 		td = DatumGetHeapTupleHeader(value);
 		MemoryContextSwitchTo(oldcontext);
 
-		/* Build a temporary HeapTuple control structure */
+		/* 建一个临时 HeapTuple 控制结构 */
 		tmptup.t_len = HeapTupleHeaderGetDatumLength(td);
 		ItemPointerSetInvalid(&(tmptup.t_self));
 		tmptup.t_tableOid = InvalidOid;
 		tmptup.t_data = td;
 
-		/* Extract rowtype info */
+		/* 取行类型信息 */
 		tupType = HeapTupleHeaderGetTypeId(td);
 		tupTypmod = HeapTupleHeaderGetTypMod(td);
 
-		/* Now, if the target is record not row, maybe we can optimize ... */
+		/* 现在，若目标是记录而非行，也许可以优化 */
 		if (target->dtype == PLPGSQL_DTYPE_REC)
 		{
 			PLpgSQL_rec *rec = (PLpgSQL_rec *) target;
 
 			/*
-			 * If we already have an expanded record object in the target
-			 * variable, and the source datum has a matching rowtype, then we
-			 * can skip making a new expanded record and just assign the tuple
-			 * with expanded_record_set_tuple.  We consider that there's a
-			 * rowtype match only if it's the same named composite type or
-			 * same registered rowtype.  (Checking to reject an anonymous
-			 * rowtype here should be redundant, but let's be safe.)
+			 * 若目标变量里已有扩展记录对象
+			 * 且源 datum 的行类型匹配，则我们
+			 * 可以省去新建扩展记录，只把元组赋进去，用
+			 * expanded_record_set_tuple。行类型匹配，
+			 * 仅当是同一具名复合类型，或
+			 * 同一已注册行类型。（要拒绝匿名
+			 * 行类型本属多余，但还是求稳。）
 			 */
 			if (rec->erh &&
 				tupType == rec->erh->er_typeid &&
@@ -7614,10 +7614,10 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 			}
 
 			/*
-			 * If the source datum has a rowtype compatible with the target
-			 * variable, just build a new expanded record and assign the tuple
-			 * into it.  Using make_expanded_record_from_typeid() here saves
-			 * one typcache lookup compared to the code below.
+			 * 若源 datum 的行类型与目标
+			 * 变量相容，就建新扩展记录并把元组赋入
+			 * 其中。这里用 make_expanded_record_from_typeid() 可省
+			 * 一次 typcache 查找，比起下文。
 			 */
 			if (rec->rectypeid == RECORDOID || rec->rectypeid == tupType)
 			{
@@ -7633,64 +7633,64 @@ exec_move_row_from_datum(PLpgSQL_execstate *estate,
 			}
 
 			/*
-			 * Otherwise, we're going to need conversion, so fall through to
-			 * do it the hard way.
+			 * 否则就需要转换，因此直落到
+			 * 用难的方式做
 			 */
 		}
 
 		/*
-		 * ROW target, or unoptimizable RECORD target, so we have to expend a
-		 * lookup to obtain the source datum's tupdesc.
+		 * ROW 目标，还是无法优化的 RECORD，必须花一次
+		 * 查找来取得源 datum 的 tupdesc。
 		 */
 		tupdesc = lookup_rowtype_tupdesc(tupType, tupTypmod);
 
-		/* Do the move */
+		/* 做移动 */
 		exec_move_row(estate, target, &tmptup, tupdesc);
 
-		/* Release tupdesc usage count */
+		/* 释放 tupdesc 使用计数 */
 		ReleaseTupleDesc(tupdesc);
 	}
 }
 
 /*
- * If we have not created an expanded record to hold the record variable's
- * value, do so.  The expanded record will be "empty", so this does not
- * change the logical state of the record variable: it's still NULL.
- * However, now we'll have a tupdesc with which we can e.g. look up fields.
+ * 若尚未建立扩展记录来存放记录变量的
+ * 值，就这么建。扩展记录将为"空"，故这并不
+ * 改变记录的逻辑状态：它仍是 NULL。
+ * 不过现在就有 tupdesc，例如可以用来查字段。
  */
 static void
 instantiate_empty_record_variable(PLpgSQL_execstate *estate, PLpgSQL_rec *rec)
 {
-	Assert(rec->erh == NULL);	/* else caller error */
+	Assert(rec->erh == NULL);	/* 否则主调错 */
 
-	/* If declared type is RECORD, we can't instantiate */
+	/* 若声明类型是 RECORD，就无法实例化 */
 	if (rec->rectypeid == RECORDOID)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("record \"%s\" is not assigned yet", rec->refname),
 				 errdetail("The tuple structure of a not-yet-assigned record is indeterminate.")));
 
-	/* Make sure rec->rectypeid is up-to-date before using it */
+	/* 使用前确保 rec->rectypeid 是最新的。 */
 	revalidate_rectypeid(rec);
 
-	/* OK, do it */
+	/* 好就做 */
 	rec->erh = make_expanded_record_from_typeid(rec->rectypeid, -1,
 												estate->datum_context);
 }
 
 /* ----------
- * convert_value_to_string			Convert a non-null Datum to C string
+ * convert_value_to_string 把非 NULL 的 Datum 转成 C 串
  *
- * Note: the result is in the estate's eval_mcontext, and will be cleared
- * by the next exec_eval_cleanup() call.  The invoked output function might
- * leave additional cruft there as well, so just pfree'ing the result string
- * would not be enough to avoid memory leaks if we did not do it like this.
- * In most usages the Datum being passed in is also in that context (if
- * pass-by-reference) and so an exec_eval_cleanup() call is needed anyway.
+ * 注意：结果在 estate 的 eval_mcontext 里，并将被清掉
+ * 于下次 exec_eval_cleanup() 调用。被调输出函数可能
+ * 也在那里再留废物，故只 pfree 结果串
+ * 并不足以避免内存泄漏，若我们不这样做。
+ * 多数用法里，传入的 Datum 也在那一内存上下文（若
+ * 是按引用传递），故反正也要调用 exec_eval_cleanup()。
  *
- * Note: not caching the conversion function lookup is bad for performance.
- * However, this function isn't currently used in any places where an extra
- * catalog lookup or two seems like a big deal.
+ * 注意：不缓存转换函数查找，对性能不好。
+ * 不过此函数当前并未用在多一两次
+ * 目录查找就算大事的地方。
  * ----------
  */
 static char *
@@ -7710,16 +7710,16 @@ convert_value_to_string(PLpgSQL_execstate *estate, Datum value, Oid valtype)
 }
 
 /* ----------
- * exec_cast_value			Cast a value if required
+ * exec_cast_value 需要时转换该值
  *
- * Note that *isnull is an input and also an output parameter.  While it's
- * unlikely that a cast operation would produce null from non-null or vice
- * versa, that could happen in principle.
+ * 注意 *isnull 既是输入也是输出参数。虽说
+ * 一次转换不大可能从非 NULL 造出 NULL，反之亦
+ * 然，原则上仍可能发生。
  *
- * Note: the estate's eval_mcontext is used for temporary storage, and may
- * also contain the result Datum if we have to do a conversion to a pass-
- * by-reference data type.  Be sure to do an exec_eval_cleanup() call when
- * done with the result.
+ * 注意：estate 的 eval_mcontext 用于临时存储，并可能
+ * 也盛放结果 Datum，若我们必须转换成按
+ * 引用传递的数据类型。务必调用 exec_eval_cleanup()，在
+ * 用完结果后。
  * ----------
  */
 static inline Datum
@@ -7729,12 +7729,12 @@ exec_cast_value(PLpgSQL_execstate *estate,
 				Oid reqtype, int32 reqtypmod)
 {
 	/*
-	 * If the type of the given value isn't what's requested, convert it.
+	 * 若给定值的类型并非所要求的，就转换它。
 	 */
 	if (valtype != reqtype ||
 		(valtypmod != reqtypmod && reqtypmod != -1))
 	{
-		/* We keep the slow path out-of-line. */
+		/* 我们把慢路径留在线外。 */
 		value = do_cast_value(estate, value, isnull, valtype, valtypmod,
 							  reqtype, reqtypmod);
 	}
@@ -7743,7 +7743,7 @@ exec_cast_value(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * do_cast_value			Slow path for exec_cast_value.
+ * do_cast_value：exec_cast_value 的慢路径
  * ----------
  */
 static Datum
@@ -7781,13 +7781,13 @@ do_cast_value(PLpgSQL_execstate *estate,
 }
 
 /* ----------
- * get_cast_hashentry			Look up how to perform a type cast
+ * get_cast_hashentry 查找如何做类型转换
  *
- * Returns a plpgsql_CastHashEntry if an expression has to be evaluated,
- * or NULL if the cast is a mere no-op relabeling.  If there's work to be
- * done, the cast_exprstate field contains an expression evaluation tree
- * based on a CaseTestExpr input, and the cast_in_use field should be set
- * true while executing it.
+ * 若必须对表达式求值，就返回 plpgsql_CastHashEntry
+ * 否则 NULL，当转换只是空操作重标。若还有工作待
+ * 做，则 cast_exprstate 字段含一棵表达式求值树
+ * 以 CaseTestExpr 为输入，且 cast_in_use 字段应设成
+ * 执行它时为真。
  * ----------
  */
 static plpgsql_CastHashEntry *
@@ -7802,7 +7802,7 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 	LocalTransactionId curlxid;
 	MemoryContext oldcontext;
 
-	/* Look for existing entry */
+	/* 查找已有项 */
 	cast_key.srctype = srctype;
 	cast_key.dsttype = dsttype;
 	cast_key.srctypmod = srctypmod;
@@ -7810,14 +7810,14 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 	cast_entry = (plpgsql_CastHashEntry *) hash_search(estate->cast_hash,
 													   &cast_key,
 													   HASH_ENTER, &found);
-	if (!found)					/* initialize if new entry */
+	if (!found)					/* 若新项则初始化 */
 	{
-		/* We need a second lookup to see if a cast_expr_hash entry exists */
+		/* 需要第二次查找，看 cast_expr_hash 项在不在 */
 		expr_entry = (plpgsql_CastExprHashEntry *) hash_search(cast_expr_hash,
 															   &cast_key,
 															   HASH_ENTER,
 															   &found);
-		if (!found)				/* initialize if new expr entry */
+		if (!found)				/* 新表达式项则初始化 */
 			expr_entry->cast_cexpr = NULL;
 
 		cast_entry->cast_centry = expr_entry;
@@ -7827,7 +7827,7 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 	}
 	else
 	{
-		/* Use always-valid link to avoid a second hash lookup */
+		/* 靠始终有效的链接，省第二次散列查找 */
 		expr_entry = cast_entry->cast_centry;
 	}
 
@@ -7835,15 +7835,15 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 		!expr_entry->cast_cexpr->is_valid)
 	{
 		/*
-		 * We've not looked up this coercion before, or we have but the cached
-		 * expression has been invalidated.
+		 * 我们先前没查过这回强制；查过的话，缓存的
+		 * 表达式已经失效。
 		 */
 		Node	   *cast_expr;
 		CachedExpression *cast_cexpr;
 		CaseTestExpr *placeholder;
 
 		/*
-		 * Drop old cached expression if there is one.
+		 * 若有旧的缓存表达式就丢掉。
 		 */
 		if (expr_entry->cast_cexpr)
 		{
@@ -7852,15 +7852,15 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 		}
 
 		/*
-		 * Since we could easily fail (no such coercion), construct a
-		 * temporary coercion expression tree in the short-lived
-		 * eval_mcontext, then if successful save it as a CachedExpression.
+		 * 因很容易失败（无此强制），故造一个
+		 * 临时强制表达式树，放在短命的
+		 * eval_mcontext 里，成功再存成 CachedExpression。
 		 */
 		oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 
 		/*
-		 * We use a CaseTestExpr as the base of the coercion tree, since it's
-		 * very cheap to insert the source value for that.
+		 * 我们用 CaseTestExpr 当强制树的基底，因它
+		 * 塞入源值非常便宜。
 		 */
 		placeholder = makeNode(CaseTestExpr);
 		placeholder->typeId = srctype;
@@ -7868,19 +7868,19 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 		placeholder->collation = get_typcollation(srctype);
 
 		/*
-		 * Apply coercion.  We use the special coercion context
-		 * COERCION_PLPGSQL to match plpgsql's historical behavior, namely
-		 * that any cast not available at ASSIGNMENT level will be implemented
-		 * as an I/O coercion.  (It's somewhat dubious that we prefer I/O
-		 * coercion over cast pathways that exist at EXPLICIT level.  Changing
-		 * that would cause assorted minor behavioral differences though, and
-		 * a user who wants the explicit-cast behavior can always write an
-		 * explicit cast.)
+		 * 施加强制。我们使用特殊的强制上下文
+		 * COERCION_PLPGSQL，以符合 plpgsql 的历史行为，即
+		 * ASSIGNMENT 层没有的任何转换，都将实现为
+		 * 一次 I/O 强制。（有点可疑：我们偏好 I/O
+		 * 强制，胜过 EXPLICIT 层已有的转换路径。改动
+		 * 那样却带来种种细小行为差异，而且
+		 * 想要显式转换行为的用户总能写一个
+		 * 显式转换)
 		 *
-		 * If source type is UNKNOWN, coerce_to_target_type will fail (it only
-		 * expects to see that for Const input nodes), so don't call it; we'll
-		 * apply CoerceViaIO instead.  Likewise, it doesn't currently work for
-		 * coercing RECORD to some other type, so skip for that too.
+		 * 若源类型是 UNKNOWN，coerce_to_target_type 将失败（它只
+		 * 指望在 Const 输入节点上见到它），故别调用；我们
+		 * 改用 CoerceViaIO。同样，它目前也不能把
+		 * RECORD 强制成别的类型，那种也跳过。
 		 */
 		if (srctype == UNKNOWNOID || srctype == RECORDOID)
 			cast_expr = NULL;
@@ -7893,11 +7893,11 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 											  -1);
 
 		/*
-		 * If there's no cast path according to the parser, fall back to using
-		 * an I/O coercion; this is semantically dubious but matches plpgsql's
-		 * historical behavior.  We would need something of the sort for
-		 * UNKNOWN literals in any case.  (This is probably now only reachable
-		 * in the case where srctype is UNKNOWN/RECORD.)
+		 * 若按解析器没有转换路径，就退回使用
+		 * 一次 I/O 强制；语义上可疑，但符合 plpgsql 的
+		 * 历史行为。对 UNKNOWN 字面量总得如此。（
+		 * 如今大概只在这种时候到得了：
+		 * srctype 为 UNKNOWN/RECORD。）
 		 */
 		if (cast_expr == NULL)
 		{
@@ -7918,22 +7918,22 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 												  -1);
 		}
 
-		/* Note: we don't bother labeling the expression tree with collation */
+		/* 注意：我们不费心给表达式树标上排序规则 */
 
-		/* Plan the expression and build a CachedExpression */
+		/* 规划该表达式并建出 CachedExpression */
 		cast_cexpr = GetCachedExpression(cast_expr);
 		cast_expr = cast_cexpr->expr;
 
-		/* Detect whether we have a no-op (RelabelType) coercion */
+		/* 检测这是不是空操作（RelabelType）强制 */
 		if (IsA(cast_expr, RelabelType) &&
 			((RelabelType *) cast_expr)->arg == (Expr *) placeholder)
 			cast_expr = NULL;
 
-		/* Now we can fill in the expression hashtable entry. */
+		/* 现在可以填好表达式散列表的项。 */
 		expr_entry->cast_cexpr = cast_cexpr;
 		expr_entry->cast_expr = (Expr *) cast_expr;
 
-		/* Be sure to reset the exprstate hashtable entry, too. */
+		/* 也务必重置 exprstate 那一项散列表。 */
 		cast_entry->cast_exprstate = NULL;
 		cast_entry->cast_in_use = false;
 		cast_entry->cast_lxid = InvalidLocalTransactionId;
@@ -7941,21 +7941,21 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* Done if we have determined that this is a no-op cast. */
+	/* 若已判定这是空操作转换，就此结束。 */
 	if (expr_entry->cast_expr == NULL)
 		return NULL;
 
 	/*
-	 * Prepare the expression for execution, if it's not been done already in
-	 * the current transaction; also, if it's marked busy in the current
-	 * transaction, abandon that expression tree and build a new one, so as to
-	 * avoid potential problems with recursive cast expressions and failed
-	 * executions.  (We will leak some memory intra-transaction if that
-	 * happens a lot, but we don't expect it to.)  It's okay to update the
-	 * hash table with the new tree because all plpgsql functions within a
-	 * given transaction share the same simple_eval_estate.  (Well, regular
-	 * functions do; DO blocks have private simple_eval_estates, and private
-	 * cast hash tables to go with them.)
+	 * 若当前还没准备好，就准备执行该表达式，于
+	 * 当前事务里；另外，若它在当前
+	 * 事务里标成忙，就丢掉那棵表达式树再新建，以便
+	 * 避开递归转换与失败执行的问题。（若此类
+	 * 情形很多，事务内将漏掉一些内存，
+	 * 但我们并不指望那样。）更新散列表可以，因为
+	 * 同一事务里全部 plpgsql 函数都共用着同一个
+	 * simple_eval_estate。（不过，常规函数才
+	 * 如此；DO 块有私有的 simple_eval_estates，以及私有
+	 * 配套的转换散列表。）
 	 */
 	curlxid = MyProc->lxid;
 	if (cast_entry->cast_lxid != curlxid || cast_entry->cast_in_use)
@@ -7972,13 +7972,13 @@ get_cast_hashentry(PLpgSQL_execstate *estate,
 
 
 /* ----------
- * exec_simple_check_plan -		Check if a plan is simple enough to
- *								be evaluated by ExecEvalExpr() instead
- *								of SPI.
+ * exec_simple_check_plan：检查计划是否简单到能
+ *	改由 ExecEvalExpr() 来求值
+ *	而非 SPI。
  *
- * Note: the refcount manipulations in this function assume that expr->plan
- * is a "saved" SPI plan.  That's a bit annoying from the caller's standpoint,
- * but it's otherwise difficult to avoid leaking the plan on failure.
+ * 注意：本函数的引用计数操作假定 expr->plan
+ * 是已保存的 SPI 计划。从调用者看这有点讨厌，
+ * 但除此很难避免在失败时泄漏该计划。
  * ----------
  */
 static void
@@ -7990,67 +7990,67 @@ exec_simple_check_plan(PLpgSQL_execstate *estate, PLpgSQL_expr *expr)
 	MemoryContext oldcontext;
 
 	/*
-	 * Initialize to "not simple".
+	 * 初始化成非简单。
 	 */
 	expr->expr_simple_expr = NULL;
 	expr->expr_rw_param = NULL;
 
 	/*
-	 * Check the analyzed-and-rewritten form of the query to see if we will be
-	 * able to treat it as a simple expression.  Since this function is only
-	 * called immediately after creating the CachedPlanSource, we need not
-	 * worry about the query being stale.
+	 * 检查查询经分析并重写后的形式，看我们是否将
+	 * 能够把它当成简单表达式。因本函数只在
+	 * 刚建好 CachedPlanSource 之后被调用，故不必
+	 * 担心该查询已经过时。
 	 */
 	if (!exec_is_simple_query(expr))
 		return;
 
-	/* exec_is_simple_query verified that there's just one CachedPlanSource */
+	/* exec_is_simple_query 已核实只有一个 CachedPlanSource */
 	plansources = SPI_plan_get_plan_sources(expr->plan);
 	plansource = (CachedPlanSource *) linitial(plansources);
 
 	/*
-	 * Get the generic plan for the query.  If replanning is needed, do that
-	 * work in the eval_mcontext.  (Note that replanning could throw an error,
-	 * in which case the expr is left marked "not simple", which is fine.)
+	 * 取该查询的通用计划。若需要重新规划，就把该
+	 * 工作放在 eval_mcontext 里。（注意重新规划可能抛错，
+	 * 此时 expr 仍标成非简单，这没关系。）
 	 */
 	oldcontext = MemoryContextSwitchTo(get_eval_mcontext(estate));
 	cplan = SPI_plan_get_cached_plan(expr->plan);
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Can't fail, because we checked for a single CachedPlanSource above */
+	/* 无法失败，因上面已查过只有一个 CachedPlanSource */
 	Assert(cplan != NULL);
 
 	/*
-	 * Verify that plancache.c thinks the plan is simple enough to use
-	 * CachedPlanIsSimplyValid.  Given the restrictions above, it's unlikely
-	 * that this could fail, but if it does, just treat plan as not simple. On
-	 * success, save a refcount on the plan in the simple-expression resowner.
+	 * 核实 plancache.c 认为该计划简单到足以使用
+	 * CachedPlanIsSimplyValid。有上面那些限制，不大可能
+	 * 失败；但万一失败，就把计划当成非简单。一旦
+	 * 成功，就把计划引用计数存进简单表达式 resowner。
 	 */
 	if (CachedPlanAllowsSimpleValidityCheck(plansource, cplan,
 											estate->simple_eval_resowner))
 	{
-		/* Remember that we have the refcount */
+		/* 记住我们已持有引用计数 */
 		expr->expr_simple_plansource = plansource;
 		expr->expr_simple_plan = cplan;
 		expr->expr_simple_plan_lxid = MyProc->lxid;
 
-		/* Share the remaining work with the replan code path */
+		/* 其余工作与重规划的代码路径共用 */
 		exec_save_simple_expr(expr, cplan);
 	}
 
 	/*
-	 * Release the plan refcount obtained by SPI_plan_get_cached_plan.  (This
-	 * refcount is held by the wrong resowner, so we can't just repurpose it.)
+	 * 释放 SPI_plan_get_cached_plan 取得的计划引用计数。（此
+	 * 计数由错误的 resowner 持有，故无法直接改派。）
 	 */
 	ReleaseCachedPlan(cplan, CurrentResourceOwner);
 }
 
 /*
- * exec_is_simple_query - precheck a query tree to see if it might be simple
+ * exec_is_simple_query 预检一棵查询树，看它是否也许简单
  *
- * Check the analyzed-and-rewritten form of a query to see if we will be
- * able to treat it as a simple expression.  It is caller's responsibility
- * that the CachedPlanSource be up-to-date.
+ * 检查某查询经分析并重写后的形式，看我们是否将
+ * 能够把它当成简单表达式。调用者有责任
+ * 让 CachedPlanSource 保持最新。
  */
 static bool
 exec_is_simple_query(PLpgSQL_expr *expr)
@@ -8060,7 +8060,7 @@ exec_is_simple_query(PLpgSQL_expr *expr)
 	Query	   *query;
 
 	/*
-	 * We can only test queries that resulted in exactly one CachedPlanSource.
+	 * 我们只能测试恰好得到一个 CachedPlanSource 的查询。
 	 */
 	plansources = SPI_plan_get_plan_sources(expr->plan);
 	if (list_length(plansources) != 1)
@@ -8068,14 +8068,14 @@ exec_is_simple_query(PLpgSQL_expr *expr)
 	plansource = (CachedPlanSource *) linitial(plansources);
 
 	/*
-	 * 1. There must be one single querytree.
+	 * 1. 必须只有一棵查询树。
 	 */
 	if (list_length(plansource->query_list) != 1)
 		return false;
 	query = (Query *) linitial(plansource->query_list);
 
 	/*
-	 * 2. It must be a plain SELECT query without any input tables.
+	 * 2. 必须是没有任何输入表的普通 SELECT。
 	 */
 	if (!IsA(query, Query))
 		return false;
@@ -8085,10 +8085,10 @@ exec_is_simple_query(PLpgSQL_expr *expr)
 		return false;
 
 	/*
-	 * 3. Can't have any subplans, aggregates, qual clauses either.  (These
-	 * tests should generally match what inline_function() checks before
-	 * inlining a SQL function; otherwise, inlining could change our
-	 * conclusion about whether an expression is simple, which we don't want.)
+	 * 3. 也无法有任何子计划、聚集、限定子句。（这些
+	 * 检测大体应合 inline_function() 在把 SQL 函数
+	 * 内联之前所做的检查；不然内联可能改掉我们
+	 * 关于表达式是否简单的结论，这并非我们所要。）
 	 */
 	if (query->hasAggs ||
 		query->hasWindowFuncs ||
@@ -8109,19 +8109,19 @@ exec_is_simple_query(PLpgSQL_expr *expr)
 		return false;
 
 	/*
-	 * 4. The query must have a single attribute as result.
+	 * 4. 该查询必须有单个属性作为结果。
 	 */
 	if (list_length(query->targetList) != 1)
 		return false;
 
 	/*
-	 * OK, we can treat it as a simple plan.
+	 * 好，可把它当简单计划。
 	 */
 	return true;
 }
 
 /*
- * exec_save_simple_expr --- extract simple expression from CachedPlan
+ * exec_save_simple_expr 从 CachedPlan 抽出简单表达式
  */
 static void
 exec_save_simple_expr(PLpgSQL_expr *expr, CachedPlan *cplan)
@@ -8131,29 +8131,29 @@ exec_save_simple_expr(PLpgSQL_expr *expr, CachedPlan *cplan)
 	Expr	   *tle_expr;
 
 	/*
-	 * Given the checks that exec_simple_check_plan did, none of the Asserts
-	 * here should ever fail.
+	 * 鉴于 exec_simple_check_plan 已做的检查，这些 Assert 无一
+	 * 该在这里失败。
 	 */
 
-	/* Extract the single PlannedStmt */
+	/* 抽出那唯一的 PlannedStmt */
 	Assert(list_length(cplan->stmt_list) == 1);
 	stmt = linitial_node(PlannedStmt, cplan->stmt_list);
 	Assert(stmt->commandType == CMD_SELECT);
 
 	/*
-	 * Ordinarily, the plan node should be a simple Result.  However, if
-	 * debug_parallel_query is on, the planner might've stuck a Gather node
-	 * atop that; and/or if this plan is for a scrollable cursor, the planner
-	 * might've stuck a Material node atop it.  The simplest way to deal with
-	 * this is to look through the Gather and/or Material nodes.  The upper
-	 * node's tlist would normally contain a Var referencing the child node's
-	 * output, but it could also be a Param, or it could be a Const that
-	 * setrefs.c copied as-is.
+	 * 通常计划节点应是简单 Result。不过若
+	 * debug_parallel_query 开着，规划器也许塞进 Gather 节点
+	 * 在那之上；以及若此计划用于可滚动游标，规划器
+	 * 也许又在上面塞了 Material 节点。最简单的处理是
+	 * 看穿 Gather 以及 Material 这些节点。上层
+	 * 节点的 tlist 通常含一个 Var，指向子节点的
+	 * 输出，但也可能是 Param，还可能是 Const，由
+	 * setrefs.c 照抄。
 	 */
 	plan = stmt->planTree;
 	for (;;)
 	{
-		/* Extract the single tlist expression */
+		/* 抽出那唯一的 tlist 表达式 */
 		Assert(list_length(plan->targetlist) == 1);
 		tle_expr = linitial_node(TargetEntry, plan->targetlist)->expr;
 
@@ -8172,13 +8172,13 @@ exec_save_simple_expr(PLpgSQL_expr *expr, CachedPlan *cplan)
 				   plan->righttree == NULL &&
 				   plan->initPlan == NULL &&
 				   plan->qual == NULL);
-			/* If setrefs.c copied up a Const, no need to look further */
+			/* 若 setrefs.c 向上拷了 Const，不必再看 */
 			if (IsA(tle_expr, Const))
 				break;
-			/* Otherwise, it had better be a Param or an outer Var */
+			/* 否则它最好是 Param，还是外层 Var */
 			Assert(IsA(tle_expr, Param) || (IsA(tle_expr, Var) &&
 											((Var *) tle_expr)->varno == OUTER_VAR));
-			/* Descend to the child node */
+			/* 下降到子节点 */
 			plan = plan->lefttree;
 		}
 		else
@@ -8187,50 +8187,50 @@ exec_save_simple_expr(PLpgSQL_expr *expr, CachedPlan *cplan)
 	}
 
 	/*
-	 * Save the simple expression, and initialize state to "not valid in
-	 * current transaction".
+	 * 保存简单表达式，并把状态初始化成当前事务中
+	 * 并非有效。
 	 */
 	expr->expr_simple_expr = tle_expr;
 	expr->expr_simple_state = NULL;
 	expr->expr_simple_in_use = false;
 	expr->expr_simple_lxid = InvalidLocalTransactionId;
-	/* Also stash away the expression result type */
+	/* 也把表达式的结果类型收起来 */
 	expr->expr_simple_type = exprType((Node *) tle_expr);
 	expr->expr_simple_typmod = exprTypmod((Node *) tle_expr);
-	/* We also want to remember if it is immutable or not */
+	/* 我们也要记住它到底可不可变 */
 	expr->expr_simple_mutable = contain_mutable_functions((Node *) tle_expr);
 
 	/*
-	 * Lastly, check to see if there's a possibility of optimizing a
-	 * read/write parameter.
+	 * 最后，检查有没有可能去优化一个
+	 * 读写参数。
 	 */
 	exec_check_rw_parameter(expr);
 }
 
 /*
- * exec_check_rw_parameter --- can we pass expanded object as read/write param?
+ * exec_check_rw_parameter 能否把扩展对象当读写参数传？
  *
- * If we have an assignment like "x := array_append(x, foo)" in which the
- * top-level function is trusted not to corrupt its argument in case of an
- * error, then when x has an expanded object as value, it is safe to pass the
- * value as a read/write pointer and let the function modify the value
- * in-place.
+ * 若赋值形如 x := array_append(x, foo)，其中的
+ * 顶层函数被信任为出错时不破坏其参数。于是当
+ * x 的值是扩展对象，就可以安全地传递该
+ * 值，当作读写指针，并让函数修改该值
+ * 就地。
  *
- * This function checks for a safe expression, and sets expr->expr_rw_param
- * to the address of any Param within the expression that can be passed as
- * read/write (there can be only one); or to NULL when there is no safe Param.
+ * 本函数检查表达式是否安全，并设置 expr->expr_rw_param
+ * 为表达式中任一可按此传递的 Param 的地址，按
+ * 读写来传（只能有一个）；没有安全 Param 时则置 NULL。
  *
- * Note that this mechanism intentionally applies the safety labeling to just
- * one Param; the expression could contain other Params referencing the target
- * variable, but those must still be treated as read-only.
+ * 注意此机制有意只把安全标记打在
+ * 一个 Param 上；表达式里可能还有别的 Param 指向目标
+ * 变量，但那些仍必须当成只读。
  *
- * Also note that we only apply this optimization within simple expressions.
- * There's no point in it for non-simple expressions, because the
- * exec_run_select code path will flatten any expanded result anyway.
- * Also, it's safe to assume that an expr_simple_expr tree won't get copied
- * somewhere before it gets compiled, so that looking for pointer equality
- * to expr_rw_param will work for matching the target Param.  That'd be much
- * shakier in the general case.
+ * 另外注意，我们只在简单表达式里做此优化。
+ * 对非简单表达式没有意义，因为
+ * exec_run_select 那条路径反正要压扁任何扩展结果。
+ * 另外，可放心假定 expr_simple_expr 树在编译前
+ * 并不被拷到别处，因此按指针相等去找
+ * expr_rw_param 就能对上目标 Param。更一般的情形里
+ * 那就虚得多。
  */
 static void
 exec_check_rw_parameter(PLpgSQL_expr *expr)
@@ -8240,27 +8240,27 @@ exec_check_rw_parameter(PLpgSQL_expr *expr)
 	List	   *fargs;
 	ListCell   *lc;
 
-	/* Assume unsafe */
+	/* 当不安全 */
 	expr->expr_rw_param = NULL;
 
-	/* Done if expression isn't an assignment source */
+	/* 若表达式不是赋值来源就结束 */
 	target_dno = expr->target_param;
 	if (target_dno < 0)
 		return;
 
 	/*
-	 * If target variable isn't referenced by expression, no need to look
-	 * further.
+	 * 若目标变量没被表达式引用，则无需
+	 * 再看
 	 */
 	if (!bms_is_member(target_dno, expr->paramnos))
 		return;
 
-	/* Shouldn't be here for non-simple expression */
+	/* 非简单表达式不该走到这里 */
 	Assert(expr->expr_simple_expr != NULL);
 
 	/*
-	 * Top level of expression must be a simple FuncExpr, OpExpr, or
-	 * SubscriptingRef, else we can't optimize.
+	 * 表达式顶层必须是简单 FuncExpr、OpExpr，还是
+	 * SubscriptingRef，否则无法优化。
 	 */
 	if (IsA(expr->expr_simple_expr, FuncExpr))
 	{
@@ -8280,12 +8280,12 @@ exec_check_rw_parameter(PLpgSQL_expr *expr)
 	{
 		SubscriptingRef *sbsref = (SubscriptingRef *) expr->expr_simple_expr;
 
-		/* We only trust standard varlena arrays to be safe */
+		/* 我们只信任标准 varlena 数组是安全的 */
 		if (get_typsubscript(sbsref->refcontainertype, NULL) !=
 			F_ARRAY_SUBSCRIPT_HANDLER)
 			return;
 
-		/* We can optimize the refexpr if it's the target, otherwise not */
+		/* 若 refexpr 就是目标就能优化，否则不能 */
 		if (sbsref->refexpr && IsA(sbsref->refexpr, Param))
 		{
 			Param	   *param = (Param *) sbsref->refexpr;
@@ -8293,7 +8293,7 @@ exec_check_rw_parameter(PLpgSQL_expr *expr)
 			if (param->paramkind == PARAM_EXTERN &&
 				param->paramid == target_dno + 1)
 			{
-				/* Found the Param we want to pass as read/write */
+				/* 找到要按读写传递的 Param */
 				expr->expr_rw_param = param;
 				return;
 			}
@@ -8305,19 +8305,19 @@ exec_check_rw_parameter(PLpgSQL_expr *expr)
 		return;
 
 	/*
-	 * The top-level function must be one that we trust to be "safe".
-	 * Currently we hard-wire the list, but it would be very desirable to
-	 * allow extensions to mark their functions as safe ...
+	 * 顶层函数必须是我们所信任为安全的那一个。
+	 * 目前名单是写死的，但非常希望能够
+	 * 允许扩展把自家函数标成安全。
 	 */
 	if (!(funcid == F_ARRAY_APPEND ||
 		  funcid == F_ARRAY_PREPEND))
 		return;
 
 	/*
-	 * The target variable (in the form of a Param) must appear as a direct
-	 * argument of the top-level function.  References further down in the
-	 * tree can't be optimized; but on the other hand, they don't invalidate
-	 * optimizing the top-level call, since that will be executed last.
+	 * 目标变量（以 Param 形式）必须作为直接
+	 * 参数出现在顶层函数上。树里更下面的引用
+	 * 无法优化；但另一方面，它们并不否定
+	 * 对顶层调用的优化，因那个调用最后才执行。
 	 */
 	foreach(lc, fargs)
 	{
@@ -8330,7 +8330,7 @@ exec_check_rw_parameter(PLpgSQL_expr *expr)
 			if (param->paramkind == PARAM_EXTERN &&
 				param->paramid == target_dno + 1)
 			{
-				/* Found the Param we want to pass as read/write */
+				/* 找到要按读写传递的 Param */
 				expr->expr_rw_param = param;
 				return;
 			}
@@ -8339,9 +8339,9 @@ exec_check_rw_parameter(PLpgSQL_expr *expr)
 }
 
 /*
- * exec_check_assignable --- is it OK to assign to the indicated datum?
+ * exec_check_assignable 给所指 datum 赋值是否可以？
  *
- * This should match pl_gram.y's check_assignable().
+ * 这应合 pl_gram.y 的 check_assignable()。
  */
 static void
 exec_check_assignable(PLpgSQL_execstate *estate, int dno)
@@ -8362,10 +8362,10 @@ exec_check_assignable(PLpgSQL_execstate *estate, int dno)
 								((PLpgSQL_variable *) datum)->refname)));
 			break;
 		case PLPGSQL_DTYPE_ROW:
-			/* always assignable; member vars were checked at compile time */
+			/* 始终可赋值；成员变量在编译时已检查 */
 			break;
 		case PLPGSQL_DTYPE_RECFIELD:
-			/* assignable if parent record is */
+			/* 父记录可赋则自己也可 */
 			exec_check_assignable(estate,
 								  ((PLpgSQL_recfield *) datum)->recparentno);
 			break;
@@ -8376,7 +8376,7 @@ exec_check_assignable(PLpgSQL_execstate *estate, int dno)
 }
 
 /* ----------
- * exec_set_found			Set the global found variable to true/false
+ * exec_set_found 把全局 FOUND 设成真还是假
  * ----------
  */
 static void
@@ -8389,11 +8389,11 @@ exec_set_found(PLpgSQL_execstate *estate, bool state)
 }
 
 /*
- * plpgsql_create_econtext --- create an eval_econtext for the current function
+ * plpgsql_create_econtext 为当前函数建 eval_econtext
  *
- * We may need to create a new shared_simple_eval_estate too, if there's not
- * one already for the current transaction.  The EState will be cleaned up at
- * transaction end.  Ditto for shared_simple_eval_resowner.
+ * 我们可能也要新建 shared_simple_eval_estate，若还没有
+ * 一个已经服务于当前事务。EState 将在
+ * 事务结束清掉。shared_simple_eval_resowner 同。
  */
 static void
 plpgsql_create_econtext(PLpgSQL_execstate *estate)
@@ -8401,17 +8401,17 @@ plpgsql_create_econtext(PLpgSQL_execstate *estate)
 	SimpleEcontextStackEntry *entry;
 
 	/*
-	 * Create an EState for evaluation of simple expressions, if there's not
-	 * one already in the current transaction.  The EState is made a child of
-	 * TopTransactionContext so it will have the right lifespan.
+	 * 若还没有，就建一个供简单表达式求值用的 EState
+	 * 于当前事务中。该 EState 被做成子级，其父为
+	 * TopTransactionContext，从而寿命正确。
 	 *
-	 * Note that this path is never taken when beginning a DO block; the
-	 * required EState was already made by plpgsql_inline_handler.  However,
-	 * if the DO block executes COMMIT or ROLLBACK, then we'll come here and
-	 * make a shared EState to use for the rest of the DO block.  That's OK;
-	 * see the comments for shared_simple_eval_estate.  (Note also that a DO
-	 * block will continue to use its private cast hash table for the rest of
-	 * the block.  That's okay for now, but it might cause problems someday.)
+	 * 注意：开始一个 DO 块时从不走这条路；所需
+	 * EState 已由 plpgsql_inline_handler 建好。不过，
+	 * 若该 DO 块执行 COMMIT 还是 ROLLBACK，我们就来这里并
+	 * 建一个共享 EState，供该 DO 块余下部分使用。可以；
+	 * 见 shared_simple_eval_estate 的注释。（另请注意，DO
+	 * 块在余下过程中继续用它私有的转换散列表。
+	 * 眼下没问题，但将来也许惹出麻烦。）
 	 */
 	if (estate->simple_eval_estate == NULL)
 	{
@@ -8427,7 +8427,7 @@ plpgsql_create_econtext(PLpgSQL_execstate *estate)
 	}
 
 	/*
-	 * Likewise for the simple-expression resource owner.
+	 * 简单表达式的资源所有者亦同样。
 	 */
 	if (estate->simple_eval_resowner == NULL)
 	{
@@ -8439,13 +8439,13 @@ plpgsql_create_econtext(PLpgSQL_execstate *estate)
 	}
 
 	/*
-	 * Create a child econtext for the current function.
+	 * 为当前函数建一个子级 econtext。
 	 */
 	estate->eval_econtext = CreateExprContext(estate->simple_eval_estate);
 
 	/*
-	 * Make a stack entry so we can clean up the econtext at subxact end.
-	 * Stack entries are kept in TopTransactionContext for simplicity.
+	 * 做一条栈项，以便子事务结束时清理该 econtext。
+	 * 为求简单，栈项保存在 TopTransactionContext 里。
 	 */
 	entry = (SimpleEcontextStackEntry *)
 		MemoryContextAlloc(TopTransactionContext,
@@ -8459,10 +8459,10 @@ plpgsql_create_econtext(PLpgSQL_execstate *estate)
 }
 
 /*
- * plpgsql_destroy_econtext --- destroy function's econtext
+ * plpgsql_destroy_econtext 销毁函数的 econtext
  *
- * We check that it matches the top stack entry, and destroy the stack
- * entry along with the context.
+ * 我们检查它与栈顶项相符，并销毁该栈
+ * 项，连同该上下文。
  */
 static void
 plpgsql_destroy_econtext(PLpgSQL_execstate *estate)
@@ -8481,23 +8481,23 @@ plpgsql_destroy_econtext(PLpgSQL_execstate *estate)
 }
 
 /*
- * plpgsql_xact_cb --- post-transaction-commit-or-abort cleanup
+ * plpgsql_xact_cb 在事务提交、中止之后做清理
  *
- * If a simple-expression EState was created in the current transaction,
- * it has to be cleaned up.  The same for the simple-expression resowner.
+ * 若当前事务里建过简单表达式 EState，
+ * 就必须清理它。简单表达式的 resowner 也同样。
  */
 void
 plpgsql_xact_cb(XactEvent event, void *arg)
 {
 	/*
-	 * If we are doing a clean transaction shutdown, free the EState and tell
-	 * the resowner to release whatever plancache references it has, so that
-	 * all remaining resources will be released correctly.  (We don't need to
-	 * actually delete the resowner here; deletion of the
-	 * TopTransactionResourceOwner will take care of that.)
+	 * 若在做干净的事务关闭，就释放 EState，并告知
+	 * 该 resowner 放开它持有的 plancache 引用，以便
+	 * 其余资源都能被正确释放。（我们不必
+	 * 在此真正删除 resowner；删除
+	 * TopTransactionResourceOwner 将负责此事。）
 	 *
-	 * In an abort, we expect the regular abort recovery procedures to release
-	 * everything of interest, so just clear our pointers.
+	 * 在中止时，我们指望常规中止恢复过程去释放
+	 * 一切相关之物，故只清掉我们的指针。
 	 */
 	if (event == XACT_EVENT_COMMIT ||
 		event == XACT_EVENT_PARALLEL_COMMIT ||
@@ -8522,11 +8522,11 @@ plpgsql_xact_cb(XactEvent event, void *arg)
 }
 
 /*
- * plpgsql_subxact_cb --- post-subtransaction-commit-or-abort cleanup
+ * plpgsql_subxact_cb 在子事务提交、中止之后做清理
  *
- * Make sure any simple-expression econtexts created in the current
- * subtransaction get cleaned up.  We have to do this explicitly because
- * no other code knows which econtexts belong to which level of subxact.
+ * 确保当前子事务里建的任何简单表达式 econtext
+ * 都得到清理。我们必须显式来做，因为
+ * 没有别的代码知道哪个 econtext 属于哪层子事务。
  */
 void
 plpgsql_subxact_cb(SubXactEvent event, SubTransactionId mySubid,
@@ -8549,11 +8549,11 @@ plpgsql_subxact_cb(SubXactEvent event, SubTransactionId mySubid,
 }
 
 /*
- * assign_simple_var --- assign a new value to any VAR datum.
+ * assign_simple_var 给任一 VAR 型 datum 赋新值
  *
- * This should be the only mechanism for assignment to simple variables,
- * lest we do the release of the old value incorrectly (not to mention
- * the detoasting business).
+ * 这应是给简单变量赋值的唯一机制，
+ * 以免我们不正确地释放旧值（且不说
+ * 解 toast 之事）。
  */
 static void
 assign_simple_var(PLpgSQL_execstate *estate, PLpgSQL_var *var,
@@ -8563,14 +8563,14 @@ assign_simple_var(PLpgSQL_execstate *estate, PLpgSQL_var *var,
 		   var->dtype == PLPGSQL_DTYPE_PROMISE);
 
 	/*
-	 * In non-atomic contexts, we do not want to store TOAST pointers in
-	 * variables, because such pointers might become stale after a commit.
-	 * Forcibly detoast in such cases.  We don't want to detoast (flatten)
-	 * expanded objects, however; those should be OK across a transaction
-	 * boundary since they're just memory-resident objects.  (Elsewhere in
-	 * this module, operations on expanded records likewise need to request
-	 * detoasting of record fields when !estate->atomic.  Expanded arrays are
-	 * not a problem since all array entries are always detoasted.)
+	 * 在非原子上下文里，我们不想把 TOAST 指针存进
+	 * 变量里，因这类指针提交之后可能变陈旧。
+	 * 这类情形就强制解 toast。但不想解掉（压扁）
+	 * 扩展对象；那些跨事务边界应当可以，
+	 * 因它们只是驻留内存的对象。（本模块别处
+	 * 对扩展记录的操作同样需要请求
+	 * 在 !estate->atomic 时解开记录字段的 toast。扩展数组
+	 * 不是问题，因数组各项始终已经解过 toast。）
 	 */
 	if (!estate->atomic && !isnull && var->datatype->typlen == -1 &&
 		VARATT_IS_EXTERNAL_NON_EXPANDED(DatumGetPointer(newvalue)))
@@ -8579,24 +8579,24 @@ assign_simple_var(PLpgSQL_execstate *estate, PLpgSQL_var *var,
 		Datum		detoasted;
 
 		/*
-		 * Do the detoasting in the eval_mcontext to avoid long-term leakage
-		 * of whatever memory toast fetching might leak.  Then we have to copy
-		 * the detoasted datum to the function's main context, which is a
-		 * pain, but there's little choice.
+		 * 在 eval_mcontext 里解 toast，以免长期泄漏
+		 * toast 抓取可能漏出的任何内存。然后必须把
+		 * 已解 toast 的 datum 拷进函数主内存上下文，这很
+		 * 痛，但选择很少。
 		 */
 		oldcxt = MemoryContextSwitchTo(get_eval_mcontext(estate));
 		detoasted = PointerGetDatum(detoast_external_attr((struct varlena *) DatumGetPointer(newvalue)));
 		MemoryContextSwitchTo(oldcxt);
-		/* Now's a good time to not leak the input value if it's freeable */
+		/* 现在正适合：若输入值可释放，就别泄漏它 */
 		if (freeable)
 			pfree(DatumGetPointer(newvalue));
-		/* Once we copy the value, it's definitely freeable */
+		/* 一旦把值拷好，它就肯定可以释放 */
 		newvalue = datumCopy(detoasted, false, -1);
 		freeable = true;
-		/* Can't clean up eval_mcontext here, but it'll happen before long */
+		/* 这里无法清理 eval_mcontext，但很快便做完 */
 	}
 
-	/* Free the old value if needed */
+	/* 需要时释放旧值 */
 	if (var->freeval)
 	{
 		if (DatumIsReadWriteExpandedObject(var->value,
@@ -8606,21 +8606,21 @@ assign_simple_var(PLpgSQL_execstate *estate, PLpgSQL_var *var,
 		else
 			pfree(DatumGetPointer(var->value));
 	}
-	/* Assign new value to datum */
+	/* 把新值赋给 datum */
 	var->value = newvalue;
 	var->isnull = isnull;
 	var->freeval = freeable;
 
 	/*
-	 * If it's a promise variable, then either we just assigned the promised
-	 * value, or the user explicitly assigned an overriding value.  Either
-	 * way, cancel the promise.
+	 * 若它是承诺变量，则要么刚赋了所承诺的
+	 * 值，要么用户显式赋了一个覆盖值。两种
+	 * 情形都取消承诺。
 	 */
 	var->promise = PLPGSQL_PROMISE_NONE;
 }
 
 /*
- * free old value of a text variable and assign new value from C string
+ * 释放文本变量的旧值，并从 C 字符串赋上新值
  */
 static void
 assign_text_var(PLpgSQL_execstate *estate, PLpgSQL_var *var, const char *str)
@@ -8629,7 +8629,7 @@ assign_text_var(PLpgSQL_execstate *estate, PLpgSQL_var *var, const char *str)
 }
 
 /*
- * assign_record_var --- assign a new value to any REC datum.
+ * assign_record_var 给任一 REC 型 datum 赋新值
  */
 static void
 assign_record_var(PLpgSQL_execstate *estate, PLpgSQL_rec *rec,
@@ -8637,22 +8637,22 @@ assign_record_var(PLpgSQL_execstate *estate, PLpgSQL_rec *rec,
 {
 	Assert(rec->dtype == PLPGSQL_DTYPE_REC);
 
-	/* Transfer new record object into datum_context */
+	/* 把新记录对象转入 datum_context */
 	TransferExpandedRecord(erh, estate->datum_context);
 
-	/* Free the old value ... */
+	/* 释放旧值 */
 	if (rec->erh)
 		DeleteExpandedObject(ExpandedRecordGetDatum(rec->erh));
 
-	/* ... and install the new */
+	/* 并装上新的 */
 	rec->erh = erh;
 }
 
 /*
- * exec_eval_using_params --- evaluate params of USING clause
+ * exec_eval_using_params 求值 USING 子句的参数
  *
- * The result data structure is created in the stmt_mcontext, and should
- * be freed by resetting that context.
+ * 结果数据结构建在 stmt_mcontext 里，并且应当
+ * 靠重置该上下文来释放。
  */
 static ParamListInfo
 exec_eval_using_params(PLpgSQL_execstate *estate, List *params)
@@ -8664,7 +8664,7 @@ exec_eval_using_params(PLpgSQL_execstate *estate, List *params)
 	int			i;
 	ListCell   *lc;
 
-	/* Fast path for no parameters: we can just return NULL */
+	/* 无参数快路径：可直接返回 NULL */
 	if (params == NIL)
 		return NULL;
 
@@ -8682,8 +8682,8 @@ exec_eval_using_params(PLpgSQL_execstate *estate, List *params)
 		int32		ppdtypmod;
 
 		/*
-		 * Always mark params as const, since we only use the result with
-		 * one-shot plans.
+		 * 始终把参数标成 const，因结果只用于
+		 * 单次计划。
 		 */
 		prm->pflags = PARAM_FLAG_CONST;
 
@@ -8697,17 +8697,17 @@ exec_eval_using_params(PLpgSQL_execstate *estate, List *params)
 		if (prm->ptype == UNKNOWNOID)
 		{
 			/*
-			 * Treat 'unknown' parameters as text, since that's what most
-			 * people would expect.  The SPI functions can coerce unknown
-			 * constants in a more intelligent way, but not unknown Params.
-			 * This code also takes care of copying into the right context.
-			 * Note we assume 'unknown' has the representation of C-string.
+			 * 把 unknown 参数当成 text，因那正是多数
+			 * 人所期望的。SPI 函数能更聪明地强制 unknown
+			 * 常量，但不能同样处理 unknown 的 Param。
+			 * 这段代码也负责拷贝到正确的内存上下文。
+			 * 注意我们假定 unknown 具有 C 字符串的表示。
 			 */
 			prm->ptype = TEXTOID;
 			if (!prm->isnull)
 				prm->value = CStringGetTextDatum(DatumGetCString(prm->value));
 		}
-		/* pass-by-ref non null values must be copied into stmt_mcontext */
+		/* 按引用传递的非 NULL 值必须拷进 stmt_mcontext */
 		else if (!prm->isnull)
 		{
 			int16		typLen;
@@ -8729,12 +8729,12 @@ exec_eval_using_params(PLpgSQL_execstate *estate, List *params)
 }
 
 /*
- * Open portal for dynamic query
+ * 为动态查询打开门户
  *
- * Caution: this resets the stmt_mcontext at exit.  We might eventually need
- * to move that responsibility to the callers, but currently no caller needs
- * to have statement-lifetime temp data that survives past this, so it's
- * simpler to do it here.
+ * 小心：退出时重置 stmt_mcontext。我们也许最终需要
+ * 把该责任移给调用者，但目前没有调用者需要
+ * 有能活过此处的语句寿命临时数据，所以
+ * 这里更简单。
  */
 static Portal
 exec_dynquery_with_params(PLpgSQL_execstate *estate,
@@ -8753,8 +8753,8 @@ exec_dynquery_with_params(PLpgSQL_execstate *estate,
 	MemoryContext stmt_mcontext = get_stmt_mcontext(estate);
 
 	/*
-	 * Evaluate the string expression after the EXECUTE keyword. Its result is
-	 * the querystring we have to execute.
+	 * 求值 EXECUTE 关键字之后的字符串表达式。其结果是
+	 * 我们必须执行的查询串。
 	 */
 	query = exec_eval_expr(estate, dynquery, &isnull, &restype, &restypmod);
 	if (isnull)
@@ -8762,18 +8762,18 @@ exec_dynquery_with_params(PLpgSQL_execstate *estate,
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("query string argument of EXECUTE is null")));
 
-	/* Get the C-String representation */
+	/* 取 C 字符串表示 */
 	querystr = convert_value_to_string(estate, query, restype);
 
-	/* copy it into the stmt_mcontext before we clean up */
+	/* 清理前把它拷进 stmt_mcontext */
 	querystr = MemoryContextStrdup(stmt_mcontext, querystr);
 
 	exec_eval_cleanup(estate);
 
 	/*
-	 * Open an implicit cursor for the query.  We use SPI_cursor_parse_open
-	 * even when there are no params, because this avoids making and freeing
-	 * one copy of the plan.
+	 * 为该查询打开隐式游标。即便没有参数，我们也用
+	 * SPI_cursor_parse_open，因这样避免建立并释放
+	 * 一份计划拷贝。
 	 */
 	memset(&options, 0, sizeof(options));
 	options.params = exec_eval_using_params(estate, params);
@@ -8786,16 +8786,16 @@ exec_dynquery_with_params(PLpgSQL_execstate *estate,
 		elog(ERROR, "could not open implicit cursor for query \"%s\": %s",
 			 querystr, SPI_result_code_string(SPI_result));
 
-	/* Release transient data */
+	/* 释放瞬时数据 */
 	MemoryContextReset(stmt_mcontext);
 
 	return portal;
 }
 
 /*
- * Return a formatted string with information about an expression's parameters,
- * or NULL if the expression does not take any parameters.
- * The result is in the eval_mcontext.
+ * 返回带有某表达式参数信息的格式化字符串，
+ * 若该表达式不带任何参数则返回 NULL。
+ * 结果在 eval_mcontext 里。
  */
 static char *
 format_expr_params(PLpgSQL_execstate *estate,
@@ -8850,9 +8850,9 @@ format_expr_params(PLpgSQL_execstate *estate,
 }
 
 /*
- * Return a formatted string with information about the parameter values,
- * or NULL if there are no parameters.
- * The result is in the eval_mcontext.
+ * 返回带有参数值信息的格式化字符串，
+ * 若没有参数则返回 NULL。
+ * 结果在 eval_mcontext 里。
  */
 static char *
 format_preparedparamsdata(PLpgSQL_execstate *estate,
@@ -8873,9 +8873,9 @@ format_preparedparamsdata(PLpgSQL_execstate *estate,
 		ParamExternData *prm = &paramLI->params[paramno];
 
 		/*
-		 * Note: for now, this is only used on ParamListInfos produced by
-		 * exec_eval_using_params(), so we don't worry about invoking the
-		 * paramFetch hook or skipping unused parameters.
+		 * 注意：目前这只用于由下列产生的 ParamListInfos
+		 * exec_eval_using_params()，故不担心去调用
+		 * paramFetch 钩子与跳过无用参数。
 		 */
 		appendStringInfo(&paramstr, "%s$%d = ",
 						 paramno > 0 ? ", " : "",
